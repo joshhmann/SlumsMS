@@ -215,7 +215,7 @@ public final class UseCashItemHandler extends AbstractPacketHandler {
                 }
                 short flag = eq.getFlag();
                 flag |= ItemConstants.LOCK;
-                if (eq.getExpiration() > -1) {
+                if (eq.getExpiration() > -1 && (eq.getFlag() & ItemConstants.LOCK) != ItemConstants.LOCK) {
                     return; //No perma items pls
                 }
                 eq.setFlag(flag);
@@ -232,7 +232,8 @@ public final class UseCashItemHandler extends AbstractPacketHandler {
                 }
 
                 if (period > 0) {
-                    eq.setExpiration(currentServerTime() + DAYS.toMillis(period));
+                    long expiration = eq.getExpiration() > -1 ? eq.getExpiration() : currentServerTime();
+                    eq.setExpiration(expiration + DAYS.toMillis(period));
                 }
 
                 // double-remove found thanks to BHB
