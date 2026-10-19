@@ -40,3 +40,4 @@ Created 2026-10-19 from the owner's plan. Order: nav v2 → real bots → compan
 | [31](31-leveling-path.md) | MapleRoot leveling path (bands, regions, rebirth gates) | Real bots | 03,30 |
 | [32](32-bot-skill-alignment.md) | Align bot attacks with real players, in waves | Real bots | - |
 | [33](33-human-movement-flaws.md) | Human movement flaws: missed jumps, falls, route variety | Nav v2 | 04 |
+| [34](34-swim-navigation.md) | Swim navigation for Aqua Road | Nav v2 | 01,03,04 |
