@@ -41,3 +41,4 @@ Created 2026-10-19 from the owner's plan. Order: nav v2 → real bots → compan
 | [32](32-bot-skill-alignment.md) | Align bot attacks with real players, in waves | Real bots | - |
 | [33](33-human-movement-flaws.md) | Human movement flaws: missed jumps, falls, route variety | Nav v2 | 04 |
 | [34](34-swim-navigation.md) | Swim navigation for Aqua Road | Nav v2 | 01,03,04 |
+| [35](35-admin-dashboard.md) | Admin dashboard: nav learning map viewer, bots, economy | Ops | 04,15 |
