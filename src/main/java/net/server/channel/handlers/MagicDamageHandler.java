@@ -32,6 +32,7 @@ import constants.skills.ILArchMage;
 import net.packet.InPacket;
 import net.packet.Packet;
 import server.StatEffect;
+import soloMapling.server.AttackCapture;
 import tools.PacketCreator;
 
 import static java.util.concurrent.TimeUnit.SECONDS;
@@ -48,6 +49,7 @@ public final class MagicDamageHandler extends AbstractDealDamageHandler {
 		chr.getAutobanManager().spam(8);*/
 
         AttackInfo attack = parseDamage(p, chr, false, true);
+        AttackCapture.attack(chr, "magic", attack, p);
 
         if (chr.getBuffEffect(BuffStat.MORPH) != null) {
             if (chr.getBuffEffect(BuffStat.MORPH).isMorphWithoutAttack()) {

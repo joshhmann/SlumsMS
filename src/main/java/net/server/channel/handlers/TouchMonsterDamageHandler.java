@@ -25,13 +25,16 @@ import client.BuffStat;
 import client.Character;
 import client.Client;
 import net.packet.InPacket;
+import soloMapling.server.AttackCapture;
 
 public final class TouchMonsterDamageHandler extends AbstractDealDamageHandler {
     @Override
     public final void handlePacket(InPacket p, Client c) {
         Character chr = c.getPlayer();
         if (chr.getEnergyBar() == 15000 || chr.getBuffedValue(BuffStat.BODY_PRESSURE) != null) {
-            applyAttack(parseDamage(p, chr, false, false), c.getPlayer(), 1);
+            AttackInfo attack = parseDamage(p, chr, false, false);
+            AttackCapture.attack(chr, "touch", attack, p);
+            applyAttack(attack, c.getPlayer(), 1);
         }
     }
 }

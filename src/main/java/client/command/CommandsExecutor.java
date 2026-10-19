@@ -284,6 +284,9 @@ public class CommandsExecutor {
         addCommand("loot", 2,  LootCommand.class);
         addCommand("mobskill", 2, MobSkillCommand.class);
         addCommand("maxskill", 2, MaxSkillCommand.class);
+        if (soloMapling.server.AttackCapture.isEnabled()) {
+            addCommand("classtest", 2, ClassTestCommand.class); // test server attack capture (ticket 32)
+        }
         addCommand("editShop", 2,  EditShopCommand.class);
 
         commandsNameDesc.add(levelCommandsCursor);

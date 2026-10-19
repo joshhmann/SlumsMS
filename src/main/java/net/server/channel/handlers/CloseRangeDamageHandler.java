@@ -30,6 +30,7 @@ import constants.skills.*;
 import net.packet.InPacket;
 import net.packet.Packet;
 import server.StatEffect;
+import soloMapling.server.AttackCapture;
 import tools.PacketCreator;
 import tools.Pair;
 
@@ -52,6 +53,7 @@ public final class CloseRangeDamageHandler extends AbstractDealDamageHandler {
         chr.getAutobanManager().spam(8);*/
 
         AttackInfo attack = parseDamage(p, chr, false, false);
+        AttackCapture.attack(chr, "close", attack, p);
         if (chr.getBuffEffect(BuffStat.MORPH) != null) {
             if (chr.getBuffEffect(BuffStat.MORPH).isMorphWithoutAttack()) {
                 // How are they attacking when the client won't let them?
