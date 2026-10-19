@@ -25,6 +25,7 @@ import java.util.concurrent.CompletableFuture;
 import java.util.concurrent.ConcurrentHashMap;
 import java.util.concurrent.ExecutorService;
 import java.util.concurrent.Executors;
+import java.util.function.IntPredicate;
 
 import static soloMapling.DebugUtilities.debugprint;
 
@@ -1767,30 +1768,54 @@ final class BotNavigationGraphProvider {
         // Direct step-off at the top of the rope
         addTopStepOffEdge(ropeRegion, rope, map, regionsById, regionIdByFootholdId, outgoing, edgeKeys);
 
-        // Jump-off / step-off to ground at various heights along the rope
+        // v62 (ported from nutnnut/Cosmic 23975ce86, AGPL-3.0. Credit: NutNNut.)
+        // Jump-off / step-off to ground at various heights along the rope. The launch axis here is the
+        // climb height Y (the rope analogue of a ground jump's launch X). Probing every anchorY x 3 dirs
+        // and emitting one edge each produced ~anchorYs x 3 near-duplicate CLIMB edges all landing in the
+        // same region. Instead, for each (anchorY, stepX) expand the contiguous Y-window that lands in the
+        // SAME region and emit ONE edge carrying [minY, maxY]. Adjacent anchorYs collapse to the same window
+        // via the edge-key dedup. Execution climbs to any height inside the window (selectClimbWaypoint).
+        int loY = BotPhysicsEngine.firstClimbableY(rope);
+        int hiY = rope.bottomY();
         for (int anchorY : ropeAnchorYs(rope)) {
-            Point ropePoint = new Point(ropeX, anchorY);
             for (int stepX : new int[]{-jumpStep, 0, jumpStep}) {
-                BotMovementManager.JumpLanding landing = BotMovementManager.simulateRopeJumpLanding(map, ropePoint, stepX, movementProfile);
-                if (landing == null) {
+                BotMovementManager.JumpLanding anchorLanding = BotMovementManager.simulateRopeJumpLanding(
+                        map, new Point(ropeX, anchorY), stepX, movementProfile);
+                if (anchorLanding == null) {
                     continue;
                 }
 
-                int toRegionId = regionIdByFootholdId.getOrDefault(landing.foothold().getId(), -1);
+                int toRegionId = regionIdByFootholdId.getOrDefault(anchorLanding.foothold().getId(), -1);
                 BotNavigationGraph.Region toRegion = regionsById.get(toRegionId);
                 if (toRegion == null || toRegion.isRopeRegion) {
                     continue;
                 }
-
+                IntPredicate sameTarget = y -> {
+                    BotMovementManager.JumpLanding l = BotMovementManager.simulateRopeJumpLanding(
+                            map, new Point(ropeX, y), stepX, movementProfile);
+                    return l != null
+                            && regionIdByFootholdId.getOrDefault(l.foothold().getId(), -1) == toRegionId;
+                };
+                int minY = findRopeLaunchBoundary(anchorY, loY, hiY, true, sameTarget);
+                int maxY = findRopeLaunchBoundary(anchorY, loY, hiY, false, sameTarget);
+                Point ropePoint = new Point(ropeX, (minY + maxY) / 2);
+                BotMovementManager.JumpLanding rep = BotMovementManager.simulateRopeJumpLanding(map, ropePoint, stepX, movementProfile);
+                if (rep == null || regionIdByFootholdId.getOrDefault(rep.foothold().getId(), -1) != toRegionId) {
+                    continue;
+                }
+                // Fall cost varies with launch height, so cost the two window endpoints (higher launch =
+                // longer fall = pricier); the search interpolates per the bot's actual climb height.
                 int cost = BotPhysicsEngine.estimateRopeJumpLandingTimeMs(map, ropePoint, stepX, movementProfile);
-                addEdge(ropeRegion.id, toRegion.id, BotNavigationGraph.EdgeType.CLIMB,
-                        ropePoint, landing.point(), stepX, 0, cost, outgoing, edgeKeys);
+                int costAtMinY = BotPhysicsEngine.estimateRopeJumpLandingTimeMs(map, new Point(ropeX, minY), stepX, movementProfile);
+                int costAtMaxY = BotPhysicsEngine.estimateRopeJumpLandingTimeMs(map, new Point(ropeX, maxY), stepX, movementProfile);
+                addRopeWindowEdge(ropeRegion.id, toRegionId, ropePoint, rep.point(), minY, maxY, stepX,
+                        costAtMinY, costAtMaxY, cost, outgoing, edgeKeys);
             }
         }
 
-        // Rope-to-rope transfers need a tighter vertical sweep than generic rope exits.
+        // Rope-to-rope transfers need a tighter vertical sweep than generic rope exits. Same Y-window
+        // treatment: for each target rope, expand the contiguous climb-height range that grabs it.
         for (int anchorY : ropeTransferAnchorYs(rope)) {
-            Point ropePoint = new Point(ropeX, anchorY);
             for (BotNavigationGraph.Region otherRope : ropeRegions) {
                 if (otherRope.id == ropeRegion.id) {
                     continue;
@@ -1807,16 +1832,63 @@ final class BotNavigationGraphProvider {
                 }
 
                 int launchDir = targetRope.x() > ropeX ? jumpStep : -jumpStep;
+                IntPredicate grabsTarget = y -> BotPhysicsEngine.simulateRopeJumpGrab(
+                        map, new Point(ropeX, y), launchDir, targetRope, movementProfile) != null;
+                if (!grabsTarget.test(anchorY)) {
+                    continue;
+                }
+                int minY = findRopeLaunchBoundary(anchorY, loY, hiY, true, grabsTarget);
+                int maxY = findRopeLaunchBoundary(anchorY, loY, hiY, false, grabsTarget);
+                Point ropePoint = new Point(ropeX, (minY + maxY) / 2);
                 Point ropeGrab = BotPhysicsEngine.simulateRopeJumpGrab(map, ropePoint, launchDir, targetRope, movementProfile);
                 if (ropeGrab == null) {
                     continue;
                 }
-
                 int cost = BotPhysicsEngine.estimateRopeJumpGrabTimeMs(map, ropePoint, launchDir, targetRope, movementProfile);
-                addEdge(ropeRegion.id, otherRope.id, BotNavigationGraph.EdgeType.CLIMB,
-                        ropePoint, ropeGrab, launchDir, 0, cost, outgoing, edgeKeys);
+                int costAtMinY = BotPhysicsEngine.estimateRopeJumpGrabTimeMs(map, new Point(ropeX, minY), launchDir, targetRope, movementProfile);
+                int costAtMaxY = BotPhysicsEngine.estimateRopeJumpGrabTimeMs(map, new Point(ropeX, maxY), launchDir, targetRope, movementProfile);
+                addRopeWindowEdge(ropeRegion.id, otherRope.id, ropePoint, ropeGrab, minY, maxY, launchDir,
+                        costAtMinY, costAtMaxY, cost, outgoing, edgeKeys);
             }
         }
+    }
+
+    /*
+     * Contiguous-window boundary search on the rope climb-height axis - the Y twin of findJumpBoundary.
+     * From startY it doubles outward then binary-searches up (smaller Y, bounded by loY) or down (hiY) for
+     * the last height where validY still holds. (nutnnut/Cosmic graph v62. Credit: NutNNut.)
+     */
+    static int findRopeLaunchBoundary(int startY, int loY, int hiY, boolean searchUp, IntPredicate validY) {
+        int limitY = searchUp ? loY : hiY;
+        int validYv = startY;
+        int invalidY = startY;
+        int step = 1;
+
+        while (true) {
+            int probeY = searchUp ? Math.max(limitY, startY - step) : Math.min(limitY, startY + step);
+            if (probeY == validYv) {
+                break;
+            }
+            if (!validY.test(probeY)) {
+                invalidY = probeY;
+                break;
+            }
+            validYv = probeY;
+            if (probeY == limitY) {
+                return probeY;
+            }
+            step *= 2;
+        }
+
+        while (Math.abs(validYv - invalidY) > 1) {
+            int probeY = (validYv + invalidY) / 2;
+            if (validY.test(probeY)) {
+                validYv = probeY;
+            } else {
+                invalidY = probeY;
+            }
+        }
+        return validYv;
     }
 
     private static void addTopStepOffEdge(BotNavigationGraph.Region ropeRegion,
@@ -2134,8 +2206,27 @@ final class BotNavigationGraphProvider {
                                 int cost,
                                 Map<Integer, List<BotNavigationGraph.Edge>> outgoing,
                                 Set<String> edgeKeys) {
-        addEdge(fromRegionId, toRegionId, type, startPoint, endPoint, startPoint.x, startPoint.x, launchStepX, portalId,
-                0, 0, 0, cost, outgoing, edgeKeys);
+        addEdge(fromRegionId, toRegionId, type, startPoint, endPoint, startPoint.x, startPoint.x,
+                startPoint.y, startPoint.y, launchStepX, portalId, 0, 0, 0, cost, cost, cost, outgoing, edgeKeys);
+    }
+
+    /* Rope-exit / rope-transfer CLIMB edge carrying a Y launch window [launchMinY, launchMaxY] at a fixed
+     * rope x (startPoint.x). Mirror of the windowed JUMP/DROP addEdge, but the launch axis is the climb Y. */
+    private static void addRopeWindowEdge(int fromRegionId,
+                                          int toRegionId,
+                                          Point startPoint,
+                                          Point endPoint,
+                                          int launchMinY,
+                                          int launchMaxY,
+                                          int launchStepX,
+                                          int costAtMinY,
+                                          int costAtMaxY,
+                                          int cost,
+                                          Map<Integer, List<BotNavigationGraph.Edge>> outgoing,
+                                          Set<String> edgeKeys) {
+        addEdge(fromRegionId, toRegionId, BotNavigationGraph.EdgeType.CLIMB, startPoint, endPoint,
+                startPoint.x, startPoint.x, launchMinY, launchMaxY, launchStepX, 0, 0, 0, 0,
+                costAtMinY, costAtMaxY, cost, outgoing, edgeKeys);
     }
 
     private static void addEdge(int fromRegionId,
@@ -2153,16 +2244,42 @@ final class BotNavigationGraphProvider {
                                 int cost,
                                 Map<Integer, List<BotNavigationGraph.Edge>> outgoing,
                                 Set<String> edgeKeys) {
+        addEdge(fromRegionId, toRegionId, type, startPoint, endPoint, launchMinX, launchMaxX,
+                startPoint.y, startPoint.y, launchStepX, portalId, ropeX, ropeTopY, ropeBottomY, cost, cost, cost,
+                outgoing, edgeKeys);
+    }
+
+    private static void addEdge(int fromRegionId,
+                                int toRegionId,
+                                BotNavigationGraph.EdgeType type,
+                                Point startPoint,
+                                Point endPoint,
+                                int launchMinX,
+                                int launchMaxX,
+                                int launchMinY,
+                                int launchMaxY,
+                                int launchStepX,
+                                int portalId,
+                                int ropeX,
+                                int ropeTopY,
+                                int ropeBottomY,
+                                int launchCostAtMinY,
+                                int launchCostAtMaxY,
+                                int cost,
+                                Map<Integer, List<BotNavigationGraph.Edge>> outgoing,
+                                Set<String> edgeKeys) {
         String key = fromRegionId + ":" + toRegionId + ":" + type + ":" + startPoint.x + ":" + startPoint.y + ":"
                 + endPoint.x + ":" + endPoint.y + ":" + launchStepX + ":" + portalId + ":"
-                + ropeX + ":" + ropeTopY + ":" + ropeBottomY + ":" + launchMinX + ":" + launchMaxX;
+                + ropeX + ":" + ropeTopY + ":" + ropeBottomY + ":" + launchMinX + ":" + launchMaxX
+                + ":" + launchMinY + ":" + launchMaxY;
         if (!edgeKeys.add(key)) {
             return;
         }
 
         outgoing.computeIfAbsent(fromRegionId, ignored -> new ArrayList<>())
                 .add(new BotNavigationGraph.Edge(fromRegionId, toRegionId, type, startPoint, endPoint,
-                        launchMinX, launchMaxX, launchStepX, portalId, ropeX, ropeTopY, ropeBottomY, cost));
+                        launchMinX, launchMaxX, launchMinY, launchMaxY, launchStepX, portalId, ropeX, ropeTopY,
+                        ropeBottomY, launchCostAtMinY, launchCostAtMaxY, cost));
         BuildProfileBuilder profile = ACTIVE_BUILD_PROFILE.get();
         if (profile != null) {
             profile.recordEdge(type);

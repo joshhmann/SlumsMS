@@ -237,13 +237,84 @@ final class BotNavigationGraph implements Serializable {
         final Point endPoint;
         final int launchMinX;
         final int launchMaxX;
+        // v62 Y launch window - the rope-climb analogue of [launchMinX, launchMaxX]. A rope-exit CLIMB edge
+        // can fire from any climb height in [launchMinY, launchMaxY] (all land in toRegionId, verified at
+        // graph-gen), exactly as a ground JUMP fires from any x in the X window. For non-rope edges this
+        // degenerates to startPoint.y (a single height). (nutnnut/Cosmic 23975ce86. Credit: NutNNut.)
+        final int launchMinY;
+        final int launchMaxY;
         final int launchStepX;
         final int portalId;
         final int ropeX;
         final int ropeTopY;
         final int ropeBottomY;
+        // Fall/grab cost at the two Y-window endpoints. Rope-exit cost varies strongly with launch height
+        // (higher launch = longer fall = pricier). The search interpolates launchCostAt(launchY) at the
+        // bot's actual climb height. Degenerate (non-rope-window) edges set both = cost.
+        final int launchCostMinY;
+        final int launchCostMaxY;
         final int cost;
 
+        Edge(int fromRegionId,
+             int toRegionId,
+             EdgeType type,
+             Point startPoint,
+             Point endPoint,
+             int launchMinX,
+             int launchMaxX,
+             int launchMinY,
+             int launchMaxY,
+             int launchStepX,
+             int portalId,
+             int ropeX,
+             int ropeTopY,
+             int ropeBottomY,
+             int launchCostAtMinY,
+             int launchCostAtMaxY,
+             int cost) {
+            this.fromRegionId = fromRegionId;
+            this.toRegionId = toRegionId;
+            this.type = type;
+            this.startPoint = new Point(startPoint);
+            this.endPoint = new Point(endPoint);
+            this.launchMinX = Math.min(launchMinX, launchMaxX);
+            this.launchMaxX = Math.max(launchMinX, launchMaxX);
+            boolean yInOrder = launchMinY <= launchMaxY;
+            this.launchMinY = Math.min(launchMinY, launchMaxY);
+            this.launchMaxY = Math.max(launchMinY, launchMaxY);
+            // Keep each endpoint cost aligned with its (normalized) Y endpoint if the args were swapped.
+            this.launchCostMinY = yInOrder ? launchCostAtMinY : launchCostAtMaxY;
+            this.launchCostMaxY = yInOrder ? launchCostAtMaxY : launchCostAtMinY;
+            this.launchStepX = launchStepX;
+            this.portalId = portalId;
+            this.ropeX = ropeX;
+            this.ropeTopY = ropeTopY;
+            this.ropeBottomY = ropeBottomY;
+            this.cost = cost;
+        }
+
+        /* Y-windowed edge with a flat cost (cost the same at both endpoints). */
+        Edge(int fromRegionId,
+             int toRegionId,
+             EdgeType type,
+             Point startPoint,
+             Point endPoint,
+             int launchMinX,
+             int launchMaxX,
+             int launchMinY,
+             int launchMaxY,
+             int launchStepX,
+             int portalId,
+             int ropeX,
+             int ropeTopY,
+             int ropeBottomY,
+             int cost) {
+            this(fromRegionId, toRegionId, type, startPoint, endPoint,
+                    launchMinX, launchMaxX, launchMinY, launchMaxY,
+                    launchStepX, portalId, ropeX, ropeTopY, ropeBottomY, cost, cost, cost);
+        }
+
+        /* X-windowed edge (JUMP/DROP); the Y window degenerates to startPoint.y. */
         Edge(int fromRegionId,
              int toRegionId,
              EdgeType type,
@@ -257,19 +328,9 @@ final class BotNavigationGraph implements Serializable {
              int ropeTopY,
              int ropeBottomY,
              int cost) {
-            this.fromRegionId = fromRegionId;
-            this.toRegionId = toRegionId;
-            this.type = type;
-            this.startPoint = new Point(startPoint);
-            this.endPoint = new Point(endPoint);
-            this.launchMinX = Math.min(launchMinX, launchMaxX);
-            this.launchMaxX = Math.max(launchMinX, launchMaxX);
-            this.launchStepX = launchStepX;
-            this.portalId = portalId;
-            this.ropeX = ropeX;
-            this.ropeTopY = ropeTopY;
-            this.ropeBottomY = ropeBottomY;
-            this.cost = cost;
+            this(fromRegionId, toRegionId, type, startPoint, endPoint,
+                    launchMinX, launchMaxX, startPoint.y, startPoint.y,
+                    launchStepX, portalId, ropeX, ropeTopY, ropeBottomY, cost);
         }
 
         Edge(int fromRegionId,
@@ -284,7 +345,8 @@ final class BotNavigationGraph implements Serializable {
              int ropeBottomY,
              int cost) {
             this(fromRegionId, toRegionId, type, startPoint, endPoint,
-                    startPoint.x, startPoint.x, launchStepX, portalId, ropeX, ropeTopY, ropeBottomY, cost);
+                    startPoint.x, startPoint.x, startPoint.y, startPoint.y,
+                    launchStepX, portalId, ropeX, ropeTopY, ropeBottomY, cost);
         }
 
         boolean containsLaunchX(int x) {
@@ -298,6 +360,40 @@ final class BotNavigationGraph implements Serializable {
         /* Launch point at the in-window x nearest to x (the x execution would actually fire from). */
         Point pointAtNearestLaunchX(int x) {
             return new Point(Math.clamp(x, launchMinX, launchMaxX), startPoint.y);
+        }
+
+        boolean containsLaunchY(int y) {
+            return y >= launchMinY && y <= launchMaxY;
+        }
+
+        boolean containsLaunchY(int y, int tolerance) {
+            return y >= launchMinY - tolerance && y <= launchMaxY + tolerance;
+        }
+
+        /* True for a rope-exit/transfer CLIMB edge whose Y launch window spans more than one height. */
+        boolean hasLaunchYWindow() {
+            return launchMaxY > launchMinY;
+        }
+
+        /* Launch point at the in-window climb height nearest to y (rope-exit analogue). */
+        Point pointAtNearestLaunchY(int y) {
+            return new Point(startPoint.x, Math.clamp(y, launchMinY, launchMaxY));
+        }
+
+        /* Cheapest launch cost across the Y window - an admissible lower bound. */
+        int minLaunchCost() {
+            return Math.min(launchCostMinY, launchCostMaxY);
+        }
+
+        /* Edge cost when launching at the in-window height nearest y, linearly interpolated between the two
+         * endpoint costs. Degenerate (flat) windows just return cost. */
+        int launchCostAt(int y) {
+            if (launchMaxY <= launchMinY) {
+                return cost;
+            }
+            int cy = Math.clamp(y, launchMinY, launchMaxY);
+            long span = launchMaxY - launchMinY;
+            return (int) (launchCostMinY + (long) (launchCostMaxY - launchCostMinY) * (cy - launchMinY) / span);
         }
     }
 

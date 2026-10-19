@@ -153,10 +153,17 @@ public final class NavEdgeLearning {
         return factor == 1.0 ? cost : (int) Math.min(Integer.MAX_VALUE / 4, Math.round(cost * factor));
     }
 
-    /** An edge's identity inside its graph: the regions it joins, its type and its launch window. */
+    /**
+     * An edge's identity inside its graph: the regions it joins, its type and its launch window. Rope exits with
+     * a Y launch window (graph v62+) also carry the window and launch direction, since two exits off one rope
+     * into the same region differ only there; every other edge keeps the plain key.
+     */
     static String edgeKey(BotNavigationGraph.Edge edge) {
-        return edge.fromRegionId + ">" + edge.toRegionId + ":" + edge.type + ":" + edge.launchMinX + ":" + edge.launchMaxX
+        String key = edge.fromRegionId + ">" + edge.toRegionId + ":" + edge.type + ":" + edge.launchMinX + ":" + edge.launchMaxX
                 + ":" + edge.startPoint.x + "," + edge.startPoint.y;
+        return edge.hasLaunchYWindow()
+                ? key + ":y" + edge.launchMinY + ".." + edge.launchMaxY + ":s" + edge.launchStepX
+                : key;
     }
 
     static String bookKey(BotNavigationGraph graph) {

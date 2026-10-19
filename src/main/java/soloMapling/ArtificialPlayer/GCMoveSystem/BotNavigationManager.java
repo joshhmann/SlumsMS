@@ -827,14 +827,15 @@ final class BotNavigationManager {
         }
         if (entry.climbing && edge.launchStepX != 0) {
             // Jump-off and rope-to-rope exits: only hold position when the exit can execute
-            // immediately; otherwise keep steering toward the authored launch anchor.
-            // Graphgen and physics both treat edge.startPoint as the required on-rope launch Y;
-            // steering toward edge.endPoint here would be a runtime-only model mismatch because
-            // a climbing bot cannot physically approach the off-rope landing point.
+            // immediately; otherwise keep steering toward the launch window. The edge carries a Y launch
+            // window [launchMinY, launchMaxY] (every height in it lands in toRegion, verified at graph-gen),
+            // so steer to the nearest in-window climb height - the Y twin of steerXWithinLaunchWindow (v62,
+            // nutnnut/Cosmic. Credit: NutNNut). Steering toward edge.endPoint here would be a runtime-only
+            // model mismatch because a climbing bot cannot approach the off-rope landing point.
             if (graph != null && canExecuteClimbExitFromCurrentPosition(graph, entry.bot.getMap(), botPos, edge)) {
                 return new Point(botPos);
             }
-            return new Point(edge.startPoint);
+            return new Point(edge.startPoint.x, steerYWithinLaunchWindow(edge, botPos.y));
         }
         if (entry.climbing) {
             // launchStepX==0: keep holding climb direction on the rope and let physics dismount
@@ -856,6 +857,12 @@ final class BotNavigationManager {
     static int steerXWithinLaunchWindow(BotNavigationGraph.Edge edge, int botX) {
         int inset = Math.min((edge.launchMaxX - edge.launchMinX) / 2, LAUNCH_WINDOW_STEER_INSET_PX);
         return Math.clamp(botX, edge.launchMinX + inset, edge.launchMaxX - inset);
+    }
+
+    /* Nearest in-window steering climb height, inset from the boundary (rope-exit twin of the x version). */
+    static int steerYWithinLaunchWindow(BotNavigationGraph.Edge edge, int botY) {
+        int inset = Math.min((edge.launchMaxY - edge.launchMinY) / 2, LAUNCH_WINDOW_STEER_INSET_PX);
+        return Math.clamp(botY, edge.launchMinY + inset, edge.launchMaxY - inset);
     }
 
     private static BotNavigationGraph resolveActiveGraph(MapleMap map, BotMovementProfile movementProfile) {
@@ -1080,8 +1087,6 @@ final class BotNavigationManager {
                     // walked off the exit first, so the entry points differ and it stays free).
                     boolean enteredThroughExit = current.state.viaPortal
                             && current.state.point.equals(edge.startPoint);
-                    int edgeCost = isPortal && enteredThroughExit ? (int) PORTAL_USE_COOLDOWN_MS
-                            : NavEdgeLearning.scale(graph, edge, edge.cost); // a move that keeps failing costs more
                     // A straight DROP (launchStepX==0) falls in place: it executes from the nearest
                     // in-window x to the bot (selectDropWaypoint) and lands at that same x, NOT from/at
                     // the authored window-midpoint start/end points. Cost the approach to that nearest
@@ -1091,12 +1096,21 @@ final class BotNavigationManager {
                     // lose a strictly-cheaper direct drop to a rope detour. Scoped to DROP+stepX==0
                     // only: directional drops and JUMPs keep their authored start/end geometry.
                     boolean straightDrop = edge.type == BotNavigationGraph.EdgeType.DROP && edge.launchStepX == 0;
+                    // v62 rope-exit CLIMB edges carry a Y launch window: the bot launches from the nearest
+                    // in-window climb height, and the fall cost is interpolated for that height (a top launch
+                    // falls further and costs more) - matches selectClimbWaypoint at execution.
+                    boolean ropeWindow = edge.type == BotNavigationGraph.EdgeType.CLIMB && edge.hasLaunchYWindow();
                     Point approachPoint = straightDrop
                             ? edge.pointAtNearestLaunchX(current.state.point.x)
-                            : edge.startPoint;
+                            : ropeWindow
+                                    ? edge.pointAtNearestLaunchY(current.state.point.y)
+                                    : edge.startPoint;
                     Point landingPoint = straightDrop
                             ? new Point(approachPoint.x, edge.endPoint.y)
                             : edge.endPoint;
+                    int baseEdgeCost = ropeWindow ? edge.launchCostAt(approachPoint.y) : edge.cost;
+                    int edgeCost = isPortal && enteredThroughExit ? (int) PORTAL_USE_COOLDOWN_MS
+                            : NavEdgeLearning.scale(graph, edge, baseEdgeCost); // a move that keeps failing costs more
                     int stepCost = intraRegionTravelCost(graph, current.state.regionId, current.state.point, approachPoint) + edgeCost;
                     // Per-bot positive jitter, stable per (bot, edge): different bots perceive
                     // different edges as slightly costlier and fan out onto distinct routes, while
@@ -1305,8 +1319,9 @@ final class BotNavigationManager {
 
         BotNavigationGraph.Edge next = path.get(walkCount);
         return new BotNavigationGraph.Edge(first.fromRegionId, next.toRegionId, next.type,
-                next.startPoint, next.endPoint, next.launchMinX, next.launchMaxX, next.launchStepX, next.portalId,
-                next.ropeX, next.ropeTopY, next.ropeBottomY, totalCost + next.cost);
+                next.startPoint, next.endPoint, next.launchMinX, next.launchMaxX, next.launchMinY, next.launchMaxY,
+                next.launchStepX, next.portalId, next.ropeX, next.ropeTopY, next.ropeBottomY,
+                totalCost + next.launchCostMinY, totalCost + next.launchCostMaxY, totalCost + next.cost);
     }
 
     private static boolean isEdgeUsable(BotNavigationGraph graph, Character bot, BotNavigationGraph.Edge edge) {
@@ -1377,7 +1392,11 @@ final class BotNavigationManager {
 
         return switch (edge.type) {
             case JUMP -> dx <= JUMP_READY_X_TOLERANCE && dy <= BotMovementManager.cfg.JUMP_Y_THRESH;
-            case DROP, CLIMB, PORTAL -> dx <= EDGE_READY_X_TOLERANCE && dy <= BotMovementManager.cfg.JUMP_Y_THRESH * 2;
+            // CLIMB rope-exits launch from anywhere in their Y window; for every other CLIMB the window is
+            // degenerate (= startPoint.y) so this stays equivalent to the old dy check.
+            case CLIMB -> dx <= EDGE_READY_X_TOLERANCE
+                    && edge.containsLaunchY(botPos.y, BotMovementManager.cfg.JUMP_Y_THRESH * 2);
+            case DROP, PORTAL -> dx <= EDGE_READY_X_TOLERANCE && dy <= BotMovementManager.cfg.JUMP_Y_THRESH * 2;
             default -> dx <= BotMovementManager.cfg.STOP_DIST + 8
                     && dy <= BotMovementManager.cfg.JUMP_Y_THRESH * 2;
         };
@@ -1637,27 +1656,22 @@ final class BotNavigationManager {
             return false;
         }
 
-        if (edge.launchStepX != 0 && botPos.y != edge.startPoint.y) {
-            Rope rope = findRopeForRegion(map, graph.getRegion(edge.fromRegionId));
-            if (!isTopRopeJumpExitReady(rope, botPos, edge)) {
-                // Rope-exit jump edges are authored from a specific climb height. Launching from
-                // any other Y changes the ballistic arc; climb movement reaches the authored
-                // first climbable pixel before this executes.
-                return false;
-            }
-        }
-
-        BotNavigationGraph.Region toRegion = graph.getRegion(edge.toRegionId);
-        if (toRegion != null && toRegion.isRopeRegion) {
-            return Math.abs(botPos.y - edge.startPoint.y) <= BotMovementManager.cfg.JUMP_Y_THRESH * 2;
-        }
-
         if (edge.launchStepX == 0) {
+            // Step off the top of the rope onto the foothold above.
             Rope rope = findRopeForRegion(map, graph.getRegion(edge.fromRegionId));
             return rope != null && isTopStepOffExit(rope, botPos, edge);
         }
 
-        return Math.abs(botPos.y - edge.startPoint.y) <= BotMovementManager.cfg.JUMP_Y_THRESH * 2;
+        // v62: jump-off (to ground or another rope) fires from anywhere STRICTLY inside the authored Y launch
+        // window - the window expansion verified every height in [launchMinY, launchMaxY] lands in toRegion,
+        // so the range IS the tolerance. selectClimbWaypoint steers the bot inset-inside the window first.
+        // (nutnnut/Cosmic 23975ce86. Credit: NutNNut.)
+        if (edge.containsLaunchY(botPos.y)) {
+            return true;
+        }
+        // Top-of-rope grab tolerance: the first-climbable anchor keeps its small extra slack.
+        Rope rope = findRopeForRegion(map, graph.getRegion(edge.fromRegionId));
+        return isTopRopeJumpExitReady(rope, botPos, edge);
     }
 
     private static boolean isTopRopeJumpExitReady(Rope rope, Point botPos, BotNavigationGraph.Edge edge) {
