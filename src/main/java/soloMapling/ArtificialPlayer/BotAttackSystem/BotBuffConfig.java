@@ -1,19 +1,23 @@
 package soloMapling.ArtificialPlayer.BotAttackSystem;
 
+import client.Character;
 import client.Job;
+import constants.skills.Aran;
 import constants.skills.Archer;
 import constants.skills.Assassin;
 import constants.skills.Bandit;
+import constants.skills.BlazeWizard;
 import constants.skills.Cleric;
 import constants.skills.Crossbowman;
+import constants.skills.DawnWarrior;
 import constants.skills.FPWizard;
 import constants.skills.Fighter;
 import constants.skills.Hunter;
 import constants.skills.ILWizard;
 import constants.skills.Magician;
+import constants.skills.NightWalker;
 import constants.skills.Page;
 import constants.skills.Spearman;
-import constants.skills.Warrior;
 import constants.skills.Crusader;
 import constants.skills.WhiteKnight;
 import constants.skills.DragonKnight;
@@ -23,15 +27,16 @@ import constants.skills.ChiefBandit;
 import constants.skills.Hero;
 import constants.skills.Paladin;
 import constants.skills.DarkKnight;
-import constants.skills.FPMage;
 import constants.skills.FPArchMage;
-import constants.skills.ILMage;
 import constants.skills.ILArchMage;
 import constants.skills.Bishop;
 import constants.skills.Bowmaster;
 import constants.skills.Marksman;
 import constants.skills.NightLord;
 import constants.skills.Shadower;
+import constants.skills.ThunderBreaker;
+import constants.skills.WindArcher;
+import soloMapling.ArtificialPlayer.BotProgressionSystem.BotProgression;
 
 import java.util.ArrayList;
 import java.util.Collections;
@@ -39,12 +44,25 @@ import java.util.EnumMap;
 import java.util.List;
 import java.util.Map;
 
+import static soloMapling.ArtificialPlayer.MapleRootSkills.BW_FIRE_RUSH;
+import static soloMapling.ArtificialPlayer.MapleRootSkills.FP_FIRE_RUSH;
+import static soloMapling.ArtificialPlayer.MapleRootSkills.IL_FIRE_RUSH;
+import static soloMapling.ArtificialPlayer.MapleRootSkills.IRON_BODY;
+import static soloMapling.ArtificialPlayer.MapleRootSkills.JOLLY_ROGER;
+import static soloMapling.ArtificialPlayer.MapleRootSkills.PRIEST_FIRE_RUSH;
+import static soloMapling.ArtificialPlayer.MapleRootSkills.WA_SHARP_EYES;
+
 /*
  * Bot-buff concept inspired by GreenCatMS; this per-job registry and the cosmetic (no stat/MP/cooldown) approach are original. Credit: NutNNut for the idea.
- * Per-job bot buff registry. Each entry lists only the buffs gained at that advancement;
- * a bot's full buff set is the union over every job in its lineage (so a Priest inherits
+ * Per-job bot buff registry, on MapleRoot's skill set. Each entry lists only the buffs gained at that
+ * advancement; a bot's full buff set is the union over every job in its lineage (so a Priest inherits
  * Magician + Cleric + Priest buffs). Keyed by job rather than class branch because a Cleric
  * and an I/L Wizard are both Magicians yet keep different buffs.
+ *
+ * MapleRoot has no boosters (weapon or spell), so none are listed; its 3rd-job mages get Fire Rush (a
+ * one-level critical-rate buff on the old Seal / Doom ids) instead. A real bot (one BotProgression
+ * keeps a build for) casts only the buffs it holds - buffsFor(Character); the bare table is what a bot
+ * without a build shows.
  */
 public final class BotBuffConfig {
 
@@ -55,39 +73,31 @@ public final class BotBuffConfig {
 
     static {
         // ---- 1st job ----
-        put(Job.WARRIOR,  Warrior.IRON_BODY);                          // 1001003 - W.Def up
+        put(Job.WARRIOR,  IRON_BODY);                                  // 1001003 - W.Def up
         put(Job.MAGICIAN, Magician.MAGIC_GUARD, Magician.MAGIC_ARMOR); // 2001002 / 2001003
         put(Job.BOWMAN,   Archer.FOCUS);                               // 3001003 - acc/avoid up
         // THIEF 1st job: only Dark Sight (hides the bot) -> intentionally none.
         // PIRATE 1st job: none yet.
 
         // ---- 2nd job (only what each job ADDS; 1st-job buffs come via lineage) ----
-        // Warrior branch (+ weapon booster - attack speed up; the booster effect looks
-        // the same regardless of weapon, so the representative one is fine for the visual)
-        put(Job.FIGHTER,  Fighter.RAGE, Fighter.POWER_GUARD, Fighter.SWORD_BOOSTER);        // 1101006 (party atk), 1101007, 1101004
-        put(Job.PAGE,     Page.POWER_GUARD, Page.SWORD_BOOSTER);                            // 1201007, 1201004
-        put(Job.SPEARMAN, Spearman.IRON_WILL, Spearman.HYPER_BODY, Spearman.SPEAR_BOOSTER); // 1301006, 1301007 (party), 1301004
-        // Magician branch (Spell Booster is 3rd job - see below)
+        put(Job.FIGHTER,  Fighter.RAGE, Fighter.POWER_GUARD);          // 1101006 (party atk), 1101007
+        put(Job.PAGE,     Page.POWER_GUARD);                           // 1201007
+        put(Job.SPEARMAN, Spearman.IRON_WILL, Spearman.HYPER_BODY);    // 1301006, 1301007 (party)
         put(Job.FP_WIZARD, FPWizard.MEDITATION);                       // 2101001 (party m.atk)
         put(Job.IL_WIZARD, ILWizard.MEDITATION);                       // 2201001 (party m.atk)
         put(Job.CLERIC,    Cleric.BLESS, Cleric.INVINCIBLE);           // 2301004 (party), 2301003
-        // Bowman branch (+ booster)
-        put(Job.HUNTER,      Hunter.SOUL_ARROW, Hunter.BOW_BOOSTER);            // 3101004, 3101002
-        put(Job.CROSSBOWMAN, Crossbowman.SOUL_ARROW, Crossbowman.CROSSBOW_BOOSTER); // 3201004, 3201002
-        // Thief branch (+ booster)
-        put(Job.ASSASSIN, Assassin.HASTE, Assassin.CLAW_BOOSTER);      // 4101004, 4101003
-        put(Job.BANDIT,   Bandit.HASTE, Bandit.DAGGER_BOOSTER);        // 4201003, 4201002
+        put(Job.HUNTER,      Hunter.SOUL_ARROW);                       // 3101004
+        put(Job.CROSSBOWMAN, Crossbowman.SOUL_ARROW);                  // 3201004
+        put(Job.ASSASSIN, Assassin.HASTE);                             // 4101004 (party)
+        put(Job.BANDIT,   Bandit.HASTE);                               // 4201003 (party)
 
         // ---- 3rd job ----
-        // Warrior branch
         put(Job.CRUSADER,     Crusader.COMBO);                             // 1111002 - combo (self)
         put(Job.WHITEKNIGHT,  WhiteKnight.SWORD_FIRE_CHARGE);              // 1211003 - elemental charge (self)
         put(Job.DRAGONKNIGHT, DragonKnight.DRAGON_BLOOD);                  // 1311008 - atk up (self)
-        // Magician branch (F/P and I/L get Spell Booster at 3rd job; Cleric line doesn't)
-        put(Job.FP_MAGE,      FPMage.SPELL_BOOSTER);                       // 2111005 - cast speed up
-        put(Job.IL_MAGE,      ILMage.SPELL_BOOSTER);                       // 2211005 - cast speed up
-        put(Job.PRIEST,       Priest.HOLY_SYMBOL);                         // 2311003 - exp/drop (party)
-        // Thief branch
+        put(Job.FP_MAGE,      FP_FIRE_RUSH);                               // 2111004 - critical rate (self)
+        put(Job.IL_MAGE,      IL_FIRE_RUSH);                               // 2211004 - critical rate (self)
+        put(Job.PRIEST,       Priest.HOLY_SYMBOL, PRIEST_FIRE_RUSH);       // 2311003 - exp/drop (party), 2311005
         put(Job.HERMIT,       Hermit.SHADOW_PARTNER, Hermit.MESO_UP);      // 4111002 (self), 4111001 (party meso)
         put(Job.CHIEFBANDIT,  ChiefBandit.MESO_GUARD);                     // 4211005 - meso shield (self)
         // (Ranger/Sniper inherit Soul Arrow; F/P & I/L 3rd inherit Meditation)
@@ -103,12 +113,49 @@ public final class BotBuffConfig {
         put(Job.MARKSMAN,    Marksman.MAPLE_WARRIOR, Marksman.SHARP_EYES);  // 3221000 (party), 3221002 (party crit)
         put(Job.NIGHTLORD,   NightLord.MAPLE_WARRIOR, NightLord.SHADOW_STARS); // 4121000 (party), 4121006 (self - infinite stars)
         put(Job.SHADOWER,    Shadower.MAPLE_WARRIOR);                      // 4221000 (party)  [Smoke Screen skipped]
+        put(Job.CORSAIR,     JOLLY_ROGER);                                 // 5221018 - MapleRoot custom (self)
+
+        // ---- Cygnus Knights ----
+        put(Job.DAWNWARRIOR1,    DawnWarrior.IRON_BODY);                   // 11001001
+        put(Job.DAWNWARRIOR2,    DawnWarrior.RAGE);                        // 11101003 (party atk)
+        put(Job.BLAZEWIZARD1,    BlazeWizard.MAGIC_GUARD, BlazeWizard.MAGIC_ARMOR); // 12001001 / 12001002
+        put(Job.BLAZEWIZARD2,    BlazeWizard.MEDITATION);                  // 12101000 (party m.atk)
+        put(Job.BLAZEWIZARD3,    BW_FIRE_RUSH);                            // 12111002 - critical rate (self)
+        put(Job.WINDARCHER1,     WindArcher.FOCUS);                        // 13001002
+        put(Job.WINDARCHER2,     WindArcher.SOUL_ARROW);                   // 13101003
+        put(Job.WINDARCHER4,     WA_SHARP_EYES);                           // 13121008 - MapleRoot's Cygnus 4th job (party crit)
+        put(Job.NIGHTWALKER2,    NightWalker.HASTE);                       // 14101003 (party)
+        put(Job.NIGHTWALKER3,    NightWalker.SHADOW_PARTNER);              // 14111000 (self)
+        put(Job.THUNDERBREAKER3, ThunderBreaker.SPEED_INFUSION);           // 15111005 (party)
+
+        // ---- Aran ----
+        put(Job.ARAN4,           Aran.MAPLE_WARRIOR);                      // 21121000 (party)
     }
 
     private BotBuffConfig() {}
 
     private static void put(Job job, int... skillIds) {
         BUFFS_BY_JOB.put(job, skillIds);
+    }
+
+    /*
+     * The buffs this bot casts: its job's list (buffsForJob), and for a real bot only the ones it holds
+     * - a bot that has not put SP into Haste yet does not show it. A bot without a build (one of a job
+     * the build does not cover) shows its job's table as before.
+     */
+    public static List<Integer> buffsFor(Character bot) {
+        if (bot == null) return Collections.emptyList();
+        List<Integer> kit = buffsForJob(bot.getJob());
+        if (!BotProgression.isReal(bot.getId())) {
+            return kit;
+        }
+        List<Integer> held = new ArrayList<>(kit.size());
+        for (int id : kit) {
+            if (bot.getSkillLevel(id) > 0) {
+                held.add(id);
+            }
+        }
+        return held;
     }
 
     /*
@@ -128,5 +175,16 @@ public final class BotBuffConfig {
             }
         }
         return result;
+    }
+
+    /* Every buff id in the table, for tests that check the ids against the server's skill data. */
+    static List<Integer> allBuffIds() {
+        List<Integer> all = new ArrayList<>();
+        for (int[] ids : BUFFS_BY_JOB.values()) {
+            for (int id : ids) {
+                all.add(id);
+            }
+        }
+        return all;
     }
 }

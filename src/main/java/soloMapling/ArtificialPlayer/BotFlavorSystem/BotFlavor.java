@@ -135,7 +135,7 @@ public final class BotFlavor {
     // cast animation + aura, no stats. Falls back to an emote for jobs with no configured buffs
     // (beginners / early pirates).
     private static void doBuffFlex(Character chr) {
-        List<Integer> buffs = BotBuffConfig.buffsForJob(chr.getJob());
+        List<Integer> buffs = BotBuffConfig.buffsFor(chr);
         if (buffs.isEmpty()) {
             doEmote(chr);
             return;
@@ -156,7 +156,7 @@ public final class BotFlavor {
             BotAttack.basicSwing(chr);
             return;
         }
-        int skillId = profile.skillFor(weapon);
+        int skillId = profile.skillId;
         if (profile.route == BotAttackProfile.Route.MAGIC) {
             BotAttack.magicSwing(chr, skillId);
         } else {

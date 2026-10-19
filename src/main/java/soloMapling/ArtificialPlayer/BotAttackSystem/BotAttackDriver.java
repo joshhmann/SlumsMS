@@ -7,6 +7,7 @@ import client.SkillFactory;
 import client.inventory.WeaponType;
 import constants.skills.Cleric;
 import constants.skills.Hermit;
+import constants.skills.NightWalker;
 import server.StatEffect;
 import server.life.Monster;
 import server.maps.MapObject;
@@ -48,6 +49,11 @@ public final class BotAttackDriver {
     // botId -> absolute epoch-ms before which this bot's full-map ultimate is unavailable.
     private static final long FULL_MAP_ULTIMATE_COOLDOWN_MS = 25_000;
     private static final Map<Integer, Long> nextUltimateByBot = new ConcurrentHashMap<>();
+
+    // A skill whose WZ data carries a cooltime (most of MapleRoot's custom attacks: Megiddo Flame, La Mancha
+    // Spear, High Speed Shot, ...) is not cast again before that cooltime has passed; the bot swings one of
+    // its other attacks meanwhile. botId -> (skillId -> epoch-ms the skill is ready again).
+    private static final Map<Integer, Map<Integer, Long>> skillReadyByBot = new ConcurrentHashMap<>();
 
     // Candidate pre-filter radius (px); the per-profile reach box is the hard gate.
     private static final int SEEK_RANGE = 700;
@@ -115,6 +121,7 @@ public final class BotAttackDriver {
     public static void clearBot(int botId) {
         nextAttackByBot.remove(botId);
         nextUltimateByBot.remove(botId);
+        skillReadyByBot.remove(botId);
     }
 
     /*
@@ -199,7 +206,7 @@ public final class BotAttackDriver {
         boolean facingLeft = faceTarget(bot, nearest.getPosition());
 
         // Pick the profile. Forced choices use exactly that slot; AUTO fires an AoE when 2+ mobs are in
-        // reach, else the single-target attack.
+        // reach, else the single-target attack - skipping any whose skill is still in its WZ cooltime.
         BotAttackProfile profile;
         boolean healUndead = false;
         if (choice == Choice.SINGLE) {
@@ -216,27 +223,32 @@ public final class BotAttackDriver {
             // cooldown, otherwise the sustained mob attack (Crusher / Shining Ray / Ice Strike /
             // Explosion). While the ultimate cools, the bot keeps mobbing with the sustained AoE
             // instead of dropping to single-target. Only escalate to an AoE when 2+ mobs are in reach.
-            boolean ultReady = ultimate != null && now >= nextUltimateByBot.getOrDefault(bot.getId(), 0L);
-            BotAttackProfile packAttack = ultReady ? ultimate : aoe;
-            boolean useAoe = packAttack != null && mobsInReach(bot, packAttack, weapon, facingLeft).size() >= 2;
+            boolean ultReady = ultimate != null && now >= nextUltimateByBot.getOrDefault(bot.getId(), 0L)
+                    && offCooltime(bot, ultimate, now);
+            BotAttackProfile packAttack = ultReady ? ultimate : ready(bot, aoe, now);
+            boolean useAoe = packAttack != null && mobsInReach(bot, packAttack, facingLeft).size() >= 2;
             if (useAoe) {
                 profile = packAttack;
             } else {
-                profile = single != null ? single : (aoe != null ? aoe : ultimate);
+                profile = firstNonNull(ready(bot, single, now), ready(bot, aoe, now), ultReady ? ultimate : null);
+                if (profile == null) {
+                    return AttackResult.miss("every attack is in its cooltime");
+                }
             }
         }
 
-        List<Monster> targets = cap(mobsInReach(bot, profile, weapon, facingLeft), profile.numAttacked);
+        List<Monster> targets = cap(mobsInReach(bot, profile, facingLeft), profile.numAttacked);
         if (healUndead) {
             targets = undeadOnly(targets); // Heal must not damage a living mob caught in the box
         }
         if (targets.isEmpty()) {
             return AttackResult.miss(healUndead ? "no undead in heal range"
-                    : reachDiagnostic(bot, profile, weapon, facingLeft));
+                    : reachDiagnostic(bot, profile, facingLeft));
         }
 
         int facingMask = facingLeft ? BotAttackData.FACING_LEFT_MASK : BotAttackData.FACING_RIGHT_MASK;
-        int skillId = profile.skillFor(weapon); // sword/axe & spear/pole-arm forms resolve here
+        int skillId = profile.skillId;
+        int skillLevel = packetLevel(bot, profile);
         int bodyActionId = BotAttackData.actionFor(skillId, weapon); // skill's own keyframe if it overrides, else weapon's
 
         // Roll the profile's lines independently per mob; sum a total for the GM report.
@@ -266,15 +278,16 @@ public final class BotAttackDriver {
         }
 
         boolean killed = switch (profile.route) {
-            case CLOSE  -> BotAttackEffects.meleeStrike(bot, hits, skillId, profile.skillLevel,
+            case CLOSE  -> BotAttackEffects.meleeStrike(bot, hits, skillId, skillLevel,
                     bodyActionId, facingMask, profile.speed, profile.hitDelayMs);
-            case RANGED -> BotAttackEffects.rangedStrike(bot, hits, skillId, profile.skillLevel,
+            case RANGED -> BotAttackEffects.rangedStrike(bot, hits, skillId, skillLevel,
                     BotAttackData.projectileFor(weapon, bot), bodyActionId, facingMask, profile.speed, profile.hitDelayMs);
-            case MAGIC  -> BotAttackEffects.magicStrike(bot, hits, skillId, profile.skillLevel,
+            case MAGIC  -> BotAttackEffects.magicStrike(bot, hits, skillId, skillLevel,
                     bodyActionId, facingMask, profile.speed, profile.hitDelayMs);
         };
 
         nextAttackByBot.put(bot.getId(), now + profile.cooldownMs);
+        startCooltime(bot, skillId, skillLevel, now);
         if (profile == ultimate) { // firing the throttled full-map nuke starts its long cooldown
             nextUltimateByBot.put(bot.getId(), now + FULL_MAP_ULTIMATE_COOLDOWN_MS);
         }
@@ -286,13 +299,70 @@ public final class BotAttackDriver {
 
     /*
      * Double the damage lines while Shadow Partner is up, so the packet's line count matches the
-     * mirrored shadow the client draws (Lucky Seven 2->4, Avenger 1->2, Triple Throw 3->6). Gated
-     * on the buff being configured for the job (bot self-buffs are only shown, never registered,
-     * so getBuffedValue is always null here). Only the claw line carries Shadow Partner.
+     * mirrored shadow the client draws (Lucky Seven 2->4, Quadruple Throw 4->8). Gated on the bot
+     * casting the buff (bot self-buffs are only shown, never registered, so getBuffedValue is always
+     * null here). Only the claw lines (Hermit, Night Walker) carry Shadow Partner. Capped at the
+     * packet's 4-bit line count.
      */
     private static int shadowDoubled(Character bot, int baseLines) {
-        return BotBuffConfig.buffsForJob(bot.getJob()).contains(Hermit.SHADOW_PARTNER)
-                ? baseLines * 2 : baseLines;
+        List<Integer> buffs = BotBuffConfig.buffsFor(bot);
+        boolean shadow = buffs.contains(Hermit.SHADOW_PARTNER) || buffs.contains(NightWalker.SHADOW_PARTNER);
+        return shadow ? Math.min(MAX_LINES, baseLines * 2) : baseLines;
+    }
+
+    // The attack packet packs mobs and lines into one byte, four bits each.
+    private static final int MAX_LINES = 15;
+
+    /*
+     * The skill level the attack packet names: the bot's own level of the skill when it holds it, else
+     * the profile's default capped at the skill's maximum, since a level past it names an effect the
+     * viewer's client does not have (MapleRoot's custom 4th-job skills stop at 10, below the default).
+     */
+    static int packetLevel(Character bot, BotAttackProfile profile) {
+        if (profile.skillId == 0) {
+            return 0;
+        }
+        int held = bot.getSkillLevel(profile.skillId);
+        if (held > 0) {
+            return held;
+        }
+        Skill skill = SkillFactory.getSkill(profile.skillId);
+        return skill != null && skill.getMaxLevel() > 0
+                ? Math.min(profile.skillLevel, skill.getMaxLevel()) : profile.skillLevel;
+    }
+
+    /* The profile when its skill is out of its WZ cooltime, else null. */
+    private static BotAttackProfile ready(Character bot, BotAttackProfile profile, long now) {
+        return profile != null && offCooltime(bot, profile, now) ? profile : null;
+    }
+
+    private static boolean offCooltime(Character bot, BotAttackProfile profile, long now) {
+        Map<Integer, Long> ready = skillReadyByBot.get(bot.getId());
+        return ready == null || now >= ready.getOrDefault(profile.skillId, 0L);
+    }
+
+    /* Starts the skill's WZ cooltime (seconds, at the level cast) when it has one. */
+    private static void startCooltime(Character bot, int skillId, int skillLevel, long now) {
+        if (skillId == 0) {
+            return;
+        }
+        Skill skill = SkillFactory.getSkill(skillId);
+        StatEffect effect = skill != null ? skill.getEffect(Math.max(1, skillLevel)) : null;
+        int seconds = effect != null ? effect.getCooldown() : 0;
+        if (seconds > 0) {
+            skillReadyByBot.computeIfAbsent(bot.getId(), k -> new ConcurrentHashMap<>())
+                    .put(skillId, now + seconds * 1000L);
+        }
+    }
+
+    @SafeVarargs
+    private static <T> T firstNonNull(T... options) {
+        for (T option : options) {
+            if (option != null) {
+                return option;
+            }
+        }
+        return null;
     }
 
     // A cleric-line bot (Cleric/Priest/Bishop) whose nearest target is undead: cast Heal-as-damage instead
@@ -314,12 +384,12 @@ public final class BotAttackDriver {
     }
 
     /* Alive mobs inside the attack's reach box, nearest first. */
-    private static List<Monster> mobsInReach(Character bot, BotAttackProfile profile, WeaponType weapon, boolean facingLeft) {
+    private static List<Monster> mobsInReach(Character bot, BotAttackProfile profile, boolean facingLeft) {
         Point botPos = bot.getPosition();
         if (botPos == null) {
             return List.of();
         }
-        Rectangle box = reachBox(bot, profile, weapon, facingLeft);
+        Rectangle box = reachBox(bot, profile, facingLeft);
 
         List<Monster> found = new ArrayList<>();
         for (MapObject mo : bot.getMap().getMapObjectsInRange(botPos, SEEK_RANGE_SQ, List.of(MapObjectType.MONSTER))) {
@@ -359,12 +429,11 @@ public final class BotAttackDriver {
      * so hit detection matches the real attack distance.
      *
      * Forward attacks are clipped to the bot's facing side; surround attacks (a box centred on the
-     * character - mage AoE, Dragon Roar, Heaven's Hammer) keep both sides.
+     * character - mage AoE, Dragon Roar) keep both sides.
      */
-    private static Rectangle reachBox(Character bot, BotAttackProfile profile, WeaponType weapon, boolean facingLeft) {
+    private static Rectangle reachBox(Character bot, BotAttackProfile profile, boolean facingLeft) {
         Point p = bot.getPosition();
-        int skillId = profile.skillFor(weapon);
-        Rectangle wz = wzBox(skillId, profile.skillLevel, p, facingLeft);
+        Rectangle wz = wzBox(profile.skillId, packetLevel(bot, profile), p, facingLeft);
 
         Rectangle box = (wz != null)
                 ? wz
@@ -488,13 +557,13 @@ public final class BotAttackDriver {
      * Human-readable hint for the GM command when nothing was in reach: where the nearest mob
      * sits relative to the bot and the reach box it fell outside. Only walked on the miss path.
      */
-    private static String reachDiagnostic(Character bot, BotAttackProfile profile, WeaponType weapon, boolean facingLeft) {
+    private static String reachDiagnostic(Character bot, BotAttackProfile profile, boolean facingLeft) {
         Point botPos = bot.getPosition();
         Monster nearest = nearestMob(bot);
         if (nearest == null) {
             return "no targetable mobs within " + SEEK_RANGE + "px (none, or all on a separate ledge)";
         }
-        Rectangle box = reachBox(bot, profile, weapon, facingLeft);
+        Rectangle box = reachBox(bot, profile, facingLeft);
         Point np = nearest.getPosition();
         return "nearest '" + nearest.getName() + "' at dx=" + (np.x - botPos.x) + " dy=" + (np.y - botPos.y)
                 + " outside reach x[" + box.x + ".." + (box.x + box.width) + "] y[" + box.y + ".." + (box.y + box.height)

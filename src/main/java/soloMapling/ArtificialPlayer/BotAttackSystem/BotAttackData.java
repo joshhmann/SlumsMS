@@ -6,14 +6,14 @@ import constants.id.ItemId;
 import constants.skills.Bandit;
 import constants.skills.Bishop;
 import constants.skills.Cleric;
+import constants.skills.DawnWarrior;
 import constants.skills.DragonKnight;
 import constants.skills.FPArchMage;
 import constants.skills.FPMage;
 import constants.skills.FPWizard;
-import constants.skills.Hermit;
-import constants.skills.Hero;
 import constants.skills.ILArchMage;
 import constants.skills.ILMage;
+import constants.skills.NightWalker;
 import constants.skills.Paladin;
 import constants.skills.Priest;
 import constants.skills.Rogue;
@@ -22,6 +22,9 @@ import constants.skills.Shadower;
 import java.util.Map;
 import java.util.Set;
 import java.util.concurrent.ThreadLocalRandom;
+
+import static soloMapling.ArtificialPlayer.MapleRootSkills.RAGING_BLOW;
+import static soloMapling.ArtificialPlayer.MapleRootSkills.SHADOW_SLASH;
 
 /*
  * Body-action ids extracted verbatim from GreenCatMS (BotAttackDataProvider.BODY_ACTION_ID_OVERRIDES). Credit: NutNNut.
@@ -62,9 +65,7 @@ public final class BotAttackData {
     private static final int AVENGER = 56;                             // "avenger" claw arc throw
     // ----- 4th-job skill poses (canonical enum, from the reference map) -----
     private static final int ALERT_5 = 44;                             // "alert5" (Boomerang Step)
-    private static final int ASSASSINATION = 59;                       // "assassination" (Assassinate)
-    private static final int BRANDISH_1 = 63;                          // "brandish1" (Brandish)
-    private static final int SANCTUARY = 65;                           // "sanctuary" (Heaven's Hammer)
+    private static final int BRANDISH_1 = 63;                          // "brandish1" (Raging Blow, Dawn Warrior Brandish)
     private static final int METEOR = 66;                              // "meteor" (Meteor Shower)
     private static final int BLIZZARD = 68;                            // "blizzard" (Blizzard)
     private static final int GENESIS = 69;                             // "genesis" (Genesis)
@@ -82,32 +83,32 @@ public final class BotAttackData {
 
     // Skills whose character keyframe differs from the weapon default, taken from each
     // skill's Skill.wz "action" node. A skill not listed uses its weapon's swing/cast/shoot
-    // action. Extend this as more skills with special animations are confirmed against WZ.
+    // action. Extend this as more skills with special animations are confirmed against WZ. MapleRoot's
+    // custom skills name actions of their own (dragonAura, illusion, SMsolarPierce, ...) whose client enum
+    // values are unknown, so they use the weapon default until checked against a client.
     private static final Map<Integer, Integer> SKILL_ACTION = Map.ofEntries(
             Map.entry(Rogue.DOUBLE_STAB,             STAB_O1),   // 4001334 -> "stabO1" (dagger stab, not a random swing)
             Map.entry(FPWizard.FIRE_ARROW,           SHOOT_1),   // 2101004 -> "shoot1" (arrow draw, not a wand cast)
             Map.entry(Cleric.HOLY_ARROW,             SHOOT_1),   // 2301005 -> "shoot1"
             Map.entry(Bandit.SAVAGE_BLOW,            SAVAGE),    // 4201005 -> "savage" (dagger combo, not a normal stab)
             // ----- 3rd-job skills audited 2026-06-22 (action node read from Skill.wz) -----
-            Map.entry(Hermit.AVENGER,                AVENGER),   // 4111005 -> "avenger" (claw arc throw)
+            Map.entry(SHADOW_SLASH,                  AVENGER),   // 4111005 -> "avenger" (claw arc throw; Avenger in stock)
+            Map.entry(NightWalker.AVENGER,           AVENGER),   // 14111002 -> "avenger"
             Map.entry(FPMage.EXPLOSION,              MAGIC_3),   // 2111002 -> "magic3" (F/P AoE cast)
             Map.entry(ILMage.ICE_STRIKE,             MAGIC_2),   // 2211002 -> "magic2" (I/L AoE cast)
             Map.entry(ILMage.THUNDER_SPEAR,          MAGIC_1),   // 2211003 -> "magic1" (I/L single cast)
             Map.entry(Priest.SHINING_RAY,            MAGIC_2),   // 2311004 -> "magic2" (Priest AoE cast)
             Map.entry(DragonKnight.DRAGON_ROAR,      ALERT_3),   // 1311006 -> "alert3" (roar pose)
             Map.entry(DragonKnight.SPEAR_CRUSHER,    BURSTER_2), // 1311001 -> "burster2" (spear thrust combo, lv16+)
-            Map.entry(DragonKnight.POLE_ARM_CRUSHER, BURSTER_2), // 1311002 -> "burster2"
             // ----- 4th-job skills audited 2026-06-22c -----
-            Map.entry(Hero.BRANDISH,                 BRANDISH_1),    // 1121008 -> "brandish1"
+            Map.entry(RAGING_BLOW,                   BRANDISH_1),    // 1121008 -> "brandish1" (Brandish in stock)
+            Map.entry(DawnWarrior.BRANDISH,          BRANDISH_1),    // 11111004 -> "brandish1"
             Map.entry(Paladin.BLAST,                 BLAST),         // 1221009 -> "blast"
-            Map.entry(Paladin.HEAVENS_HAMMER,        SANCTUARY),     // 1221011 -> "sanctuary"
             Map.entry(FPArchMage.METEOR_SHOWER,      METEOR),        // 2121007 -> "meteor"
             Map.entry(ILArchMage.BLIZZARD,           BLIZZARD),      // 2221007 -> "blizzard"
             Map.entry(Bishop.ANGEL_RAY,              SHOOT_1),       // 2321007 -> "shoot1" (holy bolt draw, like Holy Arrow)
             Map.entry(Bishop.GENESIS,                GENESIS),       // 2321008 -> "genesis"
-            Map.entry(Shadower.ASSASSINATE,          ASSASSINATION), // 4221001 -> "assassination"
             Map.entry(Shadower.BOOMERANG_STEP,       ALERT_5)        // 4221007 -> "alert5"
-            // Big Bang (2121001/2221001) has no action node -> wand default (+ charge int, see magicChargeFor)
     );
 
     /* The body action for a skill on a weapon: the skill's own keyframe if it overrides, else the weapon default. */
@@ -120,6 +121,8 @@ public final class BotAttackData {
     // trailing charge int that the viewer's client reads back (see MagicDamageHandler / the
     // parser's BIG_BANG branch). Sending charge = -1 omits those 4 bytes, the client over-reads,
     // and CRASHES - this was the 4th-job crash. Full keydown is ~1080 ms; send that for a full ball.
+    // MapleRoot's Skill.wz has no Big Bang, so no bot casts it, but the server's own magic handler still
+    // treats these ids as charge skills and this mirrors it.
     private static final int BIG_BANG_CHARGE = 1080;
     private static final Set<Integer> CHARGE_MAGIC_SKILLS =
             Set.of(FPArchMage.BIG_BANG, ILArchMage.BIG_BANG, Bishop.BIG_BANG);
@@ -178,21 +181,6 @@ public final class BotAttackData {
             }
         }
         return projectileFor(weaponType);
-    }
-
-    /*
-     * True when a warrior's skill should use its alternate weapon form: axe/blunt (the
-     * GENERAL* classes) and pole-arms take the alt id; swords and spears take the default.
-     */
-    public static boolean usesAltWarriorVariant(WeaponType weaponType) {
-        if (weaponType == null) {
-            return false;
-        }
-        return switch (weaponType) {
-            case GENERAL1H_SWING, GENERAL1H_STAB, GENERAL2H_SWING, GENERAL2H_STAB,
-                 POLE_ARM_SWING, POLE_ARM_STAB -> true;
-            default -> false;
-        };
     }
 
     private static int[] variantsFor(WeaponType weaponType) {

@@ -226,7 +226,7 @@ public final class BotBuffRequestHandler {
 
     /** The actual skill id this bot would cast for the concept, or 0 if its job lacks it. */
     private static int resolveSkill(BuffConcept concept, Character chr) {
-        List<Integer> kit = BotBuffConfig.buffsForJob(chr.getJob());
+        List<Integer> kit = BotBuffConfig.buffsFor(chr);
         for (int id : concept.skillIds()) {
             if (kit.contains(id)) {
                 return id;
