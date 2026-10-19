@@ -91,7 +91,25 @@ checkout, as the live installation already does.
   - EXP is 64-bit.
   - Reflection is used for MapleRoot's private `Character()` constructor.
   - The drop packet is built without a delay.
+- **Isolated headless boots on 164, 2026-10-19:**
+  - Setup: `/opt/mapleroot-dev/persistence-test`, schema `mapleroot_persist` on 3307, login port 8489, channels
+    7985-7992, `BOT_POPULATION_SCALE: 0.03`, flat curve with a peak of 40, nice 19 and a 70% CPU cap.
+  - Migration 003 applied twice, the second run a no-op. `botstore.Exp` is `bigint unsigned`.
+  - Boot 1 (seeding): 751 bots in 73 s, no errors. 818 bots stored, 89 enrolled in the roster, 5,685 items under bot
+    ids, 0 bot rows in `characters`.
+  - Boot 2: the roster loaded with 89 members and the director's boot fill brought 40 online. The shutdown recorded
+    all 40 sessions (login and logout times, activity, personality, persona).
+  - Boot 3: 40 logins. Of the 20 that had been online in boot 2, 17 ended the session on the map they logged out on,
+    and the rest had walked to a neighbouring map. The other 20 were roster members logging in for the first time.
+    The shutdown saved everything and went offline in 12 s.
+  - Fixed along the way:
+    - The pool deadlock (see Configuration).
+    - `Client.announceBossHpBar` threw for the shared `BotClient`. The bot client now ignores boss HP bars. The
+      exception during map dispose had also stalled shutdown forever on `Channel.finishedShutdown()`.
+  - Notes for whoever runs the next boot:
+    - The test config had `SHUTDOWNHOOK: false`; live has `true`. Bots are saved on shutdown only when it is `true`.
+    - Exit status 143 is the JVM leaving on SIGTERM after a clean shutdown.
+    - `RankingLoginTask` throws a `NullPointerException` on the cloned test data (also on the town test, not on
+      live). It predates this branch.
 - **Not yet done:**
-  - A boot against the isolated test install and a disposable database.
-  - A real-client session.
   - A population and scale run on MapleRoot data.
