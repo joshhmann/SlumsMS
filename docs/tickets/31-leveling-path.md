@@ -25,6 +25,13 @@ level, plus the travel needed to get there.
 - **Choosing a map:** the existing chooser still picks inside a band, so bots spread out and don't stack on one map.
 - **Gates:** respects MapleRoot's (`HyperTPHandler`): Lion King needs rebirth 1, Twilight Perion rebirth 2,
   Grandis/Arcane rebirth 3.
+- **By job as well as level:** each band can name different spots per job group, the way players train.
+  - **Melee or ranged:** melee bots prefer flat maps with dense mobs; ranged and magic bots prefer maps with
+    platforms or long lines of mobs.
+  - **Element weakness:** mages favour mobs weak to their element, for example Fire/Poison on ice mobs and Ice/Lightning on fire mobs.
+  - **Job-specific spots:** the classic one is clerics and priests on undead.
+  - **Solo or party:** some spots are for party bots, others for solo.
+  - **Fallback:** a job with no specific entry uses the band's general list.
 - **Variety:** each persona gets some, such as a favourite continent, sometimes training below level, or sometimes
   skipping a band.
 - **Storage:** data, not code, so the owner can retune it without a rebuild.
