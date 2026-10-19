@@ -29,13 +29,12 @@ import java.util.LinkedHashMap;
 import java.util.List;
 import java.util.Map;
 import java.util.concurrent.ConcurrentHashMap;
-import java.util.concurrent.ThreadLocalRandom;
 
 /*
  * Targeting and route-dispatch model adapted from GreenCatMS bot combat. Credit: NutNNut.
  * Bot attack driver. Resolves the bot's attacks from its class + weapon (BotAttackConfig),
  * then each tick picks the AoE skill when 2+ mobs are in reach else the
- * single-target one, faces the nearest, rolls fixed per-line damage, and strikes via the
+ * single-target one, faces the nearest, rolls each line from the bot's real numbers (BotDamage), and strikes via the
  * profile's route (melee / ranged / magic). Re-attacks are throttled per bot via
  * nextAttackByBot; clearBot() releases a despawned bot's timer. botAttack() is
  * cooldown-gated; forceAttack() ignores it for the !bot attack GM test.
@@ -138,6 +137,7 @@ public final class BotAttackDriver {
         skillReadyByBot.remove(botId);
         BotAttackStats.clear(botId);
         BotComboOrbs.clearBot(botId);
+        OffscreenCombat.clearBot(botId);
     }
 
     /*
@@ -285,28 +285,20 @@ public final class BotAttackDriver {
         // The skill's own pose (the client drops an attack whose pose the skill does not allow), else the weapon's.
         int bodyActionId = BotAttackData.actionFor(skillId, skillLevel, weapon);
 
-        // Roll the profile's lines independently per mob; sum a total for the GM report.
-        // Shadow Partner mirrors each throw, so the client draws double the stars - match the packet.
-        // Per line we roll a crit off the bot's class crit chance: a crit bumps the damage and is
-        // encoded NEGATIVE in the packet (BotAttackData.encodeCritLine) so the viewer renders a yellow
-        // crit and the mob recoils harder. We sum the real magnitude for the report; BotAttackEffects
+        // Roll the lines per mob from the bot's real numbers (BotDamage: stats, gear, skills, buffs, the mob's
+        // defence); sum a total for the GM report. Shadow Partner mirrors each throw, so the client draws double
+        // the stars - match the packet; the shadow's lines are its share of the ones they mirror. A crit line is
+        // encoded NEGATIVE (BotAttackData.encodeCritLine) so the viewer renders a yellow crit; BotAttackEffects
         // decodes the lines back before applying HP.
         int linesPerMob = shadowDoubled(bot, profile.numDamage);
-        double critChance = BotAttackConfig.critChanceFor(bot.getJob());
-        ThreadLocalRandom rng = ThreadLocalRandom.current();
+        BotDamage.Swing swing = BotDamage.swing(bot, skillId, skillLevel, route, weapon,
+                targets.size() + 1, linesPerMob != profile.numDamage);
         Map<Monster, List<Integer>> hits = new LinkedHashMap<>();
         int reported = 0;
         for (Monster mob : targets) {
-            List<Integer> lines = new ArrayList<>(linesPerMob);
-            for (int i = 0; i < linesPerMob; i++) {
-                int dmg = profile.rollDamage(bot.getLevel(), bot.getJob());
-                if (rng.nextDouble() < critChance) {
-                    dmg = (int) Math.round(dmg * BotAttackConfig.CRIT_MULTIPLIER);
-                    lines.add(BotAttackData.encodeCritLine(dmg)); // negative -> client shows a crit
-                } else {
-                    lines.add(dmg);
-                }
-                reported += dmg;
+            List<Integer> lines = swing.roll(mob, linesPerMob);
+            for (int line : lines) {
+                reported = (int) Math.min(Integer.MAX_VALUE, (long) reported + BotAttackData.decodeDamageLine(line));
             }
             hits.put(mob, lines);
         }
@@ -351,7 +343,7 @@ public final class BotAttackDriver {
      * null here). Only the claw lines (Hermit, Night Walker) carry Shadow Partner. Capped at the
      * packet's 4-bit line count.
      */
-    private static int shadowDoubled(Character bot, int baseLines) {
+    static int shadowDoubled(Character bot, int baseLines) {
         List<Integer> buffs = BotBuffConfig.buffsFor(bot);
         boolean shadow = buffs.contains(Hermit.SHADOW_PARTNER) || buffs.contains(NightWalker.SHADOW_PARTNER);
         return shadow ? Math.min(MAX_LINES, baseLines * 2) : baseLines;

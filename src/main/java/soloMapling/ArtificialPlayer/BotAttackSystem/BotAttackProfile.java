@@ -1,13 +1,11 @@
 package soloMapling.ArtificialPlayer.BotAttackSystem;
 
-import client.Job;
-
 /*
  * Original fixed-damage attack profile; the attack-plan concept is inspired by GreenCatMS. Credit: NutNNut for the idea.
  * One bot attack: its route, the skill that renders, how many mobs/lines it hits, its reach box,
  * and timing. Pure data - build them with the per-route factories (melee/meleeAoe/magic/ranged/...)
  * so reach/cooldown defaults stay in one place. Per-line damage is NOT a property of the profile;
- * it comes from the bot's job tier + level via BotDamageModel (see rollDamage).
+ * it comes from the bot's real stats, gear, skills and buffs (BotDamage, real bots 07).
  */
 public final class BotAttackProfile {
 
@@ -84,15 +82,5 @@ public final class BotAttackProfile {
 
     public static BotAttackProfile magicAoe(int skill, int lines) {
         return new BotAttackProfile(Route.MAGIC, AOE_MOBS, lines, 450, 210, 900, (short) 380, MELEE_SPEED, skill);
-    }
-
-    /*
-     * Roll one per-line damage for a bot of this job and level. The band comes from the bot's job
-     * tier (beginner..4th job) with a gentle level ramp, and single/double-line swings concentrate
-     * into a heavier per-line hit - all owned by BotDamageModel, the one place damage is tuned.
-     */
-    public int rollDamage(int level, Job job) {
-        int tier = (job != null) ? job.getJobTier() : 0;
-        return BotDamageModel.rollLine(tier, level, numDamage);
     }
 }

@@ -78,6 +78,7 @@ public class StatEffect {
     private double prop;
     private int itemCon, itemConNo;
     private int damage, attackCount, fixdamage;
+    private int mastery; // WZ "mastery": a mastery skill's or spell's grade, mastery % = 5 * grade + 10 (SoloMapling bot combat)
     private Point lt, rb;
     private short bulletCount, bulletConsume;
     private byte mapProtection;
@@ -413,6 +414,7 @@ public class StatEffect {
 
         ret.damage = DataTool.getIntConvert("damage", source, 100);
         ret.fixdamage = DataTool.getIntConvert("fixdamage", source, -1);
+        ret.mastery = DataTool.getIntConvert("mastery", source, 0);
         ret.attackCount = DataTool.getIntConvert("attackCount", source, 1);
         ret.bulletCount = (short) DataTool.getIntConvert("bulletCount", source, 1);
         ret.bulletConsume = (short) DataTool.getIntConvert("bulletConsume", source, 0);
@@ -1886,6 +1888,14 @@ public class StatEffect {
 
     public int getFixDamage() {
         return fixdamage;
+    }
+
+    public int getMastery() {
+        return mastery;
+    }
+
+    public double getProp() {
+        return prop;
     }
 
     public short getBulletCount() {
