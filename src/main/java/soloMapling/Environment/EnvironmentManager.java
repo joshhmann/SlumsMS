@@ -1,5 +1,7 @@
 package soloMapling.Environment;
 
+import config.YamlConfig;
+
 import client.Character;
 import client.Job;
 import server.maps.MapleMap;
@@ -223,6 +225,19 @@ public class EnvironmentManager {
      * The roster's seed: waves 8 (training cohorts) and 9 (town presence) as they ran before the director. They
      * spawn the population at fixed boot-plan slots; every bot they mint is enrolled in the roster.
      */
+    /**
+     * A seed-wave count after {@code BOT_POPULATION_SCALE}: a pilot on a small host dials the training cohorts and
+     * town presence down (0.02 = about 2%) without editing the counts. Never rounds a non-empty cohort to nothing,
+     * and only ever shrinks: stored slots are positions inside each cohort, so a smaller cohort adopts a prefix.
+     */
+    static int scaled(int count) {
+        double scale = YamlConfig.config.server.BOT_POPULATION_SCALE;
+        if (count <= 0 || scale >= 1.0) {
+            return count;
+        }
+        return Math.max(1, (int) Math.round(count * Math.max(0.0, scale)));
+    }
+
     private static void seedPopulationWaves() {
         // Roaming training grinders. Each cohort = N job-coherent bots at a town's spawn portal; they
         // discover nearby level-appropriate field maps via WZ and fan out on their own. DIAL THESE
@@ -242,7 +257,7 @@ public class EnvironmentManager {
         List<PlanTask> trainingTasks = new ArrayList<>();
         trainingTasks.add(slotBase -> GCMovement.mapsWithinHops(MapId.HENESYS, 1)); // prewarm the portal graph once
         for (TrainingCohort cohort : TRAINING_COHORTS) {
-            trainingTasks.add(slotBase -> spawnTrainingBotsAt(slotBase, cohort.townMapId(), cohort.count(),
+            trainingTasks.add(slotBase -> spawnTrainingBotsAt(slotBase, cohort.townMapId(), scaled(cohort.count()),
                     cohort.loLevel(), cohort.hiLevel()));
         }
         runWave(8, "Training bots", trainingTasks);
@@ -329,7 +344,7 @@ public class EnvironmentManager {
     public static void spawnTown(int slotBase, TownPresenceConfig.TownEntry town) {
         int group = 0;
         for (TownPresenceConfig.MapShare share : town.maps()) {
-            int n = spawnSocialCohort(slotBase + group * BotStore.SLOTS_PER_GROUP, share.mapId(), share.count(),
+            int n = spawnSocialCohort(slotBase + group * BotStore.SLOTS_PER_GROUP, share.mapId(), scaled(share.count()),
                     town.levelLo(), town.levelHi());
             debugprint(fmt("TownPresence: {} social bots on map {} ({}, lv {}..{})",
                     n, share.mapId(), town.name(), town.levelLo(), town.levelHi()));
@@ -337,7 +352,7 @@ public class EnvironmentManager {
         }
         if (town.wanderers() > 0) {
             int w = spawnTownWanderers(slotBase + group * BotStore.SLOTS_PER_GROUP, town.mainMapId(),
-                    town.wanderers(), town.levelLo(), town.levelHi());
+                    scaled(town.wanderers()), town.levelLo(), town.levelHi());
             debugprint(fmt("TownPresence: {} wanderers on map {} ({})", w, town.mainMapId(), town.name()));
         }
     }

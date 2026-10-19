@@ -51,6 +51,23 @@ public class BotGeneration {
     }
 
 
+    /**
+     * At most this many bot template loads at once. {@code Character.loadCharFromDB} holds one pooled connection
+     * while its item, cash-shop and monster-book loads each take another, so with MapleRoot's 10-connection pool
+     * ten parallel spawns would each hold one and wait forever for a second. Three loads need at most six,
+     * leaving the rest of the pool to players.
+     */
+    private static final java.util.concurrent.Semaphore TEMPLATE_LOADS = new java.util.concurrent.Semaphore(3, true);
+
+    private static Character loadTemplate(int templateId) throws SQLException {
+        TEMPLATE_LOADS.acquireUninterruptibly();
+        try {
+            return Character.loadCharFromDB(templateId, getBotClient(), false);
+        } finally {
+            TEMPLATE_LOADS.release();
+        }
+    }
+
     public static Character getConsoleBot() {
         Character consoleBot = getChr(soloMapling.server.SoloMaplingConstants.GameConstants.CONSOLE_BOT_ID);
         if (consoleBot != null) {
@@ -61,7 +78,7 @@ public class BotGeneration {
         int baseId = soloMapling.server.MapleRootSolo.templateId(); // Base Bot Character
 
         try {
-            Character chr = Character.loadCharFromDB(baseId, getBotClient(), false);
+            Character chr = loadTemplate(baseId);
             consoleBot = chr;
         } catch (SQLException e) {
             e.printStackTrace();
@@ -94,7 +111,7 @@ public class BotGeneration {
 
         Character bot = null;
         try {
-            Character chr = Character.loadCharFromDB(cid, getBotClient(), false);
+            Character chr = loadTemplate(cid);
             bot = chr;
         } catch (SQLException e) {
             e.printStackTrace();
