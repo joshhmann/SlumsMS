@@ -21,6 +21,7 @@
 */
 package net.server;
 
+import client.BotClient;
 import client.Character;
 import client.Client;
 
@@ -120,6 +121,22 @@ public class PlayerStorage {
         rlock.lock();
         try {
             return storage.size();
+        } finally {
+            rlock.unlock();
+        }
+    }
+
+    /** Players with a real connection: SoloMapling bots (BotClient) are left out, so they never fill a world. */
+    public int getConnectedPlayerCount() {
+        rlock.lock();
+        try {
+            int count = 0;
+            for (Character chr : storage.values()) {
+                if (!(chr.getClient() instanceof BotClient)) {
+                    count++;
+                }
+            }
+            return count;
         } finally {
             rlock.unlock();
         }
