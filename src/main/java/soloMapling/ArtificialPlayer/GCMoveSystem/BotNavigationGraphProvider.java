@@ -1175,6 +1175,14 @@ final class BotNavigationGraphProvider {
                 if (launchWindow == null) {
                     continue;
                 }
+                // v67 phantom cross-region jump: the authored landing is on ground the SOURCE region
+                // already covers (a ramp foot overlapping a flat platform, or coincident chains at the
+                // same height). The client never switches chains on shared ground, so this "jump" cannot
+                // change region - A* would commit it and the bot could never execute it (map 600020100
+                // r97->r73: stuck/oscillating). Guard the window's representative endpoint.
+                if (isPhantomCrossRegionLanding(from, launchWindow.endPoint())) {
+                    continue;
+                }
 
                 addEdge(from.id, to.id, BotNavigationGraph.EdgeType.JUMP,
                         launchWindow.startPoint(), launchWindow.endPoint(),
@@ -1196,6 +1204,12 @@ final class BotNavigationGraphProvider {
                     stats.cacheMisses,
                     System.nanoTime() - startedAt));
         }
+    }
+
+    /* v67: a cross-region ballistic edge whose landing sits on the source region's own surface (ported from
+     * nutnnut/Cosmic 59c528899, AGPL-3.0. Credit: NutNNut). */
+    static boolean isPhantomCrossRegionLanding(BotNavigationGraph.Region from, Point landing) {
+        return from.surfaceCoversPoint(landing.x, landing.y, BotNavigationGraph.SHARED_GROUND_Y_PX);
     }
 
     private static BotPhysicsEngine.PostLandingJump simulateJumpLandingCached(MapleMap map,

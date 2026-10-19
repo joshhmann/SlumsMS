@@ -139,6 +139,7 @@ final class BotNavigationManager {
                 if (entry.navGraph != null) {
                     BotMovementManager.clearNavigationState(entry);
                 }
+                entry.lastRegionId = -1; // region ids are per-graph; a stale id could mis-trigger continuity
                 entry.navGraph = graph;
             }
             Point botPos = bot.getPosition();
@@ -1740,7 +1741,29 @@ final class BotNavigationManager {
             // edge even though the authored graph and ballistic landing simulation still agree.
             return -1;
         }
-        return graph.findRegionId(map, botPos);
+        int coordRegionId = graph.findRegionId(map, botPos);
+        // v67 chain continuity across SHARED ground: where two foothold chains overlap at the exact same
+        // coordinate (a ramp foot over a flat platform), a coordinate lookup can pick either region. The
+        // client stays on the chain it walked in on, so if the bot's last region also covers this exact
+        // point, keep it instead of flipping. Resolution stays coordinate-based everywhere else.
+        // (nutnnut/Cosmic 59c528899. Credit: NutNNut.)
+        // Only trust lastRegionId against the graph it was resolved on (ours: other callers may pass a
+        // different profile's graph instance).
+        if (graph != entry.navGraph) {
+            return coordRegionId;
+        }
+        int last = entry.lastRegionId;
+        if (last >= 0 && last != coordRegionId) {
+            BotNavigationGraph.Region lastRegion = graph.getRegion(last);
+            if (lastRegion != null
+                    && lastRegion.surfaceCoversPoint(botPos.x, botPos.y, BotNavigationGraph.SHARED_GROUND_Y_PX)) {
+                coordRegionId = last;
+            }
+        }
+        if (coordRegionId >= 0) {
+            entry.lastRegionId = coordRegionId;
+        }
+        return coordRegionId;
     }
 
     static int resolveTargetRegionId(BotNavigationGraph graph,
