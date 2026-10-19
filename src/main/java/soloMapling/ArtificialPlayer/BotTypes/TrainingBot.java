@@ -670,6 +670,17 @@ public class TrainingBot extends BotSM {
         clearTrainTarget(); // release any stale reservation before choosing (choose() reserves the pick's slot)
         TrainingMap pick = TrainingMapChooser.choose(chr, homeMapId, excluded, this::debugChat);
         if (pick == null) {
+            int here = chr.getMapId();
+            if (MapMobIndex.mobCount(here) > 0) {
+                // Nothing to travel to (no walkable exit, or every map on crowd cooldown) but mobs right
+                // here: fight them rather than stand in the spawns. Cross-map travel (ticket 03) and the
+                // level path (ticket 31) are what should eventually move such a bot somewhere better.
+                debugChat("DECIDE: nothing reachable (lv " + chr.getLevel() + ") -> grind current map " + here);
+                setTrainTarget(here, Math.max(1, MapMobIndex.level(here)));
+                firstTrip = false;
+                enterPhase(Phase.GRIND);
+                return;
+            }
             // Nothing reachable with mobs (or all on cooldown) — idle in town and try again later.
             debugChat("DECIDE: nothing reachable (lv " + chr.getLevel() + ") -> idle in town");
             enterPhase(Phase.IN_TOWN);
