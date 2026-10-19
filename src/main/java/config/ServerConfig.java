@@ -32,6 +32,10 @@ public class ServerConfig {
     public int BYPASS_PIN_EXPIRATION;
 
     public boolean AUTOMATIC_REGISTER;
+    //Limits on automatic registration (LAN addresses are exempt from the per-IP ones). 0 = no account cap.
+    public int AUTO_REGISTER_MIN_PASSWORD_LENGTH = 6;
+    public int AUTO_REGISTER_MAX_ACCOUNTS_PER_IP = 3;
+    public int AUTO_REGISTER_IP_COOLDOWN_MINUTES = 10;
     public boolean BCRYPT_MIGRATION;
     public boolean COLLECTIVE_CHARSLOT;
     public boolean DETERRED_MULTICLIENT;

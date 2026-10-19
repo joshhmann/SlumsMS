@@ -867,7 +867,7 @@ public class Server {
 
     public void init() {
         Instant beforeInit = Instant.now();
-        log.info("Cosmic v{} starting up.", ServerConstants.VERSION);
+        log.info("SlumsMS v{} (MapleStory v{}) starting up.", ServerConstants.SLUMSMS_VERSION, ServerConstants.VERSION);
 
         //HairsAndFacesHandler.createHairAndFaceListsFile();
 
