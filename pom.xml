@@ -236,6 +236,11 @@
                     <!-- Root data providers cache process-wide WZ paths/singletons. -->
                     <forkCount>1</forkCount>
                     <reuseForks>false</reuseForks>
+                    <!-- Isolate the bot nav-graph cache so tests can't poison the live cache/bot-nav/ dir
+                         (after nutnnut/Cosmic 6c8896f98). -->
+                    <systemPropertyVariables>
+                        <bot.nav.cacheDir>cache/bot-nav-test</bot.nav.cacheDir>
+                    </systemPropertyVariables>
                 </configuration>
             </plugin>
 

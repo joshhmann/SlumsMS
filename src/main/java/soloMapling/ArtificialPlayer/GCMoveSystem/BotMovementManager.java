@@ -439,6 +439,7 @@ class BotMovementManager {
             return true;
         }
         return entry.navEdge.type != BotNavigationGraph.EdgeType.JUMP
+                && entry.navEdge.type != BotNavigationGraph.EdgeType.FLASH_JUMP
                 && entry.navEdge.type != BotNavigationGraph.EdgeType.DROP
                 && !(entry.navEdge.type == BotNavigationGraph.EdgeType.CLIMB
                 && entry.navEdge.launchStepX != 0);
@@ -581,6 +582,8 @@ class BotMovementManager {
     static int preciseNavStopDist(BotNavigationGraph.Edge navEdge) {
         if (navEdge != null
                 && (navEdge.type == BotNavigationGraph.EdgeType.JUMP
+                || navEdge.type == BotNavigationGraph.EdgeType.FLASH_JUMP
+                || navEdge.type == BotNavigationGraph.EdgeType.TELEPORT
                 || (navEdge.type == BotNavigationGraph.EdgeType.DROP && navEdge.launchStepX == 0))) {
             // Bot must walk INTO the launch window, not just near it. The launch window checks
             // are strict, so stopDist=1 can halt the bot exactly 1px before the valid range.
@@ -787,6 +790,8 @@ class BotMovementManager {
             return 0;
         }
         boolean windowed = edge.type == BotNavigationGraph.EdgeType.JUMP
+                || edge.type == BotNavigationGraph.EdgeType.FLASH_JUMP
+                || edge.type == BotNavigationGraph.EdgeType.TELEPORT
                 || (edge.type == BotNavigationGraph.EdgeType.DROP && edge.launchStepX == 0);
         if (!windowed || !edge.containsLaunchX(targetX)) {
             return 0;

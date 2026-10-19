@@ -143,7 +143,7 @@ final class BotPhysicsEngine {
                             boolean lostGround) {
     }
 
-    private record GroundRegionSample(Point point, Foothold foothold) {
+    record GroundRegionSample(Point point, Foothold foothold) {
     }
 
     private record GroundStepPreview(int baseY, Point point, Foothold foothold, boolean lostGround, boolean blocked) {
@@ -414,6 +414,61 @@ final class BotPhysicsEngine {
         return offsetDistance < exactDistance ? offsetGround : exactGround;
     }
 
+    /*
+     * SSOT for teleport position resolution (nav graph v61/v65, ported from nutnnut/Cosmic, AGPL-3.0. Credit:
+     * NutNNut): the nav layer supplies only an INTENT (a direction), and physics resolves the legal landing -
+     * or null when blocked (no platform to snap to). Mirrors the client's directional teleport:
+     *  - HORIZONTAL (dirX=+-1, dirY=0): move range px; snap to the platform CLOSEST VERTICALLY to the origin
+     *    within +-ySnap (same-level priority). null if none in the band.
+     *  - UP (dirY<0): the FURTHEST platform within range directly above. null if none.
+     *  - DOWN (dirY>0): the FURTHEST platform within range directly below (walk platform-by-platform, keep
+     *    the last in range). null if none.
+     */
+    static Point teleportLanding(MapleMap map, Point origin, int dirX, int dirY, int range, int ySnap) {
+        if (map == null || origin == null || map.getFootholds() == null) {
+            return null;
+        }
+        if (dirX != 0) {
+            int tx = origin.x + Integer.signum(dirX) * range;
+            return closestPlatformWithin(map, tx, origin.y, ySnap);
+        }
+        if (dirY < 0) { // up: furthest within range
+            Point up = pointBelowIndexed(map, new Point(origin.x, origin.y - range));
+            return (up != null && up.y < origin.y && origin.y - up.y <= range) ? up : null;
+        }
+        if (dirY > 0) { // down: FURTHEST platform within range below
+            Point best = null;
+            Point probe = pointBelowIndexed(map, new Point(origin.x, origin.y + 1));
+            while (probe != null && probe.y > origin.y && probe.y - origin.y <= range) {
+                best = probe;
+                probe = pointBelowIndexed(map, new Point(origin.x, probe.y + 1));
+            }
+            return best;
+        }
+        return null;
+    }
+
+    /* Platform at x whose surface is closest vertically to referenceY within +-ySnap (same-level priority);
+     * null if none. Compares the at/just-below candidate against the highest candidate in the upper band so a
+     * same-level platform always beats a higher diagonal one. */
+    private static Point closestPlatformWithin(MapleMap map, int x, int referenceY, int ySnap) {
+        Point below = pointBelowIndexed(map, new Point(x, referenceY));         // at / just below referenceY
+        Point above = pointBelowIndexed(map, new Point(x, referenceY - ySnap)); // highest within the upper band
+        Point best = null;
+        int bestD = Integer.MAX_VALUE;
+        for (Point c : new Point[]{below, above}) {
+            if (c == null) {
+                continue;
+            }
+            int d = Math.abs(c.y - referenceY);
+            if (d <= ySnap && d < bestD) {
+                best = c;
+                bestD = d;
+            }
+        }
+        return best;
+    }
+
     // Canonical walk-connectivity rule shared by graph region merging and runtime ground traversal.
     // If two foothold endpoints form a walkable local step, they must be in the same walk region.
     static boolean canWalkAcrossFootholds(Foothold first, Foothold second) {
@@ -473,6 +528,11 @@ final class BotPhysicsEngine {
         return null;
     }
 
+    /* The walk-region ground sample (point + foothold) one walk step reaches; package-visible for tests. */
+    static GroundRegionSample walkRegionGroundSample(MapleMap map, Foothold foothold, int x, int referenceY) {
+        return findWalkRegionGroundSample(map, foothold, x, referenceY);
+    }
+
     static Point findWalkRegionGroundPoint(MapleMap map, Foothold foothold, int x, int referenceY) {
         GroundRegionSample sample = findWalkRegionGroundSample(map, foothold, x, referenceY);
         return sample == null ? null : sample.point();
@@ -519,6 +579,15 @@ final class BotPhysicsEngine {
         return lookup.regionIdByFootholdId().getOrDefault(foothold.getId(), -1) >= 0;
     }
 
+    // v66 (ported from nutnnut/Cosmic 7c0d28701, AGPL-3.0. Credit: NutNNut.)
+    /* True when candidateFootholdId is the standing foothold or its direct prev/next link -
+     * i.e. a foothold you reach by continuing to walk along the chain (not by dropping onto a fork arm). */
+    static boolean isChainStep(Foothold foothold, int candidateFootholdId) {
+        return candidateFootholdId == foothold.getId()
+                || candidateFootholdId == foothold.getNext()
+                || candidateFootholdId == foothold.getPrev();
+    }
+
     private static GroundRegionSample findWalkRegionGroundSample(MapleMap map, Foothold foothold, int x, int referenceY) {
         if (map == null || foothold == null) {
             return null;
@@ -537,6 +606,7 @@ final class BotPhysicsEngine {
         BotNavigationGraph.Segment bestSegment = null;
         Point bestPoint = null;
         int bestScore = Integer.MAX_VALUE;
+        boolean bestChainStep = false;
         boolean foundContainingSegment = false;
         for (BotNavigationGraph.Segment segment : region.segments) {
             if (segment.containsX(x)) {
@@ -558,13 +628,24 @@ final class BotPhysicsEngine {
                 continue;
             }
 
+            // Follow the standing foothold's prev/next chain across a fork, like the real client
+            // (which tracks the SN foothold). At a joined fork two arms overlap in x; the lower arm
+            // wins the raw dx/dy score and the walk snaps DOWN onto it, but you can only get onto a
+            // non-chain arm by an explicit down-jump, not by walking. So a chain-step (this foothold
+            // or its prev/next) always beats a non-chain segment; the dx/dy score only breaks ties
+            // within the same chain class. Crossing footholds that share no chain link keep the old
+            // behaviour, so a ramp crossing flat ground can still be walked down.
+            boolean chainStep = isChainStep(foothold, segment.footholdId);
             int score = dx * 1000 + Math.abs(dy);
-            if (bestPoint == null
-                    || score < bestScore
-                    || (score == bestScore && candidate.y > bestPoint.y)) {
+            boolean better = bestSegment == null
+                    || (chainStep && !bestChainStep)
+                    || (chainStep == bestChainStep
+                    && (score < bestScore || (score == bestScore && candidate.y > bestPoint.y)));
+            if (better) {
                 bestSegment = segment;
                 bestPoint = candidate;
                 bestScore = score;
+                bestChainStep = chainStep;
             }
         }
 
@@ -1735,6 +1816,18 @@ final class BotPhysicsEngine {
         return simulateJumpLanding(map, from, stepX, BotMovementProfile.base());
     }
 
+    private record FlashImpulse(int hStep, float velY) {
+    }
+
+    /* Flash-jump trajectory (nav graph v60, ported from nutnnut/Cosmic, AGPL-3.0. Credit: NutNNut): a normal jump
+     * launch with the full apex impulse injected, mirroring stepAirborne with flashJumpScale = 1. stepX sets the
+     * launch direction; the apex dash is the client +-550 px/s cap. */
+    static JumpLanding simulateFlashJumpLanding(MapleMap map, Point from, int stepX, BotMovementProfile profile) {
+        int dashStep = Math.round(Integer.signum(stepX) * flashJumpHPerTick());
+        return simulateLanding(map, from, -jumpForcePerTick(profile), stepX, 0L,
+                new FlashImpulse(dashStep, flashJumpVPerTick()));
+    }
+
     static JumpLanding simulateJumpLanding(MapleMap map, Point from, int stepX, BotMovementProfile profile) {
         return simulateLanding(map, from, -jumpForcePerTick(profile), stepX, 0L);
     }
@@ -2867,7 +2960,19 @@ final class BotPhysicsEngine {
                                                float initialVelY,
                                                int stepX,
                                                long landingGraceMs) {
+        return simulateLanding(map, from, initialVelY, stepX, landingGraceMs, null);
+    }
+
+    /* flashImpulse non-null models Flash Jump: a one-time apex (velocityY >= 0) override of (hStep, velY) that
+     * mirrors the stepAirborne injection, so generated FLASH_JUMP edges land where execution actually flies. */
+    private static JumpLanding simulateLanding(MapleMap map,
+                                               Point from,
+                                               float initialVelY,
+                                               int stepX,
+                                               long landingGraceMs,
+                                               FlashImpulse flashImpulse) {
         float velocityY = initialVelY;
+        boolean flashInjected = false;
         double physX = from.x;
         double physY = from.y;
         int previousIntY = from.y;
@@ -2879,6 +2984,12 @@ final class BotPhysicsEngine {
         for (int tick = 0; tick < FALL_SIM_TICK_CAP; tick++) {
             if (remainingLandingGraceMs > 0L) {
                 remainingLandingGraceMs = Math.max(0L, remainingLandingGraceMs - cfg.TICK_MS);
+            }
+
+            if (flashImpulse != null && !flashInjected && velocityY >= 0f) {
+                flashInjected = true;
+                stepX = flashImpulse.hStep();
+                velocityY = flashImpulse.velY();
             }
 
             physX += stepX;

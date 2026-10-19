@@ -83,6 +83,13 @@ final class GCMovementSkills {
         if (dest == null || (dest.x == origin.x && dest.y == origin.y)) {
             return false;
         }
+        blink(st, bot, origin, dest);
+        return true;
+    }
+
+    // Warp the bot from origin to an already-resolved landing and broadcast the blink. Shared by the grind
+    // blink above and the nav graph's TELEPORT edges (whose landing comes from BotPhysicsEngine.teleportLanding).
+    static void blink(BotMovementState st, Character bot, Point origin, Point dest) {
         int hdir = dest.x >= origin.x ? 1 : -1;
         boolean downward = dest.y > origin.y + 8;
         int stance = downward ? proneStance(hdir) : standStance(hdir);
@@ -91,7 +98,6 @@ final class GCMovementSkills {
         if (ObserverTracker.isActiveMap(bot.getMapId())) {
             broadcastTeleport(bot, origin, dest, stance);
         }
-        return true;
     }
 
     // ── Flash Jump (thief air dash) ───────────────────────────────────────────
