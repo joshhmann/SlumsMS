@@ -12163,6 +12163,7 @@ public class Character extends AbstractCharacterObject {
             ps.setInt(1, value);
             ps.setInt(2, id);
             ps.executeUpdate();
+            reborns = value;
         } catch (SQLException e) {
             e.printStackTrace();
         }
@@ -12172,24 +12173,14 @@ public class Character extends AbstractCharacterObject {
         setReborns(getReborns() + 1);
     }
 
+    // The field loadCharFromDB filled; setReborns keeps it in step. This runs on every EXP gain (through getMaxLevel),
+    // and the old per-call SELECT threw for SoloMapling bots, which have no characters row (they have 0 rebirths).
     public int getReborns() {
         if (!YamlConfig.config.server.USE_REBIRTH_SYSTEM) {
             yellowMessage("Rebirth system is not enabled!");
             throw new NotEnabledException();
         }
-
-        try (Connection con = DatabaseConnection.getConnection();
-             PreparedStatement ps = con.prepareStatement("SELECT reborns FROM characters WHERE id=?;")) {
-            ps.setInt(1, id);
-
-            try (ResultSet rs = ps.executeQuery()) {
-                rs.next();
-                return rs.getInt(1);
-            }
-        } catch (SQLException e) {
-            e.printStackTrace();
-        }
-        throw new RuntimeException();
+        return reborns;
     }
 
     public String getAllRebornDataCerezeth() {
