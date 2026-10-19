@@ -356,6 +356,19 @@ class BotBuildTest {
     }
 
     @Test
+    void aHermitThatBoughtShadowPartnerWithSpGetsTheGrantAndItsSpBack() {
+        BotBuild.State old = new BotBuild.State(411, 80);   // built by the stock-v83 plan: 7 SP in Shadow Partner
+        old.skills.put(constants.skills.Hermit.SHADOW_PARTNER, 7);
+
+        BotBuild.grantNpcSkills(old, PLAN);
+        BotBuild.grantNpcSkills(old, PLAN);
+
+        assertAll(
+                () -> assertEquals(30, old.skillLevel(constants.skills.Hermit.SHADOW_PARTNER)),
+                () -> assertEquals(7, old.sp, "the 7 SP come back, once"));
+    }
+
+    @Test
     void aFourthJobBuiltBeforeThePackageGetsItOnItsNextSettleOnce() {
         BotBuild.State old = BotBuild.plan(412, 150, towards(410), PLAN);
         for (BotSkillPlan.Grant g : BotSkillPlan.fourthJobPackage(412)) {

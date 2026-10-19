@@ -436,8 +436,7 @@ public final class BotBuild {
         int[] pools = advancementPools(newJob);
         s.maxHp += pools[0];
         s.maxMp += pools[1];
-        grant(s, BotSkillPlan.advancementGrants(newJob), catalog);
-        grantFourthJobPackage(s, catalog);
+        grantNpcSkills(s, catalog);
     }
 
     /**
@@ -468,17 +467,34 @@ public final class BotBuild {
         }
     }
 
-    /** Teaches each skill at its grant level (capped by the server, skipped when the server lacks it); no SP spent. */
+    /**
+     * Teaches each skill at its grant level (capped by the server, skipped when the server lacks it); no SP spent.
+     * SP an older build had put into a skill the grant now covers comes back to be spent elsewhere.
+     */
     private static int grant(State s, List<BotSkillPlan.Grant> grants, SkillCatalog catalog) {
         int granted = 0;
         for (BotSkillPlan.Grant g : grants) {
             int level = Math.min(g.level(), Math.max(0, catalog.maxLevel(g.skillId())));
-            if (level > s.skillLevel(g.skillId())) {
+            int have = s.skillLevel(g.skillId());
+            if (level > have) {
                 s.skills.put(g.skillId(), level);
+                s.sp += have;
                 granted++;
             }
         }
         return granted;
+    }
+
+    /**
+     * What the NPCs have taught a state of this job by now: the Job Master's grants along its line and, at the 4th
+     * job, the package. Applied on every settle, so a bot built before a grant was modelled gets it too; for
+     * everyone else it changes nothing.
+     */
+    static void grantNpcSkills(State s, SkillCatalog catalog) {
+        for (int job : lineage(s.job)) {
+            grant(s, BotSkillPlan.advancementGrants(job), catalog);
+        }
+        grantFourthJobPackage(s, catalog);
     }
 
     /**
@@ -487,7 +503,7 @@ public final class BotBuild {
      * its own SP spend, and finally the AP is spent.
      */
     public static void settle(State s, Choice choice, SkillCatalog catalog) {
-        grantFourthJobPackage(s, catalog);
+        grantNpcSkills(s, catalog);
         spendSp(s, choice, catalog);
         int level = Math.min(s.level, MAX_LEVEL);
         while (true) {
