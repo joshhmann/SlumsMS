@@ -42,7 +42,8 @@ public class ReachCommand extends Command {
         }
 
         Character victim = c.getWorldServer().getPlayerStorage().getCharacterByName(params[0]);
-        if (victim != null && victim.isLoggedin()) {
+        // A bot is online without being logged in (its BotClient keeps the save and disconnect loops off it).
+        if (victim != null && (victim.isLoggedin() || victim.getClient() instanceof client.BotClient)) {
             if (player.getClient().getChannel() != victim.getClient().getChannel()) {
                 player.dropMessage(5, "Player '" + victim.getName() + "' is at channel " + victim.getClient().getChannel() + ".");
             } else {
