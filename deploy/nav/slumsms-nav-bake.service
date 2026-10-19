@@ -1,0 +1,24 @@
+# Nightly nav deep bake (ticket 04b). Runs beside the game server, never in it: a separate JVM that only gets
+# CPU the server does not want (SCHED_IDLE + nice 19, idle I/O class, at most 2 cores and 2 GB), writes the
+# graph cache atomically and publishes its edges as a new generation under cache/bot-nav/deep/v<graph>/,
+# swapping the `current` link in one rename and keeping the previous generations for rollback:
+#   java -Dbot.nav.cacheDir=cache/bot-nav -cp target/Cosmic.jar soloMapling.ArtificialPlayer.GCMoveSystem.NavDeepBake --rollback
+# The jar must be the server's own (same graph version). Report: reports/nav/bake-latest.md.
+# Install: see docs/tickets/04b-nightly-deep-bake.md.
+[Unit]
+Description=SlumsMS nightly nav deep bake
+After=slumsms.service
+
+[Service]
+Type=oneshot
+WorkingDirectory=/opt/mapleroot/MapleRoot Full Repack/Server
+ExecStart=/usr/bin/java -Xms128m -Xmx1536m -XX:ActiveProcessorCount=2 -Dwz-path=wz -Dbot.nav.cacheDir=cache/bot-nav -cp target/Cosmic.jar soloMapling.ArtificialPlayer.GCMoveSystem.NavDeepBake --all-maps --threads=2 --budget-minutes=150 --grace-minutes=30 --keep=3 --report-dir=reports/nav
+Nice=19
+CPUSchedulingPolicy=idle
+IOSchedulingClass=idle
+CPUQuota=200%
+MemoryHigh=1800M
+MemoryMax=2G
+OOMScoreAdjust=800
+TimeoutStartSec=4h
+UMask=0077
