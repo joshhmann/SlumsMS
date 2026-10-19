@@ -1,6 +1,6 @@
 # Deployment and rollback
 
-This source baseline is prepared and tested; the current live installation remains unchanged.
+The tagged baseline has been deployed. See [the live handoff](live-handoff-20261019.md) for the service, backups, validation status and outstanding client graphics check.
 
 1. Resolve matching server and client tags and verify the release manifest hashes. Use fresh build outputs only after testing that matched pair; the archived accepted artifacts remain the recovery reference.
 2. Stage in a new directory, not in the running server root. Include target/Cosmic.jar, scripts/, cashshop/, full matching server wz/, and a private config.yaml. Verify database and host/port settings explicitly. A fresh service account needs access to those paths and its log directory.
@@ -9,6 +9,6 @@ This source baseline is prepared and tested; the current live installation remai
 5. Start the persistent service using the example after adapting paths/user. Smoke-test login, character entry, FM/Arcane routing, shop, weather and channel changes. Check logs and normal client exit.
 6. On failure, stop the new service, restore the previous runtime and matched client, and restore the database backup or use reviewed reverse migrations in reverse order (002 then 001). Do not mix JAR/DLL/asset generations. Restore the saved original service definition deliberately.
 
-Public source excludes config.yaml, database dumps, binaries produced by builds and server WZ XML. Runtime packaging tooling verifies a supplied asset tree and emits a manifest. It does not deploy or migrate a running server.
+Source excludes config.yaml, database dumps, binaries produced by builds and server WZ XML. Runtime packaging tooling verifies a supplied asset tree and emits a manifest. It does not deploy or migrate a running server.
 
 Registration Discord notifications are optional. Supply SLUMSMS_REGISTRATION_WEBHOOK privately if needed; it defaults off. Never commit the endpoint into source or service examples.

@@ -15,7 +15,7 @@ On Windows use `mvnw.cmd`. The complete suite is checked from this repository la
 
 ## Runtime inputs and start
 
-Supply the matching server-side `wz/` XML tree and a compatible MySQL database from your protected deployment assets. These are external inputs, not part of this public source repo. Keep server XML and Windows binary IMG files separate. Scripts and the validated 1,839-item cash-shop catalogue are included here.
+Supply the matching server-side `wz/` XML tree and a compatible MySQL database from your protected deployment assets. These are external inputs, not part of this source repo. Keep server XML and Windows binary IMG files separate. Scripts and the validated 1,839-item cash-shop catalogue are included here.
 
 For an original pre-integration database, review and apply `database/migrations/001-preserve-arcane.sql` then `002-classic-fm-return.sql` with an appropriate database backup. Their ledger/idempotence guards and rollback scripts are retained. An accepted test database already has these migrations; do not apply reverse scripts during normal deployment.
 
@@ -25,7 +25,7 @@ java -Dcashshop.window.enabled=true -Dweather.enabled=true -Dsolomapling.enabled
 
 Default login port is 8485; default channel base is 7585. Test profiles can override `mapleroot.login-port` and `mapleroot.channel-base-port`. The matched client is mandatory when these addon flags are enabled.
 
-`deploy/slumsms.service.example` is a persistent systemd template. Adapt its paths/user and install it deliberately; it does not replace or restart an existing service. The original live transient unit is not changed by this repository setup.
+`deploy/slumsms.service.example` is a persistent systemd template. Adapt its paths/user and install it deliberately; it does not replace or restart an existing service. The live rollout now uses persistent `slumsms.service`; see [the live handoff](docs/live-handoff-20261019.md) for the current service, private backup locations and acceptance status.
 
 ## Baseline and recovery
 
