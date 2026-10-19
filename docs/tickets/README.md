@@ -38,3 +38,4 @@ Created 2026-10-19 from the owner's plan. Order: nav v2 → real bots → compan
 | [29](29-tutorial-island-option.md) | Optional Maple Island tutorial for new characters | Gameplay | - |
 | [30](30-bot-rebirth.md) | Bot rebirths, veteran bots and the 5th tier | Real bots | 06 |
 | [31](31-leveling-path.md) | MapleRoot leveling path (bands, regions, rebirth gates) | Real bots | 03,30 |
+| [32](32-bot-skill-alignment.md) | Align bot attacks with real players, in waves | Real bots | - |
