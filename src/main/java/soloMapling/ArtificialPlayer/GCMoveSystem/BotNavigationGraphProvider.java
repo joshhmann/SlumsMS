@@ -66,7 +66,12 @@ final class BotNavigationGraphProvider {
     private static final int JUMP_POST_LANDING_STABILITY_TICKS = 3;
     private static final int MAX_PROFILED_JUMP_REGIONS = 5;
     private static final int FAST_WARMUP_MAX_FOOTHOLDS = 200;
-    private static final Path CACHE_DIR = Path.of("cache", "bot-nav", "v" + GRAPH_VERSION);
+    // Base dir is overridable so tests never persist their (often trimmed) graphs into the live cache - a
+    // trimmed map at base profile would otherwise overwrite the real graph and strand bots with region=-1.
+    // Surefire points -Dbot.nav.cacheDir at cache/bot-nav-test; prod uses the default. (After nutnnut/Cosmic
+    // 6c8896f98, AGPL-3.0. Credit: NutNNut.)
+    private static final Path CACHE_DIR =
+            Path.of(System.getProperty("bot.nav.cacheDir", "cache/bot-nav"), "v" + GRAPH_VERSION);
     private static final Map<GraphCacheKey, BotNavigationGraph> GRAPHS = new ConcurrentHashMap<>();
     private static final Map<GraphCacheKey, CompletableFuture<BotNavigationGraph>> PENDING_GRAPHS = new ConcurrentHashMap<>();
     private static final Map<GraphCacheKey, GraphBuildReport> LAST_BUILD_REPORTS = new ConcurrentHashMap<>();
