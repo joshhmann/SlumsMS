@@ -208,24 +208,16 @@ public class BotDecorateEquips {
         // Determine possible weapons based on job type and advancement level
         switch (jobType) {
             case WARRIOR:
+                // MapleRoot's warriors train swords (Fighter, Page) or spears (Spearman) only: it has no axe,
+                // blunt-weapon or pole-arm skills, so those weapons are never handed out.
                 if (jobLevel == 1) {
-                    // Beginner warrior can use any warrior weapon
+                    // Beginner warrior: a sword (one- or two-handed) or a spear
                     boolean useTwoHanded = random.nextBoolean();
 
                     if (useTwoHanded) {
-                        List<EquipType> twoHandedOptions = List.of(
-                                EquipType.SWORD_2H,
-                                EquipType.AXE_2H,
-                                EquipType.SPEAR,
-                                EquipType.POLEARM
-                        );
-                        possibleWeapons.add(twoHandedOptions.get(random.nextInt(twoHandedOptions.size())));
+                        possibleWeapons.add(random.nextBoolean() ? EquipType.SWORD_2H : EquipType.SPEAR);
                     } else {
-                        List<EquipType> oneHandedOptions = List.of(
-                                EquipType.SWORD,
-                                EquipType.AXE
-                        );
-                        possibleWeapons.add(oneHandedOptions.get(random.nextInt(oneHandedOptions.size())));
+                        possibleWeapons.add(EquipType.SWORD);
                         useShield = true;
                     }
                 } else {
@@ -235,38 +227,16 @@ public class BotDecorateEquips {
                     switch (warriorPath) {
                         case FIGHTER: // Fighter, Crusader, Hero path
                         case PAGE: // Page, White Knight, Paladin path
-                            boolean useTwoHanded = random.nextBoolean();
-
-                            if (useTwoHanded) {
-                                if (warriorPath == Job.FIGHTER) {
-                                    // Fighters prefer axes
-                                    possibleWeapons.add(random.nextBoolean() ?
-                                            EquipType.AXE_2H : EquipType.SWORD_2H);
-                                } else {
-                                    // Pages prefer swords
-                                    possibleWeapons.add(random.nextBoolean() ?
-                                            EquipType.SWORD_2H : EquipType.AXE_2H);
-                                }
+                            if (random.nextBoolean()) {
+                                possibleWeapons.add(EquipType.SWORD_2H);
                             } else {
-                                if (warriorPath == Job.FIGHTER) {
-                                    // Fighters prefer axes
-                                    possibleWeapons.add(random.nextBoolean() ?
-                                            EquipType.AXE : EquipType.SWORD);
-                                } else {
-                                    // Pages prefer swords
-                                    possibleWeapons.add(random.nextBoolean() ?
-                                            EquipType.SWORD : EquipType.AXE);
-                                }
+                                possibleWeapons.add(EquipType.SWORD);
                                 useShield = true;
                             }
                             break;
 
                         case SPEARMAN: // Spearman, Dragon Knight, Dark Knight path
-                            if (random.nextBoolean()) {
-                                possibleWeapons.add(EquipType.SPEAR);
-                            } else {
-                                possibleWeapons.add(EquipType.POLEARM);
-                            }
+                            possibleWeapons.add(EquipType.SPEAR);
                             break;
                     }
                 }

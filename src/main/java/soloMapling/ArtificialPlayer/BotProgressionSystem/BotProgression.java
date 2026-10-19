@@ -9,6 +9,7 @@ import client.inventory.WeaponType;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import soloMapling.ArtificialPlayer.BotCommandsPack.BotAttack;
+import soloMapling.ArtificialPlayer.BotHoldings;
 
 import java.util.LinkedHashMap;
 import java.util.Map;
@@ -30,8 +31,13 @@ import java.util.concurrent.ConcurrentHashMap;
  *
  * <p>A bot is "real" from the moment one of these settles it, and the level it was settled at is remembered: every
  * later step grants only the levels after that one, so no level is ever paid twice and none is skipped, whichever
- * path it arrived by. A bot whose job is not a stock job ({@link BotBuild#isStockJob}) is never settled: its stats,
- * skills and job stay exactly as they are, and nothing about them is stored.
+ * path it arrived by. A bot whose job the build does not cover ({@link BotBuild#isBuildJob}) is never settled: its
+ * stats, skills and job stay exactly as they are, and nothing about them is stored.
+ *
+ * <p>The 4th-job skill package (NPC 2084000, {@link BotSkillPlan#fourthJobPackage}) costs a player 10,000,000 mesos.
+ * Bots hold real mesos, so a bot that has them pays when the build gives it the package; one that does not still gets
+ * the package and the price is not collected - charging bots that cannot pay belongs to the economy work (real-bots
+ * ticket 15), not to the build.
  *
  * <p>Advancement sets the job directly. {@code Character.changeJob} is the player path - party and guild
  * broadcasts, job announcements, dragon spawns and the points it grants itself - and none of it applies to a bot;
@@ -71,7 +77,7 @@ public final class BotProgression {
 
     /**
      * The server's maximum level of a skill, or 0 when the server does not have it. Before the skill data is loaded
-     * (tools, tests) the plan's own stock targets stand.
+     * (tools, tests) the plan's own targets stand.
      */
     private static int serverMaxLevel(int skillId) {
         if (!SkillFactory.isLoaded()) {
@@ -90,12 +96,13 @@ public final class BotProgression {
     public static boolean buildNew(Character bot) {
         synchronized (bot) {
             int job = bot.getJob().getId();
-            if (!BotBuild.isStockJob(job)) {
+            if (!BotBuild.isBuildJob(job)) {
                 settledLevel.remove(bot.getId());
                 return false;
             }
             BotBuild.State built = BotBuild.plan(job, bot.getLevel(), choiceFor(bot), catalog);
             apply(bot, built, true);
+            payForPackages(bot, built);
             settledLevel.put(bot.getId(), bot.getLevel());
             return true;
         }
@@ -103,16 +110,16 @@ public final class BotProgression {
 
     /**
      * Restores a stored bot's build after its row was applied: the stored build when there is one, the back-filled
-     * one otherwise, then any levels the row gained after the build was last settled. A bot whose job is not a stock
-     * job keeps whatever it has and is not made real.
+     * one otherwise, then any levels the row gained after the build was last settled. A bot whose job the build does
+     * not cover keeps whatever it has and is not made real.
      */
     public static void restore(Character bot, BotRealStats stored) {
         synchronized (bot) {
             int job = bot.getJob().getId();
-            if (!BotBuild.isStockJob(job)) {
+            if (!BotBuild.isBuildJob(job)) {
                 settledLevel.remove(bot.getId());
                 if (stored != null) {
-                    log.warn("Bot {} ({}) has a stored build but job {} is not a stock job; leaving it untouched",
+                    log.warn("Bot {} ({}) has a stored build but the build does not cover job {}; leaving it untouched",
                             bot.getId(), bot.getName(), job);
                 }
                 return;
@@ -159,7 +166,7 @@ public final class BotProgression {
                 return;
             }
             int job = bot.getJob().getId();
-            if (!BotBuild.isStockJob(job)) {
+            if (!BotBuild.isBuildJob(job)) {
                 settledLevel.remove(bot.getId());
                 return;
             }
@@ -178,7 +185,25 @@ public final class BotProgression {
             state.level = level;
             BotBuild.settle(state, choice, catalog);
             apply(bot, state, level > settled);
+            payForPackages(bot, state);
             settledLevel.put(bot.getId(), level);
+        }
+    }
+
+    /**
+     * Charges the bot NPC 2084000's price for each package its build just gave it, when it can afford it. A bot that
+     * cannot keeps the package unpaid (see the class comment).
+     */
+    private static void payForPackages(Character bot, BotBuild.State state) {
+        for (int i = 0; i < state.packagesBought; i++) {
+            if (bot.getMeso() >= BotSkillPlan.FOURTH_JOB_PACKAGE_MESOS
+                    && BotHoldings.spendMeso(bot, BotSkillPlan.FOURTH_JOB_PACKAGE_MESOS)) {
+                log.debug("Bot {} ({}) paid {} mesos for the 4th-job skill package", bot.getId(), bot.getName(),
+                        BotSkillPlan.FOURTH_JOB_PACKAGE_MESOS);
+            } else {
+                log.debug("Bot {} ({}) got the 4th-job skill package unpaid ({} mesos held)", bot.getId(),
+                        bot.getName(), bot.getMeso());
+            }
         }
     }
 
@@ -259,7 +284,8 @@ public final class BotProgression {
             if (level <= 0) {
                 continue;
             }
-            int master = BotBuild.isFourthJobSkill(id) ? Math.max(level, BotBuild.targetLevel(id / 10000, id, catalog)) : 0;
+            int master = BotBuild.isFourthJobSkill(id) || BotSkillPlan.isGranted(id)
+                    ? Math.max(level, BotBuild.targetLevel(id / 10000, id, catalog)) : 0;
             skills.put(skill, new SkillEntry((byte) level, master, -1));
         }
         int[] sps = bot.getRemainingSps();
@@ -279,7 +305,7 @@ public final class BotProgression {
     static BotBuild.Choice choiceFor(Character bot) {
         int seed = bot.getId();
         WeaponType weapon = equippedWeapon(bot);
-        return new BotBuild.Choice(hintFor(weapon, seed), altWeapon(weapon), seed);
+        return new BotBuild.Choice(hintFor(weapon, seed), seed);
     }
 
     private static WeaponType equippedWeapon(Character bot) {
@@ -290,15 +316,18 @@ public final class BotProgression {
         }
     }
 
-    /** The 2nd job a weapon points to, or 0. Swords and wands fit several branches; the seed picks one. */
+    /**
+     * The 2nd job a weapon points to, or 0. Swords and wands fit several branches; the seed picks one. MapleRoot's
+     * warriors train swords (Fighter, Page) or spears (Spearman) only, so an axe or blunt weapon reads as a sword
+     * and a pole-arm as a spear.
+     */
     static int hintFor(WeaponType weapon, int seed) {
         if (weapon == null) {
             return 0;
         }
         return switch (weapon) {
-            case SWORD1H, SWORD2H -> Math.floorMod(seed, 2) == 0 ? 110 : 120;
-            case GENERAL1H_SWING, GENERAL2H_SWING -> 110;
-            case GENERAL1H_STAB, GENERAL2H_STAB -> 120;
+            case SWORD1H, SWORD2H, GENERAL1H_SWING, GENERAL2H_SWING, GENERAL1H_STAB, GENERAL2H_STAB ->
+                    Math.floorMod(seed, 2) == 0 ? 110 : 120;
             case SPEAR_STAB, SPEAR_SWING, POLE_ARM_SWING, POLE_ARM_STAB -> 130;
             case WAND, STAFF -> 210 + 10 * Math.floorMod(seed, 3);
             case BOW -> 310;
@@ -308,17 +337,6 @@ public final class BotProgression {
             case KNUCKLE -> 510;
             case GUN -> 520;
             default -> 0;
-        };
-    }
-
-    /** Whether the weapon is the second form of a warrior pair: axe, blunt weapon or pole-arm. */
-    static boolean altWeapon(WeaponType weapon) {
-        if (weapon == null) {
-            return false;
-        }
-        return switch (weapon) {
-            case GENERAL1H_SWING, GENERAL2H_SWING, GENERAL1H_STAB, GENERAL2H_STAB, POLE_ARM_SWING, POLE_ARM_STAB -> true;
-            default -> false;
         };
     }
 }

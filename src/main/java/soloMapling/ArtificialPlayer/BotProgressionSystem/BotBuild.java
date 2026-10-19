@@ -1,5 +1,6 @@
 package soloMapling.ArtificialPlayer.BotProgressionSystem;
 
+import java.util.List;
 import java.util.Map;
 import java.util.Set;
 import java.util.TreeMap;
@@ -9,10 +10,11 @@ import java.util.TreeMap;
  * its AP goes and where its SP goes. Nothing here touches a {@code Character}, the database or the server's skill
  * data directly - {@link BotProgression} reads a bot into a {@link State}, runs these rules on it and writes it back.
  *
- * <p><b>Coverage.</b> Stock classes only, up to level {@value #MAX_LEVEL}: Explorers (beginner, warrior, magician,
- * bowman, thief, pirate and their branches), Cygnus Knights (three advancements, as in stock v83) and Aran. Any
- * other job - MapleRoot's custom classes and their 5th tiers, Evan, GM jobs - is refused ({@link #isStockJob(int)}),
- * and the caller must leave such a bot exactly as it is rather than guess a build for it.
+ * <p><b>Coverage.</b> MapleRoot's regular classes up to level {@value #MAX_LEVEL}: Explorers (beginner, warrior,
+ * magician, bowman, thief, pirate and their branches), Cygnus Knights and Aran, each with four advancements. Any other
+ * job - the 5th tier (x13, rebirth- and item-gated), Super Beginner and Synth Master (700/710), Evan, GM jobs - is
+ * refused ({@link #isBuildJob(int)}), and the caller must leave such a bot exactly as it is rather than guess a build
+ * for it.
  *
  * <p><b>Points.</b> The amounts mirror the server's own level-up and job-change rules ({@code Character.levelUp},
  * {@code Character.changeJob}) so a bot gains what a player would: 5 AP per level, 3 SP per level once it has a
@@ -31,14 +33,18 @@ import java.util.TreeMap;
  * </ul>
  * A beginner already builds for the class it is going to take.
  *
- * <p><b>SP.</b> Per job, in the order of {@link BotSkillPlan}: attacks first, then mastery and booster, then key
- * buffs. The current job's list is filled first and SP left over goes down to the earlier jobs' lists. A skill is
- * never raised above the lower of its plan target and the server's maximum ({@link SkillCatalog}), and a skill the
- * server lacks is skipped. SP nothing can absorb stays unspent, as it would for a player.
+ * <p><b>SP.</b> Per job, in the order of {@link BotSkillPlan}: attacks first, then mastery, then key buffs. The
+ * current job's list is filled first and SP left over goes down to the earlier jobs' lists. A skill is never raised
+ * above the lower of its plan target and the server's maximum ({@link SkillCatalog}), a skill the server lacks is
+ * skipped, and a skill an NPC teaches ({@link BotSkillPlan#isGranted}) is only raised once the bot holds it. SP
+ * nothing can absorb stays unspent, as it would for a player.
  *
- * <p><b>Advancement.</b> 1st job at 10 (8 for a magician), 2nd at 30, 3rd at 70, 4th at 120 (Explorers and Aran;
- * stock Cygnus stop at the 3rd). The class and branch come from {@link Choice}: the 2nd job the bot's weapon points
- * to when it fits the class, otherwise one picked from the bot's id so the same bot always picks the same.
+ * <p><b>Advancement.</b> 1st job at 10 (8 for a magician), 2nd at 30, 3rd at 70, 4th at 120, for every class - the
+ * Job Master (NPC 9010003) gives Cygnus Knights a 4th job too. The class and branch come from {@link Choice}: the
+ * 2nd job the bot's weapon points to when it fits the class, otherwise one picked from the bot's id so the same bot
+ * always picks the same. An advancement also brings what the NPCs teach with it
+ * ({@link BotSkillPlan#advancementGrants}), and the 4th job the package of NPC 2084000
+ * ({@link BotSkillPlan#fourthJobPackage}), counted in {@link State#packagesBought} so the caller can charge for it.
  */
 public final class BotBuild {
 
@@ -54,13 +60,14 @@ public final class BotBuild {
     private static final int[] EXPLORER_CLASSES = {100, 200, 300, 400, 500};
     private static final int[] CYGNUS_CLASSES = {1100, 1200, 1300, 1400, 1500};
 
-    private static final Set<Integer> STOCK_JOBS = Set.of(
+    private static final Set<Integer> BUILD_JOBS = Set.of(
             0, 100, 110, 111, 112, 120, 121, 122, 130, 131, 132,
             200, 210, 211, 212, 220, 221, 222, 230, 231, 232,
             300, 310, 311, 312, 320, 321, 322,
             400, 410, 411, 412, 420, 421, 422,
             500, 510, 511, 512, 520, 521, 522,
-            1000, 1100, 1110, 1111, 1200, 1210, 1211, 1300, 1310, 1311, 1400, 1410, 1411, 1500, 1510, 1511,
+            1000, 1100, 1110, 1111, 1112, 1200, 1210, 1211, 1212, 1300, 1310, 1311, 1312,
+            1400, 1410, 1411, 1412, 1500, 1510, 1511, 1512,
             2000, 2100, 2110, 2111, 2112);
 
     public enum Stat { STR, DEX, INT, LUK }
@@ -70,18 +77,17 @@ public final class BotBuild {
     public interface SkillCatalog {
         int maxLevel(int skillId);
 
-        /** Trusts the plan's own targets: every listed skill exists at the stock v83 maximum. */
-        SkillCatalog STOCK = skillId -> Integer.MAX_VALUE;
+        /** Trusts the plan's own targets: every listed skill exists, up to its plan target. */
+        SkillCatalog PLAN = skillId -> Integer.MAX_VALUE;
     }
 
     /**
-     * How a bot picks within its class. {@code secondJobHint} is the 2nd job its weapon points to (0 for none),
-     * {@code altWeapon} whether it carries the second form of a warrior weapon pair (axe, blunt, pole-arm), and
+     * How a bot picks within its class. {@code secondJobHint} is the 2nd job its weapon points to (0 for none) and
      * {@code seed} breaks ties the same way every time for the same bot.
      */
-    public record Choice(int secondJobHint, boolean altWeapon, int seed) {
+    public record Choice(int secondJobHint, int seed) {
         public static Choice of(int seed) {
-            return new Choice(0, false, seed);
+            return new Choice(0, seed);
         }
     }
 
@@ -96,9 +102,11 @@ public final class BotBuild {
         public int maxHp = START_HP;
         public int maxMp = START_MP;
         public int remainingAp = START_AP;
-        /** Unspent SP. Every stock job covered here uses skill book 0, so this is that book's count. */
+        /** Unspent SP. Every job covered here uses skill book 0, so this is that book's count. */
         public int sp;
         public final Map<Integer, Integer> skills = new TreeMap<>();
+        /** How many 4th-job packages (NPC 2084000) this state was given since it was made; never stored. */
+        public int packagesBought;
 
         public State(int job, int level) {
             this.job = job;
@@ -134,8 +142,8 @@ public final class BotBuild {
     // ---------------------------------------------------------------- jobs
 
     /** True for a job this build covers. Anything else must be left untouched by the caller. */
-    public static boolean isStockJob(int jobId) {
-        return STOCK_JOBS.contains(jobId);
+    public static boolean isBuildJob(int jobId) {
+        return BUILD_JOBS.contains(jobId);
     }
 
     static boolean isBeginner(int jobId) {
@@ -242,8 +250,7 @@ public final class BotBuild {
         return switch (tier(jobId)) {
             case 0 -> plannedFirstJob(jobId, choice);
             case 1 -> plannedSecondJob(jobId, choice);
-            case 2 -> jobId + 1;
-            case 3 -> isCygnus(jobId) ? -1 : jobId + 1;
+            case 2, 3 -> jobId + 1;
             default -> -1;
         };
     }
@@ -254,7 +261,7 @@ public final class BotBuild {
             case 0 -> plannedFirstJob(jobId, choice) == 200 ? 8 : 10;
             case 1 -> 30;
             case 2 -> 70;
-            case 3 -> isCygnus(jobId) ? 0 : 120;
+            case 3 -> 120;
             default -> 0;
         };
     }
@@ -314,13 +321,12 @@ public final class BotBuild {
 
     // ---------------------------------------------------------------- SP
 
-    /** Whether the bot takes the second form of each pair in its SP order (axe/blunt/pole-arm, dagger, gun). */
+    /** Whether the bot takes the second form of each pair in its SP order (the dagger thief, the gunslinger). */
     static boolean takesAlternate(int jobId, Choice choice) {
         int second = plannedSecondJob(jobId, choice);
         return switch (plannedFirstJob(jobId, choice)) {
             case 400 -> second == 420;
             case 500 -> second == 520;
-            case 100 -> choice.altWeapon();
             default -> false;
         };
     }
@@ -328,7 +334,7 @@ public final class BotBuild {
     /** True for a 4th-job skill: those carry a master level. */
     public static boolean isFourthJobSkill(int skillId) {
         int job = skillId / 10000;
-        return isStockJob(job) && tier(job) == 4;
+        return isBuildJob(job) && tier(job) == 4;
     }
 
     /** The highest level this build ever raises the skill to (its plan target capped by the server), or 0. */
@@ -358,8 +364,8 @@ public final class BotBuild {
                 }
                 int target = Math.min(entry.target(), max);
                 int have = s.skillLevel(skillId);
-                if (have >= target) {
-                    continue;
+                if (have >= target || (have == 0 && BotSkillPlan.isGranted(skillId))) {
+                    continue;   // done, or taught by an NPC the bot has not been to yet
                 }
                 int add = Math.min(target - have, s.sp);
                 s.skills.put(skillId, have + add);
@@ -414,8 +420,11 @@ public final class BotBuild {
         s.maxMp += pools[1];
     }
 
-    /** Moves the state into its next job with the points the server grants for the advancement. */
-    static void advance(State s, int newJob) {
+    /**
+     * Moves the state into its next job with the points the server grants for the advancement, and what the NPCs
+     * teach with it: the Job Master's grants and, on the 4th job, the skill package.
+     */
+    static void advance(State s, int newJob, SkillCatalog catalog) {
         s.job = newJob;
         s.sp += tier(newJob) == 4 ? 3 : 1;
         int tier = tier(newJob);
@@ -427,6 +436,49 @@ public final class BotBuild {
         int[] pools = advancementPools(newJob);
         s.maxHp += pools[0];
         s.maxMp += pools[1];
+        grant(s, BotSkillPlan.advancementGrants(newJob), catalog);
+        grantFourthJobPackage(s, catalog);
+    }
+
+    /**
+     * Gives a 4th-job state its share of NPC 2084000's package, once: a bot that just advanced, or one built before
+     * the package was modelled. Echo of Hero marks it as bought, since nothing else teaches it (Hero's Will could have
+     * been bought with SP by an older build); without Echo in the server's data, any package skill held does.
+     * Counted in {@link State#packagesBought} when it granted anything.
+     */
+    static void grantFourthJobPackage(State s, SkillCatalog catalog) {
+        List<BotSkillPlan.Grant> pack = BotSkillPlan.fourthJobPackage(s.job);
+        if (tier(s.job) != 4 || pack.isEmpty()) {
+            return;
+        }
+        int marker = pack.get(0).skillId();
+        if (catalog.maxLevel(marker) > 0) {
+            if (s.skillLevel(marker) > 0) {
+                return;   // already bought
+            }
+        } else {
+            for (BotSkillPlan.Grant g : pack) {
+                if (s.skillLevel(g.skillId()) > 0) {
+                    return;
+                }
+            }
+        }
+        if (grant(s, pack, catalog) > 0) {
+            s.packagesBought++;
+        }
+    }
+
+    /** Teaches each skill at its grant level (capped by the server, skipped when the server lacks it); no SP spent. */
+    private static int grant(State s, List<BotSkillPlan.Grant> grants, SkillCatalog catalog) {
+        int granted = 0;
+        for (BotSkillPlan.Grant g : grants) {
+            int level = Math.min(g.level(), Math.max(0, catalog.maxLevel(g.skillId())));
+            if (level > s.skillLevel(g.skillId())) {
+                s.skills.put(g.skillId(), level);
+                granted++;
+            }
+        }
+        return granted;
     }
 
     /**
@@ -435,15 +487,16 @@ public final class BotBuild {
      * its own SP spend, and finally the AP is spent.
      */
     public static void settle(State s, Choice choice, SkillCatalog catalog) {
+        grantFourthJobPackage(s, catalog);
         spendSp(s, choice, catalog);
         int level = Math.min(s.level, MAX_LEVEL);
         while (true) {
             int at = advancementLevel(s.job, choice);
             int next = nextJob(s.job, choice);
-            if (at <= 0 || next < 0 || level < at || !isStockJob(next)) {
+            if (at <= 0 || next < 0 || level < at || !isBuildJob(next)) {
                 break;
             }
-            advance(s, next);
+            advance(s, next, catalog);
             spendSp(s, choice, catalog);
         }
         spendAp(s, choice);
@@ -471,10 +524,10 @@ public final class BotBuild {
      * whose stored job is ahead of what its level would give keeps it, by advancing along its own line - and a
      * job behind its level advances, as it would on its next level-up.
      *
-     * @throws IllegalArgumentException for a job that is not a stock job
+     * @throws IllegalArgumentException for a job the build does not cover
      */
     public static State plan(int jobId, int level, Choice choice, SkillCatalog catalog) {
-        if (!isStockJob(jobId)) {
+        if (!isBuildJob(jobId)) {
             throw new IllegalArgumentException("No build for job " + jobId);
         }
         int beginner = isCygnus(jobId) ? 1000 : jobId >= 2000 ? 2000 : 0;
@@ -487,7 +540,7 @@ public final class BotBuild {
             if (next < 0) {
                 break;
             }
-            advance(s, next);
+            advance(s, next, catalog);
             spendSp(s, line, catalog);
         }
         spendAp(s, line);
@@ -500,6 +553,6 @@ public final class BotBuild {
         if (tier(jobId) == 0) {
             return choice;
         }
-        return new Choice(plannedSecondJob(jobId, choice), choice.altWeapon(), choice.seed());
+        return new Choice(plannedSecondJob(jobId, choice), choice.seed());
     }
 }

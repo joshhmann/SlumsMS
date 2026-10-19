@@ -45,8 +45,11 @@ class BotProgressionTest {
                 }
             }
         }
+        for (int granted : BotSkillPlan.allGranted()) {
+            skills.put(granted, new Skill(granted));
+        }
         previousSkills = swapSkillFactory(skills);
-        BotProgression.useCatalogForTest(BotBuild.SkillCatalog.STOCK);
+        BotProgression.useCatalogForTest(BotBuild.SkillCatalog.PLAN);
     }
 
     @AfterEach
@@ -77,7 +80,7 @@ class BotProgressionTest {
 
     private static BotBuild.State planFor(Character bot) {
         return BotBuild.plan(bot.getJob().getId(), bot.getLevel(),
-                BotBuild.alongLineOf(bot.getJob().getId(), BotProgression.choiceFor(bot)), BotBuild.SkillCatalog.STOCK);
+                BotBuild.alongLineOf(bot.getJob().getId(), BotProgression.choiceFor(bot)), BotBuild.SkillCatalog.PLAN);
     }
 
     private static Map<Integer, Integer> skillsOf(Character bot) {
@@ -106,7 +109,7 @@ class BotProgressionTest {
 
         assertTrue(BotProgression.buildNew(bot));
 
-        assertMatchesPlan(BotBuild.plan(410, 55, BotBuild.Choice.of(BOT_ID), BotBuild.SkillCatalog.STOCK), bot);
+        assertMatchesPlan(BotBuild.plan(410, 55, BotBuild.Choice.of(BOT_ID), BotBuild.SkillCatalog.PLAN), bot);
         assertTrue(bot.getSkillLevel(constants.skills.Assassin.CLAW_MASTERY) > 0, "the bot really holds its skills");
         assertEquals(55, BotProgression.settledLevel(BOT_ID));
         assertEquals(bot.getCurrentMaxHp(), bot.getHp(), "a new bot starts healed");
@@ -155,7 +158,7 @@ class BotProgressionTest {
             bot.gainAp(5, true);
             bot.gainSp(3, 0, true);
             BotBuild.State plan = BotBuild.plan(300, level, BotBuild.alongLineOf(300, BotProgression.choiceFor(bot)),
-                    BotBuild.SkillCatalog.STOCK);
+                    BotBuild.SkillCatalog.PLAN);
             int hpBefore = bot.getMaxHp();
             BotProgression.afterLevelUp(bot, level - 1);
             assertEquals(plan.str + plan.dex + plan.int_ + plan.luk,
@@ -251,6 +254,45 @@ class BotProgressionTest {
         BotProgression.buildNew(bot);
 
         assertEquals(0, bot.getSkillLevel(templateSkill));
+    }
+
+    @Test
+    void aBotReachingItsFourthJobPaysForThePackageWhenItCan() {
+        Character rich = bot(BOT_ID, 111, 119);
+        Character poor = bot(BOT_ID + 1, 111, 119);
+        BotProgression.buildNew(rich);
+        BotProgression.buildNew(poor);
+        rich.gainMeso(12_000_000, false, false, false);
+
+        for (Character c : new Character[]{rich, poor}) {
+            c.setLevel(120);
+            BotProgression.afterOffscreenLevels(c, 119);
+        }
+
+        assertAll(
+                () -> assertEquals(112, rich.getJob().getId()),
+                () -> assertEquals(2_000_000, rich.getMeso(), "10m paid at NPC 2084000's price"),
+                () -> assertTrue(rich.getSkillLevel(soloMapling.ArtificialPlayer.MapleRootSkills.RISING_RAGE) > 0),
+                () -> assertEquals(0, poor.getMeso(), "a bot that cannot pay is not charged"),
+                () -> assertTrue(poor.getSkillLevel(soloMapling.ArtificialPlayer.MapleRootSkills.RISING_RAGE) > 0,
+                        "and still gets the package (the cost is the economy ticket's)"));
+
+        BotProgression.afterOffscreenLevels(rich, 120);
+        assertEquals(2_000_000, rich.getMeso(), "the package is paid once");
+    }
+
+    @Test
+    void aRealBotCastsOnlyTheBuffsItHolds() {
+        Character fresh = bot(BOT_ID, 410, 30);   // a new Assassin with no SP in Haste yet
+        BotProgression.buildNew(fresh);
+        Character trained = bot(BOT_ID + 1, 410, 69);
+        BotProgression.buildNew(trained);
+
+        assertAll(
+                () -> assertFalse(soloMapling.ArtificialPlayer.BotAttackSystem.BotBuffConfig.buffsFor(fresh)
+                        .contains(constants.skills.Assassin.HASTE)),
+                () -> assertTrue(soloMapling.ArtificialPlayer.BotAttackSystem.BotBuffConfig.buffsFor(trained)
+                        .contains(constants.skills.Assassin.HASTE)));
     }
 
     @Test
