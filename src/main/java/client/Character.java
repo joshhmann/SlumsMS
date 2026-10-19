@@ -6733,8 +6733,9 @@ public class Character extends AbstractCharacterObject {
             sendPacket(PacketCreator.giveBuff(energybar, 0, stat));
             sendPacket(PacketCreator.showOwnBuffEffect(energycharge.getId(), 2));
             getMap().broadcastPacket(this, PacketCreator.showBuffEffect(id, energycharge.getId(), 2));
+            // The pirate layout carries seconds in a short, as StatEffect.applyTo sends it; milliseconds overflow it.
             getMap().broadcastPacket(this, PacketCreator.giveForeignPirateBuff(id, energycharge.getId(),
-                    ceffect.getDuration(), stat));
+                    ceffect.getDuration() / 1000, stat));
         }
         if (energybar >= 10000 && energybar < 11000) {
             energybar = 15000;
