@@ -3,8 +3,11 @@ package soloMapling.ArtificialPlayer.GCMoveSystem;
 import client.Character;
 import server.maps.MapleMap;
 import server.maps.Portal;
+import scripting.event.EventManager;
+import soloMapling.ArtificialPlayer.BotHoldings;
 import soloMapling.ArtificialPlayer.BotTradeSystem.BotTradeCommands;
 import soloMapling.ArtificialPlayer.BotTravelSystem.BotScriptedWarp;
+import soloMapling.ArtificialPlayer.BotTravelSystem.BotTransit;
 import soloMapling.BotLogger;
 import soloMapling.server.BotShutdown;
 
@@ -16,14 +19,22 @@ import java.util.concurrent.Executors;
 import java.util.concurrent.ScheduledExecutorService;
 import java.util.concurrent.ScheduledFuture;
 import java.util.concurrent.TimeUnit;
+import java.util.function.BooleanSupplier;
 import java.util.function.Consumer;
 
 /*
  * Cross-map travel executor (the "GCTravel" half). Layers a coarse hop-by-hop orchestrator on top
  * of GCMovement: route via GCWorldGraph, then for each hop walk to the portal that
- * leads to the next map (using GCMove) and step through it; warp (changeMap) any hop with
- * no walkable portal (link/scripted/special) — pure-movement scope. The route is recomputed from
- * the live current map each poll, so landing anywhere unexpected self-corrects.
+ * leads to the next map (using GCMove) and step through it. Ticket 03 adds transit hops
+ * (BotTransit): walk to the cab/boat/ferry NPC (its ticket seller first), wait for the event's
+ * boarding window, pay the fare out of the bot's own mesos, then ride - waiting rooms and decks
+ * are left by the server's own event, exactly as a player is. Anything else warps (changeMap).
+ * The route is recomputed from the live current map each poll, so landing anywhere unexpected
+ * self-corrects.
+ *
+ * LOD: the walk to the dock uses GCMovement, so an on-screen bot visibly walks to the NPC and an
+ * off-screen one moves on the coarse planner; the boarding windows and voyages run on the real
+ * schedule either way (a bot waiting off-screen costs nothing but one poll).
  *
  * Runs on its own ~300 ms poller per traveling bot, independent of the 50 ms physics tick.
  */
@@ -34,7 +45,8 @@ final class GCTravel {
 
     // Route-search depth cap. Kept >= TrainingBot's discovery radius so anything a bot can DISCOVER it
     // can also ROUTE to (route may use taxi/ferry shortcuts, so the actual hop count is usually lower).
-    private static final int MAX_HOPS = 20;
+    // Ticket 03: cross-continent routes (Henesys -> Leafre is ~25 hops counting the dock and the decks).
+    private static final int MAX_HOPS = 60;
     private static final int POLL_MS = 300;
     // "At the portal" box: portals often sit a little above the floor the bot stands on, so the
     // vertical tolerance is generous while X stays tight.
@@ -78,7 +90,7 @@ final class GCTravel {
 
     private static final Map<Integer, Trip> TRIPS = new ConcurrentHashMap<>();
 
-    private static final class Trip {
+    static final class Trip {
         final Character bot;
         final int destMapId;
         final Consumer<Boolean> callback;
@@ -97,11 +109,18 @@ final class GCTravel {
         long softLockSinceMs;   // when the current soft-lock window opened (0 = unset)
         long hopStartAtMs;      // when the current hop's map was entered — feeds the absolute ceiling
         int lastMapId = -1;
+        // Ticket 03 transit state.
+        final int rebirths;     // rebirth gates the route may pass (BotMapGates)
+        boolean noFares;        // couldn't pay a fare: replan over free hops only
+        boolean sellerVisited;  // walked past the ticket seller on this map already
+        volatile boolean awaitingBoarding; // standing at a boarding NPC until the event opens entry
+        volatile boolean aboard;           // on a waiting room / deck / ride map
 
         Trip(Character bot, int destMapId, Consumer<Boolean> callback) {
             this.bot = bot;
             this.destMapId = destMapId;
             this.callback = callback;
+            this.rebirths = soloMapling.ArtificialPlayer.BotTravelSystem.BotMapGates.rebirthsOf(bot);
         }
     }
 
@@ -149,6 +168,28 @@ final class GCTravel {
         return bot != null && TRIPS.containsKey(bot.getId());
     }
 
+    /* Ticket 03: {traveling, queued at a boarding NPC, aboard a ride} across all bots, for !env travel. */
+    static int[] transitCounts() {
+        int queued = 0;
+        int aboard = 0;
+        for (Trip t : TRIPS.values()) {
+            if (t.awaitingBoarding) {
+                queued++;
+            }
+            if (t.aboard) {
+                aboard++;
+            }
+        }
+        return new int[]{TRIPS.size(), queued, aboard};
+    }
+
+    /* Ticket 03: true while the bot waits on transit - queued at a boarding NPC or aboard a ride. It stands
+     * still on purpose, so travel watchdogs must count this as progress. */
+    static boolean isInTransit(Character bot) {
+        Trip t = bot == null ? null : TRIPS.get(bot.getId());
+        return t != null && (t.awaitingBoarding || t.aboard);
+    }
+
     private static void tick(Trip trip) {
         if (BotShutdown.isQuiesced()) {
             cancel(trip.bot); // Ticket 09: no hop, no warp and no callback once the gate has closed
@@ -177,14 +218,31 @@ final class GCTravel {
             trip.nearTargetSinceMs = 0L;
             trip.softLockSinceMs = 0L;
             trip.hopStartAtMs = nowMs();
+            trip.sellerVisited = false;
+            trip.awaitingBoarding = false;
+            trip.aboard = false;
             GCMovement.clearMoveIntent(bot);
         }
 
-        List<Integer> route = GCWorldGraph.route(cur, trip.destMapId, MAX_HOPS);
+        // Aboard a ride (waiting room, deck, crane...): nothing to walk to - wait for the server to move us.
+        BotTransit.Edge ride = BotTransit.rideOn(cur);
+        if (ride != null) {
+            ride(trip, bot, ride);
+            return;
+        }
+
+        List<Integer> route = GCWorldGraph.route(cur, trip.destMapId, MAX_HOPS, trip.rebirths, !trip.noFares,
+                savedReturn(bot));
         if (route == null) {
-            // No walkable portal path at all (e.g. towns linked only by taxi/ferry, which
-            // pure-movement scope drops) — warp the remainder to the destination.
-            warp(bot, trip.destMapId, "no walkable portal route to " + trip.destMapId);
+            if (trip.noFares) {
+                // The only way on costs mesos this bot doesn't have: give up rather than warp for free.
+                BotLogger.log("[GCTravel] " + bot.getName() + " can't afford the way from " + cur + " to "
+                        + trip.destMapId + " (" + bot.getMeso() + " mesos) - trip failed");
+                finish(trip, false);
+                return;
+            }
+            // Nothing connects the two maps at all - warp the remainder to the destination.
+            warp(bot, trip.destMapId, "no portal or transit route to " + trip.destMapId);
             return;
         }
         if (route.isEmpty()) {
@@ -193,7 +251,8 @@ final class GCTravel {
         }
         int nextHop = route.get(0);
 
-        // Prefer a walkable portal; else a taxi (cab) ride; else warp the hop.
+        // Prefer a walkable portal; else a transit hop (cab, boat, ferry...); else a curated scripted warp;
+        // else warp the hop.
         Portal portal = findPortalTo(bot.getMap(), nextHop);
         if (portal != null) {
             approachAndAct(trip, bot, portal.getPosition(), nextHop,
@@ -201,16 +260,9 @@ final class GCTravel {
                     () -> GCPortals.enter(bot, portal)); // walk to the portal, stand a beat, step through
             return;
         }
-        GCTaxi.TaxiEdge taxi = GCTaxi.edge(cur, nextHop);
-        if (taxi != null) {
-            Point npcPos = GCTaxi.npcPos(bot.getMap(), taxi.npcId());
-            if (npcPos == null) {
-                warp(bot, nextHop, "taxi npc " + taxi.npcId() + " not on map " + cur);
-                return;
-            }
-            approachAndAct(trip, bot, npcPos, nextHop,
-                    "taxi npc " + taxi.npcId() + " -> map " + nextHop,
-                    () -> warp(bot, nextHop, "taxi ride " + cur + " -> " + nextHop)); // walk to cab, ride
+        BotTransit.Edge transit = BotTransit.edge(cur, nextHop);
+        if (transit != null && transit.isBoard()) {
+            board(trip, bot, transit);
             return;
         }
         // Curated scripted-warp portal (e.g. subway entrance): its WZ target is a script, so findPortalTo
@@ -228,7 +280,143 @@ final class GCTravel {
                             "scripted warp " + cur + " -> " + nextHop));
             return;
         }
-        warp(bot, nextHop, "no walkable portal/taxi/scripted-warp on map " + cur + " to " + nextHop);
+        warp(bot, nextHop, "no walkable portal/transit/scripted-warp on map " + cur + " to " + nextHop);
+    }
+
+    // ── Transit (ticket 03) ─────────────────────────────────────────────────
+
+    /*
+     * A boarding hop: walk past the ticket seller (when one stands on this map), then to the boarding NPC
+     * or scripted portal, and board. A bot that can't get there in the usual hop windows is set down beside
+     * the NPC instead of being warped past it, so the fare and the boarding window still apply.
+     */
+    private static void board(Trip trip, Character bot, BotTransit.Edge e) {
+        MapleMap map = bot.getMap();
+        String intent = "'" + e.name() + "' " + e.fromMapId() + " -> " + e.toMapId();
+        if (!trip.sellerVisited && e.sellerNpcId() > 0) {
+            Point seller = BotTransit.npcPos(map, e.sellerNpcId());
+            if (seller != null) {
+                approachAndAct(trip, bot, seller, e.toMapId(), "ticket seller for " + intent, () -> {
+                    trip.sellerVisited = true;
+                    restartHop(trip);
+                    return true;
+                }, () -> {
+                    trip.sellerVisited = true;
+                    restartHop(trip);
+                });
+                return;
+            }
+            trip.sellerVisited = true;
+        }
+        Point at = e.via() == BotTransit.Via.PORTAL ? BotTransit.portalPos(map, e.portalName())
+                : BotTransit.npcPos(map, e.npcId());
+        if (at == null) {
+            tryBoard(trip, bot, e); // NPC not spawned on this map: board where we stand (the fare still applies)
+            return;
+        }
+        approachAndAct(trip, bot, at, e.toMapId(), intent, () -> tryBoard(trip, bot, e), () -> {
+            GCMovement.teleportTo(bot, at.x, at.y); // set down beside the NPC; boarding happens next poll
+            restartHop(trip);
+        });
+    }
+
+    /* Board now if the event's window is open and the bot can pay. False = still queued at the NPC. */
+    static boolean tryBoard(Trip trip, Character bot, BotTransit.Edge e) {
+        if (e.event() != null && !boardingOpen(bot, e.event())) {
+            if (!trip.awaitingBoarding) {
+                trip.awaitingBoarding = true;
+                BotLogger.log("[GCTravel] " + bot.getName() + " queued for '" + e.name() + "' on map "
+                        + e.fromMapId() + " (boarding closed)");
+            }
+            restartHop(trip); // waiting in line is not being stuck
+            return false;
+        }
+        trip.awaitingBoarding = false;
+        int fare = e.fareFor(bot.getJob().getId());
+        if (fare > 0 && !BotHoldings.spendMeso(bot, fare)) {
+            trip.noFares = true; // replan over free hops; failing that the trip ends without a free warp
+            BotLogger.log("[GCTravel] " + bot.getName() + " can't pay " + fare + " for '" + e.name()
+                    + "' (" + bot.getMeso() + " mesos)");
+            return true;
+        }
+        if (e.saveLocation() != null) {
+            bot.saveLocation(e.saveLocation());
+        }
+        int to = e.toMapId();
+        if (e.returnToSaved() != null) {
+            int saved = bot.getSavedLocation(e.returnToSaved()); // the script's own way home
+            to = saved > 0 ? saved : constants.id.MapId.LITH_HARBOUR;
+        }
+        BotLogger.log("[GCTravel] " + bot.getName() + " took '" + e.name() + "' " + e.fromMapId() + " -> " + to
+                + (fare > 0 ? " for " + fare + " mesos" : ""));
+        arrive(bot, to, e);
+        return true;
+    }
+
+    /* Aboard a ride. Server-driven rides end when the event (or the ferry's timer) moves the bot; past `sec`
+     * plus a grace the bot is moved anyway, so a missing event can never strand it. Per-player instances
+     * (Hak, the dragon) have nothing to move a bot, so it gets off itself after `sec`. */
+    static void ride(Trip trip, Character bot, BotTransit.Edge e) {
+        trip.aboard = true;
+        long limitMs = bot.getMap().getWorldServer() == null ? e.scaledMs(1)
+                : bot.getMap().getWorldServer().getTransportationTime((int) Math.min(Integer.MAX_VALUE, e.sec() * 1000L));
+        long aboardMs = nowMs() - trip.hopStartAtMs;
+        if (!e.serverDriven()) {
+            if (aboardMs >= limitMs) {
+                BotLogger.log("[GCTravel] " + bot.getName() + " arrived by '" + e.name() + "' -> " + e.toMapId());
+                arrive(bot, e.toMapId(), e);
+            }
+            return;
+        }
+        long graceMs = Math.max(30_000L, limitMs / 5);
+        if (aboardMs >= limitMs + graceMs) {
+            warp(bot, e.toMapId(), "'" + e.name() + "' never moved the bot off map " + e.fromMapId()
+                    + " in " + ((limitMs + graceMs) / 1000) + "s - ride fallback");
+        }
+    }
+
+    private static void arrive(Character bot, int mapId, BotTransit.Edge e) {
+        try {
+            if (mapId == e.toMapId() && e.toPortalName() != null) {
+                bot.changeMap(mapId, e.toPortalName());
+            } else if (mapId == e.toMapId() && e.toPortalId() >= 0) {
+                bot.changeMap(mapId, e.toPortalId());
+            } else {
+                bot.changeMap(mapId);
+            }
+        } catch (Throwable ignored) {
+            // a bad map id / lifecycle race shouldn't kill the trip; the next poll re-evaluates
+        }
+    }
+
+    /* Mirrors the boarding NPCs' check: em.getProperty("entry") == "true". An event that isn't running
+     * (no such script, or no property yet) doesn't hold the bot - the ride's own fallback timer covers it. */
+    static boolean boardingOpen(Character bot, String event) {
+        try {
+            EventManager em = bot.getMap().getChannelServer().getEventSM().getEventManager(event);
+            String entry = em == null ? null : em.getProperty("entry");
+            return entry == null || "true".equals(entry);
+        } catch (RuntimeException e) {
+            return true;
+        }
+    }
+
+    /* Where the World Tour would take this bot home: its saved town, else the script's default. */
+    static int savedReturn(Character bot) {
+        int saved = bot.peekSavedLocation(WORLD_TOUR);
+        return saved > 0 ? saved : GCWorldGraph.NO_SAVED_RETURN;
+    }
+
+    private static final String WORLD_TOUR = "WORLDTOUR";
+
+    private static void restartHop(Trip trip) {
+        long now = nowMs();
+        trip.settledAtMs = 0L;
+        trip.hopStartAtMs = now;
+        trip.hopProgressAtMs = now;
+        trip.softLockSinceMs = 0L;
+        trip.nearTargetSinceMs = 0L;
+        trip.hopBestDist = Integer.MAX_VALUE;
     }
 
     /*
@@ -238,12 +426,30 @@ final class GCTravel {
      * in the same spot for the whole window warps the hop.
      */
     private static void approachAndAct(Trip trip, Character bot, Point dest, int nextHop, String intent, Runnable action) {
+        approachAndAct(trip, bot, dest, nextHop, intent, () -> {
+            action.run();
+            return true;
+        });
+    }
+
+    private static void approachAndAct(Trip trip, Character bot, Point dest, int nextHop, String intent,
+                                       BooleanSupplier action) {
+        approachAndAct(trip, bot, dest, nextHop, intent, action, null);
+    }
+
+    /*
+     * As above, with action answering whether it acted (false = still waiting at the target, e.g. queued
+     * for a boat) and giveUp replacing the "warp the hop" escape for hops that must not be skipped (a paid
+     * boarding sets the bot down beside the NPC instead). Null giveUp = warp the hop.
+     */
+    private static void approachAndAct(Trip trip, Character bot, Point dest, int nextHop, String intent,
+                                       BooleanSupplier action, Runnable giveUp) {
         Point bp = bot.getPosition();
         long now = nowMs();
 
         // Absolute per-hop ceiling: whatever the physics looked like, a hop this old has failed.
         if (now - trip.hopStartAtMs >= HOP_MAX_MS) {
-            warp(bot, nextHop, "HOP-CEILING: hop " + (HOP_MAX_MS / 1000) + "s old on map "
+            escape(bot, nextHop, giveUp, "HOP-CEILING: hop " + (HOP_MAX_MS / 1000) + "s old on map "
                     + bot.getMapId() + " at (" + bp.x + "," + bp.y + "), intent: " + intent);
             return;
         }
@@ -268,7 +474,7 @@ final class GCTravel {
             if (trip.settledAtMs == 0L) {
                 trip.settledAtMs = now;                           // just arrived + stopped: start dwell
             } else if (now - trip.settledAtMs >= PORTAL_ENTER_DWELL_MS) {
-                action.run();                                     // stood a beat — act now
+                action.getAsBoolean();                            // stood a beat — act now (or keep queueing)
             }
             return;
         }
@@ -277,7 +483,7 @@ final class GCTravel {
         // Basically on top of the target but never settling — mid-arc counts as moving, so a bot
         // arc-jumping over the portal on a curved floor would hover here forever. Just act.
         if (nearTarget && now - trip.nearTargetSinceMs >= SNAP_ENTER_MS) {
-            action.run();
+            action.getAsBoolean();
             return;
         }
 
@@ -303,7 +509,7 @@ final class GCTravel {
                 trip.softMinY = bp.y;
                 trip.softMaxY = bp.y;
             } else if (now - trip.softLockSinceMs >= SOFT_LOCK_MS) {
-                warp(bot, nextHop, "SOFT-LOCK: confined to "
+                escape(bot, nextHop, giveUp, "SOFT-LOCK: confined to "
                         + (trip.softMaxX - trip.softMinX) + "x" + (trip.softMaxY - trip.softMinY)
                         + "px for " + (SOFT_LOCK_MS / 1000) + "s on map " + bot.getMapId()
                         + " at (" + bp.x + "," + bp.y + "), intent: " + intent);
@@ -329,7 +535,7 @@ final class GCTravel {
             trip.lastPosY = bp.y;
             trip.hopProgressAtMs = now;
         } else if (now - trip.hopProgressAtMs > HOP_STUCK_MS) {
-            warp(bot, nextHop, "stuck " + (HOP_STUCK_MS / 1000) + "s — not moving toward hop target on map " + bot.getMapId());
+            escape(bot, nextHop, giveUp, "stuck " + (HOP_STUCK_MS / 1000) + "s — not moving toward hop target on map " + bot.getMapId());
             return;
         }
 
@@ -345,6 +551,16 @@ final class GCTravel {
             }
         }
         return null;
+    }
+
+    /* A hop's escape hatch: warp the hop, or the hop's own giveUp when it must not be skipped. */
+    private static void escape(Character bot, int nextHop, Runnable giveUp, String reason) {
+        if (giveUp == null) {
+            warp(bot, nextHop, reason);
+            return;
+        }
+        BotLogger.log("[GCTravel] " + bot.getName() + " gave up walking - " + reason);
+        giveUp.run();
     }
 
     private static void warp(Character bot, int mapId, String reason) {
