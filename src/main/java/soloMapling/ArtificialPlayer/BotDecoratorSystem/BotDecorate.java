@@ -332,6 +332,9 @@ public class BotDecorate {
             }
         }
 
+        // The casual QuickEquip look hands out any weapon; the bot fights with one of its job's.
+        BotWeapons.ensureFittingWeapon(bot);
+
         // NX cosmetic layer - runs on every bot regardless of which equip path
         // it took. Its own 30% base gate decides whether the bot actually gets
         // any NX pieces.

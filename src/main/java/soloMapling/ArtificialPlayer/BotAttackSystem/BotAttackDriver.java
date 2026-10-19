@@ -4,6 +4,8 @@ import client.Character;
 import client.Job;
 import client.Skill;
 import client.SkillFactory;
+import client.inventory.InventoryType;
+import client.inventory.Item;
 import client.inventory.WeaponType;
 import constants.skills.Cleric;
 import constants.skills.Hermit;
@@ -13,6 +15,7 @@ import server.maps.MapObject;
 import server.maps.MapObjectType;
 import server.maps.MapleMap;
 import soloMapling.ArtificialPlayer.BotCommandsPack.BotAttack;
+import soloMapling.ArtificialPlayer.BotDecoratorSystem.BotWeapons;
 import soloMapling.ArtificialPlayer.BotMovementSystem.MovementCommands;
 import soloMapling.ArtificialPlayer.GCMoveSystem.BotPerformanceMonitor;
 import soloMapling.ArtificialPlayer.GCMoveSystem.GCMovement;
@@ -56,6 +59,8 @@ public final class BotAttackDriver {
     // A forward (non-surround) attack still reaches a hair behind the bot so a mob right on top
     // of it counts; mobs clearly behind are excluded (e.g. a crossbow won't fire backwards).
     private static final int BACK_MARGIN = 25;
+    // A box reaches this far below the bot's feet, so a mob on the bot's own ground (same y) is inside it.
+    private static final int FOOT_SLACK = 10;
     // Bosses are large and multi-bodied - Zakum's arms sit well above the bot's foothold - so
     // their part positions are tested against a vertically padded copy of the reach box.
     private static final int BOSS_Y_PAD = 300;
@@ -71,12 +76,12 @@ public final class BotAttackDriver {
     private BotAttackDriver() {}
 
     /* Outcome of an attack attempt, for the GM command to report. */
-    public record AttackResult(boolean hit, String monsterName, int damage, boolean killed, String reason) {
-        static AttackResult hit(String name, int dmg, boolean killed) {
-            return new AttackResult(true, name, dmg, killed, null);
+    public record AttackResult(boolean hit, String monsterName, int damage, boolean killed, String reason, int skillId) {
+        static AttackResult hit(String name, int dmg, boolean killed, int skillId) {
+            return new AttackResult(true, name, dmg, killed, null, skillId);
         }
         static AttackResult miss(String reason) {
-            return new AttackResult(false, null, 0, false, reason);
+            return new AttackResult(false, null, 0, false, reason, 0);
         }
     }
 
@@ -90,7 +95,9 @@ public final class BotAttackDriver {
     public static AttackResult botAttack(Character bot) {
         long startedAt = System.nanoTime();
         try {
-            return attack(bot, false, Choice.AUTO);
+            AttackResult result = attack(bot, false, Choice.AUTO);
+            BotAttackStats.record(bot, result);
+            return result;
         } finally {
             BotPerformanceMonitor.recordCombatDamage(System.nanoTime() - startedAt);
         }
@@ -111,10 +118,17 @@ public final class BotAttackDriver {
         return attack(bot, true, Choice.ULTIMATE);
     }
 
+    /* The item id of the weapon the bot holds, or 0. */
+    static int equippedWeaponId(Character bot) {
+        Item weapon = bot.getInventory(InventoryType.EQUIPPED).getItem((short) -11);
+        return weapon != null ? weapon.getItemId() : 0;
+    }
+
     /* Release a despawned bot's cooldown timers so the maps don't grow unbounded. */
     public static void clearBot(int botId) {
         nextAttackByBot.remove(botId);
         nextUltimateByBot.remove(botId);
+        BotAttackStats.clear(botId);
     }
 
     /*
@@ -165,6 +179,9 @@ public final class BotAttackDriver {
             return AttackResult.miss("on cooldown");
         }
 
+        // A bot holding a weapon its job does not fight with (a changed job, the casual look) takes a fitting one
+        // first: the viewer's client draws none of the job's skills with the wrong weapon.
+        BotWeapons.ensureFittingWeapon(bot);
         WeaponType weapon = BotAttack.resolveEquippedWeaponType(bot);
         BotAttackConfig.JobAttacks atks = BotAttackConfig.resolve(bot.getJob(), weapon);
         BotAttackProfile single = atks.single();
@@ -232,7 +249,17 @@ public final class BotAttackDriver {
 
         int facingMask = facingLeft ? BotAttackData.FACING_LEFT_MASK : BotAttackData.FACING_RIGHT_MASK;
         int skillId = profile.skillFor(weapon); // sword/axe & spear/pole-arm forms resolve here
-        int bodyActionId = BotAttackData.actionFor(skillId, weapon); // skill's own keyframe if it overrides, else weapon's
+        int skillLevel = profile.skillLevel;
+        BotAttackProfile.Route route = profile.route;
+        if (!BotSkillActions.weaponFits(skillId, equippedWeaponId(bot))) {
+            // A viewer's client drops a skill the attacker's weapon cannot use, and tells the viewer so. A plain swing
+            // of the weapon it holds is drawn instead (BotWeapons normally keeps the weapon right for the job).
+            skillId = 0;
+            skillLevel = 0;
+            route = BotAttackProfile.Route.CLOSE;
+        }
+        // The skill's own pose (the client drops an attack whose pose the skill does not allow), else the weapon's.
+        int bodyActionId = BotAttackData.actionFor(skillId, skillLevel, weapon);
 
         // Roll the profile's lines independently per mob; sum a total for the GM report.
         // Shadow Partner mirrors each throw, so the client draws double the stars - match the packet.
@@ -260,12 +287,12 @@ public final class BotAttackDriver {
             hits.put(mob, lines);
         }
 
-        boolean killed = switch (profile.route) {
-            case CLOSE  -> BotAttackEffects.meleeStrike(bot, hits, skillId, profile.skillLevel,
+        boolean killed = switch (route) {
+            case CLOSE  -> BotAttackEffects.meleeStrike(bot, hits, skillId, skillLevel,
                     bodyActionId, facingMask, profile.speed, profile.hitDelayMs);
-            case RANGED -> BotAttackEffects.rangedStrike(bot, hits, skillId, profile.skillLevel,
+            case RANGED -> BotAttackEffects.rangedStrike(bot, hits, skillId, skillLevel,
                     BotAttackData.projectileFor(weapon, bot), bodyActionId, facingMask, profile.speed, profile.hitDelayMs);
-            case MAGIC  -> BotAttackEffects.magicStrike(bot, hits, skillId, profile.skillLevel,
+            case MAGIC  -> BotAttackEffects.magicStrike(bot, hits, skillId, skillLevel,
                     bodyActionId, facingMask, profile.speed, profile.hitDelayMs);
         };
 
@@ -276,7 +303,7 @@ public final class BotAttackDriver {
         String label = targets.size() > 1
                 ? targets.size() + " mobs (nearest '" + targets.get(0).getName() + "')"
                 : targets.get(0).getName();
-        return AttackResult.hit(label, reported, killed);
+        return AttackResult.hit(label, reported, killed, skillId);
     }
 
     /*
@@ -381,7 +408,29 @@ public final class BotAttackDriver {
         if (!surround) {
             box = clipForward(box, p.x, facingLeft);
         }
-        return box;
+        return coverBody(box, p, facingLeft, surround);
+    }
+
+    /*
+     * Stretch a box over the bot's own feet and body. Many melee boxes stop short of the attacker: Raging Blow and
+     * Impaling Rays end at the foot line (rb.y = 0), and a Rectangle leaves out its bottom edge, so a mob standing
+     * on the bot's own ground - the usual case - was never in reach; Brandish and Crusher also start 10-16 px in
+     * front, missing a mob that has walked into the bot. The bot then stood in "range" swinging at nothing.
+     */
+    static Rectangle coverBody(Rectangle box, Point p, boolean facingLeft, boolean surround) {
+        int top = box.y;
+        int bottom = Math.max(box.y + box.height, p.y + FOOT_SLACK);
+        int left = box.x;
+        int right = box.x + box.width;
+        if (surround) {
+            left = Math.min(left, p.x - BACK_MARGIN);
+            right = Math.max(right, p.x + BACK_MARGIN);
+        } else if (facingLeft) {
+            right = Math.max(right, p.x + BACK_MARGIN);
+        } else {
+            left = Math.min(left, p.x - BACK_MARGIN);
+        }
+        return new Rectangle(left, top, right - left, bottom - top);
     }
 
     /* The skill's WZ attack rectangle anchored at the bot and flipped for facing, or null. */

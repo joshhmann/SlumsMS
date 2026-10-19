@@ -12,6 +12,7 @@ import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import server.Trade;
 import server.maps.MapleMap;
+import soloMapling.ArtificialPlayer.BotDecoratorSystem.BotWeapons;
 import soloMapling.server.SoloMaplingConstants;
 import tools.DatabaseConnection;
 import tools.Pair;
@@ -370,6 +371,11 @@ public final class BotStore {
             holdingsUnavailable.add(bot.getId());
             log.warn("Could not load the holdings of bot {}: {} - this bot will not write its inventory",
                     bot.getId(), e.getMessage());
+        }
+        // A stored bot can hold a weapon its job does not fight with (its job was changed, or it wore the casual
+        // look); viewers' clients draw none of its skills with it, so it takes a fitting one.
+        if (!holdingsUnavailable.contains(bot.getId())) {
+            BotWeapons.ensureFittingWeapon(bot);
         }
         // Level, job and worn gear all came off the row, so the clone's stats are stale until this point
         // (ticket 07 rule 2: stored progression must be internally consistent, not just visible).
