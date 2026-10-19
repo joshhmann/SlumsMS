@@ -6,7 +6,6 @@ import client.Job;
 import client.Skill;
 import client.SkillFactory;
 import client.inventory.WeaponType;
-import constants.skills.Warrior;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import soloMapling.ArtificialPlayer.BotCommandsPack.BotAttack;
@@ -75,7 +74,7 @@ public final class BotProgression {
      * (tools, tests) the plan's own stock targets stand.
      */
     private static int serverMaxLevel(int skillId) {
-        if (SkillFactory.getSkill(Warrior.POWER_STRIKE) == null) {
+        if (!SkillFactory.isLoaded()) {
             return Integer.MAX_VALUE;
         }
         Skill skill = SkillFactory.getSkill(skillId);
@@ -245,19 +244,27 @@ public final class BotProgression {
                 bot.setJob(job);
             }
         }
-        int[] sps = bot.getRemainingSps();
-        sps[0] = s.sp;
-        bot.applyBotBuild(s.str, s.dex, s.int_, s.luk, s.remainingAp, sps, s.maxHp, s.maxMp);
-
         Map<Skill, SkillEntry> skills = new LinkedHashMap<>();
-        s.skills.forEach((id, level) -> {
+        int refunded = 0;
+        for (Map.Entry<Integer, Integer> held : s.skills.entrySet()) {
+            int id = held.getKey();
+            int level = held.getValue();
             Skill skill = SkillFactory.getSkill(id);
-            if (skill == null || level <= 0) {
-                return;
+            if (skill == null) {
+                // A stored skill the server no longer has (its skill data changed): the SP comes back to the bot
+                // rather than vanishing with the skill, and is spent again by the next settle.
+                refunded += Math.max(0, level);
+                continue;
+            }
+            if (level <= 0) {
+                continue;
             }
             int master = BotBuild.isFourthJobSkill(id) ? Math.max(level, BotBuild.targetLevel(id / 10000, id, catalog)) : 0;
-            skills.put(skill, new SkillEntry((byte) (int) level, master, -1));
-        });
+            skills.put(skill, new SkillEntry((byte) level, master, -1));
+        }
+        int[] sps = bot.getRemainingSps();
+        sps[0] = s.sp + refunded;
+        bot.applyBotBuild(s.str, s.dex, s.int_, s.luk, s.remainingAp, sps, s.maxHp, s.maxMp);
         bot.replaceBotSkills(skills);
 
         bot.refreshStatsAfterProgression();

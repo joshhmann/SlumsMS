@@ -65,6 +65,11 @@ import java.util.Map;
  * <p>Warrior skills that come in a weapon pair (sword/axe, sword/blunt, spear/pole-arm) name both forms; the bot
  * takes the one matching the weapon it carries ({@code alt} when it carries the second form).
  *
+ * <p>Ids come from {@code constants.skills} except where those constants disagree with the server's Skill.wz, which
+ * is what {@code SkillFactory} loads: Iron Body, Power Strike and Slash Blast are 1001003-1001005 (the constants say
+ * 1000003-1000005), Nimble Body and Keen Eyes are 4000000/4000001 (not 4001000/4001001), and the Night Walker's
+ * Disorder and Triple Throw are 14001002 and 14111005. Those are spelled out below as {@code WZ_*}.
+ *
  * <p>Beginner skills are not listed: the server gives no SP below 1st job. MapleRoot custom jobs have no entry and
  * are never built (see {@link BotBuild#isStockJob(int)}).
  */
@@ -78,6 +83,15 @@ public final class BotSkillPlan {
     }
 
     private static final Map<Integer, List<Entry>> BY_JOB = new HashMap<>();
+
+    // Where constants.skills disagrees with Skill.wz (see the class comment).
+    static final int WZ_IRON_BODY = 1001003;
+    static final int WZ_POWER_STRIKE = 1001004;
+    static final int WZ_SLASH_BLAST = 1001005;
+    static final int WZ_NIMBLE_BODY = 4000000;
+    static final int WZ_KEEN_EYES = 4000001;
+    static final int WZ_NW_DISORDER = 14001002;
+    static final int WZ_NW_TRIPLE_THROW = 14111005;
 
     private BotSkillPlan() {
     }
@@ -106,8 +120,8 @@ public final class BotSkillPlan {
 
     static {
         // ===== Warrior =====
-        put(100, e(Warrior.POWER_STRIKE, 1), e(Warrior.SLASH_BLAST, 1), e(Warrior.IMPROVED_MAXHP, 10),
-                e(Warrior.POWER_STRIKE, 20), e(Warrior.SLASH_BLAST, 20), e(Warrior.IRON_BODY, 20),
+        put(100, e(WZ_POWER_STRIKE, 1), e(WZ_SLASH_BLAST, 1), e(Warrior.IMPROVED_MAXHP, 10),
+                e(WZ_POWER_STRIKE, 20), e(WZ_SLASH_BLAST, 20), e(WZ_IRON_BODY, 20),
                 e(Warrior.IMPROVED_HPREC, 16), e(Warrior.ENDURE, 8));
         put(110, v(Fighter.SWORD_MASTERY, Fighter.AXE_MASTERY, 20), v(Fighter.SWORD_BOOSTER, Fighter.AXE_BOOSTER, 20),
                 e(Fighter.RAGE, 30), v(Fighter.FINAL_ATTACK_SWORD, Fighter.FINAL_ATTACK_AXE, 30),
@@ -190,7 +204,7 @@ public final class BotSkillPlan {
                 e(Marksman.BLIND, 30), e(Marksman.DRAGONS_BREATH, 30), e(Marksman.HEROS_WILL, 5));
 
         // ===== Thief - the 1st-job attack follows the planned branch: Lucky Seven (claw) or Double Stab (dagger) =====
-        put(400, v(Rogue.LUCKY_SEVEN, Rogue.DOUBLE_STAB, 20), e(Rogue.NIMBLE_BODY, 20), e(Rogue.KEEN_EYES, 8),
+        put(400, v(Rogue.LUCKY_SEVEN, Rogue.DOUBLE_STAB, 20), e(WZ_NIMBLE_BODY, 20), e(WZ_KEEN_EYES, 8),
                 e(Rogue.DARK_SIGHT, 20), e(Rogue.DISORDER, 20), v(Rogue.DOUBLE_STAB, Rogue.LUCKY_SEVEN, 20));
         put(410, e(Assassin.CLAW_MASTERY, 20), e(Assassin.CRITICAL_THROW, 30), e(Assassin.CLAW_BOOSTER, 20),
                 e(Assassin.HASTE, 20), e(Assassin.DRAIN, 30), e(Assassin.ENDURE, 20));
@@ -255,11 +269,11 @@ public final class BotSkillPlan {
                 e(WindArcher.ARROW_RAIN, 20), e(WindArcher.EAGLE_EYE, 20), e(WindArcher.PUPPET, 20),
                 e(WindArcher.WIND_PIERCING, 20), e(WindArcher.WIND_SHOT, 20));
         put(1400, e(NightWalker.LUCKY_SEVEN, 20), e(NightWalker.KEEN_EYES, 8), e(NightWalker.NIMBLE_BODY, 10),
-                e(NightWalker.DARKNESS, 10), e(NightWalker.DARK_SIGHT, 10), e(NightWalker.DISORDER, 10));
+                e(NightWalker.DARKNESS, 10), e(NightWalker.DARK_SIGHT, 10), e(WZ_NW_DISORDER, 10));
         put(1410, e(NightWalker.CLAW_MASTERY, 20), e(NightWalker.CRITICAL_THROW, 20), e(NightWalker.CLAW_BOOSTER, 20),
                 e(NightWalker.HASTE, 20), e(NightWalker.FLASH_JUMP, 20), e(NightWalker.VAMPIRE, 20),
                 e(NightWalker.VANISH, 20));
-        put(1411, e(NightWalker.TRIPLE_THROW, 20), e(NightWalker.AVENGER, 20), e(NightWalker.SHADOW_PARTNER, 20),
+        put(1411, e(WZ_NW_TRIPLE_THROW, 20), e(NightWalker.AVENGER, 20), e(NightWalker.SHADOW_PARTNER, 20),
                 e(NightWalker.ALCHEMIST, 20), e(NightWalker.VENOM, 20), e(NightWalker.POISON_BOMB, 20),
                 e(NightWalker.SHADOW_WEB, 20));
         put(1500, e(ThunderBreaker.SOMERSAULT_KICK, 20), e(ThunderBreaker.FIRST_STRIKE, 20),

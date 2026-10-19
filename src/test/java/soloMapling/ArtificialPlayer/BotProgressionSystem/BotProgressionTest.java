@@ -252,4 +252,24 @@ class BotProgressionTest {
 
         assertEquals(0, bot.getSkillLevel(templateSkill));
     }
+
+    @Test
+    void aStoredSkillTheServerNoLongerHasGivesItsSpBack() {
+        Character first = bot(BOT_ID, 321, 88);
+        BotProgression.buildNew(first);
+        BotRealStats stored = BotProgression.snapshot(first);
+        TreeMap<Integer, BotRealStats.SkillLevel> withGone = new TreeMap<>(stored.skills());
+        withGone.put(1_000_004, new BotRealStats.SkillLevel(5, 0));   // an id Skill.wz does not have
+        int points = stored.sp()[0] + stored.skills().values().stream().mapToInt(BotRealStats.SkillLevel::level).sum();
+
+        Character second = bot(BOT_ID + 1, 321, 88);
+        BotProgression.restore(second, stored.withSkills(withGone));
+        BotRealStats restored = BotProgression.snapshot(second);
+
+        assertAll(
+                () -> assertFalse(restored.skills().containsKey(1_000_004)),
+                () -> assertEquals(points + 5, restored.sp()[0]
+                        + restored.skills().values().stream().mapToInt(BotRealStats.SkillLevel::level).sum(),
+                        "the 5 SP are back with the bot, spent or not"));
+    }
 }
