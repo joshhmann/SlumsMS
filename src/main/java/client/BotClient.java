@@ -32,6 +32,14 @@ public class BotClient extends Client {
      * (This is independent of Character.isLoggedin(), which stays false
      * for bots, so autosave/disconnect loops still skip them.)
      */
+    /**
+     * A bot has no boss HP bar to show, and the shared client has no player for the base method to track it on:
+     * it threw when a boss died on a map with bots (map dispose, and any boss kill near bots).
+     */
+    @Override
+    public void announceBossHpBar(server.life.Monster mm, int mobHash, net.packet.Packet packet) {
+    }
+
     @Override
     public boolean isLoggedIn() {
         return true;
