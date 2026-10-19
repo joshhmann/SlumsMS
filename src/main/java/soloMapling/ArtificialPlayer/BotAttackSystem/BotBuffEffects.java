@@ -20,7 +20,8 @@ import java.util.List;
  * The "show a buff" broadcast for bots. Vanilla StatEffect.applyTo does far more than the
  * visual (HP/MP, consumption, morphs, effect registration) and bails out on many branches,
  * so for cosmetic bots we fire just the two broadcasts that make a buff look like it happened:
- * the cast animation (showBuffEffect) and the persistent aura (giveForeignBuff). No stats are
+ * the cast animation (showBuffEffect) and, for buffs that have one, the aura other players see
+ * (StatEffect.foreignBuffPacket, the packet applyTo would pick). No stats are
  * changed and no effect is registered.
  */
 public final class BotBuffEffects {
@@ -51,9 +52,11 @@ public final class BotBuffEffects {
         StatEffect effect = skill.getEffect(skill.getMaxLevel());
         if (effect == null) return 0;
 
-        if (!effect.getStatups().isEmpty()) {
-            bot.getMap().broadcastMessage(bot,
-                    PacketCreator.giveForeignBuff(bot.getId(), effect.getStatups()), false);
+        // Only what players' own casts show others (StatEffect.applyTo): most buffs have no aura at all, and a raw
+        // stat list in giveForeignBuff is misread - or overruns the packet for two-state buffs - on every client.
+        net.packet.Packet aura = effect.foreignBuffPacket(bot, effect.getDuration());
+        if (aura != null) {
+            bot.getMap().broadcastMessage(bot, aura, false);
         }
 
         return effect.getDuration();
@@ -172,11 +175,18 @@ public final class BotBuffEffects {
      * and the receive particle. No MP cost, no cast pose on the target.
      */
     private static void applyBuffWithDuration(Character target, StatEffect effect, int skillId, int durationMs) {
+        if (effect.isMonsterRiding()) {
+            return; // a mount buff needs the target's own mount: nothing a bot can hand out
+        }
         long start = Server.getInstance().getCurrentTime();
-        target.sendPacket(PacketCreator.giveBuff(effect.getBuffSourceId(), durationMs, effect.getStatups()));
+        target.sendPacket(effect.isPirateTwoStateBuff()
+                ? PacketCreator.givePirateBuff(effect.getStatups(), effect.getSourceId(), durationMs / 1000)
+                : PacketCreator.giveBuff(effect.getBuffSourceId(), durationMs, effect.getStatups()));
         target.registerEffect(effect, start, start + durationMs, false);
-        target.getMap().broadcastMessage(target,
-                PacketCreator.giveForeignBuff(target.getId(), effect.getStatups()), false);
+        net.packet.Packet aura = effect.foreignBuffPacket(target, durationMs);
+        if (aura != null) {
+            target.getMap().broadcastMessage(target, aura, false);
+        }
         showReceivedBuff(target, skillId);
     }
 
