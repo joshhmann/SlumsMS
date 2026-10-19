@@ -4,14 +4,14 @@ This is state, not instructions. Start with `README.md` in this folder for the t
 
 ## Live
 
-- **Server:** v1.2.0 runs on the LXC at 192.168.0.164, `/opt/mapleroot/MapleRoot Full Repack/Server`, unit
+- **Server:** v1.2.1 runs on the LXC at 192.168.0.164, `/opt/mapleroot/MapleRoot Full Repack/Server`, unit
   `slumsms.service` (SuccessExitStatus=143).
   - Login port 8485, channel ports 7585–7592.
   - `HOST` is the public IP and `LANHOST` is 192.168.0.164.
   - The database is MySQL in container `buns-clean-db-1`, port 3309, schema `mapleroot`.
 - **Deployments and backups:**
-  - Receipt and rollback: `/opt/mapleroot-deployments/v1.2.0/DEPLOYMENT.md`.
-  - Backups: `/opt/mapleroot/backups/pre-v1.2.0-*`.
+  - Receipt and rollback: `/opt/mapleroot-deployments/v1.2.1/DEPLOYMENT.md` (v1.2.0 receipt alongside). PIC is off.
+  - Backups: `/opt/mapleroot/backups/pre-v1.2.*`.
 - **Release rule:** test install, then the owner's in-game check, then backup, then deploy plus receipt.
   - New `config.yaml` keys may only go live together with the jar that knows them (unknown keys stop boot).
   - Live is edited only with the owner's go.
