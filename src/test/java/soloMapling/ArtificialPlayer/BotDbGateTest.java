@@ -7,6 +7,7 @@ import java.sql.Connection;
 import java.sql.SQLException;
 import java.util.ArrayList;
 import java.util.List;
+import java.util.concurrent.CountDownLatch;
 import java.util.concurrent.ExecutorService;
 import java.util.concurrent.Executors;
 import java.util.concurrent.Future;
@@ -91,6 +92,39 @@ class BotDbGateTest {
             return BotDbGate.connection(() -> pooled);
         });
         assertSame(pooled, nested, "a nested connection runs straight on the pool");
+        assertEquals(BotDbGate.PERMITS, BotDbGate.available());
+    }
+
+    @Test
+    void aWaitThatCannotBeMetGoesToThePoolUncountedRatherThanHanging() throws Exception {
+        // On Java 21 a virtual thread waiting inside a monitor pins its carrier; with every carrier pinned the
+        // permit holders cannot run, so an unbounded wait here hung a 1,924-bot boot in wave 1.
+        Connection pooled = mock(Connection.class);
+        BotDbGate.useMaxWaitForTest(50);
+        try (ExecutorService other = Executors.newSingleThreadExecutor()) {
+            CountDownLatch holding = new CountDownLatch(1);
+            CountDownLatch done = new CountDownLatch(1);
+            Future<?> holder = other.submit(() -> BotDbGate.hold(BotDbGate.PERMITS, () -> {
+                holding.countDown();
+                try {
+                    done.await();
+                } catch (InterruptedException e) {
+                    Thread.currentThread().interrupt();
+                }
+                return null;
+            }));
+            holding.await();
+            try {
+                assertSame(pooled, BotDbGate.connection(() -> pooled), "uncounted, so not wrapped");
+                assertEquals("ran", BotDbGate.hold(BotDbGate.CHARACTER_LOAD, () -> "ran"));
+                assertEquals(0, BotDbGate.available(), "an uncounted caller gives back nothing it did not take");
+            } finally {
+                done.countDown();
+            }
+            holder.get(5, TimeUnit.SECONDS);
+        } finally {
+            BotDbGate.useMaxWaitForTest(0);
+        }
         assertEquals(BotDbGate.PERMITS, BotDbGate.available());
     }
 }

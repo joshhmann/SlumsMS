@@ -2,6 +2,7 @@ package soloMapling.ArtificialPlayer;
 
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
+import tools.DatabaseConnection;
 
 import java.sql.Connection;
 import java.sql.PreparedStatement;
@@ -351,7 +352,10 @@ public final class BotRoster {
         if (!loaded) {
             synchronized (LOAD_LOCK) {
                 if (!loaded) {
-                    try (Connection con = connections().get();
+                    // Straight to the pool, not through the gate: every spawning bot queues on LOAD_LOCK, and
+                    // a reader pinned here waiting for the gate can deadlock the carriers (see BotDbGate).
+                    BotStore.ConnectionSource source = connectionSource;
+                    try (Connection con = source != null ? source.get() : DatabaseConnection.getConnection();
                          PreparedStatement ps = con.prepareStatement(SELECT_ALL);
                          ResultSet rs = ps.executeQuery()) {
                         while (rs.next()) {

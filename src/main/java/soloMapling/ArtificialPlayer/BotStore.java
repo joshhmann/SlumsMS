@@ -13,6 +13,7 @@ import org.slf4j.LoggerFactory;
 import server.Trade;
 import server.maps.MapleMap;
 import soloMapling.server.SoloMaplingConstants;
+import tools.DatabaseConnection;
 import tools.Pair;
 
 import java.awt.Point;
@@ -559,11 +560,23 @@ public final class BotStore {
         Connection get() throws SQLException;
     }
 
-    private static volatile ConnectionSource connectionSource = BotDbGate::connection;
+    private static final ConnectionSource GATED = BotDbGate::connection;
+
+    private static volatile ConnectionSource connectionSource = GATED;
+
+    /**
+     * The one-time read of the whole store, taken under {@code ROSTER_LOCK}, goes straight to the pool: every
+     * spawning bot queues on that lock, and on Java 21 a virtual thread blocked on a monitor pins its carrier,
+     * so the reader waiting for the gate there could wait on threads that can no longer run (see BotDbGate).
+     */
+    private static Connection lockedReadConnection() throws SQLException {
+        ConnectionSource source = connectionSource;
+        return source == GATED ? DatabaseConnection.getConnection() : source.get();
+    }
 
     /** Test seam: points the store at a mock pool, or back at the real one with {@code null}. */
     static void useConnectionSourceForTest(ConnectionSource source) {
-        connectionSource = source == null ? BotDbGate::connection : source;
+        connectionSource = source == null ? GATED : source;
     }
 
     /**
@@ -794,7 +807,7 @@ public final class BotStore {
     private static Map<Integer, Persisted> roster() {
         synchronized (ROSTER_LOCK) {
             if (!rosterLoaded) {
-                try (Connection con = connectionSource.get();
+                try (Connection con = lockedReadConnection();
                      PreparedStatement ps = con.prepareStatement(SELECT_ROSTER);
                      ResultSet rs = ps.executeQuery()) {
                     while (rs.next()) {

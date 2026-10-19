@@ -1,5 +1,7 @@
 package soloMapling.ArtificialPlayer;
 
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
 import tools.DatabaseConnection;
 
 import java.lang.reflect.InvocationTargetException;
@@ -7,8 +9,10 @@ import java.lang.reflect.Proxy;
 import java.sql.Connection;
 import java.sql.SQLException;
 import java.util.concurrent.Semaphore;
+import java.util.concurrent.TimeUnit;
 import java.util.concurrent.atomic.AtomicBoolean;
 import java.util.concurrent.atomic.AtomicInteger;
+import java.util.concurrent.atomic.AtomicLong;
 
 /**
  * The share of the server's connection pool that bots may hold at once.
@@ -23,6 +27,8 @@ import java.util.concurrent.atomic.AtomicInteger;
  * A thread already inside the gate is not counted again: a nested request from it runs straight on the pool.
  * The nesting of a character load is paid for up front ({@link #CHARACTER_LOAD}); anything else nested is one
  * level deep at most, and counting it would let threads that each hold a permit wait on each other forever.
+ * For the same reason a read taken under a lock other bot threads queue on (the store's and the roster's
+ * one-time loads) goes straight to the pool, and no wait here is unbounded ({@link #acquire}).
  */
 public final class BotDbGate {
 
@@ -43,7 +49,19 @@ public final class BotDbGate {
 
     static final int PERMITS = Math.max(CHARACTER_LOAD, DatabaseConnection.MAX_POOL_SIZE - PLAYER_RESERVE);
 
+    /** How long bot work waits for room before going to the pool uncounted (see {@link #acquire}). */
+    static final long MAX_WAIT_MS = 15_000;
+
+    private static volatile long maxWaitMs = MAX_WAIT_MS;
+
+    private static final long OVERRUN_WARNING_INTERVAL_MS = 60_000;
+
+    private static final Logger log = LoggerFactory.getLogger(BotDbGate.class);
+
     private static final Semaphore permits = new Semaphore(PERMITS, true);
+
+    private static final AtomicInteger overruns = new AtomicInteger();
+    private static final AtomicLong lastOverrunWarning = new AtomicLong();
 
     /** Permits the current thread holds; shared with the connections it opened, which give theirs back. */
     private static final ThreadLocal<AtomicInteger> held = ThreadLocal.withInitial(AtomicInteger::new);
@@ -65,13 +83,15 @@ public final class BotDbGate {
         if (mine.get() > 0) {
             return work.run();
         }
-        acquire(connections);
+        boolean counted = acquire(connections);
         mine.addAndGet(connections);
         try {
             return work.run();
         } finally {
             mine.addAndGet(-connections);
-            permits.release(connections);
+            if (counted) {
+                permits.release(connections);
+            }
         }
     }
 
@@ -85,7 +105,9 @@ public final class BotDbGate {
         if (mine.get() > 0) {
             return pool.get();
         }
-        acquire(1);
+        if (!acquire(1)) {
+            return pool.get();
+        }
         Connection con;
         try {
             con = pool.get();
@@ -97,18 +119,39 @@ public final class BotDbGate {
         return releasingOnClose(con, mine);
     }
 
+    /** Test seam: a shorter wait before going to the pool uncounted ({@code <= 0} restores the default). */
+    static void useMaxWaitForTest(long ms) {
+        maxWaitMs = ms > 0 ? ms : MAX_WAIT_MS;
+    }
+
     /** Permits free right now (tests and the GM read-out). */
     static int available() {
         return permits.availablePermits();
     }
 
-    private static void acquire(int connections) throws SQLException {
+    /**
+     * Waits for room in the bots' share. Gives up after {@link #MAX_WAIT_MS} and lets the caller go to the pool
+     * uncounted (returning false): on Java 21 a virtual thread that waits here inside a {@code synchronized}
+     * block pins its carrier, and with every carrier pinned the threads holding the permits can never run to
+     * give them back. The pool's own timeout is the backstop then, as it was before the gate.
+     */
+    private static boolean acquire(int connections) throws SQLException {
         try {
-            permits.acquire(connections);
+            if (permits.tryAcquire(connections, maxWaitMs, TimeUnit.MILLISECONDS)) {
+                return true;
+            }
         } catch (InterruptedException e) {
             Thread.currentThread().interrupt();
             throw new SQLException("Interrupted while waiting for a bot database connection", e);
         }
+        int missed = overruns.incrementAndGet();
+        long now = System.currentTimeMillis();
+        long last = lastOverrunWarning.get();
+        if (now - last >= OVERRUN_WARNING_INTERVAL_MS && lastOverrunWarning.compareAndSet(last, now)) {
+            log.warn("Bot database work waited {} ms for the bots' share of the pool ({} permits) and went to the"
+                    + " pool uncounted; {} times so far this run", maxWaitMs, PERMITS, missed);
+        }
+        return false;
     }
 
     /** Wraps a connection so closing it - once - also gives its permit back. */
