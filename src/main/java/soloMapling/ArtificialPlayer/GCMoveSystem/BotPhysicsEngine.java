@@ -2526,11 +2526,37 @@ final class BotPhysicsEngine {
     private static final FootholdCollisionIndex UNINDEXABLE = new FootholdCollisionIndex(
             java.util.List.of(), java.util.List.of(), 0, new Foothold[0][]);
 
+    /*
+     * Each thread's last index lookup. COLLISION_INDEX is one lock for the whole server, and every physics
+     * tick of every simulation asks it several times: a multi-threaded graph bake had nearly all its threads
+     * parked on it. A thread nearly always asks about the map it asked about last (one bot's tick, one graph
+     * build), so it answers from here without the lock. The tree is held weakly, as in the shared map; an
+     * index never changes once built, so the answer is the one the shared map would give.
+     */
+    private static final class LastCollisionIndex {
+        java.lang.ref.WeakReference<server.maps.FootholdTree> tree;
+        FootholdCollisionIndex index;
+    }
+
+    private static final ThreadLocal<LastCollisionIndex> LAST_COLLISION_INDEX =
+            ThreadLocal.withInitial(LastCollisionIndex::new);
+
     private static FootholdCollisionIndex collisionIndex(MapleMap map) {
         server.maps.FootholdTree tree = map != null ? map.getFootholds() : null;
         if (tree == null) {
             return UNINDEXABLE;
         }
+        LastCollisionIndex last = LAST_COLLISION_INDEX.get();
+        if (last.tree != null && last.tree.get() == tree) {
+            return last.index;
+        }
+        FootholdCollisionIndex index = sharedCollisionIndex(tree);
+        last.tree = new java.lang.ref.WeakReference<>(tree);
+        last.index = index;
+        return index;
+    }
+
+    private static FootholdCollisionIndex sharedCollisionIndex(server.maps.FootholdTree tree) {
         // The UNINDEXABLE verdict is cached too: getAllFootholds() rebuilds the whole list on
         // every call (recursive collect), so it must never run outside this computeIfAbsent.
         return COLLISION_INDEX.computeIfAbsent(tree, t -> {
