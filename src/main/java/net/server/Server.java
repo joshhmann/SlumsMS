@@ -882,6 +882,11 @@ public class Server {
             Runtime.getRuntime().addShutdownHook(new Thread(shutdown(false)));
         }
 
+        // Before the pool: the MySQL driver fixes each connection's time zone when it opens, so connections opened
+        // before this line stored lastlogin in UTC and later ones read it as GMT-6. A fresh login then looked six
+        // hours stale and the channel refused it as "already logged in".
+        TimeZone.setDefault(TimeZone.getTimeZone(YamlConfig.config.server.TIMEZONE));
+
         if (!DatabaseConnection.initializeConnectionPool()) {
             throw new IllegalStateException("Failed to initiate a connection to the database");
         }
@@ -897,8 +902,6 @@ public class Server {
         futures.add(initExecutor.submit(() -> SkillbookInformationProvider.loadAllSkillbookInformation()));
         futures.add(initExecutor.submit(() -> PlayerNPCFactory.loadFactoryMetadata()));
         initExecutor.shutdown();
-
-        TimeZone.setDefault(TimeZone.getTimeZone(YamlConfig.config.server.TIMEZONE));
 
         try (Connection con = DatabaseConnection.getConnection()) {
             setAllLoggedOut(con);
