@@ -79,6 +79,12 @@ public final class LoginPasswordHandler implements PacketHandler {
         Hwid hwid = new Hwid(HexTool.toCompactHexString(hwidNibbles));
         int loginok = c.login(login, pwd, hwid, false);
         if (YamlConfig.config.server.AUTOMATIC_REGISTER && loginok == 5) {
+            AutoRegisterGuard.Refusal refusal = AutoRegisterGuard.check(remoteHost, pwd, System.currentTimeMillis());
+            if (refusal != null) {
+                log.info("Refused new account '{}' from {}: {}", login, remoteHost, refusal);
+                c.sendPacket(PacketCreator.getLoginFailed(refusal.loginFailedReason));
+                return;
+            }
             try (Connection con = DatabaseConnection.getConnection();
                  PreparedStatement ps = con.prepareStatement("INSERT INTO accounts (name, password, birthday, tempban) VALUES (?, ?, ?, ?);", Statement.RETURN_GENERATED_KEYS)) { //Jayd: Added birthday, tempban
                 ps.setString(1, login);
@@ -91,6 +97,7 @@ public final class LoginPasswordHandler implements PacketHandler {
                     rs.next();
                     c.setAccID(rs.getInt(1));
                 }
+                AutoRegisterGuard.recordRegistration(remoteHost, login, System.currentTimeMillis());
 
                 try {
                     DiscordWebhook webhookMessage = getDiscordRegistrationWebhookMessage(c, login, remoteHost);
