@@ -841,8 +841,9 @@ The guides name these spots, but they could not be pinned to a map id on this se
   - I/L to fire-weak (`F2I3`) and lightning-weak (`L3`) maps.
   - Clerics to undead (`U`) and holy-weak (`H3`) maps.
 - **Rebirth bands:** the draft tags gated entries with `rebirths: N` inside the level bands. It does not yet have
-  separate "rebirth count" bands. Open question for the owner: does MapleRoot reset level on rebirth (so a rebirth-3
-  bot at level 120 should prefer Pantheon/Ristonia), or not?
+  separate "rebirth count" bands. That is the right shape: a MapleRoot rebirth does reset level.
+  `Character.executeRebornAs` sets level 0 and levels up to 1 (`rebirth.js`, NPC 1300009). So a rebirth-3 bot at
+  level 120 is a 120 that may also use the gated rescaled zones (Pantheon, Ristonia and so on).
 - **Travel:** most 50-120 spots are outside today's `TrainingRegions`. Ticket 03 must cover:
   - The Ellinia-Orbis boat.
   - Orbis to Leafre, Ludibrium, Ariant and Mu Lung.
