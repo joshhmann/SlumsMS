@@ -3,6 +3,7 @@ package soloMapling.ArtificialPlayer.BotAttackSystem;
 import client.Character;
 import client.Skill;
 import client.SkillFactory;
+import constants.skills.Crusader;
 import net.server.Server;
 import net.server.world.Party;
 import server.StatEffect;
@@ -51,6 +52,13 @@ public final class BotBuffEffects {
         if (skill == null) return 0;
         StatEffect effect = skill.getEffect(skill.getMaxLevel());
         if (effect == null) return 0;
+
+        // Combo Attack's aura carries the orb count, which a bot keeps only in BotComboOrbs (its buffs are never
+        // registered, so the stock packet would say 0 - no buff at all - and its finishers would draw as plain swings).
+        if (skillId == Crusader.COMBO && BotComboOrbs.usesCombo(bot.getJob())) {
+            BotComboOrbs.showOrbs(bot);
+            return effect.getDuration();
+        }
 
         // Only what players' own casts show others (StatEffect.applyTo): most buffs have no aura at all, and a raw
         // stat list in giveForeignBuff is misread - or overruns the packet for two-state buffs - on every client.

@@ -7,6 +7,7 @@ import client.SkillFactory;
 import client.inventory.InventoryType;
 import client.inventory.Item;
 import client.inventory.WeaponType;
+import constants.game.GameConstants;
 import constants.skills.Cleric;
 import constants.skills.Hermit;
 import server.StatEffect;
@@ -129,6 +130,7 @@ public final class BotAttackDriver {
         nextAttackByBot.remove(botId);
         nextUltimateByBot.remove(botId);
         BotAttackStats.clear(botId);
+        BotComboOrbs.clearBot(botId);
     }
 
     /*
@@ -238,6 +240,12 @@ public final class BotAttackDriver {
             }
         }
 
+        // Panic/Coma need Combo Attack orbs, and a viewer's client draws a finisher without them as a plain swing:
+        // charge the orbs up with another attack first (BotComboOrbs), then finish on full orbs.
+        if (BotComboOrbs.mustCharge(bot, profile.skillFor(weapon))) {
+            profile = comboCharger(single, profile == aoe, weapon);
+        }
+
         List<Monster> targets = cap(mobsInReach(bot, profile, weapon, facingLeft), profile.numAttacked);
         if (healUndead) {
             targets = undeadOnly(targets); // Heal must not damage a living mob caught in the box
@@ -296,6 +304,7 @@ public final class BotAttackDriver {
                     bodyActionId, facingMask, profile.speed, profile.hitDelayMs);
         };
 
+        BotComboOrbs.afterStrike(bot, skillId); // after the packet: a finisher is drawn with the orbs it spends
         nextAttackByBot.put(bot.getId(), now + profile.cooldownMs);
         if (profile == ultimate) { // firing the throttled full-map nuke starts its long cooldown
             nextUltimateByBot.put(bot.getId(), now + FULL_MAP_ULTIMATE_COOLDOWN_MS);
@@ -304,6 +313,18 @@ public final class BotAttackDriver {
                 ? targets.size() + " mobs (nearest '" + targets.get(0).getName() + "')"
                 : targets.get(0).getName();
         return AttackResult.hit(label, reported, killed, skillId);
+    }
+
+    /*
+     * The attack a combo bot charges its orbs with instead of a finisher: its own single-target attack when that
+     * isn't a finisher (Hero's Brandish), else the warrior basics - Slash Blast for a pack, Power Strike for one.
+     */
+    static BotAttackProfile comboCharger(BotAttackProfile single, boolean forPack, WeaponType weapon) {
+        if (single != null && !GameConstants.isFinisherSkill(single.skillFor(weapon))) {
+            return single;
+        }
+        BotAttackConfig.JobAttacks basics = BotAttackConfig.resolve(Job.WARRIOR, weapon);
+        return forPack ? basics.aoe() : basics.single();
     }
 
     /*
