@@ -21,6 +21,7 @@
  */
 package net.server.channel.handlers;
 
+import server.checkin.DailyCheckin;
 import client.Character;
 import client.*;
 import client.inventory.*;
@@ -396,6 +397,7 @@ public final class PlayerLoggedinHandler extends AbstractPacketHandler {
 
             player.commitExcludedItems();
             showDueyNotification(c, player);
+            DailyCheckin.onLogin(c);
 
             player.resetPlayerRates();
             if (YamlConfig.config.server.USE_ADD_RATES_BY_LEVEL) {

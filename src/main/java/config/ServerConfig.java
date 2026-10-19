@@ -36,6 +36,9 @@ public class ServerConfig {
     public int AUTO_REGISTER_MIN_PASSWORD_LENGTH = 6;
     public int AUTO_REGISTER_MAX_ACCOUNTS_PER_IP = 3;
     public int AUTO_REGISTER_IP_COOLDOWN_MINUTES = 10;
+    //Daily Check-In window (needs migration 004 and a client with the window). Off until both are deployed.
+    public boolean DAILY_CHECKIN_ENABLED = false;
+    public int DAILY_CHECKIN_MIN_LEVEL = 10;
     public boolean BCRYPT_MIGRATION;
     public boolean COLLECTIVE_CHARSLOT;
     public boolean DETERRED_MULTICLIENT;
