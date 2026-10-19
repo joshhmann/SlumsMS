@@ -35,3 +35,4 @@ Created 2026-10-19 from the owner's plan. Order: nav v2 → real bots → compan
 | [26](26-bot-chat-polish.md) | Bot chat follow-ups from the persistence work | Real bots | 16 |
 | [27](27-launcher-extras.md) | Launcher extras | Launcher | - |
 | [28](28-addon-notes.md) | Addon decisions recorded | Addons | - |
+| [29](29-tutorial-island-option.md) | Optional Maple Island tutorial for new characters | Gameplay | - |
