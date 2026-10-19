@@ -68,8 +68,9 @@ builds passed. The deployment package passed independent startup before rollout.
 After rollout the live JAR hash, clean tagged source, cash-shop catalogue (1,839
 rows), disabled bots, successful startup, and v83 handshake on login plus all
 eight channels were verified. No restart loop or startup error was observed.
-The owner confirmed entry after the Parsec workaround below. Final SHOP/FM/Arcane
-checks are pending.
+The owner confirmed live character entry, opening SHOP, visiting classic FM,
+and returning to Arcane. The live rollout is accepted for this checkpoint.
+The broader bot rollout remains deferred.
 
 ### Parsec startup workaround
 

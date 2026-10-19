@@ -1,6 +1,6 @@
 # Deployment and rollback
 
-The tagged baseline has been deployed. See [the live handoff](live-handoff-20261019.md) for the service, backups, validation status and outstanding client graphics check.
+The tagged baseline has been deployed. See [the live handoff](live-handoff-20261019.md) for the service, backups, accepted validation and Parsec startup workaround.
 
 1. Resolve matching server and client tags and verify the release manifest hashes. Use fresh build outputs only after testing that matched pair; the archived accepted artifacts remain the recovery reference.
 2. Stage in a new directory, not in the running server root. Include target/Cosmic.jar, scripts/, cashshop/, full matching server wz/, and a private config.yaml. Verify database and host/port settings explicitly. A fresh service account needs access to those paths and its log directory.
