@@ -197,6 +197,7 @@ public class CommandsExecutor {
         levelCommandsCursor = new Pair<>(new ArrayList<String>(), new ArrayList<String>());
 
         addCommand(new String[]{"help", "commands"}, HelpCommand.class);
+        addCommand(new String[]{"daily", "checkin"}, DailyCommand.class);
         //addCommand(new String[]{"starforce", "sf"}, StarForceCommand.class);
         addCommand("worldchat", WorldChatCommand.class);
         addCommand("bp", BackPackCommand.class);
