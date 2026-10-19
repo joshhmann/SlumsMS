@@ -48,7 +48,10 @@ public class BotOptionMenu {
     }
 
     public void show(Character player) {
-        displayPlayerChatCommands(player, labels);
+        // bot-persistence ticket 23: a clickable NPC window when it can open, else the numbered chat hint.
+        if (!BotMenus.open(owner, player, labels, onSelect::onSelect)) {
+            displayPlayerChatCommands(player, labels);
+        }
         active = true;
         lastActivityMs = System.currentTimeMillis();
     }
@@ -80,6 +83,9 @@ public class BotOptionMenu {
             if (idx >= 0) {
                 lastActivityMs = System.currentTimeMillis();
                 onSelect.onSelect(idx, sender);
+            } else if (BotConversation.say(owner, sender, message.getContent(), null)) {
+                // bot-persistence ticket 21: a line that is no menu choice is talk, answered by the bot's brain.
+                lastActivityMs = System.currentTimeMillis();
             }
         } catch (Exception e) {
             log("[BotOptionMenu] poll error: " + e.getMessage());
@@ -87,6 +93,7 @@ public class BotOptionMenu {
     }
 
     public void close(Character player) {
+        BotConversation.end(owner.getChr().getId(), player.getId());
         expirePlayerChatCommands(player);
         owner.getInteractors().removeInquirer(player);
         if (owner.getInteractors().getListInquirer().isEmpty()) {
@@ -96,6 +103,7 @@ public class BotOptionMenu {
 
     public void closeAll() {
         for (Character player : new ArrayList<>(owner.getInteractors().getListInquirer())) {
+            BotConversation.end(owner.getChr().getId(), player.getId());
             expirePlayerChatCommands(player);
             owner.getInteractors().removeInquirer(player);
         }

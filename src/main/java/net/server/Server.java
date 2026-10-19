@@ -59,6 +59,13 @@ import server.expeditions.ExpeditionBossLog;
 import server.life.PlayerNPCFactory;
 import server.quest.Quest;
 import service.NoteService;
+import soloMapling.ArtificialPlayer.BotClientHandler;
+import soloMapling.ArtificialPlayer.BotRoster;
+import soloMapling.ArtificialPlayer.BotStore;
+import soloMapling.Environment.EnvironmentManager;
+import soloMapling.server.BotShutdown;
+import soloMapling.server.BotTickService;
+import soloMapling.server.MethodScheduler;
 import tools.DatabaseConnection;
 import tools.HairsAndFacesHandler;
 import tools.PacketCreator;
@@ -2000,6 +2007,30 @@ public class Server {
         if (getWorlds() == null) {
             return;//already shutdown
         }
+
+        if (soloMapling.server.MapleRootSolo.isEnabled()) {
+            // Ticket 09: bot activity is not part of the player disconnect path either, and nothing below stops
+            // it. Quiesce it and drain what is already in flight BEFORE the settlement sweep and before the
+            // worlds dispose their maps, so the sweep records a population nothing is mutating and no bot task
+            // (wheel, combat ticker, scanner, movement tick) runs against a map whose footholds are already gone.
+            BotShutdown.begin();
+            BotTickService.stop();
+
+            // Ticket 06: bots are not part of the player disconnect path below - they never log in, and the one
+            // Client they share has no player attached to it - so their state is settled and written here,
+            // while the worlds (and therefore their maps) are still alive. An open trade window is closed first:
+            // it holds items and mesos out of both wallets, and the player on the other side is saved later in
+            // this same sequence, so a window left open would be written out as a loss for that player.
+            for (World w : getWorlds()) {
+                PlayerStorage players = w.getPlayerStorage();
+                if (players != null) {
+                    List<Character> everyone = new ArrayList<>(players.getAllCharacters());
+                    BotStore.settleAndSaveAll(everyone);
+                    BotRoster.recordSessions(everyone, System.currentTimeMillis(), true);
+                }
+            }
+        }
+
         for (World w : getWorlds()) {
             w.shutdown();
         }

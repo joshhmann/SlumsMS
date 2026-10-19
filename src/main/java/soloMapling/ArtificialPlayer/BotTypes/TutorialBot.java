@@ -11,6 +11,7 @@ import server.maps.MapObject;
 import soloMapling.ArtificialPlayer.BotCommandsPack.DropCommands;
 import soloMapling.ArtificialPlayer.BotCommandsPack.SocialCommands;
 import soloMapling.ArtificialPlayer.BotHelpers;
+import soloMapling.ArtificialPlayer.BotHoldings;
 import soloMapling.ArtificialPlayer.BotLogic;
 import soloMapling.ArtificialPlayer.BotMessagingSystem.ChatMessage;
 import soloMapling.ArtificialPlayer.BotMessagingSystem.MessageQueue;
@@ -33,6 +34,7 @@ import static soloMapling.ArtificialPlayer.BotCommandsPack.DropCommands.botLootS
 import static soloMapling.ArtificialPlayer.BotCommandsPack.SocialCommands.BotEmote;
 import static soloMapling.ArtificialPlayer.BotCommandsPack.SocialCommands.BotSpeak;
 import static soloMapling.ArtificialPlayer.BotCommandsPack.DropCommands.botThrowEquipsInARow;
+import static soloMapling.ArtificialPlayer.BotCommandsPack.VFXCommands.botScrollFail;
 import static soloMapling.ArtificialPlayer.BotCommandsPack.VFXCommands.botScrollSuccess;
 import static soloMapling.ArtificialPlayer.BotHelpers.convertItemIdToName;
 import static soloMapling.ArtificialPlayer.BotLogic.checkForItemOnFloor;
@@ -249,7 +251,8 @@ public class TutorialBot extends BotSM {
     @Override
     public void processMessages() {
         try {
-            ChatMessage message = MessageQueue.getInstance().getMessageWithTimeout("secondary", 1, TimeUnit.SECONDS);
+            ChatMessage message = MessageQueue.getInstance().pollFor("secondary",
+                    getInteractors()::isMessageFromRespondant, 1, TimeUnit.SECONDS);
             if (message == null) {
                 return;
             }
@@ -543,6 +546,16 @@ public class TutorialBot extends BotSM {
 
     private Equip scrollPlayersDroppedWeapon(Equip playersWep) {
         Item scrolledWep = ItemInformationProvider.getInstance().scrollEquipWithId(playersWep, 2043003, false, 0, false);
+        if (scrolledWep == null) {
+            // A cursed scroll destroys the weapon; scrollEquipWithId reports that by returning null
+            // (ItemInformationProvider:1136). There is nothing to upgrade or hand back - the caller's
+            // returnUpgradedWeapon(null) is a no-op and still closes the dialogue. The loot credit for the
+            // weapon must go with it, though: the player dropped it and no longer has it, so the bot striking
+            // it out of its inventory and ledger is what keeps a destroyed weapon from staying its value.
+            botScrollFail(getChr());
+            BotHoldings.destroyHeldItem(getChr(), playersWep);
+            return null;
+        }
         scrolledWep.setOwner(getInteractors().getRespondant().getName());
         botScrollSuccess(getChr());
         BotEmote(getChr(), 2);
@@ -556,7 +569,10 @@ public class TutorialBot extends BotSM {
     }
 
     private void returnUpgradedWeapon(Equip scrolledWep) {
-        DropCommands.botThrowEquip(getChr(), scrolledWep, getInteractors().getRespondant().getPosition());
+        // Hand back the exact instance: it is the real weapon the bot looted and scrolled (stats, owner name),
+        // so it leaves the bot's inventory and ledger through payOutItem rather than being conjured as a copy.
+        BotHoldings.payOutItem(getChr(), scrolledWep, getInteractors().getRespondant(),
+                getInteractors().getRespondant().getPosition());
         returnDialog();
     }
 
@@ -604,8 +620,10 @@ public class TutorialBot extends BotSM {
             getDialogueHandler().executeBotFlavorDialogue("Flavor", TutorialBot.this);
         }
     }
-}
 
-/*
-[] todo make hats dropped unlootable. then after selected, make the one remaining lootable
- */
+    /** Reads players' typed lines itself (menu, bets, script): free text stays with it (bot-persistence ticket 21). */
+    @Override
+    public boolean consumesFreeText() {
+        return true;
+    }
+}

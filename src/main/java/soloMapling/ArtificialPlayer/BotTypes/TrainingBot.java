@@ -1,7 +1,9 @@
 package soloMapling.ArtificialPlayer.BotTypes;
 
+import soloMapling.ArtificialPlayer.BotRoster;
+
 import client.Character;
-import constants.game.ExpTable;
+import client.inventory.Item;
 import constants.id.MapId;
 import net.server.Server;
 import net.server.world.Party;
@@ -9,6 +11,7 @@ import net.server.world.PartyCharacter;
 import net.server.world.World;
 import soloMapling.ArtificialPlayer.BotAttackSystem.BotAttackDriver;
 import soloMapling.ArtificialPlayer.BotAttackSystem.BotBuffDriver;
+import soloMapling.ArtificialPlayer.BotHoldings;
 import soloMapling.ArtificialPlayer.BotOptionMenu;
 import soloMapling.ArtificialPlayer.BotPartySystem.BotPartyQueue;
 import soloMapling.ArtificialPlayer.BotPartySystem.BotRecruitManager;
@@ -22,6 +25,7 @@ import soloMapling.ArtificialPlayer.BotMessagingSystem.CharacterStorage;
 import soloMapling.ArtificialPlayer.BotGrindSystem.DeepHub;
 import soloMapling.ArtificialPlayer.BotGrindSystem.GrindBrain;
 import soloMapling.ArtificialPlayer.BotGrindSystem.MapMobIndex;
+import soloMapling.ArtificialPlayer.BotGrindSystem.OffscreenRewardBudget;
 import soloMapling.ArtificialPlayer.BotGrindSystem.TrainingMapChooser;
 import soloMapling.ArtificialPlayer.BotGrindSystem.SpotFinder;
 import soloMapling.ArtificialPlayer.BotGrindSystem.TrainingMap;
@@ -31,6 +35,7 @@ import soloMapling.ArtificialPlayer.BotWanderSystem.BotWanderSystem;
 import soloMapling.ArtificialPlayer.GCMoveSystem.GCMovement;
 import soloMapling.server.EventMessageSystem.EventBus;
 import soloMapling.server.EventMessageSystem.EventFactory;
+import soloMapling.server.BotShutdown;
 import soloMapling.server.ExecutorServiceManager;
 
 import java.awt.Point;
@@ -44,6 +49,7 @@ import java.util.Set;
 import java.util.TreeMap;
 import java.util.TreeSet;
 import java.util.concurrent.ConcurrentHashMap;
+import java.util.concurrent.ScheduledFuture;
 import java.util.concurrent.TimeUnit;
 import java.util.concurrent.atomic.AtomicBoolean;
 import java.util.concurrent.atomic.AtomicInteger;
@@ -168,18 +174,32 @@ public class TrainingBot extends BotSM {
     // ── Shared combat ticker (one task for ALL training bots) ────────────────
     private static final Set<TrainingBot> ACTIVE_GRINDERS = ConcurrentHashMap.newKeySet();
     private static volatile boolean combatTickerStarted = false;
+    // Ticket 09: the shared ticker's future, kept so shutdown can cancel it (one task for all grinders).
+    private static volatile ScheduledFuture<?> combatTicker;
 
     private static synchronized void ensureCombatTicker() {
-        if (combatTickerStarted) {
+        if (combatTickerStarted || BotShutdown.isQuiesced()) {
             return;
         }
         combatTickerStarted = true;
-        ExecutorServiceManager.getScheduledExecutorService().scheduleAtFixedRate(
+        combatTicker = ExecutorServiceManager.getScheduledExecutorService().scheduleAtFixedRate(
                 TrainingBot::combatTickAll, COMBAT_TICK_MS, COMBAT_TICK_MS, TimeUnit.MILLISECONDS);
+        BotShutdown.onQuiesce(TrainingBot::stopCombatTicker);
+    }
+
+    /* Ticket 09: cancel the shared ticker. Combat is presentation - nothing needs draining for it. */
+    private static void stopCombatTicker() {
+        ScheduledFuture<?> ticker = combatTicker;
+        if (ticker != null) {
+            ticker.cancel(false);
+        }
     }
 
     // Swing every grinding bot whose map a real player can see. One exception per bot never stops the ticker.
     private static void combatTickAll() {
+        if (BotShutdown.isQuiesced()) {
+            return; // Ticket 09: no combat sweep across maps that are being disposed
+        }
         long sweepStart = System.currentTimeMillis();
         for (TrainingBot bot : ACTIVE_GRINDERS) {
             try {
@@ -323,12 +343,13 @@ public class TrainingBot extends BotSM {
 
     // Conversing players expect snappy replies; and once the bot has said "invite me" it must keep
     // ticking fast through the whole armed window so pollRecruitInvite drains the incoming invite
-    // promptly (not just while the menu is open). Otherwise the base observed/unobserved policy holds
-    // (including the 60-120s deep-grind override below).
+    // promptly (not just while the menu is open). The armed window is covered once, for every type, by
+    // the base class's commitment gate (BotCommitments) - which also outranks the 60-120s deep-grind
+    // override below - so only the bot's own menu is left here.
     @Override
     public void checkPrioritySpeed() {
-        if (recruitingNow()) {
-            setPriorityHigh();
+        if (menuActive()) {
+            pinFastCadence();
             return;
         }
         super.checkPrioritySpeed();
@@ -387,8 +408,45 @@ public class TrainingBot extends BotSM {
     private void doInit() {
         ensureCombatTicker();
         homeMapId = getChr().getMapId();
+        if (resumeGrind(BotRoster.takeResume(getChr().getId()))) {
+            return;
+        }
         // No mobs here → it's a town: do the town beat first. Has mobs → a field: decide immediately.
         enterPhase(MapMobIndex.level(homeMapId) < 0 ? Phase.IN_TOWN : Phase.DECIDE);
+    }
+
+    /**
+     * Picks up a roster member where it logged out (bot-persistence ticket 06): its home town comes back, and
+     * a bot that logged out on its train map keeps grinding there instead of choosing a new map - DECIDE's
+     * map search excludes the map it stands on, so without this every resumed grinder would wander off.
+     */
+    private boolean resumeGrind(BotRoster.Activity resume) {
+        if (resume == null) {
+            return false;
+        }
+        if (resume.homeMapId() > 0) {
+            homeMapId = resume.homeMapId();
+        }
+        int here = getChr().getMapId();
+        boolean grinding = resume.name().isEmpty() || resume.name().equals(GRIND_ACTIVITY);
+        if (!grinding || resume.intState(BotRoster.TRAIN_STATE, -1) != here || MapMobIndex.level(here) < 0) {
+            return false;
+        }
+        setTrainTarget(here, Math.max(1, MapMobIndex.level(here)));
+        firstTrip = false;
+        enterPhase(Phase.GRIND);
+        return true;
+    }
+
+    private static final String GRIND_ACTIVITY = "grind";
+
+    @Override
+    public BotRoster.Activity activitySnapshot() {
+        Map<String, Object> state = new java.util.LinkedHashMap<>();
+        if (currentTrainMapId >= 0) {
+            state.put(BotRoster.TRAIN_STATE, currentTrainMapId);
+        }
+        return new BotRoster.Activity(GRIND_ACTIVITY, Math.max(0, homeMapId), state);
     }
 
     // In a town hub: settle a beat, maybe plan a shop trip, then either head to the first store or decide
@@ -529,14 +587,20 @@ public class TrainingBot extends BotSM {
         }
         AtomicBoolean entered = new AtomicBoolean(false);
         Runnable enter = () -> {
-            if (!saunaTripActive || !entered.compareAndSet(false, true)) {
+            // Ticket 09: quiescence ends the trip - a bot must not change map or start a wander on the way out.
+            if (!saunaTripActive || BotShutdown.isQuiesced() || !entered.compareAndSet(false, true)) {
                 return; // already entered (door-arrival vs cap race), or the trip was aborted
             }
             int sauna = rng.nextDouble() < SAUNA_VIP_CHANCE ? SAUNA_VIP : SAUNA_REGULAR;
             chr.changeMap(sauna);
             BotWanderSystem.start(chr); // relax in the sauna for a beat
             ExecutorServiceManager.getScheduledExecutorService().schedule(
-                    () -> leaveSauna(chr), shopDwellMs(), TimeUnit.MILLISECONDS);
+                    () -> {
+                        if (BotShutdown.isQuiesced()) {
+                            return; // Ticket 09: no travel out of the sauna once the gate has closed
+                        }
+                        leaveSauna(chr);
+                    }, shopDwellMs(), TimeUnit.MILLISECONDS);
         };
         GCMovement.move(chr, SAUNA_DOOR_X, SAUNA_DOOR_Y, enter);
         ExecutorServiceManager.getScheduledExecutorService().schedule(enter, DOOR_WALK_MAX_MS, TimeUnit.MILLISECONDS);
@@ -732,6 +796,7 @@ public class TrainingBot extends BotSM {
         lastExpAccrualMs = nowMs;
         if (elapsedSec > 0 && !GCMovement.isMapObserved(chr.getMapId()) && currentMobLevel > 0) {
             accrueAbstractExp(currentMobLevel, elapsedSec);
+            accrueAbstractLoot(chr, nowMs, (long) (elapsedSec * 1000));
         }
 
         // Announce a level-up the moment it becomes visible (real kills on an observed map).
@@ -1168,7 +1233,26 @@ public class TrainingBot extends BotSM {
         BotFullChat(chr, message); // general chat: bubble above the head AND a line in the chat box
     }
 
+    // Offscreen loot is not minted: it is drawn from the map instance's own hunting-capacity budget, shared
+    // with every other bot grinding there, and credited through the same holdings a real drop would use. A
+    // bot whose inventory cannot take its share forfeits it rather than banking it.
+    private void accrueAbstractLoot(Character chr, long nowMs, long elapsedMs) {
+        OffscreenRewardBudget.Reward reward = OffscreenRewardBudget.draw(chr.getMapId(),
+                chr.getMap().getCharacters().size(), elapsedMs, nowMs, chr.getWorldServer());
+        if (reward.isEmpty()) {
+            return;
+        }
+        if (reward.mesos() > 0) {
+            BotHoldings.grantMeso(chr, (int) Math.min(reward.mesos(), Integer.MAX_VALUE));
+        }
+        for (Item item : reward.items()) {
+            BotHoldings.grantItem(chr, item);
+        }
+    }
+
     // Silent, level-scaled accrual: kills/min x per-kill-exp, where per-kill-exp ~ the map's mob level.
+    // Applied through the character's own offscreen path so it serializes with observed gains and
+    // re-derives stats; nothing is sent to the map (ticket 07 rule 2).
     private void accrueAbstractExp(int mobLevel, double elapsedSec) {
         int perKillExp = Math.max(1, mobLevel);
         int gain = (int) Math.round((KILLS_PER_MIN / 60.0) * perKillExp * elapsedSec);
@@ -1176,20 +1260,7 @@ public class TrainingBot extends BotSM {
             return;
         }
         Character chr = getChr();
-        long exp = (long) chr.getExp() + gain;
-        int level = chr.getLevel();
-        int startLevel = level;
-        while (level < LEVEL_CAP) {
-            long need = ExpTable.getExpNeededForLevel(level);
-            if (need <= 0 || exp < need) {
-                break;
-            }
-            exp -= need;
-            level++;
-        }
-        chr.setLevel(level);
-        chr.setExp(exp);
-        if (level > startLevel) {
+        if (chr.applyOffscreenExp(gain, LEVEL_CAP) > 0) {
             // Announce the bot's own level-up so nearby bots can congratulate it (same event path as
             // real players). Once, at the final level. The abstract EXP loop can span several levels
             // when the bot ticks slowly while unobserved - we still fire a single event.
@@ -1350,5 +1421,11 @@ public class TrainingBot extends BotSM {
         }
         super.stopScheduledTask();
         log("[TrainingBot] stopped: " + (chr != null ? chr.getName() : "?"));
+    }
+
+    /** Reads players' typed lines itself (menu, bets, script): free text stays with it (bot-persistence ticket 21). */
+    @Override
+    public boolean consumesFreeText() {
+        return true;
     }
 }

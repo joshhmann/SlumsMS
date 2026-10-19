@@ -1,5 +1,8 @@
 package soloMapling.ArtificialPlayer.BotTypes;
 
+import soloMapling.ArtificialPlayer.BotMenus;
+import soloMapling.ArtificialPlayer.BotConversation;
+import soloMapling.ArtificialPlayer.BotBrainSystem.BotBrains;
 import client.Character;
 import soloMapling.ArtificialPlayer.BotChatterSystem.BotChatter;
 import soloMapling.ArtificialPlayer.ConversationManager;
@@ -121,9 +124,14 @@ public class SocialBot extends BotSM {
     public void checkPrioritySpeed() {
         // Snappy while a player is mid-conversation, and also while the bot is armed after saying yes -
         // so pollRecruitInvite drains the incoming invite promptly instead of dropping to slow cadence
-        // once resetConversation ends the exchange.
-        if (hasActiveRespondant() || BotRecruitManager.isArmed(getChr().getId())) {
-            setPriorityHigh();
+        // once resetConversation ends the exchange. The armed window is the shared commitment rule
+        // (BotCommitments, ticket 05); the open conversation stays this type's own live-local clause
+        // because a respondant has no owner-side expiry (see BotCommitments).
+        if (keepAwakeForCommitment()) {
+            return;
+        }
+        if (hasActiveRespondant()) {
+            pinFastCadence();
             return;
         }
         if (checkMainPlayersOnMap()) {
@@ -266,14 +274,13 @@ public class SocialBot extends BotSM {
     @Override
     protected void processMessages() {
         try {
-            ChatMessage message = MessageQueue.getInstance()
-                    .getMessageWithTimeout("secondary", 1, TimeUnit.SECONDS);
-            if (message == null) return;
-
-            if (isBot(message.getSender())) return;
-
             Character respondant = getInteractors().getRespondant();
-            if (respondant == null || message.getSender().getId() != respondant.getId()) return;
+            if (respondant == null) return;
+
+            // Only this bot's player's lines: the queue is shared by every bot in a conversation.
+            ChatMessage message = MessageQueue.getInstance().pollFor("secondary",
+                    m -> !isBot(m.getSender()) && m.getSender().getId() == respondant.getId(), 1, TimeUnit.SECONDS);
+            if (message == null) return;
 
             lastRespondantMessageTime = System.currentTimeMillis();
             handlePlayerMessage(message);
@@ -376,10 +383,19 @@ public class SocialBot extends BotSM {
             return;
         }
 
+        if (category == null && BotBrains.get().isLive()) {
+            // bot-persistence ticket 13: free-form talk (no menu number, no keyword) goes to the brain; the menu,
+            // party recruiting and goodbye above stay scripted.
+            converse(content, player);
+            return;
+        }
         if (category == null) {
             category = "WhatsUp";
         }
+        speakCategory(category, player);
+    }
 
+    private void speakCategory(String category, Character player) {
         if (random.nextDouble() < RARE_LINE_CHANCE) {
             category = "Rare";
         }
@@ -398,6 +414,20 @@ public class SocialBot extends BotSM {
         }
         chain.run(() -> showInteractiveOptions(player));
         chain.start();
+    }
+
+    // --- Free-form chat through the brain (bot-persistence tickets 13, 21) ---
+
+    private static final long LLM_CONVERSATION_TIMEOUT_MS = 60_000;
+
+    private void converse(String content, Character player) {
+        // The shared engine holds history, persona, memory and pacing; the script answers when the brain does not.
+        BotConversation.say(this, player, content, () -> {
+            if (isConversationWith(player)) {
+                speakCategory("WhatsUp", player);
+            }
+        });
+        lastRespondantMessageTime = System.currentTimeMillis();
     }
 
     // --- Party recruiting ---
@@ -446,13 +476,21 @@ public class SocialBot extends BotSM {
         if (res != BotRecruitManager.InvitePoll.JOINED) {
             return;
         }
-        Character recruiter = chr.getClient().getChannelServer().getPlayerStorage().getCharacterById(recruiterId);
-        String line = getRandomLine("PartyJoined", recruiter);
-        if (line != null) {
-            BotSpeak(chr, line);
+        // pollInvites took a follower reservation for this accept. Release it the moment the conversion
+        // is done with - success (the live scan counts the new FollowerBot), a refused conversion
+        // (mid-trade) or a throw all leave the world without an extra follower, and a slot held by a
+        // bot that never became one would starve the cap forever.
+        try {
+            Character recruiter = chr.getClient().getChannelServer().getPlayerStorage().getCharacterById(recruiterId);
+            String line = getRandomLine("PartyJoined", recruiter);
+            if (line != null) {
+                BotSpeak(chr, line);
+            }
+            BotRecruitManager.setPendingLeader(chr.getId(), recruiterId);
+            BotTypeManager.convertBotType(chr, BotTypeManager.BotType.FOLLOWER_BOT);
+        } finally {
+            BotRecruitManager.releaseFollowerReservation(chr.getId());
         }
-        BotRecruitManager.setPendingLeader(chr.getId(), recruiterId);
-        BotTypeManager.convertBotType(chr, BotTypeManager.BotType.FOLLOWER_BOT);
     }
 
     // --- Response types ---
@@ -549,7 +587,14 @@ public class SocialBot extends BotSM {
 
     private void showInteractiveOptions(Character player) {
         List<String> options = List.of(INTERACTIVE_OPTIONS);
-        displayPlayerChatCommands(player, options);
+        // A click in the menu window is the same as typing the option's number (bot-persistence ticket 23).
+        if (!BotMenus.open(this, player, options, (index, who) -> {
+            if (isConversationWith(who)) {
+                handleDialogueChoice(String.valueOf(index + 1), who);
+            }
+        })) {
+            displayPlayerChatCommands(player, options);
+        }
     }
 
     // --- Timeout ---
@@ -559,7 +604,8 @@ public class SocialBot extends BotSM {
         if (lastRespondantMessageTime == 0) return;
 
         long elapsed = System.currentTimeMillis() - lastRespondantMessageTime;
-        if (elapsed > CONVERSATION_TIMEOUT_MS) {
+        long timeout = BotBrains.get().isLive() ? LLM_CONVERSATION_TIMEOUT_MS : CONVERSATION_TIMEOUT_MS;
+        if (elapsed > timeout) {
             String line = getRandomLine("Timeout", getInteractors().getRespondant());
             if (line != null) {
                 BotSpeak(getChr(), line);
@@ -574,6 +620,9 @@ public class SocialBot extends BotSM {
             expirePlayerChatCommands(respondant);
         }
         getInteractors().resetRespondant();
+        if (respondant != null) {
+            BotConversation.end(getChr().getId(), respondant.getId()); // ticket 14: the bot writes down what to remember
+        }
         socialState = SocialBotState.IDLE_AMBIENT;
         lastRespondantMessageTime = 0;
     }
@@ -649,5 +698,11 @@ public class SocialBot extends BotSM {
             count = 0;
             lastInteractionTime = System.currentTimeMillis();
         }
+    }
+
+    /** Reads players' typed lines itself (menu, bets, script): free text stays with it (bot-persistence ticket 21). */
+    @Override
+    public boolean consumesFreeText() {
+        return true;
     }
 }

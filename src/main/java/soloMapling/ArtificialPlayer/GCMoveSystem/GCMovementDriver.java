@@ -2,6 +2,7 @@ package soloMapling.ArtificialPlayer.GCMoveSystem;
 
 import client.Character;
 import server.maps.MapleMap;
+import soloMapling.server.BotShutdown;
 
 import java.awt.Point;
 import java.awt.Rectangle;
@@ -93,8 +94,8 @@ final class GCMovementDriver {
      * though the physical pool thread may differ.
      */
     private static void scheduleNext(BotMovementState entry, long delayMs) {
-        if (entry.tickStopped) {
-            return;
+        if (entry.tickStopped || BotShutdown.isQuiesced()) {
+            return; // Ticket 09: no new movement tick once the gate has closed
         }
         entry.task = POOL.schedule(() -> {
             safeTick(entry);
@@ -130,9 +131,18 @@ final class GCMovementDriver {
     }
 
     private static void safeTick(BotMovementState entry) {
+        if (BotShutdown.isQuiesced()) {
+            stop(entry); // Ticket 09: end the chain for this bot instead of stepping physics on a dead map
+            return;
+        }
         try {
             soloMapling.server.BotPerfStats.MOVEMENT_TICKS.increment();
-            tick(entry);
+            long startedAt = System.nanoTime();
+            try {
+                tick(entry);
+            } finally {
+                BotPerformanceMonitor.recordMovementTick(System.nanoTime() - startedAt);
+            }
         } catch (Throwable t) {
             // A thrown exception must not break the self-reschedule chain — swallow so the bot keeps ticking.
         }
@@ -170,6 +180,25 @@ final class GCMovementDriver {
                 BotPhysicsEngine.holdClimb(entry, bot);
             } else {
                 BotPhysicsEngine.idleOnGround(entry, bot); // shouldn't happen (rest is a rope hang), but hold anyway
+            }
+            broadcastIfObserved(entry);
+            return;
+        }
+
+        // Commitment hold (ticket 05, BotCommitmentHold): a player-facing commitment in flight owns the
+        // bot's position - an open trade window. Freeze the bot where the commitment found it: no nav,
+        // no steering, no player reaction, no move intent consumed, no contact knockback. The hold is
+        // released by the commitment's owner at its single exit (and self-heals here if that owner never
+        // runs), after which the driver resumes the surviving move intent from this exact position.
+        if (BotCommitmentHold.stillHolding(entry)) {
+            boolean airborne = entry.inAir;
+            if (entry.climbing) {
+                BotPhysicsEngine.holdClimb(entry, bot);
+            } else {
+                BotPhysicsEngine.idleOnGround(entry, bot);
+                if (airborne) {
+                    entry.inAir = true; // show the JUMP stance while hovering, like the portal drop
+                }
             }
             broadcastIfObserved(entry);
             return;
@@ -256,6 +285,15 @@ final class GCMovementDriver {
      * the bot is airborne/climbing or the map has no cached graph.
      */
     private static boolean tryCoarseAdvance(BotMovementState entry, Character bot, Point target) {
+        long startedAt = System.nanoTime();
+        try {
+            return tryCoarseAdvance0(entry, bot, target);
+        } finally {
+            BotPerformanceMonitor.recordOffscreenAccrual(System.nanoTime() - startedAt);
+        }
+    }
+
+    private static boolean tryCoarseAdvance0(BotMovementState entry, Character bot, Point target) {
         if (target == null || entry.inAir || entry.climbing) {
             return false;
         }
@@ -285,6 +323,9 @@ final class GCMovementDriver {
             entry.coarsePlanTarget = new Point(target);
             entry.coarsePlanMapId = bot.getMapId();
         }
+        if (!entry.coarseActive) {
+            BotPerformanceMonitor.recordCoarseDemotion();
+        }
         entry.coarseActive = true;
         CoarseExecutor.Step step = CoarseExecutor.advance(entry.coarsePlan, entry.coarsePlanStartMs, now);
         if (step.position() != null) {
@@ -312,17 +353,29 @@ final class GCMovementDriver {
 
     /*
      * Promotion (COARSE -> FULL/HALO): rebuild the physics shadow at the bot's current interpolated
-     * position so the resumed physics tick doesn't snap from stale shadow coordinates. Minimal — full
-     * hysteresis/safe-node reconstruction is M3.
+     * position so the resumed physics tick doesn't snap from stale shadow coordinates, and rebuild every
+     * other mode-scoped field with it (see BotTransitionBoundary for the durable/reconstructible split).
+     * The durable half — identity, progression, commitments, lifecycle — is deliberately not touched.
+     *
+     * Package-visible because this is the promotion seam: BotTransitionBoundaryTest drives this exact
+     * entry point rather than the boundary class, so the ordering (reset, then snap, then re-seed the swept
+     * trace) stays under test and the promotion cost stays on BotPerformanceMonitor.recordPromotionReconstruct.
      */
-    private static void reconstructPhysicsFromCoarse(BotMovementState entry, Character bot) {
-        entry.coarseActive = false;
-        entry.coarsePlan = null;
-        entry.coarsePlanTarget = null;
+    static void reconstructPhysicsFromCoarse(BotMovementState entry, Character bot) {
+        long startedAt = System.nanoTime();
+        try {
+            reconstructPhysicsFromCoarse0(entry, bot);
+        } finally {
+            BotPerformanceMonitor.recordPromotionReconstruct(System.nanoTime() - startedAt);
+        }
+    }
+
+    private static void reconstructPhysicsFromCoarse0(BotMovementState entry, Character bot) {
+        BotTransitionBoundary.reconstructForObserved(entry);
         Point pos = bot.getPosition();
         Point ground = BotPhysicsEngine.findGroundPoint(bot.getMap(), new Point(pos.x, pos.y - 1));
         BotPhysicsEngine.teleportTo(entry, bot, ground != null ? ground : pos);
-        BotMovementManager.resetEntryStateAfterTeleport(entry);
+        BotTransitionBoundary.reseedObservedTrace(entry, bot);
     }
 
     /*

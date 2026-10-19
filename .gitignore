@@ -19,3 +19,7 @@ BotLog.txt
 /.vscode/
 /src/main/java/soloMapling/Documents/
 __pycache__/
+/cache
+
+# graphify knowledge-graph cache (derived; rebuilt by `graphify update .`)
+/graphify-out

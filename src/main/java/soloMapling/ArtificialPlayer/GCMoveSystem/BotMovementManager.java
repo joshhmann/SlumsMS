@@ -204,7 +204,12 @@ class BotMovementManager {
         entry.navJumpLaunchDelaySteps = Integer.MIN_VALUE;
         entry.navTargetRegionId = -1;
         entry.navPreciseTarget = false;
+        // The blocked-at-a-position tracker qualifies the leg being dropped here, so it goes with it: a
+        // carried position would either give up on a fresh leg immediately or hide a real block.
         entry.navBlockedPosTicks = 0;
+        entry.navBlockedPosGiveUpTicks = 0;
+        entry.navBlockedPosX = Integer.MIN_VALUE;
+        entry.navBlockedPosY = Integer.MIN_VALUE;
     }
 
     static void tickClimbing(BotMovementState entry, Point targetPos, boolean runAiTick) {
@@ -817,6 +822,9 @@ class BotMovementManager {
             case 0 -> BotPhysicsEngine.beginGroundJump(entry, bot, -walkStep); // jump left
             default -> BotPhysicsEngine.beginGroundJump(entry, bot, walkStep); // jump right
         }
+        if (entry.navEdge != null) {
+            NavEdgeLearning.failure(entry.navGraph, entry.navEdge); // stuck on this move: remember it (ticket 16)
+        }
         clearNavigationState(entry);
         entry.unstuckCooldownMs = delayAfterCurrentTick(5000);
         broadcastMovement(entry);
@@ -850,11 +858,6 @@ class BotMovementManager {
     }
 
     static void broadcastMovement(BotMovementState entry) {
-        if (!BotPerformanceMonitor.enabled()) {
-            doBroadcastMovement(entry);
-            return;
-        }
-
         long startedAt = System.nanoTime();
         try {
             doBroadcastMovement(entry);
@@ -930,7 +933,7 @@ class BotMovementManager {
         data[14] = (byte) (BotPhysicsEngine.cfg.TICK_MS >> 8);
         InPacket packet = new ByteBufInPacket(Unpooled.wrappedBuffer(data));
         Packet movePacket = PacketCreator.movePlayer(bot.getId(), packet, data.length);
-        bot.getMap().broadcastMessage(bot, movePacket, false);
+        BotPerformanceMonitor.recordBroadcastFanout(bot.getMap().broadcastMessage(bot, movePacket, false));
     }
 
     // Broadcast a hand-built movement fragment path ([numCommands][fragments...]) verbatim to observers. Used
@@ -940,9 +943,14 @@ class BotMovementManager {
         if (bot == null || bot.getMap() == null) {
             return;
         }
-        InPacket packet = new ByteBufInPacket(Unpooled.wrappedBuffer(data));
-        Packet movePacket = PacketCreator.movePlayer(bot.getId(), packet, data.length);
-        bot.getMap().broadcastMessage(bot, movePacket, false);
+        long startedAt = System.nanoTime();
+        try {
+            InPacket packet = new ByteBufInPacket(Unpooled.wrappedBuffer(data));
+            Packet movePacket = PacketCreator.movePlayer(bot.getId(), packet, data.length);
+            BotPerformanceMonitor.recordBroadcastFanout(bot.getMap().broadcastMessage(bot, movePacket, false));
+        } finally {
+            BotPerformanceMonitor.recordBroadcastRaw(System.nanoTime() - startedAt);
+        }
     }
 
     // Broadcast a flash jump so observers render the dash animation instead of a plain air-glide. Adapted

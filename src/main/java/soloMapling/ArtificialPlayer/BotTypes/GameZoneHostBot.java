@@ -238,7 +238,8 @@ public class GameZoneHostBot extends BotSM {
     @Override
     public void processMessages() {
         try {
-            ChatMessage message = MessageQueue.getInstance().getMessageWithTimeout("secondary", 1, TimeUnit.SECONDS);
+            ChatMessage message = MessageQueue.getInstance().pollFor("secondary",
+                    getInteractors()::isMessageFromRespondant, 1, TimeUnit.SECONDS);
             if (message == null) {
                 return;
             }
@@ -283,5 +284,11 @@ public class GameZoneHostBot extends BotSM {
         }
         BotSpeak(getChr(), "Hmm, I don't have that. Try again!");
         BotEmote(getChr(), 6);
+    }
+
+    /** Reads players' typed lines itself (menu, bets, script): free text stays with it (bot-persistence ticket 21). */
+    @Override
+    public boolean consumesFreeText() {
+        return true;
     }
 }
