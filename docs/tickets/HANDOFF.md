@@ -57,6 +57,15 @@ Kiwiism/cosmic_agents gets recorded there.
 - `Z:\MSv83\MapleRoot Full Repack\SlumsMS Client` is the verified standalone client (23.6 GB, no junctions).
 - Desktop work is read-only outside `SlumsMS-dev` unless the owner says otherwise.
 
+## Version note
+
+The numbers drifted on 2026-10-19:
+- server 1.2.1 (live);
+- client release on the patch server 1.2.2;
+- launcher app 1.2.1.
+
+The next release of anything (the bots) ships as **1.3.0** across server, client and launcher, and from then on they move together.
+
 ## Decisions to remember
 
 - Real bots:
