@@ -256,6 +256,7 @@ public class TrainingBot extends BotSM {
     private Point travelLastPos = null;
 
     private int homeMapId = -1;           // the spawn town; GO_TOWN returns here
+    private int pendingHomeMapId = -1;    // ticket 03: another region's hub, adopted as home once the bot arrives
     private boolean firstTrip = true;     // first decision to go train: maybe warp straight there (see FIRST_TRIP_TELEPORT_CHANCE)
     private boolean midSessionGrind = false; // next grind starts partially elapsed (warped/in-place first trip — see MID_SESSION_FLOOR_MS)
     private final List<Integer> shopQueue = new ArrayList<>(); // store maps still to visit this town stop
@@ -668,6 +669,7 @@ public class TrainingBot extends BotSM {
         }
         Set<Integer> excluded = crowdExcludedMaps(); // maps on crowd-cooldown (pruned) — steer away from them
         clearTrainTarget(); // release any stale reservation before choosing (choose() reserves the pick's slot)
+        pendingHomeMapId = -1; // a relocation that never arrived is forgotten; the bot keeps its old home
         TrainingMap pick = TrainingMapChooser.choose(chr, homeMapId, excluded, this::debugChat);
         if (pick == null) {
             int here = chr.getMapId();
@@ -690,6 +692,13 @@ public class TrainingBot extends BotSM {
         currentTrainMapId = pick.mapId();
         currentMobLevel = Math.max(1, pick.mobLevel());
         debugChat("DECIDE: chose map " + pick.mapId() + " (mob lv " + pick.mobLevel() + ")");
+        if (pick.relocates()) {
+            // Ticket 03: training in another region. The bot rides there (cabs, boats, trains... paying its
+            // fares) and makes the region's hub its home on arrival, so later town trips stay over there.
+            pendingHomeMapId = pick.relocateHomeMapId();
+            log("[TrainingBot] " + chr.getName() + " (lv " + chr.getLevel() + ") sets off from map " + chr.getMapId()
+                    + " for map " + pick.mapId() + " (new home " + pendingHomeMapId + ", " + chr.getMeso() + " mesos)");
+        }
         // First trip only (mainly startup): most bots warp straight to the grind map instead of walking, so
         // the world reads as already-populated. Skipped when the town is observed (don't blink out in front of
         // a player) or already on the picked map. doGrind's entry then runs the normal grind setup. Consumed
@@ -697,7 +706,7 @@ public class TrainingBot extends BotSM {
         boolean wasFirstTrip = firstTrip;
         firstTrip = false;
         boolean migrates = chr.getMapId() != pick.mapId();
-        if (wasFirstTrip && migrates
+        if (wasFirstTrip && migrates && !pick.relocates() // a move to another region always travels for real
                 && !GCMovement.isMapObserved(chr.getMapId())
                 && rng.nextDouble() < FIRST_TRIP_TELEPORT_CHANCE) {
             debugChat("DECIDE: first-trip warp -> map " + pick.mapId());
@@ -764,6 +773,9 @@ public class TrainingBot extends BotSM {
     // position anchor only advances when movement clears the epsilon, so slow steady travel still accumulates
     // into progress across ticks instead of reading as stuck.
     private boolean madeTravelProgress(Character chr) {
+        if (GCMovement.isInTransit(chr)) {
+            return true; // queued for a boat or aboard one: standing still is the point (ticket 03)
+        }
         int curMap = chr.getMapId();
         if (curMap != travelLastMapId) {
             travelLastMapId = curMap;
@@ -785,6 +797,12 @@ public class TrainingBot extends BotSM {
         if (!phaseEntered) {
             phaseEntered = true;
             teleportedThisEpisode = false;
+            if (pendingHomeMapId > 0 && chr.getMapId() == currentTrainMapId) {
+                log("[TrainingBot] " + chr.getName() + " arrived on map " + chr.getMapId() + "; home is now "
+                        + pendingHomeMapId + " (was " + homeMapId + ")");
+                homeMapId = pendingHomeMapId; // ticket 03: settled in the new region
+            }
+            pendingHomeMapId = -1;
             GCMovement.setGrinding(chr, true); // engage grind nav guards (no idle-hang on ropes)
             grind.start(chr); // fresh heartbeat, select a spot, and move into it (disperses cohorts even unobserved)
             boolean resumingFromBreak = breaks.resuming();

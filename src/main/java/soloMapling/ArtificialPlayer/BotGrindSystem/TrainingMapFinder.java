@@ -13,8 +13,9 @@ import java.util.Set;
 // closest-level mob-bearing maps (the bot's own map among them, so nothing in-band never means nowhere). Reads only WZ (via GCMovement.mapsWithinHops + MapMobIndex); the
 // walkable-portal BFS naturally excludes towns (no mobs) and PQ/instance maps (not portal-reachable).
 // Mini-dungeon instances are explicitly rejected (MiniDungeonInfo.isDungeonMap), and maps outside the
-// allowed original-content regions are rejected (TrainingRegions) so a bot never grinds/warps into a
-// single-person instance or into Leafre / Aqua Road / new-school content even if a portal reaches it.
+// enabled regions (TrainingRegions.yaml) or behind a rebirth gate the bot hasn't passed (BotMapGates) are
+// rejected, so a bot never grinds/warps into a single-person instance, unlisted content or a gated area
+// even if a portal reaches it. Other regions come in through TrainingTravel (ticket 03), not this walk.
 //
 // Our own creation. Replaces TrainingBot's old REGIONS table.
 public final class TrainingMapFinder {
@@ -53,31 +54,58 @@ public final class TrainingMapFinder {
     public static List<TrainingMap> findTrainingMaps(int fromMapId, int level, int minMob, int maxMob,
                                                      int maxHops, Set<Integer> excluded, boolean includeOrigin,
                                                      int hardMinMob) {
+        return findTrainingMaps(fromMapId, level, minMob, maxMob, maxHops, excluded, includeOrigin, hardMinMob, 0);
+    }
+
+    // rebirths: the bot's rebirth count - maps behind a rebirth gate it hasn't passed (BotMapGates) are never
+    // candidates, not even for the fallback (ticket 03: no bot grinds a map it couldn't legally enter).
+    public static List<TrainingMap> findTrainingMaps(int fromMapId, int level, int minMob, int maxMob,
+                                                     int maxHops, Set<Integer> excluded, boolean includeOrigin,
+                                                     int hardMinMob, int rebirths) {
         Map<Integer, Integer> nearby = GCMovement.mapsWithinHopsByDepth(fromMapId, maxHops);
         List<TrainingMap> reachable = new ArrayList<>();
         for (Map.Entry<Integer, Integer> e : nearby.entrySet()) {
-            TrainingMap m = grindable(e.getKey(), e.getValue(), excluded);
+            TrainingMap m = grindable(e.getKey(), e.getValue(), excluded, rebirths);
             if (m != null) {
                 reachable.add(m);
             }
         }
         // The origin (hops=0) is always scored: as a normal candidate with includeOrigin, else only for the
         // fallback, so a bot standing on a mob field with nothing in-band anywhere can fight what's around it.
-        TrainingMap origin = nearby.containsKey(fromMapId) ? null : grindable(fromMapId, 0, excluded);
+        TrainingMap origin = nearby.containsKey(fromMapId) ? null : grindable(fromMapId, 0, excluded, rebirths);
         return select(reachable, origin, includeOrigin, level, minMob, maxMob, hardMinMob);
     }
 
+    // Ticket 03: every grindable map within maxHops walked hops of a hub, at any level and before the rebirth
+    // gates (the caller applies those per bot). TrainingTravel caches this per hub to judge whether a region
+    // has anything in a bot's band before sending it across the sea.
+    static List<TrainingMap> grindableAround(int hubMapId, int maxHops) {
+        List<TrainingMap> out = new ArrayList<>();
+        TrainingMap self = grindable(hubMapId, 0, null, Integer.MAX_VALUE);
+        if (self != null) {
+            out.add(self);
+        }
+        for (Map.Entry<Integer, Integer> e : GCMovement.mapsWithinHopsByDepth(hubMapId, maxHops).entrySet()) {
+            TrainingMap m = grindable(e.getKey(), e.getValue(), null, Integer.MAX_VALUE);
+            if (m != null) {
+                out.add(m);
+            }
+        }
+        return List.copyOf(out);
+    }
+
     // The map as a training candidate at `hops`, or null when it can't be one: excluded by the caller,
-    // a mini-dungeon, outside the allowed regions, or without enough mobs (towns, quest-mob maps).
-    private static TrainingMap grindable(int mapId, int hops, Set<Integer> excluded) {
+    // a mini-dungeon, outside the allowed regions, behind a rebirth gate, or without enough mobs (towns,
+    // quest-mob maps).
+    private static TrainingMap grindable(int mapId, int hops, Set<Integer> excluded, int rebirths) {
         if (excluded != null && excluded.contains(mapId)) {
             return null; // caller is steering away from this map (crowd cooldown)
         }
         if (MiniDungeonInfo.isDungeonMap(mapId)) {
             return null; // single-person mini-dungeon instance — bots must never grind/warp here
         }
-        if (!TrainingRegions.isAllowed(mapId)) {
-            return null; // outside original-content regions (Leafre / Aqua Road / new-school etc.)
+        if (!TrainingRegions.isAllowed(mapId, rebirths)) {
+            return null; // outside the enabled regions (TrainingRegions.yaml), or behind a rebirth gate
         }
         MapMobIndex.MapMobInfo info = MapMobIndex.info(mapId);
         if (info.medianLevel() < 1 || info.mobCount() < MIN_MOB_COUNT) {
