@@ -34,6 +34,7 @@ import constants.skills.WhiteKnight;
 
 import java.util.EnumMap;
 import java.util.Map;
+import java.util.function.IntPredicate;
 
 import static soloMapling.ArtificialPlayer.BotAttackSystem.BotAttackProfile.magic;
 import static soloMapling.ArtificialPlayer.BotAttackSystem.BotAttackProfile.magicAoe;
@@ -176,6 +177,66 @@ public final class BotAttackConfig {
      * field may be null.
      */
     public static JobAttacks resolve(Job job, WeaponType weapon) {
+        return resolve(job, weapon, null);
+    }
+
+    /*
+     * Real bots (ticket 06): the same resolution, restricted to the attacks the bot actually has. hasSkill answers
+     * whether the bot holds a skill (either weapon form of a pair counts). When the bot holds at least one attack of
+     * its lineage, each role takes the most advanced attack it holds, so a fresh 4th job keeps mobbing with its
+     * 3rd-job skill until it has put SP into the new one; a role it holds nothing for stays empty. A bot that holds
+     * none of them - no stored build, a job the build does not cover - falls back to the table as before.
+     */
+    public static JobAttacks resolve(Job job, WeaponType weapon, IntPredicate hasSkill) {
+        if (hasSkill != null && job != null) {
+            JobAttacks owned = resolveOwned(job, weapon, hasSkill);
+            if (owned != null) {
+                return owned;
+            }
+        }
+        return resolveTable(job, weapon);
+    }
+
+    private static boolean holds(BotAttackProfile p, IntPredicate hasSkill) {
+        return p != null && p.skillId != 0
+                && (hasSkill.test(p.skillId) || (p.altSkillId != 0 && hasSkill.test(p.altSkillId)));
+    }
+
+    /* The owned-skill resolution, or null when the bot holds no attack of its lineage at all. */
+    private static JobAttacks resolveOwned(Job job, WeaponType weapon, IntPredicate hasSkill) {
+        BotAttackProfile single = null, aoe = null, ultimate = null;
+        int bestSingleId = -1, bestAoeId = -1, bestUltId = -1;
+        for (Map.Entry<Job, JobAttacks> entry : BY_JOB.entrySet()) {
+            Job j = entry.getKey();
+            if (!job.isA(j)) {
+                continue;
+            }
+            JobAttacks a = entry.getValue();
+            if (holds(a.single(), hasSkill) && j.getId() > bestSingleId) {
+                single = a.single();
+                bestSingleId = j.getId();
+            }
+            if (holds(a.aoe(), hasSkill) && j.getId() > bestAoeId) {
+                aoe = a.aoe();
+                bestAoeId = j.getId();
+            }
+            if (holds(a.ultimate(), hasSkill) && j.getId() > bestUltId) {
+                ultimate = a.ultimate();
+                bestUltId = j.getId();
+            }
+        }
+        if (single == null && job.isA(Job.THIEF)) {
+            BotAttackProfile preferred = (weapon == WeaponType.CLAW) ? ROGUE_CLAW : ROGUE_DAGGER;
+            BotAttackProfile other = (preferred == ROGUE_CLAW) ? ROGUE_DAGGER : ROGUE_CLAW;
+            single = holds(preferred, hasSkill) ? preferred : holds(other, hasSkill) ? other : null;
+        }
+        if (single == null && aoe == null && ultimate == null) {
+            return null;
+        }
+        return new JobAttacks(single, aoe, ultimate);
+    }
+
+    private static JobAttacks resolveTable(Job job, WeaponType weapon) {
         if (job == null) {
             return new JobAttacks(null, null, null);
         }

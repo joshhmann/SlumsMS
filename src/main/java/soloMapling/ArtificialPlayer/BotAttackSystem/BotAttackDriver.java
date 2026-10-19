@@ -133,12 +133,17 @@ public final class BotAttackDriver {
         return p != null ? p.reachY : 0;
     }
 
+    /* What the bot holds, for BotAttackConfig's owned-skill resolution (real bots 06). */
+    static java.util.function.IntPredicate ownedSkills(Character bot) {
+        return skillId -> bot.getSkillLevel(skillId) > 0;
+    }
+
     private static BotAttackProfile primaryProfile(Character bot) {
         if (bot == null) {
             return null;
         }
         WeaponType weapon = BotAttack.resolveEquippedWeaponType(bot);
-        BotAttackConfig.JobAttacks atks = BotAttackConfig.resolve(bot.getJob(), weapon);
+        BotAttackConfig.JobAttacks atks = BotAttackConfig.resolve(bot.getJob(), weapon, ownedSkills(bot));
         if (atks.single() != null) {
             return atks.single();
         }
@@ -152,7 +157,7 @@ public final class BotAttackDriver {
             return false;
         }
         WeaponType weapon = BotAttack.resolveEquippedWeaponType(bot);
-        BotAttackConfig.JobAttacks atks = BotAttackConfig.resolve(bot.getJob(), weapon);
+        BotAttackConfig.JobAttacks atks = BotAttackConfig.resolve(bot.getJob(), weapon, ownedSkills(bot));
         return atks.aoe() != null || atks.ultimate() != null;
     }
 
@@ -166,7 +171,7 @@ public final class BotAttackDriver {
         }
 
         WeaponType weapon = BotAttack.resolveEquippedWeaponType(bot);
-        BotAttackConfig.JobAttacks atks = BotAttackConfig.resolve(bot.getJob(), weapon);
+        BotAttackConfig.JobAttacks atks = BotAttackConfig.resolve(bot.getJob(), weapon, ownedSkills(bot));
         BotAttackProfile single = atks.single();
         BotAttackProfile aoe = atks.aoe();
         BotAttackProfile ultimate = atks.ultimate(); // throttled full-map nuke, or null
