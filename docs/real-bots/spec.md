@@ -27,7 +27,7 @@ travel between continents. Players can bring their own alts along as companions.
 | Progression | AP/SP by class build, plus job advancements. Quests come later. |
 | Class coverage | Stock classes first (Explorers, Cygnus, Aran) up to level 200. MapleRoot custom classes, rebirths and 200+ come later. |
 | Companion control | Chat commands (cosmic_agents parser: name, prefix or slot targeting) and the NPC-window menus. Companions take commands **only within your party**. |
-| Navigation | Port nutnnut's graph v61→v66 (teleport/flash-jump and windowed edges, fork-walk fix, portal route buckets). Add per-class mobility skills and cross-map travel (boats, taxis, ferries). Keep the learning from player jumps on top. |
+| Navigation | Port nutnnut's graph v61→v66 (it has no learning of its own) (teleport/flash-jump and windowed edges, fork-walk fix, portal route buckets). Add per-class mobility skills and cross-map travel (boats, taxis, ferries). Keep the learning from player jumps on top, and add continuous learning without players: a nav lab, a nightly deep bake and a stuck-hotspot report. |
 | Order | Navigation first, then the real tier, then companions, then economy features. |
 
 ## Sources and credit (AGPL-3.0)
@@ -45,6 +45,19 @@ adopt a whole runtime. Record every port in `docs/PROVENANCE.md`.
 2. **Mobility skills:** teleport and flash-jump edges, used when the bot has the skill. Per-class tables for stock classes.
 3. **Cross-map world graph:** boats, taxis and ferries. Offscreen travel through the coarse planner.
 4. **Learning on v66:** NavEdgeLearning and NavObservedEdges carried over to the new edge types.
+4a. **Nav lab (continuous learning, no players needed).** A low-priority background job runs the real physics engine on:
+    - failure hotspots;
+    - maps no player has visited;
+    - jump and drop candidates the graph builder skipped.
+
+    Proven edges join the learned overlay. Edges that keep failing are penalised, exactly like player-learned and
+    failure-learned ones. Bounded by the governor; it pauses under load.
+4b. **Nightly deep bake.** While the server is quiet, a dense search of every map for jumps, drops and mobility-skill
+    moves (Teleport, Flash Jump), denser than the live builder can afford. Results become versioned overlays the
+    graph picks up at the next load.
+4c. **Stuck-hotspot report.** A daily list of where bots got stuck: map, position, the failed edge and how often.
+    It feeds the nav lab, and humans or agents use it to fix the cases physics cannot solve (scripted portals,
+    one-way platforms) in the graph builder.
 
 ### Real tier
 5. **Persisted real stats:** botstore gains skills, AP/SP and job progress (migration). Existing bots are back-filled from level and job with the class build.
