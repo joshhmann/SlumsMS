@@ -13,7 +13,6 @@ import org.slf4j.LoggerFactory;
 import server.Trade;
 import server.maps.MapleMap;
 import soloMapling.server.SoloMaplingConstants;
-import tools.DatabaseConnection;
 import tools.Pair;
 
 import java.awt.Point;
@@ -356,7 +355,11 @@ public final class BotStore {
         stored.applyTo(bot);
         adoptedThisRun.add(bot.getId());
         try {
-            stored.loadHoldings(bot);
+            // The item load takes its own connections, so it waits for room in the bots' share like any other.
+            BotDbGate.hold(BotDbGate.ITEM_LOAD, () -> {
+                stored.loadHoldings(bot);
+                return null;
+            });
         } catch (Exception e) {
             // The row is still readable, but this bot's items are not. Let it run this boot with empty
             // tabs, but never write them: the item tables are rewritten tab by tab, so a save now would
@@ -547,17 +550,20 @@ public final class BotStore {
         int apply(Connection con) throws SQLException;
     }
 
-    /** Where the store gets its connections; a unit test swaps in a mock pool. */
+    /**
+     * Where the store gets its connections: the bots' share of the pool ({@link BotDbGate}), or a mock pool
+     * a unit test swaps in.
+     */
     @FunctionalInterface
     interface ConnectionSource {
         Connection get() throws SQLException;
     }
 
-    private static volatile ConnectionSource connectionSource = DatabaseConnection::getConnection;
+    private static volatile ConnectionSource connectionSource = BotDbGate::connection;
 
     /** Test seam: points the store at a mock pool, or back at the real one with {@code null}. */
     static void useConnectionSourceForTest(ConnectionSource source) {
-        connectionSource = source == null ? DatabaseConnection::getConnection : source;
+        connectionSource = source == null ? BotDbGate::connection : source;
     }
 
     /**

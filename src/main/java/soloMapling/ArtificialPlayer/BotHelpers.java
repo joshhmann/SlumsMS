@@ -174,9 +174,6 @@ public class BotHelpers {
     // Diff is clamped at 0 so an out-of-order timestamp can't throw from Thread.sleep.
     public static boolean waitBetweenTwoLong(long timestamp1, long timestamp2) {
         long diff = Math.max(0, timestamp2 - timestamp1);
-        if (diff > 2000) {
-            System.out.println("More than 2 seconds waiting");
-        }
         try {
             Thread.sleep(diff);
             return true;

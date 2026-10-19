@@ -24,6 +24,8 @@ import static java.util.concurrent.TimeUnit.SECONDS;
  */
 public class DatabaseConnection {
     private static final Logger log = LoggerFactory.getLogger(DatabaseConnection.class);
+    /** Hikari's default. SoloMapling's bots hold at most part of it, leaving the rest to players (BotDbGate). */
+    public static final int MAX_POOL_SIZE = 10;
     private static HikariDataSource dataSource;
     private static Jdbi jdbi;
 
@@ -62,7 +64,7 @@ public class DatabaseConnection {
         final int initFailTimeoutSeconds = YamlConfig.config.server.INIT_CONNECTION_POOL_TIMEOUT;
         config.setInitializationFailTimeout(SECONDS.toMillis(initFailTimeoutSeconds));
         config.setConnectionTimeout(SECONDS.toMillis(30)); // Hikari default
-        config.setMaximumPoolSize(10); // Hikari default
+        config.setMaximumPoolSize(MAX_POOL_SIZE);
 
         config.addDataSourceProperty("cachePrepStmts", true);
         config.addDataSourceProperty("prepStmtCacheSize", 25);

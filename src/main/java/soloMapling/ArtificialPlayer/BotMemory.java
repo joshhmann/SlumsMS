@@ -4,7 +4,6 @@ import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import soloMapling.ArtificialPlayer.BotBrainSystem.BotBrain;
 import soloMapling.ArtificialPlayer.BotBrainSystem.BotBrains;
-import tools.DatabaseConnection;
 
 import java.sql.Connection;
 import java.sql.PreparedStatement;
@@ -279,7 +278,7 @@ public final class BotMemory {
 
     private static BotStore.ConnectionSource connections() {
         BotStore.ConnectionSource source = connectionSource;
-        return source != null ? source : DatabaseConnection::getConnection;
+        return source != null ? source : BotDbGate::connection;
     }
 
     /** Test seam: a mock pool (null restores the real one); forgets every cached note. */

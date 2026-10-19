@@ -30,6 +30,7 @@ import java.sql.Connection;
 import java.sql.PreparedStatement;
 import java.sql.ResultSet;
 import java.sql.SQLException;
+import java.sql.Timestamp;
 
 /**
  * @author Matze
@@ -45,6 +46,15 @@ public class RankingLoginTask implements Runnable {
             PreparedStatement reset = con.prepareStatement(query);
             reset.executeUpdate();
         }
+    }
+
+    /**
+     * An account that has never logged in has no lastlogin - the SoloMapling bot template's account is one,
+     * and the LEFT JOIN gives a character without an account none either. Such a character counts as last
+     * seen before any update, instead of failing the whole ranking pass.
+     */
+    static long lastLoginMillis(Timestamp lastlogin) {
+        return lastlogin != null ? lastlogin.getTime() : 0;
     }
 
     private void updateRanking(int job, int world) throws SQLException {
@@ -69,7 +79,7 @@ public class RankingLoginTask implements Runnable {
                     int rankMove = 0;
                     rank++;
 
-                    final long lastlogin = rs.getTimestamp("lastlogin").getTime();
+                    final long lastlogin = lastLoginMillis(rs.getTimestamp("lastlogin"));
                     if (lastlogin < lastUpdate || rs.getInt("loggedin") > 0) {
                         rankMove = rs.getInt((job != -1 ? "jobRankMove" : "rankMove"));
                     }

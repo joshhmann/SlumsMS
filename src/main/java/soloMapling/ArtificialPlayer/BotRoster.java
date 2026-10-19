@@ -2,7 +2,6 @@ package soloMapling.ArtificialPlayer;
 
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
-import tools.DatabaseConnection;
 
 import java.sql.Connection;
 import java.sql.PreparedStatement;
@@ -399,7 +398,7 @@ public final class BotRoster {
 
     private static BotStore.ConnectionSource connections() {
         BotStore.ConnectionSource source = connectionSource;
-        return source != null ? source : DatabaseConnection::getConnection;
+        return source != null ? source : BotDbGate::connection;
     }
 
     /** Test seam: points the roster at a mock pool (null restores the real one) and forgets what it loaded. */

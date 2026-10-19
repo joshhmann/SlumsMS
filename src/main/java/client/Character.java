@@ -9908,6 +9908,11 @@ public class Character extends AbstractCharacterObject {
     }
 
     public void setHasMerchant(boolean set) {
+        // A bot has no characters row to flag, and the free market sets up hundreds of bot merchants at boot.
+        if (soloMapling.ArtificialPlayer.BotHelpers.isBot(this)) {
+            hasMerchant = set;
+            return;
+        }
         try (Connection con = DatabaseConnection.getConnection();
              PreparedStatement ps = con.prepareStatement("UPDATE characters SET HasMerchant = ? WHERE id = ?")) {
             ps.setInt(1, set ? 1 : 0);

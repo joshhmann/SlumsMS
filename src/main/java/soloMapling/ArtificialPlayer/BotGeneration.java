@@ -52,20 +52,13 @@ public class BotGeneration {
 
 
     /**
-     * At most this many bot template loads at once. {@code Character.loadCharFromDB} holds one pooled connection
-     * while its item, cash-shop and monster-book loads each take another, so with MapleRoot's 10-connection pool
-     * ten parallel spawns would each hold one and wait forever for a second. Three loads need at most six,
-     * leaving the rest of the pool to players.
+     * Every bot template load goes through {@link BotDbGate}, paying for the connections
+     * {@code Character.loadCharFromDB} nests up front, so parallel spawns can never hold the whole pool between
+     * them while each waits for a nested connection - and players logging in keep their reserve.
      */
-    private static final java.util.concurrent.Semaphore TEMPLATE_LOADS = new java.util.concurrent.Semaphore(3, true);
-
     private static Character loadTemplate(int templateId) throws SQLException {
-        TEMPLATE_LOADS.acquireUninterruptibly();
-        try {
-            return Character.loadCharFromDB(templateId, getBotClient(), false);
-        } finally {
-            TEMPLATE_LOADS.release();
-        }
+        return BotDbGate.hold(BotDbGate.CHARACTER_LOAD,
+                () -> Character.loadCharFromDB(templateId, getBotClient(), false));
     }
 
     public static Character getConsoleBot() {
