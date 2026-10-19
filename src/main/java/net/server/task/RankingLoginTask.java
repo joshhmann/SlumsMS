@@ -24,6 +24,7 @@ package net.server.task;
 import client.Job;
 import config.YamlConfig;
 import net.server.Server;
+import soloMapling.server.MapleRootSolo;
 import tools.DatabaseConnection;
 
 import java.sql.Connection;
@@ -57,18 +58,30 @@ public class RankingLoginTask implements Runnable {
         return lastlogin != null ? lastlogin.getTime() : 0;
     }
 
-    private void updateRanking(int job, int world) throws SQLException {
-        String sqlCharSelect = "SELECT c.id, " + (job != -1 ? "c.jobRank, c.jobRankMove" : "c.`rank`, c.rankMove") + ", a.lastlogin AS lastlogin, a.loggedin FROM characters AS c LEFT JOIN accounts AS a ON c.accountid = a.id WHERE c.gm < 2 AND c.world = ? ";
+    /**
+     * The character the rankings leave out: the SoloMapling bot template (account SMBotBase), which every bot is
+     * cloned from but nobody plays. 0 - no character's id - when SoloMapling is off.
+     */
+    static int unrankedCharacterId() {
+        return MapleRootSolo.isEnabled() ? MapleRootSolo.templateId() : 0;
+    }
+
+    static String charSelectSql(int job) {
+        String sqlCharSelect = "SELECT c.id, " + (job != -1 ? "c.jobRank, c.jobRankMove" : "c.`rank`, c.rankMove") + ", a.lastlogin AS lastlogin, a.loggedin FROM characters AS c LEFT JOIN accounts AS a ON c.accountid = a.id WHERE c.gm < 2 AND c.world = ? AND c.id <> ? ";
         if (job != -1) {
             sqlCharSelect += "AND c.job DIV 100 = ? ";
         }
         sqlCharSelect += "ORDER BY c.level DESC , c.exp DESC , c.lastExpGainTime ASC, c.fame DESC , c.meso DESC";
+        return sqlCharSelect;
+    }
 
+    private void updateRanking(int job, int world) throws SQLException {
         try (Connection con = DatabaseConnection.getConnection();
-             PreparedStatement charSelect = con.prepareStatement(sqlCharSelect)) {
+             PreparedStatement charSelect = con.prepareStatement(charSelectSql(job))) {
             charSelect.setInt(1, world);
+            charSelect.setInt(2, unrankedCharacterId());
             if (job != -1) {
-                charSelect.setInt(2, job);
+                charSelect.setInt(3, job);
             }
 
             try (ResultSet rs = charSelect.executeQuery();
