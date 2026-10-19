@@ -1,0 +1,7 @@
+worlds: []
+server:
+  CHARSET: US-ASCII
+  DB_HOST: 127.0.0.1
+  DB_USER: slumsms
+  DB_PASS: CHANGE_ME
+  DB_URL_FORMAT: jdbc:mysql://%s:3306/slumsms

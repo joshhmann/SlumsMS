@@ -1,0 +1,18 @@
+[Unit]
+Description=SlumsMS MapleRoot server
+After=network-online.target
+Wants=network-online.target
+
+[Service]
+Type=simple
+User=slumsms
+Group=slumsms
+WorkingDirectory=/opt/slumsms/Server
+ExecStart=/usr/bin/java -Xmx2G -Dcashshop.window.enabled=true -Dweather.enabled=true -Dsolomapling.enabled=false -Dsolomapling.autopopulate=false -Dsolomapling.tutorial-admin=false -jar target/Cosmic.jar
+Restart=on-failure
+RestartSec=10
+TimeoutStopSec=120
+UMask=0077
+
+[Install]
+WantedBy=multi-user.target

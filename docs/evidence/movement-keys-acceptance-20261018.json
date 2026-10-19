@@ -1,0 +1,19 @@
+{
+  "status": "passed for isolated tested scope",
+  "confirmed": [
+    "Four draggable direction actions and assignments",
+    "WASD movement and physical arrows",
+    "Chat typing without character movement",
+    "Assignments persist across relog",
+    "SHOP search typing, close and movement with weather",
+    "FM rain/night/snow portal flicker fixed",
+    "Normal exit with complete resource cleanup and exit code zero"
+  ],
+  "native_tests": 5,
+  "binary_anchors_verified": 9,
+  "native_dll_sha256": "bcbcf8d832ff269b2758884100761de85c5b567cd50967ee84ad9a01ffc8ea0d",
+  "final_session_log_sha256": "1b868350c45314a6cef6367cf7d0940c94592304671c0a92a3c8ed9916e31179",
+  "server_updated": false,
+  "live_deployed": false,
+  "remaining_scope": "Broader key combinations/accessibility layouts and long-session testing not established"
+}

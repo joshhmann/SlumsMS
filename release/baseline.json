@@ -1,0 +1,28 @@
+{
+  "baseline": "baseline-20261018-r1",
+  "server_repository": "https://github.com/joshhmann/SlumsMS",
+  "client_repository": "https://github.com/joshhmann/SlumsMS-Client",
+  "matching_git_tag": "baseline-20261018-r1",
+  "server_java": 21,
+  "server_flags": {
+    "cashshop.window.enabled": true,
+    "weather.enabled": true,
+    "solomapling.enabled": false
+  },
+  "client_flags": [
+    "MAPLEROOT_INTEGRATION",
+    "MAPLEROOT_CASHSHOP_WINDOW",
+    "MAPLEROOT_WEATHER",
+    "MAPLEROOT_MOVEMENT_KEYS",
+    "MAPLEROOT_MOUNT_INFO"
+  ],
+  "login_port": 8485,
+  "channel_base_port": 7585,
+  "live_deployed": false,
+  "accepted_artifacts": {
+    "Kaentake.dll": "a696105817af2580e3e14a54ddb6e8dcaa6ca14427ee2154679ffb5d2922d839",
+    "Cosmic.jar": "637b9e0de8b1cb76ec6c062b59b3a3178074b1b51f9e69a0b17dcfd8346a5c8e"
+  },
+  "source_baseline_server_jar_sha256": "b12996a75b3d528fcce1c46d898c0a7976420f5bcd726f87bcb605524b2193b1",
+  "source_server_delta": "Only registration webhook environment handling differs from earlier gameplay-accepted JAR"
+}

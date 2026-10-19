@@ -1,0 +1,9 @@
+{
+  "characters": "map",
+  "medalmaps": "mapid",
+  "playernpcs": "map",
+  "playernpcs_field": "map",
+  "plife": "map",
+  "savedlocations": "map",
+  "trocklocations": "mapid"
+}

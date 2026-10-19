@@ -1,0 +1,28 @@
+{
+  "server_tests": {
+    "tests": 2055,
+    "failures": 0,
+    "errors": 0,
+    "skipped": 0
+  },
+  "server_class_entries_equal_to_accepted": 22709,
+  "client_tests": 7,
+  "client_full_companion_and_kaentake_build": "passed from new repo paths",
+  "live_deployed": false,
+  "server_total_class_entries": 22711,
+  "server_intentional_changed_classes": [
+    "net/server/handlers/login/LoginPasswordHandler.class",
+    "constants/net/ServerConstants.class"
+  ],
+  "change_reason": "Optional registration webhook now comes from private environment; unset skips notification without blocking account setup",
+  "server_jar_sha256": "b12996a75b3d528fcce1c46d898c0a7976420f5bcd726f87bcb605524b2193b1",
+  "server_isolated_startup": {
+    "passed": true,
+    "unit": "mapleroot-repository-baseline-smoke.service",
+    "catalogue_rows": 1839,
+    "maps": "Henesys, classic FM alias and Arcane classification passed",
+    "weather_wire": "28-byte opcode 0x373D passed",
+    "live_changed": false
+  },
+  "client_source_only_tests": 5
+}

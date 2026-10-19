@@ -1,0 +1,22 @@
+{
+  "status": "passed for tested isolated visual scope",
+  "source_evidence": "weather-time-initial-20261018.json",
+  "confirmed": [
+    "Day/night lighting",
+    "Rain and normal movement",
+    "Snow outdoors, suppression indoors, restoration outdoors",
+    "Resolution change",
+    "SHOP preview/close and movement with weather active",
+    "Channel change and classic FM transition",
+    "Normal game exit with SHOP open; weather/shop resources released; native cleanup complete; process exit zero"
+  ],
+  "limitations": [
+    "Live server/baseline client not deployed",
+    "Weather combat/debuff/physics systems excluded",
+    "Additional weather profiles, extended stability and complete lamp placement parity not established",
+    "Henesys lamp filament layer warning tracked for visual polish"
+  ],
+  "native_dll_sha256": "ff70eb5fec1625580583d9c74a1ebb257d81158981f5c05b66ed79bd559b33c4",
+  "server_jar_sha256": "637b9e0de8b1cb76ec6c062b59b3a3178074b1b51f9e69a0b17dcfd8346a5c8e",
+  "live_changes_applied": false
+}

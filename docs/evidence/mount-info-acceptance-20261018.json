@@ -1,0 +1,20 @@
+{
+  "status": "passed for isolated tested scope",
+  "renderer_marker": "navel-composed-v3",
+  "native_dll_sha256": "a696105817af2580e3e14a54ddb6e8dcaa6ca14427ee2154679ffb5d2922d839",
+  "final_session_log_sha256": "8e5ee36bb50eac9d45e0aaa22decf899e18c6cdbed3139f357b2ec93804f7fca",
+  "native_tests": 7,
+  "confirmed": [
+    "Matched mount/saddle equip and riding",
+    "Multipart Red Draco animation fits box without clipping, pulsing or flickering",
+    "Long names fit while inventory tooltip keeps full name",
+    "Page switches and reopening remain correct",
+    "Normal game exit; mount/weather/shop/Canvas release; complete cleanup; exit zero"
+  ],
+  "scope_limits": [
+    "No live deployment or server update",
+    "Not exhaustive coverage of all mount assets, poses or attachment types",
+    "Optional badge-slot remapping excluded"
+  ],
+  "build_audit": "Earlier frame-cache/anchor retests accidentally used stale DLL; final build verified by checked compile exit, binary marker/hash and actual runtime marker; those earlier failures are preserved in initial evidence"
+}

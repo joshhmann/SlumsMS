@@ -1,0 +1,48 @@
+{
+  "date_local": "2026-10-18",
+  "report_source": "user confirmation",
+  "scope": "private cash-shop client/server on 8487",
+  "passed": [
+    "purchased items persisted through relog (user confirmed)",
+    "NX balance persisted correctly through relog (user confirmed)",
+    "normal application exit after returning to login; exit code 0 and shop/core resource cleanup logged"
+  ],
+  "cleanup_markers": {
+    "CASHSHOP_RESOURCES_RELEASED": [
+      "[Kaentake] CASHSHOP_RESOURCES_RELEASED"
+    ],
+    "SESSION_CLEANUP_BEGIN": [
+      "[Kaentake] SESSION_CLEANUP_BEGIN"
+    ],
+    "SESSION_CUSTOM_RESOURCES_RELEASED": [
+      "[Kaentake] SESSION_CUSTOM_RESOURCES_RELEASED"
+    ],
+    "SESSION_CLEANUP_COMPLETE": [
+      "[Kaentake] SESSION_CLEANUP_COMPLETE"
+    ],
+    "SESSION_PROCESS_EXIT": [
+      "[Kaentake] SESSION_PROCESS_EXIT pid=396 code=00000000"
+    ]
+  },
+  "server_health": {
+    "error_lines": [],
+    "service": "active"
+  },
+  "live_changes_applied": false,
+  "remaining": [
+    "resolution and map/channel transition cleanup",
+    "pet and special/timed cash-item behavior",
+    "live rollout",
+    "direct quit while SHOP remains open, distinct from quitting after returning to login"
+  ],
+  "quit_report": "User clarified they had returned to login, then closed the entire game.",
+  "exit_verification": {
+    "status": "passed",
+    "game_pid": 396,
+    "launcher_pid": 43108,
+    "exit_code": 0,
+    "cleanup_markers_present": true,
+    "processes_still_running": false,
+    "scope": "Quit after returning to login; direct quit with SHOP still open was not established."
+  }
+}
