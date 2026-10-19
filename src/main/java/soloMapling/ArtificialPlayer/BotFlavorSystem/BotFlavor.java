@@ -135,7 +135,7 @@ public final class BotFlavor {
     // cast animation + aura, no stats. Falls back to an emote for jobs with no configured buffs
     // (beginners / early pirates).
     private static void doBuffFlex(Character chr) {
-        List<Integer> buffs = BotBuffConfig.buffsForJob(chr.getJob());
+        List<Integer> buffs = BotBuffConfig.buffsFor(chr);
         if (buffs.isEmpty()) {
             doEmote(chr);
             return;
@@ -148,14 +148,15 @@ public final class BotFlavor {
     // no damage. markAlerted keeps the pose from being cancelled by the next idle-refresh packet.
     private static void doSkillSwing(Character chr) {
         WeaponType weapon = BotAttack.resolveEquippedWeaponType(chr);
-        BotAttackConfig.JobAttacks atk = BotAttackConfig.resolve(chr.getJob(), weapon);
+        BotAttackConfig.JobAttacks atk = BotAttackConfig.resolve(chr.getJob(), weapon,
+                skillId -> chr.getSkillLevel(skillId) > 0);
         BotAttackProfile profile = pickProfile(atk);
         GCMovement.markAlerted(chr);
         if (profile == null) {
             BotAttack.basicSwing(chr);
             return;
         }
-        int skillId = profile.skillFor(weapon);
+        int skillId = profile.skillId;
         if (profile.route == BotAttackProfile.Route.MAGIC) {
             BotAttack.magicSwing(chr, skillId);
         } else {

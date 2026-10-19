@@ -12,6 +12,8 @@ import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import server.Trade;
 import server.maps.MapleMap;
+import soloMapling.ArtificialPlayer.BotProgressionSystem.BotProgression;
+import soloMapling.ArtificialPlayer.BotProgressionSystem.BotRealStats;
 import soloMapling.server.SoloMaplingConstants;
 import tools.DatabaseConnection;
 import tools.Pair;
@@ -20,12 +22,16 @@ import java.awt.Point;
 import java.sql.Connection;
 import java.sql.PreparedStatement;
 import java.sql.ResultSet;
+import java.sql.ResultSetMetaData;
 import java.sql.SQLException;
 import java.util.ArrayList;
 import java.util.Collection;
+import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
 import java.util.Set;
+import java.util.SortedMap;
+import java.util.TreeMap;
 import java.util.concurrent.ConcurrentHashMap;
 import java.util.concurrent.ThreadLocalRandom;
 import java.util.concurrent.atomic.AtomicInteger;
@@ -131,6 +137,16 @@ public final class BotStore {
     static final String UPDATE_ROW = "UPDATE botstore SET Name = ?, Tier = ?, Level = ?, Exp = ?, "
             + "Meso = ?, Job = ?, Skin = ?, Gender = ?, Hair = ?, Face = ?, MapId = ?, PosX = ?, PosY = ?, "
             + "EquipSlots = ?, UseSlots = ?, SetupSlots = ?, EtcSlots = ?, SavedAt = ? WHERE BotId = ?";
+    /*
+     * The real-stats half of a row (migration 005, real-bots ticket 05): written in the same transaction as the row,
+     * and only for a bot whose build is kept (BotProgression.isReal) - a bot of a job the build does not cover keeps
+     * NULL here, which is also what tells the next load to back-fill a stock bot that has never been built.
+     */
+    static final String UPDATE_STATS = "UPDATE botstore SET StatStr = ?, StatDex = ?, StatInt = ?, StatLuk = ?, "
+            + "MaxHp = ?, MaxMp = ?, Hp = ?, Mp = ?, RemainingAp = ?, Sp = ?, BuildLevel = ? WHERE BotId = ?";
+    static final String DELETE_SKILLS = "DELETE FROM botskills WHERE BotId = ?";
+    static final String INSERT_SKILL = "INSERT INTO botskills (BotId, SkillId, Level, MasterLevel) VALUES (?, ?, ?, ?)";
+    private static final String SELECT_SKILLS = "SELECT BotId, SkillId, Level, MasterLevel FROM botskills";
 
     private static final Object ROSTER_LOCK = new Object();
     /** A deadlocked write is retried this many times before the bot's write is given up on. */
@@ -145,6 +161,11 @@ public final class BotStore {
     /** Bot ids that adopted a stored row this run; nothing may re-roll their stored state afterwards. */
     private static final Set<Integer> adoptedThisRun = ConcurrentHashMap.newKeySet();
     private static volatile boolean rosterLoaded;
+    /**
+     * Whether migration 005 is in: {@code null} until the store has looked, then what it found. Without it the store
+     * keeps working exactly as before and simply stores no builds (they are rebuilt from level and job each boot).
+     */
+    private static volatile Boolean realStatsSchema;
 
     private BotStore() {
     }
@@ -171,10 +192,19 @@ public final class BotStore {
         final int etcSlots;
         final long createdAt;
         final long savedAt;
+        /** The bot's stored build, or {@code null} when none is stored (never built, or not a stock job). */
+        final BotRealStats stats;
 
         Persisted(int botId, String name, String tier, int level, long exp, int meso, int job, int skin,
                   int gender, int hair, int face, int mapId, int posX, int posY, int equipSlots, int useSlots,
                   int setupSlots, int etcSlots, long createdAt, long savedAt) {
+            this(botId, name, tier, level, exp, meso, job, skin, gender, hair, face, mapId, posX, posY, equipSlots,
+                    useSlots, setupSlots, etcSlots, createdAt, savedAt, null);
+        }
+
+        Persisted(int botId, String name, String tier, int level, long exp, int meso, int job, int skin,
+                  int gender, int hair, int face, int mapId, int posX, int posY, int equipSlots, int useSlots,
+                  int setupSlots, int etcSlots, long createdAt, long savedAt, BotRealStats stats) {
             this.botId = botId;
             this.name = name;
             this.tier = tier;
@@ -195,6 +225,13 @@ public final class BotStore {
             this.etcSlots = etcSlots;
             this.createdAt = createdAt;
             this.savedAt = savedAt;
+            this.stats = stats;
+        }
+
+        /** This row with its build attached (the build's skills come from their own table). */
+        Persisted withStats(BotRealStats built) {
+            return new Persisted(botId, name, tier, level, exp, meso, job, skin, gender, hair, face, mapId, posX, posY,
+                    equipSlots, useSlots, setupSlots, etcSlots, createdAt, savedAt, built);
         }
 
         int charId() {
@@ -371,6 +408,17 @@ public final class BotStore {
             log.warn("Could not load the holdings of bot {}: {} - this bot will not write its inventory",
                     bot.getId(), e.getMessage());
         }
+        // Real bots 05: the stored build (stats, AP/SP, skills) goes back on, or a stock bot that has never been built
+        // is back-filled from its level and job. After the holdings, because the weapon it carries picks its branch.
+        // A failure here leaves the bot as cloned rather than failing the adoption: identity and holdings are what
+        // must never be lost, and a build that was not restored is not written back over the stored one.
+        try {
+            BotProgression.restore(bot, stored.stats);
+        } catch (RuntimeException e) {
+            BotProgression.forget(bot.getId());
+            log.warn("Could not restore the build of bot {} ({}); it keeps the template's stats this run",
+                    bot.getId(), bot.getName(), e);
+        }
         // Level, job and worn gear all came off the row, so the clone's stats are stale until this point
         // (ticket 07 rule 2: stored progression must be internally consistent, not just visible).
         bot.refreshStatsAfterProgression();
@@ -416,6 +464,13 @@ public final class BotStore {
      */
     static void recordFirstCreation(Character bot) throws SQLException {
         applyInitialGrants(bot);
+        // Real bots 05/06: a new bot of a stock job starts with the build of the level and job it was decorated with.
+        try {
+            BotProgression.buildNew(bot);
+        } catch (RuntimeException e) {
+            BotProgression.forget(bot.getId());
+            log.warn("Could not build bot {} ({}); it keeps the template's stats", bot.getId(), bot.getName(), e);
+        }
         writeTransaction(bot, con -> writeRow(bot, botId(bot), con));
         remember(botId(bot), bot);
     }
@@ -465,6 +520,7 @@ public final class BotStore {
             ps.setLong(20, row.createdAt);
             ps.executeUpdate();
         }
+        writeRealStats(row, con);
         return writeHoldings(bot, con, capturedAt);
     }
 
@@ -482,6 +538,7 @@ public final class BotStore {
                 return insertRow(bot, botId, con, capturedAt);
             }
         }
+        writeRealStats(row, con);
         return writeHoldings(bot, con, capturedAt);
     }
 
@@ -577,6 +634,11 @@ public final class BotStore {
     /** Test seam: points the store at a mock pool, or back at the real one with {@code null}. */
     static void useConnectionSourceForTest(ConnectionSource source) {
         connectionSource = source == null ? GATED : source;
+    }
+
+    /** Test seam: forgets what the store learned about migration 005 being applied. */
+    static void resetRealStatsSchemaForTest() {
+        realStatsSchema = null;
     }
 
     /**
@@ -810,9 +872,23 @@ public final class BotStore {
                 try (Connection con = lockedReadConnection();
                      PreparedStatement ps = con.prepareStatement(SELECT_ROSTER);
                      ResultSet rs = ps.executeQuery()) {
+                    boolean withStats = hasRealStatsColumns(rs);
+                    realStatsSchema = withStats;
                     while (rs.next()) {
                         Persisted row = read(rs);
+                        if (withStats) {
+                            BotRealStats stats = readStats(rs);
+                            if (stats != null) {
+                                row = row.withStats(stats);
+                            }
+                        }
                         roster.put(row.botId, row);
+                    }
+                    if (withStats) {
+                        attachSkills(con);
+                    } else {
+                        log.warn("The bot store has no real-stats columns (migration 005 is not applied): bot builds"
+                                + " are rebuilt from level and job each boot and not stored");
                     }
                 } catch (SQLException e) {
                     throw new IllegalStateException("Could not read the bot store", e);
@@ -898,7 +974,118 @@ public final class BotStore {
                 bot.getPosition().y, bot.getInventory(InventoryType.EQUIP).getSlotLimit(),
                 bot.getInventory(InventoryType.USE).getSlotLimit(),
                 bot.getInventory(InventoryType.SETUP).getSlotLimit(),
-                bot.getInventory(InventoryType.ETC).getSlotLimit(), now, now);
+                bot.getInventory(InventoryType.ETC).getSlotLimit(), now, now, BotProgression.snapshot(bot));
+    }
+
+    /** True when the row set carries migration 005's columns. */
+    private static boolean hasRealStatsColumns(ResultSet rs) {
+        try {
+            ResultSetMetaData meta = rs.getMetaData();
+            if (meta == null) {
+                return false;
+            }
+            for (int i = 1; i <= meta.getColumnCount(); i++) {
+                if ("BuildLevel".equalsIgnoreCase(meta.getColumnLabel(i))) {
+                    return true;
+                }
+            }
+        } catch (SQLException e) {
+            log.warn("Could not inspect the bot store's columns: {}", e.getMessage());
+        }
+        return false;
+    }
+
+    /** A row's stored build without its skills, or {@code null} when it has none (BuildLevel is NULL). */
+    static BotRealStats readStats(ResultSet rs) throws SQLException {
+        int buildLevel = rs.getInt("BuildLevel");
+        if (rs.wasNull()) {
+            return null;
+        }
+        return new BotRealStats(rs.getInt("StatStr"), rs.getInt("StatDex"), rs.getInt("StatInt"),
+                rs.getInt("StatLuk"), rs.getInt("MaxHp"), rs.getInt("MaxMp"), rs.getInt("Hp"), rs.getInt("Mp"),
+                rs.getInt("RemainingAp"), BotRealStats.decodeSp(rs.getString("Sp")), buildLevel, new TreeMap<>());
+    }
+
+    /** Reads every stored skill and hangs each bot's set on its row. Rows without a stored build ignore theirs. */
+    private static void attachSkills(Connection con) throws SQLException {
+        Map<Integer, SortedMap<Integer, BotRealStats.SkillLevel>> byBot = new HashMap<>();
+        try (PreparedStatement ps = con.prepareStatement(SELECT_SKILLS);
+             ResultSet rs = ps.executeQuery()) {
+            while (rs.next()) {
+                byBot.computeIfAbsent(rs.getInt("BotId"), id -> new TreeMap<>())
+                        .put(rs.getInt("SkillId"), new BotRealStats.SkillLevel(rs.getInt("Level"),
+                                rs.getInt("MasterLevel")));
+            }
+        }
+        byBot.forEach((botId, skills) -> {
+            Persisted row = roster.get(botId);
+            if (row != null && row.stats != null) {
+                roster.put(botId, row.withStats(row.stats.withSkills(skills)));
+            }
+        });
+    }
+
+    /**
+     * Writes the row's build - the stat columns and the bot's whole skill set - inside the row's own transaction, so
+     * a restart sees the build and the row from the same moment. Nothing is written for a bot whose build is not
+     * kept, so its columns stay as they were. A store without migration 005 is noticed once and then left alone.
+     */
+    static void writeRealStats(Persisted row, Connection con) throws SQLException {
+        if (row.stats == null || Boolean.FALSE.equals(realStatsSchema)) {
+            return;
+        }
+        BotRealStats stats = row.stats;
+        try {
+            try (PreparedStatement ps = con.prepareStatement(UPDATE_STATS)) {
+                bindStats(ps, stats);
+                ps.setInt(12, row.botId);
+                ps.executeUpdate();
+            }
+            try (PreparedStatement ps = con.prepareStatement(DELETE_SKILLS)) {
+                ps.setInt(1, row.botId);
+                ps.executeUpdate();
+            }
+            if (!stats.skills().isEmpty()) {
+                try (PreparedStatement ps = con.prepareStatement(INSERT_SKILL)) {
+                    for (Map.Entry<Integer, BotRealStats.SkillLevel> skill : stats.skills().entrySet()) {
+                        ps.setInt(1, row.botId);
+                        ps.setInt(2, skill.getKey());
+                        ps.setInt(3, skill.getValue().level());
+                        ps.setInt(4, skill.getValue().masterLevel());
+                        ps.addBatch();
+                    }
+                    ps.executeBatch();
+                }
+            }
+        } catch (SQLException e) {
+            if (!isMissingSchema(e)) {
+                throw e;
+            }
+            realStatsSchema = false;
+            log.warn("The bot store has no real-stats columns or botskills table (migration 005 is not applied);"
+                    + " bot builds are not stored: {}", e.getMessage());
+        }
+    }
+
+    /** Binds the 11 stat columns of {@link #UPDATE_STATS}, in their order. */
+    static void bindStats(PreparedStatement ps, BotRealStats stats) throws SQLException {
+        ps.setInt(1, stats.str());
+        ps.setInt(2, stats.dex());
+        ps.setInt(3, stats.int_());
+        ps.setInt(4, stats.luk());
+        ps.setInt(5, stats.maxHp());
+        ps.setInt(6, stats.maxMp());
+        ps.setInt(7, Math.max(0, stats.hp()));
+        ps.setInt(8, Math.max(0, stats.mp()));
+        ps.setInt(9, stats.remainingAp());
+        ps.setString(10, stats.encodeSp());
+        ps.setInt(11, stats.buildLevel());
+    }
+
+    /** An unknown column or table: the schema predates migration 005. */
+    static boolean isMissingSchema(SQLException e) {
+        return e.getErrorCode() == 1054 || e.getErrorCode() == 1146 || "42S22".equals(e.getSQLState())
+                || "42S02".equals(e.getSQLState());
     }
 
     static Persisted read(ResultSet rs) throws SQLException {

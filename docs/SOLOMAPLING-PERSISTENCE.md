@@ -61,6 +61,21 @@ Changes that apply whether or not bots are on (none of them changes the wire for
 
 As with 001 and 002: stop the game and take a backup first.
 
+`005-bot-real-stats.sql` (real bots, tickets 05/06; 004 belongs to the daily check-in series) adds nullable stat,
+HP/MP, AP, SP and `BuildLevel` columns to `botstore` and a `botskills` table. A NULL `BuildLevel` means the bot has
+never been built: the next time it loads, its build is back-filled once from its level and job and written with its
+next save. Bots of a job the build does not cover (the 5th tiers, Super Beginner and Synth Master, Evan, GM jobs) are
+never built and keep NULL. Applying it twice changes nothing. `005-bot-real-stats.rollback.sql` drops the table and the columns; bots keep
+their identity, level, job and items. Without 005 the server still runs and simply stores no builds.
+
+Builds (`soloMapling/ArtificialPlayer/BotProgressionSystem`): Explorers, Cygnus Knights and Aran up to level 200, on
+MapleRoot's own skill set (`docs/real-bots/mapleroot-skills.md`). AP goes to each class's primary stat with the
+secondary held at its requirement. SP follows a per-job priority list. Jobs advance at 10 (8 for magicians), 30, 70
+and 120 - Cygnus Knights included, as MapleRoot gives them a 4th job. The Job Master's free Shadow Partner and, at the
+4th job, the 2084000 skill package (custom 4th-job skills at level 1) are granted; a bot with 10,000,000 mesos pays
+for the package. A skill Skill.wz lacks is skipped, and a stored skill it no longer has (a booster from an older
+build) gives its SP back to be spent again.
+
 ## Configuration
 
 These are the keys added to `ServerConfig`. All are optional, and the defaults apply when a key is missing:

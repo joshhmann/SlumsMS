@@ -1,0 +1,601 @@
+# id	job	max	kind	name
+8	0	1	passive	Follow the Lead
+12	0	20	passive	Blessing of the Fairy
+100	0	1	buff	Chair Mastery
+1000	0	3	passive	Three Snails
+1001	0	3	buff	Recovery
+1002	0	3	buff	Nimble Feet
+1003	0	1	passive	Legendary Spirit
+1004	0	1	buff	Monster Rider
+1005	0	1	buff	Echo of Hero
+1006	0	1	passive	Jump Down
+1009	0	1	passive	Bamboo Rain
+1010	0	1	buff	Invincibility
+1011	0	1	buff	Power Explosion
+1013	0	2	buff	Spaceship
+1014	0	1	buff	Space Dash
+1015	0	1	buff	Space Beam
+1017	0	1	buff	Yeti Rider
+1018	0	1	buff	Yeti Mount
+1019	0	1	buff	Witch's Broomstick
+1020	0	1	passive	Rage of Pharaoh
+1031	0	1	buff	Barlog Mount
+1050	0	1	passive	Ninja Bounce
+1051	0	1	attack	Chain Attack
+1052	0	1	attack	Chain Attack 2
+1054	0	1	passive	Vertical Bounce
+9000	0	1	passive	Pig's Weakness
+9001	0	1	passive	Stump's Weakness
+9002	0	1	passive	Slime's Weakness
+1000000	100	16	passive	Improved HP Recovery
+1000001	100	10	passive	Improved MaxHP Increase
+1000002	100	8	buff	Endure
+1001003	100	20	buff	Iron Body
+1001004	100	20	attack	Power Strike
+1001005	100	20	attack	Slash Blast
+1100000	110	20	passive	Sword Mastery
+1100002	110	30	attack	Final Attack : Sword
+1101006	110	20	buff	Rage
+1101007	110	30	buff	Power Guard
+1110000	111	20	passive	Improving MP Recovery
+1110001	111	20	passive	Shield Mastery
+1111002	111	30	buff	Combo Attack
+1111003	111	30	attack	Panic : Sword
+1111005	111	30	attack	Coma: Sword
+1111007	111	20	passive	Armor Crash
+1111008	111	30	attack	Shout
+1120003	112	30	passive	Advanced Combo
+1120004	112	30	passive	Achilles
+1120005	112	30	buff	Guardian
+1121000	112	30	buff	Maple Warrior
+1121001	112	30	passive	Monster Magnet
+1121002	112	30	buff	Power Stance
+1121006	112	30	attack	Rush
+1121008	112	30	attack	Raging Blow
+1121010	112	30	buff	Enrage
+1121011	112	5	buff	Hero's Will
+1121012	112	10	attack	Rising Rage
+1131074	113	1	attack	Shadow Flash
+1131075	113	1	attack	Draco Wave
+1131105	113	1	attack	Ruin
+1131109	113	1	buff	Legacy Restoration
+1200000	120	20	passive	Sword Mastery
+1200002	120	30	attack	Final Attack : Sword
+1201006	120	20	buff	Threaten
+1201007	120	30	buff	Power Guard
+1210000	121	20	passive	Improving MP Recovery
+1210001	121	20	passive	Shield Mastery
+1211002	121	30	attack	Charged Blow
+1211003	121	30	buff	Fire Charge: Sword
+1211005	121	30	buff	Ice Charge: Sword
+1211007	121	30	buff	Thunder Charge: Sword
+1211009	121	20	attack	Magic Crash
+1220005	122	30	passive	Achilles
+1220006	122	30	buff	Guardian
+1220010	122	10	passive	Advanced Charge
+1221000	122	30	buff	Maple Warrior
+1221001	122	30	passive	Monster Magnet
+1221002	122	30	buff	Power Stance
+1221003	122	20	buff	Holy Charge : Sword
+1221007	122	30	attack	Rush
+1221009	122	30	attack	Blast
+1221012	122	5	buff	Hero's Will
+1221017	122	10	attack	Holy Flame Hammer
+1231074	123	1	attack	Shadow Flash
+1231075	123	1	attack	Draco Wave
+1231105	123	1	attack	Ruin
+1231109	123	1	buff	Legacy Restoration
+1300000	130	20	passive	Spear Mastery
+1300002	130	30	attack	Final Attack : Spear
+1301006	130	20	buff	Iron Will
+1301007	130	30	buff	Hyper Body
+1310000	131	20	passive	Elemental Resistance
+1311001	131	30	attack	Spear Crusher
+1311003	131	30	attack	Dragon Fury: Spear
+1311005	131	30	passive	Sacrifice
+1311006	131	30	attack	Dragon Roar
+1311007	131	20	attack	Power Crash
+1311008	131	20	buff	Dragon Blood
+1320005	132	30	passive	Achilles
+1320006	132	30	passive	Berserk
+1320008	132	25	passive	Aura of the Beholder
+1320009	132	25	buff	Hex of the Beholder
+1321000	132	30	buff	Maple Warrior
+1321001	132	30	passive	Monster Magnet
+1321002	132	30	buff	Power Stance
+1321003	132	30	attack	Rush
+1321007	132	10	buff	Beholder
+1321010	132	5	buff	Hero's Will
+1321011	132	10	attack	La Mancha Spear
+1321012	132	10	attack	Dark Impale
+1321013	132	10	attack	Gungnir Descend
+1321016	132	10	buff	Dark Tidings
+1331074	133	1	attack	Shadow Flash
+1331075	133	1	attack	Draco Wave
+1331105	133	1	attack	Ruin
+1331109	133	1	buff	Legacy Restoration
+2000000	200	16	passive	Improved MP Recovery
+2000001	200	10	passive	Improved MaxMP Increase
+2001002	200	20	buff	Magic Guard
+2001003	200	20	buff	Magic Armor
+2001004	200	20	attack	Energy Bolt
+2001005	200	20	attack	Magic Claw
+2100000	210	20	passive	MP Eater
+2101001	210	20	buff	Meditation
+2101002	210	20	passive	Teleport
+2101004	210	30	attack	Fire Arrow
+2101005	210	30	attack	Poison Breath
+2110000	211	20	passive	Partial Resistance
+2110001	211	30	passive	Element Amplification
+2111002	211	30	attack	Explosion
+2111003	211	30	buff	Poison Mist
+2111004	211	1	buff	Fire Rush
+2111006	211	30	attack	Element Composition
+2121000	212	30	buff	Maple Warrior
+2121002	212	30	buff	Mana Reflection
+2121003	212	30	attack	Fire Haze
+2121004	212	30	buff	Infinity
+2121005	212	30	attack	Elquines
+2121006	212	30	attack	Paralyze
+2121007	212	30	attack	Meteor Shower
+2121008	212	5	buff	Hero's Will
+2121052	212	10	attack	Megiddo Flame
+2121054	212	10	attack	Inferno Aura
+2131006	213	1	buff	Aura Scythe
+2131067	213	1	attack	Lightning Spear Multistrike
+2131072	213	1	attack	Trinity Fusion
+2131079	213	1	attack	Smashing Multipunch
+2200000	220	20	passive	MP Eater
+2201001	220	20	buff	Meditation
+2201002	220	20	passive	Teleport
+2201004	220	30	attack	Cold Beam
+2201005	220	30	attack	Thunder Bolt
+2210000	221	20	passive	Partial Resistance
+2210001	221	30	passive	Element Amplification
+2211002	221	30	attack	Ice Strike
+2211003	221	30	attack	Thunder Spear
+2211004	221	1	buff	Fire Rush
+2211006	221	30	attack	Element Composition
+2221000	222	30	buff	Maple Warrior
+2221002	222	30	buff	Mana Reflection
+2221003	222	30	attack	Glacier
+2221004	222	30	buff	Infinity
+2221005	222	30	attack	Ifrit
+2221006	222	30	attack	Chain Lightning
+2221007	222	30	attack	Blizzard
+2221008	222	5	buff	Hero's Will
+2221009	222	10	attack	Lightning Burst
+2221011	222	10	attack	Ice Storm
+2231006	223	1	buff	Aura Scythe
+2231067	223	1	attack	Lightning Spear Multistrike
+2231072	223	1	attack	Trinity Fusion
+2231079	223	1	attack	Smashing Multipunch
+2300000	230	20	passive	MP Eater
+2301001	230	20	passive	Teleport
+2301002	230	30	passive	Heal
+2301003	230	20	buff	Invincible
+2301004	230	20	buff	Bless
+2301005	230	30	attack	Holy Arrow
+2310000	231	20	passive	Elemental Resistance
+2311001	231	20	passive	Dispel
+2311002	231	20	buff	Mystic Door
+2311003	231	30	buff	Holy Symbol
+2311004	231	30	attack	Shining Ray
+2311005	231	1	buff	Fire Rush
+2311006	231	30	attack	Summon Dragon
+2320012	232	1	passive	Buff Master
+2321000	232	30	buff	Maple Warrior
+2321002	232	30	buff	Mana Reflection
+2321003	232	30	attack	Bahamut
+2321004	232	30	buff	Infinity
+2321005	232	30	buff	Holy Shield
+2321006	232	10	passive	Resurrection
+2321007	232	30	attack	Angel Ray
+2321008	232	30	attack	Genesis
+2321009	232	5	buff	Hero's Will
+2331006	233	1	buff	Aura Scythe
+2331067	233	1	attack	Lightning Spear Multistrike
+2331072	233	1	attack	Trinity Fusion
+2331079	233	1	attack	Smashing Multipunch
+3000000	300	16	passive	The Blessing of Amazon
+3000001	300	20	passive	Critical Shot
+3000002	300	8	passive	The Eye of Amazon
+3001003	300	20	buff	Focus
+3001004	300	20	attack	Arrow Blow
+3001005	300	20	attack	Double Shot
+3100000	310	20	passive	Bow Mastery
+3100001	310	30	attack	Final Attack : Bow
+3101003	310	20	attack	Power Knock-Back
+3101004	310	20	buff	Soul Arrow : Bow
+3101005	310	30	attack	Arrow Bomb : Bow
+3110000	311	20	passive	Thrust
+3110001	311	20	passive	Mortal Blow
+3111002	311	20	buff	Puppet
+3111003	311	30	attack	Inferno
+3111004	311	30	attack	Arrow Rain
+3111005	311	30	buff	Silver Hawk
+3111006	311	30	attack	Strafe
+3120005	312	30	passive	Bow Expert
+3121000	312	30	buff	Maple Warrior
+3121002	312	30	buff	Sharp Eyes
+3121003	312	30	attack	Dragon's Breath
+3121004	312	30	attack	Hurricane
+3121006	312	30	buff	Phoenix
+3121007	312	30	buff	Hamstring
+3121008	312	30	buff	Concentrate
+3121009	312	5	buff	Hero's Will
+3121015	312	10	attack	Arrow Stream
+3131003	313	1	attack	Howling Gale
+3131007	313	1	buff	Spirit of Elluel
+3131012	313	1	attack	Primal Fury
+3131056	313	1	attack	Full Burst Shot
+3200000	320	20	passive	Crossbow Mastery
+3200001	320	30	attack	Final Attack : Crossbow
+3201003	320	20	attack	Power Knock-Back
+3201004	320	20	buff	Soul Arrow : Crossbow
+3201005	320	30	attack	Iron Arrow : Crossbow
+3210000	321	20	passive	Thrust
+3210001	321	20	passive	Mortal Blow
+3211002	321	20	buff	Puppet
+3211003	321	30	attack	Blizzard
+3211004	321	30	attack	Arrow Eruption
+3211005	321	30	buff	Golden Eagle
+3211006	321	30	attack	Strafe
+3220004	322	30	passive	Marksman Boost
+3221000	322	30	buff	Maple Warrior
+3221001	322	30	attack	Piercing Arrow
+3221002	322	30	buff	Sharp Eyes
+3221003	322	30	attack	Dragon's Breath
+3221005	322	30	buff	Frostprey
+3221006	322	30	buff	Blind
+3221007	322	30	attack	Snipe
+3221008	322	5	buff	Hero's Will
+3221009	322	10	attack	High Speed Shot
+3221010	322	10	attack	Ancient Astra
+3231003	323	1	attack	Howling Gale
+3231007	323	1	buff	Spirit of Elluel
+3231012	323	1	attack	Primal Fury
+3231056	323	1	attack	Full Burst Shot
+4000000	400	20	passive	Nimble Body
+4000001	400	8	passive	Keen Eyes
+4001002	400	20	buff	Disorder
+4001003	400	20	buff	Dark Sight
+4001334	400	20	attack	Double Stab
+4001344	400	20	attack	Lucky Seven
+4100000	410	20	passive	Claw Mastery
+4100001	410	30	passive	Critical Throw
+4100002	410	20	buff	Endure
+4101004	410	20	buff	Haste
+4101005	410	30	passive	Drain
+4110000	411	20	passive	Alchemist
+4111001	411	20	buff	Meso Up
+4111002	411	30	buff	Shadow Partner
+4111003	411	20	buff	Shadow Web
+4111004	411	30	passive	Shadow Meso
+4111005	411	30	attack	Shadow Slash
+4111006	411	20	passive	Flash Jump
+4120002	412	30	passive	Shadow Shifter
+4120005	412	30	buff	Venomous Star
+4121000	412	30	buff	Maple Warrior
+4121006	412	30	buff	Shadow Stars
+4121007	412	30	attack	Quadruple Throw
+4121008	412	30	attack	Ninja Storm
+4121009	412	5	buff	Hero's Will
+4121010	412	10	attack	Showdown
+4131031	413	1	buff	Core Overload
+4131042	413	1	attack	Blade Tornado
+4131073	413	1	attack	Slash Shadow Formation
+4131076	413	1	attack	Haunted Edge-Asura
+4200000	420	20	passive	Dagger Mastery
+4200001	420	20	buff	Endure
+4201003	420	20	buff	Haste
+4201005	420	30	attack	Savage Blow
+4210000	421	20	passive	Shield Mastery
+4211001	421	30	buff	Chakra
+4211002	421	30	attack	Assaulter
+4211003	421	20	buff	Pickpocket
+4211004	421	30	attack	Band of Thieves
+4211005	421	20	buff	Meso Guard
+4211006	421	30	passive	Meso Explosion
+4220002	422	30	passive	Shadow Shifter
+4220005	422	30	buff	Venomous Stab
+4221000	422	30	buff	Maple Warrior
+4221006	422	30	buff	Smokescreen
+4221007	422	30	attack	Boomerang Step
+4221008	422	5	buff	Hero's Will
+4221009	422	10	attack	Shadow Veil
+4221010	422	10	attack	Phantom Blow
+4231031	423	1	buff	Core Overload
+4231042	423	1	attack	Blade Tornado
+4231073	423	1	attack	Slash Shadow Formation
+4231076	423	1	attack	Haunted Edge-Asura
+5000000	500	20	passive	Bullet Time
+5001001	500	20	attack	Flash Fist
+5001002	500	20	attack	Sommersault Kick
+5001003	500	20	attack	Double Shot
+5001005	500	10	buff	Dash
+5100000	510	10	passive	Improve MaxHP
+5100001	510	20	passive	Knuckler Mastery
+5101002	510	20	attack	Backspin Blow
+5101003	510	20	attack	Double Uppercut
+5101004	510	20	attack	Corkscrew Blow
+5101005	510	10	passive	MP Recovery
+5101007	510	10	buff	Oak Barrel
+5110000	511	20	passive	Stun Mastery
+5110001	511	40	attack	Energy Charge
+5111002	511	30	attack	Energy Blast
+5111013	511	10	attack	Power Drill
+5121000	512	30	buff	Maple Warrior
+5121001	512	30	attack	Dragon Strike
+5121002	512	30	attack	Energy Orb
+5121008	512	5	buff	Hero's Will
+5121009	512	20	buff	Speed Infusion
+5121010	512	30	passive	Time Leap
+5121011	512	10	attack	Octopunch
+5121012	512	10	attack	Double Blast
+5121013	512	10	attack	Power Unity
+5131033	513	1	buff	Overdrive
+5131044	513	1	attack	Lightning God Spear Strike
+5131074	513	1	attack	Mortar Strike
+5131075	513	1	attack	Omen Nuke
+5200000	520	20	passive	Gun Mastery
+5201001	520	20	attack	Invisible Shot
+5201002	520	20	attack	Grenade
+5201004	520	20	attack	Blank Shot
+5201005	520	10	buff	Wings
+5201006	520	20	attack	Recoil Shot
+5210000	521	20	attack	Burst Fire
+5211001	521	30	buff	Octopus
+5211002	521	30	buff	Gaviota
+5211004	521	30	attack	Flamethrower
+5211005	521	30	attack	Ice Splitter
+5211006	521	30	attack	Homing Beacon
+5220001	522	30	passive	Elemental Boost
+5220002	522	20	buff	Wrath of the Octopi
+5220011	522	20	attack	Bullseye
+5221000	522	30	buff	Maple Warrior
+5221003	522	30	attack	Aerial Strike
+5221004	522	30	attack	Rapid Fire
+5221006	522	10	buff	Battleship
+5221007	522	30	attack	Battleship Cannon
+5221008	522	30	attack	Battleship Torpedo
+5221010	522	5	buff	Hero's Will
+5221016	522	10	attack	Brain Scrambler
+5221017	522	10	attack	Eight Legs Easton
+5221018	522	10	buff	Jolly Roger
+5231033	523	1	buff	Overdrive
+5231044	523	1	attack	Lightning God Spear Strike
+5231074	523	1	attack	Mortar Strike
+5231075	523	1	attack	Omen Nuke
+7001000	700	10	attack	Chain Arts: Trash IV
+7001001	700	10	attack	Chain Arts: Crush
+7001002	700	10	buff	Chain Arts: Beatdown
+7001003	700	10	attack	Chain Arts: Smackdown
+7001004	700	10	attack	Summon Spiked Bat
+7001006	700	10	attack	Nova Temperance
+7101101	710	1	buff	Adagio
+7101102	710	1	buff	Accelerando
+7101103	710	1	buff	Arpeggio
+7101104	710	1	buff	Tempo
+7101105	710	1	buff	Allegro
+7101106	710	1	attack	Beat
+7101107	710	1	attack	Ad Libitum
+7101108	710	1	attack	Atonality
+10000012	1000	20	passive	Blessing of the Fairy
+10000018	1000	1	passive	Follow the Lead
+10000100	1000	1	buff	Chair Mastery
+10001000	1000	3	passive	Three Snails
+10001001	1000	3	buff	Recovery
+10001002	1000	3	buff	Nimble Feet
+10001003	1000	1	passive	Legendary Spirit
+10001004	1000	1	buff	Monster Rider
+10001005	1000	1	buff	Echo of Hero
+10001006	1000	1	passive	Jump Down
+10001009	1000	1	passive	Bamboo Thrust
+10001010	1000	1	buff	Invincible Barrier
+10001011	1000	1	buff	Meteo Shower
+10001013	1000	1	buff	
+10001014	1000	2	buff	Spaceship
+10001015	1000	1	buff	Space Dash
+10001016	1000	1	buff	Space Beam
+10001019	1000	1	buff	Yeti Rider
+10001020	1000	1	passive	Rage of Pharaoh
+10001022	1000	1	buff	Yeti Mount
+10001023	1000	1	buff	Witch's Broomstick
+10001031	1000	1	buff	Barlog Mount
+10001050	1000	1	passive	Ninja Bounce
+10001054	1000	1	passive	Vertical Bounce
+10009000	1000	1	passive	Pig's Weakness
+10009001	1000	1	passive	Stump's Weakness
+10009002	1000	1	passive	Slime's Weakness
+11000000	1100	10	passive	Max HP Enhancement
+11001001	1100	10	buff	Iron Body
+11001002	1100	20	attack	Power Strike
+11001003	1100	20	attack	Slash Blast
+11001004	1100	20	buff	Soul
+11100000	1110	20	passive	Sword Mastery
+11101002	1110	30	attack	Final Attack
+11101003	1110	20	buff	Rage
+11101004	1110	30	attack	Soul Blade
+11101005	1110	10	passive	Soul Rush
+11110000	1111	20	passive	MP Recovery Rate Enhancement
+11110005	1111	20	passive	Advanced combo
+11111001	1111	20	buff	Combo Attack
+11111002	1111	20	attack	Panic
+11111003	1111	20	attack	Coma
+11111004	1111	30	attack	Brandish
+11111006	1111	30	attack	Soul Driver
+11111007	1111	20	buff	Soul Charge
+11121004	1112	10	attack	Impailing Rays
+11121014	1112	10	attack	Equinox Slash 
+11121101	1112	10	attack	Moon Dancer
+11121102	1112	10	attack	Falling Moon
+11121203	1112	10	attack	Solar Pierce
+11121204	1112	30	buff	Power Stance
+11131074	1113	1	attack	Shadow Flash
+11131075	1113	1	attack	Draco Wave
+11131105	1113	1	attack	Ruin
+11131109	1113	1	buff	Legacy Restoration
+12000000	1200	10	passive	Increasing Max MP.
+12001001	1200	10	buff	Magic Guard
+12001002	1200	10	buff	Magic Armor
+12001003	1200	20	attack	Magic Claw
+12001004	1200	20	attack	Flame
+12101000	1210	20	buff	Meditation
+12101002	1210	20	attack	Fire Arrow
+12101003	1210	20	passive	Teleport
+12101005	1210	20	buff	Elemental Reset
+12101006	1210	20	attack	Fire Pillar
+12110000	1211	20	passive	Elemental Resistance
+12110001	1211	20	passive	Element Amplification
+12111002	1211	1	buff	Fire Rush
+12111003	1211	20	attack	Meteor Shower
+12111004	1211	20	attack	Ifrit
+12111005	1211	30	attack	Flame Gear
+12111006	1211	30	attack	Fire Strike
+12121002	1212	10	attack	Towering Inferno
+12121012	1212	10	attack	Flame Barrier
+12121054	1212	10	attack	Dragon Fireballs
+12121055	1212	10	attack	Dragon Blaze
+12131006	1213	1	buff	Aura Scythe
+12131067	1213	1	attack	Lightning Spear Multistrike
+12131072	1213	1	attack	Trinity Fusion
+12131079	1213	1	attack	Smashing Multipunch
+13000000	1300	20	passive	Critical Shot
+13000001	1300	8	passive	The Eye of Amazon
+13001002	1300	10	buff	Focus
+13001003	1300	20	attack	Double Shot
+13001004	1300	20	buff	Storm
+13100000	1310	20	passive	Bow Mastery
+13100004	1310	20	passive	Thrust
+13101002	1310	30	attack	Final Attack
+13101003	1310	20	buff	Soul Arrow
+13101005	1310	20	attack	Storm Break
+13101006	1310	10	buff	Wind Walk
+13110003	1311	20	passive	Bow Expert
+13111000	1311	20	attack	Arrow Rain
+13111001	1311	30	attack	Strafe
+13111002	1311	20	attack	Hurricane
+13111004	1311	20	buff	Puppet
+13121001	1312	10	attack	Song of Heaven
+13121002	1312	10	attack	Spiraling Vortex
+13121008	1312	10	buff	Sharp Eyes
+13121052	1312	10	attack	Monsoon
+13121054	1312	10	attack	Gritty Gust
+13131003	1313	1	attack	Howling Gale
+13131007	1313	1	buff	Spirit of Elluel
+13131012	1313	1	attack	Primal Fury
+13131056	1313	1	attack	Full Burst Shot
+14000000	1400	10	passive	Nimble Body
+14000001	1400	8	passive	Keen Eyes
+14001002	1400	10	buff	Disorder
+14001003	1400	10	buff	Dark Sight
+14001004	1400	20	attack	Lucky Seven
+14001005	1400	20	buff	Darkness
+14100000	1410	20	passive	Claw Mastery
+14100001	1410	30	passive	Critical Throw
+14101003	1410	20	buff	Haste
+14101004	1410	20	passive	Flash Jump
+14101006	1410	20	attack	Vampire
+14110003	1411	20	passive	Alchemist
+14110004	1411	20	buff	Venom
+14111000	1411	30	buff	Shadow Partner
+14111001	1411	20	buff	Shadow Web
+14111002	1411	30	attack	Avenger
+14111005	1411	20	attack	Triple throw
+14111006	1411	30	attack	Poison Bomb
+14121001	1412	10	attack	Quintuple Star
+14121003	1412	10	attack	Dark Omen
+14121006	1412	10	attack	Showdown
+14121007	1412	10	attack	Sudden Raid
+14131031	1413	1	buff	Core Overload
+14131042	1413	1	attack	Blade Tornado
+14131073	1413	1	attack	Slash Shadow Formation
+14131076	1413	1	attack	Haunted Edge-Asura
+15000000	1500	10	passive	Quick Motion
+15001001	1500	20	attack	Straight
+15001002	1500	20	attack	Somersault Kick
+15001003	1500	10	buff	Dash
+15001004	1500	20	buff	Lightning
+15100000	1510	10	passive	Improve MaxHP
+15100001	1510	20	passive	Knuckle Mastery
+15100004	1510	20	attack	Energy Charge
+15101003	1510	20	attack	Corkscrew Blow
+15101005	1510	20	attack	Energy Blast
+15101006	1510	20	buff	Lightning Charge
+15110000	1511	20	passive	Critical Punch
+15111001	1511	20	attack	Energy Drain
+15111004	1511	20	attack	Barrage
+15111005	1511	20	buff	Speed Infusion
+15111006	1511	20	attack	Spark
+15111007	1511	30	attack	Shark Wave
+15121001	1512	10	attack	Annihilate
+15121002	1512	10	attack	Thunderbolt
+15121003	1512	10	attack	Typhoon
+15121052	1512	10	attack	Whale Rising
+15131033	1513	1	buff	Overdrive
+15131044	1513	1	attack	Lightning God Spear Strike
+15131074	1513	1	attack	Mortar Strike
+15131075	1513	1	attack	Omen Nuke
+20000012	2000	20	passive	Blessing of the Fairy
+20000014	2000	1	attack	Tutorial Skill
+20000015	2000	1	attack	Tutorial Skill
+20000016	2000	1	attack	Tutorial Skill
+20000017	2000	1	passive	Tutorial Skill
+20000018	2000	1	passive	Tutorial Skill
+20000024	2000	1	passive	Follow the Lead
+20000100	2000	1	buff	Chair Mastery
+20001000	2000	3	passive	Three Snails
+20001001	2000	3	buff	Recovery
+20001002	2000	3	buff	Agile Body
+20001003	2000	1	passive	Legendary Spirit
+20001004	2000	1	buff	Monster Rider
+20001005	2000	1	buff	Echo of Hero
+20001006	2000	1	passive	Jump Down
+20001009	2000	1	passive	Bamboo Thrust
+20001010	2000	1	buff	Invincible Barrier
+20001011	2000	1	buff	Meteo Shower
+20001013	2000	1	buff	Helper
+20001019	2000	1	buff	Yeti Rider
+20001020	2000	1	passive	Rage of Pharaoh
+20001022	2000	1	buff	Yeti Mount
+20001023	2000	1	buff	Witch's Broomstick
+20001031	2000	1	buff	Barlog Mount
+20001050	2000	1	passive	Ninja Bounce
+20001054	2000	1	passive	Vertical Bounce
+20009000	2000	1	passive	Pig's Weakness
+20009001	2000	1	passive	Stump's Weakness
+20009002	2000	1	passive	Slime's Weakness
+21000000	2100	10	passive	Combo Ability
+21000002	2100	20	attack	Double Swing
+21001001	2100	15	passive	Combat Step
+21100000	2110	20	passive	Polearm Mastery
+21100001	2110	20	attack	Triple Swing
+21100002	2110	30	attack	Final Charge
+21100004	2110	20	attack	Combo Smash
+21100005	2110	20	buff	Combo Drain
+21101003	2110	20	attack	Body Pressure
+21110000	2111	20	passive	Combo Critical
+21110002	2111	20	passive	Full Swing
+21110003	2111	30	attack	Final Cross
+21110004	2111	30	attack	Combo Fenrir
+21110006	2111	20	attack	Rolling Spin
+21110007	2111	20	attack	(hidden) Full Swing - Double Swing
+21110008	2111	20	attack	(hidden) Full Swing - Triple Swing
+21111001	2111	20	buff	Smart Knockback
+21111005	2111	20	buff	Snow Charge
+21120001	2112	30	passive	High Mastery
+21120002	2112	30	passive	Over Swing
+21120004	2112	30	passive	High Defense
+21120005	2112	30	attack	Final Blow
+21120006	2112	30	attack	Combo Tempest
+21120007	2112	30	buff	Combo Barrier
+21120009	2112	30	attack	(hidden) Over Swing - Double Swing
+21120010	2112	30	attack	(hidden) Over Swing - Triple Swing
+21121000	2112	30	buff	Maple Warrior
+21121003	2112	30	buff	Freeze Standing
+21121008	2112	5	buff	Hero's Will
+21131074	2113	1	attack	Shadow Flash
+21131075	2113	1	attack	Draco Wave
+21131105	2113	1	attack	Ruin
+21131109	2113	1	buff	Legacy Restoration
