@@ -79,7 +79,7 @@ class BotSharedGroundPhantomJumpTest {
         BotNavigationGraph graph = BotNavigationGraphProvider.rebuildGraph(buildMap(OVERLAP_FH));
         for (BotNavigationGraph.Region region : graph.regions) {
             for (BotNavigationGraph.Edge e : graph.getOutgoing(region.id)) {
-                if (e.type == BotNavigationGraph.EdgeType.JUMP) {
+                if (e.type == BotNavigationGraph.EdgeType.JUMP || e.type == BotNavigationGraph.EdgeType.FLASH_JUMP) {
                     assertFalse(region.surfaceCoversPoint(e.endPoint.x, e.endPoint.y, 0),
                             "phantom " + e.type + " r" + region.id + "->r" + e.toRegionId
                                     + " lands at " + e.endPoint + " on its own source surface");

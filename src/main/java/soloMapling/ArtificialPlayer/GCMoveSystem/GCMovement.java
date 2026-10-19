@@ -633,7 +633,8 @@ public final class GCMovement {
         while (!queue.isEmpty()) {
             int rid = queue.poll();
             for (BotNavigationGraph.Edge e : g.getOutgoing(rid)) {
-                if (e.toRegionId != rid && seen.add(e.toRegionId)) {
+                // Skill edges (teleport / flash jump) only exist for some jobs - walk reachability ignores them.
+                if (e.toRegionId != rid && !e.isMovementSkill() && seen.add(e.toRegionId)) {
                     queue.add(e.toRegionId);
                 }
             }
@@ -738,7 +739,7 @@ public final class GCMovement {
             return "GCMove: bake FAILED for map " + bot.getMapId();
         }
         int regions = g.regions.size();
-        int walk = 0, jump = 0, drop = 0, climb = 0, portal = 0, total = 0;
+        int walk = 0, jump = 0, drop = 0, climb = 0, portal = 0, teleport = 0, flashJump = 0, total = 0;
         for (List<BotNavigationGraph.Edge> edges : g.outgoingByRegionId.values()) {
             for (BotNavigationGraph.Edge e : edges) {
                 total++;
@@ -748,14 +749,16 @@ public final class GCMovement {
                     case DROP -> drop++;
                     case CLIMB -> climb++;
                     case PORTAL -> portal++;
+                    case TELEPORT -> teleport++;
+                    case FLASH_JUMP -> flashJump++;
                 }
             }
         }
         int ropes = bot.getMap().getRopes().size();
         return String.format(
                 "GCMove bake map %d in %dms: regions=%d ropes=%d edges=%d "
-                        + "(walk=%d jump=%d drop=%d climb=%d portal=%d)",
-                bot.getMapId(), ms, regions, ropes, total, walk, jump, drop, climb, portal);
+                        + "(walk=%d jump=%d drop=%d climb=%d portal=%d teleport=%d flashjump=%d)",
+                bot.getMapId(), ms, regions, ropes, total, walk, jump, drop, climb, portal, teleport, flashJump);
     }
 
     // Diagnostic for the widened rope top-exit probe. Iterates the player's map ropes, runs the

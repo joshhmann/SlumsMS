@@ -439,7 +439,8 @@ final class BotNavigationManager {
         // this arc (destination or unmapped) — prevents looping in a wrong region mid-air.
         if (entry.inAir && (startRegionId < 0 || startRegionId == edge.toRegionId)
                 && (edge.type == BotNavigationGraph.EdgeType.DROP
-                    || edge.type == BotNavigationGraph.EdgeType.JUMP)) {
+                    || edge.type == BotNavigationGraph.EdgeType.JUMP
+                    || edge.type == BotNavigationGraph.EdgeType.FLASH_JUMP)) {
             return edge;
         }
         if (entry.inAir && edge.type == BotNavigationGraph.EdgeType.CLIMB && edge.launchStepX != 0) {
@@ -467,6 +468,8 @@ final class BotNavigationManager {
             case DROP -> tryExecuteDrop(graph, entry, bot, botPos, rawTargetPos, edge);
             case CLIMB -> tryExecuteClimb(graph, entry, bot, botPos, rawTargetPos, edge);
             case PORTAL -> tryExecutePortalEdge(entry, bot, botPos, rawTargetPos, edge);
+            case TELEPORT -> tryExecuteTeleport(graph, entry, bot, botPos, rawTargetPos, edge);
+            case FLASH_JUMP -> tryExecuteFlashJump(graph, entry, bot, rawTargetPos, edge);
             default -> null;
         };
     }
@@ -780,6 +783,8 @@ final class BotNavigationManager {
                     : !canExecuteClimbEntryFromCurrentPosition(entry.bot.getMap(), botPos, edge,
                     findRopeForRegion(entry.bot.getMap(), graph.getRegion(edge.toRegionId)));
             case PORTAL -> !isReadyForEdge(botPos, edge) || entry.portalEnterReadyTicks > 0; // precise while walking the extra jitter ticks in
+            case TELEPORT -> !isWithinTeleportLaunchWindow(graph, botPos, edge);
+            case FLASH_JUMP -> !canExecuteSelectedJumpFromCurrentPosition(graph, entry, entry.bot.getMap(), botPos, edge);
         };
     }
 
@@ -790,6 +795,8 @@ final class BotNavigationManager {
             case JUMP -> entry.inAir ? new Point(edge.endPoint) : selectJumpWaypoint(graph, entry, botPos, edge);
             case DROP -> selectDropWaypoint(entry, graph, botPos, edge);
             case PORTAL -> new Point(edge.startPoint); // always head to the portal entrance; it only fires once landed there
+            case TELEPORT -> selectTeleportWaypoint(graph, botPos, edge);
+            case FLASH_JUMP -> entry.inAir ? new Point(edge.endPoint) : selectJumpWaypoint(graph, entry, botPos, edge);
         };
     }
 
@@ -944,11 +951,168 @@ final class BotNavigationManager {
                                                         int startRegionId,
                                                         int targetRegionId,
                                                         Point targetPos) {
-        List<BotNavigationGraph.Edge> path = findPath(graph, bot.getMap(), bot.getPosition(), startRegionId, targetRegionId, targetPos, null, routeSeed(bot));
+        int skillMask = NavMovementSkills.maskFor(bot);
+        List<BotNavigationGraph.Edge> path = skillMask == 0
+                ? findPath(graph, bot.getMap(), bot.getPosition(), startRegionId, targetRegionId, targetPos, null, routeSeed(bot))
+                : skillAwarePath(graph, bot, startRegionId, targetRegionId, targetPos, skillMask);
         if (path.isEmpty()) {
             return null;
         }
         return collapseLeadingWalkEdges(path);
+    }
+
+    // --- Movement skills (teleport / flash jump), nav graph v60+ ---------------------------------------
+    // Ported from nutnnut/Cosmic BotNavigationManager (AGPL-3.0. Credit: NutNNut). Skill edges are planned only
+    // for bots NavMovementSkills allows, and only when they save enough over walking: a big fraction of the trip
+    // when it is short (rarely bother), easing to ~5% when it is long. MP/meso headroom gates are not ported:
+    // bot MP is not simulated yet (real-bots spec ticket 8).
+    private static final int SKILL_CLOSE_GATE_MS = 1200;  // below this walk cost, never bother with skills
+    private static final int SKILL_FAR_GATE_MS = 6000;    // at/above, accept almost any saving
+    // Teleport recast floor: captured real casts are ~504-510ms apart at the limit; sit just below so blinks stay
+    // distinct yet never out-pace a human. Shared by flash jump.
+    private static final long SKILL_CAST_COOLDOWN_MS = 490L;
+
+    static int skillSavingsThreshold(int walkCostMs) {
+        double t = Math.clamp((walkCostMs - SKILL_CLOSE_GATE_MS) / (double) (SKILL_FAR_GATE_MS - SKILL_CLOSE_GATE_MS), 0.0, 1.0);
+        double frac = 0.60 * (1.0 - t) + 0.05 * t;
+        return (int) Math.round(frac * walkCostMs);
+    }
+
+    /* Two-pass plan for a skill bot: walk-only baseline, then (unless the trip is trivially short) a skill-enabled
+     * pass, taken only when it saves at least the distance-scaled threshold - or when walking cannot get there. */
+    static boolean preferSkillRoute(int walkCost, int skillCost) {
+        if (skillCost == Integer.MAX_VALUE) {
+            return false;
+        }
+        if (walkCost == Integer.MAX_VALUE) {
+            return true;
+        }
+        return walkCost > SKILL_CLOSE_GATE_MS && walkCost - skillCost >= skillSavingsThreshold(walkCost);
+    }
+
+    private static List<BotNavigationGraph.Edge> skillAwarePath(BotNavigationGraph graph,
+                                                                Character bot,
+                                                                int startRegionId,
+                                                                int targetRegionId,
+                                                                Point targetPos,
+                                                                int skillMask) {
+        long seed = routeSeed(bot);
+        SearchOutcome walkOnly = runSearch(graph, bot.getMap(), bot.getPosition(), startRegionId, targetRegionId,
+                targetPos, null, useAdmissibleHeuristic, true, seed, 0);
+        if (walkOnly.cost() != Integer.MAX_VALUE && walkOnly.cost() <= SKILL_CLOSE_GATE_MS) {
+            return walkOnly.path();
+        }
+        SearchOutcome withSkills = runSearch(graph, bot.getMap(), bot.getPosition(), startRegionId, targetRegionId,
+                targetPos, "skill", useAdmissibleHeuristic, true, seed, skillMask);
+        return preferSkillRoute(walkOnly.cost(), withSkills.cost()) && !withSkills.path().isEmpty()
+                ? withSkills.path()
+                : walkOnly.path();
+    }
+
+    /* Teleport edge: blink to the destination the physics SSOT resolves from the bot's ACTUAL position (any x in
+     * the launch window is a legal full-range hop), broadcast the blink, and replan from the landing. */
+    private static NavigationDirective tryExecuteTeleport(BotNavigationGraph graph,
+                                                          BotMovementState entry,
+                                                          Character bot,
+                                                          Point botPos,
+                                                          Point rawTargetPos,
+                                                          BotNavigationGraph.Edge edge) {
+        if (entry.inAir || entry.climbing) {
+            return null;
+        }
+        if (System.currentTimeMillis() < entry.skillHopReadyAtMs) {
+            entry.lastEdgeBlockReason = "tele-cd";
+            return null;
+        }
+        if (!isWithinTeleportLaunchWindow(graph, botPos, edge)) {
+            entry.lastEdgeBlockReason = "tele-pos";
+            return null;
+        }
+        Point dest = teleportDestination(bot.getMap(), botPos, edge);
+        if (dest == null) {
+            entry.lastEdgeBlockReason = "tele-blocked";
+            return null;
+        }
+        entry.lastEdgeBlockReason = null;
+        GCMovementSkills.blink(entry, bot, new Point(botPos), dest);
+        entry.skillHopReadyAtMs = System.currentTimeMillis() + SKILL_CAST_COOLDOWN_MS;
+        clearNavigation(entry); // consumed: the bot is now in the destination region - replan next tick
+        return new NavigationDirective(rawTargetPos, true);
+    }
+
+    /* The live blink destination for a windowed teleport edge: direction recovered from the representative
+     * start -> end (horizontal = +-range in x; vertical = same x, range in y). */
+    static Point teleportDestination(MapleMap map, Point botPos, BotNavigationGraph.Edge edge) {
+        int dx = edge.endPoint.x - edge.startPoint.x;
+        int dy = edge.endPoint.y - edge.startPoint.y;
+        int dirX = Math.abs(dx) >= Math.abs(dy) ? Integer.signum(dx) : 0;
+        int dirY = dirX == 0 ? Integer.signum(dy) : 0;
+        return BotPhysicsEngine.teleportLanding(map, botPos, dirX, dirY,
+                BotNavigationGraphProvider.TELEPORT_RANGE_PX, BotNavigationGraphProvider.TELEPORT_Y_SNAP_PX);
+    }
+
+    /* Teleport launch window: the bot may blink from anywhere in [launchMinX, launchMaxX] on the source region. */
+    static boolean isWithinTeleportLaunchWindow(BotNavigationGraph graph, Point botPos, BotNavigationGraph.Edge edge) {
+        if (botPos == null || edge.type != BotNavigationGraph.EdgeType.TELEPORT || !edge.containsLaunchX(botPos.x)) {
+            return false;
+        }
+        BotNavigationGraph.Region fromRegion = graph.getRegion(edge.fromRegionId);
+        if (fromRegion == null || fromRegion.isRopeRegion) {
+            return false;
+        }
+        return Math.abs(botPos.y - fromRegion.pointAt(botPos.x).y) <= BotMovementManager.cfg.JUMP_Y_THRESH;
+    }
+
+    /* Teleport steering: the bot's own x when already in-window, else the nearest in-window x (inset). */
+    private static Point selectTeleportWaypoint(BotNavigationGraph graph, Point botPos, BotNavigationGraph.Edge edge) {
+        BotNavigationGraph.Region fromRegion = graph != null ? graph.getRegion(edge.fromRegionId) : null;
+        if (fromRegion == null || fromRegion.isRopeRegion) {
+            return new Point(edge.startPoint);
+        }
+        int targetX = edge.containsLaunchX(botPos.x) ? botPos.x : steerXWithinLaunchWindow(edge, botPos.x);
+        return fromRegion.pointAt(targetX);
+    }
+
+    /* Flash-jump edge: a directional jump with the full mid-air dash armed for apex injection (stepAirborne
+     * consumes pendingFlashJump once). Mirrors tryExecuteJump. */
+    private static NavigationDirective tryExecuteFlashJump(BotNavigationGraph graph,
+                                                           BotMovementState entry,
+                                                           Character bot,
+                                                           Point rawTargetPos,
+                                                           BotNavigationGraph.Edge edge) {
+        if (entry.inAir || entry.climbing) {
+            return null;
+        }
+        if (System.currentTimeMillis() < entry.skillHopReadyAtMs) {
+            entry.lastEdgeBlockReason = "fj-cd";
+            return null;
+        }
+        // Same F2a guard as tryExecuteJump: never fire an arc validated for a fallback profile's graph.
+        if (BotNavigationGraphProvider.peekGraph(bot.getMap(), entry.movementProfile) != graph) {
+            entry.lastEdgeBlockReason = "jump-graph-warmup";
+            return null;
+        }
+        Point botPos = bot.getPosition();
+        if (!canExecuteSelectedJumpFromCurrentPosition(graph, entry, bot.getMap(), botPos, edge)) {
+            entry.lastEdgeBlockReason = "fj-pos";
+            return null;
+        }
+        entry.lastEdgeBlockReason = null;
+        setEdgeExecutionTarget(entry, edge);
+        BotMovementManager.initiateJump(entry, bot, edge.launchStepX);
+        // AFTER launch (launchAirborne clears it). Full dash: the graph simulated scale 1.
+        entry.flashJumpScale = 1f;
+        entry.pendingFlashJump = true;
+        entry.skillHopReadyAtMs = System.currentTimeMillis() + SKILL_CAST_COOLDOWN_MS;
+        entry.navJumpLaunchEdge = null;
+        entry.navJumpLaunchX = Integer.MIN_VALUE;
+        entry.navJumpLaunchDelaySteps = Integer.MIN_VALUE;
+        return new NavigationDirective(rawTargetPos, true);
+    }
+
+    static boolean isJumpLike(BotNavigationGraph.Edge edge) {
+        return edge != null && (edge.type == BotNavigationGraph.EdgeType.JUMP
+                || edge.type == BotNavigationGraph.EdgeType.FLASH_JUMP);
     }
 
     static List<BotNavigationGraph.Edge> findPath(BotNavigationGraph graph,
@@ -1026,6 +1190,23 @@ final class BotNavigationManager {
                                    boolean zeroHeuristic,
                                    boolean instrument,
                                    long routeSeed) {
+        return runSearch(graph, map, startPos, startRegionId, targetRegionId, targetPos, pathfindCaller,
+                zeroHeuristic, instrument, routeSeed, 0);
+    }
+
+    /* skillMask (BotNavigationGraph.SKILL_*) admits teleport / flash-jump edges; 0 = walk-only (every caller
+     * except a live skill bot's own planning, so the coarse/offscreen planner never takes a skill edge). */
+    static SearchOutcome runSearch(BotNavigationGraph graph,
+                                   MapleMap map,
+                                   Point startPos,
+                                   int startRegionId,
+                                   int targetRegionId,
+                                   Point targetPos,
+                                   String pathfindCaller,
+                                   boolean zeroHeuristic,
+                                   boolean instrument,
+                                   long routeSeed,
+                                   int skillMask) {
         long startedAt = System.nanoTime();
         PathfindProfile profile = null;
         // routeSeed != 0 (per-bot) diversifies routes so 100 bots don't stack on one optimal
@@ -1072,7 +1253,7 @@ final class BotNavigationManager {
 
                 for (BotNavigationGraph.Edge edge : NavObservedEdges.outgoing(graph, current.state.regionId)) {
                     edgeChecks++;
-                    if (!isEdgeUsable(graph, map, edge)) {
+                    if (!isEdgeUsable(graph, map, edge, skillMask)) {
                         continue;
                     }
                     usableEdges++;
@@ -1325,7 +1506,7 @@ final class BotNavigationManager {
     }
 
     private static boolean isEdgeUsable(BotNavigationGraph graph, Character bot, BotNavigationGraph.Edge edge) {
-        return isEdgeUsable(graph, bot.getMap(), edge);
+        return isEdgeUsable(graph, bot.getMap(), edge, NavMovementSkills.maskFor(bot));
     }
 
     private static boolean sameEdge(BotNavigationGraph.Edge left, BotNavigationGraph.Edge right) {
@@ -1363,12 +1544,17 @@ final class BotNavigationManager {
     }
 
     private static boolean isEdgeUsable(BotNavigationGraph graph, MapleMap map, BotNavigationGraph.Edge edge) {
+        return isEdgeUsable(graph, map, edge, 0);
+    }
+
+    private static boolean isEdgeUsable(BotNavigationGraph graph, MapleMap map, BotNavigationGraph.Edge edge, int skillMask) {
         return switch (edge.type) {
             case WALK, JUMP, DROP, CLIMB -> true;
             case PORTAL -> {
                 Portal portal = map.getPortal(edge.portalId);
                 yield portal != null && portal.getPortalStatus();
             }
+            case TELEPORT, FLASH_JUMP -> NavMovementSkills.allows(edge, skillMask);
         };
     }
 
@@ -1391,7 +1577,7 @@ final class BotNavigationManager {
         int dy = Math.abs(botPos.y - edge.startPoint.y);
 
         return switch (edge.type) {
-            case JUMP -> dx <= JUMP_READY_X_TOLERANCE && dy <= BotMovementManager.cfg.JUMP_Y_THRESH;
+            case JUMP, FLASH_JUMP -> dx <= JUMP_READY_X_TOLERANCE && dy <= BotMovementManager.cfg.JUMP_Y_THRESH;
             // CLIMB rope-exits launch from anywhere in their Y window; for every other CLIMB the window is
             // degenerate (= startPoint.y) so this stays equivalent to the old dy check.
             case CLIMB -> dx <= EDGE_READY_X_TOLERANCE
@@ -1406,7 +1592,7 @@ final class BotNavigationManager {
                                                      MapleMap map,
                                                      Point botPos,
                                                      BotNavigationGraph.Edge edge) {
-        if (edge.type != BotNavigationGraph.EdgeType.JUMP) {
+        if (!isJumpLike(edge)) {
             return false;
         }
         return isWithinJumpLaunchWindow(graph, botPos, edge);
@@ -1463,7 +1649,7 @@ final class BotNavigationManager {
     static boolean isWithinJumpLaunchWindow(BotNavigationGraph graph,
                                             Point botPos,
                                             BotNavigationGraph.Edge edge) {
-        if (botPos == null || edge.type != BotNavigationGraph.EdgeType.JUMP || !edge.containsLaunchX(botPos.x)) {
+        if (botPos == null || !isJumpLike(edge) || !edge.containsLaunchX(botPos.x)) {
             return false;
         }
 
@@ -1502,7 +1688,7 @@ final class BotNavigationManager {
     private static int selectedJumpLaunchX(BotMovementState entry,
                                            BotNavigationGraph graph,
                                            BotNavigationGraph.Edge edge) {
-        if (entry == null || graph == null || edge == null || edge.type != BotNavigationGraph.EdgeType.JUMP) {
+        if (entry == null || graph == null || edge == null || !isJumpLike(edge)) {
             return edge != null ? edge.startPoint.x : 0;
         }
         BotNavigationGraph.Region fromRegion = graph.getRegion(edge.fromRegionId);

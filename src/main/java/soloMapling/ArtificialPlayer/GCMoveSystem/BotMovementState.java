@@ -184,6 +184,8 @@ class BotMovementState {
     // when the current point is shared with it. Reset on graph swap (region ids are per-graph).
     // (nutnnut/Cosmic graph v67. Credit: NutNNut.)
     int lastRegionId = -1;
+    // Shared teleport / flash-jump recast floor for nav skill edges (graph v60+, nutnnut/Cosmic. Credit: NutNNut).
+    long skillHopReadyAtMs = 0L;
     boolean navPreciseTarget = false;
     int navBlockedPosTicks = 0;
     int navBlockedPosGiveUpTicks = 0;

@@ -26,8 +26,17 @@ final class BotNavigationGraph implements Serializable {
         JUMP,
         DROP,
         CLIMB,
-        PORTAL
+        PORTAL,
+        // Movement-skill edges (graph v60+, ported from nutnnut/Cosmic, AGPL-3.0. Credit: NutNNut). Baked into
+        // every graph but only planned for bots whose job carries the skill (NavMovementSkills); every walk-only
+        // search and the offscreen/coarse planner skip them.
+        TELEPORT,
+        FLASH_JUMP
     }
+
+    // Skill-mask bits a planner passes to say which skill edges the bot may take (0 = walk-only).
+    static final int SKILL_TELEPORT = 1;
+    static final int SKILL_FLASH_JUMP = 2;
 
     // v67 (ported from nutnnut/Cosmic 59c528899, AGPL-3.0. Credit: NutNNut.)
     // Two foothold chains (regions) can occupy the SAME physical ground where a ramp's flat foot
@@ -362,6 +371,11 @@ final class BotNavigationGraph implements Serializable {
             return new Point(Math.clamp(x, launchMinX, launchMaxX), startPoint.y);
         }
 
+        /* A teleport / flash-jump edge: only a bot with that skill can take it. */
+        boolean isMovementSkill() {
+            return type == EdgeType.TELEPORT || type == EdgeType.FLASH_JUMP;
+        }
+
         boolean containsLaunchY(int y) {
             return y >= launchMinY && y <= launchMaxY;
         }
@@ -472,7 +486,7 @@ final class BotNavigationGraph implements Serializable {
 
     boolean hasInterRegionEdge(int fromRegionId, int toRegionId) {
         for (Edge edge : getOutgoing(fromRegionId)) {
-            if (edge.fromRegionId != edge.toRegionId && edge.toRegionId == toRegionId) {
+            if (edge.fromRegionId != edge.toRegionId && edge.toRegionId == toRegionId && !edge.isMovementSkill()) {
                 return true;
             }
         }
@@ -482,7 +496,7 @@ final class BotNavigationGraph implements Serializable {
     Set<Integer> getMutualAdjacentRegionIds(int regionId) {
         Set<Integer> adjacent = new HashSet<>();
         for (Edge edge : getOutgoing(regionId)) {
-            if (edge.fromRegionId == edge.toRegionId) {
+            if (edge.fromRegionId == edge.toRegionId || edge.isMovementSkill()) {
                 continue;
             }
             if (hasInterRegionEdge(edge.toRegionId, regionId)) {

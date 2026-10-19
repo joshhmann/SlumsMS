@@ -163,7 +163,7 @@ public final class NavObservedEdges {
 
     private static boolean joined(BotNavigationGraph graph, int from, int to) {
         for (BotNavigationGraph.Edge edge : graph.getOutgoing(from)) {
-            if (edge.toRegionId == to) {
+            if (edge.toRegionId == to && !edge.isMovementSkill()) { // a skill edge doesn't join regions for walkers
                 return true;
             }
         }
