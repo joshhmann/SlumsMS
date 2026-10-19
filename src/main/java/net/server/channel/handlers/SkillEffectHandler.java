@@ -27,6 +27,7 @@ import net.AbstractPacketHandler;
 import net.packet.InPacket;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
+import soloMapling.server.AttackCapture;
 import tools.PacketCreator;
 
 public final class SkillEffectHandler extends AbstractPacketHandler {
@@ -39,6 +40,7 @@ public final class SkillEffectHandler extends AbstractPacketHandler {
         byte flags = p.readByte();
         int speed = p.readByte();
         byte aids = p.readByte();//Mmmk
+        AttackCapture.prepare(c.getPlayer(), skillId, level, flags, speed, aids, p);
         switch (skillId) {
             case FPMage.EXPLOSION:
             case FPArchMage.BIG_BANG:

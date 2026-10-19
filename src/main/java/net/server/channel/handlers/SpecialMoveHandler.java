@@ -36,6 +36,7 @@ import server.StatEffect;
 import server.TimerManager;
 import server.life.Monster;
 import server.maps.MapleMap;
+import soloMapling.server.AttackCapture;
 import tools.PacketCreator;
 
 import java.awt.*;
@@ -65,6 +66,7 @@ public final class SpecialMoveHandler extends AbstractPacketHandler {
         }
         Point pos = null;
         int __skillLevel = p.readByte();
+        AttackCapture.cast(chr, skillid, __skillLevel, p);
         Skill skill = SkillFactory.getSkill(skillid);
         int skillLevel = chr.getSkillLevel(skill);
         if (skillid % 10000000 == 1010 || skillid % 10000000 == 1011) {

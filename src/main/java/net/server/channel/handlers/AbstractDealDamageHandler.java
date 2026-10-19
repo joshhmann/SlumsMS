@@ -62,6 +62,7 @@ public abstract class AbstractDealDamageHandler extends AbstractPacketHandler {
         public boolean ranged, magic;
         public int speed = 4;
         public Point position = new Point();
+        public int rangedTailPos = -1; // where a ranged attack's projectile slots start (attack capture)
 
         public StatEffect getAttackEffect(Character chr, Skill theSkill) {
             Skill mySkill = theSkill;
@@ -589,6 +590,7 @@ public abstract class AbstractDealDamageHandler extends AbstractPacketHandler {
             ret.speed = p.readByte();
             p.readByte();
             ret.rangedirection = p.readByte();
+            ret.rangedTailPos = p.getPosition();
             p.skip(7);
             if (ret.skill == Bowmaster.HURRICANE || ret.skill == Marksman.PIERCING_ARROW || ret.skill == Corsair.RAPID_FIRE || ret.skill == WindArcher.HURRICANE) {
                 p.skip(4);

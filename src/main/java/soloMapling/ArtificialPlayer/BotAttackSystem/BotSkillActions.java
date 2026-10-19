@@ -87,6 +87,11 @@ public final class BotSkillActions {
         return action == null ? -1 : CODE_BY_NAME.getOrDefault(action, -1);
     }
 
+    /* The action name the client draws for a body-action code, or null for a code outside its table. */
+    public static String nameOf(int code) {
+        return code >= 0 && code < CLIENT_ACTIONS.size() ? CLIENT_ACTIONS.get(code) : null;
+    }
+
     /*
      * The body-action codes the client accepts for this skill at this level, or an empty list when any of the
      * weapon's plain attack poses will do (no skill, no action node, or only actions the client does not know).

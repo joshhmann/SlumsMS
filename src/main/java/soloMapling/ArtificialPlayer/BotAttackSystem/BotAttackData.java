@@ -148,7 +148,8 @@ public final class BotAttackData {
         };
     }
 
-    private static int[] variantsFor(WeaponType weaponType) {
+    /* The weapon's plain attack poses, one of which a skill without its own pose is sent in. */
+    static int[] variantsFor(WeaponType weaponType) {
         if (weaponType == null) {
             return DEFAULT_1H_VARIANTS;
         }
