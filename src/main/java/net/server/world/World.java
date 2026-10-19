@@ -657,7 +657,7 @@ public class World {
 
     public int getWorldCapacityStatus() {
         int worldCap = getChannelsSize() * YamlConfig.config.server.CHANNEL_LOAD;
-        int num = players.getSize();
+        int num = players.getConnectedPlayerCount(); // bots don't take a real player's place
 
         int status;
         if (num >= worldCap) {
