@@ -3750,10 +3750,14 @@ public class Character extends AbstractCharacterObject {
      */
     public synchronized int applyOffscreenExp(long gain, int levelCap) {
         OffscreenProgression.Gain progressed = OffscreenProgression.accrue(level, exp.get(), gain, levelCap, l -> ExpTable.getExpNeededForLevel((int) l));
+        final int levelBefore = level;
         this.level = progressed.level();
         this.exp.set(progressed.exp());
         if (progressed.levelsGained() > 0) {
             recalcLocalStats();
+            // These levels came without the AP/SP a level-up grants; the bot build grants and spends them.
+            soloMapling.server.MapleRootSolo.runHook("bot progression", () ->
+                    soloMapling.ArtificialPlayer.BotProgressionSystem.BotProgression.afterOffscreenLevels(this, levelBefore));
         }
         return progressed.levelsGained();
     }
@@ -3764,6 +3768,28 @@ public class Character extends AbstractCharacterObject {
      */
     public void refreshStatsAfterProgression() {
         recalcLocalStats();
+    }
+
+    /**
+     * SoloMapling bots (real-bots tickets 05/06): writes a bot's stored or built base stats, unspent points and base
+     * HP/MP pools in one go. Bots have no session, so this is the bot store's and the bot build's way in; the stat
+     * update packet it raises goes to the bot's headless client. Never used for a player.
+     */
+    public void applyBotBuild(int str, int dex, int int_, int luk, int remainingAp, int[] remainingSp, int maxHp,
+                              int maxMp) {
+        updateStrDexIntLuk(str, dex, int_, luk, remainingAp);
+        setRemainingSp(remainingSp);
+        updateMaxHpMaxMp(maxHp, maxMp);
+    }
+
+    /**
+     * SoloMapling bots: replaces the whole skill map with the bot's own skills, without the per-skill packet and
+     * database delete {@link #changeSkillLevel} does - a bot's skills are stored in {@code botskills}, never in
+     * {@code skills}. Drops whatever the clone template carried.
+     */
+    public void replaceBotSkills(Map<Skill, SkillEntry> botSkills) {
+        skills.clear();
+        skills.putAll(botSkills);
     }
 
     private synchronized void gainExpInternal(long gain, int equip, int party, boolean show, boolean inChat, boolean white) {   // need of method synchonization here detected thanks to MedicOP
@@ -3792,6 +3818,11 @@ public class Character extends AbstractCharacterObject {
             }
 
             if (level > soloLevelBefore) {
+                if (client instanceof BotClient) {
+                    // A bot spends the AP/SP these level-ups granted, and advances, by its build (real bots 06).
+                    soloMapling.server.MapleRootSolo.runHook("bot progression", () ->
+                            soloMapling.ArtificialPlayer.BotProgressionSystem.BotProgression.afterLevelUp(this, soloLevelBefore));
+                }
                 soloMapling.server.MapleRootSolo.runHook("level up", () ->
                         soloMapling.server.EventMessageSystem.EventBus.getInstance().publish(
                                 soloMapling.server.EventMessageSystem.EventFactory.createLevelUpEvent(this)));
