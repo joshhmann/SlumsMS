@@ -70,7 +70,12 @@ These are the keys added to `ServerConfig`. All are optional, and the defaults a
 - **Decision model:** `BOT_DECIDE_*`
 - **Menus:** `BOT_MENU_WINDOW`
 
-Automatic population still needs `-Dsolomapling.autopopulate=true`.
+Automatic population still needs `-Dsolomapling.autopopulate=true`. `BOT_POPULATION_SCALE` (default 1.0) shrinks the
+seed waves (training cohorts and town presence) for a pilot on a small host; 0.03 seeds about 3%.
+
+Bot template loads are limited to three at a time. `loadCharFromDB` holds one pooled connection while its nested
+loads take more, and with MapleRoot's 10-connection pool, ten unbounded parallel spawns deadlocked the pool. That
+happened on the first isolated boot.
 
 The bot data files (names, dialogue packs, item pools) are read from the source tree. Run the server from the full
 checkout, as the live installation already does.

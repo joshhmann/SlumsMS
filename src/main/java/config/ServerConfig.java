@@ -69,6 +69,8 @@ public class ServerConfig {
     public int BOT_DIRECTOR_MAX_LOGINS_PER_TICK = 25;
     public int BOT_DIRECTOR_MAX_LOGOUTS_PER_TICK = 25;
     public int BOT_ROSTER_SEED_MIN = 100;
+    //SoloMapling: shrink the seed waves (training cohorts + town presence) for a pilot on a small host; 1.0 = full.
+    public double BOT_POPULATION_SCALE = 1.0;
     //SoloMapling: roster lifecycle (bot-persistence ticket 10) - new players, quitting, coming back. Rates are per day.
     public double BOT_ROSTER_SIZE_MULTIPLE = 3.0;
     public int BOT_ROSTER_NEW_PER_DAY = 40;
