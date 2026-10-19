@@ -64,7 +64,8 @@ public final class TrainingMapChooser {
     // release() when done). weightedPick hard-caps maps at capacity, and the reservation loop closes
     // the cohort race: if our atomic increment pushed the map OVER capacity (another bot grabbed the
     // last slot at the same instant), release and re-pick — the bumped count now hard-zeros that map,
-    // steering us deeper. Null = nothing reachable with mobs (caller idles in town and retries later).
+    // steering us deeper. Null = nothing reachable with mobs, the bot's own map included (caller grinds
+    // where it stands if that map has mobs, else idles in town and retries later).
     public static TrainingMap choose(Character chr, int homeMapId, Set<Integer> excluded, Consumer<String> debug) {
         int level = chr.getLevel();
         int reach = hopsForLevel(level);
@@ -86,7 +87,8 @@ public final class TrainingMapChooser {
         int hardMinMob = 1;
         if (downwardOnly) {
             minMob = Math.max(minMob, level - DOWNWARD_HUB_LOWER_SPAN);
-            hardMinMob = minMob; // the finder's fallback respects this too — a pro is never offered an easy up-map
+            hardMinMob = minMob; // the finder's fallback prefers maps above this too — only reaching under it
+                                 // when nothing in reach clears it (a pro past every allowed map's level)
         }
 
         for (int attempt = 0; attempt <= MAX_REDECIDES; attempt++) {
