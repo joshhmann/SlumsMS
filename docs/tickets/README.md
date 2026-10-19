@@ -31,3 +31,7 @@ Created 2026-10-19 from the owner's plan. Order: nav v2 → real bots → compan
 | [22](22-jar-data-resolver.md) | Jar-only data loading | Later | - |
 | [23](23-live-backups.md) | Scheduled live backups | Ops | - |
 | [24](24-client-cleanup.md) | Retire the junction test clients | Client | - |
+| [25](25-hooks-doc.md) | SOLOMAPLING_HOOKS.md: list every core file SoloMapling touches | Ops | - |
+| [26](26-bot-chat-polish.md) | Bot chat follow-ups from the persistence work | Real bots | 16 |
+| [27](27-launcher-extras.md) | Launcher extras | Launcher | - |
+| [28](28-addon-notes.md) | Addon decisions recorded | Addons | - |
