@@ -176,41 +176,6 @@ public final class BotAttackConfig {
 
     private BotAttackConfig() {}
 
-    // ---- per-class critical-hit identity ----
-    // Crit is a class trait, not a per-attack one: it mirrors the engine's job-gated canCrit
-    // (AbstractDealDamageHandler:738) but graded - thieves/bowmen crit often, warriors seldom,
-    // mages rarely. A crit only bumps the displayed/applied damage (and so the knockback); it's
-    // combat feel, not balance, so tune these freely. critChanceFor resolves by job lineage, so
-    // advanced jobs (Night Lord, Hero, Bishop, ...) inherit their branch's chance.
-    private static final double CRIT_THIEF   = 0.50;
-    private static final double CRIT_BOWMAN  = 0.50;
-    private static final double CRIT_WARRIOR = 0.01;
-    private static final double CRIT_MAGE    = 0.01;
-    private static final double CRIT_DEFAULT = 0.01; // beginners / pirates / anything unlisted
-
-    /* A crit shows ~this multiple of the rolled damage (bigger number -> stronger client knockback). */
-    public static final double CRIT_MULTIPLIER = 1.5;
-
-    /* This job's per-line critical-hit chance (0..1), by class branch. */
-    public static double critChanceFor(Job job) {
-        if (job == null) {
-            return 0.0;
-        }
-        if (job.isA(Job.ASSASSIN) || job.isA(Job.HERMIT) || job.isA(Job.NIGHTLORD) || job.isA(Job.NIGHTWALKER1)) {
-            return CRIT_THIEF;
-        }
-        if (job.isA(Job.BOWMAN) || job.isA(Job.WINDARCHER1)) {
-            return CRIT_BOWMAN;
-        }
-        if (job.isA(Job.WARRIOR) || job.isA(Job.DAWNWARRIOR1) || job.isA(Job.ARAN1)) {
-            return CRIT_WARRIOR;
-        }
-        if (job.isA(Job.MAGICIAN) || job.isA(Job.BLAZEWIZARD1)) {
-            return CRIT_MAGE;
-        }
-        return CRIT_DEFAULT;
-    }
-
     // A job with no ultimate leaves that slot null; the two-profile overload keeps the many
     // single/aoe entries above unchanged.
     private static void put(Job job, BotAttackProfile single, BotAttackProfile aoe) {

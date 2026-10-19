@@ -41,3 +41,19 @@ walk-only, coarse/offscreen and reachability queries.
 Tests adapted from theirs: `BotForkWalkChainTest` (from `BotRegion11ForkOscillationTest`),
 `BotSharedGroundPhantomJumpTest`, and the rope-window cases in `BotRopeLaunchWindowTest` (from
 `BotNavigationManagerTest`).
+
+### Bot combat formula (branch `combat`, real bots ticket 07)
+
+After nutnnut/Cosmic (GreenCatMS), https://github.com/nutnnut/Cosmic, AGPL-3.0,
+`src/main/java/server/combat/CombatFormulaProvider.java` at commit `eddb5bc65`. Not copied: their provider works on
+registered buffs and their own attack path. We rewrote the formula set they collected as pure arithmetic in
+`BotCombatFormula`, behind our attack driver, with our own reader of a bot's numbers (`BotDamage`).
+
+| From theirs | Our files |
+| --- | --- |
+| The client's mastery floor; the spell min/max with spell mastery; Lucky Seven / Triple Throw and Dragon Roar formulas; Heal against the undead with its target multiplier; the ranged-weapon melee swing ("degenerate") formulas; mob weapon/magic defence and level-gap reduction; Shadow Partner lines as a share of the line they mirror; crit chance from Critical Shot / Throw | `BotCombatFormula`, `BotDamage` |
+| `StatEffect` reads the WZ `mastery` grade and exposes `prop` | `server/StatEffect` |
+
+Ours: the physical ceiling taken from `Character.calculateMaxBaseDamage` exactly as `parseDamage` checks it; the
+crit as a bonus added to the skill's damage %; bots' shown (unregistered) buffs, ammo, Maple Warrior, Element
+Amplification, charges and Berserk; the 32-bit line clamp; the offscreen kill rate and EXP (`OffscreenCombat`).

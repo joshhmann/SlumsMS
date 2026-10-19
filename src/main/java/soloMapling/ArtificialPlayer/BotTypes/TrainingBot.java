@@ -26,6 +26,7 @@ import soloMapling.ArtificialPlayer.BotGrindSystem.DeepHub;
 import soloMapling.ArtificialPlayer.BotGrindSystem.GrindBrain;
 import soloMapling.ArtificialPlayer.BotGrindSystem.MapMobIndex;
 import soloMapling.ArtificialPlayer.BotGrindSystem.OffscreenRewardBudget;
+import soloMapling.ArtificialPlayer.BotAttackSystem.OffscreenCombat;
 import soloMapling.ArtificialPlayer.BotGrindSystem.TrainingMapChooser;
 import soloMapling.ArtificialPlayer.BotGrindSystem.SpotFinder;
 import soloMapling.ArtificialPlayer.BotGrindSystem.TrainingMap;
@@ -88,7 +89,7 @@ public class TrainingBot extends BotSM {
     // timing, more responsive loot vacuum) while unobserved grinders only pay a doubled cheap early-return.
     // UNTESTED: validate the combat sweep cost with !env perf before/after; revert to 500 if it climbs.
     private static final long COMBAT_TICK_MS = 250;          // was 500; observation-tiered by the early-returns above
-    private static final double KILLS_PER_MIN = 30.0;        // abstract grind speed
+    private static final double KILLS_PER_MIN = 30.0;        // abstract grind speed, where OffscreenCombat has no mob
     private static final long GRIND_MIN_MS = 600_000;        // a grind session lasts 10–20 min
     private static final long GRIND_MAX_MS = 1_200_000;
     // A bot that DIDN'T migrate to its first grind (warped in, or already on the map at the first decision) is
@@ -1261,12 +1262,19 @@ public class TrainingBot extends BotSM {
         }
     }
 
-    // Silent, level-scaled accrual: kills/min x per-kill-exp, where per-kill-exp ~ the map's mob level.
+    // Silent accrual: the kill rate and EXP a kill gives, from the same damage formula the bot hits with on screen
+    // (OffscreenCombat: its stats, gear, skills and buffs against the map's representative mob). A map whose mobs
+    // the data cannot build keeps the old abstract pace: kills/min x the map's mob level.
     // Applied through the character's own offscreen path so it serializes with observed gains and
     // re-derives stats; nothing is sent to the map (ticket 07 rule 2).
+    private double abstractExpRemainder;
+
     private void accrueAbstractExp(int mobLevel, double elapsedSec) {
-        int perKillExp = Math.max(1, mobLevel);
-        int gain = (int) Math.round((KILLS_PER_MIN / 60.0) * perKillExp * elapsedSec);
+        OffscreenCombat.Rate rate = OffscreenCombat.rate(getChr(), getChr().getMapId());
+        double perSecond = rate != null ? rate.expPerSecond() : (KILLS_PER_MIN / 60.0) * Math.max(1, mobLevel);
+        double owed = perSecond * elapsedSec + abstractExpRemainder;   // a short tick's fraction carries over
+        long gain = (long) Math.floor(owed);
+        abstractExpRemainder = owed - gain;
         if (gain <= 0) {
             return;
         }
