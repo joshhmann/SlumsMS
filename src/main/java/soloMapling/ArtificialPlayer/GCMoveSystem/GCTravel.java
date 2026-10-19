@@ -3,8 +3,10 @@ package soloMapling.ArtificialPlayer.GCMoveSystem;
 import client.Character;
 import server.maps.MapleMap;
 import server.maps.Portal;
+import soloMapling.ArtificialPlayer.BotTradeSystem.BotTradeCommands;
 import soloMapling.ArtificialPlayer.BotTravelSystem.BotScriptedWarp;
 import soloMapling.BotLogger;
+import soloMapling.server.BotShutdown;
 
 import java.awt.Point;
 import java.util.List;
@@ -112,6 +114,12 @@ final class GCTravel {
             fire(callback, true);
             return;
         }
+        // Rule: a bot never travels out of an open trade window. Cancel it before movement is enabled,
+        // because GCMovementDriver freezes a traveling bot while it holds a trade - a trip requested
+        // mid-trade would otherwise sit still until the soft-lock / hop-ceiling warp and the trade would
+        // die implicitly instead. The abort only closes the window; the trip below still starts and
+        // still fires its callback.
+        BotTradeCommands.abortOpenTradeForTravel(bot);
         GCMovement.enable(bot);
         Trip trip = new Trip(bot, destMapId, callback);
         trip.hopProgressAtMs = nowMs();
@@ -142,6 +150,10 @@ final class GCTravel {
     }
 
     private static void tick(Trip trip) {
+        if (BotShutdown.isQuiesced()) {
+            cancel(trip.bot); // Ticket 09: no hop, no warp and no callback once the gate has closed
+            return;
+        }
         Character bot = trip.bot;
         if (bot == null || bot.getMap() == null) {
             finish(trip, false);

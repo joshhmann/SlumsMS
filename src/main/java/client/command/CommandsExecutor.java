@@ -308,6 +308,8 @@ public class CommandsExecutor {
             addCommand("fmbot", 4, client.command.commands.gm4.FMBotCommand.class);
             addCommand("tradebot", 4, client.command.commands.gm4.TradeBotTestCommand.class);
             addCommand("env", 4, client.command.commands.gm4.EnvironmentCommand.class);
+            addCommand("roster", 4, client.command.commands.gm4.RosterCommand.class);
+            addCommand("brain", 4, client.command.commands.gm4.BrainCommand.class);
         }
         addCommand("spawn", 3, SpawnCommand.class);
         addCommand("mutemap", 3, MuteMapCommand.class);

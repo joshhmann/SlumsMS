@@ -408,9 +408,7 @@ public class MapleMap {
             chrRLock.unlock();
         }
 
-        for (Character chr : inRangeCharacters) {
-            packetbakery.sendPackets(chr.getClient());
-        }
+        sendRangedSpawnPackets(inRangeCharacters, packetbakery::sendPackets);
     }
 
     private void spawnRangedMapObject(MapObject mapobject, DelayedPacketCreation packetbakery, SpawnCondition condition) {
@@ -432,8 +430,17 @@ public class MapleMap {
             chrRLock.unlock();
         }
 
-        for (Character chr : inRangeCharacters) {
-            packetbakery.sendPackets(chr.getClient());
+        sendRangedSpawnPackets(inRangeCharacters, packetbakery::sendPackets);
+    }
+
+    static void sendRangedSpawnPackets(Iterable<Character> recipients,
+                                       java.util.function.Consumer<Client> sender) {
+        for (Character chr : recipients) {
+            Client recipient = chr.getClient();
+            // Packet builders can inspect getPlayer() before BotClient discards the packet.
+            if (!(recipient instanceof BotClient)) {
+                sender.accept(recipient);
+            }
         }
     }
 
@@ -849,7 +856,17 @@ public class MapleMap {
     }
 
     public void dropFromReactor(final Character chr, final Reactor reactor, Item drop, Point dropPos, short questid) {
-        spawnDrop(drop, this.calcDropPos(dropPos, reactor.getPosition()), reactor, chr, (byte) (chr.getParty() != null ? 1 : 0), questid);
+        dropFromReactor(chr, reactor, drop, dropPos, questid, false);
+    }
+
+    /**
+     * @param conjured true when bot code fabricated {@code drop} instead of it coming out of real reactor
+     *                 content; see {@link MapItem#setConjured(boolean)}
+     */
+    public void dropFromReactor(final Character chr, final Reactor reactor, Item drop, Point dropPos, short questid,
+                                boolean conjured) {
+        spawnDrop(drop, this.calcDropPos(dropPos, reactor.getPosition()), reactor, chr,
+                (byte) (chr.getParty() != null ? 1 : 0), questid, conjured);
     }
 
     private void stopItemMonitor() {
@@ -1189,7 +1206,13 @@ public class MapleMap {
     }
 
     private void spawnDrop(final Item idrop, final Point dropPos, final MapObject dropper, final Character chr, final byte droptype, final short questid) {
+        spawnDrop(idrop, dropPos, dropper, chr, droptype, questid, false);
+    }
+
+    private void spawnDrop(final Item idrop, final Point dropPos, final MapObject dropper, final Character chr,
+                           final byte droptype, final short questid, boolean conjured) {
         final MapItem mdrop = new MapItem(idrop, dropPos, dropper, chr, chr.getClient(), droptype, false, questid);
+        mdrop.setConjured(conjured);
         mdrop.setDropTime(Server.getInstance().getCurrentTime());
         spawnAndAddRangedMapObject(mdrop, c -> {
             Character chr1 = c.getPlayer();
@@ -1209,9 +1232,20 @@ public class MapleMap {
     }
 
     public final void spawnMesoDrop(final int meso, final Point position, final MapObject dropper, final Character owner, final boolean playerDrop, final byte droptype) {
+        spawnMesoDrop(meso, position, dropper, owner, playerDrop, droptype, false);
+    }
+
+    /**
+     * @param conjured true when bot code fabricated this meso instead of it coming out of real content; see
+     *                 {@link MapItem#setConjured(boolean)}
+     */
+    public final void spawnMesoDrop(final int meso, final Point position, final MapObject dropper,
+                                    final Character owner, final boolean playerDrop, final byte droptype,
+                                    boolean conjured) {
         final Point droppos = calcDropPos(position, position);
         final MapItem mdrop = new MapItem(meso, droppos, dropper, owner, owner.getClient(), droptype, playerDrop);
         mdrop.setDropTime(Server.getInstance().getCurrentTime());
+        mdrop.setConjured(conjured);
 
         spawnAndAddRangedMapObject(mdrop, c -> {
             mdrop.lockItem();
@@ -2386,18 +2420,31 @@ public class MapleMap {
         getWorldServer().registerTimedMapObject(expireKite, YamlConfig.config.server.KITE_EXPIRE_TIME);
     }
 
-    public final void spawnItemDrop(final MapObject dropper, final Character owner, final Item item, Point pos, final boolean ffaDrop, final boolean playerDrop) {
-        spawnItemDrop(dropper, owner, item, pos, (byte) (ffaDrop ? 2 : 0), playerDrop);
+    public final void spawnItemDrop(final MapObject dropper, final Character owner, final Item item, Point pos,
+                                    final boolean ffaDrop, final boolean playerDrop) {
+        spawnItemDrop(dropper, owner, item, pos, ffaDrop, playerDrop, false);
     }
 
-    public final void spawnItemDrop(final MapObject dropper, final Character owner, final Item item, Point pos, final byte dropType, final boolean playerDrop) {
+    public final void spawnItemDrop(final MapObject dropper, final Character owner, final Item item, Point pos,
+                                    final boolean ffaDrop, final boolean playerDrop, final boolean conjured) {
+        spawnItemDrop(dropper, owner, item, pos, (byte) (ffaDrop ? 2 : 0), playerDrop, conjured);
+    }
+
+    public final void spawnItemDrop(final MapObject dropper, final Character owner, final Item item, Point pos,
+                                    final byte dropType, final boolean playerDrop) {
+        spawnItemDrop(dropper, owner, item, pos, dropType, playerDrop, false);
+    }
+
+    public final MapItem spawnItemDrop(final MapObject dropper, final Character owner, final Item item, Point pos,
+                                    final byte dropType, final boolean playerDrop, final boolean conjured) {
         if (FieldLimit.DROP_LIMIT.check(this.getFieldLimit())) { // thanks Conrad for noticing some maps shouldn't have loots available
             this.disappearingItemDrop(dropper, owner, item, pos);
-            return;
+            return null;
         }
 
         final Point droppos = calcDropPos(pos, pos);
         final MapItem mdrop = new MapItem(item, droppos, dropper, owner, owner.getClient(), dropType, playerDrop);
+        mdrop.setConjured(conjured);
         mdrop.setDropTime(Server.getInstance().getCurrentTime());
 
         spawnAndAddRangedMapObject(mdrop, c -> {
@@ -2418,6 +2465,7 @@ public class MapleMap {
 
         instantiateItemDrop(mdrop);
         activateItemReactors(mdrop, owner.getClient());
+        return mdrop;
     }
 
     public final void spawnItemDropList(List<Integer> list, final MapObject dropper, final Character owner, Point pos) {
@@ -3030,9 +3078,10 @@ public class MapleMap {
      * @param source
      * @param packet
      * @param repeatToSource
+     * @return how many map occupants the packet reached
      */
-    public void broadcastMessage(Character source, Packet packet, boolean repeatToSource) {
-        broadcastMessage(repeatToSource ? null : source, packet, Double.POSITIVE_INFINITY, source.getPosition());
+    public int broadcastMessage(Character source, Packet packet, boolean repeatToSource) {
+        return broadcastMessage(repeatToSource ? null : source, packet, Double.POSITIVE_INFINITY, source.getPosition());
     }
 
     /**
@@ -3068,7 +3117,8 @@ public class MapleMap {
         broadcastMessage(source, packet, getRangedDistance(), rangedFrom);
     }
 
-    private void broadcastMessage(Character source, Packet packet, double rangeSq, Point rangedFrom) {
+    private int broadcastMessage(Character source, Packet packet, double rangeSq, Point rangedFrom) {
+        int recipients = 0;
         chrRLock.lock();
         try {
             for (Character chr : characters) {
@@ -3076,15 +3126,18 @@ public class MapleMap {
                     if (rangeSq < Double.POSITIVE_INFINITY) {
                         if (rangedFrom.distanceSq(chr.getPosition()) <= rangeSq) {
                             chr.sendPacket(packet);
+                            recipients++;
                         }
                     } else {
                         chr.sendPacket(packet);
+                        recipients++;
                     }
                 }
             }
         } finally {
             chrRLock.unlock();
         }
+        return recipients;
     }
 
     public void broadCastAttackMessage(Character source, Packet packet, double rangeSq, Point rangedFrom) {
@@ -3247,6 +3300,9 @@ public class MapleMap {
     }
 
     private void sendObjectPlacement(Client c) {
+        if (c instanceof BotClient) {
+            return;
+        }
         Character chr = c.getPlayer();
         Collection<MapObject> objects;
 
@@ -4076,6 +4132,13 @@ public class MapleMap {
         // divide by 5 because I reduced it to 1000s so i slwo it to feel liek 5,
         // make respawn multiplier effective much faster and be more ffective
         return (0.70 + (0.05 * Math.min(6, (numPlayers)))) * spawnRateMultiplier;
+    }
+
+    // Occupancy -> fraction of a map's spawn points kept populated (getNumShouldSpawn's factor at the default
+    // multiplier). Public so capacity estimates outside the map (offscreen reward budgets) reuse this exact rule
+    // instead of minting a second rate.
+    public static double getCurrentSpawnRate(int numPlayers) {
+        return getCurrentSpawnRate(numPlayers, 1);
     }
 
     private int getNumShouldSpawn(int numPlayers) {
@@ -5109,6 +5172,11 @@ public class MapleMap {
 
     public final MapItem spawnItemDropNoExpire(final MapObject dropper, final Character owner, final Item item, Point pos,
                                     final boolean ffaDrop, final boolean playerDrop) {
+        return spawnItemDropNoExpire(dropper, owner, item, pos, ffaDrop, playerDrop, false);
+    }
+
+    public final MapItem spawnItemDropNoExpire(final MapObject dropper, final Character owner, final Item item, Point pos,
+                                    final boolean ffaDrop, final boolean playerDrop, final boolean conjured) {
         if (FieldLimit.DROP_LIMIT.check(this.getFieldLimit())) {
             this.disappearingItemDrop(dropper, owner, item, pos);
             return null;
@@ -5116,6 +5184,7 @@ public class MapleMap {
 
         final Point droppos = calcDropPos(pos, pos);
         final MapItem mdrop = new MapItem(item, droppos, dropper, owner, owner.getClient(), (byte) (ffaDrop ? 2 : 0), playerDrop);
+        mdrop.setConjured(conjured);
         mdrop.setDropTime(Server.getInstance().getCurrentTime());
 
         spawnAndAddRangedMapObject(mdrop, c -> {
@@ -5190,5 +5259,15 @@ public class MapleMap {
     public void dropFromReactor(Character chr, Reactor reactor, Item drop, Point position, short questId, short delay) {
         if (delay <= 0) dropFromReactor(chr, reactor, drop, position, questId);
         else TimerManager.getInstance().schedule(() -> dropFromReactor(chr, reactor, drop, position, questId), delay);
+    }
+    public void dropFromReactor(Character chr, Reactor reactor, Item drop, Point position, short questId, short delay,
+                                boolean conjured) {
+        if (delay <= 0) dropFromReactor(chr, reactor, drop, position, questId, conjured);
+        else TimerManager.getInstance().schedule(() -> dropFromReactor(chr, reactor, drop, position, questId, conjured), delay);
+    }
+    public void spawnMesoDrop(int meso, Point position, MapObject dropper, Character owner,
+                              boolean playerDrop, byte dropType, short delay, boolean conjured) {
+        if (delay <= 0) spawnMesoDrop(meso, position, dropper, owner, playerDrop, dropType, conjured);
+        else TimerManager.getInstance().schedule(() -> spawnMesoDrop(meso, position, dropper, owner, playerDrop, dropType, conjured), delay);
     }
 }

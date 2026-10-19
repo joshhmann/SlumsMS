@@ -170,9 +170,20 @@ public abstract class AbstractMovementPacketHandler extends AbstractPacketHandle
                     short xpos = p.readShort(); //is signed fine here?
                     short ypos = p.readShort();
                     target.setPosition(new Point(xpos, ypos + yOffset));
-                    p.skip(6); //xwobble = lea.readShort(); ywobble = lea.readShort(); fh = lea.readShort();
+                    p.skip(4); //xwobble = lea.readShort(); ywobble = lea.readShort();
+                    short fh = p.readShort();
                     byte newstate = p.readByte();
                     target.setStance(newstate);
+                    // bot-persistence ticket 17/18: bots learn jumps and favourite spots from how real players move
+                    // (fh 0 = airborne).
+                    if (target instanceof client.Character player && soloMapling.server.MapleRootSolo.isEnabled()
+                            && !soloMapling.ArtificialPlayer.BotHelpers.isBot(player)) {
+                        int footY = ypos + yOffset;
+                        soloMapling.server.MapleRootSolo.runHook("movement learning", () -> {
+                            soloMapling.ArtificialPlayer.GCMoveSystem.NavObservedEdges.onPlayerMove(player, xpos, footY, fh);
+                            soloMapling.ArtificialPlayer.GCMoveSystem.PlayerHeat.onPlayerMove(player, xpos, footY, fh);
+                        });
+                    }
                     p.readShort(); //duration
                     break;
                 }

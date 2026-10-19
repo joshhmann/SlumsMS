@@ -84,6 +84,11 @@ import server.partyquest.PartyQuest;
 import server.quest.Quest;
 import server.transactions.TransactionItem;
 import server.transactions.TransactionService;
+import soloMapling.ArtificialPlayer.BotGrindSystem.OffscreenProgression;
+import soloMapling.ArtificialPlayer.BotHelpers;
+import soloMapling.ArtificialPlayer.BotTier;
+import soloMapling.server.EventMessageSystem.EventBus;
+import soloMapling.server.EventMessageSystem.EventFactory;
 import tools.*;
 import tools.exceptions.NotEnabledException;
 import tools.packets.WeddingPackets;
@@ -249,6 +254,7 @@ public class Character extends AbstractCharacterObject {
     private final Lock petLock = new ReentrantLock(true);
     private final Lock prtLock = new ReentrantLock();
     private final Lock cpnLock = new ReentrantLock();
+    private final Lock ringLock = new ReentrantLock();
     private final Map<Integer, Set<Integer>> excluded = new LinkedHashMap<>();
     private final Set<Integer> excludedItems = new LinkedHashSet<>();
     private final Set<Integer> disabledPartySearchInvites = new LinkedHashSet<>();
@@ -627,7 +633,12 @@ public class Character extends AbstractCharacterObject {
     }
 
     public void addCrushRing(Ring r) {
-        crushRings.add(r);
+        ringLock.lock();
+        try {
+            crushRings.add(r);
+        } finally {
+            ringLock.unlock();
+        }
     }
 
     public Ring getRingById(int id) {
@@ -706,7 +717,12 @@ public class Character extends AbstractCharacterObject {
     }
 
     public void addFriendshipRing(Ring r) {
-        friendshipRings.add(r);
+        ringLock.lock();
+        try {
+            friendshipRings.add(r);
+        } finally {
+            ringLock.unlock();
+        }
     }
 
     public void addMarriageRing(Ring r) {
@@ -1011,7 +1027,9 @@ public class Character extends AbstractCharacterObject {
                 return false;
             }
         }
-        return getIdByName(name) < 0 && Pattern.compile("[a-zA-Z0-9]{3,12}").matcher(name).matches();
+        return getIdByName(name) < 0 && Pattern.compile("[a-zA-Z0-9]{3,12}").matcher(name).matches()
+                && (!soloMapling.server.MapleRootSolo.isEnabled()
+                    || soloMapling.ArtificialPlayer.BotNames.reserveForPlayer(name)); // never a bot's name (bot-persistence 05)
     }
 
     public boolean canDoor() {
@@ -3721,6 +3739,33 @@ public class Character extends AbstractCharacterObject {
         sendPacket(PacketCreator.getShowExpGain((int) gain, equip, party, inChat, white));
     }
 
+    /**
+     * Applies EXP earned while a bot was unobserved (ticket 07, rule 2). Silent by design: no packets, no
+     * level-up effect, no stat packet - the only thing an observer ever sees is the higher level byte in the
+     * bot's next spawn packet. Held on the same monitor as the observed gain path ({@link #gainExpInternal}),
+     * so a concurrent real kill cannot lose either gain, and local stats are re-derived afterwards so a
+     * promoted bot never fights with the stats of its old level.
+     *
+     * @return how many levels were gained
+     */
+    public synchronized int applyOffscreenExp(long gain, int levelCap) {
+        OffscreenProgression.Gain progressed = OffscreenProgression.accrue(level, exp.get(), gain, levelCap, l -> ExpTable.getExpNeededForLevel((int) l));
+        this.level = progressed.level();
+        this.exp.set(progressed.exp());
+        if (progressed.levelsGained() > 0) {
+            recalcLocalStats();
+        }
+        return progressed.levelsGained();
+    }
+
+    /**
+     * Re-derives local stats after progression written outside any gain path: the bot store reload applies a
+     * stored level/exp/job straight onto a fresh clone, which would otherwise keep the clone's stats.
+     */
+    public void refreshStatsAfterProgression() {
+        recalcLocalStats();
+    }
+
     private synchronized void gainExpInternal(long gain, int equip, int party, boolean show, boolean inChat, boolean white) {   // need of method synchonization here detected thanks to MedicOP
         long total = Math.max(gain + equip + party, -exp.get());
 
@@ -5278,8 +5323,14 @@ public class Character extends AbstractCharacterObject {
     }
 
     public List<Ring> getCrushRings() {
-        Collections.sort(crushRings);
-        return crushRings;
+        ringLock.lock();
+        try {
+            List<Ring> rings = new ArrayList<>(crushRings);
+            Collections.sort(rings);
+            return rings;
+        } finally {
+            ringLock.unlock();
+        }
     }
 
     public int getCurrentCI() {
@@ -5629,8 +5680,14 @@ public class Character extends AbstractCharacterObject {
     }
 
     public List<Ring> getFriendshipRings() {
-        Collections.sort(friendshipRings);
-        return friendshipRings;
+        ringLock.lock();
+        try {
+            List<Ring> rings = new ArrayList<>(friendshipRings);
+            Collections.sort(rings);
+            return rings;
+        } finally {
+            ringLock.unlock();
+        }
     }
 
     public boolean getUsingOreStorage() {
@@ -6379,11 +6436,23 @@ public class Character extends AbstractCharacterObject {
         }
     }
 
+    // Bots carry no quest state (ticket 07, rule 1). Bots are cloned without the channel-server quest
+    // block and never talk to an NPC or run a quest script, so nothing grants them quest status today -
+    // these guards keep that a rule instead of an accident: a future grant cannot create in-memory state
+    // that would be dropped at despawn (the bot store has no quest column) while still awarding quest
+    // points and broadcasting quest packets. Reads still answer; nothing is ever stored.
+    private boolean tracksQuestState() {
+        return !BotHelpers.isArtificial(getId());
+    }
+
     public QuestStatus getQuest(final int quest) {
         return getQuest(Quest.getInstance(quest));
     }
 
     public QuestStatus getQuest(Quest quest) {
+        if (!tracksQuestState()) {
+            return new QuestStatus(quest, QuestStatus.Status.NOT_STARTED);
+        }
         synchronized (quests) {
             short questid = quest.getId();
             QuestStatus qs = quests.get(questid);
@@ -6398,6 +6467,9 @@ public class Character extends AbstractCharacterObject {
     //---- \/ \/ \/ \/ \/ \/ \/  NOT TESTED  \/ \/ \/ \/ \/ \/ \/ \/ \/ ----
 
     public final void setQuestAdd(final Quest quest, final byte status, final String customData) {
+        if (!tracksQuestState()) {
+            return;
+        }
         synchronized (quests) {
             if (!quests.containsKey(quest.getId())) {
                 final QuestStatus stat = new QuestStatus(quest, QuestStatus.Status.getById(status));
@@ -6408,6 +6480,9 @@ public class Character extends AbstractCharacterObject {
     }
 
     public final QuestStatus getQuestNAdd(final Quest quest) {
+        if (!tracksQuestState()) {
+            return new QuestStatus(quest, QuestStatus.Status.NOT_STARTED);
+        }
         synchronized (quests) {
             if (!quests.containsKey(quest.getId())) {
                 final QuestStatus status = new QuestStatus(quest, QuestStatus.Status.NOT_STARTED);
@@ -6419,12 +6494,18 @@ public class Character extends AbstractCharacterObject {
     }
 
     public final QuestStatus getQuestNoAdd(final Quest quest) {
+        if (!tracksQuestState()) {
+            return null;
+        }
         synchronized (quests) {
             return quests.get(quest.getId());
         }
     }
 
     public final QuestStatus getQuestRemove(final Quest quest) {
+        if (!tracksQuestState()) {
+            return null;
+        }
         synchronized (quests) {
             return quests.remove(quest.getId());
         }
@@ -10809,6 +10890,10 @@ public class Character extends AbstractCharacterObject {
     }
 
     public void updateQuestStatus(QuestStatus qs) {
+        if (!tracksQuestState()) {
+            // bots carry no quest state (ticket 07, rule 1): no map write, no packet, no quest points
+            return;
+        }
         synchronized (quests) {
             quests.put(qs.getQuestID(), qs);
         }
