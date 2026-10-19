@@ -12,6 +12,7 @@ import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import server.Trade;
 import server.maps.MapleMap;
+import soloMapling.ArtificialPlayer.BotDecoratorSystem.BotWeapons;
 import soloMapling.ArtificialPlayer.BotProgressionSystem.BotProgression;
 import soloMapling.ArtificialPlayer.BotProgressionSystem.BotRealStats;
 import soloMapling.server.SoloMaplingConstants;
@@ -418,6 +419,12 @@ public final class BotStore {
             BotProgression.forget(bot.getId());
             log.warn("Could not restore the build of bot {} ({}); it keeps the template's stats this run",
                     bot.getId(), bot.getName(), e);
+        }
+        // A stored bot can hold a weapon its job does not fight with (its job was changed, or it wore the casual
+        // look); viewers' clients draw none of its skills with it, so it takes a fitting one. After the build, which
+        // may still pick a 1st-job bot's branch from the weapon it carries.
+        if (!holdingsUnavailable.contains(bot.getId())) {
+            BotWeapons.ensureFittingWeapon(bot);
         }
         // Level, job and worn gear all came off the row, so the clone's stats are stale until this point
         // (ticket 07 rule 2: stored progression must be internally consistent, not just visible).

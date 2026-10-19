@@ -9,6 +9,7 @@ import client.inventory.WeaponType;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import soloMapling.ArtificialPlayer.BotCommandsPack.BotAttack;
+import soloMapling.ArtificialPlayer.BotDecoratorSystem.BotWeapons;
 import soloMapling.ArtificialPlayer.BotHoldings;
 
 import java.util.LinkedHashMap;
@@ -267,6 +268,8 @@ public final class BotProgression {
             Job job = Job.getById(s.job);
             if (job != null) {
                 bot.setJob(job);
+                // A Cygnus Knight or pirate can advance into a job whose skills its weapon cannot use.
+                BotWeapons.ensureFittingWeapon(bot);
             }
         }
         Map<Skill, SkillEntry> skills = new LinkedHashMap<>();

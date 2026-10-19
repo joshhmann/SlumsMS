@@ -3,36 +3,21 @@ package soloMapling.ArtificialPlayer.BotAttackSystem;
 import client.Character;
 import client.inventory.WeaponType;
 import constants.id.ItemId;
-import constants.skills.Bandit;
 import constants.skills.Bishop;
-import constants.skills.Cleric;
-import constants.skills.DawnWarrior;
-import constants.skills.DragonKnight;
 import constants.skills.FPArchMage;
-import constants.skills.FPMage;
-import constants.skills.FPWizard;
 import constants.skills.ILArchMage;
-import constants.skills.ILMage;
-import constants.skills.NightWalker;
-import constants.skills.Paladin;
-import constants.skills.Priest;
-import constants.skills.Rogue;
-import constants.skills.Shadower;
 
-import java.util.Map;
+import java.util.List;
 import java.util.Set;
 import java.util.concurrent.ThreadLocalRandom;
-
-import static soloMapling.ArtificialPlayer.MapleRootSkills.RAGING_BLOW;
-import static soloMapling.ArtificialPlayer.MapleRootSkills.SHADOW_SLASH;
 
 /*
  * Body-action ids extracted verbatim from GreenCatMS (BotAttackDataProvider.BODY_ACTION_ID_OVERRIDES). Credit: NutNNut.
  * Body-action ids for bot attacks - the attack packet's "direction" byte (the pose other
  * clients render). Gotcha: an id is the client's fixed internal enum value, not the action's
  * ordinal in the WZ file; the two agree only up to idx 23, so anything above that must use the
- * canonical enum value (copied from the proven GreenCatMS reference). Most skills use the weapon
- * default; special poses live in SKILL_ACTION.
+ * canonical enum value (copied from the proven GreenCatMS reference). A skill's own pose comes from its
+ * Skill.wz "action" (BotSkillActions); a skill without one uses the weapon default.
  */
 public final class BotAttackData {
 
@@ -52,24 +37,9 @@ public final class BotAttackData {
     private static final int SHOOT_1 = 22, SHOOT_2 = 23;                 // bow/crossbow draw + fire
     private static final int CLAW_1 = 24, CLAW_2 = 25, CLAW_3 = 26;      // claw throw
     private static final int WAND_1 = 28, WAND_2 = 29;                   // wand/staff cast
-    // The client maps the direction byte through a FIXED internal enum (the client's
-    // "actions.txt" order), NOT the order actions appear in Character/00002000.img. The two
-    // AGREE up to ~shoot2 (idx 23) - walk/swing/stab/shoot - which is why basic swings and
-    // shoot1 work, but DIVERGE above it (the enum reserves slots, e.g. claw 24-26 / wand 28-29).
-    // So everything past 23 must use the canonical enum value, not the WZ file ordinal.
-    // Values below match the GreenCatMS reference BODY_ACTION_ID_OVERRIDES (proven in-game).
-    private static final int SAVAGE = 55;                               // "savage" dagger combo (Savage Blow)
-    private static final int ALERT_3 = 42;                              // "alert3" roar (Dragon Roar)
-    private static final int MAGIC_1 = 49, MAGIC_2 = 50, MAGIC_3 = 51;  // "magicN" 3rd-job spell casts
-    private static final int BURSTER_2 = 54;                            // "burster2" spear thrust combo (Crusher lv16+)
-    private static final int AVENGER = 56;                             // "avenger" claw arc throw
-    // ----- 4th-job skill poses (canonical enum, from the reference map) -----
-    private static final int ALERT_5 = 44;                             // "alert5" (Boomerang Step)
-    private static final int BRANDISH_1 = 63;                          // "brandish1" (Raging Blow, Dawn Warrior Brandish)
-    private static final int METEOR = 66;                              // "meteor" (Meteor Shower)
-    private static final int BLIZZARD = 68;                            // "blizzard" (Blizzard)
-    private static final int GENESIS = 69;                             // "genesis" (Genesis)
-    private static final int BLAST = 71;                               // "blast" (Paladin Blast)
+    // The client maps the direction byte through a FIXED internal enum (BotSkillActions.CLIENT_ACTIONS), NOT the
+    // order actions appear in Character/00002000.img. The two agree up to shoot2 (idx 23) and diverge above it (the
+    // enum repeats the swings for claws at 24-26 and wands at 28-30), so a skill's own pose is looked up by name.
 
     private static final int[] DEFAULT_1H_VARIANTS = {STAB_O1, STAB_O2, SWING_O1, SWING_O2, SWING_O3};
     private static final int[] HEAVY_2H_VARIANTS   = {STAB_O1, STAB_O2, SWING_T1, SWING_T2, SWING_T3};
@@ -81,40 +51,22 @@ public final class BotAttackData {
     private static final int[] BOW_VARIANTS        = {SHOOT_1};
     private static final int[] CROSSBOW_VARIANTS   = {SHOOT_2};
 
-    // Skills whose character keyframe differs from the weapon default, taken from each
-    // skill's Skill.wz "action" node. A skill not listed uses its weapon's swing/cast/shoot
-    // action. Extend this as more skills with special animations are confirmed against WZ. MapleRoot's
-    // custom skills name actions of their own (dragonAura, illusion, SMsolarPierce, ...) whose client enum
-    // values are unknown, so they use the weapon default until checked against a client.
-    private static final Map<Integer, Integer> SKILL_ACTION = Map.ofEntries(
-            Map.entry(Rogue.DOUBLE_STAB,             STAB_O1),   // 4001334 -> "stabO1" (dagger stab, not a random swing)
-            Map.entry(FPWizard.FIRE_ARROW,           SHOOT_1),   // 2101004 -> "shoot1" (arrow draw, not a wand cast)
-            Map.entry(Cleric.HOLY_ARROW,             SHOOT_1),   // 2301005 -> "shoot1"
-            Map.entry(Bandit.SAVAGE_BLOW,            SAVAGE),    // 4201005 -> "savage" (dagger combo, not a normal stab)
-            // ----- 3rd-job skills audited 2026-06-22 (action node read from Skill.wz) -----
-            Map.entry(SHADOW_SLASH,                  AVENGER),   // 4111005 -> "avenger" (claw arc throw; Avenger in stock)
-            Map.entry(NightWalker.AVENGER,           AVENGER),   // 14111002 -> "avenger"
-            Map.entry(FPMage.EXPLOSION,              MAGIC_3),   // 2111002 -> "magic3" (F/P AoE cast)
-            Map.entry(ILMage.ICE_STRIKE,             MAGIC_2),   // 2211002 -> "magic2" (I/L AoE cast)
-            Map.entry(ILMage.THUNDER_SPEAR,          MAGIC_1),   // 2211003 -> "magic1" (I/L single cast)
-            Map.entry(Priest.SHINING_RAY,            MAGIC_2),   // 2311004 -> "magic2" (Priest AoE cast)
-            Map.entry(DragonKnight.DRAGON_ROAR,      ALERT_3),   // 1311006 -> "alert3" (roar pose)
-            Map.entry(DragonKnight.SPEAR_CRUSHER,    BURSTER_2), // 1311001 -> "burster2" (spear thrust combo, lv16+)
-            // ----- 4th-job skills audited 2026-06-22c -----
-            Map.entry(RAGING_BLOW,                   BRANDISH_1),    // 1121008 -> "brandish1" (Brandish in stock)
-            Map.entry(DawnWarrior.BRANDISH,          BRANDISH_1),    // 11111004 -> "brandish1"
-            Map.entry(Paladin.BLAST,                 BLAST),         // 1221009 -> "blast"
-            Map.entry(FPArchMage.METEOR_SHOWER,      METEOR),        // 2121007 -> "meteor"
-            Map.entry(ILArchMage.BLIZZARD,           BLIZZARD),      // 2221007 -> "blizzard"
-            Map.entry(Bishop.ANGEL_RAY,              SHOOT_1),       // 2321007 -> "shoot1" (holy bolt draw, like Holy Arrow)
-            Map.entry(Bishop.GENESIS,                GENESIS),       // 2321008 -> "genesis"
-            Map.entry(Shadower.BOOMERANG_STEP,       ALERT_5)        // 4221007 -> "alert5"
-    );
-
-    /* The body action for a skill on a weapon: the skill's own keyframe if it overrides, else the weapon default. */
+    /* The body action for a skill on a weapon at the skill's first level; see actionFor(skillId, level, weapon). */
     public static int actionFor(int skillId, WeaponType weaponType) {
-        Integer override = SKILL_ACTION.get(skillId);
-        return override != null ? override : randomActionFor(weaponType);
+        return actionFor(skillId, 1, weaponType);
+    }
+
+    /*
+     * The body action a viewer's client accepts for this skill at this level: one of the skill's own Skill.wz poses
+     * (the level's own for Spear Crusher, burster1 below level 16 and burster2 from it), else the weapon default. A
+     * pose the skill does not allow makes the client drop the whole attack, so it is never guessed.
+     */
+    public static int actionFor(int skillId, int skillLevel, WeaponType weaponType) {
+        List<Integer> poses = BotSkillActions.poseCodes(skillId, skillLevel);
+        if (!poses.isEmpty()) {
+            return poses.get(ThreadLocalRandom.current().nextInt(poses.size()));
+        }
+        return randomActionFor(weaponType);
     }
 
     // Big Bang (F/P, I/L, Bishop) is a keydown CHARGE skill: its MAGIC_ATTACK packet carries a
