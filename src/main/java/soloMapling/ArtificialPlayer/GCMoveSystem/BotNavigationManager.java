@@ -157,6 +157,7 @@ final class BotNavigationManager {
                     && entry.navBlockedPosTicks > 0
                     && entry.navBlockedPosTicks >= entry.navBlockedPosGiveUpTicks) {
                 NavEdgeLearning.failure(graph, entry.navEdge); // bot-persistence ticket 16: remember the miss
+                NavStuckLog.record(NavStuckLog.Kind.GAVE_UP, bot.getMap(), botPos, graph, entry.navEdge);
                 clearNavigation(entry);
             }
             // ...and the make: the bot reached the region the committed edge leads to (counted once per edge).
@@ -200,6 +201,9 @@ final class BotNavigationManager {
                 entry.lastNavDecision = !runAiTick ? "no-ai"
                         : startRegionId < 0 || targetRegionId < 0 ? "no-region"
                         : startRegionId == targetRegionId ? "same-region" : "no-path";
+                if (runAiTick && (startRegionId < 0 || startRegionId != targetRegionId && targetRegionId >= 0)) {
+                    recordPlanFailure(entry, bot, graph, startRegionId, targetRegionId);
+                }
                 clearNavigation(entry);
                 return new NavigationDirective(rawTargetPos, false);
             }
@@ -252,6 +256,22 @@ final class BotNavigationManager {
 
         entry.lastNavDecision = "exec";
         return true;
+    }
+
+    /* Ticket 04c: a bot off the graph, or with no route to its target's region - at most once per bot per 30 s. */
+    private static void recordPlanFailure(BotMovementState entry, Character bot, BotNavigationGraph graph,
+                                          int startRegionId, int targetRegionId) {
+        long now = System.currentTimeMillis();
+        if (now - entry.planFailureLoggedAtMs < NavStuckLog.PLAN_FAILURE_EVERY_MS) {
+            return;
+        }
+        entry.planFailureLoggedAtMs = now;
+        if (startRegionId < 0) {
+            NavStuckLog.record(NavStuckLog.Kind.NO_REGION, bot.getMapId(), bot.getPosition(), graph, "");
+        } else {
+            NavStuckLog.record(NavStuckLog.Kind.NO_PATH, bot.getMapId(), bot.getPosition(), graph,
+                    "no route r" + startRegionId + ">r" + targetRegionId);
+        }
     }
 
     private static void clearNavigation(BotMovementState entry) {

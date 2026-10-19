@@ -162,7 +162,7 @@ public final class NavObservedEdges {
     }
 
     private static boolean joined(BotNavigationGraph graph, int from, int to) {
-        for (BotNavigationGraph.Edge edge : graph.getOutgoing(from)) {
+        for (BotNavigationGraph.Edge edge : outgoing(graph, from)) {
             if (edge.toRegionId == to && !edge.isMovementSkill()) { // a skill edge doesn't join regions for walkers
                 return true;
             }
@@ -185,11 +185,11 @@ public final class NavObservedEdges {
     // ── the planner's view ────────────────────────────────────────────────────────────────────
 
     /**
-     * A region's outgoing edges: the graph's own, plus jumps learned from players. No allocation when nothing was
-     * learned on the map (nearly always).
+     * A region's outgoing edges: the graph's own, plus the nightly deep bake's ({@link NavDeepOverlay}) and jumps
+     * learned from players. No allocation when neither added anything on the map (nearly always).
      */
     static List<BotNavigationGraph.Edge> outgoing(BotNavigationGraph graph, int regionId) {
-        List<BotNavigationGraph.Edge> own = graph.getOutgoing(regionId);
+        List<BotNavigationGraph.Edge> own = NavDeepOverlay.outgoing(graph, regionId);
         List<BotNavigationGraph.Edge> learned = overlay(graph);
         if (learned.isEmpty() || !appliesTo(graph)) {
             return own;

@@ -632,7 +632,7 @@ public final class GCMovement {
         queue.add(start);
         while (!queue.isEmpty()) {
             int rid = queue.poll();
-            for (BotNavigationGraph.Edge e : g.getOutgoing(rid)) {
+            for (BotNavigationGraph.Edge e : NavObservedEdges.outgoing(g, rid)) { // with baked and learned edges
                 // Skill edges (teleport / flash jump) only exist for some jobs - walk reachability ignores them.
                 if (e.toRegionId != rid && !e.isMovementSkill() && seen.add(e.toRegionId)) {
                     queue.add(e.toRegionId);

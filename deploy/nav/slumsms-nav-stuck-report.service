@@ -1,0 +1,17 @@
+# Daily stuck-hotspot report (ticket 04c): reads cache/bot-nav/stuck/<day>.json (written by the server) and the
+# nav learning books, writes reports/nav/stuck-<day>.md and reports/nav/stuck-latest.md; the one-line summary
+# lands in the journal (journalctl -u slumsms-nav-stuck-report). Reads files only, takes about a second.
+# Install: see docs/tickets/04c-stuck-report.md.
+[Unit]
+Description=SlumsMS daily nav stuck-hotspot report
+
+[Service]
+Type=oneshot
+WorkingDirectory=/opt/mapleroot/MapleRoot Full Repack/Server
+ExecStart=/usr/bin/java -Xmx256m -XX:ActiveProcessorCount=1 -Dbot.nav.cacheDir=cache/bot-nav -cp target/Cosmic.jar soloMapling.ArtificialPlayer.GCMoveSystem.NavStuckReport --days=1 --top=40 --out-dir=reports/nav
+Nice=19
+IOSchedulingClass=idle
+CPUQuota=50%
+MemoryMax=512M
+TimeoutStartSec=10min
+UMask=0077

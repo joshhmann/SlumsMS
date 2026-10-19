@@ -199,6 +199,7 @@ class BotMovementState {
     // ── Stuck detection & unstuck ──
     int stuckMs = 0;
     int unstuckCooldownMs = 0;
+    long planFailureLoggedAtMs = 0L; // NavStuckLog: last NO_PATH / NO_REGION counted for this bot
     int stuckCheckX = Integer.MIN_VALUE;
     int stuckCheckY = Integer.MIN_VALUE;
     int airStuckTicks = 0;
