@@ -23,7 +23,7 @@ import java.util.concurrent.ConcurrentHashMap;
  * levels) at the map's representative mob (its median-level one), through BotDamage's averaged swing: so many
  * swings to kill, at the profile's swing cooldown plus a walk between kills, never more than the old abstract
  * 30 a minute (what a map's spawns support). Each kill is worth the mob's EXP times the bot's EXP rate, the same
- * as a kill on screen gives a soloing bot.
+ * as a kill on screen gives a soloing bot, scaled by the owner's offscreen EXP pace (a third, see expPace).
  *
  * Cheap by design: one estimate per bot, kept until its level, job, map or attack totals change.
  */
@@ -39,6 +39,13 @@ public final class OffscreenCombat {
     static final double SECONDS_BETWEEN_KILLS = 1.5;
     // The mobs an AoE swing catches in a typical pack.
     static final int PACK_SIZE = 3;
+
+    // Owner's decision (2026-10-19): offscreen bots level at about a third of the real-EXP pace, "so bots climb
+    // more like a casual player and the world stays spread across levels longer". Only the EXP a kill is worth
+    // offscreen is scaled - the kill rate (and its cap) is the real one, and observed kills give real EXP.
+    // Override with -Dsolomapling.offscreenExpPace=<factor> (a positive number; 1 is the full real pace).
+    static final double DEFAULT_OFFSCREEN_EXP_PACE = 1.0 / 3.0;
+    static final String OFFSCREEN_EXP_PACE_PROPERTY = "solomapling.offscreenExpPace";
 
     /* The offscreen grind's pace: kills a minute, EXP per kill, and the level of the mob it was worked out on. */
     public record Rate(double killsPerMinute, double expPerKill, int mobLevel) {
@@ -95,8 +102,29 @@ public final class OffscreenCombat {
             int caught = Math.max(1, Math.min(Math.min(attacks.aoe().numAttacked, PACK_SIZE), mobsOnMap));
             best = Math.max(best, killsPerMinute(bot, attacks.aoe(), weapon, mob, hp, caught));
         }
-        double expPerKill = (double) mob.getExp() * bot.getExpRate() * Math.max(1, mapExpMultiplier);
-        return new Rate(best, expPerKill, mob.getLevel());
+        return new Rate(best, expPerKill(mob.getExp(), bot.getExpRate(), mapExpMultiplier), mob.getLevel());
+    }
+
+    /* An offscreen kill's EXP: the mob's EXP x the bot's EXP rate x the map multiplier, at the offscreen pace. */
+    static double expPerKill(int mobExp, int expRate, int mapExpMultiplier) {
+        return (double) mobExp * expRate * Math.max(1, mapExpMultiplier) * expPace();
+    }
+
+    /* The offscreen EXP pace factor: the system property when it is a positive number, else a third. */
+    static double expPace() {
+        String configured = System.getProperty(OFFSCREEN_EXP_PACE_PROPERTY);
+        if (configured != null) {
+            try {
+                double pace = Double.parseDouble(configured.trim());
+                if (pace > 0 && Double.isFinite(pace)) {
+                    return pace;
+                }
+            } catch (NumberFormatException ignored) {
+                // falls through to the default
+            }
+            log.warn("Ignoring -D{}={}: not a positive number", OFFSCREEN_EXP_PACE_PROPERTY, configured);
+        }
+        return DEFAULT_OFFSCREEN_EXP_PACE;
     }
 
     private static double killsPerMinute(Character bot, BotAttackProfile profile, WeaponType weapon,

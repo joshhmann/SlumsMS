@@ -41,6 +41,12 @@ Bot damage tracks its gear and level; the packet bytes are unchanged; tests.
   at the profile cooldown plus 1.5 s walking, an AoE catching up to 3, capped at the old 30 kills/min. EXP per kill
   = the mob's EXP x the bot's EXP rate x the map multiplier, as an observed solo kill. Cached per bot until its
   level, job, map, weapon or totals change. Maps whose mob cannot be built keep the old abstract pace.
+  - **Offscreen EXP pace (owner's decision, 2026-10-19):** offscreen kills are worth a third of that real EXP, "so
+    bots climb more like a casual player and the world stays spread across levels longer"
+    (`OffscreenCombat.DEFAULT_OFFSCREEN_EXP_PACE`; override with `-Dsolomapling.offscreenExpPace=<factor>`, 1 = full
+    real pace, not a config.yaml key). Only the EXP a kill is worth is scaled: the kill rate and its 30/min cap are
+    unchanged, `TrainingBot` still carries the leftover EXP fraction between ticks, observed kills give real EXP, and
+    maps without a buildable mob keep the old abstract pace unscaled.
 - `StatEffect` now reads the WZ `mastery` grade and exposes `prop` (no behaviour change for players).
 - **Tests:** 2538 run, 0 failures (26 new: `BotCombatFormulaTest`, `BotDamageTest`). Ten representative builds
   (beginner to Shadower, every weapon class) match `calculateMaxBaseDamage` x skill % to the point; spells stay
@@ -58,8 +64,8 @@ Bot damage tracks its gear and level; the packet bytes are unchanged; tests.
 - **Open issues:**
   - Cosmic does not load mob avoidability or accuracy, so bots never miss.
   - Combo Attack's per-orb damage and Aran's combo crit are not modelled (only Combo's flat damage and finishers).
-  - Offscreen EXP is now real mob EXP: mid-level bots level about 3-4x faster offscreen than under the old
-    mob-level-per-kill pace. The 30 kills/min cap is conservative against what bots reach on screen.
+  - Offscreen EXP is real mob EXP at a third pace: mid-level bots level about 1-1.3x the old mob-level-per-kill
+    pace offscreen (3-4x before the owner's pace factor). The 30 kills/min cap is conservative against what bots reach on screen.
   - The crit encoding (`encodeCritLine` / `decodeDamageLine`, pre-existing) drops 1 HP per crit line.
   - Shown buffs are taken as always up. Some bots fight with weak kits (a lv 95 Crusader on Power Strike with no
     weapon mastery); the formula is honest about it, the attack table is where to fix it.

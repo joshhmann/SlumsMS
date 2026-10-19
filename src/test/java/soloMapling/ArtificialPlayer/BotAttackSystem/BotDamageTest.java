@@ -269,6 +269,37 @@ class BotDamageTest {
     }
 
     @Test
+    void offscreenKillsAreWorthAThirdOfTheirRealExpUnlessThePropertySaysOtherwise() {
+        String previous = System.getProperty(OffscreenCombat.OFFSCREEN_EXP_PACE_PROPERTY);
+        try {
+            System.clearProperty(OffscreenCombat.OFFSCREEN_EXP_PACE_PROPERTY);
+            double third = OffscreenCombat.expPerKill(300, 2, 2);   // 300 EXP mob, 2x rate, 2x map
+            assertEquals(1200.0 / 3.0, third, 1e-9);
+            // The pace scales the EXP a kill is worth, never the kill rate: the spawn cap still binds.
+            OffscreenCombat.Rate rate = new OffscreenCombat.Rate(
+                    OffscreenCombat.killsPerMinute(500, 1_000, 720, 3), third, 38);
+            assertEquals(OffscreenCombat.MAX_KILLS_PER_MIN, rate.killsPerMinute());
+            assertEquals(30.0 / 60.0 * 400.0, rate.expPerSecond(), 1e-9);
+
+            System.setProperty(OffscreenCombat.OFFSCREEN_EXP_PACE_PROPERTY, "1");
+            assertEquals(1200.0, OffscreenCombat.expPerKill(300, 2, 2), 1e-9);
+            System.setProperty(OffscreenCombat.OFFSCREEN_EXP_PACE_PROPERTY, "0.5");
+            assertEquals(600.0, OffscreenCombat.expPerKill(300, 2, 2), 1e-9);
+
+            for (String bad : new String[]{"nonsense", "-2", "0", "NaN"}) {
+                System.setProperty(OffscreenCombat.OFFSCREEN_EXP_PACE_PROPERTY, bad);
+                assertEquals(OffscreenCombat.DEFAULT_OFFSCREEN_EXP_PACE, OffscreenCombat.expPace());
+            }
+        } finally {
+            if (previous == null) {
+                System.clearProperty(OffscreenCombat.OFFSCREEN_EXP_PACE_PROPERTY);
+            } else {
+                System.setProperty(OffscreenCombat.OFFSCREEN_EXP_PACE_PROPERTY, previous);
+            }
+        }
+    }
+
+    @Test
     void theLinesItSendsStayInTheRangeAndCritsEncodeNegative() throws Exception {
         Character bot = Character.getDefault(new BotClient(0, 0));
         bot.setJob(Job.ASSASSIN);
