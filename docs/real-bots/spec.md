@@ -62,6 +62,13 @@ adopt a whole runtime. Record every port in `docs/PROVENANCE.md`.
 ### Real tier
 5. **Persisted real stats:** botstore gains skills, AP/SP and job progress (migration). Existing bots are back-filled from level and job with the class build.
 6. **AP/SP builds and job advancement:** per stock class.
+
+   *Done for 05/06 (branch `real-stats`).* Note, 2026-10-19: the builds now follow MapleRoot's own skill set, not
+   stock v83 - MapleRoot removed the boosters and the axe/blunt/pole-arm forms, renamed several stock ids and added
+   custom 4th-job skills and a Cygnus 4th job (catalog: `mapleroot-skills.md`, from `tools/skill-catalog`). Bots get
+   the Cygnus 4th job at 120 and the NPC 2084000 package at their 4th job (paid when the bot holds 10m mesos, else
+   left unpaid for ticket 15), attack with the custom skills and only cast the buffs they hold. The 5th tier (x13),
+   Super Beginner and Synth Master stay unbuilt (rebirth- and item-gated).
 7. **Real combat formula:** server-side damage from stats, gear, skills and buffs, behind the attack adapter. Offscreen LOD uses the same numbers averaged.
 8. **Potions and ammo:** real consumption, observed and offscreen; running out changes behaviour.
 9. **NPC shop resupply:** walk to town and buy with own mesos (needs ticket 3).
@@ -80,4 +87,4 @@ adopt a whole runtime. Record every port in `docs/PROVENANCE.md`.
 
 - Performance: the full real tier must stay behind the LOD and governor. Both reference forks stall at about 60–200 fully simulated bots.
 - Byte-identical guarantees: no changes to `PacketCreator` or `AbstractDealDamageHandler` (client DLL).
-- MapleRoot data: custom classes and skills and level 255 are out of scope at first. Builds must refuse unknown classes rather than guess.
+- MapleRoot data: the custom classes (5th tier, 700/710) and level 255 are out of scope at first; MapleRoot's custom skills for the regular classes are built (see ticket 06). Builds must refuse unknown classes rather than guess.
