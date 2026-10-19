@@ -4,6 +4,9 @@ import argparse,hashlib,json,subprocess,zipfile
 p=argparse.ArgumentParser();p.add_argument('--wz-archive',type=Path,required=True);p.add_argument('--output',type=Path,required=True);a=p.parse_args()
 r=Path(__file__).resolve().parents[1]
 assert a.wz_archive.is_file() and (r/'target/Cosmic.jar').is_file()
+baseline=json.loads((r/'release/baseline.json').read_text())
+assert hashlib.sha256(a.wz_archive.read_bytes()).hexdigest()==baseline['assets']['server_wz_tar_sha256'],'Wrong server WZ archive'
+assert hashlib.sha256((r/'target/Cosmic.jar').read_bytes()).hexdigest()==baseline['source_baseline_server_jar_sha256'],'Server JAR does not match baseline verification'
 assert not a.output.exists(),'Output already exists'
 files={'target/Cosmic.jar':r/'target/Cosmic.jar','config.example.yaml':r/'config.example.yaml','wz.tar.gz':a.wz_archive,'unpack_assets.py':r/'tools/unpack_assets.py','BASELINE.json':r/'release/baseline.json'}
 for name in ['scripts','cashshop','deploy','database/migrations']:

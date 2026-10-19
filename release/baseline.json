@@ -24,5 +24,24 @@
     "Cosmic.jar": "637b9e0de8b1cb76ec6c062b59b3a3178074b1b51f9e69a0b17dcfd8346a5c8e"
   },
   "source_baseline_server_jar_sha256": "b12996a75b3d528fcce1c46d898c0a7976420f5bcd726f87bcb605524b2193b1",
-  "source_server_delta": "Only registration webhook environment handling differs from earlier gameplay-accepted JAR"
+  "source_server_delta": "Only registration webhook environment handling differs from earlier gameplay-accepted JAR",
+  "assets": {
+    "core_archive_sha256": "4c4e95760c48d94fffbbab26783ca3377fc2b1cfa2bc8ba10cb950f2e2f72b83",
+    "addon_overlay_files": {
+      "Effect/WeatherAccum.img": "a3ca50fd6087b2c00c4a9179246fdaa1034062f219a0bab250100e2d450baeec",
+      "Effect/WeatherParticles.img": "def3ae5eb79886de214d56048c0d24602c7a035947e0e229680d602df2473754",
+      "Effect/WeatherPuddle.img": "e343f709314dd4797dd94c600ed488460229fe31a2ac60b3a60317c56491ae68",
+      "Effect/WeatherSplash.img": "09d3a18e8e4abbad98541ec93b1e3dc576f6af46d6e8c42637c6d965ec388974",
+      "Item/Cash/0512.img": "c4675aab6de8f6ac8bb806623fdcfb41c83986edcbce4cb3441caa8a2621c937",
+      "Map/Back/MapleMoonSky.img": "35ca895108f903fe441418a3c686c247b2362f8b60db0f1ab145ec31d884eb51",
+      "Map/Back/WeatherFog.img": "c7f2d1f814d05182bdc8c44b81c16d02aea06f0b834b1ea36e902cf2533b979b",
+      "Map/Back/WeatherRainbow.img": "37b579776a4d4755e849fba59e1bd83efa29ac2b9ba6ceeca60d845cb55e2c9d",
+      "Map/Back/WeatherSnow.img": "b03006ca06421259782f879eefe4f1b86578c3eb2a6dd722ee7ad39d8a2bc994",
+      "Map/Obj/MapleMoonLamp.img": "3fcf2ce04e38ac274d179a994888423c8be77a46d692ef85b65aac5d4bc765f1",
+      "Map/Obj/MapleMoonLamp2.img": "6f6a10f86932e5fa24e6b10687c5d2ba12e6be439240dfdcedf59e8ce312c7d9",
+      "Sound/Weather.img": "1cb1badc398533dffd86f00a6839b233e07fc219880b8828d35682f137a0fafd",
+      "UI/CashShop.img": "e54e35cd0f064640f64321edfb78fb778c5e392464daebdb98056d45e6c62ef3"
+    },
+    "server_wz_tar_sha256": "ee9dc6f07eaae5c85f00f14bb93b60d727947c08f8547f99e6dd038b1150245a"
+  }
 }
