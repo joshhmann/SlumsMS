@@ -133,7 +133,7 @@ public final class LevelingPath {
     // ── Loading ──
 
     private static Path load() {
-        try (FileReader in = new FileReader(YAML_PATH)) {
+        try (FileReader in = new FileReader(soloMapling.DataFiles.file(YAML_PATH))) {
             Path p = parse(in);
             if (p.isEmpty()) {
                 System.out.println("[LevelingPath] " + YAML_PATH + " lists no bands - bots keep the old map choice");

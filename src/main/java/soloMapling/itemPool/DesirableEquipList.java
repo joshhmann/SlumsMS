@@ -15,7 +15,7 @@ public class DesirableEquipList {
         if (loaded) return;
         long start = System.currentTimeMillis();
         try {
-            YamlReader reader = new YamlReader(new FileReader(YAML_PATH));
+            YamlReader reader = new YamlReader(new FileReader(soloMapling.DataFiles.file(YAML_PATH)));
             @SuppressWarnings("unchecked")
             Map<String, List<String>> categories = (Map<String, List<String>>) reader.read();
             if (categories == null) {

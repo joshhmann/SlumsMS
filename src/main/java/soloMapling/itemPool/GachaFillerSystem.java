@@ -133,7 +133,7 @@ public class GachaFillerSystem {
 
     @SuppressWarnings("unchecked")
     private static void loadGachaData() throws Exception {
-        File yamlFile = new File(YAML_PATH);
+        File yamlFile = soloMapling.DataFiles.file(YAML_PATH);
 
         // If file doesn't exist at relative path, try to find it relative to working directory
         if (!yamlFile.exists()) {

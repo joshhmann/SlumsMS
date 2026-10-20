@@ -365,7 +365,7 @@ public class ConversationManager {
     private void loadScripts() {
         allScripts = new ArrayList<>();
         try {
-            YamlReader reader = new YamlReader(new FileReader(DIALOGUE_YAML));
+            YamlReader reader = new YamlReader(new FileReader(soloMapling.DataFiles.file(DIALOGUE_YAML)));
             Map<String, Object> root = (Map<String, Object>) reader.read();
             Map<String, Object> conversations = (Map<String, Object>) root.get("conversations");
             if (conversations == null) return;

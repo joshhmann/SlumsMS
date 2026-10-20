@@ -134,7 +134,7 @@ public class BotDialogueHandler {
 
         Map<String, Object> dialogueConstructorNode = null;
         try {
-            YamlReader reader = new YamlReader(new FileReader(filePath));
+            YamlReader reader = new YamlReader(new FileReader(soloMapling.DataFiles.file(filePath)));
 
             // Read the root node
             Map<String, Object> root = (Map<String, Object>) reader.read();

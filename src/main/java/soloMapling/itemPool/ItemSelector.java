@@ -13,7 +13,7 @@ public class ItemSelector {
     private Map<String, List<ItemNode>> items;
 
     public ItemSelector(String yamlFile) throws Exception {
-        YamlReader reader = new YamlReader(new FileReader(yamlFile));
+        YamlReader reader = new YamlReader(new FileReader(soloMapling.DataFiles.file(yamlFile)));
         items = (Map<String, List<ItemNode>>) reader.read();
     }
 

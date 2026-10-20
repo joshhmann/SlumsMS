@@ -49,7 +49,7 @@ public class InPacketReader {
 
     public static List<MovementPacket> readPacketsFromFile(String binaryFileName) {
         List<MovementPacket> packets = new ArrayList<>();
-        try (DataInputStream dis = new DataInputStream(new FileInputStream(binaryFileName))) {
+        try (DataInputStream dis = new DataInputStream(new FileInputStream(soloMapling.DataFiles.file(binaryFileName)))) {
             while (dis.available() > 0) {
                 packets.add(readSinglePacket(dis));
             }
@@ -62,7 +62,7 @@ public class InPacketReader {
     public static List<MovementPacketRaw> readRawPacketsFromFile(String csvFileName) {
         List<MovementPacketRaw> packetList = new LinkedList<>();
 
-        try (BufferedReader reader = new BufferedReader(new FileReader(csvFileName))) {
+        try (BufferedReader reader = new BufferedReader(new FileReader(soloMapling.DataFiles.file(csvFileName)))) {
             LineReader lineReader = new LineReader(reader);
             String line;
 

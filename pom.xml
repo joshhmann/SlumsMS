@@ -214,6 +214,23 @@
     </dependencies>
 
     <build>
+        <resources>
+            <resource>
+                <directory>src/main/resources</directory>
+            </resource>
+            <!-- Ticket 22: SoloMapling's data files (yaml/txt/csv/bin) sit next to its code. Pack them into the
+                 jar as soloMapling/... resources so a jar-only install works; soloMapling.DataFiles still
+                 prefers -Dsolomapling.dataDir and then a staged src/main/java tree. -->
+            <resource>
+                <directory>src/main/java</directory>
+                <includes>
+                    <include>soloMapling/**/*.yaml</include>
+                    <include>soloMapling/**/*.txt</include>
+                    <include>soloMapling/**/*.csv</include>
+                    <include>soloMapling/**/*.bin</include>
+                </includes>
+            </resource>
+        </resources>
         <plugins>
             <!-- Explicitly disable default jar which includes no dependencies -->
             <plugin>

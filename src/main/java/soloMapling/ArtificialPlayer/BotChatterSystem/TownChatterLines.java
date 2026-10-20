@@ -65,7 +65,7 @@ public final class TownChatterLines {
     private static List<List<String>> load() {
         List<List<String>> out = new ArrayList<>();
         try {
-            YamlReader reader = new YamlReader(new FileReader(YAML_PATH));
+            YamlReader reader = new YamlReader(new FileReader(soloMapling.DataFiles.file(YAML_PATH)));
             Map<String, Object> root = (Map<String, Object>) reader.read();
             if (root == null) {
                 return out;

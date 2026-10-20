@@ -41,7 +41,7 @@ public class PlatformParser {
         List<Point> coordinates = new ArrayList<>();
         Path filePath = Paths.get(BASE_PATH, "map" + mapId, fileName + ".csv");
 
-        try (BufferedReader reader = new BufferedReader(new FileReader(filePath.toFile()))) {
+        try (BufferedReader reader = new BufferedReader(new FileReader(soloMapling.DataFiles.file(filePath.toString())))) {
             String line;
             while ((line = reader.readLine()) != null) {
                 line = line.trim();

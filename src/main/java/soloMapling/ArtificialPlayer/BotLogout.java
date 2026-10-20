@@ -141,7 +141,7 @@ public final class BotLogout {
     static String line(String kind) {
         Map<String, List<String>> loaded = lines;
         if (loaded == null) {
-            try (FileReader file = new FileReader(LINES_FILE)) {
+            try (FileReader file = new FileReader(soloMapling.DataFiles.file(LINES_FILE))) {
                 loaded = (Map<String, List<String>>) new YamlReader(file).read();
             } catch (Exception e) {
                 log.warn("Could not read {}; bots log off silently", LINES_FILE, e);

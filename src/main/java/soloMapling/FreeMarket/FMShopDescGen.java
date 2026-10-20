@@ -351,7 +351,7 @@ public class FMShopDescGen {
     private static List<String> loadAndShuffleNames() {
         String filePath = resolveFilePath("ign");
         List<String> names = new ArrayList<>();
-        try (BufferedReader reader = new BufferedReader(new FileReader(filePath))) {
+        try (BufferedReader reader = new BufferedReader(new FileReader(soloMapling.DataFiles.file(filePath)))) {
             String line;
             while ((line = reader.readLine()) != null) {
                 if (!line.isEmpty() && line.length() <= 12) {
@@ -372,7 +372,7 @@ public class FMShopDescGen {
     protected static String getRandomStoreDescription(String type) {
         String filePath = resolveFilePath(type);
 
-        try (BufferedReader reader = new BufferedReader(new FileReader(filePath))) {
+        try (BufferedReader reader = new BufferedReader(new FileReader(soloMapling.DataFiles.file(filePath)))) {
             String line;
             String result = null;
             Random random = new Random();

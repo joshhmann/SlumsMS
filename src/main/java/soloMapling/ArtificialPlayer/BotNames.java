@@ -268,13 +268,14 @@ public final class BotNames {
 
     private static List<String> readPoolFiles() {
         List<String> lines = new ArrayList<>();
-        readLines(LEGACY_POOL, lines);
-        if (Files.isDirectory(NAME_DIR)) {
+        readLines(soloMapling.DataFiles.path(LEGACY_POOL.toString()), lines);
+        Path nameDir = soloMapling.DataFiles.path(NAME_DIR.toString());
+        if (Files.isDirectory(nameDir)) {
             List<Path> files = new ArrayList<>();
-            try (DirectoryStream<Path> dir = Files.newDirectoryStream(NAME_DIR, "*.txt")) {
+            try (DirectoryStream<Path> dir = Files.newDirectoryStream(nameDir, "*.txt")) {
                 dir.forEach(files::add);
             } catch (IOException e) {
-                log.warn("Could not list bot name files in {}", NAME_DIR, e);
+                log.warn("Could not list bot name files in {}", nameDir, e);
             }
             files.sort(null);
             for (Path file : files) {

@@ -27,7 +27,7 @@ public final class DialoguePackCheck {
     }
 
     public static Result run() {
-        return run(new File(PACK_DIR));
+        return run(soloMapling.DataFiles.file(PACK_DIR));
     }
 
     public static Result run(File dir) {

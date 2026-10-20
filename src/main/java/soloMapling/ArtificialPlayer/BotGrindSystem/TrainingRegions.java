@@ -129,7 +129,7 @@ public final class TrainingRegions {
     // ── Loading ──
 
     private static Config load() {
-        try (FileReader in = new FileReader(YAML_PATH)) {
+        try (FileReader in = new FileReader(soloMapling.DataFiles.file(YAML_PATH))) {
             Config c = parse(in);
             if (!c.regions().isEmpty()) {
                 return c;

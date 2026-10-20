@@ -156,7 +156,7 @@ public final class BotTransit {
     // ── Loading ──
 
     private static List<Edge> loadFile() {
-        try (FileReader in = new FileReader(YAML_PATH)) {
+        try (FileReader in = new FileReader(soloMapling.DataFiles.file(YAML_PATH))) {
             return parse(in);
         } catch (Exception e) {
             System.out.println("[BotTransit] failed to load " + YAML_PATH + ": " + e.getMessage()

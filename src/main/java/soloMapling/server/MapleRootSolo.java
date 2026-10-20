@@ -38,6 +38,7 @@ public final class MapleRootSolo {
             log.info("SoloMapling disabled; enable explicitly with a dedicated bot template ID before testing");
             return;
         }
+        soloMapling.DataFiles.checkAtStartup(); // ticket 22: logs each missing data file and one summary line
         EquipMetadataCache.initialize();
         DesirableEquipList.load();
         BotClientHandler.initHeadlessBotClient();

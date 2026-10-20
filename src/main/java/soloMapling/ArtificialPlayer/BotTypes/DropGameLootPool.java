@@ -37,7 +37,7 @@ public class DropGameLootPool {
     public static DropGameLootPool load(String tier) {
         DropGameLootPool pool = new DropGameLootPool();
         try {
-            YamlReader reader = new YamlReader(new FileReader(LOOT_POOL_PATH));
+            YamlReader reader = new YamlReader(new FileReader(soloMapling.DataFiles.file(LOOT_POOL_PATH)));
             Map<String, Object> root = (Map<String, Object>) reader.read();
             Map<String, Object> tierNode = (Map<String, Object>) root.get(tier);
             if (tierNode == null) {

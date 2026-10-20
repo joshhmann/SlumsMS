@@ -504,7 +504,7 @@ public class PlatformPlacement {
      */
     public static List<String> getAvailablePlatformIds(int mapId) {
         List<String> platformIds = new ArrayList<>();
-        File mapDir = new File(BASE_PATH + "/map" + mapId);
+        File mapDir = soloMapling.DataFiles.optional(BASE_PATH + "/map" + mapId);
 
         if (!mapDir.exists() || !mapDir.isDirectory()) {
             return platformIds;

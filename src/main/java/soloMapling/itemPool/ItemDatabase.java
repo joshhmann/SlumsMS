@@ -36,7 +36,7 @@ public class ItemDatabase {
 
         for (String itemPool : itemPools) {
             String yamlFile = "src/main/java/soloMapling/itemPool/itemConfig/" + itemPool;
-            YamlReader reader = new YamlReader(new FileReader(yamlFile));
+            YamlReader reader = new YamlReader(new FileReader(soloMapling.DataFiles.file(yamlFile)));
             Map<String, List<ItemNode>> thiefitems = (Map<String, List<ItemNode>>) reader.read();
 
             for (Map.Entry<String, List<ItemNode>> entry : thiefitems.entrySet()) {

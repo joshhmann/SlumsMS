@@ -28,8 +28,14 @@ Last updated: 2026-10-20, after the 1.3.1 (Bera) live deploy and the storage cle
 | Deploy records | `/opt/mapleroot-deployments/<version>/` (DEPLOYMENT.md, deploy script, log, pre-deploy backups) |
 
 **config.yaml is strict:** an unknown key stops the boot. New tunables ship as `-D` JVM flags, or as YAML keys only
-together with the jar that knows them. The jar reads bot data files from `src/main/java/soloMapling/...` relative to
-the server folder, so every deploy stages the non-Java files of `src/main` (see `docs/release/1.3.0.md` step 9).
+together with the jar that knows them. Bot data files (dialogue packs, name pools, item configs, movement packets,
+`BotTransit.yaml`...) are packed into the jar since ticket 22. `soloMapling.DataFiles` looks for each one in
+`-Dsolomapling.dataDir=<dir>` (`<dir>/soloMapling/...`), then `src/main/java/soloMapling/...` under the server folder,
+then the jar, and logs one `SoloMapling data: N/N resolved (...)` line at startup. Staging the non-Java files of
+`src/main` is now optional. A staged tree still wins over the jar, so a stale `src/main/java/soloMapling` in the server
+folder (live has the 1.2.1 one) shadows the jar's copy: stage the current tree or move the old one aside.
+`java -cp target/Cosmic.jar soloMapling.DataFiles` in the server folder prints the same line and exits 1 on a miss.
+Jars before ticket 22 (1.3.0 and older) still need the staged tree (see `docs/release/1.3.0.md` step 9).
 
 ## GM accounts (ticket 43)
 
@@ -130,7 +136,8 @@ launcher repo; checklist template `tools/release/templates/CHECKLIST.md`):
 1. Work lands on branches. `tools/release/build`: full suite + jar + sha (`dist/release-build/BUILD.txt`).
 2. Deploy to the owner's test server (persistence-test) and get an in-game check.
 3. `docs/release/<version>.conf` (migrations, config keys, unit edits, pre-checks, smoke lines), then
-   `tools/release/stage <version>`: jar, scripts, non-Java `src/main` data, migrations and the generated
+   `tools/release/stage <version>`: jar, scripts, non-Java `src/main` data (optional for jars with ticket 22, see
+   above), migrations and the generated
    `deploy.sh`/`rollback.sh` to `/opt/mapleroot-deployments/v<version>/`.
 4. `tools/release/rehearse <version>`: fresh copy of live (DB into scratch schema `rh_*` on 3307, Server/ copy, unit
    `slumsms-rh-*` on 8499/8585+ under CPUQuota=200% Nice=19 MemoryMax=6G), the staged deploy.sh and rollback.sh, player
