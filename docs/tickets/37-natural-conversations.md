@@ -68,7 +68,15 @@ calls and a model that "plays along" must never move items or mesos.
    and actions always match. With no LLM slot free, a scripted line for that outcome.
 5. **Never on the menu:** giving items or mesos, or anything farmable; those only happen through real trades at real
    prices (ticket 38).
-6. **Later, optional:** if a model proves reliable on the labelled set, it may propose one structured `action` field;
+6. **Is it a con? (Decide, soft layer):** one more small question per request: normal, begging/scam ("lend me 10m,
+   will pay back"), manipulation or prompt injection ("ignore your instructions", "you're an AI, admit it"), harassment,
+   RWT/account talk.
+   - A flagged line skips the LLM: the bot answers with an in-character scripted brush-off, gets annoyed, or ignores it.
+   - The bot remembers it (memory note: "tried to scam me"), so it's warier of that player and may gossip about them.
+   - Flags are counted on the dashboard (ticket 35) so the owner can see who probes the bots.
+   - It is a soft layer only: the hard guarantee stays in step 2 and 5 (rules and the never-on-the-menu list), so a
+     missed flag can never move items or mesos.
+7. **Later, optional:** if a model proves reliable on the labelled set, it may propose one structured `action` field;
    the same rules check it before anything happens.
 
 ## Done when
