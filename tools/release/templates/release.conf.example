@@ -1,0 +1,37 @@
+# SlumsMS release settings: docs/release/<version>.conf, read by tools/release/stage (bash, sourced).
+# stage turns this into /opt/mapleroot-deployments/v<version>/{deploy.sh,rollback.sh}; the body of both scripts is
+# fixed (tools/release/templates/*.body.sh), only these settings change per release.
+
+# Migrations this release applies, in order: file stems under database/migrations/ (each needs a .rollback.sql).
+# The ledger id is read from the file's INSERT into mapleroot_integration_migrations (column migration_id).
+MIGRATIONS=()
+# The ledger live must show before the deploy, exactly. Default: every repo migration id not in MIGRATIONS and not in
+# LEDGER_NOT_LIVE. Set LEDGER_BEFORE explicitly to pin it.
+LEDGER_NOT_LIVE=()
+#LEDGER_BEFORE="001-preserve-arcane-for-classic-fm,002-classic-fm-return,..."
+
+# config.yaml. CONFIG_APPEND: a file (repo-relative) of indented `server:` keys appended at the end; the deploy aborts
+# before the stop if live already has one of them. CONFIG_HEAD: a file that replaces everything above `server:` (the
+# worlds block); needs CONFIG_HEAD_BEFORE, the first 16 hex of sha256 over live's current block above `server:`
+# (`awk '/^server:/{exit} {print}' config.yaml | sha256sum | cut -c1-16`), so a changed live file aborts the deploy.
+CONFIG_APPEND=""
+CONFIG_HEAD=""
+CONFIG_HEAD_BEFORE=""
+
+# systemd unit edits: sed expressions applied to /etc/systemd/system/slumsms.service, then daemon-reload. Each must
+# change something or the deploy aborts before the stop. Rollback puts the backed-up unit back.
+UNIT_EDITS=()
+#UNIT_EDITS=("s#-Xmx4G#-Xmx6G#")
+
+# Extra read-only pre-checks, "label|SQL returning one value|expected value". Failing ones abort before the stop.
+PRECHECK_SQL=()
+#PRECHECK_SQL=("pending world transfers|SELECT COUNT(*) FROM worldtransfers WHERE completionTime IS NULL;|0")
+
+# Optional nav cache to copy into Server/cache/bot-nav/ (a directory on the host, e.g. .../cache/bot-nav/v68).
+NAV_CACHE_SRC=""
+
+# Smoke test. "SlumsMS v<jar version>" and "is now online" are always expected.
+EXPECT_LOG=("SoloMapling initialized")
+FORBID_LOG=("failed to load" "Starting world 0")
+SMOKE_SECONDS=30
+IN_GAME_CHECK="In game: log in, enter a character, change channel, see bots in Henesys and the FM."

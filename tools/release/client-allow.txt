@@ -1,0 +1,102 @@
+# Allowed differences between a SlumsMS client release and the reference client on 164
+# ("/opt/mapleroot-control/MapleRoot Full Repack/Game Files", the original MapleRoot client), used by
+# publish-client / verify-client.py. Format: `missing|different|extra|removed <glob>` (fnmatch, case-sensitive).
+#
+# Captured 2026-10-20 from the published 1.3.0 set (base v83-2026.10.19 + client 1.2.1), which was hash-verified
+# against the standalone SlumsMS client before it went out. Everything below is the SlumsMS overlay: the one-DLL
+# starter (SlumsMS.exe + slums.dll + MapleStory.exe replacing SERVERNAME.exe), Custom.wz, the Arcane hub and classic
+# FM maps (993910000-022 / 910000000-022) and their backgrounds/tiles/objects, weather effects, and the UI/String
+# edits. A release that changes the overlay changes this list in the same commit, so the change is reviewed.
+# Every path is listed explicitly on purpose (no wide globs): a new unexpected file must fail the check.
+# Files a previous release had and the new one lacks fail separately (`removed`, via --previous manifest.json).
+
+missing SERVERNAME.exe
+missing log.txt
+different Data/Item/Cash/0512.img
+different Data/Map/Map/Map9/910000000.img
+different Data/Map/Map/Map9/910000001.img
+different Data/Map/Map/Map9/910000002.img
+different Data/Map/Map/Map9/910000003.img
+different Data/Map/Map/Map9/910000004.img
+different Data/Map/Map/Map9/910000005.img
+different Data/Map/Map/Map9/910000006.img
+different Data/Map/Map/Map9/910000007.img
+different Data/Map/Map/Map9/910000008.img
+different Data/Map/Map/Map9/910000009.img
+different Data/Map/Map/Map9/910000010.img
+different Data/Map/Map/Map9/910000011.img
+different Data/Map/Map/Map9/910000012.img
+different Data/Map/Map/Map9/910000013.img
+different Data/Map/Map/Map9/910000014.img
+different Data/Map/Map/Map9/910000015.img
+different Data/Map/Map/Map9/910000016.img
+different Data/Map/Map/Map9/910000017.img
+different Data/Map/Map/Map9/910000018.img
+different Data/Map/Map/Map9/910000019.img
+different Data/Map/Map/Map9/910000020.img
+different Data/Map/Map/Map9/910000021.img
+different Data/Map/Map/Map9/910000022.img
+different Data/String/Map.img
+different Data/UI/Basic.img
+different Data/UI/CashShop.img
+different Data/UI/StatusBar.img
+different Data/UI/UIWindow.img
+different config.ini
+different ijl15.dll
+extra Custom.wz
+extra Data/.classic-ui-private
+extra Data/Effect/WeatherAccum.img
+extra Data/Effect/WeatherParticles.img
+extra Data/Effect/WeatherPuddle.img
+extra Data/Effect/WeatherSplash.img
+extra Data/Map/Back/ClassicFM_dryRock.img
+extra Data/Map/Back/ClassicFM_grassySoil.img
+extra Data/Map/Back/ClassicFM_snowyLightrock.img
+extra Data/Map/Back/ClassicFM_toyCastle.img
+extra Data/Map/Back/MapleMoonSky.img
+extra Data/Map/Back/WeatherFog.img
+extra Data/Map/Back/WeatherRainbow.img
+extra Data/Map/Back/WeatherSnow.img
+extra Data/Map/Map/Map9/993910000.img
+extra Data/Map/Map/Map9/993910001.img
+extra Data/Map/Map/Map9/993910002.img
+extra Data/Map/Map/Map9/993910003.img
+extra Data/Map/Map/Map9/993910004.img
+extra Data/Map/Map/Map9/993910005.img
+extra Data/Map/Map/Map9/993910006.img
+extra Data/Map/Map/Map9/993910007.img
+extra Data/Map/Map/Map9/993910008.img
+extra Data/Map/Map/Map9/993910009.img
+extra Data/Map/Map/Map9/993910010.img
+extra Data/Map/Map/Map9/993910011.img
+extra Data/Map/Map/Map9/993910012.img
+extra Data/Map/Map/Map9/993910013.img
+extra Data/Map/Map/Map9/993910014.img
+extra Data/Map/Map/Map9/993910015.img
+extra Data/Map/Map/Map9/993910016.img
+extra Data/Map/Map/Map9/993910017.img
+extra Data/Map/Map/Map9/993910018.img
+extra Data/Map/Map/Map9/993910019.img
+extra Data/Map/Map/Map9/993910020.img
+extra Data/Map/Map/Map9/993910021.img
+extra Data/Map/Map/Map9/993910022.img
+extra Data/Map/Obj/ClassicFM_acc1.img
+extra Data/Map/Obj/ClassicFM_acc3.img
+extra Data/Map/Obj/ClassicFM_acc4.img
+extra Data/Map/Obj/ClassicFM_connect.img
+extra Data/Map/Obj/ClassicFM_door.img
+extra Data/Map/Obj/ClassicFM_guide.img
+extra Data/Map/Obj/ClassicFM_houseGS.img
+extra Data/Map/Obj/ClassicFM_houseSLR.img
+extra Data/Map/Obj/ClassicFM_signboard.img
+extra Data/Map/Obj/MapleMoonLamp.img
+extra Data/Map/Obj/MapleMoonLamp2.img
+extra Data/Map/Tile/ClassicFM_dryRock.img
+extra Data/Map/Tile/ClassicFM_snowyLightrock.img
+extra Data/Map/Tile/ClassicFM_woodMarble.img
+extra Data/Map/Tile/ClassicFM_yellowToyCastle.img
+extra Data/Sound/Weather.img
+extra MapleStory.exe
+extra SlumsMS.exe
+extra Start SlumsMS.cmd
+extra slums.dll
