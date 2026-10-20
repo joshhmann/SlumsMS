@@ -50,7 +50,7 @@ public class BotEquipChecker {
         try {
             long startMs = System.currentTimeMillis();
             List<Character> allChars = new ArrayList<>(
-                    Server.getInstance().getChannel(0, 1).getPlayerStorage().getAllCharacters()
+                    soloMapling.server.SoloMaplingConstants.mainChannel().getPlayerStorage().getAllCharacters()
             );
 
             int totalBots = 0;

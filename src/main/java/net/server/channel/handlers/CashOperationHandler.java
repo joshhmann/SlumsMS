@@ -443,7 +443,7 @@ public final class CashOperationHandler extends AbstractPacketHandler {
                         int newWorldSelection = p.readInt();
 
                         int worldTransferError = chr.checkWorldTransferEligibility();
-                        if (worldTransferError != 0 || newWorldSelection >= Server.getInstance().getWorldsSize() || Server.getInstance().getWorldsSize() <= 1) {
+                        if (worldTransferError != 0 || Server.getInstance().getWorld(newWorldSelection) == null || Server.getInstance().getWorldsSize() <= 1) {
                             c.sendPacket(PacketCreator.showCashShopMessage((byte) 0));
                             return;
                         } else if (newWorldSelection == c.getWorld()) {

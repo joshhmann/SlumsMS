@@ -47,7 +47,7 @@ public class WarpWorldCommand extends Command {
 
         Server server = Server.getInstance();
         byte worldb = Byte.parseByte(params[0]);
-        if (worldb <= (server.getWorldsSize() - 1)) {
+        if (server.getWorld(worldb) != null) {
             try {
                 String[] socket = server.getInetSocket(c, worldb, c.getChannel());
                 c.getWorldServer().removePlayer(player);
@@ -62,7 +62,11 @@ public class WarpWorldCommand extends Command {
             }
 
         } else {
-            player.message("Invalid world; highest number available: " + (server.getWorldsSize() - 1));
+            StringBuilder ids = new StringBuilder();
+            for (net.server.world.World w : server.getWorlds()) {
+                ids.append(ids.length() == 0 ? "" : ", ").append(w.getId());
+            }
+            player.message("Invalid world; running worlds: " + ids + ".");
         }
     }
 }

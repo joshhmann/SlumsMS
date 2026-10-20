@@ -29,6 +29,8 @@ import client.inventory.ItemFactory;
 import client.inventory.manipulator.CashIdGenerator;
 import client.newyear.NewYearCardRecord;
 import client.processor.npc.FredrickProcessor;
+import config.WorldConfig;
+import config.WorldConfigs;
 import config.YamlConfig;
 import constants.game.GameConstants;
 import constants.inventory.ItemConstants;
@@ -108,8 +110,12 @@ public class Server {
     private static ChannelDependencies channelDependencies;
 
     private LoginServer loginServer;
-    private final List<Map<Integer, String>> channels = new LinkedList<>();
+    // Ticket 41: worlds are looked up by their id, which need not be their position: config.yaml may run Bera (1)
+    // alone. `worlds` holds the running worlds in start order (config order); `worldsById` and `channels` are keyed
+    // by world id.
+    private final Map<Integer, Map<Integer, String>> channels = new HashMap<>();
     private final List<World> worlds = new ArrayList<>();
+    private final Map<Integer, World> worldsById = new HashMap<>();
     private final Properties subnetInfo = new Properties();
     private final Map<Integer, Set<Integer>> accountChars = new HashMap<>();
     private final Map<Integer, Short> accountCharacterCount = new HashMap<>();
@@ -216,8 +222,6 @@ public class Server {
     }
 
     private void loadPlayerNpcMapStepFromDb() {
-        final List<World> wlist = this.getWorlds();
-
         try (Connection con = DatabaseConnection.getConnection();
              PreparedStatement ps = con.prepareStatement("SELECT * FROM playernpcs_field");
              ResultSet rs = ps.executeQuery()) {
@@ -228,7 +232,7 @@ public class Server {
                 int step = rs.getInt("step");
                 int podium = rs.getInt("podium");
 
-                World w = wlist.get(world);
+                World w = getWorld(world);
                 if (w != null) {
                     w.setPlayerNpcMapData(map, step, podium);
                 }
@@ -241,11 +245,7 @@ public class Server {
     public World getWorld(int id) {
         wldRLock.lock();
         try {
-            try {
-                return worlds.get(id);
-            } catch (IndexOutOfBoundsException e) {
-                return null;
-            }
+            return worldsById.get(id);
         } finally {
             wldRLock.unlock();
         }
@@ -260,10 +260,38 @@ public class Server {
         }
     }
 
+    /** How many worlds are running. Not an id bound: see {@link #getWorldIdBound()}. */
     public int getWorldsSize() {
         wldRLock.lock();
         try {
             return worlds.size();
+        } finally {
+            wldRLock.unlock();
+        }
+    }
+
+    /** One past the highest running world id, for tables indexed by world id (0 when no world runs). */
+    public int getWorldIdBound() {
+        wldRLock.lock();
+        try {
+            int bound = 0;
+            for (World w : worlds) {
+                bound = Math.max(bound, w.getId() + 1);
+            }
+            return bound;
+        } finally {
+            wldRLock.unlock();
+        }
+    }
+
+    /**
+     * The server's home world: the first world config.yaml starts. The login screen preselects it, and the
+     * bots and other server-side characters live there. 0 before any world runs.
+     */
+    public int getHomeWorldId() {
+        wldRLock.lock();
+        try {
+            return worlds.isEmpty() ? 0 : worlds.get(0).getId();
         } finally {
             wldRLock.unlock();
         }
@@ -300,7 +328,8 @@ public class Server {
     public Set<Integer> getOpenChannels(int world) {
         wldRLock.lock();
         try {
-            return new HashSet<>(channels.get(world).keySet());
+            Map<Integer, String> worldChannels = channels.get(world);
+            return worldChannels == null ? new HashSet<>() : new HashSet<>(worldChannels.keySet());
         } finally {
             wldRLock.unlock();
         }
@@ -309,7 +338,8 @@ public class Server {
     private String getIP(int world, int channel) {
         wldRLock.lock();
         try {
-            return channels.get(world).get(channel);
+            Map<Integer, String> worldChannels = channels.get(world);
+            return worldChannels == null ? null : worldChannels.get(channel);
         } finally {
             wldRLock.unlock();
         }
@@ -349,10 +379,11 @@ public class Server {
         World world;
         Map<Integer, String> channelInfo;
         int channelid;
+        int portSlot;
 
         wldRLock.lock();
         try {
-            if (worldid >= worlds.size()) {
+            if (!worldsById.containsKey(worldid)) {
                 return -3;
             }
 
@@ -367,13 +398,14 @@ public class Server {
             }
 
             channelid++;
-            world = this.getWorld(worldid);
+            world = worldsById.get(worldid);
+            portSlot = worlds.indexOf(world);
         } finally {
             wldRLock.unlock();
         }
 
-        Channel channel = new Channel(worldid, channelid, getCurrentTime());
-        channel.setServerMessage(YamlConfig.config.worlds.get(worldid).why_am_i_recommended);
+        Channel channel = new Channel(worldid, channelid, getCurrentTime(), portSlot);
+        channel.setServerMessage(WorldConfigs.forWorld(YamlConfig.config.worlds, worldid).why_am_i_recommended);
 
         if (world.addChannel(channel)) {
             wldWLock.lock();
@@ -408,65 +440,46 @@ public class Server {
         return newWorld;
     }
 
+    /**
+     * Starts the next world config.yaml lists (the entries start in list order), under the id the entry names
+     * ({@link WorldConfigs}). Its channels listen on the channel base port plus 100 per world started before it, so
+     * a server running one world uses the base ports whatever that world's id is.
+     */
     private int initWorld() {
-        int i;
+        int slot;
 
         wldRLock.lock();
         try {
-            i = worlds.size();
+            slot = worlds.size();
 
-            if (i >= YamlConfig.config.server.WLDLIST_SIZE) {
+            if (slot >= YamlConfig.config.server.WLDLIST_SIZE || slot >= YamlConfig.config.worlds.size()) {
                 return -1;
             }
         } finally {
             wldRLock.unlock();
         }
 
-        log.info("Starting world {}", i);
-
-        int exprate = YamlConfig.config.worlds.get(i).exp_rate;
-        int mesorate = YamlConfig.config.worlds.get(i).meso_rate;
-        int droprate = YamlConfig.config.worlds.get(i).drop_rate;
-        int bossdroprate = YamlConfig.config.worlds.get(i).boss_drop_rate;
-        int questrate = YamlConfig.config.worlds.get(i).quest_rate;
-        int travelrate = YamlConfig.config.worlds.get(i).travel_rate;
-        int fishingrate = YamlConfig.config.worlds.get(i).fishing_rate;
-
-        int flag = YamlConfig.config.worlds.get(i).flag;
-        String event_message = YamlConfig.config.worlds.get(i).event_message;
-        String why_am_i_recommended = YamlConfig.config.worlds.get(i).why_am_i_recommended;
+        WorldConfig wc = YamlConfig.config.worlds.get(slot);
+        int i = WorldConfigs.idOf(slot, wc);
+        log.info("Starting world {} ({})", i, GameConstants.WORLD_NAMES[i]);
 
         World world = new World(i,
-                flag,
-                event_message,
-                exprate, droprate, bossdroprate, mesorate, questrate, travelrate, fishingrate);
+                wc.flag,
+                wc.event_message,
+                wc.exp_rate, wc.drop_rate, wc.boss_drop_rate, wc.meso_rate, wc.quest_rate, wc.travel_rate, wc.fishing_rate);
 
         Map<Integer, String> channelInfo = new HashMap<>();
         long bootTime = getCurrentTime();
-        for (int j = 1; j <= YamlConfig.config.worlds.get(i).channels; j++) {
+        for (int j = 1; j <= wc.channels; j++) {
             int channelid = j;
-            Channel channel = new Channel(i, channelid, bootTime);
+            Channel channel = new Channel(i, channelid, bootTime, slot);
 
             world.addChannel(channel);
             channelInfo.put(channelid, channel.getIP());
         }
 
-        boolean canDeploy;
-
-        wldWLock.lock();    // thanks Ashen for noticing a deadlock issue when trying to deploy a channel
-        try {
-            canDeploy = world.getId() == worlds.size();
-            if (canDeploy) {
-                worldRecommendedList.add(new Pair<>(i, why_am_i_recommended));
-                worlds.add(world);
-                channels.add(i, channelInfo);
-            }
-        } finally {
-            wldWLock.unlock();
-        }
-
-        if (canDeploy) {
-            world.setServerMessage(YamlConfig.config.worlds.get(i).server_message);
+        if (registerWorld(world, slot, channelInfo, wc.why_am_i_recommended)) {
+            world.setServerMessage(wc.server_message);
 
             log.info("Finished loading world {}", i);
             return i;
@@ -477,15 +490,33 @@ public class Server {
         }
     }
 
+    /**
+     * Adds a started world to the running set under its id, if it is the {@code slot}-th world and its id is free.
+     * Package-private for tests.
+     */
+    boolean registerWorld(World world, int slot, Map<Integer, String> channelInfo, String whyAmIRecommended) {
+        int id = world.getId();
+        wldWLock.lock();    // thanks Ashen for noticing a deadlock issue when trying to deploy a channel
+        try {
+            if (worlds.size() != slot || worldsById.containsKey(id)) {
+                return false;
+            }
+            worldRecommendedList.add(new Pair<>(id, whyAmIRecommended));
+            worlds.add(world);
+            worldsById.put(id, world);
+            channels.put(id, channelInfo);
+            return true;
+        } finally {
+            wldWLock.unlock();
+        }
+    }
+
     public boolean removeChannel(int worldid) {   //lol don't!
         World world;
 
         wldRLock.lock();
         try {
-            if (worldid >= worlds.size()) {
-                return false;
-            }
-            world = worlds.get(worldid);
+            world = worldsById.get(worldid);
         } finally {
             wldRLock.unlock();
         }
@@ -514,12 +545,12 @@ public class Server {
 
         wldRLock.lock();
         try {
-            worldid = worlds.size() - 1;
-            if (worldid < 0) {
+            if (worlds.isEmpty()) {
                 return false;
             }
 
-            w = worlds.get(worldid);
+            w = worlds.get(worlds.size() - 1);
+            worldid = w.getId();
         } finally {
             wldRLock.unlock();
         }
@@ -528,15 +559,17 @@ public class Server {
             return false;
         }
 
-        removeWorldPlayerRanking();
+        removeWorldPlayerRanking(worldid);
         w.shutdown();
 
         wldWLock.lock();
         try {
-            if (worldid == worlds.size() - 1) {
-                worlds.remove(worldid);
+            if (!worlds.isEmpty() && worlds.get(worlds.size() - 1) == w) {
+                worlds.remove(worlds.size() - 1);
+                worldsById.remove(worldid);
                 channels.remove(worldid);
-                worldRecommendedList.remove(worldid);
+                final int removedId = worldid;
+                worldRecommendedList.removeIf(rec -> rec.getLeft() == removedId);
             }
         } finally {
             wldWLock.unlock();
@@ -545,10 +578,11 @@ public class Server {
         return true;
     }
 
-    private void resetServerWorlds() {  // thanks maple006 for noticing proprietary lists assigned to null
+    void resetServerWorlds() {   // package-private for tests  // thanks maple006 for noticing proprietary lists assigned to null
         wldWLock.lock();
         try {
             worlds.clear();
+            worldsById.clear();
             channels.clear();
             worldRecommendedList.clear();
         } finally {
@@ -738,7 +772,8 @@ public class Server {
     public List<Pair<String, Integer>> getWorldPlayerRanking(int worldid) {
         wldRLock.lock();
         try {
-            return new ArrayList<>(playerRanking.get(!YamlConfig.config.server.USE_WHOLE_SERVER_RANKING ? worldid : 0));
+            int index = !YamlConfig.config.server.USE_WHOLE_SERVER_RANKING ? worldid : 0;
+            return index >= 0 && index < playerRanking.size() ? new ArrayList<>(playerRanking.get(index)) : new ArrayList<>(0);
         } finally {
             wldRLock.unlock();
         }
@@ -754,7 +789,7 @@ public class Server {
                         playerRanking.add(new ArrayList<>(0));
                     }
 
-                    playerRanking.add(worldid, ranking.get(0).getRight());
+                    playerRanking.set(worldid, ranking.get(0).getRight());
                 } else {
                     playerRanking.add(0, ranking.get(0).getRight());
                 }
@@ -764,20 +799,21 @@ public class Server {
         }
     }
 
-    private void removeWorldPlayerRanking() {
+    private void removeWorldPlayerRanking(int worldid) {
         if (!YamlConfig.config.server.USE_WHOLE_SERVER_RANKING) {
             wldWLock.lock();
             try {
-                if (playerRanking.size() < worlds.size()) {
-                    return;
+                if (worldid < playerRanking.size()) {
+                    playerRanking.set(worldid, new ArrayList<>(0));
                 }
-
-                playerRanking.remove(playerRanking.size() - 1);
             } finally {
                 wldWLock.unlock();
             }
         } else {
-            List<Pair<Integer, List<Pair<String, Integer>>>> ranking = loadPlayerRankingFromDB(-1 * (this.getWorldsSize() - 2));  // update ranking list
+            List<Pair<Integer, List<Pair<String, Integer>>>> ranking = loadPlayerRankingFromDB(-1 * (this.getWorldIdBound() - 1));  // update ranking list
+            if (ranking.isEmpty()) {
+                return;
+            }
 
             wldWLock.lock();
             try {
@@ -789,7 +825,7 @@ public class Server {
     }
 
     public void updateWorldPlayerRanking() {
-        List<Pair<Integer, List<Pair<String, Integer>>>> rankUpdates = loadPlayerRankingFromDB(-1 * (this.getWorldsSize() - 1));
+        List<Pair<Integer, List<Pair<String, Integer>>>> rankUpdates = loadPlayerRankingFromDB(-1 * (this.getWorldIdBound() - 1));
         if (rankUpdates.isEmpty()) {
             return;
         }
@@ -904,6 +940,9 @@ public class Server {
         futures.add(initExecutor.submit(() -> PlayerNPCFactory.loadFactoryMetadata()));
         initExecutor.shutdown();
 
+        // Ticket 41: a bad world id stops the boot here, before anything is bound or written.
+        WorldConfigs.validate(YamlConfig.config.worlds, GameConstants.WORLD_NAMES.length);
+
         try (Connection con = DatabaseConnection.getConnection()) {
             setAllLoggedOut(con);
             setAllMerchantsInactive(con);
@@ -923,7 +962,11 @@ public class Server {
         initializeTimelyTasks(channelDependencies);    // aggregated method for timely tasks thanks to lxconan
 
         try {
-            int worldCount = Math.min(GameConstants.WORLD_NAMES.length, YamlConfig.config.server.WORLDS);
+            int worldCount = Math.min(YamlConfig.config.worlds.size(), YamlConfig.config.server.WORLDS);
+            if (worldCount < YamlConfig.config.server.WORLDS) {
+                log.warn("WORLDS is {} but config.yaml lists {} world(s); starting {}.", YamlConfig.config.server.WORLDS,
+                        YamlConfig.config.worlds.size(), worldCount);
+            }
 
             for (int i = 0; i < worldCount; i++) {
                 initWorld();
@@ -1607,15 +1650,14 @@ public class Server {
         return worldChrs;
     }
 
-    private static Pair<Short, List<List<Character>>> loadAccountCharactersViewFromDb(int accId, int wlen) {
+    /** The account's characters per running world id, and how many characters the account has in all. */
+    private static Pair<Short, Map<Integer, List<Character>>> loadAccountCharactersViewFromDb(int accId, Set<Integer> worldIds) {
         short characterCount = 0;
-        List<List<Character>> wchars = new ArrayList<>(wlen);
-        for (int i = 0; i < wlen; i++) {
-            wchars.add(i, new LinkedList<>());
+        Map<Integer, List<Character>> wchars = new HashMap<>();
+        for (Integer wid : worldIds) {
+            wchars.put(wid, new LinkedList<>());
         }
 
-        List<Character> chars = new LinkedList<>();
-        int curWorld = 0;
         try {
             List<Pair<Item, Integer>> accEquips = ItemFactory.loadEquippedItems(accId, true, true);
             Map<Integer, List<Item>> accPlayerEquips = new HashMap<>();
@@ -1638,16 +1680,9 @@ public class Server {
                     while (rs.next()) {
                         characterCount++;
 
-                        int cworld = rs.getByte("world");
-                        if (cworld >= wlen) {
-                            continue;
-                        }
-
-                        if (cworld > curWorld) {
-                            wchars.add(curWorld, chars);
-
-                            curWorld = cworld;
-                            chars = new LinkedList<>();
+                        List<Character> chars = wchars.get((int) rs.getByte("world"));
+                        if (chars == null) {
+                            continue;   // a world this server does not run
                         }
 
                         Integer cid = rs.getInt("id");
@@ -1655,8 +1690,6 @@ public class Server {
                     }
                 }
             }
-
-            wchars.add(curWorld, chars);
         } catch (SQLException sqle) {
             sqle.printStackTrace();
         }
@@ -1672,7 +1705,7 @@ public class Server {
             while (rs.next()) {
                 int accountId = rs.getInt("id");
                 if (isFirstAccountLogin(accountId)) {
-                    loadAccountCharactersView(accountId, 0, 0);
+                    loadAccountCharactersView(accountId, 0, null);
                 }
             }
         } catch (SQLException se) {
@@ -1813,17 +1846,25 @@ public class Server {
             return;
         }
 
-        int gmLevel = loadAccountCharactersView(c.getAccID(), 0, 0);
+        int gmLevel = loadAccountCharactersView(c.getAccID(), 0, null);
         c.setGMLevel(gmLevel);
     }
 
-    private int loadAccountCharactersView(Integer accId, int gmLevel, int fromWorldid) {    // returns the maximum gmLevel found
-        List<World> wlist = this.getWorlds();
-        Pair<Short, List<List<Character>>> accCharacters = loadAccountCharactersViewFromDb(accId, wlist.size());
+    /** Loads the account's character views into every running world, or only into {@code onlyWorldId} if not null. */
+    private int loadAccountCharactersView(Integer accId, int gmLevel, Integer onlyWorldId) {    // returns the maximum gmLevel found
+        List<World> wlist = new ArrayList<>(this.getWorlds());
+        if (onlyWorldId != null) {
+            wlist.removeIf(w -> w.getId() != onlyWorldId);
+        }
+        Set<Integer> worldIds = new HashSet<>();
+        for (World w : wlist) {
+            worldIds.add(w.getId());
+        }
+        Pair<Short, Map<Integer, List<Character>>> accCharacters = loadAccountCharactersViewFromDb(accId, worldIds);
 
         lgnWLock.lock();
         try {
-            List<List<Character>> accChars = accCharacters.getRight();
+            Map<Integer, List<Character>> accChars = accCharacters.getRight();
             accountCharacterCount.put(accId, accCharacters.getLeft());
 
             Set<Integer> chars = accountChars.get(accId);
@@ -1831,8 +1872,8 @@ public class Server {
                 chars = new HashSet<>(5);
             }
 
-            for (int wid = fromWorldid; wid < wlist.size(); wid++) {
-                World w = wlist.get(wid);
+            for (World w : wlist) {
+                int wid = w.getId();
                 List<Character> wchars = accChars.get(wid);
                 w.loadAccountCharactersView(accId, wchars);
 

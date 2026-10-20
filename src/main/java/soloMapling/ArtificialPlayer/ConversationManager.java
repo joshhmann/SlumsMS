@@ -175,7 +175,7 @@ public class ConversationManager {
     private Set<Integer> getMapsWithRealPlayers() {
         Set<Integer> maps = new HashSet<>();
         try {
-            for (Character chr : Server.getInstance().getChannel(0, 1).getPlayerStorage().getAllCharacters()) {
+            for (Character chr : soloMapling.server.SoloMaplingConstants.mainChannel().getPlayerStorage().getAllCharacters()) {
                 if (!isBot(chr)) {
                     maps.add(chr.getMapId());
                 }
@@ -201,7 +201,7 @@ public class ConversationManager {
 
     private List<Character> findClusterOnMap(int mapId) {
         try {
-            MapleMap map = Server.getInstance().getChannel(0, 1).getMapFactory().getMap(mapId);
+            MapleMap map = soloMapling.server.SoloMaplingConstants.mainChannel().getMapFactory().getMap(mapId);
             if (map == null) return null;
 
             List<Character> fillerBots = new ArrayList<>();

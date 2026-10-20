@@ -127,7 +127,13 @@ public final class LoginPasswordHandler implements PacketHandler {
                         while (rs.next()) {
                             String name = rs.getString("name");
                             System.out.println("[LoginPasswordHandler] Looked into character: " + name);
-                            Character player = Server.getInstance().getWorld(0).getPlayerStorage().getCharacterByName(name);
+                            Character player = null;
+                            for (net.server.world.World w : Server.getInstance().getWorlds()) {   // ticket 41: not just world 0
+                                player = w.getPlayerStorage().getCharacterByName(name);
+                                if (player != null) {
+                                    break;
+                                }
+                            }
                             if (player != null) {
                                 MapleMap map = player.getMap();
                                 player.getChannel().removePlayer(player);

@@ -22,7 +22,7 @@ public class MapleMessengerCommands {
     }
 
     public static void addBotToMessenger(Character mainChar, Character consoleChar) {
-        World world = Server.getInstance().getWorld(0); // scania
+        World world = Server.getInstance().getWorld(soloMapling.server.SoloMaplingConstants.GameConstants.homeWorld());
         Messenger messenger = mainChar.getMessenger();
 
         int position = messenger.getLowestPosition();
@@ -38,7 +38,7 @@ public class MapleMessengerCommands {
         Messenger messenger = mainChar.getMessenger();
         if (messenger != null) {
             int messengerId = messenger.getId();
-            World world = Server.getInstance().getWorld(0);
+            World world = Server.getInstance().getWorld(soloMapling.server.SoloMaplingConstants.GameConstants.homeWorld());
             MessengerCharacter messengerplayer = new MessengerCharacter(consoleBot, consoleBot.getMessengerPosition());
             world.leaveMessenger(messengerId, messengerplayer);
         }
@@ -48,7 +48,7 @@ public class MapleMessengerCommands {
         Messenger messenger = fakechar.getMessenger();
         if (messenger != null) {
             int messengerId = messenger.getId();
-            World world = Server.getInstance().getWorld(0);
+            World world = Server.getInstance().getWorld(soloMapling.server.SoloMaplingConstants.GameConstants.homeWorld());
             MessengerCharacter messengerplayer = new MessengerCharacter(fakechar, fakechar.getMessengerPosition());
             world.leaveMessenger(messengerId, messengerplayer);
         }

@@ -191,7 +191,7 @@ public class SocialHotPotatoManager {
         for (int mapId : ambientMapIds) {
             if (requireObserved && !GCMovement.isMapObserved(mapId)) continue; // skip unwatched maps entirely
             try {
-                MapleMap map = Server.getInstance().getChannel(0, 1).getMapFactory().getMap(mapId);
+                MapleMap map = soloMapling.server.SoloMaplingConstants.mainChannel().getMapFactory().getMap(mapId);
                 if (map == null) continue;
                 for (Character chr : map.getAllPlayers()) {
                     if (!isBot(chr)) continue;

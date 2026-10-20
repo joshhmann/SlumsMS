@@ -25,10 +25,13 @@ import client.Client;
 import constants.game.GameConstants;
 import net.AbstractPacketHandler;
 import net.packet.InPacket;
+import net.packet.Packet;
 import net.server.Server;
 import net.server.world.World;
 import tools.PacketCreator;
+import tools.Pair;
 
+import java.util.ArrayList;
 import java.util.List;
 
 public final class ServerlistRequestHandler extends AbstractPacketHandler {
@@ -39,11 +42,24 @@ public final class ServerlistRequestHandler extends AbstractPacketHandler {
         List<World> worlds = server.getWorlds();
         c.requestedServerlist(worlds.size());
 
-        for (World world : worlds) {
-            c.sendPacket(PacketCreator.getServerList(world.getId(), GameConstants.WORLD_NAMES[world.getId()], world.getFlag(), world.getEventMessage(), world.getChannels()));
+        for (Packet packet : serverListPackets(worlds, server.getHomeWorldId(), server.worldRecommendedList())) {
+            c.sendPacket(packet);
         }
-        c.sendPacket(PacketCreator.getEndOfServerList());
-        c.sendPacket(PacketCreator.selectWorld(0));//too lazy to make a check lol
-        c.sendPacket(PacketCreator.sendRecommended(server.worldRecommendedList()));
+    }
+
+    /**
+     * The login screen's world list: one entry per running world under its own id and name (ticket 41: a server
+     * running Bera alone lists Bera, id 1, and nothing else), the end marker, the preselected world (the home world)
+     * and the recommended worlds.
+     */
+    static List<Packet> serverListPackets(List<World> worlds, int homeWorldId, List<Pair<Integer, String>> recommended) {
+        List<Packet> packets = new ArrayList<>();
+        for (World world : worlds) {
+            packets.add(PacketCreator.getServerList(world.getId(), GameConstants.WORLD_NAMES[world.getId()], world.getFlag(), world.getEventMessage(), world.getChannels()));
+        }
+        packets.add(PacketCreator.getEndOfServerList());
+        packets.add(PacketCreator.selectWorld(homeWorldId));
+        packets.add(PacketCreator.sendRecommended(recommended));
+        return packets;
     }
 }

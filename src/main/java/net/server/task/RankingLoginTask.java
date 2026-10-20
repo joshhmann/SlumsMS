@@ -117,7 +117,8 @@ public class RankingLoginTask implements Runnable {
                     resetMoveRank(false);
                 }
 
-                for (int j = 0; j < Server.getInstance().getWorldsSize(); j++) {
+                for (net.server.world.World w : Server.getInstance().getWorlds()) {
+                    int j = w.getId();
                     updateRanking(-1, j);    //overall ranking
                     for (int i = 0; i <= Job.getMax(); i++) {
                         updateRanking(i, j);
