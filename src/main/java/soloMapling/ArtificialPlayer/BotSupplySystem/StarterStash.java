@@ -22,7 +22,7 @@ import java.util.concurrent.atomic.AtomicLong;
  * Before ticket 08 a bot's potions and ammo were never tracked, so in effect it had all it wanted; stored bots hold
  * none. Rather than strand them (a claw bot without stars does 2 damage a swing), each bot is given once what a player
  * of its level typically carries out of town: its kit from the shop rules (BotShopping's goals: 50-400 HP potions,
- * MP potions for a caster, two stacks of stars or bullets, or a couple of thousand arrows), in the potions every
+ * MP potions for a caster, 1,000-4,000 shots: arrows, or whole stacks of stars or bullets, at most two), in the potions every
  * general store sells (Red, Orange, White; Blue, Mana Elixir) and the shop ammo (Subi, Bullet, Arrows for Bow or
  * Crossbow). BotStore marks the bot stocked (botstore.StockedAt, migration 007) in the same write that stores the
  * items, so it is granted once.
@@ -47,7 +47,6 @@ public final class StarterStash {
             new ShopCatalog.Listing(4, ItemId.MANA_ELIXIR, 620, 0)));
 
     private static final int AMMO_STACKS = 2;
-    private static final int ARROWS = 2000;
 
     private static final AtomicLong granted = new AtomicLong();
 
@@ -63,13 +62,14 @@ public final class StarterStash {
         if (BotAmmo.usesAmmo(weapon)) {
             int ammo = ammoFor(bot, weapon);
             if (ammo != 0) {
+                int goal = BotShopping.ammoGoal(bot.getLevel());
                 if (ItemConstants.isRechargeable(ammo)) {
                     int stack = SupplyData.get().slotMax(bot, ammo);
-                    for (int i = 0; i < AMMO_STACKS && stack > 0; i++) {
+                    for (int held = 0, i = 0; held < goal && i < AMMO_STACKS && stack > 0; held += stack, i++) {
                         out.add(new int[]{ammo, stack});
                     }
                 } else {
-                    out.add(new int[]{ammo, ARROWS});
+                    out.add(new int[]{ammo, goal});
                 }
             }
         }

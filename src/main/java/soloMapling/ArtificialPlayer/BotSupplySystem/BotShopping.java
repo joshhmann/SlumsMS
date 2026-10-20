@@ -8,12 +8,14 @@ import constants.inventory.ItemConstants;
 import soloMapling.ArtificialPlayer.BotAttackSystem.BotAttackData;
 import soloMapling.ArtificialPlayer.BotCommandsPack.BotAttack;
 import soloMapling.ArtificialPlayer.BotHoldings;
+import soloMapling.ArtificialPlayer.GCMoveSystem.GCMovement;
 
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
 import java.awt.Point;
 import java.util.ArrayList;
+import java.util.LinkedHashMap;
 import java.util.List;
 import java.util.Map;
 import java.util.concurrent.ConcurrentHashMap;
@@ -26,7 +28,8 @@ import java.util.function.Function;
  *
  * TrainingBot's town stop asks siteFor which of its town's shops to walk to (ShopCatalog), walks there (GCMovement:
  * visibly on screen, the coarse planner offscreen) and then restocks through BotResupply, where this class is the
- * installed resupplier: it shops at the nearest shop NPC on the map the bot stands on, and buys nothing anywhere else.
+ * installed resupplier: it shops at that NPC once the bot stands on its map, and buys nothing anywhere else. A bot
+ * goes shopping when something sent it back, or it is under its ammo kit or half its potion kit.
  *
  * A purchase follows Shop.buy and Shop.recharge exactly, minus the packets:
  *  - an item sold for mesos costs its listed price per unit, bought at most a stack (the client's quantity cap) per
@@ -37,12 +40,13 @@ import java.util.function.Function;
  * sees both and the store's normal sweep writes them. Buying is a meso sink: none of it passes the ticket 15 yield caps.
  *
  * What it buys, in order of need, from what the shop lists:
- *  - ammo for its weapon (when its main attack fires any): recharge its stacks of the best stars or bullets, then the
- *    best stars, bullets or arrows the shop sells that its weapon fires at its level (most attack first);
+ *  - ammo for its weapon (when its main attack fires any), up to 1,000-4,000 shots by level: recharge its stacks of
+ *    the best stars or bullets, then the best stars, bullets or arrows the shop sells that its weapon fires at its
+ *    level (most attack first);
  *  - MP potions when its main attack costs MP, HP potions always. The potion is the one whose heal is nearest a
  *    quarter of the bot's max, among the shop's plain single-purpose potions within half again of the cheapest per
  *    point (Red, Orange, White for HP; Blue, Mana Elixir for MP, as the bot grows);
- * first up to an essential share (a stack of ammo, a third of the potions), then up to its full kit, while its budget
+ * first up to an essential share (a stack of ammo at most, a third of the potions), then up to its full kit, while its budget
  * lasts: what it holds above a reserve of a quarter of its mesos and at least 200 a level (fares, the next trip).
  * A bot that cannot afford ammo goes without, and fights in melee as ticket 08 has it.
  */
@@ -100,13 +104,12 @@ public final class BotShopping {
         return usesMp ? clamp(20 + 2 * level, 30, 250) : 0;
     }
 
-    /* Stacks of stars or bullets. */
-    static int ammoStacks(int level) {
-        return level < 30 ? 2 : level < 70 ? 3 : 4;
-    }
-
-    /* Arrows or bolts. */
-    static int arrowGoal(int level) {
+    /*
+     * Shots a bot carries out of town: arrows, bolts, stars or bullets (1,000 at level 0 to 4,000 from level 75). Stars
+     * and bullets come a whole stack at a time, so a bot holds at least one stack whatever its size (9,999 on
+     * MapleRoot's item data, 800 or so on stock v83).
+     */
+    static int ammoGoal(int level) {
         return Math.min(4000, 1000 + 40 * level);
     }
 
@@ -132,7 +135,7 @@ public final class BotShopping {
      * fire weighs most), nearest the town map on a tie. Null when no shop in town sells anything it needs.
      */
     public static ShopCatalog.Site siteFor(Character bot, int townMapId, SupplyNeeds needs) {
-        if (bot == null || needs == null || !needs.wantsAnything()) {
+        if (bot == null || needs == null || !wantsShop(bot, needs)) {
             return null;
         }
         ShopCatalog.Site best = null;
@@ -146,6 +149,25 @@ public final class BotShopping {
             }
         }
         return best;
+    }
+
+    /*
+     * Whether the bot is low enough to go shopping, as a player would: something sent it back, or it is under its
+     * ammo kit or half its potion kit. A stack merely short of full is not worth the walk.
+     */
+    static boolean wantsShop(Character bot, SupplyNeeds needs) {
+        if (needs.shortage() != BotSupplies.Shortage.NONE) {
+            return true;
+        }
+        int level = bot.getLevel();
+        if (needs.ammoItemId() != 0 && needs.ammoHeld() < ammoGoal(level)) {
+            return true;
+        }
+        if (needs.hpPotions() < hpGoal(level) / 2) {
+            return true;
+        }
+        int mpGoal = mpGoal(bot, needs.usesMp());
+        return mpGoal > 0 && needs.mpPotions() < mpGoal / 2;
     }
 
     private static int score(Character bot, ShopCatalog.Site site, SupplyNeeds needs) {
@@ -181,35 +203,18 @@ public final class BotShopping {
         heading.remove(botId);
     }
 
-    /* The shop the bot is restocking at: the one it headed for when it is on that map, else the nearest here. */
+    /* The shop the bot is restocking at: the one it headed for, when it stands on that map; else none. */
     static ShopCatalog.Site siteFor(Character bot) {
         ShopCatalog.Site headed = heading.remove(bot.getId());
-        if (headed != null && headed.mapId() == bot.getMapId()) {
-            return headed;
-        }
-        return siteHere(bot);
-    }
-
-    /* The shop NPC nearest the bot on the map it stands on, or null. */
-    static ShopCatalog.Site siteHere(Character bot) {
-        ShopCatalog.Site best = null;
-        long bestDist = Long.MAX_VALUE;
-        Point at = bot.getPosition();
-        for (ShopCatalog.Site site : ShopCatalog.onMap(bot, bot.getMapId())) {
-            long dx = at == null ? 0 : site.npcPos().x - at.x;
-            long dy = at == null ? 0 : site.npcPos().y - at.y;
-            long d = dx * dx + dy * dy;
-            if (d < bestDist) {
-                best = site;
-                bestDist = d;
-            }
-        }
-        return best;
+        return headed != null && headed.mapId() == bot.getMapId() ? headed : null;
     }
 
     // ---------------------------------------------------------------- the resupplier
 
-    /* BotResupply's hook: shop at the NPC the bot is standing by. False when there is none or it bought nothing. */
+    /*
+     * BotResupply's hook: shop at the NPC the bot's town stop walked it to (headFor), on that map. Nowhere else: a bot
+     * buys only where it went to buy. False when it is not there or bought nothing.
+     */
     static boolean resupply(Character bot, SupplyNeeds needs) {
         ShopCatalog.Site site = siteFor(bot);
         if (site == null) {
@@ -218,17 +223,31 @@ public final class BotShopping {
         Receipt receipt = shop(bot, site, needs);
         visits.incrementAndGet();
         if (receipt.isEmpty()) {
-            log.info("[Shop] {} (lv {} {}) at npc {} on map {}: bought nothing ({} mesos, budget {})", bot.getName(),
-                    bot.getLevel(), bot.getJob(), site.npcId(), site.mapId(), bot.getMeso(), budget(bot));
+            log.info("[Shop] {} (lv {} {}) at npc {} on map {} ({} px away, {}): bought nothing ({} mesos, budget {})",
+                    bot.getName(), bot.getLevel(), bot.getJob(), site.npcId(), site.mapId(), distance(bot, site),
+                    observed(bot), bot.getMeso(), budget(bot));
             return false;
         }
         mesosSpent.addAndGet(receipt.spent);
         itemsBought.addAndGet(receipt.items);
         starsRecharged.addAndGet(receipt.recharged);
-        log.info("[Shop] {} (lv {} {}) at npc {} on map {}: {} for {} mesos ({} left)", bot.getName(), bot.getLevel(),
-                bot.getJob(), site.npcId(), site.mapId(), String.join(", ", receipt.lines), receipt.spent,
-                bot.getMeso());
+        log.info("[Shop] {} (lv {} {}) at npc {} on map {} ({} px away, {}): {} for {} mesos ({} left)", bot.getName(),
+                bot.getLevel(), bot.getJob(), site.npcId(), site.mapId(), distance(bot, site), observed(bot),
+                String.join(", ", receipt.lines()), receipt.spent, bot.getMeso());
         return true;
+    }
+
+    private static long distance(Character bot, ShopCatalog.Site site) {
+        Point at = bot.getPosition();
+        return at == null ? -1 : Math.round(at.distance(site.npcPos()));
+    }
+
+    private static String observed(Character bot) {
+        try {
+            return GCMovement.isMapObserved(bot.getMapId()) ? "on screen" : "offscreen";
+        } catch (LinkageError | RuntimeException e) {
+            return "offscreen";
+        }
     }
 
     /* What one visit bought. */
@@ -236,14 +255,23 @@ public final class BotShopping {
         long spent;
         long items;
         long recharged;
-        final List<String> lines = new ArrayList<>();
+        // what -> {quantity, mesos}, in the order first bought
+        private final Map<String, long[]> bought = new LinkedHashMap<>();
 
         boolean isEmpty() {
             return items == 0 && recharged == 0;
         }
 
         void line(String what, int qty, long cost) {
-            lines.add(qty + "x " + what + " (" + cost + ")");
+            long[] sum = bought.computeIfAbsent(what, k -> new long[2]);
+            sum[0] += qty;
+            sum[1] += cost;
+        }
+
+        List<String> lines() {
+            List<String> out = new ArrayList<>();
+            bought.forEach((what, sum) -> out.add(sum[0] + "x " + what + " (" + sum[1] + ")"));
+            return out;
         }
     }
 
@@ -270,7 +298,7 @@ public final class BotShopping {
         }
         // Then the full kit.
         if (wantsAmmo) {
-            restockAmmo(bot, weapon, site, fullAmmo(bot, weapon, site), budget, receipt);
+            restockAmmo(bot, weapon, site, fullAmmo(bot), budget, receipt);
         }
         if (mp != null) {
             buyUpTo(bot, mp, mpGoal, false, budget, receipt);
@@ -382,14 +410,11 @@ public final class BotShopping {
     }
 
     private static int essentialAmmo(Character bot, WeaponType weapon, ShopCatalog.Site site) {
-        return stackOf(bot, weapon, site);
+        return Math.min(stackOf(bot, weapon, site), ammoGoal(bot.getLevel()));
     }
 
-    private static int fullAmmo(Character bot, WeaponType weapon, ShopCatalog.Site site) {
-        if (weapon == WeaponType.BOW || weapon == WeaponType.CROSSBOW) {
-            return arrowGoal(bot.getLevel());
-        }
-        return ammoStacks(bot.getLevel()) * stackOf(bot, weapon, site);
+    private static int fullAmmo(Character bot) {
+        return ammoGoal(bot.getLevel());
     }
 
     /*

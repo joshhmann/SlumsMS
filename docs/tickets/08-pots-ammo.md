@@ -2,7 +2,7 @@
 
 **Area:** Real bots  
 **Depends on:** 07  
-**Status:** done 2026-10-20 on branch `supplies` (from `bots-integration`), not yet merged
+**Status:** done 2026-10-20 on branch `supplies` (from `bots-integration`), not yet merged; ships with 09 (`shops`)
 
 ## What
 
@@ -89,7 +89,10 @@ ledger together (`BotHoldings.consumeHeld`), so a drunk potion or a thrown star 
   - **Until ticket 09, a ranged bot without ammo barely progresses.** Stored bots hold no items, and the melee swing
     of a claw or gun does single-digit damage to a mob of its level (an out-of-ammo assassin: 2 damage a swing, 0.3
     kills a minute). Bows, crossbows and mages are hurt less: Soul Arrow, or potions. Ship 08 with 09, or with a
-    starter kit.
+    starter kit.  
+    **Resolved by ticket 09 (branch `shops`):** bots buy at NPC shops on their town stop. Every stored bot (and every
+    new one) gets a one-time starter stash, recorded in `botstore.StockedAt` (migration 007). See
+    `09-shop-resupply.md`.
   - Buff casts cost nothing: Soul Arrow's, Shadow Partner's and Meditation's MP are not charged. Shadow Stars' 200
     stars are. Infinity and Concentrate are not applied to MP costs: they are cooldown buffs, and taking them as
     always up would make 4th-job mages free to cast.

@@ -274,7 +274,8 @@ public class TrainingBot extends BotSM {
     private final List<Integer> shopQueue = new ArrayList<>(); // store maps still to visit this town stop
     private int shopTargetMapId = -1;     // the store currently being travelled to
     // Ticket 09: this town stop's restock - the shop NPC the bot walks to and buys at (null when none is pending).
-    private ShopCatalog.Site resupplySite = null;
+    private volatile ShopCatalog.Site resupplySite = null;
+    private boolean saunaResupply = false; // Sleepywood: the shop is in the sauna, so the sauna trip is the shop trip
     private volatile boolean resupplyArrived = false;
     private long resupplyWalkDeadlineMs = 0;
     private int currentTrainMapId = -1;   // the discovered map currently being trained on
@@ -512,7 +513,7 @@ public class TrainingBot extends BotSM {
         if (!shopQueue.isEmpty()) {
             shopTargetMapId = shopQueue.remove(0);
             enterPhase(Phase.SHOP_TRAVEL);
-        } else if (homeMapId == MapId.SLEEPYWOOD && rng.nextDouble() < SHOP_VISIT_CHANCE) {
+        } else if (homeMapId == MapId.SLEEPYWOOD && (saunaResupply || rng.nextDouble() < SHOP_VISIT_CHANCE)) {
             startSaunaTrip(); // Sleepywood has no stores — its errand is a trip to the hotel sauna
         } else {
             enterPhase(Phase.DECIDE);
@@ -561,6 +562,7 @@ public class TrainingBot extends BotSM {
     private boolean planResupply(SupplyNeeds needs) {
         Character chr = getChr();
         resupplySite = null;
+        saunaResupply = false;
         ShopCatalog.Site site = BotShopping.siteFor(chr, homeMapId, needs);
         if (site == null) {
             BotSupplies.restock(chr);
@@ -569,6 +571,10 @@ public class TrainingBot extends BotSM {
         resupplySite = site;
         debugChat("RESUPPLY: npc " + site.npcId() + " on map " + site.mapId());
         BotShopping.headFor(chr, site);
+        if (site.mapId() == ShopCatalog.SLEEPYWOOD_SAUNA) {
+            saunaResupply = true; // no portal leads there: the sauna trip (hotel NPC's teleport) is the way in
+            return false;
+        }
         if (site.mapId() == chr.getMapId()) {
             startResupplyWalk();
             return true;
@@ -604,10 +610,13 @@ public class TrainingBot extends BotSM {
     // The restock itself (BotSupplies.restock -> BotShopping at the shop it stands by). Also run when the town stop
     // ends with a restock still pending (the trip to the store failed), so the melee fallback is still settled.
     private void finishResupply() {
-        if (resupplySite == null) {
-            return;
+        synchronized (this) {   // the sauna's shop buys from a movement callback, the town stop from the macro tick
+            if (resupplySite == null) {
+                return;
+            }
+            resupplySite = null;
+            saunaResupply = false;
         }
-        resupplySite = null;
         BotSupplies.restock(getChr());
     }
 
@@ -677,9 +686,14 @@ public class TrainingBot extends BotSM {
             if (!saunaTripActive || BotShutdown.isQuiesced() || !entered.compareAndSet(false, true)) {
                 return; // already entered (door-arrival vs cap race), or the trip was aborted
             }
-            int sauna = rng.nextDouble() < SAUNA_VIP_CHANCE ? SAUNA_VIP : SAUNA_REGULAR;
+            boolean shopping = saunaResupply;
+            int sauna = shopping ? SAUNA_REGULAR : rng.nextDouble() < SAUNA_VIP_CHANCE ? SAUNA_VIP : SAUNA_REGULAR;
             chr.changeMap(sauna);
-            BotWanderSystem.start(chr); // relax in the sauna for a beat
+            if (shopping) {
+                shopInSauna(chr); // ticket 09: up to the sauna's shopkeeper first, then relax
+            } else {
+                BotWanderSystem.start(chr); // relax in the sauna for a beat
+            }
             ExecutorServiceManager.getScheduledExecutorService().schedule(
                     () -> {
                         if (BotShutdown.isQuiesced()) {
@@ -690,6 +704,28 @@ public class TrainingBot extends BotSM {
         };
         GCMovement.move(chr, SAUNA_DOOR_X, SAUNA_DOOR_Y, enter);
         ExecutorServiceManager.getScheduledExecutorService().schedule(enter, DOOR_WALK_MAX_MS, TimeUnit.MILLISECONDS);
+    }
+
+    // Ticket 09: in the regular sauna for supplies - walk to its shopkeeper and buy on arrival (or after the walk cap),
+    // exactly once, then relax like any sauna visit.
+    private void shopInSauna(Character chr) {
+        ShopCatalog.Site site = resupplySite;
+        if (site == null || chr.getMapId() != site.mapId()) {
+            BotWanderSystem.start(chr);
+            return;
+        }
+        AtomicBoolean bought = new AtomicBoolean(false);
+        Runnable buy = () -> {
+            if (!saunaTripActive || BotShutdown.isQuiesced() || !bought.compareAndSet(false, true)) {
+                return;
+            }
+            finishResupply();
+            BotWanderSystem.start(chr);
+        };
+        Point npc = site.npcPos();
+        GCMovement.move(chr, npc.x + (rng.nextBoolean() ? 1 : -1) * (RESUPPLY_STAND_OFF_PX + rng.nextInt(40)), npc.y,
+                buy);
+        ExecutorServiceManager.getScheduledExecutorService().schedule(buy, RESUPPLY_WALK_MAX_MS, TimeUnit.MILLISECONDS);
     }
 
     // Done relaxing: the sauna's one-way exit portal drops the bot back into the hotel; from there take the

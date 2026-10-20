@@ -263,10 +263,11 @@ class BotShoppingTest {
 
         assertEquals(800, ilbis.getQuantity());
         assertEquals(800, subis.getQuantity());
-        int stacks = BotShopping.ammoStacks(40);   // 3 stacks = 2400
-        assertEquals(800 * (stacks - 2), count(thief, SUBI) - 800, "then whole stacks of Subi");
+        // Level 40 carries 2,600 shots: after both recharges (1,600) two more stacks of Subi.
+        assertEquals(2600, BotShopping.ammoGoal(40));
+        assertEquals(800 + 2 * 800, count(thief, SUBI));
         long recharge = (long) Math.ceil(1.0 * 700) + (long) Math.ceil(0.5 * 800);
-        long stars = 500L * (stacks - 2);
+        long stars = 2 * 500L;
         assertEquals(recharge + stars, r.spent - potionSpend(thief), "recharge at unitPrice, a stack at its price");
         assertEquals(1500, r.recharged);
     }
@@ -282,7 +283,7 @@ class BotShoppingTest {
         weapon = WeaponType.BOW;
         Character archer = bot(Job.HUNTER, 40, 1200, 400, 400_000);
         BotShopping.shop(archer, GROCER, needs(ARROW, 0, List.of(), 500, 500, true));
-        assertEquals(BotShopping.arrowGoal(40), count(archer, BRONZE_ARROW));
+        assertEquals(BotShopping.ammoGoal(40), count(archer, BRONZE_ARROW));
         assertEquals(0, count(archer, ARROW));
     }
 
@@ -345,9 +346,18 @@ class BotShoppingTest {
         Character thief = bot(Job.ASSASSIN, 30, 700, 200, 50_000);
         SupplyNeeds needs = needs(SUBI, 0, List.of(), 0, 0, true);
         assertEquals(GROCER, BotShopping.siteFor(thief, 100000000, needs), "the shop that sells stars and potions");
-        assertNull(BotShopping.siteFor(thief, 100000000, needs(SUBI, 900, List.of(), 400, 400, true)),
-                "nothing it needs");
+        Item partial = give(thief, SUBI, 2500);
+        assertNull(BotShopping.siteFor(thief, 100000000, needs(SUBI, 2500, List.of(partial), 400, 400, true)),
+                "a stack short of full and plenty of potions: not worth the walk");
+        assertEquals(GROCER, BotShopping.siteFor(thief, 100000000, needs(SUBI, 2500, List.of(partial), 50, 400, true)),
+                "under half its HP potions");
         assertNull(BotShopping.siteFor(thief, 101000000, needs), "a town without shops");
+
+        // Sleepywood's shop is in the sauna, which no portal reaches (the hotel NPC's teleport does).
+        ShopCatalog.Site sauna = new ShopCatalog.Site(ShopCatalog.SLEEPYWOOD_SAUNA, 1061002, 4, new Point(0, 0),
+                GROCER.items());
+        town.sites.put(ShopCatalog.SLEEPYWOOD_SAUNA, List.of(sauna));
+        assertEquals(sauna, BotShopping.siteFor(thief, 105040300, needs));
     }
 
     @Test
@@ -358,12 +368,14 @@ class BotShoppingTest {
         BotShopping.install();
         Character warrior = bot(Job.WARRIOR, 35, 1600, 150, 100_000);
 
-        warrior.setMap(100000000);   // in town, not in the store
+        warrior.setMap(100000000);   // in town, not in the store: the walk there failed
         BotShopping.headFor(warrior, GROCER);
         assertFalse(BotSupplies.restock(warrior));
         assertEquals(100_000, warrior.getMeso());
 
         warrior.setMap(100000102);
+        assertFalse(BotSupplies.restock(warrior), "that trip ended in town; standing by a shop is not enough");
+        BotShopping.headFor(warrior, GROCER);
         assertTrue(BotSupplies.restock(warrior));
         assertEquals(BotShopping.hpGoal(35), count(warrior, WHITE));
         assertTrue(BotShopping.report().contains("1 visits"), BotShopping.report());
@@ -376,7 +388,7 @@ class BotShoppingTest {
         weapon = WeaponType.CLAW;
         Character thief = bot(Job.ASSASSIN, 40, 900, 300, 0);
         int units = StarterStash.grant(thief);
-        assertEquals(1600, count(thief, SUBI), "two stacks of shop stars");
+        assertEquals(1600, count(thief, SUBI), "whole stacks of shop stars toward 2,600 shots, two at most");
         assertEquals(2, thief.getInventory(InventoryType.USE).listById(SUBI).size());
         assertEquals(BotShopping.hpGoal(40), count(thief, WHITE));
         assertEquals(0, thief.getMeso(), "a gift, not a purchase");
@@ -385,7 +397,7 @@ class BotShoppingTest {
         weapon = WeaponType.BOW;
         Character archer = bot(Job.BOWMAN, 15, 400, 150, 0);
         StarterStash.grant(archer);
-        assertEquals(2000, count(archer, ARROW));
+        assertEquals(BotShopping.ammoGoal(15), count(archer, ARROW));
         assertEquals(BotShopping.hpGoal(15), count(archer, ORANGE));
 
         weapon = WeaponType.WAND;

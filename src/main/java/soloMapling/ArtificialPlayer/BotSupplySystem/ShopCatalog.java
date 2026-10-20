@@ -42,6 +42,13 @@ public final class ShopCatalog {
 
     private static final int TOWN_DEPTH = 2;   // portals from the town map a store may sit behind
 
+    /*
+     * A town's shops behind an NPC's teleport rather than a portal: Sleepywood's only shop is the regular sauna's
+     * (105040401), reached from the hotel by its NPC (TrainingBot's sauna trip takes a bot there).
+     */
+    public static final int SLEEPYWOOD_SAUNA = 105040401;
+    private static final Map<Integer, List<Integer>> SCRIPTED = Map.of(MapId.SLEEPYWOOD, List.of(SLEEPYWOOD_SAUNA));
+
     /* One item of a shop as the server lists it: price in mesos (0 = not sold for mesos), pitch in Perfect Pitches. */
     public record Listing(int slot, int itemId, int price, int pitch) {
         boolean soldForMesos() {
@@ -163,6 +170,11 @@ public final class ShopCatalog {
                 if (sameTown(townMapId, next) && seen.add(next)) {
                     queue.add(new int[]{next, at[1] + 1});
                 }
+            }
+        }
+        for (int scripted : SCRIPTED.getOrDefault(townMapId, List.of())) {
+            if (seen.add(scripted)) {
+                sites.addAll(onMap(bot, scripted));
             }
         }
         List<Site> result = List.copyOf(sites);
