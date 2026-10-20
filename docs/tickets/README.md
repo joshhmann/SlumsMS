@@ -48,3 +48,10 @@ Created 2026-10-19 from the owner's plan. Order: nav v2 → real bots → compan
 | [39](39-client-dgvoodoo-wrapper.md) | Client graphics wrapper for virtual displays | Client | 1.3.0 |
 | [40](40-player-guide-and-wiki.md) | Player guidebook and server wiki | Content / Docs | 1.3.0, 37 |
 | [41](41-world-name-bera.md) | Run the live world as Bera | Server / Client / Ops | - |
+| [42](42-live-monitoring-alerts.md) | Live monitoring and alerts | Ops | 35 |
+| [43](43-gm-security-audit.md) | GM account safety and command audit | Security / Ops | - |
+| [44](44-release-pipeline.md) | One-command release pipeline | Ops | - |
+| [45](45-backups-and-rotation.md) | Back up bot learning data, rotate old backups | Ops | 23 |
+| [46](46-discord-bridge.md) | Discord bridge and server status | Community | 42 |
+| [47](47-bot-chat-content-review.md) | Review bot chat and megaphone content | Real bots / Chat | - |
+| [48](48-live-capacity-soak.md) | Capacity soak with real players and bots | Performance | - |
