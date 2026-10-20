@@ -64,7 +64,4 @@ public final class ScriptedReplies {
             case NORMAL -> TALK;
         });
     }
-
-    /** The emote faces a bot answers filler with: smile, laugh, wink, cheers. */
-    static final int[] FILLER_EMOTES = {1, 2, 4, 5};
 }

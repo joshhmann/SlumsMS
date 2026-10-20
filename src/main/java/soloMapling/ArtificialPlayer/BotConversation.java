@@ -190,11 +190,12 @@ public final class BotConversation {
         ChatTriage.Result triage = ChatTriage.classify(line, ChatDecide.get());
 
         if (triage.flagged()) {
-            onFlagged(session, slot, triage, asked);
+            onFlagged(session, slot, triage, line, asked);
             return;
         }
         BotChatActions.Result action = triage.intent() == ChatTriage.Intent.NONE ? BotChatActions.Result.NONE
                 : BotChatActions.act(session.bot, player, triage.intent());
+        Cue cue = new Cue(triage, action.outcome(), line);
         BotRoster.Activity doing = session.bot.activitySnapshot();
         String activity = BotChatPrompt.activityPhrase(doing == null ? null : doing.name());
         if (action.outcome() == BotChatActions.Outcome.NONE) {
@@ -206,10 +207,9 @@ public final class BotConversation {
                 case EMOTE -> {
                     if (whisper) {
                         deliver(session, ScriptedReplies.pick(ScriptedReplies.TALK), asked, ChatStats.Tier.SCRIPTED,
-                                "filler whisper");
+                                "filler whisper", cue);
                     } else {
-                        int face = ScriptedReplies.FILLER_EMOTES[ThreadLocalRandom.current()
-                                .nextInt(ScriptedReplies.FILLER_EMOTES.length)];
+                        int face = ReplyEmote.forFiller(line);
                         BotTiming.chain().pause(400 + ThreadLocalRandom.current().nextInt(900))
                                 .run(() -> BotEmote(bot, face)).start();
                         ChatStats.reply(ChatStats.Tier.EMOTE, System.currentTimeMillis() - asked, bot.getName(), "filler");
@@ -218,13 +218,13 @@ public final class BotConversation {
                 }
                 case THANKS, BYE -> {
                     deliver(session, ScriptedReplies.forKind(triage.kind()), asked, ChatStats.Tier.SCRIPTED,
-                            triage.kind().name().toLowerCase());
+                            triage.kind().name().toLowerCase(), cue);
                     return;
                 }
                 case GREETING -> {
                     if (botHasSpoken(session)) { // a greeting mid-chat is small talk; the first one gets a real reply
                         deliver(session, ScriptedReplies.forKind(triage.kind()), asked, ChatStats.Tier.SCRIPTED,
-                                "greeting");
+                                "greeting", cue);
                         return;
                     }
                 }
@@ -258,30 +258,30 @@ public final class BotConversation {
                 return; // the chat ended while the brain was thinking
             }
             if (reply.isPresent() && action.fits(reply.get())) {
-                deliver(session, reply.get(), asked, ChatStats.Tier.LLM, detail);
+                deliver(session, reply.get(), asked, ChatStats.Tier.LLM, detail, cue);
                 return;
             }
             if (reply.isPresent()) {
                 // The model ignored what the game did ("sure" to a declined party): the scripted line says it right.
                 deliver(session, action.scripted(), asked, ChatStats.Tier.SCRIPTED, detail + ", llm reply did not fit: "
-                        + reply.get());
+                        + reply.get(), cue);
                 return;
             }
             if (action.scripted() != null) {
-                deliver(session, action.scripted(), asked, ChatStats.Tier.SCRIPTED, detail + ", llm fell back");
+                deliver(session, action.scripted(), asked, ChatStats.Tier.SCRIPTED, detail + ", llm fell back", cue);
             } else if (fallback != null) {
                 fallback.run();
                 ChatStats.reply(ChatStats.Tier.SCRIPTED, System.currentTimeMillis() - asked, bot.getName(),
                         detail + ", llm fell back to the caller's script");
             } else {
                 deliver(session, ScriptedReplies.forKind(triage.kind()), asked, ChatStats.Tier.SCRIPTED,
-                        detail + ", llm fell back");
+                        detail + ", llm fell back", cue);
             }
         });
     }
 
     /** A flagged con: no LLM, an in-character brush-off (or silence), and a note so the bot is warier next time. */
-    private static void onFlagged(Session session, int slot, ChatTriage.Result triage, long asked) {
+    private static void onFlagged(Session session, int slot, ChatTriage.Result triage, String line, long asked) {
         Character bot = session.bot.getChr();
         Character player = session.player;
         String kind = triage.con().name().toLowerCase();
@@ -299,7 +299,7 @@ public final class BotConversation {
             return;
         }
         deliver(session, ScriptedReplies.brushOff(triage.con()), asked, ChatStats.Tier.FLAGGED,
-                kind + "/" + triage.conSource().name().toLowerCase());
+                kind + "/" + triage.conSource().name().toLowerCase(), new Cue(triage, BotChatActions.Outcome.NONE, line));
     }
 
     private static boolean botHasSpoken(Session session) {
@@ -308,8 +308,15 @@ public final class BotConversation {
         }
     }
 
-    /** Types a line at a human pace, then says it (map chat or whisper) and records its tier. */
-    private static void deliver(Session session, String line, long asked, ChatStats.Tier tier, String detail) {
+    /** What a reply answers, for the face that goes with it. */
+    private record Cue(ChatTriage.Result triage, BotChatActions.Outcome outcome, String asked) {
+    }
+
+    /**
+     * Types a line at a human pace, then says it (map chat or whisper) and records its tier. In map chat the bot
+     * sometimes makes a fitting face as the bubble appears ({@link ReplyEmote}).
+     */
+    private static void deliver(Session session, String line, long asked, ChatStats.Tier tier, String detail, Cue cue) {
         Character bot = session.bot.getChr();
         Character player = session.player;
         synchronized (session.history) {
@@ -317,6 +324,8 @@ public final class BotConversation {
         }
         long typing = typingDelay(line, System.currentTimeMillis() - asked, ThreadLocalRandom.current());
         Consumer<String> deliver = session.deliver;
+        int face = deliver != null || cue == null ? ReplyEmote.NONE
+                : ReplyEmote.pick(cue.triage(), cue.outcome(), cue.asked(), line, ThreadLocalRandom.current());
         BotTiming.chain()
                 .stopUnless(() -> sessions.containsKey(new Key(bot.getId(), player.getId())))
                 .pause(typing)
@@ -330,6 +339,9 @@ public final class BotConversation {
                         deliver.accept(line);
                     } else {
                         BotSpeak(bot, line);
+                        if (face != ReplyEmote.NONE) {
+                            BotEmote(bot, face);
+                        }
                     }
                     session.lastAt = System.currentTimeMillis();
                     if (deliver == null) { // ticket 37: having answered, the bot keeps listening a while longer
