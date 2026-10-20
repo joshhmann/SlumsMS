@@ -72,4 +72,25 @@ class BotChatPromptTest {
         assertEquals("wary of this player after how they acted before, short with them",
                 BotChatPrompt.mood(3, "grinding", true, 0));
     }
+
+    @Test
+    void aMerchantsStockAndARecognisedPlayerGoIntoThePrompt() {
+        BotChatPrompt.Context c = new BotChatPrompt.Context("Shopz", 60, "hermit", "Free Market", "running a shop",
+                null, "chill", "Josh", 30, "page", List.of("said they're saving for a pink adventurer cape"),
+                List.of(), null);
+        String plain = BotChatPrompt.system(c, BotPersona.generate(3), 0.3);
+        assertTrue(!plain.contains("You know Josh from before") && !plain.contains("You are selling"), plain);
+
+        MerchantStock.Stock stock = new MerchantStock.Stock(true, "Scroll for Gloves for ATT 60%", 12_000_000, "gloves");
+        String system = BotChatPrompt.system(c.with(stock.fact(), true), BotPersona.generate(3), 0.3);
+        assertTrue(system.contains("You are selling Scroll for Gloves for ATT 60% for 12m right now"), system);
+        assertTrue(system.contains("Do not make up other items or prices"), system);
+        assertTrue(system.contains("You know Josh from before"), system);
+        assertTrue(system.contains("never bring up anything bad"), system);
+
+        // A stranger is never "recognised", whatever the caller says: the hint rides on the memories.
+        BotChatPrompt.Context stranger = new BotChatPrompt.Context("Shopz", 60, "hermit", null, null, null, null,
+                "Josh", 30, "page", List.of(), List.of(), null).with(null, true);
+        assertTrue(!BotChatPrompt.system(stranger, BotPersona.generate(3), 0.3).contains("You know Josh"));
+    }
 }

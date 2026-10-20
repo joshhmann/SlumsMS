@@ -1,7 +1,7 @@
 package soloMapling.ArtificialPlayer.GCMoveSystem;
 
 import org.junit.jupiter.api.AfterEach;
-import org.junit.jupiter.api.Assumptions;
+import soloMapling.WzTestData;
 import org.junit.jupiter.api.BeforeAll;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
@@ -152,7 +152,7 @@ class NavDeepBakeTest {
     /** Henesys at deep density: the same regions as the live graph, and only real additions. */
     @Test
     void aDeepBakeOfARealMapFitsItsLiveGraph() throws Exception {
-        Assumptions.assumeTrue(Files.isDirectory(Path.of(System.getProperty("wz-path"), "Map.wz")), "needs wz/");
+        WzTestData.assumePresent("Map.wz");
         MapleMap map = BotNavigationMapLoader.loadMapGeometry(100000000);
         BotNavigationGraph live = BotNavigationGraphProvider.buildGraphWithDensity(map, BotMovementProfile.base(),
                 BotNavigationGraphProvider.SampleDensity.LIVE);

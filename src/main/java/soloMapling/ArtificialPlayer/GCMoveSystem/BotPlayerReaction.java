@@ -3,6 +3,7 @@ package soloMapling.ArtificialPlayer.GCMoveSystem;
 import client.Character;
 import soloMapling.ArtificialPlayer.BotDialogueHandler;
 import soloMapling.ArtificialPlayer.BotLogic;
+import soloMapling.ArtificialPlayer.BotRecognition;
 import soloMapling.ArtificialPlayer.BotSM;
 import soloMapling.ArtificialPlayer.BotMessagingSystem.CharacterStorage;
 import soloMapling.ArtificialPlayer.BotMovementSystem.PlayerReaction;
@@ -104,8 +105,13 @@ final class BotPlayerReaction {
             PlayerReaction.executeWalkReaction(bot);
             return;
         }
-        ExecutorServiceManager.runAsync(() -> botSM.getDialogueHandler()
-                .executeBotContextDialogue(REACT_NODE, botSM, player, BotDialogueHandler.CONTEXT_LINE_CHANCE));
+        ExecutorServiceManager.runAsync(() -> {
+            if (BotRecognition.maybeGreetOnSight(botSM, player)) {
+                return; // ticket 26: a player it knows gets a "hey again" instead of the generic reaction line
+            }
+            botSM.getDialogueHandler()
+                    .executeBotContextDialogue(REACT_NODE, botSM, player, BotDialogueHandler.CONTEXT_LINE_CHANCE);
+        });
     }
 
     private static boolean onCooldown(int playerId, long nowMs) {

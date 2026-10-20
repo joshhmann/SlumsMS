@@ -49,7 +49,7 @@ public class BotTradeWants {
         return itemsWanted;
     }
 
-    protected int getMesoWanted() {
+    public int getMesoWanted() {
         return mesoWanted;
     }
 

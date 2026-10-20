@@ -34,7 +34,7 @@ class BotConversationFlowTest {
     private final List<String> said = new CopyOnWriteArrayList<>();
     private final List<String> notes = new CopyOnWriteArrayList<>();
     private volatile Optional<String> brainReply = Optional.of("lol ya ant tunnel is ok");
-    private int nextPlayer = 2001;
+    private static int nextPlayer = 2001; // sessions are static: every test talks to a fresh pair
 
     @BeforeEach
     void fakes() {
@@ -170,5 +170,75 @@ class BotConversationFlowTest {
         assertEquals(1, said.size());
         assertTrue(ScriptedReplies.THANKS.contains(said.get(0)));
         assertTrue(asked.isEmpty());
+    }
+
+    // ── ticket 26 ──
+
+    @Test
+    void aRememberedPlayerIsGreetedAsSomeoneTheBotKnows() throws Exception {
+        int player = nextPlayer;
+        BotMemory.remember(40_000 + player, player, List.of("wants to be a bishop"), BotMemory.Source.DIRECT, 0, 0,
+                System.currentTimeMillis() - 86_400_000L);
+        brainReply = Optional.empty();
+        whisper("hey");
+        waitFor(() -> !said.isEmpty());
+        assertTrue(BotRecognition.HELLO_AGAIN_NO_NAME.contains(said.get(0))
+                || BotRecognition.HELLO_AGAIN.stream().anyMatch(f -> said.get(0).equalsIgnoreCase(String.format(f, "Josh"))),
+                said.toString());
+        String system = asked.get(0).get(0).content();
+        assertTrue(system.contains("You know Josh from before") && system.contains("wants to be a bishop"), system);
+    }
+
+    @Test
+    void aStrangerGetsAPlainHello() throws Exception {
+        brainReply = Optional.empty();
+        whisper("hey");
+        waitFor(() -> !said.isEmpty());
+        assertTrue(ScriptedReplies.GREETING.contains(said.get(0)), said.toString());
+        assertTrue(!asked.get(0).get(0).content().contains("You know Josh"));
+    }
+
+    @Test
+    void aMerchantSaysWhatItSellsEvenWhenTheModelIsDown() throws Exception {
+        MerchantStock.useItemNamesForTest(id -> "Scroll for Gloves for ATT 60%");
+        try {
+            brainReply = Optional.empty();
+            soloMapling.ArtificialPlayer.BotTypes.SellingMerchantBot bot =
+                    mock(soloMapling.ArtificialPlayer.BotTypes.SellingMerchantBot.class);
+            when(bot.getChr()).thenReturn(character(BotStore.BOT_ID_BASE + 40_000 + nextPlayer, "Shopz"));
+            soloMapling.ArtificialPlayer.BotTradeSystem.BotTradeInventory inventory =
+                    new soloMapling.ArtificialPlayer.BotTradeSystem.BotTradeInventory();
+            inventory.setItemForSaleMain(new client.inventory.Item(2040804, (short) 0, (short) 1));
+            soloMapling.ArtificialPlayer.BotTradeSystem.BotTradeWants wants =
+                    new soloMapling.ArtificialPlayer.BotTradeSystem.BotTradeWants();
+            wants.setMesoWanted(12_000_000);
+            when(bot.getTradeInventory()).thenReturn(inventory);
+            when(bot.getTradeWants()).thenReturn(wants);
+            when(bot.getTradeMode()).thenReturn(soloMapling.ArtificialPlayer.BotTradeSystem.BotTradeSM.TradeMode.SELLING);
+            assertTrue(BotConversation.say(bot, character(nextPlayer++, "Josh"), "what are you selling?", null, said::add));
+            waitFor(() -> !said.isEmpty());
+            assertTrue(said.get(0).contains("scroll for gloves for att 60%") && said.get(0).contains("12m"), said.toString());
+            String system = asked.get(0).get(0).content();
+            assertTrue(system.contains("You are selling Scroll for Gloves for ATT 60% for 12m"), system);
+        } finally {
+            MerchantStock.useItemNamesForTest(null);
+        }
+    }
+
+    @Test
+    void aBotThatNoticesAKnownPlayerSaysHiFirstThroughTheBrain() throws Exception {
+        BotSM bot = mock(TownWandererBot.class);
+        Character chr = character(BotStore.BOT_ID_BASE + 40_000 + nextPlayer, "Walkr");
+        when(bot.getChr()).thenReturn(chr);
+        Character player = character(nextPlayer++, "Josh");
+        BotMemory.remember(chr.getId() - BotStore.BOT_ID_BASE, player.getId(), List.of("wants to be a bishop"),
+                BotMemory.Source.DIRECT, 0, 0, System.currentTimeMillis() - 86_400_000L);
+        assertTrue(BotConversation.greet(bot, player));
+        waitFor(() -> !asked.isEmpty());
+        String system = asked.get(0).get(0).content();
+        assertTrue(system.contains("You know Josh from before") && system.contains("Nobody has said anything yet"), system);
+        assertTrue(BotConversation.isTalking(chr.getId(), player.getId()), "the player's answer reaches the bot");
+        assertTrue(!BotConversation.greet(bot, player), "never twice mid-chat");
+        BotConversation.end(chr.getId(), player.getId());
     }
 }

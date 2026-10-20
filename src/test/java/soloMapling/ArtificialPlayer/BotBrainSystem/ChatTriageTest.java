@@ -56,6 +56,10 @@ class ChatTriageTest {
         assertEquals(ChatTriage.Con.RWT, ChatTriage.rules("selling mesos for paypal").con());
         assertEquals(ChatTriage.Con.SCAM, ChatTriage.rules("lend me 10m ill pay u back").con());
         assertEquals(ChatTriage.Con.NORMAL, ChatTriage.rules("lol noob").con(), "banter is not harassment by rule");
+        for (String line : java.util.List.of("what are you selling", "what do u sell?", "whatcha got for sale",
+                "do you sell scrolls", "wat r u buying")) {
+            assertEquals(ChatTriage.Intent.TRADE, ChatTriage.rules(line).intent(), line); // ticket 26
+        }
     }
 
     private static ChatDecide stub(String response, AtomicInteger calls) {
