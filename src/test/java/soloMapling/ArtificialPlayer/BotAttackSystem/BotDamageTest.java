@@ -68,13 +68,13 @@ class BotDamageTest {
             skills.put(id, new Skill(id));
         }
         previousSkills = swapSkillFactory(skills);
-        BotDamage.useSkillDataForTest((id, level) -> NUMBERS.getOrDefault(id, SkillNumbers.NONE), itemId -> 15);
+        BotDamage.useSkillDataForTest((id, level) -> NUMBERS.getOrDefault(id, SkillNumbers.NONE));
     }
 
     @AfterEach
     void restore() throws Exception {
         swapSkillFactory(previousSkills);
-        BotDamage.useSkillDataForTest(null, null);
+        BotDamage.useSkillDataForTest(null);
     }
 
     @SuppressWarnings("unchecked")
@@ -204,7 +204,7 @@ class BotDamageTest {
     }
 
     @Test
-    void aClawThiefCritsFromCriticalThrowAndThrowsItsStar() throws Exception {
+    void aClawThiefCritsFromCriticalThrowWithTheAttackItsTotalsCarry() throws Exception {
         Character bot = Character.getDefault(new BotClient(0, 0));
         bot.setID(1_000_000_000 + 708);
         bot.setJob(Job.ASSASSIN);
@@ -216,7 +216,8 @@ class BotDamageTest {
         hold(bot, Assassin.CRITICAL_THROW, 20);
 
         Attacker a = BotDamage.attacker(bot, WeaponType.CLAW);
-        assertEquals(60 + 15, a.watk(), "no stars carried: the thrown star's attack counts");
+        // Real bots 08: no projectile is made up for a bot without stars - the totals carry whatever stars it holds.
+        assertEquals(60, a.watk(), "no stars carried: no star's attack counts");
         BotDamage.Swing swing = BotDamage.swing(bot, 0, 0, BotAttackProfile.Route.RANGED, WeaponType.CLAW, 1, false);
         assertEquals(0.40, swing.crit().chance(), 1e-9);
         assertEquals(2.0, swing.crit().factor(), 1e-9);

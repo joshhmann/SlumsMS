@@ -15,6 +15,7 @@ import server.maps.MapleMap;
 import soloMapling.ArtificialPlayer.BotDecoratorSystem.BotWeapons;
 import soloMapling.ArtificialPlayer.BotProgressionSystem.BotProgression;
 import soloMapling.ArtificialPlayer.BotProgressionSystem.BotRealStats;
+import soloMapling.ArtificialPlayer.BotSupplySystem.StarterStash;
 import soloMapling.server.SoloMaplingConstants;
 import tools.DatabaseConnection;
 import tools.Pair;
@@ -148,6 +149,11 @@ public final class BotStore {
     static final String DELETE_SKILLS = "DELETE FROM botskills WHERE BotId = ?";
     static final String INSERT_SKILL = "INSERT INTO botskills (BotId, SkillId, Level, MasterLevel) VALUES (?, ?, ?, ?)";
     private static final String SELECT_SKILLS = "SELECT BotId, SkillId, Level, MasterLevel FROM botskills";
+    /*
+     * Ticket 09's starter stash (migration 007): a row's StockedAt is NULL until the bot has been given its one-time
+     * starter supplies, and is set in the same transaction that writes those items, so a bot is stocked exactly once.
+     */
+    static final String UPDATE_STOCKED = "UPDATE botstore SET StockedAt = ? WHERE BotId = ? AND StockedAt IS NULL";
 
     private static final Object ROSTER_LOCK = new Object();
     /** A deadlocked write is retried this many times before the bot's write is given up on. */
@@ -167,6 +173,12 @@ public final class BotStore {
      * keeps working exactly as before and simply stores no builds (they are rebuilt from level and job each boot).
      */
     private static volatile Boolean realStatsSchema;
+    /** Whether migration 007 is in (botstore.StockedAt): {@code null} until the store has looked. */
+    private static volatile Boolean stashSchema;
+    /** Stored bot ids whose row has never been stocked (StockedAt NULL), as read at boot. */
+    private static final Set<Integer> unstocked = ConcurrentHashMap.newKeySet();
+    /** Bot ids given their starter stash this run whose row does not say so yet; the next write of the row does. */
+    private static final Set<Integer> stockPending = ConcurrentHashMap.newKeySet();
 
     private BotStore() {
     }
@@ -429,7 +441,37 @@ public final class BotStore {
         // Level, job and worn gear all came off the row, so the clone's stats are stale until this point
         // (ticket 07 rule 2: stored progression must be internally consistent, not just visible).
         bot.refreshStatsAfterProgression();
+        // Ticket 09: a stored bot that has never been stocked gets its one-time starter supplies, now that its level,
+        // job and weapon are its own. Not for a bot whose stored items could not be read: it writes no items.
+        if (unstocked.contains(botId(bot)) && !holdingsUnavailable.contains(bot.getId())) {
+            stock(bot);
+        }
         return true;
+    }
+
+    /*
+     * Gives the bot its starter stash and marks its row for the StockedAt write, which goes in with the items. Only with
+     * migration 007 in: without the column nothing could record it, and the bot would be given a stash every boot.
+     */
+    static void stock(Character bot) {
+        if (!Boolean.TRUE.equals(stashSchema)) {
+            return;
+        }
+        try {
+            StarterStash.grant(bot);
+            stockPending.add(botId(bot));
+        } catch (RuntimeException e) {
+            log.warn("Could not give bot {} ({}) its starter supplies; it is tried again next boot", bot.getId(),
+                    bot.getName(), e);
+        }
+    }
+
+    /* Clears a stash flag once the row that records it has committed. */
+    private static void stockCommitted(int botId, boolean wasPending) {
+        if (wasPending) {
+            stockPending.remove(botId);
+            unstocked.remove(botId);
+        }
     }
 
     /**
@@ -478,7 +520,11 @@ public final class BotStore {
             BotProgression.forget(bot.getId());
             log.warn("Could not build bot {} ({}); it keeps the template's stats", bot.getId(), bot.getName(), e);
         }
+        // Ticket 09: a new bot is stocked like any stored one that never was (once 007 is in), in its first write.
+        stock(bot);
+        boolean stocking = stockPending.contains(botId(bot));
         writeTransaction(bot, con -> writeRow(bot, botId(bot), con));
+        stockCommitted(botId(bot), stocking);
         remember(botId(bot), bot);
     }
 
@@ -496,7 +542,9 @@ public final class BotStore {
         if (botId < 1) {
             return NO_STAMP;
         }
+        boolean stocking = stockPending.contains(botId);
         int captured = writeTransaction(bot, con -> writeRow(bot, botId, con));
+        stockCommitted(botId, stocking);
         remember(botId, bot);
         return captured;
     }
@@ -528,6 +576,7 @@ public final class BotStore {
             ps.executeUpdate();
         }
         writeRealStats(row, con);
+        writeStocked(row.botId, con);
         return writeHoldings(bot, con, capturedAt);
     }
 
@@ -546,7 +595,23 @@ public final class BotStore {
             }
         }
         writeRealStats(row, con);
+        writeStocked(botId, con);
         return writeHoldings(bot, con, capturedAt);
+    }
+
+    /**
+     * Ticket 09: records a pending starter stash in the row's own transaction (the items go in with it). A store
+     * without migration 007 never has one pending.
+     */
+    static void writeStocked(int botId, Connection con) throws SQLException {
+        if (!stockPending.contains(botId)) {
+            return;
+        }
+        try (PreparedStatement ps = con.prepareStatement(UPDATE_STOCKED)) {
+            ps.setLong(1, System.currentTimeMillis());
+            ps.setInt(2, botId);
+            ps.executeUpdate();
+        }
     }
 
     /**
@@ -646,6 +711,20 @@ public final class BotStore {
     /** Test seam: forgets what the store learned about migration 005 being applied. */
     static void resetRealStatsSchemaForTest() {
         realStatsSchema = null;
+    }
+
+    /** Test seam: what the store knows about migration 007 and which bots are still to be stocked. */
+    static void setStashForTest(Boolean schema, Set<Integer> unstockedBots) {
+        stashSchema = schema;
+        unstocked.clear();
+        stockPending.clear();
+        if (unstockedBots != null) {
+            unstocked.addAll(unstockedBots);
+        }
+    }
+
+    static boolean isStockPendingForTest(int botId) {
+        return stockPending.contains(botId);
     }
 
     /**
@@ -783,6 +862,7 @@ public final class BotStore {
                 return UNSTABLE_CAPTURE;
             }
             if (itemDebit) {
+                writeStocked(botId, con);
                 ItemFactory.INVENTORY.saveItems(items, bot.getId(), con);
             }
             return capturedAt;
@@ -881,8 +961,16 @@ public final class BotStore {
                      ResultSet rs = ps.executeQuery()) {
                     boolean withStats = hasRealStatsColumns(rs);
                     realStatsSchema = withStats;
+                    boolean withStash = hasColumn(rs, "StockedAt");
+                    stashSchema = withStash;
                     while (rs.next()) {
                         Persisted row = read(rs);
+                        if (withStash) {
+                            rs.getLong("StockedAt");
+                            if (rs.wasNull()) {
+                                unstocked.add(row.botId);
+                            }
+                        }
                         if (withStats) {
                             BotRealStats stats = readStats(rs);
                             if (stats != null) {
@@ -896,6 +984,12 @@ public final class BotStore {
                     } else {
                         log.warn("The bot store has no real-stats columns (migration 005 is not applied): bot builds"
                                 + " are rebuilt from level and job each boot and not stored");
+                    }
+                    if (withStash) {
+                        log.info("Bot store: {} bots still to get their starter supplies", unstocked.size());
+                    } else {
+                        log.warn("The bot store has no StockedAt column (migration 007 is not applied): bots get no"
+                                + " starter supplies");
                     }
                 } catch (SQLException e) {
                     throw new IllegalStateException("Could not read the bot store", e);
@@ -986,13 +1080,18 @@ public final class BotStore {
 
     /** True when the row set carries migration 005's columns. */
     private static boolean hasRealStatsColumns(ResultSet rs) {
+        return hasColumn(rs, "BuildLevel");
+    }
+
+    /** True when the row set has this column. */
+    private static boolean hasColumn(ResultSet rs, String column) {
         try {
             ResultSetMetaData meta = rs.getMetaData();
             if (meta == null) {
                 return false;
             }
             for (int i = 1; i <= meta.getColumnCount(); i++) {
-                if ("BuildLevel".equalsIgnoreCase(meta.getColumnLabel(i))) {
+                if (column.equalsIgnoreCase(meta.getColumnLabel(i))) {
                     return true;
                 }
             }
