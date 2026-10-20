@@ -156,16 +156,13 @@ final class BotNavigationManager {
             if (runAiTick && entry.navEdge != null
                     && entry.navBlockedPosTicks > 0
                     && entry.navBlockedPosTicks >= entry.navBlockedPosGiveUpTicks) {
-                NavEdgeLearning.failure(graph, entry.navEdge); // bot-persistence ticket 16: remember the miss
+                NavEdgeLearning.failure(entry, graph, entry.navEdge); // bot-persistence ticket 16: remember the miss
                 NavStuckLog.record(NavStuckLog.Kind.GAVE_UP, bot.getMap(), botPos, graph, entry.navEdge);
                 clearNavigation(entry);
             }
-            // ...and the make: the bot reached the region the committed edge leads to (counted once per edge).
-            if (entry.navEdge != null && entry.navEdge != entry.navLearnedEdge
-                    && startRegionId == entry.navEdge.toRegionId && startRegionId != entry.navEdge.fromRegionId) {
-                NavEdgeLearning.success(graph, entry.navEdge);
-                entry.navLearnedEdge = entry.navEdge;
-            }
+            // ...and the make: the bot reached the region the committed edge leads to (counted once per edge), or the
+            // miss: a launched move came down somewhere else (ticket 04).
+            NavEdgeLearning.observe(entry, graph, startRegionId);
 
             BotNavigationGraph.Edge edge = reuseCommittedEdge(graph, entry, startRegionId, targetRegionId);
             boolean edgeReused = (edge != null);
@@ -1055,6 +1052,7 @@ final class BotNavigationManager {
         }
         entry.lastEdgeBlockReason = null;
         GCMovementSkills.blink(entry, bot, new Point(botPos), dest);
+        NavEdgeLearning.teleported(entry, graph, edge, graph.findRegionId(bot.getMap(), dest)); // ticket 04
         entry.skillHopReadyAtMs = System.currentTimeMillis() + SKILL_CAST_COOLDOWN_MS;
         clearNavigation(entry); // consumed: the bot is now in the destination region - replan next tick
         return new NavigationDirective(rawTargetPos, true);

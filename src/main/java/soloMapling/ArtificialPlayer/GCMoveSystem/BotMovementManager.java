@@ -829,7 +829,7 @@ class BotMovementManager {
             default -> BotPhysicsEngine.beginGroundJump(entry, bot, walkStep); // jump right
         }
         if (entry.navEdge != null) {
-            NavEdgeLearning.failure(entry.navGraph, entry.navEdge); // stuck on this move: remember it (ticket 16)
+            NavEdgeLearning.failure(entry, entry.navGraph, entry.navEdge); // stuck on this move: remember it (ticket 16)
         }
         clearNavigationState(entry);
         entry.unstuckCooldownMs = delayAfterCurrentTick(5000);

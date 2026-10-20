@@ -73,7 +73,7 @@ final class BotNavigationGraphProvider {
     // visible: SSOT for teleport reach, shared with BotNavigationManager's execution.
     static final int TELEPORT_RANGE_PX = 150;
     static final int TELEPORT_Y_SNAP_PX = 75;  // horizontal teleport: vertical snap band to a platform
-    private static final int TELEPORT_COST_MS = 150;   // near-instant cast+recovery (tunable)
+    static final int TELEPORT_COST_MS = 150;   // near-instant cast+recovery (tunable)
     // Base dir is overridable so tests never persist their (often trimmed) graphs into the live cache - a
     // trimmed map at base profile would otherwise overwrite the real graph and strand bots with region=-1.
     // Surefire points -Dbot.nav.cacheDir at cache/bot-nav-test; prod uses the default. (After nutnnut/Cosmic
