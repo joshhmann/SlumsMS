@@ -1,0 +1,108 @@
+# ScrollingBotDialogue review
+# ScrollSuccess
+D Im on a heater  ## modern sports slang
+D ok ok ok we're cooking  ## modern slang
+D inject this feeling into my veins  ## 2016 meme
+D bro its glowing. ITS ACTUALLY GLOWING  ## scrolls dont glow
+D the stars have aligned in my favor today  ## near-dup
+R started with a clean equip. gonna end with something legendary. => started with a clean equip. gonna end with something godly.  ## legendary tier
+D this clean equip is becoming something real  ## filler
+D every slot that passes is another reason I do this  ## filler
+D I remember when this was just a clean equip with potential. look at it now.  ## potential / filler
+D green light. green light. another green light. I might be dreaming.  ## near-dup
+R used my last 60% and it PASSED. the mesos are still trembling in my bag. => used my last 60% and it PASSED omg  ## filler tail
+D this equip went from clean to W real fast  ## W as noun
+D slots going down one by one and every single one is doing its job  ## filler
+D watching a clean weapon get better with every scroll is genuinely therapeutic  ## filler
+D traded away the clean version for bulk scrolls and im not even a little sorry  ## nonsensical
+D my clean glove era is over. my blessed glove era has begun.  ## era
+D every failed scroll in the past led me to this moment and it was worth it  ## filler
+D another clean pass. im built different.  ## modern slang
+D the scroll whispered to me before it passed. we have an understanding.  ## filler
+D adding another W to the record books  ## W as noun
+D this equip is becoming something special. i can feel it in the stats.  ## filler
+D that pass felt really earned. really really earned.  ## filler
+D kept my technique steady and the scroll rewarded me for it  ## filler
+D everything aligning today. just a vibe.  ## vibe
+D the equip just keeps getting better. its personal now.  ## filler
+R ok im not questioning it. im taking the W. => ok im not questioning it. ill take it  ## W
+R this equip is officially legendary status => this equip is officially godly  ## legendary tier
+D ok this is peak performance honestly  ## filler
+# ScrollFail
+R my luck is actually cooked => my luck is actually so bad  ## cooked
+D bruh  ## modern usage
+D i blame the server lag  ## server lag claim
+D cool cool cool cool cool. this is fine.  ## "this is fine"
+D L  ## L as noun
+R my equip is looking at me like im the problem. and honestly? maybe I am. => my equip is looking at me like im the problem  ## modern cadence
+D I need to stop scrolling when im tired. bad decisions happen when youre sleepy.  ## life advice
+R that was my last clean of this equip type on the server. its genuinely gone. => that was my last clean one. its genuinely gone.  ## "the server" meta
+D the equip graveyard in my heart just got a new resident  ## filler
+R tried to 10 slot a glove. its at 0 slots now. 0 SLOTS. => tried to 5 slot a glove. its at 0 slots now. 0 SLOTS.  ## gloves have 5 slots
+D F in chat for my equip. it did nothing wrong.  ## 2014+ meme
+D the item vanished like it never existed. a ghost now.  ## near-dup
+D attempted to craft something godly. created nothing. literal nothing.  ## filler
+D my inventory feels so empty now. literally and emotionally.  ## filler
+D the failed scroll notification is my villain origin story  ## modern meme
+D thats like 4 in a row now. this account is definitely cursed.  ## near-dup of cursed account
+D the slot is just gone. like it never existed.  ## near-dup
+R the server literally hates this equip. its personal. => the game literally hates this equip. its personal.  ## server meta
+D ok thats it. im done with scrolling. [4 hours later] ok maybe one more  ## modern meme format
+D someone tell me it gets better. [silence]  ## modern meme format
+R that was my entire weekly income for this week gone => that was my whole week of mesos gone  ## awkward
+D ok new plan. stop scrolling forever. new plan activated.  ## near-dup of new strategy
+D this game is a psychological warfare simulator honestly  ## filler
+# AdvertiseSale (item megaphone)
+R S> equip %PRICE% dm me => S> equip %PRICE% w me  ## dm not period
+R You will NOT find stats like these for %PRICE% anywhere else. Guaranteed. => U will NOT find stats like these for %PRICE% anywhere else  ## length
+R S> %PRICE% - I scrolled this with my lucky mouse. yes I have a lucky mouse. => S> %PRICE% - scrolled with my lucky mouse. yes i have one  ## length
+R Moving this for %PRICE%. If it doesnt sell in 10 mins its going to the FM. => Moving this for %PRICE%. if no buyer in 10 mins its going to FM  ## length
+R took half my mesos to make and im pricing it at %PRICE% because im generous like that => took half my mesos to make, only asking %PRICE%. im too nice  ## length
+D S> godly equip %PRICE%. dont lowball me im not desperate.  ## near-dup
+D S> this beauty %PRICE% or obo. comes with love and tears.  ## near-dup
+D S> fresh scrolled %PRICE%. come inspect before i change my mind.  ## near-dup
+D %PRICE% and its yours. took way too long to make.  ## near-dup
+D %PRICE% for something i spent all week on.  ## near-dup
+D S> %PRICE% non firm. u see the stats you pay the price.  ## near-dup, self-contradictory
+D S> %PRICE% OBO. FM gets it in 10 mins if no buyer shows up.  ## near-dup
+# WanderChat
+D not really doing anything. just existing in maple today.  ## filler
+D I keep walking through {REGION} like the answer to my problems is somewhere in here  ## filler
+R nothing to do really. just vibing and checking inventories. => nothing to do really. just checking shops.  ## vibing
+D this is the part of the day where I wander and contemplate my next purchase  ## filler
+D sometimes you just gotta walk around maple and clear your head  ## life advice
+D {REGION} has been dead today. nobody selling anything good.  ## town dead
+D {REGION} used to have better deals. times change.  ## filler
+D theres a weird peace to wandering around after a bad scroll session  ## filler
+D not sure if im here to browse or just to feel something  ## melancholy
+D {REGION} is quiet today. just the way i like it.  ## town quiet
+D the scroll addict brain never really logs off. it just wanders.  ## filler
+D scrolling brain never actually leaves. it just lurks.  ## filler near-dup
+D between sessions i just wander. reset time for my brain.  ## filler
+D passing by all the same shops. everything the same. comfortable.  ## filler
+D the equipment in my inv are all half-finished projects  ## near-dup
+D ok maybe if i just window shop... [buys scrolls]  ## modern meme format
+D every region has scroll prices and i know them all  ## filler
+D one day ill stop. today is not that day.  ## near-dup
+D the sunk cost fallacy has a personal vendetta against me  ## filler
+D the prices in {REGION} are either too good or too bad, never right  ## near-dup
+D technically im just looking. im not gonna buy anything.  ## near-dup
+# PlayerReaction
+D nice to see another person around here  ## town dead
+D oh interesting. another player.  ## meta
+D just noticing the traffic today. busy area.  ## filler
+D oh youre here too. small server.  ## server meta
+D just clocked you walking by. nice fit.  ## modern slang
+D another person wandering the FM. the ecosystem lives.  ## meta
+D the scroll energy in here changes when people show up  ## filler
+D not gonna lie your gear made me feel something  ## filler
+D just two people in the FM. the economy is alive.  ## town dead
+D {PLAYER_NAME} u got good scroll energy about u. i can tell.  ## filler
+D {PLAYER_NAME} u got that scroller energy about u  ## filler
+R nice {PLAYER_NX} fit. the look is clean even if the scrolls werent. => nice {PLAYER_NX}. the look is clean even if the scrolls werent.  ## fit
+D oh another scroller just vibing  ## vibing
+D oh cool ur vibing in the FM too  ## vibing
+D ur {PLAYER_GEAR} is either really lucky or really expensive  ## near-dup
+D that {PLAYER_GEAR} looks scrolled so well. who did it  ## near-dup
+D another person who understands the scrolling lifestyle  ## filler
+D ur {PLAYER_NX} expensive but scrolls hit different budget-wise  ## modern slang

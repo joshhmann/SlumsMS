@@ -21,9 +21,16 @@ public class GameEvent {
     private final String message;
     private final Item item;
     private final Boolean pass;
+    private final int detail;
 
     public GameEvent(Character mapleCharacter,
                      EventType type, String message, Item item, Boolean pass) {
+        this(mapleCharacter, type, message, item, pass, 0);
+    }
+
+    /** {@code detail}: a number the event type defines (a boss's level, a rare drop's base chance). */
+    public GameEvent(Character mapleCharacter,
+                     EventType type, String message, Item item, Boolean pass, int detail) {
         this.id = nextId.getAndIncrement();
         this.timestamp = System.currentTimeMillis();
         this.mapleCharacter = mapleCharacter;
@@ -37,6 +44,7 @@ public class GameEvent {
         this.message = message;
         this.item = item;
         this.pass = pass;
+        this.detail = detail;
     }
 
     public int getId() { return id; }
@@ -51,6 +59,7 @@ public class GameEvent {
     public String getMessage() { return message; }
     public Item getItem() { return item; }
     public Boolean getPass() { return pass; }
+    public int getDetail() { return detail; }
     public void printDescription() {
         debugprint("GameEvent: ", id, mapleCharacter, type, message, item, pass);
     }

@@ -33,4 +33,19 @@ public class EventFactory {
         return new GameEvent(mapleCharacter, EventType.CHAT_GENERAL, message, null, null);
     }
 
+    /** Ticket 47: {@code killer} killed a boss; message = the boss's name, detail = its level. */
+    public static GameEvent createBossKillEvent(Character killer, String bossName, int bossLevel) {
+        return new GameEvent(killer, EventType.BOSS_KILL, bossName, null, null, bossLevel);
+    }
+
+    /** Ticket 47: a rare item dropped for {@code owner}; message = the monster's name, detail = the base chance. */
+    public static GameEvent createRareDropEvent(Character owner, String mobName, Item item, int baseChance) {
+        return new GameEvent(owner, EventType.RARE_DROP, mobName, item, null, baseChance);
+    }
+
+    /** Ticket 47: {@code recruiter} is actually forming a party for {@code pqName} and can be invited. */
+    public static GameEvent createPqFormingEvent(Character recruiter, String pqName) {
+        return new GameEvent(recruiter, EventType.PQ_FORMING, pqName, null, null);
+    }
+
 }

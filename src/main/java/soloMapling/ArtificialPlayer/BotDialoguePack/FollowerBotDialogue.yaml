@@ -16,7 +16,7 @@ FollowerBot:
       - {line: "im sticking with u {PLAYER_NAME}, dont lose me", emote: 2}
       - "following! this is way better than standing around town"
       - "ooh adventure time"
-      - {line: "u pick the map, ill bring the vibes", emote: 3}
+      - {line: "u pick the map, ill bring the pots", emote: 3}
     emote:
       - 2
       - 0
@@ -70,7 +70,6 @@ FollowerBot:
   LoyalToLeader:
     text:
       - "sry, im already with someone"
-      - {line: "cant, im {PLAYER_NAME}... wait no, im someone else's party lol", emote: 7}
       - "im spoken for! party rules"
       - {line: "ask my party leader, i just follow orders ^^", emote: 2}
       - "loyal to the party, sry"

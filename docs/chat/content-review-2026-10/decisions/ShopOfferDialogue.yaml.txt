@@ -1,0 +1,53 @@
+# AcceptResponse
+R Aight bet. {price} for the {item}. Done. => Aight. {price} for the {item}. Done.  ## "bet" modern
+D Respect the hustle. {price} it is.  ## modern slang
+R Ok bet. Updating to {price}. => Ok kk. Updating to {price}.  ## "bet" modern
+D Say less. {price}. Its done.  ## modern slang
+R Bet. {price}. Grab it quick tho. => Kk. {price}. Grab it quick tho.  ## "bet" modern
+D U a real one for not lowballing. Deal.  ## modern slang
+R yeah ok deal. sending {item} now => yeah ok deal. {item} at {price}  ## bot doesn't send items
+R bet. {price} and we're done => kk. {price} and we're done  ## "bet" modern
+D sold to a good offer. {price} ty  ## garbled
+R yep works. check ur inventory soon => yep works. go grab it  ## player buys from shop
+D ok cool. no hard feelings then  ## wrong context for accept
+D bet you earned it  ## nonsense
+# DeclineResponse
+R Nah fam. Next. => Nah man. Next.  ## "fam" modern
+D That offer aint it chief.  ## modern slang
+D that offer physically pains me. no  ## modern phrasing
+D that offer is not it  ## modern slang
+D lol the audacity of that offer tho  ## modern slang
+D i'm not falling for the lowball lottery  ## generated
+D not selling {item} to settle your grudge  ## nonsense
+D sorry but you're like 5m too short  ## hardcoded amount can be wrong
+D bro {price} is already below market for {item}  ## near-dup
+# CounterResponse: drop lines that never state the counter price
+D gotta go higher than that to make a deal  ## no counter price
+D we're getting there. just need u to come up a bit  ## no counter price
+D need u to come up just a little more  ## no counter price
+D ur close but not quite there yet  ## no counter price
+D just a bit more and we're golden  ## no counter price
+D throw in a few more mesos and we have a deal  ## no counter price
+D you're pushing me to a lower number actually  ## no counter price
+D you're close but not quite there  ## no counter price
+D ok this is taking too long  ## no counter price
+D i'm not in a rush but i'm not infinitely flexible  ## no counter price
+D what if i said this is my minimum  ## no counter price
+D you're pushing me but ok here's my counter  ## no counter price
+D look this is genuinely the best i can offer you  ## no counter price
+D ok your offer made me realize {counter_price} is right  ## awkward
+# KickResponse
+D no means no lol. leaving time  ## tone
+R {player} i said what i said. exit is over there => {player} i already said no. exit is over there  ## modern phrasing
+D sorry {player} but you're not shop material  ## generated
+D not interested in customers who disrespect items  ## generated
+D not wasting more air on you  ## near-dup
+# WelcomeResponse
+U hey glad u stopped by  ## exact duplicate
+D Deals get better if you're buying more than one thing.  ## promises a mechanic that doesn't exist
+D welcome. got bundle deals if ur buying multiple  ## promises a mechanic that doesn't exist
+D Appreciate you stopping in. Lmk if you need anything.  ## retail voice
+D welcome. hope u find what u need  ## retail voice
+D hey glad to have u. check out everything  ## retail voice
+D welcome! lemme know if u have questions  ## retail voice
+D hey welcome. everything's labeled and priced  ## retail voice

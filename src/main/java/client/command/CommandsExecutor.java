@@ -215,6 +215,7 @@ public class CommandsExecutor {
         addCommand("bosshp", BossHpCommand.class);
         addCommand("mobhp", MobHpCommand.class);
         addCommand("roll", RollCommand.class);
+        addCommand("quiet", QuietCommand.class);
 	    addCommand("shop", ShopCommand.class);
        // addCommand("damageskin",  DamageSkinCommand.class);
 	    /*

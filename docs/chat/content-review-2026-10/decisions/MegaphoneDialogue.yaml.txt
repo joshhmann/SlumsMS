@@ -1,0 +1,314 @@
+# D <text> = drop ; R <old> => <new> = rewrite ; reasons after '  ## ' optional
+D its my birthday today and i woke up just to grind. no notes.  ## modern slang
+R its my bday and im still not 120, make it make sense => its my bday and im still not 120, how
+D HBD to my bestie who got me into maple, three years of grinding together <3  ## near-dup of cousin/sister lines
+D its my birthday n i deserve some good exp today periodt  ## modern slang
+D shoutout to everyone who remembered my bday, yall real ones  ## modern slang
+D happy birthday to me!! treat urself king, u earned it  ## modern slang
+D birthday vibes only today, no negativity on my special day  ## modern slang
+D its my birthday n im getting boss drops so this is the best timeline  ## modern
+D happy bday to whoever is reading this, ur special too  ## off-tone
+D welcome to the club, another year added to the grind collection  ## filler
+D happy birthday to my guild fam, lets celebrate with a boss run  ## near-dup
+D shoutout to myself for making it this far, treat yourself  ## off-tone
+D HAPPY BIRTHDAY TO ANYONE BORN IN THIS MONTH, we're elite  ## near-dup of "anyone born today"
+D bday wishes to all my fellow maple addicts out there  ## near-dup
+D happy bday to my maple wife even tho she went offline 30 mins ago T_T  ## near-dup of maple wife x3
+D its my birthday so everyone needs to be extra chill with me today  ## near-dup of "be nice to me"
+D happy bday to me give me fame pls im literally begging  ## near-dup of fame begging
+D bday wish: just more good drops n good company, thats all  ## filler
+D birthday = free exp i think, game logic  ## filler
+D bday smega for my crew, heres to more boss runs together  ## near-dup
+D bday shoutout to my team, couldnt make it without u guys <3  ## near-dup
+D BDAY CAKE AND GRINDING YES PLEASE  ## filler
+D HAPPY BDAY to all my solo grinders out there, u got this  ## off-tone
+D shoutout to younger me who didnt know this game would still own me at this age  ## off-tone
+R HAPPY BIRTHDAY TO ME IM 21 TODAY => HAPPY BIRTHDAY TO ME IM 17 TODAY
+D www.totally-safe-downloads.biz MAPLE HACKS 2024 UNDETECTED  ## modern year
+D BUYING SOULS $1 each @@ accept paypal venmo and rocks  ## modern (venmo)
+D @@@ MESO GENERATOR 2026 just enter ur pin and ssn @@@  ## modern year
+D UNDETECTED BOT 2026 EDITION @@@ works until ban  ## modern year
+D selling chaos scrolls and emotional damage  ## modern meme
+D buying girlfriends 10m each serious offers only  ## off-tone
+D selling my bishop cuz gf said its me or maple lol  ## not RWT, dup of quit lines
+D @@@ REAL NEXON GM here, trading mesos for real $$ hit my dms @@@  ## modern (dms)
+D @@@ NX CODES @ totallylegitcodes.biz @@ certified by my mom and grandma @@  ## too jokey
+D buy mesos from mesokingdom.biz (mom said its ok)  ## too jokey
+D www.maplegold4cheap.biz we accept lunch money and IOUs  ## too jokey
+D @@@ BUY CLEAN SLATES $2 EACH delivered by carrier pigeon @@@  ## too jokey
+D SELLING RARE ITEMS that definitely didnt fall off a truck  ## too jokey
+D SELLING: one (1) piece of my dignity for 50m, open to offers  ## modern meme format
+D @@@@ SELLING MY SOUL and a deputy star. bundle deal. @@@@  ## too jokey
+D DISCOUNT SCROLLS, buying from me is basically a charitable donation, ur welcome  ## not RWT
+D cheap leech cheap mesos cheap dignity @@@@  ## too jokey
+D mesos delivered faster than my homework gets done  ## too jokey
+D FREE MESOS GIVEAWAY stand in fm rm 1 and wait. still waiting. almost there. nope.  ## not RWT
+D POWERLEVELING SERVICE: 1-120 in just 6 months. fee: 500m. results may vary.  ## not RWT
+D www.mapleGMshop.org BUY GM ITEMS directly from the source (source: trust me)  ## modern meme format
+D @@@ SELLING LVL 200 ACCOUNT quitting to play maple on a different account @@@  ## near-dup
+D @@@@ ACCOUNT RECOVERY if urs gets hacked i can fix it for a small fee @@@@  ## dup of account recovery x3
+D @@@ MESO RECOVERY SERVICE just provide account details and we handle the rest @@@  ## dup
+D FREE FAME 4 FAME ch1 fm room 3 lets goo  ## not RWT
+D trade me ur equips ill clean them for free  ## dup of free scrolls scam
+D @@@ ACCOUNT RECOVERY SERVICE if u got banned DM me I can help (cap) @@@  ## modern slang (cap)
+R AUTO BOT UNDETECTED since 2009 @@ probably => AUTO BOT UNDETECTED since 2007 @@ probably
+D UNLIMITED MESOS click here totally not virus link I promise  ## near-dup
+D free items just enter ur password to claim amazing prizes  ## near-dup of FREE NX EVENT password
+D www.freemapleNX.biz CLICK HERE FOR 10000 NX (ask ur parents first)  ## near-dup of free nx
+D 100% success scrolling guide only $2 pdf format  ## filler
+D my luck today is actually illegal wtf  ## modern slang
+D perfect rolled my stats im basically a gm now  ## not a v83 mechanic
+D crafted perfect gear and it worked first try???  ## vague
+D my thief just crit 45k on a snail. respect the drip.  ## modern slang
+D cleared zakum in 12 minutes with my guild. we built different.  ## modern slang
+D just finished every jump quest in the game AMA  ## modern
+D guilds keep trying to recruit me, i just have that energy  ## modern slang
+D broke my own damage record today im literally ascending  ## dup
+R 7/7 scroll SUCCESS on my claw im literally ascended => 7/7 scroll SUCCESS on my claw im shaking
+D got deputy star and 8 people famed me on the spot. the drip does the work.  ## modern slang
+D just got all my boss set pieces clean, the drip is real  ## modern slang
+D 1b mesos saved up in my bank. we actually eating now  ## modern slang
+D got my dream weapon after 3 months of farming, im crying  ## dup
+D hit 200m damage today, the grind is paying off  ## impossible in v83 (199,999 cap)
+D soloed a boss for the first time ever, no deaths ez  ## vague dup
+D guild raid last night was insane, our team is cracked  ## modern slang, not maple
+D my stats are so optimized now, everyone wants advice  ## off-tone
+D hit max attack for my level lets goooo  ## dup
+D my scroll success rate is actually insane this week  ## dup
+D finally finished my set, everything matches perfectly  ## vague
+D cleared my first dungeon with no deaths, we're op  ## not maple
+D my guild just won the tournament, best moment ever  ## not maple
+D got my first legendary item drop today no way  ## not maple (no legendary tier in v83)
+D the amount of mesos ive made this week is criminal  ## filler
+D hit max attack range for my level IM DONE  ## dup
+D my hero just 1-shot mushmom. we are so back  ## modern slang
+D 3 white scrolls from gach in one week call me the luckiest player alive  ## dup
+D 5x scroll pass in a row i am UNSTOPPABLE  ## dup
+D my hero hit 200k damage at zakum today. had to sit down after.  ## impossible (dmg cap 199,999)
+R just hit 50k range... this game is different now => just hit 20k range... this game is different now
+D first time duo bossing and we wiped NOTHING  ## unclear
+D 7% hp left boss clutch CLEARED IT SOLO  ## vague
+D merged two guilds under my leadership. i am a leader of people.  ## off-tone
+D LEVEL 100 AND THE MONTH ISN'T EVEN OVER YET. ahead of schedule.  ## filler
+D 4 CHAOS SCROLL PASSES IN A ROW. someone call the authorities.  ## dup
+D just passed a 30% scroll and im still shaking three hours later  ## dup
+D one tap chaos scroll success im shaking so hard  ## dup
+D FINALLY HIT LEVEL 200 IM SHAKING LETS GOOOOO  ## dup of FINALLY LEVEL 200
+D JUST PASSED EVERY SINGLE SCROLL ON MY GLOVES IM CRYING  ## dup
+D perfect scrolled my wg 10% spam IM CRYING  ## dup
+D just passed all 7 slots on my gloves with 60% scrolls CLEAN 21 ATK  ## dup of 21 atk wg
+D finally got the rare drop after farming for literally 8 hours straight  ## dup
+R finally finished the gen to do list => finally finished my zakum prequest
+D just crafted my first reverse weapon. the stats are BEAUTIFUL  ## dup of reverse lines
+D hit 200m mesos pure savings no merchanting just pure grind  ## dup
+D sold trash equips and somehow made 300m???  ## dup
+D went from broke to 200m in one night insane luck  ## dup
+R got fame 100 milestone shoutout randoms tysm => hit 100 fame today ty to all the randoms
+D maxed my skill build finally feels good man  ## filler
+D found a godly steal in FM im still shaking  ## dup of sniped
+R finally 4th job bishop achieved... support era begins => finally 4th job bishop... time to start zakum runs
+# RandomAnnouncements
+D does anyone actually know how the potential system works or we all guessing  ## post-v83 system
+D new to v83? hmu for beginner tips  ## private-server meta
+D anyone else just log in to hang out in town? no training just vibes  ## modern slang
+D just wanna say gg to everyone who helped with the boss run tonight. yall are real ones.  ## modern slang
+D guild recruitment for chill vibes pm me  ## modern slang / dup
+D server anniversary event when? been waiting  ## private-server meta
+D friendly reminder to back up ur character data regularly  ## nonsense
+D PSA u can hold down the key to auto loot now stop clicking  ## wrong
+D tip: kill the first mob in the bottom left for faster spawns  ## wrong
+D whoever picked up my items at henesys i hope u choke on them  ## mean
+D stop spamming in global chat its annoying  ## no global chat
+D anyone else getting random whispers from lvl 1 accounts? sketchy  ## filler
+D someone just made 2b mesos flipping items, how is that even possible  ## vague
+D the economy shifted again, everyone panic  ## vague
+D MASSIVE event starting in 5 mins, everyone log in  ## false event (now real events exist)
+D did someone just break the game, things are wild right now  ## vague
+D server went down for 2 mins and im still recovering  ## false server claim
+D anyone else feeling extra lucky today or just me  ## filler
+D the drop rate seems insane right now, somethings up  ## false rate claim
+D chat has been insane all night, community is unmatched  ## modern
+D new map discovered? people are talking about it everywhere  ## nonsense
+D someone speedran to 200 in what felt like days  ## nonsense
+D boss spawn rates seem off today in the weirdest way  ## false claim
+D anyone else notice prices changing every few minutes  ## nonsense
+D the lag is unbearable rn, server is at max capacity  ## false server claim
+D server lag is insane, is anyone else DCing???  ## false server claim (dup)
+D server lagging hard again wtf is going on  ## false server claim
+D anyone else dc-ing every 10 minutes today?  ## false server claim
+D the server is gonna go down for maintenance soon  ## false server claim, could confuse players
+D is maintenance happening soon? heard rumors on the forum  ## false server claim
+D anyone else having trouble connecting to ch 3?  ## false server claim
+D shoutout to everyone who helped during the lag spike earlier  ## false server claim
+D server has been super stable all week. whoever is keeping it running: thank you.  ## meta
+D shoutout to the GMs for the awesome event today, that was fun af  ## false event claim
+D watch out there is a giant boss spawned in henesys ch1 lmao run  ## false claim
+D christmas event dropping at midnight get ur snowflake coupons ready  ## false event claim
+D happy halloween everyone! pumpkin pieces dropping everywhere @@  ## seasonal, false any other month
+D happy holidays everyone!! <3  ## seasonal
+D giving away free chaos scrolls first 5 people  ## false giveaway players would chase
+D giving away 10m mesos to first 3 people who pm  ## false giveaway
+D contest: first person to trade me gets 1m mesos  ## false giveaway
+D giving away free pots at henesys ch1  ## false giveaway
+D free pots giveaway at henesys market 1 whoever first  ## false giveaway
+D giving away free common equips at henesys park ch 5 come get it  ## false giveaway
+D new players head to ch1 henesys if u need some starting mesos!  ## false giveaway
+D im quitting for real this time. dropping all my stuff in fm ch13 at midnight  ## false giveaway
+D hosting a hide and seek event in 20 mins, prize is 5m!!  ## false event
+D hosting hide and seek in ludi tonight 10pm prize is 10m  ## false event
+D hosting trivia in henesys park ch1 in 15 mins, first place gets 2m mesos  ## false event
+D drop game happening in henesys park come quick!!  ## false event (drop game bot ads its own)
+D free leech at gobies ch2 come quick before its full  ## dup
+D zakum run starting in 30min at 8pm est whos down  ## dup
+D whoever ks-ing at drakes ch3 better watch ur back  ## dup
+D free carry for orcs anyone under lvl 50  ## dup
+D selling zakum helmets 50m clear guaranteed PM ME  ## belongs in sales
+D WARNING scammer in fm saying free nx dont trust  ## dup
+D the guy in fm rm1 selling clean bathrobes for 500m is insane  ## dup
+D its raining irl so perfect day to grind  ## dup
+D rain outside + maple inside = perfect saturday  ## dup
+D stuck inside cuz of the storm, time to grind all day  ## dup
+D does anyone have an extra minimap for singapore? cant find it anywhere  ## nonsense
+D whoever left a pile of items in el nath thank u for the free money  ## filler
+D found an empty map at wolves today, thought i was dreaming  ## dup
+D anyone else have a map they consider theirs even though maps dont work like that  ## filler
+D can everyone do me a favor and just be nice today. thats it. just be nice.  ## off-tone
+D if u see someone leveling up in town, give them a fame. be the community u want.  ## off-tone
+D can the person playing music at the game zone pls turn it up  ## nonsense
+D the henesys park is the perfect spot to just sit and watch the clouds  ## dup
+R whoever is vaccing at mp3 ur gonna get banned just saying => whoever is vac hacking at mp3 ch 6 ur not fooling anyone
+D whoever is botting at mp3 ch 6 ur not fooling anyone  ## dup
+D stop ks-ing my mobs in sleepywood or im telling mom  ## dup of ksing
+D chaos scroll prices have gone up 30% this week. somethings going on in the market.  ## dup of fm prices
+R LF> people to do jump quests with. moral support only. => LF> people to do the ludi JQ with, moral support only lol
+# SocialMessages
+D maple at 3am hits different  ## modern slang
+D sending good vibes to everyone online  ## modern slang
+D maple hits different when its 2am and everyones just vibing in town  ## modern
+D love the late night community here, no drama just vibes  ## modern
+D summer break grinding with the boys hits different  ## modern
+D i love that we all still play this goofy 2d mushroom game in 2026  ## anachronism
+D anyone else feel nostalgic playing v83 again?  ## private-server meta
+D maple community > most discord servers  ## anachronism (discord)
+D anyone else just vibing in fm watching people  ## modern / dup
+D maple in december hits different. cozy vibes only.  ## modern + seasonal
+D this server has the best vibes ive seen in years  ## modern
+D the fact that we can all vibe together across time zones means everything  ## modern
+D anyone else still here at 2am? we are built different  ## modern
+D everyone online is a real one. no exceptions.  ## modern
+D this game is honestly my therapy  ## therapy x5
+D just logged in after a long day and the stress is already gone. maple therapy is real  ## therapy dup
+D this game is my therapy after a bad day  ## therapy dup
+D this game is basically therapy at this point, my therapist lol  ## therapy dup
+D to my crew: i wouldnt play without you guys, facts  ## modern
+D shoutout to the oGs still holding it down  ## modern
+D to everyone still awake at 5am, ur stronger than ur enemies  ## off-tone
+D the kindness here > any drama i experience elsewhere  ## off-tone
+D maple saved me from isolation, this community is family  ## heavy
+D sometimes this game is the only place i feel like i belong  ## heavy
+D this game saved me during rough times, honestly  ## heavy
+D one day well all log off for the last time and not even know it  ## heavy / modern meme
+D to the people who log in just to say hi to friends: u matter  ## dup
+D shoutout to the people who log in just to say hi and log off. u matter  ## dup
+D grateful for every single person who decided to stick around  ## meta
+D shoutout to everyone who stayed when the server was dead last month  ## meta
+D this server has taught me more about people than real life has  ## heavy
+D im so grateful for this community, seriously the best  ## dup
+D sometimes i just sit and appreciate how good we have it here  ## filler
+D this community is actually legendary honestly  ## dup
+D the maple community is undefeated  ## modern
+D i love this community so much  ## dup
+D just sitting here staring at the screen, i love this community  ## dup
+D shoutout to everyone still awake, we are all in this together lol  ## dup
+D its 5am and im still here what is wrong with me  ## dup
+D its 4am and im scrolling equips while everyone is asleep... pure peace  ## dup
+D should be sleeping but here i am scrolling equips  ## dup
+D if this server ever dies im actually gonna be sad  ## dup
+D i hope this server stays up forever for real  ## dup
+D this game is literally the reason i learned to type fast lol  ## keep? dup-ish
+D maple is the only game where standing in town doing nothing counts as time well spent  ## dup
+D maple is somehow the reason my productivity is both destroyed and inspired at the same time  ## off-tone
+D when the grind gets rough the community carries u through and that means everything  ## off-tone
+D idk man. sometimes this game is just where i need to be.  ## heavy
+D there are some hours of the night where maple is the only thing that makes sense  ## heavy
+D someday ill try to explain to someone why i spent hundreds of hours in this game. itll be hard.  ## off-tone
+D logging in after work is literally the highlight of my day  ## dup
+D best part of my day is logging in and seeing everyone online  ## dup
+D the people here make this game feel like home  ## dup
+D shoutout to my guild yall are the best  ## dup
+D shoutout to the people grinding through the storm with me  ## dup
+D its storming outside so guess im grinding all day  ## dup
+D shoutout to everyone stuck inside cuz of the rain, lets grind  ## dup
+D 3am maple with rain outside... this is the life  ## dup
+D late night maple squad where u at  ## dup
+D late night crew we out here surviving together  ## dup
+D 2am crew checking in. we dont sleep we grind.  ## dup
+D the late night crew is the best crew. no debate.  ## dup
+D the ellinia bgm is literally a lullaby for my soul  ## dup ellinia bgm
+D rainy day + ellinia bgm + grinding = pure bliss  ## dup
+D maple taught me patience more than anything else in life  ## off-tone
+D the friends i made here know me better than most irl people  ## dup
+D maple friends feel more real than irl ones sometimes  ## dup
+D this game has given me more friends than real life  ## dup
+D played this game for 6 years and still love it  ## anachronism (v83 was ~3 yrs into GMS)
+D been playing maple longer than ive been doing anything else in life  ## dup
+R 5 years later and henesys still feels like home => 3 years later and henesys still feels like home
+R if u told 12 yr old me id still be playing this at 20 id believe u => if u told 12 yr old me id still be playing this at 16 id believe u
+R been playing since 2008 and yall still make it fun => been playing since beta and yall still make it fun
+R anyone else remember playing this back in 2007? the nostalgia hurts => anyone else remember maple before pirates came out? the nostalgia hurts
+R shoutout to the random bishop who hs'd me for an hour for free, ur a king => shoutout to the random bishop who hs'd me for an hour for free, ur the best
+D everyone's in henesys right now, its packed  ## false claim
+D found a map with 0 people in it today. felt illegal  ## modern slang
+D i just learned u can sit on benches in henesys. im 5 years late.  ## anachronism
+# ItemSales: retail-ad voice, not a 2008 smega
+D S> best prices on white/blue scrolls this week GUARANTEED  ## retail voice
+D SHOP OWNER RETIRING selling all stock at 30% off FM rm 12  ## retail voice
+D INVENTORY CLEARANCE all 30% scrolls must go by tonight  ## retail voice
+D LIMITED TIME DEAL 70% off select items FM ch1 entrance  ## retail voice
+D brand new stock just posted, check FM rm 8 ch 3 now  ## retail voice
+D S> scrolled sets discounted this week only, hurry  ## retail voice
+D ABSOLUTE LOWEST PRICES on everything, check my shops  ## retail voice
+D S> giveaway prices on scrolls this week, limited quantity  ## retail voice
+D B> gear for all jobs, paying market or above, bulk deals  ## retail voice
+D S> fresh scrolls from merching, underpriced for quick sales  ## retail voice
+D RESTOCK CLEARANCE all merchandise must move this hour  ## retail voice
+D S> vendor reset pricing, everything marked down 20%  ## retail voice
+D S> once in a lifetime deals on reversals and boss gear  ## retail voice
+D S> complete sets for all jobs, priced to move fast  ## retail voice
+D S> old inventory finally selling, steals on everything  ## retail voice
+D S> rare scrolls in FM, come find my shop before they sell out  ## retail voice
+D S> fresh stash of 60% scrolls just arrived FM ch 2 rm 5  ## retail voice
+D S> helm earring and cape scrolls, prices never been lower  ## retail voice
+D B> bulk scrolls any type, paying well, need 50+ scroll sets  ## vague
+D fm room 3 has the best pricing u wont find better today  ## retail voice
+D B> anything good for cheap in FM. i have mesos. pm me literally anything.  ## filler
+D moving sale, need mesos fast, everything underpriced @@ FM  ## dup of clearance
+D LIQUIDATING account, all gear for sale dirt cheap FM now  ## dup of quitting sale
+# GuildRecruitment
+R DarkCrusaders is recruiting!! PQ every night, active discord => DarkCrusaders is recruiting!! PQ every night, we have vent
+R StormBreakers recruiting!! Active discord, weekly zakum, friendly community => StormBreakers recruiting!! weekly zakum, friendly community, check our forums
+R join Epoch! we have guild house, discord, and actual chill vibes => join Epoch! we have a guild site and a vent server, pm for info
+R <Verdant> laid back, no drama, just vibes and maple, all levels => <Verdant> laid back, no drama, just maple, all levels
+D <StarlitPath> night player guild, chill vibes, 4x+ preferred but not required  ## modern slang
+D <Sable> small guild with tight-knit vibes, 5x+ and active preferred  ## modern slang
+D Sanctuary guild LF people to grind with, no pressure just vibes  ## modern slang
+D join Apex! we do karaoke nights and boss runs every weekend  ## off-tone
+D <Zephyr> semi-casual guild with actual active members, no ghost accounts  ## filler
+D <Pulse> guild LF people who want to be part of something, not just members  ## corporate voice
+D looking for a home? Whimsy guild is chill and inclusive, no elitists allowed  ## modern voice
+D join Haven! cozy guild with no toxic people allowed, period  ## modern voice
+D <Zenith> recruiting 4th job ready, end game focus, apply asap  ## dup name
+D <Nexus> guild is looking for active players any level  ## dup name
+D <Prism> guild seeking active players, boss runs every friday  ## dup name
+D <Helix> recruiting anyone who can log regularly, that's literally it  ## filler
+D looking for guild home? Orbit has room and actual cool leadership  ## filler
+D looking for guild? Rhythm has spots, just be cool with us  ## filler
+D looking to join a guild? Dynasty has slots open now  ## filler
+D <Echo> guild is hiring, we value fun over elitism, all welcome  ## corporate voice
+D <Nova> guild starting fresh, founding members get cool perks come join  ## dup of founding members
+D Harmony guild recruiting, we actually help each other unlike other guilds  ## filler
+D <Bastion> LF dedicated grinders, we track progress and push together  ## corporate voice
+D <Titan> RECRUITING 4th jobs and 3rd job advancement, boss squad forming  ## garbled
+D join Nexus! we have cool events and actually talk to each other  ## filler
+D join Lumina! small but tight crew, perfect for making friends  ## filler
+D looking for a guild? Cipher has room for you, active 24/7  ## filler

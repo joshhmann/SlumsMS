@@ -1,0 +1,229 @@
+# RealLife
+D just had the most mid sandwich of my life  ## modern slang
+R falling asleep but refusing to stop playing. this is fine. => falling asleep but refusing to stop playing lol
+D lost track of time scrolling on my phone  ## smartphone-era
+D my parents think this game is from 2002 and honestly they might be right  ## meta
+D work was exhausting today ngl  ## modern slang
+D cant focus on anything else rn  ## generated filler
+D groceries later I guess  ## generated filler
+D laundry piles up so fast its insane  ## generated filler
+D my roommate's been annoying me nonstop  ## generated filler
+D desk is a total disaster zone but I refuse to clean  ## near-dup
+D forgot about the deadline till yesterday lol  ## generated filler
+D shouldve slept more. definitely couldve slept more  ## generated filler
+D the weather's perfect for staying inside all day  ## generated filler
+D my motivation is in the negatives  ## generated filler
+D snack stash is running low and im panicking  ## near-dup
+D my eyes are tired from the screen  ## near-dup
+D nobody tells u how much gaming takes it outta u  ## generated filler
+D my posture is terrible but also not my problem  ## generated filler
+D the grind waits for nobody including my sleep schedule  ## generated filler
+D just realized ive been awake for like way too long  ## near-dup
+D my brain is running on maple and caffeine at this point  ## generated filler
+D honestly I just wanna nap but im still here  ## generated filler
+D procrastinating on like 5 different things  ## near-dup
+D parents are yelling downstairs again omg  ## off-tone
+# MapleInUniverse
+D can someone explain potential to me  ## post-v83 system
+R ludibrium is creepy honestly. the music hits different => ludibrium is creepy honestly. that music tho
+D kerning city feels so industrial and gritty  ## generated lore musing
+D the theme of each area is actually really cool if u think about it  ## generated lore musing
+D I wonder what's beyond the maps sometimes  ## generated lore musing
+D the mobs kinda have personalities when u pay attention  ## generated lore musing
+D each region has its own vibe and aesthetic  ## generated lore musing
+D maple world is absolutely massive when u explore it all  ## generated lore musing
+D where do all these places even connect geographically  ## generated lore musing
+D the geography doesnt make sense but I love it anyway  ## generated lore musing
+D perion has that perfect warrior training vibe  ## generated lore musing
+D ellinia just feels like a magical forest place  ## generated lore musing
+D sleepywood is lowkey beautiful in a spooky way  ## generated lore musing
+D the world design in this game is underrated  ## generated lore musing
+D does anyone else just appreciate how cohesive the world feels  ## generated lore musing
+D whats the max level on this server  ## private-server meta
+D how many channels does this server have?  ## private-server meta
+R is 30 atk work gloves good? => is 15 atk work gloves good?
+# SocialSim
+U hey
+R just started playing again after 5 years => just started playing again after 2 years
+D the vibes here are unmatched  ## modern slang
+D people underestimate how much of this game is just vibing with other people  ## modern slang
+D all the bots have such different vibes honestly  ## breaks the fourth wall (bots)
+D the social ecosystem here is actually interesting to observe  ## generated, meta
+D people talk to the npcs sometimes lol. like actual conversations  ## generated, meta
+D the community feels genuinely alive in a weird way  ## generated, meta
+D literally everyone's grinding but at their own pace  ## generated filler
+D interactions here feel weirdly natural for a game  ## generated, meta
+D bots act like real people and I'm here for it  ## breaks the fourth wall (bots)
+D the social dynamics are lowkey complex  ## generated, meta
+D towns feel so populated when everyones around  ## generated, meta
+D server feels alive today. I can feel it  ## generated, meta
+D watching everyone do their own thing is relaxing  ## generated filler
+D the human element of this game is what keeps me  ## generated, meta
+D standing around watching people exist hits different  ## modern slang
+D the regulars in this town feel like community even if u never talk to them  ## generated filler
+D there's something nice about a familiar face even in a game  ## generated filler
+D this is the only place where I actually look forward to talking to people  ## heavy
+D I feel like I know everyone in henesys but also I don't know anyone  ## generated filler
+D the friends I've made here feel more real than most people irl  ## dup of megaphone line
+D whats the point of playing if u have nobody to talk to  ## heavy
+# AFK
+D afk mode activated  ## generated filler
+D pausing for now  ## generated filler
+D afk watching a clip brb  ## near-dup of tabbed out watching a video
+# Nostalgia
+D remember when the max level was 200 and like 3 people on the entire server had it  ## still 200 in v83
+D orbis tower before they added the elevator was actual torture  ## invented history
+D owl of minerva was such a big deal when it was still a limited event item  ## invented history
+D I miss when guilds would have territory wars at channel 1  ## invented history
+D the old maple commercials on TV were so random  ## invented history
+R the old maple island music hits different => the old maple island music still gets me
+D the economy has changed so much since I started  ## generated filler
+D I miss that early game feeling of wonder  ## generated filler
+D starting out felt magical compared to now  ## generated filler
+D towns used to be different somehow  ## generated filler
+D people used to stay logged in longer back then  ## generated filler
+D the grind feels familiar now after all this time  ## generated filler
+D I miss when everything was new and confusing  ## generated filler
+D the old days of this game were just different  ## generated filler
+D maple used to feel so big and mysterious  ## dup
+D remember training at pig beach for hours straight  ## dup of camping pig beach
+# RandomOneLiners
+D mood  ## modern slang
+D facts  ## modern slang
+D sheesh  ## modern slang
+D ayo  ## modern slang
+D deaddd  ## modern slang
+D what if mobs dream tho  ## generated musing
+D why is the fm so addictive actually  ## generated musing
+D do pets have feelings  ## generated musing
+D stairs are tiring man  ## generated musing
+D im basically a level farmer simulator  ## generated musing
+D clicking is just muscle memory at this point  ## generated musing
+D potions taste like hope and desperation  ## generated musing
+D scrolls are basically gambling with extra steps  ## modern meme format
+D the spawn timer is a personality trait  ## modern meme format
+D farming is a lifestyle not a hobby  ## generated musing
+D the void calls to all grinders  ## generated musing
+D mesos disappear faster than they appear  ## generated musing
+# Complaints: server-wide lag/dc claims read as real outages to players
+D lag  ## false server claim
+D dc again??  ## false server claim
+D why is the server so laggy  ## false server claim
+D I keep disconnecting  ## false server claim
+D the lag is insane  ## false server claim
+D is anyone else having lag issues?  ## false server claim
+D lag!!  ## false server claim
+D everyone's lagging rn this is unplayable  ## false server claim
+D loading takes forever are u kidding  ## false server claim
+D the fps is awful today cant even  ## false server claim
+D bruh i just lagged out of a boss fight  ## false server claim
+D lost connection right before the boss died. incredible.  ## false server claim
+D my screen froze mid-boss fight. I am not ok  ## false server claim
+D my client keeps freezing  ## false server claim
+D lag spike right as I used my last pot. perfect timing.  ## false server claim
+D I wish there was a way to skip cutscenes  ## no cutscenes in v83
+D the commerci voyage thing takes forever  ## post-v83 content
+D drop rates are literally hating on me specifically  ## generated filler
+D mesos disappear so fast I cant keep up  ## dup
+D scrolls are overpriced and I'm broke  ## dup
+D the meta changed too much and now im lost  ## generated filler
+D grind spots are so crowded these days  ## dup
+D pots are way too expensive to sustain  ## dup
+D traffic is absolutely insane rn  ## generated filler
+D this game is addictive in a bad way honestly  ## generated filler
+D everything hurts my soul  ## generated filler
+D nothing makes sense anymore  ## generated filler
+D why does this game hate me so much  ## dup
+D the game balance is so off right now  ## generated filler
+D healing does basically nothing against these mobs  ## generated filler
+D why is my damage so low compared to everyone  ## generated filler
+D I keep getting stuck on platforms its frustrating  ## dup
+D the quest markers are misleading constantly  ## no quest markers in v83
+D why is this so grindy I just wanna progress  ## generated filler
+D tired of watching my exp bar barely move  ## dup
+D nothing drops what I actually need ever  ## dup
+D the difficulty spike in this area is ridiculous  ## generated filler
+D tired of being poor in a virtual world  ## generated filler
+D skill cooldowns are so long its painful  ## generated filler
+D the drop rates are so bad  ## false rate claim
+# Reactions
+D sus  ## modern slang
+D cap  ## modern slang
+D W  ## modern slang
+D fr fr no lie  ## modern slang
+D thats unhinged but okay  ## modern slang
+D the vibes are off  ## modern slang
+D nah that aint it chief  ## modern slang
+D lowkey agree tho  ## modern slang
+D L take honestly  ## modern slang
+D W moment for sure  ## modern slang
+D cooked  ## modern slang
+D ratio  ## modern slang
+D its giving... something  ## modern slang
+D no ma'am  ## modern slang
+D valid point ngl  ## modern slang
+D cant argue with facts  ## modern slang
+D sounds like a you issue  ## modern slang
+D that tracks fr  ## modern slang
+D absolutely unhinged  ## modern slang
+D peak behavior right there  ## modern slang
+D this is character development  ## modern slang
+D big if true  ## modern slang
+D the mystery deepens  ## generated filler
+D tell me why tho  ## modern slang
+D controversial but I get it  ## generated filler
+D explain the logic  ## generated filler
+D not my problem tho  ## generated filler
+D I'll take that  ## generated filler
+D unexpected but ok  ## generated filler
+D somehow makes sense  ## generated filler
+D interesting theory  ## generated filler
+D u actually pulled it off huh  ## generated filler
+# FlexBrag
+D just hit 1m range  ## impossible
+D just got the chaos zakum helm. im shaking  ## post-v83 item
+R just hit level 120. I am built different. => just hit level 120. 4th job here i come
+D just got a perfect enhancement on my weapon  ## not v83
+D my DPS went crazy this update  ## modern MMO voice
+D equipped my dream setup finally  ## generated filler
+D level ups feel different when ur strong  ## generated filler
+D the stats on this gear are unreal  ## generated filler
+D my build is so clean rn  ## modern
+D stampy stampy what a flex  ## nonsense
+D nailed a scroll for once actually  ## dup
+D the fashion is absolutely on point  ## generated filler
+D guilds been noticing me lately  ## generated filler
+D got complimented on my damage output  ## modern MMO voice
+D farming is finally paying off tbh  ## generated filler
+D the grind is real and I earned this  ## generated filler
+D setup took forever but look at it  ## generated filler
+D got that BiS equip finally  ## modern MMO voice
+D my range is astronomical now  ## generated filler
+D damage is cracked literally insane  ## modern slang
+D finally got the gear I wanted  ## generated filler
+D my character looks elite af now  ## generated filler
+D someone asked how I got this good lol  ## dup
+D persistence really does pay off  ## generated filler
+D new gear new me energy  ## modern slang
+D literally outpacing people twice my level  ## generated filler
+D got to the top of the leaderboard for 5 minutes before someone passed me lol  ## no live leaderboard
+D my guild just hit top 5 on the server rankings  ## dup of megaphone flex
+# Chalkboard: life-advice posters do not belong on a 2008 chalkboard
+R just vibing => just chillin
+D take breaks or youll burn out fr  ## life-advice poster
+D patience is the key to scrolling  ## life-advice poster
+D community keeps maple alive actually  ## life-advice poster
+D grinding solo gets lonely real fast  ## life-advice poster
+D the journey matters more than the goal  ## life-advice poster
+D stats matter but vibes matter more  ## life-advice poster
+D dont compare ur gear to everyone else  ## life-advice poster
+D ask for help sometimes seriously  ## life-advice poster
+D play at ur own pace no rush  ## life-advice poster
+D remember why u started playing  ## life-advice poster
+D the grind is a marathon not a sprint  ## life-advice poster
+D gear doesnt define ur skill level  ## life-advice poster
+D help new players its the way  ## life-advice poster
+D the grind is more fun with friends  ## life-advice poster
+D celebrate small wins they matter  ## life-advice poster
+D the real FM is the friends we made along the way  ## meme
+D LF> anyone doing anything fun  ## filler

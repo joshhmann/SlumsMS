@@ -27,14 +27,13 @@ HenesysBot:
       - "wait do I know you?"
       - "wb"
       - "been a while since ive seen someone here"
-      - "henesys best town dont @ me"
+      - "henesys best town no contest"
       - "oops wrong map"
       - "thought i saw someone i knew"
       - "watcha doin here"
       - "oh its you again lol"
       - "wait were u just at the FM?"
       - "did u see that guy with the pink cape earlier"
-      - "somebody was giving away pots near the shop"
       - "I swear this town gets more crowded every day"
       - "just came back from orbis... never again"
       - "anyone know where the hair salon NPC is?"
@@ -55,23 +54,20 @@ HenesysBot:
       - "whoa"
       - "o/"
       - "yo nice hat"
-      - "where is everybody today"
       - "..."
       - "excuse me coming through"
       - "the NPCs here are so chill"
       - "good morning henesys"
-      - "henesys at night is a whole different vibe"
+      - "henesys at night looks so cool"
       - "just noticed the mushrooms have little faces on them. cute"
       - "I always end up back here no matter where I go"
       - "this town is basically my characters home address at this point"
       - "every time I pass the market I think about going in but I know I'll spend everything"
       - "saw a guy running back and forth between portals for like 5 minutes. we've all been there"
-      - "someone just walked by with full zhelm set. goals"
-      - "henesys really does hit different on a chill day"
+      - "someone just walked by with a zhelm. goals"
       - "ugh I keep running out of potions at the worst time"
       - "has anyone else noticed how many people are afk in this map"
       - "almost walked into that portal by accident again"
-      - "this channel feels emptier than usual"
       - "guy just traded me and then defamed me. classic"
       - "waiting for my friend to log on is like a full time job"
       - "ok I actually have no idea what I'm doing today"
@@ -89,7 +85,7 @@ HenesysBot:
       - {line: "that {PLAYER_GEAR} looks expensiveeee", emote: 11}
       - {line: "all that {PLAYER_NX} and u still hang out in henesys. respect", emote: 3}
       - {line: "wait {PLAYER_NAME} u play {PLAYER_JOB}? nice", emote: 2}
-      - {line: "ur {PLAYER_WEAPON} looks scrolled. how many stars did u get on that", emote: 11}
+      - {line: "ur {PLAYER_WEAPON} looks scrolled. how many slots did u pass", emote: 11}
       - {line: "{PLAYER_LEVEL} already? u been grinding", emote: 2}
       - {line: "that {PLAYER_GEAR} tho... where did u get it", emote: 11}
       - {line: "{PLAYER_PET} is following u so loyally lol", emote: 2}
@@ -108,7 +104,6 @@ HenesysBot:
       - "wait which channel is this"
       - "another day another 0 mesos gained"
       - "i have been WAITING for someone to talk to"
-      - "oh cool another person. maybe henesys isnt dead after all"
       - "u ever just forget what u logged on to do"
       - "i should be training but henesys is too comfy"
       - {line: "yo {PLAYER_NAME} u just get here?", emote: 0}
@@ -117,7 +112,7 @@ HenesysBot:
       - {line: "wait is {PLAYER_PET} looking at me", emote: 6}
       - {line: "{PLAYER_GUILD} is everywhere today lol", emote: 0}
       - {line: "how much was that {PLAYER_NX}? asking for a friend", emote: 3}
-      - {line: "that {PLAYER_GEAR} goes hard", emote: 2}
+      - {line: "that {PLAYER_GEAR} is sick", emote: 2}
       - {line: "a {PLAYER_JOB} with a {PLAYER_WEAPON}? thats a setup", emote: 3}
       - {line: "ok but {PLAYER_NAME} ur outfit is actually clean", emote: 2}
       - {line: "{PLAYER_FAME} fame... i wonder what i have lol", emote: 6}
@@ -128,27 +123,20 @@ HenesysBot:
       - {line: "ok that {PLAYER_NX} is making me wanna go NX shopping", emote: [3, 7]}
       - "look who decided to show up"
       - "ur timing is impeccable lol"
-      - "oh interesting. a visitor."
       - "henesys welcomes u or whatever"
       - "i was just about to leave. weird timing"
-      - "another soul drawn to henesys. makes sense honestly"
       - "i feel like I recognize ur face or something"
-      - "ohhh a real live human. hi"
       - "yep still here. still me."
       - "oh. ur one of those quiet walkers huh"
       - "I dont usually let people stand this close to my spot. just saying"
-      - "henesys has that effect on people. pulls them back."
       - "u always just appear out of nowhere like that?"
-      - "dont mind me im just standing here being the highlight of this town"
       - "wait that outfit is actually interesting"
-      - "henesys chapter 1 still going strong"
       - "u look like u just came from the tutorial. welcome to the real game lol"
       - "oh hey didnt see u there"
       - "wait ur not from around here are u"
-      - "every new face in henesys passes through this spot eventually"
       - {line: "{PLAYER_NAME} in the flesh", emote: 2}
       - {line: "wait {PLAYER_FAME} fame? who have u been defaming lol", emote: 3}
-      - {line: "ur {PLAYER_JOB} always end up here eventually", emote: 0}
+      - {line: "{PLAYER_JOB}s always end up here eventually", emote: 0}
       - {line: "hey {PLAYER_NAME} staying for a bit?", emote: 0}
       - {line: "ooh a {PLAYER_JOB}. havent seen one of those in a while", emote: 2}
       - {line: "{PLAYER_WEAPON} and everything. looking ready", emote: 2}
@@ -162,14 +150,12 @@ HenesysBot:
       - "ur here at a good time honestly"
       - {line: "{PLAYER_NAME} the legend. still playing i see", emote: 2}
       - "oh cool someone else who doesnt know where theyre going lol"
-      - "that {PLAYER_GEAR} has to cost a fortune"
       - {line: "oh hey did we party once or am i trippin", emote: 6}
       - {line: "your {PLAYER_WEAPON} puts mine to shame", emote: 4}
       - "just saw u earlier in like 3 different channels"
       - {line: "{PLAYER_JOB} too huh. nice to see more of us around", emote: 2}
       - "oh is someone finally selling something good"
       - {line: "wait lvl {PLAYER_LEVEL}? thats wild", emote: 2}
-      - {line: "your {PLAYER_NX} is making me wanna check my wallet", emote: 6}
       - "oh another familiar face"
       - {line: "i think {PLAYER_GUILD} was recruiting the other day", emote: 0}
       - "henesys getting crowded. not that im complaining"
@@ -177,14 +163,12 @@ HenesysBot:
       - {line: "walk slower i cant admire ur outfit at this speed", emote: 2}
       - "ok ive seen u around enough times to recognize ur outfit"
       - {line: "that {PLAYER_WEAPON} looks fresh. just get it scrolled?", emote: 2}
-      - {line: "{PLAYER_FAME} fame? u been defaming people or getting defamed lol", emote: 5}
       - "oh henesys is where all the cool kids hang apparently"
       - {line: "wait {PLAYER_NAME} ur still here? its been like hours", emote: 6}
       - {line: "a {PLAYER_PET}. everything about ur setup is matching", emote: 2}
       - {line: "{PLAYER_JOB} with that gear. someone's been doing quests", emote: 0}
-      - "oh neat another person who found henesys"
       - {line: "ur {PLAYER_LEVEL} and already look this geared up. goals honestly", emote: 2}
-      - {line: "that {PLAYER_NX} fit is clean. respect", emote: 3}
+      - {line: "that {PLAYER_NX} outfit is clean. respect", emote: 3}
     emote:
       - 0
       - 2
@@ -198,7 +182,7 @@ HenesysBot:
       - "where was that NPC again"
       - "I keep getting lost in this town"
       - "henesys is so chill"
-      - "just vibing"
+      - "just chillin"
       - "taking a walk"
       - "exploring a bit"
       - "maybe I should head to the FM"
@@ -216,14 +200,10 @@ HenesysBot:
       - "is the taxi always this expensive"
       - "I feel like ive been walking in circles"
       - "how do people navigate this town so fast"
-      - "there used to be way more people on this path"
       - "just trying to find the beauty parlor honestly"
       - "every time I come here I find a new NPC I never noticed"
       - "the trees in henesys are so pretty"
-      - "wait is that a hidden portal or am I tripping"
-      - "someone told me theres a secret area near the park"
       - "imagine living in henesys irl tho. rent would be insane"
-      - "the squirrels here are so chill compared to the ones in perion"
       - "I always forget where Pia is... the storage NPC"
       - "man the walk from henesys to ellinia is kinda long"
       - "wish they had a mount I could use in town"
@@ -235,13 +215,10 @@ HenesysBot:
       - "just walking around. no agenda."
       - "I like how quiet it gets on this side of town"
       - "whos that NPC over there? never talked to them before"
-      - "the further you walk from the center the less people there are"
       - "sometimes I just walk the whole map border for fun. dont judge me"
-      - "theres something calming about the footstep sounds on the henesys ground"
       - "oh I passed the potion shop again. should I grab more? ...nah"
       - "alright which way is the market again"
       - "I always forget the shortcut to the park"
-      - "its so quiet on this side of town"
       - "maybe I should stop and look at the minimap lol"
       - "I think the hair shop is this way... maybe"
       - "ok ok I definitely know where I'm going now"
@@ -262,7 +239,6 @@ HenesysBot:
       - "is the storage this way or am I wrong again"
       - "I need like a minimap that actually helps lol"
       - "the mushroom fields are that way I think. nope"
-      - "ugh passed the wrong map entrance again"
       - "every time I visit {REGION} I forget how different it feels from henesys"
       - "going to {REGION} soon. need to restock first"
       - "I heard {REGION} has been pretty active lately"
@@ -282,19 +258,16 @@ HenesysBot:
       - "henesys market or FM... decisions decisions"
       - "nobody even knows this side of town exists"
       - "i keep forgetting to buy arrows"
-      - "so quiet today"
       - "why am i always broke in this game"
       - "wonder if {REGION} is crowded right now"
       - "might stop by {REGION} later"
       - "the walk to {REGION} is kinda nice actually"
-      - "i heard {REGION} is dead today"
       - "should i go to {REGION} or stay here. hmm"
       - "{REGION} always feels so far away when ur walking"
       - "last time i went to {REGION} i got KSed immediately"
       - "i bet {REGION} has better deals at the market"
       - "people say {REGION} is the best town but they havent been to henesys"
       - "thinking about heading to {REGION} after this"
-      - "do people still hang out at {REGION}"
       - "i miss {REGION} sometimes"
       - "{REGION} people are different. cant explain it"
       - "my friend said {REGION} is where all the strong players go"
@@ -305,7 +278,6 @@ HenesysBot:
       - "ugh I passed the same bench twice"
       - "I KNOW this town. I just temporarily forget the layout"
       - "gonna pretend I know exactly where I'm going"
-      - "wandering has become a personality trait at this point"
       - "maybe the storage NPC moved. thats my excuse"
       - "ok henesys. u win. I'm lost again."
       - "just taking in the scenery. definitely not lost."
@@ -321,23 +293,16 @@ HenesysBot:
       - "alright brain. focus. destination. ...nothing."
       - "I have been lapping this town for longer than I care to admit"
       - "somewhere on this map there is my destination. I'll find it."
-      - "u ever just walk through a town and feel like time stopped? thats henesys"
       - "this is a good spot. gonna stay here a sec."
       - "ok north or south. north. definitely north. ...south."
       - "i keep telling myself i'll visit {REGION} more. and then I never do"
       - "wonder if the market prices are different over in {REGION}"
-      - "i heard strong players have been moving to {REGION} lately"
-      - "does anyone even grind near {REGION} anymore"
       - "bet nobody wanders aimlessly in {REGION} like this"
       - "ok im officially lost. this is permanent now."
       - "the path splits here and i still dont know which way"
       - "wonder if {REGION} has a park like henesys does"
-      - "walking in circles has become an art form at this point"
       - "i should get a map. or actually look at the one i have."
       - "do do dooo~ (this is my theme song apparently)"
-      - "henesys is just like. always here. u know?"
-      - "the mushrooms in henesys are like. a comfort thing now"
-      - "thinking about what {REGION} would be like right now"
       - "ok focus brain. find something interesting."
       - "the park has been calling me. maybe ill actually go."
       - "people say henesys is boring but like. is it tho"
@@ -349,13 +314,10 @@ HenesysBot:
       - "ok which direction feels right. ima go that way."
       - "the potion shop lady definitely knows me at this point"
       - "taking my time before i head to {REGION}"
-      - "henesys vibes different depending on the time of day honestly"
       - "is it weird that i know every corner of this town"
       - "maybe ill check out {REGION} sooner than i thought"
-      - "the breeze through henesys hits different"
       - "ok no more thinking. just walking."
       - "im either making progress or walking backwards cant tell anymore"
-      - "the walk is more important than the destination sometimes"
       - "{REGION} is cool but like. henesys is home"
     emote:
       - 0
@@ -392,7 +354,6 @@ HenesysBot:
       - "e_e"
       - "\\o/"
       - "('w')"
-      - "wew"
       - "orz"
       - "lololol"
       - "B)"
@@ -401,7 +362,6 @@ HenesysBot:
       - "hm~"
       - "o_o;"
       - ":D"
-      - "ayy"
       - "kekeke"
       - "^_~"
       - ":P"
@@ -430,7 +390,6 @@ HenesysBot:
       - "o7"
       - "hahaha"
       - "nice"
-      - "uwu"
       - "(^_^)"
       - "(*^_^*)"
       - ">.<"
@@ -439,9 +398,7 @@ HenesysBot:
       - "c:"
       - "^~^"
       - "m(_ _)m"
-      - "(owo)"
       - ":-)"
-      - "xdd"
       - "hm hm"
       - "woah"
       - "heyyy"
@@ -474,7 +431,6 @@ HenesysBot:
       - ";-;"
       - "waaaa"
       - "omggg"
-      - "yaaas"
       - "*slow clap*"
       - "lololololol"
       - ":/"
@@ -482,11 +438,9 @@ HenesysBot:
       - "hehe nice"
       - "cmon"
       - "wtf xD"
-      - "bruh"
       - ":')"
       - "tehe~"
       - "...ok then"
-      - "yeet"
       - ";D"
       - "nyahahaha"
     emote:
@@ -532,7 +486,7 @@ HenesysBot:
       - "going to the FM, pray for my wallet"
       - "heading to {MAP}, cya"
       - "gotta check something at {MAP} real quick"
-      - "someone told me {MAP} has good drops today. gonna see"
+      - "heard {MAP} is good exp. gonna see"
       - "off to {MAP}, wish me luck"
       - "havent been to {MAP} in a while. time to change that"
       - "ok actually gonna move now"
@@ -545,7 +499,7 @@ HenesysBot:
       - "off to do some quests, been neglecting them"
       - "time to actually level up for once"
       - "gonna go check if my merchant sold anything"
-      - "someone said ch1 market is popping off"
+      - "someone said ch1 FM is packed"
       - "gotta go. my storage is full and its stressing me out"
       - "gonna go farm a bit. mesos dont grow on trees"
       - "alright henesys I'll be back"
@@ -570,15 +524,11 @@ HenesysBot:
       - "{MAP} or bust"
       - "gonna see if {MAP} is any good"
       - "anyone wanna come to {MAP}? no? ok"
-      - "ok bye everyone. all zero of u lol"
-      - "I DECLARE this is finally my time to leave"
       - "wandered long enough. time to be productive"
-      - "the road calls. or whatever"
       - "gotta go. probably shouldnt have stayed this long"
       - "alright I have overstayed my welcome in this map"
       - "ok this is me leaving. for real this time. I'm serious."
       - "heading out. henesys will be fine without me. probably."
-      - "off to {MAP}, dont wait up"
       - "gonna go check {MAP} for a bit"
       - "time to try {MAP}"
       - "{MAP} here I come. ready or not."
@@ -589,7 +539,5 @@ HenesysBot:
       - "ok my brain has officially checked out. time to move"
       - "heading to {MAP} to actually do something productive"
       - "gotta go. my legs are tired from walking in circles"
-      - "ok im actually moving now. for real this time."
-      - "off to {MAP}. wish me luck"
     emote: 0
     wait: 1

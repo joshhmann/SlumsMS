@@ -1,0 +1,5 @@
+R nice climb to {PLAYER_LEVEL} => lv {PLAYER_LEVEL} gz  ## awkward
+D been quiet in {MAP} today  ## empty-town
+D nice and quiet here  ## empty-town
+D where is everyone  ## empty-town
+R think I'll head over the way => think ill head over that way  ## broken phrase

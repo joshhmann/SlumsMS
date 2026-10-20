@@ -1,0 +1,417 @@
+# TrainingBotDialogue.yaml decisions
+# --- GrindAmbient
+R no one online this late, peaceful => no one in this map this late, peaceful  ## server population claim
+D this hit different tho  ## modern slang
+D just my keyboard and mobs soundtracking my life  ## filler
+D {MAP} just feels safe right now  ## filler
+D whatever.  ## random filler
+D kind of just stuck in autopilot at this point  ## near-dup autopilot
+D autopilot mode but make it productive  ## "X but make it Y"
+D the mobs keep coming and so do i  ## innuendo
+D every pull the same, kinda comforting honestly  ## filler
+D nothing like late night grinding to clear ur head  ## filler
+D feels like ive been here forever and i kinda love it  ## filler
+D the grind never stops and neither do i  ## filler
+D mesos slowly piling up, this is the way  ## modern meme, dup
+D quietly becoming the best player no one notices  ## filler
+D {MAP} this late is actually so peaceful  ## near-dup
+D the {MOB} spawn is so consistent here i love it  ## near-dup
+D the {MOB} respawn timer is music to my ears  ## near-dup
+D pretty sure {MOB} know my schedule at this point  ## near-dup
+D these {MOB} know my rhythm better than i do  ## near-dup
+D farming {MOB} in my sleep at this point  ## near-dup
+D could do this with my eyes closed honestly  ## near-dup
+D {DROP} better drop tonight or im taking it personally  ## near-dup
+D {MAP} has become part of my identity lol  ## filler
+D {MOB} go down smooth when im in the zone  ## near-dup
+D something about grinding solo just hits different sometimes  ## modern slang
+D the hours blend together when ur in the zone  ## filler
+R head kinda empty just vibes and mobs => head kinda empty just mobs n bgm  ## vibes
+R {DROP} rate has been blessing me all day => {DROP}s been dropping all day, lucky  ## phrasing
+D nothing but grinding and vibes this whole session  ## vibes filler
+D lost in the grind is my natural state  ## filler
+D {MOB} and me against the world  ## filler
+D the flow state is real and im in it  ## filler
+D every {DROP} feels like a little victory  ## filler
+D grinding is my love language apparently  ## modern phrase
+D these {MOB} are predictable but comforting  ## filler
+D the {MAP} vibe at this hour is unmatched  ## vibe filler
+D my fingers know the patterns without thinking  ## filler
+D {DROP} just dropped mid-thought and made me smile  ## filler
+D completely zoned in and its perfect  ## filler
+D could stay in {MAP} forever honestly  ## filler
+D grinding hits the spot every single time  ## filler
+D {MOB} spawn timing feels like a friend at this point  ## filler
+# --- GrindStart
+D wave 1 lets see  ## no waves in v83 grinding
+D time to make {MOB} very unhappy  ## near-dup
+D time to make {MOB} regret everything  ## near-dup
+D ok lets go, no distractions this time i mean it  ## near-dup
+D charging into {MOB}, no hesitation  ## filler
+D fresh session at {MAP}, lets see what today brings ^^  ## filler
+D ready to grind, mind is clear, pots are full  ## filler
+D energy is up, exp is calling, lets go  ## filler
+D {MOB} better watch out, im focused today  ## filler
+D starting strong, gonna level hard this session  ## filler
+D fresh mindset, peak grinding hours ahead  ## filler
+D {MAP} is calling and im answering ^^  ## filler
+D ready to dominate this grind session  ## filler
+D lets farm {MOB} and get these levels  ## dup
+D fired up, focused, and ready for exp  ## filler
+# --- LevelUp
+R ooh new level just dropped => ooh new level hehe  ## "just dropped" meme
+D hitting {LEVEL} at 3am alone feels kinda poetic  ## melancholy filler
+D new level new me (same grind)  ## dup
+D another level another chance to get better at {LEVEL}  ## nonsense
+D {LEVEL} achieved, feels amazing  ## achievement voice
+D ding! level {LEVEL} has been achieved  ## achievement voice
+D level {LEVEL} and looking good  ## filler
+D level {LEVEL} is where im at now, feeling strong  ## filler
+R level {LEVEL} im flying through these levels => lvl {LEVEL}, flying thru these levels lol  ## phrasing
+D level {LEVEL} baby, thats another one in the books  ## near-dup
+D level {LEVEL} and the grind resets like always  ## near-dup
+# --- Damage
+R barely noticed, totally fine, this is fine => barely noticed, totally fine lol  ## "this is fine" meme
+D my hp bar is a suggestion at this point  ## modern phrasing
+R just got clapped by {MOB} and im choosing to pretend it didnt happen => just got pwned by {MOB} and im gonna pretend it didnt happen  ## clapped
+D brb having a moment about my hp  ## modern phrasing
+D {MOB} caught me off guard honestly  ## near-dup
+D oops walked into {MOB} attack radius  ## jargon
+D took a hit, now im healing up  ## filler
+D fell down, need to be more careful  ## filler
+D damage taken, moving on  ## robotic
+D {MOB} hitting harder than expected  ## near-dup
+D that {MOB} keeps targeting me specifically, im convinced  ## near-dup
+D nice shot {MOB}, wont happen again tho  ## near-dup
+# --- NearDeath
+R that was NOT the vibe, starting over => that was NOT ok, starting over  ## vibe
+D logged on to grind, almost logged off permanently  ## dark
+D HP DROP INCOMING  ## robotic
+D potting like crazy right now  ## dup
+D i actually got terrified for a second lol  ## dup
+D time out, im getting healed up  ## filler
+D ok im retreating to safety  ## filler
+D way way too close that time  ## dup
+D that was way too close for comfort  ## dup
+D note to self: one pull at a time  ## dup
+D ok i need to be more careful, that was so close  ## dup
+D almost lost a whole level there omg  ## cant lose levels in v83, dup
+D ok {MOB} made me genuinely scared for a second there  ## dup
+# --- MapShare
+D map is big enough for multiple people grinding  ## filler
+D feel free to set up wherever u want  ## retail voice
+D {PLAYER_JOB}s and i can share this map ez  ## awkward
+D honestly prefer company over solo grinding  ## dup
+D no ks here, just two grinders doing their thing  ## filler
+D sharing keeps it fresh, im down  ## filler
+D grinding together is better than competing anyway  ## filler
+D honestly happy to have company out here  ## dup
+D {PLAYER_JOB}? nice we got synergy  ## corporate
+D just chill grinding, no tension  ## filler
+D two is better than one for grinding vibes  ## vibes filler
+D hey {PLAYER_JOB}! lets make this fun for both  ## filler
+D coexisting peacefully over here ^^  ## filler
+D {PLAYER_NAME} u were here first if u want it  ## illogical (bot was here first)
+D {PLAYER_JOB}s are great grind partners, lets do this  ## filler
+# --- PlayerCompliment
+D ur drip is insane  ## modern slang
+R u got veteran energy => u look like a vet  ## energy
+D that fit hits hard  ## modern slang
+D been grinding way too long  ## not a compliment
+D honestly the vibe here is way better now  ## vibe
+D {PLAYER_GUILD} has like the best energy  ## modern
+D {PLAYER_PET} knows ur the real one  ## modern
+D ur making this whole grind feel less lonely, ty for that  ## therapist voice
+D the way ur just vibing here makes me feel way better  ## therapist voice
+D ur just built different honestly  ## modern slang
+D ur just built different  ## modern slang
+D respect the hustle, u look amazing  ## filler
+D hope i look that good someday, goals  ## dup
+D ok ur vibe is immaculate  ## modern slang
+D ur whole energy is immaculate  ## modern slang
+D veteran energy, i can feel it  ## modern slang
+D u make this map look cooler just by being here  ## filler
+D {PLAYER_NAME} u just look like u understand the game  ## filler
+D the way u move around looks so practiced  ## filler
+D ur {PLAYER_GEAR} coordination is actually perfect  ## filler
+D u clearly know what ur doing  ## dup
+D {PLAYER_PET} looks like a pro setup  ## filler
+D ur skills are obviously well honed  ## filler
+D {PLAYER_JOB} mains always have the best vibes  ## modern
+D u look like someones who enjoys the game  ## filler
+D {PLAYER_NAME} the way u play is so smooth  ## filler
+D ur clearly put thought into ur build  ## filler
+D respect to u for having {PLAYER_GEAR} like that  ## filler
+D the fact that u have {PLAYER_WEAPON} means u work hard  ## filler
+D ur grinding style is inspiring honestly  ## filler
+D {PLAYER_GEAR} choices show taste  ## filler
+D the {PLAYER_WEAPON} choice is *chef's kiss*  ## modern
+D u got the grind down to a science  ## filler
+D {PLAYER_JOB}s like u make me wanna level faster  ## dup
+D u clearly love this game  ## filler
+D wow {PLAYER_GEAR} is goals honestly  ## dup
+D u make grinding look like art  ## filler
+D seein ppl like u around makes this map way more fun ^^  ## filler
+D ur {PLAYER_WEAPON} is goals  ## dup
+D u just look like someone who knows what theyre doing  ## dup
+D that {PLAYER_GEAR} is so hard to get, how long did it take  ## dup
+D every time i see {PLAYER_GUILD} members they look so geared omg  ## dup
+D ok but {PLAYER_GUILD} members always have the cleanest gear  ## dup
+D the way {PLAYER_PET} just follows u everywhere is adorable lol  ## dup
+# --- ShopRestock
+D out of whites?  ## odd
+D the pot-to-meso ratio is criminal and i have opinions about it  ## filler
+D the npc shop cashflow goes one way and it's not toward me  ## filler
+D same place, same time, same pots, different day  ## filler
+D restocking is just part of the grind cycle  ## filler
+D the pot tax is brutal but necessary  ## filler
+D pot shortage activated, heading back  ## filler
+D restocking ritual engaged  ## filler
+D {REGION} vendor knows my order by heart  ## dup
+D everything ready in {REGION} for round two  ## filler
+D broke again from pots, grind harder i guess  ## dup
+D spent all my mesos in {REGION} again whoops  ## dup
+D wish pots were cheaper, my mesos are crying  ## dup
+D always feel better after a restock  ## filler
+D grabbed everything, ready to go back out  ## dup
+D every single time, out of pots, same story  ## dup
+R oof prices are up again => oof pots add up fast  ## false price-change claim
+# --- MapTransition ({MAP} resolves to the CURRENT map, so "going to {MAP}" lines are wrong)
+D gonna go try {MAP} for a bit  ## {MAP} is current map
+D thinkin i'll head over to {MAP}  ## {MAP} is current map
+D {MAP} sounds good actually, lets go ^^  ## {MAP} is current map
+R rumor is {MAP} has better exp, worth a shot => rumor is the next map over has better exp, worth a shot  ## {MAP} is current map
+R brb scrolling back, then off to {MAP} => brb scrolling back, then off somewhere new  ## {MAP} is current map
+D always wanted to grind {MAP}, finally goin  ## {MAP} is current map
+D kinda miss {MAP}, headin back there  ## {MAP} is current map
+D packed it up, {MAP} next i think  ## {MAP} is current map
+D heard {MAP} is poppin today, otw  ## {MAP} is current map
+D heard {MAP} has better exp, gotta go verify  ## {MAP} is current map
+R ok this ch is dead, rotating => ok spawns here are dead, rotating  ## population-ish
+D {MAP} is calling my name  ## {MAP} is current map
+D wonder if {MAP} is crowded today  ## {MAP} is current map
+D my feet are tired but the grind waits for no one  ## filler
+D done with this spot, on to better things  ## filler
+D ok {MAP} i choose u, switching over  ## {MAP} is current map
+D logging off this map, loading into {MAP}  ## {MAP} is current map
+D checked {MAP} on my way here, looks less crowded  ## {MAP} is current map
+D THIS MAP BETRAYED ME. {MAP} HERE I COME.  ## {MAP} is current map, dup
+D always said id try {MAP} eventually, today's the day i guess  ## {MAP} is current map
+R heading out to {MAP}, mobs here weren't cooperating => heading out of {MAP}, mobs here weren't cooperating  ## {MAP} is current map
+R done here. {MAP} next. simple. => done with {MAP}. next. simple.  ## {MAP} is current map
+D gotta keep moving to stay ahead  ## filler
+D new map new energy  ## filler
+D looking for better conditions elsewhere  ## filler
+D fresh legs fresh map fresh mobs  ## filler
+# --- Fatigue
+D running on caffeine and spite at this point  ## modern phrase, dup
+D do i even enjoy this or is it habit at this point  ## melancholy
+D been so long my chair has a permanent dent in it now lol but the exp keeps tickin so im not movin  ## dup chair dent
+D {MAP} has become a fever dream at this point  ## dup
+D the grinding reflex overtook rational thought hours ago  ## filler
+D the blur between maps and mobs is real  ## filler
+D numbness has set in, just going through motions  ## melancholy
+D {MOB} just keep coming and im just here  ## filler
+D physical body is tired but exp bar says keep going  ## filler
+D everything feels distant but the grinding continues  ## melancholy
+D the ache is everywhere but the focus is unbreakable  ## filler
+D if {MOB} could talk they'd judge how tired i look  ## dup
+D running on nothing but grind instincts  ## filler
+D typing on autopilot, brain checked out an hour ago  ## dup
+# --- Rare (heavy melancholy / population meta; kept ~14 lighter lines)
+D the grind feels different when no ones online to share it  ## population meta
+D remember when leveling actually felt like it meant something  ## melancholy
+D everyone i started with logged off years ago  ## population meta
+D sometimes i forget what i was even grinding toward  ## melancholy
+D the maps feel quieter than they used to  ## population meta
+D guess ill keep going... not really sure why anymore  ## melancholy
+D funny how the numbers go up but it feels emptier  ## melancholy
+D logging in alone at 3am just feels different now  ## melancholy
+D the bgm hasnt changed but everything else kinda has  ## melancholy
+D i miss the days when a level up meant someone would cheer for you  ## melancholy
+D ...used to be more of us out here  ## population meta
+D every map still feels a little like a place i had to leave behind  ## melancholy
+D wonder if anyone would notice if i stopped logging in  ## heavy
+D the exp bar goes up but nothing really changes  ## melancholy
+D used to make plans to play together, now i just grind alone  ## melancholy
+D funny how the game stays the same but everyone around it moves on  ## melancholy
+D i keep coming back to the same spots hoping theyll feel like they used to  ## melancholy
+D the maps are all still here. just... quieter.  ## population meta
+D the music still hits the same way it always did  ## filler
+D the server feels different than it used to...  ## server meta
+D sometimes i wonder who else is still out here, grinding away like me  ## population meta
+D used to know what every level felt like. now they just tick by.  ## melancholy
+D this game never really leaves you, even when you leave it for a while  ## filler
+D funny that a map this empty still feels like somewhere  ## filler
+D the game remembers you, even when everyone else moved on  ## melancholy
+D sometimes the grind is just something to do while missing people  ## melancholy
+D i keep playing like one day things will be like they were  ## melancholy
+D the exp goes up. everything else stays the same.  ## melancholy
+D sometimes i wonder if anyone else feels this way  ## melancholy
+D the map hasnt changed but everything around it has  ## melancholy
+D the levels still matter but theyre hollow somehow  ## melancholy
+D the game goes on but not the same way it used to  ## melancholy
+D sometimes levels feel like im chasing something i already lost  ## melancholy
+# --- Greeting
+D coffee's cold but the exp rewards are hot :)  ## filler
+R grind szn :) => grind time :)  ## szn is modern
+D the solo grind hit different when u show up  ## modern slang
+R just vibing out here, good to see u => just chillin out here, good to see u  ## vibing
+D the vibe just got better  ## vibe
+D grind feels less lonely now  ## filler
+D alright alright, lets make this a vibe  ## vibe
+D oh, company, that changes the energy ^^  ## modern
+D hey hey! welcome to the grind with me  ## dup
+D oh nice timing, i was getting lonely  ## dup
+D wasnt expecting to see anyone today  ## dup
+# --- PlayerReaction
+D u need pots? i got extras  ## false offer a player could act on
+D this map hits different  ## modern slang
+D always nice when someone else appreciates the grind  ## filler
+D {PLAYER_NAME}, same energy; just vibing with the mobs  ## modern slang
+D late nights just hit different; no chaos, just grind  ## modern slang
+D a {PLAYER_JOB}? means we can actually just coexist here  ## filler
+D wait {PLAYER_GUILD}? ive heard of ur guild, hey!  ## dup
+D {PLAYER_NAME}! u always show up when things are getting quiet  ## false familiarity
+D a {PLAYER_JOB} huh, they always seem so focused when they grind  ## filler
+D hey {PLAYER_NAME}, {PLAYER_JOB}s always make this map feel more lively  ## filler
+D just another soul on the grind  ## filler
+D the map feels more alive now  ## filler
+D hey {PLAYER_JOB}, u look focused too ^^  ## filler
+D solidarity in the grind  ## filler
+D grinding together even if separately  ## filler
+D nice knowing someones else is out here  ## filler
+D {PLAYER_NAME} u look like u belong in this spot  ## filler
+D good energy out here now  ## filler
+D oh a {PLAYER_JOB}! adds to the vibe  ## vibe
+D theyre in their zone and i respect that  ## third-person narration
+D {PLAYER_NAME} seems like they know what theyre doing  ## third-person narration
+D not alone anymore and thats nice  ## filler
+D oh {PLAYER_JOB} paired with that level is perfect  ## filler
+D the atmosphere just got better  ## filler
+D hey {PLAYER_NAME}, im vibing with ur energy  ## modern slang
+D another grinder on the journey  ## filler
+D {PLAYER_JOB}s are always so cool to see  ## filler
+D were just two people doing what we love  ## filler
+D {PLAYER_NAME} u got that grinder look  ## filler
+D the solitude is comfortable now  ## filler
+D two is always better than one  ## filler
+D {PLAYER_JOB} at {PLAYER_LEVEL} is respectable  ## filler
+D the map energy just leveled up  ## filler
+D ya were just here doing our thing ^^  ## filler
+# --- WanderChat ({MAP} = current map)
+R just vibing => just chillin  ## vibing
+D this town feels so quiet today  ## town-dead meta
+D no one around huh  ## town-dead meta
+D quiet today  ## town-dead meta
+D could go back to {MAP} i guess  ## {MAP} is current map
+D havent been to {MAP} in forever  ## {MAP} is current map
+D should i go back to {MAP} or try somewhere new hmm  ## {MAP} is current map
+D wonder if anyones grinding {MAP} right now or if its empty  ## {MAP} is current map
+D {MAP} is calling me back again lol  ## {MAP} is current map
+D the world feels really big when ur just walking around like this  ## filler
+D sometimes i forget why i'm even here, then another mob drops something cool  ## filler
+R love the vibe of {MAP} => love the music in {MAP}  ## vibe
+D {MAP} in the afternoon hits different ^^  ## modern slang
+D it's kinda nice just existing out here  ## filler
+D the game is so quiet at this hour  ## population meta
+D following my feet and seeing where they take me  ## filler
+D something about {MAP} makes me just wanna slow down  ## filler
+D every time i walk thru {MAP} i notice something new  ## filler
+D something peaceful about {MAP} even when there's nothing going on  ## filler
+D {MAP} at this hour feels like the whole world belongs to me  ## filler
+D still wandering {MAP}, no destination needed  ## filler
+D do people even realize how nice {MAP} is? underrated  ## dup
+D walking around {MAP} just kills time in the best way  ## filler
+D exploring options for the next session  ## filler
+D slow walk through familiar places  ## filler
+D {MAP} just has that feeling u know  ## filler
+D wandering leads to discoveries sometimes  ## filler
+D thinking about whether to go back to {MAP}  ## {MAP} is current map
+D the journey is as good as the destination  ## poster filler
+D {MAP} was good but maybe ill try {MAP}  ## same token twice
+D letting my feet decide where to go  ## filler
+D the {MAP} vibes are good this time of day  ## vibes
+D just drifting and thinking  ## filler
+D {MAP} pulls me back every time no matter what  ## filler
+D peaceful moment before the grind  ## filler
+D {MAP} still feels fresh somehow  ## filler
+D contemplating next steps  ## filler
+D {MAP} is always an option but theres other places  ## filler
+D enjoying the walk  ## filler
+D the {MAP} layout is so familiar now  ## filler
+D taking time to enjoy the world  ## filler
+D {MAP} has become like home u know  ## filler
+D wandering without destination  ## filler
+D {MAP} one more time or somewhere new  ## filler
+D the adventure of finding ur next spot  ## filler
+D {MAP} waiting for me but im in no rush  ## filler
+D just absorbing the world  ## filler
+D letting the path decide  ## filler
+D the {MAP} scenery is never boring honestly  ## dup
+U hm.  ## exact duplicate
+# --- EmoteReaction
+D lol same energy  ## modern
+R ty just vibing :) => ty just chillin :)  ## vibing
+D grinding hits different  ## modern slang
+D ur making my grind feel less lonely  ## filler
+D we vibin  ## modern
+D ur energy is something else lol  ## modern
+D we are really vibing today haha  ## vibing
+D kinda love this interaction  ## filler
+D ok good point  ## emotes arent points
+D wait thats actually a good point lol  ## emotes arent points
+D ok im convinced  ## emotes arent points
+D u and ur jokes  ## dup
+D that was smooth ngl  ## ngl, dup
+D that was clever ngl  ## ngl
+D ok that was chef's kiss  ## modern
+D ur making my grind so much better rn  ## filler
+D ok u deserve a win for that one  ## dup
+D ok ok u win this round  ## dup
+D ok that one made me smile  ## dup
+D that was good  ## dup
+D lol u got me  ## dup
+U :D  ## exact duplicate
+# --- TrainingTalk / PartyDecline
+R just vibing with the {MOB} honestly => just chillin with the {MOB} honestly  ## vibing
+R sry im in my solo grind era rn => sry im on a solo grind rn  ## era
+R solo grind hits different, sry => solo grind today, sry  ## hits different
+# --- Warrior
+D spinning slash just melts groups of {MOB}s lol  ## not a v83 warrior skill
+R warrior players built different, fight me => warriors are just better, fight me  ## built different
+D warriors never retreat, we just advance forward... backwards  ## nonsense
+D sword builds are the only honest way to play this game  ## filler
+D slashing through packs and feeling absolutely unstoppable  ## filler
+D defensive stance and just tanking it. warrior way.  ## not a v83 skill
+D slashing {MOB} in half while tanking the hit, that's just class  ## filler
+D watching {MOB} bounce off my hp like nothing, warrior life is good  ## dup
+# --- Mage
+R thunderbolt go brrr, cant believe how fast this map melts => thunderbolt is so good, cant believe how fast this map melts  ## go brrr (2020 meme)
+R poison brace ticking away while i sip pots, comfy grind => poison breath ticking away while i sip pots, comfy grind  ## wrong skill name
+R poison ticking while i spam spells, f/p builds slap => poison ticking while i spam spells, f/p builds rock  ## slap
+D spells syncing perfect, that's the smooth mage grind  ## filler
+R MAGIC CLAW GOES BRRRRR => MAGIC CLAW SPAM LETS GOOO  ## go brrr
+D mp pots are my whole personality at this point  ## modern phrase
+D being squishy means nothing when u can clear a room in one cast  ## dup
+D mages age so badly until they don't, and then they don't  ## nonsense
+D whole pack of {MOB} gone in two casts, mage things ^^  ## dup
+D cleared the whole {MOB} spawn before the first one could even move lol  ## dup
+D {MOB} sees me and doesn't realize the cast is already going lol  ## filler
+# --- Thief
+R crit after crit on {MOB}, lucky seven goes brr => crit after crit on {MOB}, lucky seven ftw  ## go brrr
+R savage blow just shredded that {MOB}, claw life => savage blow just shredded that {MOB}, dagger life  ## savage blow is dagger
+R drain keeps me topped off, bandit grind is so chill => drain keeps me topped off, sin grind is so chill  ## drain is assassin
+D throwing stars are eating my mesos  ## dup
+D dark sight is the best passive in the game and i will die on this hill  ## dup, not a passive
+D every star thrown is a statement  ## filler
+D haste active, zoomed past {MOB} without taking a single hit  ## dup
+# --- Bowman
+R mana's full, soul arrow's ticking, just vibing :) => mana's full, soul arrow's ticking, just chillin :)  ## vibing
+R DEX builds scale so well, best stat dont @ me => DEX builds scale so well, best stat imo  ## dont @ me
+D soul arrow on, arrows infinite, this is the life ^^  ## dup
+D positioning is the unspoken core mechanic of bowman and i mastered it  ## filler
+D dex stat scaling is the cleanest curve in the game honestly  ## filler
+D arrow rain on the {MOB} pack, watched the whole platform clear  ## dup
+D sniping {MOB} before they even spawn fully, range advantage is real  ## filler
+D strafe kiting {MOB} around the whole platform, not a scratch taken  ## dup

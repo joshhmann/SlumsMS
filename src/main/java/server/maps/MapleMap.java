@@ -674,6 +674,14 @@ public class MapleMap {
                         idrop = new Item(de.itemId, (short) 0, (short) (de.Maximum != 1 ? (de.Maximum - de.Minimum > 0 ? Randomizer.nextInt(de.Maximum - de.Minimum) + de.Minimum : 1) : 1));
                     }
                     spawnDrop(idrop, calcDropPos(pos, mob.getPosition()), mob, chr, droptype, de.questid);
+                    if (soloMapling.ArtificialPlayer.BotMegaphoneSystem.WorldEventMegaphones.isRareDrop(
+                            de.itemId, de.chance, mob.isBoss(), de.questid)) {
+                        final Item rare = idrop;
+                        soloMapling.server.MapleRootSolo.runHook("rare drop", () ->   // ticket 47
+                                soloMapling.server.EventMessageSystem.EventBus.getInstance().publish(
+                                        soloMapling.server.EventMessageSystem.EventFactory.createRareDropEvent(
+                                                chr, mob.getName(), rare, de.chance)));
+                    }
                 }
                 d++;
             }
@@ -1691,6 +1699,14 @@ public class MapleMap {
                     }
 
                     Character dropOwner = monster.killBy(chr);
+                    if (soloMapling.ArtificialPlayer.BotMegaphoneSystem.WorldEventMegaphones.isNotableBoss(
+                            monster.isBoss(), monster.getName(), monster.getStats().getLevel())) {
+                        final Character killer = dropOwner != null ? dropOwner : chr;
+                        soloMapling.server.MapleRootSolo.runHook("boss kill", () ->   // ticket 47
+                                soloMapling.server.EventMessageSystem.EventBus.getInstance().publish(
+                                        soloMapling.server.EventMessageSystem.EventFactory.createBossKillEvent(
+                                                killer, monster.getName(), monster.getStats().getLevel())));
+                    }
                     if (withDrops && !monster.dropsDisabled()) {
                         if (dropOwner == null) {
                             dropOwner = chr;

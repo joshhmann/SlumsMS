@@ -296,6 +296,11 @@ public class OPQBot extends BotSM {
             SocialCommands.BotSpeak(getChr(), msg);
             lastRecruitMessageAt = now;
             debugLogf("Recruit chat sent: \"" + msg + "\"");
+            // Ticket 47: a lobby bot that can really be invited is a PQ actually forming - worth a megaphone
+            // (WorldEventMegaphones rate-limits it to one call per PQ per cooldown).
+            soloMapling.server.MapleRootSolo.runHook("pq forming", () ->
+                    soloMapling.server.EventMessageSystem.EventBus.getInstance().publish(
+                            soloMapling.server.EventMessageSystem.EventFactory.createPqFormingEvent(getChr(), "OPQ")));
 
             List<String> platforms = PlatformPlacement.getMainPlatformIds(getChr().getMapId());
             if (!platforms.isEmpty()) {
