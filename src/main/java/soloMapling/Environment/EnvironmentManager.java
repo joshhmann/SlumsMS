@@ -183,6 +183,12 @@ public class EnvironmentManager {
             BotPopulationDirector.start();
         } else {
             seedPopulationWaves();
+            // The seed spawns every cohort at once - far above the curve on a first boot. Hand the freshly enrolled
+            // roster to the director now, so it logs the surplus out a tick at a time instead of waiting a restart.
+            if (directorOn && BotPopulationDirector.rosterReady()) {
+                System.out.println("[EnvironmentManager] population: roster seeded - director takes over");
+                BotPopulationDirector.start();
+            }
         }
 
         BotDecorationQueue.start();
