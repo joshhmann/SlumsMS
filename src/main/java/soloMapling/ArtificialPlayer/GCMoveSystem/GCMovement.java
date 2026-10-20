@@ -36,9 +36,10 @@ public final class GCMovement {
 
     // ── Lifecycle ───────────────────────────────────────────────────────────
 
-    /* Put a bot under dynamic control: build its profile, warm the map graph, start the tick. */
+    /* Put a bot under dynamic control: build its profile, warm the map graph, start the tick. A bot that has
+     * left the world is refused: a late callback of a logged-out bot must not bring its driver back. */
     public static void enable(Character bot) {
-        if (bot == null) {
+        if (bot == null || hasLeftWorld(bot)) {
             return;
         }
         ObserverTracker.ensureStarted(); // LOD observability poll (idempotent)
@@ -78,6 +79,25 @@ public final class GCMovement {
             MovementCommands.releaseMovementLock(bot);
         }
         ARRIVAL_CALLBACKS.remove(bot.getId());
+    }
+
+    /*
+     * The bot has left the world: its channel no longer holds it (logged out by the population director, despawned,
+     * removed by a GM). Every warp of such a character fails in Character.changeMap ("got stuck when moving"), so
+     * nothing may move or route it any more. The same check changeMap makes; when there is no channel to ask (unit
+     * tests, mid-shutdown) the bot counts as present.
+     */
+    public static boolean hasLeftWorld(Character bot) {
+        if (bot == null) {
+            return true;
+        }
+        try {
+            client.Client c = bot.getClient();
+            net.server.channel.Channel ch = c == null ? null : c.getChannelServer();
+            return ch != null && ch.getPlayerStorage().getCharacterById(bot.getId()) == null;
+        } catch (RuntimeException e) {
+            return false;
+        }
     }
 
     public static boolean isEnabled(Character bot) {

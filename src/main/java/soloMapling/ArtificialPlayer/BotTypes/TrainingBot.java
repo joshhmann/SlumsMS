@@ -696,8 +696,8 @@ public class TrainingBot extends BotSM {
             }
             ExecutorServiceManager.getScheduledExecutorService().schedule(
                     () -> {
-                        if (BotShutdown.isQuiesced()) {
-                            return; // Ticket 09: no travel out of the sauna once the gate has closed
+                        if (BotShutdown.isQuiesced() || !saunaTripActive) {
+                            return; // Ticket 09: no travel out of the sauna once the gate has closed (or the bot stopped)
                         }
                         leaveSauna(chr);
                     }, shopDwellMs(), TimeUnit.MILLISECONDS);
@@ -1607,6 +1607,10 @@ public class TrainingBot extends BotSM {
     @Override
     public synchronized void stopScheduledTask() {
         ACTIVE_GRINDERS.remove(this);
+        // Disarm the Sleepywood sauna errand: its door-walk cap and the dwell that walks the bot out of the sauna are
+        // one-shot tasks on the shared scheduler that outlive this FSM. Left armed, a bot logged out mid-sauna was
+        // sent travelling (and warped) after its removal - the "got stuck when moving to map 10504040x" flood.
+        saunaTripActive = false;
         Character chr = getChr();
         if (chr != null) {
             if (chr.getChair() > 0) {

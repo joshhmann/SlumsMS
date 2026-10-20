@@ -129,6 +129,11 @@ final class GCTravel {
             return;
         }
         cancel(bot);
+        if (GCMovement.hasLeftWorld(bot)) {
+            // A logged-out bot's errand callback (a sauna trip's way home, say) asks for a trip after removal. No
+            // trip, no warp and no callback: the callback would only chain the next request.
+            return;
+        }
         if (bot.getMap() != null && bot.getMapId() == destMapId) {
             fire(callback, true);
             return;
@@ -190,7 +195,7 @@ final class GCTravel {
         return t != null && (t.awaitingBoarding || t.aboard);
     }
 
-    private static void tick(Trip trip) {
+    static void tick(Trip trip) {
         if (BotShutdown.isQuiesced()) {
             cancel(trip.bot); // Ticket 09: no hop, no warp and no callback once the gate has closed
             return;
@@ -198,6 +203,13 @@ final class GCTravel {
         Character bot = trip.bot;
         if (bot == null || bot.getMap() == null) {
             finish(trip, false);
+            return;
+        }
+        if (GCMovement.hasLeftWorld(bot)) {
+            // Logged out mid-trip (a trip started in the beat between the bot's movement teardown and its removal
+            // from the channel). Its map is still set, so without this every poll would warp it again and log
+            // "got stuck when moving" every 300 ms. End the trip and the driver silently, as the shutdown gate does.
+            GCMovement.disable(bot);
             return;
         }
         int cur = bot.getMapId();

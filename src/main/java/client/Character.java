@@ -284,6 +284,7 @@ public class Character extends AbstractCharacterObject {
     private boolean useCS;  //chaos scroll upon crafting item.
     private long npcCd;
     private int newWarpMap = -1;
+    private volatile boolean stuckWarpWarned = false; // "got stuck when moving" already logged for this character
     private boolean canWarpMap = true;  //only one "warp" must be used per call, and this will define the right one.
     private int canWarpCounter = 0;     //counts how many times "inner warps" have been called.
     private byte extraHpRec = 0, extraMpRec = 0;
@@ -1925,7 +1926,10 @@ public class Character extends AbstractCharacterObject {
             }
             silentPartyUpdateInternal(getParty());  // EIM script calls inside
         } else {
-            log.warn("Chr {} got stuck when moving to map {}", getName(), map.getId());
+            if (!stuckWarpWarned) { // once per character: the cause is logged, a retrying caller must not flood the log
+                stuckWarpWarned = true;
+                log.warn("Chr {} got stuck when moving to map {}", getName(), map.getId());
+            }
             client.disconnect(true, false);     // thanks BHB for noticing a player storage stuck case here
             return;
         }
