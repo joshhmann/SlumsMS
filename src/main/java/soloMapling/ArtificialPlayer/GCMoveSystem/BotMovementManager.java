@@ -210,6 +210,9 @@ class BotMovementManager {
         entry.navBlockedPosGiveUpTicks = 0;
         entry.navBlockedPosX = Integer.MIN_VALUE;
         entry.navBlockedPosY = Integer.MIN_VALUE;
+        // Ticket 33: an overrun or twitch belongs to the leg being dropped.
+        entry.flaws.overrunTicks = 0;
+        entry.flaws.twitchTicks = 0;
     }
 
     static void tickClimbing(BotMovementState entry, Point targetPos, boolean runAiTick) {

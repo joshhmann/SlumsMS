@@ -163,6 +163,12 @@ final class BotNavigationManager {
             // ...and the make: the bot reached the region the committed edge leads to (counted once per edge), or the
             // miss: a launched move came down somewhere else (ticket 04).
             NavEdgeLearning.observe(entry, graph, startRegionId);
+            // Ticket 33: a landing ends a deliberate flaw; a flaw hop or rope slip in the air keeps its edge.
+            NavMovementFlaws.afterObserve(entry, startRegionId);
+            if (NavMovementFlaws.holdsNavigation(entry)) {
+                entry.lastNavDecision = "flaw-air";
+                return new NavigationDirective(rawTargetPos, false);
+            }
 
             BotNavigationGraph.Edge edge = reuseCommittedEdge(graph, entry, startRegionId, targetRegionId);
             boolean edgeReused = (edge != null);
@@ -527,6 +533,15 @@ final class BotNavigationManager {
                     }
                 }
             }
+            // Ticket 33: a missed jump takes off a few steps short of the window.
+            if (NavMovementFlaws.approachingJump(graph, entry, bot, edge, selectedJumpLaunchX(entry, graph, edge))
+                    == NavMovementFlaws.JumpCall.LAUNCHED) {
+                entry.lastEdgeBlockReason = null;
+                entry.navJumpLaunchEdge = null;
+                entry.navJumpLaunchX = Integer.MIN_VALUE;
+                entry.navJumpLaunchDelaySteps = Integer.MIN_VALUE;
+                return new NavigationDirective(rawTargetPos, true);
+            }
             entry.lastEdgeBlockReason = "jump-pos";
             return null;
         }
@@ -545,9 +560,20 @@ final class BotNavigationManager {
             entry.lastEdgeBlockReason = "jump-slide";
             return null;
         }
+        // Ticket 33: hesitate, hop in place, or run past the spot first.
+        NavMovementFlaws.JumpCall flaw = NavMovementFlaws.readyToJump(graph, entry, bot, edge);
+        if (flaw == NavMovementFlaws.JumpCall.HOLD) {
+            entry.lastEdgeBlockReason = "jump-flaw";
+            return null;
+        }
+        if (flaw == NavMovementFlaws.JumpCall.LAUNCHED) {
+            entry.lastEdgeBlockReason = null;
+            return new NavigationDirective(rawTargetPos, true);
+        }
         entry.lastEdgeBlockReason = null;
         setEdgeExecutionTarget(entry, edge);
         BotMovementManager.initiateJump(entry, bot, edge.launchStepX);
+        NavMovementFlaws.launched(entry);
         // One-shot launch point: a missed arc re-rolls a fresh spot (and a fresh deepen count)
         // on the next approach instead of repeating the identical failure forever.
         entry.navJumpLaunchEdge = null;
@@ -693,6 +719,10 @@ final class BotNavigationManager {
                                                             Point rawTargetPos,
                                                             BotNavigationGraph.Edge edge) {
         if (!canExecuteClimbExitFromCurrentPosition(graph, bot.getMap(), botPos, edge)) {
+            // Ticket 33: a rope slip part way up.
+            if (NavMovementFlaws.climbing(graph, entry, bot, edge)) {
+                return new NavigationDirective(rawTargetPos, true);
+            }
             return null;
         }
         BotNavigationGraph.Region toRegion = graph.getRegion(edge.toRegionId);
