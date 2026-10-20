@@ -4,6 +4,8 @@ import client.Character;
 import soloMapling.ArtificialPlayer.BotConversation;
 import soloMapling.ArtificialPlayer.BotMegaphoneSystem.BotNoiseFilter;
 import soloMapling.ArtificialPlayer.BotMenus;
+import soloMapling.ArtificialPlayer.BotPartySystem.BotCommandParser;
+import soloMapling.ArtificialPlayer.BotPartySystem.PartyBotOrders;
 import soloMapling.ArtificialPlayer.BotSM;
 import soloMapling.ArtificialPlayer.BotTypes.FollowerBot;
 import soloMapling.ArtificialPlayer.BotTypes.SocialBot;
@@ -64,6 +66,9 @@ public class Dispatcher implements Runnable {
         try {
             BotChatRouting.noteMapLine(message.getSender().getMapId(), message.getSender().getName(),
                     message.getContent(), System.currentTimeMillis());
+            if (partyOrder(message)) {
+                return;
+            }
             Collection<Character> chars_on_map = message.getMap().getCharacters();
             final int[] botToCall = new int[1];  // Using an array to hold the bot ID
 
@@ -78,6 +83,32 @@ public class Dispatcher implements Runnable {
         } catch (Exception e) {
             e.printStackTrace();
         }
+    }
+
+    /**
+     * Ticket 14: a short order to the bots in the sender's party - "jason follow", "1 stop", "fire grind", "grind"
+     * - carried out ahead of every other route. Party bots only: anything else, and any line that is more than an
+     * order, goes on as natural chat. An order to one bot also turns its attention to the player.
+     */
+    private boolean partyOrder(ChatMessage message) {
+        Character sender = message.getSender();
+        if (getBotById(sender.getId()) != null) {
+            return false; // a bot's own "lets grind" is chat, not an order to its party
+        }
+        java.util.Optional<BotCommandParser.Order> order = PartyBotOrders.read(sender, message.getContent());
+        if (order.isEmpty()) {
+            return false;
+        }
+        BotCommandParser.Order o = order.get();
+        if (o.targets().size() == 1) {
+            int botId = o.targets().get(0).id();
+            BotChatRouting.attend(sender.getId(), botId, System.currentTimeMillis());
+            BotNoiseFilter.noteEngaged(sender.getId(), botId);
+        }
+        log("[ticket14] " + sender.getName() + " -> " + o.verb() + " for "
+                + (o.isAmbiguous() ? "ambiguous " + o.ambiguous() : o.everyone() ? "every party bot" : o.targets()));
+        executor.execute(() -> PartyBotOrders.carryOut(sender, o));
+        return true;
     }
 
     /**
