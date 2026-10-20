@@ -360,6 +360,31 @@ public class TrainingBot extends BotSM {
         return false;
     }
 
+    /**
+     * Ticket 14: a party order to a partied trainer. "follow" makes it the player's follower again, as "Follow
+     * me!" does; it is already stationed and grinding, so "stop" and "grind" only get a word back - and none when
+     * the order went to every party bot.
+     */
+    public void order(soloMapling.ArtificialPlayer.BotPartySystem.BotCommandParser.Verb verb, Character player,
+                      boolean everyone) {
+        if (!inSameParty(player)) {
+            return;
+        }
+        switch (verb) {
+            case FOLLOW -> optFollowMe(player);
+            case STAY -> {
+                if (!everyone) {
+                    sayRecruit("HoldSpot", player);
+                }
+            }
+            case GRIND -> {
+                if (!everyone) {
+                    sayRecruit("AlreadyGrinding", player);
+                }
+            }
+        }
+    }
+
     private boolean menuActive() {
         return soloMenu.isActive() || partyMenu.isActive();
     }

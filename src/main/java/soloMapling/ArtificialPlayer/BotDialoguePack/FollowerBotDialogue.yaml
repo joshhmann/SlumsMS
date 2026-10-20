@@ -116,3 +116,27 @@ FollowerBot:
     emote:
       - 2
     wait: 1
+
+  # Ticket 14: the leader's party orders - "stop" / "stay" and "follow" / "come".
+  Stay:
+    text:
+      - {line: "k {PLAYER_NAME}, waiting here", emote: 2}
+      - "ill stay put"
+      - "stopping! say follow when u need me"
+      - {line: "standing right here, dont forget me lol", emote: 6}
+      - "ok holding here"
+    emote:
+      - 0
+      - 2
+    wait: 1
+
+  FollowAgain:
+    text:
+      - {line: "coming {PLAYER_NAME}!", emote: 2}
+      - "omw!"
+      - "right behind u"
+      - {line: "ok ok im coming ^^", emote: 2}
+      - "back on ur tail"
+    emote:
+      - 2
+    wait: 1

@@ -1367,6 +1367,27 @@ TrainingBot:
       - 2
     wait: 1
 
+  # Ticket 14: a party order to a bot already stationed and grinding.
+  HoldSpot:
+    text:
+      - "im not going anywhere, holding this spot"
+      - {line: "k {PLAYER_NAME}, ill stay right here", emote: 2}
+      - "staying put, say follow when u want me"
+      - "parked. this spot is mine now lol"
+    emote:
+      - 0
+    wait: 1
+
+  AlreadyGrinding:
+    text:
+      - "already on it ^^"
+      - {line: "grinding as we speak {PLAYER_NAME}", emote: 2}
+      - "what do u think im doing lol"
+      - "yep yep, mobs are dropping"
+    emote:
+      - 2
+    wait: 1
+
   PartyFirst:
     text:
       - "invite me to ur party first so i dont lose u!"

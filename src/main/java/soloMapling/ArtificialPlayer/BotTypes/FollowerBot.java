@@ -8,6 +8,7 @@ import soloMapling.ArtificialPlayer.BotOptionMenu;
 import soloMapling.ArtificialPlayer.BotSM;
 import soloMapling.ArtificialPlayer.BotTypeManager;
 import soloMapling.ArtificialPlayer.BotGrindSystem.MapMobIndex;
+import soloMapling.ArtificialPlayer.BotPartySystem.BotCommandParser;
 import soloMapling.ArtificialPlayer.BotPartySystem.BotPartyCommands;
 import soloMapling.ArtificialPlayer.BotPartySystem.BotPartyQueue;
 import soloMapling.ArtificialPlayer.BotPartySystem.BotRecruitManager;
@@ -38,7 +39,7 @@ public class FollowerBot extends BotSM {
     private static final long FOLLOW_TICK_MS = 750;
     private static final long LEADER_LOST_GRACE_MS = 90_000;
 
-    private enum FollowPhase { INIT, FOLLOW, LEADER_LOST }
+    private enum FollowPhase { INIT, FOLLOW, STAY, LEADER_LOST }
 
     // Written on the macro tick, read from menu callbacks - keep volatile.
     private volatile FollowPhase followPhase = FollowPhase.INIT;
@@ -102,6 +103,7 @@ public class FollowerBot extends BotSM {
         switch (followPhase) {
             case INIT -> doInit();
             case FOLLOW -> doFollow();
+            case STAY -> doStay();
             case LEADER_LOST -> doLeaderLost();
         }
 
@@ -178,6 +180,30 @@ public class FollowerBot extends BotSM {
         }
     }
 
+    // Ticket 14: told to stop - stand here until told to follow, still watching the party and the leader.
+    private void doStay() {
+        Character chr = getChr();
+        if (GCMovement.isFollowing(chr)) {
+            GCMovement.stop(chr);
+        }
+        if (chr.getParty() != null) {
+            wasPartied = true;
+        } else if (wasPartied) {
+            sayNode("PartyFarewell", resolveLeader());
+            fallbackConvert();
+            return;
+        }
+        Character leader = resolveLeader();
+        if (leader != null && leader.getMap() != null) {
+            leaderLostSinceMs = 0;
+        } else if (leaderLostSinceMs == 0) {
+            leaderLostSinceMs = now();
+        } else if (now() - leaderLostSinceMs > LEADER_LOST_GRACE_MS) {
+            sayNode("PartyFarewell", null);
+            fallbackConvert();
+        }
+    }
+
     private void doLeaderLost() {
         Character chr = getChr();
         Character leader = resolveLeader();
@@ -202,15 +228,71 @@ public class FollowerBot extends BotSM {
         menu.show(chr);
     }
 
-    /** Ticket 37: the leader's "train here" does what the menu's "Train here with me!" does. */
+    /**
+     * Ticket 37: the leader's "train here" does what the menu's "Train here with me!" does; ticket 14 adds "wait
+     * here" / "stop following" and "follow me" / "come here" in a sentence (the short orders come through
+     * {@link #order}).
+     */
     @Override
     public boolean naturalAction(Character player, String said) {
         String lower = said == null ? "" : said.toLowerCase(java.util.Locale.ROOT);
-        if (player.getId() == leaderId && lower.matches(".*\\b(train|grind|station)\\b.*")) {
+        if (player.getId() != leaderId) {
+            return false;
+        }
+        if (lower.matches(".*\\b(train|grind|station)\\b.*")) {
             onMenuSelect(0, player);
             return true;
         }
+        if (lower.matches(".*\\b((wait|stay|stop) (here|there)|stop following)\\b.*")) {
+            return order(BotCommandParser.Verb.STAY, player, false);
+        }
+        if (followPhase == FollowPhase.STAY && lower.matches(".*\\b(follow me|come (here|back|with me|on))\\b.*")) {
+            return order(BotCommandParser.Verb.FOLLOW, player, false);
+        }
         return false;
+    }
+
+    /** The leader this follower walks with (-1 before its first tick). */
+    public int leaderId() {
+        return leaderId;
+    }
+
+    /**
+     * Ticket 14: a party order. Only the leader is obeyed; anyone else hears it is loyal (unless the order went to
+     * every bot, which needs no answer from each). True when the bot answered.
+     *
+     * @param everyone the order went to every party bot: a bot it does not change stays quiet
+     */
+    public boolean order(BotCommandParser.Verb verb, Character player, boolean everyone) {
+        if (leaderId <= 0 || player.getId() != leaderId) {
+            if (!everyone) {
+                sayNode("LoyalToLeader", player);
+            }
+            return !everyone;
+        }
+        switch (verb) {
+            case GRIND -> onMenuSelect(0, player);
+            case STAY -> {
+                if (followPhase != FollowPhase.STAY) {
+                    followPhase = FollowPhase.STAY;
+                    leaderLostSinceMs = 0;
+                    GCMovement.stop(getChr());
+                    sayNode("Stay", player);
+                } else if (!everyone) {
+                    sayNode("Stay", player);
+                }
+            }
+            case FOLLOW -> {
+                if (followPhase == FollowPhase.STAY || followPhase == FollowPhase.LEADER_LOST) {
+                    followPhase = FollowPhase.FOLLOW; // the next tick re-arms the follow session
+                    sayNode("FollowAgain", player);
+                } else if (!everyone) {
+                    sayNode("FollowAgain", player);
+                }
+                nudgeSoon(0L);
+            }
+        }
+        return true;
     }
 
     private void onMenuSelect(int idx, Character player) {
