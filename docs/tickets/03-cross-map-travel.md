@@ -73,3 +73,54 @@ A bot sent from Henesys to Orbis or Ludibrium arrives via the ship; offscreen tr
   a Korean Folk Town map.
 - Not yet seen with a real client watching: the on-screen walk to the dock, the queue at the NPC and riding the deck.
 - A broke follower bot now fails its trip instead of warping across water; it retries each follow poll.
+
+## Follow-up: high-level and MapleRoot areas (branch `high-level-routes`, 2026-10-20)
+
+**Status:** built, not merged. It covers the ticket 31 gap: no route from Victoria reached the 140+ path maps or
+the rebirth zones.
+
+- **New `BotTransit.yaml` rows.** Each row mirrors a script, and `BotTransitHighLevelTest` checks it against
+  `scripts/npc` and `scripts/portal`.
+  - **Jeff (2030000):** Ice Valley II to Sharp Cliff I. Free, level 50+ (the new `min_level` field). MapleRoot's
+    Ice Valley II portal up has no target.
+  - **`in_lkc.js`:** Desolate Moor to the LKC entrance. Rebirth 1, enforced by `BotMapGates`.
+  - **`arcaneriver.js`:** Three Doors to Vanishing Journey. Rebirth 3.
+  - **Henesys teleporter 9010002:** its Grandis and Arcane menus, 23 destinations, free, `min_rebirths: 3`. It
+    leaves out Knight Stronghold and the boss menu.
+  - **Puro's whale:** Lith Harbor to and from Rien, 800 mesos, the 1-minute `MapleMap` timer.
+  - **Florina Beach:** Pison, 1500 mesos.
+  - **NLC taxi:** to and from the Haunted House, 15000 mesos each way, plus the `halloween_enter` door.
+  - **Malaysia:**
+    - Audrey from CBD, 42000 mesos;
+    - Spinel from Boat Quay, 10000 mesos;
+    - the Kampung buses, 10000 mesos;
+    - the free way home to the saved WORLDTOUR town.
+  - **Showa hideout:** Konpei and the guard.
+  - **Fox Tree lift:** 3002015, 1000 mesos.
+  - **Ereve:** `enterDisguise0-5`.
+- **Hyper Teleport Rock.** `hyper_rock` block, Via `HYPER_ROCK`, following `HyperTPHandler`'s rules: 5-minute
+  cooldown, rebirth gates, no restricted or CANNOTVIPROCK maps.
+  - Bots may only jump into Black Heaven (Haven, BH Entrance), and out of Edelstein/BH/Grandis/Arcane to the
+    Victoria towns.
+  - One jump per route, so the rock never replaces the boats.
+  - Black Heaven needs it because the Edelstein road there (`level700BH`) and the deck portals have no script on
+    this server.
+- **Planner.**
+  - The hop cap is now 160 (`GCWorldGraph.MAX_ROUTE_HOPS`). Omega Sector was 61 hops, so the old cap of 60 hid it.
+  - Edges with `min_rebirths` are skipped for bots below it.
+  - The rock is modelled as virtual nodes that are stripped from returned routes.
+- **Version gate lifted** (bot-only, `portal_versions.yaml`): Three Doors, Ereve, Crossroads of Ereve, Hibiscus Road 1.
+- **Regions:** Temple of Time and Ereve are enabled in `TrainingRegions.yaml`.
+- **Tools:** the offline sweep is `LevelPathSweepCheck`, and `TransitRouteCheck` takes `from:to[:rebirths]`.
+
+### Still unreachable for players too (needs the owner)
+
+- **LKC towers past Walls 1:** the keys are items 4032832-4, or quests 3165-3167.
+- **ToT lanes past Memory Lane 1:** `timeQuest.js` needs the quests done.
+- **Mirror World, Kritias and Umbra fields:** CANNOTVIPROCK, and no portal or script reaches them.
+- **Ninja Castle corridors:** no entry.
+- **Mushroom Castle:** quests.
+- **Rien Dangerous Forest for job-2000 Arans:** quest 21014.
+- **Teleporter boss menu:** not added (a free shortcut no path map needs).
+- **Hyper rock assumption:** this assumes non-holders of 5590001 can use the world-map teleport with the cooldown,
+  as the server code allows. If the client can't, set `hyper_rock.enabled: false`.

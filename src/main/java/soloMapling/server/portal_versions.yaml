@@ -1,4 +1,8 @@
 portal_versions:
+  # This gate binds only bots (GCWorldGraph, BotTransit, BotScriptedWarp read it); players walk through these portals.
+  # Lifted 2026-10-20 (ticket 03 follow-up / ticket 31): Temple of Time Three Doors, Ereve and Crossroads of Ereve,
+  # and Malaysia's Hibiscus Road 1. The leveling path trains bots there and the route there is the players' own
+  # (the dragon, the sky ferries, Audrey's tour); the Malaysia guides are BotTransit rows now.
   674030100: 99 # Entrance to MV Lair
   300000100: 99 # Entrance to Altair Forest
   105100000: 99 # Balrog Boss Bottom of the Temple
@@ -21,11 +25,11 @@ portal_versions:
   120000100: 62 # Nautilus Top Floor
   120000200: 62 # Nautilus Submarine
   610030010: 66 # CWK Hall of Mastery
-  270000000: 72 # Temple of Time Three Doors
-  130000200: 73 # Crossroads of Ereve
-  130000000: 73 # Ereve
+  # 270000000: 72 # Temple of Time Three Doors   (lifted, see the top)
+  # 130000200: 73 # Crossroads of Ereve   (lifted, see the top)
+  # 130000000: 73 # Ereve   (lifted, see the top)
   925020001: 75 # Mu Lung Dojo Hall
-  551000100: 77 # Malaysia - Hard to control due to NPC's
+  # 551000100: 77 # Malaysia - Hard to control due to NPC's   (lifted, see the top)
   106020000: 80 # Theme Dungeon Mushroom Castle
   240070000: 83 # Tera Forest Time Gate
   103040000: 83 # Kerning Square Lobby

@@ -46,7 +46,7 @@ final class GCTravel {
     // Route-search depth cap. Kept >= TrainingBot's discovery radius so anything a bot can DISCOVER it
     // can also ROUTE to (route may use taxi/ferry shortcuts, so the actual hop count is usually lower).
     // Ticket 03: cross-continent routes (Henesys -> Leafre is ~25 hops counting the dock and the decks).
-    private static final int MAX_HOPS = 60;
+    private static final int MAX_HOPS = GCWorldGraph.MAX_ROUTE_HOPS;
     private static final int POLL_MS = 300;
     // "At the portal" box: portals often sit a little above the floor the bot stands on, so the
     // vertical tolerance is generous while X stays tight.
@@ -343,6 +343,30 @@ final class GCTravel {
             restartHop(trip); // waiting in line is not being stuck
             return false;
         }
+        if (e.minLevel() > 0 && bot.getLevel() < e.minLevel()) {
+            // The script turns the bot away (Jeff lets nobody under 50 past Ice Valley): no free pass.
+            BotLogger.log("[GCTravel] " + bot.getName() + " (lv " + bot.getLevel() + ") is too low for '" + e.name()
+                    + "' (needs " + e.minLevel() + ") - trip failed");
+            finish(trip, false);
+            return true;
+        }
+        if (e.via() == BotTransit.Via.HYPER_ROCK) {
+            long left = BotTransit.hyperCooldownLeftMs(bot);
+            if (left > 0) {
+                if (!trip.awaitingBoarding) {
+                    trip.awaitingBoarding = true;
+                    BotLogger.log("[GCTravel] " + bot.getName() + " waits " + (left / 1000) + "s for the hyper rock on map "
+                            + e.fromMapId());
+                }
+                restartHop(trip); // the 5-minute cooldown, as HyperTPHandler times a player
+                return false;
+            }
+            if (!hyperRockMayLand(bot, e.toMapId())) {
+                BotLogger.log("[GCTravel] " + bot.getName() + " can't teleport to " + e.toMapId() + " - trip failed");
+                finish(trip, false);
+                return true;
+            }
+        }
         trip.awaitingBoarding = false;
         int fare = e.fareFor(bot.getJob().getId());
         if (fare > 0 && !BotHoldings.spendMeso(bot, fare)) {
@@ -359,10 +383,28 @@ final class GCTravel {
             int saved = bot.getSavedLocation(e.returnToSaved()); // the script's own way home
             to = saved > 0 ? saved : constants.id.MapId.LITH_HARBOUR;
         }
+        if (e.via() == BotTransit.Via.HYPER_ROCK) {
+            BotTransit.hyperUsed(bot);
+            bot.saveLocationOnWarp(); // HyperTPHandler does this for a player too
+        }
         BotLogger.log("[GCTravel] " + bot.getName() + " took '" + e.name() + "' " + e.fromMapId() + " -> " + to
                 + (fare > 0 ? " for " + fare + " mesos" : ""));
         arrive(bot, to, e);
         return true;
+    }
+
+    /* HyperTPHandler's own refusals: a restricted map, a rebirth gate, or a field the rock can't reach. */
+    private static boolean hyperRockMayLand(Character bot, int mapId) {
+        if (!soloMapling.ArtificialPlayer.BotTravelSystem.BotMapGates.mayEnter(mapId,
+                soloMapling.ArtificialPlayer.BotTravelSystem.BotMapGates.rebirthsOf(bot))) {
+            return false;
+        }
+        try {
+            MapleMap target = bot.getMap().getChannelServer().getMapFactory().getMap(mapId);
+            return target != null && !server.maps.FieldLimit.CANNOTVIPROCK.check(target.getFieldLimit());
+        } catch (RuntimeException e) {
+            return true; // no live map to ask (a test seam): the table's own check stands
+        }
     }
 
     /* Aboard a ride. Server-driven rides end when the event (or the ferry's timer) moves the bot; past `sec`

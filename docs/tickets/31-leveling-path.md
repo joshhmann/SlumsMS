@@ -170,8 +170,29 @@ Per band (bots / distinct maps / most bots on one map):
 
 ### Open
 
-- **Above 120:** no route from Victoria reaches the 140+ path maps or the rebirth zones. Every map listed in the
-  sweep needs transit or nav edges before "every level 1-255" holds.
+- **Above 120:** routes into the high-level and MapleRoot areas are on branch `high-level-routes` (ticket 03
+  follow-up, not merged). Offline sweep from Henesys (`LevelPathSweepCheck`, bake WZ), before -> after:
+
+  | Band | r0 | r1 | r2 | r3 |
+  |---|---|---|---|---|
+  | 100-120 | 16 -> 18 | 16 -> 18 | 16 -> 18 | 16 -> 22 |
+  | 120-140 | 4 -> 5 | 4 -> 6 | 4 -> 6 | 4 -> 11 |
+  | 140-160 | 0 -> 0 | 0 -> 0 | 0 -> 0 | 0 -> 2 |
+  | 160-180 | 0 -> 0 | 0 -> 0 | 0 -> 3 | 0 -> 5 |
+  | 180-200 | 0 -> 1 | 0 -> 1 | 0 -> 7 | 0 -> 12 |
+  | 200-255 | 0 -> 6 | 0 -> 6 | 0 -> 7 | 0 -> 22 |
+
+  - **No route at rebirth 3:** 108 -> 37 maps.
+  - **Unusable:** 15 -> 0 (Ereve and the Temple of Time are enabled).
+  - **The 37 left are closed to players too:**
+    - LKC tower keys;
+    - Temple of Time lane quests;
+    - Mirror World, Kritias and Umbra (CANNOTVIPROCK, no entry);
+    - Ninja Castle;
+    - Mushroom Castle;
+    - Aran Rien.
+  - **Needs the owner:** 140-160 at r0-r2 still has 0 maps. Drop or replace those path entries, or give bots
+    keys/quests (ticket 30).
 - **Path share:** about 50% of decisions, against a 75% target. The rest are capacity races, unaffordable fares
   (most bots have few mesos) and the trip permit cap. Tune with `-Dsolomapling.levelPath.follow` and
   `relocations_per_minute` once supplies (ticket 08) gives bots mesos.

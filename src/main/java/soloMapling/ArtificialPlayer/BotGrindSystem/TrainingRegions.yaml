@@ -75,15 +75,15 @@ regions:
     hubs: [800000000]
     travel_min_level: 50
 
-  # Reachable by transit but not trained in yet.
+  # Opened by the ticket 03 follow-up: the version gate on their towns is lifted (portal_versions.yaml).
+  # Temple of Time: only Memory Lane 1 is open past Three Doors - each later lane's portal (timeQuest.js) needs
+  # that lane's quest done, and bots do no quests, so the later lanes stay out of reach (no free pass).
   - name: Temple of Time
     windows: [{min: 270000000, max: 271000000}]
     hubs: [270000000]
     travel_min_level: 95
-    enabled: false   # Temple of Time town is version-gated for bots and its roads are quest-scripted portals
   - name: Ereve
     windows: [{min: 130000000, max: 131000000}]
     hubs: [130000000]
     travel_min_level: 1
     travel_max_level: 30
-    enabled: false   # Cygnus starting island; Ereve town is version-gated for bots

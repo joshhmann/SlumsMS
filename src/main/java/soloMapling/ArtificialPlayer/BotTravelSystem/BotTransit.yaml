@@ -8,6 +8,7 @@
 #
 # Two kinds of edge:
 #   via: npc / portal  - walk to the NPC (or the scripted portal), pay `fare`, then go to `to`.
+#       script:        (portal rows) the scripts/portal file the portal runs; the tests read it.
 #       seller:        the ticket seller standing on the same map; on-screen bots walk to it first.
 #       event:         a scheduled ride; boarding waits until that event's "entry" property is "true",
 #                      exactly like the boarding NPC's own check.
@@ -16,6 +17,10 @@
 #       save_location: saves the bot's current map under that slot first (the World Tour).
 #       return_to_saved: goes back to the map saved under that slot instead of `to` (the World Tour's way
 #                      home). `to` is only the planner's guess.
+#       min_level:     the script refuses anyone below this level (Jeff); boarding fails the trip, never warps past.
+#       min_rebirths:  the script refuses anyone with fewer rebirths (the Henesys teleporter's Grandis and Arcane
+#                      menus); the planner never offers the edge to such a bot. Gated MAPS need no flag:
+#                      BotMapGates already keeps the planner out of them.
 #   via: ride - the bot is already aboard and waits on this map.
 #       server: true   the server moves it (an event's warpEveryone, or a ferry's own timer); `sec` is the
 #                      longest wait, after which the bot is moved anyway so it can never be stranded.
@@ -25,6 +30,8 @@
 # `sec` is also the route planner's cost for the edge (a walked portal costs 20). All times are at
 # travel_rate 1 and are scaled by the world's travel rate at run time, like the scripts' own timers.
 # Edges whose maps are gated out of the bot version (portal_versions.yaml) are dropped at load.
+#
+# hyper_rock (the block at the end) is the world-map teleport, which is not a row: see there.
 
 edges:
   # ── Victoria Island cabs (scripts/npc 1002007 1012000 1022001 1032000 1052016 1092014) ──
@@ -151,7 +158,7 @@ edges:
   # Back: outTemple.js (270000100 "out00") -> 200090510 -> fly west -> undodraco.js -> 240000110 portal 2.
   - {name: dragon to Temple of Time, from: 240000110, to: 200090500, via: npc, npc: 2082003, fare: 0, to_portal: 0, sec: 10}
   - {name: dragon to Temple of Time, from: 200090500, to: 270000100, via: ride, server: false, to_portal: out00, sec: 90}
-  - {name: dragon to Leafre, from: 270000100, to: 200090510, via: portal, portal: out00, fare: 0, to_portal: 0, sec: 10}
+  - {name: dragon to Leafre, from: 270000100, to: 200090510, via: portal, portal: out00, script: outTemple, fare: 0, to_portal: 0, sec: 10}
   - {name: dragon to Leafre, from: 200090510, to: 240000110, via: ride, server: false, to_portal: 2, sec: 90}
 
   # ── World Tour: Spinel (9000020), 3000 mesos to Mushroom Shrine; she takes you back where you came from ──
@@ -177,3 +184,110 @@ edges:
   - {name: world tour home, from: 800000000, to: 240000000, via: npc, npc: 9000020, fare: 0, return_to_saved: WORLDTOUR, sec: 600}
   - {name: world tour home, from: 800000000, to: 250000000, via: npc, npc: 9000020, fare: 0, return_to_saved: WORLDTOUR, sec: 600}
   - {name: world tour home, from: 800000000, to: 260000000, via: npc, npc: 9000020, fare: 0, return_to_saved: WORLDTOUR, sec: 600}
+
+  # ════ Ticket 03 follow-up: the ways into the high-level and MapleRoot areas (ticket 31's 120-255 path) ════
+
+  # ── El Nath: Jeff (2030000) on Ice Valley II lets level 50+ past to Sharp Cliff I, free ──
+  # MapleRoot's Ice Valley II has no working portal up (its top00 has no target), so Jeff is the only way on to
+  # Sharp Cliff, Wolf Territory, the Forest of Dead Trees and the Lion King's Castle moor.
+  - {name: Jeff's gate, from: 211040200, to: 211040300, via: npc, npc: 2030000, fare: 0, to_portal: 5, min_level: 50, sec: 20}
+
+  # ── Lion King's Castle: Desolate Moor's east00 runs in_lkc.js - rebirth 1 (BotMapGates gates the castle) ──
+  - {name: castle gate, from: 211060000, to: 211060010, via: portal, portal: east00, script: in_lkc, fare: 0, to_portal: west00, sec: 20}
+
+  # ── Temple of Time: Three Doors' portal2 runs arcaneriver.js - rebirth 3 - to Vanishing Journey ──
+  # (portal1, a plain portal, already leads on to Gate to the Future and so to Twilight Perion, rebirth 2.)
+  - {name: Arcane River gate, from: 270000000, to: 450001003, via: portal, portal: portal2, script: arcaneriver, fare: 0, to_portal: 0, sec: 20}
+
+  # ── Henesys: MapleRoot's teleporter (9010002), free; its Grandis and Arcane menus need 3 rebirths ──
+  # The Knight Stronghold entry (271030000) is left out: no bot may enter it (HyperTP-restricted). Its boss menu
+  # (Papulatus, Balrog, Spooky World, Krexel, Castellan, Zakum, Horntail) is left out too: those are free jumps
+  # past the boats that no leveling-path map needs.
+  - {name: teleporter, from: 100000000, to: 400000000, via: npc, npc: 9010002, fare: 0, min_rebirths: 3, sec: 30}
+  - {name: teleporter, from: 100000000, to: 401000000, via: npc, npc: 9010002, fare: 0, min_rebirths: 3, sec: 30}
+  - {name: teleporter, from: 100000000, to: 402000600, via: npc, npc: 9010002, fare: 0, min_rebirths: 3, sec: 30}
+  - {name: teleporter, from: 100000000, to: 410000000, via: npc, npc: 9010002, fare: 0, min_rebirths: 3, sec: 30}
+  - {name: teleporter, from: 100000000, to: 402000000, via: npc, npc: 9010002, fare: 0, min_rebirths: 3, sec: 30}
+  - {name: teleporter, from: 100000000, to: 410000416, via: npc, npc: 9010002, fare: 0, min_rebirths: 3, sec: 30}
+  - {name: teleporter, from: 100000000, to: 402000500, via: npc, npc: 9010002, fare: 0, min_rebirths: 3, sec: 30}
+  - {name: teleporter, from: 100000000, to: 410000200, via: npc, npc: 9010002, fare: 0, min_rebirths: 3, sec: 30}
+  - {name: teleporter, from: 100000000, to: 410000300, via: npc, npc: 9010002, fare: 0, min_rebirths: 3, sec: 30}
+  - {name: teleporter, from: 100000000, to: 271010000, via: npc, npc: 9010002, fare: 0, min_rebirths: 3, sec: 30}
+  - {name: teleporter, from: 100000000, to: 273000000, via: npc, npc: 9010002, fare: 0, min_rebirths: 3, sec: 30}
+  - {name: teleporter, from: 100000000, to: 450001000, via: npc, npc: 9010002, fare: 0, min_rebirths: 3, sec: 30}
+  - {name: teleporter, from: 100000000, to: 450002000, via: npc, npc: 9010002, fare: 0, min_rebirths: 3, sec: 30}
+  - {name: teleporter, from: 100000000, to: 450015060, via: npc, npc: 9010002, fare: 0, min_rebirths: 3, sec: 30}
+  - {name: teleporter, from: 100000000, to: 450003000, via: npc, npc: 9010002, fare: 0, min_rebirths: 3, sec: 30}
+  - {name: teleporter, from: 100000000, to: 450005000, via: npc, npc: 9010002, fare: 0, min_rebirths: 3, sec: 30}
+  - {name: teleporter, from: 100000000, to: 450006130, via: npc, npc: 9010002, fare: 0, min_rebirths: 3, sec: 30}
+  - {name: teleporter, from: 100000000, to: 450007040, via: npc, npc: 9010002, fare: 0, min_rebirths: 3, sec: 30}
+  - {name: teleporter, from: 100000000, to: 450016000, via: npc, npc: 9010002, fare: 0, min_rebirths: 3, sec: 30}
+  - {name: teleporter, from: 100000000, to: 450009100, via: npc, npc: 9010002, fare: 0, min_rebirths: 3, sec: 30}
+  - {name: teleporter, from: 100000000, to: 450011120, via: npc, npc: 9010002, fare: 0, min_rebirths: 3, sec: 30}
+  - {name: teleporter, from: 100000000, to: 450012300, via: npc, npc: 9010002, fare: 0, min_rebirths: 3, sec: 30}
+  - {name: teleporter, from: 100000000, to: 450011660, via: npc, npc: 9010002, fare: 0, min_rebirths: 3, sec: 30}
+
+  # ── Fox Point Village: the fox god (3002015) lifts you up the Fox Tree for 1000 mesos (Beginners 100) ──
+  - {name: Fox Tree lift, from: 410000002, to: 410000100, via: npc, npc: 3002015, fare: 1000, beginner_fare: 100, to_portal: 0, sec: 20}
+
+  # ── Ereve: Crossroads' west00 runs enterDisguise0.js to Training Forest I (a permit only during quests 20301-20305) ──
+  - {name: Empress' Road, from: 130000200, to: 130010000, via: portal, portal: west00, script: enterDisguise0, fare: 0, to_portal: east00, sec: 20}
+  # The forests' side doors (enterDisguise1-5.js) lead to the hidden forests the same way, outside those quests.
+  - {name: Empress' Road, from: 130010000, to: 130010010, via: portal, portal: in00, script: enterDisguise1, fare: 0, to_portal: out00, sec: 20}
+  - {name: Empress' Road, from: 130010000, to: 130010020, via: portal, portal: in01, script: enterDisguise2, fare: 0, to_portal: out00, sec: 20}
+  - {name: Empress' Road, from: 130010100, to: 130010110, via: portal, portal: in00, script: enterDisguise3, fare: 0, to_portal: out00, sec: 20}
+  - {name: Empress' Road, from: 130010100, to: 130010120, via: portal, portal: in01, script: enterDisguise4, fare: 0, to_portal: out00, sec: 20}
+  - {name: Empress' Road, from: 130010200, to: 130020000, via: portal, portal: west00, script: enterDisguise5, fare: 0, to_portal: east00, sec: 20}
+
+  # ── Lith Harbor <-> Rien: Puro's whale (1200004 / 1200003), 800 mesos; MapleMap.addPlayer times the 1 min ride ──
+  - {name: whale to Rien, from: 104000000, to: 200090060, via: npc, npc: 1200004, fare: 800, sec: 10}
+  - {name: whale to Rien, from: 200090060, to: 140020300, via: ride, server: true, to_portal: 0, sec: 60}
+  - {name: whale to Lith Harbor, from: 140020300, to: 200090070, via: npc, npc: 1200003, fare: 800, sec: 10}
+  - {name: whale to Lith Harbor, from: 200090070, to: 104000000, via: ride, server: true, to_portal: 3, sec: 60}
+
+  # ── Lith Harbor <-> Florina Beach: Pison (1002002), 1500 mesos; he (1081001) takes you back to the saved town ──
+  # Only Lith Harbor's side is used, so the saved FLORINA town is always Lith Harbor and the way back can name it.
+  - {name: Florina tour, from: 104000000, to: 110000000, via: npc, npc: 1002002, fare: 1500, to_portal: st00, save_location: FLORINA, sec: 30}
+  - {name: Florina tour home, from: 110000000, to: 104000000, via: npc, npc: 1081001, fare: 0, sec: 30}
+
+  # ── New Leaf City <-> Haunted House (Phantom Forest, Crimsonwood): Taxi Driver (9201056), 15000 mesos each way ──
+  - {name: taxi to the Haunted House, from: 600000000, to: 682000000, via: npc, npc: 9201056, fare: 15000, to_portal: 0, sec: 30}
+  - {name: taxi to NLC, from: 682000000, to: 600000000, via: npc, npc: 9201056, fare: 15000, sec: 30}
+  # The Haunted House's door, st01, runs halloween_enter.js: straight into the Foyer.
+  - {name: Haunted House door, from: 682000000, to: 682000100, via: portal, portal: st01, script: halloween_enter, fare: 0, to_portal: st00, sec: 20}
+
+  # ── Singapore <-> Malaysia: Audrey (9201135) and Spinel (9000020) ──
+  # From CBD Audrey charges 42000; Spinel's World Tour from Boat Quay charges 10000. Both save the WORLDTOUR town,
+  # and Audrey takes you back to it for free (to Boat Quay when nothing is saved).
+  - {name: Malaysia tour, from: 540000000, to: 550000000, via: npc, npc: 9201135, fare: 42000, to_portal: 0, save_location: WORLDTOUR, sec: 30}
+  - {name: world tour, from: 541000000, to: 550000000, via: npc, npc: 9000020, fare: 10000, to_portal: 0, save_location: WORLDTOUR, sec: 30}
+  - {name: Kampung bus, from: 550000000, to: 551000000, via: npc, npc: 9201135, fare: 10000, to_portal: 2, sec: 30}
+  - {name: Metropolis bus, from: 551000000, to: 550000000, via: npc, npc: 9201135, fare: 10000, to_portal: 4, sec: 30}
+  - {name: Malaysia tour home, from: 550000000, to: 540000000, via: npc, npc: 9201135, fare: 0, to_portal: 4, return_to_saved: WORLDTOUR, sec: 600}
+  - {name: Malaysia tour home, from: 550000000, to: 541000000, via: npc, npc: 9201135, fare: 0, to_portal: 4, return_to_saved: WORLDTOUR, sec: 600}
+
+  # ── Showa Town <-> the hideout: Konpei (9120015) takes you, the guard (9120200) takes you back; free ──
+  - {name: hideout, from: 801000000, to: 801040000, via: npc, npc: 9120015, fare: 0, to_portal: in00, sec: 20}
+  - {name: hideout exit, from: 801040000, to: 801000000, via: npc, npc: 9120200, fare: 0, sec: 20}
+
+# ── The Hyper Teleport Rock (HyperTPHandler), as bots may use it ──
+# A player can teleport from the world map to any map except the restricted ones (Knight Stronghold), those its
+# rebirth gates close (LKC 1, Twilight Perion 2, Grandis/Arcane 3) and fields with the CANNOTVIPROCK limit; a player
+# without the rock (5590001) may do it once every 5 minutes. Bots get a narrow version so they keep riding the
+# boats everywhere else:
+#   into:   maps a bot may teleport to from anywhere - only areas no script or portal reaches: Black Heaven.
+#           Edelstein's road there (level700BH) and the Skyline/deck portals (w310070300, b310070) have no script
+#           on this server, so the rock is the only way in: to the Scrapyard's Haven, and to the Black Heaven
+#           Entrance for the decks and the maze.
+#   out_of: map-id ranges [min, max) a bot may teleport out of, to one of the `home` towns - areas with no
+#           other way back to the classic world.
+# Mirror World, Kritias and Umbra fields are NOT here: they carry CANNOTVIPROCK and no portal or script reaches
+# them, so no player can get there either. enabled: false turns the rock off for bots.
+hyper_rock:
+  enabled: true
+  cooldown_sec: 300
+  into: [310070000, 310070310]
+  # Edelstein, Scrapyard and Black Heaven; Black Heaven inside; Grandis and Arcane River (the Henesys teleporter
+  # has no way back).
+  out_of: [{min: 310000000, max: 311000000}, {min: 350000000, max: 351000000}, {min: 400000000, max: 460000001}]
+  home: [100000000, 101000000, 102000000, 103000000, 104000000]
