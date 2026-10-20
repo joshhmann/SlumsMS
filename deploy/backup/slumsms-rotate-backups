@@ -1,0 +1,165 @@
+#!/bin/bash
+# slumsms-rotate-backups (ticket 45). Installed as /usr/local/bin/slumsms-rotate-backups, run daily by
+# slumsms-backup-rotate.timer. Default is a DRY RUN: it only prints what it would delete.
+#
+# What it rotates:
+#   A. /opt/mapleroot/backups/pre-*          pre-deploy backups: keep the newest $KEEP_DEPLOYS (by the UTC stamp in
+#                                            the name, else mtime); older ones are deleted whole.
+#   B. /opt/mapleroot-deployments/*          deploy records: keep the newest $KEEP_DEPLOYS finished deploys (folders
+#                                            with deploy.log, DEPLOYMENT.md, deployment.json or backup/; by newest
+#                                            file inside; staged/dry-run folders are ignored);
+#                                            in older ones only the bulky pre-deploy material is deleted (backup/,
+#                                            staging/, PreviousServer/, *.bundle *.tgz *.tar* *.sql* *.jar). The
+#                                            records themselves (DEPLOYMENT.md, deploy.log, scripts, json) stay.
+#   C. /opt/mapleroot-dev/*/ (depth <= 4)    test-server backup-* and Cosmic.jar.pre-* older than $TEST_KEEP_DAYS days.
+#                                            Never anything under a mysql/ datadir or integration-db/.
+# Never touched: backups/nightly (slumsms-nightly-backup prunes it), other files in backups/, live server folder.
+#
+# Two-step safety: every run (dry or not) records each candidate with the time it was FIRST listed in
+# $STATE_DIR/rotate-plan.tsv. --apply deletes only candidates that a previous run already listed at least
+# $GRACE_HOURS hours ago and that are still candidates now. So nothing is deleted the first time it is listed.
+#
+# Usage: slumsms-rotate-backups [--apply] [--grace-hours N] [--state-dir DIR]
+# ROTATE_MODE=apply in /etc/slumsms-backup.conf makes the timer run apply; the default is dry-run.
+set -euo pipefail
+umask 077
+
+CONF=${SLUMSMS_BACKUP_CONF:-/etc/slumsms-backup.conf}
+# shellcheck disable=SC1090
+[ -r "$CONF" ] && . "$CONF"
+
+ROTATE_MODE=${ROTATE_MODE:-dry-run}
+KEEP_DEPLOYS=${KEEP_DEPLOYS:-3}
+TEST_KEEP_DAYS=${TEST_KEEP_DAYS:-14}
+GRACE_HOURS=${GRACE_HOURS:-20}
+STATE_DIR=${STATE_DIR:-/var/lib/slumsms-backup}
+PRE_ROOT=${PRE_ROOT:-/opt/mapleroot/backups}
+DEPLOY_ROOT=${DEPLOY_ROOT:-/opt/mapleroot-deployments}
+TEST_ROOT=${TEST_ROOT:-/opt/mapleroot-dev}
+
+while [ $# -gt 0 ]; do
+    case "$1" in
+        --apply) ROTATE_MODE=apply ;;
+        --dry-run) ROTATE_MODE=dry-run ;;
+        --grace-hours) GRACE_HOURS=$2; shift ;;
+        --state-dir) STATE_DIR=$2; shift ;;
+        *) echo "unknown option $1" >&2; exit 2 ;;
+    esac
+    shift
+done
+[ "$KEEP_DEPLOYS" -ge 1 ] || { echo "KEEP_DEPLOYS must be >= 1" >&2; exit 2; }
+
+now=$(date +%s)
+cand=$(mktemp)
+trap 'rm -f "$cand" "$cand".*' EXIT
+
+add() { # add <path> <reason>
+    printf '%s\t%s\n' "$1" "$2" >> "$cand"
+}
+
+# Sort key: the UTC stamp in the name (…20261019T225613Z), else the mtime of the newest file inside.
+stamp_of() {
+    local p=$1 s
+    s=$(basename "$p" | grep -oE '[0-9]{8}T[0-9]{6}Z' | tail -1 || true)
+    if [ -n "$s" ]; then
+        date -u -d "${s:0:4}-${s:4:2}-${s:6:2} ${s:9:2}:${s:11:2}:${s:13:2}" +%s
+    else
+        newest_mtime "$p"
+    fi
+}
+newest_mtime() {
+    find "$1" -printf '%T@\n' 2>/dev/null | sort -rn | head -1 | cut -d. -f1
+}
+
+# ── A. pre-deploy backups ───────────────────────────────────────────────────────────────────────
+kept_a=()
+if [ -d "$PRE_ROOT" ]; then
+    while IFS=$'\t' read -r _ p; do
+        if [ ${#kept_a[@]} -lt "$KEEP_DEPLOYS" ]; then
+            kept_a+=("$p")
+        else
+            add "$p" "pre-deploy backup, older than the newest $KEEP_DEPLOYS"
+        fi
+    done < <(for p in "$PRE_ROOT"/pre-*; do
+                 [ -e "$p" ] && [ ! -L "$p" ] && printf '%s\t%s\n' "$(stamp_of "$p")" "$p"
+             done | sort -rn)
+fi
+
+# ── B. deploy records ───────────────────────────────────────────────────────────────────────────
+kept_b=()
+if [ -d "$DEPLOY_ROOT" ]; then
+    while IFS=$'\t' read -r _ d; do
+        if [ ${#kept_b[@]} -lt "$KEEP_DEPLOYS" ]; then
+            kept_b+=("$d")
+            continue
+        fi
+        for e in "$d"/* "$d"/.[!.]*; do
+            [ -e "$e" ] && [ ! -L "$e" ] || continue
+            n=$(basename "$e")
+            case "$n" in
+                backup|staging|PreviousServer|*.bundle|*.tgz|*.tar|*.tar.gz|*.sql|*.sql.gz|*.jar)
+                    add "$e" "bulk of deploy $(basename "$d"), older than the newest $KEEP_DEPLOYS" ;;
+            esac
+        done
+    done < <(for d in "$DEPLOY_ROOT"/*/; do
+                 d=${d%/}
+                 [ -d "$d" ] && [ ! -L "$d" ] || continue
+                 # Only deploys that ran count (and can be pruned): a staged or dry-run release folder has none of
+                 # these yet and is left alone, so it cannot push a real deploy out of the newest 3.
+                 if [ -e "$d/deploy.log" ] || [ -e "$d/DEPLOYMENT.md" ] || [ -e "$d/deployment.json" ] || [ -d "$d/backup" ]; then
+                     printf '%s\t%s\n' "$(newest_mtime "$d")" "$d"
+                 else
+                     echo "not a finished deploy, left alone: $d" >&2
+                 fi
+             done | sort -rn)
+fi
+
+# ── C. test-server leftovers ────────────────────────────────────────────────────────────────────
+if [ -d "$TEST_ROOT" ]; then
+    while IFS= read -r -d '' p; do
+        add "$p" "test-server leftover older than $TEST_KEEP_DAYS days"
+    done < <(find "$TEST_ROOT" -mindepth 2 -maxdepth 4 \
+                 \( -path '*/mysql' -o -path '*/mysql/*' -o -path "$TEST_ROOT/integration-db" -o -path "$TEST_ROOT/integration-db/*" \) -prune -o \
+                 \( -name 'backup-*' -o -name 'Cosmic.jar.pre-*' \) -mtime +"$TEST_KEEP_DAYS" -not -type l -print0 -prune)
+fi
+
+# ── plan bookkeeping ────────────────────────────────────────────────────────────────────────────
+mkdir -p "$STATE_DIR"
+plan="$STATE_DIR/rotate-plan.tsv"
+touch "$plan"
+# new plan = current candidates, each with its first-listed time from the old plan (or now)
+awk -F'\t' -v now="$now" 'FILENAME == ARGV[1] { first[$2] = $1; next } { t = ($1 in first) ? first[$1] : now; print t "\t" $1 "\t" $2 }' \
+    "$plan" "$cand" > "$cand.plan"
+
+echo "slumsms-rotate-backups: mode=$ROTATE_MODE keep=$KEEP_DEPLOYS deploys, test leftovers > $TEST_KEEP_DAYS days, grace ${GRACE_HOURS}h"
+echo "kept pre-deploy backups: ${kept_a[*]:-none}"
+echo "kept deploy records:     ${kept_b[*]:-none}"
+total=0
+count=0
+deleted=0
+while IFS=$'\t' read -r first p reason; do
+    size=$(du -sB1 -- "$p" 2>/dev/null | cut -f1 || echo 0)
+    total=$((total + size))
+    count=$((count + 1))
+    age_h=$(( (now - first) / 3600 ))
+    when=$(date -u -d "@$(newest_mtime "$p")" +%F 2>/dev/null || echo '?')
+    printf '  %-8s %s  %s  (%s; listed %sh ago)\n' "$(numfmt --to=iec "$size")" "$when" "$p" "$reason" "$age_h"
+    if [ "$ROTATE_MODE" = apply ]; then
+        # never on the run that lists it first, whatever the grace
+        if [ "$first" -ge "$now" ] || [ $((now - first)) -lt $((GRACE_HOURS * 3600)) ]; then
+            echo "           not yet: first listed ${age_h}h ago, deletes after ${GRACE_HOURS}h"
+            continue
+        fi
+        case "$p" in
+            "$PRE_ROOT"/pre-*|"$DEPLOY_ROOT"/*/*|"$TEST_ROOT"/*/*) ;;
+            *) echo "           refused: outside the rotation roots" >&2; continue ;;
+        esac
+        [ "$p" != "$PRE_ROOT/nightly" ] || continue
+        rm -rf --one-file-system -- "$p" && { echo "           deleted"; deleted=$((deleted + 1)); }
+    fi
+done < "$cand.plan"
+echo "candidates: $count, $(numfmt --to=iec "$total"); deleted: $deleted"
+[ "$ROTATE_MODE" = apply ] || echo "dry run: nothing deleted. Run with --apply (or ROTATE_MODE=apply) to delete listed items after ${GRACE_HOURS}h."
+
+# Remember what is still a candidate (deleted ones drop out on the next run).
+cut -f1,2 "$cand.plan" > "$plan.new" && mv "$plan.new" "$plan"

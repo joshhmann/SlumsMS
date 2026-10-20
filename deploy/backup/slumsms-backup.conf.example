@@ -1,0 +1,27 @@
+# /etc/slumsms-backup.conf - settings for slumsms-nightly-backup, slumsms-rotate-backups and slumsms-restore-drill
+# (ticket 45). Sourced by bash: KEY=value, no spaces around "=". Everything here is optional; the commented values
+# are the defaults.
+
+# ── nightly backup ──
+#BACKUP_DIR=/opt/mapleroot/backups/nightly
+#SERVER_DIR="/opt/mapleroot/MapleRoot Full Repack/Server"
+#DB_CONTAINER=buns-clean-db-1
+#DB_SCHEMA=mapleroot
+#DUMP_LOCK=--lock-all-tables
+#KEEP_DAYS=14
+#KEEP_MIN=3
+#NAV_DIRS="learned stuck heat"
+
+# ── off-box copy (disabled while OFFBOX_DEST is empty) ──
+# Destination for rsync/scp, e.g. backup@nas.lan:/volume1/slumsms or slums@192.168.0.186:SlumsMS-backups
+#OFFBOX_DEST=
+#OFFBOX_METHOD=rsync          # rsync (needs rsync on the far end) or scp (e.g. Windows OpenSSH)
+#OFFBOX_SSH_OPTS="-o BatchMode=yes -o ConnectTimeout=20 -i /root/.ssh/slumsms_offbox"
+#OFFBOX_KEY=/root/.config/slumsms-backup/offbox.key   # gpg passphrase file; KEEP A COPY OFF THIS HOST
+
+# ── rotation ──
+#ROTATE_MODE=dry-run          # dry-run | apply (apply deletes only items listed by an earlier run >= GRACE_HOURS ago)
+#KEEP_DEPLOYS=3
+#TEST_KEEP_DAYS=14
+#GRACE_HOURS=20
+#STATE_DIR=/var/lib/slumsms-backup

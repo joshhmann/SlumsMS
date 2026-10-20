@@ -1,0 +1,10 @@
+# Rotates pre-deploy backups and test-server leftovers (ticket 45). Dry run unless ROTATE_MODE=apply in
+# /etc/slumsms-backup.conf; the list lands in the journal: journalctl -u slumsms-backup-rotate
+[Unit]
+Description=SlumsMS backup rotation (pre-deploy material, test-server leftovers)
+
+[Service]
+Type=oneshot
+Nice=19
+IOSchedulingClass=idle
+ExecStart=/usr/local/bin/slumsms-rotate-backups

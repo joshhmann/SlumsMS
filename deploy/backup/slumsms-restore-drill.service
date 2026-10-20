@@ -1,0 +1,10 @@
+# Monthly restore drill (ticket 45): newest nightly -> scratch schema on the test DB -> copy of live on spare ports
+# -> checks -> cleanup. Receipts in /opt/mapleroot-dev/restore-drill/receipts/. Takes about 10 minutes.
+[Unit]
+Description=SlumsMS monthly restore drill
+After=docker.service
+
+[Service]
+Type=oneshot
+TimeoutStartSec=45min
+ExecStart=/usr/local/bin/slumsms-restore-drill
