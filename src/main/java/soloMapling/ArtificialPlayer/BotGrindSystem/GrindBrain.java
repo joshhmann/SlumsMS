@@ -102,6 +102,8 @@ public final class GrindBrain {
             targetOid = -1;
             lastMoveTargetX = Integer.MIN_VALUE;
             lastKillMs = now();
+            approachX = -1;   // re-derive the reach: a ranged bot out of ammo now closes to melee (real bots 08)
+            approachY = -1;
             lastNarrate = "";
             lastGiveUpNarrateMs = 0L;
             camp.resetEpisodeUnderLock();

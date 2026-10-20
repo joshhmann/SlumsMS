@@ -560,6 +560,45 @@ public final class BotHoldings {
     }
 
     /**
+     * Uses up part of one held stack - a potion drunk, arrows fired, stars thrown - out of the inventory and the
+     * ledger together (real bots 08). Like {@code InventoryManipulator.removeFromSlot(..., consume = true)} for a
+     * player, a rechargeable stack (stars, bullets) stays in its slot at 0 to be recharged, anything else leaves
+     * its slot once empty. The ledger debit makes the bot dirty until a write records it (see
+     * {@link #hasUnpersistedDebit(Character)}), so a restart cannot hand the used-up value back.
+     *
+     * @return how many were used: {@code quantity}, or fewer when the stack held fewer; 0 when the bot does not
+     * hold this instance
+     */
+    public static int consumeHeld(Character bot, Item item, int quantity) {
+        if (item == null || quantity <= 0) {
+            return 0;
+        }
+        Inventory inv = bot.getInventory(item.getInventoryType());
+        int used;
+        inv.lockInventory();
+        try {
+            if (inv.getItem(item.getPosition()) != item) {
+                return 0;   // moved or gone since the caller found it: nothing of this instance to use
+            }
+            used = Math.min(quantity, item.getQuantity());
+            if (used <= 0) {
+                return 0;
+            }
+            int left = item.getQuantity() - used;
+            if (left <= 0 && !ItemConstants.isRechargeable(item.getItemId())) {
+                inv.removeSlot(item.getPosition());
+            } else {
+                item.setQuantity((short) left);
+            }
+        } finally {
+            inv.unlockInventory();
+        }
+        int spent = used;   // the lambda needs an effectively final copy
+        mutate(bot, ledger -> ledger.addItem(item.getItemId(), -spent));
+        return used;
+    }
+
+    /**
      * True when this bot holds less than its stored row claims: a debit - a payout, a purchase, mesos handed to
      * a trade partner, an item destroyed while held - that no durable write has recorded yet.
      *

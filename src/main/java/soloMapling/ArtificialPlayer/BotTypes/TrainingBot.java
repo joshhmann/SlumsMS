@@ -27,6 +27,9 @@ import soloMapling.ArtificialPlayer.BotGrindSystem.GrindBrain;
 import soloMapling.ArtificialPlayer.BotGrindSystem.MapMobIndex;
 import soloMapling.ArtificialPlayer.BotGrindSystem.OffscreenRewardBudget;
 import soloMapling.ArtificialPlayer.BotAttackSystem.OffscreenCombat;
+import soloMapling.ArtificialPlayer.BotSupplySystem.BotSupplies;
+import soloMapling.ArtificialPlayer.BotSupplySystem.BotVitals;
+import soloMapling.ArtificialPlayer.BotSupplySystem.OffscreenSupplies;
 import soloMapling.ArtificialPlayer.BotGrindSystem.TrainingMapChooser;
 import soloMapling.ArtificialPlayer.BotGrindSystem.SpotFinder;
 import soloMapling.ArtificialPlayer.BotGrindSystem.TrainingMap;
@@ -469,6 +472,7 @@ public class TrainingBot extends BotSM {
         if (!phaseEntered) {
             phaseEntered = true;
             crowdHopsThisEpisode = 0; // back home -> fresh outing, reset the crowd-migration budget
+            BotSupplies.visitTown(getChr()); // real bots 08: rest to full and offer its needs to the resupply hook
             buildShopPlan();
             // A deep hub's restock is an ON-MAP food-cart / grocer (no separate store map), so walk to it in
             // place and linger like a shop browse instead of idling on the entry portal. Extends the dwell.
@@ -807,8 +811,20 @@ public class TrainingBot extends BotSM {
         double elapsedSec = (nowMs - lastExpAccrualMs) / 1000.0;
         lastExpAccrualMs = nowMs;
         if (elapsedSec > 0 && !GCMovement.isMapObserved(chr.getMapId()) && currentMobLevel > 0) {
-            accrueAbstractExp(currentMobLevel, elapsedSec);
-            accrueAbstractLoot(chr, nowMs, (long) (elapsedSec * 1000));
+            // Real bots 08: the stretch uses up ammo, HP, MP and potions at the on-screen rates; only the share the
+            // bot could afford is ground (EXP and loot); running out part way sends it to town just below.
+            OffscreenCombat.Rate rate = OffscreenCombat.rate(chr, chr.getMapId());
+            double fought = elapsedSec * OffscreenSupplies.accrue(chr, rate, elapsedSec);
+            if (fought > 0) {
+                accrueAbstractExp(rate, currentMobLevel, fought);
+                accrueAbstractLoot(chr, nowMs, (long) (fought * 1000));
+            }
+        } else if (elapsedSec > 0) {
+            BotVitals.regen(chr, (long) (elapsedSec * 1000)); // on screen: the 10-second recovery tick
+        }
+
+        if (supplyRetreat(chr)) {
+            return; // out of supplies: headed to town (real bots 08)
         }
 
         // Announce a level-up the moment it becomes visible (real kills on an observed map).
@@ -1034,6 +1050,26 @@ public class TrainingBot extends BotSM {
             GCMovement.stop(chr); // drop the in-flight move so the driver re-acquires cleanly from the new spot
             GCMovement.teleportTo(chr, best.x, best.y);
         }
+    }
+
+    // Real bots 08: out of what it fights with (no potion left at a quarter HP, no MP potion for its attack, no ammo)
+    // the bot leaves for town, where it rests and asks the resupply hook (BotSupplies.visitTown). Not mid-way
+    // through talking to a player.
+    private boolean supplyRetreat(Character chr) {
+        BotSupplies.Shortage shortage = BotSupplies.shortage(chr);
+        if (shortage == BotSupplies.Shortage.NONE || recruitingNow()) {
+            return false;
+        }
+        debugChat("supplies: out (" + shortage + ") -> town");
+        BotSupplies.noteRetreat(chr, shortage);
+        sayContext(switch (shortage) {
+            case HP -> "NearDeath";
+            case MP -> "OutOfMana";
+            default -> "OutOfAmmo";
+        }, chr, null);
+        leaveGrind();
+        enterPhase(Phase.GO_TOWN);
+        return true;
     }
 
     private void leaveGrind() {
@@ -1269,8 +1305,7 @@ public class TrainingBot extends BotSM {
     // re-derives stats; nothing is sent to the map (ticket 07 rule 2).
     private double abstractExpRemainder;
 
-    private void accrueAbstractExp(int mobLevel, double elapsedSec) {
-        OffscreenCombat.Rate rate = OffscreenCombat.rate(getChr(), getChr().getMapId());
+    private void accrueAbstractExp(OffscreenCombat.Rate rate, int mobLevel, double elapsedSec) {
         double perSecond = rate != null ? rate.expPerSecond() : (KILLS_PER_MIN / 60.0) * Math.max(1, mobLevel);
         double owed = perSecond * elapsedSec + abstractExpRemainder;   // a short tick's fraction carries over
         long gain = (long) Math.floor(owed);

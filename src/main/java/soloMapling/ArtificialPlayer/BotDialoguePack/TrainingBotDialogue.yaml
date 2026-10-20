@@ -504,6 +504,31 @@ TrainingBot:
       - 0
     wait: 1
 
+  OutOfAmmo:
+    text:
+      - "outta ammo, brb"
+      - {line: "no stars left lol", emote: 4}
+      - {line: "last arrow gone T_T", emote: 4}
+      - "gotta go restock ammo"
+      - {line: "cant hit anything without ammo smh", emote: 6}
+      - "heading to town for more ammo"
+    emote:
+      - 4
+      - 0
+    wait: 1
+
+  OutOfMana:
+    text:
+      - "out of mana, brb"
+      - {line: "no blue pots left T_T", emote: 4}
+      - "gotta go rest, zero mp"
+      - {line: "mp is empty and so are my pots", emote: 6}
+      - "heading back to town to recover"
+    emote:
+      - 4
+      - 0
+    wait: 1
+
   MapShare:
     text:
       - {line: "this map taken {PLAYER_NAME}?", emote: 0}

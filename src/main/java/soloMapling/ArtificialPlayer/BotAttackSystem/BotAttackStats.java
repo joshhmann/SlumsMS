@@ -3,6 +3,9 @@ package soloMapling.ArtificialPlayer.BotAttackSystem;
 import client.Character;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
+import soloMapling.ArtificialPlayer.BotCommandsPack.BotAttack;
+import soloMapling.ArtificialPlayer.BotSupplySystem.BotAmmo;
+import soloMapling.ArtificialPlayer.BotSupplySystem.BotVitals;
 
 import java.util.Map;
 import java.util.TreeMap;
@@ -12,7 +15,8 @@ import java.util.concurrent.ConcurrentHashMap;
  * Per-bot tally of the grinding attack loop (BotAttackDriver.botAttack), written as one debug line per bot per minute:
  * how many attempts swung, with which skills, and why the rest did not. Answers "is this bot attacking, and if not,
  * why" from the server log without a client: a bot that stands in range swinging at nothing shows up as a column of
- * "out of reach" misses. Cooldown ticks are counted apart, since most ticks of a fighting bot are cooldown.
+ * "out of reach" misses. Cooldown ticks are counted apart, since most ticks of a fighting bot are cooldown. The line
+ * ends with what the bot holds (potions, ammo, HP/MP), so consecutive lines give its on-screen supply rates (real bots 08).
  */
 final class BotAttackStats {
 
@@ -56,9 +60,13 @@ final class BotAttackStats {
             }
             if (now - t.since >= WINDOW_MS) {
                 tallies.remove(bot.getId(), t);
-                log.debug("Bot attacks {} ({} lv {}) over {}s: {} swings {} kills {}, misses {}, cooldown ticks {}",
+                log.debug("Bot attacks {} ({} lv {}) over {}s: {} swings {} kills {}, misses {}, cooldown ticks {}; "
+                                + "holds HP pots {} MP pots {} ammo {}, HP {}/{} MP {}/{}",
                         bot.getName(), bot.getJob(), bot.getLevel(), (now - t.since) / 1000, t.swings, t.kills,
-                        t.bySkill, t.misses, t.cooldown);
+                        t.bySkill, t.misses, t.cooldown, BotVitals.potionCount(bot, true),
+                        BotVitals.potionCount(bot, false),
+                        BotAmmo.held(bot, BotAttack.resolveEquippedWeaponType(bot)), bot.getHp(),
+                        bot.getCurrentMaxHp(), bot.getMp(), bot.getCurrentMaxMp());
             }
         }
     }

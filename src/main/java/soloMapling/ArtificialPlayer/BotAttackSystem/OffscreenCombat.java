@@ -9,6 +9,8 @@ import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import soloMapling.ArtificialPlayer.BotCommandsPack.BotAttack;
 import soloMapling.ArtificialPlayer.BotGrindSystem.MapMobIndex;
+import soloMapling.ArtificialPlayer.BotSupplySystem.BotAmmo;
+import soloMapling.ArtificialPlayer.BotSupplySystem.BotSupplies;
 
 import java.util.ArrayList;
 import java.util.Comparator;
@@ -47,11 +49,25 @@ public final class OffscreenCombat {
     static final double DEFAULT_OFFSCREEN_EXP_PACE = 1.0 / 3.0;
     static final String OFFSCREEN_EXP_PACE_PROPERTY = "solomapling.offscreenExpPace";
 
-    /* The offscreen grind's pace: kills a minute, EXP per kill, and the level of the mob it was worked out on. */
-    public record Rate(double killsPerMinute, double expPerKill, int mobLevel) {
+    /*
+     * The offscreen grind's pace: kills a minute, EXP per kill, and the level of the mob it was worked out on; and,
+     * for what the grind uses up (real bots 08, OffscreenSupplies), the swings a minute it takes, the attack swung
+     * (skill, the level it is cast at, its route) and the mob's physical attack.
+     */
+    public record Rate(double killsPerMinute, double expPerKill, int mobLevel, double swingsPerMinute, int skillId,
+                       int skillLevel, BotAttackProfile.Route route, int mobAttack) {
+        public Rate(double killsPerMinute, double expPerKill, int mobLevel) {
+            this(killsPerMinute, expPerKill, mobLevel, 0, 0, 0, BotAttackProfile.Route.CLOSE, 0);
+        }
+
         public double expPerSecond() {
             return killsPerMinute / 60.0 * expPerKill;
         }
+    }
+
+    // One attack's offscreen pace, and what was swung to get it.
+    private record Pace(double kills, double swings, int skillId, int skillLevel, BotAttackProfile.Route route) {
+        static final Pace NONE = new Pace(0, 0, 0, 0, BotAttackProfile.Route.CLOSE);
     }
 
     private record Cached(int key, Rate rate) {
@@ -67,8 +83,10 @@ public final class OffscreenCombat {
         if (bot == null || mob == null) {
             return null;
         }
+        WeaponType weapon = BotAttack.resolveEquippedWeaponType(bot);
+        BotAmmo.syncStats(bot, weapon);   // the totals count the ammo it carries now (real bots 08)
         int key = Objects.hash(mapId, bot.getLevel(), bot.getJob(), BotAttackDriver.equippedWeaponId(bot),
-                bot.getTotalWatk(), bot.getTotalMagic(), bot.getTotalStr(), bot.getTotalDex(), bot.getTotalInt(),
+                BotSupplies.outOfAmmo(bot), bot.getTotalWatk(), bot.getTotalMagic(), bot.getTotalStr(), bot.getTotalDex(), bot.getTotalInt(),
                 bot.getTotalLuk(), bot.getExpRate());
         Cached cached = byBot.get(bot.getId());
         if (cached != null && cached.key() == key) {
@@ -94,15 +112,20 @@ public final class OffscreenCombat {
         BotAttackConfig.JobAttacks attacks = BotAttackConfig.resolve(bot.getJob(), weapon,
                 BotAttackDriver.ownedSkills(bot));
         long hp = mob.getHp() != null ? Math.max(1, mob.getHp()) : 1;
-        double best = 0;
+        Pace best = Pace.NONE;
         if (attacks.single() != null) {
-            best = killsPerMinute(bot, attacks.single(), weapon, mob, hp, 1);
+            best = pace(bot, withAmmo(bot, attacks.single(), weapon), weapon, mob, hp, 1);
         }
         if (attacks.aoe() != null && mobsOnMap >= 2) {
-            int caught = Math.max(1, Math.min(Math.min(attacks.aoe().numAttacked, PACK_SIZE), mobsOnMap));
-            best = Math.max(best, killsPerMinute(bot, attacks.aoe(), weapon, mob, hp, caught));
+            BotAttackProfile aoe = withAmmo(bot, attacks.aoe(), weapon);
+            int caught = Math.max(1, Math.min(Math.min(aoe.numAttacked, PACK_SIZE), mobsOnMap));
+            Pace pack = pace(bot, aoe, weapon, mob, hp, caught);
+            if (pack.kills() > best.kills()) {
+                best = pack;
+            }
         }
-        return new Rate(best, expPerKill(mob.getExp(), bot.getExpRate(), mapExpMultiplier), mob.getLevel());
+        return new Rate(best.kills(), expPerKill(mob.getExp(), bot.getExpRate(), mapExpMultiplier), mob.getLevel(),
+                best.swings(), best.skillId(), best.skillLevel(), best.route(), mob.getPADamage());
     }
 
     /* An offscreen kill's EXP: the mob's EXP x the bot's EXP rate x the map multiplier, at the offscreen pace. */
@@ -127,8 +150,26 @@ public final class OffscreenCombat {
         return DEFAULT_OFFSCREEN_EXP_PACE;
     }
 
-    private static double killsPerMinute(Character bot, BotAttackProfile profile, WeaponType weapon,
-                                         MonsterStats mob, long hp, int mobsPerSwing) {
+    /*
+     * What the bot would swing for this attack with the ammo it holds (real bots 08, as SwingSupply decides on
+     * screen): a plain shot when it has too few for the skill, its ranged weapon in melee when it has none.
+     */
+    private static BotAttackProfile withAmmo(Character bot, BotAttackProfile profile, WeaponType weapon) {
+        if (profile.route != BotAttackProfile.Route.RANGED || !BotAmmo.needsAmmo(bot, weapon, profile.skillId)) {
+            return profile;
+        }
+        if (BotAmmo.usable(bot, weapon, profile.skillId, packetLevel(bot, profile)) != null) {
+            return profile;
+        }
+        return BotAmmo.usable(bot, weapon, 0, 0) != null ? BotAttackProfile.ranged(0, 1) : BotAttackProfile.basicSwing();
+    }
+
+    private static int packetLevel(Character bot, BotAttackProfile profile) {
+        return BotAttackDriver.packetLevel(bot, profile);
+    }
+
+    private static Pace pace(Character bot, BotAttackProfile profile, WeaponType weapon,
+                             MonsterStats mob, long hp, int mobsPerSwing) {
         int skillId = profile.skillId;
         int skillLevel = BotAttackDriver.packetLevel(bot, profile);
         BotAttackProfile.Route route = profile.route;
@@ -147,7 +188,16 @@ public final class OffscreenCombat {
                     swing.base().min(), swing.base().max(), Math.round(swing.crit().chance() * 100),
                     String.format("%.2f", swing.crit().factor()), Math.round(perMob));
         }
-        return killsPerMinute(perMob, hp, profile.cooldownMs, mobsPerSwing);
+        double kills = killsPerMinute(perMob, hp, profile.cooldownMs, mobsPerSwing);
+        return new Pace(kills, swingsPerMinute(kills, perMob, hp, mobsPerSwing), skillId, skillLevel, route);
+    }
+
+    /* The swings a minute behind a kill rate: each pack of mobsPerSwing takes ceil(hp / perSwing) swings. */
+    static double swingsPerMinute(double killsPerMinute, double perSwing, long hp, int mobsPerSwing) {
+        if (perSwing <= 0 || killsPerMinute <= 0) {
+            return 0;
+        }
+        return killsPerMinute / Math.max(1, mobsPerSwing) * Math.ceil(hp / perSwing);
     }
 
     /* Kills a minute for a swing that takes perSwing off each of mobsPerSwing mobs every cooldownMs. */

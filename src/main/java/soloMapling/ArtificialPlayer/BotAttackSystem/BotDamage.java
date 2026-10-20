@@ -5,12 +5,8 @@ import client.Character;
 import client.Job;
 import client.Skill;
 import client.SkillFactory;
-import client.inventory.Inventory;
-import client.inventory.InventoryType;
-import client.inventory.Item;
 import client.inventory.WeaponType;
 import constants.game.GameConstants;
-import constants.inventory.ItemConstants;
 import constants.skills.Aran;
 import constants.skills.Archer;
 import constants.skills.Assassin;
@@ -37,7 +33,6 @@ import constants.skills.ThunderBreaker;
 import constants.skills.WhiteKnight;
 import constants.skills.WindArcher;
 import net.server.PlayerBuffValueHolder;
-import server.ItemInformationProvider;
 import server.StatEffect;
 import server.life.Element;
 import server.life.ElementalEffectiveness;
@@ -57,7 +52,6 @@ import java.util.List;
 import java.util.Set;
 import java.util.concurrent.ThreadLocalRandom;
 import java.util.function.BiFunction;
-import java.util.function.IntUnaryOperator;
 
 /*
  * Real bots 07: reads a bot's real numbers - its stat totals, the weapon and gear it wears, the skills it holds and
@@ -79,14 +73,10 @@ public final class BotDamage {
     }
 
     private static volatile BiFunction<Integer, Integer, SkillNumbers> skillData = BotDamage::fromWz;
-    private static volatile IntUnaryOperator projectileWatk =
-            itemId -> ItemInformationProvider.getInstance().getWatkForProjectile(itemId);
 
-    /* Test hooks: the tests have no WZ data. null restores the server's. */
-    static void useSkillDataForTest(BiFunction<Integer, Integer, SkillNumbers> data, IntUnaryOperator ammo) {
+    /* Test hook: the tests have no WZ data. null restores the server's. */
+    static void useSkillDataForTest(BiFunction<Integer, Integer, SkillNumbers> data) {
         skillData = data != null ? data : BotDamage::fromWz;
-        projectileWatk = ammo != null ? ammo
-                : itemId -> ItemInformationProvider.getInstance().getWatkForProjectile(itemId);
     }
 
     private static SkillNumbers fromWz(int skillId, int level) {
@@ -199,7 +189,7 @@ public final class BotDamage {
     /* The bot as an attacker with this weapon: its totals plus what it shows. */
     public static Attacker attacker(Character bot, WeaponType weapon) {
         List<int[]> shown = shownBuffs(bot);
-        int watk = bot.getTotalWatk() + missingAmmoWatk(bot, weapon);
+        int watk = bot.getTotalWatk();   // the ammo the bot carries is in it (BotAmmo.syncStats, real bots 08)
         int matk = bot.getTotalMagic();
         int mapleWarrior = 0;
         int damageBonus = 0;
@@ -260,34 +250,6 @@ public final class BotDamage {
                 weaponMastery(bot, weapon),
                 passiveCritChance, passiveCritDamage, Math.min(1.0, buffCritChance), buffCritDamage,
                 damageBonus, amplification);
-    }
-
-    /*
-     * A ranged bot's totals count its ammo only when it carries some (Character.reapplyLocalStats); until bots
-     * carry real ammo (ticket 08) the projectile it is drawn throwing counts instead.
-     */
-    private static int missingAmmoWatk(Character bot, WeaponType weapon) {
-        if (weapon != WeaponType.BOW && weapon != WeaponType.CROSSBOW && weapon != WeaponType.CLAW
-                && weapon != WeaponType.GUN) {
-            return 0;
-        }
-        Inventory use = bot.getInventory(InventoryType.USE);
-        if (use != null) {
-            for (Item item : use.list()) {
-                int id = item.getItemId();
-                boolean fits = switch (weapon) {
-                    case CLAW -> ItemConstants.isThrowingStar(id);
-                    case GUN -> ItemConstants.isBullet(id);
-                    case BOW -> ItemConstants.isArrowForBow(id);
-                    default -> ItemConstants.isArrowForCrossBow(id);
-                };
-                if (fits && item.getQuantity() > 0) {
-                    return 0;
-                }
-            }
-        }
-        int projectile = BotAttackData.projectileFor(weapon, bot);
-        return projectile > 0 ? Math.max(0, projectileWatk.applyAsInt(projectile)) : 0;
     }
 
     /* The skill numbers of one swing: the skill at the level it is cast, the route it is drawn on. */

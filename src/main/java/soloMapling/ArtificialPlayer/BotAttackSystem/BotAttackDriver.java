@@ -21,6 +21,8 @@ import soloMapling.ArtificialPlayer.BotDecoratorSystem.BotWeapons;
 import soloMapling.ArtificialPlayer.BotMovementSystem.MovementCommands;
 import soloMapling.ArtificialPlayer.GCMoveSystem.BotPerformanceMonitor;
 import soloMapling.ArtificialPlayer.GCMoveSystem.GCMovement;
+import soloMapling.ArtificialPlayer.BotSupplySystem.BotSupplies;
+import soloMapling.ArtificialPlayer.BotSupplySystem.SwingSupply;
 
 import java.awt.Point;
 import java.awt.Rectangle;
@@ -138,6 +140,7 @@ public final class BotAttackDriver {
         BotAttackStats.clear(botId);
         BotComboOrbs.clearBot(botId);
         OffscreenCombat.clearBot(botId);
+        BotSupplies.clearBot(botId);
     }
 
     /*
@@ -146,19 +149,31 @@ public final class BotAttackDriver {
      * melee range - so a ranged/magic bot stops and attacks from afar. 0 if it has no configured attack.
      */
     public static int attackReachX(Character bot) {
-        BotAttackProfile p = primaryProfile(bot);
+        BotAttackProfile p = reachProfile(bot);
         return p != null ? p.reachX : 0;
     }
 
     /* The bot's effective vertical attack reach in px; pairs with attackReachX for approach gating. */
     public static int attackReachY(Character bot) {
-        BotAttackProfile p = primaryProfile(bot);
+        BotAttackProfile p = reachProfile(bot);
         return p != null ? p.reachY : 0;
     }
 
     /* What the bot holds, for BotAttackConfig's owned-skill resolution (real bots 06). */
     static java.util.function.IntPredicate ownedSkills(Character bot) {
         return skillId -> bot.getSkillLevel(skillId) > 0;
+    }
+
+    /* The attack the bot fights with: its single-target one, else its AoE, else its ultimate; null for none. */
+    public static BotAttackProfile primaryAttack(Character bot) {
+        return primaryProfile(bot);
+    }
+
+    // The attack whose reach the bot closes to: a ranged bot out of ammo swings in melee (real bots 08), so it has
+    // to walk up to the mob instead of standing off at bow range.
+    private static BotAttackProfile reachProfile(Character bot) {
+        BotAttackProfile p = primaryProfile(bot);
+        return p != null && BotSupplies.outOfAmmo(bot) ? BotAttackProfile.basicSwing() : p;
     }
 
     private static BotAttackProfile primaryProfile(Character bot) {
@@ -262,13 +277,18 @@ public final class BotAttackDriver {
             profile = comboCharger(single, profile == aoe, weapon);
         }
 
+        // What the swing takes out of the bot (real bots 08): MP for the skill, ammo for a ranged swing. A bot that
+        // cannot pay swings its plain attack instead (SwingSupply), and pays for what it swung once it is out.
+        SwingSupply supply = SwingSupply.prepare(bot, profile, weapon, packetLevel(bot, profile));
+        profile = supply.profile();
+
         List<Monster> targets = cap(mobsInReach(bot, profile, facingLeft), profile.numAttacked);
         if (healUndead) {
             targets = undeadOnly(targets); // Heal must not damage a living mob caught in the box
         }
         if (targets.isEmpty()) {
-            return AttackResult.miss(healUndead ? "no undead in heal range"
-                    : reachDiagnostic(bot, profile, facingLeft));
+            String why = healUndead ? "no undead in heal range" : reachDiagnostic(bot, profile, facingLeft);
+            return AttackResult.miss(supply.fallback() != null ? why + " (" + supply.fallback() + ")" : why);
         }
 
         int facingMask = facingLeft ? BotAttackData.FACING_LEFT_MASK : BotAttackData.FACING_RIGHT_MASK;
@@ -307,11 +327,12 @@ public final class BotAttackDriver {
             case CLOSE  -> BotAttackEffects.meleeStrike(bot, hits, skillId, skillLevel,
                     bodyActionId, facingMask, profile.speed, profile.hitDelayMs);
             case RANGED -> BotAttackEffects.rangedStrike(bot, hits, skillId, skillLevel,
-                    BotAttackData.projectileFor(weapon, bot), bodyActionId, facingMask, profile.speed, profile.hitDelayMs);
+                    supply.projectile(), bodyActionId, facingMask, profile.speed, profile.hitDelayMs);
             case MAGIC  -> BotAttackEffects.magicStrike(bot, hits, skillId, skillLevel,
                     bodyActionId, facingMask, profile.speed, profile.hitDelayMs);
         };
 
+        supply.commit(bot, route, skillId); // the ammo fired, the MP/HP the skill cost (and a potion if it is low)
         BotComboOrbs.afterStrike(bot, skillId); // after the packet: a finisher is drawn with the orbs it spends
         nextAttackByBot.put(bot.getId(), now + profile.cooldownMs);
         startCooltime(bot, skillId, skillLevel, now);
@@ -357,7 +378,7 @@ public final class BotAttackDriver {
      * the profile's default capped at the skill's maximum, since a level past it names an effect the
      * viewer's client does not have (MapleRoot's custom 4th-job skills stop at 10, below the default).
      */
-    static int packetLevel(Character bot, BotAttackProfile profile) {
+    public static int packetLevel(Character bot, BotAttackProfile profile) {
         if (profile.skillId == 0) {
             return 0;
         }
