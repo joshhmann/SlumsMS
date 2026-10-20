@@ -10,6 +10,11 @@ Saying a bot's name opens `BotMenus` as an NPC talk window (Maple Administrator,
 options plus "Let's talk" and "Where do you train?". The owner likes the window but wants conversations to feel more
 natural.
 
+**Owner feedback (1.3.0 test, 2026-10-20):** the window works, but popping up while training or fighting is annoying.
+Quick option if wanted before the rest of this ticket: open the window only in towns and when the player hasn't
+attacked or been hit in the last few seconds; otherwise the bot just answers in chat (the same as
+`BOT_MENU_WINDOW: false`, which falls back to a reply plus the numbered hint).
+
 ## What
 
 1. **Natural by default (server only):**
