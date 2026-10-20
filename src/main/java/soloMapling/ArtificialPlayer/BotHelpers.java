@@ -22,7 +22,7 @@ public class BotHelpers {
             cid = cid + soloMapling.server.SoloMaplingConstants.GameConstants.BOT_BASE_ID;
         }
 
-        Channel channel = Server.getInstance().getChannel(0, 1);
+        Channel channel = soloMapling.server.SoloMaplingConstants.mainChannel();
         client.Character fakechar = channel.getPlayerStorage().getCharacterById(cid);
         if (isBot(fakechar)) {
             return (fakechar);

@@ -142,7 +142,7 @@ public class ArtificialFreeMarket {
             return;
         }
 
-        int world = 0;
+        int world = soloMapling.server.SoloMaplingConstants.GameConstants.homeWorld();
         int channel = 1;
 
         int ownerId = nextMerchantId.getAndIncrement();
@@ -152,6 +152,7 @@ public class ArtificialFreeMarket {
         int shop_item_id = hiredMerchantsList.get(random.nextInt(hiredMerchantsList.size())); // 5030000;
         Client cm = soloMapling.ArtificialPlayer.BotClientHandler.getBotClient();
         Character newchar = Character.getDefault(cm);
+        newchar.setWorld(world);   // ticket 41: getDefault leaves world 0; the merchant belongs to the home world
         newchar.setPosition(position);
         newchar.setMap(Server.getInstance().getChannel(world, channel).getMapFactory().getMap(mapId));
 

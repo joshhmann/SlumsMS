@@ -236,7 +236,7 @@ public class PlayerNPC extends AbstractMapObject {
     }
 
     private static void getRunningWorldRanks(Connection con) throws SQLException {
-        int numWorlds = Server.getInstance().getWorldsSize();
+        int numWorlds = Server.getInstance().getWorldIdBound();    // runningWorldRank is indexed by world id
         for (int i = 0; i < numWorlds; i++) {
             runningWorldRank.add(new AtomicInteger(1));
         }
@@ -611,10 +611,9 @@ public class PlayerNPC extends AbstractMapObject {
         try (Connection con = DatabaseConnection.getConnection();
              PreparedStatement ps = con.prepareStatement("SELECT DISTINCT world, map FROM playernpcs");
              ResultSet rs = ps.executeQuery()) {
-            int wsize = Server.getInstance().getWorldsSize();
             while (rs.next()) {
                 int world = rs.getInt("world"), map = rs.getInt("map");
-                if (world >= wsize) {
+                if (Server.getInstance().getWorld(world) == null) {
                     continue;
                 }
 

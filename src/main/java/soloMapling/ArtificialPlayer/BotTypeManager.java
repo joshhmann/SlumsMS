@@ -239,7 +239,7 @@ public class BotTypeManager {
 
     public static void createBots(Client c) {
 //        MapleMap map = c.getPlayer().getMap();
-        MapleMap map = Server.getInstance().getChannel(0, 1).getMapFactory().getMap(c.getPlayer().getMapId());
+        MapleMap map = soloMapling.server.SoloMaplingConstants.mainChannel().getMapFactory().getMap(c.getPlayer().getMapId());
         Point pos = c.getPlayer().getPosition();
         int slot = BotStore.nextDynamicSlot();
         runAsync(() -> BotGeneration.createBot(slot, pos, map));

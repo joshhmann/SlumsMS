@@ -225,6 +225,7 @@ public class BotGeneration {
     private static Character setConsoleBot(Character baseChr, int botId) {
         Character onDemandBot = baseChr; // Character.getDefault(c)
         onDemandBot.setClient(getBotClient());
+        onDemandBot.setWorld(getBotClient().getWorld());   // ticket 41: the bots' world, not the template row's
         onDemandBot.setName("Console");
 
         onDemandBot.setID(botId);
@@ -238,6 +239,7 @@ public class BotGeneration {
     private static Character setBotStats(Character baseChr, int botId) {
         Character onDemandBot = baseChr; // Character.getDefault(c)
         onDemandBot.setClient(getBotClient());
+        onDemandBot.setWorld(getBotClient().getWorld());   // ticket 41: the bots' world, not the template row's
         onDemandBot.setName(""); // claimed in createBot once it is known whether the slot is adopted
         onDemandBot.setID(botId);
         onDemandBot.setFame(botId); // debug purposes
@@ -269,8 +271,8 @@ public class BotGeneration {
         BotRoster.recordSessions(java.util.List.of(fakechar), System.currentTimeMillis(), true);
         BotConversation.endAllOf(fakechar.getId()); // a bot leaving mid-chat still writes down what it heard
         if (fakechar.getMap() != null) fakechar.getMap().removePlayer(fakechar);
-        channel.removePlayer(fakechar);
-        world.getPlayerStorage().removePlayer(fakechar.getId());
+        channel().removePlayer(fakechar);
+        world().getPlayerStorage().removePlayer(fakechar.getId());
         CharacterStorage.removeActiveBot(fakechar.getId());//
         BotBuffDriver.clearBot(fakechar.getId());   // Phase 3a: release buff recast timers
         BotBuffRequestHandler.clearBot(fakechar.getId());   // release chat-buff-request cooldown
@@ -278,9 +280,9 @@ public class BotGeneration {
 
     private static void addBotToServer(Character fakechar) {
 //        final Channel channel = Server.getInstance().getChannel(BotSM.GameConstants.WORLD_SCANIA, BotSM.GameConstants.CHANNEL_1);
-        channel.addPlayer(fakechar);
+        channel().addPlayer(fakechar);
 //        World world = Server.getInstance().getWorld(BotSM.GameConstants.WORLD_SCANIA);
-        world.getPlayerStorage().addPlayer(fakechar);
+        world().getPlayerStorage().addPlayer(fakechar);
     }
 
     public static void spawnBotFm(Character fakechar, Point pt) {

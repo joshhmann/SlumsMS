@@ -1,6 +1,8 @@
 package config;
 
 public class WorldConfig {
+    /** World id (0 = Scania, 1 = Bera, ...); -1 = the entry's position in the list. See {@link WorldConfigs}. */
+    public int id = -1;
     public int flag = 0;
     public String server_message = "Welcome!";
     public String event_message = "";

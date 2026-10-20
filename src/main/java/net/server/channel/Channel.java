@@ -63,6 +63,11 @@ public final class Channel {
     private static final Logger log = LoggerFactory.getLogger(Channel.class);
     private static final int BASE_PORT = Integer.getInteger("mapleroot.channel-base-port", 7585);
 
+    /** The port a channel listens on: {@code basePort} + 100 per world slot + (channel - 1). */
+    public static int channelPort(int basePort, int portSlot, int channel) {
+        return basePort + (channel - 1) + (portSlot * 100);
+    }
+
     private final int port;
     private final String ip;
     private final int world;
@@ -110,12 +115,21 @@ public final class Channel {
     private final Lock merchWlock;
 
     public Channel(final int world, final int channel, long startTime) {
+        this(world, channel, startTime, world);
+    }
+
+    /**
+     * @param portSlot the world's place among the running worlds (0 for the first world config.yaml starts), which
+     *                 sets the port block: base port + 100 per slot + (channel - 1). Ticket 41: the slot, not the
+     *                 world id, so a server running Bera (id 1) alone keeps the base ports.
+     */
+    public Channel(final int world, final int channel, long startTime, int portSlot) {
         this.world = world;
         this.channel = channel;
 
         this.ongoingStartTime = startTime + 10000;  // rude approach to a world's last channel boot time, placeholder for the 1st wedding reservation ever
         this.mapManager = new MapManager(null, world, channel);
-        this.port = BASE_PORT + (this.channel - 1) + (world * 100);
+        this.port = channelPort(BASE_PORT, portSlot, channel);
         this.ip = YamlConfig.config.server.HOST + ":" + port;
 
         ReentrantReadWriteLock rwLock = new ReentrantReadWriteLock(true);

@@ -22,6 +22,7 @@
 package server.maps;
 
 import client.Character;
+import constants.game.GameConstants;
 import net.server.Server;
 import server.TimerManager;
 import tools.PacketCreator;
@@ -35,7 +36,7 @@ import java.util.List;
  */
 public class MapleTVEffect {
 
-    private final static boolean[] ACTIVE = new boolean[Server.getInstance().getWorldsSize()];
+    private final static boolean[] ACTIVE = new boolean[GameConstants.WORLD_NAMES.length];    // indexed by world id (ticket 41)
 
     public static synchronized boolean broadcastMapleTVIfNotActive(Character player, Character victim, List<String> messages, int tvType) {
         int w = player.getWorld();

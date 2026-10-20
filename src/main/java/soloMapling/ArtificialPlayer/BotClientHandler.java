@@ -14,12 +14,12 @@ public class BotClientHandler {
     /**
      * Constructs the one shared headless bot client. Idempotent — safe to call
      * more than once (only the first call builds the instance). Must run after
-     * the channels exist, since the client reports {@code WORLD_SCANIA} /
+     * the channels exist, since the client reports the home world /
      * {@code CHANNEL_1} for routing.
      */
     public static synchronized void initHeadlessBotClient() {
         if (botClient == null) {
-            botClient = new BotClient(GameConstants.WORLD_SCANIA, GameConstants.CHANNEL_1);
+            botClient = new BotClient(GameConstants.homeWorld(), GameConstants.CHANNEL_1);
         }
     }
 

@@ -306,7 +306,7 @@ public final class BotPopulationProof {
             return;
         }
         BotRoster.LoginPlace place = BotRoster.loginPlace(id);
-        MapleMap storedMap = Server.getInstance().getChannel(0, 1).getMapFactory().getMap(row.mapId);
+        MapleMap storedMap = soloMapling.server.SoloMaplingConstants.mainChannel().getMapFactory().getMap(row.mapId);
         int expectedMap = storedMap != null && storedMap.getForcedReturnId() != constants.id.MapId.NONE
                 ? storedMap.getForcedReturnId() : row.mapId;
         boolean sameMap = place != null && place.mapId() == expectedMap;
@@ -385,7 +385,7 @@ public final class BotPopulationProof {
         int heldByBots = shops.size();
         Channel channel = Server.getInstance().getChannel(buyer.getWorld(), buyer.getClient().getChannel());
         if (channel == null) {
-            channel = Server.getInstance().getChannel(0, 1);
+            channel = soloMapling.server.SoloMaplingConstants.mainChannel();
         }
         int openOnMaps = 0;
         if (channel != null) {
@@ -623,7 +623,7 @@ public final class BotPopulationProof {
     private static List<MapleMap> budgetCandidates(Character bot, Map<Integer, Integer> occupancy) {
         Channel channel = Server.getInstance().getChannel(bot.getWorld(), bot.getClient().getChannel());
         if (channel == null) {
-            channel = Server.getInstance().getChannel(0, 1);
+            channel = soloMapling.server.SoloMaplingConstants.mainChannel();
         }
         List<MapleMap> candidates = new ArrayList<>();
         if (channel == null) {
