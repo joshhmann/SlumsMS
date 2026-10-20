@@ -116,6 +116,7 @@ public class EquipMetadataCache {
     private final List<EquipEntry> allEquips;
     private final Map<EquipType, List<EquipEntry>> byType;
     private final Map<EquipType, List<EquipEntry>> cashByType;
+    private final Map<Integer, EquipEntry> byId;
 
     private EquipMetadataCache(List<EquipEntry> allEquips,
                                Map<EquipType, List<EquipEntry>> byType,
@@ -123,6 +124,11 @@ public class EquipMetadataCache {
         this.allEquips = allEquips;
         this.byType = byType;
         this.cashByType = cashByType;
+        Map<Integer, EquipEntry> ids = new HashMap<>();
+        for (EquipEntry entry : allEquips) {
+            ids.put(entry.id, entry);
+        }
+        this.byId = Collections.unmodifiableMap(ids);
     }
 
     public static EquipMetadataCache get() {
@@ -349,6 +355,14 @@ public class EquipMetadataCache {
     }
 
     // ── Query API ────────────────────────────────────────────────────────
+
+    /**
+     * The entry for one item id, or null for an id the scan did not find: no WZ data, or outside the stock
+     * ranges (MapleRoot's custom equips). The bot gear optimizer (real bots 10) refuses those.
+     */
+    public EquipEntry find(int itemId) {
+        return byId.get(itemId);
+    }
 
     /** Get all cached equips. */
     public List<EquipEntry> all() {

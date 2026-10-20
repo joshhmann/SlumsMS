@@ -3,6 +3,7 @@ package soloMapling.ArtificialPlayer.BotTypes;
 import soloMapling.ArtificialPlayer.BotRoster;
 
 import client.Character;
+import client.inventory.InventoryType;
 import client.inventory.Item;
 import constants.id.MapId;
 import net.server.Server;
@@ -11,6 +12,7 @@ import net.server.world.PartyCharacter;
 import net.server.world.World;
 import soloMapling.ArtificialPlayer.BotAttackSystem.BotAttackDriver;
 import soloMapling.ArtificialPlayer.BotAttackSystem.BotBuffDriver;
+import soloMapling.ArtificialPlayer.BotGearSystem.BotGear;
 import soloMapling.ArtificialPlayer.BotHoldings;
 import soloMapling.ArtificialPlayer.BotOptionMenu;
 import soloMapling.ArtificialPlayer.BotPartySystem.BotPartyQueue;
@@ -1257,9 +1259,13 @@ public class TrainingBot extends BotSM {
         if (reward.mesos() > 0) {
             BotHoldings.grantMeso(chr, (int) Math.min(reward.mesos(), Integer.MAX_VALUE));
         }
+        Item equip = null;
         for (Item item : reward.items()) {
-            BotHoldings.grantItem(chr, item);
+            if (BotHoldings.grantItem(chr, item) && item.getInventoryType() == InventoryType.EQUIP) {
+                equip = item;
+            }
         }
+        BotGear.afterLoot(chr, equip);   // real bots 10: offscreen bots dress by the same rules
     }
 
     // Silent accrual: the kill rate and EXP a kill gives, from the same damage formula the bot hits with on screen
