@@ -29,6 +29,16 @@ public final class BotBrains {
         return current;
     }
 
+    /** The brain if it was already built, without building it (the dashboard must not trigger a config read). */
+    static BotBrain peek() {
+        return brain;
+    }
+
+    /** Test seam: a stand-in brain (null rebuilds from config on next use). */
+    public static void useForTest(BotBrain testBrain) {
+        brain = testBrain;
+    }
+
     static BotBrain fromConfig(ServerConfig server) {
         if (server == null || server.BOT_LLM_BASE_URL == null || server.BOT_LLM_BASE_URL.isBlank()) {
             return BotBrain.SCRIPTED;

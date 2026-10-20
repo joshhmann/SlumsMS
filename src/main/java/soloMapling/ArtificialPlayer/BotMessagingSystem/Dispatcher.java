@@ -59,6 +59,8 @@ public class Dispatcher implements Runnable {
 
     private void dispatch(ChatMessage message) {
         try {
+            BotChatRouting.noteMapLine(message.getSender().getMapId(), message.getSender().getName(),
+                    message.getContent(), System.currentTimeMillis());
             Collection<Character> chars_on_map = message.getMap().getCharacters();
             final int[] botToCall = new int[1];  // Using an array to hold the bot ID
 
