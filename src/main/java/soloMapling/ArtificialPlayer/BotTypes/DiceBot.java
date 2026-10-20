@@ -3,6 +3,7 @@ package soloMapling.ArtificialPlayer.BotTypes;
 import client.Character;
 import soloMapling.ArtificialPlayer.BotCommandsPack.DropCommands;
 import soloMapling.ArtificialPlayer.BotCommandsPack.SocialCommands;
+import soloMapling.ArtificialPlayer.BotHoldings;
 import soloMapling.ArtificialPlayer.BotLogic;
 import soloMapling.ArtificialPlayer.BotSM;
 import soloMapling.ArtificialPlayer.BotCommands;
@@ -209,7 +210,12 @@ public class DiceBot extends BotSM {
             for (int x = 0; x < mapItem.getItem().getQuantity(); x++) {
                 Point center = getInteractors().getRespondant().getPosition();
                 center = adjustCenterPositionXAxis(center, x, 2, 4, 20);
-                DropCommands.botThrowItem(getChr(), mapItem.getItemId(), center);
+                // Same pot rule as the blackjack table: the house pays out of the bets it collected, never mints.
+                if (BotHoldings.payOut(getChr(), mapItem.getItemId(), 1, getInteractors().getRespondant(), center) == 0) {
+                    log("Dice house short of item " + mapItem.getItemId() + " paying "
+                            + getInteractors().getRespondant().getName() + "; rest of the pot stays with the house");
+                    return;
+                }
                 try {
                     TimeUnit.MILLISECONDS.sleep(100);
                 } catch (InterruptedException e) {
@@ -265,7 +271,8 @@ public class DiceBot extends BotSM {
     @Override
     public void processMessages() {
         try {
-            ChatMessage message = MessageQueue.getInstance().getMessageWithTimeout("secondary", 1, TimeUnit.SECONDS);
+            ChatMessage message = MessageQueue.getInstance().pollFor("secondary",
+                    getInteractors()::isMessageFromRespondant, 1, TimeUnit.SECONDS);
             if (message == null) {
                 return;
             }
@@ -322,5 +329,11 @@ public class DiceBot extends BotSM {
         SocialCommands.BotSpeak(getChr(), "Please Select Han or Cho!");
         startTime = System.currentTimeMillis();
         setBet(BetType.NONE);
+    }
+
+    /** Reads players' typed lines itself (menu, bets, script): free text stays with it (bot-persistence ticket 21). */
+    @Override
+    public boolean consumesFreeText() {
+        return true;
     }
 }

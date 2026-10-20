@@ -1,7 +1,10 @@
 package soloMapling.ArtificialPlayer.BotTypes;
 
+import soloMapling.ArtificialPlayer.BotRoster;
+
 import client.Character;
-import constants.game.ExpTable;
+import client.inventory.InventoryType;
+import client.inventory.Item;
 import constants.id.MapId;
 import net.server.Server;
 import net.server.world.Party;
@@ -9,6 +12,9 @@ import net.server.world.PartyCharacter;
 import net.server.world.World;
 import soloMapling.ArtificialPlayer.BotAttackSystem.BotAttackDriver;
 import soloMapling.ArtificialPlayer.BotAttackSystem.BotBuffDriver;
+import soloMapling.ArtificialPlayer.BotGearSystem.BotGear;
+import soloMapling.ArtificialPlayer.BotHoldings;
+import soloMapling.ArtificialPlayer.BotYieldCaps;
 import soloMapling.ArtificialPlayer.BotOptionMenu;
 import soloMapling.ArtificialPlayer.BotPartySystem.BotPartyQueue;
 import soloMapling.ArtificialPlayer.BotPartySystem.BotRecruitManager;
@@ -22,6 +28,14 @@ import soloMapling.ArtificialPlayer.BotMessagingSystem.CharacterStorage;
 import soloMapling.ArtificialPlayer.BotGrindSystem.DeepHub;
 import soloMapling.ArtificialPlayer.BotGrindSystem.GrindBrain;
 import soloMapling.ArtificialPlayer.BotGrindSystem.MapMobIndex;
+import soloMapling.ArtificialPlayer.BotGrindSystem.OffscreenRewardBudget;
+import soloMapling.ArtificialPlayer.BotAttackSystem.OffscreenCombat;
+import soloMapling.ArtificialPlayer.BotSupplySystem.BotShopping;
+import soloMapling.ArtificialPlayer.BotSupplySystem.BotSupplies;
+import soloMapling.ArtificialPlayer.BotSupplySystem.BotVitals;
+import soloMapling.ArtificialPlayer.BotSupplySystem.OffscreenSupplies;
+import soloMapling.ArtificialPlayer.BotSupplySystem.ShopCatalog;
+import soloMapling.ArtificialPlayer.BotSupplySystem.SupplyNeeds;
 import soloMapling.ArtificialPlayer.BotGrindSystem.TrainingMapChooser;
 import soloMapling.ArtificialPlayer.BotGrindSystem.SpotFinder;
 import soloMapling.ArtificialPlayer.BotGrindSystem.TrainingMap;
@@ -31,6 +45,7 @@ import soloMapling.ArtificialPlayer.BotWanderSystem.BotWanderSystem;
 import soloMapling.ArtificialPlayer.GCMoveSystem.GCMovement;
 import soloMapling.server.EventMessageSystem.EventBus;
 import soloMapling.server.EventMessageSystem.EventFactory;
+import soloMapling.server.BotShutdown;
 import soloMapling.server.ExecutorServiceManager;
 
 import java.awt.Point;
@@ -44,6 +59,7 @@ import java.util.Set;
 import java.util.TreeMap;
 import java.util.TreeSet;
 import java.util.concurrent.ConcurrentHashMap;
+import java.util.concurrent.ScheduledFuture;
 import java.util.concurrent.TimeUnit;
 import java.util.concurrent.atomic.AtomicBoolean;
 import java.util.concurrent.atomic.AtomicInteger;
@@ -82,7 +98,7 @@ public class TrainingBot extends BotSM {
     // timing, more responsive loot vacuum) while unobserved grinders only pay a doubled cheap early-return.
     // UNTESTED: validate the combat sweep cost with !env perf before/after; revert to 500 if it climbs.
     private static final long COMBAT_TICK_MS = 250;          // was 500; observation-tiered by the early-returns above
-    private static final double KILLS_PER_MIN = 30.0;        // abstract grind speed
+    private static final double KILLS_PER_MIN = 30.0;        // abstract grind speed, where OffscreenCombat has no mob
     private static final long GRIND_MIN_MS = 600_000;        // a grind session lasts 10–20 min
     private static final long GRIND_MAX_MS = 1_200_000;
     // A bot that DIDN'T migrate to its first grind (warped in, or already on the map at the first decision) is
@@ -100,6 +116,8 @@ public class TrainingBot extends BotSM {
     private static final double SHOP_VISIT_CHANCE = 0.4;     // chance a town visit includes a shop trip (timing variety)
     private static final long SHOP_DWELL_MIN_MS = 30_000;    // browse a store 30–90 s
     private static final long SHOP_DWELL_MAX_MS = 90_000;
+    private static final long RESUPPLY_WALK_MAX_MS = 25_000; // ticket 09: walk to the shop NPC; buy on arrival or after this
+    private static final int RESUPPLY_STAND_OFF_PX = 25;     // stand beside the NPC, not on it (plus up to 40 px scatter)
     // Town map id -> {potion shop map, weapon/armor shop map}. A bot in a listed town may detour to one or
     // both stores (in either order) before heading out, for organic startup/return timing. GMS v83 store maps.
     private static final Map<Integer, int[]> TOWN_SHOPS = Map.of(
@@ -168,18 +186,32 @@ public class TrainingBot extends BotSM {
     // ── Shared combat ticker (one task for ALL training bots) ────────────────
     private static final Set<TrainingBot> ACTIVE_GRINDERS = ConcurrentHashMap.newKeySet();
     private static volatile boolean combatTickerStarted = false;
+    // Ticket 09: the shared ticker's future, kept so shutdown can cancel it (one task for all grinders).
+    private static volatile ScheduledFuture<?> combatTicker;
 
     private static synchronized void ensureCombatTicker() {
-        if (combatTickerStarted) {
+        if (combatTickerStarted || BotShutdown.isQuiesced()) {
             return;
         }
         combatTickerStarted = true;
-        ExecutorServiceManager.getScheduledExecutorService().scheduleAtFixedRate(
+        combatTicker = ExecutorServiceManager.getScheduledExecutorService().scheduleAtFixedRate(
                 TrainingBot::combatTickAll, COMBAT_TICK_MS, COMBAT_TICK_MS, TimeUnit.MILLISECONDS);
+        BotShutdown.onQuiesce(TrainingBot::stopCombatTicker);
+    }
+
+    /* Ticket 09: cancel the shared ticker. Combat is presentation - nothing needs draining for it. */
+    private static void stopCombatTicker() {
+        ScheduledFuture<?> ticker = combatTicker;
+        if (ticker != null) {
+            ticker.cancel(false);
+        }
     }
 
     // Swing every grinding bot whose map a real player can see. One exception per bot never stops the ticker.
     private static void combatTickAll() {
+        if (BotShutdown.isQuiesced()) {
+            return; // Ticket 09: no combat sweep across maps that are being disposed
+        }
         long sweepStart = System.currentTimeMillis();
         for (TrainingBot bot : ACTIVE_GRINDERS) {
             try {
@@ -236,10 +268,16 @@ public class TrainingBot extends BotSM {
     private Point travelLastPos = null;
 
     private int homeMapId = -1;           // the spawn town; GO_TOWN returns here
+    private int pendingHomeMapId = -1;    // ticket 03: another region's hub, adopted as home once the bot arrives
     private boolean firstTrip = true;     // first decision to go train: maybe warp straight there (see FIRST_TRIP_TELEPORT_CHANCE)
     private boolean midSessionGrind = false; // next grind starts partially elapsed (warped/in-place first trip — see MID_SESSION_FLOOR_MS)
     private final List<Integer> shopQueue = new ArrayList<>(); // store maps still to visit this town stop
     private int shopTargetMapId = -1;     // the store currently being travelled to
+    // Ticket 09: this town stop's restock - the shop NPC the bot walks to and buys at (null when none is pending).
+    private volatile ShopCatalog.Site resupplySite = null;
+    private boolean saunaResupply = false; // Sleepywood: the shop is in the sauna, so the sauna trip is the shop trip
+    private volatile boolean resupplyArrived = false;
+    private long resupplyWalkDeadlineMs = 0;
     private int currentTrainMapId = -1;   // the discovered map currently being trained on
     private int currentMobLevel = 0;      // its representative mob level (drives abstract EXP)
     private long grindUntilMs = 0;
@@ -323,12 +361,13 @@ public class TrainingBot extends BotSM {
 
     // Conversing players expect snappy replies; and once the bot has said "invite me" it must keep
     // ticking fast through the whole armed window so pollRecruitInvite drains the incoming invite
-    // promptly (not just while the menu is open). Otherwise the base observed/unobserved policy holds
-    // (including the 60-120s deep-grind override below).
+    // promptly (not just while the menu is open). The armed window is covered once, for every type, by
+    // the base class's commitment gate (BotCommitments) - which also outranks the 60-120s deep-grind
+    // override below - so only the bot's own menu is left here.
     @Override
     public void checkPrioritySpeed() {
-        if (recruitingNow()) {
-            setPriorityHigh();
+        if (menuActive()) {
+            pinFastCadence();
             return;
         }
         super.checkPrioritySpeed();
@@ -387,8 +426,45 @@ public class TrainingBot extends BotSM {
     private void doInit() {
         ensureCombatTicker();
         homeMapId = getChr().getMapId();
+        if (resumeGrind(BotRoster.takeResume(getChr().getId()))) {
+            return;
+        }
         // No mobs here → it's a town: do the town beat first. Has mobs → a field: decide immediately.
         enterPhase(MapMobIndex.level(homeMapId) < 0 ? Phase.IN_TOWN : Phase.DECIDE);
+    }
+
+    /**
+     * Picks up a roster member where it logged out (bot-persistence ticket 06): its home town comes back, and
+     * a bot that logged out on its train map keeps grinding there instead of choosing a new map - DECIDE's
+     * map search excludes the map it stands on, so without this every resumed grinder would wander off.
+     */
+    private boolean resumeGrind(BotRoster.Activity resume) {
+        if (resume == null) {
+            return false;
+        }
+        if (resume.homeMapId() > 0) {
+            homeMapId = resume.homeMapId();
+        }
+        int here = getChr().getMapId();
+        boolean grinding = resume.name().isEmpty() || resume.name().equals(GRIND_ACTIVITY);
+        if (!grinding || resume.intState(BotRoster.TRAIN_STATE, -1) != here || MapMobIndex.level(here) < 0) {
+            return false;
+        }
+        setTrainTarget(here, Math.max(1, MapMobIndex.level(here)));
+        firstTrip = false;
+        enterPhase(Phase.GRIND);
+        return true;
+    }
+
+    private static final String GRIND_ACTIVITY = "grind";
+
+    @Override
+    public BotRoster.Activity activitySnapshot() {
+        Map<String, Object> state = new java.util.LinkedHashMap<>();
+        if (currentTrainMapId >= 0) {
+            state.put(BotRoster.TRAIN_STATE, currentTrainMapId);
+        }
+        return new BotRoster.Activity(GRIND_ACTIVITY, Math.max(0, homeMapId), state);
     }
 
     // In a town hub: settle a beat, maybe plan a shop trip, then either head to the first store or decide
@@ -410,10 +486,14 @@ public class TrainingBot extends BotSM {
         if (!phaseEntered) {
             phaseEntered = true;
             crowdHopsThisEpisode = 0; // back home -> fresh outing, reset the crowd-migration budget
+            SupplyNeeds needs = BotSupplies.arriveInTown(getChr()); // real bots 08: rest to full, see what it needs
             buildShopPlan();
+            // Ticket 09: a bot short of potions or ammo walks to a shop in town that sells them and buys there -
+            // on this map right away, or as the first store of the itinerary.
+            boolean errand = planResupply(needs);
             // A deep hub's restock is an ON-MAP food-cart / grocer (no separate store map), so walk to it in
             // place and linger like a shop browse instead of idling on the entry portal. Extends the dwell.
-            boolean errand = maybeStartHubErrand();
+            errand = errand || maybeStartHubErrand();
             if (!errand) {
                 // Normal town return: walk off the arrival portal to a scattered spot and fidget there, so a
                 // town of returning grinders reads as milling players instead of a statue clump on the portal.
@@ -426,13 +506,14 @@ public class TrainingBot extends BotSM {
             }
             return;
         }
+        pollResupply();
         if (now() < phaseDeadlineMs) {
             return;
         }
         if (!shopQueue.isEmpty()) {
             shopTargetMapId = shopQueue.remove(0);
             enterPhase(Phase.SHOP_TRAVEL);
-        } else if (homeMapId == MapId.SLEEPYWOOD && rng.nextDouble() < SHOP_VISIT_CHANCE) {
+        } else if (homeMapId == MapId.SLEEPYWOOD && (saunaResupply || rng.nextDouble() < SHOP_VISIT_CHANCE)) {
             startSaunaTrip(); // Sleepywood has no stores — its errand is a trip to the hotel sauna
         } else {
             enterPhase(Phase.DECIDE);
@@ -474,6 +555,71 @@ public class TrainingBot extends BotSM {
         return true;
     }
 
+    // Ticket 09: pick the town's shop that sells what the bot needs. On this map the walk starts now (true: the
+    // longer shop dwell); elsewhere in town it becomes the first store of the itinerary. With nothing to buy, or no
+    // shop for it in town, the town stop's restock runs where the bot stands (it buys nothing, and a ranged bot
+    // that found no ammo settles for melee, as in 08).
+    private boolean planResupply(SupplyNeeds needs) {
+        Character chr = getChr();
+        resupplySite = null;
+        saunaResupply = false;
+        ShopCatalog.Site site = BotShopping.siteFor(chr, homeMapId, needs);
+        if (site == null) {
+            BotSupplies.restock(chr);
+            return false;
+        }
+        resupplySite = site;
+        debugChat("RESUPPLY: npc " + site.npcId() + " on map " + site.mapId());
+        BotShopping.headFor(chr, site);
+        if (site.mapId() == ShopCatalog.SLEEPYWOOD_SAUNA) {
+            saunaResupply = true; // no portal leads there: the sauna trip (hotel NPC's teleport) is the way in
+            return false;
+        }
+        if (site.mapId() == chr.getMapId()) {
+            startResupplyWalk();
+            return true;
+        }
+        shopQueue.remove(Integer.valueOf(site.mapId()));
+        shopQueue.add(0, site.mapId());
+        return false;
+    }
+
+    // Walk up beside the shop NPC (GCMovement: visibly on screen, the coarse planner offscreen).
+    private void startResupplyWalk() {
+        Character chr = getChr();
+        Point npc = resupplySite.npcPos();
+        int side = rng.nextBoolean() ? 1 : -1;
+        resupplyArrived = false;
+        resupplyWalkDeadlineMs = now() + RESUPPLY_WALK_MAX_MS;
+        GCMovement.move(chr, npc.x + side * (RESUPPLY_STAND_OFF_PX + rng.nextInt(40)), npc.y,
+                () -> resupplyArrived = true);
+    }
+
+    // Buys once the bot is at the shopkeeper (or the walk ran out of time on its map). True when it just shopped.
+    private boolean pollResupply() {
+        if (resupplySite == null || getChr().getMapId() != resupplySite.mapId()) {
+            return false;
+        }
+        if (!resupplyArrived && now() < resupplyWalkDeadlineMs) {
+            return false;
+        }
+        finishResupply();
+        return true;
+    }
+
+    // The restock itself (BotSupplies.restock -> BotShopping at the shop it stands by). Also run when the town stop
+    // ends with a restock still pending (the trip to the store failed), so the melee fallback is still settled.
+    private void finishResupply() {
+        synchronized (this) {   // the sauna's shop buys from a movement callback, the town stop from the macro tick
+            if (resupplySite == null) {
+                return;
+            }
+            resupplySite = null;
+            saunaResupply = false;
+        }
+        BotSupplies.restock(getChr());
+    }
+
     // Browse a store for a randomized beat, then move to the next store or head back out to train.
     private void doShopDwell() {
         if (!phaseEntered) {
@@ -483,8 +629,15 @@ public class TrainingBot extends BotSM {
                 BotEmote(getChr(), 1 + rng.nextInt(7));
             }
             sayContext("ShopRestock", getChr(), null);
-            BotWanderSystem.start(getChr()); // browse the shop map (whole-map) instead of piling on the portal
+            if (resupplySite != null && resupplySite.mapId() == getChr().getMapId()) {
+                startResupplyWalk(); // ticket 09: up to the shopkeeper, then browse once it has bought
+            } else {
+                BotWanderSystem.start(getChr()); // browse the shop map (whole-map) instead of piling on the portal
+            }
             return;
+        }
+        if (pollResupply()) {
+            BotWanderSystem.start(getChr()); // bought: browse the rest of the visit
         }
         if (now() < phaseDeadlineMs) {
             return;
@@ -529,17 +682,50 @@ public class TrainingBot extends BotSM {
         }
         AtomicBoolean entered = new AtomicBoolean(false);
         Runnable enter = () -> {
-            if (!saunaTripActive || !entered.compareAndSet(false, true)) {
+            // Ticket 09: quiescence ends the trip - a bot must not change map or start a wander on the way out.
+            if (!saunaTripActive || BotShutdown.isQuiesced() || !entered.compareAndSet(false, true)) {
                 return; // already entered (door-arrival vs cap race), or the trip was aborted
             }
-            int sauna = rng.nextDouble() < SAUNA_VIP_CHANCE ? SAUNA_VIP : SAUNA_REGULAR;
+            boolean shopping = saunaResupply;
+            int sauna = shopping ? SAUNA_REGULAR : rng.nextDouble() < SAUNA_VIP_CHANCE ? SAUNA_VIP : SAUNA_REGULAR;
             chr.changeMap(sauna);
-            BotWanderSystem.start(chr); // relax in the sauna for a beat
+            if (shopping) {
+                shopInSauna(chr); // ticket 09: up to the sauna's shopkeeper first, then relax
+            } else {
+                BotWanderSystem.start(chr); // relax in the sauna for a beat
+            }
             ExecutorServiceManager.getScheduledExecutorService().schedule(
-                    () -> leaveSauna(chr), shopDwellMs(), TimeUnit.MILLISECONDS);
+                    () -> {
+                        if (BotShutdown.isQuiesced() || !saunaTripActive) {
+                            return; // Ticket 09: no travel out of the sauna once the gate has closed (or the bot stopped)
+                        }
+                        leaveSauna(chr);
+                    }, shopDwellMs(), TimeUnit.MILLISECONDS);
         };
         GCMovement.move(chr, SAUNA_DOOR_X, SAUNA_DOOR_Y, enter);
         ExecutorServiceManager.getScheduledExecutorService().schedule(enter, DOOR_WALK_MAX_MS, TimeUnit.MILLISECONDS);
+    }
+
+    // Ticket 09: in the regular sauna for supplies - walk to its shopkeeper and buy on arrival (or after the walk cap),
+    // exactly once, then relax like any sauna visit.
+    private void shopInSauna(Character chr) {
+        ShopCatalog.Site site = resupplySite;
+        if (site == null || chr.getMapId() != site.mapId()) {
+            BotWanderSystem.start(chr);
+            return;
+        }
+        AtomicBoolean bought = new AtomicBoolean(false);
+        Runnable buy = () -> {
+            if (!saunaTripActive || BotShutdown.isQuiesced() || !bought.compareAndSet(false, true)) {
+                return;
+            }
+            finishResupply();
+            BotWanderSystem.start(chr);
+        };
+        Point npc = site.npcPos();
+        GCMovement.move(chr, npc.x + (rng.nextBoolean() ? 1 : -1) * (RESUPPLY_STAND_OFF_PX + rng.nextInt(40)), npc.y,
+                buy);
+        ExecutorServiceManager.getScheduledExecutorService().schedule(buy, RESUPPLY_WALK_MAX_MS, TimeUnit.MILLISECONDS);
     }
 
     // Done relaxing: the sauna's one-way exit portal drops the bot back into the hotel; from there take the
@@ -582,6 +768,7 @@ public class TrainingBot extends BotSM {
     // toward level-appropriate + less-crowded maps, with a chance to chill at an easier map.
     private void doDecide() {
         Character chr = getChr();
+        finishResupply(); // ticket 09: a town stop never leaves with its restock undone
         // Station-here handoff (FollowerBot's "Train here with me!"): grind the current map, skip
         // discovery entirely - the map BFS excludes its origin, so without this the bot always migrates.
         if (BotRecruitManager.consumeStationHere(chr.getId()) && MapMobIndex.level(chr.getMapId()) >= 0) {
@@ -604,8 +791,20 @@ public class TrainingBot extends BotSM {
         }
         Set<Integer> excluded = crowdExcludedMaps(); // maps on crowd-cooldown (pruned) — steer away from them
         clearTrainTarget(); // release any stale reservation before choosing (choose() reserves the pick's slot)
+        pendingHomeMapId = -1; // a relocation that never arrived is forgotten; the bot keeps its old home
         TrainingMap pick = TrainingMapChooser.choose(chr, homeMapId, excluded, this::debugChat);
         if (pick == null) {
+            int here = chr.getMapId();
+            if (MapMobIndex.mobCount(here) > 0) {
+                // Nothing to travel to (no walkable exit, or every map on crowd cooldown) but mobs right
+                // here: fight them rather than stand in the spawns. Cross-map travel (ticket 03) and the
+                // level path (ticket 31) are what should eventually move such a bot somewhere better.
+                debugChat("DECIDE: nothing reachable (lv " + chr.getLevel() + ") -> grind current map " + here);
+                setTrainTarget(here, Math.max(1, MapMobIndex.level(here)));
+                firstTrip = false;
+                enterPhase(Phase.GRIND);
+                return;
+            }
             // Nothing reachable with mobs (or all on cooldown) — idle in town and try again later.
             debugChat("DECIDE: nothing reachable (lv " + chr.getLevel() + ") -> idle in town");
             enterPhase(Phase.IN_TOWN);
@@ -615,6 +814,13 @@ public class TrainingBot extends BotSM {
         currentTrainMapId = pick.mapId();
         currentMobLevel = Math.max(1, pick.mobLevel());
         debugChat("DECIDE: chose map " + pick.mapId() + " (mob lv " + pick.mobLevel() + ")");
+        if (pick.relocates()) {
+            // Ticket 03: training in another region. The bot rides there (cabs, boats, trains... paying its
+            // fares) and makes the region's hub its home on arrival, so later town trips stay over there.
+            pendingHomeMapId = pick.relocateHomeMapId();
+            log("[TrainingBot] " + chr.getName() + " (lv " + chr.getLevel() + ") sets off from map " + chr.getMapId()
+                    + " for map " + pick.mapId() + " (new home " + pendingHomeMapId + ", " + chr.getMeso() + " mesos)");
+        }
         // First trip only (mainly startup): most bots warp straight to the grind map instead of walking, so
         // the world reads as already-populated. Skipped when the town is observed (don't blink out in front of
         // a player) or already on the picked map. doGrind's entry then runs the normal grind setup. Consumed
@@ -622,7 +828,7 @@ public class TrainingBot extends BotSM {
         boolean wasFirstTrip = firstTrip;
         firstTrip = false;
         boolean migrates = chr.getMapId() != pick.mapId();
-        if (wasFirstTrip && migrates
+        if (wasFirstTrip && migrates && !pick.relocates() // a move to another region always travels for real
                 && !GCMovement.isMapObserved(chr.getMapId())
                 && rng.nextDouble() < FIRST_TRIP_TELEPORT_CHANCE) {
             debugChat("DECIDE: first-trip warp -> map " + pick.mapId());
@@ -689,6 +895,9 @@ public class TrainingBot extends BotSM {
     // position anchor only advances when movement clears the epsilon, so slow steady travel still accumulates
     // into progress across ticks instead of reading as stuck.
     private boolean madeTravelProgress(Character chr) {
+        if (GCMovement.isInTransit(chr)) {
+            return true; // queued for a boat or aboard one: standing still is the point (ticket 03)
+        }
         int curMap = chr.getMapId();
         if (curMap != travelLastMapId) {
             travelLastMapId = curMap;
@@ -710,6 +919,12 @@ public class TrainingBot extends BotSM {
         if (!phaseEntered) {
             phaseEntered = true;
             teleportedThisEpisode = false;
+            if (pendingHomeMapId > 0 && chr.getMapId() == currentTrainMapId) {
+                log("[TrainingBot] " + chr.getName() + " arrived on map " + chr.getMapId() + "; home is now "
+                        + pendingHomeMapId + " (was " + homeMapId + ")");
+                homeMapId = pendingHomeMapId; // ticket 03: settled in the new region
+            }
+            pendingHomeMapId = -1;
             GCMovement.setGrinding(chr, true); // engage grind nav guards (no idle-hang on ropes)
             grind.start(chr); // fresh heartbeat, select a spot, and move into it (disperses cohorts even unobserved)
             boolean resumingFromBreak = breaks.resuming();
@@ -731,7 +946,20 @@ public class TrainingBot extends BotSM {
         double elapsedSec = (nowMs - lastExpAccrualMs) / 1000.0;
         lastExpAccrualMs = nowMs;
         if (elapsedSec > 0 && !GCMovement.isMapObserved(chr.getMapId()) && currentMobLevel > 0) {
-            accrueAbstractExp(currentMobLevel, elapsedSec);
+            // Real bots 08: the stretch uses up ammo, HP, MP and potions at the on-screen rates; only the share the
+            // bot could afford is ground (EXP and loot); running out part way sends it to town just below.
+            OffscreenCombat.Rate rate = OffscreenCombat.rate(chr, chr.getMapId());
+            double fought = elapsedSec * OffscreenSupplies.accrue(chr, rate, elapsedSec);
+            if (fought > 0) {
+                accrueAbstractExp(rate, currentMobLevel, fought);
+                accrueAbstractLoot(chr, nowMs, (long) (fought * 1000));
+            }
+        } else if (elapsedSec > 0) {
+            BotVitals.regen(chr, (long) (elapsedSec * 1000)); // on screen: the 10-second recovery tick
+        }
+
+        if (supplyRetreat(chr)) {
+            return; // out of supplies: headed to town (real bots 08)
         }
 
         // Announce a level-up the moment it becomes visible (real kills on an observed map).
@@ -959,6 +1187,26 @@ public class TrainingBot extends BotSM {
         }
     }
 
+    // Real bots 08: out of what it fights with (no potion left at a quarter HP, no MP potion for its attack, no ammo)
+    // the bot leaves for town, where it rests and asks the resupply hook (BotSupplies.visitTown). Not mid-way
+    // through talking to a player.
+    private boolean supplyRetreat(Character chr) {
+        BotSupplies.Shortage shortage = BotSupplies.shortage(chr);
+        if (shortage == BotSupplies.Shortage.NONE || recruitingNow()) {
+            return false;
+        }
+        debugChat("supplies: out (" + shortage + ") -> town");
+        BotSupplies.noteRetreat(chr, shortage);
+        sayContext(switch (shortage) {
+            case HP -> "NearDeath";
+            case MP -> "OutOfMana";
+            default -> "OutOfAmmo";
+        }, chr, null);
+        leaveGrind();
+        enterPhase(Phase.GO_TOWN);
+        return true;
+    }
+
     private void leaveGrind() {
         ACTIVE_GRINDERS.remove(this);
         grind.release(getChr()); // drop the spot claim + reset combat state
@@ -1168,28 +1416,52 @@ public class TrainingBot extends BotSM {
         BotFullChat(chr, message); // general chat: bubble above the head AND a line in the chat box
     }
 
-    // Silent, level-scaled accrual: kills/min x per-kill-exp, where per-kill-exp ~ the map's mob level.
-    private void accrueAbstractExp(int mobLevel, double elapsedSec) {
-        int perKillExp = Math.max(1, mobLevel);
-        int gain = (int) Math.round((KILLS_PER_MIN / 60.0) * perKillExp * elapsedSec);
+    // Offscreen loot is not minted: it is drawn from the map instance's own hunting-capacity budget, shared
+    // with every other bot grinding there, and credited through the same holdings a real drop would use. A
+    // bot whose inventory cannot take its share forfeits it rather than banking it.
+    private void accrueAbstractLoot(Character chr, long nowMs, long elapsedMs) {
+        OffscreenRewardBudget.Reward reward = OffscreenRewardBudget.draw(chr.getMapId(),
+                chr.getMap().getCharacters().size(), elapsedMs, nowMs, chr.getWorldServer());
+        if (reward.isEmpty()) {
+            return;
+        }
+        // Ticket 15: the share then passes the bot's map-instance yield cap and its daily meso cap. What a cap
+        // refuses is forfeited with the rest of the window, never banked.
+        long mesos = BotYieldCaps.takeMesos(chr, Math.min(reward.mesos(), Integer.MAX_VALUE));
+        if (mesos > 0 && !BotHoldings.grantMeso(chr, (int) mesos)) {
+            BotYieldCaps.returnMesos(chr, mesos);
+        }
+        Item equip = null;
+        for (Item item : reward.items()) {
+            if (!BotYieldCaps.takeItem(chr, item)) {
+                continue;
+            }
+            if (!BotHoldings.grantItem(chr, item)) {
+                BotYieldCaps.returnItem(chr, item);
+            } else if (item.getInventoryType() == InventoryType.EQUIP) {
+                equip = item;
+            }
+        }
+        BotGear.afterLoot(chr, equip);   // real bots 10: offscreen bots dress by the same rules
+    }
+
+    // Silent accrual: the kill rate and EXP a kill gives, from the same damage formula the bot hits with on screen
+    // (OffscreenCombat: its stats, gear, skills and buffs against the map's representative mob). A map whose mobs
+    // the data cannot build keeps the old abstract pace: kills/min x the map's mob level.
+    // Applied through the character's own offscreen path so it serializes with observed gains and
+    // re-derives stats; nothing is sent to the map (ticket 07 rule 2).
+    private double abstractExpRemainder;
+
+    private void accrueAbstractExp(OffscreenCombat.Rate rate, int mobLevel, double elapsedSec) {
+        double perSecond = rate != null ? rate.expPerSecond() : (KILLS_PER_MIN / 60.0) * Math.max(1, mobLevel);
+        double owed = perSecond * elapsedSec + abstractExpRemainder;   // a short tick's fraction carries over
+        long gain = (long) Math.floor(owed);
+        abstractExpRemainder = owed - gain;
         if (gain <= 0) {
             return;
         }
         Character chr = getChr();
-        long exp = (long) chr.getExp() + gain;
-        int level = chr.getLevel();
-        int startLevel = level;
-        while (level < LEVEL_CAP) {
-            long need = ExpTable.getExpNeededForLevel(level);
-            if (need <= 0 || exp < need) {
-                break;
-            }
-            exp -= need;
-            level++;
-        }
-        chr.setLevel(level);
-        chr.setExp(exp);
-        if (level > startLevel) {
+        if (chr.applyOffscreenExp(gain, LEVEL_CAP) > 0) {
             // Announce the bot's own level-up so nearby bots can congratulate it (same event path as
             // real players). Once, at the final level. The abstract EXP loop can span several levels
             // when the bot ticks slowly while unobserved - we still fire a single event.
@@ -1335,6 +1607,10 @@ public class TrainingBot extends BotSM {
     @Override
     public synchronized void stopScheduledTask() {
         ACTIVE_GRINDERS.remove(this);
+        // Disarm the Sleepywood sauna errand: its door-walk cap and the dwell that walks the bot out of the sauna are
+        // one-shot tasks on the shared scheduler that outlive this FSM. Left armed, a bot logged out mid-sauna was
+        // sent travelling (and warped) after its removal - the "got stuck when moving to map 10504040x" flood.
+        saunaTripActive = false;
         Character chr = getChr();
         if (chr != null) {
             if (chr.getChair() > 0) {
@@ -1350,5 +1626,11 @@ public class TrainingBot extends BotSM {
         }
         super.stopScheduledTask();
         log("[TrainingBot] stopped: " + (chr != null ? chr.getName() : "?"));
+    }
+
+    /** Reads players' typed lines itself (menu, bets, script): free text stays with it (bot-persistence ticket 21). */
+    @Override
+    public boolean consumesFreeText() {
+        return true;
     }
 }

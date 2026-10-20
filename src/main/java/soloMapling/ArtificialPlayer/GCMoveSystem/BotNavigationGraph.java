@@ -26,8 +26,27 @@ final class BotNavigationGraph implements Serializable {
         JUMP,
         DROP,
         CLIMB,
-        PORTAL
+        PORTAL,
+        // Movement-skill edges (graph v60+, ported from nutnnut/Cosmic, AGPL-3.0. Credit: NutNNut). Baked into
+        // every graph but only planned for bots whose job carries the skill (NavMovementSkills); every walk-only
+        // search and the offscreen/coarse planner skip them.
+        TELEPORT,
+        FLASH_JUMP
     }
+
+    // Skill-mask bits a planner passes to say which skill edges the bot may take (0 = walk-only).
+    static final int SKILL_TELEPORT = 1;
+    static final int SKILL_FLASH_JUMP = 2;
+
+    // v67 (ported from nutnnut/Cosmic 59c528899, AGPL-3.0. Credit: NutNNut.)
+    // Two foothold chains (regions) can occupy the SAME physical ground where a ramp's flat foot
+    // overlaps a flat platform (e.g. map 600020100 r73 over r97). The client tracks the standing
+    // foothold's prev/next chain (CVecCtrl) and never switches chains on such shared ground. Shared
+    // means the surfaces coincide EXACTLY: a landing even 1px off sits on top of a genuinely distinct
+    // platform - a real region change and a legitimate edge - so the tolerance is 0, not a band.
+    // Used by the builder (reject phantom cross-region edges landing on shared ground) and by region
+    // resolution (keep the chain we walked in on).
+    static final int SHARED_GROUND_Y_PX = 0;
 
     static final class Segment implements Serializable {
         // Part of the on-disk BotNavigationGraph cache schema; do not remove.
@@ -196,6 +215,23 @@ final class BotNavigationGraph implements Serializable {
             }
             return x < segment.minX ? segment.minX - x : x - segment.maxX;
         }
+
+        /* True when this region's own walkable surface passes through (x, ~y) - i.e. the point lies
+         * ON this platform. A cross-region ballistic edge (JUMP/FLASH_JUMP) whose landing this returns
+         * true for is a phantom: it lands on ground the SOURCE region already covers (overlapping or
+         * coincident chains), and the client never switches chains there, so executing it cannot change
+         * region. Region resolution uses the same test to keep the chain the bot walked in on. */
+        boolean surfaceCoversPoint(int x, int y, int yTolerance) {
+            if (isRopeRegion || x < minX || x > maxX) {
+                return false; // bbox reject: most cross-region landings are outside the source extent
+            }
+            for (Segment segment : segments) {
+                if (segment.containsX(x) && Math.abs(segment.pointAt(x).y - y) <= yTolerance) {
+                    return true;
+                }
+            }
+            return false;
+        }
     }
 
     static final class Edge implements Serializable {
@@ -210,13 +246,84 @@ final class BotNavigationGraph implements Serializable {
         final Point endPoint;
         final int launchMinX;
         final int launchMaxX;
+        // v62 Y launch window - the rope-climb analogue of [launchMinX, launchMaxX]. A rope-exit CLIMB edge
+        // can fire from any climb height in [launchMinY, launchMaxY] (all land in toRegionId, verified at
+        // graph-gen), exactly as a ground JUMP fires from any x in the X window. For non-rope edges this
+        // degenerates to startPoint.y (a single height). (nutnnut/Cosmic 23975ce86. Credit: NutNNut.)
+        final int launchMinY;
+        final int launchMaxY;
         final int launchStepX;
         final int portalId;
         final int ropeX;
         final int ropeTopY;
         final int ropeBottomY;
+        // Fall/grab cost at the two Y-window endpoints. Rope-exit cost varies strongly with launch height
+        // (higher launch = longer fall = pricier). The search interpolates launchCostAt(launchY) at the
+        // bot's actual climb height. Degenerate (non-rope-window) edges set both = cost.
+        final int launchCostMinY;
+        final int launchCostMaxY;
         final int cost;
 
+        Edge(int fromRegionId,
+             int toRegionId,
+             EdgeType type,
+             Point startPoint,
+             Point endPoint,
+             int launchMinX,
+             int launchMaxX,
+             int launchMinY,
+             int launchMaxY,
+             int launchStepX,
+             int portalId,
+             int ropeX,
+             int ropeTopY,
+             int ropeBottomY,
+             int launchCostAtMinY,
+             int launchCostAtMaxY,
+             int cost) {
+            this.fromRegionId = fromRegionId;
+            this.toRegionId = toRegionId;
+            this.type = type;
+            this.startPoint = new Point(startPoint);
+            this.endPoint = new Point(endPoint);
+            this.launchMinX = Math.min(launchMinX, launchMaxX);
+            this.launchMaxX = Math.max(launchMinX, launchMaxX);
+            boolean yInOrder = launchMinY <= launchMaxY;
+            this.launchMinY = Math.min(launchMinY, launchMaxY);
+            this.launchMaxY = Math.max(launchMinY, launchMaxY);
+            // Keep each endpoint cost aligned with its (normalized) Y endpoint if the args were swapped.
+            this.launchCostMinY = yInOrder ? launchCostAtMinY : launchCostAtMaxY;
+            this.launchCostMaxY = yInOrder ? launchCostAtMaxY : launchCostAtMinY;
+            this.launchStepX = launchStepX;
+            this.portalId = portalId;
+            this.ropeX = ropeX;
+            this.ropeTopY = ropeTopY;
+            this.ropeBottomY = ropeBottomY;
+            this.cost = cost;
+        }
+
+        /* Y-windowed edge with a flat cost (cost the same at both endpoints). */
+        Edge(int fromRegionId,
+             int toRegionId,
+             EdgeType type,
+             Point startPoint,
+             Point endPoint,
+             int launchMinX,
+             int launchMaxX,
+             int launchMinY,
+             int launchMaxY,
+             int launchStepX,
+             int portalId,
+             int ropeX,
+             int ropeTopY,
+             int ropeBottomY,
+             int cost) {
+            this(fromRegionId, toRegionId, type, startPoint, endPoint,
+                    launchMinX, launchMaxX, launchMinY, launchMaxY,
+                    launchStepX, portalId, ropeX, ropeTopY, ropeBottomY, cost, cost, cost);
+        }
+
+        /* X-windowed edge (JUMP/DROP); the Y window degenerates to startPoint.y. */
         Edge(int fromRegionId,
              int toRegionId,
              EdgeType type,
@@ -230,19 +337,9 @@ final class BotNavigationGraph implements Serializable {
              int ropeTopY,
              int ropeBottomY,
              int cost) {
-            this.fromRegionId = fromRegionId;
-            this.toRegionId = toRegionId;
-            this.type = type;
-            this.startPoint = new Point(startPoint);
-            this.endPoint = new Point(endPoint);
-            this.launchMinX = Math.min(launchMinX, launchMaxX);
-            this.launchMaxX = Math.max(launchMinX, launchMaxX);
-            this.launchStepX = launchStepX;
-            this.portalId = portalId;
-            this.ropeX = ropeX;
-            this.ropeTopY = ropeTopY;
-            this.ropeBottomY = ropeBottomY;
-            this.cost = cost;
+            this(fromRegionId, toRegionId, type, startPoint, endPoint,
+                    launchMinX, launchMaxX, startPoint.y, startPoint.y,
+                    launchStepX, portalId, ropeX, ropeTopY, ropeBottomY, cost);
         }
 
         Edge(int fromRegionId,
@@ -257,7 +354,8 @@ final class BotNavigationGraph implements Serializable {
              int ropeBottomY,
              int cost) {
             this(fromRegionId, toRegionId, type, startPoint, endPoint,
-                    startPoint.x, startPoint.x, launchStepX, portalId, ropeX, ropeTopY, ropeBottomY, cost);
+                    startPoint.x, startPoint.x, startPoint.y, startPoint.y,
+                    launchStepX, portalId, ropeX, ropeTopY, ropeBottomY, cost);
         }
 
         boolean containsLaunchX(int x) {
@@ -272,6 +370,45 @@ final class BotNavigationGraph implements Serializable {
         Point pointAtNearestLaunchX(int x) {
             return new Point(Math.clamp(x, launchMinX, launchMaxX), startPoint.y);
         }
+
+        /* A teleport / flash-jump edge: only a bot with that skill can take it. */
+        boolean isMovementSkill() {
+            return type == EdgeType.TELEPORT || type == EdgeType.FLASH_JUMP;
+        }
+
+        boolean containsLaunchY(int y) {
+            return y >= launchMinY && y <= launchMaxY;
+        }
+
+        boolean containsLaunchY(int y, int tolerance) {
+            return y >= launchMinY - tolerance && y <= launchMaxY + tolerance;
+        }
+
+        /* True for a rope-exit/transfer CLIMB edge whose Y launch window spans more than one height. */
+        boolean hasLaunchYWindow() {
+            return launchMaxY > launchMinY;
+        }
+
+        /* Launch point at the in-window climb height nearest to y (rope-exit analogue). */
+        Point pointAtNearestLaunchY(int y) {
+            return new Point(startPoint.x, Math.clamp(y, launchMinY, launchMaxY));
+        }
+
+        /* Cheapest launch cost across the Y window - an admissible lower bound. */
+        int minLaunchCost() {
+            return Math.min(launchCostMinY, launchCostMaxY);
+        }
+
+        /* Edge cost when launching at the in-window height nearest y, linearly interpolated between the two
+         * endpoint costs. Degenerate (flat) windows just return cost. */
+        int launchCostAt(int y) {
+            if (launchMaxY <= launchMinY) {
+                return cost;
+            }
+            int cy = Math.clamp(y, launchMinY, launchMaxY);
+            long span = launchMaxY - launchMinY;
+            return (int) (launchCostMinY + (long) (launchCostMaxY - launchCostMinY) * (cy - launchMinY) / span);
+        }
     }
 
     final int mapId;
@@ -283,6 +420,12 @@ final class BotNavigationGraph implements Serializable {
     final Map<Integer, List<Edge>> outgoingByRegionId;
     final java.util.Set<Integer> collidableWallIds;
     final java.util.Set<Integer> collidableFromBelowIds;
+    // The nightly deep bake's extra edges for this graph (NavDeepOverlay), resolved on first use. Not part of the
+    // cache file.
+    transient volatile NavDeepOverlay.Loaded deepOverlay;
+    // What NavEdgeLearning learned on this graph, resolved on first use so the planner's per-edge lookup takes no
+    // shared lock. Not part of the cache file.
+    transient volatile NavEdgeLearning.Book learningBook;
 
     BotNavigationGraph(int mapId,
                        int version,
@@ -349,7 +492,7 @@ final class BotNavigationGraph implements Serializable {
 
     boolean hasInterRegionEdge(int fromRegionId, int toRegionId) {
         for (Edge edge : getOutgoing(fromRegionId)) {
-            if (edge.fromRegionId != edge.toRegionId && edge.toRegionId == toRegionId) {
+            if (edge.fromRegionId != edge.toRegionId && edge.toRegionId == toRegionId && !edge.isMovementSkill()) {
                 return true;
             }
         }
@@ -359,7 +502,7 @@ final class BotNavigationGraph implements Serializable {
     Set<Integer> getMutualAdjacentRegionIds(int regionId) {
         Set<Integer> adjacent = new HashSet<>();
         for (Edge edge : getOutgoing(regionId)) {
-            if (edge.fromRegionId == edge.toRegionId) {
+            if (edge.fromRegionId == edge.toRegionId || edge.isMovementSkill()) {
                 continue;
             }
             if (hasInterRegionEdge(edge.toRegionId, regionId)) {

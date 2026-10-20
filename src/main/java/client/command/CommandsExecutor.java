@@ -284,6 +284,9 @@ public class CommandsExecutor {
         addCommand("loot", 2,  LootCommand.class);
         addCommand("mobskill", 2, MobSkillCommand.class);
         addCommand("maxskill", 2, MaxSkillCommand.class);
+        if (soloMapling.server.AttackCapture.isEnabled()) {
+            addCommand("classtest", 2, ClassTestCommand.class); // test server attack capture (ticket 32)
+        }
         addCommand("editShop", 2,  EditShopCommand.class);
 
         commandsNameDesc.add(levelCommandsCursor);
@@ -308,6 +311,9 @@ public class CommandsExecutor {
             addCommand("fmbot", 4, client.command.commands.gm4.FMBotCommand.class);
             addCommand("tradebot", 4, client.command.commands.gm4.TradeBotTestCommand.class);
             addCommand("env", 4, client.command.commands.gm4.EnvironmentCommand.class);
+            addCommand("roster", 4, client.command.commands.gm4.RosterCommand.class);
+            addCommand("brain", 4, client.command.commands.gm4.BrainCommand.class);
+            addCommand("botyield", 4, client.command.commands.gm4.BotYieldCommand.class);
         }
         addCommand("spawn", 3, SpawnCommand.class);
         addCommand("mutemap", 3, MuteMapCommand.class);

@@ -2,6 +2,7 @@ package soloMapling.ArtificialPlayer.BotTypes;
 
 import client.Character;
 import client.inventory.Equip;
+import soloMapling.ArtificialPlayer.BotCommandsPack.BotMegaphoneGate;
 import soloMapling.ArtificialPlayer.BotCommandsPack.SocialCommands;
 import soloMapling.ArtificialPlayer.BotMessagingSystem.ChatMessage;
 import soloMapling.ArtificialPlayer.BotMessagingSystem.MessageQueue;
@@ -160,7 +161,9 @@ public class ScrollingBot extends BotSM {
 //        getTradeWants().addItemWanted(2022179, 2);
         String adBase = getRandomResolvedLine(this, "AdvertiseSale");
         String adLine = (adBase != null ? adBase : "").replace("%PRICE%", formatPriceToShorthand(adj));
-        BotItemMegaphone(getChr(), adLine, eqToSell);
+        if (BotMegaphoneGate.tryAcquire()) {
+            BotItemMegaphone(getChr(), adLine, eqToSell);
+        }
         setTradeMode(BotTradeSM.TradeMode.SELLING);
     }
 

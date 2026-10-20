@@ -48,6 +48,18 @@ public class GCMoveCommand extends Command {
             handleLod(player, params);
             return;
         }
+        if (sub.equals("learned")) { // bot-persistence ticket 16: what movement has learned from its failures
+            player.dropMessage(soloMapling.ArtificialPlayer.GCMoveSystem.NavEdgeLearning.describe());
+            player.dropMessage(soloMapling.ArtificialPlayer.GCMoveSystem.NavObservedEdges.describe());
+            player.dropMessage(soloMapling.ArtificialPlayer.GCMoveSystem.PlayerHeat.describe());
+            player.dropMessage(soloMapling.ArtificialPlayer.GCMoveSystem.NavDeepOverlay.describe());
+            player.dropMessage(soloMapling.ArtificialPlayer.GCMoveSystem.NavStuckLog.describe());
+            return;
+        }
+        if (sub.equals("stuck")) { // ticket 04c: today's worst stuck spots (the daily report has the full list)
+            soloMapling.ArtificialPlayer.GCMoveSystem.NavStuckLog.topToday(8).forEach(player::dropMessage);
+            return;
+        }
 
         // Every other subcommand targets a specific bot by id: !gcmove <sub> <botId> [args]
         if (params.length < 2) {
@@ -224,6 +236,8 @@ public class GCMoveCommand extends Command {
         player.dropMessage("=== !gcmove (GCMoveSystem dynamic movement) ===");
         player.dropMessage("!gcmove bake                   - bake + report nav graph for your map (proof point)");
         player.dropMessage("!gcmove ropecheck              - per-rope top-exit probe (old vs widened) + failure mode, your map");
+        player.dropMessage("!gcmove learned                - nav learning, deep bake and stuck counts");
+        player.dropMessage("!gcmove stuck                  - today's worst stuck spots (daily report: reports/nav)");
         player.dropMessage("!gcmove lod [stats]            - report dynamic-movement load (bots/maps/job state)");
         player.dropMessage("!gcmove lod load <n>           - enable+fidget up to n idle bots (LOD load test)");
         player.dropMessage("!gcmove lod unload             - release the lod load-test bots");

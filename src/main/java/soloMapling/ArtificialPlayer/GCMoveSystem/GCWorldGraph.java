@@ -6,7 +6,9 @@ import provider.DataProviderFactory;
 import provider.DataTool;
 import provider.wz.WZFiles;
 import server.maps.Portal;
+import soloMapling.ArtificialPlayer.BotTravelSystem.BotMapGates;
 import soloMapling.ArtificialPlayer.BotTravelSystem.BotScriptedWarp;
+import soloMapling.ArtificialPlayer.BotTravelSystem.BotTransit;
 
 import static soloMapling.server.MapleVersionManager.isPortalinCurrentVersion;
 
@@ -19,6 +21,7 @@ import java.util.Collections;
 import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
+import java.util.PriorityQueue;
 import java.util.Set;
 import java.util.TreeSet;
 import java.util.concurrent.ConcurrentHashMap;
@@ -31,9 +34,9 @@ import java.util.concurrent.TimeUnit;
  * which. Scanned once from Map.wz — non-door, unscripted portals with a real target map,
  * following info/link exactly like MapFactory so the edge set matches the runtime map.
  *
- * Pure-movement scope: GreenCat's taxi / ferry / return-scroll / scripted-entrance content
- * edges are intentionally dropped. A route that would need one of those returns null from
- * .route and GCTravel warps that hop instead. Built lazily in-memory on first use
+ * Routing (ticket 03) adds the curated scripted warps and BotTransit's paid/scheduled hops (cabs,
+ * boats, trains, ferries) on top, and picks the cheapest route by time. A route nothing connects
+ * returns null from .route and GCTravel warps instead. Built lazily in-memory on first use
  * (~5k XMLs in a few seconds on a worker pool); not disk-cached.
  */
 // Ported from GreenCatMS. Credit: NutNNut.
@@ -64,7 +67,7 @@ final class GCWorldGraph {
 
     /*
      * Raw walkable-portal neighbours of mapId (the visually-adjacent maps) — for the LOD halo.
-     * Unlike .neighbors this excludes taxi destinations, and unlike .get it never
+     * Unlike .neighbors this excludes transit destinations, and unlike .get it never
      * triggers the world-graph build: returns empty until the graph already exists.
      */
     static int[] portalNeighbors(int mapId) {
@@ -77,55 +80,155 @@ final class GCWorldGraph {
     }
 
     /*
-     * Shortest portal-hop route from fromMapId to toMapId: the ordered map ids to
-     * enter, ending with toMapId. Empty list when already there; null when not
-     * reachable by walkable portals within maxHops (caller warps instead).
+     * Cheapest route from fromMapId to toMapId: the ordered map ids to enter, ending with toMapId. Empty
+     * list when already there; null when not reachable within maxHops (caller warps instead). Rebirth gates
+     * are all open except the never-enter maps, and paid transit is allowed - see the full overload.
      */
     static List<Integer> route(int fromMapId, int toMapId, int maxHops) {
+        return route(fromMapId, toMapId, maxHops, 3, true, NO_SAVED_RETURN);
+    }
+
+    /* The World Tour's way home when a bot has no saved town: the script's own default (Lith Harbor). */
+    static final int NO_SAVED_RETURN = constants.id.MapId.LITH_HARBOUR;
+
+    /*
+     * Ticket 03: cheapest route by time over walkable portals, curated scripted warps and BotTransit edges
+     * (cabs, boats, trains, ferries...). A walked hop costs WALK_SEC; a transit hop costs its `sec`, so a
+     * boat's wait and voyage weigh what they really take. Maps the bot's rebirths don't open are never passed
+     * through (the destination itself is the caller's call). allowFares=false keeps to free hops - a bot
+     * that can't pay replans on foot. A "return to saved" edge (the World Tour home) only leads to
+     * savedReturn, the town the bot really left from. Routes are cached: the graph and the transit table
+     * are static.
+     */
+    static List<Integer> route(int fromMapId, int toMapId, int maxHops, int rebirths, boolean allowFares,
+                               int savedReturn) {
         if (fromMapId == toMapId) {
             return List.of();
         }
         if (maxHops <= 0) {
             return null;
         }
-        Map<Integer, int[]> g = get();
+        int tier = Math.max(0, Math.min(3, rebirths));
+        RouteKey key = new RouteKey(fromMapId, toMapId, maxHops, tier, allowFares, savedReturn);
+        List<Integer> cached = ROUTES.get(key);
+        if (cached != null) {
+            return cached == NO_ROUTE ? null : cached;
+        }
+        List<Integer> found = dijkstra(get(), fromMapId, toMapId, maxHops, tier, allowFares, savedReturn);
+        if (ROUTES.size() >= ROUTE_CACHE_MAX) {
+            ROUTES.clear(); // crude bound - a refill costs one search per pair
+        }
+        ROUTES.put(key, found == null ? NO_ROUTE : found);
+        return found;
+    }
+
+    static final int WALK_SEC = 20; // planner cost of one walked portal hop
+
+    /* Forget cached routes (after the transit table is reloaded). */
+    static void clearRouteCache() {
+        ROUTES.clear();
+    }
+
+    private static final int ROUTE_CACHE_MAX = 50_000;
+    private static final List<Integer> NO_ROUTE = List.of(-1);
+    private static final Map<RouteKey, List<Integer>> ROUTES = new ConcurrentHashMap<>();
+
+    private record RouteKey(int from, int to, int maxHops, int tier, boolean fares, int savedReturn) {
+    }
+
+    static List<Integer> dijkstra(Map<Integer, int[]> g, int fromMapId, int toMapId, int maxHops, int rebirths,
+                                  boolean allowFares, int savedReturn) {
         Map<Integer, Integer> cameFrom = new HashMap<>();
-        ArrayDeque<Integer> frontier = new ArrayDeque<>();
-        cameFrom.put(fromMapId, fromMapId);
-        frontier.add(fromMapId);
-        int depth = 0;
-        while (!frontier.isEmpty() && depth < maxHops) {
-            depth++;
-            for (int level = frontier.size(); level > 0; level--) {
-                int current = frontier.poll();
-                for (int next : neighbors(g, current)) {
-                    if (cameFrom.putIfAbsent(next, current) != null) {
-                        continue;
+        Map<Integer, Long> best = new HashMap<>();
+        Map<Integer, Integer> hops = new HashMap<>();
+        java.util.Set<Integer> toured = new java.util.HashSet<>(); // reached through an outbound World Tour
+        // A bot already inside a gated area (put there by a GM, a party warp...) may walk back out through it.
+        boolean escaping = !BotMapGates.mayEnter(fromMapId, rebirths);
+        PriorityQueue<long[]> open = new PriorityQueue<>((a, b) -> Long.compare(a[0], b[0]));
+        best.put(fromMapId, 0L);
+        hops.put(fromMapId, 0);
+        open.add(new long[]{0L, fromMapId});
+        while (!open.isEmpty()) {
+            long[] top = open.poll();
+            int current = (int) top[1];
+            long cost = top[0];
+            if (cost > best.getOrDefault(current, Long.MAX_VALUE)) {
+                continue; // stale queue entry
+            }
+            if (current == toMapId) {
+                return reconstruct(cameFrom, fromMapId, toMapId);
+            }
+            int depth = hops.get(current);
+            if (depth >= maxHops) {
+                continue;
+            }
+            for (long step : steps(g, current, allowFares, savedReturn)) {
+                int next = (int) (step >>> 32);
+                int sec = (int) step & SEC_MASK;
+                if (!escaping && next != toMapId && !BotMapGates.mayEnter(next, rebirths)) {
+                    continue; // never pass through a map this bot's rebirths don't open
+                }
+                boolean wasToured = toured.contains(current);
+                if ((step & RETURNS) != 0 && wasToured) {
+                    continue; // a tour taken on this very route goes home to where it started: no shortcut
+                }
+                long nextCost = cost + sec;
+                if (nextCost < best.getOrDefault(next, Long.MAX_VALUE)) {
+                    best.put(next, nextCost);
+                    hops.put(next, depth + 1);
+                    cameFrom.put(next, current);
+                    if (wasToured || (step & SAVES) != 0) {
+                        toured.add(next);
+                    } else {
+                        toured.remove(next);
                     }
-                    if (next == toMapId) {
-                        return reconstruct(cameFrom, fromMapId, toMapId);
-                    }
-                    frontier.add(next);
+                    open.add(new long[]{nextCost, next});
                 }
             }
         }
         return null;
     }
 
-    /* Walkable-portal neighbours plus taxi (cab) destinations and curated scripted warps (e.g. the
-     * subway entrance), so town↔town and scripted-only training routes are routable. */
-    private static int[] neighbors(Map<Integer, int[]> g, int mapId) {
+    // Step packing: next map in the high 32 bits; cost seconds in the low 24; two edge flags above them.
+    private static final int SEC_MASK = (1 << 24) - 1;
+    private static final long SAVES = 1L << 24;   // saves the bot's town (World Tour out)
+    private static final long RETURNS = 1L << 25; // goes back to the saved town (World Tour home)
+
+    /* Outgoing steps from mapId, each packed as (next << 32 | flags | costSec): walkable portals and curated scripted
+     * warps at WALK_SEC, transit edges at their own time. */
+    private static long[] steps(Map<Integer, int[]> g, int mapId, boolean allowFares, int savedReturn) {
         int[] portals = g.getOrDefault(mapId, EMPTY);
-        int[] taxi = GCTaxi.destinations(mapId);
         int[] warp = BotScriptedWarp.destinations(mapId);
-        if (taxi.length == 0 && warp.length == 0) {
-            return portals;
+        List<BotTransit.Edge> transit = BotTransit.from(mapId);
+        long[] out = new long[portals.length + warp.length + transit.size()];
+        int n = 0;
+        for (int p : portals) {
+            out[n++] = ((long) p << 32) | WALK_SEC;
         }
-        int[] all = new int[portals.length + taxi.length + warp.length];
-        System.arraycopy(portals, 0, all, 0, portals.length);
-        System.arraycopy(taxi, 0, all, portals.length, taxi.length);
-        System.arraycopy(warp, 0, all, portals.length + taxi.length, warp.length);
-        return all;
+        for (int w : warp) {
+            out[n++] = ((long) w << 32) | WALK_SEC;
+        }
+        for (BotTransit.Edge e : transit) {
+            if (!allowFares && (e.fare() > 0 || e.beginnerFare() > 0)) {
+                continue;
+            }
+            if (e.returnToSaved() != null && e.toMapId() != savedReturn) {
+                continue; // the World Tour only takes a bot back where it came from
+            }
+            long flags = (e.saveLocation() != null ? SAVES : 0) | (e.returnToSaved() != null ? RETURNS : 0);
+            out[n++] = ((long) e.toMapId() << 32) | flags | Math.min(e.sec(), SEC_MASK);
+        }
+        return n == out.length ? out : java.util.Arrays.copyOf(out, n);
+    }
+
+    /* Every neighbour the planner can step to from mapId (walkable portals, scripted warps, transit). */
+    static int[] neighbors(int mapId) {
+        long[] steps = steps(get(), mapId, true, NO_SAVED_RETURN);
+        int[] out = new int[steps.length];
+        for (int i = 0; i < steps.length; i++) {
+            out[i] = (int) (steps[i] >>> 32);
+        }
+        return out;
     }
 
     private static List<Integer> reconstruct(Map<Integer, Integer> cameFrom, int from, int to) {

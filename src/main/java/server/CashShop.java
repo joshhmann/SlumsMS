@@ -295,10 +295,6 @@ public class CashShop {
                 }
             }
 
-            for (Pair<Item, InventoryType> item : factory.loadItems(accountId, false)) {
-                inventory.add(item.getLeft());
-            }
-
             try (PreparedStatement ps = con.prepareStatement("SELECT `sn` FROM `wishlists` WHERE `charid` = ?")) {
                 ps.setInt(1, characterId);
 
@@ -308,6 +304,12 @@ public class CashShop {
                     }
                 }
             }
+        }
+
+        // Loaded after this connection is closed: the item load takes its own, and holding one while waiting
+        // for another is how a busy pool deadlocks. A character load nests one level less for it.
+        for (Pair<Item, InventoryType> item : factory.loadItems(accountId, false)) {
+            inventory.add(item.getLeft());
         }
     }
 

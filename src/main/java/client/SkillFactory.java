@@ -38,6 +38,11 @@ public class SkillFactory {
         return skills.get(id);
     }
 
+    /** True once the skill data has been loaded (SoloMapling bot builds tell "no such skill" from "no data yet"). */
+    public static boolean isLoaded() {
+        return !skills.isEmpty();
+    }
+
     public static void loadAllSkills() {
         final Map<Integer, Skill> loadedSkills = new HashMap<>();
         final DataDirectoryEntry root = datasource.getRoot();

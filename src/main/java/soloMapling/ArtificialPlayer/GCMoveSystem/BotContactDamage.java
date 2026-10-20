@@ -5,6 +5,8 @@ import server.life.Monster;
 import server.maps.MapObject;
 import server.maps.MapObjectType;
 import soloMapling.server.MethodScheduler;
+import soloMapling.ArtificialPlayer.BotSupplySystem.BotVitals;
+import soloMapling.ArtificialPlayer.BotSupplySystem.MobContactDamage;
 import tools.PacketCreator;
 
 import java.awt.Point;
@@ -13,8 +15,8 @@ import java.util.List;
 import java.util.concurrent.ThreadLocalRandom;
 
 // Makes a bot visibly take damage from mobs - contact/touch damage and fall damage - with organic
-// knockback and a broadcast hurt packet, but no HP and no death (bots are immortal; this renders the
-// look of getting hit only). Extracted and trimmed from GreenCatMS's BotCombatManager (HP loss,
+// knockback and a broadcast hurt packet. Since real bots 08 the hit comes off the bot's HP (BotVitals,
+// which pots), but never below 1: bots still do not die. Extracted and trimmed from GreenCatMS's BotCombatManager (HP loss,
 // death/revive, danger-assessment, and the STANCE knockback roll all removed) and rebound from the
 // donor's BotEntry onto this package's BotMovementState. Credit: NutNNut.
 //
@@ -44,18 +46,14 @@ final class BotContactDamage {
     // each candidate with the real lower-half hitbox overlap.
     private static final int   MOB_QUERY_MARGIN       = 150;
 
-    // Damage number - option B: cosmetic, scaled off the mob's physical attack, never touches HP.
-    private static final double DMG_FACTOR  = 0.5;   // multiplier on mob.getPADamage()
-    private static final double DMG_SPREAD  = 0.20;  // +/- random variance around the scaled value
+    // The damage number (half the mob's physical attack, +/-20%, a miss chance per job family) is rolled by
+    // MobContactDamage, shared with the offscreen grind; since real bots 08 the bot really loses it (BotVitals).
 
     // Per-job-family feel (keyed on Job.getJobNiche(): 1=warrior, 4=thief; mage/bowman/pirate/beginner
     // use the base values). Warriors brace against knockback - the damage number still shows, only the
-    // recoil is suppressed, and a warrior that does get knocked barely budges. Thieves dodge far more -
-    // a higher chance the whole hit is a MISS flash (0 dmg, no recoil). All flat per family for now.
+    // recoil is suppressed, and a warrior that does get knocked barely budges. Thieves dodge far more
+    // (MobContactDamage's miss chance: a MISS flash, 0 dmg, no recoil). All flat per family for now.
     private static final int    NICHE_WARRIOR     = 1;
-    private static final int    NICHE_THIEF       = 4;
-    private static final double BASE_MISS_CHANCE  = 0.10; // 0..1 chance a hit is a MISS flash (0 dmg)
-    private static final double THIEF_MISS_CHANCE = 0.40;
     private static final double WARRIOR_KB_RESIST = 0.75; // chance a landed hit applies no knockback
     private static final float  WARRIOR_KB_DAMPEN = 0.45f;// recoil impulse scale when a warrior IS knocked
 
@@ -101,17 +99,9 @@ final class BotContactDamage {
 
     // Apply one contact hit from the mob (or a miss flash).
     private static void applyMobHit(BotMovementState entry, Character bot, Monster mob) {
-        double missChance = isThief(bot) ? THIEF_MISS_CHANCE : BASE_MISS_CHANCE;
-        int dmg = ThreadLocalRandom.current().nextDouble() < missChance ? 0 : rollMobDamage(mob);
+        int dmg = MobContactDamage.roll(bot, mob.getPADamage());
         MobHitKnockback kb = resolveMobHitKnockback(bot.getPosition(), mob.getPosition());
         applyDamage(entry, bot, dmg, -1, mob.getId(), kb.direction(), kb.airVelX());
-    }
-
-    // Option B: cosmetic damage scaled off the mob's physical attack - no defense math, no HP.
-    private static int rollMobDamage(Monster mob) {
-        double base = Math.max(1, mob.getPADamage()) * DMG_FACTOR;
-        double spread = 1.0 + ThreadLocalRandom.current().nextDouble(-DMG_SPREAD, DMG_SPREAD);
-        return (int) Math.max(1, Math.round(base * spread));
     }
 
     // Apply fall damage on landing. fallDistancePx is the peak-to-landing descent that
@@ -144,8 +134,8 @@ final class BotContactDamage {
     }
 
     // Core: broadcast the DAMAGE_PLAYER hurt packet, start the i-frame cooldown, set the alert pose,
-    // and apply knockback. Shared by mob-touch (damageFrom=-1) and fall (damageFrom=-3). No HP loss
-    // and no death - bots stay alive; this renders the hit only. A dmg <= 0 call is a MISS flash
+    // take the hit off the bot's HP (never below 1 - bots do not die) and apply knockback. Shared by
+    // mob-touch (damageFrom=-1) and fall (damageFrom=-3). A dmg <= 0 call is a MISS flash
     // (broadcast, no recoil).
     private static void applyDamage(BotMovementState entry, Character bot, int dmg,
                                     int damageFrom, int monsterId,
@@ -158,6 +148,9 @@ final class BotContactDamage {
 
         entry.mobHitCooldownMs = BotMovementManager.delayAfterCurrentTick(MOB_HIT_COOLDOWN_MS);
         markAlerted(entry);
+        if (dmg > 0) {
+            BotVitals.hurt(bot, dmg); // real bots 08: the hit comes off the bot's HP, and it pots
+        }
 
         if (dmg <= 0 || !shouldApplyMobKnockback(entry, bot)) {
             return; // miss flash, climbing, or a warrior who braced - no recoil
@@ -192,10 +185,6 @@ final class BotContactDamage {
 
     private static boolean isWarrior(Character bot) {
         return bot != null && bot.getJob() != null && bot.getJob().getJobNiche() == NICHE_WARRIOR;
-    }
-
-    private static boolean isThief(Character bot) {
-        return bot != null && bot.getJob() != null && bot.getJob().getJobNiche() == NICHE_THIEF;
     }
 
     private static MobHitKnockback resolveMobHitKnockback(Point botPos, Point attackOrigin) {

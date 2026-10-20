@@ -4,6 +4,7 @@ import client.Character;
 import server.life.Monster;
 import server.maps.MapObject;
 import soloMapling.ArtificialPlayer.BotAttackSystem.BotAttackDriver;
+import soloMapling.ArtificialPlayer.GCMoveSystem.BotPerformanceMonitor;
 import soloMapling.ArtificialPlayer.GCMoveSystem.GCMovement;
 
 import java.awt.Point;
@@ -101,6 +102,8 @@ public final class GrindBrain {
             targetOid = -1;
             lastMoveTargetX = Integer.MIN_VALUE;
             lastKillMs = now();
+            approachX = -1;   // re-derive the reach: a ranged bot out of ammo now closes to melee (real bots 08)
+            approachY = -1;
             lastNarrate = "";
             lastGiveUpNarrateMs = 0L;
             camp.resetEpisodeUnderLock();
@@ -295,6 +298,23 @@ public final class GrindBrain {
         Point mp = mob.getPosition();
         return pos != null && mp != null
                 && Math.abs(mp.x - pos.x) <= approachX && Math.abs(mp.y - pos.y) <= approachY;
+    }
+
+    // ── Organic loot, driven through here so the collect cost is attributable (see BotPerformanceMonitor) ──
+
+    void lootAtFeet(Character chr) {
+        long startedAt = System.nanoTime();
+        loot.grabLootAtFeet(chr);
+        BotPerformanceMonitor.recordCombatLoot(System.nanoTime() - startedAt);
+    }
+
+    boolean walkAndLoot(Character chr, int x0, int x1, int searchPx) {
+        long startedAt = System.nanoTime();
+        try {
+            return loot.tryWalkAndLoot(chr, x0, x1, searchPx);
+        } finally {
+            BotPerformanceMonitor.recordCombatLoot(System.nanoTime() - startedAt);
+        }
     }
 
     // ── Approach-progress tracking (no-progress give-up on an unreachable target/spot) ──

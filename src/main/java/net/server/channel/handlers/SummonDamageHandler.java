@@ -39,6 +39,7 @@ import server.StatEffect;
 import server.life.Monster;
 import server.life.MonsterInformationProvider;
 import server.maps.Summon;
+import soloMapling.server.AttackCapture;
 import tools.PacketCreator;
 
 import java.util.ArrayList;
@@ -96,6 +97,7 @@ public final class SummonDamageHandler extends AbstractDealDamageHandler {
             int damage = p.readInt();
             allDamage.add(new SummonAttackEntry(monsterOid, damage));
         }
+        AttackCapture.summon(player, summon.getSkill(), summon.getSkillLevel(), direction, numAttacked, p);
         player.getMap().broadcastMessage(player, PacketCreator.summonAttack(player.getId(), summon.getObjectId(), direction, allDamage), summon.getPosition());
 
         if (player.getMap().isOwnershipRestricted(player)) {

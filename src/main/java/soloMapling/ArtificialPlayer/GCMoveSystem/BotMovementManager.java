@@ -204,7 +204,12 @@ class BotMovementManager {
         entry.navJumpLaunchDelaySteps = Integer.MIN_VALUE;
         entry.navTargetRegionId = -1;
         entry.navPreciseTarget = false;
+        // The blocked-at-a-position tracker qualifies the leg being dropped here, so it goes with it: a
+        // carried position would either give up on a fresh leg immediately or hide a real block.
         entry.navBlockedPosTicks = 0;
+        entry.navBlockedPosGiveUpTicks = 0;
+        entry.navBlockedPosX = Integer.MIN_VALUE;
+        entry.navBlockedPosY = Integer.MIN_VALUE;
     }
 
     static void tickClimbing(BotMovementState entry, Point targetPos, boolean runAiTick) {
@@ -434,6 +439,7 @@ class BotMovementManager {
             return true;
         }
         return entry.navEdge.type != BotNavigationGraph.EdgeType.JUMP
+                && entry.navEdge.type != BotNavigationGraph.EdgeType.FLASH_JUMP
                 && entry.navEdge.type != BotNavigationGraph.EdgeType.DROP
                 && !(entry.navEdge.type == BotNavigationGraph.EdgeType.CLIMB
                 && entry.navEdge.launchStepX != 0);
@@ -576,6 +582,8 @@ class BotMovementManager {
     static int preciseNavStopDist(BotNavigationGraph.Edge navEdge) {
         if (navEdge != null
                 && (navEdge.type == BotNavigationGraph.EdgeType.JUMP
+                || navEdge.type == BotNavigationGraph.EdgeType.FLASH_JUMP
+                || navEdge.type == BotNavigationGraph.EdgeType.TELEPORT
                 || (navEdge.type == BotNavigationGraph.EdgeType.DROP && navEdge.launchStepX == 0))) {
             // Bot must walk INTO the launch window, not just near it. The launch window checks
             // are strict, so stopDist=1 can halt the bot exactly 1px before the valid range.
@@ -782,6 +790,8 @@ class BotMovementManager {
             return 0;
         }
         boolean windowed = edge.type == BotNavigationGraph.EdgeType.JUMP
+                || edge.type == BotNavigationGraph.EdgeType.FLASH_JUMP
+                || edge.type == BotNavigationGraph.EdgeType.TELEPORT
                 || (edge.type == BotNavigationGraph.EdgeType.DROP && edge.launchStepX == 0);
         if (!windowed || !edge.containsLaunchX(targetX)) {
             return 0;
@@ -812,10 +822,14 @@ class BotMovementManager {
      */
     static void tickUnstuck(BotMovementState entry) {
         Character bot = entry.bot;
+        NavStuckLog.record(NavStuckLog.Kind.UNSTUCK, bot.getMap(), bot.getPosition(), entry.navGraph, entry.navEdge);
         int walkStep = BotPhysicsEngine.walkStep(bot.getMap(), entry.movementProfile);
         switch (ThreadLocalRandom.current().nextInt(2)) {
             case 0 -> BotPhysicsEngine.beginGroundJump(entry, bot, -walkStep); // jump left
             default -> BotPhysicsEngine.beginGroundJump(entry, bot, walkStep); // jump right
+        }
+        if (entry.navEdge != null) {
+            NavEdgeLearning.failure(entry, entry.navGraph, entry.navEdge); // stuck on this move: remember it (ticket 16)
         }
         clearNavigationState(entry);
         entry.unstuckCooldownMs = delayAfterCurrentTick(5000);
@@ -850,11 +864,6 @@ class BotMovementManager {
     }
 
     static void broadcastMovement(BotMovementState entry) {
-        if (!BotPerformanceMonitor.enabled()) {
-            doBroadcastMovement(entry);
-            return;
-        }
-
         long startedAt = System.nanoTime();
         try {
             doBroadcastMovement(entry);
@@ -930,7 +939,7 @@ class BotMovementManager {
         data[14] = (byte) (BotPhysicsEngine.cfg.TICK_MS >> 8);
         InPacket packet = new ByteBufInPacket(Unpooled.wrappedBuffer(data));
         Packet movePacket = PacketCreator.movePlayer(bot.getId(), packet, data.length);
-        bot.getMap().broadcastMessage(bot, movePacket, false);
+        BotPerformanceMonitor.recordBroadcastFanout(bot.getMap().broadcastMessage(bot, movePacket, false));
     }
 
     // Broadcast a hand-built movement fragment path ([numCommands][fragments...]) verbatim to observers. Used
@@ -940,9 +949,14 @@ class BotMovementManager {
         if (bot == null || bot.getMap() == null) {
             return;
         }
-        InPacket packet = new ByteBufInPacket(Unpooled.wrappedBuffer(data));
-        Packet movePacket = PacketCreator.movePlayer(bot.getId(), packet, data.length);
-        bot.getMap().broadcastMessage(bot, movePacket, false);
+        long startedAt = System.nanoTime();
+        try {
+            InPacket packet = new ByteBufInPacket(Unpooled.wrappedBuffer(data));
+            Packet movePacket = PacketCreator.movePlayer(bot.getId(), packet, data.length);
+            BotPerformanceMonitor.recordBroadcastFanout(bot.getMap().broadcastMessage(bot, movePacket, false));
+        } finally {
+            BotPerformanceMonitor.recordBroadcastRaw(System.nanoTime() - startedAt);
+        }
     }
 
     // Broadcast a flash jump so observers render the dash animation instead of a plain air-glide. Adapted

@@ -38,7 +38,12 @@ public class BotHelpers {
         return isArtificial(id) || isConsole(id);
     }
 
-    private static boolean isArtificial(int id) {
+    /**
+     * An artificial player (a spawned bot), by character id: every id above the bot id base. Excludes the
+     * console pseudo-character, which is the reason callers that mean "a bot, not the console" use
+     * this instead of {@link #isBot(int)}.
+     */
+    public static boolean isArtificial(int id) {
         return id > soloMapling.server.SoloMaplingConstants.GameConstants.BOT_BASE_ID;
     }
 
@@ -169,9 +174,6 @@ public class BotHelpers {
     // Diff is clamped at 0 so an out-of-order timestamp can't throw from Thread.sleep.
     public static boolean waitBetweenTwoLong(long timestamp1, long timestamp2) {
         long diff = Math.max(0, timestamp2 - timestamp1);
-        if (diff > 2000) {
-            System.out.println("More than 2 seconds waiting");
-        }
         try {
             Thread.sleep(diff);
             return true;

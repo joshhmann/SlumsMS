@@ -657,7 +657,7 @@ public class World {
 
     public int getWorldCapacityStatus() {
         int worldCap = getChannelsSize() * YamlConfig.config.server.CHANNEL_LOAD;
-        int num = players.getSize();
+        int num = players.getConnectedPlayerCount(); // bots don't take a real player's place
 
         int status;
         if (num >= worldCap) {
@@ -1000,14 +1000,22 @@ public class World {
         }
     }
 
-    public void updateParty(int partyid, PartyOperation operation, PartyCharacter target) {
+    // Returns false when the operation changed nothing - only JOIN can (party already at
+    // Party.MAX_MEMBERS). Callers that ignore the result (leave/expel/logon/leader changes) behave
+    // exactly as before; the JOIN callers must not report a success that did not happen.
+    public boolean updateParty(int partyid, PartyOperation operation, PartyCharacter target) {
         Party party = getParty(partyid);
         if (party == null) {
             throw new IllegalArgumentException("no party with the specified partyid exists");
         }
+        boolean changed = true;
         switch (operation) {
             case JOIN:
-                party.addMember(target);
+                // The 6-man cap is enforced inside addMember, while the party lock is held: the
+                // invite-time and accept-time size checks are racy, and two accepts racing for the
+                // last slot must resolve here. A refused join registers and announces nobody, leaving
+                // the caller to answer with the normal "party is full" outcome.
+                changed = party.addMember(target);
                 break;
             case EXPEL:
             case LEAVE:
@@ -1045,7 +1053,10 @@ public class World {
             default:
                 log.warn("Unhandled updateParty operation: {}", operation.name());
         }
-        updateParty(party, operation, target);
+        if (changed) {
+            updateParty(party, operation, target);
+        }
+        return changed;
     }
 
     public void removeMapPartyMembers(int partyid) {

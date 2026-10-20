@@ -35,6 +35,11 @@ import net.server.coordinator.world.InviteCoordinator.InviteResultType;
 import net.server.coordinator.world.InviteCoordinator.InviteType;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
+import server.maps.MapleMap;
+import soloMapling.ArtificialPlayer.BotHoldings;
+import soloMapling.ArtificialPlayer.BotTradeSystem.BotTradeQueue;
+
+import static soloMapling.ArtificialPlayer.BotHelpers.isBot;
 import tools.PacketCreator;
 import tools.Pair;
 
@@ -122,13 +127,21 @@ public class Trade {
 
         for (Item item : exchangeItems) {
             KarmaManipulator.toggleKarmaFlagToUntradeable(item);
-            if (!soloMapling.ArtificialPlayer.BotHelpers.isBot(chr)) InventoryManipulator.addFromDrop(chr.getClient(), item, show);
+            if (isBot(chr)) {
+                creditReceivedItem(chr, item);
+            } else {
+                InventoryManipulator.addFromDrop(chr.getClient(), item, show);
+            }
         }
 
         if (exchangeMeso > 0) {
             int fee = getFee(exchangeMeso);
 
-            chr.gainMeso(exchangeMeso - fee, show, true, show);
+            if (isBot(chr)) {
+                creditReceivedMeso(chr, exchangeMeso - fee);
+            } else {
+                chr.gainMeso(exchangeMeso - fee, show, true, show);
+            }
             if (fee > 0) {
                 chr.dropMessage(1, "Transaction completed. You received " + GameConstants.numberWithCommas(exchangeMeso - fee) + " mesos due to trade fees.");
             } else {
@@ -151,11 +164,19 @@ public class Trade {
     private void cancel(byte result) {
         boolean show = YamlConfig.config.server.USE_DEBUG;
 
-        for (Item item : items) {
-            if (!soloMapling.ArtificialPlayer.BotHelpers.isBot(chr)) InventoryManipulator.addFromDrop(chr.getClient(), item, show);
+        // A bot's own offer is generated for the trade window (BotTradeCommands builds it), so it was never taken
+        // out of any inventory and must NOT be handed back: crediting it would print the item into the bot's
+        // holdings and then onto the floor when the bot despawns. Only its mesos are real - refunded below.
+        if (!isBot(chr)) {
+            for (Item item : items) {
+                InventoryManipulator.addFromDrop(chr.getClient(), item, show);
+            }
         }
         if (meso > 0) {
             chr.gainMeso(meso, show, true, show);
+            if (isBot(chr)) {
+                BotHoldings.noteMesoRefund(chr, meso);   // the offer is back, so the ledger is too
+            }
         }
         meso = 0;
         if (items != null) {
@@ -187,6 +208,11 @@ public class Trade {
         }
         if (chr.getMeso() >= meso) {
             chr.gainMeso(-meso, false, true, false);
+            if (isBot(chr)) {
+                // Offered mesos are real and must leave the bot's ledger with its wallet, or settling the bot
+                // would drop mesos it already paid away.
+                BotHoldings.noteMesoSpent(chr, meso);
+            }
             this.meso += meso;
             chr.sendPacket(PacketCreator.getTradeMesoSet((byte) 0, this.meso));
             if (partner != null) {
@@ -194,6 +220,31 @@ public class Trade {
             }
         } else {
         }
+    }
+
+    // A bot has no player behind its shared BotClient, so InventoryManipulator (which reads c.getPlayer()) cannot
+    // credit it: a bot's inventory path is BotHoldings. When the bot cannot hold what the partner handed over, the
+    // item goes to the floor of the map it stands on instead of vanishing with the trade window.
+    private static void creditReceivedItem(Character bot, Item item) {
+        if (BotHoldings.grantItem(bot, item)) {
+            return;
+        }
+        MapleMap map = bot.getMap();
+        if (map == null) {
+            return;
+        }
+        map.spawnItemDrop(bot, bot, item, bot.getPosition(), true, true);
+    }
+
+    private static void creditReceivedMeso(Character bot, int mesos) {
+        if (mesos <= 0 || BotHoldings.grantMeso(bot, mesos)) {
+            return;
+        }
+        MapleMap map = bot.getMap();
+        if (map == null) {
+            return;
+        }
+        map.spawnMesoDrop(mesos, bot.getPosition(), bot, bot, true, (byte) 2, (short) 0);
     }
 
     public boolean addItem(Item item) {
@@ -352,8 +403,8 @@ public class Trade {
             }
 
             logTrade(local, partner);
-            if (!soloMapling.ArtificialPlayer.BotHelpers.isBot(local.getChr())) local.completeTrade();
-            if (!soloMapling.ArtificialPlayer.BotHelpers.isBot(partner.getChr())) partner.completeTrade();
+            local.completeTrade();
+            partner.completeTrade();
             local.setCallbackSuccessfulTrade();
             partner.setCallbackSuccessfulTrade();
 

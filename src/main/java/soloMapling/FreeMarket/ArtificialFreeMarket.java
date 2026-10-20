@@ -7,6 +7,7 @@ import net.server.Server;
 import server.maps.HiredMerchant;
 import server.maps.PlayerShop;
 import server.maps.PlayerShopItem;
+import soloMapling.server.BotShutdown;
 import soloMapling.server.ExecutorServiceManager;
 import tools.PacketCreator;
 
@@ -21,6 +22,7 @@ import java.util.concurrent.atomic.AtomicInteger;
 import static soloMapling.ArtificialPlayer.BotCustomization.getRandomChairId;
 import static soloMapling.ArtificialPlayer.BotCustomization.getRandomStorePermitId;
 import soloMapling.ArtificialPlayer.BotGeneration;
+import soloMapling.ArtificialPlayer.BotStore;
 
 import static soloMapling.ArtificialPlayer.BotGeneration.createBotPollReadiness;
 import static soloMapling.server.ExecutorServiceManager.runAsync;
@@ -71,16 +73,36 @@ public class ArtificialFreeMarket {
     }
 
 
+    /** Hand-populates a whole region: every room's bots draw on-demand slots. */
     public static void populateFreeMarketRegion(String region) {
+        List<Integer> rooms = fmInfo.getRegionFMMapId(region);
+        populateFreeMarketRegion(BotStore.nextDynamicSlots(Math.max(1, rooms.size()) * BotStore.SLOTS_PER_GROUP), region);
+    }
+
+    /**
+     * Populates a region's rooms from a reserved slot block. Room r owns
+     * `slotBase + r * SLOTS_PER_GROUP`, so rooms are independent of each
+     * other's bot counts and every room's bots keep their identity across boots.
+     */
+    public static void populateFreeMarketRegion(int slotBase, String region) {
         // Fire every room in the region in parallel. Each room's internal work is
         // already offloaded to executors, so this just kicks them off concurrently
         // instead of sleeping 5s between maps.
+        int room = 0;
         for (int mapId : fmInfo.getRegionFMMapId(region)) {
-            ExecutorServiceManager.runAsync(() -> populateFreeMarketRoom(mapId));
+            final int roomBase = slotBase + room * BotStore.SLOTS_PER_GROUP;
+            ExecutorServiceManager.runAsync(() -> populateFreeMarketRoom(roomBase, mapId));
+            room++;
         }
     }
 
+    /** Hand-populates one room: the room's bots draw on-demand slots. */
     public static void populateFreeMarketRoom(int mapId) {
+        int spots = fmInfo.getRegionFMSpots(getRegionByMapId(mapId)).size();
+        populateFreeMarketRoom(BotStore.nextDynamicSlots(Math.max(1, spots)), mapId);
+    }
+
+    public static void populateFreeMarketRoom(int slotBase, int mapId) {
         String region = getRegionByMapId(mapId);
         debugprint("Populating room: ", mapId);
 
@@ -89,7 +111,9 @@ public class ArtificialFreeMarket {
 
         double hiredMerchantChance = getHiredMerchantChance(mapId);
 
-        for (Point position : positions) {
+        for (int i = 0; i < positions.size(); i++) {
+            Point position = positions.get(i);
+            int slot = slotBase + i;
             // ~2% per-spot skip. Use continue so we don't abandon the rest of the room.
             if (chance(2)) {
                 continue;
@@ -99,7 +123,7 @@ public class ArtificialFreeMarket {
             } else {
                 // Stagger bot-shop creation with small delays instead of blocking
                 int delay = delayCounter.getAndIncrement() * 200; // 200ms between each
-                getScheduledExecutorService().schedule(() -> createBotShopAtLocation(position, mapId),
+                getScheduledExecutorService().schedule(() -> createBotShopAtLocation(slot, position, mapId),
                         delay, TimeUnit.MILLISECONDS);
             }
         }
@@ -438,7 +462,7 @@ public class ArtificialFreeMarket {
 ////    private static final ExecutorService executor = Executors.newFixedThreadPool(THREAD_POOL_SIZE);
 //    private static final ScheduledExecutorService scheduler = Executors.newScheduledThreadPool(1);
 
-    public static void createBotShopAtLocation(Point position, int mapId) {
+    public static void createBotShopAtLocation(int slot, Point position, int mapId) {
         getExecutorService().submit(() -> {
             debugprint("Making shop at: " + mapId + ", " + position);
 
@@ -459,7 +483,7 @@ public class ArtificialFreeMarket {
 //                }
 //            }
 
-            Character fakechar2 = createBotPollReadiness(position, mapId);
+            Character fakechar2 = createBotPollReadiness(slot, position, mapId);
             if (fakechar2 == null) {
                 System.err.println("Bot not ready after 3 seconds, skipping store");
                 return;
@@ -469,6 +493,9 @@ public class ArtificialFreeMarket {
             // so wait it out before opening the store - a shop popping open while
             // the bot is still mid-drop looks broken.
             getScheduledExecutorService().schedule(() -> runAsync(() -> {
+                if (BotShutdown.isQuiesced()) {
+                    return; // Ticket 09: an FM stall must not open (or sit) while the world is going down
+                }
                 BotPlayerStorePermit(fakechar2);
 
                 if (Math.random() < 0.5) {

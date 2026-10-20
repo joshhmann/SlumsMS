@@ -108,6 +108,15 @@ public final class BotBuffRequestHandler {
      * bot to grant it. No-op for anything that isn't a request. Cheap and safe to call on
      * every general-chat message.
      */
+    /** Whether {@link #tryHandle} treats this line as a buff request ("hs pls", "bless me") - chat routing steps aside. */
+    public static boolean isBuffRequest(String message) {
+        if (message == null || message.isBlank()) {
+            return false;
+        }
+        String[] tokens = message.trim().toLowerCase().split("\\s+");
+        return hasRequestWord(tokens) && matchConcept(tokens) != null;
+    }
+
     public static void tryHandle(Character player, String message) {
         if (player == null || BotHelpers.isBot(player)) {
             return; // real players only - bot chat must never feed this
@@ -217,7 +226,7 @@ public final class BotBuffRequestHandler {
 
     /** The actual skill id this bot would cast for the concept, or 0 if its job lacks it. */
     private static int resolveSkill(BuffConcept concept, Character chr) {
-        List<Integer> kit = BotBuffConfig.buffsForJob(chr.getJob());
+        List<Integer> kit = BotBuffConfig.buffsFor(chr);
         for (int id : concept.skillIds()) {
             if (kit.contains(id)) {
                 return id;

@@ -36,9 +36,10 @@ public final class GCMovement {
 
     // ── Lifecycle ───────────────────────────────────────────────────────────
 
-    /* Put a bot under dynamic control: build its profile, warm the map graph, start the tick. */
+    /* Put a bot under dynamic control: build its profile, warm the map graph, start the tick. A bot that has
+     * left the world is refused: a late callback of a logged-out bot must not bring its driver back. */
     public static void enable(Character bot) {
-        if (bot == null) {
+        if (bot == null || hasLeftWorld(bot)) {
             return;
         }
         ObserverTracker.ensureStarted(); // LOD observability poll (idempotent)
@@ -78,6 +79,25 @@ public final class GCMovement {
             MovementCommands.releaseMovementLock(bot);
         }
         ARRIVAL_CALLBACKS.remove(bot.getId());
+    }
+
+    /*
+     * The bot has left the world: its channel no longer holds it (logged out by the population director, despawned,
+     * removed by a GM). Every warp of such a character fails in Character.changeMap ("got stuck when moving"), so
+     * nothing may move or route it any more. The same check changeMap makes; when there is no channel to ask (unit
+     * tests, mid-shutdown) the bot counts as present.
+     */
+    public static boolean hasLeftWorld(Character bot) {
+        if (bot == null) {
+            return true;
+        }
+        try {
+            client.Client c = bot.getClient();
+            net.server.channel.Channel ch = c == null ? null : c.getChannelServer();
+            return ch != null && ch.getPlayerStorage().getCharacterById(bot.getId()) == null;
+        } catch (RuntimeException e) {
+            return false;
+        }
     }
 
     public static boolean isEnabled(Character bot) {
@@ -243,6 +263,26 @@ public final class GCMovement {
         return (st == null) ? null : st.facingDir < 0;
     }
 
+    // ── Commitment hold (ticket 05) ──────────────────────────────────────────
+
+    /* A player-facing commitment owns the bot's position: hold it exactly where it stands until the
+     * commitment settles (see BotCommitmentHold). No-op when the bot isn't under dynamic control -
+     * nothing is moving it, so there is nothing to freeze. */
+    public static void holdForCommitment(Character bot) {
+        BotMovementState st = bot == null ? null : STATES.get(bot.getId());
+        if (st != null) {
+            BotCommitmentHold.hold(st);
+        }
+    }
+
+    /* The commitment settled: the bot may move again (its surviving move intent replans from here). */
+    public static void releaseCommitmentHold(Character bot) {
+        BotMovementState st = bot == null ? null : STATES.get(bot.getId());
+        if (st != null) {
+            BotCommitmentHold.release(st);
+        }
+    }
+
     // ── Package helpers (used by GCTravel / GCFollow) ────────────────────────
 
     /* Clear only the move/farm target + nav (NOT follow or travel). GCTravel uses this between hops
@@ -307,6 +347,53 @@ public final class GCMovement {
         return GCTravel.isTraveling(bot);
     }
 
+    /* Ticket 03: the bot is waiting on transit (queued at a boarding NPC or aboard a boat/train/ferry). It
+     * stands still by design, so travel watchdogs should read this as progress, not as being stuck. */
+    public static boolean isInTransit(Character bot) {
+        return GCTravel.isInTransit(bot);
+    }
+
+    /* Ticket 03: the cheapest route from fromMapId to toMapId for a bot with these rebirths (walkable
+     * portals, scripted warps and paid transit), or null when nothing connects them. Empty = already there. */
+    public static List<Integer> route(int fromMapId, int toMapId, int rebirths) {
+        return GCWorldGraph.route(fromMapId, toMapId, ROUTE_MAX_HOPS, rebirths, true, GCWorldGraph.NO_SAVED_RETURN);
+    }
+
+    /* As route(int, int, int) for this bot: its rebirths, and the World Tour taking it back to its saved town. */
+    public static List<Integer> route(Character bot, int toMapId) {
+        return GCWorldGraph.route(bot.getMapId(), toMapId, ROUTE_MAX_HOPS, soloMapling.ArtificialPlayer.BotTravelSystem.BotMapGates.rebirthsOf(bot), true,
+                GCTravel.savedReturn(bot));
+    }
+
+    /* Ticket 03: what a route costs in fares for a bot of this job (each paid transit hop on it). */
+    public static int routeFare(int fromMapId, List<Integer> route, int jobId) {
+        int fare = 0;
+        int at = fromMapId;
+        for (int next : route) {
+            soloMapling.ArtificialPlayer.BotTravelSystem.BotTransit.Edge e =
+                    soloMapling.ArtificialPlayer.BotTravelSystem.BotTransit.edge(at, next);
+            if (e != null && e.isBoard()) {
+                fare += e.fareFor(jobId);
+            }
+            at = next;
+        }
+        return fare;
+    }
+
+    private static final int ROUTE_MAX_HOPS = 60;
+
+    /* Ticket 03: re-read BotTransit.yaml and drop every cached route. */
+    public static int reloadTransit() {
+        soloMapling.ArtificialPlayer.BotTravelSystem.BotTransit.reload();
+        GCWorldGraph.clearRouteCache();
+        return soloMapling.ArtificialPlayer.BotTravelSystem.BotTransit.edgeCount();
+    }
+
+    /* Ticket 03: {traveling, queued at a boarding NPC, aboard a ride}, world-wide. */
+    public static int[] transitCounts() {
+        return GCTravel.transitCounts();
+    }
+
     public static void cancelTravel(Character bot) {
         GCTravel.cancel(bot);
     }
@@ -345,7 +432,7 @@ public final class GCMovement {
         }
         int from = bot.getMapId();
         long startedAt = System.nanoTime();
-        java.util.List<Integer> route = GCWorldGraph.route(from, destMapId, 12);
+        java.util.List<Integer> route = route(bot, destMapId);
         long ms = (System.nanoTime() - startedAt) / 1_000_000L;
         if (route == null) {
             return String.format("GCTravel route %d -> %d: NONE (warp; %d maps indexed, %dms)",
@@ -354,8 +441,8 @@ public final class GCMovement {
         if (route.isEmpty()) {
             return "GCTravel: already on map " + destMapId;
         }
-        return String.format("GCTravel route %d -> %d: %d hops %s (%dms)",
-                from, destMapId, route.size(), route, ms);
+        return String.format("GCTravel route %d -> %d: %d hops, %d mesos in fares %s (%dms)",
+                from, destMapId, route.size(), routeFare(from, route, bot.getJob().getId()), route, ms);
     }
 
     public static boolean isMoving(Character bot) {
@@ -612,8 +699,9 @@ public final class GCMovement {
         queue.add(start);
         while (!queue.isEmpty()) {
             int rid = queue.poll();
-            for (BotNavigationGraph.Edge e : g.getOutgoing(rid)) {
-                if (e.toRegionId != rid && seen.add(e.toRegionId)) {
+            for (BotNavigationGraph.Edge e : NavObservedEdges.outgoing(g, rid)) { // with baked and learned edges
+                // Skill edges (teleport / flash jump) only exist for some jobs - walk reachability ignores them.
+                if (e.toRegionId != rid && !e.isMovementSkill() && seen.add(e.toRegionId)) {
                     queue.add(e.toRegionId);
                 }
             }
@@ -718,7 +806,7 @@ public final class GCMovement {
             return "GCMove: bake FAILED for map " + bot.getMapId();
         }
         int regions = g.regions.size();
-        int walk = 0, jump = 0, drop = 0, climb = 0, portal = 0, total = 0;
+        int walk = 0, jump = 0, drop = 0, climb = 0, portal = 0, teleport = 0, flashJump = 0, total = 0;
         for (List<BotNavigationGraph.Edge> edges : g.outgoingByRegionId.values()) {
             for (BotNavigationGraph.Edge e : edges) {
                 total++;
@@ -728,14 +816,16 @@ public final class GCMovement {
                     case DROP -> drop++;
                     case CLIMB -> climb++;
                     case PORTAL -> portal++;
+                    case TELEPORT -> teleport++;
+                    case FLASH_JUMP -> flashJump++;
                 }
             }
         }
         int ropes = bot.getMap().getRopes().size();
         return String.format(
                 "GCMove bake map %d in %dms: regions=%d ropes=%d edges=%d "
-                        + "(walk=%d jump=%d drop=%d climb=%d portal=%d)",
-                bot.getMapId(), ms, regions, ropes, total, walk, jump, drop, climb, portal);
+                        + "(walk=%d jump=%d drop=%d climb=%d portal=%d teleport=%d flashjump=%d)",
+                bot.getMapId(), ms, regions, ropes, total, walk, jump, drop, climb, portal, teleport, flashJump);
     }
 
     // Diagnostic for the widened rope top-exit probe. Iterates the player's map ropes, runs the

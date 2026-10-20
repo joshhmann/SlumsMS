@@ -31,6 +31,7 @@ import client.inventory.manipulator.InventoryManipulator;
 import client.inventory.manipulator.KarmaManipulator;
 import net.packet.Packet;
 import server.Trade;
+import soloMapling.ArtificialPlayer.BotHoldings;
 import tools.PacketCreator;
 import tools.Pair;
 
@@ -285,6 +286,8 @@ public class PlayerShop extends AbstractMapObject {
                             c.getPlayer().gainMeso(-price, false);
                             price -= Trade.getFee(price);  // thanks BHB for pointing out trade fees not applying here
                             owner.gainMeso(price, true);
+                            // A bot can own this shop (FreeMarket stalls); its take must be holdings, not ambient income.
+                            BotHoldings.noteMesoEarned(owner, price);
 
                             SoldItem soldItem = new SoldItem(c.getPlayer().getName(), pItem.getItem().getItemId(), quantity, price);
                             owner.sendPacket(PacketCreator.getPlayerShopOwnerUpdate(soldItem, item));
@@ -641,13 +644,27 @@ public class PlayerShop extends AbstractMapObject {
             try {
                 int price = (int) Math.min((float) pItem.getPrice() * quantity, Integer.MAX_VALUE);
 
+                if (!BotHoldings.spendMeso(fakechar, price)) {
+                    fakechar.dropMessage(1, "You don't have enough mesos to purchase this item.");
+                    return false;
+                }
+
                 if (!owner.canHoldMeso(price)) {    // thanks Rohenn for noticing owner hold check misplaced
+                    BotHoldings.grantMeso(fakechar, price);
                     fakechar.dropMessage(1, "Transaction failed since the shop owner can't hold any more mesos.");
+                    return false;
+                }
+
+                if (!BotHoldings.grantItem(fakechar, newItem)) {
+                    BotHoldings.grantMeso(fakechar, price);
+                    fakechar.dropMessage(1, "Your inventory is full. Please clear a slot before buying this item.");
                     return false;
                 }
 
                 price -= Trade.getFee(price);  // thanks BHB for pointing out trade fees not applying here
                 owner.gainMeso(price, true);
+                // The owner can be a bot here too (a bot stall bought from by another bot); ledger its take.
+                BotHoldings.noteMesoEarned(owner, price);
 
                 SoldItem soldItem = new SoldItem(fakechar.getName(), pItem.getItem().getItemId(), quantity, price);
                 owner.sendPacket(PacketCreator.getPlayerShopOwnerUpdate(soldItem, itemPosition));

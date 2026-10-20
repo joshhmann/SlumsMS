@@ -186,8 +186,10 @@ public class HenesysBot extends BotSM {
 
         boolean moved = false;
         if (rollChanceInverse(5)) {
+            // Null while the bot is on no known platform (mid-jump, falling, on a rope), and the immutable
+            // lists getWanderablePlatforms returns throw on contains(null).
             String current = getCurrentPlatform(getChr());
-            if (platforms.contains(current)) {
+            if (current != null && platforms.contains(current)) {
                 botMoveToPlatformAnyUnoccupiedSpotAware(getChr(), current);
                 moved = true;
             }

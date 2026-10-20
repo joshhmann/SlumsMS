@@ -1,17 +1,13 @@
 package soloMapling.ArtificialPlayer.BotDecoratorSystem;
 
 import client.Character;
-import client.Job;
 import constants.inventory.EquipType;
 import soloMapling.ArtificialPlayer.BotCustomization;
 
-import java.util.ArrayList;
 import java.util.List;
 import java.util.Random;
+import java.util.concurrent.ThreadLocalRandom;
 
-import static soloMapling.ArtificialPlayer.BotDecoratorSystem.JobPathLogic.determineBowmanPath;
-import static soloMapling.ArtificialPlayer.BotDecoratorSystem.JobPathLogic.determineThiefPath;
-import static soloMapling.ArtificialPlayer.BotDecoratorSystem.JobPathLogic.determineWarriorPath;
 import static soloMapling.itemPool.ItemInformationProviderUtilities.getRandomEquipForWearing;
 
 public class BotDecorateEquips {
@@ -192,161 +188,20 @@ public class BotDecorateEquips {
     }
 
     /**
-     * Determines appropriate weapons for a character based on their class and job advancement
+     * Equips a level-appropriate weapon of one of the kinds the character's job fights with (BotWeapons), and a
+     * shield with a one-handed sword or dagger (and half the time with a wand or staff). A job that takes any weapon
+     * (a beginner) gets a sword.
      *
      * @param character The character to equip
      */
     public static void equipWeapon(Character character) {
-        Random random = new Random();
-        Job jobType = character.getJobStyle();
-        int jobId = character.getJob().getId(); // Specific job ID
-        int jobLevel = character.getJob().getJobTier(); // 0 for beginner, 1 for first job, etc.
+        ThreadLocalRandom random = ThreadLocalRandom.current();
+        List<EquipType> kinds = BotWeapons.weaponsFor(character.getJob());
+        EquipType kind = kinds.isEmpty() ? EquipType.SWORD : kinds.get(random.nextInt(kinds.size()));
+        equipIfPresent(character, getRandomEquipForWearing(kind, character));
 
-        List<EquipType> possibleWeapons = new ArrayList<>();
-        boolean useShield = false;
-
-        // Determine possible weapons based on job type and advancement level
-        switch (jobType) {
-            case WARRIOR:
-                if (jobLevel == 1) {
-                    // Beginner warrior can use any warrior weapon
-                    boolean useTwoHanded = random.nextBoolean();
-
-                    if (useTwoHanded) {
-                        List<EquipType> twoHandedOptions = List.of(
-                                EquipType.SWORD_2H,
-                                EquipType.AXE_2H,
-                                EquipType.SPEAR,
-                                EquipType.POLEARM
-                        );
-                        possibleWeapons.add(twoHandedOptions.get(random.nextInt(twoHandedOptions.size())));
-                    } else {
-                        List<EquipType> oneHandedOptions = List.of(
-                                EquipType.SWORD,
-                                EquipType.AXE
-                        );
-                        possibleWeapons.add(oneHandedOptions.get(random.nextInt(oneHandedOptions.size())));
-                        useShield = true;
-                    }
-                } else {
-                    // Determine warrior path based on job ID
-                    Job warriorPath = determineWarriorPath(character);
-
-                    switch (warriorPath) {
-                        case FIGHTER: // Fighter, Crusader, Hero path
-                        case PAGE: // Page, White Knight, Paladin path
-                            boolean useTwoHanded = random.nextBoolean();
-
-                            if (useTwoHanded) {
-                                if (warriorPath == Job.FIGHTER) {
-                                    // Fighters prefer axes
-                                    possibleWeapons.add(random.nextBoolean() ?
-                                            EquipType.AXE_2H : EquipType.SWORD_2H);
-                                } else {
-                                    // Pages prefer swords
-                                    possibleWeapons.add(random.nextBoolean() ?
-                                            EquipType.SWORD_2H : EquipType.AXE_2H);
-                                }
-                            } else {
-                                if (warriorPath == Job.FIGHTER) {
-                                    // Fighters prefer axes
-                                    possibleWeapons.add(random.nextBoolean() ?
-                                            EquipType.AXE : EquipType.SWORD);
-                                } else {
-                                    // Pages prefer swords
-                                    possibleWeapons.add(random.nextBoolean() ?
-                                            EquipType.SWORD : EquipType.AXE);
-                                }
-                                useShield = true;
-                            }
-                            break;
-
-                        case SPEARMAN: // Spearman, Dragon Knight, Dark Knight path
-                            if (random.nextBoolean()) {
-                                possibleWeapons.add(EquipType.SPEAR);
-                            } else {
-                                possibleWeapons.add(EquipType.POLEARM);
-                            }
-                            break;
-                    }
-                }
-                break;
-
-            case MAGICIAN:
-                boolean useWand = random.nextBoolean();
-                if (useWand) {
-                    possibleWeapons.add(EquipType.WAND);
-                } else {
-                    possibleWeapons.add(EquipType.STAFF);
-                }
-
-                // Mages can use shields with both wands and staves
-                useShield = random.nextBoolean();
-                break;
-
-            case BOWMAN:
-            case CROSSBOWMAN:
-                // getJobStyle() resolves the crossbow line (320/321/322) to
-                // CROSSBOWMAN rather than the broad BOWMAN, so it must share this
-                // case or it falls through to default and gets a 1H sword.
-                // determineBowmanPath below picks BOW vs CROSSBOW from the job id.
-                if (jobLevel == 1) {
-                    // Beginner bowman can use either bow or crossbow
-                    possibleWeapons.add(random.nextBoolean() ? EquipType.BOW : EquipType.CROSSBOW);
-                } else {
-                    // Determine bowman path based on job ID
-                    Job bowmanPath = determineBowmanPath(character);
-
-                    switch (bowmanPath) {
-                        case HUNTER: // Hunter, Ranger, Bowmaster path
-                            possibleWeapons.add(EquipType.BOW);
-                            break;
-                        case CROSSBOWMAN: // Crossbowman, Sniper, Marksman path
-                            possibleWeapons.add(EquipType.CROSSBOW);
-                            break;
-                    }
-                }
-                break;
-
-            case THIEF:
-                if (jobLevel == 1) {
-                    // Beginner thief can use either claw or dagger
-                    if (random.nextBoolean()) {
-                        possibleWeapons.add(EquipType.CLAW);
-                    } else {
-                        possibleWeapons.add(EquipType.DAGGER);
-                        useShield = true;
-                    }
-                } else {
-                    // Determine thief path based on job ID
-                    Job thiefPath = determineThiefPath(character);
-
-                    switch (thiefPath) {
-                        case ASSASSIN: // Assassin, Hermit, Night Lord path
-                            possibleWeapons.add(EquipType.CLAW);
-                            break;
-                        case BANDIT: // Bandit, Chief Bandit, Shadower path
-                            possibleWeapons.add(EquipType.DAGGER);
-                            useShield = true;
-                            break;
-                    }
-                }
-                break;
-
-            // Add other job types as needed
-            default:
-                // Default beginner weapon
-                possibleWeapons.add(EquipType.SWORD);
-                break;
-        }
-
-        // Equip the chosen weapon(s)
-        for (EquipType weaponType : possibleWeapons) {
-            equipIfPresent(character, getRandomEquipForWearing(weaponType, character));
-        }
-
-        // Equip shield if needed
-        if (useShield) {
+        boolean caster = kind == EquipType.WAND || kind == EquipType.STAFF;
+        if (BotWeapons.takesShield(kind) && (!caster || random.nextBoolean())) {
             equipIfPresent(character, getRandomEquipForWearing(EquipType.SHIELD, character));
         }
     }

@@ -154,6 +154,16 @@ public abstract class AbstractMovementPacketHandler extends AbstractPacketHandle
 
     }
 
+    // SlumsMS ticket 04: a real player's teleport or flash jump, so bots can learn the move (NavObservedEdges).
+    private static void observeSkillMove(AnimatedMapObject target,
+                                         soloMapling.ArtificialPlayer.GCMoveSystem.NavObservedEdges.Kind kind) {
+        if (target instanceof client.Character player && soloMapling.server.MapleRootSolo.isEnabled()
+                && !soloMapling.ArtificialPlayer.BotHelpers.isBot(player)) {
+            soloMapling.server.MapleRootSolo.runHook("movement learning",
+                    () -> soloMapling.ArtificialPlayer.GCMoveSystem.NavObservedEdges.onPlayerSkillMove(player, kind));
+        }
+    }
+
     protected void updatePosition(InPacket p, AnimatedMapObject target, int yOffset) throws EmptyMovementException {
 
         byte numCommands = p.readByte();
@@ -170,9 +180,20 @@ public abstract class AbstractMovementPacketHandler extends AbstractPacketHandle
                     short xpos = p.readShort(); //is signed fine here?
                     short ypos = p.readShort();
                     target.setPosition(new Point(xpos, ypos + yOffset));
-                    p.skip(6); //xwobble = lea.readShort(); ywobble = lea.readShort(); fh = lea.readShort();
+                    p.skip(4); //xwobble = lea.readShort(); ywobble = lea.readShort();
+                    short fh = p.readShort();
                     byte newstate = p.readByte();
                     target.setStance(newstate);
+                    // bot-persistence ticket 17/18: bots learn jumps and favourite spots from how real players move
+                    // (fh 0 = airborne).
+                    if (target instanceof client.Character player && soloMapling.server.MapleRootSolo.isEnabled()
+                            && !soloMapling.ArtificialPlayer.BotHelpers.isBot(player)) {
+                        int footY = ypos + yOffset;
+                        soloMapling.server.MapleRootSolo.runHook("movement learning", () -> {
+                            soloMapling.ArtificialPlayer.GCMoveSystem.NavObservedEdges.onPlayerMove(player, xpos, footY, fh, newstate);
+                            soloMapling.ArtificialPlayer.GCMoveSystem.PlayerHeat.onPlayerMove(player, xpos, footY, fh);
+                        });
+                    }
                     p.readShort(); //duration
                     break;
                 }
@@ -191,6 +212,9 @@ public abstract class AbstractMovementPacketHandler extends AbstractPacketHandle
                     byte newstate = p.readByte();
                     target.setStance(newstate);
                     p.readShort(); //duration
+                    if (command == 6) {
+                        observeSkillMove(target, soloMapling.ArtificialPlayer.GCMoveSystem.NavObservedEdges.Kind.FLASH_JUMP);
+                    }
                     break;
                 }
                 case 3:
@@ -205,6 +229,9 @@ public abstract class AbstractMovementPacketHandler extends AbstractPacketHandle
                     p.skip(8); //xpos = lea.readShort(); ypos = lea.readShort(); xwobble = lea.readShort(); ywobble = lea.readShort();
                     byte newstate = p.readByte();
                     target.setStance(newstate);
+                    if (command == 3 || command == 4) {
+                        observeSkillMove(target, soloMapling.ArtificialPlayer.GCMoveSystem.NavObservedEdges.Kind.TELEPORT);
+                    }
                     break;
                 }
                 case 14:

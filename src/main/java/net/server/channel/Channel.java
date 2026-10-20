@@ -271,7 +271,8 @@ public final class Channel {
     }
 
     public int getChannelCapacity() {
-        return (int) (Math.ceil(((float) players.getAllCharacters().size() / YamlConfig.config.server.CHANNEL_LOAD) * 800));
+        // Bots count toward the load bar (a busy channel looks busy) but the bar never runs past full.
+        return Math.min(800, (int) (Math.ceil(((float) players.getAllCharacters().size() / YamlConfig.config.server.CHANNEL_LOAD) * 800)));
     }
 
     public void broadcastPacket(Packet packet) {

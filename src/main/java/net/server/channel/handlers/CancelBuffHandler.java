@@ -27,6 +27,7 @@ import constants.skills.*;
 import net.AbstractPacketHandler;
 import net.PacketHandler;
 import net.packet.InPacket;
+import soloMapling.server.AttackCapture;
 import tools.PacketCreator;
 
 public final class CancelBuffHandler extends AbstractPacketHandler implements PacketHandler {
@@ -34,6 +35,7 @@ public final class CancelBuffHandler extends AbstractPacketHandler implements Pa
     @Override
     public final void handlePacket(InPacket p, Client c) {
         int sourceid = p.readInt();
+        AttackCapture.cancel(c.getPlayer(), sourceid, p);
 
         switch (sourceid) {
             case FPArchMage.BIG_BANG:

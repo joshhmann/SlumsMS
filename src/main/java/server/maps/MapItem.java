@@ -20,6 +20,7 @@
 */
 package server.maps;
 
+import client.BotClient;
 import client.Character;
 import client.Client;
 import client.inventory.Item;
@@ -40,6 +41,9 @@ public class MapItem extends AbstractMapObject {
     protected int character_ownerid, party_ownerid, meso, questid = -1;
     protected byte type;
     protected boolean pickedUp = false, playerDrop, partyDrop;
+    // Set when bot code fabricated this drop rather than taking it from the world. Tracked per drop instance,
+    // not per item id: the OPQ pieces are both real reactor drops and conjured copies of the same ids.
+    protected boolean conjured;
     protected long dropTime;
     private final Lock itemLock = new ReentrantLock();
 
@@ -188,6 +192,18 @@ public class MapItem extends AbstractMapObject {
         return playerDrop;
     }
 
+    /**
+     * True when bot code fabricated this drop for display or as a prop: it stands for no value taken from the
+     * world, so bot loot may remove it but must never credit it.
+     */
+    public final boolean isConjured() {
+        return conjured;
+    }
+
+    public void setConjured(boolean conjured) {
+        this.conjured = conjured;
+    }
+
     public final boolean isAlreadyPickedUp() {
         return pickedUp;
     }
@@ -223,6 +239,9 @@ public class MapItem extends AbstractMapObject {
 
     @Override
     public void sendSpawnData(final Client client) {
+        if (client instanceof BotClient) {
+            return;
+        }
         Character chr = client.getPlayer();
 
         if (chr.needQuestItem(questid, getItemId())) {

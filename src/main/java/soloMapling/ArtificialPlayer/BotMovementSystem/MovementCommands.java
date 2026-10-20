@@ -2,6 +2,8 @@ package soloMapling.ArtificialPlayer.BotMovementSystem;
 
 import client.Character;
 import net.packet.InPacket;
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
 import server.maps.Foothold;
 import server.maps.Portal;
 import soloMapling.ArtificialPlayer.BotHelpers;
@@ -10,6 +12,7 @@ import soloMapling.ArtificialPlayer.BotMovementSystem.MovementStructures.SingleM
 import soloMapling.ArtificialPlayer.BotMovementSystem.MovementStructures.MovementRecording;
 import soloMapling.ArtificialPlayer.BotMovementSystem.NavigationSystem.NavigationElement;
 import soloMapling.ArtificialPlayer.BotMovementSystem.NavigationSystem.PathFinder;
+import soloMapling.ArtificialPlayer.GCMoveSystem.BotPerformanceMonitor;
 import soloMapling.ArtificialPlayer.GCMoveSystem.LodCounts;
 import tools.PacketCreator;
 import tools.exceptions.EmptyMovementException;
@@ -19,6 +22,7 @@ import server.maps.MapleMap;
 import java.awt.*;
 import java.util.Map;
 import java.util.List;
+import java.util.Set;
 import java.util.concurrent.ConcurrentHashMap;
 import java.util.concurrent.ThreadLocalRandom;
 import java.util.concurrent.atomic.AtomicBoolean;
@@ -99,6 +103,17 @@ public class MovementCommands {
 
     private static final int AWARENESS_CHECK_INTERVAL = 5; // check every N packets
 
+    private static final Logger log = LoggerFactory.getLogger(MovementCommands.class);
+
+    /**
+     * A gap this long between two recorded packets is a pause the recorder made (standing still, waiting on a
+     * rope), and the replay holds the bot still for all of it - a stop request is only seen at the next packet.
+     */
+    private static final long LONG_PAUSE_MS = 2000;
+
+    /** Long pauses already reported, by recording and packet: the pause is in the data, so once is enough. */
+    private static final Set<String> reportedPauses = ConcurrentHashMap.newKeySet();
+
     public static boolean BotMoveStreamHelper(MovementRecording mvr, Character fakechar,
                                            boolean useOffset, Point stopPoint) {
         return BotMoveStreamHelper(mvr, fakechar, useOffset, stopPoint, null);
@@ -143,6 +158,12 @@ public class MovementCommands {
 
             MovementPacket nextMvp = (i + 1 < fullRecording.size()) ? fullRecording.get(i + 1) : null; // Next element
             if (nextMvp != null) {
+                long gap = nextMvp.getTimestamp() - mvp.getTimestamp();
+                if (gap > LONG_PAUSE_MS
+                        && reportedPauses.add(mvr.getMapId() + "/" + mvr.getRecordingName() + "#" + i)) {
+                    log.debug("Recording {} on map {} pauses {} ms after packet {} of {}; {} holds still for it",
+                            mvr.getRecordingName(), mvr.getMapId(), gap, i, fullRecording.size(), fakechar.getName());
+                }
                 if (!BotHelpers.waitBetweenTwoLong(mvp.getTimestamp(), nextMvp.getTimestamp())) {
                     // thread interrupted (e.g. Future.cancel(true)) - stop the replay cleanly
                     injectArtificialStopPacket(fakechar);
@@ -294,7 +315,12 @@ public class MovementCommands {
             return;
         }
         soloMapling.server.BotPerfStats.IDLE_BROADCASTS.increment();
-        BotIdleStandingUpdateForced(fakechar);
+        long startedAt = System.nanoTime();
+        try {
+            BotIdleStandingUpdateForced(fakechar);
+        } finally {
+            BotPerformanceMonitor.recordIdleBroadcast(System.nanoTime() - startedAt);
+        }
     }
 
     public static void BotIdleStandingUpdateForced(Character fakechar) {

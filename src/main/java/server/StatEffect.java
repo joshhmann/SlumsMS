@@ -78,6 +78,7 @@ public class StatEffect {
     private double prop;
     private int itemCon, itemConNo;
     private int damage, attackCount, fixdamage;
+    private int mastery; // WZ "mastery": a mastery skill's or spell's grade, mastery % = 5 * grade + 10 (SoloMapling bot combat)
     private Point lt, rb;
     private short bulletCount, bulletConsume;
     private byte mapProtection;
@@ -413,6 +414,7 @@ public class StatEffect {
 
         ret.damage = DataTool.getIntConvert("damage", source, 100);
         ret.fixdamage = DataTool.getIntConvert("fixdamage", source, -1);
+        ret.mastery = DataTool.getIntConvert("mastery", source, 0);
         ret.attackCount = DataTool.getIntConvert("attackCount", source, 1);
         ret.bulletCount = (short) DataTool.getIntConvert("bulletCount", source, 1);
         ret.bulletConsume = (short) DataTool.getIntConvert("bulletConsume", source, 0);
@@ -1732,6 +1734,44 @@ public class StatEffect {
         return skill;
     }
 
+    /**
+     * What other players see for this buff on {@code chr}: the same foreign packet {@link #applyTo} picks, or null when
+     * the buff shows no aura to others (boosters, Haste, Maple Warrior, ...) or needs state a cast has not set up
+     * (Monster Riding needs a mount). Two-state pirate buffs get their own layout; sending them through
+     * {@code giveForeignBuff} makes the client read past the packet. Used by SoloMapling bots, which show buffs
+     * without running {@code applyTo}.
+     */
+    public Packet foreignBuffPacket(Character chr, int durationMs) {
+        int id = chr.getId();
+        if (isDash() || isInfusion()) {
+            return PacketCreator.giveForeignPirateBuff(id, sourceid, durationMs / 1000, statups);
+        } else if (isWkCharge()) {
+            return PacketCreator.giveForeignWKChargeEffect(id, sourceid, statups);
+        } else if (isDs()) {
+            return PacketCreator.giveForeignBuff(id, Collections.singletonList(new Pair<>(BuffStat.DARKSIGHT, 0)));
+        } else if (isWw()) {
+            return PacketCreator.giveForeignBuff(id, Collections.singletonList(new Pair<>(BuffStat.WIND_WALK, 0)));
+        } else if (isCombo()) {
+            Integer comboCount = chr.getBuffedValue(BuffStat.COMBO);
+            return PacketCreator.giveForeignBuff(id, Collections.singletonList(
+                    new Pair<>(BuffStat.COMBO, comboCount == null ? 0 : comboCount)));
+        } else if (isShadowPartner()) {
+            return PacketCreator.giveForeignBuff(id, Collections.singletonList(new Pair<>(BuffStat.SHADOWPARTNER, 0)));
+        } else if (isSoulArrow()) {
+            return PacketCreator.giveForeignBuff(id, Collections.singletonList(new Pair<>(BuffStat.SOULARROW, 0)));
+        } else if (isMorph()) {
+            return PacketCreator.giveForeignBuff(id, Collections.singletonList(new Pair<>(BuffStat.MORPH, getMorph(chr))));
+        } else if (isAriantShield()) {
+            return PacketCreator.giveForeignBuff(id, Collections.singletonList(new Pair<>(BuffStat.AURA, 1)));
+        }
+        return null;
+    }
+
+    /** Dash and Speed Infusion: the buff owner's own packet is {@code givePirateBuff}, not {@code giveBuff}. */
+    public boolean isPirateTwoStateBuff() {
+        return isDash() || isInfusion();
+    }
+
     public int getSourceId() {
         return sourceid;
     }
@@ -1848,6 +1888,14 @@ public class StatEffect {
 
     public int getFixDamage() {
         return fixdamage;
+    }
+
+    public int getMastery() {
+        return mastery;
+    }
+
+    public double getProp() {
+        return prop;
     }
 
     public short getBulletCount() {

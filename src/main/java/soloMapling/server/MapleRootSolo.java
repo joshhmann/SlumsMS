@@ -3,6 +3,7 @@ package soloMapling.server;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import soloMapling.ArtificialPlayer.BotClientHandler;
+import soloMapling.ArtificialPlayer.BotSupplySystem.BotShopping;
 import soloMapling.Environment.EnvironmentManager;
 import soloMapling.itemPool.DesirableEquipList;
 import soloMapling.itemPool.EquipMetadataCache;
@@ -40,6 +41,7 @@ public final class MapleRootSolo {
         EquipMetadataCache.initialize();
         DesirableEquipList.load();
         BotClientHandler.initHeadlessBotClient();
+        BotShopping.install();   // real bots 09: town stops buy potions and ammo at NPC shops
         log.info("SoloMapling initialized; automatic population: {}", Boolean.getBoolean("solomapling.autopopulate"));
         if (Boolean.getBoolean("solomapling.autopopulate")) {
             MethodScheduler.runAfterDelay(EnvironmentManager::environmentLoadStartup, 1000);

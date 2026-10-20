@@ -134,6 +134,13 @@ class BotMovementState {
     Point coarsePlanTarget = null;
     int coarsePlanMapId = -1;
     boolean coarseActive = false;
+    // Commitment hold (ticket 05): a player-facing commitment that owns the bot's position - an open
+    // trade window - freezes the driver where the commitment found the bot. The move intent survives;
+    // the plan does not (see BotCommitmentHold). Armed at the TRADING entry, released at the single
+    // trade exit.
+    // Note: armed by the bot's macro tick (BotSM trade entry) and read every tick by the movement
+    // driver on its own thread - volatile for the same reason as resting/grinding/tickStopped.
+    volatile boolean heldForCommitment = false;
     // Organic map-entry drop: epoch-ms at which the bot, after appearing at the spawn portal,
     // releases its natural fall to the floor. 0 = no pending drop. (Mirrors the recorded engine's
     // teleport-above -> load delay -> drop-down.) Set on map change, consumed by the driver.
@@ -164,11 +171,31 @@ class BotMovementState {
     String lastEdgeBlockReason = null;
     Point navTargetPos = null;
     BotNavigationGraph navGraph = null;
+    // The last committed edge whose completion NavEdgeLearning already counted (ticket 16).
+    BotNavigationGraph.Edge navLearnedEdge = null;
+    // Ticket 04: the launched move (jump, flash jump, drop, rope jump) the bot is in the air on, and its graph. A
+    // landing in a third region is a miss - unless a hit knocked the bot off course on the way (the hit cooldown
+    // went up since the last tick).
+    BotNavigationGraph.Edge navAirborneEdge = null;
+    BotNavigationGraph navAirborneGraph = null;
+    int navAirborneHitMark = 0;
+    boolean navAirborneHit = false;
+    // Ticket 33 hook: the move this bot is fumbling on purpose (NavEdgeLearning.tagDeliberateFlaw). Its failure is
+    // not counted against the edge.
+    BotNavigationGraph.Edge navFlawEdge = null;
     BotNavigationGraph.Edge navEdge = null;
     BotNavigationGraph.Edge navJumpLaunchEdge = null;
     int navJumpLaunchX = Integer.MIN_VALUE;
     int navJumpLaunchDelaySteps = Integer.MIN_VALUE;
     int navTargetRegionId = -1;
+    // Last region the bot resolved to, for chain continuity across SHARED ground (two overlapping
+    // foothold chains at the same coordinate). A coordinate-only lookup can flip between them every
+    // tick; the client stays on the chain it walked in on, so resolveCurrentRegionId keeps this id
+    // when the current point is shared with it. Reset on graph swap (region ids are per-graph).
+    // (nutnnut/Cosmic graph v67. Credit: NutNNut.)
+    int lastRegionId = -1;
+    // Shared teleport / flash-jump recast floor for nav skill edges (graph v60+, nutnnut/Cosmic. Credit: NutNNut).
+    long skillHopReadyAtMs = 0L;
     boolean navPreciseTarget = false;
     int navBlockedPosTicks = 0;
     int navBlockedPosGiveUpTicks = 0;
@@ -182,6 +209,7 @@ class BotMovementState {
     // ── Stuck detection & unstuck ──
     int stuckMs = 0;
     int unstuckCooldownMs = 0;
+    long planFailureLoggedAtMs = 0L; // NavStuckLog: last NO_PATH / NO_REGION counted for this bot
     int stuckCheckX = Integer.MIN_VALUE;
     int stuckCheckY = Integer.MIN_VALUE;
     int airStuckTicks = 0;
