@@ -44,6 +44,19 @@ Make Decide the fast "system one" for social decisions, and keep the 9B for the 
   - Keep any question it is bad at as a rule.
 - **Never:** combat, movement, pathing or the economy. Those stay deterministic code.
 
+## Optional cloud model (owner OK'd an API such as DeepSeek, 2026-10-20)
+
+- The brain already speaks any OpenAI-compatible API (`BOT_LLM_*`; the key goes in env `SOLOMAPLING_LLM_API_KEY`,
+  never in a file in the repo).
+- Uses, in order of value:
+  1. **Overflow:** when both local Qwen slots are busy, send the reply to the cloud model instead of a scripted line.
+  2. **Notes and gossip** (`BOT_LLM_NOTES_MODEL`): rarer, heavier calls that gain most from a bigger model.
+  3. **Yardstick:** run the labelled chat set through cloud, Qwen 9B and Dory to see what quality the local models
+     leave on the table.
+- Cost is small: a bot reply is about 300-500 input and 20-40 output tokens, a fraction of a cent per call; check the
+  provider's current prices before turning it on. Cap calls per hour anyway.
+- Player lines leave the LAN when it's used; mention it to friends.
+
 ## Done when
 
 - On a busy test channel, most lines are handled by Decide with scripted lines or emotes.
