@@ -1,0 +1,58 @@
+#!/bin/bash
+# SlumsMS release step 1 (workstation): full suite, jar, sha. Stops on the first error.
+#
+#   tools/release/build [--skip-tests] [--allow-dirty] [--dry-run]
+#
+# Runs `./mvnw -o clean package` (the whole suite, then the jar) in the checkout this script lives in, and writes
+# dist/release-build/: Cosmic.jar, BUILD.txt (commit, version, test counts, jar sha256), test.log.
+# --skip-tests is for rehearsing the tooling only; stage refuses a build without a passing suite unless told otherwise.
+set -euo pipefail
+here=$(cd "$(dirname "$0")" && pwd); . "$here/lib.sh"
+REPO=$(cd "$here/../.." && pwd)
+OUT=$REPO/dist/release-build
+SKIP_TESTS=0 ALLOW_DIRTY=0 DRY_RUN=0
+for a in "$@"; do case $a in
+  --skip-tests) SKIP_TESTS=1;; --allow-dirty) ALLOW_DIRTY=1;; --dry-run) DRY_RUN=1;;
+  *) die "unknown option $a";; esac; done
+require_workstation
+cd "$REPO"
+
+step "checks"
+commit=$(git rev-parse --short=9 HEAD); branch=$(git rev-parse --abbrev-ref HEAD); ver=$(source_version "$REPO")
+echo "repo $REPO, branch $branch, commit $commit, SLUMSMS_VERSION $ver"
+dirty=$(git status --porcelain --untracked-files=no)
+[ -z "$dirty" ] || [ "$ALLOW_DIRTY" = 1 ] || die "uncommitted changes (a release jar must match a commit):
+$dirty"
+[ "$DRY_RUN" = 1 ] && { echo "[dry-run] would run ./mvnw -o clean package$([ $SKIP_TESTS = 1 ] && echo ' -DskipTests') and write $OUT"; exit 0; }
+
+# the suite reads config.yaml from the checkout root (gitignored); a fresh worktree gets the example
+[ -f config.yaml ] || { cp config.example.yaml config.yaml; echo "config.yaml missing: copied config.example.yaml for the suite"; }
+
+step "suite + jar (./mvnw -o clean package$([ $SKIP_TESTS = 1 ] && echo ' -DskipTests'))"
+rm -rf "$OUT"; mkdir -p "$OUT"
+tb=$(date +%s)
+mvn_args=(-o -B clean package); [ "$SKIP_TESTS" = 1 ] && mvn_args+=(-DskipTests)
+if ! ./mvnw "${mvn_args[@]}" > "$OUT/test.log" 2>&1; then
+  grep -E "Tests run:|FAIL|ERROR" "$OUT/test.log" | tail -30
+  die "build failed, see $OUT/test.log"
+fi
+secs=$(( $(date +%s) - tb ))
+if [ "$SKIP_TESTS" = 1 ]; then tests="SKIPPED (--skip-tests)"; else
+  tests=$(grep -E "^\[(INFO|WARNING|ERROR)\] Tests run: [0-9]+, Failures: [0-9]+, Errors: [0-9]+, Skipped: [0-9]+$" "$OUT/test.log" | tail -1 | sed 's/^\[[A-Z]*\] //')
+  [ -n "$tests" ] || die "no suite summary in $OUT/test.log"
+  echo "$tests" | grep -q "Failures: 0, Errors: 0," || die "suite not green: $tests"
+fi
+[ -f target/Cosmic.jar ] || die "no target/Cosmic.jar"
+cp target/Cosmic.jar "$OUT/Cosmic.jar"
+sha=$(sha256sum "$OUT/Cosmic.jar" | cut -d' ' -f1)
+cat > "$OUT/BUILD.txt" <<B
+commit=$commit
+branch=$branch
+version=$ver
+built=$(date -u +%Y-%m-%dT%H:%M:%SZ)
+build_seconds=$secs
+tests=$tests
+jar_sha256=$sha
+B
+cat "$OUT/BUILD.txt"
+step "done: $OUT"

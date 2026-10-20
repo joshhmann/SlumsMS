@@ -1,0 +1,36 @@
+#!/bin/bash
+# SlumsMS release step 5b (workstation): publish a launcher build to the launcher channel on the patch server.
+#
+#   tools/release/publish-launcher <host dir: dist/win-unpacked copy> [--version X.Y.Z] [--out DIR] [--sync-publisher] [--dry-run]
+#
+# Checks the host publisher against the launcher repo, then `node tools/publish.mjs --launcher DIR --out OUT`
+# (OUT defaults to $PATCH_DIR; /srv/slums-patch/launcher-test is the private staging channel). The publisher itself
+# refuses a non-newer version, a build without a built-in access key and a launcher.config.json in the build.
+# --dry-run publishes into a throwaway folder on the host (with a copy of the current launcher.json, so the
+# version check is real), shows the result, and deletes it; the real channel is not touched.
+set -euo pipefail
+here=$(cd "$(dirname "$0")" && pwd); . "$here/lib.sh"; . "$here/publish-lib.sh"
+SRC=${1:-}; shift || true
+[ -n "$SRC" ] || die "usage: publish-launcher <host build dir> [--version X.Y.Z] [--out DIR] [--sync-publisher] [--dry-run]"
+VER="" OUT=$PATCH_DIR SYNC=0 DRY_RUN=0
+while [ $# -gt 0 ]; do case $1 in
+  --version) VER=$2; shift;; --out) OUT=$2; shift;; --sync-publisher) SYNC=1;; --dry-run) DRY_RUN=1;;
+  *) die "unknown option $1";; esac; shift; done
+require_workstation
+step "checks"
+h "test -f $(q "$SRC/SlumsMS Launcher.exe")" || die "no 'SlumsMS Launcher.exe' in $SRC on $RELEASE_HOST"
+h "test ! -e $(q "$SRC/launcher.config.json")" || die "$SRC contains launcher.config.json (never part of the channel)"
+check_publisher "$SYNC"
+h "cat $(q "$OUT/launcher.json") 2>/dev/null || echo 'no launcher.json yet in $OUT'"
+cmd="tools/publish.mjs --launcher $(q "$SRC")${VER:+ --version $(q "$VER")}"
+if [ "$DRY_RUN" = 1 ]; then
+  step "DRY RUN: publish into a throwaway folder"
+  h "set -e; t=\$(mktemp -d /tmp/slums-launcher-dryrun.XXXX); [ -f $(q "$OUT/launcher.json") ] && cp $(q "$OUT/launcher.json") \$t/ || true
+     cd $PUBLISHER && $NODE $cmd --out \$t; cat \$t/launcher.json; rm -rf \$t"
+  step "DRY RUN OK. Real run: cd $PUBLISHER && $NODE $cmd --out $OUT"
+  exit 0
+fi
+step "publish launcher to $OUT (version folder first, launcher.json last)"
+h "cd $PUBLISHER && $NODE $cmd --out $(q "$OUT")"
+h "cat $(q "$OUT/launcher.json")"
+step "done"

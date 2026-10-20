@@ -1,0 +1,63 @@
+#!/bin/bash
+# SlumsMS release step 5a (workstation): publish a client layer (and optionally a release manifest) on the patch
+# server, with the hash-diff rule built in.
+#
+#   tools/release/publish-client <client-version> --source <host dir> [--base <base version>]
+#       [--release <release version> [--news FILE.json (host path)]] [--sync-publisher] [--dry-run]
+#
+# 1. Hash-diff (verify-client.py on the host): published base layer + the client staging tree vs the reference
+#    client ($REFERENCE), and vs the release players have now (manifest.json): zero unexpected missing/different/
+#    extra files and nothing the current release has dropped, or nothing is published. Allowed differences are in
+#    tools/release/client-allow.txt (the SlumsMS overlay, listed path by path).
+# 2. node tools/publish.mjs --layer client (the host's copy of the launcher repo's publisher, checked against
+#    $LAUNCHER_REPO first). 3. The same hash-diff on the published client layer manifest.
+# 4. With --release: back up manifest.json, then node tools/publish.mjs --release ... --use base@B --use client@V
+#    (manifest.json is written last, by the publisher).
+# --dry-run: steps 1 and the publisher check only; prints the publish commands.
+set -euo pipefail
+here=$(cd "$(dirname "$0")" && pwd); . "$here/lib.sh"; . "$here/publish-lib.sh"
+CV=${1:-}; shift || true
+[[ "$CV" =~ ^[A-Za-z0-9._-]+$ ]] || die "usage: publish-client <client-version> --source DIR [...]"
+SRC="" BASE="" REL="" NEWS="" SYNC=0 DRY_RUN=0
+while [ $# -gt 0 ]; do case $1 in
+  --source) SRC=$2; shift;; --base) BASE=$2; shift;; --release) REL=$2; shift;; --news) NEWS=$2; shift;;
+  --sync-publisher) SYNC=1;; --dry-run) DRY_RUN=1;; *) die "unknown option $1";; esac; shift; done
+[ -n "$SRC" ] || die "--source <client staging dir on the host> is required"
+require_workstation
+
+step "checks"
+h "test -d $(q "$SRC")" || die "no $SRC on $RELEASE_HOST"
+h "test ! -e $(q "$PATCH_DIR/layers/client/$CV")" || die "client layer $CV is already published (layers are immutable; pick a new version)"
+if [ -z "$BASE" ]; then
+  BASE=$(h "python3 -I -c 'import json,sys; m=json.load(open(sys.argv[1])); print([l[\"version\"] for l in m[\"layers\"] if l[\"name\"]==\"base\"][0])' $PATCH_DIR/manifest.json")
+fi
+echo "base layer: $BASE (from the current manifest.json unless --base)"
+h "test -f $(q "$PATCH_DIR/layers/base/$BASE/manifest.json")" || die "base layer $BASE is not published"
+h "test ! -e $(q "$SRC/launcher.config.json")" || die "$SRC contains launcher.config.json"
+check_publisher "$SYNC"
+scp -q "$here/client-allow.txt" "$RELEASE_HOST:/tmp/slums-client-allow.txt"
+verify() {  # $1: --client-dir DIR | --client-manifest FILE
+  h "nice -n 19 ionice -c3 python3 -I - --base-manifest $(q "$PATCH_DIR/layers/base/$BASE/manifest.json") $1 $(q "$2") --reference $(q "$REFERENCE") --allow /tmp/slums-client-allow.txt --cache $(q "$REF_CACHE") --previous $(q "$PATCH_DIR/manifest.json")" < "$here/verify-client.py"
+}
+
+step "hash-diff: base $BASE + $SRC vs the reference client"
+verify --client-dir "$SRC" || die "hash-diff failed: nothing published. Fix the staging tree (derive the overlay from a hash diff, never from addon folder lists)"
+
+pub_layer="$NODE tools/publish.mjs --layer client --source $(q "$SRC") --out $(q "$PATCH_DIR") --version $(q "$CV")"
+pub_rel="$NODE tools/publish.mjs --release $(q "$REL") --out $(q "$PATCH_DIR") --use base@$(q "$BASE") --use client@$(q "$CV")${NEWS:+ --news $(q "$NEWS")}"
+if [ "$DRY_RUN" = 1 ]; then
+  step "DRY RUN OK. Would run on $RELEASE_HOST (cd $PUBLISHER):"
+  echo "  $pub_layer"; [ -n "$REL" ] && echo "  cp $PATCH_DIR/manifest.json /srv/slums-staging/manifest-before-$REL.json && $pub_rel"
+  exit 0
+fi
+
+step "publish client layer $CV"
+h "cd $PUBLISHER && $pub_layer"
+step "hash-diff again on the published layer manifest"
+verify --client-manifest "$PATCH_DIR/layers/client/$CV/manifest.json" || die "published layer $CV fails the hash-diff; manifest.json NOT updated. Do not point a release at it"
+if [ -n "$REL" ]; then
+  step "release manifest $REL (manifest.json last)"
+  h "cp $PATCH_DIR/manifest.json /srv/slums-staging/manifest-before-$(q "$REL").json && cd $PUBLISHER && $pub_rel"
+  h "python3 -I -c 'import json; m=json.load(open(\"$PATCH_DIR/manifest.json\")); print(\"manifest.json:\", m[\"version\"], [(l[\"name\"], l[\"version\"]) for l in m[\"layers\"]])'"
+fi
+step "done"

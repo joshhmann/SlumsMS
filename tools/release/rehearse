@@ -1,0 +1,13 @@
+#!/bin/bash
+# SlumsMS release step 3 (workstation): rehearse a staged release on a fresh copy of live on the host.
+#
+#   tools/release/rehearse <version> [--source live|nightly|<dump.sql.gz on the host>] [--soak 120] [--keep] [--dry-run] ...
+#
+# Runs the staged /opt/mapleroot-deployments/v<version>/tools/rehearse-host.sh on $RELEASE_HOST (all options are passed
+# through; see that file). Receipt: /opt/mapleroot-dev/rehearsal-<version>/receipt/REHEARSAL.md on the host, copied to
+# /opt/mapleroot-deployments/v<version>/REHEARSAL.md.
+set -euo pipefail
+here=$(cd "$(dirname "$0")" && pwd); . "$here/lib.sh"
+VERSION=${1:-}; valid_version "$VERSION" || die "usage: rehearse <version> [options]"
+if on_host; then exec bash "$DEPLOY_ROOT/v$VERSION/tools/rehearse-host.sh" "$@"; fi
+exec ssh -o BatchMode=yes -o ServerAliveInterval=30 "$RELEASE_HOST" bash "$DEPLOY_ROOT/v$VERSION/tools/rehearse-host.sh" $(printf '%q ' "$@")
