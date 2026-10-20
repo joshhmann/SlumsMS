@@ -234,6 +234,20 @@ public final class BotTransit {
         return rideOn(mapId) != null;
     }
 
+    // The highest script level check (min_level) a bot of this level passes, 0 when it passes none. Two bots with
+    // the same tier see the same edges, so the planner keys its route cache on this rather than the level.
+    public static int levelTier(int level) {
+        int tier = 0;
+        for (List<Edge> l : index().values()) {
+            for (Edge e : l) {
+                if (e.minLevel() > tier && e.minLevel() <= level) {
+                    tier = e.minLevel();
+                }
+            }
+        }
+        return tier;
+    }
+
     public static int edgeCount() {
         int n = 0;
         for (List<Edge> l : index().values()) {

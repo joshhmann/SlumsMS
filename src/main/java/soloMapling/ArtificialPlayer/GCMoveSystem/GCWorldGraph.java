@@ -102,6 +102,15 @@ final class GCWorldGraph {
      */
     static List<Integer> route(int fromMapId, int toMapId, int maxHops, int rebirths, boolean allowFares,
                                int savedReturn) {
+        return route(fromMapId, toMapId, maxHops, rebirths, allowFares, savedReturn, ANY_LEVEL);
+    }
+
+    /* A level no script's level check turns away: for callers that plan for no particular bot. */
+    static final int ANY_LEVEL = Integer.MAX_VALUE;
+
+    /* As above for a bot of this level: an edge whose script wants a higher level (Jeff's 50) is not offered. */
+    static List<Integer> route(int fromMapId, int toMapId, int maxHops, int rebirths, boolean allowFares,
+                               int savedReturn, int level) {
         if (fromMapId == toMapId) {
             return List.of();
         }
@@ -109,12 +118,13 @@ final class GCWorldGraph {
             return null;
         }
         int tier = Math.max(0, Math.min(3, rebirths));
-        RouteKey key = new RouteKey(fromMapId, toMapId, maxHops, tier, allowFares, savedReturn);
+        int levelTier = BotTransit.levelTier(level); // the highest level check this bot passes: few distinct keys
+        RouteKey key = new RouteKey(fromMapId, toMapId, maxHops, tier, allowFares, savedReturn, levelTier);
         List<Integer> cached = ROUTES.get(key);
         if (cached != null) {
             return cached == NO_ROUTE ? null : cached;
         }
-        List<Integer> found = dijkstra(get(), fromMapId, toMapId, maxHops, tier, allowFares, savedReturn);
+        List<Integer> found = dijkstra(get(), fromMapId, toMapId, maxHops, tier, allowFares, savedReturn, levelTier);
         if (ROUTES.size() >= ROUTE_CACHE_MAX) {
             ROUTES.clear(); // crude bound - a refill costs one search per pair
         }
@@ -143,11 +153,16 @@ final class GCWorldGraph {
     private static final List<Integer> NO_ROUTE = List.of(-1);
     private static final Map<RouteKey, List<Integer>> ROUTES = new ConcurrentHashMap<>();
 
-    private record RouteKey(int from, int to, int maxHops, int tier, boolean fares, int savedReturn) {
+    private record RouteKey(int from, int to, int maxHops, int tier, boolean fares, int savedReturn, int levelTier) {
     }
 
     static List<Integer> dijkstra(Map<Integer, int[]> g, int fromMapId, int toMapId, int maxHops, int rebirths,
                                   boolean allowFares, int savedReturn) {
+        return dijkstra(g, fromMapId, toMapId, maxHops, rebirths, allowFares, savedReturn, ANY_LEVEL);
+    }
+
+    static List<Integer> dijkstra(Map<Integer, int[]> g, int fromMapId, int toMapId, int maxHops, int rebirths,
+                                  boolean allowFares, int savedReturn, int level) {
         Map<Integer, Integer> cameFrom = new HashMap<>();
         Map<Integer, Long> best = new HashMap<>();
         Map<Integer, Integer> hops = new HashMap<>();
@@ -173,7 +188,7 @@ final class GCWorldGraph {
             if (depth >= maxHops) {
                 continue;
             }
-            for (long step : steps(g, current, allowFares, savedReturn, rebirths)) {
+            for (long step : steps(g, current, allowFares, savedReturn, rebirths, level)) {
                 int next = (int) (step >>> 32);
                 int sec = (int) step & SEC_MASK;
                 if (!escaping && next != toMapId && !BotMapGates.mayEnter(next, rebirths)) {
@@ -218,7 +233,8 @@ final class GCWorldGraph {
     /* Outgoing steps from mapId, each packed as (next << 32 | flags | costSec): walkable portals and curated scripted
      * warps at WALK_SEC, transit edges at their own time (minus those whose rebirth check the bot fails), and the
      * hyper rock's virtual nodes. */
-    private static long[] steps(Map<Integer, int[]> g, int mapId, boolean allowFares, int savedReturn, int rebirths) {
+    private static long[] steps(Map<Integer, int[]> g, int mapId, boolean allowFares, int savedReturn, int rebirths,
+                                int level) {
         BotTransit.HyperRock rock = BotTransit.hyperRock();
         if (mapId == HYPER_IN || mapId == HYPER_OUT) {
             List<Integer> to = mapId == HYPER_IN ? rock.into() : rock.home();
@@ -249,8 +265,8 @@ final class GCWorldGraph {
             if (!allowFares && (e.fare() > 0 || e.beginnerFare() > 0)) {
                 continue;
             }
-            if (e.minRebirths() > rebirths) {
-                continue; // the script turns this bot away (the Henesys teleporter's Grandis menu, rebirth 3)
+            if (e.minRebirths() > rebirths || e.minLevel() > level) {
+                continue; // the script turns this bot away (the teleporter's Grandis menu, rebirth 3; Jeff, level 50)
             }
             if (e.returnToSaved() != null && e.toMapId() != savedReturn) {
                 continue; // the World Tour only takes a bot back where it came from
@@ -263,7 +279,7 @@ final class GCWorldGraph {
 
     /* Every neighbour the planner can step to from mapId (walkable portals, scripted warps, transit). */
     static int[] neighbors(int mapId) {
-        long[] steps = steps(get(), mapId, true, NO_SAVED_RETURN, 3);
+        long[] steps = steps(get(), mapId, true, NO_SAVED_RETURN, 3, ANY_LEVEL);
         int[] out = new int[steps.length];
         int n = 0;
         for (long step : steps) {

@@ -11,6 +11,7 @@ import java.util.concurrent.atomic.AtomicLong;
 import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertNotNull;
 import static org.junit.jupiter.api.Assertions.assertNull;
+import static org.junit.jupiter.api.Assertions.assertTrue;
 
 // Ticket 03: the default relocation policy, with the world (maps around each hub, route fares, the clock) faked so
 // each rule shows on its own: when a bot moves on, where to, what it must afford, and the world-wide pace.
@@ -33,7 +34,7 @@ class TrainingTravelTest {
 
     private TrainingTravel.RegionTravel policy() {
         return new TrainingTravel.RegionTravel(hub -> AROUND.getOrDefault(hub, List.of()),
-                (from, to, rebirths, job) -> fare, clock::get);
+                (from, to, rebirths, job, level) -> fare, clock::get);
     }
 
     @BeforeEach
@@ -96,6 +97,17 @@ class TrainingTravelTest {
 
         assertNull(policy().choose(request(75, 39_999, false, 0), 0.1, 0.5));
         assertNotNull(policy().choose(request(75, 40_000, false, 0), 0.1, 0.5));
+    }
+
+    @Test
+    void theRouteIsPlannedForTheBotsOwnLevel() {
+        // Leafre's only way here passes a level-76 check: a level-75 bot is never sent, a level-76 one is.
+        TrainingTravel.RegionTravel gated = new TrainingTravel.RegionTravel(hub -> AROUND.getOrDefault(hub, List.of()),
+                (from, to, rebirths, job, level) -> to == LEAFRE && level < 76 ? -1 : fare, clock::get);
+
+        TrainingTravel.Destination low = gated.choose(request(75, 100_000, false, 0), 0.1, 0.99);
+        assertTrue(low == null || low.hubMapId() != LEAFRE, "sent to " + low);
+        assertEquals(LEAFRE, gated.choose(request(76, 100_000, false, 0), 0.1, 0.5).hubMapId());
     }
 
     @Test

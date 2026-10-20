@@ -34,7 +34,8 @@ class LevelingPathTest {
     void theShippedPathHasEveryBandAndTheValidatedEntries() throws Exception {
         LevelingPath.Path p = shipped();
         assertEquals(15, p.bands().size());
-        assertEquals(504, p.entryCount()); // 509 drafted, 5 disabled as # INVALID
+        // 509 drafted, 5 disabled as # INVALID, 43 as # UNREACHABLE (no player can get there), 28 reachable added.
+        assertEquals(489, p.entryCount());
         assertEquals(1, p.bands().get(0).lo());
         assertEquals(255, p.bands().get(p.bands().size() - 1).hi());
     }
@@ -57,7 +58,9 @@ class LevelingPathTest {
         for (LevelingPath.Band b : shipped().bands()) {
             b.groups().values().forEach(es -> es.forEach(e -> maps.add(e.mapId())));
         }
-        for (int never : List.of(271030102, 271030320, 271030530, 271030600, 541020620)) {
+        for (int never : List.of(271030102, 271030320, 271030530, 271030600, 541020620,
+                // UNREACHABLE: Mirror World, Kritias, Umbra, LKC past Walls 1, ToT lanes, Ninja Castle, MC, Aran Rien
+                323030000, 329010000, 307000310, 211060300, 270030100, 800040201, 106020100, 140010200)) {
             assertFalse(maps.contains(never), "map " + never + " should be disabled");
         }
         for (int map : maps) {

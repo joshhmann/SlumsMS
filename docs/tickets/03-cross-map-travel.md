@@ -113,7 +113,17 @@ the rebirth zones.
 - **Regions:** Temple of Time and Ereve are enabled in `TrainingRegions.yaml`.
 - **Tools:** the offline sweep is `LevelPathSweepCheck`, and `TransitRouteCheck` takes `from:to[:rebirths]`.
 
-### Still unreachable for players too (needs the owner)
+### Owner follow-up (same branch)
+
+- **Hyper rock:** confirmed for non-holders on the cooldown, and stays enabled.
+- **Level-aware planning:**
+  - `GCWorldGraph` skips hops whose `min_level` the bot fails. The route cache is keyed by the highest level
+    check passed.
+  - `GCTravel` and `GCMovement.route(bot, ...)` pass the bot's level.
+  - `LevelingPathChooser` and `TrainingTravel` filter destinations with the bot's level.
+- **Leveling path:** unreachable path entries are swapped for reachable ones. See ticket 31.
+
+### Unreachable for players too (now dropped from the path)
 
 - **LKC towers past Walls 1:** the keys are items 4032832-4, or quests 3165-3167.
 - **ToT lanes past Memory Lane 1:** `timeQuest.js` needs the quests done.
@@ -122,5 +132,3 @@ the rebirth zones.
 - **Mushroom Castle:** quests.
 - **Rien Dangerous Forest for job-2000 Arans:** quest 21014.
 - **Teleporter boss menu:** not added (a free shortcut no path map needs).
-- **Hyper rock assumption:** this assumes non-holders of 5590001 can use the world-map teleport with the cooldown,
-  as the server code allows. If the client can't, set `hyper_rock.enabled: false`.

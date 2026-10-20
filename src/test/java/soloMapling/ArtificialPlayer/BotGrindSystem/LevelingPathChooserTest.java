@@ -164,6 +164,14 @@ class LevelingPathChooserTest {
     }
 
     @Test
+    void aBotUnderAHopsLevelCheckIsNeverSentThroughIt() {
+        world.levelGate.put(TERRACE, 50);
+        world.levelGate.put(TOY, 50);
+        assertNull(pick(bot(1, 45, 100, 0, 1_000_000, HENESYS), 0.0, 0.0), "only Jeff's way, and the bot is 45");
+        assertNotNull(pick(bot(2, 50, 100, 0, 1_000_000, HENESYS), 0.0, 0.0));
+    }
+
+    @Test
     void aBotThatCannotPayOrReachStaysOffThatMap() {
         world.fare = 50_000;
         assertNull(pick(bot(1, 35, 100, 0, 10_000, HENESYS), 0.0, 0.0), "can't pay the boat");
@@ -292,6 +300,7 @@ class LevelingPathChooserTest {
         final Map<Integer, Integer> bots = new HashMap<>();
         final Map<Integer, Double> saturation = new HashMap<>();
         final Set<Integer> unreachable = new HashSet<>();
+        final Map<Integer, Integer> levelGate = new HashMap<>();
         final Set<Integer> missing = new HashSet<>();
         int fare = 1_000;
 
@@ -321,7 +330,10 @@ class LevelingPathChooserTest {
         }
 
         @Override
-        public int routeFare(int fromMapId, int toMapId, int rebirths, int jobId) {
+        public int routeFare(int fromMapId, int toMapId, int rebirths, int jobId, int level) {
+            if (level < levelGate.getOrDefault(toMapId, 0)) {
+                return -1; // the only way there passes a script's level check (Jeff, 50)
+            }
             return unreachable.contains(toMapId) ? -1 : fare;
         }
 

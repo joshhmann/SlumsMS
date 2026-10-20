@@ -43,6 +43,21 @@ class HighLevelRoutingTest {
     }
 
     @Test
+    void aLevelCheckedHopIsLeftOutForABotUnderItsLevel() {
+        // Jeff (level 50) is the only way from Ice Valley II on to Sharp Cliff.
+        BotTransit.Edge jeff = new BotTransit.Edge("Jeff's gate", 211040200, 211040300, BotTransit.Via.NPC, 2030000,
+                -1, null, 0, -1, null, true, 20, 5, null, null, null, 50, 0);
+        Map<Integer, int[]> world = Map.of(211040200, new int[]{}, 211040300, new int[]{211040400});
+        BotTransit.install(List.of(jeff));
+
+        assertNull(GCWorldGraph.dijkstra(world, 211040200, 211040400, 60, 0, true, -1, 49));
+        assertEquals(List.of(211040300, 211040400),
+                GCWorldGraph.dijkstra(world, 211040200, 211040400, 60, 0, true, -1, 50));
+        assertEquals(0, BotTransit.levelTier(49));
+        assertEquals(50, BotTransit.levelTier(120));
+    }
+
+    @Test
     void theRockJumpsIntoItsAreaAndTheRouteNamesOnlyRealMaps() {
         int haven = 310070000;
         int hill = 310070120;
