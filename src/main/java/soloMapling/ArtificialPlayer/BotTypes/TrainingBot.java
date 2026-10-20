@@ -12,6 +12,7 @@ import net.server.world.World;
 import soloMapling.ArtificialPlayer.BotAttackSystem.BotAttackDriver;
 import soloMapling.ArtificialPlayer.BotAttackSystem.BotBuffDriver;
 import soloMapling.ArtificialPlayer.BotHoldings;
+import soloMapling.ArtificialPlayer.BotYieldCaps;
 import soloMapling.ArtificialPlayer.BotOptionMenu;
 import soloMapling.ArtificialPlayer.BotPartySystem.BotPartyQueue;
 import soloMapling.ArtificialPlayer.BotPartySystem.BotRecruitManager;
@@ -1254,11 +1255,16 @@ public class TrainingBot extends BotSM {
         if (reward.isEmpty()) {
             return;
         }
-        if (reward.mesos() > 0) {
-            BotHoldings.grantMeso(chr, (int) Math.min(reward.mesos(), Integer.MAX_VALUE));
+        // Ticket 15: the share then passes the bot's map-instance yield cap and its daily meso cap. What a cap
+        // refuses is forfeited with the rest of the window, never banked.
+        long mesos = BotYieldCaps.takeMesos(chr, Math.min(reward.mesos(), Integer.MAX_VALUE));
+        if (mesos > 0 && !BotHoldings.grantMeso(chr, (int) mesos)) {
+            BotYieldCaps.returnMesos(chr, mesos);
         }
         for (Item item : reward.items()) {
-            BotHoldings.grantItem(chr, item);
+            if (BotYieldCaps.takeItem(chr, item) && !BotHoldings.grantItem(chr, item)) {
+                BotYieldCaps.returnItem(chr, item);
+            }
         }
     }
 

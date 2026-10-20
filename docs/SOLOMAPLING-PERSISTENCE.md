@@ -68,6 +68,12 @@ next save. Bots of a job the build does not cover (the 5th tiers, Super Beginner
 never built and keep NULL. Applying it twice changes nothing. `005-bot-real-stats.rollback.sql` drops the table and the columns; bots keep
 their identity, level, job and items. Without 005 the server still runs and simply stores no builds.
 
+`006-bot-yield-caps.sql` (ticket 15) adds a `botyield` table: one row per bot with the day it last took mesos from the
+world and how many, so a restart does not reset the bots' daily meso cap. Only adds a table; applying it twice changes
+nothing. `006-bot-yield-caps.rollback.sql` drops it. Without 006 the caps still work, with the counts in memory. The
+caps are tuned with `-Dsolomapling.botYieldCaps`, `botMapYieldShare`, `botYieldWindowMs`, `botDailyMesoPerLevel` and
+`botDailyMesoFloor` system properties, not config keys (see `docs/tickets/15-economy-caps.md`).
+
 Builds (`soloMapling/ArtificialPlayer/BotProgressionSystem`): Explorers, Cygnus Knights and Aran up to level 200, on
 MapleRoot's own skill set (`docs/real-bots/mapleroot-skills.md`). AP goes to each class's primary stat with the
 secondary held at its requirement. SP follows a per-job priority list. Jobs advance at 10 (8 for magicians), 30, 70
