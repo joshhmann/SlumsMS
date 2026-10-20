@@ -274,4 +274,20 @@ public final class BotPerformanceMonitor {
         prevAtMs = now;
         return out;
     }
+
+    /** One phase's running totals since boot. */
+    public record PhaseTotal(String name, Bucket bucket, boolean nested, long nanos, long calls, long units) {
+    }
+
+    /*
+     * Running totals of every phase for the admin dashboard (ticket 35). Unlike report() this does not move the
+     * window, so !env perf readings are unaffected; the dashboard takes its own deltas.
+     */
+    public static List<PhaseTotal> totals() {
+        List<PhaseTotal> out = new ArrayList<>();
+        for (Phase p : PHASES.values()) {
+            out.add(new PhaseTotal(p.name, p.bucket, p.nested, p.nanos.sum(), p.calls.sum(), p.units.sum()));
+        }
+        return out;
+    }
 }

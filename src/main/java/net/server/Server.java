@@ -965,6 +965,7 @@ public class Server {
         }
         if (Boolean.getBoolean("cashshop.window.enabled")) server.cashshop.CashShopCatalog.load();
         soloMapling.server.MapleRootSolo.start();
+        soloMapling.dashboard.DashboardExporter.startIfEnabled(); // ticket 35: off unless -Dsolomapling.dashboard=true
        // DamageSkin.loadDamageSkins();
     }
 

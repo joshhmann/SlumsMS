@@ -1,0 +1,21 @@
+# Admin dashboard map export (ticket 35): reads the WZ files and the nav cache (graphs, night-bake overlay, jumps
+# learned from players, nav learning, stuck counts) and writes the dashboard's map, graph and learning JSON under
+# <out>/nav/. Incremental: only maps whose inputs changed are rewritten. A separate JVM at idle priority; it never
+# talks to the game server. The first run over every cached graph takes a few minutes, later runs seconds.
+# One map on demand: add its id to the command line (or run the same java line by hand with the id).
+# Install: see docs/tickets/35-admin-dashboard.md.
+[Unit]
+Description=SlumsMS admin dashboard map export
+
+[Service]
+Type=oneshot
+WorkingDirectory=/opt/mapleroot/MapleRoot Full Repack/Server
+ExecStart=/usr/bin/java -Xms64m -Xmx1g -XX:ActiveProcessorCount=1 -Dwz-path=wz -Dbot.nav.cacheDir=cache/bot-nav -cp target/Cosmic.jar soloMapling.dashboard.DashboardMapExport --out=/srv/slums-dashboard/data --nav-reports=reports/nav --budget-minutes=40
+Nice=19
+CPUSchedulingPolicy=idle
+IOSchedulingClass=idle
+CPUQuota=100%
+MemoryMax=1500M
+OOMScoreAdjust=800
+TimeoutStartSec=1h
+UMask=0022
