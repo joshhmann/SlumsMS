@@ -1,0 +1,9 @@
+[Unit]
+Description=SlumsMS Discord status message (%i)
+After=network-online.target docker.service
+
+[Service]
+Type=oneshot
+ExecStart=/usr/local/bin/slumsms-monitor status %i
+Nice=10
+TimeoutStartSec=50

@@ -1,0 +1,9 @@
+[Unit]
+Description=SlumsMS Discord release news (%i)
+After=network-online.target
+
+[Service]
+Type=oneshot
+# The publisher writes manifest.json last; give it a moment to finish before reading.
+ExecStartPre=/bin/sleep 5
+ExecStart=/usr/local/bin/slumsms-monitor news %i
