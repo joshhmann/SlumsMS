@@ -220,3 +220,12 @@ game is also still open.
    and it stops.
 3. Say "<name> party" or "<name> where do u train": the action happens with no window.
 4. Double-click the bot: its info, then the menu window.
+
+**Faces with replies (`ReplyEmote`, 2026-10-20):** a map-chat reply sometimes comes with a face, shown as the bubble
+appears (55%, `-Dsolomapling.chat.replyEmoteChance`). Only the seven free v83 faces (ids 1-7). Con flag first: scam or
+harassment angry, real-money trading troubled, "are you a bot" surprised. Then what the game did: party/follow yes, a
+shop or a training spot smile; a no, already in a party or no spot troubled; a wary no angry. Then the reply's words:
+`:(`/rip cry, ugh/rude angry, omg/wow surprised, lol/haha/:) smile, idk/hmm/sry troubled. Then the line kind:
+greeting, thanks or bye smile; a question answered plainly troubled (thinking); other talk no face. Filler answered
+with a face alone now follows the line ("lol" smile, "wow" surprised, "t_t" cry), not a random pick that could be
+hit or angry. Whispers get no face. Tests: `ReplyEmoteTest`; full suite 2740, 0 failures.
