@@ -110,7 +110,8 @@ public final class ChatTriage {
     private static final Pattern COME = Pattern.compile("\\b(come with me|come w me|lets go to|let'?s go to|go to \\w+ "
             + "together|wanna come|come hunt|come help|come grind|come train|come to \\w+ with me)\\b");
     private static final Pattern TRADE = Pattern.compile("\\b(trade|trading|wts|wtb|selling|buying|how much (for|is)"
-            + "|price ?check|pc|buy (ur|your)|sell (me|u|you|ur)|s>|b>)\\b");
+            + "|price ?check|pc|buy (ur|your)|sell (me|u|you|ur)|s>|b>|what (do )?(u|you|ya) (sell|buy)|(do|d) (u|you|ya) sell"
+            + "|for sale|whatcha (got|selling)|ur prices?)\\b");
     private static final Pattern WHERE_TRAIN = Pattern.compile("(where (do|should|can|would|did) (u|you|i|we) (usually )?"
             + "(train|grind|level|lvl|hunt|exp)|where (u|you) (train|grind)|good (spot|map|place|maps|spots|places)"
             + " (to|for) (train|level|lvl|grind|exp)|where.*\\b(train|grind)\\b.*\\?|any good (maps|spots)|best (map|spot)"

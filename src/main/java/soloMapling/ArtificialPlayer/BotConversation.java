@@ -240,17 +240,10 @@ public final class BotConversation {
             }
         }
 
-        BotRoster.Member member = BotRoster.member(slot);
-        BotPersona.Persona persona = member == null ? null : member.personaOrNull();
-        if (persona == null) {
-            persona = BotPersona.generate(slot); // staff and on-demand bots get a stable persona too
-        }
-        BotPersonality.Traits traits = member == null ? null : member.traits();
         boolean wary = BotChatActions.wary(slot, player.getId());
-        BotChatPrompt.Context context = BotChatPrompt.context(bot, player, activity,
-                BotChatPrompt.mood(slot, activity, wary, asked), BotMemory.recall(slot, player.getId(), asked),
-                whisper ? List.of() : BotChatRouting.recentOnMap(bot.getMapId(), asked), action.fact());
-        String system = BotChatPrompt.system(context, persona, traits == null ? 0.4 : traits.chattiness());
+        // Ticket 26: the chat's first reply to a player the bot knows greets them like an acquaintance.
+        boolean recognise = !botHasSpoken(session) && !wary && BotRecognition.knows(slot, player.getId());
+        String system = systemPrompt(session, slot, activity, wary, recognise, action.fact(), asked, whisper);
         String detail = triage.describe() + (action.outcome() == BotChatActions.Outcome.NONE ? ""
                 : " -> " + action.outcome().name().toLowerCase());
         BotBrains.get().complete(player.getId(), BotChatPrompt.conversation(system, history)).thenAccept(reply -> {
@@ -274,10 +267,91 @@ public final class BotConversation {
                 ChatStats.reply(ChatStats.Tier.SCRIPTED, System.currentTimeMillis() - asked, bot.getName(),
                         detail + ", llm fell back to the caller's script");
             } else {
-                deliver(session, ScriptedReplies.forKind(triage.kind()), asked, ChatStats.Tier.SCRIPTED,
-                        detail + ", llm fell back", cue);
+                String scripted = recognise && triage.kind() == ChatTriage.Kind.GREETING
+                        ? BotRecognition.scriptedHello(player.getName(), ThreadLocalRandom.current())
+                        : ScriptedReplies.forKind(triage.kind());
+                deliver(session, scripted, asked, ChatStats.Tier.SCRIPTED, detail + ", llm fell back", cue);
             }
         });
+    }
+
+    /**
+     * The system prompt for a reply: persona, live state, memories, recent map chat, the action's outcome, the
+     * merchant's stock (ticket 26), and whether to greet the player as someone the bot knows.
+     */
+    private static String systemPrompt(Session session, int slot, String activity, boolean wary, boolean recognise,
+                                       String outcome, long now, boolean whisper) {
+        Character bot = session.bot.getChr();
+        Character player = session.player;
+        BotRoster.Member member = BotRoster.member(slot);
+        BotPersona.Persona persona = member == null ? null : member.personaOrNull();
+        if (persona == null) {
+            persona = BotPersona.generate(slot); // staff and on-demand bots get a stable persona too
+        }
+        BotPersonality.Traits traits = member == null ? null : member.traits();
+        MerchantStock.Stock stock = MerchantStock.of(session.bot);
+        BotChatPrompt.Context context = BotChatPrompt.context(bot, player, activity,
+                BotChatPrompt.mood(slot, activity, wary, now), BotMemory.recall(slot, player.getId(), now),
+                whisper ? List.of() : BotChatRouting.recentOnMap(bot.getMapId(), now), outcome)
+                .with(stock == null ? null : stock.fact(), recognise);
+        return BotChatPrompt.system(context, persona, traits == null ? 0.4 : traits.chattiness());
+    }
+
+    /**
+     * Ticket 26: a bot noticed a player it knows and says hi first, in map chat, through the brain when it is live
+     * (one light remembered thing at most) or a scripted "oh hey again". It opens a chat, so the player's answer
+     * reaches the bot, and the bot listens unless the player is already talking to another bot. False when the
+     * pair is already mid-chat or a character is missing.
+     */
+    public static boolean greet(BotSM bot, Character player) {
+        if (bot == null || bot.getChr() == null || player == null) {
+            return false;
+        }
+        Character chr = bot.getChr();
+        Key key = new Key(chr.getId(), player.getId());
+        long now = System.currentTimeMillis();
+        if (isTalking(chr.getId(), player.getId())) {
+            return false;
+        }
+        startSweeper();
+        Session session = new Session(bot, player, now);
+        sessions.put(key, session);
+        BotChatRouting.Attention attention = BotChatRouting.attention(player.getId());
+        if (attention == null || now - attention.lastAt() > BotChatRouting.attentionMs()) {
+            BotChatRouting.attend(player.getId(), chr.getId(), now);
+        }
+        int slot = chr.getId() - BotStore.BOT_ID_BASE;
+        ChatTriage.Result hello = new ChatTriage.Result(ChatTriage.Kind.GREETING, ChatTriage.Intent.NONE,
+                ChatTriage.Source.DEFAULT, ChatTriage.Con.NORMAL, ChatTriage.Source.DEFAULT);
+        Cue cue = new Cue(hello, BotChatActions.Outcome.NONE, null);
+        ExecutorServiceManager.runAsync(() -> {
+            try {
+                if (!BotBrains.get().isLive()) {
+                    deliver(session, BotRecognition.scriptedHello(player.getName(), ThreadLocalRandom.current()), now,
+                            ChatStats.Tier.SCRIPTED, "recognised on sight", cue);
+                    return;
+                }
+                BotRoster.Activity doing = bot.activitySnapshot();
+                String activity = BotChatPrompt.activityPhrase(doing == null ? null : doing.name());
+                String system = systemPrompt(session, slot, activity, false, true, null, now, false)
+                        + " Nobody has said anything yet: you just noticed " + player.getName()
+                        + " near you. Write your first line to them.";
+                List<BotBrain.Turn> prompt = BotChatPrompt.conversation(system,
+                        List.of(BotBrain.Turn.user("(" + player.getName() + " is standing near you)")));
+                BotBrains.get().complete(player.getId(), prompt).thenAccept(reply -> {
+                    if (sessions.get(key) != session) {
+                        return; // the chat moved on or ended while the brain was thinking
+                    }
+                    deliver(session, reply.orElseGet(() -> BotRecognition.scriptedHello(player.getName(),
+                                    ThreadLocalRandom.current())), now,
+                            reply.isPresent() ? ChatStats.Tier.LLM : ChatStats.Tier.SCRIPTED,
+                            "recognised on sight" + (reply.isPresent() ? "" : ", llm fell back"), cue);
+                });
+            } catch (RuntimeException | LinkageError e) {
+                log.warn("Bot greeting failed for {}", chr.getName(), e);
+            }
+        });
+        return true;
     }
 
     /** A flagged con: no LLM, an in-character brush-off (or silence), and a note so the bot is warier next time. */

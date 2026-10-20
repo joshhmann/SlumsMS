@@ -64,7 +64,8 @@ public final class BotChatActions {
                 case PARTY_ACCEPTED, FOLLOW_ACCEPTED -> (yes || text.contains(" inv")) && !no;
                 case PARTY_DECLINED, PARTY_WARY, FOLLOW_DECLINED, TRADE_DECLINED -> !yes || no;
                 case PARTY_ALREADY -> text.contains("party") || text.contains(" pt") || no;
-                case TRADE_SHOP -> text.contains("shop") || text.contains("store");
+                case TRADE_SHOP -> mustMention != null ? text.contains(mustMention)
+                        : text.contains("shop") || text.contains("store");
                 case WHERE_TRAIN -> mustMention == null || text.contains(mustMention);
                 case WHERE_TRAIN_UNKNOWN, NONE -> true;
             };
@@ -179,6 +180,12 @@ public final class BotChatActions {
     // ── trade ──
 
     private static Result trade(BotSM bot) {
+        MerchantStock.Stock stock = MerchantStock.of(bot);
+        if (stock != null) {
+            // Ticket 26: a merchant names what it has; the player trades it to buy (no window opens from chat).
+            return new Result(Outcome.TRADE_SHOP, stock.answer(), stock.scripted(java.util.concurrent.ThreadLocalRandom.current()),
+                    stock.keyWord());
+        }
         if (bot instanceof SellingMerchantBot || bot instanceof NXMerchantBot || bot instanceof BuyingMerchantBot
                 || bot instanceof FMBot) {
             return new Result(Outcome.TRADE_SHOP, "Say you do not trade in person: everything you sell or buy is in "

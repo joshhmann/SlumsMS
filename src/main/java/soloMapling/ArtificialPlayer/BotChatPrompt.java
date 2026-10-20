@@ -34,7 +34,34 @@ public final class BotChatPrompt {
     /** What the prompt is built from: who and where the bot is, who it talks to, and what it knows. */
     public record Context(String botName, int level, String job, String map, String activity, String party, String mood,
                           String playerName, int playerLevel, String playerJob, List<String> memories,
-                          List<String> recentChat, String outcome) {
+                          List<String> recentChat, String outcome, String stock, boolean recognise) {
+
+        public Context(String botName, int level, String job, String map, String activity, String party, String mood,
+                       String playerName, int playerLevel, String playerJob, List<String> memories,
+                       List<String> recentChat, String outcome) {
+            this(botName, level, job, map, activity, party, mood, playerName, playerLevel, playerJob, memories,
+                    recentChat, outcome, null, false);
+        }
+
+        /**
+         * This context with the bot's stock (ticket 26: a merchant knows what it sells) and whether the bot should
+         * greet the player as someone it knows (the chat's first reply to a player it remembers and does not
+         * distrust).
+         */
+        public Context with(String stock, boolean recognise) {
+            return new Context(botName, level, job, map, activity, party, mood, playerName, playerLevel, playerJob,
+                    memories, recentChat, outcome, stock, recognise);
+        }
+    }
+
+    /**
+     * Ticket 26: how to greet a player the bot remembers - like an acquaintance, not like someone keeping a file.
+     */
+    static String recognitionHint(String playerName) {
+        return "You know " + playerName + " from before and this is the start of the chat: greet them like someone "
+                + "you recognise (\"oh hey\", \"yo again\"). You may bring up ONE thing you remember, only if it is "
+                + "light and fits (a goal, an item, their level or job), as a casual question; never list what you "
+                + "know, never bring up anything bad, and do not sound like you have been keeping tabs on them. ";
     }
 
     /** How a 2008 player types; shown to the model as a few lines of its own voice. */
@@ -94,8 +121,14 @@ public final class BotChatPrompt {
                 s.append("Things you only heard from someone else, you did not see yourself: if you bring one up, say ")
                         .append("you heard it (and who from), like gossip. ");
             }
+            if (c.recognise()) {
+                s.append(recognitionHint(c.playerName()));
+            }
         } else {
             s.append("You have not talked to ").append(c.playerName()).append(" before. ");
+        }
+        if (c.stock() != null && !c.stock().isEmpty()) {
+            s.append(c.stock()).append(' ');
         }
         if (c.recentChat() != null && !c.recentChat().isEmpty()) {
             s.append("Recent chat around you: ").append(String.join(" / ", c.recentChat())).append(". ");

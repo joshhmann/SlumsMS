@@ -98,4 +98,31 @@ class BotChatActionsTest {
         assertEquals("ant", BotChatActions.keyWord("Ant Tunnel I"));
         assertEquals("sleepywood", BotChatActions.keyWord("The Sleepywood"));
     }
+
+    @Test
+    void aMerchantNamesItsRealStockAndAReplyMustNameItToo() {
+        MerchantStock.useItemNamesForTest(id -> id == 2040804 ? "Scroll for Gloves for ATT 60%" : null);
+        try {
+            SellingMerchantBot merchant = bot(SellingMerchantBot.class, "Shopz");
+            soloMapling.ArtificialPlayer.BotTradeSystem.BotTradeInventory inventory =
+                    new soloMapling.ArtificialPlayer.BotTradeSystem.BotTradeInventory();
+            inventory.setItemForSaleMain(new client.inventory.Item(2040804, (short) 0, (short) 1));
+            soloMapling.ArtificialPlayer.BotTradeSystem.BotTradeWants wants =
+                    new soloMapling.ArtificialPlayer.BotTradeSystem.BotTradeWants();
+            wants.setMesoWanted(12_500_000);
+            when(merchant.getTradeInventory()).thenReturn(inventory);
+            when(merchant.getTradeWants()).thenReturn(wants);
+            when(merchant.getTradeMode()).thenReturn(soloMapling.ArtificialPlayer.BotTradeSystem.BotTradeSM.TradeMode.SELLING);
+
+            BotChatActions.Result shop = BotChatActions.act(merchant, character(1001, "Josh", 30), ChatTriage.Intent.TRADE);
+            assertEquals(BotChatActions.Outcome.TRADE_SHOP, shop.outcome());
+            assertTrue(shop.fact().contains("Scroll for Gloves for ATT 60% for 12.5m"), shop.fact());
+            assertTrue(shop.scripted().contains("scroll for gloves for att 60%") && shop.scripted().contains("12.5m"),
+                    shop.scripted());
+            assertTrue(shop.fits("ya 60 gloves 12.5m, trade me"));
+            assertTrue(!shop.fits("check my shop lol"), "a reply that does not name the stock is replaced");
+        } finally {
+            MerchantStock.useItemNamesForTest(null);
+        }
+    }
 }

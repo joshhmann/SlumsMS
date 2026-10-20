@@ -4,6 +4,7 @@ import client.BotClient;
 import client.Character;
 import org.junit.jupiter.api.AfterEach;
 import org.junit.jupiter.api.Assumptions;
+import soloMapling.WzTestData;
 import org.junit.jupiter.api.BeforeAll;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
@@ -72,7 +73,7 @@ class NavObservedEdgesTest {
     /** Henesys' baked graph minus one of its own jumps: the jump a player then makes is what the bots learn. */
     @Test
     void aPlayersJumpTheGraphLacksIsProvenByTheBotsPhysicsAndUsedByThePlanner() {
-        Assumptions.assumeTrue(Files.isDirectory(Path.of(System.getProperty("wz-path"), "Map.wz")), "needs wz/");
+        WzTestData.assumePresent("Map.wz");
         MapleMap map = BotNavigationMapLoader.loadMapGeometry(100000000);
         BotNavigationGraph full = BotNavigationGraphProvider.rebuildGraph(map, BotMovementProfile.base());
         assertNotNull(full);
@@ -243,7 +244,7 @@ class NavObservedEdgesTest {
     /** Players make the graph's move twice; the bots must re-prove it and plan with it, as the same edge type. */
     private void learnsBack(java.util.function.Predicate<BotNavigationGraph.Edge> wanted, NavObservedEdges.Kind kind,
                             BotNavigationGraph.EdgeType expected) {
-        Assumptions.assumeTrue(Files.isDirectory(Path.of(System.getProperty("wz-path"), "Map.wz")), "needs wz/");
+        WzTestData.assumePresent("Map.wz");
         Found found = findLearnable(wanted);
         Assumptions.assumeTrue(found != null, "no town has a lone " + expected + " link");
         BotNavigationGraph.Edge gone = found.edge();

@@ -202,6 +202,13 @@ public class Dispatcher implements Runnable {
         }
     };
 
+    /** A line asking a merchant what it trades, when it trades something (ticket 26). */
+    static boolean asksAboutStock(BotSM bot, String said) {
+        return !said.isEmpty() && soloMapling.ArtificialPlayer.BotBrainSystem.ChatTriage.intentRule(said)
+                .filter(i -> i == soloMapling.ArtificialPlayer.BotBrainSystem.ChatTriage.Intent.TRADE).isPresent()
+                && soloMapling.ArtificialPlayer.MerchantStock.of(bot) != null;
+    }
+
     static boolean showsOwnHint(BotSM bot) {
         return HAS_MENU.get(bot.getClass());
     }
@@ -370,6 +377,11 @@ public class Dispatcher implements Runnable {
                 }
             }
             if (BotConversation.say(bot, message.getSender(), said.isEmpty() ? message.getContent() : said, null)) {
+                return;
+            }
+            if (asksAboutStock(bot, said)) {
+                // Ticket 26: with no brain, a merchant still answers "what are you selling?" with its real stock.
+                BotConversation.talk(bot, message.getSender(), said);
                 return;
             }
         }
