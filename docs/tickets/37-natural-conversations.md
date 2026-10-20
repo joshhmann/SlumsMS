@@ -53,6 +53,24 @@ attacked or been hit in the last few seconds; otherwise the bot just answers in 
    - **Model:** Qwen 9B (`qwen9b` at 192.168.0.17:8095, thinking off) on live; Dory (4B) when it's ready. Compare both on
      the same labelled set.
 
+## Actions: Decide picks, rules agree, server acts, the LLM narrates
+
+Agreed with the owner 2026-10-20: the chat model talks; it does not call tools. Small models (9B/4B) misfire on tool
+calls and a model that "plays along" must never move items or mesos.
+
+1. **Decide picks the intent** from a fixed menu (2-6 labels per question, chained if needed; ticket 36): party,
+   follow/stay, trade, where-do-you-train, come-with-me, none.
+2. **Rules decide yes or no:** commitments and current activity, party space, memory of the player (knows/likes them),
+   personality, economy caps (ticket 15). Different bots can answer the same request differently.
+3. **The server does it for real** with the existing systems: party invite, trade window, companion follow (ticket 14),
+   travel.
+4. **The LLM writes the line to fit the outcome** ("you accepted the party invite" / "you're busy, decline"), so words
+   and actions always match. With no LLM slot free, a scripted line for that outcome.
+5. **Never on the menu:** giving items or mesos, or anything farmable; those only happen through real trades at real
+   prices (ticket 38).
+6. **Later, optional:** if a model proves reliable on the labelled set, it may propose one structured `action` field;
+   the same rules check it before anything happens.
+
 ## Done when
 
 The owner can chat with a bot naturally over several lines without a window popping up, and the replies read like a

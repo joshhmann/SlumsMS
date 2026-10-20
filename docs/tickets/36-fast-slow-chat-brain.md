@@ -25,6 +25,7 @@ Make Decide the fast "system one" for social decisions, and keep the 9B for the 
 | Tone: friendly, joking, annoyed, hostile | Memory and gossip summaries |
 | Response tier: ignore, emote, scripted line, LLM | |
 | Companion command intent (ticket 14): follow, stay, loot, buff, attack, go to | |
+| Action intent for ticket 37: party, follow/stay, trade, where-do-you-train, come-with-me, none | |
 | World event reaction type (ticket 21) | |
 
 - **Gate:**
