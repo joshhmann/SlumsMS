@@ -1,0 +1,10 @@
+# Stuck counts are kept per UTC day; this reports the day that just ended.
+[Unit]
+Description=SlumsMS daily nav stuck-hotspot report (00:20 UTC)
+
+[Timer]
+OnCalendar=*-*-* 00:20:00 UTC
+Persistent=true
+
+[Install]
+WantedBy=timers.target

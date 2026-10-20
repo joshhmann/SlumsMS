@@ -156,15 +156,13 @@ final class BotNavigationManager {
             if (runAiTick && entry.navEdge != null
                     && entry.navBlockedPosTicks > 0
                     && entry.navBlockedPosTicks >= entry.navBlockedPosGiveUpTicks) {
-                NavEdgeLearning.failure(graph, entry.navEdge); // bot-persistence ticket 16: remember the miss
+                NavEdgeLearning.failure(entry, graph, entry.navEdge); // bot-persistence ticket 16: remember the miss
+                NavStuckLog.record(NavStuckLog.Kind.GAVE_UP, bot.getMap(), botPos, graph, entry.navEdge);
                 clearNavigation(entry);
             }
-            // ...and the make: the bot reached the region the committed edge leads to (counted once per edge).
-            if (entry.navEdge != null && entry.navEdge != entry.navLearnedEdge
-                    && startRegionId == entry.navEdge.toRegionId && startRegionId != entry.navEdge.fromRegionId) {
-                NavEdgeLearning.success(graph, entry.navEdge);
-                entry.navLearnedEdge = entry.navEdge;
-            }
+            // ...and the make: the bot reached the region the committed edge leads to (counted once per edge), or the
+            // miss: a launched move came down somewhere else (ticket 04).
+            NavEdgeLearning.observe(entry, graph, startRegionId);
 
             BotNavigationGraph.Edge edge = reuseCommittedEdge(graph, entry, startRegionId, targetRegionId);
             boolean edgeReused = (edge != null);
@@ -200,6 +198,9 @@ final class BotNavigationManager {
                 entry.lastNavDecision = !runAiTick ? "no-ai"
                         : startRegionId < 0 || targetRegionId < 0 ? "no-region"
                         : startRegionId == targetRegionId ? "same-region" : "no-path";
+                if (runAiTick && (startRegionId < 0 || startRegionId != targetRegionId && targetRegionId >= 0)) {
+                    recordPlanFailure(entry, bot, graph, startRegionId, targetRegionId);
+                }
                 clearNavigation(entry);
                 return new NavigationDirective(rawTargetPos, false);
             }
@@ -252,6 +253,22 @@ final class BotNavigationManager {
 
         entry.lastNavDecision = "exec";
         return true;
+    }
+
+    /* Ticket 04c: a bot off the graph, or with no route to its target's region - at most once per bot per 30 s. */
+    private static void recordPlanFailure(BotMovementState entry, Character bot, BotNavigationGraph graph,
+                                          int startRegionId, int targetRegionId) {
+        long now = System.currentTimeMillis();
+        if (now - entry.planFailureLoggedAtMs < NavStuckLog.PLAN_FAILURE_EVERY_MS) {
+            return;
+        }
+        entry.planFailureLoggedAtMs = now;
+        if (startRegionId < 0) {
+            NavStuckLog.record(NavStuckLog.Kind.NO_REGION, bot.getMapId(), bot.getPosition(), graph, "");
+        } else {
+            NavStuckLog.record(NavStuckLog.Kind.NO_PATH, bot.getMapId(), bot.getPosition(), graph,
+                    "no route r" + startRegionId + ">r" + targetRegionId);
+        }
     }
 
     private static void clearNavigation(BotMovementState entry) {
@@ -1035,6 +1052,7 @@ final class BotNavigationManager {
         }
         entry.lastEdgeBlockReason = null;
         GCMovementSkills.blink(entry, bot, new Point(botPos), dest);
+        NavEdgeLearning.teleported(entry, graph, edge, graph.findRegionId(bot.getMap(), dest)); // ticket 04
         entry.skillHopReadyAtMs = System.currentTimeMillis() + SKILL_CAST_COOLDOWN_MS;
         clearNavigation(entry); // consumed: the bot is now in the destination region - replan next tick
         return new NavigationDirective(rawTargetPos, true);

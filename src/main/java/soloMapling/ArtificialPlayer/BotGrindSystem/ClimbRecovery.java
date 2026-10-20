@@ -3,6 +3,7 @@ package soloMapling.ArtificialPlayer.BotGrindSystem;
 import client.Character;
 import server.life.Monster;
 import soloMapling.ArtificialPlayer.GCMoveSystem.GCMovement;
+import soloMapling.ArtificialPlayer.GCMoveSystem.NavStuckLog;
 
 import java.awt.Point;
 
@@ -56,6 +57,7 @@ final class ClimbRecovery {
             return;
         }
         if (now() - climbStallSinceMs >= CLIMB_STALL_MS) {
+            NavStuckLog.record(NavStuckLog.Kind.ROPE_HUNG, chr); // ticket 04c: where ropes hang bots
             dismountTowardMob(chr, b.currentTargetMonster(chr)); // hung rope -> jump off toward the current target
         }
     }

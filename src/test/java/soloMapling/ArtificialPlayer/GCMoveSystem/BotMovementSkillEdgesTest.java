@@ -175,6 +175,6 @@ class BotMovementSkillEdgesTest {
         BotNavigationGraph.Edge jump = new BotNavigationGraph.Edge(1, 2, BotNavigationGraph.EdgeType.JUMP,
                 new Point(10, 20), new Point(400, 20), 0, 30, 5, 0, 0, 0, 0, 600);
         assertFalse(NavEdgeLearning.edgeKey(fj).equals(NavEdgeLearning.edgeKey(jump)));
-        assertEquals("1>2:FLASH_JUMP:0:30:10,20", NavEdgeLearning.edgeKey(fj));
+        assertEquals("FLASH_JUMP:1>2:x0..30:y20..20:s5:10,20>400,20", NavEdgeLearning.edgeKey(fj));
     }
 }

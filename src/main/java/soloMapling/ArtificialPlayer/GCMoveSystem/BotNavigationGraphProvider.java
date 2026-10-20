@@ -14,6 +14,7 @@ import java.io.ObjectInputStream;
 import java.io.ObjectOutputStream;
 import java.nio.file.Files;
 import java.nio.file.Path;
+import java.nio.file.StandardCopyOption;
 import java.util.ArrayList;
 import java.util.Comparator;
 import java.util.HashMap;
@@ -72,7 +73,7 @@ final class BotNavigationGraphProvider {
     // visible: SSOT for teleport reach, shared with BotNavigationManager's execution.
     static final int TELEPORT_RANGE_PX = 150;
     static final int TELEPORT_Y_SNAP_PX = 75;  // horizontal teleport: vertical snap band to a platform
-    private static final int TELEPORT_COST_MS = 150;   // near-instant cast+recovery (tunable)
+    static final int TELEPORT_COST_MS = 150;   // near-instant cast+recovery (tunable)
     // Base dir is overridable so tests never persist their (often trimmed) graphs into the live cache - a
     // trimmed map at base profile would otherwise overwrite the real graph and strand bots with region=-1.
     // Surefire points -Dbot.nav.cacheDir at cache/bot-nav-test; prod uses the default. (After nutnnut/Cosmic
@@ -85,6 +86,7 @@ final class BotNavigationGraphProvider {
     private static final Map<Integer, Set<Integer>> COLLIDABLE_WALL_IDS_BY_MAP_ID = new ConcurrentHashMap<>();
     private static final Map<Integer, Set<Integer>> COLLIDABLE_FROM_BELOW_IDS_BY_MAP_ID = new ConcurrentHashMap<>();
     private static final ThreadLocal<BuildProfileBuilder> ACTIVE_BUILD_PROFILE = new ThreadLocal<>();
+    private static final ThreadLocal<SampleDensity> ACTIVE_DENSITY = new ThreadLocal<>();
     private static final ExecutorService GRAPH_WARMUP_EXECUTOR = Executors.newSingleThreadExecutor(r -> {
         Thread thread = new Thread(r, "bot-nav-graph-warmup");
         thread.setDaemon(true);
@@ -102,6 +104,23 @@ final class BotNavigationGraphProvider {
             return new GraphCacheKey(mapId, effective.totalSpeedStat(), effective.totalJumpStat(),
                     effective.snowShoes());
         }
+    }
+
+    /*
+     * How densely the builder samples launch points. LIVE is what every boot and warm-up builds - sized so a
+     * cold map builds in about a second. DEEP is the nightly deep bake (NavDeepBake): it runs off the game
+     * server, samples platforms every couple of pixels and ropes every 10px, and keeps only the edges the LIVE
+     * graph missed (NavDeepOverlay). Region ids do not depend on the density, so DEEP edges fit the LIVE graph.
+     * interiorSpacingPx 0 means one walk step.
+     */
+    record SampleDensity(int interiorSpacingPx, int endpointSpacingPx, int ropeAnchorIntervalPx) {
+        static final SampleDensity LIVE = new SampleDensity(0, ENDPOINT_ANCHOR_SPACING_PX, ROPE_ANCHOR_INTERVAL_PX);
+        static final SampleDensity DEEP = new SampleDensity(2, 2, 10);
+    }
+
+    private static SampleDensity density() {
+        SampleDensity density = ACTIVE_DENSITY.get();
+        return density != null ? density : SampleDensity.LIVE;
     }
 
     /* Snowshoes only change physics on slippery ground (fs < 1): strip the flag everywhere
@@ -479,6 +498,20 @@ final class BotNavigationGraphProvider {
         return rebuilt;
     }
 
+    /*
+     * Builds the map's graph at another sample density, for the nightly deep bake. Nothing is cached or saved:
+     * the caller keeps only what the live graph lacks.
+     */
+    static BotNavigationGraph buildGraphWithDensity(MapleMap map, BotMovementProfile movementProfile,
+                                                    SampleDensity density) {
+        ACTIVE_DENSITY.set(density);
+        try {
+            return buildGraph(map, movementProfile);
+        } finally {
+            ACTIVE_DENSITY.remove();
+        }
+    }
+
     private static CompletableFuture<BotNavigationGraph> getOrStartGraphLoad(MapleMap map,
                                                                              BotMovementProfile movementProfile,
                                                                              GraphCacheKey key,
@@ -545,7 +578,7 @@ final class BotNavigationGraphProvider {
         return built;
     }
 
-    private static BotNavigationGraph loadGraph(GraphCacheKey key) {
+    static BotNavigationGraph loadGraph(GraphCacheKey key) {
         Path file = graphFile(key);
         if (!Files.isRegularFile(file)) {
             return null;
@@ -568,11 +601,22 @@ final class BotNavigationGraphProvider {
         }
     }
 
-    private static void saveGraph(BotNavigationGraph graph) {
+    /*
+     * Written to a temporary file and moved into place, so a server loading the graph while the nightly bake (or
+     * another server thread) saves it never reads half a file.
+     */
+    static void saveGraph(BotNavigationGraph graph) {
         try {
             Files.createDirectories(CACHE_DIR);
-            try (ObjectOutputStream out = new ObjectOutputStream(Files.newOutputStream(graphFile(GraphCacheKey.from(graph.mapId, graph.movementProfile))))) {
-                out.writeObject(graph);
+            Path file = graphFile(GraphCacheKey.from(graph.mapId, graph.movementProfile));
+            Path tmp = Files.createTempFile(CACHE_DIR, file.getFileName().toString(), ".tmp");
+            try {
+                try (ObjectOutputStream out = new ObjectOutputStream(Files.newOutputStream(tmp))) {
+                    out.writeObject(graph);
+                }
+                Files.move(tmp, file, StandardCopyOption.REPLACE_EXISTING, StandardCopyOption.ATOMIC_MOVE);
+            } finally {
+                Files.deleteIfExists(tmp);
             }
         } catch (IOException e) {
             log.debug("Failed to save bot nav graph cache for map {}", graph.mapId, e);
@@ -2304,7 +2348,8 @@ final class BotNavigationGraphProvider {
         List<Integer> ys = new ArrayList<>();
         int firstClimbableY = BotPhysicsEngine.firstClimbableY(rope);
         ys.add(firstClimbableY);
-        for (int y = rope.topY() + ROPE_ANCHOR_INTERVAL_PX; y < rope.bottomY(); y += ROPE_ANCHOR_INTERVAL_PX) {
+        int interval = density().ropeAnchorIntervalPx();
+        for (int y = rope.topY() + interval; y < rope.bottomY(); y += interval) {
             if (y > firstClimbableY) {
                 ys.add(y);
             }
@@ -2486,19 +2531,21 @@ final class BotNavigationGraphProvider {
                                             List<Integer> featureXs,
                                             BotMovementProfile movementProfile) {
         List<Point> points = new ArrayList<>();
+        SampleDensity density = density();
+        int endpointSpacing = density.endpointSpacingPx();
         addAnchor(points, region.leftPoint());
         // Near-edge anchors for better jump/drop accuracy at platform boundaries
         int edgeInset = Math.max(8, (int) Math.round(movementProfile.walkVelocityPxs() * BotPhysicsEngine.cfg.TICK_MS / 1000.0));
         if (region.width() > edgeInset * 2) {
-            addAnchor(points, region.pointAt(region.minX + edgeInset), ENDPOINT_ANCHOR_SPACING_PX);
-            addAnchor(points, region.pointAt(region.maxX - edgeInset), ENDPOINT_ANCHOR_SPACING_PX);
+            addAnchor(points, region.pointAt(region.minX + edgeInset), endpointSpacing);
+            addAnchor(points, region.pointAt(region.maxX - edgeInset), endpointSpacing);
         }
         int ticksToApex = Math.max(1, (int) Math.ceil(
                 BotPhysicsEngine.jumpForcePerTick(movementProfile) / Math.max(0.001f, BotPhysicsEngine.gravityPerTick())));
         int jumpInset = Math.max(edgeInset * 3, BotPhysicsEngine.walkStep(map, movementProfile) * ticksToApex);
         if (region.width() > jumpInset * 2) {
-            addAnchor(points, region.pointAt(region.minX + jumpInset), ENDPOINT_ANCHOR_SPACING_PX);
-            addAnchor(points, region.pointAt(region.maxX - jumpInset), ENDPOINT_ANCHOR_SPACING_PX);
+            addAnchor(points, region.pointAt(region.minX + jumpInset), endpointSpacing);
+            addAnchor(points, region.pointAt(region.maxX - jumpInset), endpointSpacing);
         }
         // Interior densification: narrow launch windows for jumps over or onto platforms above
         // can sit in the middle of a wide region with no naturally-derived feature X. Without
@@ -2507,7 +2554,7 @@ final class BotNavigationGraphProvider {
         // (≈walkStep px) is guaranteed at least one seed sample. Repeated sims are absorbed by
         // jumpLandingCache.
         int walkStep = BotPhysicsEngine.walkStep(map, movementProfile);
-        int interiorSpacing = Math.max(walkStep, 1);
+        int interiorSpacing = Math.max(density.interiorSpacingPx() > 0 ? density.interiorSpacingPx() : walkStep, 1);
         if (region.width() > edgeInset * 2) {
             for (int x = region.minX + edgeInset;
                  x <= region.maxX - edgeInset;
@@ -2516,8 +2563,8 @@ final class BotNavigationGraphProvider {
             }
         }
         for (BotNavigationGraph.Segment segment : region.segments) {
-            addAnchor(points, new Point(segment.x1, segment.y1), ENDPOINT_ANCHOR_SPACING_PX);
-            addAnchor(points, new Point(segment.x2, segment.y2), ENDPOINT_ANCHOR_SPACING_PX);
+            addAnchor(points, new Point(segment.x1, segment.y1), endpointSpacing);
+            addAnchor(points, new Point(segment.x2, segment.y2), endpointSpacing);
         }
         if (region.width() >= Math.max(BotMovementManager.cfg.FOLLOW_DIST * 2, 140)) {
             addAnchor(points, region.centerPoint());
