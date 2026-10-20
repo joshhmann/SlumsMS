@@ -1,0 +1,10 @@
+[Unit]
+Description=SlumsMS Discord status message every 5 minutes (%i)
+
+[Timer]
+OnBootSec=3min
+OnUnitActiveSec=5min
+AccuracySec=10s
+
+[Install]
+WantedBy=timers.target

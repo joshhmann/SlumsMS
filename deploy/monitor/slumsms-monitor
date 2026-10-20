@@ -1,0 +1,882 @@
+#!/usr/bin/env python3
+"""SlumsMS monitor (tickets 42 and 46): health checks with Discord alerts, a status message and release news.
+
+    slumsms-monitor check  <target> [--dry-run] [--verbose]   run every check once, alert / recover (timer: 1 min)
+    slumsms-monitor status <target> [--dry-run]               post or edit the server status message (timer: 5 min)
+    slumsms-monitor news   <target> [--file F] [--seed] [--dry-run]
+                                                              post launcher news entries not posted yet
+    slumsms-monitor test-webhook <target> [alerts|status|news] send one test message
+
+A target is a server to watch. Its settings are in /etc/slumsms-monitor/<target>.conf (KEY=VALUE, not secret) and its
+webhook URLs in /etc/slumsms-monitor/<target>.env (root-only, 0600, never in git). Without a webhook URL every message
+goes to the local log only (/var/log/slumsms-monitor/<target>.log). State lives in /var/lib/slumsms-monitor/<target>/.
+
+Python 3 standard library plus PyYAML (for the server's config.yaml). Read-only towards the server: it runs systemctl
+show/is-active, journalctl, jstat, docker inspect/exec (SELECT only) and HTTP GETs; it never starts or stops anything.
+"""
+import argparse
+import datetime as dt
+import hashlib
+import json
+import os
+import re
+import shutil
+import socket
+import subprocess
+import sys
+import time
+import urllib.error
+import urllib.request
+
+CONF_DIR = os.environ.get("SLUMSMS_MONITOR_CONF_DIR", "/etc/slumsms-monitor")
+STATE_ROOT = os.environ.get("SLUMSMS_MONITOR_STATE_DIR", "/var/lib/slumsms-monitor")
+LOG_DIR = os.environ.get("SLUMSMS_MONITOR_LOG_DIR", "/var/log/slumsms-monitor")
+
+BOT_ID_BASE = 1000000000
+
+DEFAULTS = {
+    "LABEL": "",                      # shown in messages; defaults to the target name
+    "UNIT": "",                       # systemd unit of the game server, e.g. slumsms.service
+    "LOGIN_HOST": "127.0.0.1",
+    "LOGIN_PORT": "8485",
+    "SERVER_DIR": "",                 # folder with config.yaml
+    "DB_CONTAINER": "",               # docker container of the DB
+    "DB_SCHEMA": "",                  # default: taken from config.yaml DB_URL_FORMAT
+    "HEAP_MAX_MB": "",                # default: -Xmx of the running process
+    "HEAP_WARN_PCT": "92",            # heap used after the last GC above this ...
+    "RSS_WARN_PCT": "175",            # ... or process RSS above this % of -Xmx
+    "ERROR_WINDOW_MIN": "5",
+    "ERROR_MAX": "60",                # ERROR/Exception journal lines per window
+    "DISK_PATHS": "/",                # space separated; SERVER_DIR is added
+    "DISK_MIN_FREE_GB": "15",
+    "DISK_MIN_FREE_PCT": "5",
+    "BOTS_MIN_RATIO": "0.6",          # online bots below this share of the director target ...
+    "BOTS_GRACE_MIN": "20",           # ... once the server has been up this long
+    "LLM_URL": "http://192.168.0.17:8095/health",
+    "DECIDE_URL": "http://192.168.0.17:8900/health",
+    "HTTP_TIMEOUT": "5",
+    "TIMERS": "",                     # e.g. "slumsms-backup slumsms-nav-bake"
+    "TIMER_MAX_AGE_H": "26",
+    "VERSION": "",                    # shown in the status message
+    "VERSION_FILE": "",               # or read the version from this file (first line)
+    "STATUS_TITLE": "SlumsMS",
+    "STATUS_SHOW_BOTS": "0",
+    "NEWS_FILE": "",                  # launcher manifest.json (its "news") or a bare news array
+    "REMIND_MIN": "120",              # repeat a still-failing alert this often
+    "MAX_MESSAGES_PER_HOUR": "12",    # alert messages above this go to the local log only
+    "MAINTENANCE_FILE": "",           # while this file exists, alerts go to the local log only
+    # consecutive failed runs before a check alerts (timer runs every minute)
+    "FAIL_AFTER_unit": "1", "FAIL_AFTER_login": "2", "FAIL_AFTER_errors": "1", "FAIL_AFTER_memory": "5",
+    "FAIL_AFTER_db": "2", "FAIL_AFTER_disk": "1", "FAIL_AFTER_bots": "10", "FAIL_AFTER_llm": "1",
+    "FAIL_AFTER_decide": "1", "FAIL_AFTER_timers": "1",
+}
+
+SERVER_CONFIG_DEFAULTS = {  # src/main/java/config/ServerConfig.java
+    "BOT_DIRECTOR_ENABLED": True,
+    "BOT_ROSTER_PEAK_ONLINE": 2400,
+    "BOT_ROSTER_CURVE": "0:0.45,3:0.25,6:0.15,9:0.25,12:0.45,15:0.6,18:0.85,20:1.0,22:0.8",
+    "BOT_ROSTER_WEEKEND_LIFT": 1.1,
+    "BOT_ROSTER_TIMEZONE": "",
+}
+
+SECRET_PATTERNS = [
+    re.compile(r"https?://\S*discord(app)?\.com/api/webhooks/\S+", re.I),
+    re.compile(r"/api/webhooks/\S+", re.I),
+    re.compile(r"(password|passwd|pwd|token|secret)\s*[=:]\s*\S+", re.I),
+]
+
+
+# ----------------------------------------------------------------------------------------------------------- config
+
+def read_kv(path):
+    values = {}
+    if not os.path.exists(path):
+        return values
+    with open(path) as f:
+        for line in f:
+            line = line.strip()
+            if not line or line.startswith("#") or "=" not in line:
+                continue
+            key, value = line.split("=", 1)
+            key = key.strip()
+            if key.startswith("export "):
+                key = key[7:].strip()
+            value = value.strip()
+            if len(value) >= 2 and value[0] == value[-1] and value[0] in "\"'":
+                value = value[1:-1]
+            values[key] = value
+    return values
+
+
+class Target:
+    def __init__(self, name):
+        if not re.fullmatch(r"[A-Za-z0-9_.-]+", name):
+            raise SystemExit("bad target name: " + name)
+        self.name = name
+        conf_path = os.path.join(CONF_DIR, name + ".conf")
+        if not os.path.exists(conf_path):
+            raise SystemExit("no config for target %s (%s)" % (name, conf_path))
+        self.conf = dict(DEFAULTS)
+        self.conf.update(read_kv(conf_path))
+        self.secrets = read_kv(os.path.join(CONF_DIR, name + ".env"))
+        self.state_dir = os.path.join(STATE_ROOT, name)
+        os.makedirs(self.state_dir, exist_ok=True)
+        os.makedirs(LOG_DIR, exist_ok=True)
+        self.log_path = os.path.join(LOG_DIR, name + ".log")
+        self._server_config = None
+
+    def get(self, key):
+        return self.conf.get(key, "")
+
+    def num(self, key):
+        return float(self.conf.get(key) or 0)
+
+    @property
+    def label(self):
+        return self.get("LABEL") or self.name
+
+    def webhook(self, kind):
+        """kind: ALERT, STATUS or NEWS. Falls back to WEBHOOK_URL."""
+        return self.secrets.get(kind + "_WEBHOOK_URL") or self.secrets.get("WEBHOOK_URL") or ""
+
+    def server_config(self):
+        if self._server_config is None:
+            self._server_config = {}
+            path = os.path.join(self.get("SERVER_DIR"), "config.yaml")
+            if self.get("SERVER_DIR") and os.path.exists(path):
+                try:
+                    import yaml
+                    with open(path) as f:
+                        data = yaml.safe_load(f) or {}
+                    self._server_config = data.get("server") or {}
+                except Exception as e:  # noqa: BLE001
+                    self.log("config.yaml unreadable: %s" % type(e).__name__)
+        return self._server_config
+
+    def log(self, text):
+        stamp = dt.datetime.now(dt.timezone.utc).strftime("%Y-%m-%dT%H:%M:%SZ")
+        with open(self.log_path, "a") as f:
+            for line in str(text).splitlines() or [""]:
+                f.write("%s %s\n" % (stamp, line))
+
+
+def load_json(path, default):
+    try:
+        with open(path) as f:
+            return json.load(f)
+    except (OSError, ValueError):
+        return default
+
+
+def save_json(path, data):
+    tmp = path + ".tmp"
+    with open(tmp, "w") as f:
+        json.dump(data, f, indent=1, sort_keys=True)
+    os.replace(tmp, path)
+
+
+def scrub(text):
+    for pattern in SECRET_PATTERNS:
+        text = pattern.sub("[redacted]", text)
+    return text
+
+
+def run(cmd, timeout=20, env=None):
+    try:
+        p = subprocess.run(cmd, capture_output=True, text=True, timeout=timeout, env=env)
+        return p.returncode, p.stdout, p.stderr
+    except FileNotFoundError:
+        return 127, "", "not found"
+    except subprocess.TimeoutExpired:
+        return 124, "", "timeout"
+
+
+def human_duration(seconds):
+    seconds = int(max(0, seconds))
+    days, rest = divmod(seconds, 86400)
+    hours, rest = divmod(rest, 3600)
+    minutes = rest // 60
+    if days:
+        return "%dd %dh" % (days, hours)
+    if hours:
+        return "%dh %dm" % (hours, minutes)
+    return "%dm" % minutes
+
+
+# ----------------------------------------------------------------------------------------------------------- probes
+
+def unit_info(unit):
+    """ActiveState, SubState, MainPID, seconds since it entered active (None if not active)."""
+    if not unit:
+        return None
+    code, out, _ = run(["systemctl", "show", unit, "--timestamp=unix",
+                        "-p", "ActiveState,SubState,MainPID,ActiveEnterTimestamp,LoadState"])
+    info = {}
+    for line in out.splitlines():
+        if "=" in line:
+            k, v = line.split("=", 1)
+            info[k] = v
+    since = None
+    stamp = info.get("ActiveEnterTimestamp", "").lstrip("@")
+    if info.get("ActiveState") == "active" and stamp.isdigit():
+        since = time.time() - int(stamp)
+    return {"active": info.get("ActiveState", "unknown"), "sub": info.get("SubState", ""),
+            "load": info.get("LoadState", ""), "pid": int(info.get("MainPID") or 0), "up_seconds": since}
+
+
+def login_answers(host, port, timeout=5.0):
+    """Connects and reads the login server's hello packet (v83: length, then version 83)."""
+    try:
+        with socket.create_connection((host, port), timeout=timeout) as s:
+            s.settimeout(timeout)
+            data = b""
+            while len(data) < 4:
+                chunk = s.recv(16)
+                if not chunk:
+                    break
+                data += chunk
+            if len(data) >= 4:
+                version = int.from_bytes(data[2:4], "little")
+                return True, "hello v%d" % version
+            return False, "connected but no hello packet"
+    except socket.timeout:
+        return False, "timed out"
+    except OSError as e:
+        return False, "connection failed (%s)" % (e.strerror or type(e).__name__)
+
+
+def http_ok(url, timeout):
+    try:
+        req = urllib.request.Request(url, headers={"User-Agent": "slumsms-monitor"})
+        with urllib.request.urlopen(req, timeout=timeout) as r:
+            return 200 <= r.status < 300, "HTTP %d" % r.status
+    except urllib.error.HTTPError as e:
+        return False, "HTTP %d" % e.code
+    except Exception as e:  # noqa: BLE001
+        reason = getattr(e, "reason", None)
+        return False, "unreachable (%s)" % (getattr(reason, "strerror", None) or type(reason or e).__name__)
+
+
+def proc_xmx_mb(pid):
+    try:
+        with open("/proc/%d/cmdline" % pid, "rb") as f:
+            args = f.read().split(b"\0")
+    except OSError:
+        return None
+    for a in args:
+        m = re.fullmatch(rb"-Xmx(\d+)([kKmMgG]?)", a)
+        if m:
+            n = int(m.group(1))
+            unit = m.group(2).lower()
+            return {b"g": n * 1024, b"m": n, b"k": n / 1024, b"": n / 1048576}[unit]
+    return None
+
+
+def proc_args(pid):
+    try:
+        with open("/proc/%d/cmdline" % pid, "rb") as f:
+            return [a.decode(errors="replace") for a in f.read().split(b"\0") if a]
+    except OSError:
+        return []
+
+
+def proc_rss_mb(pid):
+    try:
+        with open("/proc/%d/status" % pid) as f:
+            for line in f:
+                if line.startswith("VmRSS:"):
+                    return int(line.split()[1]) / 1024
+    except OSError:
+        pass
+    return None
+
+
+def heap_used_mb(pid):
+    """Heap in use from jstat (perf data, no safepoint): survivor + eden + old, and old after the last GC-ish."""
+    code, out, _ = run(["jstat", "-gc", str(pid)], timeout=15)
+    if code != 0:
+        return None, None
+    lines = out.split("\n")
+    if len(lines) < 2:
+        return None, None
+    head, vals = lines[0].split(), lines[1].split()
+    row = dict(zip(head, vals))
+    try:
+        used = sum(float(row[k]) for k in ("S0U", "S1U", "EU", "OU")) / 1024
+        old = float(row["OU"]) / 1024
+        return used, old
+    except (KeyError, ValueError):
+        return None, None
+
+
+class Db:
+    def __init__(self, target):
+        self.target = target
+        cfg = target.server_config()
+        self.container = target.get("DB_CONTAINER")
+        self.user = cfg.get("DB_USER")
+        self.password = cfg.get("DB_PASS")
+        schema = target.get("DB_SCHEMA")
+        if not schema:
+            m = re.search(r"/([A-Za-z0-9_]+)(\?|$)", str(cfg.get("DB_URL_FORMAT", "")))
+            schema = m.group(1) if m else ""
+        self.schema = schema
+
+    def usable(self):
+        return bool(self.container and self.user and self.schema)
+
+    def query(self, sql):
+        """Runs one SELECT inside the DB container; the password goes through the environment, never argv."""
+        env = dict(os.environ)
+        env["MYSQL_PWD"] = str(self.password or "")
+        code, out, err = run(["docker", "exec", "-e", "MYSQL_PWD", self.container, "mysql", "-u" + str(self.user),
+                              "-h127.0.0.1", "-P3306", "-N", "-B", self.schema, "-e", sql], timeout=20, env=env)
+        if code != 0:
+            raise RuntimeError("query failed (exit %d)" % code)
+        return [line.split("\t") for line in out.strip().splitlines()]
+
+
+def container_health(container):
+    code, out, _ = run(["docker", "inspect", "-f",
+                        "{{.State.Status}} {{if .State.Health}}{{.State.Health.Status}}{{else}}none{{end}}", container])
+    if code != 0:
+        return "missing", "none"
+    parts = out.split()
+    return (parts + ["?", "?"])[0], (parts + ["?", "?"])[1]
+
+
+# --- bot director target (mirrors BotPopulationCurve) ---
+
+def curve_fraction(spec, hour):
+    if not spec or spec.strip().lower() == "flat":
+        return 1.0
+    points = sorted((float(h), float(f)) for h, f in (p.strip().split(":") for p in spec.split(",")))
+    n = len(points)
+    if n == 1:
+        return points[0][1]
+    before = n - 1
+    for i, (h, _) in enumerate(points):
+        if h <= hour:
+            before = i
+    after = (before + 1) % n
+    span = (points[after][0] - points[before][0] + 24) % 24
+    if span == 0:
+        return points[before][1]
+    into = (hour - points[before][0] + 24) % 24
+    return points[before][1] + (points[after][1] - points[before][1]) * (into / span)
+
+
+def director_target(cfg, peak=None, curve=None, now=None):
+    def pick(key):
+        v = cfg.get(key)
+        return SERVER_CONFIG_DEFAULTS[key] if v is None else v
+    peak = int(pick("BOT_ROSTER_PEAK_ONLINE") if peak is None else peak)
+    spec = str(pick("BOT_ROSTER_CURVE") if curve is None else curve)
+    lift = float(pick("BOT_ROSTER_WEEKEND_LIFT"))
+    lift = 1.0 if lift <= 0 or not spec or spec.strip().lower() == "flat" else lift
+    zone = str(pick("BOT_ROSTER_TIMEZONE") or "")
+    if now is None:
+        try:
+            from zoneinfo import ZoneInfo
+            now = dt.datetime.now(ZoneInfo(zone)) if zone else dt.datetime.now().astimezone()
+        except Exception:  # noqa: BLE001
+            now = dt.datetime.now().astimezone()
+    fraction = curve_fraction(spec, now.hour + now.minute / 60.0)
+    if now.weekday() >= 5:
+        fraction *= lift
+    return int(round(max(0.0, min(1.0, fraction)) * peak))
+
+
+def director_settings(t, unit, info):
+    """Peak and curve the director logged at boot ("Population director started: ..."), cached per server start."""
+    started = int(time.time() - (info["up_seconds"] or 0))
+    cache_path = os.path.join(t.state_dir, "director.json")
+    cache = load_json(cache_path, {})
+    if abs(cache.get("started", 0) - started) <= 5 and cache.get("peak") is not None:
+        return cache["peak"], cache["curve"]
+    code, out, _ = run(["journalctl", "-u", unit, "--since", "@%d" % (started - 5), "--no-pager", "-o", "cat", "-q",
+                        "--grep", "Population director started"], timeout=60)
+    for ln in out.splitlines():
+        m = re.search(r"Population director started: peak (\d+), curve (\S+), tick", ln)
+        if m:
+            save_json(cache_path, {"started": started, "peak": int(m.group(1)), "curve": m.group(2)})
+            return int(m.group(1)), m.group(2)
+    return None, None
+
+
+def journal_lines(unit, since):
+    code, out, _ = run(["journalctl", "-u", unit, "--since", since, "--no-pager", "-o", "cat", "-q"], timeout=30)
+    return out.splitlines() if code == 0 else None
+
+
+# ----------------------------------------------------------------------------------------------------------- checks
+
+class Result:
+    def __init__(self, key, name, ok, detail, skipped=False):
+        self.key, self.name, self.ok, self.detail, self.skipped = key, name, ok, detail, skipped
+
+
+def run_checks(t):
+    results = []
+    unit = t.get("UNIT")
+    info = unit_info(unit)
+    up = bool(info and info["active"] == "active")
+    pid = info["pid"] if info else 0
+
+    def add(key, name, ok, detail, skipped=False):
+        results.append(Result(key, name, ok, scrub(detail), skipped))
+
+    # 1. unit
+    if unit:
+        if up:
+            add("unit", "server process", True, "%s active for %s" % (unit, human_duration(info["up_seconds"] or 0)))
+        else:
+            add("unit", "server process", False, "%s is %s%s" % (unit, info["active"],
+                                                                ("/" + info["sub"]) if info["sub"] else ""))
+
+    # 2. login port (skipped while the unit is down: the unit alert covers it)
+    port = int(t.num("LOGIN_PORT"))
+    if port:
+        if unit and not up:
+            add("login", "login port", True, "skipped (server down)", skipped=True)
+        else:
+            ok, detail = login_answers(t.get("LOGIN_HOST"), port)
+            add("login", "login port", ok, "port %d %s" % (port, "answers (%s)" % detail if ok else detail))
+
+    # 3. journal error rate
+    if unit:
+        window = int(t.num("ERROR_WINDOW_MIN")) or 5
+        lines = journal_lines(unit, "-%dmin" % window)
+        if lines is None:
+            add("errors", "error rate", True, "journal unreadable", skipped=True)
+        else:
+            errors = [ln for ln in lines if re.search(r"\bERROR\b|Exception", ln)]
+            limit = int(t.num("ERROR_MAX"))
+            add("errors", "error rate", len(errors) <= limit,
+                "%d ERROR/Exception lines in the last %d min (limit %d)" % (len(errors), window, limit))
+
+    # 4. memory
+    if up and pid:
+        xmx = t.num("HEAP_MAX_MB") or proc_xmx_mb(pid)
+        rss = proc_rss_mb(pid)
+        used, old = heap_used_mb(pid)
+        problems, parts = [], []
+        if xmx:
+            if old is not None:
+                # Old gen is what is left after collections; the young gen refills and empties all the time.
+                pct = 100.0 * old / xmx
+                parts.append("old gen %.0f%% of -Xmx (heap in use %.0f MB)" % (pct, used))
+                if pct > t.num("HEAP_WARN_PCT"):
+                    problems.append("old gen at %.0f%% of %d MB -Xmx" % (pct, xmx))
+            if rss is not None:
+                rpct = 100.0 * rss / xmx
+                parts.append("RSS %.0f MB = %.0f%% of -Xmx" % (rss, rpct))
+                if rpct > t.num("RSS_WARN_PCT"):
+                    problems.append("RSS %.0f MB = %.0f%% of -Xmx" % (rss, rpct))
+            add("memory", "memory", not problems, "; ".join(problems or parts))
+        else:
+            add("memory", "memory", True, "no -Xmx found", skipped=True)
+
+    # 5. DB container
+    db = None
+    container = t.get("DB_CONTAINER")
+    if container:
+        status, health = container_health(container)
+        ok = status == "running" and health in ("healthy", "none")
+        detail = "container %s %s%s" % (container, status, "" if health == "none" else " (" + health + ")")
+        db = Db(t)
+        if ok and db.usable():
+            try:
+                db.query("SELECT 1")
+                detail += ", answers queries"
+            except RuntimeError as e:
+                ok, detail = False, detail + ", " + str(e)
+        add("db", "database", ok, detail)
+        if not ok:
+            db = None
+
+    # 6. disk
+    paths = t.get("DISK_PATHS").split() + ([t.get("SERVER_DIR")] if t.get("SERVER_DIR") else [])
+    seen, low, parts = set(), [], []
+    for path in paths:
+        if not os.path.exists(path):
+            continue
+        st = os.statvfs(path)
+        if st.f_fsid in seen:
+            continue
+        seen.add(st.f_fsid)
+        usage = shutil.disk_usage(path)
+        free_gb = usage.free / 1024 ** 3
+        free_pct = 100.0 * usage.free / usage.total
+        parts.append("%s %.0f GB free (%.0f%%)" % (path, free_gb, free_pct))
+        if free_gb < t.num("DISK_MIN_FREE_GB") or free_pct < t.num("DISK_MIN_FREE_PCT"):
+            low.append("%s only %.1f GB free (%.0f%%, minimum %g GB / %g%%)"
+                       % (path, free_gb, free_pct, t.num("DISK_MIN_FREE_GB"), t.num("DISK_MIN_FREE_PCT")))
+    if parts:
+        add("disk", "disk space", not low, "; ".join(low or parts))
+
+    # 7. bots vs the director target
+    if up and pid:
+        args = proc_args(pid)
+        cfg = t.server_config()
+        bots_on = "-Dsolomapling.enabled=true" in args and "-Dsolomapling.autopopulate=true" in args
+        director_on = cfg.get("BOT_DIRECTOR_ENABLED", True) not in (False, "false")
+        if bots_on and director_on:
+            peak, curve = director_settings(t, unit, info)
+            recent = journal_lines(unit, "-5min") or []
+            tick_failed = sum(1 for ln in recent if "[Director] tick failed" in ln)
+            up_min = (info["up_seconds"] or 0) / 60
+            if peak is None:
+                if up_min > t.num("BOTS_GRACE_MIN"):
+                    add("bots", "bot population", False, "director has not started %d min after boot" % up_min)
+                else:
+                    add("bots", "bot population", True, "director not started yet (booting)", skipped=True)
+            elif db is None:
+                add("bots", "bot population", True, "no database access to count bots", skipped=True)
+            else:
+                target = director_target(cfg, peak, curve)
+                try:
+                    online = int(db.query("SELECT COUNT(*) FROM botroster WHERE Status='ACTIVE' "
+                                          "AND LastLoginAt > LastLogoutAt")[0][0])
+                except (RuntimeError, IndexError, ValueError) as e:
+                    add("bots", "bot population", True, "bot count unavailable (%s)" % e, skipped=True)
+                else:
+                    ratio = t.num("BOTS_MIN_RATIO")
+                    detail = "%d online, director target %d" % (online, target)
+                    ok = True
+                    if tick_failed:
+                        ok, detail = False, detail + "; %d director tick failures in 5 min" % tick_failed
+                    elif up_min > t.num("BOTS_GRACE_MIN") and online < target * ratio:
+                        ok, detail = False, detail + " (below %.0f%%)" % (ratio * 100)
+                    add("bots", "bot population", ok, detail)
+
+    # 8. LLM and Decide
+    timeout = t.num("HTTP_TIMEOUT") or 5
+    for key, name, url_key in (("llm", "bot chat LLM", "LLM_URL"), ("decide", "Decide", "DECIDE_URL")):
+        url = t.get(url_key)
+        if url:
+            ok, detail = http_ok(url, timeout)
+            if not ok:  # one quick retry, so a single blip does not alert
+                time.sleep(3)
+                ok, detail = http_ok(url, timeout)
+            hostport = re.sub(r"^https?://([^/]+).*$", r"\1", url)
+            add(key, name, ok, "%s %s%s" % (hostport, detail, "" if ok else " (bots fall back to scripted lines)"))
+
+    # 9. scheduled jobs
+    timers = t.get("TIMERS").split()
+    if timers:
+        bad, parts = [], []
+        max_age = t.num("TIMER_MAX_AGE_H") * 3600
+        for name in timers:
+            base = name[:-6] if name.endswith(".timer") else name
+            _, out, _ = run(["systemctl", "show", base + ".timer", "--timestamp=unix", "-p",
+                             "ActiveState,LastTriggerUSec"])
+            tinfo = dict(ln.split("=", 1) for ln in out.splitlines() if "=" in ln)
+            _, out, _ = run(["systemctl", "show", base + ".service", "--timestamp=unix", "-p",
+                             "Result,ExecMainStatus,ActiveState,ExecMainExitTimestamp"])
+            sinfo = dict(ln.split("=", 1) for ln in out.splitlines() if "=" in ln)
+            last = tinfo.get("LastTriggerUSec", "").lstrip("@")
+            last = int(last) if last.isdigit() else 0
+            if tinfo.get("ActiveState") != "active":
+                bad.append("%s.timer is %s" % (base, tinfo.get("ActiveState", "missing")))
+            elif sinfo.get("ActiveState") in ("activating", "active"):
+                parts.append("%s running" % base)
+            elif sinfo.get("Result") not in ("success", None):
+                bad.append("%s last run failed (%s, exit %s)" % (base, sinfo.get("Result"),
+                                                                sinfo.get("ExecMainStatus", "?")))
+            elif last and time.time() - last > max_age:
+                bad.append("%s has not run for %s" % (base, human_duration(time.time() - last)))
+            else:
+                parts.append("%s ok%s" % (base, (" (%s ago)" % human_duration(time.time() - last)) if last else ""))
+        add("timers", "scheduled jobs", not bad, "; ".join(bad or parts))
+
+    return results
+
+
+# ----------------------------------------------------------------------------------------------------------- webhook
+
+def webhook_send(url, payload, edit_id=None, attempts=2):
+    """POSTs (or PATCHes edit_id) a Discord webhook message; returns the message id or None. Raises on failure."""
+    if edit_id:
+        target = url.split("?")[0].rstrip("/") + "/messages/" + edit_id
+        method = "PATCH"
+    else:
+        target = url + ("&" if "?" in url else "?") + "wait=true"
+        method = "POST"
+    body = json.dumps(payload).encode()
+    for attempt in range(attempts):
+        req = urllib.request.Request(target, data=body, method=method,
+                                     headers={"Content-Type": "application/json", "User-Agent": "slumsms-monitor"})
+        try:
+            with urllib.request.urlopen(req, timeout=10) as r:
+                raw = r.read()
+                try:
+                    return str(json.loads(raw).get("id") or "") or None
+                except ValueError:
+                    return None
+        except urllib.error.HTTPError as e:
+            if e.code == 429 and attempt + 1 < attempts:
+                try:
+                    wait = float(json.loads(e.read()).get("retry_after", 1))
+                except ValueError:
+                    wait = 1.0
+                time.sleep(min(wait, 10))
+                continue
+            raise RuntimeError("webhook HTTP %d" % e.code) from None
+        except Exception as e:  # noqa: BLE001
+            raise RuntimeError("webhook unreachable (%s)" % type(e).__name__) from None
+    return None
+
+
+def deliver(t, kind, content, dry_run=False, edit_id=None, quiet=False):
+    """Sends content to the kind's webhook, or logs it locally when none is configured. Returns the message id."""
+    content = scrub(content)[:1900]
+    url = t.webhook(kind)
+    if dry_run:
+        print("[dry-run %s -> %s]\n%s" % (kind.lower(), "webhook" if url else "local log", content))
+        return edit_id
+    if not url:
+        t.log("[%s, no webhook configured] %s" % (kind.lower(), content))
+        return None
+    payload = {"content": content, "username": "SlumsMS", "allowed_mentions": {"parse": []}}
+    try:
+        mid = webhook_send(url, payload, edit_id=edit_id)
+        if not quiet:
+            t.log("[%s sent] %s" % (kind.lower(), content))
+        return mid
+    except RuntimeError as e:
+        t.log("[%s NOT sent: %s] %s" % (kind.lower(), e, content))
+        raise
+
+
+# ----------------------------------------------------------------------------------------------------------- commands
+
+def fmt_since(ts):
+    return dt.datetime.fromtimestamp(ts, dt.timezone.utc).strftime("%H:%M UTC")
+
+
+def cmd_check(t, args):
+    now = time.time()
+    results = run_checks(t)
+    state_path = os.path.join(t.state_dir, "checks.json")
+    state = load_json(state_path, {"checks": {}, "sent": []})
+    checks = state.setdefault("checks", {})
+    alerts, recoveries, new_alert_keys = [], [], []
+    remind = t.num("REMIND_MIN") * 60
+
+    for r in results:
+        if args.verbose or args.dry_run:
+            print("%-6s %-16s %s" % ("skip" if r.skipped else ("ok" if r.ok else "FAIL"), r.name, r.detail))
+        s = checks.setdefault(r.key, {"fails": 0, "alerted": False})
+        s["detail"], s["name"], s["last_run"] = r.detail, r.name, now
+        if r.skipped:
+            continue  # neither a failure nor a recovery
+        if r.ok:
+            if s.get("alerted"):
+                recoveries.append("**RECOVERED** %s: %s (was down %s)" % (
+                    r.name, r.detail, human_duration(now - s.get("failing_since", now))))
+            s.update(fails=0, alerted=False)
+            s.pop("failing_since", None)
+            s.pop("last_alert", None)
+            continue
+        s["fails"] = s.get("fails", 0) + 1
+        s.setdefault("failing_since", now)
+        need = int(t.get("FAIL_AFTER_" + r.key) or 1)
+        if s["fails"] < need:
+            continue
+        if not s.get("alerted"):
+            alerts.append("**ALERT** %s: %s (since %s)" % (r.name, r.detail, fmt_since(s["failing_since"])))
+            s["alerted"], s["last_alert"] = True, now
+            new_alert_keys.append(r.key)
+        elif remind and now - s.get("last_alert", 0) >= remind:
+            alerts.append("**STILL FAILING** %s: %s (for %s)" % (r.name, r.detail,
+                                                                 human_duration(now - s["failing_since"])))
+            s["last_alert"] = now
+
+    # forget checks not run for a day (target config changed); ones not run because the server is down are kept
+    for key in list(checks):
+        if now - checks[key].get("last_run", now) > 86400:
+            checks.pop(key)
+
+    if alerts or recoveries:
+        text = "[%s] " % t.label + "\n".join(alerts + recoveries)
+        maint = t.get("MAINTENANCE_FILE")
+        sent = [x for x in state.get("sent", []) if now - x < 3600]
+        if args.dry_run:
+            deliver(t, "ALERT", text, dry_run=True)
+        elif maint and os.path.exists(maint):
+            t.log("[alert, maintenance mode] " + scrub(text))
+            # Not counted as alerted: if it is still failing once maintenance ends, it alerts then; if it
+            # recovers during maintenance, no "recovered" message follows an alert nobody saw.
+            for key in new_alert_keys:
+                checks[key]["alerted"] = False
+        elif len(sent) >= t.num("MAX_MESSAGES_PER_HOUR"):
+            t.log("[alert, rate limited] " + scrub(text))
+        else:
+            try:
+                deliver(t, "ALERT", text)
+                sent.append(now)
+            except RuntimeError:
+                for key in new_alert_keys:  # logged locally; try the new alerts again next run
+                    checks[key]["alerted"] = False
+        state["sent"] = sent
+
+    state["last_run"] = now
+    if not args.dry_run:
+        save_json(state_path, state)
+        summary = {r.key: {"ok": r.ok, "skipped": r.skipped, "name": r.name, "detail": r.detail} for r in results}
+        save_json(os.path.join(t.state_dir, "status.json"), {"at": int(now), "target": t.label, "checks": summary})
+    return 0
+
+
+def read_version(t):
+    path = t.get("VERSION_FILE")
+    if path and os.path.exists(path):
+        with open(path) as f:
+            first = f.readline().strip()
+            if first:
+                return first
+    return t.get("VERSION") or "unknown"
+
+
+def cmd_status(t, args):
+    info = unit_info(t.get("UNIT"))
+    up = bool(info and info["active"] == "active")
+    port = int(t.num("LOGIN_PORT"))
+    answers = up and login_answers(t.get("LOGIN_HOST"), port)[0]
+    lines = ["**%s**" % t.get("STATUS_TITLE")]
+    if answers:
+        lines.append("Status: **Online**")
+        players = bots = None
+        db = Db(t)
+        if t.get("DB_CONTAINER") and db.usable():
+            try:
+                # Real players only: logged-in accounts (2 = in game) that are not bot accounts.
+                players = int(db.query(
+                    "SELECT COUNT(*) FROM accounts a WHERE a.loggedin = 2 AND NOT EXISTS "
+                    "(SELECT 1 FROM characters c WHERE c.accountid = a.id AND c.id >= %d)" % BOT_ID_BASE)[0][0])
+                if t.get("STATUS_SHOW_BOTS") == "1":
+                    bots = int(db.query("SELECT COUNT(*) FROM botroster WHERE Status='ACTIVE' "
+                                        "AND LastLoginAt > LastLogoutAt")[0][0])
+            except (RuntimeError, IndexError, ValueError):
+                pass
+        lines.append("Players online: %s" % ("?" if players is None else players))
+        if bots is not None:
+            lines.append("Bots online: %d" % bots)
+        lines.append("Version: %s" % read_version(t))
+        lines.append("Uptime: %s" % human_duration(info["up_seconds"] or 0))
+    elif up:
+        lines.append("Status: **Starting / not answering**")
+        lines.append("Version: %s" % read_version(t))
+    else:
+        lines.append("Status: **Offline**")
+    lines.append("Updated <t:%d:R>" % int(time.time()))
+    content = "\n".join(lines)
+
+    state_path = os.path.join(t.state_dir, "status-message.json")
+    state = load_json(state_path, {})
+    if args.dry_run:
+        deliver(t, "STATUS", content, dry_run=True)
+        return 0
+    if not t.webhook("STATUS"):
+        # Local log only when the online state changes, so the log does not grow every 5 minutes.
+        key = "online" if answers else ("starting" if up else "offline")
+        if state.get("local_state") != key:
+            t.log("[status, no webhook configured] " + content.replace("\n", " | "))
+            state["local_state"] = key
+            save_json(state_path, state)
+        return 0
+    url_hash = hashlib.sha256(t.webhook("STATUS").encode()).hexdigest()[:12]
+    mid = state.get("message_id") if state.get("webhook") == url_hash else None
+    try:
+        new_id = deliver(t, "STATUS", content, edit_id=mid, quiet=bool(mid))
+    except RuntimeError as e:
+        if mid and "HTTP 404" in str(e):  # the message was deleted: post a fresh one
+            new_id = deliver(t, "STATUS", content)
+        else:
+            return 1
+    state.update(message_id=new_id or mid, webhook=url_hash, updated=int(time.time()))
+    save_json(state_path, state)
+    return 0
+
+
+def news_entries(path):
+    data = load_json(path, None)
+    if isinstance(data, dict):
+        data = data.get("news")
+    if not isinstance(data, list):
+        raise SystemExit("no news array in %s" % path)
+    return [e for e in data if isinstance(e, dict) and e.get("title")]
+
+
+def news_key(entry):
+    raw = json.dumps({k: entry.get(k) for k in ("title", "date", "body")}, sort_keys=True)
+    return hashlib.sha256(raw.encode()).hexdigest()[:16]
+
+
+def cmd_news(t, args):
+    path = args.file or t.get("NEWS_FILE")
+    if not path:
+        raise SystemExit("no news file (NEWS_FILE or --file)")
+    entries = news_entries(path)
+    state_path = os.path.join(t.state_dir, "news.json")
+    state = load_json(state_path, None)
+    if state is None or args.seed:
+        # First run: remember what is already out without posting it (no flood of old news).
+        state = {"posted": sorted({news_key(e) for e in entries} | set((state or {}).get("posted", [])))}
+        if not args.dry_run:
+            save_json(state_path, state)
+        print("seeded %d news entries as already posted" % len(entries))
+        return 0
+    posted = set(state.get("posted", []))
+    fresh = [e for e in entries if news_key(e) not in posted]
+    for entry in reversed(fresh):  # oldest first; the launcher lists newest first
+        title = str(entry.get("title"))
+        date = str(entry.get("date") or "")
+        body = str(entry.get("body") or "")
+        content = "**%s**%s\n%s" % (title, (" (%s)" % date) if date else "", body)
+        try:
+            deliver(t, "NEWS", content, dry_run=args.dry_run)
+        except RuntimeError:
+            return 1
+        posted.add(news_key(entry))
+        if not args.dry_run:
+            save_json(state_path, {"posted": sorted(posted)})
+    if not fresh:
+        print("no new news entries")
+    return 0
+
+
+def cmd_test_webhook(t, args):
+    kind = {"alerts": "ALERT", "status": "STATUS", "news": "NEWS"}[args.kind]
+    deliver(t, kind, "[%s] test message from slumsms-monitor (%s webhook)" % (t.label, kind.lower()))
+    print("sent" if t.webhook(kind) else "no %s webhook configured; written to %s" % (kind.lower(), t.log_path))
+    return 0
+
+
+def main():
+    p = argparse.ArgumentParser(description=__doc__, formatter_class=argparse.RawDescriptionHelpFormatter)
+    sub = p.add_subparsers(dest="cmd", required=True)
+    c = sub.add_parser("check")
+    c.add_argument("target")
+    c.add_argument("--dry-run", action="store_true", help="print results and the message; change nothing")
+    c.add_argument("--verbose", "-v", action="store_true")
+    s = sub.add_parser("status")
+    s.add_argument("target")
+    s.add_argument("--dry-run", action="store_true")
+    n = sub.add_parser("news")
+    n.add_argument("target")
+    n.add_argument("--file")
+    n.add_argument("--seed", action="store_true", help="mark every current entry as posted")
+    n.add_argument("--dry-run", action="store_true")
+    w = sub.add_parser("test-webhook")
+    w.add_argument("target")
+    w.add_argument("kind", nargs="?", default="alerts", choices=["alerts", "status", "news"])
+    args = p.parse_args()
+    t = Target(args.target)
+    return {"check": cmd_check, "status": cmd_status, "news": cmd_news, "test-webhook": cmd_test_webhook}[args.cmd](
+        t, args)
+
+
+if __name__ == "__main__":
+    sys.exit(main())

@@ -80,6 +80,19 @@ Installed for `persistence-test` (no webhook yet). **Live is not installed**: th
 `/opt/slumsms-monitor/install.sh live --status --news`. During a live deploy, `touch /etc/slumsms-monitor/live.maintenance`.
 See `deploy/monitor/README.md`.
 
+## Monitoring and Discord (tickets 42, 46)
+
+`slumsms-monitor` (repo `deploy/monitor/`, copy on the host in `/opt/slumsms-monitor`, installed to
+`/usr/local/bin`). One instance per watched server ("target"): `slumsms-monitor@<target>.timer` checks every minute
+(unit, login port, journal error rate, heap/RSS vs `-Xmx`, DB container, disk, bots vs director target, LLM/Decide
+health, backup and nav-bake timers) and alerts a Discord webhook with recoveries; `slumsms-status@<target>.timer`
+edits a status message every 5 minutes; `slumsms-news-<target>.path` posts new launcher news when the manifest
+changes. Config `/etc/slumsms-monitor/<target>.conf`, webhook URLs `/etc/slumsms-monitor/<target>.env` (0600, not in
+git; without them messages go to `/var/log/slumsms-monitor/<target>.log`), state `/var/lib/slumsms-monitor/<target>/`.
+Installed for `persistence-test` (no webhook yet). **Live is not installed**: the owner runs
+`/opt/slumsms-monitor/install.sh live --status --news`. During a live deploy, `touch /etc/slumsms-monitor/live.maintenance`.
+See `deploy/monitor/README.md`.
+
 ## Patch server (friends' downloads)
 
 | What | Where |

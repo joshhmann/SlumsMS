@@ -2,7 +2,7 @@
 
 **Area:** Community
 **Depends on:** 42 (alerts share the webhook plumbing)
-**Status:** open
+**Status:** status message and release news built on branch `monitoring` (`slumsms-monitor status|news`, webhooks only, nothing read back), waiting for the owner's webhook URLs and the live install. Registration notices not done.
 
 ## What
 
