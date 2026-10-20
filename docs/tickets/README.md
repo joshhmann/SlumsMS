@@ -27,7 +27,7 @@ Created 2026-10-19 from the owner's plan. Order: nav v2 → real bots → compan
 | [18](18-addon-setequip.md) | SetEquipV3 addon | Addons | - |
 | [19](19-addon-monsterbook.md) | MonsterBook addon | Addons | - |
 | [20](20-launcher-packs.md) | Packed first install for remote friends | Launcher | - |
-| [21](21-world-events.md) | Scripted world events with bot reactions | Later | 16 |
+| [21](21-world-events.md) | Scripted world events with bot reactions (built, branch `world-events`) | Later | 16 |
 | [22](22-jar-data-resolver.md) | Jar-only data loading | Later | - |
 | [23](23-live-backups.md) | Scheduled live backups | Ops | - |
 | [24](24-client-cleanup.md) | Retire the junction test clients | Client | - |

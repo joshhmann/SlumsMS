@@ -1,0 +1,64 @@
+package soloMapling.worldevents;
+
+import java.util.Map;
+import java.util.concurrent.ConcurrentHashMap;
+
+/**
+ * Which bots are headed to a world event, and where (ticket 21). A training bot that answers the call asks here on its
+ * next decision and trains on the event map instead of its own pick; when the event ends the entry is dropped and the
+ * bot's own session carries on (it finishes the grind it is on, then decides as usual). A bot is steered at most
+ * {@link #MAX_DECISIONS} times per event, so one that cannot reach the map gives up instead of looping.
+ */
+public final class WorldEventSteer {
+
+    static final int MAX_DECISIONS = 3;
+
+    record Call(int eventId, int mapId, int decisions) {
+    }
+
+    private static final Map<Integer, Call> calls = new ConcurrentHashMap<>();
+
+    private WorldEventSteer() {
+    }
+
+    static void steer(int charId, int eventId, int mapId) {
+        calls.put(charId, new Call(eventId, mapId, 0));
+    }
+
+    static boolean isSteered(int charId) {
+        return calls.containsKey(charId);
+    }
+
+    /** Drops every bot headed to this event. */
+    static void release(int eventId) {
+        calls.values().removeIf(c -> c.eventId() == eventId);
+    }
+
+    /** The event map a deciding bot should train on, or -1. Counts the decision. */
+    public static int decide(int charId) {
+        Call c = calls.get(charId);
+        if (c == null) {
+            return -1;
+        }
+        if (c.decisions() >= MAX_DECISIONS) {
+            calls.remove(charId, c);
+            return -1;
+        }
+        calls.put(charId, new Call(c.eventId(), c.mapId(), c.decisions() + 1));
+        return c.mapId();
+    }
+
+    /** The event map this bot is headed to or holding, or -1 (no decision counted). */
+    public static int mapFor(int charId) {
+        Call c = calls.get(charId);
+        return c == null ? -1 : c.mapId();
+    }
+
+    static int count(int eventId) {
+        return (int) calls.values().stream().filter(c -> c.eventId() == eventId).count();
+    }
+
+    static void clearForTest() {
+        calls.clear();
+    }
+}

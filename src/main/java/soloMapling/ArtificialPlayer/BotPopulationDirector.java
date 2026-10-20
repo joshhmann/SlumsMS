@@ -287,7 +287,7 @@ public final class BotPopulationDirector {
      * Whether a bot can leave now without breaking a promise to a player: no open trade or armed invite, no
      * conversation in progress, no party with a real player, not following anyone.
      */
-    static boolean mayLogOut(BotSM bot) {
+    public static boolean mayLogOut(BotSM bot) {
         if (BotCommitments.inFlight(bot) || bot instanceof FollowerBot) {
             return false;
         }

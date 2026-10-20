@@ -1707,6 +1707,9 @@ public class MapleMap {
                                         soloMapling.server.EventMessageSystem.EventFactory.createBossKillEvent(
                                                 killer, monster.getName(), monster.getStats().getLevel())));
                     }
+                    final Character eventKiller = dropOwner != null ? dropOwner : chr;
+                    soloMapling.server.MapleRootSolo.runHook("world event kill", () ->   // ticket 21
+                            soloMapling.worldevents.WorldEvents.getInstance().onMonsterKilled(this, monster, eventKiller));
                     if (withDrops && !monster.dropsDisabled()) {
                         if (dropOwner == null) {
                             dropOwner = chr;

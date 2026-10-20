@@ -1,0 +1,82 @@
+# Ticket 21: what bots say about scripted world events (WorldEventReactions). Bot map chat, so @quiet bots hides it.
+# Said only on maps a real player is on. "During" while the event runs, "After" for ~20 minutes once it ends.
+# Tokens: {MAP} {CH} {REGION} {EVENT} {BOSS} {ITEM} {NPC} {PLAYER}. A line whose tokens cannot be filled is skipped.
+# Keep the old-GMS chat feel: short, lowercase, no modern slang.
+WorldEvent:
+  InvasionDuring:
+    text:
+      - "omg invasion at {MAP}??"
+      - "theres mobs everywhere at {MAP} lol"
+      - "anyone going to {MAP}? monsters attacking"
+      - "{MAP} is packed rn, invasion"
+      - "kill the wave fast before {BOSS} comes"
+      - "is {BOSS} out yet at {MAP}?"
+      - "{MAP} ch{CH} invasion, come help"
+      - "so many mobs @@ my pots"
+      - "free exp at {MAP} lol"
+  InvasionAfter:
+    text:
+      - "did u see the invasion at {MAP}"
+      - "{PLAYER} killed {BOSS} at the invasion, so strong"
+      - "missed the invasion T_T"
+      - "that invasion was crazy lol"
+      - "i got like 3 levels at {MAP} during the invasion"
+      - "gg {PLAYER} on the invasion"
+  BossDuring:
+    text:
+      - "{BOSS} is at {MAP}!!"
+      - "anyone killing {BOSS}? its at {MAP} ch{CH}"
+      - "omg {BOSS} spawned"
+      - "{BOSS} at {MAP}, need help"
+      - "lf> party for {BOSS}"
+      - "is {BOSS} still up?"
+      - "ks {BOSS} pls no"
+  BossAfter:
+    text:
+      - "{PLAYER} killed {BOSS} lol nice"
+      - "did anyone get {BOSS}?"
+      - "{BOSS} was at {MAP} earlier"
+      - "missed {BOSS} again T_T"
+      - "gg {PLAYER}, {BOSS} down"
+  TreasureDuring:
+    text:
+      - "anyone find the chest yet?"
+      - "where is the treasure lol"
+      - "i checked like 5 maps already"
+      - "treasure hunt in {REGION}, im looking"
+      - "is the chest on a high platform or what"
+      - "the hint was so vague lol"
+  TreasureAfter:
+    text:
+      - "{PLAYER} found the treasure?? lucky"
+      - "it was at {MAP} the whole time lol"
+      - "i was so close to the chest T_T"
+      - "gg {PLAYER} on the treasure"
+      - "next treasure hunt is mine"
+  HotSpotDuring:
+    text:
+      - "{MAP} has bonus exp rn"
+      - "hot spot at {MAP} go go"
+      - "exp is so good here lol"
+      - "everyone is at {MAP} for the bonus"
+      - "{MAP} ch{CH} bonus exp, come"
+      - "gonna stay here till the bonus ends"
+  HotSpotAfter:
+    text:
+      - "bonus at {MAP} ended T_T"
+      - "got a level from the hot spot ^^"
+      - "that hot spot was nice"
+      - "when is the next bonus exp"
+  WandererDuring:
+    text:
+      - "theres some explorer in {MAP} asking for {ITEM}"
+      - "anyone have {ITEM}? the traveler wants some"
+      - "who is {NPC}? never seen them before"
+      - "{NPC} is at {MAP}, does quest give anything good?"
+      - "farming {ITEM} for the explorer lol"
+  WandererAfter:
+    text:
+      - "the explorer left already?"
+      - "i gave {NPC} my {ITEM} lol"
+      - "{PLAYER} helped the explorer first"
+      - "that traveler quest was quick"

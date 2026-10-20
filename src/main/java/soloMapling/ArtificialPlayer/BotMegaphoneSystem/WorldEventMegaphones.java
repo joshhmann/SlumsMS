@@ -302,6 +302,23 @@ public final class WorldEventMegaphones implements EventSubscriber {
         return false;
     }
 
+    /**
+     * Ticket 21: a scripted world event (invasion, boss sighting, treasure hunt...) that a bot shouts about. Same
+     * gate, pending slot and cooldown as the events above.
+     */
+    public boolean offerEvent(Character speaker, String node, Map<String, String> tokens, String key) {
+        if (!enabled() || speaker == null || BotShutdown.isQuiesced()) {
+            return false;
+        }
+        Map<String, String> filled = new ConcurrentHashMap<>();
+        tokens.forEach((k, v) -> {
+            if (k != null && v != null) {
+                filled.put(k, v);
+            }
+        });
+        return offer(new Shout(speaker, node, filled, key, clock.getAsLong()));
+    }
+
     /** Called by the ambient megaphone ticker: posts the pending event if there is one and the gate allows. */
     public boolean flushPending() {
         Shout shout = pending.get();

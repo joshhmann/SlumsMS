@@ -1,0 +1,119 @@
+# World events (SlumsMS ticket 21; spec: SoloMapling .pi-flow/world-events/spec.md).
+#
+# Scripted only: a scheduler picks these by weight, leaning on the population director's daily curve. No model
+# ever picks, starts or runs an event. Rates, drops and shops are never touched; an event spawns its own mobs or NPC
+# on one map (channel 1, where the bots live) for a fixed time and hands out only the reward table below, to real
+# players only (bots never get event rewards).
+#
+# Reload live with !event reload. A template with a mistake is skipped and listed by !event list.
+#
+# Fields:
+#   id                unique, letters/digits/_/-
+#   kind              invasion | boss_sighting | treasure_hunt | hot_spot | wandering_npc
+#   name              shown in bot chatter and megaphones
+#   weight            relative pick among eligible templates (0 = only by GM)
+#   minutes           how long it runs (1-120); every event ends at this time at the latest
+#   cooldown_minutes  rest after it ends before the scheduler may pick it again (GM starts ignore this)
+#   levels            [min, max] bot levels that react; leave out to derive it from the mobs/boss/map
+#   bot_cap           most bots that head there (also capped by -Dsolomapling.worldEvents.botCap, default 10)
+#   maps / spots      where it can happen (one is picked at random). spots carry `mob` (boss_sighting) or
+#                     `item` + `count` (wandering_npc: what the traveler asks each player for)
+#   waves, boss       invasion: mob waves in order, then the boss; the next wave comes when a wave is cleared
+#   npc               treasure_hunt: the hidden chest NPC; wandering_npc: the traveler
+#   exp_bonus         hot_spot: EXP multiplier on that one map for real players (above 1.0, at most 2.0)
+#   rewards           [{item, qty, chance}] given to the winner (invasion/boss: the real player who lands the
+#                     killing blow; treasure: the first real player to open the chest; wandering_npc: every player
+#                     who turns the quest in, once each). chance defaults to 1.0.
+#   enabled           false keeps it out of the scheduler and !event start
+#
+# OWNER: the reward tables are a first suggestion (potions only, no mesos, no equipment, no scrolls). Change or empty
+# them as you like; -Dsolomapling.worldEvents.rewards=false switches every table off.
+
+templates:
+  - id: mushroom_invasion
+    kind: invasion
+    name: Mushroom Invasion
+    weight: 3
+    minutes: 25
+    cooldown_minutes: 240
+    bot_cap: 8
+    maps: [105050000, 105050100, 105070001]      # Ant Tunnel I, Ant Tunnel II, Ant Tunnel Park
+    waves:
+      - {mob: 2110200, count: 14}                # Horny Mushroom
+      - {mob: 2230101, count: 14}                # Zombie Mushroom
+    boss: 6130101                                # Mushmom
+    rewards:
+      - {item: 2000004, qty: 5}                  # Elixir
+      - {item: 2000005, qty: 2, chance: 0.3}     # Power Elixir
+
+  - id: boar_stampede
+    kind: invasion
+    name: Boar Stampede
+    weight: 3
+    minutes: 25
+    cooldown_minutes: 240
+    bot_cap: 8
+    maps: [101040001, 101030001]                 # Land of Wild Boar, The Land of Wild Boar II
+    waves:
+      - {mob: 2230102, count: 14}                # Wild Boar
+      - {mob: 3210100, count: 12}                # Fire Boar
+    boss: 3220000                                # Stumpy
+    rewards:
+      - {item: 2000004, qty: 4}                  # Elixir
+      - {item: 2000005, qty: 1, chance: 0.25}    # Power Elixir
+
+  - id: field_boss
+    kind: boss_sighting
+    name: Field Boss Sighting
+    weight: 4
+    minutes: 30
+    cooldown_minutes: 90
+    bot_cap: 6
+    spots:
+      - {map: 104000400, mob: 2220000}           # Mano at Thicket Around the Beach III
+      - {map: 101030102, mob: 3220000}           # Stumpy at Excavation Site II
+      - {map: 100040105, mob: 5220002}           # Faust at The Forest of Evil I
+      - {map: 107000300, mob: 6220000}           # Dyle at Dangerous Croko I
+    rewards:
+      - {item: 2000004, qty: 3}                  # Elixir
+
+  - id: hot_spot
+    kind: hot_spot
+    name: Hot Spot
+    weight: 4
+    minutes: 30
+    cooldown_minutes: 120
+    bot_cap: 6
+    exp_bonus: 1.5
+    maps: [104040001, 101040001, 105050100, 105040301, 100040101, 106000002]
+    # Henesys Hunting Ground II, Land of Wild Boar, Ant Tunnel II, Sleepy Dungeon I, Monkey Forest I,
+    # Dangerous Valley II
+
+  - id: treasure_hunt
+    kind: treasure_hunt
+    name: Treasure Hunt
+    weight: 2
+    minutes: 20
+    cooldown_minutes: 180
+    bot_cap: 4
+    npc: 1052008                                 # Treasure Chest
+    maps: [100020000, 104040002, 101010100, 101030400, 102020000, 103020000, 100040100, 101040000]
+    levels: [10, 200]
+    rewards:
+      - {item: 2000004, qty: 3}                  # Elixir
+      - {item: 2000005, qty: 1, chance: 0.5}     # Power Elixir
+
+  - id: wandering_explorer
+    kind: wandering_npc
+    name: Wandering Explorer
+    weight: 2
+    minutes: 30
+    cooldown_minutes: 180
+    npc: 2060101                                 # Taeng the Explorer
+    spots:
+      - {map: 100000000, item: 4000001, count: 20}   # Henesys: Orange Mushroom Caps
+      - {map: 101000000, item: 4000004, count: 20}   # Ellinia: Squishy Liquid
+      - {map: 102000000, item: 4000020, count: 15}   # Perion: Wild Boar Teeth
+      - {map: 104000000, item: 4000000, count: 20}   # Lith Harbor: Blue Snail Shells
+    rewards:
+      - {item: 2000004, qty: 2}                  # Elixir

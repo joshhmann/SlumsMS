@@ -139,6 +139,7 @@ public class EnvironmentManager {
         ));
         SocialHotPotatoManager.getInstance().start();
         ConversationManager.getInstance().start();
+        soloMapling.worldevents.WorldEvents.getInstance().start(); // ticket 21: scripted world events
 
         runWave(4, "Expand FM + Henesys Market", List.of(
                 slotBase -> populateFreeMarketRegion(slotBase, "perion"),
