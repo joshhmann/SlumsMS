@@ -46,3 +46,5 @@ Created 2026-10-19 from the owner's plan. Order: nav v2 → real bots → compan
 | [37](37-natural-conversations.md) | Natural conversations: talk window on demand, era-true replies | Real bots | 36 |
 | [38](38-bot-economy-behaviour.md) | Bot economy behaviour: meso plans, FM pricing from real trades, sinks | Real bots / Economy | 09,12,15 (after 1.3.0) |
 | [39](39-client-dgvoodoo-wrapper.md) | Client graphics wrapper for virtual displays | Client | 1.3.0 |
+| [40](40-player-guide-and-wiki.md) | Player guidebook and server wiki | Content / Docs | 1.3.0, 37 |
+| [41](41-world-name-bera.md) | Run the live world as Bera | Server / Client / Ops | - |
