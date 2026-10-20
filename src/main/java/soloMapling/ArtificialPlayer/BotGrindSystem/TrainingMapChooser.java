@@ -113,6 +113,23 @@ public final class TrainingMapChooser {
                 eligible = TrainingMapFinder.findTrainingMaps(
                         chr.getMapId(), level, minMob, maxMob, useReach, excluded, includeOrigin, hardMinMob, rebirths);
             }
+            if (attempt == 0 && !chill
+                    && LevelingPathChooser.wantsPath(inBand(eligible, minMob, maxMob), rng.nextDouble())) {
+                // Ticket 31: the leveling path picks by band and job group (null = nothing on it fits right now,
+                // carry on as before). Its pick is all-or-nothing: over capacity -> the old search below.
+                TrainingMap onPath = LevelingPathChooser.choose(chr, homeMapId, rebirths, hardMinMob, excluded);
+                if (onPath != null) {
+                    reserve(onPath.mapId());
+                    if (botsOnMap(onPath.mapId()) <= mapCapacity(onPath.mapId())) {
+                        debug.accept("DECIDE: leveling path -> map " + onPath.mapId() + " (mob lv " + onPath.mobLevel()
+                                + (onPath.relocates() ? ", new home " + onPath.relocateHomeMapId() : "") + ")");
+                        LevelingPathCensus.decided(chr.getId(), level, chr.getJob().getId(), onPath,
+                                LevelingPathCensus.Source.PATH);
+                        return onPath;
+                    }
+                    release(onPath.mapId());
+                }
+            }
             if (attempt == 0 && !chill) {
                 // Ticket 03: maybe leave the region - rarely while it still fits, usually once it's outgrown.
                 List<TrainingMap> abroad = considerRelocation(chr, homeMapId, level, rebirths, minMob, maxMob,
@@ -129,6 +146,8 @@ public final class TrainingMapChooser {
             TrainingMap candidate = weightedPick(eligible, level, useReach);
             reserve(candidate.mapId());
             if (botsOnMap(candidate.mapId()) <= mapCapacity(candidate.mapId()) || attempt == MAX_REDECIDES) {
+                LevelingPathCensus.decided(chr.getId(), level, chr.getJob().getId(), candidate,
+                        LevelingPathCensus.Source.LOCAL);
                 return candidate; // within capacity, or out of re-rolls -> accept (saturated region: share)
             }
             release(candidate.mapId());

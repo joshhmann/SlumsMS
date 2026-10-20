@@ -1,0 +1,724 @@
+# Leveling path for training bots (ticket 31): where bots grind, by level band AND job group.
+#
+# Read by LevelingPath.java from this path relative to the server's working directory (like TrainingRegions.yaml;
+# it is not inside the jar - see docs/release/1.3.0.md step 9). Edit and reload live with `!env path reload`.
+# Built from docs/real-bots/leveling-path-draft.yaml (research: docs/real-bots/leveling-path-research.md).
+#
+# How a training bot uses it (LevelingPathChooser): on most decisions (-Dsolomapling.levelPath.follow, default
+# 0.75; always when nothing around its home fits its level) it takes its band and job group, and draws one entry:
+#   - group entries at full weight, the band's `general` entries mixed in at a lower weight (a group with no
+#     entries in a band uses `general` alone);
+#   - weight `w` x the bot's own favourites (a stable per-bot bias per continent) x free room on the map
+#     (spot capacity minus bots already headed there; a full map is skipped) x the map's ticket-15 yield
+#     headroom, with maps around the bot's home preferred over a trip abroad.
+# An entry is skipped for that bot when: the map has no mobs or fewer than 2 spawns in this WZ, it is a
+# mini-dungeon, it lies in a region TrainingRegions.yaml disables, BotMapGates closes it at the bot's rebirths
+# (`rebirths:` below only documents the gate), its median mob level is more than 15 above the bot, it is on the
+# bot's crowd cooldown, or no route (walk, cab, boat...) reaches it from the bot's home within its mesos.
+# Nothing valid -> the bot falls back to the old behaviour (nearby maps by level, TrainingRegions relocation).
+#
+# Bands: [lo, hi) by bot level; the last band includes 255. w: relative weight. mode: solo | party | both
+# (party spots get half weight for a solo bot). mob_levels / name: documentation (the code reads mob levels from WZ).
+#
+# Validation against the server WZ (2026-10-20, Map.wz/Mob.wz from the 1.3.0 test install): 509 entries,
+# 269 distinct maps; every map exists and has 2+ mob spawns. 5 entries are disabled below with `# INVALID`
+# (4 Knight Stronghold maps no bot may enter, 1 mini-dungeon). 109 entries lie outside TrainingRegions.yaml's
+# regions (Temple of Time, Twilight Perion, Edelstein, Mirror World, Grandis, Malaysia, Ereve, Rien, Florina):
+# the path may send bots there when a route exists; TrainingRegions' `enabled: false` still closes a region.
+version: 1
+job_groups:
+  # bot job id ranges -> group; a group with no entry in a band falls back to "general".
+  warrior: [100-132]
+  mage_fp: [200, 210-212]   # 200 = first-job magician, before the F/P, I/L or cleric split
+  mage_il: [220-222]
+  mage_cleric: [230-232]
+  archer: [300-322]
+  thief: [400-422]
+  pirate_brawler: [500, 510-512]
+  pirate_gunslinger: [520-522]
+  aran: [2000, 2100-2112]
+  cygnus: [1000]
+inherits:
+  # Cygnus Knights use the explorer route after the Ereve starter band (guides: DMS-DW/TB1/WA/BW).
+  dawn_warrior: {jobs: [1100-1111], from: warrior}
+  blaze_wizard: {jobs: [1200-1211], from: mage_fp}
+  wind_archer: {jobs: [1300-1311], from: archer}
+  night_walker: {jobs: [1400-1411], from: thief}
+  thunder_breaker: {jobs: [1500-1511], from: pirate_brawler}
+  beginner: {jobs: [0], from: general}
+party_quests:
+  # Not grind maps: lobbies/stage-1 ids for a future party system. Levels are the v83 entry ranges.
+  - {name: Henesys PQ, levels: [10, 20], lobby: 100000200, stage1: 910010000}
+  - {name: Kerning PQ, levels: [21, 30], lobby: 103000000, stage1: 103000800}
+  - {name: Monster Carnival (CPQ1), levels: [30, 50], lobby: 980000000}
+  - {name: Ludibrium PQ, levels: [35, 50], lobby: 221024500, stage1: 922010100}
+  - {name: Ludibrium Maze PQ, levels: [51, 70], stage1: 809050000}
+  - {name: Orbis PQ, levels: [51, 70], lobby: 200080101, stage1: 920010000}
+  - {name: Pirate PQ, levels: [55, 90], lobby: 251010404, stage1: 925100000}
+  - {name: Magatia PQ (R&J), levels: [71, 85], lobby: 261000021, stage1: 926100000}
+  - {name: Crimsonwood Keep PQ, levels: [90, 120], lobby: 610030000, stage1: 610030100}
+bands:
+  - levels: [1, 10]
+    label: "Starter islands and town edges"
+    groups:
+      general:
+        - {map: 104040000, w: 3, mode: solo, mob_levels: [2, 7], name: "Victoria Road: Henesys Hunting Ground I"}
+        - {map: 100010000, w: 3, mode: solo, mob_levels: [2, 8], name: "Victoria Road: The Hill East of Henesys"}
+        - {map: 100050000, w: 2, mode: solo, mob_levels: [4, 15], name: "Victoria Road: The Field South of Ellinia"}
+        - {map: 101010100, w: 2, mode: solo, mob_levels: [4, 6], name: "Victoria Road: The Tree That Grew I"}
+        - {map: 103010000, w: 2, mode: solo, mob_levels: [4, 12], name: "Victoria Road: Kerning City Construction Site"}
+      mage_fp:
+        - {map: 100040001, w: 4, mode: solo, mob_levels: [6, 6], name: "Victoria Road: Dungeon, Southern Forest I"}
+      mage_il:
+        - {map: 100040001, w: 4, mode: solo, mob_levels: [6, 6], name: "Victoria Road: Dungeon, Southern Forest I"}
+      mage_cleric:
+        - {map: 100040001, w: 4, mode: solo, mob_levels: [6, 6], name: "Victoria Road: Dungeon, Southern Forest I"}
+      archer:
+        - {map: 100010000, w: 4, mode: solo, mob_levels: [2, 8], name: "Victoria Road: The Hill East of Henesys"}
+        - {map: 104040000, w: 3, mode: solo, mob_levels: [2, 7], name: "Victoria Road: Henesys Hunting Ground I"}
+      cygnus:
+        - {map: 130010000, w: 4, mode: solo, mob_levels: [1, 3], name: "Empress' Road: Training Forest I"}
+        - {map: 130010100, w: 4, mode: solo, mob_levels: [5, 7], name: "Empress' Road: Training Forest II"}
+        - {map: 130010110, w: 3, mode: solo, mob_levels: [5, 5], name: "Empress' Road: Timu's Forest"}
+        - {map: 130010120, w: 3, mode: solo, mob_levels: [7, 7], name: "Empress' Road: Tiru's Forest"}
+        - {map: 130010200, w: 2, mode: solo, mob_levels: [7, 9], name: "Empress' Road: Training Forest III"}
+      aran:
+        - {map: 140020000, w: 4, mode: solo, mob_levels: [3, 3], name: "Snow Island: Snow-covered Field 1"}
+        - {map: 140020100, w: 4, mode: solo, mob_levels: [5, 5], name: "Snow Island: Snow-covered Field 2"}
+        - {map: 140020200, w: 4, mode: solo, mob_levels: [7, 7], name: "Snow Island: Snow-covered Field 3"}   # WZ flags it town=1, but it has 18 mob spawns; kept
+        - {map: 140010200, w: 3, mode: solo, mob_levels: [9, 9], name: "Snow Island: Dangerous Forest"}
+  - levels: [10, 21]
+    label: "Victoria Island first job"
+    groups:
+      general:
+        - {map: 104040001, w: 4, mode: solo, mob_levels: [7, 15], name: "Victoria Road: Henesys Hunting Ground II"}
+        - {map: 104040002, w: 4, mode: solo, mob_levels: [8, 15], name: "Victoria Road: Henesys Hunting Ground III"}
+        - {map: 101010101, w: 3, mode: solo, mob_levels: [6, 10], name: "Victoria Road: The Tree That Grew II"}
+        - {map: 101010102, w: 3, mode: solo, mob_levels: [10, 15], name: "Victoria Road: The Tree That Grew III"}
+        - {map: 104010001, w: 3, mode: solo, mob_levels: [7, 42], name: "Hidden Street: The Pig Beach"}
+        - {map: 103000101, w: 4, mode: solo, mob_levels: [15, 15], name: "Kerning City Subway: Line 1 <Area 1>"}
+        - {map: 104030001, w: 2, mode: solo, mob_levels: [2, 15], name: "Hidden Street: Mushroom Garden"}   # WZ flags it town=1, but it has 34 mob spawns; kept
+      warrior:
+        - {map: 104010001, w: 4, mode: solo, mob_levels: [7, 42], name: "Hidden Street: The Pig Beach"}
+        - {map: 103000101, w: 3, mode: solo, mob_levels: [15, 15], name: "Kerning City Subway: Line 1 <Area 1>"}
+        - {map: 101030401, w: 3, mode: solo, mob_levels: [4, 10], name: "Victoria Road: East Rocky Mountain II"}
+        - {map: 101030402, w: 3, mode: solo, mob_levels: [10, 17], name: "Victoria Road: East Rocky Mountain III"}
+      mage_fp:
+        - {map: 100040003, w: 4, mode: solo, mob_levels: [15, 15], name: "Victoria Road: Dungeon, Southern Forest III"}
+        - {map: 100040004, w: 4, mode: solo, mob_levels: [15, 15], name: "Victoria Road: Dungeon, Southern Forest IV"}
+        - {map: 100040002, w: 3, mode: solo, mob_levels: [6, 6], name: "Victoria Road: Dungeon, Southern Forest II"}
+      mage_il:
+        - {map: 100040003, w: 4, mode: solo, mob_levels: [15, 15], name: "Victoria Road: Dungeon, Southern Forest III"}
+        - {map: 100040004, w: 4, mode: solo, mob_levels: [15, 15], name: "Victoria Road: Dungeon, Southern Forest IV"}
+        - {map: 100040002, w: 3, mode: solo, mob_levels: [6, 6], name: "Victoria Road: Dungeon, Southern Forest II"}
+      mage_cleric:
+        - {map: 100040003, w: 4, mode: solo, mob_levels: [15, 15], name: "Victoria Road: Dungeon, Southern Forest III"}
+        - {map: 104010001, w: 3, mode: solo, mob_levels: [7, 42], name: "Hidden Street: The Pig Beach"}
+      archer:
+        - {map: 103010000, w: 3, mode: solo, mob_levels: [4, 12], name: "Victoria Road: Kerning City Construction Site"}
+        - {map: 104040002, w: 4, mode: solo, mob_levels: [8, 15], name: "Victoria Road: Henesys Hunting Ground III"}
+        - {map: 101010101, w: 3, mode: solo, mob_levels: [6, 10], name: "Victoria Road: The Tree That Grew II"}
+        - {map: 104010001, w: 2, mode: solo, mob_levels: [7, 42], name: "Hidden Street: The Pig Beach"}
+      thief:
+        - {map: 103000101, w: 4, mode: solo, mob_levels: [15, 15], name: "Kerning City Subway: Line 1 <Area 1>"}
+        - {map: 104040002, w: 3, mode: solo, mob_levels: [8, 15], name: "Victoria Road: Henesys Hunting Ground III"}
+        - {map: 100040001, w: 3, mode: solo, mob_levels: [6, 6], name: "Victoria Road: Dungeon, Southern Forest I"}
+      pirate_brawler:
+        - {map: 103000101, w: 4, mode: solo, mob_levels: [15, 15], name: "Kerning City Subway: Line 1 <Area 1>"}
+        - {map: 101010102, w: 3, mode: solo, mob_levels: [10, 15], name: "Victoria Road: The Tree That Grew III"}
+      pirate_gunslinger:
+        - {map: 104040001, w: 4, mode: solo, mob_levels: [7, 15], name: "Victoria Road: Henesys Hunting Ground II"}
+        - {map: 104030001, w: 3, mode: solo, mob_levels: [2, 15], name: "Hidden Street: Mushroom Garden"}   # WZ flags it town=1, but it has 34 mob spawns; kept
+        - {map: 101010102, w: 3, mode: solo, mob_levels: [10, 15], name: "Victoria Road: The Tree That Grew III"}
+      aran:
+        - {map: 104040002, w: 3, mode: solo, mob_levels: [8, 15], name: "Victoria Road: Henesys Hunting Ground III"}
+        - {map: 104010001, w: 3, mode: solo, mob_levels: [7, 42], name: "Hidden Street: The Pig Beach"}
+        - {map: 103010001, w: 2, mode: solo, mob_levels: [12, 15], name: "Hidden Street: Caution Falling Down"}
+      cygnus:
+        - {map: 130010210, w: 2, mode: solo, mob_levels: [9, 9], name: "Empress' Road: Tiguru's Forest"}
+  - levels: [21, 30]
+    label: "Sleepywood, Perion, Kerning subway; KPQ"
+    groups:
+      general:
+        - {map: 105050200, w: 4, mode: solo, mob_levels: [22, 24], name: "Dungeon: Ant Tunnel III"}
+        - {map: 105050300, w: 3, mode: solo, mob_levels: [22, 24], name: "Dungeon: Ant Tunnel IV"}
+        - {map: 105050100, w: 3, mode: solo, mob_levels: [22, 24], name: "Dungeon: Ant Tunnel II"}
+        - {map: 101030001, w: 4, mode: solo, mob_levels: [22, 25], name: "Hidden Street: The Land of Wild Boar II"}
+        - {map: 101040001, w: 3, mode: solo, mob_levels: [22, 35], name: "Hidden Street: Land of Wild Boar"}
+        - {map: 105070100, w: 3, mode: solo, mob_levels: [27, 35], name: "Dungeon: The Cave of Evil Eye I"}
+        - {map: 105070200, w: 3, mode: solo, mob_levels: [27, 35], name: "Dungeon: The Cave of Evil Eye II"}
+        - {map: 101030103, w: 3, mode: solo, mob_levels: [23, 24], name: "Victoria Road: Excavation Site III"}
+        - {map: 260020600, w: 2, mode: solo, mob_levels: [24, 29], name: "Sunset Road: Sahel 2"}
+        - {map: 260020700, w: 2, mode: solo, mob_levels: [29, 29], name: "Sunset Road: Sahel 1"}
+      warrior:
+        - {map: 101030001, w: 5, mode: solo, mob_levels: [22, 25], name: "Hidden Street: The Land of Wild Boar II"}
+        - {map: 105050200, w: 4, mode: solo, mob_levels: [22, 24], name: "Dungeon: Ant Tunnel III"}
+        - {map: 101020008, w: 2, mode: solo, mob_levels: [22, 22], name: "Victoria Road: Tree Dungeon, Forest Up North VII"}
+      mage_fp:
+        - {map: 105050200, w: 4, mode: solo, mob_levels: [22, 24], name: "Dungeon: Ant Tunnel III"}
+        - {map: 101030001, w: 3, mode: solo, mob_levels: [22, 25], name: "Hidden Street: The Land of Wild Boar II"}
+        - {map: 105070100, w: 3, mode: solo, mob_levels: [27, 35], name: "Dungeon: The Cave of Evil Eye I"}
+      mage_il:
+        - {map: 105050200, w: 4, mode: solo, mob_levels: [22, 24], name: "Dungeon: Ant Tunnel III"}
+        - {map: 101030001, w: 3, mode: solo, mob_levels: [22, 25], name: "Hidden Street: The Land of Wild Boar II"}
+        - {map: 103000102, w: 2, mode: solo, mob_levels: [20, 20], name: "Kerning City Subway: Transfer Area"}
+      mage_cleric:
+        - {map: 105050200, w: 5, mode: solo, mob_levels: [22, 24], name: "Dungeon: Ant Tunnel III"}
+        - {map: 105060100, w: 4, mode: solo, mob_levels: [22, 35], name: "Dungeon: Deep Ant Tunnel I"}
+        - {map: 101030001, w: 3, mode: solo, mob_levels: [22, 25], name: "Hidden Street: The Land of Wild Boar II"}
+      archer:
+        - {map: 101030103, w: 4, mode: solo, mob_levels: [23, 24], name: "Victoria Road: Excavation Site III"}
+        - {map: 101030102, w: 3, mode: solo, mob_levels: [19, 24], name: "Victoria Road: Excavation Site II"}
+        - {map: 103000101, w: 3, mode: solo, mob_levels: [15, 15], name: "Kerning City Subway: Line 1 <Area 1>"}
+        - {map: 221023100, w: 3, mode: solo, mob_levels: [23, 23], name: "Ludibrium: Eos Tower 73rd Floor"}
+        - {map: 101030001, w: 2, mode: both, mob_levels: [22, 25], name: "Hidden Street: The Land of Wild Boar II"}
+      thief:
+        - {map: 105050200, w: 4, mode: solo, mob_levels: [22, 24], name: "Dungeon: Ant Tunnel III"}
+        - {map: 101030001, w: 3, mode: solo, mob_levels: [22, 25], name: "Hidden Street: The Land of Wild Boar II"}
+        - {map: 105070200, w: 3, mode: solo, mob_levels: [27, 35], name: "Dungeon: The Cave of Evil Eye II"}
+        - {map: 101030103, w: 3, mode: solo, mob_levels: [23, 24], name: "Victoria Road: Excavation Site III"}
+      pirate_brawler:
+        - {map: 101040001, w: 3, mode: solo, mob_levels: [22, 35], name: "Hidden Street: Land of Wild Boar"}
+        - {map: 101030001, w: 3, mode: solo, mob_levels: [22, 25], name: "Hidden Street: The Land of Wild Boar II"}
+        - {map: 105050200, w: 3, mode: solo, mob_levels: [22, 24], name: "Dungeon: Ant Tunnel III"}
+      pirate_gunslinger:
+        - {map: 101030103, w: 3, mode: solo, mob_levels: [23, 24], name: "Victoria Road: Excavation Site III"}
+        - {map: 800020000, w: 3, mode: solo, mob_levels: [25, 25], name: "Zipangu: Crow Forest"}
+        - {map: 260020600, w: 2, mode: solo, mob_levels: [24, 29], name: "Sunset Road: Sahel 2"}
+      aran:
+        - {map: 105050200, w: 4, mode: solo, mob_levels: [22, 24], name: "Dungeon: Ant Tunnel III"}
+        - {map: 105060100, w: 4, mode: solo, mob_levels: [22, 35], name: "Dungeon: Deep Ant Tunnel I"}
+        - {map: 105040100, w: 3, mode: solo, mob_levels: [27, 35], name: "Dungeon: Hunting Ground in the Deep Forest I"}
+        - {map: 260020700, w: 3, mode: solo, mob_levels: [29, 29], name: "Sunset Road: Sahel 1"}
+        - {map: 106000100, w: 2, mode: solo, mob_levels: [17, 19], name: "Warning Street: Deep Valley II"}
+  - levels: [30, 40]
+    label: "Ludibrium Terrace Hall, Fire Boars; LPQ/CPQ"
+    groups:
+      general:
+        - {map: 220010500, w: 5, mode: solo, mob_levels: [30, 32], name: "Ludibrium: Terrace Hall"}
+        - {map: 220010300, w: 3, mode: solo, mob_levels: [32, 34], name: "Ludibrium: Cloud Terrace<2>"}
+        - {map: 220010900, w: 3, mode: solo, mob_levels: [32, 34], name: "Ludibrium: Sky Terrace<4>"}
+        - {map: 105070300, w: 3, mode: solo, mob_levels: [27, 35], name: "Dungeon: The Cave of Evil Eye III"}
+        - {map: 106000101, w: 3, mode: solo, mob_levels: [25, 32], name: "Warning Street: The Burnt Land I"}
+        - {map: 106000002, w: 3, mode: solo, mob_levels: [32, 32], name: "Hidden Street: Dangerous Valley II"}
+        - {map: 103000103, w: 3, mode: solo, mob_levels: [20, 35], name: "Kerning City Subway: Line 1 <Area 2>"}
+        - {map: 220040100, w: 3, mode: solo, mob_levels: [37, 37], name: "Ludibrium: The Path of Time <2>"}
+        - {map: 220040300, w: 3, mode: solo, mob_levels: [37, 37], name: "Ludibrium: The Path of Time <3>"}
+        - {map: 106020100, w: 2, mode: solo, mob_levels: [30, 30], name: "Mushroom Castle: Secluded Mushroom Forest"}
+      warrior:
+        - {map: 220010500, w: 5, mode: solo, mob_levels: [30, 32], name: "Ludibrium: Terrace Hall"}
+        - {map: 101030001, w: 4, mode: solo, mob_levels: [22, 25], name: "Hidden Street: The Land of Wild Boar II"}
+        - {map: 105070300, w: 3, mode: solo, mob_levels: [27, 35], name: "Dungeon: The Cave of Evil Eye III"}
+      mage_fp:
+        - {map: 220010500, w: 4, mode: solo, mob_levels: [30, 32], name: "Ludibrium: Terrace Hall"}
+        - {map: 800040201, w: 4, mode: solo, mob_levels: [25, 30], name: "Zipangu: Castle Corridor"}
+        - {map: 211000200, w: 3, mode: solo, mob_levels: [32, 35], name: "El Nath: Snowy Hill"}
+      mage_il:
+        - {map: 106000101, w: 4, mode: solo, mob_levels: [25, 32], name: "Warning Street: The Burnt Land I"}
+        - {map: 106000002, w: 4, mode: solo, mob_levels: [32, 32], name: "Hidden Street: Dangerous Valley II"}
+        - {map: 200081100, w: 3, mode: solo, mob_levels: [30, 30], name: "Orbis: Orbis Tower <11th Floor>"}
+        - {map: 222020300, w: 3, mode: solo, mob_levels: [36, 36], name: "Ludibrium: Helios Tower (100th Floor)"}
+        - {map: 110020000, w: 3, mode: solo, mob_levels: [37, 37], name: "Florina Road: Lorang Lorang"}
+      mage_cleric:
+        - {map: 103000103, w: 5, mode: solo, mob_levels: [20, 35], name: "Kerning City Subway: Line 1 <Area 2>"}
+        - {map: 220010500, w: 4, mode: solo, mob_levels: [30, 32], name: "Ludibrium: Terrace Hall"}
+        - {map: 220040100, w: 4, mode: solo, mob_levels: [37, 37], name: "Ludibrium: The Path of Time <2>"}
+        - {map: 682000001, w: 2, mode: solo, mob_levels: [35, 35], name: "Phantom Forest: Hollowed Ground"}
+      archer:
+        - {map: 106000101, w: 4, mode: solo, mob_levels: [25, 32], name: "Warning Street: The Burnt Land I"}
+        - {map: 106000002, w: 4, mode: solo, mob_levels: [32, 32], name: "Hidden Street: Dangerous Valley II"}
+        - {map: 107000403, w: 4, mode: solo, mob_levels: [21, 40], name: "Hidden Street: Monkey Swamp III"}
+        - {map: 100040104, w: 3, mode: solo, mob_levels: [40, 40], name: "Hidden Street: Tree Dungeon, Monkey Forest II"}
+        - {map: 220010500, w: 3, mode: solo, mob_levels: [30, 32], name: "Ludibrium: Terrace Hall"}
+      thief:
+        - {map: 220010500, w: 4, mode: solo, mob_levels: [30, 32], name: "Ludibrium: Terrace Hall"}
+        - {map: 105070300, w: 3, mode: solo, mob_levels: [27, 35], name: "Dungeon: The Cave of Evil Eye III"}
+        - {map: 106000101, w: 3, mode: solo, mob_levels: [25, 32], name: "Warning Street: The Burnt Land I"}
+      pirate_brawler:
+        - {map: 220010500, w: 4, mode: solo, mob_levels: [30, 32], name: "Ludibrium: Terrace Hall"}
+        - {map: 220010000, w: 3, mode: solo, mob_levels: [30, 39], name: "Ludibrium: Cloud Terrace<5>"}
+        - {map: 261010001, w: 3, mode: solo, mob_levels: [32, 35], name: "Zenumist Research Institute: Lab - Unit 101"}
+      pirate_gunslinger:
+        - {map: 220010500, w: 4, mode: solo, mob_levels: [30, 32], name: "Ludibrium: Terrace Hall"}
+        - {map: 222020300, w: 3, mode: solo, mob_levels: [36, 36], name: "Ludibrium: Helios Tower (100th Floor)"}
+        - {map: 261010003, w: 3, mode: solo, mob_levels: [35, 38], name: "Zenumist Research Institute: Lab - Unit 103"}
+      aran:
+        - {map: 106000101, w: 3, mode: solo, mob_levels: [25, 32], name: "Warning Street: The Burnt Land I"}
+        - {map: 105070300, w: 3, mode: solo, mob_levels: [27, 35], name: "Dungeon: The Cave of Evil Eye III"}
+        - {map: 101030001, w: 3, mode: solo, mob_levels: [22, 25], name: "Hidden Street: The Land of Wild Boar II"}
+  - levels: [40, 50]
+    label: "Path of Time, Kerning subway, Magatia labs; LPQ/CPQ"
+    groups:
+      general:
+        - {map: 220040000, w: 5, mode: solo, mob_levels: [41, 41], name: "Ludibrium: The Path of Time <1>"}
+        - {map: 220050000, w: 4, mode: solo, mob_levels: [41, 41], name: "Ludibrium: Lost Time <1>"}
+        - {map: 220050200, w: 4, mode: solo, mob_levels: [46, 46], name: "Ludibrium: Lost Time <2>"}
+        - {map: 103000105, w: 3, mode: solo, mob_levels: [48, 48], name: "Kerning City Subway: Line 1 <Area 4>"}
+        - {map: 105090000, w: 3, mode: solo, mob_levels: [45, 50], name: "Dungeon: The Tunnel That Lost Light I"}
+        - {map: 106000130, w: 3, mode: solo, mob_levels: [42, 45], name: "Warning Street: The Burnt Land IV"}
+        - {map: 261020600, w: 3, mode: solo, mob_levels: [42, 42], name: "Alcadno Research Institute: Lab - Area B-3"}
+        - {map: 261020200, w: 3, mode: solo, mob_levels: [47, 47], name: "Alcadno Research Institute: Lab - Area B-1"}
+        - {map: 540020100, w: 3, mode: solo, mob_levels: [48, 48], name: "Singapore: Suburban Area 2"}
+        - {map: 110030000, w: 2, mode: solo, mob_levels: [37, 48], name: "Florina Road: Lorang and Clang"}
+      warrior:
+        - {map: 220040000, w: 5, mode: solo, mob_levels: [41, 41], name: "Ludibrium: The Path of Time <1>"}
+        - {map: 220050000, w: 4, mode: solo, mob_levels: [41, 41], name: "Ludibrium: Lost Time <1>"}
+        - {map: 103000105, w: 3, mode: solo, mob_levels: [48, 48], name: "Kerning City Subway: Line 1 <Area 4>"}
+        - {map: 261020600, w: 3, mode: solo, mob_levels: [42, 42], name: "Alcadno Research Institute: Lab - Area B-3"}
+        - {map: 540020100, w: 3, mode: solo, mob_levels: [48, 48], name: "Singapore: Suburban Area 2"}
+      mage_fp:
+        - {map: 105090400, w: 3, mode: solo, mob_levels: [40, 40], name: "Dungeon: Another Path"}
+        - {map: 211000200, w: 3, mode: solo, mob_levels: [32, 35], name: "El Nath: Snowy Hill"}
+        - {map: 221020800, w: 2, mode: solo, mob_levels: [35, 42], name: "Ludibrium: Eos Tower 9th Floor"}
+        - {map: 103000105, w: 2, mode: solo, mob_levels: [48, 48], name: "Kerning City Subway: Line 1 <Area 4>"}
+      mage_il:
+        - {map: 220040000, w: 4, mode: solo, mob_levels: [41, 41], name: "Ludibrium: The Path of Time <1>"}
+        - {map: 110020000, w: 4, mode: solo, mob_levels: [37, 37], name: "Florina Road: Lorang Lorang"}
+        - {map: 540020100, w: 4, mode: solo, mob_levels: [48, 48], name: "Singapore: Suburban Area 2"}
+        - {map: 222020300, w: 3, mode: solo, mob_levels: [36, 36], name: "Ludibrium: Helios Tower (100th Floor)"}
+        - {map: 200010120, w: 2, mode: solo, mob_levels: [33, 33], name: "Orbis: Garden of Yellow I"}
+      mage_cleric:
+        - {map: 103000105, w: 5, mode: solo, mob_levels: [48, 48], name: "Kerning City Subway: Line 1 <Area 4>"}
+        - {map: 220040000, w: 4, mode: solo, mob_levels: [41, 41], name: "Ludibrium: The Path of Time <1>"}
+        - {map: 220050200, w: 4, mode: solo, mob_levels: [46, 46], name: "Ludibrium: Lost Time <2>"}
+        - {map: 107000403, w: 4, mode: solo, mob_levels: [21, 40], name: "Hidden Street: Monkey Swamp III"}
+        - {map: 101030105, w: 3, mode: solo, mob_levels: [44, 47], name: "Victoria Road: Remains <Tomb> I"}
+      archer:
+        - {map: 220040000, w: 4, mode: solo, mob_levels: [41, 41], name: "Ludibrium: The Path of Time <1>"}
+        - {map: 220050200, w: 4, mode: solo, mob_levels: [46, 46], name: "Ludibrium: Lost Time <2>"}
+        - {map: 200050000, w: 4, mode: solo, mob_levels: [30, 45], name: "Orbis: Cloud Park IV"}
+        - {map: 220020500, w: 3, mode: solo, mob_levels: [36, 41], name: "Ludibrium: Toy Factory <Process 1> Zone 6"}
+        - {map: 221030000, w: 3, mode: solo, mob_levels: [41, 41], name: "Omega Sector: Off-Limits"}
+      thief:
+        - {map: 220040000, w: 4, mode: solo, mob_levels: [41, 41], name: "Ludibrium: The Path of Time <1>"}
+        - {map: 103000105, w: 3, mode: solo, mob_levels: [48, 48], name: "Kerning City Subway: Line 1 <Area 4>"}
+        - {map: 105080000, w: 3, mode: solo, mob_levels: [35, 50], name: "Dungeon: Drake Hunting Ground"}
+        - {map: 610010011, w: 2, mode: solo, mob_levels: [45, 50], name: "Phantom Forest: Creeping Evil"}
+      pirate_brawler:
+        - {map: 261020600, w: 4, mode: solo, mob_levels: [42, 42], name: "Alcadno Research Institute: Lab - Area B-3"}
+        - {map: 261020200, w: 4, mode: solo, mob_levels: [47, 47], name: "Alcadno Research Institute: Lab - Area B-1"}
+        - {map: 220040000, w: 3, mode: solo, mob_levels: [41, 41], name: "Ludibrium: The Path of Time <1>"}
+      pirate_gunslinger:
+        - {map: 200010120, w: 3, mode: solo, mob_levels: [33, 33], name: "Orbis: Garden of Yellow I"}
+        - {map: 200010110, w: 3, mode: solo, mob_levels: [33, 33], name: "Orbis: Garden of Red I"}
+        - {map: 800020110, w: 3, mode: solo, mob_levels: [40, 45], name: "Zipangu: A Night in the Forest"}
+        - {map: 682000303, w: 2, mode: solo, mob_levels: [30, 50], name: "Haunted House: Study"}
+      aran:
+        - {map: 261020600, w: 4, mode: solo, mob_levels: [42, 42], name: "Alcadno Research Institute: Lab - Area B-3"}
+        - {map: 261020300, w: 4, mode: solo, mob_levels: [54, 54], name: "Alcadno Research Institute: Lab - Area C-1"}
+        - {map: 540020100, w: 3, mode: solo, mob_levels: [48, 48], name: "Singapore: Suburban Area 2"}
+        - {map: 250020000, w: 3, mode: solo, mob_levels: [50, 50], name: "Mu Lung: Practice Field : Beginner"}
+  - levels: [50, 60]
+    label: "El Nath, Golems, Mu Lung, Singapore; OPQ/LMPQ/CPQ2"
+    groups:
+      general:
+        - {map: 105040306, w: 4, mode: solo, mob_levels: [58, 59], name: "Dungeon: The forest of Golem"}
+        - {map: 211041100, w: 4, mode: solo, mob_levels: [57, 57], name: "El Nath: Forest of Dead Trees I"}
+        - {map: 211041400, w: 3, mode: solo, mob_levels: [57, 57], name: "El Nath: Forest of Dead Trees IV"}
+        - {map: 541010000, w: 3, mode: solo, mob_levels: [58, 58], name: "Singapore: Ghost ship 1"}
+        - {map: 541010040, w: 3, mode: solo, mob_levels: [60, 60], name: "Singapore: Ghost Ship 5"}
+        - {map: 250020000, w: 3, mode: solo, mob_levels: [50, 50], name: "Mu Lung: Practice Field : Beginner"}
+        - {map: 250020200, w: 3, mode: solo, mob_levels: [50, 51], name: "Mu Lung: Practice Field : Normal Level"}
+        - {map: 261020300, w: 3, mode: solo, mob_levels: [54, 54], name: "Alcadno Research Institute: Lab - Area C-1"}
+        - {map: 261020400, w: 3, mode: solo, mob_levels: [54, 58], name: "Alcadno Research Institute: Lab - Area C-2"}
+        - {map: 211010000, w: 3, mode: solo, mob_levels: [50, 55], name: "El Nath: Watch Out for Icy Path I"}
+        - {map: 211030000, w: 3, mode: solo, mob_levels: [55, 58], name: "El Nath: Cold Field I"}
+        - {map: 200080000, w: 3, mode: solo, mob_levels: [30, 52], name: "Orbis: Cloud Park VI"}
+        - {map: 800020120, w: 2, mode: solo, mob_levels: [56, 60], name: "Zipangu: Vanished Village"}
+        - {map: 101030110, w: 2, mode: solo, mob_levels: [57, 63], name: "Victoria Road: Camp 1"}
+      warrior:
+        - {map: 105040306, w: 5, mode: solo, mob_levels: [58, 59], name: "Dungeon: The forest of Golem"}
+        - {map: 211041400, w: 3, mode: solo, mob_levels: [57, 57], name: "El Nath: Forest of Dead Trees IV"}
+        - {map: 250020000, w: 3, mode: solo, mob_levels: [50, 50], name: "Mu Lung: Practice Field : Beginner"}
+      mage_fp:
+        - {map: 211010000, w: 4, mode: solo, mob_levels: [50, 55], name: "El Nath: Watch Out for Icy Path I"}
+        - {map: 211050000, w: 4, mode: solo, mob_levels: [55, 58], name: "El Nath: Icy Cold Field"}
+        - {map: 105040306, w: 3, mode: solo, mob_levels: [58, 59], name: "Dungeon: The forest of Golem"}
+        - {map: 222010300, w: 3, mode: solo, mob_levels: [56, 56], name: "Korean Folk Town: Fox Ridge"}
+        - {map: 800040202, w: 3, mode: solo, mob_levels: [50, 50], name: "Zipangu: Castle Corridor"}
+      mage_il:
+        - {map: 105040306, w: 4, mode: solo, mob_levels: [58, 59], name: "Dungeon: The forest of Golem"}
+        - {map: 200010111, w: 3, mode: solo, mob_levels: [53, 53], name: "Orbis: Garden of Red II"}
+        - {map: 105090300, w: 3, mode: solo, mob_levels: [2, 62], name: "Dungeon: Drake's Meal Table"}
+      mage_cleric:
+        - {map: 211041100, w: 5, mode: solo, mob_levels: [57, 57], name: "El Nath: Forest of Dead Trees I"}
+        - {map: 211041200, w: 4, mode: solo, mob_levels: [57, 57], name: "El Nath: Forest of Dead Trees II"}
+        - {map: 211041300, w: 4, mode: solo, mob_levels: [57, 57], name: "El Nath: Forest of Dead Trees III"}
+        - {map: 211041400, w: 4, mode: solo, mob_levels: [57, 57], name: "El Nath: Forest of Dead Trees IV"}
+        - {map: 101030110, w: 4, mode: solo, mob_levels: [57, 63], name: "Victoria Road: Camp 1"}
+        - {map: 541010000, w: 4, mode: solo, mob_levels: [58, 58], name: "Singapore: Ghost ship 1"}
+        - {map: 541010040, w: 3, mode: solo, mob_levels: [60, 60], name: "Singapore: Ghost Ship 5"}
+      archer:
+        - {map: 211041400, w: 5, mode: solo, mob_levels: [57, 57], name: "El Nath: Forest of Dead Trees IV"}
+        - {map: 200080000, w: 4, mode: solo, mob_levels: [30, 52], name: "Orbis: Cloud Park VI"}
+        - {map: 211010000, w: 3, mode: solo, mob_levels: [50, 55], name: "El Nath: Watch Out for Icy Path I"}
+        - {map: 801010000, w: 3, mode: solo, mob_levels: [43, 47], name: "Zipangu: Showa Street 1"}
+        - {map: 105040306, w: 3, mode: solo, mob_levels: [58, 59], name: "Dungeon: The forest of Golem"}
+      thief:
+        - {map: 211041400, w: 4, mode: solo, mob_levels: [57, 57], name: "El Nath: Forest of Dead Trees IV"}
+        - {map: 250020000, w: 3, mode: solo, mob_levels: [50, 50], name: "Mu Lung: Practice Field : Beginner"}
+        - {map: 541010040, w: 3, mode: solo, mob_levels: [60, 60], name: "Singapore: Ghost Ship 5"}
+      pirate_brawler:
+        - {map: 105040306, w: 4, mode: solo, mob_levels: [58, 59], name: "Dungeon: The forest of Golem"}
+        - {map: 261020400, w: 4, mode: solo, mob_levels: [54, 58], name: "Alcadno Research Institute: Lab - Area C-2"}
+        - {map: 211041300, w: 3, mode: solo, mob_levels: [57, 57], name: "El Nath: Forest of Dead Trees III"}
+      pirate_gunslinger:
+        - {map: 261020400, w: 4, mode: solo, mob_levels: [54, 58], name: "Alcadno Research Institute: Lab - Area C-2"}
+        - {map: 800020120, w: 3, mode: solo, mob_levels: [56, 60], name: "Zipangu: Vanished Village"}
+        - {map: 211010000, w: 3, mode: solo, mob_levels: [50, 55], name: "El Nath: Watch Out for Icy Path I"}
+      aran:
+        - {map: 105040306, w: 4, mode: solo, mob_levels: [58, 59], name: "Dungeon: The forest of Golem"}
+        - {map: 261020400, w: 4, mode: solo, mob_levels: [54, 58], name: "Alcadno Research Institute: Lab - Area C-2"}
+        - {map: 105040305, w: 3, mode: solo, mob_levels: [55, 58], name: "Dungeon: Sleepy Dungeon V"}
+        - {map: 211041100, w: 3, mode: solo, mob_levels: [57, 57], name: "El Nath: Forest of Dead Trees I"}
+  - levels: [60, 70]
+    label: "Ghost Ship 2 / MP3, Ludi clocktower, drakes; OPQ/LMPQ/PPQ"
+    groups:
+      general:
+        - {map: 541010010, w: 5, mode: solo, mob_levels: [63, 63], name: "Singapore: Ghost Ship 2"}
+        - {map: 541000300, w: 4, mode: solo, mob_levels: [60, 63], name: "Singapore: Mysterious Path 3"}
+        - {map: 541010050, w: 3, mode: solo, mob_levels: [68, 68], name: "Singapore: Ghost Ship 6"}
+        - {map: 682000800, w: 3, mode: solo, mob_levels: [20, 70], name: "Haunted House: Library"}
+        - {map: 220070000, w: 4, mode: solo, mob_levels: [63, 67], name: "Ludibrium: Forgotten Path of Time<1>"}
+        - {map: 220060000, w: 4, mode: solo, mob_levels: [61, 66], name: "Ludibrium: Warped Path of Time<1>"}
+        - {map: 105090310, w: 3, mode: solo, mob_levels: [40, 64], name: "Dungeon: Drake Area"}
+        - {map: 105090311, w: 3, mode: solo, mob_levels: [64, 68], name: "Dungeon: Cold Cradle"}
+        - {map: 211040400, w: 3, mode: solo, mob_levels: [56, 68], name: "El Nath: Sharp Cliff II"}
+        - {map: 211040100, w: 3, mode: solo, mob_levels: [50, 65], name: "El Nath: Ice Valley I"}
+        - {map: 251010401, w: 3, mode: solo, mob_levels: [64, 70], name: "Herb Town: Red-Nose Pirate Den 1"}
+        - {map: 261020500, w: 3, mode: solo, mob_levels: [58, 75], name: "Alcadno Research Institute: Lab - Area C-3"}
+        - {map: 801040001, w: 3, mode: both, mob_levels: [64, 72], name: "Zipangu: Parking Lot"}
+        - {map: 800040203, w: 2, mode: solo, mob_levels: [50, 60], name: "Zipangu: Castle Corridor"}
+      warrior:
+        - {map: 541010010, w: 5, mode: solo, mob_levels: [63, 63], name: "Singapore: Ghost Ship 2"}
+        - {map: 105040306, w: 4, mode: solo, mob_levels: [58, 59], name: "Dungeon: The forest of Golem"}
+        - {map: 541000300, w: 3, mode: solo, mob_levels: [60, 63], name: "Singapore: Mysterious Path 3"}
+        - {map: 682000501, w: 2, mode: solo, mob_levels: [60, 60], name: "Haunted House: Sophilia's Bedroom"}
+      mage_fp:
+        - {map: 211040100, w: 4, mode: solo, mob_levels: [50, 65], name: "El Nath: Ice Valley I"}
+        - {map: 105090311, w: 4, mode: solo, mob_levels: [64, 68], name: "Dungeon: Cold Cradle"}
+        - {map: 541010040, w: 3, mode: solo, mob_levels: [60, 60], name: "Singapore: Ghost Ship 5"}
+        - {map: 801040001, w: 3, mode: party, mob_levels: [64, 72], name: "Zipangu: Parking Lot"}
+        - {map: 220070000, w: 3, mode: solo, mob_levels: [63, 67], name: "Ludibrium: Forgotten Path of Time<1>"}
+      mage_il:
+        - {map: 541010010, w: 5, mode: solo, mob_levels: [63, 63], name: "Singapore: Ghost Ship 2"}
+        - {map: 541000300, w: 4, mode: solo, mob_levels: [60, 63], name: "Singapore: Mysterious Path 3"}
+        - {map: 105090300, w: 3, mode: solo, mob_levels: [2, 62], name: "Dungeon: Drake's Meal Table"}
+      mage_cleric:
+        - {map: 541010010, w: 5, mode: solo, mob_levels: [63, 63], name: "Singapore: Ghost Ship 2"}
+        - {map: 541010050, w: 4, mode: solo, mob_levels: [68, 68], name: "Singapore: Ghost Ship 6"}
+        - {map: 541000300, w: 4, mode: solo, mob_levels: [60, 63], name: "Singapore: Mysterious Path 3"}
+        - {map: 220070000, w: 4, mode: solo, mob_levels: [63, 67], name: "Ludibrium: Forgotten Path of Time<1>"}
+        - {map: 101030112, w: 3, mode: solo, mob_levels: [57, 63], name: "Victoria Road: Camp 3"}
+        - {map: 682000800, w: 3, mode: solo, mob_levels: [20, 70], name: "Haunted House: Library"}
+      archer:
+        - {map: 541010010, w: 4, mode: solo, mob_levels: [63, 63], name: "Singapore: Ghost Ship 2"}
+        - {map: 541010040, w: 3, mode: solo, mob_levels: [60, 60], name: "Singapore: Ghost Ship 5"}
+        - {map: 610020002, w: 3, mode: solo, mob_levels: [70, 80], name: "Crimsonwood Mountain: Lower Ascent"}
+        - {map: 682000800, w: 3, mode: solo, mob_levels: [20, 70], name: "Haunted House: Library"}
+        - {map: 261020400, w: 3, mode: solo, mob_levels: [54, 58], name: "Alcadno Research Institute: Lab - Area C-2"}
+      thief:
+        - {map: 541010010, w: 4, mode: solo, mob_levels: [63, 63], name: "Singapore: Ghost Ship 2"}
+        - {map: 541000300, w: 4, mode: solo, mob_levels: [60, 63], name: "Singapore: Mysterious Path 3"}
+        - {map: 682000800, w: 3, mode: solo, mob_levels: [20, 70], name: "Haunted House: Library"}
+        - {map: 610020002, w: 3, mode: solo, mob_levels: [70, 80], name: "Crimsonwood Mountain: Lower Ascent"}
+      pirate_brawler:
+        - {map: 541010010, w: 4, mode: solo, mob_levels: [63, 63], name: "Singapore: Ghost Ship 2"}
+        - {map: 105040306, w: 4, mode: solo, mob_levels: [58, 59], name: "Dungeon: The forest of Golem"}
+        - {map: 541000300, w: 3, mode: solo, mob_levels: [60, 63], name: "Singapore: Mysterious Path 3"}
+      pirate_gunslinger:
+        - {map: 541010010, w: 4, mode: solo, mob_levels: [63, 63], name: "Singapore: Ghost Ship 2"}
+        - {map: 541010050, w: 3, mode: solo, mob_levels: [68, 68], name: "Singapore: Ghost Ship 6"}
+        - {map: 610020002, w: 3, mode: solo, mob_levels: [70, 80], name: "Crimsonwood Mountain: Lower Ascent"}
+      aran:
+        - {map: 541000300, w: 4, mode: solo, mob_levels: [60, 63], name: "Singapore: Mysterious Path 3"}
+        - {map: 610020002, w: 3, mode: solo, mob_levels: [70, 80], name: "Crimsonwood Mountain: Lower Ascent"}
+        - {map: 551010000, w: 3, mode: solo, mob_levels: [68, 72], name: "Malaysia: Fantasy Theme Park 1"}
+        - {map: 261020500, w: 3, mode: solo, mob_levels: [58, 75], name: "Alcadno Research Institute: Lab - Area C-3"}
+  - levels: [70, 85]
+    label: "Wolf Spiders, Lower Ascent, Leafre forests; PPQ/MPQ"
+    groups:
+      general:
+        - {map: 600020300, w: 5, mode: solo, mob_levels: [80, 80], name: "MesoGears: Wolf Spider Cavern"}
+        - {map: 610020002, w: 4, mode: solo, mob_levels: [70, 80], name: "Crimsonwood Mountain: Lower Ascent"}
+        - {map: 220060200, w: 3, mode: solo, mob_levels: [74, 83], name: "Ludibrium: Warped Path of Time<3>"}
+        - {map: 220060100, w: 3, mode: solo, mob_levels: [74, 77], name: "Ludibrium: Warped Path of Time<2>"}
+        - {map: 220070100, w: 3, mode: solo, mob_levels: [70, 76], name: "Ludibrium: Forgotten Path of Time<2>"}
+        - {map: 211040500, w: 3, mode: solo, mob_levels: [55, 75], name: "El Nath: Wolf Territory I"}
+        - {map: 211040900, w: 3, mode: solo, mob_levels: [58, 80], name: "El Nath: Wolf Territory IV"}
+        - {map: 240010101, w: 3, mode: solo, mob_levels: [70, 74], name: "Leafre: Peach Monkey Forest"}
+        - {map: 240010900, w: 3, mode: solo, mob_levels: [76, 76], name: "Leafre: Minar Forest : East Border"}
+        - {map: 551020000, w: 3, mode: solo, mob_levels: [75, 82], name: "Malaysia: Fantasy Theme Park 2"}
+        - {map: 682010203, w: 3, mode: solo, mob_levels: [70, 70], name: "Haunted House: Chimney Possessed by the Clown"}
+        - {map: 211041400, w: 2, mode: solo, mob_levels: [57, 57], name: "El Nath: Forest of Dead Trees IV"}
+      warrior:
+        - {map: 600020300, w: 5, mode: solo, mob_levels: [80, 80], name: "MesoGears: Wolf Spider Cavern"}
+        - {map: 211041400, w: 3, mode: solo, mob_levels: [57, 57], name: "El Nath: Forest of Dead Trees IV"}
+        - {map: 240020400, w: 3, mode: solo, mob_levels: [88, 88], name: "Leafre: The Area of Blue Kentaurus"}
+      mage_fp:
+        - {map: 211040900, w: 4, mode: solo, mob_levels: [58, 80], name: "El Nath: Wolf Territory IV"}
+        - {map: 220060200, w: 3, mode: solo, mob_levels: [74, 83], name: "Ludibrium: Warped Path of Time<3>"}
+        - {map: 220070200, w: 3, mode: solo, mob_levels: [85, 85], name: "Ludibrium: Forgotten Path of Time<3>"}
+        - {map: 800020120, w: 2, mode: solo, mob_levels: [56, 60], name: "Zipangu: Vanished Village"}
+      mage_il:
+        - {map: 600020300, w: 5, mode: solo, mob_levels: [80, 80], name: "MesoGears: Wolf Spider Cavern"}
+        - {map: 800020400, w: 3, mode: solo, mob_levels: [90, 90], name: "Zipangu: WanWan Spa of Hell"}
+        - {map: 240020000, w: 3, mode: solo, mob_levels: [88, 88], name: "Leafre: The Area of Red Kentaurus"}
+      mage_cleric:
+        - {map: 220070200, w: 4, mode: solo, mob_levels: [85, 85], name: "Ludibrium: Forgotten Path of Time<3>"}
+        - {map: 682010203, w: 4, mode: solo, mob_levels: [70, 70], name: "Haunted House: Chimney Possessed by the Clown"}
+        - {map: 240020200, w: 4, mode: solo, mob_levels: [88, 88], name: "Leafre: The Area of Black Kentaurus"}
+        - {map: 600020300, w: 3, mode: party, mob_levels: [80, 80], name: "MesoGears: Wolf Spider Cavern"}
+      archer:
+        - {map: 600020300, w: 4, mode: solo, mob_levels: [80, 80], name: "MesoGears: Wolf Spider Cavern"}
+        - {map: 211041400, w: 3, mode: solo, mob_levels: [57, 57], name: "El Nath: Forest of Dead Trees IV"}
+        - {map: 610020004, w: 2, mode: solo, mob_levels: [40, 100], name: "Crimsonwood Mountain: The Path of Peril"}
+      thief:
+        - {map: 600020300, w: 5, mode: solo, mob_levels: [80, 80], name: "MesoGears: Wolf Spider Cavern"}
+        - {map: 610020011, w: 3, mode: solo, mob_levels: [70, 80], name: "Crimsonwood Mountain: Cavern of Pain"}
+        - {map: 230040200, w: 3, mode: solo, mob_levels: [90, 97], name: "Aqua Road: Dangerous Sea Gorge I"}
+      pirate_brawler:
+        - {map: 600020300, w: 4, mode: solo, mob_levels: [80, 80], name: "MesoGears: Wolf Spider Cavern"}
+        - {map: 220060200, w: 3, mode: solo, mob_levels: [74, 83], name: "Ludibrium: Warped Path of Time<3>"}
+        - {map: 240010400, w: 3, mode: solo, mob_levels: [85, 88], name: "Leafre: Forest : Crossroad"}
+      pirate_gunslinger:
+        - {map: 600020300, w: 4, mode: solo, mob_levels: [80, 80], name: "MesoGears: Wolf Spider Cavern"}
+        - {map: 240020200, w: 3, mode: solo, mob_levels: [88, 88], name: "Leafre: The Area of Black Kentaurus"}
+        - {map: 240020000, w: 3, mode: solo, mob_levels: [88, 88], name: "Leafre: The Area of Red Kentaurus"}
+      aran:
+        - {map: 610020002, w: 4, mode: solo, mob_levels: [70, 80], name: "Crimsonwood Mountain: Lower Ascent"}
+        - {map: 551030000, w: 3, mode: solo, mob_levels: [87, 87], name: "Malaysia: Fantasy Theme Park 3"}
+        - {map: 240020100, w: 3, mode: solo, mob_levels: [88, 88], name: "Leafre: Battlefield of Fire and Darkness"}
+  - levels: [85, 100]
+    label: "Ludi clocktower, Aqua Road gorges, Kentaurus, Gallopera, Memory Lane"
+    groups:
+      general:
+        - {map: 220070200, w: 4, mode: solo, mob_levels: [85, 85], name: "Ludibrium: Forgotten Path of Time<3>"}
+        - {map: 220070201, w: 4, mode: solo, mob_levels: [89, 89], name: "Hidden Street: Lost Time"}
+        - {map: 220060300, w: 4, mode: solo, mob_levels: [93, 93], name: "Ludibrium: Warped Path of Time<4>"}
+        - {map: 220060201, w: 3, mode: both, mob_levels: [87, 87], name: "Hidden Street: Unbalanced Time"}
+        - {map: 220070300, w: 3, mode: solo, mob_levels: [95, 95], name: "Ludibrium: Forgotten Path of Time<4>"}
+        - {map: 240020400, w: 3, mode: solo, mob_levels: [88, 88], name: "Leafre: The Area of Blue Kentaurus"}
+        - {map: 240020100, w: 3, mode: solo, mob_levels: [88, 88], name: "Leafre: Battlefield of Fire and Darkness"}
+        - {map: 240010500, w: 3, mode: solo, mob_levels: [85, 88], name: "Leafre: Valley of the Antelope"}
+        - {map: 230040100, w: 4, mode: solo, mob_levels: [90, 92], name: "Aqua Road: Deep Sea Gorge II"}
+        - {map: 230040000, w: 3, mode: solo, mob_levels: [90, 92], name: "Aqua Road: Deep Sea Gorge I"}
+        - {map: 230040200, w: 4, mode: both, mob_levels: [90, 97], name: "Aqua Road: Dangerous Sea Gorge I"}
+        - {map: 230040300, w: 3, mode: both, mob_levels: [94, 97], name: "Aqua Road: Dangerous Sea Gorge II"}
+        - {map: 551030100, w: 4, mode: solo, mob_levels: [94, 94], name: "Malaysia: Entrance to the Spooky World"}
+        - {map: 270010100, w: 4, mode: solo, mob_levels: [80, 91], name: "Time Lane: Memory Lane1"}
+        - {map: 270010300, w: 3, mode: solo, mob_levels: [80, 98], name: "Time Lane: Memory Lane3"}
+        - {map: 240030200, w: 3, mode: solo, mob_levels: [95, 100], name: "Leafre: Dragon Forest II"}
+      warrior:
+        - {map: 230040100, w: 4, mode: solo, mob_levels: [90, 92], name: "Aqua Road: Deep Sea Gorge II"}
+        - {map: 220060300, w: 4, mode: solo, mob_levels: [93, 93], name: "Ludibrium: Warped Path of Time<4>"}
+        - {map: 551030100, w: 4, mode: solo, mob_levels: [94, 94], name: "Malaysia: Entrance to the Spooky World"}
+      mage_fp:
+        - {map: 220060201, w: 4, mode: solo, mob_levels: [87, 87], name: "Hidden Street: Unbalanced Time"}
+        - {map: 240020400, w: 4, mode: solo, mob_levels: [88, 88], name: "Leafre: The Area of Blue Kentaurus"}
+        - {map: 230040300, w: 3, mode: party, mob_levels: [94, 97], name: "Aqua Road: Dangerous Sea Gorge II"}
+      mage_il:
+        - {map: 240020000, w: 4, mode: solo, mob_levels: [88, 88], name: "Leafre: The Area of Red Kentaurus"}
+        - {map: 240030300, w: 3, mode: solo, mob_levels: [97, 105], name: "Leafre: Dragon Forest III"}
+        - {map: 220060300, w: 3, mode: solo, mob_levels: [93, 93], name: "Ludibrium: Warped Path of Time<4>"}
+      mage_cleric:
+        - {map: 220070201, w: 5, mode: solo, mob_levels: [89, 89], name: "Hidden Street: Lost Time"}
+        - {map: 220070300, w: 4, mode: solo, mob_levels: [95, 95], name: "Ludibrium: Forgotten Path of Time<4>"}
+        - {map: 230040000, w: 4, mode: solo, mob_levels: [90, 92], name: "Aqua Road: Deep Sea Gorge I"}
+        - {map: 551030100, w: 4, mode: solo, mob_levels: [94, 94], name: "Malaysia: Entrance to the Spooky World"}
+        - {map: 230040300, w: 3, mode: party, mob_levels: [94, 97], name: "Aqua Road: Dangerous Sea Gorge II"}
+      archer:
+        - {map: 230040100, w: 5, mode: solo, mob_levels: [90, 92], name: "Aqua Road: Deep Sea Gorge II"}
+        - {map: 230040000, w: 4, mode: solo, mob_levels: [90, 92], name: "Aqua Road: Deep Sea Gorge I"}
+        - {map: 230040200, w: 3, mode: party, mob_levels: [90, 97], name: "Aqua Road: Dangerous Sea Gorge I"}
+        - {map: 220060201, w: 3, mode: party, mob_levels: [87, 87], name: "Hidden Street: Unbalanced Time"}
+      thief:
+        - {map: 230040200, w: 4, mode: solo, mob_levels: [90, 97], name: "Aqua Road: Dangerous Sea Gorge I"}
+        - {map: 230040100, w: 3, mode: solo, mob_levels: [90, 92], name: "Aqua Road: Deep Sea Gorge II"}
+        - {map: 220060201, w: 3, mode: solo, mob_levels: [87, 87], name: "Hidden Street: Unbalanced Time"}
+      pirate_brawler:
+        - {map: 220060300, w: 4, mode: solo, mob_levels: [93, 93], name: "Ludibrium: Warped Path of Time<4>"}
+        - {map: 230040100, w: 3, mode: solo, mob_levels: [90, 92], name: "Aqua Road: Deep Sea Gorge II"}
+        - {map: 240010400, w: 3, mode: solo, mob_levels: [85, 88], name: "Leafre: Forest : Crossroad"}
+      pirate_gunslinger:
+        - {map: 230040100, w: 4, mode: solo, mob_levels: [90, 92], name: "Aqua Road: Deep Sea Gorge II"}
+        - {map: 240040520, w: 3, mode: solo, mob_levels: [105, 105], name: "Leafre: Destroyed Dragon Nest"}
+      aran:
+        - {map: 551030100, w: 5, mode: solo, mob_levels: [94, 94], name: "Malaysia: Entrance to the Spooky World"}
+        - {map: 270010100, w: 4, mode: solo, mob_levels: [80, 91], name: "Time Lane: Memory Lane1"}
+        - {map: 220060201, w: 3, mode: solo, mob_levels: [87, 87], name: "Hidden Street: Unbalanced Time"}
+  - levels: [100, 120]
+    label: "Himes, Leafre nests, Temple of Time; Ulu (post-v83 but present)"
+    groups:
+      general:
+        - {map: 800020130, w: 5, mode: both, mob_levels: [100, 100], name: "Zipangu: Encounter with the Buddha"}
+        - {map: 240040520, w: 4, mode: solo, mob_levels: [105, 105], name: "Leafre: Destroyed Dragon Nest"}
+        - {map: 240040521, w: 4, mode: solo, mob_levels: [105, 110], name: "Leafre: Dangerous Dragon Nest"}
+        - {map: 270020100, w: 4, mode: solo, mob_levels: [80, 106], name: "Time Lane: Road of Regrets1"}
+        - {map: 270020300, w: 3, mode: solo, mob_levels: [80, 113], name: "Time Lane: Road of Regrets3"}
+        - {map: 270010500, w: 3, mode: solo, mob_levels: [80, 101], name: "Time Lane: Memory Lane5"}
+        - {map: 230040400, w: 3, mode: solo, mob_levels: [90, 102], name: "Aqua Road: The Grave of a Wrecked Ship"}
+        - {map: 240040100, w: 3, mode: solo, mob_levels: [97, 101], name: "Leafre: Canyon : Crossroad"}
+        - {map: 240040300, w: 3, mode: solo, mob_levels: [103, 103], name: "Leafre: Canyon : West Road"}
+        - {map: 220070301, w: 3, mode: solo, mob_levels: [99, 99], name: "Hidden Street: Forbidden Time"}
+        - {map: 220060301, w: 3, mode: solo, mob_levels: [98, 98], name: "Hidden Street: Twisted Time"}
+        - {map: 240040511, w: 3, mode: party, mob_levels: [110, 113], name: "Leafre: The Dragon Nest Left Behind"}
+        - {map: 541020100, w: 2, mode: solo, mob_levels: [85, 90], name: "Singapore: Ulu Estate I"}
+        - {map: 541020500, w: 2, mode: solo, mob_levels: [110, 110], name: "Singapore: Ulu City Center"}
+        - {map: 240030101, w: 2, mode: solo, mob_levels: [100, 105], name: "Leafre: The Burning Forest"}
+        - {map: 321110000, w: 2, mode: solo, mob_levels: [102, 102], name: "Western Minar Forest: Western Minar Forest <1>"}
+        - {map: 321130000, w: 2, mode: solo, mob_levels: [106, 106], name: "Twilight Forest: Twilight Forest <1>"}
+        - {map: 321145000, w: 2, mode: solo, mob_levels: [108, 108], name: "Wyvern Gorge: Wyvern Gorge <6>"}
+        - {map: 402000610, w: 3, mode: solo, rebirths: 3, mob_levels: [110, 110], name: "Refuge Outskirts: Refuge South 1"}
+        - {map: 402000518, w: 3, mode: solo, rebirths: 3, mob_levels: [117, 117], name: "Sanctuary: Eastern Crystal Forest 2"}
+        - {map: 410000321, w: 3, mode: solo, rebirths: 3, mob_levels: [113, 113], name: "Ristonia: Art Street 1"}
+        - {map: 410000210, w: 2, mode: solo, rebirths: 3, mob_levels: [112, 112], name: "Cheong-woon Valley: Chaotic Crock Territory 1"}
+      warrior:
+        - {map: 800020130, w: 5, mode: both, mob_levels: [100, 100], name: "Zipangu: Encounter with the Buddha"}
+        - {map: 240040520, w: 4, mode: solo, mob_levels: [105, 105], name: "Leafre: Destroyed Dragon Nest"}
+        - {map: 270020100, w: 3, mode: solo, mob_levels: [80, 106], name: "Time Lane: Road of Regrets1"}
+      mage_fp:
+        - {map: 240040210, w: 4, mode: solo, mob_levels: [101, 101], name: "Hidden Street: Blue Wyvern's Nest"}
+        - {map: 800020130, w: 4, mode: party, mob_levels: [100, 100], name: "Zipangu: Encounter with the Buddha"}
+        - {map: 270020100, w: 4, mode: solo, mob_levels: [80, 106], name: "Time Lane: Road of Regrets1"}
+      mage_il:
+        - {map: 800020130, w: 4, mode: party, mob_levels: [100, 100], name: "Zipangu: Encounter with the Buddha"}
+        - {map: 240040310, w: 4, mode: solo, mob_levels: [97, 97], name: "Hidden Street: Red Wyvern's Nest"}
+        - {map: 270020300, w: 4, mode: solo, mob_levels: [80, 113], name: "Time Lane: Road of Regrets3"}
+      mage_cleric:
+        - {map: 800020130, w: 5, mode: both, mob_levels: [100, 100], name: "Zipangu: Encounter with the Buddha"}
+        - {map: 220070301, w: 4, mode: solo, mob_levels: [99, 99], name: "Hidden Street: Forbidden Time"}
+        - {map: 240040511, w: 4, mode: party, mob_levels: [110, 113], name: "Leafre: The Dragon Nest Left Behind"}
+        - {map: 610010013, w: 2, mode: solo, mob_levels: [50, 95], name: "Phantom Forest: The Evil Dead"}
+      archer:
+        - {map: 800020130, w: 4, mode: party, mob_levels: [100, 100], name: "Zipangu: Encounter with the Buddha"}
+        - {map: 240040520, w: 4, mode: solo, mob_levels: [105, 105], name: "Leafre: Destroyed Dragon Nest"}
+        - {map: 230040100, w: 3, mode: solo, mob_levels: [90, 92], name: "Aqua Road: Deep Sea Gorge II"}
+      thief:
+        - {map: 800020130, w: 4, mode: both, mob_levels: [100, 100], name: "Zipangu: Encounter with the Buddha"}
+        - {map: 240040520, w: 4, mode: solo, mob_levels: [105, 105], name: "Leafre: Destroyed Dragon Nest"}
+        - {map: 270010100, w: 3, mode: solo, mob_levels: [80, 91], name: "Time Lane: Memory Lane1"}
+      pirate_brawler:
+        - {map: 800020130, w: 4, mode: party, mob_levels: [100, 100], name: "Zipangu: Encounter with the Buddha"}
+        - {map: 240040520, w: 4, mode: solo, mob_levels: [105, 105], name: "Leafre: Destroyed Dragon Nest"}
+        - {map: 220060301, w: 3, mode: solo, mob_levels: [98, 98], name: "Hidden Street: Twisted Time"}
+      pirate_gunslinger:
+        - {map: 240040520, w: 4, mode: solo, mob_levels: [105, 105], name: "Leafre: Destroyed Dragon Nest"}
+        - {map: 240010400, w: 3, mode: solo, mob_levels: [85, 88], name: "Leafre: Forest : Crossroad"}
+      aran:
+        - {map: 800020130, w: 4, mode: solo, mob_levels: [100, 100], name: "Zipangu: Encounter with the Buddha"}
+        - {map: 270020100, w: 4, mode: solo, mob_levels: [80, 106], name: "Time Lane: Road of Regrets1"}
+        - {map: 240040511, w: 3, mode: solo, mob_levels: [110, 113], name: "Leafre: The Dragon Nest Left Behind"}
+  - levels: [120, 140]
+    label: "Skeles, Road to Oblivion; first MapleRoot zones"
+    groups:
+      general:
+        - {map: 240040511, w: 5, mode: solo, mob_levels: [110, 113], name: "Leafre: The Dragon Nest Left Behind"}
+        - {map: 240040510, w: 4, mode: solo, mob_levels: [110, 113], name: "Leafre: Nest of a Dead Dragon"}
+        - {map: 270030200, w: 4, mode: solo, mob_levels: [80, 124], name: "Time Lane: Road to Oblivion2"}
+        - {map: 270030100, w: 3, mode: solo, mob_levels: [80, 121], name: "Time Lane: Road to Oblivion1"}
+        - {map: 270030400, w: 4, mode: solo, mob_levels: [80, 131], name: "Time Lane: Road to Oblivion4"}
+        - {map: 541020600, w: 3, mode: solo, mob_levels: [95, 115], name: "Singapore: Destroyed Park I"}
+        # INVALID (a single-person mini-dungeon instance (MiniDungeonInfo KISS_DUKU): bots never grind instances):
+        # - {map: 541020620, w: 3, mode: solo, mob_levels: [115, 115], name: "Singapore: Long Kiss Duku Good Night"}
+        - {map: 610020006, w: 2, mode: solo, mob_levels: [120, 120], name: "Crimsonwood Mountain: Crimsonwood Keep"}
+        - {map: 322040000, w: 3, mode: solo, mob_levels: [118, 118], name: "Ariant: Pyramid <1>"}
+        - {map: 323030000, w: 3, mode: solo, mob_levels: [126, 126], name: "Henesys: Golden Coast <1>"}
+        - {map: 323040000, w: 3, mode: solo, mob_levels: [128, 128], name: "Henesys: Deep within Sleeping Forest <1>"}
+        - {map: 324020000, w: 3, mode: solo, mob_levels: [133, 133], name: "Mu Lung: Sky Forest <1>"}
+        - {map: 211060100, w: 4, mode: solo, rebirths: 1, mob_levels: [117, 117], name: "Lion King's Castle: Under the Castle Walls 1"}
+        - {map: 211060300, w: 4, mode: solo, rebirths: 1, mob_levels: [119, 119], name: "Lion King's Castle: Under the Castle Walls 2"}
+        - {map: 211060500, w: 3, mode: solo, rebirths: 1, mob_levels: [120, 120], name: "Lion King's Castle: Under the Castle Walls 3"}
+        - {map: 211060700, w: 4, mode: solo, rebirths: 1, mob_levels: [122, 122], name: "Lion King's Castle: Under the Castle Walls 4"}
+        - {map: 211060900, w: 3, mode: solo, rebirths: 1, mob_levels: [122, 122], name: "Lion King's Castle: Under the Castle Walls 5"}
+        - {map: 400010300, w: 3, mode: solo, rebirths: 3, mob_levels: [124, 124], name: "East Pantheon: East Pantheon Forest"}
+        - {map: 400030100, w: 3, mode: solo, rebirths: 3, mob_levels: [120, 120], name: "South Pantheon: South Pantheon Plains"}
+        - {map: 410000022, w: 3, mode: solo, rebirths: 3, mob_levels: [118, 118], name: "Fox Ridge: Tear Rock Hill 3"}
+        - {map: 402000633, w: 2, mode: solo, rebirths: 3, mob_levels: [128, 128], name: "Desert Cavern: Desert Cavern 3"}
+        - {map: 410000242, w: 2, mode: solo, rebirths: 3, mob_levels: [130, 130], name: "Handsome Monk's Temple: Inside the Temple 3"}
+      mage_cleric:
+        - {map: 240040511, w: 5, mode: party, mob_levels: [110, 113], name: "Leafre: The Dragon Nest Left Behind"}
+        - {map: 240040510, w: 5, mode: party, mob_levels: [110, 113], name: "Leafre: Nest of a Dead Dragon"}
+        - {map: 322040000, w: 3, mode: solo, mob_levels: [118, 118], name: "Ariant: Pyramid <1>"}
+      mage_il:
+        - {map: 240040520, w: 3, mode: solo, mob_levels: [105, 105], name: "Leafre: Destroyed Dragon Nest"}
+  - levels: [140, 160]
+    label: "MapleRoot zones: Mirror World, Kritias, LKC walls"
+    groups:
+      general:
+        - {map: 270030500, w: 3, mode: solo, mob_levels: [131, 131], name: "Time Lane: Road to Oblivion5"}
+        - {map: 325010000, w: 4, mode: solo, mob_levels: [142, 142], name: "Edelstein: Streetlight Street <1>"}
+        - {map: 325020000, w: 3, mode: solo, mob_levels: [144, 144], name: "Edelstein: Perilous Rocky Mountain <1>"}
+        - {map: 326010000, w: 4, mode: solo, mob_levels: [152, 152], name: "Magatia: Zenumist's Laboratory A <1>"}
+        - {map: 326020000, w: 4, mode: solo, mob_levels: [154, 154], name: "Magatia: Alcadno's Laboratory A <1>"}
+        - {map: 329020000, w: 3, mode: solo, mob_levels: [140, 140], name: "Kritias: Outside Kritias <1>"}
+        - {map: 211060620, w: 3, mode: solo, rebirths: 1, mob_levels: [127, 127], name: "Lion King's Castle: Tall Castle Walls 1"}
+        - {map: 211060830, w: 3, mode: solo, rebirths: 1, mob_levels: [127, 127], name: "Lion King's Castle: Very Tall Castle Walls"}
+        - {map: 402000321, w: 3, mode: solo, rebirths: 3, mob_levels: [140, 142], name: "Abandoned Offices: Mr. Hazard's Lair 2"}
+        - {map: 400010400, w: 3, mode: solo, rebirths: 3, mob_levels: [141, 141], name: "East Pantheon: Enchanted Forest"}
+  - levels: [160, 180]
+    label: "MapleRoot zones: Mirror World Ludi/ToT, Gate to the Future (rebirth 2)"
+    groups:
+      general:
+        - {map: 327010000, w: 4, mode: solo, mob_levels: [162, 162], name: "Ludibrium: Toy Factory <1>"}
+        - {map: 327020000, w: 3, mode: solo, mob_levels: [164, 164], name: "Ludibrium: Inside Clocktower <1>"}
+        - {map: 328030000, w: 4, mode: solo, mob_levels: [179, 179], name: "Temple of Time: Road to Oblivion <1>"}
+        - {map: 328020000, w: 3, mode: solo, mob_levels: [176, 176], name: "Temple of Time: Road of Regrets <1>"}
+        - {map: 329010000, w: 3, mode: solo, mob_levels: [180, 180], name: "Kritias: Outside Kritias <1>"}
+        - {map: 271000100, w: 3, mode: solo, rebirths: 2, mob_levels: [163, 163], name: "Dark Ereve: Mutant Tino Forest"}
+        - {map: 271010300, w: 3, mode: solo, rebirths: 2, mob_levels: [166, 166], name: "Ravaged Forest: Hill North of Henesys Ruins"}
+        - {map: 271010400, w: 3, mode: solo, rebirths: 2, mob_levels: [168, 168], name: "Ravaged Forest: Dreamy Forest Trail"}
+        # INVALID (Knight Stronghold is HyperTP-restricted (BotMapGates NEVER): no bot may enter):
+        # - {map: 271030102, w: 4, mode: solo, rebirths: 2, mob_levels: [168, 170], name: "Knight Stronghold: Second Drill Hall"}
+        # INVALID (Knight Stronghold is HyperTP-restricted (BotMapGates NEVER): no bot may enter):
+        # - {map: 271030320, w: 3, mode: solo, rebirths: 2, mob_levels: [174, 176], name: "Knight Stronghold: Armory 2"}
+        - {map: 402000125, w: 3, mode: solo, rebirths: 3, mob_levels: [175, 176], name: "Scrapyard: Seedy Scrapyard 2"}
+        - {map: 402000312, w: 3, mode: solo, rebirths: 3, mob_levels: [181, 181], name: "Brawl 'n' Bash Club: Dingy Brawl 'n' Bash Club 1"}
+  - levels: [180, 200]
+    label: "Twilight Perion (rebirth 2), Kritias, Umbra, Scrapyard"
+    groups:
+      general:
+        - {map: 329010000, w: 3, mode: solo, mob_levels: [180, 180], name: "Kritias: Outside Kritias <1>"}
+        - {map: 307000310, w: 2, mode: solo, mob_levels: [190, 190], name: "Umbra Temple: Dusty Corridor 1"}
+        - {map: 310070100, w: 3, mode: solo, mob_levels: [200, 200], name: "Scrapyard: Scrapyard Entrance"}
+        # INVALID (Knight Stronghold is HyperTP-restricted (BotMapGates NEVER): no bot may enter):
+        # - {map: 271030530, w: 3, mode: solo, rebirths: 2, mob_levels: [182, 182], name: "Knight Stronghold: Knights' Chamber 4"}
+        # INVALID (Knight Stronghold is HyperTP-restricted (BotMapGates NEVER): no bot may enter):
+        # - {map: 271030600, w: 3, mode: solo, rebirths: 2, mob_levels: [177, 184], name: "Knight Stronghold: Hall of Honor"}
+        - {map: 273010000, w: 4, mode: solo, rebirths: 2, mob_levels: [190, 190], name: "Twilight Perion: Deserted Southern Ridge"}
+        - {map: 273020300, w: 4, mode: solo, rebirths: 2, mob_levels: [190, 192], name: "Twilight Perion: Weathered Rocky Zone"}
+        - {map: 273020400, w: 4, mode: solo, rebirths: 2, mob_levels: [192, 192], name: "Twilight Perion: Tempest Grave"}
+        - {map: 273040100, w: 5, mode: solo, rebirths: 2, mob_levels: [195, 195], name: "Twilight Perion: Forsaken Excavation Site 2"}
+        - {map: 273040300, w: 4, mode: solo, rebirths: 2, mob_levels: [196, 196], name: "Twilight Perion: Forsaken Excavation Site 4"}
+        - {map: 273060300, w: 5, mode: party, rebirths: 2, mob_levels: [198, 198], name: "Twilight Perion: Warrior Grounds"}
+        - {map: 402000453, w: 3, mode: solo, rebirths: 3, mob_levels: [184, 184], name: "Polluted Sewer: Foul Glooger Habitat 3"}
+        - {map: 401010000, w: 3, mode: solo, rebirths: 3, mob_levels: [195, 195], name: "Twisted Forest: Savage Dog Forest"}
+        - {map: 401020200, w: 3, mode: solo, rebirths: 3, mob_levels: [198, 198], name: "Forbidden Forest: Yellow Speeyor's Pasture"}
+        - {map: 410000112, w: 3, mode: solo, rebirths: 3, mob_levels: [191, 192], name: "Fox Valley: Fox Tree Top Path 2"}
+        - {map: 410000123, w: 3, mode: solo, rebirths: 3, mob_levels: [199, 199], name: "Beyond the Clouds: Guardian Walkway 3"}
+  - levels: [200, 255]
+    label: "Black Heaven (open), Arcane River / Grandis endgame (rebirth 3)"
+    groups:
+      general:
+        - {map: 310070120, w: 4, mode: solo, mob_levels: [202, 202], name: "Scrapyard: Scrapyard Hill 2"}
+        - {map: 310070140, w: 4, mode: solo, mob_levels: [204, 206], name: "Scrapyard: Scrapyard Hill 4"}
+        - {map: 310070160, w: 4, mode: solo, mob_levels: [208, 210], name: "Scrapyard: Scrapyard Hill 5"}
+        - {map: 310070230, w: 3, mode: solo, mob_levels: [213, 216], name: "Skyline: Skyline 2"}
+        - {map: 310070310, w: 3, mode: solo, mob_levels: [213, 215], name: "Black Heaven Decks: Black Heaven Entrance"}
+        - {map: 310070480, w: 4, mode: solo, mob_levels: [219, 219], name: "Black Heaven: Black Heaven Maze 6"}
+        - {map: 273060300, w: 3, mode: party, rebirths: 2, mob_levels: [198, 198], name: "Twilight Perion: Warrior Grounds"}
+        - {map: 450001011, w: 4, mode: solo, rebirths: 3, mob_levels: [200, 200], name: "Lake of Oblivion: Weathered Land of Happiness and Rage"}
+        - {map: 450001112, w: 3, mode: solo, rebirths: 3, mob_levels: [200, 200], name: "Extinction Zone: Fire Zone"}
+        - {map: 450001230, w: 3, mode: solo, rebirths: 3, mob_levels: [200, 200], name: "Cave of Repose: Arma's Hideout"}
+        - {map: 450002007, w: 3, mode: solo, rebirths: 3, mob_levels: [200, 200], name: "Slurpy Forest: Dealie-Bobber Forest 2"}
+        - {map: 450003320, w: 3, mode: solo, rebirths: 3, mob_levels: [200, 200], name: "Lachelein Night Market: Chicken Festival 3"}
+        - {map: 450003530, w: 3, mode: solo, rebirths: 3, mob_levels: [200, 200], name: "Lachelein Clocktower: Nightmare Clocktower 4F"}
+        - {map: 450005130, w: 3, mode: solo, rebirths: 3, mob_levels: [200, 200], name: "Arcana: The Forest of Earth"}
+        - {map: 450006010, w: 2, mode: solo, rebirths: 3, mob_levels: [200, 200], name: "Morass: Path to the Coral Forest 2"}
+        - {map: 450007010, w: 2, mode: solo, rebirths: 3, mob_levels: [200, 200], name: "Esfera: Living Spring 2"}
+        - {map: 450009110, w: 2, mode: solo, rebirths: 3, mob_levels: [200, 200], name: "Moonbridge: Last Horizon 1"}
+        - {map: 450011410, w: 1, mode: solo, rebirths: 3, mob_levels: [200, 200], name: "Tenebris: Labyrinth of Suffering Interior 2"}
+        - {map: 450012020, w: 1, mode: solo, rebirths: 3, mob_levels: [200, 200], name: "Limina: World's Sorrow Depths 1"}
+        - {map: 410000114, w: 3, mode: solo, rebirths: 3, mob_levels: [193, 193], name: "Fox Valley: Fox Tree Side Path"}
+        - {map: 410000102, w: 3, mode: solo, rebirths: 3, mob_levels: [196, 197], name: "Fox Point Village: Fox Tree Midway 2"}
+        - {map: 401040700, w: 3, mode: solo, rebirths: 3, mob_levels: [195, 200], name: "Heliseum Downtown: East Downtown Walkway"}
