@@ -2,9 +2,18 @@
 
 **Area:** Launcher  
 **Depends on:** -  
-**Status:** open
+**Status:** open (self-update targeted for 1.3.0, before friends get the launcher)
 
 ## What
+
+**Self-update (wanted before friends):**
+- Today the launcher updates game files from the patch-server manifest, but the launcher app itself never updates;
+  a launcher fix means handing friends a new zip.
+- On start, the launcher checks the patch server for a newer launcher build (e.g. a `launcher` entry in
+  `manifest.json` with version, URL and sha256), downloads it behind the same access key, verifies the hash, swaps
+  itself and restarts.
+- A failed or partial download leaves the current launcher running; never brick the install.
+- The zip handed to friends with 1.3.0 is the last one anyone downloads by hand.
 
 Optional items from the launcher grill:
 - server online/offline status in the launcher (a small status endpoint);
@@ -13,4 +22,6 @@ Optional items from the launcher grill:
 
 ## Done when
 
-Whatever the owner picks is shipped in a launcher release.
+- A 1.3.0 launcher, given a newer launcher build on the patch server, updates itself and restarts without the owner
+  sending anything.
+- Whatever else the owner picks is shipped in a launcher release.
