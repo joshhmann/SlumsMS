@@ -65,4 +65,28 @@ class ReplyCleanerTest {
         assertFalse(Json.isValid("{nope"));
         assertFalse(Json.isValid("20 30"));
     }
+
+    @Test
+    void assistantPhrasingMarkdownEmojisParagraphsAndTheRealWorldFailTheVoiceCheck() {
+        assertEquals("assistant phrasing", ReplyCleaner.voiceProblem("As an AI, I don't play games"));
+        assertEquals("assistant phrasing", ReplyCleaner.voiceProblem("I'd love to help you find a training spot!"));
+        assertEquals("assistant phrasing", ReplyCleaner.voiceProblem("great question! try ant tunnel"));
+        assertEquals("markdown", ReplyCleaner.voiceProblem("**Ant Tunnel** is great for ur lvl"));
+        assertEquals("markdown", ReplyCleaner.voiceProblem("*waves* hey"));
+        assertEquals("emojis", ReplyCleaner.voiceProblem("lol ya \uD83D\uDE02\uD83D\uDE02"));
+        assertEquals("real-world reference", ReplyCleaner.voiceProblem("we should hit 6th street in austin later"));
+        assertEquals("real-world reference", ReplyCleaner.voiceProblem("add me on discord"));
+        assertEquals("several lines", ReplyCleaner.voiceProblem("sure\nok\nlets go\nnow"));
+        assertEquals("paragraph", ReplyCleaner.voiceProblem("x".repeat(ReplyCleaner.MAX_RAW_LENGTH + 1)));
+        assertEquals(Optional.empty(), ReplyCleaner.chat("Absolutely! Feel free to ask me anything."));
+    }
+
+    @Test
+    void aPlayerLinePassesAndLosesAFinalFullStopAndAStrayEmoji() {
+        assertEquals(null, ReplyCleaner.voiceProblem("lol ya pigs drop nothing"));
+        assertEquals(null, ReplyCleaner.voiceProblem("idk maybe ant tunnel? -_-"));
+        assertEquals(Optional.of("ya im almost 30 finally"), ReplyCleaner.chat("ya im almost 30 finally."));
+        assertEquals(Optional.of("brb pots..."), ReplyCleaner.chat("brb pots..."));
+        assertEquals(Optional.of("gg"), ReplyCleaner.chat("gg \uD83D\uDE02"));
+    }
 }

@@ -61,7 +61,49 @@ public final class BotChatRouting {
         if (bot != null && bot.getMap() != null) {
             lastSpeakerByMap.put(bot.getMapId(), new LastSpeaker(bot.getId(), bot.getName(), line,
                     System.currentTimeMillis()));
+            noteMapLine(bot.getMapId(), bot.getName(), line, System.currentTimeMillis());
         }
+    }
+
+    // ── what was said on a map lately (ticket 37 grounding: the prompt carries recent chat) ──
+
+    static final int RECENT_LINES = 4;
+    static final long RECENT_MS = TimeUnit.MINUTES.toMillis(2);
+
+    private record MapLine(String speaker, String line, long at) {
+    }
+
+    private static final Map<Integer, java.util.Deque<MapLine>> recentByMap = new ConcurrentHashMap<>();
+
+    /** A line said in map chat, by a player or a bot. */
+    public static void noteMapLine(int mapId, String speaker, String line, long now) {
+        if (speaker == null || line == null || line.isBlank()) {
+            return;
+        }
+        java.util.Deque<MapLine> lines = recentByMap.computeIfAbsent(mapId, k -> new java.util.ArrayDeque<>());
+        synchronized (lines) {
+            lines.addLast(new MapLine(speaker, line.length() > 80 ? line.substring(0, 80) : line, now));
+            while (lines.size() > RECENT_LINES) {
+                lines.removeFirst();
+            }
+        }
+    }
+
+    /** The last few lines said on a map in the last two minutes, oldest first, as "name: line". */
+    public static List<String> recentOnMap(int mapId, long now) {
+        java.util.Deque<MapLine> lines = recentByMap.get(mapId);
+        if (lines == null) {
+            return List.of();
+        }
+        List<String> out = new java.util.ArrayList<>();
+        synchronized (lines) {
+            for (MapLine l : lines) {
+                if (now - l.at() <= RECENT_MS) {
+                    out.add(l.speaker() + ": " + l.line());
+                }
+            }
+        }
+        return out;
     }
 
     public static LastSpeaker lastSpeaker(int mapId, long now) {
@@ -94,6 +136,114 @@ public final class BotChatRouting {
     public static Pending pendingFor(int senderId) {
         return pendingBySender.get(senderId);
     }
+
+    // ── attention (ticket 37): after a bot answers a player, it keeps listening to them for a while ──
+
+    /** A bot listening to a player: follow-up lines without its name are for it. */
+    public record Attention(int botId, long lastAt) {
+    }
+
+    /** Why a bot stopped listening, or LISTENING when it still is. */
+    public enum Drift { LISTENING, QUIET, LEFT_MAP, WALKED_AWAY, GONE }
+
+    private static final Map<Integer, Attention> attentionByPlayer = new ConcurrentHashMap<>();
+
+    /** How long a bot keeps listening after the last line between them: {@code -Dsolomapling.chat.attentionMs}. */
+    public static long attentionMs() {
+        return Long.getLong("solomapling.chat.attentionMs", TimeUnit.SECONDS.toMillis(50));
+    }
+
+    /** How far (px) the player may walk from the bot before it stops listening: {@code .attentionRange}. */
+    public static int attentionRange() {
+        return Integer.getInteger("solomapling.chat.attentionRange", 700);
+    }
+
+    /** This bot is now listening to this player (a newer bot replaces an older one: one at a time). */
+    public static void attend(int playerId, int botId, long now) {
+        attentionByPlayer.put(playerId, new Attention(botId, now));
+    }
+
+    /** The bot answered: it keeps listening from now, if it still was. */
+    public static void touchAttention(int playerId, int botId, long now) {
+        attentionByPlayer.computeIfPresent(playerId, (k, a) -> a.botId() == botId ? new Attention(botId, now) : a);
+    }
+
+    public static void dropAttention(int playerId) {
+        attentionByPlayer.remove(playerId);
+    }
+
+    /** The raw attention entry for a player (not checked for drift). */
+    public static Attention attention(int playerId) {
+        return attentionByPlayer.get(playerId);
+    }
+
+    /**
+     * Whether a listening bot still listens: the player went quiet, changed map or walked off, or the bot left.
+     * {@code distance} is between the two characters, ignored when they are on different maps.
+     */
+    public static Drift drift(Attention attention, long now, boolean botPresent, int playerMapId, int botMapId,
+                              double distance) {
+        if (attention == null || !botPresent) {
+            return Drift.GONE;
+        }
+        if (now - attention.lastAt() > attentionMs()) {
+            return Drift.QUIET;
+        }
+        if (playerMapId != botMapId) {
+            return Drift.LEFT_MAP;
+        }
+        return distance > attentionRange() ? Drift.WALKED_AWAY : Drift.LISTENING;
+    }
+
+    /** Whether a line names one of these other characters (a player talking to someone else). */
+    public static boolean namesSomeoneElse(String line, java.util.Collection<String> otherNames) {
+        String lower = line == null ? "" : line.toLowerCase(Locale.ROOT);
+        for (String name : otherNames) {
+            if (name != null && name.length() >= 3) {
+                Pattern word = Pattern.compile("(^|[^a-z0-9])" + Pattern.quote(name.toLowerCase(Locale.ROOT))
+                        + "($|[^a-z0-9])");
+                if (word.matcher(lower).find()) {
+                    return true;
+                }
+            }
+        }
+        return false;
+    }
+
+    /**
+     * Whether a line is aimed away from the bot that is listening: it names (or nearly names) another bot, or names
+     * another player on the map.
+     */
+    public static boolean addressesSomeoneElse(int listeningBotId, BotAddressee.Result named, String line,
+                                               java.util.Collection<String> otherPlayerNames) {
+        boolean otherBot = named != null && named.best() != null && named.best().id() != listeningBotId
+                && (named.sure() || named.worthAsking() || named.ambiguous());
+        return otherBot || namesSomeoneElse(line, otherPlayerNames);
+    }
+
+    /**
+     * What a line naming a bot says to it, without the name: the full name and any word close enough to be a
+     * nickname for it ("fire" for xFirex) are cut out. Empty when the line was only the name.
+     */
+    public static String withoutName(String line, String botName) {
+        if (line == null) {
+            return "";
+        }
+        String text = botName == null || botName.isEmpty() ? line
+                : line.replaceAll("(?i)" + Pattern.quote(botName), " ");
+        StringBuilder out = new StringBuilder();
+        for (String word : text.trim().split("\\s+")) {
+            String bare = word.toLowerCase(Locale.ROOT).replaceAll("[^a-z0-9]", "");
+            if (word.isEmpty() || (botName != null && bare.length() >= 3
+                    && BotAddressee.score(bare, botName) >= BotAddressee.ASK)) {
+                continue;
+            }
+            out.append(out.length() == 0 ? "" : " ").append(word);
+        }
+        String said = out.toString().trim();
+        return said.replaceAll("^[,.!?:~ ]+", "").trim();
+    }
+
 
     // ── layer 3: who a nameless line is for ─────────────────────────────────────────────────────
 

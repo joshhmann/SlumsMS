@@ -406,6 +406,24 @@
       ph.map(p => '<tr><td>' + E(p[0]) + (p[2] ? ' <small>(inside another)</small>' : '') + '</td><td>' + E(p[1].toLowerCase()) + '</td><td class="num">' + p[3] +
         '</td><td class="num">' + N(p[4]) + '</td><td class="num">' + N(p[5]) + '</td></tr>').join('') + '</table>'
       : '<div class="muted">Needs two snapshots.</div>';
+    renderChat(lv.chat);
+  }
+
+  function renderChat(c) {
+    if (!c) { $('health-chat').innerHTML = '<div class="muted">No chat numbers in this snapshot.</div>'; return; }
+    const tiers = ['llm', 'scripted', 'emote', 'ignored', 'flagged'];
+    const row = (name, t) => '<tr><td>' + name + '</td>' + tiers.map(k => {
+      const v = (t || {})[k] || { n: 0, avgMs: 0 };
+      return '<td class="num">' + N(v.n) + (v.n ? ' <small>' + N(v.avgMs) + ' ms</small>' : '') + '</td>';
+    }).join('') + '</tr>';
+    const kv = o => Object.entries(o || {}).map(([k, v]) => E(k) + ' ' + N(v)).join(' · ') || 'none';
+    const d = c.decide || {};
+    $('health-chat').innerHTML = '<table class="t"><tr><th></th>' + tiers.map(k => '<th class="num">' + k + '</th>').join('') + '</tr>' +
+      row('since start', c.tiers) + row('this hour', c.thisHour) + row('last hour', c.lastHour) + '</table>' +
+      '<div class="muted">Flags: ' + kv(c.flags) + '<br>Actions: ' + kv(c.actions) +
+      '<br>Decide: ' + N(d.calls || 0) + ' calls, avg ' + N(d.avgMs || 0) + ' ms, ' + N(d.failed || 0) + ' failed, ' +
+      N(d.cacheHits || 0) + ' cached, ' + N(d.rateLimited || 0) + ' rate limited' +
+      (c.llm ? '<br>LLM: ' + E(c.llm) : '') + '</div>';
   }
 
   // ── refresh loop ───────────────────────────────────────────────────────────

@@ -62,6 +62,7 @@ public final class OpenAICompatibleBrain implements BotBrain {
 
     private final AtomicLong answered = new AtomicLong();
     private final AtomicLong fellBack = new AtomicLong();
+    private final AtomicLong voiceRejected = new AtomicLong();
     private final AtomicLong totalAnswerMs = new AtomicLong();
     private volatile String lastFailure = "none";
 
@@ -92,7 +93,7 @@ public final class OpenAICompatibleBrain implements BotBrain {
         long deadline = System.nanoTime() + TimeUnit.MILLISECONDS.toNanos(settings.timeoutMs());
         CompletableFuture<Optional<String>> result = new CompletableFuture<>();
         calls.execute(() -> result.complete(call(conversation, deadline, settings.model(), settings.maxTokens(),
-                ReplyCleaner::clean)));
+                ReplyCleaner::chat, true)));
         return result;
     }
 
@@ -103,12 +104,12 @@ public final class OpenAICompatibleBrain implements BotBrain {
         String model = settings.notesModel() == null || settings.notesModel().isBlank() ? settings.model()
                 : settings.notesModel();
         CompletableFuture<Optional<String>> result = new CompletableFuture<>();
-        calls.execute(() -> result.complete(call(conversation, deadline, model, NOTES_MAX_TOKENS, ReplyCleaner::notes)));
+        calls.execute(() -> result.complete(call(conversation, deadline, model, NOTES_MAX_TOKENS, ReplyCleaner::notes, false)));
         return result;
     }
 
     private Optional<String> call(List<Turn> conversation, long deadline, String model, int maxTokens,
-                                  java.util.function.Function<String, Optional<String>> cleaner) {
+                                  java.util.function.Function<String, Optional<String>> cleaner, boolean chat) {
         boolean acquired = false;
         long started = System.nanoTime();
         try {
@@ -133,8 +134,14 @@ public final class OpenAICompatibleBrain implements BotBrain {
             if (response.statusCode() / 100 != 2) {
                 return fail("HTTP " + response.statusCode());
             }
-            Optional<String> line = cleaner.apply(replyText(response.body()));
+            String raw = replyText(response.body());
+            Optional<String> line = cleaner.apply(raw);
             if (line.isEmpty()) {
+                String voice = chat ? ReplyCleaner.voiceProblem(raw) : null;
+                if (voice != null) {
+                    voiceRejected.incrementAndGet();
+                    return fail("voice check: " + voice);
+                }
                 return fail("empty after cleaning");
             }
             answered.incrementAndGet();
@@ -215,9 +222,9 @@ public final class OpenAICompatibleBrain implements BotBrain {
     @Override
     public String describe() {
         long ok = answered.get();
-        return String.format("%s model=%s slots=%d/%d answered=%d (avg %dms) fell back=%d (last: %s)",
+        return String.format("%s model=%s slots=%d/%d answered=%d (avg %dms) fell back=%d voice rejects=%d (last: %s)",
                 endpoint, settings.model().isEmpty() ? "(server default)" : settings.model(),
                 slots.availablePermits(), Math.max(1, settings.maxConcurrent()), ok,
-                ok == 0 ? 0 : totalAnswerMs.get() / ok, fellBack.get(), lastFailure);
+                ok == 0 ? 0 : totalAnswerMs.get() / ok, fellBack.get(), voiceRejected.get(), lastFailure);
     }
 }

@@ -585,6 +585,22 @@ public class SocialBot extends BotSM {
         MethodScheduler.runAfterDelay(() -> expirePlayerChatCommands(player), 5000);
     }
 
+    /**
+     * Ticket 37, the window on demand: the player double-clicked the bot. Opens the options
+     * straight away for either variant (a single-response bot would otherwise just say one line).
+     */
+    public void openMenuFor(Character player) {
+        if (hasActiveRespondant() && !isConversationWith(player)) {
+            showBusyHint(player);
+            return;
+        }
+        getInteractors().setRespondant(player);
+        lastRespondantMessageTime = System.currentTimeMillis();
+        socialState = SocialBotState.AWAITING_CHOICE;
+        botFaceTowardsPoint(getChr(), player.getPosition());
+        showInteractiveOptions(player);
+    }
+
     private void showInteractiveOptions(Character player) {
         List<String> options = List.of(INTERACTIVE_OPTIONS);
         // A click in the menu window is the same as typing the option's number (bot-persistence ticket 23).

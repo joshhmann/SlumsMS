@@ -38,13 +38,14 @@ class BotChatPromptTest {
         String system = BotChatPrompt.system(bot, player, BotPersona.generate(1), 0.5, "grinding",
                 List.of("said they were saving for a pink adventurer cape"));
 
-        assertTrue(system.startsWith("You are xXSkyBladeXx, a real person playing MapleStory in 2006."));
+        assertTrue(system.startsWith("You are xXSkyBladeXx, a real person playing MapleStory in 2008."));
         assertTrue(system.contains("level 34"));
         assertTrue(system.contains("currently grinding"));
         assertTrue(system.contains("talking to Josh, a level 52"));
         assertTrue(system.contains("pink adventurer cape"));
         assertTrue(system.contains("Ellinia station"), "world facts are included");
-        assertTrue(system.contains("never say you are an AI"));
+        assertTrue(system.contains("Never: say you are an AI"));
+        assertTrue(system.contains("No emojis, no markdown"));
     }
 
     @Test
@@ -55,5 +56,20 @@ class BotChatPromptTest {
         assertEquals(BotBrain.Role.SYSTEM, turns.get(0).role());
         assertEquals("nice hat", turns.get(3).content());
         assertEquals("hanging out in town", BotChatPrompt.activityPhrase("social"));
+    }
+
+    @Test
+    void theGroundedPromptCarriesMoodPartyRecentChatAndTheActionOutcome() {
+        BotChatPrompt.Context c = new BotChatPrompt.Context("Kimchiz", 41, "assassin", "Ant Tunnel I", "grinding",
+                "in a party with them", "focused on grinding, a bit distracted", "Josh", 30, "page", List.of(),
+                List.of("Josh: anyone here", "Kimchiz: ya"), "You agreed to party: you are waiting for their invite.");
+        String system = BotChatPrompt.system(c, BotPersona.generate(3), 0.3);
+        assertTrue(system.contains("level 41 assassin in Ant Tunnel I, currently grinding, in a party with them."));
+        assertTrue(system.contains("Mood: focused on grinding"));
+        assertTrue(system.contains("You have not talked to Josh before."));
+        assertTrue(system.contains("Recent chat around you: Josh: anyone here / Kimchiz: ya."));
+        assertTrue(system.contains("your reply must say so: You agreed to party"));
+        assertEquals("wary of this player after how they acted before, short with them",
+                BotChatPrompt.mood(3, "grinding", true, 0));
     }
 }
