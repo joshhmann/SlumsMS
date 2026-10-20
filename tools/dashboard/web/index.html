@@ -15,9 +15,11 @@
     <button role="tab" data-tab="bots">Bots</button>
     <button role="tab" data-tab="economy">Economy</button>
     <button role="tab" data-tab="health">Health</button>
+    <button role="tab" data-tab="gm">GM audit</button>
   </nav>
   <div class="status" id="status">loading…</div>
 </header>
+<div id="ops-strip" class="ops-strip" hidden></div>
 
 <main>
   <!-- ── Map viewer ─────────────────────────────────────────────────── -->
@@ -136,6 +138,24 @@
       <div class="card"><h3>DB connections in use</h3><div id="health-db" class="chart"></div></div>
       <div class="card wide"><h3>Tick phases (last minute)</h3><div id="health-phases"></div></div>
       <div class="card wide"><h3>Bot chat: who answered players <small>(tickets 36/37)</small></h3><div id="health-chat"></div></div>
+      <div class="card wide"><h3>Bot chat replies per hour, by tier <small>(today)</small></h3><div id="health-chat-chart" class="chart"></div></div>
+    </div>
+  </section>
+
+  <!-- ── GM audit (ticket 43) ───────────────────────────────────────── -->
+  <section id="tab-gm" class="tab">
+    <div id="gm-source" class="note"></div>
+    <div class="tiles" id="gm-tiles"></div>
+    <div class="row-controls gm-filters">
+      <label>Character or account <input id="gm-who" type="search" placeholder="name" autocomplete="off"></label>
+      <label>Command <input id="gm-cmd" type="search" placeholder="e.g. warp" autocomplete="off"></label>
+      <label>Outcome <select id="gm-outcome"><option value="">any</option><option>ok</option><option>denied</option><option>error</option></select></label>
+    </div>
+    <div class="grid2">
+      <div class="card wide"><h3>GM commands <small>(newest first, UTC)</small></h3><div id="gm-commands" class="scroll"></div></div>
+      <div class="card"><h3>Commands per day</h3><div id="gm-days" class="chart"></div></div>
+      <div class="card"><h3>Most used commands</h3><div id="gm-top" class="chart"></div></div>
+      <div class="card wide"><h3>GM level changes <small>(slumsms-gm, newest first, UTC)</small></h3><div id="gm-changes"></div></div>
     </div>
   </section>
 </main>

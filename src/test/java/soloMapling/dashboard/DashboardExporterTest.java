@@ -117,6 +117,8 @@ class DashboardExporterTest {
 
         Map<?, ?> series = read("series/2026-10-19.json");
         assertEquals(1, ((List<?>) series.get("points")).size(), "the series is saved every few runs, the first one at once");
+        Map<?, ?> first = (Map<?, ?>) ((List<?>) series.get("points")).get(0);
+        assertEquals(5, ((List<?>) first.get("ch")).size(), "chat replies per tier ride along in each point");
         assertEquals(List.of("2026-10-19"), read("days.json").get("series"));
         try (var files = Files.list(dir)) {
             assertTrue(files.noneMatch(f -> f.getFileName().toString().endsWith(".tmp")), "no temp files left behind");

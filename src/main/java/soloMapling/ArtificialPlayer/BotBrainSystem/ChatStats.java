@@ -169,6 +169,15 @@ public final class ChatStats {
         return m;
     }
 
+    /** Lines answered since start, one count per {@link Tier} in declaration order (the dashboard series). */
+    public static java.util.List<Long> tierCounts() {
+        java.util.List<Long> out = new java.util.ArrayList<>(Tier.values().length);
+        for (Tier tier : Tier.values()) {
+            out.add(total.get(tier).count.get());
+        }
+        return out;
+    }
+
     /** How many lines each tier answered since start. */
     public static long count(Tier tier) {
         return total.get(tier).count.get();

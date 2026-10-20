@@ -10,7 +10,9 @@
   const ACTIVITY_ORDER = ['grind', 'travel', 'town', 'break', 'idle'];
 
   const state = { live: null, days: null, day: null, series: null, names: null, index: null, learning: null, tab: 'map',
-    map: null, mapId: null, key: null, dailies: {} };
+    map: null, mapId: null, key: null, dailies: {}, ops: null, gm: null };
+  const TABS = ['map', 'learning', 'bots', 'economy', 'health', 'gm'];
+  const CHAT_TIERS = ['llm', 'scripted', 'emote', 'ignored', 'flagged'];
 
   async function getJSON(path, fresh) {
     const r = await fetch(DATA + path + (fresh ? (path.includes('?') ? '&' : '?') + 't=' + Date.now() : ''), { cache: fresh ? 'no-store' : 'default' });
@@ -39,7 +41,7 @@
   }));
   function route() {
     const parts = location.hash.replace(/^#/, '').split('/');
-    const tab = ['map', 'learning', 'bots', 'economy', 'health'].includes(parts[0]) ? parts[0] : 'map';
+    const tab = TABS.includes(parts[0]) ? parts[0] : 'map';
     if (tab === 'map' && parts[1] && +parts[1] !== state.mapId) openMap(+parts[1], parts[2]);
     showTab(tab);
   }
@@ -53,6 +55,7 @@
       else if (state.tab === 'bots') renderBots();
       else if (state.tab === 'economy') renderEconomy();
       else if (state.tab === 'health') renderHealth();
+      else if (state.tab === 'gm') renderGm();
     } catch (e) { console.error(e); }
   }
 
@@ -68,6 +71,31 @@
     const label = age < 180 ? 'live' : age < 900 ? 'delayed' : 'stale';
     s.innerHTML = '<span class="dot" style="background:' + color + '"></span>' + label + ' · snapshot ' +
       (age < 90 ? Math.round(age) + 's' : Math.round(age / 60) + ' min') + ' ago';
+  }
+
+  // ── ops strip: slumsms-monitor results (ticket 42), copied by slums-dashboard-extras ──
+  function ago(sec) {
+    return sec < 90 ? Math.round(sec) + 's' : sec < 5400 ? Math.round(sec / 60) + ' min' : (sec / 3600).toFixed(1) + ' h';
+  }
+  function renderOps() {
+    const host = $('ops-strip');
+    const o = state.ops;
+    if (!o || !o.targets || !o.targets.length) { host.hidden = true; return; }
+    host.hidden = false;
+    host.innerHTML = o.targets.map(t => {
+      if (t.error) return '<span class="target"><b>' + E(t.target) + '</b><span class="pill fail"><i style="background:' + C('--muted') + '"></i>' + E(t.error) + '</span></span>';
+      const age = Date.now() / 1000 - (t.at || 0);
+      const stale = age > 300;
+      const checks = Object.values(t.checks || {});
+      const failing = checks.filter(c => !c.ok && !c.skipped);
+      const head = stale ? ['--warn', 'monitor silent ' + ago(age)] : failing.length ? ['--bad', failing.length + ' failing'] : ['--good', 'all ok'];
+      return '<span class="target"><b>' + E(t.label || t.target) + '</b>' +
+        '<span class="pill' + (failing.length || stale ? ' fail' : '') + '" title="checked ' + ago(age) + ' ago"><i style="background:' + C(head[0]) + '"></i>' + head[1] + '</span>' +
+        checks.map(c => {
+          const col = c.skipped ? '--muted' : c.ok ? '--good' : '--bad';
+          return '<span class="pill' + (!c.ok && !c.skipped ? ' fail' : '') + '" title="' + E(c.detail + (c.skipped ? ' (skipped)' : '')) + '"><i style="background:' + C(col) + '"></i>' + E(c.name) + '</span>';
+        }).join('') + '</span>';
+    }).join('');
   }
 
   // ── map viewer ─────────────────────────────────────────────────────────────
@@ -407,6 +435,77 @@
         '</td><td class="num">' + N(p[4]) + '</td><td class="num">' + N(p[5]) + '</td></tr>').join('') + '</table>'
       : '<div class="muted">Needs two snapshots.</div>';
     renderChat(lv.chat);
+    renderChatChart(pts);
+  }
+
+  // Replies per hour by tier from the cumulative per-point counts (p.ch); a drop means the server restarted.
+  function renderChatChart(pts) {
+    const withCh = pts.filter(p => Array.isArray(p.ch));
+    const host = $('health-chat-chart');
+    if (withCh.length < 2) {
+      Charts.line(host, { x: 'time', series: [], empty: withCh.length ? 'needs two snapshots' : 'this server build does not export chat counts per point yet' });
+      return;
+    }
+    const hours = new Map();
+    for (let i = 1; i < withCh.length; i++) {
+      const a = withCh[i - 1].ch, b = withCh[i].ch;
+      const h = Math.floor(withCh[i].t / 3600e3) * 3600e3;
+      const row = hours.get(h) || [0, 0, 0, 0, 0];
+      for (let k = 0; k < 5; k++) row[k] += b[k] >= a[k] ? b[k] - a[k] : b[k];
+      hours.set(h, row);
+    }
+    const xs = [...hours.keys()].sort((x, y) => x - y);
+    Charts.line(host, { x: 'time', series: CHAT_TIERS.map((k, i) => ({ name: k, color: C(SLOTS[i]),
+      points: xs.map(h => [h + 1800e3, hours.get(h)[i]]) })), empty: 'no replies today' });
+  }
+
+  // ── GM audit (ticket 43), exported by slums-dashboard-extras from slumsms-gm-audit --json ──
+  ['gm-who', 'gm-cmd', 'gm-outcome'].forEach(id => $(id).addEventListener('input', () => renderGm()));
+  function renderGm() {
+    const g = state.gm;
+    if (!g) {
+      $('gm-source').innerHTML = '<b>No GM audit export.</b> Install the slums-dashboard-extras timer with GM_CONTAINER and GM_SCHEMA set ' +
+        '(it runs <code>slumsms-gm-audit --json</code> on the host; the browser never talks to the database).';
+      tiles('gm-tiles', []); $('gm-commands').innerHTML = ''; $('gm-changes').innerHTML = '';
+      Charts.bars($('gm-days'), { rows: [] }); Charts.bars($('gm-top'), { rows: [] });
+      return;
+    }
+    const age = Date.now() / 1000 - g.at;
+    $('gm-source').innerHTML = 'Schema <b>' + E(g.schema) + '</b> · exported ' + ago(age) + ' ago · newest ' + g.commands.length + ' commands and ' +
+      g.changes.length + ' level changes' + (g.error ? '<br><span class="out-error">' + E(g.error) + '</span>' : '');
+    const all = g.commands;
+    const now = Date.now();
+    const ts = r => Date.parse(String(r.at).replace(' ', 'T') + 'Z');
+    const day = all.filter(r => now - ts(r) < 86400e3);
+    const gms = new Set(day.map(r => r.character_name));
+    tiles('gm-tiles', [
+      ['Commands, last 24 h', N(day.length), gms.size + ' GM character' + (gms.size === 1 ? '' : 's')],
+      ['Denied, last 24 h', N(day.filter(r => r.outcome === 'denied').length), 'GM level below the command rank'],
+      ['Errors, last 24 h', N(day.filter(r => r.outcome === 'error').length), 'the command threw'],
+      ['Level changes', N(g.changes.length), g.changes[0] ? 'latest ' + E(g.changes[0].at.slice(0, 16)) : 'none recorded'],
+    ]);
+    const who = $('gm-who').value.trim().toLowerCase(), cmd = $('gm-cmd').value.trim().toLowerCase(), out = $('gm-outcome').value;
+    const rows = all.filter(r => (!who || (r.character_name + ' ' + r.account_name).toLowerCase().includes(who)) &&
+      (!cmd || String(r.command).toLowerCase().includes(cmd)) && (!out || r.outcome === out));
+    $('gm-commands').innerHTML = rows.length ? '<table class="t"><tr><th>When</th><th>Character</th><th>Account</th><th class="num">GM</th><th>Command</th><th>Args</th>' +
+      '<th class="num">rank</th><th>Map</th><th class="num">ch</th><th>IP</th><th>Outcome</th></tr>' + rows.slice(0, 300).map(r =>
+        '<tr><td>' + E(String(r.at).slice(0, 19)) + '</td><td>' + E(r.character_name) + '</td><td>' + E(r.account_name) + '</td><td class="num">' + E(r.gm_level) +
+        '</td><td>' + E(r.command) + '</td><td class="wrap">' + E(r.args) + '</td><td class="num">' + E(r.command_rank) + '</td><td>' +
+        (+r.map_id ? '<a href="#map/' + (+r.map_id) + '" title="' + E(mapName(+r.map_id)) + '">' + (+r.map_id) + '</a>' : '') + '</td><td class="num">' + E(r.channel) +
+        '</td><td>' + E(r.ip) + '</td><td class="out-' + E(r.outcome) + '">' + E(r.outcome) + '</td></tr>').join('') + '</table>' +
+        (rows.length > 300 ? '<div class="muted">Showing 300 of ' + rows.length + '.</div>' : '')
+      : '<div class="muted">' + (all.length ? 'No command matches the filter.' : 'No GM commands recorded.') + '</div>';
+    const perDay = {};
+    all.forEach(r => { const d = String(r.at).slice(0, 10); perDay[d] = (perDay[d] || 0) + 1; });
+    Charts.bars($('gm-days'), { rows: Object.entries(perDay).sort().slice(-30).map(([d, v]) => [d.slice(5), v]), valueName: 'commands', color: C('--s7'), empty: 'no GM commands' });
+    const perCmd = {};
+    all.forEach(r => { perCmd[r.command] = (perCmd[r.command] || 0) + 1; });
+    Charts.bars($('gm-top'), { horizontal: true, rows: Object.entries(perCmd).sort((a, b) => b[1] - a[1]).slice(0, 10), valueName: 'uses', color: C('--s7'), empty: 'no GM commands' });
+    $('gm-changes').innerHTML = g.changes.length ? '<table class="t"><tr><th>When</th><th>Account</th><th>Old level(s)</th><th class="num">New</th>' +
+      '<th class="num">chars</th><th>Changed by</th><th>Note</th></tr>' + g.changes.map(r => '<tr><td>' + E(String(r.at).slice(0, 19)) + '</td><td>' +
+        E(r.account_name) + ' <small>#' + E(r.account_id) + '</small></td><td>' + E(r.old_levels) + '</td><td class="num">' + E(r.new_level) + '</td><td class="num">' +
+        E(r.characters) + '</td><td>' + E(r.changed_by) + '</td><td class="wrap">' + E(r.note) + '</td></tr>').join('') + '</table>'
+      : '<div class="muted">No GM level changes recorded.</div>';
   }
 
   function renderChat(c) {
@@ -430,6 +529,9 @@
   async function refreshLive() {
     try { state.live = await getJSON('live.json', true); } catch (e) { state.live = null; }
     renderStatus();
+    try { state.ops = await getJSON('ops/status.json', true); } catch (e) { state.ops = null; }
+    renderOps();
+    try { state.gm = await getJSON('ops/gm.json', true); } catch (e) { state.gm = null; }
   }
   async function refreshAll() {
     await refreshLive();
@@ -448,6 +550,6 @@
     setInterval(async () => { await refreshLive(); if (state.tab !== 'map') render(); }, 60_000);
     setInterval(async () => { await loadDays(); await loadDailies(); if (state.tab !== 'map') render(); }, 300_000);
     setInterval(async () => { const idx = state.index; state.index = null; await ensureIndex(); if (!state.index.size) state.index = idx; await loadLearning(); if (state.tab === 'learning') render(); }, 900_000);
-    setInterval(renderStatus, 15_000);
+    setInterval(() => { renderStatus(); renderOps(); }, 15_000);
   })();
 })();

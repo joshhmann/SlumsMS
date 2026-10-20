@@ -96,7 +96,9 @@ See `deploy/monitor/README.md`.
 nginx site `slums-dashboard-test`, port **8091**, basic auth "SlumsMS admin", static app in
 `/srv/slums-dashboard-test/web`, data snapshots in `/srv/slums-dashboard-test/data` written by the
 `slums-dashboard-test` server (ports 8479/8285+, schema `slums_release_test`). Password in
-`/root/slums-dashboard-test-password.txt`.
+`/root/slums-dashboard-test-password.txt`. `slums-dashboard-extras@dashboard-test.timer` (config
+`/etc/slums-dashboard/dashboard-test.conf`) copies the persistence-test monitor status and the GM audit of
+`slums_release_test` into `data/ops/` every minute.
 
 ## Test servers and the test DB
 

@@ -173,3 +173,31 @@ table.t tr.link:hover td { background: var(--surface-2); }
   .top { padding: 8px 16px; }
   .tab { padding: 16px; }
 }
+
+/* ops strip: slumsms-monitor results (ticket 42) */
+.ops-strip {
+  display: flex; flex-wrap: wrap; align-items: center; gap: 6px 14px; padding: 6px 16px;
+  background: var(--surface-2); border-bottom: 1px solid var(--border); font-size: 12px; color: var(--text-2);
+}
+.ops-strip .target { display: flex; flex-wrap: wrap; align-items: center; gap: 4px; }
+.ops-strip .target > b { color: var(--text); margin-right: 2px; }
+.pill {
+  display: inline-flex; align-items: center; gap: 4px; padding: 1px 7px; border-radius: 10px;
+  border: 1px solid var(--border); background: var(--surface); white-space: nowrap; cursor: default;
+}
+.pill i { width: 7px; height: 7px; border-radius: 50%; display: inline-block; }
+.pill.fail { border-color: var(--bad); color: var(--text); }
+
+/* GM audit */
+.gm-filters { display: flex; flex-wrap: wrap; gap: 10px 16px; align-items: end; }
+.gm-filters label { display: flex; flex-direction: column; font-size: 12px; color: var(--text-2); gap: 2px; }
+.gm-filters input, .gm-filters select { width: 180px; }
+.scroll { max-height: 520px; overflow: auto; }
+td.wrap { word-break: break-word; max-width: 360px; }
+.out-denied { color: var(--warn); font-weight: 600; }
+.out-error { color: var(--bad); font-weight: 600; }
+@media (max-width: 600px) {
+  .ops-strip { padding: 6px 16px; }
+  .gm-filters input, .gm-filters select { width: 100%; }
+  .scroll { overflow-x: auto; }
+}
