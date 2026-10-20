@@ -194,6 +194,7 @@ public class TrainingBot extends BotSM {
             return;
         }
         combatTickerStarted = true;
+        soloMapling.ArtificialPlayer.BotGrindSystem.LevelingPathCensus.startReporterIfConfigured(); // ticket 31
         combatTicker = ExecutorServiceManager.getScheduledExecutorService().scheduleAtFixedRate(
                 TrainingBot::combatTickAll, COMBAT_TICK_MS, COMBAT_TICK_MS, TimeUnit.MILLISECONDS);
         BotShutdown.onQuiesce(TrainingBot::stopCombatTicker);
@@ -933,6 +934,7 @@ public class TrainingBot extends BotSM {
             lastExpAccrualMs = now();
             nextBuffMs = now(); // buff up as soon as a player can see it (looks already-buffed on arrival)
             ACTIVE_GRINDERS.add(this);
+            soloMapling.ArtificialPlayer.BotGrindSystem.LevelingPathCensus.grinding(chr.getId(), chr.getMapId());
             lastKnownLevel = chr.getLevel();
             if (!resumingFromBreak) {
                 sayContext("GrindStart", chr, null); // a resumed session already spoke BreakOver
@@ -1618,6 +1620,7 @@ public class TrainingBot extends BotSM {
             }
             grind.release(chr);
             clearTrainTarget(); // release this map's occupancy slot
+            soloMapling.ArtificialPlayer.BotGrindSystem.LevelingPathCensus.forget(chr.getId());
             BotAttackDriver.clearBot(chr.getId());
             BotBuffDriver.clearBot(chr.getId());
             BotWanderSystem.stop(chr); // end any shop-dwell flavor wander

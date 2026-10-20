@@ -119,7 +119,8 @@ public final class TrainingMapFinder {
     // when nothing clears it — a level-125 pro whose floor (115) sits above every allowed map in reach must
     // still go somewhere, and the closest-level maps are then the hardest ones, i.e. still the "deepest".
     // Closeness is |mobLevel - level|, so a bot of any level (rebirths go to 255) gets the hardest maps it
-    // can reach rather than nothing. Ticket 31's level path replaces this fallback with a curated route.
+    // can reach rather than nothing. Ticket 31's leveling path (LevelingPathChooser) is asked before this search
+    // on most decisions; this fallback is what runs when the path has nothing valid for the bot.
     static List<TrainingMap> select(List<TrainingMap> reachable, TrainingMap origin, boolean includeOrigin,
                                     int level, int minMob, int maxMob, int hardMinMob) {
         List<TrainingMap> eligible = new ArrayList<>();

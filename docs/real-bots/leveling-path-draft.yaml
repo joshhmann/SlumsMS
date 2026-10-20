@@ -1,5 +1,6 @@
 # Leveling-path DRAFT for SlumsMS bots (ticket 31). Generated from docs/real-bots/leveling-path-research.md.
-# Data only: nothing reads this yet. Map ids verified against MapleRoot String.wz/Map.img + Map.wz life + Mob.wz levels.
+# The draft as researched. The server reads src/main/java/soloMapling/ArtificialPlayer/BotGrindSystem/LevelingPath.yaml
+# (built from this file, WZ-validated; edit that one). Map ids verified against MapleRoot String.wz/Map.img + Map.wz life + Mob.wz levels.
 # weight: 1-5 relative pick weight inside the band/group. mode: solo | party | both.
 # rebirths: minimum rebirth count (HyperTPHandler gates: LKC 211060000-211070550 = 1,
 #   Twilight Perion range 271000000-273060200 = 2, Grandis/Arcane 400000000-460000000 = 3).
