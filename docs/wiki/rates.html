@@ -1,0 +1,61 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1">
+<title>Rates - SlumsMS Player Guide</title>
+<link rel="stylesheet" href="style.css">
+</head>
+<body>
+<header class="top">
+  <a class="logo" href="index.html"><span class="leaf">&#127809;</span> SlumsMS <small>player guide</small></a>
+  <label class="menu-btn" for="menu">Menu</label>
+</header>
+<input type="checkbox" id="menu" hidden>
+<div class="wrap">
+<nav class="side"><div class="box"><div class="box-h">Pages</div><ul><li><a href="index.html">Home</a></li><li><a href="getting-started.html">Getting started</a></li><li><a href="rates.html" aria-current=page>Rates</a></li><li><a href="hubs.html">Base of Roots and the FM</a></li><li><a href="jobs.html">Jobs and skills</a></li><li><a href="leveling.html">Where to train</a></li><li><a href="travel.html">Travel routes</a></li><li><a href="rebirths.html">Rebirths</a></li><li><a href="regulars.html">The town&#x27;s regulars</a></li><li><a href="commands.html">Commands</a></li><li><a href="money.html">Making mesos</a></li><li><a href="faq.html">FAQ and known issues</a></li><li><a href="changelog.html">Changelog</a></li><li><a href="guidebook.html">In-game guidebook</a></li></ul></div></nav>
+<main>
+<div class="box"><div class="box-h"><h1>Rates</h1></div>
+<div class="box-b">
+<div class="scroll"><table>
+<tr><th>Rate</th><th>Value</th><th>What it means</th></tr>
+<tr><td>EXP</td><td><b>3x</b></td><td>Levels come three times faster than GMS v83.</td></tr>
+<tr><td>Meso</td><td><b>10x</b></td><td>Monster mesos and quest mesos are x10. NPC shop and sell prices are normal.</td></tr>
+<tr><td>Drop</td><td><b>4x</b></td><td>Scrolls, equips, ores and ETC drop four times as often.</td></tr>
+<tr><td>Boss drop</td><td><b>3x</b></td><td>Boss items (Zakum helm, Horntail necklace pieces, books...).</td></tr>
+<tr><td>Quest mesos</td><td>follow the meso rate</td><td>Quest meso rewards are x10 as well.</td></tr>
+<tr><td>Party quests</td><td>bonus EXP</td><td>PQ EXP is boosted (PQ item rewards are not).</td></tr>
+<tr><td>Parties</td><td>bonus EXP</td><td>Training in a party gives extra EXP.</td></tr>
+</table></div>
+
+<h2>Rebirths and EXP</h2>
+<p>After a rebirth your <b>own</b> EXP rate is set by how many rebirths you have:</p>
+<div class="scroll"><table>
+<tr><th>Rebirths</th><th>EXP rate</th></tr>
+<tr><td>none</td><td>3x (the world rate)</td></tr>
+<tr><td>1</td><td>3x</td></tr>
+<tr><td>2</td><td>2x</td></tr>
+<tr><td>3</td><td>1x (also 1x past level 200)</td></tr>
+</table></div>
+<p class="note">The old MapleRoot guide book says 85x / 45x / 18x / 4x. Those were MapleRoot's own server numbers
+and are <b>not</b> SlumsMS's.</p>
+
+<h2>Check in game</h2>
+<p><code>@rates</code> shows your own rates and <code>@showrates</code> shows the world and character rates.
+<code>@check</code> shows the world rates, the server time and how long until the daily and weekly (Thursday)
+resets.</p>
+
+<p class="owner">These values are the live config recorded on 2026-10 (Scania then; the world is Bera since 1.3.1).
+Confirm before publishing: exp 3, meso 10, drop 4, boss drop 3, quest 1 with USE_QUEST_RATE, PQ bonus 10.0, party
+bonus 2.0, REBIRTH_*_RATE 3/2/1/1. Should the wiki print the PQ (x10) and party (x2) multipliers?</p>
+<p class="src">Sources: <code>docs/real-bots/economy-research.md</code> ("Server calibration");
+<code>scripts/npc/rebirth.js</code>, <code>World.java</code> and <code>Character.setPlayerExpRatesCerezeth</code> (a
+rebirth rate replaces your EXP rate); <code>CheckCommand.java</code>; <code>RatesCommand.java</code>.</p>
+
+</div></div>
+</main>
+</div>
+<footer>SlumsMS - a private v83 world on MapleRoot. Fan project, not affiliated with Nexon.<br>
+Built from the server repo by docs/wiki/build.py. Notes marked <span class="owner">owner check</span> need the owner to confirm.</footer>
+</body>
+</html>

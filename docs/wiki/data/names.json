@@ -1,0 +1,330 @@
+{
+ "source": "String.wz Map.img / Npc.img of the server WZ",
+ "maps": {
+  "100000000": {
+   "street": "Victoria Road",
+   "map": "Henesys"
+  },
+  "101000000": {
+   "street": "Victoria Road",
+   "map": "Ellinia"
+  },
+  "101000300": {
+   "street": "Victoria Road",
+   "map": "Ellinia Station"
+  },
+  "101000301": {
+   "street": "Victoria Road",
+   "map": "Before Takeoff <To Orbis>"
+  },
+  "101000400": {
+   "street": "Victoria Road",
+   "map": "Sky Ferry <To Ereve>"
+  },
+  "102000000": {
+   "street": "Victoria Road",
+   "map": "Perion"
+  },
+  "103000000": {
+   "street": "Victoria Road",
+   "map": "Kerning City"
+  },
+  "103000100": {
+   "street": "Victoria Road",
+   "map": "Subway Ticketing Booth"
+  },
+  "104000000": {
+   "street": "Victoria Road",
+   "map": "Lith Harbor"
+  },
+  "120000000": {
+   "street": "Victoria Road",
+   "map": "Nautilus Harbor"
+  },
+  "130000210": {
+   "street": "Empress' Road",
+   "map": "Sky Ferry "
+  },
+  "200000000": {
+   "street": "Orbis",
+   "map": "Orbis"
+  },
+  "200000100": {
+   "street": "Orbis",
+   "map": "Orbis Station Enterence"
+  },
+  "200000110": {
+   "street": "Orbis",
+   "map": "Station Tunnel <To Ellinia>"
+  },
+  "200000111": {
+   "street": "Orbis",
+   "map": "Station<To Ellinia>"
+  },
+  "200000112": {
+   "street": "Orbis",
+   "map": "Before Takeoff <To Ellinia>"
+  },
+  "200000120": {
+   "street": "Orbis",
+   "map": "Station Pathway<Ludibrium>"
+  },
+  "200000121": {
+   "street": "Orbis",
+   "map": "Station<Ludibrium>"
+  },
+  "200000122": {
+   "street": "Orbis",
+   "map": "Before the Departure <Ludibrium>"
+  },
+  "200000130": {
+   "street": "Orbis",
+   "map": "Cabin Path <To Leafre>"
+  },
+  "200000131": {
+   "street": "Orbis",
+   "map": "Cabin <To Leafre>"
+  },
+  "200000132": {
+   "street": "Orbis",
+   "map": "Cabin <To Leafre>"
+  },
+  "200000140": {
+   "street": "Orbis",
+   "map": "Cabin Path <To Mu Lung>"
+  },
+  "200000141": {
+   "street": "Orbis",
+   "map": "Cabin <To Mu Lung>"
+  },
+  "200000150": {
+   "street": "Orbis",
+   "map": "Station Tunnel <To Ariant>"
+  },
+  "200000151": {
+   "street": "Orbis",
+   "map": "Station <To Ariant>"
+  },
+  "200000152": {
+   "street": "Orbis",
+   "map": "Station <To Ariant>"
+  },
+  "200000160": {
+   "street": "Orbis",
+   "map": "Station Hall"
+  },
+  "200000161": {
+   "street": "Orbis",
+   "map": "Station"
+  },
+  "200090000": {
+   "street": "During the Ride",
+   "map": "To Ellinia"
+  },
+  "200090010": {
+   "street": "During the Ride",
+   "map": "To Orbis"
+  },
+  "200090020": {
+   "street": "Empress' Road",
+   "map": "To Ereve"
+  },
+  "200090021": {
+   "street": "Empress' Road",
+   "map": "To Orbis"
+  },
+  "200090030": {
+   "street": "Empress' Road",
+   "map": "To Ereve"
+  },
+  "200090031": {
+   "street": "Empress' Road",
+   "map": "To Ellinia"
+  },
+  "200090100": {
+   "street": "On a Voyage",
+   "map": "Ludibrium"
+  },
+  "200090110": {
+   "street": "On a Voyage",
+   "map": "Orbis"
+  },
+  "200090200": {
+   "street": "During the Ride",
+   "map": "To Leafre"
+  },
+  "200090210": {
+   "street": "During the Ride",
+   "map": "To Orbis"
+  },
+  "200090300": {
+   "street": "During the Ride",
+   "map": "To Mu Lung"
+  },
+  "200090310": {
+   "street": "During the Ride",
+   "map": "To Orbis"
+  },
+  "200090400": {
+   "street": "Cruising",
+   "map": "To Ariant"
+  },
+  "200090410": {
+   "street": "Cruising",
+   "map": "To Orbis"
+  },
+  "200090500": {
+   "street": "In Flight",
+   "map": "Way to Temple of Time"
+  },
+  "200090510": {
+   "street": "In Flight",
+   "map": "Way to Minar Forest"
+  },
+  "220000000": {
+   "street": "Ludibrium",
+   "map": "Ludibrium"
+  },
+  "220000100": {
+   "street": "Ludibrium",
+   "map": "Ludibrium Ticketing Place"
+  },
+  "220000110": {
+   "street": "Ludibrium",
+   "map": "Station<Orbis>"
+  },
+  "220000111": {
+   "street": "Ludibrium",
+   "map": "Before the Departure <Orbis>"
+  },
+  "230000000": {
+   "street": "Aquarium",
+   "map": "Aquarium"
+  },
+  "240000000": {
+   "street": "Leafre",
+   "map": "Leafre"
+  },
+  "240000100": {
+   "street": "Leafre",
+   "map": "Leafre Station Enterence"
+  },
+  "240000110": {
+   "street": "Leafre",
+   "map": "Station"
+  },
+  "240000111": {
+   "street": "Leafre",
+   "map": "Before Takeoff <To Orbis>"
+  },
+  "250000000": {
+   "street": "Mu Lung",
+   "map": "Mu Lung"
+  },
+  "250000100": {
+   "street": "Mu Lung",
+   "map": "Mu Lung Temple"
+  },
+  "251000000": {
+   "street": "Herb Town",
+   "map": "Herb Town"
+  },
+  "251000100": {
+   "street": "Herb Town",
+   "map": "Pier on the Beach"
+  },
+  "260000000": {
+   "street": "The Burning Road",
+   "map": "Ariant"
+  },
+  "260000100": {
+   "street": "Ariant",
+   "map": "Ariant Station Platform"
+  },
+  "260000110": {
+   "street": "Ariant",
+   "map": "Before Takeoff <To Orbis>"
+  },
+  "270000100": {
+   "street": "Time Lane",
+   "map": "Temple of Time"
+  },
+  "540010000": {
+   "street": "Singapore",
+   "map": "Changi Airport"
+  },
+  "540010001": {
+   "street": "Singapore",
+   "map": "Before Departure (To Kerning City)"
+  },
+  "540010002": {
+   "street": "Singapore",
+   "map": "On the way to Kerning City"
+  },
+  "540010100": {
+   "street": "Victoria Island",
+   "map": "Kerning Airport"
+  },
+  "540010101": {
+   "street": "Victoria Island",
+   "map": "On the way to CBD"
+  },
+  "600010001": {
+   "street": "New Leaf City Town Street",
+   "map": "NLC Subway Station"
+  },
+  "600010002": {
+   "street": "New Leaf City Town Street",
+   "map": "Waiting Room(From NLC to KC)"
+  },
+  "600010003": {
+   "street": "Hidden Street",
+   "map": "Inside Subway(From NLC to KC)"
+  },
+  "600010004": {
+   "street": "Kerning City Town Street",
+   "map": "Waiting Room(From KC to NLC)"
+  },
+  "600010005": {
+   "street": "Hidden Street",
+   "map": "Inside Subway(From KC to NLC)"
+  },
+  "800000000": {
+   "street": "Zipangu",
+   "map": "Mushroom Shrine"
+  }
+ },
+ "npcs": {
+  "1002007": "Regular Cab at Lith Harbor",
+  "1012000": "Regular Cab",
+  "1022001": "Regular Cab",
+  "1032000": "Regular Cab",
+  "1032007": "Joel",
+  "1032008": "Cherry",
+  "1052007": "The Ticket Gate",
+  "1052016": "Regular Cab",
+  "1092014": "Nautilus' Mid-Sized Taxi",
+  "1100003": "Kiriru",
+  "1100004": "Kiru",
+  "1100007": "Kiriru",
+  "1100008": "Kiru",
+  "2012000": "Agatha",
+  "2012001": "Rini",
+  "2012006": "Isa the Station Guide",
+  "2012013": "Sunny",
+  "2012021": "Ramini",
+  "2012025": "Geras",
+  "2041000": "Tian",
+  "2060009": "Dolphin",
+  "2082001": "Tommie",
+  "2082003": "Corba",
+  "2090005": "Crane",
+  "2102000": "Asesson",
+  "2102002": "Syras",
+  "9000020": "Spinel",
+  "9201057": "Bell",
+  "9201068": "NLC ticket gate",
+  "9270038": "Shalon",
+  "9270041": "Irene"
+ }
+}

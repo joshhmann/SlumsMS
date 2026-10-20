@@ -1,0 +1,55 @@
+<!-- title: Jobs and skills | nav: 40 | blurb: Every class, when to advance, MapleRoot's skill changes, and the 5th tier. -->
+<h2>Advancing</h2>
+<p>All advancements are done by the <b>Job Master</b> in Base of Roots. There are no job quests.</p>
+<div class="scroll"><table>
+<tr><th>Tier</th><th>Level</th><th>Notes</th></tr>
+<tr><td>1st job</td><td>10 (Magician 8)</td><td>Same for Cygnus Knights (from Noblesse) and Aran (from Legend). You get
+weapons and ammo for the class.</td></tr>
+<tr><td>2nd job</td><td>30</td><td></td></tr>
+<tr><td>3rd job</td><td>70</td><td>Hermit and 3rd-job Night Walker: Shadow Partner.</td></tr>
+<tr><td>4th job</td><td>120</td><td>Every class, Cygnus Knights included.</td></tr>
+<tr><td>5th tier</td><td>4th job, 3 rebirths</td><td>Uses up one <b>World's Engine</b>. Four new skills at level 1.</td></tr>
+</table></div>
+
+<h2>The classes</h2>
+<div class="scroll"><table>
+<tr><th>Branch</th><th>4th job</th></tr>
+<tr><td>Warrior</td><td>Hero, Paladin, Dark Knight</td></tr>
+<tr><td>Magician</td><td>Arch Mage (Fire/Poison), Arch Mage (Ice/Lightning), Bishop</td></tr>
+<tr><td>Bowman</td><td>Bowmaster, Marksman</td></tr>
+<tr><td>Thief</td><td>Night Lord, Shadower</td></tr>
+<tr><td>Pirate</td><td>Buccaneer, Corsair</td></tr>
+<tr><td>Cygnus Knights</td><td>Dawn Warrior, Blaze Wizard, Wind Archer, Night Walker, Thunder Breaker (all with a
+4th job here)</td></tr>
+<tr><td>Legend</td><td>Aran</td></tr>
+<tr><td>Beginner</td><td><b>Super Beginner</b> (pick Chain Attack at 10; the Job Master makes you a Super Beginner
+at 120), then <b>Synth Master</b> (3 rebirths and a World's Engine)</td></tr>
+</table></div>
+
+<h2>What MapleRoot changed</h2>
+<ul>
+<li><b>New attacks:</b> custom 4th-job skills for every explorer 4th job (the Bishop gets the passive Buff Master),
+for example Rising Rage (Hero) and La Mancha Spear (Dark Knight).</li>
+<li><b>Removed:</b> all boosters, Steal, Big Bang, Heaven's Hammer, Slow, Taunt, Ninja Ambush, Assassinate, Barrage,
+Snatch, Demolition, Transformation and a few others; the warriors' axe, blunt and pole-arm lines.
+<b>Warriors are sword or spear only.</b></li>
+<li><b>Same skill slot, new skill:</b> Brandish &rarr; Raging Blow, Seal/Doom &rarr; Fire Rush, and others.</li>
+</ul>
+<p>The full list, skill by skill, is in <code>docs/real-bots/mapleroot-skills.md</code> in the server repo.</p>
+
+<h2>The 4th-job skill package</h2>
+<p>The <b>4th job skills</b> NPC in Base of Roots teaches every 4th-job skill that normally needs a quest or a
+skill book, for 10,000,000 mesos (100,000,000 for a Beginner).</p>
+
+<h2>The 5th tier</h2>
+<ol>
+<li>Reach your 4th job and <a href="rebirths.html">rebirth three times</a>.</li>
+<li>Get a <b>World's Engine</b>: the quest <b>"Magnus the Tyrant!"</b> (level 200, after the quest before it)
+&mdash; defeat Magnus, then turn it in to Wyatt the Reborn.</li>
+<li>Talk to the Job Master. The World's Engine is used up and you learn your tier's four skills.</li>
+</ol>
+<p class="owner">The ticket calls these "hyper/5th skills". The code only has the 5th tier (job x13) and no
+separate hyper-skill system. Is "hyper" just another name for it?</p>
+<p class="src">Sources: <code>scripts/npc/9010003.js</code> (Job Master), <code>scripts/npc/2084000.js</code>,
+<code>docs/real-bots/mapleroot-skills.md</code>, <code>docs/tickets/30-bot-rebirth.md</code> (World's Engine
+quest 31167).</p>

@@ -1,0 +1,9 @@
+<?xml version="1.0" encoding="UTF-8" standalone="yes"?>
+<imgdir name="Etc.img">
+<imgdir name="Etc">
+<imgdir name="4161001">
+<string name="name" value="SlumsMS Guide"/>
+<string name="desc" value="Everything about SlumsMS: rates, hubs, rebirths, the town's regulars and commands.\n#cDouble-click on the item to open.#"/>
+</imgdir>
+</imgdir>
+</imgdir>

@@ -1,0 +1,215 @@
+<?xml version="1.0" encoding="UTF-8" standalone="yes"?>
+<imgdir name="0416.img">
+<imgdir name="04161001">
+<imgdir name="book">
+<imgdir name="0">
+<imgdir name="0">
+<string name="text" value="#eSlumsMS Guide#n"/>
+</imgdir>
+<imgdir name="1">
+<string name="text" value="Welcome to #bSlumsMS#k, on the world of #bBera#k.\n\nThis book covers what is different here. Open it any time from your ETC tab.\n\nType #b@help#k in chat for the full list of commands."/>
+</imgdir>
+</imgdir>
+<imgdir name="1">
+<imgdir name="0">
+<string name="text" value="#eContents#n"/>
+</imgdir>
+<imgdir name="1">
+<string name="text" value="#L2##b1. What is SlumsMS?#k#l\n#L4##b2. Rates#k#l\n#L6##b3. Base of Roots and the FM#k#l\n#L8##b4. Hub NPCs#k#l\n#L10##b5. Jobs and the Job Master#k#l\n#L12##b6. Rebirths#k#l\n#L14##b7. The 5th tier#k#l\n#L16##b8. The town's regulars#k#l\n#L18##b9. Talking to people#k#l\n#L20##b10. Megaphones and @quiet#k#l\n#L22##b11. Commands#k#l\n#L24##b12. Getting help#k#l"/>
+</imgdir>
+</imgdir>
+<imgdir name="2">
+<imgdir name="0">
+<string name="text" value="#e1. What is SlumsMS?#n"/>
+</imgdir>
+<imgdir name="1">
+<string name="text" value="SlumsMS is a v83 world built on #bMapleRoot#k: custom jobs and skills, rebirths, the Arcane River and Grandis maps, a 5th tier for every class.\n\nOn top of that the towns are alive. Hundreds of #bregulars#k train, trade, chat, run party quests and come and go through the day."/>
+</imgdir>
+</imgdir>
+<imgdir name="3">
+<imgdir name="0">
+<string name="text" value=""/>
+</imgdir>
+<imgdir name="1">
+<string name="text" value="#eGood to know#n\n- One world, #bBera#k, 8 channels.\n- The FM button and the hub are the same place: #bBase of Roots#k.\n- The #bSHOP#k button opens the cash shop in a window.\n- Day, night and weather change on outdoor maps.\n\n#L1##bBack to Contents#k#l"/>
+</imgdir>
+</imgdir>
+<imgdir name="4">
+<imgdir name="0">
+<string name="text" value="#e2. Rates#n"/>
+</imgdir>
+<imgdir name="1">
+<string name="text" value="#bEXP#k 3x    #bMeso#k 10x\n#bDrop#k 4x    #bBoss drop#k 3x\n\nQuest mesos follow the meso rate. NPC shop prices are normal, so potions and stars are cheap for you.\n\nParty play and party quests give bonus EXP.\n\nType #b@rates#k or #b@check#k to see your own rates in game."/>
+</imgdir>
+</imgdir>
+<imgdir name="5">
+<imgdir name="0">
+<string name="text" value=""/>
+</imgdir>
+<imgdir name="1">
+<string name="text" value="#eAfter a rebirth#n your EXP rate changes:\n- No rebirth: 3x\n- 1st rebirth: 3x\n- 2nd rebirth: 2x\n- 3rd rebirth: 1x\n\nThe numbers on this page can change between updates. #b@rates#k always shows the real ones.\n\n#L1##bBack to Contents#k#l"/>
+</imgdir>
+</imgdir>
+<imgdir name="6">
+<imgdir name="0">
+<string name="text" value="#e3. Base of Roots and the FM#n"/>
+</imgdir>
+<imgdir name="1">
+<string name="text" value="#bBase of Roots#k is the main hub. The #bFM button#k takes you there. The Job Master, the rebirth NPC, the warper and storage are all in it.\n\nThe #bclassic Free Market#k is still here: use its portal in the hub, or the FM portal in any town. Leaving the FM takes you back where you came in."/>
+</imgdir>
+</imgdir>
+<imgdir name="7">
+<imgdir name="0">
+<string name="text" value=""/>
+</imgdir>
+<imgdir name="1">
+<string name="text" value="#eIn the Free Market#n you'll find player shops and the town's merchants. Their prices are on the shop sign; buy as you would from anyone.\n\nFredrick holds what your hired merchant didn't sell.\n\n#L1##bBack to Contents#k#l"/>
+</imgdir>
+</imgdir>
+<imgdir name="8">
+<imgdir name="0">
+<string name="text" value="#e4. Hub NPCs#n"/>
+</imgdir>
+<imgdir name="1">
+<string name="text" value="#bJob Master#k - every job advancement.\n#bWyatt the Reborn#k - rebirths.\n#bKey Binder#k - put past-life skills on your keys.\n#bCotton Warper#k - boss maps, Grandis and Arcane towns.\n#b4th job skills#k - all quest/book 4th job skills for 10m mesos."/>
+</imgdir>
+</imgdir>
+<imgdir name="9">
+<imgdir name="0">
+<string name="text" value=""/>
+</imgdir>
+<imgdir name="1">
+<string name="text" value="#bNimble#k - forge equipment, refine ores.\n#bRooty#k - NX goodies and server info.\n#bCotton Stylist#k - hair, face, skin.\n#bGerrard#k - storage.\n#bLab Tech#k - your expedition (boss) attempts.\n\n#L1##bBack to Contents#k#l"/>
+</imgdir>
+</imgdir>
+<imgdir name="10">
+<imgdir name="0">
+<string name="text" value="#e5. Jobs and the Job Master#n"/>
+</imgdir>
+<imgdir name="1">
+<string name="text" value="Talk to the #bJob Master#k to advance. No quests.\n\n1st job: level 10 (Magician 8)\n2nd job: level 30\n3rd job: level 70\n4th job: level 120\n\nCygnus Knights get a 4th job too. A Beginner can also become a #bSuper Beginner#k at level 10."/>
+</imgdir>
+</imgdir>
+<imgdir name="11">
+<imgdir name="0">
+<string name="text" value=""/>
+</imgdir>
+<imgdir name="1">
+<string name="text" value="MapleRoot changed many skills: new 4th job attacks, more lines and targets, and some old skills removed (boosters, Steal, Big Bang and others).\n\nWarriors are sword or spear only.\n\n#L1##bBack to Contents#k#l"/>
+</imgdir>
+</imgdir>
+<imgdir name="12">
+<imgdir name="0">
+<string name="text" value="#e6. Rebirths#n"/>
+</imgdir>
+<imgdir name="1">
+<string name="text" value="At #blevel 200#k you can be reborn (up to 3 times). You start again at level 1 as a Beginner, Noblesse or Legend, and keep your past jobs' skills.\n\nTalk to #bWyatt the Reborn#k with an Essence Stone:\n1st: #bBlue#k  2nd: #bRed#k  3rd: #bBlack#k"/>
+</imgdir>
+</imgdir>
+<imgdir name="13">
+<imgdir name="0">
+<string name="text" value=""/>
+</imgdir>
+<imgdir name="1">
+<string name="text" value="#eStones are made from:#n\nBlue: Zakum Diamond + Nine Spirit's Egg\nRed: Rock of Time + Von Leon's Seal\nBlack: Cygnus Circlet + Cygnus Knight Emblem\n\n#eRebirths open maps:#n\n1: Lion King's Castle\n2: Twilight Perion\n3: Grandis and Arcane River\n\n#L1##bBack to Contents#k#l"/>
+</imgdir>
+</imgdir>
+<imgdir name="14">
+<imgdir name="0">
+<string name="text" value="#e7. The 5th tier#n"/>
+</imgdir>
+<imgdir name="1">
+<string name="text" value="Every 4th job has a #b5th tier#k with four new skills.\n\nYou need:\n- your 4th job,\n- #b3 rebirths#k,\n- #bWorld's Engine#k (used up).\n\nThen talk to the #bJob Master#k."/>
+</imgdir>
+</imgdir>
+<imgdir name="15">
+<imgdir name="0">
+<string name="text" value=""/>
+</imgdir>
+<imgdir name="1">
+<string name="text" value="#bWorld's Engine#k comes from the quest #bMagnus the Tyrant!#k: level 200, defeat Magnus, then report to Wyatt the Reborn.\n\nA Super Beginner at level 120 with 3 rebirths and World's Engine can become a #bSynth Master#k.\n\n#L1##bBack to Contents#k#l"/>
+</imgdir>
+</imgdir>
+<imgdir name="16">
+<imgdir name="0">
+<string name="text" value="#e8. The town's regulars#n"/>
+</imgdir>
+<imgdir name="1">
+<string name="text" value="Bera is busy. Its regulars train on the maps for their level, ride the boats, sell in the FM, shout on megaphones and drift in and out through the day.\n\nSome keep shops, run the gacha, deal blackjack or host games in Henesys. Most are happy to chat."/>
+</imgdir>
+</imgdir>
+<imgdir name="17">
+<imgdir name="0">
+<string name="text" value=""/>
+</imgdir>
+<imgdir name="1">
+<string name="text" value="They remember people. Be nice and they'll be glad to see you; scam or bother them and they won't.\n\nNobody will give you items or mesos for nothing - trade fairly in the FM.\n\n#L1##bBack to Contents#k#l"/>
+</imgdir>
+</imgdir>
+<imgdir name="18">
+<imgdir name="0">
+<string name="text" value="#e9. Talking to people#n"/>
+</imgdir>
+<imgdir name="1">
+<string name="text" value="Say someone's #bname#k (or part of it) in chat. They answer in a chat bubble.\n\nAfter that they keep listening to you for about a minute, so you don't have to repeat the name. Walk away, change maps or talk to someone else and they stop."/>
+</imgdir>
+</imgdir>
+<imgdir name="19">
+<imgdir name="0">
+<string name="text" value=""/>
+</imgdir>
+<imgdir name="1">
+<string name="text" value="#eThings to ask:#n\n#b&lt;name&gt; party#k - if they say yes, send the invite.\n#b&lt;name&gt; where do u train#k\n#b&lt;name&gt; follow#k - a party member comes with you.\n#b&lt;name&gt; trade#k - merchants point you to their shop.\n\n#bDouble-click#k someone for their menu. You can #bwhisper#k them too."/>
+</imgdir>
+</imgdir>
+<imgdir name="20">
+<imgdir name="0">
+<string name="text" value="#e10. Megaphones and @quiet#n"/>
+</imgdir>
+<imgdir name="1">
+<string name="text" value="Megaphones carry big news: boss kills, rare drops, party quests forming.\n\nToo noisy? Only for you:\n#b@quiet megaphones#k\n#b@quiet bots#k - hide the regulars' chatter\n#b@quiet all#k\n#b@quiet off#k\n\nReal players and GM notices always show."/>
+</imgdir>
+</imgdir>
+<imgdir name="21">
+<imgdir name="0">
+<string name="text" value=""/>
+</imgdir>
+<imgdir name="1">
+<string name="text" value="People you are talking to or partied with still show when their chatter is hidden.\n\nThe setting lasts until the server restarts.\n\n#L1##bBack to Contents#k#l"/>
+</imgdir>
+</imgdir>
+<imgdir name="22">
+<imgdir name="0">
+<string name="text" value="#e11. Commands#n"/>
+</imgdir>
+<imgdir name="1">
+<string name="text" value="#b@help#k - all commands\n#b@rates#k / #b@check#k - rates, resets\n#b@online#k - who is on\n#b@str @dex @int @luk &lt;n&gt;#k - add AP\n#b@resetap#k / #b@resetsp#k\n#b@whodrops &lt;item&gt;#k\n#b@whatdropsfrom &lt;mob&gt;#k\n#b@mobhp#k / #b@bosshp#k"/>
+</imgdir>
+</imgdir>
+<imgdir name="23">
+<imgdir name="0">
+<string name="text" value=""/>
+</imgdir>
+<imgdir name="1">
+<string name="text" value="#b@sell#k / #b@qs#k - sell items\n#b@bb#k - buy back\n#b@bank#k - store mesos\n#b@weekly#k - boss attempts\n#b@ranks#k / #b@equiplv#k\n#b@shop#k - all-in-one shop\n#b@quiet#k - see page 10\n#b@dispose#k - fix a stuck NPC chat\n\n#L1##bBack to Contents#k#l"/>
+</imgdir>
+</imgdir>
+<imgdir name="24">
+<imgdir name="0">
+<string name="text" value="#e12. Getting help#n"/>
+</imgdir>
+<imgdir name="1">
+<string name="text" value="#b@gm &lt;message&gt;#k - message the GMs.\n#b@reportbug &lt;text&gt;#k - report a bug.\n#b@dispose#k - if an NPC window is stuck.\n\nGame won't start? Make your real monitor the #bmain display#k (Parsec and other virtual screens stop it)."/>
+</imgdir>
+</imgdir>
+<imgdir name="25">
+<imgdir name="0">
+<string name="text" value=""/>
+</imgdir>
+<imgdir name="1">
+<string name="text" value="Have fun, and say hi to the regulars.\n\n#L1##bBack to Contents#k#l"/>
+</imgdir>
+</imgdir>
+</imgdir>
+</imgdir>
+</imgdir>

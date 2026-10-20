@@ -1,0 +1,62 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1">
+<title>Making mesos - SlumsMS Player Guide</title>
+<link rel="stylesheet" href="style.css">
+</head>
+<body>
+<header class="top">
+  <a class="logo" href="index.html"><span class="leaf">&#127809;</span> SlumsMS <small>player guide</small></a>
+  <label class="menu-btn" for="menu">Menu</label>
+</header>
+<input type="checkbox" id="menu" hidden>
+<div class="wrap">
+<nav class="side"><div class="box"><div class="box-h">Pages</div><ul><li><a href="index.html">Home</a></li><li><a href="getting-started.html">Getting started</a></li><li><a href="rates.html">Rates</a></li><li><a href="hubs.html">Base of Roots and the FM</a></li><li><a href="jobs.html">Jobs and skills</a></li><li><a href="leveling.html">Where to train</a></li><li><a href="travel.html">Travel routes</a></li><li><a href="rebirths.html">Rebirths</a></li><li><a href="regulars.html">The town&#x27;s regulars</a></li><li><a href="commands.html">Commands</a></li><li><a href="money.html" aria-current=page>Making mesos</a></li><li><a href="faq.html">FAQ and known issues</a></li><li><a href="changelog.html">Changelog</a></li><li><a href="guidebook.html">In-game guidebook</a></li></ul></div></nav>
+<main>
+<div class="box"><div class="box-h"><h1>Making mesos</h1></div>
+<div class="box-b">
+<h2>What the rates mean for your wallet</h2>
+<ul>
+<li><b>Monster mesos are the big one.</b> Mob and quest mesos are x10, but NPC prices are normal. So potions, stars
+and arrows cost very little next to what you earn. Running out of potions stops being a worry after 1st job.</li>
+<li><b>Selling junk to NPCs is a small share</b> of your income here (on a 1x server it's a third or more).</li>
+<li>Prices in the FM sit higher than you remember from GMS. Items compare to each other much as they did in v83
+(a White Scroll is still worth far more than a 60%).</li>
+</ul>
+
+<h2>Good to know by job</h2>
+<ul>
+<li><b>Hermit / Night Lord:</b> Meso Up raises the drop before the x10, so it keeps its value.</li>
+<li><b>Chief Bandit:</b> Pickpocket mesos don't get the x10, so it is weaker here than in v83.</li>
+<li><b>Night Lord:</b> a full recharge of 800 Ilbis costs about 640 mesos. Buy Ilbis once; they're not an ongoing cost.</li>
+</ul>
+
+<h2>Shops and trades</h2>
+<ul>
+<li><b>Tax</b> on trades, personal stores and hired merchants is taken from the seller: none under 100,000; 0.8% from
+100k; 1.8% from 1m; 3% from 5m; 4% from 10m; 5% from 25m; 6% from 100m.</li>
+<li><b>Fredrick</b> at the FM entrance keeps your hired merchant's unsold items and mesos. After 100 days they are gone.</li>
+<li><b>Owl of Minerva</b> search works.</li>
+<li>The regulars' shops in the FM sell at posted prices. Nobody gives anything away, and they won't hand over
+items in a trade window.</li>
+</ul>
+
+<h2>Things that cost a lot</h2>
+<ul>
+<li>The 4th-job skill package: 10,000,000 mesos.</li>
+<li>MapleRoot's star force can cost up to 50,000,000 mesos a try at the top end.</li>
+</ul>
+<p class="owner">Star force: NPC 2616's script says enhancing is "Disabled for now" and <code>@starforce</code> is
+commented out. Is star force available on SlumsMS at all? If not, drop that line.</p>
+<p class="src">Source: <code>docs/real-bots/economy-research.md</code> (headline findings, server calibration,
+Cosmic mechanics: <code>Trade.getFee</code>, <code>FredrickProcessor</code>, star prices).</p>
+
+</div></div>
+</main>
+</div>
+<footer>SlumsMS - a private v83 world on MapleRoot. Fan project, not affiliated with Nexon.<br>
+Built from the server repo by docs/wiki/build.py. Notes marked <span class="owner">owner check</span> need the owner to confirm.</footer>
+</body>
+</html>

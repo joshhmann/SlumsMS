@@ -1,0 +1,82 @@
+<!-- title: Commands | nav: 70 | blurb: Every @ command a player can use. -->
+<p>Type these in normal chat. <code>@help</code> (or <code>@commands</code>) lists them in game.</p>
+
+<h2>Info</h2>
+<div class="scroll"><table>
+<tr><th>Command</th><th>Does</th></tr>
+<tr><td><code>@rates</code></td><td>Your own rates.</td></tr>
+<tr><td><code>@showrates</code></td><td>World and character rates.</td></tr>
+<tr><td><code>@check</code></td><td>World rates, server time, time to the daily and weekly reset.</td></tr>
+<tr><td><code>@time</code> / <code>@uptime</code></td><td>Server time / how long the server has been up.</td></tr>
+<tr><td><code>@online</code></td><td>Players online.</td></tr>
+<tr><td><code>@ranks</code></td><td>Player rankings.</td></tr>
+<tr><td><code>@points</code></td><td>Your point total.</td></tr>
+<tr><td><code>@equiplv</code></td><td>Levels of your equipped items.</td></tr>
+<tr><td><code>@weekly</code></td><td>Your weekly boss attempts.</td></tr>
+<tr><td><code>@elb</code></td><td>Expedition leaderboard.</td></tr>
+<tr><td><code>@credits</code></td><td>The people who made the server possible.</td></tr>
+</table></div>
+
+<h2>Monsters and drops</h2>
+<div class="scroll"><table>
+<tr><th>Command</th><th>Does</th></tr>
+<tr><td><code>@whodrops &lt;item&gt;</code> (<code>@wd</code>)</td><td>Which monsters drop an item.</td></tr>
+<tr><td><code>@whatdropsfrom &lt;monster&gt;</code> (<code>@wdf</code>)</td><td>What a monster drops.</td></tr>
+<tr><td><code>@mobhp</code> / <code>@bosshp</code></td><td>HP of the monsters / bosses on your map.</td></tr>
+<tr><td><code>@droplimit</code></td><td>The drop limit of your map.</td></tr>
+<tr><td><code>@dps &lt;seconds&gt;</code></td><td>Measure your damage over some seconds.</td></tr>
+<tr><td><code>@gachalist</code></td><td>Gachapon rewards.</td></tr>
+</table></div>
+
+<h2>Character</h2>
+<div class="scroll"><table>
+<tr><th>Command</th><th>Does</th></tr>
+<tr><td><code>@str</code> <code>@dex</code> <code>@int</code> <code>@luk</code> <code>&lt;amount&gt;</code></td><td>Put AP into a stat.</td></tr>
+<tr><td><code>@resetap</code></td><td>Reset your AP.</td></tr>
+<tr><td><code>@resetsp</code></td><td>Set all skill levels to 0 (get your SP back).</td></tr>
+<tr><td><code>@toggleexp</code></td><td>Turn all EXP gain off or on.</td></tr>
+<tr><td><code>@gfx on|off</code></td><td>Skill effects on or off.</td></tr>
+</table></div>
+
+<h2>Items and mesos</h2>
+<div class="scroll"><table>
+<tr><th>Command</th><th>Does</th></tr>
+<tr><td><code>@shop</code></td><td>The all-in-one shop.</td></tr>
+<tr><td><code>@sell</code></td><td>Sell everything in an inventory tab.</td></tr>
+<tr><td><code>@qs</code></td><td>Quick sell (type <code>@qs</code> for how).</td></tr>
+<tr><td><code>@bb</code></td><td>Buy back what you just sold, or list recent sales.</td></tr>
+<tr><td><code>@bank</code></td><td>Store or take out mesos.</td></tr>
+<tr><td><code>@bp</code> / <code>@backpack</code></td><td>Open the backpack / turn the backpack system on or off.</td></tr>
+<tr><td><code>@exchange</code></td><td>Trade ores and crystals for another kind (two for one).</td></tr>
+</table></div>
+
+<h2 id="quiet">Chat and the regulars</h2>
+<div class="scroll"><table>
+<tr><th>Command</th><th>Does</th></tr>
+<tr><td><code>@quiet megaphones</code></td><td>Hide the regulars' megaphones.</td></tr>
+<tr><td><code>@quiet bots</code></td><td>Hide the regulars' chatter (people you're talking to or partied with still show).</td></tr>
+<tr><td><code>@quiet all</code> / <code>@quiet off</code></td><td>Hide both / show everything again.</td></tr>
+<tr><td><code>@worldchat</code></td><td>World chat on or off.</td></tr>
+<tr><td><code>@roll [n]</code></td><td>Roll 0 to n (default 100).</td></tr>
+</table></div>
+<p>Real players' chat and megaphones and GM notices are never hidden. <code>@quiet</code> lasts until the server restarts.</p>
+
+<h2>Help and fixes</h2>
+<div class="scroll"><table>
+<tr><th>Command</th><th>Does</th></tr>
+<tr><td><code>@gm &lt;message&gt;</code></td><td>Message the game masters.</td></tr>
+<tr><td><code>@reportbug &lt;text&gt;</code></td><td>Report a bug.</td></tr>
+<tr><td><code>@dispose</code></td><td>Unstick an NPC chat.</td></tr>
+<tr><td><code>@enableauth</code></td><td>Reset the PIC cooldown.</td></tr>
+<tr><td><code>@autologin</code></td><td>Auto login to your current channel and character, on or off.</td></tr>
+<tr><td><code>@changel</code></td><td>Language setting.</td></tr>
+</table></div>
+
+<h2>Fun</h2>
+<p><code>@minesweeper</code>, <code>@memory</code>, <code>@joinevent</code> / <code>@leaveevent</code> (when a GM
+runs an event), <code>@mylawn</code> (claim the current map).</p>
+
+<p class="owner">Several of these come from MapleRoot unchanged and weren't tried on SlumsMS (<code>@mylawn</code>,
+<code>@changel</code>, <code>@points</code>, <code>@elb</code>). Remove any you don't want players to see.</p>
+<p class="src">Source: <code>src/main/java/client/command/CommandsExecutor.java</code> (<code>registerLv0Commands</code>)
+and each command's <code>setDescription</code> in <code>client/command/commands/gm0/</code>.</p>
