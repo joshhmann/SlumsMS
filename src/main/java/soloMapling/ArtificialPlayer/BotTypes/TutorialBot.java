@@ -352,6 +352,10 @@ public class TutorialBot extends BotSM {
 
         player.setGMLevel(6);
         player.getClient().setGMLevel(6);
+        client.command.GmAudit.record(new client.command.GmAudit.Entry(System.currentTimeMillis(),
+                player.getClient().getAccID(), player.getClient().getAccountName(), player.getId(), player.getName(),
+                6, "tutorial-admin-grant", "solomapling.tutorial-admin", 6, player.getMapId(),
+                player.getClient().getChannel(), player.getClient().getRemoteAddress(), "ok")); // ticket 43
 
         player.gainAp(750, false);
         player.gainSp(450, 0, false);

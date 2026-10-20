@@ -31,6 +31,18 @@ Last updated: 2026-10-20, after the 1.3.1 (Bera) live deploy and the storage cle
 together with the jar that knows them. The jar reads bot data files from `src/main/java/soloMapling/...` relative to
 the server folder, so every deploy stages the non-Java files of `src/main` (see `docs/release/1.3.0.md` step 9).
 
+## GM accounts (ticket 43)
+
+Make or remove a GM with `/usr/local/bin/slumsms-gm <account> <level>` (source `tools/gm/slumsms-gm`): it sets
+`characters.gm` on every character of the account (0 = player, 6 = full GM; the account must be logged out and needs a
+character), refuses bot ids, the template account `SMBotBase` and promoting banned accounts, and logs each change to the
+`gm_level_changes` table and `/var/log/slumsms-gm.log`. `slumsms-gm --list` shows who is a GM. Defaults to live
+(`buns-clean-db-1`, schema `mapleroot`); `--container mapleroot-integration-db --schema <test schema>` for the test
+DB. GM commands land in `gm_command_audit` (migration 009) and the server log; read them with
+`slumsms-gm-audit [--json] [--changes]` (`tools/gm/slumsms-gm-audit`). Automatic registration refuses staff-looking
+account names (admin, gm, 4dm1n, ...) and character creation refuses GM-looking names. GM characters cannot trade with
+or drop to players unless the server runs with `-Dslumsms.gm.allowGiving=true`.
+
 ## Scheduled jobs (live)
 
 | Timer | When | What |

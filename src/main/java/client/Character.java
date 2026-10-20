@@ -1028,6 +1028,9 @@ public class Character extends AbstractCharacterObject {
                 return false;
             }
         }
+        if (ReservedNames.looksLikeStaffCharacterName(name)) { // no posing as a GM (ticket 43)
+            return false;
+        }
         return getIdByName(name) < 0 && Pattern.compile("[a-zA-Z0-9]{3,12}").matcher(name).matches()
                 && (!soloMapling.server.MapleRootSolo.isEnabled()
                     || soloMapling.ArtificialPlayer.BotNames.reserveForPlayer(name)); // never a bot's name (bot-persistence 05)

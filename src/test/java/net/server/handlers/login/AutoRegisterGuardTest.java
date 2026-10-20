@@ -39,6 +39,14 @@ class AutoRegisterGuardTest {
     }
 
     @Test
+    void aStaffLookingAccountNameIsRefusedBeforeAnythingElse() {
+        assertEquals(AutoRegisterGuard.Refusal.RESERVED_NAME, AutoRegisterGuard.check(PUBLIC_IP, "admin", "secret1", NOW));
+        assertEquals(AutoRegisterGuard.Refusal.RESERVED_NAME, AutoRegisterGuard.check("192.168.0.1", "4dm1n", "abc", NOW));
+        assertEquals(5, AutoRegisterGuard.Refusal.RESERVED_NAME.loginFailedReason, "shown as 'not a registered ID'");
+        assertNull(AutoRegisterGuard.check(PUBLIC_IP, "mapler", "secret1", NOW));
+    }
+
+    @Test
     void anIpAtTheAccountCapIsRefused() {
         accounts = 2;
         assertNull(AutoRegisterGuard.check(PUBLIC_IP, "secret1", NOW));
