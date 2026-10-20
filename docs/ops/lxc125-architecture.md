@@ -1,6 +1,6 @@
 # SlumsMS host architecture (LXC 125, 192.168.0.164)
 
-Last updated: 2026-10-20, after the 1.3.0 live deploy and the storage cleanup. A copy lives on the host at
+Last updated: 2026-10-20, after the 1.3.1 (Bera) live deploy and the storage cleanup. A copy lives on the host at
 `/root/ARCHITECTURE.md`; the source of truth is this file in the SlumsMS repo (`docs/ops/lxc125-architecture.md`).
 
 ## The machines
@@ -21,7 +21,7 @@ Last updated: 2026-10-20, after the 1.3.0 live deploy and the storage cleanup. A
 | Service | `slumsms.service` (`/etc/systemd/system/slumsms.service`), Java 21, `-Xmx4G`, `TimeoutStopSec=5min` |
 | Server folder | `/opt/mapleroot/MapleRoot Full Repack/Server` (jar `target/Cosmic.jar`, `config.yaml`, `scripts/`, `wz/`, bot data under `src/main/java/soloMapling/…`, nav cache `cache/bot-nav/v68`) |
 | Ports | login 8485, channels 7585-7592 (8 channels) |
-| Version | SlumsMS 1.3.0 (server tag `v1.3.0`). Bots on: `-Dsolomapling.enabled=true -Dsolomapling.template-id=6 -Dsolomapling.autopopulate=true` |
+| Version | SlumsMS 1.3.1, world 1 "Bera" only (config `worlds: - id: 1`; migration 008 moved characters from world 0). Server branch `world-bera`. Bots on: `-Dsolomapling.enabled=true -Dsolomapling.template-id=6 -Dsolomapling.autopopulate=true` |
 | Database | MySQL 8.4 container `buns-clean-db-1`, host port **3309**, schema `mapleroot`, data in Docker volume `buns-clean_db-data`. Compose file: **`/opt/slumsms-db/docker-compose.yml`** (project name kept as `buns-clean` so compose owns the existing container; root password in `/opt/slumsms-db/.env`). Binlogs kept 7 days. |
 | Bot chat | `config.yaml` `BOT_LLM_BASE_URL` → 192.168.0.17:8095 (`qwen9b`, thinking off via `BOT_LLM_EXTRA_BODY`), `BOT_DECIDE_URL` → 192.168.0.17:8900. If they're down, bots fall back to scripted lines. |
 | Bot template | account `SMBotBase` (4, banned), character `SMTemplate` (6) |
