@@ -1,0 +1,170 @@
+package soloMapling.ArtificialPlayer.BotGearSystem;
+
+import client.BotClient;
+import client.Character;
+import client.Job;
+import client.inventory.Equip;
+import client.inventory.Inventory;
+import client.inventory.InventoryType;
+import org.junit.jupiter.api.Test;
+import soloMapling.ArtificialPlayer.BotGearSystem.BotGearPlanner.Known;
+import soloMapling.ArtificialPlayer.BotGearSystem.BotGearPlanner.Valuer;
+
+import java.util.HashMap;
+import java.util.Map;
+import java.util.function.IntFunction;
+
+import static org.junit.jupiter.api.Assertions.assertFalse;
+import static org.junit.jupiter.api.Assertions.assertNull;
+import static org.junit.jupiter.api.Assertions.assertSame;
+import static org.junit.jupiter.api.Assertions.assertTrue;
+import static org.mockito.Mockito.CALLS_REAL_METHODS;
+import static org.mockito.Mockito.doReturn;
+import static org.mockito.Mockito.mock;
+
+// Real bots 10: a bot moves the best equips it carries onto its body, and what they replace into its equip tab, where
+// the bot store's sweep writes them with its holdings.
+class BotGearTest {
+
+    private static final int SWORD = 1302000;
+    private static final int BETTER_SWORD = 1302001;
+    private static final int SPEAR = 1432000;
+    private static final int BOW = 1452000;
+    private static final int TOP = 1040000;
+    private static final int PANTS = 1060000;
+    private static final int OVERALL = 1050000;
+
+    private static final Valuer ATTACK = (weapon, str, dex, int_, luk, watk, matk) -> watk * 10.0 + str + dex;
+
+    private final Map<Integer, Known> data = new HashMap<>();
+    private final IntFunction<Known> facts = data::get;
+
+    private void know(int itemId, short slot, int reqLevel) {
+        data.put(itemId, new Known(slot, reqLevel, 0, 0, 0, 0, 0, 0));
+    }
+
+    private static Character bot(Job job, int level) {
+        Character chr = Character.getDefault(new BotClient(0, 0));
+        chr.setID(1_000_000_000 + 1010);
+        chr.setJob(job);
+        chr.setLevel(level);
+        return chr;
+    }
+
+    // A real Equip loads item data the tests do not have; this one runs the real code over its own fields.
+    private static Equip equip(int itemId, short position, int watk, int str) {
+        Equip e = mock(Equip.class, CALLS_REAL_METHODS);
+        doReturn(itemId).when(e).getItemId();
+        e.setPosition(position);
+        e.setWatk((short) watk);
+        e.setStr((short) str);
+        return e;
+    }
+
+    private static void put(Character bot, InventoryType tab, Equip e) {
+        bot.getInventory(tab).addItemFromDB(e);
+    }
+
+    private boolean review(Character bot) {
+        return BotGear.review(bot, facts, worn -> ATTACK);
+    }
+
+    @Test
+    void aBetterWeaponGoesOnAndTheOldOneTakesItsBagSlot() {
+        Character bot = bot(Job.BEGINNER, 8);
+        know(SWORD, (short) -11, 0);
+        know(BETTER_SWORD, (short) -11, 5);
+        Equip held = equip(SWORD, (short) -11, 17, 0);
+        Equip better = equip(BETTER_SWORD, (short) 3, 25, 0);
+        put(bot, InventoryType.EQUIPPED, held);
+        put(bot, InventoryType.EQUIP, better);
+
+        assertTrue(review(bot));
+        Inventory body = bot.getInventory(InventoryType.EQUIPPED);
+        Inventory bag = bot.getInventory(InventoryType.EQUIP);
+        assertSame(better, body.getItem((short) -11));
+        assertSame(held, bag.getItem((short) 3));
+        assertTrue(better.isWearing());
+
+        assertFalse(review(bot), "nothing better left: no churn");
+    }
+
+    @Test
+    void aBeginnerKeepsTheKindOfWeaponItHolds() {
+        Character bot = bot(Job.BEGINNER, 8);
+        know(SWORD, (short) -11, 0);
+        know(BOW, (short) -11, 0);
+        put(bot, InventoryType.EQUIPPED, equip(SWORD, (short) -11, 17, 0));
+        put(bot, InventoryType.EQUIP, equip(BOW, (short) 1, 60, 0));
+        assertFalse(review(bot));
+    }
+
+    @Test
+    void aFirstJobKeepsTheKindItsBranchComesFrom() {
+        // A 1st-job warrior holding a sword is on its way to Fighter or Page; a spear would turn it into a Spearman.
+        Character bot = bot(Job.WARRIOR, 20);
+        know(SWORD, (short) -11, 0);
+        know(SPEAR, (short) -11, 10);
+        know(BETTER_SWORD, (short) -11, 10);
+        put(bot, InventoryType.EQUIPPED, equip(SWORD, (short) -11, 17, 0));
+        Equip spear = equip(SPEAR, (short) 1, 60, 0);
+        Equip sword = equip(BETTER_SWORD, (short) 2, 30, 0);
+        put(bot, InventoryType.EQUIP, spear);
+        put(bot, InventoryType.EQUIP, sword);
+
+        assertTrue(review(bot));
+        assertSame(sword, bot.getInventory(InventoryType.EQUIPPED).getItem((short) -11));
+        assertSame(spear, bot.getInventory(InventoryType.EQUIP).getItem((short) 1));
+    }
+
+    @Test
+    void anOverallPutsThePantsInAFreeBagSlot() {
+        Character bot = bot(Job.BEGINNER, 10);
+        know(TOP, (short) -5, 0);
+        know(PANTS, (short) -6, 0);
+        know(OVERALL, (short) -5, 0);
+        Equip top = equip(TOP, (short) -5, 0, 1);
+        Equip pants = equip(PANTS, (short) -6, 0, 1);
+        Equip overall = equip(OVERALL, (short) 1, 0, 6);
+        put(bot, InventoryType.EQUIPPED, top);
+        put(bot, InventoryType.EQUIPPED, pants);
+        put(bot, InventoryType.EQUIP, overall);
+
+        assertTrue(review(bot));
+        Inventory body = bot.getInventory(InventoryType.EQUIPPED);
+        Inventory bag = bot.getInventory(InventoryType.EQUIP);
+        assertSame(overall, body.getItem((short) -5));
+        assertNull(body.getItem((short) -6));
+        assertSame(top, bag.getItem((short) 1));
+        assertTrue(bag.list().contains(pants));
+    }
+
+    @Test
+    void unknownGearIsNeverPutOn() {
+        Character bot = bot(Job.BEGINNER, 10);
+        know(SWORD, (short) -11, 0);
+        put(bot, InventoryType.EQUIPPED, equip(SWORD, (short) -11, 17, 0));
+        put(bot, InventoryType.EQUIP, equip(1302999, (short) 1, 99, 0));   // a custom sword: no item data
+        assertFalse(review(bot));
+    }
+
+    @Test
+    void aPieceThatLeftTheBagStopsTheMoves() {
+        Character bot = bot(Job.BEGINNER, 8);
+        know(SWORD, (short) -11, 0);
+        know(BETTER_SWORD, (short) -11, 0);
+        Equip held = equip(SWORD, (short) -11, 17, 0);
+        Equip better = equip(BETTER_SWORD, (short) 3, 25, 0);
+        put(bot, InventoryType.EQUIPPED, held);
+        put(bot, InventoryType.EQUIP, better);
+        // Sold between the review and the move.
+        BotGearPlanner.Piece stale = new BotGearPlanner.Piece(better, BETTER_SWORD, (short) 3,
+                data.get(BETTER_SWORD), 0, 0, 0, 0, 25, 0, 0);
+        BotGearPlanner.Piece wornSword = new BotGearPlanner.Piece(held, SWORD, (short) -11, data.get(SWORD),
+                0, 0, 0, 0, 17, 0, 0);
+        bot.getInventory(InventoryType.EQUIP).removeSlot((short) 3);
+
+        assertFalse(BotGear.apply(bot, Map.of((short) -11, wornSword), Map.of((short) -11, stale)));
+        assertSame(held, bot.getInventory(InventoryType.EQUIPPED).getItem((short) -11));
+    }
+}

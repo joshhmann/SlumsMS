@@ -9,6 +9,7 @@ import server.maps.MapObject;
 import server.maps.MapObjectType;
 import server.TimerManager;
 import soloMapling.ArtificialPlayer.BotHelpers;
+import soloMapling.ArtificialPlayer.BotGearSystem.BotGear;
 import soloMapling.ArtificialPlayer.BotHoldings;
 import soloMapling.ArtificialPlayer.BotLogic;
 import soloMapling.server.BotShutdown;
@@ -284,6 +285,7 @@ public class DropCommands {
         // Same discipline as Character.pickupItem: bot ticks run on their own threads, so the picked-up check, the
         // credit and the removal all sit inside the drop's lock. Without it two bots looting the same drop can
         // both be credited for it, and pickItemDrop requires a locked, not-yet-picked-up drop.
+        Item credited = null;
         mapItem.lockItem();
         try {
             if (mapItem.isPickedUp()) {
@@ -299,11 +301,14 @@ public class DropCommands {
             if (!BotHoldings.creditDrop(fakechar, mapItem)) {
                 return;
             }
+            credited = mapItem.getItem();
             final Packet pickupPacket = PacketCreator.removeItemFromMap(mapItem.getObjectId(), 2, fakechar.getId());
             fakechar.getMap().pickItemDrop(pickupPacket, mapItem);
         } finally {
             mapItem.unlockItem();
         }
+        // Real bots 10: a looted equip may beat what it wears. Outside the drop's lock - the review takes the bot's.
+        BotGear.afterLoot(fakechar, credited);
     }
 
     // Sweep all drops the bot is entitled to (own + free-for-all) within range. Used as a tidy-up when a

@@ -81,7 +81,7 @@ public final class BotWeapons {
     }
 
     /* The weapon kind of an item id (1302xxx -> SWORD), or null for anything that is not a weapon. */
-    static EquipType kindOf(int itemId) {
+    public static EquipType kindOf(int itemId) {
         int prefix = itemId / 1000;
         for (EquipType type : EquipType.values()) {
             if (type.getValue() == prefix) {
@@ -98,7 +98,7 @@ public final class BotWeapons {
     }
 
     /* A one-handed weapon a bot of this kind may carry a shield with. */
-    static boolean takesShield(EquipType kind) {
+    public static boolean takesShield(EquipType kind) {
         return kind == EquipType.SWORD || kind == EquipType.DAGGER || kind == EquipType.WAND || kind == EquipType.STAFF;
     }
 
