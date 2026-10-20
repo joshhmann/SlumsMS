@@ -51,7 +51,8 @@ class TrainingRegionsTest {
         assertTrue(TrainingRegions.isAllowed(600020000, 0)); // Masteria
         assertTrue(TrainingRegions.isAllowed(801040000, 0)); // Showa
         assertFalse(TrainingRegions.isAllowed(240060000, 0), "Horntail's cave is excluded");
-        assertFalse(TrainingRegions.isAllowed(130010000, 0), "Ereve stays closed");
+        assertTrue(TrainingRegions.isAllowed(130010000, 0), "Ereve is open since its version gate was lifted");
+        assertTrue(TrainingRegions.isAllowed(270010100, 0), "so is the Temple of Time");
         assertFalse(TrainingRegions.isAllowed(400010100, 3), "Grandis is not a region");
     }
 

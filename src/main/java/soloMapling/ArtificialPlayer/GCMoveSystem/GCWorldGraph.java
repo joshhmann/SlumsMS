@@ -124,6 +124,16 @@ final class GCWorldGraph {
 
     static final int WALK_SEC = 20; // planner cost of one walked portal hop
 
+    /* Route-search depth cap for every caller (GCTravel, GCMovement). Henesys to the far end of Arcane River or
+     * Black Heaven is ~100 hops counting docks and decks; Omega Sector alone was 60, just past the old cap. */
+    static final int MAX_ROUTE_HOPS = 160;
+
+    /* Virtual planner nodes for the Hyper Teleport Rock (BotTransit.HyperRock): every map steps to HYPER_IN at the
+     * rock's cooldown, HYPER_IN steps to each `into` map for free; maps in an `out_of` range step to HYPER_OUT,
+     * which steps to each `home` town. Never part of a returned route. */
+    static final int HYPER_IN = -2;
+    static final int HYPER_OUT = -3;
+
     /* Forget cached routes (after the transit table is reloaded). */
     static void clearRouteCache() {
         ROUTES.clear();
@@ -142,6 +152,7 @@ final class GCWorldGraph {
         Map<Integer, Long> best = new HashMap<>();
         Map<Integer, Integer> hops = new HashMap<>();
         java.util.Set<Integer> toured = new java.util.HashSet<>(); // reached through an outbound World Tour
+        java.util.Set<Integer> rocked = new java.util.HashSet<>(); // reached through a hyper-rock jump
         // A bot already inside a gated area (put there by a GM, a party warp...) may walk back out through it.
         boolean escaping = !BotMapGates.mayEnter(fromMapId, rebirths);
         PriorityQueue<long[]> open = new PriorityQueue<>((a, b) -> Long.compare(a[0], b[0]));
@@ -162,7 +173,7 @@ final class GCWorldGraph {
             if (depth >= maxHops) {
                 continue;
             }
-            for (long step : steps(g, current, allowFares, savedReturn)) {
+            for (long step : steps(g, current, allowFares, savedReturn, rebirths)) {
                 int next = (int) (step >>> 32);
                 int sec = (int) step & SEC_MASK;
                 if (!escaping && next != toMapId && !BotMapGates.mayEnter(next, rebirths)) {
@@ -171,6 +182,10 @@ final class GCWorldGraph {
                 boolean wasToured = toured.contains(current);
                 if ((step & RETURNS) != 0 && wasToured) {
                     continue; // a tour taken on this very route goes home to where it started: no shortcut
+                }
+                boolean wasRocked = rocked.contains(current);
+                if ((step & ROCK) != 0 && wasRocked) {
+                    continue; // one jump per route: never in and straight back out as a shortcut past the boats
                 }
                 long nextCost = cost + sec;
                 if (nextCost < best.getOrDefault(next, Long.MAX_VALUE)) {
@@ -181,6 +196,11 @@ final class GCWorldGraph {
                         toured.add(next);
                     } else {
                         toured.remove(next);
+                    }
+                    if (wasRocked || (step & ROCK) != 0) {
+                        rocked.add(next);
+                    } else {
+                        rocked.remove(next);
                     }
                     open.add(new long[]{nextCost, next});
                 }
@@ -193,15 +213,32 @@ final class GCWorldGraph {
     private static final int SEC_MASK = (1 << 24) - 1;
     private static final long SAVES = 1L << 24;   // saves the bot's town (World Tour out)
     private static final long RETURNS = 1L << 25; // goes back to the saved town (World Tour home)
+    private static final long ROCK = 1L << 26;    // a hyper-rock jump (into a virtual node)
 
     /* Outgoing steps from mapId, each packed as (next << 32 | flags | costSec): walkable portals and curated scripted
-     * warps at WALK_SEC, transit edges at their own time. */
-    private static long[] steps(Map<Integer, int[]> g, int mapId, boolean allowFares, int savedReturn) {
+     * warps at WALK_SEC, transit edges at their own time (minus those whose rebirth check the bot fails), and the
+     * hyper rock's virtual nodes. */
+    private static long[] steps(Map<Integer, int[]> g, int mapId, boolean allowFares, int savedReturn, int rebirths) {
+        BotTransit.HyperRock rock = BotTransit.hyperRock();
+        if (mapId == HYPER_IN || mapId == HYPER_OUT) {
+            List<Integer> to = mapId == HYPER_IN ? rock.into() : rock.home();
+            long[] out = new long[to.size()];
+            for (int i = 0; i < out.length; i++) {
+                out[i] = (long) to.get(i) << 32; // the jump itself is instant; its cost sat on the way in
+            }
+            return out;
+        }
         int[] portals = g.getOrDefault(mapId, EMPTY);
         int[] warp = BotScriptedWarp.destinations(mapId);
         List<BotTransit.Edge> transit = BotTransit.from(mapId);
-        long[] out = new long[portals.length + warp.length + transit.size()];
+        long[] out = new long[portals.length + warp.length + transit.size() + 2];
         int n = 0;
+        if (!rock.into().isEmpty()) {
+            out[n++] = ((long) HYPER_IN << 32) | ROCK | Math.min(rock.cooldownSec(), SEC_MASK);
+        }
+        if (!rock.home().isEmpty() && rock.leavesFrom(mapId)) {
+            out[n++] = ((long) HYPER_OUT << 32) | ROCK | Math.min(rock.cooldownSec(), SEC_MASK);
+        }
         for (int p : portals) {
             out[n++] = ((long) p << 32) | WALK_SEC;
         }
@@ -211,6 +248,9 @@ final class GCWorldGraph {
         for (BotTransit.Edge e : transit) {
             if (!allowFares && (e.fare() > 0 || e.beginnerFare() > 0)) {
                 continue;
+            }
+            if (e.minRebirths() > rebirths) {
+                continue; // the script turns this bot away (the Henesys teleporter's Grandis menu, rebirth 3)
             }
             if (e.returnToSaved() != null && e.toMapId() != savedReturn) {
                 continue; // the World Tour only takes a bot back where it came from
@@ -223,18 +263,24 @@ final class GCWorldGraph {
 
     /* Every neighbour the planner can step to from mapId (walkable portals, scripted warps, transit). */
     static int[] neighbors(int mapId) {
-        long[] steps = steps(get(), mapId, true, NO_SAVED_RETURN);
+        long[] steps = steps(get(), mapId, true, NO_SAVED_RETURN, 3);
         int[] out = new int[steps.length];
-        for (int i = 0; i < steps.length; i++) {
-            out[i] = (int) (steps[i] >>> 32);
+        int n = 0;
+        for (long step : steps) {
+            int next = (int) (step >>> 32);
+            if (next > 0) {
+                out[n++] = next; // the hyper rock's virtual nodes are not neighbours
+            }
         }
-        return out;
+        return n == out.length ? out : java.util.Arrays.copyOf(out, n);
     }
 
     private static List<Integer> reconstruct(Map<Integer, Integer> cameFrom, int from, int to) {
         List<Integer> hops = new ArrayList<>();
         for (int at = to; at != from; at = cameFrom.get(at)) {
-            hops.add(at);
+            if (at > 0) {
+                hops.add(at); // a hyper-rock jump reads as one hop straight to where it lands
+            }
         }
         Collections.reverse(hops);
         return List.copyOf(hops);

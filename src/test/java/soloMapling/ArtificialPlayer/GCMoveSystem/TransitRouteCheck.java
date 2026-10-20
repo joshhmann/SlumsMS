@@ -36,6 +36,25 @@ public final class TransitRouteCheck {
             "101000000:130000210", // Ellinia -> Ereve's ferry dock
             "240000000:270000100", // Leafre -> Temple of Time gate (dragon)
             "211060100:100000000", // Lion King's Castle -> Henesys (gate check, rebirth 0)
+            // Ticket 03 follow-up: the high-level and MapleRoot areas.
+            "211000000:211040400", // El Nath -> Sharp Cliff II (Jeff)
+            "100000000:211060100:1", // Henesys -> LKC Under the Castle Walls 1 (in_lkc, rebirth 1)
+            "100000000:270010100", // Henesys -> Memory Lane 1 (Temple of Time, version gate lifted)
+            "100000000:273040100:2", // Henesys -> Forsaken Excavation Site 2 (Gate to the Future, rebirth 2)
+            "100000000:273040100:3", // ... at rebirth 3 (the Henesys teleporter)
+            "100000000:450001011:3", // Henesys -> Arcane River (teleporter)
+            "100000000:401040700:3", // Henesys -> Heliseum
+            "100000000:410000102:3", // Henesys -> Fox Tree Midway 2 (fox god's lift)
+            "100000000:310070480", // Henesys -> Black Heaven Maze 6 (hyper rock)
+            "310070120:100000000", // Scrapyard -> Henesys (hyper rock home)
+            "100000000:140020100", // Henesys -> Rien (whale)
+            "100000000:110030000", // Henesys -> Florina Beach
+            "100000000:682000800", // Henesys -> Haunted House Library (NLC taxi)
+            "100000000:610020002", // Henesys -> Crimsonwood Lower Ascent
+            "100000000:551030100", // Henesys -> Spooky World (Malaysia tour)
+            "100000000:801040001", // Henesys -> Showa hideout
+            "100000000:130010100", // Henesys -> Ereve Training Forest II
+            "100000000:221030000", // Henesys -> Omega Sector Off-Limits (past the old 60-hop cap)
     };
 
     public static void main(String[] args) {
@@ -48,11 +67,13 @@ public final class TransitRouteCheck {
             String[] p = trip.split(":");
             int from = Integer.parseInt(p[0]);
             int to = Integer.parseInt(p[1]);
+            int rebirths = p.length > 2 ? Integer.parseInt(p[2]) : 0;
             long s = System.nanoTime();
-            List<Integer> route = GCWorldGraph.route(from, to, 60, 0, true, GCWorldGraph.NO_SAVED_RETURN);
+            List<Integer> route = GCWorldGraph.route(from, to, GCWorldGraph.MAX_ROUTE_HOPS, rebirths, true,
+                    GCWorldGraph.NO_SAVED_RETURN);
             long ms = (System.nanoTime() - s) / 1_000_000;
             if (route == null) {
-                System.out.printf("%d -> %d: NO ROUTE (%d ms)%n", from, to, ms);
+                System.out.printf("%d -> %d r%d: NO ROUTE (%d ms)%n", from, to, rebirths, ms);
                 continue;
             }
             int fare = GCMovement.routeFare(from, route, 100);
@@ -69,8 +90,8 @@ public final class TransitRouteCheck {
                 }
                 at = next;
             }
-            System.out.printf("%d -> %d: %d hops, %d mesos, ~%d min planned (%d ms)%s%n", from, to, route.size(),
-                    fare, sec / 60, ms, legs);
+            System.out.printf("%d -> %d r%d: %d hops, %d mesos, ~%d min planned (%d ms)%s%n", from, to, rebirths,
+                    route.size(), fare, sec / 60, ms, legs);
         }
     }
 

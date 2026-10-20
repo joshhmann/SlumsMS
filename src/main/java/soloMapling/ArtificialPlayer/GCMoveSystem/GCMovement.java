@@ -407,7 +407,7 @@ public final class GCMovement {
         return fare;
     }
 
-    private static final int ROUTE_MAX_HOPS = 60;
+    private static final int ROUTE_MAX_HOPS = GCWorldGraph.MAX_ROUTE_HOPS;
 
     /* Ticket 03: re-read BotTransit.yaml and drop every cached route. */
     public static int reloadTransit() {
