@@ -25,6 +25,15 @@
 # (4 Knight Stronghold maps no bot may enter, 1 mini-dungeon). 109 entries lie outside TrainingRegions.yaml's
 # regions (Temple of Time, Twilight Perion, Edelstein, Mirror World, Grandis, Malaysia, Ereve, Rien, Florina):
 # the path may send bots there when a route exists; TrainingRegions' `enabled: false` still closes a region.
+#
+# Reachability (2026-10-20, ticket 03 follow-up): 43 entries are disabled with `# UNREACHABLE` - maps no player can
+# reach on this server either (Mirror World/Kritias/Umbra fields: CANNOTVIPROCK and no way in; LKC past Walls 1:
+# tower keys; Temple of Time lanes past Memory Lane 1: lane quests; Ninja Castle corridors; Mushroom Castle; the
+# Aran tutorial forest). 28 reachable entries replace them in 120-200 so every band has maps at rebirth 0-2
+# (Ulu City, the Skele nests, Crimsonwood Keep, LKC Walls 1 at rebirth 1, Gate to the Future and Twilight Perion
+# at rebirth 2, the Scrapyard by hyper rock); rebirth-3 zones stay as bonuses. Nothing open below rebirth 2 has
+# mobs above ~120 on this server, so rebirth 0-1 bots from 140 up keep to those strongest classic maps.
+# Offline check: LevelPathSweepCheck (all entries reachable from Henesys at the band's lowest level).
 version: 1
 job_groups:
   # bot job id ranges -> group; a group with no entry in a band falls back to "general".
@@ -86,7 +95,8 @@ bands:
         - {map: 140020000, w: 4, mode: solo, mob_levels: [3, 3], name: "Snow Island: Snow-covered Field 1"}
         - {map: 140020100, w: 4, mode: solo, mob_levels: [5, 5], name: "Snow Island: Snow-covered Field 2"}
         - {map: 140020200, w: 4, mode: solo, mob_levels: [7, 7], name: "Snow Island: Snow-covered Field 3"}   # WZ flags it town=1, but it has 18 mob spawns; kept
-        - {map: 140010200, w: 3, mode: solo, mob_levels: [9, 9], name: "Snow Island: Dangerous Forest"}
+        # UNREACHABLE (Aran tutorial forest: rienTutor7 bars job-2000 Arans until quest 21014):
+        # - {map: 140010200, w: 3, mode: solo, mob_levels: [9, 9], name: "Snow Island: Dangerous Forest"}
   - levels: [10, 21]
     label: "Victoria Island first job"
     groups:
@@ -204,14 +214,16 @@ bands:
         - {map: 103000103, w: 3, mode: solo, mob_levels: [20, 35], name: "Kerning City Subway: Line 1 <Area 2>"}
         - {map: 220040100, w: 3, mode: solo, mob_levels: [37, 37], name: "Ludibrium: The Path of Time <2>"}
         - {map: 220040300, w: 3, mode: solo, mob_levels: [37, 37], name: "Ludibrium: The Path of Time <3>"}
-        - {map: 106020100, w: 2, mode: solo, mob_levels: [30, 30], name: "Mushroom Castle: Secluded Mushroom Forest"}
+        # UNREACHABLE (Mushroom Castle: TD_MC_first wants quests 2260/2300-2310):
+        # - {map: 106020100, w: 2, mode: solo, mob_levels: [30, 30], name: "Mushroom Castle: Secluded Mushroom Forest"}
       warrior:
         - {map: 220010500, w: 5, mode: solo, mob_levels: [30, 32], name: "Ludibrium: Terrace Hall"}
         - {map: 101030001, w: 4, mode: solo, mob_levels: [22, 25], name: "Hidden Street: The Land of Wild Boar II"}
         - {map: 105070300, w: 3, mode: solo, mob_levels: [27, 35], name: "Dungeon: The Cave of Evil Eye III"}
       mage_fp:
         - {map: 220010500, w: 4, mode: solo, mob_levels: [30, 32], name: "Ludibrium: Terrace Hall"}
-        - {map: 800040201, w: 4, mode: solo, mob_levels: [25, 30], name: "Zipangu: Castle Corridor"}
+        # UNREACHABLE (Ninja Castle corridors: no portal, script or NPC leads in):
+        # - {map: 800040201, w: 4, mode: solo, mob_levels: [25, 30], name: "Zipangu: Castle Corridor"}
         - {map: 211000200, w: 3, mode: solo, mob_levels: [32, 35], name: "El Nath: Snowy Hill"}
       mage_il:
         - {map: 106000101, w: 4, mode: solo, mob_levels: [25, 32], name: "Warning Street: The Burnt Land I"}
@@ -335,7 +347,8 @@ bands:
         - {map: 211050000, w: 4, mode: solo, mob_levels: [55, 58], name: "El Nath: Icy Cold Field"}
         - {map: 105040306, w: 3, mode: solo, mob_levels: [58, 59], name: "Dungeon: The forest of Golem"}
         - {map: 222010300, w: 3, mode: solo, mob_levels: [56, 56], name: "Korean Folk Town: Fox Ridge"}
-        - {map: 800040202, w: 3, mode: solo, mob_levels: [50, 50], name: "Zipangu: Castle Corridor"}
+        # UNREACHABLE (Ninja Castle corridors: no portal, script or NPC leads in):
+        # - {map: 800040202, w: 3, mode: solo, mob_levels: [50, 50], name: "Zipangu: Castle Corridor"}
       mage_il:
         - {map: 105040306, w: 4, mode: solo, mob_levels: [58, 59], name: "Dungeon: The forest of Golem"}
         - {map: 200010111, w: 3, mode: solo, mob_levels: [53, 53], name: "Orbis: Garden of Red II"}
@@ -388,7 +401,8 @@ bands:
         - {map: 251010401, w: 3, mode: solo, mob_levels: [64, 70], name: "Herb Town: Red-Nose Pirate Den 1"}
         - {map: 261020500, w: 3, mode: solo, mob_levels: [58, 75], name: "Alcadno Research Institute: Lab - Area C-3"}
         - {map: 801040001, w: 3, mode: both, mob_levels: [64, 72], name: "Zipangu: Parking Lot"}
-        - {map: 800040203, w: 2, mode: solo, mob_levels: [50, 60], name: "Zipangu: Castle Corridor"}
+        # UNREACHABLE (Ninja Castle corridors: no portal, script or NPC leads in):
+        # - {map: 800040203, w: 2, mode: solo, mob_levels: [50, 60], name: "Zipangu: Castle Corridor"}
       warrior:
         - {map: 541010010, w: 5, mode: solo, mob_levels: [63, 63], name: "Singapore: Ghost Ship 2"}
         - {map: 105040306, w: 4, mode: solo, mob_levels: [58, 59], name: "Dungeon: The forest of Golem"}
@@ -507,7 +521,8 @@ bands:
         - {map: 230040300, w: 3, mode: both, mob_levels: [94, 97], name: "Aqua Road: Dangerous Sea Gorge II"}
         - {map: 551030100, w: 4, mode: solo, mob_levels: [94, 94], name: "Malaysia: Entrance to the Spooky World"}
         - {map: 270010100, w: 4, mode: solo, mob_levels: [80, 91], name: "Time Lane: Memory Lane1"}
-        - {map: 270010300, w: 3, mode: solo, mob_levels: [80, 98], name: "Time Lane: Memory Lane3"}
+        # UNREACHABLE (Temple of Time lane past Memory Lane 1: timeQuest.js wants the lane quests):
+        # - {map: 270010300, w: 3, mode: solo, mob_levels: [80, 98], name: "Time Lane: Memory Lane3"}
         - {map: 240030200, w: 3, mode: solo, mob_levels: [95, 100], name: "Leafre: Dragon Forest II"}
       warrior:
         - {map: 230040100, w: 4, mode: solo, mob_levels: [90, 92], name: "Aqua Road: Deep Sea Gorge II"}
@@ -554,9 +569,12 @@ bands:
         - {map: 800020130, w: 5, mode: both, mob_levels: [100, 100], name: "Zipangu: Encounter with the Buddha"}
         - {map: 240040520, w: 4, mode: solo, mob_levels: [105, 105], name: "Leafre: Destroyed Dragon Nest"}
         - {map: 240040521, w: 4, mode: solo, mob_levels: [105, 110], name: "Leafre: Dangerous Dragon Nest"}
-        - {map: 270020100, w: 4, mode: solo, mob_levels: [80, 106], name: "Time Lane: Road of Regrets1"}
-        - {map: 270020300, w: 3, mode: solo, mob_levels: [80, 113], name: "Time Lane: Road of Regrets3"}
-        - {map: 270010500, w: 3, mode: solo, mob_levels: [80, 101], name: "Time Lane: Memory Lane5"}
+        # UNREACHABLE (Temple of Time lane past Memory Lane 1: timeQuest.js wants the lane quests):
+        # - {map: 270020100, w: 4, mode: solo, mob_levels: [80, 106], name: "Time Lane: Road of Regrets1"}
+        # UNREACHABLE (Temple of Time lane past Memory Lane 1: timeQuest.js wants the lane quests):
+        # - {map: 270020300, w: 3, mode: solo, mob_levels: [80, 113], name: "Time Lane: Road of Regrets3"}
+        # UNREACHABLE (Temple of Time lane past Memory Lane 1: timeQuest.js wants the lane quests):
+        # - {map: 270010500, w: 3, mode: solo, mob_levels: [80, 101], name: "Time Lane: Memory Lane5"}
         - {map: 230040400, w: 3, mode: solo, mob_levels: [90, 102], name: "Aqua Road: The Grave of a Wrecked Ship"}
         - {map: 240040100, w: 3, mode: solo, mob_levels: [97, 101], name: "Leafre: Canyon : Crossroad"}
         - {map: 240040300, w: 3, mode: solo, mob_levels: [103, 103], name: "Leafre: Canyon : West Road"}
@@ -566,9 +584,12 @@ bands:
         - {map: 541020100, w: 2, mode: solo, mob_levels: [85, 90], name: "Singapore: Ulu Estate I"}
         - {map: 541020500, w: 2, mode: solo, mob_levels: [110, 110], name: "Singapore: Ulu City Center"}
         - {map: 240030101, w: 2, mode: solo, mob_levels: [100, 105], name: "Leafre: The Burning Forest"}
-        - {map: 321110000, w: 2, mode: solo, mob_levels: [102, 102], name: "Western Minar Forest: Western Minar Forest <1>"}
-        - {map: 321130000, w: 2, mode: solo, mob_levels: [106, 106], name: "Twilight Forest: Twilight Forest <1>"}
-        - {map: 321145000, w: 2, mode: solo, mob_levels: [108, 108], name: "Wyvern Gorge: Wyvern Gorge <6>"}
+        # UNREACHABLE (Mirror World / Kritias field: CANNOTVIPROCK and no portal or script leads in):
+        # - {map: 321110000, w: 2, mode: solo, mob_levels: [102, 102], name: "Western Minar Forest: Western Minar Forest <1>"}
+        # UNREACHABLE (Mirror World / Kritias field: CANNOTVIPROCK and no portal or script leads in):
+        # - {map: 321130000, w: 2, mode: solo, mob_levels: [106, 106], name: "Twilight Forest: Twilight Forest <1>"}
+        # UNREACHABLE (Mirror World / Kritias field: CANNOTVIPROCK and no portal or script leads in):
+        # - {map: 321145000, w: 2, mode: solo, mob_levels: [108, 108], name: "Wyvern Gorge: Wyvern Gorge <6>"}
         - {map: 402000610, w: 3, mode: solo, rebirths: 3, mob_levels: [110, 110], name: "Refuge Outskirts: Refuge South 1"}
         - {map: 402000518, w: 3, mode: solo, rebirths: 3, mob_levels: [117, 117], name: "Sanctuary: Eastern Crystal Forest 2"}
         - {map: 410000321, w: 3, mode: solo, rebirths: 3, mob_levels: [113, 113], name: "Ristonia: Art Street 1"}
@@ -576,15 +597,18 @@ bands:
       warrior:
         - {map: 800020130, w: 5, mode: both, mob_levels: [100, 100], name: "Zipangu: Encounter with the Buddha"}
         - {map: 240040520, w: 4, mode: solo, mob_levels: [105, 105], name: "Leafre: Destroyed Dragon Nest"}
-        - {map: 270020100, w: 3, mode: solo, mob_levels: [80, 106], name: "Time Lane: Road of Regrets1"}
+        # UNREACHABLE (Temple of Time lane past Memory Lane 1: timeQuest.js wants the lane quests):
+        # - {map: 270020100, w: 3, mode: solo, mob_levels: [80, 106], name: "Time Lane: Road of Regrets1"}
       mage_fp:
         - {map: 240040210, w: 4, mode: solo, mob_levels: [101, 101], name: "Hidden Street: Blue Wyvern's Nest"}
         - {map: 800020130, w: 4, mode: party, mob_levels: [100, 100], name: "Zipangu: Encounter with the Buddha"}
-        - {map: 270020100, w: 4, mode: solo, mob_levels: [80, 106], name: "Time Lane: Road of Regrets1"}
+        # UNREACHABLE (Temple of Time lane past Memory Lane 1: timeQuest.js wants the lane quests):
+        # - {map: 270020100, w: 4, mode: solo, mob_levels: [80, 106], name: "Time Lane: Road of Regrets1"}
       mage_il:
         - {map: 800020130, w: 4, mode: party, mob_levels: [100, 100], name: "Zipangu: Encounter with the Buddha"}
         - {map: 240040310, w: 4, mode: solo, mob_levels: [97, 97], name: "Hidden Street: Red Wyvern's Nest"}
-        - {map: 270020300, w: 4, mode: solo, mob_levels: [80, 113], name: "Time Lane: Road of Regrets3"}
+        # UNREACHABLE (Temple of Time lane past Memory Lane 1: timeQuest.js wants the lane quests):
+        # - {map: 270020300, w: 4, mode: solo, mob_levels: [80, 113], name: "Time Lane: Road of Regrets3"}
       mage_cleric:
         - {map: 800020130, w: 5, mode: both, mob_levels: [100, 100], name: "Zipangu: Encounter with the Buddha"}
         - {map: 220070301, w: 4, mode: solo, mob_levels: [99, 99], name: "Hidden Street: Forbidden Time"}
@@ -607,30 +631,46 @@ bands:
         - {map: 240010400, w: 3, mode: solo, mob_levels: [85, 88], name: "Leafre: Forest : Crossroad"}
       aran:
         - {map: 800020130, w: 4, mode: solo, mob_levels: [100, 100], name: "Zipangu: Encounter with the Buddha"}
-        - {map: 270020100, w: 4, mode: solo, mob_levels: [80, 106], name: "Time Lane: Road of Regrets1"}
+        # UNREACHABLE (Temple of Time lane past Memory Lane 1: timeQuest.js wants the lane quests):
+        # - {map: 270020100, w: 4, mode: solo, mob_levels: [80, 106], name: "Time Lane: Road of Regrets1"}
         - {map: 240040511, w: 3, mode: solo, mob_levels: [110, 113], name: "Leafre: The Dragon Nest Left Behind"}
   - levels: [120, 140]
     label: "Skeles, Road to Oblivion; first MapleRoot zones"
     groups:
       general:
+        # Reachable replacements (2026-10-20): Ulu City's far end, all open at rebirth 0.
+        - {map: 541020610, w: 3, mode: solo, mob_levels: [115, 115], name: "Singapore: Destroyed Park II"}
+        - {map: 541020500, w: 2, mode: solo, mob_levels: [110, 110], name: "Singapore: Ulu City Center"}
+        - {map: 541020400, w: 2, mode: solo, mob_levels: [110, 110], name: "Singapore: Along Ulu City"}
         - {map: 240040511, w: 5, mode: solo, mob_levels: [110, 113], name: "Leafre: The Dragon Nest Left Behind"}
         - {map: 240040510, w: 4, mode: solo, mob_levels: [110, 113], name: "Leafre: Nest of a Dead Dragon"}
-        - {map: 270030200, w: 4, mode: solo, mob_levels: [80, 124], name: "Time Lane: Road to Oblivion2"}
-        - {map: 270030100, w: 3, mode: solo, mob_levels: [80, 121], name: "Time Lane: Road to Oblivion1"}
-        - {map: 270030400, w: 4, mode: solo, mob_levels: [80, 131], name: "Time Lane: Road to Oblivion4"}
+        # UNREACHABLE (Temple of Time lane past Memory Lane 1: timeQuest.js wants the lane quests):
+        # - {map: 270030200, w: 4, mode: solo, mob_levels: [80, 124], name: "Time Lane: Road to Oblivion2"}
+        # UNREACHABLE (Temple of Time lane past Memory Lane 1: timeQuest.js wants the lane quests):
+        # - {map: 270030100, w: 3, mode: solo, mob_levels: [80, 121], name: "Time Lane: Road to Oblivion1"}
+        # UNREACHABLE (Temple of Time lane past Memory Lane 1: timeQuest.js wants the lane quests):
+        # - {map: 270030400, w: 4, mode: solo, mob_levels: [80, 131], name: "Time Lane: Road to Oblivion4"}
         - {map: 541020600, w: 3, mode: solo, mob_levels: [95, 115], name: "Singapore: Destroyed Park I"}
         # INVALID (a single-person mini-dungeon instance (MiniDungeonInfo KISS_DUKU): bots never grind instances):
         # - {map: 541020620, w: 3, mode: solo, mob_levels: [115, 115], name: "Singapore: Long Kiss Duku Good Night"}
         - {map: 610020006, w: 2, mode: solo, mob_levels: [120, 120], name: "Crimsonwood Mountain: Crimsonwood Keep"}
-        - {map: 322040000, w: 3, mode: solo, mob_levels: [118, 118], name: "Ariant: Pyramid <1>"}
-        - {map: 323030000, w: 3, mode: solo, mob_levels: [126, 126], name: "Henesys: Golden Coast <1>"}
-        - {map: 323040000, w: 3, mode: solo, mob_levels: [128, 128], name: "Henesys: Deep within Sleeping Forest <1>"}
-        - {map: 324020000, w: 3, mode: solo, mob_levels: [133, 133], name: "Mu Lung: Sky Forest <1>"}
+        # UNREACHABLE (Mirror World / Kritias field: CANNOTVIPROCK and no portal or script leads in):
+        # - {map: 322040000, w: 3, mode: solo, mob_levels: [118, 118], name: "Ariant: Pyramid <1>"}
+        # UNREACHABLE (Mirror World / Kritias field: CANNOTVIPROCK and no portal or script leads in):
+        # - {map: 323030000, w: 3, mode: solo, mob_levels: [126, 126], name: "Henesys: Golden Coast <1>"}
+        # UNREACHABLE (Mirror World / Kritias field: CANNOTVIPROCK and no portal or script leads in):
+        # - {map: 323040000, w: 3, mode: solo, mob_levels: [128, 128], name: "Henesys: Deep within Sleeping Forest <1>"}
+        # UNREACHABLE (Mirror World / Kritias field: CANNOTVIPROCK and no portal or script leads in):
+        # - {map: 324020000, w: 3, mode: solo, mob_levels: [133, 133], name: "Mu Lung: Sky Forest <1>"}
         - {map: 211060100, w: 4, mode: solo, rebirths: 1, mob_levels: [117, 117], name: "Lion King's Castle: Under the Castle Walls 1"}
-        - {map: 211060300, w: 4, mode: solo, rebirths: 1, mob_levels: [119, 119], name: "Lion King's Castle: Under the Castle Walls 2"}
-        - {map: 211060500, w: 3, mode: solo, rebirths: 1, mob_levels: [120, 120], name: "Lion King's Castle: Under the Castle Walls 3"}
-        - {map: 211060700, w: 4, mode: solo, rebirths: 1, mob_levels: [122, 122], name: "Lion King's Castle: Under the Castle Walls 4"}
-        - {map: 211060900, w: 3, mode: solo, rebirths: 1, mob_levels: [122, 122], name: "Lion King's Castle: Under the Castle Walls 5"}
+        # UNREACHABLE (LKC past Walls 1: the tower portals want key items 4032832-4 or quests 3165-3167):
+        # - {map: 211060300, w: 4, mode: solo, rebirths: 1, mob_levels: [119, 119], name: "Lion King's Castle: Under the Castle Walls 2"}
+        # UNREACHABLE (LKC past Walls 1: the tower portals want key items 4032832-4 or quests 3165-3167):
+        # - {map: 211060500, w: 3, mode: solo, rebirths: 1, mob_levels: [120, 120], name: "Lion King's Castle: Under the Castle Walls 3"}
+        # UNREACHABLE (LKC past Walls 1: the tower portals want key items 4032832-4 or quests 3165-3167):
+        # - {map: 211060700, w: 4, mode: solo, rebirths: 1, mob_levels: [122, 122], name: "Lion King's Castle: Under the Castle Walls 4"}
+        # UNREACHABLE (LKC past Walls 1: the tower portals want key items 4032832-4 or quests 3165-3167):
+        # - {map: 211060900, w: 3, mode: solo, rebirths: 1, mob_levels: [122, 122], name: "Lion King's Castle: Under the Castle Walls 5"}
         - {map: 400010300, w: 3, mode: solo, rebirths: 3, mob_levels: [124, 124], name: "East Pantheon: East Pantheon Forest"}
         - {map: 400030100, w: 3, mode: solo, rebirths: 3, mob_levels: [120, 120], name: "South Pantheon: South Pantheon Plains"}
         - {map: 410000022, w: 3, mode: solo, rebirths: 3, mob_levels: [118, 118], name: "Fox Ridge: Tear Rock Hill 3"}
@@ -639,32 +679,68 @@ bands:
       mage_cleric:
         - {map: 240040511, w: 5, mode: party, mob_levels: [110, 113], name: "Leafre: The Dragon Nest Left Behind"}
         - {map: 240040510, w: 5, mode: party, mob_levels: [110, 113], name: "Leafre: Nest of a Dead Dragon"}
-        - {map: 322040000, w: 3, mode: solo, mob_levels: [118, 118], name: "Ariant: Pyramid <1>"}
+        # UNREACHABLE (Mirror World / Kritias field: CANNOTVIPROCK and no portal or script leads in):
+        # - {map: 322040000, w: 3, mode: solo, mob_levels: [118, 118], name: "Ariant: Pyramid <1>"}
       mage_il:
         - {map: 240040520, w: 3, mode: solo, mob_levels: [105, 105], name: "Leafre: Destroyed Dragon Nest"}
   - levels: [140, 160]
     label: "MapleRoot zones: Mirror World, Kritias, LKC walls"
     groups:
       general:
-        - {map: 270030500, w: 3, mode: solo, mob_levels: [131, 131], name: "Time Lane: Road to Oblivion5"}
-        - {map: 325010000, w: 4, mode: solo, mob_levels: [142, 142], name: "Edelstein: Streetlight Street <1>"}
-        - {map: 325020000, w: 3, mode: solo, mob_levels: [144, 144], name: "Edelstein: Perilous Rocky Mountain <1>"}
-        - {map: 326010000, w: 4, mode: solo, mob_levels: [152, 152], name: "Magatia: Zenumist's Laboratory A <1>"}
-        - {map: 326020000, w: 4, mode: solo, mob_levels: [154, 154], name: "Magatia: Alcadno's Laboratory A <1>"}
-        - {map: 329020000, w: 3, mode: solo, mob_levels: [140, 140], name: "Kritias: Outside Kritias <1>"}
-        - {map: 211060620, w: 3, mode: solo, rebirths: 1, mob_levels: [127, 127], name: "Lion King's Castle: Tall Castle Walls 1"}
-        - {map: 211060830, w: 3, mode: solo, rebirths: 1, mob_levels: [127, 127], name: "Lion King's Castle: Very Tall Castle Walls"}
+        # Reachable replacements (2026-10-20). Nothing open below rebirth 2 has mobs above ~120 on this server, so
+        # rebirth 0-1 bots keep to the strongest classic maps; Gate to the Future (rebirth 2) takes over from ~148.
+        - {map: 541020600, w: 4, mode: solo, mob_levels: [115, 115], name: "Singapore: Destroyed Park I"}
+        - {map: 541020610, w: 4, mode: solo, mob_levels: [115, 115], name: "Singapore: Destroyed Park II"}
+        - {map: 240040511, w: 3, mode: solo, mob_levels: [110, 113], name: "Leafre: The Dragon Nest Left Behind"}
+        - {map: 240040510, w: 3, mode: solo, mob_levels: [110, 113], name: "Leafre: Nest of a Dead Dragon"}
+        - {map: 610020006, w: 2, mode: solo, mob_levels: [120, 120], name: "Crimsonwood Mountain: Crimsonwood Keep"}
+        - {map: 211060100, w: 3, mode: solo, rebirths: 1, mob_levels: [117, 117], name: "Lion King's Castle: Under the Castle Walls 1"}
+        - {map: 271010200, w: 3, mode: solo, rebirths: 2, mob_levels: [162, 162], name: "Henesys Ruins: Henesys Ruins Park"}
+        - {map: 271010100, w: 3, mode: solo, rebirths: 2, mob_levels: [162, 162], name: "Henesys Ruins: Henesys Ruins Market"}
+        - {map: 271000100, w: 3, mode: solo, rebirths: 2, mob_levels: [163, 163], name: "Dark Ereve: Mutant Tino Forest"}
+        # UNREACHABLE (Temple of Time lane past Memory Lane 1: timeQuest.js wants the lane quests):
+        # - {map: 270030500, w: 3, mode: solo, mob_levels: [131, 131], name: "Time Lane: Road to Oblivion5"}
+        # UNREACHABLE (Mirror World / Kritias field: CANNOTVIPROCK and no portal or script leads in):
+        # - {map: 325010000, w: 4, mode: solo, mob_levels: [142, 142], name: "Edelstein: Streetlight Street <1>"}
+        # UNREACHABLE (Mirror World / Kritias field: CANNOTVIPROCK and no portal or script leads in):
+        # - {map: 325020000, w: 3, mode: solo, mob_levels: [144, 144], name: "Edelstein: Perilous Rocky Mountain <1>"}
+        # UNREACHABLE (Mirror World / Kritias field: CANNOTVIPROCK and no portal or script leads in):
+        # - {map: 326010000, w: 4, mode: solo, mob_levels: [152, 152], name: "Magatia: Zenumist's Laboratory A <1>"}
+        # UNREACHABLE (Mirror World / Kritias field: CANNOTVIPROCK and no portal or script leads in):
+        # - {map: 326020000, w: 4, mode: solo, mob_levels: [154, 154], name: "Magatia: Alcadno's Laboratory A <1>"}
+        # UNREACHABLE (Mirror World / Kritias field: CANNOTVIPROCK and no portal or script leads in):
+        # - {map: 329020000, w: 3, mode: solo, mob_levels: [140, 140], name: "Kritias: Outside Kritias <1>"}
+        # UNREACHABLE (LKC past Walls 1: the tower portals want key items 4032832-4 or quests 3165-3167):
+        # - {map: 211060620, w: 3, mode: solo, rebirths: 1, mob_levels: [127, 127], name: "Lion King's Castle: Tall Castle Walls 1"}
+        # UNREACHABLE (LKC past Walls 1: the tower portals want key items 4032832-4 or quests 3165-3167):
+        # - {map: 211060830, w: 3, mode: solo, rebirths: 1, mob_levels: [127, 127], name: "Lion King's Castle: Very Tall Castle Walls"}
         - {map: 402000321, w: 3, mode: solo, rebirths: 3, mob_levels: [140, 142], name: "Abandoned Offices: Mr. Hazard's Lair 2"}
         - {map: 400010400, w: 3, mode: solo, rebirths: 3, mob_levels: [141, 141], name: "East Pantheon: Enchanted Forest"}
   - levels: [160, 180]
     label: "MapleRoot zones: Mirror World Ludi/ToT, Gate to the Future (rebirth 2)"
     groups:
       general:
-        - {map: 327010000, w: 4, mode: solo, mob_levels: [162, 162], name: "Ludibrium: Toy Factory <1>"}
-        - {map: 327020000, w: 3, mode: solo, mob_levels: [164, 164], name: "Ludibrium: Inside Clocktower <1>"}
-        - {map: 328030000, w: 4, mode: solo, mob_levels: [179, 179], name: "Temple of Time: Road to Oblivion <1>"}
-        - {map: 328020000, w: 3, mode: solo, mob_levels: [176, 176], name: "Temple of Time: Road of Regrets <1>"}
-        - {map: 329010000, w: 3, mode: solo, mob_levels: [180, 180], name: "Kritias: Outside Kritias <1>"}
+        # Reachable replacements (2026-10-20): the strongest classic maps for rebirth 0-1 bots, more Gate to the Future.
+        - {map: 541020600, w: 2, mode: solo, mob_levels: [115, 115], name: "Singapore: Destroyed Park I"}
+        - {map: 541020610, w: 2, mode: solo, mob_levels: [115, 115], name: "Singapore: Destroyed Park II"}
+        - {map: 240040511, w: 2, mode: solo, mob_levels: [110, 113], name: "Leafre: The Dragon Nest Left Behind"}
+        - {map: 610020006, w: 1, mode: solo, mob_levels: [120, 120], name: "Crimsonwood Mountain: Crimsonwood Keep"}
+        - {map: 211060100, w: 2, mode: solo, rebirths: 1, mob_levels: [117, 117], name: "Lion King's Castle: Under the Castle Walls 1"}
+        - {map: 271010200, w: 4, mode: solo, rebirths: 2, mob_levels: [162, 162], name: "Henesys Ruins: Henesys Ruins Park"}
+        - {map: 271020100, w: 3, mode: solo, rebirths: 2, mob_levels: [164, 164], name: "Singing Mushroom Forest Ruins: Creepy Humming Forest Trail"}
+        - {map: 271000200, w: 3, mode: solo, rebirths: 2, mob_levels: [165, 165], name: "Dark Ereve: Mutant Tiru Forest"}
+        - {map: 271010301, w: 3, mode: solo, rebirths: 2, mob_levels: [168, 168], name: "Ravaged Forest: Suspicious Hill"}
+        - {map: 271000210, w: 3, mode: solo, rebirths: 2, mob_levels: [167, 167], name: "Dark Ereve: Mutant Tiguru Forest"}
+        # UNREACHABLE (Mirror World / Kritias field: CANNOTVIPROCK and no portal or script leads in):
+        # - {map: 327010000, w: 4, mode: solo, mob_levels: [162, 162], name: "Ludibrium: Toy Factory <1>"}
+        # UNREACHABLE (Mirror World / Kritias field: CANNOTVIPROCK and no portal or script leads in):
+        # - {map: 327020000, w: 3, mode: solo, mob_levels: [164, 164], name: "Ludibrium: Inside Clocktower <1>"}
+        # UNREACHABLE (Mirror World / Kritias field: CANNOTVIPROCK and no portal or script leads in):
+        # - {map: 328030000, w: 4, mode: solo, mob_levels: [179, 179], name: "Temple of Time: Road to Oblivion <1>"}
+        # UNREACHABLE (Mirror World / Kritias field: CANNOTVIPROCK and no portal or script leads in):
+        # - {map: 328020000, w: 3, mode: solo, mob_levels: [176, 176], name: "Temple of Time: Road of Regrets <1>"}
+        # UNREACHABLE (Mirror World / Kritias field: CANNOTVIPROCK and no portal or script leads in):
+        # - {map: 329010000, w: 3, mode: solo, mob_levels: [180, 180], name: "Kritias: Outside Kritias <1>"}
         - {map: 271000100, w: 3, mode: solo, rebirths: 2, mob_levels: [163, 163], name: "Dark Ereve: Mutant Tino Forest"}
         - {map: 271010300, w: 3, mode: solo, rebirths: 2, mob_levels: [166, 166], name: "Ravaged Forest: Hill North of Henesys Ruins"}
         - {map: 271010400, w: 3, mode: solo, rebirths: 2, mob_levels: [168, 168], name: "Ravaged Forest: Dreamy Forest Trail"}
@@ -678,8 +754,18 @@ bands:
     label: "Twilight Perion (rebirth 2), Kritias, Umbra, Scrapyard"
     groups:
       general:
-        - {map: 329010000, w: 3, mode: solo, mob_levels: [180, 180], name: "Kritias: Outside Kritias <1>"}
-        - {map: 307000310, w: 2, mode: solo, mob_levels: [190, 190], name: "Umbra Temple: Dusty Corridor 1"}
+        # Reachable replacements (2026-10-20): rebirth 0-1 bots keep to Ulu until the Scrapyard opens to them at 185
+        # (hyper rock); more Twilight Perion for rebirth 2.
+        - {map: 541020600, w: 1, mode: solo, mob_levels: [115, 115], name: "Singapore: Destroyed Park I"}
+        - {map: 541020610, w: 1, mode: solo, mob_levels: [115, 115], name: "Singapore: Destroyed Park II"}
+        - {map: 310070110, w: 3, mode: solo, mob_levels: [200, 200], name: "Scrapyard: Scrapyard Hill 1"}
+        - {map: 273020000, w: 3, mode: solo, rebirths: 2, mob_levels: [190, 190], name: "Twilight Perion: Desolate Hills"}
+        - {map: 273030200, w: 3, mode: solo, rebirths: 2, mob_levels: [193, 193], name: "Twilight Perion: Fevered Land"}
+        - {map: 273040200, w: 3, mode: solo, rebirths: 2, mob_levels: [196, 196], name: "Twilight Perion: Forsaken Excavation Site 3"}
+        # UNREACHABLE (Mirror World / Kritias field: CANNOTVIPROCK and no portal or script leads in):
+        # - {map: 329010000, w: 3, mode: solo, mob_levels: [180, 180], name: "Kritias: Outside Kritias <1>"}
+        # UNREACHABLE (Umbra Temple: CANNOTVIPROCK and its entrance has no script):
+        # - {map: 307000310, w: 2, mode: solo, mob_levels: [190, 190], name: "Umbra Temple: Dusty Corridor 1"}
         - {map: 310070100, w: 3, mode: solo, mob_levels: [200, 200], name: "Scrapyard: Scrapyard Entrance"}
         # INVALID (Knight Stronghold is HyperTP-restricted (BotMapGates NEVER): no bot may enter):
         # - {map: 271030530, w: 3, mode: solo, rebirths: 2, mob_levels: [182, 182], name: "Knight Stronghold: Knights' Chamber 4"}

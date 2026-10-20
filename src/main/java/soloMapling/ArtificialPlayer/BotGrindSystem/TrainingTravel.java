@@ -42,8 +42,8 @@ public final class TrainingTravel {
 
     private static final RegionTravel DEFAULT = new RegionTravel(
             TrainingTravel::hubMaps,
-            (from, to, rebirths, jobId) -> {
-                List<Integer> route = GCMovement.route(from, to, rebirths);
+            (from, to, rebirths, jobId, level) -> {
+                List<Integer> route = GCMovement.route(from, to, rebirths, level);
                 return route == null ? -1 : GCMovement.routeFare(from, route, jobId);
             },
             System::currentTimeMillis);
@@ -64,10 +64,11 @@ public final class TrainingTravel {
 
     // ── The data-driven default ──
 
-    // Fare of the cheapest route between two maps for this bot, or -1 when nothing connects them.
+    // Fare of the cheapest route between two maps for this bot, or -1 when nothing connects them. The level keeps
+    // out hops whose script turns the bot away (Jeff lets nobody under 50 past Ice Valley).
     @FunctionalInterface
     interface RouteFare {
-        int fare(int fromMapId, int toMapId, int rebirths, int jobId);
+        int fare(int fromMapId, int toMapId, int rebirths, int jobId, int level);
     }
 
     static final class RegionTravel implements Policy {
@@ -109,7 +110,7 @@ public final class TrainingTravel {
                     if (inBand == 0) {
                         continue;
                     }
-                    int fare = routeFare.fare(r.currentMapId(), hub, r.rebirths(), r.jobId());
+                    int fare = routeFare.fare(r.currentMapId(), hub, r.rebirths(), r.jobId(), r.level());
                     if (fare < 0 || fare > r.meso()) {
                         continue; // unreachable, or the bot can't pay its way there
                     }

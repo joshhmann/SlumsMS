@@ -244,7 +244,7 @@ final class GCTravel {
         }
 
         List<Integer> route = GCWorldGraph.route(cur, trip.destMapId, MAX_HOPS, trip.rebirths, !trip.noFares,
-                savedReturn(bot));
+                savedReturn(bot), bot.getLevel());
         if (route == null) {
             if (trip.noFares) {
                 // The only way on costs mesos this bot doesn't have: give up rather than warp for free.

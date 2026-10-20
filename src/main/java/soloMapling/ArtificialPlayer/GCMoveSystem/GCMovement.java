@@ -386,10 +386,16 @@ public final class GCMovement {
         return GCWorldGraph.route(fromMapId, toMapId, ROUTE_MAX_HOPS, rebirths, true, GCWorldGraph.NO_SAVED_RETURN);
     }
 
+    /* As route(int, int, int) for a bot of this level: hops whose script wants a higher level (Jeff) are left out. */
+    public static List<Integer> route(int fromMapId, int toMapId, int rebirths, int level) {
+        return GCWorldGraph.route(fromMapId, toMapId, ROUTE_MAX_HOPS, rebirths, true, GCWorldGraph.NO_SAVED_RETURN,
+                level);
+    }
+
     /* As route(int, int, int) for this bot: its rebirths, and the World Tour taking it back to its saved town. */
     public static List<Integer> route(Character bot, int toMapId) {
         return GCWorldGraph.route(bot.getMapId(), toMapId, ROUTE_MAX_HOPS, soloMapling.ArtificialPlayer.BotTravelSystem.BotMapGates.rebirthsOf(bot), true,
-                GCTravel.savedReturn(bot));
+                GCTravel.savedReturn(bot), bot.getLevel());
     }
 
     /* Ticket 03: what a route costs in fares for a bot of this job (each paid transit hop on it). */

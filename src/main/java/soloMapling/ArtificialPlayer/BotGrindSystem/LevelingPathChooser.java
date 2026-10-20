@@ -76,7 +76,7 @@ public final class LevelingPathChooser {
 
         Map<Integer, Integer> walkReach(int homeMapId); // maps walkable from home -> hops
 
-        int routeFare(int fromMapId, int toMapId, int rebirths, int jobId); // -1 = unreachable
+        int routeFare(int fromMapId, int toMapId, int rebirths, int jobId, int level); // -1 = unreachable
 
         int capacity(int mapId);
 
@@ -176,7 +176,7 @@ public final class LevelingPathChooser {
                 local.add(new Candidate(new TrainingMap(map, mob, Math.max(1, hops)), weight * t.homeBias()));
                 continue;
             }
-            int fare = r.homeMapId() > 0 ? w.routeFare(r.homeMapId(), map, r.rebirths(), r.jobId()) : -1;
+            int fare = r.homeMapId() > 0 ? w.routeFare(r.homeMapId(), map, r.rebirths(), r.jobId(), r.level()) : -1;
             if (fare < 0 || fare > r.meso()) {
                 continue; // no way there from home, or the bot can't pay the fares
             }
@@ -258,7 +258,7 @@ public final class LevelingPathChooser {
     // ── Level sweep (ticket 31 "done when"; `!env path sweep`, or logged with the census) ──
 
     // Per band and rebirth count: how many distinct path maps a bot could use (mobs, not a mini-dungeon, region
-    // not disabled, gate open) and reach by any route from fromMapId, fares aside; then every map no route
+    // not disabled, gate open) and reach by any route from fromMapId, fares aside, at the band's lowest level (level-checked hops like Jeff count only for bots that pass them); then every map no route
     // reaches at rebirth 3. Static WZ + nav data only: no bot is touched.
     public static List<String> sweep(int fromMapId) {
         return sweep(LevelingPath.path(), LIVE, fromMapId);
@@ -288,7 +288,7 @@ public final class LevelingPathChooser {
                     if (!BotMapGates.mayEnter(map, rebirths)) {
                         continue;
                     }
-                    if (map != fromMapId && w.routeFare(fromMapId, map, rebirths, 0) < 0) {
+                    if (map != fromMapId && w.routeFare(fromMapId, map, rebirths, 0, band.lo()) < 0) {
                         if (rebirths == 3) {
                             unreachable.add(map);
                         }
@@ -345,8 +345,8 @@ public final class LevelingPathChooser {
         }
 
         @Override
-        public int routeFare(int fromMapId, int toMapId, int rebirths, int jobId) {
-            List<Integer> route = GCMovement.route(fromMapId, toMapId, rebirths);
+        public int routeFare(int fromMapId, int toMapId, int rebirths, int jobId, int level) {
+            List<Integer> route = GCMovement.route(fromMapId, toMapId, rebirths, level);
             return route == null ? -1 : GCMovement.routeFare(fromMapId, route, jobId);
         }
 
