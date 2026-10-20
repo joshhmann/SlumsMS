@@ -156,6 +156,8 @@ public final class DashboardExporter {
                     sources.mapNames());
             // Tickets 36/37: which tier answered players' lines and how fast, flags, actions, Decide calls.
             result.live().put("chat", soloMapling.ArtificialPlayer.BotBrainSystem.ChatStats.snapshot());
+            // Cumulative replies per tier (llm, scripted, emote, ignored, flagged) so the day's series can chart them.
+            result.point().put("ch", soloMapling.ArtificialPlayer.BotBrainSystem.ChatStats.tierCounts());
             result.live().put("exportMs", (System.nanoTime() - t0) / 1_000_000);
             AtomicFiles.writeJson(dir.resolve("live.json"), result.live());
             boolean newDay = series.add(result.point(), now);

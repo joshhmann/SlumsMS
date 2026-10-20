@@ -1,0 +1,147 @@
+#!/usr/bin/env python3
+"""slums-dashboard-extras: the admin dashboard's ops files that do not come from the game server (ticket 35).
+
+    slums-dashboard-extras <instance> [--conf FILE] [--dry-run]
+
+Run every minute by slums-dashboard-extras@<instance>.timer, as root. It writes, under DATA_DIR/ops/:
+
+  status.json  the slumsms-monitor results (ticket 42) of each target in MONITOR_TARGETS, copied from
+               /var/lib/slumsms-monitor/<target>/status.json, so nginx never reads /var/lib.
+  gm.json      the GM command audit and GM level changes (ticket 43), read with `slumsms-gm-audit --json`
+               (SELECTs through `docker exec`, the container's own password; nothing here reads or writes a
+               credential). Refreshed every GM_EVERY_S seconds.
+
+Config: /etc/slums-dashboard/<instance>.conf, KEY=value lines:
+
+  DATA_DIR=/srv/slums-dashboard-test/data     the dashboard's data folder (nginx /data/)
+  MONITOR_TARGETS=live persistence-test       space-separated; empty = no status strip
+  GM_CONTAINER=mapleroot-integration-db       empty = no GM page
+  GM_SCHEMA=slums_release_test
+  GM_LIMIT=500                                newest commands kept (level changes: 200)
+  GM_EVERY_S=300
+  GM_AUDIT=/usr/local/bin/slumsms-gm-audit
+
+Every write is atomic (hidden temp file + rename; nginx denies dot files). Failures are written into the file as
+`error` so the page can say what is wrong; the job itself exits 0 unless the config is unusable.
+"""
+import json
+import os
+import re
+import subprocess
+import sys
+import tempfile
+import time
+
+MONITOR_ROOT = os.environ.get("SLUMSMS_MONITOR_STATE_DIR", "/var/lib/slumsms-monitor")
+NAME_RE = re.compile(r"^[A-Za-z0-9_.-]+$")
+
+
+def load_conf(path):
+    conf = {"MONITOR_TARGETS": "", "GM_CONTAINER": "", "GM_SCHEMA": "", "GM_LIMIT": "500", "GM_EVERY_S": "300",
+            "GM_AUDIT": "/usr/local/bin/slumsms-gm-audit"}
+    with open(path, encoding="utf-8") as f:
+        for line in f:
+            line = line.strip()
+            if not line or line.startswith("#") or "=" not in line:
+                continue
+            k, v = line.split("=", 1)
+            conf[k.strip()] = v.strip().strip('"').strip("'")
+    if not conf.get("DATA_DIR"):
+        raise SystemExit("slums-dashboard-extras: DATA_DIR is not set in " + path)
+    return conf
+
+
+def write_json(path, obj, dry):
+    text = json.dumps(obj, ensure_ascii=False, separators=(",", ":"))
+    if dry:
+        print(path, text[:600] + ("…" if len(text) > 600 else ""))
+        return
+    d = os.path.dirname(path)
+    os.makedirs(d, exist_ok=True)
+    fd, tmp = tempfile.mkstemp(dir=d, prefix="." + os.path.basename(path), suffix=".tmp")
+    try:
+        with os.fdopen(fd, "w", encoding="utf-8") as f:
+            f.write(text)
+        os.chmod(tmp, 0o644)
+        os.replace(tmp, path)
+    finally:
+        if os.path.exists(tmp):
+            os.unlink(tmp)
+
+
+def monitor_status(targets):
+    out = []
+    for t in targets:
+        row = {"target": t}
+        if not NAME_RE.match(t):
+            row["error"] = "bad target name"
+        else:
+            try:
+                with open(os.path.join(MONITOR_ROOT, t, "status.json"), encoding="utf-8") as f:
+                    s = json.load(f)
+                row["at"] = s.get("at")
+                row["label"] = s.get("target", t)
+                # Only the fields the strip shows; details are check results (ports, counts), no secrets.
+                row["checks"] = {k: {"name": v.get("name", k), "ok": bool(v.get("ok")), "skipped": bool(v.get("skipped")),
+                                     "detail": str(v.get("detail", ""))[:200]}
+                                 for k, v in (s.get("checks") or {}).items()}
+            except FileNotFoundError:
+                row["error"] = "no status.json yet (is slumsms-monitor@%s.timer installed?)" % t
+            except (OSError, ValueError) as e:
+                row["error"] = "unreadable status.json: " + type(e).__name__
+        out.append(row)
+    return out
+
+
+def gm_audit(conf, changes, limit):
+    cmd = [conf["GM_AUDIT"], "--container", conf["GM_CONTAINER"], "--schema", conf["GM_SCHEMA"], "--limit", str(limit), "--json"]
+    if changes:
+        cmd.append("--changes")
+    p = subprocess.run(cmd, capture_output=True, text=True, timeout=60)
+    if p.returncode != 0:
+        msg = (p.stderr.strip().splitlines() or ["exit %d" % p.returncode])[-1]
+        raise RuntimeError(re.sub(r"(?i)(password|pwd|token)\S*", "[hidden]", msg)[:300])
+    return [json.loads(line) for line in p.stdout.splitlines() if line.strip()]
+
+
+def main(argv):
+    if not argv or argv[0] in ("-h", "--help"):
+        print(__doc__)
+        return 0 if argv else 2
+    instance = argv[0]
+    if not NAME_RE.match(instance):
+        raise SystemExit("slums-dashboard-extras: bad instance name")
+    conf_path = "/etc/slums-dashboard/%s.conf" % instance
+    if "--conf" in argv:
+        conf_path = argv[argv.index("--conf") + 1]
+    dry = "--dry-run" in argv
+    conf = load_conf(conf_path)
+    ops = os.path.join(conf["DATA_DIR"], "ops")
+    now = int(time.time())
+
+    targets = conf["MONITOR_TARGETS"].split()
+    if targets:
+        write_json(os.path.join(ops, "status.json"), {"at": now, "targets": monitor_status(targets)}, dry)
+
+    if conf["GM_CONTAINER"] and conf["GM_SCHEMA"]:
+        gm_path = os.path.join(ops, "gm.json")
+        every = int(conf["GM_EVERY_S"] or 300)
+        try:
+            fresh = os.path.getmtime(gm_path) > now - every + 5
+        except OSError:
+            fresh = False
+        if not fresh or dry:
+            doc = {"at": now, "schema": conf["GM_SCHEMA"], "commands": [], "changes": [], "error": None}
+            errors = []
+            for key, changes, limit in (("commands", False, int(conf["GM_LIMIT"] or 500)), ("changes", True, 200)):
+                try:
+                    doc[key] = gm_audit(conf, changes, limit)
+                except (RuntimeError, OSError, ValueError, subprocess.TimeoutExpired) as e:
+                    errors.append("%s: %s" % (key, e))
+            doc["error"] = "; ".join(errors) or None
+            write_json(gm_path, doc, dry)
+    return 0
+
+
+if __name__ == "__main__":
+    sys.exit(main(sys.argv[1:]))

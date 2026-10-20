@@ -1,0 +1,10 @@
+[Unit]
+Description=SlumsMS admin dashboard ops files: monitor status and GM audit (%i)
+After=docker.service
+
+[Service]
+Type=oneshot
+ExecStart=/usr/local/bin/slums-dashboard-extras %i
+Nice=19
+IOSchedulingClass=idle
+TimeoutStartSec=120
