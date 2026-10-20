@@ -54,6 +54,7 @@ public class GCMoveCommand extends Command {
             player.dropMessage(soloMapling.ArtificialPlayer.GCMoveSystem.PlayerHeat.describe());
             player.dropMessage(soloMapling.ArtificialPlayer.GCMoveSystem.NavDeepOverlay.describe());
             player.dropMessage(soloMapling.ArtificialPlayer.GCMoveSystem.NavStuckLog.describe());
+            player.dropMessage(soloMapling.ArtificialPlayer.GCMoveSystem.NavMovementFlaws.describe()); // ticket 33
             return;
         }
         if (sub.equals("stuck")) { // ticket 04c: today's worst stuck spots (the daily report has the full list)
