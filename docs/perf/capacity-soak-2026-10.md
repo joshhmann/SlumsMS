@@ -2,7 +2,8 @@
 
 **Status:** partial. The owner postponed the 24 h soak until the pending changes are merged; it will be rerun on the
 next release candidate on the dedicated soak server `slums-soak` (see `tools/soak/README.md`). What is here: a 46-minute
-smoke run on the owner's test server, and (below, once done) the 30-minute proving run of `slums-soak`.
+smoke run on the owner's test server, the 30-minute proving run of `slums-soak`, and the continuous baseline soak
+that has run on `slums-soak` since 2026-10-20 19:22 UTC.
 Not yet measured: the safe peak for 4 GB / 6 GB heap, a recommended `BOT_ROSTER_PEAK_ONLINE`, and 24 h growth.
 
 ## How it is measured
@@ -157,3 +158,133 @@ Baseline (before the soak's load generator; the test server already ran its bots
 | 10-20 17:44 | 8.8 | 50.7 / 50.7 / 50.7 | 0 / 0 | 1774 | 12821 | 6.20 | 0 | - |
 
 
+
+## Smoke run 2: slums-soak, the dedicated soak server (2026-10-20 17:57-18:28 UTC)
+
+`slums-soak` = fresh copy of live (DB dumped with `--single-transaction` into `mapleroot_soak`, Server folder, jar
+v1.3.1 = live's, sha 2234665001f8), login 8509, -Xmx4G, Nice=19 CPUWeight=20 CPUQuota=300% MemoryMax=6G, LLM and Decide
+on the local mock (1-3 s per chat reply). For the smoke only `BOT_ROSTER_CURVE: "flat"` (soak override) held the
+peak: **1,546 bots** (1,200 roster + ~346 service bots with live's config). 20 scripted players, a whisper every 5 s
+(the mock can take it), guard on.
+
+- **Heap** 1.6-2.2 GB used of 4 GB, heap after GC 1.13 to 1.40 GB in the first 30 minutes (warm-up), no full GC.
+  Without players it went on to 1.45 GB by 19:20 (about +50 MB/h after the first hour; the 24 h run decides).
+- **GC pauses**: 496 in 30 min, p50 10 ms, p99 21-34 ms, max 46 ms (boot), ~115-200 ms of pause per minute while the
+  20 players were on.
+- **CPU** 35-54 % of one core with players, ~18 % without; RSS 2.7 GB.
+- **DB**: pool waiting 0, BotDbGate overruns 0. **Ticks**: movement tick 70-87 ms/s, no wheel-lag lines.
+- **LLM queueing** (mock, 727 chat calls in 31 min, ~23/min, server cap `BOT_LLM_MAX_CONCURRENT: 2`): whisper reply
+  p50 2.5 s / p95 3.4-3.9 s (mock latency 1-3 s, so queueing adds well under a second at this rate), 335/351 answered;
+  8 fallbacks, all "rate limited" (the per-player interval), none from a full queue.
+- **Players**: login p50 360 ms / p95 392 ms (settled p95 1.9 s), channel change p50 47 ms / p95 75 ms, chat echo p50
+  0.2 ms (max 16 ms), Henesys with up to 76 on screen settled p95 1.7 s. Portal warps: SET_FIELD p95 5 ms, but settled
+  p95 7.5 s: a few warps into the busiest maps took 10-15 s for the packet burst to end (to look at on the RC run).
+  6 of 46 logins were refused at the TCP connect (the server closed the socket before the handshake) and worked on the
+  retry; same as on the test server, likely the login server's per-IP connection limit (all scripted players share
+  127.0.0.1), not seen by real players on separate IPs.
+- **Live**: CPU median 12 % (baseline 11 %), CPU stall 8-11 ms/s median (baseline 6.6), p95 45 ms/s only while
+  slums-soak booted, GC unchanged, no wheel-lag lines, MemAvailable >= 10.2 GB, no guard action.
+
+#### Soak target over time (10 min buckets, from 2026-10-20 17:57:54 UTC)
+
+| UTC | bots online (min-max) | players | heap used MB avg / max | old gen MB min / max | GC ms/min avg | CPU % avg (of one core) | RSS MB max | DB pool waiting max | BotDbGate free min / overruns | macro tick avg ms | movement tick ms/s | wheel-lag lines | LLM fallbacks | errors |
+|---|---|---|---|---|---|---|---|---|---|---|---|---|---|---|
+| 10-20 17:57 | 1544-1546 | 20 | 1591 / 1957 | 1097 / 1274 | 238 | 54 | 2477 | 0 | 6 / 0 | 268 | 72.4 | 0 | 2 | 0 |
+| 10-20 18:07 | 1546-1546 | 20 | 1620 / 2120 | 1270 / 1347 | 169 | 43 | 2610 | 0 | 6 / 0 | 275 | 83.7 | 0 | 3 | 0 |
+| 10-20 18:17 | 1546-1546 | 20 | 1834 / 2189 | 1347 / 1391 | 115 | 35 | 2689 | 0 | 6 / 0 | 241 | 86.9 | 0 | 3 | 0 |
+| 10-20 18:27 | 1546-1546 | 20 | 1669 / 1669 | 1391 / 1391 | 40 | 26 | 2689 | 0 | 6 / 0 | 275 | 70.2 | 0 | 0 | 0 |
+
+LLM fallbacks by reason over the window: `rate limited` 8
+
+Trend after the first bucket (least squares): old gen minimum 363.0 MB/h, movement tick -40.59 ms/s per h, macro tick avg -2.3 ms per h (3 buckets).
+
+#### GC pauses (496 pauses, G1, from the -Xlog:gc* log)
+
+| pause kind | count | p50 ms | p99 ms | max ms |
+|---|---|---|---|---|
+| Pause Young (Mixed) (G1 Evacuation Pause) | 85 | 11.6 | 32.8 | 36.8 |
+| Pause Young (Concurrent Start) (G1 Evacuation Pause) | 85 | 10.1 | 33.1 | 44.7 |
+| Pause Remark | 85 | 9.7 | 31.3 | 33.2 |
+| Pause Cleanup | 85 | 0.3 | 0.6 | 1.4 |
+| Pause Young (Prepare Mixed) (G1 Evacuation Pause) | 85 | 10.8 | 30.6 | 45.8 |
+| Pause Young (Normal) (G1 Evacuation Pause) | 71 | 9.9 | 22.7 | 23.6 |
+
+| UTC | pauses | p50 ms | p99 ms | max ms | heap after GC MB min / max | pause ms per min |
+|---|---|---|---|---|---|---|
+| 10-20 17:57 | 191 | 9.2 | 34.4 | 45.8 | 1129 / 2020 | 200 |
+| 10-20 18:07 | 183 | 9.6 | 21.2 | 25.0 | 1282 / 2034 | 164 |
+| 10-20 18:17 | 121 | 9.7 | 30.9 | 36.8 | 1361 / 2163 | 115 |
+| 10-20 18:27 | 1 | 10.0 | 10.0 | 10.0 | 1401 / 1401 | 1 |
+
+Heap after GC, bucket minimum, trend after the first bucket: 357.0 MB/h over 3 buckets.
+
+#### Player experience (load generator, run `smoke`)
+
+| what | n | ok % | p50 ms | p95 ms | max ms | settled p50 / p95 ms (map fully loaded) |
+|---|---|---|---|---|---|---|
+| login | 40 | 100 | 360 | 392 | 1406 | 792 / 1887 |
+| cc | 66 | 100 | 47 | 75 | 142 | 456 / 1217 |
+| warp | 525 | 99 | 0 | 5 | 30 | 402 / 7539 |
+| chat_echo | 822 | 100 | 0.2 | 0.4 | 16.5 |  /  |
+| whisper_reply | 351 | 95 | 2520 | 3442 | 6426 |  /  |
+| error | 6 | 0 |  |  |  |  /  |
+| warp_skip | 72 | 0 |  |  |  |  /  |
+
+Map entry by map (players on screen at entry and time until the map's packet burst ends; >= 400 ms by construction, the client waits for 400 ms of quiet):
+
+| map | entries | players on screen avg / max | settled p50 / p95 ms |
+|---|---|---|---|
+| 100000000 | 46 | 29 / 76 | 446 / 1725 |
+| 910000000 | 38 | 28 / 48 | 1036 / 1433 |
+| 100000200 | 32 | 26 / 59 | 406 / 1645 |
+| 100000100 | 40 | 25 / 59 | 441 / 2961 |
+| 910000009 | 4 | 19 / 19 | 451 / 689 |
+| 910000014 | 1 | 19 / 19 | 401 / 401 |
+| 910000021 | 1 | 16 / 16 | 401 / 401 |
+| 910000016 | 1 | 13 / 13 | 401 / 401 |
+| 910000007 | 4 | 12 / 16 | 403 / 741 |
+| 910000004 | 3 | 11 / 17 | 402 / 403 |
+| 910000019 | 3 | 11 / 16 | 402 / 413 |
+| 910000005 | 2 | 9 / 18 | 402 / 403 |
+
+| UTC | logins p50 / p95 ms | cc p50 / p95 ms | warp settled p95 ms | chat echo p50 / p95 / max ms | whisper reply p50 / p95 ms (ok/n) | errors |
+|---|---|---|---|---|---|---|
+| 10-20 17:57 | 376 / 476 | 46 / 71 | 15018 | 0.3 / 0.5 / 16.5 | 2521 / 3282 (111/115) | 5 |
+| 10-20 18:07 | 323 / 346 | 39 / 64 | 1233 | 0.2 / 0.4 / 6.4 | 2521 / 3862 (113/118) | 1 |
+| 10-20 18:17 | 337 / 360 | 49 / 77 | 10723 | 0.2 / 0.3 / 2.2 | 2414 / 3485 (111/117) | 0 |
+| 10-20 18:27 |  /  | 47 / 47 |  |  /  /  |  /  (0/1) | 0 |
+
+Traffic a client receives while standing in a map (per-minute samples):
+
+| map | client-minutes | players on screen avg | packets/s avg / max | KB/s avg / max | movement packets/s avg |
+|---|---|---|---|---|---|
+| 101040000 | 2 | 5 | 92.7 / 108.1 | 2.7 / 3.2 | 79.5 |
+| 105040301 | 4 | 8 | 78.1 / 87.1 | 2.4 / 2.6 | 62.4 |
+| 910000004 | 1 | 16 | 75.7 / 75.7 | 2.4 / 2.4 | 70.7 |
+| 100050000 | 7 | 5 | 63.3 / 118.3 | 1.9 / 3.5 | 40.4 |
+| 910000007 | 1 | 16 | 57.2 / 57.2 | 1.9 / 1.9 | 52.9 |
+| 101000000 | 49 | 6 | 53.7 / 146.3 | 1.6 / 4.4 | 43.6 |
+| 105050000 | 2 | 0 | 51.4 / 82.5 | 1.5 / 2.4 | 46.7 |
+| 100000000 | 49 | 26 | 44.3 / 193.7 | 1.4 / 6.1 | 40.9 |
+| 102000000 | 51 | 4 | 43.4 / 215.1 | 1.3 / 6.3 | 36.0 |
+| 100000200 | 6 | 32 | 42.5 / 105.6 | 1.5 / 3.5 | 38.4 |
+
+#### Live (slumsms.service) during the soak, from the guard
+
+Baseline (before the soak's load generator; the test server already ran its bots): `samples=9 rq_median=6.6 rq_p95=7.5 cpu_median=11.1 gc_ms_min_median=15 gc_ms_min_p95=34`
+
+| UTC | live CPU % median | live CPU stall ms/s median / p95 / max | live GC ms/min median / max | live heap MB max | MemAvailable MB min | load1 max | live wheel-lag lines | guard actions |
+|---|---|---|---|---|---|---|---|---|
+| 10-20 17:57 | 12.1 | 7.9 / 44.7 / 52.7 | 17 / 38 | 2189 | 10247 | 12.44 | 0 | - |
+| 10-20 18:07 | 12.4 | 10.8 / 12.6 / 15.3 | 19 / 139 | 2201 | 10455 | 23.93 | 0 | - |
+| 10-20 18:17 | 11.7 | 8.9 / 10.8 / 11.3 | 11 / 226 | 2197 | 10213 | 13.99 | 0 | - |
+| 10-20 18:27 | 16.8 | 7.4 / 7.4 / 7.4 | 51 / 51 | 1680 | 10219 | 8.78 | 0 | - |
+
+
+## The continuous baseline soak (running)
+
+Since 2026-10-20 19:22 UTC `slums-soak` runs v1.3.1 with live's own daily curve (peak 1,200 roster bots at 20:00
+America/Los_Angeles = 03:00 UTC, trough 0.15 at 06:00 LA = 13:00 UTC), 10 scripted players with a whisper every 30 s,
+the collector and the live guard. It stays up as the v1.3.1 baseline; the release candidate goes in with
+`refresh-soak.sh <staging dir>` and is compared against it. The 24 h figures (heap/GC/tick growth, safe peak) are
+added here at 2026-10-21 19:22 UTC.

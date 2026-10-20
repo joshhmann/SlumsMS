@@ -104,7 +104,7 @@ if m:
 pauses = []   # (t, kind, ms, after_mb)
 start_re = re.compile(r"^\[(\d{4}-\d\d-\d\dT\d\d:\d\d:\d\d\.\d+)([+-]\d{4})\]")
 pause_re = re.compile(r"GC\(\d+\) (Pause [A-Za-z]+(?: \([^)]*\))*) (\d+)M->(\d+)M\((\d+)M\) ([\d.]+)ms")
-for f in sorted(glob.glob(os.path.join(a.dir, "gc/gc.log*"))):
+for f in sorted(glob.glob(os.path.join(a.dir, "gc/gc*.log*"))):
     for line in open(f, errors="replace"):
         mm = pause_re.search(line)
         if not mm: continue

@@ -3,10 +3,21 @@
 # Not enabled at boot (transient). JVM flags = live's ExecStart (bots on, template, autopopulate) with the soak ports,
 # GC logging and the dashboard snapshot exporter into $DATA.
 #
-#   start-soak.sh [--heap 4G]
+#   start-soak.sh [--heap 4G] [--flat]
+#   --flat   soak-only override BOT_ROSTER_CURVE: "flat" (the director holds BOT_ROSTER_PEAK_ONLINE all day); without
+#            it the copy runs live's daily curve. The override line is marked "# soak override" in config.yaml.
 set -euo pipefail
 here=$(cd "$(dirname "$0")" && pwd); . "$here/soak.env"
-[ "${1:-}" = --heap ] && HEAP=$2
+FLAT=0
+while [ $# -gt 0 ]; do case $1 in --heap) HEAP=$2; shift;; --flat) FLAT=1;; *) echo "unknown option $1"; exit 2;; esac; shift; done
+C=$SRV/config.yaml
+sed -i '/# soak override$/d' "$C"
+if [ "$FLAT" = 1 ]; then
+  grep -qE '^[[:space:]]*BOT_ROSTER_CURVE:' "$C" && { echo "config.yaml already sets BOT_ROSTER_CURVE; edit it by hand"; exit 1; }
+  indent=$(grep -E '^[[:space:]]*BOT_ROSTER_PEAK_ONLINE:' "$C" | sed -E 's/^([[:space:]]*).*/\1/')
+  sed -i -E "/^[[:space:]]*BOT_ROSTER_PEAK_ONLINE:/a\\${indent}BOT_ROSTER_CURVE: \"flat\" # soak override" "$C"
+fi
+grep -nE 'BOT_ROSTER_(PEAK_ONLINE|CURVE)' "$C"
 [ -f "$SRV/target/Cosmic.jar" ] || { echo "no Server copy; run refresh-soak.sh live first"; exit 1; }
 ! systemctl is-active --quiet "$UNIT" || { echo "$UNIT already runs"; exit 1; }
 for p in $LOGIN_PORT $(seq "$CHANNEL_BASE" $((CHANNEL_BASE + 7))); do

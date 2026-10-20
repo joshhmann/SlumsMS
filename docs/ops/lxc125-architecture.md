@@ -99,6 +99,7 @@ nginx site `slums-dashboard-test`, port **8091**, basic auth "SlumsMS admin", st
 | Test DB | MySQL 8.4 container `mapleroot-integration-db`, **127.0.0.1:3307**, datadir bind-mounted from **`/opt/mapleroot-dev/solomapling-test/mysql`** (do not delete that folder: it holds every test schema), secrets in `solomapling-test/secrets`. 3 GB memory limit. Binlogs kept 1 day. |
 | Owner's test server | `slums-persistence-test` (transient unit, started by `/opt/mapleroot-dev/persistence-test/start-test.sh`), login **8489**, channels 7985+, schema `mapleroot_persist`, attack capture on. Desktop test client `Z:\MSv83\SlumsMS-dev\test-client` points here. |
 | Dashboard test server | `slums-dashboard-test`, see above |
+| Soak server | `slums-soak` (ticket 48): copy of live in `/opt/mapleroot-dev/soak-server` (schema `mapleroot_soak`, login **8509**, channels 8685-8692, local LLM mock 127.0.0.1:8795), transient unit at Nice=19 CPUWeight=20 CPUQuota=300% MemoryMax=heap+2G, not enabled at boot; always with the live guard `soak-guard`. `refresh-soak.sh <live\|jar\|staging dir>`, `start-soak.sh`, `stop-soak.sh`; see `tools/soak/README.md` |
 | Scratch servers | Agents run short-lived copies (e.g. `slums-levelpath-scratch`, rehearsals) on spare ports with `CPUQuota=200% Nice=19 MemoryMax=6G` and scratch schemas, then delete them. Rehearsal receipts: `/opt/mapleroot-dev/rehearsal-1.3.0/receipt/`. |
 | Other test folders | `real-stats-test` (schema `mapleroot_realstats`), `release-test`, `nav-v2-test` (its navops timers are disabled; config points at `mapleroot_persist`, so don't start it alongside persistence-test) |
 
@@ -171,4 +172,6 @@ launcher repo; checklist template `tools/release/templates/CHECKLIST.md`):
 | 8485, 7585-7592 | live login / channels |
 | 8489, 7985-7992 | owner's test server |
 | 8479, 8285-8292 | dashboard test server |
+| 8509, 8685-8692 | soak server `slums-soak` |
+| 8795 (localhost) | soak LLM/Decide mock |
 | 8499+, 8519, 8585+, 8605+ | scratch servers (temporary) |
