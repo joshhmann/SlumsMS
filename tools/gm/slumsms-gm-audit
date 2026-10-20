@@ -1,0 +1,74 @@
+#!/usr/bin/env bash
+# slumsms-gm-audit: read the GM command audit (ticket 43, table gm_command_audit from migration 009).
+#
+#   slumsms-gm-audit [--limit N] [--since 'YYYY-MM-DD[ HH:MM:SS]'] [--character NAME] [--changes] [--json]
+#
+# Newest first; times are UTC. --changes reads gm_level_changes (the slumsms-gm script's log) instead of the command audit.
+# --json prints one JSON object per line (for the admin dashboard); otherwise an aligned table.
+# Database target as in slumsms-gm: --container / SLUMS_DB_CONTAINER (default buns-clean-db-1), --schema /
+# SLUMS_DB_SCHEMA (default mapleroot). Read-only: it only runs SELECTs.
+set -euo pipefail
+
+CONTAINER=${SLUMS_DB_CONTAINER:-buns-clean-db-1}
+SCHEMA=${SLUMS_DB_SCHEMA:-mapleroot}
+LIMIT=50
+SINCE=""
+CHARACTER=""
+CHANGES=0
+JSON=0
+
+die() { echo "slumsms-gm-audit: $*" >&2; exit 1; }
+while [ $# -gt 0 ]; do
+  case "$1" in
+    --container) CONTAINER=${2:?}; shift 2 ;;
+    --schema) SCHEMA=${2:?}; shift 2 ;;
+    --limit) LIMIT=${2:?}; shift 2 ;;
+    --since) SINCE=${2:?}; shift 2 ;;
+    --character) CHARACTER=${2:?}; shift 2 ;;
+    --changes) CHANGES=1; shift ;;
+    --json) JSON=1; shift ;;
+    -h|--help) sed -n '2,10p' "$0" | sed 's/^# \{0,1\}//'; exit 0 ;;
+    *) die "unknown argument $1 (see --help)" ;;
+  esac
+done
+[[ "$SCHEMA" =~ ^[A-Za-z0-9_]+$ ]] || die "bad schema name"
+[[ "$CONTAINER" =~ ^[A-Za-z0-9_.-]+$ ]] || die "bad container name"
+[[ "$LIMIT" =~ ^[0-9]{1,6}$ ]] || die "--limit must be a number"
+[ -z "$SINCE" ] || [[ "$SINCE" =~ ^[0-9]{4}-[0-9]{2}-[0-9]{2}( [0-9]{2}:[0-9]{2}(:[0-9]{2})?)?$ ]] || die "--since must be YYYY-MM-DD[ HH:MM[:SS]]"
+[ -z "$CHARACTER" ] || [[ "$CHARACTER" =~ ^[A-Za-z0-9]{1,13}$ ]] || die "bad character name"
+
+sql() {
+  docker exec -i "$CONTAINER" sh -c 'MYSQL_PWD="$MYSQL_ROOT_PASSWORD" exec mysql -uroot --batch --skip-column-names --default-character-set=utf8mb4 "$0"' "$SCHEMA"
+}
+
+if [ "$CHANGES" = 1 ]; then
+  table=gm_level_changes
+  cols="at, account_id, account_name, old_levels, new_level, characters, changed_by, note"
+  keys=(at account_id account_name old_levels new_level characters changed_by note)
+  where="1=1"
+  [ -n "$CHARACTER" ] && die "--character does not apply to --changes"
+else
+  table=gm_command_audit
+  cols="at, account_name, character_id, character_name, gm_level, command, args, command_rank, map_id, channel, ip, outcome"
+  keys=(at account_name character_id character_name gm_level command args command_rank map_id channel ip outcome)
+  where="1=1"
+  [ -n "$CHARACTER" ] && where="$where AND character_name = '$CHARACTER'"
+fi
+[ -n "$SINCE" ] && where="$where AND at >= '$SINCE'"
+
+has=$(echo "SELECT COUNT(*) FROM information_schema.tables WHERE table_schema='$SCHEMA' AND table_name='$table';" | sql)
+[ "$has" = 1 ] || die "$SCHEMA has no $table table (apply migration 009)"
+
+rows=$(echo "SELECT $cols FROM $table WHERE $where ORDER BY id DESC LIMIT $LIMIT;" | sql)
+if [ "$JSON" = 1 ]; then
+  [ -z "$rows" ] && exit 0
+  KEYS="${keys[*]}" python3 -c '
+import json, os, sys
+keys = os.environ["KEYS"].split()
+for line in sys.stdin.read().split("\n"):
+    if line:
+        print(json.dumps(dict(zip(keys, line.split("\t"))), ensure_ascii=False))
+' <<<"$rows"
+else
+  { (IFS=$'\t'; echo "${keys[*]}"); if [ -n "$rows" ]; then echo "$rows"; fi; } | awk -F'\t' -v OFS='\t' '{for(i=1;i<=NF;i++) if($i=="") $i="-"; print}' | column -t -s $'\t'
+fi

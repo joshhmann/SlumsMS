@@ -1,0 +1,159 @@
+#!/usr/bin/env bash
+# slumsms-gm: make or remove a GM on SlumsMS without hand-written SQL (ticket 43).
+#
+#   slumsms-gm <account> <level> [--note "why"] [--force]   set the GM level of every character on <account>
+#   slumsms-gm --list                                        accounts that have a GM character, and recent changes
+#
+# Levels: 0 = player, 2-6 = GM (6 = full admin; 1 is unused). The level lives on each character (characters.gm),
+# so the account needs at least one character, and a character made later starts at 0: run the script again.
+# The account must be logged out: a logged-in character saves its in-memory level over the change (--force skips
+# that check, e.g. when the server is stopped and accounts.loggedin is stale).
+#
+# Refused: bot ids (character ids >= 1000000000), the bot template account (SMBotBase, or any account that owns the
+# template character SMTemplate), and promoting a banned account (demoting one to 0 is allowed).
+#
+# Every change is a row in gm_level_changes (created here if missing, same definition as migration 009) and a line
+# in the log file. Who: $SUDO_USER or $USER, the host, and the SSH client address when run over SSH.
+#
+# Database target (works through `docker exec`, using the container's own MYSQL_ROOT_PASSWORD; the script never
+# reads or prints it):
+#   --container NAME / SLUMS_DB_CONTAINER   default buns-clean-db-1 (live, host port 3309)
+#   --schema NAME    / SLUMS_DB_SCHEMA      default mapleroot
+#   --log FILE       / SLUMS_GM_LOG         default /var/log/slumsms-gm.log
+# Test DB example: slumsms-gm --container mapleroot-integration-db --schema mapleroot_persist --list
+#   (that container is the one published on 127.0.0.1:3307).
+set -euo pipefail
+
+CONTAINER=${SLUMS_DB_CONTAINER:-buns-clean-db-1}
+SCHEMA=${SLUMS_DB_SCHEMA:-mapleroot}
+LOGFILE=${SLUMS_GM_LOG:-/var/log/slumsms-gm.log}
+TEMPLATE_ACCOUNT=SMBotBase
+TEMPLATE_CHARACTER=SMTemplate
+BOT_ID_FLOOR=1000000000
+NOTE=""
+FORCE=0
+LIST=0
+POS=()
+
+die() { echo "slumsms-gm: $*" >&2; exit 1; }
+usage() { sed -n '2,24p' "$0" | sed 's/^# \{0,1\}//'; exit "${1:-0}"; }
+
+while [ $# -gt 0 ]; do
+  case "$1" in
+    --container) CONTAINER=${2:?}; shift 2 ;;
+    --schema) SCHEMA=${2:?}; shift 2 ;;
+    --log) LOGFILE=${2:?}; shift 2 ;;
+    --note) NOTE=${2:?}; shift 2 ;;
+    --force) FORCE=1; shift ;;
+    --list) LIST=1; shift ;;
+    -h|--help) usage 0 ;;
+    --*) die "unknown option $1 (see --help)" ;;
+    *) POS+=("$1"); shift ;;
+  esac
+done
+
+[[ "$SCHEMA" =~ ^[A-Za-z0-9_]+$ ]] || die "bad schema name '$SCHEMA'"
+[[ "$CONTAINER" =~ ^[A-Za-z0-9_.-]+$ ]] || die "bad container name '$CONTAINER'"
+
+# One statement batch in, tab-separated rows out (no header).
+sql() {
+  docker exec -i "$CONTAINER" sh -c 'MYSQL_PWD="$MYSQL_ROOT_PASSWORD" exec mysql -uroot --batch --skip-column-names --default-character-set=utf8mb4 "$0"' "$SCHEMA"
+}
+sql_quote() { local s=${1//\\/\\\\}; s=${s//\'/\\\'}; printf "'%s'" "$s"; }
+
+docker inspect "$CONTAINER" >/dev/null 2>&1 || die "no such container '$CONTAINER'"
+echo "SELECT 1;" | sql >/dev/null || die "cannot query schema '$SCHEMA' in '$CONTAINER'"
+
+ensure_table() {
+  sql <<'SQL'
+CREATE TABLE IF NOT EXISTS gm_level_changes
+(
+    id           BIGINT UNSIGNED NOT NULL AUTO_INCREMENT PRIMARY KEY,
+    at           DATETIME(3)     NOT NULL COMMENT 'UTC',
+    account_id   INT             NOT NULL,
+    account_name VARCHAR(64)     NOT NULL,
+    old_levels   VARCHAR(255)    NOT NULL DEFAULT '',
+    new_level    TINYINT         NOT NULL,
+    characters   INT             NOT NULL DEFAULT 0,
+    changed_by   VARCHAR(128)    NOT NULL DEFAULT '',
+    note         VARCHAR(255)    NOT NULL DEFAULT '',
+    KEY gm_level_changes_at (at)
+) ENGINE = InnoDB;
+SQL
+}
+
+if [ "$LIST" = 1 ]; then
+  [ ${#POS[@]} -eq 0 ] || die "--list takes no account"
+  echo "GM characters in $CONTAINER/$SCHEMA:"
+  { printf 'account_id\taccount\tbanned\tloggedin\tcharacters (gm level)\n'
+    sql <<SQL
+SELECT a.id, a.name, a.banned, a.loggedin,
+       GROUP_CONCAT(CONCAT(c.name, ' (', c.gm, ')') ORDER BY c.gm DESC, c.name SEPARATOR ', ')
+FROM accounts a JOIN characters c ON c.accountid = a.id
+WHERE c.gm > 0 AND c.id < $BOT_ID_FLOOR
+GROUP BY a.id, a.name, a.banned, a.loggedin ORDER BY a.id;
+SQL
+  } | awk -F'\t' -v OFS='\t' '{for(i=1;i<=NF;i++) if($i=="") $i="-"; print}' | column -t -s $'\t'
+  has=$(echo "SELECT COUNT(*) FROM information_schema.tables WHERE table_schema='$SCHEMA' AND table_name='gm_level_changes';" | sql)
+  if [ "$has" = 1 ]; then
+    echo
+    echo "Last 10 GM level changes:"
+    { printf 'at\taccount\told\tnew\tchanged_by\tnote\n'
+      echo "SELECT at, account_name, old_levels, new_level, changed_by, note FROM gm_level_changes ORDER BY id DESC LIMIT 10;" | sql
+    } | awk -F'\t' -v OFS='\t' '{for(i=1;i<=NF;i++) if($i=="") $i="-"; print}' | column -t -s $'\t'
+  fi
+  exit 0
+fi
+
+[ ${#POS[@]} -eq 2 ] || usage 2
+ACCOUNT=${POS[0]}
+LEVEL=${POS[1]}
+[[ "$LEVEL" =~ ^[0-6]$ ]] || die "level must be 0-6 (0 = player, 6 = full GM)"
+[[ "$ACCOUNT" =~ ^[A-Za-z0-9_]{1,32}$ ]] || die "bad account name '$ACCOUNT'"
+if [[ "$ACCOUNT" =~ ^[0-9]+$ ]] && [ "${#ACCOUNT}" -ge 10 ] && [ "$ACCOUNT" -ge "$BOT_ID_FLOOR" ]; then
+  die "refusing $ACCOUNT: that is a bot id (>= $BOT_ID_FLOOR); bots are never GMs"
+fi
+shopt -s nocasematch
+[[ "$ACCOUNT" == "$TEMPLATE_ACCOUNT" ]] && die "refusing $ACCOUNT: that is the bot template account"
+shopt -u nocasematch
+
+row=$(echo "SELECT id, name, banned, loggedin FROM accounts WHERE name = $(sql_quote "$ACCOUNT");" | sql)
+[ -n "$row" ] || die "no account named '$ACCOUNT' in $CONTAINER/$SCHEMA"
+IFS=$'\t' read -r ACC_ID ACC_NAME BANNED LOGGEDIN <<<"$row"
+
+shopt -s nocasematch
+[[ "$ACC_NAME" == "$TEMPLATE_ACCOUNT" ]] && die "refusing $ACC_NAME: that is the bot template account"
+shopt -u nocasematch
+if [ "$LEVEL" -gt 0 ] && [ "$BANNED" != 0 ]; then
+  die "refusing $ACC_NAME: the account is banned (demoting it to 0 is allowed)"
+fi
+special=$(echo "SELECT COUNT(*) FROM characters WHERE accountid = $ACC_ID AND (id >= $BOT_ID_FLOOR OR name = '$TEMPLATE_CHARACTER');" | sql)
+[ "$special" = 0 ] || die "refusing $ACC_NAME: it owns a bot or the bot template character ($TEMPLATE_CHARACTER)"
+
+chars=$(echo "SELECT COUNT(*) FROM characters WHERE accountid = $ACC_ID;" | sql)
+[ "$chars" -gt 0 ] || die "$ACC_NAME has no characters yet; the GM level is per character, so make one first and re-run"
+if [ "$LOGGEDIN" != 0 ] && [ "$FORCE" != 1 ]; then
+  die "$ACC_NAME is logged in (loggedin=$LOGGEDIN); log out first, or the game saves the old level over this (--force to skip when the server is stopped)"
+fi
+
+OLD=$(echo "SELECT GROUP_CONCAT(CONCAT(name, ':', gm) ORDER BY id SEPARATOR ',') FROM characters WHERE accountid = $ACC_ID;" | sql)
+WHO="${SUDO_USER:-${USER:-$(id -un)}}@$(hostname)"
+[ -n "${SSH_CLIENT:-}" ] && WHO="$WHO from ${SSH_CLIENT%% *}"
+
+ensure_table
+sql <<SQL
+START TRANSACTION;
+UPDATE characters SET gm = $LEVEL WHERE accountid = $ACC_ID AND id < $BOT_ID_FLOOR;
+INSERT INTO gm_level_changes (at, account_id, account_name, old_levels, new_level, characters, changed_by, note)
+VALUES (UTC_TIMESTAMP(3), $ACC_ID, $(sql_quote "$ACC_NAME"), $(sql_quote "${OLD:0:255}"), $LEVEL, $chars, $(sql_quote "${WHO:0:128}"), $(sql_quote "${NOTE:0:255}"));
+COMMIT;
+SQL
+
+NEW=$(echo "SELECT GROUP_CONCAT(CONCAT(name, ':', gm) ORDER BY id SEPARATOR ',') FROM characters WHERE accountid = $ACC_ID;" | sql)
+line="$(date -u +%Y-%m-%dT%H:%M:%SZ) db=$CONTAINER/$SCHEMA account=$ACC_NAME(#$ACC_ID) level=$LEVEL before=[$OLD] after=[$NEW] by=$WHO note=${NOTE:-none}"
+if ! { echo "$line" >>"$LOGFILE"; } 2>/dev/null; then
+  LOGFILE="$HOME/slumsms-gm.log"
+  echo "$line" >>"$LOGFILE"
+fi
+echo "$ACC_NAME: GM level $LEVEL on $chars character(s). Before: $OLD. After: $NEW."
+echo "Logged to gm_level_changes in $SCHEMA and $LOGFILE."

@@ -109,6 +109,7 @@ public class CommandsExecutor {
             return;
         }
         if (client.getPlayer().gmLevel() < command.getRank()) {
+            audit(client, commandName, splitedMessage[1], command.getRank(), "denied");
             client.getPlayer().yellowMessage("You do not have permission to use this command.");
             return;
         }
@@ -119,8 +120,31 @@ public class CommandsExecutor {
             params = new String[]{};
         }
 
-        command.execute(client, params);
+        try {
+            command.execute(client, params);
+        } catch (RuntimeException e) {
+            audit(client, commandName, splitedMessage[1], command.getRank(), "error");
+            throw e;
+        }
+        audit(client, commandName, splitedMessage[1], command.getRank(), "ok");
         log.info("Chr {} used command {}", client.getPlayer().getName(), command.getClass().getSimpleName());
+    }
+
+    /**
+     * GM command audit (ticket 43): every command above player rank, and any command a GM character runs, goes to
+     * the server log here and to the {@code gm_command_audit} table off the game thread ({@link GmAudit}).
+     */
+    private static void audit(Client client, String commandName, String args, int rank, String outcome) {
+        var player = client.getPlayer();
+        if (rank <= 0 && player.gmLevel() <= 0) {
+            return;
+        }
+        log.info("GM audit: {} (account {}, gm {}) {} !{} {} on map {} ch {}", player.getName(),
+                client.getAccountName(), player.gmLevel(), outcome, commandName, args, player.getMapId(),
+                client.getChannel());
+        GmAudit.record(new GmAudit.Entry(System.currentTimeMillis(), client.getAccID(), client.getAccountName(),
+                player.getId(), player.getName(), player.gmLevel(), commandName, args, rank, player.getMapId(),
+                client.getChannel(), client.getRemoteAddress(), outcome));
     }
 
     private void addCommandInfo(String name, Class<? extends Command> commandClass) {

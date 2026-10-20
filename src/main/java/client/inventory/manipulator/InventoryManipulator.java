@@ -833,6 +833,11 @@ public class InventoryManipulator {
         Inventory inv = chr.getInventory(type);
         Item source = inv.getItem(src);
 
+        if (client.GmGiving.blocksDrop(chr.isGM())) { // ticket 43
+            chr.message("GM characters cannot drop items.");
+            c.sendPacket(PacketCreator.enableActions());
+            return;
+        }
         if (chr.isGM() && chr.gmLevel() < YamlConfig.config.server.MINIMUM_GM_LEVEL_TO_DROP) {
             chr.message("You cannot drop items at your GM level.");
             log.info("GM %s tried to drop item id %d", chr.getName(), source.getItemId());

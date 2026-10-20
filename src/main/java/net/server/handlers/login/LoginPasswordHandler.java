@@ -79,7 +79,7 @@ public final class LoginPasswordHandler implements PacketHandler {
         Hwid hwid = new Hwid(HexTool.toCompactHexString(hwidNibbles));
         int loginok = c.login(login, pwd, hwid, false);
         if (YamlConfig.config.server.AUTOMATIC_REGISTER && loginok == 5) {
-            AutoRegisterGuard.Refusal refusal = AutoRegisterGuard.check(remoteHost, pwd, System.currentTimeMillis());
+            AutoRegisterGuard.Refusal refusal = AutoRegisterGuard.check(remoteHost, login, pwd, System.currentTimeMillis());
             if (refusal != null) {
                 log.info("Refused new account '{}' from {}: {}", login, remoteHost, refusal);
                 c.sendPacket(PacketCreator.getLoginFailed(refusal.loginFailedReason));

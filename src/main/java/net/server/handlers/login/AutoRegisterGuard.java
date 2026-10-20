@@ -1,5 +1,6 @@
 package net.server.handlers.login;
 
+import client.ReservedNames;
 import config.YamlConfig;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
@@ -26,6 +27,7 @@ public final class AutoRegisterGuard {
 
     /** Why a registration was refused; each maps to the login-failed reason the client shows. */
     public enum Refusal {
+        RESERVED_NAME(5),        // "Not a registered ID": staff-looking names are never created (ticket 43)
         PASSWORD_TOO_SHORT(4),   // "Incorrect password"
         TOO_MANY_ACCOUNTS(10),   // "Cannot process so many connections"
         TOO_SOON(10);
@@ -48,6 +50,14 @@ public final class AutoRegisterGuard {
     }
 
     /** Null when the account may be created; otherwise why not. Does not record anything. */
+    public static Refusal check(String ip, String login, String password, long now) {
+        if (ReservedNames.isReservedAccountName(login)) {
+            return Refusal.RESERVED_NAME;
+        }
+        return check(ip, password, now);
+    }
+
+    /** The checks that do not depend on the account name. */
     public static Refusal check(String ip, String password, long now) {
         var server = YamlConfig.config.server;
         if (password == null || password.length() < server.AUTO_REGISTER_MIN_PASSWORD_LENGTH) {

@@ -502,6 +502,13 @@ public class Trade {
     }
 
     public static void inviteTrade(Character c1, Character c2) {
+        if (client.GmGiving.blocksTrade(c1.isGM(), c2.isGM())) { // ticket 43
+            c1.message(c1.isGM() ? "GM characters cannot trade with players." : "You cannot trade with a GM character.");
+            log.info("Blocked a trade between {} and {}: GM and non-GM (-D{}=true allows it)", c1.getName(),
+                    c2.getName(), client.GmGiving.ALLOW_PROPERTY);
+            cancelTrade(c1, TradeResult.NO_RESPONSE);
+            return;
+        }
 
         if ((c1.isGM() && !c2.isGM()) && c1.gmLevel() < YamlConfig.config.server.MINIMUM_GM_LEVEL_TO_TRADE) {
             c1.message("You cannot trade with non-GM characters.");
