@@ -58,7 +58,7 @@ public final class BotChatter {
     // Chance a spoken turn is punctuated by a friendly emote.
     public static volatile double CHATTER_EMOTE_CHANCE = 0.25;
 
-    private static final int[] FRIENDLY_EMOTES = {1, 2, 5, 6};
+    private static final int[] FRIENDLY_EMOTES = {2, 2, 6}; // v83 faces: 1 hit, 2 smile, 5 angry, 6 bewildered - mostly smiles
 
     // Fallback exchange used when TownChatterDialogue.yaml has no lines loaded (so chatter never goes
     // fully silent on a bad/empty edit). Ordered alternating turns A,B,A...

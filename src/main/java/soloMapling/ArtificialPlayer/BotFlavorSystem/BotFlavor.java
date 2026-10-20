@@ -40,7 +40,7 @@ public final class BotFlavor {
 
     // Friendly/neutral face ids (F-keys 1..7). We deliberately skip the sour ones by default so idle
     // townsfolk read as pleasant; widen this if we want moodier crowds.
-    private static final int[] FRIENDLY_EMOTES = {1, 2, 5, 6};
+    private static final int[] FRIENDLY_EMOTES = {2, 2, 6}; // v83 faces: 1 hit, 2 smile, 5 angry, 6 bewildered - mostly smiles
 
     // Min spacing between one bot's expressions. Keyed by character id (bots are only ever ticked one
     // at a time by the wheel, but the map is shared across all bots, so keep it concurrent).
