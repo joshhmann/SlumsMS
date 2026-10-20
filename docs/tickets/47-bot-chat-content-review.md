@@ -52,5 +52,18 @@ An hour in town reads like a busy server, not a spam feed, and players can turn 
   - `solomapling.worldMegaphoneHeadlineBossLevel` (100)
   - `solomapling.rareDropMaxChance` (200)
   - `solomapling.quietEngagedSeconds` (180)
+- **Verified:**
+  - `./mvnw -o test`: 2732 tests run, 0 failures (6 skipped, as on main). The new tests are BotNoiseFilter
+    (logic, plus who receives a packet), WorldEventMegaphones, MegaphoneWeights and DialoguePackCheck.
+  - Scratch server on 164 (copy of persistence-test, scratch schema on the test DB, ports 8519/8605+,
+    CPUQuota=200% Nice=19 MemoryMax=6G, population scale 0.1). It ran 21 minutes:
+    - It booted and logged `[DialoguePacks] 21 packs, 10097 lines, 0 errors`, with 0 exceptions or errors.
+    - OPQ lobby bots made real PQ calls exactly once per 10-minute cooldown, e.g.
+      `xSaiyan : J> OPQ lvl 70 sniper, orbis lobby ch1, inv me`.
+    - No boss kill or rare drop happened without players, so those paths are covered by the tests only.
+    - The server, schema, grant and folder were removed afterwards
+      (`docs/chat/content-review-2026-10/scratch-boot-2026-10-20.txt`).
+  - The hour of town chat is a simulation with the live timings (the town barks need a real player on the map):
+    `docs/chat/content-review-2026-10/town-hour-sample-47.txt`.
 - **Not done:** pruning lines by player reaction needs ticket 37's tier log (branch `chat-natural`, not on main yet).
 

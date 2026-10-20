@@ -1,0 +1,16 @@
+[2026-10-20 08:37:33]: [WorldEventMegaphones] Listening for boss kills, rare drops and forming PQs.
+[2026-10-20 08:37:33]: [DialoguePacks] 21 packs, 10097 lines, 0 errors
+[2026-10-20 08:37:49]: [WorldEventMegaphones] ZakumBunny : J> OPQ ch1 lobby, 63 cleric ready
+[2026-10-20 08:47:50]: [WorldEventMegaphones] kawaiiii : lvl 56 page LF> OPQ ch1 pls inv
+[2026-10-20 08:57:54]: [WorldEventMegaphones] xSaiyan : J> OPQ lvl 70 sniper, orbis lobby ch1, inv me
+14:37:08.839 [main] INFO  server.Server - SlumsMS v1.3.1 (MapleStory v83) starting up.
+14:37:13.075 [main] INFO  channel.Channel - Channel 1: Listening on port 8605
+14:37:13.095 [main] INFO  channel.Channel - Channel 2: Listening on port 8606
+14:37:13.110 [main] INFO  channel.Channel - Channel 3: Listening on port 8607
+14:37:13.162 [main] INFO  channel.Channel - Channel 4: Listening on port 8608
+14:37:13.176 [main] INFO  channel.Channel - Channel 5: Listening on port 8609
+14:37:13.191 [main] INFO  channel.Channel - Channel 6: Listening on port 8610
+14:37:13.205 [main] INFO  channel.Channel - Channel 7: Listening on port 8611
+14:37:13.218 [main] INFO  channel.Channel - Channel 8: Listening on port 8612
+14:37:13.259 [main] INFO  server.Server - Finished loading world 0
+14:37:13.265 [main] INFO  server.Server - Listening on port 8519
