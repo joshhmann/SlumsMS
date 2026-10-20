@@ -1,0 +1,136 @@
+#!/bin/bash
+# slumsms-nightly-backup v2 (ticket 45). Installed as /usr/local/bin/slumsms-nightly-backup, run daily by
+# slumsms-backup.timer.
+#
+# 1. Dumps the live database (schema mapleroot in container buns-clean-db-1) to $BACKUP_DIR/<schema>-<ts>.sql.gz
+#    and checks the dump ends with "Dump completed" (same as v1).
+# 2. Archives the bot learning data the server writes next to the nav graph cache: cache/bot-nav/learned, stuck and
+#    heat (small, grow with play) to $BACKUP_DIR/bot-nav-<ts>.tar.gz. Files are copied to a temp dir first and every
+#    .json is checked to parse, re-copied if the server was mid-write (learned books are not written atomically).
+#    The graph caches (v68, deep) are rebuilt from wz, so they are not backed up.
+# 3. Appends both to $BACKUP_DIR/SHA256SUMS, prunes files older than $KEEP_DAYS days (but always keeps the newest
+#    $KEEP_MIN of each kind) and drops SHA256SUMS lines of pruned files.
+# 4. Off-box copy (disabled until OFFBOX_DEST is set): encrypts both files with gpg (AES256, symmetric, passphrase
+#    from $OFFBOX_KEY, a file that exists on this host only) and pushes them with rsync or scp. A failed push leaves
+#    the local backup in place and exits 3, so the unit shows failed.
+#
+# Settings come from /etc/slumsms-backup.conf (see slumsms-backup.conf.example); the defaults are the live ones.
+# Exit codes: 0 ok, 1 local backup failed, 3 local backup ok but off-box push failed.
+set -euo pipefail
+umask 077
+
+CONF=${SLUMSMS_BACKUP_CONF:-/etc/slumsms-backup.conf}
+# shellcheck disable=SC1090
+[ -r "$CONF" ] && . "$CONF"
+
+BACKUP_DIR=${BACKUP_DIR:-/opt/mapleroot/backups/nightly}
+SERVER_DIR=${SERVER_DIR:-"/opt/mapleroot/MapleRoot Full Repack/Server"}
+DB_CONTAINER=${DB_CONTAINER:-buns-clean-db-1}
+DB_SCHEMA=${DB_SCHEMA:-mapleroot}
+# v1 used --lock-all-tables (consistent across MyISAM and InnoDB tables, blocks writes for the ~0.5 s dump).
+DUMP_LOCK=${DUMP_LOCK:---lock-all-tables}
+KEEP_DAYS=${KEEP_DAYS:-14}
+KEEP_MIN=${KEEP_MIN:-3}
+NAV_DIRS=${NAV_DIRS:-"learned stuck heat"}
+OFFBOX_DEST=${OFFBOX_DEST:-}
+OFFBOX_METHOD=${OFFBOX_METHOD:-rsync}
+OFFBOX_KEY=${OFFBOX_KEY:-/root/.config/slumsms-backup/offbox.key}
+OFFBOX_SSH_OPTS=${OFFBOX_SSH_OPTS:-"-o BatchMode=yes -o ConnectTimeout=20"}
+
+TS=$(date -u +%Y%m%dT%H%M%SZ)
+DUMP="$BACKUP_DIR/$DB_SCHEMA-$TS.sql.gz"
+NAV="$BACKUP_DIR/bot-nav-$TS.tar.gz"
+TMP=$(mktemp -d "${TMPDIR:-/tmp}/slumsms-backup.XXXXXX")
+trap 'rm -rf "$TMP"; rm -f "$DUMP.part" "$NAV.part"' EXIT
+
+mkdir -p "$BACKUP_DIR"
+
+# ── 1. database ─────────────────────────────────────────────────────────────────────────────────
+docker exec "$DB_CONTAINER" sh -c "exec mysqldump -uroot -p\"\$MYSQL_ROOT_PASSWORD\" $DUMP_LOCK --routines --triggers --databases $DB_SCHEMA" 2>/dev/null \
+    | gzip > "$DUMP.part"
+zcat "$DUMP.part" | tail -1 | grep -q "Dump completed" || { echo "dump incomplete" >&2; exit 1; }
+mv "$DUMP.part" "$DUMP"
+chmod 600 "$DUMP"
+echo "db ok: $DUMP ($(stat -c %s "$DUMP") bytes)"
+
+# ── 2. bot learning data ────────────────────────────────────────────────────────────────────────
+navsrc="$SERVER_DIR/cache/bot-nav"
+mkdir -p "$TMP/nav"
+present=()
+for d in $NAV_DIRS; do
+    [ -d "$navsrc/$d" ] || { echo "nav: $d missing under $navsrc, skipped"; continue; }
+    cp -a "$navsrc/$d" "$TMP/nav/$d"
+    present+=("$d")
+done
+# A .json the server was writing while we copied does not parse: copy it again (up to 5 tries).
+bad=0
+while IFS= read -r -d '' f; do
+    rel=${f#"$TMP/nav/"}
+    for try in 1 2 3 4 5; do
+        python3 -I -c 'import json,sys; json.load(open(sys.argv[1]))' "$f" 2>/dev/null && break
+        if [ "$try" = 5 ]; then
+            echo "nav: $rel does not parse after 5 copies, kept as is" >&2
+            bad=$((bad + 1))
+            break
+        fi
+        sleep 1
+        cp -a "$navsrc/$rel" "$f" 2>/dev/null || { echo "nav: $rel vanished, dropped"; rm -f "$f"; break; }
+    done
+done < <(find "$TMP/nav" -type f -name '*.json' -print0)
+files=$(find "$TMP/nav" -type f | wc -l)
+tar -C "$TMP/nav" -czf "$NAV.part" --owner=0 --group=0 .
+mv "$NAV.part" "$NAV"
+chmod 600 "$NAV"
+echo "nav ok: $NAV ($(stat -c %s "$NAV") bytes, ${present[*]:-nothing}, $files files, $bad unparsable)"
+
+# ── 3. checksums and retention ──────────────────────────────────────────────────────────────────
+sha256sum "$DUMP" "$NAV" >> "$BACKUP_DIR/SHA256SUMS"
+
+prune() { # prune <glob>: delete files older than KEEP_DAYS, never the newest KEEP_MIN
+    local glob=$1
+    find "$BACKUP_DIR" -maxdepth 1 -type f -name "$glob" -printf '%T@ %p\n' | sort -rn | tail -n +$((KEEP_MIN + 1)) \
+        | while read -r _ f; do
+            if [ -n "$(find "$f" -mtime +"$KEEP_DAYS")" ]; then
+                rm -f -- "$f" && echo "pruned: $f"
+            fi
+        done
+}
+prune "$DB_SCHEMA-*.sql.gz"
+prune "bot-nav-*.tar.gz"
+# Keep SHA256SUMS to the files that still exist.
+awk '{ p = substr($0, 67); if ((getline line < p) >= 0) { print; close(p) } }' "$BACKUP_DIR/SHA256SUMS" > "$TMP/sums"
+cat "$TMP/sums" > "$BACKUP_DIR/SHA256SUMS"
+
+# ── 4. off-box copy ─────────────────────────────────────────────────────────────────────────────
+if [ -z "$OFFBOX_DEST" ]; then
+    echo "off-box: disabled (set OFFBOX_DEST in $CONF)"
+    echo "backup ok"
+    exit 0
+fi
+offbox() { # runs under "if !", where set -e is off: each step returns on failure
+    [ -r "$OFFBOX_KEY" ] || { echo "off-box: key file $OFFBOX_KEY missing" >&2; return 1; }
+    mkdir -p "$TMP/out"
+    local f out=()
+    for f in "$DUMP" "$NAV"; do
+        gpg --batch --yes --quiet --pinentry-mode loopback --passphrase-file "$OFFBOX_KEY" \
+            --symmetric --cipher-algo AES256 --compress-algo none \
+            -o "$TMP/out/$(basename "$f").gpg" "$f" || return 1
+        out+=("$TMP/out/$(basename "$f").gpg")
+    done
+    # Plaintext checksums (to check a decrypted file) and ciphertext checksums (to check the transfer).
+    (cd "$BACKUP_DIR" && sha256sum "$(basename "$DUMP")" "$(basename "$NAV")") > "$TMP/out/SHA256SUMS-$TS"
+    (cd "$TMP/out" && sha256sum ./*.gpg | sed 's| \./| |') >> "$TMP/out/SHA256SUMS-$TS"
+    out+=("$TMP/out/SHA256SUMS-$TS")
+    case "$OFFBOX_METHOD" in
+        rsync) rsync -t --partial-dir=.partial -e "ssh $OFFBOX_SSH_OPTS" "${out[@]}" "$OFFBOX_DEST/" || return 1 ;;
+        # shellcheck disable=SC2086
+        scp) scp -q $OFFBOX_SSH_OPTS "${out[@]}" "$OFFBOX_DEST/" || return 1 ;;
+        *) echo "off-box: unknown OFFBOX_METHOD $OFFBOX_METHOD" >&2; return 1 ;;
+    esac
+    echo "off-box ok: ${#out[@]} files -> $OFFBOX_DEST"
+}
+if ! offbox; then
+    echo "off-box push FAILED; the local backup is fine: $DUMP $NAV" >&2
+    exit 3
+fi
+echo "backup ok"

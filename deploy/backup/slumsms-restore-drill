@@ -1,0 +1,456 @@
+#!/bin/bash
+# slumsms-restore-drill (ticket 45): proves last night's backup can bring the world back.
+#
+#  1. Picks the newest nightly dump (and bot-nav archive) in $NIGHTLY_DIR, or --dump/--nav files (plain or the
+#     encrypted .gpg off-box copies, decrypted with $OFFBOX_KEY), and checks them against SHA256SUMS.
+#  2. Restores the dump into a scratch schema mapleroot_drill_<date> on the TEST DB (127.0.0.1:3307), never live,
+#     and applies the migrations live has but the dump does not (e.g. a deploy after the dump was taken).
+#  3. Copies the live server folder (read only: jar, config, scripts, bot data, nav graph cache; wz is linked and
+#     the unit sees /opt/mapleroot read-only), unpacks the learned/stuck/heat archive into it, points config.yaml
+#     at the scratch schema and blanks the bot LLM URLs.
+#  4. Boots the copy with live's own java flags on spare ports as a transient unit (CPUQuota=200% Nice=19
+#     MemoryMax=6G), waits for "is now online", checks the login handshake, the bot store/roster and the director,
+#     runs for --minutes, stops it gracefully (bots save, learned nav flushes).
+#  5. Checks: player characters/items/skills/storages identical before and after the run; bot roster loaded with the
+#     DB's member count; learned nav books loaded (a book the server rewrote still has the restored edges); no
+#     ERROR/Exception lines. Writes a receipt to $DRILL_ROOT/receipts/<ts>/ (kept), then drops the schema and user
+#     and deletes the server copy (unless --keep).
+#
+# Usage: slumsms-restore-drill [--dump FILE] [--nav FILE | --nav-from-live] [--minutes N] [--keep]
+#   --nav-from-live  no nav archive in the nightly folder yet (v1 backups): archive live's learned/stuck/heat now,
+#                    read only, the way slumsms-nightly-backup v2 does.
+# Exit: 0 PASS, 1 FAIL (see the receipt), 2 could not run.
+set -euo pipefail
+umask 077
+
+CONF=${SLUMSMS_BACKUP_CONF:-/etc/slumsms-backup.conf}
+# shellcheck disable=SC1090
+[ -r "$CONF" ] && . "$CONF"
+
+NIGHTLY_DIR=${NIGHTLY_DIR:-${BACKUP_DIR:-/opt/mapleroot/backups/nightly}}
+LIVE_SERVER=${LIVE_SERVER:-"/opt/mapleroot/MapleRoot Full Repack/Server"}
+LIVE_UNIT=${LIVE_UNIT:-slumsms}
+LIVE_DB_CONTAINER=${LIVE_DB_CONTAINER:-buns-clean-db-1}
+TEST_DB_CNF=${TEST_DB_CNF:-/opt/mapleroot-dev/solomapling-test/secrets/root.cnf}
+TEST_DB_PORT=${TEST_DB_PORT:-3307}
+DRILL_ROOT=${DRILL_ROOT:-/opt/mapleroot-dev/restore-drill}
+DRILL_UNIT=${DRILL_UNIT:-slumsms-restore-drill}
+DRILL_LOGIN_PORT=${DRILL_LOGIN_PORT:-8539}
+DRILL_CHANNEL_BASE=${DRILL_CHANNEL_BASE:-8805}
+OFFBOX_KEY=${OFFBOX_KEY:-/root/.config/slumsms-backup/offbox.key}
+MIGRATIONS_GLOB=${MIGRATIONS_GLOB:-"/opt/mapleroot-deployments/*/staging/[0-9][0-9][0-9]-*.sql"}
+
+DUMP= NAV= NAV_FROM_LIVE=0 MINUTES=7 KEEP=0
+while [ $# -gt 0 ]; do
+    case "$1" in
+        --dump) DUMP=$2; shift ;;
+        --nav) NAV=$2; shift ;;
+        --nav-from-live) NAV_FROM_LIVE=1 ;;
+        --minutes) MINUTES=$2; shift ;;
+        --keep) KEEP=1 ;;
+        *) echo "unknown option $1" >&2; exit 2 ;;
+    esac
+    shift
+done
+
+TS=$(date -u +%Y%m%dT%H%M%SZ)
+SCHEMA="mapleroot_drill_${TS:0:8}"
+DBUSER=slums_drill
+DBPASS=$(head -c 18 /dev/urandom | base64 | tr -dc 'A-Za-z0-9')
+RUN="$DRILL_ROOT/run-$TS"
+RCPT="$DRILL_ROOT/receipts/$TS"
+SRV="$RUN/Server"
+mkdir -p "$RUN" "$RCPT"
+LOG="$RCPT/drill.log"
+exec > >(tee -a "$LOG") 2>&1
+
+FAILS=0
+step() { echo; echo "== $(date -u +%H:%M:%S) $*"; }
+ok() { echo "  ok   $*"; }
+bad() { echo "  FAIL $*"; FAILS=$((FAILS + 1)); }
+die() { echo "  ABORT $*"; exit 2; }
+sqlr() { mysql --defaults-extra-file="$TEST_DB_CNF" -h127.0.0.1 -P"$TEST_DB_PORT" -N -B "$@"; }
+
+cleanup() {
+    local rc=$?
+    set +e
+    if systemctl is-active -q "$DRILL_UNIT"; then systemctl stop "$DRILL_UNIT"; fi
+    systemctl reset-failed "$DRILL_UNIT" 2>/dev/null
+    if [ "$KEEP" = 1 ]; then
+        echo "kept (--keep): unit $DRILL_UNIT stopped, schema $SCHEMA, user $DBUSER, folder $RUN"
+    else
+        sqlr -e "DROP DATABASE IF EXISTS \`$SCHEMA\`; DROP USER IF EXISTS '$DBUSER'@'%';" && echo "dropped schema $SCHEMA and user $DBUSER"
+        case "$RUN" in "$DRILL_ROOT"/run-2*) rm -rf --one-file-system -- "$RUN" && echo "deleted $RUN" ;; esac
+    fi
+    echo "receipt: $RCPT"
+    exit $rc
+}
+trap cleanup EXIT
+
+echo "SlumsMS restore drill $TS on $(hostname)"
+
+# ── 1. pick and check the backup ────────────────────────────────────────────────────────────────
+step "backup files"
+[ -n "$DUMP" ] || DUMP=$(ls -1t "$NIGHTLY_DIR"/mapleroot-*.sql.gz 2>/dev/null | head -1 || true)
+[ -n "$DUMP" ] && [ -r "$DUMP" ] || die "no readable dump (looked in $NIGHTLY_DIR)"
+if [ -z "$NAV" ] && [ "$NAV_FROM_LIVE" = 0 ]; then
+    NAV=$(ls -1t "$NIGHTLY_DIR"/bot-nav-*.tar.gz 2>/dev/null | head -1 || true)
+    [ -n "$NAV" ] || die "no bot-nav archive in $NIGHTLY_DIR (nightly backup v1?); pass --nav FILE or --nav-from-live"
+fi
+decrypt() { # decrypt <file.gpg> <out>
+    [ -r "$OFFBOX_KEY" ] || die "need $OFFBOX_KEY to decrypt $1"
+    gpg --batch --quiet --pinentry-mode loopback --passphrase-file "$OFFBOX_KEY" -d -o "$2" "$1"
+}
+checksum() { # checksum <file as found> <name it was published under> <plain file to hash>
+    local sums want
+    for sums in "$(dirname "$1")/SHA256SUMS" "$(dirname "$1")"/SHA256SUMS-*; do
+        [ -r "$sums" ] || continue
+        want=$(awk -v n="$2" '{ p = substr($0, 67); sub(".*/", "", p); if (p == n) h = $1 } END { print h }' "$sums")
+        [ -n "$want" ] && break
+    done
+    if [ -z "${want:-}" ]; then echo "  warn no SHA256SUMS entry for $2"; return 0; fi
+    [ "$(sha256sum < "$3" | cut -d' ' -f1)" = "$want" ] && ok "sha256 $2 matches" || bad "sha256 $2 does not match"
+}
+case "$DUMP" in
+    *.gpg) decrypt "$DUMP" "$RUN/dump.sql.gz"; d="$RUN/dump.sql.gz"; checksum "$DUMP" "$(basename "${DUMP%.gpg}")" "$d" ;;
+    *) d=$DUMP; checksum "$DUMP" "$(basename "$DUMP")" "$d" ;;
+esac
+gzip -t "$d" && ok "gzip intact" || die "dump is not a valid gzip"
+zcat "$d" | tail -1 | grep -q "Dump completed" && ok "dump complete" || die "dump has no 'Dump completed' trailer"
+echo "  dump $DUMP ($(stat -c %s "$DUMP") bytes, $(date -u -r "$DUMP" +%FT%TZ))"
+if [ "$NAV_FROM_LIVE" = 1 ]; then
+    NAV="$RUN/bot-nav-live.tar.gz"
+    tar -C "$LIVE_SERVER/cache/bot-nav" -czf "$NAV" $(cd "$LIVE_SERVER/cache/bot-nav" && ls -d learned stuck heat 2>/dev/null)
+    echo "  nav  archived from live now (read only): $(tar tzf "$NAV" | grep -c '\.json$') files"
+    n=$NAV
+else
+    case "$NAV" in
+        *.gpg) decrypt "$NAV" "$RUN/nav.tar.gz"; n="$RUN/nav.tar.gz"; checksum "$NAV" "$(basename "${NAV%.gpg}")" "$n" ;;
+        *) n=$NAV; checksum "$NAV" "$(basename "$NAV")" "$n" ;;
+    esac
+    echo "  nav  $NAV ($(tar tzf "$n" | grep -c '\.json$') json files)"
+fi
+
+# ── 2. restore into a scratch schema on the test DB ─────────────────────────────────────────────
+step "restore into $SCHEMA on the test DB (127.0.0.1:$TEST_DB_PORT)"
+sqlr -e "SELECT 1" >/dev/null || die "test DB not reachable"
+[ "$SCHEMA" != mapleroot ] || die "refusing schema name mapleroot"
+create=$(zcat "$d" | head -60 | grep -m1 '^CREATE DATABASE' || true)
+[ -n "$create" ] || die "dump has no CREATE DATABASE line (not a --databases dump?)"
+src=$(echo "$create" | grep -oE '`[^`]+`' | head -1 | tr -d '`')
+create=${create/\`$src\`/\`$SCHEMA\`}
+[[ "$create" == *"\`$SCHEMA\`"* ]] || die "could not rename the schema"
+sqlr -e "DROP DATABASE IF EXISTS \`$SCHEMA\`; $create"
+t0=$(date +%s%N)
+# Drop the dump's own CREATE DATABASE / USE lines: every statement then lands in $SCHEMA, never in $src.
+zcat "$d" | awk '/^CREATE DATABASE /{next} /^USE `/{next} {print}' | sqlr "$SCHEMA"
+ok "loaded schema $src as $SCHEMA in $(( ($(date +%s%N) - t0) / 1000000 )) ms"
+sqlr -e "DROP USER IF EXISTS '$DBUSER'@'%'; CREATE USER '$DBUSER'@'%' IDENTIFIED BY '$DBPASS'; GRANT ALL ON \`$SCHEMA\`.* TO '$DBUSER'@'%';"
+
+step "migrations"
+ledger() { sqlr "$SCHEMA" -e "SELECT migration_id FROM mapleroot_integration_migrations ORDER BY 1" 2>/dev/null || true; }
+have=$(ledger)
+echo "  restored ledger: $(echo $have | tr ' ' ,)"
+target=$(docker exec "$LIVE_DB_CONTAINER" sh -c 'exec mysql -uroot -p"$MYSQL_ROOT_PASSWORD" -N -B mapleroot -e "SELECT migration_id FROM mapleroot_integration_migrations ORDER BY 1"' 2>/dev/null || true)
+if [ -n "$target" ]; then
+    echo "  live ledger:     $(echo $target | tr ' ' ,) (read only)"
+else
+    echo "  live DB not answering: target = every migration staged by a deploy that ran (has deploy.log)"
+    # shellcheck disable=SC2086
+    target=$(for f in $MIGRATIONS_GLOB; do
+                 [ -e "$f" ] && [ -e "$(dirname "$(dirname "$f")")/deploy.log" ] && basename "$f"
+             done | grep -v '\.rollback\.sql$' | sed 's/\.sql$//' | sort -u)
+fi
+for id in $target; do
+    echo "$have" | grep -qxF "$id" && continue
+    # shellcheck disable=SC2086
+    f=$(ls $MIGRATIONS_GLOB 2>/dev/null | grep "/$id\.sql$" | tail -1 || true)
+    [ -n "$f" ] || { bad "migration $id is in the target ledger but no $id.sql is staged"; continue; }
+    sqlr "$SCHEMA" < "$f" && ok "applied $f"
+done
+after=$(ledger)
+[ "$(echo $after)" = "$(echo $target)" ] && ok "ledger matches the target" || bad "ledger after migrations: $(echo $after)"
+
+snapshot() { # rows the server must not change for offline players, plus bot totals
+    sqlr "$SCHEMA" <<'EOF'
+SELECT 'char', c.id, c.name, a.name, c.world, c.level, c.exp, c.meso, c.map, c.job, c.gm FROM characters c JOIN accounts a ON a.id=c.accountid ORDER BY c.id;
+SELECT 'items_players', COUNT(*) FROM inventoryitems WHERE characterid < 1000000000;
+SELECT 'equips_players', COUNT(*) FROM inventoryequipment e JOIN inventoryitems i ON i.inventoryitemid=e.inventoryitemid WHERE i.characterid < 1000000000;
+SELECT 'items_per_char', characterid, COUNT(*) FROM inventoryitems WHERE characterid < 1000000000 GROUP BY characterid ORDER BY characterid;
+SELECT 'skills_per_char', characterid, COUNT(*) FROM skills WHERE characterid < 1000000000 GROUP BY characterid ORDER BY characterid;
+SELECT 'storages', storageid, accountid, world, meso FROM storages ORDER BY storageid;
+SELECT 'bots_botstore', COUNT(*) FROM botstore;
+SELECT 'bots_botroster', COUNT(*) FROM botroster;
+SELECT 'bots_items', COUNT(*) FROM inventoryitems WHERE characterid >= 1000000000;
+EOF
+}
+snapshot > "$RCPT/state-before.tsv"
+players=$(grep -c '^char' "$RCPT/state-before.tsv" || true)
+echo "  $players character rows; $(grep '^bots_' "$RCPT/state-before.tsv" | tr '\t\n' '= ' )"
+awk -F'\t' '$1=="char" { printf "    %s (%s) lv %s, world %s, map %s\n", $3, $4, $6, $5, $9 }' "$RCPT/state-before.tsv"
+
+# ── 3. server copy ──────────────────────────────────────────────────────────────────────────────
+step "server copy in $SRV"
+argv=$(systemctl show "$LIVE_UNIT" -p ExecStart --value | sed -n 's/.*argv\[\]=\([^;]*\) ;.*/\1/p' | head -1)
+[ -n "$argv" ] || die "could not read the live unit's command line"
+drill_argv=$(echo "$argv" | sed -E "s/-Dmapleroot\.login-port=[0-9]+/-Dmapleroot.login-port=$DRILL_LOGIN_PORT/; s/-Dmapleroot\.channel-base-port=[0-9]+/-Dmapleroot.channel-base-port=$DRILL_CHANNEL_BASE/")
+[[ "$drill_argv" == *"login-port=$DRILL_LOGIN_PORT"* && "$drill_argv" == *"channel-base-port=$DRILL_CHANNEL_BASE"* ]] \
+    || die "live command line has no port flags to replace: $argv"
+for p in $DRILL_LOGIN_PORT $(seq "$DRILL_CHANNEL_BASE" $((DRILL_CHANNEL_BASE + 15))); do
+    ! ss -ltnH "sport = :$p" | grep -q . || die "port $p is in use"
+done
+t0=$(date +%s%N)
+rsync -a --exclude=/wz --exclude=/wz.tar.gz --exclude=/logs --exclude=/.git --exclude=/BotLog.txt --exclude=/reports \
+    --exclude=/cache/bot-nav/learned --exclude=/cache/bot-nav/stuck --exclude=/cache/bot-nav/heat \
+    "$LIVE_SERVER/" "$SRV/"
+ln -s "$LIVE_SERVER/wz" "$SRV/wz"
+tar -C "$SRV/cache/bot-nav" -xzf "$n"
+ok "copied in $(( ($(date +%s%N) - t0) / 1000000 )) ms; jar sha256 $(sha256sum "$SRV/target/Cosmic.jar" | cut -c1-16) (live $(sha256sum "$LIVE_SERVER/target/Cosmic.jar" | cut -c1-16))"
+python3 -I - "$SRV/config.yaml" "$TEST_DB_PORT" "$SCHEMA" "$DBUSER" "$DBPASS" <<'EOF'
+import re, sys
+path, port, schema, user, pw = sys.argv[1:]
+s = open(path).read()
+subs = [
+    (r'(?m)^(\s*DB_URL_FORMAT:\s*)".*"', r'\1"jdbc:mysql://%s:' + port + '/' + schema + '"'),
+    (r'(?m)^(\s*DB_USER:\s*)".*"', r'\1"' + user + '"'),
+    (r'(?m)^(\s*DB_PASS:\s*)".*"', r'\1"' + pw + '"'),
+    (r'(?m)^(\s*BOT_LLM_BASE_URL:\s*)".*"', r'\1""'),
+    (r'(?m)^(\s*BOT_DECIDE_URL:\s*)".*"', r'\1""'),
+]
+for pat, rep in subs:
+    s, k = re.subn(pat, rep, s)
+    if k != 1:
+        sys.exit("config.yaml: expected one match for " + pat + ", got " + str(k))
+if ':3309' in s:
+    sys.exit("config.yaml still mentions :3309")
+open(path, 'w').write(s)
+EOF
+ok "config.yaml -> 127.0.0.1:$TEST_DB_PORT/$SCHEMA as $DBUSER, bot LLM URLs blanked"
+
+# learned nav as restored: book -> edge keys
+navkeys() {
+    python3 -I - "$1" <<'EOF'
+import json, os, sys
+d = sys.argv[1]
+out = {}
+if os.path.isdir(d):
+    for f in sorted(os.listdir(d)):
+        if f.endswith('.json'):
+            try:
+                out[f] = sorted(json.load(open(os.path.join(d, f))).get('edges', {}).keys())
+            except Exception as e:
+                out[f] = None
+print(json.dumps(out))
+EOF
+}
+navkeys "$SRV/cache/bot-nav/learned" > "$RCPT/learned-before.json"
+for x in learned stuck heat; do echo "  restored $x: $(find "$SRV/cache/bot-nav/$x" -type f 2>/dev/null | wc -l) files"; done
+cp -a "$SRV/cache/bot-nav/learned" "$RUN/learned-before"
+
+ro=(-p ReadOnlyPaths=/opt/mapleroot -p ReadOnlyPaths=/opt/mapleroot-deployments)
+limits=(-p CPUQuota=200% -p Nice=19 -p MemoryMax=6G)
+step "nav learning books read by the live jar's NavStuckReport"
+stuckday=$(ls "$SRV/cache/bot-nav/stuck" 2>/dev/null | sed -n 's/\.json$//p' | sort | tail -1)
+if systemd-run --wait --pipe -q "${ro[@]}" "${limits[@]}" -p WorkingDirectory="$SRV" -p MemoryMax=768M \
+    /usr/bin/java -Xmx256m -cp target/Cosmic.jar soloMapling.ArtificialPlayer.GCMoveSystem.NavStuckReport \
+    --day="${stuckday:-today}" --top=10 --out-dir="$RCPT/navreport" --learned-dir=cache/bot-nav/learned --stuck-dir=cache/bot-nav/stuck \
+    > "$RCPT/navreport.out" 2>&1; then
+    ok "NavStuckReport read the restored books ($(head -c 300 "$RCPT/navreport.out" | tr '\n' ' '))"
+else
+    bad "NavStuckReport failed on the restored books (navreport.out)"
+fi
+
+step "learned nav books loaded through the live jar's own loader (NavEdgeLearning)"
+# The server loads a book lazily, the first time a bot plans on that graph, and rewrites it only when something new
+# was learned, so a short run may never touch the restored books. This check calls the jar's loader directly: for
+# each restored book it reads the v68 graph from the cache, asks NavEdgeLearning for an edge cost (which loads the
+# book from cache/bot-nav/learned exactly as the server does) and counts the edges in the loaded book.
+mkdir -p "$RUN/harness/src"
+cat > "$RUN/harness/src/DrillLearnedCheck.java" <<'JAVA'
+package soloMapling.ArtificialPlayer.GCMoveSystem;
+
+import java.io.BufferedInputStream;
+import java.io.ObjectInputStream;
+import java.nio.file.Files;
+import java.nio.file.Path;
+import java.util.List;
+import java.util.stream.Stream;
+
+/** Restore drill (ticket 45): load every restored learned-nav book through NavEdgeLearning, as the server does. */
+public final class DrillLearnedCheck {
+    public static void main(String[] args) throws Exception {
+        Path graphs = Path.of(args[0]);
+        Path learned = Path.of(args[1]);
+        List<Path> files;
+        try (Stream<Path> s = Files.list(learned)) {
+            files = s.filter(p -> p.toString().endsWith(".json")).sorted().toList();
+        }
+        for (Path f : files) {
+            String key = f.getFileName().toString().replaceFirst("\\.json$", "");
+            String[] k = key.split("-");
+            int mapId = Integer.parseInt(k[0]);
+            int speed = Integer.parseInt(k[1].substring(1));
+            int jump = Integer.parseInt(k[2].substring(1));
+            boolean snow = k.length > 3 && k[3].equals("ss");
+            Path bin = graphs.resolve(key + ".bin");
+            if (!Files.isRegularFile(bin)) {
+                System.out.println("BOOK " + key + " nograph 0 0 0");
+                continue;
+            }
+            BotNavigationGraph graph;
+            try (var in = new ObjectInputStream(new BufferedInputStream(Files.newInputStream(bin)))) {
+                graph = (BotNavigationGraph) in.readObject();
+            }
+            if (!BotNavigationGraphProvider.isGraphFor(graph,
+                    new BotNavigationGraphProvider.GraphCacheKey(mapId, speed, jump, snow))) {
+                System.out.println("BOOK " + key + " wronggraph 0 0 0");
+                continue;
+            }
+            BotNavigationGraph.Edge any = graph.outgoingByRegionId.values().stream()
+                    .flatMap(List::stream).findFirst().orElse(null);
+            NavEdgeLearning.factor(graph, any); // loads the book
+            NavEdgeLearning.Book book = graph.learningBook;
+            int loaded = book == null ? 0 : book.edges.size();
+            int resolved = 0;
+            int penalised = 0;
+            for (List<BotNavigationGraph.Edge> edges : graph.outgoingByRegionId.values()) {
+                for (BotNavigationGraph.Edge e : edges) {
+                    if (book != null && book.edges.containsKey(NavEdgeLearning.edgeKey(e))) {
+                        resolved++;
+                        if (NavEdgeLearning.factor(graph, e) > 1.0) {
+                            penalised++;
+                        }
+                    }
+                }
+            }
+            System.out.println("BOOK " + key + " v" + graph.version + " " + loaded + " " + resolved + " " + penalised);
+        }
+    }
+}
+JAVA
+learned_check=0
+if javac -nowarn -d "$RUN/harness/classes" -cp "$SRV/target/Cosmic.jar" "$RUN/harness/src/DrillLearnedCheck.java" > "$RCPT/harness-javac.out" 2>&1 \
+   && systemd-run --wait --pipe -q "${ro[@]}" "${limits[@]}" -p WorkingDirectory="$SRV" -p MemoryMax=1G \
+        /usr/bin/java -Xmx512m -Dbot.nav.cacheDir=cache/bot-nav -cp "target/Cosmic.jar:$RUN/harness/classes" \
+        soloMapling.ArtificialPlayer.GCMoveSystem.DrillLearnedCheck cache/bot-nav/v68 cache/bot-nav/learned \
+        > "$RCPT/learned-load.out" 2>&1; then
+    python3 -I - "$RCPT/learned-before.json" "$RCPT/learned-load.out" <<'EOF' | tee "$RCPT/learned-load.txt"
+import json, sys
+before = json.load(open(sys.argv[1]))
+rows = {l.split()[1]: l.split()[2:] for l in open(sys.argv[2]) if l.startswith("BOOK ")}
+ok = 0
+for f, keys in sorted(before.items()):
+    key = f[:-5]
+    r = rows.get(key)
+    n = len(keys or [])
+    if not r or not r[0].startswith("v"):
+        print(f"  book {key}: {r[0] if r else 'not checked'} ({n} edges in the file)")
+        continue
+    loaded, resolved, pen = map(int, r[1:4])
+    good = loaded == n and n > 0
+    ok += good
+    print(f"  book {key} (graph {r[0]}): file {n} edges, loaded {loaded}, on v68 edges {resolved}, penalised {pen}{'' if good else '  <-- MISMATCH'}")
+print("RESULT", ok, len(before))
+EOF
+    read -r good total < <(awk '/^RESULT/ { print $2, $3 }' "$RCPT/learned-load.txt")
+    [ "${total:-0}" -gt 0 ] && [ "$good" = "$total" ] && { ok "all $total restored books loaded with every edge"; learned_check=1; } \
+        || bad "learned nav: $good of ${total:-0} books loaded completely (learned-load.txt)"
+else
+    bad "learned nav load check did not run (harness-javac.out, learned-load.out)"
+fi
+
+# ── 4. boot ─────────────────────────────────────────────────────────────────────────────────────
+step "boot $DRILL_UNIT (login $DRILL_LOGIN_PORT, channels $DRILL_CHANNEL_BASE+)"
+echo "  $drill_argv"
+since=$(date +%s)
+# shellcheck disable=SC2086
+systemd-run --unit="$DRILL_UNIT" -q "${ro[@]}" "${limits[@]}" -p SuccessExitStatus=143 -p TimeoutStopSec=5min \
+    -p WorkingDirectory="$SRV" $drill_argv
+journal() { journalctl -u "$DRILL_UNIT" --since "@$since" -o cat --no-pager 2>/dev/null; }
+online=
+for _ in $(seq 1 150); do
+    systemctl is-active -q "$DRILL_UNIT" || break
+    if journal | grep -q "is now online"; then online=1; break; fi
+    sleep 2
+done
+[ -n "$online" ] && ok "$(journal | grep -m1 'is now online')" || { bad "server did not come online"; journal | tail -40; }
+if [ -n "$online" ]; then
+    hs=$(python3 -I - "$DRILL_LOGIN_PORT" <<'EOF'
+import socket, struct, sys
+s = socket.create_connection(("127.0.0.1", int(sys.argv[1])), timeout=10)
+b = b""
+while len(b) < 4:
+    c = s.recv(64)
+    if not c: break
+    b += c
+s.close()
+print(struct.unpack("<H", b[2:4])[0] if len(b) >= 4 else "none")
+EOF
+    )
+    [ "$hs" = 83 ] && ok "login server handshake: version $hs" || bad "login handshake: $hs"
+    echo "  running $MINUTES min (learned nav flushes every 5 min and at shutdown)"
+    end=$(( $(date +%s) + MINUTES * 60 ))
+    while [ "$(date +%s)" -lt "$end" ] && systemctl is-active -q "$DRILL_UNIT"; do sleep 10; done
+    systemctl is-active -q "$DRILL_UNIT" && ok "still running after $MINUTES min" || bad "server exited during the run"
+    mem=$(systemctl show "$DRILL_UNIT" -p MemoryCurrent --value)
+    echo "  memory $(numfmt --to=iec "${mem:-0}" 2>/dev/null || echo "$mem")"
+fi
+step "graceful stop"
+t0=$(date +%s)
+systemctl stop "$DRILL_UNIT" || true
+echo "  stopped in $(( $(date +%s) - t0 )) s"
+journal > "$RCPT/server.log"
+
+# ── 5. checks ───────────────────────────────────────────────────────────────────────────────────
+step "checks"
+for m in "Starting world" "Finished loading world" "SoloMapling initialized" "Bot store holds" "Bot roster holds" "boot fill"; do
+    line=$(grep -m1 "$m" "$RCPT/server.log" || true)
+    [ -n "$line" ] && ok "$line" || bad "no '$m' in the log"
+done
+roster_log=$(grep -m1 -oE 'Bot roster holds [0-9]+' "$RCPT/server.log" | grep -oE '[0-9]+' || true)
+roster_db=$(awk -F'\t' '$1=="bots_botroster" { print $2 }' "$RCPT/state-before.tsv")
+[ -n "$roster_log" ] && [ "$roster_log" = "$roster_db" ] && ok "bot roster: server loaded $roster_log members = $roster_db rows restored" \
+    || bad "bot roster: server says ${roster_log:-nothing}, restored DB has $roster_db"
+errs=$(grep -cE 'ERROR|Exception' "$RCPT/server.log" || true)
+[ "$errs" = 0 ] && ok "0 ERROR/Exception lines" || bad "$errs ERROR/Exception lines (server.log)"
+
+snapshot > "$RCPT/state-after.tsv"
+if diff <(grep -v '^bots_' "$RCPT/state-before.tsv") <(grep -v '^bots_' "$RCPT/state-after.tsv") > "$RCPT/players.diff"; then
+    ok "player characters, items, skills and storages unchanged by the run ($players character rows)"
+else
+    bad "player rows changed during the run (players.diff)"
+fi
+echo "  bots after the run: $(grep '^bots_' "$RCPT/state-after.tsv" | tr '\t\n' '= ')"
+
+navkeys "$SRV/cache/bot-nav/learned" > "$RCPT/learned-after.json"
+python3 -I - "$RCPT/learned-before.json" "$RCPT/learned-after.json" "$RUN/learned-before" "$SRV/cache/bot-nav/learned" <<'EOF' | tee "$RCPT/learned-check.txt"
+import filecmp, json, os, sys
+before, after = (json.load(open(p)) for p in sys.argv[1:3])
+bdir, adir = sys.argv[3:5]
+unreadable = [f for f, k in before.items() if k is None]
+rewritten = kept_files = 0
+for f, keys in before.items():
+    if keys is None or f not in after or after[f] is None:
+        continue
+    if filecmp.cmp(os.path.join(bdir, f), os.path.join(adir, f), shallow=False):
+        continue
+    rewritten += 1
+    kept = len(set(keys) & set(after[f]))
+    print(f"  book {f}: rewritten by the server, kept {kept} of {len(keys)} restored edges, now {len(after[f])}")
+    if keys and kept > 0:
+        kept_files += 1
+new = [f for f in after if f not in before]
+print(f"  restored books: {len(before)} ({sum(len(k or []) for k in before.values())} edges), unreadable {len(unreadable)}; "
+      f"rewritten this run: {rewritten}, of those carrying restored edges: {kept_files}; new books: {len(new)}")
+print("RESULT", "loaded" if kept_files else ("untouched" if rewritten == 0 else "lost"), len(unreadable))
+EOF
+res=$(awk '/^RESULT/ { print $2, $3 }' "$RCPT/learned-check.txt")
+case "$res" in
+    "loaded 0") ok "learned nav: books the server touched kept their restored edges (loaded, not started over)" ;;
+    "untouched 0") echo "  note learned nav: the run did not rewrite any restored book (nothing new learned on those graphs in $MINUTES min); load is checked above" ;;
+    *) bad "learned nav: $res (learned-check.txt)" ;;
+esac
+
+step "result"
+if [ "$FAILS" = 0 ]; then echo "PASS"; echo PASS > "$RCPT/RESULT"; exit 0; fi
+echo "FAIL ($FAILS checks)"; echo "FAIL $FAILS" > "$RCPT/RESULT"; exit 1

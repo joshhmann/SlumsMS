@@ -39,7 +39,9 @@ the server folder, so every deploy stages the non-Java files of `src/main` (see 
 | `slumsms-nav-bake.timer` | 02:30 America/Los_Angeles | NavDeepBake from the live jar into `cache/bot-nav/deep/v68` (keep 3), idle priority |
 | `slumsms-nav-stuck-report.timer` | 00:20 UTC | NavStuckReport → `reports/nav/` in the server folder |
 
-Unit files for the nav jobs are in the repo under `deploy/nav/`.
+Unit files for the nav jobs are in the repo under `deploy/nav/`. Ticket 45's backup kit (nightly v2 with bot learning data, rotation timer,
+off-box copy, monthly restore drill, test DB datadir move) is in `deploy/backup/` and not installed yet; restore drill
+receipts are in `/opt/mapleroot-dev/restore-drill/receipts/`.
 
 ## Patch server (friends' downloads)
 

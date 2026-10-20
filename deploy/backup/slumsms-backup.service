@@ -1,0 +1,11 @@
+# Same unit as live had before ticket 45; the script behind it is v2 (DB dump + bot learning data + off-box copy).
+[Unit]
+Description=Nightly SlumsMS live database backup
+After=docker.service
+
+[Service]
+Type=oneshot
+Nice=10
+IOSchedulingClass=idle
+TimeoutStartSec=30min
+ExecStart=/usr/local/bin/slumsms-nightly-backup
