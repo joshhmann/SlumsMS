@@ -224,12 +224,12 @@ if gd:
         tg0 = t0
         g = collections.defaultdict(list)
         for r in gs: g[bucket(P(r["utc"]), tg0)].append(r)
-        w("| UTC | live CPU % median | live run-queue wait ms/s median / p95 / max | live GC ms/min median / max | live heap MB max | MemAvailable MB min | load1 max | live wheel-lag lines | guard actions |")
+        w("| UTC | live CPU % median | live CPU stall ms/s median / p95 / max | live GC ms/min median / max | live heap MB max | MemAvailable MB min | load1 max | live wheel-lag lines | guard actions |")
         w("|---|---|---|---|---|---|---|---|---|")
         for k in sorted(g):
             rs = g[k]
             col = lambda c: [v for v in (num(r.get(c)) for r in rs) if v is not None]
-            rq = col("live_rq_ms_per_s")
+            rq = col("live_cpu_stall_ms_per_s") or col("live_rq_ms_per_s")
             acts = [r["action"] for r in rs if r.get("action")]
             w(f"| {lab(k)} | {f0(st.median(col('live_cpu_pct')), 1)} | "
               f"{f0(st.median(rq), 1)} / {f0(pct(rq, .95), 1)} / {f0(max(rq), 1)} | {f0(st.median(col('live_gc_ms_per_min')))} / {f0(max(col('live_gc_ms_per_min')))} | "

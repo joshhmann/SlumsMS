@@ -1,8 +1,8 @@
 #!/bin/bash
 # Ticket 48 live guard. Runs next to a capacity soak on LXC 125 and protects live (slumsms.service).
 # Every INTERVAL s it samples, read-only, live's health and the box:
-#   live CPU % (from /proc/<pid>/stat), live run-queue wait (ms waited for a CPU per second, summed over live's
-#   threads from /proc/<pid>/task/*/schedstat: the direct measure of "the soak is taking live's CPU"), live GC ms and
+#   live CPU % (from /proc/<pid>/stat), live CPU stall (ms per second that live's cgroup had a thread waiting for a
+#   CPU, from its cpu.pressure: the direct measure of "the soak is taking live's CPU"), live GC ms and
 #   heap (jstat, which reads the hsperfdata file and does not attach), WARN/ERROR lines in live's journal, the
 #   BotEquipChecker scan time live prints, BotTickService "wheel lag" lines (live's bot tick wheel falling behind),
 #   load average, CPU pressure, MemAvailable, and the soak target's CPU/RSS.
@@ -26,12 +26,15 @@ log() { echo "$(date -u '+%F %T') $*" | tee -a "$LOG"; }
 
 pid_of() { systemctl show -p MainPID --value "$1" 2>/dev/null; }
 cpu_ticks() { awk '{print $14+$15}' "/proc/$1/stat" 2>/dev/null || echo 0; }
-rq_wait_ns() { cat /proc/"$1"/task/*/schedstat 2>/dev/null | awk '{s+=$2} END{printf "%.0f", s}'; }
+# CPU stall of live's cgroup ("some" = time at least one of live's threads waited for a CPU), in ns. The per-thread
+# schedstat sum used first jumped when threads came and went (spikes of 2 s/s with the box idle), so the cgroup's
+# own pressure counter is the measure now.
+rq_wait_ns() { awk '/^some/{split($5,a,"="); printf "%.0f", a[2]*1000}' /sys/fs/cgroup/system.slice/slumsms.service/cpu.pressure 2>/dev/null || echo 0; }
 mem_avail() { awk '/MemAvailable/{printf "%d", $2/1024}' /proc/meminfo; }
 gc_heap() {  # GCT seconds and heap used MB (S0U+S1U+EU+OU)
   jstat -gc "$1" 2>/dev/null | awk 'NR==2{printf "%s %.0f", $NF, ($3+$4+$6+$8)/1024}' || echo "0 0"; }
 
-[ -f "$TSV" ] || echo -e "utc\tphase\tlive_cpu_pct\tlive_rq_ms_per_s\tlive_gc_ms_per_min\tlive_heap_mb\tlive_warn_err\tlive_equipscan_ms\tload1\tpsi_cpu_some10\tmem_avail_mb\ttarget_cpu_pct\ttarget_rss_mb\tloadgen_clients\taction\tlive_wheel_lag_lines" > "$TSV"
+[ -f "$TSV" ] || echo -e "utc\tphase\tlive_cpu_pct\tlive_cpu_stall_ms_per_s\tlive_gc_ms_per_min\tlive_heap_mb\tlive_warn_err\tlive_equipscan_ms\tload1\tpsi_cpu_some10\tmem_avail_mb\ttarget_cpu_pct\ttarget_rss_mb\tloadgen_clients\taction\tlive_wheel_lag_lines" > "$TSV"
 start=$(date +%s)
 lp=$(pid_of slumsms); tp=$(pid_of "$TARGET")
 p_lc=$(cpu_ticks "$lp"); p_lrq=$(rq_wait_ns "$lp"); read -r p_gct _ <<< "$(gc_heap "$lp")"

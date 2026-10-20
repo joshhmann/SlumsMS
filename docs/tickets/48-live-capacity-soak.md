@@ -2,7 +2,8 @@
 
 **Area:** Performance
 **Depends on:** -
-**Status:** open
+**Status:** postponed until the next release candidate (owner, 2026-10-20). Partial results and the
+method: `docs/perf/capacity-soak-2026-10.md`; tools and the dedicated soak server `slums-soak`: `tools/soak/README.md`.
 
 ## What
 
