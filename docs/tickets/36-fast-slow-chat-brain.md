@@ -8,7 +8,7 @@
 
 - **Decide:** `BotChatRouting` calls GLiNER Decide (`BOT_DECIDE_URL` + `/v1/systemone`) for one question only: which
   kind of player a request is aimed at ("need a bless" → cleric).
-- **Everything else** is rules, plus the LLM (`Qwen3.8-9B`, 2 slots) for replies.
+- **Everything else** is rules, plus the LLM (`Qwen3.8-9B`, 2 slots, to be replaced by the 4B "Dory") for replies.
 - **Probe of 2026-10-18 (comment in `BotChatRouting`):**
   - Decide failed at picking one of several players: it chose the same option 0/8 times.
   - It also failed at telling chatter from replies.

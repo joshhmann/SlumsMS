@@ -43,3 +43,4 @@ Created 2026-10-19 from the owner's plan. Order: nav v2 → real bots → compan
 | [34](34-swim-navigation.md) | Swim navigation for Aqua Road | Nav v2 | 01,03,04 |
 | [35](35-admin-dashboard.md) | Admin dashboard: nav learning map viewer, bots, economy | Ops | 04,15 |
 | [36](36-fast-slow-chat-brain.md) | Fast/slow chat brain: GLiNER Decide gates and classifies, Qwen replies | Real bots | 1.3.0 |
+| [37](37-natural-conversations.md) | Natural conversations; talk window on double-click (ImGui button later) | Real bots | 36 |
