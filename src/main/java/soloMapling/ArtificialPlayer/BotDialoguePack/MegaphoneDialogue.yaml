@@ -769,3 +769,34 @@ MegaphoneBroadcast:
       - "J> {PQ} ch{CH} lobby, {LEVEL} {JOB} ready"
       - "anyone doing {PQ}? {LEVEL} {JOB} waiting at the lobby ch{CH}"
       - "J> {PQ} @@ lvl {LEVEL} ch{CH}"
+
+  # ── Ticket 21: scripted world events (WorldEventReactions -> WorldEventMegaphones) ────────────
+  # Tokens: {MAP} {CH} {REGION} {EVENT} {BOSS} {ITEM} {NPC} {PLAYER}.
+  WorldEventInvasion:
+    text:
+      - "INVASION at {MAP} ch{CH}!! come help"
+      - "monsters attacking {MAP} ch{CH}, need ppl"
+      - "{MAP} ch{CH} invasion, free exp lol"
+      - "anyone at {MAP}?? its getting overrun ch{CH}"
+  WorldEventBoss:
+    text:
+      - "{BOSS} spotted at {MAP} ch{CH}!!"
+      - "{BOSS} up at {MAP} ch{CH}, lf> help"
+      - "{BOSS} at {MAP} ch{CH} go go go"
+  WorldEventTreasure:
+    text:
+      - "treasure hunt in {REGION} ch{CH}, whoever finds it first gets it"
+      - "theres a hidden chest in {REGION} ch{CH} lol anyone found it?"
+  WorldEventHotSpot:
+    text:
+      - "bonus exp at {MAP} ch{CH}!! come"
+      - "hot spot {MAP} ch{CH}, exp is crazy rn"
+  WorldEventWanderer:
+    text:
+      - "some explorer in {MAP} ch{CH} wants {ITEM}, free stuff"
+      - "{NPC} is in {MAP} ch{CH} giving a quest, go check"
+  WorldEventWon:
+    text:
+      - "gg {PLAYER}!! won the {EVENT}"
+      - "grats {PLAYER} on the {EVENT} ^^"
+      - "{PLAYER} won the {EVENT} @@ gg"

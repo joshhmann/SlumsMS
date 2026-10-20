@@ -66,7 +66,9 @@ public final class NPCTalkHandler extends AbstractPacketHandler {
                 }
 
                 // Custom handling to reduce the amount of scripts needed.
-                if (npc.getId() >= NpcId.GACHAPON_MIN && npc.getId() <= NpcId.GACHAPON_MAX) {
+                if (soloMapling.worldevents.WorldEvents.getInstance().isEventNpc(c.getPlayer().getMap(), oid)) {
+                    NPCScriptManager.getInstance().start(c, npc.getId(), oid, "worldEventNpc", null); // ticket 21
+                } else if (npc.getId() >= NpcId.GACHAPON_MIN && npc.getId() <= NpcId.GACHAPON_MAX) {
                     NPCScriptManager.getInstance().start(c, npc.getId(), "gachapon", null);
                 } else if (npc.getName().endsWith("Maple TV")) {
                     NPCScriptManager.getInstance().start(c, npc.getId(), "mapleTV", null);

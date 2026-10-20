@@ -28,6 +28,7 @@ import soloMapling.ArtificialPlayer.BotMessagingSystem.CharacterStorage;
 import soloMapling.ArtificialPlayer.BotGrindSystem.DeepHub;
 import soloMapling.ArtificialPlayer.BotGrindSystem.GrindBrain;
 import soloMapling.ArtificialPlayer.BotGrindSystem.MapMobIndex;
+import soloMapling.ArtificialPlayer.BotTravelSystem.BotMapGates;
 import soloMapling.ArtificialPlayer.BotGrindSystem.OffscreenRewardBudget;
 import soloMapling.ArtificialPlayer.BotAttackSystem.OffscreenCombat;
 import soloMapling.ArtificialPlayer.BotSupplySystem.BotShopping;
@@ -257,6 +258,8 @@ public class TrainingBot extends BotSM {
         BREAK_TRAVEL, BREAK_REST }
 
     private volatile Phase phase = Phase.INIT;
+    // Ticket 21: a world event called this bot (WorldEventReactions); the macro tick answers it.
+    private volatile boolean eventCall = false;
     private boolean phaseEntered = false;     // has this phase run its one-time setup?
     private long phaseDeadlineMs = 0;         // travel timeout / town dwell
 
@@ -437,6 +440,11 @@ public class TrainingBot extends BotSM {
         getDebugger().debugLoggingFull(
                 String.format("%s TrainingBot phase: %s", chr.getName(), phase), String.format("%s", phase));
 
+        if (eventCall) {
+            eventCall = false;
+            answerEventCall(chr);
+        }
+
         switch (phase) {
             case INIT -> doInit();
             case IN_TOWN -> doInTown();
@@ -456,6 +464,43 @@ public class TrainingBot extends BotSM {
         pollRecruitInvite(); // gated party-invite drain (the "wanna party up?" flow)
         soloMenu.poll();
         partyMenu.poll();    // kept last: a "Follow me!" selection converts this bot away
+    }
+
+    // ── World events (ticket 21) ─────────────────────────────────────────────
+
+    /** A world event wants this bot: it drops what it is doing at its next tick (see answerEventCall). */
+    public void callToEvent() {
+        eventCall = true;
+    }
+
+    // Drop the current outing and re-decide, which goes to the event map (WorldEventSteer). A bot with a player
+    // (party, live recruit) stays; a trip, shop visit or rest break finishes first and the next DECIDE goes.
+    private void answerEventCall(Character chr) {
+        int target = soloMapling.worldevents.WorldEventSteer.mapFor(chr.getId());
+        if (target < 0 || recruitingNow() || partyTargetMapId() != null) {
+            return;
+        }
+        if (chr.getMapId() == target && phase == Phase.GRIND) {
+            return; // already training there
+        }
+        switch (phase) {
+            case GRIND -> {
+                sayContext("MapTransition", chr, null);
+                leaveGrind();
+                enterPhase(Phase.DECIDE);
+            }
+            case IN_TOWN -> {
+                if (!saunaTripActive) {
+                    enterPhase(Phase.DECIDE);
+                }
+            }
+            default -> {
+            }
+        }
+    }
+
+    private boolean onEventMap(Character chr) {
+        return chr != null && soloMapling.worldevents.WorldEventSteer.mapFor(chr.getId()) == chr.getMapId();
     }
 
     // ── Phases ───────────────────────────────────────────────────────────────
@@ -826,6 +871,15 @@ public class TrainingBot extends BotSM {
             enterPhase(chr.getMapId() == partyMap ? Phase.GRIND : Phase.GO_TRAIN);
             return;
         }
+        // Ticket 21: answering a world event - train on the event map instead of our own pick.
+        int eventMap = soloMapling.worldevents.WorldEventSteer.decide(chr.getId());
+        if (eventMap > 0 && BotMapGates.mayEnter(eventMap, BotMapGates.rebirthsOf(chr))) {
+            debugChat("DECIDE: world event -> map " + eventMap);
+            setTrainTarget(eventMap, Math.max(1, MapMobIndex.level(eventMap)));
+            firstTrip = false;
+            enterPhase(chr.getMapId() == eventMap ? Phase.GRIND : Phase.GO_TRAIN);
+            return;
+        }
         Set<Integer> excluded = crowdExcludedMaps(); // maps on crowd-cooldown (pruned) — steer away from them
         clearTrainTarget(); // release any stale reservation before choosing (choose() reserves the pick's slot)
         pendingHomeMapId = -1; // a relocation that never arrived is forgotten; the bot keeps its old home
@@ -1026,6 +1080,9 @@ public class TrainingBot extends BotSM {
             return;
         }
 
+        if (nowMs >= grindUntilMs && onEventMap(chr)) {
+            grindUntilMs = nowMs + 60_000; // ticket 21: stay while the event runs; released when it ends
+        }
         if (nowMs >= grindUntilMs && !recruitingNow()) { // don't walk off mid-conversation/invite window
             sayContext("MapTransition", chr, null); // "this spot's dead, moving on" — said while still on the map
             leaveGrind();
@@ -1088,6 +1145,9 @@ public class TrainingBot extends BotSM {
         Integer partyMap = partyTargetMapId();
         if (partyMap != null && partyMap == chr.getMapId()) {
             return false; // never crowd-bail off the party's map - staying with the player wins
+        }
+        if (onEventMap(chr)) {
+            return false; // ticket 21: a world event's crowd is the point
         }
         if (recruitingNow()) {
             return false; // mid-recruit: hold the map until the exchange resolves
