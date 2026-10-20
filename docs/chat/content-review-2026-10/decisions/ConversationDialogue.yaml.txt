@@ -1,0 +1,92 @@
+# whole conversations dropped (C key)
+C anime_recommendation  ## anachronism (jujutsu kaisen, mappa)
+C gaming_setup_brag  ## anachronism (144hz, 2015 laptop)
+C anime_break_talk  ## modern slang (cooked)
+C coding_and_maple  ## talks about making bots
+C console_vs_pc  ## modern slang (kms)
+C pc_flex  ## anachronism (6090, discord)
+C gamer_fuel  ## anachronism (doordash)
+C monochrome_fashion  ## modern slang (drip, vibe)
+C anime_hot_take  ## anachronism (demon slayer)
+C manga_snob  ## anachronism (chainsaw man)
+C esports_debate  ## anachronism (valorant, streams)
+C gaming_setup_talk  ## modern slang (let him cook, streamer)
+C build_pc_advice  ## anachronism (ryzen)
+C lag_spike_hell  ## false server-lag claim
+C server_lag_frustration  ## false server-lag claim
+C halloween_event  ## false event claim
+C event_discussion  ## false event claim
+C community_event_hype  ## false event claim
+C fm_price_complaint  ## garbled prices + modern slang (whale, cooked, atp)
+C server_economy_collapse  ## botters + wipe talk, modern slang
+C population_shifted  ## undercuts a busy server
+C prebbq_grind_memories  ## post-v83 (big bang)
+C fm_culture_shift  ## bots + undercuts a busy server
+C class_balance_complainers  ## modern slang (power creep, hits different)
+C secret_shortcut_found  ## false (no ellinia-ludi portal)
+C hidden_minigame_finds  ## false (no secret card game)
+C new_skill_wow_moment  ## generic filler
+C endgame_goal_setting  ## generic filler
+C gacha_horror_story  ## not v83 (weapon skin)
+C smega_spam_fatigue  ## no world-chat mute in v83
+C pet_dragging_chaos  ## no pet loot filter in v83
+C guildmate_crush_energy  ## modern slang (simping), facebook
+C accidental_pk_provoke  ## no pk in v83
+C stop_being_afk  ## livestream
+C training_music_matters  ## modern slang (slaps, banger)
+C mage_skill_rotation  ## inaccurate mechanics
+# line rewrites
+R thats rough. this server has been so laggy lately => thats rough. my internet does that too sometimes
+R respect the drip => looks good tho
+R built different. forged in the fires of PQ and FM shopping => forged in the fires of PQ and FM shopping
+R bruh i knew it, this server be makin me feel poor => bruh i knew it, this game be makin me feel poor
+R facts. at least maple doesnt give pop quizzes => true. at least maple doesnt give pop quizzes
+R respectfully that chair probably had better dps than me => honestly that chair probably does more damage than me
+R ok be honest does this nx fit go hard or am i delusional => ok be honest does this nx outfit look good or am i delusional
+R nah it actually goes hard => nah it actually looks sick
+R take the W and walk away slow => take the compliment and walk away slow
+R perfect weather to sit inside and grind, respectfully => perfect weather to sit inside and grind
+R skill issue, put on socks => sounds like a you problem, put on socks
+R still better than global chat tho => still better than smega drama tho
+R so... maple chair, maple drink, and ignore guild pings => so... maple chair, maple drink, and ignore guild chat
+R that sleepy henesys theme is undefeated => that sleepy henesys theme is the best
+R i knew he was sus from the start => i knew he was shady from the start
+R lol facts => lol true
+R real one. i still have my gameboy => nice. i still have my gameboy
+R the nostalgia hits different => the nostalgia is real
+R might go back after this wipe => might go back after this summer
+R let him cook. worst case he just retakes it => leave him alone. worst case he just retakes it
+R summer vibes => summer break life
+R near and mello were so mid compared to L => near and mello were so lame compared to L
+R thats not even a hot take thats just facts => thats not even a hot take thats just true
+R vibing => chillin
+R existing => afk basically
+R henesys standing simulator 2009 => henesys standing simulator 2008
+R kerning city at night hits different too => kerning city music is underrated too
+R the ellinia BGM goes hard tho I'll admit => the ellinia BGM is really good tho I'll admit
+R gl!! sending good vibes => gl!! dont boom it
+R im gonna use it. yolo => im gonna use it. here goes nothing
+R sure jan => sure buddy
+R or u can use the quick channel change in the top right => or click the channel button at the bottom
+R nah ellinia. the fairy forest vibes are unmatched => nah ellinia. the fairy forest music is the best
+R idk the BGM fits the vibe => idk the BGM fits the mood
+R omg yes the henesys market was such a vibe => omg yes the henesys market was so fun
+R im not 140 yet so i cant even go in => i havent done the prequest so i cant even go in
+R ppl would fight monsters together on the way over and just vibe => ppl would fight monsters together on the way over and just hang out
+R maple genuinely had the best idle moments. just existing was fun => maple genuinely had the best idle moments. just hanging out was fun
+R honestly just nostalgia hit. i missed the vibe => honestly just nostalgia hit. i missed the game
+R el nath gets points for vibes. minus points for cold mechanic => el nath gets points for the music. minus points for the cold
+R classic maple experience. the rng hits different when ur invested => classic maple experience. the rng feels personal when ur invested
+R empty maps in the morning hit so different => empty maps in the morning are so nice
+R whats the vibe. sweaty or just for fun => is it a hardcore guild or just for fun
+R ill post in recruitment chat. we need 2 more => ill smega for 2 more. we need 2 more
+R big numbers go brrr => big numbers = good
+R like i mean at the game. ur rotation is clean => like i mean at the game. ur mobbing is clean
+R fun sure but the dmg output is mid => fun sure but the dmg output is meh
+R bro idk they slap but like theyre invisible => bro idk theyre good but like nobody plays them
+R fr they have good utility and dmg => yeah they have good utility and dmg
+R pirate class nation someday => pirates will get their day
+R but like statistically thats sus => but like statistically thats shady
+R the true endgame content => the real endgame
+R touché => touche  ## non-ASCII
+R kerning city has the best vibes tho. the dark alley aesthetic => kerning city is the coolest tho. the dark alleys

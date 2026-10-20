@@ -1,0 +1,137 @@
+# ScamMessages (scammer flavour kept; trim near-dupes / non-v83)
+D I'm helping the GM team test the new trade system. 100% safe I promise  ## near-dup of GM trade bug line
+D your item has a hidden rare potential that I can unlock for only 500k mesos  ## potential not v83
+R there's a new NPC in mushroom kingdom that trades common items for scrolls. shhh => there's a new NPC in ellinia that trades common items for scrolls. shhh  ## mushroom kingdom post-v83
+D new dupe method works 100% just trade ur weapon to me for a quick verification step  ## dupe near-dup
+D GM event happening NOW!! trade anything to me and youll get 10x back in 5 mins!! limited spots!!  ## caps spam, event claim
+D found a dupe glitch. trade me ill show u how. works 100%  ## dupe near-dup
+D im selling a cloning service. triple ur mesos easy  ## dupe near-dup
+D hey i can duplicate items. just drop one and watch it multiply  ## dupe near-dup
+D free meso multiplication in progress right now at henesys  ## false world claim, dupe
+D found a portal to a secret area with free scrolls everywhere  ## near-dup secret map
+D if u drop an item and relog within 2 seconds it stays AND returns to inv  ## near-dup of relog line
+D selling godly gear that came from a glitched dungeon drop  ## dungeon
+D new players: type /scamfree to get 10m instantly  ## tone-breaking joke
+D trading service: send mesos, i hold them for 5x return guaranteed  ## near-dup tripling
+# BeggingMessages
+D i'll be your track for 50k mesos pls  ## nonsense
+R any generous souls out there? my entire guild quit and took the guild bank with them => any generous souls out there? my entire guild quit and i got nothing  ## no guild bank in v83
+R can someone please carry me thru zakum? I just want the helm I dont care about the loot => can someone please carry me thru zakum? I just want the helm lol  ## helm is loot
+D been standing here asking for mesos for 2 hours. nobody has given me anything. this is my origin story  ## near-dup origin story
+D honestly at this point id settle for a worn out shoe. just show me you care  ## filler
+D does anyone know how to make mesos without being good at the game or having any starting capital  ## generated
+D I keep checking my inventory hoping mesos will appear. it hasn't worked yet but I'm optimistic  ## filler
+R my in-game bank account is so empty it echoes when I open it => my storage is so empty it echoes when I open it  ## no bank
+D LF> benevolent stranger who will fund my adventure in exchange for absolutely nothing in return  ## generated
+D sorry for begging it's just that I really really need mesos and have no other options right now  ## heavy
+D the economy is rough when you have no mesos to start with. any vets want to help a noob out?  ## filler
+D not asking for much. just enough to get back on my feet. also my feet are underground right now  ## filler
+D anyone out there who was once a broke noob and remembers how it felt? pay it forward pls  ## near-dup
+D I have found a new rock bottom. it is the FM entrance. I live here now. please send mesos.  ## filler
+D my scroll budget and my hope budget are both at zero. related.  ## generated
+D spending my daily on potions but its not enough  ## dailies not v83
+D my entire wealth is in potential. but that doesnt buy pots  ## potential not v83
+D my training route has no drops. im stuck.  ## filler
+D im trying my best but my best isnt making mesos  ## filler
+# RWTMessages: keep ~30 period-plausible
+R MaxAccs4u - fresh accounts, maxed stats, DM me => MaxAccs4u - fresh accounts, maxed stats, PM me  ## DM modern
+D 10M MESO = $5 paypal/venmo only  ## RWT trim: modern/redundant/tone
+D Cheap NX Codes! Visit MapleCash.io for 50% off Nexon prices  ## RWT trim: modern/redundant/tone
+D Join our Discord for power leveling: discord.gg/maple-pwr-lvling  ## RWT trim: modern/redundant/tone
+D S> 500M Mesos $10 USD - Paypal/Zelle - Trusted Seller  ## RWT trim: modern/redundant/tone
+D Auto-Loot + Vac Hack v5.1 - Buy at CheatPro.cc  ## RWT trim: modern/redundant/tone
+D NX CARDS 50% OFF no scam real legit @@@ nxdiscount.net  ## RWT trim: modern/redundant/tone
+D LEVELING + BOSS CARRY + MESO FARM all services at mapleBoost.com  ## RWT trim: modern/redundant/tone
+D selling accounts with godly gear $$ visit maple-accounts-r-us.biz @@  ## RWT trim: modern/redundant/tone
+D WTS> 2b mesos = $20 USD instant trade NO BAN @@@  ## RWT trim: modern/redundant/tone
+D FREE MESO GENERATOR at definitelynotavirus.com/maple (its real trust)  ## RWT trim: modern/redundant/tone
+D @@@ GodMode + SpeedHack + FlyHack bundle only $15/mo @@ HaxPro.net  ## RWT trim: modern/redundant/tone
+D CHEAPEST NX IN THE MARKET visit nxfactory.io @@ 100% legit sellers  ## RWT trim: modern/redundant/tone
+D power leveling 1-200 $30 fast service @@ maplePowerLevel.com  ## RWT trim: modern/redundant/tone
+D visit maple-mart.biz >>> mesos, NX cards, accounts and more @@@@  ## RWT trim: modern/redundant/tone
+D ACC SHOP >> clean to fully scrolled gear, all jobs, PM for full list @@@  ## RWT trim: modern/redundant/tone
+D selling NX cards at 50% face value. message me before buying from Nexon direct  ## RWT trim: modern/redundant/tone
+D MESO FARM SERVICE - we farm mesos on your account while you sleep - PM details  ## RWT trim: modern/redundant/tone
+D cheap HT/Zakum carries $5 each. visit MapleBoss.net for schedule @@@  ## RWT trim: modern/redundant/tone
+D WARNING: dont trust fake sellers! only buy from REAL trusted sellers like us @ maplemarket.biz  ## RWT trim: modern/redundant/tone
+D WTS> fully godly scrolled zhelm - 1b mesos OR $12 USD, instant trade @@@  ## RWT trim: modern/redundant/tone
+D NX CARDS BULK BUY DISCOUNT - PM for full price list - 200+ happy customers @@@  ## RWT trim: modern/redundant/tone
+D selling fresh unbanned accounts levels 10 thru 140 - all classes - visit maplexchange.com  ## RWT trim: modern/redundant/tone
+D join our pro leveling squad: 1-70 overnight, $10 flat, PM now before spots fill @@  ## RWT trim: modern/redundant/tone
+D multibox service - we run 6 accounts on your ID 24/7 while you're offline - $20/mo  ## RWT trim: modern/redundant/tone
+D godly scrolled gear available NOW - visit gearshop.gg for full catalog with screenshots @@  ## RWT trim: modern/redundant/tone
+D selling Zakum carries in bulk, fast clears, cheap rates - visit ZakumRuns.net @@@  ## RWT trim: modern/redundant/tone
+D REAL MONEY TRADING IS AGAINST TOS but honestly nobody gets banned for buying. visit us @ mesopal.com  ## RWT trim: modern/redundant/tone
+D WTS> accounts with all job advancements done, fully equipped, $25 each @ mapleStarter.com  ## RWT trim: modern/redundant/tone
+D godly scrolled items for sale $$ real money only $$ visit GodlyGear.biz @@@  ## RWT trim: modern/redundant/tone
+D WTS> permanent NX items at 60% off nexon prices. visit nxBargain.net @@  ## RWT trim: modern/redundant/tone
+D maple-gold-rush.com >>> farm service + meso delivery + boss carries all in one @@  ## RWT trim: modern/redundant/tone
+D AUTO ATTACK + AUTO POT + AUTO LOOT script bundle $12 one time @ hackTools.cc  ## RWT trim: modern/redundant/tone
+D S> mesos ALL SERVERS 100m = $1.99 fastest delivery mapleExpress.net @@@@@  ## RWT trim: modern/redundant/tone
+D WTB> your entire account!! paying $50+ for high level chars, PM me details @@  ## RWT trim: modern/redundant/tone
+D UNDETECTABLE speed hack + fly hack combo $8/mo @@ stealthHax.net @@@  ## RWT trim: modern/redundant/tone
+D selling guild with 50 members and established guild points. $30 OBO. PM for details @@@  ## RWT trim: modern/redundant/tone
+D MESO SAFE DELIVERY >>> we never get caught >>> 500m = $8 @ SafeMeso.net @@  ## RWT trim: modern/redundant/tone
+D name change service!! we can change your IGN for $10, no questions asked @@ nameSwap.biz  ## RWT trim: modern/redundant/tone
+D WTS> scrolling service!! 100% success rate!! real money only!! visit scrollMaster.net @@@  ## RWT trim: modern/redundant/tone
+D MESO SHOP OPEN 24/7 @ maple-meso.biz >> 200m = $4 USD paypal/venmo @@  ## RWT trim: modern/redundant/tone
+D B> ur mesos paying top dollar!! visit buyurMesos.com fastest cashout guaranteed @@@  ## RWT trim: modern/redundant/tone
+D WTS> level 70-100 characters all classes fully equipped @ mapleProfiles.net @@  ## RWT trim: modern/redundant/tone
+D BOSS CARRY SERVICE zakum horntail $5-20 per run visit carrymaster.net @@@  ## RWT trim: modern/redundant/tone
+D 100% UNDETECTED speed hack + ks protection bundle @ mapleEdge.cc $9.99/mo @@  ## RWT trim: modern/redundant/tone
+D selling scrolled NX sets at half nexon price visit nxResale.biz full catalog @@@@  ## RWT trim: modern/redundant/tone
+D AUTO QUEST bot works on all quests $10 one time @ questBot.net @@@@  ## RWT trim: modern/redundant/tone
+D WTS fresh starter accounts job-advanced never played $5 each @ freshAccounts.net  ## RWT trim: modern/redundant/tone
+D Zakum helm shop!! all jobs best stats @ helmShop.gg BUY 3 GET 1 FREE @@@@@  ## RWT trim: modern/redundant/tone
+D FAST MESO DELIVERY 5 min guaranteed @ mapleFlow.net >>> 500m = $9 paypal @@  ## RWT trim: modern/redundant/tone
+D S> perma NX items all slots for all jobs @ permaNX.shop huge selection @@@  ## RWT trim: modern/redundant/tone
+D maple-wealth.net >> store ur mesos safe offshore 100% no ban 100m = $3 USD @@@  ## RWT trim: modern/redundant/tone
+D selling meso stash for $50 USD via venmo. been farming 10 hours a day legit  ## RWT trim: modern/redundant/tone
+D botting script undetected for 2 years now. private seller DM for link  ## RWT trim: modern/redundant/tone
+D WTS> duped scrolls - supply is limited hurry!! $$ contact now  ## RWT trim: modern/redundant/tone
+D item duplication method discovered. selling for cheap @ itemDupe.biz  ## RWT trim: modern/redundant/tone
+# FunnyMessages
+D this chat is so fast, nobody will know that Im g4y!!!  ## offensive-ish
+D plot twist: im actually an NPC pretending to be a player  ## bot meta
+D why do i hear boss music  ## post-2009 meme
+D the FM lag is character development at this point  ## modern phrasing
+R someone just walked into my shop, looked around for 0.5 seconds, and left. felt that => someone just walked into my shop, looked around for 0.5 seconds, and left. ouch  ## modern slang
+R bro I just saw someone selling air for 10m. respect the hustle honestly => bro I just saw someone selling air for 10m lol  ## modern slang
+D the FM music loop is now my alarm clock ringtone. im not okay  ## modern phrasing
+D do yall think the FM NPCs are tired of us too  ## near-dup NPCs judge
+D the worst part about being a merchant is the silence between customers  ## melancholy filler
+D the true endgame of MapleStory is making enough mesos to afford things you wanted at level 30  ## musing
+D the FM has its own ecosystem. regulars, newbies, and the mysterious person who just stands in the corner  ## generated
+D there should be a leaderboard for most time spent standing in FM. I would win easily.  ## filler
+D whoever invented the 'All' tab in the FM shop search deserves a statue  ## not v83 UI
+D the universal MapleStory experience: finding your favorite map full and just logging off  ## generated
+D I put a pink bean plushie in my shop for 999m as a conversation starter  ## not period item
+D the amount of emotional investment I have in a 2D mushroom game is deeply concerning  ## meta/filler
+D can we talk about how drop parties are just organized chaos and I love it  ## modern phrasing
+D the economy makes more sense when you accept that it doesn't make any sense at all  ## musing
+D MapleStory taught me patience, economics, and that people will haggle over 100k on a 10m item  ## life-lesson poster
+D the FM entrance is where dreams come to stand around for 6 hours  ## filler
+D my characters feet must be so sore from standing in FM all day  ## near-dup
+D selling air freshener for the FM because it smells like broken dreams in here  ## filler
+D the FM is just a mall where everyone is both a customer and a store. nobody wins.  ## near-dup mall
+D I keep telling myself one more hour. it's been four more hours. the FM is a void.  ## filler
+D I've optimized my prices so perfectly that nobody wants any of it. peak economics.  ## modern phrasing
+D the FM entrance at peak hours is a spiritual experience. terrifying but enlightening.  ## generated
+D I told myself 30 minutes in FM. my character has left footprints in the floor by now.  ## near-dup footprints
+R someone walked into my shop, stared at the prices, made a noise, and left. iconic. => someone walked into my shop, stared at the prices, made a noise, and left. lol  ## modern slang
+D the FM has made me better at economics and worse at everything else  ## near-dup
+D someone asked if my items were duped. sir this is a farm.  ## 2019 meme
+D nobody comes to shop but i keep the dream alive anyway  ## filler
+# ShopAnnounce
+D come browse!! I have stuff for all levels!! FM {REGION}!! no pressure no judgment  ## retail voice
+D SELLING EVERYTHING!! I overstocked and now I need to move items!! fair deals guaranteed!!  ## retail voice
+D fresh stock just added!! equips and scrolls!! stop by for a look!!  ## near-dup restock
+D closing in 30 mins!! everything discounted!! last call before I pack up!!  ## near-dup closing
+D S> clean equips for all classes!! honest prices, no games!!  ## near-dup
+D restocked scrolls and mage gear!! open now!! come check it out!!  ## near-dup restock
+D new drops from todays run!! priced to move!! come grab em cheap!!  ## near-dup
+D JUST RESTOCKED @ FM {REGION}!! fresh batch of 60%s and clean equips!! come look!!  ## near-dup restock
+D BARGAIN CORNER @ FM {REGION}!! prices slashed for quick sales!!  ## retail voice
+D S> fresh drops and scrolls @ FM {REGION}!! limited time offer!!  ## retail voice
+D S> quality equips @ FM {REGION}!! no junk, all tested!!  ## retail voice
+D fresh inventory just arrived @ FM {REGION}!! hurry over!!  ## retail voice

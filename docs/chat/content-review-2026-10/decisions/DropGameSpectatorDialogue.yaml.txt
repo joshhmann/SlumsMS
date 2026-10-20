@@ -1,0 +1,212 @@
+# Spectators react on every item the host drops; {item} is replaced with the item name.
+# Used categories: Excitement/Envy/Hype/Question/Cheer. Disappointment/Commentary are unused by code.
+# Excitement
+D the {item} goes into the loot pool!! run!!  ## garbled
+D better than anything else he dropped, that {item}!!  ## filler
+D that {item} alone makes the whole round worth watching  ## filler
+D ok im actually screaming  ## modern phrasing
+D a {item} in a drop game?? are you kidding me  ## near-dup
+D the {item} has been on the ground for five seconds and nobody moved??  ## near-dup
+D someone is about to have the best day because of that {item}  ## filler
+D the moment the {item} appeared i forgot how to breathe  ## filler
+D the {item}?? i need everyone to see this  ## filler
+D every single drop has been incredible so far  ## filler
+D i've never seen a drop game loot pool this stacked  ## near-dup
+D that one's a banger  ## modern slang
+D some lucky person just won  ## filler
+D nobody's gonna forget that {item}  ## filler tail
+D the drop game gods are smiling today  ## filler tail
+D I'm gonna remember this {item} forever  ## filler tail
+D when the {item} dropped the energy changed  ## filler tail
+D someone woke up and chose the {item}  ## modern meme
+D the {item} said HELLO  ## filler tail
+D the {item} is a MOMENT  ## modern slang
+D historical drop right there  ## filler tail
+D someone's life just changed with that {item}  ## filler tail
+D the {item} was prophesied  ## filler tail
+D that {item} belonged on the floor  ## filler tail
+D the drop game is absolutely WORKING today  ## filler tail
+D I can die happy after seeing that {item}  ## filler tail
+D that {item} will be talked about  ## filler tail
+D can we just replay that {item} drop  ## filler tail
+D the {item} made the whole run  ## filler tail
+D floor is poetry right now  ## filler tail
+D that {item} is LEGENDARY tier  ## not v83 (legendary tier)
+D I will never forget where I was when the {item} dropped  ## filler tail
+# Envy
+D watching the {item} be looted by someone else is my villain origin story  ## modern meme
+D that {item} and me would've been perfect together  ## filler
+D watching someone else get rich is rough  ## near-dup
+D being a spectator is suffering  ## filler
+D please whoever gets the {item} treat it well  ## filler
+D a {item} just dropped and my heart broke a little  ## filler
+D that {item} was made for me and i'm not even playing  ## filler
+D whoever gets that {item} doesn't deserve it like i would  ## filler
+D the {item} sits there and so do i  ## filler
+D i've never wanted anything more than that {item} right now  ## filler
+D watching is so much worse when the drops are actually good  ## filler
+D standing here watching when that {item} dropped felt personal  ## filler
+D i have never resented watching more than right now  ## filler
+D that {item} is going to someone who won't even appreciate it  ## near-dup
+D i am going home and immediately signing up for the next round  ## inaccurate (no sign-up)
+D one day i'll be the one on the floor grabbing drops  ## near-dup
+D of course the lucky one grabbed the {item}  ## wrong timing (fires on drop)
+D the {item} didn't even give me a chance to dream  ## filler tail
+D why does everyone but me get the good pulls  ## gacha-era slang (pulls)
+D that {item} walk-in was cruel  ## garbled
+D the universe said 'not for them' specifically about me  ## filler tail
+D I want a reroll on my entire life after that {item}  ## filler tail
+D watching the {item} go to someone else hits different  ## modern slang
+D that {item} was rude to me personally  ## modern phrasing
+D why can't the drop gods bless me like that  ## filler tail
+D the {item} was written in the stars just not for my stars  ## filler tail
+D someone got rewarded for existing and it wasn't me  ## filler tail
+D the {item} had my name on it and someone else grabbed it  ## filler tail
+D jealousy is an understatement  ## filler tail
+D I'm not mad I'm just... {item}... gone  ## filler tail
+# Hype
+D the drop rate is nuts today  ## reads as server drop-rate claim
+D whoever set up this loot pool went all out  ## meta-ish filler
+D peak drop game right here  ## modern slang (peak)
+D I've watched a lot of drop games and this one is different  ## filler
+D the intensity is unreal  ## filler
+D this is like a whole event  ## event claim-ish
+D the crowd is going nuts for a reason  ## filler
+D every drop is just BETTER than the last  ## filler
+D I have never screamed at a drop game before today  ## filler
+D SOMEBODY CLIP THIS  ## streaming-era (clip)
+D I came to watch and now im shaking  ## filler
+D this man is SPEED  ## modern meme
+D i keep trying to calm down and failing  ## filler
+D i don't think he's blinked once this whole round  ## filler
+D THE ENERGY IN HERE RIGHT NOW  ## filler
+D i want everyone i know to be here right now  ## filler
+D watching this is giving me anxiety in the best way  ## filler
+D the floor is getting replenished faster than he can clear it  ## near-dup
+D he hasn't slowed down once this whole round  ## near-dup
+D if this keeps up i might actually cry happy tears  ## filler
+D this was supposed to be a quick watch and now i've been here 10 minutes  ## inaccurate (2 min game)
+D everyone here is losing their mind at the same time  ## filler
+D every time i think it's peaked it gets better  ## filler
+D the tempo is INSANE  ## filler tail
+D we're in the golden age of this drop game  ## filler tail
+D the rhythm is unbreakable right now  ## filler tail
+D this is what peak looks like  ## modern slang
+D nothing stops the flow  ## filler tail
+D cascade after cascade  ## filler tail
+D the momentum train just doesn't stop  ## filler tail
+D we're living the dream drops  ## garbled
+D the droprate is SCREAMING  ## drop-rate claim / modern
+D this man turned it into an assembly line  ## filler tail
+D we're in the zone folks  ## filler tail
+D the magic is ALIVE in here  ## filler tail
+D everyone's riding this wave  ## filler tail
+D unstoppable force meets droppable objects  ## filler tail
+D I haven't blinked in forever and I don't plan to  ## filler tail
+# Question
+D I thought it was a {item} but maybe it was something else  ## filler
+D someone else confirm I'm not crazy about the {item}  ## near-dup
+D could swear that's a {item} but I've been wrong before  ## near-dup
+D I almost walked away right before the {item} did I almost miss it??  ## filler
+D bro was that a {item} or am I hallucinating at this point  ## near-dup
+D I might've been looking away when the {item} dropped, did I miss it?  ## filler
+D wait does {item} even drop in these  ## near-dup
+D somebody zoom in is that actually a {item}  ## no zoom in v83
+D the {item}?? in a drop game?? since when  ## near-dup
+D ok but how did a {item} end up in this pool  ## near-dup
+D i genuinely can't tell if that was a {item} from here  ## near-dup
+D is anybody else unsure what that was or is it just me  ## filler
+D that shadow on the floor... was that actually a {item}  ## filler
+D i don't trust my own vision right now, is that a {item}  ## near-dup
+D i can't identify the icon from this angle  ## 3D-game phrasing
+D wait did the timer just reset or am i confused  ## filler
+D everything happened so fast i missed what it was  ## near-dup
+D i didn't see the loot list did this tier have {item} in it  ## no visible loot list
+D wait does that tier even allow a {item}  ## filler tail
+D since when is {item} pool viable  ## garbled
+D can a {item} even appear in drop game  ## near-dup
+D is the {item} a glitch or real  ## filler tail
+D the {item} has what stats exactly  ## filler tail
+D can you even sell a {item} for real mesos  ## filler tail
+D what rarity bracket is the {item} in  ## not v83 (rarity tiers)
+D did anyone catch what the {item} was worth  ## near-dup
+D someone explain the {item} to me  ## filler tail
+R that {item} price in FM right now => whats a {item} go for in FM rn?  ## garbled -> question
+D can the {item} even be meso-flipped  ## modern phrasing
+D was that a {item} or just the icon I can't read  ## near-dup
+# Cheer
+D perfect execution  ## esports/commentator voice
+D the spacing is impeccable  ## commentator voice
+D that was surgical  ## commentator voice
+D classy run  ## filler
+D look at that control  ## commentator voice
+D beautiful footwork  ## commentator voice
+D that's some clean tech right there  ## modern esports slang
+D poetry in motion  ## filler
+D the flow state is real  ## modern phrasing
+D that was frame-perfect  ## speedrun jargon
+D absolutely mounted that  ## garbled
+D that's elite decision-making  ## commentator voice
+D the confidence is showing  ## filler
+# Disappointment (unused)
+D ugh this is hard to watch  ## near-dup
+D the {item} was the best drop and he missed it  ## near-dup
+D that ending hurt my soul  ## filler
+D F in chat for the {item} that got away  ## streaming-era meme
+D I feel like I personally lost that {item}  ## filler
+D the run was good until the {item} slipped away  ## filler
+D the best drop and he walked right past it  ## near-dup
+D that one hurts to watch  ## near-dup
+D the timing was so off  ## filler
+D the {item} vanished and my heart sank  ## filler
+D that {item} is gone and im sad about it  ## filler
+D had to watch the {item} despawn that was brutal  ## near-dup
+D he ran circles around the {item} and never picked it up  ## near-dup
+D that {item} is gone forever now. i watched it happen.  ## filler
+D the {item} was INCHES away from him  ## near-dup
+D F  ## streaming-era meme
+D he had a direct path to the {item} and still missed it  ## near-dup
+D he was having a perfect run until that last stretch  ## filler
+D that one's gonna haunt me  ## filler
+D right at the edge and still missed it  ## filler
+D he saw it and chose wrong. why.  ## filler
+D the {item} was RIGHT THERE and he walked  ## near-dup
+D the most anti-climactic ending possible  ## filler tail
+D the {item} deserved better  ## filler tail
+D that was supposed to be the moment  ## filler tail
+D he overthought that {item} pickup  ## filler tail
+D the run fell apart so fast  ## filler tail
+D the {item} was so close it hurts  ## filler tail
+D one wrong decision cost him the {item}  ## filler tail
+D the momentum just died with the {item}  ## filler tail
+D he played the {item} all wrong  ## filler tail
+D that last stretch was rough to watch  ## filler tail
+D missed the {item} by like a frame  ## filler tail
+D the {item} was his to lose and he did  ## filler tail
+# Commentary (unused)
+R the bot just dropped three at once that's unusual => he just dropped three at once thats unusual  ## meta (bot)
+D the drops are spread out on purpose to make you run  ## meta
+D someone should be taking notes on how he runs this  ## filler
+D his movement efficiency is kinda impressive  ## commentator voice
+D he's been at this longer than anyone else today and it shows  ## filler
+D whoever built this tier put real effort into the loot list  ## meta
+D the real skill is knowing which drops to skip  ## filler
+D he's reading where drops land before they even settle  ## filler
+D the final 20 seconds always separate the good runs from the great ones  ## filler
+D every second counts when there's this much on the floor  ## filler
+D you can tell the drop game host put work into this  ## meta
+D the drop game physics are fascinating honestly  ## filler tail
+D the way he reads the terrain is next level  ## filler tail
+D this run is a masterclass in risk assessment  ## filler tail
+D notice the spacing between the {item} and the next drop  ## filler tail
+D the difficulty curve of each tier is actually genius  ## filler tail
+D drop game economy could sustain a server  ## meta (server)
+D the bot's loot algorithm is so calculated  ## meta (bot)
+D this is basically training for actual looting  ## filler tail
+D the {item} placement looks intentional  ## filler tail
+D he's got the map memorized at this point  ## filler tail
+D the drops are timed perfectly for this arena size  ## filler tail
+D someone should speedrun drop game at some point  ## filler tail
+D the {item} spawns in these patterns you know  ## filler tail
+D drop game is underrated as a skill showcase  ## filler tail
+D this is the kind of run that gets talked about in FM  ## filler tail

@@ -260,7 +260,7 @@ conversations:
       - {speaker: A, text: "I JUST DC'D IN THE MIDDLE OF A BOSS FIGHT", emote: 6}
       - {speaker: B, text: "rip. did u lose ur spot?"}
       - {speaker: A, text: "yeah and all my buffs are gone"}
-      - {speaker: B, text: "thats rough. this server has been so laggy lately"}
+      - {speaker: B, text: "thats rough. my internet does that too sometimes"}
       - {speaker: A, text: "im tilted beyond belief", emote: 1}
 
   fame_exchange:
@@ -320,7 +320,7 @@ conversations:
     lines:
       - {speaker: A, text: "henesys is the best town in maple change my mind"}
       - {speaker: B, text: "nah ellinia is way cooler. the music and the trees"}
-      - {speaker: C, text: "kerning city has the best vibes tho. the dark alley aesthetic"}
+      - {speaker: C, text: "kerning city is the coolest tho. the dark alleys"}
       - {speaker: A, text: "bro kerning is literally a dump lol", emote: 2}
       - {speaker: B, text: "hes right. kerning smells"}
       - {speaker: C, text: "yall just dont appreciate it", emote: 1}
@@ -345,7 +345,7 @@ conversations:
       - {speaker: A, text: "its literally in my inventory look"}
       - {speaker: B, text: "bro sell that for like 100m+"}
       - {speaker: C, text: "or use it and pray", emote: 3}
-      - {speaker: A, text: "im gonna use it. yolo"}
+      - {speaker: A, text: "im gonna use it. here goes nothing"}
       - {speaker: B, text: "ur insane", emote: 5}
 
   boss_fight_recap:
@@ -410,17 +410,6 @@ conversations:
       - {speaker: B, text: "thank you. at least someone has sense"}
       - {speaker: A, text: "fine whatever. warriors are ok I guess"}
       - {speaker: C, text: "there we go", emote: 0}
-
-  halloween_event:
-    participants: 3
-    lines:
-      - {speaker: A, text: "are u guys doing the halloween event?"}
-      - {speaker: B, text: "yeah the rewards are actually good this time"}
-      - {speaker: C, text: "whats the reward?"}
-      - {speaker: A, text: "theres a cape and some chairs"}
-      - {speaker: B, text: "the cape has decent stats too"}
-      - {speaker: C, text: "ok im in. where do I start the quest"}
-      - {speaker: A, text: "talk to the NPC in henesys park"}
 
   # ═══════════════════════════════════════
   #  4-PERSON CONVERSATIONS
@@ -667,7 +656,7 @@ conversations:
       - {speaker: A, text: "and then the teachers would catch us and we'd alt-tab real fast", emote: 2}
       - {speaker: B, text: "bro the adrenaline rush of alt-tabbing when a teacher walks by", emote: 2}
       - {speaker: A, text: "better than any boss fight"}
-      - {speaker: B, text: "the true endgame content"}
+      - {speaker: B, text: "the real endgame"}
 
   # ═══════════════════════════════════════
   #  ADDITIONAL 3-PERSON CONVERSATIONS
@@ -693,7 +682,7 @@ conversations:
       - {speaker: B, text: "sure but im not buying anything. just looking"}
       - {speaker: C, text: "thats what u said last time and u dropped 300m", emote: 2}
       - {speaker: B, text: "... this time I mean it"}
-      - {speaker: A, text: "sure jan", emote: 3}
+      - {speaker: A, text: "sure buddy", emote: 3}
       - {speaker: B, text: "I hate both of you"}
       - {speaker: C, text: "love u too. lets go room 1 first"}
 
@@ -751,9 +740,9 @@ conversations:
       - {speaker: B, text: "own music. I have a whole grinding playlist"}
       - {speaker: C, text: "maple music on. its half the experience"}
       - {speaker: A, text: "I switch between both honestly"}
-      - {speaker: B, text: "the ellinia BGM goes hard tho I'll admit"}
+      - {speaker: B, text: "the ellinia BGM is really good tho I'll admit"}
       - {speaker: C, text: "RIGHT? and the ludibrium music", emote: 2}
-      - {speaker: A, text: "kerning city at night hits different too"}
+      - {speaker: A, text: "kerning city music is underrated too"}
       - {speaker: B, text: "ok fine maybe ill turn the game music back on"}
 
   helping_a_noob:
@@ -761,7 +750,7 @@ conversations:
     lines:
       - {speaker: A, text: "excuse me does anyone know how to change channels?"}
       - {speaker: B, text: "yeah just press escape and click channel"}
-      - {speaker: C, text: "or u can use the quick channel change in the top right"}
+      - {speaker: C, text: "or click the channel button at the bottom"}
       - {speaker: A, text: "oh I see it! thank you so much"}
       - {speaker: B, text: "np! u new?"}
       - {speaker: A, text: "yeah just started yesterday. theres so much to learn"}
@@ -772,7 +761,7 @@ conversations:
     participants: 3
     lines:
       - {speaker: A, text: "im about to scroll my weapon. wish me luck"}
-      - {speaker: B, text: "gl!! sending good vibes"}
+      - {speaker: B, text: "gl!! dont boom it"}
       - {speaker: C, text: "what scroll u using?"}
       - {speaker: A, text: "60% for weapon att"}
       - {speaker: B, text: "ok go go go"}
@@ -854,11 +843,11 @@ conversations:
     lines:
       - {speaker: A, text: "so what are we doing right now"}
       - {speaker: B, text: "standing here"}
-      - {speaker: C, text: "vibing"}
-      - {speaker: D, text: "existing"}
+      - {speaker: C, text: "chillin"}
+      - {speaker: D, text: "afk basically"}
       - {speaker: A, text: "shouldn't we be training or something productive"}
       - {speaker: B, text: "nah this IS the content"}
-      - {speaker: C, text: "henesys standing simulator 2009", emote: 2}
+      - {speaker: C, text: "henesys standing simulator 2008", emote: 2}
       - {speaker: D, text: "the real endgame was the friends we made standing here", emote: 0}
 
   # ═══════════════════════════════════════
@@ -942,7 +931,7 @@ conversations:
       - {speaker: A, text: "what do u listen to when u grind?"}
       - {speaker: B, text: "the in-game music usually. I like it"}
       - {speaker: A, text: "wait really? most people play their own stuff"}
-      - {speaker: B, text: "idk the BGM fits the vibe"}
+      - {speaker: B, text: "idk the BGM fits the mood"}
       - {speaker: A, text: "fair. the ellinia music is a banger"}
       - {speaker: B, text: "right? and ludibrium too"}
       - {speaker: A, text: "ok maybe ill try it again"}
@@ -977,7 +966,7 @@ conversations:
     lines:
       - {speaker: A, text: "whats the best BGM in the game?"}
       - {speaker: B, text: "henesys easily"}
-      - {speaker: C, text: "nah ellinia. the fairy forest vibes are unmatched"}
+      - {speaker: C, text: "nah ellinia. the fairy forest music is the best"}
       - {speaker: A, text: "I was gonna say the login screen music but both of those are good"}
       - {speaker: B, text: "oh yeah the login music. forgot about that one"}
       - {speaker: C, text: "how do you forget the login music?? its the first thing you hear!", emote: 5}
@@ -1017,17 +1006,6 @@ conversations:
       - {speaker: C, text: "ill ask my guildie to come too"}
       - {speaker: A, text: "the more the merrier. just dont die on me lol", emote: 2}
 
-  event_discussion:
-    participants: 3
-    lines:
-      - {speaker: A, text: "are you guys doing the current event?"}
-      - {speaker: B, text: "yeah the rewards are actually decent this time"}
-      - {speaker: C, text: "I havent started yet. worth it?"}
-      - {speaker: A, text: "theres a chair and a cape so yeah"}
-      - {speaker: B, text: "the chair alone makes it worth it"}
-      - {speaker: C, text: "alright ill start it tonight. where do I begin?"}
-      - {speaker: A, text: "talk to the event NPC in henesys"}
-
   random_henesys_encounter:
     participants: 3
     lines:
@@ -1037,7 +1015,7 @@ conversations:
       - {speaker: B, text: "uh... enough"}
       - {speaker: A, text: "that bad huh", emote: 2}
       - {speaker: B, text: "fashion has a price ok", emote: 3}
-      - {speaker: C, text: "respect the drip"}
+      - {speaker: C, text: "looks good tho"}
 
   # ═══════════════════════════════════════
   #  MORE 4-PERSON CONVERSATIONS
@@ -1065,7 +1043,7 @@ conversations:
       - {speaker: A, text: "I wouldnt have it any other way"}
       - {speaker: B, text: "some of my best convos have happened right here"}
       - {speaker: C, text: "same honestly. maple friends are different"}
-      - {speaker: D, text: "built different. forged in the fires of PQ and FM shopping", emote: 2}
+      - {speaker: D, text: "forged in the fires of PQ and FM shopping", emote: 2}
 
   who_is_the_richest:
     participants: 4
@@ -1089,32 +1067,11 @@ conversations:
       - {speaker: A, text: "so basically what were doing right now"}
       - {speaker: B, text: "exactly", emote: 2}
       - {speaker: C, text: "the game within the game is just socializing"}
-      - {speaker: D, text: "the true endgame content"}
+      - {speaker: D, text: "the real endgame"}
 
   # ═══════════════════════════════════════
   #  ANIME & GAMING CONVERSATIONS
   # ═══════════════════════════════════════
-
-  anime_recommendation:
-    participants: 2
-    lines:
-      - {speaker: A, text: "have u watched jujutsu kaisen"}
-      - {speaker: B, text: "yeah season 2 was insane"}
-      - {speaker: A, text: "RIGHT?? the animation quality", emote: 5}
-      - {speaker: B, text: "mappa went crazy. but at what cost (their animators)"}
-      - {speaker: A, text: "lol true. still tho that shibuya arc"}
-      - {speaker: B, text: "no spoilers I know someone who hasnt seen it yet"}
-
-  gaming_setup_brag:
-    participants: 3
-    lines:
-      - {speaker: A, text: "just got a new monitor. 144hz"}
-      - {speaker: B, text: "for maple?? bro its a 2d game from 2003", emote: 2}
-      - {speaker: C, text: "let him have this"}
-      - {speaker: A, text: "the smoothness is real ok. even scrolling through FM feels better"}
-      - {speaker: B, text: "ur delusional but I respect the commitment", emote: 3}
-      - {speaker: C, text: "I play on a laptop from 2015 and I do just fine"}
-      - {speaker: A, text: "thats not the flex u think it is"}
 
   fm_price_check:
     participants: 2
@@ -1123,7 +1080,7 @@ conversations:
       - {speaker: B, text: "in fm? depends who u ask lol"}
       - {speaker: A, text: "i just saw some dude spam 8m and i laughed"}
       - {speaker: B, text: "8m is robbery unless its perf stats or some weird collector thing"}
-      - {speaker: A, text: "bruh i knew it, this server be makin me feel poor"}
+      - {speaker: A, text: "bruh i knew it, this game be makin me feel poor"}
       - {speaker: B, text: "welcome to merchville"}
 
   zakum_prereq_help:
@@ -1143,7 +1100,7 @@ conversations:
       - {speaker: B, text: "same i opened the game to relax and now i have a math worksheet staring at me"}
       - {speaker: A, text: "why do teachers act like we all got infinite energy"}
       - {speaker: B, text: "bc they dont know what grinding 2x exp feels like"}
-      - {speaker: A, text: "facts. at least maple doesnt give pop quizzes"}
+      - {speaker: A, text: "true. at least maple doesnt give pop quizzes"}
       - {speaker: B, text: "yet"}
 
   pq_party_waiting:
@@ -1154,7 +1111,7 @@ conversations:
       - {speaker: C, text: "sorry i was afk my mom made me take trash out"}
       - {speaker: A, text: "bro popped back in like a legend"}
       - {speaker: B, text: "we were about to replace u with a chair"}
-      - {speaker: C, text: "respectfully that chair probably had better dps than me"}
+      - {speaker: C, text: "honestly that chair probably does more damage than me"}
 
   old_maple_nostalgia:
     participants: 2
@@ -1165,16 +1122,6 @@ conversations:
       - {speaker: B, text: "same and i was proud of my tiny orange potions"}
       - {speaker: A, text: "now ppl hit 120 and act like its nothing", emote: 2}
       - {speaker: B, text: "kids these days got no respect for snail grind"}
-
-  anime_break_talk:
-    participants: 4
-    lines:
-      - {speaker: A, text: "anyone else watching the new anime season or am i cooked"}
-      - {speaker: B, text: "i dropped half the shows already"}
-      - {speaker: C, text: "same, only one im actually keeping up with is that demon one"}
-      - {speaker: D, text: "the op is hard tho, cant skip it", emote: 3}
-      - {speaker: A, text: "true but the last episode ended way too fast"}
-      - {speaker: B, text: "every episode ends fast when u got maple open on the side"}
 
   sleep_deprived_gamer:
     participants: 2
@@ -1199,42 +1146,22 @@ conversations:
   fashion_show_off:
     participants: 2
     lines:
-      - {speaker: A, text: "ok be honest does this nx fit go hard or am i delusional"}
-      - {speaker: B, text: "nah it actually goes hard"}
+      - {speaker: A, text: "ok be honest does this nx outfit look good or am i delusional"}
+      - {speaker: B, text: "nah it actually looks sick"}
       - {speaker: A, text: "finally someone with taste"}
       - {speaker: B, text: "the hat is carrying but ur whole look works"}
       - {speaker: A, text: "thats the nicest insult ive gotten all day", emote: 2}
-      - {speaker: B, text: "take the W and walk away slow"}
-
-  lag_spike_hell:
-    participants: 3
-    lines:
-      - {speaker: A, text: "did everyone just dc or is my wifi dying"}
-      - {speaker: B, text: "nah server lagged hard for me too"}
-      - {speaker: C, text: "i was mid jump quest and got yeeted off the platform", emote: 5}
-      - {speaker: A, text: "bro the lag has personal beef with u"}
-      - {speaker: B, text: "this is why i never trust events on reset day"}
-      - {speaker: C, text: "free exp tho if u can survive the rubberbanding"}
-
-  coding_and_maple:
-    participants: 4
-    lines:
-      - {speaker: A, text: "spent all day coding and now i just wanna brain off in fm"}
-      - {speaker: B, text: "respect. i tried making a tiny bot and it somehow broke my whole pc"}
-      - {speaker: C, text: "classic programmer moment", emote: 2}
-      - {speaker: D, text: "maple is weirdly easier than debugging sometimes"}
-      - {speaker: A, text: "facts. at least mobs dont leave comments in all caps"}
-      - {speaker: B, text: "npc dialogue sometimes feels like code tho"}
+      - {speaker: B, text: "take the compliment and walk away slow"}
 
   winter_weather_chat:
     participants: 2
     lines:
       - {speaker: A, text: "it is way too cold today"}
-      - {speaker: B, text: "perfect weather to sit inside and grind, respectfully"}
+      - {speaker: B, text: "perfect weather to sit inside and grind"}
       - {speaker: A, text: "u only say that bc u dont have to walk anywhere"}
       - {speaker: B, text: "true and i am not ashamed"}
       - {speaker: A, text: "my fingers are actually frozen on the keyboard"}
-      - {speaker: B, text: "skill issue, put on socks"}
+      - {speaker: B, text: "sounds like a you problem, put on socks"}
 
   guild_drama_whispers:
     participants: 3
@@ -1244,17 +1171,7 @@ conversations:
       - {speaker: C, text: "bro ppl act like 2 drops changed the economy", emote: 6}
       - {speaker: A, text: "i just wanna party and chill not read essays"}
       - {speaker: B, text: "same. i joined to play maple not watch a soap opera"}
-      - {speaker: C, text: "still better than global chat tho"}
-
-  console_vs_pc:
-    participants: 2
-    lines:
-      - {speaker: A, text: "u think console gaming still beats pc"}
-      - {speaker: B, text: "depends. for chill games yeah maybe"}
-      - {speaker: A, text: "nah pc got too much power. plus hotkeys in maple are life"}
-      - {speaker: B, text: "ok fair. controller on maple would be chaos"}
-      - {speaker: A, text: "imagine trying to loot with a stick", emote: 2}
-      - {speaker: B, text: "instant kms"}
+      - {speaker: C, text: "still better than smega drama tho"}
 
   boss_practice_group:
     participants: 4
@@ -1273,7 +1190,7 @@ conversations:
       - {speaker: A, text: "just got off work and my brain is fried"}
       - {speaker: B, text: "same i barely survived customer service today"}
       - {speaker: A, text: "i need a chair, a drink, and zero responsibilities"}
-      - {speaker: B, text: "so... maple chair, maple drink, and ignore guild pings"}
+      - {speaker: B, text: "so... maple chair, maple drink, and ignore guild chat"}
       - {speaker: A, text: "exactly. living the dream", emote: 2}
       - {speaker: B, text: "we are so healthy and productive"}
 
@@ -1285,7 +1202,7 @@ conversations:
       - {speaker: C, text: "wow raiders are so intense about their builds its scary"}
       - {speaker: A, text: "bro i just wanna jump around and make mesos"}
       - {speaker: B, text: "valid. also maple music hits harder at 2am anyway"}
-      - {speaker: C, text: "that sleepy henesys theme is undefeated"}
+      - {speaker: C, text: "that sleepy henesys theme is the best"}
 
   pet_hunger_panic:
     participants: 2
@@ -1349,36 +1266,6 @@ conversations:
       - {speaker: C, text: "like 72. slower than maple but somehow more relaxing"}
       - {speaker: B, text: "honestly runescape grind makes maple look like a sprint"}
       - {speaker: A, text: "for real lvl 99 in anything there takes actual months"}
-
-  pc_flex:
-    participants: 2
-    lines:
-      - {speaker: A, text: "finally hooked up my gaming pc"}
-      - {speaker: B, text: "how are the specs?", emote: 6}
-      - {speaker: A, text: "NVIDIA but like super expensive. gotta get the best"}
-      - {speaker: B, text: "bro playing maplestory on a 6090??? tf", emote: 2}
-      - {speaker: A, text: "u dont get it the gpu prices going crazy.", emote: 3}
-      - {speaker: B, text: "if it looks cool idc post pics in discord later"}
-
-  gamer_fuel:
-    participants: 2
-    lines:
-      - {speaker: A, text: "brb doorbells ringing food is here"}
-      - {speaker: B, text: "is that ur fried chicken meal today again"}
-      - {speaker: A, text: "yeah door dash lifestyle saves so much time not cooking", emote: 3}
-      - {speaker: B, text: "id actually starve i need snacks every 2 hours while grinding"}
-      - {speaker: A, text: "u get used to it. more time for the grind maplestory > cooking"}
-
-  monochrome_fashion:
-    participants: 3
-    lines:
-      - {speaker: A, text: "wts transparent hat 50m or offer"}
-      - {speaker: B, text: "ur nx set is so clean. its a vibe"}
-      - {speaker: A, text: "ty trying to match my real life closet"}
-      - {speaker: C, text: "lol context? u only wear monochrome?"}
-      - {speaker: A, text: "yeah been importing streetwear stuff lately its nice"}
-      - {speaker: B, text: "expensive hobby but respect the drip", emote: 3}
-      - {speaker: C, text: "meanwhile im over here wearing a literal hotdog suit in game"}
 
   skate_injury:
     participants: 2
@@ -1452,16 +1339,6 @@ conversations:
       - {speaker: B, text: "sunny california perks i guess haha"}
       - {speaker: A, text: "must be nice im freezing my butt off in ny"}
 
-  anime_hot_take:
-    participants: 3
-    lines:
-      - {speaker: A, text: "demon slayer is hard carried by ufotable animation"}
-      - {speaker: B, text: "woke up and chose violence i see"}
-      - {speaker: C, text: "hes right tho the story is generic shonen template"}
-      - {speaker: B, text: "but the fights are hype af who cares about deep plot"}
-      - {speaker: A, text: "i mean yeah its fun to watch but people rate it 10/10 like its masterpiece level"}
-      - {speaker: C, text: "solid 7/10 carried by budget"}
-
   jump_quest_rage:
     participants: 2
     lines:
@@ -1501,15 +1378,6 @@ conversations:
       - {speaker: A, text: "ah cool"}
       - {speaker: B, text: "yea"}
 
-  manga_snob:
-    participants: 3
-    lines:
-      - {speaker: A, text: "chainsaw man anime was so good"}
-      - {speaker: B, text: "the manga is way better the anime style is too cinematic"}
-      - {speaker: C, text: "manga readers try not to say 'manga is better' challenge (impossible)", emote: 2}
-      - {speaker: B, text: "im serious the art style in the later chapters goes crazy"}
-      - {speaker: A, text: "ill stick to the pretty colors and animation thanks"}
-
   fame_trade:
     participants: 2
     lines:
@@ -1529,17 +1397,6 @@ conversations:
       - {speaker: A, text: "might just go back to henesys hunting"}
       - {speaker: B, text: "lol classic choice"}
 
-  fm_price_complaint:
-    participants: 3
-    lines:
-      - {speaker: A, text: "why are zhelm scrolls 800m now wtf"}
-      - {speaker: B, text: "some whale bought like 20 of them last week"}
-      - {speaker: C, text: "merching is dead"}
-      - {speaker: A, text: "i remember when they were 200m"}
-      - {speaker: B, text: "same bro, economy cooked"}
-      - {speaker: C, text: "just farm bosses yourself atp"}
-      - {speaker: A, text: "easier said than done"}
-
   pq_fail_story:
     participants: 2
     lines:
@@ -1557,7 +1414,7 @@ conversations:
       - {speaker: B, text: "no way whatd he do"}
       - {speaker: C, text: "scammed a member for nx apparently"}
       - {speaker: D, text: "bruh guild chat was wild"}
-      - {speaker: A, text: "i knew he was sus from the start"}
+      - {speaker: A, text: "i knew he was shady from the start"}
       - {speaker: B, text: "same, always flexing fake stuff"}
       - {speaker: C, text: "guilds are never drama free"}
 
@@ -1579,7 +1436,7 @@ conversations:
       - {speaker: C, text: "i use the corner strat"}
       - {speaker: A, text: "that works??"}
       - {speaker: B, text: "sometimes. mostly pray"}
-      - {speaker: C, text: "lol facts"}
+      - {speaker: C, text: "lol true"}
       - {speaker: A, text: "might try that next run"}
 
   jump_quest_rant:
@@ -1592,16 +1449,6 @@ conversations:
       - {speaker: A, text: "bruh why is it so hard"}
       - {speaker: B, text: "just another maple moment"}
 
-  server_lag_frustration:
-    participants: 3
-    lines:
-      - {speaker: A, text: "this lag is actually unplayable"}
-      - {speaker: B, text: "same, keeps dc'ing me"}
-      - {speaker: C, text: "happens every weekend"}
-      - {speaker: A, text: "they need better hosting"}
-      - {speaker: B, text: "or at least warn us"}
-      - {speaker: C, text: "just afk till it calms down"}
-
   other_mmo_comparison:
     participants: 2
     lines:
@@ -1609,38 +1456,18 @@ conversations:
       - {speaker: B, text: "yeah the grind was real"}
       - {speaker: A, text: "maple feels chill compared to that"}
       - {speaker: B, text: "true but rs had that freedom"}
-      - {speaker: A, text: "might go back after this wipe"}
+      - {speaker: A, text: "might go back after this summer"}
       - {speaker: B, text: "same"}
-
-  gaming_setup_talk:
-    participants: 3
-    lines:
-      - {speaker: A, text: "finally upgraded my mouse, razer one"}
-      - {speaker: B, text: "for maple? overkill much"}
-      - {speaker: C, text: "let him cook"}
-      - {speaker: A, text: "the dpi helps with micro movements"}
-      - {speaker: B, text: "u sound like a streamer"}
-      - {speaker: C, text: "whats next, mechanical keyboard for 2d game"}
 
   retro_games_chat:
     participants: 2
     lines:
       - {speaker: A, text: "been playing some pokemon crystal lately"}
-      - {speaker: B, text: "real one. i still have my gameboy"}
-      - {speaker: A, text: "the nostalgia hits different"}
+      - {speaker: B, text: "nice. i still have my gameboy"}
+      - {speaker: A, text: "the nostalgia is real"}
       - {speaker: B, text: "maple was my childhood but pokemon too"}
       - {speaker: A, text: "we should trade sometime lol"}
       - {speaker: B, text: "im down"}
-
-  esports_debate:
-    participants: 2
-    lines:
-      - {speaker: A, text: "lol valorant pros are crazy"}
-      - {speaker: B, text: "maple pvp was peak tho"}
-      - {speaker: A, text: "bro maple pvp is just lag and ks"}
-      - {speaker: B, text: "still more fun than watching streams"}
-      - {speaker: A, text: "fair point"}
-      - {speaker: B, text: "i miss the old maple tournaments"}
 
   anime_current_season:
     participants: 3
@@ -1691,7 +1518,7 @@ conversations:
       - {speaker: A, text: "both... mostly maple"}
       - {speaker: B, text: "u gotta fix that schedule"}
       - {speaker: A, text: "says the guy whos always online at 4am"}
-      - {speaker: B, text: "touché"}
+      - {speaker: B, text: "touche"}
 
   weekend_plans:
     participants: 4
@@ -1754,7 +1581,7 @@ conversations:
       - {speaker: C, text: "this is the most relatable thing ive ever read"}
       - {speaker: A, text: "i study better under pressure ok"}
       - {speaker: B, text: "thats what everyone says right before they fail"}
-      - {speaker: C, text: "let him cook. worst case he just retakes it"}
+      - {speaker: C, text: "leave him alone. worst case he just retakes it"}
       - {speaker: A, text: "exactly. thank u C", emote: 2}
       - {speaker: B, text: "dont come crying to us tmrw"}
 
@@ -1767,7 +1594,7 @@ conversations:
       - {speaker: B, text: "i cant. if i sleep now ill wake up at like 2pm"}
       - {speaker: A, text: "thats a you problem lol"}
       - {speaker: B, text: "my sleep schedule is so destroyed at this point", emote: 4}
-      - {speaker: A, text: "summer vibes"}
+      - {speaker: A, text: "summer break life"}
 
   fm_price_outrage:
     participants: 3
@@ -1859,24 +1686,11 @@ conversations:
     participants: 2
     lines:
       - {speaker: A, text: "hot take: death note fell off after L died"}
-      - {speaker: B, text: "thats not even a hot take thats just facts"}
-      - {speaker: A, text: "near and mello were so mid compared to L"}
+      - {speaker: B, text: "thats not even a hot take thats just true"}
+      - {speaker: A, text: "near and mello were so lame compared to L"}
       - {speaker: B, text: "near is literally L but without the personality"}
       - {speaker: A, text: "they shouldve ended it at episode 25"}
       - {speaker: B, text: "the potato chip scene is legendary tho. that stays.", emote: 3}
-
-  build_pc_advice:
-    participants: 3
-    lines:
-      - {speaker: A, text: "thinking about building a pc. any advice?"}
-      - {speaker: B, text: "budget?"}
-      - {speaker: A, text: "like 800-1000"}
-      - {speaker: C, text: "u can get a solid build for that. ryzen 5 + a decent gpu"}
-      - {speaker: B, text: "dont cheap out on the power supply. trust me on that one"}
-      - {speaker: A, text: "noted. any gpu recommendations?"}
-      - {speaker: C, text: "depends if u wanna play more than maple lol"}
-      - {speaker: B, text: "maple runs on a toaster. get whatever u want", emote: 2}
-      - {speaker: A, text: "i play other games too ok"}
 
   jump_quest_rage:
     participants: 2
@@ -1952,7 +1766,7 @@ conversations:
     participants: 3
     lines:
       - {speaker: A, text: "remember when henesys was full of people just standing around"}
-      - {speaker: B, text: "omg yes the henesys market was such a vibe"}
+      - {speaker: B, text: "omg yes the henesys market was so fun"}
       - {speaker: C, text: "ppl selling stuff by text in free chat. so chaotic"}
       - {speaker: A, text: "i used to just hang out there for hours not even playing properly"}
       - {speaker: B, text: "it was like a town square. everyone just chilling"}
@@ -2017,7 +1831,7 @@ conversations:
       - {speaker: B, text: "50m for what"}
       - {speaker: A, text: "i want a zhelm. prices are insane right now"}
       - {speaker: C, text: "just do zakum runs yourself if you can get in a crew"}
-      - {speaker: A, text: "im not 140 yet so i cant even go in"}
+      - {speaker: A, text: "i havent done the prequest so i cant even go in"}
       - {speaker: B, text: "buying one is faster. just takes patience"}
       - {speaker: C, text: "i spent 3 weeks saving for mine and then the price dropped lol", emote: 6}
       - {speaker: A, text: "thats my nightmare scenario"}
@@ -2069,8 +1883,8 @@ conversations:
       - {speaker: A, text: "those waiting lines were brutal but fun in a weird way"}
       - {speaker: B, text: "i made so many random friends just standing in the entrance lobby"}
       - {speaker: A, text: "the boat trip to orbis was basically social hour too"}
-      - {speaker: B, text: "ppl would fight monsters together on the way over and just vibe", emote: 2}
-      - {speaker: A, text: "maple genuinely had the best idle moments. just existing was fun"}
+      - {speaker: B, text: "ppl would fight monsters together on the way over and just hang out", emote: 2}
+      - {speaker: A, text: "maple genuinely had the best idle moments. just hanging out was fun"}
       - {speaker: B, text: "opq itself was also pretty fun once u got a good party going"}
 
   dark_knight_vs_hero:
@@ -2116,7 +1930,7 @@ conversations:
     lines:
       - {speaker: A, text: "i actually quit for like 8 months and just came back last week"}
       - {speaker: B, text: "welcome back lol. what made u come back"}
-      - {speaker: A, text: "honestly just nostalgia hit. i missed the vibe"}
+      - {speaker: A, text: "honestly just nostalgia hit. i missed the game"}
       - {speaker: B, text: "happens to everyone. this game has a gravitational pull"}
       - {speaker: A, text: "surprised how much i remembered about my builds and spots"}
       - {speaker: B, text: "muscle memory never forgets. ur fingers know the combos", emote: 2}
@@ -2195,7 +2009,7 @@ conversations:
       - {speaker: A, text: "i always forget. every time i come here"}
       - {speaker: B, text: "at least the map is pretty when ur not being frozen every 3 seconds"}
       - {speaker: A, text: "the music up here is good though. very atmospheric"}
-      - {speaker: B, text: "el nath gets points for vibes. minus points for cold mechanic", emote: 4}
+      - {speaker: B, text: "el nath gets points for the music. minus points for the cold", emote: 4}
 
   pq_partner_search:
     participants: 3
@@ -2243,7 +2057,7 @@ conversations:
       - {speaker: A, text: "taeyang said he can come so yes we have rez coverage"}
       - {speaker: B, text: "do we need to recruit anyone else or do we have 6"}
       - {speaker: C, text: "we should have 8 minimum for smooth runs ideally"}
-      - {speaker: A, text: "ill post in recruitment chat. we need 2 more"}
+      - {speaker: A, text: "ill smega for 2 more. we need 2 more"}
       - {speaker: D, text: "make sure they have at least 100 def gear. last time was rough", emote: 5}
 
   losing_track_of_time:
@@ -2270,18 +2084,6 @@ conversations:
       - {speaker: C, text: "ive had people just start training next to me without a single word", emote: 6}
       - {speaker: A, text: "and then u have to be the one to bring it up which feels awkward"}
       - {speaker: B, text: "the social contract of training maps is real and needs to be respected"}
-
-  mage_skill_rotation:
-    participants: 2
-    lines:
-      - {speaker: A, text: "whats ur rotation for fire poison mage bossing"}
-      - {speaker: B, text: "basically poison mist then meteor into element amplification when it procs"}
-      - {speaker: A, text: "do u weave any regular attacks in or just wait for mist tick"}
-      - {speaker: B, text: "i throw fire arrow in the gaps. keeps damage rolling while mist does its thing"}
-      - {speaker: A, text: "how important is slow for bossing vs training spots"}
-      - {speaker: B, text: "not super useful on bosses since most are immune. big for regular training"}
-      - {speaker: A, text: "makes sense. fp feels complex but satisfying when it clicks"}
-      - {speaker: B, text: "its one of the more active playstyles for sure. never boring", emote: 2}
 
   henesys_market_gossip:
     participants: 3
@@ -2329,7 +2131,7 @@ conversations:
       - {speaker: A, text: "i KNOW that but it doesnt feel random"}
       - {speaker: B, text: "thats ur brain pattern matching where there is no pattern", emote: 3}
       - {speaker: A, text: "my brain is wrong but its so convinced"}
-      - {speaker: B, text: "classic maple experience. the rng hits different when ur invested"}
+      - {speaker: B, text: "classic maple experience. the rng feels personal when ur invested"}
 
   maple_anniversary_memories:
     participants: 3
@@ -2376,7 +2178,7 @@ conversations:
       - {speaker: A, text: "casual but we do boss runs twice a week. 20 members"}
       - {speaker: B, text: "any level requirements"}
       - {speaker: A, text: "just gotta be past 2nd job. we dont care about level too much"}
-      - {speaker: B, text: "whats the vibe. sweaty or just for fun"}
+      - {speaker: B, text: "is it a hardcore guild or just for fun"}
       - {speaker: A, text: "mostly for fun. we joke around in guild chat a lot"}
       - {speaker: B, text: "ok that sounds good actually. how do i join", emote: 2}
       - {speaker: A, text: "ill send u an invite right now. welcome aboard"}
@@ -2580,16 +2382,6 @@ conversations:
       - {speaker: C, text: "hes kinda right tho. bowmasters need a buff lol"}
       - {speaker: A, text: "i refuse to accept this. my ranger is doing just fine"}
 
-  stop_being_afk:
-    participants: 2
-    lines:
-      - {speaker: A, text: "dude come on we need u for this run"}
-      - {speaker: B, text: "5 more minutes im watching something"}
-      - {speaker: A, text: "u said that 20 minutes ago"}
-      - {speaker: B, text: "ok ok im coming. let me pause this video"}
-      - {speaker: A, text: "u cant pause a livestream"}
-      - {speaker: B, text: "...fine. omw", emote: 4}
-
   boat_ride_boredom:
     participants: 2
     lines:
@@ -2752,7 +2544,7 @@ conversations:
     lines:
       - {speaker: A, text: "i set an alarm for 6am just to grind before school"}
       - {speaker: B, text: "6am maple. the dedication is actually unreal"}
-      - {speaker: A, text: "empty maps in the morning hit so different"}
+      - {speaker: A, text: "empty maps in the morning are so nice"}
       - {speaker: B, text: "nobody ks's u at 6am. its peaceful out there"}
       - {speaker: A, text: "exp somehow feels more satisfying when ur the only one awake", emote: 2}
       - {speaker: B, text: "morning maple is the best kept secret in this whole game"}
@@ -2786,17 +2578,6 @@ conversations:
       - {speaker: B, text: "way more than 13"}
       - {speaker: A, text: "ok i will never be doing that"}
       - {speaker: B, text: "the elevator exists for a reason. just use it", emote: 0}
-
-  smega_spam_fatigue:
-    participants: 3
-    lines:
-      - {speaker: A, text: "some guy has been smegaing the same message every 30 seconds for an hour"}
-      - {speaker: B, text: "i respect the hustle but my eyes are suffering"}
-      - {speaker: C, text: "mute world chat and live in peace"}
-      - {speaker: A, text: "but then i miss actual important stuff"}
-      - {speaker: B, text: "what important stuff even happens in world chat"}
-      - {speaker: A, text: "ok fair. its just wts spam forever", emote: 6}
-      - {speaker: C, text: "world chat is its own ecosystem and i want no part of it"}
 
   # ═══════════════════════════════════════
   #  BATCH 4: NEW CONVERSATIONAL CONTENT
@@ -2838,15 +2619,6 @@ conversations:
       - {speaker: A, text: "but some of the quest rewards are solid"}
       - {speaker: B, text: "maybe for gear but exp wise just kill mobs faster. simpler"}
       - {speaker: A, text: "fair point. grinding tunnel brain is real"}
-
-  training_music_matters:
-    participants: 2
-    lines:
-      - {speaker: A, text: "u ever notice how the music affects how long u can grind"}
-      - {speaker: B, text: "yeah. hypoing to a banger map vs boring music is like 2x longer sessions", emote: 2}
-      - {speaker: A, text: "thats why ellinia training slaps. the bgm is just right"}
-      - {speaker: B, text: "and kerning makes u wanna afk after 30 minutes"}
-      - {speaker: A, text: "music is a hidden stat confirmed"}
 
   solo_vs_party_grind:
     participants: 3
@@ -2908,16 +2680,6 @@ conversations:
 
   # MINIGAME GOSSIP
 
-  gacha_horror_story:
-    participants: 2
-    lines:
-      - {speaker: A, text: "i just spent 50 bucks on gach and got repeats of the same trash"}
-      - {speaker: B, text: "oh no ur in the nightmare spiral now"}
-      - {speaker: A, text: "i just wanted the weapon skin"}
-      - {speaker: B, text: "they always make the good stuff super rare. its designed to drain u", emote: 3}
-      - {speaker: A, text: "im swearing off gacha forever"}
-      - {speaker: B, text: "see u next week"}
-
   pq_new_player_energy:
     participants: 3
     lines:
@@ -2928,21 +2690,12 @@ conversations:
       - {speaker: B, text: "all of them. u die to all of them"}
       - {speaker: C, text: "once u beat it tho the reward is worth it", emote: 2}
 
-  hidden_minigame_finds:
-    participants: 2
-    lines:
-      - {speaker: A, text: "did u know theres like a secret card game in ludi"}
-      - {speaker: B, text: "wait what. where"}
-      - {speaker: A, text: "some npc has it. gives decent rewards if u win"}
-      - {speaker: B, text: "how did u even find that"}
-      - {speaker: A, text: "honestly was just wandering around lost lol"}
-
   blackjack_curse:
     participants: 2
     lines:
       - {speaker: A, text: "the blackjack dealer always hits on 16 against my 20"}
       - {speaker: B, text: "thats how the game works sometimes"}
-      - {speaker: A, text: "but like statistically thats sus"}
+      - {speaker: A, text: "but like statistically thats shady"}
       - {speaker: B, text: "its rng. u just have bad luck days"}
       - {speaker: A, text: "or the dealer is rigged lol"}
 
@@ -2956,15 +2709,6 @@ conversations:
       - {speaker: A, text: "idk whichever u want it to be lol"}
       - {speaker: B, text: "that was the most nervous text ive ever read"}
       - {speaker: A, text: "im bad at this ok"}
-
-  guildmate_crush_energy:
-    participants: 3
-    lines:
-      - {speaker: A, text: "does anyone else think the new dex bowmaster in guild is cute"}
-      - {speaker: B, text: "ohhh ur simping", emote: 3}
-      - {speaker: A, text: "im not! just making an observation"}
-      - {speaker: C, text: "uve liked all their facebook posts this week"}
-      - {speaker: B, text: "the jig is up lol"}
 
   virtual_couple_goals:
     participants: 2
@@ -2980,7 +2724,7 @@ conversations:
     lines:
       - {speaker: A, text: "ive seen u grinding at this spot before. ur pretty good"}
       - {speaker: B, text: "oh thanks??", emote: 6}
-      - {speaker: A, text: "like i mean at the game. ur rotation is clean"}
+      - {speaker: A, text: "like i mean at the game. ur mobbing is clean"}
       - {speaker: B, text: "oh lmaooo i was so confused for a second", emote: 2}
       - {speaker: A, text: "yeah i worded that weird"}
 
@@ -2990,7 +2734,7 @@ conversations:
     participants: 3
     lines:
       - {speaker: A, text: "thieves are honestly the most fun to play"}
-      - {speaker: B, text: "fun sure but the dmg output is mid"}
+      - {speaker: B, text: "fun sure but the dmg output is meh"}
       - {speaker: C, text: "nah when ur geared a nl does CRAZY damage"}
       - {speaker: B, text: "but to get there u need like 500m in funding"}
       - {speaker: A, text: "see thats the thief life. high risk high reward"}
@@ -3008,10 +2752,10 @@ conversations:
     participants: 2
     lines:
       - {speaker: A, text: "why does nobody play corsairs"}
-      - {speaker: B, text: "bro idk they slap but like theyre invisible"}
-      - {speaker: A, text: "fr they have good utility and dmg"}
+      - {speaker: B, text: "bro idk theyre good but like nobody plays them"}
+      - {speaker: A, text: "yeah they have good utility and dmg"}
       - {speaker: B, text: "pirate class stigma i guess"}
-      - {speaker: A, text: "pirate class nation someday"}
+      - {speaker: A, text: "pirates will get their day"}
 
   cleric_blessing_wars:
     participants: 2
@@ -3023,24 +2767,6 @@ conversations:
       - {speaker: A, text: "it literally saves everyone mesos. spread the word"}
 
   # SERVER / META OBSERVATIONS
-
-  server_economy_collapse:
-    participants: 3
-    lines:
-      - {speaker: A, text: "prices have gotten absolutely ridiculous lately"}
-      - {speaker: B, text: "too many botters farming. supply is broken"}
-      - {speaker: C, text: "the economy is cooked. should just wipe"}
-      - {speaker: A, text: "a wipe would be chaos"}
-      - {speaker: B, text: "but also reset the insanity"}
-
-  population_shifted:
-    participants: 2
-    lines:
-      - {speaker: A, text: "the server feels different lately. fewer people"}
-      - {speaker: B, text: "end of summer maybe. kids going back to school"}
-      - {speaker: A, text: "nah this feels more permanent like people are leaving"}
-      - {speaker: B, text: "give it time. maple always has cycles"}
-      - {speaker: A, text: "hope ur right"}
 
   patch_notes_confusion:
     participants: 2
@@ -3071,34 +2797,6 @@ conversations:
       - {speaker: B, text: "sounds weirdly nice for an ancient game"}
       - {speaker: A, text: "it was. i miss it some days"}
 
-  class_balance_complainers:
-    participants: 2
-    lines:
-      - {speaker: A, text: "remember when classes were actually balanced"}
-      - {speaker: B, text: "that literally never happened lol"}
-      - {speaker: A, text: "ok true. but it felt less broken somehow"}
-      - {speaker: B, text: "power creep is real. nostalgia is just rosy glasses"}
-      - {speaker: A, text: "maybe but the old days hit different"}
-
-  prebbq_grind_memories:
-    participants: 3
-    lines:
-      - {speaker: A, text: "pre big bang leveling was absolutely brutal"}
-      - {speaker: B, text: "like actual months to hit 120"}
-      - {speaker: C, text: "now its like weeks if u try"}
-      - {speaker: A, text: "but back then leveling felt like an accomplishment"}
-      - {speaker: B, text: "now everyones at cap so it feels meaningless"}
-      - {speaker: C, text: "the journey mattered back then"}
-
-  fm_culture_shift:
-    participants: 2
-    lines:
-      - {speaker: A, text: "fm used to be so social. people actually talking"}
-      - {speaker: B, text: "now its just shops and smega spam"}
-      - {speaker: A, text: "and bots selling stuff"}
-      - {speaker: B, text: "the fm has evolved but lost its soul"}
-      - {speaker: A, text: "yeah"}
-
   # HUMOR / CHAOS
 
   typo_in_broadcast:
@@ -3109,25 +2807,6 @@ conversations:
       - {speaker: A, text: "something about selling '69 att work glove' with way too many typos"}
       - {speaker: B, text: "classic. the desperation for sales overrides proofreading", emote: 2}
       - {speaker: A, text: "nobody was gonna buy it anyway with that message"}
-
-  pet_dragging_chaos:
-    participants: 2
-    lines:
-      - {speaker: A, text: "my pet auto looted all my drops but also picked up like 47 potions"}
-      - {speaker: B, text: "does ur pet not have loot preferences"}
-      - {speaker: A, text: "i dont even know what im doing at this point"}
-      - {speaker: B, text: "check the pet commands menu. u can filter what it picks up", emote: 2}
-      - {speaker: A, text: "oh... theres a settings thing"}
-
-  accidental_pk_provoke:
-    participants: 2
-    lines:
-      - {speaker: A, text: "i just made someone so mad by outgrinding them they started pking"}
-      - {speaker: B, text: "in what... henesys?"}
-      - {speaker: A, text: "i was just training normally but they got upset so they tried"}
-      - {speaker: B, text: "did they succeed"}
-      - {speaker: A, text: "nah my dps is too high for them to even hit", emote: 3}
-      - {speaker: B, text: "thats actually hilarious"}
 
   buff_spaghetti:
     participants: 3
@@ -3155,7 +2834,7 @@ conversations:
       - {speaker: B, text: "how did u not notice"}
       - {speaker: A, text: "i never checked my stats lol i just smash buttons"}
       - {speaker: B, text: "thats actually a valid strat", emote: 2}
-      - {speaker: A, text: "big numbers go brrr"}
+      - {speaker: A, text: "big numbers = good"}
 
   wrong_job_advance:
     participants: 2
@@ -3221,15 +2900,6 @@ conversations:
       - {speaker: B, text: "thats valid. style is part of the game"}
       - {speaker: A, text: "finally someone understands"}
 
-  secret_shortcut_found:
-    participants: 2
-    lines:
-      - {speaker: A, text: "wait theres a portal to ludi from ellinia?"}
-      - {speaker: B, text: "yeah nobody uses it"}
-      - {speaker: A, text: "so ive been taking the boat for months for nothing"}
-      - {speaker: B, text: "welcome to maple exploration"}
-      - {speaker: A, text: "this changes everything"}
-
   pet_expiration_panic:
     participants: 2
     lines:
@@ -3248,24 +2918,6 @@ conversations:
       - {speaker: B, text: "those days are gone. now its like 30 minutes before bed"}
       - {speaker: A, text: "the grind adapted to my schedule at least"}
 
-  new_skill_wow_moment:
-    participants: 3
-    lines:
-      - {speaker: A, text: "just unlocked a new skill and its broken"}
-      - {speaker: B, text: "which skill"}
-      - {speaker: A, text: "wont say in case its a secret strat but wow"}
-      - {speaker: C, text: "u sound evil right now", emote: 3}
-      - {speaker: A, text: "im gonna wreck everything with this"}
-
-  community_event_hype:
-    participants: 2
-    lines:
-      - {speaker: A, text: "did u hear theres a server wide event coming"}
-      - {speaker: B, text: "yeah looks mid tho"}
-      - {speaker: A, text: "the rewards actually look decent this time"}
-      - {speaker: B, text: "ok fine ill participate"}
-      - {speaker: A, text: "thats the spirit"}
-
   scrolling_addiction:
     participants: 2
     lines:
@@ -3274,15 +2926,6 @@ conversations:
       - {speaker: A, text: "idk its just fun to see things go up. even if pointless"}
       - {speaker: B, text: "thats actually relatable tho. the dopamine hit"}
       - {speaker: A, text: "im addicted to the number going up"}
-
-  endgame_goal_setting:
-    participants: 2
-    lines:
-      - {speaker: A, text: "what are u working towards at endgame"}
-      - {speaker: B, text: "honestly just chill and do bosses with friends"}
-      - {speaker: A, text: "no like big goals"}
-      - {speaker: B, text: "i passed the point of having goals. i just exist now"}
-      - {speaker: A, text: "sounds peaceful actually"}
 
   map_ownership_territory:
     participants: 3

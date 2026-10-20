@@ -2,6 +2,7 @@ package soloMapling.ArtificialPlayer.BotMessagingSystem;
 
 import client.Character;
 import soloMapling.ArtificialPlayer.BotConversation;
+import soloMapling.ArtificialPlayer.BotMegaphoneSystem.BotNoiseFilter;
 import soloMapling.ArtificialPlayer.BotMenus;
 import soloMapling.ArtificialPlayer.BotSM;
 import soloMapling.ArtificialPlayer.BotTypes.FollowerBot;
@@ -123,6 +124,7 @@ public class Dispatcher implements Runnable {
         if (partnerBot != null && !partnerBot.consumesFreeText() && partnerBot.getChr() != null
                 && partnerBot.getChr().getMapId() == sender.getMapId()
                 && !(BotMenus.natural() && talksNaturally(partnerBot))) { // natural talkers: attention decides
+            BotNoiseFilter.noteEngaged(sender.getId(), partner);
             BotConversation.say(partnerBot, sender, message.getContent(), null);
             return true;
         }
@@ -215,6 +217,7 @@ public class Dispatcher implements Runnable {
     private void talkNaturally(BotSM bot, Character player, String line) {
         String said = BotChatRouting.withoutName(line, bot.getChr().getName());
         BotChatRouting.attend(player.getId(), bot.getChr().getId(), System.currentTimeMillis());
+        BotNoiseFilter.noteEngaged(player.getId(), bot.getChr().getId()); // ticket 47: @quiet bots keeps this one
         if (bot.naturalAction(player, said)) {
             return;
         }
@@ -261,6 +264,7 @@ public class Dispatcher implements Runnable {
         if (bot == null || bot.getChr() == null) {
             return;
         }
+        BotNoiseFilter.noteEngaged(message.getSender().getId(), botId);
         soloMapling.ArtificialPlayer.BotCommandsPack.SocialCommands.BotSpeak(bot.getChr(),
                 BotChatRouting.askFirst(botId, message, now));
     }
@@ -280,6 +284,7 @@ public class Dispatcher implements Runnable {
     }
 
     private void handleBotRunning(int[] botToCall, ChatMessage message) {
+        BotNoiseFilter.noteEngaged(message.getSender().getId(), botToCall[0]); // ticket 47: replies stay visible
         executor.execute(() -> {
             BotSM bot = getBotById(botToCall[0]);
             if (bot == null) {

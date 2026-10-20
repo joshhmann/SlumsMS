@@ -1,0 +1,183 @@
+# FMBotDialogue review
+# PurchaseItem
+R ight bet, good price => aight, good price  ## "bet" modern
+R damn bro u taxing but i need it => damn bro thats steep but i need it  ## "taxing" modern
+D Hope this is a 100% success rate item, my luck is trash  ## items dont have success rates
+D the FM entrance was lagging me out so bad getting here  ## server lag claim
+D the FM entrance lag was worth it for this  ## server lag claim
+R bruh I almost bought this from another shop for way more => dude I almost bought this from another shop for way more  ## bruh
+R someone in my guild recommended this shop and honestly? solid recommendation => someone in my guild recommended this shop. good call  ## modern cadence
+D aight thats a W purchase right there  ## W as noun
+D YOINK. mine.  ## near-dup of yoink
+D smart purchase, dont @ me  ## "dont @ me" post-2009
+D found exactly what i was looking for, nice  ## near-dup
+D been hunting this down for days, finally got it  ## near-dup
+D picked it up before someone else did  ## near-dup
+D ok that was a clean transaction  ## filler tail
+D the hunt is over at last  ## filler tail
+D that price was too good to pass up honestly  ## near-dup
+D perfect, exactly what i needed  ## near-dup
+D ok ok ok, this is a good purchase  ## filler tail
+D clean shop, clean price, clean transaction  ## filler tail
+D the sacrifice was worth it  ## filler tail
+D this beats anything else ive checked today for sure  ## filler tail
+D ok now we're talking, stats are solid  ## filler tail
+D could not have asked for a cleaner find honestly  ## filler tail
+D the universe is being nice to me for once  ## filler tail
+D ok so that doesnt completely bankrupt me, solid  ## filler tail
+D walked out with exactly what i came for, rare  ## filler tail
+D one less thing on my worry list  ## filler tail
+D didnt even have to haggle, just took it  ## filler tail
+D ok this shop is definitely on my regular route now  ## near-dup of bookmarking
+D stat-wise this is exactly what i needed  ## filler tail
+D this is what i get for actually doing my research  ## filler tail
+D walk in, see it, buy it. thats how shopping should go  ## filler tail
+D ok so this one isnt duped or anything sketchy right  ## near-dup
+D price is fair and item is clean, whats not to love  ## filler tail
+D gonna feel good actually using this  ## filler tail
+D stoked i didnt have to second-guess this one  ## filler tail
+D ok so that meso investment was actually worth it  ## filler tail
+D the roll-out stats on this are insane  ## not a v83 concept
+D didnt think id find THIS good of an option in here  ## filler tail
+D bro this item is gonna change my whole game  ## filler tail
+D found it without any haggling or nonsense, clean  ## filler tail
+D the value on this is actually insane  ## filler tail
+D ok last thing i needed to complete the puzzle  ## filler tail
+D not wasting time debating, this is perfect  ## filler tail
+D actually gonna be able to equip and use this soon  ## filler tail
+D ok one major upgrade down, who knows how many left to go  ## filler tail
+# WanderChat
+D half the shops in here are empty lol  ## town dead
+D someone dropped something on the floor over there  ## actionable false claim
+D the FM is just window shopping with extra steps  ## 2015 meme
+D the lag in here is unreal sometimes  ## server lag claim
+D {REGION} is looking kinda dead today  ## town dead
+D {REGION} is packed right now, good sign  ## near-dup
+D {REGION} is always the busiest section somehow  ## near-dup
+D the vibe in {REGION} is weird, not sure if good or bad  ## vibe
+D the grind never ends and neither does the shopping  ## filler
+D gotta compare all the prices before i commit  ## filler tail
+D some items are basically extinct in here  ## filler tail
+D certain items just dont show up much anymore  ## filler tail
+D prices for this stuff have been creeping up forever  ## filler tail
+D what's trending right now anyway  ## modern
+D someone must be restocking today, everything feels fresh  ## filler tail
+D harder and harder to find deals anymore  ## filler tail
+D people are definitely hunting for something today  ## filler tail
+D notice the popular items always have multiple shops  ## filler tail
+D prices seem higher every time i come back  ## near-dup
+D the FM economy is weird, fluctuates so much  ## filler tail
+D some items are like, impossible to find clean  ## filler tail
+D gonna spot check prices in a few different shops first  ## filler tail
+D the scroll market in here is kinda wild  ## filler tail
+D always wondering if im paying fair prices  ## filler tail
+D deals are rare, most people are price gouging  ## filler tail
+D certain items always seem overpriced no matter where  ## filler tail
+R the FM can be a scam if you don't know prices => the FM is a scam if u dont know prices lol
+D good items never last long in here  ## filler tail
+D people seem to know something about the market i don't  ## filler tail
+D the pricing strategy in this place is sus sometimes  ## sus
+D someone's definitely running a corner on that item  ## filler tail
+R notice shops always have pots but never good gear => why do shops always have pots but never good gear
+D the FM flow feels different each day  ## filler tail
+D some shops specialize, some are just junk piles  ## filler tail
+D wonder who actually profits as a shopkeeper  ## filler tail
+D the turn-over rate in here is insane  ## filler tail
+# PlayerReaction
+D oh hey someone actually walking by  ## town dead
+D people are actually out here today  ## town dead
+D nice to see people actually using the FM  ## town dead
+D good to see the FM actually has traffic  ## town dead
+R is that a {PLAYER_NX}? love the cash shop drip => is that a {PLAYER_NX}? nice cash shop stuff  ## drip
+R {PLAYER_PET} just vibing while their owner shops lol => {PLAYER_PET} just chillin while their owner shops lol  ## vibing
+D {PLAYER_PET} is just vibing following them around, love it  ## vibing / near-dup
+D the {PLAYER_NX} drip in this FM today is nice  ## drip
+R [{PLAYER_GUILD}] is everywhere on this server huh => [{PLAYER_GUILD}] is everywhere huh  ## server meta
+D the little {PLAYER_PET} companion is adorable  ## near-dup
+D that {PLAYER_GEAR} is hard to find in here these days  ## near-dup
+D that person has been in here longer than me for sure  ## near-dup
+D wonder if they found anything good  ## near-dup
+D someone's doing serious FM research  ## filler
+D someone actually put effort into their build  ## filler
+D they know which rooms to check, i can tell  ## near-dup
+D FM regulars can always recognize each other  ## filler
+D looks like they've been here a while too  ## near-dup
+D ok they definitely know something i don't  ## near-dup
+D always nice to see other shoppers in here  ## near-dup
+D everyone in the FM is on their own little mission  ## filler
+D someone knows what they're doing with their equips  ## filler tail
+D they keep coming back to the same shops, smart  ## filler tail
+D that person's definitely not a beginner shopper  ## filler tail
+D bet they've been hunting that item for a while  ## filler tail
+D someone who actually knows their stats lol  ## filler tail
+D they look like they're on a mission, gotta respect that  ## filler tail
+D someone shopping with purpose, i like it  ## filler tail
+D that person definitely negotiated a good price  ## filler tail
+D scrolling on the pricey side but it paid off  ## filler tail
+D someone splurged on their build, good call  ## filler tail
+D they seem to know exactly which shops to hit  ## filler tail
+D that's the look of someone finding a bargain  ## filler tail
+D someone actually invested in their appearance  ## filler tail
+D that person definitely saved up for that  ## filler tail
+D looks like they have a solid equipment strategy  ## filler tail
+D someone who researched their build before shopping  ## filler tail
+D their gear is cohesive, rare quality  ## filler tail
+D someone not cutting corners on their setup  ## filler tail
+D the efficiency of that shopping trip is goals  ## filler tail
+D looks like they're hunting for specific items  ## filler tail
+D someone always has their priorities straight  ## filler tail
+D that person's definitely endgame geared  ## filler tail
+D they're not wasting time on low-tier stuff  ## filler tail
+D looks like they know the value of good equipment  ## filler tail
+D someone has a plan, i can tell  ## filler tail
+D their shopping cart's probably worth more than mine  ## no shopping cart
+D that person's definitely not afraid to invest  ## filler tail
+D they seem to know all the best shops already  ## filler tail
+# ShopMissed
+D they probably needed it too honestly  ## filler tail
+D their timing was just better i guess  ## filler tail
+D maybe someone else got more use out of it anyway  ## filler tail
+D ill just keep looking, im patient  ## filler tail
+D it happens, no use crying over sold-out items  ## filler tail
+D someone else gets the win this time  ## filler tail
+D the FM has other options, gotta remember that  ## filler tail
+D theyll restock eventually, no rush  ## filler tail
+D someone else's gain, my loss, such is life  ## filler tail
+D ill find a different option, no sweat  ## filler tail
+D sometimes you just get beaten to the punch  ## filler tail
+# Rare (almost entirely melancholy / population-decline nostalgia)
+D the FM is kind of peaceful when it's not too busy  ## filler
+D used to come here with a friend every night to browse, feels different now  ## melancholy
+D some of these shops have been here for months, same stuff, same prices  ## filler
+D the FM is its own little world when you think about it  ## filler
+D kinda miss when the FM was always packed on every channel  ## population decline
+D there's something nice about just wandering around with no agenda  ## filler
+R the FM at 3am is really quiet, almost eerie => the FM at 3am is kinda creepy lol  ## soften quiet
+D this place has a lot of history, not sure why I'm thinking about that  ## filler
+D the FM might be a grind but it's also kind of a community thing  ## filler
+D remember when every room was full and you couldn't even find a spot to set up shop  ## population decline
+D some nights i just walk around the FM with nothing to buy, just to be here  ## melancholy
+D the FM used to be where you met everyone, now its mostly just a marketplace  ## population decline
+D wonder what happened to all the people who used to sell next to me  ## population decline
+D sometimes i think the items outlast the players who sell them  ## melancholy
+D theres something about the FM music that makes me feel nostalgic  ## filler
+D all these shops and i still feel like im looking for something i cant buy  ## melancholy
+D the FM is the last place that still feels the same  ## melancholy
+D i keep coming back even when there's nothing left i need  ## melancholy
+D the FM looks exactly the same as it always did, and i dont know how i feel about that  ## melancholy
+D sometimes i think about all the people who used to be online every day  ## population decline
+D some days the FM is almost too quiet, like everyone left at once  ## town dead
+D i wonder if anyone else remembers what things used to cost in here  ## nostalgia filler
+D i come here on nights when i dont feel like being anywhere else  ## melancholy
+D there's something about walking these rooms that feels familiar even after everything  ## melancholy
+D the items rotate but the feeling in here stays the same  ## filler
+D used to get excited shopping here, now im just going through the motions  ## melancholy
+D the FM prices feel different when youve been around long enough  ## filler
+D same shops, same faces, feels like a comfortable routine now  ## filler
+R sometimes i wonder how many hours of my life ive spent walking these rooms => how many hours of my life have i spent in these rooms lol
+D there's a lot of ghosts in the FM, people who used to be here all the time  ## population decline
+D the FM and i have a weird relationship after all this time  ## filler
+D prices went up but the feeling in here stayed kinda the same  ## filler
+D used to window shop for dreams, now im just restocking  ## melancholy
+D the FM used to feel full of possibility, not sure when that changed  ## melancholy
+D sometimes i think the FM knows me better than my own guild does  ## melancholy

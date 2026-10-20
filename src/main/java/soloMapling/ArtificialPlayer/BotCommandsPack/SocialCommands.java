@@ -2,6 +2,7 @@ package soloMapling.ArtificialPlayer.BotCommandsPack;
 
 import client.Character;
 import soloMapling.ArtificialPlayer.BotHelpers;
+import soloMapling.ArtificialPlayer.BotMegaphoneSystem.BotNoiseFilter;
 import tools.PacketCreator;
 
 import java.util.ArrayList;
@@ -18,7 +19,7 @@ public class SocialCommands {
     static boolean debugSkipDialog = false;
 
     public static void BotFullChat(Character fakechar, String message) {
-        fakechar.getMap().broadcastMessage(PacketCreator.getChatText(fakechar.getId(), message, fakechar.isGM(), (byte) 0));
+        BotNoiseFilter.broadcastBotChat(fakechar, PacketCreator.getChatText(fakechar.getId(), message, fakechar.isGM(), (byte) 0), message);
     }
 
     public static void BotSpeak(Character fakechar, String message) {
@@ -31,7 +32,7 @@ public class SocialCommands {
     }
 
     public static void BotChatbubble(Character fakechar, String message) {
-        fakechar.getMap().broadcastMessage(PacketCreator.getChatText(fakechar.getId(), message, false, 1)); // Send message just bubble, no chat box
+        BotNoiseFilter.broadcastBotChat(fakechar, PacketCreator.getChatText(fakechar.getId(), message, false, 1), message); // Send message just bubble, no chat box
     }
 
     public static void BotChatbubbleTyping(Character fakechar, String message, int delayMillis) {
@@ -46,12 +47,12 @@ public class SocialCommands {
             displayedMessage.append(message.charAt(i)); // Add the next character
 
             // Broadcast the current state of the message
-            fakechar.getMap().broadcastMessage(PacketCreator.getChatText(fakechar.getId(), displayedMessage.toString(), false, 1));
+            BotNoiseFilter.broadcastBotChat(fakechar, PacketCreator.getChatText(fakechar.getId(), displayedMessage.toString(), false, 1), message);
 
             // If the next character exists, add it to simulate 1-2 letters at a time
             if (i + 1 < message.length()) {
                 displayedMessage.append(message.charAt(++i));
-                fakechar.getMap().broadcastMessage(PacketCreator.getChatText(fakechar.getId(), displayedMessage.toString(), false, 1));
+                BotNoiseFilter.broadcastBotChat(fakechar, PacketCreator.getChatText(fakechar.getId(), displayedMessage.toString(), false, 1), message);
             }
 
             // Pause to simulate typing

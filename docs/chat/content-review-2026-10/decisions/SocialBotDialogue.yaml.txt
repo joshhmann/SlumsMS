@@ -1,0 +1,179 @@
+R level {PLAYER_LEVEL} pog => level {PLAYER_LEVEL} nice
+# SingleResponse
+D Imagine explaining this game to someone who's never played an MMO.  ## meta
+D I forgot to do my daily login thing yesterday... pain.  ## no daily login in v83
+D Orbis tower should be classified as a war crime.  ## modern hyperbole
+D ANOTHER DISCONNECT. im going to lose it.  ## false server claim
+D training is temporary but cool gear is forever.  ## generated aphorism
+D sometimes i train and sometimes the mobs train me.  ## generated aphorism
+D yeah i don't grind. i simply acquire experience.  ## modern meme format
+D maple runs in my veins at this point.  ## generated filler
+D kind of just standing here existing. you know how it is.  ## generated filler
+D making a new character every week is a lifestyle not a problem.  ## generated filler
+D kinda just existing in henesys today honestly.  ## generated filler
+D my build is kinda advanced to explain. you'd get it eventually.  ## off-tone
+D the henesys park fountain is lowkey an underrated hang spot.  ## modern slang
+D my character has more fake fashion sense than my actual wardrobe.  ## generated filler
+D tried to jump down a cliff. respawned like two feet away. impressive.  ## nonsense
+D the amount of chairs in this town is weirdly high.  ## generated filler
+D sitting in henesys feels like productivity even if i'm not doing anything.  ## generated filler
+D i've become one with the town portal. we are one now.  ## generated filler
+D pet just started following me. don't ask me when i got it lol.  ## nonsense
+R the FM search function is a godsend and a curse. => the owl of minerva is a godsend and a curse.
+D someone: 'where r u?' me: 'henesys but also spiritually henesys.'  ## modern meme format
+D my hands are tired just looking at the mouse pad.  ## generated filler
+D this game is the only cardio my fingers get. sad but true.  ## generated filler
+D literally just watching the respawn circles spin.  ## nothing like that in v83
+D town has that cozy vibe today. vibes are immaculate.  ## modern slang
+D inventory tetris but make it fashion.  ## modern meme format
+D the most productive thing i've done all day is stand here and exist.  ## generated filler
+D someone should write a thesis on the psychology of standing in towns.  ## generated filler
+# Greeting
+D Ayo.  ## modern slang
+D yoooo what's twisting.  ## modern slang
+D hey. no expectations, just vibes.  ## modern slang
+D hm you looking at me or just vibing.  ## modern slang
+D hello there, traveler.  ## NPC voice
+D oh, a visitor.  ## NPC voice
+D someone came by. interesting.  ## NPC voice
+D hi there. welcome.  ## NPC voice
+U yo yo yo.
+# WhatsUp
+R Nothing much, just vibing. => Nothing much, just chillin.
+D nothing major. just the usual standing around vibing in town.  ## modern slang
+D WAITING TO SEE IF THIS GUILD ACCEPTS MY APPLICATION. the suspense is unbearable.  ## no guild applications in v83
+D kinda just existing here. not productively. just existing.  ## generated filler
+D honestly? sitting in town is underrated. the vibes are good here.  ## modern slang
+D counting my daily login bonus. it's my only reliable income at this point.  ## no login bonus in v83
+D honestly just vibing. no agenda. just existing in town.  ## modern slang
+D literally just thinking about what to eat irl. the duality of gaming.  ## modern meme format
+D pretending my equipment is fine. it's not but we're in denial mode.  ## generated filler
+D been meaning to switch weapons forever but the decision paralysis is real.  ## generated filler
+D the lag is absolutely brutal today. or is it just me.  ## false server claim
+D chatting with randoms has been surprisingly wholesome lately.  ## generated filler
+D people keep asking me for trades and i'm just not feeling it rn.  ## generated filler
+D my bank account is bleeding mesos faster than i can farm them.  ## no bank in v83
+D the spaghetti of my keybinds is starting to make sense actually.  ## generated filler
+D the henesys fountain has become my therapy ngl.  ## modern slang
+D scrolling through my achievements and feeling nostalgic about early game stuff.  ## no achievements in v83
+D scrolling through old messages from people i don't even remember meeting.  ## no message history in v83
+# Interesting
+D Did you know theres a hidden portal near the hunting ground? I just found out.  ## misleading
+D Someone was doing a giveaway near the potion shop like 10 minutes ago.  ## false giveaway
+D the FM entrance portal has a weird delay if you walk into it too fast.  ## misleading
+D FM has regional price differences if you compare henesys rooms vs ludibrium rooms.  ## wrong
+R overheard someone talking about a secret training spot nobody knows. probably cap. => overheard someone talking about a secret training spot nobody knows. probably fake.
+D the fountain area has the coziest vibe honestly. people chat there a lot.  ## modern slang
+R somebody was doing buff giveaways in the park area. wholesome energy. => somebody was handing out buffs in the park earlier. nice of them.
+D the connection between perion and henesys always feels shorter than it actually is.  ## generated filler
+D someone was just sitting and listening to the town music. felt that.  ## generated filler
+D the FM has a weird ecosystem. prices fluctuate wildly depending on the time of day.  ## generated filler
+D kerning city always has a grind vibe. people actually farming there seriously.  ## generated filler
+D a mage was casting meteor and the sound design is actually so satisfying to watch.  ## modern voice
+D found someone doing calculus homework while standing in town. respect the multitask.  ## nonsense
+D the mushroom forest is lowkey beautiful once you're not focused on grinding.  ## modern slang
+D orbis station is weirdly peaceful. like a pocket dimension away from chaos.  ## generated filler
+D heard that some players are doing speed runs through low level maps. wild.  ## modern
+D the boat ride is annoying but the music during it is actually atmospheric.  ## dup
+D someone mentioned there's like five hidden pq entrances most people never find.  ## misleading
+D the maple leaf in the town icon is kinda just vibes, no purpose, but it's nice.  ## generated filler
+D saw someone with a full set of scrolled gear that probably cost them thousands. goals.  ## wrong currency scale
+D the town square feels different depending on who's hanging around honestly.  ## generated filler
+D the npc by the potion shop is always standing there. i wonder what they're thinking about.  ## generated filler
+# Rumors: drop rumours that announce fake events, rate changes or patches
+D Someone said they saw a GM walking around earlier.  ## false GM claim
+D People are saying the drop rates changed recently.  ## false rate claim
+D Apparently someone hit level 200 on this server.  ## false world claim
+D Someone told me there's a new event coming.  ## false event claim
+D There's talk about a new PQ being added.  ## false patch claim
+D Someone said they saw a hacker get banned live.  ## false moderation claim
+D Someone told me you can get a special mount if you finish all the Henesys quests.  ## misleading
+D There's a rumor that drop rates are better on certain channels.  ## false rate claim
+D People keep saying theres gonna be a double EXP event soon but who knows.  ## false event claim
+R Theres a rumor that if you stand in a certain spot and use a scroll it works better. Cap obviously. => Theres a rumor that if you stand in a certain spot and use a scroll it works better. Total nonsense obviously.
+D people are saying the server might do something for an upcoming event but nobody knows what.  ## false event claim
+D people are saying one class is about to get a big boost and the mains are starting to worry.  ## false patch claim
+D apparently a guild tried to organize a 30-person fountain photo in henesys and the map crashed.  ## false crash claim
+D rumor is a particular FM shop has had the exact same item listed for over a month. art installation.  ## generated filler
+D someone said theres a map where the BGM is from a completely different area. I really want to find it.  ## misleading
+D rumor is a top guild is planning a big zakum attempt as a server event soon.  ## false event claim
+D rumor is the FM on this channel is the cheapest one. never confirmed it but people keep saying so.  ## dup
+D apparently someone has a completely self-found account. never used the FM once. impressive.  ## modern term
+R someone said they saw a {PLAYER_JOB} one-shot a boss. probably cap but still. => someone said they saw a {PLAYER_JOB} one-shot a boss. probably fake but still.
+D people are saying the economy is about to crash when an event ends. crypto vibes.  ## anachronism
+D someone told me there's a secret Easter egg in one of the boss maps. still unconfirmed.  ## generated filler
+D i heard a guild master embezzled guild funds and disappeared. that's just crime honestly.  ## dup
+D apparently someone found a glitch that lets you dupe items. better not say too loud lol.  ## exploit rumour
+D people keep saying a certain class is broken but nobody has proof. seems balanced to me.  ## generated filler
+D rumor is someone has been afk in the same spot for so long they became a landmark.  ## dup
+D i heard two guilds made a peace treaty over training spots. diplomacy is alive.  ## generated filler
+D someone said the best players on the server all know each other irl. small world.  ## generated filler
+D apparently a player documented their entire journey to level 200. speedrun record or something.  ## modern
+D i heard someone took a screenshot every single day for a year. museum curator vibes.  ## modern slang
+D people are saying there's a player who only uses a bow and nothing else. weaponlock challenge run.  ## modern term
+D rumor is the FM economy is directly tied to real world stock market. cap or conspiracy.  ## off-tone
+D i heard someone soloed a party quest and the entire server lost their minds.  ## nonsense
+D apparently a guild had to disband because everyone moved to the same college. life happens.  ## generated filler
+D people keep talking about a player who never died once the entire game. untouchable.  ## dup
+D someone told me there's a secret NPC that only appears at midnight. spooky.  ## dup
+D rumor is if you visit every map on the server you unlock something hidden. ARG energy.  ## modern
+D i heard a player set a world record speedrun time. briefly famous in the community.  ## modern
+D apparently someone's been keeping a spreadsheet of every item they've ever found. data nerd energy.  ## dup
+D people are saying a certain training spot has the best drops when the moon is full. pseudoscience but intriguing.  ## generated filler
+D someone told me there's a player who has befriended every single NPC on the server. wholesome quest.  ## generated filler
+D rumor is if you trade with the same person 100 times something special happens.  ## misleading
+D i heard a guild beat a dungeon boss with all level 1 characters. how is that even possible.  ## nonsense
+D apparently someone's been trying to collect every single equip in the game. ambitious.  ## dup
+D people keep saying there's a bounty on a specific player. don't know if it's real.  ## generated filler
+D someone told me the server reset years ago and this is technically a new world. lore stuff.  ## meta
+D rumor is there's a hidden story arc nobody's completed yet. metaplot incoming maybe.  ## modern
+D rumor is if you trade with the same person 100 times something special happens.  ## dup listing
+# Rare: keep a handful of wistful lines, drop the generated melancholy and fourth-wall ones
+D I wonder what all these characters do when we log off.  ## fourth wall
+D Every character standing in town has a real person behind it somewhere in the world.  ## fourth wall (bots)
+D Its funny how a pixelated town can feel more real than some places in my actual life.  ## generated melancholy
+D every training spot feels a little different when you've seen enough of them.  ## generated melancholy
+D the map music in this game outlives everything. you stop playing and the BGM still plays in your head.  ## generated melancholy
+D maple has this way of feeling like it's always been here and always will be somehow.  ## generated melancholy
+D I think the reason this game hits different is because most of us were growing up when we first played it.  ## modern slang
+D sometimes I scroll through my buddy list and half the names feel like a museum of people I used to know.  ## generated melancholy
+D there's a version of this town that only exists in the memory of people who played early.  ## generated melancholy
+D the strangest thing about maple is how quiet the memory of it is. you just remember standing here.  ## generated melancholy
+D it's weird how a game can make you feel nostalgic for time you spent inside it.  ## generated melancholy
+D i wonder if this town looks the same to everyone or if we all see it differently.  ## generated melancholy
+D the quieter the server gets, the more you notice the music.  ## generated melancholy
+D weird how you can miss a place you're standing in.  ## generated melancholy
+D i think the reason we keep coming back is because we left something here.  ## generated melancholy
+D the old guild rankings page reads like a history book now.  ## generated melancholy
+D there's a version of me that only existed in this game. i think about that sometimes.  ## generated melancholy
+D i think this place remembers us even when we forget about it.  ## generated melancholy
+D funny how the maps stay the same but the people change.  ## generated melancholy
+D a virtual town can feel more familiar than places you've actually been.  ## generated melancholy
+D the people who stopped playing are out there somewhere, just living different lives now.  ## generated melancholy
+D there's a kind of loneliness that only maps and background music understand.  ## generated melancholy
+D sometimes i think about how many versions of me exist in different people's memories.  ## generated melancholy
+D if i logged off today and never came back would anyone notice?  ## heavy
+D the channels used to be full. now I pick one and it's just me and NPCs.  ## undercuts a busy server
+D i wonder if anyone still has me on their buddy list who doesn't know I'm gone.  ## heavy
+D there's a cozy sadness to being in a place that was made for crowds.  ## generated melancholy
+D funny how a game that's all about connection can feel so isolating sometimes.  ## heavy
+D the training spots remember everyone who's ever stood on them i think.  ## generated melancholy
+D maybe that's why we come back. we left pieces of ourselves here.  ## generated melancholy
+D if you listen carefully to the town music it sounds like it's saying goodbye.  ## generated melancholy
+D I miss when the town used to feel more crowded.  ## undercuts a busy server
+D used to always find someone training here. seems quieter now.  ## undercuts a busy server
+# PlayerReaction
+D hm. a presence. greetings.  ## NPC voice
+D hey. you're definitely here.  ## generated filler
+D oh person. hello.  ## generated filler
+D hey didn't expect to see you in my line of sight.  ## generated filler
+D you know how to get someone's attention it seems.  ## generated filler
+D oh finally, a real person.  ## fourth wall
+# Goodbye
+D stay blessed.  ## modern
+D good vibes only.  ## modern slang
+D have an epic session.  ## modern
+D stay safe in the dungeons.  ## not maple
+# Party
+R nahh im in my town-chilling era rn => nahh im just chillin in town today
+D im waiting for a gacha ticket friend, cant leave the spot  ## unclear

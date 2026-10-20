@@ -123,7 +123,7 @@ public class GameZoneHostBot extends BotSM {
                 if (drinkAccepted) {
                     setHostBotState(HostBotState.DRINK_SELECTION);
                 } else {
-                    getDialogueHandler().executeBotDialogue("DeclineResponse", GameZoneHostBot.this);
+                    getDialogueHandler().executeBotFlavorDialogue("DeclineResponse", GameZoneHostBot.this);
                     setHostBotState(HostBotState.FAREWELL);
                 }
                 break;
@@ -175,7 +175,7 @@ public class GameZoneHostBot extends BotSM {
     // --- Drink offer ---
 
     private void offerDrink() {
-        getDialogueHandler().executeBotDialogue("DrinkOffer", GameZoneHostBot.this);
+        getDialogueHandler().executeBotFlavorDialogue("DrinkOffer", GameZoneHostBot.this);
         hint = List.of("Yes", "No");
         displayCommands(getInteractors().getRespondant());
         startTimer(20_000);
@@ -184,7 +184,7 @@ public class GameZoneHostBot extends BotSM {
     // --- Drink selection ---
 
     private void presentDrinkOptions() {
-        getDialogueHandler().executeBotDialogue("DrinkSelection", GameZoneHostBot.this);
+        getDialogueHandler().executeBotFlavorDialogue("DrinkSelection", GameZoneHostBot.this);
         hint = List.of(DRINK_NAMES);
         displayCommands(getInteractors().getRespondant());
         startTimer(30_000);
@@ -193,7 +193,7 @@ public class GameZoneHostBot extends BotSM {
     // --- Serve drink ---
 
     private void serveDrink() {
-        getDialogueHandler().executeBotDialogue("ServeDrink", GameZoneHostBot.this);
+        getDialogueHandler().executeBotFlavorDialogue("ServeDrink", GameZoneHostBot.this);
         DropCommands.botThrowItem(getChr(), selectedDrink, getInteractors().getRespondant().getPosition());
     }
 

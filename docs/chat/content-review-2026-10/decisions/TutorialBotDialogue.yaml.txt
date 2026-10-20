@@ -1,0 +1,49 @@
+# Functional nodes (Greeting..SendoffPartingGiftDialogue) left untouched.
+# Flavor (in-character guide voice kept; trimmed poster/filler and "empty town" lines)
+R The Mushroom Kingdom has been awfully quiet lately... perfect conditions for training! => The Snails have been awfully calm lately... perfect conditions for training!  ## mushroom kingdom post-v83
+D *looks out over the training grounds* Another quiet day... but adventure could arrive any moment!  ## empty-town
+D *waves excitedly at the empty doorway* They'll be here any moment, I just know it!  ## empty-town
+D Maple World is so much bigger than it looks on the map. Every corner holds something wonderful!  ## filler
+D *taps foot rhythmically* Just me and the slimes again... until destiny sends someone my way!  ## empty-town
+D A warm welcome costs nothing but means everything to a brand-new adventurer.  ## poster
+D There's something almost magical about that moment when a new player realizes this world is theirs to explore.  ## meta/filler
+D My philosophy: every adventurer deserves to start their story with someone in their corner!  ## poster
+D Not everyone becomes a legendary hero, but everyone who tries is worthy of a proper welcome!  ## poster
+D Some days the training grounds are buzzing with excitement. Some days it's just me and the wind. Both are beautiful!  ## empty-town filler
+D I believe in every single adventurer who comes through here. Every. Single. One.  ## poster
+D This place isn't just a starting point - it's the beginning of someone's greatest story!  ## poster
+D I have a theory that the bravest adventurers are the ones who hesitate at first. They think before they leap!  ## poster
+D Nobody masters this world in a single day, but every step forward is worth celebrating!  ## poster
+D Every adventurer finds their own rhythm. Some rush ahead, some take it slow. Both paths lead somewhere!  ## poster
+D *writes in a little notebook* Reminder: tell the next adventurer about the buddy list. So many forget it exists!  ## near-dup buddy list
+D Some heroes leave and never look back. Some come back to visit. Both make me equally happy!  ## poster
+D If I've learned anything from guiding adventurers: the ones who ask the most questions go the furthest!  ## poster
+D Every single question a newcomer asks is a good question. I mean that with my whole heart!  ## poster
+# WanderChat
+R man i love this map, such good vibes => man i love this map, so relaxing  ## vibes
+D maple world looks so different at different times of day  ## no day cycle
+R the music in this map goes so hard btw => the music in this map is so good btw  ## modern slang
+R low key the best part of new player areas is no one trying to ks you => the best part of new player areas is no one trying to ks you  ## lowkey
+D you ever just stand here and vibe for a while? no? just me?  ## vibe
+D the nostalgia of this place hits different every time  ## hits different
+D maple world always has something going on if you look hard enough  ## filler
+D just vibing, dont mind me  ## vibing
+R i need a chaos scroll so bad but fm prices are genuinely wild => i need a chaos scroll so bad but fm prices are insane  ## modern phrasing
+D confession: i vendored random bags for months without knowing what they were actually worth  ## no bags in v83
+R once a bishop healed me out of nowhere and just kept walking. no words. iconic. => once a bishop healed me out of nowhere and just kept walking. no words. legend  ## iconic
+D the pig beach crowd is a whole ecosystem  ## generated
+D sometimes this map is full of people and sometimes it's just me and the wind  ## population
+D honestly the beginner zone bgm goes harder than people give it credit for  ## near-dup bgm, modern slang
+# EmoteReaction
+R omg are you trying to communicate via emote?? respect => omg are you trying to talk to me with emotes?? lol  ## modern
+D haha ok ok i see the energy  ## modern
+D the emotes on this server are top tier honestly  ## meta
+D i wasn't expecting that but honestly? mood  ## modern slang
+D ok was that the hug emote?? u can't just do that to people out of nowhere  ## no hug emote in v83
+D emoting at random people is such a maple world tradition honestly  ## filler
+D some people say hi with words. u did... that. both are valid.  ## modern phrasing
+D okay you are officially the most chaotic person i've met today  ## modern phrasing
+D brb processing that emotionally  ## modern phrasing
+D some people just have natural emote charisma apparently  ## generated
+D the audacity. love it.  ## modern phrasing
+D you just made this whole map 200% more chaotic, thanks  ## modern phrasing

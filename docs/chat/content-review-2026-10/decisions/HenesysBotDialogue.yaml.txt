@@ -1,0 +1,67 @@
+# HenesysBotDialogue review
+# PlayerReaction
+D somebody was giving away pots near the shop  ## false giveaway claim
+R henesys best town dont @ me => henesys best town no contest  ## "dont @ me" is post-2009
+R henesys at night is a whole different vibe => henesys at night looks so cool  ## vibe
+D henesys really does hit different on a chill day  ## modern slang
+D this channel feels emptier than usual  ## town dead
+D where is everybody today  ## town dead
+D oh cool another person. maybe henesys isnt dead after all  ## town dead
+R someone just walked by with full zhelm set. goals => someone just walked by with a zhelm. goals  ## zhelm is one item
+R ur {PLAYER_WEAPON} looks scrolled. how many stars did u get on that => ur {PLAYER_WEAPON} looks scrolled. how many slots did u pass  ## star force not v83
+R that {PLAYER_GEAR} goes hard => that {PLAYER_GEAR} is sick  ## modern slang
+D oh interesting. a visitor.  ## filler
+D another soul drawn to henesys. makes sense honestly  ## filler
+D ohhh a real live human. hi  ## meta / bot tell
+D henesys has that effect on people. pulls them back.  ## filler
+D dont mind me im just standing here being the highlight of this town  ## main-character register
+D henesys chapter 1 still going strong  ## filler
+D every new face in henesys passes through this spot eventually  ## filler
+R ur {PLAYER_JOB} always end up here eventually => {PLAYER_JOB}s always end up here eventually  ## grammar
+D oh neat another person who found henesys  ## filler
+D that {PLAYER_GEAR} has to cost a fortune  ## near-dup of "looks expensiveeee"
+D your {PLAYER_NX} is making me wanna check my wallet  ## near-dup NX lines
+D {PLAYER_FAME} fame? u been defaming people or getting defamed lol  ## near-dup of "who have u been defaming"
+R that {PLAYER_NX} fit is clean. respect => that {PLAYER_NX} outfit is clean. respect  ## "fit" modern
+# WanderChat
+R just vibing => just chillin  ## vibing
+D there used to be way more people on this path  ## population dropping
+D wait is that a hidden portal or am I tripping  ## hidden portal claim
+D someone told me theres a secret area near the park  ## secret area claim
+D the squirrels here are so chill compared to the ones in perion  ## no squirrels in either town
+D the further you walk from the center the less people there are  ## filler / town empty
+D theres something calming about the footstep sounds on the henesys ground  ## filler
+D its so quiet on this side of town  ## near-dup
+D ugh passed the wrong map entrance again  ## near-dup of wrong portal
+D so quiet today  ## town dead
+D i heard {REGION} is dead today  ## town dead
+D do people still hang out at {REGION}  ## population dropping
+D does anyone even grind near {REGION} anymore  ## population dropping
+D i heard strong players have been moving to {REGION} lately  ## near-dup of friend said
+D wandering has become a personality trait at this point  ## modern phrasing
+D u ever just walk through a town and feel like time stopped? thats henesys  ## filler
+D walking in circles has become an art form at this point  ## near-dup
+D henesys is just like. always here. u know?  ## filler
+D the mushrooms in henesys are like. a comfort thing now  ## filler
+D thinking about what {REGION} would be like right now  ## filler
+D henesys vibes different depending on the time of day honestly  ## vibes
+D the breeze through henesys hits different  ## modern slang
+D the walk is more important than the destination sometimes  ## life-advice filler
+# EmoteReaction
+D uwu  ## later meme
+D (owo)  ## near-dup of OwO
+D xdd  ## twitch-era
+D wew  ## 2016 meme
+D ayy  ## 2014 meme
+D yaaas  ## post-2009
+D yeet  ## post-2009
+D bruh  ## modern usage
+# MapTransition
+R someone told me {MAP} has good drops today. gonna see => heard {MAP} is good exp. gonna see  ## drop-rate claim
+R someone said ch1 market is popping off => someone said ch1 FM is packed  ## modern phrasing
+D ok bye everyone. all zero of u lol  ## town dead
+D I DECLARE this is finally my time to leave  ## odd
+D the road calls. or whatever  ## near-dup of adventure awaits
+D off to {MAP}, dont wait up  ## near-dup
+D off to {MAP}. wish me luck  ## near-dup of "off to {MAP}, wish me luck"
+D ok im actually moving now. for real this time.  ## near-dup

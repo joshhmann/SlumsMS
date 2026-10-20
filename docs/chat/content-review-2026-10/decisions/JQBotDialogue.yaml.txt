@@ -1,0 +1,102 @@
+# JQBotDialogue review
+# AttemptStart
+D hoping the servers are stable  ## server stability claim
+D fresh approach from scratch  ## filler tail
+D slow and methodical today  ## near-dup of slow and steady
+D cant rush this  ## near-dup
+D every attempt makes me better  ## filler tail
+D knowing i might fail but im ready  ## filler tail
+D my rhythm is ready  ## filler tail
+D screw it full send  ## modern slang
+D cleared harder jqs than this  ## near-dup
+D emptying my mind  ## filler tail
+D not feeling confident but feeling determined  ## filler tail
+D jqs are just grinds with timing  ## filler tail
+D destiny is calling  ## filler tail
+D centering myself  ## filler tail
+D going in humble but hungry  ## filler tail
+D todays the day i can sense it  ## near-dup
+D speed round activate  ## near-dup
+D ok no more delays  ## near-dup of no more stalling
+D ok enough stalling  ## near-dup
+D taking a breath and committing  ## filler
+D ok let the hands do what they know  ## near-dup of muscle memory
+# MidJQ
+R mushroom platforms are the hardest part of any jq fight me => mushroom platforms are the hardest part of any jq srsly  ## "fight me" modern
+D watching the timer tick  ## no timer in this jq
+D clearing platform after platform  ## filler tail
+D silence. zone.  ## filler tail
+D zero margin for mistakes  ## filler tail
+D pure execution mode  ## filler tail
+D tight timing window  ## filler tail
+D every jump counts now  ## filler tail
+D getting in the groove  ## filler tail
+D my rhythm flows  ## filler tail
+D super smooth  ## filler tail
+D reading ahead  ## filler tail
+D micro jumps  ## filler tail
+D tunnel vision active  ## filler tail
+D completely locked in  ## modern slang
+D the beat is perfect  ## filler tail
+# FailReaction
+D bruh  ## modern usage
+D lag  ## reads as a server lag claim
+D peak suffering  ## modern slang
+D im analyzing the fail  ## filler
+D my ghost is already at the bottom  ## no ghost mechanic
+D off by a split second  ## filler tail
+D momentum just died  ## filler tail
+D my focus vanished  ## filler tail
+D the physics betrayed me  ## filler tail
+D repeating the same failure  ## filler tail
+D my reflexes were slow  ## filler tail
+D that platform was too small  ## near-dup
+D the jq grind is real  ## filler tail
+D im overthinking the platforming  ## filler tail
+D misjudged the jump distance  ## filler tail
+D my confidence crashed  ## filler tail
+D my execution let me down  ## filler tail
+D anxiety got the better of me  ## therapist voice
+D fraction of a second too late  ## filler tail
+# SuccessReaction
+D persistence pays off  ## poster filler
+D all those falls led to this moment  ## near-dup
+D saving this memory forever  ## filler
+D the grind always pays off eventually  ## poster filler
+D i actually did the impossible  ## filler tail
+D muscle memory carried me  ## filler tail
+D that was legitimately flawless  ## filler tail
+D absolutely perfect execution  ## filler tail
+D crushed the hardest part  ## filler tail
+D standing at the summit finally  ## filler tail
+D everything aligned  ## filler tail
+D the path was so clear  ## filler tail
+D im way better than i thought  ## filler tail
+D relief is an understatement  ## filler tail
+D one hundred percent doing this again  ## near-dup
+D wait that actually happened  ## near-dup
+D this jq respects me now  ## near-dup
+D gonna tell everyone about this  ## near-dup
+# RestChat
+R the people who speedrun jqs are built different => the people who speedrun jqs are insane  ## modern slang
+D gonna stare at the entrance and absorb its energy  ## filler
+D jqs separate the real ones from the fake ones  ## modern phrasing
+D my wrists need a break  ## near-dup
+D clearing my thoughts  ## filler tail
+D that section is my target  ## filler tail
+D im doubting myself here  ## filler tail
+D learning from the pros  ## filler tail
+D seriously need water  ## near-dup of water break
+D this jq is brutally designed  ## filler tail
+D im improving i can feel it  ## filler tail
+# LeavingJQ
+D jq complete. i am a different person now.  ## filler
+D this jq respects me now. i can tell.  ## near-dup
+D ok the jq has been handled and i am leaving  ## odd register
+D that took way too much time  ## near-dup
+D henesys rest awaits  ## filler tail
+D recording this victory  ## filler tail
+R still shock i cleared it => still in shock i cleared it  ## typo
+D peace out platforms  ## near-dup
+D drained completely  ## filler tail
+D adventure over for now  ## filler tail

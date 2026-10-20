@@ -2,7 +2,7 @@
 
 **Area:** Real bots / Chat
 **Depends on:** -
-**Status:** open
+**Status:** implemented on branch `chat-content` (not merged); the RWT share is waiting on the owner's decision
 
 ## Today
 
@@ -22,3 +22,48 @@
 ## Done when
 
 An hour in town reads like a busy server, not a spam feed, and players can turn bot noise down for themselves.
+
+## Done (branch `chat-content`, 2026-10-20)
+
+- **Content review:** every pack was read. 3,212 of 13,160 lines were dropped and 250 rewritten; 149 were added
+  (world-event megaphone lines, 36 town-chatter exchanges). Per-pack counts, reasons and examples are in
+  `docs/chat/content-review-2026-10.md`. The game-zone host no longer recites a whole node (it used to say ~80
+  lines when offering a drink). Malformed `{{line: ...}}` items in TrainingBot are fixed. Town-chatter exchanges
+  are dealt like a shuffled deck, so none repeats until all have been used. `DialoguePackCheck` logs
+  "N packs, M lines, K errors" at start and runs as a test.
+- **RWT spam: 19% → 3% (owner's call).** Every megaphone category weight is `-Dsolomapling.megaWeight.<Category>`.
+- **World-event megaphones** (`WorldEventMegaphones`, still through `BotMegaphoneGate`):
+  - Boss kills: a notable boss, not its arms or heads. The killing bot flexes, or a bot on the same map congratulates
+    the real player. For headline bosses (level ≥ 100) any online bot may congratulate.
+  - Rare drops: a scroll or mastery book with base chance ≤ 200 per million (chaos scrolls), or any equipment from
+    a boss. The bot that got it flexes, or a bot on the same map congratulates the player.
+  - PQ forming: an OPQ lobby bot that can really be invited calls "J> OPQ lvl 55 priest, orbis lobby ch1".
+  - An event that finds the gate closed waits in one pending slot, up to 4 minutes, and goes out before any random
+    line. The same boss, item or PQ is not repeated within 10 minutes.
+- **`@quiet megaphones | bots | all | off`** hides bot megaphones and/or ambient bot map chat, for that player only.
+  Bots the player talks to, party members, and lines naming the player still show. Real players, GM notices and
+  server notices are never filtered: only the bot speech primitives go through the filter. Settings are kept per
+  character in memory. They survive relog and channel change, but not a server restart (no DB migration).
+- **New `-D` tunables:**
+  - `solomapling.megaWeight.<Category>`
+  - `solomapling.worldMegaphones` (on/off)
+  - `solomapling.worldMegaphoneCooldownSeconds` (600)
+  - `solomapling.worldMegaphoneMaxDelaySeconds` (240)
+  - `solomapling.worldMegaphoneHeadlineBossLevel` (100)
+  - `solomapling.rareDropMaxChance` (200)
+  - `solomapling.quietEngagedSeconds` (180)
+- **Verified:**
+  - `./mvnw -o test`: 2732 tests run, 0 failures (6 skipped, as on main). The new tests are BotNoiseFilter
+    (logic, plus who receives a packet), WorldEventMegaphones, MegaphoneWeights and DialoguePackCheck.
+  - Scratch server on 164 (copy of persistence-test, scratch schema on the test DB, ports 8519/8605+,
+    CPUQuota=200% Nice=19 MemoryMax=6G, population scale 0.1). It ran 21 minutes:
+    - It booted and logged `[DialoguePacks] 21 packs, 10097 lines, 0 errors`, with 0 exceptions or errors.
+    - OPQ lobby bots made real PQ calls exactly once per 10-minute cooldown, e.g.
+      `xSaiyan : J> OPQ lvl 70 sniper, orbis lobby ch1, inv me`.
+    - No boss kill or rare drop happened without players, so those paths are covered by the tests only.
+    - The server, schema, grant and folder were removed afterwards
+      (`docs/chat/content-review-2026-10/scratch-boot-2026-10-20.txt`).
+  - The hour of town chat is a simulation with the live timings (the town barks need a real player on the map):
+    `docs/chat/content-review-2026-10/town-hour-sample-47.txt`.
+- **Not done:** pruning lines by player reaction needs ticket 37's tier log (branch `chat-natural`, not on main yet).
+

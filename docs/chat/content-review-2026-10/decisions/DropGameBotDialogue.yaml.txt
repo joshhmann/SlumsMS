@@ -1,0 +1,148 @@
+# Facts (DropGameBot.java): entry by trade, EXACTLY 10m (medium) or 50m (elite), mesos only; solo game (one paying
+# player); 2 min; items only (no meso drops); party invite must be accepted in 15s or entry is forfeited.
+# Used nodes: Advertise, TierConfirm*, InvalidMeso, PartyInvite, PreGame, GameStart, GameEnd, PlayerDisconnect.
+# Unused by code: TradeRules, PartyTimeout, Flavor, WinnerCelebration, GamePitch.
+# Advertise
+D think of the drop game as a shortcut. a fast, fun, potentially lucrative shortcut  ## corporate voice
+D prizes reload every round. the loot pool never gets old  ## filler
+D medium or elite? both tiers are running! come see what you can grab  ## near-dup
+D that last player grabbed some NICE scrolls. could be you next round!  ## near-dup of CRAZY stuff line
+D the floor is about to be covered. you want to be here when it happens  ## near-dup
+R scrolls. equips. mesos. all up for grabs in the drop game right now => scrolls. equips. all up for grabs in the drop game right now  ## accuracy: no meso drops
+D your next best equip might be sitting right here waiting to be looted  ## filler
+D every round is different. every drop pool is fresh. every game is a new shot at something good  ## filler
+D looting speed is a skill. come sharpen yours in the drop game  ## corporate voice
+D last call for this round! drop game still accepting players!  ## inaccurate: solo game, false urgency
+D drop game right here! i promise the loot pool won't disappoint  ## near-dup
+D medium or elite, doesn't matter. the drops are GOOD this round  ## near-dup
+D who wants to see what 2 minutes of pure chaos looks like? trade me!  ## near-dup
+D the drop game floor is cleared and ready for loot to scatter everywhere  ## filler
+D every round somebody walks away happy. that somebody could be YOU  ## filler
+D medium tier is basically risk-free. 10m for a shot at something great  ## misleading (not risk-free)
+D been hosting rounds all day and every single one delivered. just saying  ## filler
+D SOMEONE needs to step up and play this round!! the loot pool is READY!!  ## spammy caps
+D two minutes of your time. that's the whole investment. drop game, right here  ## corporate voice
+D honestly i feel bad watching people walk past. the pool is so good right now  ## filler
+D quiet day but the loot is anything but quiet. drop game open  ## dead-town meta
+D 10m now vs. potentially way more in 2 minutes. the math is simple honestly  ## near-dup
+D every round somebody's jaw drops at what came out of the loot pool  ## filler
+D medium or elite, both tiers ready. your move  ## near-dup
+D drop game! two minutes of pure adrenaline rush. come get some!  ## filler
+D want to feel the loot hitting the floor? drop game's where that happens  ## filler
+D speed demons only! drop game is calling your name  ## filler
+D the floor is waiting. 10m gets you in the game. your move  ## near-dup
+D medium tier's got something for everyone, trust me on that  ## filler
+D chaos on the floor in just a few moments. you want a front row seat?  ## filler
+D just playing the drop game is worth the show. come watch at minimum  ## garbled
+D elite tier player vibes only! big risk, bigger rewards waiting  ## modern slang (vibes)
+D one more player needed to fill the round. you in or out?  ## inaccurate: solo game
+D this round's loot pool hits different. i'm feeling it  ## modern slang
+D two tiers of pure fun. pick your intensity level  ## corporate voice
+D drop game running steady. rooms always filling up fast  ## inaccurate / population claim
+R you want equips? you want scrolls? you want mesos? drop game has it => you want equips? you want scrolls? drop game has it  ## accuracy: no meso drops
+D fastest way to test your skills under pressure right here  ## filler
+D watch the master looting happen or be the master yourself!  ## filler
+R elite tier's got some absolutely bangers in the pool rn ngl => elite tier's got some sick stuff in the pool right now  ## modern slang
+D loot pool diversity is no joke. something for every gear type  ## corporate voice
+D come for the excitement, stay because you made a killing  ## filler
+D drop game: the place where your keyboard speed matters  ## near-dup
+D 2 minutes, one floor, infinite possibilities. trade me!  ## filler
+D nobody's ever complained after playing the drop game. ever  ## filler
+D floor is loaded. looting instincts are all you need  ## near-dup
+D challenge accepted? come show me those skills  ## filler
+D one round changes everything sometimes. why not try?  ## filler
+D watching drops hit the floor is an art form. join the crowd  ## filler
+D drop game's been going strong. word of mouth spreads fast for a reason  ## filler
+# TradeRules (ordered-looking script, unused) - rewrite only, no drops
+R bots don't compete, it's all you => nobody else loots, it's all you  ## meta (bots)
+R pick medium or elite when you're ready => put in 10m for medium or 50m for elite  ## accuracy: tier set by amount
+R ten and fifty are the two tiers => 10m and 50m, those are the two tiers  ## clarity
+# InvalidMeso (fires on any amount other than exactly 10m/50m)
+R you don't have enough stamps for that => wrong amount, its exactly 10m or 50m  ## accuracy: mesos not stamps
+R need at least 10m for medium => has to be exactly 10m for medium  ## accuracy: exact amount
+R 10m minimum, 50m for elite => exactly 10m for medium, 50m for elite  ## accuracy: exact amount
+R almost there, just need more stamps => almost there, just need more mesos  ## accuracy: mesos not stamps
+R check your wallet, you're low => 10m or 50m only, no other amounts  ## accuracy
+D earn some more and come back  ## near-dup
+D get some stamps from grinding  ## accuracy: mesos not stamps
+# PartyInvite (said to the single paying player right after the invite)
+R wanna join the next round? => sent u a party invite, accept it to start!  ## accuracy: solo, must accept invite
+R spots still open if you wanna play => accept the party invite and we go  ## accuracy: solo game
+R one more player needed, you in? => accept my party invite real quick  ## accuracy: solo game
+R room for one more, you game? => party invite sent, you got 15 sec  ## accuracy: 15s timeout
+D last call for this round!  ## inaccurate urgency
+D spots filling up, you in?  ## inaccurate: solo game
+R we got space, join us! => hit accept on the party invite!  ## accuracy
+# PartyTimeout (unused; real outcome = entry forfeited, no game)
+R took too long, starting without you => took too long to accept, entry's forfeited  ## accuracy
+R too slow, game's going! => too slow on the invite!  ## accuracy
+R starting now, couldn't wait forever => couldnt wait forever, entry's gone  ## accuracy
+D game's starting, didn't make it  ## inaccurate
+R we're going, next time faster => next time accept faster  ## accuracy
+R round's starting, you're out => invite expired, you're out  ## accuracy
+D too late, game's underway  ## inaccurate
+R we had to start, better luck next round => had to call it, better luck next round  ## accuracy
+D time's up, game's happening  ## inaccurate
+D had to move on, lots of players waiting  ## population claim
+# PreGame (game starts ~3s later)
+R game's starting in like 10 seconds => game's starting in like 3 seconds  ## accuracy
+# GameStart
+R light fast! => loot fast!  ## typo
+# GameEnd (solo player)
+R good haul everyone, nice work! => good haul, nice work!  ## accuracy: solo game
+# PlayerDisconnect (fires when the player leaves the map for any reason)
+D lag spike took them  ## reads as server lag claim
+D network dropped them  ## near-dup
+R connection problem, unlucky => they left the map, round's over  ## accuracy
+R their connection went away => welp they bailed, round over  ## accuracy
+# Flavor (unused)
+R these prizes are absolutely fire => these prizes are sick  ## modern slang
+D the drops are stacked heavy  ## near-dup
+D fastest looting ever seen it  ## garbled
+D anyone here for the third time now?  ## odd filler
+D luck is definitely here today  ## filler
+D this game never ever gets old  ## filler
+D big hauls coming through lately  ## filler
+D the energy's perfect for winning  ## filler
+D another amazing round incoming  ## filler
+D prizes refreshing soon, stays fresh  ## garbled
+D the drops are rolling constant  ## garbled
+D winners keep coming back for more  ## filler
+D someone's getting rich today  ## near-dup
+D the loot never stops coming  ## filler
+D stamina and speed, that's all you need  ## filler
+D honestly the drops hit different here  ## modern slang
+D prizes are legit never the same twice  ## near-dup
+D drop game loyalty is real, people come back  ## filler
+D speed test for the whole game  ## garbled
+D pure adrenaline, pure chance  ## filler
+D this tier's better every round somehow  ## filler
+D every person in henesys has heard about drop game  ## filler
+D quick decision = better outcome sometimes  ## filler
+D the chaos is what people come back for  ## filler
+D smooth brain just loot everything, trust it  ## modern slang
+D the drop game energy is unmatched honestly  ## filler
+D scrolls, armor, mesos, randomness makes it work  ## accuracy: no meso drops / garbled
+D drop game is the truest test of reaction time  ## filler
+D the psychology of drop game is wild  ## filler
+D muscle memory is what wins this  ## filler
+D the floor lights up and magic happens  ## filler
+D drop game has changed how people think about looting  ## filler
+D floor coverage is peak entertainment  ## modern slang (peak)
+D watching an expert loot is pure art  ## filler
+D drop game keeps henesys alive honestly  ## population meta
+D the anticipation before drops is peak energy  ## modern slang
+D drop game is why people teleport to henesys  ## filler
+D speed kills in the drop game, figuratively  ## filler
+D drop game economy is its own thing  ## filler
+D nobody regrets their 10m after one round  ## filler
+D the way items scatter is kinda beautiful  ## filler
+D drop game is pure maplestory essence  ## meta / filler
+D drop game history is written on this floor  ## filler
+D another quiet moment before the madness  ## filler
+D the loot pool is sleeping but ready  ## filler
+# WinnerCelebration (unused)
+D stampy stampy, great reflexes!  ## nonsense (stamps not used here)
+# GamePitch (unused)
+D no pressure, just come see what happens  ## near-dup
+R casual fun, that's the vibe here => casual fun, nothing serious  ## modern slang (vibe)

@@ -12,6 +12,7 @@ import soloMapling.server.BotShutdown;
 import soloMapling.server.ExecutorServiceManager;
 import soloMapling.server.MethodScheduler;
 import soloMapling.ArtificialPlayer.BotCommandsPack.BotMegaphoneGate;
+import soloMapling.ArtificialPlayer.BotMegaphoneSystem.WorldEventMegaphones;
 
 import java.awt.*;
 import java.util.ArrayList;
@@ -69,23 +70,30 @@ public class SocialHotPotatoManager {
     };
 
 
-    private static final String[] MEGA_CATEGORIES = {
+    static final String[] MEGA_CATEGORIES = {
             "BirthdayMessages", "ItemSales", "GuildRecruitment", "PQRecruitment",
             "RWTSpam", "Flex", "RandomAnnouncements", "SocialMessages"
     };
 
-    // Weights for mega category selection (must match MEGA_CATEGORIES order)
-    private static final int[] MEGA_WEIGHTS = {
+    // Weights for mega category selection (must match MEGA_CATEGORIES order). Each one can be changed without a
+    // build: -Dsolomapling.megaWeight.<Category>=N (e.g. -Dsolomapling.megaWeight.RWTSpam=0 turns RWT spam off).
+    // Ticket 47: RWTSpam was 19 of 100; it is now flavour at 3 - the owner's call, see
+    // docs/chat/content-review-2026-10.md. Weights need not add up to 100.
+    static final int[] MEGA_DEFAULT_WEIGHTS = {
             5,   // BirthdayMessages
-            7,   // ItemSales
-            7,   // GuildRecruitment
-            7,   // PQRecruitment
-            19,  // RWTSpam
+            12,  // ItemSales
+            10,  // GuildRecruitment
+            7,   // PQRecruitment (real PQ calls come from WorldEventMegaphones)
+            3,   // RWTSpam
             19,  // Flex
-            18,  // RandomAnnouncements
-            18   // SocialMessages
+            22,  // RandomAnnouncements
+            22   // SocialMessages
     };
-    private static final int MEGA_WEIGHT_TOTAL = 100;
+
+    static int megaWeight(int index) {
+        return Math.max(0, Integer.getInteger("solomapling.megaWeight." + MEGA_CATEGORIES[index],
+                MEGA_DEFAULT_WEIGHTS[index]));
+    }
 
     private SocialHotPotatoManager() {}
 
@@ -99,6 +107,8 @@ public class SocialHotPotatoManager {
     public void start() {
         if (running) return;
         running = true;
+        WorldEventMegaphones.getInstance().register();
+        DialoguePackCheck.logOnce();
         refreshMapScope();
         scheduleNextTick();
         scheduleNextMegaTick();
@@ -164,6 +174,8 @@ public class SocialHotPotatoManager {
         if (BotShutdown.isQuiesced()) {
             return; // Ticket 09: no server-wide megaphone while the server is going down
         }
+        // Ticket 47: a real world event waiting for the gate (boss kill, rare drop, PQ forming) goes first.
+        if (WorldEventMegaphones.getInstance().flushPending()) return;
         // Megaphones are server-wide (heard by every online player regardless of the sender's map), so the
         // pool is unfiltered by observation - draw a sender from any eligible bot in scope.
         Character bot = selectRandomFillerBot(false);
@@ -281,10 +293,12 @@ public class SocialHotPotatoManager {
 
     private void doMegaphone(Character bot) {
         String category = selectWeightedMegaCategory();
+        if (category == null) return;
         String line = getRandomLine(MEGA_DIALOGUE_PATH, MEGA_BOT_TYPE, category);
         if (line == null || !BotMegaphoneGate.tryAcquire()) return;
 
-        if (random.nextInt(100) < 75) {
+        // An avatar megaphone shows 4 lines of 13 characters; longer lines would be cut off, so they go super.
+        if (line.length() > 52 || random.nextInt(100) < 75) {
             BotSuperMegaphone(bot, line);
         } else {
             BotAvatarMegaphone(bot, line);
@@ -292,11 +306,23 @@ public class SocialHotPotatoManager {
     }
 
     private String selectWeightedMegaCategory() {
-        int roll = random.nextInt(MEGA_WEIGHT_TOTAL);
+        return pickWeightedMegaCategory(random.nextDouble());
+    }
+
+    /** The category a uniform roll in [0,1) lands on under the current weights; null when every weight is 0. */
+    static String pickWeightedMegaCategory(double roll) {
+        int total = 0;
+        for (int i = 0; i < MEGA_CATEGORIES.length; i++) {
+            total += megaWeight(i);
+        }
+        if (total <= 0) {
+            return null;
+        }
+        int target = (int) (roll * total);
         int cumulative = 0;
         for (int i = 0; i < MEGA_CATEGORIES.length; i++) {
-            cumulative += MEGA_WEIGHTS[i];
-            if (roll < cumulative) {
+            cumulative += megaWeight(i);
+            if (target < cumulative) {
                 return MEGA_CATEGORIES[i];
             }
         }

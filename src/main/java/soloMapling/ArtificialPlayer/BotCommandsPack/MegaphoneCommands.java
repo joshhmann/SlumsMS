@@ -2,7 +2,7 @@ package soloMapling.ArtificialPlayer.BotCommandsPack;
 
 import client.Character;
 import client.inventory.Item;
-import net.server.Server;
+import soloMapling.ArtificialPlayer.BotMegaphoneSystem.BotNoiseFilter;
 import server.maps.MapleTVEffect;
 import tools.PacketCreator;
 
@@ -22,16 +22,16 @@ public class MegaphoneCommands {
     public static void BotItemMegaphone(Character fakechar, String message, Item item) {
         String msg = fakechar.getName() + " : " + message; // medal + // optional medal
         boolean whisper = true;
-        Server.getInstance().broadcastMessage(world().getId(), PacketCreator.itemMegaphone(msg, whisper, channel().getId(), item));
+        BotNoiseFilter.broadcastBotMegaphone(world().getId(), PacketCreator.itemMegaphone(msg, whisper, channel().getId(), item));
     }
 
     public static void BotGachaponMegaphone(Character fakechar, Item item) {
         String map = fakechar.getMap().getMapName();
-        Server.getInstance().broadcastMessage(world().getId(), PacketCreator.gachaponMessage(item, map, fakechar));
+        BotNoiseFilter.broadcastBotMegaphone(world().getId(), PacketCreator.gachaponMessage(item, map, fakechar));
     }
 
     private static void BotSuperMegaphone(Character fakechar, String msg, boolean ear) {
-        Server.getInstance().broadcastMessage(world().getId(), PacketCreator.serverNotice(3, channel().getId(), fakechar.getName() + " : " + msg, ear));
+        BotNoiseFilter.broadcastBotMegaphone(world().getId(), PacketCreator.serverNotice(3, channel().getId(), fakechar.getName() + " : " + msg, ear));
     }
 
     public static void BotSuperMegaphone(Character fakechar, String msg) {
@@ -42,7 +42,7 @@ public class MegaphoneCommands {
         LinkedList list = stringTo4LineLinkedList(message);
         String medal = "";
         boolean ear = true;
-        Server.getInstance().broadcastMessage(world().getId(), PacketCreator.getAvatarMega(fakechar, medal, channel().getId(), itemId, list, ear));
+        BotNoiseFilter.broadcastBotMegaphone(world().getId(), PacketCreator.getAvatarMega(fakechar, medal, channel().getId(), itemId, list, ear));
 //      //  TimerManager.getInstance().schedule(() -> Server.getInstance().broadcastMessage(world.getId(), PacketCreator.byeAvatarMega()), SECONDS.toMillis(10));
     }
 

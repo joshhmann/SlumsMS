@@ -1,0 +1,526 @@
+# NOTE: PlayerWin/PlayerBlackjack/PlayerLose/PlayerBust/PlayerPush/HitResponse/StandResponse are spoken by the
+# AI *player* bots at the table (triggerAIPlayerReaction / triggerArtificialPlayerResponse). Dealer-voice lines
+# in those nodes ("your stamps come back", "card coming your way") are dropped as wrong speaker.
+# DealerLoss = dealer voice. DealerBanter/TableTalk are not referenced by code currently.
+# game facts: blackjack pays 1.5x, dealer hits under 17, bets are stamps, no split/double down.
+# PlayerWin
+R im actually cracked at this game => im actually pro at this game  ## modern slang (cracked)
+R another W in the books => another win in the books  ## W as noun
+R ok ok ok we're cooking => ok ok ok im on a roll  ## modern slang
+D easy clap  ## modern slang
+D another day another W  ## W noun / near-dup
+D look at me. I am the dealer now  ## 2013 meme
+D W  ## W as noun
+R I had a feeling about this hand. I was right. => had a feeling about this hand lol
+D well that worked out nicely  ## filler
+D winning feels better every time honestly  ## filler
+D blessed run happening right now  ## filler
+D no hesitation. that was clean.  ## filler
+D the luck is with me today and I refuse to question it  ## filler
+D my gut read that hand perfectly  ## filler
+D absolutely SCREAMING right now  ## modern phrasing
+D one more W for the collection  ## W noun
+D dealer had no chance honestly  ## near-dup
+D knew my odds and I was right  ## filler
+D felt like a W from the start  ## W noun
+D called it. my read was pristine  ## filler / near-dup
+D my instincts are cooking right now  ## modern slang
+D dealer folded mentally after that  ## filler
+D stampy stampy for the W  ## W noun / nonsense
+D rng SMILED ON ME THIS ROUND  ## filler tail
+D the deck was in my favor today  ## filler tail
+D that's a certified W  ## modern slang
+D my hand was completely untouchable  ## filler tail
+R back to back Ws baby => back to back wins baby  ## W noun
+D absolute dominance right there  ## filler tail
+# PlayerBlackjack
+R that 1.5x payout hits different => that 1.5x payout tho :D  ## modern slang (hits different)
+D ok that is a blackjack. I have to pay you more. obviously.  ## dealer voice in player node
+D of all the decks I could have dealt  ## dealer voice
+D a blackjack. on MY table. embarrassing.  ## dealer voice
+D the deck decided to be generous today I see  ## dealer voice
+D ok im impressed. I wont lie.  ## dealer voice
+D natural 21. thats the dream hand.  ## filler
+D that hand deserved a fanfare honestly  ## filler
+D 21 from two cards. clean.  ## dealer voice
+D ok I respect it  ## dealer voice
+D the deck just gifted you that one  ## dealer voice
+D 21 FROM TWO CARDS. THE DREAM.  ## near-dup
+D natural 21. I just have to sit here and watch.  ## dealer voice
+D well. thats a blackjack. congratulations I guess.  ## dealer voice
+D blackjack on my table again. wonderful.  ## dealer voice
+D thats the best hand in the game and you just got it  ## dealer voice
+D ace and a face card. nothing I can do about that.  ## dealer voice
+D thats a 1.5x payout for you. enjoy.  ## dealer voice
+D I see a lot of hands but blackjacks still impress me  ## dealer voice
+D that. was. perfect.  ## filler
+D I HAVE BLACKJACK I AM ASCENDING  ## modern meme
+D nobody can take this moment from me  ## filler
+D blackjack. the word alone sounds like winning.  ## filler
+D the BLACKJACK. right here. RIGHT HERE.  ## filler
+D screaming internally. externally. everywhere.  ## modern phrasing
+D the table gods smiled today  ## filler
+D naturally. as expected.  ## filler
+D thats the hand right there. THE hand.  ## filler
+D two cards and a perfect score. the dream hand showed up.  ## filler
+D two cards. perfect score. I love this game.  ## near-dup
+D I peaked and I am at peace with that.  ## near-dup
+D NATURAL 21 LETS GOOOO  ## near-dup
+D the perfect hand just showed up  ## filler tail
+D ace and face card. nothing beats it.  ## filler tail
+D BLESSED HAND INCOMING  ## filler tail
+D blackjack baby thats the one  ## near-dup
+D just saw the dream hand arrive  ## filler tail
+D two cards to absolute perfection  ## filler tail
+D 21 from the start. utterly unbeatable.  ## filler tail
+D that hand was completely inevitable  ## filler tail
+D the best possible two cards exist  ## filler tail
+D my lucky hand showed up at last  ## filler tail
+D instant victory in two cards  ## filler tail
+D blessed beyond belief right now  ## filler tail
+# DealerLoss (dealer voice)
+D dealer L. your W. fair enough.  ## L/W nouns
+D respect. genuinely.  ## filler
+D well that was unfortunate for me  ## filler
+D you read that hand perfectly  ## filler
+D couldnt stop you this time  ## filler
+D you caught me at a bad streak. fair enough.  ## filler
+D too greedy on that draw  ## dealer has fixed rules, not greedy
+D shoulda stood earlier. lesson learned.  ## inaccurate: dealer must hit under 17
+D overshot. can't argue with that.  ## near-dup
+D went for it and paid the price  ## inaccurate for dealer
+D and thats a loss for me. well played.  ## near-dup
+D player wins. the deck decided.  ## filler
+D honestly? impressed.  ## filler
+D I see how it is. the deck picks favorites today.  ## filler
+D one for you. nothing wrong with that.  ## filler
+D cant win on every draw.  ## filler
+D you played that correctly. I can acknowledge it.  ## corporate voice
+D the deck was not on my side there.  ## near-dup
+D I lose. you win. thats how this works.  ## filler
+D that was a good hand. nothing I could do.  ## near-dup
+D alright. you win this one. enjoy it.  ## near-dup
+D well that didnt go my way. fair.  ## filler
+D you got the cards this time around  ## filler tail
+D the deck had other plans for me  ## filler tail
+D that was a solid hand you held  ## filler tail
+D not my round. stuff happens.  ## filler tail
+D you earned that victory  ## filler tail
+D the cards just werent friendly today  ## near-dup
+D I respect that hand  ## filler tail
+D I take the L on that one  ## L noun
+D good play. I acknowledge it fully.  ## corporate voice
+D the deck decided your side that hand  ## filler tail
+D you beat me fair and square there  ## filler tail
+D well played. I genuinely mean it.  ## filler tail
+# PlayerLose (player voice)
+R my luck is actually cooked => my luck is actually dead today  ## modern slang (cooked)
+D im malding  ## 2019+ slang
+D im starting to think the cards are sentient and they hate me  ## near-dup
+D im down bad, not gonna lie  ## modern slang
+D pain pain pain. nothing but pain.  ## near-dup
+D im convinced the deck is stacked against me  ## near-dup of rigged
+D dealer wins this one. sorry about that.  ## dealer voice in player node
+D the house thanks you for your donation  ## dealer voice
+D that one hurt huh? I felt it too. mostly I felt the win but still.  ## dealer voice
+D sometimes the cards just go that way  ## dealer voice
+D better luck next hand  ## dealer voice
+D I had a 19. what can I say.  ## dealer voice
+D dont take it personally. the deck doesnt hate you.  ## dealer voice
+D tough break. come back stronger.  ## dealer voice
+D I was honestly rooting for you a little bit  ## dealer voice
+D thats a loss for sure. but youll get the next one.  ## dealer voice
+D dealer takes this round  ## filler
+D you played well. I just played slightly better.  ## dealer voice
+D close but not quite  ## dealer voice
+D the deck wasnt on your side today  ## dealer voice
+D you almost had me on that one  ## dealer voice
+D next hand is yours. I can feel it.  ## dealer voice
+D ok I wont gloat. ill just quietly collect your stamps.  ## dealer voice
+D the cards were unkind  ## filler
+D not your round but theres always the next one  ## dealer voice
+D I win again. purely by chance obviously.  ## dealer voice
+D the dealer takes it. dont be too sad.  ## dealer voice
+D the deck works in mysterious ways  ## filler
+D thats how it goes sometimes  ## filler
+D a loss today doesnt mean anything about tomorrow  ## life-advice filler
+D I promise I didnt see your cards  ## dealer voice
+D that was painful to watch happen to me  ## filler
+D rough one. but theres always the next deal.  ## dealer voice
+D the deck chose violence today apparently  ## modern meme
+D not your hand. the next one could be though.  ## dealer voice
+D happens. even the best players lose rounds.  ## dealer voice
+D dealer wins this time. keep your head up.  ## dealer voice
+D loss recorded. moving on to the next hand.  ## robotic
+D the cards werent kind. they rarely apologize.  ## filler
+D im beginning to think I never had a chance  ## filler
+D this is my villain origin story  ## modern meme
+D I genuinely believed in that hand. I was wrong.  ## filler
+D the dealer is just better than me right now  ## filler
+D loss accepted. moving on. (it hurts)  ## filler
+D I had it and then I didnt. that transition was brutal.  ## filler
+D deep breath. composure. next hand.  ## near-dup
+D dealer takes another one  ## filler tail
+D closer than you might think tho  ## filler tail
+D the deck said no this time around  ## filler tail
+D maybe next hand will be different  ## filler tail
+D my luck shifted that round  ## filler tail
+D you played ok. I just played slightly better.  ## dealer voice
+D the cards favor the dealer today  ## filler tail
+D another one for the house  ## dealer voice
+D your stamps are safe with me  ## dealer voice
+D thats just how the game goes  ## filler tail
+D try again whenever youre ready  ## dealer voice
+D dealer prevails yet again  ## filler tail
+D the table giveth stamps to dealers  ## near-dup
+# PlayerBust (player voice)
+D thats a skill issue and I know it  ## modern slang (skill issue)
+D you hit on a 14. bold choice. painful outcome.  ## dealer voice in player node
+D happens to everyone. I busted on a 5 just last round.  ## dealer voice / impossible
+D weve all been there. well. you more than most.  ## dealer voice
+D the card said no  ## filler
+D over 21. the cruelest number.  ## near-dup
+D you had 15 and asked for more. I respect the courage.  ## dealer voice
+D greed got you this time  ## dealer voice
+D if it helps, I thought you had it too  ## dealer voice
+D the math was there. the luck was not.  ## filler
+D busted. automatic loss. deck wins.  ## dealer voice
+D youll learn eventually. maybe.  ## dealer voice
+D classic bust. nothing to be ashamed of.  ## dealer voice
+D in your defense, hitting on 16 is a valid call  ## dealer voice
+D even pros bust sometimes. youre in good company.  ## dealer voice
+D that extra card was a trap and you walked right in  ## dealer voice
+D over 21 again. consistent at least.  ## dealer voice
+D no one ever got rich by hitting on 19 but here we are  ## dealer voice
+D the deck giveth and the deck taketh away  ## near-dup
+D bust. shake it off. next hand awaits.  ## dealer voice
+D my strategy needs work  ## filler
+D went over by one. by ONE.  ## near-dup
+D over 21. happens more often than you think.  ## dealer voice
+D you had a shot. the deck disagreed.  ## dealer voice
+D hitting on that was risky. now you know.  ## dealer voice
+D busted. take a breath and try the next hand.  ## dealer voice
+D the extra card wasnt your friend today  ## dealer voice
+D over the line. it happens. reset and go again.  ## dealer voice
+D you went for it. cant fault the courage.  ## dealer voice
+D I am genuinely terrible at knowing when to stop.  ## near-dup
+D 22. the worst number in existence  ## near-dup
+D I lack the discipline to stop hitting and I know it.  ## near-dup
+D my impulse control has left the building  ## near-dup
+D over again. this is becoming a pattern.  ## filler
+D WHY DID I HIT ON 17. WHY.  ## near-dup
+D I keep doing this to myself.  ## near-dup
+D twenty-two. the cruel neighbor of twenty-one.  ## filler
+D that extra card was overkill  ## filler tail
+D went one over. so close.  ## filler tail
+D 22 is the cruelest number  ## filler tail
+D over the limit on that one  ## filler tail
+D bust city right here  ## near-dup
+D the greedy hit strikes again  ## filler tail
+D one card too many there  ## filler tail
+D over 21. thats how it ends.  ## filler tail
+D YOU WENT OVER. THATS THE GAME.  ## dealer voice
+D overshot by just one. brutal.  ## filler tail
+D hitting cost you that round  ## dealer voice
+D the bust is the oldest mistake in blackjack  ## filler tail
+D busted. happens to everyone.  ## dealer voice
+D exceeded 21. you know the rule.  ## dealer voice
+D pulled one too many. always the hardest lesson.  ## filler tail
+# PlayerPush (player voice)
+D the safest outcome. boring but safe  ## filler
+D dealer and player tie. your stamps come back.  ## dealer voice
+D a draw. not exactly the dramatic ending I was hoping for.  ## filler
+D same card total. nobody wins. nobody loses. riveting.  ## near-dup
+D tied. at least you get your bet back  ## dealer voice
+D the universe said neither of us deserves to win today  ## near-dup
+D push. I feel almost nothing about this outcome.  ## near-dup
+R a tie is basically a W if you think about it wrong enough => a tie is basically a win if u think about it wrong enough  ## W noun
+D dealer matches player. hands canceled. next hand.  ## dealer voice
+D push. the most boring outcome in the game.  ## near-dup
+D youll get your stamps back. thats the push rule.  ## dealer voice
+D tied again. the table is neutral on your existence.  ## filler
+D same number. the deck couldnt pick a winner today.  ## near-dup
+D push. take your stamps and lets go again.  ## dealer voice
+D push. I feel nothing.  ## near-dup
+D a tie is just a loss that feels like nothing  ## near-dup
+D tied. the most nothing outcome possible.  ## near-dup
+D push. stamps returned. no harm done.  ## dealer voice
+D identical totals. the deck has no favorites today.  ## filler
+D a tie. the least exciting result in the game.  ## near-dup
+D push. neither of us won. neither of us lost. riveting.  ## near-dup
+D same total same result. your stamps come back to you.  ## dealer voice
+D tied. well. that was certainly a hand of blackjack.  ## filler
+D push again. the table is feeling indecisive today.  ## filler
+D a tie. the universe couldnt pick a side today.  ## near-dup
+D push. neutrality achieved.  ## filler
+D neither of us won. somehow that feels worse than losing.  ## near-dup
+D matching totals. ok. sure. whatever.  ## filler
+D stamps returned. no gain no loss. the nothing hand.  ## filler
+D a push is just the deck saying it couldnt decide.  ## near-dup
+D well. we matched.  ## filler
+D pushed. nobody moved from their starting point.  ## filler
+D same total. different feelings. mine is mostly nothing.  ## filler
+D push. reset. next hand.  ## filler
+D cant even get a clean outcome today. just push.  ## filler
+D the table has decided neither of us deserve victory today  ## near-dup
+D a draw feels worse than losing somehow  ## near-dup
+D we both got the same. how boring.  ## filler tail
+D matching totals. nothing at all changes.  ## filler tail
+D a draw. the safest possible outcome.  ## filler tail
+D push. neither of us actually wins.  ## filler tail
+D tied again. the deck is totally neutral.  ## filler tail
+D same cards. stamps go right back.  ## dealer voice
+D push. the least exciting hand around.  ## filler tail
+D a draw is just a loss that hurts way less  ## filler tail
+D nobody moves. thats what a push is.  ## filler tail
+D SAME TOTAL. STAMPS STAY PUT.  ## filler tail
+D tied. well. here we go yet again.  ## filler tail
+D push. the absolute nothing outcome.  ## filler tail
+D identical hands. feels anticlimactic.  ## filler tail
+D we matched. so what happens now.  ## filler tail
+D a push is just the deck saying maybe.  ## filler tail
+# HitResponse (player voice)
+D yolo hit  ## yolo is 2011+
+D im built different. hit.  ## modern slang
+D trust the process. hit  ## 2014+ meme
+D you want a hit on that? bold.  ## dealer voice in player node
+D hitting on 14. could work.  ## dealer voice
+D ok you want another card. lets see what the deck has to say.  ## dealer voice
+D brave call. hitting on that.  ## dealer voice
+D you sure? alright. pulling one.  ## dealer voice
+D hit it is. hope the deck is kind to you.  ## dealer voice
+D the deck will answer now  ## filler
+D ok here it comes  ## dealer voice
+D one card for you  ## dealer voice
+D hitting on 15. classic gamble.  ## dealer voice
+D asking for more. alright.  ## dealer voice
+D you asked for it  ## dealer voice
+D pulling for you now. fingers crossed.  ## dealer voice
+D the next card is all yours  ## dealer voice
+D one coming up  ## dealer voice
+D the deck decides  ## filler
+D you trust the deck? the deck might not trust you back.  ## dealer voice
+D and here it is...  ## dealer voice
+D card coming your way  ## dealer voice
+D one more for the player  ## dealer voice
+D pulling from the deck for you  ## dealer voice
+D you want more. the deck provides.  ## dealer voice
+D dealing you one. good luck with it.  ## dealer voice
+D im all in on this hit. literally.  ## inaccurate (no all-in)
+D another card coming. you asked for it.  ## dealer voice
+D hit request noted. pulling one.  ## dealer voice
+D the bravery. or the foolishness. lets find out.  ## dealer voice
+D one more from the deck. good luck with it.  ## dealer voice
+D you asked for a card. the card is coming.  ## dealer voice
+D another card coming your way now  ## dealer voice
+D one more from the deck  ## dealer voice
+D pulling a card for you  ## dealer voice
+D next card is yours  ## dealer voice
+D hitting. lets see what happens  ## near-dup
+D card deal. fingers crossed.  ## dealer voice
+D dealing you another one  ## dealer voice
+D the deck provides another card  ## dealer voice
+D hit incoming. brace yourself.  ## dealer voice
+D card for you. good luck with that.  ## dealer voice
+D another one. that's pretty risky.  ## dealer voice
+# StandResponse (player voice)
+D standing. smart move.  ## dealer voice in player node
+D ok youre done. lets see what the dealers got.  ## dealer voice
+D standing on that. alright I respect it.  ## dealer voice
+D players locked in. time for the dealer to play.  ## dealer voice
+D you held. now its on me.  ## dealer voice
+D player stands. dealers turn.  ## dealer voice
+D smart. no need to risk it.  ## dealer voice
+D ok you locked in. lets see if I can beat it.  ## dealer voice
+D player is done. now I have to work.  ## dealer voice
+D a solid stand. good instincts.  ## dealer voice
+D you stood. the table waits.  ## dealer voice
+D standing pat. the dealer will now reveal.  ## dealer voice
+D no more cards for you. now its up to me.  ## dealer voice
+D you stuck with it. bold confidence.  ## dealer voice
+D standing there. lets see if that holds.  ## dealer voice
+D the player is satisfied. the dealer must now try to beat it.  ## dealer voice
+D you made your call. the deck has the rest.  ## dealer voice
+D alright. standing. now lets see what I draw.  ## dealer voice
+D the player holds. my turn now.  ## dealer voice
+D standing. solid choice.  ## dealer voice
+D you stopped there. lets see if it holds up.  ## dealer voice
+D player stands. pressure shifts to the dealer.  ## dealer voice
+D stood on that number. I can work with this.  ## dealer voice
+D ok you held. time to see my cards.  ## dealer voice
+D player stands firm. dealers hand is next.  ## dealer voice
+D stood. good call.  ## dealer voice
+D standing with confidence.  ## filler
+D stand. this is enough.  ## near-dup
+D youre standing. fair enough. now its my problem.  ## dealer voice
+D player holds. dealer to reveal.  ## dealer voice
+D standing there. lets see if that number holds.  ## dealer voice
+D youre done. lets see what the deck has for me now.  ## dealer voice
+D stand confirmed. now I draw.  ## dealer voice
+D player stands firm. my cards are next.  ## dealer voice
+D you locked in. my turn now.  ## dealer voice
+D standing pat. alright then.  ## dealer voice
+D player is done. dealers game now.  ## dealer voice
+D you held. lets see my cards.  ## dealer voice
+D standing. time for the dealer to play.  ## dealer voice
+D you stopped there. I respect it.  ## dealer voice
+D locked and loaded. my play now.  ## dealer voice
+D you're set. I take my turn.  ## dealer voice
+D standing firm. the pressure shifts.  ## dealer voice
+D YOU'RE DONE. LET'S SEE WHAT I GOT.  ## dealer voice
+D player stands. dealers moment arrives.  ## dealer voice
+D stood. now its all on me.  ## dealer voice
+D standing pat. that was a good call.  ## dealer voice
+D standing there. the tension rises now.  ## dealer voice
+# DealerBanter (dealer voice; currently unused by code)
+D its a good day to be at a blackjack table  ## filler
+D been dealing cards for a while now. still fun.  ## filler
+R its just mesos right. or stamps. whatever. => its just stamps right. no big deal  ## bets are stamps only
+D ill deal as fast or slow as you need  ## filler
+D ask me anything about the rules. im serious.  ## bot cannot answer rules questions
+D ive seen every kind of hand at this table  ## filler
+D the game resets every hand. clean slate every time.  ## filler
+D anyone need a rules refresher? im happy to explain.  ## bot cannot explain
+D been dealing blackjack all day. I genuinely love this job.  ## filler
+D next round starts when youre ready  ## near-dup
+D standing by. whenever you wanna go.  ## near-dup
+D the cards arent going anywhere  ## filler
+D there are worse things to do with your time than play blackjack here  ## filler
+D take your time, no rush at this table  ## near-dup
+D the cards will be here when youre ready  ## near-dup
+D nice spot in the game zone today  ## filler
+D been running this table since morning. still going strong.  ## filler
+D no stress. its just a card game.  ## filler
+D I dont judge betting strategies here. bet what you want.  ## filler
+D the game zone is nice this time of day  ## filler
+D anyone here for the first time? I can explain the rules  ## bot cannot explain
+D this table has seen some legendary hands  ## filler
+D im just here to deal and occasionally win  ## filler
+D good group today. I like the energy.  ## filler
+D the deck is freshly shuffled and ready to go  ## near-dup
+D welcome back. or welcome for the first time. either way.  ## filler
+D slow day at the table but I dont mind  ## dead-town meta
+D your bet, your choice, your game  ## corporate voice
+D one hand at a time. thats how we do it.  ## filler
+D I see new faces every day. I like that.  ## filler
+D new shuffle coming. just a moment.  ## near-dup
+D this table has seen so many hands today I lost count.  ## filler
+D honestly? dealing blackjack is one of the best jobs in maple.  ## filler
+D you play well. I like having good players at the table.  ## filler
+D the game zone doesnt get enough love honestly  ## population meta
+D twenty one or bust. thats the whole game. beautiful.  ## filler
+D quiet at the table today. suits me fine.  ## dead-town meta
+D dealing again whenever you are.  ## near-dup
+D im good at this job. not bragging. just a fact.  ## filler
+D if I could deal cards in my sleep I would. I practically do.  ## filler
+D the FM has energy. the card table has focus. both good.  ## filler
+D I like players who dont overthink it. just play.  ## filler
+D deck stays clean at this table. shuffled regular.  ## near-dup
+D nobody beats the house every time. but you can win today.  ## filler
+D dealing cards all day is weirdly meditative.  ## filler
+D players come and go but the deck stays the same.  ## filler
+D I give advice if you want it. I dont push it if you dont.  ## bot cannot give advice
+D this is the best table in the game zone and I will take that opinion to my grave.  ## filler
+D I enjoy this. the cards, the game, the people.  ## filler
+D when the table runs hot I try to stay calm. its my job.  ## filler
+D been here all day and I would stay all night honestly.  ## filler
+D blackjack resets every hand. I like that about it.  ## filler
+D some tables feel lucky. im not superstitious. but this one might be.  ## filler
+D I have seen stranger things happen at this table than anywhere else in maple.  ## filler
+D sit. play. try your luck. thats the whole invitation.  ## filler
+D been dealing so long I could do it with my eyes closed. I dont though.  ## filler
+D every new player who sits down reminds me why I love this job.  ## filler
+D stamps are at stake but the game is what matters.  ## filler
+D you can learn blackjack in five minutes and spend years getting good at it.  ## filler
+D the cards are flowing nicely today  ## filler tail
+D good energy at this table honestly  ## filler tail
+D shuffling for the next round here  ## near-dup
+D been dealing all day. never gets old.  ## filler tail
+D the game zone is my happy place  ## filler tail
+D the deck is warmed up and ready  ## near-dup
+D fresh shuffle coming up shortly  ## near-dup
+D another hand another chance for someone  ## filler tail
+D the cards keep talking. I keep dealing.  ## filler tail
+D the table runs smooth when people are engaged  ## corporate voice
+D dealing is legitimately the best job in maple  ## filler tail
+D the deck never lies. it confuses everyone though.  ## filler tail
+D another round. the magic continues here.  ## filler tail
+# TableTalk (currently unused by code)
+D blackjack is one of the few games where your choices actually matter  ## filler
+R I used to play the FM before I started dealing. different vibe. => I used to hang in the FM before I started dealing. way louder lol  ## modern slang (vibe)
+D sometimes the table runs hot. sometimes it doesnt.  ## filler
+D splitting is underrated by the way  ## inaccurate: no splitting at this table
+D a lot of people overthink blackjack. its not that complicated.  ## filler
+D maple is a strange place to run a card game but here we are  ## meta
+D I like this map. quiet. focused. good energy.  ## filler / dead-town
+D I think the game zone is underrated honestly. people sleep on it.  ## population meta
+D good company at this table today I must say  ## filler
+D the odds are what they are. you just play your best.  ## filler
+D deal after deal after deal. I never get tired of it.  ## filler
+D a good player knows when to walk away from the table  ## life-advice
+D the house edge in blackjack is actually pretty small if you play smart  ## filler
+D some players count cards. I dont think it matters with this deck though.  ## filler
+D the worst thing you can do is chase losses. just play the hand.  ## life-advice
+D blackjack has been around forever. theres a reason for that.  ## filler
+D I always say play the cards you get not the cards you want  ## life-advice
+D the difference between a good player and a great player is patience  ## life-advice
+D every hand is independent. the deck doesnt remember the last one.  ## near-dup
+D standing on 17 is boring but smart. boring and smart wins games.  ## near-dup
+D I deal the same way every time. its the cards that change.  ## filler
+D ive dealt thousands of hands. every single one is different.  ## filler
+D some nights the table favors the players. tonight might be one of those nights.  ## filler
+D a push isnt exciting but its not a loss. sometimes thats enough.  ## filler
+D the best blackjack players know the odds but dont obsess over them  ## filler
+D doubling down is the most exciting move in blackjack. also the scariest.  ## inaccurate: no double down
+D I like when players take their time. rushing leads to bad calls.  ## filler
+D the game zone is one of the best kept secrets in maple  ## population meta
+D ive seen beginners beat veterans. thats the beauty of card games.  ## filler
+D knowing basic strategy takes you further than luck ever will  ## filler
+D losing a hand doesnt make you bad at the game. its one hand.  ## therapist voice
+D I respect players who know when to stand on a bad number  ## filler
+D theres a difference between gambling and playing well. this game rewards both.  ## filler
+D a soft 17 is one of the most misunderstood hands in blackjack  ## filler
+D the table doesnt care about your streak. every hand starts fresh.  ## near-dup
+D the player who thinks too long usually makes the same call anyway  ## filler
+D every hand teaches you something if you let it.  ## life-advice
+D the deck is random. strategy is just how you deal with that randomness.  ## filler
+D I genuinely believe blackjack is more skill than luck above a certain level.  ## filler
+D the best hands feel obvious in hindsight.  ## filler
+D some players are naturals. you can tell in the first few hands.  ## filler
+D the house edge is real but its not destiny. you can win.  ## filler
+D a blackjack from a fresh shuffle is one of my favorite sights.  ## filler
+D the table has no memory but I do. ive seen everything here.  ## filler
+D patience is the actual superpower at this table.  ## life-advice
+D hitting on 12 against a dealer 2. one of the hardest calls in the game.  ## filler
+D the cards are always random. your decisions are not. thats where skill lives.  ## filler
+D a good hand can go wrong. a bad hand can somehow go right. thats maple blackjack for you.  ## filler
+D every bust hurts a little less if you saw it coming.  ## filler
+D the fun part of blackjack is the moment before the card flips.  ## filler
+D your instincts get better with practice. usually.  ## filler
+D a soft 18 against a dealer 9 is the most uncomfortable feeling in this game.  ## filler
+D the game zone has the best card game energy in maple. im biased but im right.  ## filler
+D the deck doesnt care who you are. everyone gets the same randomness.  ## filler
+D a loss is just data. what do you do differently next hand.  ## therapist voice
+D ive seen people go from nothing to everything in ten hands at this table.  ## near-dup
+D the longest I ever watched someone play was hours. they went up and down the whole time.  ## filler
+D blackjack rewards calm players. panic and you bust.  ## near-dup
+R the odds are wild sometimes no cap => the odds are wild sometimes lol  ## modern slang (no cap)
+D stampy stampy for whoever won that  ## nonsense
+D the player read that really well  ## filler tail
+D another round starting up  ## filler tail
+D lets see how this one plays out  ## filler tail
+D the player is definitely on a heater  ## filler tail
+D the deck is running hot right now  ## filler tail
+D pressure is always on at this table  ## filler tail
+D stampy if you lose your whole bank  ## nonsense
+D blackjack is honestly so good  ## filler tail
+D this dealer never seems to lose  ## near-dup
+D ok next round lets go  ## filler tail
+D risky but the payoff was insane  ## filler tail
+D the table mood is different today  ## filler tail
+D the cards were kind that round  ## filler tail
+D blackjack hits different than the fm vibe  ## modern slang
+D the game zone is actually amazing people sleep on it  ## population meta
+D the luck swings so fast at this table  ## filler tail
+D another hand another story to tell  ## filler tail
+D someone's about to get lucky  ## filler tail

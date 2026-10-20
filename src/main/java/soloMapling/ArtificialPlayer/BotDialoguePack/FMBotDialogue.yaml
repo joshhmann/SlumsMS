@@ -26,10 +26,10 @@ FMBot:
       - "wow thats actually a good deal"
       - "been looking for this price all day"
       - "ur prices are fair, bookmarking this shop"
-      - "damn bro u taxing but i need it"
+      - "damn bro thats steep but i need it"
       - "this better be worth it..."
       - "my wallet is crying T_T"
-      - "ight bet, good price"
+      - "aight, good price"
       # Casual / conversational
       - "finally, been looking everywhere for this"
       - "oh nice u actually had it"
@@ -68,7 +68,6 @@ FMBot:
       - "Thx! Best shop in CH1 by far"
       - "My meso bag is empty but my ego is full"
       - "Omg finally a clean one, let's goooo"
-      - "Hope this is a 100% success rate item, my luck is trash"
       - "Aight, time to go show this off in Henesys"
       - "Seller is a legend, thx for the price"
       - "RIP my bank account, worth it for the flex"
@@ -78,12 +77,11 @@ FMBot:
       - "man I walked through like 12 rooms to find this"
       - "ok NOW my build is complete. probably. maybe."
       - "this shop is honestly a hidden gem"
-      - "the FM entrance was lagging me out so bad getting here"
       - "aight back to henesys to flex on the noobs"
       - "bought this before someone else snags it lol"
       - "ty bro, ur prices are actually reasonable unlike everyone else"
       - "I've been saving up for weeks for this exact item"
-      - "bruh I almost bought this from another shop for way more"
+      - "dude I almost bought this from another shop for way more"
       - "ok one more purchase and then I REALLY need to go train"
       - "my guild is gonna be so jealous when they see this"
       - "please dont tell me this is gonna fail when I scroll it"
@@ -121,8 +119,7 @@ FMBot:
       - "been window shopping for an hour and finally found something I could actually afford"
       - "every time I tell myself im done shopping I see one more thing I need"
       - "just one more and my equips will be perfect. ive been saying that for a month."
-      - "the FM entrance lag was worth it for this"
-      - "someone in my guild recommended this shop and honestly? solid recommendation"
+      - "someone in my guild recommended this shop. good call"
       - "grabbed it"
       - "sold"
       - "done, ty"
@@ -140,7 +137,6 @@ FMBot:
       - "i swear half my playtime is just shopping"
       - "I tell myself im saving mesos and then I see stuff like this"
       - "my storage is full but my heart says buy it"
-      - "aight thats a W purchase right there"
       - "snagged"
       - "yoink"
       - "mine now lol"
@@ -162,7 +158,6 @@ FMBot:
       - "I have a problem and the problem is this shop"
       - "take my mesos before I change my mind"
       - "buying before the prices go up"
-      - "smart purchase, dont @ me"
       - "aight cool. good doing business"
       - "fair price fair shop. gg"
       - "needed this for a quest actually"
@@ -174,67 +169,30 @@ FMBot:
       - "crossing this off my shopping list"
       - "ok that was painless. ty for not overpricing"
       # --- new lines below ---
-      - "found exactly what i was looking for, nice"
-      - "been hunting this down for days, finally got it"
       - "aight solid purchase"
       - "cant believe that was still in stock"
       - "this shop is legit"
       - "another one for the collection"
       - "worth every meso"
-      - "picked it up before someone else did"
-      - "ok that was a clean transaction"
       - "took me 4 channels to find this lol"
       - "not bad not bad"
-      - "the hunt is over at last"
       - "score"
-      - "that price was too good to pass up honestly"
       - "couldnt pass that up"
-      - "perfect, exactly what i needed"
-      - "ok ok ok, this is a good purchase"
-      - "YOINK. mine."
       - {line: "look at me, actually finding a deal in the FM for once", emote: 3}
       - "first useful thing ive bought all day"
       - "called it, best price on this channel"
       - "ok its just a scroll but im kinda hype about this"
-      - "clean shop, clean price, clean transaction"
       - "my party has no idea ive been in here for 2 hours lol"
       - {line: "doesnt matter if i overpaid a little, i needed it", emote: 4}
       - "ok now i can ACTUALLY go train"
       - "one item down, way too many more to find"
       - "was gonna leave empty handed and then i saw this"
       - {line: "THERE IT IS. finally.", emote: 2}
-      - "the sacrifice was worth it"
       # --- expansion batch: fresh purchase reactions ---
       - "got it in one shop, my luck's turning around"
-      - "this beats anything else ive checked today for sure"
-      - "ok now we're talking, stats are solid"
-      - "could not have asked for a cleaner find honestly"
-      - "the universe is being nice to me for once"
       - "this item is gonna last me like 20 levels easy"
-      - "ok so that doesnt completely bankrupt me, solid"
-      - "walked out with exactly what i came for, rare"
-      - "one less thing on my worry list"
-      - "didnt even have to haggle, just took it"
-      - "ok this shop is definitely on my regular route now"
-      - "stat-wise this is exactly what i needed"
       - "found one without checking 30 shops first omg"
-      - "this is what i get for actually doing my research"
-      - "walk in, see it, buy it. thats how shopping should go"
-      - "ok so this one isnt duped or anything sketchy right"
-      - "price is fair and item is clean, whats not to love"
-      - "gonna feel good actually using this"
       - "this will carry me til endgame probably"
-      - "stoked i didnt have to second-guess this one"
-      - "ok so that meso investment was actually worth it"
-      - "the roll-out stats on this are insane"
-      - "didnt think id find THIS good of an option in here"
-      - "bro this item is gonna change my whole game"
-      - "found it without any haggling or nonsense, clean"
-      - "the value on this is actually insane"
-      - "ok last thing i needed to complete the puzzle"
-      - "not wasting time debating, this is perfect"
-      - "actually gonna be able to equip and use this soon"
-      - "ok one major upgrade down, who knows how many left to go"
     emote:
       - 2
       - 3
@@ -253,16 +211,13 @@ FMBot:
       - "so many hired merchants out here"
       - "just gonna do one full lap and see whats out there"
       - "browsing while i wait for my party to finish prep"
-      - "half the shops in here are empty lol"
       - "always find random stuff i didn't know i needed in the FM"
       - "the FM is dangerous, came for one thing now i have a shopping list"
-      - "someone dropped something on the floor over there"
       - "channelhopping to find better prices"
       - "already forgot which room i started in"
       - "there are so many shops in here, this is gonna take a while"
       - "ok what channel has the good prices today"
       - "always see the same shop names but never know what they sell"
-      - "the FM is just window shopping with extra steps"
       - "found a shop with like 3 items in it... why are you even here bro"
       - "walked into a dead end again lol"
       - "i need a map of this place"
@@ -292,7 +247,6 @@ FMBot:
       - "my legs are tired from walking around in here"
       - "ok where was that one shop with the good capes"
       - "someone needs to organize this place"
-      - "the lag in here is unreal sometimes"
       - "lost count of how many rooms ive checked"
       - "..."
       - "browsing."
@@ -308,7 +262,6 @@ FMBot:
       - "every time i come to {REGION} i find something random"
       - "the deals in {REGION} are hit or miss honestly"
       - "i keep ending up in {REGION} no matter where i start"
-      - "{REGION} is looking kinda dead today"
       - "walked all of {REGION} and only found pots and ores"
       - "someone in {REGION} has my item, i can feel it"
       - "ok {REGION} has some new shops actually"
@@ -326,54 +279,25 @@ FMBot:
       - "there has to be a shortcut through here somewhere"
       - {line: "if i get lost in here one more time...", emote: 5}
       - "at least its not laggy today"
-      - "the grind never ends and neither does the shopping"
       - "ok last room. for real this time."
       - "somehow ended up back at the entrance again"
-      - "{REGION} is always the busiest section somehow"
       - "something about {REGION} prices just feels off today"
       - "the scroll selection in {REGION} is actually decent"
       - "finally found a clean route through {REGION}"
       - "do people even sell weapons in {REGION} or just scrolls"
-      - "{REGION} is packed right now, good sign"
       - "spent way too long in {REGION} already"
       - "ok skipping {REGION}, checked it twice already"
-      - "the vibe in {REGION} is weird, not sure if good or bad"
       - "spotted something in {REGION} earlier, going back for it"
       - "{REGION} has the most random assortment of items"
       - "nothing good in {REGION} again, shocking"
       - "ok {REGION} came through this time actually"
       - "everything in {REGION} is marked up, per usual"
       # --- expansion batch: deal-hunting & market observation ---
-      - "gotta compare all the prices before i commit"
-      - "some items are basically extinct in here"
       - "wonder if theres a better deal on this somewhere"
       - "scrolls are flying off the shelves today"
-      - "certain items just dont show up much anymore"
-      - "prices for this stuff have been creeping up forever"
-      - "what's trending right now anyway"
       - "bet the good deals are all gone by now"
-      - "someone must be restocking today, everything feels fresh"
-      - "harder and harder to find deals anymore"
-      - "people are definitely hunting for something today"
-      - "notice the popular items always have multiple shops"
-      - "prices seem higher every time i come back"
-      - "the FM economy is weird, fluctuates so much"
-      - "some items are like, impossible to find clean"
-      - "gonna spot check prices in a few different shops first"
-      - "the scroll market in here is kinda wild"
-      - "always wondering if im paying fair prices"
-      - "deals are rare, most people are price gouging"
-      - "certain items always seem overpriced no matter where"
-      - "the FM can be a scam if you don't know prices"
-      - "good items never last long in here"
-      - "people seem to know something about the market i don't"
-      - "the pricing strategy in this place is sus sometimes"
-      - "someone's definitely running a corner on that item"
-      - "notice shops always have pots but never good gear"
-      - "the FM flow feels different each day"
-      - "some shops specialize, some are just junk piles"
-      - "wonder who actually profits as a shopkeeper"
-      - "the turn-over rate in here is insane"
+      - "the FM is a scam if u dont know prices lol"
+      - "why do shops always have pots but never good gear"
     emote:
       - 0
       - 0
@@ -382,23 +306,19 @@ FMBot:
     wait: 1
   PlayerReaction:
     text:
-      - "oh hey someone actually walking by"
       - "nice armor on that guy"
-      - "people are actually out here today"
       - "that person looks like they know where they're going"
       - "someone's been shopping more than me lol"
       - "the FM gets busier later in the day"
       - "people watching in the FM is honestly entertaining"
       - "that's actually a really clean set"
       - "wonder what they're looking for in here"
-      - "nice to see people actually using the FM"
       - "always see high levels walking through like they own the place"
       - "that person has been here longer than me i think"
-      - "good to see the FM actually has traffic"
       - "people come in here and never leave lol, same as me"
       - "hey at least im not the only one lost in here"
       - {line: "oh nice {PLAYER_NX}, that must've cost some real NX cash", emote: 7}
-      - {line: "is that a {PLAYER_NX}? love the cash shop drip", emote: 2}
+      - {line: "is that a {PLAYER_NX}? nice cash shop stuff", emote: 2}
       - {line: "that {PLAYER_NX} is a flex tho", emote: 6}
       - {line: "that {PLAYER_GEAR} looks super clean", emote: 2}
       - {line: "whoever scrolled that {PLAYER_GEAR} did a nice job", emote: 2}
@@ -423,7 +343,6 @@ FMBot:
       - "wonder what they ended up buying"
       - "someone else on the same hunt as me probably"
       - "at least im not the only one browsing this late"
-      - "that person has been in here longer than me for sure"
       - "seen that person in like 3 different rooms already lol"
       - "we keep bumping into each other in the FM"
       - "how does everyone else seem to know exactly where to go"
@@ -443,72 +362,31 @@ FMBot:
       - {line: "{PLAYER_GEAR} is hard to find in the FM, nice pickup", emote: 2}
       - {line: "havent seen a {PLAYER_GEAR} that clean in a while", emote: 2}
       - {line: "ok that {PLAYER_NX} is making me want to hit the cash shop", emote: 7}
-      - {line: "{PLAYER_PET} just vibing while their owner shops lol", emote: 2}
+      - {line: "{PLAYER_PET} just chillin while their owner shops lol", emote: 2}
       - {line: "aww the {PLAYER_PET} is so chill", emote: 2}
       - {line: "[{PLAYER_GUILD}] represents in the FM too huh", emote: 0}
       - {line: "never seen a {PLAYER_JOB} with gear that clean", emote: 6}
       - {line: "{PLAYER_NAME} out here shopping like a pro", emote: 2}
       - "always nice to run into another shopper"
       - {line: "oo someone with actual taste in here", emote: 3}
-      - "wonder if they found anything good"
       - "that person is definitely browsing on a budget like me"
-      - "someone's doing serious FM research"
-      - {line: "someone actually put effort into their build", emote: 2}
-      - "they know which rooms to check, i can tell"
-      - "FM regulars can always recognize each other"
-      - "looks like they've been here a while too"
       - "moving fast through the shops, respect"
       - "that person walked past 3 shops i spent forever in"
-      - {line: "ok they definitely know something i don't", emote: 6}
-      - "always nice to see other shoppers in here"
-      - "everyone in the FM is on their own little mission"
       - "another FM survivor"
       - "hey, at least im not shopping alone"
       - {line: "that {PLAYER_NX} set is so clean omg", emote: 2}
-      - {line: "the {PLAYER_NX} drip in this FM today is nice", emote: 2}
       - {line: "ok who let a lv {PLAYER_LEVEL} in here, they're moving fast", emote: 3}
       - {line: "lv {PLAYER_LEVEL} already shopping for upgrades, respect", emote: 2}
       - {line: "a {PLAYER_JOB} in the FM, bet i know what they're hunting for", emote: 0}
       - {line: "never met a {PLAYER_JOB} who didn't have a shopping list in here", emote: 3}
-      - {line: "{PLAYER_PET} is just vibing following them around, love it", emote: 2}
-      - {line: "the little {PLAYER_PET} companion is adorable", emote: 2}
       - {line: "a [{PLAYER_GUILD}] member in the FM, nice taste", emote: 0}
-      - {line: "[{PLAYER_GUILD}] is everywhere on this server huh", emote: 6}
+      - {line: "[{PLAYER_GUILD}] is everywhere huh", emote: 6}
       - {line: "whoever scrolled that {PLAYER_WEAPON} knew what they were doing", emote: 2}
       - {line: "{PLAYER_WEAPON} spotted in the wild", emote: 0}
-      - {line: "that {PLAYER_GEAR} is hard to find in here these days", emote: 6}
       - {line: "{PLAYER_NAME} doing FM rounds too huh", emote: 2}
       # --- expansion batch: shopping observations & banter ---
-      - "someone knows what they're doing with their equips"
-      - "they keep coming back to the same shops, smart"
-      - "that person's definitely not a beginner shopper"
-      - "bet they've been hunting that item for a while"
-      - "someone who actually knows their stats lol"
-      - "they look like they're on a mission, gotta respect that"
-      - "someone shopping with purpose, i like it"
-      - "that person definitely negotiated a good price"
-      - "scrolling on the pricey side but it paid off"
-      - "someone splurged on their build, good call"
-      - "they seem to know exactly which shops to hit"
-      - "that's the look of someone finding a bargain"
-      - "someone actually invested in their appearance"
       - "they're power shopping, in and out"
-      - "that person definitely saved up for that"
-      - "looks like they have a solid equipment strategy"
-      - "someone who researched their build before shopping"
-      - "their gear is cohesive, rare quality"
       - "that person's clearly been farming for this"
-      - "someone not cutting corners on their setup"
-      - "the efficiency of that shopping trip is goals"
-      - "looks like they're hunting for specific items"
-      - "someone always has their priorities straight"
-      - "that person's definitely endgame geared"
-      - "they're not wasting time on low-tier stuff"
-      - "looks like they know the value of good equipment"
-      - "someone has a plan, i can tell"
-      - "their shopping cart's probably worth more than mine"
-      - "that person's definitely not afraid to invest"
-      - "they seem to know all the best shops already"
     emote:
       - 0
       - 2
@@ -576,19 +454,8 @@ FMBot:
       # --- expansion batch: light disappointment ---
       - "meh, it'll pop up again eventually"
       - "no biggie, theres other items"
-      - "they probably needed it too honestly"
-      - "their timing was just better i guess"
-      - "maybe someone else got more use out of it anyway"
-      - "ill just keep looking, im patient"
-      - "it happens, no use crying over sold-out items"
-      - "someone else gets the win this time"
-      - "the FM has other options, gotta remember that"
-      - "theyll restock eventually, no rush"
       - "whatever, plenty of other fish in the sea"
       - "didnt really need it that badly anyway"
-      - "someone else's gain, my loss, such is life"
-      - "ill find a different option, no sweat"
-      - "sometimes you just get beaten to the punch"
     emote:
       - 4
       - 5
@@ -597,50 +464,17 @@ FMBot:
     wait: 1
   Rare:
     text:
-      - "the FM is kind of peaceful when it's not too busy"
-      - "used to come here with a friend every night to browse, feels different now"
-      - "some of these shops have been here for months, same stuff, same prices"
-      - "the FM is its own little world when you think about it"
       - "wonder how many mesos have changed hands in this place over the years"
-      - "kinda miss when the FM was always packed on every channel"
-      - "there's something nice about just wandering around with no agenda"
       - "used to window shop here for fun before I had any mesos to spend"
-      - "the FM at 3am is really quiet, almost eerie"
+      - "the FM at 3am is kinda creepy lol"
       - "some of the oldest items in the game still show up in these shops"
-      - "this place has a lot of history, not sure why I'm thinking about that"
-      - "the FM might be a grind but it's also kind of a community thing"
       # --- new lines below ---
-      - "remember when every room was full and you couldn't even find a spot to set up shop"
-      - "some nights i just walk around the FM with nothing to buy, just to be here"
       - "i recognize some of these shop names from years ago"
-      - "the FM used to be where you met everyone, now its mostly just a marketplace"
-      - "wonder what happened to all the people who used to sell next to me"
-      - "sometimes i think the items outlast the players who sell them"
-      - "theres something about the FM music that makes me feel nostalgic"
-      - "all these shops and i still feel like im looking for something i cant buy"
       - "used to know every shop owner in room 1 by name"
-      - "the FM is the last place that still feels the same"
-      - "i keep coming back even when there's nothing left i need"
-      - "the FM looks exactly the same as it always did, and i dont know how i feel about that"
-      - "sometimes i think about all the people who used to be online every day"
       - "the prices change but the layout never does"
-      - "some days the FM is almost too quiet, like everyone left at once"
-      - "i wonder if anyone else remembers what things used to cost in here"
-      - "i come here on nights when i dont feel like being anywhere else"
-      - "there's something about walking these rooms that feels familiar even after everything"
-      - "the items rotate but the feeling in here stays the same"
       - "i used to measure time by FM prices. thats how often i was here."
       # --- expansion batch: bittersweet introspection ---
-      - "used to get excited shopping here, now im just going through the motions"
-      - "the FM prices feel different when youve been around long enough"
-      - "same shops, same faces, feels like a comfortable routine now"
-      - "sometimes i wonder how many hours of my life ive spent walking these rooms"
-      - "there's a lot of ghosts in the FM, people who used to be here all the time"
-      - "the FM and i have a weird relationship after all this time"
-      - "prices went up but the feeling in here stayed kinda the same"
-      - "used to window shop for dreams, now im just restocking"
-      - "the FM used to feel full of possibility, not sure when that changed"
-      - "sometimes i think the FM knows me better than my own guild does"
+      - "how many hours of my life have i spent in these rooms lol"
     emote:
       - 4
       - 0

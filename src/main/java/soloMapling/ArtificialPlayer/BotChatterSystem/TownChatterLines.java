@@ -40,13 +40,25 @@ public final class TownChatterLines {
         return cached;
     }
 
+    // Ticket 47: exchanges are dealt like a shuffled deck, so every one is used once before any repeats (a plain
+    // random pick replayed the same exchange minutes apart in a busy town).
+    private static final java.util.ArrayDeque<List<String>> deck = new java.util.ArrayDeque<>();
+    private static List<List<String>> dealtFrom;
+
     // A random ordered exchange (>= 2 turns), or null if none are loaded.
-    public static List<String> randomExchange() {
+    public static synchronized List<String> randomExchange() {
         List<List<String>> all = exchanges();
         if (all.isEmpty()) {
             return null;
         }
-        return all.get(RANDOM.nextInt(all.size()));
+        if (deck.isEmpty() || dealtFrom != all) {
+            List<List<String>> shuffled = new ArrayList<>(all);
+            java.util.Collections.shuffle(shuffled, RANDOM);
+            deck.clear();
+            deck.addAll(shuffled);
+            dealtFrom = all;
+        }
+        return deck.poll();
     }
 
     @SuppressWarnings("unchecked")
