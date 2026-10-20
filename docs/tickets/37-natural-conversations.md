@@ -2,7 +2,9 @@
 
 **Area:** Real bots / chat
 **Depends on:** 36 (fast/slow chat brain); 14 (companion commands) for companion actions
-**Status:** phase 1 (tier log, actions, con layer, voice) built on branch `chat-natural` (2026-10-20); not merged
+**Status:** phase 1 (tier log, actions, con layer, voice) built on branch `chat-natural` (2026-10-20); phase 2
+(natural by default, attention, window on double-click only) built on branch `chat-attention` (2026-10-20), unit
+tested, not yet checked on a server or in game; not merged
 
 ## Today
 
@@ -159,3 +161,62 @@ and spreads by gossip. Soft layer only: the hard guarantee is that no chat path 
 **Not done in phase 1:** attention (item 1), the window on demand (item 2), menus only where choices are real
 (item 3), the opt-in anonymised log, Dory comparison, and an owner check in game. No headless server run was needed:
 the flow is covered by `BotConversationFlowTest` (fake brain, real triage, actions, memory writes and delivery).
+
+## Phase 2 (branch `chat-attention`, 2026-10-20)
+
+Owner feedback the same day: a partial name ("fire" for xFirex) got "u talking to me?", and after the "ya" the
+Maple Administrator window still opened. The window locks the player like an NPC chat (no moving or attacking), so
+nothing typed may open it.
+
+**Natural by default (items 1 and 2).**
+
+- Naming a bot that plays like a player (TrainingBot, SocialBot, FollowerBot, town wanderers and other bots with no
+  menu of their own) gets a speech-bubble reply through `BotConversation` (triage, Decide, `BotChatActions`, LLM or
+  scripted). This covers the full name, a nickname, and the "ya" after "u talking to me?". The name and nickname are
+  cut out of the line (`BotChatRouting.withoutName`); a bare name is answered as "hey".
+- `BotConversation.talk` answers without an LLM as well (scripted tier and actions), so a named bot never falls back
+  to a menu.
+- Service bots whose menus are real choices (merchants, gacha, dice, blackjack, jump quest, OPQ, ...) are unchanged.
+- `BotAddressee` now strips a single `x...x` wrapping too, so "fire" is a sure match for xFirex and no longer asks
+  "u talking to me?".
+- **Attention:** after a bot is named (or chosen from the window's "Let's talk"), it keeps listening to that player.
+  Lines without its name go to it. Each player line and each bot reply restarts the window.
+  - It drifts off after 50 s of quiet (`-Dsolomapling.chat.attentionMs`).
+  - It drifts off when the player changes map or is more than 700 px away (`.attentionRange`), or the bot logs out.
+  - It drifts off when the line names or nicknames another bot or names another player on the map.
+  - One bot listens at a time; naming another bot moves the attention to it. The state lives in `BotChatRouting`.
+- **Every window option has a chat equivalent**, so the window is never needed:
+  - "<name> party" / "wanna party up?" / "team up": the party action.
+  - "<name> where do u train": the real training map.
+  - "<name> trade": the trade rule (a merchant points at its shop; everyone else says no).
+  - "<name> follow" (bare "follow" is now a FOLLOW intent): a trainer in the player's party becomes their follower
+    (`TrainingBot.naturalAction`), the same as the window's "Follow me!".
+  - A follower's leader saying "train here" stations it (`FollowerBot.naturalAction`).
+  - "How's the training?", "What's up?", "Let's talk" and "Goodbye" are ordinary talk.
+- **The window on demand:** only a double-click on a bot (the client's character-info request,
+  `CharInfoRequestHandler`) opens it; no client change is needed. `-Dsolomapling.chat.doubleClickMenu=after`
+  (default: the info window, then the menu), `instead` (menu only), or `off`.
+  - A second request within 1.5 s counts as the same double-click.
+  - A SocialBot of either variant opens its options straight away.
+  - Choices that lead back to the menu re-show it for 60 s; closing the window ends that.
+  - `BOT_MENU_WINDOW: false` stays the master switch: a double-click then shows the numbered chat hint, not a window.
+  - `-Dsolomapling.chat.natural=false` restores the 1.3.0 behaviour (naming a bot opens its menu).
+
+**Tests:**
+
+- `BotAttentionTest`: drift rules and tunables, reply refresh, someone-else detection, name stripping, every window
+  option's chat equivalent, which bot types talk.
+- `BotMenusTest`: no window until a double-click; the request is per bot; closing ends it; natural off.
+- Full suite: 2730 tests, 0 failures.
+
+**Not done:** a scratch-server run with the headless client (`tools/soak/LoadGen.java` on `capacity-soak`). It was
+blocked: the agent was not permitted to use the test DB credentials to create a scratch schema. An owner check in
+game is also still open.
+
+**Owner check:**
+
+1. Say a bot's name or nickname: expect a bubble reply and no window.
+2. Keep talking without its name: the same bot answers. Walk off, change map, name someone else or wait a minute,
+   and it stops.
+3. Say "<name> party" or "<name> where do u train": the action happens with no window.
+4. Double-click the bot: its info, then the menu window.
