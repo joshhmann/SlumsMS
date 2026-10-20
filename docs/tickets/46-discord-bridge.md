@@ -7,8 +7,7 @@
 ## What
 
 - Server status in Discord: online/offline, players online (real players only), version, uptime.
-- Optional chat bridge for one channel (e.g. megaphones or a `@discord` command) both ways, with the same filters as
-  in-game chat; bots stay in character and never post as "bots".
+- ~~Chat bridge~~: not wanted (owner, 2026-10-20). Webhooks only: status, alerts and news are posted, nothing is read back.
 - Release news posted from the launcher news on publish.
 - Optional: new-registration notices (`SLUMSMS_REGISTRATION_WEBHOOK`, ticket 27).
 
