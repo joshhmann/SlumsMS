@@ -43,6 +43,6 @@ Created 2026-10-19 from the owner's plan. Order: nav v2 → real bots → compan
 | [34](34-swim-navigation.md) | Swim navigation for Aqua Road | Nav v2 | 01,03,04 |
 | [35](35-admin-dashboard.md) | Admin dashboard: nav learning map viewer, bots, economy | Ops | 04,15 |
 | [36](36-fast-slow-chat-brain.md) | Fast/slow chat brain: GLiNER Decide gates and classifies, Qwen replies | Real bots | 1.3.0 |
-| [37](37-natural-conversations.md) | Natural conversations; talk window on double-click (ImGui button later) | Real bots | 36 |
+| [37](37-natural-conversations.md) | Natural conversations: talk window on demand, era-true replies | Real bots | 36 |
 | [38](38-bot-economy-behaviour.md) | Bot economy behaviour: meso plans, FM pricing from real trades, sinks | Real bots / Economy | 09,12,15 (after 1.3.0) |
 | [39](39-client-dgvoodoo-wrapper.md) | Client graphics wrapper for virtual displays | Client | 1.3.0 |
