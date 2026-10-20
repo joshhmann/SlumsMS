@@ -31,6 +31,22 @@ Last updated: 2026-10-20, after the 1.3.1 (Bera) live deploy and the storage cle
 together with the jar that knows them. The jar reads bot data files from `src/main/java/soloMapling/...` relative to
 the server folder, so every deploy stages the non-Java files of `src/main` (see `docs/release/1.3.0.md` step 9).
 
+## GM accounts (ticket 43)
+
+**Status:** the two scripts are installed on the host and work against live today. The game-side parts (audit
+table, name rules, trade/drop block, migration 009) are on branch `gm-safety` and reach live with the next release.
+Live has no GM until the owner makes a new account and runs `slumsms-gm <account> 6`.
+
+Make or remove a GM with `/usr/local/bin/slumsms-gm <account> <level>` (source `tools/gm/slumsms-gm`): it sets
+`characters.gm` on every character of the account (0 = player, 6 = full GM; the account must be logged out and needs a
+character), refuses bot ids, the template account `SMBotBase` and promoting banned accounts, and logs each change to the
+`gm_level_changes` table and `/var/log/slumsms-gm.log`. `slumsms-gm --list` shows who is a GM. Defaults to live
+(`buns-clean-db-1`, schema `mapleroot`); `--container mapleroot-integration-db --schema <test schema>` for the test
+DB. GM commands land in `gm_command_audit` (migration 009) and the server log; read them with
+`slumsms-gm-audit [--json] [--changes]` (`tools/gm/slumsms-gm-audit`). Automatic registration refuses staff-looking
+account names (admin, gm, 4dm1n, ...) and character creation refuses GM-looking names. GM characters cannot trade with
+or drop to players unless the server runs with `-Dslumsms.gm.allowGiving=true`.
+
 ## Scheduled jobs (live)
 
 | Timer | When | What |
@@ -39,7 +55,24 @@ the server folder, so every deploy stages the non-Java files of `src/main` (see 
 | `slumsms-nav-bake.timer` | 02:30 America/Los_Angeles | NavDeepBake from the live jar into `cache/bot-nav/deep/v68` (keep 3), idle priority |
 | `slumsms-nav-stuck-report.timer` | 00:20 UTC | NavStuckReport → `reports/nav/` in the server folder |
 
-Unit files for the nav jobs are in the repo under `deploy/nav/`.
+Unit files for the nav jobs are in the repo under `deploy/nav/`. Ticket 45's backup kit (nightly v2 with bot learning data, rotation timer,
+off-box copy, monthly restore drill, test DB datadir move) is in `deploy/backup/` and not installed yet; restore drill
+receipts are in `/opt/mapleroot-dev/restore-drill/receipts/`.
+
+## Monitoring and Discord (tickets 42, 46)
+
+**Status:** branch `monitoring`; installed for the test server only; live waits on the owner and a webhook URL.
+
+`slumsms-monitor` (repo `deploy/monitor/`, copy on the host in `/opt/slumsms-monitor`, installed to
+`/usr/local/bin`). One instance per watched server ("target"): `slumsms-monitor@<target>.timer` checks every minute
+(unit, login port, journal error rate, heap/RSS vs `-Xmx`, DB container, disk, bots vs director target, LLM/Decide
+health, backup and nav-bake timers) and alerts a Discord webhook with recoveries; `slumsms-status@<target>.timer`
+edits a status message every 5 minutes; `slumsms-news-<target>.path` posts new launcher news when the manifest
+changes. Config `/etc/slumsms-monitor/<target>.conf`, webhook URLs `/etc/slumsms-monitor/<target>.env` (0600, not in
+git; without them messages go to `/var/log/slumsms-monitor/<target>.log`), state `/var/lib/slumsms-monitor/<target>/`.
+Installed for `persistence-test` (no webhook yet). **Live is not installed**: the owner runs
+`/opt/slumsms-monitor/install.sh live --status --news`. During a live deploy, `touch /etc/slumsms-monitor/live.maintenance`.
+See `deploy/monitor/README.md`.
 
 ## Patch server (friends' downloads)
 
@@ -90,11 +123,41 @@ One version number for all three SlumsMS repos from 1.3.0 on.
 
 ## How a release goes
 
-1. Work lands on branches; full suite `./mvnw -o test` on the workstation.
+Scripted in `tools/release/` (ticket 44, branch `release-pipeline` until merged; rehearsed with a dummy 1.3.2: ~29 s
+downtime; the publish wrappers need `--sync-publisher` once because `/opt/slums-tools/launcher` is older than the
+launcher repo; checklist template `tools/release/templates/CHECKLIST.md`):
+
+1. Work lands on branches. `tools/release/build`: full suite + jar + sha (`dist/release-build/BUILD.txt`).
 2. Deploy to the owner's test server (persistence-test) and get an in-game check.
-3. Rehearse risky upgrades on a copy of live (scratch schema + copied server folder, spare ports).
-4. Live deploy with a script under `/opt/mapleroot-deployments/<version>/`: stop, back up (DB with locks, runtime, unit), migrations (ledger `mapleroot_integration_migrations`), stage files, start, smoke test, receipt. Agents hand the owner the command to run; live changes need the owner's go.
-5. Publish client/launcher on the patch server (manifest last), tag all repos.
+3. `docs/release/<version>.conf` (migrations, config keys, unit edits, pre-checks, smoke lines), then
+   `tools/release/stage <version>`: jar, scripts, non-Java `src/main` data, migrations and the generated
+   `deploy.sh`/`rollback.sh` to `/opt/mapleroot-deployments/v<version>/`.
+4. `tools/release/rehearse <version>`: fresh copy of live (DB into scratch schema `rh_*` on 3307, Server/ copy, unit
+   `slumsms-rh-*` on 8499/8585+ under CPUQuota=200% Nice=19 MemoryMax=6G), the staged deploy.sh and rollback.sh, player
+   rows compared, everything cleaned up; receipt in `/opt/mapleroot-dev/rehearsal-<version>/receipt/`.
+5. Owner: `bash /opt/mapleroot-deployments/v<version>/deploy.sh --dry-run`, then without `--dry-run`: pre-checks
+   (abort before the stop), stop, backup (DB with locks, runtime, unit), ledger-checked migrations
+   (`mapleroot_integration_migrations.migration_id`), stage, start, smoke test, `RECEIPT.md`. `rollback.sh` next to it.
+   Agents hand the owner the command; live changes need the owner's go.
+6. `tools/release/publish-client` / `publish-launcher` (hash-diff against the reference client and the current
+   release built in; manifest last), tag all three repos.
+
+## Live deploy history
+
+| Version | When (UTC) | Downtime | Record |
+|---|---|---|---|
+| 1.3.0 | 2026-10-20 06:49 | ~1 min | `/opt/mapleroot-deployments/v1.3.0/DEPLOYMENT.md` |
+| 1.3.1 (Bera: world 0 → 1, migration 008) | 2026-10-20 13:48 | 26.9 s | `/opt/mapleroot-deployments/v1.3.1-bera/` (deploy.log, backup, rollback.sh) |
+
+## Waiting on the owner (2026-10-20)
+
+| What | Command / decision |
+|---|---|
+| Make a GM | new account + character, logged out: `slumsms-gm <account> 6 --note "owner GM account"` |
+| Monitoring on live | `/opt/slumsms-monitor/install.sh live --status --news`, then the webhook URL(s) in `/etc/slumsms-monitor/live.env` |
+| Backups v2 | `bash /opt/mapleroot-dev/t45-backup-kit/install.sh` (rotation stays dry-run); pick an off-box target; copy `/root/.config/slumsms-backup/offbox.key` to a password manager; keep or drop `baseline-20261018-r1/PreviousServer` (541 MB) |
+| Test DB datadir move | a window with test servers stopped: `move-test-db-datadir.sh --go` |
+| Publisher sync | allow `publish-* --sync-publisher` to update `/opt/slums-tools/launcher` |
 
 ## Ports at a glance
 
