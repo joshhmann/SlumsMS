@@ -1,0 +1,147 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>SlumsMS Admin</title>
+<link rel="stylesheet" href="style.css">
+</head>
+<body>
+<header class="top">
+  <div class="brand">SlumsMS <span>admin</span></div>
+  <nav class="tabs" role="tablist">
+    <button role="tab" data-tab="map" aria-selected="true">Map</button>
+    <button role="tab" data-tab="learning">Learning</button>
+    <button role="tab" data-tab="bots">Bots</button>
+    <button role="tab" data-tab="economy">Economy</button>
+    <button role="tab" data-tab="health">Health</button>
+  </nav>
+  <div class="status" id="status">loading…</div>
+</header>
+
+<main>
+  <!-- ── Map viewer ─────────────────────────────────────────────────── -->
+  <section id="tab-map" class="tab active">
+    <aside class="side">
+      <label class="field">
+        <span>Find a map (id or name)</span>
+        <input id="map-search" type="search" placeholder="Henesys, 104040000…" autocomplete="off">
+      </label>
+      <label class="check small"><input type="checkbox" id="only-graphs" checked> only maps with a nav graph</label>
+      <ul id="map-results" class="results"></ul>
+
+      <div id="map-info" class="info"></div>
+
+      <label class="field">
+        <span>Movement profile (speed / jump)</span>
+        <select id="profile"></select>
+      </label>
+      <fieldset>
+        <legend>Job skills</legend>
+        <label class="check"><input type="checkbox" id="skill-tp"> Teleport (magicians)</label>
+        <label class="check"><input type="checkbox" id="skill-fj"> Flash jump (thieves)</label>
+      </fieldset>
+      <fieldset>
+        <legend>Layers</legend>
+        <label class="check"><input type="checkbox" data-layer="footholds" checked> Footholds</label>
+        <label class="check"><input type="checkbox" data-layer="ropes" checked> Ropes &amp; ladders</label>
+        <label class="check"><input type="checkbox" data-layer="portals" checked> Portals</label>
+        <label class="check"><input type="checkbox" data-layer="regions"> Region boxes</label>
+        <label class="check"><input type="checkbox" data-layer="edges" checked> Nav edges</label>
+        <label class="check"><input type="checkbox" data-layer="stuck" checked> Stuck heatmap</label>
+      </fieldset>
+      <fieldset>
+        <legend>Edge types</legend>
+        <div id="type-toggles"></div>
+      </fieldset>
+      <fieldset>
+        <legend>Edge sources</legend>
+        <label class="check"><input type="checkbox" data-source="0" checked> Built graph</label>
+        <label class="check"><input type="checkbox" data-source="1" checked> Night bake <span class="swatch dash"></span></label>
+        <label class="check"><input type="checkbox" data-source="2" checked> Learned from players <span class="swatch ring"></span></label>
+      </fieldset>
+      <label class="field">
+        <span>Colour edges by</span>
+        <select id="color-by">
+          <option value="type">Edge type</option>
+          <option value="cost">Learned cost (nav learning)</option>
+          <option value="source">Source</option>
+        </select>
+      </label>
+      <div id="map-legend" class="legend"></div>
+      <div id="stuck-list"></div>
+    </aside>
+    <div class="viewer">
+      <canvas id="map-canvas" aria-label="Map and nav graph"></canvas>
+      <div class="viewer-tools">
+        <button id="fit">Fit</button>
+        <button id="zoom-in" aria-label="Zoom in">+</button>
+        <button id="zoom-out" aria-label="Zoom out">−</button>
+      </div>
+      <div id="map-tip" class="tip" hidden></div>
+      <div id="map-empty" class="empty">Search for a map on the left. Drag to pan, scroll to zoom.</div>
+    </div>
+  </section>
+
+  <!-- ── Learning ───────────────────────────────────────────────────── -->
+  <section id="tab-learning" class="tab">
+    <div class="tiles" id="learn-tiles"></div>
+    <div class="grid2">
+      <div class="card"><h3>Edges added over time, by source</h3><div id="learn-edges" class="chart"></div></div>
+      <div class="card"><h3>Stuck events per day (all maps)</h3><div id="learn-stuck" class="chart"></div></div>
+      <div class="card"><h3>Nav learning: penalised edges and failures</h3><div id="learn-pen" class="chart"></div></div>
+      <div class="card"><h3>Stuck today by kind</h3><div id="learn-kinds" class="chart"></div></div>
+      <div class="card"><h3>Improving fastest <small>(stuck/day, last 3 days vs the 4 before)</small></h3><div id="learn-improving"></div></div>
+      <div class="card"><h3>Worst maps <small>(stuck events in 7 days, penalised edges)</small></h3><div id="learn-worst"></div></div>
+    </div>
+    <details class="card"><summary>Latest night bake report</summary><pre id="bake-report"></pre></details>
+    <details class="card"><summary>Latest stuck report</summary><pre id="stuck-report"></pre></details>
+  </section>
+
+  <!-- ── Bots ───────────────────────────────────────────────────────── -->
+  <section id="tab-bots" class="tab">
+    <div class="tiles" id="bot-tiles"></div>
+    <div class="row-controls"><label>Day <select id="day-pick"></select></label></div>
+    <div class="grid2">
+      <div class="card wide"><h3>Bots online against the population curve</h3><div id="bot-online" class="chart tall"></div></div>
+      <div class="card wide"><h3>What bots are doing</h3><div id="bot-activity" class="chart"></div></div>
+      <div class="card"><h3>Levels</h3><div id="bot-levels" class="chart"></div></div>
+      <div class="card"><h3>Classes</h3><div id="bot-jobs" class="chart"></div></div>
+      <div class="card"><h3>Busiest maps</h3><div id="bot-maps"></div></div>
+      <div class="card"><h3>Bot kinds</h3><div id="bot-types" class="chart"></div></div>
+    </div>
+  </section>
+
+  <!-- ── Economy ────────────────────────────────────────────────────── -->
+  <section id="tab-economy" class="tab">
+    <div id="econ-source" class="note"></div>
+    <div class="tiles" id="econ-tiles"></div>
+    <div class="grid2">
+      <div class="card wide"><h3>Bot meso intake today, by map <small>(against the ticket 15 cap where known)</small></h3><div id="econ-maps"></div></div>
+      <div class="card"><h3>Wealth of online bots</h3><div id="econ-wealth" class="chart"></div></div>
+      <div class="card"><h3>Median mesos by level</h3><div id="econ-bylevel" class="chart"></div></div>
+      <div class="card"><h3>Intake per day</h3><div id="econ-days" class="chart"></div></div>
+      <div class="card"><h3>Top earners today</h3><div id="econ-bots"></div></div>
+    </div>
+    <p class="muted">Shop and trade flows: later (ticket 35 follow-up).</p>
+  </section>
+
+  <!-- ── Health ─────────────────────────────────────────────────────── -->
+  <section id="tab-health" class="tab">
+    <div class="tiles" id="health-tiles"></div>
+    <div class="grid2">
+      <div class="card"><h3>Bot tick time (ms of work per second)</h3><div id="health-tick" class="chart"></div></div>
+      <div class="card"><h3>Heap used (MB)</h3><div id="health-heap" class="chart"></div></div>
+      <div class="card"><h3>Process CPU (%)</h3><div id="health-cpu" class="chart"></div></div>
+      <div class="card"><h3>DB connections in use</h3><div id="health-db" class="chart"></div></div>
+      <div class="card wide"><h3>Tick phases (last minute)</h3><div id="health-phases"></div></div>
+    </div>
+  </section>
+</main>
+
+<div id="chart-tip" class="tip" hidden></div>
+<script src="charts.js"></script>
+<script src="mapview.js"></script>
+<script src="app.js"></script>
+</body>
+</html>

@@ -1,0 +1,12 @@
+# Refreshes the dashboard's maps and learning view every hour (stuck heat, learned costs), and after the
+# night bake (02:30 Pacific, about 3 h).
+[Unit]
+Description=SlumsMS admin dashboard map export (hourly)
+
+[Timer]
+OnCalendar=*-*-* *:40:00
+RandomizedDelaySec=120
+Persistent=false
+
+[Install]
+WantedBy=timers.target

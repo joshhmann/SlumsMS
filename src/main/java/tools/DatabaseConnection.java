@@ -45,6 +45,17 @@ public class DatabaseConnection {
         return jdbi.open();
     }
 
+    /**
+     * Pool use for the admin dashboard (ticket 35): active, idle and total connections and threads waiting for one;
+     * null before the pool exists. Read-only.
+     */
+    public static int[] poolStats() {
+        HikariDataSource ds = dataSource;
+        var pool = ds == null ? null : ds.getHikariPoolMXBean();
+        return pool == null ? null : new int[]{pool.getActiveConnections(), pool.getIdleConnections(),
+                pool.getTotalConnections(), pool.getThreadsAwaitingConnection()};
+    }
+
     private static String getDbUrl() {
         // Environment variables override what's defined in the config file
         // This feature is used for the Docker support

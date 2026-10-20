@@ -124,6 +124,11 @@ public final class BotDbGate {
         maxWaitMs = ms > 0 ? ms : MAX_WAIT_MS;
     }
 
+    /** For the admin dashboard (ticket 35): the bots' permits, how many are free now, and waits that gave up. */
+    public static int[] stats() {
+        return new int[]{PERMITS, permits.availablePermits(), overruns.get()};
+    }
+
     /** Permits free right now (tests and the GM read-out). */
     static int available() {
         return permits.availablePermits();
