@@ -1,0 +1,65 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1">
+<title>FAQ and known issues - SlumsMS Player Guide</title>
+<link rel="stylesheet" href="style.css">
+</head>
+<body>
+<header class="top">
+  <a class="logo" href="index.html"><span class="leaf">&#127809;</span> SlumsMS <small>player guide</small></a>
+  <label class="menu-btn" for="menu">Menu</label>
+</header>
+<input type="checkbox" id="menu" hidden>
+<div class="wrap">
+<nav class="side"><div class="box"><div class="box-h">Pages</div><ul><li><a href="index.html">Home</a></li><li><a href="getting-started.html">Getting started</a></li><li><a href="rates.html">Rates</a></li><li><a href="hubs.html">Base of Roots and the FM</a></li><li><a href="jobs.html">Jobs and skills</a></li><li><a href="leveling.html">Where to train</a></li><li><a href="travel.html">Travel routes</a></li><li><a href="rebirths.html">Rebirths</a></li><li><a href="regulars.html">The town&#x27;s regulars</a></li><li><a href="commands.html">Commands</a></li><li><a href="money.html">Making mesos</a></li><li><a href="faq.html" aria-current=page>FAQ and known issues</a></li><li><a href="changelog.html">Changelog</a></li><li><a href="guidebook.html">In-game guidebook</a></li></ul></div></nav>
+<main>
+<div class="box"><div class="box-h"><h1>FAQ and known issues</h1></div>
+<div class="box-b">
+<h2>Questions</h2>
+<h3>Who are all these people?</h3>
+<p>Bera's regulars. They've been here a while; they train, trade, gossip and come and go like anyone. Say hi
+&mdash; see <a href="regulars.html">The town's regulars</a>.</p>
+<h3>Is this GMS v83?</h3>
+<p>The client is v83, the content is MapleRoot: custom jobs and skills, rebirths, Arcane River, Grandis, Lion King's
+Castle, Twilight Perion and more. See <a href="jobs.html">Jobs and skills</a>.</p>
+<h3>Where do I job advance?</h3>
+<p>The Job Master in Base of Roots (FM button). No quests.</p>
+<h3>Where's the cash shop?</h3>
+<p>The <b>SHOP</b> button opens it in a window over the game.</p>
+<h3>Does it rain?</h3>
+<p>Yes. Outdoor maps have day and night and weather (looks only, no effect on combat).</p>
+<h3>My NPC chat is stuck.</h3>
+<p>Type <code>@dispose</code>.</p>
+<h3>The game closes at start with -2147467259.</h3>
+<p>Your main display is a virtual one (Parsec etc.). See <a href="getting-started.html">Getting started</a>.</p>
+<h3>Can I play with friends who aren't on the list?</h3>
+<p>Ask the owner; the server is friends-only.</p>
+
+<h2>Rules</h2>
+<p class="owner">The rules are yours to write. MapleRoot's old book said: "do whatever you want as long as you don't
+ruin other people's experience or break the server", bans for racism, discrimination and toxicity, no donations, no
+voting sites, no planned wipes. Say which of these hold for SlumsMS (multi-client? macros? selling for real
+money?).</p>
+
+<h2>Known issues</h2>
+<ul>
+<li>A virtual or streaming main display (Parsec, Sunshine, Steam Link...) crashes the client at start. Fix: make
+your real monitor the main display.</li>
+<li>No windowed-mode wrapper yet (dgVoodoo is planned, ticket 39).</li>
+<li>The launcher can't show whether the server is up.</li>
+<li><code>@quiet</code> settings reset when the server restarts.</li>
+<li>The guide book in your ETC tab still has MapleRoot's old text until the next client update.</li>
+<li>Scripted world events (ticket 21) and companion alts (<code>@bot</code>, tickets 13/14) are not built yet.</li>
+</ul>
+<p class="src">Sources: <code>docs/live-handoff-20261019.md</code> (SHOP, weather), <code>docs/real-bots/spec.md</code>, tickets 21, 27, 39,
+40, 46, 47; MapleRoot's guide book (rules).</p>
+
+</div></div>
+</main>
+</div>
+<footer>SlumsMS - a private v83 world on MapleRoot. Fan project, not affiliated with Nexon.<br>
+Built from the server repo by docs/wiki/build.py. Notes marked <span class="owner">owner check</span> need the owner to confirm.</footer>
+</body>
+</html>

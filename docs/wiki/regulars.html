@@ -1,0 +1,88 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1">
+<title>The town&#x27;s regulars - SlumsMS Player Guide</title>
+<link rel="stylesheet" href="style.css">
+</head>
+<body>
+<header class="top">
+  <a class="logo" href="index.html"><span class="leaf">&#127809;</span> SlumsMS <small>player guide</small></a>
+  <label class="menu-btn" for="menu">Menu</label>
+</header>
+<input type="checkbox" id="menu" hidden>
+<div class="wrap">
+<nav class="side"><div class="box"><div class="box-h">Pages</div><ul><li><a href="index.html">Home</a></li><li><a href="getting-started.html">Getting started</a></li><li><a href="rates.html">Rates</a></li><li><a href="hubs.html">Base of Roots and the FM</a></li><li><a href="jobs.html">Jobs and skills</a></li><li><a href="leveling.html">Where to train</a></li><li><a href="travel.html">Travel routes</a></li><li><a href="rebirths.html">Rebirths</a></li><li><a href="regulars.html" aria-current=page>The town&#x27;s regulars</a></li><li><a href="commands.html">Commands</a></li><li><a href="money.html">Making mesos</a></li><li><a href="faq.html">FAQ and known issues</a></li><li><a href="changelog.html">Changelog</a></li><li><a href="guidebook.html">In-game guidebook</a></li></ul></div></nav>
+<main>
+<div class="box"><div class="box-h"><h1>The town&#x27;s regulars</h1></div>
+<div class="box-b">
+<p>Bera is never empty. Its <b>regulars</b> train on the maps that suit their level, ride the boats and trains
+between continents, keep shops in the Free Market, shout on megaphones, and drift in and out through the day (busier
+in the evening and at weekends). Some move on for good; new faces turn up every day.</p>
+
+<h2>Who you'll meet</h2>
+<ul>
+<li><b>Trainers</b> grinding the maps for their level and job (see <a href="leveling.html">Where to train</a>).</li>
+<li><b>Townsfolk</b> hanging around Henesys, the Pet Park, the potion shop and the markets.</li>
+<li><b>Merchants</b> with shops in the Free Market rooms and in town markets, buying and selling.</li>
+<li><b>Hosts and dealers</b>: the gacha regular in Henesys, blackjack tables, a drop-game host with a crowd, a Game
+Zone host, jump-quest regulars, people forming Orbis PQ parties.</li>
+</ul>
+
+<h2>Talking to someone</h2>
+<ol>
+<li><b>Say their name</b> in normal chat, or part of it (a nickname like "fire" for xFirex works). They answer in a
+chat bubble.</li>
+<li><b>Keep talking.</b> For about <b>50 seconds</b> after each line they keep listening, so follow-ups don't need
+the name. They stop if you go quiet, change maps, walk well away, or start talking to someone else.</li>
+<li>Not sure who you meant? If a line nearly matches a name, they may ask <i>"u talking to me?"</i>; answer "ya".</li>
+</ol>
+
+<h2>Things you can ask</h2>
+<div class="scroll"><table>
+<tr><th>Say</th><th>What happens</th></tr>
+<tr><td><code>&lt;name&gt; party</code> / "wanna party?"</td><td>Trainers and townsfolk may say yes (it depends on
+who they are, what they're doing, and how you've treated them). If they agree, <b>you send the party invite</b>.
+Nobody under level 10 parties, and merchants and hosts are too busy.</td></tr>
+<tr><td><code>&lt;name&gt; where do u train</code></td><td>They tell you their spot, if they have one.</td></tr>
+<tr><td><code>&lt;name&gt; follow</code> / "come with me"</td><td>A townsperson who agrees joins your party and
+follows you. A trainer already in your party comes along. Tell a follower "train here" to make them stay and train.</td></tr>
+<tr><td><code>&lt;name&gt; trade</code></td><td>Merchants point you to their shop; everything they sell is there at
+the posted price. Others say no.</td></tr>
+<tr><td>anything else</td><td>Just chat. They know where they are, what they're doing, and they remember you.</td></tr>
+</table></div>
+
+<h2>Their menu and whispers</h2>
+<ul>
+<li><b>Double-click</b> someone to open their character info and then their menu (talk, party, where do you
+train...). Merchants, the gacha, dealers and hosts have their own menus.</li>
+<li><b>Whispers</b> work too, and they whisper back. Busy people may only send a short "busy".
+Mistyped name? You'll get a "did you mean...?" for people nearby.</li>
+</ul>
+
+<h2>Good to know</h2>
+<ul>
+<li>They remember people. Be decent and they'll be friendly. Try to scam, beg or mess with them and they'll be
+cold, may refuse to party, and may tell their friends.</li>
+<li>Nobody hands out items or mesos for nothing. Trade in the FM like everyone else.</li>
+<li>Too much chatter? See <a href="commands.html#quiet"><code>@quiet</code></a>.</li>
+</ul>
+
+<p class="owner">This page stays in character (ticket 40: "the town's regulars"), but <code>@quiet bots</code>
+says "bots" out loud. Rename the command's word, or leave it? Also confirm that live has the
+chat-attention build (talk by name, 50 s follow-ups, double-click menu): it is in test-rc1, and ticket 37 still says
+"not yet checked on a server or in game".</p>
+<p class="src">Sources: <code>BotChatRouting</code> (50 s attention, 700 px range), <code>Dispatcher.talkNaturally</code>,
+<code>BotChatActions</code> (party/follow/trade/where-train rules), <code>BotRecruitManager</code> (level 10),
+<code>CharInfoRequestHandler</code> (double-click, default "after"), <code>WhisperHandler</code>,
+<code>EnvironmentManager</code> (who is where), <code>docs/tickets/37-natural-conversations.md</code>,
+<code>docs/release/1.3.0.md</code>.</p>
+
+</div></div>
+</main>
+</div>
+<footer>SlumsMS - a private v83 world on MapleRoot. Fan project, not affiliated with Nexon.<br>
+Built from the server repo by docs/wiki/build.py. Notes marked <span class="owner">owner check</span> need the owner to confirm.</footer>
+</body>
+</html>

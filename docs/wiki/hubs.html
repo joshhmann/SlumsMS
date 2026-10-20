@@ -1,0 +1,72 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1">
+<title>Base of Roots and the FM - SlumsMS Player Guide</title>
+<link rel="stylesheet" href="style.css">
+</head>
+<body>
+<header class="top">
+  <a class="logo" href="index.html"><span class="leaf">&#127809;</span> SlumsMS <small>player guide</small></a>
+  <label class="menu-btn" for="menu">Menu</label>
+</header>
+<input type="checkbox" id="menu" hidden>
+<div class="wrap">
+<nav class="side"><div class="box"><div class="box-h">Pages</div><ul><li><a href="index.html">Home</a></li><li><a href="getting-started.html">Getting started</a></li><li><a href="rates.html">Rates</a></li><li><a href="hubs.html" aria-current=page>Base of Roots and the FM</a></li><li><a href="jobs.html">Jobs and skills</a></li><li><a href="leveling.html">Where to train</a></li><li><a href="travel.html">Travel routes</a></li><li><a href="rebirths.html">Rebirths</a></li><li><a href="regulars.html">The town&#x27;s regulars</a></li><li><a href="commands.html">Commands</a></li><li><a href="money.html">Making mesos</a></li><li><a href="faq.html">FAQ and known issues</a></li><li><a href="changelog.html">Changelog</a></li><li><a href="guidebook.html">In-game guidebook</a></li></ul></div></nav>
+<main>
+<div class="box"><div class="box-h"><h1>Base of Roots and the FM</h1></div>
+<div class="box-b">
+<h2>Base of Roots &mdash; the main hub</h2>
+<p>The <b>FM button</b> on your screen takes you to <b>Base of Roots</b>, MapleRoot's Arcane-style hub. Nearly every
+custom NPC is there, so it is the place to go back to between trips.</p>
+<div class="scroll"><table>
+<tr><th>NPC</th><th>What for</th></tr>
+<tr><td><b>Job Master</b></td><td>Every job advancement, no quests: 1st at 10 (Magician 8), 2nd at 30, 3rd at 70,
+4th at 120, and the 5th tier. See <a href="jobs.html">Jobs</a>.</td></tr>
+<tr><td><b>Wyatt the Reborn</b></td><td>Rebirths at level 200. See <a href="rebirths.html">Rebirths</a>.</td></tr>
+<tr><td><b>Key Binder</b></td><td>Puts skills from your past lives on your keys, and sets skill macros.</td></tr>
+<tr><td><b>4th job skills</b></td><td>Teaches all the 4th-job skills that normally need quests or skill books, for
+10,000,000 mesos (100,000,000 for a Beginner).</td></tr>
+<tr><td><b>Cotton Warper</b></td><td>Warps to boss maps; with 3 rebirths also to Grandis towns and Arcane River &amp;
+Future towns.</td></tr>
+<tr><td><b>Nimble</b> (Master Forger)</td><td>Forges equipment and refines raw minerals from your materials.</td></tr>
+<tr><td><b>Rooty</b></td><td>Rooty's shop, the donor shop, Retro JQ rewards and server information.</td></tr>
+<tr><td><b>Cotton Stylist</b></td><td>Stylist and salon: hair, face, skin.</td></tr>
+<tr><td><b>Gerrard</b></td><td>Storage.</td></tr>
+<tr><td><b>Lab Tech</b></td><td>Shows your expedition (boss) attempts.</td></tr>
+</table></div>
+<p class="owner">Rooty's own shop sold "NX goodies" in MapleRoot; SlumsMS also has the windowed cash shop (SHOP
+button). Is the donor shop meant to be open on SlumsMS? There is also an unnamed NPC (2616, star force) in the hub;
+its script says "Disabled for now" for enhancing.</p>
+
+<h2>The classic Free Market</h2>
+<p>The old v83 Free Market (the entrance and its 22 rooms) is kept as it was. Get there by:</p>
+<ul>
+<li>the portal in Base of Roots, or</li>
+<li>the Free Market portal in any town (27 towns have one).</li>
+</ul>
+<p>Leaving the FM takes you back to where you came in (Base of Roots if it can't tell). The FM button still goes to
+Base of Roots, so your hub bookmark is never lost.</p>
+<p>At the entrance: <b>Fredrick</b> (collects what your hired merchant didn't sell, and its mesos), <b>Scrooge</b>
+(storage) and the Maple TV.</p>
+<p>The rooms have player shops and the merchants among the <a href="regulars.html">regulars</a>. Their price is the
+price on the shop; buying works the same as from anyone else.</p>
+
+<h2>Other handy places</h2>
+<ul>
+<li><code>@shop</code> opens the all-in-one shop from anywhere.</li>
+<li><code>@bp</code> opens your backpack; <code>@backpack</code> turns the backpack system on or off.</li>
+</ul>
+<p class="src">Sources: map 993910000 "Base of Roots" and 910000000 life lists (server WZ); <code>scripts/npc</code>
+9010003, 9977778, 2084000, 9010002, 9977779, 9010004, 9900000, 3004015, 2616; <code>NPCTalkHandler</code> (Wyatt runs
+<code>rebirth.js</code>); <code>docs/PROJECT-STATUS.md</code> (classic FM 910000000-910000022, town portals,
+return routing); <code>CommandsExecutor.java</code>.</p>
+
+</div></div>
+</main>
+</div>
+<footer>SlumsMS - a private v83 world on MapleRoot. Fan project, not affiliated with Nexon.<br>
+Built from the server repo by docs/wiki/build.py. Notes marked <span class="owner">owner check</span> need the owner to confirm.</footer>
+</body>
+</html>

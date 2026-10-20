@@ -1,0 +1,109 @@
+/* SlumsMS player guide - a 2008 fan-site look: sky, cream boxes, orange headers. No external files. */
+:root {
+  --sky1: #8fd3f4;
+  --sky2: #d8f1ff;
+  --grass: #7cc242;
+  --wood: #8a5a2b;
+  --orange1: #ffb340;
+  --orange2: #f0861a;
+  --cream: #fffbea;
+  --line: #d9b77a;
+  --text: #3a2a17;
+  --link: #1c58b8;
+  --muted: #7b6a55;
+  --note: #eaf6ff;
+  --owner: #fff0f0;
+}
+* { box-sizing: border-box; }
+html { -webkit-text-size-adjust: 100%; }
+body {
+  margin: 0;
+  color: var(--text);
+  background: var(--sky2) linear-gradient(180deg, var(--sky1) 0, var(--sky2) 420px) no-repeat;
+  font: 13px/1.6 Verdana, Tahoma, "DejaVu Sans", sans-serif;
+}
+a { color: var(--link); }
+a:hover { color: var(--orange2); }
+code { background: #f3ead2; border: 1px solid #e6d6ae; border-radius: 3px; padding: 0 3px; font-size: 12px; }
+kbd { background: #fff; border: 1px solid #b9a27a; border-bottom-width: 2px; border-radius: 3px; padding: 0 4px; font: 12px Verdana, sans-serif; }
+
+.top {
+  display: flex; align-items: center; justify-content: space-between;
+  max-width: 1060px; margin: 0 auto; padding: 14px 16px 10px;
+}
+.logo {
+  color: #fff; text-decoration: none; font: bold 26px/1 "Trebuchet MS", Verdana, sans-serif;
+  text-shadow: 2px 2px 0 var(--wood), -1px -1px 0 var(--wood), 1px -1px 0 var(--wood), -1px 1px 0 var(--wood);
+}
+.logo small { font-size: 13px; font-weight: normal; text-shadow: 1px 1px 0 var(--wood); }
+.logo:hover { color: #fff6c9; }
+.leaf { font-size: 22px; }
+.menu-btn {
+  display: none; cursor: pointer; color: #fff; font-weight: bold;
+  background: linear-gradient(var(--orange1), var(--orange2)); border: 1px solid var(--wood);
+  border-radius: 12px; padding: 4px 14px;
+}
+
+.wrap { display: flex; gap: 14px; max-width: 1060px; margin: 0 auto; padding: 0 16px 16px; align-items: flex-start; }
+.side { flex: 0 0 210px; position: sticky; top: 10px; }
+main { flex: 1; min-width: 0; }
+
+.box {
+  background: var(--cream); border: 2px solid var(--line); border-radius: 10px;
+  box-shadow: 0 2px 0 rgba(138, 90, 43, .25); overflow: hidden; margin-bottom: 14px;
+}
+.box-h {
+  background: linear-gradient(var(--orange1), var(--orange2)); color: #fff;
+  font-weight: bold; padding: 6px 12px; text-shadow: 1px 1px 0 var(--wood); border-bottom: 2px solid var(--wood);
+}
+.box-h h1 { margin: 0; font-size: 17px; }
+.box-b { padding: 6px 16px 14px; }
+.side ul { list-style: none; margin: 0; padding: 6px 0; }
+.side li a { display: block; padding: 4px 12px; text-decoration: none; border-left: 4px solid transparent; }
+.side li a:hover { background: #fff1c9; }
+.side li a[aria-current] { border-left-color: var(--orange2); background: #fff1c9; font-weight: bold; color: var(--text); }
+
+h2 {
+  font-size: 15px; margin: 20px 0 8px; padding: 2px 0 2px 10px; color: var(--wood);
+  border-left: 5px solid var(--grass); border-bottom: 1px dashed var(--line);
+}
+h3 { font-size: 13px; margin: 14px 0 6px; color: var(--wood); }
+p { margin: 8px 0; }
+ul.cards { padding-left: 18px; }
+ul.cards li { margin: 4px 0; }
+
+table { border-collapse: collapse; width: 100%; margin: 6px 0 10px; background: #fff; font-size: 12px; }
+th { background: #ffe3a6; text-align: left; }
+th, td { border: 1px solid var(--line); padding: 4px 7px; vertical-align: top; }
+tr:nth-child(even) td { background: #fffdf4; }
+.scroll { overflow-x: auto; }
+
+details { border: 1px solid var(--line); border-radius: 6px; background: #fff; margin: 6px 0; padding: 0 10px; }
+details[open] { padding-bottom: 6px; }
+summary { cursor: pointer; padding: 6px 0; }
+
+.note, .owner, .tip {
+  border-radius: 6px; padding: 7px 10px; margin: 10px 0; border: 1px solid;
+}
+.note { background: var(--note); border-color: #9cc9ea; }
+.tip { background: #efffe3; border-color: #9fd27a; }
+.owner { background: var(--owner); border-color: #e2a3a3; }
+p.owner::before, div.owner::before { content: "Owner check: "; font-weight: bold; color: #b03030; }
+span.owner { padding: 0 4px; border-radius: 3px; display: inline; margin: 0; }
+.src { color: var(--muted); font-size: 11px; }
+.tag { background: #6b4fbb; color: #fff; border-radius: 3px; padding: 0 4px; font-size: 10px; }
+
+.spread { display: flex; flex-wrap: wrap; gap: 6px; margin: 10px 0; }
+.bookpage { flex: 1 1 240px; background: #fffdf6; border: 1px solid #b9a27a; border-radius: 4px; padding: 10px; font: 12px/1.45 Tahoma, Verdana, sans-serif; }
+.bookpage .blue { color: #2a4fd1; } .bookpage .red { color: #c22; }
+
+footer { max-width: 1060px; margin: 0 auto; padding: 4px 16px 24px; color: var(--muted); font-size: 11px; text-align: center; }
+
+@media (max-width: 760px) {
+  .menu-btn { display: inline-block; }
+  .wrap { display: block; }
+  .side { display: none; position: static; }
+  #menu:checked ~ .wrap .side { display: block; }
+  .logo { font-size: 21px; }
+  .box-b { padding: 4px 11px 12px; }
+}

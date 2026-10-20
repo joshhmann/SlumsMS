@@ -1,0 +1,74 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1">
+<title>Getting started - SlumsMS Player Guide</title>
+<link rel="stylesheet" href="style.css">
+</head>
+<body>
+<header class="top">
+  <a class="logo" href="index.html"><span class="leaf">&#127809;</span> SlumsMS <small>player guide</small></a>
+  <label class="menu-btn" for="menu">Menu</label>
+</header>
+<input type="checkbox" id="menu" hidden>
+<div class="wrap">
+<nav class="side"><div class="box"><div class="box-h">Pages</div><ul><li><a href="index.html">Home</a></li><li><a href="getting-started.html" aria-current=page>Getting started</a></li><li><a href="rates.html">Rates</a></li><li><a href="hubs.html">Base of Roots and the FM</a></li><li><a href="jobs.html">Jobs and skills</a></li><li><a href="leveling.html">Where to train</a></li><li><a href="travel.html">Travel routes</a></li><li><a href="rebirths.html">Rebirths</a></li><li><a href="regulars.html">The town&#x27;s regulars</a></li><li><a href="commands.html">Commands</a></li><li><a href="money.html">Making mesos</a></li><li><a href="faq.html">FAQ and known issues</a></li><li><a href="changelog.html">Changelog</a></li><li><a href="guidebook.html">In-game guidebook</a></li></ul></div></nav>
+<main>
+<div class="box"><div class="box-h"><h1>Getting started</h1></div>
+<div class="box-b">
+<h2>1. Get the launcher</h2>
+<p>SlumsMS is friends-only. <b>Ask the owner</b> for the launcher ZIP. The friends build already has the access key
+inside, so most people never have to type it.</p>
+<p>Extract the <b>whole</b> ZIP somewhere you like and run <code>SlumsMS Launcher.exe</code>. It is Windows only
+(64-bit). The ZIP is not code-signed; you don't need to turn off your antivirus.</p>
+
+<h2>2. Install the game</h2>
+<p>The launcher checks your install when it starts and shows one button: <b>Install</b>, <b>Update</b> or
+<b>Play</b>.</p>
+<ul>
+<li><b>Where it installs:</b> the folder you pick in Settings; otherwise next to the launcher if the game is already
+there; otherwise <code>%LOCALAPPDATA%\SlumsMS</code> (no admin rights needed).</li>
+<li><b>Size:</b> the first install is about <b>23.6 GB</b> (about 86,000 files). It resumes if it gets interrupted.</li>
+<li><b>Updates</b> only download the files that changed. Your <code>config.ini</code> is never overwritten.</li>
+<li>Something broken? <b>Settings &rarr; Verify and repair</b> re-checks every file (slow, but thorough).</li>
+<li>The launcher updates itself (from 1.3.0 on).</li>
+</ul>
+
+<h2>3. The access key</h2>
+<p>If the launcher says <i>"This server needs an access key - enter it in Settings"</i>: open <b>Settings</b> (the
+gear), type the key the owner gave you under <b>Access key</b>, and press <b>Save</b>. The launcher checks again
+right away.</p>
+
+<h2>4. Make an account</h2>
+<p>There is no website sign-up. Type a new username and password on the login screen and the account is made for
+you. The password needs at least 6 characters. There is a limit of 3 accounts per internet connection, and a short
+wait between new accounts.</p>
+
+<h2>5. Play</h2>
+<p>Press <b>Play</b>. The launcher starts <code>SlumsMS.exe</code>, which opens the game with the SlumsMS client
+add-ons. The server address is already set; you never type it.</p>
+
+<div class="note"><b>Streamers and Parsec users &mdash; the main display tip.</b> If the game closes at start with
+<code>error code: -2147467259</code>, a virtual screen is your main display (Parsec, Sunshine, Steam Link, Virtual
+Desktop...). Make your real monitor the <b>main display</b> before you start the game. Or disconnect Parsec, start
+the game, then reconnect.</div>
+
+<h2>Where things are</h2>
+<ul>
+<li>Launcher log: <code>%APPDATA%\mapleroot-launcher\launcher.log</code> (handy for bug reports).</li>
+<li>Game settings: <code>config.ini</code> in the game folder.</li>
+</ul>
+<p class="owner">The launcher has no "server online" light yet. Say where friends should look for server
+status (Discord is planned, ticket 46).</p>
+<p class="src">Sources: launcher <code>README.md</code> (install folder, access key, verify, self-update);
+<code>docs/tickets/27-launcher-extras.md</code>; <code>docs/tickets/HANDOFF.md</code> (account limits);
+<code>docs/tickets/39-client-dgvoodoo-wrapper.md</code> and the client README (display error).</p>
+
+</div></div>
+</main>
+</div>
+<footer>SlumsMS - a private v83 world on MapleRoot. Fan project, not affiliated with Nexon.<br>
+Built from the server repo by docs/wiki/build.py. Notes marked <span class="owner">owner check</span> need the owner to confirm.</footer>
+</body>
+</html>
