@@ -822,13 +822,14 @@ class BotMovementManager {
      */
     static void tickUnstuck(BotMovementState entry) {
         Character bot = entry.bot;
+        NavStuckLog.record(NavStuckLog.Kind.UNSTUCK, bot.getMap(), bot.getPosition(), entry.navGraph, entry.navEdge);
         int walkStep = BotPhysicsEngine.walkStep(bot.getMap(), entry.movementProfile);
         switch (ThreadLocalRandom.current().nextInt(2)) {
             case 0 -> BotPhysicsEngine.beginGroundJump(entry, bot, -walkStep); // jump left
             default -> BotPhysicsEngine.beginGroundJump(entry, bot, walkStep); // jump right
         }
         if (entry.navEdge != null) {
-            NavEdgeLearning.failure(entry.navGraph, entry.navEdge); // stuck on this move: remember it (ticket 16)
+            NavEdgeLearning.failure(entry, entry.navGraph, entry.navEdge); // stuck on this move: remember it (ticket 16)
         }
         clearNavigationState(entry);
         entry.unstuckCooldownMs = delayAfterCurrentTick(5000);

@@ -173,6 +173,16 @@ class BotMovementState {
     BotNavigationGraph navGraph = null;
     // The last committed edge whose completion NavEdgeLearning already counted (ticket 16).
     BotNavigationGraph.Edge navLearnedEdge = null;
+    // Ticket 04: the launched move (jump, flash jump, drop, rope jump) the bot is in the air on, and its graph. A
+    // landing in a third region is a miss - unless a hit knocked the bot off course on the way (the hit cooldown
+    // went up since the last tick).
+    BotNavigationGraph.Edge navAirborneEdge = null;
+    BotNavigationGraph navAirborneGraph = null;
+    int navAirborneHitMark = 0;
+    boolean navAirborneHit = false;
+    // Ticket 33 hook: the move this bot is fumbling on purpose (NavEdgeLearning.tagDeliberateFlaw). Its failure is
+    // not counted against the edge.
+    BotNavigationGraph.Edge navFlawEdge = null;
     BotNavigationGraph.Edge navEdge = null;
     BotNavigationGraph.Edge navJumpLaunchEdge = null;
     int navJumpLaunchX = Integer.MIN_VALUE;
@@ -199,6 +209,7 @@ class BotMovementState {
     // ── Stuck detection & unstuck ──
     int stuckMs = 0;
     int unstuckCooldownMs = 0;
+    long planFailureLoggedAtMs = 0L; // NavStuckLog: last NO_PATH / NO_REGION counted for this bot
     int stuckCheckX = Integer.MIN_VALUE;
     int stuckCheckY = Integer.MIN_VALUE;
     int airStuckTicks = 0;

@@ -420,6 +420,12 @@ final class BotNavigationGraph implements Serializable {
     final Map<Integer, List<Edge>> outgoingByRegionId;
     final java.util.Set<Integer> collidableWallIds;
     final java.util.Set<Integer> collidableFromBelowIds;
+    // The nightly deep bake's extra edges for this graph (NavDeepOverlay), resolved on first use. Not part of the
+    // cache file.
+    transient volatile NavDeepOverlay.Loaded deepOverlay;
+    // What NavEdgeLearning learned on this graph, resolved on first use so the planner's per-edge lookup takes no
+    // shared lock. Not part of the cache file.
+    transient volatile NavEdgeLearning.Book learningBook;
 
     BotNavigationGraph(int mapId,
                        int version,

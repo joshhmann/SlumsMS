@@ -10,6 +10,7 @@ import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import soloMapling.ArtificialPlayer.BotCommandsPack.BotAttack;
 import soloMapling.ArtificialPlayer.BotDecoratorSystem.BotWeapons;
+import soloMapling.ArtificialPlayer.BotGearSystem.BotGear;
 import soloMapling.ArtificialPlayer.BotHoldings;
 
 import java.util.LinkedHashMap;
@@ -149,11 +150,13 @@ public final class BotProgression {
      */
     public static void afterLevelUp(Character bot, int levelBefore) {
         progress(bot, levelBefore);
+        BotGear.afterProgress(bot);   // real bots 10: gear it can wear now
     }
 
     /** The offscreen gain path: the levels above {@code levelBefore} came without any points; grant and spend them. */
     public static void afterOffscreenLevels(Character bot, int levelBefore) {
         progress(bot, bot.getLevel());
+        BotGear.afterProgress(bot);
     }
 
     /**

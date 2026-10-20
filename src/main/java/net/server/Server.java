@@ -62,6 +62,7 @@ import service.NoteService;
 import soloMapling.ArtificialPlayer.BotClientHandler;
 import soloMapling.ArtificialPlayer.BotRoster;
 import soloMapling.ArtificialPlayer.BotStore;
+import soloMapling.ArtificialPlayer.BotYieldCaps;
 import soloMapling.Environment.EnvironmentManager;
 import soloMapling.server.BotShutdown;
 import soloMapling.server.BotTickService;
@@ -2032,6 +2033,7 @@ public class Server {
                     BotRoster.recordSessions(everyone, System.currentTimeMillis(), true);
                 }
             }
+            BotYieldCaps.flush();   // ticket 15: bots' daily meso counts survive the restart
         }
 
         for (World w : getWorlds()) {

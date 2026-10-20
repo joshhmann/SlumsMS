@@ -1,0 +1,12 @@
+# 02:30 Pacific, off-peak; the bake's own budget (150 min + 30 grace) ends it by about 05:30.
+# Not Persistent: a missed night is skipped, never caught up at boot in the middle of the day.
+[Unit]
+Description=SlumsMS nightly nav deep bake (02:30 Pacific)
+
+[Timer]
+OnCalendar=*-*-* 02:30:00 America/Los_Angeles
+Persistent=false
+RandomizedDelaySec=10min
+
+[Install]
+WantedBy=timers.target

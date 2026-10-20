@@ -57,3 +57,20 @@ registered buffs and their own attack path. We rewrote the formula set they coll
 Ours: the physical ceiling taken from `Character.calculateMaxBaseDamage` exactly as `parseDamage` checks it; the
 crit as a bonus added to the skill's damage %; bots' shown (unregistered) buffs, ammo, Maple Warrior, Element
 Amplification, charges and Berserk; the 32-bit line clamp; the offscreen kill rate and EXP (`OffscreenCombat`).
+
+### Bot gear optimizer (branch `gear`, real bots ticket 10)
+
+After Kiwiism/cosmic_agents, https://github.com/Kiwiism/cosmic_agents, AGPL-3.0,
+`src/main/java/server/agents/capabilities/equipment/` (`AgentEquipmentOptimizer`, `AgentEquipmentStatSnapshot`)
+and `src/main/java/server/EquipRequirementChecker.java` at commit `3c7e09435`. Not copied: their per-weapon Pareto DP,
+their stat snapshot and their inventory gateway. We rewrote the search as a small hill climb for bots that carry a
+handful of equips (`BotGearPlanner`), behind our own gateway (`BotGear`).
+
+| From theirs | Our files |
+| --- | --- |
+| Requirement chaining (a piece worn only once other pieces lift the stat it needs, every pick re-checked without itself); the `reqJob` job-niche bit check; an overall blocks the pants, a two-handed weapon the shield; loadouts compared by damage, then by stats | `BotGearPlanner` |
+
+Ours: damage from our own formula (`BotDamage.gearValue`: the bot's main attack with its mastery, skills and shown
+buffs); wearability as an equip order from the base stats; worn gear always counts as wearable; the weapon rules
+(`BotWeapons` kinds, the same drawable attacks, 1st jobs and beginners keep their kind); unknown, cash, other-gender,
+omit-list and rebirth-locked equips refused; event triggers (loot, level-up) instead of a sweep.

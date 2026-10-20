@@ -327,6 +327,53 @@ public final class GCMovement {
         return GCTravel.isTraveling(bot);
     }
 
+    /* Ticket 03: the bot is waiting on transit (queued at a boarding NPC or aboard a boat/train/ferry). It
+     * stands still by design, so travel watchdogs should read this as progress, not as being stuck. */
+    public static boolean isInTransit(Character bot) {
+        return GCTravel.isInTransit(bot);
+    }
+
+    /* Ticket 03: the cheapest route from fromMapId to toMapId for a bot with these rebirths (walkable
+     * portals, scripted warps and paid transit), or null when nothing connects them. Empty = already there. */
+    public static List<Integer> route(int fromMapId, int toMapId, int rebirths) {
+        return GCWorldGraph.route(fromMapId, toMapId, ROUTE_MAX_HOPS, rebirths, true, GCWorldGraph.NO_SAVED_RETURN);
+    }
+
+    /* As route(int, int, int) for this bot: its rebirths, and the World Tour taking it back to its saved town. */
+    public static List<Integer> route(Character bot, int toMapId) {
+        return GCWorldGraph.route(bot.getMapId(), toMapId, ROUTE_MAX_HOPS, soloMapling.ArtificialPlayer.BotTravelSystem.BotMapGates.rebirthsOf(bot), true,
+                GCTravel.savedReturn(bot));
+    }
+
+    /* Ticket 03: what a route costs in fares for a bot of this job (each paid transit hop on it). */
+    public static int routeFare(int fromMapId, List<Integer> route, int jobId) {
+        int fare = 0;
+        int at = fromMapId;
+        for (int next : route) {
+            soloMapling.ArtificialPlayer.BotTravelSystem.BotTransit.Edge e =
+                    soloMapling.ArtificialPlayer.BotTravelSystem.BotTransit.edge(at, next);
+            if (e != null && e.isBoard()) {
+                fare += e.fareFor(jobId);
+            }
+            at = next;
+        }
+        return fare;
+    }
+
+    private static final int ROUTE_MAX_HOPS = 60;
+
+    /* Ticket 03: re-read BotTransit.yaml and drop every cached route. */
+    public static int reloadTransit() {
+        soloMapling.ArtificialPlayer.BotTravelSystem.BotTransit.reload();
+        GCWorldGraph.clearRouteCache();
+        return soloMapling.ArtificialPlayer.BotTravelSystem.BotTransit.edgeCount();
+    }
+
+    /* Ticket 03: {traveling, queued at a boarding NPC, aboard a ride}, world-wide. */
+    public static int[] transitCounts() {
+        return GCTravel.transitCounts();
+    }
+
     public static void cancelTravel(Character bot) {
         GCTravel.cancel(bot);
     }
@@ -365,7 +412,7 @@ public final class GCMovement {
         }
         int from = bot.getMapId();
         long startedAt = System.nanoTime();
-        java.util.List<Integer> route = GCWorldGraph.route(from, destMapId, 12);
+        java.util.List<Integer> route = route(bot, destMapId);
         long ms = (System.nanoTime() - startedAt) / 1_000_000L;
         if (route == null) {
             return String.format("GCTravel route %d -> %d: NONE (warp; %d maps indexed, %dms)",
@@ -374,8 +421,8 @@ public final class GCMovement {
         if (route.isEmpty()) {
             return "GCTravel: already on map " + destMapId;
         }
-        return String.format("GCTravel route %d -> %d: %d hops %s (%dms)",
-                from, destMapId, route.size(), route, ms);
+        return String.format("GCTravel route %d -> %d: %d hops, %d mesos in fares %s (%dms)",
+                from, destMapId, route.size(), routeFare(from, route, bot.getJob().getId()), route, ms);
     }
 
     public static boolean isMoving(Character bot) {
@@ -632,7 +679,7 @@ public final class GCMovement {
         queue.add(start);
         while (!queue.isEmpty()) {
             int rid = queue.poll();
-            for (BotNavigationGraph.Edge e : g.getOutgoing(rid)) {
+            for (BotNavigationGraph.Edge e : NavObservedEdges.outgoing(g, rid)) { // with baked and learned edges
                 // Skill edges (teleport / flash jump) only exist for some jobs - walk reachability ignores them.
                 if (e.toRegionId != rid && !e.isMovementSkill() && seen.add(e.toRegionId)) {
                     queue.add(e.toRegionId);

@@ -597,6 +597,7 @@ final class GCMovementDriver {
         entry.airStuckX = Integer.MIN_VALUE;
         // Recovery: snap to ground beneath the goal (or current position).
         MapleMap map = entry.bot.getMap();
+        NavStuckLog.record(NavStuckLog.Kind.AIR_FROZEN, map, pos, entry.navGraph, entry.navEdge);
         Point goal = entry.moveTarget != null ? entry.moveTarget : entry.navTargetPos;
         Point base = goal != null ? goal : pos;
         Point ground = BotPhysicsEngine.findGroundPoint(map, new Point(base.x, base.y - 1));
@@ -629,6 +630,7 @@ final class GCMovementDriver {
         if (!belowFloor && !offSides) {
             return;
         }
+        NavStuckLog.record(NavStuckLog.Kind.FELL_OFF_MAP, map, pos, entry.navGraph, entry.navEdge);
         // Snap to ground under the current goal (grind spot / nav target); if there's no goal, drop onto the
         // first foothold below the VR top at the bot's clamped X.
         Point goal = entry.moveTarget != null ? entry.moveTarget : entry.navTargetPos;

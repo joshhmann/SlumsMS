@@ -176,6 +176,18 @@ class BotDamageTest {
     }
 
     @Test
+    void theGearYardstickIsTheSwingWithThatGearOn() throws Exception {
+        // Real bots 10: what the optimizer expects from +20 attack is what the bot hits for once it wears it.
+        Character bot = warrior(Job.CRUSADER, 75, 330, 60, 80);
+        double expected = BotDamage.gearValue(bot, TWO_HANDED_SWORD).of(0, 0, 0, 0, 20, 0);
+        double now = BotDamage.gearValue(bot, TWO_HANDED_SWORD).of(0, 0, 0, 0, 0, 0);
+        wield(bot, 100);
+        assertEquals(expected, BotDamage.gearValue(bot, TWO_HANDED_SWORD).of(0, 0, 0, 0, 0, 0), 1e-9);
+        assertTrue(expected > now);
+        assertEquals(now, BotDamage.gearValue(bot, TWO_HANDED_SWORD).of(0, 0, 0, 0, -20, 0), 1e-9);
+    }
+
+    @Test
     void aBuffItDoesNotHoldCountsForNothing() throws Exception {
         Character bot = warrior(Job.CRUSADER, 75, 330, 60, 80);
         assertEquals(80, BotDamage.attacker(bot, WeaponType.SWORD2H).watk());

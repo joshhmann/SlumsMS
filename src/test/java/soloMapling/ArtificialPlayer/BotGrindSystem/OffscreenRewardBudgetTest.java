@@ -124,6 +124,18 @@ class OffscreenRewardBudgetTest {
         assertTrue(total >= 40, "whole-item flooring lost more than one item per window: " + total);
     }
 
+    @Test
+    void expectedPerWindowSumsEveryItemIntoUnits() {
+        // The per-map yield cap (ticket 15) sizes itself from this: the same yield, items summed across ids.
+        Fake src = spawnTable(List.of(5_000, 5_000),
+                List.of(meso(999_999, 100, 100), drop(POTION, 999_999, 1, 1), drop(POTION + 1, 499_999, 1, 1)));
+        OffscreenRewardBudget.Expected expected = OffscreenRewardBudget.expectedPerWindow(1, 1, 1, 1, src);
+        assertEquals(1800.0, expected.mesos(), 1e-6);
+        assertEquals(18.0 + 9.0, expected.itemUnits(), 1e-3);
+        assertTrue(OffscreenRewardBudget.expectedPerWindow(0, 1, 1, 1, src).isEmpty(), "no map, no yield");
+        assertTrue(OffscreenRewardBudget.expectedPerWindow(1, 1, 1, 1, new Fake()).isEmpty(), "no spawn table");
+    }
+
     private static Fake spawnTable(List<Integer> respawnMs, List<MonsterDropEntry> drops) {
         Fake src = new Fake();
         src.mobIds = respawnMs.stream().map(ignored -> MOB).toList();

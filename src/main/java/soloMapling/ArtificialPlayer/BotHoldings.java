@@ -159,20 +159,33 @@ public final class BotHoldings {
         if (drop == null || drop.isPickedUp() || drop.isConjured()) {
             return false;   // a prop stands for no value taken from the world: the ledger must never take it
         }
+        // Ticket 15: a drop taken from the world passes the per-map yield cap and the daily meso cap first. A
+        // refused drop stays on the floor, and a take whose credit fails is given back.
+        if (!BotYieldCaps.takeDrop(bot, drop)) {
+            return false;
+        }
+        boolean credited;
         if (drop.getMeso() > 0) {
-            return grantMeso(bot, drop.getMeso());
+            credited = grantMeso(bot, drop.getMeso());
+        } else if (ItemId.isNxCard(drop.getItemId())) {
+            credited = grantNxCard(bot, drop.getItemId());
+        } else {
+            Item dropItem = drop.getItem();
+            credited = dropItem != null && grantItem(bot, dropItem);
         }
-        if (ItemId.isNxCard(drop.getItemId())) {
-            return grantNxCard(bot, drop.getItemId());
+        if (!credited) {
+            BotYieldCaps.returnDrop(bot, drop);
         }
-        Item dropItem = drop.getItem();
-        return dropItem != null && grantItem(bot, dropItem);
+        return credited;
     }
 
     /** Non-mutating counterpart of {@link #creditDrop}: true when the bot could take this drop right now. */
     public static boolean canCreditDrop(Character bot, MapItem drop) {
         if (drop == null || drop.isPickedUp() || drop.isConjured()) {
             return false;
+        }
+        if (!BotYieldCaps.mayTakeDrop(bot, drop)) {
+            return false;   // over a yield cap: leave it for a player rather than walk to it
         }
         if (drop.getMeso() > 0) {
             return bot.canHoldMeso(drop.getMeso());

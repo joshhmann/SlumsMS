@@ -343,6 +343,57 @@ public final class BotDamage {
                 hit.kind() == Kind.PHYSICAL ? chargeOf(bot) : null, share);
     }
 
+    /*
+     * Real bots 10: the gear optimizer's yardstick - the average line of the bot's main attack (single, else mob,
+     * else ultimate; a plain swing where the weapon cannot draw it, as the driver does) against a neutral mob,
+     * crits included, given how much each stat total would change from what it wears now.
+     */
+    public interface GearValue {
+        double of(int dStr, int dDex, int dInt, int dLuk, int dWatk, int dMatk);
+    }
+
+    /* The bot's GearValue while holding this weapon (0 = bare-handed): its own mastery, ammo and attacks. */
+    public static GearValue gearValue(Character bot, int weaponItemId) {
+        WeaponType weapon = weaponTypeOf(weaponItemId);
+        Attacker now = attacker(bot, weapon);
+        BotAttackConfig.JobAttacks attacks = BotAttackConfig.resolve(bot.getJob(), weapon,
+                BotAttackDriver.ownedSkills(bot));
+        BotAttackProfile main = attacks.single() != null ? attacks.single()
+                : attacks.aoe() != null ? attacks.aoe() : attacks.ultimate();
+        int skillId = 0;
+        int skillLevel = 0;
+        BotAttackProfile.Route route = BotAttackProfile.Route.CLOSE;
+        if (main != null && BotSkillActions.weaponFits(main.skillId, weaponItemId)) {
+            skillId = main.skillId;
+            skillLevel = BotAttackDriver.packetLevel(bot, main);
+            route = main.route;
+        }
+        Hit hit = hitFor(bot, skillId, skillLevel, route, weapon, 1);
+        return (dStr, dDex, dInt, dLuk, dWatk, dMatk) -> {
+            Attacker a = new Attacker(now.level(), now.str() + dStr, now.dex() + dDex, now.int_() + dInt,
+                    now.luk() + dLuk, now.watk() + dWatk, now.matk() + dMatk, now.weapon(), now.thief(),
+                    now.pirate(), now.pirateAdvanced(), now.mastery(), now.passiveCritChance(),
+                    now.passiveCritDamage(), now.buffCritChance(), now.buffCritDamage(), now.damageBonusPct(),
+                    now.amplificationPct());
+            return BotCombatFormula.expected(BotCombatFormula.base(a, hit), BotCombatFormula.crit(a, hit));
+        };
+    }
+
+    // ItemInformationProvider.getWeaponType without the item data it never reads (the id's weapon class).
+    private static final WeaponType[] WEAPON_CLASSES = {WeaponType.SWORD1H, WeaponType.GENERAL1H_SWING,
+            WeaponType.GENERAL1H_SWING, WeaponType.DAGGER_OTHER, WeaponType.NOT_A_WEAPON, WeaponType.NOT_A_WEAPON,
+            WeaponType.NOT_A_WEAPON, WeaponType.WAND, WeaponType.STAFF, WeaponType.NOT_A_WEAPON, WeaponType.SWORD2H,
+            WeaponType.GENERAL2H_SWING, WeaponType.GENERAL2H_SWING, WeaponType.SPEAR_STAB, WeaponType.POLE_ARM_SWING,
+            WeaponType.BOW, WeaponType.CROSSBOW, WeaponType.CLAW, WeaponType.KNUCKLE, WeaponType.GUN};
+
+    public static WeaponType weaponTypeOf(int itemId) {
+        if (itemId <= 0) {
+            return null;   // bare-handed, as BotAttack.resolveEquippedWeaponType reports it
+        }
+        int cat = itemId / 10000 % 100;
+        return cat < 30 || cat > 49 ? WeaponType.NOT_A_WEAPON : WEAPON_CLASSES[cat - 30];
+    }
+
     public static final class Swing {
         final Attacker attacker;
         final Hit hit;

@@ -70,10 +70,11 @@ class BotRopeLaunchWindowTest {
         BotNavigationGraph.Edge right = new BotNavigationGraph.Edge(5, 6, BotNavigationGraph.EdgeType.CLIMB,
                 new Point(100, 200), new Point(140, 260), 100, 100, 150, 250, 3, 0, 0, 0, 0, 300, 100, 200);
         assertNotEquals(NavEdgeLearning.edgeKey(left), NavEdgeLearning.edgeKey(right));
-        // Plain edges keep their pre-v62 key, so nothing else shifts.
+        // Ticket 04 keys carry both windows, the step and the landing; files from before still read by the old key.
         BotNavigationGraph.Edge jump = new BotNavigationGraph.Edge(1, 2, BotNavigationGraph.EdgeType.JUMP,
                 new Point(10, 20), new Point(50, 20), 0, 30, 3, 0, 0, 0, 0, 400);
-        assertEquals("1>2:JUMP:0:30:10,20", NavEdgeLearning.edgeKey(jump));
+        assertEquals("JUMP:1>2:x0..30:y20..20:s3:10,20>50,20", NavEdgeLearning.edgeKey(jump));
+        assertEquals("1>2:JUMP:0:30:10,20", NavEdgeLearning.legacyKey(jump));
     }
 
     @Test
