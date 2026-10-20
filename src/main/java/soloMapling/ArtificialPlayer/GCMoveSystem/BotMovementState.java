@@ -54,6 +54,7 @@ class BotMovementState {
     int swimVerticalHold = 0;             // -1 = UP held, 0 = none, +1 = DOWN held
     boolean swimJumpRequested = false;    // one-shot upward burst
     long swimNextJumpAtMs = 0L;
+    SwimNavigator.State swimNav;          // ticket 34: the swim graph route this bot is on (null off swim maps)
 
     // ── Move intent ──
     int moveDir = 0;                      // -1 left, 0 none, +1 right

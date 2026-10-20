@@ -110,6 +110,9 @@ public final class NavObservedEdges {
         if (player == null || player.getMap() == null) {
             return;
         }
+        if (player.getMap().isSwim()) {
+            SwimNavObserved.onPlayerMove(player, x, y, fh, stance); // ticket 34: players' swims teach the swim graph
+        }
         boolean climbing = isClimbing(stance);
         Track track = tracks.computeIfAbsent(player.getId(), k -> new Track());
         int mapId = player.getMapId();

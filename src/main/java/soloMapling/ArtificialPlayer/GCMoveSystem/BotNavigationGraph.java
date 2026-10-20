@@ -31,7 +31,10 @@ final class BotNavigationGraph implements Serializable {
         // every graph but only planned for bots whose job carries the skill (NavMovementSkills); every walk-only
         // search and the offscreen/coarse planner skip them.
         TELEPORT,
-        FLASH_JUMP
+        FLASH_JUMP,
+        // Ticket 34: a straight swim between two points of a swim map's water graph (SwimNavGraph), including the
+        // take-off from and the landing onto a platform. Never in a ground graph.
+        SWIM
     }
 
     // Skill-mask bits a planner passes to say which skill edges the bot may take (0 = walk-only).

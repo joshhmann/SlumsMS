@@ -106,15 +106,15 @@ final class BotNavigationManager {
                 return new NavigationDirective(rawTargetPos, false);
             }
             if (bot.getMap().isSwim()) {
-                // Swim maps don't use a swim-aware nav graph. Airborne motion is handled
-                // by the swim integrator (tickSwimming); on platforms we still need
-                // ledge-drops, ropes, and ground jumps. Engage the heuristic fallback —
-                // it walks off ledges into water, picks up nearby ropes, and jumps onto
-                // higher platforms when useful. tickSwimming consults targetPos directly,
-                // so the same rawTargetPos works for both grounded and airborne paths.
+                // Swim maps don't use the ground nav graph: SwimNavigator (ticket 34) routes over the map's water
+                // graph and returns one steering point a tick. Airborne motion is the swim integrator's
+                // (tickSwimming); on platforms the heuristic fallback still walks, picks up ropes and drops off
+                // ledges toward that point. With the swim graph still building (or -Dbot.swimnav.enabled=false)
+                // the bot steers straight at the raw target, as before ticket 34.
                 entry.graphWarmupFallback = true;
                 clearNavigation(entry);
-                return new NavigationDirective(rawTargetPos, false);
+                NavigationDirective swim = SwimNavigator.resolve(entry, rawTargetPos, runAiTick);
+                return swim != null ? swim : new NavigationDirective(rawTargetPos, false);
             }
 
             BotNavigationGraph graph = resolveActiveGraph(bot.getMap(), entry.movementProfile);
@@ -832,6 +832,7 @@ final class BotNavigationManager {
             case PORTAL -> !isReadyForEdge(botPos, edge) || entry.portalEnterReadyTicks > 0; // precise while walking the extra jitter ticks in
             case TELEPORT -> !isWithinTeleportLaunchWindow(graph, botPos, edge);
             case FLASH_JUMP -> !canExecuteSelectedJumpFromCurrentPosition(graph, entry, entry.bot.getMap(), botPos, edge);
+            case SWIM -> false; // swim edges live in SwimNavGraph, never in a ground graph
         };
     }
 
@@ -844,6 +845,7 @@ final class BotNavigationManager {
             case PORTAL -> new Point(edge.startPoint); // always head to the portal entrance; it only fires once landed there
             case TELEPORT -> selectTeleportWaypoint(graph, botPos, edge);
             case FLASH_JUMP -> entry.inAir ? new Point(edge.endPoint) : selectJumpWaypoint(graph, entry, botPos, edge);
+            case SWIM -> new Point(edge.endPoint);
         };
     }
 
@@ -1603,6 +1605,7 @@ final class BotNavigationManager {
                 yield portal != null && portal.getPortalStatus();
             }
             case TELEPORT, FLASH_JUMP -> NavMovementSkills.allows(edge, skillMask);
+            case SWIM -> false; // never in a ground graph (ticket 34)
         };
     }
 
