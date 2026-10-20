@@ -468,6 +468,14 @@ public abstract class BotSM implements EventSubscriber {
     }
 
     /**
+     * Ticket 37: a line said to this bot in natural chat (its name cut out) that the bot acts on itself, outside
+     * the shared chat actions - a partied trainer's "follow me", a follower's "train here". True when handled.
+     */
+    public boolean naturalAction(Character player, String said) {
+        return false;
+    }
+
+    /**
      * What this bot is doing, for the roster to resume it after a logout or restart (bot-persistence ticket 06).
      * The default records the bot type and the map it stands on as home; a type with more to resume
      * ({@code TrainingBot}'s train map) overrides it.

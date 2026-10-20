@@ -105,7 +105,7 @@ public final class ChatTriage {
 
     private static final Pattern PARTY = Pattern.compile("\\b(party|parties|pt|pq|kpq|lpq|opq|inv me|invite me|inv pls"
             + "|inv plz|team up|join (ur|your|my) (pt|party))\\b");
-    private static final Pattern FOLLOW = Pattern.compile("\\b(follow me|follow u|stay here|stay there|stay put"
+    private static final Pattern FOLLOW = Pattern.compile("\\b(follow me|follow u|^follow( pls| plz| me pls)?$|stay here|stay there|stay put"
             + "|wait (for me|here|there)|dont move|don'?t leave)\\b");
     private static final Pattern COME = Pattern.compile("\\b(come with me|come w me|lets go to|let'?s go to|go to \\w+ "
             + "together|wanna come|come hunt|come help|come grind|come train|come to \\w+ with me)\\b");

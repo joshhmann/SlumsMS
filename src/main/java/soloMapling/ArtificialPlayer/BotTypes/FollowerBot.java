@@ -202,6 +202,17 @@ public class FollowerBot extends BotSM {
         menu.show(chr);
     }
 
+    /** Ticket 37: the leader's "train here" does what the menu's "Train here with me!" does. */
+    @Override
+    public boolean naturalAction(Character player, String said) {
+        String lower = said == null ? "" : said.toLowerCase(java.util.Locale.ROOT);
+        if (player.getId() == leaderId && lower.matches(".*\\b(train|grind|station)\\b.*")) {
+            onMenuSelect(0, player);
+            return true;
+        }
+        return false;
+    }
+
     private void onMenuSelect(int idx, Character player) {
         Character chr = getChr();
         if (idx == 0) { // Train here with me!

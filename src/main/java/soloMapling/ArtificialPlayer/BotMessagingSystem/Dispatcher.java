@@ -4,7 +4,9 @@ import client.Character;
 import soloMapling.ArtificialPlayer.BotConversation;
 import soloMapling.ArtificialPlayer.BotMenus;
 import soloMapling.ArtificialPlayer.BotSM;
+import soloMapling.ArtificialPlayer.BotTypes.FollowerBot;
 import soloMapling.ArtificialPlayer.BotTypes.SocialBot;
+import soloMapling.ArtificialPlayer.BotTypes.TrainingBot;
 import soloMapling.server.BotShutdown;
 
 import java.util.ArrayList;
@@ -97,27 +99,39 @@ public class Dispatcher implements Runnable {
         if (CharacterStorage.checkIfRespondant(sender) || CharacterStorage.checkIfInquirer(sender)) {
             return false;
         }
+        List<BotAddressee.Candidate> nearby = new ArrayList<>();
+        List<String> otherPlayers = new ArrayList<>();
+        for (Character chr : charsOnMap) {
+            if (chr.getId() == sender.getId() || checkIfInvisibleBot(chr.getId())) {
+                continue;
+            }
+            if (getBotById(chr.getId()) != null) {
+                nearby.add(new BotAddressee.Candidate(chr.getId(), chr.getName(), chr.getJob().getId()));
+            } else {
+                otherPlayers.add(chr.getName());
+            }
+        }
+        BotAddressee.Result named = nearby.isEmpty() ? null : BotAddressee.resolve(message.getContent(), nearby);
+        // Ticket 37: the bot this player is talking to keeps listening for a while - unless the line is for
+        // someone else, the player went quiet, or walked away.
+        if (followUpToListeningBot(sender, message.getContent(), named, otherPlayers, now)) {
+            return true;
+        }
         // Mid-chat with a bot that has no menu: the next line is for that bot (ticket 21).
         int partner = BotConversation.partnerOf(sender.getId());
         BotSM partnerBot = partner < 0 ? null : getBotById(partner);
         if (partnerBot != null && !partnerBot.consumesFreeText() && partnerBot.getChr() != null
-                && partnerBot.getChr().getMapId() == sender.getMapId()) {
+                && partnerBot.getChr().getMapId() == sender.getMapId()
+                && !(BotMenus.natural() && talksNaturally(partnerBot))) { // natural talkers: attention decides
             BotConversation.say(partnerBot, sender, message.getContent(), null);
             return true;
         }
         if (soloMapling.ArtificialPlayer.BotBuffRequestSystem.BotBuffRequestHandler.isBuffRequest(message.getContent())) {
             return true; // "hs pls": the buff handler already has the nearest eligible bot cast it
         }
-        List<BotAddressee.Candidate> nearby = new ArrayList<>();
-        for (Character chr : charsOnMap) {
-            if (chr.getId() != sender.getId() && !checkIfInvisibleBot(chr.getId()) && getBotById(chr.getId()) != null) {
-                nearby.add(new BotAddressee.Candidate(chr.getId(), chr.getName(), chr.getJob().getId()));
-            }
-        }
         if (nearby.isEmpty()) {
             return false;
         }
-        BotAddressee.Result named = BotAddressee.resolve(message.getContent(), nearby);
         if (named.sure()) {
             handleBotRunning(new int[]{named.best().id()}, message);
             return true;
@@ -159,6 +173,89 @@ public class Dispatcher implements Runnable {
         return HAS_MENU.get(bot.getClass());
     }
 
+    /**
+     * Ticket 37: bots that talk like players - naming one gets a chat reply, not its menu. Service bots whose menus
+     * are real choices (merchants, games, gacha, jump quests...) keep their menus.
+     */
+    static boolean talksNaturally(BotSM bot) {
+        return bot instanceof SocialBot || bot instanceof TrainingBot || bot instanceof FollowerBot
+                || (!bot.consumesFreeText() && !showsOwnHint(bot));
+    }
+
+    /** A line for the bot that is listening to this player, sent to it. False when no bot is listening any more. */
+    private boolean followUpToListeningBot(Character sender, String line, BotAddressee.Result named,
+                                           List<String> otherPlayers, long now) {
+        BotChatRouting.Attention attention = BotChatRouting.attention(sender.getId());
+        if (attention == null) {
+            return false;
+        }
+        BotSM listening = BotMenus.natural() ? getBotById(attention.botId()) : null;
+        Character chr = listening == null ? null : listening.getChr();
+        BotChatRouting.Drift drift = BotChatRouting.drift(attention, now, chr != null && chr.getMap() != null,
+                sender.getMapId(), chr == null ? -1 : chr.getMapId(),
+                chr == null ? 0 : sender.getPosition().distance(chr.getPosition()));
+        if (drift == BotChatRouting.Drift.LISTENING
+                && BotChatRouting.addressesSomeoneElse(attention.botId(), named, line, otherPlayers)) {
+            drift = BotChatRouting.Drift.GONE;
+            log("[ticket37] " + sender.getName() + " turned to someone else; " + chr.getName() + " stops listening");
+        }
+        if (drift != BotChatRouting.Drift.LISTENING) {
+            BotChatRouting.dropAttention(sender.getId());
+            return false;
+        }
+        executor.execute(() -> talkNaturally(listening, sender, line));
+        return true;
+    }
+
+    /**
+     * Natural chat with a bot: its own action, else a reply through the brain. Nothing typed ever opens the
+     * window - an NPC window locks the player in place (owner, 2026-10-20) - so every window option has a chat
+     * equivalent: "party", "where do u train", "trade", "follow", "train here", or just talk.
+     */
+    private void talkNaturally(BotSM bot, Character player, String line) {
+        String said = BotChatRouting.withoutName(line, bot.getChr().getName());
+        BotChatRouting.attend(player.getId(), bot.getChr().getId(), System.currentTimeMillis());
+        if (bot.naturalAction(player, said)) {
+            return;
+        }
+        BotConversation.talk(bot, player, said.isEmpty() ? "hey" : said);
+    }
+
+    private static final java.util.Map<Integer, Long> lastMenuAsk = new ConcurrentHashMap<>();
+    static final long MENU_DEBOUNCE_MS = 1_500;
+
+    /**
+     * Ticket 37, the window on demand: the player double-clicked a bot (the client's character-info request).
+     * Opens the bot's menu the way naming it did before natural chat; {@code BOT_MENU_WINDOW}
+     * off shows the numbered chat hint instead. A second request within 1.5 s is the same double-click.
+     */
+    public static void openMenuOnDemand(Character player, int botId) {
+        BotSM bot = getBotById(botId);
+        if (player == null || bot == null || bot.getChr() == null || checkIfInvisibleBot(botId)) {
+            return;
+        }
+        long now = System.currentTimeMillis();
+        Long last = lastMenuAsk.put(player.getId(), now);
+        if (last != null && now - last < MENU_DEBOUNCE_MS) {
+            return;
+        }
+        dispatcher.executor.execute(() -> dispatcher.openMenu(player, bot));
+    }
+
+    private void openMenu(Character player, BotSM bot) {
+        BotMenus.requestWindow(player, bot);
+        if (bot instanceof SocialBot socialBot) {
+            socialBot.openMenuFor(player);
+            return;
+        }
+        ChatMessage nameOnly = new ChatMessage(player, bot.getChr().getName());
+        if (!bot.getRunning()) {
+            startNewBotSession(bot, nameOnly);
+        } else {
+            handleExistingBotSession(bot, nameOnly);
+        }
+    }
+
     private void askFirst(int botId, ChatMessage message, long now) {
         BotSM bot = getBotById(botId);
         if (bot == null || bot.getChr() == null) {
@@ -186,7 +283,14 @@ public class Dispatcher implements Runnable {
         executor.execute(() -> {
             BotSM bot = getBotById(botToCall[0]);
             if (bot == null) {
+                if (botToCall[0] != message.getSender().getId()) {
+                    BotChatRouting.dropAttention(message.getSender().getId()); // ticket 37: they named a player
+                }
                 logBotNotFound(botToCall[0]);
+                return;
+            }
+            if (BotMenus.natural() && bot.getRunning() && talksNaturally(bot)) {
+                talkNaturally(bot, message.getSender(), message.getContent()); // ticket 37: a reply, not a menu
                 return;
             }
 

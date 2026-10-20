@@ -18,6 +18,9 @@ import java.util.function.BiConsumer;
  * ({@code scripts/npc/botmenu.js}) when {@code BOT_MENU_WINDOW} is on and the player has no other NPC window
  * open; otherwise as the old numbered chat hint, where typing the number works as before.
  *
+ * <p>Ticket 37: with natural chat on (the default) a menu only shows when the player asked for it - a double-click
+ * on the bot ({@code CharInfoRequestHandler}), never from chat, since the window locks the player - and naming a bot gets a chat reply instead.
+ *
  * <p>The window is a {@link View}: a custom client can replace it without touching any bot.
  */
 public final class BotMenus {
@@ -56,6 +59,10 @@ public final class BotMenus {
         if (!windowEnabled() || bot == null || player == null) {
             return false;
         }
+        if (quiet(player, bot)) {
+            // Ticket 37: the bot talks in chat; a menu shows only when the player double-clicked the bot. Nothing to show is the answer, so the caller shows no hint either.
+            return true;
+        }
         List<String> labels = new ArrayList<>(typeLabels);
         labels.addAll(SHARED);
         openByPlayer.put(player.getId(), new Open(bot, List.copyOf(labels), typeLabels.size(), onTypeOption));
@@ -63,7 +70,43 @@ public final class BotMenus {
             openByPlayer.remove(player.getId());
             return false;
         }
+        onDemandByPlayer.put(player.getId(), new OnDemand(bot.getChr().getId(),
+                System.currentTimeMillis() + ON_DEMAND_MS)); // the choices it leads to may show it again
         return true;
+    }
+
+    // ── ticket 37: the window on demand ──
+
+    /** A player asked for this bot's window; it may show (and re-show after a choice) until this expires. */
+    record OnDemand(int botId, long until) {
+    }
+
+    static final long ON_DEMAND_MS = 60_000;
+    private static final Map<Integer, OnDemand> onDemandByPlayer = new ConcurrentHashMap<>();
+
+    /** The player double-clicked the bot: its next menu opens as a window. */
+    public static void requestWindow(Character player, BotSM bot) {
+        if (player != null && bot != null && bot.getChr() != null) {
+            onDemandByPlayer.put(player.getId(), new OnDemand(bot.getChr().getId(),
+                    System.currentTimeMillis() + ON_DEMAND_MS));
+        }
+    }
+
+    /**
+     * Natural chat ({@code -Dsolomapling.chat.natural}, on by default): naming a bot gets a chat reply, and menus
+     * show only on demand. Off restores the 1.3.0 behaviour, where naming a bot opens its menu.
+     */
+    public static boolean natural() {
+        return Boolean.parseBoolean(System.getProperty("solomapling.chat.natural", "true"));
+    }
+
+    /** Whether a menu for this player and bot stays hidden: natural chat, and the player did not ask for it. */
+    static boolean quiet(Character player, BotSM bot) {
+        if (!natural()) {
+            return false;
+        }
+        OnDemand asked = onDemandByPlayer.get(player.getId());
+        return asked == null || asked.botId() != bot.getChr().getId() || System.currentTimeMillis() > asked.until();
     }
 
     /** The window's text: the bot's line, then one clickable option per label. Called by {@code botmenu.js}. */
@@ -94,16 +137,19 @@ public final class BotMenus {
             return;
         }
         String shared = menu.labels().get(index);
+        soloMapling.ArtificialPlayer.BotMessagingSystem.BotChatRouting.attend(player.getId(),
+                menu.bot().getChr().getId(), System.currentTimeMillis()); // ticket 37: its next lines go to the bot
         if (shared.equals(TALK)) {
-            BotConversation.say(menu.bot(), player, "hey", null);
+            BotConversation.talk(menu.bot(), player, "hey");
         } else if (shared.equals(WHERE_TRAIN)) {
-            BotConversation.say(menu.bot(), player, "where do u usually train?", null);
+            BotConversation.talk(menu.bot(), player, "where do u usually train?");
         }
     }
 
     /** The window was closed without a choice. Called by {@code botmenu.js}. */
     public static void closed(Character player) {
         openByPlayer.remove(player.getId());
+        onDemandByPlayer.remove(player.getId());
     }
 
     static boolean windowEnabled() {
@@ -125,5 +171,6 @@ public final class BotMenus {
     static void useViewForTest(View testView) {
         view = testView == null ? BotMenus::showWindow : testView;
         openByPlayer.clear();
+        onDemandByPlayer.clear();
     }
 }

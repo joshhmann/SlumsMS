@@ -135,11 +135,13 @@ public final class BotAddressee {
         return name.toLowerCase(Locale.ROOT).replaceAll("[^a-z0-9]", "");
     }
 
-    /** The name without {@code xx..xx} wrapping and trailing digits: "xxskybladexx" -> "skyblade", "jun1567" -> "jun". */
+    /** The name without {@code xx..xx} (or {@code x..x}) wrapping and trailing digits: "xxskybladexx" -> "skyblade", "jun1567" -> "jun". */
     static String core(String normalized) {
         String core = normalized;
         if (core.startsWith("xx") && core.endsWith("xx") && core.length() > 6) {
             core = core.substring(2, core.length() - 2);
+        } else if (core.startsWith("x") && core.endsWith("x") && core.length() > 5) {
+            core = core.substring(1, core.length() - 1); // "xfirex" -> "fire" (ticket 37: "fire" is a sure name)
         }
         core = core.replaceAll("[0-9]+$", "");
         return core.length() >= 3 ? core : "";

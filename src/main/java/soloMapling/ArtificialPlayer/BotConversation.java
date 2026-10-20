@@ -78,7 +78,23 @@ public final class BotConversation {
      * instead of map chat; null means map chat. Both ways are one conversation with one history and memory.
      */
     public static boolean say(BotSM bot, Character player, String line, Runnable fallback, Consumer<String> deliver) {
-        if (bot == null || bot.getChr() == null || player == null || !BotBrains.get().isLive()) {
+        if (!BotBrains.get().isLive()) {
+            return false;
+        }
+        return start(bot, player, line, fallback, deliver);
+    }
+
+    /**
+     * Ticket 37's natural chat: the player named the bot or is still talking to it. Answered in map chat through
+     * the same tiers as {@link #say}, and with no LLM configured the scripted tier and the actions still answer -
+     * a named bot never falls back to a menu. False only when bot or player is missing.
+     */
+    public static boolean talk(BotSM bot, Character player, String line) {
+        return start(bot, player, line, null, null);
+    }
+
+    private static boolean start(BotSM bot, Character player, String line, Runnable fallback, Consumer<String> deliver) {
+        if (bot == null || bot.getChr() == null || player == null) {
             return false;
         }
         startSweeper();
@@ -316,6 +332,9 @@ public final class BotConversation {
                         BotSpeak(bot, line);
                     }
                     session.lastAt = System.currentTimeMillis();
+                    if (deliver == null) { // ticket 37: having answered, the bot keeps listening a while longer
+                        BotChatRouting.touchAttention(player.getId(), bot.getId(), session.lastAt);
+                    }
                     ChatStats.reply(tier, System.currentTimeMillis() - asked, bot.getName(), detail);
                 })
                 .start();

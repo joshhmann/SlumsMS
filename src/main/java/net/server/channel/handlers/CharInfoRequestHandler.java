@@ -37,11 +37,23 @@ public final class CharInfoRequestHandler extends AbstractPacketHandler {
         MapObject target = c.getPlayer().getMap().getMapObject(cid);
         if (target != null) {
             if (target instanceof Character player) {
-
-                if (c.getPlayer().getId() != player.getId()) {
-                    player.exportExcludedItems(c);
+                // Ticket 37: a double-click on a bot opens its menu - after its info (the default), instead of it,
+                // or not at all: -Dsolomapling.chat.doubleClickMenu=after|instead|off.
+                String menu = System.getProperty("solomapling.chat.doubleClickMenu", "after");
+                boolean bot = c.getPlayer().getId() != player.getId() && !"off".equals(menu)
+                        && soloMapling.ArtificialPlayer.BotMessagingSystem.CharacterStorage.getBotById(player.getId()) != null;
+                if (bot && "instead".equals(menu)) {
+                    c.sendPacket(PacketCreator.enableActions());
+                } else {
+                    if (c.getPlayer().getId() != player.getId()) {
+                        player.exportExcludedItems(c);
+                    }
+                    c.sendPacket(PacketCreator.charInfo(player));
                 }
-                c.sendPacket(PacketCreator.charInfo(player));
+                if (bot) {
+                    soloMapling.ArtificialPlayer.BotMessagingSystem.Dispatcher.openMenuOnDemand(c.getPlayer(),
+                            player.getId());
+                }
             }
         }
     }

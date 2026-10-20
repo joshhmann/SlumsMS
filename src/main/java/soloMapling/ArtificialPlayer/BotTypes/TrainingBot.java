@@ -348,6 +348,17 @@ public class TrainingBot extends BotSM {
         }
     }
 
+    /** Ticket 37: "follow me" from a party member does what the party menu's "Follow me!" does. */
+    @Override
+    public boolean naturalAction(Character player, String said) {
+        String lower = said == null ? "" : said.toLowerCase(java.util.Locale.ROOT);
+        if (inSameParty(player) && (lower.contains("follow") || lower.matches(".*\\b(come with me|come on)\\b.*"))) {
+            optFollowMe(player);
+            return true;
+        }
+        return false;
+    }
+
     private boolean menuActive() {
         return soloMenu.isActive() || partyMenu.isActive();
     }

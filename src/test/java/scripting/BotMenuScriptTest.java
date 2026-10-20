@@ -59,6 +59,7 @@ class BotMenuScriptTest {
         player.setID(1001);
         List<Integer> clicks = new ArrayList<>();
         BotMenusTestAccess.useViewForTest((p, bot, labels) -> true);
+        BotMenus.requestWindow(player, BotMenusTestAccess.botNamed("Kimchiz")); // a double-click (ticket 37)
         BotMenus.open(BotMenusTestAccess.botNamed("Kimchiz"), player, List.of("Wanna party up?"),
                 (index, who) -> clicks.add(index));
 
