@@ -313,6 +313,7 @@ public class CommandsExecutor {
             addCommand("env", 4, client.command.commands.gm4.EnvironmentCommand.class);
             addCommand("roster", 4, client.command.commands.gm4.RosterCommand.class);
             addCommand("brain", 4, client.command.commands.gm4.BrainCommand.class);
+            addCommand("botyield", 4, client.command.commands.gm4.BotYieldCommand.class);
         }
         addCommand("spawn", 3, SpawnCommand.class);
         addCommand("mutemap", 3, MuteMapCommand.class);

@@ -26,6 +26,7 @@ import net.server.world.World;
 import soloMapling.ArtificialPlayer.BotHelpers;
 import soloMapling.ArtificialPlayer.BotRoster;
 import soloMapling.ArtificialPlayer.BotStore;
+import soloMapling.ArtificialPlayer.BotYieldCaps;
 
 import java.util.ArrayList;
 import java.util.List;
@@ -62,6 +63,7 @@ public class CharacterAutosaverTask extends BaseTask implements Runnable {  // t
             runAsync(() -> {
                 BotStore.saveAll(bots);
                 BotRoster.recordSessions(bots, System.currentTimeMillis(), false);
+                BotYieldCaps.flush();   // ticket 15: bots' daily meso counts
             });
         }
     }

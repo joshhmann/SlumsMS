@@ -224,6 +224,33 @@ public final class OffscreenRewardBudget {
         return new Yield(Math.min(Math.round(mesos), Integer.MAX_VALUE), items);
     }
 
+    // What one map instance yields in one window, as two totals: mesos and item units (every item id summed).
+    // The per-map yield cap on bots (BotYieldCaps, ticket 15) sizes itself from this, so observed and offscreen
+    // play are held to the same spawn table, respawn times, occupancy rule and drop tables as this budget.
+    public record Expected(double mesos, double itemUnits) {
+        public static final Expected NONE = new Expected(0, 0);
+
+        public boolean isEmpty() {
+            return mesos <= 0 && itemUnits <= 0;
+        }
+    }
+
+    public static Expected expectedPerWindow(int mapId, int occupants, int dropRate, int mesoRate) {
+        return expectedPerWindow(mapId, occupants, dropRate, mesoRate, WZ);
+    }
+
+    static Expected expectedPerWindow(int mapId, int occupants, int dropRate, int mesoRate, Sources sources) {
+        if (mapId <= 0) {
+            return Expected.NONE;
+        }
+        Yield yield = windowYield(mapId, occupants, Math.max(1, dropRate), Math.max(1, mesoRate), sources);
+        double units = 0;
+        for (double qty : yield.items().values()) {
+            units += qty;
+        }
+        return new Expected(yield.mesos(), units);
+    }
+
     // Clears accrued tokens. Static meter state must not leak between test cases.
     static void clearMeters() {
         METERS.clear();
