@@ -88,6 +88,10 @@ public class EnvironmentCommand extends Command {
             ExecutorServiceManager.getExecutorService().execute(() -> handleChatter(params, c));
             return;
         }
+        if (params[0].equalsIgnoreCase("path")) {
+            ExecutorServiceManager.getExecutorService().execute(() -> handlePath(params, c));
+            return;
+        }
         if (params[0].equalsIgnoreCase("travel") || params[0].equalsIgnoreCase("regions")) {
             ExecutorServiceManager.getExecutorService().execute(() -> handleTravel(params, c));
             return;
@@ -293,6 +297,38 @@ public class EnvironmentCommand extends Command {
                         + " regions, " + soloMapling.ArtificialPlayer.BotTravelSystem.BotTransit.edgeCount()
                         + " transit edges; " + t[0] + " bots traveling, " + t[1] + " queued at a dock, " + t[2] + " aboard");
                 p.dropMessage(6, "travel: reload | route <mapId>");
+            }
+        }
+    }
+
+    // !env path — ticket 31 leveling path.
+    //   (no arg)  bands, entries and the tunables
+    //   reload    re-read LevelingPath.yaml and the -Dsolomapling.levelPath.* properties
+    //   dist      where training bots chose to train, by band, job group and map (path vs old search)
+    //   sweep     per band and rebirth count, how many path maps exist and are reachable from Henesys
+    private static void handlePath(String[] params, Client c) {
+        Character p = c.getPlayer();
+        String action = params.length >= 2 ? params[1].toLowerCase() : "readout";
+        switch (action) {
+            case "reload" -> p.dropMessage(6, "path: reloaded, "
+                    + soloMapling.ArtificialPlayer.BotGrindSystem.LevelingPathChooser.reload() + " entries");
+            case "dist" -> {
+                for (String line : soloMapling.ArtificialPlayer.BotGrindSystem.LevelingPathCensus.report(4)) {
+                    p.dropMessage(6, line);
+                }
+            }
+            case "sweep" -> {
+                for (String line : soloMapling.ArtificialPlayer.BotGrindSystem.LevelingPathChooser.sweep(
+                        constants.id.MapId.HENESYS)) {
+                    p.dropMessage(6, line);
+                }
+            }
+            default -> {
+                soloMapling.ArtificialPlayer.BotGrindSystem.LevelingPath.Path path =
+                        soloMapling.ArtificialPlayer.BotGrindSystem.LevelingPath.path();
+                p.dropMessage(6, "path: " + path.bands().size() + " bands, " + path.entryCount() + " entries; "
+                        + soloMapling.ArtificialPlayer.BotGrindSystem.LevelingPathChooser.tuning());
+                p.dropMessage(6, "path: reload | dist | sweep");
             }
         }
     }

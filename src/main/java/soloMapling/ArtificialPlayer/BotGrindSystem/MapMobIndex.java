@@ -196,6 +196,22 @@ public final class MapMobIndex {
         });
     }
 
+    private static final Map<Integer, Integer> RETURN_MAP = new ConcurrentHashMap<>();
+
+    // Ticket 31: the map's WZ info/returnMap (the town a player returns to from it), or -1 when the map or the
+    // field is missing. 999999999 means "none" in WZ and is passed through as is.
+    public static int returnMapId(int mapId) {
+        return RETURN_MAP.computeIfAbsent(mapId, id -> {
+            try {
+                Data data = MAP_SOURCE.get().getData(mapImgPath(id));
+                Data info = data == null ? null : data.getChildByPath("info");
+                return info == null ? -1 : DataTool.getInt("returnMap", info, -1);
+            } catch (RuntimeException e) {
+                return -1;
+            }
+        });
+    }
+
     private static String mapImgPath(int mapId) {
         return "Map/Map" + (mapId / 100000000) + "/" + String.format("%09d", mapId) + ".img";
     }

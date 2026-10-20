@@ -15,8 +15,9 @@
 # A region only attracts a bot when it has maps whose mobs fit the bot's level band, the bot can reach a hub,
 # and it can pay every fare on the way.
 #
-# This is the coarse widening; ticket 31's leveling path plugs in through TrainingTravel.install(...) and
-# decides the real level-by-level route. Reload live with `!env travel reload`.
+# This is the coarse widening. Ticket 31's leveling path (LevelingPath.yaml) picks the level-by-level route on
+# most decisions and falls back to these regions when it has nothing valid. A region with `enabled: false` stays
+# closed to the path too. Reload live with `!env travel reload`.
 
 travel:
   wander_chance: 0.05          # chance per decision to move on while the home region still has in-band maps

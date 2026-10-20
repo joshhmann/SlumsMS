@@ -164,6 +164,43 @@ public final class BotYieldCaps {
     private BotYieldCaps() {
     }
 
+    // Ticket 31: how spent each map's bot yield cap is, by map id (the fullest instance), 0..1. A snapshot rebuilt
+    // at most every SATURATION_REFRESH_MS, so the leveling path can steer bots off maps the bots there already
+    // drain, without walking the meters on every decision.
+    static final long SATURATION_REFRESH_MS = 15_000;
+    private static volatile Map<Integer, Double> saturation = Map.of();
+    private static volatile long saturationAtMs = Long.MIN_VALUE;
+
+    public static double mapSaturation(int mapId) {
+        Limits limits = BotYieldCaps.limits;
+        if (!limits.enabled()) {
+            return 0;
+        }
+        long now = clock.millis();
+        if (saturationAtMs == Long.MIN_VALUE || now - saturationAtMs >= SATURATION_REFRESH_MS) {
+            saturationAtMs = now;
+            Map<Integer, Double> next = new java.util.HashMap<>();
+            List<MapMeter> snapshot;
+            synchronized (meters) {
+                snapshot = new ArrayList<>(meters.values());
+            }
+            for (MapMeter meter : snapshot) {
+                double fill;
+                synchronized (meter) {
+                    if (meter.perMinute == null || meter.perMinute.isEmpty()) {
+                        continue;
+                    }
+                    meter.drain(now, limits);
+                    double cap = meter.mesoCap(limits);
+                    fill = cap <= 0 ? 0 : Math.min(1.0, meter.mesosUsed / cap);
+                }
+                next.merge(meter.mapId, fill, Math::max);
+            }
+            saturation = next;
+        }
+        return saturation.getOrDefault(mapId, 0.0);
+    }
+
     // ---- what the loot paths call ----
 
     /** Non-mutating: true when the caps let this bot take this drop now. Always true for a player. */
