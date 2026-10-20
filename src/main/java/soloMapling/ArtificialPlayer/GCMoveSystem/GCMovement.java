@@ -223,24 +223,51 @@ public final class GCMovement {
     /* Mage blink toward a point on the current map: pick a same-ledge landing up to ~150px toward it and
      * broadcast the teleport (or blink down to a lower platform). Returns true if it blinked, false if there's
      * no valid landing (caller walks). The caller (MovementStylePolicy / grind approach) decides who may
-     * teleport — no MP/skill checks here (bots are decoration). */
+     * teleport; ticket 02: only a bot holding Teleport that can pay its MP blinks, and it pays per blink. */
     public static boolean teleport(Character bot, int targetX, int targetY) {
-        if (bot == null) {
+        if (bot == null || !canTeleport(bot)) {
             return false;
         }
         BotMovementState st = STATES.get(bot.getId());
-        return st != null && GCMovementSkills.execTeleport(st, bot, targetX, targetY);
+        if (st == null || !GCMovementSkills.execTeleport(st, bot, targetX, targetY)) {
+            return false;
+        }
+        NavSkillCast.pay(bot, BotNavigationGraph.EdgeType.TELEPORT);
+        return true;
+    }
+
+    /* Ticket 02: the bot holds Teleport (stock job, skill level 1+, map allows it) and can pay for a blink now. */
+    public static boolean canTeleport(Character bot) {
+        return (NavMovementSkills.maskFor(bot) & BotNavigationGraph.SKILL_TELEPORT) != 0;
+    }
+
+    /* Ticket 02: the bot holds Flash Jump and can pay for a dash now. */
+    public static boolean canFlashJump(Character bot) {
+        return (NavMovementSkills.maskFor(bot) & BotNavigationGraph.SKILL_FLASH_JUMP) != 0;
+    }
+
+    /* Ticket 02: the movement skills the bot holds at a level, whatever its MP (grind style choice). */
+    public static boolean holdsTeleport(Character bot) {
+        return (NavMovementSkills.heldMask(bot) & BotNavigationGraph.SKILL_TELEPORT) != 0;
+    }
+
+    public static boolean holdsFlashJump(Character bot) {
+        return (NavMovementSkills.heldMask(bot) & BotNavigationGraph.SKILL_FLASH_JUMP) != 0;
     }
 
     /* Thief flash-jump (air dash) toward a target X on the current map. scaleCap = the bot's level-tier
      * dash cap (FlashJumpTiers; 1 = full maxed dash) — the platform fit may downshift under it so a small
      * platform gets a short dash. Returns true if it dashed, false if no arc fits (caller walks). */
     public static boolean flashJump(Character bot, int targetX, float scaleCap) {
-        if (bot == null) {
+        if (bot == null || !canFlashJump(bot)) {
             return false;
         }
         BotMovementState st = STATES.get(bot.getId());
-        return st != null && GCMovementSkills.execFlashJump(st, bot, targetX, scaleCap);
+        if (st == null || !GCMovementSkills.execFlashJump(st, bot, targetX, scaleCap)) {
+            return false;
+        }
+        NavSkillCast.pay(bot, BotNavigationGraph.EdgeType.FLASH_JUMP);
+        return true;
     }
 
     /* Dev/calibration (the !gcmove fj hook): fire one flash jump toward dir (+1/-1) at an exact scale,
