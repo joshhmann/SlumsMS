@@ -26,6 +26,7 @@ package client.command.commands.gm3;
 import client.Client;
 import client.command.Command;
 import server.ShopFactory;
+import soloMapling.ArtificialPlayer.BotSupplySystem.ShopCatalog;
 
 
 public class ReloadShopsCommand extends Command {
@@ -36,5 +37,6 @@ public class ReloadShopsCommand extends Command {
     @Override
     public void execute(Client c, String[] params) {
         ShopFactory.getInstance().reloadShops();
+        ShopCatalog.clearCache();   // bots read the reloaded shops too
     }
 }

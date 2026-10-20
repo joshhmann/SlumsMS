@@ -612,6 +612,38 @@ public final class BotHoldings {
     }
 
     /**
+     * Refills one held star or bullet stack to {@code toQuantity}, as a shop's recharge does for a player
+     * ({@code Shop.recharge} sets the stack's quantity in place). The units it adds are a credit in the ledger like
+     * any other item the bot gains; the caller has already taken the price with {@link #spendMeso} (ticket 09).
+     *
+     * @return how many were added: 0 when the bot no longer holds this instance, it is not rechargeable, or it is
+     * already that full
+     */
+    public static int rechargeHeld(Character bot, Item item, int toQuantity) {
+        if (item == null || !ItemConstants.isRechargeable(item.getItemId()) || toQuantity > Short.MAX_VALUE) {
+            return 0;
+        }
+        Inventory inv = bot.getInventory(item.getInventoryType());
+        int added;
+        inv.lockInventory();
+        try {
+            if (inv.getItem(item.getPosition()) != item) {
+                return 0;   // moved or gone since the caller found it
+            }
+            added = toQuantity - item.getQuantity();
+            if (added <= 0) {
+                return 0;
+            }
+            item.setQuantity((short) toQuantity);
+        } finally {
+            inv.unlockInventory();
+        }
+        int credited = added;   // the lambda needs an effectively final copy
+        mutate(bot, ledger -> ledger.addItem(item.getItemId(), credited));
+        return added;
+    }
+
+    /**
      * True when this bot holds less than its stored row claims: a debit - a payout, a purchase, mesos handed to
      * a trade partner, an item destroyed while held - that no durable write has recorded yet.
      *

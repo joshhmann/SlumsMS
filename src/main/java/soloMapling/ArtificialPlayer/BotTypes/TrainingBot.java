@@ -30,9 +30,12 @@ import soloMapling.ArtificialPlayer.BotGrindSystem.GrindBrain;
 import soloMapling.ArtificialPlayer.BotGrindSystem.MapMobIndex;
 import soloMapling.ArtificialPlayer.BotGrindSystem.OffscreenRewardBudget;
 import soloMapling.ArtificialPlayer.BotAttackSystem.OffscreenCombat;
+import soloMapling.ArtificialPlayer.BotSupplySystem.BotShopping;
 import soloMapling.ArtificialPlayer.BotSupplySystem.BotSupplies;
 import soloMapling.ArtificialPlayer.BotSupplySystem.BotVitals;
 import soloMapling.ArtificialPlayer.BotSupplySystem.OffscreenSupplies;
+import soloMapling.ArtificialPlayer.BotSupplySystem.ShopCatalog;
+import soloMapling.ArtificialPlayer.BotSupplySystem.SupplyNeeds;
 import soloMapling.ArtificialPlayer.BotGrindSystem.TrainingMapChooser;
 import soloMapling.ArtificialPlayer.BotGrindSystem.SpotFinder;
 import soloMapling.ArtificialPlayer.BotGrindSystem.TrainingMap;
@@ -113,6 +116,8 @@ public class TrainingBot extends BotSM {
     private static final double SHOP_VISIT_CHANCE = 0.4;     // chance a town visit includes a shop trip (timing variety)
     private static final long SHOP_DWELL_MIN_MS = 30_000;    // browse a store 30–90 s
     private static final long SHOP_DWELL_MAX_MS = 90_000;
+    private static final long RESUPPLY_WALK_MAX_MS = 25_000; // ticket 09: walk to the shop NPC; buy on arrival or after this
+    private static final int RESUPPLY_STAND_OFF_PX = 25;     // stand beside the NPC, not on it (plus up to 40 px scatter)
     // Town map id -> {potion shop map, weapon/armor shop map}. A bot in a listed town may detour to one or
     // both stores (in either order) before heading out, for organic startup/return timing. GMS v83 store maps.
     private static final Map<Integer, int[]> TOWN_SHOPS = Map.of(
@@ -268,6 +273,10 @@ public class TrainingBot extends BotSM {
     private boolean midSessionGrind = false; // next grind starts partially elapsed (warped/in-place first trip — see MID_SESSION_FLOOR_MS)
     private final List<Integer> shopQueue = new ArrayList<>(); // store maps still to visit this town stop
     private int shopTargetMapId = -1;     // the store currently being travelled to
+    // Ticket 09: this town stop's restock - the shop NPC the bot walks to and buys at (null when none is pending).
+    private ShopCatalog.Site resupplySite = null;
+    private volatile boolean resupplyArrived = false;
+    private long resupplyWalkDeadlineMs = 0;
     private int currentTrainMapId = -1;   // the discovered map currently being trained on
     private int currentMobLevel = 0;      // its representative mob level (drives abstract EXP)
     private long grindUntilMs = 0;
@@ -476,11 +485,14 @@ public class TrainingBot extends BotSM {
         if (!phaseEntered) {
             phaseEntered = true;
             crowdHopsThisEpisode = 0; // back home -> fresh outing, reset the crowd-migration budget
-            BotSupplies.visitTown(getChr()); // real bots 08: rest to full and offer its needs to the resupply hook
+            SupplyNeeds needs = BotSupplies.arriveInTown(getChr()); // real bots 08: rest to full, see what it needs
             buildShopPlan();
+            // Ticket 09: a bot short of potions or ammo walks to a shop in town that sells them and buys there -
+            // on this map right away, or as the first store of the itinerary.
+            boolean errand = planResupply(needs);
             // A deep hub's restock is an ON-MAP food-cart / grocer (no separate store map), so walk to it in
             // place and linger like a shop browse instead of idling on the entry portal. Extends the dwell.
-            boolean errand = maybeStartHubErrand();
+            errand = errand || maybeStartHubErrand();
             if (!errand) {
                 // Normal town return: walk off the arrival portal to a scattered spot and fidget there, so a
                 // town of returning grinders reads as milling players instead of a statue clump on the portal.
@@ -493,6 +505,7 @@ public class TrainingBot extends BotSM {
             }
             return;
         }
+        pollResupply();
         if (now() < phaseDeadlineMs) {
             return;
         }
@@ -541,6 +554,63 @@ public class TrainingBot extends BotSM {
         return true;
     }
 
+    // Ticket 09: pick the town's shop that sells what the bot needs. On this map the walk starts now (true: the
+    // longer shop dwell); elsewhere in town it becomes the first store of the itinerary. With nothing to buy, or no
+    // shop for it in town, the town stop's restock runs where the bot stands (it buys nothing, and a ranged bot
+    // that found no ammo settles for melee, as in 08).
+    private boolean planResupply(SupplyNeeds needs) {
+        Character chr = getChr();
+        resupplySite = null;
+        ShopCatalog.Site site = BotShopping.siteFor(chr, homeMapId, needs);
+        if (site == null) {
+            BotSupplies.restock(chr);
+            return false;
+        }
+        resupplySite = site;
+        debugChat("RESUPPLY: npc " + site.npcId() + " on map " + site.mapId());
+        BotShopping.headFor(chr, site);
+        if (site.mapId() == chr.getMapId()) {
+            startResupplyWalk();
+            return true;
+        }
+        shopQueue.remove(Integer.valueOf(site.mapId()));
+        shopQueue.add(0, site.mapId());
+        return false;
+    }
+
+    // Walk up beside the shop NPC (GCMovement: visibly on screen, the coarse planner offscreen).
+    private void startResupplyWalk() {
+        Character chr = getChr();
+        Point npc = resupplySite.npcPos();
+        int side = rng.nextBoolean() ? 1 : -1;
+        resupplyArrived = false;
+        resupplyWalkDeadlineMs = now() + RESUPPLY_WALK_MAX_MS;
+        GCMovement.move(chr, npc.x + side * (RESUPPLY_STAND_OFF_PX + rng.nextInt(40)), npc.y,
+                () -> resupplyArrived = true);
+    }
+
+    // Buys once the bot is at the shopkeeper (or the walk ran out of time on its map). True when it just shopped.
+    private boolean pollResupply() {
+        if (resupplySite == null || getChr().getMapId() != resupplySite.mapId()) {
+            return false;
+        }
+        if (!resupplyArrived && now() < resupplyWalkDeadlineMs) {
+            return false;
+        }
+        finishResupply();
+        return true;
+    }
+
+    // The restock itself (BotSupplies.restock -> BotShopping at the shop it stands by). Also run when the town stop
+    // ends with a restock still pending (the trip to the store failed), so the melee fallback is still settled.
+    private void finishResupply() {
+        if (resupplySite == null) {
+            return;
+        }
+        resupplySite = null;
+        BotSupplies.restock(getChr());
+    }
+
     // Browse a store for a randomized beat, then move to the next store or head back out to train.
     private void doShopDwell() {
         if (!phaseEntered) {
@@ -550,8 +620,15 @@ public class TrainingBot extends BotSM {
                 BotEmote(getChr(), 1 + rng.nextInt(7));
             }
             sayContext("ShopRestock", getChr(), null);
-            BotWanderSystem.start(getChr()); // browse the shop map (whole-map) instead of piling on the portal
+            if (resupplySite != null && resupplySite.mapId() == getChr().getMapId()) {
+                startResupplyWalk(); // ticket 09: up to the shopkeeper, then browse once it has bought
+            } else {
+                BotWanderSystem.start(getChr()); // browse the shop map (whole-map) instead of piling on the portal
+            }
             return;
+        }
+        if (pollResupply()) {
+            BotWanderSystem.start(getChr()); // bought: browse the rest of the visit
         }
         if (now() < phaseDeadlineMs) {
             return;
@@ -655,6 +732,7 @@ public class TrainingBot extends BotSM {
     // toward level-appropriate + less-crowded maps, with a chance to chill at an easier map.
     private void doDecide() {
         Character chr = getChr();
+        finishResupply(); // ticket 09: a town stop never leaves with its restock undone
         // Station-here handoff (FollowerBot's "Train here with me!"): grind the current map, skip
         // discovery entirely - the map BFS excludes its origin, so without this the bot always migrates.
         if (BotRecruitManager.consumeStationHere(chr.getId()) && MapMobIndex.level(chr.getMapId()) >= 0) {

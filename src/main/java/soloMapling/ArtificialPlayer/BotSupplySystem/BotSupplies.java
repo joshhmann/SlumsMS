@@ -4,7 +4,6 @@ import client.Character;
 import client.inventory.Item;
 import client.inventory.WeaponType;
 import constants.inventory.ItemConstants;
-import server.ItemInformationProvider;
 import soloMapling.ArtificialPlayer.BotAttackSystem.BotAttackData;
 import soloMapling.ArtificialPlayer.BotAttackSystem.BotAttackDriver;
 import soloMapling.ArtificialPlayer.BotAttackSystem.BotAttackProfile;
@@ -109,26 +108,41 @@ public final class BotSupplies {
 
     /* How full a star or bullet stack recharges: its slot max plus Claw/Gun Mastery's extra, as for a player. */
     public static int rechargeTo(Character bot, Item stack) {
-        try {
-            return ItemInformationProvider.getInstance().getSlotMax(bot, stack.getItemId());
-        } catch (LinkageError | RuntimeException noItemData) {
-            return stack.getQuantity();
-        }
+        int max = SupplyData.get().slotMax(bot, stack.getItemId());
+        return max > 0 ? max : stack.getQuantity();   // no item data: nothing to recharge
     }
 
     /*
-     * The bot's town stop: rest to full, offer its needs to the resupply hook, and if it still has no ammo for its
-     * ranged attack, settle for melee until some turns up.
+     * The bot's town stop in one step: rest to full, then restock where it stands. TrainingBot splits the two
+     * (arriveInTown, then restock once it has walked to a shop - ticket 09).
      */
     public static void visitTown(Character bot) {
         if (bot == null) {
             return;
         }
-        BotVitals.rest(bot);
-        SupplyNeeds needs = needs(bot);
-        if (needs.wantsAnything()) {
-            BotResupply.request(bot, needs);
+        arriveInTown(bot);
+        restock(bot);
+    }
+
+    /* The first half of a town stop: rest to full, and what the bot now needs (null for no bot). */
+    public static SupplyNeeds arriveInTown(Character bot) {
+        if (bot == null) {
+            return null;
         }
+        BotVitals.rest(bot);
+        return needs(bot);
+    }
+
+    /*
+     * The second half: offer the bot's needs to the resupply hook (ticket 09 buys at the shop NPC the bot has walked
+     * to), and if it still has no ammo for its ranged attack, settle for melee until some turns up.
+     */
+    public static boolean restock(Character bot) {
+        if (bot == null) {
+            return false;
+        }
+        SupplyNeeds needs = needs(bot);
+        boolean got = needs.wantsAnything() && BotResupply.request(bot, needs);
         if (outOfAmmo(bot)) {
             if (meleeWithoutAmmo.add(bot.getId()) && log.isDebugEnabled()) {
                 log.debug("Supplies: bot {} ({}) found no ammo in town; fights in melee until it has some", bot.getId(),
@@ -137,6 +151,7 @@ public final class BotSupplies {
         } else {
             meleeWithoutAmmo.remove(bot.getId());
         }
+        return got;
     }
 
     /* Notes a bot leaving its grind for town over a shortage (the debug log the supply rates are checked from). */
@@ -158,5 +173,6 @@ public final class BotSupplies {
         BotAmmo.clearBot(botId);
         BotVitals.clearBot(botId);
         OffscreenSupplies.clearBot(botId);
+        BotShopping.clearBot(botId);
     }
 }

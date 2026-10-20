@@ -1,5 +1,6 @@
 package soloMapling.ArtificialPlayer.BotSupplySystem;
 
+import client.Character;
 import client.Skill;
 import client.SkillFactory;
 import server.ItemInformationProvider;
@@ -45,6 +46,27 @@ final class SupplyData {
 
         /* The weapon attack a projectile adds (its incPAD). */
         int projectileWatk(int itemId);
+
+        /*
+         * Ticket 09: a stack's size for this character, as the server's shop gives it (ItemInformationProvider
+         * getSlotMax with the player's Claw/Gun Mastery); 0 when there is no item data.
+         */
+        default int slotMax(Character bot, int itemId) {
+            try {
+                return Math.max(0, ItemInformationProvider.getInstance().getSlotMax(bot, itemId));
+            } catch (LinkageError | RuntimeException unavailable) {
+                return 0;
+            }
+        }
+
+        /* Ticket 09: what one star or bullet costs to recharge (the item's WZ unitPrice); 0 when unknown. */
+        default double unitPrice(int itemId) {
+            try {
+                return Math.max(0, ItemInformationProvider.getInstance().getUnitPrice(itemId));
+            } catch (LinkageError | RuntimeException unavailable) {
+                return 0;
+            }
+        }
     }
 
     static final Source SERVER = new Source() {
