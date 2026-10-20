@@ -2,11 +2,16 @@
 
 **Area:** Launcher  
 **Depends on:** -  
-**Status:** open (self-update targeted for 1.3.0, before friends get the launcher)
+**Status:** self-update done (launcher main 48decf8); the optional items are open
 
 ## What
 
-**Self-update (wanted before friends):**
+**Self-update (done, 2026-10-20):** the owner ran 1.3.0 -> 1.3.1 on Windows from the private `launcher-test/` channel
+on the patch server. It downloaded only `app.asar`, swapped and restarted in under 2 s, then found and verified the
+existing game install. Neither Defender nor SmartScreen reacted to the unsigned exe. `launcher-test/` stays as a staging
+channel.
+
+Original spec:
 - Today the launcher updates game files from the patch-server manifest, but the launcher app itself never updates;
   a launcher fix means handing friends a new zip.
 - On start, the launcher checks the patch server for a newer launcher build (e.g. a `launcher` entry in
