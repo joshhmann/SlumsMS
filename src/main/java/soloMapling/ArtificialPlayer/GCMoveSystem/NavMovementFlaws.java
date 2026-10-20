@@ -205,7 +205,7 @@ public final class NavMovementFlaws {
             return 0;
         }
         return switch (edge.type) {
-            case WALK, PORTAL, DROP, TELEPORT -> 0;
+            case WALK, PORTAL, DROP, TELEPORT, SWIM -> 0;
             case JUMP, FLASH_JUMP -> {
                 if (edge.launchStepX == 0) {
                     yield 0.2; // straight up: hard to get wrong

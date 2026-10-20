@@ -312,8 +312,9 @@ final class GCMovementDriver {
             arriveCoarse(entry, bot, target);
             return true;
         }
-        BotNavigationGraph graph = BotNavigationGraphProvider.peekBestGraph(bot.getMap(), entry.movementProfile);
-        if (graph == null) {
+        boolean swim = bot.getMap().isSwim() && SwimNavigator.enabled;
+        BotNavigationGraph graph = swim ? null : BotNavigationGraphProvider.peekBestGraph(bot.getMap(), entry.movementProfile);
+        if (graph == null && !swim) {
             return false; // no cached graph -> let the M1 throttle cover it (don't trigger a bake)
         }
         long now = System.currentTimeMillis();
@@ -321,7 +322,16 @@ final class GCMovementDriver {
                 || entry.coarsePlanMapId != bot.getMapId()
                 || !target.equals(entry.coarsePlanTarget);
         if (needPlan) {
-            MovementPlan plan = MovementPlan.inMap(graph, bot.getMap(), bot.getPosition(), target);
+            // Ticket 34: a swim map plans over its water graph (null while it builds: physics covers it meanwhile).
+            MovementPlan plan;
+            if (swim) {
+                if (SwimNavGraph.peekOrWarm(bot.getMap()) == null) {
+                    return false;
+                }
+                plan = MovementPlan.inMap(bot.getMapId(), SwimNavigator.coarseRoute(bot.getMap(), bot.getPosition(), target));
+            } else {
+                plan = MovementPlan.inMap(graph, bot.getMap(), bot.getPosition(), target);
+            }
             if (plan == null) {
                 arriveCoarse(entry, bot, target); // already in the target region / unplannable
                 return true;

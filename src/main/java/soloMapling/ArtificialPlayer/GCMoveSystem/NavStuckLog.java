@@ -51,7 +51,9 @@ public final class NavStuckLog {
         /** Stood where the graph has no region. */
         NO_REGION,
         /** The planner found no route to the target's region. */
-        NO_PATH
+        NO_PATH,
+        /** Swam against something without getting closer to the next swim waypoint (ticket 34). */
+        SWIM_STUCK
     }
 
     static final int SPOT_PX = 50;

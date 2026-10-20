@@ -3064,4 +3064,35 @@ final class BotPhysicsEngine {
         JumpLanding landing = simulateLanding(map, from, initialVelY, stepX, landingGraceMs);
         return landing != null ? landing.timeMs() : Integer.MAX_VALUE;
     }
+
+    // ── Ticket 34: swim navigation queries ─────────────────────────────────────────────────────
+
+    /** What a straight swim between two points runs into first (the swim integrator's own collision rules). */
+    enum SwimHit {
+        NONE,
+        WALL,
+        CEILING,
+        LAND
+    }
+
+    /*
+     * The swim graph (SwimNavGraph) asks whether a bot could swim straight from a to b: the same wall / ceiling /
+     * floor sweep applySwimMotion runs every tick. Floors only stop a bot moving down (they are one-way from below,
+     * as for a jump), walls and the map sides stop it sideways, collidable-from-below footholds stop it rising.
+     */
+    static SwimHit swimSegment(MapleMap map, Point a, Point b) {
+        AirCollision collision = resolveAirCollision(map, a, b);
+        return switch (collision.type()) {
+            case WALL -> SwimHit.WALL;
+            case CEILING -> SwimHit.CEILING;
+            case LAND -> SwimHit.LAND;
+            default -> SwimHit.NONE;
+        };
+    }
+
+    /** The foothold a straight swim from a to b lands on, or null when it lands nowhere or hits a wall first. */
+    static Foothold swimLandingFoothold(MapleMap map, Point a, Point b) {
+        AirCollision collision = resolveAirCollision(map, a, b);
+        return collision.type() == AirCollisionType.LAND ? collision.foothold() : null;
+    }
 }

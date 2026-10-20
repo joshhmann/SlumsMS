@@ -493,6 +493,156 @@ public final class NavEdgeLearning {
 
     // ── persistence ─────────────────────────────────────────────────────────────────────────────
 
+    // ── swim edges (ticket 34) ──────────────────────────────────────────────────────────────────
+    //
+    // A swim map's water graph (SwimNavGraph) is not a BotNavigationGraph, but its edges are ordinary Edge objects
+    // (type SWIM / WALK, node ids for regions), so they use the same Stats, factor curve, Cause filter, file format
+    // and flusher. One book per map ("<mapId>-swim"), dropped when SwimNavGraph.VERSION changes: node ids are only
+    // stable within a version.
+
+    static String swimBookKey(SwimNavGraph graph) {
+        return graph.mapId + "-swim";
+    }
+
+    /** A bot gave up on a swim edge: counted only when genuine (a tagged deliberate wobble is not). */
+    static void swimFailure(BotMovementState entry, SwimNavGraph graph, BotNavigationGraph.Edge edge) {
+        if (graph == null || edge == null) {
+            return;
+        }
+        Cause cause = classify(entry, edge);
+        if (entry != null && entry.navFlawEdge == edge) {
+            entry.navFlawEdge = null;
+        }
+        if (cause == Cause.GENUINE) {
+            recordSwim(graph, edge, true, System.currentTimeMillis());
+        } else {
+            ignored.get(cause).incrementAndGet();
+        }
+    }
+
+    /**
+     * A bot or a player completed a swim edge. Only an edge with a record is written: a make on a never-failed edge
+     * changes nothing, and a swim graph has tens of thousands of edges.
+     */
+    static void swimSuccess(BotMovementState entry, SwimNavGraph graph, BotNavigationGraph.Edge edge) {
+        if (graph == null || edge == null) {
+            return;
+        }
+        if (entry != null && entry.navFlawEdge == edge) {
+            entry.navFlawEdge = null;
+        }
+        if (swimBookOf(graph).edges.containsKey(edgeKey(edge))) {
+            recordSwim(graph, edge, false, System.currentTimeMillis());
+        }
+    }
+
+    /** The planner's factor for a swim edge: 1.0 unless bots kept failing it. */
+    static double swimFactor(SwimNavGraph graph, BotNavigationGraph.Edge edge) {
+        if (graph == null || edge == null) {
+            return 1.0;
+        }
+        Book book = swimBookOf(graph);
+        if (book.edges.isEmpty()) {
+            return 1.0;
+        }
+        Stats stats = book.byEdge.computeIfAbsent(edge, e -> book.edges.getOrDefault(edgeKey(e), NONE));
+        if (stats == NONE) {
+            return 1.0;
+        }
+        double f;
+        double s;
+        synchronized (stats) {
+            stats.fade(System.currentTimeMillis());
+            f = stats.failures;
+            s = stats.successes;
+        }
+        return factorFor(f, s);
+    }
+
+    static void recordSwim(SwimNavGraph graph, BotNavigationGraph.Edge edge, boolean failed, long now) {
+        startFlusher();
+        Book book = swimBookOf(graph);
+        Stats stats = book.edges.computeIfAbsent(edgeKey(edge), k -> new Stats());
+        book.byEdge.put(edge, stats);
+        graph.learned.add(SwimNavGraph.key(edge.fromRegionId, edge.toRegionId));
+        synchronized (stats) {
+            stats.fade(now);
+            if (failed) {
+                stats.failures += 1;
+            } else {
+                stats.successes += 1;
+            }
+        }
+        book.dirty = true;
+    }
+
+    private static Book swimBookOf(SwimNavGraph graph) {
+        Book book = graph.learningBook;
+        if (book != null && book.epoch == epoch) {
+            return book;
+        }
+        book = books.compute(swimBookKey(graph), (key, existing) -> {
+            if (existing != null && existing.version == graph.version) {
+                return existing;
+            }
+            Book loaded = loadSwim(key, graph.version);
+            return loaded != null ? loaded : new Book(graph.version);
+        });
+        for (String key : book.edges.keySet()) {
+            int[] ends = swimEnds(key); // tell the planner which edges have a record
+            if (ends != null) {
+                graph.learned.add(SwimNavGraph.key(ends[0], ends[1]));
+            }
+        }
+        graph.learningBook = book;
+        return book;
+    }
+
+    /** The node ids an {@link #edgeKey} joins ("TYPE:from>to:..."), or null. */
+    static int[] swimEnds(String key) {
+        int colon = key.indexOf(':');
+        int arrow = key.indexOf('>', colon + 1);
+        int next = arrow < 0 ? -1 : key.indexOf(':', arrow + 1);
+        if (colon < 0 || arrow < 0 || next < 0) {
+            return null;
+        }
+        try {
+            return new int[]{Integer.parseInt(key.substring(colon + 1, arrow)),
+                    Integer.parseInt(key.substring(arrow + 1, next))};
+        } catch (NumberFormatException e) {
+            return null;
+        }
+    }
+
+    /** A swim book from disk, only for the same graph version (no migration: node ids move between versions). */
+    private static Book loadSwim(String key, int version) {
+        Path file = dir.resolve(key + ".json");
+        if (!Files.exists(file)) {
+            return null;
+        }
+        try {
+            if (!(Json.parse(Files.readString(file, StandardCharsets.UTF_8)) instanceof Map<?, ?> root)
+                    || !(root.get("version") instanceof Number v) || v.intValue() != version
+                    || !(root.get("edges") instanceof Map<?, ?> edges)) {
+                return null;
+            }
+            Book book = new Book(version);
+            for (Map.Entry<?, ?> e : edges.entrySet()) {
+                if (e.getValue() instanceof List<?> l && l.size() == 3) {
+                    Stats stats = new Stats();
+                    stats.failures = ((Number) l.get(0)).doubleValue();
+                    stats.successes = ((Number) l.get(1)).doubleValue();
+                    stats.at = ((Number) l.get(2)).longValue();
+                    book.edges.put(String.valueOf(e.getKey()), stats);
+                }
+            }
+            return book;
+        } catch (IOException | RuntimeException e) {
+            log.debug("Ignoring unreadable learned swim data {}", file, e);
+            return null;
+        }
+    }
+
     /** Writes what was learned every five minutes, and once more when bot activity stops at shutdown. */
     private static void startFlusher() {
         if (flusherStarted) {
