@@ -183,6 +183,8 @@ class BotMovementState {
     // Ticket 33 hook: the move this bot is fumbling on purpose (NavEdgeLearning.tagDeliberateFlaw). Its failure is
     // not counted against the edge.
     BotNavigationGraph.Edge navFlawEdge = null;
+    // Ticket 33: this bot's deliberate fumbles (NavMovementFlaws) - its plan for the edge ahead, holds and hops.
+    final NavMovementFlaws.State flaws = new NavMovementFlaws.State();
     BotNavigationGraph.Edge navEdge = null;
     BotNavigationGraph.Edge navJumpLaunchEdge = null;
     int navJumpLaunchX = Integer.MIN_VALUE;

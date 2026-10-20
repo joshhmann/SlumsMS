@@ -234,6 +234,14 @@ final class GCMovementDriver {
             return;
         }
 
+        // Ticket 33: a hesitation before a jump - stand still for the beat, like a stop-reaction.
+        if (entry.flaws.holdUntilMs > System.currentTimeMillis() && !entry.inAir && !entry.climbing) {
+            entry.moveProgressAtMs = System.currentTimeMillis();
+            BotPhysicsEngine.idleOnGround(entry, bot);
+            broadcastIfObserved(entry);
+            return;
+        }
+
         // Pending organic portal/teleport drop: hold standing at the spawn portal (the bot appears
         // up at the portal, above the floor), then release the natural fall once the load beat passes.
         if (entry.portalDropAtMs > 0L) {
@@ -434,6 +442,11 @@ final class GCMovementDriver {
         if (entry.moveTargetPrecise && entry.navEdge == null) {
             entry.navPreciseTarget = true;
         }
+        // Ticket 33: running hops and wrong-way twitches while walking; an overrun past a jump's launch spot.
+        if (runAiTick && NavMovementFlaws.walking(entry, steering, AI_TICK_MS)) {
+            return;
+        }
+        steering = NavMovementFlaws.steer(entry, steering);
         tickMovementPhase(entry, steering, runAiTick);
         if (runAiTick && !entry.inAir && !entry.climbing) {
             BotNavigationManager.tryExecuteCommittedEdgeAfterGroundMovement(entry, target);
