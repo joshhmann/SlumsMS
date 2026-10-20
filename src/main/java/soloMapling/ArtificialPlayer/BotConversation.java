@@ -3,6 +3,12 @@ package soloMapling.ArtificialPlayer;
 import client.Character;
 import soloMapling.ArtificialPlayer.BotBrainSystem.BotBrain;
 import soloMapling.ArtificialPlayer.BotBrainSystem.BotBrains;
+import soloMapling.ArtificialPlayer.BotBrainSystem.ChatDecide;
+import soloMapling.ArtificialPlayer.BotBrainSystem.ChatStats;
+import soloMapling.ArtificialPlayer.BotBrainSystem.ChatTriage;
+import soloMapling.ArtificialPlayer.BotMessagingSystem.BotChatRouting;
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
 import soloMapling.server.BotTiming;
 import soloMapling.server.ExecutorServiceManager;
 
@@ -10,10 +16,12 @@ import java.util.ArrayList;
 import java.util.List;
 import java.util.Map;
 import java.util.concurrent.ConcurrentHashMap;
+import java.util.concurrent.ThreadLocalRandom;
 import java.util.concurrent.TimeUnit;
 import java.util.function.Consumer;
 
 import static soloMapling.ArtificialPlayer.BotMovementSystem.MovementCommands.botFaceTowardsPoint;
+import static soloMapling.ArtificialPlayer.BotCommandsPack.SocialCommands.BotEmote;
 import static soloMapling.ArtificialPlayer.BotCommandsPack.SocialCommands.BotSpeak;
 
 /**
@@ -26,6 +34,8 @@ import static soloMapling.ArtificialPlayer.BotCommandsPack.SocialCommands.BotSpe
  * menu choice; bots with no menu at all get it straight from the dispatcher.
  */
 public final class BotConversation {
+
+    private static final Logger log = LoggerFactory.getLogger(BotConversation.class);
 
     static final int HISTORY_TURNS = 8;
     static final long IDLE_MS = TimeUnit.SECONDS.toMillis(60);
@@ -86,7 +96,13 @@ public final class BotConversation {
             history = new ArrayList<>(session.history);
         }
         // Off the caller's thread: the first recall of a pair reads the database.
-        ExecutorServiceManager.runAsync(() -> ask(session, history, now, fallback));
+        ExecutorServiceManager.runAsync(() -> {
+            try {
+                ask(session, history, line, now, fallback);
+            } catch (RuntimeException | LinkageError e) {
+                log.warn("Bot chat failed for {}", bot.getChr().getName(), e);
+            }
+        });
         return true;
     }
 
@@ -144,55 +160,196 @@ public final class BotConversation {
         }
     }
 
-    private static void ask(Session session, List<BotBrain.Turn> history, long asked, Runnable fallback) {
+    /**
+     * Ticket 36/37's fast/slow split for one player line: the fast path sorts it (rules, then the decision model),
+     * a flagged con gets a brush-off and a memory note, an asked-for action is decided by rules and done by the
+     * server, filler gets an emote or nothing, small talk a scripted line, and only real talk (or an action to
+     * narrate) takes an LLM slot. Every line's tier and latency go to {@link ChatStats}.
+     */
+    private static void ask(Session session, List<BotBrain.Turn> history, String line, long asked, Runnable fallback) {
         Character bot = session.bot.getChr();
         Character player = session.player;
         int slot = bot.getId() - BotStore.BOT_ID_BASE;
+        boolean whisper = session.deliver != null;
+        ChatTriage.Result triage = ChatTriage.classify(line, ChatDecide.get());
+
+        if (triage.flagged()) {
+            onFlagged(session, slot, triage, asked);
+            return;
+        }
+        BotChatActions.Result action = triage.intent() == ChatTriage.Intent.NONE ? BotChatActions.Result.NONE
+                : BotChatActions.act(session.bot, player, triage.intent());
+        BotRoster.Activity doing = session.bot.activitySnapshot();
+        String activity = BotChatPrompt.activityPhrase(doing == null ? null : doing.name());
+        if (action.outcome() == BotChatActions.Outcome.NONE) {
+            switch (triage.kind()) {
+                case IGNORE -> {
+                    ChatStats.reply(ChatStats.Tier.IGNORED, System.currentTimeMillis() - asked, bot.getName(), "filler");
+                    return;
+                }
+                case EMOTE -> {
+                    if (whisper) {
+                        deliver(session, ScriptedReplies.pick(ScriptedReplies.TALK), asked, ChatStats.Tier.SCRIPTED,
+                                "filler whisper");
+                    } else {
+                        int face = ScriptedReplies.FILLER_EMOTES[ThreadLocalRandom.current()
+                                .nextInt(ScriptedReplies.FILLER_EMOTES.length)];
+                        BotTiming.chain().pause(400 + ThreadLocalRandom.current().nextInt(900))
+                                .run(() -> BotEmote(bot, face)).start();
+                        ChatStats.reply(ChatStats.Tier.EMOTE, System.currentTimeMillis() - asked, bot.getName(), "filler");
+                    }
+                    return;
+                }
+                case THANKS, BYE -> {
+                    deliver(session, ScriptedReplies.forKind(triage.kind()), asked, ChatStats.Tier.SCRIPTED,
+                            triage.kind().name().toLowerCase());
+                    return;
+                }
+                case GREETING -> {
+                    if (botHasSpoken(session)) { // a greeting mid-chat is small talk; the first one gets a real reply
+                        deliver(session, ScriptedReplies.forKind(triage.kind()), asked, ChatStats.Tier.SCRIPTED,
+                                "greeting");
+                        return;
+                    }
+                }
+                default -> {
+                    if (!whisper && "grinding".equals(activity) && botHasSpoken(session)
+                            && ThreadLocalRandom.current().nextDouble() < busyIgnoreChance()) {
+                        // Mid-fight a real player sometimes just does not answer.
+                        ChatStats.reply(ChatStats.Tier.IGNORED, System.currentTimeMillis() - asked, bot.getName(),
+                                "busy fighting");
+                        return;
+                    }
+                }
+            }
+        }
+
         BotRoster.Member member = BotRoster.member(slot);
         BotPersona.Persona persona = member == null ? null : member.personaOrNull();
         if (persona == null) {
             persona = BotPersona.generate(slot); // staff and on-demand bots get a stable persona too
         }
         BotPersonality.Traits traits = member == null ? null : member.traits();
-        BotRoster.Activity doing = session.bot.activitySnapshot();
-        String system = BotChatPrompt.system(bot, player, persona, traits == null ? 0.4 : traits.chattiness(),
-                BotChatPrompt.activityPhrase(doing == null ? null : doing.name()),
-                BotMemory.recall(slot, player.getId(), asked));
+        boolean wary = BotChatActions.wary(slot, player.getId());
+        BotChatPrompt.Context context = BotChatPrompt.context(bot, player, activity,
+                BotChatPrompt.mood(slot, activity, wary, asked), BotMemory.recall(slot, player.getId(), asked),
+                whisper ? List.of() : BotChatRouting.recentOnMap(bot.getMapId(), asked), action.fact());
+        String system = BotChatPrompt.system(context, persona, traits == null ? 0.4 : traits.chattiness());
+        String detail = triage.describe() + (action.outcome() == BotChatActions.Outcome.NONE ? ""
+                : " -> " + action.outcome().name().toLowerCase());
         BotBrains.get().complete(player.getId(), BotChatPrompt.conversation(system, history)).thenAccept(reply -> {
             if (!sessions.containsKey(new Key(bot.getId(), player.getId()))) {
                 return; // the chat ended while the brain was thinking
             }
-            if (reply.isEmpty()) {
-                if (fallback != null) {
-                    fallback.run();
-                }
+            if (reply.isPresent() && action.fits(reply.get())) {
+                deliver(session, reply.get(), asked, ChatStats.Tier.LLM, detail);
                 return;
             }
-            String line = reply.get();
-            synchronized (session.history) {
-                session.history.add(BotBrain.Turn.assistant(line));
+            if (reply.isPresent()) {
+                // The model ignored what the game did ("sure" to a declined party): the scripted line says it right.
+                deliver(session, action.scripted(), asked, ChatStats.Tier.SCRIPTED, detail + ", llm reply did not fit: "
+                        + reply.get());
+                return;
             }
-            // Type at a human pace: about 55 ms a character, minus the time the brain already took.
-            long typing = Math.max(300, Math.min(5000, 1200 + 55L * line.length() - (System.currentTimeMillis() - asked)));
-            Consumer<String> deliver = session.deliver;
-            BotTiming.chain()
-                    .stopUnless(() -> sessions.containsKey(new Key(bot.getId(), player.getId())))
-                    .pause(typing)
-                    .run(() -> {
-                        if (deliver == null && bot.getMapId() == player.getMapId()) {
-                            botFaceTowardsPoint(bot, player.getPosition());
-                        }
-                    })
-                    .run(() -> {
-                        if (deliver != null) {
-                            deliver.accept(line);
-                        } else {
-                            BotSpeak(bot, line);
-                        }
-                        session.lastAt = System.currentTimeMillis();
-                    })
-                    .start();
+            if (action.scripted() != null) {
+                deliver(session, action.scripted(), asked, ChatStats.Tier.SCRIPTED, detail + ", llm fell back");
+            } else if (fallback != null) {
+                fallback.run();
+                ChatStats.reply(ChatStats.Tier.SCRIPTED, System.currentTimeMillis() - asked, bot.getName(),
+                        detail + ", llm fell back to the caller's script");
+            } else {
+                deliver(session, ScriptedReplies.forKind(triage.kind()), asked, ChatStats.Tier.SCRIPTED,
+                        detail + ", llm fell back");
+            }
         });
+    }
+
+    /** A flagged con: no LLM, an in-character brush-off (or silence), and a note so the bot is warier next time. */
+    private static void onFlagged(Session session, int slot, ChatTriage.Result triage, long asked) {
+        Character bot = session.bot.getChr();
+        Character player = session.player;
+        String kind = triage.con().name().toLowerCase();
+        ChatStats.flagged(kind);
+        if (triage.conConfidence() >= flagNoteMin()) {
+            String note = BotChatActions.flagNote(triage.con());
+            boolean known = BotMemory.about(slot, player.getId()).stream().anyMatch(n -> n.text().equals(note));
+            if (!known) {
+                BotMemory.remember(slot, player.getId(), List.of(note), BotMemory.Source.DIRECT, 0, 0, asked);
+            }
+        }
+        if (triage.con() == ChatTriage.Con.HARASSMENT && ThreadLocalRandom.current().nextBoolean()) {
+            ChatStats.reply(ChatStats.Tier.FLAGGED, System.currentTimeMillis() - asked, bot.getName(),
+                    kind + "/" + triage.conSource().name().toLowerCase() + ", ignored");
+            return;
+        }
+        deliver(session, ScriptedReplies.brushOff(triage.con()), asked, ChatStats.Tier.FLAGGED,
+                kind + "/" + triage.conSource().name().toLowerCase());
+    }
+
+    private static boolean botHasSpoken(Session session) {
+        synchronized (session.history) {
+            return session.history.stream().anyMatch(t -> t.role() == BotBrain.Role.ASSISTANT);
+        }
+    }
+
+    /** Types a line at a human pace, then says it (map chat or whisper) and records its tier. */
+    private static void deliver(Session session, String line, long asked, ChatStats.Tier tier, String detail) {
+        Character bot = session.bot.getChr();
+        Character player = session.player;
+        synchronized (session.history) {
+            session.history.add(BotBrain.Turn.assistant(line));
+        }
+        long typing = typingDelay(line, System.currentTimeMillis() - asked, ThreadLocalRandom.current());
+        Consumer<String> deliver = session.deliver;
+        BotTiming.chain()
+                .stopUnless(() -> sessions.containsKey(new Key(bot.getId(), player.getId())))
+                .pause(typing)
+                .run(() -> {
+                    if (deliver == null && bot.getMapId() == player.getMapId()) {
+                        botFaceTowardsPoint(bot, player.getPosition());
+                    }
+                })
+                .run(() -> {
+                    if (deliver != null) {
+                        deliver.accept(line);
+                    } else {
+                        BotSpeak(bot, line);
+                    }
+                    session.lastAt = System.currentTimeMillis();
+                    ChatStats.reply(tier, System.currentTimeMillis() - asked, bot.getName(), detail);
+                })
+                .start();
+    }
+
+    /**
+     * How long the bot types before a line appears: a beat to read, about 55 ms a character (with some jitter), and
+     * now and then a pause as if it looked away - minus the time the brain already took. Between 300 ms and 6 s,
+     * times {@code -Dsolomapling.chat.typingScale} (1.0).
+     */
+    static long typingDelay(String line, long alreadyMs, java.util.Random rng) {
+        double perChar = 45 + rng.nextInt(25);
+        long ms = 900 + (long) (perChar * line.length());
+        if (rng.nextDouble() < 0.1) {
+            ms += 1500 + rng.nextInt(1500);
+        }
+        double scale = doubleProperty("solomapling.chat.typingScale", 1.0);
+        return (long) (scale * Math.max(300, Math.min(6000, ms - alreadyMs)));
+    }
+
+    private static double busyIgnoreChance() {
+        return doubleProperty("solomapling.chat.busyIgnoreChance", 0.1);
+    }
+
+    private static double flagNoteMin() {
+        return doubleProperty("solomapling.chat.flagNoteMin", 0.6);
+    }
+
+    private static double doubleProperty(String name, double fallback) {
+        try {
+            return Double.parseDouble(System.getProperty(name, String.valueOf(fallback)));
+        } catch (NumberFormatException e) {
+            return fallback;
+        }
     }
 
     private static void startSweeper() {
@@ -206,6 +363,7 @@ public final class BotConversation {
             sweeperStarted = true;
             ExecutorServiceManager.getScheduledExecutorService().scheduleAtFixedRate(() -> {
                 long now = System.currentTimeMillis();
+                ChatStats.maybeSummarize(now);
                 for (Map.Entry<Key, Session> entry : sessions.entrySet()) {
                     if (now - entry.getValue().lastAt > IDLE_MS) {
                         end(entry.getKey().botId(), entry.getKey().playerId());

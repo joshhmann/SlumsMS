@@ -16,7 +16,7 @@ public final class BotChatPrompt {
 
     /** Facts the model is unreliable about; kept short, because every line costs prompt time on a 2-slot server. */
     static final String WORLD_FACTS = String.join(" ",
-            "World facts (GMS v83, 2006):",
+            "World facts (GMS v83):",
             "Victoria Island towns: Henesys (bowmen), Ellinia (magicians), Perion (warriors), Kerning City (thieves),",
             "Nautilus (pirates), Lith Harbor (port), Sleepywood (dungeon town below the island, Ant Tunnel).",
             "Any Victoria Island town is a short ride on the regular cab from another (no ship needed).",
@@ -31,37 +31,113 @@ public final class BotChatPrompt {
     private BotChatPrompt() {
     }
 
+    /** What the prompt is built from: who and where the bot is, who it talks to, and what it knows. */
+    public record Context(String botName, int level, String job, String map, String activity, String party, String mood,
+                          String playerName, int playerLevel, String playerJob, List<String> memories,
+                          List<String> recentChat, String outcome) {
+    }
+
+    /** How a 2008 player types; shown to the model as a few lines of its own voice. */
+    static final String VOICE = String.join(" ",
+            "How you type: like a teen or twenty-something in 2008 MapleStory chat. One short line, under 60",
+            "characters. Mostly lowercase, era slang (lol, ya, u, ur, idk, tbh, ty, np, gg, brb, pt, lf, kk), typos and",
+            "missing apostrophes are fine. No emojis, no markdown or asterisks, no lists, no quotes, no name prefix.",
+            "Examples of the voice: \"lol ya pigs drop nothing\" / \"idk maybe ant tunnel?\" / \"brb pots\" /",
+            "\"ya im almost 30 finally\".");
+
+    static final String NEVER = String.join(" ",
+            "Never: say you are an AI, a bot, a program or a model (if someone asks, shrug it off like a player would,",
+            "\"lol what\"); sound like a helpful assistant (no \"I'd love to\", \"feel free\", \"great question\",",
+            "\"happy to help\", \"as a\"); mention real places, venues, brands, news or anything after 2008; promise",
+            "items or mesos. Talk about the game or casual life only. If you do not know something, say idk.");
+
     /** Everything above the conversation itself. */
     public static String system(Character bot, Character player, BotPersona.Persona persona, double chattiness,
                                 String activity, List<String> memories) {
+        return system(context(bot, player, activity, null, memories, List.of(), null), persona, chattiness);
+    }
+
+    /** The context of a live bot and player. */
+    public static Context context(Character bot, Character player, String activity, String mood, List<String> memories,
+                                  List<String> recentChat, String outcome) {
+        return new Context(bot.getName(), bot.getLevel(), jobName(bot.getJob().getId()), mapName(bot), activity,
+                partyPhrase(bot, player), mood, player.getName(), player.getLevel(), jobName(player.getJob().getId()),
+                memories, recentChat, outcome);
+    }
+
+    /** Everything above the conversation itself, from its parts. */
+    public static String system(Context c, BotPersona.Persona persona, double chattiness) {
         StringBuilder s = new StringBuilder();
-        s.append("You are ").append(bot.getName()).append(", a real person playing MapleStory in 2006. ");
-        s.append("You are a level ").append(bot.getLevel()).append(' ').append(jobName(bot.getJob().getId()));
-        String map = mapName(bot);
-        if (map != null) {
-            s.append(", standing in ").append(map);
+        s.append("You are ").append(c.botName()).append(", a real person playing MapleStory in 2008. ");
+        s.append("Right now you are a level ").append(c.level()).append(' ').append(c.job());
+        if (c.map() != null) {
+            s.append(" in ").append(c.map());
         }
-        if (activity != null && !activity.isEmpty()) {
-            s.append(", currently ").append(activity);
+        if (c.activity() != null && !c.activity().isEmpty()) {
+            s.append(", currently ").append(c.activity());
+        }
+        if (c.party() != null) {
+            s.append(", ").append(c.party());
         }
         s.append(". ");
+        if (c.mood() != null && !c.mood().isEmpty()) {
+            s.append("Mood: ").append(c.mood()).append(". ");
+        }
         s.append(BotPersona.describe(persona, chattiness)).append(' ');
-        s.append("You are talking to ").append(player.getName()).append(", a level ").append(player.getLevel())
-                .append(' ').append(jobName(player.getJob().getId())).append(". ");
+        s.append("You are talking to ").append(c.playerName()).append(", a level ").append(c.playerLevel())
+                .append(' ').append(c.playerJob()).append(". ");
+        List<String> memories = c.memories();
         if (memories != null && !memories.isEmpty()) {
-            s.append("What you remember about ").append(player.getName()).append(": ")
+            s.append("What you remember about ").append(c.playerName()).append(": ")
                     .append(String.join("; ", memories)).append(". ");
             if (memories.stream().anyMatch(m -> m.startsWith("heard from "))) {
                 s.append("Things you only heard from someone else, you did not see yourself: if you bring one up, say ")
                         .append("you heard it (and who from), like gossip. ");
             }
+        } else {
+            s.append("You have not talked to ").append(c.playerName()).append(" before. ");
+        }
+        if (c.recentChat() != null && !c.recentChat().isEmpty()) {
+            s.append("Recent chat around you: ").append(String.join(" / ", c.recentChat())).append(". ");
         }
         s.append(WORLD_FACTS).append(' ');
-        s.append("Rules: stay in character as a player; never say you are an AI, a bot or a program, and if someone ")
-                .append("asks, laugh it off like a player would. Talk about the game or casual life only. ")
-                .append("If you do not know something, say so instead of making it up. ")
-                .append("Answer with one chat line under 60 characters, no quotes, no name prefix.");
+        s.append(VOICE).append(' ').append(NEVER).append(' ');
+        s.append("Do not bring up your map or what you are doing unless it fits the chat.");
+        if (c.outcome() != null && !c.outcome().isEmpty()) {
+            // Last, where a small model pays the most attention: the words must match what the game did.
+            s.append(" The game already did this, and your reply must say so: ").append(c.outcome());
+        }
         return s.toString();
+    }
+
+    /** "in a party with them", "in a party of 3", or null. */
+    static String partyPhrase(Character bot, Character player) {
+        try {
+            net.server.world.Party party = bot.getParty();
+            if (party == null) {
+                return null;
+            }
+            if (player != null && player.getParty() != null && player.getParty().getId() == party.getId()) {
+                return "in a party with them";
+            }
+            return "in a party of " + party.getMembers().size();
+        } catch (RuntimeException e) {
+            return null;
+        }
+    }
+
+    /** A mood for the prompt: wary of a player it flagged, focused while grinding, else one per bot per hour. */
+    public static String mood(int botSlot, String activity, boolean wary, long now) {
+        if (wary) {
+            return "wary of this player after how they acted before, short with them";
+        }
+        if ("grinding".equals(activity)) {
+            return "focused on grinding, a bit distracted";
+        }
+        String[] moods = {"in a good mood", "a bit bored", "tired but ok", "chill", "hyped about the game today",
+                "lazy, half afk"};
+        long hour = now / 3_600_000L;
+        return moods[(int) Math.floorMod(botSlot * 31L + hour, moods.length)];
     }
 
     /** The full message list: the system prompt, then the conversation so far, ending with the player's line. */

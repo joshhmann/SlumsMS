@@ -21,6 +21,84 @@ final class ReplyCleaner {
     private ReplyCleaner() {
     }
 
+    // ── the voice check (ticket 37): replies that read like an assistant fall back to a scripted line ──
+
+    private static final Pattern ASSISTANT = Pattern.compile("(?i)(\\bas an ai\\b|\\bi'?m an ai\\b|\\bi am an ai\\b"
+            + "|language model|\\bai assistant\\b|\\bassistant\\b|\\bi'?d love to\\b|\\bi would love to\\b"
+            + "|great question|feel free|happy to help|glad to help|how can i (help|assist)|let me know if|i'?m here to help"
+            + "|\\bcertainly\\b|\\babsolutely[!,]|i (cannot|can'?t) (help|assist) with|i'?m (just )?a (bot|program|chatbot)"
+            + "|\\bas a (player|gamer|fellow)\\b|\\bhope this helps\\b|\\bin conclusion\\b|\\badditionally\\b"
+            + "|\\bhowever,|if (u|you) need anything|for asking|any other questions)");
+    private static final Pattern MARKDOWN = Pattern.compile("(\\*\\*|__|^#+\\s|`|^>\\s|^\\s*[-*]\\s|\\*[^*\\s][^*]*\\*|\\[[^]]+]\\()");
+    /** Real-world places, venues and anything after the game's era: a 2008 player in game would not bring these up. */
+    private static final Pattern REAL_WORLD = Pattern.compile("(?i)\\b(austin|texas|sxsw|6th street|sixth street"
+            + "|zilker|barton springs|rainey|south congress|tiktok|instagram|snapchat|discord|twitch|iphone|android"
+            + "|smartphone|covid|pandemic|netflix|uber|lyft|spotify|chatgpt|openai|fortnite|among us|zoom call|wifi"
+            + "|reddit|twitter|tweet|elon|crypto|bitcoin|nft)\\b");
+    static final int MAX_RAW_LENGTH = 160;
+
+    /**
+     * Why a raw chat reply does not sound like a 2008 player, or null when it does: assistant phrasing, markdown,
+     * emojis, a paragraph or several lines, real-world references.
+     */
+    static String voiceProblem(String raw) {
+        if (raw == null) {
+            return null;
+        }
+        String text = UNCLOSED_THINK.matcher(THINK_BLOCK.matcher(raw).replaceAll("")).replaceAll("").trim();
+        long lines = text.lines().filter(l -> !l.isBlank()).count();
+        if (lines > 2) {
+            return "several lines";
+        }
+        String first = firstNonBlankLine(text).trim();
+        if (first.length() > MAX_RAW_LENGTH) {
+            return "paragraph";
+        }
+        if (ASSISTANT.matcher(text).find()) {
+            return "assistant phrasing";
+        }
+        if (MARKDOWN.matcher(first).find()) {
+            return "markdown";
+        }
+        if (emojis(text) > 1) {
+            return "emojis";
+        }
+        if (REAL_WORLD.matcher(text).find()) {
+            return "real-world reference";
+        }
+        return null;
+    }
+
+    /** A chat reply: the voice check, then {@link #clean}. */
+    static Optional<String> chat(String raw) {
+        if (voiceProblem(raw) != null) {
+            return Optional.empty();
+        }
+        return clean(raw).map(ReplyCleaner::stripEmojis).map(String::trim).filter(l -> !l.isEmpty())
+                .map(ReplyCleaner::dropFinalPeriod);
+    }
+
+    static int emojis(String text) {
+        return (int) text.codePoints().filter(ReplyCleaner::isEmoji).count();
+    }
+
+    private static boolean isEmoji(int cp) {
+        return (cp >= 0x1F000 && cp <= 0x1FAFF) || (cp >= 0x2600 && cp <= 0x27BF) || (cp >= 0x1F900 && cp <= 0x1F9FF)
+                || cp == 0xFE0F;
+    }
+
+    /** The v83 client cannot draw emojis: one that slipped through is dropped rather than shown as "?". */
+    static String stripEmojis(String line) {
+        StringBuilder out = new StringBuilder();
+        line.codePoints().filter(cp -> !isEmoji(cp)).forEach(out::appendCodePoint);
+        return out.toString().replaceAll("\\s{2,}", " ");
+    }
+
+    /** Chat lines end without a full stop; an ellipsis stays. */
+    static String dropFinalPeriod(String line) {
+        return line.endsWith(".") && !line.endsWith("..") ? line.substring(0, line.length() - 1) : line;
+    }
+
     static Optional<String> clean(String raw) {
         if (raw == null) {
             return Optional.empty();
@@ -100,6 +178,9 @@ final class ReplyCleaner {
         return line;
     }
 
+    private static final Pattern DANGLING = Pattern.compile("(?i)(\\s+(the|a|an|to|for|of|and|or|if|u|you|ur|your|my|at|in|on"
+            + "|with|from|but|so|is|its|it's|some|any))+$");
+
     /** Cuts an over-long line at the last sentence break that keeps most of it, else at the last word. */
     private static String clampAtWord(String line) {
         for (int i = MAX_CHAT_LENGTH - 1; i > MAX_CHAT_LENGTH / 2; i--) {
@@ -109,6 +190,8 @@ final class ReplyCleaner {
             }
         }
         int cut = line.lastIndexOf(' ', MAX_CHAT_LENGTH);
-        return (cut > MAX_CHAT_LENGTH / 2 ? line.substring(0, cut) : line.substring(0, MAX_CHAT_LENGTH)).trim();
+        String clamped = (cut > MAX_CHAT_LENGTH / 2 ? line.substring(0, cut) : line.substring(0, MAX_CHAT_LENGTH)).trim();
+        // A cut mid-thought should not end on a dangling "the" or "to".
+        return DANGLING.matcher(clamped).replaceAll("").replaceAll("[,;:]$", "").trim();
     }
 }

@@ -154,6 +154,8 @@ public final class DashboardExporter {
             feed.observe(bots, now);
             LiveSnapshot.Result result = snapshot.build(now, bots, sources.population(), sources.health(), feed,
                     sources.mapNames());
+            // Tickets 36/37: which tier answered players' lines and how fast, flags, actions, Decide calls.
+            result.live().put("chat", soloMapling.ArtificialPlayer.BotBrainSystem.ChatStats.snapshot());
             result.live().put("exportMs", (System.nanoTime() - t0) / 1_000_000);
             AtomicFiles.writeJson(dir.resolve("live.json"), result.live());
             boolean newDay = series.add(result.point(), now);
