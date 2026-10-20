@@ -88,6 +88,10 @@ public class EnvironmentCommand extends Command {
             ExecutorServiceManager.getExecutorService().execute(() -> handleChatter(params, c));
             return;
         }
+        if (params[0].equalsIgnoreCase("travel") || params[0].equalsIgnoreCase("regions")) {
+            ExecutorServiceManager.getExecutorService().execute(() -> handleTravel(params, c));
+            return;
+        }
         if (params.length == 1) {
             ExecutorServiceManager.getExecutorService().execute(() ->
             {
@@ -259,6 +263,36 @@ public class EnvironmentCommand extends Command {
                 p.dropMessage(6, "chatter: " + TownChatterLines.exchanges().size() + " exchanges loaded, "
                         + BotChatter.engagedCount() + " bot(s) mid-chat now");
                 p.dropMessage(6, "chatter: reload | fire (force chats on this map)");
+            }
+        }
+    }
+
+    // !env travel (alias regions) — ticket 03 cross-map travel.
+    //   (no arg)     regions, transit edges, and how many bots are traveling / queued at a dock / aboard
+    //   reload       re-read TrainingRegions.yaml and BotTransit.yaml, dropping cached routes
+    //   route <map>  the route, fares and hops from your map to <map> (as a bot of your job would take it)
+    private static void handleTravel(String[] params, Client c) {
+        Character p = c.getPlayer();
+        String action = params.length >= 2 ? params[1].toLowerCase() : "readout";
+        switch (action) {
+            case "reload" -> {
+                int regions = soloMapling.ArtificialPlayer.BotGrindSystem.TrainingRegions.reload().regions().size();
+                int edges = soloMapling.ArtificialPlayer.GCMoveSystem.GCMovement.reloadTransit();
+                p.dropMessage(6, "travel: reloaded " + regions + " regions and " + edges + " transit edges");
+            }
+            case "route" -> {
+                if (params.length < 3) {
+                    p.dropMessage(6, "travel: !env travel route <mapId>");
+                    return;
+                }
+                p.dropMessage(6, soloMapling.ArtificialPlayer.GCMoveSystem.GCMovement.routeReport(p, Integer.parseInt(params[2])));
+            }
+            default -> {
+                int[] t = soloMapling.ArtificialPlayer.GCMoveSystem.GCMovement.transitCounts();
+                p.dropMessage(6, "travel: " + soloMapling.ArtificialPlayer.BotGrindSystem.TrainingRegions.regions().size()
+                        + " regions, " + soloMapling.ArtificialPlayer.BotTravelSystem.BotTransit.edgeCount()
+                        + " transit edges; " + t[0] + " bots traveling, " + t[1] + " queued at a dock, " + t[2] + " aboard");
+                p.dropMessage(6, "travel: reload | route <mapId>");
             }
         }
     }

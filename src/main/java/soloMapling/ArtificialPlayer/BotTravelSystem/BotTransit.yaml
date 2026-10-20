@@ -1,0 +1,179 @@
+# Bot transit: the paid and scheduled hops between maps that have no walkable portal (ticket 03).
+#
+# Every row mirrors what the server's own scripts do for a player, so bots ride the same boats on the
+# same schedules and pay the same fares:
+#   scripts/event/{Boats,Trains,Cabin,Genie,AirPlane,Subway,Hak}.js  - schedules and the maps they move
+#   scripts/npc/<id>.js                                               - fares, ticket gates, warp targets
+#   MapleMap.addPlayer (SkyFerry rides)                               - the Ereve ferries' own timers
+#
+# Two kinds of edge:
+#   via: npc / portal  - walk to the NPC (or the scripted portal), pay `fare`, then go to `to`.
+#       seller:        the ticket seller standing on the same map; on-screen bots walk to it first.
+#       event:         a scheduled ride; boarding waits until that event's "entry" property is "true",
+#                      exactly like the boarding NPC's own check.
+#       beginner_fare: the fare for a Beginner (job 0), as the cab scripts charge.
+#       to_portal:     the arrival portal (id or name) the script warps to.
+#       save_location: saves the bot's current map under that slot first (the World Tour).
+#       return_to_saved: goes back to the map saved under that slot instead of `to` (the World Tour's way
+#                      home). `to` is only the planner's guess.
+#   via: ride - the bot is already aboard and waits on this map.
+#       server: true   the server moves it (an event's warpEveryone, or a ferry's own timer); `sec` is the
+#                      longest wait, after which the bot is moved anyway so it can never be stranded.
+#       server: false  nothing on the server moves a bot here (Hak and the dragon run per-player
+#                      instances), so the bot itself goes to `to` after `sec`.
+#
+# `sec` is also the route planner's cost for the edge (a walked portal costs 20). All times are at
+# travel_rate 1 and are scaled by the world's travel rate at run time, like the scripts' own timers.
+# Edges whose maps are gated out of the bot version (portal_versions.yaml) are dropped at load.
+
+edges:
+  # ── Victoria Island cabs (scripts/npc 1002007 1012000 1022001 1032000 1052016 1092014) ──
+  - {name: cab, from: 104000000, to: 100000000, via: npc, npc: 1002007, fare: 1000, beginner_fare: 100, to_portal: 0, sec: 30}
+  - {name: cab, from: 104000000, to: 102000000, via: npc, npc: 1002007, fare: 1000, beginner_fare: 100, to_portal: 0, sec: 30}
+  - {name: cab, from: 104000000, to: 101000000, via: npc, npc: 1002007, fare: 800, beginner_fare: 80, to_portal: 0, sec: 30}
+  - {name: cab, from: 104000000, to: 103000000, via: npc, npc: 1002007, fare: 1000, beginner_fare: 100, to_portal: 0, sec: 30}
+  - {name: cab, from: 104000000, to: 120000000, via: npc, npc: 1002007, fare: 800, beginner_fare: 80, to_portal: 0, sec: 30}
+  - {name: cab, from: 100000000, to: 104000000, via: npc, npc: 1012000, fare: 1000, beginner_fare: 100, to_portal: 0, sec: 30}
+  - {name: cab, from: 100000000, to: 102000000, via: npc, npc: 1012000, fare: 1000, beginner_fare: 100, to_portal: 0, sec: 30}
+  - {name: cab, from: 100000000, to: 101000000, via: npc, npc: 1012000, fare: 800, beginner_fare: 80, to_portal: 0, sec: 30}
+  - {name: cab, from: 100000000, to: 103000000, via: npc, npc: 1012000, fare: 1000, beginner_fare: 100, to_portal: 0, sec: 30}
+  - {name: cab, from: 100000000, to: 120000000, via: npc, npc: 1012000, fare: 800, beginner_fare: 80, to_portal: 0, sec: 30}
+  - {name: cab, from: 102000000, to: 104000000, via: npc, npc: 1022001, fare: 1000, beginner_fare: 100, to_portal: 0, sec: 30}
+  - {name: cab, from: 102000000, to: 100000000, via: npc, npc: 1022001, fare: 1000, beginner_fare: 100, to_portal: 0, sec: 30}
+  - {name: cab, from: 102000000, to: 101000000, via: npc, npc: 1022001, fare: 800, beginner_fare: 80, to_portal: 0, sec: 30}
+  - {name: cab, from: 102000000, to: 103000000, via: npc, npc: 1022001, fare: 1000, beginner_fare: 100, to_portal: 0, sec: 30}
+  - {name: cab, from: 102000000, to: 120000000, via: npc, npc: 1022001, fare: 800, beginner_fare: 80, to_portal: 0, sec: 30}
+  - {name: cab, from: 101000000, to: 104000000, via: npc, npc: 1032000, fare: 1000, beginner_fare: 100, to_portal: 0, sec: 30}
+  - {name: cab, from: 101000000, to: 102000000, via: npc, npc: 1032000, fare: 1000, beginner_fare: 100, to_portal: 0, sec: 30}
+  - {name: cab, from: 101000000, to: 100000000, via: npc, npc: 1032000, fare: 1000, beginner_fare: 100, to_portal: 0, sec: 30}
+  - {name: cab, from: 101000000, to: 103000000, via: npc, npc: 1032000, fare: 1000, beginner_fare: 100, to_portal: 0, sec: 30}
+  - {name: cab, from: 101000000, to: 120000000, via: npc, npc: 1032000, fare: 800, beginner_fare: 80, to_portal: 0, sec: 30}
+  - {name: cab, from: 103000000, to: 104000000, via: npc, npc: 1052016, fare: 1000, beginner_fare: 100, to_portal: 0, sec: 30}
+  - {name: cab, from: 103000000, to: 102000000, via: npc, npc: 1052016, fare: 1000, beginner_fare: 100, to_portal: 0, sec: 30}
+  - {name: cab, from: 103000000, to: 100000000, via: npc, npc: 1052016, fare: 1000, beginner_fare: 100, to_portal: 0, sec: 30}
+  - {name: cab, from: 103000000, to: 101000000, via: npc, npc: 1052016, fare: 800, beginner_fare: 80, to_portal: 0, sec: 30}
+  - {name: cab, from: 103000000, to: 120000000, via: npc, npc: 1052016, fare: 800, beginner_fare: 80, to_portal: 0, sec: 30}
+  - {name: cab, from: 120000000, to: 104000000, via: npc, npc: 1092014, fare: 1000, beginner_fare: 100, to_portal: 0, sec: 30}
+  - {name: cab, from: 120000000, to: 102000000, via: npc, npc: 1092014, fare: 1000, beginner_fare: 100, to_portal: 0, sec: 30}
+  - {name: cab, from: 120000000, to: 100000000, via: npc, npc: 1092014, fare: 1000, beginner_fare: 100, to_portal: 0, sec: 30}
+  - {name: cab, from: 120000000, to: 101000000, via: npc, npc: 1092014, fare: 800, beginner_fare: 80, to_portal: 0, sec: 30}
+  - {name: cab, from: 120000000, to: 103000000, via: npc, npc: 1092014, fare: 1000, beginner_fare: 100, to_portal: 0, sec: 30}
+
+  # ── Ellinia <-> Orbis boat (event Boats: boards for 4 of every 5 min, sails 10 min) ──
+  # Ellinia Station: Joel (1032007) sells the ticket, Cherry (1032008) takes it -> the waiting room.
+  - {name: boat to Orbis, from: 101000300, to: 101000301, via: npc, npc: 1032008, seller: 1032007, fare: 5000, event: Boats, sec: 150}
+  - {name: boat to Orbis, from: 101000301, to: 200090010, via: ride, server: true, sec: 300}
+  - {name: boat to Orbis, from: 200090010, to: 200000100, via: ride, server: true, sec: 600}
+  # Orbis: the ticket is bought from 2012000 in Orbis Station (the platform rows below visit it), Isa sends
+  # you to the platform, and Rini takes the ticket.
+  - {name: boat to Ellinia, from: 200000111, to: 200000112, via: npc, npc: 2012001, fare: 5000, event: Boats, sec: 150}
+  - {name: boat to Ellinia, from: 200000112, to: 200090000, via: ride, server: true, sec: 300}
+  - {name: boat to Ellinia, from: 200090000, to: 101000300, via: ride, server: true, sec: 600}
+
+  # ── Orbis Station platforms: Isa the Station Guide (2012006) sends you to a platform, free ──
+  - {name: platform, from: 200000100, to: 200000110, via: npc, npc: 2012006, seller: 2012000, fare: 0, to_portal: west00, sec: 20}
+  - {name: platform, from: 200000100, to: 200000120, via: npc, npc: 2012006, seller: 2012000, fare: 0, to_portal: west00, sec: 20}
+  - {name: platform, from: 200000100, to: 200000130, via: npc, npc: 2012006, seller: 2012000, fare: 0, to_portal: west00, sec: 20}
+  - {name: platform, from: 200000100, to: 200000140, via: npc, npc: 2012006, fare: 0, to_portal: west00, sec: 20}
+  - {name: platform, from: 200000100, to: 200000150, via: npc, npc: 2012006, seller: 2012000, fare: 0, to_portal: west00, sec: 20}
+  - {name: platform, from: 200000100, to: 200000160, via: npc, npc: 2012006, fare: 0, to_portal: west00, sec: 20}
+
+  # ── Orbis <-> Ludibrium train (event Trains: boards 4 of every 5 min, rides 5 min) ──
+  - {name: train to Ludibrium, from: 200000121, to: 200000122, via: npc, npc: 2012013, fare: 6000, event: Trains, sec: 150}
+  - {name: train to Ludibrium, from: 200000122, to: 200090100, via: ride, server: true, sec: 300}
+  - {name: train to Ludibrium, from: 200090100, to: 220000100, via: ride, server: true, sec: 300}
+  # Ludibrium Station: 2040000 sells the ticket; the boarding NPC 2041000 is on the platform next door.
+  - {name: train to Orbis, from: 220000110, to: 220000111, via: npc, npc: 2041000, fare: 6000, event: Trains, sec: 150}
+  - {name: train to Orbis, from: 220000111, to: 200090110, via: ride, server: true, sec: 300}
+  - {name: train to Orbis, from: 200090110, to: 200000100, via: ride, server: true, sec: 300}
+
+  # ── Orbis <-> Leafre (event Cabin: boards 4 of every 5 min, flies 5 min) ──
+  - {name: flight to Leafre, from: 200000131, to: 200000132, via: npc, npc: 2012021, fare: 30000, event: Cabin, sec: 150}
+  - {name: flight to Leafre, from: 200000132, to: 200090200, via: ride, server: true, sec: 300}
+  - {name: flight to Leafre, from: 200090200, to: 240000100, via: ride, server: true, sec: 300}
+  # Leafre Station: 2082000 sells the ticket; 2082001 boards on the platform next door.
+  - {name: flight to Orbis, from: 240000110, to: 240000111, via: npc, npc: 2082001, fare: 30000, event: Cabin, sec: 150}
+  - {name: flight to Orbis, from: 240000111, to: 200090210, via: ride, server: true, sec: 300}
+  - {name: flight to Orbis, from: 200090210, to: 200000100, via: ride, server: true, sec: 300}
+
+  # ── Orbis <-> Ariant genie (event Genie: boards 4 of every 5 min, flies 5 min) ──
+  - {name: genie to Ariant, from: 200000151, to: 200000152, via: npc, npc: 2012025, fare: 6000, event: Genie, sec: 150}
+  - {name: genie to Ariant, from: 200000152, to: 200090400, via: ride, server: true, sec: 300}
+  - {name: genie to Ariant, from: 200090400, to: 260000100, via: ride, server: true, sec: 300}
+  - {name: genie to Orbis, from: 260000100, to: 260000110, via: npc, npc: 2102000, seller: 2102002, fare: 6000, event: Genie, sec: 150}
+  - {name: genie to Orbis, from: 260000110, to: 200090410, via: ride, server: true, sec: 300}
+  - {name: genie to Orbis, from: 200090410, to: 200000100, via: ride, server: true, sec: 300}
+
+  # ── Orbis <-> Mu Lung: Hak the crane (2090005), 1500 mesos, a 60 s ride in a per-player instance ──
+  - {name: crane to Mu Lung, from: 200000141, to: 200090300, via: npc, npc: 2090005, fare: 1500, sec: 10}
+  - {name: crane to Mu Lung, from: 200090300, to: 250000100, via: ride, server: false, to_portal: 0, sec: 60}
+  - {name: crane to Orbis, from: 250000100, to: 200090310, via: npc, npc: 2090005, fare: 1500, sec: 10}
+  - {name: crane to Orbis, from: 200090310, to: 200000141, via: ride, server: false, to_portal: 0, sec: 60}
+
+  # ── Mu Lung Temple <-> Herb Town: Hak's short hop, 500 mesos ──
+  - {name: crane, from: 250000100, to: 251000000, via: npc, npc: 2090005, fare: 500, to_portal: 0, sec: 20}
+  - {name: crane, from: 251000000, to: 250000100, via: npc, npc: 2090005, fare: 500, to_portal: 0, sec: 20}
+
+  # ── Aquarium <-> Herb Town: the Dolphin Taxi (2060009), 10000 mesos ──
+  - {name: dolphin taxi, from: 230000000, to: 251000100, via: npc, npc: 2060009, fare: 10000, sec: 30}
+  - {name: dolphin taxi, from: 251000100, to: 230000000, via: npc, npc: 2060009, fare: 10000, sec: 30}
+
+  # ── Kerning City <-> Singapore (event AirPlane: boards 4 of every 5 min, flies 1 min) ──
+  # Irene (9270041) sells the ticket and boards in Kerning City; Shalon (9270038) at Changi Airport.
+  - {name: plane to Singapore, from: 103000000, to: 540010100, via: npc, npc: 9270041, fare: 5000, event: AirPlane, sec: 150}
+  - {name: plane to Singapore, from: 540010100, to: 540010101, via: ride, server: true, sec: 300}
+  - {name: plane to Singapore, from: 540010101, to: 540010000, via: ride, server: true, sec: 60}
+  - {name: plane to Kerning, from: 540010000, to: 540010001, via: npc, npc: 9270038, fare: 5000, event: AirPlane, sec: 150}
+  - {name: plane to Kerning, from: 540010001, to: 540010002, via: ride, server: true, sec: 300}
+  - {name: plane to Kerning, from: 540010002, to: 103000000, via: ride, server: true, sec: 60}
+
+  # ── Kerning City <-> New Leaf City subway (event Subway: boards 50 s of every minute, rides 4 min) ──
+  # Bell (9201057) sells the ticket on both platforms; 1052007 / 9201068 read it.
+  - {name: subway to NLC, from: 103000100, to: 600010004, via: npc, npc: 1052007, seller: 9201057, fare: 5000, event: Subway, sec: 30}
+  - {name: subway to NLC, from: 600010004, to: 600010005, via: ride, server: true, sec: 60}
+  - {name: subway to NLC, from: 600010005, to: 600010001, via: ride, server: true, sec: 240}
+  - {name: subway to Kerning, from: 600010001, to: 600010002, via: npc, npc: 9201068, seller: 9201057, fare: 5000, event: Subway, sec: 30}
+  - {name: subway to Kerning, from: 600010002, to: 600010003, via: ride, server: true, sec: 60}
+  - {name: subway to Kerning, from: 600010003, to: 103000100, via: ride, server: true, sec: 240}
+
+  # ── Victoria / Orbis <-> Ereve sky ferries (Kiriru, Kiru: 1000 mesos; MapleMap.addPlayer times the ride) ──
+  - {name: ferry to Ereve, from: 101000400, to: 200090030, via: npc, npc: 1100007, fare: 1000, sec: 10}
+  - {name: ferry to Ereve, from: 200090030, to: 130000210, via: ride, server: true, sec: 120}
+  - {name: ferry to Ereve, from: 200000161, to: 200090020, via: npc, npc: 1100008, fare: 1000, sec: 10}
+  - {name: ferry to Ereve, from: 200090020, to: 130000210, via: ride, server: true, sec: 480}
+  - {name: ferry to Victoria, from: 130000210, to: 200090031, via: npc, npc: 1100003, fare: 1000, sec: 10}
+  - {name: ferry to Victoria, from: 200090031, to: 101000400, via: ride, server: true, sec: 120}
+  - {name: ferry to Orbis, from: 130000210, to: 200090021, via: npc, npc: 1100004, fare: 1000, sec: 10}
+  - {name: ferry to Orbis, from: 200090021, to: 200000161, via: ride, server: true, sec: 480}
+
+  # ── Leafre <-> Temple of Time: the Halfling (2082003) turns you into a dragon; the flight is abstracted ──
+  # Out: 240000110 -> fly 200090500 -> 200090510 -> templeenter.js -> 270000100 "out00".
+  # Back: outTemple.js (270000100 "out00") -> 200090510 -> fly west -> undodraco.js -> 240000110 portal 2.
+  - {name: dragon to Temple of Time, from: 240000110, to: 200090500, via: npc, npc: 2082003, fare: 0, to_portal: 0, sec: 10}
+  - {name: dragon to Temple of Time, from: 200090500, to: 270000100, via: ride, server: false, to_portal: out00, sec: 90}
+  - {name: dragon to Leafre, from: 270000100, to: 200090510, via: portal, portal: out00, fare: 0, to_portal: 0, sec: 10}
+  - {name: dragon to Leafre, from: 200090510, to: 240000110, via: ride, server: false, to_portal: 2, sec: 90}
+
+  # ── World Tour: Spinel (9000020), 3000 mesos to Mushroom Shrine; she takes you back where you came from ──
+  - {name: world tour, from: 100000000, to: 800000000, via: npc, npc: 9000020, fare: 3000, to_portal: 0, save_location: WORLDTOUR, sec: 30}
+  - {name: world tour, from: 101000000, to: 800000000, via: npc, npc: 9000020, fare: 3000, to_portal: 0, save_location: WORLDTOUR, sec: 30}
+  - {name: world tour, from: 102000000, to: 800000000, via: npc, npc: 9000020, fare: 3000, to_portal: 0, save_location: WORLDTOUR, sec: 30}
+  - {name: world tour, from: 103000000, to: 800000000, via: npc, npc: 9000020, fare: 3000, to_portal: 0, save_location: WORLDTOUR, sec: 30}
+  - {name: world tour, from: 104000000, to: 800000000, via: npc, npc: 9000020, fare: 3000, to_portal: 0, save_location: WORLDTOUR, sec: 30}
+  - {name: world tour, from: 200000000, to: 800000000, via: npc, npc: 9000020, fare: 3000, to_portal: 0, save_location: WORLDTOUR, sec: 30}
+  - {name: world tour, from: 220000000, to: 800000000, via: npc, npc: 9000020, fare: 3000, to_portal: 0, save_location: WORLDTOUR, sec: 30}
+  - {name: world tour, from: 240000000, to: 800000000, via: npc, npc: 9000020, fare: 3000, to_portal: 0, save_location: WORLDTOUR, sec: 30}
+  - {name: world tour, from: 250000000, to: 800000000, via: npc, npc: 9000020, fare: 3000, to_portal: 0, save_location: WORLDTOUR, sec: 30}
+  - {name: world tour, from: 260000000, to: 800000000, via: npc, npc: 9000020, fare: 3000, to_portal: 0, save_location: WORLDTOUR, sec: 30}
+  # The way back is free and lands on the saved town. The planner sees one edge per town at a high cost so
+  # it never plans a trip home through somewhere else; the run itself always goes to the saved town.
+  - {name: world tour home, from: 800000000, to: 100000000, via: npc, npc: 9000020, fare: 0, return_to_saved: WORLDTOUR, sec: 600}
+  - {name: world tour home, from: 800000000, to: 101000000, via: npc, npc: 9000020, fare: 0, return_to_saved: WORLDTOUR, sec: 600}
+  - {name: world tour home, from: 800000000, to: 102000000, via: npc, npc: 9000020, fare: 0, return_to_saved: WORLDTOUR, sec: 600}
+  - {name: world tour home, from: 800000000, to: 103000000, via: npc, npc: 9000020, fare: 0, return_to_saved: WORLDTOUR, sec: 600}
+  - {name: world tour home, from: 800000000, to: 104000000, via: npc, npc: 9000020, fare: 0, return_to_saved: WORLDTOUR, sec: 600}
+  - {name: world tour home, from: 800000000, to: 200000000, via: npc, npc: 9000020, fare: 0, return_to_saved: WORLDTOUR, sec: 600}
+  - {name: world tour home, from: 800000000, to: 220000000, via: npc, npc: 9000020, fare: 0, return_to_saved: WORLDTOUR, sec: 600}
+  - {name: world tour home, from: 800000000, to: 240000000, via: npc, npc: 9000020, fare: 0, return_to_saved: WORLDTOUR, sec: 600}
+  - {name: world tour home, from: 800000000, to: 250000000, via: npc, npc: 9000020, fare: 0, return_to_saved: WORLDTOUR, sec: 600}
+  - {name: world tour home, from: 800000000, to: 260000000, via: npc, npc: 9000020, fare: 0, return_to_saved: WORLDTOUR, sec: 600}

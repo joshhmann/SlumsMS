@@ -91,16 +91,37 @@ public final class TrainingMapChooser {
                                  // when nothing in reach clears it (a pro past every allowed map's level)
         }
 
+        int rebirths = soloMapling.ArtificialPlayer.BotTravelSystem.BotMapGates.rebirthsOf(chr);
+        int relocateHub = -1; // ticket 03: set once this decision moves the bot to another region
         for (int attempt = 0; attempt <= MAX_REDECIDES; attempt++) {
+            int from = relocateHub > 0 ? relocateHub : chr.getMapId();
             List<TrainingMap> eligible = TrainingMapFinder.findTrainingMaps(
-                    chr.getMapId(), level, minMob, maxMob, useReach, excluded, includeOrigin, hardMinMob);
+                    from, level, minMob, maxMob, useReach, excluded, includeOrigin && relocateHub < 0, hardMinMob,
+                    rebirths);
+            if (relocateHub > 0) {
+                List<TrainingMap> tagged = new java.util.ArrayList<>(eligible.size());
+                for (TrainingMap m : eligible) {
+                    tagged.add(m.relocatingTo(relocateHub)); // a re-pick after a full map stays in the new region
+                }
+                eligible = tagged;
+            }
             if (eligible.isEmpty() && chill) {
                 chill = false;
                 minMob = minMobFor(level);
                 maxMob = level + LEVEL_BAND;
                 useReach = reach;
                 eligible = TrainingMapFinder.findTrainingMaps(
-                        chr.getMapId(), level, minMob, maxMob, useReach, excluded, includeOrigin, hardMinMob);
+                        chr.getMapId(), level, minMob, maxMob, useReach, excluded, includeOrigin, hardMinMob, rebirths);
+            }
+            if (attempt == 0 && !chill) {
+                // Ticket 03: maybe leave the region - rarely while it still fits, usually once it's outgrown.
+                List<TrainingMap> abroad = considerRelocation(chr, homeMapId, level, rebirths, minMob, maxMob,
+                        hardMinMob, excluded, inBand(eligible, minMob, maxMob), debug);
+                if (abroad != null) {
+                    eligible = abroad;
+                    relocateHub = abroad.get(0).relocateHomeMapId();
+                    useReach = Math.max(useReach, TrainingRegions.tuning().hubReachHops());
+                }
             }
             if (eligible.isEmpty()) {
                 return null; // nothing reachable with mobs (or all on cooldown)
@@ -114,6 +135,41 @@ public final class TrainingMapChooser {
             debug.accept("DECIDE: map " + candidate.mapId() + " over cap, re-picking");
         }
         return null; // not reached — the loop always returns on its last attempt
+    }
+
+    // Ticket 03: ask the travel policy whether this bot moves to another region; if so, the in-band maps
+    // around the destination hub, each tagged with the hub to relocate to. Null = keep training locally.
+    private static List<TrainingMap> considerRelocation(Character chr, int homeMapId, int level, int rebirths,
+                                                        int minMob, int maxMob, int hardMinMob,
+                                                        Set<Integer> excluded, boolean localInBand,
+                                                        Consumer<String> debug) {
+        TrainingTravel.Destination dest = TrainingTravel.consider(new TrainingTravel.Request(chr, level, rebirths,
+                chr.getJob().getId(), chr.getMeso(), chr.getMapId(), homeMapId, localInBand, minMob, maxMob));
+        if (dest == null) {
+            return null;
+        }
+        List<TrainingMap> there = TrainingMapFinder.findTrainingMaps(dest.hubMapId(), level, minMob, maxMob,
+                TrainingRegions.tuning().hubReachHops(), excluded, true, hardMinMob, rebirths);
+        if (!inBand(there, minMob, maxMob)) {
+            return null; // the policy's region has nothing in band after all (crowd cooldowns): stay
+        }
+        debug.accept("DECIDE: leaving for " + dest.region() + " (hub " + dest.hubMapId() + ", lv " + level
+                + (localInBand ? ", wanderlust" : ", outgrew this region") + ")");
+        List<TrainingMap> tagged = new java.util.ArrayList<>(there.size());
+        for (TrainingMap m : there) {
+            tagged.add(m.relocatingTo(dest.hubMapId()));
+        }
+        return tagged;
+    }
+
+    // The finder returned in-band maps (it only falls back to out-of-band ones when none exist).
+    static boolean inBand(List<TrainingMap> maps, int minMob, int maxMob) {
+        for (TrainingMap m : maps) {
+            if (m.mobLevel() >= minMob && m.mobLevel() <= maxMob) {
+                return true;
+            }
+        }
+        return false;
     }
 
     // ── Occupancy registry ──

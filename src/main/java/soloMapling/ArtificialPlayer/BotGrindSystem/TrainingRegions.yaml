@@ -1,0 +1,88 @@
+# Training regions: where training bots may grind, and where they may move to (ticket 03).
+#
+# A map is grindable when it falls inside an enabled region's windows ([min, max) map-id ranges) and outside
+# its excludes. Rebirth-gated maps (BotMapGates, after HyperTPHandler) stay closed whatever this file says.
+#
+# Relocation: a bot normally trains near where it stands (walkable maps only). On each decision it may instead
+# move to another region: it travels to one of that region's hubs (by cab, boat, train, genie, crane, plane or
+# subway - BotTransit.yaml), paying the fares out of its own mesos, and that hub becomes its new home town.
+#   travel_min_level: below this a bot never relocates INTO the region (it may still train there if it
+#                     walks in, e.g. Orbis bots on the Aqua Road).
+#   travel_max_level: above this it never relocates into it (default 255).
+#   weight:           relative pull among the regions that fit the bot's level.
+#   hubs:             towns a relocating bot may settle in (each is weighed on its own).
+#   enabled:          false keeps the region closed to grinding and relocation alike.
+# A region only attracts a bot when it has maps whose mobs fit the bot's level band, the bot can reach a hub,
+# and it can pay every fare on the way.
+#
+# This is the coarse widening; ticket 31's leveling path plugs in through TrainingTravel.install(...) and
+# decides the real level-by-level route. Reload live with `!env travel reload`.
+
+travel:
+  wander_chance: 0.05          # chance per decision to move on while the home region still has in-band maps
+  outgrown_chance: 0.80        # chance per decision to move on once the home region has nothing in-band
+  relocations_per_minute: 20   # world-wide cap on bots setting off to another region
+  hub_reach_hops: 20           # how far from a hub a region's maps may lie (walked hops)
+
+regions:
+  # The original four (unchanged windows).
+  - name: Victoria Island
+    windows: [{min: 100000000, max: 110000000}]
+    hubs: [100000000, 101000000, 102000000, 103000000]
+    travel_min_level: 1
+  - name: Orbis
+    windows: [{min: 200000000, max: 201000000}]
+    hubs: [200000000]
+    travel_min_level: 25
+  - name: El Nath
+    windows: [{min: 211000000, max: 212000000}]
+    hubs: [211000000]
+    travel_min_level: 45
+  - name: Ludibrium
+    windows: [{min: 220000000, max: 223000000}]
+    hubs: [220000000]
+    travel_min_level: 25
+
+  # Ticket 03 widening.
+  - name: Aqua Road
+    windows: [{min: 230000000, max: 231000000}]
+    hubs: [230000000]
+    travel_min_level: 40
+  - name: Leafre
+    windows: [{min: 240000000, max: 241000000}]
+    excludes: [{min: 240050000, max: 240070000}]   # Horntail's cave and its PQ
+    hubs: [240000000]
+    travel_min_level: 70
+  - name: Mu Lung
+    windows: [{min: 250000000, max: 252000000}]
+    hubs: [250000000, 251000000]
+    travel_min_level: 45
+  - name: Nihal Desert
+    windows: [{min: 260000000, max: 262000000}]     # Ariant and Magatia
+    hubs: [260000000, 261000000]
+    travel_min_level: 35
+  - name: Singapore
+    windows: [{min: 540000000, max: 542000000}]
+    hubs: [540000000]
+    travel_min_level: 45
+  - name: Masteria
+    windows: [{min: 600000000, max: 601000000}, {min: 610000000, max: 611000000}, {min: 682000000, max: 683000000}]
+    hubs: [600000000]
+    travel_min_level: 45
+  - name: Zipangu
+    windows: [{min: 800000000, max: 802000000}]
+    hubs: [800000000]
+    travel_min_level: 50
+
+  # Reachable by transit but not trained in yet.
+  - name: Temple of Time
+    windows: [{min: 270000000, max: 271000000}]
+    hubs: [270000000]
+    travel_min_level: 95
+    enabled: false   # Temple of Time town is version-gated for bots and its roads are quest-scripted portals
+  - name: Ereve
+    windows: [{min: 130000000, max: 131000000}]
+    hubs: [130000000]
+    travel_min_level: 1
+    travel_max_level: 30
+    enabled: false   # Cygnus starting island; Ereve town is version-gated for bots
