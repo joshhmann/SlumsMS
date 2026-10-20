@@ -1080,6 +1080,11 @@ final class BotNavigationManager {
             entry.lastEdgeBlockReason = "tele-blocked";
             return null;
         }
+        if (!NavSkillCast.pay(bot, BotNavigationGraph.EdgeType.TELEPORT)) { // ticket 02: real MP
+            entry.lastEdgeBlockReason = "tele-mp";
+            clearNavigation(entry); // replan: maskFor now leaves the blink out
+            return null;
+        }
         entry.lastEdgeBlockReason = null;
         GCMovementSkills.blink(entry, bot, new Point(botPos), dest);
         NavEdgeLearning.teleported(entry, graph, edge, graph.findRegionId(bot.getMap(), dest)); // ticket 04
@@ -1145,7 +1150,24 @@ final class BotNavigationManager {
             entry.lastEdgeBlockReason = "fj-pos";
             return null;
         }
+        // Ticket 33 on a flash jump: hesitate, hop in place or run past the spot first (never an early takeoff:
+        // a dash launched short is not a fumble the safety sim can vouch for).
+        NavMovementFlaws.JumpCall flaw = NavMovementFlaws.readyToJump(graph, entry, bot, edge);
+        if (flaw == NavMovementFlaws.JumpCall.HOLD) {
+            entry.lastEdgeBlockReason = "fj-flaw";
+            return null;
+        }
+        if (flaw == NavMovementFlaws.JumpCall.LAUNCHED) {
+            entry.lastEdgeBlockReason = null;
+            return new NavigationDirective(rawTargetPos, true);
+        }
+        if (!NavSkillCast.pay(bot, BotNavigationGraph.EdgeType.FLASH_JUMP)) { // ticket 02: real MP
+            entry.lastEdgeBlockReason = "fj-mp";
+            clearNavigation(entry);
+            return null;
+        }
         entry.lastEdgeBlockReason = null;
+        NavMovementFlaws.launched(entry);
         setEdgeExecutionTarget(entry, edge);
         BotMovementManager.initiateJump(entry, bot, edge.launchStepX);
         // AFTER launch (launchAirborne clears it). Full dash: the graph simulated scale 1.
@@ -1553,8 +1575,10 @@ final class BotNavigationManager {
                 totalCost + next.launchCostMinY, totalCost + next.launchCostMaxY, totalCost + next.cost);
     }
 
+    // A committed edge stays usable while the bot holds its skill; whether it can pay is checked when the edge is
+    // planned and again when it is cast (ticket 02), so a cast that just spent the MP never drops its own flight.
     private static boolean isEdgeUsable(BotNavigationGraph graph, Character bot, BotNavigationGraph.Edge edge) {
-        return isEdgeUsable(graph, bot.getMap(), edge, NavMovementSkills.maskFor(bot));
+        return isEdgeUsable(graph, bot.getMap(), edge, NavMovementSkills.heldMask(bot));
     }
 
     private static boolean sameEdge(BotNavigationGraph.Edge left, BotNavigationGraph.Edge right) {

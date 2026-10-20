@@ -65,7 +65,7 @@ record BotMovementProfile(int totalSpeedStat, int totalJumpStat, boolean snowSho
         // equip/real-buff speed/jump (getTotal*Stat - 100) still stacks on top. Bucketed to the nearest 5
         // by the canonical constructor, so the tiers below land on exact graph buckets.
         int level = character.getLevel();
-        boolean hasteThief = hasHasteSkill(character.getJob());
+        boolean hasteThief = holdsHaste(character);
 
         int speedBaseline;
         int jumpBaseline;
@@ -94,6 +94,32 @@ record BotMovementProfile(int totalSpeedStat, int totalJumpStat, boolean snowSho
     // 2nd job (level 30+). isA covers the whole lineage and excludes first-job Rogue (no Haste).
     private static boolean hasHasteSkill(Job job) {
         return job != null && (job.isA(Job.ASSASSIN) || job.isA(Job.BANDIT));
+    }
+
+    // Ticket 02: Haste counts only once the bot holds it at a level (its real build takes it a few levels into 2nd
+    // job); a thief of the lineage with no skills at all (a bot with no build) keeps the old job-based model.
+    // Night Walkers (1410+) learn the same Haste.
+    static final int[] HASTE_SKILLS = {4101004, 4201003, 14101003};
+
+    static boolean holdsHaste(Character character) {
+        Job job = character.getJob();
+        boolean lineage = hasHasteSkill(job) || (job != null && job.getId() >= 1410 && job.getId() <= 1412);
+        if (!lineage) {
+            return false;
+        }
+        try {
+            if (character.getSkills().isEmpty()) {
+                return hasHasteSkill(job);
+            }
+            for (int id : HASTE_SKILLS) {
+                if (character.getSkillLevel(id) > 0) {
+                    return true;
+                }
+            }
+            return false;
+        } catch (RuntimeException unavailable) {
+            return hasHasteSkill(job);
+        }
     }
 
     // True if the bot shares an active party with an online, level-PARTY_HASTE_THIEF_LEVEL+ haste-thief —

@@ -223,8 +223,36 @@ class NavEdgeLearningTest {
         assertEquals(1.0, NavEdgeLearning.factor(g, tele));
         assertEquals(12, NavEdgeLearning.ignoredForTest(NavEdgeLearning.Cause.SKILL_UNAVAILABLE));
 
+        // Ticket 02: the job is not enough, the bot must hold the skill.
         BotMovementState hermit = botOfJob(Job.HERMIT);
         BotMovementState wizard = botOfJob(Job.FP_WIZARD);
+        Map<Integer, client.Skill> previous = swapSkillFactory(Map.of(4111006, new client.Skill(4111006),
+                2101002, new client.Skill(2101002)));
+        try {
+            hermit.bot.changeSkillLevel(client.SkillFactory.getSkill(4111006), (byte) 20, 20, -1);
+            wizard.bot.changeSkillLevel(client.SkillFactory.getSkill(2101002), (byte) 1, 20, -1);
+            failHeldSkillEdges(g, flash, tele, hermit, wizard);
+        } finally {
+            swapSkillFactory(previous);
+        }
+    }
+
+    @SuppressWarnings("unchecked")
+    private static Map<Integer, client.Skill> swapSkillFactory(Map<Integer, client.Skill> skills) {
+        try {
+            java.lang.reflect.Field field = client.SkillFactory.class.getDeclaredField("skills");
+            field.setAccessible(true);
+            Map<Integer, client.Skill> previous = (Map<Integer, client.Skill>) field.get(null);
+            field.set(null, skills);
+            return previous;
+        } catch (ReflectiveOperationException e) {
+            throw new IllegalStateException(e);
+        }
+    }
+
+    private static void failHeldSkillEdges(BotNavigationGraph g, BotNavigationGraph.Edge flash,
+                                           BotNavigationGraph.Edge tele, BotMovementState hermit,
+                                           BotMovementState wizard) {
         for (int i = 0; i < 6; i++) {
             NavEdgeLearning.failure(hermit, g, flash);
             NavEdgeLearning.failure(hermit, g, tele); // a hermit cannot teleport either

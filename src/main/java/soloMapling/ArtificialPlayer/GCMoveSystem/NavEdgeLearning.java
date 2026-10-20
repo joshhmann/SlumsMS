@@ -168,7 +168,7 @@ public final class NavEdgeLearning {
         if (entry.navFlawEdge != null && entry.navFlawEdge == edge) {
             return Cause.DELIBERATE_FLAW;
         }
-        if (edge.isMovementSkill() && !NavMovementSkills.allows(edge, NavMovementSkills.maskFor(entry.bot))) {
+        if (edge.isMovementSkill() && !NavMovementSkills.allows(edge, NavMovementSkills.heldMask(entry.bot))) {
             return Cause.SKILL_UNAVAILABLE;
         }
         return Cause.GENUINE;
