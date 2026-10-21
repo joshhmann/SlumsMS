@@ -4,7 +4,7 @@
 next release candidate on the dedicated soak server `slums-soak` (see `tools/soak/README.md`). What is here: a 46-minute
 smoke run on the owner's test server, the 30-minute proving run of `slums-soak`, and the continuous baseline soak
 that has run on `slums-soak` since 2026-10-20 19:22 UTC.
-Not yet measured: the safe peak for 4 GB / 6 GB heap, a recommended `BOT_ROSTER_PEAK_ONLINE`, and 24 h growth.
+The 24 h baseline (v1.3.1, slums-soak) is in; the release-candidate comparison and the 6 GB case are not.
 
 ## How it is measured
 
@@ -286,5 +286,226 @@ Baseline (before the soak's load generator; the test server already ran its bots
 Since 2026-10-20 19:22 UTC `slums-soak` runs v1.3.1 with live's own daily curve (peak 1,200 roster bots at 20:00
 America/Los_Angeles = 03:00 UTC, trough 0.15 at 06:00 LA = 13:00 UTC), 10 scripted players with a whisper every 30 s,
 the collector and the live guard. It stays up as the v1.3.1 baseline; the release candidate goes in with
-`refresh-soak.sh <staging dir>` and is compared against it. The 24 h figures (heap/GC/tick growth, safe peak) are
-added here at 2026-10-21 19:22 UTC.
+`refresh-soak.sh <staging dir>` and is compared against it.
+
+### First 24 h (2026-10-20 19:22 to 2026-10-21 19:22 UTC)
+
+Live itself was upgraded to v1.4.0 at 09:44 UTC on the 21st (and restarted again at 09:54); the guard re-read its
+counters both times. slums-soak still runs v1.3.1.
+
+- **Population**: the daily curve took the server from 132 (boot) to a peak of **1,528 bots** (02:22 UTC, roster
+  peak 1,200 plus ~330 service bots) and down to a trough of 508 (12:22 UTC). 10 scripted players all day.
+- **Heap: it grows.** Heap after GC (hourly minimum) rose from 1.32 GB (hour 2) to 2.03 GB (hour 24), about
+  **+25-30 MB/h**, steadily, and it kept rising through the trough when the bot count fell by two thirds. Heap used
+  peaks went from 2.2 to 3.2 GB of 4 GB; RSS 2.5 to 3.8 GB. No full GC yet. A live-object histogram at 24 h
+  (`data/receipts/histo-24h.txt`) is led by nav-graph objects (`BotNavigationGraph$Edge` 273 MB, `Segment` 58 MB,
+  most of the 181 MB of `java.awt.Point`), and `BotNavigationGraphProvider.GRAPHS` is a cache with no eviction: the
+  likely cause is per-map nav graphs filling up as bots reach more maps, which would level off once every visited map
+  is cached. Not proven: a second histogram later (or `!env`-style graph count) has to show whether it plateaus.
+  If it does not, a 4 GB server reaches ~3 GB live set in about 2 more days.
+- **GC pauses**: 5,797 in 24 h, no full GC; hourly p99 21-47 ms, one 181 ms mixed pause (09:22 UTC); pause time
+  25-89 ms per minute, following the bot count. No growth in pause times.
+- **Tick time: no growth.** Movement tick follows the bot count (18 ms/s at 508 bots, 82 ms/s at 1,528) and is the
+  same at the same count on the way up and down (trend -1.7 ms/s per h); no wheel-lag lines. Macro-tick wall time per
+  call is higher with fewer bots (blocking ticks dominate), not over time.
+- **CPU** 12-27 % of one core (peak at the bot peak). **DB**: pool waiting 0 all day, BotDbGate overruns 0.
+- **LLM** (mock 1-3 s, a whisper every 30 s plus the bots' own calls): reply p50 2.4 s / p95 3.2 s every hour,
+  96 % answered, 21 fallbacks all "rate limited"; no queueing.
+- **Players**: login p50 352 ms / p95 380 ms, channel change p50 47 ms / p95 57 ms, chat echo p50 0.1 ms, Henesys
+  (up to 78 on screen) settled p95 1.7 s, the Henesys market map settled p95 3.2 s; flat over the 24 h. Warp settled
+  p95 reached 5-9.6 s around the bot peak (00:22-01:22 UTC) and 1.2-1.4 s at the trough: busy-map entry bursts are the
+  one player-facing number that moves with the bot count.
+- **Live**: CPU median 8-16 %, CPU stall median 4-8 ms/s (baseline 6.6), no wheel-lag lines, no guard action. The
+  only spikes are at live's own v1.4.0 restarts (09:22 bucket). MemAvailable stayed >= 7.2 GB except one dip to 5.4 GB
+  at 07:22 UTC.
+
+### Safe peak and BOT_ROSTER_PEAK_ONLINE (estimate, 4 GB heap)
+
+Measured: 1,528 bots online (roster peak 1,200 + service bots) on 4 GB with GC p99 under 50 ms, no DB waits, no tick
+lag, about a quarter of one core. CPU and the DB are far from the limit; heap is the constraint, and only because of
+the drift above. Per-bot heap from the evening ramp is roughly 0.4 MB of live set per bot online, so on day one a
+4 GB heap would take a roster peak of about 1,800-2,000 (live set kept under ~2.5 GB) with GC still comfortable.
+**Recommendation: keep `BOT_ROSTER_PEAK_ONLINE` at 1200 for now**; raise to ~1600 only after the heap drift is shown to
+level off (or the nav-graph cache gets a bound), and until then plan a restart at least every 3 days at 4 GB (live's
+deploys currently do that anyway). The 6 GB case was not run: nothing measured points at a need for it, and the
+drift, not the size, decides how long a server runs.
+
+### 24 h tables (60-minute buckets)
+
+#### Soak target over time (60 min buckets, from 2026-10-20 19:22:30 UTC)
+
+| UTC | bots online (min-max) | players | heap used MB avg / max | old gen MB min / max | GC ms/min avg | CPU % avg (of one core) | RSS MB max | DB pool waiting max | BotDbGate free min / overruns | macro tick avg ms | movement tick ms/s | wheel-lag lines | LLM fallbacks | errors |
+|---|---|---|---|---|---|---|---|---|---|---|---|---|---|---|
+| 10-20 19:22 | 132-947 | 10 | 1574 / 2060 | 865 / 1308 | 75 | 26 | 2549 | 0 | 0 / 0 | 373 | 38.1 | 0 | 1 | 0 |
+| 10-20 20:22 | 948-1008 | 10 | 1760 / 2214 | 1310 / 1421 | 55 | 21 | 2751 | 0 | 4 / 0 | 375 | 40.3 | 0 | 2 | 0 |
+| 10-20 21:22 | 1008-1081 | 10 | 1871 / 2387 | 1421 / 1513 | 54 | 21 | 2917 | 0 | 3 / 0 | 360 | 42.6 | 0 | 0 | 0 |
+| 10-20 22:22 | 1082-1183 | 10 | 2155 / 2688 | 1508 / 1566 | 56 | 21 | 3218 | 0 | 3 / 0 | 343 | 48.4 | 0 | 2 | 0 |
+| 10-20 23:22 | 1183-1282 | 10 | 2119 / 2664 | 1566 / 1621 | 52 | 22 | 3222 | 0 | 3 / 0 | 317 | 55.0 | 0 | 0 | 0 |
+| 10-21 00:22 | 1282-1380 | 10 | 2242 / 2693 | 1621 / 1681 | 69 | 27 | 3226 | 0 | 3 / 0 | 295 | 70.1 | 0 | 0 | 0 |
+| 10-21 01:22 | 1379-1468 | 10 | 2217 / 2721 | 1681 / 1719 | 66 | 26 | 3269 | 0 | 5 / 0 | 284 | 77.3 | 0 | 1 | 0 |
+| 10-21 02:22 | 1470-1528 | 10 | 2244 / 2797 | 1718 / 1766 | 72 | 27 | 3353 | 0 | 3 / 0 | 267 | 81.9 | 0 | 0 | 0 |
+| 10-21 03:22 | 1366-1487 | 10 | 2361 / 2816 | 1764 / 1807 | 73 | 27 | 3422 | 0 | 3 / 0 | 290 | 76.4 | 0 | 2 | 0 |
+| 10-21 04:22 | 1218-1365 | 10 | 2333 / 2892 | 1801 / 1819 | 71 | 25 | 3450 | 0 | 3 / 0 | 292 | 67.7 | 0 | 2 | 0 |
+| 10-21 05:22 | 1007-1215 | 10 | 2316 / 2885 | 1811 / 1842 | 55 | 21 | 3501 | 0 | 2 / 0 | 338 | 54.8 | 0 | 0 | 0 |
+| 10-21 06:22 | 840-1007 | 10 | 2376 / 2942 | 1832 / 1839 | 41 | 19 | 3502 | 0 | 5 / 0 | 372 | 45.2 | 0 | 1 | 0 |
+| 10-21 07:22 | 761-841 | 10 | 2425 / 2943 | 1835 / 1852 | 40 | 18 | 3508 | 0 | 5 / 0 | 381 | 42.3 | 0 | 1 | 0 |
+| 10-21 08:22 | 681-760 | 10 | 2387 / 2938 | 1849 / 1860 | 37 | 17 | 3524 | 0 | 5 / 0 | 439 | 36.7 | 0 | 1 | 0 |
+| 10-21 09:22 | 615-681 | 10 | 2414 / 2964 | 1857 / 1875 | 42 | 16 | 3548 | 0 | 5 / 0 | 445 | 33.6 | 0 | 0 | 0 |
+| 10-21 10:22 | 574-616 | 10 | 2433 / 2990 | 1872 / 1886 | 32 | 15 | 3564 | 0 | 5 / 0 | 452 | 27.5 | 0 | 2 | 0 |
+| 10-21 11:22 | 535-576 | 10 | 2474 / 2998 | 1885 / 1896 | 27 | 14 | 3581 | 0 | 5 / 0 | 478 | 25.2 | 0 | 1 | 0 |
+| 10-21 12:22 | 508-537 | 10 | 2443 / 3019 | 1895 / 1903 | 25 | 12 | 3587 | 0 | 6 / 0 | 485 | 18.5 | 0 | 0 | 0 |
+| 10-21 13:22 | 523-562 | 10 | 2433 / 3036 | 1902 / 1915 | 29 | 13 | 3612 | 0 | 5 / 0 | 481 | 19.3 | 0 | 0 | 0 |
+| 10-21 14:22 | 562-601 | 10 | 2485 / 3064 | 1913 / 1935 | 39 | 15 | 3649 | 0 | 6 / 0 | 469 | 23.1 | 0 | 0 | 0 |
+| 10-21 15:22 | 601-655 | 10 | 2536 / 3079 | 1932 / 1946 | 36 | 15 | 3659 | 0 | 6 / 0 | 445 | 25.9 | 0 | 2 | 0 |
+| 10-21 16:22 | 655-735 | 10 | 2560 / 3237 | 1945 / 2027 | 38 | 16 | 3831 | 0 | 5 / 0 | 424 | 33.9 | 0 | 1 | 0 |
+| 10-21 17:22 | 736-815 | 10 | 2636 / 3246 | 2010 / 2028 | 43 | 18 | 3835 | 0 | 5 / 0 | 405 | 41.6 | 0 | 0 | 0 |
+| 10-21 18:22 | 815-890 | 10 | 2667 / 3239 | 2025 / 2046 | 38 | 19 | 3836 | 0 | 6 / 0 | 374 | 47.3 | 0 | 2 | 0 |
+
+LLM fallbacks by reason over the window: `rate limited` 21
+
+Trend after the first bucket (least squares): old gen minimum 25.4 MB/h, movement tick -1.65 ms/s per h, macro tick avg 7.1 ms per h (23 buckets).
+
+#### GC pauses (5797 pauses, G1, from the -Xlog:gc* log)
+
+| pause kind | count | p50 ms | p99 ms | max ms |
+|---|---|---|---|---|
+| Pause Young (Mixed) (G1 Evacuation Pause) | 1101 | 19.1 | 42.1 | 181.3 |
+| Pause Remark | 1099 | 11.8 | 27.3 | 40.5 |
+| Pause Cleanup | 1099 | 0.3 | 0.5 | 1.6 |
+| Pause Young (Prepare Mixed) (G1 Evacuation Pause) | 1099 | 14.3 | 37.4 | 60.7 |
+| Pause Young (Concurrent Start) (G1 Evacuation Pause) | 1026 | 13.0 | 29.9 | 51.8 |
+| Pause Young (Normal) (G1 Evacuation Pause) | 300 | 12.5 | 47.4 | 69.8 |
+| Pause Young (Concurrent Start) (G1 Humongous Allocation) | 72 | 15.1 | 31.4 | 33.8 |
+| Pause Young (Concurrent Start) (Metadata GC Threshold) | 1 | 27.1 | 27.1 | 27.1 |
+
+| UTC | pauses | p50 ms | p99 ms | max ms | heap after GC MB min / max | pause ms per min |
+|---|---|---|---|---|---|---|
+| 10-20 19:22 | 471 | 10.8 | 42.7 | 69.8 | 83 / 2005 | 89 |
+| 10-20 20:22 | 355 | 10.3 | 23.5 | 29.3 | 1321 / 2132 | 54 |
+| 10-20 21:22 | 341 | 11.2 | 28.2 | 35.7 | 1433 / 2363 | 57 |
+| 10-20 22:22 | 295 | 11.9 | 21.6 | 31.4 | 1517 / 2595 | 52 |
+| 10-20 23:22 | 258 | 13.4 | 31.5 | 35.8 | 1577 / 2377 | 52 |
+| 10-21 00:22 | 411 | 12.2 | 25.0 | 35.3 | 1633 / 2698 | 77 |
+| 10-21 01:22 | 333 | 12.7 | 28.6 | 54.1 | 1691 / 2644 | 65 |
+| 10-21 02:22 | 349 | 12.9 | 28.3 | 30.8 | 1731 / 2771 | 71 |
+| 10-21 03:22 | 377 | 12.8 | 30.8 | 35.2 | 1777 / 2829 | 75 |
+| 10-21 04:22 | 341 | 12.6 | 32.9 | 48.4 | 1810 / 2898 | 67 |
+| 10-21 05:22 | 228 | 14.0 | 44.6 | 58.3 | 1820 / 2839 | 56 |
+| 10-21 06:22 | 187 | 13.7 | 33.9 | 38.4 | 1839 / 2848 | 42 |
+| 10-21 07:22 | 165 | 15.0 | 41.1 | 52.1 | 1844 / 2744 | 41 |
+| 10-21 08:22 | 180 | 13.3 | 34.1 | 37.5 | 1856 / 2823 | 39 |
+| 10-21 09:22 | 166 | 13.9 | 47.2 | 181.3 | 1866 / 2883 | 42 |
+| 10-21 10:22 | 138 | 15.2 | 33.1 | 40.1 | 1879 / 2228 | 32 |
+| 10-21 11:22 | 120 | 14.9 | 33.2 | 57.3 | 1892 / 2348 | 28 |
+| 10-21 12:22 | 109 | 15.8 | 27.1 | 30.2 | 1902 / 2487 | 25 |
+| 10-21 13:22 | 123 | 14.7 | 34.2 | 35.7 | 1910 / 2761 | 28 |
+| 10-21 14:22 | 199 | 11.4 | 28.0 | 45.9 | 1920 / 2993 | 39 |
+| 10-21 15:22 | 163 | 13.5 | 35.1 | 40.9 | 1938 / 3085 | 36 |
+| 10-21 16:22 | 141 | 15.9 | 47.2 | 51.8 | 1952 / 2534 | 40 |
+| 10-21 17:22 | 178 | 14.4 | 43.3 | 53.7 | 2019 / 2929 | 45 |
+| 10-21 18:22 | 169 | 15.1 | 38.4 | 42.1 | 2034 / 3055 | 41 |
+
+Heap after GC, bucket minimum, trend after the first bucket: 25.2 MB/h over 23 buckets.
+
+#### Player experience (load generator, run `continuous`)
+
+| what | n | ok % | p50 ms | p95 ms | max ms | settled p50 / p95 ms (map fully loaded) |
+|---|---|---|---|---|---|---|
+| login | 636 | 100 | 352 | 380 | 1455 | 767 / 2114 |
+| cc | 1745 | 100 | 47 | 57 | 171 | 451 / 1235 |
+| warp | 13234 | 99 | 0 | 0 | 33 | 402 / 2626 |
+| chat_echo | 20686 | 100 | 0.1 | 0.2 | 29.7 |  /  |
+| whisper_reply | 2855 | 96 | 2356 | 3202 | 5172 |  /  |
+| error | 6 | 0 |  |  |  |  /  |
+| warp_skip | 1829 | 0 |  |  |  |  /  |
+
+Map entry by map (players on screen at entry and time until the map's packet burst ends; >= 400 ms by construction, the client waits for 400 ms of quiet):
+
+| map | entries | players on screen avg / max | settled p50 / p95 ms |
+|---|---|---|---|
+| 100000000 | 1060 | 34 / 78 | 849 / 1735 |
+| 100000100 | 1048 | 27 / 62 | 728 / 3199 |
+| 910000000 | 933 | 24 / 51 | 1013 / 1410 |
+| 910000012 | 19 | 14 / 21 | 401 / 668 |
+| 910000008 | 41 | 14 / 26 | 401 / 941 |
+| 910000018 | 27 | 12 / 20 | 401 / 411 |
+| 910000014 | 47 | 10 / 17 | 401 / 411 |
+| 910000009 | 44 | 10 / 24 | 403 / 993 |
+| 910000011 | 51 | 10 / 24 | 401 / 898 |
+| 910000015 | 63 | 10 / 20 | 401 / 448 |
+| 910000006 | 21 | 9 / 22 | 401 / 893 |
+| 910000016 | 39 | 9 / 15 | 401 / 405 |
+
+| UTC | logins p50 / p95 ms | cc p50 / p95 ms | warp settled p95 ms | chat echo p50 / p95 / max ms | whisper reply p50 / p95 ms (ok/n) | errors |
+|---|---|---|---|---|---|---|
+| 10-20 19:22 | 344 / 425 | 40 / 66 | 3349 | 0.2 / 0.4 / 2.1 | 2291 / 3121 (110/116) | 2 |
+| 10-20 20:22 | 345 / 363 | 52 / 71 | 2655 | 0.2 / 0.3 / 8.0 | 2250 / 3151 (117/120) | 0 |
+| 10-20 21:22 | 342 / 354 | 47 / 61 | 5102 | 0.1 / 0.2 / 1.2 | 2428 / 3163 (117/119) | 0 |
+| 10-20 22:22 | 346 / 355 | 51 / 59 | 3209 | 0.1 / 0.2 / 1.7 | 2393 / 3203 (116/119) | 0 |
+| 10-20 23:22 | 334 / 362 | 34 / 56 | 3981 | 0.1 / 0.2 / 3.1 | 2284 / 3186 (119/120) | 0 |
+| 10-21 00:22 | 346 / 372 | 42 / 56 | 7558 | 0.1 / 0.2 / 18.2 | 2351 / 3230 (116/119) | 1 |
+| 10-21 01:22 | 336 / 358 | 35 / 55 | 9602 | 0.1 / 0.2 / 17.0 | 2280 / 3207 (115/119) | 1 |
+| 10-21 02:22 | 355 / 362 | 42 / 54 | 3444 | 0.1 / 0.2 / 18.0 | 2520 / 3211 (116/120) | 0 |
+| 10-21 03:22 | 359 / 379 | 42 / 56 | 3024 | 0.1 / 0.2 / 2.6 | 2468 / 3176 (110/118) | 0 |
+| 10-21 04:22 | 345 / 372 | 41 / 56 | 3531 | 0.1 / 0.2 / 4.4 | 2365 / 3100 (115/120) | 0 |
+| 10-21 05:22 | 359 / 376 | 46 / 56 | 3426 | 0.1 / 0.2 / 3.2 | 2501 / 3195 (115/120) | 0 |
+| 10-21 06:22 | 360 / 381 | 47 / 54 | 2713 | 0.1 / 0.2 / 15.8 | 2337 / 3159 (114/118) | 1 |
+| 10-21 07:22 | 364 / 427 | 38 / 59 | 2070 | 0.1 / 0.2 / 28.5 | 2424 / 3170 (116/120) | 0 |
+| 10-21 08:22 | 352 / 374 | 47 / 56 | 1314 | 0.1 / 0.2 / 2.8 | 2317 / 3150 (113/119) | 0 |
+| 10-21 09:22 | 360 / 447 | 40 / 54 | 1398 | 0.1 / 0.3 / 28.4 | 2399 / 3144 (116/120) | 0 |
+| 10-21 10:22 | 366 / 374 | 49 / 57 | 1247 | 0.1 / 0.2 / 3.5 | 2307 / 3097 (114/118) | 0 |
+| 10-21 11:22 | 351 / 371 | 50 / 55 | 1165 | 0.1 / 0.2 / 1.8 | 2520 / 3257 (109/118) | 0 |
+| 10-21 12:22 | 362 / 372 | 47 / 57 | 1212 | 0.1 / 0.2 / 25.6 | 2262 / 3245 (105/117) | 1 |
+| 10-21 13:22 | 362 / 376 | 50 / 56 | 1242 | 0.1 / 0.2 / 1.7 | 2499 / 3213 (115/119) | 0 |
+| 10-21 14:22 | 360 / 368 | 50 / 56 | 1180 | 0.1 / 0.2 / 0.5 | 2245 / 3135 (116/120) | 0 |
+| 10-21 15:22 | 364 / 387 | 51 / 58 | 1422 | 0.1 / 0.2 / 3.1 | 2258 / 3215 (113/119) | 0 |
+| 10-21 16:22 | 365 / 374 | 47 / 57 | 1305 | 0.1 / 0.2 / 29.7 | 2245 / 3241 (115/119) | 0 |
+| 10-21 17:22 | 361 / 397 | 43 / 58 | 1854 | 0.1 / 0.2 / 13.1 | 2480 / 3263 (111/119) | 0 |
+| 10-21 18:22 | 344 / 384 | 29 / 60 | 2748 | 0.1 / 0.2 / 24.8 | 2358 / 3166 (115/119) | 0 |
+
+Traffic a client receives while standing in a map (per-minute samples):
+
+| map | client-minutes | players on screen avg | packets/s avg / max | KB/s avg / max | movement packets/s avg |
+|---|---|---|---|---|---|
+| 100000100 | 1239 | 27 | 45.0 / 262.1 | 1.3 / 6.3 | 16.7 |
+| 100050000 | 131 | 3 | 41.9 / 178.2 | 1.2 / 5.2 | 25.7 |
+| 100010000 | 110 | 1 | 41.2 / 152.8 | 1.3 / 4.8 | 29.1 |
+| 100000000 | 1247 | 35 | 40.5 / 283.1 | 1.3 / 8.8 | 31.8 |
+| 910000022 | 2 | 8 | 26.1 / 52.2 | 0.8 / 1.7 | 24.3 |
+| 101000000 | 1245 | 2 | 26.0 / 172.4 | 0.8 / 5.1 | 17.6 |
+| 100000104 | 53 | 0 | 25.5 / 188.8 | 0.8 / 4.7 | 14.8 |
+| 103010000 | 15 | 2 | 25.3 / 61.1 | 0.7 / 1.8 | 16.7 |
+| 100000103 | 35 | 0 | 24.7 / 88.2 | 0.8 / 2.8 | 20.0 |
+| 910000012 | 3 | 7 | 23.5 / 70.4 | 0.7 / 2.2 | 22.1 |
+
+#### Live (slumsms.service) during the soak, from the guard
+
+Baseline (before the soak's load generator; the test server already ran its bots): `samples=9 rq_median=6.6 rq_p95=7.5 cpu_median=11.1 gc_ms_min_median=15 gc_ms_min_p95=34`
+
+| UTC | live CPU % median | live CPU stall ms/s median / p95 / max | live GC ms/min median / max | live heap MB max | MemAvailable MB min | load1 max | live wheel-lag lines | guard actions |
+|---|---|---|---|---|---|---|---|---|
+| 10-20 19:22 | 11.5 | 6.7 / 11.5 / 42.7 | 15 / 288 | 2369 | 9830 | 22.61 | 0 | - |
+| 10-20 20:22 | 10.4 | 6.0 / 7.8 / 15.6 | 13 / 211 | 2416 | 9449 | 9.07 | 0 | - |
+| 10-20 21:22 | 10.8 | 6.1 / 7.7 / 15.6 | 15 / 180 | 2422 | 9149 | 9.31 | 0 | - |
+| 10-20 22:22 | 11.4 | 6.2 / 8.2 / 14.0 | 13 / 216 | 2490 | 8758 | 10.62 | 0 | - |
+| 10-20 23:22 | 12.1 | 7.1 / 13.6 / 49.5 | 17 / 659 | 2564 | 8636 | 11.95 | 0 | - |
+| 10-21 00:22 | 12.9 | 7.7 / 14.1 / 23.5 | 17 / 248 | 2612 | 8881 | 14.77 | 0 | - |
+| 10-21 01:22 | 13.1 | 7.7 / 10.2 / 19.8 | 18 / 128 | 2650 | 8615 | 10.26 | 0 | - |
+| 10-21 02:22 | 13.2 | 7.6 / 9.7 / 30.0 | 19 / 302 | 2710 | 8364 | 8.34 | 0 | - |
+| 10-21 03:22 | 12.9 | 8.4 / 12.1 / 20.3 | 18 / 456 | 2732 | 8185 | 16.66 | 0 | - |
+| 10-21 04:22 | 13.1 | 7.3 / 9.6 / 27.9 | 19 / 152 | 2765 | 8039 | 9.38 | 0 | - |
+| 10-21 05:22 | 12.1 | 7.2 / 12.6 / 55.3 | 15 / 476 | 2800 | 7880 | 11.34 | 0 | - |
+| 10-21 06:22 | 11.0 | 6.8 / 11.8 / 39.6 | 0 / 189 | 2815 | 8447 | 19.10 | 0 | - |
+| 10-21 07:22 | 10.8 | 6.8 / 24.3 / 37.9 | 13 / 193 | 2852 | 5383 | 22.01 | 0 | - |
+| 10-21 08:22 | 9.9 | 5.7 / 8.3 / 40.8 | 0 / 76 | 2860 | 7976 | 16.28 | 0 | - |
+| 10-21 09:22 | 16.0 | 6.5 / 53.2 / 235.8 | 31 / 955 | 2883 | 7244 | 14.30 | 0 | - |
+| 10-21 10:22 | 13.5 | 5.3 / 8.0 / 14.4 | 15 / 383 | 2070 | 8769 | 14.25 | 0 | - |
+| 10-21 11:22 | 8.6 | 4.4 / 6.0 / 13.9 | 8 / 203 | 2134 | 8564 | 10.60 | 0 | - |
+| 10-21 12:22 | 8.1 | 4.3 / 6.1 / 7.4 | 0 / 176 | 2169 | 8420 | 8.83 | 0 | - |
+| 10-21 13:22 | 8.4 | 4.5 / 7.0 / 14.7 | 8 / 322 | 2245 | 8238 | 9.13 | 0 | - |
+| 10-21 14:22 | 8.5 | 4.7 / 6.6 / 12.7 | 2 / 211 | 2302 | 8093 | 9.97 | 0 | - |
+| 10-21 15:22 | 8.9 | 4.9 / 8.0 / 32.2 | 8 / 226 | 2370 | 7984 | 10.69 | 0 | - |
+| 10-21 16:22 | 10.0 | 6.1 / 8.1 / 13.0 | 11 / 212 | 2442 | 8131 | 14.68 | 0 | - |
+| 10-21 17:22 | 10.5 | 5.8 / 9.8 / 42.3 | 11 / 325 | 2525 | 8080 | 12.88 | 0 | - |
+| 10-21 18:22 | 10.9 | 6.5 / 12.0 / 23.9 | 12 / 187 | 2567 | 7842 | 17.95 | 0 | - |
+
