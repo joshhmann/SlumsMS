@@ -67,14 +67,27 @@ public final class BotSkillActions {
         }
     }
 
-    /* A skill's pose and weapon data: its "action" names, any per-level "action", and its "weapon" (0 = any). */
-    public record SkillPose(List<String> actions, Map<Integer, String> levelActions, int weapon) {
-        public static final SkillPose NONE = new SkillPose(List.of(), Map.of(), 0);
+    /*
+     * A skill's pose and weapon data: its "action" names, any per-level "action", its "weapon" (0 = any), its
+     * "skillType" (3 = drawn in the weapon's final-attack poses) and its "prepare/action" (the keydown pose).
+     */
+    public record SkillPose(List<String> actions, Map<Integer, String> levelActions, int weapon, int skillType,
+                            String prepareAction) {
+        public static final SkillPose NONE = new SkillPose(List.of(), Map.of(), 0, 0, "");
+
+        public SkillPose(List<String> actions, Map<Integer, String> levelActions, int weapon) {
+            this(actions, levelActions, weapon, 0, "");
+        }
     }
 
     private static volatile IntFunction<SkillPose> source = BotSkillActions::readWz;
     private static final Map<Integer, Optional<SkillPose>> poses = new ConcurrentHashMap<>();
     private static final Map<String, Optional<Data>> images = new ConcurrentHashMap<>();
+
+    /* Back to the server's own Skill.wz (tests that compare it with the client's). */
+    static void useServerData() {
+        useSource(BotSkillActions::readWz);
+    }
 
     /* Replaces where the skill data comes from (tests); clears the cache. */
     static void useSource(IntFunction<SkillPose> newSource) {
@@ -99,9 +112,8 @@ public final class BotSkillActions {
     public static List<Integer> poseCodes(int skillId, int skillLevel) {
         SkillPose pose = pose(skillId);
         String levelAction = pose.levelActions().get(skillLevel);
-        if (levelAction != null) {
-            int code = codeOf(levelAction);
-            return code >= 0 ? List.of(code) : List.of();
+        if (levelAction != null && codeOf(levelAction) >= 0) {
+            return List.of(codeOf(levelAction)); // an unknown level action counts as none (SKILLENTRY 0x76611c)
         }
         List<Integer> codes = new ArrayList<>(pose.actions().size());
         for (String action : pose.actions()) {
@@ -147,6 +159,35 @@ public final class BotSkillActions {
         return required == 0 || required == wt;
     }
 
+    /* Whether the skill is one the client knows (has a Skill.wz entry). */
+    public static boolean known(int skillId) {
+        return skillId > 0 && poses.computeIfAbsent(skillId, id -> Optional.ofNullable(source.apply(id))).isPresent();
+    }
+
+    /* The skill's skillType (3: the weapon's final-attack poses stand in for its own). */
+    public static int skillType(int skillId) {
+        return pose(skillId).skillType();
+    }
+
+    /* The body-action code of the skill's keydown pose (prepare/action), or 0x7fff (none) like the client sends. */
+    public static int prepareCode(int skillId) {
+        int code = codeOf(pose(skillId).prepareAction());
+        return code >= 0 ? code : NO_ACTION;
+    }
+
+    /* Whether the skill has a prepare node: a player's client sends the keydown packet before it (Explosion, Chakra). */
+    public static boolean hasPrepare(int skillId) {
+        return !pose(skillId).prepareAction().isEmpty();
+    }
+
+    /* The "no action" value of a keydown packet's pose field: a viewer then plays no pose. */
+    public static final int NO_ACTION = 0x7fff;
+
+    /* Whether the skill names a pose of its own (level action or any known action) that is not a skillType 3. */
+    public static boolean hasOwnPose(int skillId, int skillLevel) {
+        return skillType(skillId) != 3 && !poseCodes(skillId, skillLevel).isEmpty();
+    }
+
     static SkillPose pose(int skillId) {
         if (skillId <= 0) {
             return SkillPose.NONE;
@@ -183,7 +224,8 @@ public final class BotSkillActions {
                 }
             }
         }
-        return new SkillPose(List.copyOf(actions), Map.copyOf(levelActions), DataTool.getIntConvert("weapon", skill, 0));
+        return new SkillPose(List.copyOf(actions), Map.copyOf(levelActions), DataTool.getIntConvert("weapon", skill, 0),
+                DataTool.getIntConvert("skillType", skill, 0), DataTool.getString("prepare/action", skill, ""));
     }
 
     private static Optional<Data> image(int job) {

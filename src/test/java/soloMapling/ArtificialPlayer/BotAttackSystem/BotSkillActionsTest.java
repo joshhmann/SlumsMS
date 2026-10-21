@@ -54,7 +54,7 @@ class BotSkillActionsTest {
         assertEquals(List.of(), BotSkillActions.poseCodes(11121203, 5)); // Solar Pierce: SMsolarPierce
         assertEquals(List.of(), BotSkillActions.poseCodes(14121001, 5)); // Quintuple Star: no action node
         assertEquals(List.of(), BotSkillActions.poseCodes(0, 0));        // a plain swing
-        int action = BotAttackData.actionFor(11121203, 5, WeaponType.SWORD1H);
+        int action = BotAttackData.actionFor(11121203, 5, 1302000, BotAttackProfile.Route.CLOSE);
         assertTrue(List.of(16, 17, 5, 6, 7).contains(action), "one-handed sword pose, got " + action);
     }
 
@@ -62,7 +62,7 @@ class BotSkillActionsTest {
     void spearCrusherChangesPoseWithItsLevel() {
         assertEquals(List.of(53), BotSkillActions.poseCodes(1311001, 10)); // burster1
         assertEquals(List.of(54), BotSkillActions.poseCodes(1311001, 20)); // burster2
-        assertEquals(53, BotAttackData.actionFor(1311001, 15, WeaponType.SPEAR_STAB));
+        assertEquals(53, BotAttackData.actionFor(1311001, 15, 1432000, BotAttackProfile.Route.CLOSE));
     }
 
     @Test

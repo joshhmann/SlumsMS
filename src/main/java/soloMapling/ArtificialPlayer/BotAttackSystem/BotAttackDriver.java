@@ -60,6 +60,9 @@ public final class BotAttackDriver {
     // its other attacks meanwhile. botId -> (skillId -> epoch-ms the skill is ready again).
     private static final Map<Integer, Map<Integer, Long>> skillReadyByBot = new ConcurrentHashMap<>();
 
+    // botId -> (extra skillId -> epoch-ms the bot last used it), for BotAttackConfig.Extra.everyMs.
+    private static final Map<Integer, Map<Integer, Long>> extraUsedByBot = new ConcurrentHashMap<>();
+
     // Candidate pre-filter radius (px); the per-profile reach box is the hard gate.
     private static final int SEEK_RANGE = 700;
     private static final double SEEK_RANGE_SQ = (double) SEEK_RANGE * SEEK_RANGE;
@@ -93,8 +96,8 @@ public final class BotAttackDriver {
         }
     }
 
-    /* Which configured attack a swing uses: AUTO smart-picks; SINGLE/AOE/ULTIMATE force one slot. */
-    public enum Choice { AUTO, SINGLE, AOE, ULTIMATE }
+    /* Which configured attack a swing uses: AUTO smart-picks; SINGLE/AOE/ULTIMATE force one slot; PROFILE one attack. */
+    public enum Choice { AUTO, SINGLE, AOE, ULTIMATE, PROFILE }
 
     /*
      * Cooldown-gated swing at the in-reach mobs (AUTO: AoE when 2+ mobs are in reach, else
@@ -126,6 +129,14 @@ public final class BotAttackDriver {
         return attack(bot, true, Choice.ULTIMATE);
     }
 
+    /*
+     * Swing exactly this attack now, ignoring cooldowns and combo (backs !botshowcase, which cycles a job's every
+     * attack so a viewer can check each one is drawn).
+     */
+    public static AttackResult forceProfile(Character bot, BotAttackProfile profile) {
+        return attack(bot, true, Choice.PROFILE, profile);
+    }
+
     /* The item id of the weapon the bot holds, or 0. */
     static int equippedWeaponId(Character bot) {
         Item weapon = bot.getInventory(InventoryType.EQUIPPED).getItem((short) -11);
@@ -137,6 +148,8 @@ public final class BotAttackDriver {
         nextAttackByBot.remove(botId);
         nextUltimateByBot.remove(botId);
         skillReadyByBot.remove(botId);
+        extraUsedByBot.remove(botId);
+        BotAranCombo.clearBot(botId);
         BotAttackStats.clear(botId);
         BotComboOrbs.clearBot(botId);
         OffscreenCombat.clearBot(botId);
@@ -200,6 +213,10 @@ public final class BotAttackDriver {
     }
 
     private static AttackResult attack(Character bot, boolean force, Choice choice) {
+        return attack(bot, force, choice, null);
+    }
+
+    private static AttackResult attack(Character bot, boolean force, Choice choice, BotAttackProfile forced) {
         if (bot == null || bot.getMap() == null) {
             return AttackResult.miss("bot or map is null");
         }
@@ -227,7 +244,7 @@ public final class BotAttackDriver {
         if (choice == Choice.ULTIMATE && ultimate == null) {
             return AttackResult.miss(bot.getJob() + " has no ultimate attack");
         }
-        if (single == null && aoe == null && ultimate == null) {
+        if (single == null && aoe == null && ultimate == null && forced == null) {
             return AttackResult.miss("no attack for job " + bot.getJob() + " / weapon " + weapon);
         }
 
@@ -243,7 +260,9 @@ public final class BotAttackDriver {
         // reach, else the single-target attack - skipping any whose skill is still in its WZ cooltime.
         BotAttackProfile profile;
         boolean healUndead = false;
-        if (choice == Choice.SINGLE) {
+        if (choice == Choice.PROFILE) {
+            profile = forced;
+        } else if (choice == Choice.SINGLE) {
             profile = single;
         } else if (choice == Choice.AOE) {
             profile = aoe;
@@ -271,6 +290,17 @@ public final class BotAttackDriver {
             }
         }
 
+        // A rotation extra that is ready (WZ cooltime, its own interval, an Aran finisher's combo) and has a mob in
+        // reach goes first (ticket 32): the Aran finishers, Buccaneer's Double Blast / Energy Orb, Corsair's Rapid
+        // Fire, Thunder Breaker's Whale Rising ... - forced choices and the cleric's heal skip them.
+        BotAttackConfig.Extra extra = null;
+        if (choice == Choice.AUTO && !healUndead) {
+            extra = readyExtra(bot, atks.extras(), facingLeft, now);
+            if (extra != null) {
+                profile = extra.profile();
+            }
+        }
+
         // Panic/Coma need Combo Attack orbs, and a viewer's client draws a finisher without them as a plain swing:
         // charge the orbs up with another attack first (BotComboOrbs), then finish on full orbs.
         if (BotComboOrbs.mustCharge(bot, profile.skillId)) {
@@ -282,60 +312,64 @@ public final class BotAttackDriver {
         SwingSupply supply = SwingSupply.prepare(bot, profile, weapon, packetLevel(bot, profile));
         profile = supply.profile();
 
-        List<Monster> targets = cap(mobsInReach(bot, profile, facingLeft), profile.numAttacked);
+        // What the client would put in the packet(s) for this skill with this weapon (BotSwingPlan): route, pose,
+        // speed, keydown packets, the counts the skill's level allows. A skill the weapon cannot draw goes out as the
+        // weapon's plain attack (a viewer would drop it, and say so in chat for the weapon).
+        int weaponItemId = equippedWeaponId(bot);
+        int linesHint = shadowDoubled(bot, profile.numDamage);
+        BotSwingPlan plan = BotSwingPlan.of(profile, packetLevel(bot, profile), weaponItemId, facingLeft, linesHint);
+        BotAttackProfile reachAs = plan.skillId() == profile.skillId ? profile : BotAttackProfile.basicSwing();
+
+        List<Monster> targets = cap(mobsInReach(bot, reachAs, facingLeft), plan.maxMobs());
         if (healUndead) {
             targets = undeadOnly(targets); // Heal must not damage a living mob caught in the box
         }
         if (targets.isEmpty()) {
-            String why = healUndead ? "no undead in heal range" : reachDiagnostic(bot, profile, facingLeft);
+            String why = healUndead ? "no undead in heal range" : reachDiagnostic(bot, reachAs, facingLeft);
             return AttackResult.miss(supply.fallback() != null ? why + " (" + supply.fallback() + ")" : why);
         }
 
-        int facingMask = facingLeft ? BotAttackData.FACING_LEFT_MASK : BotAttackData.FACING_RIGHT_MASK;
-        int skillId = profile.skillId;
-        int skillLevel = packetLevel(bot, profile);
-        BotAttackProfile.Route route = profile.route;
-        if (!BotSkillActions.weaponFits(skillId, equippedWeaponId(bot))) {
-            // A viewer's client drops a skill the attacker's weapon cannot use, and tells the viewer so. A plain swing
-            // of the weapon it holds is drawn instead (BotWeapons normally keeps the weapon right for the job).
-            skillId = 0;
-            skillLevel = 0;
-            route = BotAttackProfile.Route.CLOSE;
-        }
-        // The skill's own pose (the client drops an attack whose pose the skill does not allow), else the weapon's.
-        int bodyActionId = BotAttackData.actionFor(skillId, skillLevel, weapon);
+        int skillId = plan.skillId();
+        int skillLevel = plan.skillLevel();
+        BotAttackProfile.Route route = plan.route();
+        int projectile = route == BotAttackProfile.Route.RANGED && BotClientPoses.isShootingWeapon(weaponItemId)
+                ? supply.projectile() : 0;
 
         // Roll the lines per mob from the bot's real numbers (BotDamage: stats, gear, skills, buffs, the mob's
-        // defence); sum a total for the GM report. Shadow Partner mirrors each throw, so the client draws double
-        // the stars - match the packet; the shadow's lines are its share of the ones they mirror. A crit line is
-        // encoded NEGATIVE (BotAttackData.encodeCritLine) so the viewer renders a yellow crit; BotAttackEffects
-        // decodes the lines back before applying HP.
-        int linesPerMob = shadowDoubled(bot, profile.numDamage);
+        // defence); sum a total for the GM report. A crit line is encoded NEGATIVE (BotAttackData.encodeCritLine)
+        // so the viewer renders a yellow crit; BotAttackEffects decodes the lines back before applying HP.
+        int lines = plan.lines();
         BotDamage.Swing swing = BotDamage.swing(bot, skillId, skillLevel, route, weapon,
-                targets.size() + 1, linesPerMob != profile.numDamage);
+                targets.size() + 1, linesHint != profile.numDamage);
         Map<Monster, List<Integer>> hits = new LinkedHashMap<>();
         int reported = 0;
         for (Monster mob : targets) {
-            List<Integer> lines = swing.roll(mob, linesPerMob);
-            for (int line : lines) {
+            List<Integer> rolled = swing.roll(mob, lines);
+            for (int line : rolled) {
                 reported = (int) Math.min(Integer.MAX_VALUE, (long) reported + BotAttackData.decodeDamageLine(line));
             }
-            hits.put(mob, lines);
+            hits.put(mob, rolled);
         }
 
-        boolean killed = switch (route) {
-            case CLOSE  -> BotAttackEffects.meleeStrike(bot, hits, skillId, skillLevel,
-                    bodyActionId, facingMask, profile.speed, profile.hitDelayMs);
-            case RANGED -> BotAttackEffects.rangedStrike(bot, hits, skillId, skillLevel,
-                    supply.projectile(), bodyActionId, facingMask, profile.speed, profile.hitDelayMs);
-            case MAGIC  -> BotAttackEffects.magicStrike(bot, hits, skillId, skillLevel,
-                    bodyActionId, facingMask, profile.speed, profile.hitDelayMs);
-        };
+        final BotAttackProfile reach = reachAs;
+        final boolean left = facingLeft;
+        boolean killed = BotAttackEffects.strike(bot, plan, hits, projectile, profile.hitDelayMs, () -> {
+            Map<Monster, List<Integer>> more = new LinkedHashMap<>();
+            for (Monster mob : cap(mobsInReach(bot, reach, left), plan.maxMobs())) {
+                more.put(mob, swing.roll(mob, lines));
+            }
+            return more;
+        });
+        BotAranCombo.afterStrike(bot, skillId, targets.size() * Math.max(1, plan.shots()));
 
         supply.commit(bot, route, skillId); // the ammo fired, the MP/HP the skill cost (and a potion if it is low)
         BotComboOrbs.afterStrike(bot, skillId); // after the packet: a finisher is drawn with the orbs it spends
-        nextAttackByBot.put(bot.getId(), now + profile.cooldownMs);
+        nextAttackByBot.put(bot.getId(), now + profile.cooldownMs + plan.burstMs());
         startCooltime(bot, skillId, skillLevel, now);
+        if (extra != null && skillId == extra.profile().skillId) {
+            extraUsedByBot.computeIfAbsent(bot.getId(), k -> new ConcurrentHashMap<>()).put(skillId, now);
+            BotAranCombo.spend(bot, extra.comboCost());
+        }
         if (profile == ultimate) { // firing the throttled full-map nuke starts its long cooldown
             nextUltimateByBot.put(bot.getId(), now + FULL_MAP_ULTIMATE_COOLDOWN_MS);
         }
@@ -382,13 +416,36 @@ public final class BotAttackDriver {
         if (profile.skillId == 0) {
             return 0;
         }
-        int held = bot.getSkillLevel(profile.skillId);
-        if (held > 0) {
-            return held;
-        }
         Skill skill = SkillFactory.getSkill(profile.skillId);
-        return skill != null && skill.getMaxLevel() > 0
-                ? Math.min(profile.skillLevel, skill.getMaxLevel()) : profile.skillLevel;
+        int max = skill != null && skill.getMaxLevel() > 0 ? skill.getMaxLevel() : Integer.MAX_VALUE;
+        int held = bot.getSkillLevel(profile.heldSkill); // a hidden id goes out at the level of the skill it stands for
+        if (held > 0) {
+            return Math.min(held, max);
+        }
+        return Math.min(profile.skillLevel, max);
+    }
+
+    /* The first extra that is ready to use now with a mob in its reach, or null. */
+    private static BotAttackConfig.Extra readyExtra(Character bot, List<BotAttackConfig.Extra> extras,
+                                                    boolean facingLeft, long now) {
+        for (BotAttackConfig.Extra e : extras) {
+            BotAttackProfile p = e.profile();
+            if (!offCooltime(bot, p, now)) {
+                continue;
+            }
+            Map<Integer, Long> used = extraUsedByBot.get(bot.getId());
+            long last = used != null ? used.getOrDefault(p.skillId, 0L) : 0L;
+            if (now - last < e.everyMs()) {
+                continue;
+            }
+            if (e.comboCost() > 0 && BotAranCombo.combo(bot, now) < e.comboCost()) {
+                continue;
+            }
+            if (!mobsInReach(bot, p, facingLeft).isEmpty()) {
+                return e;
+            }
+        }
+        return null;
     }
 
     /* The profile when its skill is out of its WZ cooltime, else null. */

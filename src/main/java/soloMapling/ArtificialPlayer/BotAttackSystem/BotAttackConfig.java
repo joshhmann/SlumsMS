@@ -10,6 +10,7 @@ import constants.skills.BlazeWizard;
 import constants.skills.Bowmaster;
 import constants.skills.Brawler;
 import constants.skills.Buccaneer;
+import constants.skills.Corsair;
 import constants.skills.ChiefBandit;
 import constants.skills.Cleric;
 import constants.skills.Crossbowman;
@@ -40,7 +41,9 @@ import constants.skills.ThunderBreaker;
 import constants.skills.WhiteKnight;
 import constants.skills.WindArcher;
 
+import java.util.ArrayList;
 import java.util.EnumMap;
+import java.util.List;
 import java.util.Map;
 import java.util.function.IntPredicate;
 
@@ -51,6 +54,7 @@ import static soloMapling.ArtificialPlayer.BotAttackSystem.BotAttackProfile.mele
 import static soloMapling.ArtificialPlayer.BotAttackSystem.BotAttackProfile.meleeMulti;
 import static soloMapling.ArtificialPlayer.BotAttackSystem.BotAttackProfile.ranged;
 import static soloMapling.ArtificialPlayer.BotAttackSystem.BotAttackProfile.rangedAoe;
+import static soloMapling.ArtificialPlayer.BotAttackSystem.BotAttackProfile.shotAoe;
 import static soloMapling.ArtificialPlayer.MapleRootSkills.*;
 
 /*
@@ -80,9 +84,22 @@ public final class BotAttackConfig {
      * A job's introduced attacks; any field may be null (meaning "inherit from the lineage").
      * single = single-target, aoe = sustained mobbing swing, ultimate = throttled full-map nuke.
      */
-    public record JobAttacks(BotAttackProfile single, BotAttackProfile aoe, BotAttackProfile ultimate) {}
+    public record JobAttacks(BotAttackProfile single, BotAttackProfile aoe, BotAttackProfile ultimate,
+                             List<Extra> extras) {
+        public JobAttacks(BotAttackProfile single, BotAttackProfile aoe, BotAttackProfile ultimate) {
+            this(single, aoe, ultimate, List.of());
+        }
+    }
+
+    /*
+     * A rotation skill a player weaves between the main attacks (ticket 32): used whenever it is ready - out of its
+     * WZ cooltime, at least everyMs since the bot last used it and, for an Aran combo finisher, with comboCost combo
+     * held (spent on use) - and a mob is in its reach. Each job's extras are tried in the order listed.
+     */
+    public record Extra(BotAttackProfile profile, long everyMs, int comboCost) {}
 
     private static final Map<Job, JobAttacks> BY_JOB = new EnumMap<>(Job.class);
+    private static final Map<Job, List<Extra>> EXTRAS = new EnumMap<>(Job.class);
 
     // 1st-job rogue and pirate basics - chosen by weapon, since the 1st job alone is ambiguous.
     private static final BotAttackProfile ROGUE_CLAW = ranged(Rogue.LUCKY_SEVEN, 2);
@@ -127,7 +144,9 @@ public final class BotAttackConfig {
         put(Job.CROSSBOWMAN,  null,                           rangedAoe(Crossbowman.IRON_ARROW, 1));
         put(Job.RANGER,       ranged(Ranger.STRAFE, 4),       rangedAoe(Ranger.ARROW_RAIN, 1));
         put(Job.SNIPER,       ranged(Sniper.STRAFE, 4),       rangedAoe(Sniper.ARROW_ERUPTION, 1));
-        put(Job.BOWMASTER,    ranged(Bowmaster.HURRICANE, 1), rangedAoe(ARROW_STREAM, 6));
+        // Hurricane is a keydown skill: a player holds it - one prepare, a stream of shots, a release - and the bot
+        // fires it the same way (BotAttackDriver's keydown burst), not as one plain shot.
+        put(Job.BOWMASTER,    ranged(Bowmaster.HURRICANE, 3), rangedAoe(ARROW_STREAM, 6));
         put(Job.MARKSMAN,     ranged(Marksman.SNIPE, 1),      rangedAoe(ANCIENT_ASTRA, 6), rangedAoe(HIGH_SPEED_SHOT, 8));
 
         // ===== Thief - claw (stars/ranged) vs dagger (melee); 1st-job rogue seeded in resolve =====
@@ -143,12 +162,22 @@ public final class BotAttackConfig {
         put(Job.GUNSLINGER,   null,                           rangedAoe(Gunslinger.INVISIBLE_SHOT, 1)); // inherits Double Shot
         put(Job.MARAUDER,     null,                           meleeAoe(Marauder.ENERGY_BLAST, 1), meleeAoe(POWER_DRILL, 4));
         put(Job.OUTLAW,       ranged(Outlaw.BURST_FIRE, 3),   rangedAoe(Outlaw.FLAME_THROWER, 1));
+        // MapleRoot's Buccaneer (no Energy Charge / Barrage / Demolition): Octopunch for one, Dragon Strike for a pack,
+        // Power Unity as the cooltime nuke, Double Blast (cooltime) and Energy Orb (a shot from the knuckle) woven in.
         put(Job.BUCCANEER,    meleeMulti(OCTOPUNCH, 2, 8),    meleeAoe(Buccaneer.DRAGON_STRIKE, 4), meleeAoe(POWER_UNITY, 5));
+        extra(Job.BUCCANEER,  new Extra(meleeAoe(DOUBLE_BLAST, 4), 6_000, 0),
+                new Extra(shotAoe(Buccaneer.ENERGY_ORB, 6, 6), 12_000, 0));
+        // Corsair: Burst Fire / Flamethrower inherited, Brain Scrambler the cooltime nuke; Rapid Fire (keydown burst),
+        // Eight Legs Easton and Aerial Strike woven in.
         put(Job.CORSAIR,      null,                           null, rangedAoe(BRAIN_SCRAMBLER, 5)); // inherits Burst Fire / Flamethrower
+        extra(Job.CORSAIR,    new Extra(ranged(Corsair.RAPID_FIRE, 1), 10_000, 0),
+                new Extra(rangedAoe(EIGHT_LEGS_EASTON, 6), 9_000, 0),
+                new Extra(meleeAoe(Corsair.AERIAL_STRIKE, 6), 11_000, 0));
 
         // ===== Cygnus Knights (4th job is MapleRoot's) =====
         put(Job.DAWNWARRIOR1, melee(DawnWarrior.POWER_STRIKE, 1),  meleeAoe(DawnWarrior.SLASH_BLAST, 1));
-        put(Job.DAWNWARRIOR2, null,                                meleeAoe(DawnWarrior.SOUL_BLADE, 1));
+        // Soul Blade leaves the sword as a shot (the client's shoot route, no bullet): sent as a swing, no blade flew.
+        put(Job.DAWNWARRIOR2, null,                                shotAoe(DawnWarrior.SOUL_BLADE, 3, 1));
         put(Job.DAWNWARRIOR3, meleeMulti(DawnWarrior.BRANDISH, 3, 2), meleeAoe(DawnWarrior.SOUL_DRIVER, 4));
         put(Job.DAWNWARRIOR4, meleeMulti(MOON_DANCER, 2, 4),       meleeAoe(IMPALING_RAYS, 6), meleeAoe(SOLAR_PIERCE, 6));
         put(Job.BLAZEWIZARD1, magic(BlazeWizard.MAGIC_CLAW, 2),    null);
@@ -160,18 +189,40 @@ public final class BotAttackConfig {
         put(Job.WINDARCHER3,  ranged(WindArcher.STRAFE, 4),        rangedAoe(WindArcher.ARROW_RAIN, 3));
         put(Job.WINDARCHER4,  ranged(SPIRALING_VORTEX, 6),         rangedAoe(SONG_OF_HEAVEN, 6));
         put(Job.NIGHTWALKER1, ranged(NightWalker.LUCKY_SEVEN, 2),  null);
-        put(Job.NIGHTWALKER3, ranged(NW_TRIPLE_THROW, 3),          rangedAoe(NightWalker.AVENGER, 6));
+        // MapleRoot's client DLL sends the Night Walker's Avenger on the melee route (its custom-skill table).
+        put(Job.NIGHTWALKER3, ranged(NW_TRIPLE_THROW, 3),          meleeAoe(NightWalker.AVENGER, 6));
         put(Job.NIGHTWALKER4, ranged(QUINTUPLE_STAR, 5),           null);                          // inherits Avenger
         put(Job.THUNDERBREAKER1, melee(ThunderBreaker.FIRST_STRIKE, 1), meleeAoe(ThunderBreaker.SOMERSAULT_KICK, 1));
         put(Job.THUNDERBREAKER2, null,                             meleeAoe(ThunderBreaker.ENERGY_BLAST, 1));
-        put(Job.THUNDERBREAKER3, melee(ThunderBreaker.BARRAGE, 6), meleeAoe(ThunderBreaker.SHARK_WAVE, 3));
+        // Shark Wave leaves the knuckle as a shot (the client sends it on the shoot route, no bullet), so its shark is
+        // drawn; sent as a swing it was a plain punch.
+        put(Job.THUNDERBREAKER3, melee(ThunderBreaker.BARRAGE, 6), shotAoe(ThunderBreaker.SHARK_WAVE, 6, 3));
         put(Job.THUNDERBREAKER4, melee(ANNIHILATE, 4),             meleeAoe(THUNDERBOLT, 5), meleeAoe(TYPHOON, 5));
+        extra(Job.THUNDERBREAKER4, new Extra(meleeAoe(WHALE_RISING, 8), 8_000, 0),
+                new Extra(shotAoe(ThunderBreaker.SHARK_WAVE, 6, 3), 5_000, 0),
+                new Extra(melee(ThunderBreaker.BARRAGE, 6), 7_000, 0));
 
-        // ===== Aran (the combo-gated finishers - Combo Smash/Fenrir/Tempest - are left out) =====
+        // ===== Aran =====
+        // The double/triple swings are combo commands; with Full Swing (3rd job) or Overswing (4th) learned the client
+        // sends them as the hidden 2111000x / 2112000x ids. Every mob hit adds to the combo counter (BotAranCombo);
+        // the finishers spend it - Combo Smash 10, Fenrir 30, Tempest 200, as RangedAttackHandler charges a player -
+        // and leave as shots from the pole-arm (the client's shoot route, no bullet).
         put(Job.ARAN1,        melee(Aran.DOUBLE_SWING, 1),    null);
-        put(Job.ARAN2,        melee(Aran.TRIPLE_SWING, 1),    meleeAoe(Aran.FINAL_CHARGE, 1));
-        put(Job.ARAN3,        null,                           meleeAoe(Aran.ROLLING_SPIN, 4));
-        put(Job.ARAN4,        null,                           meleeAoe(Aran.FINAL_BLOW, 8));
+        put(Job.ARAN2,        meleeMulti(Aran.TRIPLE_SWING, 3, 1), meleeAoe(Aran.FINAL_CHARGE, 1));
+        extra(Job.ARAN2,      new Extra(shotAoe(Aran.COMBO_SMASH, 6, 2), 0, 10));
+        put(Job.ARAN3,        meleeMulti(Aran.HIDDEN_FULL_TRIPLE, 3, 1).heldAs(Aran.FULL_SWING),
+                meleeAoe(Aran.ROLLING_SPIN, 4));
+        extra(Job.ARAN3,      new Extra(shotAoe(Aran.COMBO_FENRIR, 6, 6), 0, 30),
+                new Extra(shotAoe(Aran.COMBO_SMASH, 6, 2), 0, 10),
+                new Extra(meleeAoe(Aran.FINAL_TOSS, 1), 6_000, 0),
+                new Extra(meleeMulti(Aran.HIDDEN_FULL_DOUBLE, 3, 2).heldAs(Aran.FULL_SWING), 4_000, 0));
+        put(Job.ARAN4,        meleeMulti(Aran.HIDDEN_OVER_TRIPLE, 3, 5).heldAs(Aran.OVER_SWING),
+                meleeAoe(Aran.FINAL_BLOW, 8));
+        extra(Job.ARAN4,      new Extra(shotAoe(Aran.COMBO_TEMPEST, 15, 5), 0, 200),
+                new Extra(shotAoe(Aran.COMBO_FENRIR, 6, 6), 0, 30),
+                new Extra(shotAoe(Aran.COMBO_SMASH, 6, 2), 0, 10),
+                new Extra(meleeMulti(Aran.HIDDEN_OVER_DOUBLE, 3, 4).heldAs(Aran.OVER_SWING), 4_000, 0),
+                new Extra(meleeAoe(Aran.ROLLING_SPIN, 4), 7_000, 0));
     }
 
     private BotAttackConfig() {}
@@ -184,6 +235,36 @@ public final class BotAttackConfig {
 
     private static void put(Job job, BotAttackProfile single, BotAttackProfile aoe, BotAttackProfile ultimate) {
         BY_JOB.put(job, new JobAttacks(single, aoe, ultimate));
+    }
+
+    private static void extra(Job job, Extra... extras) {
+        EXTRAS.computeIfAbsent(job, k -> new ArrayList<>()).addAll(List.of(extras));
+    }
+
+    /*
+     * The bot's rotation extras: the most advanced job of its lineage that lists any decides them (a 4th-job Aran
+     * weaves the 4th-job set, not the 3rd-job one too), keeping those the bot holds (hasSkill null: all of them).
+     */
+    static List<Extra> extrasFor(Job job, IntPredicate hasSkill) {
+        if (job == null) {
+            return List.of();
+        }
+        Job best = null;
+        for (Job j : EXTRAS.keySet()) {
+            if (job.isA(j) && (best == null || j.getId() > best.getId())) {
+                best = j;
+            }
+        }
+        if (best == null) {
+            return List.of();
+        }
+        List<Extra> out = new ArrayList<>();
+        for (Extra e : EXTRAS.get(best)) {
+            if (hasSkill == null || hasSkill.test(e.profile().heldSkill)) {
+                out.add(e);
+            }
+        }
+        return List.copyOf(out);
     }
 
     /*
@@ -209,14 +290,15 @@ public final class BotAttackConfig {
         if (hasSkill != null && job != null) {
             JobAttacks owned = resolveOwned(job, weapon, hasSkill);
             if (owned != null) {
-                return owned;
+                return new JobAttacks(owned.single(), owned.aoe(), owned.ultimate(), extrasFor(job, hasSkill));
             }
         }
-        return resolveTable(job, weapon);
+        JobAttacks table = resolveTable(job, weapon);
+        return new JobAttacks(table.single(), table.aoe(), table.ultimate(), extrasFor(job, null));
     }
 
     private static boolean holds(BotAttackProfile p, IntPredicate hasSkill) {
-        return p != null && p.skillId != 0 && hasSkill.test(p.skillId);
+        return p != null && p.skillId != 0 && hasSkill.test(p.heldSkill);
     }
 
     /* The owned-skill resolution, or null when the bot holds no attack of its lineage at all. */
@@ -322,6 +404,11 @@ public final class BotAttackConfig {
                 if (p != null) {
                     all.add(p);
                 }
+            }
+        }
+        for (List<Extra> extras : EXTRAS.values()) {
+            for (Extra e : extras) {
+                all.add(e.profile());
             }
         }
         return all;

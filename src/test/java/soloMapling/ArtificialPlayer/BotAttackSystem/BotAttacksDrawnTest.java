@@ -43,7 +43,7 @@ class BotAttacksDrawnTest {
                     }
                     for (int level : new int[]{1, 5, 10, 16, 20, 30}) { // bots hold the 4th-job package skills at 1-5
                         List<Integer> poses = BotSkillActions.poseCodes(skillId, level);
-                        int action = BotAttackData.actionFor(skillId, level, weapon);
+                        int action = BotAttackData.actionFor(skillId, level, weaponId, p.route);
                         if (!poses.isEmpty() && !poses.contains(action)) {
                             wrong.add(job + ": " + skillId + " lv " + level + " sent in pose " + action
                                     + ", allowed " + poses);

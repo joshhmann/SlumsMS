@@ -1,0 +1,6507 @@
+# client attack data (tools/bot-attack-rules/client_attack_fixture.py) from the client's Data
+# sha256 Skill 2a58c3eeb710b253b37f02b300bd8294a97c613dd32351ea92c17268831ad3bd
+# sha256 Character/Weapon 4a522884b1c576a37171f5e24033ecd71a7cc1959c9338500d89621af72bd255
+# S skill skillType weapon actions levelActions maxLevel flags counts(level:mob/attack/bullet) prepareAction
+# W item attack attackSpeed afterImage
+S	8	0	0			1		1://	
+S	12	0	0			20		1://	
+S	100	0	0			1		1://	
+S	1000	0	0			3		1://	
+S	1001	0	0			3		1://	
+S	1002	0	0			3		1://	
+S	1003	0	0			1		1://	
+S	1004	0	0			1		1://	
+S	1005	0	0			1		1://	
+S	1006	0	0			1		1://	
+S	1009	0	0	bamboo		1		1:30//	
+S	1010	0	0	alert2		1		1://	
+S	1011	0	0	alert2		1		1://	
+S	1013	0	0			2		1://	
+S	1014	0	0			1	special	1://	
+S	1015	0	0	float		1		1://	
+S	1017	0	0			1		1://	
+S	1018	0	0			1		1://	
+S	1019	0	0			1		1://	
+S	1020	0	0	pyramid		1		1:15//	
+S	1031	0	0			1		1://	
+S	1050	0	0			1		1://	
+S	1051	0	0	alert2		1		1:4/2/	
+S	1052	0	0	NTmantis2		1		1:6/2/	
+S	1054	0	0			1		1://	
+S	9000	0	0			1		1://	
+S	9001	0	0			1		1://	
+S	9002	0	0			1		1://	
+S	1000000	0	0			16		1://	
+S	1000001	0	0			10		1://	
+S	1000002	0	0			8		1://	
+S	1001003	0	0	alert2		20		1://	
+S	1001004	0	0			20		1://	
+S	1001005	0	0			20		1:6//	
+S	1100000	1	0			20		1://	
+S	1100002	3	0			30		1://	
+S	1101006	0	0	alert2		20		1://	
+S	1101007	0	0	alert2		30		1://	
+S	1110000	0	0			20		1://	
+S	1110001	0	0			20		1://	
+S	1111002	0	0	alert4		30		1://	
+S	1111003	0	0			30	finish	1://	
+S	1111005	0	0			30	finish	1:6//	
+S	1111007	0	0	alert3		20		1:6//	
+S	1111008	0	0	alert3		30		1:6//	
+S	1120003	0	0			30		1://	
+S	1120004	0	0			30		1://	
+S	1120005	0	0			30	special	1://	
+S	1121000	0	0	alert3		30		1://	
+S	1121001	0	0			30	prepare	1:6//	dash
+S	1121002	0	0	alert4		30	special	1://	
+S	1121006	0	0	rush2		30		1:15//	
+S	1121008	0	0	brandish1,brandish2		30		1:1/5/;11:2/5/;21:3/5/	
+S	1121010	0	0			30		1://	
+S	1121011	0	0			5		1://	
+S	1121012	0	0	dragonAura		10		1:10/8/	
+S	1131074	0	0	avenger		1		1:10/6/	
+S	1131075	0	0	savage		1		1:8/6/	
+S	1131105	0	0	dragonFly		1		1:15/8/	
+S	1131109	0	0	alert2		25		0:6/3/;1://	
+S	1200000	1	0			20		1://	
+S	1200002	3	0			30		1://	
+S	1201006	0	0	alert2		20		1:6//	
+S	1201007	0	0	alert2		30		1://	
+S	1210000	0	0			20		1://	
+S	1210001	0	0			20		1://	
+S	1211002	0	0			30		1:6//	
+S	1211003	0	0	alert4		30		1:6//	
+S	1211005	0	0	alert4		30		1:6//	
+S	1211007	0	0	alert4		30		1:6//	
+S	1211009	0	0	alert3		20		1:6//	
+S	1220005	0	0			30		1://	
+S	1220006	0	0			30	special	1://	
+S	1220010	0	0			10		1://	
+S	1221000	0	0	alert3		30		1://	
+S	1221001	0	0			30	prepare	1:6//	dash
+S	1221002	0	0	alert4		30	special	1://	
+S	1221003	0	0	alert4		20		1:6//	
+S	1221007	0	0	rush2		30		1:15//	
+S	1221009	0	0	blast		30		1:1/4/	
+S	1221012	0	0			5		1://	
+S	1221017	0	0	swingOF		10		1:6/5/	
+S	1231074	0	0	avenger		1		1:10/6/	
+S	1231075	0	0	savage		1		1:8/6/	
+S	1231105	0	0	dragonFly		1		1:15/8/	
+S	1231109	0	0	alert2		25		0:6/3/;1://	
+S	1300000	1	0			20		1://	
+S	1300002	3	0			30		1://	
+S	1301006	0	0	alert2		20		1://	
+S	1301007	0	0	alert2		30		1://	
+S	1310000	0	0			20		1://	
+S	1311001	0	43		1=burster1;2=burster1;3=burster1;4=burster1;5=burster1;6=burster1;7=burster1;8=burster1;9=burster1;10=burster1;11=burster1;12=burster1;13=burster1;14=burster1;15=burster1;16=burster2;17=burster2;18=burster2;19=burster2;20=burster2;21=burster2;22=burster2;23=burster2;24=burster2;25=burster2;26=burster2;27=burster2;28=burster2;29=burster2;30=burster2	30		1:1/6/;6:2/6/;11:3/6/;16:1/6/;21:2/6/;26:3/6/	
+S	1311003	0	43	swingP1,swingP2		30	afterimage	1:6/3/	
+S	1311005	0	0			30		1://	
+S	1311006	0	0	alert3		30		1:15//	
+S	1311007	0	0	alert3		20		1:6//	
+S	1311008	0	0	alert2		20	special	1://	
+S	1320005	0	0			30		1://	
+S	1320006	0	0			30		1://	
+S	1320008	0	0			25		1://	
+S	1320009	0	0			25		1://	
+S	1321000	0	0	alert3		30		1://	
+S	1321001	0	0			30	prepare	1:6//	dash
+S	1321002	0	0	alert4		30	special	1://	
+S	1321003	0	0	rush		30		1:15//	
+S	1321007	0	0	alert2		10		1://	
+S	1321010	0	0			5		1://	
+S	1321011	0	43	dragonShield		10		1:10/8/	
+S	1321012	0	43	illusion		30		0:8/5+d(x/16)/;1:6/4/	
+S	1321013	0	43	illusion		10		1:4/12/	
+S	1321016	0	0	alert2		10		1:8/4/	
+S	1331074	0	0	avenger		1		1:10/6/	
+S	1331075	0	0	savage		1		1:8/6/	
+S	1331105	0	0	dragonFly		1		1:15/8/	
+S	1331109	0	0	alert2		25		0:6/3/;1://	
+S	2000000	0	0			16		1://	
+S	2000001	0	0			10		1://	
+S	2001002	0	0	alert2		20		1://	
+S	2001003	0	0	alert2		20		1://	
+S	2001004	0	0			20	ball	1://	
+S	2001005	0	0			20		1:3/2/	
+S	2100000	0	0			20		1://	
+S	2101001	0	0	alert2		20		1://	
+S	2101002	0	0			20		1://	
+S	2101004	0	0	shoot1		30	ball	1:3/3/	
+S	2101005	0	0	swingO3		30	ball	1:8//	
+S	2110000	0	0			20		1://	
+S	2110001	0	0			30		1://	
+S	2111002	0	0	magic3		30	prepare,special	1:10/3/	explosion
+S	2111003	0	0	alert3		30		1://	
+S	2111004	0	0	alert4		1		1://	
+S	2111006	0	0	shoot6		30	ball	1:/4/	
+S	2121000	0	0	alert3		30		1://	
+S	2121002	0	0	alert4		30	special	1://	
+S	2121003	0	0			30	ball	1:8/4/	
+S	2121004	0	0	alert2		30		1://	
+S	2121005	0	0	alert2		30		1:4/2/	
+S	2121006	0	0	paralyze		30		1:12/7/	
+S	2121007	0	0	meteor		30		1:15/3/	
+S	2121008	0	0			5		1://	
+S	2121052	0	0	meteor		10		1:8/7/	
+S	2121054	0	0	alert2		10		1:8/4/	
+S	2131006	0	0	alert2		1		1://	
+S	2131067	0	0	dragonFly		1		1:10/6/	
+S	2131072	0	0	dragonFly		1		1:15/8/	
+S	2131079	0	0	dragonFly		1		1:10/6/	
+S	2200000	0	0			20		1://	
+S	2201001	0	0	alert2		20		1://	
+S	2201002	0	0			20		1://	
+S	2201004	0	0			30		1:/3/	
+S	2201005	0	0			30		1:6/2/	
+S	2210000	0	0			20		1://	
+S	2210001	0	0			30		1://	
+S	2211002	0	0	magic2		30		1:6/2/	
+S	2211003	0	0	magic1		30		1:3/3/	
+S	2211004	0	0	alert4		1		1://	
+S	2211006	0	0	shoot6		30	ball	1:/4/	
+S	2221000	0	0	alert3		30		1://	
+S	2221002	0	0	alert4		30	special	1://	
+S	2221003	0	0			30	ball	1:8/4/	
+S	2221004	0	0	alert2		30		1://	
+S	2221005	0	0	alert2		30		1:4/2/	
+S	2221006	0	0	chainlightning		30	ball	1:12/10/	
+S	2221007	0	0	blizzard		30		1:15/3/	
+S	2221008	0	0			5		1://	
+S	2221009	0	0			10		1:8/4/	
+S	2221011	0	0	timeleap		10		1:8/5/;2:8/4/	
+S	2231006	0	0	alert2		1		1://	
+S	2231067	0	0	dragonFly		1		1:10/6/	
+S	2231072	0	0	dragonFly		1		1:15/8/	
+S	2231079	0	0	dragonFly		1		1:10/6/	
+S	2300000	0	0			20		1://	
+S	2301001	0	0			20		1://	
+S	2301002	0	0	alert2		30		1:6/2/	
+S	2301003	0	0	alert2		20		1://	
+S	2301004	0	0	alert2		20		1://	
+S	2301005	0	0	shoot1		30	ball	1:/3/	
+S	2310000	0	0			20		1://	
+S	2311001	0	0	alert4		20		1:6//	
+S	2311002	0	0	alert2		20		1://	
+S	2311003	0	0	alert		30		1://	
+S	2311004	0	0	magic2		30		1:6//	
+S	2311005	0	0	alert3		1		1://	
+S	2311006	0	0	alert2		30		1://	
+S	2320012	0	0			1		1://	
+S	2321000	0	0	alert3		30		1://	
+S	2321002	0	0	alert4		30	special	1://	
+S	2321003	0	0	alert2		30		1:4/3/;2:3/3/;30:6/3/	
+S	2321004	0	0	alert2		30		1://	
+S	2321005	0	0	alert2		30		1://	
+S	2321006	0	0	resurrection		10		1://	
+S	2321007	0	0	shoot1		30	ball	1:8/8/	
+S	2321008	0	0	genesis		30		1:15/4/	
+S	2321009	0	0			5		1://	
+S	2331006	0	0	alert2		1		1://	
+S	2331067	0	0	dragonFly		1		1:10/6/	
+S	2331072	0	0	dragonFly		1		1:15/8/	
+S	2331079	0	0	dragonFly		1		1:10/6/	
+S	3000000	0	0			16		1://	
+S	3000001	0	0			20		1://	
+S	3000002	0	0			8		1://	
+S	3001003	0	0	alert2		20		1://	
+S	3001004	0	0			20	ball	1://	
+S	3001005	0	0			20		1://2	
+S	3100000	1	0			20		1://	
+S	3100001	3	0			30		1://	
+S	3101003	0	45			20	afterimage	1:2//;6:3//;11:4//;16:5//;20:6//	
+S	3101004	0	45	alert2		20	ball	1://	
+S	3101005	0	45			30	ball	1:6//	
+S	3110000	0	0			20		1://	
+S	3110001	0	0			20	special	1://	
+S	3111002	0	0	alert2		20		1://	
+S	3111003	0	45			30	ball,special	1:6//	
+S	3111004	0	45			30	special	1:8/3/	
+S	3111005	0	0	alert2		30		1://	
+S	3111006	0	45			30	ball	1://4	
+S	3120005	1	0			30		1://	
+S	3121000	0	0	alert3		30		1://	
+S	3121002	0	0	alert4		30		1://	
+S	3121003	0	45			30	ball	1:4//;11:5//;21:6//	
+S	3121004	0	45			30	prepare,keydown,keydownend,ball	1://3	shoot1
+S	3121006	0	0	alert2		30		1://	
+S	3121007	0	0	alert4		30		1://	
+S	3121008	0	0	alert2		30		1://	
+S	3121009	0	0			5		1://	
+S	3121015	0	45			10	ball	1:10/6/	
+S	3131003	0	0			1	ball	1:10/6/	
+S	3131007	0	0	alert2		1		1://	
+S	3131012	0	0	dragonFly		1	ball	1:15/8/	
+S	3131056	0	0			1	ball	1:12/8/	
+S	3200000	1	0			20		1://	
+S	3200001	3	0			30		1://	
+S	3201003	0	46			20	afterimage	1:2//;6:3//;11:4//;16:5//;20:6//	
+S	3201004	0	46	alert2		20	ball	1://	
+S	3201005	0	46			30	ball	1:6//	
+S	3210000	0	0			20		1://	
+S	3210001	0	0			20	special	1://	
+S	3211002	0	0	alert2		20		1://	
+S	3211003	0	46			30	special	1:6//	
+S	3211004	0	46			30	special	1:6/3/;2:8/3/;3:6/3/	
+S	3211005	0	0	alert2		30		1://	
+S	3211006	0	46			30	ball	1://4	
+S	3220004	1	0			30		1://	
+S	3221000	0	0	alert3		30		1://	
+S	3221001	0	46			30	prepare,keydown,ball	1:4/6/;11:5/6/;21:6/6/	dash
+S	3221002	0	0	alert4		30		1://	
+S	3221003	0	46			30	ball	1:4//;11:5//;21:6//	
+S	3221005	0	0	alert2		30		1://	
+S	3221006	0	0	alert4		30		1://	
+S	3221007	0	0			30	ball	1:/4/	
+S	3221008	0	0			5		1://	
+S	3221009	0	46			10	ball	1:12/8/	
+S	3221010	0	46	shoot1		10	ball	1:10/6/	
+S	3231003	0	0			1	ball	1:10/6/	
+S	3231007	0	0	alert2		1		1://	
+S	3231012	0	0	dragonFly		1	ball	1:15/8/	
+S	3231056	0	0			1	ball	1:12/8/	
+S	4000000	0	0			20		1://	
+S	4000001	0	0			8		1://	
+S	4001002	0	0			20		1://	
+S	4001003	0	0	darksight		20		1://	
+S	4001334	0	33	stabO1,stabO2		20		1:/2/	
+S	4001344	0	47			20		1://2	
+S	4100000	1	0			20		1://	
+S	4100001	0	0			30		1://	
+S	4100002	0	0			20		1://	
+S	4101004	0	0	alert2		20		1://	
+S	4101005	0	47			30		1://2	
+S	4110000	0	0			20		1://	
+S	4111001	0	0	alert4		20		1://	
+S	4111002	0	0	alert		30	special	1://	
+S	4111003	0	0	swingO1		20		1:6//	
+S	4111004	0	0			30	ball	1://	
+S	4111005	0	0	avenger		30	ball	1:8/6/	
+S	4111006	0	0			20		1://	
+S	4120002	0	0			30	special	1://	
+S	4120005	0	47			30		1://	
+S	4121000	0	0	alert3		30		1://	
+S	4121006	0	0			30		1://	
+S	4121007	0	47			30		1://4	
+S	4121008	0	47	alert2		30		1:6/5/	
+S	4121009	0	0			5		1://	
+S	4121010	0	47	showdown		10		1:6/4/	
+S	4131031	0	0	alert2		1		1://	
+S	4131042	0	0	dragonFly		1	ball	1:10/8/	
+S	4131073	0	0	dragonFly		1		1:15/10/	
+S	4131076	0	0	savage		1		1:8/6/	
+S	4200000	1	0			20		1://	
+S	4200001	0	0			20		1://	
+S	4201003	0	0	alert2		20		1://	
+S	4201005	0	33	savage		30		1:4/4/;11:4/5/;21:4/6/	
+S	4210000	0	0			20		1://	
+S	4211001	0	0	alert		30	prepare	1://	alert3
+S	4211002	0	33	assaulter		30		1:1//	
+S	4211003	0	0	alert4		20		1://	
+S	4211004	0	33			30	afterimage	1:2/5/;7:3/5/;13:4/5/;19:5/5/;25:6/5/	
+S	4211005	0	0	alert4		20	special	1://	
+S	4211006	0	0	prone2		30		1:6/10/;6:6/12/;11:6/14/;16:6/16/;21:6/18/;26:6/20/	
+S	4220002	0	0			30	special	1://	
+S	4220005	0	33			30		1://	
+S	4221000	0	0	alert3		30		1://	
+S	4221006	0	0	smokeshell		30		1://	
+S	4221007	0	33	alert5		30		1:6/6/;30:8/6/	
+S	4221008	0	0			5		1://	
+S	4221009	0	33	dragonFly		10		1:15/5/	
+S	4221010	0	33	savage		10		1:4/6/	
+S	4231031	0	0	alert2		1		1://	
+S	4231042	0	0	dragonFly		1	ball	1:10/8/	
+S	4231073	0	0	dragonFly		1		1:15/10/	
+S	4231076	0	0	savage		1		1:8/6/	
+S	5000000	0	0			20		1://	
+S	5001001	0	0	straight		20		1:1//	
+S	5001002	0	0	somersault		20		1:3//;6:4//;11:5//;16:6//	
+S	5001003	0	0	doublefire		20	ball	1://2	
+S	5001005	0	0			10	special	1://	
+S	5100000	0	0			10		1://	
+S	5100001	1	0			20		1://	
+S	5101002	0	0	backspin		20	afterimage	1:3//	
+S	5101003	0	0	doubleupper		20	afterimage	1:/2/	
+S	5101004	0	0	screw		20	prepare,keydown	1:3//	dash
+S	5101005	0	0	recovery		10		1://	
+S	5101007	0	0			10		1://	
+S	5110000	0	0			20		1://	
+S	5110001	0	0			40	special	1://	
+S	5111002	0	0	eburster		30		1:2//;11:3//;21:4//	
+S	5111013	0	48	dragonFury		20		0:8/2/;1:5/4/	
+S	5121000	0	0	alert3		30		1://	
+S	5121001	0	0	magicFlare		30		1:4/4/;11:5/4/;21:6/4/	
+S	5121002	0	0	eorb		30	ball	1:12/6/	
+S	5121008	0	0			5		1://	
+S	5121009	0	0	alert4		20		1://	
+S	5121010	0	0	timeleap		30		1://	
+S	5121011	0	48	dragonBreathe		10	afterimage	1:2/8/	
+S	5121012	0	48	dragonFly		10		1:5/4/	
+S	5121013	0	48	dragonFly		10		1:15/5/	
+S	5131033	0	0	alert2		1		1://	
+S	5131044	0	0	rollingSpin		1		1:15/8/	
+S	5131074	0	0	savage		1	ball	1:8/6/	
+S	5131075	0	0	dragonFly		1		1:10/8/	
+S	5200000	1	0			20		1://	
+S	5201001	0	49			20		1:3//	
+S	5201002	0	0			20	prepare,keydown,ball,special	1:3//;6:4//;11:5//;16:6//	dash
+S	5201004	0	49	fake		20		1:3//	
+S	5201005	0	0			10	finish,special	1://	
+S	5201006	0	49	backstep		20		1://	
+S	5210000	0	49	triplefire		20	ball	1://3	
+S	5211001	0	0	octopus		30		1://	
+S	5211002	0	0			30		1://	
+S	5211004	0	49	fireburner		30		1:2//;7:3//;13:4//;19:5//;25:6//	
+S	5211005	0	49	coolingeffect		30		1:2//;7:3//;13:4//;19:5//;25:6//	
+S	5211006	0	0	homing		30	ball	1://	
+S	5220001	0	0			30		1://	
+S	5220002	0	0	octopus		20		1://	
+S	5220011	0	0	homing		20	ball	1://	
+S	5221000	0	0	alert3		30		1://	
+S	5221003	0	0	airstrike		30		1:6/6/	
+S	5221004	0	49			30	prepare,keydown,keydownend,afterimage	1://	rapidfire
+S	5221006	0	0			10		1://	
+S	5221007	0	49	cannon		30	ball	1://4	
+S	5221008	0	49	torpedo		30	ball	1:4//4;11:5//4;21:6//4	
+S	5221010	0	0			5		1://	
+S	5221016	0	49	dragonSpark		10	ball	1:/5/	
+S	5221017	0	49	icebreathe_prepare		10	ball	1:8//6	
+S	5221018	0	49	alert2		10		1://	
+S	5231033	0	0	alert2		1		1://	
+S	5231044	0	0	rollingSpin		1		1:15/8/	
+S	5231074	0	0	savage		1	ball	1:8/6/	
+S	5231075	0	0	dragonFly		1		1:10/8/	
+S	7001000	0	0	NTmantis2		10		1:7/5/	
+S	7001001	0	0	magicBooster		10		1:15/8/	
+S	7001002	0	0	dragonstrike		10		1:8/10/	
+S	7001003	0	0	magicmissile		10		1:10/12/	
+S	7001004	0	0	meteor		30		0:8/7/	
+S	7001006	0	0	alert2		10		1://	
+S	7101101	0	0	alert2		1		1://	
+S	7101102	0	0	alert2		1		1://	
+S	7101103	0	0	alert2		1		1://	
+S	7101104	0	0	alert2		1		1://	
+S	7101105	0	0	alert2		1		1://	
+S	7101106	0	0	dragonFly		1		1:15/8/	
+S	7101107	0	0	dragonFly		1		1:8/6/	
+S	7101108	0	0	dragonFly		1		1:10/10/	
+S	8001000	0	0	stabO1		1		1://	
+S	8001001	0	0	alert2		1		1://	
+S	8001002	0	0			4		1://	
+S	8001003	0	0			4		1://	
+S	8001004	0	0			4		1://	
+S	8001005	0	0	alert2		4		1:4/2/;2:4/3/;3:4/2/	
+S	8001006	0	0	alert2		4		1:4/2/;2:4/3/;3:4/2/	
+S	8001007	0	37	alert2		4		1:4/2/;2:4/3/;3:4/2/	
+S	8001007	0	0	smokeshell		30		1://	
+S	9001000	0	0	alert2		1		1://	
+S	9001001	0	0	alert3		1		1:15//	
+S	9001002	0	0			1		1://	
+S	9101000	0	0	alert4		1		1://	
+S	9101001	0	0	alert2		1		1://	
+S	9101002	0	0	alert		1		1://	
+S	9101003	0	0	alert2		1		1://	
+S	9101004	0	0			1		1://	
+S	9101005	0	0			1		1://	
+S	9101008	0	0	alert2		1		1://	
+S	10000012	0	0			20		1://	
+S	10000018	0	0			1		1://	
+S	10000100	0	0			1		1://	
+S	10001000	0	0			3		1://	
+S	10001001	0	0			3		1://	
+S	10001002	0	0			3		1://	
+S	10001003	0	0			1		1://	
+S	10001004	0	0			1		1://	
+S	10001005	0	0			1		1://	
+S	10001006	0	0			1		1://	
+S	10001009	0	0	bamboo		1		1:30//	
+S	10001010	0	0	alert2		1		1://	
+S	10001011	0	0	alert2		1		1://	
+S	10001013	0	0			1		1://	
+S	10001014	0	0			2		1://	
+S	10001015	0	0			1	special	1://	
+S	10001016	0	0	float		1		1://	
+S	10001019	0	0			1		1://	
+S	10001020	0	0	pyramid		1		1:15//	
+S	10001022	0	0			1		1://	
+S	10001023	0	0			1		1://	
+S	10001031	0	0			1		1://	
+S	10001050	0	0			1		1://	
+S	10001054	0	0			1		1://	
+S	10009000	0	0			1		1://	
+S	10009001	0	0			1		1://	
+S	10009002	0	0			1		1://	
+S	11000000	0	0			10		1://	
+S	11001001	0	0	alert2		10		1://	
+S	11001002	0	0			20		1://	
+S	11001003	0	0			20		1:6//	
+S	11001004	0	0	alert2		20		1://	
+S	11100000	1	0			20		1://	
+S	11101002	3	0	alert2		30		1://	
+S	11101003	0	0	alert2		20		1://	
+S	11101004	0	0	blade		30	ball	1:3//;11:4//;21:5//	
+S	11101005	0	0			10		1://	
+S	11110000	0	0			20		1://	
+S	11110005	0	0			20		1://	
+S	11111001	0	0	alert4		20		1://	
+S	11111002	0	0			20	finish	1://	
+S	11111003	0	0			20	finish	1:6//	
+S	11111004	0	0	brandish1,brandish2		30		1:1/2/;11:2/2/;21:3/2/	
+S	11111006	0	0	souldriver		30		1:3/4/;6:4/4/;11:5/4/;16:6/4/;21:7/4/;26:8/4/	
+S	11111007	0	0	alert6		20		1:6//	
+S	11121004	0	0	souldriver		10	afterimage	1:6/6/	
+S	11121014	0	0	SMsolLunaSlash		10		1:7/6/	
+S	11121101	0	0	rollingSpin		10		1:2/4/	
+S	11121102	0	0	rollingSpin		10		1:6/4/	
+S	11121203	0	0	SMsolarPierce		10		1:7/6/	
+S	11121204	0	0	alert4		30	special	1://	
+S	11131074	0	0	avenger		1		1:10/6/	
+S	11131075	0	0	savage		1		1:8/6/	
+S	11131105	0	0	dragonFly		1		1:15/8/	
+S	11131109	0	0	alert2		25		0:6/3/;1://	
+S	12000000	0	0			10		1://	
+S	12001001	0	0	alert2		10		1://	
+S	12001002	0	0	alert2		10		1://	
+S	12001003	0	0			20		1:3/2/	
+S	12001004	0	0	alert2		20		1://	
+S	12101000	0	0	alert2		20		1://	
+S	12101002	0	0	shoot1		20	ball	1://	
+S	12101003	0	0			20		1://	
+S	12101005	0	0	alert3		20		1://	
+S	12101006	0	0	magic5		20		1:6//	
+S	12110000	0	0			20		1://	
+S	12110001	0	0			20		1://	
+S	12111002	0	0	alert4		1		1://	
+S	12111003	0	0	meteor		20		1:15/2/	
+S	12111004	0	0	alert2		20		1://	
+S	12111005	0	0	flamegear		30		1://	
+S	12111006	0	0	firestrike		30	ball	1:6/4/	
+S	12121002	0	0	rollingSpin		10		1:15/7/	
+S	12121012	0	0	alert2		10		1:8/4/	
+S	12121054	0	0	chainlightning		10		1:8/4/	
+S	12121055	0	0	chainlightning		10		1:8/5/	
+S	12131006	0	0	alert2		1		1://	
+S	12131067	0	0	dragonFly		1		1:10/6/	
+S	12131072	0	0	dragonFly		1		1:15/8/	
+S	12131079	0	0	dragonFly		1		1:10/6/	
+S	13000000	0	0			20		1://	
+S	13000001	0	0			8		1://	
+S	13001002	0	0	alert2		10		1://	
+S	13001003	0	0			20		1://2	
+S	13001004	0	0	alert2		20		1://	
+S	13100000	1	0			20		1://	
+S	13100004	0	0			20		1://	
+S	13101002	3	0			30		1://	
+S	13101003	0	45	alert2		20	ball	1://	
+S	13101005	0	45	stormbreak		20		1:3//0;6:4//0;11:5//0;16:6//0	
+S	13101006	0	45			10		1://	
+S	13110003	1	0			20		1://	
+S	13111000	0	45			20	special	1:6/3/;2:8/3/;3:6/3/	
+S	13111001	0	45			30	ball	1://4	
+S	13111002	0	45			20	prepare,keydown,keydownend,ball	1://	shoot1
+S	13111004	0	0	alert2		20		1://	
+S	13121001	0	45	shoot1		10	ball	1:10/6/	
+S	13121002	0	45	shoot1		10	ball	1:10/6/	
+S	13121008	0	0	alert2		30		0://;1:1//	
+S	13121052	0	45	dragonIceBreathe		10		1:15/4/	
+S	13121054	0	45	avenger		10		1:8/8/	
+S	13131003	0	0			1	ball	1:10/6/	
+S	13131007	0	0	alert2		1		1://	
+S	13131012	0	0	dragonFly		1	ball	1:15/8/	
+S	13131056	0	0			1	ball	1:12/8/	
+S	14000000	0	0			10		1://	
+S	14000001	0	0			8		1://	
+S	14001002	0	0			10		1://	
+S	14001003	0	0	darksight		10		1://	
+S	14001004	0	47			20		1://2	
+S	14001005	0	0	alert2		20		1://	
+S	14100000	1	0			20		1://	
+S	14100001	0	0			30		1://	
+S	14101003	0	0	alert2		20		1://	
+S	14101004	0	0			20		1://	
+S	14101006	0	0	vampire		20		1:3/4/;6:4/4/;11:5/4/;16:6/4/	
+S	14110003	0	0			20		1://	
+S	14110004	0	47			20		1://	
+S	14111000	0	0	alert		30	special	1://	
+S	14111001	0	0	swingO1		20		1:6//	
+S	14111002	0	0	avenger		30	ball	1:8/6/	
+S	14111005	0	47			20		1://3	
+S	14111006	0	47			30	prepare,keydown,ball,special	1:6//	dash
+S	14121001	0	47			10		1://5	
+S	14121003	0	47	alert2		10		1:8/4/	
+S	14121006	0	47	showdown		10		1:6/4/	
+S	14121007	0	47	dragonIceBreathe		10		1:15/6/	
+S	14131031	0	0	alert2		1		1://	
+S	14131042	0	0	dragonFly		1	ball	1:10/8/	
+S	14131073	0	0	dragonFly		1		1:15/10/	
+S	14131076	0	0	savage		1		1:8/6/	
+S	15000000	0	0			10		1://	
+S	15001001	0	0	straight		20		1:1//	
+S	15001002	0	0	somersault		20		1:3//;6:4//;11:5//;16:6//	
+S	15001003	0	0			10	special	1://	
+S	15001004	0	0	alert2		20		1://	
+S	15100000	0	0			10		1://	
+S	15100001	1	0			20		1://	
+S	15100004	0	0			20	special	1://	
+S	15101003	0	0	screw		20	prepare,keydown	1:3//	dash
+S	15101005	0	0	eburster		20		1:2//;11:3//	
+S	15101006	0	48	alert4		20		1:6//	
+S	15110000	0	0			20		1://	
+S	15111001	0	0	edrain		20		1:1//	
+S	15111004	0	0	fist		20	afterimage	1:/6/	
+S	15111005	0	0	alert4		20		1://	
+S	15111006	0	0	alert5		20	ball	1:2//;11:3//	
+S	15111007	0	48	wave		30	ball	1:4/3/;11:5/3/;21:6/3/	
+S	15121001	0	48	blast		10		1:1/4/	
+S	15121002	0	48	meteor		10		1:8/5/	
+S	15121003	0	48	STtypoon		10		1:8/5/	
+S	15121052	0	48	dragonIceBreathe		10		1:15/8/	
+S	15131033	0	0	alert2		1		1://	
+S	15131044	0	0	rollingSpin		1		1:15/8/	
+S	15131074	0	0	savage		1	ball	1:8/6/	
+S	15131075	0	0	dragonFly		1		1:10/8/	
+S	20000012	0	0			20		1://	
+S	20000014	0	0	overSwingDouble		1	afterimage	1:12/2/	
+S	20000015	0	0	overSwingTriple		1	afterimage	1:12/2/	
+S	20000016	0	44	finalBlow		1		1:12//	
+S	20000017	0	44			1		1://	
+S	20000018	0	0			1		1://	
+S	20000024	0	0			1		1://	
+S	20000100	0	0			1		1://	
+S	20001000	0	0			3		1://	
+S	20001001	0	0			3		1://	
+S	20001002	0	0			3		1://	
+S	20001003	0	0			1		1://	
+S	20001004	0	0			1		1://	
+S	20001005	0	0			1		1://	
+S	20001006	0	0			1		1://	
+S	20001009	0	0	bamboo		1		1:30//	
+S	20001010	0	0	alert2		1		1://	
+S	20001011	0	0	alert2		1		1://	
+S	20001013	0	0			1		1://	
+S	20001019	0	0			1		1://	
+S	20001020	0	0	pyramid		1		1:15//	
+S	20001022	0	0			1		1://	
+S	20001023	0	0			1		1://	
+S	20001031	0	0			1		1://	
+S	20001050	0	0			1		1://	
+S	20001054	0	0			1		1://	
+S	20009000	0	0			1		1://	
+S	20009001	0	0			1		1://	
+S	20009002	0	0			1		1://	
+S	21000000	0	44			10		1://	
+S	21000002	0	44	doubleSwing		20		1:12//	
+S	21001001	0	0	combatStep		15		1://	
+S	21100000	1	44			20		1://	
+S	21100001	0	44	tripleSwing		20		1:12//;20:8//	
+S	21100002	0	44	finalCharge		30		1:5//;5:6//;9:7//;13:8//;17:9//;21:10//;25:11//;29:12//	
+S	21100004	0	44	comboSmash		20	ball	1:4/2/;5:5/2/;8:6/2/;11:7/2/;14:8/2/;17:9/2/;20:10/2/	
+S	21100005	0	44	alert4		20		1://	
+S	21101003	0	0	alert6		20		1://	
+S	21110000	0	0			20		1://	
+S	21110002	0	0			20		1://	
+S	21110003	0	44	finalToss		30		1:12//	
+S	21110004	0	44	comboFenrir		30	ball	1:4/6/;6:5/6/;11:6/6/;16:7/6/;21:8/6/;26:9/6/;30:10/6/	
+S	21110006	0	44	rollingSpin		20		1:4/4/;5:6/4/;9:8/4/;13:10/4/;17:12/4/	
+S	21110007	0	0	fullSwingDouble		20	afterimage	1:12/2/	
+S	21110008	0	0	fullSwingTriple		20	afterimage	1:12//	
+S	21111001	0	0	alert6		20		1://	
+S	21111005	0	44	magic5		20		1:6//	
+S	21120001	1	44			30		1://	
+S	21120002	0	0			30		1://	
+S	21120004	0	0			30		1://	
+S	21120005	0	44	finalBlow		30		1:12/8/	
+S	21120006	0	44	comboTempest		30	special	1:15/5/	
+S	21120007	0	44	genesis		30		1://	
+S	21120009	0	0	overSwingDouble		30	afterimage	1:12/4/	
+S	21120010	0	0	overSwingTriple		30	afterimage	1:12/5/	
+S	21121000	0	0	alert3		30		1://	
+S	21121003	0	0	alert6		30	special	1://	
+S	21121008	0	0			5		1://	
+S	21131074	0	0	avenger		1		1:10/6/	
+S	21131075	0	0	savage		1		1:8/6/	
+S	21131105	0	0	dragonFly		1		1:15/8/	
+S	21131109	0	0	alert2		25		0:6/3/;1://	
+W	1212000	6	6	mace
+W	1212001	6	6	mace
+W	1212002	6	6	mace
+W	1212003	6	6	mace
+W	1212004	6	6	mace
+W	1212005	6	6	mace
+W	1212006	6	6	mace
+W	1212007	6	6	mace
+W	1212008	6	6	mace
+W	1212009	6	6	mace
+W	1212010	6	6	mace
+W	1212011	6	6	mace
+W	1212012	6	6	mace
+W	1212013	6	6	mace
+W	1212014	6	6	mace
+W	1212015	6	6	mace
+W	1212016	6	6	mace
+W	1212017	6	6	mace
+W	1212018	6	6	mace
+W	1212019	6	6	mace
+W	1212020	6	6	mace
+W	1212021	6	6	mace
+W	1212022	6	6	mace
+W	1212023	6	6	mace
+W	1212024	6	6	mace
+W	1212025	6	6	mace
+W	1212026	6	6	mace
+W	1212027	6	6	mace
+W	1212028	6	6	mace
+W	1212029	6	6	mace
+W	1212030	6	6	mace
+W	1212031	6	6	mace
+W	1212032	6	6	mace
+W	1212033	6	6	mace
+W	1212034	6	6	mace
+W	1212035	6	6	mace
+W	1212036	6	6	mace
+W	1212037	6	6	mace
+W	1212038	6	6	mace
+W	1212039	6	6	mace
+W	1212040	6	6	mace
+W	1212041	6	6	mace
+W	1212042	6	6	mace
+W	1212043	6	6	mace
+W	1212044	6	6	mace
+W	1212045	6	6	mace
+W	1212046	6	6	mace
+W	1212047	6	6	mace
+W	1212048	6	6	mace
+W	1212049	6	6	mace
+W	1212050	6	6	mace
+W	1212051	6	6	mace
+W	1212052	6	6	mace
+W	1212053	6	6	mace
+W	1212055	6	6	mace
+W	1212056	6	6	mace
+W	1212057	6	6	mace
+W	1212060	6	6	mace
+W	1212062	6	6	mace
+W	1212063	6	6	mace
+W	1212065	6	6	mace
+W	1212066	6	6	mace
+W	1212067	6	6	mace
+W	1212068	6	6	mace
+W	1212069	6	6	mace
+W	1212071	6	6	mace
+W	1212073	6	6	mace
+W	1212074	6	6	mace
+W	1212075	6	6	mace
+W	1212076	6	6	mace
+W	1212077	6	6	mace
+W	1212078	6	6	mace
+W	1212079	6	6	mace
+W	1212080	6	6	mace
+W	1212081	6	6	mace
+W	1212082	6	6	mace
+W	1212083	6	6	mace
+W	1212085	6	6	mace
+W	1212086	6	6	mace
+W	1212087	6	6	mace
+W	1212088	6	6	mace
+W	1212089	6	0	mace
+W	1212090	6	0	mace
+W	1212091	6	6	mace
+W	1212092	6	6	mace
+W	1212093	6	6	mace
+W	1212095	6	6	mace
+W	1212098	6	6	mace
+W	1212099	6	6	mace
+W	1212100	6	6	mace
+W	1212101	6	6	mace
+W	1212102	6	6	mace
+W	1212115	6	0	mace
+W	1212116	6	6	mace
+W	1212117	6	6	mace
+W	1212119	6	6	mace
+W	1212120	6	0	mace
+W	1212121	6	0	mace
+W	1212122	6	6	mace
+W	1212123	6	0	mace
+W	1212125	6	6	mace
+W	1212127	6	6	mace
+W	1212128	6	0	mace
+W	1212129	6	0	mace
+W	1212130	6	6	mace
+W	1222000	8	5	swordOL
+W	1222001	8	5	swordOL
+W	1222002	7	5	swordOL
+W	1222003	7	5	swordOL
+W	1222004	7	5	swordOL
+W	1222005	7	5	swordOL
+W	1222006	7	5	swordOL
+W	1222007	7	5	swordOL
+W	1222008	7	5	swordOL
+W	1222009	7	5	swordOL
+W	1222010	7	5	swordOL
+W	1222011	7	5	swordOL
+W	1222012	7	5	swordOL
+W	1222013	7	5	swordOL
+W	1222014	7	5	swordOL
+W	1222015	7	5	swordOL
+W	1222016	8	5	swordOL
+W	1222017	8	5	swordOL
+W	1222018	8	5	swordOL
+W	1222019	8	5	swordOL
+W	1222020	8	6	swordOL
+W	1222021	8	5	swordOL
+W	1222022	8	5	swordOL
+W	1222023	8	5	swordOL
+W	1222024	8	5	swordOL
+W	1222025	8	5	swordOL
+W	1222026	7	5	swordOL
+W	1222027	8	5	swordOL
+W	1222028	8	5	swordOL
+W	1222029	7	5	swordOL
+W	1222030	7	5	swordOL
+W	1222031	8	5	swordOL
+W	1222032	8	5	swordOL
+W	1222033	7	5	swordOL
+W	1222034	8	5	swordOL
+W	1222035	8	5	swordOL
+W	1222036	7	5	swordOL
+W	1222037	7	5	swordOL
+W	1222038	7	5	swordOL
+W	1222039	8	5	swordOL
+W	1222040	8	5	swordOL
+W	1222041	8	5	swordOL
+W	1222042	8	5	swordOL
+W	1222043	8	5	swordOL
+W	1222044	8	5	swordOL
+W	1222045	8	5	swordOL
+W	1222046	8	5	swordOL
+W	1222047	7	5	swordOL
+W	1222048	8	5	swordOL
+W	1222049	8	5	swordOL
+W	1222050	8	5	swordOL
+W	1222051	7	5	swordOL
+W	1222052	8	5	swordOL
+W	1222055	8	5	swordOL
+W	1222057	7	5	swordOL
+W	1222058	7	5	swordOL
+W	1222060	7	5	swordOL
+W	1222061	7	5	swordOL
+W	1222062	7	5	swordOL
+W	1222063	8	5	swordOL
+W	1222064	8	5	swordOL
+W	1222066	7	5	swordOL
+W	1222068	7	5	swordOL
+W	1222069	8	5	swordOL
+W	1222070	7	5	swordOL
+W	1222071	7	5	swordOL
+W	1222072	7	5	swordOL
+W	1222073	7	5	swordOL
+W	1222074	7	5	swordOL
+W	1222075	8	5	swordOL
+W	1222076	8	5	swordOL
+W	1222077	7	5	swordOL
+W	1222078	7	5	swordOL
+W	1222080	8	5	swordOL
+W	1222081	8	5	swordOL
+W	1222082	8	5	swordOL
+W	1222083	7	5	swordOL
+W	1222084	7	0	swordOL
+W	1222085	7	0	swordOL
+W	1222086	8	5	swordOL
+W	1222087	8	5	swordOL
+W	1222089	7	5	swordOL
+W	1222092	7	5	swordOL
+W	1222093	7	5	swordOL
+W	1222094	7	5	swordOL
+W	1222095	7	5	swordOL
+W	1222096	8	5	swordOL
+W	1222109	7	5	swordOL
+W	1222110	7	5	swordOL
+W	1222111	7	5	swordOL
+W	1222113	7	5	swordOL
+W	1222114	7	5	swordOL
+W	1222115	7	5	swordOL
+W	1222116	7	5	swordOL
+W	1222118	7	5	swordOL
+W	1222120	7	5	swordOL
+W	1222121	7	5	swordOL
+W	1222122	7	5	swordOL
+W	1222123	7	5	swordOL
+W	1232000	1	6	swordOL
+W	1232001	1	6	swordOL
+W	1232002	1	6	swordOL
+W	1232003	1	6	swordOL
+W	1232004	1	6	swordOL
+W	1232005	1	6	swordOL
+W	1232006	1	6	swordOL
+W	1232007	1	6	swordOL
+W	1232008	1	6	swordOL
+W	1232009	1	6	swordOL
+W	1232010	1	6	swordOL
+W	1232011	1	6	swordOL
+W	1232012	1	6	swordOL
+W	1232013	1	6	swordOL
+W	1232014	1	6	swordOL
+W	1232015	1	6	swordOL
+W	1232016	1	6	swordOL
+W	1232017	1	6	swordOL
+W	1232018	1	6	swordOL
+W	1232019	1	6	swordOL
+W	1232020	1	6	swordOL
+W	1232021	1	6	swordOL
+W	1232022	1	6	swordOL
+W	1232023	1	6	swordOL
+W	1232024	1	6	swordOL
+W	1232025	1	6	swordOL
+W	1232026	1	6	swordOL
+W	1232027	1	6	swordOL
+W	1232028	1	6	swordOL
+W	1232029	1	6	swordOL
+W	1232030	1	6	swordOL
+W	1232031	1	6	swordOL
+W	1232032	1	6	swordOL
+W	1232033	1	6	swordOL
+W	1232034	1	6	swordOL
+W	1232035	1	6	swordOL
+W	1232036	1	6	swordOL
+W	1232037	1	6	swordOL
+W	1232038	1	6	swordOL
+W	1232039	1	6	swordOL
+W	1232040	1	6	swordOL
+W	1232041	1	6	swordOL
+W	1232042	1	6	swordOL
+W	1232043	1	6	swordOL
+W	1232044	1	6	swordOL
+W	1232050	1	6	swordOL
+W	1232051	1	6	swordOL
+W	1232052	1	6	swordOL
+W	1232053	1	6	swordOL
+W	1232054	1	6	swordOL
+W	1232055	1	6	swordOL
+W	1232056	1	6	swordOL
+W	1232057	1	6	swordOL
+W	1232058	1	6	swordOL
+W	1232059	1	6	swordOL
+W	1232060	1	6	swordOL
+W	1232061	1	6	swordOL
+W	1232062	1	6	swordOL
+W	1232065	1	6	swordOL
+W	1232066	1	6	swordOL
+W	1232067	1	6	swordOL
+W	1232068	1	6	swordOL
+W	1232071	1	6	swordOL
+W	1232072	1	5	swordOL
+W	1232073	1	6	swordOL
+W	1232074	1	6	swordOL
+W	1232075	1	5	swordOL
+W	1232076	1	6	swordOL
+W	1232077	1	6	swordOL
+W	1232078	1	6	swordOL
+W	1232080	1	6	swordOL
+W	1232081	1	6	swordOL
+W	1232082	1	6	swordOL
+W	1232083	1	6	swordOL
+W	1232084	1	6	swordOL
+W	1232085	1	6	swordOL
+W	1232086	1	6	swordOL
+W	1232087	1	6	swordOL
+W	1232089	1	6	swordOL
+W	1232092	1	6	swordOL
+W	1232093	1	6	swordOL
+W	1232094	1	6	swordOL
+W	1232095	1	6	swordOL
+W	1232096	1	6	swordOL
+W	1232109	1	6	swordOL
+W	1232110	1	6	swordOL
+W	1232111	1	6	swordOL
+W	1232113	1	6	swordOL
+W	1232114	1	6	swordOL
+W	1232115	1	6	swordOL
+W	1232116	1	6	swordOL
+W	1232118	1	6	swordOL
+W	1232120	1	6	swordOL
+W	1232121	1	6	swordOL
+W	1232122	1	6	swordOL
+W	1232123	1	6	swordOL
+W	1242000	1	5	swordOS
+W	1242001	1	5	swordOS
+W	1242002	1	5	swordOS
+W	1242003	1	5	swordOS
+W	1242004	1	5	swordOS
+W	1242005	1	5	swordOS
+W	1242006	1	5	swordOS
+W	1242007	1	5	swordOS
+W	1242008	1	5	swordOS
+W	1242009	1	5	swordOS
+W	1242010	1	5	swordOS
+W	1242011	1	5	swordOS
+W	1242012	1	5	swordOS
+W	1242013	1	5	swordOS
+W	1242014	1	5	swordOS
+W	1242015	1	5	swordOS
+W	1242016	1	5	swordOS
+W	1242017	1	5	swordOS
+W	1242018	1	5	swordOS
+W	1242019	1	5	swordOS
+W	1242020	1	5	swordOS
+W	1242021	1	5	swordOS
+W	1242022	1	5	swordOS
+W	1242023	1	5	swordOS
+W	1242024	1	5	swordOS
+W	1242025	1	5	swordOS
+W	1242026	1	5	swordOS
+W	1242027	1	5	swordOS
+W	1242028	1	5	swordOS
+W	1242029	1	5	swordOS
+W	1242030	1	5	swordOS
+W	1242031	1	5	swordOS
+W	1242032	1	5	swordOS
+W	1242033	1	5	swordOS
+W	1242034	1	5	swordOS
+W	1242035	1	5	swordOS
+W	1242042	1	5	swordOS
+W	1242043	1	5	swordOS
+W	1242044	1	5	swordOS
+W	1242045	1	5	swordOS
+W	1242046	1	5	swordOS
+W	1242047	1	5	swordOS
+W	1242049	1	5	swordOS
+W	1242050	1	5	swordOS
+W	1242051	1	5	swordOS
+W	1242052	1	5	swordOS
+W	1242053	1	5	swordOS
+W	1242054	1	5	swordOS
+W	1242055	1	5	swordOS
+W	1242056	1	5	swordOS
+W	1242057	1	5	swordOS
+W	1242058	1	5	swordOS
+W	1242059	1	5	swordOS
+W	1242060	1	5	swordOS
+W	1242061	1	5	swordOS
+W	1242062	1	5	swordOS
+W	1242063	1	5	swordOS
+W	1242064	1	5	swordOS
+W	1242065	1	5	swordOS
+W	1242066	1	5	swordOS
+W	1242067	1	5	swordOS
+W	1242071	1	5	swordOS
+W	1242072	1	5	swordOS
+W	1242073	1	5	swordOS
+W	1242076	1	5	swordOS
+W	1242077	1	4	swordOS
+W	1242078	1	4	swordOS
+W	1242079	1	5	swordOS
+W	1242080	1	5	swordOS
+W	1242081	1	4	swordOS
+W	1242082	1	5	swordOS
+W	1242083	1	5	swordOS
+W	1242084	1	5	swordOS
+W	1242087	1	5	swordOS
+W	1242088	1	5	swordOS
+W	1242089	1	5	swordOS
+W	1242090	1	5	swordOS
+W	1242091	1	5	swordOS
+W	1242092	1	5	swordOS
+W	1242093	1	5	swordOS
+W	1242095	1	5	swordOS
+W	1242099	1	5	swordOS
+W	1242100	1	5	swordOS
+W	1242101	1	5	swordOS
+W	1242102	1	5	swordOS
+W	1242103	1	5	swordOS
+W	1242116	1	5	swordOS
+W	1242117	1	5	swordOS
+W	1242118	1	5	swordOS
+W	1242120	1	5	swordOS
+W	1242121	1	5	swordOS
+W	1242122	1	5	swordOS
+W	1242123	1	5	swordOS
+W	1242124	1	5	swordOS
+W	1242125	1	5	swordOS
+W	1242126	1	5	swordOS
+W	1242128	1	5	swordOS
+W	1242129	1	5	swordOS
+W	1242131	1	5	swordOS
+W	1242132	1	5	swordOS
+W	1242133	1	5	swordOS
+W	1242136	1	5	swordOS
+W	1242137	1	5	swordOS
+W	1242138	1	5	swordOS
+W	1242139	1	5	swordOS
+W	1242140	1	5	swordOS
+W	1242141	1	5	swordOS
+W	1242142	1	5	swordOS
+W	1242143	1	5	swordOS
+W	1252000	6	6	mace
+W	1252001	6	6	mace
+W	1252002	6	6	mace
+W	1252003	6	6	mace
+W	1252004	6	6	mace
+W	1252005	6	6	mace
+W	1252006	6	6	mace
+W	1252007	6	6	mace
+W	1252008	6	6	mace
+W	1252009	6	6	mace
+W	1252010	6	6	mace
+W	1252011	6	6	mace
+W	1252012	6	6	mace
+W	1252013	6	6	mace
+W	1252014	6	6	mace
+W	1252015	6	6	mace
+W	1252016	6	6	mace
+W	1252017	6	6	mace
+W	1252018	6	6	mace
+W	1252019	6	6	mace
+W	1252020	6	6	mace
+W	1252021	6	6	mace
+W	1252022	6	6	mace
+W	1252023	6	6	mace
+W	1252024	6	6	mace
+W	1252025	6	6	mace
+W	1252026	6	6	mace
+W	1252027	6	6	mace
+W	1252028	6	6	mace
+W	1252029	6	6	mace
+W	1252030	6	6	mace
+W	1252031	6	6	mace
+W	1252032	6	6	mace
+W	1252033	6	6	mace
+W	1252034	6	6	mace
+W	1252035	6	6	mace
+W	1252036	6	6	mace
+W	1252037	6	6	mace
+W	1252038	6	6	mace
+W	1252039	6	6	mace
+W	1252040	6	6	mace
+W	1252041	6	6	mace
+W	1252042	6	6	mace
+W	1252043	6	6	mace
+W	1252044	6	6	mace
+W	1252045	6	6	mace
+W	1252046	6	6	mace
+W	1252047	6	6	mace
+W	1252048	6	6	mace
+W	1252049	6	6	mace
+W	1252050	6	6	mace
+W	1252051	6	6	mace
+W	1252052	6	6	mace
+W	1252053	6	6	mace
+W	1252054	6	6	mace
+W	1252056	6	6	mace
+W	1252057	6	6	mace
+W	1252058	6	6	mace
+W	1252059	6	6	mace
+W	1252060	6	8	mace
+W	1252061	6	6	mace
+W	1252064	6	6	mace
+W	1252065	6	6	mace
+W	1252066	6	6	mace
+W	1252083	6	6	mace
+W	1252084	6	6	mace
+W	1252085	6	6	mace
+W	1252086	6	6	mace
+W	1252087	6	6	mace
+W	1252092	6	6	mace
+W	1252093	6	6	mace
+W	1252095	6	6	mace
+W	1252097	6	6	mace
+W	1252098	6	6	mace
+W	1252099	6	6	mace
+W	1252101	6	6	mace
+W	1252103	6	6	mace
+W	1252104	6	6	mace
+W	1252105	6	6	mace
+W	1252106	6	6	mace
+W	1262000	6	6	swordOL
+W	1262001	6	6	swordOL
+W	1262002	6	6	swordOL
+W	1262003	6	6	swordOL
+W	1262004	6	6	swordOL
+W	1262005	6	6	swordOL
+W	1262006	6	6	swordOL
+W	1262007	6	6	swordOL
+W	1262008	6	6	swordOL
+W	1262009	6	6	swordOL
+W	1262010	6	6	swordOL
+W	1262011	6	6	swordOL
+W	1262012	6	6	swordOL
+W	1262013	6	6	swordOL
+W	1262014	6	6	swordOL
+W	1262015	6	6	swordOL
+W	1262016	6	6	swordOL
+W	1262017	6	6	swordOL
+W	1262018	6	6	swordOL
+W	1262019	6	6	swordOL
+W	1262020	6	6	swordOL
+W	1262021	6	6	swordOL
+W	1262022	6	6	swordOL
+W	1262023	6	6	swordOL
+W	1262024	6	6	swordOL
+W	1262027	6	6	swordOL
+W	1262028	6	6	swordOL
+W	1262029	6	6	swordOL
+W	1262030	6	6	swordOL
+W	1262035	6	6	swordOL
+W	1262037	6	6	swordOL
+W	1262038	6	6	swordOL
+W	1262039	6	6	swordOL
+W	1262040	6	6	swordOL
+W	1262041	6	6	swordOL
+W	1262042	6	6	swordOL
+W	1262044	6	6	swordOL
+W	1262045	6	6	swordOL
+W	1262047	6	6	swordOL
+W	1262048	6	6	swordOL
+W	1262050	6	6	swordOL
+W	1262051	6	6	swordOL
+W	1262052	6	6	swordOL
+W	1272000	1	4	swordOS
+W	1272001	1	4	swordOS
+W	1272002	1	4	swordOS
+W	1272003	1	4	swordOS
+W	1272004	1	4	swordOS
+W	1272005	1	4	swordOS
+W	1272006	1	4	swordOS
+W	1272007	1	4	swordOS
+W	1272008	1	4	swordOS
+W	1272009	1	4	swordOS
+W	1272010	1	4	swordOS
+W	1272011	1	4	swordOS
+W	1272012	1	4	swordOS
+W	1272013	1	4	swordOS
+W	1272014	1	4	swordOS
+W	1272015	1	4	swordOS
+W	1272016	1	4	swordOS
+W	1272017	1	4	swordOS
+W	1272018	1	4	swordOS
+W	1272019	1	4	swordOS
+W	1272020	1	4	swordOS
+W	1272021	1	4	swordOS
+W	1272022	1	3	swordOS
+W	1272023	1	4	swordOS
+W	1272024	1	3	swordOS
+W	1272025	1	4	swordOS
+W	1272026	1	4	swordOS
+W	1272027	1	4	swordOS
+W	1272028	1	4	swordOS
+W	1272029	1	4	swordOS
+W	1272031	1	4	swordOS
+W	1272032	1	4	swordOS
+W	1272035	1	4	swordOS
+W	1272036	1	4	swordOS
+W	1272037	1	4	swordOS
+W	1272038	1	4	swordOS
+W	1272039	1	4	swordOS
+W	1272040	1	4	swordOS
+W	1272041	1	4	swordOS
+W	1282000	6	6	swordOL
+W	1282001	6	6	swordOL
+W	1282002	6	6	swordOL
+W	1282003	6	6	swordOL
+W	1282004	6	6	swordOL
+W	1282005	6	6	swordOL
+W	1282006	6	6	swordOL
+W	1282007	6	6	swordOL
+W	1282008	6	6	swordOL
+W	1282009	6	6	swordOL
+W	1282010	6	6	swordOL
+W	1282011	6	6	swordOL
+W	1282012	6	6	swordOL
+W	1282013	6	6	swordOL
+W	1282014	6	6	swordOL
+W	1282015	6	6	swordOL
+W	1282016	6	6	swordOL
+W	1282017	6	6	swordOL
+W	1282018	6	6	swordOL
+W	1282019	6	6	swordOL
+W	1282020	6	6	swordOL
+W	1282021	6	6	swordOL
+W	1282022	6	6	swordOL
+W	1282023	6	6	swordOL
+W	1282024	6	6	swordOL
+W	1282025	6	6	swordOL
+W	1282026	6	6	swordOL
+W	1282027	6	6	swordOL
+W	1282028	6	6	swordOL
+W	1282029	6	6	swordOL
+W	1282031	6	6	swordOL
+W	1282034	6	6	mace
+W	1282035	6	6	mace
+W	1282036	6	6	swordOL
+W	1282037	6	6	swordOL
+W	1282038	6	6	swordOL
+W	1282039	6	6	swordOL
+W	1282040	6	6	swordOL
+W	1282041	6	6	swordOL
+W	1300000	6	8	mace
+W	1302000	1	4	swordOL
+W	1302001	1	5	swordOL
+W	1302002	1	5	swordOL
+W	1302003	1	5	swordOL
+W	1302004	1	5	swordOL
+W	1302005	1	5	swordOL
+W	1302006	1	5	swordOL
+W	1302007	1	4	swordOS
+W	1302008	1	5	swordOS
+W	1302009	1	5	swordOS
+W	1302010	1	5	swordOS
+W	1302011	1	5	swordOS
+W	1302012	1	4	swordOS
+W	1302013	1	4	swordOL
+W	1302014	1	4	swordOS
+W	1302015	1	4	swordOS
+W	1302016	1	5	swordOS
+W	1302017	1	5	swordOS
+W	1302018	1	5	swordOS
+W	1302019	1	5	swordOL
+W	1302020	1	5	swordOL
+W	1302021	1	4	swordOL
+W	1302022	1	4	swordOL
+W	1302023	1	5	swordOS
+W	1302024	1	4	swordOL
+W	1302025	1	5	swordOS
+W	1302026	1	5	swordOS
+W	1302027	1	5	swordOS
+W	1302028	1	5	swordOS
+W	1302029	1	5	swordOS
+W	1302030	1	5	swordOL
+W	1302031	1	4	swordOL
+W	1302033	1	4	swordOS
+W	1302034	1	3	swordOL
+W	1302035	1	4	swordOS
+W	1302036	1	4	swordOS
+W	1302037	1	4	swordOS
+W	1302038	1	5	swordOS
+W	1302039	1	5	swordOS
+W	1302040	1	5	swordOS
+W	1302041	1	4	swordOS
+W	1302042	1	5	swordOS
+W	1302043	1	5	swordOS
+W	1302044	1	5	swordOS
+W	1302045	1	5	swordOS
+W	1302046	1	4	swordOS
+W	1302047	1	5	swordOS
+W	1302048	1	4	swordOS
+W	1302049	1	4	swordOL
+W	1302050	1	5	swordOS
+W	1302051	1	5	swordOS
+W	1302052	1	5	swordOS
+W	1302053	1	4	swordOS
+W	1302054	1	5	swordOS
+W	1302056	1	5	swordOL
+W	1302057	1	4	swordOS
+W	1302058	1	5	swordOL
+W	1302059	1	5	swordOL
+W	1302060	1	5	swordOS
+W	1302061	1	3	swordOS
+W	1302062	1	3	swordOL
+W	1302063	1	4	swordOL
+W	1302064	1	5	swordOL
+W	1302065	1	4	swordOS
+W	1302066	1	5	swordOL
+W	1302067	1	5	swordOL
+W	1302068	1	5	swordOL
+W	1302071	1	5	swordOL
+W	1302073	1	5	swordOL
+W	1302074	1	5	swordOL
+W	1302075	1	5	swordOL
+W	1302076	1	5	swordOL
+W	1302077	1	4	swordOS
+W	1302079	1	4	swordOL
+W	1302080	1	4	swordOL
+W	1302081	1	5	swordOS
+W	1302083	0	0	
+W	1302086	1	5	swordOS
+W	1302088	1	6	swordOL
+W	1302089	1	5	swordOL
+W	1302090	1	5	swordOL
+W	1302091	1	6	swordOL
+W	1302092	1	5	swordOL
+W	1302093	1	5	swordOL
+W	1302094	1	5	swordOL
+W	1302095	1	5	swordOL
+W	1302097	1	4	swordOL
+W	1302098	1	4	swordOS
+W	1302099	1	4	swordOS
+W	1302100	1	4	swordOS
+W	1302101	1	4	swordOS
+W	1302105	1	4	swordOS
+W	1302106	1	5	swordOS
+W	1302107	1	5	swordOS
+W	1302108	1	4	swordOL
+W	1302109	1	4	swordOL
+W	1302112	1	5	swordOS
+W	1302113	1	5	swordOS
+W	1302114	1	5	swordOS
+W	1302119	1	5	swordOL
+W	1302120	1	4	swordOL
+W	1302121	1	5	swordOL
+W	1302122	1	5	swordOL
+W	1302123	1	5	swordOL
+W	1302124	1	5	swordOL
+W	1302125	1	5	swordOL
+W	1302126	1	5	swordOL
+W	1302129	1	4	swordOL
+W	1302130	1	5	swordOL
+W	1302131	1	4	swordOL
+W	1302132	1	4	swordOL
+W	1302133	1	5	swordOL
+W	1302134	1	5	swordOS
+W	1302142	1	4	swordOL
+W	1302143	1	5	swordOL
+W	1302144	1	5	swordOL
+W	1302145	1	5	swordOL
+W	1302146	1	5	swordOL
+W	1302147	1	5	swordOL
+W	1302149	1	5	swordOL
+W	1302150	1	4	swordOL
+W	1302151	1	4	swordOS
+W	1302152	1	5	swordOL
+W	1302153	1	5	swordOL
+W	1302154	1	4	swordOL
+W	1302155	1	4	swordOL
+W	1302156	1	4	swordOL
+W	1302157	1	4	swordOL
+W	1302160	1	5	swordOL
+W	1302161	1	5	swordOL
+W	1302162	1	5	swordOL
+W	1302163	1	5	swordOS
+W	1302164	1	5	swordOS
+W	1302165	1	5	swordOS
+W	1302166	1	5	swordOS
+W	1302167	1	5	swordOS
+W	1302168	1	5	swordOS
+W	1302169	1	5	swordOS
+W	1302170	1	5	swordOS
+W	1302173	1	5	swordOS
+W	1302174	1	5	swordOS
+W	1302175	1	5	swordOL
+W	1302176	1	5	swordOS
+W	1302177	1	5	swordOS
+W	1302178	1	5	swordOL
+W	1302179	1	5	swordOL
+W	1302180	1	5	swordOL
+W	1302181	1	4	swordOS
+W	1302182	1	4	swordOS
+W	1302183	1	5	swordOL
+W	1302184	1	5	swordOL
+W	1302185	1	5	swordOL
+W	1302186	1	5	swordOS
+W	1302187	1	5	swordOL
+W	1302188	1	5	swordOS
+W	1302189	1	5	swordOS
+W	1302190	1	5	swordOS
+W	1302191	1	4	swordOS
+W	1302192	1	5	swordOS
+W	1302193	1	5	swordOL
+W	1302195	1	4	swordOS
+W	1302196	1	5	swordOS
+W	1302197	1	5	swordOS
+W	1302198	1	5	swordOL
+W	1302199	1	5	swordOL
+W	1302200	1	5	swordOS
+W	1302202	1	5	swordOL
+W	1302203	1	5	swordOL
+W	1302204	1	5	swordOL
+W	1302205	1	4	swordOL
+W	1302206	1	5	swordOS
+W	1302207	1	5	swordOL
+W	1302208	1	5	swordOL
+W	1302209	1	5	swordOL
+W	1302210	1	5	swordOL
+W	1302211	1	5	swordOL
+W	1302212	1	5	swordOS
+W	1302213	1	5	swordOL
+W	1302214	1	5	swordOS
+W	1302217	1	5	swordOS
+W	1302218	1	5	swordOS
+W	1302219	1	5	swordOS
+W	1302220	1	5	swordOS
+W	1302221	1	5	swordOS
+W	1302222	1	5	swordOS
+W	1302223	1	5	swordOS
+W	1302225	1	4	swordOL
+W	1302226	1	5	swordOL
+W	1302227	1	5	swordOS
+W	1302228	1	5	swordOL
+W	1302229	1	5	swordOL
+W	1302230	1	5	swordOL
+W	1302232	1	5	swordOS
+W	1302233	1	5	swordOL
+W	1302234	1	5	swordOS
+W	1302235	1	4	swordOS
+W	1302236	1	5	swordOS
+W	1302237	1	5	swordOS
+W	1302238	1	5	swordOL
+W	1302239	1	5	swordOL
+W	1302240	1	5	swordOL
+W	1302241	1	5	swordOS
+W	1302242	1	5	swordOS
+W	1302243	1	5	swordOS
+W	1302244	1	5	swordOS
+W	1302245	1	5	swordOS
+W	1302248	1	5	swordOS
+W	1302249	1	5	swordOL
+W	1302250	1	5	swordOS
+W	1302251	1	5	swordOS
+W	1302252	1	5	swordOL
+W	1302253	1	4	swordOS
+W	1302254	1	5	swordOS
+W	1302255	1	5	swordOS
+W	1302256	1	5	swordOS
+W	1302257	1	5	swordOL
+W	1302258	1	5	swordOL
+W	1302259	1	5	swordOS
+W	1302260	1	4	swordOL
+W	1302261	7	4	swordOL
+W	1302262	1	4	swordOL
+W	1302263	1	5	mace
+W	1302264	1	5	swordOL
+W	1302265	1	4	swordOL
+W	1302266	1	4	swordOL
+W	1302268	1	4	swordOL
+W	1302269	1	5	swordOL
+W	1302270	1	4	swordOL
+W	1302273	1	5	swordOS
+W	1302275	1	5	swordOL
+W	1302276	1	5	swordOS
+W	1302277	1	5	swordOS
+W	1302278	1	5	swordOS
+W	1302279	1	5	swordOS
+W	1302280	1	5	swordOS
+W	1302281	1	5	swordOS
+W	1302282	1	5	swordOS
+W	1302283	1	5	swordOS
+W	1302284	10	3	swordOL
+W	1302285	1	5	swordOS
+W	1302288	1	5	swordOS
+W	1302289	1	5	swordOL
+W	1302290	1	5	swordOL
+W	1302291	1	5	swordOS
+W	1302292	1	5	swordOS
+W	1302293	1	5	swordOL
+W	1302294	1	5	swordOS
+W	1302295	1	5	swordOS
+W	1302296	1	5	swordOS
+W	1302297	1	5	swordOS
+W	1302298	1	5	swordOS
+W	1302299	1	5	swordOS
+W	1302301	1	5	swordOL
+W	1302302	1	5	swordOL
+W	1302304	1	5	swordOS
+W	1302312	1	5	swordOL
+W	1302313	1	5	swordOL
+W	1302314	1	5	swordOL
+W	1302315	1	5	swordOL
+W	1302316	1	5	swordOL
+W	1302332	1	5	swordOS
+W	1302333	1	5	swordOS
+W	1302334	1	5	swordOS
+W	1302335	2	6	poleArm
+W	1302336	1	5	swordOS
+W	1302338	1	4	swordOL
+W	1302343	1	5	swordOS
+W	1302344	1	5	swordOS
+W	1302345	1	5	swordOL
+W	1302346	1	5	swordOS
+W	1302348	1	5	swordOS
+W	1302350	1	4	swordOL
+W	1302351	1	5	swordOS
+W	1302353	1	5	swordOL
+W	1302354	1	5	swordOS
+W	1302355	1	5	swordOS
+W	1302356	1	5	swordOL
+W	1302900	1	4	swordOL
+W	1302901	1	4	swordOL
+W	1302902	1	4	swordOL
+W	1302903	1	4	swordOL
+W	1302904	1	4	swordOL
+W	1302905	1	4	swordOL
+W	1302906	1	4	swordOL
+W	1302907	1	4	swordOL
+W	1302908	1	4	swordOL
+W	1302909	1	4	swordOL
+W	1302910	1	4	swordOL
+W	1302911	1	4	swordOL
+W	1302912	1	4	swordOL
+W	1302913	1	4	swordOL
+W	1302914	1	4	swordOL
+W	1302915	1	4	swordOL
+W	1302916	1	4	swordOL
+W	1312000	1	5	swordOL
+W	1312001	1	5	swordOL
+W	1312002	1	5	swordOL
+W	1312003	1	5	swordOL
+W	1312004	1	5	swordOL
+W	1312005	1	6	swordOL
+W	1312006	1	6	swordOL
+W	1312007	1	5	swordOL
+W	1312008	1	6	swordOL
+W	1312009	1	6	swordOL
+W	1312010	1	6	swordOL
+W	1312011	1	6	swordOL
+W	1312012	1	5	swordOL
+W	1312013	1	5	swordOL
+W	1312014	1	5	swordOL
+W	1312015	1	6	swordOL
+W	1312016	1	5	swordOL
+W	1312017	1	4	swordOL
+W	1312018	1	6	swordOL
+W	1312019	1	6	swordOL
+W	1312020	1	6	swordOL
+W	1312021	1	6	swordOL
+W	1312022	1	6	swordOL
+W	1312023	1	6	swordOL
+W	1312024	1	6	swordOL
+W	1312025	1	6	swordOL
+W	1312026	1	6	swordOL
+W	1312027	1	6	swordOL
+W	1312028	1	6	swordOL
+W	1312029	1	6	swordOL
+W	1312030	1	6	swordOL
+W	1312031	1	6	swordOL
+W	1312032	1	6	swordOL
+W	1312033	1	5	swordOL
+W	1312034	1	5	swordOL
+W	1312035	1	5	swordOL
+W	1312036	1	5	swordOL
+W	1312037	1	6	swordOL
+W	1312038	1	6	swordOL
+W	1312039	1	6	swordOL
+W	1312040	1	5	swordOS
+W	1312041	1	5	swordOS
+W	1312042	1	6	swordOL
+W	1312043	1	6	swordOL
+W	1312044	1	6	swordOL
+W	1312045	1	6	swordOL
+W	1312046	1	6	swordOL
+W	1312047	1	6	swordOS
+W	1312048	1	5	swordOL
+W	1312056	1	5	swordOL
+W	1312058	1	5	swordOL
+W	1312059	1	5	swordOL
+W	1312060	1	5	swordOL
+W	1312061	1	5	swordOL
+W	1312062	1	5	swordOL
+W	1312065	1	5	swordOL
+W	1312066	1	5	swordOL
+W	1312067	1	6	swordOL
+W	1312068	1	5	swordOL
+W	1312069	1	5	swordOL
+W	1312072	1	6	swordOL
+W	1312073	1	6	swordOL
+W	1312074	1	6	swordOL
+W	1312075	1	6	swordOL
+W	1312076	1	6	swordOL
+W	1312077	1	6	swordOL
+W	1312078	1	5	swordOL
+W	1312079	1	5	swordOL
+W	1312080	1	5	swordOL
+W	1312081	1	5	swordOL
+W	1312082	1	6	swordOL
+W	1312083	1	6	swordOL
+W	1312084	1	5	swordOL
+W	1312085	1	6	swordOL
+W	1312086	1	6	swordOL
+W	1312087	1	6	swordOL
+W	1312088	1	6	swordOL
+W	1312089	1	6	swordOL
+W	1312090	1	6	swordOL
+W	1312091	1	6	swordOL
+W	1312092	1	6	swordOL
+W	1312093	1	6	swordOL
+W	1312094	1	6	swordOL
+W	1312095	1	5	swordOL
+W	1312096	1	5	swordOL
+W	1312097	1	6	swordOL
+W	1312098	1	5	swordOL
+W	1312099	1	5	swordOL
+W	1312101	1	6	swordOL
+W	1312102	1	6	swordOL
+W	1312103	1	6	swordOL
+W	1312104	1	6	swordOL
+W	1312105	1	6	swordOL
+W	1312106	1	5	swordOL
+W	1312107	1	6	swordOL
+W	1312108	1	5	swordOL
+W	1312109	1	6	swordOL
+W	1312110	1	5	swordOL
+W	1312111	1	5	swordOL
+W	1312112	1	6	swordOL
+W	1312114	1	6	swordOL
+W	1312116	1	6	swordOL
+W	1312117	1	5	swordOL
+W	1312118	1	5	swordOL
+W	1312119	1	5	swordOL
+W	1312121	1	5	swordOL
+W	1312122	1	6	swordOL
+W	1312123	1	6	swordOL
+W	1312124	1	6	swordOL
+W	1312125	1	6	swordOL
+W	1312126	1	5	swordOL
+W	1312127	1	5	swordOL
+W	1312128	1	6	swordOL
+W	1312129	1	6	swordOL
+W	1312130	1	6	swordOL
+W	1312131	1	6	swordOL
+W	1312132	1	6	swordOL
+W	1312135	1	5	swordOL
+W	1312136	1	6	swordOL
+W	1312137	1	6	swordOL
+W	1312138	1	6	swordOL
+W	1312139	1	6	swordOL
+W	1312140	1	6	swordOL
+W	1312141	1	6	swordOL
+W	1312143	1	6	swordOL
+W	1312144	1	3	swordOL
+W	1312145	1	6	swordOL
+W	1312146	1	6	swordOL
+W	1312147	1	4	swordOL
+W	1312150	1	5	swordOL
+W	1312152	1	6	swordOL
+W	1312153	1	5	swordOL
+W	1312154	1	5	swordOL
+W	1312155	1	5	swordOL
+W	1312156	1	5	swordOL
+W	1312157	1	5	swordOL
+W	1312158	1	5	swordOL
+W	1312159	1	6	swordOL
+W	1312160	1	5	swordOL
+W	1312161	1	5	swordOL
+W	1312162	1	5	swordOL
+W	1312163	1	6	swordOL
+W	1312164	1	6	swordOL
+W	1312165	1	5	swordOL
+W	1312166	1	5	swordOL
+W	1312167	1	5	swordOL
+W	1312168	1	5	swordOL
+W	1312169	1	6	swordOL
+W	1312170	1	6	swordOL
+W	1312171	1	6	swordOL
+W	1312172	1	6	swordOL
+W	1312173	1	6	swordOL
+W	1312174	1	6	swordOL
+W	1312176	1	6	swordOL
+W	1312177	1	6	swordOL
+W	1312179	1	5	swordOL
+W	1312182	1	5	swordOL
+W	1312183	1	5	swordOL
+W	1312184	1	5	swordOL
+W	1312185	1	5	swordOL
+W	1312186	1	5	swordOL
+W	1312199	1	5	swordOL
+W	1312200	1	5	swordOL
+W	1312201	1	5	swordOL
+W	1312203	1	5	swordOL
+W	1312204	1	5	swordOL
+W	1312205	1	5	swordOL
+W	1312206	1	5	swordOL
+W	1312208	1	5	swordOL
+W	1312210	1	5	swordOL
+W	1312212	1	5	swordOL
+W	1312213	1	5	swordOL
+W	1312214	1	5	swordOL
+W	1322000	1	5	mace
+W	1322001	1	4	mace
+W	1322002	1	5	mace
+W	1322003	1	3	mace
+W	1322004	1	3	mace
+W	1322005	1	5	mace
+W	1322006	1	5	mace
+W	1322007	1	5	mace
+W	1322008	1	5	mace
+W	1322009	1	5	mace
+W	1322010	1	5	mace
+W	1322011	1	5	mace
+W	1322012	1	4	mace
+W	1322013	1	2	mace
+W	1322014	1	6	mace
+W	1322015	1	5	mace
+W	1322016	1	6	mace
+W	1322017	1	6	mace
+W	1322018	1	6	mace
+W	1322019	1	6	mace
+W	1322020	1	6	mace
+W	1322021	1	5	mace
+W	1322022	1	5	mace
+W	1322023	1	5	mace
+W	1322024	1	5	mace
+W	1322025	1	5	mace
+W	1322026	1	5	mace
+W	1322027	1	6	mace
+W	1322028	1	6	mace
+W	1322029	1	6	mace
+W	1322031	1	3	mace
+W	1322032	1	5	mace
+W	1322033	1	5	mace
+W	1322035	1	6	mace
+W	1322036	1	6	mace
+W	1322037	1	6	mace
+W	1322038	1	6	mace
+W	1322039	1	6	mace
+W	1322040	1	6	mace
+W	1322041	1	6	mace
+W	1322042	1	6	mace
+W	1322043	1	6	mace
+W	1322044	1	6	mace
+W	1322045	1	6	mace
+W	1322046	1	6	mace
+W	1322047	1	6	mace
+W	1322048	1	6	mace
+W	1322049	1	6	mace
+W	1322050	1	6	mace
+W	1322051	1	5	mace
+W	1322052	1	6	mace
+W	1322053	1	15	mace
+W	1322054	1	6	mace
+W	1322055	1	5	mace
+W	1322056	1	5	mace
+W	1322057	1	5	mace
+W	1322058	1	5	mace
+W	1322059	1	5	mace
+W	1322060	1	6	mace
+W	1322061	1	6	mace
+W	1322062	1	6	mace
+W	1322063	1	5	mace
+W	1322064	1	5	mace
+W	1322065	1	5	mace
+W	1322066	1	4	mace
+W	1322067	1	4	mace
+W	1322068	1	6	mace
+W	1322069	1	6	mace
+W	1322072	1	6	mace
+W	1322073	1	6	mace
+W	1322074	1	6	mace
+W	1322075	1	6	mace
+W	1322076	1	6	mace
+W	1322084	1	5	mace
+W	1322086	1	6	mace
+W	1322087	1	6	mace
+W	1322088	1	6	mace
+W	1322089	1	6	mace
+W	1322090	1	6	mace
+W	1322091	1	6	mace
+W	1322092	1	5	mace
+W	1322093	1	5	mace
+W	1322096	1	5	mace
+W	1322097	1	5	mace
+W	1322099	1	5	mace
+W	1322100	0	0	
+W	1322101	1	5	mace
+W	1322102	1	7	mace
+W	1322104	5	6	axe
+W	1322107	1	6	mace
+W	1322108	1	6	mace
+W	1322109	1	6	mace
+W	1322110	1	6	mace
+W	1322111	1	6	mace
+W	1322112	1	6	mace
+W	1322113	1	5	mace
+W	1322114	1	5	mace
+W	1322115	1	3	mace
+W	1322116	1	6	mace
+W	1322117	1	5	mace
+W	1322118	1	6	mace
+W	1322119	1	6	mace
+W	1322120	1	6	mace
+W	1322121	1	6	mace
+W	1322122	1	5	mace
+W	1322123	1	5	mace
+W	1322124	1	5	mace
+W	1322125	1	5	mace
+W	1322126	1	5	mace
+W	1322127	1	5	mace
+W	1322128	1	6	mace
+W	1322129	1	6	mace
+W	1322130	1	6	mace
+W	1322131	1	6	mace
+W	1322132	1	6	mace
+W	1322133	1	6	mace
+W	1322134	1	6	mace
+W	1322135	1	5	mace
+W	1322136	1	5	mace
+W	1322137	1	6	mace
+W	1322138	1	5	mace
+W	1322139	1	5	mace
+W	1322141	1	6	mace
+W	1322142	1	6	mace
+W	1322143	1	6	mace
+W	1322144	1	6	mace
+W	1322145	1	6	mace
+W	1322146	1	5	mace
+W	1322147	1	6	mace
+W	1322148	1	5	mace
+W	1322149	1	6	mace
+W	1322150	1	5	mace
+W	1322151	1	6	mace
+W	1322154	1	6	mace
+W	1322155	1	5	mace
+W	1322156	1	6	mace
+W	1322157	1	6	mace
+W	1322158	1	5	mace
+W	1322159	1	6	mace
+W	1322160	1	6	mace
+W	1322162	1	6	mace
+W	1322163	1	5	mace
+W	1322164	1	5	mace
+W	1322165	1	5	mace
+W	1322167	1	6	mace
+W	1322168	1	6	mace
+W	1322169	1	6	mace
+W	1322170	1	6	mace
+W	1322171	1	6	mace
+W	1322172	1	6	mace
+W	1322173	1	6	mace
+W	1322174	1	6	mace
+W	1322175	1	6	mace
+W	1322176	1	6	mace
+W	1322177	1	6	mace
+W	1322178	1	6	mace
+W	1322181	1	5	mace
+W	1322182	1	6	mace
+W	1322183	1	6	mace
+W	1322184	1	6	mace
+W	1322185	1	6	mace
+W	1322186	1	6	mace
+W	1322187	1	6	mace
+W	1322188	1	5	mace
+W	1322189	1	6	mace
+W	1322190	1	5	mace
+W	1322191	1	6	mace
+W	1322192	1	6	mace
+W	1322193	1	4	mace
+W	1322194	1	5	mace
+W	1322195	1	4	mace
+W	1322196	1	4	mace
+W	1322199	1	5	mace
+W	1322201	1	6	mace
+W	1322203	1	5	mace
+W	1322204	1	5	mace
+W	1322205	1	5	mace
+W	1322206	1	5	mace
+W	1322207	1	5	mace
+W	1322208	1	5	mace
+W	1322209	1	5	mace
+W	1322210	1	6	mace
+W	1322211	1	5	mace
+W	1322212	1	5	mace
+W	1322213	1	5	mace
+W	1322214	1	6	mace
+W	1322215	1	6	mace
+W	1322216	1	5	mace
+W	1322217	1	5	mace
+W	1322218	1	5	mace
+W	1322219	1	6	mace
+W	1322220	1	6	mace
+W	1322221	1	6	mace
+W	1322222	1	6	mace
+W	1322223	1	6	mace
+W	1322224	1	6	mace
+W	1322225	1	5	mace
+W	1322228	1	6	mace
+W	1322229	1	6	mace
+W	1322230	1	5	mace
+W	1322233	1	5	mace
+W	1322234	1	5	mace
+W	1322235	1	5	mace
+W	1322236	1	5	mace
+W	1322237	1	5	mace
+W	1322250	1	5	mace
+W	1322251	1	5	mace
+W	1322253	1	5	mace
+W	1322255	1	5	mace
+W	1322256	1	5	mace
+W	1322257	1	5	mace
+W	1322258	1	5	mace
+W	1322260	1	5	mace
+W	1322262	1	5	mace
+W	1322263	1	5	mace
+W	1322264	1	5	mace
+W	1322265	1	5	mace
+W	1332000	1	4	swordOL
+W	1332001	1	4	swordOL
+W	1332002	1	4	swordOL
+W	1332003	1	5	swordOL
+W	1332004	1	4	swordOL
+W	1332005	1	4	swordOS
+W	1332006	1	3	swordOS
+W	1332007	1	3	swordOS
+W	1332008	1	3	swordOS
+W	1332009	1	3	swordOL
+W	1332010	1	3	swordOS
+W	1332011	1	4	swordOS
+W	1332012	1	3	swordOS
+W	1332013	1	4	swordOS
+W	1332014	1	4	swordOS
+W	1332015	1	4	swordOS
+W	1332016	1	4	swordOS
+W	1332017	1	4	swordOS
+W	1332018	1	4	swordOS
+W	1332019	1	4	swordOS
+W	1332020	1	4	swordOS
+W	1332021	1	3	swordOS
+W	1332022	1	4	swordOS
+W	1332023	1	4	swordOL
+W	1332024	1	4	swordOS
+W	1332025	1	4	swordOS
+W	1332026	1	4	swordOS
+W	1332027	1	4	swordOS
+W	1332029	1	3	swordOS
+W	1332030	1	3	swordOS
+W	1332031	1	4	swordOL
+W	1332032	1	4	swordOS
+W	1332033	1	3	swordOS
+W	1332034	1	5	swordOL
+W	1332035	1	4	swordOS
+W	1332036	1	4	swordOS
+W	1332037	1	4	swordOL
+W	1332038	1	3	swordOS
+W	1332039	1	5	swordOL
+W	1332040	1	4	swordOS
+W	1332041	1	4	swordOS
+W	1332042	1	4	swordOL
+W	1332043	1	3	swordOS
+W	1332044	1	5	swordOL
+W	1332045	1	4	swordOS
+W	1332046	1	4	swordOS
+W	1332047	1	4	swordOL
+W	1332049	1	4	swordOS
+W	1332050	1	4	swordOL
+W	1332051	1	4	swordOS
+W	1332052	1	4	swordOL
+W	1332053	1	5	swordOL
+W	1332054	1	4	swordOS
+W	1332055	1	3	swordOS
+W	1332056	1	4	swordOS
+W	1332057	1	5	swordOS
+W	1332059	1	5	swordOS
+W	1332060	1	5	swordOS
+W	1332061	1	5	swordOS
+W	1332063	1	3	swordOS
+W	1332064	1	4	swordOL
+W	1332065	1	4	swordOL
+W	1332066	1	4	swordOS
+W	1332067	1	3	swordOL
+W	1332068	1	3	swordOL
+W	1332069	1	3	swordOL
+W	1332070	1	3	swordOL
+W	1332071	1	3	swordOL
+W	1332072	1	3	swordOL
+W	1332073	1	4	swordOS
+W	1332074	1	4	swordOL
+W	1332075	1	4	swordOS
+W	1332076	1	4	swordOL
+W	1332077	1	5	swordOL
+W	1332078	1	5	swordOL
+W	1332079	1	5	swordOL
+W	1332080	1	5	swordOL
+W	1332081	1	4	swordOS
+W	1332082	1	4	swordOS
+W	1332083	1	4	swordOS
+W	1332084	1	4	swordOS
+W	1332085	1	4	swordOL
+W	1332086	1	4	swordOS
+W	1332087	1	4	swordOS
+W	1332088	1	4	swordOS
+W	1332089	1	2	swordOS
+W	1332090	1	4	swordOL
+W	1332091	1	3	swordOS
+W	1332092	1	3	swordOS
+W	1332093	1	4	swordOS
+W	1332094	1	3	swordOS
+W	1332095	1	4	swordOS
+W	1332098	1	4	swordOS
+W	1332099	1	3	swordOS
+W	1332100	1	4	swordOL
+W	1332102	1	4	swordOS
+W	1332103	1	4	swordOS
+W	1332111	1	4	swordOL
+W	1332112	1	4	swordOS
+W	1332113	1	4	swordOS
+W	1332114	1	3	swordOS
+W	1332116	1	4	swordOL
+W	1332117	1	3	swordOL
+W	1332118	1	4	swordOL
+W	1332119	1	4	swordOL
+W	1332120	1	4	swordOL
+W	1332121	1	4	swordOL
+W	1332122	1	4	swordOL
+W	1332123	1	4	swordOL
+W	1332124	1	4	swordOL
+W	1332125	1	4	swordOL
+W	1332126	1	4	swordOS
+W	1332127	1	4	swordOS
+W	1332128	1	4	swordOL
+W	1332129	1	4	swordOS
+W	1332130	1	4	swordOS
+W	1332131	1	4	swordOS
+W	1332133	1	3	swordOL
+W	1332134	1	4	swordOL
+W	1332135	1	4	swordOL
+W	1332136	1	3	swordOS
+W	1332137	1	4	swordOS
+W	1332138	1	4	swordOS
+W	1332139	1	3	swordOS
+W	1332140	1	4	swordOS
+W	1332141	1	4	swordOS
+W	1332142	1	4	swordOS
+W	1332143	1	3	swordOS
+W	1332144	1	4	swordOS
+W	1332145	1	4	swordOS
+W	1332148	1	4	swordOS
+W	1332149	1	4	swordOL
+W	1332150	1	4	swordOS
+W	1332151	1	4	swordOL
+W	1332152	1	4	swordOS
+W	1332153	1	4	swordOL
+W	1332154	1	4	swordOL
+W	1332155	1	4	swordOS
+W	1332156	1	4	swordOL
+W	1332157	1	4	swordOL
+W	1332158	1	4	swordOL
+W	1332159	1	4	swordOL
+W	1332160	1	4	swordOS
+W	1332161	1	4	swordOL
+W	1332162	1	3	swordOS
+W	1332163	1	4	swordOS
+W	1332164	1	4	swordOL
+W	1332165	1	5	swordOL
+W	1332166	1	4	swordOS
+W	1332167	1	4	swordOS
+W	1332168	1	4	swordOS
+W	1332169	1	4	swordOS
+W	1332170	1	4	swordOS
+W	1332172	1	4	swordOS
+W	1332173	1	4	swordOL
+W	1332174	1	4	swordOS
+W	1332175	1	4	swordOL
+W	1332176	1	4	swordOL
+W	1332177	1	4	swordOS
+W	1332178	1	4	swordOS
+W	1332179	1	3	swordOS
+W	1332180	1	4	swordOS
+W	1332181	1	3	swordOS
+W	1332182	1	4	swordOS
+W	1332183	1	4	swordOL
+W	1332184	1	4	swordOS
+W	1332185	1	4	swordOS
+W	1332186	1	4	swordOS
+W	1332187	1	4	swordOS
+W	1332188	1	4	swordOS
+W	1332193	1	4	swordOS
+W	1332194	1	4	swordOS
+W	1332195	1	4	swordOS
+W	1332196	1	5	swordOS
+W	1332198	1	4	swordOL
+W	1332199	1	4	swordOL
+W	1332200	1	4	swordOL
+W	1332201	1	4	swordOL
+W	1332202	1	4	swordOL
+W	1332205	1	4	swordOS
+W	1332206	1	4	swordOL
+W	1332207	1	4	swordOS
+W	1332208	1	4	swordOL
+W	1332209	1	4	swordOS
+W	1332210	1	3	swordOS
+W	1332211	1	4	swordOS
+W	1332212	1	4	swordOS
+W	1332213	1	4	swordOS
+W	1332215	1	4	swordOS
+W	1332216	1	4	swordOS
+W	1332217	1	4	swordOS
+W	1332218	1	4	swordOS
+W	1332219	1	4	swordOS
+W	1332222	1	4	swordOS
+W	1332224	1	4	swordOS
+W	1332225	1	4	swordOS
+W	1332226	1	4	swordOS
+W	1332227	1	4	swordOS
+W	1332228	1	4	swordOS
+W	1332229	1	4	swordOS
+W	1332230	1	4	swordOS
+W	1332231	1	4	swordOS
+W	1332232	1	4	swordOS
+W	1332233	1	4	swordOS
+W	1332234	1	4	swordOS
+W	1332235	1	4	swordOS
+W	1332236	1	4	swordOS
+W	1332237	1	4	swordOS
+W	1332238	1	4	swordOL
+W	1332239	1	4	swordOL
+W	1332240	1	4	swordOS
+W	1332241	1	4	swordOS
+W	1332242	1	4	swordOL
+W	1332243	1	4	swordOS
+W	1332244	1	3	swordOS
+W	1332245	1	4	swordOS
+W	1332246	1	3	swordOS
+W	1332247	1	3	swordOS
+W	1332248	1	5	swordOS
+W	1332249	1	3	swordOS
+W	1332251	1	4	swordOS
+W	1332252	1	4	swordOS
+W	1332254	1	4	swordOS
+W	1332257	1	4	swordOS
+W	1332258	1	4	swordOS
+W	1332259	1	4	swordOS
+W	1332260	1	4	swordOS
+W	1332261	1	4	swordOS
+W	1332274	1	4	swordOS
+W	1332275	1	4	swordOS
+W	1332277	1	4	swordOS
+W	1332279	1	4	swordOS
+W	1332280	1	4	swordOS
+W	1332281	1	4	swordOS
+W	1332282	1	4	swordOS
+W	1332284	1	4	swordOS
+W	1332285	1	3	swordOS
+W	1332287	1	4	swordOS
+W	1332288	1	4	swordOS
+W	1332289	1	4	swordOS
+W	1332290	1	4	swordOS
+W	1342000	10	3	swordOL
+W	1342001	10	3	swordOL
+W	1342002	10	3	swordOL
+W	1342003	10	3	swordOL
+W	1342004	10	3	swordOL
+W	1342005	10	3	swordOL
+W	1342006	10	3	swordOL
+W	1342007	10	3	swordOL
+W	1342008	10	3	swordOL
+W	1342009	10	3	swordOL
+W	1342010	10	3	swordOL
+W	1342011	10	3	swordOL
+W	1342012	10	3	swordOL
+W	1342013	10	3	swordOL
+W	1342014	10	3	swordOL
+W	1342015	10	3	swordOL
+W	1342016	10	3	swordOL
+W	1342017	10	3	swordOL
+W	1342018	10	3	swordOL
+W	1342019	10	3	swordOL
+W	1342020	10	3	swordOL
+W	1342021	10	3	swordOL
+W	1342022	10	3	swordOL
+W	1342023	10	3	swordOL
+W	1342024	10	3	swordOL
+W	1342025	10	3	swordOL
+W	1342026	10	3	swordOL
+W	1342027	10	3	swordOL
+W	1342028	10	3	swordOL
+W	1342029	10	3	swordOL
+W	1342030	10	3	swordOL
+W	1342031	10	3	swordOL
+W	1342032	10	3	swordOL
+W	1342033	10	4	swordOL
+W	1342034	10	3	swordOL
+W	1342035	10	3	swordOL
+W	1342036	10	3	swordOL
+W	1342037	10	3	swordOL
+W	1342038	10	3	swordOL
+W	1342040	10	3	swordOL
+W	1342041	10	3	swordOL
+W	1342042	10	3	swordOL
+W	1342043	10	3	swordOL
+W	1342044	10	3	swordOL
+W	1342045	10	3	swordOL
+W	1342046	10	3	swordOL
+W	1342047	10	3	swordOL
+W	1342048	10	3	swordOL
+W	1342049	10	3	swordOL
+W	1342050	10	3	swordOL
+W	1342051	10	3	swordOL
+W	1342052	10	3	swordOL
+W	1342054	10	3	swordOL
+W	1342055	10	3	swordOL
+W	1342056	10	3	swordOL
+W	1342057	10	3	swordOL
+W	1342058	10	3	swordOL
+W	1342059	10	3	swordOL
+W	1342060	10	3	swordOL
+W	1342061	10	3	swordOL
+W	1342062	10	3	swordOL
+W	1342063	10	3	swordOL
+W	1342064	10	3	swordOL
+W	1342065	10	3	swordOL
+W	1342066	10	3	swordOL
+W	1342069	10	0	swordOL
+W	1342071	10	3	swordOL
+W	1342075	10	3	swordOL
+W	1342076	10	3	swordOL
+W	1342077	10	3	swordOL
+W	1342078	10	3	swordOL
+W	1342080	10	3	swordOL
+W	1342082	10	3	swordOL
+W	1342083	10	3	swordOL
+W	1342084	10	3	swordOL
+W	1342085	10	3	swordOL
+W	1342086	10	3	swordOL
+W	1342087	10	3	swordOL
+W	1342088	10	3	swordOL
+W	1342089	10	3	swordOL
+W	1342090	10	3	swordOL
+W	1342091	10	3	swordOL
+W	1342092	10	3	swordOL
+W	1342094	10	3	swordOL
+W	1342095	10	3	swordOL
+W	1342097	10	3	swordOL
+W	1342098	10	3	swordOL
+W	1342099	10	3	swordOL
+W	1342100	10	3	swordOL
+W	1342101	10	3	swordOL
+W	1342102	10	3	swordOL
+W	1342103	10	3	swordOL
+W	1342104	10	3	swordOL
+W	1342105	10	3	swordOL
+W	1342106	10	3	swordOL
+W	1342108	10	3	swordOL
+W	1352000	0	0	
+W	1352001	0	0	
+W	1352002	0	0	
+W	1352003	0	0	
+W	1352004	0	0	
+W	1352005	0	0	
+W	1352006	0	0	
+W	1352007	0	0	
+W	1352008	0	0	
+W	1352009	0	0	
+W	1352010	0	0	
+W	1352011	0	0	
+W	1352100	0	0	
+W	1352101	0	0	
+W	1352102	0	0	
+W	1352103	0	0	
+W	1352104	0	0	
+W	1352105	0	0	
+W	1352106	0	0	
+W	1352107	0	0	
+W	1352108	0	0	
+W	1352109	0	0	
+W	1352110	0	0	
+W	1352111	0	0	
+W	1352200	0	0	
+W	1352201	0	0	
+W	1352202	0	0	
+W	1352203	0	0	
+W	1352204	0	0	
+W	1352205	0	0	
+W	1352206	0	0	
+W	1352207	0	0	
+W	1352208	0	0	
+W	1352210	0	0	
+W	1352211	0	0	
+W	1352212	0	0	
+W	1352213	0	0	
+W	1352214	0	0	
+W	1352215	0	0	
+W	1352216	0	0	
+W	1352217	0	0	
+W	1352218	0	0	
+W	1352220	0	0	
+W	1352221	0	0	
+W	1352222	0	0	
+W	1352223	0	0	
+W	1352224	0	0	
+W	1352225	0	0	
+W	1352226	0	0	
+W	1352227	0	0	
+W	1352228	0	0	
+W	1352230	0	0	
+W	1352231	0	0	
+W	1352232	0	0	
+W	1352233	0	0	
+W	1352234	0	0	
+W	1352235	0	0	
+W	1352236	0	0	
+W	1352237	0	0	
+W	1352238	0	0	
+W	1352240	0	0	
+W	1352241	0	0	
+W	1352242	0	0	
+W	1352243	0	0	
+W	1352244	0	0	
+W	1352245	0	0	
+W	1352246	0	0	
+W	1352247	0	0	
+W	1352248	0	0	
+W	1352250	0	0	
+W	1352251	0	0	
+W	1352252	0	0	
+W	1352253	0	0	
+W	1352254	0	0	
+W	1352255	0	0	
+W	1352256	0	0	
+W	1352257	0	0	
+W	1352258	0	0	
+W	1352260	0	0	
+W	1352261	0	0	
+W	1352262	0	0	
+W	1352263	0	0	
+W	1352264	0	0	
+W	1352265	0	0	
+W	1352266	0	0	
+W	1352267	0	0	
+W	1352268	0	0	
+W	1352270	0	0	
+W	1352271	0	0	
+W	1352272	0	0	
+W	1352273	0	0	
+W	1352274	0	0	
+W	1352275	0	0	
+W	1352276	0	0	
+W	1352277	0	0	
+W	1352278	0	0	
+W	1352280	0	0	
+W	1352281	0	0	
+W	1352282	0	0	
+W	1352283	0	0	
+W	1352284	0	0	
+W	1352285	0	0	
+W	1352286	0	0	
+W	1352287	0	0	
+W	1352288	0	0	
+W	1352290	0	0	
+W	1352291	0	0	
+W	1352292	0	0	
+W	1352293	0	0	
+W	1352294	0	0	
+W	1352295	0	0	
+W	1352296	0	0	
+W	1352297	0	0	
+W	1352298	0	0	
+W	1352300	0	0	
+W	1352301	0	0	
+W	1352302	0	0	
+W	1352303	0	0	
+W	1352400	0	0	
+W	1352401	0	0	
+W	1352402	0	0	
+W	1352403	0	0	
+W	1352404	0	0	
+W	1352405	0	0	
+W	1352406	0	0	
+W	1352407	0	0	
+W	1352408	0	0	
+W	1352500	0	0	
+W	1352501	0	0	
+W	1352502	0	0	
+W	1352503	0	0	
+W	1352504	0	0	
+W	1352505	0	0	
+W	1352506	0	0	
+W	1352507	0	0	
+W	1352508	0	0	
+W	1352600	0	0	
+W	1352601	0	0	
+W	1352602	0	0	
+W	1352603	0	0	
+W	1352604	0	0	
+W	1352605	0	0	
+W	1352606	0	0	
+W	1352607	0	0	
+W	1352608	0	0	
+W	1352700	0	0	
+W	1352701	0	0	
+W	1352702	0	0	
+W	1352703	0	0	
+W	1352704	0	0	
+W	1352705	0	0	
+W	1352707	0	0	
+W	1352708	0	0	
+W	1352709	0	0	
+W	1352800	0	0	
+W	1352801	0	0	
+W	1352802	0	0	
+W	1352803	0	0	
+W	1352804	0	0	
+W	1352806	0	0	
+W	1352807	0	0	
+W	1352809	0	0	
+W	1352810	0	0	
+W	1352811	0	0	
+W	1352812	0	0	
+W	1352813	0	0	
+W	1352814	0	0	
+W	1352815	0	0	
+W	1352817	0	0	
+W	1352818	0	0	
+W	1352820	0	0	
+W	1352821	0	0	
+W	1352822	0	0	
+W	1352823	0	0	
+W	1352824	0	0	
+W	1352825	0	0	
+W	1352827	0	0	
+W	1352828	0	0	
+W	1352830	0	0	
+W	1352900	0	0	
+W	1352901	0	0	
+W	1352902	0	0	
+W	1352903	0	0	
+W	1352904	0	0	
+W	1352905	0	0	
+W	1352906	0	0	
+W	1352907	0	0	
+W	1352908	0	0	
+W	1352910	0	0	
+W	1352911	0	0	
+W	1352912	0	0	
+W	1352913	0	0	
+W	1352914	0	0	
+W	1352915	0	0	
+W	1352916	0	0	
+W	1352917	0	0	
+W	1352918	0	0	
+W	1352920	0	0	
+W	1352921	0	0	
+W	1352922	0	0	
+W	1352923	0	0	
+W	1352924	0	0	
+W	1352925	0	0	
+W	1352926	0	0	
+W	1352927	0	0	
+W	1352928	0	0	
+W	1352929	0	0	
+W	1352930	0	0	
+W	1352931	0	0	
+W	1352932	0	0	
+W	1352933	0	0	
+W	1352934	0	0	
+W	1352935	0	0	
+W	1352936	0	0	
+W	1352937	0	0	
+W	1352940	0	0	
+W	1352941	0	0	
+W	1352942	0	0	
+W	1352943	0	0	
+W	1352944	0	0	
+W	1352945	0	0	
+W	1352946	0	0	
+W	1352947	0	0	
+W	1352950	0	0	
+W	1352951	0	0	
+W	1352952	0	0	
+W	1352953	0	0	
+W	1352954	0	0	
+W	1352955	0	0	
+W	1352957	0	0	
+W	1352958	0	0	
+W	1352959	0	0	
+W	1352960	0	0	
+W	1352961	0	0	
+W	1352962	0	0	
+W	1352963	0	0	
+W	1352964	0	0	
+W	1352965	0	0	
+W	1352967	0	0	
+W	1352968	0	0	
+W	1352969	0	0	
+W	1352970	0	0	
+W	1352971	0	0	
+W	1352972	0	0	
+W	1352973	0	0	
+W	1352974	0	0	
+W	1352975	0	0	
+W	1352976	0	0	
+W	1352977	0	0	
+W	1352980	0	0	
+W	1353000	0	0	
+W	1353001	0	0	
+W	1353002	0	0	
+W	1353003	0	0	
+W	1353004	0	0	
+W	1353005	0	0	
+W	1353006	0	0	
+W	1353007	0	0	
+W	1353008	0	0	
+W	1353100	0	0	
+W	1353101	0	0	
+W	1353102	0	0	
+W	1353103	0	0	
+W	1353104	0	0	
+W	1353105	0	0	
+W	1353106	0	0	
+W	1353107	0	0	
+W	1353200	0	0	
+W	1353201	0	0	
+W	1353202	0	0	
+W	1353203	0	0	
+W	1353204	0	0	
+W	1353205	0	0	
+W	1353206	0	0	
+W	1353207	0	0	
+W	1353300	0	0	
+W	1353301	0	0	
+W	1353302	0	0	
+W	1353303	0	0	
+W	1353304	0	0	
+W	1353305	0	0	
+W	1353306	0	0	
+W	1353307	0	0	
+W	1353400	0	0	
+W	1353401	0	0	
+W	1353402	0	0	
+W	1353403	0	0	
+W	1353404	0	0	
+W	1353405	0	0	
+W	1353407	0	0	
+W	1353408	0	0	
+W	1353500	0	0	
+W	1353501	0	0	
+W	1353502	0	0	
+W	1353503	0	0	
+W	1353504	0	0	
+W	1353505	0	0	
+W	1353506	0	0	
+W	1353600	0	0	
+W	1353601	0	0	
+W	1353602	0	0	
+W	1353603	0	0	
+W	1353604	0	0	
+W	1353605	0	0	
+W	1353606	0	0	
+W	1353700	0	0	
+W	1353701	0	0	
+W	1353702	0	0	
+W	1353703	0	0	
+W	1353704	0	0	
+W	1353707	0	0	
+W	1362000	13	5	cane
+W	1362001	13	5	cane
+W	1362002	13	5	cane
+W	1362003	13	5	cane
+W	1362004	13	5	cane
+W	1362005	13	5	cane
+W	1362006	13	5	cane
+W	1362007	13	5	cane
+W	1362008	13	5	cane
+W	1362009	13	5	cane
+W	1362010	13	5	cane
+W	1362011	13	5	cane
+W	1362012	13	5	cane
+W	1362013	13	5	cane
+W	1362014	13	5	cane
+W	1362015	13	5	cane
+W	1362016	13	5	cane
+W	1362017	13	5	cane
+W	1362018	13	5	cane
+W	1362019	13	5	cane
+W	1362020	13	5	cane
+W	1362021	13	5	cane
+W	1362022	13	5	cane
+W	1362023	13	5	cane
+W	1362024	13	5	cane
+W	1362025	13	5	cane
+W	1362026	13	5	cane
+W	1362027	13	5	cane
+W	1362028	13	5	cane
+W	1362029	13	5	cane
+W	1362030	13	5	cane
+W	1362031	13	5	cane
+W	1362032	13	5	cane
+W	1362033	13	5	cane
+W	1362034	13	5	cane
+W	1362035	13	5	cane
+W	1362036	13	5	cane
+W	1362037	13	5	cane
+W	1362038	13	5	cane
+W	1362039	13	5	cane
+W	1362040	13	5	cane
+W	1362041	13	5	cane
+W	1362042	13	5	cane
+W	1362043	13	5	cane
+W	1362044	13	5	cane
+W	1362045	13	5	cane
+W	1362046	13	5	cane
+W	1362047	13	5	cane
+W	1362048	13	5	cane
+W	1362049	13	5	cane
+W	1362050	13	5	cane
+W	1362051	13	5	cane
+W	1362052	13	5	cane
+W	1362053	13	5	cane
+W	1362054	13	5	cane
+W	1362055	13	5	cane
+W	1362056	13	5	cane
+W	1362057	13	5	cane
+W	1362058	13	5	cane
+W	1362059	13	5	cane
+W	1362060	13	5	cane
+W	1362061	13	5	cane
+W	1362063	13	5	cane
+W	1362064	13	5	cane
+W	1362065	13	5	cane
+W	1362066	13	5	cane
+W	1362067	13	5	cane
+W	1362068	13	5	cane
+W	1362069	13	5	cane
+W	1362070	13	5	cane
+W	1362074	13	5	cane
+W	1362075	13	5	cane
+W	1362076	13	5	cane
+W	1362077	13	5	cane
+W	1362078	13	5	cane
+W	1362079	13	5	cane
+W	1362080	13	5	cane
+W	1362082	13	5	cane
+W	1362083	13	5	cane
+W	1362084	13	5	cane
+W	1362087	13	5	cane
+W	1362089	13	5	cane
+W	1362090	13	5	cane
+W	1362091	13	5	cane
+W	1362092	13	5	cane
+W	1362093	13	5	cane
+W	1362094	13	5	cane
+W	1362095	13	5	cane
+W	1362096	13	5	cane
+W	1362097	13	5	cane
+W	1362098	13	5	cane
+W	1362099	13	5	cane
+W	1362100	13	5	cane
+W	1362101	13	5	cane
+W	1362102	13	5	cane
+W	1362103	13	5	cane
+W	1362105	13	5	cane
+W	1362106	13	5	cane
+W	1362107	13	5	cane
+W	1362108	13	5	cane
+W	1362109	13	5	cane
+W	1362110	13	5	cane
+W	1362111	13	5	cane
+W	1362112	13	5	cane
+W	1362113	13	5	cane
+W	1362115	13	5	cane
+W	1362118	13	5	cane
+W	1362119	13	5	cane
+W	1362120	13	5	cane
+W	1362121	13	5	cane
+W	1362122	13	5	cane
+W	1362135	13	5	cane
+W	1362136	13	5	cane
+W	1362137	13	5	cane
+W	1362139	13	5	cane
+W	1362140	13	5	cane
+W	1362141	13	5	cane
+W	1362142	13	5	cane
+W	1362143	13	5	cane
+W	1362145	13	5	cane
+W	1362147	13	5	cane
+W	1362148	13	5	cane
+W	1362149	13	5	cane
+W	1362150	13	5	cane
+W	1372000	6	6	mace
+W	1372001	6	6	mace
+W	1372002	6	6	mace
+W	1372003	6	6	mace
+W	1372004	6	6	mace
+W	1372005	6	6	mace
+W	1372006	6	6	mace
+W	1372007	6	6	mace
+W	1372008	6	4	mace
+W	1372009	6	6	mace
+W	1372010	6	6	mace
+W	1372011	6	4	mace
+W	1372012	6	6	mace
+W	1372014	6	6	mace
+W	1372015	6	6	mace
+W	1372016	6	6	mace
+W	1372017	6	5	mace
+W	1372018	6	6	mace
+W	1372019	6	6	mace
+W	1372020	6	6	mace
+W	1372021	6	6	mace
+W	1372022	6	6	mace
+W	1372023	6	6	mace
+W	1372024	6	6	mace
+W	1372025	6	6	mace
+W	1372026	6	6	mace
+W	1372027	6	6	mace
+W	1372028	6	6	mace
+W	1372029	6	6	mace
+W	1372030	6	6	mace
+W	1372031	6	5	mace
+W	1372032	6	6	mace
+W	1372033	6	5	mace
+W	1372034	6	6	mace
+W	1372035	6	7	mace
+W	1372036	6	7	mace
+W	1372037	6	7	mace
+W	1372038	6	7	mace
+W	1372039	6	7	mace
+W	1372040	6	7	mace
+W	1372041	6	7	mace
+W	1372042	6	7	mace
+W	1372043	6	6	mace
+W	1372044	6	6	mace
+W	1372045	6	6	mace
+W	1372046	6	6	mace
+W	1372047	6	6	mace
+W	1372048	6	6	mace
+W	1372049	6	6	mace
+W	1372050	6	6	mace
+W	1372051	6	6	mace
+W	1372052	6	7	mace
+W	1372053	6	6	mace
+W	1372054	6	4	mace
+W	1372055	6	6	mace
+W	1372056	6	6	mace
+W	1372057	6	4	mace
+W	1372058	6	6	mace
+W	1372059	6	6	mace
+W	1372060	6	6	mace
+W	1372061	6	6	mace
+W	1372062	6	5	mace
+W	1372071	6	5	mace
+W	1372073	6	6	mace
+W	1372074	6	6	mace
+W	1372075	6	6	mace
+W	1372076	6	6	mace
+W	1372077	6	6	mace
+W	1372078	6	6	mace
+W	1372079	6	6	mace
+W	1372080	6	6	mace
+W	1372081	6	6	mace
+W	1372082	6	6	mace
+W	1372083	6	6	mace
+W	1372084	6	6	mace
+W	1372085	6	6	mace
+W	1372086	1	6	mace
+W	1372088	6	6	mace
+W	1372089	6	6	mace
+W	1372090	6	6	mace
+W	1372091	6	6	mace
+W	1372092	6	6	mace
+W	1372093	6	6	mace
+W	1372094	6	6	mace
+W	1372095	6	5	mace
+W	1372096	6	6	mace
+W	1372097	6	6	mace
+W	1372100	6	6	mace
+W	1372101	6	6	mace
+W	1372102	6	6	mace
+W	1372103	6	6	mace
+W	1372104	6	6	mace
+W	1372105	6	6	mace
+W	1372106	6	6	mace
+W	1372107	6	6	mace
+W	1372108	6	6	mace
+W	1372109	6	6	mace
+W	1372110	6	6	mace
+W	1372111	6	6	mace
+W	1372112	6	6	mace
+W	1372113	6	6	mace
+W	1372114	6	6	mace
+W	1372115	6	6	mace
+W	1372116	6	6	mace
+W	1372117	6	6	mace
+W	1372118	6	6	mace
+W	1372119	6	6	mace
+W	1372121	6	6	mace
+W	1372122	6	6	mace
+W	1372123	6	6	mace
+W	1372124	6	6	mace
+W	1372125	6	6	mace
+W	1372126	6	6	mace
+W	1372127	6	6	mace
+W	1372128	6	5	mace
+W	1372129	6	6	mace
+W	1372130	6	6	mace
+W	1372131	6	6	mace
+W	1372132	6	6	mace
+W	1372134	6	6	mace
+W	1372135	6	6	mace
+W	1372136	6	6	mace
+W	1372138	6	6	mace
+W	1372139	6	6	mace
+W	1372140	6	6	mace
+W	1372141	6	6	mace
+W	1372143	6	5	mace
+W	1372144	6	6	mace
+W	1372145	6	6	mace
+W	1372146	6	6	mace
+W	1372147	6	6	mace
+W	1372148	6	6	mace
+W	1372149	6	6	mace
+W	1372150	6	6	mace
+W	1372151	6	6	mace
+W	1372152	6	6	mace
+W	1372153	6	6	mace
+W	1372154	6	6	mace
+W	1372155	6	6	mace
+W	1372156	6	6	mace
+W	1372157	6	6	mace
+W	1372158	6	6	mace
+W	1372161	6	6	mace
+W	1372162	6	6	mace
+W	1372163	6	6	mace
+W	1372164	6	6	mace
+W	1372165	6	6	mace
+W	1372166	6	6	mace
+W	1372167	6	6	mace
+W	1372169	6	6	mace
+W	1372170	6	6	mace
+W	1372171	6	6	mace
+W	1372174	6	6	mace
+W	1372176	6	6	mace
+W	1372177	6	6	mace
+W	1372178	6	6	mace
+W	1372179	6	6	mace
+W	1372180	6	6	mace
+W	1372181	6	6	mace
+W	1372182	6	6	mace
+W	1372183	6	6	mace
+W	1372184	6	6	mace
+W	1372185	6	6	mace
+W	1372186	6	6	mace
+W	1372187	6	6	mace
+W	1372188	6	6	mace
+W	1372189	6	6	mace
+W	1372190	6	6	mace
+W	1372191	6	6	mace
+W	1372192	6	6	mace
+W	1372193	6	6	mace
+W	1372194	6	6	mace
+W	1372195	6	6	mace
+W	1372196	6	6	mace
+W	1372198	6	6	mace
+W	1372199	6	6	mace
+W	1372201	6	6	mace
+W	1372204	6	6	mace
+W	1372205	6	6	mace
+W	1372206	6	6	mace
+W	1372207	6	6	mace
+W	1372208	6	6	mace
+W	1372221	6	6	mace
+W	1372222	6	6	mace
+W	1372223	6	6	mace
+W	1372225	6	6	mace
+W	1372227	6	6	mace
+W	1372228	6	6	mace
+W	1372229	6	6	mace
+W	1372230	6	6	mace
+W	1372231	6	6	mace
+W	1372233	6	6	mace
+W	1372235	6	6	mace
+W	1372236	6	6	mace
+W	1372237	6	6	mace
+W	1372238	6	6	mace
+W	1382000	6	8	mace
+W	1382001	6	8	mace
+W	1382002	6	8	mace
+W	1382003	6	8	mace
+W	1382004	6	8	mace
+W	1382005	6	8	mace
+W	1382006	6	8	mace
+W	1382007	6	4	mace
+W	1382008	6	8	mace
+W	1382009	6	6	mace
+W	1382010	6	8	mace
+W	1382011	6	6	mace
+W	1382012	6	6	mace
+W	1382014	6	6	mace
+W	1382015	6	4	mace
+W	1382016	6	5	mace
+W	1382017	6	8	mace
+W	1382018	6	8	mace
+W	1382019	6	8	mace
+W	1382020	6	8	mace
+W	1382021	6	8	mace
+W	1382022	6	4	mace
+W	1382023	6	8	mace
+W	1382024	6	8	mace
+W	1382025	6	8	mace
+W	1382026	6	8	mace
+W	1382027	6	4	mace
+W	1382028	6	8	mace
+W	1382029	6	8	mace
+W	1382030	6	8	mace
+W	1382031	6	8	mace
+W	1382032	6	4	mace
+W	1382033	6	8	mace
+W	1382034	6	8	mace
+W	1382035	6	8	mace
+W	1382036	6	8	mace
+W	1382037	6	6	mace
+W	1382039	6	6	mace
+W	1382040	6	5	mace
+W	1382041	6	6	mace
+W	1382042	6	5	mace
+W	1382043	6	5	mace
+W	1382044	6	5	mace
+W	1382045	6	4	mace
+W	1382046	6	4	mace
+W	1382047	6	4	mace
+W	1382048	6	4	mace
+W	1382049	6	4	mace
+W	1382050	6	4	mace
+W	1382051	6	4	mace
+W	1382052	6	4	mace
+W	1382053	6	6	mace
+W	1382054	6	7	mace
+W	1382055	6	7	mace
+W	1382056	6	7	mace
+W	1382057	6	8	mace
+W	1382058	0	0	
+W	1382059	6	8	mace
+W	1382060	6	6	mace
+W	1382062	6	6	mace
+W	1382063	6	4	mace
+W	1382064	6	4	mace
+W	1382066	6	8	mace
+W	1382067	6	8	mace
+W	1382068	6	4	mace
+W	1382070	6	8	mace
+W	1382071	6	8	mace
+W	1382072	6	8	mace
+W	1382073	6	8	mace
+W	1382074	6	6	mace
+W	1382075	6	6	mace
+W	1382076	6	6	mace
+W	1382079	6	4	mace
+W	1382080	6	8	mace
+W	1382082	6	8	mace
+W	1382092	6	8	mace
+W	1382093	6	6	mace
+W	1382095	6	8	mace
+W	1382096	6	8	mace
+W	1382097	6	8	mace
+W	1382098	6	8	mace
+W	1382099	6	8	mace
+W	1382100	6	8	mace
+W	1382101	6	6	mace
+W	1382102	6	8	mace
+W	1382103	6	8	mace
+W	1382104	6	8	mace
+W	1382105	6	8	mace
+W	1382106	6	6	mace
+W	1382107	1	8	mace
+W	1382109	6	8	mace
+W	1382110	6	8	mace
+W	1382111	6	8	mace
+W	1382112	6	8	mace
+W	1382113	6	8	mace
+W	1382114	6	8	mace
+W	1382115	6	8	mace
+W	1382116	6	8	mace
+W	1382117	6	8	mace
+W	1382118	6	7	mace
+W	1382119	6	6	mace
+W	1382120	6	8	mace
+W	1382121	6	8	mace
+W	1382124	6	8	mace
+W	1382125	6	8	mace
+W	1382126	6	8	mace
+W	1382127	6	8	mace
+W	1382128	6	8	mace
+W	1382129	6	8	mace
+W	1382130	6	8	mace
+W	1382131	6	8	mace
+W	1382132	6	8	mace
+W	1382133	6	8	mace
+W	1382134	6	8	mace
+W	1382135	6	8	mace
+W	1382136	6	8	mace
+W	1382137	6	8	mace
+W	1382138	6	8	mace
+W	1382139	6	8	mace
+W	1382140	6	4	mace
+W	1382141	6	8	mace
+W	1382142	6	8	mace
+W	1382143	6	8	mace
+W	1382144	6	8	mace
+W	1382145	6	8	mace
+W	1382147	6	4	mace
+W	1382148	6	8	mace
+W	1382149	6	8	mace
+W	1382150	6	8	mace
+W	1382151	6	8	mace
+W	1382152	6	8	mace
+W	1382153	6	6	mace
+W	1382154	6	6	mace
+W	1382155	6	6	mace
+W	1382156	6	6	mace
+W	1382157	6	8	mace
+W	1382158	6	8	mace
+W	1382159	6	8	mace
+W	1382160	6	8	mace
+W	1382163	6	8	mace
+W	1382164	6	8	mace
+W	1382165	6	8	mace
+W	1382166	6	8	mace
+W	1382168	6	8	mace
+W	1382169	6	8	mace
+W	1382170	6	8	mace
+W	1382171	6	5	mace
+W	1382173	6	8	mace
+W	1382174	6	6	mace
+W	1382175	6	8	mace
+W	1382176	6	8	mace
+W	1382177	6	5	mace
+W	1382178	6	8	mace
+W	1382179	6	8	mace
+W	1382180	6	8	mace
+W	1382181	6	8	mace
+W	1382182	6	8	mace
+W	1382183	6	8	mace
+W	1382184	6	8	mace
+W	1382185	6	8	mace
+W	1382186	6	8	mace
+W	1382187	6	8	mace
+W	1382188	6	8	mace
+W	1382191	6	6	mace
+W	1382192	6	8	mace
+W	1382193	6	7	mace
+W	1382194	6	8	mace
+W	1382195	6	8	mace
+W	1382196	6	8	mace
+W	1382197	6	8	mace
+W	1382198	6	8	mace
+W	1382200	6	7	mace
+W	1382201	6	8	mace
+W	1382202	6	7	mace
+W	1382203	6	8	mace
+W	1382206	6	8	mace
+W	1382207	6	8	mace
+W	1382208	6	8	mace
+W	1382209	6	8	mace
+W	1382211	6	8	mace
+W	1382212	6	8	mace
+W	1382213	6	8	mace
+W	1382214	6	8	mace
+W	1382215	6	8	mace
+W	1382216	6	8	mace
+W	1382217	6	8	mace
+W	1382218	6	8	mace
+W	1382219	6	8	mace
+W	1382220	6	8	mace
+W	1382221	6	8	mace
+W	1382222	6	8	mace
+W	1382223	6	8	mace
+W	1382224	6	8	mace
+W	1382225	6	8	mace
+W	1382226	6	8	mace
+W	1382227	6	7	mace
+W	1382228	6	8	mace
+W	1382229	6	8	mace
+W	1382230	6	8	mace
+W	1382231	6	8	mace
+W	1382232	6	8	mace
+W	1382234	6	8	mace
+W	1382235	6	8	mace
+W	1382236	6	7	mace
+W	1382237	6	7	mace
+W	1382239	6	8	mace
+W	1382242	6	8	mace
+W	1382243	6	8	mace
+W	1382244	6	8	mace
+W	1382245	6	8	mace
+W	1382246	6	8	mace
+W	1382259	6	8	mace
+W	1382260	6	8	mace
+W	1382263	6	8	mace
+W	1382265	6	8	mace
+W	1382266	6	8	mace
+W	1382267	6	8	mace
+W	1382268	6	8	mace
+W	1382270	6	8	mace
+W	1382272	6	8	mace
+W	1382273	6	8	mace
+W	1382274	6	8	mace
+W	1382275	6	8	mace
+W	1390000	8	3	barehands
+W	1390001	8	3	barehands
+W	1390002	8	3	barehands
+W	1390003	8	3	barehands
+W	1392000	8	3	barehands
+W	1392001	8	3	barehands
+W	1402000	5	6	swordTS
+W	1402001	5	6	swordTS
+W	1402002	5	6	swordTL
+W	1402003	5	6	swordTL
+W	1402004	5	6	swordTL
+W	1402005	5	8	swordTL
+W	1402006	5	4	swordTS
+W	1402007	5	6	swordTS
+W	1402008	5	6	swordTS
+W	1402009	5	5	swordTS
+W	1402010	5	5	swordTS
+W	1402011	5	6	swordTL
+W	1402012	5	6	swordTL
+W	1402013	5	4	swordTS
+W	1402014	5	5	swordTS
+W	1402015	5	6	swordTL
+W	1402016	5	6	swordTL
+W	1402017	5	6	swordTL
+W	1402018	5	6	swordTL
+W	1402019	5	6	swordTL
+W	1402020	5	6	swordTL
+W	1402021	5	6	swordTL
+W	1402022	5	6	swordTL
+W	1402023	5	6	swordTL
+W	1402024	5	6	swordTL
+W	1402025	5	6	swordTL
+W	1402026	5	6	swordTL
+W	1402027	5	6	swordTL
+W	1402028	5	6	swordTL
+W	1402029	5	6	swordTL
+W	1402030	5	6	swordTL
+W	1402031	5	6	swordTL
+W	1402032	5	6	swordTL
+W	1402033	5	6	swordTL
+W	1402034	5	6	swordTL
+W	1402035	5	7	swordTL
+W	1402036	5	6	swordTL
+W	1402037	5	5	swordTL
+W	1402039	5	6	swordTL
+W	1402040	5	5	swordTL
+W	1402041	5	5	swordTL
+W	1402042	5	5	swordTL
+W	1402043	5	5	swordTL
+W	1402044	5	5	swordTL
+W	1402045	5	5	swordTL
+W	1402046	5	6	swordTL
+W	1402047	5	6	swordTL
+W	1402048	5	6	swordTL
+W	1402049	5	5	swordTL
+W	1402050	5	6	swordTL
+W	1402051	5	6	swordTL
+W	1402053	5	6	swordTL
+W	1402054	5	6	swordTL
+W	1402055	5	6	swordTL
+W	1402056	5	6	swordTL
+W	1402057	5	6	swordTL
+W	1402058	5	8	swordTL
+W	1402059	5	6	swordTL
+W	1402060	5	5	swordTL
+W	1402061	5	6	swordTL
+W	1402062	5	5	swordTS
+W	1402063	5	5	swordTL
+W	1402064	5	6	swordTS
+W	1402065	5	6	swordTL
+W	1402066	5	6	swordTS
+W	1402067	5	6	swordTS
+W	1402068	5	6	swordTL
+W	1402069	5	4	swordTL
+W	1402071	5	6	swordTL
+W	1402072	5	6	swordTS
+W	1402073	5	6	swordTL
+W	1402074	5	6	swordTL
+W	1402076	5	6	swordTS
+W	1402077	5	6	swordTS
+W	1402085	5	6	swordTL
+W	1402086	5	6	swordTL
+W	1402087	5	7	swordTL
+W	1402088	5	6	swordTL
+W	1402089	5	6	swordTL
+W	1402090	5	6	swordTL
+W	1402091	5	6	swordTL
+W	1402092	5	6	swordTL
+W	1402093	5	6	swordTL
+W	1402094	5	6	swordTL
+W	1402095	5	6	swordTL
+W	1402096	5	6	swordTL
+W	1402098	5	6	swordTL
+W	1402099	5	6	swordTL
+W	1402100	5	6	swordTL
+W	1402101	5	6	swordTL
+W	1402102	5	6	swordTL
+W	1402103	5	6	swordTL
+W	1402104	5	6	swordTL
+W	1402105	5	6	swordTL
+W	1402106	5	6	swordTL
+W	1402107	5	6	swordTL
+W	1402111	5	6	swordTL
+W	1402112	5	6	swordTL
+W	1402113	5	6	swordTL
+W	1402114	5	6	swordTL
+W	1402115	5	6	swordTL
+W	1402116	5	6	swordTL
+W	1402117	5	7	swordTL
+W	1402118	5	6	swordTL
+W	1402119	5	6	swordTS
+W	1402120	5	6	swordTL
+W	1402121	5	6	swordTS
+W	1402122	5	6	swordTS
+W	1402123	5	6	swordTL
+W	1402124	5	4	swordTS
+W	1402125	5	6	swordTS
+W	1402126	5	6	swordTL
+W	1402127	5	6	swordTL
+W	1402128	5	6	swordTL
+W	1402129	5	6	swordTL
+W	1402130	5	6	swordTL
+W	1402131	5	6	swordTL
+W	1402133	5	6	swordTL
+W	1402134	5	6	swordTL
+W	1402135	5	6	swordTL
+W	1402136	5	7	swordTL
+W	1402137	5	6	swordTL
+W	1402138	5	6	swordTL
+W	1402139	5	6	swordTL
+W	1402140	5	6	swordTL
+W	1402141	5	6	swordTL
+W	1402142	5	6	swordTL
+W	1402143	5	6	swordTL
+W	1402145	5	6	swordTL
+W	1402146	5	6	swordTL
+W	1402147	5	6	swordTL
+W	1402148	5	4	swordTS
+W	1402149	5	6	swordTS
+W	1402151	5	6	swordTL
+W	1402152	5	6	swordTL
+W	1402153	5	6	swordTL
+W	1402154	5	5	swordTL
+W	1402157	5	6	swordTL
+W	1402158	5	6	swordTL
+W	1402159	5	6	swordTL
+W	1402160	5	6	swordTL
+W	1402161	5	6	swordTL
+W	1402162	5	6	swordTL
+W	1402163	5	6	swordTL
+W	1402164	5	6	swordTL
+W	1402165	5	6	swordTL
+W	1402166	5	6	swordTL
+W	1402167	5	6	swordTL
+W	1402168	5	6	swordTL
+W	1402169	5	6	swordTL
+W	1402172	5	6	swordTL
+W	1402174	5	6	swordTL
+W	1402175	5	6	swordTL
+W	1402176	5	6	swordTL
+W	1402177	5	6	swordTL
+W	1402178	5	6	swordTL
+W	1402179	5	6	swordTL
+W	1402180	5	6	swordTL
+W	1402181	5	6	swordTL
+W	1402182	5	6	swordTL
+W	1402183	5	6	swordTL
+W	1402184	5	6	swordTL
+W	1402186	5	6	swordTL
+W	1402187	5	6	swordTL
+W	1402188	5	6	swordTL
+W	1402191	5	6	swordTL
+W	1402195	5	6	swordTL
+W	1402196	5	6	swordTL
+W	1402197	5	6	swordTL
+W	1402198	5	6	swordTL
+W	1402199	5	6	swordTL
+W	1402200	5	6	swordTL
+W	1402202	5	6	swordTL
+W	1402203	5	6	swordTL
+W	1402204	5	6	swordTL
+W	1402205	5	6	swordTL
+W	1402206	5	6	swordTL
+W	1402207	5	6	swordTL
+W	1402208	5	6	swordTL
+W	1402209	5	6	swordTL
+W	1402210	5	6	swordTL
+W	1402211	5	6	swordTL
+W	1402212	5	6	swordTL
+W	1402213	5	6	swordTL
+W	1402214	5	6	swordTL
+W	1402215	5	6	swordTL
+W	1402216	5	6	swordTL
+W	1402217	5	6	swordTL
+W	1402218	5	6	swordTL
+W	1402219	5	6	swordTL
+W	1402220	5	6	swordTL
+W	1402221	5	6	swordTL
+W	1402222	5	6	swordTL
+W	1402224	5	6	swordTL
+W	1402225	5	6	swordTL
+W	1402226	5	6	swordTL
+W	1402229	5	6	swordTL
+W	1402230	5	6	swordTL
+W	1402233	5	6	swordTL
+W	1402234	5	6	swordTL
+W	1402235	5	6	swordTL
+W	1402236	5	6	swordTL
+W	1402237	5	6	swordTL
+W	1402250	0	0	
+W	1402251	5	6	swordTL
+W	1402252	5	6	swordTL
+W	1402253	5	6	swordTL
+W	1402255	5	6	swordTL
+W	1402256	15	5	swordTK
+W	1402259	5	6	swordTL
+W	1402260	5	6	swordTL
+W	1402261	5	6	swordTL
+W	1402262	5	6	swordTL
+W	1402264	5	6	swordTL
+W	1402266	5	6	swordTL
+W	1402267	5	6	swordTL
+W	1402268	5	6	swordTL
+W	1402269	5	6	swordTL
+W	1412000	5	6	axe
+W	1412001	5	6	axe
+W	1412002	5	6	axe
+W	1412003	5	7	axe
+W	1412004	5	6	axe
+W	1412005	5	7	axe
+W	1412006	5	6	axe
+W	1412007	5	6	axe
+W	1412008	5	7	axe
+W	1412009	5	6	axe
+W	1412010	5	6	axe
+W	1412011	5	6	axe
+W	1412012	5	6	axe
+W	1412013	5	7	axe
+W	1412014	5	6	axe
+W	1412015	5	7	axe
+W	1412016	5	6	axe
+W	1412017	5	7	axe
+W	1412018	5	6	axe
+W	1412019	5	7	axe
+W	1412020	5	6	axe
+W	1412021	5	7	axe
+W	1412022	5	7	axe
+W	1412023	5	6	axe
+W	1412024	5	7	axe
+W	1412025	5	6	axe
+W	1412026	5	7	axe
+W	1412027	5	6	axe
+W	1412028	5	5	axe
+W	1412029	5	5	axe
+W	1412030	5	5	axe
+W	1412031	5	5	axe
+W	1412032	5	6	axe
+W	1412033	5	6	axe
+W	1412034	5	6	axe
+W	1412035	5	6	axe
+W	1412036	5	6	axe
+W	1412037	5	6	axe
+W	1412038	5	6	axe
+W	1412039	5	6	axe
+W	1412040	5	6	axe
+W	1412041	5	6	axe
+W	1412042	5	7	axe
+W	1412043	5	6	axe
+W	1412044	5	6	axe
+W	1412045	5	6	axe
+W	1412046	5	6	axe
+W	1412047	5	7	axe
+W	1412055	5	6	axe
+W	1412056	5	6	axe
+W	1412058	5	7	axe
+W	1412059	5	7	axe
+W	1412060	5	6	axe
+W	1412061	5	7	axe
+W	1412062	5	6	axe
+W	1412063	5	7	axe
+W	1412065	5	6	axe
+W	1412066	5	6	axe
+W	1412067	5	6	axe
+W	1412068	5	6	axe
+W	1412071	5	6	axe
+W	1412072	5	6	axe
+W	1412073	5	6	axe
+W	1412074	5	6	axe
+W	1412075	5	7	axe
+W	1412076	5	7	axe
+W	1412077	5	6	axe
+W	1412078	5	6	axe
+W	1412079	5	6	axe
+W	1412080	5	6	axe
+W	1412081	5	6	axe
+W	1412082	5	6	axe
+W	1412083	5	7	axe
+W	1412084	5	7	axe
+W	1412085	5	6	axe
+W	1412086	5	7	axe
+W	1412087	5	6	axe
+W	1412089	5	7	axe
+W	1412090	5	6	axe
+W	1412091	5	6	axe
+W	1412092	5	7	axe
+W	1412093	5	7	axe
+W	1412094	5	6	axe
+W	1412095	5	6	axe
+W	1412096	5	6	axe
+W	1412097	5	6	axe
+W	1412098	5	6	axe
+W	1412099	5	6	axe
+W	1412100	5	6	axe
+W	1412102	5	6	axe
+W	1412104	5	6	axe
+W	1412105	5	6	axe
+W	1412106	5	6	axe
+W	1412107	5	5	axe
+W	1412109	5	6	axe
+W	1412110	5	6	axe
+W	1412111	5	6	axe
+W	1412112	5	6	axe
+W	1412113	5	7	axe
+W	1412114	5	7	axe
+W	1412115	5	6	axe
+W	1412116	5	6	axe
+W	1412117	5	6	axe
+W	1412118	5	6	axe
+W	1412119	5	6	axe
+W	1412122	5	6	axe
+W	1412123	5	6	axe
+W	1412124	5	6	axe
+W	1412125	5	6	axe
+W	1412127	5	6	axe
+W	1412128	5	6	axe
+W	1412129	5	6	axe
+W	1412132	5	6	axe
+W	1412134	5	6	axe
+W	1412135	5	6	axe
+W	1412136	5	6	axe
+W	1412137	5	6	axe
+W	1412138	5	6	axe
+W	1412139	5	6	axe
+W	1412140	5	6	axe
+W	1412141	5	6	axe
+W	1412142	5	6	axe
+W	1412143	5	6	axe
+W	1412144	5	6	axe
+W	1412145	5	6	axe
+W	1412146	5	7	axe
+W	1412147	5	7	axe
+W	1412148	5	6	axe
+W	1412149	5	6	axe
+W	1412150	5	6	axe
+W	1412151	5	6	axe
+W	1412152	5	6	axe
+W	1412153	5	6	axe
+W	1412155	5	6	axe
+W	1412156	5	6	axe
+W	1412158	5	6	axe
+W	1412161	5	6	axe
+W	1412162	5	6	axe
+W	1412163	5	6	axe
+W	1412164	5	6	axe
+W	1412177	5	6	axe
+W	1412178	5	6	axe
+W	1412179	5	6	axe
+W	1412180	5	6	axe
+W	1412181	5	6	axe
+W	1412182	5	6	axe
+W	1412183	5	6	axe
+W	1412185	5	6	axe
+W	1412187	5	6	axe
+W	1412188	5	6	axe
+W	1412189	5	6	axe
+W	1412190	5	6	axe
+W	1422000	5	6	axe
+W	1422001	5	6	axe
+W	1422002	5	7	axe
+W	1422003	5	7	axe
+W	1422004	5	7	axe
+W	1422005	5	7	axe
+W	1422006	5	7	axe
+W	1422007	5	7	axe
+W	1422008	5	7	axe
+W	1422009	5	7	axe
+W	1422010	5	7	axe
+W	1422011	5	6	swordTL
+W	1422012	5	6	axe
+W	1422013	5	7	axe
+W	1422014	5	7	axe
+W	1422015	5	7	axe
+W	1422016	5	7	axe
+W	1422017	5	7	axe
+W	1422018	5	6	axe
+W	1422019	5	7	axe
+W	1422020	5	7	axe
+W	1422021	5	7	axe
+W	1422022	5	6	axe
+W	1422023	5	7	axe
+W	1422024	5	7	axe
+W	1422025	5	7	axe
+W	1422026	5	6	axe
+W	1422027	5	7	axe
+W	1422028	5	7	axe
+W	1422029	5	7	axe
+W	1422030	5	7	axe
+W	1422031	5	7	axe
+W	1422032	5	5	axe
+W	1422033	5	5	axe
+W	1422034	5	5	axe
+W	1422035	5	5	axe
+W	1422036	5	6	axe
+W	1422037	5	7	axe
+W	1422038	5	7	axe
+W	1422039	2	6	spear
+W	1422040	5	7	axe
+W	1422041	5	7	axe
+W	1422042	5	6	axe
+W	1422043	5	7	axe
+W	1422044	5	7	axe
+W	1422045	5	7	axe
+W	1422046	5	7	axe
+W	1422047	5	7	axe
+W	1422048	5	7	axe
+W	1422049	5	7	axe
+W	1422057	5	7	axe
+W	1422059	5	7	axe
+W	1422060	5	7	axe
+W	1422061	5	6	axe
+W	1422062	5	7	axe
+W	1422063	5	7	axe
+W	1422064	5	7	axe
+W	1422066	5	6	axe
+W	1422067	5	6	axe
+W	1422069	5	6	axe
+W	1422070	5	6	axe
+W	1422073	5	7	axe
+W	1422074	5	7	axe
+W	1422075	5	6	axe
+W	1422076	5	7	axe
+W	1422077	5	7	axe
+W	1422078	5	7	axe
+W	1422079	5	6	axe
+W	1422080	5	7	axe
+W	1422081	5	7	axe
+W	1422082	5	7	axe
+W	1422083	5	6	axe
+W	1422084	5	7	axe
+W	1422085	5	7	axe
+W	1422086	5	7	axe
+W	1422087	5	7	axe
+W	1422088	5	7	axe
+W	1422089	5	6	axe
+W	1422090	5	7	axe
+W	1422092	5	7	axe
+W	1422093	5	6	axe
+W	1422094	5	7	axe
+W	1422095	5	7	axe
+W	1422096	5	7	axe
+W	1422097	5	6	axe
+W	1422098	5	7	axe
+W	1422099	5	7	axe
+W	1422100	5	7	axe
+W	1422101	5	7	axe
+W	1422102	5	6	axe
+W	1422103	5	7	axe
+W	1422105	5	6	axe
+W	1422107	5	6	axe
+W	1422108	5	6	axe
+W	1422109	5	6	axe
+W	1422110	5	5	axe
+W	1422112	5	7	axe
+W	1422113	5	7	axe
+W	1422114	5	6	axe
+W	1422115	5	7	axe
+W	1422116	5	7	axe
+W	1422117	5	7	axe
+W	1422118	5	7	axe
+W	1422119	5	7	axe
+W	1422120	5	7	axe
+W	1422121	5	7	axe
+W	1422124	5	6	axe
+W	1422125	5	6	axe
+W	1422126	5	6	axe
+W	1422127	5	7	axe
+W	1422128	5	5	axe
+W	1422130	5	6	axe
+W	1422131	5	6	axe
+W	1422132	5	6	axe
+W	1422136	5	6	axe
+W	1422138	5	6	axe
+W	1422140	5	6	axe
+W	1422141	5	6	axe
+W	1422142	5	6	axe
+W	1422143	5	6	axe
+W	1422144	5	6	axe
+W	1422145	5	6	axe
+W	1422146	5	6	axe
+W	1422147	5	6	axe
+W	1422148	5	6	axe
+W	1422149	5	6	axe
+W	1422150	5	7	axe
+W	1422151	5	7	axe
+W	1422152	5	7	axe
+W	1422153	5	6	axe
+W	1422154	5	6	axe
+W	1422155	5	6	axe
+W	1422156	5	6	axe
+W	1422157	5	6	axe
+W	1422158	5	6	axe
+W	1422159	5	6	axe
+W	1422160	5	5	axe
+W	1422162	5	6	axe
+W	1422163	5	6	axe
+W	1422165	5	6	axe
+W	1422168	5	6	axe
+W	1422169	5	6	axe
+W	1422170	5	6	axe
+W	1422171	5	6	axe
+W	1422184	5	6	axe
+W	1422185	5	6	axe
+W	1422186	5	6	axe
+W	1422187	5	6	axe
+W	1422188	16	4	mace
+W	1422189	5	6	axe
+W	1422190	5	6	axe
+W	1422191	5	6	axe
+W	1422193	5	6	axe
+W	1422195	5	6	axe
+W	1422196	5	6	axe
+W	1422197	5	6	axe
+W	1422198	5	6	axe
+W	1432000	2	8	spear
+W	1432001	2	8	spear
+W	1432002	2	8	spear
+W	1432003	2	8	spear
+W	1432004	2	6	spear
+W	1432005	2	6	spear
+W	1432006	2	7	spear
+W	1432007	2	8	spear
+W	1432008	2	6	spear
+W	1432009	2	5	spear
+W	1432010	2	7	spear
+W	1432011	2	7	spear
+W	1432012	2	5	spear
+W	1432013	2	5	spear
+W	1432014	2	6	spear
+W	1432015	2	6	spear
+W	1432016	2	6	spear
+W	1432017	2	6	spear
+W	1432018	2	6	spear
+W	1432019	2	8	spear
+W	1432020	2	6	spear
+W	1432021	2	7	spear
+W	1432022	2	8	spear
+W	1432023	2	7	spear
+W	1432024	2	8	spear
+W	1432025	2	6	spear
+W	1432026	2	7	spear
+W	1432027	2	8	spear
+W	1432028	2	7	spear
+W	1432029	2	8	spear
+W	1432030	2	7	spear
+W	1432031	2	8	spear
+W	1432032	2	6	spear
+W	1432033	2	7	spear
+W	1432034	2	8	spear
+W	1432035	2	7	spear
+W	1432036	2	4	spear
+W	1432038	2	7	spear
+W	1432039	2	5	spear
+W	1432040	2	6	spear
+W	1432041	2	5	spear
+W	1432042	2	5	spear
+W	1432043	2	5	spear
+W	1432044	2	5	spear
+W	1432045	2	6	spear
+W	1432046	2	5	spear
+W	1432047	2	7	spear
+W	1432048	2	7	spear
+W	1432049	2	7	spear
+W	1432050	2	6	spear
+W	1432051	2	7	spear
+W	1432052	2	7	spear
+W	1432054	2	7	spear
+W	1432055	2	7	spear
+W	1432056	2	7	spear
+W	1432057	2	6	spear
+W	1432058	2	5	spear
+W	1432059	2	6	spear
+W	1432060	2	7	spear
+W	1432061	2	5	spear
+W	1432063	2	7	spear
+W	1432066	2	6	spear
+W	1432067	2	6	spear
+W	1432075	2	6	spear
+W	1432077	2	6	spear
+W	1432078	2	7	spear
+W	1432079	2	7	spear
+W	1432080	2	7	spear
+W	1432081	2	7	spear
+W	1432082	2	6	spear
+W	1432083	2	6	spear
+W	1432084	2	6	spear
+W	1432085	2	6	spear
+W	1432086	2	6	spear
+W	1432087	2	6	spear
+W	1432089	2	6	spear
+W	1432090	2	6	spear
+W	1432091	2	6	spear
+W	1432092	2	6	spear
+W	1432093	2	6	spear
+W	1432094	2	6	spear
+W	1432095	2	6	spear
+W	1432096	2	6	spear
+W	1432099	2	6	spear
+W	1432100	2	6	spear
+W	1432101	2	6	spear
+W	1432102	2	6	spear
+W	1432103	2	6	spear
+W	1432104	2	6	spear
+W	1432105	2	6	spear
+W	1432106	2	6	spear
+W	1432107	2	6	spear
+W	1432108	2	6	spear
+W	1432109	2	6	spear
+W	1432110	2	6	spear
+W	1432111	2	6	spear
+W	1432112	2	6	spear
+W	1432113	2	6	spear
+W	1432114	2	6	spear
+W	1432115	2	6	spear
+W	1432117	2	6	spear
+W	1432118	2	6	spear
+W	1432119	2	6	spear
+W	1432121	2	6	spear
+W	1432122	2	6	spear
+W	1432123	2	6	spear
+W	1432124	2	6	spear
+W	1432125	2	6	spear
+W	1432126	2	6	spear
+W	1432127	2	5	spear
+W	1432128	2	6	spear
+W	1432129	2	6	spear
+W	1432130	2	7	spear
+W	1432131	2	6	spear
+W	1432132	2	5	spear
+W	1432133	2	6	spear
+W	1432135	2	6	spear
+W	1432136	2	6	spear
+W	1432137	2	6	spear
+W	1432138	2	6	spear
+W	1432139	2	6	spear
+W	1432140	2	6	spear
+W	1432141	2	5	spear
+W	1432143	2	6	spear
+W	1432144	2	6	spear
+W	1432145	2	6	spear
+W	1432146	2	6	spear
+W	1432147	2	6	spear
+W	1432150	2	6	spear
+W	1432151	2	6	spear
+W	1432152	2	6	spear
+W	1432153	2	6	spear
+W	1432154	2	6	spear
+W	1432155	2	6	spear
+W	1432156	2	6	spear
+W	1432157	2	6	spear
+W	1432159	2	6	spear
+W	1432160	2	6	spear
+W	1432161	2	6	spear
+W	1432164	2	6	spear
+W	1432166	2	6	spear
+W	1432167	2	6	spear
+W	1432168	2	6	spear
+W	1432169	2	6	spear
+W	1432170	2	6	spear
+W	1432171	2	6	spear
+W	1432172	2	6	spear
+W	1432173	2	6	spear
+W	1432174	2	6	spear
+W	1432175	2	6	spear
+W	1432176	2	6	spear
+W	1432177	2	6	spear
+W	1432178	2	6	spear
+W	1432179	2	6	spear
+W	1432180	2	6	spear
+W	1432181	2	6	spear
+W	1432182	2	6	spear
+W	1432183	2	6	spear
+W	1432184	2	6	spear
+W	1432185	2	6	spear
+W	1432186	2	6	spear
+W	1432187	2	6	spear
+W	1432189	2	6	spear
+W	1432191	2	6	spear
+W	1432192	2	6	spear
+W	1432194	2	6	spear
+W	1432197	2	6	spear
+W	1432198	2	6	spear
+W	1432199	2	6	spear
+W	1432200	2	6	spear
+W	1432201	2	6	spear
+W	1432214	2	6	spear
+W	1432215	2	6	spear
+W	1432216	2	6	spear
+W	1432218	2	6	spear
+W	1432219	2	6	spear
+W	1432220	2	6	spear
+W	1432221	2	6	spear
+W	1432223	2	6	spear
+W	1432225	2	6	spear
+W	1432226	2	6	spear
+W	1432227	2	6	spear
+W	1432228	2	6	spear
+W	1442000	2	8	poleArm
+W	1442001	2	8	poleArm
+W	1442002	2	9	poleArm
+W	1442003	2	8	poleArm
+W	1442004	2	8	poleArm
+W	1442005	2	6	poleArm
+W	1442006	2	7	poleArm
+W	1442007	2	7	poleArm
+W	1442008	2	8	poleArm
+W	1442009	2	8	poleArm
+W	1442010	2	8	poleArm
+W	1442011	2	8	poleArm
+W	1442012	2	6	poleArm
+W	1442013	2	6	poleArm
+W	1442014	2	6	poleArm
+W	1442015	2	6	poleArm
+W	1442016	2	6	poleArm
+W	1442017	2	6	poleArm
+W	1442018	2	9	poleArm
+W	1442019	2	7	poleArm
+W	1442020	2	8	poleArm
+W	1442021	2	9	poleArm
+W	1442022	2	6	poleArm
+W	1442023	2	9	poleArm
+W	1442024	2	6	poleArm
+W	1442025	2	6	poleArm
+W	1442026	2	7	poleArm
+W	1442027	2	6	poleArm
+W	1442028	2	6	poleArm
+W	1442029	2	5	poleArm
+W	1442030	2	6	poleArm
+W	1442031	2	6	poleArm
+W	1442032	2	8	poleArm
+W	1442033	2	8	poleArm
+W	1442034	2	7	poleArm
+W	1442035	2	6	poleArm
+W	1442036	2	8	poleArm
+W	1442037	2	8	poleArm
+W	1442038	2	7	poleArm
+W	1442039	2	9	poleArm
+W	1442040	2	6	poleArm
+W	1442041	2	8	poleArm
+W	1442042	2	8	poleArm
+W	1442043	2	7	poleArm
+W	1442044	2	8	poleArm
+W	1442045	2	8	poleArm
+W	1442046	2	5	poleArm
+W	1442047	2	6	poleArm
+W	1442048	2	6	poleArm
+W	1442049	2	6	poleArm
+W	1442050	2	6	poleArm
+W	1442051	2	6	poleArm
+W	1442052	2	5	poleArm
+W	1442053	2	5	poleArm
+W	1442054	2	7	poleArm
+W	1442055	2	6	poleArm
+W	1442056	2	6	poleArm
+W	1442057	2	5	poleArm
+W	1442058	2	5	poleArm
+W	1442059	2	5	poleArm
+W	1442060	2	6	poleArm
+W	1442061	2	7	poleArm
+W	1442062	2	2	poleArm
+W	1442063	2	8	poleArm
+W	1442064	2	4	poleArm
+W	1442065	2	6	poleArm
+W	1442066	2	6	poleArm
+W	1442067	2	8	poleArm
+W	1442068	2	6	poleArm
+W	1442071	2	6	poleArm
+W	1442072	2	8	poleArm
+W	1442073	2	8	poleArm
+W	1442074	2	7	poleArm
+W	1442075	2	8	poleArm
+W	1442076	2	0	poleArm
+W	1442077	2	8	poleArm
+W	1442078	2	6	poleArm
+W	1442079	2	8	poleArm
+W	1442080	2	8	poleArm
+W	1442081	2	8	poleArm
+W	1442082	2	8	poleArm
+W	1442083	2	6	poleArm
+W	1442084	2	6	poleArm
+W	1442085	2	8	poleArm
+W	1442090	2	6	poleArm
+W	1442091	2	7	poleArm
+W	1442092	2	8	poleArm
+W	1442093	2	8	poleArm
+W	1442094	2	8	poleArm
+W	1442095	2	8	poleArm
+W	1442103	2	5	poleArm
+W	1442104	2	6	poleArm
+W	1442106	2	8	poleArm
+W	1442107	2	8	poleArm
+W	1442108	2	7	poleArm
+W	1442109	2	7	poleArm
+W	1442110	2	8	poleArm
+W	1442111	2	8	poleArm
+W	1442112	2	8	poleArm
+W	1442113	2	8	poleArm
+W	1442115	2	8	poleArm
+W	1442116	2	5	poleArm
+W	1442117	2	5	poleArm
+W	1442118	2	5	poleArm
+W	1442119	2	7	spear
+W	1442120	2	7	spear
+W	1442121	2	8	poleArm
+W	1442122	2	8	poleArm
+W	1442123	2	8	poleArm
+W	1442124	2	6	poleArm
+W	1442125	2	6	poleArm
+W	1442126	2	6	poleArm
+W	1442127	2	6	poleArm
+W	1442128	2	6	poleArm
+W	1442129	2	6	poleArm
+W	1442130	2	6	poleArm
+W	1442131	2	6	poleArm
+W	1442132	2	5	poleArm
+W	1442133	2	5	poleArm
+W	1442136	2	5	poleArm
+W	1442137	2	5	poleArm
+W	1442138	2	5	poleArm
+W	1442139	2	5	poleArm
+W	1442140	2	7	poleArm
+W	1442141	2	8	poleArm
+W	1442142	2	8	poleArm
+W	1442143	2	8	poleArm
+W	1442144	2	8	poleArm
+W	1442145	2	7	poleArm
+W	1442146	2	7	poleArm
+W	1442147	2	8	poleArm
+W	1442148	2	8	poleArm
+W	1442149	2	8	poleArm
+W	1442150	2	8	poleArm
+W	1442151	2	6	poleArm
+W	1442152	2	8	poleArm
+W	1442153	2	8	poleArm
+W	1442154	2	5	poleArm
+W	1442155	2	8	poleArm
+W	1442156	2	8	poleArm
+W	1442157	2	6	poleArm
+W	1442159	2	8	poleArm
+W	1442160	2	7	poleArm
+W	1442161	2	8	poleArm
+W	1442162	2	8	poleArm
+W	1442163	2	8	poleArm
+W	1442164	2	8	poleArm
+W	1442165	2	6	poleArm
+W	1442166	2	6	poleArm
+W	1442167	2	6	poleArm
+W	1442168	2	8	poleArm
+W	1442169	2	8	poleArm
+W	1442170	2	5	poleArm
+W	1442171	2	8	poleArm
+W	1442173	2	7	poleArm
+W	1442174	2	6	poleArm
+W	1442175	2	6	poleArm
+W	1442176	2	6	poleArm
+W	1442177	2	6	poleArm
+W	1442178	2	6	poleArm
+W	1442179	2	6	poleArm
+W	1442180	2	8	poleArm
+W	1442182	2	7	poleArm
+W	1442183	2	5	poleArm
+W	1442184	2	5	poleArm
+W	1442185	2	5	poleArm
+W	1442186	2	7	poleArm
+W	1442187	2	8	poleArm
+W	1442188	2	6	poleArm
+W	1442189	2	6	poleArm
+W	1442190	2	5	poleArm
+W	1442192	2	8	poleArm
+W	1442193	2	8	poleArm
+W	1442194	2	8	poleArm
+W	1442195	2	6	poleArm
+W	1442196	2	8	poleArm
+W	1442197	2	6	poleArm
+W	1442198	2	7	poleArm
+W	1442199	2	7	poleArm
+W	1442202	2	5	poleArm
+W	1442203	2	7	poleArm
+W	1442204	2	7	poleArm
+W	1442205	2	8	poleArm
+W	1442206	2	6	poleArm
+W	1442207	2	6	poleArm
+W	1442208	2	6	poleArm
+W	1442210	2	7	poleArm
+W	1442211	2	7	poleArm
+W	1442212	2	7	poleArm
+W	1442219	2	5	poleArm
+W	1442221	2	5	poleArm
+W	1442222	2	7	poleArm
+W	1442223	2	5	poleArm
+W	1442224	2	5	poleArm
+W	1442225	2	5	poleArm
+W	1442226	2	5	poleArm
+W	1442227	2	5	poleArm
+W	1442228	2	5	poleArm
+W	1442229	2	7	poleArm
+W	1442230	2	5	poleArm
+W	1442231	2	5	poleArm
+W	1442232	2	5	poleArm
+W	1442233	2	8	poleArm
+W	1442234	2	8	poleArm
+W	1442235	2	5	poleArm
+W	1442236	2	5	poleArm
+W	1442237	2	5	poleArm
+W	1442238	2	6	poleArm
+W	1442239	2	6	poleArm
+W	1442240	2	6	poleArm
+W	1442241	2	6	poleArm
+W	1442242	2	0	poleArm
+W	1442243	2	0	poleArm
+W	1442245	2	7	poleArm
+W	1442246	2	7	poleArm
+W	1442248	2	5	poleArm
+W	1442251	2	5	poleArm
+W	1442252	2	5	poleArm
+W	1442253	2	5	poleArm
+W	1442254	2	5	poleArm
+W	1442255	2	5	poleArm
+W	1442268	2	5	poleArm
+W	1442269	2	5	poleArm
+W	1442270	2	5	poleArm
+W	1442272	2	5	poleArm
+W	1442273	2	0	poleArm
+W	1442274	2	5	poleArm
+W	1442275	2	5	poleArm
+W	1442276	2	5	poleArm
+W	1442277	2	0	poleArm
+W	1442278	2	5	poleArm
+W	1442279	2	5	poleArm
+W	1442281	2	5	poleArm
+W	1442283	2	5	poleArm
+W	1442284	2	5	poleArm
+W	1442285	2	5	poleArm
+W	1442286	2	5	poleArm
+W	1452000	3	5	bow
+W	1452001	3	6	bow
+W	1452002	3	6	bow
+W	1452003	3	6	bow
+W	1452004	3	6	bow
+W	1452005	3	6	bow
+W	1452006	3	5	bow
+W	1452007	3	6	bow
+W	1452008	3	6	bow
+W	1452009	3	6	bow
+W	1452010	3	6	bow
+W	1452011	3	6	bow
+W	1452012	3	6	bow
+W	1452013	3	6	bow
+W	1452014	3	6	bow
+W	1452015	3	6	bow
+W	1452016	3	5	bow
+W	1452017	3	6	bow
+W	1452018	3	6	bow
+W	1452019	3	6	bow
+W	1452020	3	6	bow
+W	1452021	3	6	bow
+W	1452022	3	5	bow
+W	1452023	3	5	bow
+W	1452025	3	5	bow
+W	1452026	3	6	bow
+W	1452027	3	6	bow
+W	1452028	3	6	bow
+W	1452029	3	6	bow
+W	1452030	3	6	bow
+W	1452031	3	6	bow
+W	1452032	3	6	bow
+W	1452033	3	6	bow
+W	1452034	3	6	bow
+W	1452035	3	6	bow
+W	1452036	3	6	bow
+W	1452037	3	5	bow
+W	1452038	3	6	bow
+W	1452039	3	6	bow
+W	1452040	3	6	bow
+W	1452041	3	6	bow
+W	1452042	3	6	bow
+W	1452043	3	4	bow
+W	1452044	3	6	bow
+W	1452045	3	5	bow
+W	1452046	3	5	bow
+W	1452048	3	5	bow
+W	1452049	3	5	swordTS
+W	1452050	3	5	swordTS
+W	1452051	3	6	bow
+W	1452052	3	6	swordTS
+W	1452053	3	5	swordTS
+W	1452054	3	5	swordTS
+W	1452055	3	5	swordTS
+W	1452056	3	5	swordTS
+W	1452057	3	6	bow
+W	1452058	0	0	
+W	1452059	3	6	bow
+W	1452060	3	5	bow
+W	1452062	3	5	bow
+W	1452063	3	6	bow
+W	1452064	3	6	bow
+W	1452066	3	6	bow
+W	1452067	3	6	bow
+W	1452068	3	6	bow
+W	1452069	3	6	bow
+W	1452070	3	6	bow
+W	1452071	3	6	bow
+W	1452073	3	6	bow
+W	1452074	3	6	bow
+W	1452075	3	6	bow
+W	1452076	3	5	bow
+W	1452077	3	5	bow
+W	1452078	3	5	bow
+W	1452079	3	5	bow
+W	1452082	3	6	bow
+W	1452083	3	6	bow
+W	1452084	3	6	bow
+W	1452085	3	5	bow
+W	1452087	3	6	bow
+W	1452090	3	6	bow
+W	1452091	3	6	bow
+W	1452092	3	6	bow
+W	1452100	3	5	bow
+W	1452102	3	5	bow
+W	1452103	3	5	bow
+W	1452104	3	6	bow
+W	1452105	3	6	bow
+W	1452106	3	6	bow
+W	1452107	3	6	bow
+W	1452108	3	6	bow
+W	1452109	3	6	bow
+W	1452110	3	6	bow
+W	1452111	3	6	bow
+W	1452112	3	6	bow
+W	1452114	3	6	swordTS
+W	1452115	3	6	swordTS
+W	1452116	3	6	swordTS
+W	1452117	3	6	bow
+W	1452118	3	6	bow
+W	1452119	3	6	bow
+W	1452120	3	6	bow
+W	1452121	3	6	bow
+W	1452122	3	6	bow
+W	1452123	3	6	bow
+W	1452124	3	5	bow
+W	1452125	3	6	bow
+W	1452126	3	6	bow
+W	1452129	3	6	bow
+W	1452130	3	6	bow
+W	1452131	3	6	bow
+W	1452132	3	6	bow
+W	1452133	3	6	bow
+W	1452134	3	6	bow
+W	1452135	3	6	bow
+W	1452136	3	6	bow
+W	1452137	3	6	bow
+W	1452138	3	6	bow
+W	1452139	3	6	bow
+W	1452140	3	5	bow
+W	1452141	3	6	bow
+W	1452142	3	5	bow
+W	1452143	3	6	bow
+W	1452144	3	6	bow
+W	1452145	3	6	bow
+W	1452146	3	6	bow
+W	1452147	3	6	bow
+W	1452148	3	6	bow
+W	1452149	3	6	bow
+W	1452151	3	6	bow
+W	1452152	3	6	bow
+W	1452153	3	6	bow
+W	1452154	3	6	bow
+W	1452155	3	6	bow
+W	1452156	3	6	bow
+W	1452157	3	5	bow
+W	1452158	3	5	bow
+W	1452159	3	5	bow
+W	1452160	3	5	bow
+W	1452161	3	6	bow
+W	1452162	3	6	bow
+W	1452163	3	6	bow
+W	1452165	3	6	bow
+W	1452166	3	6	bow
+W	1452167	3	6	bow
+W	1452169	3	6	bow
+W	1452170	3	6	bow
+W	1452171	3	6	bow
+W	1452172	3	6	bow
+W	1452173	3	5	bow
+W	1452175	3	6	bow
+W	1452176	3	5	bow
+W	1452177	3	6	bow
+W	1452178	3	6	bow
+W	1452179	3	6	bow
+W	1452180	3	6	bow
+W	1452181	3	6	bow
+W	1452182	3	6	bow
+W	1452183	3	6	bow
+W	1452184	3	6	bow
+W	1452185	3	6	bow
+W	1452186	3	6	bow
+W	1452189	3	6	bow
+W	1452190	3	6	bow
+W	1452191	3	6	bow
+W	1452192	3	6	bow
+W	1452193	3	6	bow
+W	1452194	3	6	bow
+W	1452195	3	6	bow
+W	1452197	3	6	bow
+W	1452198	3	6	bow
+W	1452199	3	6	bow
+W	1452202	3	6	bow
+W	1452204	3	6	bow
+W	1452205	3	6	bow
+W	1452206	3	6	bow
+W	1452207	3	6	bow
+W	1452208	3	6	bow
+W	1452209	3	6	bow
+W	1452210	3	6	bow
+W	1452211	3	6	bow
+W	1452212	3	6	bow
+W	1452213	3	6	bow
+W	1452214	3	6	bow
+W	1452215	3	6	bow
+W	1452216	3	6	bow
+W	1452217	3	6	bow
+W	1452218	3	6	bow
+W	1452219	3	6	bow
+W	1452220	3	6	bow
+W	1452221	3	6	bow
+W	1452222	3	6	bow
+W	1452223	3	6	bow
+W	1452224	3	6	bow
+W	1452225	3	6	bow
+W	1452226	3	6	bow
+W	1452227	3	6	bow
+W	1452229	3	6	bow
+W	1452230	3	6	bow
+W	1452231	3	6	bow
+W	1452232	3	6	bow
+W	1452235	3	6	bow
+W	1452236	3	6	bow
+W	1452237	3	6	bow
+W	1452238	3	6	bow
+W	1452239	3	6	bow
+W	1452252	3	6	bow
+W	1452253	3	6	bow
+W	1452255	3	6	bow
+W	1452257	3	6	bow
+W	1452258	3	6	bow
+W	1452259	3	6	bow
+W	1452260	3	6	bow
+W	1452262	3	6	bow
+W	1452264	3	6	bow
+W	1452265	3	6	bow
+W	1452266	3	6	bow
+W	1452267	3	6	bow
+W	1452268	3	6	bow
+W	1462000	4	6	crossBow
+W	1462001	4	6	crossBow
+W	1462002	4	6	crossBow
+W	1462003	4	6	crossBow
+W	1462004	4	6	crossBow
+W	1462005	4	5	crossBow
+W	1462006	4	6	crossBow
+W	1462007	4	6	crossBow
+W	1462008	4	6	crossBow
+W	1462009	4	6	crossBow
+W	1462010	4	6	crossBow
+W	1462011	4	6	crossBow
+W	1462012	4	6	crossBow
+W	1462013	4	6	crossBow
+W	1462014	4	5	crossBow
+W	1462015	4	6	crossBow
+W	1462016	4	6	crossBow
+W	1462017	4	6	crossBow
+W	1462018	4	6	crossBow
+W	1462019	4	6	crossBow
+W	1462021	4	6	crossBow
+W	1462022	4	6	crossBow
+W	1462023	4	6	crossBow
+W	1462024	4	6	crossBow
+W	1462025	4	6	crossBow
+W	1462026	4	6	crossBow
+W	1462027	4	6	crossBow
+W	1462028	4	6	crossBow
+W	1462029	4	6	crossBow
+W	1462030	4	6	crossBow
+W	1462031	4	6	crossBow
+W	1462032	4	6	crossBow
+W	1462033	4	6	crossBow
+W	1462034	4	6	crossBow
+W	1462035	4	6	crossBow
+W	1462036	4	6	crossBow
+W	1462037	4	6	crossBow
+W	1462039	4	6	crossBow
+W	1462040	4	5	crossBow
+W	1462041	4	5	crossBow
+W	1462043	4	5	crossBow
+W	1462044	4	5	crossBow
+W	1462045	4	5	crossBow
+W	1462046	4	6	crossBow
+W	1462047	4	6	crossBow
+W	1462048	4	6	crossBow
+W	1462049	4	6	crossBow
+W	1462050	4	6	crossBow
+W	1462051	4	6	crossBow
+W	1462052	4	6	crossBow
+W	1462053	4	5	crossBow
+W	1462054	4	6	crossBow
+W	1462055	4	6	crossBow
+W	1462056	4	5	crossBow
+W	1462057	4	6	crossBow
+W	1462058	4	6	crossBow
+W	1462059	4	6	crossBow
+W	1462060	4	6	crossBow
+W	1462061	4	6	crossBow
+W	1462062	4	6	crossBow
+W	1462063	4	6	crossBow
+W	1462064	4	6	crossBow
+W	1462066	4	5	crossBow
+W	1462067	4	6	crossBow
+W	1462068	4	6	crossBow
+W	1462069	4	5	crossBow
+W	1462070	4	6	crossBow
+W	1462071	4	5	crossBow
+W	1462074	4	6	crossBow
+W	1462075	4	6	crossBow
+W	1462076	4	6	crossBow
+W	1462077	4	5	crossBow
+W	1462085	4	5	crossBow
+W	1462087	4	6	crossBow
+W	1462088	4	5	crossBow
+W	1462089	4	6	crossBow
+W	1462090	4	6	crossBow
+W	1462091	4	6	crossBow
+W	1462092	4	6	crossBow
+W	1462093	4	6	crossBow
+W	1462094	4	6	crossBow
+W	1462095	4	6	crossBow
+W	1462096	4	6	crossBow
+W	1462097	4	6	crossBow
+W	1462098	4	6	crossBow
+W	1462099	4	6	crossBow
+W	1462100	4	6	crossBow
+W	1462102	4	6	crossBow
+W	1462103	4	6	crossBow
+W	1462104	4	6	crossBow
+W	1462105	4	6	crossBow
+W	1462106	4	6	crossBow
+W	1462107	4	6	crossBow
+W	1462108	4	6	crossBow
+W	1462109	4	6	crossBow
+W	1462110	4	6	crossBow
+W	1462111	4	6	crossBow
+W	1462112	4	5	crossBow
+W	1462113	4	6	crossBow
+W	1462114	4	6	crossBow
+W	1462118	4	6	crossBow
+W	1462119	4	6	crossBow
+W	1462120	4	6	crossBow
+W	1462121	4	6	crossBow
+W	1462122	4	6	crossBow
+W	1462123	4	6	crossBow
+W	1462124	4	6	crossBow
+W	1462125	4	6	crossBow
+W	1462126	4	6	crossBow
+W	1462127	4	6	crossBow
+W	1462128	4	6	crossBow
+W	1462129	4	6	crossBow
+W	1462130	4	6	crossBow
+W	1462131	4	5	crossBow
+W	1462132	4	6	crossBow
+W	1462133	4	6	crossBow
+W	1462134	4	6	crossBow
+W	1462135	4	6	crossBow
+W	1462136	4	6	crossBow
+W	1462137	4	6	crossBow
+W	1462138	4	6	crossBow
+W	1462139	4	6	crossBow
+W	1462141	4	6	crossBow
+W	1462142	4	6	crossBow
+W	1462143	4	6	crossBow
+W	1462144	4	6	crossBow
+W	1462145	4	6	crossBow
+W	1462146	4	6	crossBow
+W	1462147	4	5	crossBow
+W	1462148	4	6	crossBow
+W	1462149	4	5	crossBow
+W	1462150	4	5	crossBow
+W	1462151	4	6	crossBow
+W	1462152	4	6	crossBow
+W	1462153	4	6	crossBow
+W	1462156	4	6	crossBow
+W	1462158	4	6	crossBow
+W	1462159	4	6	crossBow
+W	1462160	4	6	crossBow
+W	1462161	4	6	crossBow
+W	1462162	4	5	crossBow
+W	1462164	4	6	crossBow
+W	1462165	4	5	crossBow
+W	1462166	4	6	crossBow
+W	1462167	4	6	crossBow
+W	1462168	4	6	crossBow
+W	1462169	4	6	crossBow
+W	1462170	4	6	crossBow
+W	1462171	4	6	crossBow
+W	1462172	4	6	crossBow
+W	1462173	4	6	crossBow
+W	1462176	4	6	crossBow
+W	1462177	4	6	crossBow
+W	1462178	4	6	crossBow
+W	1462179	4	6	crossBow
+W	1462180	4	6	crossBow
+W	1462181	4	6	crossBow
+W	1462182	4	6	crossBow
+W	1462183	4	6	crossBow
+W	1462185	4	6	crossBow
+W	1462186	4	6	crossBow
+W	1462187	4	6	crossBow
+W	1462190	4	6	crossBow
+W	1462192	4	6	crossBow
+W	1462193	4	6	crossBow
+W	1462194	4	6	crossBow
+W	1462195	4	6	crossBow
+W	1462196	4	6	crossBow
+W	1462197	4	6	crossBow
+W	1462198	4	6	crossBow
+W	1462199	4	6	crossBow
+W	1462200	4	6	crossBow
+W	1462201	4	6	crossBow
+W	1462202	4	6	crossBow
+W	1462203	4	6	crossBow
+W	1462204	4	6	crossBow
+W	1462205	4	6	crossBow
+W	1462206	4	6	crossBow
+W	1462207	4	6	crossBow
+W	1462208	4	6	crossBow
+W	1462209	4	6	crossBow
+W	1462210	4	6	crossBow
+W	1462211	4	6	crossBow
+W	1462212	4	6	crossBow
+W	1462213	4	6	crossBow
+W	1462214	4	6	crossBow
+W	1462216	4	6	crossBow
+W	1462217	4	6	crossBow
+W	1462219	4	6	crossBow
+W	1462222	4	6	crossBow
+W	1462223	4	6	crossBow
+W	1462224	4	6	crossBow
+W	1462225	4	6	crossBow
+W	1462226	4	6	crossBow
+W	1462239	4	6	crossBow
+W	1462240	4	6	crossBow
+W	1462241	4	6	crossBow
+W	1462243	4	6	crossBow
+W	1462244	4	6	crossBow
+W	1462245	4	6	crossBow
+W	1462246	4	6	crossBow
+W	1462248	4	6	crossBow
+W	1462250	4	6	crossBow
+W	1462251	4	6	crossBow
+W	1462252	4	6	crossBow
+W	1462253	4	6	crossBow
+W	1472000	7	6	swordOL
+W	1472001	7	4	swordOL
+W	1472002	7	4	swordOL
+W	1472003	7	4	swordOL
+W	1472004	7	4	swordOL
+W	1472005	7	4	swordOL
+W	1472006	7	4	swordOL
+W	1472007	7	3	swordOL
+W	1472008	7	4	swordOL
+W	1472009	7	4	swordOL
+W	1472010	7	4	swordOL
+W	1472011	7	4	swordOL
+W	1472012	7	4	swordOL
+W	1472013	7	4	swordOL
+W	1472014	7	4	swordOL
+W	1472015	7	4	swordOL
+W	1472016	7	4	swordOL
+W	1472017	7	4	swordOL
+W	1472018	7	4	swordOL
+W	1472019	7	4	swordOL
+W	1472020	7	4	swordOL
+W	1472021	7	4	swordOL
+W	1472022	7	4	swordOL
+W	1472023	7	4	swordOL
+W	1472024	7	4	swordOL
+W	1472025	7	4	swordOL
+W	1472026	7	4	swordOL
+W	1472027	7	4	swordOL
+W	1472028	7	4	swordOL
+W	1472029	7	4	swordOL
+W	1472030	7	3	swordOL
+W	1472031	7	4	swordOL
+W	1472032	7	3	swordOL
+W	1472033	7	4	swordOL
+W	1472034	7	4	swordOL
+W	1472035	7	4	swordOL
+W	1472036	7	4	swordOL
+W	1472037	7	4	swordOL
+W	1472038	7	4	swordOL
+W	1472039	7	4	swordOL
+W	1472040	7	4	swordOL
+W	1472041	7	4	swordOL
+W	1472042	7	4	swordOL
+W	1472043	7	4	swordOL
+W	1472044	7	3	swordOL
+W	1472045	7	4	swordOL
+W	1472046	7	4	swordOL
+W	1472047	7	4	swordOL
+W	1472048	7	4	swordOL
+W	1472049	7	4	swordOL
+W	1472051	7	4	swordOL
+W	1472052	7	4	swordOL
+W	1472053	7	4	swordOL
+W	1472054	7	3	swordOL
+W	1472055	7	3	swordOL
+W	1472056	7	5	swordOL
+W	1472058	7	5	swordOL
+W	1472059	7	5	swordOL
+W	1472060	7	5	swordOL
+W	1472061	7	6	swordOL
+W	1472062	7	4	swordOL
+W	1472063	7	4	swordOL
+W	1472064	7	5	swordOL
+W	1472065	7	5	swordOL
+W	1472066	7	5	swordOL
+W	1472067	7	3	swordOL
+W	1472068	7	4	swordOL
+W	1472069	7	4	swordOL
+W	1472070	7	4	swordOL
+W	1472071	7	4	swordOL
+W	1472072	7	5	swordOL
+W	1472073	7	3	swordOL
+W	1472074	7	4	swordOL
+W	1472075	7	4	swordOL
+W	1472077	7	3	swordOL
+W	1472078	7	4	swordOL
+W	1472079	7	4	swordOL
+W	1472081	7	4	swordOL
+W	1472083	7	4	swordOL
+W	1472084	7	4	swordOL
+W	1472085	7	4	swordOL
+W	1472086	7	4	swordOL
+W	1472089	7	4	swordOL
+W	1472090	7	4	swordOL
+W	1472091	7	4	swordOL
+W	1472092	7	3	swordOL
+W	1472093	7	3	swordOL
+W	1472094	7	3	swordOL
+W	1472095	7	3	swordOL
+W	1472099	7	4	swordOL
+W	1472100	7	4	swordOL
+W	1472101	7	4	swordOL
+W	1472102	7	4	swordOL
+W	1472103	7	4	swordOL
+W	1472111	7	3	swordOL
+W	1472113	7	3	swordOL
+W	1472114	7	3	swordOL
+W	1472115	7	4	swordOL
+W	1472116	7	4	swordOL
+W	1472117	7	4	swordOL
+W	1472118	7	4	swordOL
+W	1472119	7	4	swordOL
+W	1472120	7	4	swordOL
+W	1472121	7	4	swordOL
+W	1472122	7	4	swordOL
+W	1472123	7	4	swordOL
+W	1472125	7	4	swordOL
+W	1472126	7	4	swordOL
+W	1472127	7	4	swordOL
+W	1472128	7	4	swordOL
+W	1472129	7	4	swordOL
+W	1472130	7	4	swordOL
+W	1472131	7	4	swordOL
+W	1472132	7	4	swordOL
+W	1472133	7	4	swordOL
+W	1472134	7	4	swordOL
+W	1472135	7	3	swordOL
+W	1472136	7	4	swordOL
+W	1472137	7	4	swordOL
+W	1472141	7	4	swordOL
+W	1472142	7	4	swordOL
+W	1472143	7	4	swordOL
+W	1472144	7	4	swordOL
+W	1472145	7	4	swordOL
+W	1472146	7	4	swordOL
+W	1472147	7	4	swordOL
+W	1472148	7	4	swordOL
+W	1472149	7	6	swordOL
+W	1472150	7	4	swordOL
+W	1472151	7	4	swordOL
+W	1472152	7	3	swordOL
+W	1472153	7	4	swordOL
+W	1472154	7	4	swordOL
+W	1472155	7	4	swordOL
+W	1472156	7	4	swordOL
+W	1472157	7	4	swordOL
+W	1472158	7	4	swordOL
+W	1472159	7	4	swordOL
+W	1472160	7	4	swordOL
+W	1472161	7	4	swordOL
+W	1472163	7	4	swordOL
+W	1472164	7	4	swordOL
+W	1472165	7	4	swordOL
+W	1472166	7	4	swordOL
+W	1472167	7	4	swordOL
+W	1472168	7	4	swordOL
+W	1472169	7	3	swordOL
+W	1472170	7	3	swordOL
+W	1472171	7	3	swordOL
+W	1472172	7	3	swordOL
+W	1472173	7	4	swordOL
+W	1472174	7	4	swordOL
+W	1472175	7	4	swordOL
+W	1472177	7	4	swordOL
+W	1472179	7	4	swordOL
+W	1472180	7	4	swordOL
+W	1472181	7	4	swordOL
+W	1472182	7	5	swordOL
+W	1472184	7	4	swordOL
+W	1472185	7	3	swordOL
+W	1472186	7	4	swordOL
+W	1472187	7	4	swordOL
+W	1472188	7	4	swordOL
+W	1472189	7	4	swordOL
+W	1472190	7	4	swordOL
+W	1472191	7	4	swordOL
+W	1472192	7	4	swordOL
+W	1472193	7	4	swordOL
+W	1472194	7	4	swordOL
+W	1472197	7	4	swordOL
+W	1472198	7	4	swordOL
+W	1472199	7	4	swordOL
+W	1472200	7	4	swordOL
+W	1472201	7	4	swordOL
+W	1472202	7	4	swordOL
+W	1472203	7	4	swordOL
+W	1472204	7	4	swordOL
+W	1472206	7	4	swordOL
+W	1472207	7	4	swordOL
+W	1472208	7	4	swordOL
+W	1472211	7	4	swordOL
+W	1472213	7	4	swordOL
+W	1472214	7	4	swordOL
+W	1472215	7	4	swordOL
+W	1472216	7	4	swordOL
+W	1472217	7	4	swordOL
+W	1472218	7	4	swordOL
+W	1472219	7	4	swordOL
+W	1472220	7	4	swordOL
+W	1472221	7	4	swordOL
+W	1472222	7	4	swordOL
+W	1472223	7	4	swordOL
+W	1472224	7	4	swordOL
+W	1472225	7	4	swordOL
+W	1472226	7	4	swordOL
+W	1472227	7	4	swordOL
+W	1472228	7	4	swordOL
+W	1472229	7	4	swordOL
+W	1472230	7	4	swordOL
+W	1472231	7	4	swordOL
+W	1472232	7	4	swordOL
+W	1472233	7	4	swordOL
+W	1472234	7	4	swordOL
+W	1472235	7	4	swordOL
+W	1472236	7	4	swordOL
+W	1472238	7	4	swordOL
+W	1472239	7	4	swordOL
+W	1472241	7	4	swordOL
+W	1472244	7	4	swordOL
+W	1472245	7	4	swordOL
+W	1472246	7	4	swordOL
+W	1472247	7	4	swordOL
+W	1472248	7	4	swordOL
+W	1472261	7	4	swordOL
+W	1472262	7	4	swordOL
+W	1472263	7	4	swordOL
+W	1472265	7	4	swordOL
+W	1472266	7	4	swordOL
+W	1472267	7	4	swordOL
+W	1472268	7	4	swordOL
+W	1472270	7	4	swordOL
+W	1472273	7	4	swordOL
+W	1472274	7	4	swordOL
+W	1472275	7	4	swordOL
+W	1472276	7	4	swordOL
+W	1482000	8	5	knuckle
+W	1482001	8	6	knuckle
+W	1482002	8	5	knuckle
+W	1482003	8	6	knuckle
+W	1482004	8	5	knuckle
+W	1482005	8	6	knuckle
+W	1482006	8	6	knuckle
+W	1482007	8	5	knuckle
+W	1482008	8	5	knuckle
+W	1482009	8	5	knuckle
+W	1482010	8	5	knuckle
+W	1482011	8	5	knuckle
+W	1482012	8	5	knuckle
+W	1482013	8	5	knuckle
+W	1482014	8	5	knuckle
+W	1482015	8	5	knuckle
+W	1482016	8	5	knuckle
+W	1482017	8	5	knuckle
+W	1482018	8	5	knuckle
+W	1482019	8	5	knuckle
+W	1482020	8	5	knuckle
+W	1482021	8	5	knuckle
+W	1482022	8	5	knuckle
+W	1482023	8	5	knuckle
+W	1482024	8	5	knuckle
+W	1482025	8	5	knuckle
+W	1482029	8	5	knuckle
+W	1482031	8	5	knuckle
+W	1482032	8	5	knuckle
+W	1482033	8	5	knuckle
+W	1482034	8	5	knuckle
+W	1482035	8	5	knuckle
+W	1482036	8	3	knuckle
+W	1482037	8	6	knuckle
+W	1482038	8	6	knuckle
+W	1482039	8	5	knuckle
+W	1482040	8	6	knuckle
+W	1482041	8	5	knuckle
+W	1482042	8	5	knuckle
+W	1482043	8	5	knuckle
+W	1482046	8	6	knuckle
+W	1482048	8	5	knuckle
+W	1482051	8	5	knuckle
+W	1482052	8	5	knuckle
+W	1482053	8	5	knuckle
+W	1482054	8	5	knuckle
+W	1482055	8	5	knuckle
+W	1482056	8	5	knuckle
+W	1482057	8	5	knuckle
+W	1482058	8	5	knuckle
+W	1482059	8	5	knuckle
+W	1482060	8	5	knuckle
+W	1482061	8	5	knuckle
+W	1482062	8	5	knuckle
+W	1482063	8	5	knuckle
+W	1482064	8	6	knuckle
+W	1482065	8	5	knuckle
+W	1482073	8	5	knuckle
+W	1482075	8	5	knuckle
+W	1482076	8	5	knuckle
+W	1482077	8	5	knuckle
+W	1482078	8	5	knuckle
+W	1482079	8	5	knuckle
+W	1482080	8	5	knuckle
+W	1482081	8	5	knuckle
+W	1482082	8	5	knuckle
+W	1482083	8	5	knuckle
+W	1482084	8	5	knuckle
+W	1482085	8	5	knuckle
+W	1482087	8	5	knuckle
+W	1482088	8	5	knuckle
+W	1482089	8	5	knuckle
+W	1482090	8	5	knuckle
+W	1482091	8	5	knuckle
+W	1482092	8	5	knuckle
+W	1482093	8	5	knuckle
+W	1482094	8	5	knuckle
+W	1482095	8	5	knuckle
+W	1482096	8	5	knuckle
+W	1482097	8	5	knuckle
+W	1482098	8	5	knuckle
+W	1482099	8	5	knuckle
+W	1482102	8	5	knuckle
+W	1482103	8	5	knuckle
+W	1482104	8	5	knuckle
+W	1482105	8	5	knuckle
+W	1482106	8	5	knuckle
+W	1482107	8	5	knuckle
+W	1482108	8	5	knuckle
+W	1482109	8	5	knuckle
+W	1482110	8	5	knuckle
+W	1482111	8	6	knuckle
+W	1482112	8	5	knuckle
+W	1482113	8	6	knuckle
+W	1482114	8	5	knuckle
+W	1482115	8	6	knuckle
+W	1482116	8	6	knuckle
+W	1482117	8	5	knuckle
+W	1482118	8	5	knuckle
+W	1482119	8	5	knuckle
+W	1482120	8	5	knuckle
+W	1482121	8	5	knuckle
+W	1482122	8	5	knuckle
+W	1482124	8	5	knuckle
+W	1482125	8	5	knuckle
+W	1482126	8	5	knuckle
+W	1482127	8	5	knuckle
+W	1482128	8	5	knuckle
+W	1482129	8	5	knuckle
+W	1482130	8	5	knuckle
+W	1482131	8	5	knuckle
+W	1482132	8	5	knuckle
+W	1482133	8	5	knuckle
+W	1482134	8	5	knuckle
+W	1482135	8	5	knuckle
+W	1482136	8	5	knuckle
+W	1482138	8	5	knuckle
+W	1482140	8	5	knuckle
+W	1482141	8	5	knuckle
+W	1482142	8	5	knuckle
+W	1482143	8	5	knuckle
+W	1482145	8	5	knuckle
+W	1482146	8	5	knuckle
+W	1482147	8	5	knuckle
+W	1482148	8	5	knuckle
+W	1482151	8	5	knuckle
+W	1482152	8	5	knuckle
+W	1482153	8	5	knuckle
+W	1482154	8	5	knuckle
+W	1482155	8	5	knuckle
+W	1482156	8	5	knuckle
+W	1482157	8	5	knuckle
+W	1482158	8	5	knuckle
+W	1482160	8	5	knuckle
+W	1482161	8	5	knuckle
+W	1482162	8	5	knuckle
+W	1482165	8	5	knuckle
+W	1482167	8	5	knuckle
+W	1482168	8	5	knuckle
+W	1482169	8	5	knuckle
+W	1482170	8	5	knuckle
+W	1482171	8	5	knuckle
+W	1482172	8	5	knuckle
+W	1482173	8	5	knuckle
+W	1482174	8	5	knuckle
+W	1482175	8	5	knuckle
+W	1482176	8	5	knuckle
+W	1482177	8	5	knuckle
+W	1482178	8	5	knuckle
+W	1482179	8	5	knuckle
+W	1482180	8	5	knuckle
+W	1482181	8	5	knuckle
+W	1482182	8	5	knuckle
+W	1482183	8	5	knuckle
+W	1482184	8	5	knuckle
+W	1482185	8	5	knuckle
+W	1482186	8	5	knuckle
+W	1482187	8	5	knuckle
+W	1482188	8	5	knuckle
+W	1482189	8	5	knuckle
+W	1482190	8	5	knuckle
+W	1482191	8	5	knuckle
+W	1482193	8	5	knuckle
+W	1482194	8	5	knuckle
+W	1482196	8	5	knuckle
+W	1482199	8	5	knuckle
+W	1482200	8	5	knuckle
+W	1482201	8	5	knuckle
+W	1482202	8	5	knuckle
+W	1482203	8	5	knuckle
+W	1482216	8	5	knuckle
+W	1482217	8	5	knuckle
+W	1482218	8	5	knuckle
+W	1482220	8	5	knuckle
+W	1482221	8	5	knuckle
+W	1482222	8	5	knuckle
+W	1482223	8	5	knuckle
+W	1482224	8	5	knuckle
+W	1482226	8	5	knuckle
+W	1482227	8	5	knuckle
+W	1482228	8	5	knuckle
+W	1482230	8	5	knuckle
+W	1482231	8	5	knuckle
+W	1482232	8	5	knuckle
+W	1482233	8	5	knuckle
+W	1492000	9	5	gun
+W	1492001	9	6	gun
+W	1492002	9	5	gun
+W	1492003	9	6	gun
+W	1492004	9	5	gun
+W	1492005	9	6	gun
+W	1492006	9	5	gun
+W	1492007	9	5	gun
+W	1492008	9	5	gun
+W	1492009	9	5	gun
+W	1492010	9	5	gun
+W	1492011	9	5	gun
+W	1492012	9	5	gun
+W	1492013	9	5	gun
+W	1492014	9	5	gun
+W	1492015	9	5	gun
+W	1492016	9	5	gun
+W	1492017	9	5	gun
+W	1492018	9	5	gun
+W	1492019	9	5	gun
+W	1492020	9	5	gun
+W	1492021	9	5	gun
+W	1492022	9	5	gun
+W	1492023	9	5	gun
+W	1492024	0	0	
+W	1492025	9	5	gun
+W	1492026	9	5	gun
+W	1492030	9	5	gun
+W	1492031	9	5	gun
+W	1492032	9	5	gun
+W	1492035	9	5	gun
+W	1492036	9	5	gun
+W	1492037	9	4	gun
+W	1492038	9	5	gun
+W	1492039	9	6	gun
+W	1492040	9	5	gun
+W	1492041	9	6	gun
+W	1492042	9	5	gun
+W	1492043	9	5	gun
+W	1492044	9	5	gun
+W	1492045	9	3	gun
+W	1492047	9	5	gun
+W	1492048	9	6	gun
+W	1492053	9	5	gun
+W	1492054	9	5	gun
+W	1492055	9	5	gun
+W	1492056	9	5	gun
+W	1492057	9	5	gun
+W	1492058	9	5	gun
+W	1492059	9	5	gun
+W	1492060	9	5	gun
+W	1492061	9	5	gun
+W	1492062	9	5	gun
+W	1492063	9	5	gun
+W	1492064	9	5	gun
+W	1492065	9	5	gun
+W	1492073	9	5	gun
+W	1492075	9	5	gun
+W	1492076	9	5	gun
+W	1492077	9	5	gun
+W	1492078	9	5	gun
+W	1492079	9	5	gun
+W	1492080	9	5	gun
+W	1492081	9	5	gun
+W	1492082	9	5	gun
+W	1492083	9	5	gun
+W	1492084	9	5	gun
+W	1492085	9	5	gun
+W	1492086	9	5	gun
+W	1492088	9	5	gun
+W	1492089	9	5	gun
+W	1492090	9	5	gun
+W	1492091	9	5	gun
+W	1492092	9	5	gun
+W	1492093	9	5	gun
+W	1492094	9	5	gun
+W	1492095	9	5	gun
+W	1492096	9	5	gun
+W	1492097	9	5	gun
+W	1492098	9	5	gun
+W	1492101	9	5	gun
+W	1492102	9	5	gun
+W	1492103	9	5	gun
+W	1492104	9	5	gun
+W	1492105	9	5	gun
+W	1492106	9	5	gun
+W	1492107	9	5	gun
+W	1492108	9	5	gun
+W	1492109	9	5	gun
+W	1492110	9	6	gun
+W	1492111	9	5	gun
+W	1492112	9	6	gun
+W	1492113	9	5	gun
+W	1492114	9	6	gun
+W	1492115	9	5	gun
+W	1492116	9	5	gun
+W	1492117	9	5	gun
+W	1492118	9	5	gun
+W	1492119	9	5	gun
+W	1492120	9	5	gun
+W	1492121	9	5	gun
+W	1492122	9	5	gun
+W	1492124	9	5	gun
+W	1492125	9	5	gun
+W	1492126	9	5	gun
+W	1492127	9	5	gun
+W	1492128	9	5	gun
+W	1492129	9	5	gun
+W	1492130	9	5	gun
+W	1492131	9	5	gun
+W	1492132	9	5	gun
+W	1492133	9	5	gun
+W	1492134	9	5	gun
+W	1492135	9	5	gun
+W	1492136	9	5	gun
+W	1492138	9	5	gun
+W	1492139	9	5	gun
+W	1492140	9	5	gun
+W	1492141	9	5	gun
+W	1492142	9	5	gun
+W	1492143	9	5	gun
+W	1492150	9	5	gun
+W	1492152	9	5	gun
+W	1492153	9	5	gun
+W	1492154	9	5	gun
+W	1492155	9	5	gun
+W	1492157	9	5	gun
+W	1492158	9	5	gun
+W	1492161	9	5	gun
+W	1492162	9	5	gun
+W	1492163	9	5	gun
+W	1492164	9	5	gun
+W	1492165	9	5	gun
+W	1492166	9	5	gun
+W	1492167	9	5	gun
+W	1492168	9	5	gun
+W	1492169	9	5	gun
+W	1492171	9	5	gun
+W	1492172	9	5	gun
+W	1492173	9	5	gun
+W	1492176	9	5	gun
+W	1492178	9	5	gun
+W	1492179	9	5	gun
+W	1492180	9	5	gun
+W	1492181	9	5	gun
+W	1492182	9	5	gun
+W	1492183	9	5	gun
+W	1492184	9	5	gun
+W	1492185	9	5	gun
+W	1492186	9	5	gun
+W	1492187	9	5	gun
+W	1492188	9	5	gun
+W	1492189	9	5	gun
+W	1492190	9	5	gun
+W	1492191	9	5	gun
+W	1492192	9	5	gun
+W	1492193	9	5	gun
+W	1492194	9	5	gun
+W	1492195	9	5	gun
+W	1492196	9	5	gun
+W	1492197	9	5	gun
+W	1492198	9	5	gun
+W	1492199	9	5	gun
+W	1492200	9	5	gun
+W	1492202	9	5	gun
+W	1492203	9	5	gun
+W	1492205	9	5	gun
+W	1492209	9	5	gun
+W	1492210	9	5	gun
+W	1492211	9	5	gun
+W	1492212	9	5	gun
+W	1492213	9	5	gun
+W	1492231	9	5	gun
+W	1492232	9	5	gun
+W	1492233	9	5	gun
+W	1492235	9	5	gun
+W	1492236	9	5	gun
+W	1492237	9	5	gun
+W	1492238	9	5	gun
+W	1492240	9	5	gun
+W	1492242	9	5	gun
+W	1492243	9	5	gun
+W	1492244	9	5	gun
+W	1492245	9	5	gun
+W	1492246	9	5	gun
+W	1502000	0	0	
+W	1502001	0	0	
+W	1502002	0	0	
+W	1502003	0	0	
+W	1502004	0	0	
+W	1502005	0	0	
+W	1502006	0	0	
+W	1502007	0	0	
+W	1502011	0	0	
+W	1512000	0	0	
+W	1512001	0	0	
+W	1512002	0	0	
+W	1512003	0	0	
+W	1512004	0	0	
+W	1512005	0	0	
+W	1512006	0	0	
+W	1512007	0	0	
+W	1512011	0	0	
+W	1522000	11	6	dualBow
+W	1522001	11	6	dualBow
+W	1522002	11	6	dualBow
+W	1522003	11	6	dualBow
+W	1522004	11	6	dualBow
+W	1522005	11	6	dualBow
+W	1522006	11	6	dualBow
+W	1522007	11	6	dualBow
+W	1522008	11	6	dualBow
+W	1522009	11	6	dualBow
+W	1522010	11	6	dualBow
+W	1522011	11	6	dualBow
+W	1522012	11	6	dualBow
+W	1522013	11	6	dualBow
+W	1522014	11	6	dualBow
+W	1522015	11	6	dualBow
+W	1522016	11	6	dualBow
+W	1522017	11	6	dualBow
+W	1522018	11	6	dualBow
+W	1522019	11	6	dualBow
+W	1522020	11	6	dualBow
+W	1522021	11	6	dualBow
+W	1522022	11	6	dualBow
+W	1522023	11	6	dualBow
+W	1522024	11	6	dualBow
+W	1522025	11	6	dualBow
+W	1522026	11	6	dualBow
+W	1522027	11	6	dualBow
+W	1522028	11	6	dualBow
+W	1522029	11	6	dualBow
+W	1522030	11	6	dualBow
+W	1522031	11	6	dualBow
+W	1522032	11	6	dualBow
+W	1522033	11	6	dualBow
+W	1522034	11	6	dualBow
+W	1522035	11	6	dualBow
+W	1522036	11	6	dualBow
+W	1522037	11	6	dualBow
+W	1522038	11	4	dualBow
+W	1522039	11	6	dualBow
+W	1522040	11	6	dualBow
+W	1522041	11	6	dualBow
+W	1522042	11	6	dualBow
+W	1522043	11	6	dualBow
+W	1522044	11	6	dualBow
+W	1522045	11	6	dualBow
+W	1522046	11	6	dualBow
+W	1522047	11	6	dualBow
+W	1522048	11	6	dualBow
+W	1522049	11	6	dualBow
+W	1522050	11	6	dualBow
+W	1522051	11	6	dualBow
+W	1522052	11	6	dualBow
+W	1522053	11	6	dualBow
+W	1522054	11	6	dualBow
+W	1522055	11	6	dualBow
+W	1522056	11	6	dualBow
+W	1522058	11	6	dualBow
+W	1522059	11	6	dualBow
+W	1522060	11	6	dualBow
+W	1522061	11	6	dualBow
+W	1522062	11	6	dualBow
+W	1522063	11	6	dualBow
+W	1522064	11	6	dualBow
+W	1522065	11	6	dualBow
+W	1522066	11	6	dualBow
+W	1522067	11	6	dualBow
+W	1522068	11	6	dualBow
+W	1522071	11	6	dualBow
+W	1522072	11	6	dualBow
+W	1522073	11	6	dualBow
+W	1522074	11	6	dualBow
+W	1522078	11	6	dualBow
+W	1522079	11	6	dualBow
+W	1522080	11	6	dualBow
+W	1522081	11	6	dualBow
+W	1522082	11	6	dualBow
+W	1522083	11	6	dualBow
+W	1522084	11	6	dualBow
+W	1522086	11	6	dualBow
+W	1522087	11	6	dualBow
+W	1522088	11	6	dualBow
+W	1522091	11	6	dualBow
+W	1522093	11	6	dualBow
+W	1522094	11	6	dualBow
+W	1522095	11	6	dualBow
+W	1522096	11	6	dualBow
+W	1522097	11	6	dualBow
+W	1522098	11	6	dualBow
+W	1522099	11	6	dualBow
+W	1522100	11	6	dualBow
+W	1522101	11	6	dualBow
+W	1522102	11	6	dualBow
+W	1522103	11	6	dualBow
+W	1522104	11	6	dualBow
+W	1522105	11	6	dualBow
+W	1522106	11	6	dualBow
+W	1522107	11	6	dualBow
+W	1522109	11	6	dualBow
+W	1522110	11	6	dualBow
+W	1522111	11	6	dualBow
+W	1522112	11	6	dualBow
+W	1522113	11	6	dualBow
+W	1522114	11	6	dualBow
+W	1522115	11	6	dualBow
+W	1522116	11	6	dualBow
+W	1522118	11	6	dualBow
+W	1522121	11	6	dualBow
+W	1522122	11	6	dualBow
+W	1522123	11	6	dualBow
+W	1522124	11	6	dualBow
+W	1522125	11	6	dualBow
+W	1522138	11	6	dualBow
+W	1522139	11	6	dualBow
+W	1522140	11	6	dualBow
+W	1522142	11	6	dualBow
+W	1522143	11	6	dualBow
+W	1522144	11	6	dualBow
+W	1522145	11	6	dualBow
+W	1522146	11	6	dualBow
+W	1522148	11	6	dualBow
+W	1522150	11	6	dualBow
+W	1522151	11	6	dualBow
+W	1522152	11	6	dualBow
+W	1522153	11	6	dualBow
+W	1532000	12	8	cannon
+W	1532001	12	8	cannon
+W	1532002	12	8	cannon
+W	1532003	12	8	cannon
+W	1532004	12	8	cannon
+W	1532005	12	8	cannon
+W	1532006	12	8	cannon
+W	1532007	12	8	cannon
+W	1532008	12	8	cannon
+W	1532009	12	8	cannon
+W	1532010	12	8	cannon
+W	1532011	12	8	cannon
+W	1532012	12	8	cannon
+W	1532013	12	8	cannon
+W	1532014	12	8	cannon
+W	1532015	12	8	cannon
+W	1532016	12	8	cannon
+W	1532017	12	8	cannon
+W	1532018	12	8	cannon
+W	1532019	12	8	cannon
+W	1532020	12	8	cannon
+W	1532021	12	8	cannon
+W	1532022	12	8	cannon
+W	1532023	12	8	cannon
+W	1532024	12	8	cannon
+W	1532025	12	8	cannon
+W	1532026	12	8	cannon
+W	1532027	12	8	cannon
+W	1532028	12	8	cannon
+W	1532029	12	8	cannon
+W	1532030	12	8	cannon
+W	1532031	12	8	cannon
+W	1532036	12	8	cannon
+W	1532037	12	8	cannon
+W	1532038	12	8	cannon
+W	1532039	12	8	cannon
+W	1532040	12	8	cannon
+W	1532041	12	8	cannon
+W	1532042	12	8	cannon
+W	1532043	12	8	cannon
+W	1532044	12	8	cannon
+W	1532045	12	8	cannon
+W	1532046	12	8	cannon
+W	1532047	12	8	cannon
+W	1532048	12	8	cannon
+W	1532049	12	8	cannon
+W	1532050	12	8	cannon
+W	1532051	12	8	cannon
+W	1532052	12	8	cannon
+W	1532053	12	8	cannon
+W	1532054	12	8	cannon
+W	1532055	12	8	cannon
+W	1532056	12	8	cannon
+W	1532057	12	8	cannon
+W	1532058	12	6	cannon
+W	1532059	12	8	cannon
+W	1532060	12	8	cannon
+W	1532062	12	8	cannon
+W	1532063	12	8	cannon
+W	1532064	12	8	cannon
+W	1532065	12	8	cannon
+W	1532066	12	8	cannon
+W	1532067	12	8	cannon
+W	1532068	12	8	cannon
+W	1532069	12	8	cannon
+W	1532070	12	8	cannon
+W	1532071	12	8	cannon
+W	1532073	12	8	cannon
+W	1532074	12	8	cannon
+W	1532075	12	8	cannon
+W	1532076	12	8	cannon
+W	1532077	12	6	cannon
+W	1532081	12	8	cannon
+W	1532082	12	7	cannon
+W	1532083	12	8	cannon
+W	1532084	12	8	cannon
+W	1532085	12	8	cannon
+W	1532086	12	8	cannon
+W	1532087	12	8	cannon
+W	1532088	12	8	cannon
+W	1532090	12	7	cannon
+W	1532091	12	7	cannon
+W	1532092	12	8	cannon
+W	1532095	12	8	cannon
+W	1532097	12	8	cannon
+W	1532098	12	8	cannon
+W	1532099	12	8	cannon
+W	1532100	12	8	cannon
+W	1532101	12	8	cannon
+W	1532102	12	8	cannon
+W	1532103	12	8	cannon
+W	1532104	12	8	cannon
+W	1532105	12	8	cannon
+W	1532106	12	8	cannon
+W	1532107	12	8	cannon
+W	1532108	12	8	cannon
+W	1532109	12	8	cannon
+W	1532110	12	8	cannon
+W	1532111	12	8	cannon
+W	1532112	12	8	cannon
+W	1532114	12	7	cannon
+W	1532115	12	8	cannon
+W	1532116	12	8	cannon
+W	1532117	12	8	cannon
+W	1532118	12	8	cannon
+W	1532119	12	8	cannon
+W	1532121	12	7	cannon
+W	1532122	12	7	cannon
+W	1532124	12	8	cannon
+W	1532127	12	8	cannon
+W	1532128	12	8	cannon
+W	1532129	12	8	cannon
+W	1532130	12	8	cannon
+W	1532131	12	8	cannon
+W	1532144	12	8	cannon
+W	1532145	12	8	cannon
+W	1532146	12	8	cannon
+W	1532148	12	8	cannon
+W	1532149	12	8	cannon
+W	1532150	12	8	cannon
+W	1532151	12	8	cannon
+W	1532153	12	8	cannon
+W	1532155	12	8	cannon
+W	1532156	12	8	cannon
+W	1532157	12	8	cannon
+W	1532158	12	8	cannon
+W	1542000	15	5	swordTK
+W	1542001	15	5	swordTK
+W	1542002	15	5	swordTK
+W	1542003	15	5	swordTK
+W	1542004	15	5	swordTK
+W	1542005	15	5	swordTK
+W	1542006	15	5	swordTK
+W	1542007	15	5	swordTK
+W	1542008	15	5	swordTK
+W	1542009	15	5	swordTK
+W	1542010	15	5	swordTK
+W	1542011	15	5	swordTK
+W	1542012	15	5	swordTK
+W	1542013	15	5	swordTK
+W	1542014	15	5	swordTK
+W	1542015	15	5	swordTK
+W	1542016	15	5	swordTK
+W	1542017	15	5	swordTK
+W	1542018	15	5	swordTK
+W	1542019	15	5	swordTK
+W	1542020	15	5	swordTK
+W	1542021	15	5	swordTK
+W	1542022	15	5	swordTK
+W	1542023	15	5	swordTK
+W	1542024	15	5	swordTK
+W	1542025	15	5	swordTK
+W	1542026	15	5	swordTK
+W	1542027	15	5	swordTK
+W	1542028	15	5	swordTK
+W	1542033	15	5	swordTK
+W	1542034	15	5	swordTK
+W	1542035	15	5	swordTK
+W	1542036	15	5	swordTK
+W	1542037	15	5	swordTK
+W	1542038	15	5	swordTK
+W	1542039	15	5	swordTK
+W	1542040	15	5	swordTK
+W	1542044	15	5	swordTK
+W	1542045	15	5	swordTK
+W	1542046	15	6	swordTK
+W	1542047	15	6	swordTK
+W	1542048	15	5	swordTK
+W	1542049	15	5	swordTK
+W	1542050	15	5	swordTK
+W	1542051	15	5	swordTK
+W	1542052	15	5	swordTK
+W	1542053	15	5	swordTK
+W	1542054	15	5	swordTK
+W	1542055	15	5	swordTK
+W	1542056	15	5	swordTK
+W	1542057	15	5	swordTK
+W	1542058	15	5	swordTK
+W	1542059	15	5	swordTK
+W	1542060	15	5	swordTK
+W	1542061	15	5	swordTK
+W	1542063	1	5	swordOL
+W	1542064	15	5	swordTK
+W	1542065	15	6	swordTK
+W	1542068	15	5	swordTK
+W	1542069	15	5	swordTK
+W	1542070	15	5	swordTK
+W	1542071	15	5	swordTK
+W	1542072	15	5	swordTK
+W	1542073	15	5	swordTK
+W	1542074	15	5	swordTK
+W	1542075	15	5	swordTK
+W	1542076	15	5	swordTK
+W	1542077	15	0	swordTK
+W	1542078	15	5	swordTK
+W	1542079	15	5	swordTK
+W	1542080	15	6	swordTK
+W	1542081	15	5	swordTK
+W	1542098	15	5	swordTK
+W	1542099	15	5	swordTK
+W	1542100	15	5	swordTK
+W	1542101	15	5	swordTK
+W	1542102	15	5	swordTK
+W	1542107	15	4	swordTK
+W	1542108	15	5	swordTK
+W	1542109	15	5	swordTK
+W	1542110	15	5	swordTK
+W	1542111	15	5	swordTK
+W	1542112	15	5	swordTK
+W	1542114	15	5	swordTK
+W	1542116	15	5	swordTK
+W	1542117	15	5	swordTK
+W	1542118	15	5	swordTK
+W	1542121	15	5	swordTK
+W	1542122	15	5	swordTK
+W	1542123	15	4	swordTK
+W	1542125	1	5	swordOL
+W	1542126	15	5	swordTK
+W	1542127	15	5	swordTK
+W	1542128	15	5	swordTK
+W	1552000	16	4	mace
+W	1552001	16	4	mace
+W	1552002	16	4	mace
+W	1552003	16	4	mace
+W	1552004	16	4	mace
+W	1552005	16	4	mace
+W	1552006	16	4	mace
+W	1552007	16	4	mace
+W	1552008	16	4	mace
+W	1552009	16	4	mace
+W	1552010	16	4	mace
+W	1552011	16	4	mace
+W	1552012	16	4	mace
+W	1552013	16	4	mace
+W	1552014	16	4	mace
+W	1552015	16	4	mace
+W	1552016	16	4	mace
+W	1552017	16	4	mace
+W	1552018	16	4	mace
+W	1552019	16	4	mace
+W	1552020	16	4	mace
+W	1552021	16	4	mace
+W	1552022	16	4	mace
+W	1552023	16	4	mace
+W	1552024	16	4	mace
+W	1552025	16	4	mace
+W	1552026	16	4	mace
+W	1552027	16	4	mace
+W	1552028	16	4	mace
+W	1552033	16	4	mace
+W	1552034	16	4	mace
+W	1552035	16	4	mace
+W	1552036	16	4	mace
+W	1552037	16	4	mace
+W	1552038	16	4	mace
+W	1552039	16	4	mace
+W	1552040	16	4	mace
+W	1552044	16	4	mace
+W	1552045	16	4	mace
+W	1552046	16	4	mace
+W	1552047	16	4	mace
+W	1552048	16	4	mace
+W	1552049	16	4	mace
+W	1552050	16	4	mace
+W	1552051	16	4	mace
+W	1552052	16	4	mace
+W	1552053	16	4	mace
+W	1552054	16	4	mace
+W	1552055	16	4	mace
+W	1552056	16	4	mace
+W	1552057	16	4	mace
+W	1552058	1	4	mace
+W	1552059	1	4	mace
+W	1552060	1	8	mace
+W	1552061	1	8	mace
+W	1552063	6	8	mace
+W	1552064	16	4	mace
+W	1552065	1	6	mace
+W	1552068	16	4	mace
+W	1552069	1	6	mace
+W	1552070	1	6	mace
+W	1552071	16	8	mace
+W	1552072	16	8	mace
+W	1552073	16	8	mace
+W	1552074	16	4	mace
+W	1552075	16	4	mace
+W	1552076	16	4	mace
+W	1552077	1	4	mace
+W	1552078	1	6	mace
+W	1552079	1	6	mace
+W	1552080	1	6	mace
+W	1552081	1	8	mace
+W	1552084	16	4	mace
+W	1552099	16	4	mace
+W	1552100	16	4	mace
+W	1552101	16	4	mace
+W	1552102	16	4	mace
+W	1552103	16	4	mace
+W	1552109	1	6	mace
+W	1552110	16	8	mace
+W	1552111	16	4	mace
+W	1552112	16	4	mace
+W	1552113	16	4	mace
+W	1552114	16	4	mace
+W	1552116	1	6	mace
+W	1552118	1	6	mace
+W	1552119	1	0	mace
+W	1552120	16	8	mace
+W	1552123	16	4	mace
+W	1552124	16	4	mace
+W	1552125	1	6	mace
+W	1552127	6	8	mace
+W	1552128	16	8	mace
+W	1552129	1	0	mace
+W	1552130	1	0	mace
+W	1562000	5	8	swordZB
+W	1562001	5	8	swordZB
+W	1562002	5	8	swordZB
+W	1562003	5	8	swordZB
+W	1562004	5	8	swordZB
+W	1562005	5	8	swordZB
+W	1562006	5	8	swordZB
+W	1562007	5	8	swordZB
+W	1562008	5	8	swordZB
+W	1562009	5	8	swordZB
+W	1562010	5	8	swordZB
+W	1572000	5	6	swordZL
+W	1572001	5	6	swordZL
+W	1572002	5	6	swordZL
+W	1572003	5	6	swordZL
+W	1572004	5	6	swordZL
+W	1572005	5	6	swordZL
+W	1572006	5	6	swordZL
+W	1572007	5	6	swordZL
+W	1572008	5	6	swordZL
+W	1572009	5	6	swordZL
+W	1572010	5	6	swordZL
+W	1582000	8	5	knuckle
+W	1582001	8	5	knuckle
+W	1582002	8	5	knuckle
+W	1582003	8	5	knuckle
+W	1582004	8	5	knuckle
+W	1582005	8	5	knuckle
+W	1582006	8	5	knuckle
+W	1582007	8	5	knuckle
+W	1582008	8	5	knuckle
+W	1582009	8	5	knuckle
+W	1582010	8	5	knuckle
+W	1582011	8	5	knuckle
+W	1582012	8	5	knuckle
+W	1582013	8	5	knuckle
+W	1582014	8	5	knuckle
+W	1582015	8	5	knuckle
+W	1582016	8	5	knuckle
+W	1582017	8	5	knuckle
+W	1582018	8	5	knuckle
+W	1582019	8	5	knuckle
+W	1582020	8	5	knuckle
+W	1582021	8	5	knuckle
+W	1582022	8	5	knuckle
+W	1582023	8	5	knuckle
+W	1582024	8	5	knuckle
+W	1582025	8	5	knuckle
+W	1582026	8	5	knuckle
+W	1582027	8	5	knuckle
+W	1582029	8	5	knuckle
+W	1582030	8	5	knuckle
+W	1582032	8	5	knuckle
+W	1582034	8	5	knuckle
+W	1582035	8	5	knuckle
+W	1582036	8	5	knuckle
+W	1582038	1	5	knuckle
+W	1582039	1	5	knuckle
+W	1582040	8	5	knuckle
+W	1582041	8	5	knuckle
+W	1582042	8	5	knuckle
+W	1582043	8	5	knuckle
+W	1582044	8	5	knuckle
+W	1582045	8	5	knuckle
+W	1592000	3	6	ancientBow
+W	1592001	3	6	ancientBow
+W	1592002	3	6	ancientBow
+W	1592003	3	6	ancientBow
+W	1592004	3	6	ancientBow
+W	1592005	3	6	ancientBow
+W	1592006	3	6	ancientBow
+W	1592007	3	6	ancientBow
+W	1592008	3	6	ancientBow
+W	1592009	3	6	ancientBow
+W	1592010	3	6	ancientBow
+W	1592011	3	6	ancientBow
+W	1592012	3	6	ancientBow
+W	1592013	3	6	ancientBow
+W	1592014	3	6	ancientBow
+W	1592015	3	6	ancientBow
+W	1592016	3	6	ancientBow
+W	1592017	3	6	ancientBow
+W	1592018	3	6	ancientBow
+W	1592019	3	6	ancientBow
+W	1592020	3	6	ancientBow
+W	1592021	3	6	ancientBow
+W	1592022	3	6	ancientBow
+W	1592023	3	6	ancientBow
+W	1592024	3	6	ancientBow
+W	1592025	3	6	ancientBow
+W	1592026	3	6	ancientBow
+W	1592027	3	6	ancientBow
+W	1592028	3	6	ancientBow
+W	1592029	3	6	ancientBow
+W	1592031	3	6	ancientBow
+W	1592032	3	6	ancientBow
+W	1592033	3	6	ancientBow
+W	1592034	3	6	ancientBow
+W	1602000	0	0	
+W	1602001	0	0	
+W	1602002	0	0	
+W	1602003	0	0	
+W	1602004	0	0	
+W	1602005	0	0	
+W	1602006	0	0	
+W	1602007	0	0	
+W	1690000	6	6	mace
+W	1690001	6	6	mace
+W	1690002	6	6	mace
+W	1690003	6	6	mace
+W	1690004	6	6	mace
+W	1690005	6	6	mace
+W	1690006	6	6	mace
+W	1690007	6	6	mace
+W	1690008	6	6	mace
+W	1690009	6	6	mace
+W	1690010	6	6	mace
+W	1690011	6	6	mace
+W	1690012	6	6	mace
+W	1690013	6	6	mace
+W	1690014	6	6	mace
+W	1690100	0	0	
+W	1690101	0	0	
+W	1690102	0	0	
+W	1690103	0	0	
+W	1690104	0	0	
+W	1690105	0	0	
+W	1690106	0	0	
+W	1690107	0	0	
+W	1690108	0	0	
+W	1690109	0	0	
+W	1690110	0	0	
+W	1690111	0	0	
+W	1690112	0	0	
+W	1690113	0	0	
+W	1690114	0	0	
+W	1690200	6	6	mace
+W	1690201	6	6	mace
+W	1690202	6	6	mace
+W	1690203	6	6	mace
+W	1690204	6	6	mace
+W	1690205	6	6	mace
+W	1690300	0	0	
+W	1690301	0	0	
+W	1690302	0	0	
+W	1690303	0	0	
+W	1690304	0	0	
+W	1690305	0	0	
+W	1690306	0	0	
+W	1690307	0	0	
+W	1690308	0	0	
+W	1690309	0	0	
+W	1690310	0	0	
+W	1690311	0	0	
+W	1690312	0	0	
+W	1690313	0	0	
+W	1690314	0	0	
+W	1690315	0	0	
+W	1690316	0	0	
+W	1690317	0	0	
+W	1690318	0	0	
+W	1690319	0	0	
+W	1690320	0	0	
+W	1690321	0	0	
+W	1690322	0	0	
+W	1690323	0	0	
+W	1690324	0	0	
+W	1690325	0	0	
+W	1690326	0	0	
+W	1701000	0	0	
+W	1702000	0	0	
+W	1702001	0	0	
+W	1702002	0	0	
+W	1702003	0	0	
+W	1702004	0	0	
+W	1702005	0	0	
+W	1702006	0	0	
+W	1702007	0	0	
+W	1702008	0	0	
+W	1702009	0	0	
+W	1702010	0	0	
+W	1702011	0	0	
+W	1702012	0	0	
+W	1702013	0	0	
+W	1702014	0	0	
+W	1702015	0	0	
+W	1702016	0	0	
+W	1702017	0	0	
+W	1702018	0	0	
+W	1702019	0	0	
+W	1702020	0	0	
+W	1702021	0	0	
+W	1702022	0	0	
+W	1702023	0	0	
+W	1702024	0	0	
+W	1702025	0	0	
+W	1702026	0	0	
+W	1702027	0	0	
+W	1702028	0	0	
+W	1702029	0	0	
+W	1702030	0	0	
+W	1702031	0	0	
+W	1702032	0	0	
+W	1702033	0	0	
+W	1702034	0	0	
+W	1702035	0	0	
+W	1702036	0	0	
+W	1702037	0	0	
+W	1702038	0	0	
+W	1702039	0	0	
+W	1702040	0	0	
+W	1702041	0	0	
+W	1702042	0	0	
+W	1702043	0	0	
+W	1702044	0	0	
+W	1702045	0	0	
+W	1702046	0	0	
+W	1702047	0	0	
+W	1702048	0	0	
+W	1702049	0	0	
+W	1702050	0	0	
+W	1702051	0	0	
+W	1702052	0	0	
+W	1702053	0	0	
+W	1702054	0	0	
+W	1702055	0	0	
+W	1702056	0	0	
+W	1702057	0	0	
+W	1702058	0	0	
+W	1702059	0	0	
+W	1702060	0	0	
+W	1702061	0	0	
+W	1702062	0	0	
+W	1702063	0	0	
+W	1702064	0	0	
+W	1702065	0	0	
+W	1702066	0	0	
+W	1702067	0	0	
+W	1702068	0	0	
+W	1702069	0	0	
+W	1702070	0	0	
+W	1702071	0	0	
+W	1702072	0	0	
+W	1702073	0	0	
+W	1702074	0	0	
+W	1702075	0	0	
+W	1702076	0	0	
+W	1702077	0	0	
+W	1702078	0	0	
+W	1702079	0	0	
+W	1702080	0	0	
+W	1702081	0	0	
+W	1702082	0	0	
+W	1702083	0	0	
+W	1702084	0	0	
+W	1702085	0	0	
+W	1702086	0	0	
+W	1702087	0	0	
+W	1702088	0	0	
+W	1702089	0	0	
+W	1702090	0	0	
+W	1702091	0	0	
+W	1702092	0	0	
+W	1702093	0	0	
+W	1702094	0	0	
+W	1702095	0	0	
+W	1702096	0	0	
+W	1702097	0	0	
+W	1702098	0	0	
+W	1702099	0	0	
+W	1702100	0	0	
+W	1702101	0	0	
+W	1702102	0	0	
+W	1702103	0	0	
+W	1702104	0	0	
+W	1702105	0	0	
+W	1702106	0	0	
+W	1702107	0	0	
+W	1702108	0	0	
+W	1702112	0	0	
+W	1702113	0	0	
+W	1702114	0	0	
+W	1702115	0	0	
+W	1702116	0	0	
+W	1702117	0	0	
+W	1702118	0	0	
+W	1702119	0	0	
+W	1702120	0	0	
+W	1702121	0	0	
+W	1702122	0	0	
+W	1702123	0	0	
+W	1702124	0	0	
+W	1702125	0	0	
+W	1702126	0	0	
+W	1702127	0	0	
+W	1702128	0	0	
+W	1702129	0	0	
+W	1702130	0	0	
+W	1702131	0	0	
+W	1702132	0	0	
+W	1702133	0	0	
+W	1702134	0	0	
+W	1702135	0	0	
+W	1702136	0	0	
+W	1702138	0	0	
+W	1702139	0	0	
+W	1702140	0	0	
+W	1702141	0	0	
+W	1702142	0	0	
+W	1702143	0	0	
+W	1702144	0	0	
+W	1702145	0	0	
+W	1702146	0	0	
+W	1702147	0	0	
+W	1702148	0	0	
+W	1702149	0	0	
+W	1702150	0	0	
+W	1702151	0	0	
+W	1702152	0	0	
+W	1702153	0	0	
+W	1702154	0	0	
+W	1702155	0	0	
+W	1702156	0	0	
+W	1702157	0	0	
+W	1702158	0	0	
+W	1702159	0	0	
+W	1702160	0	0	
+W	1702161	0	0	
+W	1702162	0	0	
+W	1702163	0	0	
+W	1702164	0	0	
+W	1702165	0	0	
+W	1702166	0	0	
+W	1702167	0	0	
+W	1702168	0	0	
+W	1702169	0	0	
+W	1702170	0	0	
+W	1702171	0	0	
+W	1702172	0	0	
+W	1702173	0	0	
+W	1702174	0	0	
+W	1702175	0	0	
+W	1702177	0	0	
+W	1702178	0	0	
+W	1702179	0	0	
+W	1702180	0	0	
+W	1702181	0	0	
+W	1702182	0	0	
+W	1702183	0	0	
+W	1702184	0	0	
+W	1702185	0	0	
+W	1702186	0	0	
+W	1702187	0	0	
+W	1702188	0	0	
+W	1702189	0	0	
+W	1702190	0	0	
+W	1702191	0	0	
+W	1702193	0	0	
+W	1702195	0	0	
+W	1702196	0	0	
+W	1702197	0	0	
+W	1702198	0	0	
+W	1702200	0	0	
+W	1702201	0	0	
+W	1702202	0	0	
+W	1702203	0	0	
+W	1702204	0	0	
+W	1702207	0	0	
+W	1702208	0	0	
+W	1702209	0	0	
+W	1702210	0	0	
+W	1702211	0	0	
+W	1702212	0	0	
+W	1702213	0	0	
+W	1702214	0	0	
+W	1702215	0	0	
+W	1702216	0	0	
+W	1702217	0	0	
+W	1702218	0	0	
+W	1702219	0	0	
+W	1702220	0	0	
+W	1702221	0	0	
+W	1702222	0	0	
+W	1702223	0	0	
+W	1702224	0	0	
+W	1702226	0	0	
+W	1702228	0	0	
+W	1702229	0	0	
+W	1702230	0	0	
+W	1702231	0	0	
+W	1702232	0	0	
+W	1702233	0	0	
+W	1702234	0	0	
+W	1702235	0	0	
+W	1702236	0	0	
+W	1702237	0	0	
+W	1702238	0	0	
+W	1702239	0	0	
+W	1702240	0	0	
+W	1702246	0	0	
+W	1702248	0	0	
+W	1702249	0	0	
+W	1702250	0	0	
+W	1702251	0	0	
+W	1702252	0	0	
+W	1702253	0	0	
+W	1702254	0	0	
+W	1702256	0	0	
+W	1702257	0	0	
+W	1702258	0	0	
+W	1702259	0	0	
+W	1702260	0	0	
+W	1702261	0	0	
+W	1702262	0	0	
+W	1702263	0	0	
+W	1702264	0	0	
+W	1702266	0	0	
+W	1702268	0	0	
+W	1702269	0	0	
+W	1702270	0	0	
+W	1702271	0	0	
+W	1702272	0	0	
+W	1702273	0	0	
+W	1702274	0	0	
+W	1702275	0	0	
+W	1702276	0	0	
+W	1702277	0	0	
+W	1702278	0	0	
+W	1702279	0	0	
+W	1702280	0	0	
+W	1702281	0	0	
+W	1702282	0	0	
+W	1702283	0	0	
+W	1702284	0	0	
+W	1702285	0	0	
+W	1702286	0	0	
+W	1702287	0	0	
+W	1702288	0	0	
+W	1702289	0	0	
+W	1702291	0	0	
+W	1702293	0	0	
+W	1702295	0	0	
+W	1702296	0	0	
+W	1702299	0	0	
+W	1702301	0	0	
+W	1702302	0	0	
+W	1702303	0	0	
+W	1702304	0	0	
+W	1702305	0	0	
+W	1702306	0	0	
+W	1702308	0	0	
+W	1702309	0	0	
+W	1702310	0	0	
+W	1702311	0	0	
+W	1702313	0	0	
+W	1702314	0	0	
+W	1702315	0	0	
+W	1702316	0	0	
+W	1702317	0	0	
+W	1702318	0	0	
+W	1702319	0	0	
+W	1702320	0	0	
+W	1702321	0	0	
+W	1702322	0	0	
+W	1702323	0	0	
+W	1702324	0	0	
+W	1702328	0	0	
+W	1702329	0	0	
+W	1702330	0	0	
+W	1702333	0	0	
+W	1702334	0	0	
+W	1702335	0	0	
+W	1702336	0	0	
+W	1702337	0	0	
+W	1702340	0	0	
+W	1702341	0	0	
+W	1702342	0	0	
+W	1702344	0	0	
+W	1702345	0	0	
+W	1702346	0	0	
+W	1702347	0	0	
+W	1702348	0	0	
+W	1702350	0	0	
+W	1702351	0	0	
+W	1702352	0	0	
+W	1702355	0	0	
+W	1702356	0	0	
+W	1702357	0	0	
+W	1702358	0	0	
+W	1702359	0	0	
+W	1702360	0	0	
+W	1702361	0	0	
+W	1702362	0	0	
+W	1702363	0	0	
+W	1702364	0	0	
+W	1702365	0	0	
+W	1702366	0	0	
+W	1702367	0	0	
+W	1702368	0	0	
+W	1702371	0	0	
+W	1702372	0	0	
+W	1702374	0	0	
+W	1702375	0	0	
+W	1702376	0	0	
+W	1702377	0	0	
+W	1702379	0	0	
+W	1702380	0	0	
+W	1702381	0	0	
+W	1702382	0	0	
+W	1702385	0	0	
+W	1702386	0	0	
+W	1702387	0	0	
+W	1702388	0	0	
+W	1702389	0	0	
+W	1702390	0	0	
+W	1702392	0	0	
+W	1702393	0	0	
+W	1702394	0	0	
+W	1702395	0	0	
+W	1702397	0	0	
+W	1702398	0	0	
+W	1702399	0	0	
+W	1702400	0	0	
+W	1702401	0	0	
+W	1702402	0	0	
+W	1702403	0	0	
+W	1702404	0	0	
+W	1702405	0	0	
+W	1702406	0	0	
+W	1702407	0	0	
+W	1702408	0	0	
+W	1702409	0	0	
+W	1702410	0	0	
+W	1702411	0	0	
+W	1702412	0	0	
+W	1702413	0	0	
+W	1702414	0	0	
+W	1702415	0	0	
+W	1702416	0	0	
+W	1702417	0	0	
+W	1702418	0	0	
+W	1702419	0	0	
+W	1702420	0	0	
+W	1702421	0	0	
+W	1702422	0	0	
+W	1702423	0	0	
+W	1702424	0	0	
+W	1702426	0	0	
+W	1702427	0	0	
+W	1702428	0	0	
+W	1702429	0	0	
+W	1702430	0	0	
+W	1702431	0	0	
+W	1702433	0	0	
+W	1702436	0	0	
+W	1702437	0	0	
+W	1702438	0	0	
+W	1702439	0	0	
+W	1702442	0	0	
+W	1702443	0	0	
+W	1702444	0	0	
+W	1702445	0	0	
+W	1702446	0	0	
+W	1702448	0	0	
+W	1702449	0	0	
+W	1702450	0	0	
+W	1702451	0	0	
+W	1702453	0	0	
+W	1702454	0	0	
+W	1702455	0	0	
+W	1702456	0	0	
+W	1702457	0	0	
+W	1702458	0	0	
+W	1702459	0	0	
+W	1702460	0	0	
+W	1702461	0	0	
+W	1702462	0	0	
+W	1702464	0	0	
+W	1702466	0	0	
+W	1702467	0	0	
+W	1702468	0	0	
+W	1702469	0	0	
+W	1702470	0	0	
+W	1702471	0	0	
+W	1702472	0	0	
+W	1702473	0	0	
+W	1702474	0	0	
+W	1702475	0	0	
+W	1702476	0	0	
+W	1702477	0	0	
+W	1702478	0	0	
+W	1702479	0	0	
+W	1702480	0	0	
+W	1702485	0	0	
+W	1702486	0	0	
+W	1702487	0	0	
+W	1702488	0	0	
+W	1702489	0	0	
+W	1702491	0	0	
+W	1702492	0	0	
+W	1702497	0	0	
+W	1702499	0	0	
+W	1702501	0	0	
+W	1702502	0	0	
+W	1702503	0	0	
+W	1702504	0	0	
+W	1702505	0	0	
+W	1702506	0	0	
+W	1702507	0	0	
+W	1702509	0	0	
+W	1702510	0	0	
+W	1702512	0	0	
+W	1702519	0	0	
+W	1702521	0	0	
+W	1702522	0	0	
+W	1702523	0	0	
+W	1702524	0	0	
+W	1702525	0	0	
+W	1702526	0	0	
+W	1702528	0	0	
+W	1702529	0	0	
+W	1702530	0	0	
+W	1702533	0	0	
+W	1702534	0	0	
+W	1702535	0	0	
+W	1702538	0	0	
+W	1702540	0	0	
+W	1702541	0	0	
+W	1702547	0	0	
+W	1702549	0	0	
+W	1702550	0	0	
+W	1702551	0	0	
+W	1702553	0	0	
+W	1702554	0	0	
+W	1702555	0	0	
+W	1702556	0	0	
+W	1702557	0	0	
+W	1702559	0	0	
+W	1702560	0	0	
+W	1702561	0	0	
+W	1702562	0	0	
+W	1702564	0	0	
+W	1702565	0	0	
+W	1702566	0	0	
+W	1702567	0	0	
+W	1702570	0	0	
+W	1702571	0	0	
+W	1702572	0	0	
+W	1702574	0	0	
+W	1702575	0	0	
+W	1702576	0	0	
+W	1702577	0	0	
+W	1702579	0	0	
+W	1702581	0	0	
+W	1702583	0	0	
+W	1702584	0	0	
+W	1702585	0	0	
+W	1702586	0	0	
+W	1702587	0	0	
+W	1702588	0	0	
+W	1702589	0	0	
+W	1702590	0	0	
+W	1702591	0	0	
+W	1702593	0	0	
+W	1702594	0	0	
+W	1702595	0	0	
+W	1702597	0	0	
+W	1702599	0	0	
+W	1702600	0	0	
+W	1702601	0	0	
+W	1702602	0	0	
+W	1702603	0	0	
+W	1702604	0	0	
+W	1702605	0	0	
+W	1702606	0	0	
+W	1702607	0	0	
+W	1702608	0	0	
+W	1702611	0	0	
+W	1702612	0	0	
+W	1702613	0	0	
+W	1702614	0	0	
+W	1702616	0	0	
+W	1702617	0	0	
+W	1702619	0	0	
+W	1702620	0	0	
+W	1702621	0	0	
+W	1702623	0	0	
+W	1702624	0	0	
+W	1702625	0	0	
+W	1702626	0	0	
+W	1702627	0	0	
+W	1702628	0	0	
+W	1702629	0	0	
+W	1702630	0	0	
+W	1702631	0	0	
+W	1702632	0	0	
+W	1702633	0	0	
+W	1702634	0	0	
+W	1702635	0	0	
+W	1702636	0	0	
+W	1702637	0	0	
+W	1702638	0	0	
+W	1702639	0	0	
+W	1702640	0	0	
+W	1702641	0	0	
+W	1702642	0	0	
+W	1702643	0	0	
+W	1702644	0	0	
+W	1702645	0	0	
+W	1702646	0	0	
+W	1702647	0	0	
+W	1702648	0	0	
+W	1702649	0	0	
+W	1702650	0	0	
+W	1702651	0	0	
+W	1702652	0	0	
+W	1702653	0	0	
+W	1702654	0	0	
+W	1702655	0	0	
+W	1702656	0	0	
+W	1702657	0	0	
+W	1702658	0	0	
+W	1702659	0	0	
+W	1702660	0	0	
+W	1702665	0	0	
+W	1702666	0	0	
+W	1702667	0	0	
+W	1702668	0	0	
+W	1702671	0	0	
+W	1702672	0	0	
+W	1702673	0	0	
+W	1702675	0	0	
+W	1702676	0	0	
+W	1702677	0	0	
+W	1702678	0	0	
+W	1702679	0	0	
+W	1702680	0	0	
+W	1702681	0	0	
+W	1702682	0	0	
+W	1702684	0	0	
+W	1702685	0	0	
+W	1702686	0	0	
+W	1702687	0	0	
+W	1702688	0	0	
+W	1702689	0	0	
+W	1702690	0	0	
+W	1702691	0	0	
+W	1702692	0	0	
+W	1702693	0	0	
+W	1702694	0	0	
+W	1702695	0	0	
+W	1702696	0	0	
+W	1702697	0	0	
+W	1702698	0	0	
+W	1702699	0	0	
+W	1702700	0	0	
+W	1702701	0	0	
+W	1702702	0	0	
+W	1702703	0	0	
+W	1702704	0	0	
+W	1702705	0	0	
+W	1702706	0	0	
+W	1702707	0	0	
+W	1702708	0	0	
+W	1702709	0	0	
+W	1702710	0	0	
+W	1702711	0	0	
+W	1702712	0	0	
+W	1702713	0	0	
+W	1702714	0	0	
+W	1702715	0	0	
+W	1702716	0	0	
+W	1702717	0	0	
+W	1702718	0	0	
+W	1702719	0	0	
+W	1702720	0	0	
+W	1702721	0	0	
+W	1702722	0	0	
+W	1702723	0	0	
+W	1702724	0	0	
+W	1702725	0	0	
+W	1702726	0	0	
+W	1702727	0	0	
+W	1702728	0	0	
+W	1702729	0	0	
+W	1702731	0	0	
+W	1702732	0	0	
+W	1702733	0	0	
+W	1702734	0	0	
+W	1702735	0	0	
+W	1702736	0	0	
+W	1702737	0	0	
+W	1702740	0	0	
+W	1702742	0	0	
+W	1702744	0	0	
+W	1702745	0	0	
+W	1702746	0	0	
+W	1702747	0	0	
+W	1702748	0	0	
+W	1702749	0	0	
+W	1702750	0	0	
+W	1702752	0	0	
+W	1702753	0	0	
+W	1702755	0	0	
+W	1702756	0	0	
+W	1702757	0	0	
+W	1702758	0	0	
+W	1702759	0	0	
+W	1702760	0	0	
+W	1702761	0	0	
+W	1702764	0	0	
+W	1702765	0	0	
+W	1702766	0	0	
+W	1702767	0	0	
+W	1702768	0	0	
+W	1702769	0	0	
+W	1702770	0	0	
+W	1702771	0	0	
+W	1702772	0	0	
+W	1702773	0	0	
+W	1702774	0	0	
+W	1702775	0	0	
+W	1702776	0	0	
+W	1702777	0	0	
+W	1702778	0	0	
+W	1702779	0	0	
+W	1702780	0	0	
+W	1702781	0	0	
+W	1702782	0	0	
+W	1702783	0	0	
+W	1702784	0	0	
+W	1702785	0	0	
+W	1702786	0	0	
+W	1702787	0	0	
+W	1702788	0	0	
+W	1702789	0	0	
+W	1702790	0	0	
+W	1702791	0	0	
+W	1702792	0	0	
+W	1702793	0	0	
+W	1702794	0	0	
+W	1702795	0	0	
+W	1702796	0	0	
+W	1702797	0	0	
+W	1702798	0	0	
+W	1702799	0	0	
+W	1702800	0	0	
+W	1702801	0	0	
+W	1702802	0	0	
+W	1702803	0	0	
+W	1702804	0	0	
+W	1702805	0	0	
+W	1702806	0	0	
+W	1702807	0	0	
+W	1702808	0	0	
+W	1702809	0	0	
+W	1702810	0	0	
+W	1702811	0	0	
+W	1702812	0	0	
+W	1702813	0	0	
+W	1702814	0	0	
+W	1702815	0	0	
+W	1702816	0	0	
+W	1702817	0	0	
+W	1702818	0	0	
+W	1702819	0	0	
+W	1702820	0	0	
+W	1702821	0	0	
+W	1702822	0	0	
+W	1702823	0	0	
+W	1702824	0	0	
+W	1702825	0	0	
+W	1702826	0	0	
+W	1702827	0	0	
+W	1702828	0	0	
+W	1702829	0	0	
+W	1702830	0	0	
+W	1702831	0	0	
+W	1702832	0	0	
+W	1702833	0	0	
+W	1702834	0	0	
+W	1702835	0	0	
+W	1702836	0	0	
+W	1702837	0	0	
+W	1702838	0	0	
+W	1702839	0	0	
+W	1702840	0	0	
+W	1702841	0	0	
+W	1702842	0	0	
+W	1702844	0	0	
+W	1702845	0	0	
+W	1702846	0	0	
+W	1702847	0	0	
+W	1702848	0	0	
+W	1702849	0	0	
+W	1702850	0	0	
+W	1702851	0	0	
+W	1702853	0	0	
+W	1702854	0	0	
+W	1702855	0	0	
+W	1702856	0	0	
+W	1702857	0	0	
+W	1702858	0	0	
+W	1702859	0	0	
+W	1702860	0	0	
+W	1702861	0	0	
+W	1702862	0	0	
+W	1702863	0	0	
+W	1702865	0	0	
+W	1702866	0	0	
+W	1702867	0	0	
+W	1702868	0	0	
+W	1702869	0	0	
+W	1702870	0	0	
+W	1702871	0	0	
+W	1702872	0	0	
+W	1702873	0	0	
+W	1702874	0	0	
+W	1702875	0	0	
+W	1702876	0	0	
+W	1702877	0	0	
+W	1702878	0	0	
+W	1702879	0	0	
+W	1702880	0	0	
+W	1702881	0	0	
+W	1702882	0	0	
+W	1702883	0	0	
+W	1702884	0	0	
+W	1702885	0	0	
+W	1702886	0	0	
+W	1702887	0	0	
+W	1702888	0	0	
+W	1702889	0	0	
+W	1702890	0	0	
+W	1702891	0	0	
+W	1702892	0	0	
+W	1702893	0	0	
+W	1702894	0	0	
+W	1702895	0	0	
+W	1702896	0	0	
+W	1702897	0	0	
+W	1702898	0	0	
+W	1702899	0	0	
+W	1702900	0	0	
+W	1702901	0	0	
+W	1702902	0	0	
+W	1702903	0	0	
+W	1702904	0	0	
+W	1702905	0	0	
+W	1702906	0	0	
+W	1702909	0	0	
+W	1702910	0	0	
+W	1702911	0	0	
+W	1702912	0	0	
+W	1702913	0	0	
+W	1702915	0	0	
+W	1702916	0	0	
+W	1702917	0	0	
+W	1702926	0	0	
+W	1702927	0	0	
+W	1702930	0	0	
+W	1702931	0	0	
+W	1702932	0	0	
+W	1702933	0	0	
+W	1702940	0	0	
+W	1702941	0	0	
