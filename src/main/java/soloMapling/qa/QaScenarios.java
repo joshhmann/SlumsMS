@@ -16,6 +16,7 @@ import static soloMapling.qa.QaLog.Topic.ATTACK;
 import static soloMapling.qa.QaLog.Topic.BOUNCE;
 import static soloMapling.qa.QaLog.Topic.BOT_CHAT;
 import static soloMapling.qa.QaLog.Topic.CHANNEL_LOAD;
+import static soloMapling.qa.QaLog.Topic.COUPLE;
 import static soloMapling.qa.QaLog.Topic.EQUIP;
 import static soloMapling.qa.QaLog.Topic.FM_BUY;
 import static soloMapling.qa.QaLog.Topic.GUILD;
@@ -74,7 +75,7 @@ public final class QaScenarios {
                 new Np1Rosen(), new Np2Fredrick(), new Np3Merchant(), new Cs2PetEquip(), new Gn2Scrolling(), new Sc2BotScrolling(),
                 new Wd1ChannelBars(), new Wd2DreamyPortal(), new Id1IdleSafety(),
                 new Mv1AttackSlide(), new Pe1MapEntry(), new Jq1BounceBlock(),
-                new Af1Friend(), new Af2Rival(), new Af3DramaOff());
+                new Af1Friend(), new Af2Rival(), new Af3DramaOff(), new Cp1Couple(), new We1Wedding());
     }
 
     // ---- jq-1 ----
@@ -1117,6 +1118,89 @@ public final class QaScenarios {
             ctx.run().note("STEP", "@botdrama " + name);
             readOut(ctx, "STATE");
             return List.of("@botdrama " + name + ".");
+        }
+    }
+
+    // ---- cp-1 / we-1 (1.5.0, ticket 58: bot couples and weddings) ----
+
+    /** cp-1: a staged bot couple next to the GM. Party, chat about each other, a couple chair, rings, a love note. */
+    static final class Cp1Couple implements QaScenario {
+        private final Map<Integer, int[]> couples = new ConcurrentHashMap<>();
+
+        public String id() { return "cp-1"; }
+        public String title() { return "A bot couple: party together, mention each other, couple chair, rings (ticket 58)"; }
+        public String usage() { return "[married]; then !qa do step"; }
+        public Set<QaLog.Topic> topics() { return EnumSet.of(COUPLE, BOT_CHAT); }
+        public int tickSeconds() { return 60; }
+
+        public List<String> stage(QaContext ctx) {
+            boolean married = java.util.Arrays.stream(ctx.args()).anyMatch(a -> a.toLowerCase().startsWith("mar"));
+            int[] ids = ctx.world().stageCouple(ctx.gm(), married);
+            if (ids == null) {
+                throw new QaRefusal("No couple could be staged here.");
+            }
+            ctx.log("staged couple " + ids[0] + " + " + ids[1] + (married ? " (married)" : " (dating)"));
+            ctx.onStop("unstage couple " + ids[0] + " + " + ids[1], () -> ctx.world().unstageCouple(ids));
+            couples.put(ctx.run().gmId(), ids);
+            ctx.onStop("forget", () -> couples.remove(ctx.run().gmId()));
+            ctx.world().coupleStep();
+            return List.of("Two bots next to you are a couple" + (married ? " (married: rings and the Amorian Loveseat)." : "."),
+                    "Every minute (or !qa do step): they party up (PARTY), now and then one says something to the other,",
+                    "married ones sit on the loveseat together (SIT) and wear rings (look at their equips).",
+                    "!couple note sends a love-note megaphone (through the megaphone gate).");
+        }
+
+        public void tick(QaContext ctx) {
+            ctx.world().coupleStep();
+        }
+
+        public List<String> action(QaContext ctx, String name, String[] args) {
+            if (!"step".equals(name)) {
+                throw new QaRefusal("cp-1 steps: step");
+            }
+            ctx.world().coupleStep();
+            ctx.run().note("STEP", "couple step");
+            return List.of("Ran the couples' step.");
+        }
+    }
+
+    /** we-1: a staged couple marries in Amoria now: notice, ceremony, rings, guests, then everyone goes home. */
+    static final class We1Wedding implements QaScenario {
+        public static final int AMORIA = 680000000;
+
+        public String id() { return "we-1"; }
+        public String title() { return "A bot wedding in Amoria: notice, ceremony, rings, guests (ticket 58)"; }
+        public Set<QaLog.Topic> topics() { return EnumSet.of(COUPLE, BOT_CHAT); }
+        public Set<Integer> watchedMaps(Character gm, String[] args) { return Set.of(AMORIA); }
+        public Set<String> claims(Character gm, String[] args) { return Set.of("map:" + AMORIA); }
+        public int minutes(String[] args) { return 10; }
+
+        public List<String> stage(QaContext ctx) {
+            QaWorld w = ctx.world();
+            Character gm = ctx.gm();
+            if (!w.onEventChannel(gm)) {
+                throw new QaRefusal("World events run on channel 1: change to channel 1 first.");
+            }
+            if (!w.warp(gm, AMORIA)) {
+                throw new QaRefusal("Cannot warp to " + AMORIA + ".");
+            }
+            ctx.log("warped to " + AMORIA);
+            int[] ids = w.stageCouple(ctx.gm(), false);
+            if (ids == null) {
+                throw new QaRefusal("No couple could be staged here.");
+            }
+            ctx.log("staged couple " + ids[0] + " + " + ids[1]);
+            ctx.onStop("unstage couple " + ids[0] + " + " + ids[1], () -> w.unstageCouple(ids));
+            ctx.onStop("stop the wedding if it still runs", () -> ctx.run().note("CLEANUP", "stopped "
+                    + w.stopWeddings("!qa stop") + " wedding(s)"));
+            String problem = w.startWedding(ids[0], "!qa we-1");
+            if (problem != null) {
+                throw new QaRefusal("The wedding did not start: " + problem);
+            }
+            ctx.log("wedding started");
+            return List.of("A blue notice says they are getting married here. Guests appear by the chapel.",
+                    "In about two minutes: the officiant speaks, both say i do, rings (RINGS), \"married\" (MARRIED).",
+                    "Guests cheer until the event ends (6 min); then guests leave and the couple goes home. !qa stop ends it early.");
         }
     }
 }

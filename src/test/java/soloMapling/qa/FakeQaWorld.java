@@ -165,4 +165,25 @@ class FakeQaWorld implements QaWorld {
     @Override public String affinityOf(int botId, Character gm) { return "rival: score -40"; }
 
     @Override public String forceGrudge(int botId, Character gm) { calls.add("grudge " + botId); return "grudge + KS spree"; }
+
+    final List<int[]> couplesUnstaged = new ArrayList<>();
+    int coupleSteps;
+    String weddingProblem;
+    boolean eventChannel = true;
+
+    @Override public int[] stageCouple(Character gm, boolean married) {
+        int[] ids = {nextBot++, nextBot++};
+        calls.add("couple " + ids[0] + " " + ids[1] + (married ? " married" : ""));
+        return ids;
+    }
+
+    @Override public void unstageCouple(int[] ids) { couplesUnstaged.add(ids); calls.add("uncouple " + ids[0]); }
+
+    @Override public void coupleStep() { coupleSteps++; }
+
+    @Override public String startWedding(int botId, String by) { calls.add("wedding " + botId); return weddingProblem; }
+
+    @Override public int stopWeddings(String by) { calls.add("stop weddings"); return 1; }
+
+    @Override public boolean onEventChannel(Character gm) { return eventChannel; }
 }

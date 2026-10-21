@@ -246,6 +246,49 @@ final class GameQaWorld implements QaWorld {
     }
 
     @Override
+    public int[] stageCouple(Character gm, boolean married) {
+        return soloMapling.ArtificialPlayer.BotCoupleSystem.CoupleStaging.stage(gm, married);
+    }
+
+    @Override
+    public void unstageCouple(int[] ids) {
+        soloMapling.ArtificialPlayer.BotCoupleSystem.CoupleStaging.unstage(ids);
+    }
+
+    @Override
+    public void coupleStep() {
+        soloMapling.ArtificialPlayer.BotCoupleSystem.BotCouples.stepNow();
+    }
+
+    @Override
+    public String startWedding(int botId, String by) {
+        soloMapling.ArtificialPlayer.BotCoupleSystem.BotCouples.Couple c =
+                soloMapling.ArtificialPlayer.BotCoupleSystem.BotCouples.coupleOf(botId);
+        return c == null ? "that bot is in no couple" : soloMapling.ArtificialPlayer.BotCoupleSystem.BotWeddings.start(c, by);
+    }
+
+    @Override
+    public int stopWeddings(String by) {
+        int n = 0;
+        for (soloMapling.worldevents.ActiveEvent e : soloMapling.worldevents.WorldEvents.getInstance().active()) {
+            if (e.template.kind() == soloMapling.worldevents.EventTemplate.Kind.WEDDING
+                    && soloMapling.worldevents.WorldEvents.getInstance().stop(e.id, by)) {
+                n++;
+            }
+        }
+        return n;
+    }
+
+    @Override
+    public boolean onEventChannel(Character gm) {
+        try {
+            return gm.getClient().getChannel() == soloMapling.server.SoloMaplingConstants.mainChannel().getId();
+        } catch (RuntimeException e) {
+            return true;
+        }
+    }
+
+    @Override
     public void despawnBot(int botId) {
         Character bot = BotHelpers.getCharFromChannelStorage(botId);
         if (bot == null) {

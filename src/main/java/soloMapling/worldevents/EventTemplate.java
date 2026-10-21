@@ -19,9 +19,9 @@ public record EventTemplate(String id, Kind kind, String name, double weight, in
                             int minLevel, int maxLevel, int botCap, List<Spot> spots, List<Wave> waves,
                             int bossMobId, int npcId, double expBonus, List<Reward> rewards, boolean enabled) {
 
-    /** The five kinds of the first set (spec "Event templates"). */
+    /** The five kinds of the first set (spec "Event templates"), and a bot couple's wedding (ticket 58, 1.5.0). */
     public enum Kind {
-        INVASION, BOSS_SIGHTING, TREASURE_HUNT, HOT_SPOT, WANDERING_NPC;
+        INVASION, BOSS_SIGHTING, TREASURE_HUNT, HOT_SPOT, WANDERING_NPC, WEDDING;
 
         public static Kind parse(String raw) {
             if (raw == null) {
@@ -42,7 +42,7 @@ public record EventTemplate(String id, Kind kind, String name, double weight, in
 
         /** Whether bots travel to this event (a town quest NPC only gets talked about). */
         public boolean botsGather() {
-            return this != WANDERING_NPC;
+            return this != WANDERING_NPC && this != WEDDING; // a wedding brings its own guests
         }
     }
 

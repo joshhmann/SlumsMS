@@ -156,6 +156,7 @@ public final class WorldEventReactions {
             case TREASURE_HUNT -> "Treasure";
             case HOT_SPOT -> "HotSpot";
             case WANDERING_NPC -> "Wanderer";
+            case WEDDING -> "Wedding";
         };
     }
 
@@ -355,6 +356,7 @@ public final class WorldEventReactions {
             case TREASURE_HUNT -> "found the hidden treasure chest at " + e.mapName + " first";
             case WANDERING_NPC -> "helped " + e.npcName + " in " + e.mapName + " first";
             case HOT_SPOT -> "trained at the hot spot on " + e.mapName;
+            case WEDDING -> "came to the wedding of " + e.subject + " in " + e.mapName;
         };
     }
 }

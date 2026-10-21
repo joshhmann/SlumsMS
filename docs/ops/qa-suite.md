@@ -49,6 +49,8 @@ the showcase's own minutes plus one.
 | `af-1` `[social\|training]` (1.5.0) | Spawns a bot next to you that already counts you as a friend (social by default; `training` holds a training bot on your map) | Every affinity event on your map (`EVENT party/buff/heal/rescue/trade/gift/fame/kind_chat ...` with the score and state), every action a bot takes because of it (`ACT greet/buddy/invite/help`), bot chat, and the bot's state every 30 s (`START`/`STATE`/`FINAL`) |
 | `af-2` `[rival\|nemesis]` (1.5.0) | Warps you to 104040000 if your map has no mobs, spawns a training bot held on the map that counts you as its rival (or nemesis). `!qa do grudge` forces a fresh grudge and a KS spree now | As af-1, plus `ACT taunt/ks/defame`, each mob a KS spree takes (`KS ... takes <mob> from <you>`), and refused trades (`REFUSE`) |
 | `af-3` (1.5.0) | Turns `@botdrama` off for you and spawns a nemesis training bot. `!qa do on` / `!qa do off` flip it; stop puts it back | As af-2. With drama off: the state reads neutral, and there are no `taunt`/`ks`/`defame` ACT lines and no `EVENT ks` |
+| `cp-1` `[married]` (1.5.0) | Spawns two bots next to you that are a couple (dating, or married with rings and the loveseat), memory only. Runs the couples' step every minute; `!qa do step` runs it now | Each couple action: `PARTY`, `HOP` (channel), `SIT` (couple chair), `MATCHING` (hat), `LOVE NOTE`, plus bot chat on the map |
+| `we-1` (1.5.0) | Needs channel 1. Warps you to Amoria (680000000), stages a couple there and starts the `amoria_wedding` event at once | The ceremony: `WEDDING ... begins`, every line said (`SAY`), `RINGS`, `MARRIED`, `WEDDING ... ends`, and bot chat. Stop ends the event if it still runs and removes the couple |
 
 What `!qa stop` undoes:
 
@@ -58,6 +60,7 @@ What `!qa stop` undoes:
 - gd-1 takes back the mesos it gave you, up to what you still have.
 - A summoned test pet stays with you.
 - af-1/af-2/af-3: the staged bot leaves and every tie it had is forgotten; af-3 puts your `@botdrama` back.
+- cp-1/we-1: the staged couple is broken up and both bots leave; we-1 also stops the wedding event if it still runs.
 
 You are not warped back. Mesos you earned in fm-1 stay with you.
 

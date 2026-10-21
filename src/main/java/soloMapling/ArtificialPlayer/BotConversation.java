@@ -319,7 +319,8 @@ public final class BotConversation {
                 whisper ? List.of() : BotChatRouting.recentOnMap(bot.getMapId(), now), outcome)
                 .with(stock == null ? null : stock.fact(), recognise);
         return BotChatPrompt.system(context, persona, traits == null ? 0.4 : traits.chattiness())
-                + soloMapling.ArtificialPlayer.BotAffinitySystem.AffinityReactions.promptLine(bot.getId(), player); // ticket 58: friend or beef
+                + soloMapling.ArtificialPlayer.BotAffinitySystem.AffinityReactions.promptLine(bot.getId(), player) // ticket 58: friend or beef
+                + soloMapling.ArtificialPlayer.BotCoupleSystem.BotCouples.promptLine(bot.getId()); // ticket 58: a partner
     }
 
     /**

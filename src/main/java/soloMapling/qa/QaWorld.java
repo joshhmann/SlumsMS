@@ -128,4 +128,22 @@ public interface QaWorld {
 
     /** A fresh grudge of the bot against the GM, and a KS spree when they share a map; what happened. */
     String forceGrudge(int botId, Character gm);
+
+    /** Ticket 58 (cp-1, we-1): two new bots next to the GM that are a couple; {groom, bride} ids or null. */
+    int[] stageCouple(Character gm, boolean married);
+
+    /** Breaks a staged couple up and takes both bots away. */
+    void unstageCouple(int[] ids);
+
+    /** Runs the couples' minute step now. */
+    void coupleStep();
+
+    /** Starts the Amoria wedding for the couple this bot is in; the problem, or null. */
+    String startWedding(int botId, String by);
+
+    /** Stops a running bot wedding, if any; how many stopped. */
+    int stopWeddings(String by);
+
+    /** Whether the GM is on the channel world events run on (channel 1). */
+    boolean onEventChannel(Character gm);
 }

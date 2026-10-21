@@ -117,3 +117,13 @@ templates:
       - {map: 104000000, item: 4000000, count: 20}   # Lith Harbor: Blue Snail Shells
     rewards:
       - {item: 2000004, qty: 2}                  # Elixir
+
+  # Ticket 58 (1.5.0): a bot couple's wedding, staged in front of the Amoria chapel. Weight 0: the generic scheduler
+  # never picks it; BotCouples starts it for a couple that is ready (or a GM: !couple wedding). No rewards.
+  - id: amoria_wedding
+    kind: wedding
+    name: Amoria Wedding
+    weight: 0
+    minutes: 6
+    cooldown_minutes: 0
+    maps: [680000000]                            # Amoria

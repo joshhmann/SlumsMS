@@ -365,6 +365,7 @@ public class CommandsExecutor {
             addCommand("botscroll", 4, client.command.commands.gm4.BotScrollCommand.class);   // ticket 11
             addCommand(new String[]{"event", "worldevent"}, 4, client.command.commands.gm4.WorldEventCommand.class);
             addCommand("affinity", 4, client.command.commands.gm4.AffinityCommand.class);   // ticket 58
+            addCommand("couple", 4, client.command.commands.gm4.CoupleCommand.class);   // ticket 58
         }
         addCommand("spawn", 3, SpawnCommand.class);
         addCommand("mutemap", 3, MuteMapCommand.class);

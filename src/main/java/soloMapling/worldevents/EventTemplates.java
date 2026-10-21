@@ -221,6 +221,9 @@ public final class EventTemplates {
                     problems.add("exp_bonus must be above 1.0 and at most " + MAX_EXP_BONUS);
                 }
             }
+            case WEDDING -> {
+                // a bot couple's ceremony (ticket 58): just the map
+            }
             case WANDERING_NPC -> {
                 if (npc <= 0) {
                     problems.add("a wandering NPC needs an npc");
@@ -251,6 +254,9 @@ public final class EventTemplates {
         }
         if (kind == EventTemplate.Kind.HOT_SPOT && !rewards.isEmpty()) {
             problems.add("a hot spot has no winner, so no rewards");
+        }
+        if (kind == EventTemplate.Kind.WEDDING && !rewards.isEmpty()) {
+            problems.add("a wedding has no winner, so no rewards");
         }
         boolean enabled = !"false".equalsIgnoreCase(String.valueOf(m.get("enabled")));
         return new EventTemplate(id, kind, name, weight, minutes, cooldown, minLevel, maxLevel, botCap, spots, waves,

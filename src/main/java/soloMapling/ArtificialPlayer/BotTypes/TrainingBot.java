@@ -1374,7 +1374,8 @@ public class TrainingBot extends BotSM {
         }
         Character member = firstRealPartyMember(party);
         if (member == null) {
-            return null;
+            // Ticket 58: a bot couple trains together - the partner who leads the party picks the map.
+            return soloMapling.ArtificialPlayer.BotCoupleSystem.BotCouples.partnerTrainingMap(getChr());
         }
         int memberMap = member.getMapId();
         if (MapMobIndex.level(memberMap) >= 0) {

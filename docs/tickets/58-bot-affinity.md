@@ -165,3 +165,33 @@ bots were counted twice.
   deploy (owner's call): clear the non-base files in `cache/bot-nav` and the deep overlay so only keys bots use come
   back.
 
+### (c) Bot couples and weddings
+
+Code: `src/main/java/soloMapling/ArtificialPlayer/BotCoupleSystem/` (lines in `BotDialoguePack/CoupleDialogue.yaml`,
+the love note in `MegaphoneDialogue.yaml` `CoupleLoveNote`, wedding chatter `WeddingDuring/After` in
+`WorldEventDialogue.yaml`), migration `012-bot-couples`.
+
+- **Rare:** at most 4 couples in the world. About twice a day the world rolls once; on a hit, two roster bots
+  (training or social, a man and a woman, level 15+, within 20 levels) standing on the same map and channel get
+  together. Bots only ever pair with bots.
+- **Together** (checked once a minute, only for couples with both online - a handful of bots): the second hops to the
+  first one's channel; they party (bots only - never out of a real player's party) and a training bot trains on its
+  partner's map when the partner leads (`TrainingBot.partyTargetMapId`); where a real player can see, one now and then
+  says something to the other (20 min gap); a couple that owns a couple chair sits on it together (married couples own
+  the Amorian Loveseat 3012005; dating ones only if a chair is in their setup inventory); married couples wear wedding
+  rings (Moonstone / Star Gem / Golden Heart / Silver Swan, one kind per couple, plain items: no `rings` rows); on about
+  one day in four the second wears the first's cash hat; every 3 days or so one sends a `CoupleLoveNote` megaphone
+  through `WorldEventMegaphones`/`BotMegaphoneGate` (the world's megaphone cap and `@quiet megaphones` hold). Their chat
+  prompt knows the partner, and that they are taken.
+- **Weddings:** a couple dating for 2+ days may marry, at most one wedding a day, in the evening (director curve >= 50%),
+  as world event `amoria_wedding` (new kind `wedding`, weight 0 so the generic scheduler never picks it). The stock v83
+  wedding (reservations, Cathedral/Chapel instances, `marriages` rows) is built for two real players and real
+  reservations must win, so the ceremony is staged in Amoria town by the chapel staff where anyone can walk up: blue
+  notice "[Wedding] A & B are getting married in Amoria!", the couple comes to channel 1 and Amoria in a tuxedo and a
+  wedding dress (their own clothes back afterwards), 5 guests appear, a guest officiates, "i do", rings, "married",
+  cheering; at the end guests leave and the couple goes back to where it was, doing what it did. Nothing is paid out;
+  no `characters`, `marriages` or `rings` row changes.
+- **GM** (`!couple`, GM 4): `list`, `spawn [married]` (a staged couple next to you, memory only), `form <a> <b>`,
+  `wedding [id]`, `note [id]`, `step`, `break <id>`, `unstage`. **`!qa`**: `cp-1 [married]` (`!qa do step`), `we-1`.
+- **`-D` tunables** (`solomapling.couples.*`): `enabled` (true), `maxCouples` (4), `formEveryHours` (12), `formChance`
+  (0.5), `weddingAfterDays` (2), `weddingGapHours` (24), `loveNoteDays` (3), `mentionMinutes` (20), `chairMinutes` (15).

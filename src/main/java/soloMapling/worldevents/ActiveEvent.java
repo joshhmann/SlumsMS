@@ -61,6 +61,11 @@ public final class ActiveEvent {
         this.maxLevel = maxLevel;
     }
 
+    /** What the event is about, in its notices ({BOSS}); a wedding sets the couple's names (ticket 58). */
+    public void setSubject(String subject) {
+        this.subject = subject == null ? "" : subject;
+    }
+
     public int mapId() {
         return spot.mapId();
     }

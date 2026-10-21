@@ -80,3 +80,14 @@ WorldEvent:
       - "i gave {NPC} my {ITEM} lol"
       - "{PLAYER} helped the explorer first"
       - "that traveler quest was quick"
+  WeddingDuring:
+    text:
+      - "theres a wedding in amoria rn!"
+      - "{EVENT}?? lets go watch"
+      - "anyone going to the wedding at {MAP}?"
+      - "aww a wedding ^^"
+  WeddingAfter:
+    text:
+      - "did u see the wedding in amoria"
+      - "that wedding was so cute"
+      - "{EVENT} was nice lol"
