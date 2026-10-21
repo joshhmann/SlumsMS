@@ -1,11 +1,7 @@
 package soloMapling;
 
-import java.io.FileWriter;
-import java.io.IOException;
-import java.io.PrintWriter;
-import java.time.LocalDateTime;
-import java.time.format.DateTimeFormatter;
-
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
 
 /*
 Shift rightclick in NostalgiaStory direction
@@ -15,23 +11,19 @@ powershell -Command "Get-Content -Path 'BotLog.txt' -Wait"
 
  */
 
+/*
+ * BotLog.txt in the server's working directory, written through log4j2 (logger "soloMapling.BotLog", appender
+ * BotLogFile in log4j2.xml) so it rotates: it used to be a hand-rolled append that grew without bound (~18 MB/h,
+ * nearly 1 GB on the test server). Same "[yyyy-MM-dd HH:mm:ss]: message" lines as before.
+ */
 public class BotLogger {
     static final boolean log = true;
-    private static final String LOG_FILE = "BotLog.txt";
-    private static final DateTimeFormatter formatter = DateTimeFormatter.ofPattern("yyyy-MM-dd HH:mm:ss");
+    private static final Logger LOG = LoggerFactory.getLogger("soloMapling.BotLog");
 
     public static void log(String message) {
         if (!log) {
             return;
         }
-        LocalDateTime now = LocalDateTime.now();
-        String timestamp = now.format(formatter);
-        String logMessage = String.format("[%s]: %s", timestamp, message);
-
-        try (PrintWriter out = new PrintWriter(new FileWriter(LOG_FILE, true))) {
-            out.println(logMessage);
-        } catch (IOException e) {
-            System.err.println("Error writing to log file: " + e.getMessage());
-        }
+        LOG.info(message);
     }
 }

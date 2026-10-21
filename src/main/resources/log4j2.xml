@@ -4,6 +4,16 @@
         <Property name="filename">cosmic-log</Property>
         <Property name="standard-pattern">%d{HH:mm:ss.SSS} [%t] %-5level %logger{2} - %msg%n</Property>
         <Property name="packet-pattern">%d{HH:mm:ss.SSS} %-15logger{1} - %msg%n</Property>
+        <!-- BotLog.txt (soloMapling.BotLogger): same line format as the old hand-rolled writer. Rolled at
+             botlog.maxSize or midnight into logs/botlog/ gzipped; rolled files older than botlog.maxAge or past
+             botlog.maxTotal (compressed) are deleted. Override with -Dbotlog.maxSize=... etc. -->
+        <Property name="botlog-pattern">[%d{yyyy-MM-dd HH:mm:ss}]: %msg%n</Property>
+        <Property name="botlog-max-size">${sys:botlog.maxSize:-100 MB}</Property>
+        <Property name="botlog-max-age">${sys:botlog.maxAge:-7d}</Property>
+        <Property name="botlog-max-total">${sys:botlog.maxTotal:-700 MB}</Property>
+        <!-- cosmic-log: rolled files (logs/yyyy-MM/yyyy-MM-dd/) were never deleted. -->
+        <Property name="cosmic-log-max-age">${sys:cosmiclog.maxAge:-30d}</Property>
+        <Property name="cosmic-log-max-total">${sys:cosmiclog.maxTotal:-2 GB}</Property>
     </Properties>
 
     <Appenders>
@@ -23,6 +33,38 @@
                 <OnStartupTriggeringPolicy minSize="0"/>
                 <SizeBasedTriggeringPolicy size="20 MB"/>
             </Policies>
+            <DefaultRolloverStrategy max="1000">
+                <Delete basePath="logs" maxDepth="3">
+                    <IfFileName glob="*/*/${filename}-*.log">
+                        <IfAny>
+                            <IfLastModified age="${cosmic-log-max-age}"/>
+                            <IfAccumulatedFileSize exceeds="${cosmic-log-max-total}"/>
+                        </IfAny>
+                    </IfFileName>
+                </Delete>
+            </DefaultRolloverStrategy>
+        </RollingFile>
+
+        <RollingFile name="BotLogFile"
+                     fileName="BotLog.txt"
+                     filePattern="logs/botlog/BotLog-%d{yyyy-MM-dd}-%i.txt.gz">
+            <PatternLayout>
+                <Pattern>${botlog-pattern}</Pattern>
+            </PatternLayout>
+            <Policies>
+                <TimeBasedTriggeringPolicy/>
+                <SizeBasedTriggeringPolicy size="${botlog-max-size}"/>
+            </Policies>
+            <DefaultRolloverStrategy max="1000">
+                <Delete basePath="logs/botlog" maxDepth="1">
+                    <IfFileName glob="BotLog-*.txt.gz">
+                        <IfAny>
+                            <IfLastModified age="${botlog-max-age}"/>
+                            <IfAccumulatedFileSize exceeds="${botlog-max-total}"/>
+                        </IfAny>
+                    </IfFileName>
+                </Delete>
+            </DefaultRolloverStrategy>
         </RollingFile>
 
         <Console name="PacketConsole" target="SYSTEM_OUT">
@@ -96,6 +138,10 @@
         </Logger>
         <Logger name="server.MapleLeafLogger" level="info" additivity="false">
             <AppenderRef ref="MapleLeafFile"/>
+        </Logger>
+
+        <Logger name="soloMapling.BotLog" level="info" additivity="false">
+            <AppenderRef ref="BotLogFile"/>
         </Logger>
 
         <Logger name="com.zaxxer.hikari" level="info"/>
