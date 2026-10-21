@@ -45,7 +45,7 @@ public class WarpCommands {
         Portal portal = fakechar.getMap().findClosestPortal(fakechar.getPosition());
         MapleMap to;
         if (fakechar.getEventInstance() == null) {
-            to = getBotClient().getChannelServer().getMapFactory().getMap(portal.getTargetMapId());
+            to = fakechar.getClient().getChannelServer().getMapFactory().getMap(portal.getTargetMapId());
         } else {
             to = fakechar.getEventInstance().getMapInstance(portal.getTargetMapId());
         }
@@ -68,13 +68,13 @@ public class WarpCommands {
 
     public static void botEnterFMRoom(Character fakechar, int roomNumber) {
         int freeMarketRoom = 910000000 + roomNumber;
-        MapleMap warpMap = getBotClient().getChannelServer().getMapFactory().getMap(freeMarketRoom);
+        MapleMap warpMap = fakechar.getClient().getChannelServer().getMapFactory().getMap(freeMarketRoom);
         botWarpMapOnPortal(fakechar, warpMap, FMRoomWarpPortalId.get(roomNumber));
     }
 
     public static void botExitFMRoom(Character fakechar, int doorNumber) {
         int freeMarketEntrance = 910000000;
-        MapleMap warpMap = getBotClient().getChannelServer().getMapFactory().getMap(freeMarketEntrance);
+        MapleMap warpMap = fakechar.getClient().getChannelServer().getMapFactory().getMap(freeMarketEntrance);
         botWarpMapOnPortal(fakechar, warpMap, getFMEntrancePortal(doorNumber).getId());
     }
 
@@ -111,7 +111,7 @@ public class WarpCommands {
 
     //test only
     public static void botMoveMap(Character fakechar, int mapId) {
-        MapleMap warpMap = getBotClient().getChannelServer().getMapFactory().getMap(mapId);
+        MapleMap warpMap = fakechar.getClient().getChannelServer().getMapFactory().getMap(mapId);
         fakechar.changeMap(warpMap, warpMap.getPortal(11));
 
 ////        MapleMap target = fakechar.getClient().getChannelServer().getMapFactory().getMap(gotomaps.get(params[0]));

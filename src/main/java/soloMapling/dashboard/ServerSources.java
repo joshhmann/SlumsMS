@@ -116,7 +116,7 @@ final class ServerSources implements DashboardExporter.Sources {
             if (BotPopulationDirector.enabled()) {
                 director = BotPopulationDirector.isRunning() ? "on" : "paused";
                 target = BotPopulationDirector.targetNow();
-                peak = config.YamlConfig.config.server.BOT_ROSTER_PEAK_ONLINE;
+                peak = BotPopulationDirector.directorPeak(); // ticket 57: after the population cap
                 byHour = new ArrayList<>(BotPopulationDirector.todaysTargets().values());
             }
         } catch (RuntimeException e) {

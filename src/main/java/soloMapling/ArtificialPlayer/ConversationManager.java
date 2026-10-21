@@ -139,16 +139,18 @@ public class ConversationManager {
         }
         if (allScripts == null || allScripts.isEmpty()) return;
 
-        Set<Integer> mapsWithRealPlayers = getMapsWithRealPlayers();
+        // Ticket 57: bots live on every channel - a conversation starts on the map instance a real player is on.
+        List<MapleMap> mapsWithRealPlayers = getMapsWithRealPlayers();
         if (mapsWithRealPlayers.isEmpty()) return;
 
         long now = System.currentTimeMillis();
 
-        for (int mapId : ambientMapIds) {
-            if (!mapsWithRealPlayers.contains(mapId)) continue;
-            if (!isMapCooldownReady(mapId, now)) continue;
+        for (MapleMap map : mapsWithRealPlayers) {
+            int mapId = map.getId();
+            if (!ambientMapIds.contains(mapId)) continue;
+            if (!isMapCooldownReady(map, now)) continue;
 
-            List<Character> cluster = findClusterOnMap(mapId);
+            List<Character> cluster = findClusterOnMap(map);
             if (cluster != null && cluster.size() >= 2) {
                 lastConversationPerMap.put(mapId, now);
                 startConversation(cluster, null);
@@ -157,11 +159,11 @@ public class ConversationManager {
         }
     }
 
-    private boolean isMapCooldownReady(int mapId, long now) {
-        Long lastTime = lastConversationPerMap.get(mapId);
+    private boolean isMapCooldownReady(MapleMap map, long now) {
+        Long lastTime = lastConversationPerMap.get(map.getId());
         if (lastTime == null) return true;
 
-        int botCount = getAllCharsOnMap(mapId).size();
+        int botCount = map.getAllPlayers().size();
         long cooldown;
         if (botCount <= SMALL_MAP_THRESHOLD) {
             cooldown = SMALL_MAP_MIN_INTERVAL_MS + random.nextInt(SMALL_MAP_MAX_INTERVAL_MS - SMALL_MAP_MIN_INTERVAL_MS);
@@ -172,26 +174,27 @@ public class ConversationManager {
         return (now - lastTime) >= cooldown;
     }
 
-    private Set<Integer> getMapsWithRealPlayers() {
-        Set<Integer> maps = new HashSet<>();
+    private List<MapleMap> getMapsWithRealPlayers() {
+        Set<MapleMap> maps = new java.util.LinkedHashSet<>();
         try {
-            for (Character chr : soloMapling.server.SoloMaplingConstants.mainChannel().getPlayerStorage().getAllCharacters()) {
-                if (!isBot(chr)) {
-                    maps.add(chr.getMapId());
+            for (Character chr : soloMapling.server.SoloMaplingUtilities.world().getPlayerStorage().getAllCharacters()) {
+                if (!isBot(chr) && chr.getMap() != null) {
+                    maps.add(chr.getMap());
                 }
             }
         } catch (Exception e) {
             // Channel not ready
         }
-        return maps;
+        List<MapleMap> list = new ArrayList<>(maps);
+        Collections.shuffle(list, random);
+        return list;
     }
 
     public void triggerOnMap(Character player) {
         if (allScripts == null || allScripts.isEmpty()) {
             loadScripts();
         }
-        int mapId = player.getMapId();
-        List<Character> cluster = findClusterOnMap(mapId);
+        List<Character> cluster = findClusterOnMap(player.getMap());
         if (cluster == null || cluster.size() < 2) {
             player.yellowMessage("[ConversationManager] No cluster of 2+ filler bots found on this map.");
             return;
@@ -199,9 +202,8 @@ public class ConversationManager {
         startConversation(cluster, player);
     }
 
-    private List<Character> findClusterOnMap(int mapId) {
+    private List<Character> findClusterOnMap(MapleMap map) {
         try {
-            MapleMap map = soloMapling.server.SoloMaplingConstants.mainChannel().getMapFactory().getMap(mapId);
             if (map == null) return null;
 
             List<Character> fillerBots = new ArrayList<>();

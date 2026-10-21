@@ -158,13 +158,25 @@ public final class BotRosterLifecycle {
 
     /** Makes a new character - a new player logging in for the first time - and enrols it. */
     static boolean create(int townMapId, int loLevel, int hiLevel, long now) {
-        MapleMap town = SoloMaplingUtilities.getMapleMapById(townMapId);
-        if (town == null || town.getPortal(0) == null) {
-            return false;
+        // Ticket 57: a new player picks a channel like everyone else - the one furthest below its share.
+        int channel = BotChannels.reserve();
+        int charId;
+        int slot;
+        MapleMap town;
+        try {
+            town = BotChannels.map(channel, townMapId);
+            if (town == null) {
+                town = SoloMaplingUtilities.getMapleMapById(townMapId);
+            }
+            if (town == null || town.getPortal(0) == null) {
+                return false;
+            }
+            slot = BotRoster.nextNewSlot();
+            charId = BotGeneration.createBot(slot, town.getPortal(0).getPosition(), town, BotDecorate.rollBaseClass(),
+                    loLevel, hiLevel, 0);
+        } finally {
+            BotChannels.release(channel);
         }
-        int slot = BotRoster.nextNewSlot();
-        int charId = BotGeneration.createBot(slot, town.getPortal(0).getPosition(), town, BotDecorate.rollBaseClass(),
-                loLevel, hiLevel, 0);
         if (charId <= 0) {
             return false;
         }

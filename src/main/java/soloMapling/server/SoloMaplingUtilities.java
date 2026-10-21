@@ -58,12 +58,12 @@ public class SoloMaplingUtilities {
     }
 
     public static client.Character getChr(int userId) {
-        Character chr = SoloMaplingConstants.mainChannel().getPlayerStorage().getCharacterById(userId);
+        Character chr = world().getPlayerStorage().getCharacterById(userId);  // ticket 57: any channel
         return chr;
     }
 
     public static Character getChr(String name) {
-        Character chr = SoloMaplingConstants.mainChannel().getPlayerStorage().getCharacterByName(name);
+        Character chr = world().getPlayerStorage().getCharacterByName(name);  // ticket 57: any channel
         return chr;
     }
 

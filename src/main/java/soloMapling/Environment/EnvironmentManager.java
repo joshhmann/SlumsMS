@@ -1,5 +1,6 @@
 package soloMapling.Environment;
 
+import soloMapling.ArtificialPlayer.BotChannels;
 import config.YamlConfig;
 
 import client.Character;
@@ -115,47 +116,50 @@ public class EnvironmentManager {
         // directions - a player entering a populated map, or a bot returning to the player's map.
         BotMapEntryResponder.register();
 
+        // Ticket 57: town dressing (spread(...)) spawns BOT_ENVIRONMENT_SCALE of its headcount, bot by bot on the
+        // channel furthest below its share; set pieces (the rest) spawn whole, together, on channel 1. The task
+        // order fixes every stored bot's slot and must not change.
         runWave(1, "Essentials", List.of(
                 slotBase -> spawnCasinoNpcs(),
                 slotBase -> spawnTutorialBot(slotBase),
-                slotBase -> spawnHenesysBotsBatch(slotBase, 10, 0, 0, 0),
-                slotBase -> populateFreeMarketRegion(slotBase, "henesys"),
-                slotBase -> spawnFMEntranceBotsBatch(slotBase, 5, 5, 5)
+                spread(slotBase -> spawnHenesysBotsBatch(slotBase, 10, 0, 0, 0)),
+                spread(slotBase -> populateFreeMarketRegion(slotBase, "henesys")),
+                spread(slotBase -> spawnFMEntranceBotsBatch(slotBase, 5, 5, 5))
         ));
 
         runWave(2, "FM buildout", List.of(
-                slotBase -> populateFreeMarketRegion(slotBase, "ludi"),
-                slotBase -> spawnFMEntranceBotsBatch(slotBase, 5, 5, 5),
-                slotBase -> spawnMerchBotsBatch(slotBase, "m1", 2, 2, 1),
-                slotBase -> spawnMerchBotsBatch(slotBase, "m2", 2, 2, 0),
-                slotBase -> spawnMerchBotsBatch(slotBase, "m5", 2, 2, 0),
+                spread(slotBase -> populateFreeMarketRegion(slotBase, "ludi")),
+                spread(slotBase -> spawnFMEntranceBotsBatch(slotBase, 5, 5, 5)),
+                spread(slotBase -> spawnMerchBotsBatch(slotBase, "m1", 2, 2, 1)),
+                spread(slotBase -> spawnMerchBotsBatch(slotBase, "m2", 2, 2, 0)),
+                spread(slotBase -> spawnMerchBotsBatch(slotBase, "m5", 2, 2, 0)),
                 slotBase -> spawnGachaBotsHenesys(slotBase)
         ));
 
         runWave(3, "Henesys population", List.of(
-                slotBase -> spawnJQBotsPetPark(slotBase),
-                slotBase -> spawnHenesysBotsBatch(slotBase, 10, 10, 0, 5),
-                slotBase -> spawnFillerBotsHenesys(slotBase)
+                spread(slotBase -> spawnJQBotsPetPark(slotBase)),
+                spread(slotBase -> spawnHenesysBotsBatch(slotBase, 10, 10, 0, 5)),
+                spread(slotBase -> spawnFillerBotsHenesys(slotBase))
         ));
         SocialHotPotatoManager.getInstance().start();
         ConversationManager.getInstance().start();
         soloMapling.worldevents.WorldEvents.getInstance().start(); // ticket 21: scripted world events
 
         runWave(4, "Expand FM + Henesys Market", List.of(
-                slotBase -> populateFreeMarketRegion(slotBase, "perion"),
-                slotBase -> spawnFMEntranceBotsBatch(slotBase, 5, 5, 5),
-                slotBase -> spawnMerchBotsBatch(slotBase, "m1", 3, 3, 0),
-                slotBase -> spawnMerchBotsBatch(slotBase, "m2", 2, 2, 1),
-                slotBase -> spawnMerchBotsBatch(slotBase, "m5", 3, 3, 1),
-                slotBase -> spawnFillerBotsHenesysMarket(slotBase)
+                spread(slotBase -> populateFreeMarketRegion(slotBase, "perion")),
+                spread(slotBase -> spawnFMEntranceBotsBatch(slotBase, 5, 5, 5)),
+                spread(slotBase -> spawnMerchBotsBatch(slotBase, "m1", 3, 3, 0)),
+                spread(slotBase -> spawnMerchBotsBatch(slotBase, "m2", 2, 2, 1)),
+                spread(slotBase -> spawnMerchBotsBatch(slotBase, "m5", 3, 3, 1)),
+                spread(slotBase -> spawnFillerBotsHenesysMarket(slotBase))
         ));
 
         runWave(5, "Henesys sub-areas", List.of(
-                slotBase -> populateFreeMarketRegion(slotBase, "elnath"),
-                slotBase -> spawnHenesysBotsBatch(slotBase, 10, 10, 10, 4),
-                slotBase -> spawnFillerBotsHenesysPark(slotBase),
-                slotBase -> spawnFillerBotsPotionShop(slotBase),
-                slotBase -> spawnFillerBotsGameZone(slotBase),
+                spread(slotBase -> populateFreeMarketRegion(slotBase, "elnath")),
+                spread(slotBase -> spawnHenesysBotsBatch(slotBase, 10, 10, 10, 4)),
+                spread(slotBase -> spawnFillerBotsHenesysPark(slotBase)),
+                spread(slotBase -> spawnFillerBotsPotionShop(slotBase)),
+                spread(slotBase -> spawnFillerBotsGameZone(slotBase)),
                 slotBase -> spawnGameZoneHostBots(slotBase)
         ));
 
@@ -163,15 +167,15 @@ public class EnvironmentManager {
                 slotBase -> spawnBlackjackTables(slotBase),
                 slotBase -> spawnDropGameBotPotionShop(slotBase),
                 slotBase -> spawnDropGameSpectatorsPotionShop(slotBase),
-                slotBase -> spawnSocialBotsPetPark(slotBase),
+                spread(slotBase -> spawnSocialBotsPetPark(slotBase)),
                 slotBase -> convertRandomFillersToScrollBots()
         ));
 
         runWave(7, "Late arrivals", List.of(
                 slotBase -> spawnOPQBotsInLobby(slotBase),
-                slotBase -> spawnMerchBotsBatch(slotBase, "m1", 2, 2, 0),
-                slotBase -> spawnMerchBotsBatch(slotBase, "m2", 2, 2, 1),
-                slotBase -> spawnMerchBotsBatch(slotBase, "m5", 2, 2, 1)
+                spread(slotBase -> spawnMerchBotsBatch(slotBase, "m1", 2, 2, 0)),
+                spread(slotBase -> spawnMerchBotsBatch(slotBase, "m2", 2, 2, 1)),
+                spread(slotBase -> spawnMerchBotsBatch(slotBase, "m5", 2, 2, 1))
         ));
 
         // bot-persistence ticket 08: once the roster holds players, the director logs them in on the daily curve
@@ -264,8 +268,8 @@ public class EnvironmentManager {
         List<PlanTask> trainingTasks = new ArrayList<>();
         trainingTasks.add(slotBase -> GCMovement.mapsWithinHops(MapId.HENESYS, 1)); // prewarm the portal graph once
         for (TrainingCohort cohort : TRAINING_COHORTS) {
-            trainingTasks.add(slotBase -> spawnTrainingBotsAt(slotBase, cohort.townMapId(), scaled(cohort.count()),
-                    cohort.loLevel(), cohort.hiLevel()));
+            trainingTasks.add(spread(slotBase -> spawnTrainingBotsAt(slotBase, cohort.townMapId(), scaled(cohort.count()),
+                    cohort.loLevel(), cohort.hiLevel())));
         }
         runWave(8, "Training bots", trainingTasks);
 
@@ -275,7 +279,7 @@ public class EnvironmentManager {
         // in TownPresence.yaml. One task per town so the cohorts spawn in parallel across the pool (like wave 8).
         List<PlanTask> townTasks = new ArrayList<>();
         for (TownPresenceConfig.TownEntry town : TownPresenceConfig.towns()) {
-            townTasks.add(slotBase -> spawnTown(slotBase, town));
+            townTasks.add(spread(slotBase -> spawnTown(slotBase, town)));
         }
         runWave(9, "Town presence", townTasks);
     }
@@ -421,6 +425,18 @@ public class EnvironmentManager {
         void run(int slotBase);
     }
 
+    /** Ticket 57: a wave task whose bots are town dressing - scaled and spread over the channels. */
+    private record SpreadTask(PlanTask task) implements PlanTask {
+        @Override
+        public void run(int slotBase) {
+            task.run(slotBase);
+        }
+    }
+
+    private static PlanTask spread(PlanTask task) {
+        return new SpreadTask(task);
+    }
+
     /**
      * Run one startup wave: all tasks in parallel, blocking until the wave
      * completes. Logs start/end with elapsed time and bots spawned. FM room
@@ -437,6 +453,9 @@ public class EnvironmentManager {
         for (int task = 0; task < tasks.size(); task++) {
             PlanTask planTask = tasks.get(task);
             int slotBase = BotStore.planSlot(number, task, 0);
+            if (planTask instanceof SpreadTask) {
+                BotChannels.spreadTask(number, task);
+            }
             jobs.add(() -> planTask.run(slotBase));
         }
         runPhase(jobs);

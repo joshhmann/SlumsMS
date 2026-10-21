@@ -22,7 +22,7 @@ public class MegaphoneCommands {
     public static void BotItemMegaphone(Character fakechar, String message, Item item) {
         String msg = fakechar.getName() + " : " + message; // medal + // optional medal
         boolean whisper = true;
-        BotNoiseFilter.broadcastBotMegaphone(world().getId(), PacketCreator.itemMegaphone(msg, whisper, channel().getId(), item));
+        BotNoiseFilter.broadcastBotMegaphone(world().getId(), PacketCreator.itemMegaphone(msg, whisper, fakechar.getClient().getChannel(), item));
     }
 
     public static void BotGachaponMegaphone(Character fakechar, Item item) {
@@ -31,7 +31,7 @@ public class MegaphoneCommands {
     }
 
     private static void BotSuperMegaphone(Character fakechar, String msg, boolean ear) {
-        BotNoiseFilter.broadcastBotMegaphone(world().getId(), PacketCreator.serverNotice(3, channel().getId(), fakechar.getName() + " : " + msg, ear));
+        BotNoiseFilter.broadcastBotMegaphone(world().getId(), PacketCreator.serverNotice(3, fakechar.getClient().getChannel(), fakechar.getName() + " : " + msg, ear));
     }
 
     public static void BotSuperMegaphone(Character fakechar, String msg) {
@@ -42,7 +42,7 @@ public class MegaphoneCommands {
         LinkedList list = stringTo4LineLinkedList(message);
         String medal = "";
         boolean ear = true;
-        BotNoiseFilter.broadcastBotMegaphone(world().getId(), PacketCreator.getAvatarMega(fakechar, medal, channel().getId(), itemId, list, ear));
+        BotNoiseFilter.broadcastBotMegaphone(world().getId(), PacketCreator.getAvatarMega(fakechar, medal, fakechar.getClient().getChannel(), itemId, list, ear));
 //      //  TimerManager.getInstance().schedule(() -> Server.getInstance().broadcastMessage(world.getId(), PacketCreator.byeAvatarMega()), SECONDS.toMillis(10));
     }
 

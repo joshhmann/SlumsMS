@@ -337,6 +337,14 @@ public final class BotStore {
         return (slot - FIRST_PLANNED_SLOT) / SLOTS_PER_WAVE;
     }
 
+    /** The boot-wave task a planned slot belongs to, or -1 for an on-demand or roster slot (ticket 57). */
+    public static int taskOf(int slot) {
+        if (!isPlanned(slot) || isRosterSlot(slot)) {
+            return -1;
+        }
+        return ((slot - FIRST_PLANNED_SLOT) % SLOTS_PER_WAVE) / SLOTS_PER_TASK;
+    }
+
     /** True for a slot the boot plan owns. Only planned slots are adopted; see {@link #nextDynamicSlot()}. */
     public static boolean isPlanned(int slot) {
         return slot >= FIRST_PLANNED_SLOT;

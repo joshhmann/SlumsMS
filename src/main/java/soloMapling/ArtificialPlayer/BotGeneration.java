@@ -23,7 +23,6 @@ import static soloMapling.DebugUtilities.debugprint;
 import static soloMapling.FreeMarket.FMShopDescGen.registerCharacterName;
 import static soloMapling.server.ExecutorServiceManager.runAsync;
 import static soloMapling.server.SoloMaplingUtilities.getChr;
-import static soloMapling.server.SoloMaplingUtilities.channel;
 import static soloMapling.server.SoloMaplingUtilities.getMapleMapById;
 import static soloMapling.server.SoloMaplingUtilities.world;
 
@@ -100,6 +99,28 @@ public class BotGeneration {
      */
     public static int createBot(int slot, Point pos, MapleMap map, int baseClass, int minLevel, int maxLevel,
                                 int forcedJobId) {
+        // Ticket 57: a bot of the environment's town dressing goes to the channel furthest below its share of the
+        // dressing; any other bot (a roster login picks its channel itself) goes to the map's channel.
+        int reserved = -1;
+        if (map != null && map.getEventInstance() == null && BotChannels.isDressing(slot)) {
+            reserved = BotChannels.reserveDressing();
+            MapleMap there = BotChannels.map(reserved, map.getId());
+            if (there != null) {
+                map = there;
+            }
+        }
+        try {
+            return createBotOnChannel(slot, pos, map, baseClass, minLevel, maxLevel, forcedJobId);
+        } finally {
+            if (reserved > 0) {
+                BotChannels.releaseDressing(reserved);
+            }
+        }
+    }
+
+    private static int createBotOnChannel(int slot, Point pos, MapleMap map, int baseClass, int minLevel, int maxLevel,
+                                          int forcedJobId) {
+        Client client = clientFor(map);
         int cid = soloMapling.server.MapleRootSolo.templateId(); // the dedicated bot template character
 
         Character bot = null;
@@ -115,7 +136,7 @@ public class BotGeneration {
         // The slot is spent only once the load has succeeded: cohorts spawn in parallel, so a slot given
         // back after a failure would not go to the bot the wave meant to have it anyway.
         int botId = BotStore.BOT_ID_BASE + slot;
-        bot = setBotStats(bot, botId); // Bot onDemandBot
+        bot = setBotStats(bot, botId, client); // Bot onDemandBot
         // Ticket 06: the slot's stored bot, if this plan position has been filled in an earlier run, keeps
         // its identity, progression, looks, holdings and last-seen placement - so it must not be decorated
         // again (decoration would re-roll level, job and appearance). The identity is applied before the
@@ -133,14 +154,14 @@ public class BotGeneration {
         if (adopted && BotRoster.isMember(slot)) {
             BotStore.Persisted stored = BotStore.persistedFor(botId);
             BotResume.Placement resume = BotResume.placementFor(stored.mapId, new Point(stored.posX, stored.posY),
-                    id -> getBotClient().getChannelServer().getMapFactory().getMap(id));
+                    id -> client.getChannelServer().getMapFactory().getMap(id));
             if (resume != null) {
                 placeMap = resume.map();
                 placePos = resume.position();
             }
             BotRoster.recordLogin(botId, System.currentTimeMillis(), map.getId(), placeMap.getId(), placePos);
         }
-        addBotToServer(bot);
+        addBotToServer(bot, client);
         placeBotOnMap(bot, placePos, placeMap);
         placedBots.incrementAndGet();
         if (adopted) {
@@ -236,10 +257,10 @@ public class BotGeneration {
         return onDemandBot;
     }
 
-    private static Character setBotStats(Character baseChr, int botId) {
+    private static Character setBotStats(Character baseChr, int botId, Client client) {
         Character onDemandBot = baseChr; // Character.getDefault(c)
-        onDemandBot.setClient(getBotClient());
-        onDemandBot.setWorld(getBotClient().getWorld());   // ticket 41: the bots' world, not the template row's
+        onDemandBot.setClient(client);
+        onDemandBot.setWorld(client.getWorld());   // ticket 41: the bots' world, not the template row's
         onDemandBot.setName(""); // claimed in createBot once it is known whether the slot is adopted
         onDemandBot.setID(botId);
         onDemandBot.setFame(botId); // debug purposes
@@ -271,23 +292,50 @@ public class BotGeneration {
         BotRoster.recordSessions(java.util.List.of(fakechar), System.currentTimeMillis(), true);
         BotConversation.endAllOf(fakechar.getId()); // a bot leaving mid-chat still writes down what it heard
         if (fakechar.getMap() != null) fakechar.getMap().removePlayer(fakechar);
-        channel().removePlayer(fakechar);
+        removeFromChannels(fakechar);
         world().getPlayerStorage().removePlayer(fakechar.getId());
         CharacterStorage.removeActiveBot(fakechar.getId());//
         BotBuffDriver.clearBot(fakechar.getId());   // Phase 3a: release buff recast timers
         BotBuffRequestHandler.clearBot(fakechar.getId());   // release chat-buff-request cooldown
     }
 
+    /** Ticket 57: the shared client of the map's channel (channel 1 when the map has none). */
+    private static Client clientFor(MapleMap map) {
+        net.server.channel.Channel ch = map == null ? null : map.getChannelServer();
+        if (ch == null || ch.getId() == soloMapling.server.SoloMaplingConstants.GameConstants.CHANNEL_1) {
+            return getBotClient();
+        }
+        return BotClientHandler.getBotClient(ch.getId());
+    }
+
+    /** Takes a bot out of its channel's player storage, and out of any other channel's should it be in one. */
+    private static void removeFromChannels(Character fakechar) {
+        net.server.channel.Channel own = fakechar.getClient() == null ? null : fakechar.getClient().getChannelServer();
+        if (own != null) {
+            own.removePlayer(fakechar);
+        } else {
+            soloMapling.server.SoloMaplingUtilities.channel().removePlayer(fakechar);
+        }
+        for (net.server.channel.Channel ch : BotChannels.channels()) {
+            if (ch != own && ch.getPlayerStorage().getCharacterById(fakechar.getId()) == fakechar) {
+                ch.removePlayer(fakechar);
+            }
+        }
+    }
+
     private static void addBotToServer(Character fakechar) {
-//        final Channel channel = Server.getInstance().getChannel(BotSM.GameConstants.WORLD_SCANIA, BotSM.GameConstants.CHANNEL_1);
-        channel().addPlayer(fakechar);
+        addBotToServer(fakechar, getBotClient());
+    }
+
+    private static void addBotToServer(Character fakechar, Client client) {
+        client.getChannelServer().addPlayer(fakechar);
 //        World world = Server.getInstance().getWorld(BotSM.GameConstants.WORLD_SCANIA);
         world().getPlayerStorage().addPlayer(fakechar);
     }
 
     public static void spawnBotFm(Character fakechar, Point pt) {
         int fmMap = 910000000;
-        MapleMap spawnMap = getBotClient().getChannelServer().getMapFactory().getMap(fmMap);
+        MapleMap spawnMap = fakechar.getClient().getChannelServer().getMapFactory().getMap(fmMap);
         fakechar.setMap(spawnMap);
         fakechar.setPosition(pt);
         fakechar.setStance(5);

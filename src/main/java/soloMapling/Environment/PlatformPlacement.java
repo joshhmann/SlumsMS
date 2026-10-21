@@ -51,6 +51,11 @@ public class PlatformPlacement {
     private static final Random random = new Random();
 
     public static List<Integer> spawnBotsOnMapOnPlatform(int slotBase, int numBots, int mapId, String platform_id) {
+        // Ticket 57: a town-dressing cohort spawns BOT_ENVIRONMENT_SCALE of its headcount (set pieces spawn whole).
+        numBots = soloMapling.ArtificialPlayer.BotChannels.envCount(slotBase, numBots);
+        if (numBots <= 0) {
+            return new ArrayList<>();
+        }
         Platform flatPlatform = PlatformParser.parsePlatform(mapId, platform_id);
         List<Point> occupied = Collections.synchronizedList(new ArrayList<>());
         ConcurrentLinkedQueue<Integer> characterIds = new ConcurrentLinkedQueue<>();
@@ -114,6 +119,11 @@ public class PlatformPlacement {
 
 
     public static List<Integer> spawnBotsOnMapOnPlatformInRadius(int slotBase, int numBots, int mapId, String platform_id, Point center, int radius) {
+        // Ticket 57: a town-dressing cohort spawns BOT_ENVIRONMENT_SCALE of its headcount (set pieces spawn whole).
+        numBots = soloMapling.ArtificialPlayer.BotChannels.envCount(slotBase, numBots);
+        if (numBots <= 0) {
+            return new ArrayList<>();
+        }
         Platform flatPlatform = PlatformParser.parsePlatform(mapId, platform_id);
         List<Point> occupied = Collections.synchronizedList(new ArrayList<>());
         ConcurrentLinkedQueue<Integer> characterIds = new ConcurrentLinkedQueue<>();
@@ -189,6 +199,11 @@ public class PlatformPlacement {
     }
 
     public static List<Integer> spawnFillerBots(int slotBase, int numBots, int mapId, Point p1, Point p2) {
+        // Ticket 57: a town-dressing cohort spawns BOT_ENVIRONMENT_SCALE of its headcount (set pieces spawn whole).
+        numBots = soloMapling.ArtificialPlayer.BotChannels.envCount(slotBase, numBots);
+        if (numBots <= 0) {
+            return new ArrayList<>();
+        }
         int minX = Math.min(p1.x, p2.x);
         int maxX = Math.max(p1.x, p2.x);
         int baseY = p1.y;
@@ -260,6 +275,11 @@ public class PlatformPlacement {
     }
 
     public static List<Integer> spawnFillerBotsLockedY(int slotBase, int numBots, int mapId, Point p1, Point p2) {
+        // Ticket 57: a town-dressing cohort spawns BOT_ENVIRONMENT_SCALE of its headcount (set pieces spawn whole).
+        numBots = soloMapling.ArtificialPlayer.BotChannels.envCount(slotBase, numBots);
+        if (numBots <= 0) {
+            return new ArrayList<>();
+        }
         int minX = Math.min(p1.x, p2.x);
         int maxX = Math.max(p1.x, p2.x);
         int baseY = p1.y;

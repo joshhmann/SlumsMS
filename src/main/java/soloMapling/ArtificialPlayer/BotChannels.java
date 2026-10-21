@@ -1,0 +1,355 @@
+package soloMapling.ArtificialPlayer;
+
+import client.Character;
+import config.YamlConfig;
+import net.server.Server;
+import net.server.channel.Channel;
+import net.server.world.World;
+import server.maps.MapleMap;
+import soloMapling.server.SoloMaplingConstants.GameConstants;
+
+import java.awt.Point;
+import java.util.ArrayList;
+import java.util.Arrays;
+import java.util.List;
+import java.util.Set;
+import java.util.concurrent.ConcurrentHashMap;
+import java.util.concurrent.ThreadLocalRandom;
+
+/**
+ * Ticket 57: which channel a bot lives on. Bots used to live on channel 1 only; now they spread over the world's
+ * channels like a real server's players - channel 1 busiest, falling toward the last ({@code BOT_CHANNEL_WEIGHTS}).
+ *
+ * <p>A bot's channel is its client's ({@link BotClientHandler#getBotClient(int)}), so the channel's player storage,
+ * map factory and every {@code changeMap} follow it. Who chooses:
+ * <ul>
+ *   <li>The population director picks the channel of each login by deficit against the target split
+ *       ({@link #reserve()}), counting every bot online, so the split holds as bots come and go.</li>
+ *   <li>The boot environment's town dressing (the wave tasks it marks with {@link #spreadTask}) is scaled by
+ *       {@code BOT_ENVIRONMENT_SCALE} ({@link #envCount}) and split by the same weights among itself, bot by bot
+ *       ({@link #reserveDressing()}), so every channel's towns get their share. Set pieces - the tutorial bot,
+ *       casino tables, drop game, OPQ lobby, gacha - stay together on channel 1; the director's logins even out
+ *       the total around them.</li>
+ *   <li>Everything else (GM spawns, a player's companion) spawns on the channel of the map it is given.</li>
+ *   <li>A companion follows its player to another channel ({@link #moveToChannel}).</li>
+ * </ul>
+ * Real players are untouched: nothing here moves or counts them.
+ */
+public final class BotChannels {
+
+    /** The shipped split when the config is blank or unreadable. */
+    // Owner 2026-10-21 (1.4.1 QA): five channels whose bars read 100/85/50/30/20 % at the peak, "like it was before";
+    // channel 5 is the quiet one. With 1,200 bots at 0.25 each, CHANNEL_LOAD 105 puts channel 1 at 100 %.
+    static final double[] DEFAULT_WEIGHTS = {100, 85, 50, 30, 20};
+
+    /** Wave tasks of the boot plan whose bots are spread over the channels (and scaled): wave * 1024 + task. */
+    private static final Set<Integer> SPREAD_TASKS = ConcurrentHashMap.newKeySet();
+
+    /** Bots chosen for a channel but not yet in its player storage, so parallel logins do not all pick one channel. */
+    private static final int[] inFlight = new int[64];
+    /** The same for the environment's town dressing, which is split among itself (see {@link #reserveDressing()}). */
+    private static final int[] dressingInFlight = new int[64];
+    /** Serialises companions' channel changes. */
+    private static final Object HOP_LOCK = new Object();
+
+    private BotChannels() {
+    }
+
+    // ── pure ─────────────────────────────────────────────────────────────────────────────────────
+
+    /**
+     * The target share of each channel (index 0 = channel 1), summing to 1. Weights come as a comma list; channels
+     * past the list take its last weight, extra weights are ignored, a blank or broken list falls back to the
+     * shipped one, and a list of all zeros means every channel alike.
+     */
+    public static double[] shares(String spec, int channels) {
+        if (channels <= 0) {
+            return new double[0];
+        }
+        double[] weights = parse(spec);
+        double[] out = new double[channels];
+        double sum = 0;
+        for (int i = 0; i < channels; i++) {
+            out[i] = weights.length == 0 ? 1.0 : weights[Math.min(i, weights.length - 1)];
+            sum += out[i];
+        }
+        for (int i = 0; i < channels; i++) {
+            out[i] = sum > 0 ? out[i] / sum : 1.0 / channels;
+        }
+        return out;
+    }
+
+    private static double[] parse(String spec) {
+        if (spec == null || spec.isBlank()) {
+            return DEFAULT_WEIGHTS;
+        }
+        List<Double> list = new ArrayList<>();
+        for (String part : spec.split(",")) {
+            try {
+                double w = Double.parseDouble(part.trim());
+                if (!Double.isFinite(w) || w < 0) {
+                    return DEFAULT_WEIGHTS;
+                }
+                list.add(w);
+            } catch (NumberFormatException e) {
+                return DEFAULT_WEIGHTS;
+            }
+        }
+        return list.stream().mapToDouble(Double::doubleValue).toArray();
+    }
+
+    /**
+     * The channel (0-based) the next bot goes to: the one furthest below its share of the population once that bot
+     * is counted. Ties go to the lower channel. Applied one login at a time this tracks the shares within a bot.
+     */
+    public static int pickByDeficit(int[] counts, double[] shares) {
+        int n = Math.min(counts.length, shares.length);
+        if (n == 0) {
+            return 0;
+        }
+        long total = 0;
+        for (int i = 0; i < n; i++) {
+            total += counts[i];
+        }
+        int best = 0;
+        double bestDeficit = Double.NEGATIVE_INFINITY;
+        for (int i = 0; i < n; i++) {
+            double deficit = shares[i] * (total + 1) - counts[i];
+            if (deficit > bestDeficit + 1e-9) {
+                bestDeficit = deficit;
+                best = i;
+            }
+        }
+        return best;
+    }
+
+    /**
+     * A cohort's headcount after the environment scale: {@code n * scale}, rounded up or down at random in
+     * proportion ({@code u} in [0,1)), so small cohorts still show up sometimes and the total keeps its expectation.
+     */
+    public static int scaledCount(int n, double scale, double u) {
+        if (n <= 0) {
+            return 0;
+        }
+        if (!(scale < 1.0)) {
+            return n;
+        }
+        double exact = n * Math.max(0.0, scale);
+        return Math.min(n, (int) Math.floor(exact + u));
+    }
+
+    /** The director's peak after the population cap: what is left of it once the environment is counted. */
+    public static int directorPeak(int rosterPeak, int populationPeak, int environmentOnline) {
+        int peak = Math.max(0, rosterPeak);
+        if (populationPeak <= 0) {
+            return peak;
+        }
+        return Math.max(0, Math.min(peak, populationPeak - Math.max(0, environmentOnline)));
+    }
+
+    static int taskKey(int wave, int task) {
+        return wave * 1024 + task;
+    }
+
+    // ── environment spread ───────────────────────────────────────────────────────────────────────
+
+    /** Marks one boot-wave task as town dressing: its bots are scaled and spread over the channels. */
+    public static void spreadTask(int wave, int task) {
+        SPREAD_TASKS.add(taskKey(wave, task));
+    }
+
+    /** Whether a bot of this slot belongs to a spread environment task. */
+    public static boolean isSpreadSlot(int slot) {
+        int wave = BotStore.waveOf(slot);
+        return wave > 0 && SPREAD_TASKS.contains(taskKey(wave, BotStore.taskOf(slot)));
+    }
+
+    /** A cohort's headcount: scaled by {@code BOT_ENVIRONMENT_SCALE} when its slots belong to a spread task. */
+    public static int envCount(int slotBase, int n) {
+        if (!isSpreadSlot(slotBase)) {
+            return n;
+        }
+        return scaledCount(n, environmentScale(), ThreadLocalRandom.current().nextDouble());
+    }
+
+    /** The environment scale; a bot-shop chance or similar odds scale by it too. */
+    public static double environmentScale(int slot) {
+        return isSpreadSlot(slot) ? environmentScale() : 1.0;
+    }
+
+    private static double environmentScale() {
+        return YamlConfig.config.server == null ? 1.0 : YamlConfig.config.server.BOT_ENVIRONMENT_SCALE;
+    }
+
+    // ── live ─────────────────────────────────────────────────────────────────────────────────────
+
+    private static World world() {
+        return Server.getInstance().getWorld(GameConstants.homeWorld());
+    }
+
+    /** The home world's channels, in order (channel 1 first). */
+    public static List<Channel> channels() {
+        World w = world();
+        return w == null ? List.of() : w.getChannels();
+    }
+
+    public static Channel channel(int ch) {
+        World w = world();
+        return w == null ? null : w.getChannel(ch);
+    }
+
+    /** One map of one channel; null when the channel does not exist. */
+    public static MapleMap map(int ch, int mapId) {
+        Channel c = channel(ch);
+        return c == null ? null : c.getMapFactory().getMap(mapId);
+    }
+
+    /** This map id on every channel where it is already loaded (never loads a map). */
+    public static List<MapleMap> loadedMaps(int mapId) {
+        List<MapleMap> out = new ArrayList<>();
+        for (Channel c : channels()) {
+            if (c.getMapFactory().isMapLoaded(mapId)) {
+                MapleMap m = c.getMapFactory().getMap(mapId);
+                if (m != null) {
+                    out.add(m);
+                }
+            }
+        }
+        return out;
+    }
+
+    /** The configured shares for this world's channel count. */
+    public static double[] currentShares() {
+        String spec = YamlConfig.config.server == null ? null : YamlConfig.config.server.BOT_CHANNEL_WEIGHTS;
+        return shares(spec, Math.max(1, channels().size()));
+    }
+
+    /** Bots in each channel's player storage (index 0 = channel 1). */
+    public static int[] botsPerChannel() {
+        return botsPerChannel(false);
+    }
+
+    private static int[] botsPerChannel(boolean dressingOnly) {
+        List<Channel> chs = channels();
+        int[] counts = new int[Math.max(1, chs.size())];
+        for (int i = 0; i < chs.size(); i++) {
+            int n = 0;
+            for (Character chr : chs.get(i).getPlayerStorage().getAllCharacters()) {
+                if (BotHelpers.isBot(chr) && (!dressingOnly || isDressing(chr.getId() - BotStore.BOT_ID_BASE))) {
+                    n++;
+                }
+            }
+            counts[i] = n;
+        }
+        return counts;
+    }
+
+    /** A bot of the environment's town dressing (a spread wave task), not a roster member. */
+    static boolean isDressing(int slot) {
+        return isSpreadSlot(slot) && !BotRoster.isMember(slot);
+    }
+
+    /** Bots online that are not roster members: the environment (and GM spawns). */
+    public static int environmentOnline() {
+        int n = 0;
+        for (Channel c : channels()) {
+            for (Character chr : c.getPlayerStorage().getAllCharacters()) {
+                if (BotHelpers.isBot(chr) && !BotRoster.isMember(chr.getId() - BotStore.BOT_ID_BASE)) {
+                    n++;
+                }
+            }
+        }
+        return n;
+    }
+
+    /**
+     * Picks the channel for one bot about to log in and holds its place until {@link #release(int)}, so logins in
+     * parallel see each other. Returns a channel id (1-based).
+     */
+    public static synchronized int reserve() {
+        return reserveIn(botsPerChannel(false), inFlight);
+    }
+
+    /**
+     * {@link #reserve()} for one bot of the environment's town dressing. The dressing is split among itself by the
+     * channel weights, not against every bot: the set pieces already stand on channel 1, and counted against them
+     * channel 1's towns would get almost no dressing. The director's logins, counted against everyone, even the
+     * total out. Release with {@link #releaseDressing(int)}.
+     */
+    public static synchronized int reserveDressing() {
+        return reserveIn(botsPerChannel(true), dressingInFlight);
+    }
+
+    private static int reserveIn(int[] counts, int[] flight) {
+        for (int i = 0; i < counts.length && i < flight.length; i++) {
+            counts[i] += flight[i];
+        }
+        int pick = pickByDeficit(counts, currentShares());
+        if (pick < flight.length) {
+            flight[pick]++;
+        }
+        return pick + 1;
+    }
+
+    /** Releases a {@link #reserve()} once the bot is in its channel's storage (or failed to log in). */
+    public static synchronized void release(int ch) {
+        releaseIn(ch, inFlight);
+    }
+
+    public static synchronized void releaseDressing(int ch) {
+        releaseIn(ch, dressingInFlight);
+    }
+
+    private static void releaseIn(int ch, int[] flight) {
+        int i = ch - 1;
+        if (i >= 0 && i < flight.length && flight[i] > 0) {
+            flight[i]--;
+        }
+    }
+
+    /**
+     * Moves a bot to another channel of the world, onto the same map and spot - what a player's channel change
+     * looks like. For a companion following its player. Not for a bot inside an event instance (those maps belong
+     * to one channel). Returns whether it moved.
+     */
+    public static boolean moveToChannel(Character bot, int ch) {
+        if (bot == null || bot.getMap() == null || bot.getClient() == null || bot.getEventInstance() != null) {
+            return false;
+        }
+        synchronized (HOP_LOCK) {
+            Channel from = bot.getClient().getChannelServer();
+            Channel to = channel(ch);
+            if (to == null || from == null || from.getId() == ch) {
+                return false;
+            }
+            MapleMap dest = to.getMapFactory().getMap(bot.getMapId());
+            if (dest == null) {
+                return false;
+            }
+            Point pos = new Point(bot.getPosition());
+            soloMapling.ArtificialPlayer.GCMoveSystem.GCMovement.stop(bot); // follow/travel sessions hold the old map
+            BotSpotClaims.releaseAllFor(bot.getId());
+            from.removePlayer(bot);
+            bot.setClient(BotClientHandler.getBotClient(ch));
+            to.addPlayer(bot);
+            if (bot.getParty() != null && bot.getMPC() != null) {
+                bot.getMPC().setChannel(ch);
+            }
+            bot.changeMap(dest, pos); // resolves through the new client: leaves the old channel's map, joins this one
+            return true;
+        }
+    }
+
+    /** For the GM read-out: bots per channel against the target split. */
+    public static String describe() {
+        int[] counts = botsPerChannel();
+        double[] shares = currentShares();
+        int total = Arrays.stream(counts).sum();
+        StringBuilder sb = new StringBuilder("bots per channel (now/target):");
+        for (int i = 0; i < counts.length; i++) {
+            sb.append(" ch").append(i + 1).append(' ').append(counts[i]).append('/')
+                    .append(Math.round(shares[i] * total));
+        }
+        return sb.toString();
+    }
+}

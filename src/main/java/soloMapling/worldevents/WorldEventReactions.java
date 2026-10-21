@@ -107,7 +107,8 @@ public final class WorldEventReactions {
             }
             Character chr = bot.getChr();
             if (chr == null || chr.getMap() == null || e.joinedBots.contains(chr.getId())
-                    || WorldEventSteer.isSteered(chr.getId()) || CharacterStorage.checkIfInvisibleBot(chr.getId())) {
+                    || WorldEventSteer.isSteered(chr.getId()) || CharacterStorage.checkIfInvisibleBot(chr.getId())
+                    || chr.getClient().getChannel() != e.channel) { // ticket 57: only bots on the event's channel
                 continue;
             }
             if (!levelFits(chr.getLevel(), e.minLevel, e.maxLevel) || !region.equals(regionKey(chr.getMapId()))
@@ -206,7 +207,8 @@ public final class WorldEventReactions {
         List<Character> inRegion = new ArrayList<>();
         for (BotSM bot : CharacterStorage.getAllBots().values()) {
             Character chr = bot.getChr();
-            if (chr == null || chr.getMap() == null || !free(chr) || !GCMovement.isMapObserved(chr.getMapId())) {
+            if (chr == null || chr.getMap() == null || !free(chr) || !GCMovement.isMapObserved(chr.getMapId())
+                    || chr.getClient().getChannel() != e.channel) { // ticket 57: speak where the event is
                 continue;
             }
             if (chr.getMapId() == e.mapId()) {
@@ -315,7 +317,8 @@ public final class WorldEventReactions {
         List<Integer> witnesses = new ArrayList<>();
         for (int id : e.joinedBots) {
             BotSM bot = CharacterStorage.getBotById(id);
-            if (bot != null && bot.getChr() != null && bot.getChr().getMapId() == e.mapId()) {
+            if (bot != null && bot.getChr() != null && bot.getChr().getMapId() == e.mapId()
+                    && bot.getChr().getClient().getChannel() == e.channel) {
                 witnesses.add(id);
             }
         }

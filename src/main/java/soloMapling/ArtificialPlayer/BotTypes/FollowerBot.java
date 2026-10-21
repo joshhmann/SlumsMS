@@ -327,7 +327,22 @@ public class FollowerBot extends BotSM {
         if (leaderId <= 0) {
             return null;
         }
-        return getChr().getClient().getChannelServer().getPlayerStorage().getCharacterById(leaderId);
+        Character chr = getChr();
+        Character here = chr.getClient().getChannelServer().getPlayerStorage().getCharacterById(leaderId);
+        if (here != null) {
+            return here;
+        }
+        // Ticket 57: the leader changed channel - follow, the way a party member would (same map, new channel).
+        Character elsewhere = soloMapling.server.SoloMaplingUtilities.world().getPlayerStorage().getCharacterById(leaderId);
+        if (elsewhere == null || elsewhere.getMap() == null || elsewhere.getClient() == null
+                || isBot(elsewhere)) {
+            return null;
+        }
+        int channel = elsewhere.getClient().getChannel();
+        if (channel == chr.getClient().getChannel() || !soloMapling.ArtificialPlayer.BotChannels.moveToChannel(chr, channel)) {
+            return null;
+        }
+        return elsewhere; // moveToChannel ended the old follow session; the caller arms a fresh one
     }
 
     private int leaderIdFromParty() {
