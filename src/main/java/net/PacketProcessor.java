@@ -118,6 +118,7 @@ public final class PacketProcessor {
         registerHandler(RecvOpcode.SERVERLIST_REREQUEST, new ServerlistRequestHandler());
         registerHandler(RecvOpcode.CHARLIST_REQUEST, new CharlistRequestHandler());
         registerHandler(RecvOpcode.CHAR_SELECT, new CharSelectedHandler());
+        registerHandler(RecvOpcode.CLIENT_BUILD_STAMP, new ClientBuildStampHandler());
         registerHandler(RecvOpcode.LOGIN_PASSWORD, new LoginPasswordHandler());
         registerHandler(RecvOpcode.RELOG, new RelogRequestHandler());
         registerHandler(RecvOpcode.SERVERLIST_REQUEST, new ServerlistRequestHandler());

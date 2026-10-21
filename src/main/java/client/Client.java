@@ -128,6 +128,9 @@ public class Client extends ChannelInboundHandlerAdapter {
     private Calendar tempBanCalendar;
     private int votePoints;
     private int voteTime = -1;
+    // slums.dll build stamp (CP CLIENT_BUILD_STAMP before the password packet); 0 / "" = no stamp (1.4.1 and older).
+    private volatile int clientBuild = 0;
+    private volatile String clientRelease = "";
     private int visibleWorlds;
     private long lastNpcClick;
     private long lastPacket = System.currentTimeMillis();
@@ -1175,6 +1178,19 @@ public class Client extends ChannelInboundHandlerAdapter {
 
     public Set<String> getMacs() {
         return Collections.unmodifiableSet(macs);
+    }
+
+    public int getClientBuild() {
+        return clientBuild;
+    }
+
+    public String getClientRelease() {
+        return clientRelease;
+    }
+
+    public void setClientBuild(int build, String release) {
+        clientBuild = build;
+        clientRelease = release == null ? "" : release;
     }
 
     public int getGMLevel() {

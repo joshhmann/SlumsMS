@@ -41,6 +41,13 @@ public class ServerConfig {
     public int DAILY_CHECKIN_MIN_LEVEL = 10;
     //Coloring Prism (needs migration 010 and a slums.dll built with MAPLEROOT_COLOR_PRISM). Off until both are deployed.
     public boolean COLOR_PRISM_ENABLED = false;
+    //Client version gate: a real player's login is refused when their slums.dll build (reported by CP 0x3738 before the
+    //password packet; clients without it count as 0) is below MIN_CLIENT_BUILD. 0 = off. The release sets it to the
+    //new client's build in the server apply step (tools/release/set-min-client-build), after the client is published.
+    public int MIN_CLIENT_BUILD = 0;
+    public String CLIENT_UPDATE_MESSAGE = "Your game is out of date: open the SlumsMS launcher to update.";
+    //GM accounts (gm level >= 1) may log in with an older client, e.g. to check something on the old build.
+    public boolean MIN_CLIENT_BUILD_GM_BYPASS = false;
     public boolean BCRYPT_MIGRATION;
     public boolean COLLECTIVE_CHARSLOT;
     public boolean DETERRED_MULTICLIENT;

@@ -194,6 +194,10 @@ public final class LoginPasswordHandler implements PacketHandler {
             SessionCoordinator.getInstance().closeLoginSession(c);
             return;
         }
+        if (ClientVersionGate.refuseIfOutdated(c, login)) {
+            SessionCoordinator.getInstance().closeLoginSession(c);
+            return;
+        }
         if (c.finishLogin() == 0) {
             c.checkChar(c.getAccID());
             login(c);

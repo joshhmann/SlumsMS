@@ -1,0 +1,54 @@
+#!/bin/bash
+# Set the client version gate in a server config.yaml: `MIN_CLIENT_BUILD: <build>` under `server:`.
+#
+#   tools/release/set-min-client-build <config.yaml> <build> [--dry-run] [--allow-lower]
+#   tools/release/set-min-client-build <config.yaml> --show
+#
+# The release hook for the client/server version race. Call it in the server apply step, while the server is
+# stopped, AFTER the new client is published and BEFORE the server starts (MMO order: players' launchers can
+# already fetch the new client while the server is down; once it is up, older clients are refused at login with
+# CLIENT_UPDATE_MESSAGE). <build> is the new client's build number (slums.dll's stamp: the client repo's VERSION
+# as major*10000 + minor*100 + patch, e.g. 1.4.2 -> 10402; also printed in the client build's slums-build.txt).
+#
+# Replaces an existing MIN_CLIENT_BUILD line (keeping its indent and CRLF endings) or appends one at the end of the
+# file, indented like the other server: keys (server: is the last block of config.yaml, as CONFIG_APPEND assumes).
+# Refuses to lower the minimum unless --allow-lower (a rollback to an older client passes it, or restores the
+# backed-up config.yaml as rollback.sh does). Idempotent: the same value again changes nothing. Plain bash + awk;
+# safe to run on 164 or anywhere. 0 turns the gate off (needs --allow-lower when it was on).
+set -euo pipefail
+die() { echo "ABORT: $*" >&2; exit 1; }
+[ $# -ge 2 ] || die "usage: set-min-client-build <config.yaml> <build> [--dry-run] [--allow-lower] | <config.yaml> --show"
+C=$1 BUILD=$2; shift 2
+DRY=0 LOWER=0
+for a in "$@"; do case $a in --dry-run) DRY=1;; --allow-lower) LOWER=1;; *) die "unknown option $a";; esac; done
+[ -f "$C" ] || die "no $C"
+grep -qE '^server:' "$C" || die "no server: line in $C"
+key_re='^[[:space:]]+MIN_CLIENT_BUILD:'
+n=$(grep -cE "$key_re" "$C" || true)
+[ "$n" -le 1 ] || die "$C has MIN_CLIENT_BUILD $n times; fix it by hand"
+current=$(grep -E "$key_re" "$C" | head -1 | sed -E 's/^[[:space:]]+MIN_CLIENT_BUILD:[[:space:]]*([0-9]+).*/\1/' | tr -d '\r' || true)
+if [ "$BUILD" = --show ]; then echo "MIN_CLIENT_BUILD=${current:-unset (0, gate off)}"; exit 0; fi
+[[ "$BUILD" =~ ^[0-9]{1,9}$ ]] || die "build must be a non-negative integer, not '$BUILD'"
+BUILD=$((10#$BUILD))
+if [ -n "$current" ] && ! [[ "$current" =~ ^[0-9]+$ ]]; then die "existing MIN_CLIENT_BUILD value is not a number: '$current'"; fi
+if [ "${current:-0}" -gt "$BUILD" ] && [ $LOWER = 0 ]; then die "MIN_CLIENT_BUILD is $current; refusing to lower it to $BUILD without --allow-lower"; fi
+if [ "${current:-}" = "$BUILD" ]; then echo "MIN_CLIENT_BUILD already $BUILD in $C"; exit 0; fi
+echo "MIN_CLIENT_BUILD: ${current:-unset} -> $BUILD in $C"
+[ $DRY = 0 ] || { echo "[dry-run] not written"; exit 0; }
+
+tmp=$(mktemp "$C.min-client-build.XXXXXX")
+trap 'rm -f "$tmp"' EXIT
+if [ -n "$current" ]; then
+  awk -v b="$BUILD" '/^[[:space:]]+MIN_CLIENT_BUILD:/ { cr = /\r$/ ? "\r" : ""; match($0, /^[[:space:]]+/); print substr($0, 1, RLENGTH) "MIN_CLIENT_BUILD: " b cr; next } { print }' "$C" > "$tmp"
+else
+  # indent of the first key under server:, CRLF if the file uses it; make sure the file ends with a newline first
+  indent=$(awk '/^server:/{f=1; next} f && /^[[:space:]]+[A-Za-z_]/ { match($0, /^[[:space:]]+/); print substr($0, 1, RLENGTH); exit }' "$C")
+  [ -n "$indent" ] || indent="    "
+  cr=""; grep -q $'\r$' "$C" && cr=$'\r'
+  cat "$C" > "$tmp"
+  [ -z "$(tail -c1 "$C")" ] || printf '%s\n' "$cr" >> "$tmp"
+  printf '%s# Client version gate (tools/release/set-min-client-build): refuse logins from older clients.%s\n%sMIN_CLIENT_BUILD: %s%s\n' \
+    "$indent" "$cr" "$indent" "$BUILD" "$cr" >> "$tmp"
+fi
+cat "$tmp" > "$C"   # in place: keeps the file's owner and mode
+grep -nE "$key_re" "$C"
