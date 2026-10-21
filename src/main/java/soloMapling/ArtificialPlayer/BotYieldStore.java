@@ -73,7 +73,12 @@ final class BotYieldStore {
                 int rows = 0;
                 try (ResultSet rs = ps.executeQuery()) {
                     while (rs.next()) {
-                        BotYieldCaps.restore(BotStore.BOT_ID_BASE + rs.getInt("BotId"), today, rs.getLong("Meso"));
+                        int key = rs.getInt("BotId");   // seller keys (2e9 + account) still fit an int
+                        if (key >= BotSellerCaps.STORE_KEY_BASE) {   // ticket 56A: a seller account's count
+                            BotSellerCaps.restore(key - BotSellerCaps.STORE_KEY_BASE, today, rs.getLong("Meso"));
+                            continue;
+                        }
+                        BotYieldCaps.restore(BotStore.BOT_ID_BASE + key, today, rs.getLong("Meso"));
                         rows++;
                     }
                 }
@@ -105,7 +110,8 @@ final class BotYieldStore {
         }
         List<long[]> rows = BotYieldCaps.drainDirty();
         rows.removeIf(row -> !BotHelpers.isArtificial((int) row[0]));
-        if (rows.isEmpty()) {
+        List<long[]> sellerRows = BotSellerCaps.drainDirty();
+        if (rows.isEmpty() && sellerRows.isEmpty()) {
             return;
         }
         try (Connection con = writeConnections.get();
@@ -116,10 +122,18 @@ final class BotYieldStore {
                 ps.setLong(3, row[2]);
                 ps.addBatch();
             }
+            for (long[] row : sellerRows) {   // ticket 56A: seller accounts, keyed above every bot id
+                ps.setInt(1, BotSellerCaps.STORE_KEY_BASE + (int) row[0]);
+                ps.setDate(2, Date.valueOf(LocalDate.ofEpochDay(row[1])));
+                ps.setLong(3, row[2]);
+                ps.addBatch();
+            }
             ps.executeBatch();
         } catch (SQLException | RuntimeException e) {
             BotYieldCaps.markDirty(rows);
-            log.warn("Bot yield caps: could not write {} daily meso counts; kept for the next write", rows.size(), e);
+            BotSellerCaps.markDirty(sellerRows);
+            log.warn("Bot yield caps: could not write {} daily meso counts; kept for the next write",
+                    rows.size() + sellerRows.size(), e);
         }
     }
 

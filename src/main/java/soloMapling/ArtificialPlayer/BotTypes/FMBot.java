@@ -10,6 +10,7 @@ import soloMapling.ArtificialPlayer.BotHelpers;
 import soloMapling.ArtificialPlayer.BotMessagingSystem.ChatMessage;
 import soloMapling.ArtificialPlayer.BotMessagingSystem.MessageQueue;
 import soloMapling.ArtificialPlayer.BotSM;
+import soloMapling.ArtificialPlayer.BotSellerCaps;
 import soloMapling.ArtificialPlayer.GCMoveSystem.GCMovement;
 import soloMapling.FreeMarket.HiredMerchantAdapter;
 import soloMapling.FreeMarket.PlayerShopAdapter;
@@ -316,19 +317,61 @@ public class FMBot extends BotSM {
             int itemPrice = pItem.getPrice(); // item's FM price
             Integer itemMarketValue = ItemUtilities.getItemMarketValue(thisItem);
             Boolean purchase = shouldPurchaseItem(itemPrice, itemMarketValue);
+            // Ticket 56A: a real player's shop is paid within a price ceiling and a daily cap per seller account
+            int sellerAccount = purchase ? realSellerAccount(currentTarget) : -1;
+            if (purchase && sellerAccount != -1) {
+                if (sellerAccount == UNKNOWN_SELLER || !BotSellerCaps.withinPriceCeiling(itemPrice, itemMarketValue)
+                        || !BotSellerCaps.tryReserve(sellerAccount, currentTarget.getOwner(), itemPrice)) {
+                    continue;
+                }
+            }
             if (purchase) {
                 String buymsg = getRandomResolvedLine(FMBot.this, "PurchaseItem");
                 if (buymsg != null) {
                     currentTarget.chat(getChr(), buymsg);
                 }
+                short bundlesBefore = pItem.getBundles();
                 if (currentTarget instanceof HiredMerchantAdapter) {
                     currentTarget.botBuyItem(getChr(), pItem, (short) 1);
                 } else if (currentTarget instanceof PlayerShopAdapter) {
                     currentTarget.botBuyItemPlayerShop(getChr(), pItem, itemIndex, (short) 1);
                 }
+                if (sellerAccount >= 0 && pItem.getBundles() >= bundlesBefore) {
+                    BotSellerCaps.release(sellerAccount, itemPrice);   // the purchase failed: nothing was paid
+                }
                 break;
             }
         }
+    }
+
+    private static final int UNKNOWN_SELLER = -2;
+
+    /**
+     * The account of a real player who owns this shop, -1 for a bot's shop (not capped), or {@link #UNKNOWN_SELLER}
+     * when a player's shop's account cannot be found (then the bot does not buy).
+     */
+    static int realSellerAccount(ShopKeeper shop) {
+        if (shop instanceof PlayerShopAdapter adapter) {
+            Character owner = adapter.getShop().getOwner();
+            if (owner == null) {
+                return UNKNOWN_SELLER;
+            }
+            if (BotHelpers.isBot(owner) || BotHelpers.isArtificial(owner.getId())) {
+                return -1;
+            }
+            BotSellerCaps.rememberAccount(owner.getId(), owner.getAccountID());
+            return owner.getAccountID();
+        }
+        if (shop instanceof HiredMerchantAdapter adapter) {
+            HiredMerchant merchant = adapter.getMerchant();
+            if (merchant instanceof soloMapling.FreeMarket.HiredMerchantArtificial
+                    || BotHelpers.isArtificial(merchant.getOwnerId())) {
+                return -1;
+            }
+            int account = BotSellerCaps.accountOf(merchant.getOwnerId());
+            return account < 0 ? UNKNOWN_SELLER : account;
+        }
+        return -1;
     }
 
     private void exitShop() {
