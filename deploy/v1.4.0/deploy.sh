@@ -8,7 +8,7 @@
 # What changes (DEPLOY-NOTES.md has the table):
 #   jar 1.4.0; scripts and src/main data; cashshop/catalog.tsv (generated catalogue);
 #   migrations 004-daily-checkin, 009-gm-audit, 010-color-prism (ledger-checked, each only adds tables);
-#   config.yaml server: DAILY_CHECKIN_ENABLED: true, COLOR_PRISM_ENABLED: true (strict config: the 1.3.1 jar does not
+#   config.yaml server: DAILY_CHECKIN_ENABLED: true (COLOR_PRISM_ENABLED held back, stays off) (strict config: the 1.3.1 jar does not
 #   know these keys, so jar and config always move together);
 #   server WZ: Mob PADamage/MADamage set to the client values players already face (wz_set_values.py, 1141 values in
 #   592 Mob.wz files) and the Coloring Prism item 5782000 (install_wz.py: Item.wz/Cash/0578.img.xml + its name in
@@ -29,8 +29,8 @@ LEDGER_BEFORE="001-preserve-arcane-for-classic-fm,002-classic-fm-return,003-solo
 MIGRATION_FILES=(004-daily-checkin 009-gm-audit 010-color-prism)
 MIGRATION_IDS=(004-daily-checkin 009-gm-audit 010-color-prism)
 NEW_TABLES=(daily_checkin gm_command_audit gm_level_changes equip_tints character_look_tints)
-FLAGS=(DAILY_CHECKIN_ENABLED COLOR_PRISM_ENABLED)
-CATALOG_ROWS=10718
+FLAGS=(DAILY_CHECKIN_ENABLED)   # COLOR_PRISM_ENABLED held back (owner, 2026-10-21)
+CATALOG_ROWS=10362
 EXPECT_LOG=("SlumsMS v$VERSION (MapleStory v83) starting up" "Starting world 1 (Bera)" "Finished loading world 1"
             "is now online" "SoloMapling data: 24/24 resolved" "Cash Shop catalog: $CATALOG_ROWS rows")
 FORBID_LOG=("Starting world 0" "failed to load" "migration 010" "Coloring Prism stays off" "built-in reward table"
@@ -56,7 +56,7 @@ ONLINE_TIMEOUT=${ONLINE_TIMEOUT:-120}
 MONITOR=${MONITOR-/usr/local/bin/slumsms-monitor}
 MONITOR_TARGET=${MONITOR_TARGET:-live}
 MAINT_MINUTES=${MAINT_MINUTES:-5}
-MAINT_REASON=${MAINT_REASON:-"SlumsMS 1.4.0: Daily Check-In, Coloring Prism and a fuller Cash Shop."}
+MAINT_REASON=${MAINT_REASON:-"SlumsMS 1.4.0: Daily Check-In, set bonuses, Monster Book search and a fuller Cash Shop."}
 
 exec > >(tee -a "$LOG") 2>&1
 t0=$(date +%s); step() { echo "[$(date -u +%H:%M:%S) +$(( $(date +%s) - t0 ))s] $*"; }

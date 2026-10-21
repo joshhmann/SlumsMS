@@ -42,7 +42,7 @@ installed `slumsms-monitor` has the `maintenance` command (today's installed cop
 |---|---|---|
 | Jar | `2234665001f815ba` | `14fe528b54ea58e7` |
 | DB | ledger 001-003, 005-008 | + `004-daily-checkin` (daily_checkin), `009-gm-audit` (gm_command_audit, gm_level_changes), `010-color-prism` (equip_tints, character_look_tints); each only adds tables, ledger-checked, in that order |
-| `config.yaml` under `server:` | no such keys | `DAILY_CHECKIN_ENABLED: true`, `COLOR_PRISM_ENABLED: true` (added in place, CRLF kept, verified by a parse that nothing else changed). Strict config: the 1.3.1 jar refuses these keys, so jar and config only ever move together |
+| `config.yaml` under `server:` | no such keys | `DAILY_CHECKIN_ENABLED: true` (added in place; `COLOR_PRISM_ENABLED` held back after QA and stays off, CRLF kept, verified by a parse that nothing else changed). Strict config: the 1.3.1 jar refuses these keys, so jar and config only ever move together |
 | Server WZ | MapleRoot repack values | Mob PADamage/MADamage = the client values players already face (`wz_set_values.py --column client_value`, 1,141 values in 592 Mob.wz files); item 5782000 Coloring Prism (`install_wz.py`: new `Item.wz/Cash/0578.img.xml`, its name in `String.wz/Cash.img.xml`) |
 | `cashshop/catalog.tsv` | old catalogue | generated catalogue, 10,718 rows |
 | scripts, `src/main` data | 1.3.1 | 1.4.0 |
@@ -66,7 +66,7 @@ found`, `Cash Shop catalog line`; 0 ERROR/Exception lines; ports 8485 and 7585; 
 `RECEIPT.md` is written here.
 
 In game (owner): log in, enter a character, change channel; claim Daily Check-In; open the Cash Shop; with client
-1.4.0, use a Coloring Prism (5782000 shows its name), open the Monster Book.
+1.4.0, open the Daily Check-In and the Monster Book, scroll the Cash Shop's Pet Equip tab.
 
 ## Rollback
 
@@ -97,10 +97,17 @@ differ; `SlumsMS.exe` differs only in its linker timestamps (0x108, 0x3AC4) and 
    (the host publisher differs from the launcher repo today: add `--sync-publisher` if the owner agrees).
 4. Publish: the same without `--dry-run`. It hash-diffs before and after, publishes layer `client/1.4.0`, backs up
    `manifest.json` to `/srv/slums-staging/manifest-before-1.4.0.json` and writes the 1.4.0 manifest last.
-5. Launcher: Press Play updates; check SlumsMS.exe starts, the Coloring Prism shows its name, the Monster Book opens.
+5. Launcher: Press Play updates; check SlumsMS.exe starts, the Cash Shop's Pet Equip tab scrolls without a crash, the Monster Book opens.
 
 ## After
 
 - Tag `v1.4.0` in SlumsMS and SlumsMS-Client; merge `release-1.4.0` to main.
 - `/etc/slumsms-monitor/live.conf` does not exist on 164 (only `live.env`); `deploy/monitor/targets/live.conf` now says
   `VERSION=1.4.0` for when the monitor is installed for live (`deploy/monitor/install.sh live`).
+
+## Changed after QA (2026-10-21)
+- Cash Shop: the client crashed scrolling Pet Equip (null read in GetEquipItem drawing the icons of 355 pet equips
+  added from later versions). The catalogue hides them (10,718 -> 10,362 rows) and the client's icon guard now also
+  catches access violations (client `ccd62da`, slums.dll 66AD556D...).
+- Coloring Prism held back (owner): `COLOR_PRISM_ENABLED` is not set, 5782000 is hidden in the catalogue. Migration 010
+  and the WZ item still go in (tables only; the item cannot be bought or used).
