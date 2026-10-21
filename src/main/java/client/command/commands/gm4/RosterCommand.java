@@ -3,6 +3,7 @@ package client.command.commands.gm4;
 import client.Character;
 import client.Client;
 import client.command.Command;
+import soloMapling.ArtificialPlayer.BotBuddies;
 import soloMapling.ArtificialPlayer.BotPopulationDirector;
 import soloMapling.ArtificialPlayer.BotRoster;
 import soloMapling.ArtificialPlayer.BotSM;
@@ -25,10 +26,11 @@ import static soloMapling.server.SoloMaplingUtilities.isInteger;
  * !roster curve               - today's online target, hour by hour
  * !roster login|logout <name|id> - log one roster bot in or out now
  * !roster pause|resume        - hold the population still, or let the director run
+ * !roster buddies <bot|player> - a bot's player buddies, or an online player's bot buddies (ticket 49)
  */
 public class RosterCommand extends Command {
     {
-        setDescription("Bot roster: !roster status [name|id], saveall, director, curve, login|logout <bot>, pause|resume");
+        setDescription("Bot roster: !roster status [name|id], saveall, director, curve, login|logout <bot>, pause|resume, buddies <bot|player>");
     }
 
     @Override
@@ -75,10 +77,40 @@ public class RosterCommand extends Command {
                                 : "not online"));
                     }
                 }
+                case "buddies" -> {
+                    if (params.length < 2) {
+                        player.yellowMessage("Usage: !roster buddies <bot or player name|id>");
+                        return;
+                    }
+                    showBuddies(c, player, params[1]);
+                }
                 default -> player.yellowMessage("Usage: !roster status [name|id] | saveall | director | curve"
-                        + " | login|logout <name|id> | pause|resume");
+                        + " | login|logout <name|id> | pause|resume | buddies <bot|player>");
             }
         });
+    }
+
+    /** Ticket 49: a bot's player buddies (and pending requests), or an online player's bot buddies. */
+    private static void showBuddies(Client c, Character player, String target) {
+        int id = -1;
+        if (isInteger(target)) {
+            id = Integer.parseInt(target);
+        } else {
+            Character online = c.getWorldServer().getPlayerStorage().getCharacterByName(target);
+            if (online != null) {
+                id = online.getId();
+            } else {
+                BotBuddies.Target bot = BotBuddies.resolve(player, target);
+                id = bot == null ? -1 : bot.charId();
+            }
+        }
+        if (id < 0) {
+            player.yellowMessage("No online player or bot named " + target);
+            return;
+        }
+        List<String> lines = BotBuddies.describe(id);
+        player.yellowMessage(target + ": " + (lines.isEmpty() ? "no bot buddies" : lines.size() + " rows"));
+        lines.forEach(player::yellowMessage);
     }
 
     private static void showBot(Character player, String target) {

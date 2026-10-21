@@ -59,7 +59,7 @@ has the detail. Live runs 1.4.0.
 | [46](46-discord-bridge.md) | Discord bridge and server status | Community | 42 | partial: status + news v1.4.0 |
 | [47](47-bot-chat-content-review.md) | Review bot chat and megaphone content | Real bots / Chat | - | v1.4.0 |
 | [48](48-live-capacity-soak.md) | Capacity soak with real players and bots | Performance | - | postponed (tools in v1.4.0) |
-| [49](49-bot-buddies.md) | Bots as buddies: accept, send, buddy chat, online status (BUILD, M) | Real bots / Social | 26,36,37 | open |
+| [49](49-bot-buddies.md) | Bots as buddies: accept, send, buddy chat, online status (BUILD, M) | Real bots / Social | 26,36,37 | built on `bot-buddies`, not deployed |
 | [50](50-guilds.md) | Guilds: fix creation near bots (FIX, S), bot-run guilds and guild chat (BUILD, L) | Server / Social | 49 (B,C) | 50A on `social-fixes-1.4.1` (1.4.1); B,C open |
 | [51](51-bot-party-chat-meetups.md) | Parties with bots: party chat, meet-ups, buddy invites (BUILD, S-M) | Companions | 14,49 | open |
 | [52](52-marriage-and-rings.md) | Marriage, weddings, couple/friendship rings (FIX rings M, verify weddings S, bot weddings M) | Server / Cash Shop / Social | 21 | open |
