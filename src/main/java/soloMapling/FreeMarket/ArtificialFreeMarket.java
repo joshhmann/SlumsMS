@@ -118,7 +118,11 @@ public class ArtificialFreeMarket {
             if (chance(2)) {
                 continue;
             }
-            if (Math.random() < hiredMerchantChance) {
+            // Ticket 57: a spread FM task keeps BOT_ENVIRONMENT_SCALE of its shopkeeper bots (each on the channel
+            // furthest below its share); the other spots get a hired merchant on channel 1, so the market stays full.
+            boolean hired = Math.random() < hiredMerchantChance
+                    || Math.random() >= soloMapling.ArtificialPlayer.BotChannels.environmentScale(slot);
+            if (hired) {
                 ExecutorServiceManager.runAsync(() -> spawnHiredMerchantStore(mapId, position));
             } else {
                 // Stagger bot-shop creation with small delays instead of blocking

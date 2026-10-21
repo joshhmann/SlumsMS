@@ -273,7 +273,7 @@ public class HenesysBot extends BotSM {
         try {
             // Move to the portal position, then warp
             pathFinderAware(getChr(), getChr().getMap().getPortal(portalId).getPosition());
-            MapleMap destMap = getBotClient().getChannelServer().getMapFactory().getMap(route.destMapId());
+            MapleMap destMap = getChr().getClient().getChannelServer().getMapFactory().getMap(route.destMapId());
             botWarpMapOnPortal(getChr(), destMap, route.destPortalId());
             checkPrioritySpeed();
             log(getChr().getName() + " changing map to " + targetMapId + " via portal " + portalId);

@@ -639,7 +639,7 @@ public class ArtificialPlayerCommand extends Command {
             player.yellowMessage("Count capped at " + SPAWN_MAX_COUNT + ".");
         }
 
-        MapleMap map = getMapleMapById(c.getPlayer().getMapId());
+        MapleMap map = c.getChannelServer().getMapFactory().getMap(c.getPlayer().getMapId()); // ticket 57: the GM's channel
         Point pos = c.getPlayer().getPosition();
 
         List<Integer> spawned = new ArrayList<>();
@@ -727,7 +727,7 @@ public class ArtificialPlayerCommand extends Command {
             player.yellowMessage(job.name() + " isn't a supported training class (warrior/mage/bow/thief only).");
             return;
         }
-        MapleMap map = getMapleMapById(c.getPlayer().getMapId());
+        MapleMap map = c.getChannelServer().getMapFactory().getMap(c.getPlayer().getMapId()); // ticket 57: the GM's channel
         if (map == null || MapMobIndex.level(map.getId()) < 0) {
             player.yellowMessage("Stand on a map WITH MOBS (not a town) — 'grind here' needs mobs on the map.");
             return;

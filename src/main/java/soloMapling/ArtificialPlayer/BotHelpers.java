@@ -22,8 +22,8 @@ public class BotHelpers {
             cid = cid + soloMapling.server.SoloMaplingConstants.GameConstants.BOT_BASE_ID;
         }
 
-        Channel channel = soloMapling.server.SoloMaplingConstants.mainChannel();
-        client.Character fakechar = channel.getPlayerStorage().getCharacterById(cid);
+        // Ticket 57: bots live on every channel now; the world's storage holds them all.
+        client.Character fakechar = soloMapling.server.SoloMaplingUtilities.world().getPlayerStorage().getCharacterById(cid);
         if (isBot(fakechar)) {
             return (fakechar);
         }

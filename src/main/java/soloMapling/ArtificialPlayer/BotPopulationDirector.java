@@ -167,8 +167,9 @@ public final class BotPopulationDirector {
         ticker = ExecutorServiceManager.getScheduledExecutorService()
                 .scheduleAtFixedRate(() -> tick(server.BOT_DIRECTOR_MAX_LOGINS_PER_TICK), period, period, TimeUnit.SECONDS);
         BotShutdown.onQuiesce(BotPopulationDirector::stop);
-        log.info("Population director started: peak {}, curve {}, tick {}s", server.BOT_ROSTER_PEAK_ONLINE,
-                server.BOT_ROSTER_CURVE, period);
+        log.info("Population director started: peak {} (roster peak {}, population cap {}), curve {}, tick {}s, channel"
+                        + " weights {}", directorPeak(), server.BOT_ROSTER_PEAK_ONLINE, server.BOT_POPULATION_PEAK,
+                server.BOT_ROSTER_CURVE, period, server.BOT_CHANNEL_WEIGHTS);
     }
 
     /** The proof harness (ticket 11): fill to the current target now, without the per-tick login cap. */
@@ -203,7 +204,17 @@ public final class BotPopulationDirector {
     }
 
     public static int targetNow() {
-        return curve().target(YamlConfig.config.server.BOT_ROSTER_PEAK_ONLINE, localNow());
+        return curve().target(directorPeak(), localNow());
+    }
+
+    /**
+     * Ticket 57: the director's peak - {@code BOT_ROSTER_PEAK_ONLINE}, capped so the director and the environment
+     * together stay within {@code BOT_POPULATION_PEAK} at the curve's top.
+     */
+    public static int directorPeak() {
+        ServerConfig server = YamlConfig.config.server;
+        return BotChannels.directorPeak(server.BOT_ROSTER_PEAK_ONLINE, server.BOT_POPULATION_PEAK,
+                server.BOT_POPULATION_PEAK > 0 ? BotChannels.environmentOnline() : 0);
     }
 
     private static void tick(int maxLogins) {
@@ -215,7 +226,7 @@ public final class BotPopulationDirector {
             ZonedDateTime local = localNow();
             long now = System.currentTimeMillis();
             List<Candidate> roster = candidates();
-            int target = curve().target(server.BOT_ROSTER_PEAK_ONLINE, local);
+            int target = curve().target(directorPeak(), local);
             Plan plan = plan(roster, target, local.getHour() * 60 + local.getMinute(), now, maxLogins,
                     server.BOT_DIRECTOR_MAX_LOGOUTS_PER_TICK, ThreadLocalRandom.current());
             lastPlan = plan;
@@ -331,13 +342,20 @@ public final class BotPopulationDirector {
         if (member == null || CharacterStorage.botLoggedIn(member.charId()) || BotShutdown.isQuiesced()) {
             return false;
         }
-        MapleMap home = homeMap(member);
-        if (home == null || home.getPortal(0) == null) {
-            log.warn("Roster bot {} has no map to log in to", botId);
-            return false;
+        // Ticket 57: the channel furthest below its share of the bots online; held until the bot is in it.
+        int channel = BotChannels.reserve();
+        int charId;
+        try {
+            MapleMap home = homeMap(member, channel);
+            if (home == null || home.getPortal(0) == null) {
+                log.warn("Roster bot {} has no map to log in to", botId);
+                return false;
+            }
+            Point spawn = home.getPortal(0).getPosition();
+            charId = BotGeneration.createBot(botId, spawn, home, 0, 0, 0, 0);
+        } finally {
+            BotChannels.release(channel);
         }
-        Point spawn = home.getPortal(0).getPosition();
-        int charId = BotGeneration.createBot(botId, spawn, home, 0, 0, 0, 0);
         if (charId <= 0) {
             System.out.println("[Director] login of roster bot " + botId + " failed: createBot returned " + charId);
             return false;
@@ -364,9 +382,12 @@ public final class BotPopulationDirector {
         return true;
     }
 
-    private static MapleMap homeMap(BotRoster.Member member) {
+    private static MapleMap homeMap(BotRoster.Member member, int channel) {
         int id = member.homeMapId() > 0 ? member.homeMapId() : constants.id.MapId.HENESYS;
-        MapleMap map = soloMapling.server.SoloMaplingUtilities.getMapleMapById(id);
+        MapleMap map = BotChannels.map(channel, id);
+        if (map == null) {
+            map = soloMapling.server.SoloMaplingUtilities.getMapleMapById(id); // channel 1
+        }
         return map != null ? map : soloMapling.server.SoloMaplingUtilities.getMapleMapById(constants.id.MapId.HENESYS);
     }
 
@@ -374,10 +395,12 @@ public final class BotPopulationDirector {
     public static String describe() {
         Plan plan = lastPlan;
         long online = BotRoster.members().stream().filter(m -> CharacterStorage.botLoggedIn(m.charId())).count();
-        return String.format("director %s: %d roster bots online, target now %d (peak %d), %d waiting to leave;"
-                        + " last tick %s: +%d / -%d",
-                ticker == null ? "off" : paused ? "paused" : "on", online, targetNow(),
-                YamlConfig.config.server.BOT_ROSTER_PEAK_ONLINE, BotLogout.waiting(),
+        ServerConfig server = YamlConfig.config.server;
+        int environment = BotChannels.environmentOnline();
+        return String.format("director %s: %d roster bots online, target now %d (peak %d = min(roster peak %d,"
+                        + " cap %d - %d environment)), %d waiting to leave; last tick %s: +%d / -%d",
+                ticker == null ? "off" : paused ? "paused" : "on", online, targetNow(), directorPeak(),
+                server.BOT_ROSTER_PEAK_ONLINE, server.BOT_POPULATION_PEAK, environment, BotLogout.waiting(),
                 lastTickAt == 0 ? "never" : ((System.currentTimeMillis() - lastTickAt) / 1000) + "s ago",
                 plan == null ? 0 : plan.logins().size(), plan == null ? 0 : plan.logouts().size());
     }
@@ -386,8 +409,9 @@ public final class BotPopulationDirector {
     public static Map<Integer, Integer> todaysTargets() {
         Map<Integer, Integer> targets = new java.util.LinkedHashMap<>();
         ZonedDateTime today = localNow().withMinute(0);
+        int peak = directorPeak();
         for (int h = 0; h < 24; h++) {
-            targets.put(h, curve().target(YamlConfig.config.server.BOT_ROSTER_PEAK_ONLINE, today.withHour(h)));
+            targets.put(h, curve().target(peak, today.withHour(h)));
         }
         return targets;
     }

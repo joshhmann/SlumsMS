@@ -50,6 +50,7 @@ public final class BotScaleProof {
             grow(rosterNeeded + 100);
             YamlConfig.config.server.BOT_ROSTER_CURVE = "flat";
             YamlConfig.config.server.BOT_ROSTER_PEAK_ONLINE = rosterNeeded;
+            YamlConfig.config.server.BOT_POPULATION_PEAK = 0; // ticket 57: the proof sets the roster target itself
             BotPopulationDirector.fillNow();
             settle();
             measure("target " + target + " (" + staff + " staff + " + rosterNeeded + " roster)");

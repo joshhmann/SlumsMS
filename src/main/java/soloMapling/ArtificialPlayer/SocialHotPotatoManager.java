@@ -203,14 +203,17 @@ public class SocialHotPotatoManager {
         for (int mapId : ambientMapIds) {
             if (requireObserved && !GCMovement.isMapObserved(mapId)) continue; // skip unwatched maps entirely
             try {
-                MapleMap map = soloMapling.server.SoloMaplingConstants.mainChannel().getMapFactory().getMap(mapId);
-                if (map == null) continue;
-                for (Character chr : map.getAllPlayers()) {
-                    if (!isBot(chr)) continue;
-                    BotSM bot = CharacterStorage.getBotById(chr.getId());
-                    if (bot == null || !bot.isAvailableForAmbientActions()) continue;
-                    if (ConversationManager.getInstance().isInConversation(chr.getId())) continue;
-                    fillerBots.add(chr);
+                // Ticket 57: the same town map on every channel it is loaded on; an observed bark goes where a real
+                // player is (observation is kept per map id, across channels).
+                for (MapleMap map : BotChannels.loadedMaps(mapId)) {
+                    if (requireObserved && map.getAllPlayers().stream().allMatch(BotHelpers::isBot)) continue;
+                    for (Character chr : map.getAllPlayers()) {
+                        if (!isBot(chr)) continue;
+                        BotSM bot = CharacterStorage.getBotById(chr.getId());
+                        if (bot == null || !bot.isAvailableForAmbientActions()) continue;
+                        if (ConversationManager.getInstance().isInConversation(chr.getId())) continue;
+                        fillerBots.add(chr);
+                    }
                 }
             } catch (Exception e) {
                 // Map not loaded yet, skip

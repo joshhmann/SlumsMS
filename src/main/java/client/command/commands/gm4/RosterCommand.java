@@ -49,7 +49,10 @@ public class RosterCommand extends Command {
                     int saved = BotStore.saveAll(bots);
                     player.yellowMessage("Saved " + saved + " of " + bots.size() + " online bots.");
                 }
-                case "director" -> player.yellowMessage(BotPopulationDirector.describe());
+                case "director" -> {
+                    player.yellowMessage(BotPopulationDirector.describe());
+                    player.yellowMessage(soloMapling.ArtificialPlayer.BotChannels.describe()); // ticket 57
+                }
                 case "curve" -> {
                     StringBuilder line = new StringBuilder("Target by hour:");
                     BotPopulationDirector.todaysTargets().forEach((hour, target) -> line.append(' ').append(hour)

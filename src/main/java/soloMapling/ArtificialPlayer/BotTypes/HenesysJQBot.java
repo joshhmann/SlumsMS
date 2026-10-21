@@ -274,7 +274,7 @@ public class HenesysJQBot extends BotSM {
         try {
             pathFinderAware(getChr(), getChr().getMap().getPortal(EXIT_PORTAL_ID).getPosition());
             BotHelpers.blockingSleep(1000 + random.nextInt(1000));
-            MapleMap destMap = getBotClient().getChannelServer().getMapFactory().getMap(HENESYS_PARK_MAP);
+            MapleMap destMap = getChr().getClient().getChannelServer().getMapFactory().getMap(HENESYS_PARK_MAP);
             BotHelpers.blockingSleep(1000 + random.nextInt(1000));
             botWarpMapOnPortal(getChr(), destMap, EXIT_DEST_PORTAL_ID);
             BotHelpers.blockingSleep(1000);

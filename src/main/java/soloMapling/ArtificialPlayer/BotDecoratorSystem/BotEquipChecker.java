@@ -49,9 +49,10 @@ public class BotEquipChecker {
         }
         try {
             long startMs = System.currentTimeMillis();
-            List<Character> allChars = new ArrayList<>(
-                    soloMapling.server.SoloMaplingConstants.mainChannel().getPlayerStorage().getAllCharacters()
-            );
+            List<Character> allChars = new ArrayList<>(); // ticket 57: bots live on every channel
+            for (net.server.channel.Channel ch : soloMapling.ArtificialPlayer.BotChannels.channels()) {
+                allChars.addAll(ch.getPlayerStorage().getAllCharacters());
+            }
 
             int totalBots = 0;
             List<Character> naked = new ArrayList<>();

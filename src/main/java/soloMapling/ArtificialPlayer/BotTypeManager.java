@@ -230,7 +230,7 @@ public class BotTypeManager {
     public static void massCreateBots(Integer start, Integer end, Client c) {
         int slotBase = BotStore.nextDynamicSlots(Math.max(1, end - start));
         for (int x = start; x < end; x++) {
-            MapleMap map = getMapleMapById(c.getPlayer().getMapId());
+            MapleMap map = c.getChannelServer().getMapFactory().getMap(c.getPlayer().getMapId()); // ticket 57: the GM's channel
             Point pos = c.getPlayer().getPosition();
             BotGeneration.createBot(slotBase + x - start, pos, map);
             BotHelpers.blockingSleep(50);
@@ -239,7 +239,7 @@ public class BotTypeManager {
 
     public static void createBots(Client c) {
 //        MapleMap map = c.getPlayer().getMap();
-        MapleMap map = soloMapling.server.SoloMaplingConstants.mainChannel().getMapFactory().getMap(c.getPlayer().getMapId());
+        MapleMap map = c.getChannelServer().getMapFactory().getMap(c.getPlayer().getMapId()); // ticket 57: the GM's channel
         Point pos = c.getPlayer().getPosition();
         int slot = BotStore.nextDynamicSlot();
         runAsync(() -> BotGeneration.createBot(slot, pos, map));
