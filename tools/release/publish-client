@@ -62,6 +62,10 @@ if [ -n "$REL" ]; then
   step "release manifest $REL (manifest.json last)"
   h "cp $PATCH_DIR/manifest.json /srv/slums-staging/manifest-before-$(q "$REL").json && cd $PUBLISHER && $pub_rel"
   h "python3 -I -c 'import json; m=json.load(open(\"$PATCH_DIR/manifest.json\")); print(\"manifest.json:\", m[\"version\"], [(l[\"name\"], l[\"version\"]) for l in m[\"layers\"]])'"
+  # The owner's everyday launcher reads /launcher-test/ (game feed + launcher self-update) and must match live.
+  # Its layers/ is a symlink to ../layers, so the live manifest works there as is. RCs get their own channel.
+  h "test -L $(q "$PATCH_DIR/launcher-test/layers") && cp $(q "$PATCH_DIR/manifest.json") $(q "$PATCH_DIR/launcher-test/manifest.json.new") && mv $(q "$PATCH_DIR/launcher-test/manifest.json.new") $(q "$PATCH_DIR/launcher-test/manifest.json") && echo 'launcher-test feed now mirrors live'" \
+    || echo "WARN: /launcher-test/ not mirrored (no layers symlink there?); the owner's launcher stays on its old release"
   if [ "$ANNOUNCE" = 1 ]; then
     step "Cody: client $REL is in the launcher (public channel; --no-announce skips)"
     h "command -v slumsms-monitor >/dev/null && slumsms-monitor client-ready $(q "$ANNOUNCE_TARGET") $(q "$REL")" \
