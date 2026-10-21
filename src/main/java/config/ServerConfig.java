@@ -66,8 +66,8 @@ public class ServerConfig {
 
     //SoloMapling: the population director (bot-persistence ticket 08) - roster bots log in and out on a daily curve.
     public boolean BOT_DIRECTOR_ENABLED = true;
-    //1.4.2 (ticket 57): fewer, better bots - the director's own peak. The cap below usually binds first.
-    public int BOT_ROSTER_PEAK_ONLINE = 300;
+    //1.4.2 (ticket 57): the director's own peak. The cap below usually binds first.
+    public int BOT_ROSTER_PEAK_ONLINE = 1200;
     public String BOT_ROSTER_CURVE = "0:0.45,3:0.25,6:0.15,9:0.25,12:0.45,15:0.6,18:0.85,20:1.0,22:0.8";
     public double BOT_ROSTER_WEEKEND_LIFT = 1.1;
     public String BOT_ROSTER_TIMEZONE = "";
@@ -77,10 +77,10 @@ public class ServerConfig {
     public int BOT_ROSTER_SEED_MIN = 100;
     //1.4.2 (ticket 57): every bot online at once, environment and director together, at the curve's peak. The
     //director's peak is min(BOT_ROSTER_PEAK_ONLINE, this - environment bots online); 0 = no cap.
-    public int BOT_POPULATION_PEAK = 500;
+    public int BOT_POPULATION_PEAK = 1200;   //owner 2026-10-21: 1,000-1,200 spread over the channels
     //1.4.2 (ticket 57): the share of the boot environment's town dressing (Henesys fillers, FM entrance, FM shop
     //bots...) that spawns; set pieces (tutorial, casino tables, drop game, OPQ lobby, gacha) always spawn. 1.0 = all.
-    public double BOT_ENVIRONMENT_SCALE = 0.25;
+    public double BOT_ENVIRONMENT_SCALE = 0.5;
     //1.4.2 (ticket 57): how bots split over the channels, ch1 first. Any count of weights; channels past the list
     //get the last weight; they are normalised. Blank = every channel alike.
     public String BOT_CHANNEL_WEIGHTS = "26,20,16,12,9,7,5,5";

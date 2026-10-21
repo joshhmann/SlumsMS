@@ -198,3 +198,12 @@ dashboard's peak is the capped one.
   return less often. Shrinking the roster (or tying it to the capped peak) is a separate owner decision.
 - **Environment counts are drawn at random around count x 0.25.** A single small cohort (1-2 bots) may be absent on
   a given boot. That is by design.
+
+## Owner change (2026-10-21): 1,000-1,200 at peak
+After the first cut (500), the owner preferred "1000-1200 spread across channels". Shipped defaults are now
+`BOT_POPULATION_PEAK: 1200`, `BOT_ROSTER_PEAK_ONLINE: 1200`, `BOT_ENVIRONMENT_SCALE: 0.5`:
+about 355 environment bots (half the town dressing + the 47 set pieces) around the clock, the director up to about
+845 at the evening peak (about 125 at 06:00), totals about 480 overnight to 1,200 in the evening. Channel weights
+unchanged (26,20,16,12,9,7,5,5): at peak about 312 / 240 / 192 / 144 / 108 / 84 / 60 / 60. With the 1.4.1 bot weight
+of 0.25 in the load bar and CHANNEL_LOAD 100, channel 1's bar sits near 80% from bots alone at peak.
+Economy: bot meso intake about the same as before 1.4.2 (director online average similar), so 56B matters more.

@@ -54,18 +54,18 @@ class BotPopulationBudgetTest {
     }
 
     @Test
-    void theShippedDefaultsAddUpToAboutFiveHundredAtPeak() {
+    void theShippedDefaultsAddUpToAboutTwelveHundredAtPeak() {
         ServerConfig server = new ServerConfig();
-        assertEquals(500, server.BOT_POPULATION_PEAK);
-        assertEquals(300, server.BOT_ROSTER_PEAK_ONLINE);
-        assertEquals(0.25, server.BOT_ENVIRONMENT_SCALE, 1e-9);
+        assertEquals(1200, server.BOT_POPULATION_PEAK);
+        assertEquals(1200, server.BOT_ROSTER_PEAK_ONLINE);
+        assertEquals(0.5, server.BOT_ENVIRONMENT_SCALE, 1e-9);
 
         double environment = dressing() * server.BOT_ENVIRONMENT_SCALE + SET_PIECES;
-        assertTrue(environment > 180 && environment < 230, "environment " + environment);
+        assertTrue(environment > 330 && environment < 390, "environment " + environment);
 
         int directorPeak = BotChannels.directorPeak(server.BOT_ROSTER_PEAK_ONLINE, server.BOT_POPULATION_PEAK,
                 (int) Math.round(environment));
-        assertTrue(directorPeak >= 270 && directorPeak <= 300, "director peak " + directorPeak);
+        assertTrue(directorPeak >= 810 && directorPeak <= 870, "director peak " + directorPeak);
         // Live keeps BOT_ROSTER_PEAK_ONLINE: 1200 in its config.yaml; the cap still holds the total.
         assertEquals(directorPeak, BotChannels.directorPeak(1200, server.BOT_POPULATION_PEAK,
                 (int) Math.round(environment)));
