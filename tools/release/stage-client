@@ -1,0 +1,118 @@
+#!/bin/bash
+# SlumsMS release step 4b (workstation): carry a client build from the Windows build desktop (Silvia) to a client
+# staging tree on the host, ready for publish-client. Nobody copies client files by hand.
+#
+#   tools/release/stage-client <client-version> --build-dir 'Z:\...\build\Release' [--wz 'Z:\...\Custom.wz']
+#       [--from-layer <published client layer version>] [--dry-run] [--no-verify]
+#
+# 1. On Silvia (read-only): Get-FileHash of slums.dll and Custom.wz (default: the one in --build-dir) and the git
+#    commit, branch and dirty state of the clone the build dir belongs to.
+# 2. scp both to a local temp dir; their sha256 must match what Silvia reported.
+# 3. On the host: /srv/slums-staging/client-<version>/ (refused if it exists and is not empty) gets a full copy (not
+#    hardlinks) of the client layer players have now (/srv/slums-patch/layers/client/<layer>/files, the layer the
+#    current manifest.json points at unless --from-layer), then ONLY slums.dll and Custom.wz are replaced. SlumsMS.exe
+#    and everything else stay the published bytes.
+# 4. client-<version>.STAGED.txt NEXT TO that dir (inside it would be published as a game file): source host and paths, commit, hashes (new and replaced), base layer copied.
+# 5. tools/release/publish-client <version> --source <that dir> --dry-run (the HASH-DIFF), unless --no-verify.
+# Writes only under /srv/slums-staging on the host and a temp dir here; never touches /srv/slums-patch.
+set -euo pipefail
+here=$(cd "$(dirname "$0")" && pwd); . "$here/lib.sh"; . "$here/publish-lib.sh"
+CV=${1:-}; shift || true
+[[ "$CV" =~ ^[0-9]+\.[0-9]+\.[0-9]+(-[A-Za-z0-9.]+)?$ ]] || die "usage: stage-client <client-version> --build-dir 'Z:\\...\\Release' [--wz PATH] [--from-layer V] [--dry-run] [--no-verify]"
+BUILD_DIR="" WZ="" FROM_LAYER="" DRY_RUN=0 VERIFY=1
+while [ $# -gt 0 ]; do case $1 in
+  --build-dir) BUILD_DIR=$2; shift;; --wz) WZ=$2; shift;; --from-layer) FROM_LAYER=$2; shift;;
+  --dry-run) DRY_RUN=1;; --no-verify) VERIFY=0;; *) die "unknown option $1";; esac; shift; done
+[ -n "$BUILD_DIR" ] || die "--build-dir is required (Windows path on the build desktop)"
+BUILD_DIR=${BUILD_DIR%\\}
+[ -n "$WZ" ] || WZ="$BUILD_DIR\\Custom.wz"
+DLL="$BUILD_DIR\\slums.dll"
+require_workstation
+BUILD_HOST=${BUILD_HOST:-crims@192.168.0.186}
+BUILD_KEY=${BUILD_KEY:-$HOME/.ssh/id_rsprox_desktop}
+STAGING_ROOT=${STAGING_ROOT:-/srv/slums-staging}
+OUT=$STAGING_ROOT/client-$CV
+STAGED=$OUT.STAGED.txt   # next to the tree, not in it: publish-client ships every file in the tree
+SSHW=(-i "$BUILD_KEY" -o IdentitiesOnly=yes -o BatchMode=yes)
+for p in "$DLL" "$WZ"; do [[ "$p" =~ ^[A-Za-z]:\\[^\'\"]+$ ]] || die "not a plain Windows path: $p"; done
+ps() { ssh "${SSHW[@]}" "$BUILD_HOST" 'powershell -NoProfile -Command -'; }   # script on stdin, one statement per line
+fwd() { echo "$1" | tr '\\' '/'; }                                              # scp wants Z:/a/b
+
+step "1. $BUILD_HOST: hashes and commit (read-only)"
+info=$(ps <<P
+\$ErrorActionPreference = 'Stop'
+foreach (\$f in @('$DLL', '$WZ')) { if (-not (Test-Path -LiteralPath \$f)) { Write-Output "MISSING \$f"; exit 3 } }
+Write-Output ("DLL " + (Get-FileHash -Algorithm SHA256 -LiteralPath '$DLL').Hash.ToLower() + " " + (Get-Item -LiteralPath '$DLL').Length)
+Write-Output ("WZ " + (Get-FileHash -Algorithm SHA256 -LiteralPath '$WZ').Hash.ToLower() + " " + (Get-Item -LiteralPath '$WZ').Length)
+Write-Output ("TOP " + (git -C '$BUILD_DIR' rev-parse --show-toplevel))
+Write-Output ("COMMIT " + (git -C '$BUILD_DIR' rev-parse HEAD))
+Write-Output ("BRANCH " + (git -C '$BUILD_DIR' rev-parse --abbrev-ref HEAD))
+Write-Output ("DIRTY " + @(git -C '$BUILD_DIR' status --porcelain --untracked-files=no).Count)
+Write-Output ("BUILT " + (Get-Item -LiteralPath '$DLL').LastWriteTimeUtc.ToString('yyyy-MM-ddTHH:mm:ssZ'))
+P
+) || die "could not read the build on $BUILD_HOST: $info"
+echo "$info" | tr -d '\r'
+val() { echo "$info" | tr -d '\r' | sed -n "s/^$1 //p" | head -1; }
+dll_sha=$(val DLL | cut -d' ' -f1) wz_sha=$(val WZ | cut -d' ' -f1)
+commit=$(val COMMIT) branch=$(val BRANCH) dirty=$(val DIRTY) top=$(val TOP) built=$(val BUILT)
+[[ "$dll_sha" =~ ^[0-9a-f]{64}$ && "$wz_sha" =~ ^[0-9a-f]{64}$ ]] || die "no hashes from $BUILD_HOST"
+[[ "$commit" =~ ^[0-9a-f]{40}$ ]] || die "no git commit for $BUILD_DIR"
+[ "$dirty" = 0 ] || warn "the build clone has $dirty uncommitted change(s): the build may not match commit $commit"
+
+step "2. copy to a local temp dir and re-hash"
+TMP=$(mktemp -d); trap 'rm -rf "$TMP"' EXIT
+scp -q "${SSHW[@]}" "$BUILD_HOST:$(fwd "$DLL")" "$TMP/slums.dll"
+scp -q "${SSHW[@]}" "$BUILD_HOST:$(fwd "$WZ")" "$TMP/Custom.wz"
+[ "$(sha256sum "$TMP/slums.dll" | cut -d' ' -f1)" = "$dll_sha" ] || die "slums.dll changed in transit"
+[ "$(sha256sum "$TMP/Custom.wz" | cut -d' ' -f1)" = "$wz_sha" ] || die "Custom.wz changed in transit"
+echo "slums.dll $dll_sha, Custom.wz $wz_sha: match"
+
+step "3. $RELEASE_HOST:$OUT from the published client layer"
+if [ -z "$FROM_LAYER" ]; then
+  FROM_LAYER=$(h "python3 -I -c 'import json,sys; m=json.load(open(sys.argv[1])); print([l[\"version\"] for l in m[\"layers\"] if l[\"name\"]==\"client\"][0])' $PATCH_DIR/manifest.json")
+fi
+LAYER=$PATCH_DIR/layers/client/$FROM_LAYER/files
+h "test -d $(q "$LAYER")" || die "no published client layer $LAYER"
+h "test ! -e $(q "$OUT") || [ -z \"\$(ls -A $(q "$OUT"))\" ]" || die "$OUT exists and is not empty (staging dirs are never reused; pick a new version or move it away)"
+h "test ! -e $(q "$PATCH_DIR/layers/client/$CV")" || die "client layer $CV is already published"
+h "test ! -e $(q "$STAGED")" || die "$STAGED exists (an earlier staging of $CV)"
+old=$(h "cd $(q "$LAYER") && sha256sum slums.dll Custom.wz SlumsMS.exe")
+echo "published layer $FROM_LAYER now has:"; echo "$old" | sed 's/^/  /'
+if [ "$DRY_RUN" = 1 ]; then
+  step "DRY RUN OK: would copy $LAYER -> $OUT, replace slums.dll and Custom.wz, write STAGED.txt, then run publish-client $CV --source $OUT --dry-run"
+  exit 0
+fi
+h "mkdir -p $(q "$OUT") && nice -n 19 ionice -c3 cp -a --no-preserve=links $(q "$LAYER")/. $(q "$OUT")/"
+h "cd $(q "$OUT") && rm -f slums.dll Custom.wz"   # unlink first: never write through to another file
+scp -q "$TMP/slums.dll" "$TMP/Custom.wz" "$RELEASE_HOST:$OUT/"
+got=$(h "cd $(q "$OUT") && sha256sum slums.dll Custom.wz SlumsMS.exe")
+echo "$got" | grep -q "^$dll_sha  slums.dll$" && echo "$got" | grep -q "^$wz_sha  Custom.wz$" || die "staged files do not match the build"
+exe_now=$(echo "$got" | sed -n 's/  SlumsMS.exe$//p'); exe_pub=$(echo "$old" | sed -n 's/  SlumsMS.exe$//p')
+[ "$exe_now" = "$exe_pub" ] || die "SlumsMS.exe in $OUT is not the published one"
+cnt=$(h "find $(q "$OUT") -type f | wc -l"); lcnt=$(h "find $(q "$LAYER") -type f | wc -l")
+[ "$cnt" = "$lcnt" ] || die "$OUT has $cnt files, the layer $lcnt"
+
+step "4. $STAGED"
+h "cat > $(q "$STAGED")" <<S
+client=$CV
+staged=$(date -u +%Y-%m-%dT%H:%M:%SZ) by tools/release/stage-client on $(hostname)
+source_host=$BUILD_HOST
+source_build_dir=$BUILD_DIR
+source_wz=$WZ
+source_repo=$top
+source_commit=$commit
+source_branch=$branch
+source_dirty_files=$dirty
+source_built_utc=$built
+copied_from_layer=$LAYER ($lcnt files)
+slums.dll=$dll_sha (layer $FROM_LAYER had $(echo "$old" | sed -n 's/  slums.dll$//p'))
+Custom.wz=$wz_sha (layer $FROM_LAYER had $(echo "$old" | sed -n 's/  Custom.wz$//p'))
+SlumsMS.exe=$exe_now (kept from layer $FROM_LAYER)
+S
+h "cat $(q "$STAGED")"
+
+if [ "$VERIFY" = 1 ]; then
+  step "5. publish-client $CV --source $OUT --dry-run (HASH-DIFF)"
+  "$here/publish-client" "$CV" --source "$OUT" --dry-run
+fi
+step "staged $OUT ($cnt files). Publish (owner's go): tools/release/publish-client $CV --source $OUT --release <release> --news <news.json on the host>"
