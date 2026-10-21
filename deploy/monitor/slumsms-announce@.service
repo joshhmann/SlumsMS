@@ -1,0 +1,9 @@
+[Unit]
+Description=SlumsMS public Discord announcements from the world event feed (%i)
+After=network-online.target
+
+[Service]
+Type=oneshot
+ExecStart=/usr/local/bin/slumsms-monitor announce-feed %i
+Nice=10
+TimeoutStartSec=50

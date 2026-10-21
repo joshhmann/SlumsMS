@@ -5,8 +5,8 @@
 # start -> smoke test -> receipt. After the stop every abort says "server is DOWN - run rollback.sh".
 #
 # The rehearsal runs this same file on a copy of live and overrides SRV, B, LOG, RECEIPT, SQL_CMD, DUMP_CMD, STOP_CMD,
-# START_CMD, IS_ACTIVE_CMD, DAEMON_RELOAD_CMD, JOURNAL_UNIT, UNIT_FILE, LOGIN_PORT and CHANNEL_BASE. Live uses the
-# defaults below.
+# START_CMD, IS_ACTIVE_CMD, DAEMON_RELOAD_CMD, JOURNAL_UNIT, UNIT_FILE, LOGIN_PORT, CHANNEL_BASE and MONITOR. Live uses
+# the defaults below.
 set -euo pipefail
 DRY_RUN=0
 for a in "$@"; do case $a in --dry-run) DRY_RUN=1;; *) echo "usage: $0 [--dry-run]"; exit 2;; esac; done
@@ -26,13 +26,27 @@ DAEMON_RELOAD_CMD=${DAEMON_RELOAD_CMD:-"systemctl daemon-reload"}
 LOGIN_PORT=${LOGIN_PORT:-8485}
 CHANNEL_BASE=${CHANNEL_BASE:-7585}
 ONLINE_TIMEOUT=${ONLINE_TIMEOUT:-120}
+# Maintenance mode + the public "going down" / "back up" post (slumsms-monitor, tickets 42/46). Soft: a missing or
+# failing monitor never stops the deploy. The rehearsal sets MONITOR="" (a copy of live must not post).
+MONITOR=${MONITOR-/usr/local/bin/slumsms-monitor}
+MONITOR_TARGET=${MONITOR_TARGET:-live}
+MAINT_MINUTES=${MAINT_MINUTES:-5}
+MAINT_REASON=${MAINT_REASON:-}
 
 exec > >(tee -a "$LOG") 2>&1
 t0=$(date +%s); step() { echo "[$(date -u +%H:%M:%S) +$(( $(date +%s) - t0 ))s] $*"; }
 has() { grep -c "$@" > /dev/null; }   # like grep -q, but reads all input (grep -q + pipefail = SIGPIPE false negatives)
 sql() { eval "$SQL_CMD" 2>&1 | { grep -v 'Using a password' || true; }; }
 die() { echo "ABORT: $*"; exit 1; }
-down() { echo "ABORT: $*"; echo "ABORT: the server is DOWN - run: bash $D/rollback.sh"; exit 1; }
+down() { echo "ABORT: $*"; echo "ABORT: the server is DOWN - run: bash $D/rollback.sh"
+  [ -n "$MONITOR" ] && echo "(maintenance mode stays on: alerts are quiet; rollback.sh ends it, or: $MONITOR maintenance $MONITOR_TARGET end)"
+  exit 1; }
+maint() {   # maint start|end [--dry-run]: never fails the script
+  if [ -z "$MONITOR" ] || [ ! -x "$MONITOR" ]; then echo "(no slumsms-monitor${MONITOR:+ at $MONITOR}: maintenance $1 skipped)"; return 0; fi
+  local extra=()
+  if [ "$1" = start ]; then extra=(--minutes "$MAINT_MINUTES"); if [ -n "$MAINT_REASON" ]; then extra+=(--reason "$MAINT_REASON"); fi; fi
+  timeout 60 "$MONITOR" maintenance "$MONITOR_TARGET" "$@" "${extra[@]}" || echo "WARN: slumsms-monitor maintenance $1 failed (carrying on)"
+}
 now() { date +%s.%N; }
 dur() { awk -v a="$1" -v b="$2" 'BEGIN{printf "%.1f", b-a}'; }
 ledger() { echo "SELECT IFNULL(GROUP_CONCAT(migration_id ORDER BY migration_id),'') FROM mapleroot_integration_migrations;" | sql | tail -1; }
@@ -91,9 +105,13 @@ if [ "$DRY_RUN" = 1 ]; then
   for e in "${UNIT_EDITS[@]}"; do echo "  unit: sed '$e'"; done
   [ -n "$NAV_CACHE_SRC" ] && echo "  nav cache from $NAV_CACHE_SRC"
   echo "  start ($START_CMD), wait for 'is now online', smoke test ${SMOKE_SECONDS}s, receipt $RECEIPT"
+  echo "  maintenance mode on before the stop and off once online, with these public posts:"
+  maint start --dry-run
   exit 0
 fi
 
+step "maintenance mode on + public notice (back in about $MAINT_MINUTES min)"
+maint start
 step "stop"
 T[stop0]=$(now)
 eval "$STOP_CMD"
@@ -162,6 +180,7 @@ J() { journalctl -u "$JOURNAL_UNIT" --since "$START_TS" --no-pager; }
 J | grep -E "SlumsMS v|Starting world|Finished loading world|Listening on port|is now online|automatic population|failed to load" || true
 [ "$online" = 1 ] || { J | tail -40; down "not online after ${ONLINE_TIMEOUT}s"; }
 echo "downtime (stop -> online): $(dur "${T[stop0]}" "${T[up]}") s"
+maint end
 
 step "smoke test (${SMOKE_SECONDS}s)"
 sleep "$SMOKE_SECONDS"

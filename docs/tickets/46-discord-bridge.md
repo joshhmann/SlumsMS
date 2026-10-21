@@ -15,3 +15,12 @@
 
 Friends can see whether the server is up and what's new without opening the game, and the owner controls what is
 bridged.
+
+## Public announcements (branch `public-announce`, 2026-10-20)
+
+The owner's only webhook is the public player channel (set as `NEWS_WEBHOOK_URL`), so it must stay quiet: only
+player-facing posts. New kind `ANNOUNCE` (`ANNOUNCE_WEBHOOK_URL`, else `NEWS_WEBHOOK_URL`, never `WEBHOOK_URL`, which
+becomes the private ops channel). Posts are in Cody's voice (NPC 9200000), webhook username `Cody`, with a shared rate
+cap (6 an hour, 2 min apart; maintenance skips the gap). Commands `announce`, `maintenance start|end` (wired into the
+ticket 44 deploy/rollback templates, soft) and `announce-feed` (world events from ticket 21's
+`-Dslumsms.announceFile` feed, `install.sh --announce`). Details: `deploy/monitor/README.md`, "Public announcements".

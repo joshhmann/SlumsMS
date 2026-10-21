@@ -45,7 +45,8 @@ import static soloMapling.BotLogger.log;
  * <p>
  * The automatic scheduler is <b>off</b> unless the server runs with {@code -Dsolomapling.worldEvents=true} (or a GM
  * says {@code !event auto on}); GM commands work either way. See {@link EventScheduler.Settings} for the rate knobs.
- * {@code -Dsolomapling.worldEvents.rewards=false} turns every reward table off.
+ * {@code -Dsolomapling.worldEvents.rewards=false} turns every reward table off. {@code -Dslumsms.announceFile=PATH}
+ * also writes the public moments to a feed file for Discord ({@link WorldEventFeed}).
  */
 public final class WorldEvents {
 
@@ -254,6 +255,7 @@ public final class WorldEvents {
         active.add(e);
         lastStartAt = now;
         announce(e, WorldEventText.start(t.kind()));
+        WorldEventFeed.started(e, now); // public Discord feed (-Dslumsms.announceFile), off the game thread
         log("[WorldEvents] started " + e.describe(now));
         if (t.kind() != EventTemplate.Kind.TREASURE_HUNT) {
             WorldEventReactions.recruit(e, rng); // treasure: bots only go once the last hint names the map
@@ -484,6 +486,9 @@ public final class WorldEvents {
         if (announce) {
             boolean won = e.winnerName != null && e.template.kind() != EventTemplate.Kind.WANDERING_NPC;
             announce(e, won ? WorldEventText.won(e.template.kind()) : WorldEventText.timedOut(e.template.kind()));
+            if (won) {
+                WorldEventFeed.won(e, e.endedAt);
+            }
         }
         if (e.winnerName != null) {
             WorldEventReactions.megaphoneWon(e, ThreadLocalRandom.current());

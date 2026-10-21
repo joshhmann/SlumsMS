@@ -35,3 +35,8 @@ EXPECT_LOG=("SoloMapling initialized")
 FORBID_LOG=("failed to load" "Starting world 0")
 SMOKE_SECONDS=30
 IN_GAME_CHECK="In game: log in, enter a character, change channel, see bots in Henesys and the FM."
+
+# Public notice (slumsms-monitor maintenance, if installed on the host): "back in about N min" and an optional short
+# player-facing reason. Posted to the public channel as Cody just before the stop; "back up" once online.
+MAINT_MINUTES=5
+MAINT_REASON=""
