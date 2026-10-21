@@ -198,8 +198,16 @@ class NavPlayerLearningTest {
                 List.of("CLIMB", 3, 4, 0, 50, 60, 50, 10, 300, 1, 1),                      // ticket 04: every tier
                 List.of("JUMP", 5, 6, 8, 0, 0, 40, -60, 450, 0, 0, 0b100)))));            // only the 125/105 tier
         assertEquals(2, NavObservedEdges.storedEdges(file, g).size(), "base: the two older ones");
-        BotNavigationGraph fast = new BotNavigationGraph(104040000, 68, new BotMovementProfile(125, 105), List.of(),
+        // 1.5.0 earned speed: a pre-1.5.0 mask carries only to new tiers at least as fast (125/105 -> 140/120 and up).
+        BotNavigationGraph mid = new BotNavigationGraph(104040000, 68, new BotMovementProfile(125, 105), List.of(),
+                Map.of(), Map.of(), Map.of(), java.util.Set.of());
+        assertEquals(2, NavObservedEdges.storedEdges(file, mid).size(), "125/105 plays on the 110/100 tier now");
+        BotNavigationGraph fast = new BotNavigationGraph(104040000, 68, new BotMovementProfile(140, 120), List.of(),
                 Map.of(), Map.of(), Map.of(), java.util.Set.of());
         assertEquals(3, NavObservedEdges.storedEdges(file, fast).size());
+        Files.writeString(file, Json.write(Map.of("version", 68, "tiers", NavObservedEdges.TIERS_FORMAT, "edges", List.of(
+                List.of("JUMP", 5, 6, 8, 0, 0, 40, -60, 450, 0, 0, 0b100)))));            // the 1.5.0 120/110 tier
+        assertEquals(1, NavObservedEdges.storedEdges(file, new BotNavigationGraph(104040000, 68,
+                new BotMovementProfile(120, 110), List.of(), Map.of(), Map.of(), Map.of(), java.util.Set.of())).size());
     }
 }
