@@ -334,6 +334,7 @@ public final class DashboardMapExport {
         out.put("improving", improving);
         out.put("worst", worst);
         out.put("deepTopKeys", deepTop);
+        out.put("players", NavDashboardData.playerLearning(dirs));
         AtomicFiles.writeJson(nav.resolve("learning.json"), out);
     }
 

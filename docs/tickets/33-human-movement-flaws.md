@@ -2,7 +2,8 @@
 
 **Area:** Nav v2
 **Depends on:** 04 (learning on v68)
-**Status:** built on branch `movement-flaws` (not merged); waiting for the owner's in-game look
+**Status:** built on branch `movement-flaws` (844c6db0c); merged into `test-rc1` and carried in every test RC since
+(on the owner's test server with `test-rc4`, 2026-10-21); not on live (1.3.1); waiting for the owner's in-game look
 
 ## Why
 

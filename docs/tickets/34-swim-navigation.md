@@ -2,7 +2,8 @@
 
 **Area:** Nav v2
 **Depends on:** 01 (graph v68), 03 (travel to Aqua Road), 04 (learning)
-**Status:** done 2026-10-20 on branch `swim-nav` (from `test-rc1`), not yet merged; needs an in-game look
+**Status:** done 2026-10-20 on branch `swim-nav` (fb54cdba3); merged into `test-rc2` and carried in every test RC since
+(on the owner's test server with `test-rc4`, 2026-10-21); not on live (1.3.1); needs an in-game look on Aqua Road
 
 ## Today
 

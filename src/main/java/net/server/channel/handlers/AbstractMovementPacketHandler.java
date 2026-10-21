@@ -258,6 +258,7 @@ public abstract class AbstractMovementPacketHandler extends AbstractPacketHandle
                     byte newstate = p.readByte();
                     target.setStance(newstate);
                     p.readShort(); // duration
+                    observeDownJump(target); // SlumsMS: a player's down-jump, so bots can learn it (NavObservedEdges)
                     break;
                 }
                 case 21: {//Causes aran to do weird stuff when attacking o.o
@@ -272,6 +273,14 @@ public abstract class AbstractMovementPacketHandler extends AbstractPacketHandle
                     log.warn("Unhandled Case: {}", command);
                     throw new EmptyMovementException(p);
             }
+        }
+    }
+
+    private static void observeDownJump(AnimatedMapObject target) {
+        if (target instanceof client.Character player && soloMapling.server.MapleRootSolo.isEnabled()
+                && !soloMapling.ArtificialPlayer.BotHelpers.isBot(player)) {
+            soloMapling.server.MapleRootSolo.runHook("movement learning",
+                    () -> soloMapling.ArtificialPlayer.GCMoveSystem.NavObservedEdges.onPlayerDownJump(player));
         }
     }
 

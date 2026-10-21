@@ -198,12 +198,9 @@ public final class NavDashboardData {
             }
         }
         int players = 0;
-        if (graph.movementProfile.totalSpeedStat() >= BotMovementProfile.base().totalSpeedStat()
-                && graph.movementProfile.totalJumpStat() >= BotMovementProfile.base().totalJumpStat()) {
-            for (BotNavigationGraph.Edge e : observedEdges(dirs.observed().resolve(graph.mapId + ".json"), graph)) {
-                penalised += addEdge(edges, counts, seen, e, SOURCE_PLAYERS, learned);
-                players++;
-            }
+        for (BotNavigationGraph.Edge e : observedEdges(dirs.observed().resolve(graph.mapId + ".json"), graph)) {
+            penalised += addEdge(edges, counts, seen, e, SOURCE_PLAYERS, learned);
+            players++;
         }
 
         Map<String, Object> out = new LinkedHashMap<>();
@@ -274,19 +271,9 @@ public final class NavDashboardData {
         return out;
     }
 
+    /** The player-learned moves of the graph's map that apply to it (every stored format, profile-gated). */
     private static List<BotNavigationGraph.Edge> observedEdges(Path file, BotNavigationGraph graph) {
-        List<BotNavigationGraph.Edge> out = new ArrayList<>();
-        if (readJson(file) instanceof Map<?, ?> m && m.get("version") instanceof Number v && v.intValue() == graph.version
-                && m.get("edges") instanceof List<?> list) {
-            for (Object o : list) {
-                if (o instanceof List<?> f && f.size() == 8 && f.stream().allMatch(x -> x instanceof Number)) {
-                    int[] n = f.stream().mapToInt(x -> ((Number) x).intValue()).toArray();
-                    out.add(new BotNavigationGraph.Edge(n[0], n[1], BotNavigationGraph.EdgeType.JUMP,
-                            new java.awt.Point(n[3], n[4]), new java.awt.Point(n[5], n[6]), n[3], n[3], n[2], 0, 0, 0, 0, n[7]));
-                }
-            }
-        }
-        return out;
+        return NavObservedEdges.storedEdges(file, graph);
     }
 
     // ── stuck ───────────────────────────────────────────────────────────────────────────────────
@@ -370,6 +357,56 @@ public final class NavDashboardData {
             }
         } catch (IOException e) {
             // none
+        }
+        return out;
+    }
+
+    /**
+     * What the server made of real players' moves ({@link NavPlayerLearning}'s {@code players/stats.json} next to the
+     * observed folder): totals by outcome since the first start, the last 14 days, the busiest maps, foothold-id
+     * mismatches, moves still being counted, and the most used portal routes. Empty when nothing was recorded yet.
+     */
+    public static Map<String, Object> playerLearning(Dirs dirs) {
+        Path players = dirs.observed().resolveSibling("players");
+        Map<String, Object> out = new LinkedHashMap<>();
+        if (readJson(players.resolve("stats.json")) instanceof Map<?, ?> stats) {
+            for (String k : new String[]{"since", "updated", "moves", "totals", "fhMismatch", "dropped", "sightings"}) {
+                if (stats.get(k) != null) {
+                    out.put(k, stats.get(k));
+                }
+            }
+            if (stats.get("days") instanceof Map<?, ?> days) {
+                List<String> keys = new ArrayList<>();
+                days.keySet().forEach(d -> keys.add(String.valueOf(d)));
+                keys.sort(Comparator.naturalOrder());
+                Map<String, Object> recent = new LinkedHashMap<>();
+                for (String d : keys.subList(Math.max(0, keys.size() - 14), keys.size())) {
+                    recent.put(d, days.get(d));
+                }
+                out.put("days", recent);
+            }
+            if (stats.get("maps") instanceof Map<?, ?> maps) {
+                Map<String, Object> top = new LinkedHashMap<>();
+                maps.entrySet().stream().limit(15).forEach(e -> top.put(String.valueOf(e.getKey()), e.getValue()));
+                out.put("maps", top);
+            }
+        }
+        if (readJson(players.resolve("portals.json")) instanceof Map<?, ?> portals && portals.get("routes") instanceof Map<?, ?> routes) {
+            List<Object[]> rows = new ArrayList<>();
+            routes.forEach((route, byPortal) -> {
+                if (byPortal instanceof Map<?, ?> m) {
+                    m.forEach((name, n) -> {
+                        if (n instanceof Number count) {
+                            rows.add(new Object[]{String.valueOf(route), String.valueOf(name), count.intValue()});
+                        }
+                    });
+                }
+            });
+            rows.sort(Comparator.comparingInt((Object[] r) -> -(Integer) r[2]));
+            List<Object> top = new ArrayList<>();
+            rows.stream().limit(15).forEach(r -> top.add(List.of(r[0], r[1], r[2])));
+            out.put("portalRoutes", routes.size());
+            out.put("portals", top);
         }
         return out;
     }
