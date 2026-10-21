@@ -49,9 +49,19 @@ public class BotShowcaseCommand extends Command {
                     + "   e.g. !botshowcase 4th 10, !botshowcase aran4 buccaneer");
             return;
         }
+        List<String> spawned = new ArrayList<>();
+        spawn(player, request, spawned);
+        player.yellowMessage("Showcase for " + request.minutes() + " min: " + spawned.size() + " bot(s).");
+        for (String line : spawned) {
+            player.yellowMessage("  " + line);
+        }
+    }
+
+    /* Spawns the showcase next to the player; the bots' ids, one report line per bot added to {@code report} (also !qa bk-1). */
+    public static List<Integer> spawn(Character player, Request request, List<String> report) {
         MapleMap map = player.getMap();
         Point pos = player.getPosition();
-        List<String> spawned = new ArrayList<>();
+        List<Integer> ids = new ArrayList<>();
         int slotBase = BotStore.nextDynamicSlots(request.jobs().size());
         int i = 0;
         for (Job job : request.jobs()) {
@@ -77,12 +87,10 @@ public class BotShowcaseCommand extends Command {
             for (BotAttackProfile p : ShowcaseBot.rotationFor(bot)) {
                 skills.add(String.valueOf(p.skillId));
             }
-            spawned.add(job.name() + " " + bot.getName() + " (" + botId + ") " + skills);
+            ids.add(bot.getId());
+            report.add(job.name() + " " + bot.getName() + " (" + botId + ") " + skills);
         }
-        player.yellowMessage("Showcase for " + request.minutes() + " min: " + spawned.size() + " bot(s).");
-        for (String line : spawned) {
-            player.yellowMessage("  " + line);
-        }
+        return ids;
     }
 
     /* "[4th|pirates|<job>...] [minutes]" -> the jobs and minutes, or null when a word is not a job. */

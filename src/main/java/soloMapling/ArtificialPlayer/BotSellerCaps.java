@@ -120,6 +120,11 @@ public final class BotSellerCaps {
             daily.rollTo(today);
             if (daily.mesos + price > cap) {
                 daily.refused++;
+                if (soloMapling.qa.QaLog.on(soloMapling.qa.QaLog.Topic.FM_BUY)) {
+                    soloMapling.qa.QaLog.any(soloMapling.qa.QaLog.Topic.FM_BUY, "cap refused " + price + " for seller "
+                            + daily.seller + " (account " + sellerAccountId + "): " + daily.mesos + " of " + cap
+                            + " paid today, " + daily.refused + " refused");
+                }
                 if (!daily.logged) {
                     daily.logged = true;
                     log.info("Bot buy cap reached for seller {} (account {}): {} of {} mesos paid today; bots stop"
@@ -129,6 +134,11 @@ public final class BotSellerCaps {
             }
             daily.mesos += price;
             daily.dirty = true;
+            if (soloMapling.qa.QaLog.on(soloMapling.qa.QaLog.Topic.FM_BUY)) {
+                soloMapling.qa.QaLog.any(soloMapling.qa.QaLog.Topic.FM_BUY, "cap reserved " + price + " for seller "
+                        + daily.seller + " (account " + sellerAccountId + "): " + daily.mesos + " of " + cap
+                        + " paid today");
+            }
             return true;
         }
     }
@@ -220,6 +230,20 @@ public final class BotSellerCaps {
                     d.accountId, d.mesos, d.refused));
         }
         return lines;
+    }
+
+    /** One seller account's day, for !qa fm-1: paid, cap, refused. */
+    public static String status(int accountId) {
+        Daily daily = dailies.get(accountId);
+        long cap = limits.dailyCap();
+        if (daily == null) {
+            return "account " + accountId + ": 0 of " + cap + " paid today";
+        }
+        synchronized (daily) {
+            daily.rollTo(BotYieldCaps.today());
+            return "account " + accountId + ": " + daily.mesos + " of " + cap + " paid today, " + daily.refused
+                    + " buys refused";
+        }
     }
 
     // ---- test seams ----

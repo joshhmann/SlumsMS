@@ -225,6 +225,7 @@ public class Storage {
     }
 
     public void sendStorage(Client c, int npcId) {
+        qa(c, "storage opened at NPC " + npcId);
         if (c.getPlayer().getLevel() < 15) {
             c.getPlayer().dropMessage(1, "You may only use the storage once you have reached level 15.");
             c.sendPacket(PacketCreator.enableActions());
@@ -254,7 +255,15 @@ public class Storage {
         }
     }
 
+    private void qa(Client c, String what) {
+        if (soloMapling.qa.QaLog.on(soloMapling.qa.QaLog.Topic.STORAGE) && c.getPlayer() != null) { // !qa np-1
+            soloMapling.qa.QaLog.owner(soloMapling.qa.QaLog.Topic.STORAGE, c.getPlayer().getId(), what + " ("
+                    + getItems().size() + " item(s) in storage, " + getMeso() + " mesos)");
+        }
+    }
+
     public void sendStored(Client c, InventoryType type) {
+        qa(c, "stored a " + type + " item");
         lock.lock();
         try {
             c.sendPacket(PacketCreator.storeStorage(slots, type, typeItems.get(type)));
@@ -264,6 +273,7 @@ public class Storage {
     }
 
     public void sendTakenOut(Client c, InventoryType type) {
+        qa(c, "took out a " + type + " item");
         lock.lock();
         try {
             c.sendPacket(PacketCreator.takeOutStorage(slots, type, typeItems.get(type)));

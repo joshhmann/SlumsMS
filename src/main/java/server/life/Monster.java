@@ -990,6 +990,12 @@ public class Monster extends AbstractLoadedLife {
     }
 
     public void setController(Character controller) {
+        if (soloMapling.qa.QaLog.on(soloMapling.qa.QaLog.Topic.MOB_CONTROL) && getMap() != null) { // !qa gh-2
+            soloMapling.qa.QaLog.map(soloMapling.qa.QaLog.Topic.MOB_CONTROL, getMap().getId(), getName() + " ("
+                    + getObjectId() + ") controller " + (controller == null ? "none" : controller.getName()
+                    + (controller.isHidden() ? " [hidden]" : "")
+                    + (controller.getClient() instanceof client.BotClient ? " [bot]" : "")));
+        }
         this.controller = new WeakReference<>(controller);
     }
 

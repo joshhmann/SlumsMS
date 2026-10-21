@@ -1,5 +1,7 @@
 package soloMapling.ArtificialPlayer.BotTypes;
 
+import soloMapling.qa.QaLog;
+
 import client.Character;
 import client.inventory.Item;
 import server.maps.HiredMerchant;
@@ -47,6 +49,8 @@ public class FMBot extends BotSM {
     private long endTime;
 
     private int fmRoom = 1;
+    private int pinnedRoom; // !qa fm-1 (test server): > 0 keeps the bot shopping this one room
+
 
     private ShopKeeper currentTarget;
 
@@ -319,9 +323,30 @@ public class FMBot extends BotSM {
             Boolean purchase = shouldPurchaseItem(itemPrice, itemMarketValue);
             // Ticket 56A: a real player's shop is paid within a price ceiling and a daily cap per seller account
             int sellerAccount = purchase ? realSellerAccount(currentTarget) : -1;
+            boolean qa = QaLog.on(QaLog.Topic.FM_BUY);
+            if (qa && !purchase) {
+                qaBuy("skip", thisItem.getItemId(), itemPrice, itemMarketValue, itemMarketValue == null
+                        || itemMarketValue <= 0 ? "no normal value" : itemPrice > itemMarketValue * 1.2
+                        ? "over 1.2x normal value" : "price roll said no");
+            }
             if (purchase && sellerAccount != -1) {
-                if (sellerAccount == UNKNOWN_SELLER || !BotSellerCaps.withinPriceCeiling(itemPrice, itemMarketValue)
-                        || !BotSellerCaps.tryReserve(sellerAccount, currentTarget.getOwner(), itemPrice)) {
+                if (sellerAccount == UNKNOWN_SELLER) {
+                    if (qa) {
+                        qaBuy("skip", thisItem.getItemId(), itemPrice, itemMarketValue, "seller account unknown");
+                    }
+                    continue;
+                }
+                if (!BotSellerCaps.withinPriceCeiling(itemPrice, itemMarketValue)) {
+                    if (qa) {
+                        qaBuy("skip", thisItem.getItemId(), itemPrice, itemMarketValue,
+                                "above the price ceiling for a player's shop");
+                    }
+                    continue;
+                }
+                if (!BotSellerCaps.tryReserve(sellerAccount, currentTarget.getOwner(), itemPrice)) {
+                    if (qa) {
+                        qaBuy("skip", thisItem.getItemId(), itemPrice, itemMarketValue, "seller's daily cap reached");
+                    }
                     continue;
                 }
             }
@@ -336,12 +361,23 @@ public class FMBot extends BotSM {
                 } else if (currentTarget instanceof PlayerShopAdapter) {
                     currentTarget.botBuyItemPlayerShop(getChr(), pItem, itemIndex, (short) 1);
                 }
-                if (sellerAccount >= 0 && pItem.getBundles() >= bundlesBefore) {
+                boolean bought = pItem.getBundles() < bundlesBefore;
+                if (sellerAccount >= 0 && !bought) {
                     BotSellerCaps.release(sellerAccount, itemPrice);   // the purchase failed: nothing was paid
+                }
+                if (qa) {
+                    qaBuy(bought ? "BUY" : "buy failed", thisItem.getItemId(), itemPrice, itemMarketValue,
+                            sellerAccount >= 0 ? "player shop, account " + sellerAccount : "bot shop");
                 }
                 break;
             }
         }
+    }
+
+    private void qaBuy(String what, int itemId, int price, Integer value, String why) {
+        QaLog.map(QaLog.Topic.FM_BUY, getChr().getMapId(), getChr().getName() + " " + what + " " + itemId + " @ "
+                + price + " (normal " + value + ") in " + (currentTarget == null ? "?" : currentTarget.getOwner())
+                + "'s shop: " + why);
     }
 
     private static final int UNKNOWN_SELLER = -2;
@@ -405,7 +441,17 @@ public class FMBot extends BotSM {
         return true;
     }
 
+    /** !qa fm-1 (test server): shop only this FM room (1-12) from now on. */
+    public void pinRoom(int room) {
+        pinnedRoom = room;
+        fmRoom = room;
+    }
+
     private void evaluateFMRoom() {
+        if (pinnedRoom > 0) {
+            fmRoom = pinnedRoom;
+            return;
+        }
         if (getChr().getMapId() == FM_ENTRANCE) {
             fmRoom = generateRandomNumber(1, 12);
             return;
@@ -414,6 +460,10 @@ public class FMBot extends BotSM {
     }
 
     private void incrementFMRoom() {
+        if (pinnedRoom > 0) {
+            fmRoom = pinnedRoom;
+            return;
+        }
         fmRoom++;
         if (fmRoom >= 13) {
             fmRoom = 1;

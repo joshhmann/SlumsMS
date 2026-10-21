@@ -287,6 +287,11 @@ public class FredrickProcessor {
                     items = ItemFactory.MERCHANT.loadItems(chr.getId(), false);
 
                     byte response = canRetrieveFromFredrick(chr, items);
+                    if (soloMapling.qa.QaLog.on(soloMapling.qa.QaLog.Topic.MERCHANT)) { // !qa np-2, np-3
+                        soloMapling.qa.QaLog.owner(soloMapling.qa.QaLog.Topic.MERCHANT, chr.getId(), "Fredrick retrieve: "
+                                + items.size() + " item(s) stored, merchant mesos " + chr.getMerchantMeso()
+                                + ", response " + response + (response == 0 ? " (handing them over)" : " (refused)"));
+                    }
                     if (response != 0) {
                         chr.sendPacket(PacketCreator.fredrickMessage(response));
                         return;
