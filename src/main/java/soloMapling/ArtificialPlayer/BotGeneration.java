@@ -162,6 +162,7 @@ public class BotGeneration {
             BotRoster.recordLogin(botId, System.currentTimeMillis(), map.getId(), placeMap.getId(), placePos);
         }
         addBotToServer(bot, client);
+        BotBuddies.onBotLogin(bot); // ticket 49: its player buddies see it online; requests made while away are answered
         placeBotOnMap(bot, placePos, placeMap);
         placedBots.incrementAndGet();
         if (adopted) {
@@ -292,6 +293,7 @@ public class BotGeneration {
         BotStore.saveThenSettle(fakechar);
         BotRoster.recordSessions(java.util.List.of(fakechar), System.currentTimeMillis(), true);
         BotConversation.endAllOf(fakechar.getId()); // a bot leaving mid-chat still writes down what it heard
+        BotBuddies.onBotLogout(fakechar); // ticket 49: its player buddies see it go offline
         if (fakechar.getMap() != null) fakechar.getMap().removePlayer(fakechar);
         removeFromChannels(fakechar);
         world().getPlayerStorage().removePlayer(fakechar.getId());

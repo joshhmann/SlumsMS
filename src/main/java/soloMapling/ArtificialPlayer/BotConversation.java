@@ -93,6 +93,25 @@ public final class BotConversation {
         return start(bot, player, line, null, null);
     }
 
+    /**
+     * As {@link #talk(BotSM, Character, String)}, answered through {@code deliver} instead of map chat: a bot buddy
+     * reading buddy chat (ticket 49). With no LLM the scripted tier still answers.
+     */
+    public static boolean talk(BotSM bot, Character player, String line, Consumer<String> deliver) {
+        return start(bot, player, line, null, deliver);
+    }
+
+    /** How many lines the player has said in their current chat with this bot (0 when they are not talking). */
+    public static int playerLines(int botCharId, int playerId) {
+        Session session = sessions.get(new Key(botCharId, playerId));
+        if (session == null || System.currentTimeMillis() - session.lastAt > IDLE_MS) {
+            return 0;
+        }
+        synchronized (session.history) {
+            return (int) session.history.stream().filter(t -> t.role() == BotBrain.Role.USER).count();
+        }
+    }
+
     private static boolean start(BotSM bot, Character player, String line, Runnable fallback, Consumer<String> deliver) {
         if (bot == null || bot.getChr() == null || player == null) {
             return false;
@@ -164,6 +183,9 @@ public final class BotConversation {
         }
         if (!transcript.isEmpty()) {
             BotMemory.writeConversationNotes(session.bot.getChr(), session.player, transcript);
+            // Ticket 49: after a real chat with a player it already knew, a bot may (rarely) ask to be buddies.
+            BotBuddies.afterChat(session.bot.getChr(), session.player,
+                    (int) transcript.stream().filter(t -> t.role() == BotBrain.Role.USER).count());
         }
     }
 

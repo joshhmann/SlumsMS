@@ -125,4 +125,15 @@ class BotChatActionsTest {
             MerchantStock.useItemNamesForTest(null);
         }
     }
+
+    @Test
+    void whereAreYouIsAnsweredWithTheRealMap() { // ticket 49
+        BotChatActions.Result at = BotChatActions.whereAt("Ant Tunnel I");
+        assertEquals(BotChatActions.Outcome.WHERE_AT, at.outcome());
+        assertTrue(at.fact().contains("Ant Tunnel I"), at.fact());
+        assertTrue(at.scripted().contains("ant tunnel i"), at.scripted());
+        assertTrue(at.fits("im at ant tunnel rn, come by"));
+        assertTrue(!at.fits("somewhere lol"), "a reply must name the map");
+        assertEquals(BotChatActions.Outcome.NONE, BotChatActions.whereAt((String) null).outcome());
+    }
 }

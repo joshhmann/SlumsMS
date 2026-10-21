@@ -37,6 +37,7 @@ public final class BotChatActions {
         FOLLOW_ACCEPTED, FOLLOW_DECLINED,
         TRADE_DECLINED, TRADE_SHOP,
         WHERE_TRAIN, WHERE_TRAIN_UNKNOWN,
+        WHERE_AT,
         NONE
     }
 
@@ -66,7 +67,7 @@ public final class BotChatActions {
                 case PARTY_ALREADY -> text.contains("party") || text.contains(" pt") || no;
                 case TRADE_SHOP -> mustMention != null ? text.contains(mustMention)
                         : text.contains("shop") || text.contains("store");
-                case WHERE_TRAIN -> mustMention == null || text.contains(mustMention);
+                case WHERE_TRAIN, WHERE_AT -> mustMention == null || text.contains(mustMention);
                 case WHERE_TRAIN_UNKNOWN, NONE -> true;
             };
         }
@@ -95,6 +96,7 @@ public final class BotChatActions {
             case FOLLOW, COME_WITH_ME -> party(bot, chr, player, true);
             case TRADE -> trade(bot);
             case WHERE_TRAIN -> whereTrain(bot, chr);
+            case WHERE_AT -> whereAt(chr);
             case NONE -> Result.NONE;
         };
         if (result.outcome() != Outcome.NONE) {
@@ -205,6 +207,28 @@ public final class BotChatActions {
         }
         return new Result(Outcome.WHERE_TRAIN, "Tell them you train at " + map + ".",
                 String.format(ScriptedReplies.pick(ScriptedReplies.TRAIN_AT), map.toLowerCase(Locale.ROOT)),
+                keyWord(map));
+    }
+
+    // ── where are you / meet up (ticket 49) ──
+
+    /** Where the bot really is: the map it stands on, named as players name it, with an open invite to come by. */
+    static Result whereAt(Character chr) {
+        String map;
+        try {
+            map = mapName(chr.getMapId());
+        } catch (RuntimeException e) {
+            map = null;
+        }
+        return whereAt(map);
+    }
+
+    static Result whereAt(String map) {
+        if (map == null) {
+            return Result.NONE;
+        }
+        return new Result(Outcome.WHERE_AT, "Tell them you are at " + map + " right now; they can come by if they want.",
+                String.format(ScriptedReplies.pick(ScriptedReplies.WHERE_AT), map.toLowerCase(Locale.ROOT)),
                 keyWord(map));
     }
 

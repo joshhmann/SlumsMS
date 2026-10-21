@@ -138,16 +138,34 @@ public class BuddyList {
         }
     }
 
+    static final String SELECT_BUDDIES = "SELECT b.buddyid, b.pending, b.group, c.name as buddyname FROM buddies as b"
+            + " LEFT JOIN characters as c ON c.id = b.buddyid WHERE b.characterid = ?";
+
+    /** A buddy's name: the character's, else a bot's from the bot store (ticket 49), else null. */
+    static String buddyName(int buddyId, String characterName) {
+        if (characterName != null) {
+            return characterName;
+        }
+        return soloMapling.ArtificialPlayer.BotHelpers.isArtificial(buddyId)
+                ? soloMapling.ArtificialPlayer.BotBuddies.nameOf(buddyId) : null;
+    }
+
     public void loadFromDb(int characterId) {
         try (Connection con = DatabaseConnection.getConnection()) {
-            try (PreparedStatement ps = con.prepareStatement("SELECT b.buddyid, b.pending, b.group, c.name as buddyname FROM buddies as b, characters as c WHERE c.id = b.buddyid AND b.characterid = ?")) {
+            // LEFT JOIN: a bot buddy has no characters row; its name comes from the bot store (ticket 49).
+            try (PreparedStatement ps = con.prepareStatement(SELECT_BUDDIES)) {
                 ps.setInt(1, characterId);
                 try (ResultSet rs = ps.executeQuery()) {
                     while (rs.next()) {
+                        int buddyId = rs.getInt("buddyid");
+                        String name = buddyName(buddyId, rs.getString("buddyname"));
+                        if (name == null) {
+                            continue; // a deleted character, or a bot no longer in the store: dropped as before
+                        }
                         if (rs.getInt("pending") == 1) {
-                            pendingRequests.push(new CharacterNameAndId(rs.getInt("buddyid"), rs.getString("buddyname")));
+                            pendingRequests.push(new CharacterNameAndId(buddyId, name));
                         } else {
-                            put(new BuddylistEntry(rs.getString("buddyname"), rs.getString("group"), rs.getInt("buddyid"), (byte) -1, true));
+                            put(new BuddylistEntry(name, rs.getString("group"), buddyId, (byte) -1, true));
                         }
                     }
                 }

@@ -28,6 +28,8 @@ import client.BuddyList.BuddyOperation;
 import net.AbstractPacketHandler;
 import net.packet.InPacket;
 import net.server.world.World;
+import soloMapling.ArtificialPlayer.BotBuddies;
+import soloMapling.ArtificialPlayer.BotHelpers;
 import tools.DatabaseConnection;
 import tools.PacketCreator;
 
@@ -76,6 +78,15 @@ public class BuddylistModifyHandler extends AbstractPacketHandler {
         return ret;
     }
 
+    private boolean realCharacterNamed(String name) {
+        try {
+            return getCharacterIdAndNameFromDatabase(name) != null;
+        } catch (SQLException e) {
+            e.printStackTrace();
+            return false;
+        }
+    }
+
     @Override
     public void handlePacket(InPacket p, Client c) {
         int mode = p.readByte();
@@ -93,6 +104,17 @@ public class BuddylistModifyHandler extends AbstractPacketHandler {
             } else if (buddylist.isFull() && ble == null) {
                 c.sendPacket(PacketCreator.serverNotice(1, "Your buddylist is already full"));
             } else if (ble == null) {
+                // Ticket 49: a bot, online or not, is asked through its own rules instead of the stock request.
+                BotBuddies.Target bot = BotBuddies.resolve(player, addName);
+                if (bot != null && c.getWorldServer().find(addName) == -1 && realCharacterNamed(addName)) {
+                    bot = null; // an offline real character holds the name (older than the bot-name reservation)
+                }
+                if (bot != null) {
+                    int displayChannel = BotBuddies.playerRequests(player, bot);
+                    buddylist.put(new BuddylistEntry(bot.name(), group, bot.charId(), displayChannel, true));
+                    c.sendPacket(PacketCreator.updateBuddylist(buddylist.getBuddies()));
+                    return;
+                }
                 try {
                     World world = c.getWorldServer();
                     CharacterIdNameBuddyCapacity charWithId;
@@ -186,10 +208,16 @@ public class BuddylistModifyHandler extends AbstractPacketHandler {
                     } else {
                         otherName = otherChar.getName();
                     }
+                    if (otherName == null && BotHelpers.isArtificial(otherCid)) {
+                        otherName = BotBuddies.nameOf(otherCid); // a bot asked (ticket 49): it has no characters row
+                    }
                     if (otherName != null) {
                         buddylist.put(new BuddylistEntry(otherName, "Default Group", otherCid, channel, true));
                         c.sendPacket(PacketCreator.updateBuddylist(buddylist.getBuddies()));
                         notifyRemoteChannel(c, channel, otherCid, ADDED);
+                        if (BotHelpers.isArtificial(otherCid)) {
+                            BotBuddies.playerAccepted(player, otherCid);
+                        }
                     }
                 } catch (SQLException e) {
                     e.printStackTrace();

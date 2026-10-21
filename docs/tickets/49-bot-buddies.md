@@ -4,7 +4,18 @@
 **Kind:** BUILD (plus a small FIX for the stuck "pending" entry)
 **Effort:** M
 **Depends on:** 36/37 (chat brain), 26 (recognition), the bot-name reservation from SoloMapling 4fc53172
-**Status:** open
+**Status:** built on branch `bot-buddies` (off `test-1.4.1-rc1`), not deployed. No migration: the bot's side of a pair
+is a `buddies` row with `characterid` = the bot (`pending` 0 buddies, 1 asked, 2 bookkeeping with the kind and day in
+`group`, e.g. `sent:20382`). Code: `BotBuddies`; hooks in `BuddyList.loadFromDb` (LEFT JOIN + bot-store name),
+`BuddylistModifyHandler` (add by bot name, accept a bot), `Character.deleteBuddy`, `MultiChatHandler` (buddy chat),
+`BotGeneration` (bot login/logout notify), `BotConversation.end` (a bot may ask after a good chat), and a `WHERE_AT`
+chat intent ("where r u", "meet up?") answered with the bot's real map. GM: `!roster buddies <bot|player>`.
+Defaults (`-Dsolomapling.buddy.*`): accept 20% for a stranger, +45% known (own note), +25% talking now (3+ lines),
++30% same party, times the social trait, max 95%, never when wary or past 20 player buddies; a turned-down player is
+ignored for a day; answer after 10-180 s. A bot asks only a player it knows after a 3+ line chat: 15% (times social),
+once per pair plus one retry after 7 days, at most 1 bot request per player per day and 6 per hour world-wide, never
+after a decline or delete, never to a hidden GM. Not done: debouncing rapid relogs (each bot notifies at most ~20
+players), a `BotCommitments` meet-up clause (ticket 51).
 
 Research: [docs/real-bots/social-systems-research.md](../real-bots/social-systems-research.md).
 
