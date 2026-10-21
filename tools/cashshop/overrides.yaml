@@ -1,0 +1,72 @@
+# Human-edited Cash Shop catalogue overrides. build_catalog.py applies these LAST, so they
+# always win over the stock data and the generic rules. Workflow: tools/cashshop/README.md.
+
+# Owner switches for whole groups of merchandise.
+flags:
+  sell_mesobags: false             # 5200000-5200002 turn NX into mesos -- economy call
+  sell_hyper_teleport_rock: false  # 5590001 removes the free world-map teleport cooldown
+
+# Merchandise the client window has NO category for yet. `target` is the existing tab/category
+# the rows sit in until the DLL's kCats gains `wanted`; then point target at the new pair.
+pending_categories:
+  chair:     {target: "5/2", wanted: "Chair"}           # 301xxxx Set-up chairs
+  mount:     {target: "5/6", wanted: "Mount"}           # 190xxxx mounts + 191xxxx saddles
+  accessory: {target: "2/9", wanted: "Pendant/Belt/Medal"}  # 112-115xxxx
+
+# Item type (itemId // 10000) -> "tab/cat" or a pending group, replacing the built-in map in
+# catalog_rules.CATEGORY_BY_PREFIX for that type. Example: put star skins under Effect.
+categories: {}
+#  502: "5/5"
+
+prices:
+  round_to: 100        # band prices are rounded to this
+  minimum: 500         # and never below it
+  min_samples: 3       # stock rows a type needs before its own median is used
+  default: 3000        # when neither the type nor its category has stock prices
+  # Types with no stock price to take a median from.
+  band_defaults:
+    301: 3000          # chairs
+    190: 6000          # mounts
+    191: 3000          # saddles
+    112: 3000          # pendants
+    113: 3000          # belts
+    114: 3000          # medals
+    115: 3000          # shoulders
+
+# Price multipliers for band-priced rows; give an item `tier: premium` below to use one.
+tiers:
+  premium: 1.5
+  budget: 0.7
+
+# Shortlists whose ids get the `featured` flag (first column = itemId; a column saying
+# "new" marks the id `new` instead). Featured rows lead their category, then New, then the rest.
+featured_files:
+  - featured.tsv       # the curated shortlist (id, name, category, suggested_price)
+# true: shortlisted rows that are not stock take the shortlist's suggested_price instead of
+# their band price (an `items` price still wins). Off: the shortlist only sets the flag.
+use_shortlist_prices: false
+
+# Per-id / per-range overrides. Keys: price, count, period, name, category ("tab/cat" or a
+# pending group), gender, hide (true hides; false forces a rule-excluded item in), featured,
+# new, tier, reason. Ranges apply first, then single ids.
+items:
+  # ---- Pins that keep the live (pre-tool) price where stock has several on-sale serials ----
+  - {id: 1072336, price: 2100, reason: "live price (stock lists 2300 and 2100)"}
+  - id: [5211014, 5211015, 5211016, 5211017, 5211018, 5211039, 5211042, 5211045]
+    price: 8500
+    period: 10
+    reason: "Everyday 2x EXP cards: the 10-day stock serial"
+  - id: [5360001, 5360002, 5360003, 5360004, 5360005, 5360006, 5360007, 5360008]
+    price: 6000
+    period: 10
+    reason: "2x drop cards: the 10-day stock serial"
+  - {id: 5370000, price: 1000, reason: "Chalkboard: the 1000-NX stock serial"}
+  - {id: [5390000, 5390001, 5390002], price: 7500, count: 5, reason: "Avatar megaphones: the x5 stock bundle"}
+  - {id: 5240012, price: 1000, count: 1, reason: "single pet food, as live"}
+  - {id: 5220000, price: 8000, count: 11, reason: "Gachapon Ticket x11, as live"}
+  # ---- Service rows (CashShopServices): no String.wz name, so the shop name is given here ----
+  - {id: 5430000, name: "Extra Character Slot Coupon"}
+  - {id: 9111000, name: "Equip Slots +8"}
+  - {id: 9112000, name: "Use Slots +8"}
+  - {id: 9113000, name: "Set-up Slots +8"}
+  - {id: 9114000, name: "Etc Slots +8"}
