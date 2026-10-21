@@ -203,7 +203,8 @@ public final class ScrollHandler extends AbstractPacketHandler {
         }
     }
 
-    private static boolean canScroll(int scrollid, int itemid) {
+    /** Whether a scroll's category matches the equip's. Public for the bots' scrolling (ticket 11): same rules. */
+    public static boolean canScroll(int scrollid, int itemid) {
         int sid = scrollid / 100;
 
         switch (sid) {

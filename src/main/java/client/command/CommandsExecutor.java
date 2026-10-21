@@ -361,6 +361,7 @@ public class CommandsExecutor {
             addCommand("roster", 4, client.command.commands.gm4.RosterCommand.class);
             addCommand("brain", 4, client.command.commands.gm4.BrainCommand.class);
             addCommand("botyield", 4, client.command.commands.gm4.BotYieldCommand.class);
+            addCommand("botscroll", 4, client.command.commands.gm4.BotScrollCommand.class);   // ticket 11
             addCommand(new String[]{"event", "worldevent"}, 4, client.command.commands.gm4.WorldEventCommand.class);
         }
         addCommand("spawn", 3, SpawnCommand.class);

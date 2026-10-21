@@ -21,6 +21,9 @@ import soloMapling.itemPool.ItemUtilities;
 
 import client.inventory.InventoryType;
 import soloMapling.ArtificialPlayer.BotHoldings;
+import soloMapling.ArtificialPlayer.BotScrollSystem.BotConsignment;
+import soloMapling.ArtificialPlayer.BotScrollSystem.ScrollRules;
+import soloMapling.ArtificialPlayer.BotScrollSystem.ScrollWants;
 
 import java.awt.*;
 import java.util.ArrayDeque;
@@ -500,6 +503,16 @@ public class FMBot extends BotSM {
             }
             Item thisItem = pItem.getItem();
             int itemPrice = pItem.getPrice(); // item's FM price
+            if (BotConsignment.isConsigned(pItem)) {
+                continue;   // ticket 11: a bot's own listing is for players; the allowance must not pay a bot
+            }
+            if (ScrollRules.isPlainScroll(thisItem.getItemId())
+                    && ScrollWants.wanted(thisItem.getItemId(), itemPrice)) {
+                if (buyWantedScroll(pItem, itemIndex, itemPrice)) {
+                    break;   // one purchase per visit, as below
+                }
+                continue;
+            }
             Integer itemMarketValue = ItemUtilities.getItemMarketValue(thisItem);
             Boolean purchase = shouldPurchaseItem(itemPrice, itemMarketValue);
             // Ticket 56A: a real player's shop is paid within a price ceiling and a daily cap per seller account
@@ -573,6 +586,49 @@ public class FMBot extends BotSM {
                 break;
             }
         }
+    }
+
+    /**
+     * Ticket 11: a grinding bot posted a want for this scroll ({@link ScrollWants}). The bot that wants it pays the
+     * price from its own mesos (never this shopper's allowance); a real player's shop is still bound by 56A's price
+     * ceiling and per-seller cap. True when it was bought and handed over.
+     */
+    private boolean buyWantedScroll(PlayerShopItem pItem, int itemIndex, int itemPrice) {
+        int scrollId = pItem.getItem().getItemId();
+        Integer value = ItemUtilities.getItemMarketValue(pItem.getItem());
+        int sellerAccount = realSellerAccount(currentTarget);
+        boolean qa = QaLog.on(QaLog.Topic.FM_BUY);
+        if (sellerAccount == UNKNOWN_SELLER) {
+            return false;
+        }
+        boolean fromPlayer = sellerAccount >= 0;
+        if (fromPlayer && (!BotSellerCaps.withinPriceCeiling(itemPrice, value)
+                || !BotSellerCaps.tryReserve(sellerAccount, currentTarget.getOwner(), itemPrice))) {
+            if (qa) {
+                qaBuy("skip wanted", scrollId, itemPrice, value, "56A: over the price ceiling or the seller's cap");
+            }
+            return false;
+        }
+        ShopKeeper shop = currentTarget;
+        String forBot = ScrollWants.fill(getChr(), scrollId, itemPrice, fromPlayer, () -> {
+            short before = pItem.getBundles();
+            if (shop instanceof HiredMerchantAdapter) {
+                shop.botBuyItem(getChr(), pItem, (short) 1);
+            } else if (shop instanceof PlayerShopAdapter) {
+                shop.botBuyItemPlayerShop(getChr(), pItem, itemIndex, (short) 1);
+            }
+            return pItem.getBundles() < before;
+        });
+        if (forBot == null && fromPlayer) {
+            BotSellerCaps.release(sellerAccount, itemPrice);
+        }
+        if (qa) {
+            qaBuy(forBot != null ? "BUY for " + forBot : "skip wanted", scrollId, itemPrice, value,
+                    forBot != null ? "scroll wanted by " + forBot + ", paid from its own mesos"
+                            + (fromPlayer ? ", player shop (" + BotSellerCaps.status(sellerAccount) + ")" : "")
+                            : "the wanting bot could not take it now");
+        }
+        return forBot != null;
     }
 
     /**

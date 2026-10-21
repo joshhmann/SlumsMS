@@ -130,4 +130,16 @@ class FakeQaWorld implements QaWorld {
         calls.add("idle safety " + on);
         return was;
     }
+
+    final List<String> scrollSteps = new ArrayList<>();
+
+    @Override public int giveBotItem(int botId, int itemId, int quantity) {
+        calls.add("bot " + botId + " give " + itemId + " x" + quantity);
+        return quantity;
+    }
+
+    @Override public List<String> botScrollStep(int botId, String appetite) {
+        calls.add("bot " + botId + " scroll " + appetite);
+        return scrollSteps.isEmpty() ? List.of("bot has nothing it would scroll") : List.of(scrollSteps.remove(0));
+    }
 }

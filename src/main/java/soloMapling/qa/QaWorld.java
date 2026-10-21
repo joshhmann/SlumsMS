@@ -101,4 +101,13 @@ public interface QaWorld {
 
     /** Idle safety (bots step out of mob packs before idling) on or off; the previous value. */
     boolean setIdleSafety(boolean on);
+
+    /** Gives a bot an item through its holdings (ticket 11, sc-2); how many it got. */
+    int giveBotItem(int botId, int itemId, int quantity);
+
+    /**
+     * The bot makes one real scroll roll on its own gear with the given appetite (careful | normal | gambler; null =
+     * its own). The log lines of the roll; a line saying so when it has nothing it would scroll.
+     */
+    List<String> botScrollStep(int botId, String appetite);
 }

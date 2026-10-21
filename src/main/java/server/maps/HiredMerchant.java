@@ -309,6 +309,10 @@ public class HiredMerchant extends AbstractMapObject {
                     if (pItem.getBundles() < 1) {
                         pItem.setDoesExist(false);
                     }
+                    if (!isPersistent()) {
+                        // Ticket 11: an equip a bot put on sale in a bot shop - the bot is paid what the player paid
+                        soloMapling.ArtificialPlayer.BotScrollSystem.BotConsignment.onSold(pItem, price);
+                    }
 
                     if (YamlConfig.config.server.USE_ANNOUNCE_SHOPITEMSOLD) {   // idea thanks to Vcoc
                         announceItemSold(newItem, price, getQuantityLeft(pItem.getItem().getItemId()));
@@ -561,6 +565,21 @@ public class HiredMerchant extends AbstractMapObject {
         }
 
         return false;
+    }
+
+    /**
+     * Ticket 11: takes one listed bundle off sale under the shop's lock (a bot's unsold consignment going back to
+     * it), so a buyer in the same moment cannot also get it. False when it was already sold or gone.
+     */
+    public boolean withdrawListing(PlayerShopItem item) {
+        synchronized (items) {
+            if (!items.contains(item) || !item.isExist() || item.getBundles() < 1) {
+                return false;
+            }
+            item.setBundles((short) 0);
+            item.setDoesExist(false);
+            return true;
+        }
     }
 
     public boolean addItem(PlayerShopItem item) {

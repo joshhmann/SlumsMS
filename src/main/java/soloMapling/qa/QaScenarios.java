@@ -56,6 +56,8 @@ public final class QaScenarios {
     public static final int NEW_PET_EQUIP = 1802085;
     public static final int ONE_HANDED_SWORD = 1302000;
     public static final int SWORD_ATT_SCROLL = 2043000;
+    public static final int SWORD_ATT_60 = 2043001, SWORD_ATT_10 = 2043002, SWORD_ATT_DARK_70 = 2043004;
+    public static final int WHITE_SCROLL = 2340000;
     public static final long BUY_CAP = 5_000_000;
 
     /* Scrolls with a normal value in the bots' price list: fm-1 stocks the shop from these until it passes the cap. */
@@ -67,7 +69,7 @@ public final class QaScenarios {
 
     public static List<QaScenario> all() {
         return List.of(new Bk1Showcase(), new Gd1Guild(), new Fm1BuyerCap(), new Ld1Ladders(), new Gh1Hide(),
-                new Np1Rosen(), new Np2Fredrick(), new Np3Merchant(), new Cs2PetEquip(), new Gn2Scrolling(),
+                new Np1Rosen(), new Np2Fredrick(), new Np3Merchant(), new Cs2PetEquip(), new Gn2Scrolling(), new Sc2BotScrolling(),
                 new Wd1ChannelBars(), new Wd2DreamyPortal(), new Id1IdleSafety(),
                 new Mv1AttackSlide(), new Pe1MapEntry());
     }
@@ -466,6 +468,94 @@ public final class QaScenarios {
             ctx.giveBack(ONE_HANDED_SWORD, 1);
             ctx.giveBack(SWORD_ATT_SCROLL, n);
             return List.of("Use a " + SWORD_ATT_SCROLL + " on the sword: ATT goes up and one slot is used.");
+        }
+    }
+
+    // ---- sc-2 ----
+
+    /**
+     * sc-2: a bot next to the GM scrolls its own one-handed sword for real (ticket 11): 60%, 10% and one dark 70%
+     * scroll and a white scroll in its bag; one roll every few seconds by its appetite until the slots or scrolls
+     * run out. Every roll is logged (scroll, odds, white scroll, result, stats before and after); the GM sees the
+     * scroll effect over the bot. {@code !qa do roll} rolls once more now.
+     */
+    static final class Sc2BotScrolling implements QaScenario {
+        static final int[][] KIT = {{SWORD_ATT_60, 4}, {SWORD_ATT_10, 2}, {SWORD_ATT_DARK_70, 1}, {WHITE_SCROLL, 1}};
+
+        private volatile int botId;
+        private volatile String appetite;
+        private volatile boolean done;
+
+        public String id() { return "sc-2"; }
+        public String title() { return "Bot scrolling: a bot scrolls its own sword live, every roll and its stats logged"; }
+        public String usage() { return "[careful|normal|gambler] [equip id], default its own appetite, sword 1302000"; }
+        public Set<QaLog.Topic> topics() { return EnumSet.of(SCROLL); }
+        public int tickSeconds() { return 6; }
+        public int minutes(String[] args) { return 5; }
+
+        public Set<Integer> watchedMaps(Character gm, String[] args) {
+            return gm == null ? Set.of() : Set.of(gm.getMapId());
+        }
+
+        public List<String> stage(QaContext ctx) {
+            QaWorld w = ctx.world();
+            Character gm = ctx.gm();
+            appetite = null;
+            int equip = ONE_HANDED_SWORD;
+            for (String a : ctx.args()) {
+                if (a.matches("\\d{7}")) {
+                    equip = Integer.parseInt(a);
+                } else if (a.matches("(?i)careful|normal|gambler")) {
+                    appetite = a.toLowerCase(java.util.Locale.ROOT);
+                }
+            }
+            done = false;
+            List<Integer> bots = w.spawnIdleBots(gm, gm.getPosition(), 1);
+            if (bots.isEmpty()) {
+                throw new QaRefusal("Could not spawn a bot here.");
+            }
+            botId = bots.get(0);
+            ctx.despawnAtStop(bots, "scrolling bot (its gear and scrolls leave with it)");
+            if (w.giveBotItem(botId, equip, 1) < 1) {
+                throw new QaRefusal("The bot could not take equip " + equip + ".");
+            }
+            ctx.log("bot " + botId + " holds " + w.itemName(equip) + " (" + equip + ")");
+            for (int[] k : KIT) {
+                ctx.log("bot " + botId + " holds " + w.giveBotItem(botId, k[0], k[1]) + " x " + w.itemName(k[0])
+                        + " (" + k[0] + ")");
+            }
+            ctx.log("appetite: " + (appetite == null ? "the bot's own" : appetite));
+            return List.of("A bot stands next to you with a sword, 4x 60%, 2x 10%, 1x dark 70% and a white scroll.",
+                    "Every ~6 s it scrolls the sword with the server's real roll: watch the scroll effect over it.",
+                    "Each roll is logged: scroll, odds, white scroll, result, stats before and after. A boom destroys"
+                            + " the sword. !qa do roll rolls once now; !qa log shows the rolls.");
+        }
+
+        public void tick(QaContext ctx) {
+            if (done || botId == 0) {
+                return;
+            }
+            step(ctx);
+        }
+
+        public List<String> action(QaContext ctx, String name, String[] args) {
+            if (!"roll".equalsIgnoreCase(name)) {
+                throw new QaRefusal("sc-2 has one step: roll.");
+            }
+            return step(ctx);
+        }
+
+        private List<String> step(QaContext ctx) {
+            List<String> lines = ctx.world().botScrollStep(botId, appetite);
+            for (String line : lines) {
+                if (line.contains("has nothing it would scroll") || line.contains("is gone")) {
+                    done = true;
+                    ctx.run().note("DONE", line);
+                } else {
+                    ctx.run().note("ROLL", line);
+                }
+            }
+            return lines;
         }
     }
 

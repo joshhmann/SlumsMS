@@ -13,6 +13,7 @@ import net.server.world.World;
 import soloMapling.ArtificialPlayer.BotAttackSystem.BotAttackDriver;
 import soloMapling.ArtificialPlayer.BotAttackSystem.BotBuffDriver;
 import soloMapling.ArtificialPlayer.BotGearSystem.BotGear;
+import soloMapling.ArtificialPlayer.BotScrollSystem.BotScrolling;
 import soloMapling.ArtificialPlayer.BotHoldings;
 import soloMapling.ArtificialPlayer.BotYieldCaps;
 import soloMapling.ArtificialPlayer.BotOptionMenu;
@@ -589,6 +590,7 @@ public class TrainingBot extends BotSM {
             return;
         }
         pollResupply();
+        BotScrolling.townTick(getChr());   // ticket 11: scroll its own gear while it stands in town
         if (now() < phaseDeadlineMs) {
             return;
         }
@@ -721,6 +723,7 @@ public class TrainingBot extends BotSM {
         if (pollResupply()) {
             BotWanderSystem.start(getChr()); // bought: browse the rest of the visit
         }
+        BotScrolling.townTick(getChr());   // ticket 11: buy scrolls at this store, scroll its gear while it browses
         if (now() < phaseDeadlineMs) {
             return;
         }

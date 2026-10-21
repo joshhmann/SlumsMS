@@ -800,3 +800,15 @@ MegaphoneBroadcast:
       - "gg {PLAYER}!! won the {EVENT}"
       - "grats {PLAYER} on the {EVENT} ^^"
       - "{PLAYER} won the {EVENT} @@ gg"
+  ScrollPerfect:
+    text:
+      - "passed {PASSED}/{TOTAL} {ITEM} omg"
+      - "{PASSED}/{TOTAL} {ITEM}!! all scrolls passed"
+      - "perfect {PASSED}/{TOTAL} on my {ITEM} @@"
+      - "cant believe my {ITEM} passed {PASSED}/{TOTAL}"
+  ScrollBoom:
+    text:
+      - "boomed my {PASSED}/{TOTAL} {ITEM} lol"
+      - "rip my {ITEM}, {PASSED} passes and it boomed"
+      - "dark scroll ate my {PASSED}/{TOTAL} {ITEM} T_T"
+      - "{ITEM} with {PASSED} passes just boomed. im done scrolling"
