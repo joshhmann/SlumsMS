@@ -1,0 +1,27 @@
+[
+ {
+  "title": "SlumsMS 1.4.0",
+  "date": "2026-10-21",
+  "body": "Daily Check-In: claim a reward every day you log in and build a 28-day streak. Coloring Prism (Cash Shop): dye a cash equip, its glow, your hair or your eyes. The Cash Shop now sells every working cash item. Equip sets give set bonuses, the Monster Book shows every card with the server's real drops, maps and a search, and monsters hit bots as hard as they hit you. Bots are smarter travellers and chattier. Press Play to update."
+ },
+ {
+  "title": "SlumsMS 1.3.0",
+  "date": "2026-10-20",
+  "body": "The world is alive: about a thousand bots now play on their own - they grind at their level with real stats and skills, ride the boats and trains, buy potions and ammo at NPC shops, and come and go through the day like real players. Bot megaphones are rate-limited. Launcher 1.3.0 updates itself from now on. Tip: if the game shows error -2147467259 at start, make your real monitor the main display (Parsec/virtual displays)."
+ },
+ {
+  "title": "SlumsMS 1.2.2",
+  "date": "2026-10-19",
+  "body": "Fix: new characters crashed on entering the Arcane hub - its maps (and the classic FM maps) were missing from the download. Press Play to update."
+ },
+ {
+  "title": "SlumsMS 1.2.1",
+  "date": "2026-10-19",
+  "body": "Friends-only patch server (enter your access key in Settings). Source code: github.com/joshhmann/SlumsMS (server), github.com/joshhmann/SlumsMS-Client (client), github.com/joshhmann/slumsms-launcher (launcher) - AGPL-3.0, built on Cosmic, MapleRoot, SoloMapling, nutnnut GreenCatMS and Kaentake."
+ },
+ {
+  "title": "SlumsMS 1.2.0",
+  "date": "2026-10-19",
+  "body": "One-DLL client (SlumsMS.exe), connects by server name, Cosmic bug fixes."
+ }
+]
