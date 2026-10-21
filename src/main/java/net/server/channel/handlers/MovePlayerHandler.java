@@ -40,6 +40,14 @@ public final class MovePlayerHandler extends AbstractMovementPacketHandler {
             int movementDataStart = p.getPosition();
             updatePosition(p, c.getPlayer(), 0);
             long movementDataLength = p.getPosition() - movementDataStart; //how many bytes were read by updatePosition
+            if (soloMapling.qa.MoveTrace.armed(c.getPlayer().getId())) { // !qa mv-1: the GM's own fragments
+                p.seek(movementDataStart);
+                try {
+                    soloMapling.qa.MoveTrace.move(c.getPlayer(), parseMovement(p));
+                } catch (Exception ignored) {
+                    // a measurement must never break movement
+                }
+            }
             p.seek(movementDataStart);
 
             c.getPlayer().getMap().movePlayer(c.getPlayer(), c.getPlayer().getPosition());

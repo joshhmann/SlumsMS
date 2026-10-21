@@ -80,6 +80,9 @@ public final class AttackCapture {
 
     /* A close-range, ranged, magic or touch attack; route is "close", "ranged", "magic" or "touch". */
     public static void attack(Character chr, String route, AttackInfo attack, InPacket p) {
+        if (attack != null && chr != null && soloMapling.qa.MoveTrace.armed(chr.getId())) { // !qa mv-1
+            soloMapling.qa.MoveTrace.attack(chr, route, attack.skill);
+        }
         if (!captures(chr) || attack == null) {
             return;
         }

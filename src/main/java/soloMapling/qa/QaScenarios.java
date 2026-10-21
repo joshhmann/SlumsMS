@@ -7,7 +7,9 @@ import java.awt.Point;
 import java.util.ArrayList;
 import java.util.EnumSet;
 import java.util.List;
+import java.util.Map;
 import java.util.Set;
+import java.util.concurrent.ConcurrentHashMap;
 
 import static soloMapling.qa.QaLog.Topic.ATTACK;
 import static soloMapling.qa.QaLog.Topic.BOT_CHAT;
@@ -21,6 +23,7 @@ import static soloMapling.qa.QaLog.Topic.MERCHANT;
 import static soloMapling.qa.QaLog.Topic.MOB_CONTROL;
 import static soloMapling.qa.QaLog.Topic.ROPE;
 import static soloMapling.qa.QaLog.Topic.SCROLL;
+import static soloMapling.qa.QaLog.Topic.SLIDE;
 import static soloMapling.qa.QaLog.Topic.STORAGE;
 
 /**
@@ -64,7 +67,8 @@ public final class QaScenarios {
     public static List<QaScenario> all() {
         return List.of(new Bk1Showcase(), new Gd1Guild(), new Fm1BuyerCap(), new Ld1Ladders(), new Gh1Hide(),
                 new Np1Rosen(), new Np2Fredrick(), new Np3Merchant(), new Cs2PetEquip(), new Gn2Scrolling(),
-                new Wd1ChannelBars(), new Wd2DreamyPortal(), new Id1IdleSafety());
+                new Wd1ChannelBars(), new Wd2DreamyPortal(), new Id1IdleSafety(),
+                new Mv1AttackSlide());
     }
 
     // ---- bk-1 ----
@@ -596,6 +600,122 @@ public final class QaScenarios {
                 if (stats != null) {
                     ctx.run().note(tag, stats);
                 }
+            }
+        }
+    }
+
+    // ---- mv-1 ----
+
+    /**
+     * mv-1: measures the GM's own attacks. For each attack (close, ranged, magic, touch): where the character stood,
+     * then how far it moved in the movement the client sent during the attack window. On vanilla v83 an attack on
+     * the ground stops the character, so the slide is ~0 px; a large slide with a direction held is the momentum bug.
+     */
+    static final class Mv1AttackSlide implements QaScenario {
+        static final Map<Integer, SlideMeter> meters = new ConcurrentHashMap<>();
+
+        public String id() { return "mv-1"; }
+        public String title() { return "Attack slide: how far you move during each of your own attacks"; }
+        public String usage() { return "[attacks 1-200] [window ms 100-3000], default 20 600"; }
+        public Set<QaLog.Topic> topics() { return EnumSet.of(SLIDE); }
+        public int minutes(String[] args) { return 10; }
+        public int tickSeconds() { return 1; }
+
+        static int attacks(String[] args) {
+            return intArg(args, 0, SlideMeter.DEFAULT_ATTACKS, 1, 200);
+        }
+
+        static int windowMs(String[] args) {
+            return intArg(args, 1, SlideMeter.DEFAULT_WINDOW_MS, 100, 3000);
+        }
+
+        private static int intArg(String[] args, int i, int fallback, int min, int max) {
+            if (args == null || i >= args.length || !args[i].matches("\\d{1,5}")) {
+                return fallback;
+            }
+            return Math.max(min, Math.min(max, Integer.parseInt(args[i])));
+        }
+
+        public List<String> stage(QaContext ctx) {
+            int gmId = ctx.run().gmId();
+            SlideMeter meter = new SlideMeter(windowMs(ctx.args()), attacks(ctx.args()));
+            MoveTrace.Listener listener = new MoveTrace.Listener() {
+                @Override
+                public void attack(long now, int skill, String route, int x, int y, int stance, int speed) {
+                    report(ctx, meter, now);
+                    if (meter.attack(now, skill, route, x, y, stance, speed)) {
+                        ctx.run().note("ATTACK", "skill " + skill + " " + route + " at (" + x + ", " + y
+                                + ") stance " + stance + " speed " + speed);
+                    }
+                }
+
+                @Override
+                public void move(long now, List<SlideMeter.Frag> frags) {
+                    meter.move(now, frags);
+                    if (QaLog.on(SLIDE)) {
+                        StringBuilder sb = new StringBuilder();
+                        for (SlideMeter.Frag f : frags) {
+                            sb.append(sb.length() == 0 ? "" : " | ").append(f.type()).append(f.absolute()
+                                    ? " (" + f.x() + "," + f.y() + ") xv " + f.xv() + " fh " + f.fh() : "")
+                                    .append(" st ").append(f.stance()).append(' ').append(f.durMs()).append("ms");
+                        }
+                        ctx.run().note("MOVE", sb.toString());
+                    }
+                    report(ctx, meter, now);
+                }
+            };
+            meters.put(gmId, meter);
+            MoveTrace.arm(gmId, listener);
+            ctx.log("armed: " + meter.maxAttacks() + " attacks, window " + meter.windowMs() + " ms");
+            ctx.onStop("disarm the mv-1 attack meter", () -> {
+                MoveTrace.disarm(gmId, listener);
+                meters.remove(gmId, meter);
+                emit(ctx, meter.flush());
+                summary(ctx, meter, true);
+            });
+            return List.of("Measuring your next " + meter.maxAttacks() + " attacks (window " + meter.windowMs()
+                            + " ms each). Stand on flat ground by a mob.",
+                    "Attack standing still, then attack while holding left/right. One line per attack:",
+                    "slide = max px from where the attack started (vanilla: ~0 on the ground), held = walk stance seen.");
+        }
+
+        public void tick(QaContext ctx) {
+            SlideMeter meter = meters.get(ctx.run().gmId());
+            if (meter != null) {
+                report(ctx, meter, System.currentTimeMillis());
+            }
+        }
+
+        static void report(QaContext ctx, SlideMeter meter, long now) {
+            emit(ctx, meter.due(now));
+            if (meter.finished()) {
+                summary(ctx, meter, false);
+            }
+        }
+
+        private static void emit(QaContext ctx, List<SlideMeter.Result> results) {
+            for (SlideMeter.Result r : results) {
+                tell(ctx, SlideMeter.format(r));
+            }
+        }
+
+        private static void summary(QaContext ctx, SlideMeter meter, boolean atStop) {
+            if (!meter.takeSummary()) {
+                return;
+            }
+            for (String line : SlideMeter.format(meter.summary())) {
+                tell(ctx, line);
+            }
+            if (!atStop) {
+                tell(ctx, "mv-1: all " + meter.maxAttacks() + " attacks measured. !qa stop closes the log.");
+            }
+        }
+
+        private static void tell(QaContext ctx, String line) {
+            QaLog.owner(SLIDE, ctx.run().gmId(), line);
+            Character gm = ctx.gmNow();
+            if (gm != null) {
+                ctx.world().message(gm, line);
             }
         }
     }

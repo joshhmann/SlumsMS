@@ -26,6 +26,7 @@ class QaScenarioStagingTest {
     @AfterEach
     void reset() {
         QaLog.reset();
+        MoveTrace.reset();
     }
 
     private Character start(String id, int mapId, String... args) {
@@ -177,5 +178,32 @@ class QaScenarioStagingTest {
         suite.stop(1, "!qa stop");
         assertFalse(world.calls.contains("take 5000000 x1"));
         assertTrue(world.calls.contains("take 1802085 x1"));
+    }
+
+    @Test
+    void mv1ArmsTheGmsMeterReportsEachAttackAndDisarmsAtStop() throws Exception {
+        Character gm = start("mv-1", 100000000, "5", "400");
+        assertTrue(MoveTrace.armed(1));
+        assertFalse(MoveTrace.armed(2));
+        assertEquals(1, scheduler.repeating.size());
+        server.movement.AbsoluteLifeMovement before = new server.movement.AbsoluteLifeMovement(0,
+                new java.awt.Point(10, 20), 100, 4);
+        before.setFh(7);
+        before.setPixelsPerSecond(new java.awt.Point(0, 0));
+        MoveTrace.move(gm, List.of(before));
+        MoveTrace.attack(gm, "close", 1001004);
+        Path log = suite.runOf(1).logPath();
+        suite.stop(1, "!qa stop");
+        assertFalse(MoveTrace.armed(1));
+        assertTrue(world.messages.stream().anyMatch(m -> m.startsWith("#1 skill 1001004 close: slide 0px")
+                && m.contains("fh 7")), world.messages.toString());
+        assertTrue(world.messages.stream().anyMatch(m -> m.startsWith("mv-1 summary: 1 attacks (1 grounded)")),
+                world.messages.toString());
+        String text = Files.readString(log);
+        assertTrue(text.contains("armed: 5 attacks, window 400 ms"), text);
+        assertTrue(text.contains("SLIDE #1 skill 1001004"), text);
+        assertEquals(5, QaScenarios.Mv1AttackSlide.attacks(new String[]{"5"}));
+        assertEquals(200, QaScenarios.Mv1AttackSlide.attacks(new String[]{"999"}));
+        assertEquals(600, QaScenarios.Mv1AttackSlide.windowMs(new String[]{"5", "x"}));
     }
 }
