@@ -387,6 +387,26 @@ public final class ItemConstants {
         return isArrowForBow(itemId) || isArrowForCrossBow(itemId);
     }
 
+    /**
+     * The gender an equip is locked to, by the stock v83 client rule ({@code get_gender_from_id}):
+     * only equips (1xxxxxx) are locked, and the fourth digit decides -- {@code id / 1000 % 10} of
+     * 0 is male, 1 is female, anything else unisex. Returns 0, 1, or 2 for unisex/non-equips.
+     * The server has no equip-time gender check; the client refuses a wrong-gender equip itself.
+     */
+    public static int getEquipGender(int itemId) {
+        if (itemId / 1000000 != 1) {
+            return 2;
+        }
+        final int digit = itemId / 1000 % 10;
+        return digit == 0 || digit == 1 ? digit : 2;
+    }
+
+    /** Whether a character of {@code gender} (0 male, 1 female) can wear {@code itemId}. */
+    public static boolean isWearableByGender(int itemId, int gender) {
+        final int locked = getEquipGender(itemId);
+        return locked == 2 || locked == gender;
+    }
+
     public static boolean isPet(int itemId) {
         return itemId / 10000 == 500;
     }

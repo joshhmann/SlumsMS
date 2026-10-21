@@ -55,6 +55,9 @@ public final class CashShopWindowPackets {
     // them; the server also sends the reason as a popup, so the player is told either way.
     public static final int BUY_LEVEL_TOO_LOW = 7;
     public static final int BUY_LIMIT_REACHED = 8;
+    /** Wrong-gender equip. Shares code 7 with the level gate (a requirement the character
+     * does not meet), so the current DLL shows "Purchase failed." and the server popup says why. */
+    public static final int BUY_CANNOT_WEAR = BUY_LEVEL_TOO_LOW;
 
     /**
      * Entries per packet. The wire cap is a hard 64KB on both sides (16-bit length in

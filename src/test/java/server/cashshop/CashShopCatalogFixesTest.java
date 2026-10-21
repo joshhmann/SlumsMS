@@ -95,4 +95,40 @@ class CashShopCatalogFixesTest {
         }
         assertTrue(coupons > 30);
     }
+
+    @Test void shippedCatalogDropsPartnerRingsAndInertAreaEffects() throws Exception {
+        final Map<Integer, String[]> rows = shippedRows();
+        for (int id : List.of(1112001, 1112002, 1112003, 1112005, 1112006, 1112007, 1112012,
+                1112800, 1112801, 1112802, 1112810, 1112811, 1112812)) {
+            assertFalse(rows.containsKey(id), "partner ring sold without a partner flow: " + id);
+        }
+        assertFalse(rows.containsKey(5281000), "Passed Gas has no handler");
+        assertFalse(rows.containsKey(5281001), "Floral Scent has no handler");
+        // Served by RemoteStoreHandler (CP_UserRemoteShopOpenRequest).
+        assertTrue(rows.containsKey(5470000));
+        // Self-contained effect rings with no partner stay.
+        assertTrue(rows.containsKey(1112900));
+    }
+
+    @Test void shippedCatalogDropsRowsTheWzDoesNotFlagAsCash() throws Exception {
+        final Map<Integer, String[]> rows = shippedRows();
+        for (int id : List.of(1002950, 1002951, 1002952, 1022037, 1042141, 1112916)) {
+            assertFalse(rows.containsKey(id), "non-cash equip sold: " + id);
+        }
+    }
+
+    @Test void equipGenderFollowsTheClientIdDigitRule() {
+        assertEquals(0, constants.inventory.ItemConstants.getEquipGender(1000005));  // Men's Ninja Hat
+        assertEquals(1, constants.inventory.ItemConstants.getEquipGender(1001003));  // Pink Nurse Hat
+        assertEquals(1, constants.inventory.ItemConstants.getEquipGender(1051017));  // female overall
+        assertEquals(2, constants.inventory.ItemConstants.getEquipGender(1002000));
+        assertEquals(2, constants.inventory.ItemConstants.getEquipGender(1702000));  // NX cover
+        assertEquals(2, constants.inventory.ItemConstants.getEquipGender(1112001));
+        assertEquals(2, constants.inventory.ItemConstants.getEquipGender(5000000));  // not an equip
+        assertEquals(2, constants.inventory.ItemConstants.getEquipGender(2000000));
+        assertTrue(constants.inventory.ItemConstants.isWearableByGender(1000005, 0));
+        assertFalse(constants.inventory.ItemConstants.isWearableByGender(1000005, 1));
+        assertFalse(constants.inventory.ItemConstants.isWearableByGender(1001003, 0));
+        assertTrue(constants.inventory.ItemConstants.isWearableByGender(1002000, 1));
+    }
 }

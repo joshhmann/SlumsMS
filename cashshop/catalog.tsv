@@ -15,6 +15,43 @@
 #   5400000 | 10000 | 1 | 5 | 2 | 0 | 2 | Character Name Change  -- Character Name Change: the rename is only registered by the stock Cash Shop (CashOperationHandler 0x2E), which the window never reaches; using the item just consumes it
 #   5401000 | 25000 | 1 | 5 | 2 | 0 | 2 | Character Transfer  -- Character Transfer: same as Name Change, and ALLOW_CASHSHOP_WORLD_TRANSFER is off
 #   5460000 | 2500 | 1 | 5 | 2 | 0 | 2 | Pet Snack  -- Pet Snack: no server handler (type 546 falls through UseCashItemHandler; PET_FOOD only takes 212xxxx)
+#
+# REMOVED until a partner-name purchase flow exists: crush and friendship rings. Their ring
+# effect needs a ring record shared with a partner (Ring.createRing plus the partner's copy,
+# stock CashOperationHandler 0x1D/0x23); the window delivers one plain equip with no partner,
+# so the ring shows nothing. They return once the window can ask for a partner name.
+#   1112001 | 4800 | 1 | 2 | 9 | 0 | 2 | Crush Ring
+#   1112002 | 6000 | 1 | 2 | 9 | 0 | 2 | Cloud Ring
+#   1112003 | 4800 | 1 | 2 | 9 | 0 | 2 | Cupid Ring
+#   1112005 | 3600 | 1 | 2 | 9 | 0 | 2 | Venus Fireworks
+#   1112006 | 4800 | 1 | 2 | 9 | 0 | 2 | Crossed Hearts
+#   1112007 | 4500 | 1 | 2 | 9 | 0 | 2 | Mistletoe Crush Ring
+#   1112012 | 3600 | 1 | 2 | 9 | 0 | 2 | Rose Crush Ring
+#   1112800 | 3600 | 1 | 2 | 9 | 0 | 2 | Friendship Ring : Clover
+#   1112801 | 3600 | 1 | 2 | 9 | 0 | 2 | Friendship Ring : Flower Petal
+#   1112802 | 3600 | 1 | 2 | 9 | 0 | 2 | Friendship Ring : Star
+#   1112810 | 4500 | 1 | 2 | 9 | 0 | 2 | Christmas Night Bells
+#   1112811 | 4500 | 1 | 2 | 9 | 0 | 2 | Christmas Party
+#   1112812 | 4500 | 1 | 2 | 9 | 0 | 2 | Shared Umbrella Ring
+#
+# REMOVED because nothing makes them do anything: Passed Gas / Floral Scent are area-effect
+# items (528xxxx, info/time 60) and UseCashItemHandler has no 528 case -- they fall through to
+# "NEW CASH ITEM TYPE" and nothing is spawned.
+#   5281000 | 4000 | 11 | 5 | 2 | 0 | 2 | Passed Gas
+#   5281001 | 3200 | 11 | 5 | 2 | 0 | 2 | Floral Scent
+#
+# REMOVED because the WZ does not flag them as cash (no info/cash): delivered from here they
+# were ordinary tradeable equips. Generated from Commodity.img, not deliberately sold.
+#   1002950 | 2800 | 1 | 2 | 0 | 0 | 2 | Pink Flower Headwrap
+#   1002951 | 2800 | 1 | 2 | 0 | 0 | 2 | Yellow Flower Headwrap
+#   1002952 | 2800 | 1 | 2 | 0 | 0 | 2 | Purple Flower Headwrap
+#   1022037 | 2800 | 1 | 2 | 2 | 0 | 2 | Frameless Glasses
+#   1042141 | 2900 | 1 | 2 | 4 | 0 | 2 | Pink Star Glow
+#   1112916 | 4500 | 1 | 2 | 9 | 0 | 2 | Solo Ring
+#
+# KEPT: Store Remote Controller 5470000. Using it makes the client send
+# CP_UserRemoteShopOpenRequest (0x3B, REMOTE_STORE), which RemoteStoreHandler serves: it
+# opens the owner's hired merchant, or offers the channel change to the merchant's channel.
 1000000	3000	1	2	0	0	0	Blue Beanie
 1000001	3500	1	2	0	0	2	Fine Black Hanbok Hat
 1000002	3500	1	2	0	0	2	Fine Blue Hanbok Hat
@@ -322,9 +359,6 @@
 1002941	2700	1	2	0	0	2	Moon Bloom Hair Pin
 1002943	2700	1	2	0	0	2	Sailor Hat
 1002944	2700	1	2	0	0	2	Honey Bee Hat
-1002950	2800	1	2	0	0	2	Pink Flower Headwrap
-1002951	2800	1	2	0	0	2	Yellow Flower Headwrap
-1002952	2800	1	2	0	0	2	Purple Flower Headwrap
 1002953	3000	1	2	0	0	2	Giant Fiesta Sombrero
 1002960	3000	1	2	0	0	2	Emperial Crown
 1002961	2900	1	2	0	0	2	Gray Mask
@@ -457,7 +491,6 @@
 1022034	4200	1	2	2	0	2	Bizarre Monocle
 1022035	3900	1	2	2	0	2	Orange Sports Goggle
 1022036	3900	1	2	2	0	2	Green Sports Goggle
-1022037	2800	1	2	2	0	2	Frameless Glasses
 1022040	3500	1	2	2	0	2	Lead Monocle
 1022041	4000	1	2	2	0	2	Cyclist Shades
 1022042	4700	1	2	2	0	2	Scouter
@@ -807,7 +840,6 @@
 1042134	2900	1	2	4	0	2	Yellow Shirt w/ Pads
 1042138	3000	1	2	4	0	2	The White Tee
 1042140	3400	1	2	4	0	2	Slick Agent Top
-1042141	2900	1	2	4	0	2	Pink Star Glow
 1042142	2900	1	2	4	0	2	Rainbow Top
 1042143	2900	1	2	4	0	2	Disco Tank Top
 1042144	2800	1	2	4	0	2	Checkered Resort Shirt 
@@ -1281,13 +1313,6 @@
 1032072	2400	1	2	9	0	2	Shiny Altair Earrings
 1032073	2400	1	2	9	0	2	Wind Bell Earrings
 1032074	2400	1	2	9	0	2	Heart Rainbow Earrings
-1112001	4800	1	2	9	0	2	Crush Ring
-1112002	6000	1	2	9	0	2	Cloud Ring
-1112003	4800	1	2	9	0	2	Cupid Ring
-1112005	3600	1	2	9	0	2	Venus Fireworks
-1112006	4800	1	2	9	0	2	Crossed Hearts
-1112007	4500	1	2	9	0	2	Mistletoe Crush Ring
-1112012	3600	1	2	9	0	2	Rose Crush Ring
 1112100	3200	1	2	9	0	2	White Label Ring
 1112101	4000	1	2	9	0	2	Blue Label Ring
 1112102	4000	1	2	9	0	2	Blue Label Ring 2
@@ -1328,13 +1353,7 @@
 1112234	4500	1	2	9	0	2	Blue Notebook Quote Ring
 1112235	4500	1	2	9	0	2	Green Notebook Quote Ring
 1112236	4200	1	2	9	0	2	Brown Teddy Quote Ring
-1112800	3600	1	2	9	0	2	Friendship Ring : Clover
-1112801	3600	1	2	9	0	2	Friendship Ring : Flower Petal
-1112802	3600	1	2	9	0	2	Friendship Ring : Star
 1112808	4500	1	2	9	0	2	MapleBowl Quote Ring 
-1112810	4500	1	2	9	0	2	Christmas Night Bells
-1112811	4500	1	2	9	0	2	Christmas Party
-1112812	4500	1	2	9	0	2	Shared Umbrella Ring
 1112900	3000	1	2	9	0	2	Lalala Ring
 1112901	3100	1	2	9	0	2	Starry Spotlight Ring
 1112902	4500	1	2	9	0	2	Baba Blue
@@ -1343,7 +1362,6 @@
 1112905	4500	1	2	9	0	2	Bright Hot Pink Heart
 1112906	4500	1	2	9	0	2	Baby Pink Heart
 1112908	3300	1	2	9	0	2	Aura Ring
-1112916	4500	1	2	9	0	2	Solo Ring
 1102005	3700	1	2	11	0	2	Baby Angel Wings
 1102006	3900	1	2	11	0	2	Devil Wings
 1102007	3100	1	2	11	0	2	Yellow Star Cape
@@ -1587,8 +1605,6 @@
 5251002	24000	1	5	2	0	2	Premium Wedding Ticket (Chapel)
 5251003	29000	1	5	2	0	2	Premium Wedding Ticket (Cathedral)
 5251100	3000	1	5	2	0	2	Wedding Invitation Ticket
-5281000	4000	11	5	2	0	2	Passed Gas
-5281001	3200	11	5	2	0	2	Floral Scent
 5290000	300	1	5	2	0	2	Guild Forum Emoticon - Angry
 5290001	300	1	5	2	0	2	Guild Forum Emoticon - Smile
 5290002	300	1	5	2	0	2	Guild Forum Emoticon - Silent
