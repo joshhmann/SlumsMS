@@ -3,7 +3,7 @@
 # server, with the hash-diff rule built in.
 #
 #   tools/release/publish-client <client-version> --source <host dir> [--base <base version>]
-#       [--release <release version> [--news FILE.json (host path)]] [--sync-publisher] [--dry-run]
+#       [--release <release version> [--news FILE.json (host path)]] [--sync-publisher] [--no-announce] [--dry-run]
 #
 # 1. Hash-diff (verify-client.py on the host): published base layer + the client staging tree vs the reference
 #    client ($REFERENCE), and vs the release players have now (manifest.json): zero unexpected missing/different/
@@ -14,14 +14,17 @@
 # 4. With --release: back up manifest.json, then node tools/publish.mjs --release ... --use base@B --use client@V
 #    (manifest.json is written last, by the publisher).
 # --dry-run: steps 1 and the publisher check only; prints the publish commands.
+# After a --release manifest, Cody posts that the client is in the launcher (slumsms-monitor client-ready on the host,
+# target $ANNOUNCE_TARGET, default live); --no-announce skips it. The server deploy posts its own going down / back up.
 set -euo pipefail
 here=$(cd "$(dirname "$0")" && pwd); . "$here/lib.sh"; . "$here/publish-lib.sh"
 CV=${1:-}; shift || true
 [[ "$CV" =~ ^[A-Za-z0-9._-]+$ ]] || die "usage: publish-client <client-version> --source DIR [...]"
-SRC="" BASE="" REL="" NEWS="" SYNC=0 DRY_RUN=0
+SRC="" BASE="" REL="" NEWS="" SYNC=0 DRY_RUN=0 ANNOUNCE=1
+ANNOUNCE_TARGET=${ANNOUNCE_TARGET:-live}
 while [ $# -gt 0 ]; do case $1 in
   --source) SRC=$2; shift;; --base) BASE=$2; shift;; --release) REL=$2; shift;; --news) NEWS=$2; shift;;
-  --sync-publisher) SYNC=1;; --dry-run) DRY_RUN=1;; *) die "unknown option $1";; esac; shift; done
+  --sync-publisher) SYNC=1;; --dry-run) DRY_RUN=1;; --no-announce) ANNOUNCE=0;; *) die "unknown option $1";; esac; shift; done
 [ -n "$SRC" ] || die "--source <client staging dir on the host> is required"
 require_workstation
 
@@ -59,5 +62,10 @@ if [ -n "$REL" ]; then
   step "release manifest $REL (manifest.json last)"
   h "cp $PATCH_DIR/manifest.json /srv/slums-staging/manifest-before-$(q "$REL").json && cd $PUBLISHER && $pub_rel"
   h "python3 -I -c 'import json; m=json.load(open(\"$PATCH_DIR/manifest.json\")); print(\"manifest.json:\", m[\"version\"], [(l[\"name\"], l[\"version\"]) for l in m[\"layers\"]])'"
+  if [ "$ANNOUNCE" = 1 ]; then
+    step "Cody: client $REL is in the launcher (public channel; --no-announce skips)"
+    h "command -v slumsms-monitor >/dev/null && slumsms-monitor client-ready $(q "$ANNOUNCE_TARGET") $(q "$REL")" \
+      || echo "WARN: no Cody post (slumsms-monitor missing or the post failed); the release itself is published"
+  fi
 fi
 step "done"

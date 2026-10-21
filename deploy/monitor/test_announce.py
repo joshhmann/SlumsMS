@@ -203,6 +203,24 @@ class RateCapTest(Base):
         self.assertFalse(os.path.exists(os.path.join(self.e.state_dir, "live", "announce.json")))
 
 
+class ClientReadyTest(Base):
+    def test_cody_says_the_client_is_ready_on_the_public_channel(self):
+        self.e.secrets(WEBHOOK_URL=self.e.url("private"), NEWS_WEBHOOK_URL=self.e.url("news"))
+        code, out = self.e.run("client-ready", "live", "1.4.0")
+        self.assertEqual(0, code, out)
+        (post,) = self.e.posts()
+        self.assertEqual("/api/webhooks/news/<token>", post["path"], "public channel, never the private one")
+        self.assertEqual("Cody", post["username"])
+        self.assertIn("1.4.0", post["content"])
+        self.assertIn("Cody", post["content"])
+
+    def test_dry_run_posts_nothing(self):
+        self.e.secrets(NEWS_WEBHOOK_URL=self.e.url("news"))
+        code, out = self.e.run("client-ready", "live", "1.4.0", "--dry-run")
+        self.assertEqual(0, code, out)
+        self.assertEqual([], self.e.posts())
+
+
 class ScrubTest(Base):
     def test_secret_looking_text_is_scrubbed(self):
         self.e.secrets(NEWS_WEBHOOK_URL=self.e.url("news"))

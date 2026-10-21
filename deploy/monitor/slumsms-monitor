@@ -10,6 +10,8 @@ public announcements.
                                                               one player-facing post to the public channel (rate capped)
     slumsms-monitor maintenance <target> start [--minutes N] [--reason TEXT] [--no-announce] [--dry-run]
     slumsms-monitor maintenance <target> end [--no-announce] [--dry-run]
+    slumsms-monitor client-ready <target> <version> [--dry-run]
+                                                              Cody tells players a client update is in the launcher
                                                               MAINTENANCE_FILE on/off plus a "going down" / "back up" post
     slumsms-monitor announce-feed <target> [--file F] [--seed] [--dry-run]
                                                               post new world event lines from ANNOUNCE_FILE (a .path unit)
@@ -900,7 +902,7 @@ def cmd_news(t, args):
 
 # Cody (NPC 9200000, "Wizet Wizard") is the voice: slightly flustered, swears he really is from Wizet, ends lines
 # with ~. A few lines are his own v83 strings. Several variants per message, never the same one twice in a row.
-# Fields: {name} world name, {minutes}, {reason}, {boss}, {map}, {region}, {bonus}, {ch}, {player}, {text}.
+# Fields: {name} world name, {version}, {minutes}, {reason}, {boss}, {map}, {region}, {bonus}, {ch}, {player}, {text}.
 CODY = {
     "maintenance_start": [
         "I'm telling you, I really AM from WIZET! ...and Wizet says {name} needs a quick update. "
@@ -919,6 +921,12 @@ CODY = {
         "{name} is back up! Go go go~ -Cody \U0001F341",
         "Ta-da! {name} is open again. Thanks for waiting, Maplers~ -Cody",
         "What's going on? {name}'s back up, that's what! Hop on in~ -Cody",
+    ],
+    "client_ready": [
+        "Psst~ the {version} update is out! Open the launcher and press Play to grab it~ -Cody",
+        "Heya Maplers! Cody here~ The launcher has {version} ready for you. Press Play to update! \U0001F341",
+        "I really AM from WIZET, and Wizet says: {version} is ready! Hit Play in the launcher before you hop into {name}~ -Cody",
+        "Update's in the launcher! Press Play to get {version}, then come say hi in {name}. See you around~ -Cody",
     ],
     "boss_sighting_start": [
         "Uh oh, {boss} just showed up in {map}! Grab your party! (Ch {ch}) -Cody",
@@ -1050,6 +1058,19 @@ def cmd_announce(t, args):
     if result != "dry-run":
         print(result if t.webhook("ANNOUNCE") or result != "sent"
               else "no announce webhook configured; written to %s" % t.log_path)
+    return 1 if result == "failed" else 0
+
+
+def cmd_client_ready(t, args):
+    """One public Cody post that a client update is in the launcher (publish-client runs it after manifest.json)."""
+    version = args.version.strip()
+    if not version:
+        raise SystemExit("client-ready needs a version")
+    text = pick_cody(t, "client_ready", {"name": announce_name(t), "version": version}, args.dry_run)
+    result = post_announce(t, text, dry_run=args.dry_run, priority=True)
+    if not args.dry_run:
+        t.log("[client-ready] %s: announce %s" % (version, result))
+        print("client-ready %s; announce %s" % (version, result))
     return 1 if result == "failed" else 0
 
 
@@ -1233,6 +1254,10 @@ def main():
     m.add_argument("--reason", help="start: a short player-facing reason")
     m.add_argument("--no-announce", action="store_true", help="only switch the file, post nothing")
     m.add_argument("--dry-run", action="store_true")
+    r = sub.add_parser("client-ready", help="public Cody post: a client update is in the launcher")
+    r.add_argument("target")
+    r.add_argument("version", help="e.g. 1.4.0 (shown as written)")
+    r.add_argument("--dry-run", action="store_true")
     f = sub.add_parser("announce-feed", help="post new world event lines from ANNOUNCE_FILE")
     f.add_argument("target")
     f.add_argument("--file")
@@ -1241,7 +1266,8 @@ def main():
     args = p.parse_args()
     t = Target(args.target)
     return {"check": cmd_check, "status": cmd_status, "news": cmd_news, "test-webhook": cmd_test_webhook,
-            "announce": cmd_announce, "maintenance": cmd_maintenance, "announce-feed": cmd_announce_feed}[args.cmd](
+            "announce": cmd_announce, "maintenance": cmd_maintenance, "announce-feed": cmd_announce_feed,
+            "client-ready": cmd_client_ready}[args.cmd](
         t, args)
 
 
