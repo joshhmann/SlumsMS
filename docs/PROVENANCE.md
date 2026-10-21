@@ -74,3 +74,23 @@ Ours: damage from our own formula (`BotDamage.gearValue`: the bot's main attack 
 buffs); wearability as an equip order from the base stats; worn gear always counts as wearable; the weapon rules
 (`BotWeapons` kinds, the same drawable attacks, 1st jobs and beginners keep their kind); unknown, cash, other-gender,
 omit-list and rebirth-locked equips refused; event triggers (loot, level-up) instead of a sweep.
+
+### Monster Book addon (branch `addon-monsterbook`, ticket 19)
+
+Source: the "MonsterBook Publish" addon package. Its server half (`server-cosmic/`) and its data tool
+`tools/monsterbook_data/build_book.py` were written for another Cosmic fork.
+
+Kept from it:
+- the three query types and their wire layout;
+- the per-mob chance in the droppers reply;
+- the Episode stat whitelist and element table;
+- the spawn and AreaBoss scan.
+
+Ours:
+- the opcodes (0x3734/0x3735, because Beauty owns 0x372C);
+- `server.monsterbook.DropSearchService`, which answers from an in-memory snapshot instead of a query per call;
+- the chance math, matched to this server's drop roll (no world card rate);
+- bot exclusion and a flood cap;
+- the card list merged from monstercarddata and Item.wz;
+- `build_book.py` rewritten over parsed XML, because this server's WZ dump is minified. It takes drops from MySQL
+  or a TSV and writes the HP strings the client book needs. MapleLib is not used.

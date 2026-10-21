@@ -24,6 +24,7 @@ package net.opcodes;
 public enum RecvOpcode {
     CASHSHOP_WINDOW_ACTION(0x3730),
     DAILY_CHECKIN(0x3732),
+    MONSTER_BOOK_QUERY(0x3734),// slums.dll Monster Book: drop table / item search / item droppers (MonsterBookQueryHandler); 0x3735 is the reply
     CUSTOM_PACKET(0x3713),//13 37 lol
 
     LOGIN_PASSWORD(0x01),

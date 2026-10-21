@@ -27,6 +27,7 @@ import client.Character;
 import client.Client;
 import client.command.Command;
 import server.life.MonsterInformationProvider;
+import server.monsterbook.DropSearchService;
 
 public class ReloadDropsCommand extends Command {
     {
@@ -37,6 +38,7 @@ public class ReloadDropsCommand extends Command {
     public void execute(Client c, String[] params) {
         Character player = c.getPlayer();
         MonsterInformationProvider.getInstance().clearDrops();
+        DropSearchService.getInstance().clearCaches(); // the Monster Book's drop indexes
         player.dropMessage(5, "Reloaded Drops");
     }
 }

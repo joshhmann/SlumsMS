@@ -26,6 +26,7 @@ public enum SendOpcode {
     LAMP_PREVIEW(0x373F),
     CASHSHOP_WINDOW_SYNC(0x3731),
     DAILY_CHECKIN_SYNC(0x3733),
+    MONSTER_BOOK_RESULT(0x3735),// slums.dll Monster Book reply to MONSTER_BOOK_QUERY 0x3734 (MonsterBookPackets)
 
     LOGIN_STATUS(0x00),
     GUEST_ID_LOGIN(0x01),
