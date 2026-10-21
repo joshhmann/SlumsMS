@@ -58,6 +58,12 @@ public class ServerConfig {
     public int MAX_ALLOWED_ACCOUNT_HWID;
     public int MAX_ACCOUNT_LOGIN_ATTEMPT;
     public int LOGIN_ATTEMPT_DURATION;
+    //Per-IP gate on new login-server connections (LAN and loopback addresses all count as HOST). 0 = no limit.
+    //Max login-server sessions open at once from one address (login + character select screens).
+    public int LOGIN_MAX_SESSIONS_PER_IP = 8;
+    //Max new login-server connections from one address within LOGIN_CONNECT_WINDOW_SECONDS.
+    public int LOGIN_MAX_CONNECTS_PER_IP = 30;
+    public int LOGIN_CONNECT_WINDOW_SECONDS = 60;
 
     //Ip Configuration
     public String HOST;

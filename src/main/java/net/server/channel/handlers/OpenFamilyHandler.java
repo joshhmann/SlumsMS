@@ -30,9 +30,26 @@ import tools.PacketCreator;
  * @author Ubaware
  */
 public final class OpenFamilyHandler extends AbstractPacketHandler {
+    public static final String COMING_SOON = "The family system is coming soon!";
+
+    /**
+     * With USE_FAMILY_SYSTEM off, the Family button (and the family entries on a character's menu) did nothing at
+     * all (ticket 53); say why instead.
+     *
+     * @return true when the family system is on and the caller may go on
+     */
+    public static boolean enabledOrExplain(Client c) {
+        if (YamlConfig.config.server.USE_FAMILY_SYSTEM) {
+            return true;
+        }
+        c.sendPacket(PacketCreator.serverNotice(1, COMING_SOON));
+        c.sendPacket(PacketCreator.enableActions());
+        return false;
+    }
+
     @Override
     public final void handlePacket(InPacket p, Client c) {
-        if (!YamlConfig.config.server.USE_FAMILY_SYSTEM) {
+        if (!enabledOrExplain(c)) {
             return;
         }
         Character chr = c.getPlayer();

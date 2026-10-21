@@ -425,7 +425,9 @@ public final class UseCashItemHandler extends AbstractPacketHandler {
             ii.getItemEffect(itemId).applyTo(player);
             remove(c, position, itemId);
         } else if (itemType == 533) {
-            DueyProcessor.dueySendTalk(c, true);
+            if (DueyProcessor.openOrExplain(c, false)) {
+                DueyProcessor.dueySendTalk(c, true);
+            }
         } else if (itemType == 537) {
             if (GameConstants.isFreeMarketRoom(player.getMapId())) {
                 player.dropMessage(5, "You cannot use the chalkboard here.");

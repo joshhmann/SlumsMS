@@ -58,7 +58,9 @@ public final class NPCTalkHandler extends AbstractPacketHandler {
             }
 
             if (npc.getId() == NpcId.DUEY) {
-                DueyProcessor.dueySendTalk(c, false);
+                if (DueyProcessor.openOrExplain(c, true)) {
+                    DueyProcessor.dueySendTalk(c, false);
+                }
             } else {
                 if (c.getCM() != null || c.getQM() != null) {
                     c.sendPacket(PacketCreator.enableActions());
