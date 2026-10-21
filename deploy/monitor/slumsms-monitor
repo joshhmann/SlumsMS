@@ -9,7 +9,7 @@ public announcements.
     slumsms-monitor announce <target> "text" [--cody] [--dry-run]
                                                               one player-facing post to the public channel (rate capped)
     slumsms-monitor maintenance <target> start [--minutes N] [--reason TEXT] [--no-announce] [--dry-run]
-    slumsms-monitor maintenance <target> end [--no-announce] [--dry-run]
+    slumsms-monitor maintenance <target> end [--client VERSION] [--no-announce] [--dry-run]
     slumsms-monitor client-ready <target> <version> [--dry-run]
                                                               Cody tells players a client update is in the launcher
                                                               MAINTENANCE_FILE on/off plus a "going down" / "back up" post
@@ -922,6 +922,14 @@ CODY = {
         "Ta-da! {name} is open again. Thanks for waiting, Maplers~ -Cody",
         "What's going on? {name}'s back up, that's what! Hop on in~ -Cody",
     ],
+    # maintenance end --client: one combined post (tools/release/release publishes the client while the server is down)
+    "maintenance_end_client": [
+        "{name} is back up with {version}! Press Play in the launcher to update if you haven't yet~ -Cody \U0001F341",
+        "Ta-da! {name} is open again. The launcher has {version} ready: press Play to update, then hop on in~ -Cody",
+        "I really AM from WIZET, and Wizet says {name}'s back up! Hit Play in the launcher for {version} first~ -Cody",
+        "What's going on? {name}'s back up on {version}, that's what! Press Play to update if you haven't. "
+        "See you around~ -Cody",
+    ],
     "client_ready": [
         "Psst~ the {version} update is out! Open the launcher and press Play to grab it~ -Cody",
         "Heya Maplers! Cody here~ The launcher has {version} ready for you. Press Play to update! \U0001F341",
@@ -1083,6 +1091,8 @@ def cmd_maintenance(t, args):
     state = load_json(maintenance_state_path(t), {})
     active = bool(state.get("since")) or bool(path and os.path.exists(path))
     name = announce_name(t)
+    if args.action == "start" and getattr(args, "client", None):
+        raise SystemExit("--client goes with maintenance end")
     if args.action == "start":
         minutes = args.minutes or int(t.num("MAINTENANCE_MINUTES") or 5)
         if args.dry_run:
@@ -1122,13 +1132,19 @@ def cmd_maintenance(t, args):
         if os.path.exists(maintenance_state_path(t)):
             os.remove(maintenance_state_path(t))
         t.log("[maintenance] end")
-    if not active:
+    client = (args.client or "").strip()
+    if not active and not client:
         print("was not in maintenance; nothing announced")
         return 0
     if args.no_announce:
         print("maintenance off (not announced)")
         return 0
-    text = pick_cody(t, "maintenance_end", {"name": name}, args.dry_run)
+    if client:   # "back up" and "press Play to update" in ONE post (instead of maintenance end + client-ready)
+        text = pick_cody(t, "maintenance_end_client", {"name": name, "version": client}, args.dry_run)
+        if not args.dry_run:
+            t.log("[client-ready] %s: in the maintenance end post" % client)
+    else:
+        text = pick_cody(t, "maintenance_end", {"name": name}, args.dry_run)
     result = post_announce(t, text, dry_run=args.dry_run, priority=True)
     if not args.dry_run:
         print("maintenance off; announce %s" % result)
@@ -1253,6 +1269,8 @@ def main():
     m.add_argument("--minutes", type=int, help="start: \"back in about N min\" (default MAINTENANCE_MINUTES)")
     m.add_argument("--reason", help="start: a short player-facing reason")
     m.add_argument("--no-announce", action="store_true", help="only switch the file, post nothing")
+    m.add_argument("--client", metavar="VERSION",
+                   help="end: one combined post, back up + press Play to get client VERSION (no separate client-ready)")
     m.add_argument("--dry-run", action="store_true")
     r = sub.add_parser("client-ready", help="public Cody post: a client update is in the launcher")
     r.add_argument("target")

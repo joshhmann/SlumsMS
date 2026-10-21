@@ -18,8 +18,46 @@
 # --dry-run: steps 1 and the publisher check only; prints the publish commands.
 # After a --release manifest, Cody posts that the client is in the launcher (slumsms-monitor client-ready on the host,
 # target $ANNOUNCE_TARGET, default live); --no-announce skips it. The server deploy posts its own going down / back up.
+# (tools/release/release passes --no-announce: its maintenance end post carries the client line.)
+#
+#   tools/release/publish-client --restore-manifest <host file> [--dry-run]
+#
+# Puts a saved release manifest back (e.g. $STAGING_DIR/manifest-before-<release>.json, which every --release run
+# saves first) as manifest.json and mirrors it to /launcher-test/, so players get the previous client again on Play.
+# Every layer it names must still be published (layers are never deleted). The manifest it replaces is kept as
+# $STAGING_DIR/manifest-replaced-<UTC>.json. No Cody post. Published layers stay (immutable, unreferenced).
 set -euo pipefail
 here=$(cd "$(dirname "$0")" && pwd); . "$here/lib.sh"; . "$here/publish-lib.sh"
+# Rehearsal only: PUBLISH_TEST_FAIL=after-layer|after-manifest makes the run fail at that point (refused on the live feed).
+PUBLISH_TEST_FAIL=${PUBLISH_TEST_FAIL:-}
+if [ -n "$PUBLISH_TEST_FAIL" ] && [ "$PATCH_DIR" = /srv/slums-patch ]; then die "PUBLISH_TEST_FAIL is for rehearsal feeds only"; fi
+test_fail() { if [ "$PUBLISH_TEST_FAIL" = "$1" ]; then die "PUBLISH_TEST_FAIL=$1: simulated publish failure (rehearsal)"; fi; }
+
+if [ "${1:-}" = --restore-manifest ]; then
+  FILE=${2:-}; DRY_RUN=0; [ "${3:-}" = --dry-run ] && DRY_RUN=1
+  [ -n "$FILE" ] || die "usage: publish-client --restore-manifest <host file> [--dry-run]"
+  require_workstation
+  step "restore $FILE as $PATCH_DIR/manifest.json (+ /launcher-test/ mirror)"
+  h "python3 -I - $(q "$FILE") $(q "$PATCH_DIR")" <<'PY' || die "$FILE is not a release manifest whose layers are all published; nothing changed"
+import json, os, sys
+f, out = sys.argv[1], sys.argv[2]
+m = json.load(open(f))
+assert m.get("schemaVersion") and m.get("version") and m.get("layers"), "not a release manifest"
+for l in m["layers"]:
+    lm = os.path.join(out, "layers", l["name"], l["version"], "manifest.json")
+    assert os.path.isfile(lm), "layer %s@%s is not published (%s)" % (l["name"], l["version"], lm)
+cur = json.load(open(os.path.join(out, "manifest.json")))
+print("now:      ", cur["version"], [(l["name"], l["version"]) for l in cur["layers"]])
+print("restoring:", m["version"], [(l["name"], l["version"]) for l in m["layers"]])
+PY
+  if [ "$DRY_RUN" = 1 ]; then step "DRY RUN OK: nothing changed"; exit 0; fi
+  h "set -e; cp $(q "$PATCH_DIR/manifest.json") $(q "$STAGING_DIR")/manifest-replaced-\$(date -u +%Y%m%dT%H%M%SZ).json
+     cp $(q "$FILE") $(q "$PATCH_DIR/manifest.json.restore") && mv $(q "$PATCH_DIR/manifest.json.restore") $(q "$PATCH_DIR/manifest.json")
+     if [ -L $(q "$PATCH_DIR/launcher-test/layers") ]; then cp $(q "$FILE") $(q "$PATCH_DIR/launcher-test/manifest.json.new") && mv $(q "$PATCH_DIR/launcher-test/manifest.json.new") $(q "$PATCH_DIR/launcher-test/manifest.json"); echo 'launcher-test mirrored'; fi
+     cmp $(q "$FILE") $(q "$PATCH_DIR/manifest.json") && echo 'manifest.json restored'" || die "restore of $FILE did not complete; check $PATCH_DIR/manifest.json by hand"
+  step "done"
+  exit 0
+fi
 CV=${1:-}; shift || true
 [[ "$CV" =~ ^[A-Za-z0-9._-]+$ ]] || die "usage: publish-client <client-version> --source DIR [...]"
 SRC="" BASE="" REL="" NEWS="" SYNC=0 DRY_RUN=0 ANNOUNCE=1 NOPACKS=0
@@ -53,7 +91,7 @@ pub_layer="$NODE tools/publish.mjs --layer client --source $(q "$SRC") --out $(q
 pub_rel="$NODE tools/publish.mjs --release $(q "$REL") --out $(q "$PATCH_DIR") --use base@$(q "$BASE") --use client@$(q "$CV")${NEWS:+ --news $(q "$NEWS")}$([ "$NOPACKS" = 1 ] && echo " --no-packs")"
 if [ "$DRY_RUN" = 1 ]; then
   step "DRY RUN OK. Would run on $RELEASE_HOST (cd $PUBLISHER):"
-  echo "  $pub_layer"; [ -n "$REL" ] && echo "  cp $PATCH_DIR/manifest.json /srv/slums-staging/manifest-before-$REL.json && $pub_rel"
+  echo "  $pub_layer"; [ -n "$REL" ] && echo "  cp $PATCH_DIR/manifest.json $STAGING_DIR/manifest-before-$REL.json && $pub_rel"
   exit 0
 fi
 
@@ -61,14 +99,19 @@ step "publish client layer $CV"
 h "cd $PUBLISHER && $pub_layer"
 step "hash-diff again on the published layer manifest"
 verify --client-manifest "$PATCH_DIR/layers/client/$CV/manifest.json" || die "published layer $CV fails the hash-diff; manifest.json NOT updated. Do not point a release at it"
+test_fail after-layer
 if [ -n "$REL" ]; then
-  step "release manifest $REL (manifest.json last)"
-  h "cp $PATCH_DIR/manifest.json /srv/slums-staging/manifest-before-$(q "$REL").json && cd $PUBLISHER && $pub_rel"
+  step "release manifest $REL (manifest.json last; the old one saved as $STAGING_DIR/manifest-before-$REL.json)"
+  # Never overwrite a saved manifest with a different one: it is the way back (--restore-manifest).
+  h "b=$(q "$STAGING_DIR/manifest-before-$REL.json"); if [ -e \"\$b\" ] && ! cmp -s \"\$b\" $(q "$PATCH_DIR/manifest.json"); then echo \"\$b exists and differs from manifest.json\" >&2; exit 1; fi; cp $(q "$PATCH_DIR/manifest.json") \"\$b\"" \
+    || die "refusing to overwrite $STAGING_DIR/manifest-before-$REL.json; manifest.json NOT updated"
+  h "cd $PUBLISHER && $pub_rel"
   h "python3 -I -c 'import json; m=json.load(open(\"$PATCH_DIR/manifest.json\")); print(\"manifest.json:\", m[\"version\"], [(l[\"name\"], l[\"version\"]) for l in m[\"layers\"]])'"
   # The owner's everyday launcher reads /launcher-test/ (game feed + launcher self-update) and must match live.
   # Its layers/ is a symlink to ../layers, so the live manifest works there as is. RCs get their own channel.
   h "test -L $(q "$PATCH_DIR/launcher-test/layers") && cp $(q "$PATCH_DIR/manifest.json") $(q "$PATCH_DIR/launcher-test/manifest.json.new") && mv $(q "$PATCH_DIR/launcher-test/manifest.json.new") $(q "$PATCH_DIR/launcher-test/manifest.json") && echo 'launcher-test feed now mirrors live'" \
     || echo "WARN: /launcher-test/ not mirrored (no layers symlink there?); the owner's launcher stays on its old release"
+  test_fail after-manifest
   if [ "$ANNOUNCE" = 1 ]; then
     step "Cody: client $REL is in the launcher (public channel; --no-announce skips)"
     h "command -v slumsms-monitor >/dev/null && slumsms-monitor client-ready $(q "$ANNOUNCE_TARGET") $(q "$REL")" \

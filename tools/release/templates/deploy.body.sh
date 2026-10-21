@@ -2,14 +2,28 @@
 #
 # Order: pre-checks (live still up; any failure aborts before the stop) -> stop -> backup (DB with table locks,
 # runtime, unit) -> ledger-checked migrations -> stage jar + scripts + src/main data + config together -> unit ->
-# start -> smoke test -> receipt. After the stop every abort says "server is DOWN - run rollback.sh".
+# start -> smoke test -> receipt. After the stop every abort says "server is DOWN" and what to run.
+#
+# Phases (tools/release/release runs them one by one, with the client publish between stop-backup and apply-start).
+# Without --phase the script runs everything in one go exactly as before (maintenance end right after "is now online").
+#   --phase stop-backup   pre-checks, maintenance on + "going down" post, stop, backup. Server left DOWN on the old
+#                         version, nothing installed.
+#   --phase apply-start   migrations, jar/scripts/data/config/unit, start, wait for "is now online". Maintenance stays
+#                         ON (the caller ends it with one combined "back up, press Play" post).
+#   --phase smoke         smoke test + receipt (exit 1 on FAIL).
+#   --phase restart-old   after a failure BEFORE apply-start: start the untouched old version, wait online,
+#                         maintenance off ("back up"). Refuses once apply-start has begun (then: rollback.sh).
+# State between phases: markers .stop-backup.done, .apply-start.started, .apply-start.done, .start-ts, .timings in $B.
 #
 # The rehearsal runs this same file on a copy of live and overrides SRV, B, LOG, RECEIPT, SQL_CMD, DUMP_CMD, STOP_CMD,
 # START_CMD, IS_ACTIVE_CMD, DAEMON_RELOAD_CMD, JOURNAL_UNIT, UNIT_FILE, LOGIN_PORT, CHANNEL_BASE and MONITOR. Live uses
 # the defaults below.
 set -euo pipefail
-DRY_RUN=0
-for a in "$@"; do case $a in --dry-run) DRY_RUN=1;; *) echo "usage: $0 [--dry-run]"; exit 2;; esac; done
+DRY_RUN=0 PHASE=all
+usage() { echo "usage: $0 [--dry-run | --phase stop-backup|apply-start|smoke|restart-old]"; exit 2; }
+while [ $# -gt 0 ]; do case $1 in --dry-run) DRY_RUN=1;; --phase) PHASE=${2:-}; shift;; *) usage;; esac; shift; done
+case $PHASE in all|stop-backup|apply-start|smoke|restart-old) ;; *) usage;; esac
+[ "$DRY_RUN" = 0 ] || [ "$PHASE" = all ] || { echo "--dry-run checks a whole run; it takes no --phase"; exit 2; }
 ST=${ST:-$D/staging}
 SRV=${SRV:-"/opt/mapleroot/MapleRoot Full Repack/Server"}
 B=${B:-$D/backup}
@@ -38,7 +52,9 @@ t0=$(date +%s); step() { echo "[$(date -u +%H:%M:%S) +$(( $(date +%s) - t0 ))s] 
 has() { grep -c "$@" > /dev/null; }   # like grep -q, but reads all input (grep -q + pipefail = SIGPIPE false negatives)
 sql() { eval "$SQL_CMD" 2>&1 | { grep -v 'Using a password' || true; }; }
 die() { echo "ABORT: $*"; exit 1; }
-down() { echo "ABORT: $*"; echo "ABORT: the server is DOWN - run: bash $D/rollback.sh"
+down() { echo "ABORT: $*"
+  if [ -e "$B/.apply-start.started" ]; then echo "ABORT: the server is DOWN - run: bash $D/rollback.sh"
+  else echo "ABORT: the server is DOWN on the old version (nothing installed yet) - run: bash $D/deploy.sh --phase restart-old"; fi
   [ -n "$MONITOR" ] && echo "(maintenance mode stays on: alerts are quiet; rollback.sh ends it, or: $MONITOR maintenance $MONITOR_TARGET end)"
   exit 1; }
 maint() {   # maint start|end [--dry-run]: never fails the script
@@ -56,9 +72,47 @@ LEDGER_AFTER=$LEDGER_BEFORE
 for id in "${MIGRATION_IDS[@]}"; do LEDGER_AFTER=$(printf '%s\n' ${LEDGER_AFTER//,/ } "$id" | LC_ALL=C sort | paste -sd,); done
 C="$SRV/config.yaml"
 declare -A T
+mark() { T[$1]=$(now); echo "$1=${T[$1]}" >> "$B/.timings"; }   # timings survive between phases
+if [ "$PHASE" != all ] && [ -f "$B/.timings" ]; then while IFS== read -r k v; do T[$k]=$v; done < "$B/.timings"; fi
+wait_online() {   # sets online=1 once the journal since START_TS says "is now online"
+  online=0
+  for i in $(seq 1 "$ONLINE_TIMEOUT"); do
+    journalctl -u "$JOURNAL_UNIT" --since "$START_TS" --no-pager | has "is now online" && { online=1; break; }
+    sleep 1
+  done
+}
+J() { journalctl -u "$JOURNAL_UNIT" --since "$START_TS" --no-pager; }
 
-echo "== SlumsMS $VERSION deploy$([ "$DRY_RUN" = 1 ] && echo ' (DRY RUN: pre-checks only, nothing is stopped or changed)') =="
+echo "== SlumsMS $VERSION deploy$([ "$DRY_RUN" = 1 ] && echo ' (DRY RUN: pre-checks only, nothing is stopped or changed)')$([ "$PHASE" != all ] && echo " (phase $PHASE)") =="
 echo "staging $ST (commit $COMMIT, jar $JAR_SHA16); server $SRV"
+
+if [ "$PHASE" = restart-old ]; then
+  step "restart the OLD version (nothing of $VERSION installed)"
+  [ ! -e "$B/.apply-start.started" ] || die "apply-start has begun: files may be half installed. Run: bash $D/rollback.sh"
+  if [ -f "$B/old-jar.sha256" ]; then (cd "$SRV" && sha256sum -c --quiet "$B/old-jar.sha256") || die "the installed jar is not the backed-up old one; run rollback.sh"; fi
+  if eval "$IS_ACTIVE_CMD"; then echo "server is already running"
+  else
+    START_TS=$(date '+%Y-%m-%d %H:%M:%S'); eval "$START_CMD"; wait_online
+    J | grep -E "SlumsMS v|Starting world|is now online|failed to load" || true
+    [ "$online" = 1 ] || { J | tail -40; die "old version not online after ${ONLINE_TIMEOUT}s; look at journalctl -u $JOURNAL_UNIT"; }
+  fi
+  maint end
+  step "old version back up; $VERSION was NOT installed (backup in $B kept; move it away before a new deploy.sh run)"
+  exit 0
+fi
+if [ "$PHASE" = apply-start ]; then
+  step "phase checks (server down after stop-backup)"
+  (cd "$ST" && sha256sum -c --quiet SHA256SUMS) || down "staged files do not match SHA256SUMS"
+  [ -f "$B/.stop-backup.done" ] || die "--phase stop-backup has not completed ($B/.stop-backup.done missing)"
+  [ ! -e "$B/.apply-start.started" ] || die "apply-start already ran once on this backup; run rollback.sh (or stage a new version)"
+  ! eval "$IS_ACTIVE_CMD" || die "the server is running; apply-start expects it stopped by --phase stop-backup"
+fi
+if [ "$PHASE" = smoke ]; then
+  [ -f "$B/.apply-start.done" ] && [ -f "$B/.start-ts" ] || die "--phase apply-start has not completed"
+  START_TS=$(cat "$B/.start-ts")
+fi
+
+if [ "$PHASE" = all ] || [ "$PHASE" = stop-backup ]; then
 step "pre-checks (live still up)"
 (cd "$ST" && sha256sum -c --quiet SHA256SUMS) || die "staged files do not match SHA256SUMS"
 [ -f "$C" ] && [ -f "$SRV/target/Cosmic.jar" ] && [ -d "$SRV/scripts" ] && [ -d "$SRV/src/main" ] \
@@ -90,7 +144,8 @@ for p in "${PRECHECK_SQL[@]}"; do
 done
 echo "SELECT 'players online', COUNT(*) FROM accounts WHERE loggedin > 0;" | sql
 [ ! -e "$B/mapleroot.sql.gz" ] || die "$B already holds a backup (an earlier run?). Move it away first; never overwrite a backup"
-mkdir -p "$B"; free_mb=$(df -Pm "$B" | awk 'NR==2{print $4}')
+[ "$DRY_RUN" = 1 ] || mkdir -p "$B"   # a dry run creates nothing (stage treats an existing backup/ as deployed)
+free_mb=$(df -Pm "$(dirname "$B")" | awk 'NR==2{print $4}')
 [ "$free_mb" -gt 4096 ] || die "only ${free_mb} MB free for the backup"
 echo "old jar: $(sha256sum "$SRV/target/Cosmic.jar" | cut -c1-16)  new jar: $JAR_SHA16"
 eval "$IS_ACTIVE_CMD" && echo "server is running (will be stopped)" || echo "server is NOT running now"
@@ -110,14 +165,17 @@ if [ "$DRY_RUN" = 1 ]; then
   exit 0
 fi
 
+fi   # pre-checks
+
+if [ "$PHASE" = all ] || [ "$PHASE" = stop-backup ]; then
 step "maintenance mode on + public notice (back in about $MAINT_MINUTES min)"
 maint start
 step "stop"
-T[stop0]=$(now)
+mark stop0
 eval "$STOP_CMD"
 for i in $(seq 1 300); do eval "$IS_ACTIVE_CMD" || break; sleep 1; done
 eval "$IS_ACTIVE_CMD" && down "server still active after stop"
-T[stop1]=$(now)
+mark stop1
 
 step "backup: DB with table locks, runtime, unit"
 eval "$DUMP_CMD" 2>/dev/null | gzip > "$B/mapleroot.sql.gz"
@@ -129,7 +187,13 @@ cp "$C" "$B/config.yaml"
 [ -f "$UNIT_FILE" ] && cp "$UNIT_FILE" "$B/slumsms.service" || true
 sha256sum "$SRV/target/Cosmic.jar" > "$B/old-jar.sha256"
 echo "$LEDGER_BEFORE" > "$B/ledger-before.txt"
-T[bak1]=$(now)
+mark bak1
+touch "$B/.stop-backup.done"
+[ "$PHASE" = all ] || { step "phase stop-backup done: server DOWN on the old version, backup in $B"; exit 0; }
+fi   # stop-backup
+
+if [ "$PHASE" = all ] || [ "$PHASE" = apply-start ]; then
+touch "$B/.apply-start.started"
 
 step "migrations (ledger-checked): ${MIGRATION_IDS[*]:-none}"
 for i in "${!MIGRATION_FILES[@]}"; do
@@ -141,7 +205,7 @@ for i in "${!MIGRATION_FILES[@]}"; do
 done
 l=$(ledger); echo "ledger: $l"
 [ "$l" = "$LEDGER_AFTER" ] || down "ledger after migrations is '$l', expected '$LEDGER_AFTER'"
-T[mig1]=$(now)
+mark mig1
 
 step "stage jar, scripts, src/main data, config (jar and config go together)"
 cp "$ST/Cosmic.jar" "$SRV/target/Cosmic.jar"
@@ -165,22 +229,20 @@ if [ "${#UNIT_EDITS[@]}" -gt 0 ]; then
   grep -E "ExecStart|TimeoutStopSec" "$UNIT_FILE"
   eval "$DAEMON_RELOAD_CMD"
 fi
-T[stage1]=$(now)
+mark stage1
 
 step "start"
-START_TS=$(date '+%Y-%m-%d %H:%M:%S')
+START_TS=$(date '+%Y-%m-%d %H:%M:%S'); echo "$START_TS" > "$B/.start-ts"
 eval "$START_CMD"
-online=0
-for i in $(seq 1 "$ONLINE_TIMEOUT"); do
-  journalctl -u "$JOURNAL_UNIT" --since "$START_TS" --no-pager | has "is now online" && { online=1; break; }
-  sleep 1
-done
-T[up]=$(now)
-J() { journalctl -u "$JOURNAL_UNIT" --since "$START_TS" --no-pager; }
+wait_online
+mark up
 J | grep -E "SlumsMS v|Starting world|Finished loading world|Listening on port|is now online|automatic population|failed to load" || true
 [ "$online" = 1 ] || { J | tail -40; down "not online after ${ONLINE_TIMEOUT}s"; }
 echo "downtime (stop -> online): $(dur "${T[stop0]}" "${T[up]}") s"
-maint end
+touch "$B/.apply-start.done"
+if [ "$PHASE" = all ]; then maint end
+else step "phase apply-start done: online; maintenance stays on (the caller ends it)"; exit 0; fi
+fi   # apply-start
 
 step "smoke test (${SMOKE_SECONDS}s)"
 sleep "$SMOKE_SECONDS"
@@ -194,7 +256,7 @@ for p in $LOGIN_PORT $CHANNEL_BASE; do
 done
 l=$(ledger); [ "$l" = "$LEDGER_AFTER" ] || fail+=("ledger now '$l'")
 echo "SELECT 'characters by world', world, COUNT(*) FROM characters GROUP BY world;" | sql
-T[smoke1]=$(now)
+mark smoke1
 
 result=PASS; [ "${#fail[@]}" = 0 ] || result="FAIL (${fail[*]})"
 {

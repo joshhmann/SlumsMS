@@ -1,10 +1,11 @@
 # Shared by publish-client and publish-launcher (sourced). They run on the workstation and act on the host over SSH.
 PATCH_DIR=${PATCH_DIR:-/srv/slums-patch}
+STAGING_DIR=${STAGING_DIR:-/srv/slums-staging}   # client staging trees, news, manifest-before-<release>.json
 PUBLISHER=${PUBLISHER:-/opt/slums-tools/launcher}
 NODE=${NODE:-/opt/slums-tools/node/bin/node}
 LAUNCHER_REPO=${LAUNCHER_REPO:-/root/work/launcher}
 REFERENCE=${REFERENCE:-"/opt/mapleroot-control/MapleRoot Full Repack/Game Files"}
-REF_CACHE=${REF_CACHE:-/srv/slums-staging/reference-client.hashes.json}
+REF_CACHE=${REF_CACHE:-$STAGING_DIR/reference-client.hashes.json}
 h() { ssh -o BatchMode=yes "$RELEASE_HOST" "$@"; }
 # Shell-quote each argument for a remote command, joined by single spaces, with NO trailing space: callers glue
 # text straight onto it ("$(q "$DIR")/.", "name-$(q "$V").json"). A trailing space there split one path into two

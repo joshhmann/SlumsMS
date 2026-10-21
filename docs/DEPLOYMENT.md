@@ -12,3 +12,13 @@ The tagged baseline has been deployed. See [the live handoff](live-handoff-20261
 Source excludes config.yaml, database dumps, binaries produced by builds and server WZ XML. Runtime packaging tooling verifies a supplied asset tree and emits a manifest. It does not deploy or migrate a running server.
 
 Registration Discord notifications are optional. Supply SLUMSMS_REGISTRATION_WEBHOOK privately if needed; it defaults off. Never commit the endpoint into source or service examples.
+
+## Releases from 1.4.2: one command
+
+`tools/release/release <version>` (workstation) pairs the server deploy and the client publish in MMO order:
+pre-flight (changes nothing) -> maintenance on + "going down" post, stop, backup -> client publish while the server
+is down -> migrations/config/install, start, smoke -> maintenance off + one "back up, press Play to update" post.
+A failure before the publish restarts the old version; a failed publish restores the previous `manifest.json` and
+restarts the old version; a failure after the publish restores the previous `manifest.json` first and then runs
+`rollback.sh`. Players never get a new client with an old server. Guide, failure table and rehearsal:
+[docs/release/README.md](release/README.md).

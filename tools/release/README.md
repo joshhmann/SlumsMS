@@ -7,9 +7,11 @@ Release pipeline (ticket 44, `docs/tickets/44-release-pipeline.md`). Each script
 | 1 | `build` (suite + jar + `BUILD.txt`) | workstation |
 | 2 | `stage <version>` (jar, scripts, data, migrations, generated `deploy.sh`/`rollback.sh` on 164) | workstation -> 164 |
 | 3 | `rehearse <version>` (fresh copy of live, deploy + rollback, receipt) | workstation -> 164 |
-| 4 | owner: `bash /opt/mapleroot-deployments/v<version>/deploy.sh` | 164 |
-| 4b | `stage-client <client-version> --build-dir 'Z:\...\build\Release'` | workstation: Silvia -> 164 |
-| 5 | `publish-client`, `publish-launcher` (hash-diff rule built in) | workstation -> 164 |
+| 3b | `stage-client <client-version> --build-dir 'Z:\...\build\Release'` | workstation: Silvia -> 164 |
+| 4 | owner: `release <version>` (server + client in MMO order, see `docs/release/README.md`) | workstation -> 164 |
+| 4 (old way) | owner: `bash /opt/mapleroot-deployments/v<version>/deploy.sh`, then `publish-client` | 164, workstation |
+| 5 | `publish-launcher` (hash-diff rule built in); `publish-client --restore-manifest FILE` puts a saved manifest back | workstation -> 164 |
+| test | `rehearse-release-flow` (the release command on scratch copies, both failure paths) | workstation -> 164 |
 
 ## Client hand-off: `stage-client`
 

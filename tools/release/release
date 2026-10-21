@@ -1,0 +1,210 @@
+#!/bin/bash
+# SlumsMS release (workstation): server deploy and client publish as ONE run, in MMO order: the client is published
+# while the server is down for maintenance, so players update during the downtime and the server comes back on the
+# new version with the new client already in the launcher.
+#
+#   tools/release/release <version> [--client-version CV] [--source DIR] [--news FILE] [--base B] [--no-packs]
+#                         [--no-client] [--dry-run] [--yes]
+#
+#   <version>        the staged server release (/opt/mapleroot-deployments/v<version>/, from tools/release/stage) and
+#                    the release manifest version
+#   --client-version client layer version (default <version>)
+#   --source         client staging tree on the host (default $STAGING_DIR/client-<client version>, from stage-client)
+#   --news           news JSON on the host (default $STAGING_DIR/news-<version>.json if it exists)
+#   --base, --no-packs   passed to publish-client
+#   --no-client      server only (no publish; plain "back up" post)
+#   --dry-run        step 1 only (every pre-flight check, changes nothing) and print the plan
+#   --yes            do not ask before step 2
+#
+# Order:
+#   1. pre-flight, changes nothing: deploy.sh --dry-run against live; deploy.sh has --phase and rollback.sh is there;
+#      client staging tree present + publish-client --dry-run (hash-diff vs the reference client and the current
+#      release, host publisher = $LAUNCHER_REPO); slumsms-monitor installed and answering (maintenance start
+#      --dry-run), with `maintenance end --client` for the one combined post.
+#   2. deploy.sh --phase stop-backup: maintenance on + Cody "going down" (one post), stop, backup.
+#   3. publish-client --no-announce: client layer, release manifest (old one saved as
+#      $STAGING_DIR/manifest-before-<version>.json), /launcher-test/ mirror. Server still DOWN.
+#   4. deploy.sh --phase apply-start (migrations, config, install, start, online), then --phase smoke.
+#   5. slumsms-monitor maintenance <target> end --client <version>: maintenance off + ONE Cody post
+#      ("back up, press Play to update if you haven't").
+#
+# Failures (each leaves old server + old client, or says exactly what it could not do):
+#   step 1            nothing changed; fix and rerun.
+#   step 2            deploy.sh --phase restart-old: the untouched old version starts again, maintenance off ("back up").
+#                     Nothing published.
+#   step 3            if manifest.json changed: publish-client --restore-manifest manifest-before-<version>.json; then
+#                     deploy.sh --phase restart-old (old server back, "back up"). The new server is never started.
+#                     If the manifest cannot be restored the server stays DOWN in maintenance (never new client + old
+#                     server) and the commands to finish by hand are printed.
+#   step 4            publish-client --restore-manifest first (players get the old client again), then rollback.sh
+#                     (old version back, "back up" post). Same rule if the restore fails.
+#   step 5            the post is soft: a failed post is a warning (end maintenance by hand).
+#
+# Rehearsal (tools/release/rehearse-release-flow): --host-env FILE (sourced on the host before every remote command:
+# scratch SRV/B/SQL_CMD/START_CMD/MONITOR..., see deploy.sh) and --inject publish-fail|start-fail. Both are refused
+# against the live feed. The workstation side honours DEPLOY_ROOT, PATCH_DIR, STAGING_DIR, REF_CACHE, LAUNCHER_REPO.
+set -euo pipefail
+here=$(cd "$(dirname "$0")" && pwd); . "$here/lib.sh"; . "$here/publish-lib.sh"
+REPO=$(cd "$here/../.." && pwd)
+VERSION=${1:-}; shift || true
+valid_version "$VERSION" || die "usage: release <version> [--client-version CV] [--source DIR] [--news FILE] [--no-packs] [--no-client] [--dry-run]"
+CV=$VERSION SRC="" NEWS="" BASE="" NOPACKS=0 NOCLIENT=0 DRY_RUN=0 YES=0 HOST_ENV="" INJECT=""
+while [ $# -gt 0 ]; do case $1 in
+  --client-version) CV=$2; shift;; --source) SRC=$2; shift;; --news) NEWS=$2; shift;; --base) BASE=$2; shift;;
+  --no-packs) NOPACKS=1;; --no-client) NOCLIENT=1;; --dry-run) DRY_RUN=1;; --yes) YES=1;;
+  --host-env) HOST_ENV=$2; shift;; --inject) INJECT=$2; shift;;
+  *) die "unknown option $1";; esac; shift; done
+require_workstation
+D=$DEPLOY_ROOT/v$VERSION
+SRC=${SRC:-$STAGING_DIR/client-$CV}
+MONITOR_TARGET=${MONITOR_TARGET:-live}
+case $INJECT in "") ;; publish-fail|start-fail)
+  [ -n "$HOST_ENV" ] && [ "$PATCH_DIR" != /srv/slums-patch ] && [ "$DEPLOY_ROOT" != /opt/mapleroot-deployments ] \
+    || die "--inject is for rehearsals only (needs --host-env, a scratch PATCH_DIR and DEPLOY_ROOT)";;
+  *) die "--inject publish-fail|start-fail";; esac
+[ -z "$HOST_ENV" ] || [ "$PATCH_DIR" != /srv/slums-patch ] || die "--host-env (a scratch server) with the live feed $PATCH_DIR: refused"
+
+mkdir -p "$REPO/dist/release-runs"
+RUNLOG=$REPO/dist/release-runs/release-$VERSION-$(date -u +%Y%m%dT%H%M%SZ)$([ "$DRY_RUN" = 1 ] && echo -dryrun || true).log
+exec > >(tee -a "$RUNLOG") 2>&1
+TIMELINE=()
+event() { TIMELINE+=("$(date -u +%H:%M:%S) $*"); step "$*"; }
+# Remote commands: the rehearsal env (if any) is sourced first, so deploy.sh and the monitor see the scratch settings.
+pre=""; [ -z "$HOST_ENV" ] || pre="set -a; . $(q "$HOST_ENV"); set +a; "
+hx() { h "$pre$*"; }
+MON='"${MONITOR-/usr/local/bin/slumsms-monitor}"'   # expanded on the host, after the env file
+monitor() { hx "M=$MON; if [ -z \"\$M\" ]; then echo '(no monitor in this environment: skipped)'; else timeout 60 \"\$M\" $*; fi"; }
+manifest_sha() { h "sha256sum $(q "$PATCH_DIR/manifest.json") | cut -c1-16"; }
+BEFORE=$STAGING_DIR/manifest-before-$VERSION.json
+pc_args=("$CV" --source "$SRC" --release "$VERSION")
+[ -z "$NEWS" ] || pc_args+=(--news "$NEWS")
+[ -z "$BASE" ] || pc_args+=(--base "$BASE")
+[ "$NOPACKS" = 0 ] || pc_args+=(--no-packs)
+
+summary() {
+  echo; echo "== release $VERSION: $1 =="
+  printf '  %s\n' "${TIMELINE[@]}"
+  echo "  log: $RUNLOG"
+}
+restore_manifest() {   # 0 = manifest.json is the old one again (or never changed)
+  local now; now=$(manifest_sha)
+  if [ "$now" = "$MANIFEST0" ]; then echo "manifest.json unchanged ($now): nothing to restore"; return 0; fi
+  event "restore the previous release manifest ($BEFORE)"
+  "$here/publish-client" --restore-manifest "$BEFORE" || return 1
+  [ "$(manifest_sha)" = "$MANIFEST0" ] || { echo "manifest.json is not the pre-release one after the restore"; return 1; }
+  event "manifest.json restored (players get the old client on Play)"
+}
+stuck() {   # the manifest could not be put back: keep the server down rather than pair new client + old server
+  event "STOPPED: manifest.json could NOT be restored; the server stays DOWN in maintenance (never new client + old server)"
+  echo "Finish by hand (from the workstation, then on the host):"
+  echo "  tools/release/publish-client --restore-manifest $BEFORE"
+  echo "  $1"
+  summary "FAILED, server down"; exit 1
+}
+
+echo "== SlumsMS release $VERSION: server $D + client $([ "$NOCLIENT" = 1 ] && echo "(none)" || echo "$CV from $SRC") =="
+echo "host $RELEASE_HOST, feed $PATCH_DIR, monitor target $MONITOR_TARGET${HOST_ENV:+, REHEARSAL env $HOST_ENV}${INJECT:+, inject $INJECT}"
+
+# ---- 1. pre-flight: changes nothing ----
+event "1. pre-flight (changes nothing)"
+hx "test -f $(q "$D/deploy.sh") && test -f $(q "$D/rollback.sh")" || die "$VERSION is not staged in $D (tools/release/stage $VERSION)"
+hx "grep -q -- '--phase stop-backup' $(q "$D/deploy.sh")" \
+  || die "$D/deploy.sh has no --phase (generated before ops-release-flow, or hand-written): restage it, or deploy the old way (deploy.sh, then publish-client)"
+hx "bash -n $(q "$D/deploy.sh") && bash -n $(q "$D/rollback.sh")" || die "deploy.sh/rollback.sh do not parse"
+echo "-- deploy.sh --dry-run (against the server it will deploy to)"
+hx "bash $(q "$D/deploy.sh") --dry-run" || die "deploy.sh --dry-run failed: nothing changed"
+MANIFEST0=$(manifest_sha)
+if [ "$NOCLIENT" = 0 ]; then
+  echo "-- client: staging tree, hash-diff, host publisher (publish-client --dry-run)"
+  h "test -d $(q "$SRC")" || die "no client staging tree $SRC on $RELEASE_HOST (tools/release/stage-client $CV ...)"
+  if [ -z "$NEWS" ] && h "test -f $(q "$STAGING_DIR/news-$VERSION.json")"; then NEWS=$STAGING_DIR/news-$VERSION.json; pc_args+=(--news "$NEWS"); fi
+  [ -z "$NEWS" ] || h "test -f $(q "$NEWS")" || die "no news file $NEWS on the host"
+  echo "news: ${NEWS:-(none)}"
+  h "b=$(q "$BEFORE"); ! [ -e \"\$b\" ] || cmp -s \"\$b\" $(q "$PATCH_DIR/manifest.json")" \
+    || die "$BEFORE exists and differs from manifest.json (an earlier attempt?); move it away first"
+  "$here/publish-client" "${pc_args[@]}" --no-announce --dry-run || die "publish-client --dry-run failed: nothing changed"
+fi
+echo "-- monitor"
+COMBINED=0
+mon_state=$(hx "M=$MON; if [ -z \"\$M\" ]; then echo none; elif [ ! -x \"\$M\" ]; then echo missing; elif \"\$M\" maintenance --help 2>/dev/null | grep -q -- --client; then echo combined; else echo old; fi")
+case $mon_state in
+  none) echo "no monitor in this environment (rehearsal): no posts";;
+  missing) warn "slumsms-monitor not installed on the host: maintenance mode and the Cody posts will be skipped";;
+  combined|old)
+    monitor maintenance "$MONITOR_TARGET" start --dry-run > /dev/null || die "slumsms-monitor maintenance --dry-run fails on the host"
+    echo "slumsms-monitor answers (maintenance start --dry-run ok)"
+    if [ "$mon_state" = combined ]; then COMBINED=1
+    else warn "the installed slumsms-monitor has no 'maintenance end --client': Cody will post 'back up' and 'client ready' separately (install deploy/monitor for one post)"; fi;;
+esac
+manifest_now=$(h "python3 -I -c 'import json,sys; m=json.load(open(sys.argv[1])); print(m[\"version\"], [(l[\"name\"], l[\"version\"]) for l in m[\"layers\"]])' $(q "$PATCH_DIR/manifest.json")")
+echo "feed now: $manifest_now (manifest.json $MANIFEST0)"
+
+end_post="maintenance $MONITOR_TARGET end"
+if [ "$NOCLIENT" = 0 ] && [ "$COMBINED" = 1 ]; then end_post+=" --client $VERSION"; fi
+echo
+echo "PLAN:"
+echo "  2. ssh $RELEASE_HOST bash $D/deploy.sh --phase stop-backup     maintenance on + ONE 'going down' post, stop, backup"
+if [ "$NOCLIENT" = 0 ]; then
+  echo "  3. tools/release/publish-client ${pc_args[*]} --no-announce   (server DOWN)"
+  echo "       layer client/$CV, $BEFORE, manifest.json -> $VERSION, /launcher-test/ mirror"
+else echo "  3. (no client)"; fi
+echo "  4. ssh $RELEASE_HOST bash $D/deploy.sh --phase apply-start; then --phase smoke"
+echo "  5. slumsms-monitor $end_post   ONE 'back up$([ "$NOCLIENT" = 0 ] && echo ", press Play to update")' post"
+echo "  on failure: step 2 -> deploy.sh --phase restart-old; step 3 -> restore manifest + restart-old;"
+echo "              step 4 -> restore manifest + rollback.sh. Restore = publish-client --restore-manifest $BEFORE"
+if [ "$DRY_RUN" = 1 ]; then summary "DRY RUN OK (nothing changed)"; exit 0; fi
+if [ "$YES" = 0 ]; then
+  [ -t 0 ] || die "not a terminal: pass --yes to go ahead"
+  read -r -p "Go: take the server down and release $VERSION? [type yes] " a; [ "$a" = yes ] || die "not confirmed; nothing changed"
+fi
+
+# ---- 2. maintenance + stop + backup ----
+event "2. deploy.sh --phase stop-backup (maintenance on + going-down post, stop, backup)"
+if ! hx "bash $(q "$D/deploy.sh") --phase stop-backup"; then
+  event "stop-backup FAILED: restarting the old version (nothing installed, nothing published)"
+  if hx "bash $(q "$D/deploy.sh") --phase restart-old"; then event "old version back up"; summary "FAILED at step 2; old server back, nothing published"
+  else event "restart-old FAILED"; summary "FAILED at step 2; old server NOT back: see the log; bash $D/rollback.sh if a backup exists"; fi
+  exit 1
+fi
+
+# ---- 3. client publish while the server is down ----
+if [ "$NOCLIENT" = 0 ]; then
+  event "3. publish client $CV + release manifest $VERSION (server DOWN)"
+  pc_env=(); [ "$INJECT" != publish-fail ] || pc_env=(PUBLISH_TEST_FAIL=after-manifest)
+  if ! env "${pc_env[@]}" "$here/publish-client" "${pc_args[@]}" --no-announce; then
+    event "publish FAILED: the new server will not be started"
+    restore_manifest || stuck "bash $D/deploy.sh --phase restart-old"
+    if hx "bash $(q "$D/deploy.sh") --phase restart-old"; then event "old version back up (old client, old server)"
+      summary "FAILED at step 3; old server + old client. Layer client/$CV may be published but unreferenced: use a new client version next time"
+    else event "restart-old FAILED"; summary "FAILED at step 3; manifest restored, old server NOT back: see the log"; fi
+    exit 1
+  fi
+  event "client published: manifest.json $(manifest_sha)"
+fi
+
+# ---- 4. apply + start + smoke ----
+event "4. deploy.sh --phase apply-start (migrations, config, install, start)"
+apply_env=""; [ "$INJECT" != start-fail ] || apply_env="START_CMD=true ONLINE_TIMEOUT=15 "
+ok=1
+hx "${apply_env}bash $(q "$D/deploy.sh") --phase apply-start" || ok=0
+if [ "$ok" = 1 ]; then
+  event "4b. deploy.sh --phase smoke"
+  hx "bash $(q "$D/deploy.sh") --phase smoke" || ok=0
+fi
+if [ "$ok" = 0 ]; then
+  event "server steps FAILED after the client publish: old client first, then rollback.sh"
+  if [ "$NOCLIENT" = 0 ]; then restore_manifest || stuck "bash $D/rollback.sh"; fi
+  if hx "bash $(q "$D/rollback.sh")"; then event "rollback.sh done: old server back (its 'back up' post)"
+    summary "FAILED at step 4; rolled back to the old server + old client"
+  else event "rollback.sh FAILED"; summary "FAILED at step 4; manifest restored, rollback.sh failed: server state unknown, see the log"; fi
+  exit 1
+fi
+
+# ---- 5. maintenance off + one post ----
+event "5. maintenance off + one Cody post"
+monitor $end_post || warn "the maintenance end post failed; end it by hand: slumsms-monitor $end_post"
+if [ "$NOCLIENT" = 0 ] && [ "$COMBINED" = 0 ] && [ "$mon_state" = old ]; then
+  monitor client-ready "$MONITOR_TARGET" "$VERSION" || warn "client-ready post failed"
+fi
+event "done: server $VERSION up, client $CV in the launcher"
+summary "PASS"
