@@ -68,3 +68,7 @@ deliberate (MapleRoot/SlumsMS feature) vs broken, and restore the broken ones wi
   (chat, AFK, rest, waiting on a commitment) it walks to a safe spot - a platform/foothold group with no live mobs in
   range, a rope top, or near a portal; if knocked back while idle it relocates at once. Pair with a `!qa` scenario
   (idle bot on a busy map, log hits taken while idle before/after).
+- **Client: character slides when attacking** (owner, 1.4.1 test pass; unsure if MapleRoot-intended). Stock v83 has a
+  short skid when attacking right after walking. If it glides through the whole attack: prime suspect the
+  MAPLEROOT_MOVEMENT_KEYS addon (rebindable direction keys) reporting the direction key as held. Bisect: a test build
+  with -DMAPLEROOT_MOVEMENT_KEYS=OFF, and compare the live 1.4.0 client. Client lane.
