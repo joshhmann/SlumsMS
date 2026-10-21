@@ -110,13 +110,13 @@ public final class SummonDamageHandler extends AbstractDealDamageHandler {
             int damage = attackEntry.getDamage();
             Monster target = player.getMap().getMonsterByOid(attackEntry.getMonsterOid());
             if (target != null) {
-                /*if (damage > maxDmg) {
+                if (damage > maxDmg) { // 1.4.2: the repack had commented out this anti-cheat clamp
                     AutobanFactory.DAMAGE_HACK.alert(c.getPlayer(), "Possible packet editing summon damage exploit.");
                     final String mobName = MonsterInformationProvider.getInstance().getMobNameFromId(target.getId());
                     log.info("Possible exploit - chr {} used a summon of skillId {} to attack {} with damage {} (max: {})",
                             c.getPlayer().getName(), summon.getSkill(), mobName, damage, maxDmg);
-                    damage = maxDmg;
-                }*/
+                }
+                damage = capSummonDamage(damage, maxDmg);
                 if(player.damageCheckinProgress) {
                     player.damageCheck += damage;
                 }
@@ -135,7 +135,12 @@ public final class SummonDamageHandler extends AbstractDealDamageHandler {
         }
     }
 
-    private static int calcMaxDamage(StatEffect summonEffect, Character player, boolean magic) {
+    /** A summon hit above the stat-based estimate is cut to it (Cosmic, "thanks Darter for reporting unchecked max dmg"). */
+    static int capSummonDamage(int damage, int maxDmg) {
+        return Math.min(damage, maxDmg);
+    }
+
+    static int calcMaxDamage(StatEffect summonEffect, Character player, boolean magic) {
         double maxDamage;
 
         if (magic) {
