@@ -34,6 +34,7 @@ import client.inventory.manipulator.InventoryManipulator;
 import client.inventory.manipulator.KarmaManipulator;
 import config.YamlConfig;
 import constants.id.ItemId;
+import constants.id.NpcId;
 import constants.inventory.ItemConstants;
 import net.server.channel.Channel;
 import org.slf4j.Logger;
@@ -91,6 +92,29 @@ public class DueyProcessor {
         }
     }
 
+    public static final String CLOSED_MESSAGE = "Duey's delivery service is closed for now. Sorry about that!";
+
+    /**
+     * When Duey is turned off (USE_DUEY: false) tells the player so instead of opening a window whose buttons do
+     * nothing (ticket 55).
+     *
+     * @param fromNpc true when the player clicked Duey (answered in an NPC dialog), false for the Quick Delivery ticket
+     *                or a Duey window packet (a popup)
+     * @return true when Duey is open and the caller may go on
+     */
+    public static boolean openOrExplain(Client c, boolean fromNpc) {
+        if (YamlConfig.config.server.USE_DUEY) {
+            return true;
+        }
+        if (fromNpc) {
+            c.sendPacket(PacketCreator.getNPCTalk(NpcId.DUEY, (byte) 0, CLOSED_MESSAGE, "00 00", (byte) 0));
+        } else {
+            c.sendPacket(PacketCreator.serverNotice(1, CLOSED_MESSAGE));
+        }
+        c.sendPacket(PacketCreator.enableActions());
+        return false;
+    }
+
     private static Pair<Integer, Integer> getAccountCharacterIdFromCNAME(String name) {
         Pair<Integer, Integer> ids = new Pair<>(-1, -1);
         try (Connection con = DatabaseConnection.getConnection();
@@ -143,6 +167,24 @@ public class DueyProcessor {
             deletePackageFromInventoryDB(con, packageId);
         } catch (SQLException e) {
             e.printStackTrace();
+        }
+    }
+
+    /** Deletes a package only when it is addressed to this character (Cosmic deleted any package id it was sent). */
+    private static boolean removeOwnPackageFromDB(int packageId, int receiverId) {
+        try (Connection con = DatabaseConnection.getConnection();
+             PreparedStatement ps = con.prepareStatement("DELETE FROM dueypackages WHERE PackageId = ? AND ReceiverId = ?")) {
+            ps.setInt(1, packageId);
+            ps.setInt(2, receiverId);
+            if (ps.executeUpdate() < 1) {
+                return false;
+            }
+
+            deletePackageFromInventoryDB(con, packageId);
+            return true;
+        } catch (SQLException e) {
+            e.printStackTrace();
+            return false;
         }
     }
 
@@ -253,7 +295,7 @@ public class DueyProcessor {
             try {
                 item = inv.getItem(itemPos);
                 if (item != null && item.getQuantity() >= amount) {
-                    if (item.isUntradeable() || ii.isUnmerchable(item.getItemId())) {
+                    if (item.isUntradeable() || ii.isUnmerchable(item.getItemId()) || item.getPetId() > -1) {
                         return -1;
                     }
 
@@ -282,6 +324,29 @@ public class DueyProcessor {
         return 0;
     }
 
+    /**
+     * Checks a send request's numbers before anything is taken from the sender (Cosmic accepted a negative item amount,
+     * which the inventory removal turned into extra items, and negative mesos, which the receiver then lost).
+     *
+     * @return null when the request is well formed, else what is wrong with it (a packet edit)
+     */
+    static String invalidSendRequest(byte invTypeId, short amount, int sendMesos) {
+        if (sendMesos < 0) {
+            return "negative mesos " + sendMesos;
+        }
+        if (invTypeId > 0) {
+            if (invTypeId > InventoryType.CASH.getType()) {
+                return "inventory " + invTypeId;
+            }
+            if (amount < 1) {
+                return "item amount " + amount;
+            }
+        } else if (sendMesos == 0) {
+            return "nothing to send";
+        }
+        return null;
+    }
+
     public static void dueySendItem(Client c, byte invTypeId, short itemPos, short amount, int sendMesos, String sendMessage, String recipient, boolean quick) {
         if (c.tryacquireClient()) {
             try {
@@ -289,6 +354,14 @@ public class DueyProcessor {
                     c.getPlayer().message("You cannot use Duey to send items at your GM level.");
                     log.info(String.format("GM %s tried to send a package to %s", c.getPlayer().getName(), recipient));
                     c.sendPacket(PacketCreator.sendDueyMSG(DueyProcessor.Actions.TOCLIENT_SEND_INCORRECT_REQUEST.getCode()));
+                    return;
+                }
+
+                String invalid = invalidSendRequest(invTypeId, amount, sendMesos);
+                if (invalid != null) {
+                    AutobanFactory.PACKET_EDIT.alert(c.getPlayer(), c.getPlayer().getName() + " tried to packet edit with duey.");
+                    log.warn("Chr {} sent a bad duey request: {}", c.getPlayer().getName(), invalid);
+                    c.disconnect(true, false);
                     return;
                 }
 
@@ -335,8 +408,9 @@ public class DueyProcessor {
                     return;
                 }
 
-                if (quick) {
-                    InventoryManipulator.removeById(c, InventoryType.CASH, ItemId.QUICK_DELIVERY_TICKET, (short) 1, false, false);
+                if (soloMapling.ArtificialPlayer.BotHelpers.isArtificial(recipientCid)) { // bots never open Duey
+                    c.sendPacket(PacketCreator.sendDueyMSG(DueyProcessor.Actions.TOCLIENT_SEND_RECEIVER_UNABLE_TO_RECV.getCode()));
+                    return;
                 }
 
                 int packageId = createPackage(sendMesos, sendMessage, c.getPlayer().getName(), recipientCid, quick);
@@ -344,16 +418,23 @@ public class DueyProcessor {
                     c.sendPacket(PacketCreator.sendDueyMSG(DueyProcessor.Actions.TOCLIENT_SEND_ENABLE_ACTIONS.getCode()));
                     return;
                 }
-                c.getPlayer().gainMeso((int) -finalcost, false);
 
+                // take the item first: Cosmic charged the mesos (and the ticket) even when the item step then failed
                 int res = addPackageItemFromInventory(packageId, c, invTypeId, itemPos, amount);
-                if (res == 0) {
-                    c.sendPacket(PacketCreator.sendDueyMSG(DueyProcessor.Actions.TOCLIENT_SEND_SUCCESSFULLY_SENT.getCode()));
-                } else if (res > 0) {
-                    c.sendPacket(PacketCreator.sendDueyMSG(DueyProcessor.Actions.TOCLIENT_SEND_ENABLE_ACTIONS.getCode()));
-                } else {
-                    c.sendPacket(PacketCreator.sendDueyMSG(DueyProcessor.Actions.TOCLIENT_SEND_INCORRECT_REQUEST.getCode()));
+                if (res != 0) {
+                    removePackageFromDB(packageId);
+                    c.sendPacket(PacketCreator.sendDueyMSG(res > 0 ? DueyProcessor.Actions.TOCLIENT_SEND_ENABLE_ACTIONS.getCode()
+                            : DueyProcessor.Actions.TOCLIENT_SEND_INCORRECT_REQUEST.getCode()));
+                    return;
                 }
+
+                if (quick) {
+                    InventoryManipulator.removeById(c, InventoryType.CASH, ItemId.QUICK_DELIVERY_TICKET, (short) 1, false, false);
+                }
+                c.getPlayer().gainMeso((int) -finalcost, false);
+                c.sendPacket(PacketCreator.sendDueyMSG(DueyProcessor.Actions.TOCLIENT_SEND_SUCCESSFULLY_SENT.getCode()));
+                log.info("Duey: {} sent {} mesos{} to {} (package {}, fee {})", c.getPlayer().getName(), sendMesos,
+                        invTypeId > 0 ? " and " + amount + " item(s) from inventory " + invTypeId : "", recipient, packageId, fee);
 
                 Client rClient = null;
                 int channel = c.getWorldServer().find(recipient);
@@ -379,7 +460,11 @@ public class DueyProcessor {
     public static void dueyRemovePackage(Client c, int packageid, boolean playerRemove) {
         if (c.tryacquireClient()) {
             try {
-                removePackageFromDB(packageid);
+                if (!removeOwnPackageFromDB(packageid, c.getPlayer().getId())) {
+                    log.warn("Chr {} tried to remove duey package {} that is not theirs", c.getPlayer().getName(), packageid);
+                    c.sendPacket(PacketCreator.sendDueyMSG(Actions.TOCLIENT_RECV_UNKNOWN_ERROR.getCode()));
+                    return;
+                }
                 c.sendPacket(PacketCreator.removeItemFromDuey(playerRemove, packageid));
             } finally {
                 c.releaseClient();
@@ -393,8 +478,9 @@ public class DueyProcessor {
                 try {
                     DueyPackage dp = null;
                     try (Connection con = DatabaseConnection.getConnection();
-                         PreparedStatement ps = con.prepareStatement("SELECT * FROM dueypackages dp WHERE PackageId = ?")) {
+                         PreparedStatement ps = con.prepareStatement("SELECT * FROM dueypackages dp WHERE PackageId = ? AND ReceiverId = ?")) {
                         ps.setInt(1, packageId);
+                        ps.setInt(2, c.getPlayer().getId()); // Cosmic let anyone claim any package id
 
                         try (ResultSet rs = ps.executeQuery()) {
                             if (rs.next()) {
@@ -414,30 +500,34 @@ public class DueyProcessor {
                         return;
                     }
 
-                    Item dpItem = dp.getItem();
-                    if (dpItem != null) {
-                        if (!c.getPlayer().canHoldMeso(dp.getMesos())) {
-                            c.sendPacket(PacketCreator.sendDueyMSG(Actions.TOCLIENT_RECV_UNKNOWN_ERROR.getCode()));
-                            return;
-                        }
-
-                        if (!InventoryManipulator.checkSpace(c, dpItem.getItemId(), dpItem.getQuantity(), dpItem.getOwner())) {
-                            int itemid = dpItem.getItemId();
-                            if (ItemInformationProvider.getInstance().isPickupRestricted(itemid) && c.getPlayer().getInventory(ItemConstants.getInventoryType(itemid)).findById(itemid) != null) {
-                                c.sendPacket(PacketCreator.sendDueyMSG(Actions.TOCLIENT_RECV_RECEIVER_WITH_UNIQUE.getCode()));
-                            } else {
-                                c.sendPacket(PacketCreator.sendDueyMSG(Actions.TOCLIENT_RECV_NO_FREE_SLOTS.getCode()));
-                            }
-
-                            return;
-                        } else {
-                            InventoryManipulator.addFromDrop(c, dpItem, false);
-                        }
+                    if (!c.getPlayer().canHoldMeso(dp.getMesos())) {
+                        c.sendPacket(PacketCreator.sendDueyMSG(Actions.TOCLIENT_RECV_UNKNOWN_ERROR.getCode()));
+                        return;
                     }
 
-                    c.getPlayer().gainMeso(dp.getMesos(), false);
+                    Item dpItem = dp.getItem();
+                    if (dpItem != null && !InventoryManipulator.checkSpace(c, dpItem.getItemId(), dpItem.getQuantity(), dpItem.getOwner())) {
+                        int itemid = dpItem.getItemId();
+                        if (ItemInformationProvider.getInstance().isPickupRestricted(itemid) && c.getPlayer().getInventory(ItemConstants.getInventoryType(itemid)).findById(itemid) != null) {
+                            c.sendPacket(PacketCreator.sendDueyMSG(Actions.TOCLIENT_RECV_RECEIVER_WITH_UNIQUE.getCode()));
+                        } else {
+                            c.sendPacket(PacketCreator.sendDueyMSG(Actions.TOCLIENT_RECV_NO_FREE_SLOTS.getCode()));
+                        }
+                        return;
+                    }
 
-                    dueyRemovePackage(c, packageId, false);
+                    // delete before handing out: only the call that deletes the row pays out, so a package cannot be
+                    // claimed twice (Cosmic paid first and removed after, through a nested lock that can fail)
+                    if (!removeOwnPackageFromDB(packageId, c.getPlayer().getId())) {
+                        c.sendPacket(PacketCreator.sendDueyMSG(Actions.TOCLIENT_RECV_UNKNOWN_ERROR.getCode()));
+                        return;
+                    }
+
+                    if (dpItem != null) {
+                        InventoryManipulator.addFromDrop(c, dpItem, false);
+                    }
+                    c.getPlayer().gainMeso(dp.getMesos(), false);
+                    c.sendPacket(PacketCreator.removeItemFromDuey(false, packageId));
                 } catch (SQLException e) {
                     e.printStackTrace();
                 }
