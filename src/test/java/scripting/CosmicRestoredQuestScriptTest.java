@@ -157,6 +157,16 @@ class CosmicRestoredQuestScriptTest {
     }
 
     @Test
+    void omegaSampleWarriorChoicesAreTrimmedToOnePerPath() throws Exception {
+        FakeQm qm = new FakeQm(Job.WARRIOR);
+        Invocable quest = load("quest/3414.js", qm);
+        runEnd(quest, 2);   // third and last warrior choice: spear (Dragon Knight)
+
+        assertEquals(1, qm.gained.get(2044302), "1H sword, 2H sword, spear: the spear is the third choice");
+        assertTrue(qm.completed);
+    }
+
+    @Test
     void omegaFreeRateVariantEvaluatesAgain() throws Exception {
         FakeQm qm = new FakeQm(Job.BOWMAN);
         Invocable quest = load("quest/3414_free10rate.js", qm);
