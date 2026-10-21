@@ -1811,6 +1811,16 @@ public class Monster extends AbstractLoadedLife {
     }
 
     private Character getNextControllerCandidate() {
+        return pickControllerCandidate(getMap().getAllPlayers(), this::isCharacterPuppetInVicinity);
+    }
+
+    /**
+     * The player to control a mob: someone with a puppet nearby, else the live player controlling fewest mobs, else
+     * a dead one - never a bot (bots never control mobs). Upstream also never picked a GM in /hide, so a map whose
+     * only player was a hidden GM had no controller and its mobs stood frozen (1.4.1). Now a hidden GM is the last
+     * resort: it keeps the mobs moving (passively, no aggro) until a visible player is there to take over.
+     */
+    static Character pickControllerCandidate(Iterable<Character> players, java.util.function.Predicate<Character> puppetNear) {
         int mincontrolled = Integer.MAX_VALUE;
         Character newController = null;
 
@@ -1819,23 +1829,34 @@ public class Monster extends AbstractLoadedLife {
 
         Character newControllerWithPuppet = null;
 
-        for (Character chr : getMap().getAllPlayers()) {
-            if (!chr.isHidden() && !soloMapling.ArtificialPlayer.BotHelpers.isBot(chr)) {
-                int ctrlMonsSize = chr.getNumControlledMonsters();
+        int minhidden = Integer.MAX_VALUE;
+        Character hiddenController = null;
 
-                if (isCharacterPuppetInVicinity(chr)) {
-                    newControllerWithPuppet = chr;
-                    break;
-                } else if (chr.isAlive()) {
-                    if (ctrlMonsSize < mincontrolled) {
-                        mincontrolled = ctrlMonsSize;
-                        newController = chr;
-                    }
-                } else {
-                    if (ctrlMonsSize < mincontrolleddead) {
-                        mincontrolleddead = ctrlMonsSize;
-                        newControllerDead = chr;
-                    }
+        for (Character chr : players) {
+            if (soloMapling.ArtificialPlayer.BotHelpers.isBot(chr)) {
+                continue;
+            }
+            int ctrlMonsSize = chr.getNumControlledMonsters();
+            if (chr.isHidden()) {
+                if (chr.isAlive() && ctrlMonsSize < minhidden) {
+                    minhidden = ctrlMonsSize;
+                    hiddenController = chr;
+                }
+                continue;
+            }
+
+            if (puppetNear.test(chr)) {
+                newControllerWithPuppet = chr;
+                break;
+            } else if (chr.isAlive()) {
+                if (ctrlMonsSize < mincontrolled) {
+                    mincontrolled = ctrlMonsSize;
+                    newController = chr;
+                }
+            } else {
+                if (ctrlMonsSize < mincontrolleddead) {
+                    mincontrolleddead = ctrlMonsSize;
+                    newControllerDead = chr;
                 }
             }
         }
@@ -1844,9 +1865,10 @@ public class Monster extends AbstractLoadedLife {
             return newControllerWithPuppet;
         } else if (newController != null) {
             return newController;
-        } else {
+        } else if (newControllerDead != null) {
             return newControllerDead;
         }
+        return hiddenController;
     }
 
     /**
@@ -1938,7 +1960,7 @@ public class Monster extends AbstractLoadedLife {
      */
     public void aggroUpdateController() {
         Character chrController = this.getActiveController();
-        if (chrController != null && chrController.isAlive()) {
+        if (chrController != null && chrController.isAlive() && !chrController.isHidden()) {
             return;
         }
 
@@ -1946,8 +1968,20 @@ public class Monster extends AbstractLoadedLife {
         if (newController == null) {    // was a new controller found? (if not no one is on the map)
             return;
         }
+        if (keepsCurrentController(chrController, newController)) {
+            return;
+        }
 
         this.aggroSwitchController(newController, false);
+    }
+
+    /**
+     * 1.4.1: a hidden GM holding a mob (the last-resort controller, or one that hit it) keeps it until a visible
+     * player is around to take it over; a visible player always wins it from a hidden one.
+     */
+    static boolean keepsCurrentController(Character current, Character candidate) {
+        return current != null && current.isAlive() && current.isHidden()
+                && (candidate == current || candidate.isHidden());
     }
 
     /**

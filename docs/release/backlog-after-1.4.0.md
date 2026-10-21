@@ -28,7 +28,19 @@
 - **Newer pet equips** (355 hidden in 1.4.0): the client's GetEquipItem null-reads drawing them. Find what their WZ
   needs (or keep them hidden).
 - **Test notes page:** give set-bonus tests ready item commands (`!item` ids for one full set).
-- **GM hide:** while hidden, bots still notice the GM and monsters stay frozen.
+- **DONE (branch `botfixes-1.4.1`) - GM hide:** while hidden, bots still noticed the GM and monsters stayed frozen.
+  - Bots: nothing bot-side checked `isHidden()`. Now a GM in /hide is skipped by the bots' "players near me" scan
+    (greetings, stop-and-look attention, dialogue: `BotLogic.getRealPlayersInRange`, `waitForPlayerInRange`), public
+    chat never reaches the bots (replies, buff asks, party asks, "follow me": `GeneralChatHandler`), no MAP_ENTERED
+    (map-entry greetings, GameZoneHost welcome) or LEVEL_UP (congrats) events, and no nav/heat/portal learning from
+    the hidden GM (so bots don't gather at its warm spots). Helper: `BotHelpers.isVisibleRealPlayer`. Kept on purpose:
+    LOD still counts a hidden GM as an observer, so bots on its map move and fight properly while it watches;
+    whispers, party invites and the bot menu the GM starts itself still work.
+  - Mobs: no player was allowed to control a mob except visible non-bots, so with only a hidden GM (and bots) on the
+    map nobody moved them. Now a hidden GM is the last-resort, passive (no aggro) controller; any visible player
+    takes the mobs over as soon as it is there (`Monster.pickControllerCandidate` / `keepsCurrentController`).
+    Hiding mid-fight hands control to a visible player first, as before.
+  - Tests: `BotHiddenGmTest`, `MonsterControllerHiddenGmTest`.
 - **Release tools:** a check that a stray copy like the 1.4.0 `/files` incident can't recur (q() fixed in 40479d0c6).
 
 ## Later (social systems, owner's list)

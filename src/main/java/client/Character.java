@@ -3836,9 +3836,11 @@ public class Character extends AbstractCharacterObject {
                     soloMapling.server.MapleRootSolo.runHook("bot progression", () ->
                             soloMapling.ArtificialPlayer.BotProgressionSystem.BotProgression.afterLevelUp(this, soloLevelBefore));
                 }
-                soloMapling.server.MapleRootSolo.runHook("level up", () ->
-                        soloMapling.server.EventMessageSystem.EventBus.getInstance().publish(
-                                soloMapling.server.EventMessageSystem.EventFactory.createLevelUpEvent(this)));
+                if (!hidden) { // 1.4.1: bots don't congratulate a GM levelling in /hide
+                    soloMapling.server.MapleRootSolo.runHook("level up", () ->
+                            soloMapling.server.EventMessageSystem.EventBus.getInstance().publish(
+                                    soloMapling.server.EventMessageSystem.EventFactory.createLevelUpEvent(this)));
+                }
             }
             if (leftover > 0) {
                 gainExpInternal(leftover, equip, party, false, inChat, white);

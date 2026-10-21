@@ -158,7 +158,7 @@ public abstract class AbstractMovementPacketHandler extends AbstractPacketHandle
     private static void observeSkillMove(AnimatedMapObject target,
                                          soloMapling.ArtificialPlayer.GCMoveSystem.NavObservedEdges.Kind kind) {
         if (target instanceof client.Character player && soloMapling.server.MapleRootSolo.isEnabled()
-                && !soloMapling.ArtificialPlayer.BotHelpers.isBot(player)) {
+                && soloMapling.ArtificialPlayer.BotHelpers.isVisibleRealPlayer(player)) {
             soloMapling.server.MapleRootSolo.runHook("movement learning",
                     () -> soloMapling.ArtificialPlayer.GCMoveSystem.NavObservedEdges.onPlayerSkillMove(player, kind));
         }
@@ -185,9 +185,9 @@ public abstract class AbstractMovementPacketHandler extends AbstractPacketHandle
                     byte newstate = p.readByte();
                     target.setStance(newstate);
                     // bot-persistence ticket 17/18: bots learn jumps and favourite spots from how real players move
-                    // (fh 0 = airborne).
+                    // (fh 0 = airborne). Not from a GM in /hide (1.4.1): no warm spots for bots to gather at.
                     if (target instanceof client.Character player && soloMapling.server.MapleRootSolo.isEnabled()
-                            && !soloMapling.ArtificialPlayer.BotHelpers.isBot(player)) {
+                            && soloMapling.ArtificialPlayer.BotHelpers.isVisibleRealPlayer(player)) {
                         int footY = ypos + yOffset;
                         soloMapling.server.MapleRootSolo.runHook("movement learning", () -> {
                             soloMapling.ArtificialPlayer.GCMoveSystem.NavObservedEdges.onPlayerMove(player, xpos, footY, fh, newstate);
@@ -278,7 +278,7 @@ public abstract class AbstractMovementPacketHandler extends AbstractPacketHandle
 
     private static void observeDownJump(AnimatedMapObject target) {
         if (target instanceof client.Character player && soloMapling.server.MapleRootSolo.isEnabled()
-                && !soloMapling.ArtificialPlayer.BotHelpers.isBot(player)) {
+                && soloMapling.ArtificialPlayer.BotHelpers.isVisibleRealPlayer(player)) {
             soloMapling.server.MapleRootSolo.runHook("movement learning",
                     () -> soloMapling.ArtificialPlayer.GCMoveSystem.NavObservedEdges.onPlayerDownJump(player));
         }

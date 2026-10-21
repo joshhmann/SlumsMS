@@ -38,11 +38,13 @@ public final class GeneralChatHandler extends AbstractPacketHandler {
                 chr.dropMessage(5, "The map you are in is currently muted. Please try again later.");
                 return;
             }
-            soloMapling.server.MapleRootSolo.runHook("general chat", () -> {
-                soloMapling.ArtificialPlayer.BotMessagingSystem.MessageQueue.getInstance().addMessage(
-                    "primary", new soloMapling.ArtificialPlayer.BotMessagingSystem.ChatMessage(chr, s));
-                soloMapling.ArtificialPlayer.BotBuffRequestSystem.BotBuffRequestHandler.tryHandle(chr, s);
-            });
+            if (!chr.isHidden()) { // 1.4.1: bots don't hear (or answer, or buff) a GM in /hide
+                soloMapling.server.MapleRootSolo.runHook("general chat", () -> {
+                    soloMapling.ArtificialPlayer.BotMessagingSystem.MessageQueue.getInstance().addMessage(
+                        "primary", new soloMapling.ArtificialPlayer.BotMessagingSystem.ChatMessage(chr, s));
+                    soloMapling.ArtificialPlayer.BotBuffRequestSystem.BotBuffRequestHandler.tryHandle(chr, s);
+                });
+            }
             if (!chr.isHidden()) {
                 if(chr.getWorldChatOnOff()) {
                     Server.getInstance().sendGlobal(c.getWorld(), PacketCreator.serverNotice(6, chr.getName() +  " [Ch." + chr.getChannel().getId() + "]: " + s));
