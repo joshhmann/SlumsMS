@@ -74,6 +74,7 @@ CATEGORY_BY_PREFIX = {
     536: "5/2", 537: "3/1", 538: "6/2", 539: "3/1", 542: "5/0", 543: "5/6", 545: "5/1",
     547: "5/1",  # Store Remote: RemoteStoreHandler serves the 0x3B request it makes
     551: "5/2", 552: "5/2", 557: "5/2", 559: "5/2", 561: "5/2",
+    578: "5/0",  # Coloring Prism: WeaponTintHandler (slums.dll window); needs tools/colorprism/install_wz.py
     # services (CashShopServices): slot expansions
     911: "5/6",
 }
@@ -93,12 +94,13 @@ NEWER_POLICY.update({
     500: "any", 501: "any", 502: "any", 503: "any", 509: "any", 510: "any", 512: "any",
     514: "any", 529: "any", 533: "any", 537: "any",
     515: "script", 542: "script",  # coupons only work for ids a stylist NPC script reads
-    506: "ids", 559: "ids", 520: "ids",
+    506: "ids", 559: "ids", 520: "ids", 578: "ids",
 })
 NEWER_IDS = {
     506: {5060001},            # Item Guard: UseCashItemHandler 506 handles it
     559: {5590001},            # Hyper Teleport Rock (HyperTPHandler) -- flag-gated
     520: {5200000, 5200001, 5200002},  # mesobags -- flag-gated
+    578: {5782000},            # Coloring Prism: WeaponTintHandler (server.colorprism)
 }
 
 # Ids / ranges that can never be sold through the window, whatever the source. Each has the

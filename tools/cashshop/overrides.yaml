@@ -70,3 +70,5 @@ items:
   - {id: 9112000, name: "Use Slots +8"}
   - {id: 9113000, name: "Set-up Slots +8"}
   - {id: 9114000, name: "Etc Slots +8"}
+  # ---- Addons ----
+  - {id: 5782000, price: 3000, count: 1, reason: "Coloring Prism (addon-colorprism): one dye or restore each; needs tools/colorprism/install_wz.py on the server WZ"}

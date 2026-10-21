@@ -2947,6 +2947,7 @@ public class MapleMap {
 
         chr.receivePartyMemberHP();
         announcePlayerDiseases(chr.getClient());
+        server.colorprism.ColorPrism.onMapEnter(chr, this); // Coloring Prism: own tints + the map's table
     }
 
     private static void announcePlayerDiseases(final Client c) {

@@ -20,6 +20,7 @@
  */
 package client.inventory;
 
+import server.colorprism.ColorPrismStore;
 import tools.DatabaseConnection;
 import tools.Pair;
 
@@ -85,7 +86,7 @@ public enum ItemFactory {
         }
     }
 
-    private static Equip loadEquipFromResultSet(ResultSet rs) throws SQLException {
+    private static Equip loadEquipFromResultSet(ResultSet rs, boolean withTints) throws SQLException {
         Equip equip = new Equip(rs.getInt("itemid"), (short) rs.getInt("position"));
         equip.setOwner(rs.getString("owner"));
         equip.setQuantity((short) rs.getInt("quantity"));
@@ -113,18 +114,22 @@ public enum ItemFactory {
         equip.setExpiration(rs.getLong("expiration"));
         equip.setGiftFrom(rs.getString("giftFrom"));
         equip.setRingId(rs.getInt("ringid"));
+        if (withTints) {
+            ColorPrismStore.readEquipTints(rs, equip);
+        }
 
         return equip;
     }
 
     public static List<Pair<Item, Integer>> loadEquippedItems(int id, boolean isAccount, boolean login) throws SQLException {
         List<Pair<Item, Integer>> items = new ArrayList<>();
+        final boolean withTints = ColorPrismStore.enabled();
 
         StringBuilder query = new StringBuilder();
         query.append("SELECT * FROM ");
         query.append("(SELECT id, accountid FROM characters) AS accountterm ");
         query.append("RIGHT JOIN ");
-        query.append("(SELECT * FROM (`inventoryitems` LEFT JOIN `inventoryequipment` USING(`inventoryitemid`))) AS equipterm");
+        query.append("(SELECT * FROM (`inventoryitems` LEFT JOIN `inventoryequipment` USING(`inventoryitemid`)").append(ColorPrismStore.equipTintJoin(withTints)).append(")) AS equipterm");
         query.append(" ON accountterm.id=equipterm.characterid ");
         query.append("WHERE accountterm.`");
         query.append(isAccount ? "accountid" : "characterid");
@@ -138,7 +143,7 @@ public enum ItemFactory {
                 try (ResultSet rs = ps.executeQuery()) {
                     while (rs.next()) {
                         Integer cid = rs.getInt("characterid");
-                        items.add(new Pair<>(loadEquipFromResultSet(rs), cid));
+                        items.add(new Pair<>(loadEquipFromResultSet(rs, withTints), cid));
                     }
                 }
             }
@@ -150,9 +155,11 @@ public enum ItemFactory {
     private List<Pair<Item, InventoryType>> loadItemsCommon(int id, boolean login) throws SQLException {
         List<Pair<Item, InventoryType>> items = new ArrayList<>();
 
+        final boolean withTints = ColorPrismStore.enabled();
         try (Connection con = DatabaseConnection.getConnection()) {
             StringBuilder query = new StringBuilder();
-            query.append("SELECT * FROM `inventoryitems` LEFT JOIN `inventoryequipment` USING(`inventoryitemid`) WHERE `type` = ? AND `");
+            query.append("SELECT * FROM `inventoryitems` LEFT JOIN `inventoryequipment` USING(`inventoryitemid`)");
+            query.append(ColorPrismStore.equipTintJoin(withTints)).append(" WHERE `type` = ? AND `");
             query.append(account ? "accountid" : "characterid").append("` = ?");
 
             if (login) {
@@ -168,7 +175,7 @@ public enum ItemFactory {
                         InventoryType mit = InventoryType.getByType(rs.getByte("inventorytype"));
 
                         if (mit.equals(InventoryType.EQUIP) || mit.equals(InventoryType.EQUIPPED)) {
-                            items.add(new Pair<>(loadEquipFromResultSet(rs), mit));
+                            items.add(new Pair<>(loadEquipFromResultSet(rs, withTints), mit));
                         } else {
                             int petid = rs.getInt("petid");
                             if (rs.wasNull()) {
@@ -203,6 +210,7 @@ public enum ItemFactory {
                 ps.executeUpdate();
             }
 
+            final List<ColorPrismStore.EquipTintRow> tints = new ArrayList<>();
             try (PreparedStatement psItem = con.prepareStatement("INSERT INTO `inventoryitems` VALUES (DEFAULT, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)", Statement.RETURN_GENERATED_KEYS)) {
                 if (!items.isEmpty()) {
                     for (Pair<Item, InventoryType> pair : items) {
@@ -224,15 +232,18 @@ public enum ItemFactory {
 
                         if (mit.equals(InventoryType.EQUIP) || mit.equals(InventoryType.EQUIPPED)) {
                             try (PreparedStatement psEquip = con.prepareStatement("INSERT INTO `inventoryequipment` VALUES (DEFAULT, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)")) {
+                                final int itemKey;
                                 try (ResultSet rs = psItem.getGeneratedKeys()) {
                                     if (!rs.next()) {
                                         throw new RuntimeException("Inserting item failed.");
                                     }
 
-                                    psEquip.setInt(1, rs.getInt(1));
+                                    itemKey = rs.getInt(1);
                                 }
+                                psEquip.setInt(1, itemKey);
 
                                 Equip equip = (Equip) item;
+                                ColorPrismStore.collect(tints, itemKey, equip);
                                 psEquip.setInt(2, equip.getUpgradeSlots());
                                 psEquip.setInt(3, equip.getLevel());
                                 psEquip.setInt(4, equip.getStr());
@@ -261,6 +272,7 @@ public enum ItemFactory {
                     }
                 }
             }
+            ColorPrismStore.saveEquipTints(con, tints);
         } finally {
             lock.unlock();
         }
@@ -269,9 +281,11 @@ public enum ItemFactory {
     private List<Pair<Item, InventoryType>> loadItemsMerchant(int id, boolean login) throws SQLException {
         List<Pair<Item, InventoryType>> items = new ArrayList<>();
 
+        final boolean withTints = ColorPrismStore.enabled();
         try (Connection con = DatabaseConnection.getConnection()) {
             StringBuilder query = new StringBuilder();
-            query.append("SELECT * FROM `inventoryitems` LEFT JOIN `inventoryequipment` USING(`inventoryitemid`) WHERE `type` = ? AND `");
+            query.append("SELECT * FROM `inventoryitems` LEFT JOIN `inventoryequipment` USING(`inventoryitemid`)");
+            query.append(ColorPrismStore.equipTintJoin(withTints)).append(" WHERE `type` = ? AND `");
             query.append(account ? "accountid" : "characterid").append("` = ?");
 
             if (login) {
@@ -298,7 +312,7 @@ public enum ItemFactory {
                         InventoryType mit = InventoryType.getByType(rs.getByte("inventorytype"));
 
                         if (mit.equals(InventoryType.EQUIP) || mit.equals(InventoryType.EQUIPPED)) {
-                            items.add(new Pair<>(loadEquipFromResultSet(rs), mit));
+                            items.add(new Pair<>(loadEquipFromResultSet(rs, withTints), mit));
                         } else {
                             if (bundles > 0) {
                                 int petid = rs.getInt("petid");
@@ -340,6 +354,7 @@ public enum ItemFactory {
                 ps.executeUpdate();
             }
 
+            final List<ColorPrismStore.EquipTintRow> tints = new ArrayList<>();
             int i = 0;
             for (Pair<Item, InventoryType> pair : items) {
                 final Item item = pair.getLeft();
@@ -410,9 +425,11 @@ public enum ItemFactory {
                         ps.setInt(22, equip.getItemExp());
                         ps.setInt(23, equip.getRingId());
                         ps.executeUpdate();
+                        ColorPrismStore.collect(tints, genKey, equip);
                     }
                 }
             }
+            ColorPrismStore.saveEquipTints(con, tints);
         } finally {
             lock.unlock();
         }

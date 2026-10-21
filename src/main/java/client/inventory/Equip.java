@@ -73,6 +73,10 @@ public class Equip extends Item {
     private short str, dex, _int, luk, hp, mp, watk, matk, wdef, mdef, acc, avoid, hands, speed, jump, vicious;
     private float itemExp;
     private int ringid = -1;
+    // Coloring Prism (server.colorprism): body and effect-layer tints. Hue is -360..-1 (absolute hue h stored as
+    // -(h+1)); 0/0/0 is untinted. Only the setters below write these, so nothing else can store a bad value.
+    private short tintHue, tintFxHue;
+    private byte tintChroma, tintBright, tintFxChroma, tintFxBright;
     private boolean wear = false;
     private boolean isUpgradeable, isElemental = false;    // timeless or reverse, or any equip that could levelup on GMS for all effects
 
@@ -114,6 +118,12 @@ public class Equip extends Item {
         ret.itemExp = itemExp;
         ret.level = level;
         ret.itemLog = new LinkedList<>(itemLog);
+        ret.tintHue = tintHue;
+        ret.tintChroma = tintChroma;
+        ret.tintBright = tintBright;
+        ret.tintFxHue = tintFxHue;
+        ret.tintFxChroma = tintFxChroma;
+        ret.tintFxBright = tintFxBright;
         ret.setOwner(getOwner());
         ret.setQuantity(getQuantity());
         ret.setExpiration(getExpiration());
@@ -677,6 +687,72 @@ public class Equip extends Item {
 
     public void setRingId(int id) {
         this.ringid = id;
+    }
+
+    /** Body tint. A hue outside -360..-1 clears the tint; chroma and bright are clamped to -100..100. */
+    public void setTint(int hue, int chroma, int bright) {
+        if (!server.colorprism.Tint.isAbsoluteHue(hue)) {
+            clearTint();
+            return;
+        }
+        tintHue = (short) hue;
+        tintChroma = server.colorprism.Tint.clampDelta(chroma);
+        tintBright = server.colorprism.Tint.clampDelta(bright);
+    }
+
+    public void clearTint() {
+        tintHue = 0;
+        tintChroma = 0;
+        tintBright = 0;
+    }
+
+    public boolean isTinted() {
+        return tintHue != 0 || tintChroma != 0 || tintBright != 0;
+    }
+
+    public short getTintHue() {
+        return tintHue;
+    }
+
+    public byte getTintChroma() {
+        return tintChroma;
+    }
+
+    public byte getTintBright() {
+        return tintBright;
+    }
+
+    /** Effect-layer tint, same rules as {@link #setTint}. */
+    public void setFxTint(int hue, int chroma, int bright) {
+        if (!server.colorprism.Tint.isAbsoluteHue(hue)) {
+            clearFxTint();
+            return;
+        }
+        tintFxHue = (short) hue;
+        tintFxChroma = server.colorprism.Tint.clampDelta(chroma);
+        tintFxBright = server.colorprism.Tint.clampDelta(bright);
+    }
+
+    public void clearFxTint() {
+        tintFxHue = 0;
+        tintFxChroma = 0;
+        tintFxBright = 0;
+    }
+
+    public boolean isFxTinted() {
+        return tintFxHue != 0 || tintFxChroma != 0 || tintFxBright != 0;
+    }
+
+    public short getTintFxHue() {
+        return tintFxHue;
+    }
+
+    public byte getTintFxChroma() {
+        return tintFxChroma;
+    }
+
+    public byte getTintFxBright() {
+        return tintFxBright;
     }
 
     public boolean isWearing() {

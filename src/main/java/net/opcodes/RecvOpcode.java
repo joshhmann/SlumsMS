@@ -25,6 +25,7 @@ public enum RecvOpcode {
     CASHSHOP_WINDOW_ACTION(0x3730),
     DAILY_CHECKIN(0x3732),
     SET_ITEM_ACTION(0x3726),// SetEquip addon (ticket 18); client setitem.cpp kSetItemActionOpcode
+    WEAPON_TINT_ACTION(0x372E),// slums.dll Coloring Prism: snapshot / apply / restore (WeaponTintHandler); 0x372F is the reply
     MONSTER_BOOK_QUERY(0x3734),// slums.dll Monster Book: drop table / item search / item droppers (MonsterBookQueryHandler); 0x3735 is the reply
     CUSTOM_PACKET(0x3713),//13 37 lol
 

@@ -39,6 +39,8 @@ public class ServerConfig {
     //Daily Check-In window (needs migration 004 and a client with the window). Off until both are deployed.
     public boolean DAILY_CHECKIN_ENABLED = false;
     public int DAILY_CHECKIN_MIN_LEVEL = 10;
+    //Coloring Prism (needs migration 010 and a slums.dll built with MAPLEROOT_COLOR_PRISM). Off until both are deployed.
+    public boolean COLOR_PRISM_ENABLED = false;
     public boolean BCRYPT_MIGRATION;
     public boolean COLLECTIVE_CHARSLOT;
     public boolean DETERRED_MULTICLIENT;

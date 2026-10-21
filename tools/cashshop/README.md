@@ -79,6 +79,11 @@ on disk is stale.
 
 To sell one of these anyway, add `hide: false` for it in `overrides.yaml`. Overrides win.
 
+The Coloring Prism (5782000, addon-colorprism) is not in stock v83 data. Its row is built from a WZ
+that has had `tools/colorprism/install_wz.py` applied; lint it with `--wz` pointing at such a WZ, or
+add the item to the default WZ the same way. A server WZ without it refuses the purchase
+(`BUY_UNKNOWN_ITEM`) without charging.
+
 ### Categories the window does not have yet
 
 The client's `kCats` (DLL `src/cashshopwnd.cpp`) has no Chair, Mount or Pendant/Belt/Medal

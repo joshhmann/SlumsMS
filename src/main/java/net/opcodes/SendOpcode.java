@@ -27,6 +27,7 @@ public enum SendOpcode {
     CASHSHOP_WINDOW_SYNC(0x3731),
     DAILY_CHECKIN_SYNC(0x3733),
     SET_ITEM_SYNC(0x3727),// SetEquip addon (ticket 18); client setitem.cpp kSetItemSyncOpcode
+    WEAPON_TINT_SYNC(0x372F),// slums.dll Coloring Prism reply to WEAPON_TINT_ACTION 0x372E (ColorPrismPackets)
     MONSTER_BOOK_RESULT(0x3735),// slums.dll Monster Book reply to MONSTER_BOOK_QUERY 0x3734 (MonsterBookPackets)
 
     LOGIN_STATUS(0x00),

@@ -130,6 +130,9 @@ public class Character extends AbstractCharacterObject {
     private int accountid, id, level;
     private int rank, rankMove, jobRank, jobRankMove;
     private int gender, hair, face;
+    // Coloring Prism hair / face tints (server.colorprism.Tint rules; persisted by ColorPrismStore when enabled).
+    private short hairTintHue, faceTintHue;
+    private byte hairTintChroma, hairTintBright, faceTintChroma, faceTintBright;
     private int fame, quest_fame;
     private int initialSpawnPoint;
     private int mapid;
@@ -3403,6 +3406,7 @@ public class Character extends AbstractCharacterObject {
         equipchanged = true;
         updateLocalStats();
         server.setitem.SetItems.sendPieces(this); // SetEquip addon: tooltip and Ability window follow at once
+        server.colorprism.ColorPrism.onEquipChanged(this); // Coloring Prism: others see a dyed item put on / taken off
         if (getMessenger() != null) {
             getWorldServer().updateMessenger(getMessenger(), getName(), getWorld(), client.getChannel());
         }
@@ -5773,6 +5777,76 @@ public class Character extends AbstractCharacterObject {
 
     public int getGuildRank() {
         return guildRank;
+    }
+
+    /** Hair tint: a hue outside -360..-1 clears it; chroma and bright are clamped to -100..100. */
+    public void setHairTint(int hue, int chroma, int bright) {
+        if (!server.colorprism.Tint.isAbsoluteHue(hue)) {
+            clearHairTint();
+            return;
+        }
+        hairTintHue = (short) hue;
+        hairTintChroma = server.colorprism.Tint.clampDelta(chroma);
+        hairTintBright = server.colorprism.Tint.clampDelta(bright);
+    }
+
+    public void clearHairTint() {
+        if (isHairTinted()) {
+            }
+        hairTintHue = 0;
+        hairTintChroma = 0;
+        hairTintBright = 0;
+    }
+
+    public boolean isHairTinted() {
+        return hairTintHue != 0 || hairTintChroma != 0 || hairTintBright != 0;
+    }
+
+    public short getHairTintHue() {
+        return hairTintHue;
+    }
+
+    public byte getHairTintChroma() {
+        return hairTintChroma;
+    }
+
+    public byte getHairTintBright() {
+        return hairTintBright;
+    }
+
+    /** Face (eye) tint, same rules as {@link #setHairTint}. */
+    public void setFaceTint(int hue, int chroma, int bright) {
+        if (!server.colorprism.Tint.isAbsoluteHue(hue)) {
+            clearFaceTint();
+            return;
+        }
+        faceTintHue = (short) hue;
+        faceTintChroma = server.colorprism.Tint.clampDelta(chroma);
+        faceTintBright = server.colorprism.Tint.clampDelta(bright);
+    }
+
+    public void clearFaceTint() {
+        if (isFaceTinted()) {
+            }
+        faceTintHue = 0;
+        faceTintChroma = 0;
+        faceTintBright = 0;
+    }
+
+    public boolean isFaceTinted() {
+        return faceTintHue != 0 || faceTintChroma != 0 || faceTintBright != 0;
+    }
+
+    public short getFaceTintHue() {
+        return faceTintHue;
+    }
+
+    public byte getFaceTintChroma() {
+        return faceTintChroma;
+    }
+
+    public byte getFaceTintBright() {
+        return faceTintBright;
     }
 
     public int getHair() {
@@ -8367,6 +8441,9 @@ public class Character extends AbstractCharacterObject {
             ret.maplemount.setTiredness(mounttiredness);
             ret.maplemount.setActive(false);
 
+            // Coloring Prism hair / face tints (no-op unless COLOR_PRISM_ENABLED; table from migration 010)
+            server.colorprism.ColorPrismStore.loadLookTints(con, ret);
+
             // Quickslot key config
             try (final PreparedStatement pSelectQuickslotKeyMapped = con.prepareStatement("SELECT keymap FROM quickslotkeymapped WHERE accountid = ?;")) {
                 pSelectQuickslotKeyMapped.setInt(1, ret.getAccountID());
@@ -9772,6 +9849,9 @@ public class Character extends AbstractCharacterObject {
                     storage.saveToDB(con);
                     usedStorage = false;
                 }
+
+                // Coloring Prism hair / face tints, inside this transaction (no-op unless COLOR_PRISM_ENABLED)
+                server.colorprism.ColorPrismStore.saveLookTints(con, this);
 
                 con.commit();
             } catch (Exception e) {
