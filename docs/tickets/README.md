@@ -55,3 +55,23 @@ Created 2026-10-19 from the owner's plan. Order: nav v2 → real bots → compan
 | [46](46-discord-bridge.md) | Discord bridge and server status | Community | 42 |
 | [47](47-bot-chat-content-review.md) | Review bot chat and megaphone content | Real bots / Chat | - |
 | [48](48-live-capacity-soak.md) | Capacity soak with real players and bots | Performance | - |
+| [49](49-bot-buddies.md) | Bots as buddies: accept, send, buddy chat, online status (BUILD, M) | Real bots / Social | 26,36,37 |
+| [50](50-guilds.md) | Guilds: fix creation near bots (FIX, S), bot-run guilds and guild chat (BUILD, L) | Server / Social | 49 (B,C) |
+| [51](51-bot-party-chat-meetups.md) | Parties with bots: party chat, meet-ups, buddy invites (BUILD, S-M) | Companions | 14,49 |
+| [52](52-marriage-and-rings.md) | Marriage, weddings, couple/friendship rings (FIX rings M, verify weddings S, bot weddings M) | Server / Cash Shop / Social | 21 |
+| [53](53-family.md) | Family system: enable and finish the entitlements (ENABLE+FIX, M) | Server | - |
+| [54](54-messenger-and-memos.md) | Messenger and memos with bots (BUILD, S) | Social | 49 |
+| [55](55-duey-storage-fredrick.md) | Duey, Ariant storage, Fredrick guard (ENABLE/FIX, S) | Server / Economy | cosmic-diff report |
+| [56](56-bot-fm-buy-cap-and-meso-sink.md) | Cap what bots pay real players; bot wealth ceiling (BUILD, S / S-M) | Economy | 15 |
+
+Social and economy research (2026-10-21): [docs/real-bots/social-systems-research.md](../real-bots/social-systems-research.md).
+Suggested order:
+1. 50A, the guild-creation fix (S): broken for players whenever a bot stands in the Guild HQ.
+2. 56A, the FM buy cap (S): before real players open shops.
+3. 55 (S).
+4. 49, buddies (M).
+5. 51 (S-M).
+6. 52: rings, then the wedding check, then bot weddings.
+7. 53.
+8. 50B/C.
+9. 54.
