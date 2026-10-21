@@ -21,12 +21,24 @@ START_CMD=${START_CMD:-"systemctl start slumsms"}
 IS_ACTIVE_CMD=${IS_ACTIVE_CMD:-"systemctl is-active --quiet slumsms"}
 DAEMON_RELOAD_CMD=${DAEMON_RELOAD_CMD:-"systemctl daemon-reload"}
 ONLINE_TIMEOUT=${ONLINE_TIMEOUT:-120}
+# Maintenance mode + the public "going down" / "back up" post (slumsms-monitor, tickets 42/46). Soft: a missing or
+# failing monitor never stops the deploy. The rehearsal sets MONITOR="" (a copy of live must not post).
+MONITOR=${MONITOR-/usr/local/bin/slumsms-monitor}
+MONITOR_TARGET=${MONITOR_TARGET:-live}
+MAINT_MINUTES=${MAINT_MINUTES:-5}
+MAINT_REASON=${MAINT_REASON:-}
 
 exec > >(tee -a "$LOG") 2>&1
 t0=$(date +%s); step() { echo "[$(date -u +%H:%M:%S) +$(( $(date +%s) - t0 ))s] $*"; }
 has() { grep -c "$@" > /dev/null; }   # like grep -q, but reads all input (grep -q + pipefail = SIGPIPE false negatives)
 sql() { eval "$SQL_CMD" 2>&1 | { grep -v 'Using a password' || true; }; }
 die() { echo "ABORT: $*"; exit 1; }
+maint() {   # maint start|end [--dry-run]: never fails the script
+  if [ -z "$MONITOR" ] || [ ! -x "$MONITOR" ]; then echo "(no slumsms-monitor${MONITOR:+ at $MONITOR}: maintenance $1 skipped)"; return 0; fi
+  local extra=()
+  if [ "$1" = start ]; then extra=(--minutes "$MAINT_MINUTES"); if [ -n "$MAINT_REASON" ]; then extra+=(--reason "$MAINT_REASON"); fi; fi
+  timeout 60 "$MONITOR" maintenance "$MONITOR_TARGET" "$@" "${extra[@]}" || echo "WARN: slumsms-monitor maintenance $1 failed (carrying on)"
+}
 now() { date +%s.%N; }
 dur() { awk -v a="$1" -v b="$2" 'BEGIN{printf "%.1f", b-a}'; }
 ledger() { echo "SELECT IFNULL(GROUP_CONCAT(migration_id ORDER BY migration_id),'') FROM mapleroot_integration_migrations;" | sql | tail -1; }
@@ -52,6 +64,8 @@ if [ "$DRY_RUN" = 1 ]; then
   exit 0
 fi
 
+step "maintenance mode on + public notice (no new post if the deploy's is still standing)"
+maint start
 step "stop"
 T[stop0]=$(now)
 eval "$STOP_CMD"
@@ -92,6 +106,7 @@ done
 T[up]=$(now)
 journalctl -u "$JOURNAL_UNIT" --since "$START_TS" --no-pager | grep -E "SlumsMS v|Starting world|is now online|failed to load" || true
 [ "$online" = 1 ] || die "not online after ${ONLINE_TIMEOUT}s; look at journalctl -u $JOURNAL_UNIT, or restore $B/mapleroot.sql.gz"
+maint end
 {
   echo "# SlumsMS $VERSION rollback receipt"
   echo

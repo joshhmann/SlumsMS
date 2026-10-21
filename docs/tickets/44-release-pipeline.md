@@ -62,3 +62,9 @@ Open:
 - The reference client on 164 is the original MapleRoot client, so `client-allow.txt` lists the SlumsMS overlay
   (captured from the published 1.3.0 set); the desktop's standalone `standalone-files.json` is not used.
 - One-off steps like 1.3.0's template character belong in a migration; `NAV_CACHE_SRC` covers a nav-cache copy.
+
+Maintenance notice (branch `public-announce`): the generated `deploy.sh` and `rollback.sh` run `slumsms-monitor
+maintenance live start --minutes $MAINT_MINUTES [--reason $MAINT_REASON]` just before the stop and `... end` once
+the server is online (alerts quiet + a public "going down" / "back up" post as Cody). Skipped when
+`/usr/local/bin/slumsms-monitor` is missing, never fatal; `--dry-run` previews the post. The rehearsal exports
+`MONITOR=""`. `MAINT_MINUTES` (5) and `MAINT_REASON` are release conf settings.

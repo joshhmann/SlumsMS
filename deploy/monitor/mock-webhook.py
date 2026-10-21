@@ -5,7 +5,8 @@
 
 Accepts POST /api/webhooks/<id>/<token>[?wait=true] (returns a message object with an id) and
 PATCH /api/webhooks/<id>/<token>/messages/<message_id> (edits; 404 for unknown ids), like Discord does.
-Every request is appended to --out as one JSON line: {"at", "method", "path", "message_id", "content"}.
+Every request is appended to --out as one JSON line: {"at", "method", "path", "message_id", "content", "username",
+"avatar_url"}.
 Point a target at it with WEBHOOK_URL=http://127.0.0.1:8599/api/webhooks/1/test in its .env file.
 GET / lists the stored messages.
 """
@@ -32,11 +33,13 @@ def make_handler(out_path):
             self.end_headers()
             self.wfile.write(body)
 
-        def _record(self, method, mid, content):
+        def _record(self, method, mid, content, body=None):
             with LOCK, open(out_path, "a") as f:
                 f.write(json.dumps({"at": time.strftime("%Y-%m-%dT%H:%M:%SZ", time.gmtime()), "method": method,
                                     "path": re.sub(r"/[^/]+(/messages|$)", r"/<token>\1", self.path.split("?")[0], 1),
-                                    "message_id": mid, "content": content}) + "\n")
+                                    "message_id": mid, "content": content,
+                                    "username": (body or {}).get("username"),
+                                    "avatar_url": (body or {}).get("avatar_url")}) + "\n")
 
         def _body(self):
             length = int(self.headers.get("Content-Length") or 0)
@@ -53,7 +56,7 @@ def make_handler(out_path):
                 return self._reply(400, {"message": "Cannot send an empty message", "code": 50006})
             mid = str(next(IDS))
             MESSAGES[mid] = body.get("content")
-            self._record("POST", mid, body.get("content"))
+            self._record("POST", mid, body.get("content"), body)
             if "wait=true" in self.path:
                 return self._reply(200, {"id": mid, "content": body.get("content")})
             return self._reply(204)

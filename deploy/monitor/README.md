@@ -1,7 +1,7 @@
 # slumsms-monitor (tickets 42 and 46)
 
-Health checks every minute with Discord alerts, a Discord status message and release news, for one or more game
-servers on 192.168.0.164. Python 3 standard library plus PyYAML; read-only towards the server.
+Health checks every minute with Discord alerts, a Discord status message, release news and public player
+announcements, for one or more game servers on 192.168.0.164. Python 3 standard library plus PyYAML; read-only towards the server.
 
 ## What it checks (`slumsms-monitor check <target>`, every minute)
 
@@ -38,7 +38,8 @@ Every login probe adds one `DEBUG ... Client connected to login server from 127.
 - No secrets: messages carry only check names, ports, counts and host:port of the LLM endpoints. Webhook URLs and
   `password=`/`token=` patterns are scrubbed from anything sent or logged. Journal lines are counted, never quoted.
 - **Maintenance:** while `MAINTENANCE_FILE` exists (live: `/etc/slumsms-monitor/live.maintenance`) alerts go to the
-  local log only. `touch` it before a planned stop (deploy script), `rm` it after; the recovery then is quiet too.
+  local log only. `slumsms-monitor maintenance <target> start` before a planned stop (generated deploy scripts do
+  this), `... end` after; the recovery then is quiet too. Both also post to the public channel (below).
 - **No webhook configured:** everything goes to `/var/log/slumsms-monitor/<target>.log`.
 
 State: `/var/lib/slumsms-monitor/<target>/` (`checks.json` alert state, `status.json` the last results, for the
@@ -69,6 +70,53 @@ Reads the launcher news (`NEWS_FILE`: the published `manifest.json` with its `ne
 `slumsms-news-<target>.path` unit, so publishing a new manifest (the publisher writes it last) posts the new entry.
 By hand: `slumsms-monitor news live --file /srv/slums-staging/news-1.4.0.json --dry-run`.
 
+## Public announcements (`announce`, `maintenance`, `announce-feed`)
+
+The **public** player channel only gets player-facing posts: maintenance ("going down" / "back up") and world
+events. Alerts and the status message never go there. Every post is in the voice of **Cody** (NPC 9200000, the v83
+"Wizet Wizard": flustered, swears he really is from Wizet, ends lines with ~) and is sent with the webhook username
+`ANNOUNCE_USERNAME` (`Cody`) and, if set, `ANNOUNCE_AVATAR_URL`. The lines are the `CODY` table in
+`slumsms-monitor`, several variants per message, never the same variant twice in a row. A fan-server NPC voice only:
+no Nexon/Wizet logos or links.
+
+**Webhook:** `ANNOUNCE_WEBHOOK_URL`, else `NEWS_WEBHOOK_URL`. It **never** falls back to `WEBHOOK_URL`, which is meant
+for the private ops channel (alerts/status/news fall back to it as before).
+
+**Rate cap (shared by all three commands, per target):** at most `ANNOUNCE_MAX_PER_HOUR` (6) posts an hour and
+`ANNOUNCE_MIN_GAP_SEC` (120) seconds apart. Maintenance posts skip the gap (a 30 s deploy still gets its "back up")
+but count toward and obey the hourly cap. A post over the cap goes to the local log only (`[announce, rate
+limited: ...]`) and is not retried. State: `/var/lib/slumsms-monitor/<target>/announce.json`.
+
+**Scrubbing:** on top of the usual webhook/password scrub, public posts lose IPv4 addresses (with ports), bearer
+tokens, `api_key=`-style pairs, PEM blocks and any 32+ character token, and `@everyone`/`@here` are defused (posts
+are sent with `allowed_mentions: none` anyway). Names from the server are one line, markdown-escaped.
+
+- `slumsms-monitor announce <target> "text" [--cody] [--dry-run]`: posts the text as written; `--cody` wraps it in
+  one of Cody's lines.
+- `slumsms-monitor maintenance <target> start [--minutes N] [--reason TEXT] [--no-announce] [--dry-run]`: touches
+  `MAINTENANCE_FILE` (alerts go quiet, as before) and posts e.g. "I'm telling you, I really AM from WIZET! ...and
+  Wizet says Bera needs a quick update. Back in about 5 min~ -Cody". `--minutes` defaults to `MAINTENANCE_MINUTES`
+  (5). A second `start` while still in maintenance does not post again.
+- `slumsms-monitor maintenance <target> end [--no-announce] [--dry-run]`: removes the file and posts "Bera's back!
+  Boy, that was fun. See you around~ -Cody" (only if maintenance was on).
+- The release pipeline's generated `deploy.sh` / `rollback.sh` (`tools/release/templates/`) call `maintenance live
+  start` just before the stop and `end` once the server is online, if `/usr/local/bin/slumsms-monitor` exists; a
+  missing or failing monitor never stops a deploy. `MAINT_MINUTES` / `MAINT_REASON` in the release conf set the text.
+  An aborted deploy leaves maintenance on (rollback.sh ends it). The rehearsal sets `MONITOR=""`, so a copy of live
+  never posts.
+- `slumsms-monitor announce-feed <target> [--file F] [--seed] [--dry-run]`: posts new lines of `ANNOUNCE_FILE`, the
+  world event feed the game server writes when it runs with `-Dslumsms.announceFile=<same path>` (ticket 21,
+  `WorldEventFeed`; off when unset). The server writes one JSON line when a **boss sighting, treasure hunt or hot
+  spot** starts, and when a real player wins a boss sighting or treasure hunt (never invasions, the wandering NPC,
+  bot chatter or megaphones; a treasure hunt's start names the region, never the map). The monitor keeps the byte
+  offset and the last 500 line ids (`announce-feed.json`), so nothing posts twice, also after the file is replaced.
+  Lines older than `ANNOUNCE_MAX_AGE_MIN` (30) are logged, not posted. `ANNOUNCE_EVENT_WINNERS=0` drops the winner
+  posts, `ANNOUNCE_GM_EVENTS=0` drops events a GM started with `!event start`. Run by `slumsms-announce-<target>.path`
+  (`install.sh --announce`), which seeds what is already in the file.
+
+Test without Discord: `python3 test_announce.py` (runs `mock-webhook.py`; rate cap, fallback rules, dedupe,
+maintenance, Cody's lines, the deploy hook).
+
 ## Configuration
 
 `/etc/slumsms-monitor/<target>.conf` (from `targets/<target>.conf`; keys and defaults at the top of
@@ -78,10 +126,12 @@ By hand: `slumsms-monitor news live --file /srv/slums-staging/news-1.4.0.json --
 ALERT_WEBHOOK_URL=https://discord.com/api/webhooks/...
 STATUS_WEBHOOK_URL=https://discord.com/api/webhooks/...
 NEWS_WEBHOOK_URL=https://discord.com/api/webhooks/...
-# WEBHOOK_URL= covers any of the three left out
+ANNOUNCE_WEBHOOK_URL=https://discord.com/api/webhooks/...   # public; empty = NEWS_WEBHOOK_URL
+# WEBHOOK_URL= covers alerts, status and news left out (never announcements)
 ```
 
-Test a webhook: `slumsms-monitor test-webhook live alerts` (or `status`, `news`).
+Test a webhook: `slumsms-monitor test-webhook live alerts` (or `status`, `news`, `announce`; `announce` posts to the
+public channel).
 Without Discord: `mock-webhook.py --port 8599 --out messages.jsonl` takes the same POST/PATCH calls, then
 `WEBHOOK_URL=http://127.0.0.1:8599/api/webhooks/1/test`.
 
@@ -90,13 +140,13 @@ Without Discord: `mock-webhook.py --port 8599 --out messages.jsonl` takes the sa
 The folder is on 164 at `/opt/slumsms-monitor` (copy of this one). As root:
 
 ```
-/opt/slumsms-monitor/install.sh <target> [--status] [--news] [--conf FILE] [--replace-conf]
+/opt/slumsms-monitor/install.sh <target> [--status] [--news] [--announce] [--conf FILE] [--replace-conf]
 /opt/slumsms-monitor/install.sh <target> --uninstall
 ```
 
 It installs `/usr/local/bin/slumsms-monitor`, the template units `slumsms-monitor@`, `slumsms-status@`,
-`slumsms-news@` and `/etc/slumsms-monitor/<target>.{conf,env}`, prints a dry-run check, and enables
-`slumsms-monitor@<target>.timer` (plus the status timer / news path unit when asked). It never touches the game
+`slumsms-news@`, `slumsms-announce@` and `/etc/slumsms-monitor/<target>.{conf,env}`, prints a dry-run check, and enables
+`slumsms-monitor@<target>.timer` (plus the status timer / news and announce path units when asked). It never touches the game
 server's unit or files.
 
 ### Live (the owner runs this)
@@ -108,5 +158,16 @@ sudo slumsms-monitor test-webhook live alerts
 sudo slumsms-monitor status live                  # posts the status message now
 ```
 
-Until the webhook URLs are in, alerts and status changes go to `/var/log/slumsms-monitor/live.log`. Before a deploy:
-`touch /etc/slumsms-monitor/live.maintenance`; after: `rm` it and set `VERSION=` in `/etc/slumsms-monitor/live.conf`.
+Until the webhook URLs are in, alerts and status changes go to `/var/log/slumsms-monitor/live.log`. Before a hand
+deploy: `slumsms-monitor maintenance live start --minutes 5`; after: `slumsms-monitor maintenance live end` and set
+`VERSION=` in `/etc/slumsms-monitor/live.conf` (generated release deploys do the maintenance part themselves).
+
+World events to the public channel (once the scheduler or GM events are wanted there):
+
+```
+# the installed live.conf is kept on re-install, so add the two new keys to it (see targets/live.conf):
+echo -e 'ANNOUNCE_NAME=Bera\nANNOUNCE_FILE=/var/lib/slumsms-announce/live.jsonl' | sudo tee -a /etc/slumsms-monitor/live.conf
+sudo /opt/slumsms-monitor/install.sh live --announce
+# then in /etc/systemd/system/slumsms.service ExecStart, before -jar:  -Dslumsms.announceFile=/var/lib/slumsms-announce/live.jsonl
+sudo systemctl daemon-reload    # the server reads the property at its next restart (a maintenance window)
+```

@@ -18,6 +18,7 @@ valid_version "$VERSION" || die "bad version $VERSION"
 MIGRATIONS=() LEDGER_NOT_LIVE=() LEDGER_BEFORE=__auto__ CONFIG_APPEND="" CONFIG_HEAD="" CONFIG_HEAD_BEFORE=""
 UNIT_EDITS=() PRECHECK_SQL=() NAV_CACHE_SRC="" EXPECT_LOG=() FORBID_LOG=() SMOKE_SECONDS=30
 IN_GAME_CHECK="In game: log in, enter a character, change channel."
+MAINT_MINUTES=5 MAINT_REASON=""
 . "$CONF"
 COMMIT=$(sed -n 's/^commit=//p' "$BUILD/BUILD.txt"); JAR_VERSION=$(sed -n 's/^version=//p' "$BUILD/BUILD.txt")
 JAR_SHA16=$(sed -n 's/^jar_sha256=//p' "$BUILD/BUILD.txt" | cut -c1-16)
@@ -56,7 +57,8 @@ header() {
 #   bash $DEPLOY_ROOT/v$VERSION/$1.sh
 H
   echo "D=$DEPLOY_ROOT/v$VERSION"
-  for v in VERSION COMMIT JAR_VERSION JAR_SHA16 LEDGER_BEFORE NAV_CACHE_SRC SMOKE_SECONDS IN_GAME_CHECK CONFIG_HEAD_BEFORE; do
+  for v in VERSION COMMIT JAR_VERSION JAR_SHA16 LEDGER_BEFORE NAV_CACHE_SRC SMOKE_SECONDS IN_GAME_CHECK CONFIG_HEAD_BEFORE \
+           MAINT_MINUTES MAINT_REASON; do
     printf '%s=%s\n' "$v" "$(sq "${!v}")"
   done
   # staged copies of the config files live in staging/ under their base names

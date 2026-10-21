@@ -162,3 +162,12 @@ Code: `src/main/java/soloMapling/worldevents/` (templates in `WorldEvents.yaml` 
 6. `!event start mushroom_invasion`: clear two waves in the Ant Tunnel, then Mushmom.
 7. `!event stop all`: the mobs and NPC vanish.
 8. `@quiet bots` and `@quiet megaphones` hide the bot chatter and megaphones, but not the blue notices.
+
+### Public announcements feed (branch `public-announce`)
+
+`-Dslumsms.announceFile=PATH` (default unset = off) makes `WorldEventFeed` append one JSON line when a boss
+sighting, treasure hunt or hot spot starts, and when a real player wins a boss sighting or treasure hunt. Written on
+its own daemon thread with a 64-line queue (never blocks the game; a full queue or write error drops the line and
+logs it). Invasions, the wandering NPC, bot chatter and megaphones are never written; a treasure hunt's start names
+the region only. `slumsms-monitor announce-feed` posts the lines to the public Discord channel in Cody's voice
+(`deploy/monitor/README.md`). Tests: `WorldEventFeedTest`.
