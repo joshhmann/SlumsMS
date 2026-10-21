@@ -846,6 +846,13 @@ public abstract class AbstractDealDamageHandler extends AbstractPacketHandler {
                     AutobanFactory.DAMAGE_HACK.addPoint(chr.getAutobanManager(), "DMG: " + damage + " MaxDMG: " + maxWithCrit + " SID: " + ret.skill + " MobID: " + (monster != null ? monster.getId() : "null") + " Map: " + chr.getMap().getMapName() + " (" + chr.getMapId() + ")");
                 }
 
+                if (ret.skill == Marksman.SNIPE || (canCrit && damage > hitDmgMax)) {
+                    // 1.4.2: restored from Cosmic. A crit is sent to other players with the sign bit set so their
+                    // clients draw it as one; applyAttack decodes it (eachd += Integer.MAX_VALUE). The repack had
+                    // dropped this (with Cosmic's fixed Snipe damage, which stays dropped), so nobody saw others' crits.
+                    damage = markCritical(damage);
+                }
+
                 allDamageNumbers.add(damage);
             }
             if (ret.skill != Corsair.RAPID_FIRE || ret.skill != Aran.HIDDEN_FULL_DOUBLE || ret.skill != Aran.HIDDEN_FULL_TRIPLE || ret.skill != Aran.HIDDEN_OVER_DOUBLE || ret.skill != Aran.HIDDEN_OVER_TRIPLE) {
@@ -858,6 +865,16 @@ public abstract class AbstractDealDamageHandler extends AbstractPacketHandler {
             ret.position.setLocation(p.readShort(), p.readShort());
         }
         return ret;
+    }
+
+    /** Cosmic's crit flag on a damage line ({@code -Integer.MAX_VALUE + damage - 1}); a miss stays 0. */
+    static int markCritical(int damage) {
+        return damage > 0 ? -Integer.MAX_VALUE + damage - 1 : damage;
+    }
+
+    /** The damage a line carries, with any crit flag stripped the way applyAttack does it. */
+    static int lineDamage(int line) {
+        return line < 0 ? line + Integer.MAX_VALUE : line;
     }
 
     private static int rand(int l, int u) {

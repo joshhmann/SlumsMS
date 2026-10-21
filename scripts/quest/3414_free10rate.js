@@ -1,4 +1,3 @@
-/*
 var item;
 var stance;
 var status = -1;
@@ -19,7 +18,7 @@ function end(mode, type, selection) {
 
         const Job = Java.type('client.Job');
         if (stance == Job.WARRIOR || stance == Job.BEGINNER) {
-            vecItem = [2043002, 2043102, 2043202, 2044002, 2044102, 2044202, 2044402, 2044302];
+            vecItem = [2043002, 2044002, 2044302];
         } else if (stance == Job.MAGICIAN) {
             vecItem = [2043702, 2043802];
         } else if (stance == Job.BOWMAN || stance == Job.CROSSBOWMAN) {
@@ -46,4 +45,3 @@ function end(mode, type, selection) {
         qm.dispose();
     }
 }
-    */

@@ -139,7 +139,7 @@ public final class CloseRangeDamageHandler extends AbstractDealDamageHandler {
             int totDamageToOneMonster = 0; // sacrifice attacks only 1 mob with 1 attack
             final Iterator<List<Integer>> dmgIt = attack.allDamage.values().iterator();
             if (dmgIt.hasNext()) {
-                totDamageToOneMonster = dmgIt.next().get(0);
+                totDamageToOneMonster = lineDamage(dmgIt.next().get(0)); // a Sharp Eyes crit must not heal
             }
 
             chr.safeAddHP(-1 * totDamageToOneMonster * attack.getAttackEffect(chr, null).getX() / 100);

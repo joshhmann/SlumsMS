@@ -141,4 +141,113 @@ class CosmicRestoredNpcScriptTest {
         assertSame(cm.client, cm.player.storage.client);
         assertTrue(cm.disposed);
     }
+    /** The parts of NPCConversationManager Rydole's weapon-making script uses. */
+    public static final class MakerCm {
+        public final java.util.Map<Integer, Integer> inventory = new java.util.HashMap<>();
+        public int meso;
+        public String simple;
+        public String yesNo;
+        public String ok;
+        public boolean disposed;
+
+        public void sendSimple(String text) {
+            simple = text;
+        }
+
+        public void sendNext(String text) {
+            ok = text;
+        }
+
+        public void sendYesNo(String text) {
+            yesNo = text;
+        }
+
+        public void sendOk(String text) {
+            ok = text;
+        }
+
+        public void dispose() {
+            disposed = true;
+        }
+
+        public boolean canHold(int itemId, int quantity) {
+            return true;
+        }
+
+        public int getMeso() {
+            return meso;
+        }
+
+        public void gainMeso(int delta) {
+            meso += delta;
+        }
+
+        public boolean haveItem(int itemId) {
+            return haveItem(itemId, 1);
+        }
+
+        public boolean haveItem(int itemId, int quantity) {
+            return inventory.getOrDefault(itemId, 0) >= quantity;
+        }
+
+        public void gainItem(int itemId, int quantity) {
+            inventory.merge(itemId, quantity, Integer::sum);
+        }
+
+        public void gainItem(int itemId, int quantity, boolean randomStats, boolean show) {
+            gainItem(itemId, quantity);
+        }
+    }
+
+    @Test
+    void rydoleIsTheLudibriumWeaponMakerAgainNotTheHubMenu() throws Exception {
+        MakerCm cm = new MakerCm();
+        Invocable rydole = load("npc/2040022.js", cm);
+        rydole.invokeFunction("start");
+
+        assertNotNull(cm.simple);
+        assertTrue(cm.simple.contains("Create a Warrior weapon"), cm.simple);
+        assertFalse(cm.simple.contains("Donor Shop"), "the copied hub menu is gone");
+    }
+
+    @Test
+    void rydoleMakesAGladiusFromItsManualOresAndFee() throws Exception {
+        MakerCm cm = new MakerCm();
+        cm.meso = 20000;
+        // Gladius (1302008), Cosmic matSet[0]: manual 4131000 x1, 4011001 x2, 4011004 x2, screws 4003000 x30
+        cm.inventory.put(4131000, 1);
+        cm.inventory.put(4011001, 2);
+        cm.inventory.put(4011004, 2);
+        cm.inventory.put(4003000, 30);
+        Invocable rydole = load("npc/2040022.js", cm);
+
+        rydole.invokeFunction("start");
+        rydole.invokeFunction("action", 1, 0, 1); // Create a Warrior weapon
+        assertTrue(cm.simple.contains("Gladius"), cm.simple);
+        rydole.invokeFunction("action", 1, 0, 0); // Gladius
+        assertTrue(cm.yesNo.contains("#t1302008#"), cm.yesNo);
+        rydole.invokeFunction("action", 1, 0, 0); // yes
+
+        assertEquals(1, cm.inventory.get(1302008), "the Gladius is made");
+        assertEquals(0, cm.inventory.get(4131000), "the manual is used up");
+        assertEquals(0, cm.inventory.get(4003000), "the screws are used up");
+        assertEquals(2000, cm.meso, "the 18,000 meso fee is paid");
+        assertTrue(cm.disposed);
+    }
+
+    @Test
+    void rydoleRefusesWithoutTheMaterials() throws Exception {
+        MakerCm cm = new MakerCm();
+        cm.meso = 20000;
+        Invocable rydole = load("npc/2040022.js", cm);
+
+        rydole.invokeFunction("start");
+        rydole.invokeFunction("action", 1, 0, 1);
+        rydole.invokeFunction("action", 1, 0, 0);
+        rydole.invokeFunction("action", 1, 0, 0);
+
+        assertNull(cm.inventory.get(1302008));
+        assertEquals(20000, cm.meso);
+        assertTrue(cm.ok.startsWith("Sorry, but you're missing a required item"), cm.ok);
+    }
 }

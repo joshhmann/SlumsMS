@@ -169,11 +169,9 @@ public final class TakeDamageHandler extends AbstractPacketHandler {
                         int id = jobid * 10000 + 1002;
                         Skill manaReflectSkill = SkillFactory.getSkill(id);
                         if (chr.isBuffFrom(BuffStat.MANA_REFLECTION, manaReflectSkill) && chr.getSkillLevel(manaReflectSkill) > 0 && manaReflectSkill.getEffect(chr.getSkillLevel(manaReflectSkill)).makeChanceResult()) {
-//                            int bouncedamage = (damage * manaReflectSkill.getEffect(chr.getSkillLevel(manaReflectSkill)).getX() / 100);
-//                            if (bouncedamage > attacker.getMaxHp() / 5) {
-//                                bouncedamage = attacker.getMaxHp() / 5;
-//                            }
-                            map.damageMonster(chr, attacker, 20);
+                            int bouncedamage = manaReflectDamage(damage, manaReflectSkill.getEffect(chr.getSkillLevel(manaReflectSkill)).getX(), attacker.getMaxHp());
+                            map.damageMonster(chr, attacker, bouncedamage);
+                            map.broadcastMessage(chr, PacketCreator.damageMonster(oid, bouncedamage), true);
                             chr.sendPacket(PacketCreator.showOwnBuffEffect(id, 5));
                             map.broadcastMessage(chr, PacketCreator.showBuffEffect(chr.getId(), id, 5), false);
                         }
@@ -288,5 +286,16 @@ public final class TakeDamageHandler extends AbstractPacketHandler {
         for (Character player : banishPlayers) {  // chill, if this list ever gets non-empty an attacker does exist, trust me :)
             player.changeMapBanish(attacker.getBanish().getMap(), attacker.getBanish().getPortal(), attacker.getBanish().getMsg());
         }
+    }
+
+    /**
+     * Mana Reflection's bounce: x% of the hit the mage took, capped at a fifth of the mob's max HP (Cosmic). The
+     * repack had replaced it with a flat 20, likely because Cosmic's int math no longer compiled against
+     * MapleRoot's long mob HP; this keeps the cap in longs and the result in the int the damage packet carries.
+     */
+    static int manaReflectDamage(int damageTaken, int reflectPercent, long mobMaxHp) {
+        long bounce = (long) damageTaken * reflectPercent / 100;
+        bounce = Math.min(bounce, mobMaxHp / 5);
+        return (int) Math.max(0, Math.min(bounce, Integer.MAX_VALUE));
     }
 }
