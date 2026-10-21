@@ -376,6 +376,22 @@ public final class BotStore {
     }
 
     /**
+     * The stored bot with this name (ignoring case), or {@code null}: how a player finds an offline bot by name (ticket
+     * 49, adding a buddy). Names are unique across bots (bot-persistence 05).
+     */
+    static Persisted persistedByName(String name) {
+        if (name == null || name.isBlank()) {
+            return null;
+        }
+        for (Persisted row : roster().values()) {
+            if (row.name != null && row.name.equalsIgnoreCase(name)) {
+                return row;
+            }
+        }
+        return null;
+    }
+
+    /**
      * Adopts the stored bot of this id onto a freshly cloned character: identity, progression, look,
      * capacity, holdings and last-seen placement. Returns {@code false} when the slot has never been
      * filled, which means the caller is holding a brand new bot that still needs to be minted.

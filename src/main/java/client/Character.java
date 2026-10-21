@@ -2754,6 +2754,9 @@ public class Character extends AbstractCharacterObject {
 
     public void deleteBuddy(int otherCid) {
         BuddyList bl = getBuddylist();
+        if (soloMapling.ArtificialPlayer.BotHelpers.isArtificial(otherCid)) {
+            soloMapling.ArtificialPlayer.BotBuddies.playerRemoved(this, otherCid); // ticket 49: both sides go
+        }
 
         if (bl.containsVisible(otherCid)) {
             notifyRemoteChannel(client, getWorldServer().find(otherCid), otherCid, BuddyList.BuddyOperation.DELETED);
