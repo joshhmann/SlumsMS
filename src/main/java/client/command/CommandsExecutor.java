@@ -372,6 +372,7 @@ public class CommandsExecutor {
         addCommand("reloaddrops", 3, ReloadDropsCommand.class);
         addCommand("reloadportals", 3, ReloadPortalsCommand.class);
         addCommand("reloadmap", 3, ReloadMapCommand.class);
+        addCommand("bounce", 3, client.command.commands.gm3.BounceCommand.class); // bounce block zones (bounce-zones.yaml)
         addCommand("reloadshops", 3, ReloadShopsCommand.class);
         addCommand("reloadcashshop", 3, ReloadCashShopCommand.class);
         addCommand("hpmp", 3, HpMpCommand.class);
