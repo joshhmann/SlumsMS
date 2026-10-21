@@ -2,7 +2,7 @@
 
 **Area:** Launcher  
 **Depends on:** -  
-**Status:** open
+**Status:** done on branches (launcher `ops-first-install` = 1.3.3), awaiting the owner's go — release steps in [docs/release/first-install-packs.md](../release/first-install-packs.md)
 
 ## What
 

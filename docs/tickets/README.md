@@ -30,7 +30,7 @@ has the detail. Live runs 1.4.0.
 | [17](17-daily-checkin-release.md) | Ship Daily Check-In | Addons | - | v1.4.0 (on live) |
 | [18](18-addon-setequip.md) | SetEquipV3 addon | Addons | - | v1.4.0 |
 | [19](19-addon-monsterbook.md) | MonsterBook addon | Addons | - | v1.4.0 |
-| [20](20-launcher-packs.md) | Packed first install for remote friends | Launcher | - | open |
+| [20](20-launcher-packs.md) | Packed first install for remote friends | Launcher | - | done on branch, owner go |
 | [21](21-world-events.md) | Scripted world events with bot reactions | Later | 16 | v1.4.0 (scheduler off) |
 | [22](22-jar-data-resolver.md) | Jar-only data loading | Later | - | v1.4.0 |
 | [23](23-live-backups.md) | Scheduled live backups | Ops | - | done (ops) |
