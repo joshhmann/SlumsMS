@@ -64,3 +64,7 @@ deliberate (MapleRoot/SlumsMS feature) vs broken, and restore the broken ones wi
   integrated" - plan as part of the social systems, not a one-off fix.
 - **FM storage:** both FMs already have a storage keeper (Gerrard 2060008 in the MapleRoot FM, Scrooge 9030100 in
   910000000). Rosen (2110000) is Magatia + Adobis's Mission I; restored in 1.4.1 (his script was missing).
+- **Bots idle inside mob packs get tossed around** (owner, 1.4.1 test pass). Bots lane, 1.4.2: before a bot idles
+  (chat, AFK, rest, waiting on a commitment) it walks to a safe spot - a platform/foothold group with no live mobs in
+  range, a rope top, or near a portal; if knocked back while idle it relocates at once. Pair with a `!qa` scenario
+  (idle bot on a busy map, log hits taken while idle before/after).
