@@ -16,6 +16,7 @@ import static soloMapling.qa.QaLog.Topic.EQUIP;
 import static soloMapling.qa.QaLog.Topic.FM_BUY;
 import static soloMapling.qa.QaLog.Topic.GUILD;
 import static soloMapling.qa.QaLog.Topic.HIDE;
+import static soloMapling.qa.QaLog.Topic.MAP_ENTRY;
 import static soloMapling.qa.QaLog.Topic.MERCHANT;
 import static soloMapling.qa.QaLog.Topic.MOB_CONTROL;
 import static soloMapling.qa.QaLog.Topic.ROPE;
@@ -63,7 +64,7 @@ public final class QaScenarios {
     public static List<QaScenario> all() {
         return List.of(new Bk1Showcase(), new Gd1Guild(), new Fm1BuyerCap(), new Ld1Ladders(), new Gh1Hide(),
                 new Np1Rosen(), new Np2Fredrick(), new Np3Merchant(), new Cs2PetEquip(), new Gn2Scrolling(),
-                new Wd1ChannelBars(), new Wd2DreamyPortal());
+                new Wd1ChannelBars(), new Wd2DreamyPortal(), new Pe1MapEntry());
     }
 
     // ---- bk-1 ----
@@ -464,6 +465,92 @@ public final class QaScenarios {
     // ---- wd-1 ----
 
     /** wd-1: per-channel players, bots and load bars, sampled every minute and on every channel list sent. */
+    // ---- pe-1 ----
+
+    /**
+     * pe-1: map entry timing (1.4.2 perf). Warps the GM back and forth between two busy maps every few seconds; each
+     * entry is measured by {@link MapEntryMeter} and logged as a MAP_ENTRY line, and the stop writes a summary.
+     */
+    static final class Pe1MapEntry implements QaScenario {
+        static final int HENESYS = 100000000, HENESYS_MARKET = 100000100;
+        static final int DEFAULT_SECONDS = 8;
+
+        /** Per GM: the two maps, the seconds between warps, the seconds counted so far and the warps done. */
+        static final class State {
+            final int a, b, every;
+            int elapsed, warps;
+
+            State(int a, int b, int every) {
+                this.a = a;
+                this.b = b;
+                this.every = every;
+            }
+        }
+
+        final java.util.Map<Integer, State> states = new java.util.concurrent.ConcurrentHashMap<>();
+
+        public String id() { return "pe-1"; }
+        public String title() { return "Map entry timing: warps you between two busy maps, logs time and packets per entry"; }
+        public String usage() { return "[mapA] [mapB] [seconds between warps], default 100000000 100000100 8"; }
+        public Set<QaLog.Topic> topics() { return EnumSet.of(MAP_ENTRY); }
+        public int minutes(String[] args) { return 10; }
+        public int tickSeconds() { return 1; }
+
+        static int[] parse(String[] args) {
+            try {
+                int a = args.length > 0 ? Integer.parseInt(args[0]) : HENESYS;
+                int b = args.length > 1 ? Integer.parseInt(args[1]) : HENESYS_MARKET;
+                int every = args.length > 2 ? Integer.parseInt(args[2]) : DEFAULT_SECONDS;
+                if (a == b || every < 3 || every > 120) {
+                    return null;
+                }
+                return new int[]{a, b, every};
+            } catch (NumberFormatException e) {
+                return null;
+            }
+        }
+
+        public List<String> stage(QaContext ctx) {
+            int[] p = parse(ctx.args());
+            if (p == null) {
+                throw new QaRefusal("Two different map ids and 3-120 seconds, e.g. !qa run pe-1 " + usage());
+            }
+            int gmId = ctx.run().gmId();
+            MapEntryMeter.clear(gmId);
+            if (!ctx.world().warp(ctx.gm(), p[0])) {
+                throw new QaRefusal("Cannot warp to " + p[0] + ".");
+            }
+            states.put(gmId, new State(p[0], p[1], p[2]));
+            ctx.log("warping between " + p[0] + " and " + p[1] + " every " + p[2] + " s");
+            ctx.onStop("stop warping, write the summary", () -> {
+                State st = states.remove(gmId);
+                ctx.run().note("SUMMARY", "map entries: " + MapEntryMeter.summary(MapEntryMeter.results(gmId))
+                        + (st != null ? ", warps " + st.warps : ""));
+                MapEntryMeter.clear(gmId);
+            });
+            return List.of("You will be warped between " + p[0] + " and " + p[1] + " every " + p[2] + " s.",
+                    "Each entry is logged (time, packets, deferred spawns). !qa stop writes the summary.");
+        }
+
+        public void tick(QaContext ctx) {
+            State st = states.get(ctx.run().gmId());
+            Character gm = ctx.gmNow();
+            if (st == null || gm == null) {
+                return;
+            }
+            if (++st.elapsed < st.every) {
+                return;
+            }
+            st.elapsed = 0;
+            int to = gm.getMapId() == st.a ? st.b : st.a;
+            if (ctx.world().warp(gm, to)) {
+                st.warps++;
+            } else {
+                ctx.run().note("STEP", "could not warp to " + to);
+            }
+        }
+    }
+
     static final class Wd1ChannelBars implements QaScenario {
         public String id() { return "wd-1"; }
         public String title() { return "Channel bars: per-channel players, bots and bar values logged every minute"; }

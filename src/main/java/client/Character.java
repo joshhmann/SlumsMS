@@ -1913,12 +1913,14 @@ public class Character extends AbstractCharacterObject {
         }
         final Party k = e;
         clearSummons();
+        soloMapling.qa.MapEntryMeter.begin(this, map, to); // !qa pe-1 only: one volatile read otherwise
         sendPacket(warpPacket);
         map.removePlayer(this);
         if (client.getChannelServer().getPlayerStorage().getCharacterById(getId()) != null) {
             map = to;
             setPosition(pos);
             map.addPlayer(this);
+            soloMapling.qa.MapEntryMeter.placed(this);
             visitMap(map);
 
             prtLock.lock();

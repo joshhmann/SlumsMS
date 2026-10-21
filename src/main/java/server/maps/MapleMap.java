@@ -75,6 +75,9 @@ public class MapleMap {
     private final AtomicInteger spawnedMonstersOnMap = new AtomicInteger(0);
     private final AtomicInteger droppedItemCount = new AtomicInteger(0);
     private final Collection<Character> characters = new LinkedHashSet<>();
+    // 1.4.2 (perf): one stamp per character per entry into this map (MapEntryPlacement's deferred spawns check it)
+    private static final java.util.concurrent.atomic.AtomicLong ENTRY_SEQ = new java.util.concurrent.atomic.AtomicLong();
+    private final Map<Integer, Long> entryStamps = new java.util.concurrent.ConcurrentHashMap<>();
     private final Map<Integer, Set<Integer>> mapParty = new LinkedHashMap<>();
     private final Map<Integer, Portal> portals = new HashMap<>();
     private final Map<Integer, Integer> backgroundTypes = new HashMap<>();
@@ -2687,6 +2690,7 @@ public class MapleMap {
         chrWLock.lock();
         try {
             characters.add(chr);
+            entryStamps.put(chr.getId(), ENTRY_SEQ.incrementAndGet());
             chrSize = characters.size();
 
             if (party != null && party.getMemberById(chr.getId()) != null) {
@@ -2889,8 +2893,8 @@ public class MapleMap {
             objectWLock.unlock();
         }
 
-        if (chr.getPlayerShop() != null) {
-            addMapObject(chr.getPlayerShop());
+        if (chr.getPlayerShop() != null && getMapObject(chr.getPlayerShop().getObjectId()) != chr.getPlayerShop()) {
+            addMapObject(chr.getPlayerShop()); // 1.4.2: only once - a re-add gave the shop a new oid and left the old key behind
         }
 
         final Dragon dragon = chr.getDragon();
@@ -3044,6 +3048,7 @@ public class MapleMap {
             }
 
             characters.remove(chr);
+            entryStamps.remove(chr.getId());
         } finally {
             chrWLock.unlock();
         }
@@ -3273,7 +3278,9 @@ public class MapleMap {
                 }
             } else {
                 for (Character chr : characters) {
-                    if (chr != source) {
+                    // 1.4.2 (perf): a bot's client drops every packet; building a full spawn packet for each bot on
+                    // the map made every entry O(characters on the map) in packet encoding for nothing
+                    if (chr != source && !(chr.getClient() instanceof BotClient)) {
                         chr.sendPacket(PacketCreator.spawnPlayerMapObject(chr.getClient(), player, enteringField));
                     }
                 }
@@ -3287,7 +3294,7 @@ public class MapleMap {
         chrRLock.lock();
         try {
             for (Character chr : characters) {
-                if (chr != source) {
+                if (chr != source && !(chr.getClient() instanceof BotClient)) { // 1.4.2: see above
                     chr.sendPacket(PacketCreator.updateCharLook(chr.getClient(), player));
                 }
             }
@@ -3333,9 +3340,20 @@ public class MapleMap {
             objectRLock.unlock();
         }
 
+        // 1.4.2 (perf): bots and drops outside the view follow over the next ~1.5 s (MapEntryPlacement)
+        boolean trickle = chr != null && MapEntryPlacement.enabled();
+        Point at = chr != null ? chr.getPosition() : null;
+        List<MapEntryPlacement.Deferred> deferred = trickle ? new ArrayList<>() : null;
+        int sentNow = 0;
+
         for (MapObject o : objects) {
             if (isNonRangedType(o.getType())) {
+                if (trickle && o != chr && MapEntryPlacement.deferrableCharacter(o) && !MapEntryPlacement.inView(at, o)) {
+                    deferred.add(new MapEntryPlacement.Deferred(o, entryStamps.get(((Character) o).getId())));
+                    continue;
+                }
                 o.sendSpawnData(c);
+                sentNow++;
             } else if (o.getType() == MapObjectType.SUMMON) {
                 Summon summon = (Summon) o;
                 if (summon.getOwner() == chr) {
@@ -3359,17 +3377,101 @@ public class MapleMap {
                     if (((Reactor) o).isAlive()) {
                         o.sendSpawnData(chr.getClient());
                         chr.addVisibleMapObject(o);
+                        sentNow++;
                     }
                 } else {
+                    if (trickle && MapEntryPlacement.deferrableRanged(o) && !MapEntryPlacement.inView(at, o)) {
+                        deferred.add(new MapEntryPlacement.Deferred(o, null));
+                        continue;
+                    }
                     o.sendSpawnData(chr.getClient());
                     chr.addVisibleMapObject(o);
+                    sentNow++;
 
                     if (o.getType() == MapObjectType.MONSTER) {
                         ((Monster) o).aggroUpdateController();
                     }
                 }
             }
+
+            if (trickle) {
+                MapEntryPlacement.notifyEntered(chr, mapid, sentNow, deferred.size());
+                if (!deferred.isEmpty()) {
+                    scheduleDeferredPlacement(chr, at, deferred);
+                }
+            }
         }
+    }
+
+    /* 1.4.2 (perf): the rest of an entry's placement, nearest first, a chunk per MapEntryPlacement.STEP_MS. */
+    private void scheduleDeferredPlacement(Character chr, Point at, List<MapEntryPlacement.Deferred> deferred) {
+        Long entrantStamp = entryStamps.get(chr.getId());
+        if (entrantStamp == null) {
+            return;
+        }
+        MapEntryPlacement.sortNearestFirst(at, deferred);
+        int chunk = MapEntryPlacement.chunkSize(deferred.size());
+        int chunks = (deferred.size() + chunk - 1) / chunk;
+        int[] sent = {0};
+        MapEntryPlacement.run(chunks, i -> {
+            int from = i * chunk;
+            int to = Math.min(deferred.size(), from + chunk);
+            int n = sendDeferredPlacement(chr, entrantStamp, deferred.subList(from, to));
+            if (n < 0) {
+                return false; // the entrant left or re-entered: its new entry has its own placement
+            }
+            sent[0] += n;
+            if (to == deferred.size()) {
+                MapEntryPlacement.notifyTrickled(chr, mapid, deferred.size(), sent[0]);
+            }
+            return true;
+        });
+    }
+
+    /**
+     * Sends one chunk of deferred objects to the entrant; how many went out, or -1 when the entrant is no longer on
+     * this entry of the map. See MapEntryPlacement for why each check is needed.
+     */
+    int sendDeferredPlacement(Character chr, long entrantStamp, List<MapEntryPlacement.Deferred> chunk) {
+        Client c = chr.getClient();
+        int sent = 0;
+        List<MapItem> drops = new ArrayList<>();
+        chrRLock.lock();
+        try {
+            if (chr.getMap() != this || !Objects.equals(entryStamps.get(chr.getId()), entrantStamp)) {
+                return -1;
+            }
+            for (MapEntryPlacement.Deferred d : chunk) {
+                if (d.object() instanceof Character bot) {
+                    // still here on the same entry: else its removal, or its own spawn, has gone out already
+                    if (d.stamp() != null && d.stamp().equals(entryStamps.get(bot.getId()))) {
+                        bot.sendSpawnData(c);
+                        sent++;
+                    }
+                } else if (d.object() instanceof MapItem drop) {
+                    drops.add(drop);
+                }
+            }
+        } finally {
+            chrRLock.unlock();
+        }
+        // drops outside the character lock: the pickup path takes the drop's lock first, then the map's locks
+        for (MapItem drop : drops) {
+            if (chr.getMap() != this || !Objects.equals(entryStamps.get(chr.getId()), entrantStamp)) {
+                break; // left meanwhile
+            }
+            drop.lockItem();
+            try {
+                if (!drop.isAlreadyPickedUp() && getMapObject(drop.getObjectId()) == drop) {
+                    drop.sendSpawnData(c);
+                    chr.addVisibleMapObject(drop);
+                    sent++;
+                }
+            } finally {
+                drop.unlockItem();
+            }
+        }
+        return sent;
     }
 
     public List<MapObject> getMapObjectsInRange(Point from, double rangeSq, List<MapObjectType> types) {

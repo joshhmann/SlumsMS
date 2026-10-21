@@ -66,6 +66,9 @@ public class ServerConfig {
 
     //SoloMapling: the population director (bot-persistence ticket 08) - roster bots log in and out on a daily curve.
     public boolean BOT_DIRECTOR_ENABLED = true;
+    //1.4.2 (perf): a player entering a map gets what is in view first; bots and drops outside the view follow
+    //over the next ~1.5 s (server.maps.MapEntryPlacement). false = everything in one burst, as before.
+    public boolean MAP_ENTRY_TRICKLE = true;
     //1.4.2 (ticket 57): the director's own peak. The cap below usually binds first.
     public int BOT_ROSTER_PEAK_ONLINE = 1200;
     public String BOT_ROSTER_CURVE = "0:0.45,3:0.25,6:0.15,9:0.25,12:0.45,15:0.6,18:0.85,20:1.0,22:0.8";
