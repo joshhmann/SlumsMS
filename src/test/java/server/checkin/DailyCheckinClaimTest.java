@@ -3,6 +3,7 @@ package server.checkin;
 import client.Character;
 import org.junit.jupiter.api.AfterEach;
 import org.junit.jupiter.api.Test;
+import server.CashShop;
 
 import java.sql.SQLException;
 import java.util.ArrayList;
@@ -40,16 +41,30 @@ class DailyCheckinClaimTest {
         };
     }
 
-    private static Character player(boolean roomForMesos) {
+    /** A player; {@code room} decides whether the day's items fit. */
+    private static Character player(boolean room) {
         Character chr = mock(Character.class);
         when(chr.getName()).thenReturn("Claimer");
-        when(chr.canHoldMeso(anyInt())).thenReturn(roomForMesos);
+        when(chr.canHoldMeso(anyInt())).thenReturn(true);
+        when(chr.getSlots(anyInt())).thenReturn((byte) 24);
+        when(chr.getCashShop()).thenReturn(mock(CashShop.class));
+        DailyCheckinRewards.useForTest(new DailyCheckinRewards.Hands() {
+            @Override
+            public boolean canHold(Character c, List<DailyCheckinRewards.Grant> grants) {
+                return room;
+            }
+
+            @Override
+            public void give(Character c, DailyCheckinRewards.Grant grant, long expiration) {
+            }
+        }, DailyCheckinRewards.DEFAULT_DAYS);
         return chr;
     }
 
     @AfterEach
     void tearDown() {
         DailyCheckin.useForTest(null);
+        DailyCheckinRewards.useForTest(null, null);
     }
 
     @Test
@@ -60,7 +75,7 @@ class DailyCheckinClaimTest {
         assertEquals(DailyCheckin.ClaimResult.CLAIMED, DailyCheckin.claim(chr, ACCOUNT, DailyCheckinStreak.NEW, 1, NOW));
         assertEquals(1, saved.size());
         assertEquals(1, saved.get(0).day());
-        verify(chr).gainMeso(DailyCheckinRewards.of(1).mesos(), true);
+        verify(chr.getCashShop()).gainCash(1, DailyCheckinRewards.of(1).nxCredit());
     }
 
     @Test
@@ -70,7 +85,7 @@ class DailyCheckinClaimTest {
 
         assertEquals(DailyCheckin.ClaimResult.NOT_CLAIMABLE, DailyCheckin.claim(chr, ACCOUNT, DailyCheckinStreak.NEW, 5, NOW));
         assertTrue(saved.isEmpty());
-        verify(chr, never()).gainMeso(anyInt(), org.mockito.ArgumentMatchers.anyBoolean());
+        verify(chr.getCashShop(), never()).gainCash(anyInt(), anyInt());
     }
 
     @Test
@@ -88,6 +103,6 @@ class DailyCheckinClaimTest {
         Character chr = player(true);
 
         assertEquals(DailyCheckin.ClaimResult.NOT_SAVED, DailyCheckin.claim(chr, ACCOUNT, DailyCheckinStreak.NEW, 1, NOW));
-        verify(chr, never()).gainMeso(anyInt(), org.mockito.ArgumentMatchers.anyBoolean());
+        verify(chr.getCashShop(), never()).gainCash(anyInt(), anyInt());
     }
 }

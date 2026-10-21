@@ -1,5 +1,7 @@
 -- Daily Check-In: one 28-day login-streak per account. A new table only; no existing table or row changes.
 -- Stop the game and take a backup first, as for every migration here.
+-- Number 004 was reserved for this; it is independent of 003 and 005-009 and may be applied after them. Applying it
+-- twice changes nothing (ledger id '004-daily-checkin'). Then set server.DAILY_CHECKIN_ENABLED: true in config.yaml.
 CREATE TABLE IF NOT EXISTS mapleroot_integration_migrations (
   migration_id varchar(100) PRIMARY KEY,
   applied_at timestamp NOT NULL DEFAULT CURRENT_TIMESTAMP

@@ -1,0 +1,192 @@
+# Daily Check-In reward table (SlumsMS ticket 17). DRAFT FOR OWNER APPROVAL.
+#
+# Read once at server start (restart to apply an edit; no rebuild). Must list days 1..28 in order. Any mistake
+# (unknown key, bad number, item id not in the server's data) rejects the whole file: the server then logs an error
+# and uses the built-in table in server/checkin/DailyCheckinRewards.java, which this file mirrors.
+#
+# Per day:  day, nx (NX Credit), mesos, icon (item drawn in the window; defaults to the first item),
+#           slots ("equip 4" | "use 4" | "setup 4" | "etc 8"; capped at 96, slots that do not fit pay 500 NX each),
+#           items: id, qty, days (expires that many days after the claim; leave out for permanent).
+# Draft totals per cycle: 89,000 NX, +20 slots (+4 Equip, +4 Use, +4 Set-up, +8 Etc).
+days:
+  - day: 1
+    icon: 2000005
+    nx: 1500
+    items:
+      - id: 2000005   # Power Elixir
+        qty: 20
+  - day: 2
+    icon: 5040000
+    nx: 1500
+    items:
+      - id: 5040000   # The Teleport Rock
+        qty: 3
+  - day: 3
+    icon: 2000004
+    nx: 2000
+    items:
+      - id: 2000004   # Elixir
+        qty: 50
+  - day: 4
+    icon: 5130000
+    nx: 2000
+    items:
+      - id: 5130000   # Safety Charm
+        qty: 1
+  - day: 5
+    icon: 5220000
+    nx: 2000
+    items:
+      - id: 5220000   # Gachapon Ticket
+        qty: 2
+  - day: 6
+    icon: 2022179
+    nx: 2500
+    items:
+      - id: 2022179   # Onyx Apple
+        qty: 5
+  - day: 7
+    icon: 5211046
+    nx: 5000
+    slots: equip 4
+    items:
+      - id: 5211046   # 1day 2x EXP Special Coupon
+        qty: 1
+        days: 1
+  - day: 8
+    icon: 2000005
+    nx: 1500
+    items:
+      - id: 2000005   # Power Elixir
+        qty: 30
+  - day: 9
+    icon: 5050000
+    nx: 1500
+    items:
+      - id: 5050000   # AP Reset
+        qty: 1
+  - day: 10
+    icon: 5041000
+    nx: 2000
+    items:
+      - id: 5041000   # VIP Teleport Rock
+        qty: 1
+  - day: 11
+    icon: 5072000
+    nx: 2000
+    items:
+      - id: 5072000   # Super Megaphone
+        qty: 3
+  - day: 12
+    icon: 2022179
+    nx: 2000
+    items:
+      - id: 2022179   # Onyx Apple
+        qty: 5
+  - day: 13
+    icon: 5130000
+    nx: 2500
+    items:
+      - id: 5130000   # Safety Charm
+        qty: 2
+  - day: 14
+    icon: 5220000
+    nx: 7500
+    slots: use 4
+    items:
+      - id: 5220000   # Gachapon Ticket
+        qty: 5
+  - day: 15
+    icon: 2000004
+    nx: 2000
+    items:
+      - id: 2000004   # Elixir
+        qty: 50
+  - day: 16
+    icon: 5040000
+    nx: 2000
+    items:
+      - id: 5040000   # The Teleport Rock
+        qty: 5
+  - day: 17
+    icon: 5050000
+    nx: 2000
+    items:
+      - id: 5050000   # AP Reset
+        qty: 2
+  - day: 18
+    icon: 5211046
+    nx: 2500
+    items:
+      - id: 5211046   # 1day 2x EXP Special Coupon
+        qty: 1
+        days: 1
+  - day: 19
+    icon: 2000005
+    nx: 2500
+    items:
+      - id: 2000005   # Power Elixir
+        qty: 50
+  - day: 20
+    icon: 2022179
+    nx: 2500
+    items:
+      - id: 2022179   # Onyx Apple
+        qty: 10
+  - day: 21
+    icon: 5130000
+    nx: 10000
+    slots: setup 4
+    items:
+      - id: 5130000   # Safety Charm
+        qty: 3
+      - id: 5050000   # AP Reset
+        qty: 3
+  - day: 22
+    icon: 5220000
+    nx: 2000
+    items:
+      - id: 5220000   # Gachapon Ticket
+        qty: 3
+  - day: 23
+    icon: 5076000
+    nx: 2000
+    items:
+      - id: 5076000   # Item Megaphone
+        qty: 2
+  - day: 24
+    icon: 5130000
+    nx: 2500
+    items:
+      - id: 5130000   # Safety Charm
+        qty: 2
+  - day: 25
+    icon: 5230000
+    nx: 2500
+    items:
+      - id: 5230000   # The Owl of Minerva
+        qty: 3
+  - day: 26
+    icon: 2022179
+    nx: 3000
+    items:
+      - id: 2000005   # Power Elixir
+        qty: 50
+      - id: 2022179   # Onyx Apple
+        qty: 5
+  - day: 27
+    icon: 5211046
+    nx: 3000
+    items:
+      - id: 5211046   # 1day 2x EXP Special Coupon
+        qty: 1
+        days: 1
+  - day: 28
+    icon: 2340000
+    nx: 15000
+    slots: etc 8
+    items:
+      - id: 2340000   # White Scroll
+        qty: 1
+      - id: 5220000   # Gachapon Ticket
+        qty: 5

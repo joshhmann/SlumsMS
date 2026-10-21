@@ -5,6 +5,8 @@ import client.Client;
 import config.YamlConfig;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
+import soloMapling.ArtificialPlayer.BotHelpers;
+import soloMapling.server.SoloMaplingConstants;
 import tools.DatabaseConnection;
 
 import java.sql.Connection;
@@ -47,7 +49,17 @@ public final class DailyCheckin {
     }
 
     public static boolean eligible(Character chr) {
-        return enabled() && chr != null && chr.getLevel() >= YamlConfig.config.server.DAILY_CHECKIN_MIN_LEVEL;
+        return isPlayer(chr) && enabled() && chr.getLevel() >= YamlConfig.config.server.DAILY_CHECKIN_MIN_LEVEL;
+    }
+
+    /**
+     * A real player: never a bot (a BotClient, or an id at or above the bot id base) nor the console pseudo-character.
+     * Bots get no window, no login push and no claims, so they never receive NX, items or slots.
+     */
+    static boolean isPlayer(Character chr) {
+        return chr != null && !BotHelpers.isBot(chr)
+                && chr.getId() < SoloMaplingConstants.GameConstants.BOT_BASE_ID
+                && chr.getId() != SoloMaplingConstants.GameConstants.CONSOLE_BOT_ID;
     }
 
     /** Pushes the window at login when a reward is waiting. */
@@ -70,6 +82,9 @@ public final class DailyCheckin {
     /** {@code @daily}: shows the window, and the remaining wait when nothing is claimable. */
     public static void open(Client c) {
         Character chr = c.getPlayer();
+        if (!isPlayer(chr)) {
+            return;
+        }
         if (!enabled()) {
             chr.dropMessage(6, "Daily Check-In is not available right now.");
             return;
@@ -124,6 +139,9 @@ public final class DailyCheckin {
     }
 
     static ClaimResult claim(Character chr, int accountId, DailyCheckinStreak streak, int day, long now) {
+        if (!isPlayer(chr)) {
+            return ClaimResult.NOT_CLAIMABLE;
+        }
         if (day < 1 || day != streak.claimableDay(now)) {
             log.info("Check-in claim refused for {}: day {} (claimable {})", chr.getName(), day, streak.claimableDay(now));
             return ClaimResult.NOT_CLAIMABLE;

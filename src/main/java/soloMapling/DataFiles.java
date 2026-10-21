@@ -65,6 +65,7 @@ public final class DataFiles {
             "soloMapling/ArtificialPlayer/BotTownSystem/TownPresence.yaml",
             "soloMapling/ArtificialPlayer/BotTravelSystem/BotTransit.yaml",
             "soloMapling/ArtificialPlayer/BotMovementSystem/movementDataPackets",
+            "soloMapling/DailyCheckin/daily-checkin-rewards.yaml",
             "soloMapling/itemPool/EquipOmitList.yaml",
             "soloMapling/itemPool/itemConfig",
             "soloMapling/itemPool/itemConfig/desirableEquips.yaml",
