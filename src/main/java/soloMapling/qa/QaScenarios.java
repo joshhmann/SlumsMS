@@ -16,6 +16,7 @@ import static soloMapling.qa.QaLog.Topic.EQUIP;
 import static soloMapling.qa.QaLog.Topic.FM_BUY;
 import static soloMapling.qa.QaLog.Topic.GUILD;
 import static soloMapling.qa.QaLog.Topic.HIDE;
+import static soloMapling.qa.QaLog.Topic.IDLE;
 import static soloMapling.qa.QaLog.Topic.MERCHANT;
 import static soloMapling.qa.QaLog.Topic.MOB_CONTROL;
 import static soloMapling.qa.QaLog.Topic.ROPE;
@@ -63,7 +64,7 @@ public final class QaScenarios {
     public static List<QaScenario> all() {
         return List.of(new Bk1Showcase(), new Gd1Guild(), new Fm1BuyerCap(), new Ld1Ladders(), new Gh1Hide(),
                 new Np1Rosen(), new Np2Fredrick(), new Np3Merchant(), new Cs2PetEquip(), new Gn2Scrolling(),
-                new Wd1ChannelBars(), new Wd2DreamyPortal());
+                new Wd1ChannelBars(), new Wd2DreamyPortal(), new Id1IdleSafety());
     }
 
     // ---- bk-1 ----
@@ -483,6 +484,116 @@ public final class QaScenarios {
         private static void sample(QaContext ctx) {
             for (String line : ctx.world().channelLoads()) {
                 ctx.run().note("SAMPLE", line);
+            }
+        }
+    }
+
+    // ---- id-1 ----
+
+    /**
+     * id-1 (1.4.2, bots lane): idle bots dropped into the thickest mob pack of a busy map. Logs every contact hit a bot
+     * takes while idle and every move to a safe spot; every 15 s a per-bot tally. {@code off} runs the same staging
+     * with idle safety switched off, for the before/after comparison.
+     */
+    static final class Id1IdleSafety implements QaScenario {
+        static final int DEFAULT_BOTS = 4;
+        static final int MAX_BOTS = 6;
+
+        public String id() { return "id-1"; }
+        public String title() { return "Idle bots in a mob pack: hits taken while idle and moves to a safe spot"; }
+        public String usage() { return "[off] [bots 1-6, default 4] [map id, default your map if it has mobs, else 104040000]"; }
+        public Set<QaLog.Topic> topics() { return EnumSet.of(IDLE); }
+        public int tickSeconds() { return 15; }
+
+        public Set<Integer> watchedMaps(Character gm, String[] args) {
+            Integer map = mapArg(args);
+            // No map given: the GM's own map, or the Hunting Ground staging falls back to when it has no mobs.
+            return map != null ? Set.of(map) : new java.util.HashSet<>(List.of(gm.getMapId(), HENESYS_HUNTING_GROUND));
+        }
+
+        static boolean off(String[] args) {
+            for (String a : args) {
+                if ("off".equalsIgnoreCase(a)) {
+                    return true;
+                }
+            }
+            return false;
+        }
+
+        static int bots(String[] args) {
+            for (String a : args) {
+                if (a.matches("\\d{1,2}")) {
+                    return Math.max(1, Math.min(MAX_BOTS, Integer.parseInt(a)));
+                }
+            }
+            return DEFAULT_BOTS;
+        }
+
+        static Integer mapArg(String[] args) {
+            for (String a : args) {
+                if (a.matches("\\d{9}")) {
+                    return Integer.parseInt(a);
+                }
+            }
+            return null;
+        }
+
+        private final java.util.Map<Integer, List<Integer>> botsByGm = new java.util.concurrent.ConcurrentHashMap<>();
+
+        public List<String> stage(QaContext ctx) {
+            QaWorld w = ctx.world();
+            Character gm = ctx.gm();
+            String[] args = ctx.args();
+            Integer map = mapArg(args);
+            if (map == null && w.liveMobCount(gm) == 0) {
+                map = HENESYS_HUNTING_GROUND;
+            }
+            if (map != null && map != gm.getMapId()) {
+                if (!w.warp(gm, map)) {
+                    throw new QaRefusal("Cannot warp to " + map + ".");
+                }
+                ctx.log("warped to " + map);
+            }
+            Point spot = w.busiestMobSpot(gm);
+            if (spot == null) {
+                throw new QaRefusal("No live mobs on this map: pick a busy one (" + usage() + ").");
+            }
+            boolean on = !off(args);
+            boolean was = w.setIdleSafety(on);
+            ctx.log("idle safety " + (on ? "on" : "OFF (before/after comparison)") + ", was " + (was ? "on" : "off"));
+            ctx.onStop("idle safety back " + (was ? "on" : "off"), () -> w.setIdleSafety(was));
+            int count = bots(args);
+            List<Integer> ids = w.spawnIdleBots(gm, spot, count);
+            if (ids.isEmpty()) {
+                throw new QaRefusal("No bot could be spawned here.");
+            }
+            ctx.despawnAtStop(ids, "idle bots in the mob pack at (" + spot.x + "," + spot.y + ")");
+            for (int id : ids) {
+                w.holdIdle(id, "qa");
+            }
+            botsByGm.put(ctx.run().gmId(), ids);
+            ctx.log(w.liveMobCount(gm) + " live mobs; densest pack at (" + spot.x + "," + spot.y + ")");
+            ctx.onStop("final idle tally", () -> {
+                tally(ctx, "FINAL");
+                botsByGm.remove(ctx.run().gmId());
+            });
+            return List.of(count + " idle bots stand in the densest mob pack at (" + spot.x + "," + spot.y + ").",
+                    on ? "They should walk out of the pack within a second or two, and step away again if a mob reaches"
+                            + " them or knocks them back."
+                            : "Idle safety is OFF: they stay put and get tossed around (the 'before').",
+                    "Hits and moves go to the log; a tally every 15 s. !qa stop when done.");
+        }
+
+        public void tick(QaContext ctx) {
+            tally(ctx, "TALLY");
+        }
+
+        private void tally(QaContext ctx, String tag) {
+            for (int id : botsByGm.getOrDefault(ctx.run().gmId(), List.of())) {
+                String stats = ctx.world().idleStats(id);
+                if (stats != null) {
+                    ctx.run().note(tag, stats);
+                }
             }
         }
     }

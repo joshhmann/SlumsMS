@@ -306,4 +306,79 @@ final class GameQaWorld implements QaWorld {
     public int guildCost() {
         return YamlConfig.config.server.CREATE_GUILD_COST;
     }
+
+    @Override
+    public Point busiestMobSpot(Character gm) {
+        MapleMap map = gm.getMap();
+        if (map == null) {
+            return null;
+        }
+        List<Point> mobs = new ArrayList<>();
+        for (server.life.Monster m : map.getAllMonsters()) {
+            if (m.isAlive() && m.getPosition() != null && (m.getStats() == null || !m.getStats().isFriendly())) {
+                mobs.add(m.getPosition());
+            }
+        }
+        Point best = null;
+        int bestCount = 0;
+        for (Point p : mobs) {
+            int n = 0;
+            for (Point q : mobs) {
+                if (Math.abs(p.x - q.x) <= 250 && Math.abs(p.y - q.y) <= 90) {
+                    n++;
+                }
+            }
+            if (n > bestCount) {
+                bestCount = n;
+                best = p;
+            }
+        }
+        if (best == null) {
+            return null;
+        }
+        Point ground = soloMapling.ArtificialPlayer.GCMoveSystem.GCMovement.groundPointBelow(map, best.x, best.y - 5);
+        return ground != null ? ground : new Point(best);
+    }
+
+    @Override
+    public int liveMobCount(Character gm) {
+        MapleMap map = gm.getMap();
+        if (map == null) {
+            return 0;
+        }
+        int n = 0;
+        for (server.life.Monster m : map.getAllMonsters()) {
+            if (m.isAlive() && (m.getStats() == null || !m.getStats().isFriendly())) {
+                n++;
+            }
+        }
+        return n;
+    }
+
+    @Override
+    public void holdIdle(int botId, String reason) {
+        Character bot = BotHelpers.getCharFromChannelStorage(botId);
+        if (bot != null) {
+            soloMapling.ArtificialPlayer.GCMoveSystem.GCMovement.enable(bot);
+            soloMapling.ArtificialPlayer.GCMoveSystem.GCMovement.setIdle(bot, reason);
+        }
+    }
+
+    @Override
+    public String idleStats(int botId) {
+        Character bot = BotHelpers.getCharFromChannelStorage(botId);
+        if (bot == null) {
+            return null;
+        }
+        String stats = soloMapling.ArtificialPlayer.GCMoveSystem.GCMovement.idleSafetyStats(bot);
+        Point p = bot.getPosition();
+        return bot.getName() + " at (" + p.x + "," + p.y + "): " + (stats == null ? "not driven" : stats);
+    }
+
+    @Override
+    public boolean setIdleSafety(boolean on) {
+        boolean was = soloMapling.ArtificialPlayer.GCMoveSystem.GCMovement.isIdleSafetyEnabled();
+        soloMapling.ArtificialPlayer.GCMoveSystem.GCMovement.setIdleSafetyEnabled(on);
+        return was;
+    }
 }

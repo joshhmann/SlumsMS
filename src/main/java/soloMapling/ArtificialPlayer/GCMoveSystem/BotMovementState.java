@@ -97,6 +97,15 @@ class BotMovementState {
     // climb-idle hold on (even though grinding is still set) and makes the driver freeze the hang so no
     // nav/reaction/fidget layer dislodges it. Set/cleared via GCMovement.setRestHold.
     volatile boolean resting = false;
+    // Idle safety (IdleSafety, 1.4.2): a declared idle (GCMovement.setIdle - e.g. a grind break's standing rest), the
+    // pending "hit while idle" relocation, the relocation in progress, and counters for !qa id-1.
+    volatile String idleReason = null;
+    boolean idleHitPending = false;
+    boolean idleRelocating = false;
+    long idleCheckAtMs = 0L;
+    int idleEpisodeRelocations = 0;
+    volatile int idleHitsTotal = 0;
+    volatile int idleRelocationsTotal = 0;
     int attackCooldownMs = 0;
     volatile boolean shopVisitPending = false;
     int followTravelTargetMapId = -1;

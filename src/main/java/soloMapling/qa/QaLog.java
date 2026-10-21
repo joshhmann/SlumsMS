@@ -36,7 +36,8 @@ public final class QaLog {
         STORAGE,        // storage opened, items stored and taken out (np-1)
         EQUIP,          // equips put on, pet equips included (cs-2)
         SCROLL,         // scroll results (gn-2)
-        CHANNEL_LOAD;   // channel load bars sent to the login screen (wd-1)
+        CHANNEL_LOAD,   // channel load bars sent to the login screen (wd-1)
+        IDLE;           // idle bots: hits taken while idle, moves to a safe spot (id-1)
 
         final int bit = 1 << ordinal();
     }

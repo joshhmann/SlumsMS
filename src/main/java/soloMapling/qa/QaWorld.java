@@ -86,4 +86,19 @@ public interface QaWorld {
 
     /** The guild creation fee from config.yaml. */
     int guildCost();
+
+    /** The ground under the live hostile mob with the most live mobs around it on the GM's map, or null. */
+    Point busiestMobSpot(Character gm);
+
+    /** Live hostile mobs on the GM's map. */
+    int liveMobCount(Character gm);
+
+    /** Puts a spawned bot under the movement driver, standing idle with this reason (id-1). */
+    void holdIdle(int botId, String reason);
+
+    /** "idle hits 2, safe-spot moves 3" for a bot, or null when it is gone. */
+    String idleStats(int botId);
+
+    /** Idle safety (bots step out of mob packs before idling) on or off; the previous value. */
+    boolean setIdleSafety(boolean on);
 }

@@ -113,4 +113,21 @@ class FakeQaWorld implements QaWorld {
     @Override public List<String> channelLoads() { return List.of("ch 1: 1 players, 300 bots, bar 800/800", "ch 2: 0 players, 0 bots, bar 0/800"); }
     @Override public String sellerCapStatus(Character gm) { return "account 1: 0 of 5000000 paid today"; }
     @Override public int guildCost() { return 1_500_000; }
+
+    Point mobSpot = new Point(500, 300);
+    int mobs = 12;
+    boolean idleSafety = true;
+    final Map<Integer, String> idle = new HashMap<>();
+
+    @Override public Point busiestMobSpot(Character gm) { return mobSpot; }
+    @Override public int liveMobCount(Character gm) { return mobs; }
+    @Override public void holdIdle(int botId, String reason) { idle.put(botId, reason); calls.add("idle " + botId + " " + reason); }
+    @Override public String idleStats(int botId) { return despawned.contains(botId) ? null : "bot" + botId + ": idle hits 0, safe-spot moves 0"; }
+
+    @Override public boolean setIdleSafety(boolean on) {
+        boolean was = idleSafety;
+        idleSafety = on;
+        calls.add("idle safety " + on);
+        return was;
+    }
 }
