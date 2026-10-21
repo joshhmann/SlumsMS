@@ -101,6 +101,9 @@ final class BotContactDamage {
     private static void applyMobHit(BotMovementState entry, Character bot, Monster mob) {
         int dmg = MobContactDamage.roll(bot, mob.getPADamage());
         MobHitKnockback kb = resolveMobHitKnockback(bot.getPosition(), mob.getPosition());
+        if (dmg > 0) {
+            IdleSafety.onHit(entry, bot, mob); // idle and hit: relocate as soon as it lands (1.4.2)
+        }
         applyDamage(entry, bot, dmg, -1, mob.getId(), kb.direction(), kb.airVelX());
     }
 

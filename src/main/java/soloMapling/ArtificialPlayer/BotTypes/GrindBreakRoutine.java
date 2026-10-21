@@ -105,6 +105,7 @@ final class GrindBreakRoutine {
     boolean begin(Character chr, GrindBrain grind, long savedRemainingMs) {
         breakAtMs = 0;
         GCMovement.setRestHold(chr, false); // clear any stale rope hold from a prior break
+        GCMovement.clearIdle(chr);
         RestSpotFinder.RestSpot ground = RestSpotFinder.find(chr);
         if (ground == null) {
             bot.debugChat("break skipped: no nearby safe rest spot (unobserved)");
@@ -154,6 +155,7 @@ final class GrindBreakRoutine {
             }
         } else if (pos != null && Math.abs(pos.x - restSpot.x) <= 60 && Math.abs(pos.y - restSpot.y) <= 120) {
             GCMovement.stop(chr);
+            GCMovement.setIdle(chr, "rest"); // standing rest: step away from mobs that wander in (IdleSafety)
             return true;
         }
         // A committed climb toward the rope (isNavigatingClimb) counts as progress, so the final rope trek
@@ -184,6 +186,7 @@ final class GrindBreakRoutine {
                 return false;
             }
             GCMovement.stop(chr); // already fell back to a local safe spot once — rest here
+            GCMovement.setIdle(chr, "rest"); // ... and still step away from mobs that come close (IdleSafety)
             return true;
         }
         return false; // still travelling
@@ -233,6 +236,7 @@ final class GrindBreakRoutine {
             } else if (chr.getChair() > 0) {
                 botCancelChair(chr);
             }
+            GCMovement.clearIdle(chr);
             bot.sayContext("BreakOver", chr, null);
             return true;
         }

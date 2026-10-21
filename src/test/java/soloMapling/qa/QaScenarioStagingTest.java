@@ -90,6 +90,44 @@ class QaScenarioStagingTest {
     }
 
     @Test
+    void id1DropsIdleBotsInTheDensestPackAndTalliesThem() throws Exception {
+        world.idleSafety = false; // whatever it was before the run comes back at stop
+        start("id-1", 104040000, "3");
+        assertTrue(world.calls.contains("idle safety true"));
+        assertEquals(3, world.idle.size());
+        assertTrue(world.idle.values().stream().allMatch("qa"::equals));
+        assertTrue(suite.runOf(1).maps().contains(104040000));
+        scheduler.repeating.get(0).run();
+        Path log = suite.runOf(1).logPath();
+        suite.stop(1, "!qa stop");
+        assertFalse(world.idleSafety, "restored");
+        assertEquals(3, world.despawned.size());
+        String text = Files.readString(log);
+        assertEquals(3, text.split("TALLY", -1).length - 1);
+        assertEquals(3, text.split("FINAL", -1).length - 1, "the final tally runs before the bots leave");
+    }
+
+    @Test
+    void id1OffComparesWithoutSafetyAndRefusesAMapWithoutMobs() {
+        start("id-1", 104040000, "off");
+        assertFalse(world.idleSafety);
+        assertEquals(QaScenarios.Id1IdleSafety.DEFAULT_BOTS, world.idle.size());
+        suite.stop(1, "!qa stop");
+        assertTrue(world.idleSafety);
+
+        world.mobSpot = null;
+        assertThrows(QaRefusal.class, () -> start("id-1", 104040000));
+        assertTrue(world.idleSafety, "a refused run leaves idle safety as it was");
+    }
+
+    @Test
+    void id1WarpsToTheHuntingGroundFromAMapWithoutMobs() {
+        world.mobs = 0;
+        start("id-1", 100000000);
+        assertTrue(world.calls.contains("warp 104040000"));
+    }
+
+    @Test
     void np3ClosesTheMerchantOnRequest() {
         world.merchantOpen = true;
         start("np-3", 910000000);

@@ -525,6 +525,46 @@ public final class GCMovement {
         }
     }
 
+    /*
+     * Declares the bot idle on purpose (a grind break's standing rest, a wait): while it stands with no move target
+     * it keeps clear of live mobs (IdleSafety) - relocating before it idles among them and at once when hit. Null
+     * reason ends it. Bots that are not grinding count as idle whenever they stand without a target anyway.
+     */
+    public static void setIdle(Character bot, String reason) {
+        if (bot == null) {
+            return;
+        }
+        BotMovementState st = STATES.get(bot.getId());
+        if (st != null) {
+            st.idleReason = reason;
+            st.idleCheckAtMs = 0L; // look around on the next tick
+            st.idleEpisodeRelocations = 0;
+        }
+    }
+
+    public static void clearIdle(Character bot) {
+        setIdle(bot, null);
+    }
+
+    /* "idle hits 2, moves 3" for !qa id-1; null when the bot has no movement state. */
+    public static String idleSafetyStats(Character bot) {
+        BotMovementState st = bot == null ? null : STATES.get(bot.getId());
+        if (st == null) {
+            return null;
+        }
+        return "idle hits " + st.idleHitsTotal + ", safe-spot moves " + st.idleRelocationsTotal
+                + (st.idleRelocating ? " (moving)" : "");
+    }
+
+    /* !qa id-1 [off]: switch idle safety off to compare. */
+    public static void setIdleSafetyEnabled(boolean on) {
+        IdleSafety.enabled = on;
+    }
+
+    public static boolean isIdleSafetyEnabled() {
+        return IdleSafety.enabled;
+    }
+
     public static boolean isResting(Character bot) {
         BotMovementState st = bot == null ? null : STATES.get(bot.getId());
         return st != null && st.resting;

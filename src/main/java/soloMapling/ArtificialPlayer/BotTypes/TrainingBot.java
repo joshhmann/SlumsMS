@@ -1017,6 +1017,7 @@ public class TrainingBot extends BotSM {
             }
             pendingHomeMapId = -1;
             GCMovement.setGrinding(chr, true); // engage grind nav guards (no idle-hang on ropes)
+            GCMovement.clearIdle(chr); // back to fighting: a break's idle declaration is over
             grind.start(chr); // fresh heartbeat, select a spot, and move into it (disperses cohorts even unobserved)
             boolean resumingFromBreak = breaks.resuming();
             grindUntilMs = now() + (resumingFromBreak ? breaks.consumeResumeRemaining() : grindSessionMs());
@@ -1310,6 +1311,7 @@ public class TrainingBot extends BotSM {
         grind.release(getChr()); // drop the spot claim + reset combat state
         clearTrainTarget(); // release this map's occupancy slot
         GCMovement.setRestHold(getChr(), false); // belt-and-braces: never leave a rope rest hold set on bail
+        GCMovement.clearIdle(getChr()); // nor a break's idle declaration
         GCMovement.setGrinding(getChr(), false); // back to normal nav for travel
         GCMovement.stop(getChr()); // clear the roam target before travelling
     }

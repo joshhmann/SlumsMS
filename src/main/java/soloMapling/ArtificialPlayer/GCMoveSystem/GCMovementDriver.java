@@ -211,6 +211,13 @@ final class GCMovementDriver {
         // when no real player shares the bot's map) and on the i-frame window.
         BotContactDamage.tickMobDamage(entry, bot);
 
+        // Idle safety (1.4.2): a bot about to stand idle - or idling - with live mobs in reach, or hit while idle,
+        // walks to a safe spot first. Observed maps only (no contact damage elsewhere); sets a move target that the
+        // branches below walk like any other.
+        if (GCMovement.isMapObserved(bot.getMapId())) {
+            IdleSafety.tick(entry, bot);
+        }
+
         boolean active = ObserverTracker.isActiveMap(bot.getMapId());
 
         // LOD promotion (M2): the bot was moving analytically (coarse) and a player just arrived —

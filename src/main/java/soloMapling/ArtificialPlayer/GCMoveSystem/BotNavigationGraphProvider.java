@@ -80,7 +80,10 @@ final class BotNavigationGraphProvider {
     // 6c8896f98, AGPL-3.0. Credit: NutNNut.)
     private static final Path CACHE_DIR =
             Path.of(System.getProperty("bot.nav.cacheDir", "cache/bot-nav"), "v" + GRAPH_VERSION);
-    private static final Map<GraphCacheKey, BotNavigationGraph> GRAPHS = new ConcurrentHashMap<>();
+    // Bounded LRU (ticket 48): never drops a graph of a map someone is on; evicted graphs reload from CACHE_DIR.
+    static final NavGraphCache<GraphCacheKey> GRAPHS = new NavGraphCache<>(GraphCacheKey::mapId,
+            key -> Files.isRegularFile(graphFile(key)), NavGraphCache::occupiedMapIds,
+            NavGraphCache.DEFAULT_MAX_ENTRIES, NavGraphCache.DEFAULT_MAX_BYTES, NavGraphCache.DEFAULT_MIN_IDLE_MS);
     private static final Map<GraphCacheKey, CompletableFuture<BotNavigationGraph>> PENDING_GRAPHS = new ConcurrentHashMap<>();
     private static final Map<GraphCacheKey, GraphBuildReport> LAST_BUILD_REPORTS = new ConcurrentHashMap<>();
     private static final Map<Integer, Set<Integer>> COLLIDABLE_WALL_IDS_BY_MAP_ID = new ConcurrentHashMap<>();
@@ -395,12 +398,8 @@ final class BotNavigationGraphProvider {
         if (map == null) {
             return null;
         }
-        for (Map.Entry<GraphCacheKey, BotNavigationGraph> entry : GRAPHS.entrySet()) {
-            if (entry.getKey().mapId() == map.getId()) {
-                return entry.getValue();
-            }
-        }
-        return null;
+        List<Map.Entry<GraphCacheKey, BotNavigationGraph>> cached = GRAPHS.forMap(map.getId());
+        return cached.isEmpty() ? null : cached.get(0).getValue();
     }
 
     /* Returns the cached graph for the requested profile without triggering a build. */
@@ -420,7 +419,7 @@ final class BotNavigationGraphProvider {
         GraphCacheKey requested = GraphCacheKey.from(map.getId(), canonicalProfile(map, movementProfile));
         BotNavigationGraph bestGraph = null;
         int bestDistance = Integer.MAX_VALUE;
-        for (Map.Entry<GraphCacheKey, BotNavigationGraph> entry : GRAPHS.entrySet()) {
+        for (Map.Entry<GraphCacheKey, BotNavigationGraph> entry : GRAPHS.forMap(requested.mapId())) {
             GraphCacheKey key = entry.getKey();
             if (key.mapId() != requested.mapId()) {
                 continue;
