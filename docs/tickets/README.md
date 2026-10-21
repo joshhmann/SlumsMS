@@ -67,6 +67,7 @@ has the detail. Live runs 1.4.0.
 | [54](54-messenger-and-memos.md) | Messenger and memos with bots (BUILD, S) | Social | 49 | open |
 | [55](55-duey-storage-fredrick.md) | Duey, Ariant storage, Fredrick guard (ENABLE/FIX, S) | Server / Economy | cosmic-diff report | Fredrick + Rosen restored on `cosmic-diff-1.4.1` (1.4.1); Duey open |
 | [56](56-bot-fm-buy-cap-and-meso-sink.md) | Cap what bots pay real players; bot wealth ceiling (BUILD, S / S-M) | Economy | 15 | 56A on `social-fixes-1.4.1` (1.4.1); B open |
+| [58](58-bot-affinity.md) | Affinity: friends, rivals, nemesis, guild beef/alliances, KS wars, friends to lovers to marriage | Real bots / Social | 49,50,52,21 | open (design) |
 
 ## Priorities after 1.4.0
 
