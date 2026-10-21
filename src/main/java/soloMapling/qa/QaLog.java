@@ -36,7 +36,8 @@ public final class QaLog {
         STORAGE,        // storage opened, items stored and taken out (np-1)
         EQUIP,          // equips put on, pet equips included (cs-2)
         SCROLL,         // scroll results (gn-2)
-        CHANNEL_LOAD;   // channel load bars sent to the login screen (wd-1)
+        CHANNEL_LOAD,   // channel load bars sent to the login screen (wd-1)
+        BOUNCE;         // bounce / Flash Jump uses the server saw on a watched map, refusals, zone pushes (jq-1)
 
         final int bit = 1 << ordinal();
     }

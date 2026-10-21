@@ -10,6 +10,7 @@ import java.util.List;
 import java.util.Set;
 
 import static soloMapling.qa.QaLog.Topic.ATTACK;
+import static soloMapling.qa.QaLog.Topic.BOUNCE;
 import static soloMapling.qa.QaLog.Topic.BOT_CHAT;
 import static soloMapling.qa.QaLog.Topic.CHANNEL_LOAD;
 import static soloMapling.qa.QaLog.Topic.EQUIP;
@@ -63,7 +64,81 @@ public final class QaScenarios {
     public static List<QaScenario> all() {
         return List.of(new Bk1Showcase(), new Gd1Guild(), new Fm1BuyerCap(), new Ld1Ladders(), new Gh1Hide(),
                 new Np1Rosen(), new Np2Fredrick(), new Np3Merchant(), new Cs2PetEquip(), new Gn2Scrolling(),
-                new Wd1ChannelBars(), new Wd2DreamyPortal());
+                new Wd1ChannelBars(), new Wd2DreamyPortal(), new Jq1BounceBlock());
+    }
+
+    // ---- jq-1 ----
+
+    /**
+     * jq-1: the bounce block on a jump-quest map. Warps the GM into a blocked map (default Forest of Patience step 1)
+     * with the GM backstop bypass off; the log gets every map the GM lands on with its block status, and every bounce
+     * or Flash Jump the server receives (a REFUSED line means the client did not block it itself).
+     */
+    static final class Jq1BounceBlock implements QaScenario {
+        static final int FOREST_OF_PATIENCE_1 = 101000100;
+
+        public String id() { return "jq-1"; }
+        public String title() { return "Bounce block: warp into a jump-quest map, bounce/Flash Jump uses and map changes logged"; }
+        public String usage() { return "[blocked map id], default 101000100 (Forest of Patience step 1)"; }
+        public Set<QaLog.Topic> topics() { return EnumSet.of(BOUNCE); }
+        public int minutes(String[] args) { return 15; }
+        public int tickSeconds() { return 2; }
+
+        public List<String> stage(QaContext ctx) {
+            int map = FOREST_OF_PATIENCE_1;
+            if (ctx.args().length > 0) {
+                if (!ctx.args()[0].matches("\\d{9}")) {
+                    throw new QaRefusal("jq-1 takes a 9-digit map id.");
+                }
+                map = Integer.parseInt(ctx.args()[0]);
+            }
+            server.bounce.BounceZones zones = server.bounce.BounceZones.getInstance();
+            String category = zones.blockedBy(map).map(server.bounce.BounceZones.Category::name).orElse(null);
+            if (category == null) {
+                throw new QaRefusal(map + " is not blocked by any enabled category (!bounce here / !bounce list).");
+            }
+            server.bounce.BounceZoneService.clearBypass(ctx.gm().getId());
+            if (!ctx.world().warp(ctx.gm(), map)) {
+                throw new QaRefusal("Cannot warp to " + map + ".");
+            }
+            ctx.log("warped to " + map + " (blocked by " + category + "); " + zones.bounceRanges().size()
+                    + " bounce ranges and " + zones.flashJumpRanges().size() + " Flash Jump ranges blocked; GM bypass off");
+            return List.of("Hotkey Ninja Bounce (Jump Around!) and Vertical Bounce (Jump Upwards!) and press them, then "
+                            + "jump and press jump again in the air (double-tap): nothing may move you.",
+                    "A thief also tries Flash Jump: blocked on jump_quests maps (stock fieldLimit forbids it there).",
+                    "Then warp to a normal map (e.g. !warp 100000000): bounces and double-tap work again.",
+                    "The log must show no REFUSED line: one means the client sent a blocked bounce. !qa do push re-sends the list.");
+        }
+
+        public List<String> action(QaContext ctx, String name, String[] args) {
+            if (!name.equals("push")) {
+                throw new QaRefusal("jq-1 steps: push");
+            }
+            Character gm = ctx.gmNow();
+            if (gm == null) {
+                throw new QaRefusal("You are offline.");
+            }
+            server.bounce.BounceZoneService.onLogin(gm);
+            ctx.run().note("PUSH", "zone list re-sent to " + gm.getName());
+            return List.of("Zone list re-sent to your client.");
+        }
+
+        private final java.util.Map<Integer, Integer> lastMap = new java.util.concurrent.ConcurrentHashMap<>();
+
+        public void tick(QaContext ctx) {
+            Character now = ctx.gmNow();
+            if (now == null) {
+                return;
+            }
+            int map = now.getMapId();
+            Integer before = lastMap.put(ctx.run().gmId(), map);
+            if (before == null || before != map) {
+                server.bounce.BounceZones zones = server.bounce.BounceZones.getInstance();
+                ctx.run().note("ARRIVE", map + ": bounces " + (zones.blocksBounce(map)
+                        ? "BLOCKED (" + zones.blockedBy(map).map(server.bounce.BounceZones.Category::name).orElse("?") + ")"
+                        : "allowed") + ", Flash Jump " + (zones.blocksFlashJump(map) ? "blocked" : "allowed"));
+            }
+        }
     }
 
     // ---- bk-1 ----

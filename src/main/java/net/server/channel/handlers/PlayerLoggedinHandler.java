@@ -21,6 +21,7 @@
  */
 package net.server.channel.handlers;
 
+import server.bounce.BounceZoneService;
 import server.checkin.DailyCheckin;
 import client.Character;
 import client.*;
@@ -354,6 +355,7 @@ public final class PlayerLoggedinHandler extends AbstractPacketHandler {
             player.changeSkillLevel(SkillFactory.getSkill(10001050) , (byte)  1, 1, -1);
             player.changeSkillLevel(SkillFactory.getSkill(20001054) , (byte)  1, 1, -1);
             player.changeSkillLevel(SkillFactory.getSkill(20001050) , (byte)  1, 1, -1);
+            BounceZoneService.onLogin(player); // where those bounces are blocked (bounce-zones.yaml)
             if (newcomer) {
                 for (Pet pet : player.getPets()) {
                     if (pet != null) {

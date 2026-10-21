@@ -1,0 +1,251 @@
+# Where MapleRoot's universal bounces are blocked: Ninja Bounce 1050/10001050/20001050 ("Jump Around!")
+# and Vertical Bounce 1054/10001054/20001054 ("Jump Upwards!"). Read by server.bounce.BounceZones
+# (resolved through soloMapling.DataFiles). The server sends the effective blocked set to each player's
+# client at login (LP BOUNCE_ZONES_SYNC 0x3737); `!bounce reload` re-reads this file and pushes it again.
+#
+# Each category: description, enabled (true/false), block_flash_jump (also refuse the thieves' real Flash
+# Jump 4111006/14101004 there), maps. A map entry is one of:
+#   280020000              a single map id
+#   280020000-280020001    an inclusive id range
+#   2800xxxxx              a region: a 9-character id whose trailing x's match any digit
+# A map blocked by any enabled category is blocked. Map ids that do not exist are harmless.
+#
+# The jump_quests list is also built into slums.dll (src/bounce_zones_builtin.inc, made by
+# tools/bounce/gen_client_zones.py) for the moment before the login packet arrives. After editing
+# jump_quests run that script and update both golden packets (BounceZonePacketsTest / bounce_rules_test).
+#
+# Lists compiled 2026-10-21 from the server WZ export (String.wz names, Map.wz info/life/portal nodes) and
+# scripts/event, scripts/npc, scripts/portal; each group's source is in its comment.
+categories:
+  - name: jump_quests
+    description: "Jump quests: Pet-Walking Roads, Forest of Patience, Deep Forest of Patience, Kerning subway B1-B3, Breath of Lava, Toy Factory, Puppeteer, Ola Ola, Physical Fitness, Witch Tower, Rescue Gaga and the custom Yoshi/Donkey Kong JQs. Flash Jump is blocked too: stock v83 Map.wz sets fieldLimit 0x02 (movement skills) on every vanilla stage here."
+    enabled: true
+    block_flash_jump: true
+    maps:
+      # Henesys Pet-Walking Road: String.wz 'Victoria Road : Pet-Walking Road'; pet obstacle course NPCs 1012006/1012007/9102100/9102101 placed in this map (Map.wz life) and their scripts' headers name it
+      - 100000202
+      # Ludibrium Pet Walkway: String.wz 'Ludibrium Pet Walkway'; pet-walk NPCs 2040032 (Weaver)/2040033 (Neru) placed here, script headers name the map
+      - 220000006
+      # Ellinia Forest of Patience (Sabi JQ): String.wz 'The Forest of Patience <Step 1-5>'; Sabi JQ herb piles npc/1043000.js (in 101000101) and npc/1043001.js (in 101000104, end); npc/1032003.js warps to 101000100/101000102
+      - 101000100-101000104
+      # Sleepywood Deep Forest of Patience (John JQ): String.wz 'The Deep Forest of Patience <Step 1-7>'; 'John JQ Flower pile' npc/1063000/1063001/1063002.js placed in 105040311/105040313/105040316; npc/1061006.js warps to 1050
+      - 105040310-105040316
+      # Kerning Subway Shumi JQ (B1/B2/B3): String.wz 'Line 3 Construction Site : B1/B2/B3 <Area n>/<Subway Depot>'; 'Shumi JQ Chest #1-3' npc/1052008/1052009/1052010.js placed in 103000902/103000905/103000909; npc/1052011.js he
+      - 103000900-103000909
+      # Zakum prequest Breath of Lava: String.wz 'Adobis's Mission I : Breath of Lava <Level 1/2>'; npc/2030008.js warps to 280020000; npc/2030010.js / 2032003.js header lists both; npc/9010001.js 'jumpquests' array
+      - 280020000-280020001
+      # Ludibrium Toy Factory JQ: String.wz 'Toy Factory<Sector 4>'; quest 3239 'The Missing Mechanical Parts' (event/q3239.js entryMap, npc/2040003.js); reactor 2202001 'Ludibrium Jump Quest Barrel' placed only in this map
+      - 922000000
+      # Puppeteer JQ: String.wz 'Puppeteer's Secret Passage'; npc/1063016.js header 'Puppeteer's Secret Passage (910510100) Puppeteer JQ'; map has 24 'trapNN' respawn portals
+      - 910510100
+      # GM event Ola Ola: String.wz 'Ola Ola <Level 1-3>' (5 channel copies x01-x03); MapId.EVENT_OLA_OLA_0..4 / isOlaOla(109030001..109030403); npc/9000000.js describes ladder-climb game; portals 'rand_ola'
+      - 109030001-109030403
+      # GM event Physical Fitness: String.wz 'MapleStory Physical Fitness Test <Waiting Room>' + 'Challenge <Level 1-4>'; MapId.isPhysicalFitness(109040000..109040004); npc/9000000.js: 'race through an obstacle course much like 
+      - 109040000-109040004
+      # GM event Witch Tower JQ: String.wz 'Witch Tower 1st/2nd/3rd Floor' (+unnamed instance copies); npc/9000049.js 'Used to warp into the Jump Quest' warps to 980040000+stage*1000; floors chained by goldkeyN/NextMap portal sc
+      - 980041000-980041109
+      - 980042000-980042109
+      - 980043000-980043109
+      - 980044000-980044104
+      # Rescue Gaga event: String.wz 'Space Gaga : Rescue Gaga!' (+unnamed instance copies); event/RescueGaga.js minMapId 922240000; portals gaga_success / Spacegaga_outN. 922240100-119 (success rooms) excluded
+      - 922240000-922240019
+      # Custom Yoshi JQ: CUSTOM (MapleRoot leftover): Map.wz name is 'Free Market<9>', but event/YOSHIJQ.js trainRide=993910009 ('You have 2 minutes to complete Yoshi's JQ'), portals arc_YOSHIREWARD/arc_YOSHIEXIT; npc/retrojqrew
+      - 993910009
+      # Custom Donkey Kong JQ: CUSTOM (MapleRoot leftover): Map.wz name is 'Free Market<8>'; event/DKBONUS1.js trainRide=993910008, portals arc_DKEXIT/arc_DKEXITREWARD; npc/retrojqrewards.js 'Donkey Kong JQ'; portal/910000000.4.
+      - 993910008
+  - name: party_quests
+    description: "Party quest stage and bonus maps (event script minMapId..maxMapId, without lobbies and exits)."
+    enabled: false
+    block_flash_jump: false
+    maps:
+      # Kerning PQ
+      - 103000800-103000805
+      # Ludibrium PQ
+      - 922010100-922011100
+      # Orbis PQ
+      - 920010000-920011100
+      - 920011300
+      # Pirate PQ
+      - 925100000-925100500
+      # Ellin PQ
+      - 930000000-930000700
+      # Magatia PQ (Zenumist)
+      - 926100000-926100600
+      # Magatia PQ (Alcadno)
+      - 926110000-926110600
+      # Henesys PQ
+      - 910010000-910010200
+      - 910010400
+      # Amoria PQ
+      - 670010200-670010800
+      # Ludi Maze PQ
+      - 809050000-809050015
+      # Guild Quest (Sharenian)
+      - 990000000-990001000
+      # Crimsonwood Keep PQ
+      - 610030100-610030800
+      # Zakum prequest PQ
+      - 280010000-280011006
+      # Horntail prequest PQ
+      - 240050100-240050310
+      # Monster Carnival 1
+      - 980000100-980000604
+      # Monster Carnival 2
+      - 980031000-980033400
+      # Boss Rush PQ
+      - 970030001-970030010
+      - 970030100-970042711
+      # Treasure PQ (MV)
+      - 674030000
+      - 674030200-674030300
+      # Holiday PQ
+      - 889100001
+      - 889100011
+      - 889100021
+      # Internet Cafe PQ
+      - 190000000-192000001
+      - 195000000-197010000
+  - name: boss_arenas
+    description: "Boss arenas: Zakum, Horntail, Papulatus, Pink Bean, Pianus, Scarlion/Targa, Krexel, Showa boss, Balrog, Latanica, Thanatos and the scripted post-v83 bosses."
+    enabled: false
+    block_flash_jump: false
+    maps:
+      # Zakum
+      - 280030000
+      # Chaos Zakum
+      - 280030001
+      # Horntail
+      - 240060000-240060200
+      # Chaos Horntail
+      - 240060201
+      # Papulatus
+      - 220080001
+      # Pink Bean
+      - 270050100
+      # Pianus
+      - 230040420
+      # Scarlion/Targa
+      - 551030200
+      # Krexel
+      - 541020800
+      # Showa boss
+      - 801040100
+      # Balrog
+      - 105100300
+      - 105100400
+      # Captain Latanica
+      - 541010100
+      # Thanatos (quest)
+      - 922020100
+      # Cygnus (post-v83)
+      - 271040100
+      # Von Leon (post-v83)
+      - 211070100-211070101
+      # Castellan (custom)
+      - 800040410
+      # Magnus (post-v83)
+      - 401060100
+      # Lucid (post-v83)
+      - 450004750-450004751
+      # Will (post-v83)
+      - 450007440-450007441
+      # Verus Hilla (post-v83)
+      - 450010100-450010101
+      # Darknell (post-v83)
+      - 450012210-450012211
+  - name: towns
+    description: "Towns and their interiors: Map.wz info/town=1 in the v83 regions, minus the maps of the other categories."
+    enabled: false
+    block_flash_jump: false
+    maps:
+      - 1000000-1000003  # Rainbow Street : Amherst
+      - 1010001-1010003  # Rainbow Street : Amherst Weapon Store
+      - 1020000  # Maple Road : Split Road of Destiny
+      - 2000000-2000001  # Maple Road : Southperry
+      - 100000000-100000001  # Victoria Road : Henesys
+      - 100000100-100000201  # Victoria Road : Henesys Market
+      - 100000203-100000205  # Victoria Road : Henesys Game Park
+      - 101000000-101000005  # Victoria Road : Ellinia
+      - 101000200-101000400  # Hidden Street : Mar's Forest
+      - 102000000-102000005  # Victoria Road : Perion
+      - 103000000-103000009  # Victoria Road : Kerning City
+      - 103040000  # Kerning Square : Kerning Square Lobby
+      - 104000000-104000004  # Victoria Road : Lith Harbor
+      - 104030001  # Hidden Street : Mushroom Garden
+      - 105040300  # Dungeon : Sleepywood
+      - 106020000  # Mushroom Castle : Mushroom Forest Field
+      - 109010000  # Hidden Street : Find the Jewel
+      - 110000000  # Florina Road : Florina Beach
+      - 120000000-120000104  # Victoria Road : Nautilus Harbor
+      - 120000200-120000301  # The Nautilus : Mid Floor - Hallway
+      - 130000000-130000210  # Empress' Road : Ereve
+      - 130030000  # Empress's Road : Forest of Beginning 1
+      - 140000000-140000012  # Snow Island : Rien
+      - 140020200  # Snow Island : Snow-covered Field 3
+      - 180000000  # Hidden Street : GM Room
+      - 193000000  # Premium Road : Kerning City Internet Cafe
+      - 200000000-200000161  # Orbis : Orbis
+      - 200000202-200000301  # Orbis Park : Orbis Hair Salon
+      - 200050001  # Orbis : Old Man's House
+      - 200090000-200090059  # During the Ride : To Ellinia
+      - 200090100-200090310  # On a Voyage : Ludibrium
+      - 200110000-200110021  # on the move : <To Orbis>
+      - 200110031-200110041  # on the move : <To Ariant>
+      - 200110060-200110061  # on the move : <To Orbis>
+      - 209000000-211000102  # Hidden Street : Happyville
+      - 211080000  # Rose Garden : Gardener's Spot
+      - 219000000-219000005  # Hidden Street : Coke Town
+      - 220000000-220000005  # Ludibrium : Ludibrium
+      - 220000100-220000500  # Ludibrium : Ludibrium Ticketing Place
+      - 221000000-221000300  # Omega Sector : Omega Sector
+      - 222000000-222000001  # Korean Folk Town : Korean Folk Town
+      - 222020400  # Hidden Street : Time Control Room
+      - 230000000-230000003  # Aquarium : Aquarium
+      - 240000000-240000111  # Leafre : Leafre
+      - 240070000  # Tera Forest : Tera Forest Time Gate
+      - 250000000-250000100  # Mu Lung : Mu Lung
+      - 251000000  # Herb Town : Herb Town
+      - 251010000  # Herb Town : 10-Year-Old Herb Garden
+      - 260000000-260000303  # The Burning Road : Ariant
+      - 261000000-261000021  # Sunset Road : Magatia
+      - 270000000-270000100  # Time Lane : Three Doors
+      - 271000000  # Gate to the Future : Gate to the Future
+      - 271010000  # Henesys Ruins : Henesys Ruins
+      - 272000000  # Temple of Time : Crack in Time
+      - 272000310  # Leafre of Past : Ruins in Flames
+      - 273000000  # Twilight Perion : Twilight Perion
+      - 273050000  # Twilight Perion : Tribal Refugee Camp
+      - 540000000  # Singapore : CBD
+      - 541000000  # Singapore : Boat Quay Town
+      - 550000000  # Malaysia : Trend Zone Metropolis
+      - 551000000  # Malaysia : Kampung Village
+      - 600000000-600000001  # New Leaf City Town Street : New Leaf City - Town Center
+      - 600010001-600010002  # New Leaf City Town Street : NLC Subway Station
+      - 600010004  # Kerning City Town Street : Waiting Room(From KC to NLC)
+      - 610030000  # Crimsonwood  Keep : Courtyard
+      - 680000000-680000300  # Amoria : Amoria
+      - 680000401  # Amoria : The Love Pinata
+      - 680100000  # Maple 7th Day Market : Maple 7th Day Market
+      - 680100002  # Maple 7th Day Market : Maple 7th Day Market
+      - 681000000-682000000  # Hidden Street : Shalom Temple
+      - 701100000-701100010  # Shanghai : Yu Garden
+      - 701210000  # Mount Song - Shaolin Area : Mount Song Hamlet
+      - 701220000  # Shaolin Temple : Mahavira Hall
+      - 744000000  # Maple Leaf High School : Homeroom
+      - 744000020  # Sengoku High : Principal's Dojo
+      - 749080500  # Black Wing Territory : Silent Crusade Secret Spot
+      - 800000000  # Zipangu : Mushroom Shrine
+      - 800040000  # Zipangu : Outside Ninja Castle
+      - 801000000-801000002  # Zipangu : Showa Town
+      - 801000300  # Zipangu : Showa Street Market
+      - 811000018  # Hieizan : East Tower
+      - 814040000  # Star Planet : Star Arena 3F
+      - 910000000-910000022  # Hidden Street : Free Market Entrance
+      - 910020000  # Hidden Street : Nest of a Baby Bird
+      - 910050000  # 히든스트리트 : 위험에 빠진 궁수교육원
+      - 910200000-910210000  # Hidden Street : Hidden Relic
+      - 910400000  # Hidden Street : Dangerous Info Shop
+      - 913040001-913040005  # Opening : Cygnus Knights
+      - 913040011  # Opening : Cygnus Knights
+      - 913040101-914000200  # Neinheart's Job Introduction : Cygnus Knights
+      - 914000220-914000500  # Black Road : Burning Forest 3

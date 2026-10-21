@@ -140,4 +140,22 @@ class QaScenarioStagingTest {
         assertFalse(world.calls.contains("take 5000000 x1"));
         assertTrue(world.calls.contains("take 1802085 x1"));
     }
+
+    @Test
+    void jq1WarpsIntoABlockedMapAndRefusesAnUnblockedOne() throws Exception {
+        server.bounce.BounceZones.useForTest(null);
+        try {
+            start("jq-1", 100000000);
+            assertTrue(world.calls.contains("warp 101000100"));
+            assertTrue(suite.runOf(1).topics().contains(QaLog.Topic.BOUNCE));
+            suite.stop(1, "!qa stop");
+            Character gm = QaTestSupport.gm(2, "Other", 100000000);
+            world.online = gm;
+            assertThrows(QaRefusal.class, () -> suite.start(gm, "jq-1", new String[]{"100000000"}));
+            suite.start(gm, "jq-1", new String[]{"280020001"});
+            assertTrue(world.calls.contains("warp 280020001"));
+        } finally {
+            server.bounce.BounceZones.useForTest(null);
+        }
+    }
 }

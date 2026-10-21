@@ -34,6 +34,7 @@ import net.packet.InPacket;
 import net.server.Server;
 import server.StatEffect;
 import server.TimerManager;
+import server.bounce.BounceZoneService;
 import server.life.Monster;
 import server.maps.MapleMap;
 import soloMapling.server.AttackCapture;
@@ -79,6 +80,10 @@ public final class SpecialMoveHandler extends AbstractPacketHandler {
             c.sendPacket(PacketCreator.serverNotice(5, "As you used the secret skill, your energy bar has been reset."));
         }
         if (skillLevel == 0 || skillLevel != __skillLevel) {
+            return;
+        }
+        if (BounceZoneService.refuse(chr, skillid)) { // bounce block zones (bounce-zones.yaml): no effect, MP or cooldown
+            c.sendPacket(PacketCreator.enableActions());
             return;
         }
 
