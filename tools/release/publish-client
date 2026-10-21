@@ -3,7 +3,7 @@
 # server, with the hash-diff rule built in.
 #
 #   tools/release/publish-client <client-version> --source <host dir> [--base <base version>]
-#       [--release <release version> [--news FILE.json (host path)]] [--sync-publisher] [--no-announce] [--dry-run]
+#       [--release <release version> [--news FILE.json (host path)] [--no-packs]] [--sync-publisher] [--no-announce] [--dry-run]
 #
 # 1. Hash-diff (verify-client.py on the host): published base layer + the client staging tree vs the reference
 #    client ($REFERENCE), and vs the release players have now (manifest.json): zero unexpected missing/different/
@@ -13,6 +13,8 @@
 #    $LAUNCHER_REPO first). 3. The same hash-diff on the published client layer manifest.
 # 4. With --release: back up manifest.json, then node tools/publish.mjs --release ... --use base@B --use client@V
 #    (manifest.json is written last, by the publisher).
+# --no-packs: the release manifest references no first-install packs (publish.mjs --release --no-packs), for a client
+# release that goes out before the launcher/packs release.
 # --dry-run: steps 1 and the publisher check only; prints the publish commands.
 # After a --release manifest, Cody posts that the client is in the launcher (slumsms-monitor client-ready on the host,
 # target $ANNOUNCE_TARGET, default live); --no-announce skips it. The server deploy posts its own going down / back up.
@@ -20,12 +22,13 @@ set -euo pipefail
 here=$(cd "$(dirname "$0")" && pwd); . "$here/lib.sh"; . "$here/publish-lib.sh"
 CV=${1:-}; shift || true
 [[ "$CV" =~ ^[A-Za-z0-9._-]+$ ]] || die "usage: publish-client <client-version> --source DIR [...]"
-SRC="" BASE="" REL="" NEWS="" SYNC=0 DRY_RUN=0 ANNOUNCE=1
+SRC="" BASE="" REL="" NEWS="" SYNC=0 DRY_RUN=0 ANNOUNCE=1 NOPACKS=0
 ANNOUNCE_TARGET=${ANNOUNCE_TARGET:-live}
 while [ $# -gt 0 ]; do case $1 in
   --source) SRC=$2; shift;; --base) BASE=$2; shift;; --release) REL=$2; shift;; --news) NEWS=$2; shift;;
-  --sync-publisher) SYNC=1;; --dry-run) DRY_RUN=1;; --no-announce) ANNOUNCE=0;; *) die "unknown option $1";; esac; shift; done
+  --sync-publisher) SYNC=1;; --no-packs) NOPACKS=1;; --dry-run) DRY_RUN=1;; --no-announce) ANNOUNCE=0;; *) die "unknown option $1";; esac; shift; done
 [ -n "$SRC" ] || die "--source <client staging dir on the host> is required"
+[ "$NOPACKS" = 0 ] || [ -n "$REL" ] || die "--no-packs needs --release"
 require_workstation
 
 step "checks"
@@ -47,7 +50,7 @@ step "hash-diff: base $BASE + $SRC vs the reference client"
 verify --client-dir "$SRC" || die "hash-diff failed: nothing published. Fix the staging tree (derive the overlay from a hash diff, never from addon folder lists)"
 
 pub_layer="$NODE tools/publish.mjs --layer client --source $(q "$SRC") --out $(q "$PATCH_DIR") --version $(q "$CV")"
-pub_rel="$NODE tools/publish.mjs --release $(q "$REL") --out $(q "$PATCH_DIR") --use base@$(q "$BASE") --use client@$(q "$CV")${NEWS:+ --news $(q "$NEWS")}"
+pub_rel="$NODE tools/publish.mjs --release $(q "$REL") --out $(q "$PATCH_DIR") --use base@$(q "$BASE") --use client@$(q "$CV")${NEWS:+ --news $(q "$NEWS")}$([ "$NOPACKS" = 1 ] && echo " --no-packs")"
 if [ "$DRY_RUN" = 1 ]; then
   step "DRY RUN OK. Would run on $RELEASE_HOST (cd $PUBLISHER):"
   echo "  $pub_layer"; [ -n "$REL" ] && echo "  cp $PATCH_DIR/manifest.json /srv/slums-staging/manifest-before-$REL.json && $pub_rel"
