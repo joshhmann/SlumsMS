@@ -71,6 +71,18 @@ public final class CashShopCatalog {
     private static volatile Map<Integer, Row> byItemId = Map.of();
     private static volatile Map<Integer, List<Row>> byBucket = Map.of();
     private static volatile List<int[]> index = List.of();      // {tab, category, count}
+    private static volatile LoadStats lastLoad = new LoadStats(0, 0, 0, 0, 0, false);
+
+    /**
+     * What the last {@link #load} did. {@code loaded} is false when the file was missing or
+     * unreadable, in which case the previous catalogue (if any) is still the one being sold.
+     */
+    public record LoadStats(int rows, int categories, int unusable, int duplicates, int malformed,
+                            boolean loaded) {
+        public int rejected() {
+            return unusable + duplicates + malformed;
+        }
+    }
 
     private CashShopCatalog() {
     }
@@ -106,17 +118,23 @@ public final class CashShopCatalog {
         return all.size();
     }
 
+    public static LoadStats lastLoad() {
+        return lastLoad;
+    }
+
     /**
      * Loads the catalogue, replacing whatever was there. Safe to call again at runtime: the
      * four views are swapped in as immutable snapshots, so a reader mid-request keeps the
-     * set it started with rather than seeing a half-built one.
+     * set it started with rather than seeing a half-built one. A missing or unreadable file
+     * keeps whatever was loaded before (nothing, at startup), so a botched hot reload
+     * ({@code !reloadcashshop}) cannot empty a running shop.
      */
-    public static void load() {
+    public static synchronized LoadStats load() {
         final Path path = file();
         if (!Files.isRegularFile(path)) {
-            log.warn("Cash Shop catalog: {} not found; the shop will be empty", path.toAbsolutePath());
-            swap(List.of());
-            return;
+            log.warn("Cash Shop catalog: {} not found; keeping the {} rows already loaded",
+                    path.toAbsolutePath(), all.size());
+            return lastLoad = new LoadStats(all.size(), index.size(), 0, 0, 0, false);
         }
 
         final ItemInformationProvider ii = ItemInformationProvider.getInstance();
@@ -205,13 +223,15 @@ public final class CashShopCatalog {
             }
         } catch (IOException e) {
             log.error("Cash Shop catalog: could not read {}", path.toAbsolutePath(), e);
-            return;                                   // keep whatever was already loaded
+            // keep whatever was already loaded
+            return lastLoad = new LoadStats(all.size(), index.size(), 0, 0, 0, false);
         }
 
         swap(rows);
         log.info("Cash Shop catalog: {} rows across {} categories from {} "
                         + "({} unusable, {} duplicate serials, {} malformed lines)",
                 all.size(), index.size(), path, unusable, dupe, bad);
+        return lastLoad = new LoadStats(all.size(), index.size(), unusable, dupe, bad, true);
     }
 
     private static void swap(List<Row> rows) {
