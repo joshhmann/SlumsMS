@@ -34,7 +34,6 @@ import java.sql.SQLException;
 import java.time.Instant;
 import java.util.*;
 import java.util.Map.Entry;
-import java.util.concurrent.ConcurrentHashMap;
 import java.util.stream.Collectors;
 
 /**
@@ -62,7 +61,7 @@ public class SessionCoordinator {
     private final LoginStorage loginStorage = new LoginStorage();
     private final Map<Integer, Client> onlineClients = new HashMap<>(); // Key: account id
     private final Set<Hwid> onlineRemoteHwids = new HashSet<>(); // Hwid/nibblehwid
-    private final Map<String, Client> loginRemoteHosts = new ConcurrentHashMap<>(); // Key: Ip (+ nibblehwid)
+    private final LoginConnectionLimiter loginLimiter = new LoginConnectionLimiter(); // Key: remote address
     private final HostHwidCache hostHwidCache = new HostHwidCache();
 
     private SessionCoordinator() {
@@ -121,39 +120,33 @@ public class SessionCoordinator {
         }
     }
 
+    /**
+     * Gate for a new connection to the login server: a per-IP cap on open login sessions and on new connections in a
+     * window (see {@link LoginConnectionLimiter}). Refusals are logged with the reason.
+     */
     public boolean canStartLoginSession(Client client) {
-        if (!YamlConfig.config.server.DETERRED_MULTICLIENT) {
-            return true;
+        final var server = YamlConfig.config.server;
+        final String ip = client.getRemoteAddress();
+        final long now = System.currentTimeMillis();
+        LoginConnectionLimiter.Refusal refusal = loginLimiter.tryAcquire(ip, client.getSessionId(),
+                server.LOGIN_MAX_SESSIONS_PER_IP, server.LOGIN_MAX_CONNECTS_PER_IP,
+                server.LOGIN_CONNECT_WINDOW_SECONDS * 1000L, now);
+        if (refusal != null) {
+            log.info("Refused login connection from {}: {} (open sessions {}, limits {} open / {} per {} s)",
+                    ip, refusal.reason, loginLimiter.openSessions(ip), server.LOGIN_MAX_SESSIONS_PER_IP,
+                    server.LOGIN_MAX_CONNECTS_PER_IP, server.LOGIN_CONNECT_WINDOW_SECONDS);
+            return false;
         }
+        return true;
+    }
 
-        String remoteHost = getSessionRemoteHost(client);
-        final InitializationResult initResult = sessionInit.initialize(remoteHost);
-        switch (initResult.getAntiMulticlientResult()) {
-            case REMOTE_PROCESSING -> {
-                return false;
-            }
-            case COORDINATOR_ERROR -> {
-                return true;
-            }
-        }
-
-        try {
-            final HostHwid knownHwid = hostHwidCache.getEntry(remoteHost);
-            if (knownHwid != null && onlineRemoteHwids.contains(knownHwid.hwid())) {
-                return false;
-            } else if (loginRemoteHosts.containsKey(remoteHost)) {
-                return false;
-            }
-
-            loginRemoteHosts.put(remoteHost, client);
-            return true;
-        } finally {
-            sessionInit.finalize(remoteHost);
-        }
+    /** Open login-server sessions per remote address (for !qa / GM tools). */
+    public Map<String, Integer> loginSessionsByIp() {
+        return loginLimiter.snapshot();
     }
 
     public void closeLoginSession(Client client) {
-        clearLoginRemoteHost(client);
+        loginLimiter.release(client.getRemoteAddress(), client.getSessionId());
 
         Hwid nibbleHwid = client.getHwid();
         client.setHwid(null);
@@ -169,12 +162,6 @@ public class SessionCoordinator {
                 }
             }
         }
-    }
-
-    private void clearLoginRemoteHost(Client client) {
-        String remoteHost = getSessionRemoteHost(client);
-        loginRemoteHosts.remove(client.getRemoteAddress());
-        loginRemoteHosts.remove(remoteHost);
     }
 
     public AntiMulticlientResult attemptLoginSession(Client client, Hwid hwid, int accountId, boolean routineCheck) {
@@ -333,6 +320,7 @@ public class SessionCoordinator {
 
     public void runUpdateLoginHistory() {
         loginStorage.clearExpiredAttempts();
+        loginLimiter.purge(YamlConfig.config.server.LOGIN_CONNECT_WINDOW_SECONDS * 1000L, System.currentTimeMillis());
     }
 
     public void printSessionTrace() {
@@ -356,14 +344,9 @@ public class SessionCoordinator {
                     .collect(Collectors.joining(" ")));
         }
 
-        if (!loginRemoteHosts.isEmpty()) {
-            List<Entry<String, Client>> elist = new ArrayList<>(loginRemoteHosts.entrySet());
-            elist.sort(Entry.comparingByKey());
-
-            log.debug("Current login sessions: {}", loginRemoteHosts.entrySet().stream()
-                    .sorted(Entry.comparingByKey())
-                    .map(entry -> "(" + entry.getKey() + ", client: " + entry.getValue())
-                    .collect(Collectors.joining(", ")));
+        Map<String, Integer> loginSessions = loginLimiter.snapshot();
+        if (!loginSessions.isEmpty()) {
+            log.debug("Current login sessions per IP: {}", loginSessions);
         }
     }
 
@@ -390,14 +373,11 @@ public class SessionCoordinator {
             }
         }
 
-        if (!loginRemoteHosts.isEmpty()) {
-            List<Entry<String, Client>> elist = new ArrayList<>(loginRemoteHosts.entrySet());
-
-            elist.sort((e1, e2) -> e1.getKey().compareTo(e2.getKey()));
-
-            str += ("Current login sessions:\r\n");
-            for (Entry<String, Client> e : elist) {
-                str += ("  " + e.getKey() + ", IP: " + e.getValue().getRemoteAddress() + "\r\n");
+        Map<String, Integer> loginSessions = loginLimiter.snapshot();
+        if (!loginSessions.isEmpty()) {
+            str += ("Current login sessions per IP:\r\n");
+            for (Entry<String, Integer> e : loginSessions.entrySet()) {
+                str += ("  " + e.getKey() + ": " + e.getValue() + "\r\n");
             }
         }
 
