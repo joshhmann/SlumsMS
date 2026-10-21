@@ -75,7 +75,8 @@ public final class CashShopServices {
 
     /**
      * The stock gates from {@code CashOperationHandler} (merchant level 16, Maple Life level
-     * 30, the rate-coupon switch) plus the service caps. Returns null when the row may be
+     * 30, the rate-coupon switch), the equip gender lock the client enforces when equipping,
+     * plus the service caps. Returns null when the row may be
      * bought.
      */
     public static Denial check(Client c, Character chr, int itemId) {
@@ -90,6 +91,11 @@ public final class CashShopServices {
         if (isRateCoupon(itemId) && !rateCouponsOnSale()) {
             return new Denial(CashShopWindowPackets.BUY_NOT_ON_SALE,
                     "Rate coupons are currently unavailable to purchase.");
+        }
+        if (!ItemConstants.isWearableByGender(itemId, chr.getGender())) {
+            return new Denial(CashShopWindowPackets.BUY_CANNOT_WEAR,
+                    "That item is for " + (ItemConstants.getEquipGender(itemId) == 0 ? "male" : "female")
+                            + " characters only, so this character could never wear it. You were not charged.");
         }
         final int type = slotExpansionType(itemId);
         if (type > 0 && !chr.canGainSlots(type, SLOTS_PER_EXPANSION)) {

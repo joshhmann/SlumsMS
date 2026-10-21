@@ -43,7 +43,8 @@ import java.util.Map;
  * </pre>
  * {@code name} is optional; when absent it is resolved from {@code String.wz} at load, so
  * renaming an item in the WZ renames it in the shop. {@code period} is in days, 0 meaning
- * permanent. {@code gender} is 0 male / 1 female / 2 both, carried for display only.
+ * permanent. {@code gender} is 0 male / 1 female / 2 both, carried for display only:
+ * the purchase gate ({@link CashShopServices#check}) goes by the item id, as the client does.
  *
  * <p>Serials are OURS. They no longer encode anything and only have to be unique, which is
  * what removes the per-category ceiling.

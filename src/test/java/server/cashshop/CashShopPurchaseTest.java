@@ -370,4 +370,49 @@ class CashShopPurchaseTest {
             server.USE_SUPPLY_RATE_COUPONS = was;
         }
     }
+
+    @Test void wrongGenderEquipIsRefusedBeforeAnyCharge() {
+        when(player.getGender()).thenReturn(0);                       // male
+        try (var ii = mockStatic(ItemInformationProvider.class);
+             var catalog = mockStatic(CashShopCatalog.class);
+             var check = mockStatic(Inventory.class);
+             var delivery = mockStatic(InventoryManipulator.class)) {
+            ii.when(ItemInformationProvider::getInstance).thenReturn(info);
+            catalog.when(() -> CashShopCatalog.byItemId(1000000)).thenReturn(row(1000000)); // male hat
+            catalog.when(() -> CashShopCatalog.byItemId(1001003)).thenReturn(row(1001003)); // female hat
+            check.when(() -> Inventory.checkSpots(eq(player), anyList())).thenReturn(true);
+            delivery.when(() -> InventoryManipulator.addFromDrop(eq(client), any(Item.class), eq(false)))
+                    .thenReturn(true);
+
+            // Alone, and as the second line of a cart: nothing delivered, nothing charged.
+            var single = CashShopWindowPurchase.buy(client, player, new int[]{1001003});
+            assertEquals(CashShopWindowPackets.BUY_CANNOT_WEAR, single.code());
+            assertEquals(1001003, single.failedSn());
+            var cart = CashShopWindowPurchase.buy(client, player, new int[]{1000000, 1001003});
+            assertEquals(CashShopWindowPackets.BUY_CANNOT_WEAR, cart.code());
+            assertEquals(1001003, cart.failedSn());
+            assertEquals(1000, balance.get());
+            delivery.verifyNoInteractions();
+            verify(player, times(2)).dropMessage(eq(1), contains("female characters only"));
+        }
+    }
+
+    @Test void rightGenderAndUnisexEquipsStillSell() {
+        when(player.getGender()).thenReturn(1);                       // female
+        try (var ii = mockStatic(ItemInformationProvider.class);
+             var catalog = mockStatic(CashShopCatalog.class);
+             var check = mockStatic(Inventory.class);
+             var delivery = mockStatic(InventoryManipulator.class)) {
+            ii.when(ItemInformationProvider::getInstance).thenReturn(info);
+            catalog.when(() -> CashShopCatalog.byItemId(1001003)).thenReturn(row(1001003)); // female
+            catalog.when(() -> CashShopCatalog.byItemId(1002000)).thenReturn(row(1002000)); // unisex
+            check.when(() -> Inventory.checkSpots(eq(player), anyList())).thenReturn(true);
+            when(info.getEquipById(anyInt())).thenAnswer(x -> new client.inventory.Equip(x.getArgument(0), (short) 0));
+            delivery.when(() -> InventoryManipulator.addFromDrop(eq(client), any(Item.class), eq(false)))
+                    .thenReturn(true);
+            var result = CashShopWindowPurchase.buy(client, player, new int[]{1001003, 1002000});
+            assertTrue(result.ok(), "code " + result.code());
+            assertEquals(800, balance.get());
+        }
+    }
 }
