@@ -141,6 +141,11 @@ def git(repo, *args, check=True):
     return r.stdout
 
 
+def safe_name(name):
+    """A branch name as a single file-name component (origin/test-rc4 -> origin_test-rc4)."""
+    return re.sub(r"[^\w.-]+", "_", name).strip("._") or "_"
+
+
 class Branch:
     """Read-only view of one client branch, straight from git objects (no checkout needed)."""
 
@@ -165,6 +170,23 @@ class Branch:
 
     def read_bytes(self, path):
         return git(self.repo, "show", f"{self.ref}:{path}") if path in self.files else None
+
+    def custom_wz_cache(self, cache_dir):
+        """Local cache file for this branch's src/Custom.wz. Branch names may contain '/'
+        (origin/test-rc4), so the name is flattened to one path component."""
+        return os.path.join(cache_dir, f"Custom-{safe_name(self.name)}-{self.sha}.wz")
+
+    def custom_images(self, cache_dir, masks):
+        """{image path: [kind:node path,...]} of this branch's src/Custom.wz, or None if it has none."""
+        if "_custom" not in self.__dict__:
+            blob = self.read_bytes("src/Custom.wz")
+            self._custom = None
+            if blob is not None:
+                tmp = self.custom_wz_cache(cache_dir)
+                with open(tmp, "wb") as f:
+                    f.write(blob)
+                self._custom = (hashlib.sha256(blob).hexdigest(), custom_paths(tmp, masks))
+        return self._custom
 
     def sources(self):
         return sorted(p for p in self.files if p.startswith("src/") and p.endswith((".cpp", ".h", ".inc"))
@@ -864,7 +886,37 @@ def read_catalog(server):
     return rows
 
 
-def check_cashshop(rep, server, branches, cfiles, sfiles):
+def custom_item_status(iid, cfiles, cidx, cimgs):
+    """Whether a branch's Custom.wz supplies an item the stock client Data lacks: (exists, has_icon).
+    Custom.wz serves an image the client does not have whole; for a stock image it only merges leaves,
+    so a new item child under a stock image is NOT visible (resman.cpp) and does not count."""
+    img, child, _ = item_location(iid, cidx)
+    if not img or img not in cimgs or (cfiles.get(img) is not None and "err" not in cfiles[img]):
+        return False, False
+    nodes = {p.split(":", 1)[1] for p in cimgs[img]}
+    if child:
+        if child not in nodes:
+            return False, False
+        return True, f"{child}/info/icon" in nodes
+    return True, "info/icon" in nodes
+
+
+def source_item_names(br):
+    """Item names the client source supplies itself because Custom.wz cannot add them to a stock
+    String image (e.g. coloringprism_text.h: kColorPrismTextItemId / kColorPrismName)."""
+    out = {}
+    for p in br.files:
+        if not (p.startswith("src/") and p.endswith("_text.h")):
+            continue
+        s = br.read(p) or ""
+        ids = re.findall(r"\bk\w*ItemId\s*=\s*(\d+)", s)
+        names = re.findall(r"\bk\w*Name\s*=\s*\"([^\"]*)\"", s)
+        if len(ids) == 1 and names:
+            out[int(ids[0])] = (names[0], p)
+    return out
+
+
+def check_cashshop(rep, server, branches, cfiles, sfiles, customs=None):
     C = "3. Cash Shop"
     rows = read_catalog(server)
     bad = [f"line {r['line']}: {r['bad']}" for r in rows if "bad" in r]
@@ -897,10 +949,15 @@ def check_cashshop(rep, server, branches, cfiles, sfiles):
     if cfiles is None:
         rep.add(C, "WARN", "client data not scanned: item/icon/String checks skipped")
         return
+    customs = customs or {}
     ccidx, scidx = char_index(cfiles), char_index(sfiles)
     cnames, snames = string_names(cfiles), string_names(sfiles)
     no_data, no_icon, no_name, differ, name_diff, server_missing = [], [], [], [], [], []
     name_known = []
+    # items missing from the stock client Data, resolved per branch against that branch's Custom.wz
+    per_branch = {br.name: {"no_data": [], "no_icon": [], "no_name": [], "custom": [], "src_name": []}
+                  for br in branches}
+    src_names = {br.name: source_item_names(br) for br in branches}
     for r in rows:
         iid = r["id"]
         if 9110000 <= iid < 9120000:      # service rows: slot grants, not items
@@ -911,6 +968,21 @@ def check_cashshop(rep, server, branches, cfiles, sfiles):
             server_missing.append(iid)
         if not ce:
             no_data.append(iid)
+            for br in branches:
+                pb = per_branch[br.name]
+                xe, xi = custom_item_status(iid, cfiles, ccidx, customs.get(br.name, {}))
+                if not xe:
+                    pb["no_data"].append(iid)
+                    continue
+                pb["custom"].append(iid)
+                if not xi:
+                    pb["no_icon"].append(iid)
+                if cn is None:
+                    if iid in src_names[br.name]:
+                        nm, f = src_names[br.name][iid]
+                        pb["src_name"].append(f"{iid} '{nm}' ({f})")
+                    else:
+                        pb["no_name"].append(iid)
             continue
         if not ci and si:
             no_icon.append(iid)
@@ -925,8 +997,28 @@ def check_cashshop(rep, server, branches, cfiles, sfiles):
             else:
                 name_diff.append(f"{iid}: server '{sn}' / client '{cn}'")
     n = len(rows)
-    rep.add(C, "FAIL" if no_data else "PASS",
-            f"catalog items with no client data: {len(no_data)}/{n}", [ex(no_data, 40)] if no_data else [])
+    if not no_data:
+        rep.add(C, "PASS", f"catalog items with no client data: 0/{n}")
+    for br in branches:
+        if not no_data:
+            break
+        tag = f"[{br.name}@{br.sha}]"
+        pb = per_branch[br.name]
+        rep.add(C, "FAIL" if pb["no_data"] else "PASS",
+                f"{tag} catalog items with no client data (stock Data + this branch's Custom.wz): "
+                f"{len(pb['no_data'])}/{n}", [ex(pb["no_data"], 40)] if pb["no_data"] else [])
+        if pb["custom"]:
+            rep.add(C, "INFO", f"{tag} catalog items served from this branch's Custom.wz: {len(pb['custom'])}",
+                    [ex(pb["custom"], 40)])
+        if pb["no_icon"]:
+            rep.add(C, "FAIL", f"{tag} Custom.wz catalog items with no info/icon: {len(pb['no_icon'])}",
+                    [ex(pb["no_icon"], 40)])
+        if pb["no_name"]:
+            rep.add(C, "FAIL", f"{tag} Custom.wz catalog items with no client String name: {len(pb['no_name'])}",
+                    [ex(pb["no_name"], 40)])
+        if pb["src_name"]:
+            rep.add(C, "INFO", f"{tag} Custom.wz catalog items named by the client source "
+                               f"(stock String image cannot take new entries)", pb["src_name"])
     rep.add(C, "FAIL" if no_icon else "PASS",
             f"catalog items whose client data has no icon (server has one): {len(no_icon)}",
             [ex(no_icon, 40)] if no_icon else [])
@@ -1132,14 +1224,11 @@ def check_custom(rep, a, branches, cfiles, extra, masks, server_flags, log):
     C = "4. Custom.wz"
     customs = {}
     for br in branches:
-        blob = br.read_bytes("src/Custom.wz")
-        if blob is None:
+        c = br.custom_images(a.cache_dir, masks)
+        if c is None:
             rep.add(C, "WARN", f"[{br.name}] src/Custom.wz missing")
             continue
-        tmp = os.path.join(a.cache_dir, f"Custom-{br.name}-{br.sha}.wz")
-        with open(tmp, "wb") as f:
-            f.write(blob)
-        customs[br.name] = (hashlib.sha256(blob).hexdigest(), custom_paths(tmp, masks))
+        customs[br.name] = c
     dep = None
     if extra and extra.get("Custom.wz"):
         sha = extra["Custom.wz"]["sha256"]
@@ -1254,10 +1343,6 @@ def server_flag_values(a):
         for m in re.finditer(r"-D([\w.-]+)=(\w+)", open(svc, encoding="utf-8").read()):
             flags[m.group(1)] = m.group(2).lower() == "true"
         src.append("deploy/slumsms.service.example")
-    for extra in a.server_flag or []:
-        k, _, v = extra.partition("=")
-        flags[k] = v.lower() in ("1", "true", "yes", "on")
-        src.append(f"--server-flag {extra}")
     cfg = a.server_config or next((p for p in (os.path.join(a.server, "config.yaml"),
                                                 os.path.join(a.server, "config.example.yaml"))
                                    if os.path.exists(p)), None)
@@ -1269,7 +1354,28 @@ def server_flag_values(a):
         if m:
             flags["DAILY_CHECKIN_ENABLED"] = m.group(1).lower() == "true"
         src.append(cfg)
+    # --server-flag goes last so it overrides the unit file, ServerConfig.java and config.yaml alike
+    for k, v in parse_flag_overrides(a.server_flag):
+        flags[k] = v
+        src.append(f"--server-flag {k}={'true' if v else 'false'}")
     return flags, src
+
+
+def parse_flag_overrides(items):
+    """--server-flag values as [(key, bool)]. Accepts KEY=VALUE, server.KEY=VALUE (the config.yaml
+    section spelling) and -DKEY=VALUE; a bare KEY means true."""
+    out = []
+    for raw in items or []:
+        k, eq, v = raw.strip().partition("=")
+        k = k.strip()
+        if k.startswith("-D"):
+            k = k[2:]
+        if k.startswith("server."):
+            k = k[len("server."):]
+        if not k:
+            raise ValueError(f"--server-flag {raw!r}: empty key")
+        out.append((k, v.strip().lower() in ("1", "true", "yes", "on") if eq else True))
+    return out
 
 
 def client_defines(br: Branch):
@@ -1475,12 +1581,9 @@ def main():
         for br in branches:
             for ref in resource_refs(br):
                 dumps.add(ref_split(ref)[0])
-            blob = br.read_bytes("src/Custom.wz")
-            if blob:
-                tmp = os.path.join(a.cache_dir, f"Custom-{br.name}-{br.sha}.wz")
-                with open(tmp, "wb") as f:
-                    f.write(blob)
-                dumps.update(img for img, _ in wzscan.pkg1_images(tmp, masks))
+            c = br.custom_images(a.cache_dir, masks)
+            if c:
+                dumps.update(c[1])
         for _, path, _ in SERVER_EXPECTED_RESOURCES:
             dumps.add(ref_split(path)[0])
         try:
@@ -1499,7 +1602,8 @@ def main():
                 rep.add("0. Inputs", "INFO", f"deployed {k}: " + (f"sha256 {v['sha256'][:16]} ({v['size']} bytes)"
                                                                  if v else "absent"))
     if 3 in only:
-        check_cashshop(rep, a.server, branches, cfiles, sfiles)
+        check_cashshop(rep, a.server, branches, cfiles, sfiles,
+                       {br.name: (br.custom_images(a.cache_dir, masks) or (None, {}))[1] for br in branches})
     if 4 in only:
         check_custom(rep, a, branches, cfiles, extra, masks, flags, log)
     if 5 in only and cfiles is not None:

@@ -14,10 +14,10 @@ Useful options:
 | Option | Default | Notes |
 |---|---|---|
 | `--client-repo` | `/root/work/client/src` | Branches are read from git objects, so no checkout is needed. |
-| `--client-branches` | `main daily-checkin` | Each branch is checked on its own. |
+| `--client-branches` | `main daily-checkin` | Each branch is checked on its own. Remote refs such as `origin/test-rc4` work. |
 | `--server-wz` | `/root/work/bake/wz` | The server's XML dump. |
 | `--server-config` | `./config.yaml`, else `config.example.yaml` | Supplies `DAILY_CHECKIN_ENABLED`. |
-| `--server-flag k=v` | flags from `deploy/slumsms.service.example` | Overrides a `-D` flag. |
+| `--server-flag k=v` | flags from `deploy/slumsms.service.example` | Overrides any server flag, applied after the unit file, `ServerConfig.java` and `config.yaml`. Accepts `KEY=VALUE`, `server.KEY=VALUE` (the `config.yaml` spelling) and `-DKEY=VALUE`; repeat for several. |
 | `--remote` | `crims@192.168.0.186` | Uses the key `~/.ssh/id_rsprox_desktop`. |
 | `--remote-client` | `Z:\MSv83\SlumsMS-dev\test-client` | |
 | `--remote-work` | `Z:\MSv83\SlumsMS-dev\clientcheck` | The only place the tool writes on the desktop. It refuses any path outside `SlumsMS-dev`. |
@@ -72,7 +72,7 @@ Both hashes are Merkle hashes. Siblings are compared as a multiset by name. Ints
    It also checks the limits the two sides share only by convention: `MAX_NAME` against `kMaxNameLen`, `CHUNK` against `kMaxEntriesPerChunk`, `BUY_*` codes against `kBuyMsg`, and `CYCLE_DAYS` against `kDays`. To cover another packet, add an entry to `LAYOUTS`.
 3. **Cash Shop.**
    - Every `cashshop/catalog.tsv` tab/category pair must be in the branch's `kCats`.
-   - Every catalog item needs client data, a client icon and a client String name.
+   - Every catalog item needs client data, a client icon and a client String name. An item the stock client Data lacks counts as present for a branch when that branch's `src/Custom.wz` carries it in an image the client does not have (served whole); a new item under a stock image does not count, because overlays only merge leaves. Its name may come from the client source (`src/*_text.h` with one `k...ItemId` and a `k...Name`, such as the Coloring Prism), since Custom.wz cannot add entries to the stock `String/Cash.img`.
    - Catalog items whose data or name differs from the server WZ are listed.
    - `Item/Cash`, `Item/Pet`, `String/*`, `Etc/Commodity.img` (per SN) and `Character/*` are compared as whole images.
 4. **Custom.wz.** Lists what each branch's `src/Custom.wz` and the deployed one add. An image the client does not have is served whole. An overlay of a stock image only merges leaves, so a new sub-property under a stock image is **not** visible (see `resman.cpp`). The check then:
@@ -89,6 +89,12 @@ Both hashes are Merkle hashes. Siblings are compared as a multiset by name. Ints
    - `MAPLEROOT_*` defines in each branch's `scripts/build.ps1`, against `cashshop.window.enabled`, `weather.enabled` and `DAILY_CHECKIN_ENABLED`.
    - Both `release/baseline.json` files.
    - Which features the deployed `slums.dll` actually contains. This is detected from wide-string resource paths that only that feature's sources use.
+
+## Tests
+
+```sh
+python3 -m unittest discover -s tools/clientcheck -p 'test_*.py'
+```
 
 ## Hooks
 
