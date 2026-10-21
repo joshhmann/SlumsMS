@@ -29,7 +29,7 @@
 #   package / special (no inventory type; nothing unpacks it): 9101182 9101183 9101199 9101225 9101233 9101256 9101302 9101313 9101362 9101376 9101385 9101418 ... (+17)
 #   ring needs a partner ring record (no partner flow in the window): 1112001 1112002 1112003 1112005 1112006 1112007 1112012 1112800 1112801 1112802 1112810 1112811 ... (+1)
 #
-# 10362 rows. itemId	price	count	tab	category	period	gender	name
+# 10363 rows. itemId	price	count	tab	category	period	gender	name
 1002711	3100	1	2	0	0	2	White Kitty Ears
 1002712	3100	1	2	0	0	2	Black Kitty Ears
 1002842	3100	1	2	0	0	2	Golden Fox Ears
@@ -6956,6 +6956,7 @@
 5420004	11000	1	5	0	0	2	Orbis Hair Membership Coupon
 5420005	11000	1	5	0	0	2	Ludibrium Hair Membership Coupon
 5420006	11000	1	5	0	0	2	Mu Lung Hair Membership Coupon
+5782000	3000	1	5	0	0	2	Coloring Prism
 5030000	5900	1	5	1	0	2	Mushroom House Elf
 5030001	1700	1	5	1	0	2	Mushroom House Elf
 5030002	5900	1	5	1	0	2	Cashier: Teddy Bear Clerk
