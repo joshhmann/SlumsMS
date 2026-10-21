@@ -140,3 +140,28 @@ Code: `src/main/java/soloMapling/ArtificialPlayer/BotAffinitySystem/` (lines in 
 `.grudgeHalfLifeHours` (72), `.friendHalfLifeDays` (14), `.toneMin` (0.6), per event `.<event>` and
 `.<event>.cooldownSec`, per action `.<action>Min` and `.<action>PerHour`, `.gossipLineMin` (10).
 
+### (b) Earned speed
+
+`GCMoveSystem/BotMovementProfile.fromCharacter`: a bot's speed and jump are now exactly a player's with the same
+things - **100% + real gear + real buffs + Haste only when it really has it**, capped like a player at speed 140 and
+jump 123. The level/class baseline (115-155 speed, 100-123 jump) is gone; it was added on top of real gear, so geared
+bots were counted twice.
+
+- **Haste:** the bot's own Haste at the level it holds (speed +2, jump +1 per level from the skill data: Haste 20 =
+  140 / 120), or the best Haste of a party member standing on the same map and channel (a thief keeps the party
+  hasted while they train together). A bot with no skills holds no Haste (the old job-based fallback is gone). A real
+  SPEED buff already on the bot (a player's Haste) is used as-is, never added twice.
+- **Nav graphs and cache:** graphs are keyed by the (bucketed) profile. Before, every map had up to six level tiers
+  plus gear variants per map; now almost every bot plays on the base graph (100/100) - the same graph the grind spot
+  finder already used - with a few extra keys for hasted thieves (120/110, 140/120) and speed gear. Fewer resident
+  graphs in `NavGraphCache`, fewer builds. `NavObservedEdges.PROOF_PROFILES` (the tiers a learned player move is
+  re-simulated for) is now base, 110/100, 120/110, 140/120 and 140/123; stored learned moves from before 1.5.0 (no
+  `tiers` key) carry over only to new tiers at least as fast as the tier that proved them, and are re-saved.
+- **Reach:** a bot's route and its physics use the same profile, so it never plans a jump it cannot make; at 100/100
+  it jumps like a fresh player, which every map is built for. Ledges only a faster character reaches are simply not in
+  its graph (as for the spot finder before).
+- **Bake:** `NavDeepBake` re-bakes every key found in `cache/bot-nav`; the retired tier files (115/100, 125/105,
+  130/110, 135/115, 145/120, 155/123 ...) stay there and get re-baked nightly until removed. One-time step at the rc2
+  deploy (owner's call): clear the non-base files in `cache/bot-nav` and the deep overlay so only keys bots use come
+  back.
+

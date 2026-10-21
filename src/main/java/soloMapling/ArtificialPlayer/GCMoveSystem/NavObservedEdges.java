@@ -77,19 +77,51 @@ public final class NavObservedEdges {
     static final int WAITING_CAP = 64;
 
     /**
-     * The movement profiles a move is re-simulated with, slowest first: the base profile, then the bots' level tiers
-     * (BotMovementProfile.levelSpeedStat / levelJumpStat) and the Haste cap. Real players are faster than the base
-     * profile; a move is planned only for bots of a tier that proved it.
+     * The movement profiles a move is re-simulated with, slowest first. Since 1.5.0 bots move on earned speed (100% plus
+     * real gear, buffs and Haste, capped like a player at 140 / 123), so the tiers are the base profile, light speed
+     * gear, a hasted thief, and the cap. A move is planned only for bots of a tier that proved it.
      */
     static final BotMovementProfile[] PROOF_PROFILES = {
+            BotMovementProfile.base(),
+            new BotMovementProfile(110, 100),
+            new BotMovementProfile(120, 110),
+            new BotMovementProfile(140, 120),
+            new BotMovementProfile(BotMovementProfile.PLAYER_MAX_SPEED, BotMovementProfile.PLAYER_MAX_JUMP)
+    };
+
+    /** The tiers before 1.5.0 (level baselines), which stored masks without a {@code tiers} key refer to. */
+    static final BotMovementProfile[] LEGACY_PROOF_PROFILES = {
             BotMovementProfile.base(),
             new BotMovementProfile(115, 100),
             new BotMovementProfile(125, 105),
             new BotMovementProfile(130, 110),
             new BotMovementProfile(135, 115),
             new BotMovementProfile(145, 120),
-            new BotMovementProfile(BotMovementProfile.HASTE_MAX_SPEED, BotMovementProfile.HASTE_MAX_JUMP)
+            new BotMovementProfile(155, 123)
     };
+
+    /** The stored-mask format: 2 = {@link #PROOF_PROFILES} of 1.5.0. */
+    static final int TIERS_FORMAT = 2;
+
+    /**
+     * A pre-1.5.0 mask in today's tiers: a move proven at an old tier applies to every new tier at least as fast and
+     * as high-jumping (never to a slower one). A move proven only at the old 155 % is dropped (no bot is that fast now).
+     */
+    static int fromLegacy(int legacyMask) {
+        int mask = 0;
+        for (int k = 0; k < LEGACY_PROOF_PROFILES.length; k++) {
+            if ((legacyMask >> k & 1) == 0) {
+                continue;
+            }
+            for (int n = 0; n < PROOF_PROFILES.length; n++) {
+                if (PROOF_PROFILES[n].totalSpeedStat() >= LEGACY_PROOF_PROFILES[k].totalSpeedStat()
+                        && PROOF_PROFILES[n].totalJumpStat() >= LEGACY_PROOF_PROFILES[k].totalJumpStat()) {
+                    mask |= 1 << n;
+                }
+            }
+        }
+        return mask;
+    }
 
     /** How the player got from one foothold or rope to the other. */
     public enum Kind {
@@ -864,6 +896,7 @@ public final class NavObservedEdges {
         }
         Map<String, Object> json = new LinkedHashMap<>();
         json.put("version", overlay.version());
+        json.put("tiers", TIERS_FORMAT);
         json.put("edges", edges);
         try {
             Files.createDirectories(dir);
@@ -899,12 +932,23 @@ public final class NavObservedEdges {
                 if (!sameGraph && v.intValue() > graph.version) {
                     return new Overlay(graph.version, edges); // written by a newer build: leave the file alone
                 }
+                boolean legacy = !(root.get("tiers") instanceof Number t && t.intValue() >= TIERS_FORMAT);
                 for (Object o : list) {
                     Stored stored = o instanceof List<?> f ? parse(f) : null;
+                    if (stored != null && legacy) {
+                        int mask = fromLegacy(stored.learned().mask());
+                        stored = mask == 0 ? null : new Stored(new Learned(stored.learned().edge(), mask),
+                                stored.fromRope(), stored.toRope());
+                    }
                     Learned learned = stored == null ? null : sameGraph ? stored.learned() : remap(graph, stored);
                     if (learned != null) {
                         edges.add(learned);
                     }
+                }
+                if (legacy && sameGraph) {
+                    log.info("Moves learned from players on map {} moved to the 1.5.0 speed tiers: {} of {}", mapId,
+                            edges.size(), list.size());
+                    save(mapId, graph, new Overlay(graph.version, edges));
                 }
                 if (!sameGraph) {
                     log.info("Moves learned from players on map {} carried from graph v{} to v{}: {} of {}", mapId,
@@ -925,8 +969,13 @@ public final class NavObservedEdges {
             if (Files.exists(file) && Json.parse(Files.readString(file, StandardCharsets.UTF_8)) instanceof Map<?, ?> root
                     && root.get("version") instanceof Number v && v.intValue() == graph.version
                     && root.get("edges") instanceof List<?> list) {
+                boolean legacy = !(root.get("tiers") instanceof Number t && t.intValue() >= TIERS_FORMAT);
                 for (Object o : list) {
                     Stored stored = o instanceof List<?> f ? parse(f) : null;
+                    if (stored != null && legacy) {
+                        stored = new Stored(new Learned(stored.learned().edge(), fromLegacy(stored.learned().mask())),
+                                stored.fromRope(), stored.toRope());
+                    }
                     if (stored != null && stored.learned().appliesTo(graph)) {
                         out.add(stored.learned().edge());
                     }

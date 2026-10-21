@@ -246,8 +246,28 @@ class NavMobilitySkillsTest {
         hold(nightWalker, 14101003, 10);
         assertTrue(BotMovementProfile.holdsHaste(nightWalker), "Night Walkers have Haste too");
         Character noBuild = bot(Job.BANDIT, 40, 300);
-        assertTrue(BotMovementProfile.holdsHaste(noBuild), "a bot with no build keeps the job-based model");
+        assertFalse(BotMovementProfile.holdsHaste(noBuild), "1.5.0 earned speed: no skill, no Haste");
         Character priest = bot(Job.PRIEST, 80, 300);
         assertFalse(BotMovementProfile.holdsHaste(priest));
+    }
+
+    @Test
+    void earnedSpeedIsWhatAPlayerWithTheSameThingsHas() throws Exception {
+        Character priest = bot(Job.PRIEST, 120, 300);
+        assertEquals(BotMovementProfile.base(), BotMovementProfile.fromCharacter(priest),
+                "no gear, no buff, no Haste: 100/100 at any level (no level baseline any more)");
+        Character beginner = bot(Job.BEGINNER, 5, 50);
+        assertEquals(BotMovementProfile.base(), BotMovementProfile.fromCharacter(beginner));
+        Character assassin = bot(Job.ASSASSIN, 35, 300);
+        hold(assassin, ASSASSIN_HASTE, 10);
+        BotMovementProfile half = BotMovementProfile.fromCharacter(assassin);
+        assertEquals(120, half.totalSpeedStat(), "Haste 10: +20 speed, from the skill's own data");
+        assertEquals(110, half.totalJumpStat());
+        hold(assassin, ASSASSIN_HASTE, 20);
+        BotMovementProfile full = BotMovementProfile.fromCharacter(assassin);
+        assertEquals(BotMovementProfile.PLAYER_MAX_SPEED, full.totalSpeedStat(), "Haste 20: +40, the player cap");
+        assertEquals(120, full.totalJumpStat());
+        Character bandit = bot(Job.BANDIT, 40, 300);
+        assertEquals(BotMovementProfile.base(), BotMovementProfile.fromCharacter(bandit), "no Haste skill held");
     }
 }

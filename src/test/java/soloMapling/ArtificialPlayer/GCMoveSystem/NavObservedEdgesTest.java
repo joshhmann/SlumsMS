@@ -514,11 +514,22 @@ class NavObservedEdgesTest {
                 g.version, p, g.regions, g.regionsById, g.regionIdByFootholdId, g.outgoingByRegionId, g.collidableWallIds,
                 g.collidableFromBelowIds);
         assertFalse(learned.appliesTo(g), "base");
-        assertTrue(learned.appliesTo(at.apply(new BotMovementProfile(115, 100))));
-        assertTrue(learned.appliesTo(at.apply(new BotMovementProfile(125, 105))));
-        assertTrue(learned.appliesTo(at.apply(new BotMovementProfile(125, 110))), "125/110 plans as the 125/105 tier");
-        assertFalse(learned.appliesTo(at.apply(new BotMovementProfile(130, 110))));
-        assertFalse(learned.appliesTo(at.apply(new BotMovementProfile(155, 123))));
+        assertTrue(learned.appliesTo(at.apply(new BotMovementProfile(110, 100))));
+        assertTrue(learned.appliesTo(at.apply(new BotMovementProfile(120, 110))));
+        assertTrue(learned.appliesTo(at.apply(new BotMovementProfile(130, 115))), "130/115 plans as the 120/110 tier");
+        assertFalse(learned.appliesTo(at.apply(new BotMovementProfile(140, 120))));
+        assertFalse(learned.appliesTo(at.apply(new BotMovementProfile(140, 123))));
         assertEquals(-1, NavObservedEdges.tierOf(new BotMovementProfile(95, 100)));
+    }
+
+    /** 1.5.0 earned speed: a pre-1.5.0 mask means "these old tiers"; it carries only to new tiers at least as fast. */
+    @Test
+    void legacyMasksCarryOnlyToTiersAtLeastAsFast() {
+        assertEquals(0b11111, NavObservedEdges.fromLegacy(0b1), "proven at base: every tier");
+        // old 115/100 -> 120/110, 140/120, 140/123 (110/100 is slower)
+        assertEquals(0b11100, NavObservedEdges.fromLegacy(0b10));
+        // old 135/115 -> 140/120, 140/123
+        assertEquals(0b11000, NavObservedEdges.fromLegacy(0b10000));
+        assertEquals(0, NavObservedEdges.fromLegacy(0b1000000), "old 155/123: nobody is that fast any more");
     }
 }
