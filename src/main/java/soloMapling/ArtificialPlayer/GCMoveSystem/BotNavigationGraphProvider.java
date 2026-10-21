@@ -59,9 +59,9 @@ final class BotNavigationGraphProvider {
     //     with no other way down - capped tighter (DOWN_JUMP_MAX_DROP_PX) and cost-penalized
     //     (DOWN_JUMP_COST_PENALTY_MS) so Dijkstra takes a rope or walk-off whenever one reaches the
     //     same place.
-    private static final int MAX_DROP_PX = 300;
-    private static final int DOWN_JUMP_MAX_DROP_PX = 200;
-    private static final int DOWN_JUMP_COST_PENALTY_MS = 2000;
+    static final int MAX_DROP_PX = 300;
+    static final int DOWN_JUMP_MAX_DROP_PX = 200;
+    static final int DOWN_JUMP_COST_PENALTY_MS = 2000;
     private static final int ENDPOINT_ANCHOR_SPACING_PX = 10;
     private static final int SAME_SOLID_NEST_GAP_PX = 8;
     private static final int ROPE_ANCHOR_INTERVAL_PX = 30;
@@ -480,6 +480,32 @@ final class BotNavigationGraphProvider {
                 }
             }
         });
+    }
+
+    /*
+     * Loads the map's cached graph for this profile off the caller's thread, from memory or the disk cache only:
+     * never builds one (a player wandering into an unbaked map must not cost a graph build). Completes with null
+     * when no cached file exists. For NavObservedEdges, which needs the base graph of maps no bot is on.
+     */
+    static CompletableFuture<BotNavigationGraph> loadCachedGraphAsync(MapleMap map, BotMovementProfile movementProfile) {
+        if (map == null) {
+            return CompletableFuture.completedFuture(null);
+        }
+        BotMovementProfile profile = canonicalProfile(map, movementProfile);
+        GraphCacheKey key = GraphCacheKey.from(map.getId(), profile);
+        BotNavigationGraph cached = GRAPHS.get(key);
+        if (cached != null) {
+            return CompletableFuture.completedFuture(cached);
+        }
+        if (!Files.isRegularFile(graphFile(key))) {
+            return CompletableFuture.completedFuture(null);
+        }
+        return getOrStartGraphLoad(map, profile, key, true);
+    }
+
+    /* Builds a graph in memory only - not cached, not saved (the offline replay on a map with no baked graph). */
+    static BotNavigationGraph buildUncachedGraph(MapleMap map, BotMovementProfile movementProfile) {
+        return buildGraph(map, movementProfile);
     }
 
     static BotNavigationGraph rebuildGraph(MapleMap map) {

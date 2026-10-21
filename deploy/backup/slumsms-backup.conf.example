@@ -10,7 +10,7 @@
 #DUMP_LOCK=--lock-all-tables
 #KEEP_DAYS=14
 #KEEP_MIN=3
-#NAV_DIRS="learned stuck heat"
+#NAV_DIRS="learned stuck heat observed players"
 
 # ── off-box copy (disabled while OFFBOX_DEST is empty) ──
 # Destination for rsync/scp, e.g. backup@nas.lan:/volume1/slumsms or slums@192.168.0.186:SlumsMS-backups

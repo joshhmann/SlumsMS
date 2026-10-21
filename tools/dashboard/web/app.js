@@ -272,7 +272,8 @@
     const delta = (k) => prev ? (t[k] - prev[k] >= 0 ? '+' : '') + N(t[k] - prev[k]) + ' since ' + prev.day : '';
     tiles('learn-tiles', [
       ['Night bake edges', N(t.deepEdges), (t.deepGeneration ? 'generation ' + E(t.deepGeneration) : 'no bake yet') + (prev ? '<br>' + delta('deepEdges') : '')],
-      ['Jumps learned from players', N(t.playerEdges), t.playerMaps + ' maps' + (prev ? '<br>' + delta('playerEdges') : '')],
+      ['Moves learned from players', N(t.playerEdges), t.playerMaps + ' maps' + (prev ? '<br>' + delta('playerEdges') : '')
+        + (L.players && L.players.moves != null ? '<br>' + N(L.players.moves) + ' player moves seen' : '')],
       ['Edges penalised now', N(t.penalised), N(t.learnedEdges) + ' with a record'],
       ['Failures (faded)', N(t.failures), N(t.successes) + ' successes'],
       ['Stuck events today', N(t.stuckToday), 'UTC day'],
@@ -291,6 +292,18 @@
     Charts.bars($('learn-kinds'), { horizontal: true, rows: Object.entries(L.stuckTodayByKind || {}).sort((a, b) => b[1] - a[1]), color: C('--s8'), empty: 'no stuck events today' });
     mapTable('learn-improving', ['Map', 'Name', 'before /day', 'now /day'], (L.improving || []).map(r => [r[0], E(mapName(r[0])), r[1], r[2]]));
     mapTable('learn-worst', ['Map', 'Name', 'stuck 7 d', 'penalised'], (L.worst || []).map(r => [r[0], E(mapName(r[0])), r[1], r[2]]));
+    // What the bots made of real players' moves (NavPlayerLearning, players/stats.json).
+    const P = L.players || {};
+    const OUT = { ADOPTED: 'learned', PROVE_FAILED: 'proof failed', SIGHTED: 'new, counting', ALREADY_JOINED: 'already known',
+      SAME_REGION: 'same platform', UNKNOWN_REGION: 'unknown platform', NO_GRAPH: 'no graph', ROPE_SKILL: 'skill to/from rope', NO_MAP: 'no map' };
+    Charts.bars($('learn-players'), { horizontal: true, rows: Object.entries(P.totals || {}).map(([k, v]) => [OUT[k] || k, v]).sort((a, b) => b[1] - a[1]),
+      color: C('--s2'), empty: 'no player moves recorded yet' });
+    mapTable('learn-player-maps', ['Map', 'Name', 'moves', 'known'], Object.entries(P.maps || {}).map(([id, c]) =>
+      [id, E(mapName(+id)), Object.values(c).reduce((a, b) => a + b, 0), c.ALREADY_JOINED || 0]));
+    const portals = P.portals || [];
+    $('learn-portals').innerHTML = portals.length ? '<table class="t"><tr><th>From</th><th>To</th><th>Portal</th><th class="num">uses</th></tr>' +
+      portals.map(r => { const [a, b] = r[0].split('>'); return '<tr><td>' + E(mapName(+a)) + '</td><td>' + E(mapName(+b)) + '</td><td>' + E(r[1]) + '</td><td class="num">' + r[2] + '</td></tr>'; }).join('') +
+      '</table>' : '<div class="muted">Nothing yet.</div>';
   }
 
   // ── bots ───────────────────────────────────────────────────────────────────

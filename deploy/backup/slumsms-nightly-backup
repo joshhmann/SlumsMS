@@ -4,8 +4,9 @@
 #
 # 1. Dumps the live database (schema mapleroot in container buns-clean-db-1) to $BACKUP_DIR/<schema>-<ts>.sql.gz
 #    and checks the dump ends with "Dump completed" (same as v1).
-# 2. Archives the bot learning data the server writes next to the nav graph cache: cache/bot-nav/learned, stuck and
-#    heat (small, grow with play) to $BACKUP_DIR/bot-nav-<ts>.tar.gz. Files are copied to a temp dir first and every
+# 2. Archives the bot learning data the server writes next to the nav graph cache: cache/bot-nav/learned, stuck,
+#    heat, observed (moves learned from players) and players (players' move log, sightings, portal counts; capped
+#    at 64 MB by the server) to $BACKUP_DIR/bot-nav-<ts>.tar.gz. Files are copied to a temp dir first and every
 #    .json is checked to parse, re-copied if the server was mid-write (learned books are not written atomically).
 #    The graph caches (v68, deep) are rebuilt from wz, so they are not backed up.
 # 3. Appends both to $BACKUP_DIR/SHA256SUMS, prunes files older than $KEEP_DAYS days (but always keeps the newest
@@ -31,7 +32,7 @@ DB_SCHEMA=${DB_SCHEMA:-mapleroot}
 DUMP_LOCK=${DUMP_LOCK:---lock-all-tables}
 KEEP_DAYS=${KEEP_DAYS:-14}
 KEEP_MIN=${KEEP_MIN:-3}
-NAV_DIRS=${NAV_DIRS:-"learned stuck heat"}
+NAV_DIRS=${NAV_DIRS:-"learned stuck heat observed players"}
 OFFBOX_DEST=${OFFBOX_DEST:-}
 OFFBOX_METHOD=${OFFBOX_METHOD:-rsync}
 OFFBOX_KEY=${OFFBOX_KEY:-/root/.config/slumsms-backup/offbox.key}

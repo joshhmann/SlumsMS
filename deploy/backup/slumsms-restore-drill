@@ -120,7 +120,7 @@ zcat "$d" | tail -1 | grep -q "Dump completed" && ok "dump complete" || die "dum
 echo "  dump $DUMP ($(stat -c %s "$DUMP") bytes, $(date -u -r "$DUMP" +%FT%TZ))"
 if [ "$NAV_FROM_LIVE" = 1 ]; then
     NAV="$RUN/bot-nav-live.tar.gz"
-    tar -C "$LIVE_SERVER/cache/bot-nav" -czf "$NAV" $(cd "$LIVE_SERVER/cache/bot-nav" && ls -d learned stuck heat 2>/dev/null)
+    tar -C "$LIVE_SERVER/cache/bot-nav" -czf "$NAV" $(cd "$LIVE_SERVER/cache/bot-nav" && ls -d learned stuck heat observed players 2>/dev/null)
     echo "  nav  archived from live now (read only): $(tar tzf "$NAV" | grep -c '\.json$') files"
     n=$NAV
 else
@@ -202,6 +202,7 @@ done
 t0=$(date +%s%N)
 rsync -a --exclude=/wz --exclude=/wz.tar.gz --exclude=/logs --exclude=/.git --exclude=/BotLog.txt --exclude=/reports \
     --exclude=/cache/bot-nav/learned --exclude=/cache/bot-nav/stuck --exclude=/cache/bot-nav/heat \
+    --exclude=/cache/bot-nav/observed --exclude=/cache/bot-nav/players \
     "$LIVE_SERVER/" "$SRV/"
 ln -s "$LIVE_SERVER/wz" "$SRV/wz"
 tar -C "$SRV/cache/bot-nav" -xzf "$n"
@@ -244,7 +245,7 @@ print(json.dumps(out))
 EOF
 }
 navkeys "$SRV/cache/bot-nav/learned" > "$RCPT/learned-before.json"
-for x in learned stuck heat; do echo "  restored $x: $(find "$SRV/cache/bot-nav/$x" -type f 2>/dev/null | wc -l) files"; done
+for x in learned stuck heat observed players; do echo "  restored $x: $(find "$SRV/cache/bot-nav/$x" -type f 2>/dev/null | wc -l) files"; done
 cp -a "$SRV/cache/bot-nav/learned" "$RUN/learned-before"
 
 ro=(-p ReadOnlyPaths=/opt/mapleroot -p ReadOnlyPaths=/opt/mapleroot-deployments)

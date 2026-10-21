@@ -5,7 +5,7 @@ folder stops, restarts or reconfigures the game server or its database.
 
 | File | Installed as | What |
 |---|---|---|
-| `slumsms-nightly-backup` | `/usr/local/bin/` | v2 of the nightly job: DB dump (as v1) + `bot-nav-<ts>.tar.gz` of `cache/bot-nav/{learned,stuck,heat}`, both in `SHA256SUMS`, 14 days kept (never fewer than the newest 3), optional encrypted off-box push |
+| `slumsms-nightly-backup` | `/usr/local/bin/` | v2 of the nightly job: DB dump (as v1) + `bot-nav-<ts>.tar.gz` of `cache/bot-nav/{learned,stuck,heat,observed,players}`, both in `SHA256SUMS`, 14 days kept (never fewer than the newest 3), optional encrypted off-box push |
 | `slumsms-rotate-backups` | `/usr/local/bin/` | Keeps the newest 3 deploys' pre-deploy material, prunes test-server `backup-*` / `Cosmic.jar.pre-*` older than 14 days. Dry run by default |
 | `slumsms-restore-drill` | `/usr/local/bin/` | Newest nightly → scratch schema on the test DB → copy of live booted on spare ports → checks → cleanup |
 | `move-test-db-datadir.sh` | (run by hand in a window) | Moves the test DB datadir to `/opt/mapleroot-dev/integration-db/mysql` |
@@ -31,7 +31,8 @@ mode and prints today's rotation list. Add `--backup-now` to run the new nightly
 ```
 /opt/mapleroot/backups/nightly/
   mapleroot-<ts>.sql.gz      mysqldump --lock-all-tables --routines --triggers --databases mapleroot
-  bot-nav-<ts>.tar.gz        ./learned ./stuck ./heat from the live server's cache/bot-nav (~70 KB compressed today)
+  bot-nav-<ts>.tar.gz        ./learned ./stuck ./heat ./observed ./players from the live server's cache/bot-nav
+                             (~70 KB compressed before players/ existed; players/ is capped at 64 MB by the server)
   SHA256SUMS                 both files; lines of pruned files are dropped
 ```
 
