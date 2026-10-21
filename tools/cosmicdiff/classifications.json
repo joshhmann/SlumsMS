@@ -21,13 +21,14 @@
   },
   "java-method-missing:src/main/java/client/Character.java::Character.decreaseBattleshipHp/1": {
     "class": "DELIBERATE",
-    "why": "MapleRoot removed Battleship HP as a system, consistently: no decreaseBattleshipHp, TakeDamageHandler call commented, StatEffect never resets/announces HP, PlayerLoggedinHandler announce removed, announceBattleshipHp rewritten to a fixed 20 s cooldown. The ship no longer breaks from damage. Owner may want to know; not a silent strip of one piece."
+    "why": "MapleRoot removed Battleship HP as a system, consistently: no decreaseBattleshipHp, TakeDamageHandler call commented, StatEffect never resets/announces HP, PlayerLoggedinHandler announce removed, announceBattleshipHp rewritten to a fixed 20 s cooldown. The ship no longer breaks from damage. Owner may want to know; not a silent strip of one piece. Owner decision 2026-10-21 (1.4.2, branch gameplay-cosmic-142): KEEP the repack's way."
   },
   "java-commented:src/main/java/client/Character.java::L3714": {
-    "class": "UNSURE",
-    "why": "Curse (mob debuff) no longer halves EXP: the Cosmic penalty in gainExp is commented out in the repack. Players lose nothing; it makes the debuff toothless. Owner call."
+    "class": "RESTORED",
+    "why": "Owner decision 2026-10-21 (1.4.2, branch gameplay-cosmic-142): restored. Curse (mob debuff) halves EXP again: base and party share x0.5 in Character.gainExp, as in Cosmic (all gainExp callers, including quest rewards, as in Cosmic).",
+    "qa": "`!warp 100000000` area with snails, `!spawn 100100 5`, kill one and note the EXP. Then `!mobskill 124 1` (casts Curse from the map's mobs on you) or have a second GM `!debuff CURSE` next to you; with the skull icon up kill another: half the EXP (party bonus halved too). When Curse ends, full EXP again."
   },
-  "java-commented:src/main/java/client/Character.java::L3815": {
+  "java-commented:src/main/java/client/Character.java::L3820": {
     "class": "DELIBERATE",
     "why": "MapleRoot made exp an AtomicLong; the Integer.MAX_VALUE overflow clamp no longer applies."
   },
@@ -36,28 +37,26 @@
     "why": "Lines are in MapleRoot-only code: changeRebirthJobCerezeth (rebirth; resetStats itself is identical to Cosmic), infinity-storage helper, damage skins, an abandoned sitChairWithTeleport draft."
   },
   "java-commented:src/main/java/client/autoban/AutobanFactory.java::L102": {
-    "class": "UNSURE",
-    "why": "Autoban alert log line (USE_AUTOBAN_LOG) commented out. Ops-only, no player effect; USE_AUTOBAN is false in /root/work/bake/test-config.yaml (live config not read). Harmless to restore if the owner wants the log."
+    "class": "RESTORED",
+    "why": "Owner decision 2026-10-21 (1.4.2, branch gameplay-cosmic-142): restored. AutobanFactory.alert writes 'Autoban alert - chr X caused TYPE-reason' to the server log again when USE_AUTOBAN_LOG is on (true in the test config), independent of USE_AUTOBAN (off), which only gates the GM tip. Risk: log volume if MapleRoot's damage estimates trip DAMAGE_HACK/DISTANCE_HACK alerts often; watch the log after deploy.",
+    "qa": "On the test server, packet-free check: tail the server log while a high-level char attacks normally for a few minutes; count 'Autoban alert' lines. Expect few or none; many DAMAGE_HACK lines from legit play means the estimate is too low (report, consider USE_AUTOBAN_LOG off)."
   },
-  "java-shrunk:src/main/java/client/command/CommandsExecutor.java::CommandsExecutor.registerLv1Commands/0": {
-    "class": "DELIBERATE",
-    "why": "MapleRoot emptied the GM-1 tier: whatdropsfrom/whodrops/mobhp/bosshp moved to gm0 (player commands), goto to gm2. Only @buffme was dropped (see command-unregistered buffme)."
-  },
-  "java-commented:src/main/java/client/command/CommandsExecutor.java::L263": {
+  "java-commented:src/main/java/client/command/CommandsExecutor.java::L264": {
     "class": "DELIBERATE",
     "why": "Same GM-1 tier reshuffle as registerLv1Commands."
   },
   "java-commented-lines:src/main/java/client/command/CommandsExecutor.java": {
-    "class": "UNSURE",
-    "why": "@gacha (list a town gachapon's items) is unregistered; the command class is intact. MapleRoot rewrote gachapon.js (256 lines vs 45), so the stock list may not match what the machines give. Owner call."
+    "class": "DELIBERATE",
+    "why": "Owner decision 2026-10-21 (1.4.2, branch gameplay-cosmic-142): KEEP the repack's way. @gacha (list a town gachapon's items) stays unregistered: MapleRoot rewrote gachapon.js (256 lines vs 45), so the stock list would not match what the machines give."
   },
   "command-unregistered:src/main/java/client/command/CommandsExecutor.java::gacha": {
-    "class": "UNSURE",
-    "why": "See CommandsExecutor commented-lines: @gacha unregistered by the repack."
+    "class": "DELIBERATE",
+    "why": "Owner decision 2026-10-21 (1.4.2, branch gameplay-cosmic-142): KEEP the repack's way. @gacha (list a town gachapon's items) stays unregistered: MapleRoot rewrote gachapon.js (256 lines vs 45), so the stock list would not match what the machines give."
   },
   "command-unregistered:src/main/java/client/command/CommandsExecutor.java::buffme": {
-    "class": "UNSURE",
-    "why": "@buffme (GM level 1) dropped when MapleRoot emptied the GM-1 tier; class still exists. Only matters if anyone is GM level 1."
+    "class": "RESTORED",
+    "why": "Owner decision 2026-10-21 (1.4.2, branch gameplay-cosmic-142): restored. @buffme (Haste, Holy Symbol, Hyper Body, Bless, Echo at max level + heal) is registered at GM level 1 again, the tier MapleRoot emptied; the command class was untouched. Players (GM 0) still cannot use it.",
+    "qa": "As a GM (level 1+): `!buffme` (or `@buffme`): five buff icons appear and HP/MP fill. On a non-GM char: `@buffme` is an unknown command."
   },
   "command-unregistered:src/main/java/client/command/CommandsExecutor.java::devtest": {
     "class": "UPSTREAM-NEW",
@@ -164,16 +163,18 @@
     "why": "Remains of MapleRoot's pet vacuum-loot experiment; live path still calls chr.pickupItem(ob, petIndex) like Cosmic."
   },
   "java-commented:src/main/java/net/server/channel/handlers/SummonDamageHandler.java::L113": {
-    "class": "UNSURE",
-    "why": "Summon damage is no longer clamped to calcMaxDamage (Cosmic: alert + clamp, 'thanks Darter for reporting unchecked max dmg'). An exploit guard, not a player feature; restoring could clip legit summon hits if MapleRoot's stat scaling outruns the estimate. Owner/security call."
+    "class": "RESTORED",
+    "why": "Owner decision 2026-10-21 (1.4.2, branch gameplay-cosmic-142): restored. Summon hits above calcMaxDamage are clamped again, with Cosmic's DAMAGE_HACK alert and 'Possible exploit' log line (anti-cheat: a packet-edited summon could otherwise deal any damage). The @dps meter counts the clamped damage. Risk: calcMaxDamage is Cosmic's estimate; a MapleRoot custom summon or stat bonus the formula does not know about would see its hits cut. Look for 'Possible exploit' lines from legit play.",
+    "qa": "`!job 311`, `!maxskill 311`, `!level 120`, cast Silver Hawk (3111005) next to `!spawn 7130100 3`: the hawk's numbers look normal and the server log has no 'Possible exploit - chr ... used a summon' lines. Repeat with a magic summon: `!job 212`, `!maxskill 212`, Ifrit (2121005). Best on a geared high-stat char."
   },
   "java-commented:src/main/java/net/server/channel/handlers/TakeDamageHandler.java::L172": {
-    "class": "UNSURE",
-    "why": "Mana Reflection (F/P, I/L, Bishop) reflects a fixed 20 damage instead of X% of the hit (capped at 1/5 mob max HP); the bounce packet to the map is gone too. Likely a compile workaround for MapleRoot's long mob HP. A proper port needs long-safe math; owner call."
+    "class": "RESTORED",
+    "why": "Owner decision 2026-10-21 (1.4.2, branch gameplay-cosmic-142): restored, long-safe. Mana Reflection bounces x% of the hit again (the repack hit for a flat 20) with Cosmic's cap of a fifth of the mob's max HP, worked out in longs for MapleRoot's huge mob HP and clamped to the int the damage packet carries; the bounce damage number is broadcast again. Bosses stay immune as in Cosmic. The bounce is bounded by the hit the mage took, so huge mob HP cannot make it explode.",
+    "qa": "`!job 212`, `!maxskill 212`, `!level 150`, cast Mana Reflection (2121002), `!spawn 7130100 1` and let it hit you (Mana Reflection procs on a chance): a damage number pops over the mob roughly x% of what you took (was always 20). A boss (`!spawn 8500001`) never takes reflected damage."
   },
-  "java-commented:src/main/java/net/server/channel/handlers/TakeDamageHandler.java::L260": {
+  "java-commented:src/main/java/net/server/channel/handlers/TakeDamageHandler.java::L258": {
     "class": "DELIBERATE",
-    "why": "Meso Guard costs no mesos; the line is annotated 'Comment out or remove this line' in the repack."
+    "why": "Meso Guard costs no mesos; the line is annotated 'Comment out or remove this line' in the repack. Owner decision 2026-10-21 (1.4.2, branch gameplay-cosmic-142): KEEP the repack's way."
   },
   "java-commented-lines:src/main/java/net/server/channel/handlers/TakeDamageHandler.java": {
     "class": "DELIBERATE",
@@ -209,7 +210,7 @@
   },
   "java-method-missing:src/main/java/server/maps/MapleMap.java::MapleMap.broadcastZakumVictory/0": {
     "class": "DELIBERATE",
-    "why": "MapleRoot commented out every boss victory world message (Balrog/HT/Zakum/Pink Bean) in MapleMap and in the event scripts, consistently. Owner may want them back; easy to re-enable."
+    "why": "MapleRoot commented out every boss victory world message (Balrog/HT/Zakum/Pink Bean) in MapleMap and in the event scripts, consistently. Owner may want them back; easy to re-enable. Owner decision 2026-10-21 (1.4.2, branch gameplay-cosmic-142): KEEP the repack's way."
   },
   "java-commented-lines:src/main/java/server/maps/MapleMap.java": {
     "class": "DELIBERATE",
@@ -255,17 +256,14 @@
     "class": "DELIBERATE",
     "why": "Boss victory world message disabled."
   },
-  "script-gutted:scripts/event/PapulatusBattle.js::*": {
-    "class": "UNSURE",
-    "why": "MapleRoot's rewrite of PapulatusBattle (expedition leaderboard, coin reward) dropped updateGateState: the three gate reactors (2208001-3) at 220080000 no longer show the fight in progress. Cosmetic only; entry is NPC-driven. Restoring risks a gate stuck shut after a crash, maybe why it went. Owner call."
-  },
   "script-func-missing:scripts/event/PapulatusBattle.js::updateGateState": {
-    "class": "UNSURE",
-    "why": "See PapulatusBattle afterSetup/dispose."
+    "class": "RESTORED",
+    "why": "Owner decision 2026-10-21 (1.4.2, branch gameplay-cosmic-142): restored. updateGateState is back in PapulatusBattle: the three gate reactors (2208001-3) at 220080000 shut in afterSetup and open on clear (clearPQ, which still records the expedition leaderboard) and on dispose of an uncleared instance. Null-safe per reactor. A server restart rebuilds the map with the gates open, so a crash cannot leave them stuck.",
+    "qa": "Party of one (or more), level 125+: `!warp 220080000`, leader enters the boss portal: the gate reactors at the entrance show the closed/in-progress state to anyone still in 220080000 (second char there). `!killall` in the boss room (or kill Papulatus): gates open again. Start another run and leave/let the timer expire without clearing: gates open on dispose."
   },
   "script-commented:scripts/npc/1022003.js::*": {
     "class": "DELIBERATE",
-    "why": "Mr. Thunder: ore/jewel refining commented out with a header note; refining is centralised at the hub NPC 9977779 and Nimble (FM)."
+    "why": "Mr. Thunder: ore/jewel refining commented out with a header note; refining is centralised at the hub NPC 9977779 and Nimble (FM). Owner decision 2026-10-21 (1.4.2, branch gameplay-cosmic-142): KEEP the repack's way."
   },
   "script-commented:scripts/npc/2020000.js::*": {
     "class": "DELIBERATE",
@@ -288,16 +286,9 @@
     "why": "Maple Island 'skip tutorial' NPC; new characters start at MAPLEROOT_HUB (993910000), never on Maple Island."
   },
   "script-short:scripts/npc/2040022.js": {
-    "class": "UNSURE",
-    "why": "Rydole (Ludibrium Toy Factory, 220020600; makes level 30-50 weapons, stimulator option) was overwritten with MapleRoot's hub menu (identical to 9010004.js: rooty shop/donor shop/JQ rewards/damage skin/server info). Rydole is not in the hub. Looks like a copy-paste accident, but it could be a deliberate shop access point in Ludi. Recommend restoring the Cosmic Rydole if the owner agrees."
-  },
-  "script-shrunk:scripts/npc/2040022.js::action": {
-    "class": "UNSURE",
-    "why": "See script-short 2040022.js."
-  },
-  "script-rewritten:scripts/npc/2040022.js": {
-    "class": "UNSURE",
-    "why": "See script-short 2040022.js."
+    "class": "RESTORED",
+    "why": "Owner decision 2026-10-21 (1.4.2, branch gameplay-cosmic-142): restored. Rydole (Ludibrium Toy Factory, 220020600; makes level 30-50 weapons, stimulator option) had been overwritten with a copy of the hub menu 9010004.js (and with sendOk, so no option could even be picked). The hub menu still lives at 9010004 in the hub. Restored the stock Cosmic script.",
+    "qa": "`!warp 220020600`, click Rydole: the weapon-maker menu (What's a stimulator? / Create a Warrior weapon ...), not Rooty/Donor Shop. Make a Gladius: `!item 4131000 1`, `!item 4011001 2`, `!item 4011004 2`, `!item 4003000 30`, have 18,000 mesos, pick Create a Warrior weapon > Gladius > Yes: the Gladius (1302008) appears, the materials and 18,000 mesos are gone. Try again without materials: 'Sorry, but you're missing a required item'."
   },
   "script-short:scripts/npc/9900000.js": {
     "class": "DELIBERATE",
@@ -328,15 +319,22 @@
     "why": "MapleRoot's gachapon rewrite."
   },
   "script-short:scripts/quest/2001.js": {
-    "class": "UNSURE",
-    "why": "Perion 'build a house' quest end script (pick a 10% weapon scroll, 20k EXP, 15k mesos, 2 fame) is wholly commented out; the repack first trimmed the scroll lists to one per class, then disabled it. Check.img still flags endscript q2001e, so the quest can never be completed (end() is missing; the error is logged and the dialog closes). Probably an economy decision about 10% scroll sources, but it leaves the quest uncompletable. Owner call: restore (trimmed or full lists), or retire the quest."
+    "class": "RESTORED",
+    "why": "Owner decision 2026-10-21 (1.4.2, branch gameplay-cosmic-142): restored. The Perion house quest end script was wholly commented out while Check.img still flags endscript q2001e, so the quest could never be completed. Uncommented as the repack left it, keeping the repack's TRIMMED reward list (one 10% scroll per class: warrior 2044302, magician 2043802, bowman 2044602, thief 2044702, pirate 2044902), not Cosmic's full list; 20k EXP, 15k mesos, 2 fame as stock.",
+    "qa": "Level 30+ char with quest 2000 done (or `!completequest 2000`): `!startquest 2001`, `!item 4000022 100`, `!item 4003000 30`, `!item 4003001 30`, `!item 4001004 1`, `!warp 102000000`, talk to the quest NPC (1020000) and complete: one scroll offered for your class, pick it; the scroll arrives, the materials and deed are taken, +20,000 EXP, +15,000 mesos, +2 fame, the quest shows completed."
   },
   "script-short:scripts/quest/3414.js": {
-    "class": "UNSURE",
-    "why": "Omega Sector 'sample' quest end (pick a 10% scroll) commented out; Check.img still flags endscript q3414e, so the quest cannot be completed. Same economy question as 2001."
+    "class": "RESTORED",
+    "why": "Owner decision 2026-10-21 (1.4.2, branch gameplay-cosmic-142): restored. The Omega Sector sample quest end script was commented out while Check.img flags endscript q3414e, so the quest could not be completed. The repack never trimmed this one, so its scroll list is the stock one (2-8 10% scrolls per class); 12k EXP as stock. Owner: veto to trim it to one per class like 2001 if wanted.",
+    "qa": "Level 45+ char: `!completequest 3413`, `!startquest 3414`, `!item 4031103 1`, `!item 4031104 1`, `!item 4031105 1`, `!item 4031106 1`, `!warp 221040000`, talk to the quest NPC (2040018) and complete: pick a scroll, it arrives, the four samples are taken, +12,000 EXP, quest completed."
   },
   "script-short:scripts/quest/3414_free10rate.js": {
-    "class": "UNSURE",
-    "why": "Variant of 3414, also commented out."
+    "class": "RESTORED",
+    "why": "Owner decision 2026-10-21 (1.4.2, branch gameplay-cosmic-142): restored (uncommented, verbatim Cosmic). A variant of 3414 that no quest id points to (quests load q<id>e = 3414.js), so it is dormant as in Cosmic."
+  },
+  "manual:src/main/java/net/server/channel/handlers/AbstractDealDamageHandler.java::parseDamage": {
+    "class": "RESTORED",
+    "why": "Owner decision 2026-10-21 (1.4.2, branch gameplay-cosmic-142): restored. Found by hand (deleted, not commented, so the detector misses it): parseDamage had lost Cosmic's crit flag (sign bit on a damage line judged a crit: Snipe, or a crit-capable class hitting above the non-crit estimate), so other players saw everyone's crits as plain hits; applyAttack still decoded the flag. Restored the flag only: Cosmic's fixed 195,000-200,000 Snipe damage stays dropped (MapleRoot uses the client's Snipe damage). A miss is never flagged, and Sacrifice strips the flag before costing HP so a Sharp Eyes crit cannot heal. Risk: if the non-crit estimate is low for MapleRoot stats, some ordinary hits are drawn as crits to others (cosmetic).",
+    "qa": "Two clients in one map. Client A: `!job 412`, `!maxskill 410`, `!maxskill 412`, `!level 120`, `!item 2070006 800` (stars), attack `!spawn 7130100 3`. Client B watches: some of A's numbers are drawn as red/orange crits (before: never). Mobs still lose HP and die normally. Optional: a Dragon Knight with Sharp Eyes using Sacrifice loses HP, never gains it."
   }
 }
