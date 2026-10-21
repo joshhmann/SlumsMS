@@ -744,6 +744,10 @@ public class Guild {
 
         MatchCheckerCoordinator mmce = guildLeader.getWorldServer().getMatchCheckerCoordinator();
         for (Character chr : guildLeader.getMap().getAllPlayers()) {
+            // SlumsMS: bots never answer the cofounder prompt, and the match waits for everyone, so leave them out
+            if (soloMapling.ArtificialPlayer.BotHelpers.isBot(chr)) {
+                continue;
+            }
             if (chr.getParty() == null && chr.getGuild() == null && mmce.getMatchConfirmationLeaderid(chr.getId()) == -1) {
                 guildMembers.add(chr);
             }
