@@ -167,7 +167,7 @@ public class GenericPortal implements Portal {
         if (!changed) {
             c.sendPacket(PacketCreator.enableActions());
         } else if (soloMapling.server.MapleRootSolo.isEnabled() && chr.getMapId() != fromMapId
-                && !soloMapling.ArtificialPlayer.BotHelpers.isBot(chr)) {
+                && soloMapling.ArtificialPlayer.BotHelpers.isVisibleRealPlayer(chr)) {
             // SlumsMS: which portal real players take between two maps (NavPlayerLearning), for the world graph.
             soloMapling.server.MapleRootSolo.runHook("portal learning", () -> soloMapling.ArtificialPlayer.GCMoveSystem
                     .NavPlayerLearning.onPortal(chr, fromMapId, getName(), chr.getMapId()));

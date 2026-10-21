@@ -34,6 +34,15 @@ public class BotHelpers {
         return chr != null && chr.getClient() instanceof client.BotClient;
     }
 
+    /**
+     * A real player the bots can see: not a bot, and not a GM in /hide (1.4.1: bots kept greeting, answering and
+     * gathering round a hidden GM). Use it wherever a bot notices or reacts to a person; LOD observation (bots moving
+     * properly where someone watches) deliberately still counts a hidden GM.
+     */
+    public static boolean isVisibleRealPlayer(Character chr) {
+        return chr != null && !isBot(chr) && !chr.isHidden();
+    }
+
     private static boolean isBot(int id) {
         return isArtificial(id) || isConsole(id);
     }

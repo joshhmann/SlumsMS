@@ -2699,7 +2699,7 @@ public class MapleMap {
 
         chr.setMapId(mapid);
         chr.updateActiveEffects();
-        if (!soloMapling.ArtificialPlayer.BotHelpers.isBot(chr)) {
+        if (soloMapling.ArtificialPlayer.BotHelpers.isVisibleRealPlayer(chr)) { // 1.4.1: no greetings for a hidden GM
             soloMapling.server.MapleRootSolo.runHook("map entered", () ->
                     soloMapling.server.EventMessageSystem.EventBus.getInstance().publish(
                             new soloMapling.server.EventMessageSystem.GameEvent(chr,

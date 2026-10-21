@@ -50,7 +50,7 @@ public class BotLogic {
         for (MapObject obj : playersInRange) {
             if (obj instanceof Character) {
                 Character player = (Character) obj;
-                if (player.getId() != fakeChar.getId()) {
+                if (player.getId() != fakeChar.getId() && !player.isHidden()) { // 1.4.1: not a hidden GM
                     return player;
                 }
             }
@@ -187,7 +187,7 @@ public class BotLogic {
     }
 
     /**
-     * Returns real (non-bot) players within a rectangle around the bot.
+     * Returns real (non-bot) players within a rectangle around the bot; a GM in /hide is not seen (1.4.1).
      * Lightweight — single spatial query + id filter.
      */
     public static List<Character> getRealPlayersInRange(Character fakechar, int width, int height) {
@@ -196,7 +196,7 @@ public class BotLogic {
         List<Character> realPlayers = new ArrayList<>();
         for (MapObject obj : objects) {
             if (obj instanceof Character player) {
-                if (player.getId() != fakechar.getId() && !BotHelpers.isBot(player)) {
+                if (player.getId() != fakechar.getId() && BotHelpers.isVisibleRealPlayer(player)) {
                     debugprint("Detected real player: ", player.getName());
                     realPlayers.add(player);
                 }

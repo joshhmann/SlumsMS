@@ -74,6 +74,8 @@ public final class NavMovementFlaws {
         long missCooldownMs = (long) dbl("bot.flaws.missCooldownMs", 45_000);
         /** {@code bot.flaws.logEveryMin} (10): the INFO summary line's period; 0 = never. */
         long logEveryMin = (long) dbl("bot.flaws.logEveryMin", 10);
+        /** {@code bot.flaws.topPause} (0.5): scales the chance a bot stops at a ladder's top for a moment (1.4.1). */
+        double topPause = dbl("bot.flaws.topPause", 0.5);
         /** Not a switch: the flaw lab turns tagging off to show what learning would do without it. */
         boolean tag = true;
 
@@ -99,8 +101,11 @@ public final class NavMovementFlaws {
 
     /** What a bot does wrong. */
     enum Kind {
-        HESITATE, FALSE_START, OVERRUN, MISS, ROPE_SLIP, TWITCH, HOP
+        HESITATE, FALSE_START, OVERRUN, MISS, ROPE_SLIP, TWITCH, HOP, TOP_PAUSE
     }
+
+    /** Longest a top-of-ladder pause may last; the rope stall watchdog waits well past it. */
+    static final long TOP_PAUSE_MAX_MS = 1_800;
 
     /** A planned flaw for the edge being approached (rolled once per approach). */
     enum Plan {
@@ -129,6 +134,9 @@ public final class NavMovementFlaws {
         long lastMissAtMs;
         int mapId = -1;
         long mapSinceMs;
+        BotNavigationGraph.Edge topPauseEdge; // the step-off edge the top pause was rolled for
+        long topPauseUntilMs;                 // 0 = not rolled to pause / not started; >0 = holding until then
+        boolean topPausePlanned;
     }
 
     private static final Map<Kind, AtomicLong> counts = new EnumMap<>(Kind.class);
@@ -490,6 +498,43 @@ public final class NavMovementFlaws {
             }
         }
         unsafeSkipped.incrementAndGet();
+        return false;
+    }
+
+    /**
+     * 1.4.1, the owner's "I remember doing this as a kid": rarely, a bot that climbs to the top of a ladder or rope
+     * stands there on it for a moment (0.6-1.8 s) before stepping off. Rolled once per step-off edge; called by the
+     * navigator's climb waypoint while it heads for a top step-off. True while the bot should hold still. Bounded:
+     * it can only ever hold for {@link #TOP_PAUSE_MAX_MS}, after which the bot climbs off as normal.
+     */
+    static boolean pausingAtRopeTop(BotMovementState entry, BotNavigationGraph.Edge edge, Point pos) {
+        Rope rope = entry.climbRope;
+        if (rope == null || edge == null || pos == null) {
+            return false;
+        }
+        State s = entry.flaws;
+        long now = System.currentTimeMillis();
+        if (s.topPauseEdge != edge) {
+            s.topPauseEdge = edge;
+            s.topPauseUntilMs = 0L;
+            s.topPausePlanned = pos.y - rope.topY() >= 60 // climbed up to it, not grabbed at the head
+                    && eligible(entry)
+                    && random.getAsDouble() < sloppiness(entry, now) * tuning.topPause;
+        }
+        if (!s.topPausePlanned) {
+            return false;
+        }
+        if (pos.y > rope.topY() + BotPhysicsEngine.climbStepPerTick() + 2) {
+            return false; // not at the top yet
+        }
+        if (s.topPauseUntilMs == 0L) {
+            s.topPauseUntilMs = now + 600 + (long) (random.getAsDouble() * (TOP_PAUSE_MAX_MS - 600));
+            count(Kind.TOP_PAUSE);
+        }
+        if (now < s.topPauseUntilMs) {
+            return true;
+        }
+        s.topPausePlanned = false;
         return false;
     }
 

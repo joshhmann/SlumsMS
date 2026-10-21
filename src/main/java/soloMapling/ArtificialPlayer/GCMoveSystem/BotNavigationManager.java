@@ -899,7 +899,21 @@ final class BotNavigationManager {
             // trying to snap to an off-rope landing point is a runtime-only constraint and can
             // re-clamp the bot back onto the rope top/bottom.
             int ropeX = entry.climbRope != null ? entry.climbRope.x() : edge.startPoint.x;
-            return new Point(ropeX, edge.endPoint.y);
+            // 1.4.1 (bots stuck on top of ladders): the step-off landing may sit up to TOP_EXIT_DOWN_TOL px BELOW the
+            // rope head (findTopExitLanding), so steering at endPoint.y parked the bot at the rope's first climbable
+            // height with dy == 0 - holding still on the rope forever, one pixel short of the top where physics
+            // dismounts it (resolveClimbBoundary). Always aim above the head so the bot keeps climbing up and off.
+            int y = edge.endPoint.y;
+            BotNavigationGraph.Region from = graph != null ? graph.getRegion(edge.fromRegionId) : null;
+            if (entry.climbRope != null && from != null && from.isRopeRegion
+                    && edge.startPoint.y == entry.climbRope.topY()) { // the top step-off only (addTopStepOffEdge)
+                y = Math.min(y, entry.climbRope.topY() - 1);
+                // Ticket 33 style: now and then a bot stops at the top of the ladder for a moment before stepping off.
+                if (NavMovementFlaws.pausingAtRopeTop(entry, edge, botPos)) {
+                    return new Point(botPos);
+                }
+            }
+            return new Point(ropeX, y);
         }
         if (edge.launchStepX != 0 && edge.launchMaxX > edge.launchMinX) {
             // Grounded rope-jump entry: the gate accepts the whole launch window, so steer
