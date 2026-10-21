@@ -50,11 +50,18 @@ Roots and rules (`slumsms-rotate-backups`, `KEEP_DEPLOYS=3`, `TEST_KEEP_DAYS=14`
 - `/opt/mapleroot-deployments/*`: only finished deploys count (a folder with `deploy.log`, `DEPLOYMENT.md`,
   `deployment.json` or `backup/`; staged or dry-run release folders are left alone). The newest 3 (by newest file
   inside) are kept; in older ones only `backup/`,
-  `staging/`, `PreviousServer/`, `*.bundle`, `*.tgz`, `*.tar*`, `*.sql*`, `*.jar` go. DEPLOYMENT.md, logs and
-  scripts stay as the record.
+  `staging/`, `*.bundle`, `*.tgz`, `*.tar*`, `*.sql*`, `*.jar` go. DEPLOYMENT.md, logs and
+  scripts stay as the record. `PreviousServer/` is protected (below) and stays.
 - `/opt/mapleroot-dev/*/` (depth ≤ 4): `backup-*` and `Cosmic.jar.pre-*` older than 14 days; never under a `mysql/`
   datadir or `integration-db/`.
 - Never: `backups/nightly`, the other files in `backups/`, the live server folder.
+- Protected paths (`PROTECT_PATHS`, default `PreviousServer`): never listed as candidates and refused again at delete
+  time, and neither is a folder that contains one (e.g. a `backup/` holding a `PreviousServer/`). A bare name matches
+  that name anywhere under the roots; an entry with a `/` is a glob on the full path, e.g.
+  `PROTECT_PATHS="PreviousServer /opt/mapleroot-deployments/baseline-*/staging"`. Setting it in the conf replaces the
+  default, so keep `PreviousServer` in the list. The owner decided on 2026-10-20 to keep
+  `mapleroot-deployments/baseline-20261018-r1/PreviousServer` (541 MB). Each run prints the protected items with their
+  size. `bash test-rotate-protect.sh` checks this in a temp folder (dry run and `--apply`).
 
 Safety: every run prints the list and records when each item was first listed (`/var/lib/slumsms-backup/rotate-plan.tsv`).
 `--apply` (or `ROTATE_MODE=apply`) deletes only items an earlier run listed at least `GRACE_HOURS` (20) ago, never an

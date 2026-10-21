@@ -25,3 +25,7 @@
 #TEST_KEEP_DAYS=14
 #GRACE_HOURS=20
 #STATE_DIR=/var/lib/slumsms-backup
+# Protected paths: never listed or deleted by rotation, nor any folder that contains one. Space-separated; a bare name
+# matches that file/folder name anywhere, an entry with "/" is a glob on the full path. Setting this REPLACES the
+# default, so keep PreviousServer in it (owner decision 2026-10-20: keep mapleroot-deployments/*/PreviousServer).
+#PROTECT_PATHS="PreviousServer"
