@@ -218,6 +218,8 @@ class BotMovementState {
     int airStuckTicks = 0;
     int airStuckX = Integer.MIN_VALUE;
     int airStuckY = Integer.MIN_VALUE;
+    int ropeStallMs = 0;                  // 1.4.1: time on a rope without vertical progress while going somewhere
+    int ropeStallY = Integer.MIN_VALUE;
 
     // ── Movement-broadcast packet cache (dedup of no-op move packets) ──
     boolean movementBroadcastValid = false;

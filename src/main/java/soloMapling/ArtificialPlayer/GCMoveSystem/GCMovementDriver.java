@@ -1,7 +1,9 @@
 package soloMapling.ArtificialPlayer.GCMoveSystem;
 
 import client.Character;
+import constants.game.CharacterStance;
 import server.maps.MapleMap;
+import server.maps.Rope;
 import soloMapling.server.BotShutdown;
 
 import java.awt.Point;
@@ -488,11 +490,33 @@ final class GCMovementDriver {
         Point botPos = entry.bot.getPosition();
         int arrivalDist = entry.moveTargetPrecise ? 8 : BotMovementManager.cfg.STOP_DIST;
         if (Math.abs(botPos.x - entry.moveTarget.x) <= arrivalDist
-                && Math.abs(botPos.y - entry.moveTarget.y) <= arrivalDist) {
+                && Math.abs(botPos.y - entry.moveTarget.y) <= arrivalDist
+                && !hangingShortOfGroundTarget(entry, entry.moveTarget)) {
             entry.moveTarget = null;
             entry.moveTargetPrecise = false;
             GCMovement.fireArrival(entry);
         }
+    }
+
+    /*
+     * 1.4.1: a bot on a rope is not "there" yet when its target is the ground beside the rope's head - within
+     * STOP_DIST of the head counted as arrived, the move ended, and the bot was left hanging at the top of the ladder.
+     * It still has to step off. A target on the rope itself (near the rope's x, inside its span, not on a foothold)
+     * arrives as before.
+     */
+    static boolean hangingShortOfGroundTarget(BotMovementState entry, Point target) {
+        Rope rope = entry.climbRope;
+        if (!entry.climbing || rope == null || target == null || entry.resting) {
+            return false;
+        }
+        boolean onRope = Math.abs(target.x - rope.x()) <= 12 && target.y > rope.topY() && target.y <= rope.bottomY();
+        if (!onRope) {
+            return true;
+        }
+        // A step-off foothold can sit a few px below the rope head, inside the rope's span: still ground.
+        MapleMap map = entry.bot.getMap();
+        Point ground = map == null ? null : BotPhysicsEngine.findGroundPoint(map, new Point(target.x, target.y - 4));
+        return ground != null && Math.abs(ground.y - target.y) <= 4;
     }
 
     private static boolean consumeAiTick(BotMovementState entry) {
@@ -571,6 +595,7 @@ final class GCMovementDriver {
     private static void tickStuckDetection(BotMovementState entry) {
         entry.unstuckCooldownMs = BotMovementManager.tickDown(entry.unstuckCooldownMs);
         tickFrozenAirborneWatchdog(entry);
+        tickRopeStallWatchdog(entry);
         tickFallOffMapRecovery(entry); // ours: catch a live plummet the frozen-air watchdog above misses
         if (entry.inAir || entry.climbing || entry.graphWarmupFallback
                 || (entry.navEdge == null && entry.moveTarget == null)) {
@@ -598,6 +623,75 @@ final class GCMovementDriver {
             entry.stuckCheckX = Integer.MIN_VALUE;
             BotMovementManager.tickUnstuck(entry);
         }
+    }
+
+    /** 1.4.1: a bot going somewhere that sits on a rope this long without climbing is hung, whatever the cause. */
+    static final int ROPE_STALL_MS = 4_000;
+
+    /*
+     * 1.4.1 (bots stuck on top of ladders): the grounded stuck detector above skips climbing bots, and grind's
+     * ClimbRecovery leaves a bot alone while it has a nav edge, so a bot parked on a rope with somewhere to go (a nav
+     * edge or a move target) could hang there for good. After ROPE_STALL_MS with no vertical progress: at the head of
+     * a rope with a step-off above, climb off onto the platform; anywhere else, jump off toward the goal. Then re-plan.
+     * Rest hangs, commitment holds and a follower hanging beside its climbing owner are deliberate and left alone. The
+     * top-of-ladder pause flaw (NavMovementFlaws.pausingAtRopeTop) is far shorter than the stall time.
+     */
+    static void tickRopeStallWatchdog(BotMovementState entry) {
+        if (!entry.climbing || entry.climbRope == null) {
+            entry.ropeStallMs = 0;
+            entry.ropeStallY = Integer.MIN_VALUE;
+            entry.flaws.topPauseEdge = null; // a new climb rolls its own top pause
+            return;
+        }
+        Point pos = entry.bot.getPosition();
+        boolean goingSomewhere = entry.navEdge != null || entry.moveTarget != null;
+        boolean deliberateHang = entry.resting || entry.heldForCommitment
+                || (entry.following && entry.owner != null && CharacterStance.isClimbing(entry.owner.getStance()));
+        if (!goingSomewhere || deliberateHang || pos == null) {
+            entry.ropeStallMs = 0;
+            entry.ropeStallY = Integer.MIN_VALUE;
+            return;
+        }
+        if (entry.ropeStallY == Integer.MIN_VALUE || Math.abs(pos.y - entry.ropeStallY) > 4) {
+            entry.ropeStallMs = 0;
+            entry.ropeStallY = pos.y;
+            return;
+        }
+        entry.ropeStallMs += BotPhysicsEngine.cfg.TICK_MS;
+        if (entry.ropeStallMs < ROPE_STALL_MS) {
+            return;
+        }
+        entry.ropeStallMs = 0;
+        entry.ropeStallY = Integer.MIN_VALUE;
+        unhangFromRope(entry);
+    }
+
+    static void unhangFromRope(BotMovementState entry) {
+        Character bot = entry.bot;
+        MapleMap map = bot.getMap();
+        Rope rope = entry.climbRope;
+        Point pos = bot.getPosition();
+        NavStuckLog.record(NavStuckLog.Kind.ROPE_HUNG, map, pos, entry.navGraph, entry.navEdge);
+        Point goal = entry.moveTarget != null ? entry.moveTarget : entry.navTargetPos;
+        boolean atHead = pos.y <= rope.topY() + 2 * BotPhysicsEngine.climbStepPerTick() + 2;
+        boolean goalAbove = goal == null || goal.y <= pos.y + BotMovementManager.cfg.STOP_DIST;
+        BotMovementManager.clearNavigationState(entry);
+        if (atHead && goalAbove && BotPhysicsEngine.findTopExitLanding(map, rope) != null) {
+            entry.climbVerticalDir = -1;
+            for (int i = 0; i < 4 && entry.climbing; i++) {
+                BotPhysicsEngine.advanceClimb(entry, bot); // crosses the head: physics lands it on the platform
+            }
+            entry.climbVerticalDir = 0;
+            if (!entry.climbing) {
+                BotMovementManager.broadcastMovement(entry);
+                return;
+            }
+        }
+        int dx = goal != null ? Integer.compare(goal.x, pos.x) : 0;
+        if (dx == 0) {
+            dx = java.util.concurrent.ThreadLocalRandom.current().nextBoolean() ? 1 : -1;
+        }
+        BotMovementManager.jumpOffRope(entry, bot, dx);
     }
 
     private static void tickFrozenAirborneWatchdog(BotMovementState entry) {

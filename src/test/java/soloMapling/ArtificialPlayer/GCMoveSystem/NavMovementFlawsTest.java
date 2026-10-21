@@ -327,4 +327,47 @@ class NavMovementFlawsTest {
         assertFalse(entry.flaws.airborne);
         assertFalse(NavMovementFlaws.holdsNavigation(entry));
     }
+
+    // ── 1.4.1: a moment at the top of the ladder ────────────────────────────────────────────────
+
+    private static BotNavigationGraph.Edge topStepOff() {
+        return new BotNavigationGraph.Edge(20, 12, BotNavigationGraph.EdgeType.CLIMB, new Point(100, 0),
+                new Point(100, 5), 0, 0, 0, 0, 0, 0, 0, 0, 0, 30);
+    }
+
+    @Test
+    void aClumsyRollPausesABotAtTheLadderTopForUnderTwoSecondsThenLetsItOff() {
+        BotMovementState entry = bot(7, 30);
+        entry.climbRope = new server.maps.Rope(100, 0, 400, true);
+        BotNavigationGraph.Edge edge = topStepOff();
+        rolls(0.0, 0.5);
+        assertFalse(NavMovementFlaws.pausingAtRopeTop(entry, edge, new Point(100, 300)), "rolled low on the rope");
+        assertTrue(NavMovementFlaws.pausingAtRopeTop(entry, edge, new Point(100, 1)), "pauses at the top");
+        long left = entry.flaws.topPauseUntilMs - System.currentTimeMillis();
+        assertTrue(left > 0 && left <= NavMovementFlaws.TOP_PAUSE_MAX_MS, "bounded: " + left);
+        assertEquals(1, NavMovementFlaws.countForTest(NavMovementFlaws.Kind.TOP_PAUSE));
+        entry.flaws.topPauseUntilMs = 1L; // time's up
+        assertFalse(NavMovementFlaws.pausingAtRopeTop(entry, edge, new Point(100, 1)));
+        assertFalse(NavMovementFlaws.pausingAtRopeTop(entry, edge, new Point(100, 1)), "once per climb");
+    }
+
+    @Test
+    void mostClimbsAndShortGrabsAtTheHeadNeverPause() {
+        BotMovementState entry = bot(7, 30);
+        entry.climbRope = new server.maps.Rope(100, 0, 400, true);
+        rolls(0.99);
+        assertFalse(NavMovementFlaws.pausingAtRopeTop(entry, topStepOff(), new Point(100, 300)));
+        assertFalse(NavMovementFlaws.pausingAtRopeTop(entry, topStepOff(), new Point(100, 1)), "a fresh edge rerolls high");
+        BotMovementState grabbed = bot(8, 30);
+        grabbed.climbRope = new server.maps.Rope(100, 0, 400, true);
+        rolls(0.0);
+        assertFalse(NavMovementFlaws.pausingAtRopeTop(grabbed, topStepOff(), new Point(100, 1)),
+                "grabbed at the head, not climbed up to it");
+        BotMovementState off = bot(9, 30);
+        off.climbRope = new server.maps.Rope(100, 0, 400, true);
+        off.flaws.off = true;
+        rolls(0.0);
+        assertFalse(NavMovementFlaws.pausingAtRopeTop(off, topStepOff(), new Point(100, 300)));
+        assertFalse(NavMovementFlaws.pausingAtRopeTop(off, topStepOff(), new Point(100, 1)), "flaws off");
+    }
 }

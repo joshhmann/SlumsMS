@@ -106,6 +106,7 @@ jump, jump off a rope) launched through the normal physics, so the client gets o
 | `bot.flaws.recoveryMaxMs` | 12000 | how far off course a miss may leave a bot |
 | `bot.flaws.missCooldownMs` | 45000 | minimum gap between one bot's misses and slips |
 | `bot.flaws.logEveryMin` | 10 | period of the INFO summary line (0 = never) |
+| `bot.flaws.topPause` | 0.5 | 1.4.1: scales the chance a bot stops on a ladder's top for 0.6-1.8 s before stepping off (about 3% of climbs) |
 
 ## Evidence
 

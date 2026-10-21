@@ -3,8 +3,19 @@
 ## For 1.4.1
 - **Coloring Prism (held back from 1.4.0).** QA marked Issue on dye cash weapon, effects layer, hair/eyes, colours
   staying, others seeing them; Fail on reset ("don't see a reset button"). Get the owner's details, fix, re-test.
-- **Bots stuck on top of ladders.** Bots climb to a ladder's top and stay there. Owner: "quite funny, I remember doing
-  this as a kid" - fix it, maybe keep it as a rare deliberate fumble (ticket 33 style), never a permanent stall.
+- **DONE (branch `botfixes-1.4.1`) - Bots stuck on top of ladders.** Owner: "quite funny, I remember doing this as a
+  kid". Causes found with a headless lab on real maps (`RopeTopLab`):
+  - a move whose target was the ground beside a rope head counted as *arrived* while the bot was still on the rope
+    (within 30 px), so the bot was left hanging at the top until its next errand (33 of ~550 rope-head trips in 3 min;
+    0 after the fix);
+  - where the step-off foothold sits just below the rope head, the climb waypoint aimed at the landing (dy = 0), so the
+    bot hung one pixel short of the top for good - and grind's ClimbRecovery left it alone because it had a nav edge;
+  - the grounded stuck detector skips climbing bots, so nothing ever unhung them.
+  Fixed: no arrival while hanging short of a ground target; the top step-off aims above the head; a rope-stall
+  watchdog (4 s without vertical progress while going somewhere: step off at the head, else jump off toward the goal,
+  logged as ROPE_HUNG). Kept as a rare fumble: about 3% of climbs pause 0.6-1.8 s at the top (`bot.flaws.topPause`,
+  ticket 33 rules: observed maps only, never in events/following/rests). Tests: `RopeTopStallTest` (real map
+  107000400), `NavMovementFlawsTest`.
 - **4th-job bot attacks** (ticket 32, branch `bot-4th-job-skills` / client `bot-attack-diag`): AFK check with
   `!botshowcase 4th 10` + attackdiag log, then a day of watching bot EXP pace.
 - **DONE (branch `botfixes-1.4.1`) - Channel load bars count bots in full.** ~1,000 bots after a restart filled
