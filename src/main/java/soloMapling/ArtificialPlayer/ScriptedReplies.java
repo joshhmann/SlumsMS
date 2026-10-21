@@ -35,6 +35,8 @@ public final class ScriptedReplies {
     static final List<String> TRADE_NO = List.of("not trading rn", "no trades sry", "nah im not selling anything");
     static final List<String> TRADE_SHOP = List.of("everything's in my shop", "check my shop", "prices r on the shop");
     static final List<String> TRAIN_AT = List.of("i train at %s", "%s mostly", "usually %s", "%s rn");
+    static final List<String> WHERE_AT = List.of("im at %s", "%s rn", "at %s, come by if u want", "in %s atm",
+            "%s, come if u want");
     static final List<String> TRAIN_UNKNOWN = List.of("idk i mostly hang in town", "wherever isnt crowded lol", "idk tbh");
 
     private ScriptedReplies() {

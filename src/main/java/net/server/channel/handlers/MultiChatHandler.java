@@ -60,6 +60,7 @@ public final class MultiChatHandler extends AbstractPacketHandler {
         if (type == 0) {
             world.buddyChat(recipients, player.getId(), player.getName(), chattext);
             ChatLogger.log(c, "Buddy", chattext);
+            soloMapling.ArtificialPlayer.BotBuddies.buddyChat(player, recipients, chattext); // ticket 49
         } else if (type == 1 && player.getParty() != null) {
             world.partyChat(player.getParty(), chattext, player.getName());
             ChatLogger.log(c, "Party", chattext);

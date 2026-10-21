@@ -26,7 +26,12 @@ public final class ChatTriage {
     public enum Kind { IGNORE, EMOTE, GREETING, THANKS, BYE, TALK }
 
     /** What the player wants the bot to do. */
-    public enum Intent { PARTY, FOLLOW, COME_WITH_ME, TRADE, WHERE_TRAIN, NONE }
+    public enum Intent {
+        PARTY, FOLLOW, COME_WITH_ME, TRADE, WHERE_TRAIN,
+        /** Where the bot is right now, or meeting up (ticket 49, buddy chat); by rule only, not a model label. */
+        WHERE_AT,
+        NONE
+    }
 
     /** Whether the line is a con. */
     public enum Con { NORMAL, SCAM, MANIPULATION, HARASSMENT, RWT }
@@ -117,6 +122,10 @@ public final class ChatTriage {
             + " (to|for) (train|level|lvl|grind|exp)|where.*\\b(train|grind)\\b.*\\?|any good (maps|spots)|best (map|spot)"
             + "s? (for|at|to)|good (map|spot)s? for (a )?l(e)?v(e)?l? ?\\d+)");
 
+    private static final Pattern WHERE_AT = Pattern.compile("(\\bwhere (r|are|re|ru) (u|you|ya|yall)\\b(?! (from|in real|irl))"
+            + "|\\bwhere ru\\b(?! (from|in real|irl))|\\bwhere (u|you|ya) at\\b|\\bwya\\b|\\bwru\\b|\\bmeet ?up\\b|\\bmeet me\\b|\\bwanna meet\\b"
+            + "|\\b(can|should|shall) we meet\\b|\\bwhat map (r|are) (u|you)( on| in)?\\b)");
+
     private static final Pattern MANIPULATION = Pattern.compile("(\\b(are|r) (u|you) (a |an )?(bot|ai|robot|npc|program"
             + "|computer|real person|real|human)\\b|\\b(ur|you'?re|youre|u r) (a |an )?(bot|ai|robot|program)\\b"
             + "|chat ?gpt|\\bgpt\\b|language model|\\bllm\\b|ignore (all |your |my |the |previous |prior )+"
@@ -166,6 +175,9 @@ public final class ChatTriage {
         String text = normal(line);
         if (WHERE_TRAIN.matcher(text).find()) {
             return Optional.of(Intent.WHERE_TRAIN);
+        }
+        if (WHERE_AT.matcher(text).find()) {
+            return Optional.of(Intent.WHERE_AT);
         }
         if (FOLLOW.matcher(text).find()) {
             return Optional.of(Intent.FOLLOW);

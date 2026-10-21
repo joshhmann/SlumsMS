@@ -116,4 +116,15 @@ class ChatTriageTest {
         assertEquals(0.57, r.conConfidence(), 1e-9);
         assertEquals(1.0, ChatTriage.rules("selling mesos for paypal").conConfidence(), 1e-9);
     }
+
+    @Test
+    void whereAreYouAndMeetUpAskWhereTheBotIs() { // ticket 49: buddy chat and whispers
+        for (String line : java.util.List.of("where r u", "where are you?", "wya", "where u at", "hey where ru now",
+                "wanna meet up?", "meet me in henesys", "can we meet", "what map are you on")) {
+            assertEquals(ChatTriage.Intent.WHERE_AT, ChatTriage.rules(line).intent(), line);
+        }
+        assertEquals(ChatTriage.Intent.WHERE_TRAIN, ChatTriage.rules("where do u train").intent());
+        assertEquals(ChatTriage.Intent.NONE, ChatTriage.rules("where are you from").intent(), "not a place in game");
+        assertEquals(ChatTriage.Intent.NONE, ChatTriage.rules("nice hat where u get it").intent());
+    }
 }
