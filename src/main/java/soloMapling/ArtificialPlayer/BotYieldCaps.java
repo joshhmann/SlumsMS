@@ -208,6 +208,9 @@ public final class BotYieldCaps {
         if (!metered(bot, drop)) {
             return true;
         }
+        if (drop.getMeso() > 0 && !BotWealth.mayTakeMesos(bot)) {
+            return false;   // 56B: at its hard wealth line; the mesos stay on the floor for a player
+        }
         return reserve(bot, bot.getMap(), Math.max(0, drop.getMeso()), dropUnits(drop), false, false) >= 0;
     }
 
@@ -218,6 +221,9 @@ public final class BotYieldCaps {
     public static boolean takeDrop(Character bot, MapItem drop) {
         if (!metered(bot, drop)) {
             return true;
+        }
+        if (drop.getMeso() > 0 && !BotWealth.takeDropMesos(bot, java.util.concurrent.ThreadLocalRandom.current())) {
+            return false;   // 56B: over its wealth ceiling, intake slowed (stopped at the hard line)
         }
         return reserve(bot, bot.getMap(), Math.max(0, drop.getMeso()), dropUnits(drop), false, true) >= 0;
     }
@@ -239,6 +245,10 @@ public final class BotYieldCaps {
         }
         if (!isMeteredBot(bot)) {
             return mesos;
+        }
+        mesos = BotWealth.cutMesos(bot, mesos);   // 56B: cut in proportion over the wealth ceiling
+        if (mesos <= 0) {
+            return 0;
         }
         return Math.max(0, reserve(bot, bot.getMap(), mesos, 0, true, true));
     }

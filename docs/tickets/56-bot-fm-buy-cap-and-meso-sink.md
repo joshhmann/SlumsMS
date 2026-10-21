@@ -71,3 +71,33 @@ Owner QA (`!qa run fm-1`, 2026-10-21): 450 FM_BUY events in 90 s, none in the GM
   (`FMBotWallet`); a top-up that does not end in a purchase is taken back. A full equip tab lets go of the
   oldest equip the bot bought. The QA log says why instead of "buy failed".
 - 56A is unchanged: 1.0x normal value ceiling and 5m per seller account per day for real players.
+
+## 1.5.0: B built, the wealth ceiling (branch `economy-gacha-150`)
+
+`soloMapling.ArtificialPlayer.BotWealth`:
+
+- **Ceiling** = `max(100,000, 120 x level^2) x meso rate`: at 10x 1.08m (lv 30), 5.9m (70), 9.7m (90), 17.3m (120).
+  Hard line 2x the ceiling.
+- **Intake:** between the ceiling and the hard line, mob mesos (`BotYieldCaps.takeDrop` / `takeMesos`) are cut in
+  proportion (a meso drop is taken with that chance, an offscreen share is cut); at the hard line they stop. What is
+  refused stays on the floor for players.
+- **Spending above it** (TrainingBot town stop and store browse, about once a minute):
+  - gachapon tickets (`BotGacha`, 1m each, up to 11 a day);
+  - half the excess on top of the scroll budget (`ScrollBudget.maxPrice`, still 12 buys a day);
+  - upkeep: 10% of what is still over, burned, at most every 10 minutes.
+  Potions/ammo are not limited by a rich bot's mesos already (its kit is), so unchanged.
+- **Read-outs:** `!botwealth` (bands, counts over, ledger), `!botwealth <bot> [spend]`, the ledger line in `!botyield`.
+  QA: `!qa run ga-2`.
+- **Properties:** `-Dsolomapling.botWealthCeiling=false`, `botWealthPerLevelSq` (120), `botWealthFloor` (100000),
+  `botWealthHardFactor` (2.0), `botWealthDecayShare` (0.10), `botWealthDecayMinutes` (10).
+
+**Measured 2026-10-21 (test DB, read-only), ceiling at 10x:**
+
+| Schema | Bots | Mesos | Over ceiling | At hard line | Over by | After convergence |
+|---|---|---|---|---|---|---|
+| `mapleroot_soak` (live-like) | 3,510 | 20.9b | 2,288 (65%) | 1,322 | 10.0b | 10.9b (-48%) |
+| `mapleroot_persist` (owner's test server) | 2,836 | 239.5b | 1,801 | 1,616 | 230.7b | 8.9b |
+
+`mapleroot_persist` is an outlier: 1,242 bots hold over 25m (234b between them), all created 2026-10-19, while the
+yield meter shows at most 12.6m per bot per day. That cannot come from metered mob mesos; it predates the meter or
+came from a run with the caps off. Worth a look before reading its economy numbers.

@@ -65,6 +65,7 @@ public class GachaBot extends BotSM {
 
         EventBus.getInstance().subscribe(EventType.LEVEL_UP, this);
         EventBus.getInstance().subscribe(EventType.SCROLLING, this);
+        EventBus.getInstance().subscribe(EventType.GACHAPON_REWARD, this);   // 1.5.0: cheer real rolls on its map
     }
 
     private void setPosition() {
@@ -81,8 +82,16 @@ public class GachaBot extends BotSM {
 
         // Run the roulette drop animation
 //        SocialCommands.BotChatbubble(getChr(), "Running roulette!");
-        // todo get prize based on map
+        // 1.5.0: the show's prize is a roll of this town's real pool (the machine on this map), SCG as before when
+        // the map has no machine. Nothing is announced: it is a show, not a ticket.
         int prize_id = 1082223; // scg
+        soloMapling.Gachapon.GachaPools pools = soloMapling.Gachapon.GachaPools.get();
+        soloMapling.Gachapon.GachaPools.Town town = pools.byMap(getChr().getMapId());
+        soloMapling.Gachapon.GachaPools.Prize prize = town == null ? null
+                : pools.roll(town, java.util.concurrent.ThreadLocalRandom.current());
+        if (prize != null) {
+            prize_id = prize.itemId();
+        }
         List<ReactorDropEntry> popDrops = createReactorDropList(createGachaListWithPrize(prize_id));
         gachaPop(getChr(), popDrops);
 //        BotHelpers.blockingSleep(2000); // Simulate roulette animation time

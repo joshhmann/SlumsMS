@@ -110,4 +110,28 @@ public interface QaWorld {
      * its own). The log lines of the roll; a line saying so when it has nothing it would scroll.
      */
     List<String> botScrollStep(int botId, String appetite);
+
+    /**
+     * 1.5.0 gachapon (ga-1): a forced roll for the GM at a town's machine, no ticket; {@code tier} (common | uncommon
+     * | rare | jackpot) forces the tier, null rolls normally. The result line.
+     */
+    String gachaRoll(Character gm, String town, String tier);
+
+    /** The machine's odds per tier and an n-roll simulation, as lines; a line saying so for an unknown town. */
+    List<String> gachaOdds(String town, int simulateRolls);
+
+    /** The map the town's machine NPC stands on (its last {@code maps:} entry), or 0. */
+    int gachaMap(String town);
+
+    /** Ticket 56B (ga-2): gives a spawned bot mesos (test only: the bot leaves at stop); how many it got. */
+    int giveBotMeso(int botId, int amount);
+
+    /** The bot's ceiling in mesos, or -1 when it is gone. */
+    long botCeiling(int botId);
+
+    /** "Lv 72 Bob: 14,200,000 held, ceiling ..." or a line saying it is gone. */
+    String botWealthLine(int botId);
+
+    /** One forced spending step (gachapon if its map has a machine, then upkeep): what it did. */
+    List<String> botWealthStep(int botId);
 }
