@@ -58,16 +58,17 @@ public class CustomReactor {
         return 0;
     }
 
-    public static void spawnReactor(Character fakechar) {
-        spawnReactor(fakechar.getPosition(), fakechar.getMap());
+    public static Reactor spawnReactor(Character fakechar) {
+        return spawnReactor(fakechar.getPosition(), fakechar.getMap());
     }
 
-    public static void spawnReactor(Point position, MapleMap map) {
+    public static Reactor spawnReactor(Point position, MapleMap map) {
         int reactorID = 2202004;
         Reactor reactor = new Reactor(ReactorFactory.getReactorS(reactorID), reactorID);
         reactor.setPosition(position);
         reactor.resetReactorActions(0);
         map.spawnReactor(reactor);
+        return reactor;
     }
 
     public static void deleteReactor(MapleMap map, int oid) {
@@ -264,10 +265,39 @@ public class CustomReactor {
         hitReactor(map, oid);
     }
 
+    /*
+        1.4.2 (perf): the box a pop spawns is taken off the map once its spray has landed. Before, every pop left
+        its broken box in the map's objects for good (about 385 an hour with three gacha bots on Henesys Market),
+        and each one went to every client entering the map: 9,000 extra packets per entry after a day of uptime.
+        The pop also works on the box it spawned instead of whichever unbroken box stands nearest.
+     */
+    static final long RETIRE_AFTER_LAST_DROP_MS = 1500;
+
     public static void gachaPop(Character fakechar, List<ReactorDropEntry> drops) {
-        spawnReactor(fakechar);
-        int nearestReactor = getNearestReactor(fakechar);
-        threeHitReactor(fakechar.getMap(), nearestReactor);
-        sprayFromReactor(fakechar.getMap(), nearestReactor, drops, fakechar);
+        MapleMap map = fakechar.getMap();
+        Reactor box = spawnReactor(fakechar);
+        int oid = box.getObjectId();
+        threeHitReactor(map, oid);
+        sprayFromReactor(map, oid, drops, fakechar);
+        retireLater(map, box, retireDelayMs(drops.size()));
+    }
+
+    /* The spray drops one item every 200 ms (delayedReactorDrops); the box goes after the last one has landed. */
+    static long retireDelayMs(int drops) {
+        return Math.max(0, drops - 1) * 200L + RETIRE_AFTER_LAST_DROP_MS;
+    }
+
+    static void retireLater(MapleMap map, Reactor box, long delayMs) {
+        server.TimerManager.getInstance().schedule(() -> retire(map, box), delayMs);
+    }
+
+    /* Takes a box this class spawned off the map: clients drop it, entering players no longer get it. */
+    public static void retire(MapleMap map, Reactor box) {
+        if (map == null || box == null || map.getMapObject(box.getObjectId()) != box) {
+            return;
+        }
+        box.setAlive(false);
+        map.broadcastMessage(PacketCreator.destroyReactor(box));
+        map.removeMapObject(box);
     }
 }

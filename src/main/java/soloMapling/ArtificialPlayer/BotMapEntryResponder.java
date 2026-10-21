@@ -19,7 +19,7 @@ import static soloMapling.ArtificialPlayer.BotHelpers.isBot;
 // Makes bots feel instantly alive when a real player and a bot come to share a map. Two directions,
 // one nudge:
 //   A) a player enters a map that has bots - onEvent(MAP_ENTERED): mark the map observed now (instant
-//      FULL movement/combat for the GC LOD) and nudge every running bot on it to re-evaluate promptly
+//      FULL movement/combat for the GC LOD) and nudge the nearest running bots on it (1.4.2: at most 12) to re-evaluate promptly
 //      instead of on its slow 2-6s/10s wheel.
 //   B) a bot enters a map a real player is already on - onBotArrivedObserved(): nudge just the arriving
 //      bot. Its movement is already made instant in GCMovementDriver.onMapChange; this wakes its macro
@@ -34,6 +34,14 @@ public final class BotMapEntryResponder implements EventSubscriber {
     // the same frame (organic, and spreads the reschedule cost across the burst).
     private static final long NUDGE_MIN_MS = 150;
     private static final long NUDGE_MAX_MS = 700;
+
+    // 1.4.2 (perf): a player entering a busy map nudges only the bots nearest to it, after its client has had a
+    // moment to load the field. Before, every bot on the map (up to ~80 in Henesys) woke within 150-700 ms of the
+    // entry, so their movement, emotes and chat landed on the client in the same second as the map's spawn burst.
+    // The rest keep their own 2-6 s wheel, which already spreads them out.
+    static final int ENTRY_NUDGE_MAX_BOTS = 12;
+    static final long ENTRY_NUDGE_MIN_MS = 300;
+    static final long ENTRY_NUDGE_MAX_MS = 1200;
 
     private BotMapEntryResponder() {
     }
@@ -62,21 +70,35 @@ public final class BotMapEntryResponder implements EventSubscriber {
                 return;
             }
             GCMovement.markObservedNow(map.getId()); // instant FULL for the GC movement/combat LOD
-            ExecutorServiceManager.runAsync(() -> nudgeBotsOnMap(map));
+            Character entrant = event.getMapleCharacter();
+            java.awt.Point at = entrant != null ? new java.awt.Point(entrant.getPosition()) : null;
+            ExecutorServiceManager.runAsync(() -> nudgeBotsOnMap(map, at));
         } catch (Throwable ignored) {
             // never let a responder failure propagate into MapleMap.addPlayer
         }
     }
 
-    private void nudgeBotsOnMap(MapleMap map) {
+    private void nudgeBotsOnMap(MapleMap map, java.awt.Point at) {
         try {
-            for (Character chr : map.getAllPlayers()) { // snapshot copy - safe to iterate off-thread
-                if (chr != null && isBot(chr)) {
-                    nudge(chr);
-                }
+            for (Character chr : nearestBots(map.getAllPlayers(), at, ENTRY_NUDGE_MAX_BOTS)) { // snapshot copy
+                nudge(chr, ENTRY_NUDGE_MIN_MS, ENTRY_NUDGE_MAX_MS);
             }
         } catch (Throwable ignored) {
         }
+    }
+
+    /* The bots among these characters nearest to the point (all of them up to max when the point is unknown). */
+    static java.util.List<Character> nearestBots(java.util.Collection<Character> chars, java.awt.Point at, int max) {
+        java.util.List<Character> bots = new java.util.ArrayList<>();
+        for (Character chr : chars) {
+            if (chr != null && isBot(chr)) {
+                bots.add(chr);
+            }
+        }
+        if (at != null && bots.size() > max) {
+            bots.sort(java.util.Comparator.comparingDouble(b -> at.distanceSq(b.getPosition())));
+        }
+        return bots.size() > max ? bots.subList(0, max) : bots;
     }
 
     // Direction B. A bot just entered a map a real player is already on; wake its macro brain. Safe to
@@ -91,11 +113,15 @@ public final class BotMapEntryResponder implements EventSubscriber {
     }
 
     private void nudge(Character botChr) {
+        nudge(botChr, NUDGE_MIN_MS, NUDGE_MAX_MS);
+    }
+
+    private void nudge(Character botChr, long minMs, long maxMs) {
         BotSM bot = CharacterStorage.getAllBots().get(botChr.getId());
         if (bot == null || !bot.getRunning()) {
             return;
         }
-        long jitter = ThreadLocalRandom.current().nextLong(NUDGE_MIN_MS, NUDGE_MAX_MS + 1);
+        long jitter = ThreadLocalRandom.current().nextLong(minMs, maxMs + 1);
         bot.nudgeSoon(jitter);
         BotPerformanceMonitor.recordEntryNudges(1);
     }

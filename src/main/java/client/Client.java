@@ -1513,7 +1513,26 @@ public class Client extends ChannelInboundHandlerAdapter {
         }
     }
 
+    /** 1.4.2: counts what this client is sent while a !qa pe-1 entry window is open (null otherwise). */
+    public interface PacketMeter {
+        void sent(Packet packet);
+    }
+
+    private volatile PacketMeter packetMeter;
+
+    public void setPacketMeter(PacketMeter meter) {
+        this.packetMeter = meter;
+    }
+
+    public PacketMeter getPacketMeter() {
+        return packetMeter;
+    }
+
     public void sendPacket(Packet packet) {
+        PacketMeter meter = packetMeter;
+        if (meter != null) {
+            meter.sent(packet);
+        }
         announcerLock.lock();
         try {
             ioChannel.writeAndFlush(packet);

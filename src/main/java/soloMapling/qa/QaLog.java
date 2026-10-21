@@ -38,7 +38,8 @@ public final class QaLog {
         SCROLL,         // scroll results (gn-2)
         CHANNEL_LOAD,   // channel load bars sent to the login screen (wd-1)
         IDLE,           // idle bots: hits taken while idle, moves to a safe spot (id-1)
-        SLIDE;          // the GM's own attacks: how far the character moved during each (mv-1)
+        SLIDE,          // the GM's own attacks: how far the character moved during each (mv-1)
+        MAP_ENTRY;      // a GM's map entries: time, packets, bytes, deferred spawns, the map's objects (pe-1)
 
         final int bit = 1 << ordinal();
     }
