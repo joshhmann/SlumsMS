@@ -22,7 +22,7 @@ using live's and the test server's real command lines. The command needs GM leve
 | `!qa stop` | Ends the run, undoes the staging and closes the log |
 
 You can run one scenario at a time. Scenarios that claim a map (bk, gd, fm, gh) refuse to start while another GM's
-scenario holds that map. A run stops on its own after 15 minutes. ld-1 stops after 10, wd-2 after 5, and bk-1 after
+scenario holds that map. A run stops on its own after 15 minutes. ld-1 and mv-1 stop after 10, wd-2 after 5, and bk-1 after
 the showcase's own minutes plus one.
 
 ## Scenarios (1.4.1)
@@ -41,6 +41,7 @@ the showcase's own minutes plus one.
 | `gn-2` (`sc-1`) `[n]` | Gives you a one-handed sword and n (default 3) 2043000 scrolls | Every scroll result, with ATT/MATT, slots left and level |
 | `gd-1` (`gd-2`) | Warps you to the Guild HQ, tops your mesos up to the fee, and spawns 3 idle bots by Heracle | Guild creation requests (eligible count, min partners, party, mesos), created guilds, and bot chat |
 | `cs-2` | Gives you pet 5000000 (7 days) and pet equip 1802085 | Every equip you put on, with its slot |
+| `mv-1` `[attacks 1-200] [window ms 100-3000]` | Nothing: arms a meter on your own character (default 20 attacks, 600 ms window) | Each of your attacks (close, ranged, magic, touch): where you stood, the movement fragments you sent, and how far you moved during the attack. One yellow line per attack and a summary. See [mv-1](#mv-1-attack-slide) |
 
 What `!qa stop` undoes:
 
@@ -54,6 +55,48 @@ You are not warped back. Mesos you earned in fm-1 stay with you.
 
 Planned for 1.4.2 (`QaScenarios.PLANNED` lists them, with TODO notes in that file): bot buddies, multi-channel follow,
 and 5-channel population. Their branches are not merged into rc1 yet.
+
+## mv-1: attack slide
+
+Owner report: holding left/right while attacking on the ground keeps the character sliding. In stock v83 an attack
+on the ground stops you. `!qa run mv-1 [attacks] [window ms]` measures it on your own character. It changes nothing
+in the game; it only reads your packets.
+
+1. Stand on flat ground by a mob. `!qa run mv-1` (or `!qa run mv-1 30 800` for 30 attacks with an 800 ms window).
+2. Attack a few times standing still, then a few times while holding left or right.
+3. About 1.6 s after each attack (window + 1 s for the client's batched movement) you get one yellow line:
+
+```
+#3 skill 1001004 close: slide 42px (net +40), dy 0, xv max 125, speed 130, fh 12, held yes, 4 frags in 600ms
+```
+
+| Field | Meaning |
+|---|---|
+| `skill`, route | Skill id (0 = basic attack) and handler: `close`, `ranged`, `magic`, `touch` (energy/body pressure) |
+| `slide` | Largest horizontal distance from where the attack started, over the movement fragments that ended inside the window |
+| `net` | x at the last fragment in the window minus x at the start |
+| `dy` | y change over the same fragments |
+| `xv max` | Largest horizontal velocity (px/s) the client reported in the window |
+| `speed` | Your total speed stat, equips and buffs included (`getTotalMoveSpeedStat`, 100 = base) |
+| `fh` | Foothold of your last movement before the attack. `fh 0 (air)` = airborne, `fh ?` = no movement seen yet. `not grounded` marks attacks that do not count as ground attacks |
+| `jumped/air` | A jump, knockback, down-jump or fall stance showed up in the window |
+| `held` | A walk stance (move action 1) at the attack or in the window: the client says a direction key was held |
+| `frags` | Movement fragments in the window. `no movement sent (stood still)` = the client sent none, so you did not move |
+
+After the last attack (or at `!qa stop`), a summary: attack count and how many were grounded, average and max
+slide, the grounded average, how many had a direction held, and how many were grounded, held and sliding.
+
+How to read it: on vanilla behaviour a grounded attack has `slide` ~0 px whether or not a direction is held (a few
+px of deceleration at most). A grounded attack with `held yes` and a large `slide` (tens of px, growing with
+`speed`) is the momentum bug. Airborne attacks move anyway and are not evidence either way.
+
+The log (`logs/qa/mv-1-*.log`) also has every raw fragment (`MOVE`: type, position, xv, fh, stance, duration) and
+every attack (`ATTACK`: position, stance, speed) for a closer look.
+
+How it is measured: `AttackCapture.attack` (called by the close, ranged, magic and touch handlers) and
+`MovePlayerHandler` call `soloMapling.qa.MoveTrace`, which does nothing unless an mv-1 run armed that character
+(one volatile read and a map lookup). Fragment times count back from the packet's arrival by the fragments'
+durations. The analysis is `soloMapling.qa.SlideMeter` (pure, tested in `SlideMeterTest`).
 
 ## Logs
 
