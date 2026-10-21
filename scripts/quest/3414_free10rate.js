@@ -1,4 +1,3 @@
-/*
 var item;
 var stance;
 var status = -1;
@@ -46,4 +45,3 @@ function end(mode, type, selection) {
         qm.dispose();
     }
 }
-    */
