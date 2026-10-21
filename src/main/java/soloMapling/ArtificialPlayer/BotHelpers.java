@@ -40,6 +40,16 @@ public class BotHelpers {
      * properly where someone watches) deliberately still counts a hidden GM.
      */
     public static boolean isVisibleRealPlayer(Character chr) {
+        if (chr != null && chr.isHidden() && soloMapling.qa.QaLog.on(soloMapling.qa.QaLog.Topic.HIDE)
+                && !isBot(chr)) { // !qa gh-1: who skipped the hidden GM, at most once per caller per 10 s
+            String caller = StackWalker.getInstance().walk(s -> s.skip(1).findFirst()
+                    .map(f -> f.getClassName().substring(f.getClassName().lastIndexOf('.') + 1) + "."
+                            + f.getMethodName()).orElse("?"));
+            if (soloMapling.qa.QaLog.every("hide:" + chr.getId() + ":" + caller, 10_000)) {
+                soloMapling.qa.QaLog.map(soloMapling.qa.QaLog.Topic.HIDE, chr.getMapId(), "bots skip hidden "
+                        + chr.getName() + " (" + caller + ")");
+            }
+        }
         return chr != null && !isBot(chr) && !chr.isHidden();
     }
 

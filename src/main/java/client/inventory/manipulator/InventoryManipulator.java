@@ -646,6 +646,10 @@ public class InventoryManipulator {
         int rebirths = chr.getReborns();
 
         Equip source = (Equip) eqpInv.getItem(src);
+        if (source != null && soloMapling.qa.QaLog.on(soloMapling.qa.QaLog.Topic.EQUIP)) { // !qa cs-2
+            soloMapling.qa.QaLog.owner(soloMapling.qa.QaLog.Topic.EQUIP, chr.getId(), "equip " + source.getItemId()
+                    + " from slot " + src + " to " + dst + (ii.canWearEquipment(chr, source, dst) ? "" : " (refused)"));
+        }
         if (source == null || !ii.canWearEquipment(chr, source, dst)) {
             c.sendPacket(PacketCreator.enableActions());
             return;

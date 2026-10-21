@@ -361,6 +361,15 @@ public final class BotAttackDriver {
             return more;
         });
         BotAranCombo.afterStrike(bot, skillId, targets.size() * Math.max(1, plan.shots()));
+        if (soloMapling.qa.QaLog.on(soloMapling.qa.QaLog.Topic.ATTACK)) { // !qa bk-1
+            soloMapling.qa.QaLog.map(soloMapling.qa.QaLog.Topic.ATTACK, bot.getMapId(), bot.getName() + " "
+                    + bot.getJob() + " skill " + skillId + " lv " + skillLevel + " route " + route + " action "
+                    + plan.action() + " facing " + (plan.facingLeft() ? "left" : "right") + " speed " + plan.speed()
+                    + (plan.prepare() ? " prepare " + plan.prepareAction() : "") + " shots " + plan.shots()
+                    + " weapon " + weaponItemId + " " + weapon + " projectile " + projectile + " mobs "
+                    + targets.size() + " lines " + lines + " dmg " + reported + (killed ? " killed" : "")
+                    + (supply.fallback() != null ? " fallback " + supply.fallback() : ""));
+        }
 
         supply.commit(bot, route, skillId); // the ammo fired, the MP/HP the skill cost (and a potion if it is low)
         BotComboOrbs.afterStrike(bot, skillId); // after the packet: a finisher is drawn with the orbs it spends

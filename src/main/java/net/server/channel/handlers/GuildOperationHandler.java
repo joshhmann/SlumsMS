@@ -103,6 +103,12 @@ public final class GuildOperationHandler extends AbstractPacketHandler {
                 }
 
                 Set<Character> eligibleMembers = new HashSet<>(Guild.getEligiblePlayersForGuild(mc));
+                if (soloMapling.qa.QaLog.on(soloMapling.qa.QaLog.Topic.GUILD)) { // !qa gd-1
+                    soloMapling.qa.QaLog.map(soloMapling.qa.QaLog.Topic.GUILD, mc.getMapId(), mc.getName() + " creates '"
+                            + guildName + "': " + eligibleMembers.size() + " eligible of " + mc.getMap().getAllPlayers().size()
+                            + " on the map, min partners " + YamlConfig.config.server.CREATE_GUILD_MIN_PARTNERS
+                            + ", party " + mc.getPartyId() + ", meso " + mc.getMeso());
+                }
                 if (eligibleMembers.size() < YamlConfig.config.server.CREATE_GUILD_MIN_PARTNERS) {
                     if (mc.getMap().getAllPlayers().size() < YamlConfig.config.server.CREATE_GUILD_MIN_PARTNERS) {
                         // thanks NovaStory for noticing message in need of smoother info

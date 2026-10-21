@@ -53,6 +53,11 @@ public class BotLogic {
                 if (player.getId() != fakeChar.getId() && !player.isHidden()) { // 1.4.1: not a hidden GM
                     return player;
                 }
+                if (player.isHidden() && soloMapling.qa.QaLog.on(soloMapling.qa.QaLog.Topic.HIDE)
+                        && soloMapling.qa.QaLog.every("hide-near:" + fakeChar.getId(), 10_000)) { // !qa gh-1
+                    soloMapling.qa.QaLog.map(soloMapling.qa.QaLog.Topic.HIDE, fakeChar.getMapId(), fakeChar.getName()
+                            + " has hidden " + player.getName() + " in range and ignores them");
+                }
             }
         }
         return null; // No valid player found
