@@ -1398,6 +1398,25 @@ public class Client extends ChannelInboundHandlerAdapter {
         return characterSlots < 15;
     }
 
+    /**
+     * Takes back a slot granted by {@link #gainCharacterSlot()} for a creation that then
+     * failed (Maple Life B), so a rejected name cannot be retried into free slots.
+     */
+    public synchronized boolean loseCharacterSlot() {
+        if (characterSlots <= 0) {
+            return false;
+        }
+        try (Connection con = DatabaseConnection.getConnection();
+             PreparedStatement ps = con.prepareStatement("UPDATE accounts SET characterslots = ? WHERE id = ?")) {
+            ps.setInt(1, this.characterSlots -= 1);
+            ps.setInt(2, accId);
+            ps.executeUpdate();
+        } catch (SQLException e) {
+            e.printStackTrace();
+        }
+        return true;
+    }
+
     public synchronized boolean gainCharacterSlot() {
         if (canGainCharacterSlot()) {
             try (Connection con = DatabaseConnection.getConnection();

@@ -2266,7 +2266,7 @@ public class Character extends AbstractCharacterObject {
                         if (!mapitem.isPlayerDrop() || mapitem.getDropper().getObjectId() == client.getPlayer().getObjectId()) {
                             if (ItemId.isNxCard(itemId)) {
                                 // Add NX to account, show effect and make item disappear
-                                int nxGain = mapitem.getItemId() == ItemId.NX_CARD_100 ? 100 : 250;
+                                int nxGain = ItemId.nxCardValue(mapitem.getItemId(), mItem.getQuantity());
                                 this.getCashShop().gainCash(1, nxGain);
 
                                 if (YamlConfig.config.server.USE_ANNOUNCE_NX_COUPON_LOOT) {
@@ -2308,7 +2308,7 @@ public class Character extends AbstractCharacterObject {
                         }
                     } else if (ItemId.isNxCard(mapitem.getItemId())) {
                         // Add NX to account, show effect and make item disappear
-                        int nxGain = mapitem.getItemId() == ItemId.NX_CARD_100 ? 100 : 250;
+                        int nxGain = ItemId.nxCardValue(mapitem.getItemId(), mItem.getQuantity());
                         this.getCashShop().gainCash(1, nxGain);
 
                         if (YamlConfig.config.server.USE_ANNOUNCE_NX_COUPON_LOOT) {
@@ -7389,11 +7389,7 @@ public class Character extends AbstractCharacterObject {
 
         if (level % 20 == 0) {
             if (YamlConfig.config.server.USE_ADD_SLOTS_BY_LEVEL == true) {
-                if (!isGM()) {
-                    for (byte i = 1; i < 5; i++) {
-                        gainSlots(i, 4, true);
-                    }
-
+                if (!isGM() && gainLevelUpSlots()) {
                     this.yellowMessage("You reached level " + level + ". Congratulations! As a token of your success, your inventory has been expanded a little bit.");
                 }
             }
@@ -10321,6 +10317,35 @@ public class Character extends AbstractCharacterObject {
         } else {
             return false;
         }
+    }
+
+    /**
+     * Grows (or, with a negative count, shrinks back) an inventory's slot limit and tells the
+     * client, WITHOUT the full-character save {@link #gainSlots(int, int, boolean)} does. For
+     * callers that persist through the ordinary save alongside other changes they make, such
+     * as a Cash Shop window purchase that has not debited its NX yet.
+     */
+    public boolean gainSlotsUnsaved(int type, int slots) {
+        int newLimit = gainSlotsInternal(type, slots);
+        if (newLimit == -1) {
+            return false;
+        }
+        sendPacket(PacketCreator.updateInventorySlotLimit(type, newLimit));
+        return true;
+    }
+
+    /**
+     * The every-20-levels slot bonus. Returns whether ANY tab grew, so the caller only
+     * claims an expansion when one happened -- at the 96 cap nothing does.
+     */
+    public boolean gainLevelUpSlots() {
+        boolean gained = false;
+        for (byte i = 1; i < 5; i++) {
+            if (gainSlots(i, 4, true)) {
+                gained = true;
+            }
+        }
+        return gained;
     }
 
     private int gainSlotsInternal(int type, int slots) {

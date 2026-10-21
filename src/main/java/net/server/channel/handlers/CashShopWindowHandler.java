@@ -6,11 +6,15 @@ import net.AbstractPacketHandler;
 import net.packet.InPacket;
 import net.packet.Packet;
 import server.cashshop.CashShopCatalog;
+import server.cashshop.CashShopServices;
 import server.cashshop.CashShopWindowPackets;
 import server.cashshop.CashShopWindowPurchase;
 
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
+
+import java.util.ArrayList;
+import java.util.List;
 
 /**
  * CP 0x3730 -- the standalone Cash Shop window.
@@ -62,8 +66,36 @@ public final class CashShopWindowHandler extends AbstractPacketHandler {
      * ceiling: the catalogue can be any size because it is never sent in one go.
      */
     public static void sendCatalog(Client c, Character chr) {
-        c.sendPacket(CashShopWindowPackets.index(CashShopCatalog.index()));
+        c.sendPacket(CashShopWindowPackets.index(visibleIndex()));
         c.sendPacket(CashShopWindowPackets.cash(chr));
+    }
+
+    /**
+     * A category's rows minus those not currently on sale (rate coupons while
+     * {@code USE_SUPPLY_RATE_COUPONS} is off). Filtered at send time rather than at load
+     * because that flag can be flipped at runtime by a GM command.
+     */
+    public static List<CashShopCatalog.Row> visibleBucket(int tab, int cat) {
+        final List<CashShopCatalog.Row> rows = CashShopCatalog.bucket(tab, cat);
+        final List<CashShopCatalog.Row> out = new ArrayList<>(rows.size());
+        for (CashShopCatalog.Row r : rows) {
+            if (CashShopServices.isListed(r.itemId())) {
+                out.add(r);
+            }
+        }
+        return out;
+    }
+
+    /** The category index with each count taken from {@link #visibleBucket}; empty ones dropped. */
+    public static List<int[]> visibleIndex() {
+        final List<int[]> out = new ArrayList<>();
+        for (int[] e : CashShopCatalog.index()) {
+            final int n = visibleBucket(e[0], e[1]).size();
+            if (n > 0) {
+                out.add(new int[]{e[0], e[1], n});
+            }
+        }
+        return out;
     }
 
     /** One category, on demand, when the player actually looks at it. */
@@ -73,7 +105,7 @@ public final class CashShopWindowHandler extends AbstractPacketHandler {
         }
         final int tab = p.readByte() & 0xFF;
         final int cat = p.readByte() & 0xFF;
-        for (Packet packet : CashShopWindowPackets.category(tab, cat, CashShopCatalog.bucket(tab, cat))) {
+        for (Packet packet : CashShopWindowPackets.category(tab, cat, visibleBucket(tab, cat))) {
             c.sendPacket(packet);
         }
     }

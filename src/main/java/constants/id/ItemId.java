@@ -352,6 +352,17 @@ public class ItemId {
         return itemId == NX_CARD_100 || itemId == NX_CARD_250;
     }
 
+    /**
+     * NX credited for picking up a stack of NX cards. Mob drops scale the card quantity with
+     * the mob's HP, so a stack is paid per card; a non-positive quantity still counts as one.
+     */
+    public static int nxCardValue(int itemId, int quantity) {
+        if (!isNxCard(itemId)) {
+            return 0;
+        }
+        return (itemId == NX_CARD_100 ? 100 : 250) * Math.max(1, quantity);
+    }
+
     // Face expression
     private static final int FACE_EXPRESSION_MIN = 5160000;
     private static final int FACE_EXPRESSION_MAX = 5160014;
