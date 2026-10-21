@@ -14,6 +14,9 @@
 #   C. /opt/mapleroot-dev/*/ (depth <= 4)    test-server backup-* and Cosmic.jar.pre-* older than $TEST_KEEP_DAYS days.
 #                                            Never anything under a mysql/ datadir or integration-db/.
 # Never touched: backups/nightly (slumsms-nightly-backup prunes it), other files in backups/, live server folder.
+# Protected: anything matching $PROTECT_PATHS (default: PreviousServer) is never listed or deleted, and neither is a
+#            folder that contains a protected item. Entries without a "/" match a file/folder name anywhere; entries
+#            with a "/" are shell globs matched against the full path. The owner keeps PreviousServer (2026-10-20).
 #
 # Two-step safety: every run (dry or not) records each candidate with the time it was FIRST listed in
 # $STATE_DIR/rotate-plan.tsv. --apply deletes only candidates that a previous run already listed at least
@@ -36,6 +39,8 @@ STATE_DIR=${STATE_DIR:-/var/lib/slumsms-backup}
 PRE_ROOT=${PRE_ROOT:-/opt/mapleroot/backups}
 DEPLOY_ROOT=${DEPLOY_ROOT:-/opt/mapleroot-deployments}
 TEST_ROOT=${TEST_ROOT:-/opt/mapleroot-dev}
+# Space-separated. Set PROTECT_PATHS in the conf to replace the list (keep PreviousServer in it unless the owner says so).
+PROTECT_PATHS=${PROTECT_PATHS-PreviousServer}
 
 while [ $# -gt 0 ]; do
     case "$1" in
@@ -51,9 +56,34 @@ done
 
 now=$(date +%s)
 cand=$(mktemp)
-trap 'rm -f "$cand" "$cand".*' EXIT
+trap 'rm -f "$cand" "$cand".* "${prot:-}"' EXIT
 
+# protected <path>: true if the path matches $PROTECT_PATHS, or is a folder that holds something that does.
+protected() {
+    local p=$1 pat n pats
+    n=$(basename "$p")
+    read -r -a pats <<< "$PROTECT_PATHS"    # no glob expansion here
+    for pat in "${pats[@]}"; do
+        case "$pat" in
+            */*)
+                # shellcheck disable=SC2254
+                case "$p" in $pat|$pat/*) return 0 ;; esac
+                if [ -d "$p" ] && [ ! -L "$p" ] && [ -n "$(find "$p" -path "$pat" -print -quit 2>/dev/null)" ]; then return 0; fi ;;
+            *)
+                # shellcheck disable=SC2254
+                case "$n" in $pat) return 0 ;; esac
+                if [ -d "$p" ] && [ ! -L "$p" ] && [ -n "$(find "$p" -mindepth 1 -name "$pat" -print -quit 2>/dev/null)" ]; then return 0; fi ;;
+        esac
+    done
+    return 1
+}
+
+prot=$(mktemp)
 add() { # add <path> <reason>
+    if protected "$1"; then
+        printf '%s\t%s\n' "$1" "$2" >> "$prot"
+        return 0
+    fi
     printf '%s\t%s\n' "$1" "$2" >> "$cand"
 }
 
@@ -134,6 +164,16 @@ awk -F'\t' -v now="$now" 'FILENAME == ARGV[1] { first[$2] = $1; next } { t = ($1
 echo "slumsms-rotate-backups: mode=$ROTATE_MODE keep=$KEEP_DEPLOYS deploys, test leftovers > $TEST_KEEP_DAYS days, grace ${GRACE_HOURS}h"
 echo "kept pre-deploy backups: ${kept_a[*]:-none}"
 echo "kept deploy records:     ${kept_b[*]:-none}"
+echo "protected (PROTECT_PATHS=${PROTECT_PATHS:-none}), never deleted:"
+if [ -s "$prot" ]; then
+    while IFS=$'\t' read -r p reason; do
+        size=$(du -sB1 -- "$p" 2>/dev/null | cut -f1 || echo 0)
+        printf '  %-8s %s  (would otherwise be: %s)\n' "$(numfmt --to=iec "$size")" "$p" "$reason"
+    done < "$prot"
+else
+    echo "  none matched"
+fi
+echo "candidates (deleted by --apply once listed ${GRACE_HOURS}h ago):"
 total=0
 count=0
 deleted=0
@@ -155,10 +195,11 @@ while IFS=$'\t' read -r first p reason; do
             *) echo "           refused: outside the rotation roots" >&2; continue ;;
         esac
         [ "$p" != "$PRE_ROOT/nightly" ] || continue
+        if protected "$p"; then echo "           refused: protected (PROTECT_PATHS)" >&2; continue; fi
         rm -rf --one-file-system -- "$p" && { echo "           deleted"; deleted=$((deleted + 1)); }
     fi
 done < "$cand.plan"
-echo "candidates: $count, $(numfmt --to=iec "$total"); deleted: $deleted"
+echo "candidates: $count, $(numfmt --to=iec "$total"); protected: $(grep -c . "$prot" || true); deleted: $deleted"
 [ "$ROTATE_MODE" = apply ] || echo "dry run: nothing deleted. Run with --apply (or ROTATE_MODE=apply) to delete listed items after ${GRACE_HOURS}h."
 
 # Remember what is still a candidate (deleted ones drop out on the next run).
