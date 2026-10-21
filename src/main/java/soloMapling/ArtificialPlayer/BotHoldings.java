@@ -550,7 +550,9 @@ public final class BotHoldings {
         if (item == null) {
             return false;
         }
-        Inventory inv = bot.getInventory(item.getInventoryType());
+        // Ticket 11: a worn equip (negative slot) is destroyed off the bot's body, as a player's boomed worn item.
+        boolean worn = item instanceof client.inventory.Equip && item.getPosition() < 0;
+        Inventory inv = bot.getInventory(worn ? InventoryType.EQUIPPED : item.getInventoryType());
         Item held = null;
         inv.lockInventory();
         try {
@@ -564,6 +566,9 @@ public final class BotHoldings {
                 return false;   // the bot does not hold this instance: nothing to strike out
             }
             inv.removeSlot(held.getPosition());
+            if (worn) {
+                bot.unequippedItem((client.inventory.Equip) held);
+            }
         } finally {
             inv.unlockInventory();
         }

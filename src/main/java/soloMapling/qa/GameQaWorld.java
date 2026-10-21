@@ -306,4 +306,37 @@ final class GameQaWorld implements QaWorld {
     public int guildCost() {
         return YamlConfig.config.server.CREATE_GUILD_COST;
     }
+
+    @Override
+    public int giveBotItem(int botId, int itemId, int quantity) {
+        Character bot = BotHelpers.getCharFromChannelStorage(botId);
+        if (bot == null || quantity <= 0) {
+            return 0;
+        }
+        ItemInformationProvider ii = ItemInformationProvider.getInstance();
+        if (ItemConstants.getInventoryType(itemId) == InventoryType.EQUIP) {
+            int given = 0;
+            for (int i = 0; i < quantity; i++) {
+                Item equip = ii.getEquipById(itemId);
+                if (equip != null && soloMapling.ArtificialPlayer.BotHoldings.grantItem(bot, equip)) {
+                    given++;
+                }
+            }
+            return given;
+        }
+        return soloMapling.ArtificialPlayer.BotHoldings.grantItem(bot, new Item(itemId, (short) 0, (short) quantity))
+                ? quantity : 0;
+    }
+
+    @Override
+    public List<String> botScrollStep(int botId, String appetite) {
+        Character bot = BotHelpers.getCharFromChannelStorage(botId);
+        if (bot == null) {
+            return List.of("bot " + botId + " is gone");
+        }
+        soloMapling.ArtificialPlayer.BotScrollSystem.ScrollRules.Appetite a =
+                soloMapling.ArtificialPlayer.BotScrollSystem.ScrollRules.Appetite.parse(appetite,
+                        soloMapling.ArtificialPlayer.BotScrollSystem.ScrollRules.Appetite.of(botId));
+        return soloMapling.ArtificialPlayer.BotScrollSystem.BotScrolling.stepNow(bot, a);
+    }
 }

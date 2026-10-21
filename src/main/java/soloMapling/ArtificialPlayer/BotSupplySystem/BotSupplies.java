@@ -174,5 +174,6 @@ public final class BotSupplies {
         BotVitals.clearBot(botId);
         OffscreenSupplies.clearBot(botId);
         BotShopping.clearBot(botId);
+        soloMapling.ArtificialPlayer.BotScrollSystem.BotScrolling.forget(botId);   // ticket 11
     }
 }

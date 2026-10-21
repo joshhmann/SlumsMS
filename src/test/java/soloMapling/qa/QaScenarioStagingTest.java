@@ -111,6 +111,27 @@ class QaScenarioStagingTest {
     }
 
     @Test
+    void sc2StagesAScrollingBotThatRollsEveryTickUntilItIsDone() throws Exception {
+        start("sc-2", 100000000, "gambler");
+        int bot = world.nextBot - 1;
+        assertTrue(world.calls.contains("bot " + bot + " give 1302000 x1"), world.calls.toString());
+        assertTrue(world.calls.contains("bot " + bot + " give 2043001 x4"));
+        assertTrue(world.calls.contains("bot " + bot + " give 2043004 x1"));
+        assertTrue(world.calls.contains("bot " + bot + " give 2340000 x1"));
+        assertEquals(1, scheduler.repeating.size());
+        world.scrollSteps.add("bot used 2043001 (60%) on 1302000: SUCCESS | before 0 passed | after 1 passed");
+        scheduler.repeating.get(0).run();
+        scheduler.repeating.get(0).run();   // nothing left: done
+        scheduler.repeating.get(0).run();   // and no more rolls asked for
+        assertEquals(2, world.calls.stream().filter(c -> c.equals("bot " + bot + " scroll gambler")).count());
+        Path log = suite.runOf(1).logPath();
+        suite.stop(1, "!qa stop");
+        String text = Files.readString(log);
+        assertTrue(text.contains("SUCCESS") && text.contains("DONE"), text);
+        assertEquals(1, world.despawned.size());
+    }
+
+    @Test
     void bk1SpawnsTheShowcaseOnTheGmsMapAndDespawnsIt() {
         start("bk-1", 104040000);
         assertTrue(suite.runOf(1).maps().contains(104040000));

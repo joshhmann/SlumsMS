@@ -14,7 +14,8 @@ import static soloMapling.server.SoloMaplingUtilities.isInteger;
  * Bot economy read-out (ticket 15): what bots took out of the world against the per-map yield caps and their
  * daily meso caps.
  * !botyield            - the caps, the 10 maps bots took most from, the 10 bots that took most mesos today, and
- *                        what bots spent at NPC shops (ticket 09)
+ *                        what bots spent at NPC shops (ticket 09) and on scrolls, with the scroll results
+ *                        (ticket 11)
  * !botyield top <n>    - the same with n rows each
  * !botyield <name|id>  - one online bot's take today against its cap
  */
@@ -29,6 +30,7 @@ public class BotYieldCommand extends Command {
         if (params.length == 0) {
             BotYieldCaps.report(10).forEach(player::yellowMessage);
             player.yellowMessage(BotShopping.report());   // ticket 09: what bots spent at NPC shops
+            soloMapling.ArtificialPlayer.BotScrollSystem.ScrollLedger.report().forEach(player::yellowMessage);   // ticket 11
             return;
         }
         if (params[0].equalsIgnoreCase("top")) {

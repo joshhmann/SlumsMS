@@ -113,4 +113,16 @@ class FakeQaWorld implements QaWorld {
     @Override public List<String> channelLoads() { return List.of("ch 1: 1 players, 300 bots, bar 800/800", "ch 2: 0 players, 0 bots, bar 0/800"); }
     @Override public String sellerCapStatus(Character gm) { return "account 1: 0 of 5000000 paid today"; }
     @Override public int guildCost() { return 1_500_000; }
+
+    final List<String> scrollSteps = new ArrayList<>();
+
+    @Override public int giveBotItem(int botId, int itemId, int quantity) {
+        calls.add("bot " + botId + " give " + itemId + " x" + quantity);
+        return quantity;
+    }
+
+    @Override public List<String> botScrollStep(int botId, String appetite) {
+        calls.add("bot " + botId + " scroll " + appetite);
+        return scrollSteps.isEmpty() ? List.of("bot has nothing it would scroll") : List.of(scrollSteps.remove(0));
+    }
 }
