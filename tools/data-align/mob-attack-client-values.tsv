@@ -1,0 +1,1146 @@
+# Mob PADamage/MADamage where the server WZ and the client Data disagree (both copies as shipped in the MapleRoot repack).
+# Players take touch/magic damage computed by the CLIENT from client_value; bots and mob-vs-mob use server_value.
+# Owner decision: wz_set_values.py --column client_value aligns the server to what players face. Not applied.
+# 1118 rows lower the server value (client clamp: 900, or 1200/1250 for 86xxxxx); 23 raise it (e.g. 0000434 1500->45555, 8889010 1->8888). Review before applying.
+file	node	server_value	client_value	level	name
+Mob.wz/0000420.img.xml	info/PADamage	1500	800	2	Kloak
+Mob.wz/0000421.img.xml	info/PADamage	1100	800	2	Kloak
+Mob.wz/0000422.img.xml	info/PADamage	1100	800	2	Kloak
+Mob.wz/0000423.img.xml	info/PADamage	1100	800	2	Kloak
+Mob.wz/0000425.img.xml	info/PADamage	2000	1500	2	Kloak
+Mob.wz/0000434.img.xml	info/PADamage	1500	45555	2	Kloak
+Mob.wz/2300260.img.xml	info/MADamage	2640	900	135	Flared Hoppin' Sprout
+Mob.wz/2300260.img.xml	info/PADamage	2695	900	135	Flared Hoppin' Sprout
+Mob.wz/2300261.img.xml	info/MADamage	2695	900	136	Flared Chargin' Sprout
+Mob.wz/2300261.img.xml	info/PADamage	2750	900	136	Flared Chargin' Sprout
+Mob.wz/2300262.img.xml	info/MADamage	2805	900	138	Blazin' Log-a-Rhythmic Bugs
+Mob.wz/2300262.img.xml	info/PADamage	2860	900	138	Blazin' Log-a-Rhythmic Bugs
+Mob.wz/2300263.img.xml	info/MADamage	2860	900	139	Blazin' Sparkinstone Bugs
+Mob.wz/2300263.img.xml	info/PADamage	2915	900	139	Blazin' Sparkinstone Bugs
+Mob.wz/2300264.img.xml	info/MADamage	2915	900	140	Fettered Ruins Sentinel
+Mob.wz/2300264.img.xml	info/PADamage	2970	900	140	Fettered Ruins Sentinel
+Mob.wz/2300265.img.xml	info/MADamage	2970	900	141	Broiling Ruins Guardian
+Mob.wz/2300265.img.xml	info/PADamage	3025	900	141	Broiling Ruins Guardian
+Mob.wz/2300266.img.xml	info/MADamage	3025	900	142	Frenzied Ruins Sentinel
+Mob.wz/2300266.img.xml	info/PADamage	3080	900	142	Frenzied Ruins Sentinel
+Mob.wz/2300267.img.xml	info/MADamage	3080	900	143	Searing Ruins Guardian
+Mob.wz/2300267.img.xml	info/PADamage	3135	900	143	Searing Ruins Guardian
+Mob.wz/2300271.img.xml	info/MADamage	2640	900	135	Flared Hoppin' Sprout
+Mob.wz/2300271.img.xml	info/PADamage	2695	900	135	Flared Hoppin' Sprout
+Mob.wz/2500900.img.xml	info/MADamage	9999999	900	170	Altar of Genesis
+Mob.wz/2500900.img.xml	info/PADamage	9999999	900	170	Altar of Genesis
+Mob.wz/2500901.img.xml	info/MADamage	9999999	900	170	Altar of Genesis
+Mob.wz/2500901.img.xml	info/PADamage	9999999	900	170	Altar of Genesis
+Mob.wz/2500902.img.xml	info/MADamage	9999999	900	170	Altar of Genesis
+Mob.wz/2500902.img.xml	info/PADamage	9999999	900	170	Altar of Genesis
+Mob.wz/2500903.img.xml	info/MADamage	9999999	900	170	Altar of Genesis
+Mob.wz/2500903.img.xml	info/PADamage	9999999	900	170	Altar of Genesis
+Mob.wz/2500904.img.xml	info/MADamage	9999999	900	170	Altar of Genesis
+Mob.wz/2500904.img.xml	info/PADamage	9999999	900	170	Altar of Genesis
+Mob.wz/2500905.img.xml	info/MADamage	9999999	900	170	Altar of Genesis
+Mob.wz/2500905.img.xml	info/PADamage	9999999	900	170	Altar of Genesis
+Mob.wz/2500906.img.xml	info/MADamage	9999999	900	170	Altar of Genesis
+Mob.wz/2500906.img.xml	info/PADamage	9999999	900	170	Altar of Genesis
+Mob.wz/2510002.img.xml	info/MADamage	2700	900	140	Cygnus Hastati
+Mob.wz/2510002.img.xml	info/PADamage	2700	900	140	Cygnus Hastati
+Mob.wz/2510003.img.xml	info/MADamage	4950	900	170	Cygnus Hastati
+Mob.wz/2510003.img.xml	info/PADamage	4950	900	170	Cygnus Hastati
+Mob.wz/2510012.img.xml	info/MADamage	3000	900	140	Elite Cygnus Hastati
+Mob.wz/2510012.img.xml	info/PADamage	3000	900	140	Elite Cygnus Hastati
+Mob.wz/2510013.img.xml	info/MADamage	5500	900	170	Elite Cygnus Hastati
+Mob.wz/2510013.img.xml	info/PADamage	5500	900	170	Elite Cygnus Hastati
+Mob.wz/2510022.img.xml	info/MADamage	2700	900	140	Cygnus Hastati
+Mob.wz/2510022.img.xml	info/PADamage	2700	900	140	Cygnus Hastati
+Mob.wz/2510023.img.xml	info/MADamage	4950	900	170	Cygnus Hastati
+Mob.wz/2510023.img.xml	info/PADamage	4950	900	170	Cygnus Hastati
+Mob.wz/2510032.img.xml	info/MADamage	3000	900	140	Elite Cygnus Hastati
+Mob.wz/2510032.img.xml	info/PADamage	3000	900	140	Elite Cygnus Hastati
+Mob.wz/2510033.img.xml	info/MADamage	5500	900	170	Elite Cygnus Hastati
+Mob.wz/2510033.img.xml	info/PADamage	5500	900	170	Elite Cygnus Hastati
+Mob.wz/2510102.img.xml	info/MADamage	2970	900	140	Cygnus Centurion
+Mob.wz/2510102.img.xml	info/PADamage	2970	900	140	Cygnus Centurion
+Mob.wz/2510103.img.xml	info/MADamage	5445	900	170	Cygnus Centurion
+Mob.wz/2510103.img.xml	info/PADamage	5445	900	170	Cygnus Centurion
+Mob.wz/2510111.img.xml	info/MADamage	880	900	90	Elite Cygnus Centurion
+Mob.wz/2510112.img.xml	info/MADamage	3300	900	140	Elite Cygnus Centurion
+Mob.wz/2510112.img.xml	info/PADamage	3300	900	140	Elite Cygnus Centurion
+Mob.wz/2510113.img.xml	info/MADamage	6050	900	170	Elite Cygnus Centurion
+Mob.wz/2510113.img.xml	info/PADamage	6050	900	170	Elite Cygnus Centurion
+Mob.wz/2510122.img.xml	info/MADamage	2970	900	140	Cygnus Centurion
+Mob.wz/2510122.img.xml	info/PADamage	2970	900	140	Cygnus Centurion
+Mob.wz/2510123.img.xml	info/MADamage	5445	900	170	Cygnus Centurion
+Mob.wz/2510123.img.xml	info/PADamage	5445	900	170	Cygnus Centurion
+Mob.wz/2510131.img.xml	info/MADamage	880	900	90	Elite Cygnus Centurion
+Mob.wz/2510132.img.xml	info/MADamage	3300	900	140	Elite Cygnus Centurion
+Mob.wz/2510132.img.xml	info/PADamage	3300	900	140	Elite Cygnus Centurion
+Mob.wz/2510133.img.xml	info/MADamage	6050	900	170	Elite Cygnus Centurion
+Mob.wz/2510133.img.xml	info/PADamage	6050	900	170	Elite Cygnus Centurion
+Mob.wz/2600000.img.xml	info/MADamage	930	900	102	Beetle
+Mob.wz/2600000.img.xml	info/PADamage	956	900	102	Beetle
+Mob.wz/2600001.img.xml	info/MADamage	978	900	102	Dual Beetle
+Mob.wz/2600001.img.xml	info/PADamage	964	900	102	Dual Beetle
+Mob.wz/2600002.img.xml	info/MADamage	992	900	102	Hankie
+Mob.wz/2600002.img.xml	info/PADamage	952	900	102	Hankie
+Mob.wz/2600003.img.xml	info/MADamage	1010	900	102	Rash
+Mob.wz/2600003.img.xml	info/PADamage	951	900	102	Rash
+Mob.wz/2600004.img.xml	info/MADamage	931	900	102	Dark Rash
+Mob.wz/2600004.img.xml	info/PADamage	988	900	102	Dark Rash
+Mob.wz/2600005.img.xml	info/MADamage	957	900	102	Hoblin
+Mob.wz/2600005.img.xml	info/PADamage	990	900	102	Hoblin
+Mob.wz/2600006.img.xml	info/MADamage	951	900	102	Green Hoblin
+Mob.wz/2600006.img.xml	info/PADamage	972	900	102	Green Hoblin
+Mob.wz/2600008.img.xml	info/MADamage	1042	900	104	Harp
+Mob.wz/2600008.img.xml	info/PADamage	1075	900	104	Harp
+Mob.wz/2600009.img.xml	info/MADamage	999	900	104	Blood Harp
+Mob.wz/2600009.img.xml	info/PADamage	1056	900	104	Blood Harp
+Mob.wz/2600010.img.xml	info/MADamage	1099	900	104	Black Kentaurus
+Mob.wz/2600010.img.xml	info/PADamage	1107	900	104	Black Kentaurus
+Mob.wz/2600011.img.xml	info/MADamage	1083	900	104	Red Kentaurus
+Mob.wz/2600011.img.xml	info/PADamage	1026	900	104	Red Kentaurus
+Mob.wz/2600012.img.xml	info/MADamage	1092	900	104	Blue Kentaurus
+Mob.wz/2600012.img.xml	info/PADamage	1039	900	104	Blue Kentaurus
+Mob.wz/2600013.img.xml	info/MADamage	1054	900	104	Birk
+Mob.wz/2600013.img.xml	info/PADamage	1017	900	104	Birk
+Mob.wz/2600014.img.xml	info/MADamage	1038	900	104	Dual Birk
+Mob.wz/2600014.img.xml	info/PADamage	1041	900	104	Dual Birk
+Mob.wz/2600016.img.xml	info/MADamage	1168	900	106	Blue Dragon Turtle
+Mob.wz/2600016.img.xml	info/PADamage	1110	900	106	Blue Dragon Turtle
+Mob.wz/2600017.img.xml	info/MADamage	1089	900	106	Red Dragon Turtle
+Mob.wz/2600017.img.xml	info/PADamage	1114	900	106	Red Dragon Turtle
+Mob.wz/2600018.img.xml	info/MADamage	1083	900	106	Rexton
+Mob.wz/2600018.img.xml	info/PADamage	1163	900	106	Rexton
+Mob.wz/2600019.img.xml	info/MADamage	1143	900	106	Brexton
+Mob.wz/2600019.img.xml	info/PADamage	1117	900	106	Brexton
+Mob.wz/2600020.img.xml	info/MADamage	1113	900	106	Jr. Newtie
+Mob.wz/2600020.img.xml	info/PADamage	1115	900	106	Jr. Newtie
+Mob.wz/2600021.img.xml	info/MADamage	1143	900	106	Nest Golem
+Mob.wz/2600021.img.xml	info/PADamage	1129	900	106	Nest Golem
+Mob.wz/2600023.img.xml	info/MADamage	1157	900	108	Red Wyvern
+Mob.wz/2600023.img.xml	info/PADamage	1228	900	108	Red Wyvern
+Mob.wz/2600024.img.xml	info/MADamage	1265	900	108	Blue Wyvern
+Mob.wz/2600024.img.xml	info/PADamage	1267	900	108	Blue Wyvern
+Mob.wz/2600025.img.xml	info/MADamage	1246	900	108	Dark Wyvern
+Mob.wz/2600025.img.xml	info/PADamage	1221	900	108	Dark Wyvern
+Mob.wz/2600026.img.xml	info/MADamage	1187	900	108	Green Cornian
+Mob.wz/2600026.img.xml	info/PADamage	1169	900	108	Green Cornian
+Mob.wz/2600027.img.xml	info/MADamage	1212	900	108	Dark Cornian
+Mob.wz/2600027.img.xml	info/PADamage	1212	900	108	Dark Cornian
+Mob.wz/2600028.img.xml	info/MADamage	1153	900	108	Skelegon
+Mob.wz/2600028.img.xml	info/PADamage	1271	900	108	Skelegon
+Mob.wz/2600029.img.xml	info/MADamage	1155	900	108	Skelosaurus
+Mob.wz/2600029.img.xml	info/PADamage	1213	900	108	Skelosaurus
+Mob.wz/2600100.img.xml	info/MADamage	1315	900	112	White Hare
+Mob.wz/2600100.img.xml	info/PADamage	1410	900	112	White Hare
+Mob.wz/2600101.img.xml	info/MADamage	1420	900	112	Brown Hare
+Mob.wz/2600101.img.xml	info/PADamage	1412	900	112	Brown Hare
+Mob.wz/2600102.img.xml	info/MADamage	1322	900	112	Jr. Cactus
+Mob.wz/2600102.img.xml	info/PADamage	1409	900	112	Jr. Cactus
+Mob.wz/2600103.img.xml	info/MADamage	1401	900	112	Cactus
+Mob.wz/2600103.img.xml	info/PADamage	1369	900	112	Cactus
+Mob.wz/2600104.img.xml	info/MADamage	1408	900	112	Royal Cactus
+Mob.wz/2600104.img.xml	info/PADamage	1435	900	112	Royal Cactus
+Mob.wz/2600106.img.xml	info/MADamage	1514	900	114	Bellamoa
+Mob.wz/2600106.img.xml	info/PADamage	1524	900	114	Bellamoa
+Mob.wz/2600107.img.xml	info/MADamage	1467	900	114	Ear Plug Plead
+Mob.wz/2600107.img.xml	info/PADamage	1509	900	114	Ear Plug Plead
+Mob.wz/2600108.img.xml	info/MADamage	1461	900	114	Scarf Plead
+Mob.wz/2600108.img.xml	info/PADamage	1434	900	114	Scarf Plead
+Mob.wz/2600109.img.xml	info/MADamage	1429	900	114	Meerkat
+Mob.wz/2600109.img.xml	info/PADamage	1436	900	114	Meerkat
+Mob.wz/2600110.img.xml	info/MADamage	1442	900	114	Sand Rat
+Mob.wz/2600110.img.xml	info/PADamage	1522	900	114	Sand Rat
+Mob.wz/2600112.img.xml	info/MADamage	1457	900	116	Scorpion
+Mob.wz/2600112.img.xml	info/PADamage	1485	900	116	Scorpion
+Mob.wz/2600113.img.xml	info/MADamage	1598	900	116	Sand Dwarf
+Mob.wz/2600113.img.xml	info/PADamage	1542	900	116	Sand Dwarf
+Mob.wz/2600114.img.xml	info/MADamage	1591	900	116	Kiyo
+Mob.wz/2600114.img.xml	info/PADamage	1586	900	116	Kiyo
+Mob.wz/2600115.img.xml	info/MADamage	1469	900	116	Dark Sand Dwarf
+Mob.wz/2600115.img.xml	info/PADamage	1530	900	116	Dark Sand Dwarf
+Mob.wz/2600116.img.xml	info/MADamage	1561	900	116	Intruder
+Mob.wz/2600116.img.xml	info/PADamage	1481	900	116	Intruder
+Mob.wz/2600118.img.xml	info/MADamage	1538	900	118	Pyramid Mummydog
+Mob.wz/2600118.img.xml	info/PADamage	1608	900	118	Pyramid Mummydog
+Mob.wz/2600119.img.xml	info/MADamage	1664	900	118	Pyramid Skeleton
+Mob.wz/2600119.img.xml	info/PADamage	1554	900	118	Pyramid Skeleton
+Mob.wz/2600120.img.xml	info/MADamage	1585	900	118	Mummy
+Mob.wz/2600120.img.xml	info/PADamage	1632	900	118	Mummy
+Mob.wz/2600121.img.xml	info/MADamage	1664	900	118	Anubis
+Mob.wz/2600121.img.xml	info/PADamage	1572	900	118	Anubis
+Mob.wz/2600122.img.xml	info/MADamage	1588	900	118	Horus
+Mob.wz/2600122.img.xml	info/PADamage	1659	900	118	Horus
+Mob.wz/2600123.img.xml	info/MADamage	1669	900	118	Advisor Mummy
+Mob.wz/2600123.img.xml	info/PADamage	1575	900	118	Advisor Mummy
+Mob.wz/2600200.img.xml	info/MADamage	1985	900	122	Green Mushroom
+Mob.wz/2600200.img.xml	info/PADamage	2023	900	122	Green Mushroom
+Mob.wz/2600201.img.xml	info/MADamage	1869	900	122	Devastated Green Mushroom
+Mob.wz/2600201.img.xml	info/PADamage	2069	900	122	Devastated Green Mushroom
+Mob.wz/2600202.img.xml	info/MADamage	1919	900	122	Orange Mushroom
+Mob.wz/2600202.img.xml	info/PADamage	2054	900	122	Orange Mushroom
+Mob.wz/2600203.img.xml	info/MADamage	1957	900	122	Horny Mushroom
+Mob.wz/2600203.img.xml	info/PADamage	1982	900	122	Horny Mushroom
+Mob.wz/2600204.img.xml	info/MADamage	2011	900	122	Blue Mushroom
+Mob.wz/2600204.img.xml	info/PADamage	1978	900	122	Blue Mushroom
+Mob.wz/2600205.img.xml	info/MADamage	1938	900	122	Crying Blue Mushroom
+Mob.wz/2600205.img.xml	info/PADamage	1925	900	122	Crying Blue Mushroom
+Mob.wz/2600206.img.xml	info/MADamage	1995	900	122	Zombie Mushroom
+Mob.wz/2600206.img.xml	info/PADamage	1932	900	122	Zombie Mushroom
+Mob.wz/2600207.img.xml	info/MADamage	1921	900	122	Annoyed Zombie Mushroom
+Mob.wz/2600207.img.xml	info/PADamage	2037	900	122	Annoyed Zombie Mushroom
+Mob.wz/2600209.img.xml	info/MADamage	2041	900	124	Stone Golem
+Mob.wz/2600209.img.xml	info/PADamage	2023	900	124	Stone Golem
+Mob.wz/2600210.img.xml	info/MADamage	2128	900	124	Dark Stone Golem
+Mob.wz/2600210.img.xml	info/PADamage	1993	900	124	Dark Stone Golem
+Mob.wz/2600211.img.xml	info/MADamage	2027	900	124	Mixed Golem
+Mob.wz/2600211.img.xml	info/PADamage	2009	900	124	Mixed Golem
+Mob.wz/2600212.img.xml	info/MADamage	2015	900	124	Icy Mixed Golem
+Mob.wz/2600212.img.xml	info/PADamage	2056	900	124	Icy Mixed Golem
+Mob.wz/2600213.img.xml	info/MADamage	1938	900	124	Flaming Mixed Golem
+Mob.wz/2600213.img.xml	info/PADamage	2001	900	124	Flaming Mixed Golem
+Mob.wz/2600215.img.xml	info/MADamage	2126	900	126	Palm Tree Slime
+Mob.wz/2600215.img.xml	info/PADamage	2181	900	126	Palm Tree Slime
+Mob.wz/2600216.img.xml	info/MADamage	2206	900	126	Violet Clam Slime
+Mob.wz/2600216.img.xml	info/PADamage	2175	900	126	Violet Clam Slime
+Mob.wz/2600217.img.xml	info/MADamage	2054	900	126	Blue Tube Slime
+Mob.wz/2600217.img.xml	info/PADamage	2094	900	126	Blue Tube Slime
+Mob.wz/2600218.img.xml	info/MADamage	2142	900	126	Shrimp Slime
+Mob.wz/2600218.img.xml	info/PADamage	2181	900	126	Shrimp Slime
+Mob.wz/2600219.img.xml	info/MADamage	2044	900	126	Flying Fish Slime
+Mob.wz/2600219.img.xml	info/PADamage	2092	900	126	Flying Fish Slime
+Mob.wz/2600220.img.xml	info/MADamage	2242	900	126	Starfish Octopus Slime
+Mob.wz/2600220.img.xml	info/PADamage	2174	900	126	Starfish Octopus Slime
+Mob.wz/2600221.img.xml	info/MADamage	2164	900	126	Seashell Octopus Slime
+Mob.wz/2600221.img.xml	info/PADamage	2127	900	126	Seashell Octopus Slime
+Mob.wz/2600223.img.xml	info/MADamage	2250	900	128	Copper Drake
+Mob.wz/2600223.img.xml	info/PADamage	2284	900	128	Copper Drake
+Mob.wz/2600224.img.xml	info/MADamage	2333	900	128	Drake
+Mob.wz/2600224.img.xml	info/PADamage	2196	900	128	Drake
+Mob.wz/2600225.img.xml	info/MADamage	2341	900	128	Red Drake
+Mob.wz/2600225.img.xml	info/PADamage	2329	900	128	Red Drake
+Mob.wz/2600226.img.xml	info/MADamage	2292	900	128	Wild Kargo
+Mob.wz/2600226.img.xml	info/PADamage	2353	900	128	Wild Kargo
+Mob.wz/2600227.img.xml	info/MADamage	2316	900	128	Ice Drake
+Mob.wz/2600227.img.xml	info/PADamage	2389	900	128	Ice Drake
+Mob.wz/2600228.img.xml	info/MADamage	2340	900	128	Dark Drake
+Mob.wz/2600228.img.xml	info/PADamage	2308	900	128	Dark Drake
+Mob.wz/2600229.img.xml	info/MADamage	2222	900	128	Tauromacis
+Mob.wz/2600229.img.xml	info/PADamage	2209	900	128	Tauromacis
+Mob.wz/2600230.img.xml	info/MADamage	2289	900	128	Taurospear
+Mob.wz/2600230.img.xml	info/PADamage	2218	900	128	Taurospear
+Mob.wz/2600300.img.xml	info/MADamage	2405	900	131	Straw Target Dummy
+Mob.wz/2600300.img.xml	info/PADamage	2490	900	131	Straw Target Dummy
+Mob.wz/2600301.img.xml	info/MADamage	2457	900	131	Wooden Target Dummy
+Mob.wz/2600301.img.xml	info/PADamage	2464	900	131	Wooden Target Dummy
+Mob.wz/2600302.img.xml	info/MADamage	2524	900	131	The Book Ghost
+Mob.wz/2600302.img.xml	info/PADamage	2410	900	131	The Book Ghost
+Mob.wz/2600303.img.xml	info/MADamage	2506	900	131	Sage Cat
+Mob.wz/2600303.img.xml	info/PADamage	2502	900	131	Sage Cat
+Mob.wz/2600304.img.xml	info/MADamage	2340	900	131	Master Dummy
+Mob.wz/2600304.img.xml	info/PADamage	2524	900	131	Master Dummy
+Mob.wz/2600306.img.xml	info/MADamage	2569	900	133	Chipmunk
+Mob.wz/2600306.img.xml	info/PADamage	2465	900	133	Chipmunk
+Mob.wz/2600307.img.xml	info/MADamage	2522	900	133	Red Porky
+Mob.wz/2600307.img.xml	info/PADamage	2497	900	133	Red Porky
+Mob.wz/2600308.img.xml	info/MADamage	2581	900	133	Black Porky
+Mob.wz/2600308.img.xml	info/PADamage	2484	900	133	Black Porky
+Mob.wz/2600309.img.xml	info/MADamage	2636	900	133	Blue Flower Serpent
+Mob.wz/2600309.img.xml	info/PADamage	2538	900	133	Blue Flower Serpent
+Mob.wz/2600310.img.xml	info/MADamage	2424	900	133	Red Flower Serpent
+Mob.wz/2600310.img.xml	info/PADamage	2530	900	133	Red Flower Serpent
+Mob.wz/2600312.img.xml	info/MADamage	2720	900	135	Grizzly
+Mob.wz/2600312.img.xml	info/PADamage	2822	900	135	Grizzly
+Mob.wz/2600313.img.xml	info/MADamage	2739	900	135	Cute Reindeer
+Mob.wz/2600313.img.xml	info/PADamage	2697	900	135	Cute Reindeer
+Mob.wz/2600314.img.xml	info/MADamage	2710	900	135	Peach Monkey
+Mob.wz/2600314.img.xml	info/PADamage	2768	900	135	Peach Monkey
+Mob.wz/2600315.img.xml	info/MADamage	2738	900	135	Panda
+Mob.wz/2600315.img.xml	info/PADamage	2673	900	135	Panda
+Mob.wz/2600317.img.xml	info/MADamage	2731	900	137	Jar
+Mob.wz/2600317.img.xml	info/PADamage	2771	900	137	Jar
+Mob.wz/2600318.img.xml	info/MADamage	2755	900	137	Ginseng Jar
+Mob.wz/2600318.img.xml	info/PADamage	2936	900	137	Ginseng Jar
+Mob.wz/2600319.img.xml	info/MADamage	2784	900	137	Bellflower Root
+Mob.wz/2600319.img.xml	info/PADamage	2924	900	137	Bellflower Root
+Mob.wz/2600320.img.xml	info/MADamage	2820	900	137	Sr. Bellflower Root
+Mob.wz/2600320.img.xml	info/PADamage	2817	900	137	Sr. Bellflower Root
+Mob.wz/2600322.img.xml	info/MADamage	2968	900	139	Mr. Alli
+Mob.wz/2600322.img.xml	info/PADamage	3020	900	139	Mr. Alli
+Mob.wz/2600323.img.xml	info/MADamage	2831	900	139	Kru
+Mob.wz/2600323.img.xml	info/PADamage	2827	900	139	Kru
+Mob.wz/2600324.img.xml	info/MADamage	2911	900	139	Captain
+Mob.wz/2600324.img.xml	info/PADamage	2821	900	139	Captain
+Mob.wz/2600325.img.xml	info/MADamage	2852	900	139	Gold Captain
+Mob.wz/2600325.img.xml	info/PADamage	2841	900	139	Gold Captain
+Mob.wz/2600400.img.xml	info/MADamage	2986	900	142	Patrol Robot
+Mob.wz/2600400.img.xml	info/PADamage	3077	900	142	Patrol Robot
+Mob.wz/2600401.img.xml	info/MADamage	3070	900	142	Water Thief Monster
+Mob.wz/2600401.img.xml	info/PADamage	3071	900	142	Water Thief Monster
+Mob.wz/2600402.img.xml	info/MADamage	2882	900	142	Dust Box
+Mob.wz/2600402.img.xml	info/PADamage	3125	900	142	Dust Box
+Mob.wz/2600403.img.xml	info/MADamage	3132	900	142	Streetlight
+Mob.wz/2600403.img.xml	info/PADamage	3180	900	142	Streetlight
+Mob.wz/2600404.img.xml	info/MADamage	3119	900	142	Patrol Robot S
+Mob.wz/2600404.img.xml	info/PADamage	2959	900	142	Patrol Robot S
+Mob.wz/2600405.img.xml	info/MADamage	2930	900	142	Guard Robot E
+Mob.wz/2600405.img.xml	info/PADamage	3013	900	142	Guard Robot E
+Mob.wz/2600407.img.xml	info/MADamage	3245	900	144	Strange Sign
+Mob.wz/2600407.img.xml	info/PADamage	3045	900	144	Strange Sign
+Mob.wz/2600408.img.xml	info/MADamage	3147	900	144	Serpent
+Mob.wz/2600408.img.xml	info/PADamage	3080	900	144	Serpent
+Mob.wz/2600409.img.xml	info/MADamage	3286	900	144	Safety First
+Mob.wz/2600409.img.xml	info/PADamage	3242	900	144	Safety First
+Mob.wz/2600410.img.xml	info/MADamage	3255	900	144	Baby Boulder Muncher
+Mob.wz/2600410.img.xml	info/PADamage	3031	900	144	Baby Boulder Muncher
+Mob.wz/2600411.img.xml	info/MADamage	3206	900	144	Big Boulder Muncher
+Mob.wz/2600411.img.xml	info/PADamage	3041	900	144	Big Boulder Muncher
+Mob.wz/2600413.img.xml	info/MADamage	3374	900	146	Racoco
+Mob.wz/2600413.img.xml	info/PADamage	3380	900	146	Racoco
+Mob.wz/2600414.img.xml	info/MADamage	3379	900	146	Big Spider
+Mob.wz/2600414.img.xml	info/PADamage	3207	900	146	Big Spider
+Mob.wz/2600415.img.xml	info/MADamage	3114	900	146	Cart Bear
+Mob.wz/2600415.img.xml	info/PADamage	3136	900	146	Cart Bear
+Mob.wz/2600416.img.xml	info/MADamage	3101	900	146	Racaroni
+Mob.wz/2600416.img.xml	info/PADamage	3296	900	146	Racaroni
+Mob.wz/2600417.img.xml	info/MADamage	3373	900	146	Raco
+Mob.wz/2600417.img.xml	info/PADamage	3174	900	146	Raco
+Mob.wz/2600418.img.xml	info/MADamage	3333	900	146	Ore Muncher
+Mob.wz/2600418.img.xml	info/PADamage	3273	900	146	Ore Muncher
+Mob.wz/2600420.img.xml	info/MADamage	3392	900	148	Guard Robot L
+Mob.wz/2600420.img.xml	info/PADamage	3256	900	148	Guard Robot L
+Mob.wz/2600421.img.xml	info/MADamage	3227	900	148	Security System
+Mob.wz/2600421.img.xml	info/PADamage	3419	900	148	Security System
+Mob.wz/2600422.img.xml	info/MADamage	3326	900	148	Enhanced Security System
+Mob.wz/2600422.img.xml	info/PADamage	3432	900	148	Enhanced Security System
+Mob.wz/2600423.img.xml	info/MADamage	3490	900	148	AF Android
+Mob.wz/2600423.img.xml	info/PADamage	3577	900	148	AF Android
+Mob.wz/2600424.img.xml	info/MADamage	3389	900	148	Broken DF Android
+Mob.wz/2600424.img.xml	info/PADamage	3533	900	148	Broken DF Android
+Mob.wz/2600500.img.xml	info/MADamage	3860	900	152	Cube Slime
+Mob.wz/2600500.img.xml	info/PADamage	3796	900	152	Cube Slime
+Mob.wz/2600501.img.xml	info/MADamage	3838	900	152	Megran
+Mob.wz/2600501.img.xml	info/PADamage	3966	900	152	Megran
+Mob.wz/2600502.img.xml	info/MADamage	3747	900	152	Rumo
+Mob.wz/2600502.img.xml	info/PADamage	4004	900	152	Rumo
+Mob.wz/2600503.img.xml	info/MADamage	4091	900	152	Triple Rumo
+Mob.wz/2600503.img.xml	info/PADamage	4141	900	152	Triple Rumo
+Mob.wz/2600505.img.xml	info/MADamage	3842	900	154	Iron Mutae
+Mob.wz/2600505.img.xml	info/PADamage	4121	900	154	Iron Mutae
+Mob.wz/2600506.img.xml	info/MADamage	4056	900	154	Reinforced Iron Mutae
+Mob.wz/2600506.img.xml	info/PADamage	4052	900	154	Reinforced Iron Mutae
+Mob.wz/2600507.img.xml	info/MADamage	3987	900	154	Mithril Mutae
+Mob.wz/2600507.img.xml	info/PADamage	4252	900	154	Mithril Mutae
+Mob.wz/2600508.img.xml	info/MADamage	3973	900	154	Reinforced Mithril Mutae
+Mob.wz/2600508.img.xml	info/PADamage	3907	900	154	Reinforced Mithril Mutae
+Mob.wz/2600510.img.xml	info/MADamage	3934	900	156	Homun
+Mob.wz/2600510.img.xml	info/PADamage	4330	900	156	Homun
+Mob.wz/2600511.img.xml	info/MADamage	4150	900	156	Homunculus
+Mob.wz/2600511.img.xml	info/PADamage	4051	900	156	Homunculus
+Mob.wz/2600512.img.xml	info/MADamage	4296	900	156	Homunscullo
+Mob.wz/2600512.img.xml	info/PADamage	4109	900	156	Homunscullo
+Mob.wz/2600513.img.xml	info/MADamage	4111	900	156	Saitie
+Mob.wz/2600513.img.xml	info/PADamage	4362	900	156	Saitie
+Mob.wz/2600515.img.xml	info/MADamage	4086	900	158	Roid
+Mob.wz/2600515.img.xml	info/PADamage	4383	900	158	Roid
+Mob.wz/2600516.img.xml	info/MADamage	4179	900	158	Neo Huroid
+Mob.wz/2600516.img.xml	info/PADamage	4338	900	158	Neo Huroid
+Mob.wz/2600517.img.xml	info/MADamage	4346	900	158	D. Roy
+Mob.wz/2600517.img.xml	info/PADamage	4485	900	158	D. Roy
+Mob.wz/2600600.img.xml	info/MADamage	4573	900	162	Brown Teddy
+Mob.wz/2600600.img.xml	info/PADamage	4450	900	162	Brown Teddy
+Mob.wz/2600601.img.xml	info/MADamage	4676	900	162	Pink Teddy
+Mob.wz/2600601.img.xml	info/PADamage	4486	900	162	Pink Teddy
+Mob.wz/2600602.img.xml	info/MADamage	4356	900	162	Panda Teddy
+Mob.wz/2600602.img.xml	info/PADamage	4561	900	162	Panda Teddy
+Mob.wz/2600603.img.xml	info/MADamage	4342	900	162	Roloduck
+Mob.wz/2600603.img.xml	info/PADamage	4360	900	162	Roloduck
+Mob.wz/2600604.img.xml	info/MADamage	4490	900	162	Toy Trojan
+Mob.wz/2600604.img.xml	info/PADamage	4385	900	162	Toy Trojan
+Mob.wz/2600605.img.xml	info/MADamage	4413	900	162	Robo
+Mob.wz/2600605.img.xml	info/PADamage	4466	900	162	Robo
+Mob.wz/2600606.img.xml	info/MADamage	4430	900	162	Master Robo
+Mob.wz/2600606.img.xml	info/PADamage	4751	900	162	Master Robo
+Mob.wz/2600608.img.xml	info/MADamage	4782	900	164	Tick
+Mob.wz/2600608.img.xml	info/PADamage	4634	900	164	Tick
+Mob.wz/2600609.img.xml	info/MADamage	4421	900	164	Tick-Tock
+Mob.wz/2600609.img.xml	info/PADamage	4585	900	164	Tick-Tock
+Mob.wz/2600610.img.xml	info/MADamage	4490	900	164	Chronos
+Mob.wz/2600610.img.xml	info/PADamage	4900	900	164	Chronos
+Mob.wz/2600611.img.xml	info/MADamage	4411	900	164	Platoon Chronos
+Mob.wz/2600611.img.xml	info/PADamage	4516	900	164	Platoon Chronos
+Mob.wz/2600612.img.xml	info/MADamage	4609	900	164	Master Chronos
+Mob.wz/2600612.img.xml	info/PADamage	4822	900	164	Master Chronos
+Mob.wz/2600614.img.xml	info/MADamage	4585	900	166	Death Teddy
+Mob.wz/2600614.img.xml	info/PADamage	5034	900	166	Death Teddy
+Mob.wz/2600615.img.xml	info/MADamage	4612	900	166	Master Death Teddy
+Mob.wz/2600615.img.xml	info/PADamage	4881	900	166	Master Death Teddy
+Mob.wz/2600616.img.xml	info/MADamage	4612	900	166	Soul Teddy
+Mob.wz/2600616.img.xml	info/PADamage	5030	900	166	Soul Teddy
+Mob.wz/2600617.img.xml	info/MADamage	4600	900	166	Master Soul Teddy
+Mob.wz/2600617.img.xml	info/PADamage	4713	900	166	Master Soul Teddy
+Mob.wz/2600618.img.xml	info/MADamage	4687	900	166	Buffoon
+Mob.wz/2600618.img.xml	info/PADamage	4610	900	166	Buffoon
+Mob.wz/2600619.img.xml	info/MADamage	4890	900	166	Deep Buffoon
+Mob.wz/2600619.img.xml	info/PADamage	4924	900	166	Deep Buffoon
+Mob.wz/2600620.img.xml	info/MADamage	4828	900	166	Buffy
+Mob.wz/2600620.img.xml	info/PADamage	4627	900	166	Buffy
+Mob.wz/2600621.img.xml	info/MADamage	4593	900	166	Lazy Buffy
+Mob.wz/2600621.img.xml	info/PADamage	4911	900	166	Lazy Buffy
+Mob.wz/2600623.img.xml	info/MADamage	5003	900	168	Ghost Pirate
+Mob.wz/2600623.img.xml	info/PADamage	4997	900	168	Ghost Pirate
+Mob.wz/2600624.img.xml	info/MADamage	5094	900	168	Dual Ghost Pirate
+Mob.wz/2600624.img.xml	info/PADamage	4990	900	168	Dual Ghost Pirate
+Mob.wz/2600625.img.xml	info/MADamage	4894	900	168	Klock
+Mob.wz/2600625.img.xml	info/PADamage	4903	900	168	Klock
+Mob.wz/2600626.img.xml	info/MADamage	5016	900	168	Dark Klock
+Mob.wz/2600626.img.xml	info/PADamage	4677	900	168	Dark Klock
+Mob.wz/2600627.img.xml	info/MADamage	4785	900	168	Spirit Viking
+Mob.wz/2600627.img.xml	info/PADamage	4941	900	168	Spirit Viking
+Mob.wz/2600628.img.xml	info/MADamage	4795	900	168	Gigantic Spirit Viking
+Mob.wz/2600628.img.xml	info/PADamage	4729	900	168	Gigantic Spirit Viking
+Mob.wz/2600629.img.xml	info/MADamage	4854	900	168	Phantom Watch
+Mob.wz/2600629.img.xml	info/PADamage	5074	900	168	Phantom Watch
+Mob.wz/2600630.img.xml	info/MADamage	5100	900	168	Grim Phantom Watch
+Mob.wz/2600630.img.xml	info/PADamage	4819	900	168	Grim Phantom Watch
+Mob.wz/2600700.img.xml	info/MADamage	5648	900	173	Eye of Time
+Mob.wz/2600700.img.xml	info/PADamage	5373	900	173	Eye of Time
+Mob.wz/2600701.img.xml	info/MADamage	5804	900	173	Memory Monk
+Mob.wz/2600701.img.xml	info/PADamage	5925	900	173	Memory Monk
+Mob.wz/2600702.img.xml	info/MADamage	5737	900	173	Memory Monk Trainee
+Mob.wz/2600702.img.xml	info/PADamage	5582	900	173	Memory Monk Trainee
+Mob.wz/2600703.img.xml	info/MADamage	5396	900	173	Memory Guardian
+Mob.wz/2600703.img.xml	info/PADamage	5510	900	173	Memory Guardian
+Mob.wz/2600704.img.xml	info/MADamage	5735	900	173	Chief Memory Guardian
+Mob.wz/2600704.img.xml	info/PADamage	5380	900	173	Chief Memory Guardian
+Mob.wz/2600706.img.xml	info/MADamage	6001	900	176	Qualm Monk
+Mob.wz/2600706.img.xml	info/PADamage	5647	900	176	Qualm Monk
+Mob.wz/2600707.img.xml	info/MADamage	6072	900	176	Qualm Monk Trainee
+Mob.wz/2600707.img.xml	info/PADamage	5563	900	176	Qualm Monk Trainee
+Mob.wz/2600708.img.xml	info/MADamage	5910	900	176	Qualm Guardian
+Mob.wz/2600708.img.xml	info/PADamage	5575	900	176	Qualm Guardian
+Mob.wz/2600709.img.xml	info/MADamage	6064	900	176	Chief Qualm Guardian
+Mob.wz/2600709.img.xml	info/PADamage	5584	900	176	Chief Qualm Guardian
+Mob.wz/2600711.img.xml	info/MADamage	5902	900	179	Oblivion Monk
+Mob.wz/2600711.img.xml	info/PADamage	6015	900	179	Oblivion Monk
+Mob.wz/2600712.img.xml	info/MADamage	6177	900	179	Oblivion Monk Trainee
+Mob.wz/2600712.img.xml	info/PADamage	6261	900	179	Oblivion Monk Trainee
+Mob.wz/2600713.img.xml	info/MADamage	5773	900	179	Oblivion Guardian
+Mob.wz/2600713.img.xml	info/PADamage	6011	900	179	Oblivion Guardian
+Mob.wz/2600714.img.xml	info/MADamage	6224	900	179	Chief Oblivion Guardian
+Mob.wz/2600714.img.xml	info/PADamage	6091	900	179	Chief Oblivion Guardian
+Mob.wz/2600900.img.xml	info/MADamage	8211	900	180	Frozen Terror
+Mob.wz/2600900.img.xml	info/PADamage	6420	900	180	Frozen Terror
+Mob.wz/2600901.img.xml	info/MADamage	9438	900	180	Frozen Rage
+Mob.wz/2600901.img.xml	info/PADamage	9142	900	180	Frozen Rage
+Mob.wz/2600902.img.xml	info/MADamage	9496	900	180	Frozen Anxiety
+Mob.wz/2600902.img.xml	info/PADamage	9261	900	180	Frozen Anxiety
+Mob.wz/2600903.img.xml	info/MADamage	8689	900	180	Frozen Vanity
+Mob.wz/2600903.img.xml	info/PADamage	9407	900	180	Frozen Vanity
+Mob.wz/2600904.img.xml	info/MADamage	9404	900	180	Frozen Solitude
+Mob.wz/2600904.img.xml	info/PADamage	9099	900	180	Frozen Solitude
+Mob.wz/2600905.img.xml	info/MADamage	3382	900	140	Frozen Terror
+Mob.wz/2600905.img.xml	info/PADamage	3492	900	140	Frozen Terror
+Mob.wz/2600906.img.xml	info/MADamage	4347	900	140	Frozen Rage
+Mob.wz/2600906.img.xml	info/PADamage	4389	900	140	Frozen Rage
+Mob.wz/2600907.img.xml	info/MADamage	4346	900	140	Frozen Anxiety
+Mob.wz/2600907.img.xml	info/PADamage	4438	900	140	Frozen Anxiety
+Mob.wz/2600908.img.xml	info/MADamage	4563	900	140	Frozen Vanity
+Mob.wz/2600908.img.xml	info/PADamage	4383	900	140	Frozen Vanity
+Mob.wz/2600909.img.xml	info/MADamage	4337	900	140	Frozen Solitude
+Mob.wz/2600909.img.xml	info/PADamage	4303	900	140	Frozen Solitude
+Mob.wz/2700000.img.xml	info/MADamage	10000	900	10	Bandage Mon
+Mob.wz/2700000.img.xml	info/PADamage	10000	900	10	Bandage Mon
+Mob.wz/2700001.img.xml	info/MADamage	10000	900	10	Thermo Mon
+Mob.wz/2700001.img.xml	info/PADamage	10000	900	10	Thermo Mon
+Mob.wz/2700002.img.xml	info/MADamage	10000	900	10	Squeeze Mon
+Mob.wz/2700002.img.xml	info/PADamage	10000	900	10	Squeeze Mon
+Mob.wz/2700003.img.xml	info/MADamage	10000	900	10	Agrippa Mon
+Mob.wz/2700003.img.xml	info/PADamage	10000	900	10	Agrippa Mon
+Mob.wz/2700004.img.xml	info/MADamage	10000	900	10	Farsighted Mon
+Mob.wz/2700004.img.xml	info/PADamage	10000	900	10	Farsighted Mon
+Mob.wz/2700005.img.xml	info/MADamage	10000	900	10	Ember Mon
+Mob.wz/2700005.img.xml	info/PADamage	10000	900	10	Ember Mon
+Mob.wz/2700006.img.xml	info/MADamage	10000	900	10	Harp Mon
+Mob.wz/2700006.img.xml	info/PADamage	10000	900	10	Harp Mon
+Mob.wz/2700007.img.xml	info/MADamage	10000	900	10	Drum Mon
+Mob.wz/2700007.img.xml	info/PADamage	10000	900	10	Drum Mon
+Mob.wz/2700008.img.xml	info/MADamage	10000	900	10	Shy Mon
+Mob.wz/2700008.img.xml	info/PADamage	10000	900	10	Shy Mon
+Mob.wz/2700009.img.xml	info/MADamage	10000	900	10	Bashful Mon
+Mob.wz/2700009.img.xml	info/PADamage	10000	900	10	Bashful Mon
+Mob.wz/2700029.img.xml	info/MADamage	2000	900	60	Magnus
+Mob.wz/2700029.img.xml	info/PADamage	2145	900	60	Magnus
+Mob.wz/2700315.img.xml	info/MADamage	870	900	100	New Omen
+Mob.wz/2700316.img.xml	info/MADamage	1010	900	103	New Master Omen
+Mob.wz/2700316.img.xml	info/PADamage	1020	900	103	New Master Omen
+Mob.wz/3300111.img.xml	info/MADamage	2000	900	60	Viking Squad
+Mob.wz/3300111.img.xml	info/PADamage	2145	900	60	Viking Squad
+Mob.wz/3503000.img.xml	info/MADamage	13838	900	210	Polluted Tree Sap
+Mob.wz/3503000.img.xml	info/PADamage	13950	900	210	Polluted Tree Sap
+Mob.wz/3503001.img.xml	info/MADamage	13950	900	211	Defiled Tree Sap
+Mob.wz/3503001.img.xml	info/PADamage	14063	900	211	Defiled Tree Sap
+Mob.wz/3503002.img.xml	info/MADamage	14063	900	212	Dark Demon Swordsman
+Mob.wz/3503002.img.xml	info/PADamage	14175	900	212	Dark Demon Swordsman
+Mob.wz/3503003.img.xml	info/MADamage	14175	900	213	Dark Demon Swordmaster
+Mob.wz/3503003.img.xml	info/PADamage	14288	900	213	Dark Demon Swordmaster
+Mob.wz/3503004.img.xml	info/MADamage	14288	900	214	Dark Demon Axeman
+Mob.wz/3503004.img.xml	info/PADamage	14400	900	214	Dark Demon Axeman
+Mob.wz/3503005.img.xml	info/MADamage	14400	900	215	Dark Demon Axemaster
+Mob.wz/3503005.img.xml	info/PADamage	14513	900	215	Dark Demon Axemaster
+Mob.wz/3503006.img.xml	info/MADamage	14513	900	216	Dark Demon Shieldbearer
+Mob.wz/3503006.img.xml	info/PADamage	14625	900	216	Dark Demon Shieldbearer
+Mob.wz/3503007.img.xml	info/MADamage	14513	900	217	Dark Demon Shieldmaster
+Mob.wz/3503007.img.xml	info/PADamage	14625	900	217	Dark Demon Shieldmaster
+Mob.wz/3503008.img.xml	info/MADamage	14513	900	218	Dark Demon Wolfrider
+Mob.wz/3503008.img.xml	info/PADamage	14625	900	218	Dark Demon Wolfrider
+Mob.wz/3503009.img.xml	info/MADamage	14850	900	219	Dark Demon Wolfmaster
+Mob.wz/3503009.img.xml	info/PADamage	14963	900	219	Dark Demon Wolfmaster
+Mob.wz/3503010.img.xml	info/MADamage	13838	900	210	Dark Demon Eagle Rider
+Mob.wz/3503010.img.xml	info/PADamage	13950	900	210	Dark Demon Eagle Rider
+Mob.wz/3503012.img.xml	info/MADamage	13838	900	210	Corrupted Imp
+Mob.wz/3503012.img.xml	info/PADamage	13950	900	210	Corrupted Imp
+Mob.wz/3645308.img.xml	info/MADamage	890	900	100	Ensorcelled Knight
+Mob.wz/4230127.img.xml	info/MADamage	7020	900	165	Mateon
+Mob.wz/4230127.img.xml	info/PADamage	7110	900	165	Mateon
+Mob.wz/4230128.img.xml	info/MADamage	7200	900	167	Plateon
+Mob.wz/4230128.img.xml	info/PADamage	7290	900	167	Plateon
+Mob.wz/4230129.img.xml	info/MADamage	7380	900	169	Barnard Gray
+Mob.wz/4230129.img.xml	info/PADamage	7470	900	169	Barnard Gray
+Mob.wz/4230130.img.xml	info/MADamage	8190	900	171	Ultra Gray
+Mob.wz/4230130.img.xml	info/PADamage	8288	900	171	Ultra Gray
+Mob.wz/4230131.img.xml	info/MADamage	8385	900	173	Gray Commuter Saucer
+Mob.wz/4230131.img.xml	info/PADamage	8483	900	173	Gray Commuter Saucer
+Mob.wz/4230132.img.xml	info/MADamage	8580	900	175	Gray Luxury Saucer
+Mob.wz/4230132.img.xml	info/PADamage	8678	900	175	Gray Luxury Saucer
+Mob.wz/4230133.img.xml	info/MADamage	8678	900	176	Mecateon
+Mob.wz/4230133.img.xml	info/PADamage	8775	900	176	Mecateon
+Mob.wz/4230134.img.xml	info/MADamage	8775	900	177	MT-09
+Mob.wz/4230134.img.xml	info/PADamage	8873	900	177	MT-09
+Mob.wz/4230137.img.xml	info/MADamage	8873	900	178	White Robosaucer
+Mob.wz/4230137.img.xml	info/PADamage	8970	900	178	White Robosaucer
+Mob.wz/4230138.img.xml	info/MADamage	8970	900	179	Black Robosaucer
+Mob.wz/4230138.img.xml	info/PADamage	9068	900	179	Black Robosaucer
+Mob.wz/4230141.img.xml	info/MADamage	12422	900	178	[*] Gray Commuter Saucer
+Mob.wz/4230141.img.xml	info/PADamage	12558	900	178	[*] Gray Commuter Saucer
+Mob.wz/4230142.img.xml	info/MADamage	12695	900	180	[*] Gray Luxury Saucer
+Mob.wz/4230142.img.xml	info/PADamage	12831	900	180	[*] Gray Luxury Saucer
+Mob.wz/4310000.img.xml	info/MADamage	3190	900	145	Greatest Oldies Album
+Mob.wz/4310000.img.xml	info/PADamage	3245	900	145	Greatest Oldies Album
+Mob.wz/4310001.img.xml	info/MADamage	3190	900	145	Latest Hits Album
+Mob.wz/4310001.img.xml	info/PADamage	3245	900	145	Latest Hits Album
+Mob.wz/4310002.img.xml	info/MADamage	3245	900	146	Next-gen Speaker
+Mob.wz/4310002.img.xml	info/PADamage	3300	900	146	Next-gen Speaker
+Mob.wz/4310004.img.xml	info/MADamage	3300	900	147	Blue Raspberry Jelly Juice
+Mob.wz/4310004.img.xml	info/PADamage	3355	900	147	Blue Raspberry Jelly Juice
+Mob.wz/4310005.img.xml	info/MADamage	3355	900	148	Grape Jelly Juice
+Mob.wz/4310005.img.xml	info/PADamage	3410	900	148	Grape Jelly Juice
+Mob.wz/4310006.img.xml	info/MADamage	3410	900	149	Enraged Espresso Machine
+Mob.wz/4310006.img.xml	info/PADamage	3465	900	149	Enraged Espresso Machine
+Mob.wz/4310007.img.xml	info/MADamage	3465	900	150	Green Notebook
+Mob.wz/4310007.img.xml	info/PADamage	3520	900	150	Green Notebook
+Mob.wz/4310008.img.xml	info/MADamage	3840	900	151	Blue Notebook
+Mob.wz/4310008.img.xml	info/PADamage	3900	900	151	Blue Notebook
+Mob.wz/4310009.img.xml	info/MADamage	3900	900	152	Yellow Headphones
+Mob.wz/4310009.img.xml	info/PADamage	3960	900	152	Yellow Headphones
+Mob.wz/4310010.img.xml	info/MADamage	3960	900	153	Red Headphones
+Mob.wz/4310010.img.xml	info/PADamage	4020	900	153	Red Headphones
+Mob.wz/4310011.img.xml	info/MADamage	4020	900	154	Killer Cosmetics
+Mob.wz/4310011.img.xml	info/PADamage	4080	900	154	Killer Cosmetics
+Mob.wz/4310012.img.xml	info/MADamage	4080	900	155	Deadly Dressing Table
+Mob.wz/4310012.img.xml	info/PADamage	4140	900	155	Deadly Dressing Table
+Mob.wz/4310013.img.xml	info/MADamage	4080	900	155	Harried Hair Roller
+Mob.wz/4310013.img.xml	info/PADamage	4140	900	155	Harried Hair Roller
+Mob.wz/4310014.img.xml	info/MADamage	4080	900	155	Peeved Perm Machine
+Mob.wz/4310014.img.xml	info/PADamage	4140	900	155	Peeved Perm Machine
+Mob.wz/4310017.img.xml	info/MADamage	5712	900	155	[*] Enraged Espresso Machine
+Mob.wz/4310017.img.xml	info/PADamage	5796	900	155	[*] Enraged Espresso Machine
+Mob.wz/4310018.img.xml	info/MADamage	5880	900	157	[*] Blue Notebook
+Mob.wz/4310018.img.xml	info/PADamage	5964	900	157	[*] Blue Notebook
+Mob.wz/4310019.img.xml	info/MADamage	6048	900	159	[*] Red Headphones
+Mob.wz/4310019.img.xml	info/PADamage	6132	900	159	[*] Red Headphones
+Mob.wz/4310020.img.xml	info/MADamage	9324	900	161	[*] Deadly Dressing Table
+Mob.wz/4310020.img.xml	info/PADamage	9450	900	161	[*] Deadly Dressing Table
+Mob.wz/4310021.img.xml	info/MADamage	9450	900	162	[*] Harried Hair Roller
+Mob.wz/4310021.img.xml	info/PADamage	9576	900	162	[*] Harried Hair Roller
+Mob.wz/4310022.img.xml	info/MADamage	5712	900	155	[*] Grape Jelly Juice
+Mob.wz/4310022.img.xml	info/PADamage	5796	900	155	[*] Grape Jelly Juice
+Mob.wz/4310023.img.xml	info/MADamage	5880	900	157	[*] Green Notebook
+Mob.wz/4310023.img.xml	info/PADamage	5964	900	157	[*] Green Notebook
+Mob.wz/4310024.img.xml	info/MADamage	6048	900	159	[*] Yellow Headphones
+Mob.wz/4310024.img.xml	info/PADamage	6132	900	159	[*] Yellow Headphones
+Mob.wz/4310025.img.xml	info/MADamage	9324	900	161	[*] Killer Cosmetics
+Mob.wz/4310025.img.xml	info/PADamage	9450	900	161	[*] Killer Cosmetics
+Mob.wz/4310026.img.xml	info/MADamage	9450	900	162	[*] Peeved Perm Machine
+Mob.wz/4310026.img.xml	info/PADamage	9576	900	162	[*] Peeved Perm Machine
+Mob.wz/5100100.img.xml	info/MADamage	2287	900	130	Moon Bunny
+Mob.wz/5100100.img.xml	info/PADamage	2436	900	130	Moon Bunny
+Mob.wz/5100101.img.xml	info/MADamage	2381	900	132	Dark Axe Stump
+Mob.wz/5100101.img.xml	info/PADamage	2600	900	132	Dark Axe Stump
+Mob.wz/5100102.img.xml	info/MADamage	2689	900	134	Hodori
+Mob.wz/5100102.img.xml	info/PADamage	2724	900	134	Hodori
+Mob.wz/5100103.img.xml	info/MADamage	2766	900	135	Hogul
+Mob.wz/5100103.img.xml	info/PADamage	2596	900	135	Hogul
+Mob.wz/5100104.img.xml	info/MADamage	3195	900	136	Samiho
+Mob.wz/5100104.img.xml	info/PADamage	2657	900	136	Samiho
+Mob.wz/5100105.img.xml	info/MADamage	2885	900	137	Blin
+Mob.wz/5100105.img.xml	info/PADamage	2890	900	137	Blin
+Mob.wz/5100106.img.xml	info/MADamage	2885	900	138	Blue King Goblin
+Mob.wz/5100106.img.xml	info/PADamage	2820	900	138	Blue King Goblin
+Mob.wz/5100107.img.xml	info/MADamage	2885	900	139	Green King Goblin
+Mob.wz/5100107.img.xml	info/PADamage	2952	900	139	Green King Goblin
+Mob.wz/5100108.img.xml	info/MADamage	3039	900	140	Yellow King Goblin
+Mob.wz/5100108.img.xml	info/PADamage	2889	900	140	Yellow King Goblin
+Mob.wz/5100109.img.xml	info/MADamage	2885	900	137	Blin
+Mob.wz/5100109.img.xml	info/PADamage	3294	900	137	Blin
+Mob.wz/5250003.img.xml	info/MADamage	1184	900	107	Violent Primitive Boar
+Mob.wz/5250003.img.xml	info/PADamage	1226	900	107	Violent Primitive Boar
+Mob.wz/5250005.img.xml	info/MADamage	1200	900	108	Ancient Fairy
+Mob.wz/5250005.img.xml	info/PADamage	1211	900	108	Ancient Fairy
+Mob.wz/5250006.img.xml	info/MADamage	1294	900	109	Shining Fairy
+Mob.wz/5250006.img.xml	info/PADamage	1224	900	109	Shining Fairy
+Mob.wz/7120110.img.xml	info/MADamage	1577	900	110	Blazing Imp
+Mob.wz/7120110.img.xml	info/PADamage	1621	900	110	Blazing Imp
+Mob.wz/7120111.img.xml	info/MADamage	1953	900	120	Pointy Imp
+Mob.wz/7120111.img.xml	info/PADamage	2105	900	120	Pointy Imp
+Mob.wz/7120112.img.xml	info/MADamage	10000	900	180	Elite Blazing Imp
+Mob.wz/7120112.img.xml	info/PADamage	10000	900	180	Elite Blazing Imp
+Mob.wz/7120113.img.xml	info/MADamage	13000	900	190	Elite Pointy Imp
+Mob.wz/7120113.img.xml	info/PADamage	13000	900	190	Elite Pointy Imp
+Mob.wz/8140003.img.xml	info/MADamage	1481	900	107	[*]Blood Harp
+Mob.wz/8140003.img.xml	info/PADamage	1596	900	107	[*]Blood Harp
+Mob.wz/8140104.img.xml	info/MADamage	1315	900	110	[*]Black Kentaurus
+Mob.wz/8140104.img.xml	info/PADamage	1737	900	110	[*]Black Kentaurus
+Mob.wz/8140105.img.xml	info/MADamage	1257	900	110	[*]Red Kentaurus
+Mob.wz/8140105.img.xml	info/PADamage	1737	900	110	[*]Red Kentaurus
+Mob.wz/8140106.img.xml	info/MADamage	1343	900	110	[*]Blue Kentaurus
+Mob.wz/8140106.img.xml	info/PADamage	1792	900	110	[*]Blue Kentaurus
+Mob.wz/8140112.img.xml	info/MADamage	1702	900	109	[*]Dual Birk
+Mob.wz/8140112.img.xml	info/PADamage	1626	900	109	[*]Dual Birk
+Mob.wz/8144000.img.xml	info/MADamage	2369	900	132	Wild Monkey
+Mob.wz/8144000.img.xml	info/PADamage	2592	900	132	Wild Monkey
+Mob.wz/8144001.img.xml	info/MADamage	2629	900	133	Mama Monkey
+Mob.wz/8144001.img.xml	info/PADamage	2550	900	133	Mama Monkey
+Mob.wz/8144002.img.xml	info/MADamage	2684	900	134	Teeny White Monkey
+Mob.wz/8144002.img.xml	info/PADamage	2614	900	134	Teeny White Monkey
+Mob.wz/8144003.img.xml	info/MADamage	2557	900	135	Mean Mama Monkey
+Mob.wz/8144003.img.xml	info/PADamage	2590	900	135	Mean Mama Monkey
+Mob.wz/8144004.img.xml	info/MADamage	2681	900	136	Blue Goblin
+Mob.wz/8144004.img.xml	info/PADamage	2750	900	136	Blue Goblin
+Mob.wz/8144005.img.xml	info/MADamage	2607	900	136	Red Goblin
+Mob.wz/8144005.img.xml	info/PADamage	2640	900	136	Red Goblin
+Mob.wz/8144006.img.xml	info/MADamage	2656	900	137	Stone Goblin
+Mob.wz/8144006.img.xml	info/PADamage	2864	900	137	Stone Goblin
+Mob.wz/8144007.img.xml	info/MADamage	2749	900	137	Strong Stone Goblin
+Mob.wz/8144007.img.xml	info/PADamage	2813	900	137	Strong Stone Goblin
+Mob.wz/8144008.img.xml	info/MADamage	2720	900	138	Stone Goblin Guardian
+Mob.wz/8144008.img.xml	info/PADamage	2966	900	138	Stone Goblin Guardian
+Mob.wz/8145000.img.xml	info/MADamage	1953	900	121	Creeper Scarlion
+Mob.wz/8145000.img.xml	info/PADamage	1863	900	121	Creeper Scarlion
+Mob.wz/8145001.img.xml	info/MADamage	1911	900	121	Ratacula
+Mob.wz/8145001.img.xml	info/PADamage	1959	900	121	Ratacula
+Mob.wz/8145002.img.xml	info/MADamage	1851	900	121	Ghost
+Mob.wz/8145002.img.xml	info/PADamage	2017	900	121	Ghost
+Mob.wz/8145003.img.xml	info/MADamage	1902	900	122	Canterbear
+Mob.wz/8145003.img.xml	info/PADamage	2064	900	122	Canterbear
+Mob.wz/8145004.img.xml	info/MADamage	1955	900	122	Clowning Scarlion
+Mob.wz/8145004.img.xml	info/PADamage	1958	900	122	Clowning Scarlion
+Mob.wz/8145005.img.xml	info/MADamage	1951	900	122	Colabear
+Mob.wz/8145005.img.xml	info/PADamage	1947	900	122	Colabear
+Mob.wz/8145006.img.xml	info/MADamage	2004	900	123	Soaring Scarlion
+Mob.wz/8145006.img.xml	info/PADamage	1991	900	123	Soaring Scarlion
+Mob.wz/8145007.img.xml	info/MADamage	2000	900	123	Jellybus
+Mob.wz/8145007.img.xml	info/PADamage	1979	900	123	Jellybus
+Mob.wz/8145008.img.xml	info/MADamage	1942	900	123	Bearic the White
+Mob.wz/8145008.img.xml	info/PADamage	1950	900	123	Bearic the White
+Mob.wz/8147000.img.xml	info/MADamage	3974	900	152	Mantis
+Mob.wz/8147000.img.xml	info/PADamage	4024	900	152	Mantis
+Mob.wz/8147001.img.xml	info/MADamage	3842	900	153	Blood Mantis
+Mob.wz/8147001.img.xml	info/PADamage	4113	900	153	Blood Mantis
+Mob.wz/8147002.img.xml	info/MADamage	3876	900	154	Poison Mantis
+Mob.wz/8147002.img.xml	info/PADamage	4258	900	154	Poison Mantis
+Mob.wz/8147003.img.xml	info/MADamage	4043	900	155	Flora
+Mob.wz/8147003.img.xml	info/PADamage	4290	900	155	Flora
+Mob.wz/8147004.img.xml	info/MADamage	4088	900	156	Dark Flora
+Mob.wz/8147004.img.xml	info/PADamage	4282	900	156	Dark Flora
+Mob.wz/8147005.img.xml	info/MADamage	4157	900	157	Hornet
+Mob.wz/8147005.img.xml	info/PADamage	4361	900	157	Hornet
+Mob.wz/8147006.img.xml	info/MADamage	4182	900	158	Poison Hornet
+Mob.wz/8147006.img.xml	info/PADamage	4460	900	158	Poison Hornet
+Mob.wz/8147007.img.xml	info/MADamage	4199	900	159	General Hornet
+Mob.wz/8147007.img.xml	info/PADamage	4420	900	159	General Hornet
+Mob.wz/8147008.img.xml	info/MADamage	4302	900	160	Polluted Tree Spirit
+Mob.wz/8147008.img.xml	info/PADamage	4623	900	160	Polluted Tree Spirit
+Mob.wz/8147009.img.xml	info/MADamage	4254	900	161	Corrupted Tree Spirit
+Mob.wz/8147009.img.xml	info/PADamage	4902	900	161	Corrupted Tree Spirit
+Mob.wz/8147010.img.xml	info/MADamage	4372	900	162	Polluted Rock Spirit
+Mob.wz/8147010.img.xml	info/PADamage	4459	900	162	Polluted Rock Spirit
+Mob.wz/8147011.img.xml	info/MADamage	4370	900	163	Corrupted Rock Spirit
+Mob.wz/8147011.img.xml	info/PADamage	4918	900	163	Corrupted Rock Spirit
+Mob.wz/8147015.img.xml	info/MADamage	6048	900	159	[*] General Hornet
+Mob.wz/8147015.img.xml	info/PADamage	6132	900	159	[*] General Hornet
+Mob.wz/8148000.img.xml	info/MADamage	2371	900	130	Typhon
+Mob.wz/8148000.img.xml	info/PADamage	2336	900	130	Typhon
+Mob.wz/8148001.img.xml	info/MADamage	2358	900	131	Elite Stormbreaker
+Mob.wz/8148001.img.xml	info/PADamage	2487	900	131	Elite Stormbreaker
+Mob.wz/8148002.img.xml	info/MADamage	2530	900	133	Leprechaun
+Mob.wz/8148002.img.xml	info/PADamage	2585	900	133	Leprechaun
+Mob.wz/8148003.img.xml	info/MADamage	2530	900	133	Leprechaun
+Mob.wz/8148003.img.xml	info/PADamage	2585	900	133	Leprechaun
+Mob.wz/8148004.img.xml	info/MADamage	2585	900	134	Elite Firebrand
+Mob.wz/8148004.img.xml	info/PADamage	2640	900	134	Elite Firebrand
+Mob.wz/8148005.img.xml	info/MADamage	2585	900	134	Elite Firebrand
+Mob.wz/8148005.img.xml	info/PADamage	2640	900	134	Elite Firebrand
+Mob.wz/8148006.img.xml	info/MADamage	2640	900	135	Elderwraith
+Mob.wz/8148006.img.xml	info/PADamage	2695	900	135	Elderwraith
+Mob.wz/8148007.img.xml	info/MADamage	2695	900	136	Elite Windraider
+Mob.wz/8148007.img.xml	info/PADamage	2750	900	136	Elite Windraider
+Mob.wz/8148008.img.xml	info/MADamage	2823	900	137	Crimson Stirge
+Mob.wz/8148008.img.xml	info/PADamage	2794	900	137	Crimson Stirge
+Mob.wz/8148009.img.xml	info/MADamage	2805	900	138	Elite Nightshadow
+Mob.wz/8148009.img.xml	info/PADamage	2860	900	138	Elite Nightshadow
+Mob.wz/8148010.img.xml	info/MADamage	2860	900	139	Elite Scarlet Phoenix
+Mob.wz/8148010.img.xml	info/PADamage	2915	900	139	Elite Scarlet Phoenix
+Mob.wz/8148011.img.xml	info/MADamage	2915	900	140	Elite Azure Ocelot
+Mob.wz/8148011.img.xml	info/PADamage	2970	900	140	Elite Azure Ocelot
+Mob.wz/8150303.img.xml	info/MADamage	2855	900	141	[*]Dark Wyvern
+Mob.wz/8150303.img.xml	info/PADamage	4386	900	141	[*]Dark Wyvern
+Mob.wz/8190006.img.xml	info/MADamage	3273	900	147	[*]Skelegon
+Mob.wz/8190006.img.xml	info/PADamage	4479	900	147	[*]Skelegon
+Mob.wz/8190007.img.xml	info/MADamage	4113	900	153	[*]Skelosaurus
+Mob.wz/8190007.img.xml	info/PADamage	5848	900	153	[*]Skelosaurus
+Mob.wz/8211000.img.xml	info/MADamage	2255	900	128	Frozen Rose
+Mob.wz/8211000.img.xml	info/PADamage	2310	900	128	Frozen Rose
+Mob.wz/8211001.img.xml	info/MADamage	2365	900	130	Keymaster Rousseau
+Mob.wz/8211001.img.xml	info/PADamage	2420	900	130	Keymaster Rousseau
+Mob.wz/8211002.img.xml	info/MADamage	2475	900	132	Garden Golem
+Mob.wz/8211002.img.xml	info/PADamage	2530	900	132	Garden Golem
+Mob.wz/8211003.img.xml	info/MADamage	1690	900	120	Golden Bee
+Mob.wz/8211003.img.xml	info/PADamage	1700	900	120	Golden Bee
+Mob.wz/8211005.img.xml	info/MADamage	3311	900	130	[*] Frozen Rose
+Mob.wz/8211005.img.xml	info/PADamage	3388	900	130	[*] Frozen Rose
+Mob.wz/8211006.img.xml	info/MADamage	3465	900	132	[*] Keymaster Rousseau
+Mob.wz/8211006.img.xml	info/PADamage	3542	900	132	[*] Keymaster Rousseau
+Mob.wz/8211007.img.xml	info/MADamage	3619	900	134	[*] Garden Golem
+Mob.wz/8211007.img.xml	info/PADamage	3696	900	134	[*] Garden Golem
+Mob.wz/8220016.img.xml	info/MADamage	2030	1250	124	Corrupted Wyvern
+Mob.wz/8220016.img.xml	info/PADamage	2116	1200	124	Corrupted Wyvern
+Mob.wz/8220017.img.xml	info/MADamage	2030	1250	124	Corrupted Cornian
+Mob.wz/8220017.img.xml	info/PADamage	2116	1200	124	Corrupted Cornian
+Mob.wz/8220018.img.xml	info/MADamage	2030	1250	124	Corrupted Skelegon
+Mob.wz/8220018.img.xml	info/PADamage	2116	1200	124	Corrupted Skelegon
+Mob.wz/8220019.img.xml	info/MADamage	2030	1250	124	Corrupted Kentaurus
+Mob.wz/8220019.img.xml	info/PADamage	2116	1200	124	Corrupted Kentaurus
+Mob.wz/8220020.img.xml	info/MADamage	4847	1250	164	Corrupted Chief Memory Guardian
+Mob.wz/8220020.img.xml	info/PADamage	4452	1200	164	Corrupted Chief Memory Guardian
+Mob.wz/8220021.img.xml	info/MADamage	5627	1250	166	Corrupted Time Monk Trainee
+Mob.wz/8220021.img.xml	info/PADamage	4755	1200	166	Corrupted Time Monk Trainee
+Mob.wz/8220038.img.xml	info/MADamage	10206	900	160	[*] Eye of Time
+Mob.wz/8220038.img.xml	info/PADamage	9122	900	160	[*] Eye of Time
+Mob.wz/8220039.img.xml	info/MADamage	10769	900	160	[*] Oblivion Monk
+Mob.wz/8220039.img.xml	info/PADamage	9198	900	160	[*] Oblivion Monk
+Mob.wz/8220040.img.xml	info/MADamage	11239	900	162	[*] Oblivion Monk Trainee
+Mob.wz/8220040.img.xml	info/PADamage	9122	900	162	[*] Oblivion Monk Trainee
+Mob.wz/8220041.img.xml	info/MADamage	9668	900	164	[*] Oblivion Guardian
+Mob.wz/8220041.img.xml	info/PADamage	11463	900	164	[*] Oblivion Guardian
+Mob.wz/8220042.img.xml	info/MADamage	9597	900	166	[*] Chief Oblivion Guardian
+Mob.wz/8220042.img.xml	info/PADamage	10214	900	166	[*] Chief Oblivion Guardian
+Mob.wz/8230001.img.xml	info/MADamage	1090	900	105	Decayed Desert Scorpion
+Mob.wz/8230001.img.xml	info/PADamage	1100	900	105	Decayed Desert Scorpion
+Mob.wz/8230002.img.xml	info/MADamage	1090	900	105	Decayed Desert Wasp
+Mob.wz/8230002.img.xml	info/PADamage	1100	900	105	Decayed Desert Wasp
+Mob.wz/8230003.img.xml	info/MADamage	1170	900	107	Evil Poacher
+Mob.wz/8230003.img.xml	info/PADamage	1180	900	107	Evil Poacher
+Mob.wz/8230004.img.xml	info/MADamage	1210	900	108	Poacher's Hawk
+Mob.wz/8230004.img.xml	info/PADamage	1220	900	108	Poacher's Hawk
+Mob.wz/8230005.img.xml	info/MADamage	1090	900	105	Hidden Grave Robber
+Mob.wz/8230005.img.xml	info/PADamage	1100	900	105	Hidden Grave Robber
+Mob.wz/8230006.img.xml	info/MADamage	1130	900	106	Grave Robber's Hunting Dog
+Mob.wz/8230006.img.xml	info/PADamage	1140	900	106	Grave Robber's Hunting Dog
+Mob.wz/8230007.img.xml	info/MADamage	1484	900	110	Neon Bat
+Mob.wz/8230007.img.xml	info/PADamage	1495	900	110	Neon Bat
+Mob.wz/8230008.img.xml	info/MADamage	1250	900	109	Glowing Primary Rock
+Mob.wz/8230008.img.xml	info/PADamage	1260	900	109	Glowing Primary Rock
+Mob.wz/8230009.img.xml	info/MADamage	1250	900	109	Peace Spirit
+Mob.wz/8230009.img.xml	info/PADamage	1260	900	109	Peace Spirit
+Mob.wz/8230010.img.xml	info/MADamage	1330	900	110	Trace of Darkness
+Mob.wz/8230010.img.xml	info/PADamage	1340	900	110	Trace of Darkness
+Mob.wz/8230011.img.xml	info/MADamage	1330	900	110	Omen
+Mob.wz/8230011.img.xml	info/PADamage	1340	900	110	Omen
+Mob.wz/8230013.img.xml	info/MADamage	1330	900	110	Beetle
+Mob.wz/8230013.img.xml	info/PADamage	1340	900	110	Beetle
+Mob.wz/8230014.img.xml	info/MADamage	1330	900	110	Dual Beetle
+Mob.wz/8230014.img.xml	info/PADamage	1340	900	110	Dual Beetle
+Mob.wz/8230015.img.xml	info/MADamage	1330	900	110	Harp
+Mob.wz/8230015.img.xml	info/PADamage	1340	900	110	Harp
+Mob.wz/8230016.img.xml	info/MADamage	1330	900	110	Blood Harp
+Mob.wz/8230016.img.xml	info/PADamage	1340	900	110	Blood Harp
+Mob.wz/8230017.img.xml	info/MADamage	1330	900	110	Red Kentaurus
+Mob.wz/8230017.img.xml	info/PADamage	1340	900	110	Red Kentaurus
+Mob.wz/8230018.img.xml	info/MADamage	1330	900	110	Black Kentaurus
+Mob.wz/8230018.img.xml	info/PADamage	1340	900	110	Black Kentaurus
+Mob.wz/8230019.img.xml	info/MADamage	1090	900	105	Sparker
+Mob.wz/8230019.img.xml	info/PADamage	1100	900	105	Sparker
+Mob.wz/8230020.img.xml	info/MADamage	1130	900	106	Freezer
+Mob.wz/8230020.img.xml	info/PADamage	1140	900	106	Freezer
+Mob.wz/8230021.img.xml	info/MADamage	1330	900	110	Goby
+Mob.wz/8230021.img.xml	info/PADamage	1340	900	110	Goby
+Mob.wz/8230022.img.xml	info/MADamage	1170	900	107	Seacle
+Mob.wz/8230022.img.xml	info/PADamage	1180	900	107	Seacle
+Mob.wz/8230023.img.xml	info/MADamage	1210	900	108	Cico
+Mob.wz/8230023.img.xml	info/PADamage	1220	900	108	Cico
+Mob.wz/8230024.img.xml	info/MADamage	1250	900	109	Bone Fish
+Mob.wz/8230024.img.xml	info/PADamage	1260	900	109	Bone Fish
+Mob.wz/8230025.img.xml	info/MADamage	1290	900	110	Bombing Fish House
+Mob.wz/8230025.img.xml	info/PADamage	1300	900	110	Bombing Fish House
+Mob.wz/8230026.img.xml	info/MADamage	1484	900	110	Neon Bat
+Mob.wz/8230026.img.xml	info/PADamage	1495	900	110	Neon Bat
+Mob.wz/8230027.img.xml	info/MADamage	1330	900	111	Cute Reindeer
+Mob.wz/8230027.img.xml	info/PADamage	1340	900	111	Cute Reindeer
+Mob.wz/8230028.img.xml	info/MADamage	1370	900	112	Bellflower Root
+Mob.wz/8230028.img.xml	info/PADamage	1380	900	112	Bellflower Root
+Mob.wz/8230029.img.xml	info/MADamage	1410	900	113	Peach Monkey
+Mob.wz/8230029.img.xml	info/PADamage	1420	900	113	Peach Monkey
+Mob.wz/8230030.img.xml	info/MADamage	3000	900	100	Cygnus Bowman
+Mob.wz/8230030.img.xml	info/PADamage	3000	900	100	Cygnus Bowman
+Mob.wz/8230031.img.xml	info/MADamage	1330	900	110	Black Wing Henchman 1
+Mob.wz/8230032.img.xml	info/MADamage	1330	900	110	Black Wing Henchman 2
+Mob.wz/8230035.img.xml	info/MADamage	1330	900	110	Surveillance Robot
+Mob.wz/8230035.img.xml	info/PADamage	1340	900	110	Surveillance Robot
+Mob.wz/8230036.img.xml	info/MADamage	1330	900	110	Ore Muncher
+Mob.wz/8230037.img.xml	info/MADamage	1330	900	110	AF Android
+Mob.wz/8230038.img.xml	info/MADamage	1330	900	110	Broken DF Android
+Mob.wz/8230040.img.xml	info/MADamage	1330	900	110	Security System
+Mob.wz/8230041.img.xml	info/MADamage	1330	900	110	Enhanced Security System
+Mob.wz/8230042.img.xml	info/MADamage	1330	900	110	Black Wing Henchman
+Mob.wz/8230043.img.xml	info/MADamage	1330	900	110	Black Wing Henchman
+Mob.wz/8230044.img.xml	info/MADamage	1330	900	110	Black Wing Henchman
+Mob.wz/8230047.img.xml	info/MADamage	3172	900	100	Omen
+Mob.wz/8230047.img.xml	info/PADamage	3101	900	100	Omen
+Mob.wz/8230048.img.xml	info/MADamage	1330	900	110	Enhanced Action System
+Mob.wz/8230050.img.xml	info/MADamage	1330	900	110	Volcano Bug
+Mob.wz/8230051.img.xml	info/MADamage	1330	900	110	Giant Beetle
+Mob.wz/8230052.img.xml	info/MADamage	1330	900	110	Crocky the Gatekeeper
+Mob.wz/8230053.img.xml	info/MADamage	1330	900	110	Bearwolf
+Mob.wz/8230054.img.xml	info/MADamage	1330	900	110	Reindeer
+Mob.wz/8230055.img.xml	info/MADamage	1330	900	110	Blood Reindeer
+Mob.wz/8230056.img.xml	info/MADamage	1330	900	110	Prison Guard Boar
+Mob.wz/8230057.img.xml	info/MADamage	1330	900	110	Prison Guard Rhino
+Mob.wz/8230058.img.xml	info/MADamage	1330	900	110	Grey Vulture
+Mob.wz/8230059.img.xml	info/MADamage	1330	900	110	Mountain Turtle
+Mob.wz/8230060.img.xml	info/MADamage	1330	900	110	Insectivore Slime
+Mob.wz/8230061.img.xml	info/MADamage	1330	900	110	Castle Golem
+Mob.wz/8230066.img.xml	info/MADamage	822	900	95	Darkling Bloon
+Mob.wz/8230067.img.xml	info/MADamage	892	900	100	Darkling
+Mob.wz/8230068.img.xml	info/MADamage	11540	900	190	Darkling Guard
+Mob.wz/8230068.img.xml	info/PADamage	11540	900	190	Darkling Guard
+Mob.wz/8230069.img.xml	info/MADamage	855	900	100	Seamus
+Mob.wz/8230069.img.xml	info/PADamage	910	900	100	Seamus
+Mob.wz/8230070.img.xml	info/MADamage	871	900	100	Keene
+Mob.wz/8230073.img.xml	info/MADamage	892	900	100	Darkling
+Mob.wz/8230083.img.xml	info/MADamage	1090	900	105	Blue Lantern Nightghost
+Mob.wz/8230083.img.xml	info/PADamage	1100	900	105	Blue Lantern Nightghost
+Mob.wz/8230084.img.xml	info/MADamage	1090	900	105	Orange Lantern Nightghost
+Mob.wz/8230084.img.xml	info/PADamage	1100	900	105	Orange Lantern Nightghost
+Mob.wz/8230085.img.xml	info/MADamage	1090	900	105	Hollow Scarecrow
+Mob.wz/8230085.img.xml	info/PADamage	1100	900	105	Hollow Scarecrow
+Mob.wz/8240004.img.xml	info/MADamage	24000	900	190	Pulverizer
+Mob.wz/8240004.img.xml	info/PADamage	22000	900	190	Pulverizer
+Mob.wz/8240040.img.xml	info/MADamage	99999	900	250	Gupi
+Mob.wz/8240040.img.xml	info/PADamage	99999	900	250	Gupi
+Mob.wz/8240041.img.xml	info/MADamage	99999	900	250	Dolpi
+Mob.wz/8240041.img.xml	info/PADamage	99999	900	250	Dolpi
+Mob.wz/8240044.img.xml	info/MADamage	3000	900	100	Resistance Soldier
+Mob.wz/8240044.img.xml	info/PADamage	3000	900	100	Resistance Soldier
+Mob.wz/8240045.img.xml	info/MADamage	99999	900	250	Athena Pierce
+Mob.wz/8240045.img.xml	info/PADamage	99999	900	250	Athena Pierce
+Mob.wz/8240046.img.xml	info/MADamage	1655	900	105	Black Wings Carrier
+Mob.wz/8240046.img.xml	info/PADamage	1682	900	105	Black Wings Carrier
+Mob.wz/8240053.img.xml	info/MADamage	1655	900	105	Baroq's Missile
+Mob.wz/8240053.img.xml	info/PADamage	1682	900	105	Baroq's Missile
+Mob.wz/8240068.img.xml	info/MADamage	24000	900	190	Pulverizer
+Mob.wz/8240068.img.xml	info/PADamage	22000	900	190	Pulverizer
+Mob.wz/8240085.img.xml	info/MADamage	1330	900	110	Black Wings Security
+Mob.wz/8240098.img.xml	info/PADamage	1682	700	210	Lotus
+Mob.wz/8250000.img.xml	info/MADamage	12713	900	200	Modded Scaredroid
+Mob.wz/8250000.img.xml	info/PADamage	12825	900	200	Modded Scaredroid
+Mob.wz/8250001.img.xml	info/MADamage	12938	900	202	Modded Broken Android
+Mob.wz/8250001.img.xml	info/PADamage	13050	900	202	Modded Broken Android
+Mob.wz/8250002.img.xml	info/MADamage	14513	900	216	Modded Laseroid
+Mob.wz/8250002.img.xml	info/PADamage	14625	900	216	Modded Laseroid
+Mob.wz/8250003.img.xml	info/MADamage	13163	900	204	Chaseroid Red
+Mob.wz/8250003.img.xml	info/PADamage	13275	900	204	Chaseroid Red
+Mob.wz/8250004.img.xml	info/MADamage	13613	900	208	Chaseroid Blue
+Mob.wz/8250004.img.xml	info/PADamage	13725	900	208	Chaseroid Blue
+Mob.wz/8250005.img.xml	info/MADamage	13388	900	206	Hunterizer Red
+Mob.wz/8250005.img.xml	info/PADamage	13500	900	206	Hunterizer Red
+Mob.wz/8250006.img.xml	info/MADamage	13838	900	210	Hunterizer Blue
+Mob.wz/8250006.img.xml	info/PADamage	13950	900	210	Hunterizer Blue
+Mob.wz/8250007.img.xml	info/MADamage	14063	900	212	Modded Deliverbot
+Mob.wz/8250007.img.xml	info/PADamage	14175	900	212	Modded Deliverbot
+Mob.wz/8250008.img.xml	info/MADamage	14288	900	214	Modded Buffroid
+Mob.wz/8250008.img.xml	info/PADamage	14400	900	214	Modded Buffroid
+Mob.wz/8250009.img.xml	info/MADamage	14513	900	216	Salvoroid Red
+Mob.wz/8250009.img.xml	info/PADamage	14625	900	216	Salvoroid Red
+Mob.wz/8250010.img.xml	info/MADamage	14400	900	215	Outer Guard EX
+Mob.wz/8250010.img.xml	info/PADamage	14513	900	215	Outer Guard EX
+Mob.wz/8250011.img.xml	info/MADamage	14513	900	216	Inner Guard EX
+Mob.wz/8250011.img.xml	info/PADamage	14625	900	216	Inner Guard EX
+Mob.wz/8250013.img.xml	info/MADamage	14175	900	213	Repairoid
+Mob.wz/8250013.img.xml	info/PADamage	14288	900	213	Repairoid
+Mob.wz/8250015.img.xml	info/MADamage	14850	900	219	Alloy Xenoroid DX
+Mob.wz/8250015.img.xml	info/PADamage	14963	900	219	Alloy Xenoroid DX
+Mob.wz/8250017.img.xml	info/MADamage	14738	900	218	Steel Xenoroid DX
+Mob.wz/8250017.img.xml	info/PADamage	14850	900	218	Steel Xenoroid DX
+Mob.wz/8250019.img.xml	info/MADamage	14625	900	217	Scrap Xenoroid DX
+Mob.wz/8250019.img.xml	info/PADamage	14738	900	217	Scrap Xenoroid DX
+Mob.wz/8250021.img.xml	info/MADamage	14850	900	219	Alloy Xenoroid EX
+Mob.wz/8250021.img.xml	info/PADamage	14963	900	219	Alloy Xenoroid EX
+Mob.wz/8250023.img.xml	info/MADamage	14738	900	218	Steel Xenoroid EX
+Mob.wz/8250023.img.xml	info/PADamage	14850	900	218	Steel Xenoroid EX
+Mob.wz/8250025.img.xml	info/MADamage	14625	900	217	Scrap Xenoroid EX
+Mob.wz/8250025.img.xml	info/PADamage	14738	900	217	Scrap Xenoroid EX
+Mob.wz/8250028.img.xml	info/MADamage	14400	900	215	Salvoroid Blue
+Mob.wz/8250028.img.xml	info/PADamage	14513	900	215	Salvoroid Blue
+Mob.wz/8250030.img.xml	info/MADamage	12713	900	190	Alloy Xenoroid DX
+Mob.wz/8250030.img.xml	info/PADamage	12825	900	190	Alloy Xenoroid DX
+Mob.wz/8250031.img.xml	info/MADamage	13838	900	210	Red Dynamo
+Mob.wz/8250031.img.xml	info/PADamage	13950	900	210	Red Dynamo
+Mob.wz/8250032.img.xml	info/MADamage	13838	900	210	Blue Dynamo
+Mob.wz/8250032.img.xml	info/PADamage	13950	900	210	Blue Dynamo
+Mob.wz/8250033.img.xml	info/MADamage	13838	900	210	Yellow Dynamo
+Mob.wz/8250033.img.xml	info/PADamage	13950	900	210	Yellow Dynamo
+Mob.wz/8250034.img.xml	info/MADamage	13838	900	210	Green Dynamo
+Mob.wz/8250034.img.xml	info/PADamage	13950	900	210	Green Dynamo
+Mob.wz/8300000.img.xml	info/MADamage	977	900	103	Soaring Hawk
+Mob.wz/8300000.img.xml	info/PADamage	1065	900	103	Soaring Hawk
+Mob.wz/8300001.img.xml	info/MADamage	1033	900	103	Soaring Eagle
+Mob.wz/8300001.img.xml	info/PADamage	1070	900	103	Soaring Eagle
+Mob.wz/8300002.img.xml	info/MADamage	1041	900	104	Soaring Red Wyvern 
+Mob.wz/8300002.img.xml	info/PADamage	1038	900	104	Soaring Red Wyvern 
+Mob.wz/8300003.img.xml	info/MADamage	1007	900	104	Soaring Blue Wyvern 
+Mob.wz/8300003.img.xml	info/PADamage	1070	900	104	Soaring Blue Wyvern 
+Mob.wz/8300004.img.xml	info/MADamage	1086	900	105	Soaring Black Wyvern 
+Mob.wz/8300004.img.xml	info/PADamage	1073	900	105	Soaring Black Wyvern 
+Mob.wz/8500007.img.xml	info/MADamage	2191	900	125	Papulatus's Tick-Tock
+Mob.wz/8500007.img.xml	info/PADamage	2158	900	125	Papulatus's Tick-Tock
+Mob.wz/8600000.img.xml	info/MADamage	1223	1250	162	Mutant Snail
+Mob.wz/8600000.img.xml	info/PADamage	1300	1200	162	Mutant Snail
+Mob.wz/8600001.img.xml	info/MADamage	1223	1250	164	Mutant Orange Mushroom
+Mob.wz/8600001.img.xml	info/PADamage	1300	1200	164	Mutant Orange Mushroom
+Mob.wz/8600002.img.xml	info/MADamage	1223	1250	166	Mutant Slime
+Mob.wz/8600002.img.xml	info/PADamage	1300	1200	166	Mutant Slime
+Mob.wz/8600003.img.xml	info/MADamage	1223	1250	168	Mutant Ribbon Pig
+Mob.wz/8600003.img.xml	info/PADamage	1300	1200	168	Mutant Ribbon Pig
+Mob.wz/8600004.img.xml	info/MADamage	1223	1250	163	Mutant Tino
+Mob.wz/8600004.img.xml	info/PADamage	1300	1200	163	Mutant Tino
+Mob.wz/8600005.img.xml	info/MADamage	1223	1250	165	Mutant Tiru
+Mob.wz/8600005.img.xml	info/PADamage	1300	1200	165	Mutant Tiru
+Mob.wz/8600006.img.xml	info/MADamage	1223	1250	167	Mutant Tiguru
+Mob.wz/8600006.img.xml	info/PADamage	1300	1200	167	Mutant Tiguru
+Mob.wz/8610000.img.xml	info/MADamage	1423	1250	169	Dawn
+Mob.wz/8610000.img.xml	info/PADamage	1400	1200	169	Dawn
+Mob.wz/8610001.img.xml	info/MADamage	1423	1250	171	Blaze
+Mob.wz/8610001.img.xml	info/PADamage	1400	1200	171	Blaze
+Mob.wz/8610002.img.xml	info/MADamage	1423	1250	173	Wind
+Mob.wz/8610002.img.xml	info/PADamage	1400	1200	173	Wind
+Mob.wz/8610003.img.xml	info/MADamage	1423	1250	175	Night
+Mob.wz/8610003.img.xml	info/PADamage	1400	1200	175	Night
+Mob.wz/8610004.img.xml	info/MADamage	1423	1250	177	Thunder
+Mob.wz/8610004.img.xml	info/PADamage	1400	1200	177	Thunder
+Mob.wz/8610005.img.xml	info/MADamage	1423	1250	168	Official Knight A
+Mob.wz/8610005.img.xml	info/PADamage	1400	1200	168	Official Knight A
+Mob.wz/8610006.img.xml	info/MADamage	1423	1250	170	Official Knight B
+Mob.wz/8610006.img.xml	info/PADamage	1400	1200	170	Official Knight B
+Mob.wz/8610007.img.xml	info/MADamage	1423	1250	172	Official Knight C
+Mob.wz/8610007.img.xml	info/PADamage	1400	1200	172	Official Knight C
+Mob.wz/8610008.img.xml	info/MADamage	1423	1250	174	Official Knight D
+Mob.wz/8610008.img.xml	info/PADamage	1400	1200	174	Official Knight D
+Mob.wz/8610009.img.xml	info/MADamage	1423	1250	176	Official Knight E
+Mob.wz/8610009.img.xml	info/PADamage	1400	1200	176	Official Knight E
+Mob.wz/8610010.img.xml	info/MADamage	1423	1250	177	Advanced Knight A
+Mob.wz/8610010.img.xml	info/PADamage	1400	1200	177	Advanced Knight A
+Mob.wz/8610011.img.xml	info/MADamage	1423	1250	179	Advanced Knight B
+Mob.wz/8610011.img.xml	info/PADamage	1400	1200	179	Advanced Knight B
+Mob.wz/8610012.img.xml	info/MADamage	1423	1250	180	Advanced Knight C
+Mob.wz/8610012.img.xml	info/PADamage	1400	1200	180	Advanced Knight C
+Mob.wz/8610013.img.xml	info/MADamage	1423	1250	182	Advanced Knight D
+Mob.wz/8610013.img.xml	info/PADamage	1400	1200	182	Advanced Knight D
+Mob.wz/8610014.img.xml	info/MADamage	1423	1250	184	Advanced Knight E
+Mob.wz/8610014.img.xml	info/PADamage	1400	1200	184	Advanced Knight E
+Mob.wz/8610015.img.xml	info/MADamage	1423	1250	180	Ifrit
+Mob.wz/8610015.img.xml	info/PADamage	1400	1200	180	Ifrit
+Mob.wz/8610016.img.xml	info/MADamage	1423	1250	176	Watchman
+Mob.wz/8610016.img.xml	info/PADamage	1400	1200	176	Watchman
+Mob.wz/8610017.img.xml	info/MADamage	1423	1250	180	Watchman
+Mob.wz/8610017.img.xml	info/PADamage	1400	1200	180	Watchman
+Mob.wz/8610018.img.xml	info/MADamage	1423	1250	180	Watchman
+Mob.wz/8610018.img.xml	info/PADamage	1400	1200	180	Watchman
+Mob.wz/8610019.img.xml	info/MADamage	9770	1250	180	Watchman
+Mob.wz/8610019.img.xml	info/PADamage	9165	1200	180	Watchman
+Mob.wz/8610020.img.xml	info/MADamage	1423	1250	180	Watchman
+Mob.wz/8610020.img.xml	info/PADamage	1400	1200	180	Watchman
+Mob.wz/8610021.img.xml	info/MADamage	1423	1250	182	Watchman
+Mob.wz/8610021.img.xml	info/PADamage	1400	1200	182	Watchman
+Mob.wz/8610022.img.xml	info/MADamage	1423	1250	168	Official Knight A
+Mob.wz/8610022.img.xml	info/PADamage	1400	1200	168	Official Knight A
+Mob.wz/8610033.img.xml	info/MADamage	1423	1250	140	Ifrit
+Mob.wz/8610033.img.xml	info/PADamage	1400	1200	140	Ifrit
+Mob.wz/8620000.img.xml	info/MADamage	1423	1250	190	Swollen Stump
+Mob.wz/8620000.img.xml	info/PADamage	1400	1200	190	Swollen Stump
+Mob.wz/8620001.img.xml	info/MADamage	1423	1250	191	Swollen Dark Stump
+Mob.wz/8620001.img.xml	info/PADamage	1400	1200	191	Swollen Dark Stump
+Mob.wz/8620002.img.xml	info/MADamage	1423	1250	192	Swollen Axe Stump
+Mob.wz/8620002.img.xml	info/PADamage	1400	1200	192	Swollen Axe Stump
+Mob.wz/8620003.img.xml	info/MADamage	1423	1250	192	Pillaging Wild Boar
+Mob.wz/8620003.img.xml	info/PADamage	1400	1200	192	Pillaging Wild Boar
+Mob.wz/8620004.img.xml	info/MADamage	1423	1250	193	Pillaging Iron Boar
+Mob.wz/8620004.img.xml	info/PADamage	1400	1200	193	Pillaging Iron Boar
+Mob.wz/8620005.img.xml	info/MADamage	1423	1250	194	Pillaging Fire Boars
+Mob.wz/8620005.img.xml	info/PADamage	1400	1200	194	Pillaging Fire Boars
+Mob.wz/8620006.img.xml	info/MADamage	1423	1250	194	Sinister Wooden Mask
+Mob.wz/8620006.img.xml	info/PADamage	1400	1200	194	Sinister Wooden Mask
+Mob.wz/8620007.img.xml	info/MADamage	1423	1250	195	Sinister Rocky Mask
+Mob.wz/8620007.img.xml	info/PADamage	1400	1200	195	Sinister Rocky Mask
+Mob.wz/8620008.img.xml	info/MADamage	1223	1250	196	Sinister Steel Mask
+Mob.wz/8620008.img.xml	info/PADamage	1300	1200	196	Sinister Steel Mask
+Mob.wz/8620009.img.xml	info/MADamage	1423	1250	196	Ancient Golem
+Mob.wz/8620009.img.xml	info/PADamage	1400	1200	196	Ancient Golem
+Mob.wz/8620010.img.xml	info/MADamage	1423	1250	197	Ancient Dark Golem
+Mob.wz/8620010.img.xml	info/PADamage	1400	1200	197	Ancient Dark Golem
+Mob.wz/8620011.img.xml	info/MADamage	1423	1250	198	Ancient Mixed Golem
+Mob.wz/8620011.img.xml	info/PADamage	1400	1200	198	Ancient Mixed Golem
+Mob.wz/8620013.img.xml	info/MADamage	1223	1250	168	[*] Official Knight A
+Mob.wz/8620013.img.xml	info/PADamage	1300	1200	168	[*] Official Knight A
+Mob.wz/8620014.img.xml	info/MADamage	2023	1250	170	[*] Official Knight B
+Mob.wz/8620014.img.xml	info/PADamage	2237	1200	170	[*] Official Knight B
+Mob.wz/8620015.img.xml	info/MADamage	2023	1250	172	[*] Official Knight C
+Mob.wz/8620015.img.xml	info/PADamage	2237	1200	172	[*] Official Knight C
+Mob.wz/8620016.img.xml	info/MADamage	2023	1250	174	[*] Official Knight D
+Mob.wz/8620016.img.xml	info/PADamage	2237	1200	174	[*] Official Knight D
+Mob.wz/8620017.img.xml	info/MADamage	2023	1250	176	[*] Official Knight E
+Mob.wz/8620017.img.xml	info/PADamage	2237	1200	176	[*] Official Knight E
+Mob.wz/8620018.img.xml	info/MADamage	2023	1250	168	[*] Soul
+Mob.wz/8620018.img.xml	info/PADamage	2237	1200	168	[*] Soul
+Mob.wz/8620019.img.xml	info/MADamage	2023	1250	168	[*] Flame
+Mob.wz/8620019.img.xml	info/PADamage	2237	1200	168	[*] Flame
+Mob.wz/8620020.img.xml	info/MADamage	2023	1250	168	[*] Storm
+Mob.wz/8620020.img.xml	info/PADamage	2237	1200	168	[*] Storm
+Mob.wz/8620021.img.xml	info/MADamage	10206	1250	168	[*] Night
+Mob.wz/8620021.img.xml	info/PADamage	10332	1200	168	[*] Night
+Mob.wz/8620022.img.xml	info/MADamage	2023	1250	168	[*] Lightning
+Mob.wz/8620022.img.xml	info/PADamage	2237	1200	168	[*] Lightning
+Mob.wz/8620023.img.xml	info/MADamage	2023	1250	210	[*] Soul
+Mob.wz/8620023.img.xml	info/PADamage	2237	1200	210	[*] Soul
+Mob.wz/8620024.img.xml	info/MADamage	2023	1250	210	[*] Flame
+Mob.wz/8620024.img.xml	info/PADamage	2237	1200	210	[*] Flame
+Mob.wz/8620025.img.xml	info/MADamage	2023	1250	210	[*] Storm
+Mob.wz/8620025.img.xml	info/PADamage	2237	1200	210	[*] Storm
+Mob.wz/8620026.img.xml	info/MADamage	2023	1250	210	[*] Night
+Mob.wz/8620026.img.xml	info/PADamage	2237	1200	210	[*] Night
+Mob.wz/8620027.img.xml	info/MADamage	2023	1250	210	[*] Lightning
+Mob.wz/8620027.img.xml	info/PADamage	2237	1200	210	[*] Lightning
+Mob.wz/8620028.img.xml	info/MADamage	10251	900	190	[*] Swollen Stump
+Mob.wz/8620028.img.xml	info/PADamage	10192	900	190	[*] Swollen Stump
+Mob.wz/8620029.img.xml	info/MADamage	10855	900	192	[*] Pillaging Wild Boar
+Mob.wz/8620029.img.xml	info/PADamage	11190	900	192	[*] Pillaging Wild Boar
+Mob.wz/8620030.img.xml	info/MADamage	11973	900	197	[*] Ancient Dark Golem
+Mob.wz/8620030.img.xml	info/PADamage	11655	900	197	[*] Ancient Dark Golem
+Mob.wz/8620031.img.xml	info/MADamage	12214	900	198	[*] Ancient Mixed Golem
+Mob.wz/8620031.img.xml	info/PADamage	11760	900	198	[*] Ancient Mixed Golem
+Mob.wz/8630000.img.xml	info/MADamage	7470	900	170	Frozen Solitude
+Mob.wz/8630000.img.xml	info/PADamage	7560	900	170	Frozen Solitude
+Mob.wz/8630001.img.xml	info/MADamage	8190	900	171	Frozen Terror
+Mob.wz/8630001.img.xml	info/PADamage	8288	900	171	Frozen Terror
+Mob.wz/8630002.img.xml	info/MADamage	8288	900	172	Frozen Rage
+Mob.wz/8630002.img.xml	info/PADamage	8385	900	172	Frozen Rage
+Mob.wz/8630003.img.xml	info/MADamage	8385	900	173	Frozen Anxiety
+Mob.wz/8630003.img.xml	info/PADamage	8483	900	173	Frozen Anxiety
+Mob.wz/8630004.img.xml	info/MADamage	8483	900	174	Frozen Vanity
+Mob.wz/8630004.img.xml	info/PADamage	8580	900	174	Frozen Vanity
+Mob.wz/8630005.img.xml	info/MADamage	8678	900	176	Burning Solitude
+Mob.wz/8630005.img.xml	info/PADamage	8775	900	176	Burning Solitude
+Mob.wz/8630006.img.xml	info/MADamage	8775	900	177	Burning Terror
+Mob.wz/8630006.img.xml	info/PADamage	8873	900	177	Burning Terror
+Mob.wz/8630007.img.xml	info/MADamage	8873	900	178	Burning Rage
+Mob.wz/8630007.img.xml	info/PADamage	8970	900	178	Burning Rage
+Mob.wz/8630008.img.xml	info/MADamage	8970	900	179	Burning Anxiety
+Mob.wz/8630008.img.xml	info/PADamage	9068	900	179	Burning Anxiety
+Mob.wz/8630009.img.xml	info/MADamage	9068	900	180	Burning Vanity
+Mob.wz/8630009.img.xml	info/PADamage	9165	900	180	Burning Vanity
+Mob.wz/8630010.img.xml	info/MADamage	9975	900	182	Permeating Solitude
+Mob.wz/8630010.img.xml	info/PADamage	10080	900	182	Permeating Solitude
+Mob.wz/8630011.img.xml	info/MADamage	10080	900	183	Permeating Terror
+Mob.wz/8630011.img.xml	info/PADamage	10185	900	183	Permeating Terror
+Mob.wz/8630012.img.xml	info/MADamage	10185	900	184	Permeating Rage
+Mob.wz/8630012.img.xml	info/PADamage	10290	900	184	Permeating Rage
+Mob.wz/8630013.img.xml	info/MADamage	10290	900	185	Permeating Anxiety
+Mob.wz/8630013.img.xml	info/PADamage	10395	900	185	Permeating Anxiety
+Mob.wz/8630014.img.xml	info/MADamage	10395	900	186	Permeating Vanity
+Mob.wz/8630014.img.xml	info/PADamage	10500	900	186	Permeating Vanity
+Mob.wz/8630015.img.xml	info/MADamage	8580	900	175	Corrupted Basic Magician
+Mob.wz/8630015.img.xml	info/PADamage	8678	900	175	Corrupted Basic Magician
+Mob.wz/8630016.img.xml	info/MADamage	9870	900	181	Corrupted Intermediate Magician
+Mob.wz/8630016.img.xml	info/PADamage	9975	900	181	Corrupted Intermediate Magician
+Mob.wz/8630017.img.xml	info/MADamage	10500	900	187	Corrupted Advanced Magician
+Mob.wz/8630017.img.xml	info/PADamage	10605	900	187	Corrupted Advanced Magician
+Mob.wz/8630020.img.xml	info/MADamage	7470	900	170	Frozen Solitude
+Mob.wz/8630020.img.xml	info/PADamage	7560	900	170	Frozen Solitude
+Mob.wz/8630021.img.xml	info/MADamage	7470	900	171	Frozen Terror
+Mob.wz/8630021.img.xml	info/PADamage	8288	900	171	Frozen Terror
+Mob.wz/8630022.img.xml	info/MADamage	8288	900	172	Frozen Rage
+Mob.wz/8630022.img.xml	info/PADamage	8385	900	172	Frozen Rage
+Mob.wz/8630023.img.xml	info/MADamage	8385	900	173	Frozen Anxiety
+Mob.wz/8630023.img.xml	info/PADamage	8483	900	173	Frozen Anxiety
+Mob.wz/8630024.img.xml	info/MADamage	8483	900	174	Frozen Vanity
+Mob.wz/8630024.img.xml	info/PADamage	8580	900	174	Frozen Vanity
+Mob.wz/8630025.img.xml	info/MADamage	7470	900	170	Burning Solitude
+Mob.wz/8630025.img.xml	info/PADamage	7560	900	170	Burning Solitude
+Mob.wz/8630026.img.xml	info/MADamage	8190	900	171	Burning Terror
+Mob.wz/8630026.img.xml	info/PADamage	8288	900	171	Burning Terror
+Mob.wz/8630027.img.xml	info/MADamage	8288	900	172	Burning Anger
+Mob.wz/8630027.img.xml	info/PADamage	8385	900	172	Burning Anger
+Mob.wz/8630028.img.xml	info/MADamage	8385	900	173	Burning Anxiety
+Mob.wz/8630028.img.xml	info/PADamage	8483	900	173	Burning Anxiety
+Mob.wz/8630029.img.xml	info/MADamage	8483	900	174	Burning Vanity
+Mob.wz/8630029.img.xml	info/PADamage	8580	900	174	Burning Vanity
+Mob.wz/8630030.img.xml	info/MADamage	7470	900	170	Permeating Solitude
+Mob.wz/8630030.img.xml	info/PADamage	7560	900	170	Permeating Solitude
+Mob.wz/8630031.img.xml	info/MADamage	8190	900	171	Permeating Terror
+Mob.wz/8630031.img.xml	info/PADamage	8288	900	171	Permeating Terror
+Mob.wz/8630032.img.xml	info/MADamage	8288	900	172	Permeating Rage
+Mob.wz/8630032.img.xml	info/PADamage	8385	900	172	Permeating Rage
+Mob.wz/8630033.img.xml	info/MADamage	8385	900	173	Permeating Anxiety
+Mob.wz/8630033.img.xml	info/PADamage	8483	900	173	Permeating Anxiety
+Mob.wz/8630034.img.xml	info/MADamage	8483	900	174	Permeating Vain
+Mob.wz/8630034.img.xml	info/PADamage	8580	900	174	Permeating Vain
+Mob.wz/8630035.img.xml	info/MADamage	8288	900	172	Corrupted Basic Magician
+Mob.wz/8630035.img.xml	info/PADamage	8385	900	172	Corrupted Basic Magician
+Mob.wz/8630036.img.xml	info/MADamage	8483	900	174	Corrupted Intermediate Magician
+Mob.wz/8630036.img.xml	info/PADamage	8580	900	174	Corrupted Intermediate Magician
+Mob.wz/8630037.img.xml	info/MADamage	8678	900	176	Corrupted Advanced Magician
+Mob.wz/8630037.img.xml	info/PADamage	8775	900	176	Corrupted Advanced Magician
+Mob.wz/8840001.img.xml	info/MADamage	2150	1250	125	Demon Gargoyle
+Mob.wz/8840001.img.xml	info/PADamage	2200	1200	125	Demon Gargoyle
+Mob.wz/8880161.img.xml	info/MADamage	1480	1250	199	Nightmare Golem
+Mob.wz/8880161.img.xml	info/PADamage	1560	1200	199	Nightmare Golem
+Mob.wz/8880163.img.xml	info/MADamage	1480	1250	199	Binding Flower
+Mob.wz/8880163.img.xml	info/PADamage	1560	1200	199	Binding Flower
+Mob.wz/8880164.img.xml	info/MADamage	1480	1250	199	Nightmare Mushroom
+Mob.wz/8880164.img.xml	info/PADamage	1560	1200	199	Nightmare Mushroom
+Mob.wz/8880171.img.xml	info/MADamage	1480	1250	199	Nightmare Golem
+Mob.wz/8880171.img.xml	info/PADamage	1560	1200	199	Nightmare Golem
+Mob.wz/8889004.img.xml	info/PADamage	1100	1000	2	Kloak
+Mob.wz/8889005.img.xml	info/PADamage	1100	900	2	Kloak
+Mob.wz/8889007.img.xml	info/PADamage	1200	1500	1	Kloak
+Mob.wz/8889010.img.xml	info/PADamage	1	8888	1	Kloak
+Mob.wz/9501018.img.xml	info/MADamage	0	30	10	Stat Change Test
+Mob.wz/9501018.img.xml	info/PADamage	0	30	10	Stat Change Test
+Mob.wz/9600068.img.xml	info/MADamage	1480	1250	221	Shuri
+Mob.wz/9600068.img.xml	info/PADamage	1560	1200	221	Shuri
+Mob.wz/9600069.img.xml	info/MADamage	1480	1250	221	Puftup
+Mob.wz/9600069.img.xml	info/PADamage	1560	1200	221	Puftup
+Mob.wz/9600070.img.xml	info/MADamage	1480	1250	221	LockJaw
+Mob.wz/9600070.img.xml	info/PADamage	1560	1200	221	LockJaw
+Mob.wz/9600071.img.xml	info/MADamage	1480	1250	221	Klomp
+Mob.wz/9600071.img.xml	info/PADamage	1560	1200	221	Klomp
+Mob.wz/9600072.img.xml	info/MADamage	1480	1250	221	King Zing
+Mob.wz/9600072.img.xml	info/PADamage	1560	1200	221	King Zing
