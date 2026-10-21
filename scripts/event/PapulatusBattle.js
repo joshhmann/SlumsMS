@@ -127,7 +127,10 @@ function setup(level, lobbyid) {
     return eim;
 }
 
-function afterSetup(eim) {}
+function afterSetup(eim) {
+    updateGateState(1);
+}
+
 function respawnStages(eim) {}
 
 function playerEntry(eim, player) {
@@ -209,6 +212,7 @@ function giveRandomEventReward(eim, player) {
 function clearPQ(eim) {
     eim.stopEventTimer();
     eim.setEventCleared(ExpeditionType.PAPULATUS);
+    updateGateState(0);
 }
 
 function isPapulatus(mob) {
@@ -230,4 +234,20 @@ function allMonstersDead(eim) {}
 
 function cancelSchedule() {}
 
-function dispose(eim) {}
+// 1.4.2: restored from Cosmic (the repack's rewrite dropped it). The three gate reactors at the Papulatus
+// entrance (220080000) show the fight in progress; null-safe so a map without them cannot break setup.
+function updateGateState(newState) {    // thanks Conrad for noticing missing gate update
+    var map = em.getChannelServer().getMapFactory().getMap(220080000);
+    for (var reactorId = 2208001; reactorId <= 2208003; reactorId++) {
+        var reactor = map.getReactorById(reactorId);
+        if (reactor != null) {
+            reactor.forceHitReactor(newState);
+        }
+    }
+}
+
+function dispose(eim) {
+    if (!eim.isEventCleared()) {
+        updateGateState(0);
+    }
+}
