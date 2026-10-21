@@ -284,9 +284,38 @@ public final class Channel {
         return players.removePlayer(chr.getId()) != null;
     }
 
+    /** -D property: how much one bot weighs on the channel load bar, as a fraction of a real player. */
+    public static final String BOT_LOAD_WEIGHT_PROPERTY = "slumsms.channelLoad.botWeight";
+    public static final double DEFAULT_BOT_LOAD_WEIGHT = 0.25;
+
     public int getChannelCapacity() {
-        // Bots count toward the load bar (a busy channel looks busy) but the bar never runs past full.
-        return Math.min(800, (int) (Math.ceil(((float) players.getAllCharacters().size() / YamlConfig.config.server.CHANNEL_LOAD) * 800)));
+        // Bots count toward the load bar as a fraction of a player (a busy channel looks alive, but ~1,000 bots
+        // spread over the channels no longer read as full); real players count in full; the bar never runs past full.
+        int total = players.getSize();
+        int real = players.getConnectedPlayerCount();
+        return loadBar(real, Math.max(0, total - real), YamlConfig.config.server.CHANNEL_LOAD, botLoadWeight());
+    }
+
+    static double botLoadWeight() {
+        String raw = System.getProperty(BOT_LOAD_WEIGHT_PROPERTY);
+        if (raw == null || raw.isBlank()) {
+            return DEFAULT_BOT_LOAD_WEIGHT;
+        }
+        try {
+            double w = Double.parseDouble(raw.trim());
+            return Double.isFinite(w) && w >= 0 ? Math.min(w, 1.0) : DEFAULT_BOT_LOAD_WEIGHT;
+        } catch (NumberFormatException e) {
+            return DEFAULT_BOT_LOAD_WEIGHT;
+        }
+    }
+
+    /** The world-list load value (0..800 = empty..full) for this many real players and bots. */
+    static int loadBar(int realPlayers, int bots, int channelLoad, double botWeight) {
+        if (channelLoad <= 0) {
+            return realPlayers + bots > 0 ? 800 : 0;
+        }
+        double weighted = realPlayers + bots * botWeight;
+        return (int) Math.min(800, Math.ceil(weighted / channelLoad * 800));
     }
 
     public void broadcastPacket(Packet packet) {

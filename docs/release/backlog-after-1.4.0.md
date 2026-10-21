@@ -7,11 +7,12 @@
   this as a kid" - fix it, maybe keep it as a rare deliberate fumble (ticket 33 style), never a permanent stall.
 - **4th-job bot attacks** (ticket 32, branch `bot-4th-job-skills` / client `bot-attack-diag`): AFK check with
   `!botshowcase 4th 10` + attackdiag log, then a day of watching bot EXP pace.
-- **Channel load bars count bots in full.** ~1,000 bots after a restart filled every bar (CHANNEL_LOAD 100 x 8
-  channels), so the world looked full. Quick fix on live 2026-10-21: `CHANNEL_LOAD: 300` in live config.yaml.
-  Proper fix: `Channel.getChannelCapacity` counts a bot as a fraction of a player (e.g. 1/4, a -D property) so the
-  bar mostly tracks real people and bots only make it look alive; then CHANNEL_LOAD can go back to 100.
-  Login refusals and the high-population message already count real players only (getConnectedPlayerCount).
+- **DONE (branch `botfixes-1.4.1`) - Channel load bars count bots in full.** ~1,000 bots after a restart filled
+  every bar (CHANNEL_LOAD 100 x 8 channels), so the world looked full. Quick fix on live 2026-10-21: `CHANNEL_LOAD: 300`.
+  Fixed: `Channel.getChannelCapacity` now counts a bot as 1/4 of a player (`-Dslumsms.channelLoad.botWeight=0.25`,
+  clamped to 0..1, bad values fall back to 0.25), real players in full, bar capped at full (`ChannelLoadBarTest`).
+  **Deploy note: when 1.4.1 goes live, set live's `CHANNEL_LOAD` back to `100` in config.yaml.** Login refusals and
+  the high-population message still count real players only (getConnectedPlayerCount), unchanged.
 - **Cash Shop slot expansion items have no icons** (9111000-9114000): add icons via Custom.wz.
 - **Newer pet equips** (355 hidden in 1.4.0): the client's GetEquipItem null-reads drawing them. Find what their WZ
   needs (or keep them hidden).
