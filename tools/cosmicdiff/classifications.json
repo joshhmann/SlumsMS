@@ -1,0 +1,342 @@
+{
+  "_comment": "Classifications for cosmic_diff.py findings, keyed by finding id (a trailing * matches a prefix). Classes: DELIBERATE, BROKEN, RESTORED, UNSURE, UPSTREAM-NEW (Cosmic added it after MapleRoot forked, about Aug 2023, so nothing was stripped), NOISE (detector false positive). Fork point: the Cosmic commit whose tree best matches baseline 03d13cb21 is b46912afc (2023-08-15).",
+  "script-missing:scripts/npc/2110000.js": {
+    "class": "RESTORED",
+    "why": "Rosen, the Magatia warehouse keeper (map 261000000). Every other storage NPC kept its script; with none, NPCTalkHandler logs 'not coded' and returns without enableActions, so clicking Rosen does nothing and leaves the player stuck. Restored from Cosmic (2017 script, pre-fork, so the repack stripped it).",
+    "qa": "`!warp 261000000` (Magatia), click Rosen: the storage window opens (not a frozen client); store an item, close, click again and take it back."
+  },
+  "script-commented:scripts/npc/9030000.js::L43": {
+    "class": "RESTORED",
+    "why": "Fredrick (Store Banker) answered 'Sorry, shops are disabled for now.' with the retrieval code commented out. 1.4.0 sells Hired Merchant permits (cashshop/catalog.tsv 5030000-5030xxx) and HiredMerchantRequest/FredrickHandler are stock Cosmic, so items and mesos from an expired or restart-closed merchant could never be claimed. Restored the Cosmic body; hasMerchant/hasMerchantItems/showFredrick are unchanged in NPCConversationManager.",
+    "qa": "`!warp 910000000` (FM entrance), click Fredrick with nothing stored: 'You don't have any items or mesos to be retrieved.' `!item 5030000 1`, open the Hired Merchant in an FM room with one item, click Fredrick: 'You have a Merchant open.' Then get the merchant force-closed (test-server restart, which runs closeAllMerchants) and click Fredrick: the Store Banker window lists the item and mesos; retrieve them, check the inventory, click again: 'nothing to be retrieved'."
+  },
+  "manual:src/main/java/client/processor/npc/FredrickProcessor.java::fredrickRetrieveItems": {
+    "class": "RESTORED",
+    "why": "Found while restoring Fredrick (the detector does not flag it: the method kept most of its statements). fredrickRetrieveItems had lost Cosmic's merchant.clearItems() after deleting the Fredrick rows, a 2021 anti-dupe guard (pre-fork, so the repack dropped it). FREDRICK_ACTION is registered whether or not the NPC talks, so a still-loaded merchant could hand the same items out again. Restored the four lines.",
+    "qa": "Covered by the Fredrick retrieval steps: after retrieving, reopening the merchant/Fredrick must not offer the same item again."
+  },
+  "java-shrunk:src/main/java/client/Character.java::Character.pickupItem/2": {
+    "class": "DELIBERATE",
+    "why": "MapleRoot split pickup into originalPickupItem/modifiedPickupItem; pickupItem dispatches on isUsingModifiedPickupItem(). Full Cosmic logic lives in originalPickupItem."
+  },
+  "java-method-missing:src/main/java/client/Character.java::Character.decreaseBattleshipHp/1": {
+    "class": "DELIBERATE",
+    "why": "MapleRoot removed Battleship HP as a system, consistently: no decreaseBattleshipHp, TakeDamageHandler call commented, StatEffect never resets/announces HP, PlayerLoggedinHandler announce removed, announceBattleshipHp rewritten to a fixed 20 s cooldown. The ship no longer breaks from damage. Owner may want to know; not a silent strip of one piece."
+  },
+  "java-commented:src/main/java/client/Character.java::L3714": {
+    "class": "UNSURE",
+    "why": "Curse (mob debuff) no longer halves EXP: the Cosmic penalty in gainExp is commented out in the repack. Players lose nothing; it makes the debuff toothless. Owner call."
+  },
+  "java-commented:src/main/java/client/Character.java::L3815": {
+    "class": "DELIBERATE",
+    "why": "MapleRoot made exp an AtomicLong; the Integer.MAX_VALUE overflow clamp no longer applies."
+  },
+  "java-commented-lines:src/main/java/client/Character.java": {
+    "class": "DELIBERATE",
+    "why": "Lines are in MapleRoot-only code: changeRebirthJobCerezeth (rebirth; resetStats itself is identical to Cosmic), infinity-storage helper, damage skins, an abandoned sitChairWithTeleport draft."
+  },
+  "java-commented:src/main/java/client/autoban/AutobanFactory.java::L102": {
+    "class": "UNSURE",
+    "why": "Autoban alert log line (USE_AUTOBAN_LOG) commented out. Ops-only, no player effect; USE_AUTOBAN is false in /root/work/bake/test-config.yaml (live config not read). Harmless to restore if the owner wants the log."
+  },
+  "java-shrunk:src/main/java/client/command/CommandsExecutor.java::CommandsExecutor.registerLv1Commands/0": {
+    "class": "DELIBERATE",
+    "why": "MapleRoot emptied the GM-1 tier: whatdropsfrom/whodrops/mobhp/bosshp moved to gm0 (player commands), goto to gm2. Only @buffme was dropped (see command-unregistered buffme)."
+  },
+  "java-commented:src/main/java/client/command/CommandsExecutor.java::L263": {
+    "class": "DELIBERATE",
+    "why": "Same GM-1 tier reshuffle as registerLv1Commands."
+  },
+  "java-commented-lines:src/main/java/client/command/CommandsExecutor.java": {
+    "class": "UNSURE",
+    "why": "@gacha (list a town gachapon's items) is unregistered; the command class is intact. MapleRoot rewrote gachapon.js (256 lines vs 45), so the stock list may not match what the machines give. Owner call."
+  },
+  "command-unregistered:src/main/java/client/command/CommandsExecutor.java::gacha": {
+    "class": "UNSURE",
+    "why": "See CommandsExecutor commented-lines: @gacha unregistered by the repack."
+  },
+  "command-unregistered:src/main/java/client/command/CommandsExecutor.java::buffme": {
+    "class": "UNSURE",
+    "why": "@buffme (GM level 1) dropped when MapleRoot emptied the GM-1 tier; class still exists. Only matters if anyone is GM level 1."
+  },
+  "command-unregistered:src/main/java/client/command/CommandsExecutor.java::devtest": {
+    "class": "UPSTREAM-NEW",
+    "why": "Cosmic added DevtestCommand 2024-05-21, after the fork."
+  },
+  "java-moved:src/main/java/client/command/commands/gm1/*": {
+    "class": "DELIBERATE",
+    "why": "MapleRoot moved the command class to another GM tier (gm0 player command or gm2)."
+  },
+  "java-missing:src/main/java/client/command/commands/gm6/DevtestCommand.java": {
+    "class": "UPSTREAM-NEW",
+    "why": "Added to Cosmic 2024-05-21 (dee8651e6), after the fork."
+  },
+  "script-missing:scripts/devtest.js": {
+    "class": "UPSTREAM-NEW",
+    "why": "Companion of DevtestCommand, Cosmic 2024-05-21."
+  },
+  "java-missing:src/main/java/client/creator/MakeCharInfo.java": {
+    "class": "UPSTREAM-NEW",
+    "why": "Character-creation validator, Cosmic 2024-02-05 (a7931c3e4), after the fork. Anti packet-edit only; MapleRoot equips new characters with extra items/medal and starts them at its hub, so a backport would need checking against its creation flow."
+  },
+  "java-missing:src/main/java/client/creator/MakeCharInfoValidator.java": {
+    "class": "UPSTREAM-NEW",
+    "why": "See MakeCharInfo."
+  },
+  "java-shrunk:src/main/java/client/inventory/Equip.java::Equip.gainLevel/1": {
+    "class": "DELIBERATE",
+    "why": "MapleRoot dropped HeavenMS's random stat/slot gains on equip level-up, keeping only WZ-defined (elemental) level stats; the bake test config has USE_EQUIPMNT_LVLUP 1 and USE_EQUIPMNT_LVLUP_SLOTS false, so ordinary equips do not level anyway."
+  },
+  "java-short:src/main/java/client/processor/action/MakerProcessor.java": {
+    "class": "DELIBERATE",
+    "why": "Refactor: the logic moved to client/inventory/MakerService.java (same methods, plus applyMakerResult)."
+  },
+  "java-method-missing:src/main/java/client/processor/action/MakerProcessor.java::*": {
+    "class": "DELIBERATE",
+    "why": "Moved to client/inventory/MakerService.java."
+  },
+  "java-shrunk:src/main/java/client/processor/npc/StorageProcessor.java::StorageProcessor.storageAction/2": {
+    "class": "DELIBERATE",
+    "why": "Wrapper for MapleRoot's ore storage; the Cosmic body is defaultStorageAction."
+  },
+  "java-commented-lines:src/main/java/constants/id/ItemId.java": {
+    "class": "NOISE",
+    "why": "isChair keeps an equivalent alternative implementation; same behaviour."
+  },
+  "java-missing:src/main/java/database/DatabaseMigrations.java": {
+    "class": "UPSTREAM-NEW",
+    "why": "Liquibase migrations, Cosmic 2025-06-26. SlumsMS runs on MapleRoot's existing schema with its own database/migrations/*.sql."
+  },
+  "resource-missing:src/main/resources/db/*": {
+    "class": "UPSTREAM-NEW",
+    "why": "Liquibase changelogs and seed data (Cosmic 2025-06/07). Not used by SlumsMS; schema/data come from the MapleRoot database plus database/migrations."
+  },
+  "java-commented-lines:src/main/java/net/PacketProcessor.java": {
+    "class": "DELIBERATE",
+    "why": "MTS_OPERATION unregistered: the MTS button is the SlumsMS/MapleRoot Free Market button (EnterMTSHandler)."
+  },
+  "handler-unregistered:src/main/java/net/PacketProcessor.java::MTS_OPERATION": {
+    "class": "DELIBERATE",
+    "why": "MTS replaced by the FM button (see EnterMTSHandler)."
+  },
+  "java-method-missing:src/main/java/net/server/channel/handlers/AbstractDealDamageHandler.java::*": {
+    "class": "UPSTREAM-NEW",
+    "why": "Cosmic split Meso Explosion into parseMesoExplosion/removeExplodedMesos on 2024-08-20, after the fork. Ours keeps the older inline Meso Explosion parse and removal, which is functional."
+  },
+  "java-method-missing:src/main/java/tools/PacketCreator.java::PacketCreator.removeExplodedMesoFromMap/2": {
+    "class": "UPSTREAM-NEW",
+    "why": "Part of the 2024-08-20 Meso Explosion timing change."
+  },
+  "java-commented:src/main/java/net/server/channel/handlers/AbstractDealDamageHandler.java::L666": {
+    "class": "DELIBERATE",
+    "why": "Combo-orb term removed from the max-damage estimate. That estimate only feeds DAMAGE_HACK autoban alerts/points (USE_AUTOBAN is false in the bake test config); no player-visible effect."
+  },
+  "java-short:src/main/java/net/server/channel/handlers/EnterCashShopHandler.java": {
+    "class": "DELIBERATE",
+    "why": "SlumsMS cash shop window (see 1.4.0 cash shop work)."
+  },
+  "java-shrunk:src/main/java/net/server/channel/handlers/EnterCashShopHandler.java::*": {
+    "class": "DELIBERATE",
+    "why": "SlumsMS cash shop window."
+  },
+  "java-short:src/main/java/net/server/channel/handlers/EnterMTSHandler.java": {
+    "class": "DELIBERATE",
+    "why": "MTS button repurposed as the Free Market button."
+  },
+  "java-shrunk:src/main/java/net/server/channel/handlers/EnterMTSHandler.java::*": {
+    "class": "DELIBERATE",
+    "why": "MTS button repurposed as the Free Market button."
+  },
+  "java-method-missing:src/main/java/net/server/channel/handlers/EnterMTSHandler.java::*": {
+    "class": "DELIBERATE",
+    "why": "MTS item lists not needed: no MTS."
+  },
+  "java-commented-lines:src/main/java/net/server/channel/handlers/MagicDamageHandler.java": {
+    "class": "DELIBERATE",
+    "why": "Attack broadcast goes through MapleRoot's chr.broadcastAttackMessage instead."
+  },
+  "java-commented-lines:src/main/java/net/server/channel/handlers/RangedAttackHandler.java": {
+    "class": "DELIBERATE",
+    "why": "Attack broadcast goes through chr.broadcastAttackMessage instead."
+  },
+  "java-commented-lines:src/main/java/net/server/channel/handlers/PetLootHandler.java": {
+    "class": "DELIBERATE",
+    "why": "Remains of MapleRoot's pet vacuum-loot experiment; live path still calls chr.pickupItem(ob, petIndex) like Cosmic."
+  },
+  "java-commented:src/main/java/net/server/channel/handlers/SummonDamageHandler.java::L113": {
+    "class": "UNSURE",
+    "why": "Summon damage is no longer clamped to calcMaxDamage (Cosmic: alert + clamp, 'thanks Darter for reporting unchecked max dmg'). An exploit guard, not a player feature; restoring could clip legit summon hits if MapleRoot's stat scaling outruns the estimate. Owner/security call."
+  },
+  "java-commented:src/main/java/net/server/channel/handlers/TakeDamageHandler.java::L172": {
+    "class": "UNSURE",
+    "why": "Mana Reflection (F/P, I/L, Bishop) reflects a fixed 20 damage instead of X% of the hit (capped at 1/5 mob max HP); the bounce packet to the map is gone too. Likely a compile workaround for MapleRoot's long mob HP. A proper port needs long-safe math; owner call."
+  },
+  "java-commented:src/main/java/net/server/channel/handlers/TakeDamageHandler.java::L260": {
+    "class": "DELIBERATE",
+    "why": "Meso Guard costs no mesos; the line is annotated 'Comment out or remove this line' in the repack."
+  },
+  "java-commented-lines:src/main/java/net/server/channel/handlers/TakeDamageHandler.java": {
+    "class": "DELIBERATE",
+    "why": "decreaseBattleshipHp call; part of the Battleship HP removal (see Character.decreaseBattleshipHp)."
+  },
+  "java-commented-lines:src/main/java/scripting/event/EventInstanceManager.java": {
+    "class": "DELIBERATE",
+    "why": "stopEventTimer no longer dismisses the clock so setEventCleared can still read timeStarted for the expedition leaderboard duration; setEventCleared dismisses it."
+  },
+  "java-method-missing:src/main/java/server/CashShop.java::CashShop.getItemsSize/0": {
+    "class": "UPSTREAM-NEW",
+    "why": "Cosmic 2024-06-13, after the fork."
+  },
+  "java-missing:src/main/java/server/ExpLogger.java": {
+    "class": "UPSTREAM-NEW",
+    "why": "EXP logging to DB, Cosmic 2023-09-10, after the fork. Ops/analytics only."
+  },
+  "java-shrunk:src/main/java/server/ItemInformationProvider.java::ItemInformationProvider.getSlotMax/2": {
+    "class": "NOISE",
+    "why": "Refactor: the WZ lookup moved to getSlotMax(int); this overload adds the player's extension."
+  },
+  "java-missing:src/main/java/server/life/BanishInfo.java": {
+    "class": "UPSTREAM-NEW",
+    "why": "Cosmic turned BanishInfo into a record in its own file 2024-07-17; ours keeps the older form."
+  },
+  "java-method-missing:src/main/java/server/life/PlayerNPC.java::PlayerNPC.loadRunningRankData/2": {
+    "class": "UPSTREAM-NEW",
+    "why": "Cosmic 2023-09-18, after the fork."
+  },
+  "java-method-missing:src/main/java/server/maps/HiredMerchant.java::HiredMerchant.clearInexistentItems/0": {
+    "class": "NOISE",
+    "why": "Renamed clearNonexistentItems; PlayerInteractionHandler calls it."
+  },
+  "java-method-missing:src/main/java/server/maps/MapleMap.java::MapleMap.broadcastZakumVictory/0": {
+    "class": "DELIBERATE",
+    "why": "MapleRoot commented out every boss victory world message (Balrog/HT/Zakum/Pink Bean) in MapleMap and in the event scripts, consistently. Owner may want them back; easy to re-enable."
+  },
+  "java-commented-lines:src/main/java/server/maps/MapleMap.java": {
+    "class": "DELIBERATE",
+    "why": "The boss victory broadcasts, disabled together with their script calls."
+  },
+  "java-commented:src/main/java/server/maps/MapleMap.java::*": {
+    "class": "DELIBERATE",
+    "why": "moveBot (SoloMapling bots) left out the visibility refresh on purpose ('cause a lot of MapItem errors')."
+  },
+  "java-commented-lines:src/main/java/tools/PacketCreator.java": {
+    "class": "DELIBERATE",
+    "why": "Old damage-skin packet drafts; damage skins use Packets.updateDamageSkin."
+  },
+  "java-missing:src/main/java/tools/mapletools/RemoveDuplicateDrops.java": {
+    "class": "UPSTREAM-NEW",
+    "why": "Offline data tool, Cosmic 2025-07-06."
+  },
+  "java-shrunk:src/main/java/tools/mapletools/SkillbookChanceFetcher.java::*": {
+    "class": "UPSTREAM-NEW",
+    "why": "Offline data tool reworked in Cosmic 2025-07-06."
+  },
+  "java-method-missing:src/main/java/tools/mapletools/SkillbookChanceFetcher.java::*": {
+    "class": "UPSTREAM-NEW",
+    "why": "Offline data tool reworked in Cosmic 2025-07-06."
+  },
+  "script-commented-lines:scripts/event/BalrogBattle.js": {
+    "class": "DELIBERATE",
+    "why": "Boss victory world message disabled (see MapleMap.broadcastZakumVictory)."
+  },
+  "script-commented-lines:scripts/event/BalrogBattle_Easy.js": {
+    "class": "DELIBERATE",
+    "why": "Boss victory world message disabled."
+  },
+  "script-commented-lines:scripts/event/HorntailBattle.js": {
+    "class": "DELIBERATE",
+    "why": "Boss victory world message disabled."
+  },
+  "script-commented-lines:scripts/event/PinkBeanBattle.js": {
+    "class": "DELIBERATE",
+    "why": "Boss victory world message disabled."
+  },
+  "script-commented-lines:scripts/event/ZakumBattle.js": {
+    "class": "DELIBERATE",
+    "why": "Boss victory world message disabled."
+  },
+  "script-gutted:scripts/event/PapulatusBattle.js::*": {
+    "class": "UNSURE",
+    "why": "MapleRoot's rewrite of PapulatusBattle (expedition leaderboard, coin reward) dropped updateGateState: the three gate reactors (2208001-3) at 220080000 no longer show the fight in progress. Cosmetic only; entry is NPC-driven. Restoring risks a gate stuck shut after a crash, maybe why it went. Owner call."
+  },
+  "script-func-missing:scripts/event/PapulatusBattle.js::updateGateState": {
+    "class": "UNSURE",
+    "why": "See PapulatusBattle afterSetup/dispose."
+  },
+  "script-commented:scripts/npc/1022003.js::*": {
+    "class": "DELIBERATE",
+    "why": "Mr. Thunder: ore/jewel refining commented out with a header note; refining is centralised at the hub NPC 9977779 and Nimble (FM)."
+  },
+  "script-commented:scripts/npc/2020000.js::*": {
+    "class": "DELIBERATE",
+    "why": "Header: 'Commented out ability to refine'; refining is centralised at 9977779."
+  },
+  "script-commented:scripts/npc/2040016.js::*": {
+    "class": "DELIBERATE",
+    "why": "Header: 'Commented out minerals, jewels, rocks and crystals from being refined'; refining is centralised at 9977779."
+  },
+  "script-commented-lines:scripts/npc/2100001.js": {
+    "class": "DELIBERATE",
+    "why": "Ariant refiner 'retired' and points players to Nimble in the FM."
+  },
+  "script-commented-lines:scripts/npc/9000041.js": {
+    "class": "DELIBERATE",
+    "why": "MapleRoot turned the Donation Box into a junk/glitched-item seller."
+  },
+  "script-short:scripts/npc/2007.js": {
+    "class": "DELIBERATE",
+    "why": "Maple Island 'skip tutorial' NPC; new characters start at MAPLEROOT_HUB (993910000), never on Maple Island."
+  },
+  "script-short:scripts/npc/2040022.js": {
+    "class": "UNSURE",
+    "why": "Rydole (Ludibrium Toy Factory, 220020600; makes level 30-50 weapons, stimulator option) was overwritten with MapleRoot's hub menu (identical to 9010004.js: rooty shop/donor shop/JQ rewards/damage skin/server info). Rydole is not in the hub. Looks like a copy-paste accident, but it could be a deliberate shop access point in Ludi. Recommend restoring the Cosmic Rydole if the owner agrees."
+  },
+  "script-shrunk:scripts/npc/2040022.js::action": {
+    "class": "UNSURE",
+    "why": "See script-short 2040022.js."
+  },
+  "script-rewritten:scripts/npc/2040022.js": {
+    "class": "UNSURE",
+    "why": "See script-short 2040022.js."
+  },
+  "script-short:scripts/npc/9900000.js": {
+    "class": "DELIBERATE",
+    "why": "Cosmic's GM-NPC KIN is MapleRoot's hub stylist/saloon menu (placed in the hub map)."
+  },
+  "script-func-missing:scripts/npc/9900000.js::pushIfItemExists": {
+    "class": "DELIBERATE",
+    "why": "Hub stylist rewrite."
+  },
+  "script-shrunk:scripts/npc/9900000.js::*": {
+    "class": "DELIBERATE",
+    "why": "Hub stylist rewrite."
+  },
+  "script-rewritten:scripts/npc/9900000.js": {
+    "class": "DELIBERATE",
+    "why": "Hub stylist rewrite."
+  },
+  "script-rewritten:scripts/npc/2041024.js": {
+    "class": "DELIBERATE",
+    "why": "MapleRoot's Von Leon expedition recruiter (148 lines vs Cosmic's 24-line stub)."
+  },
+  "script-rewritten:scripts/npc/gachapon.js": {
+    "class": "DELIBERATE",
+    "why": "MapleRoot's gachapon rewrite (256 lines vs 45)."
+  },
+  "script-rewritten:scripts/npc/gachaponRemote.js": {
+    "class": "DELIBERATE",
+    "why": "MapleRoot's gachapon rewrite."
+  },
+  "script-short:scripts/quest/2001.js": {
+    "class": "UNSURE",
+    "why": "Perion 'build a house' quest end script (pick a 10% weapon scroll, 20k EXP, 15k mesos, 2 fame) is wholly commented out; the repack first trimmed the scroll lists to one per class, then disabled it. Check.img still flags endscript q2001e, so the quest can never be completed (end() is missing; the error is logged and the dialog closes). Probably an economy decision about 10% scroll sources, but it leaves the quest uncompletable. Owner call: restore (trimmed or full lists), or retire the quest."
+  },
+  "script-short:scripts/quest/3414.js": {
+    "class": "UNSURE",
+    "why": "Omega Sector 'sample' quest end (pick a 10% scroll) commented out; Check.img still flags endscript q3414e, so the quest cannot be completed. Same economy question as 2001."
+  },
+  "script-short:scripts/quest/3414_free10rate.js": {
+    "class": "UNSURE",
+    "why": "Variant of 3414, also commented out."
+  }
+}
