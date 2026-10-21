@@ -289,6 +289,31 @@ class MaintenanceTest(Base):
         self.assertFalse(os.path.exists(self.e.maint))
         self.assertEqual([], self.e.posts())
 
+    def test_end_with_client_is_one_combined_post(self):
+        self.e.run("maintenance", "live", "start", "--minutes", "5")
+        code, out = self.e.run("maintenance", "live", "end", "--client", "1.4.2")
+        self.assertEqual(0, code, out)
+        self.assertFalse(os.path.exists(self.e.maint))
+        posts = self.e.posts()
+        self.assertEqual(2, len(posts), "going down + ONE back-up-with-client post")
+        end = posts[1]["content"]
+        self.assertIn("Bera", end)
+        self.assertIn("1.4.2", end)
+        self.assertIn("Play", end)
+        self.assertTrue(any(end == v.replace("{name}", "Bera").replace("{version}", "1.4.2")
+                            for v in mon.CODY["maintenance_end_client"]), end)
+
+    def test_end_with_client_posts_even_without_start(self):
+        code, out = self.e.run("maintenance", "live", "end", "--client", "1.4.2")
+        self.assertEqual(0, code, out)
+        self.assertEqual(1, len(self.e.posts()))
+        self.assertIn("1.4.2", self.e.posts()[0]["content"])
+
+    def test_client_only_with_end(self):
+        code, out = self.e.run("maintenance", "live", "start", "--client", "1.4.2")
+        self.assertNotEqual(0, code)
+        self.assertEqual([], self.e.posts())
+
     def test_dry_run_touches_nothing(self):
         code, out = self.e.run("maintenance", "live", "start", "--dry-run")
         self.assertEqual(0, code)
@@ -411,10 +436,10 @@ class FeedTest(Base):
 
 class CodyTest(unittest.TestCase):
     SAMPLE = {"name": "Bera", "minutes": 5, "reason": "patch", "boss": "Faust", "map": "The Forest of Evil I",
-              "region": "Sleepywood", "bonus": 50, "ch": 1, "player": "Jimbo", "text": "hello"}
+              "region": "Sleepywood", "bonus": 50, "ch": 1, "player": "Jimbo", "text": "hello", "version": "1.4.2"}
 
     def test_every_variant_fills(self):
-        needed = ["maintenance_start", "maintenance_reason", "maintenance_end", "free"]
+        needed = ["maintenance_start", "maintenance_reason", "maintenance_end", "maintenance_end_client", "free"]
         needed += ["%s_start" % k for k in mon.FEED_KINDS] + ["boss_sighting_won", "treasure_hunt_won"]
         for key in needed:
             self.assertIn(key, mon.CODY)

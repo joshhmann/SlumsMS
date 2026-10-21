@@ -23,7 +23,9 @@ left unticked goes into the release doc as "not done". Tools: `tools/release/` i
 
 ## 3. Deploy (owner)
 - [ ] Quiet moment (the dry run prints players online).
-- [ ] `bash /opt/mapleroot-deployments/v<version>/deploy.sh` -> `RECEIPT.md` says PASS.
+- [ ] Server + client together (`docs/release/README.md`): `tools/release/release <version> --dry-run`, then
+      `tools/release/release <version>` -> `RECEIPT.md` says PASS, one "going down" and one "back up" post.
+      (Old way: `bash /opt/mapleroot-deployments/v<version>/deploy.sh`, then section 4's publish.)
 - [ ] In-game check: login screen, characters and items, channel change, bots in Henesys/FM, FM shops.
 - [ ] If not: `bash /opt/mapleroot-deployments/v<version>/rollback.sh` (`--dry-run` first).
 

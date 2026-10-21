@@ -1,0 +1,172 @@
+#!/bin/bash
+# Rehearse tools/release/release end to end on scratch copies (workstation; host side: rehearse-release-flow-host.sh).
+#
+#   tools/release/rehearse-release-flow [--only publish-fail|start-fail|ok] [--keep]
+#
+# Scratch only: server copy + scratch schema + transient unit slumsms-rh-flow (8519/8885+) and a scratch patch feed,
+# all under /opt/mapleroot-dev/release-flow-rehearsal on 164; a fake slumsms-monitor records the posts. Live, the live
+# feed (/srv/slums-patch) and the real monitor are never written. The "old" version is 1.4.0 (jar 218111b2bd784074,
+# live's pre-1.4.1 runtime from v1.4.1/backup), the "new" one the 1.4.1 jar (4f2d879c8e3dc179) staged through
+# gen-deploy + templates/deploy.body.sh (so the --phase code is what runs), and the client is the real
+# /srv/slums-staging/client-1.4.1 tree published as a new layer into the scratch feed.
+#
+# Scenarios, each a fresh release version on the same scratch server (old version running before each):
+#   publish-fail  release --inject publish-fail (publish-client fails AFTER writing manifest.json): expect exit 1,
+#                 manifest restored, old server back, posts "going down" + "back up", new jar never installed.
+#   start-fail    release --inject start-fail (the new version never comes online): expect exit 1, manifest
+#                 restored, rollback.sh -> old server, posts "going down" + "back up".
+#   ok            expect exit 0, new jar running, manifest = new release (launcher-test mirrored), posts "going down"
+#                 + ONE "back up + client", and stop < manifest written < start (client published during downtime).
+# Receipt: docs/release/release-flow-rehearsal.md (and $R/receipt/ on the host).
+set -euo pipefail
+here=$(cd "$(dirname "$0")" && pwd); . "$here/lib.sh"
+REPO=$(cd "$here/../.." && pwd)
+ONLY="" KEEP=0
+while [ $# -gt 0 ]; do case $1 in --only) ONLY=$2; shift;; --keep) KEEP=1;; *) die "unknown option $1";; esac; shift; done
+require_workstation
+R=/opt/mapleroot-dev/release-flow-rehearsal
+OLD_JAR=218111b2bd784074 NEW_JAR=4f2d879c8e3dc179
+V141=/opt/mapleroot-deployments/v1.4.1/staging
+CLIENT_SRC=/srv/slums-staging/client-1.4.1 NEWS=/srv/slums-staging/news-1.4.1.json
+STAMP=$(date -u +%m%d%H%M)
+SCEN=(publish-fail start-fail ok); [ -z "$ONLY" ] || SCEN=("$ONLY")
+LOCAL=$REPO/dist/release-flow-rehearsal; rm -rf "$LOCAL"; mkdir -p "$LOCAL"
+OUT=$REPO/docs/release/release-flow-rehearsal.md
+h() { ssh -o BatchMode=yes -o ServerAliveInterval=30 "$RELEASE_HOST" "$@"; }
+export DEPLOY_ROOT=$R/deployments PATCH_DIR=$R/feed STAGING_DIR=$R/staging REF_CACHE=$R/staging/reference-client.hashes.json
+export LAUNCHER_REPO=${LAUNCHER_REPO:-/root/work/launcher-publisher}
+export MONITOR_TARGET=rehearsal
+exec > >(tee "$LOCAL/rehearse.log") 2>&1
+
+cleanup() {
+  local rc=$?
+  if [ "$KEEP" = 1 ]; then echo "--keep: scratch left on the host in $R"; return; fi
+  h "bash $R/host.sh cleanup" || true
+  echo "(exit $rc)"
+}
+step "setup on $RELEASE_HOST:$R"
+h "mkdir -p $R"; scp -q "$here/rehearse-release-flow-host.sh" "$RELEASE_HOST:$R/host.sh"
+trap cleanup EXIT
+h "bash $R/host.sh setup" | tee "$LOCAL/setup.log" | tail -25
+MANIFEST0=$(h "sha256sum $R/feed/manifest.json | cut -c1-16")
+
+step "stage one scratch release per scenario (gen-deploy + templates, 1.4.1 jar/scripts/data)"
+scp -q "$RELEASE_HOST:$V141/BUILD.txt" "$LOCAL/BUILD.txt"; mkdir -p "$LOCAL/build"; cp "$LOCAL/BUILD.txt" "$LOCAL/build/"
+cat > "$LOCAL/release.conf" <<'C'
+MIGRATIONS=()
+LEDGER_BEFORE="001-preserve-arcane-for-classic-fm,002-classic-fm-return,003-solomapling-bots,004-daily-checkin,005-bot-real-stats,006-bot-yield-caps,007-bot-starter-stash,008-world-bera,009-gm-audit,010-color-prism"
+EXPECT_LOG=("Starting world 1 (Bera)")
+FORBID_LOG=("failed to load" "Starting world 0")
+SMOKE_SECONDS=20
+MAINT_MINUTES=5
+MAINT_REASON="release-flow rehearsal"
+C
+declare -A VER
+for s in "${SCEN[@]}"; do
+  v="1.4.2-rh${s%%-*}$STAMP"; VER[$s]=$v
+  "$here/gen-deploy" "$LOCAL/release.conf" "$LOCAL/build" "$LOCAL/v$v" "$v" > /dev/null
+  h "set -e; d=$R/deployments/v$v/staging; mkdir -p \$d/migrations
+     cp $V141/Cosmic.jar $V141/BUILD.txt $V141/COMMIT $V141/scripts.tar $V141/scripts.list $V141/srcdata.tar $V141/srcdata.list \$d/
+     cd \$d && find . -type f ! -name SHA256SUMS -printf '%P\n' | LC_ALL=C sort | xargs -d '\n' sha256sum > SHA256SUMS"
+  scp -q "$LOCAL/v$v/deploy.sh" "$LOCAL/v$v/rollback.sh" "$RELEASE_HOST:$R/deployments/v$v/"
+  scp -q "$LOCAL/release.conf" "$RELEASE_HOST:$R/deployments/v$v/staging/release.conf.copy"
+  echo "staged $v ($s)"
+done
+
+step "boot the old version on the scratch server"
+h "bash $R/host.sh start-old"
+echo "state: $(h "bash $R/host.sh state")"
+
+step "release --dry-run (prints the plan, changes nothing)"
+v=${VER[${SCEN[0]}]}
+"$here/release" "$v" --client-version "$v" --source "$CLIENT_SRC" --news "$NEWS" --no-packs --host-env "$R/env.sh" --dry-run > "$LOCAL/dryrun.out" 2>&1 \
+  || { tail -30 "$LOCAL/dryrun.out"; die "release --dry-run failed"; }
+sed -n '/^PLAN:/,$p' "$LOCAL/dryrun.out"
+[ "$(h "sha256sum $R/feed/manifest.json | cut -c1-16")" = "$MANIFEST0" ] && [ "$(h "cat $R/posts.log 2>/dev/null | wc -l")" = 0 ] \
+  && h "test ! -e $R/deployments/v$v/backup" || die "the dry run changed something"
+DRY=PASS
+
+declare -A RES EVID
+check() {   # check "what" "shell test": prints and records ok/FAIL
+  local r=ok; eval "$2" > /dev/null 2>&1 || { r=FAIL; RES[$cur]=FAIL; }
+  echo "  $r $1"; EVID[$cur]+="- $r: $1"$'\n'
+}
+for cur in "${SCEN[@]}"; do
+  v=${VER[$cur]}; RES[$cur]=PASS
+  step "scenario $cur: release $v"
+  p0=$(h "cat $R/posts.log 2>/dev/null | wc -l")
+  inject=(); [ "$cur" = ok ] || inject=(--inject "$cur")
+  rc=0
+  "$here/release" "$v" --client-version "$v" --source "$CLIENT_SRC" --news "$NEWS" --no-packs --host-env "$R/env.sh" "${inject[@]}" --yes \
+    > "$LOCAL/$cur.out" 2>&1 || rc=$?
+  sed -n '/^== release/,$p' "$LOCAL/$cur.out"
+  st=$(h "bash $R/host.sh state"); echo "state: $st"
+  posts=$(h "tail -n +$((p0 + 1)) $R/posts.log 2>/dev/null | cut -d' ' -f3- | paste -sd'|'")
+  echo "posts: $posts"
+  B=$R/deployments/v$v/backup
+  check "release exit $rc (expected $([ "$cur" = ok ] && echo 0 || echo 1))" "[ $rc = $([ "$cur" = ok ] && echo 0 || echo 1) ]"
+  check "server running" "echo '$st' | grep -q 'unit=active '"
+  check "maintenance off" "echo '$st' | grep -q 'maintenance=off'"
+  check "launcher-test mirrors manifest.json" "echo '$st' | grep -q 'launcher-test=same'"
+  case $cur in
+    publish-fail)
+      check "old jar $OLD_JAR running" "echo '$st' | grep -q 'jar=$OLD_JAR '"
+      check "manifest.json restored to the pre-release one" "[ \"\$(h 'sha256sum $R/feed/manifest.json | cut -c1-16')\" = $MANIFEST0 ]"
+      check "the publish did write manifest.json before failing (worst case)" "grep -q 'restore the previous release manifest' '$LOCAL/$cur.out'"
+      check "new version never applied (no .apply-start.started)" "h 'test ! -e $B/.apply-start.started && test -e $B/.stop-backup.done'"
+      check "old server restarted by deploy.sh --phase restart-old" "grep -q 'old version back up' '$LOCAL/$cur.out'"
+      check "posts: going-down, back-up (no client line)" "[ '$posts' = 'going-down|back-up' ]";;
+    start-fail)
+      check "old jar $OLD_JAR running (rollback.sh)" "echo '$st' | grep -q 'jar=$OLD_JAR '"
+      check "manifest.json restored to the pre-release one" "[ \"\$(h 'sha256sum $R/feed/manifest.json | cut -c1-16')\" = $MANIFEST0 ]"
+      check "manifest restored BEFORE rollback.sh" "awk '/manifest.json restored/{m=NR} /rollback.sh done/{r=NR} END{exit !(m && r && m<r)}' '$LOCAL/$cur.out'"
+      check "rollback receipt written" "h 'test -f $R/deployments/v$v/ROLLBACK-RECEIPT.md'"
+      check "posts: going-down, back-up (rollback's; no client line)" "[ '$posts' = 'going-down|back-up' ]";;
+    ok)
+      check "new jar $NEW_JAR running" "echo '$st' | grep -q 'jar=$NEW_JAR '"
+      check "manifest.json = release $v with client $v" "echo '$st' | grep -q 'manifest=\[$v client=$v\]'"
+      check "deploy receipt PASS" "h 'grep Result: $R/deployments/v$v/RECEIPT.md' | grep -q PASS"
+      check "posts: going-down + ONE back-up with the client" "[ '$posts' = 'going-down|back-up +client $v' ]"
+      order=$(h "python3 -I - $B $R/feed/manifest.json" <<'PY'
+import os, sys, datetime, subprocess
+b, m = sys.argv[1], sys.argv[2]
+t = dict(l.strip().split("=", 1) for l in open(os.path.join(b, ".timings")))
+start = subprocess.check_output(["date", "-d", open(os.path.join(b, ".start-ts")).read().strip(), "+%s"]).decode().strip()
+mt = os.path.getmtime(m)
+print("stop1=%.0f manifest=%.0f start=%s ok=%d" % (float(t["stop1"]), mt, start, float(t["stop1"]) < mt <= float(start) + 1))
+PY
+)
+      echo "order: $order"
+      check "server stopped -> manifest written -> new server started ($order)" "echo '$order' | grep -q 'ok=1'";;
+  esac
+  [ "$cur" = ok ] || { echo "state before the next scenario: $(h "bash $R/host.sh state")"; }
+done
+
+overall=PASS; for s in "${SCEN[@]}"; do [ "${RES[$s]}" = PASS ] || overall=FAIL; done
+{
+  echo "# Release-flow rehearsal (tools/release/release on scratch copies)"
+  echo
+  echo "- When: $(date -u -d @"$t0" '+%Y-%m-%d %H:%M') - $(date -u '+%H:%M UTC'), workstation $(hostname) -> $RELEASE_HOST. **Result: $overall**"
+  echo "- Scratch: server copy \`$R/Server\` (old = 1.4.0 runtime, jar \`$OLD_JAR\`), schema \`rh_flow\` from the newest nightly dump"
+  echo "  (test DB 3307), unit \`slumsms-rh-flow\` (8519/8885+), feed \`$R/feed\` (live manifest + layer manifests), staging"
+  echo "  \`$R/staging\`, deploy roots \`$R/deployments/v<ver>\`, fake monitor (posts recorded). Live and /srv/slums-patch untouched."
+  echo "- New version: 1.4.1 jar \`$NEW_JAR\` + scripts/data staged via gen-deploy and templates/deploy.body.sh (the --phase code);"
+  echo "  client: \`$CLIENT_SRC\` published as a new layer per scenario into the scratch feed with the real host publisher."
+  echo "- release --dry-run: **$DRY** (plan printed; manifest, posts and backup dir unchanged)"
+  echo
+  for s in "${SCEN[@]}"; do
+    echo "## $s (\`${VER[$s]}\`): ${RES[$s]}"
+    echo
+    printf '%s' "${EVID[$s]}"
+    echo
+    echo '```'
+    sed -n '/^== release/,$p' "$LOCAL/$s.out"
+    echo '```'
+    echo
+  done
+  echo "Full output: \`dist/release-flow-rehearsal/\` on the workstation (not in git)."
+} > "$OUT"
+h "mkdir -p $R/receipt"; scp -q "$OUT" "$RELEASE_HOST:$R/receipt/REHEARSAL.md"; scp -q "$LOCAL"/*.out "$RELEASE_HOST:$R/receipt/"
+cat "$OUT"
+step "rehearsal $overall -> $OUT"
+[ "$overall" = PASS ]
