@@ -55,3 +55,12 @@ Diff every class against upstream Cosmic (`/root/workspace/cosmicms`) for other 
 only `return`, files much shorter than Cosmic's (first pass found only ScrollHandler; EnterCashShopHandler and
 EnterMTSHandler are deliberate rewrites), missing handlers/scripts, empty script functions. Sort each into
 deliberate (MapleRoot/SlumsMS feature) vs broken, and restore the broken ones with tests.
+
+## From the owner's 1.4.1 test pass (2026-10-21)
+- **Client: ropes drawn with a faint rectangle border** (screenshot: Henesys hunting ground, ropes on two levels).
+  Bisect first: does the live 1.4.0 client show it too? If only 1.4.1 -> tonight's client changes; if both -> weather /
+  lamp canvas layers, resolution scaling, or Parsec. Client lane.
+- **Guilds (gd-1/gd-2):** owner wants guilds reworked together with buddies and marriage, "more robust and
+  integrated" - plan as part of the social systems, not a one-off fix.
+- **FM storage:** both FMs already have a storage keeper (Gerrard 2060008 in the MapleRoot FM, Scrooge 9030100 in
+  910000000). Rosen (2110000) is Magatia + Adobis's Mission I; restored in 1.4.1 (his script was missing).
