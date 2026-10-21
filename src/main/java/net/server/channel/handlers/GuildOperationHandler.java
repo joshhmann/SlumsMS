@@ -29,6 +29,7 @@ import constants.id.MapId;
 import net.AbstractPacketHandler;
 import net.packet.InPacket;
 import net.server.Server;
+import net.server.coordinator.matchchecker.MatchCheckerCoordinator;
 import net.server.coordinator.matchchecker.MatchCheckerListenerFactory.MatchCheckerType;
 import net.server.guild.Alliance;
 import net.server.guild.Guild;
@@ -38,6 +39,7 @@ import net.server.world.Party;
 import net.server.world.World;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
+import server.TimerManager;
 import tools.PacketCreator;
 
 import java.util.HashSet;
@@ -45,6 +47,24 @@ import java.util.Set;
 
 public final class GuildOperationHandler extends AbstractPacketHandler {
     private static final Logger log = LoggerFactory.getLogger(GuildOperationHandler.class);
+
+    /** SlumsMS (ticket 50A): how long a guild creation waits for its cofounders before it is cancelled. */
+    static final long GUILD_CREATION_TIMEOUT_MS = Long.getLong("slums.guild.createTimeoutMs", 60_000L);
+
+    /**
+     * Cancels the leader's guild creation if that same match is still waiting for answers. Stock Cosmic waits forever,
+     * so a player who walks away (or never answers) would wedge the founder's creation until someone leaves the map.
+     */
+    static boolean expireGuildCreation(MatchCheckerCoordinator coordinator, Character leader, long matchId) {
+        if (!coordinator.expireMatchConfirmation(leader.getId(), matchId)) {
+            return false;
+        }
+        log.info("Guild creation by {} timed out after {} ms waiting for cofounders", leader.getName(), GUILD_CREATION_TIMEOUT_MS);
+        if (leader.isLoggedinWorld()) {
+            leader.dropMessage(1, "The Guild creation was cancelled because not every cofounder answered in time.");
+        }
+        return true;
+    }
 
     private boolean isGuildNameAcceptable(String name) {
         if (name.length() < 3 || name.length() > 12) {
@@ -105,7 +125,13 @@ public final class GuildOperationHandler extends AbstractPacketHandler {
                     eligibleCids.add(chr.getId());
                 }
 
-                c.getWorldServer().getMatchCheckerCoordinator().createMatchConfirmation(MatchCheckerType.GUILD_CREATION, c.getWorld(), mc.getId(), eligibleCids, guildName);
+                MatchCheckerCoordinator coordinator = c.getWorldServer().getMatchCheckerCoordinator();
+                if (coordinator.createMatchConfirmation(MatchCheckerType.GUILD_CREATION, c.getWorld(), mc.getId(), eligibleCids, guildName)) {
+                    long matchId = coordinator.getMatchConfirmationId(mc.getId());
+                    if (matchId != -1) {
+                        TimerManager.getInstance().schedule(() -> expireGuildCreation(coordinator, mc, matchId), GUILD_CREATION_TIMEOUT_MS);
+                    }
+                }
                 break;
             case 0x05:
                 if (mc.getGuildId() <= 0 || mc.getGuildRank() > 2) {

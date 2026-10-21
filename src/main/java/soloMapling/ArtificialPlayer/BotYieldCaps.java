@@ -540,6 +540,7 @@ public final class BotYieldCaps {
             lines.add(String.format("  %s (%d): %,d mesos, %d refused", d.name == null ? "?" : d.name, d.charId,
                     d.mesos, d.refused));
         }
+        lines.addAll(BotSellerCaps.report(top));   // ticket 56A
         return lines;
     }
 

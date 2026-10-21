@@ -28,6 +28,7 @@ import net.server.world.World;
 import java.util.*;
 import java.util.Map.Entry;
 import java.util.concurrent.Semaphore;
+import java.util.concurrent.atomic.AtomicLong;
 
 /**
  * @author Ronan
@@ -38,6 +39,7 @@ public class MatchCheckerCoordinator {
 
     private final Set<Integer> pooledCids = new HashSet<>();
     private final Semaphore semaphorePool = new Semaphore(7);
+    private final AtomicLong nextMatchId = new AtomicLong(1);
 
     private class MatchCheckingEntry {
         private boolean accepted;
@@ -63,6 +65,7 @@ public class MatchCheckerCoordinator {
     }
 
     private class MatchCheckingElement {
+        private final long matchId = nextMatchId.getAndIncrement();
         private final int leaderCid;
         private final int world;
 
@@ -243,6 +246,26 @@ public class MatchCheckerCoordinator {
         }
     }
 
+    /** SlumsMS: identity of the pending match {@code cid} is in, or -1. Lets a timeout tell its match from a later one. */
+    public long getMatchConfirmationId(int cid) {
+        MatchCheckingElement mmce = matchEntries.get(cid);
+        return mmce != null ? mmce.matchId : -1;
+    }
+
+    /**
+     * SlumsMS: cancel a match that is still waiting for answers, as if its leader had declined, so one player who
+     * never answers cannot hold it open forever. A no-op (false) once that match has completed, been answered away or
+     * been replaced by a newer one.
+     */
+    public boolean expireMatchConfirmation(int leaderCid, long matchId) {
+        MatchCheckingElement mmce = matchEntries.get(leaderCid);
+        if (mmce == null || mmce.matchId != matchId || mmce.leaderCid != leaderCid || !mmce.isMatchActive()) {
+            return false;
+        }
+        answerMatchConfirmation(leaderCid, false);
+        return true;
+    }
+
     public boolean isMatchConfirmationActive(int cid) {
         MatchCheckingElement mmce = matchEntries.get(cid);
         if (mmce != null) {
@@ -289,6 +312,11 @@ public class MatchCheckerCoordinator {
 
         if (mmce != null) {
             mmce.dispatchMatchCreated();
+            if (mmce.confirmCount == mmce.confirmingMembers.size()) {
+                // SlumsMS: a leader-only match (e.g. CREATE_GUILD_MIN_PARTNERS 1 with nobody else eligible) is fully
+                // accepted the moment it is created; stock never dispatched the result, so a solo guild never formed.
+                mmce.dispatchMatchResult(true);
+            }
             return true;
         } else {
             return false;
