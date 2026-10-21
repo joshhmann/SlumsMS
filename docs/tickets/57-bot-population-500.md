@@ -207,3 +207,12 @@ about 355 environment bots (half the town dressing + the 47 set pieces) around t
 unchanged (26,20,16,12,9,7,5,5): at peak about 312 / 240 / 192 / 144 / 108 / 84 / 60 / 60. With the 1.4.1 bot weight
 of 0.25 in the load bar and CHANNEL_LOAD 100, channel 1's bar sits near 80% from bots alone at peak.
 Economy: bot meso intake about the same as before 1.4.2 (director online average similar), so 56B matters more.
+
+## Owner change (2026-10-21): five channels, channel 5 quiet
+"we dont need all channels, could just have 5 channels with the 5th being empty or for more chiller grinding".
+Default `BOT_CHANNEL_WEIGHTS: "40,28,20,12,0"`: channel 5 never gets a director or environment bot (a weight of 0 is
+never picked, even in an empty world - tested); companions still follow their player there. At the 1,200 peak:
+480 / 336 / 240 / 144 / 0.
+Release steps for live: config.yaml `worlds: - channels: 5` (was 8) together with this jar; keep `CHANNEL_LOAD: 300`
+(do NOT return it to 100: channel 1's ~480 bots count as 120 players at the 0.25 bot weight, which would read full).
+Player-facing: channels 6-8 disappear from the channel list.

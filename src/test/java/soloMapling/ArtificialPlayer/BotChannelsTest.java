@@ -11,22 +11,22 @@ import static org.junit.jupiter.api.Assertions.assertTrue;
 /** Ticket 57: how bots split over the channels. */
 class BotChannelsTest {
 
-    private static final double[] SHIPPED = {0.26, 0.20, 0.16, 0.12, 0.09, 0.07, 0.05, 0.05};
+    private static final double[] SHIPPED = {0.40, 0.28, 0.20, 0.12, 0.0};
 
     @Test
     void theShippedWeightsAreTheOwnersSplit() {
-        assertArrayEquals(SHIPPED, BotChannels.shares("26,20,16,12,9,7,5,5", 8), 1e-9);
-        assertArrayEquals(SHIPPED, BotChannels.shares(new config.ServerConfig().BOT_CHANNEL_WEIGHTS, 8), 1e-9,
+        assertArrayEquals(SHIPPED, BotChannels.shares("40,28,20,12,0", 5), 1e-9);
+        assertArrayEquals(SHIPPED, BotChannels.shares(new config.ServerConfig().BOT_CHANNEL_WEIGHTS, 5), 1e-9,
                 "the shipped config default is the split");
-        assertArrayEquals(SHIPPED, BotChannels.shares("", 8), 1e-9, "blank falls back to the shipped split");
-        assertArrayEquals(SHIPPED, BotChannels.shares("26,x,16", 8), 1e-9, "a broken list falls back too");
-        assertArrayEquals(SHIPPED, BotChannels.shares("26,-1", 8), 1e-9, "negative weights are broken");
+        assertArrayEquals(SHIPPED, BotChannels.shares("", 5), 1e-9, "blank falls back to the shipped split");
+        assertArrayEquals(SHIPPED, BotChannels.shares("26,x,16", 5), 1e-9, "a broken list falls back too");
+        assertArrayEquals(SHIPPED, BotChannels.shares("26,-1", 5), 1e-9, "negative weights are broken");
     }
 
     @Test
     void anyChannelCountWorks() {
         // Fewer channels: the first weights, renormalised.
-        assertArrayEquals(new double[]{26 / 62.0, 20 / 62.0, 16 / 62.0}, BotChannels.shares(null, 3), 1e-9);
+        assertArrayEquals(new double[]{40 / 88.0, 28 / 88.0, 20 / 88.0}, BotChannels.shares(null, 3), 1e-9);
         // More channels: the last weight repeats.
         double[] ten = BotChannels.shares("26,20,16,12,9,7,5,5", 10);
         assertEquals(10, ten.length);
@@ -41,15 +41,15 @@ class BotChannelsTest {
 
     @Test
     void fiveHundredLoginsLandOnTheirShares() {
-        int[] counts = new int[8];
+        int[] counts = new int[SHIPPED.length];
         for (int i = 0; i < 500; i++) {
             counts[BotChannels.pickByDeficit(counts, SHIPPED)]++;
         }
-        for (int c = 0; c < 8; c++) {
+        for (int c = 0; c < SHIPPED.length; c++) {
             assertEquals(SHIPPED[c] * 500, counts[c], 1.0, "channel " + (c + 1));
         }
         assertEquals(500, java.util.Arrays.stream(counts).sum());
-        for (int c = 1; c < 8; c++) {
+        for (int c = 1; c < SHIPPED.length; c++) {
             assertTrue(counts[c - 1] >= counts[c], "ch" + c + " is at least as busy as ch" + (c + 1));
         }
     }
@@ -58,7 +58,7 @@ class BotChannelsTest {
     void theSplitHoldsAsBotsComeAndGo() {
         // A day of churn: random logouts anywhere, logins by deficit, the count swinging between 150 and 500.
         Random rng = new Random(57);
-        int[] counts = new int[8];
+        int[] counts = new int[SHIPPED.length];
         for (int i = 0; i < 300; i++) {
             counts[BotChannels.pickByDeficit(counts, SHIPPED)]++;
         }
@@ -68,7 +68,7 @@ class BotChannelsTest {
             if (total > target || (total == target && rng.nextBoolean())) {
                 // A random bot leaves: its channel is drawn in proportion to the bots on it.
                 int pick = rng.nextInt(total);
-                for (int c = 0; c < 8; c++) {
+                for (int c = 0; c < SHIPPED.length; c++) {
                     if (pick < counts[c]) {
                         counts[c]--;
                         break;
@@ -80,7 +80,7 @@ class BotChannelsTest {
             }
             if (step % 500 == 0) {
                 int now = java.util.Arrays.stream(counts).sum();
-                for (int c = 0; c < 8; c++) {
+                for (int c = 0; c < SHIPPED.length; c++) {
                     // Logouts are random, so a channel may run over its share for a while; never by much.
                     assertEquals(SHIPPED[c] * now, counts[c], Math.max(3, now * 0.03), "step " + step + " ch" + (c + 1));
                 }
@@ -92,17 +92,17 @@ class BotChannelsTest {
     void parallelLoginsSeeEachOtherThroughReservations() {
         // reserve() adds the in-flight logins to the counts; picking eight at once from an empty world must not
         // stack them all on channel 1.
-        int[] counts = new int[8];
-        int[] inFlight = new int[8];
-        for (int i = 0; i < 8; i++) {
-            int[] seen = new int[8];
-            for (int c = 0; c < 8; c++) {
+        int[] counts = new int[SHIPPED.length];
+        int[] inFlight = new int[SHIPPED.length];
+        for (int i = 0; i < SHIPPED.length; i++) {
+            int[] seen = new int[SHIPPED.length];
+            for (int c = 0; c < SHIPPED.length; c++) {
                 seen[c] = counts[c] + inFlight[c];
             }
             inFlight[BotChannels.pickByDeficit(seen, SHIPPED)]++;
         }
-        assertTrue(inFlight[0] < 8);
-        assertTrue(inFlight[0] >= inFlight[7]);
+        assertTrue(inFlight[0] < SHIPPED.length);
+        assertTrue(inFlight[0] >= inFlight[SHIPPED.length - 1]);
     }
 
     @Test
@@ -142,6 +142,17 @@ class BotChannelsTest {
         assertTrue(!BotChannels.isSpreadSlot(BotStore.FIRST_PLANNED_SLOT - 1), "a GM spawn stays where it was asked");
         assertEquals(-1, BotStore.taskOf(BotStore.FIRST_ROSTER_SLOT + 3));
         assertEquals(17, BotChannels.envCount(BotStore.planSlot(3, 1, 0), 17), "set pieces spawn whole");
+    }
+
+    @Test
+    void aZeroWeightChannelIsNeverPickedEvenWhenEveryChannelIsEmpty() {
+        double[] shares = BotChannels.shares("0,40,28,20,12", 5);
+        assertEquals(1, BotChannels.pickByDeficit(new int[5], shares), "an empty world never starts on the zero channel");
+        int[] counts = new int[5];
+        for (int i = 0; i < 1000; i++) {
+            counts[BotChannels.pickByDeficit(counts, shares)]++;
+        }
+        assertEquals(0, counts[0]);
     }
 
     @Test

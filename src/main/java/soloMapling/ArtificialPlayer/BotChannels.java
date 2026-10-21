@@ -38,7 +38,8 @@ import java.util.concurrent.ThreadLocalRandom;
 public final class BotChannels {
 
     /** The shipped split when the config is blank or unreadable. */
-    static final double[] DEFAULT_WEIGHTS = {26, 20, 16, 12, 9, 7, 5, 5};
+    // Owner 2026-10-21: five channels, channel 5 kept bot-free for quiet grinding (companions still follow there).
+    static final double[] DEFAULT_WEIGHTS = {40, 28, 20, 12, 0};
 
     /** Wave tasks of the boot plan whose bots are spread over the channels (and scaled): wave * 1024 + task. */
     private static final Set<Integer> SPREAD_TASKS = ConcurrentHashMap.newKeySet();
