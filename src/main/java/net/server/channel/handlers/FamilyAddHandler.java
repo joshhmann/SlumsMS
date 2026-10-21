@@ -37,7 +37,7 @@ import tools.PacketCreator;
 public final class FamilyAddHandler extends AbstractPacketHandler {
     @Override
     public final void handlePacket(InPacket p, Client c) {
-        if (!YamlConfig.config.server.USE_FAMILY_SYSTEM) {
+        if (!OpenFamilyHandler.enabledOrExplain(c)) {
             return;
         }
         String toAdd = p.readString();
