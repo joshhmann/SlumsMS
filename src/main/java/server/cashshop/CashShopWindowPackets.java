@@ -51,6 +51,10 @@ public final class CashShopWindowPackets {
     public static final int BUY_NOT_ON_SALE = 4;
     public static final int BUY_BUSY = 5;
     public static final int BUY_BAD_CART = 6;
+    // 7 and 8 have no kBuyMsg text in the current DLL, which shows "Purchase failed." for
+    // them; the server also sends the reason as a popup, so the player is told either way.
+    public static final int BUY_LEVEL_TOO_LOW = 7;
+    public static final int BUY_LIMIT_REACHED = 8;
 
     /**
      * Entries per packet. The wire cap is a hard 64KB on both sides (16-bit length in

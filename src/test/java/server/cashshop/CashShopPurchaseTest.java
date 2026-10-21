@@ -186,4 +186,188 @@ class CashShopPurchaseTest {
             assertEquals(1000, balance.get());
         }
     }
+
+    // ---- services, gates and periods (cashshop-fixes) ----
+
+    CashShopCatalog.Row row(int item, int price, int period) {
+        return new CashShopCatalog.Row(item, price, 1, 5, 2, period, 2, "Test");
+    }
+
+    @Test void slotExpansionGrowsTheTabAndChargesOnlyOnSuccess() {
+        try (var ii = mockStatic(ItemInformationProvider.class); var catalog = mockStatic(CashShopCatalog.class)) {
+            ii.when(ItemInformationProvider::getInstance).thenReturn(info);
+            catalog.when(() -> CashShopCatalog.byItemId(9111000)).thenReturn(row(9111000, 640, 0));
+            when(player.canGainSlots(1, 8)).thenReturn(true);
+            when(player.gainSlotsUnsaved(1, 8)).thenReturn(true);
+            var result = CashShopWindowPurchase.buy(client, player, new int[]{9111000});
+            assertTrue(result.ok());
+            assertEquals(1, result.delivered());
+            assertEquals(360, balance.get());
+            verify(player).gainSlotsUnsaved(1, 8);
+            verify(player, never()).gainSlots(anyInt(), anyInt(), anyBoolean());
+            for (Inventory inventory : inventories.values()) assertTrue(inventory.list().isEmpty());
+        }
+    }
+
+    @Test void slotExpansionAtTheCapIsRefusedWithAMessageAndNoCharge() {
+        try (var ii = mockStatic(ItemInformationProvider.class); var catalog = mockStatic(CashShopCatalog.class)) {
+            ii.when(ItemInformationProvider::getInstance).thenReturn(info);
+            catalog.when(() -> CashShopCatalog.byItemId(9114000)).thenReturn(row(9114000, 680, 0));
+            when(player.canGainSlots(4, 8)).thenReturn(false);
+            var result = CashShopWindowPurchase.buy(client, player, new int[]{9114000});
+            assertEquals(CashShopWindowPackets.BUY_LIMIT_REACHED, result.code());
+            assertEquals(1000, balance.get());
+            verify(player, never()).gainSlotsUnsaved(anyInt(), anyInt());
+            verify(player).dropMessage(eq(1), contains("cannot be expanded"));
+        }
+    }
+
+    @Test void storageExpansionIsNotAService() {
+        assertEquals(-1, CashShopServices.slotExpansionType(9110000));
+        assertEquals(1, CashShopServices.slotExpansionType(9111000));
+        assertEquals(4, CashShopServices.slotExpansionType(9114000));
+        assertFalse(CashShopServices.isService(9110000));
+        assertFalse(CashShopServices.isService(9115000));
+        assertTrue(CashShopServices.isService(5430000));
+    }
+
+    @Test void characterSlotIsGrantedNotDelivered() {
+        try (var ii = mockStatic(ItemInformationProvider.class); var catalog = mockStatic(CashShopCatalog.class)) {
+            ii.when(ItemInformationProvider::getInstance).thenReturn(info);
+            catalog.when(() -> CashShopCatalog.byItemId(5430000)).thenReturn(row(5430000, 690, 0));
+            when(client.canGainCharacterSlot()).thenReturn(true);
+            when(client.gainCharacterSlot()).thenReturn(true);
+            var result = CashShopWindowPurchase.buy(client, player, new int[]{5430000});
+            assertTrue(result.ok());
+            assertEquals(310, balance.get());
+            verify(client).gainCharacterSlot();
+            assertTrue(inventories.get(InventoryType.CASH).list().isEmpty());
+        }
+    }
+
+    @Test void characterSlotAtTheCapIsRefusedWithoutCharge() {
+        try (var ii = mockStatic(ItemInformationProvider.class); var catalog = mockStatic(CashShopCatalog.class)) {
+            ii.when(ItemInformationProvider::getInstance).thenReturn(info);
+            catalog.when(() -> CashShopCatalog.byItemId(5430000)).thenReturn(row(5430000, 690, 0));
+            when(client.canGainCharacterSlot()).thenReturn(false);
+            var result = CashShopWindowPurchase.buy(client, player, new int[]{5430000});
+            assertEquals(CashShopWindowPackets.BUY_LIMIT_REACHED, result.code());
+            assertEquals(1000, balance.get());
+            verify(client, never()).gainCharacterSlot();
+        }
+    }
+
+    @Test void lostCharacterSlotRaceUndoesSlotsAndItemsAndCharges() {
+        try (var ii = mockStatic(ItemInformationProvider.class);
+             var catalog = mockStatic(CashShopCatalog.class);
+             var check = mockStatic(Inventory.class);
+             var delivery = mockStatic(InventoryManipulator.class)) {
+            ii.when(ItemInformationProvider::getInstance).thenReturn(info);
+            catalog.when(() -> CashShopCatalog.byItemId(2000000)).thenReturn(row(2000000));
+            catalog.when(() -> CashShopCatalog.byItemId(9112000)).thenReturn(row(9112000, 100, 0));
+            catalog.when(() -> CashShopCatalog.byItemId(5430000)).thenReturn(row(5430000, 100, 0));
+            check.when(() -> Inventory.checkSpots(eq(player), anyList())).thenReturn(true);
+            delivery.when(() -> InventoryManipulator.addFromDrop(eq(client), any(Item.class), eq(false)))
+                    .thenAnswer(call -> inventories.get(InventoryType.USE).addItem(call.getArgument(1)) > 0);
+            when(player.canGainSlots(2, 8)).thenReturn(true);
+            when(player.gainSlotsUnsaved(anyInt(), anyInt())).thenReturn(true);
+            when(client.canGainCharacterSlot()).thenReturn(true);
+            when(client.gainCharacterSlot()).thenReturn(false);
+            var result = CashShopWindowPurchase.buy(client, player, new int[]{2000000, 9112000, 5430000});
+            assertFalse(result.ok());
+            assertEquals(1000, balance.get());
+            verify(player).gainSlotsUnsaved(2, 8);
+            verify(player).gainSlotsUnsaved(2, -8);
+            assertTrue(inventories.get(InventoryType.USE).list().isEmpty());
+        }
+    }
+
+    @Test void stockLevelGatesApplyInTheWindow() {
+        try (var ii = mockStatic(ItemInformationProvider.class); var catalog = mockStatic(CashShopCatalog.class)) {
+            ii.when(ItemInformationProvider::getInstance).thenReturn(info);
+            catalog.when(() -> CashShopCatalog.byItemId(5030000)).thenReturn(row(5030000));
+            catalog.when(() -> CashShopCatalog.byItemId(5140000)).thenReturn(row(5140000));
+            catalog.when(() -> CashShopCatalog.byItemId(5431000)).thenReturn(row(5431000));
+            catalog.when(() -> CashShopCatalog.byItemId(5432000)).thenReturn(row(5432000));
+            when(player.getLevel()).thenReturn(15);
+            for (int id : new int[]{5030000, 5140000, 5431000, 5432000}) {
+                assertEquals(CashShopWindowPackets.BUY_LEVEL_TOO_LOW,
+                        CashShopWindowPurchase.buy(client, player, new int[]{id}).code(), "item " + id);
+            }
+            when(player.getLevel()).thenReturn(29);
+            assertNull(CashShopServices.check(client, player, 5030000));
+            assertEquals(CashShopWindowPackets.BUY_LEVEL_TOO_LOW, CashShopServices.check(client, player, 5432000).code());
+            when(player.getLevel()).thenReturn(30);
+            assertNull(CashShopServices.check(client, player, 5431000));
+            assertEquals(1000, balance.get());
+        }
+    }
+
+    @Test void rateCouponsAreHiddenAndRefusedWhileTheSwitchIsOff() {
+        final var server = config.YamlConfig.config.server;
+        final boolean was = server.USE_SUPPLY_RATE_COUPONS;
+        try (var ii = mockStatic(ItemInformationProvider.class); var catalog = mockStatic(CashShopCatalog.class)) {
+            ii.when(ItemInformationProvider::getInstance).thenReturn(info);
+            catalog.when(() -> CashShopCatalog.byItemId(5211048)).thenReturn(row(5211048, 100, 1));
+            server.USE_SUPPLY_RATE_COUPONS = false;
+            assertFalse(CashShopServices.isListed(5211048));
+            assertFalse(CashShopServices.isListed(5360000));
+            assertTrue(CashShopServices.isListed(5431000), "Maple Life is not a rate coupon here");
+            assertEquals(CashShopWindowPackets.BUY_NOT_ON_SALE,
+                    CashShopWindowPurchase.buy(client, player, new int[]{5211048}).code());
+            assertEquals(1000, balance.get());
+            server.USE_SUPPLY_RATE_COUPONS = true;
+            assertTrue(CashShopServices.isListed(5211048));
+            assertNull(CashShopServices.check(client, player, 5211048));
+        } finally {
+            server.USE_SUPPLY_RATE_COUPONS = was;
+        }
+    }
+
+    @Test void hiddenRowsLeaveTheIndexAndTheirCategory() {
+        final var server = config.YamlConfig.config.server;
+        final boolean was = server.USE_SUPPLY_RATE_COUPONS;
+        try (var catalog = mockStatic(CashShopCatalog.class)) {
+            catalog.when(CashShopCatalog::index).thenReturn(List.of(new int[]{5, 0, 2}, new int[]{5, 1, 1}));
+            catalog.when(() -> CashShopCatalog.bucket(5, 0)).thenReturn(List.of(row(5211048), row(5360000)));
+            catalog.when(() -> CashShopCatalog.bucket(5, 1)).thenReturn(List.of(row(5040000)));
+            server.USE_SUPPLY_RATE_COUPONS = false;
+            var idx = net.server.channel.handlers.CashShopWindowHandler.visibleIndex();
+            assertEquals(1, idx.size());
+            assertArrayEquals(new int[]{5, 1, 1}, idx.get(0));
+            assertTrue(net.server.channel.handlers.CashShopWindowHandler.visibleBucket(5, 0).isEmpty());
+            server.USE_SUPPLY_RATE_COUPONS = true;
+            assertEquals(2, net.server.channel.handlers.CashShopWindowHandler.visibleIndex().size());
+        } finally {
+            server.USE_SUPPLY_RATE_COUPONS = was;
+        }
+    }
+
+    @Test void rateCouponsExpireByTheirPeriod() {
+        final var server = config.YamlConfig.config.server;
+        final boolean was = server.USE_SUPPLY_RATE_COUPONS;
+        final long now = 1_000_000_000L;
+        try (var ii = mockStatic(ItemInformationProvider.class);
+             var catalog = mockStatic(CashShopCatalog.class);
+             var check = mockStatic(Inventory.class);
+             var srv = mockStatic(net.server.Server.class);
+             var delivery = mockStatic(InventoryManipulator.class)) {
+            server.USE_SUPPLY_RATE_COUPONS = true;
+            var serverInstance = mock(net.server.Server.class);
+            srv.when(net.server.Server::getInstance).thenReturn(serverInstance);
+            when(serverInstance.getCurrentTime()).thenReturn(now);
+            ii.when(ItemInformationProvider::getInstance).thenReturn(info);
+            catalog.when(() -> CashShopCatalog.byItemId(5211060)).thenReturn(row(5211060, 100, 1));
+            catalog.when(() -> CashShopCatalog.byItemId(5211004)).thenReturn(row(5211004, 100, 30));
+            check.when(() -> Inventory.checkSpots(eq(player), anyList())).thenReturn(true);
+            List<Item> got = new ArrayList<>();
+            delivery.when(() -> InventoryManipulator.addFromDrop(eq(client), any(Item.class), eq(false)))
+                    .thenAnswer(call -> got.add(call.getArgument(1)));
+            assertTrue(CashShopWindowPurchase.buy(client, player, new int[]{5211060, 5211004}).ok());
+            assertEquals(now + java.util.concurrent.TimeUnit.HOURS.toMillis(2), got.get(0).getExpiration());
+            assertEquals(now + java.util.concurrent.TimeUnit.DAYS.toMillis(30), got.get(1).getExpiration());
+        } finally {
+            server.USE_SUPPLY_RATE_COUPONS = was;
+        }
+    }
 }

@@ -458,7 +458,7 @@ public final class UseCashItemHandler extends AbstractPacketHandler {
             remove(c, position, itemId);
             c.sendPacket(PacketCreator.enableActions());
         } else if (itemType == 543) {
-            if (itemId == ItemId.MAPLE_LIFE_B && !c.gainCharacterSlot()) {
+            if (itemId == ItemId.MAPLE_LIFE_B && !c.canGainCharacterSlot()) {
                 player.dropMessage(1, "You have already used up all 12 extra character slots.");
                 c.sendPacket(PacketCreator.enableActions());
                 return;
@@ -473,15 +473,18 @@ public final class UseCashItemHandler extends AbstractPacketHandler {
             int jobid = p.readInt();
             int improveSp = p.readInt();
 
-            int createStatus = switch (jobid) {
+            int createStatus = createWithMapleLife(c, itemId, () -> switch (jobid) {
                 case 0 -> WarriorCreator.createCharacter(c, name, face, hair + haircolor, skin, gender, improveSp);
                 case 1 -> MagicianCreator.createCharacter(c, name, face, hair + haircolor, skin, gender, improveSp);
                 case 2 -> BowmanCreator.createCharacter(c, name, face, hair + haircolor, skin, gender, improveSp);
                 case 3 -> ThiefCreator.createCharacter(c, name, face, hair + haircolor, skin, gender, improveSp);
                 default -> PirateCreator.createCharacter(c, name, face, hair + haircolor, skin, gender, improveSp);
-            };
+            });
 
-            if (createStatus == 0) {
+            if (createStatus == MAPLE_LIFE_NO_SLOT) {
+                player.dropMessage(1, "You have already used up all 12 extra character slots.");
+                c.sendPacket(PacketCreator.enableActions());
+            } else if (createStatus == 0) {
                 c.sendPacket(PacketCreator.sendMapleLifeError(0));   // success!
 
                 player.showHint("#bSuccess#k on creation of the new character through the Maple Life card.");
@@ -599,6 +602,31 @@ public final class UseCashItemHandler extends AbstractPacketHandler {
         } else {
             log.warn("NEW CASH ITEM TYPE: {}, packet: {}", itemType, p);
             c.sendPacket(PacketCreator.enableActions());
+        }
+    }
+
+    /** {@link #createWithMapleLife} result: Maple Life B with no character slot left to add. */
+    static final int MAPLE_LIFE_NO_SLOT = Integer.MIN_VALUE;
+
+    /**
+     * Runs a Maple Life creation. Card B adds a character slot, and the creation needs that
+     * slot to already exist, so it is granted first -- but taken back when the creation fails.
+     * The card is only consumed on success, so granting it unconditionally let a player retry a
+     * bad or taken name and farm a slot per attempt.
+     */
+    static int createWithMapleLife(Client c, int itemId, java.util.function.IntSupplier create) {
+        final boolean addsSlot = itemId == ItemId.MAPLE_LIFE_B;
+        if (addsSlot && !c.gainCharacterSlot()) {
+            return MAPLE_LIFE_NO_SLOT;
+        }
+        int status = -1;
+        try {
+            status = create.getAsInt();
+            return status;
+        } finally {
+            if (addsSlot && status != 0) {
+                c.loseCharacterSlot();
+            }
         }
     }
 

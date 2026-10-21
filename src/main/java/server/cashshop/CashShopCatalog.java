@@ -162,7 +162,14 @@ public final class CashShopCatalog {
                 // An item with no inventory to land in can be listed but never delivered --
                 // cash PACKAGES (91xxxxx) are the real case, since getInventoryType computes
                 // itemId/1000000 == 9 and returns UNDEFINED.
-                if (ItemConstants.getInventoryType(itemId) == InventoryType.UNDEFINED) {
+                // SERVICE rows (slot expansions) are the exception: they are never delivered
+                // as an item, see CashShopServices.
+                if (CashShopServices.isService(itemId) && count != 1) {
+                    bad++;
+                    continue;
+                }
+                if (ItemConstants.getInventoryType(itemId) == InventoryType.UNDEFINED
+                        && !CashShopServices.isService(itemId)) {
                     unusable++;
                     continue;
                 }

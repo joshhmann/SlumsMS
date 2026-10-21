@@ -127,6 +127,50 @@ public final class CashShopWindowPurchase {
         return item;
     }
 
+    /**
+     * Applies the cart's service rows. Inventory expansions go first and are undone if a later
+     * one fails; the character slot goes last because it is the only grant that can still
+     * lose a race (Maple Life B on another thread) and the only one written straight to the
+     * database. Phase 1 already checked every cap, and the delivery scope holds every
+     * inventory lock, so a failure here is a race, not the normal "at the cap" refusal.
+     *
+     * @return 0 when everything was granted, otherwise the item id that could not be
+     */
+    private static int grantServices(Client c, Character chr, List<CashShopCatalog.Row> items) {
+        final List<Integer> grown = new ArrayList<>();
+        boolean characterSlot = false;
+        for (CashShopCatalog.Row r : items) {
+            final int type = CashShopServices.slotExpansionType(r.itemId());
+            if (type > 0) {
+                if (!chr.gainSlotsUnsaved(type, CashShopServices.SLOTS_PER_EXPANSION)) {
+                    undoSlots(chr, grown);
+                    return r.itemId();
+                }
+                grown.add(type);
+            } else if (r.itemId() == CashShopServices.EXTRA_CHARACTER_SLOT) {
+                characterSlot = true;
+            }
+        }
+        if (characterSlot && !c.gainCharacterSlot()) {
+            undoSlots(chr, grown);
+            return CashShopServices.EXTRA_CHARACTER_SLOT;
+        }
+        for (int type : grown) {
+            chr.dropMessage(5, "Your " + CashShopServices.tabName(type) + " inventory now has "
+                    + chr.getSlots(type) + " slots.");
+        }
+        if (characterSlot) {
+            chr.dropMessage(5, "Your account now has " + c.getCharacterSlots() + " character slots.");
+        }
+        return 0;
+    }
+
+    private static void undoSlots(Character chr, List<Integer> grown) {
+        for (int type : grown) {
+            chr.gainSlotsUnsaved(type, -CashShopServices.SLOTS_PER_EXPANSION);
+        }
+    }
+
     public static Result buy(Client c, Character chr, int[] sns) {
         if (sns == null || sns.length == 0 || sns.length > MAX_CART) {
             return new Result(CashShopWindowPackets.BUY_BAD_CART, 0, 0, 0);
@@ -153,6 +197,19 @@ public final class CashShopWindowPurchase {
                 final CashShopCatalog.Row r = CashShopCatalog.byItemId(itemId);
                 if (r == null) {
                     return new Result(CashShopWindowPackets.BUY_UNKNOWN_ITEM, itemId, 0, 0);
+                }
+                // The stock purchase gates and the service caps. Refused here, before any
+                // NX or inventory is touched, with the reason as a popup: the DLL only has
+                // fixed texts for its result codes.
+                final CashShopServices.Denial denial = CashShopServices.check(c, chr, itemId);
+                if (denial != null) {
+                    chr.dropMessage(1, denial.message());
+                    return new Result(denial.code(), itemId, 0, 0);
+                }
+                // A service row is not an item: no stack ceiling, no space, no delivery.
+                if (CashShopServices.isService(itemId)) {
+                    items.add(r);
+                    continue;
                 }
                 // A zero stack ceiling means the item cannot be placed anywhere. The space
                 // check below would not catch it, and addFromDrop would then refuse in
@@ -182,6 +239,9 @@ public final class CashShopWindowPurchase {
             int petLines = 0;
             for (CashShopCatalog.Row r : items) {
                 final int itemId = r.itemId();
+                if (CashShopServices.isService(itemId)) {
+                    continue;
+                }
                 // Inventory.checkItemRestricted only rejects a quantity above 1 WITHIN one
                 // probe, so two separate cart lines of the same one-of-a-kind item walk
                 // straight past it.
@@ -223,7 +283,7 @@ public final class CashShopWindowPurchase {
                 int cashLines = petLines;
                 for (CashShopCatalog.Row r : items) {
                     final int id = r.itemId();
-                    if (!ItemConstants.isPet(id)
+                    if (!ItemConstants.isPet(id) && !CashShopServices.isService(id)
                             && ItemConstants.getInventoryType(id) == InventoryType.CASH) {
                         cashLines++;
                     }
@@ -237,6 +297,9 @@ public final class CashShopWindowPurchase {
             // rows are tracked by the delivery scope and removed if the cart fails.
             final List<Item> builtItems = new ArrayList<>();
             for (CashShopCatalog.Row row : items) {
+                if (CashShopServices.isService(row.itemId())) {
+                    continue;
+                }
                 Item built = toItem(row, delivery);
                 if (built == null) return new Result(CashShopWindowPackets.BUY_UNKNOWN_ITEM, row.itemId(), 0, 0);
                 builtItems.add(built);
@@ -249,6 +312,18 @@ public final class CashShopWindowPurchase {
                     return new Result(CashShopWindowPackets.BUY_INVENTORY_FULL, built.getItemId(), 0, 0);
                 }
                 delivered++;
+            }
+
+            // ---- PHASE 4b: services, after the items and still before the debit ----
+            final int failedService = grantServices(c, chr, items);
+            if (failedService != 0) {
+                chr.dropMessage(1, "That purchase could not be completed. You were not charged.");
+                return new Result(CashShopWindowPackets.BUY_LIMIT_REACHED, failedService, 0, 0);
+            }
+            for (CashShopCatalog.Row r : items) {
+                if (CashShopServices.isService(r.itemId())) {
+                    delivered++;
+                }
             }
 
             // ---- PHASE 5: deduct, and only now ----

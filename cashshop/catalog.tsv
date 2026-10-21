@@ -1,6 +1,20 @@
 # Cash Shop catalogue, generated from the STOCK v83 Etc/Commodity.img.
 # The ITEM ID is the key: one row per item, no serial numbers.
 # itemId	price	count	tab	category	period	gender	name
+#
+# SERVICE rows: 5430000 (Extra Character Slot) and 9111000-9114000 (Equip/Use/Set-up/Etc +8
+# slots, ids per Item.wz/Special/0911.img) are not delivered as items; buying one grants the
+# slot directly (see CashShopServices). Storage +8 (9110000) is not sold: storage is already capped.
+#
+# Rate coupons (5211xxx EXP, 5360xxx drop) carry the stock Commodity.img periods; a period of 1
+# on 5211048/5211060/5360042 means 4h/2h/4h. They are hidden while USE_SUPPLY_RATE_COUPONS is off.
+#
+# REMOVED because nothing in the window path makes them do anything (players who already
+# hold one keep it; it stays as inert as before):
+#   5222000 | 9500 | 11 | 5 | 2 | 0 | 2 | Cash Shop Surprise  -- Cash Shop Surprise: only opens inside the stock Cash Shop stage (CashShopSurpriseHandler needs isOpened)
+#   5400000 | 10000 | 1 | 5 | 2 | 0 | 2 | Character Name Change  -- Character Name Change: the rename is only registered by the stock Cash Shop (CashOperationHandler 0x2E), which the window never reaches; using the item just consumes it
+#   5401000 | 25000 | 1 | 5 | 2 | 0 | 2 | Character Transfer  -- Character Transfer: same as Name Change, and ALLOW_CASHSHOP_WORLD_TRANSFER is off
+#   5460000 | 2500 | 1 | 5 | 2 | 0 | 2 | Pet Snack  -- Pet Snack: no server handler (type 546 falls through UseCashItemHandler; PET_FOOD only takes 212xxxx)
 1000000	3000	1	2	0	0	0	Blue Beanie
 1000001	3500	1	2	0	0	2	Fine Black Hanbok Hat
 1000002	3500	1	2	0	0	2	Fine Blue Hanbok Hat
@@ -1435,32 +1449,32 @@
 5120011	3000	11	3	2	0	2	Spirit Haunt
 5120012	3000	11	3	2	0	2	Holiday Sock
 5120028	3000	11	3	2	0	2	Raining Cats & Dogs
-5211004	15000	1	5	0	0	2	2x EXP Card Type 1 - Weekdays
-5211005	15000	1	5	0	0	2	2x EXP Card Type 2 - Weekdays
-5211006	15000	1	5	0	0	2	2x EXP Card Type 3 - Weekdays
-5211007	15000	1	5	0	0	2	2x EXP Card Type 4 - Weekdays
-5211008	15000	1	5	0	0	2	2x EXP Card Type 5 - Weekdays
-5211009	9000	1	5	0	0	2	2x EXP Card Type 1 - Weekends
-5211010	9000	1	5	0	0	2	2x EXP Card Type 2 - Weekends
-5211011	9000	1	5	0	0	2	2x EXP Card Type 3 - Weekends
-5211012	9000	1	5	0	0	2	2x EXP Card Type 4 - Weekends
-5211013	9000	1	5	0	0	2	2x EXP Card Type 5 - Weekends
-5211014	8500	1	5	0	0	2	2x EXP Card Type 1 - Everyday
-5211015	8500	1	5	0	0	2	2x EXP Card Type 2 - Everyday
-5211016	8500	1	5	0	0	2	2x EXP Card Type 3 - Everyday
-5211017	8500	1	5	0	0	2	2x EXP Card Type 4 - Everyday
-5211018	8500	1	5	0	0	2	2x EXP Card Type 5 - Everyday
-5211037	15000	1	5	0	0	2	2x EXP Card Type 6 - Weekdays
-5211038	9000	1	5	0	0	2	2x EXP Card Type 6 - Weekends
-5211039	8500	1	5	0	0	2	2x EXP Card Type 6 - Everyday
-5211040	15000	1	5	0	0	2	2x EXP Card Type 7 - Weekdays
-5211041	9000	1	5	0	0	2	2x EXP Card Type 7 - Weekends
-5211042	8500	1	5	0	0	2	2x EXP Card Type 7 - Everyday
-5211043	15000	1	5	0	0	2	2x EXP Card Type 8 - Weekdays
-5211044	9000	1	5	0	0	2	2x EXP Card Type 8 - Weekends
-5211045	8500	1	5	0	0	2	2x EXP Card Type 8 - Everyday
-5211048	2000	1	5	0	0	2	4 hour 2 x EXP special coupon
-5211060	4000	1	5	0	0	2	2 hour 3 x EXP special coupon
+5211004	15000	1	5	0	30	2	2x EXP Card Type 1 - Weekdays
+5211005	15000	1	5	0	30	2	2x EXP Card Type 2 - Weekdays
+5211006	15000	1	5	0	30	2	2x EXP Card Type 3 - Weekdays
+5211007	15000	1	5	0	30	2	2x EXP Card Type 4 - Weekdays
+5211008	15000	1	5	0	30	2	2x EXP Card Type 5 - Weekdays
+5211009	9000	1	5	0	30	2	2x EXP Card Type 1 - Weekends
+5211010	9000	1	5	0	30	2	2x EXP Card Type 2 - Weekends
+5211011	9000	1	5	0	30	2	2x EXP Card Type 3 - Weekends
+5211012	9000	1	5	0	30	2	2x EXP Card Type 4 - Weekends
+5211013	9000	1	5	0	30	2	2x EXP Card Type 5 - Weekends
+5211014	8500	1	5	0	10	2	2x EXP Card Type 1 - Everyday
+5211015	8500	1	5	0	10	2	2x EXP Card Type 2 - Everyday
+5211016	8500	1	5	0	10	2	2x EXP Card Type 3 - Everyday
+5211017	8500	1	5	0	10	2	2x EXP Card Type 4 - Everyday
+5211018	8500	1	5	0	10	2	2x EXP Card Type 5 - Everyday
+5211037	15000	1	5	0	30	2	2x EXP Card Type 6 - Weekdays
+5211038	9000	1	5	0	30	2	2x EXP Card Type 6 - Weekends
+5211039	8500	1	5	0	10	2	2x EXP Card Type 6 - Everyday
+5211040	15000	1	5	0	30	2	2x EXP Card Type 7 - Weekdays
+5211041	9000	1	5	0	30	2	2x EXP Card Type 7 - Weekends
+5211042	8500	1	5	0	10	2	2x EXP Card Type 7 - Everyday
+5211043	15000	1	5	0	30	2	2x EXP Card Type 8 - Weekdays
+5211044	9000	1	5	0	30	2	2x EXP Card Type 8 - Weekends
+5211045	8500	1	5	0	10	2	2x EXP Card Type 8 - Everyday
+5211048	2000	1	5	0	1	2	4 hour 2 x EXP special coupon
+5211060	4000	1	5	0	1	2	2 hour 3 x EXP special coupon
 5140000	1800	1	5	1	0	2	Regular Store Permit
 5140006	3600	1	5	1	0	2	Holiday Store Permit
 4031063	1	1	5	2	0	-1	Torr's Horn
@@ -1567,7 +1581,6 @@
 5153009	2700	1	5	2	0	2	NLC Skin Coupon
 5153010	2700	1	5	2	0	2	CBD Skin Coupon
 5180000	2400	1	5	2	0	2	Water of Life
-5222000	9500	11	5	2	0	2	Cash Shop Surprise
 5230000	3000	6	5	2	0	2	The Owl of Minerva
 5251000	25000	1	5	2	0	2	Wedding Ticket (Cathedral)
 5251001	20000	1	5	2	0	2	Wedding Ticket (Chapel)
@@ -1586,16 +1599,16 @@
 5300000	2000	5	5	2	0	2	Fungus Scroll
 5300001	2000	5	5	2	0	2	Oinker Delight
 5300002	2000	5	5	2	0	2	Zeta Nightmare
-5360000	4000	1	5	2	0	2	1day 2x Drop Special Coupon 
-5360001	6000	1	5	2	0	2	2x Drop Card Type 1 - Everyday
-5360002	6000	1	5	2	0	2	2x Drop Card Type 2 - Everyday
-5360003	6000	1	5	2	0	2	2x Drop Card Type 3 - Everyday
-5360004	6000	1	5	2	0	2	2x Drop Card Type 4 - Everyday
-5360005	6000	1	5	2	0	2	2x Drop Card Type 5 - Everyday
-5360006	6000	1	5	2	0	2	2x Drop Card Type 6 - Everyday
-5360007	6000	1	5	2	0	2	2x Drop Card Type 7 - Everyday
-5360008	6000	1	5	2	0	2	2x Drop Card Type 8 - Everyday
-5360042	1500	1	5	2	0	2	4 hour 2 x Drop special coupon
+5360000	4000	1	5	2	1	2	1day 2x Drop Special Coupon 
+5360001	6000	1	5	2	10	2	2x Drop Card Type 1 - Everyday
+5360002	6000	1	5	2	10	2	2x Drop Card Type 2 - Everyday
+5360003	6000	1	5	2	10	2	2x Drop Card Type 3 - Everyday
+5360004	6000	1	5	2	10	2	2x Drop Card Type 4 - Everyday
+5360005	6000	1	5	2	10	2	2x Drop Card Type 5 - Everyday
+5360006	6000	1	5	2	10	2	2x Drop Card Type 6 - Everyday
+5360007	6000	1	5	2	10	2	2x Drop Card Type 7 - Everyday
+5360008	6000	1	5	2	10	2	2x Drop Card Type 8 - Everyday
+5360042	1500	1	5	2	1	2	4 hour 2 x Drop special coupon
 5370000	1000	1	5	2	0	2	Chalkboard
 5380000	5500	1	5	2	0	2	The Rock of Evolution
 5390000	7500	5	5	2	0	2	Diablo Messenger
@@ -1603,8 +1616,6 @@
 5390002	7500	5	5	2	0	2	Loveholic Messenger
 5390005	7500	5	5	2	0	2	Cute Tiger Messenger
 5390006	20000	11	5	2	0	2	Roaring Tiger Messenger
-5400000	10000	1	5	2	0	2	Character Name Change
-5401000	25000	1	5	2	0	2	Character Transfer
 5420000	11000	1	5	2	0	2	Amoria Hair Membership Coupon
 5420001	11000	1	5	2	0	2	NLC Hair Membership Coupon
 5420002	11000	1	5	2	0	2	Henesys Hair Membership Coupon
@@ -1613,11 +1624,14 @@
 5420005	11000	1	5	2	0	2	Ludibrium Hair Membership Coupon
 5420006	11000	1	5	2	0	2	Mu Lung Hair Membership Coupon
 5430000	6900	1	5	2	0	2	Extra Character Slot Coupon
+9111000	6400	1	5	2	0	2	Equip Slots +8
+9112000	6800	1	5	2	0	2	Use Slots +8
+9113000	6800	1	5	2	0	2	Set-up Slots +8
+9114000	6800	1	5	2	0	2	Etc Slots +8
 5431000	12800	1	5	2	0	2	Maple Life (A-Type)
 5432000	15600	1	5	2	0	2	Maple Life (B-Type)
 5450000	2800	5	5	2	0	2	Miu Miu the Traveling Merchant
 5451000	31500	35	5	2	0	2	Remote Gachapon Ticket
-5460000	2500	1	5	2	0	2	Pet Snack
 5470000	1000	1	5	2	0	2	Store Remote Controller
 5510000	500	1	5	2	0	2	Wheel of Destiny
 5520000	10500	4	5	2	0	2	Scissors of Karma
