@@ -25,6 +25,7 @@ package client.command;
 
 import client.Client;
 import client.command.commands.gm0.*;
+import client.command.commands.gm1.BuffMeCommand;
 import client.command.commands.gm2.*;
 import client.command.commands.gm3.*;
 import client.command.commands.gm4.*;
@@ -262,8 +263,8 @@ public class CommandsExecutor {
 
         /*addCommand("whatdropsfrom", 1, WhatDropsFromCommand.class);
         addCommand("whodrops", 1, WhoDropsCommand.class);
-        addCommand("buffme", 1, BuffMeCommand.class);
         addCommand("goto", 1, GotoCommand.class);*/
+        addCommand("buffme", 1, BuffMeCommand.class); // 1.4.2: the GM-1 tier reshuffle dropped it; Cosmic has it here
 
         commandsNameDesc.add(levelCommandsCursor);
     }
