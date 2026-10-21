@@ -190,6 +190,7 @@ public final class PacketProcessor {
         registerHandler(RecvOpcode.CASHSHOP_WINDOW_ACTION, new CashShopWindowHandler());
         registerHandler(RecvOpcode.DAILY_CHECKIN, new DailyCheckinHandler());
         registerHandler(RecvOpcode.SET_ITEM_ACTION, new SetItemHandler());
+        registerHandler(RecvOpcode.MONSTER_BOOK_QUERY, new net.server.channel.handlers.MonsterBookQueryHandler());
         registerHandler(RecvOpcode.DAMAGE_SUMMON, new DamageSummonHandler());
         registerHandler(RecvOpcode.MOVE_SUMMON, new MoveSummonHandler());
         registerHandler(RecvOpcode.SUMMON_ATTACK, new SummonDamageHandler());
