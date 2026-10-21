@@ -52,6 +52,8 @@ public final class GiveFameHandler extends AbstractPacketHandler {
         FameStatus status = player.canGiveFame(target);
         if (status == FameStatus.OK) {
             if (target.gainFame(famechange, player, mode)) {
+                soloMapling.server.MapleRootSolo.runHook("affinity fame", () ->   // ticket 58: fame or defame a bot
+                        soloMapling.ArtificialPlayer.BotAffinitySystem.AffinityHooks.onFame(player, target, famechange));
                 if (!player.isGM()) {
                     player.hasGivenFame(target);
                 }

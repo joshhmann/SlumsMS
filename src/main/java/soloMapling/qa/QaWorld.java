@@ -110,4 +110,22 @@ public interface QaWorld {
      * its own). The log lines of the roll; a line saying so when it has nothing it would scroll.
      */
     List<String> botScrollStep(int botId, String appetite);
+
+    /**
+     * Ticket 58 (af-1..af-3): a new bot next to the GM that feels {@code state} (friend | rival | nemesis) about them;
+     * a training bot held on the GM's map when {@code training}, else a social bot. Its id, or -1.
+     */
+    int stageAffinityBot(Character gm, String state, boolean training);
+
+    /** Takes a staged affinity bot away and forgets its ties. */
+    void unstageAffinityBot(int botId);
+
+    /** {@code @botdrama} for the GM: off = true. The previous value. */
+    boolean setBotDramaOff(Character gm, boolean off);
+
+    /** GM-only read-out of how a bot feels about the GM ("rival: score -40 ..."). */
+    String affinityOf(int botId, Character gm);
+
+    /** A fresh grudge of the bot against the GM, and a KS spree when they share a map; what happened. */
+    String forceGrudge(int botId, Character gm);
 }

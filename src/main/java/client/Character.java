@@ -2228,6 +2228,8 @@ public class Character extends AbstractCharacterObject {
                 sendPacket(PacketCreator.enableActions());
                 return;
             }
+            soloMapling.server.MapleRootSolo.runHook("affinity pickup", () ->   // ticket 58: a bot's fresh drop
+                    soloMapling.ArtificialPlayer.BotAffinitySystem.AffinityHooks.onPickup(this, mapitem));
 
             List<Character> mpcs = new LinkedList<>();
             if (mapitem.getMeso() > 0 && !mapitem.isAlreadyPickedUp()) {
@@ -2375,6 +2377,8 @@ public class Character extends AbstractCharacterObject {
                 sendPacket(PacketCreator.enableActions());
                 return;
             }
+            soloMapling.server.MapleRootSolo.runHook("affinity pickup", () ->   // ticket 58: a bot's fresh drop
+                    soloMapling.ArtificialPlayer.BotAffinitySystem.AffinityHooks.onPickup(this, mapitem));
 
             List<Character> mpcs = new LinkedList<>();
             if (mapitem.getMeso() > 0 && !mapitem.isAlreadyPickedUp()) {

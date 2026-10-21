@@ -29,6 +29,24 @@ public final class WorldEventSteer {
         return calls.containsKey(charId);
     }
 
+    /** The event id GM staging holds use (no real event has it). */
+    public static final int STAGING = -58;
+
+    /**
+     * GM / {@code !qa} staging (ticket 58): keeps a training bot training on this map as if an event had called it
+     * there (no walk-off, no crowd bail), until {@link #unhold}. Never counts toward a decision limit.
+     */
+    public static void hold(int charId, int mapId) {
+        calls.put(charId, new Call(STAGING, mapId, Integer.MIN_VALUE / 2));
+    }
+
+    public static void unhold(int charId) {
+        Call c = calls.get(charId);
+        if (c != null && c.eventId() == STAGING) {
+            calls.remove(charId, c);
+        }
+    }
+
     /** Drops every bot headed to this event. */
     static void release(int eventId) {
         calls.values().removeIf(c -> c.eventId() == eventId);

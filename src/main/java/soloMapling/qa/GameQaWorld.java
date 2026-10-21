@@ -207,6 +207,45 @@ final class GameQaWorld implements QaWorld {
     }
 
     @Override
+    public int stageAffinityBot(Character gm, String state, boolean training) {
+        soloMapling.ArtificialPlayer.BotAffinitySystem.AffinityState s =
+                soloMapling.ArtificialPlayer.BotAffinitySystem.AffinityState.parse(state);
+        return s == null ? -1 : soloMapling.ArtificialPlayer.BotAffinitySystem.AffinityStaging.stage(gm, s, training);
+    }
+
+    @Override
+    public void unstageAffinityBot(int botId) {
+        soloMapling.ArtificialPlayer.BotAffinitySystem.AffinityStaging.unstage(botId);
+    }
+
+    @Override
+    public boolean setBotDramaOff(Character gm, boolean off) {
+        boolean was = soloMapling.ArtificialPlayer.BotAffinitySystem.BotAffinity.optedOut(gm.getId());
+        soloMapling.ArtificialPlayer.BotAffinitySystem.BotAffinity.setOptedOut(gm, off);
+        return was;
+    }
+
+    @Override
+    public String affinityOf(int botId, Character gm) {
+        String spree = soloMapling.ArtificialPlayer.BotAffinitySystem.AffinityReactions.spreeOf(botId);
+        return soloMapling.ArtificialPlayer.BotAffinitySystem.BotAffinity.describe(botId, gm.getId())
+                + (spree == null ? "" : "; " + spree);
+    }
+
+    @Override
+    public String forceGrudge(int botId, Character gm) {
+        if (!soloMapling.ArtificialPlayer.BotAffinitySystem.BotAffinity.forceGrudge(botId, gm.getId())) {
+            return "no grudge (not loaded, or @botdrama off)";
+        }
+        Character bot = BotHelpers.getCharFromChannelStorage(botId);
+        if (bot != null && bot.getMapId() == gm.getMapId()) {
+            soloMapling.ArtificialPlayer.BotAffinitySystem.AffinityReactions.forceSpree(bot, gm);
+            return "grudge + KS spree";
+        }
+        return "grudge (bot not on your map, no spree)";
+    }
+
+    @Override
     public void despawnBot(int botId) {
         Character bot = BotHelpers.getCharFromChannelStorage(botId);
         if (bot == null) {

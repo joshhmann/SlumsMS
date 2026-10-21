@@ -245,4 +245,45 @@ class QaScenarioStagingTest {
             server.bounce.BounceZones.useForTest(null);
         }
     }
+
+    // ---- ticket 58 ----
+
+    @Test
+    void af1StagesASocialFriendAndUnstagesItAtStop() throws Exception {
+        start("af-1", 100000000);
+        assertTrue(world.calls.stream().anyMatch(c -> c.startsWith("stage friend social")));
+        scheduler.repeating.get(0).run();
+        Path log = suite.runOf(1).logPath();
+        suite.stop(1, "!qa stop");
+        assertEquals(1, world.unstaged.size());
+        String text = Files.readString(log);
+        assertTrue(text.contains("START") && text.contains("STATE") && text.contains("FINAL"));
+    }
+
+    @Test
+    void af2StagesATrainingRivalOnAMobMapAndForcesAGrudge() {
+        world.mobs = 0;
+        start("af-2", 100000000, "nemesis");
+        assertTrue(world.calls.contains("warp 104040000"), "hostile bots need mobs");
+        assertTrue(world.calls.stream().anyMatch(c -> c.startsWith("stage nemesis training")));
+        List<String> out = suite.action(world.online, "grudge", new String[0]);
+        assertEquals(List.of("grudge + KS spree"), out);
+        assertThrows(QaRefusal.class, () -> suite.action(world.online, "hug", new String[0]));
+        suite.stop(1, "!qa stop");
+        assertEquals(1, world.unstaged.size());
+    }
+
+    @Test
+    void af3TurnsDramaOffAndPutsItBackAtStop() {
+        world.dramaOff = false;
+        start("af-3", 104040000);
+        assertTrue(world.dramaOff);
+        assertTrue(world.calls.stream().anyMatch(c -> c.startsWith("stage nemesis training")));
+        suite.action(world.online, "on", new String[0]);
+        assertFalse(world.dramaOff);
+        suite.action(world.online, "off", new String[0]);
+        assertTrue(world.dramaOff);
+        suite.stop(1, "!qa stop");
+        assertFalse(world.dramaOff, "restored to what it was");
+    }
 }

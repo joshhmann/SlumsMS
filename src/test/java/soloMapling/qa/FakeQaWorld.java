@@ -142,4 +142,27 @@ class FakeQaWorld implements QaWorld {
         calls.add("bot " + botId + " scroll " + appetite);
         return scrollSteps.isEmpty() ? List.of("bot has nothing it would scroll") : List.of(scrollSteps.remove(0));
     }
+
+    // ticket 58
+    final List<Integer> unstaged = new ArrayList<>();
+    boolean dramaOff;
+
+    @Override public int stageAffinityBot(Character gm, String state, boolean training) {
+        int id = nextBot++;
+        calls.add("stage " + state + (training ? " training" : " social") + " " + id);
+        return id;
+    }
+
+    @Override public void unstageAffinityBot(int botId) { unstaged.add(botId); calls.add("unstage " + botId); }
+
+    @Override public boolean setBotDramaOff(Character gm, boolean off) {
+        boolean was = dramaOff;
+        dramaOff = off;
+        calls.add("botdrama " + (off ? "off" : "on"));
+        return was;
+    }
+
+    @Override public String affinityOf(int botId, Character gm) { return "rival: score -40"; }
+
+    @Override public String forceGrudge(int botId, Character gm) { calls.add("grudge " + botId); return "grudge + KS spree"; }
 }

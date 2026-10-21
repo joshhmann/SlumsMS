@@ -155,8 +155,8 @@ final class RoamStrategy implements GrindStrategy {
                 }
             }
         }
-        Monster t = SpotFinder.nearestHostileCrossLedge(chr.getMap(), pos, ROAM_RANGE_X, ROAM_RANGE_Y,
-                p, ROAM_STACK_RANGE_Y);
+        Monster t = soloMapling.ArtificialPlayer.BotAffinitySystem.AffinityReactions.ksPick(chr, SpotFinder.nearestHostileCrossLedge(chr.getMap(), pos, ROAM_RANGE_X,
+                ROAM_RANGE_Y, p, ROAM_STACK_RANGE_Y)); // ticket 58
         b.targetOid = (t != null) ? t.getObjectId() : -1;
         b.resetApproachProgress(chr);
         return t;

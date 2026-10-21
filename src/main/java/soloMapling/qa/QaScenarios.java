@@ -11,6 +11,7 @@ import java.util.Map;
 import java.util.Set;
 import java.util.concurrent.ConcurrentHashMap;
 
+import static soloMapling.qa.QaLog.Topic.AFFINITY;
 import static soloMapling.qa.QaLog.Topic.ATTACK;
 import static soloMapling.qa.QaLog.Topic.BOUNCE;
 import static soloMapling.qa.QaLog.Topic.BOT_CHAT;
@@ -72,7 +73,8 @@ public final class QaScenarios {
         return List.of(new Bk1Showcase(), new Gd1Guild(), new Fm1BuyerCap(), new Ld1Ladders(), new Gh1Hide(),
                 new Np1Rosen(), new Np2Fredrick(), new Np3Merchant(), new Cs2PetEquip(), new Gn2Scrolling(), new Sc2BotScrolling(),
                 new Wd1ChannelBars(), new Wd2DreamyPortal(), new Id1IdleSafety(),
-                new Mv1AttackSlide(), new Pe1MapEntry(), new Jq1BounceBlock());
+                new Mv1AttackSlide(), new Pe1MapEntry(), new Jq1BounceBlock(),
+                new Af1Friend(), new Af2Rival(), new Af3DramaOff());
     }
 
     // ---- jq-1 ----
@@ -969,6 +971,152 @@ public final class QaScenarios {
             if (gm != null) {
                 ctx.world().message(gm, line);
             }
+        }
+    }
+
+    // ---- af-1 / af-2 / af-3 (1.5.0, ticket 58: bot affinity) ----
+
+    /**
+     * Shared staging for the affinity tests: one bot next to the GM that already feels a chosen way about them,
+     * a 30 s read-out of its feelings, and every affinity event and action on the map in the log.
+     */
+    abstract static class AffinityScenario implements QaScenario {
+        private final Map<Integer, Integer> botByGm = new ConcurrentHashMap<>();
+
+        public Set<QaLog.Topic> topics() { return EnumSet.of(AFFINITY, BOT_CHAT); }
+        public int tickSeconds() { return 30; }
+
+        public Set<Integer> watchedMaps(Character gm, String[] args) {
+            return new java.util.HashSet<>(List.of(gm.getMapId(), HENESYS_HUNTING_GROUND));
+        }
+
+        /** Stages the bot; hostile bots need mobs, so a GM on a map without any is warped to the Hunting Ground. */
+        int stageBot(QaContext ctx, String state, boolean training) {
+            QaWorld w = ctx.world();
+            Character gm = ctx.gm();
+            if (training && w.liveMobCount(gm) == 0) {
+                if (!w.warp(gm, HENESYS_HUNTING_GROUND)) {
+                    throw new QaRefusal("Cannot warp to " + HENESYS_HUNTING_GROUND + ".");
+                }
+                ctx.log("warped to " + HENESYS_HUNTING_GROUND + " (needs mobs)");
+            }
+            int id = w.stageAffinityBot(gm, state, training);
+            if (id < 0) {
+                throw new QaRefusal("No bot could be staged here.");
+            }
+            ctx.log("staged bot " + id + " as the GM's " + state + (training ? " (training, held on this map)" : " (social)"));
+            ctx.onStop("unstage bot " + id + " and forget its ties", () -> w.unstageAffinityBot(id));
+            botByGm.put(ctx.run().gmId(), id);
+            ctx.onStop("final read-out", () -> {
+                readOut(ctx, "FINAL");
+                botByGm.remove(ctx.run().gmId());
+            });
+            readOut(ctx, "START");
+            return id;
+        }
+
+        public void tick(QaContext ctx) {
+            readOut(ctx, "STATE");
+        }
+
+        void readOut(QaContext ctx, String tag) {
+            Integer id = botByGm.get(ctx.run().gmId());
+            Character gm = ctx.gmNow();
+            if (id != null && gm != null) {
+                ctx.run().note(tag, "bot " + id + ": " + ctx.world().affinityOf(id, gm));
+            }
+        }
+
+        Integer bot(QaContext ctx) {
+            return botByGm.get(ctx.run().gmId());
+        }
+
+        static String word(String[] args, String fallback, String... allowed) {
+            for (String a : args) {
+                for (String ok : allowed) {
+                    if (ok.equalsIgnoreCase(a)) {
+                        return ok;
+                    }
+                }
+            }
+            return fallback;
+        }
+    }
+
+    /** af-1: a friend bot. It greets, sends a buddy request or a party invite, buffs; party, fame, "ty" raise it. */
+    static final class Af1Friend extends AffinityScenario {
+        public String id() { return "af-1"; }
+        public String title() { return "A bot friend: greetings, buddy request, party invite, buffs (ticket 58)"; }
+        public String usage() { return "[social|training]"; }
+
+        public List<String> stage(QaContext ctx) {
+            boolean training = "training".equals(word(ctx.args(), "social", "social", "training"));
+            stageBot(ctx, "friend", training);
+            return List.of("A bot next to you now counts you as a friend (GM read-out every 30 s in the log).",
+                    "Stand near it: within a few minutes it greets you, and may send a buddy request or a party invite,",
+                    "or buff you if it has a party buff. Each action is an ACT line. Say 'ty' or 'gg' to it: EVENT kind_chat.",
+                    "Party it, fame it, trade it: EVENT party / fame / trade. No number is ever shown to you as a player.");
+        }
+    }
+
+    /** af-2: a rival or nemesis bot on a mob map: taunts, KS sprees, refused trades, a nemesis may defame. */
+    static final class Af2Rival extends AffinityScenario {
+        public String id() { return "af-2"; }
+        public String title() { return "A bot rival or nemesis: trash talk, KS sprees, refusals, defame (ticket 58)"; }
+        public String usage() { return "[rival|nemesis]; then !qa do grudge"; }
+
+        public List<String> stage(QaContext ctx) {
+            String state = word(ctx.args(), "rival", "rival", "nemesis");
+            stageBot(ctx, state, true);
+            return List.of("A training bot held on this map now counts you as its " + state + ".",
+                    "Fight mobs near it: it taunts you now and then and goes on KS sprees (KS lines, at most 3 mobs per spree).",
+                    "Hit a mob it is already fighting: EVENT ks. Try to trade it: REFUSE. A nemesis may defame you once a day.",
+                    "It never follows you to another map. !qa do grudge forces a fresh grudge and a KS spree now.");
+        }
+
+        public List<String> action(QaContext ctx, String name, String[] args) {
+            Integer id = bot(ctx);
+            if (!"grudge".equals(name) || id == null) {
+                throw new QaRefusal("af-2 steps: grudge");
+            }
+            String result = ctx.world().forceGrudge(id, ctx.gm());
+            ctx.run().note("STEP", result);
+            readOut(ctx, "STATE");
+            return List.of(result);
+        }
+    }
+
+    /** af-3: @botdrama off. A nemesis bot next to the GM with drama off must stay neutral; !qa do on compares. */
+    static final class Af3DramaOff extends AffinityScenario {
+        public String id() { return "af-3"; }
+        public String title() { return "@botdrama off: a nemesis bot stays neutral to you (ticket 58)"; }
+        public String usage() { return "; then !qa do on | off"; }
+
+        public List<String> stage(QaContext ctx) {
+            QaWorld w = ctx.world();
+            Character gm = ctx.gm();
+            boolean was = w.setBotDramaOff(gm, true);
+            ctx.log("@botdrama off (was " + (was ? "off" : "on") + ")");
+            ctx.onStop("@botdrama back " + (was ? "off" : "on"), () -> {
+                Character now = ctx.gmNow();
+                if (now != null) {
+                    w.setBotDramaOff(now, was);
+                }
+            });
+            stageBot(ctx, "nemesis", true);
+            return List.of("@botdrama is OFF for you and a nemesis bot is next to you.",
+                    "Expect: the read-out says neutral, no taunt / ks / defame ACT lines, and its trades are not refused.",
+                    "KS its mobs: no EVENT ks lines while off. !qa do on turns drama on to see the difference; stop restores it.");
+        }
+
+        public List<String> action(QaContext ctx, String name, String[] args) {
+            if (!"on".equals(name) && !"off".equals(name)) {
+                throw new QaRefusal("af-3 steps: on, off");
+            }
+            ctx.world().setBotDramaOff(ctx.gm(), "off".equals(name));
+            ctx.run().note("STEP", "@botdrama " + name);
+            readOut(ctx, "STATE");
+            return List.of("@botdrama " + name + ".");
         }
     }
 }

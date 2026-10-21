@@ -258,6 +258,7 @@ public class CommandsExecutor {
         addCommand("mobhp", MobHpCommand.class);
         addCommand("roll", RollCommand.class);
         addCommand("quiet", QuietCommand.class);
+        addCommand("botdrama", client.command.commands.gm0.BotDramaCommand.class);   // ticket 58
 	    addCommand("shop", ShopCommand.class);
        // addCommand("damageskin",  DamageSkinCommand.class);
 	    /*
@@ -363,6 +364,7 @@ public class CommandsExecutor {
             addCommand("botyield", 4, client.command.commands.gm4.BotYieldCommand.class);
             addCommand("botscroll", 4, client.command.commands.gm4.BotScrollCommand.class);   // ticket 11
             addCommand(new String[]{"event", "worldevent"}, 4, client.command.commands.gm4.WorldEventCommand.class);
+            addCommand("affinity", 4, client.command.commands.gm4.AffinityCommand.class);   // ticket 58
         }
         addCommand("spawn", 3, SpawnCommand.class);
         addCommand("mutemap", 3, MuteMapCommand.class);

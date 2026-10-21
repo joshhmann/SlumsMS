@@ -387,6 +387,16 @@ public class Party {
                     player.resetPartySearchInvite(party.getLeaderId());
                     player.updatePartySearchAvailability(false);
                     player.partyOperationUpdate(party, null);
+                    final Party joined = party;
+                    soloMapling.server.MapleRootSolo.runHook("affinity party", () -> {   // ticket 58
+                        java.util.List<Character> members = new java.util.ArrayList<>();
+                        for (PartyCharacter m : joined.getMembers()) {
+                            if (m.getPlayer() != null) {
+                                members.add(m.getPlayer());
+                            }
+                        }
+                        soloMapling.ArtificialPlayer.BotAffinitySystem.AffinityHooks.onPartyJoin(player, members);
+                    });
                     return true;
                 } else {
                     if (!silentCheck) {

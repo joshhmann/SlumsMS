@@ -319,7 +319,7 @@ class CampStrategy implements GrindStrategy {
         long scanStart = System.nanoTime();
         Monster t = stickyTarget(chr, s);
         if (t == null) {
-            t = acquireTarget(chr, s);
+            t = soloMapling.ArtificialPlayer.BotAffinitySystem.AffinityReactions.ksPick(chr, acquireTarget(chr, s)); // ticket 58
             b.targetOid = (t != null) ? t.getObjectId() : -1;
             b.resetApproachProgress(chr);
         }
@@ -386,7 +386,7 @@ class CampStrategy implements GrindStrategy {
             return; // corral back to the anchor before waiting out a lull off-ledge
         }
         long scanStart = System.nanoTime();
-        Monster t = acquireTarget(chr, s);
+        Monster t = soloMapling.ArtificialPlayer.BotAffinitySystem.AffinityReactions.ksPick(chr, acquireTarget(chr, s)); // ticket 58
         BotPerformanceMonitor.recordCombatScan(System.nanoTime() - scanStart);
         if (t != null) {
             b.targetOid = t.getObjectId();

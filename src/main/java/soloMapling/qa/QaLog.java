@@ -40,7 +40,8 @@ public final class QaLog {
         IDLE,           // idle bots: hits taken while idle, moves to a safe spot (id-1)
         SLIDE,          // the GM's own attacks: how far the character moved during each (mv-1)
         MAP_ENTRY,      // a GM's map entries: time, packets, bytes, deferred spawns, the map's objects (pe-1)
-        BOUNCE;         // bounce / Flash Jump uses the server saw on a watched map, refusals, zone pushes (jq-1)
+        BOUNCE,         // bounce / Flash Jump uses the server saw on a watched map, refusals, zone pushes (jq-1)
+        AFFINITY;       // bot<->player affinity: events, state changes, and what bots do about it (af-1..af-3)
 
         final int bit = 1 << ordinal();
     }

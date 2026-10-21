@@ -1511,7 +1511,13 @@ public class MapleMap {
 
         // Generic monster damage handling
         if (monster.isAlive()) {
+            soloMapling.server.MapleRootSolo.runHook("affinity ks", () ->   // ticket 58: first hit on a bot's mob
+                    soloMapling.ArtificialPlayer.BotAffinitySystem.AffinityHooks.beforePlayerHit(chr, monster));
             boolean killed = monster.damage(chr, damage, false);
+            if (killed) {
+                soloMapling.server.MapleRootSolo.runHook("affinity rescue", () ->   // ticket 58
+                        soloMapling.ArtificialPlayer.BotAffinitySystem.AffinityHooks.onPlayerKill(chr, monster));
+            }
             selfDestruction selfDestr = monster.getStats().selfDestruction();
 
             if (selfDestr != null && selfDestr.getHp() > -1 && monster.getHp() <= selfDestr.getHp()) {
@@ -2703,6 +2709,8 @@ public class MapleMap {
 
         chr.setMapId(mapid);
         chr.updateActiveEffects();
+        soloMapling.server.MapleRootSolo.runHook("affinity load", () ->   // ticket 58: a player's bot ties, read once
+                soloMapling.ArtificialPlayer.BotAffinitySystem.BotAffinity.ensureLoaded(chr));
         if (soloMapling.ArtificialPlayer.BotHelpers.isVisibleRealPlayer(chr)) { // 1.4.1: no greetings for a hidden GM
             soloMapling.server.MapleRootSolo.runHook("map entered", () ->
                     soloMapling.server.EventMessageSystem.EventBus.getInstance().publish(
