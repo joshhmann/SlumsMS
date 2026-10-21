@@ -156,6 +156,7 @@ public class Character extends AbstractCharacterObject {
     private long lastfametime, lastUsedCashItem, lastExpression = 0, lastHealed, lastBuyback = 0, lastDeathtime, jailExpiration = -1;
     private transient int localstr, localdex, localluk, localint_, localmagic, localwatk;
     private transient int equipmaxhp, equipmaxmp, equipstr, equipdex, equipluk, equipint_, equipmagic, equipwatk, localchairhp, localchairmp;
+    private transient server.setitem.SetBonus setBonus = server.setitem.SetBonus.NONE;
     private int localchairrate;
     private boolean hidden, equipchanged = true, berserk, hasMerchant, hasSandboxItem = false, whiteChat = false, canRecvPartySearchInvite = true;
     private boolean equippedMesoMagnet = false, equippedItemPouch = false, equippedPetItemIgnore = false;
@@ -3401,6 +3402,7 @@ public class Character extends AbstractCharacterObject {
         getMap().broadcastUpdateCharLookMessage(this, this);
         equipchanged = true;
         updateLocalStats();
+        server.setitem.SetItems.sendPieces(this); // SetEquip addon: tooltip and Ability window follow at once
         if (getMessenger() != null) {
             getWorldServer().updateMessenger(getMessenger(), getName(), getWorld(), client.getChannel());
         }
@@ -8680,6 +8682,11 @@ public class Character extends AbstractCharacterObject {
         }, 4000, 4000);
     }
 
+    /** The set bonus folded into the equip stats at the last recalculation (SetEquip addon, ticket 18). */
+    public server.setitem.SetBonus getSetBonus() {
+        return setBonus;
+    }
+
     private void recalcEquipStats() {
         if (equipchanged) {
             equipmaxhp = 0;
@@ -8693,8 +8700,10 @@ public class Character extends AbstractCharacterObject {
             //equipspeed = 0;
             //equipjump = 0;
 
+            List<Integer> equippedIds = new ArrayList<>();
             for (Item item : getInventory(InventoryType.EQUIPPED)) {
                 Equip equip = (Equip) item;
+                equippedIds.add(equip.getItemId());
                 equipmaxhp += equip.getHp();
                 equipmaxmp += equip.getMp();
                 equipdex += equip.getDex();
@@ -8706,6 +8715,18 @@ public class Character extends AbstractCharacterObject {
                 //equipspeed += equip.getSpeed();
                 //equipjump += equip.getJump();
             }
+
+            // SetEquip addon (ticket 18): worn set pieces add their stacked tier bonuses like more equip stats.
+            // INT also raises magic, as an item's INT does above.
+            setBonus = server.setitem.SetItemCatalog.getInstance().bonusFor(equippedIds);
+            equipmaxhp += setBonus.maxHp();
+            equipmaxmp += setBonus.maxMp();
+            equipstr += setBonus.str();
+            equipdex += setBonus.dex();
+            equipint_ += setBonus.int_();
+            equipluk += setBonus.luk();
+            equipmagic += setBonus.matk() + setBonus.int_();
+            equipwatk += setBonus.watk();
 
             equipchanged = false;
         }

@@ -24,6 +24,7 @@ package net.opcodes;
 public enum RecvOpcode {
     CASHSHOP_WINDOW_ACTION(0x3730),
     DAILY_CHECKIN(0x3732),
+    SET_ITEM_ACTION(0x3726),// SetEquip addon (ticket 18); client setitem.cpp kSetItemActionOpcode
     CUSTOM_PACKET(0x3713),//13 37 lol
 
     LOGIN_PASSWORD(0x01),

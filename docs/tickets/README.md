@@ -24,7 +24,7 @@ Created 2026-10-19 from the owner's plan. Order: nav v2 → real bots → compan
 | [15](15-economy-caps.md) | Per-map yield caps and daily meso cap | Economy | 07 |
 | [16](16-bots-live.md) | Bring the bot world live | Rollout | 01-15 (owner choice) |
 | [17](17-daily-checkin-release.md) | Ship Daily Check-In | Addons | - |
-| [18](18-addon-setequip.md) | SetEquipV3 addon | Addons | - |
+| [18](18-addon-setequip.md) | SetEquipV3 addon (built, branch `addon-setequip`) | Addons | - |
 | [19](19-addon-monsterbook.md) | MonsterBook addon | Addons | - |
 | [20](20-launcher-packs.md) | Packed first install for remote friends | Launcher | - |
 | [21](21-world-events.md) | Scripted world events with bot reactions (built, branch `world-events`) | Later | 16 |

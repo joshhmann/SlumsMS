@@ -67,6 +67,7 @@ public final class DataFiles {
             "soloMapling/ArtificialPlayer/BotMovementSystem/movementDataPackets",
             "soloMapling/DailyCheckin/daily-checkin-rewards.yaml",
             "soloMapling/itemPool/EquipOmitList.yaml",
+            "soloMapling/SetEquip/set-items.yaml",
             "soloMapling/itemPool/itemConfig",
             "soloMapling/itemPool/itemConfig/desirableEquips.yaml",
             "soloMapling/itemPool/itemConfig/gachaFiller.yaml",

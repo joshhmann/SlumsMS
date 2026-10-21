@@ -26,6 +26,7 @@ public enum SendOpcode {
     LAMP_PREVIEW(0x373F),
     CASHSHOP_WINDOW_SYNC(0x3731),
     DAILY_CHECKIN_SYNC(0x3733),
+    SET_ITEM_SYNC(0x3727),// SetEquip addon (ticket 18); client setitem.cpp kSetItemSyncOpcode
 
     LOGIN_STATUS(0x00),
     GUEST_ID_LOGIN(0x01),
