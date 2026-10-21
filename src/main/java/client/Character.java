@@ -3711,10 +3711,10 @@ public class Character extends AbstractCharacterObject {
     }
 
     public void gainExp(int gain, int party, boolean show, boolean inChat, boolean white) {
-/*        if (hasDisease(Disease.CURSE)) {
-            gain *= 0.5;
-            party *= 0.5;
-        }*/
+        if (hasDisease(Disease.CURSE)) { // 1.4.2: the repack had commented this out; Curse halves EXP as in v83
+            gain = cursedExp(gain);
+            party = cursedExp(party);
+        }
 
         if (gain < 0) {
             gain = Integer.MAX_VALUE;   // integer overflow, heh.
@@ -3727,6 +3727,11 @@ public class Character extends AbstractCharacterObject {
         int equip = (int) Math.min((long) (gain / 10) * pendantExp, Integer.MAX_VALUE);
 
         gainExpInternal(gain, equip, party, show, inChat, white);
+    }
+
+    /** What a Curse (mob debuff) leaves of an EXP gain: half, as Cosmic's {@code gain *= 0.5}. */
+    static int cursedExp(int exp) {
+        return (int) (exp * 0.5);
     }
 
     public void loseExp(long loss, boolean show, boolean inChat) {
