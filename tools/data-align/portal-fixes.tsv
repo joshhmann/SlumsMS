@@ -1,0 +1,11 @@
+# Portal target fixes for the server WZ XML (host data, not in git). Apply with:
+#   python3 tools/data-align/wz_set_values.py --wz <server wz dir> --tsv tools/data-align/portal-fixes.tsv --column new_value [--apply]
+# Each row only applies while the file still holds server_value. Restart the server afterwards.
+# 271010400 north00 -> 271010500 tn west00: 271010500 has no west00 (portals sp, out00, goPerion, in00),
+# so players land at sp (GenericPortal falls back to portal 0). out00 is the portal on 271010500 that leads back to 271010400 (alignment audit, 1.4.1).
+# Bots: GCWorldGraph keeps only tm (map adjacency) and BotNavigationGraphProvider only follows tn for
+# same-map portals, so routing does not depend on this tn. GCPortals warps bots through it with the same
+# portal-0 fallback as players, so today bots also arrive at sp; after the fix both arrive at out00.
+# No BotTransit.yaml row uses 271010400/271010500.
+file	node	server_value	new_value	note
+Map.wz/Map/Map2/271010400.img.xml	portal/3/tn	west00	out00	north00 -> 271010500: west00 does not exist there
