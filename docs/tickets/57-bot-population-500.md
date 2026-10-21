@@ -216,3 +216,10 @@ never picked, even in an empty world - tested); companions still follow their pl
 Release steps for live: config.yaml `worlds: - channels: 5` (was 8) together with this jar; keep `CHANNEL_LOAD: 300`
 (do NOT return it to 100: channel 1's ~480 bots count as 120 players at the 0.25 bot weight, which would read full).
 Player-facing: channels 6-8 disappear from the channel list.
+
+## Owner change (2026-10-21, 1.4.1 QA note on wd-1): bars 100 / 85 / 50 / 30 / 20 %
+"to keep things like how it was before, channels 1 100% 2 85% 3 50% 4 30 5 20%". Supersedes the bot-free channel 5.
+Default `BOT_CHANNEL_WEIGHTS: "100,85,50,30,20"` -> at the 1,200 peak about 421 / 358 / 211 / 126 / 84 bots.
+Release steps for live (1.4.2): config.yaml `worlds: - channels: 5` and `CHANNEL_LOAD: 105` (from 300): at 0.25 per
+bot, channel 1 reads 100 % at the evening peak, channel 5 about 20 %; real players count in full (world cap 525
+real players). Off-peak the bars fall together (e.g. ~480 bots overnight: about 40 / 34 / 20 / 12 / 8 %).

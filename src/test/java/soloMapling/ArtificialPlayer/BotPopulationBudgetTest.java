@@ -114,15 +114,26 @@ class BotPopulationBudgetTest {
         for (int i = 0; i < 1200; i++) {
             counts[BotChannels.pickByDeficit(counts, shares)]++;
         }
-        assertEquals(480, counts[0]);
-        assertEquals(336, counts[1]);
-        assertEquals(240, counts[2]);
-        assertEquals(144, counts[3]);
-        assertEquals(0, counts[4], "channel 5 is the quiet channel");
+        int[] expected = {421, 358, 211, 126, 84};
+        for (int c = 0; c < 5; c++) {
+            assertEquals(expected[c], counts[c], 1, "ch" + (c + 1));
+        }
     }
 
     @Test
-    void channelFiveStaysBotFreeAndTheRestHoldTheirShares() {
+    void theBarsReadWhatTheOwnerAskedForAtThePeak() {
+        // Owner 2026-10-21: channel bars 100 / 85 / 50 / 30 / 20 % at the peak. A bot counts 0.25 of a player in the
+        // bar (Channel.getChannelCapacity) and live runs CHANNEL_LOAD 105 with this release.
+        double[] shares = BotChannels.shares(new ServerConfig().BOT_CHANNEL_WEIGHTS, 5);
+        double[] want = {1.00, 0.85, 0.50, 0.30, 0.20};
+        for (int c = 0; c < 5; c++) {
+            double bar = Math.min(1.0, shares[c] * 1200 * 0.25 / 105.0);
+            assertEquals(want[c], bar, 0.02, "ch" + (c + 1));
+        }
+    }
+
+    @Test
+    void theSplitHoldsWithTheSetPiecesOnChannelOne() {
         double[] shares = BotChannels.shares(null, 5);
         // Boot: 47 set pieces on channel 1, then about 308 dressing bots split among themselves.
         int[] all = new int[5];
@@ -133,19 +144,17 @@ class BotPopulationBudgetTest {
             dressing[c]++;
             all[c]++;
         }
-        assertEquals(0, dressing[4], "no town dressing on the quiet channel");
-        assertTrue(dressing[3] >= 30, "channel 4's towns still have life: " + dressing[3]);
+        assertTrue(dressing[4] >= 15, "the quiet channel still has a little town life: " + dressing[4]);
         // Evening: the director logs in about 845 against every bot online.
         for (int i = 0; i < 845; i++) {
             all[BotChannels.pickByDeficit(all, shares)]++;
         }
         int total = java.util.Arrays.stream(all).sum();
         assertEquals(1200, total);
-        assertEquals(0, all[4], "channel 5 stays bot-free at the peak");
-        for (int c = 0; c < 4; c++) {
+        for (int c = 0; c < 5; c++) {
             assertEquals(shares[c] * total, all[c], 1.5, "ch" + (c + 1));
         }
-        // Early morning: about 125 director bots. Channel 1 stays the busiest, channel 5 empty.
+        // Early morning: about 125 director bots. Channel 1 stays the busiest, the rest fall away in order.
         int[] night = new int[5];
         night[0] = 47;
         for (int c = 0; c < 5; c++) {
@@ -154,8 +163,7 @@ class BotPopulationBudgetTest {
         for (int i = 0; i < 125; i++) {
             night[BotChannels.pickByDeficit(night, shares)]++;
         }
-        assertEquals(0, night[4]);
-        for (int c = 1; c < 4; c++) {
+        for (int c = 1; c < 5; c++) {
             assertTrue(night[c - 1] >= night[c], "night ch" + c + " >= ch" + (c + 1) + ": " + java.util.Arrays.toString(night));
         }
     }

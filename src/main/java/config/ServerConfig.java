@@ -83,8 +83,8 @@ public class ServerConfig {
     public double BOT_ENVIRONMENT_SCALE = 0.5;
     //1.4.2 (ticket 57): how bots split over the channels, ch1 first. Any count of weights; channels past the list
     //get the last weight; they are normalised. Blank = every channel alike.
-    //owner 2026-10-21: 5 channels; ch5 bot-free (weight 0) for quiet grinding. Live config.yaml worlds: channels 5.
-    public String BOT_CHANNEL_WEIGHTS = "40,28,20,12,0";
+    //owner 2026-10-21: 5 channels, bars 100/85/50/30/20 % at the peak (live config.yaml: channels 5, CHANNEL_LOAD 105).
+    public String BOT_CHANNEL_WEIGHTS = "100,85,50,30,20";
     //SoloMapling: shrink the seed waves (training cohorts + town presence) for a pilot on a small host; 1.0 = full.
     public double BOT_POPULATION_SCALE = 1.0;
     //SoloMapling: roster lifecycle (bot-persistence ticket 10) - new players, quitting, coming back. Rates are per day.

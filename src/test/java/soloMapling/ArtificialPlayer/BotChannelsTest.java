@@ -11,11 +11,11 @@ import static org.junit.jupiter.api.Assertions.assertTrue;
 /** Ticket 57: how bots split over the channels. */
 class BotChannelsTest {
 
-    private static final double[] SHIPPED = {0.40, 0.28, 0.20, 0.12, 0.0};
+    private static final double[] SHIPPED = {100 / 285.0, 85 / 285.0, 50 / 285.0, 30 / 285.0, 20 / 285.0};
 
     @Test
     void theShippedWeightsAreTheOwnersSplit() {
-        assertArrayEquals(SHIPPED, BotChannels.shares("40,28,20,12,0", 5), 1e-9);
+        assertArrayEquals(SHIPPED, BotChannels.shares("100,85,50,30,20", 5), 1e-9);
         assertArrayEquals(SHIPPED, BotChannels.shares(new config.ServerConfig().BOT_CHANNEL_WEIGHTS, 5), 1e-9,
                 "the shipped config default is the split");
         assertArrayEquals(SHIPPED, BotChannels.shares("", 5), 1e-9, "blank falls back to the shipped split");
@@ -26,7 +26,7 @@ class BotChannelsTest {
     @Test
     void anyChannelCountWorks() {
         // Fewer channels: the first weights, renormalised.
-        assertArrayEquals(new double[]{40 / 88.0, 28 / 88.0, 20 / 88.0}, BotChannels.shares(null, 3), 1e-9);
+        assertArrayEquals(new double[]{100 / 235.0, 85 / 235.0, 50 / 235.0}, BotChannels.shares(null, 3), 1e-9);
         // More channels: the last weight repeats.
         double[] ten = BotChannels.shares("26,20,16,12,9,7,5,5", 10);
         assertEquals(10, ten.length);
