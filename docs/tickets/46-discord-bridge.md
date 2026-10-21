@@ -2,7 +2,8 @@
 
 **Area:** Community
 **Depends on:** 42 (alerts share the webhook plumbing)
-**Status:** status message and release news built on branch `monitoring` (`slumsms-monitor status|news`, webhooks only, nothing read back), waiting for the owner's webhook URLs and the live install. Registration notices not done.
+**Status:** status message and release news shipped in v1.4.0 (branch `monitoring`, `slumsms-monitor status|news`,
+webhooks only, nothing read back); `slumsms-status@live.timer` runs on live. Registration notices not done.
 
 ## What
 

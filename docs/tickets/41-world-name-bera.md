@@ -2,8 +2,7 @@
 
 **Area:** Server / Client / Ops
 **Depends on:** -
-**Status:** built and rehearsed on a copy of live, branch `world-bera` (SlumsMS 1.3.1); live deploy waits for the owner's go
-(owner request 2026-10-20: "I want the server to be Bera"; owner chose option 1)
+**Status:** shipped in v1.3.1 (branch `world-bera`); live runs as Bera
 
 ## Today
 

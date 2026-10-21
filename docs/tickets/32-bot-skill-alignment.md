@@ -2,7 +2,8 @@
 
 **Area:** Real bots
 **Depends on:** the bot attack fixes on `persistence-on-v120` (poses, weapons, combo orbs)
-**Status:** open; done in waves, one class group at a time
+**Status:** open; done in waves, one class group at a time. Wave 1 (poses, weapons, Combo orbs) shipped in v1.3.0;
+the 4th-job wave is on branch `bot-4th-job-skills` (d1548912c), not shipped (1.4.1 backlog)
 
 ## Where it stands (2026-10-19 owner play-test)
 

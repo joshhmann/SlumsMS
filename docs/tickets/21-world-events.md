@@ -2,7 +2,7 @@
 
 **Area:** Later  
 **Depends on:** 16  
-**Status:** built on branch `world-events` (not merged, not deployed). The automatic scheduler is **off** by default;
+**Status:** shipped in v1.4.0 (branch `world-events`, via `test-rc2`). The automatic scheduler is **off** by default;
 GM commands start events by hand. Owner decisions are listed below.
 
 ## What

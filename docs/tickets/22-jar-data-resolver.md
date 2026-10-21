@@ -2,7 +2,7 @@
 
 **Area:** Later  
 **Depends on:** -  
-**Status:** done on branch `data-resolver` (not merged)
+**Status:** shipped in v1.4.0 (branch `data-resolver`, via `test-rc2`)
 
 ## What
 

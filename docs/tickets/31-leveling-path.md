@@ -2,7 +2,7 @@
 
 **Area:** Real bots
 **Depends on:** 03 (cross-map travel), 30 (rebirth gates)
-**Status:** built on branch `leveling-path` (2026-10-20), not merged; see "Built" below
+**Status:** shipped in v1.4.0 (branch `leveling-path`, via `test-rc1`); see "Built" below
 
 ## Today
 

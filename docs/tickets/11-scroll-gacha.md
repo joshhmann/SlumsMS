@@ -2,7 +2,7 @@
 
 **Area:** Real bots  
 **Depends on:** 10  
-**Status:** open
+**Status:** open (player scrolling itself was restored in v1.4.0; bot scrolling and gachapon are not built)
 
 ## What
 

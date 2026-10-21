@@ -2,7 +2,7 @@
 
 **Area:** Companions  
 **Depends on:** 13  
-**Status:** done (branch command-parser, pending in-game check)
+**Status:** shipped in v1.4.0 (branch `command-parser`, via `test-rc2`)
 
 ## What
 

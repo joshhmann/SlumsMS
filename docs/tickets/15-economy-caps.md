@@ -2,7 +2,7 @@
 
 **Area:** Economy  
 **Depends on:** 07  
-**Status:** done 2026-10-19 on branch `economy` (from `combat`), not yet merged
+**Status:** shipped in v1.3.0 (branch `economy`)
 
 ## What
 

@@ -2,10 +2,9 @@
 
 **Area:** Real bots / chat
 **Depends on:** 36 (fast/slow chat brain); 14 (companion commands) for companion actions
-**Status:** phases 1-2 done. Phase 1 (tier log, actions, con layer, voice) on branch `chat-natural`; phase 2
+**Status:** phases 1-2 shipped in v1.4.0. Phase 1 (tier log, actions, con layer, voice) on branch `chat-natural`; phase 2
 (natural by default, attention, window on double-click only: 1124c0762) and reply faces (1be6e0358) on branch
-`chat-attention`. Both merged into `test-rc1` and carried in every test RC since (on the owner's test server with
-`test-rc4`, 2026-10-21); not on live (1.3.1). Open: the owner's in-game check below (no scratch-server run was made)
+`chat-attention`. Open: the owner's in-game check below
 
 ## Today
 

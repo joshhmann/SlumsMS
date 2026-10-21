@@ -2,7 +2,8 @@
 
 **Area:** Performance
 **Depends on:** -
-**Status:** postponed until the next release candidate (owner, 2026-10-20). Partial results and the
+**Status:** postponed until the next release candidate (owner, 2026-10-20). The soak tools shipped in v1.4.0 (via
+`test-rc2`); the last smoke-run commit (0d72832ae) is only on branch `capacity-soak`. Partial results and the
 method: `docs/perf/capacity-soak-2026-10.md`; tools and the dedicated soak server `slums-soak`: `tools/soak/README.md`.
 
 ## What

@@ -2,7 +2,7 @@
 
 **Area:** Real bots  
 **Depends on:** 07  
-**Status:** done 2026-10-20 on branch `supplies` (from `bots-integration`), not yet merged; ships with 09 (`shops`)
+**Status:** shipped in v1.3.0 (branch `supplies`, with ticket 09)
 
 ## What
 

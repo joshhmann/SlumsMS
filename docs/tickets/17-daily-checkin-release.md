@@ -2,7 +2,8 @@
 
 **Area:** Addons  
 **Depends on:** -  
-**Status:** in review (server `daily-checkin-2`, client `daily-checkin`)
+**Status:** shipped in v1.4.0 (server `daily-checkin-2`, client `daily-checkin`, migration 004);
+`DAILY_CHECKIN_ENABLED: true` on live
 
 ## What
 

@@ -2,7 +2,7 @@
 
 **Area:** Real bots  
 **Depends on:** 16  
-**Status:** built on branch `chat-polish` (2026-10-20), unit tested, not yet checked in game; not merged
+**Status:** shipped in v1.4.0 (branch `chat-polish`, via `test-rc2`)
 
 ## What
 

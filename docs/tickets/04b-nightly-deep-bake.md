@@ -2,7 +2,7 @@
 
 **Area:** Nav v2  
 **Depends on:** 01  
-**Status:** done 2026-10-19 on branch `nav-ops`, not yet merged; timers installed only on the 164 test install
+**Status:** shipped in v1.3.0 (branch `nav-ops`, via `nav-learning`); `slumsms-nav-bake.timer` runs on live
 
 ## What
 

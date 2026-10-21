@@ -2,7 +2,7 @@
 
 **Area:** Real bots / Chat
 **Depends on:** -
-**Status:** implemented on branch `chat-content` (not merged); the RWT share is waiting on the owner's decision
+**Status:** shipped in v1.4.0 (branch `chat-content`); RWT megaphones cut from 19% to 3%
 
 ## Today
 

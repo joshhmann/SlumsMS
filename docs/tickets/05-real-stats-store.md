@@ -2,7 +2,7 @@
 
 **Area:** Real bots  
 **Depends on:** 01  
-**Status:** done 2026-10-19 on branch `real-stats`, not yet merged
+**Status:** shipped in v1.3.0 (branch `real-stats`, with ticket 06)
 
 ## What
 

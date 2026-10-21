@@ -2,9 +2,8 @@
 
 **Area:** Ops
 **Depends on:** 23 (live backups)
-**Status:** built on branch `backups` (`deploy/backup/`), restore drill run and PASSED on 2026-10-20; live install
-(new nightly script, rotation timer) waits for the owner (`install.sh`); off-box copy is built but disabled until the
-owner picks a target; the test DB datadir move waits for a window
+**Status:** shipped in v1.4.0 (branch `backups`, `deploy/backup/`); restore drill PASSED on 2026-10-20; installed on
+live (`slumsms-backup.timer`, `slumsms-backup-rotate.timer`). The test DB datadir move waits for a window
 
 ## What
 

@@ -2,9 +2,9 @@
 
 **Area:** Nav v2  
 **Depends on:** 01  
-**Status:** done 2026-10-19 on branch `nav-learning` (includes `nav-ops`); merged into release 1.3.0 (live). Follow-up 2026-10-21 on branch
-`nav-player-learning` (from `test-rc4`): why live learned nothing from players, fixes, diagnostics, kept data, replay
-tool (see the last section)
+**Status:** shipped in v1.3.0 (branch `nav-learning`, includes `nav-ops`). The 2026-10-21 follow-up (branch
+`nav-player-learning`: why live learned nothing from players, fixes, diagnostics, kept data, replay tool; see the last
+section) shipped in v1.4.0
 
 ## What
 

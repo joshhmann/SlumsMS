@@ -2,8 +2,7 @@
 
 **Area:** Addons  
 **Depends on:** -  
-**Status:** done on branches (server `addon-monsterbook` off test-rc3, client `addon-monsterbook` off
-daily-checkin); waiting for the owner's in-game check
+**Status:** shipped in v1.4.0 (server and client branch `addon-monsterbook`, via `test-rc4`)
 
 ## What
 

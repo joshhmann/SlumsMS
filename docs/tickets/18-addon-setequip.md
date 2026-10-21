@@ -2,7 +2,7 @@
 
 **Area:** Addons  
 **Depends on:** -  
-**Status:** built on branch `addon-setequip` (server) and client `addon-setequip`; not merged, not tested in game
+**Status:** shipped in v1.4.0 (server and client branch `addon-setequip`, via `test-rc4`)
 
 ## What
 

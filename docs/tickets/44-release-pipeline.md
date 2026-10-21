@@ -2,10 +2,9 @@
 
 **Area:** Ops
 **Depends on:** -
-**Status:** built on branch `release-pipeline` (2026-10-20), not merged. `tools/release/`: build, stage, rehearse,
-gen-deploy (deploy.sh/rollback.sh with `--dry-run`), publish-client/publish-launcher, checklist template. Dry run
-1.3.2-dryrun (main, 2,710 tests) built, staged and rehearsed twice on copies of live: PASS (live dump, no migrations;
-nightly dump, migration 008 + its rollback), ~29 s downtime per deploy. Not yet used for a real release.
+**Status:** shipped in v1.4.0 (branch `release-pipeline`) and used for the 1.4.0 release
+(`/opt/mapleroot-deployments/v1.4.0/deploy.sh`). `tools/release/`: build, stage, rehearse, gen-deploy
+(deploy.sh/rollback.sh with `--dry-run`), publish-client/publish-launcher, checklist template.
 
 ## Today
 

@@ -2,7 +2,7 @@
 
 **Area:** Real bots / Economy
 **Depends on:** 09 (shop resupply), 12 (sell and trade), 15 (yield caps and ledger)
-**Status:** open, after 1.3.0
+**Status:** open
 
 Research: [docs/real-bots/economy-research.md](../real-bots/economy-research.md).
 

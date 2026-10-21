@@ -2,7 +2,7 @@
 
 **Area:** Nav v2  
 **Depends on:** 01  
-**Status:** done on branch `travel` (2026-10-19), awaiting merge and an in-game look
+**Status:** shipped in v1.3.0 (branch `travel`); the high-level follow-up (branch `high-level-routes`) shipped in v1.4.0
 
 ## What
 

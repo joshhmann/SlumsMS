@@ -2,7 +2,7 @@
 
 **Area:** Real bots  
 **Depends on:** 05  
-**Status:** done 2026-10-19 on branch `combat` (from `bots-integration`), not yet merged
+**Status:** shipped in v1.3.0 (branch `combat`)
 
 ## What
 

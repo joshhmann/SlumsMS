@@ -2,7 +2,7 @@
 
 **Area:** Real bots  
 **Depends on:** 03,08  
-**Status:** done 2026-10-20 on branch `shops` (from `supplies`, with `release-1.3.0` merged in), not yet merged
+**Status:** shipped in v1.3.0 (branch `shops`)
 
 ## What
 

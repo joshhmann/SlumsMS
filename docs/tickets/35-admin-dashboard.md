@@ -2,7 +2,8 @@
 
 **Area:** Ops
 **Depends on:** 04 / 04b / 04c (nav data), 15 (economy caps)
-**Status:** in progress: built and running on the test dashboard (164:8091); not on live. See "State" below.
+**Status:** in progress: code shipped in v1.3.0 (`dashboard`) and v1.4.0 (`dashboard-next`); it runs on the test
+dashboard (164:8091) only, not on live. See "State" below.
 
 ## What
 

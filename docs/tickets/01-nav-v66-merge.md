@@ -2,7 +2,7 @@
 
 **Area:** Nav v2  
 **Depends on:** -  
-**Status:** done 2026-10-19 on branch `nav-v2` (0bef943f8), not yet merged
+**Status:** shipped in v1.3.0 (branch `nav-v2` @ 0bef943f8, via `bots-integration`)
 
 ## What
 

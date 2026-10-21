@@ -2,7 +2,7 @@
 
 **Area:** Content / Docs
 **Depends on:** 1.3.0 (features to describe); 37 (chat features change how talking works)
-**Status:** text and wiki built on branch `guide-wiki` (2026-10-20): guidebook source + compiler, client-step brief,
+**Status:** text and wiki shipped in the v1.4.0 tree (branch `guide-wiki`): guidebook source + compiler, client-step brief,
 static wiki; not published anywhere; the client release (Custom.wz) and the owner checks below remain
 
 ## Today

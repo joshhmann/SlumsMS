@@ -2,7 +2,8 @@
 
 **Area:** Ops
 **Depends on:** 35 (dashboard)
-**Status:** built on branch `monitoring` (`deploy/monitor/`): checks, Discord alerts with recoveries, drills passed on a scratch server; installed for persistence-test; live install is the owner's step (`/opt/slumsms-monitor/install.sh live --status --news`). Dashboard strip: `/var/lib/slumsms-monitor/<target>/status.json` is ready for ticket 35, the strip itself is not built.
+**Status:** shipped in v1.4.0 (branch `monitoring`, `deploy/monitor/`); installed on live (`slumsms-monitor@live.timer`).
+Dashboard strip: `/var/lib/slumsms-monitor/<target>/status.json` is ready for ticket 35, the strip itself is not built.
 
 ## What
 

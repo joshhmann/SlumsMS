@@ -2,7 +2,7 @@
 
 **Area:** Rollout  
 **Depends on:** 01-15 (owner choice)  
-**Status:** open
+**Status:** done: bots went live with v1.3.0 (`-Dsolomapling.enabled=true` on live)
 
 ## What
 

@@ -2,10 +2,10 @@
 
 **Area:** Security / Ops
 **Depends on:** -
-**Status:** built on branch `gm-safety` (not merged, not deployed). Live has no GM: the stock `admin` account was
-deleted on 2026-10-20; the owner makes one with `slumsms-gm` (below). The in-game parts (reserved names, audit,
-GM giving rule) ship with the next jar and migration 009. Open: the dashboard page and the ticket 42 alert on GM level
-changes (both read the tables below); the `@gmauth`/known-IP idea.
+**Status:** shipped in v1.4.0 (branch `gm-safety`, migration 009). Live has no GM: the stock `admin` account was
+deleted on 2026-10-20; the owner makes one with `slumsms-gm` (below). Open: the dashboard page and the ticket 42 alert
+on GM level changes (both read the tables below); the `@gmauth`/known-IP idea; GM hide (bots still notice a hidden GM,
+1.4.1 backlog).
 
 ## What
 

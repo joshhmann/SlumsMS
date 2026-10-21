@@ -2,7 +2,7 @@
 
 **Area:** Nav v2  
 **Depends on:** 01  
-**Status:** built on branch `mobility-skills` (not merged) 2026-10-20; waiting for the owner's in-game look
+**Status:** shipped in v1.4.0 (branch `mobility-skills`, via `test-rc2`)
 
 ## What
 
