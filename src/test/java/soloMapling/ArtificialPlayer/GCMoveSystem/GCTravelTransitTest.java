@@ -136,4 +136,22 @@ class GCTravelTransitTest {
         GCTravel.ride(trip, bot, CRANE);
         verify(bot).changeMap(250000100, 0);
     }
+
+    @Test
+    void aTripThatKeepsTakingTheSameFerryIsALoop() {
+        GCTravel.Trip trip = tripFor(botOn(101000400, "true", 0));
+        BotTransit.install(java.util.List.of(BOAT, DECK));
+        try {
+            for (int i = 1; i < GCTravel.TRANSIT_LOOP_LIMIT; i++) {
+                assertFalse(GCTravel.transitLoop(trip, 101000300, 101000301), "boarding #" + i);
+                assertFalse(GCTravel.transitLoop(trip, 200090010, 200000100), "getting off #" + i);
+                assertFalse(GCTravel.transitLoop(trip, 200000100, 101000300), "a walked hop never counts");
+                assertFalse(GCTravel.transitLoop(trip, 200000100, 101000300));
+                assertFalse(GCTravel.transitLoop(trip, 200000100, 101000300));
+            }
+            assertTrue(GCTravel.transitLoop(trip, 101000300, 101000301));
+        } finally {
+            BotTransit.reload();
+        }
+    }
 }

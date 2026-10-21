@@ -115,6 +115,9 @@ final class GCTravel {
         boolean sellerVisited;  // walked past the ticket seller on this map already
         volatile boolean awaitingBoarding; // standing at a boarding NPC until the event opens entry
         volatile boolean aboard;           // on a waiting room / deck / ride map
+        // Loop guard: how often each transit hop (from << 32 | to) was taken on this trip. A trip that keeps
+        // taking the same boat or ferry is going round in circles (the Ellinia <-> Ereve ferry loop).
+        final Map<Long, Integer> transitHops = new java.util.HashMap<>();
 
         Trip(Character bot, int destMapId, Consumer<Boolean> callback) {
             this.bot = bot;
@@ -221,6 +224,13 @@ final class GCTravel {
         // New map since the last poll = a hop completed (or a warp/unexpected change): reset the
         // hop timer and clear any stale GCMove target so we re-target a portal on this map.
         if (cur != trip.lastMapId) {
+            if (trip.lastMapId != -1 && transitLoop(trip, trip.lastMapId, cur)) {
+                BotLogger.log("[GCTravel] " + bot.getName() + " took transit hop " + trip.lastMapId + " -> " + cur
+                        + " " + TRANSIT_LOOP_LIMIT + " times on its way to " + trip.destMapId
+                        + " - travel is looping, goal abandoned");
+                finish(trip, false);
+                return;
+            }
             trip.lastMapId = cur;
             trip.settledAtMs = 0L;
             trip.hopBestDist = Integer.MAX_VALUE;
@@ -462,6 +472,20 @@ final class GCTravel {
     }
 
     private static final String WORLD_TOUR = "WORLDTOUR";
+
+    /* A trip that takes the same transit hop this many times is looping, not getting anywhere. No sane route
+     * repeats a hop at all; the slack covers a ride that set the bot down somewhere odd once. */
+    static final int TRANSIT_LOOP_LIMIT = 3;
+
+    /* Count the map change from -> to when it was a transit hop (boarding, or getting off a ride); true once that
+     * hop has been taken TRANSIT_LOOP_LIMIT times on this trip. Walked portals are not counted. */
+    static boolean transitLoop(Trip trip, int from, int to) {
+        if (BotTransit.edge(from, to) == null && !BotTransit.isRideMap(from)) {
+            return false;
+        }
+        long key = ((long) from << 32) | (to & 0xffffffffL);
+        return trip.transitHops.merge(key, 1, Integer::sum) >= TRANSIT_LOOP_LIMIT;
+    }
 
     private static void restartHop(Trip trip) {
         long now = nowMs();

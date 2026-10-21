@@ -115,6 +115,21 @@ class TransitRoutingTest {
     }
 
     @Test
+    void aRideMapsWzPortalsAreNeverWalked() {
+        // The Ellinia <-> Ereve ferry loop: the Victoria-bound ferry (13) has WZ portals into Orbis (20), but the server
+        // only ever sets the bot down at the Ellinia station (10). Ellinia -> Orbis must take the Orbis ferry (14)
+        // from Ereve, not "ride to Ereve, ride back, walk off the deck into Orbis".
+        Map<Integer, int[]> world = Map.of(13, new int[]{20, 12}, 11, new int[]{10});
+        BotTransit.install(List.of(board(10, 11, 1000, 10), ride(11, 12, 120),
+                board(12, 13, 1000, 10), ride(13, 10, 120),
+                board(12, 14, 1000, 10), ride(14, 20, 480)));
+
+        assertEquals(List.of(11, 12, 14, 20), GCWorldGraph.dijkstra(world, 10, 20, 60, 0, true, -1));
+        assertEquals(List.of(12, 13, 10), GCWorldGraph.dijkstra(world, 11, 10, 60, 0, true, -1),
+                "aboard, the ride is the only way on - not the deck's own portal back to the station");
+    }
+
+    @Test
     void routeFareSumsThePaidHops() {
         BotTransit.install(List.of(board(2, 3, 5000, 10), ride(3, 4, 10)));
 

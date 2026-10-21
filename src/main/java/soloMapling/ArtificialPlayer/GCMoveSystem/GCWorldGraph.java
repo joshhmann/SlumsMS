@@ -244,15 +244,20 @@ final class GCWorldGraph {
             }
             return out;
         }
-        int[] portals = g.getOrDefault(mapId, EMPTY);
-        int[] warp = BotScriptedWarp.destinations(mapId);
+        // Aboard a ride (waiting room, deck, ferry, crane, dragon...) the only way on is the ride itself: the server
+        // (or the ride's own timer) moves the bot. The ride maps' WZ portals (200090031's into Ereve and Orbis, the
+        // decks' into their cabins, a waiting room's exit) never get used - GCTravel just waits aboard - so offering
+        // them let the planner "walk off" a ferry into Orbis and bots looped Ellinia <-> Ereve forever.
+        boolean aboard = BotTransit.isRideMap(mapId);
+        int[] portals = aboard ? EMPTY : g.getOrDefault(mapId, EMPTY);
+        int[] warp = aboard ? EMPTY : BotScriptedWarp.destinations(mapId);
         List<BotTransit.Edge> transit = BotTransit.from(mapId);
         long[] out = new long[portals.length + warp.length + transit.size() + 2];
         int n = 0;
-        if (!rock.into().isEmpty()) {
+        if (!aboard && !rock.into().isEmpty()) {
             out[n++] = ((long) HYPER_IN << 32) | ROCK | Math.min(rock.cooldownSec(), SEC_MASK);
         }
-        if (!rock.home().isEmpty() && rock.leavesFrom(mapId)) {
+        if (!aboard && !rock.home().isEmpty() && rock.leavesFrom(mapId)) {
             out[n++] = ((long) HYPER_OUT << 32) | ROCK | Math.min(rock.cooldownSec(), SEC_MASK);
         }
         for (int p : portals) {
@@ -262,6 +267,9 @@ final class GCWorldGraph {
             out[n++] = ((long) w << 32) | WALK_SEC;
         }
         for (BotTransit.Edge e : transit) {
+            if (aboard && !e.isRide()) {
+                continue; // nothing to board mid-ride
+            }
             if (!allowFares && (e.fare() > 0 || e.beginnerFare() > 0)) {
                 continue;
             }
