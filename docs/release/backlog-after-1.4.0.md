@@ -19,3 +19,10 @@
 - **Marriages.**
 - **Guilds** (bots in guilds, guild chat, players joining bot guilds).
 - **Family system.**
+
+## Next release: compare against stock Cosmic (owner, 2026-10-21)
+The MapleRoot repack shipped ScrollHandler with its body removed (scrolling silently did nothing on live until 1.4.0).
+Diff every class against upstream Cosmic (`/root/workspace/cosmicms`) for other stripped or hollowed code: bodies that
+only `return`, files much shorter than Cosmic's (first pass found only ScrollHandler; EnterCashShopHandler and
+EnterMTSHandler are deliberate rewrites), missing handlers/scripts, empty script functions. Sort each into
+deliberate (MapleRoot/SlumsMS feature) vs broken, and restore the broken ones with tests.
