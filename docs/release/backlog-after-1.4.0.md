@@ -72,3 +72,8 @@ deliberate (MapleRoot/SlumsMS feature) vs broken, and restore the broken ones wi
   short skid when attacking right after walking. If it glides through the whole attack: prime suspect the
   MAPLEROOT_MOVEMENT_KEYS addon (rebindable direction keys) reporting the direction key as held. Bisect: a test build
   with -DMAPLEROOT_MOVEMENT_KEYS=OFF, and compare the live 1.4.0 client. Client lane.
+- **Heap creep ~25-40 MB/h (24 h soak, ticket 48):** likely `BotNavigationGraphProvider.GRAPHS` (no eviction; histo
+  led by BotNavigationGraph$Edge 273 MB). Bots lane: bound the nav-graph cache (LRU by map, keep maps with bots/players);
+  confirm with a second histogram. Until fixed: restart live at least every 3 days at -Xmx4G.
+- **Portal entry into busy maps 5-9.6 s p95 at the 1,528-bot peak** (1.2-1.4 s at the trough). Look at what a map entry
+  sends per bot (spawn packets) and batch/trim it before raising the bot count.

@@ -258,7 +258,7 @@ public final class BotStore {
         void applyTo(Character bot) {
             bot.setID(charId());
             bot.setName(name);
-            bot.setFame(charId());
+            bot.setFame(BotFame.forBot(charId(), level));   // 1.4.2: was the id (a debug leftover)
             bot.setTier(BotTier.fromString(tier));
             bot.setLevel(level);
             bot.setExp(exp);

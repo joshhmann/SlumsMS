@@ -174,6 +174,7 @@ public class BotGeneration {
             } else {
                 setBotVariables(bot, baseClass, minLevel, maxLevel, forcedJobId);
             }
+            bot.setFame(BotFame.forBot(botId, bot.getLevel()));
             // A brand new bot is minted with the initial-creator grants and gets its store row right away,
             // so a restart between creation and its first save cannot re-mint it as somebody else.
             try {
@@ -250,8 +251,8 @@ public class BotGeneration {
         onDemandBot.setName("Console");
 
         onDemandBot.setID(botId);
-        onDemandBot.setFame(botId); // debug purposes
         onDemandBot.setLevel(69);
+        onDemandBot.setFame(BotFame.forBot(botId, 69));
         onDemandBot.setJob(Job.getById(420));
 
         return onDemandBot;
@@ -263,7 +264,7 @@ public class BotGeneration {
         onDemandBot.setWorld(client.getWorld());   // ticket 41: the bots' world, not the template row's
         onDemandBot.setName(""); // claimed in createBot once it is known whether the slot is adopted
         onDemandBot.setID(botId);
-        onDemandBot.setFame(botId); // debug purposes
+        onDemandBot.setFame(0); // set from the level once decoration has rolled it (BotFame)
         return onDemandBot;
     }
 
