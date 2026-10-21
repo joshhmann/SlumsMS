@@ -47,6 +47,8 @@ Both hashes are Merkle hashes. Siblings are compared as a multiset by name. Ints
 
 - **Data** treats every canvas and UOL as an opaque "art" node. It catches every stat, foothold, portal, string or delay difference exactly.
 - **Art** also keeps canvas sizes, origins and children, but never pixels. The server dump is lossy here: UOLs and outlinked canvases come out as 1x1 placeholders. So art differences are only counted, as INFO.
+- **Normalised on both sides** before hashing (`wzscan.normalize`): the MapleRoot client's later-layout `Mob` attack data (stat leaves in `info/attack/<N-1>`, only the visual part in `attackN/info`) is folded back into `attackN/info` as the server stores it, and duplicate leaf names under `Mob` `info` keep the first. Map footholds are keyed by layer and id, not by zMass group, so a renumbered group with identical geometry is not a difference.
+- **Known deliberate differences** (`KNOWN_DIFFS`) count as identical and are listed as INFO: the SlumsMS weather items `Item/Cash/0512.img` 05120995-9 (client-only) and the shortened Yoshi pet names in `String/Pet.img` 5002103/4.
 - **Limitation:** footholds stored *inside* `Map/Obj` canvases are art under this rule and are not compared.
 
 ## The checks
@@ -56,7 +58,7 @@ Both hashes are Merkle hashes. Siblings are compared as a multiset by name. Ints
    - the `COutPacket(...)` sends;
    - the opcodes `packetdispatcher.cpp` routes, with their `#ifdef` feature.
 
-   Collisions are FAIL: inside the server enum, across client features, or a documented/reserved opcode reused by a live feature. The check also flags:
+   Collisions are FAIL: inside the server enum, across client features, or a documented/reserved opcode reused by a live feature under another name (a comment that names the feature now owning the value, such as `SET_ITEM 0x3726/7` for `SET_ITEM_ACTION`/`SET_ITEM_SYNC`, is fine). Local aliases (`kOp_X = kXOpcode;`) are followed when resolving sends. The check also flags:
    - a server opcode with no client counterpart in that branch. This is FAIL when the server flag that gates it is on.
    - a client send that the server cannot handle (FAIL);
    - breaks of the even-request / odd-reply convention;

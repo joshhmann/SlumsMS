@@ -71,6 +71,14 @@ DATA_DIRS = ["Base", "Character", "Effect", "Etc", "Item", "Map", "Mob", "Morph"
 CORE_DIRS = ["Map", "Mob", "Npc", "Skill", "Item"]
 # Server-only images that are server data by design (never sent to or loaded by the client).
 SERVER_ONLY_OK = ("Etc/MapNeighbors.img", "Mob/QuestCountGroup/")
+# Known, deliberate per-image differences: {image: ({top-level children allowed to differ}, why)}.
+# An image whose ONLY differing top-level children are listed counts as identical (reported as INFO).
+KNOWN_DIFFS = {
+    "Item/Cash/0512.img": ({"05120995", "05120996", "05120997", "05120998", "05120999"},
+                           "SlumsMS weather item art pointers, client-only by design (weather_profiles.inc)"),
+    "String/Pet.img": ({"5002103", "5002104"},
+                       "server 'DBlue/LBlue Yoshi' fits pets.name varchar(13); the client keeps the full names"),
+}
 NAV_KEYS = {"foothold", "ladderRope", "portal", "info", "swimArea", "seat"}
 REMOTE_EXTRA = ["Custom.wz", "List.wz", "slums.dll", "SlumsMS.exe", "MapleStory.exe", "ijl15.dll"]
 
@@ -372,11 +380,17 @@ def parse_client_opcodes(br: Branch):
                 docs.append((d.group(1), base, path))
                 if d.group(3):
                     docs.append((d.group(1), (base & ~0xF) | int(d.group(3), 16), path))
+    # local aliases of a named opcode (constexpr uint16_t kOp_X = kXOpcode;), used only to resolve sends
+    alias = {}
+    for path, txt in srcs.items():
+        for m in re.finditer(r"\b(\w+)\s*=\s*([A-Za-z_]\w*)\s*;", strip_code(txt)):
+            if m.group(2) in consts and m.group(1) not in consts:
+                alias[m.group(1)] = consts[m.group(2)]
     for path, txt in srcs.items():
         code = strip_code(txt)
         for m in re.finditer(r"\bCOutPacket\s+\w+\s*\(\s*(\w+)\s*\)", code):
             a = m.group(1)
-            v = int(a, 0) if re.match(r"0x|\d", a) else consts.get(a, (None,))[0]
+            v = int(a, 0) if re.match(r"0x|\d", a) else consts.get(a, alias.get(a, (None,)))[0]
             if v is not None and is_custom(v):
                 sent.setdefault(v, []).append(path)
     disp = br.read("src/packetdispatcher.cpp") or ""
@@ -441,7 +455,13 @@ def check_opcodes(rep, server, branches, server_flags):
             rep.add(C, "FAIL", f"{tag} client opcode constants collide across features",
                     [f"{v:#06x}: {', '.join(sorted(f))}" for v, f in coll.items()])
         live = {v for v, _, _ in consts.values()} | set(sent) | set(routed)
-        dcoll = [f"{n} {v:#06x} ({p}) vs live client opcode" for n, v, p in docs if v in live]
+        # A comment that names the feature which now owns the value (SET_ITEM 0x3726 -> SET_ITEM_ACTION,
+        # DAILY_CHECKIN 0x3732 -> DAILY_CHECKIN) documents that feature; only another name is a reuse.
+        def owner_matches(n, v):
+            owner = rs.get(v) or ss.get(v) or ""
+            return bool(owner) and (owner == n or owner.startswith(n + "_") or n.startswith(owner + "_"))
+        dcoll = [f"{n} {v:#06x} ({p}) vs live client opcode {rs.get(v) or ss.get(v) or '?'}"
+                 for n, v, p in docs if v in live and not owner_matches(n, v)]
         for n, v, p in docs:
             all_docs[(n, v)] = p
         if dcoll:
@@ -880,6 +900,7 @@ def check_cashshop(rep, server, branches, cfiles, sfiles):
     ccidx, scidx = char_index(cfiles), char_index(sfiles)
     cnames, snames = string_names(cfiles), string_names(sfiles)
     no_data, no_icon, no_name, differ, name_diff, server_missing = [], [], [], [], [], []
+    name_known = []
     for r in rows:
         iid = r["id"]
         if 9110000 <= iid < 9120000:      # service rows: slot grants, not items
@@ -898,7 +919,11 @@ def check_cashshop(rep, server, branches, cfiles, sfiles):
         if se and ch != sh:
             differ.append(iid)
         if sn is not None and cn is not None and sn != cn:
-            name_diff.append(f"{iid}: server '{sn}' / client '{cn}'")
+            if any(f"{iid:07d}" in keys or str(iid) in keys for img, (keys, _) in KNOWN_DIFFS.items()
+                   if img.startswith("String/")):
+                name_known.append(f"{iid}: server '{sn}' / client '{cn}' (known, allowlisted)")
+            else:
+                name_diff.append(f"{iid}: server '{sn}' / client '{cn}'")
     n = len(rows)
     rep.add(C, "FAIL" if no_data else "PASS",
             f"catalog items with no client data: {len(no_data)}/{n}", [ex(no_data, 40)] if no_data else [])
@@ -914,12 +939,13 @@ def check_cashshop(rep, server, branches, cfiles, sfiles):
             f"catalog items whose client data differs from the server WZ (stats/strings; art ignored): "
             f"{len(differ)}", [ex(differ, 40)] if differ else [])
     rep.add(C, "WARN" if name_diff else "PASS", f"catalog items named differently server vs client: "
-                                                f"{len(name_diff)}", name_diff[:40])
+                                                f"{len(name_diff)}", name_diff[:40] + name_known)
     # whole-image comparison of the cash-relevant images
     cm = compare_dir(cfiles, sfiles, lambda r: r.startswith(("Item/Cash/", "Item/Pet/", "Etc/Commodity.img",
                                                               "String/")))
     det = [f"differ: {ex(cm['differ'], 12)}"] if cm["differ"] else []
     det += [f"server-only: {ex(cm['server_only'], 12)}"] if cm["server_only"] else []
+    det += [f"known deliberate differences (allowlisted): {ex(cm['known'], 4)}"] if cm["known"] else []
     rep.add(C, "WARN" if cm["differ"] or cm["server_only"] else "PASS",
             f"Item/Cash, Item/Pet, String/*, Etc/Commodity.img: {cm['same']} same, {len(cm['differ'])} differ, "
             f"{len(cm['server_only'])} server-only, {len(cm['client_only'])} client-only", det)
@@ -947,7 +973,7 @@ def check_cashshop(rep, server, branches, cfiles, sfiles):
 # =============================================================================================
 def compare_dir(cfiles, sfiles, pred):
     res = {"same": 0, "differ": [], "server_only": [], "client_only": [], "client_err": [], "server_err": [],
-           "art_differ": []}
+           "art_differ": [], "known": []}
     for rel in sorted(k for k in sfiles if pred(k)):
         s = sfiles[rel]
         c = cfiles.get(rel)
@@ -962,6 +988,9 @@ def compare_dir(cfiles, sfiles, pred):
             res["same"] += 1
             if c.get("a") != s.get("a"):
                 res["art_differ"].append(rel)
+        elif rel in KNOWN_DIFFS and set(top_diff(c, s)) <= KNOWN_DIFFS[rel][0]:
+            res["same"] += 1
+            res["known"].append(f"{rel}[{','.join(top_diff(c, s))}]: {KNOWN_DIFFS[rel][1]}")
         else:
             res["differ"].append(rel)
     res["client_only"] = sorted(k for k in cfiles if pred(k) and k not in sfiles)
@@ -1051,6 +1080,8 @@ def check_wz(rep, cfiles, sfiles, scope):
         if r["client_only"]:
             det.append(f"client-only (server has no data; unreachable from the server): {len(r['client_only'])} "
                        f"e.g. {ex(r['client_only'], 4)}")
+        if r["known"]:
+            det.append(f"known deliberate differences (allowlisted, counted as identical): {ex(r['known'], 4)}")
         if r["art_differ"]:
             det.append(f"same data but different art metadata (canvas sizes/origins/links; the server dump is "
                        f"lossy here, so informational): {len(r['art_differ'])} e.g. {ex(r['art_differ'], 4)}")
@@ -1357,8 +1388,9 @@ def diff_images(a, rels, masks, limit=40):
         top, rest = rel.split("/", 1)
         xml = os.path.join(a.server_wz, top + ".wz", rest + ".xml")
         with open(local, "rb") as f:
-            c = wzscan.flatten(wzscan.parse_img_bytes(f.read(), masks), a.art)
-        s = wzscan.flatten(wzscan.parse_xml_file(xml), a.art) if os.path.exists(xml) else {}
+            c = wzscan.flatten(wzscan.normalize(wzscan.parse_img_bytes(f.read(), masks), rel), a.art)
+        s = (wzscan.flatten(wzscan.normalize(wzscan.parse_xml_file(xml), rel), a.art)
+             if os.path.exists(xml) else {})
         oc = sorted(k for k in c if k not in s)
         os_ = sorted(k for k in s if k not in c)
         ch = sorted(k for k in c if k in s and c[k] != s[k])

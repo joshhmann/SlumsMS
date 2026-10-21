@@ -35,7 +35,7 @@ import sys
 import time
 from collections import Counter
 
-SCAN_VERSION = 7
+SCAN_VERSION = 9
 HLEN = 12          # hex chars kept per hash; 48 bits is plenty to tell two trees apart
 
 GMS_IV = bytes.fromhex("4d23c72b")
@@ -353,8 +353,76 @@ def flatten(tree, art=False):
     return out
 
 
+def normalize(tree, rel):
+    """Remove differences that v83 never reads, applied to BOTH sides before hashing or diffing.
+
+    - Mob/*.img: the MapleRoot client uses the later layout for attack data: the attack's stat leaves
+      (type, magic, conMP, disease, level, action ...) sit in ``info/attack/<N-1>`` and ``attackN/info``
+      keeps only the visual part (range, hit, effect ...). The server XML has all of it in ``attackN/info``.
+      Both are folded into the server layout (``info/attack/<i>`` leaves merge into ``attack<i+1>/info``,
+      an existing leaf wins), so only real value differences remain. Duplicate leaf names under ``info``
+      (e.g. two ``acc`` nodes) keep the first, as the client's property lookup does.
+    - Map/Map/*.img: footholds are compared by layer and id, not by zMass group. The group number
+      (``foothold/<layer>/<group>/<id>``) is used by neither Cosmic nor bot nav, and MapleRoot's client
+      and server number the groups differently on some maps with identical geometry.
+    """
+    name, kind, v, kids = tree
+    if rel.startswith("Mob/"):
+        later = {}
+        for c in kids:
+            if c[0] == "info" and c[1] == "D":
+                for g in c[3]:
+                    if g[0] == "attack" and g[1] == "D":
+                        for a in g[3]:
+                            if a[0].isdigit() and a[1] == "D":
+                                later.setdefault(f"attack{int(a[0]) + 1}", []).extend(x for x in a[3] if not x[3])
+        if later:
+            merged = []
+            for c in kids:
+                if c[0] in later and c[1] == "D":
+                    sub = list(c[3])
+                    idx = next((i for i, x in enumerate(sub) if x[0] == "info" and x[1] == "D"), None)
+                    have = set(x[0] for x in sub[idx][3]) if idx is not None else set()
+                    add = [x for x in later.pop(c[0]) if x[0] not in have]
+                    if idx is None:
+                        sub.append(("info", "D", None, add))
+                    else:
+                        sub[idx] = (sub[idx][0], "D", sub[idx][2], list(sub[idx][3]) + add)
+                    c = (c[0], c[1], c[2], sub)
+                merged.append(c)
+            kids = merged
+        out = []
+        for c in kids:
+            if c[0] == "info" and c[1] == "D":
+                seen, ik = set(), []
+                for g in c[3]:
+                    if g[0] == "attack" and g[1] == "D":
+                        continue
+                    if not g[3] and g[0] in seen:
+                        continue
+                    seen.add(g[0])
+                    ik.append(g)
+                c = (c[0], c[1], c[2], ik)
+            out.append(c)
+        return (name, kind, v, out)
+    if rel.startswith("Map/Map/"):
+        out = []
+        for c in kids:
+            if c[0] == "foothold" and c[1] == "D":
+                layers = []
+                for layer in c[3]:
+                    fhs = [fh for grp in layer[3] if grp[1] == "D" for fh in grp[3]]
+                    other = [grp for grp in layer[3] if grp[1] != "D"]
+                    layers.append((layer[0], layer[1], layer[2], fhs + other))
+                c = (c[0], c[1], c[2], layers)
+            out.append(c)
+        return (name, kind, v, out)
+    return tree
+
+
 def summarize(tree, rel, dump=False):
     """The per-image record both sides produce."""
+    tree = normalize(tree, rel)
     top = {}
     hroot = hashlib.sha1(b"D\0\0\0")
     aroot = hashlib.sha1(b"D\0\0\0")
