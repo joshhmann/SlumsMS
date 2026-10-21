@@ -21,6 +21,10 @@ public final class BotAttackProfile {
     public final int speed;
     public final int skillId;       // 0 = no-skill basic swing
     public final int skillLevel;
+    // The skill the bot must hold to use this attack: the attack's own skill, except for the ids a client sends for
+    // another skill (Aran's Overswing / Full Swing double and triple hits are sent as hidden 2112000x / 2111000x ids
+    // while the player holds Overswing 21120002 / Full Swing 21110002).
+    public final int heldSkill;
 
     private BotAttackProfile(Route route, int numAttacked, int numDamage, int reachX, int reachY,
                              int cooldownMs, short hitDelayMs, int speed, int skillId) {
@@ -34,6 +38,26 @@ public final class BotAttackProfile {
         this.speed = speed;
         this.skillId = skillId;
         this.skillLevel = skillId == 0 ? 0 : SKILL_LEVEL;
+        this.heldSkill = skillId;
+    }
+
+    private BotAttackProfile(BotAttackProfile base, int heldSkill) {
+        this.route = base.route;
+        this.numAttacked = base.numAttacked;
+        this.numDamage = base.numDamage;
+        this.reachX = base.reachX;
+        this.reachY = base.reachY;
+        this.cooldownMs = base.cooldownMs;
+        this.hitDelayMs = base.hitDelayMs;
+        this.speed = base.speed;
+        this.skillId = base.skillId;
+        this.skillLevel = base.skillLevel;
+        this.heldSkill = heldSkill;
+    }
+
+    /* This attack, usable while the bot holds heldSkill (a hidden id the client sends for that skill). */
+    public BotAttackProfile heldAs(int skill) {
+        return new BotAttackProfile(this, skill);
     }
 
     // Level only identifies the skill to the viewer's client; the line/mob count is sent in the packet. This is
@@ -78,6 +102,13 @@ public final class BotAttackProfile {
 
     public static BotAttackProfile magic(int skill, int lines) {
         return new BotAttackProfile(Route.MAGIC, 1, lines, 450, 150, 840, (short) 360, MELEE_SPEED, skill);
+    }
+
+    // A shot that leaves from a non-shooting weapon (Aran's combo finishers, Shark Wave, Energy Orb): the client sends
+    // it on the shoot route with no bullet (BotClientPoses.SHOOT_WITHOUT_WEAPON). Reach is a fallback; the AoE box of
+    // the skill's WZ range governs melee-like reach.
+    public static BotAttackProfile shotAoe(int skill, int mobs, int lines) {
+        return new BotAttackProfile(Route.RANGED, mobs, lines, 300, 150, 820, (short) 360, MELEE_SPEED, skill);
     }
 
     public static BotAttackProfile magicAoe(int skill, int lines) {

@@ -51,23 +51,53 @@ public final class BotAttackData {
     private static final int[] BOW_VARIANTS        = {SHOOT_1};
     private static final int[] CROSSBOW_VARIANTS   = {SHOOT_2};
 
-    /* The body action for a skill on a weapon at the skill's first level; see actionFor(skillId, level, weapon). */
-    public static int actionFor(int skillId, WeaponType weaponType) {
-        return actionFor(skillId, 1, weaponType);
+    /*
+     * The body action a player's client sends for this skill at this level with this weapon on this route (ticket 32):
+     * the local attack functions' choice (CUserLocal melee 0x950921 -> 0x766031, shoot -> 0x766272, magic ->
+     * 0x7662f5), which a viewer's client also accepts (CUser::CheckAttackAction 0x92edb2).
+     * - Brandish / Raging Blow and Dawn Warrior Brandish: brandish1 with a one-handed sword, brandish2 with a two-handed
+     *   one (the melee function's own special case for 1121008 / 11111004); Blast (1221009) is always "blast".
+     * - A skill with its own pose: the level's "action" when it has one the client knows, else one of its "action"s.
+     * - Otherwise (or for a skillType 3 skill) one of the weapon's plain poses for the route; a weapon whose route
+     *   table is empty for it takes any plain pose a viewer accepts.
+     * Returns -1 when the weapon has no pose at all (no weapon, or an attack type outside 1..9): nothing is drawn.
+     */
+    public static int actionFor(int skillId, int skillLevel, int weaponItemId, BotAttackProfile.Route route) {
+        List<Integer> candidates = actionCandidates(skillId, skillLevel, weaponItemId, route);
+        return candidates.isEmpty() ? -1 : candidates.get(ThreadLocalRandom.current().nextInt(candidates.size()));
     }
 
-    /*
-     * The body action a viewer's client accepts for this skill at this level: one of the skill's own Skill.wz poses
-     * (the level's own for Spear Crusher, burster1 below level 16 and burster2 from it), else the weapon default. A
-     * pose the skill does not allow makes the client drop the whole attack, so it is never guessed.
-     */
-    public static int actionFor(int skillId, int skillLevel, WeaponType weaponType) {
-        List<Integer> poses = BotSkillActions.poseCodes(skillId, skillLevel);
-        if (!poses.isEmpty()) {
-            return poses.get(ThreadLocalRandom.current().nextInt(poses.size()));
+    /* Every pose actionFor may pick (the player's client picks one of them at random). */
+    public static List<Integer> actionCandidates(int skillId, int skillLevel, int weaponItemId,
+                                                 BotAttackProfile.Route route) {
+        int wt = BotSkillActions.weaponClass(weaponItemId);
+        if (skillId == BRANDISH || skillId == DW_BRANDISH) {
+            if (wt == 30 || wt == 31) {
+                return List.of(BRANDISH1);
+            }
+            if (wt == 40 || wt == 41) {
+                return List.of(BRANDISH2);
+            }
+            return List.of(); // "You cannot use this skill with the weapon you're equipped with."
         }
-        return randomActionFor(weaponType);
+        if (skillId == PALADIN_BLAST) {
+            return List.of(BLAST);
+        }
+        if (skillId > 0 && BotSkillActions.hasOwnPose(skillId, skillLevel)) {
+            return BotSkillActions.poseCodes(skillId, skillLevel);
+        }
+        boolean type3 = skillId > 0 && BotSkillActions.skillType(skillId) == 3;
+        int attackType = BotClientPoses.weapon(weaponItemId).attackType();
+        List<Integer> plain = BotClientPoses.plainPoses(route, attackType, type3);
+        if (plain.isEmpty()) {
+            plain = BotClientPoses.acceptedPlainPoses(attackType, type3);
+        }
+        return plain;
     }
+
+    // MapleStory.exe's melee special cases (0x950de5): Brandish ids and their two weapon poses, Blast's pose.
+    private static final int BRANDISH = 1121008, DW_BRANDISH = 11111004, PALADIN_BLAST = 1221009;
+    private static final int BRANDISH1 = 63, BRANDISH2 = 64, BLAST = 71;
 
     // Big Bang (F/P, I/L, Bishop) is a keydown CHARGE skill: its MAGIC_ATTACK packet carries a
     // trailing charge int that the viewer's client reads back (see MagicDamageHandler / the
@@ -98,7 +128,7 @@ public final class BotAttackData {
         return line < 0 ? line + Integer.MAX_VALUE : line;
     }
 
-    /* Random body-action id appropriate for the given weapon class. */
+    /* Random body-action id appropriate for the given weapon class (the GM test swing; bots use actionFor). */
     public static int randomActionFor(WeaponType weaponType) {
         int[] variants = variantsFor(weaponType);
         return variants[ThreadLocalRandom.current().nextInt(variants.length)];

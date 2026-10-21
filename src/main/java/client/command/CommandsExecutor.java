@@ -312,6 +312,7 @@ public class CommandsExecutor {
         addCommand("maxskill", 2, MaxSkillCommand.class);
         if (soloMapling.server.AttackCapture.isEnabled()) {
             addCommand("classtest", 2, ClassTestCommand.class); // test server attack capture (ticket 32)
+            addCommand("botshowcase", 3, client.command.commands.gm3.BotShowcaseCommand.class); // ticket 32
         }
         addCommand("editShop", 2,  EditShopCommand.class);
 

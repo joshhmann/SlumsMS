@@ -10,6 +10,8 @@ import soloMapling.server.BotAttackPackets;
 import soloMapling.server.BotAttackPackets.AttackTarget;
 import server.ItemInformationProvider;
 import soloMapling.ArtificialPlayer.BotAttackSystem.BotAttackData;
+import soloMapling.ArtificialPlayer.BotAttackSystem.BotAttackProfile;
+import soloMapling.ArtificialPlayer.BotAttackSystem.BotClientPoses;
 import tools.PacketCreator;
 
 import java.util.Collections;
@@ -53,8 +55,11 @@ public final class BotAttack {
         if (chr == null) return;
 
         int facingMask = facingLeft(chr) ? BotAttackData.FACING_LEFT_MASK : BotAttackData.FACING_RIGHT_MASK;
-        WeaponType weaponType = resolveEquippedWeaponType(chr);
-        int bodyActionId = BotAttackData.randomActionFor(weaponType);
+        int weaponId = equippedWeaponId(chr);
+        int bodyActionId = BotAttackData.actionFor(0, 0, weaponId, BotAttackProfile.Route.CLOSE);
+        if (bodyActionId < 0) {
+            return; // no weapon a viewer would draw a swing for
+        }
 
         Map<Integer, AttackTarget> emptyTargets = Collections.emptyMap();
         chr.getMap().broadcastMessage(
@@ -66,7 +71,7 @@ public final class BotAttack {
                         /* stance       */ facingMask,
                         /* numAttackedAndDamage */ 0,
                         /* targets      */ emptyTargets,
-                        /* speed        */ BotAttackData.DEFAULT_ATTACK_SPEED,
+                        /* speed        */ BotClientPoses.actionSpeed(weaponId),
                         /* direction    */ bodyActionId,
                         /* display      */ 0
                 ),
@@ -86,14 +91,18 @@ public final class BotAttack {
         if (skillId <= 0) { basicSwing(chr); return; }
 
         int facingMask = facingLeft(chr) ? BotAttackData.FACING_LEFT_MASK : BotAttackData.FACING_RIGHT_MASK;
-        WeaponType weaponType = resolveEquippedWeaponType(chr);
-        int bodyActionId = BotAttackData.actionFor(skillId, weaponType);
+        int weaponId = equippedWeaponId(chr);
+        int level = resolveSkillLevel(skillId);
+        int bodyActionId = BotAttackData.actionFor(skillId, level, weaponId, BotAttackProfile.Route.CLOSE);
+        if (bodyActionId < 0) {
+            return; // the weapon has no pose a viewer would draw
+        }
 
         Map<Integer, AttackTarget> emptyTargets = Collections.emptyMap();
         chr.getMap().broadcastMessage(
                 chr,
-                BotAttackPackets.closeRangeAttack(chr, skillId, resolveSkillLevel(skillId), facingMask,
-                        /* numAttackedAndDamage */ 0, emptyTargets, BotAttackData.DEFAULT_ATTACK_SPEED,
+                BotAttackPackets.closeRangeAttack(chr, skillId, level, facingMask,
+                        /* numAttackedAndDamage */ 0, emptyTargets, BotClientPoses.actionSpeed(weaponId),
                         bodyActionId, /* display */ 0),
                 false
         );
@@ -109,17 +118,26 @@ public final class BotAttack {
         if (chr == null || chr.getMap() == null || skillId <= 0) return;
 
         int facingMask = facingLeft(chr) ? BotAttackData.FACING_LEFT_MASK : BotAttackData.FACING_RIGHT_MASK;
-        WeaponType weaponType = resolveEquippedWeaponType(chr);
-        int bodyActionId = BotAttackData.actionFor(skillId, weaponType);
+        int weaponId = equippedWeaponId(chr);
+        int level = resolveSkillLevel(skillId);
+        int bodyActionId = BotAttackData.actionFor(skillId, level, weaponId, BotAttackProfile.Route.MAGIC);
+        if (bodyActionId < 0) {
+            return;
+        }
 
         Map<Integer, AttackTarget> emptyTargets = Collections.emptyMap();
         chr.getMap().broadcastMessage(
                 chr,
-                BotAttackPackets.magicAttack(chr, skillId, resolveSkillLevel(skillId), facingMask,
+                BotAttackPackets.magicAttack(chr, skillId, level, facingMask,
                         /* numAttackedAndDamage */ 0, emptyTargets, BotAttackData.magicChargeFor(skillId),
-                        BotAttackData.DEFAULT_ATTACK_SPEED, bodyActionId, /* display */ 0),
+                        BotClientPoses.actionSpeed(weaponId), bodyActionId, /* display */ 0),
                 false
         );
+    }
+
+    private static int equippedWeaponId(Character chr) {
+        Item weapon = chr.getInventory(InventoryType.EQUIPPED).getItem(EQUIP_SLOT_WEAPON);
+        return weapon != null ? weapon.getItemId() : 0;
     }
 
     // The skill's max level, so the fanciest form of the effect renders. Bots don't learn skills, so

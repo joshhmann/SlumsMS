@@ -128,7 +128,7 @@ public class ClassTestCommand extends Command {
     }
 
     // Every skill of one Skill.wz image at its master level; returns how many.
-    private static int maxSkills(Character player, int image) {
+    public static int maxSkills(Character player, int image) {
         Data skills;
         try {
             Data img = DataProviderFactory.getDataProvider(WZFiles.SKILL).getData(String.format("%03d.img", image));

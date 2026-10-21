@@ -95,18 +95,90 @@ public final class BotAttackEffects {
         return broadcastAndApply(bot, packet, hits, hitDelay);
     }
 
+    /*
+     * The attack packet a swing plan sends (ticket 32): the plan's route, skill, level, pose, facing and attack speed,
+     * the projectile for a shot from a shooting weapon (a pole-arm / knuckle shot carries none), and each mob's lines.
+     * Pure apart from the attacker's id, so BotAttackClientValidityTest checks the exact bytes a viewer gets.
+     */
+    public static Packet attackPacket(Character bot, BotSwingPlan plan, Map<Integer, AttackTarget> targets,
+                                      int numAttackedAndDamage, int projectile) {
+        return switch (plan.route()) {
+            case CLOSE -> BotAttackPackets.closeRangeAttack(bot, plan.skillId(), plan.skillLevel(), plan.facingMask(),
+                    numAttackedAndDamage, targets, plan.speed(), plan.action(), 0);
+            case RANGED -> BotAttackPackets.rangedAttack(bot, plan.skillId(), plan.skillLevel(), plan.facingMask(),
+                    numAttackedAndDamage, projectile, targets, plan.speed(), plan.action(), 0);
+            case MAGIC -> BotAttackPackets.magicAttack(bot, plan.skillId(), plan.skillLevel(), plan.facingMask(),
+                    numAttackedAndDamage, targets, BotAttackData.magicChargeFor(plan.skillId()), plan.speed(),
+                    plan.action(), 0);
+        };
+    }
+
+    /*
+     * The keydown packet a player's client sends before a keydown / prepare skill (CUserLocal 0x96b0be -> the server's
+     * SkillEffectHandler, which relays it as SKILL_EFFECT): skill, level, the keydown pose with the facing bit on
+     * top, the attack speed. A viewer (CUserRemote::OnPrepare 0x980a81) starts the keydown pose and effect; for a
+     * skill it does not know it throws, so only skills the client has are ever prepared.
+     */
+    public static Packet preparePacket(Character bot, BotSwingPlan plan) {
+        int pose = plan.prepareActionAndFacing();
+        return PacketCreator.skillEffect(bot, plan.skillId(), plan.skillLevel(), (byte) (pose & 0xFF),
+                (pose >> 8) & 0xFF, (byte) plan.speed());
+    }
+
+    /* The release of a held keydown skill (Hurricane, Rapid Fire): the viewer ends the keydown pose. */
+    public static Packet releasePacket(Character bot, BotSwingPlan plan) {
+        return PacketCreator.skillCancel(bot, plan.skillId());
+    }
+
+    /*
+     * Lands a planned swing: the keydown packet first when the skill has one, then the attack; a held keydown skill
+     * (plan.shots() > 1) streams the rest of its shots KEYDOWN_SHOT_MS apart - each re-rolled by nextHits over the
+     * mobs still alive - and then releases. Returns true if the first shot killed a mob.
+     */
+    public static boolean strike(Character bot, BotSwingPlan plan, Map<Monster, List<Integer>> hits, int projectile,
+                                 short hitDelay, java.util.function.Supplier<Map<Monster, List<Integer>>> nextHits) {
+        if (notReady(bot, hits)) {
+            return false;
+        }
+        if (plan.prepare()) {
+            bot.getMap().broadcastMessage(bot, preparePacket(bot, plan), false);
+        }
+        Packet first = attackPacket(bot, plan, toTargets(hits, hitDelay), numAttackedAndDamage(hits), projectile);
+        boolean killed = broadcastAndApply(bot, first, hits, hitDelay);
+        for (int shot = 1; shot < plan.shots(); shot++) {
+            MethodScheduler.runAfterDelay(() -> {
+                if (bot.getMap() == null) {
+                    return;
+                }
+                Map<Monster, List<Integer>> more = nextHits.get();
+                if (!notReady(bot, more)) {
+                    broadcastAndApply(bot, attackPacket(bot, plan, toTargets(more, hitDelay),
+                            numAttackedAndDamage(more), projectile), more, hitDelay);
+                }
+            }, shot * BotSwingPlan.KEYDOWN_SHOT_MS);
+        }
+        if (plan.shots() > 1) {
+            MethodScheduler.runAfterDelay(() -> {
+                if (bot.getMap() != null) {
+                    bot.getMap().broadcastMessage(bot, releasePacket(bot, plan), false);
+                }
+            }, plan.shots() * BotSwingPlan.KEYDOWN_SHOT_MS);
+        }
+        return killed;
+    }
+
     private static boolean notReady(Character bot, Map<Monster, List<Integer>> hits) {
         return bot == null || bot.getMap() == null || hits == null || hits.isEmpty();
     }
 
     /* numAttacked (mobs, high nibble) | numDamage (lines per mob, low nibble). */
-    private static int numAttackedAndDamage(Map<Monster, List<Integer>> hits) {
+    static int numAttackedAndDamage(Map<Monster, List<Integer>> hits) {
         int numDamage = hits.values().iterator().next().size();
         return (hits.size() << 4) | numDamage;
     }
 
     /* Packet target map: each mob's object id -> its damage line(s). */
-    private static Map<Integer, AttackTarget> toTargets(Map<Monster, List<Integer>> hits, short hitDelay) {
+    static Map<Integer, AttackTarget> toTargets(Map<Monster, List<Integer>> hits, short hitDelay) {
         Map<Integer, AttackTarget> targets = new HashMap<>();
         for (Map.Entry<Monster, List<Integer>> hit : hits.entrySet()) {
             targets.put(hit.getKey().getObjectId(), new AttackTarget(hitDelay, hit.getValue()));

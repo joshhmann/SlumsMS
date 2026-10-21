@@ -91,8 +91,20 @@ public final class BotWeapons {
         return null;
     }
 
+    /*
+     * Weapons of the bots' kinds a viewer's client draws no attack for, or the wrong one (ticket 32): their
+     * Character.wz info has no "afterImage" (every melee hit is dropped) or an "attack" type that is not their class's
+     * (0 draws nothing; 1302261's 7 is a claw's poses). Found in the client's Character/Weapon by
+     * tools/bot-attack-rules/client_attack_fixture.py; BotAttackClientValidityTest keeps this list complete.
+     */
+    public static final java.util.Set<Integer> UNDRAWABLE = java.util.Set.of(1302083, 1302261, 1302284, 1302335,
+            1372086, 1382058, 1382107, 1402250, 1402256, 1452058, 1492024);
+
     /* Whether the weapon (item id, 0 = none) is one this job fights with. */
     public static boolean fits(Job job, int weaponItemId) {
+        if (UNDRAWABLE.contains(weaponItemId)) {
+            return false;
+        }
         List<EquipType> kinds = weaponsFor(job);
         return kinds.isEmpty() || (weaponItemId > 0 && kinds.contains(kindOf(weaponItemId)));
     }
@@ -115,9 +127,15 @@ public final class BotWeapons {
             return false;
         }
         List<EquipType> kinds = weaponsFor(bot.getJob());
+        if (kinds.isEmpty()) {
+            return false; // a job that takes any weapon holds an undrawable one: nothing of its own to hand it
+        }
         EquipType kind = kinds.get(ThreadLocalRandom.current().nextInt(kinds.size()));
-        Integer weaponId = getRandomEquipForWearing(kind, bot);
-        if (weaponId == null || kindOf(weaponId) != kind) {
+        Integer weaponId = null;
+        for (int tries = 0; tries < 5 && (weaponId == null || UNDRAWABLE.contains(weaponId)); tries++) {
+            weaponId = getRandomEquipForWearing(kind, bot);
+        }
+        if (weaponId == null || kindOf(weaponId) != kind || UNDRAWABLE.contains(weaponId)) {
             return false;
         }
         Inventory worn = bot.getInventory(InventoryType.EQUIPPED);
