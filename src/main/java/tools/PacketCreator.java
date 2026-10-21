@@ -766,6 +766,13 @@ public class PacketCreator {
         p.writeByte(0); // drop rate * 2.6
         p.writeByte(0);
         p.writeByte(channelLoad.size());
+        if (soloMapling.qa.QaLog.on(soloMapling.qa.QaLog.Topic.CHANNEL_LOAD)) { // !qa wd-1
+            StringBuilder bars = new StringBuilder("channel list sent for " + serverName + ":");
+            for (Channel ch : channelLoad) {
+                bars.append(" ch").append(ch.getId()).append('=').append(ch.getChannelCapacity());
+            }
+            soloMapling.qa.QaLog.any(soloMapling.qa.QaLog.Topic.CHANNEL_LOAD, bars.toString());
+        }
         for (Channel ch : channelLoad) {
             p.writeString(serverName + "-" + ch.getId());
             p.writeInt(ch.getChannelCapacity());

@@ -17,6 +17,13 @@ is the 1.4.0 page with its content swapped for `{{PLACEHOLDERS}}`. Its CSS and s
      "n of m"). Each test is a `.check` holding a checkbox with a unique id `t-<group>-<n>`, a title span, and an
      optional `.how` span. Write the exact commands (`!item <id>`, `!givenx`, `!event start <name>`) and the
      result you expect. The script turns each checkbox into the Pass/Issue/Fail buttons and a note box.
+   - **`!qa` line:** when the test has a `!qa` scenario (`!qa list` on the test server, or
+     `docs/ops/qa-suite.md`), start its `.how` with `<code>!qa run <id></code>`, for example
+     `!qa run fm-1 — then …`. It stages the test and logs it to `logs/qa/<id>-<time>.log` on the test server, which
+     Claude reads when you mark the test. Then write the manual steps that are left. The 1.4.1 ids are:
+     bk-1/bk-2, fm-1/fm-2, np-1, np-2, np-3 (`!qa do close` replaces the restart), gh-1/gh-2, ld-1, wd-1, wd-2,
+     gn-2 (alias sc-1), gd-1/gd-2 and cs-2. Tests without a scenario (cp-*, cs-1, cs-3, ln-*, gn-1) keep only their
+     manual steps.
    - **Release:** migrations, config keys, WZ data steps (for example `tools/data-align/*.tsv` with their dry-run
      counts), the catalog size, the client files, the rehearsal result, and the deploy, rollback and publish
      commands from `/opt/mapleroot-deployments/v<version>/`.

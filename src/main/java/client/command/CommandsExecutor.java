@@ -72,6 +72,22 @@ public class CommandsExecutor {
         registerLv6Commands();
     }
 
+    /* Tests: whether a command name is registered. */
+    boolean hasCommand(String name) {
+        return registeredCommands.containsKey(name);
+    }
+
+    /* Tests: a registered command's GM rank, or -1. */
+    int rankForTest(String name) {
+        Command c = registeredCommands.get(name);
+        return c == null ? -1 : c.getRank();
+    }
+
+    /* Tests: a fresh registry built under the current system properties. */
+    static CommandsExecutor freshForTest() {
+        return new CommandsExecutor();
+    }
+
     public List<Pair<List<String>, List<String>>> getGmCommands() {
         return commandsNameDesc;
     }
@@ -313,6 +329,9 @@ public class CommandsExecutor {
         if (soloMapling.server.AttackCapture.isEnabled()) {
             addCommand("classtest", 2, ClassTestCommand.class); // test server attack capture (ticket 32)
             addCommand("botshowcase", 3, client.command.commands.gm3.BotShowcaseCommand.class); // ticket 32
+        }
+        if (soloMapling.qa.QaSuite.isEnabled()) {
+            addCommand("qa", 3, client.command.commands.gm3.QaCommand.class); // test scenarios + logs/qa (docs/ops/qa-suite.md)
         }
         addCommand("editShop", 2,  EditShopCommand.class);
 

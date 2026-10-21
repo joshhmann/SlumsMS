@@ -81,6 +81,10 @@ public class ShowcaseBot extends BotSM {
         }
         BotAttackProfile p = rotation.get(next % rotation.size());
         BotAttackDriver.AttackResult r = BotAttackDriver.forceProfile(chr, p);
+        if (!r.hit() && soloMapling.qa.QaLog.on(soloMapling.qa.QaLog.Topic.ATTACK)) { // !qa bk-1
+            soloMapling.qa.QaLog.map(soloMapling.qa.QaLog.Topic.ATTACK, chr.getMapId(), chr.getName() + " "
+                    + chr.getJob() + " skill " + p.skillId + " not sent: " + r.reason());
+        }
         next++; // a skill with nothing in its reach is skipped this round, not retried forever
         long burst = BotSwingPlan.KEYDOWN_SHOTS * BotSwingPlan.KEYDOWN_SHOT_MS;
         nextSwingAt = now + (r.hit() ? GAP_MS + burst : 400);

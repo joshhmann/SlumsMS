@@ -636,6 +636,9 @@ final class GCMovementDriver {
      * Rest hangs, commitment holds and a follower hanging beside its climbing owner are deliberate and left alone. The
      * top-of-ladder pause flaw (NavMovementFlaws.pausingAtRopeTop) is far shorter than the stall time.
      */
+    /* !qa ld-1: a rope stall this long is logged even if the watchdog later finds nothing to do. */
+    static final int QA_STALL_NOTE_MS = 2000;
+
     static void tickRopeStallWatchdog(BotMovementState entry) {
         if (!entry.climbing || entry.climbRope == null) {
             entry.ropeStallMs = 0;
@@ -657,13 +660,27 @@ final class GCMovementDriver {
             entry.ropeStallY = pos.y;
             return;
         }
+        int before = entry.ropeStallMs;
         entry.ropeStallMs += BotPhysicsEngine.cfg.TICK_MS;
+        if (before < QA_STALL_NOTE_MS && entry.ropeStallMs >= QA_STALL_NOTE_MS
+                && soloMapling.qa.QaLog.on(soloMapling.qa.QaLog.Topic.ROPE)) { // !qa ld-1
+            soloMapling.qa.QaLog.map(soloMapling.qa.QaLog.Topic.ROPE, entry.bot.getMapId(), entry.bot.getName()
+                    + " still on rope for " + entry.ropeStallMs + " ms at " + pos.x + "," + pos.y + " (rope top "
+                    + entry.climbRope.topY() + ")");
+        }
         if (entry.ropeStallMs < ROPE_STALL_MS) {
             return;
         }
         entry.ropeStallMs = 0;
         entry.ropeStallY = Integer.MIN_VALUE;
         unhangFromRope(entry);
+    }
+
+    private static void qaUnhang(Character bot, Point pos, String how) {
+        if (soloMapling.qa.QaLog.on(soloMapling.qa.QaLog.Topic.ROPE)) { // !qa ld-1
+            soloMapling.qa.QaLog.map(soloMapling.qa.QaLog.Topic.ROPE, bot.getMapId(), "WATCHDOG " + bot.getName()
+                    + " hung " + ROPE_STALL_MS + " ms at " + pos.x + "," + pos.y + ": " + how);
+        }
     }
 
     static void unhangFromRope(BotMovementState entry) {
@@ -684,9 +701,11 @@ final class GCMovementDriver {
             entry.climbVerticalDir = 0;
             if (!entry.climbing) {
                 BotMovementManager.broadcastMovement(entry);
+                qaUnhang(bot, pos, "climbed off at the rope head");
                 return;
             }
         }
+        qaUnhang(bot, pos, "jumped off toward " + (goal == null ? "no goal" : goal.x + "," + goal.y));
         int dx = goal != null ? Integer.compare(goal.x, pos.x) : 0;
         if (dx == 0) {
             dx = java.util.concurrent.ThreadLocalRandom.current().nextBoolean() ? 1 : -1;

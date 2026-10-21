@@ -967,6 +967,9 @@ public class Character extends AbstractCharacterObject {
     }
 
     public void Hide(boolean hide, boolean login) {
+        if (isGM() && hide != this.hidden && soloMapling.qa.QaLog.on(soloMapling.qa.QaLog.Topic.HIDE)) { // !qa gh-1
+            soloMapling.qa.QaLog.map(soloMapling.qa.QaLog.Topic.HIDE, getMapId(), getName() + (hide ? " hides" : " unhides"));
+        }
         if (isGM() && hide != this.hidden) {
             if (!hide) {
                 this.hidden = false;

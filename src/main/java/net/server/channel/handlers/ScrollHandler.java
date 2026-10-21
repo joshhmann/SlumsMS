@@ -175,6 +175,12 @@ public final class ScrollHandler extends AbstractPacketHandler {
                 }
                 c.sendPacket(PacketCreator.modifyInventory(true, mods));
                 chr.getMap().broadcastMessage(PacketCreator.getScrollEffect(chr.getId(), scrollSuccess, legendarySpirit, whiteScroll));
+                if (soloMapling.qa.QaLog.on(soloMapling.qa.QaLog.Topic.SCROLL)) { // !qa gn-2
+                    soloMapling.qa.QaLog.owner(soloMapling.qa.QaLog.Topic.SCROLL, chr.getId(), "scroll " + scroll.getItemId()
+                            + " on " + toScroll.getItemId() + ": " + scrollSuccess + (scrolled == null ? ""
+                            : ", watk " + scrolled.getWatk() + ", matk " + scrolled.getMatk() + ", slots left "
+                            + scrolled.getUpgradeSlots() + ", level " + scrolled.getLevel()));
+                }
                 if (equipSlot < 0 && (scrollSuccess == Equip.ScrollResult.SUCCESS || scrollSuccess == Equip.ScrollResult.CURSE)) {
                     chr.equipChanged();
                 }
