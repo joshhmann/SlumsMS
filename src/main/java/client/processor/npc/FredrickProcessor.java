@@ -301,6 +301,14 @@ public class FredrickProcessor {
                     }
 
                     if (deleteFredrickItems(chr.getId())) {
+                        // Cosmic: drop the in-memory copy too, so a merchant still loaded for this owner cannot
+                        // hand the same items out again after Fredrick has (1.4.1, restored from Cosmic).
+                        HiredMerchant merchant = chr.getHiredMerchant();
+
+                        if (merchant != null) {
+                            merchant.clearItems();
+                        }
+
                         for (Pair<Item, InventoryType> it : items) {
                             Item item = it.getLeft();
                             InventoryManipulator.addFromDrop(chr.getClient(), item, false);
