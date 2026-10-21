@@ -82,7 +82,10 @@ if [ "$DRY_RUN" = 1 ]; then
   step "DRY RUN OK: would copy $LAYER -> $OUT, replace slums.dll and Custom.wz, write STAGED.txt, then run publish-client $CV --source $OUT --dry-run"
   exit 0
 fi
-h "mkdir -p $(q "$OUT") && nice -n 19 ionice -c3 cp -a --no-preserve=links $(q "$LAYER")/. $(q "$OUT")/"
+# Belt and braces after the 1.4.0 incident (see q() in publish-lib.sh): both ends must be exactly where they belong.
+[[ "$LAYER" =~ ^/srv/slums-patch/layers/client/[A-Za-z0-9.+-]+/files$ ]] || die "refusing to copy from unexpected path: $LAYER"
+[[ "$OUT" =~ ^/srv/slums-staging/client-[A-Za-z0-9.+-]+$ ]] || die "refusing to copy to unexpected path: $OUT"
+h "mkdir -p $(q "$OUT") && nice -n 19 ionice -c3 cp -a --no-preserve=links -T $(q "$LAYER") $(q "$OUT")"
 h "cd $(q "$OUT") && rm -f slums.dll Custom.wz"   # unlink first: never write through to another file
 scp -q "$TMP/slums.dll" "$TMP/Custom.wz" "$RELEASE_HOST:$OUT/"
 got=$(h "cd $(q "$OUT") && sha256sum slums.dll Custom.wz SlumsMS.exe")

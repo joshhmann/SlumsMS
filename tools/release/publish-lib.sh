@@ -6,7 +6,10 @@ LAUNCHER_REPO=${LAUNCHER_REPO:-/root/work/launcher}
 REFERENCE=${REFERENCE:-"/opt/mapleroot-control/MapleRoot Full Repack/Game Files"}
 REF_CACHE=${REF_CACHE:-/srv/slums-staging/reference-client.hashes.json}
 h() { ssh -o BatchMode=yes "$RELEASE_HOST" "$@"; }
-q() { printf '%q ' "$@"; }
+# Shell-quote each argument for a remote command, joined by single spaces, with NO trailing space: callers glue
+# text straight onto it ("$(q "$DIR")/.", "name-$(q "$V").json"). A trailing space there split one path into two
+# arguments and once made stage-client run `cp -a <layer> /. <out> /.`, copying the client layer into / (1.4.0).
+q() { local out="" a; for a in "$@"; do out+="${out:+ }$(printf '%q' "$a")"; done; printf '%s' "$out"; }
 
 # The host's publisher must be the launcher repo's: same tools/ and src/ bytes. --sync-publisher copies them over.
 check_publisher() {
