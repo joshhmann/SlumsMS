@@ -19,14 +19,24 @@ import soloMapling.FreeMarket.PlayerShopAdapter;
 import soloMapling.FreeMarket.ShopKeeper;
 import soloMapling.itemPool.ItemUtilities;
 
+import client.inventory.InventoryType;
+import soloMapling.ArtificialPlayer.BotHoldings;
+
 import java.awt.*;
+import java.util.ArrayDeque;
 import java.util.ArrayList;
 import java.util.Collections;
+import java.util.Deque;
+import java.util.HashMap;
 import java.util.HashSet;
+import java.util.Iterator;
 import java.util.List;
+import java.util.Map;
 import java.util.Set;
+import java.util.concurrent.ConcurrentHashMap;
 import java.util.concurrent.TimeUnit;
 import java.util.Random;
+import java.util.function.Predicate;
 
 
 import static soloMapling.ArtificialPlayer.BotCommandsPack.WarpCommands.FMRoomWarpPortalId;
@@ -71,6 +81,22 @@ public class FMBot extends BotSM {
     private static final int MAX_SHOP_ARRIVAL_POLLS = 8;
     private int doorWalkAttempts = 0;
     private int shopArrivalPolls = 0;
+
+    // 1.4.2: real players' shops. A bot visits them first, re-checks the room for new ones after every shop, and
+    // comes back to one at most every REAL_SHOP_REVISIT_MS. It enters only while a visitor slot stays free for a
+    // player after it, and only one FM bot sits in a given real shop at a time; it leaves after one browse beat.
+    static final long REAL_SHOP_REVISIT_MS = 60_000;
+    static final int REAL_SHOP_SPARE_SLOTS = 1;
+    static final long OCCUPANT_STALE_MS = 30_000;   // a claim left by a bot that vanished inside frees itself
+    private record Occupant(int botId, long since) {
+    }
+    private static final Map<Object, Occupant> realShopOccupant = new ConcurrentHashMap<>();
+    private final Map<Object, Long> realShopLastVisit = new HashMap<>();
+    private final Set<Object> deferredThisRoom = new HashSet<>();
+    private boolean currentIsReal;
+    private boolean seated;
+    // Equips this bot bought (oldest first): when its equip tab is full it lets the oldest go to make room.
+    private final Deque<Integer> boughtEquipIds = new ArrayDeque<>();
 
     public FMBot(Character character) {
         super(character);
@@ -130,6 +156,107 @@ public class FMBot extends BotSM {
         List<PlayerShop> shops = this.getChr().getMap().getAllPlayerShops();
         List<HiredMerchant> merchants = this.getChr().getMap().getAllHiredMerchants();
         buildVisitQueue(shops, merchants);
+        deferredThisRoom.clear();
+        visitQueue = realShopsFirst(visitQueue, FMBot::isRealPlayersShop);
+        if (!visitQueue.isEmpty()) {
+            segmentStartIndices.add(0);
+        }
+        discoverRealShops();
+    }
+
+    /** The queue with real players' shops moved to the front, both groups keeping their order. */
+    static List<ShopKeeper> realShopsFirst(List<ShopKeeper> queue, Predicate<ShopKeeper> isReal) {
+        List<ShopKeeper> out = new ArrayList<>(queue.size());
+        for (ShopKeeper shop : queue) {
+            if (isReal.test(shop)) {
+                out.add(shop);
+            }
+        }
+        for (ShopKeeper shop : queue) {
+            if (!isReal.test(shop)) {
+                out.add(shop);
+            }
+        }
+        return out;
+    }
+
+    /**
+     * Puts the room's real players' shops that are open, not already ahead in the queue and not visited by this
+     * bot in the last {@link #REAL_SHOP_REVISIT_MS} next in line - a shop opened after the bot walked in is seen
+     * on its next step, not on its next lap of the room.
+     */
+    private void discoverRealShops() {
+        if (getChr().getMap() == null || !isInsideFMRooms(getChr())) {
+            return;
+        }
+        List<ShopKeeper> present = new ArrayList<>();
+        for (PlayerShop s : getChr().getMap().getAllPlayerShops()) {
+            present.add(new PlayerShopAdapter(s));
+        }
+        for (HiredMerchant m : getChr().getMap().getAllHiredMerchants()) {
+            if (!(m instanceof soloMapling.FreeMarket.HiredMerchantArtificial)) {
+                present.add(new HiredMerchantAdapter(m));
+            }
+        }
+        long now = System.currentTimeMillis();
+        realShopLastVisit.values().removeIf(at -> now - at > REAL_SHOP_REVISIT_MS);
+        realShopOccupant.values().removeIf(held -> now - held.since() > OCCUPANT_STALE_MS);
+        int insertAt = Math.min(visitIndex, visitQueue.size());
+        for (ShopKeeper shop : present) {
+            if (!isRealPlayersShop(shop) || !shop.isOpen() || isQueuedFrom(shop.shop(), visitIndex)) {
+                continue;
+            }
+            Long last = realShopLastVisit.get(shop.shop());
+            if (last != null && now - last < REAL_SHOP_REVISIT_MS) {
+                continue;
+            }
+            visitQueue.add(insertAt, shop);
+            Set<Integer> shifted = new HashSet<>();
+            for (int i : segmentStartIndices) {
+                shifted.add(i >= insertAt ? i + 1 : i);
+            }
+            shifted.add(insertAt);   // walk over to it
+            segmentStartIndices.clear();
+            segmentStartIndices.addAll(shifted);
+            insertAt++;
+            if (QaLog.on(QaLog.Topic.FM_BUY)) {
+                QaLog.map(QaLog.Topic.FM_BUY, getChr().getMapId(), getChr().getName() + " heads for "
+                        + shop.getOwner() + "'s shop (" + describe(shop) + ")");
+            }
+        }
+    }
+
+    private boolean isQueuedFrom(Object shop, int from) {
+        for (int i = Math.max(0, from); i < visitQueue.size(); i++) {
+            if (visitQueue.get(i).shop() == shop) {
+                return true;
+            }
+        }
+        return false;
+    }
+
+    /** True for a shop a real player owns: a player's own PlayerShop, or a HiredMerchant that is not a bot's. */
+    static boolean isRealPlayersShop(ShopKeeper shop) {
+        if (shop instanceof PlayerShopAdapter adapter) {
+            Character owner = adapter.getShop().getOwner();
+            return owner != null && !BotHelpers.isBot(owner) && !BotHelpers.isArtificial(owner.getId());
+        }
+        if (shop instanceof HiredMerchantAdapter adapter) {
+            HiredMerchant merchant = adapter.getMerchant();
+            return !(merchant instanceof soloMapling.FreeMarket.HiredMerchantArtificial)
+                    && !BotHelpers.isArtificial(merchant.getOwnerId());
+        }
+        return false;
+    }
+
+    private static String describe(ShopKeeper shop) {
+        String kind = shop instanceof HiredMerchantAdapter ? "hired merchant" : "player shop";
+        return kind + ", " + shop.freeVisitorSlots() + " free visitor slots";
+    }
+
+    /** Whether a bot may sit down in a real player's shop now: open, a slot spare after it, no other bot inside. */
+    static boolean mayEnterRealShop(boolean open, int freeSlots, Integer occupant, int botId) {
+        return open && freeSlots >= 1 + REAL_SHOP_SPARE_SLOTS && (occupant == null || occupant == botId);
     }
 
     /**
@@ -276,11 +403,62 @@ public class FMBot extends BotSM {
 
     private void enterShop() {
         // enter shop based on location & cross off from internal list to not repeat
+        seated = false;
+        currentIsReal = false;
         if (currentTarget == null) {
 //            System.out.println("processShop ERROR. NO VALID MERCHANT / SHOP");
             return;
         }
-        currentTarget.visitShop(getChr());
+        if (!isRealPlayersShop(currentTarget)) {
+            currentTarget.visitShop(getChr());
+            seated = true;   // bots' shops: bought from as before, seated or not
+            return;
+        }
+        currentIsReal = true;
+        Object key = currentTarget.shop();
+        int me = getChr().getId();
+        boolean qa = QaLog.on(QaLog.Topic.FM_BUY);
+        if (!currentTarget.isOpen()) {
+            realShopLastVisit.put(key, System.currentTimeMillis());
+            if (qa) {
+                qaVisit("passes", "closed");
+            }
+            return;
+        }
+        int free = currentTarget.freeVisitorSlots();
+        long now = System.currentTimeMillis();
+        Occupant claim = realShopOccupant.compute(key, (k, held) -> held == null || held.botId() == me
+                || now - held.since() > OCCUPANT_STALE_MS ? new Occupant(me, now) : held);
+        Integer occupant = claim.botId() == me ? null : claim.botId();
+        if (!mayEnterRealShop(true, free, occupant, me)) {
+            if (occupant == null) {
+                realShopOccupant.remove(key, claim);
+            }
+            // busy: come back to it once later in this lap, and leave the slots to the players
+            if (deferredThisRoom.add(key)) {
+                visitQueue.add(currentTarget);
+            } else {
+                realShopLastVisit.put(key, System.currentTimeMillis());
+            }
+            if (qa) {
+                qaVisit("waits outside", free + " free slots" + (occupant != null ? ", another bot is inside" : "")
+                        + ", keeps " + REAL_SHOP_SPARE_SLOTS + " free for players");
+            }
+            return;
+        }
+        seated = currentTarget.enter(getChr());
+        realShopLastVisit.put(key, System.currentTimeMillis());
+        if (!seated) {
+            realShopOccupant.remove(key, claim);
+        }
+        if (qa) {
+            qaVisit(seated ? "enters" : "could not enter", describe(currentTarget));
+        }
+    }
+
+    private void qaVisit(String what, String why) {
+        QaLog.map(QaLog.Topic.FM_BUY, getChr().getMapId(), getChr().getName() + " " + what + " "
+                + currentTarget.getOwner() + "'s shop: " + why);
     }
 
     private void processShop() {
@@ -288,6 +466,9 @@ public class FMBot extends BotSM {
         if (currentTarget == null) {
 //            System.out.println("processShop ERROR. NO VALID MERCHANT / SHOP");
             return;
+        }
+        if (!seated) {
+            return;   // a real player's shop it could not sit down in: nothing to browse
         }
         purchaseShopItems();
         waitFor(1000); // browse beat before moving on to EXIT_SHOP
@@ -351,6 +532,17 @@ public class FMBot extends BotSM {
                 }
             }
             if (purchase) {
+                StringBuilder unable = new StringBuilder();
+                long topUp = prepareToPay(thisItem, itemPrice, unable);
+                if (topUp < 0) {
+                    if (sellerAccount >= 0) {
+                        BotSellerCaps.release(sellerAccount, itemPrice);   // nothing will be paid
+                    }
+                    if (qa) {
+                        qaBuy("skip", thisItem.getItemId(), itemPrice, itemMarketValue, unable.toString());
+                    }
+                    continue;
+                }
                 String buymsg = getRandomResolvedLine(FMBot.this, "PurchaseItem");
                 if (buymsg != null) {
                     currentTarget.chat(getChr(), buymsg);
@@ -365,13 +557,64 @@ public class FMBot extends BotSM {
                 if (sellerAccount >= 0 && !bought) {
                     BotSellerCaps.release(sellerAccount, itemPrice);   // the purchase failed: nothing was paid
                 }
+                if (!bought && topUp > 0 && BotHoldings.spendMeso(getChr(), (int) topUp)) {
+                    FMBotWallet.refund(getChr().getId(), topUp);   // the allowance it drew is not spent
+                }
+                if (bought && thisItem.getInventoryType() == InventoryType.EQUIP) {
+                    boughtEquipIds.addLast(thisItem.getItemId());
+                }
                 if (qa) {
                     qaBuy(bought ? "BUY" : "buy failed", thisItem.getItemId(), itemPrice, itemMarketValue,
-                            sellerAccount >= 0 ? "player shop, account " + sellerAccount : "bot shop");
+                            (sellerAccount >= 0 ? "player shop, account " + sellerAccount
+                                    + " (" + BotSellerCaps.status(sellerAccount) + ")" : "bot shop")
+                                    + (topUp > 0 ? ", " + topUp + " from the shopping allowance" : "")
+                                    + (bought ? "" : ", the shop refused the sale"));
                 }
                 break;
             }
         }
+    }
+
+    /**
+     * Readies the bot to pay {@code price} for {@code item}: room in its inventory (letting its oldest bought equip
+     * go if that tab is full) and the mesos (topping up the shortfall from {@link FMBotWallet}). Returns the
+     * mesos added to its wallet, or -1 with the reason in {@code why} when it cannot buy.
+     */
+    private long prepareToPay(Item item, int price, StringBuilder why) {
+        Character me = getChr();
+        if (!BotHoldings.canHold(me, item) && !makeRoom(item.getInventoryType())) {
+            why.append("inventory full (").append(item.getInventoryType()).append(")");
+            return -1;
+        }
+        long add = FMBotWallet.reserveShortfall(me.getId(), me.getMeso(), price);
+        if (add < 0) {
+            why.append("cannot afford: holds ").append(me.getMeso()).append(", shopping allowance left today ")
+                    .append(FMBotWallet.remaining(me.getId()));
+            return -1;
+        }
+        if (add > 0 && !BotHoldings.grantMeso(me, (int) add)) {
+            FMBotWallet.refund(me.getId(), add);
+            why.append("wallet cannot take the top-up");
+            return -1;
+        }
+        return add;
+    }
+
+    /** Lets go of the oldest equip this bot bought to free an equip slot; false when it holds none of them. */
+    private boolean makeRoom(InventoryType type) {
+        if (type != InventoryType.EQUIP) {
+            return false;
+        }
+        Iterator<Integer> oldest = boughtEquipIds.iterator();
+        while (oldest.hasNext()) {
+            int id = oldest.next();
+            oldest.remove();
+            Item held = getChr().getInventory(InventoryType.EQUIP).findById(id);
+            if (held != null && BotHoldings.destroyHeldItem(getChr(), held)) {
+                return true;
+            }
+        }
+        return false;
     }
 
     private void qaBuy(String what, int itemId, int price, Integer value, String why) {
@@ -415,8 +658,17 @@ public class FMBot extends BotSM {
 //            System.out.println("ERROR. NO VALID MERCHANT / SHOP");
             return;
         }
-        currentTarget.removeVisitor(getChr());
+        if (seated || !currentIsReal) {
+            currentTarget.removeVisitor(getChr());
+        }
+        if (currentIsReal) {
+            realShopOccupant.computeIfPresent(currentTarget.shop(),
+                    (k, held) -> held.botId() == getChr().getId() ? null : held);
+        }
         currentTarget = null;
+        seated = false;
+        currentIsReal = false;
+        discoverRealShops();
     }
 
     // Walks to the room's door portal, then warps out. Returns true once out of the room

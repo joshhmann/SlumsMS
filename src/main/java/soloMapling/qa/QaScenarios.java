@@ -250,7 +250,9 @@ public final class QaScenarios {
             }
             out.add("Your shop is open with " + stock.size() + " items worth " + total + " (the last one at "
                     + OVERPRICE + "x value, for fm-2). " + SHOPPERS + " FM bots browse this room.");
-            out.add("Stay in the shop. Sales stop near 5,000,000 (!botyield); the overpriced item never sells.");
+            out.add("Stay in the shop (closing its window closes it). Within ~30 s the bots walk over and take turns"
+                    + " sitting in it, one at a time; most visits buy one item. Sales stop near 5,000,000"
+                    + " (!botyield); the overpriced item never sells.");
             return out;
         }
     }

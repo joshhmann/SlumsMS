@@ -51,6 +51,28 @@ public class HiredMerchantAdapter implements ShopKeeper {
         // Nothing due to PlayerShop only
     }
 
+    @Override
+    public Object shop() {
+        return merchant;
+    }
+
+    @Override
+    public boolean isOpen() {
+        return merchant.isOpen();
+    }
+
+    @Override
+    public int freeVisitorSlots() {
+        byte[] info = merchant.getShopRoomInfo();   // {visitors (max+1 when closed), max+1}
+        return Math.max(0, info[1] - 1 - info[0]);
+    }
+
+    @Override
+    public boolean enter(Character fakechar) {
+        merchant.visitShop(fakechar);
+        return merchant.getVisitorSlotThreadsafe(fakechar) >= 0;
+    }
+
     // Helper method to get the original merchant if needed
     public HiredMerchant getMerchant() {
         return merchant;

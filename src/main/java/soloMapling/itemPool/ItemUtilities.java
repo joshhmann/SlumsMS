@@ -3,6 +3,7 @@ package soloMapling.itemPool;
 import client.inventory.Equip;
 import client.inventory.InventoryType;
 import client.inventory.Item;
+import soloMapling.FreeMarket.EquipValuation;
 
 import static soloMapling.ArtificialPlayer.BotLogic.generateCleanEquip;
 import static soloMapling.DebugUtilities.debugprint;
@@ -51,6 +52,10 @@ public class ItemUtilities {
      */
     public static Integer getItemMarketValue(Item thisItem) {
         Integer itemMarketValue = 0;
+        if (ItemUtilities.isEquip(thisItem) && !hasPoolPrice(thisItem.getItemId())) {
+            // 1.4.2: an equip the item pool does not price is valued from its own level, stats and slots
+            return thisItem instanceof Equip equip ? EquipValuation.valueOf(equip) : null;
+        }
         if (ItemUtilities.isEquip(thisItem)) {
             if (ItemUtilities.isCleanEquip(thisItem)) {
                 itemMarketValue = (ItemDatabase.getInstance().getItemPrice(thisItem.getItemId()));
@@ -64,6 +69,11 @@ public class ItemUtilities {
 //            debugprint("Non-Eq item Value: ", itemMarketValue);
         }
         return itemMarketValue;
+    }
+
+    private static boolean hasPoolPrice(int itemId) {
+        Integer price = ItemDatabase.getInstance().getItemPrice(itemId);
+        return price != null && price > 0;
     }
 
 }

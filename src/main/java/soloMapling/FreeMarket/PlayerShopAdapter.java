@@ -51,6 +51,27 @@ public class PlayerShopAdapter implements ShopKeeper {
         getShop().broadcast(PacketCreator.getPlayerShopItemUpdate(getShop()));
     }
 
+    @Override
+    public Object shop() {
+        return shop;
+    }
+
+    @Override
+    public boolean isOpen() {
+        return shop.isOpen();
+    }
+
+    @Override
+    public int freeVisitorSlots() {
+        byte[] info = shop.getShopRoomInfo();   // {visitors, max}
+        return Math.max(0, info[1] - info[0]);
+    }
+
+    @Override
+    public boolean enter(Character fakechar) {
+        return shop.visitShop(fakechar);
+    }
+
     // Helper method to get the original shop if needed
     public PlayerShop getShop() {
         return shop;

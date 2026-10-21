@@ -52,3 +52,22 @@ players open FM shops.
 
 - **Too tight a cap kills the "my stuff sold!" feeling:** start generous and log first.
 - **Burned mesos are invisible:** keep them in the ledger so the dashboard (ticket 35) can show faucet vs sink.
+
+## 1.4.2 follow-up: FM bots actually shop at players' shops (branch `economy-fm-buyers-142`)
+
+Owner QA (`!qa run fm-1`, 2026-10-21): 450 FM_BUY events in 90 s, none in the GM's shop, no successful buy at all.
+
+- **Discovery:** an FM bot built its shop list once, on walking into a room, and walked it in a shuffled order, so
+  a shop opened after it arrived was never seen and an existing one could be 20 shops away. Now real players'
+  shops go first, the room is re-checked after every shop (a new one is next in line), and a bot comes back to a
+  given real shop at most once a minute. It enters only while a visitor slot stays free for players after it,
+  only one FM bot sits in a real shop at a time, and it leaves after one browse beat. A bot that cannot sit down
+  does not buy.
+- **Equip pricing:** the item pool prices only chased equips; every other equip had no normal value, so bots
+  skipped all of them. `EquipValuation` now values them from the required level, the stats over the clean WZ
+  stats, slots left and slots burned (never under 2x the NPC price, capped at 8m; cash and untradeable: none).
+- **"buy failed ... bot shop":** FM bots never earn (they start at 0 mesos), so every purchase failed at
+  `spendMeso`. An FM bot now tops up exactly the shortfall of the item in hand from a 10m/day allowance
+  (`FMBotWallet`); a top-up that does not end in a purchase is taken back. A full equip tab lets go of the
+  oldest equip the bot bought. The QA log says why instead of "buy failed".
+- 56A is unchanged: 1.0x normal value ceiling and 5m per seller account per day for real players.
