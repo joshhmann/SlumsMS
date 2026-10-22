@@ -58,7 +58,10 @@ lol no [do:none]          (or no tag at all: most replies)
    the outcome (a "sure" to a refused party) is replaced by a bank line for that intent and outcome (ticket 37's
    `fits`).
 2. **Model proposal (no intent found).** The player just talks ("these drakes keep killing me lol") and the model
-   tags `[do:help]`. Only the **post-hoc list** below may start this way, and only when the gates pass. A refused
+   tags `[do:help]`. Only the **post-hoc list** below may start this way, and only when the gates pass. A tag also
+   counts only when the words say it ("omw"/"coming" for come, a buff word or "there u go" for buff, "inv" for party,
+   "add" for buddy) and, for moods, when the player's tone called for it (flirty for flirt, rude for insult): probed
+   2026-10-22, qwen9b tags freely ("grindin zombie mushies lol [do:buff]" to "what are u up to"). A refused
    proposal keeps the text only if it promises nothing; otherwise the bank's "declined" line for that action replaces
    it. Economy actions (trade, haggle, quote, gift) and romance steps (date) **never** start from a model tag: they
    need the player's own words.
@@ -111,8 +114,8 @@ Now: Ant Tunnel I, zombie mushrooms around, evening, grinding. World event: doub
 - **Situation:** map, up to two mob kinds on the map, time of day (server zone), an active world event
   (`WorldEvents`), what the bot is doing.
 
-The card replaces the scattered one-line additions (affinity, couple, guild, drama prompt lines); the drama rules
-those lines carried ("never flirt with X", "PG-13") stay in the rules block.
+The card takes the place of the plain memory list; the existing one-line additions (affinity tone, couple, guild,
+drama) stay after it, because they carry rules ("never flirt with X", "PG-13", "never insults about real life").
 
 ## 3. Personas (owner decision 3)
 
@@ -230,8 +233,10 @@ bots never go silent or repeat the same few lines.
     every slot idle**, a pause between calls, optional hours window (`--hours 2-8`); the cloud provider can be used
     with `--cloud` inside `--budget-usd`;
   - every line: `ContentGuard`, the voice check (no AI reveal, no assistant phrasing, era words), length cap 70 after
-    slot filling, slot whitelist, exact and near-duplicate check (normalised text, then 3-gram Jaccard >= 0.6 within
-    the cell);
+    slot filling, slot whitelist, no copied prompt examples, exact and near-duplicate check (normalised text, then
+    3-gram Jaccard >= 0.6 within the intent and feeling);
+  - a verifier call per batch asks the model which lines do not do what the cell is for, and drops them (first batch:
+    85 of about 360 dropped, mostly off-intent drift);
   - resumable: `tools/chatbank/state/` keeps accepted lines, rejects and per-cell progress; `--pack` writes the bank.
   - A tiny first batch ships now to prove the pipeline; the owner runs the big generation.
 
@@ -251,6 +256,8 @@ henny, nlc...) and player names against the characters on the map.
 | intent, family first (5) then the family's own (2-6) | 5 -> 2-6 | family 85%, intent 68% | same call |
 | **intent, one flat question (shipped)** | **15** (question + chatter = talk) | **76%** | **171 ms p50, 175 p90** with 3 questions |
 | tone | 4 | 69% | same call |
+| intent, held-out set (30 lines written after the rules were tuned) | 15 | 80% | 174 ms p50, 189 p90 |
+| tone, held-out set | 4 | 67% | same call |
 
 - Chaining did not help: the second question loses what the first got right. Flat 15 labels with rules first is the
   shipped design, asked in the same call as tone and the existing con question (3 questions, ~170 ms).
@@ -258,7 +265,17 @@ henny, nlc...) and player names against the characters on the map.
   haggle, come vs follow, guide vs come). So: **rules first** for every intent with a precise rule, Decide only for
   what they leave open, at confidence >= 0.5, and **never for economy or romance intents** (rules only), because a
   wrong one would act. The rules + Decide numbers are replayed offline by `ConvoSenseTest` from the recorded answers
-  (`convo-decide-answers.json`) and listed in the build section below.
+  (`convo-decide-answers.json`, `convo-holdout-answers.json`):
+
+| Set | Rules alone (coverage) | Decide alone | Rules + Decide >= 0.4 (shipped) | Talk read as a request |
+|---|---|---|---|---|
+| intent, tuning (59) | 98% (78%) | 76% | 100% | 0 |
+| intent, held-out (30) | 73% (60%) | 80% | 77% (83% at 0.3, not adopted: that would tune on the held-out set) | 0 |
+| tone, tuning | 92% | 69% | 88% (Decide tone only at >= 0.8) | - |
+| tone, held-out | 73% | 67% | 77% | - |
+
+  The rules look best on the tuning set because they were written against it; the held-out row is the honest one.
+  Decide's tone made the rules worse at 0.6, so a model tone counts only at 0.8 (`solomapling.convo.toneMin`).
 
 ## 10. Config keys and switches
 

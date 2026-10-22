@@ -132,7 +132,9 @@ public final class OpenAICompatibleBrain implements ChatRouter.Slotted {
                 soloMapling.ArtificialPlayer.BotConvo.ConvoContract.Reply r =
                         soloMapling.ArtificialPlayer.BotConvo.ConvoContract.parse(raw);
                 parsed.set(r);
-                return r == null ? Optional.empty() : ReplyCleaner.chat(r.text());
+                // ticket 59's quality loop: a phrase rated bad ("dontSay") sends the reply to the bank
+                return r == null ? Optional.empty() : ReplyCleaner.chat(r.text())
+                        .filter(t -> soloMapling.ArtificialPlayer.BotConvo.ConvoTune.violation(t) == null);
             }, true);
             result.complete(line.map(text -> parsed.get() == null
                     ? soloMapling.ArtificialPlayer.BotConvo.ConvoContract.Reply.plain(text) : parsed.get().withText(text)));

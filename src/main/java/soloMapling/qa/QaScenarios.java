@@ -80,6 +80,7 @@ public final class QaScenarios {
         all.addAll(QaTradeScenarios.all());   // 1.5.0 rc3 economy lane: tr-1..tr-7
         all.addAll(PartnerRingScenarios.all()); // 1.5.0: Cash Shop friendship/couple rings (pr-1, pr-2)
         all.addAll(DramaScenarios.all());     // 1.5.0 bot drama: rm-1..rm-4, rv-1..rv-4, gw-1..gw-4
+        all.addAll(ConvoScenarios.all());     // ticket 59: natural conversations cv-1..cv-7
         return List.copyOf(all);
     }
 

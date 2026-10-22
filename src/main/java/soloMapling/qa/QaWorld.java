@@ -284,4 +284,26 @@ public interface QaWorld {
     default boolean romanceOn(Character gm) {
         return false;
     }
+
+    // ---- ticket 59: natural conversations (cv-1..cv-7) ----
+
+    /**
+     * A bot next to the GM that counts the GM as {@code state} (ticket 58 staging), a training bot held on the map or a
+     * social bot, optionally with a forced voice (lower, proper, leet, korean, spanish, terse). Its id, or -1.
+     */
+    default int stageConvoBot(Character gm, String state, boolean training, String voice) {
+        return -1;
+    }
+
+    /** Takes a staged chat bot away (and its forced voice). */
+    default void unstageConvoBot(int botId) {
+    }
+
+    /**
+     * A chat step: {@code persona} (each bot's card), {@code sense <line>} (how a line is read), {@code thread [topic]}
+     * (two staged bots talk now), {@code last} (the GM's last bot line), {@code bank on|off} (LLM off for chat). Lines.
+     */
+    default List<String> convoAction(Character gm, String action, List<Integer> bots, String[] args) {
+        return List.of();
+    }
 }

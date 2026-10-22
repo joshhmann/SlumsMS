@@ -214,6 +214,72 @@ final class GameQaWorld implements QaWorld {
     }
 
     @Override
+    public int stageConvoBot(Character gm, String state, boolean training, String voice) {
+        int id = stageAffinityBot(gm, state, training);
+        soloMapling.ArtificialPlayer.BotConvo.ConvoPersona.Voice v =
+                soloMapling.ArtificialPlayer.BotConvo.ConvoPersona.Voice.parse(voice);
+        if (id >= 0 && v != null) {
+            soloMapling.ArtificialPlayer.BotConvo.ConvoPersona.forceVoice(id - soloMapling.ArtificialPlayer.BotStore.BOT_ID_BASE, v);
+        }
+        return id;
+    }
+
+    @Override
+    public void unstageConvoBot(int botId) {
+        soloMapling.ArtificialPlayer.BotConvo.ConvoPersona.clearVoice(botId - soloMapling.ArtificialPlayer.BotStore.BOT_ID_BASE);
+        unstageAffinityBot(botId);
+    }
+
+    @Override
+    public List<String> convoAction(Character gm, String action, List<Integer> bots, String[] args) {
+        List<String> out = new java.util.ArrayList<>();
+        switch (action) {
+            case "persona" -> {
+                for (int id : bots) {
+                    int slot = id - soloMapling.ArtificialPlayer.BotStore.BOT_ID_BASE;
+                    soloMapling.ArtificialPlayer.BotConvo.ConvoPersona p =
+                            soloMapling.ArtificialPlayer.BotConvo.ConvoPersona.of(slot);
+                    out.add("bot " + id + ": " + p.describe() + " | \"Are you going to Henesys? I'm busy right now.\" -> \""
+                            + soloMapling.ArtificialPlayer.BotConvo.VoiceStyler.style(
+                            "Are you going to Henesys? I'm busy right now.", p, slot, List.of()) + "\"");
+                }
+            }
+            case "sense" -> {
+                String line = String.join(" ", args);
+                soloMapling.ArtificialPlayer.BotConvo.ConvoSense.Read r = soloMapling.ArtificialPlayer.BotConvo.ConvoSense.read(
+                        line, soloMapling.ArtificialPlayer.BotBrainSystem.ChatDecide.get());
+                out.add("\"" + line + "\": " + r.triage().describe() + " " + r.describe());
+            }
+            case "thread" -> {
+                Character a = bots.size() > 0 ? BotHelpers.getCharFromChannelStorage(bots.get(0)) : null;
+                Character b = bots.size() > 1 ? BotHelpers.getCharFromChannelStorage(bots.get(1)) : null;
+                if (a == null || b == null || a.getMap() == null) {
+                    out.add("needs two staged bots on your map");
+                    break;
+                }
+                soloMapling.ArtificialPlayer.BotConvo.BotThreads.Topic topic =
+                        soloMapling.ArtificialPlayer.BotConvo.BotThreads.Topic.parse(args.length > 0 ? args[0] : "gossip");
+                if (topic == soloMapling.ArtificialPlayer.BotConvo.BotThreads.Topic.GUILD_BEEF
+                        && (a.getGuildId() <= 0 || b.getGuildId() <= 0)) {
+                    topic = soloMapling.ArtificialPlayer.BotConvo.BotThreads.Topic.GOSSIP;
+                }
+                int channel = gm.getClient() == null ? 1 : gm.getClient().getChannel();
+                out.add("thread: " + soloMapling.ArtificialPlayer.BotConvo.BotThreads.run(a.getMap(), channel, List.of(a, b),
+                        topic, System.currentTimeMillis()));
+            }
+            case "last" -> out.addAll(soloMapling.ArtificialPlayer.BotConvo.ConvoQuality.describeLast(gm));
+            case "bank" -> {
+                boolean on = args.length == 0 || !"off".equalsIgnoreCase(args[0]);
+                String was = System.getProperty("solomapling.convo.forceBank", "false");
+                System.setProperty("solomapling.convo.forceBank", String.valueOf(on));
+                out.add("bank mode " + (on ? "ON (LLM off for chat)" : "OFF (LLM on)") + ", was " + was);
+            }
+            default -> out.add("unknown chat step " + action);
+        }
+        return out;
+    }
+
+    @Override
     public void unstageAffinityBot(int botId) {
         soloMapling.ArtificialPlayer.BotAffinitySystem.AffinityStaging.unstage(botId);
     }

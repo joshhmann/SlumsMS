@@ -285,6 +285,7 @@ public class CommandsExecutor {
         addCommand("whodrops", 1, WhoDropsCommand.class);
         addCommand("goto", 1, GotoCommand.class);*/
         addCommand("buffme", 1, BuffMeCommand.class); // 1.4.2: the GM-1 tier reshuffle dropped it; Cosmic has it here
+        addCommand("rate", 1, client.command.commands.gm1.RateCommand.class); // ticket 59: rate a bot's last line
 
         commandsNameDesc.add(levelCommandsCursor);
     }

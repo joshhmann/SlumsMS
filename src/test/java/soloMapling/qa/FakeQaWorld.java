@@ -330,4 +330,18 @@ class FakeQaWorld implements QaWorld {
     @Override public int dramaUnstage(int gmId) { dramaUnstaged++; calls.add("drama unstage"); return 1; }
 
     @Override public boolean romanceOn(Character gm) { return romance; }
+
+    // ticket 59
+    @Override public int stageConvoBot(Character gm, String state, boolean training, String voice) {
+        int id = nextBot++;
+        calls.add("convobot " + state + (training ? " training" : " social") + (voice == null ? "" : " " + voice) + " " + id);
+        return id;
+    }
+
+    @Override public void unstageConvoBot(int botId) { calls.add("unconvobot " + botId); }
+
+    @Override public List<String> convoAction(Character gm, String action, List<Integer> bots, String[] args) {
+        calls.add("convo " + action + (args.length == 0 ? "" : " " + String.join(" ", args)));
+        return List.of("ok " + action);
+    }
 }

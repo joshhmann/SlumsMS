@@ -1,0 +1,92 @@
+package soloMapling.qa;
+
+import client.Character;
+import org.junit.jupiter.api.AfterEach;
+import org.junit.jupiter.api.Test;
+import org.junit.jupiter.api.io.TempDir;
+
+import java.nio.file.Path;
+import java.util.List;
+
+import static org.junit.jupiter.api.Assertions.assertEquals;
+import static org.junit.jupiter.api.Assertions.assertTrue;
+
+/** Ticket 59's scenarios (cv-1 .. cv-7) against a recording world. */
+class ConvoScenariosTest {
+    @TempDir
+    Path dir;
+
+    final FakeQaWorld world = new FakeQaWorld();
+    final QaTestSupport.ManualScheduler scheduler = new QaTestSupport.ManualScheduler();
+    QaSuite suite;
+
+    @AfterEach
+    void reset() {
+        QaLog.reset();
+        MoveTrace.reset();
+    }
+
+    private Character start(String id, int mapId, String... args) {
+        suite = QaTestSupport.suite(QaScenarios.all(), world, dir, scheduler);
+        Character gm = QaTestSupport.gm(1, "Admin", mapId);
+        world.online = gm;
+        suite.start(gm, id, args);
+        return gm;
+    }
+
+    private long called(String prefix) {
+        return world.calls.stream().filter(c -> c.startsWith(prefix)).count();
+    }
+
+    @Test
+    void everyChatScenarioIsRegistered() {
+        List<String> ids = QaScenarios.all().stream().map(QaScenario::id).toList();
+        for (String id : List.of("cv-1", "cv-2", "cv-3", "cv-4", "cv-5", "cv-6", "cv-7")) {
+            assertTrue(ids.contains(id), id);
+        }
+    }
+
+    @Test
+    void cv1StagesAFriendAndLeavesAtStop() {
+        start("cv-1", 100000000);
+        assertEquals(1, called("convobot friend social"));
+        suite.action(world.online, "sense", new String[]{"come", "to", "henesys"});
+        assertEquals(1, called("convo sense"));
+        suite.stop(1, "!qa stop");
+        assertEquals(1, called("unconvobot"));
+    }
+
+    @Test
+    void cv2GivesTheBotTheItem() {
+        start("cv-2", 100000000, "1082002");
+        assertTrue(world.calls.stream().anyMatch(c -> c.endsWith("give 1082002 x1")), world.calls.toString());
+    }
+
+    @Test
+    void cv4StagesFourVoices() {
+        start("cv-4", 100000000);
+        for (String v : List.of("lower", "proper", "leet", "korean")) {
+            assertEquals(1, called("convobot neutral social " + v), v + " " + world.calls);
+        }
+        suite.stop(1, "!qa stop");
+        assertEquals(4, called("unconvobot"));
+    }
+
+    @Test
+    void cv5StartsAThreadAndAnotherOnRequest() {
+        start("cv-5", 100000000);
+        assertEquals(1, called("convo thread"));
+        suite.action(world.online, "thread", new String[]{"trade"});
+        assertEquals(2, called("convo thread"));
+    }
+
+    @Test
+    void cv7TurnsBankModeOnAndOffAgainAtStop() {
+        start("cv-7", 100000000);
+        assertEquals(1, called("convo bank on"));
+        suite.action(world.online, "llm", new String[0]);
+        assertEquals(1, called("convo bank off"));
+        suite.stop(1, "!qa stop");
+        assertEquals(2, called("convo bank off"), "stop restores the LLM");
+    }
+}

@@ -142,6 +142,28 @@ Only maps a real player can see run any of this; offscreen grinders keep the che
 `!botcombat pets [n]` holds n (default 3) grinders with looting pets next to you (as pt-1), `!botcombat pet <bot>`
 prints a bot's pet, pet equips and loot style.
 
+## Ticket 59: natural conversations (cv-1 .. cv-7)
+
+Every bot is an on-demand bot staged next to you (ticket 58's staging: it counts you as the given state), memory only,
+and it leaves at stop. The `CONVO` topic logs how each of your lines was read (`INTENT ... -> action: YES/NO (reason)
+-> outcome`, `TAG [do:x]` for a model's proposal), every bot line (`SAID bot -> you [tier, source#bank id, voice, ms]`),
+its timing plan (`TIMING`), threads (`THREAD`, `THREAD LINE`, `JOIN`) and ratings (`RATE`). `AFFINITY` and `BOT_CHAT`
+run alongside.
+
+| Id | Stages | Check |
+|---|---|---|
+| `cv-1` `[social\|training]` | A friend bot (social by default). `!qa do sense <line>` shows how any line is read | Name it and ask in plain words: "wanna party?", "come to henesys", "meet me at the fm", "show me the way to perion" (social), "help me kill these", "can u buff me" (training). The action happens before the words, and the words match it (a refusal never says yes) |
+| `cv-2` `[item id]` | A neutral social bot carrying Work Gloves (or the item) | "how much for the work gloves" -> `QUOTE`; "would u do 300k" / "thats too much" -> the band's answer; the price is always `PriceBand`'s |
+| `cv-3` `[rival\|nemesis\|friend]` | A training bot that counts you as its rival | "sorry for ksing u" -> `makeup: YES` and `EVENT apology`; "ur trash noob" -> `EVENT rude_chat` and game-only trash talk back (only with `@botdrama on`); "ur cute" -> a flirt back only with `@romance on` and a bot that may flirt |
+| `cv-4` | Four bots, one per voice: lowercase, proper typer, xX leet kid, Korean-flavoured (`PERSONA` lines). `!qa do persona` | Say the same line to each: casing, abbreviations and laughs differ, a catchphrase now and then. `TIMING`: 1-6 s by length, sometimes split, late (15-60 s) or "brb" first; never faster than a person types |
+| `cv-5` | Warps you to Henesys, stages two bots and starts a thread now (LFG). `!qa do thread [beef\|gossip\|lfg\|trade\|training]` | `THREAD` / `THREAD LINE` (llm or bank). Within 45 s of the last line, say something without a name: `JOIN`, and the last speaker answers you with the thread in mind |
+| `cv-6` | A friend bot. `!qa do last` | Talk, then `!rate good` / `!rate bad too formal "certainly"`: `RATE` with what changed (a bank line's weight, or the tune file's examples and don't-say list). `!rate last` shows the line and its source |
+| `cv-7` | Bank mode ON for the whole server while it runs (`-Dsolomapling.convo.forceBank`), and a friend bot. `!qa do llm` / `!qa do bank` | Every reply is `SAID ... bank#id` or scripted, in the bot's voice, not repeating; flip to the LLM and back to compare. Stop turns bank mode off |
+
+**`!rate`** (GM 1+, every server): `!rate good|bad [note]` rates the last line a bot said to you (10 min; a thread line
+on your map: 2 min), `!rate last`, `!rate reload` (re-reads `data/convo/tune.json`), `!rate score [yyyy-mm-dd]` writes
+`data/convo/quality/<day>.json` and `latest.json` now.
+
 ## mv-1: attack slide
 
 Owner report: holding left/right while attacking on the ground keeps the character sliding. In stock v83 an attack
