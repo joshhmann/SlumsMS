@@ -372,6 +372,7 @@ public class CommandsExecutor {
             addCommand("affinity", 4, client.command.commands.gm4.AffinityCommand.class);   // ticket 58
             addCommand("couple", 4, client.command.commands.gm4.CoupleCommand.class);   // ticket 58
             addCommand("botromance", 4, client.command.commands.gm4.BotRomanceCommand.class);   // 1.5.0 bot drama
+            addCommand("botrival", 4, client.command.commands.gm4.BotRivalCommand.class);   // 1.5.0 bot drama
             addCommand("botguild", 4, client.command.commands.gm4.BotGuildCommand.class);   // 1.5.0 bot guilds
         }
         addCommand("gacharoll", 3, client.command.commands.gm4.GachaRollCommand.class);   // 1.5.0 gachapon

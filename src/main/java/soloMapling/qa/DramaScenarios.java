@@ -9,22 +9,27 @@ import java.util.Set;
 
 import static soloMapling.qa.QaLog.Topic.AFFINITY;
 import static soloMapling.qa.QaLog.Topic.BOT_CHAT;
+import static soloMapling.qa.QaLog.Topic.BOT_GUILD;
+import static soloMapling.qa.QaLog.Topic.GUILD_WAR;
+import static soloMapling.qa.QaLog.Topic.RIVALRY;
 import static soloMapling.qa.QaLog.Topic.ROMANCE;
 
 /**
- * 1.5.0 bot drama scenarios: romance (rm-1 .. rm-4). Every staged bot is an on-demand bot (memory only) and leaves at
+ * 1.5.0 bot drama scenarios: romance (rm-1 .. rm-4), rivals (rv-1 .. rv-4). Every staged bot is an on-demand bot (memory only) and leaves at
  * stop; an engagement or marriage to a staged bot is undone at stop; the GM's {@code @romance} setting is put back.
  * The steps are the {@code !botromance} actions (same code).
  */
 final class DramaScenarios {
 
     static final int AMORIA = 680000000;
+    static final int HUNTING_GROUND = QaScenarios.HENESYS_HUNTING_GROUND;
 
     private DramaScenarios() {
     }
 
     static List<QaScenario> all() {
-        return List.of(new Rm1Dating(), new Rm2Wedding(), new Rm3Breakup(), new Rm4Objection());
+        return List.of(new Rm1Dating(), new Rm2Wedding(), new Rm3Breakup(), new Rm4Objection(),
+                new Rv1Roast(), new Rv2KsWar(), new Rv3Callout(), new Rv4Revenge());
     }
 
     /** Shared: a drama step logged as STEP lines; staged bots and the romance setting undone at stop. */
@@ -235,6 +240,123 @@ final class DramaScenarios {
                 return out;
             }
             return step(ctx, name, List.of("propose", "wedding", "runaway", "object", "crash", "stopwedding", "divorce"));
+        }
+    }
+
+    // ---- rivals (rv-1 .. rv-4) ----
+
+    /** A rival (or nemesis) training bot held on a map with mobs (the GM is warped to one if needed). */
+    abstract static class RivalScenario extends DramaScenario {
+        RivalScenario() {
+            super("rival");
+        }
+
+        public Set<QaLog.Topic> topics() {
+            return EnumSet.of(RIVALRY, AFFINITY, BOT_CHAT);
+        }
+
+        List<String> stageRival(QaContext ctx, String state) {
+            if (ctx.world().liveMobCount(ctx.gm()) == 0) {
+                if (!ctx.world().warp(ctx.gm(), HUNTING_GROUND)) {
+                    throw new QaRefusal("Cannot warp to " + HUNTING_GROUND + ".");
+                }
+                ctx.log("warped to " + HUNTING_GROUND + " (needs mobs)");
+            }
+            unstageAtStop(ctx);
+            return new ArrayList<>(act(ctx, "stage", state));
+        }
+    }
+
+    /** rv-1: roasts from the GM's real game facts (level vs map, deaths, gear, job, KS). */
+    static final class Rv1Roast extends RivalScenario {
+        public String id() { return "rv-1"; }
+        public String title() { return "Rival roasts: trash talk from your real level, map, deaths, gear, job (1.5.0)"; }
+        public String usage() { return "; then !qa do roast | die | nemesis"; }
+
+        public List<String> stage(QaContext ctx) {
+            List<String> out = stageRival(ctx, "rival");
+            out.addAll(act(ctx, "roast"));
+            out.add("A rival training bot stands here and roasted you (ROAST, with the facts it used). Its taunts on");
+            out.add("sight are roasts too (live: one per 20 min per pair). !qa do roast for another; !qa do die counts a");
+            out.add("death for today (the roasts pick it up); !qa do nemesis stages a nemesis. With the chat model live,");
+            out.add("half the roasts are model lines (ROAST (model)) checked by the content guard: only the game, never");
+            out.add("looks, family, real life or slurs.");
+            return out;
+        }
+
+        public List<String> action(QaContext ctx, String name, String[] args) {
+            return switch (name) {
+                case "nemesis" -> act(ctx, "stage", "nemesis");
+                default -> step(ctx, name, List.of("roast", "die", "status"));
+            };
+        }
+    }
+
+    /** rv-2: a KS war: the rival calls 2-4 bots to KS the GM on this map for a few minutes, then they leave. */
+    static final class Rv2KsWar extends RivalScenario {
+        public String id() { return "rv-2"; }
+        public String title() { return "KS war: a rival calls 2-4 bots to KS you for a few minutes, then they leave (1.5.0)"; }
+        public String usage() { return "; then !qa do kswar [2-4] | endwar"; }
+
+        public List<String> stage(QaContext ctx) {
+            List<String> out = stageRival(ctx, "nemesis");
+            ctx.onStop("end the KS war", () -> ctx.world().dramaAction(ctx.gmNow() != null ? ctx.gmNow() : ctx.gm(),
+                    "rival", "endwar"));
+            out.add("A nemesis training bot fights here. Start fighting, then !qa do kswar [2-4]: it calls guildmates or");
+            out.add("friends (KS WAR, with who came), they show up next to you and each takes up to 5 of your mobs in");
+            out.add("its own reach (KS lines) for 3 minutes, then they say something smug and go back (KS WAR over).");
+            out.add("Live: at most once per player per day, 3 an hour world-wide (the QA step skips the caps). Nobody");
+            out.add("blocks a map; @botdrama off: no KS war.");
+            return out;
+        }
+
+        public List<String> action(QaContext ctx, String name, String[] args) {
+            if ("kswar".equals(name)) {
+                return act(ctx, "kswar", args.length > 0 ? args[0] : "3");
+            }
+            return step(ctx, name, List.of("kswar", "endwar", "status"));
+        }
+    }
+
+    /** rv-3: a callout megaphone: "X is a KSer, dont party with them". */
+    static final class Rv3Callout extends RivalScenario {
+        public String id() { return "rv-3"; }
+        public String title() { return "Public callout: a nemesis megaphones that you are a KSer (1.5.0)"; }
+        public String usage() { return "; then !qa do callout"; }
+
+        public List<String> stage(QaContext ctx) {
+            List<String> out = stageRival(ctx, "nemesis");
+            out.addAll(act(ctx, "callout"));
+            out.add("A nemesis called you out by megaphone (CALLOUT: sent, or waiting for the megaphone gate - one bot");
+            out.add("megaphone per 2 min world-wide). Live: once per player per day, 4 an hour world-wide, only from a");
+            out.add("nemesis or a rival you KS'd a lot. @quiet megaphones hides it; @botdrama off: never.");
+            return out;
+        }
+
+        public List<String> action(QaContext ctx, String name, String[] args) {
+            return step(ctx, name, List.of("callout", "status"));
+        }
+    }
+
+    /** rv-4: the revenge arc: the rival follows the GM once to the next map and demands an apology. */
+    static final class Rv4Revenge extends RivalScenario {
+        public String id() { return "rv-4"; }
+        public String title() { return "Revenge arc: a rival follows you to your next map and wants an apology (1.5.0)"; }
+        public String usage() { return "; then change map, say sorry (or mock it); !qa do revenge arms it again"; }
+
+        public List<String> stage(QaContext ctx) {
+            List<String> out = stageRival(ctx, "rival");
+            out.addAll(act(ctx, "revenge"));
+            out.add("A rival is armed to follow you. Take any portal: 5-8 s later it shows up next to you and demands");
+            out.add("an apology (REVENGE). Say \"sorry\" (or \"my bad\"): it calms down (+30, back toward neutral) and goes");
+            out.add("back. Mock it (\"lol cry more\"): it becomes your NEMESIS and goes back. Say nothing for 90 s: it gives");
+            out.add("up. It follows only once (live: once per pair per day, 50% after a taunt or KS). !qa do revenge arms");
+            out.add("it again (it must still be your rival).");
+            return out;
+        }
+
+        public List<String> action(QaContext ctx, String name, String[] args) {
+            return step(ctx, name, List.of("revenge", "status", "roast"));
         }
     }
 }

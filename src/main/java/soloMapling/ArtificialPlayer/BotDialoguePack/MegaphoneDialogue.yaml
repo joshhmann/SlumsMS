@@ -856,3 +856,9 @@ MegaphoneBroadcast:
       - "I'M DONE WITH YOU {PLAYER} </3"
       - "{PLAYER} and i are OVER. dont even whisper me </3"
       - "single again thanks to {PLAYER}. its over </3"
+  DramaCallout:
+    text:
+      - "{PLAYER} is a KSer, dont party with them"
+      - "PSA: {PLAYER} ks's in {MAP}. avoid"
+      - "{PLAYER} ksed me all day in {MAP}. dont pt them"
+      - "warning everyone: {PLAYER} = ks. u been warned"

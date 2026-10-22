@@ -329,13 +329,15 @@ public final class DramaKit {
         }
     }
 
-    /** Sends a bot back where it was before the scene, doing what it did. */
+    /**
+     * Sends a bot back where it was before the scene, doing what it did. A map hold the scene set is the caller's to
+     * release (a staged bot keeps the hold it had).
+     */
     static void sendHome(Character bot, Home home) {
         if (bot == null) {
             return;
         }
         try {
-            soloMapling.worldevents.WorldEventSteer.unhold(bot.getId());
             if (home == null) {
                 return;
             }

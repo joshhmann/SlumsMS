@@ -31,6 +31,7 @@ public final class DramaGm {
         String[] args = words.length <= 1 ? new String[0] : java.util.Arrays.copyOfRange(words, 1, words.length);
         return switch (area) {
             case "romance" -> romance(gm, action, args);
+            case "rival" -> rival(gm, action, args);
             default -> List.of("unknown drama area " + area);
         };
     }
@@ -239,6 +240,57 @@ public final class DramaGm {
             default -> out.add("!botromance status [player] | on | off | stage <crush|dating|ex> [level] | ask | propose"
                     + " | follow | whisper | jealous | confront | neglect [days] | breakup | flame | wedding | object |"
                     + " runaway | crash | stopwedding | divorce | gossip | step | unstage");
+        }
+        return out;
+    }
+
+    // ── rivals ──
+
+    static List<String> rival(Character gm, String action, String[] args) {
+        List<String> out = new ArrayList<>();
+        switch (action) {
+            case "status" -> {
+                Character who = args.length > 0 ? byName(args[0]) : gm;
+                out.addAll(BotRivalry.describe(who == null ? gm.getId() : who.getId()));
+            }
+            case "stage" -> {
+                AffinityState state = has(args, "nemesis") ? AffinityState.NEMESIS : AffinityState.RIVAL;
+                boolean training = !has(args, "social");
+                int id = stage(gm, state, training, 0, 80 + 40 * stagedBy(gm.getId()).size());
+                out.add(id > 0 ? BotRomance.nameOf(id) + " is your " + state.label() + (training
+                        ? " (a training bot held on this map)" : " (a social bot)") : "no bot could be staged here");
+            }
+            case "roast" -> {
+                Character bot = bot(gm, args, 0, 0);
+                if (bot == null) {
+                    out.add("no bot");
+                    return out;
+                }
+                AffinityState st = soloMapling.ArtificialPlayer.BotAffinitySystem.BotAffinity.state(bot.getId(), gm.getId());
+                out.add("facts: " + RivalRoasts.facts(gm, soloMapling.ArtificialPlayer.BotAffinitySystem.BotAffinity
+                        .hostileCount(bot.getId(), gm.getId()), BotRivalry.deathsToday(gm.getId())).describe());
+                out.add(BotRivalry.roast(bot, gm, st.hostile() ? st : AffinityState.RIVAL));
+            }
+            case "kswar" -> {
+                Character bot = bot(gm, args, 0, 0);
+                out.add(bot == null ? "no bot" : BotRivalry.startKsWar(bot, gm, intArg(args, 3), true));
+            }
+            case "endwar" -> out.add(BotRivalry.endWarNow(gm.getId()));
+            case "callout" -> {
+                Character bot = bot(gm, args, 0, 0);
+                out.add(bot == null ? "no bot" : BotRivalry.callout(bot, gm, true));
+            }
+            case "revenge" -> {
+                Character bot = bot(gm, args, 0, 0);
+                out.add(bot == null ? "no bot" : BotRivalry.armNow(bot, gm));
+            }
+            case "die" -> {
+                BotRivalry.onDeath(gm);
+                out.add("counted a death: " + BotRivalry.deathsToday(gm.getId()) + " today");
+            }
+            case "unstage" -> out.add("removed " + unstageAll(gm.getId()) + " staged bot(s)");
+            default -> out.add("!botrival status [player] | stage <rival|nemesis> [social] | roast | kswar [2-4] |"
+                    + " endwar | callout | revenge | die | unstage");
         }
         return out;
     }

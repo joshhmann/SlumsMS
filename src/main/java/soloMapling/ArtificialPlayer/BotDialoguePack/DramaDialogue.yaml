@@ -263,3 +263,83 @@ Drama:
     text:
       - "whatever. have fun i guess"
       - "im out. enjoy ur cake"
+  # ---- rivals: roasts (real facts about the player's game; the game only) ----
+  RoastOverleveled:
+    text:
+      - "lv {LEVEL} still in {MAP} lol"
+      - "{PLAYER} lv {LEVEL} farming {MAP}?? move on bro"
+      - "imagine being lv {LEVEL} in {MAP}"
+      - "{MAP} at lv {LEVEL}... u lost or something"
+  RoastDeaths:
+    text:
+      - "{DEATHS} deaths today {PLAYER}? buy pots lol"
+      - "{PLAYER} died {DEATHS} times today and still talks"
+      - "{PLAYER} the respawn point knows u by name"
+      - "{DEATHS} deaths. my pet dies less than u"
+  RoastGear:
+    text:
+      - "lv {LEVEL} with a lv {WLEVEL} weapon lmao"
+      - "{PLAYER} still using {WEAPON}? its not 2003"
+      - "nice {WEAPON} {PLAYER}, did u loot it from a snail"
+      - "{PLAYER} scroll ur weapon sometime"
+  RoastKs:
+    text:
+      - "{PLAYER} the ks king"
+      - "{PLAYER} ks'd me again. shocker"
+      - "{PLAYER} cant find their own mobs lol"
+      - "every mob i hit, {PLAYER} shows up. weird"
+  RoastJob:
+    text:
+      - "{JOB} main lol"
+      - "{PLAYER} picked {JOB}. explains a lot"
+      - "of course ur a {JOB} {PLAYER}"
+      - "{JOB}s and ks, name a better duo"
+  RoastLevel:
+    text:
+      - "lv {LEVEL}? cute"
+      - "{PLAYER} lv {LEVEL}, i was there last week"
+      - "{PLAYER} grind more talk less"
+      - "{PLAYER} ur dmg is a rounding error"
+  # ---- rivals: KS wars ----
+  KsWarCall:
+    text:
+      - "come to {MAP} ch{CH}, {PLAYER} keeps ksing me"
+      - "need backup in {MAP} ch{CH}. {PLAYER} again"
+      - "anyone free? ks war on {PLAYER} in {MAP} ch{CH}"
+  KsWarRally:
+    text:
+      - "ok {PLAYER}, u want to ks? lets ks"
+      - "calling my friends {PLAYER}. have fun"
+      - "{PLAYER} ur about to have no mobs lol"
+  KsWarArrive:
+    text:
+      - "which one is {PLAYER}?"
+      - "we here. which mobs"
+      - "yo {PLAYER} heard u like ksing"
+      - "ks squad reporting in"
+  KsWarLeave:
+    text:
+      - "ez. later {PLAYER}"
+      - "ok we made our point. gg {PLAYER}"
+      - "dont ks us again {PLAYER}. bye"
+  # ---- rivals: the revenge follow ----
+  RevengeDemand:
+    text:
+      - "{PLAYER} u ksed me back there. say sorry"
+      - "thought u could just leave {PLAYER}? apologize"
+      - "{PLAYER}. ur ks. apology. now"
+      - "followed u {PLAYER}. u owe me a sorry"
+  RevengeAccepted:
+    text:
+      - "...fine. we cool {PLAYER}"
+      - "ok apology accepted. dont do it again"
+      - "hm. ok {PLAYER}. truce"
+  RevengeEscalate:
+    text:
+      - "oh its ON now {PLAYER}"
+      - "ok {PLAYER}. ur on my list now"
+      - "u just made a nemesis {PLAYER}"
+  RevengeTimeout:
+    text:
+      - "whatever {PLAYER}. watch ur mobs"
+      - "no sorry? ok. noted {PLAYER}"

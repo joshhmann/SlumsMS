@@ -8614,6 +8614,8 @@ public class Character extends AbstractCharacterObject {
         cancelAllBuffs(false);
         dispelDebuffs();
         lastDeathtime = Server.getInstance().getCurrentTime();
+        soloMapling.server.MapleRootSolo.runHook("drama death", () ->   // 1.5.0: rivals roast today's deaths
+                soloMapling.ArtificialPlayer.BotDramaSystem.BotDrama.onPlayerDeath(this));
 
         EventInstanceManager eim = getEventInstance();
         if (eim != null) {

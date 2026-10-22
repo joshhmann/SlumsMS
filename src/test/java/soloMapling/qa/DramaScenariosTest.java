@@ -46,7 +46,7 @@ class DramaScenariosTest {
     @Test
     void everyDramaScenarioIsRegistered() {
         List<String> ids = QaScenarios.all().stream().map(QaScenario::id).toList();
-        for (String id : List.of("rm-1", "rm-2", "rm-3", "rm-4")) {
+        for (String id : List.of("rm-1", "rm-2", "rm-3", "rm-4", "rv-1", "rv-2", "rv-3", "rv-4")) {
             assertTrue(ids.contains(id), id);
         }
     }
@@ -105,5 +105,31 @@ class DramaScenariosTest {
         suite.action(world.online, "runaway", new String[0]);
         assertTrue(world.drama.contains("romance runaway"));
         assertFalse(world.drama.contains("romance wedding"));
+    }
+
+    @Test
+    void rivalScenariosNeedMobsAndStageTheRightRival() {
+        world.mobs = 0;
+        start("rv-1", 10);
+        assertTrue(world.calls.contains("warp " + QaScenarios.HENESYS_HUNTING_GROUND), "warped to mobs");
+        assertTrue(world.drama.contains("rival stage rival"));
+        assertTrue(world.drama.contains("rival roast"));
+        suite.action(world.online, "die", new String[0]);
+        assertTrue(world.drama.contains("rival die"));
+        suite.stop(1, "!qa stop");
+        assertEquals(1, world.dramaUnstaged);
+    }
+
+    @Test
+    void rv2KsWarEndsAtStopAndRv4ArmsTheFollow() {
+        start("rv-2", 10);
+        assertTrue(world.drama.contains("rival stage nemesis"));
+        suite.action(world.online, "kswar", new String[]{"4"});
+        assertTrue(world.drama.contains("rival kswar 4"));
+        suite.stop(1, "!qa stop");
+        assertTrue(world.drama.contains("rival endwar"));
+        start("rv-4", 10);
+        assertTrue(world.drama.contains("rival revenge"));
+        start("rv-3", 10);
     }
 }

@@ -75,7 +75,11 @@ public final class AffinityReactions {
     private static final Map<Long, Long> lastRefuseLine = new ConcurrentHashMap<>();
     private static volatile long lastGossipLine;
 
-    record KsSpree(int playerId, int mapId, long until, int[] left) {
+    /** A KS spree; {@code war}: called in by a rival for a KS war (1.5.0 bot drama), not the bot's own grudge. */
+    record KsSpree(int playerId, int mapId, long until, int[] left, boolean war) {
+        KsSpree(int playerId, int mapId, long until, int[] left) {
+            this(playerId, mapId, until, left, false);
+        }
     }
 
     private AffinityReactions() {
@@ -217,7 +221,12 @@ public final class AffinityReactions {
             case BUDDY -> BotBuddies.offerAsFriend(bot.getId(), player.getId());
             case INVITE -> invite(bot, player);
             case HELP -> help(bot, player);
-            case TAUNT -> say(bot, state == AffinityState.NEMESIS ? "NemesisTaunt" : "RivalTaunt", player.getName());
+            case TAUNT -> { // 1.5.0 bot drama: a roast from the player's real game facts (game only)
+                String roast = soloMapling.ArtificialPlayer.BotDramaSystem.BotRivalry.enabled()
+                        ? soloMapling.ArtificialPlayer.BotDramaSystem.BotRivalry.roast(bot, player, state) : null;
+                yield roast != null ? roast : say(bot, state == AffinityState.NEMESIS ? "NemesisTaunt" : "RivalTaunt",
+                        player.getName());
+            }
             case KS -> startSpree(bot, player);
             case DEFAME -> defame(bot, player);
         };
@@ -282,6 +291,7 @@ public final class AffinityReactions {
     private static String startSpree(Character bot, Character player) {
         sprees.put(bot.getId(), new KsSpree(player.getId(), bot.getMapId(), BotAffinity.now() + KS_SPREE_MS,
                 new int[]{KS_SPREE_MOBS}));
+        soloMapling.ArtificialPlayer.BotDramaSystem.BotRivalry.arm(bot, player); // 1.5.0: it may follow once for revenge
         if (ThreadLocalRandom.current().nextDouble() < 0.5) {
             say(bot, "RivalTaunt", player.getName());
         }
@@ -302,8 +312,9 @@ public final class AffinityReactions {
             return picked;
         }
         long now = BotAffinity.now();
-        if (now > spree.until() || spree.left()[0] <= 0 || bot.getMapId() != spree.mapId()
-                || !BotAffinity.hostile(bot.getId(), spree.playerId())) {
+        boolean still = spree.war() ? BotAffinity.hostilityEnabled() && !BotAffinity.optedOut(spree.playerId())
+                : BotAffinity.hostile(bot.getId(), spree.playerId());
+        if (now > spree.until() || spree.left()[0] <= 0 || bot.getMapId() != spree.mapId() || !still) {
             sprees.remove(bot.getId());
             return picked;
         }
@@ -530,6 +541,21 @@ public final class AffinityReactions {
             }
         }
         return null;
+    }
+
+    /**
+     * 1.5.0 bot drama: a bot called into a KS war takes up to {@code mobs} of the player's mobs within its own reach for
+     * {@code ms} (the same rules as a grudge spree, but it needs no grudge of its own; {@code @botdrama off} still ends
+     * it).
+     */
+    public static void startWarSpree(Character bot, Character player, long ms, int mobs) {
+        sprees.put(bot.getId(), new KsSpree(player.getId(), player.getMapId(), BotAffinity.now() + ms, new int[]{mobs},
+                true));
+    }
+
+    /** 1.5.0 bot drama: the bot's KS spree ends now. */
+    public static void stopSpree(int botCharId) {
+        sprees.remove(botCharId);
     }
 
     /** GM: put a bot on a KS spree against a player now (no cooldown). */
