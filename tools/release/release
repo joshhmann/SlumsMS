@@ -36,8 +36,8 @@
 #                     deploy.sh --phase restart-old (old server back, "back up"). The new server is never started.
 #                     If the manifest cannot be restored the server stays DOWN in maintenance (never new client + old
 #                     server) and the commands to finish by hand are printed.
-#   step 4            publish-client --restore-manifest first (players get the old client again), then rollback.sh
-#                     (old version back, "back up" post). Same rule if the restore fails.
+#   step 4            stop the new server, then publish-client --restore-manifest (players get the old client again),
+#                     then rollback.sh (old version back, "back up" post). Same rule if the restore fails.
 #   step 5            the post is soft: a failed post is a warning (end maintenance by hand).
 #
 # Rehearsal (tools/release/rehearse-release-flow): --host-env FILE (sourced on the host before every remote command:
@@ -151,7 +151,7 @@ else echo "  3. (no client)"; fi
 echo "  4. ssh $RELEASE_HOST bash $D/deploy.sh --phase apply-start; then --phase smoke"
 echo "  5. slumsms-monitor $end_post   ONE 'back up$([ "$NOCLIENT" = 0 ] && echo ", press Play to update")' post"
 echo "  on failure: step 2 -> deploy.sh --phase restart-old; step 3 -> restore manifest + restart-old;"
-echo "              step 4 -> restore manifest + rollback.sh. Restore = publish-client --restore-manifest $BEFORE"
+echo "              step 4 -> stop server + restore manifest + rollback.sh. Restore = publish-client --restore-manifest $BEFORE"
 if [ "$DRY_RUN" = 1 ]; then summary "DRY RUN OK (nothing changed)"; exit 0; fi
 if [ "$YES" = 0 ]; then
   [ -t 0 ] || die "not a terminal: pass --yes to go ahead"
@@ -192,7 +192,12 @@ if [ "$ok" = 1 ]; then
   hx "bash $(q "$D/deploy.sh") --phase smoke" || ok=0
 fi
 if [ "$ok" = 0 ]; then
-  event "server steps FAILED after the client publish: old client first, then rollback.sh"
+  event "server steps FAILED: stop the new server, restore the old client, then rollback.sh"
+  if ! hx 'eval "${STOP_CMD:-systemctl stop slumsms}" && ! eval "${IS_ACTIVE_CMD:-systemctl is-active --quiet slumsms}"'; then
+    event "STOP FAILED: server state unknown; manifest restore and rollback withheld"
+    summary "FAILED at step 4; stop the server before restoring the manifest and running rollback.sh"
+    exit 1
+  fi
   if [ "$NOCLIENT" = 0 ]; then restore_manifest || stuck "bash $D/rollback.sh"; fi
   if hx "bash $(q "$D/rollback.sh")"; then event "rollback.sh done: old server back (its 'back up' post)"
     summary "FAILED at step 4; rolled back to the old server + old client"

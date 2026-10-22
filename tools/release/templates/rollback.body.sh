@@ -1,9 +1,9 @@
 # ---- body: tools/release/templates/rollback.body.sh (the same for every release; the settings are above) ----
 #
-# Undoes deploy.sh with its backup and keeps player progress: runs this release's migration rollbacks (newest first,
-# only those in the ledger) instead of restoring the dump, then puts back the old jar, config.yaml, scripts and
+# Undoes deploy.sh with its backup and keeps player progress: runs this release's migration rollbacks newest first
+# for every attempted migration (or one still in the ledger), then puts back the old jar, config.yaml, scripts and
 # src/main from backup/server-runtime.tgz (jar and config always go back together) and the old unit. The files the
-# deploy left are moved to backup/rolled-back-<time>/, not deleted. Full restore instead: backup/mapleroot.sql.gz
+# deploy left are moved to backup/rolled-back-runtime/, not deleted. Full restore instead: backup/mapleroot.sql.gz
 # (loses progress since the deploy). The rehearsal overrides the same variables as deploy.sh.
 set -euo pipefail
 DRY_RUN=0
@@ -55,12 +55,14 @@ if [ "${#UNIT_EDITS[@]}" -gt 0 ]; then [ -f "$B/slumsms.service" ] || die "no un
 l=$(ledger); echo "ledger: $l"
 todo=()
 for (( i=${#MIGRATION_IDS[@]}-1; i>=0; i-- )); do
-  [ "$(in_ledger "${MIGRATION_IDS[$i]}")" = 1 ] && todo+=("$i")
+  if [ -e "$B/.migration-${MIGRATION_IDS[$i]}.attempted" ] || [ "$(in_ledger "${MIGRATION_IDS[$i]}")" = 1 ]; then
+    todo+=("$i")
+  fi
 done
 echo "migration rollbacks to run: $(for i in "${todo[@]}"; do printf '%s ' "${MIGRATION_IDS[$i]}"; done)"
 eval "$IS_ACTIVE_CMD" && echo "server is running (will be stopped)" || echo "server is NOT running now"
 if [ "$DRY_RUN" = 1 ]; then
-  step "DRY RUN OK. A real run would: stop; run those rollbacks; expect ledger '$LEDGER_BEFORE'; move scripts/ and src/main/ to $B/rolled-back-<time>/; restore jar, config.yaml, scripts, src/main from $B/server-runtime.tgz$([ "${#UNIT_EDITS[@]}" -gt 0 ] && echo "; restore the unit from $B/slumsms.service"); start; wait for 'is now online'."
+  step "DRY RUN OK. A real run would: stop; run those rollbacks; expect ledger '$LEDGER_BEFORE'; move scripts/ and src/main/ to $B/rolled-back-runtime/; restore jar, config.yaml, scripts, src/main from $B/server-runtime.tgz$([ "${#UNIT_EDITS[@]}" -gt 0 ] && echo "; restore the unit from $B/slumsms.service"); start; wait for 'is now online'."
   exit 0
 fi
 
@@ -75,7 +77,12 @@ T[stop1]=$(now)
 
 step "migration rollbacks"
 for i in "${todo[@]}"; do
-  sql < "$ST/migrations/${MIGRATION_FILES[$i]}.rollback.sql"
+  if ! sql < "$ST/migrations/${MIGRATION_FILES[$i]}.rollback.sql"; then
+    echo "Rollback SQL failed for ${MIGRATION_IDS[$i]}; server stays DOWN."
+    echo "Full DB dump is available at $B/mapleroot.sql.gz (import loses progress since backup)."
+    printf 'Import on this host: gzip -dc %q | %s\n' "$B/mapleroot.sql.gz" "$SQL_CMD"
+    die "fix the SQL and rerun rollback.sh, or import the dump before restoring runtime"
+  fi
   [ "$(in_ledger "${MIGRATION_IDS[$i]}")" = 0 ] || die "${MIGRATION_IDS[$i]} still in the ledger after its rollback"
   echo "rolled back ${MIGRATION_IDS[$i]}"
 done
@@ -83,12 +90,36 @@ l=$(ledger); echo "ledger: $l"
 [ "$l" = "$LEDGER_BEFORE" ] || echo "WARN: ledger is '$l', expected '$LEDGER_BEFORE' - check before starting players"
 
 step "restore jar, config.yaml, scripts, src/main$([ "${#UNIT_EDITS[@]}" -gt 0 ] && echo ', unit')"
-aside="$B/rolled-back-$(date -u +%Y%m%dT%H%M%SZ)"; mkdir -p "$aside/src"
-mv "$SRV/scripts" "$aside/scripts"; mv "$SRV/src/main" "$aside/src/main"
-cp "$SRV/target/Cosmic.jar" "$aside/Cosmic.jar"; cp "$SRV/config.yaml" "$aside/config.yaml"
+# Stable paths and per-step markers allow rerunning after any move or swap.
+aside="$B/rolled-back-runtime"
+restore="$B/.rollback-runtime"
+mkdir -p "$aside/src"
+if [ ! -e "$B/.rollback-extracted" ]; then
+  rm -rf "$restore"
+  mkdir -p "$restore"
+  tar -xzf "$B/server-runtime.tgz" -C "$restore"
+  touch "$B/.rollback-extracted"
+fi
+for path in scripts src/main target/Cosmic.jar config.yaml; do
+  marker=${path//\//-}
+  if [ ! -e "$B/.rollback-$marker.saved" ]; then
+    mkdir -p "$aside/$(dirname "$path")"
+    # If interrupted after mv, the saved destination already exists.
+    if [ ! -e "$aside/$path" ] && [ -e "$SRV/$path" ]; then
+      mv "$SRV/$path" "$aside/$path"
+    fi
+    touch "$B/.rollback-$marker.saved"
+  fi
+  if [ ! -e "$B/.rollback-$marker.restored" ]; then
+    mkdir -p "$SRV/$(dirname "$path")"
+    # Rename consumes the staged path; its absence on retry means the swap landed.
+    if [ -e "$restore/$path" ]; then mv "$restore/$path" "$SRV/$path"; fi
+    [ -e "$SRV/$path" ] || die "restored $path is missing"
+    touch "$B/.rollback-$marker.restored"
+  fi
+done
 # Restores MIN_CLIENT_BUILD, worlds[*].channels and CHANNEL_LOAD together with the old jar.
 echo "restore config.yaml (client gate, channels, channel load) from backup"
-tar -xzf "$B/server-runtime.tgz" -C "$SRV"
 (cd "$SRV" && sha256sum -c "$B/old-jar.sha256") || die "restored jar hash mismatch"
 cmp -s "$B/config.yaml" "$SRV/config.yaml" || die "restored config.yaml differs from the backup copy"
 if [ "${#UNIT_EDITS[@]}" -gt 0 ]; then
