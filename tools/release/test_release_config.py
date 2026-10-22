@@ -122,7 +122,7 @@ class ReleaseConfigTest(unittest.TestCase):
         for key in ('MIN_CLIENT_BUILD', 'CHANNELS', 'CHANNEL_LOAD'):
             self.assertIn(f"{key}=''", deploy)
         deploy, _ = self.generate((ROOT / 'docs/release/1.5.0.conf').read_text())
-        for key, value in [('MIN_CLIENT_BUILD', '10500'), ('CHANNELS', '5'), ('CHANNEL_LOAD', '105')]:
+        for key, value in [('MIN_CLIENT_BUILD', '10500'), ('CHANNELS', '5'), ('CHANNEL_LOAD', '125')]:
             self.assertIn(f"{key}='{value}'", deploy)
 
     def test_generated_order_backup_rollback_and_staging(self):

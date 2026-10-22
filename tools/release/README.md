@@ -59,7 +59,7 @@ Set these optional values in `docs/release/<version>.conf` (or the conf passed t
 ```bash
 MIN_CLIENT_BUILD=10500
 CHANNELS=5
-CHANNEL_LOAD=105
+CHANNEL_LOAD=125
 ```
 
 `stage` copies `set-min-client-build` and `set-release-config` into `staging/`, includes them in
