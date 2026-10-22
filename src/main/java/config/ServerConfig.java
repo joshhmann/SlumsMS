@@ -93,7 +93,7 @@ public class ServerConfig {
     public int BOT_ROSTER_SEED_MIN = 100;
     //1.4.2 (ticket 57): every bot online at once, environment and director together, at the curve's peak. The
     //director's peak is min(BOT_ROSTER_PEAK_ONLINE, this - environment bots online); 0 = no cap.
-    public int BOT_POPULATION_PEAK = 1200;   //owner 2026-10-21: 1,000-1,200 spread over the channels
+    public int BOT_POPULATION_PEAK = 1600;   //owner 2026-10-22 (rc5): 1,200 roster at peak PLUS the ~360 environment bots, as on 1.4.1; 1,200 total thinned channel 1
     //1.4.2 (ticket 57): the share of the boot environment's town dressing (Henesys fillers, FM entrance, FM shop
     //bots...) that spawns; set pieces (tutorial, casino tables, drop game, OPQ lobby, gacha) always spawn. 1.0 = all.
     public double BOT_ENVIRONMENT_SCALE = 0.5;
@@ -101,7 +101,7 @@ public class ServerConfig {
     //get the last weight; they are normalised. Blank = every channel alike.
     //owner 2026-10-21: 5 channels, weights 100/85/50/30/20. Live config.yaml for 1.5.0: channels 5, CHANNEL_LOAD 125
     //(owner 2026-10-22), so the peak bars sit at about 85/70/40/25/15 %.
-    public String BOT_CHANNEL_WEIGHTS = "100,85,50,30,20";
+    public String BOT_CHANNEL_WEIGHTS = "100,55,35,20,15"; //owner 2026-10-22 (rc5): channel 1 clearly the busiest, ~45%
     //SoloMapling: shrink the seed waves (training cohorts + town presence) for a pilot on a small host; 1.0 = full.
     public double BOT_POPULATION_SCALE = 1.0;
     //SoloMapling: roster lifecycle (bot-persistence ticket 10) - new players, quitting, coming back. Rates are per day.

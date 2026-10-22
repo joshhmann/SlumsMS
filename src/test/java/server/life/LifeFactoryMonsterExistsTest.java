@@ -1,6 +1,7 @@
 package server.life;
 
 import org.junit.jupiter.api.Test;
+import soloMapling.WzTestData;
 
 import static org.junit.jupiter.api.Assertions.assertFalse;
 import static org.junit.jupiter.api.Assertions.assertTrue;
@@ -10,6 +11,7 @@ class LifeFactoryMonsterExistsTest {
 
     @Test
     void knownMobExistsAndMissingOneDoesNot() {
+        WzTestData.assumePresent("Mob.wz");
         assertTrue(LifeFactory.monsterExists(100100));     // Snail
         assertFalse(LifeFactory.monsterExists(9999998));   // no such Mob.wz entry
     }
@@ -18,6 +20,7 @@ class LifeFactoryMonsterExistsTest {
     // "MOB n failed to load" for each when the first bot shop opened.
     @Test
     void theBossFlagIsReadQuietlyForIncompleteAndMissingMobs() {
+        WzTestData.assumePresent("Mob.wz");
         assertFalse(LifeFactory.monsterIsBoss(100100));     // Snail
         assertTrue(LifeFactory.monsterIsBoss(6130101));     // Mushmom
         assertFalse(LifeFactory.monsterIsBoss(9999998));    // no such Mob.wz entry
