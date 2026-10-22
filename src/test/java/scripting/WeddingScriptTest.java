@@ -127,7 +127,7 @@ class WeddingScriptTest {
         Matcher m = Pattern.compile("Java\\.type\\('([^']+)'\\)").matcher(source);
         int found = 0;
         while (m.find()) {
-            Class.forName(m.group(1));
+            Class.forName(m.group(1), false, getClass().getClassLoader()); // exists; no static init (needs wz/)
             found++;
         }
         assertTrue(found > 0);
