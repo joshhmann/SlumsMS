@@ -80,12 +80,7 @@ function action(mode, type, selection) {
                         cm.dispose();
                         return;
                     }
-                    if (cm.getPlayer().getGender() != 0) {
-                        cm.sendOk("Sorry, but the ring box is currently available only for males.");
-                        cm.dispose();
-                        return;
-                    }
-
+                    // SlumsMS 1.5.0 (ticket 58): anyone may craft a ring box and propose, whatever their gender.
                     state = 1;
                     options = ["Moonstone", "Star Gem", "Golden Heart", "Silver Swan"];
                     var selStr = "So, what kind of engagement ring you want me to craft?\r\n\r\n#b" + generateSelectionMenu(options);
