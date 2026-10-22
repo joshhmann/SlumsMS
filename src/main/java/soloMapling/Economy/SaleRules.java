@@ -122,6 +122,10 @@ public final class SaleRules {
 
     private static boolean mobIsBoss(int mobId) {
         try {
+            // drop_data names droppers this WZ lacks (event/other-version mobs); getMonster would log each as SEVERE
+            if (!server.life.LifeFactory.monsterExists(mobId)) {
+                return false;
+            }
             server.life.Monster m = server.life.LifeFactory.getMonster(mobId);
             return m != null && m.isBoss();
         } catch (RuntimeException | LinkageError e) {
