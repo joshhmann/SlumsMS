@@ -132,7 +132,8 @@ public final class BotProgression {
             }
             BotBuild.State state = fromStored(job, bot.getLevel(), stored);
             apply(bot, state, false);
-            bot.updateHpMp(Math.max(1, stored.hp()), stored.mp());
+            bot.updateHpMp(soloMapling.ArtificialPlayer.BotStore.restoredHp(stored.hp(), Math.max(stored.maxHp(),
+                    bot.getCurrentMaxHp())), stored.mp());
             if (bot.getLevel() < stored.buildLevel()) {
                 // The row's level went down (re-rolled while it was saved): its build is for a level it no longer
                 // has, so it is rebuilt rather than kept.

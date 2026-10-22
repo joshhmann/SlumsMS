@@ -78,6 +78,11 @@ final class GCFollow {
         return bot != null && SESSIONS.containsKey(bot.getId());
     }
 
+    static Character target(Character bot) {
+        Session s = bot == null ? null : SESSIONS.get(bot.getId());
+        return s == null ? null : s.target;
+    }
+
     private static void tick(Session s) {
         if (BotShutdown.isQuiesced()) {
             cancel(s.bot); // Ticket 09: a follower must not travel after the gate has closed

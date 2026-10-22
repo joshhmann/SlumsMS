@@ -243,6 +243,31 @@ final class GrindBreakRoutine {
         return false;
     }
 
+    // 1.5.0 rc3: the bot died mid-break (BREAK_TRAVEL / BREAK_REST): take the sign down, drop the rest hold and idle
+    // declaration, and forget the break and its saved remainder (the next grind is a fresh session, not a resume).
+    void abandon(Character chr) {
+        if (signSet) {
+            signSet = false;
+            try {
+                botClearChalkboard(chr);
+            } catch (RuntimeException ignored) {
+                // presentation only (no map while respawning)
+            }
+        }
+        if (chr != null && chr.getChalkboard() != null) {
+            chr.setChalkboard(null); // the server-side sign, even if the broadcast above could not go out
+        }
+        GCMovement.setRestHold(chr, false);
+        GCMovement.clearIdle(chr);
+        breakAtMs = 0;
+        resumeRemainingMs = 0;
+        restStarted = false;
+        sitting = false;
+        muttered = false;
+        restSpot = null;
+        restRope = null;
+    }
+
     private static long now() {
         return System.currentTimeMillis();
     }

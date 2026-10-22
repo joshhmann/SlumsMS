@@ -44,7 +44,8 @@ public final class BotDeaths {
     private static final Map<Integer, Long> lastDeath = new ConcurrentHashMap<>();
     private static final Map<Integer, Long> lyingUntil = new ConcurrentHashMap<>();
     private static final java.util.Deque<Long> recent = new java.util.ArrayDeque<>();
-    private static volatile Boolean forceNext = null; // GM/QA: the next lethal hit kills (true) regardless of map
+    // GM/QA: these bots' next lethal hit kills regardless of map and roll (per bot: another bot must not consume it)
+    private static final Set<Integer> forceNext = ConcurrentHashMap.newKeySet();
 
     /** A grinder on its train map may die there (TrainingBot sets and clears this). */
     public static void setEligible(int botId, boolean on) {
@@ -55,19 +56,49 @@ public final class BotDeaths {
         }
     }
 
-    /** QA cb-3: the next lethal hit on an eligible bot kills it whatever the map and the roll. */
-    public static void forceNextDeath(boolean on) {
-        forceNext = on ? Boolean.TRUE : null;
+    /** QA cb-3: this bot's next lethal hit (while eligible) kills it whatever the map and the roll. */
+    public static void forceNextDeath(int botId, boolean on) {
+        if (on) {
+            forceNext.add(botId);
+        } else {
+            forceNext.remove(botId);
+        }
+    }
+
+    /**
+     * Re-checked at roll time (eligibility is only set at grind start): a bot that has since partied with or is
+     * following a real player, is in an event, or is held by GM staging (cb-3 does not hold) never dies.
+     */
+    static boolean protectedFromDeath(Character bot) {
+        if (bot.getEventInstance() != null
+                || soloMapling.worldevents.WorldEventSteer.isStagingHeld(bot.getId())) {
+            return true;
+        }
+        net.server.world.Party party = bot.getParty();
+        if (party != null) {
+            for (net.server.world.PartyCharacter pc : party.getMembers()) {
+                if (pc == null || pc.getId() == bot.getId()) {
+                    continue;
+                }
+                Character p = pc.getPlayer();
+                if (p != null ? !soloMapling.ArtificialPlayer.BotHelpers.isBot(p)
+                        : !soloMapling.ArtificialPlayer.BotHelpers.isArtificial(pc.getId())) {
+                    return true; // a real member, online or not
+                }
+            }
+        }
+        Character followed = GCMovement.followTarget(bot);
+        return followed != null && !soloMapling.ArtificialPlayer.BotHelpers.isBot(followed);
     }
 
     /** Whether a hit that would take the bot to 0 HP may kill it (and rolls for it). */
     public static boolean rollsDeath(Character bot) {
         if (bot == null || !eligible.contains(bot.getId()) || !BotCombatTuning.deaths()
-                || !GCMovement.isMapObserved(bot.getMapId()) || bot.getEventInstance() != null) {
+                || !GCMovement.isMapObserved(bot.getMapId()) || protectedFromDeath(bot)) {
             return false;
         }
         long now = System.currentTimeMillis();
-        boolean forced = Boolean.TRUE.equals(forceNext);
+        boolean forced = forceNext.contains(bot.getId());
         if (!forced) {
             Long last = lastDeath.get(bot.getId());
             if (last != null && now - last < BOT_COOLDOWN_MS) {
@@ -90,7 +121,7 @@ public final class BotDeaths {
             }
             recent.addLast(now);
         }
-        forceNext = null;
+        forceNext.remove(bot.getId());
         return true;
     }
 
@@ -142,5 +173,6 @@ public final class BotDeaths {
         eligible.remove(botId);
         lyingUntil.remove(botId);
         lastDeath.remove(botId);
+        forceNext.remove(botId);
     }
 }

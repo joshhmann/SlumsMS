@@ -304,6 +304,9 @@ public final class BotPopulationDirector {
         if (BotCommitments.inFlight(bot) || bot instanceof FollowerBot) {
             return false;
         }
+        if (bot.getChr() != null && soloMapling.ArtificialPlayer.BotCombatSystem.BotDeaths.isDead(bot.getChr().getId())) {
+            return false; // 1.5.0 rc3: lying dead (it respawns first; a save now would store 0 HP)
+        }
         if (bot.getChr() != null && soloMapling.ArtificialPlayer.BotGuildSystem.GuildBossRuns.gathering(bot.getChr().getId())) {
             return false; // 1.5.0: waiting at a boss entrance with its guild
         }

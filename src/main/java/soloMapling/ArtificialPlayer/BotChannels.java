@@ -316,6 +316,9 @@ public final class BotChannels {
         if (bot == null || bot.getMap() == null || bot.getClient() == null || bot.getEventInstance() != null) {
             return false;
         }
+        if (soloMapling.ArtificialPlayer.BotCombatSystem.BotDeaths.isDead(bot.getId())) {
+            return false; // 1.5.0 rc3: lying dead - it respawns on its own channel first
+        }
         synchronized (HOP_LOCK) {
             Channel from = bot.getClient().getChannelServer();
             Channel to = channel(ch);
@@ -326,17 +329,39 @@ public final class BotChannels {
             if (dest == null) {
                 return false;
             }
-            Point pos = new Point(bot.getPosition());
+            // 1.5.0 rc3: a grinder (or one resting on a grind break) leaves the grind cleanly first: spot claim,
+            // train slot, grinding nav, break sign, death eligibility. It re-decides on the new channel.
+            if (soloMapling.ArtificialPlayer.BotMessagingSystem.CharacterStorage.getBotById(bot.getId())
+                    instanceof soloMapling.ArtificialPlayer.BotTypes.TrainingBot trainer) {
+                trainer.leaveForChannelMove();
+            }
+            // The bot's own changeMap (travel, portals, respawn) takes this lock too, so none can run while it is in
+            // neither channel's storage (that warp would find no storage and disconnect the bot's client).
+            // Movement and claims are stopped before the warp lock is taken (no other lock is taken under it here).
             soloMapling.ArtificialPlayer.GCMoveSystem.GCMovement.stop(bot); // follow/travel sessions hold the old map
             BotSpotClaims.releaseAllFor(bot.getId());
-            from.removePlayer(bot);
-            bot.setClient(BotClientHandler.getBotClient(ch));
-            to.addPlayer(bot);
-            if (bot.getParty() != null && bot.getMPC() != null) {
-                bot.getMPC().setChannel(ch);
+            java.util.concurrent.locks.Lock warp = bot.getWarpLock();
+            warp.lock();
+            try {
+                if (bot.getClient().getChannelServer() != from || bot.getMap() == null) {
+                    return false; // changed under us before the lock
+                }
+                MapleMap here = to.getMapFactory().getMap(bot.getMapId()); // a warp that just ran may have moved it
+                if (here != null) {
+                    dest = here;
+                }
+                Point pos = new Point(bot.getPosition());
+                from.removePlayer(bot);
+                bot.setClient(BotClientHandler.getBotClient(ch));
+                to.addPlayer(bot);
+                if (bot.getParty() != null && bot.getMPC() != null) {
+                    bot.getMPC().setChannel(ch);
+                }
+                bot.changeMap(dest, pos); // resolves through the new client: leaves the old channel's map, joins this one
+                return true;
+            } finally {
+                warp.unlock();
             }
-            bot.changeMap(dest, pos); // resolves through the new client: leaves the old channel's map, joins this one
-            return true;
         }
     }
 

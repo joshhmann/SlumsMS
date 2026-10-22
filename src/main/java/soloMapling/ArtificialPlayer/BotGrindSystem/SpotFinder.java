@@ -554,9 +554,12 @@ public final class SpotFinder {
         return BotSpotClaims.instanceKey(map.getChannelId(), map.getId());
     }
 
-    // 1.5.0 rc3 (KS manners): a spot on a real player's platform scores this much lower for a bot that respects
-    // the player, so it is taken only when nothing else on the map is left.
-    static final double PLAYER_PLATFORM_PENALTY = 400.0;
+    // 1.5.0 rc3 (KS manners): a spot on a real player's platform is never picked by a bot that respects the player
+    // (a hard exclusion: a cost lost to the over-cap penalty once every other spot was full, and the bot walked onto
+    // the player's platform). With nothing else left the caller moves on to another map (CampStrategy.yieldMap).
+    static boolean playersPlatform(Character chr, List<Character> players, Spot s) {
+        return !players.isEmpty() && KsManners.playerOn(chr, players, s.anchor(), s.radius()) != null;
+    }
 
     // Score each candidate spot for this bot and return the highest scorer (or null if none reachable).
     // Hard filters: a spot's region must be reachable from where the bot stands (skip the filter if that
@@ -564,6 +567,11 @@ public final class SpotFinder {
     // over-cap spot is heavily down-weighted (chosen only if nothing else qualifies). DISTANCE_W is the
     // anti-traversal lever at the selection layer — a near healthy spot beats a far marginally-denser one.
     public static Spot pickBest(Character chr, MapGrindProfile p, int excludedIdx, long excludedUntilMs) {
+        return pickBest(chr, p, excludedIdx, excludedUntilMs, KsManners.respectedPlayers(chr)); // usually none
+    }
+
+    static Spot pickBest(Character chr, MapGrindProfile p, int excludedIdx, long excludedUntilMs,
+                         List<Character> players) {
         if (chr == null || p == null || p.spots().isEmpty()) {
             return null;
         }
@@ -575,7 +583,6 @@ public final class SpotFinder {
         Set<Integer> reach = GCMovement.reachableRegions(map, pos.x, pos.y);
         boolean filter = !reach.isEmpty();
         long now = System.currentTimeMillis();
-        List<Character> players = KsManners.respectedPlayers(chr); // usually none: no cost
         List<Spot> spots = p.spots();
         Spot best = null;
         double bestScore = -Double.MAX_VALUE;
@@ -587,6 +594,9 @@ public final class SpotFinder {
             if (i == excludedIdx && now < excludedUntilMs) {
                 continue; // just-left this spot — let it cool down
             }
+            if (playersPlatform(chr, players, s)) {
+                continue; // a respected player's platform: never ours
+            }
             int holders = BotSpotClaims.holders(claimKey(chr), i);
             double score = SPAWN_DENSITY_W * s.sameLedgeSpawnCount()
                     + TIGHTNESS_W * (100.0 * s.sameLedgeSpawnCount() / Math.max(1, 2 * s.radius()))
@@ -596,8 +606,6 @@ public final class SpotFinder {
                     - CROWDING_W * holders
                     - OVER_CAP_PENALTY * Math.max(0, holders - s.shareCap() + 1)
                     + PLAYER_HEAT_W * PlayerHeat.warmth(map.getId(), s.anchor()) // ticket 18: where players grind
-                    - (players.isEmpty() || KsManners.playerOn(chr, players, s.anchor(), s.radius()) == null
-                            ? 0 : PLAYER_PLATFORM_PENALTY)
                     + ThreadLocalRandom.current().nextDouble() * SELECT_JITTER;
             if (score > bestScore) {
                 bestScore = score;
