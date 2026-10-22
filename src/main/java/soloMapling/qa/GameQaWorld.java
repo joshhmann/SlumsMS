@@ -772,4 +772,19 @@ final class GameQaWorld implements QaWorld {
     public String combatTuning() {
         return soloMapling.ArtificialPlayer.BotCombatSystem.BotCombatTuning.describe();
     }
+
+    @Override
+    public List<String> dramaAction(Character gm, String area, String... words) {
+        return soloMapling.ArtificialPlayer.BotDramaSystem.DramaGm.run(gm, area, words);
+    }
+
+    @Override
+    public int dramaUnstage(int gmId) {
+        return soloMapling.ArtificialPlayer.BotDramaSystem.DramaGm.unstageAll(gmId);
+    }
+
+    @Override
+    public boolean romanceOn(Character gm) {
+        return soloMapling.ArtificialPlayer.BotDramaSystem.BotRomance.romanceOn(gm.getId());
+    }
 }

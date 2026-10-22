@@ -37,7 +37,13 @@ public final class SpouseChatHandler extends AbstractPacketHandler {
         int partnerId = c.getPlayer().getPartnerId();
         if (partnerId > 0) { // yay marriage
             Character spouse = c.getWorldServer().getPlayerStorage().getCharacterById(partnerId);
-            if (spouse != null) {
+            if (spouse != null && soloMapling.ArtificialPlayer.BotHelpers.isBot(spouse)) {
+                // 1.5.0 bot drama: a bot spouse (or fiance) answers in spouse chat; offline, the line below says so
+                c.sendPacket(PacketCreator.OnCoupleMessage(c.getPlayer().getName(), msg, true));
+                ChatLogger.log(c, "Spouse", msg);
+                soloMapling.server.MapleRootSolo.runHook("bot spouse chat", () ->
+                        soloMapling.ArtificialPlayer.BotDramaSystem.BotRomance.spouseChat(c.getPlayer(), spouse, msg));
+            } else if (spouse != null) {
                 spouse.sendPacket(PacketCreator.OnCoupleMessage(c.getPlayer().getName(), msg, true));
                 c.sendPacket(PacketCreator.OnCoupleMessage(c.getPlayer().getName(), msg, true));
                 ChatLogger.log(c, "Spouse", msg);

@@ -211,6 +211,56 @@ public final class BotAffinity {
         }
     }
 
+    /** The bot's score for the player now (faded), 0 when unknown or not loaded. Memory only; never shown to players. */
+    public static double score(int botCharId, int playerId) {
+        if (!enabled() || !isBotId(botCharId)) {
+            return 0;
+        }
+        PlayerTies pt = online.get(playerId);
+        if (pt == null) {
+            return 0;
+        }
+        synchronized (pt) {
+            Tie tie = pt.ties.get(slot(botCharId));
+            return tie == null ? 0 : AffinityRules.scoreAt(tie, now());
+        }
+    }
+
+    /** Bots (character ids) in this state toward the player now, strongest feelings first. Memory only. */
+    public static List<Integer> botsFeeling(int playerId, AffinityState wanted) {
+        List<Integer> out = new ArrayList<>();
+        PlayerTies pt = online.get(playerId);
+        if (pt == null) {
+            return out;
+        }
+        long now = now();
+        List<Tie> ties;
+        synchronized (pt) {
+            ties = new ArrayList<>(pt.ties.values());
+            ties.removeIf(t -> {
+                AffinityState s = AffinityRules.state(t, now, out(pt));
+                return wanted.hostile() ? !s.hostile() || !hostilityEnabled() : s != wanted;
+            });
+            ties.sort(Comparator.comparingDouble((Tie t) -> -Math.abs(AffinityRules.scoreAt(t, now))));
+        }
+        for (Tie t : ties) {
+            out.add(BotStore.BOT_ID_BASE + t.botId);
+        }
+        return out;
+    }
+
+    /** How many hostile things (KS, steals, defames, rude lines) built this bot's feelings about the player. */
+    public static int hostileCount(int botCharId, int playerId) {
+        PlayerTies pt = online.get(playerId);
+        if (pt == null || !isBotId(botCharId)) {
+            return 0;
+        }
+        synchronized (pt) {
+            Tie tie = pt.ties.get(slot(botCharId));
+            return tie == null ? 0 : tie.hostile;
+        }
+    }
+
     /** Whether this bot is a rival or nemesis of the player (and hostility is allowed). */
     public static boolean hostile(int botCharId, int playerId) {
         return state(botCharId, playerId).hostile();

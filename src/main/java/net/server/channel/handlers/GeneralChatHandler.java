@@ -40,6 +40,10 @@ public final class GeneralChatHandler extends AbstractPacketHandler {
             }
             if (!chr.isHidden()) { // 1.4.1: bots don't hear (or answer, or buff) a GM in /hide
                 soloMapling.server.MapleRootSolo.runHook("general chat", () -> {
+                    // 1.5.0 bot drama: an answer to a bot's question, the wedding vows, a demanded apology
+                    if (soloMapling.ArtificialPlayer.BotDramaSystem.BotDrama.onPlayerChat(chr, s)) {
+                        return;
+                    }
                     soloMapling.ArtificialPlayer.BotMessagingSystem.MessageQueue.getInstance().addMessage(
                         "primary", new soloMapling.ArtificialPlayer.BotMessagingSystem.ChatMessage(chr, s));
                     soloMapling.ArtificialPlayer.BotBuffRequestSystem.BotBuffRequestHandler.tryHandle(chr, s);

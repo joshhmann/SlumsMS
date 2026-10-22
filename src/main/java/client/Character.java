@@ -5923,6 +5923,11 @@ public class Character extends AbstractCharacterObject {
     }
 
     public static String getNameById(int id) {
+        if (id >= soloMapling.ArtificialPlayer.BotStore.BOT_ID_BASE) {
+            // 1.5.0 bot drama: a player engaged or married to a bot - the bot has no characters row
+            String bot = soloMapling.ArtificialPlayer.BotBuddies.nameOf(id);
+            return bot != null ? bot : "";
+        }
         final String name;
         try (Connection con = DatabaseConnection.getConnection();
              PreparedStatement ps = con.prepareStatement("SELECT name FROM characters WHERE id = ?")) {

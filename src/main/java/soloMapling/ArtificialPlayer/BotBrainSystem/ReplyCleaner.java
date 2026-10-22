@@ -66,7 +66,7 @@ final class ReplyCleaner {
         if (REAL_WORLD.matcher(text).find()) {
             return "real-world reference";
         }
-        return null;
+        return ContentGuard.problem(text); // 1.5.0 bot drama: PG-13 romance, game-only trash talk
     }
 
     /** A chat reply: the voice check, then {@link #clean}. */

@@ -141,6 +141,11 @@ public final class RingActionHandler extends AbstractPacketHandler {
         }
 
         source.setMarriageItemId(itemid);
+        if (soloMapling.ArtificialPlayer.BotHelpers.isBot(target)) {
+            // 1.5.0 bot drama: a bot partner weighs the ring itself (romance opt-in, dating, still friends)
+            soloMapling.ArtificialPlayer.BotDramaSystem.BotRomance.proposalToBot(source, target, itemid);
+            return;
+        }
         target.sendPacket(WeddingPackets.onMarriageRequest(source.getName(), source.getId()));
     }
 
@@ -206,7 +211,11 @@ public final class RingActionHandler extends AbstractPacketHandler {
         Ring.removeRing(chr.getMarriageRing());
 
         Character partner = chr.getClient().getWorldServer().getPlayerStorage().getCharacterById(partnerid);
-        if (partner == null) {
+        if (partnerid >= soloMapling.ArtificialPlayer.BotStore.BOT_ID_BASE) {
+            // 1.5.0 bot drama: a bot spouse has no characters row; its side is kept by the romance system
+            soloMapling.server.MapleRootSolo.runHook("bot divorce", () ->
+                    soloMapling.ArtificialPlayer.BotDramaSystem.BotRomance.onStockBreak(chr, partnerid, true));
+        } else if (partner == null) {
             eraseEngagementOffline(partnerid);
         } else {
             partner.dropMessage(5, chr.getName() + " has decided to break up the marriage.");
@@ -250,7 +259,11 @@ public final class RingActionHandler extends AbstractPacketHandler {
         chr.getClient().getWorldServer().deleteRelationship(chr.getId(), partnerid);
 
         Character partner = chr.getClient().getWorldServer().getPlayerStorage().getCharacterById(partnerid);
-        if (partner == null) {
+        if (partnerid >= soloMapling.ArtificialPlayer.BotStore.BOT_ID_BASE) {
+            // 1.5.0 bot drama: a bot fiance holds no token in the database; its side is kept by the romance system
+            soloMapling.server.MapleRootSolo.runHook("bot engagement off", () ->
+                    soloMapling.ArtificialPlayer.BotDramaSystem.BotRomance.onStockBreak(chr, partnerid, false));
+        } else if (partner == null) {
             breakEngagementOffline(partnerid);
         } else {
             partner.dropMessage(5, chr.getName() + " has decided to break up the engagement.");
@@ -345,6 +358,12 @@ public final class RingActionHandler extends AbstractPacketHandler {
 
                 if (source == null) {
                     target.sendPacket(PacketCreator.enableActions());
+                    return;
+                }
+
+                if (soloMapling.ArtificialPlayer.BotHelpers.isBot(source)
+                        && soloMapling.ArtificialPlayer.BotDramaSystem.BotRomance.playerAnsweredBot(target, source, accepted)) {
+                    target.sendPacket(PacketCreator.enableActions()); // 1.5.0 bot drama: a bot partner proposed
                     return;
                 }
 

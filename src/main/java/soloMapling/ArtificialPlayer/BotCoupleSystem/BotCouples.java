@@ -115,7 +115,7 @@ public final class BotCouples {
     }
 
     /** Couple chairs a v83 client knows (BotCustomization's chair list): Amorian Loveseat and the two cake chairs. */
-    static final int[] COUPLE_CHAIRS = {3012005, 3012010, 3012011};
+    public static final int[] COUPLE_CHAIRS = {3012005, 3012010, 3012011};
     /** The loveseat every married couple owns. */
     static final int LOVESEAT = 3012005;
     /** Wedding rings (Moonstone, Star Gem, Golden Heart, Silver Swan); a couple wears one kind, by its id. */
@@ -468,7 +468,11 @@ public final class BotCouples {
                     continue;
                 }
                 Couple c = coupleOf(chr.getId());
-                takeOffCoupleRings(chr, c == null || c.stage() == Stage.DATING ? 0 : ringOf(c));
+                int keep = c == null || c.stage() == Stage.DATING ? 0 : ringOf(c);
+                if (keep == 0) { // 1.5.0 bot drama: a bot married to a player keeps that wedding ring on
+                    keep = soloMapling.ArtificialPlayer.BotDramaSystem.BotRomance.ringWornBy(chr.getId());
+                }
+                takeOffCoupleRings(chr, keep);
                 BotWeddings.takeOffWeddingClothes(chr);
             }
         } catch (RuntimeException e) {
@@ -511,7 +515,8 @@ public final class BotCouples {
         for (BotSM sm : CharacterStorage.getAllBots().values()) {
             Character chr = sm.getChr();
             if (chr == null || chr.getMap() == null || !(sm instanceof TrainingBot || sm instanceof SocialBot)
-                    || BotRoster.member(chr.getId() - BotStore.BOT_ID_BASE) == null || withRealPlayer(chr)) {
+                    || BotRoster.member(chr.getId() - BotStore.BOT_ID_BASE) == null || withRealPlayer(chr)
+                    || soloMapling.ArtificialPlayer.BotDramaSystem.BotRomance.ofBot(chr.getId()) != null) { // with a player
                 continue;
             }
             candidates.add(new Candidate(chr.getId(), chr.getGender(), chr.getLevel(), channelOf(chr), chr.getMapId()));
@@ -677,7 +682,7 @@ public final class BotCouples {
      * slot taken it goes without. Nothing changes when it wears that ring already (any other couple ring it wears is
      * swapped for it in place). True when the bot wears the ring after.
      */
-    static boolean wearRing(Character bot, int ringId) {
+    public static boolean wearRing(Character bot, int ringId) {
         try {
             short free = 0;
             for (short slot : RING_SLOTS) {
@@ -705,7 +710,7 @@ public final class BotCouples {
     }
 
     /** Takes every couple ring off except {@code keep} (0 = all of them). True when one came off. */
-    static boolean takeOffCoupleRings(Character bot, int keep) {
+    public static boolean takeOffCoupleRings(Character bot, int keep) {
         boolean changed = false;
         try {
             for (short slot : RING_SLOTS) {

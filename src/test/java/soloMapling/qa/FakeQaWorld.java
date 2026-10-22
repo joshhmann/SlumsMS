@@ -303,4 +303,22 @@ class FakeQaWorld implements QaWorld {
     }
 
     @Override public String combatTuning() { return "human true"; }
+
+    final List<String> drama = new ArrayList<>();
+    boolean romance;
+    int dramaUnstaged;
+
+    @Override public List<String> dramaAction(Character gm, String area, String... words) {
+        String line = area + " " + String.join(" ", words);
+        drama.add(line.trim());
+        calls.add("drama " + line.trim());
+        if (words.length > 0 && ("on".equals(words[0]) || "off".equals(words[0])) && "romance".equals(area)) {
+            romance = "on".equals(words[0]);
+        }
+        return List.of(line.trim() + ": ok");
+    }
+
+    @Override public int dramaUnstage(int gmId) { dramaUnstaged++; calls.add("drama unstage"); return 1; }
+
+    @Override public boolean romanceOn(Character gm) { return romance; }
 }

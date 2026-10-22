@@ -2731,6 +2731,8 @@ public class MapleMap {
         chr.updateActiveEffects();
         soloMapling.server.MapleRootSolo.runHook("affinity load", () ->   // ticket 58: a player's bot ties, read once
                 soloMapling.ArtificialPlayer.BotAffinitySystem.BotAffinity.ensureLoaded(chr));
+        soloMapling.server.MapleRootSolo.runHook("drama map", () ->   // 1.5.0 bot drama: a partner or a rival may follow
+                soloMapling.ArtificialPlayer.BotDramaSystem.BotDrama.onPlayerEnteredMap(chr));
         if (soloMapling.ArtificialPlayer.BotHelpers.isVisibleRealPlayer(chr)) { // 1.4.1: no greetings for a hidden GM
             soloMapling.server.MapleRootSolo.runHook("map entered", () ->
                     soloMapling.server.EventMessageSystem.EventBus.getInstance().publish(

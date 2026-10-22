@@ -213,6 +213,15 @@ public final class BotConversation {
         // Ticket 58: a kind line warms the bot to the player, a rude one cools it (rules, then the cheap Decide model).
         soloMapling.ArtificialPlayer.BotAffinitySystem.AffinityReactions.judgeLine(bot, player, line, triage);
 
+        // 1.5.0 bot drama: asking the bot out, the apology a rival demanded - answered by the drama rules
+        String drama = soloMapling.ArtificialPlayer.BotDramaSystem.BotDrama.onPlayerLine(bot, player, line);
+        if (drama != null) {
+            if (!drama.isEmpty()) {
+                deliver(session, drama, asked, ChatStats.Tier.SCRIPTED, "drama", new Cue(triage,
+                        BotChatActions.Outcome.NONE, line));
+            }
+            return;
+        }
         if (triage.flagged()) {
             onFlagged(session, slot, triage, line, asked);
             return;
@@ -281,6 +290,10 @@ public final class BotConversation {
             if (!sessions.containsKey(new Key(bot.getId(), player.getId()))) {
                 return; // the chat ended while the brain was thinking
             }
+            if (reply.isPresent() && !soloMapling.ArtificialPlayer.BotDramaSystem.BotDrama.replyAllowed(bot, player,
+                    reply.get())) {
+                reply = java.util.Optional.empty(); // 1.5.0: a flirt without @romance on, or off-limits: the script answers
+            }
             if (reply.isPresent() && action.fits(reply.get())) {
                 deliver(session, reply.get(), asked, ChatStats.Tier.LLM, detail, cue);
                 return;
@@ -328,7 +341,8 @@ public final class BotConversation {
         return BotChatPrompt.system(context, persona, traits == null ? 0.4 : traits.chattiness())
                 + soloMapling.ArtificialPlayer.BotAffinitySystem.AffinityReactions.promptLine(bot.getId(), player) // ticket 58: friend or beef
                 + soloMapling.ArtificialPlayer.BotCoupleSystem.BotCouples.promptLine(bot.getId()) // ticket 58: a partner
-                + soloMapling.ArtificialPlayer.BotGuildSystem.BotGuilds.promptLine(bot.getId()); // 1.5.0: its guild
+                + soloMapling.ArtificialPlayer.BotGuildSystem.BotGuilds.promptLine(bot.getId()) // 1.5.0: its guild
+                + soloMapling.ArtificialPlayer.BotDramaSystem.BotDrama.promptLine(bot.getId(), player); // 1.5.0: romance, beef
     }
 
     /**
@@ -372,7 +386,9 @@ public final class BotConversation {
                         + " near you. Write your first line to them.";
                 List<BotBrain.Turn> prompt = BotChatPrompt.conversation(system,
                         List.of(BotBrain.Turn.user("(" + player.getName() + " is standing near you)")));
-                BotBrains.get().complete(player.getId(), prompt).thenAccept(reply -> {
+                BotBrains.get().complete(player.getId(), prompt).thenAccept(raw -> {
+                    java.util.Optional<String> reply = raw.filter(l ->  // 1.5.0: no flirt without @romance on
+                            soloMapling.ArtificialPlayer.BotDramaSystem.BotDrama.replyAllowed(chr, player, l));
                     if (sessions.get(key) != session) {
                         return; // the chat moved on or ended while the brain was thinking
                     }

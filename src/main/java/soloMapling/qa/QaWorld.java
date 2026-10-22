@@ -247,4 +247,24 @@ public interface QaWorld {
     default String combatTuning() {
         return "";
     }
+
+    // ---- 1.5.0 bot drama (rm-1..rm-4, rv-1..rv-4, gw-1..gw-4) ----
+
+    /**
+     * A drama GM action, exactly as {@code !botromance}, {@code !botrival} or {@code !botwar} runs it: {@code area} is
+     * romance | rival | war, {@code words} the command's words. What happened, as lines.
+     */
+    default List<String> dramaAction(Character gm, String area, String... words) {
+        return List.of();
+    }
+
+    /** Takes away every bot the GM staged for drama (and undoes a staged engagement or marriage). How many. */
+    default int dramaUnstage(int gmId) {
+        return 0;
+    }
+
+    /** Whether the GM has {@code @romance on}. */
+    default boolean romanceOn(Character gm) {
+        return false;
+    }
 }

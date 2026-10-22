@@ -19,6 +19,9 @@ public enum AffinityEvent {
     GIFT(9, 10 * 60),
     FAME(12, 0),
     KIND_CHAT(2, 3 * 60),
+    // 1.5.0 bot drama: time together as a couple, and an apology a bot demanded and got (a revenge arc ends)
+    ROMANCE(4, 10 * 60),
+    APOLOGY(30, 0),
     // Lowered by
     KS(-6, 2 * 60),
     DROP_STEAL(-5, 2 * 60),

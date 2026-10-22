@@ -164,6 +164,7 @@ public class BotGeneration {
         addBotToServer(bot, client);
         BotBuddies.onBotLogin(bot); // ticket 49: its player buddies see it online; requests made while away are answered
         soloMapling.ArtificialPlayer.BotGuildSystem.BotGuilds.onBotLogin(bot); // 1.5.0: its guild, before it shows on the map
+        soloMapling.ArtificialPlayer.BotDramaSystem.BotDrama.onBotLogin(bot); // 1.5.0: a bot engaged or married to a player
         placeBotOnMap(bot, placePos, placeMap);
         placedBots.incrementAndGet();
         if (adopted) {
