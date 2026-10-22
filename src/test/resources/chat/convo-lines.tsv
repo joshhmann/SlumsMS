@@ -1,0 +1,65 @@
+# Ticket 59: labelled v83 chat lines for the conversation intent, tone and entity questions. Written by hand for the
+# 2026-10-22 probe; realistic 2006-2008 GMS chat aimed at a bot, no real player names (Pinky, xKaiz are made up).
+# Columns (tab separated): line, intent, tone, entities (comma list of kind:name, or -).
+#   intent: party, follow, come, trade, haggle, buff, help_kill, guide, date, buddy, guild, apology, insult, flirt,
+#           question, chatter
+#   tone:   kind, rude, flirty, neutral
+wanna party?	party	neutral	-
+can i join ur pt	party	neutral	-
+pt for lpq? need 1 more	party	neutral	-
+inv me pls	party	neutral	-
+follow me	follow	neutral	-
+come with me ill show u	follow	neutral	-
+stay close ok	follow	neutral	-
+come to ant tunnel	come	neutral	map:ant tunnel
+can u come to sleepywood real quick	come	neutral	map:sleepywood
+meet me at henesys	come	neutral	map:henesys
+come to the fm ch1	come	neutral	map:free market
+how much for the work gloves	trade	neutral	item:work gloves
+wts brown work gloves	trade	neutral	item:brown work gloves
+u selling any claw scrolls?	trade	neutral	item:claw
+trade me ur ilbis	trade	neutral	item:ilbi
+would u do 500k	haggle	neutral	-
+thats too much, 300k?	haggle	neutral	-
+can u go lower	haggle	neutral	-
+ill give u 1m for it	haggle	neutral	-
+can i get haste pls	buff	neutral	-
+buff me plz	buff	neutral	-
+heal pls im dying	buff	neutral	-
+any cleric can bless me?	buff	neutral	-
+help me kill these zombie mushrooms	help_kill	neutral	mob:zombie mushroom
+can u help with the boss	help_kill	neutral	-
+these drakes keep killing me help	help_kill	neutral	mob:drake
+how do i get to orbis	guide	neutral	map:orbis
+show me the way to perion	guide	neutral	map:perion
+where is the kerning pq npc	guide	neutral	map:kerning city
+wanna go on a date	date	flirty	-
+wanna go out sometime?	date	flirty	-
+take me to amoria lol	date	flirty	map:amoria
+add me as buddy	buddy	kind	-
+can we be buddies	buddy	kind	-
+can i join ur guild	guild	neutral	-
+is ur guild recruiting	guild	neutral	-
+sorry for ksing u earlier	apology	kind	-
+my bad dude i didnt see u there	apology	kind	-
+sry for being rude	apology	kind	-
+ur such a noob lol	insult	rude	-
+stop ksing me u leecher	insult	rude	-
+ur trash at this game	insult	rude	-
+nice gear for a lvl 30 scrub	insult	rude	-
+ur cute	flirt	flirty	-
+ur kinda pretty ngl	flirt	flirty	-
+miss me babe?	flirt	flirty	-
+what lvl are u	question	neutral	-
+whats ur job	question	neutral	-
+where do u train	question	neutral	-
+is pinky online today	question	neutral	player:pinky
+did u see xkaiz drop that ilbi	question	neutral	player:xkaiz,item:ilbi
+how long have u been playing	question	neutral	-
+thanks for the help earlier!	chatter	kind	-
+gg that was fun	chatter	kind	-
+ugh i died again	chatter	neutral	-
+lol this map is so laggy	chatter	neutral	-
+just hit 30 finally	chatter	kind	-
+nice hat	chatter	kind	-
+im so bored rn	chatter	neutral	-

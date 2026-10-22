@@ -1,0 +1,828 @@
+{
+ "add me as buddy": {
+  "con": {
+   "choice": "normal",
+   "confidence": 0.57
+  },
+  "flat": {
+   "choice": "buddy",
+   "confidence": 0.94
+  },
+  "tone": {
+   "choice": "neutral",
+   "confidence": 0.372
+  }
+ },
+ "any cleric can bless me?": {
+  "con": {
+   "choice": "normal",
+   "confidence": 0.552
+  },
+  "flat": {
+   "choice": "buff",
+   "confidence": 0.733
+  },
+  "tone": {
+   "choice": "kind",
+   "confidence": 0.516
+  }
+ },
+ "buff me plz": {
+  "con": {
+   "choice": "normal",
+   "confidence": 0.549
+  },
+  "flat": {
+   "choice": "buff",
+   "confidence": 0.983
+  },
+  "tone": {
+   "choice": "kind",
+   "confidence": 0.4
+  }
+ },
+ "can i get haste pls": {
+  "con": {
+   "choice": "normal",
+   "confidence": 0.511
+  },
+  "flat": {
+   "choice": "buff",
+   "confidence": 0.592
+  },
+  "tone": {
+   "choice": "neutral",
+   "confidence": 0.535
+  }
+ },
+ "can i join ur guild": {
+  "con": {
+   "choice": "normal",
+   "confidence": 0.634
+  },
+  "flat": {
+   "choice": "guild",
+   "confidence": 0.876
+  },
+  "tone": {
+   "choice": "neutral",
+   "confidence": 0.516
+  }
+ },
+ "can i join ur pt": {
+  "con": {
+   "choice": "normal",
+   "confidence": 0.608
+  },
+  "flat": {
+   "choice": "party",
+   "confidence": 0.485
+  },
+  "tone": {
+   "choice": "neutral",
+   "confidence": 0.478
+  }
+ },
+ "can u come to sleepywood real quick": {
+  "con": {
+   "choice": "normal",
+   "confidence": 0.505
+  },
+  "flat": {
+   "choice": "come",
+   "confidence": 0.92
+  },
+  "tone": {
+   "choice": "neutral",
+   "confidence": 0.373
+  }
+ },
+ "can u go lower": {
+  "con": {
+   "choice": "normal",
+   "confidence": 0.486
+  },
+  "flat": {
+   "choice": "haggle",
+   "confidence": 0.791
+  },
+  "tone": {
+   "choice": "neutral",
+   "confidence": 0.38
+  }
+ },
+ "can u help with the boss": {
+  "con": {
+   "choice": "normal",
+   "confidence": 0.57
+  },
+  "flat": {
+   "choice": "help_kill",
+   "confidence": 0.879
+  },
+  "tone": {
+   "choice": "neutral",
+   "confidence": 0.458
+  }
+ },
+ "can we be buddies": {
+  "con": {
+   "choice": "normal",
+   "confidence": 0.619
+  },
+  "flat": {
+   "choice": "buddy",
+   "confidence": 0.896
+  },
+  "tone": {
+   "choice": "neutral",
+   "confidence": 0.381
+  }
+ },
+ "come to ant tunnel": {
+  "con": {
+   "choice": "normal",
+   "confidence": 0.392
+  },
+  "flat": {
+   "choice": "come",
+   "confidence": 0.816
+  },
+  "tone": {
+   "choice": "neutral",
+   "confidence": 0.346
+  }
+ },
+ "come to the fm ch1": {
+  "con": {
+   "choice": "normal",
+   "confidence": 0.448
+  },
+  "flat": {
+   "choice": "come",
+   "confidence": 0.918
+  },
+  "tone": {
+   "choice": "neutral",
+   "confidence": 0.313
+  }
+ },
+ "come with me ill show u": {
+  "con": {
+   "choice": "normal",
+   "confidence": 0.319
+  },
+  "flat": {
+   "choice": "come",
+   "confidence": 0.613
+  },
+  "tone": {
+   "choice": "flirty",
+   "confidence": 0.315
+  }
+ },
+ "did u see xkaiz drop that ilbi": {
+  "con": {
+   "choice": "normal",
+   "confidence": 0.476
+  },
+  "flat": {
+   "choice": "talk",
+   "confidence": 0.275
+  },
+  "tone": {
+   "choice": "neutral",
+   "confidence": 0.334
+  }
+ },
+ "follow me": {
+  "con": {
+   "choice": "normal",
+   "confidence": 0.502
+  },
+  "flat": {
+   "choice": "follow",
+   "confidence": 0.959
+  },
+  "tone": {
+   "choice": "neutral",
+   "confidence": 0.341
+  }
+ },
+ "gg that was fun": {
+  "con": {
+   "choice": "normal",
+   "confidence": 0.556
+  },
+  "flat": {
+   "choice": "talk",
+   "confidence": 0.248
+  },
+  "tone": {
+   "choice": "rude",
+   "confidence": 0.402
+  }
+ },
+ "heal pls im dying": {
+  "con": {
+   "choice": "harassment",
+   "confidence": 0.351
+  },
+  "flat": {
+   "choice": "buff",
+   "confidence": 0.543
+  },
+  "tone": {
+   "choice": "neutral",
+   "confidence": 0.358
+  }
+ },
+ "help me kill these zombie mushrooms": {
+  "con": {
+   "choice": "normal",
+   "confidence": 0.565
+  },
+  "flat": {
+   "choice": "help_kill",
+   "confidence": 0.827
+  },
+  "tone": {
+   "choice": "neutral",
+   "confidence": 0.409
+  }
+ },
+ "how do i get to orbis": {
+  "con": {
+   "choice": "normal",
+   "confidence": 0.467
+  },
+  "flat": {
+   "choice": "come",
+   "confidence": 0.246
+  },
+  "tone": {
+   "choice": "neutral",
+   "confidence": 0.521
+  }
+ },
+ "how long have u been playing": {
+  "con": {
+   "choice": "normal",
+   "confidence": 0.543
+  },
+  "flat": {
+   "choice": "talk",
+   "confidence": 0.36
+  },
+  "tone": {
+   "choice": "neutral",
+   "confidence": 0.497
+  }
+ },
+ "how much for the work gloves": {
+  "con": {
+   "choice": "normal",
+   "confidence": 0.597
+  },
+  "flat": {
+   "choice": "haggle",
+   "confidence": 0.573
+  },
+  "tone": {
+   "choice": "neutral",
+   "confidence": 0.573
+  }
+ },
+ "ill give u 1m for it": {
+  "con": {
+   "choice": "scam",
+   "confidence": 0.349
+  },
+  "flat": {
+   "choice": "trade",
+   "confidence": 0.323
+  },
+  "tone": {
+   "choice": "kind",
+   "confidence": 0.318
+  }
+ },
+ "im so bored rn": {
+  "con": {
+   "choice": "normal",
+   "confidence": 0.552
+  },
+  "flat": {
+   "choice": "insult",
+   "confidence": 0.255
+  },
+  "tone": {
+   "choice": "rude",
+   "confidence": 0.675
+  }
+ },
+ "inv me pls": {
+  "con": {
+   "choice": "normal",
+   "confidence": 0.571
+  },
+  "flat": {
+   "choice": "party",
+   "confidence": 0.213
+  },
+  "tone": {
+   "choice": "neutral",
+   "confidence": 0.341
+  }
+ },
+ "is pinky online today": {
+  "con": {
+   "choice": "normal",
+   "confidence": 0.504
+  },
+  "flat": {
+   "choice": "talk",
+   "confidence": 0.315
+  },
+  "tone": {
+   "choice": "neutral",
+   "confidence": 0.556
+  }
+ },
+ "is ur guild recruiting": {
+  "con": {
+   "choice": "normal",
+   "confidence": 0.585
+  },
+  "flat": {
+   "choice": "guild",
+   "confidence": 0.864
+  },
+  "tone": {
+   "choice": "neutral",
+   "confidence": 0.533
+  }
+ },
+ "just hit 30 finally": {
+  "con": {
+   "choice": "normal",
+   "confidence": 0.498
+  },
+  "flat": {
+   "choice": "talk",
+   "confidence": 0.302
+  },
+  "tone": {
+   "choice": "neutral",
+   "confidence": 0.335
+  }
+ },
+ "lol this map is so laggy": {
+  "con": {
+   "choice": "normal",
+   "confidence": 0.533
+  },
+  "flat": {
+   "choice": "talk",
+   "confidence": 0.216
+  },
+  "tone": {
+   "choice": "rude",
+   "confidence": 0.496
+  }
+ },
+ "meet me at henesys": {
+  "con": {
+   "choice": "normal",
+   "confidence": 0.505
+  },
+  "flat": {
+   "choice": "date",
+   "confidence": 0.313
+  },
+  "tone": {
+   "choice": "neutral",
+   "confidence": 0.289
+  }
+ },
+ "miss me babe?": {
+  "con": {
+   "choice": "normal",
+   "confidence": 0.508
+  },
+  "flat": {
+   "choice": "flirt",
+   "confidence": 0.301
+  },
+  "tone": {
+   "choice": "flirty",
+   "confidence": 0.498
+  }
+ },
+ "my bad dude i didnt see u there": {
+  "con": {
+   "choice": "normal",
+   "confidence": 0.393
+  },
+  "flat": {
+   "choice": "insult",
+   "confidence": 0.214
+  },
+  "tone": {
+   "choice": "rude",
+   "confidence": 0.556
+  }
+ },
+ "nice gear for a lvl 30 scrub": {
+  "con": {
+   "choice": "normal",
+   "confidence": 0.476
+  },
+  "flat": {
+   "choice": "insult",
+   "confidence": 0.277
+  },
+  "tone": {
+   "choice": "rude",
+   "confidence": 0.713
+  }
+ },
+ "nice hat": {
+  "con": {
+   "choice": "normal",
+   "confidence": 0.574
+  },
+  "flat": {
+   "choice": "flirt",
+   "confidence": 0.647
+  },
+  "tone": {
+   "choice": "flirty",
+   "confidence": 0.401
+  }
+ },
+ "pt for lpq? need 1 more": {
+  "con": {
+   "choice": "normal",
+   "confidence": 0.449
+  },
+  "flat": {
+   "choice": "talk",
+   "confidence": 0.194
+  },
+  "tone": {
+   "choice": "neutral",
+   "confidence": 0.53
+  }
+ },
+ "show me the way to perion": {
+  "con": {
+   "choice": "normal",
+   "confidence": 0.525
+  },
+  "flat": {
+   "choice": "guide",
+   "confidence": 0.581
+  },
+  "tone": {
+   "choice": "neutral",
+   "confidence": 0.521
+  }
+ },
+ "sorry for ksing u earlier": {
+  "con": {
+   "choice": "normal",
+   "confidence": 0.534
+  },
+  "flat": {
+   "choice": "apology",
+   "confidence": 0.328
+  },
+  "tone": {
+   "choice": "kind",
+   "confidence": 0.44
+  }
+ },
+ "sry for being rude": {
+  "con": {
+   "choice": "normal",
+   "confidence": 0.475
+  },
+  "flat": {
+   "choice": "insult",
+   "confidence": 0.348
+  },
+  "tone": {
+   "choice": "rude",
+   "confidence": 0.711
+  }
+ },
+ "stay close ok": {
+  "con": {
+   "choice": "normal",
+   "confidence": 0.421
+  },
+  "flat": {
+   "choice": "follow",
+   "confidence": 0.896
+  },
+  "tone": {
+   "choice": "kind",
+   "confidence": 0.343
+  }
+ },
+ "stop ksing me u leecher": {
+  "con": {
+   "choice": "harassment",
+   "confidence": 0.37
+  },
+  "flat": {
+   "choice": "insult",
+   "confidence": 0.446
+  },
+  "tone": {
+   "choice": "rude",
+   "confidence": 0.791
+  }
+ },
+ "take me to amoria lol": {
+  "con": {
+   "choice": "normal",
+   "confidence": 0.398
+  },
+  "flat": {
+   "choice": "date",
+   "confidence": 0.371
+  },
+  "tone": {
+   "choice": "flirty",
+   "confidence": 0.481
+  }
+ },
+ "thanks for the help earlier!": {
+  "con": {
+   "choice": "normal",
+   "confidence": 0.666
+  },
+  "flat": {
+   "choice": "talk",
+   "confidence": 0.28
+  },
+  "tone": {
+   "choice": "kind",
+   "confidence": 0.734
+  }
+ },
+ "thats too much, 300k?": {
+  "con": {
+   "choice": "normal",
+   "confidence": 0.475
+  },
+  "flat": {
+   "choice": "haggle",
+   "confidence": 0.583
+  },
+  "tone": {
+   "choice": "rude",
+   "confidence": 0.473
+  }
+ },
+ "these drakes keep killing me help": {
+  "con": {
+   "choice": "harassment",
+   "confidence": 0.4
+  },
+  "flat": {
+   "choice": "help_kill",
+   "confidence": 0.731
+  },
+  "tone": {
+   "choice": "rude",
+   "confidence": 0.688
+  }
+ },
+ "trade me ur ilbis": {
+  "con": {
+   "choice": "normal",
+   "confidence": 0.318
+  },
+  "flat": {
+   "choice": "trade",
+   "confidence": 0.8
+  },
+  "tone": {
+   "choice": "neutral",
+   "confidence": 0.371
+  }
+ },
+ "u selling any claw scrolls?": {
+  "con": {
+   "choice": "scam",
+   "confidence": 0.329
+  },
+  "flat": {
+   "choice": "trade",
+   "confidence": 0.706
+  },
+  "tone": {
+   "choice": "neutral",
+   "confidence": 0.459
+  }
+ },
+ "ugh i died again": {
+  "con": {
+   "choice": "harassment",
+   "confidence": 0.601
+  },
+  "flat": {
+   "choice": "insult",
+   "confidence": 0.343
+  },
+  "tone": {
+   "choice": "rude",
+   "confidence": 0.675
+  }
+ },
+ "ur cute": {
+  "con": {
+   "choice": "normal",
+   "confidence": 0.462
+  },
+  "flat": {
+   "choice": "flirt",
+   "confidence": 0.453
+  },
+  "tone": {
+   "choice": "flirty",
+   "confidence": 0.899
+  }
+ },
+ "ur kinda pretty ngl": {
+  "con": {
+   "choice": "normal",
+   "confidence": 0.437
+  },
+  "flat": {
+   "choice": "flirt",
+   "confidence": 0.786
+  },
+  "tone": {
+   "choice": "flirty",
+   "confidence": 0.895
+  }
+ },
+ "ur such a noob lol": {
+  "con": {
+   "choice": "normal",
+   "confidence": 0.422
+  },
+  "flat": {
+   "choice": "insult",
+   "confidence": 0.48
+  },
+  "tone": {
+   "choice": "rude",
+   "confidence": 0.718
+  }
+ },
+ "ur trash at this game": {
+  "con": {
+   "choice": "harassment",
+   "confidence": 0.556
+  },
+  "flat": {
+   "choice": "insult",
+   "confidence": 0.618
+  },
+  "tone": {
+   "choice": "rude",
+   "confidence": 0.858
+  }
+ },
+ "wanna go on a date": {
+  "con": {
+   "choice": "normal",
+   "confidence": 0.653
+  },
+  "flat": {
+   "choice": "date",
+   "confidence": 0.771
+  },
+  "tone": {
+   "choice": "flirty",
+   "confidence": 0.413
+  }
+ },
+ "wanna go out sometime?": {
+  "con": {
+   "choice": "normal",
+   "confidence": 0.605
+  },
+  "flat": {
+   "choice": "date",
+   "confidence": 0.686
+  },
+  "tone": {
+   "choice": "flirty",
+   "confidence": 0.483
+  }
+ },
+ "wanna party?": {
+  "con": {
+   "choice": "normal",
+   "confidence": 0.556
+  },
+  "flat": {
+   "choice": "party",
+   "confidence": 0.957
+  },
+  "tone": {
+   "choice": "flirty",
+   "confidence": 0.355
+  }
+ },
+ "what lvl are u": {
+  "con": {
+   "choice": "normal",
+   "confidence": 0.484
+  },
+  "flat": {
+   "choice": "talk",
+   "confidence": 0.329
+  },
+  "tone": {
+   "choice": "neutral",
+   "confidence": 0.48
+  }
+ },
+ "whats ur job": {
+  "con": {
+   "choice": "normal",
+   "confidence": 0.435
+  },
+  "flat": {
+   "choice": "talk",
+   "confidence": 0.357
+  },
+  "tone": {
+   "choice": "neutral",
+   "confidence": 0.503
+  }
+ },
+ "where do u train": {
+  "con": {
+   "choice": "normal",
+   "confidence": 0.457
+  },
+  "flat": {
+   "choice": "guide",
+   "confidence": 0.445
+  },
+  "tone": {
+   "choice": "neutral",
+   "confidence": 0.548
+  }
+ },
+ "where is the kerning pq npc": {
+  "con": {
+   "choice": "normal",
+   "confidence": 0.515
+  },
+  "flat": {
+   "choice": "talk",
+   "confidence": 0.316
+  },
+  "tone": {
+   "choice": "neutral",
+   "confidence": 0.517
+  }
+ },
+ "would u do 500k": {
+  "con": {
+   "choice": "normal",
+   "confidence": 0.381
+  },
+  "flat": {
+   "choice": "haggle",
+   "confidence": 0.442
+  },
+  "tone": {
+   "choice": "neutral",
+   "confidence": 0.414
+  }
+ },
+ "wts brown work gloves": {
+  "con": {
+   "choice": "normal",
+   "confidence": 0.509
+  },
+  "flat": {
+   "choice": "talk",
+   "confidence": 0.268
+  },
+  "tone": {
+   "choice": "neutral",
+   "confidence": 0.345
+  }
+ }
+}
