@@ -335,6 +335,7 @@ public class CommandsExecutor {
         if (soloMapling.server.AttackCapture.isEnabled()) {
             addCommand("classtest", 2, ClassTestCommand.class); // test server attack capture (ticket 32)
             addCommand("botshowcase", 3, client.command.commands.gm3.BotShowcaseCommand.class); // ticket 32
+            addCommand("botground", 3, client.command.commands.gm3.BotGroundCommand.class); // 1.5.0 rc5: bots off their foothold
         }
         if (soloMapling.qa.QaSuite.isEnabled()) {
             addCommand("qa", 3, client.command.commands.gm3.QaCommand.class); // test scenarios + logs/qa (docs/ops/qa-suite.md)

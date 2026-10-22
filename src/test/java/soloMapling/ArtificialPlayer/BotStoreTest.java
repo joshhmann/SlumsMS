@@ -888,6 +888,22 @@ class BotStoreTest {
     }
 
     @Test
+    void adoptionLiftsABotThatSankIntoTheGroundBackOntoItsFoothold() {
+        // 1.5.0 rc5: each boot's spawn drop left a restored town bot 1 px lower; the row stored (512, 640) after
+        // 40 boots on a floor at y 600. Restoring puts it back on the floor instead of 40 px inside it.
+        Character bot = newBot(BOT_ID, "Sunk");
+        MapleMap home = mock(MapleMap.class);
+        when(home.getId()).thenReturn(100_000_002);
+        server.maps.FootholdTree tree = new server.maps.FootholdTree(new Point(-30000, -30000), new Point(30000, 30000));
+        tree.insert(new server.maps.Foothold(new Point(0, 600), new Point(1000, 600), 1));
+        when(home.getFootholds()).thenReturn(tree);
+
+        row(STORED_BOT_ID).restorePlacement(bot, home);
+
+        assertEquals(new Point(512, 600), bot.getPosition());
+    }
+
+    @Test
     void aBotWhoseHomeMapChangedKeepsTheSpawnPoint() {
         Character bot = newBot(BOT_ID, "Placed");
         bot.setPosition(new Point(10, 10));

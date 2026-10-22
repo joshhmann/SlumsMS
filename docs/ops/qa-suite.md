@@ -206,6 +206,25 @@ How it is measured: `AttackCapture.attack` (called by the close, ranged, magic a
 (one volatile read and a map lookup). Fragment times count back from the packet's arrival by the fragments'
 durations. The analysis is `soloMapling.qa.SlideMeter` (pure, tested in `SlideMeterTest`).
 
+## `!botground`: bots off their foothold (1.5.0 rc5)
+
+Owner report (rc4, Henesys): some bots stood half inside the ground. `!botground` (GM 3, every server) lists the bots
+on your map whose server y is not their foothold's y:
+
+```
+NachoHat08 at (1148, 363): 29 px below its foothold (y 334), stance 4
+```
+
+`!botground fix` also puts the sunk ones back on their foothold (viewers see them pop up). `!botground channel` counts
+sunk and airborne bots on every map of your channel. A bot mid-jump shows as "above its foothold"; that is fine.
+
+Cause: the spawn drop (`portalenterdrop`) is replayed relative to the bot and ends 1 px lower than it starts, and
+`BotStore.restorePlacement` put the stored point back as is. Each boot sank a restored town bot (no physics) 1 px; ~30
+test-server boots left the Henesys, Pet Park and Game Zone townspeople up to 30 px inside the ground. rc5 settles the
+stored point on its foothold (`BotGround.settle`) and lands the drop on the floor under the bot
+(`MovementCommands.BotMoveStreamOffsetLanding`), which also lands bots that warped in at a portal instead of leaving
+them hanging at the portal's height. After an rc5 boot `!botground channel` should report no sunk bots.
+
 ## Logs
 
 Each run writes `logs/qa/<id>-<UTC yyyyMMddTHHmmssZ>.log` under the server's working directory, for example

@@ -179,6 +179,41 @@ public class MovementCommands {
         BotMoveStreamHelper(mvr, fakechar, true, null);
     }
 
+    /**
+     * 1.5.0 rc5: replays a recording relative to the bot (as {@link #BotMoveStreamOffset}) so that it ends on
+     * {@code landing}, and leaves the bot exactly there. A relative replay carries the recording's own net rise or
+     * fall over: {@code portalenterdrop} ends 1 px below where it starts, which sank every restored town bot 1 px
+     * per boot. A null landing (no foothold) replays as before.
+     */
+    public static void BotMoveStreamOffsetLanding(MovementRecording mvr, Character fakechar, Point landing) {
+        if (landing == null) {
+            BotMoveStreamOffset(mvr, fakechar);
+            return;
+        }
+        fakechar.setPosition(new Point(landing.x, landing.y - offsetReplayNetDy(mvr)));
+        BotMoveStreamOffset(mvr, fakechar);
+        if (!landing.equals(fakechar.getPosition())) {
+            fakechar.setPosition(new Point(landing));
+            BotIdleStandingUpdateForced(fakechar); // viewers' copy of the bot goes where the server has it
+        }
+    }
+
+    /** How far down (px) a relative replay of this recording moves the bot: each packet's last y minus its first. */
+    static int offsetReplayNetDy(MovementRecording mvr) {
+        int dy = 0;
+        for (MovementPacket mvp : mvr.getMovementPacketList()) {
+            try {
+                List<SingleMoveCommand> moves = deconstructMovementInPacket(mvp.getPacket().copy());
+                if (!moves.isEmpty()) {
+                    dy += moves.getLast().getYpos() - moves.getFirst().getYpos();
+                }
+            } catch (RuntimeException e) {
+                // an unreadable packet moves nothing here; the landing check after the replay catches the rest
+            }
+        }
+        return dy;
+    }
+
     public static void BotMoveStream(MovementRecording mvr, Character fakechar) {
         BotMoveStreamHelper(mvr, fakechar, false, null);
     }
