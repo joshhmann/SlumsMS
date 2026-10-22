@@ -82,6 +82,10 @@ the showcase's own minutes plus one.
 | `rv-2` (1.5.0) | As rv-1 with a nemesis. Fight, then `!qa do kswar [2-4]` (caps skipped; live once per player per day, 3 an hour). `!qa do endwar` ends it; stop ends it too | `KS WAR <rival> calls n bot(s) on <you> (who) for 180 s`, each mob taken (`KS <bot> takes <mob> from <you>, n left`), `KS WAR over ... went back` |
 | `rv-3` (1.5.0) | As rv-1 with a nemesis, which posts a callout megaphone at once. `!qa do callout` again (caps skipped) | `CALLOUT <bot> on <you>: megaphone sent/queued/gated` |
 | `rv-4` (1.5.0) | As rv-1, and arms the rival to follow you once. Take any portal: it shows up 5-8 s later and demands an apology. Say "sorry", mock it ("lol cry more"), or say nothing for 90 s. `!qa do revenge` arms it again | `REVENGE <bot> followed <you> to <map>`, `REVENGE apology (rules/decide): ... calms down (+30)`, `REVENGE mocked ...: NEMESIS now`, `REVENGE no answer ... gives up` |
+| `gw-1` `[guild]` (1.5.0) | Picks a bot guild with a rival (default the biggest), warps you to 104040000 if your map has no mobs, stages two members of it and one of its rival next to you, declares the war and scores a minute of turf. `!qa do turf`, `!qa do taunt` (war megaphone + a turf fight), `!qa do score`, `!qa do end` (the result megaphone). Stop ends wars started here (no result megaphone) | `WAR DECLARED a vs b`, `TURF #id a +n / b +n -> score; a holds <maps>`, `WAR TAUNT`, `TURF <bot> goes to contest map`, `WAR OVER ... score` |
+| `gw-2` `[guild]` (1.5.0) | You must be in a player guild. Stages a member of a bot guild that is your rival next to you (on a grind map) and runs the guild's player-war check: half or more of your guild's online members are its rivals, so it declares war on your guild. `@guildwar` shows it; `!qa do turf`, `!qa do taunt` (a grinder comes to your map and jabs), `@guildwar peace` (master / jr. master) | `<guild> declared war on <yours> (1 of 1 online members are its rivals)`, the `[Guild War]` notice, `TURF`, `WAR OVER ... peace` |
+| `gw-3` `[guild]` (1.5.0) | Picks a bot guild with a rival and poaches a member from the rival at once. In a player guild it also stages a member that likes you: `!qa do player` whispers you an offer (leave your guild within 15 min for a real invite). `!qa do poach` again. Note: a poached roster bot stays in its new guild | `POACH <bot>: <old> -> <new> (megaphone)`, the guild chat lines (`GUILD SAY`), `POACH WHISPER`, `POACH INVITE` |
+| `gw-4` `[guild]` (1.5.0) | Allies the bot guild (default the biggest) with another (not its rival). `!qa do chat` (a shout-out in guild chat), `!qa do bossrun` (a joint staged run of both guilds; you are warped to the entrance), `!qa do betray` (a backstab, then war). Stop ends the alliance and the war | `ALLIANCE a + b`, `BOSS RUN a + b -> <boss>`, `BETRAYAL a betrayed b: war #id` |
 
 What `!qa stop` undoes:
 
@@ -96,6 +100,8 @@ What `!qa stop` undoes:
 - gu-1..gu-8: staged guild bots leave their guild and the world; gu-1/gu-3/gu-8 make you leave a guild you joined during the
   run; gu-5 ends the boss run (bots inside log back in).
 - rv-1..rv-4: the staged rivals leave; rv-2 ends the KS war (the called bots go back where they were).
+- gw-1..gw-4: staged guild bots leave; wars and alliances started in the run end without a result megaphone; gw-4
+  ends the joint boss run. A bot poached in gw-3 stays in its new guild.
 - rm-1..rm-4: every staged bot leaves; an engagement or marriage to a staged bot is undone first (marriages row, rings,
   ring and tokens, partner fields); your `@romance` setting goes back to what it was; rm-2 takes back the ring box.
 - tr-1: the bot's shop closes (unsold items back to it) and the bot leaves. tr-4: the gift chance goes back to

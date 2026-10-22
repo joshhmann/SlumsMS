@@ -21,6 +21,8 @@ import java.util.concurrent.TimeUnit;
 public final class DramaGm {
 
     private static final Map<Integer, List<Integer>> staged = new ConcurrentHashMap<>();
+    /** Wars and alliances a GM started (ended by {@code !botwar cleanup} / the scenario's stop). */
+    private static final Map<Integer, List<Long>> gmWars = new ConcurrentHashMap<>();
 
     private DramaGm() {
     }
@@ -32,6 +34,7 @@ public final class DramaGm {
         return switch (area) {
             case "romance" -> romance(gm, action, args);
             case "rival" -> rival(gm, action, args);
+            case "war" -> war(gm, action, args);
             default -> List.of("unknown drama area " + area);
         };
     }
@@ -293,6 +296,143 @@ public final class DramaGm {
                     + " endwar | callout | revenge | die | unstage");
         }
         return out;
+    }
+
+    // ── guild wars ──
+
+    static soloMapling.ArtificialPlayer.BotGuildSystem.GuildStore.GuildRow guild(String name) {
+        return name == null ? null : soloMapling.ArtificialPlayer.BotGuildSystem.BotGuilds.byName(name);
+    }
+
+    static List<String> war(Character gm, String action, String[] args) {
+        List<String> out = new ArrayList<>();
+        var a = args.length > 0 ? guild(args[0]) : null;
+        var b = args.length > 1 ? guild(args[1]) : null;
+        switch (action) {
+            case "status", "list" -> out.addAll(GuildWars.describe());
+            case "declare" -> {
+                if (a == null) {
+                    out.add("Usage: !botwar declare <bot guild> [<bot guild>|player]");
+                    return out;
+                }
+                if (args.length > 1 && "player".equalsIgnoreCase(args[1])) {
+                    if (gm.getGuildId() <= 0) {
+                        out.add("be in a (player) guild first");
+                        return out;
+                    }
+                    var w = GuildWars.declareOnPlayers(a, gm.getGuildId(), gm.getName());
+                    remember(gm, w);
+                    out.add(w == null ? "no war (already at war, or that is a bot guild)" : a.name() + " declared war on "
+                            + "your guild (#" + w.id() + ")");
+                    return out;
+                }
+                var target = b != null ? b : a.rivalId() > 0
+                        ? soloMapling.ArtificialPlayer.BotGuildSystem.BotGuilds.guild(a.rivalId()) : null;
+                var w = GuildWars.declare(a, target, gm.getName());
+                remember(gm, w);
+                out.add(w == null ? "no war (no rival, or already at war)" : a.name() + " declared war on "
+                        + target.name() + " (#" + w.id() + ")");
+            }
+            case "check" -> {
+                if (a == null) {
+                    out.add("Usage: !botwar check <bot guild>");
+                    return out;
+                }
+                out.addAll(GuildWars.checkPlayerGuilds(a, System.currentTimeMillis(),
+                        java.util.concurrent.ThreadLocalRandom.current(), true));
+                if (gm.getGuildId() > 0) {
+                    remember(gm, GuildWars.warBetween(a.guildId(), gm.getGuildId()));
+                }
+            }
+            case "turf" -> out.addAll(GuildWars.turfNow());
+            case "taunt" -> out.addAll(GuildWars.tauntNow(intArg(args, 0)));
+            case "score" -> out.addAll(GuildWars.describeFor(gm));
+            case "peace" -> out.add(GuildWars.peace(gm));
+            case "end" -> {
+                long id = intArg(args, 0);
+                List<Long> mine = gmWars.getOrDefault(gm.getId(), List.of());
+                if (id == 0 && !mine.isEmpty()) {
+                    id = mine.get(mine.size() - 1);
+                }
+                out.add(GuildWars.endNow(id));
+            }
+            case "allychat" -> out.add(GuildWars.allyChatNow());
+            case "cleanup" -> {
+                List<Long> mine = gmWars.remove(gm.getId());
+                int n = 0;
+                if (mine != null) {
+                    for (long id : mine) {
+                        GuildWarStore.War w = GuildWars.byId(id);
+                        if (w != null && w.active()) {
+                            GuildWars.endQuietly(w);
+                            n++;
+                        }
+                    }
+                }
+                out.add("ended " + n + " war(s)/alliance(s) started here");
+            }
+            case "poach" -> {
+                if (a == null) {
+                    out.add("Usage: !botwar poach <bot guild> [<from bot guild>|player]");
+                    return out;
+                }
+                if (args.length > 1 && "player".equalsIgnoreCase(args[1])) {
+                    out.add(GuildWars.poachPlayer(a, System.currentTimeMillis(), true));
+                } else {
+                    var from = b != null ? b : a.rivalId() > 0
+                            ? soloMapling.ArtificialPlayer.BotGuildSystem.BotGuilds.guild(a.rivalId()) : null;
+                    out.add(GuildWars.poachBot(a, from, java.util.concurrent.ThreadLocalRandom.current()));
+                }
+            }
+            case "ally" -> {
+                if (a != null && b == null) {
+                    b = GuildWars.allyFor(a);
+                }
+                var w = GuildWars.ally(a, b, gm.getName());
+                remember(gm, w);
+                out.add(w == null ? "Usage: !botwar ally <bot guild> <bot guild> (not rivals, not at war, not allied)"
+                        : a.name() + " + " + b.name() + " are allies (#" + w.id() + ")");
+            }
+            case "betray" -> {
+                long id = intArg(args, 0);
+                GuildWarStore.War alliance = id > 0 ? GuildWars.byId(id) : GuildWars.active().stream()
+                        .filter(w -> w.kind() == GuildWarStore.Kind.ALLIANCE).findFirst().orElse(null);
+                out.add(alliance == null ? "no alliance" : GuildWars.betray(alliance, alliance.a(), gm.getName()));
+                if (alliance != null) {
+                    remember(gm, GuildWars.warBetween(alliance.a(), alliance.b()));
+                }
+            }
+            case "bossrun" -> {
+                if (a == null) {
+                    out.add("Usage: !botwar bossrun <bot guild> (a joint staged run with its allies)");
+                    return out;
+                }
+                var allies = GuildWars.alliesOf(a.guildId());
+                String problem = soloMapling.ArtificialPlayer.BotGuildSystem.GuildBossRuns.start(a, null, true,
+                        gm.getName(), DramaKit.channelOf(gm), allies);
+                int entrance = soloMapling.ArtificialPlayer.BotGuildSystem.GuildBossRuns.entranceMap();
+                if (problem == null && entrance > 0 && gm.getMapId() != entrance) {
+                    gm.changeMap(entrance);
+                }
+                out.add(problem == null ? "joint boss run started with " + allies.size() + " allied guild(s) at map "
+                        + entrance : "no boss run: " + problem);
+            }
+            case "step" -> {
+                GuildWars.stepNow();
+                out.add("guild war step ran");
+            }
+            case "unstage" -> out.add("removed " + unstageAll(gm.getId()) + " staged bot(s)");
+            default -> out.add("!botwar list | declare <guild> [<guild>|player] | check <guild> | turf | taunt [id] |"
+                    + " score | peace | end <id> | poach <guild> [<guild>|player] | ally <a> <b> | betray [id] |"
+                    + " bossrun <guild> | step | unstage");
+        }
+        return out;
+    }
+
+    private static void remember(Character gm, GuildWarStore.War w) {
+        if (w != null) {
+            gmWars.computeIfAbsent(gm.getId(), k -> new CopyOnWriteArrayList<>()).add(w.id());
+        }
     }
 
     /** Small bridge so staging can put feelings back after a quiet staged breakup. */

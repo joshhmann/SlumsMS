@@ -6,7 +6,8 @@ import soloMapling.ArtificialPlayer.BotSM;
 
 /**
  * The 1.5.0 bot drama package's one door for the game code: every hook calls in here, and here it fans out to the
- * romance ({@link BotRomance}, {@link RomanceWedding}) and rivalry ({@link BotRivalry}) parts. Each hook returns at once when the package is off ({@code -Dsolomapling.drama=false}) or the character is a
+ * romance ({@link BotRomance}, {@link RomanceWedding}), rivalry ({@link BotRivalry}) and guild war ({@link GuildWars})
+ * parts. Each hook returns at once when the package is off ({@code -Dsolomapling.drama=false}) or the character is a
  * bot, and does only memory work on the calling thread.
  */
 public final class BotDrama {
@@ -73,6 +74,7 @@ public final class BotDrama {
         }
         BotRomance.maybeStep(now);
         BotRivalry.maybeStep(now);
+        GuildWars.maybeStep(now);
     }
 
     /** A bot joined the world (before it shows on the map). */

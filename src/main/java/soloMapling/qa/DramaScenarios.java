@@ -15,7 +15,7 @@ import static soloMapling.qa.QaLog.Topic.RIVALRY;
 import static soloMapling.qa.QaLog.Topic.ROMANCE;
 
 /**
- * 1.5.0 bot drama scenarios: romance (rm-1 .. rm-4), rivals (rv-1 .. rv-4). Every staged bot is an on-demand bot (memory only) and leaves at
+ * 1.5.0 bot drama scenarios: romance (rm-1 .. rm-4), rivals (rv-1 .. rv-4), guild wars (gw-1 .. gw-4). Every staged bot is an on-demand bot (memory only) and leaves at
  * stop; an engagement or marriage to a staged bot is undone at stop; the GM's {@code @romance} setting is put back.
  * The steps are the {@code !botromance} actions (same code).
  */
@@ -29,7 +29,8 @@ final class DramaScenarios {
 
     static List<QaScenario> all() {
         return List.of(new Rm1Dating(), new Rm2Wedding(), new Rm3Breakup(), new Rm4Objection(),
-                new Rv1Roast(), new Rv2KsWar(), new Rv3Callout(), new Rv4Revenge());
+                new Rv1Roast(), new Rv2KsWar(), new Rv3Callout(), new Rv4Revenge(),
+                new Gw1BotWar(), new Gw2PlayerWar(), new Gw3Poach(), new Gw4Alliance());
     }
 
     /** Shared: a drama step logged as STEP lines; staged bots and the romance setting undone at stop. */
@@ -357,6 +358,178 @@ final class DramaScenarios {
 
         public List<String> action(QaContext ctx, String name, String[] args) {
             return step(ctx, name, List.of("revenge", "status", "roast"));
+        }
+    }
+
+    // ---- guild wars (gw-1 .. gw-4) ----
+
+    abstract static class WarScenario extends DramaScenario {
+        WarScenario() {
+            super("war");
+        }
+
+        public Set<QaLog.Topic> topics() {
+            return EnumSet.of(GUILD_WAR, BOT_GUILD, BOT_CHAT);
+        }
+
+        /** Wars and alliances started in the run end at stop (no result megaphone); staged guild bots leave. */
+        void cleanupAtStop(QaContext ctx) {
+            ctx.onStop("end the wars and alliances started here", () -> {
+                Character now = ctx.gmNow();
+                for (String line : ctx.world().dramaAction(now != null ? now : ctx.gm(), "war", "cleanup")) {
+                    ctx.run().note("CLEANUP", line);
+                }
+            });
+        }
+
+        String guild(QaContext ctx, boolean withRival) {
+            String wanted = ctx.args().length > 0 ? ctx.args()[0] : null;
+            String g = ctx.world().pickBotGuild(wanted, withRival);
+            if (g == null) {
+                throw new QaRefusal("No bot guild" + (withRival ? " with a rival" : "") + " yet (!botguild list).");
+            }
+            return g;
+        }
+
+        int stageMember(QaContext ctx, String state, String guild) {
+            int id = ctx.world().stageGuildBot(ctx.gm(), state, guild, 5);
+            if (id < 0) {
+                throw new QaRefusal("No bot could be staged in " + guild + ".");
+            }
+            ctx.onStop("unstage guild bot " + id, () -> ctx.world().unstageGuildBot(id));
+            ctx.log("staged " + state + " member " + id + " of " + guild);
+            return id;
+        }
+
+        void onAGrindMap(QaContext ctx) {
+            if (ctx.world().liveMobCount(ctx.gm()) == 0) {
+                if (!ctx.world().warp(ctx.gm(), HUNTING_GROUND)) {
+                    throw new QaRefusal("Cannot warp to " + HUNTING_GROUND + ".");
+                }
+                ctx.log("warped to " + HUNTING_GROUND + " (turf counts on grind maps)");
+            }
+        }
+    }
+
+    /** gw-1: two rival bot guilds go to war: megaphones, turf on grind maps, taunts, a weekly score. */
+    static final class Gw1BotWar extends WarScenario {
+        public String id() { return "gw-1"; }
+        public String title() { return "Bot guild war: declaration megaphones, turf on grind maps, taunts, score (1.5.0)"; }
+        public String usage() { return "[guild]; then !qa do turf | taunt | score | end"; }
+
+        public List<String> stage(QaContext ctx) {
+            String g = guild(ctx, true);
+            String rival = ctx.world().rivalOf(g);
+            onAGrindMap(ctx);
+            cleanupAtStop(ctx);
+            stageMember(ctx, "neutral", g);
+            stageMember(ctx, "neutral", g);
+            stageMember(ctx, "neutral", rival);
+            List<String> out = new ArrayList<>(act(ctx, "declare", g, rival));
+            out.addAll(act(ctx, "turf"));
+            out.add(g + " declared war on " + rival + " (WAR DECLARED; GuildWarDeclare megaphone through the gate, a");
+            out.add("line in both guild chats). Two of " + g + " and one of " + rival + " stand on this grind map, so " + g);
+            out.add("holds it (TURF). Every minute each grind map is held by the side with more members there (+1).");
+            out.add("!qa do turf (score a minute now), !qa do taunt (a war megaphone + a turf fight: a grinder goes to a");
+            out.add("map the other side holds), !qa do score (@guildwar), !qa do end (ends it with the result megaphone).");
+            return out;
+        }
+
+        public List<String> action(QaContext ctx, String name, String[] args) {
+            return step(ctx, name, List.of("turf", "taunt", "score", "end", "list", "step"));
+        }
+    }
+
+    /** gw-2: a bot guild declares war on the GM's (player) guild; @guildwar shows it; @guildwar peace ends it. */
+    static final class Gw2PlayerWar extends WarScenario {
+        public String id() { return "gw-2"; }
+        public String title() { return "A bot guild declares war on your guild: @guildwar score, @guildwar peace (1.5.0)"; }
+        public String usage() { return "[guild]; then !qa do check | turf | score | peace"; }
+
+        public List<String> stage(QaContext ctx) {
+            if (ctx.world().guildIdOf(ctx.gm()) <= 0) {
+                throw new QaRefusal("Be in a (player) guild first (create one at the Guild HQ: !qa run gd-1).");
+            }
+            String g = guild(ctx, false);
+            onAGrindMap(ctx);
+            cleanupAtStop(ctx);
+            stageMember(ctx, "rival", g);
+            List<String> out = new ArrayList<>(act(ctx, "check", g));
+            out.add("A member of " + g + " next to you is your rival, so " + g + "'s rivals are all of your guild online:");
+            out.add("it declares war on your guild (WAR DECLARED ... on player guild; a [Guild War] notice for your guild's");
+            out.add("members; a megaphone). @guildwar shows the score and the maps each side holds; !qa do turf scores a");
+            out.add("minute; !qa do taunt sends a grinder to your map with a jab. @guildwar peace (master / jr. master)");
+            out.add("ends it (GuildWarPeace megaphone, a whisper). @botdrama off members are never counted or notified.");
+            return out;
+        }
+
+        public List<String> action(QaContext ctx, String name, String[] args) {
+            if ("check".equals(name)) {
+                return act(ctx, "check", guild(ctx, false));
+            }
+            return step(ctx, name, List.of("turf", "taunt", "score", "peace", "end", "list"));
+        }
+    }
+
+    /** gw-3: poaching: a bot guild lures a member from its rival; and whispers a player in a player guild. */
+    static final class Gw3Poach extends WarScenario {
+        public String id() { return "gw-3"; }
+        public String title() { return "Poaching: a bot guild lures a rival's member; whispers a player in a player guild (1.5.0)"; }
+        public String usage() { return "[guild]; then !qa do poach | player"; }
+
+        public List<String> stage(QaContext ctx) {
+            String g = guild(ctx, true);
+            List<String> out = new ArrayList<>(act(ctx, "poach", g));
+            if (ctx.world().guildIdOf(ctx.gm()) > 0) {
+                stageMember(ctx, "friend", g);
+                out.add("A member of " + g + " who likes you stands here: !qa do player - it whispers you an offer (POACH");
+                out.add("WHISPER); leave your guild within 15 minutes and a real invite follows (POACH INVITE).");
+            } else {
+                out.add("(Join a player guild to test the player whisper: !qa do player after staging again.)");
+            }
+            out.add(g + " lured a member away from its rival (POACH): a goodbye in the old guild chat, \"traitor\" from");
+            out.add("the old leader, a welcome in the new one, a megaphone in a QA run (live 1 in 4). !qa do poach again.");
+            out.add("Live: per bot guild every 6 h at most, 30%; player whispers once a week per player, 2 an hour.");
+            return out;
+        }
+
+        public List<String> action(QaContext ctx, String name, String[] args) {
+            String g = guild(ctx, true);
+            return switch (name) {
+                case "poach" -> act(ctx, "poach", g);
+                case "player" -> act(ctx, "poach", g, "player");
+                default -> throw new QaRefusal("gw-3 steps: poach, player");
+            };
+        }
+    }
+
+    /** gw-4: two bot guilds ally (shout-outs, a joint boss run); then one betrays the other and it is war. */
+    static final class Gw4Alliance extends WarScenario {
+        public String id() { return "gw-4"; }
+        public String title() { return "Alliance and betrayal: allies, a joint boss run, a backstab, then war (1.5.0)"; }
+        public String usage() { return "[guild]; then !qa do chat | bossrun | betray"; }
+        public int minutes(String[] args) { return 15; }
+
+        public List<String> stage(QaContext ctx) {
+            String g = guild(ctx, false);
+            cleanupAtStop(ctx);
+            ctx.onStop("end the boss run", () -> ctx.world().botGuildAction(ctx.gmNow() != null ? ctx.gmNow() : ctx.gm(),
+                    "bossstop", new String[0]));
+            List<String> out = new ArrayList<>(act(ctx, "ally", g));
+            out.add(g + " and an ally (ALLIANCE; GuildAlliance megaphone, a line in both guild chats). !qa do chat: a");
+            out.add("shout-out to the ally in guild chat. !qa do bossrun: a joint staged boss run (both guilds' members");
+            out.add("gather; you are warped to the entrance). !qa do betray: one backstabs the other (BETRAYAL megaphone,");
+            out.add("guild chat) and they are at war at once (WAR DECLARED). Stop ends the alliance and the war.");
+            return out;
+        }
+
+        public List<String> action(QaContext ctx, String name, String[] args) {
+            return switch (name) {
+                case "chat" -> act(ctx, "allychat");
+                case "bossrun" -> act(ctx, "bossrun", guild(ctx, false));
+                case "betray" -> act(ctx, "betray");
+                default -> throw new QaRefusal("gw-4 steps: chat, bossrun, betray");
+            };
         }
     }
 }

@@ -2,7 +2,7 @@
 
 **Area:** Real bots / Social
 **Depends on:** 49 (buddies), 50 (guilds), 52 (marriage), 21 (world events), 26/36/37 (chat), 47 (megaphone content)
-**Status:** 1.5.0 part built on `bots-affinity-150` (bot<->player affinity, `@botdrama`, earned speed, bot couples and weddings); bot<->bot friendships, guild beef and player romance stay open
+**Status:** 1.5.0 part built on `bots-affinity-150` (bot<->player affinity, `@botdrama`, earned speed, bot couples and weddings); player romance, spicy rivals and guild wars built on `bots-drama-150` (1.5.0 rc4, owner 2026-10-22); bot<->bot friendships stay open
 
 Owner: "an affinity system? Friends, enemies, nemesis, guild beef, guild alliances, KS wars, friends to lovers to
 marriage." The aim: the world remembers who gets along with whom, and that shows up in play - who greets whom, who
@@ -226,3 +226,31 @@ the love note in `MegaphoneDialogue.yaml` `CoupleLoveNote`, wedding chatter `Wed
 
 [docs/release/1.5.0-bots-affinity-deploy.md](../release/1.5.0-bots-affinity-deploy.md): migrations 011 and 012, no
 config keys, and the one-time nav cache clean-up (non-base graph files) the owner approved.
+
+## Bot drama (1.5.0 rc4, branch `bots-drama-150`, owner 2026-10-22: "spicy")
+
+The owner moved player romance, KS wars and guild beef into 1.5.0. This overrides decision 1 above ("bot<->player
+only" stays true; romance with players is now in, opt-in) and the "never follows a player to another map" rule for
+two cases only: a romance partner (opt-in) and one revenge follow. Deploy notes, every number and switch:
+[1.5.0-bot-drama-deploy.md](../release/1.5.0-bot-drama-deploy.md). Code: `ArtificialPlayer/BotDramaSystem/`.
+
+Guardrails (kept exactly): `@botdrama off` = no rival, KS, callout or guild-war drama aimed at the player (and quiet
+romance breakups); romance needs `@romance on` (off by default); roasts stay about the game and romance is PG-13 - in
+the prompts and in `ContentGuard`, which every model reply and every scripted drama line passes; every megaphone goes
+through the gate; everything is time-limited and capped, nobody is locked out of a map.
+
+- **Romance** (`BotRomance`, `RomanceWedding`, migration 015): flirting, asking out (both ways), partners who show up,
+  follow sometimes, share a couple chair, whisper (capped, never while busy) and get jealous; the stock ring-box
+  proposal on a bot (or the bot proposes); an Amoria wedding that writes the stock marriage (rings pair, the player's
+  ring, marriage item ids); divorce the stock way or `@romance divorce`; an offline bot spouse handled (spouse chat,
+  `getNameById` for bots, the ring at its next login). Drama: neglect breakups with the `I'M DONE WITH YOU <name> </3`
+  megaphone, the ex as a rival who rebounds and returns as an old flame, two-timing confrontations, gossip into bot
+  memory and guild chat, wedding objections, runaways and crashed receptions.
+- **Rivals** (`BotRivalry`, `RivalRoasts`): roasts from real facts (level vs map, deaths, gear, job, KS), scripted or
+  one model line; KS wars (2-4 called bots, 3 min, once per player per day); callout megaphones; the one revenge follow
+  that wants an apology ("sorry" calms it, mocking makes a nemesis).
+- **Guilds** (`GuildWars`, migration 016): bot guild wars with turf on grind maps and a weekly score, wars on player
+  guilds whose members are the bot guild's rivals (`@guildwar`, `@guildwar peace`), poaching (bot from bot, whispers to
+  players), alliances with joint boss runs, and betrayals that turn into war.
+- **GM / QA:** `!botromance`, `!botrival`, `!botwar`; `!qa` rm-1..rm-4, rv-1..rv-4, gw-1..gw-4 (docs/ops/qa-suite.md),
+  log topics `ROMANCE`, `RIVALRY`, `GUILD_WAR`.

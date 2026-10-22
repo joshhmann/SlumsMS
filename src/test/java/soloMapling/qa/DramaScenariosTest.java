@@ -46,7 +46,8 @@ class DramaScenariosTest {
     @Test
     void everyDramaScenarioIsRegistered() {
         List<String> ids = QaScenarios.all().stream().map(QaScenario::id).toList();
-        for (String id : List.of("rm-1", "rm-2", "rm-3", "rm-4", "rv-1", "rv-2", "rv-3", "rv-4")) {
+        for (String id : List.of("rm-1", "rm-2", "rm-3", "rm-4", "rv-1", "rv-2", "rv-3", "rv-4", "gw-1", "gw-2",
+                "gw-3", "gw-4")) {
             assertTrue(ids.contains(id), id);
         }
     }
@@ -131,5 +132,33 @@ class DramaScenariosTest {
         start("rv-4", 10);
         assertTrue(world.drama.contains("rival revenge"));
         start("rv-3", 10);
+    }
+
+    @Test
+    void warScenariosDeclareCheckPoachAllyAndCleanUp() {
+        start("gw-1", 10);
+        assertTrue(world.drama.contains("war declare Legendz ZakumSlayerz"));
+        assertEquals(3, world.calls.stream().filter(c -> c.startsWith("guildbot neutral")).count());
+        suite.stop(1, "!qa stop");
+        assertTrue(world.drama.contains("war cleanup"));
+        assertEquals(3, world.guildBotsUnstaged.size());
+
+        assertThrows(QaRefusal.class, () -> start("gw-2", 10), "needs a player guild");
+        world.gmGuild = 9;
+        start("gw-2", 10);
+        assertTrue(world.calls.stream().anyMatch(c -> c.startsWith("guildbot rival Legendz")));
+        assertTrue(world.drama.contains("war check Legendz"));
+        suite.stop(1, "!qa stop");
+
+        start("gw-3", 10);
+        assertTrue(world.drama.contains("war poach Legendz"));
+        suite.action(world.online, "player", new String[0]);
+        assertTrue(world.drama.contains("war poach Legendz player"));
+        suite.stop(1, "!qa stop");
+
+        start("gw-4", 10);
+        assertTrue(world.drama.contains("war ally Legendz"));
+        suite.action(world.online, "betray", new String[0]);
+        assertTrue(world.drama.contains("war betray"));
     }
 }

@@ -862,3 +862,40 @@ MegaphoneBroadcast:
       - "PSA: {PLAYER} ks's in {MAP}. avoid"
       - "{PLAYER} ksed me all day in {MAP}. dont pt them"
       - "warning everyone: {PLAYER} = ks. u been warned"
+  GuildWarDeclare:
+    text:
+      - "{GUILD} DECLARES WAR ON {RIVAL}!! see u on the maps"
+      - "{RIVAL} u started this. {GUILD} vs {RIVAL}, one week"
+      - "WAR: {GUILD} vs {RIVAL}. pick a side"
+  GuildWarOnPlayers:
+    text:
+      - "{GUILD} declares war on {RIVAL}. ur maps are ours now"
+      - "{RIVAL} keeps ksing {GUILD}. so its war. see u out there"
+  GuildWarTaunt:
+    text:
+      - "{GUILD} {SCORE} {RIVAL}. we hold {MAP} lol"
+      - "war update: {GUILD} {SCORE} {RIVAL}. where u at {RIVAL}"
+      - "{RIVAL} cant even hold one map. {GUILD} {SCORE}"
+  GuildWarWon:
+    text:
+      - "{GUILD} WINS the war vs {RIVAL} {SCORE}. gg ez"
+      - "war over. {GUILD} beat {RIVAL} {SCORE}. thx for the maps"
+  GuildWarDraw:
+    text:
+      - "war with {RIVAL} ended in a draw {SCORE}. rematch soon"
+  GuildWarPeace:
+    text:
+      - "{GUILD} accepted peace with {RIVAL}. for now"
+      - "peace between {GUILD} and {RIVAL}. dont make us regret it"
+  GuildPoach:
+    text:
+      - "{MEMBER} left {OLD} for {GUILD} lmao"
+      - "welcome to {GUILD} {MEMBER}. {OLD} who?"
+  GuildAlliance:
+    text:
+      - "{GUILD} and {RIVAL} are now ALLIES. mess with one, mess with both"
+      - "alliance: {GUILD} + {RIVAL}. boss runs together"
+  GuildBetrayal:
+    text:
+      - "{GUILD} BETRAYED {RIVAL}. alliance OVER. this means war"
+      - "never trust {GUILD}. they backstabbed {RIVAL}"

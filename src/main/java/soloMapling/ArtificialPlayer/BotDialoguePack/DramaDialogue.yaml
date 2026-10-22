@@ -343,3 +343,64 @@ Drama:
     text:
       - "whatever {PLAYER}. watch ur mobs"
       - "no sorry? ok. noted {PLAYER}"
+  # ---- guild wars (guild chat, map chat, whispers) ----
+  WarDeclaredOurs:
+    text:
+      - "its war on {RIVAL}!! everyone to the grind maps"
+      - "we're at war with {RIVAL} this week. hold the maps"
+      - "{RIVAL} wanted war, they got it. lets go {GUILD}"
+  WarDeclaredTheirs:
+    text:
+      - "{RIVAL} declared war on us lol. bring it"
+      - "war with {RIVAL}?? ok. everyone grind together this week"
+  WarJab:
+    text:
+      - "{PLAYER} this map is {GUILD} turf now"
+      - "{GUILD} owns {MAP} this week {PLAYER}"
+      - "move over {PLAYER}, {GUILD} grinds here now"
+  WarPeaceReply:
+    text:
+      - "fine. peace. but we were winning {PLAYER}"
+      - "ok peace. {GUILD} lets u off this time"
+      - "peace accepted. tell ur guild to stay off our maps"
+  # ---- poaching ----
+  PoachLeaveOld:
+    text:
+      - "sorry guys, {GUILD} offered me a spot. cya"
+      - "im out. {GUILD} actually runs bosses"
+      - "gonna try {GUILD} for a bit. no hard feelings"
+  PoachTraitor:
+    text:
+      - "{MEMBER} left for {GUILD}?? traitor"
+      - "bye {MEMBER}. enjoy {GUILD} lol"
+      - "{MEMBER} u'll be back"
+  PoachWelcome:
+    text:
+      - "welcome {MEMBER}!! told u {OLD} was dead"
+      - "{MEMBER} is one of us now ^^"
+      - "say hi to {MEMBER} everyone, fresh from {OLD}"
+  PoachWhisper:
+    text:
+      - "yo {PLAYER} {OLD} kinda quiet huh. {GUILD} has a spot for u ;)"
+      - "{PLAYER} ever thought about {GUILD}? leave {OLD} and ill inv u"
+      - "psst {PLAYER}. {GUILD} > {OLD}. just saying. ill inv if u leave"
+  # ---- alliances and betrayals ----
+  AllyFormed:
+    text:
+      - "we're allied with {RIVAL} now. be nice to them"
+      - "{GUILD} + {RIVAL} alliance is official"
+      - "{RIVAL} are our allies now. boss runs together soon"
+  AllyShoutout:
+    text:
+      - "shoutout to our allies {RIVAL}"
+      - "{RIVAL} pt anyone? allies help allies"
+      - "{RIVAL} cleared a boss yesterday, gj allies"
+  AllyBetrayedChat:
+    text:
+      - "{GUILD} BETRAYED us. alliance over. war"
+      - "cant believe {GUILD}. we trusted them"
+      - "{GUILD} backstabbed us. everyone to the maps"
+  AllyBetrayerChat:
+    text:
+      - "{RIVAL} were holding us back anyway"
+      - "alliance with {RIVAL} is done. dont ask"
