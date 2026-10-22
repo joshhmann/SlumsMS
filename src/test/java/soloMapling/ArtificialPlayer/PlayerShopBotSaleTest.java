@@ -39,7 +39,7 @@ class PlayerShopBotSaleTest {
     private static final int PLAYER_ID = 1;
     private static final int POTION = 2000000;
     private static final int PRICE = 100_000;
-    private static final int TAKEN = PRICE - Trade.getFee(PRICE);   // the owner is paid the price less the trade fee
+    private static final int TAKEN = PRICE - soloMapling.Economy.MesoSinks.shopFee(PRICE);   // the price less the fee (1.5.0 rc3: FM shop tax)
 
     @BeforeEach
     void resetLedgers() {

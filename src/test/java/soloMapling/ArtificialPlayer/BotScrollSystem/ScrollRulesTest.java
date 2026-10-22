@@ -68,9 +68,16 @@ class ScrollRulesTest {
                 "a careful bot does not 10% without a white scroll");
         assertNull(ScrollRules.choose(Appetite.CAREFUL, worn, List.of(S10), true, rng),
                 "nor on gear it wears");
-        assertEquals(new Choice(2043002, true),
-                ScrollRules.choose(Appetite.CAREFUL, new Target(SWORD, 7, false), List.of(S10), true, rng),
-                "a 10% under a white scroll, on gear it does not wear");
+        assertNull(ScrollRules.choose(Appetite.CAREFUL, new Target(SWORD, 7, false), List.of(S10), true, rng),
+                "1.5.0 rc3: bots keep white scrolls off long shots by default (gear audit)");
+        soloMapling.Economy.EconomyConfig.useForTest(Map.of("scrolling.whiteOnLongShots", "true"));
+        try {
+            assertEquals(new Choice(2043002, true),
+                    ScrollRules.choose(Appetite.CAREFUL, new Target(SWORD, 7, false), List.of(S10), true, rng),
+                    "a 10% under a white scroll, on gear it does not wear (when the owner allows it)");
+        } finally {
+            soloMapling.Economy.EconomyConfig.useForTest(null);
+        }
     }
 
     @Test
@@ -82,7 +89,8 @@ class ScrollRulesTest {
             picks.merge(c.scrollId(), 1, Integer::sum);
         }
         assertTrue(picks.getOrDefault(S60.scrollId(), 0) > 600, "mostly 60%: " + picks);
-        assertTrue(picks.getOrDefault(S10.scrollId(), 0) > 100, "now and then a 10%: " + picks);
+        assertTrue(picks.getOrDefault(S10.scrollId(), 0) > 50, "now and then a 10% (10% of the time): " + picks);
+        assertTrue(picks.getOrDefault(S10.scrollId(), 0) < 160, "but rarely since 1.5.0 rc3: " + picks);
         assertEquals(0, picks.getOrDefault(DARK70.scrollId(), 0), "never dark on worn gear");
         int dark = 0;
         for (int i = 0; i < 2000; i++) {
@@ -106,6 +114,19 @@ class ScrollRulesTest {
         assertTrue(picks.get(S10.scrollId()) > 800, picks.toString());
         assertTrue(picks.getOrDefault(DARK30.scrollId(), 0) > 40, "dark scrolls now and then: " + picks);
         assertNull(picks.get(S60.scrollId()));
+    }
+
+    @Test
+    void pastTheDailyGodlyCapNobodyTakesALongShot() {
+        Random rng = new Random(11);
+        for (Appetite a : Appetite.values()) {
+            for (int i = 0; i < 200; i++) {
+                Choice c = ScrollRules.choose(a, new Target(SWORD, 7, false), List.of(S60, S10, DARK30, DARK70), true,
+                        rng, false);
+                assertEquals(S60.scrollId(), c.scrollId(), a + " sticks to the 60%");
+            }
+            assertNull(ScrollRules.choose(a, new Target(SWORD, 7, false), List.of(S10, DARK30), true, rng, false));
+        }
     }
 
     @Test
@@ -134,8 +155,8 @@ class ScrollRulesTest {
         for (int id = 1_000_000; id < 1_010_000; id++) {
             n.merge(Appetite.of(id), 1, Integer::sum);
         }
-        assertTrue(n.get(Appetite.CAREFUL) > 3000 && n.get(Appetite.NORMAL) > 3500 && n.get(Appetite.GAMBLER) > 1000,
-                n.toString());
+        assertTrue(n.get(Appetite.CAREFUL) > 3000 && n.get(Appetite.NORMAL) > 4000 && n.get(Appetite.GAMBLER) > 700
+                && n.get(Appetite.GAMBLER) < 1300, "40/50/10 since 1.5.0 rc3: " + n);
         assertEquals(Appetite.of(1_000_123), Appetite.of(1_000_123));
         assertNotEquals(null, Appetite.parse("Gambler", null));
         assertEquals(Appetite.NORMAL, Appetite.parse("??", Appetite.NORMAL));

@@ -68,6 +68,7 @@ public final class DataFiles {
             "soloMapling/BounceZones/bounce-zones.yaml",
             "soloMapling/DailyCheckin/daily-checkin-rewards.yaml",
             "soloMapling/Gachapon/gachapon-pools.yaml",
+            "soloMapling/Economy/economy.yaml",
             "soloMapling/itemPool/EquipOmitList.yaml",
             "soloMapling/SetEquip/set-items.yaml",
             "soloMapling/itemPool/itemConfig",

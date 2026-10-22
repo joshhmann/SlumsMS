@@ -71,6 +71,11 @@ final class BotPlayerReaction {
                 entry.reactingUntilMs = nowMs + STOP_PAUSE_MIN_MS;
                 return;
             }
+            // 1.5.0 rc3 (owner decision 4): a friend bot now and then gives a player it likes a small gift
+            if (soloMapling.Economy.BotGifts.maybeGift(bot, player)) {
+                entry.reactingUntilMs = nowMs + STOP_PAUSE_MIN_MS;
+                return;
+            }
             if (onCooldown(player.getId(), nowMs)) {
                 continue;
             }

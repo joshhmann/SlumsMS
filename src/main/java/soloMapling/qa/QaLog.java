@@ -49,7 +49,8 @@ public final class QaLog {
         COMBAT,         // 1.5.0 rc3: skill choice (mobs in reach, AoE/single, boss, sloppy), buffs, facing, touch steps, pacing (cb-1, cb-2)
         HABITS,         // 1.5.0 rc3: per-bot loot style, potions, restock trips, deaths and the walk back (cb-3)
         MANNERS,        // 1.5.0 rc3: neutral bots yielding a player's platform, moving on, "cc?" (cb-4)
-        SPREAD;         // 1.5.0 rc3: spot claims per channel, personal space, rope waits (sp-1)
+        SPREAD,         // 1.5.0 rc3: spot claims per channel, personal space, rope waits (sp-1)
+        TRADE;          // 1.5.0 rc3 economy: bot shops, direct trades and haggles, gifts, price samples, tax (tr-1..tr-6)
 
         final int bit = 1 << ordinal();
     }

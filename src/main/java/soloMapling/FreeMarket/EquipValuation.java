@@ -79,7 +79,7 @@ public final class EquipValuation {
         return facts == null ? null : estimate(facts);
     }
 
-    static Facts factsOf(Equip equip) {
+    public static Facts factsOf(Equip equip) {
         ItemInformationProvider ii;
         try {
             ii = ItemInformationProvider.getInstance();

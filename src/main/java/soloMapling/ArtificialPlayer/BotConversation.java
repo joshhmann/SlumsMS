@@ -225,7 +225,7 @@ public final class BotConversation {
             return;
         }
         BotChatActions.Result action = triage.intent() == ChatTriage.Intent.NONE ? BotChatActions.Result.NONE
-                : BotChatActions.act(session.bot, player, triage.intent());
+                : BotChatActions.act(session.bot, player, triage.intent(), line);
         Cue cue = new Cue(triage, action.outcome(), line);
         BotRoster.Activity doing = session.bot.activitySnapshot();
         String activity = BotChatPrompt.activityPhrase(doing == null ? null : doing.name());

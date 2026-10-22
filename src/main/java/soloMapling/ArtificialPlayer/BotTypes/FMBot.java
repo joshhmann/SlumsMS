@@ -503,8 +503,8 @@ public class FMBot extends BotSM {
             }
             Item thisItem = pItem.getItem();
             int itemPrice = pItem.getPrice(); // item's FM price
-            if (BotConsignment.isConsigned(pItem)) {
-                continue;   // ticket 11: a bot's own listing is for players; the allowance must not pay a bot
+            if (BotConsignment.isConsigned(pItem) || soloMapling.Economy.BotShops.isListed(pItem)) {
+                continue;   // ticket 11 / 1.5.0 rc3: a bot's own listing is for players; the allowance must not pay a bot
             }
             if (ScrollRules.isPlainScroll(thisItem.getItemId())
                     && ScrollWants.wanted(thisItem.getItemId(), itemPrice)) {
@@ -514,7 +514,20 @@ public class FMBot extends BotSM {
                 continue;
             }
             Integer itemMarketValue = ItemUtilities.getItemMarketValue(thisItem);
-            Boolean purchase = shouldPurchaseItem(itemPrice, itemMarketValue);
+            // 1.5.0 rc3 (owner decision 2): a real player's item is judged at its fair price (the board's 7-day
+            // median of real trades, or the static value with too few), and from players bots take only gear
+            // that is above average (pulling it off the market) plus non-equips.
+            boolean fromPlayerShop = isRealPlayersShop(currentTarget);
+            String playerSkip = null;
+            if (fromPlayerShop) {
+                long fair = soloMapling.Economy.PriceBook.fairValue(thisItem);
+                itemMarketValue = fair > 0 ? (int) Math.min(Integer.MAX_VALUE, fair) : itemMarketValue;
+                playerSkip = soloMapling.Economy.BotBuying.whyNotBuyFromPlayer(thisItem);
+            }
+            Boolean purchase = playerSkip == null && shouldPurchaseItem(itemPrice, itemMarketValue);
+            if (playerSkip != null && QaLog.on(QaLog.Topic.FM_BUY)) {
+                qaBuy("skip", thisItem.getItemId(), itemPrice, itemMarketValue, playerSkip);
+            }
             // Ticket 56A: a real player's shop is paid within a price ceiling and a daily cap per seller account
             int sellerAccount = purchase ? realSellerAccount(currentTarget) : -1;
             boolean qa = QaLog.on(QaLog.Topic.FM_BUY);
@@ -543,6 +556,15 @@ public class FMBot extends BotSM {
                     }
                     continue;
                 }
+                if (!soloMapling.Economy.EconomyMeters.tryBotBuy(itemPrice)) {   // 1.5.0 rc3: world daily budget
+                    BotSellerCaps.release(sellerAccount, itemPrice);
+                    if (qa) {
+                        qaBuy("skip", thisItem.getItemId(), itemPrice, itemMarketValue,
+                                "world budget for buying from players reached ("
+                                        + soloMapling.Economy.EconomyMeters.line() + ")");
+                    }
+                    continue;
+                }
             }
             if (purchase) {
                 StringBuilder unable = new StringBuilder();
@@ -550,6 +572,7 @@ public class FMBot extends BotSM {
                 if (topUp < 0) {
                     if (sellerAccount >= 0) {
                         BotSellerCaps.release(sellerAccount, itemPrice);   // nothing will be paid
+                        soloMapling.Economy.EconomyMeters.releaseBotBuy(itemPrice);
                     }
                     if (qa) {
                         qaBuy("skip", thisItem.getItemId(), itemPrice, itemMarketValue, unable.toString());
@@ -569,6 +592,11 @@ public class FMBot extends BotSM {
                 boolean bought = pItem.getBundles() < bundlesBefore;
                 if (sellerAccount >= 0 && !bought) {
                     BotSellerCaps.release(sellerAccount, itemPrice);   // the purchase failed: nothing was paid
+                    soloMapling.Economy.EconomyMeters.releaseBotBuy(itemPrice);
+                }
+                if (sellerAccount >= 0 && bought) {
+                    // 1.5.0 rc3: what bots buy from players is resold in bot shops, so items circulate
+                    soloMapling.Economy.BotBuying.toResale(getChr(), thisItem, itemPrice);
                 }
                 if (!bought && topUp > 0 && BotHoldings.spendMeso(getChr(), (int) topUp)) {
                     FMBotWallet.refund(getChr().getId(), topUp);   // the allowance it drew is not spent

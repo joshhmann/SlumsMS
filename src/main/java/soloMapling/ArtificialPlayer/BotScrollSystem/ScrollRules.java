@@ -34,10 +34,15 @@ public final class ScrollRules {
     public enum Appetite {
         CAREFUL, NORMAL, GAMBLER;
 
-        /** 40% careful, 45% normal, 15% gamblers, spread evenly over bot ids. */
+        /**
+         * 40% careful, 50% normal, 10% gamblers, spread evenly over bot ids (1.5.0 rc3: gamblers 15% -> 10% to keep
+         * bot-made godlies rare; economy.yaml {@code scrolling.carefulPercent} / {@code scrolling.gamblerPercent}).
+         */
         public static Appetite of(int botId) {
             int h = Math.floorMod(Integer.rotateLeft(botId * 0x9E3779B9, 7) ^ botId, 100);
-            return h < 40 ? CAREFUL : h < 85 ? NORMAL : GAMBLER;
+            int careful = soloMapling.Economy.EconomyConfig.getInt("scrolling.carefulPercent", 40);
+            int gambler = soloMapling.Economy.EconomyConfig.getInt("scrolling.gamblerPercent", 10);
+            return h < careful ? CAREFUL : h < 100 - gambler ? NORMAL : GAMBLER;
         }
 
         public static Appetite parse(String s, Appetite fallback) {
@@ -122,6 +127,15 @@ public final class ScrollRules {
      */
     public static Choice choose(Appetite appetite, Target target, List<ScrollFacts> fitting, boolean hasWhite,
                                 Random rng) {
+        return choose(appetite, target, fitting, hasWhite, rng, true);
+    }
+
+    /**
+     * As above; {@code longShotsAllowed} false (the world's daily cap of bot-made godlies is reached,
+     * {@code scrolling.godliesPerDay}) leaves only the 60%+ non-dark scrolls on the table for everyone.
+     */
+    public static Choice choose(Appetite appetite, Target target, List<ScrollFacts> fitting, boolean hasWhite,
+                                Random rng, boolean longShotsAllowed) {
         if (target == null || target.slotsLeft() < 1 || fitting == null || fitting.isEmpty()) {
             return null;
         }
@@ -140,24 +154,33 @@ public final class ScrollRules {
                 safe.add(f);
             }
         }
+        if (!longShotsAllowed) {
+            dark.clear();
+            longShots.clear();
+        }
+        // 1.5.0 rc3 (gear audit): white scrolls on long shots are what pushes godlies past the target; off by default
+        boolean whiteOk = hasWhite && soloMapling.Economy.EconomyConfig.getBool("scrolling.whiteOnLongShots", false);
+        double longShotChance = soloMapling.Economy.EconomyConfig.getDouble("scrolling.normalLongShotChance", 0.10);
+        double normalDark = soloMapling.Economy.EconomyConfig.getDouble("scrolling.normalDarkChance", 0.03);
+        double gamblerDark = soloMapling.Economy.EconomyConfig.getDouble("scrolling.gamblerDarkChance", 0.10);
         ScrollFacts pick = null;
         switch (appetite) {
             case CAREFUL -> {
                 // the surest scroll; a 10% only under a white scroll, and only on gear it does not wear
                 pick = best(safe, Comparator.comparingInt(ScrollFacts::success)
                         .thenComparingInt(ScrollFacts::gainWeight));
-                if (pick == null && hasWhite && !target.worn()) {
+                if (pick == null && whiteOk && !target.worn()) {
                     pick = best(longShots, Comparator.comparingInt(ScrollFacts::gainWeight));
                 }
             }
             case NORMAL -> {
                 // best expected gain; now and then a 10% for the big stats; a dark scroll rarely, never on worn gear
-                if (!longShots.isEmpty() && (safe.isEmpty() || rng.nextDouble() < 0.25)) {
+                if (!longShots.isEmpty() && (safe.isEmpty() || rng.nextDouble() < longShotChance)) {
                     pick = best(longShots, Comparator.comparingInt(ScrollFacts::gainWeight));
                 } else {
                     pick = best(safe, Comparator.comparingInt((ScrollFacts f) -> f.success() * f.gainWeight()));
                 }
-                if (!dark.isEmpty() && !target.worn() && rng.nextDouble() < 0.03) {
+                if (!dark.isEmpty() && !target.worn() && rng.nextDouble() < normalDark) {
                     pick = best(dark, Comparator.comparingInt(ScrollFacts::success));
                 }
             }
@@ -167,7 +190,7 @@ public final class ScrollRules {
                 all.addAll(longShots);
                 pick = best(all, Comparator.comparingInt(ScrollFacts::gainWeight)
                         .thenComparingInt(f -> -f.success()));
-                if (!dark.isEmpty() && (pick == null || rng.nextDouble() < 0.10)) {
+                if (!dark.isEmpty() && (pick == null || rng.nextDouble() < gamblerDark)) {
                     pick = best(dark, Comparator.comparingInt(ScrollFacts::gainWeight));
                 }
             }
@@ -175,7 +198,7 @@ public final class ScrollRules {
         if (pick == null) {
             return null;
         }
-        boolean white = hasWhite && pick.longShot() && appetite != Appetite.GAMBLER;
+        boolean white = whiteOk && pick.longShot() && appetite != Appetite.GAMBLER;
         return new Choice(pick.scrollId(), white);
     }
 

@@ -27,7 +27,8 @@ import java.util.Set;
  *
  * <p>Rules: commitments and current activity, party space, what the bot remembers about the player (a player it
  * has flagged gets a no), and personality (its social trait shifts the party roll). Never on the menu: giving
- * items or mesos - a trade request is answered with words or the bot's shop, never a trade window (ticket 38).
+ * items or mesos. A trade request is answered with the bot's shop (merchants) or, since 1.5.0 rc3, a price for
+ * something it carries; the window opens only when the player invites the bot ({@code BotDirectTrade}).
  */
 public final class BotChatActions {
 
@@ -36,6 +37,8 @@ public final class BotChatActions {
         PARTY_ACCEPTED, PARTY_DECLINED, PARTY_ALREADY, PARTY_WARY,
         FOLLOW_ACCEPTED, FOLLOW_DECLINED,
         TRADE_DECLINED, TRADE_SHOP,
+        /** 1.5.0 rc3: a bot that trades in person named a price or asked to see the item (direct trades). */
+        TRADE_OFFER,
         WHERE_TRAIN, WHERE_TRAIN_UNKNOWN,
         WHERE_AT,
         NONE
@@ -67,6 +70,10 @@ public final class BotChatActions {
                 case PARTY_ALREADY -> text.contains("party") || text.contains(" pt") || no;
                 case TRADE_SHOP -> mustMention != null ? text.contains(mustMention)
                         : text.contains("shop") || text.contains("store");
+                // the price the code decided must be in the line, written the same way ("1.2m")
+                case TRADE_OFFER -> mustMention == null
+                        ? soloMapling.Economy.HaggleBrain.price(reply) < 0
+                        : reply.toLowerCase(Locale.ROOT).contains(mustMention.toLowerCase(Locale.ROOT));
                 case WHERE_TRAIN, WHERE_AT -> mustMention == null || text.contains(mustMention);
                 case WHERE_TRAIN_UNKNOWN, NONE -> true;
             };
@@ -87,6 +94,11 @@ public final class BotChatActions {
 
     /** Decides and does what the player asked. Runs off the game thread; touches the party system on the way. */
     public static Result act(BotSM bot, Character player, ChatTriage.Intent intent) {
+        return act(bot, player, intent, null);
+    }
+
+    /** As above, with the player's line (1.5.0 rc3: a bot that trades in person reads what is asked for). */
+    public static Result act(BotSM bot, Character player, ChatTriage.Intent intent, String line) {
         Character chr = bot.getChr();
         if (chr == null || player == null) {
             return Result.NONE;
@@ -94,7 +106,7 @@ public final class BotChatActions {
         Result result = switch (intent) {
             case PARTY -> party(bot, chr, player, false);
             case FOLLOW, COME_WITH_ME -> party(bot, chr, player, true);
-            case TRADE -> trade(bot);
+            case TRADE -> trade(bot, player, line);
             case WHERE_TRAIN -> whereTrain(bot, chr);
             case WHERE_AT -> whereAt(chr);
             case NONE -> Result.NONE;
@@ -185,7 +197,7 @@ public final class BotChatActions {
 
     // ── trade ──
 
-    private static Result trade(BotSM bot) {
+    private static Result trade(BotSM bot, Character player, String line) {
         MerchantStock.Stock stock = MerchantStock.of(bot);
         if (stock != null) {
             // Ticket 26: a merchant names what it has; the player trades it to buy (no window opens from chat).
@@ -196,6 +208,14 @@ public final class BotChatActions {
                 || bot instanceof FMBot) {
             return new Result(Outcome.TRADE_SHOP, "Say you do not trade in person: everything you sell or buy is in "
                     + "your shop at its posted price.", ScriptedReplies.pick(ScriptedReplies.TRADE_SHOP));
+        }
+        // 1.5.0 rc3 (owner decision 3): other bots trade in person - they name a price for what they carry, or ask
+        // to see what the player sells. The price is decided in code (soloMapling.Economy.PriceBand).
+        soloMapling.Economy.BotDirectTrade.Answer answer = line == null ? null
+                : soloMapling.Economy.BotDirectTrade.chat(bot, bot.getChr(), player, line);
+        if (answer != null) {
+            return answer.yes() ? new Result(Outcome.TRADE_OFFER, answer.fact(), answer.scripted(), answer.mustMention())
+                    : new Result(Outcome.TRADE_DECLINED, answer.fact(), ScriptedReplies.pick(ScriptedReplies.TRADE_NO));
         }
         return new Result(Outcome.TRADE_DECLINED, "Say no to trading: you are not selling or giving anything right "
                 + "now.", ScriptedReplies.pick(ScriptedReplies.TRADE_NO));

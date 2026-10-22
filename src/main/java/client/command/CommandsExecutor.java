@@ -259,6 +259,7 @@ public class CommandsExecutor {
         addCommand("roll", RollCommand.class);
         addCommand("quiet", QuietCommand.class);
         addCommand("botdrama", client.command.commands.gm0.BotDramaCommand.class);   // ticket 58
+        addCommand("price", client.command.commands.gm0.PriceCommand.class);   // 1.5.0 rc3: the price board
 	    addCommand("shop", ShopCommand.class);
        // addCommand("damageskin",  DamageSkinCommand.class);
 	    /*
@@ -365,6 +366,7 @@ public class CommandsExecutor {
             addCommand("botyield", 4, client.command.commands.gm4.BotYieldCommand.class);
             addCommand("botscroll", 4, client.command.commands.gm4.BotScrollCommand.class);   // ticket 11
             addCommand("botwealth", 4, client.command.commands.gm4.BotWealthCommand.class);   // ticket 56B
+            addCommand("economy", 4, client.command.commands.gm4.EconomyCommand.class);   // 1.5.0 rc3 economy lane
             addCommand(new String[]{"event", "worldevent"}, 4, client.command.commands.gm4.WorldEventCommand.class);
             addCommand("affinity", 4, client.command.commands.gm4.AffinityCommand.class);   // ticket 58
             addCommand("couple", 4, client.command.commands.gm4.CoupleCommand.class);   // ticket 58

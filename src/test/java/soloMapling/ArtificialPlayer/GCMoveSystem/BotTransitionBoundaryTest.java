@@ -407,7 +407,7 @@ class BotTransitionBoundaryTest {
         BotHoldings.grantMeso(buyer, 5000);
         assertTrue(shop.botBuy(buyer, stock, 0, (short) 1));
 
-        int credited = 1000 + 250 - Trade.getFee(250);
+        int credited = 1000 + 250 - soloMapling.Economy.MesoSinks.shopFee(250);   // 1.5.0 rc3: FM shop tax
         assertEquals(credited, seller.getMeso(), "the seller was credited for the sale");
         assertEquals(1, shop.getSold().size(), "the sale is on the books");
         assertEquals((short) 2, stock.getBundles(), "the unsold bundles are still on offer");

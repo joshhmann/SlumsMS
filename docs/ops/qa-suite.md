@@ -21,8 +21,8 @@ using live's and the test server's real command lines. The command needs GM leve
 | `!qa where` | Shows the running scenario, how long it has run, its log path, and other GMs' runs |
 | `!qa stop` | Ends the run, undoes the staging and closes the log |
 
-You can run one scenario at a time. Scenarios that claim a map (bk, gd, fm, gh) refuse to start while another GM's
-scenario holds that map. A run stops on its own after 15 minutes. ld-1, mv-1, pe-1 and ga-2 stop after 10, ga-1 after 20, wd-2 after 5, and bk-1 after
+You can run one scenario at a time. Scenarios that claim a map (bk, gd, fm, gh, tr-1) refuse to start while another GM's
+scenario holds that map. A run stops on its own after 15 minutes. ld-1, mv-1, pe-1, ga-2, tr-4 and tr-6 stop after 10, ga-1 and tr-1 after 20, tr-5 after 30, wd-2 after 5, and bk-1 after
 the showcase's own minutes plus one.
 
 ## Scenarios (1.4.1)
@@ -67,6 +67,13 @@ the showcase's own minutes plus one.
 | `cb-3` `[bots 1-6]` (1.5.0 rc3) | Stages 4 (or n) grinders of random classes 5 levels under your map (a harder map), not held. Their habits go to the log first. `!qa do hurt` hits each to ~45%, `!qa do lowpots` drains their HP pots to their restock mark, `!qa do die` kills one now | `HABITS` (loot style, potion line, restock mark, rebuff lateness, sloppiness), `LOOT` (sweep / instant), `POT` (drank at what HP, its line), `RESTOCK` (down to its mark -> town), `DEATH`, `RESPAWN` (town), `WALK BACK`; `STATE` every 15 s |
 | `cb-4` `[bots 1-6]` (1.5.0 rc3) | Stages 3 (or n) neutral grinders at your map's level right next to you, on your platform, not held | `YIELD` (gave up its spot on your platform), `LEAVE` (left a mob you fight or stand by), `CROWDED` (only your platform left here), `MOVE ON` (left the map, with the "cc?" line if it said one), bot chat |
 | `sp-1` `[bots 2-12]` (1.5.0 rc3) | Stages 8 (or n) grinders at your map's level in one clump next to you, not held | `SPREAD` tally at start and every 15 s (bots, 100 px spots covered, pairs closer than 34 px, bots per rope or ladder), `SPACE` (stepped off another bot), `ROPE` (waited for a rope another bot was on, and when it gave up waiting) |
+| `tr-1` `[FM room 1-12]` (1.5.0 rc3) | Needs channel 1. Warps you to the FM room (default 1), spawns a bot next to you holding 3 Sword ATT 60%, 2 Claw ATT 60%, 10 Power Crystal Ore, a sword and a Chaos Scroll, and opens that bot's own hired merchant where you stand. `!qa do collect` pays the bot its takings, `!qa do close` closes the shop | `SHOP` lines: what was listed at what price (and the board's median or "usual value"), sales (`SHOP SALE` with the fee/tax, `SHOP SOLD ... owed to the bot`), collection, closing. `PRICE sample` lines. The Chaos Scroll must not be listed |
+| `tr-2` (1.5.0 rc3) | Spawns a bot with 10m next to you and gives you 2 Gloves ATT 60% and 2 Sword ATT 60% (taken back at stop). Invite the bot to trade, put a scroll in, haggle in the window chat, lock. `!qa do sim [line]` runs the haggle headless (nothing changes hands) | `OPEN`, `TRADE ... BUY offer` with the band, each `CHAT` line's move (rule or decide), `HAGGLE` answers, `CONFIRM` or `CANCEL` (a swapped item, a locked window with nothing it buys), `BOUGHT`, `RESALE`, `PRICE sample` |
+| `tr-3` (1.5.0 rc3) | Spawns a bot holding a sword and 2 Sword ATT 60% next to you. Ask it in chat for the sword (or `!qa do quote sword`); open a trade and it puts the sword in the window at its price | `QUOTE` (price and band), `QUOTE haggle`, `OPEN ... BOT_SELLS`, `SELL ask`, `CONFIRM`/`CANCEL`, `SOLD`, bot chat |
+| `tr-4` (1.5.0 rc3) | Stages a social bot that counts you as a friend, with 5m and a 60% scroll; for the run a friend bot that sees you gives a gift for sure (the weekly limit forgotten for this pair). `!qa do gift [potions\|scroll\|mesos]` forces one | `GIFT` lines (what, bought for how much), affinity events |
+| `tr-5` `[item id]` (1.5.0 rc3) | Nothing: logs the price board's detail for the item (default 2040804) and the FM shop tax at 100k, 1m, 5m, 25m and 100m. `!qa do price <id>`, `!qa do tax <price>` | Every `PRICE sample` and `SHOP SALE` fee while it runs, server-wide |
+| `tr-6` `[fair, e.g. 1m]` (1.5.0 rc3) | Nothing: runs 11 player lines (prompt injections included) through the haggle brain and the price band, the bot buying and selling. `!qa do line <text>` tries another | Each line's move and the bot's answer marked `inside the band` or `OUTSIDE THE BAND`; `SUMMARY` with the count outside (must be 0) |
+| `tr-7` (1.5.0 rc3) | Warps you to the FM entrance by the cosmetics merchant (Hanako) and gives you 50m (taken back at stop, up to what is left). `!qa do meters` | `SINK` lines: cosmetics merchant purchases; the economy meters at start |
 
 What `!qa stop` undoes:
 
@@ -80,6 +87,12 @@ What `!qa stop` undoes:
 - cb-1..cb-4, sp-1: the staged grinders leave (a cb-3 bot that died loses the EXP, as any death does, then leaves).
 - gu-1..gu-8: staged guild bots leave their guild and the world; gu-1/gu-3/gu-8 make you leave a guild you joined during the
   run; gu-5 ends the boss run (bots inside log back in).
+- tr-1: the bot's shop closes (unsold items back to it) and the bot leaves. tr-4: the gift chance goes back to
+  economy.yaml and the friend bot leaves. tr-7: the 50m are taken back, up to what you still have.
+
+tr-2 and tr-3 open a trade window with a bot. Ticket 43 blocks trades between a GM and a non-GM (the owner keeps
+it), so use a non-GM test character for the window (the GM runs `!qa`), or the headless `!qa do sim` /
+`!qa do quote` steps. Details and the owner's veto tables: docs/release/1.5.0-economy-trade.md.
 
 You are not warped back. Mesos you earned in fm-1 stay with you.
 

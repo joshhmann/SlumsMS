@@ -269,6 +269,7 @@ public class Trade {
         if (partner != null) {
             partner.getChr().sendPacket(PacketCreator.getTradeChat(chr, message, false));
         }
+        soloMapling.Economy.BotDirectTrade.onWindowChat(chr, this, message);   // 1.5.0 rc3: a bot partner hears it
     }
 
     public Trade getPartner() {
@@ -404,6 +405,9 @@ public class Trade {
 
             soloMapling.server.MapleRootSolo.runHook("affinity trade", () ->   // ticket 58: trades and gifts
                     soloMapling.ArtificialPlayer.BotAffinitySystem.AffinityHooks.onTrade(local.getChr(), local.getItems(), local.getExchangeMesos(),
+                            partner.getChr(), partner.getItems(), partner.getExchangeMesos()));
+            soloMapling.server.MapleRootSolo.runHook("price board trade", () ->   // 1.5.0 rc3: @price samples
+                    soloMapling.Economy.PriceBook.onWindowTrade(local.getChr(), local.getItems(), local.getExchangeMesos(),
                             partner.getChr(), partner.getItems(), partner.getExchangeMesos()));
             logTrade(local, partner);
             local.completeTrade();
@@ -548,6 +552,7 @@ public class Trade {
                 c1.sendPacket(PacketCreator.getTradeStart(c1.getClient(), c1.getTrade(), (byte) 0));
                 c2.sendPacket(PacketCreator.tradeInvite(c1));
                 if (soloMapling.ArtificialPlayer.BotHelpers.isBot(c2)) soloMapling.ArtificialPlayer.BotTradeSystem.BotTradeQueue.getInstance().addTradeRequest(c2, c1);
+                if (soloMapling.ArtificialPlayer.BotHelpers.isBot(c2)) soloMapling.Economy.BotDirectTrade.onInvite(c2, c1); // 1.5.0 rc3
             } else {
                 c1.message("The other player is already trading with someone else.");
                 cancelTrade(c1, TradeResult.NO_RESPONSE);

@@ -74,14 +74,19 @@ public final class QaScenarios {
     }
 
     public static List<QaScenario> all() {
-        List<QaScenario> out = new java.util.ArrayList<>(List.of(new Bk1Showcase(), new Gd1Guild(), new Fm1BuyerCap(), new Ld1Ladders(), new Gh1Hide(),
+        List<QaScenario> all = new ArrayList<>(core());
+        all.addAll(GuildScenarios.all());     // 1.5.0 bot guilds: gu-1 .. gu-8
+        all.addAll(CombatScenarios.all());    // 1.5.0 rc3: bots fight like people (cb-1 .. cb-4), spread out (sp-1)
+        all.addAll(QaTradeScenarios.all());   // 1.5.0 rc3 economy lane: tr-1..tr-7
+        return List.copyOf(all);
+    }
+
+    private static List<QaScenario> core() {
+        return List.of(new Bk1Showcase(), new Gd1Guild(), new Fm1BuyerCap(), new Ld1Ladders(), new Gh1Hide(),
                 new Np1Rosen(), new Np2Fredrick(), new Np3Merchant(), new Cs2PetEquip(), new Gn2Scrolling(), new Sc2BotScrolling(),
                 new Wd1ChannelBars(), new Wd2DreamyPortal(), new Id1IdleSafety(),
                 new Mv1AttackSlide(), new Pe1MapEntry(), new Jq1BounceBlock(), new Ga1Gachapon(), new Ga2BotWealth(),
-                new Af1Friend(), new Af2Rival(), new Af3DramaOff(), new Cp1Couple(), new We1Wedding()));
-        out.addAll(GuildScenarios.all()); // 1.5.0 bot guilds: gu-1 .. gu-7
-        out.addAll(CombatScenarios.all()); // 1.5.0 rc3: bots fight like people (cb-1 .. cb-4), spread out (sp-1)
-        return List.copyOf(out);
+                new Af1Friend(), new Af2Rival(), new Af3DramaOff(), new Cp1Couple(), new We1Wedding());
     }
 
     // ---- ga-1 ----

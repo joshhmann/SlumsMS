@@ -146,6 +146,18 @@ public class BotTradeCommands {
         return false;
     }
 
+    /**
+     * 1.5.0 rc3 (direct trades): puts a real item the caller already took out of the bot's holdings into the window.
+     * Unlike the generated offers above, the caller owns giving it back if the trade does not go through
+     * ({@code soloMapling.Economy.BotDirectTrade} does).
+     */
+    public static boolean addHeldItemToTrade(Character fakechar, Item item, int slot) {
+        if (validateTradeParams(fakechar, slot) && item != null) {
+            return addItemToTradeWindow(fakechar, item, slot);
+        }
+        return false;
+    }
+
     public static boolean addCleanEquipToTrade(Character fakechar, int equipId, int slot) {
         if (validateTradeParams(fakechar, slot)) {
             Equip tradeItem = (Equip) generateCleanItemEquip(equipId);

@@ -101,7 +101,8 @@ public final class BotConsignment {
         try {
             Collection<HiredMerchant> all = new ArrayList<>(ch.getHiredMerchants().values());
             for (HiredMerchant m : all) {
-                if (m instanceof HiredMerchantArtificial && m.isOpen() && m.getItems().size() < 16
+                if (m instanceof HiredMerchantArtificial && !soloMapling.Economy.BotShops.isBotShop(m) && m.isOpen()
+                        && m.getItems().size() < 16
                         && m.getMapId() >= FM_FIRST_ROOM && m.getMapId() <= FM_LAST_ROOM) {
                     open.add(m);
                 }
