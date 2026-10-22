@@ -723,7 +723,7 @@ public class EnvironmentCommand extends Command {
         for (int i = 0; i < p.spots().size(); i++) {
             Spot s = p.spots().get(i);
             int live = SpotFinder.liveHostilesWithin(map, s);
-            int holders = BotSpotClaims.holders(p.mapId(), i);
+            int holders = BotSpotClaims.holdersAllChannels(p.mapId(), i);
             totalHolders += holders;
             player.yellowMessage(String.format("  [%d] anchor (%d,%d) region %d  radius %d  spawnPts %d (sameLedge %d)  ledgeSpan %dpx  liveMobs %d  holders %d/%d",
                     i, s.anchor().x, s.anchor().y, s.regionId(), s.radius(), s.spawnCount(),

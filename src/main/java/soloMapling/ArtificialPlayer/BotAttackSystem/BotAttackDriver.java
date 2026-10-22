@@ -16,6 +16,8 @@ import server.life.Monster;
 import server.maps.MapObject;
 import server.maps.MapObjectType;
 import server.maps.MapleMap;
+import soloMapling.ArtificialPlayer.BotCombatSystem.BotCombatTuning;
+import soloMapling.ArtificialPlayer.BotCombatSystem.BotHabits;
 import soloMapling.ArtificialPlayer.BotCommandsPack.BotAttack;
 import soloMapling.ArtificialPlayer.BotDecoratorSystem.BotWeapons;
 import soloMapling.ArtificialPlayer.BotMovementSystem.MovementCommands;
@@ -35,8 +37,8 @@ import java.util.concurrent.ConcurrentHashMap;
 /*
  * Targeting and route-dispatch model adapted from GreenCatMS bot combat. Credit: NutNNut.
  * Bot attack driver. Resolves the bot's attacks from its class + weapon (BotAttackConfig),
- * then each tick picks the AoE skill when 2+ mobs are in reach else the
- * single-target one, faces the nearest, rolls each line from the bot's real numbers (BotDamage), and strikes via the
+ * then each tick picks the AoE skill when 3+ mobs are in reach (BotSkillChoice; 2+ with BOT_COMBAT_HUMAN off) else
+ * the single-target one, faces the nearest, rolls each line from the bot's real numbers (BotDamage), and strikes via the
  * profile's route (melee / ranged / magic). Re-attacks are throttled per bot via
  * nextAttackByBot; clearBot() releases a despawned bot's timer. botAttack() is
  * cooldown-gated; forceAttack() ignores it for the !bot attack GM test.
@@ -141,6 +143,17 @@ public final class BotAttackDriver {
     static int equippedWeaponId(Character bot) {
         Item weapon = bot.getInventory(InventoryType.EQUIPPED).getItem((short) -11);
         return weapon != null ? weapon.getItemId() : 0;
+    }
+
+    /* When the bot's last swing ends (its pose has played out): 0 when it has not swung. */
+    public static long swingEndsAt(int botId) {
+        return nextAttackByBot.getOrDefault(botId, 0L);
+    }
+
+    /* Speed Infusion's x (-1 / -2) while the bot has it: MapleRoot's client adds it to the attack speed. */
+    static int speedInfusion(Character bot) {
+        Integer x = bot.getBuffedValue(client.BuffStat.SPEED_INFUSION);
+        return x != null ? x : 0;
     }
 
     /* Release a despawned bot's cooldown timers so the maps don't grow unbounded. */
@@ -254,6 +267,11 @@ public final class BotAttackDriver {
         if (nearest == null) {
             return AttackResult.miss("no targetable mobs within " + SEEK_RANGE + "px (none, or all on a separate ledge)");
         }
+        // 1.5.0 rc3: a player turns to the mob before swinging; a swing never goes out the same tick as the turn, so
+        // no attack is drawn facing away from the fight (the turn goes out now, the swing on a later tick).
+        if (!force && choice == Choice.AUTO && turnsFirst(bot, nearest, now)) {
+            return AttackResult.miss("turning to face '" + nearest.getName() + "'");
+        }
         boolean facingLeft = faceTarget(bot, nearest.getPosition());
 
         // Pick the profile. Forced choices use exactly that slot; AUTO fires an AoE when 2+ mobs are in
@@ -279,7 +297,26 @@ public final class BotAttackDriver {
             boolean ultReady = ultimate != null && now >= nextUltimateByBot.getOrDefault(bot.getId(), 0L)
                     && offCooltime(bot, ultimate, now);
             BotAttackProfile packAttack = ultReady ? ultimate : ready(bot, aoe, now);
-            boolean useAoe = packAttack != null && mobsInReach(bot, packAttack, facingLeft).size() >= 2;
+            boolean useAoe;
+            if (BotCombatTuning.human()) {
+                // 1.5.0 rc3 (owner decision 1): the AoE on 3+ mobs, the single-target skill on a boss or a lone mob,
+                // and now and then the other one (the bot's own sloppiness)
+                int inReach = packAttack != null ? mobsInReach(bot, packAttack, facingLeft).size() : 0;
+                BotAttackProfile singleReady = ready(bot, single, now);
+                boolean sloppy = java.util.concurrent.ThreadLocalRandom.current().nextDouble()
+                        < BotHabits.of(bot.getId()).sloppyNow();
+                BotSkillChoice.Pick pick = BotSkillChoice.choose(packAttack != null, inReach, nearest.isBoss(),
+                        BotCombatTuning.aoeMinMobs(), singleReady != null, sloppy);
+                useAoe = pick.aoe();
+                if (soloMapling.qa.QaLog.on(soloMapling.qa.QaLog.Topic.COMBAT)) {
+                    soloMapling.qa.QaLog.map(soloMapling.qa.QaLog.Topic.COMBAT, bot.getMapId(), "CHOICE " + bot.getName()
+                            + " " + bot.getJob() + ": " + inReach + " in AoE reach" + (nearest.isBoss() ? ", boss" : "")
+                            + " -> " + (useAoe ? "AOE " + packAttack.skillId : "SINGLE "
+                            + (singleReady != null ? singleReady.skillId : 0)) + " (" + pick.why() + ")");
+                }
+            } else {
+                useAoe = packAttack != null && mobsInReach(bot, packAttack, facingLeft).size() >= 2;
+            }
             if (useAoe) {
                 profile = packAttack;
             } else {
@@ -317,7 +354,8 @@ public final class BotAttackDriver {
         // weapon's plain attack (a viewer would drop it, and say so in chat for the weapon).
         int weaponItemId = equippedWeaponId(bot);
         int linesHint = shadowDoubled(bot, profile.numDamage);
-        BotSwingPlan plan = BotSwingPlan.of(profile, packetLevel(bot, profile), weaponItemId, facingLeft, linesHint);
+        BotSwingPlan plan = BotSwingPlan.of(profile, packetLevel(bot, profile), weaponItemId, facingLeft, linesHint,
+                speedInfusion(bot));
         BotAttackProfile reachAs = plan.skillId() == profile.skillId ? profile : BotAttackProfile.basicSwing();
 
         List<Monster> targets = cap(mobsInReach(bot, reachAs, facingLeft), plan.maxMobs());
@@ -373,7 +411,7 @@ public final class BotAttackDriver {
 
         supply.commit(bot, route, skillId); // the ammo fired, the MP/HP the skill cost (and a potion if it is low)
         BotComboOrbs.afterStrike(bot, skillId); // after the packet: a finisher is drawn with the orbs it spends
-        nextAttackByBot.put(bot.getId(), now + profile.cooldownMs + plan.burstMs());
+        nextAttackByBot.put(bot.getId(), now + plan.busyMs(profile.cooldownMs)); // the pose's length (BotAttackTiming)
         startCooltime(bot, skillId, skillLevel, now);
         if (extra != null && skillId == extra.profile().skillId) {
             extraUsedByBot.computeIfAbsent(bot.getId(), k -> new ConcurrentHashMap<>()).put(skillId, now);
@@ -653,6 +691,32 @@ public final class BotAttackDriver {
         }
         MovementCommands.botFaceTowardsPoint(bot, target);
         return MovementCommands.facingLeft(bot);
+    }
+
+    // Mobs this close to the bot's x have no side: no turn is needed to hit them.
+    private static final int TURN_DEADZONE_PX = 15;
+
+    /*
+     * 1.5.0 rc3 (owner decision 2, "face the mobs before attacking"): when a GC-driven bot faces away from the mob it
+     * is about to hit, it turns now and swings on a later tick (a 120-300 ms reaction). True when it turned.
+     */
+    private static boolean turnsFirst(Character bot, Monster target, long now) {
+        if (!BotCombatTuning.human() || !GCMovement.isEnabled(bot) || target.getPosition() == null) {
+            return false;
+        }
+        Boolean facingLeft = GCMovement.isFacingLeft(bot);
+        int dx = target.getPosition().x - bot.getPosition().x;
+        if (facingLeft == null || Math.abs(dx) <= TURN_DEADZONE_PX || (dx < 0) == facingLeft) {
+            return false;
+        }
+        GCMovement.face(bot, dx < 0);
+        nextAttackByBot.put(bot.getId(), now + 120 + java.util.concurrent.ThreadLocalRandom.current().nextInt(181));
+        if (soloMapling.qa.QaLog.on(soloMapling.qa.QaLog.Topic.COMBAT)) {
+            soloMapling.qa.QaLog.map(soloMapling.qa.QaLog.Topic.COMBAT, bot.getMapId(), "FACE " + bot.getName()
+                    + " turns " + (dx < 0 ? "left" : "right") + " to '" + target.getName() + "' (dx " + dx
+                    + ") before swinging");
+        }
+        return true;
     }
 
     /* The closest live mob within the seek radius (any direction), or null. */

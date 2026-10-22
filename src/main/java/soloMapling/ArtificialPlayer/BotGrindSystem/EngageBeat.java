@@ -3,6 +3,7 @@ package soloMapling.ArtificialPlayer.BotGrindSystem;
 import client.Character;
 import server.life.Monster;
 import soloMapling.ArtificialPlayer.BotAttackSystem.BotAttackDriver;
+import soloMapling.ArtificialPlayer.BotCombatSystem.BotCombatTuning;
 import soloMapling.ArtificialPlayer.GCMoveSystem.GCMovement;
 
 import java.awt.Point;
@@ -31,6 +32,7 @@ final class EngageBeat {
     private static final int KITE_MIN_PX = 150;             // a mob nearer than this (|dx|) triggers a step back
     private static final int KITE_STEP_PX = 90;             // how far the bot retreats per kite step
     private static final long KITE_COOLDOWN_MS = 400;       // cadence floor between kite steps
+    private static final int MAGE_COMFORT_PX = 120;         // 1.5.0 rc3: a mage keeps mobs at least this far off
 
     // ── Attack tempo (real classes can't walk mid-attack; only jumps/teleports move while attacking) ──
     static final long ATTACK_WALK_LOCK_MS = 500;            // after a swing, hold position this long before walking
@@ -52,6 +54,8 @@ final class EngageBeat {
     }
 
     void reset() {
+        nextTouchStepMs = 0L;
+        handledHitMs = GCMovement.lastContactHitMs(null);
         nextSkillMoveMs = 0L;
         nextAoeRepositionMs = 0L;
         nextKiteMs = 0L;
@@ -61,14 +65,128 @@ final class EngageBeat {
     // Pre-swing adjustments, in priority order: turn to face, ranged kite-back, AoE re-center.
     // Returns true when the beat was spent moving/turning — the caller swings next tick instead.
     boolean preSwingAdjust(Character chr, Monster t) {
+        boolean human = BotCombatTuning.human();
+        if (human && (stepBackAfterKnockback(chr) || stepOutOfMob(chr))) {
+            return true; // 1.5.0 rc3: never fight from inside a mob, and back off after a knockback
+        }
         if (needsTurnBeat(chr, t)) {
             doTurnBeat(chr, t); // mob is on our other side -> turn + small step this beat, swing next beat
             return true;
         }
-        if (b.style == MovementStyle.RANGED && kiteIfTooClose(chr, t)) {
+        if ((b.style == MovementStyle.RANGED || (human && b.keepsDistance)) && kiteIfTooClose(chr, t)) {
             return true; // a mob closed the gap -> step back to keep spacing, then fire next beat from range
         }
+        if (human && b.keepsDistance) {
+            return false; // 1.5.0 rc3: mages hold their distance and let the spell reach, no stepping into the pack
+        }
         return aoeRepositionIfWorthwhile(chr); // stepped/blinked into the pack -> swing next beat centred
+    }
+
+    // ── 1.5.0 rc3: touch damage (owner decision 2) ──
+    private static final long TOUCH_STEP_COOLDOWN_MS = 700;
+    private static final int TOUCH_SCAN_PX = 160;
+    private static final int TOUCH_CLEAR_PX = 22;          // a melee bot stands this far past the mob's body edge
+    private static final long KNOCKBACK_SETTLE_MS = 350;   // let the recoil land first
+    private static final long KNOCKBACK_WINDOW_MS = 2_000; // a hit older than this is history
+    private long nextTouchStepMs = 0L;
+    private long handledHitMs = 0L;
+
+    // Standing inside a mob's body: step out to the side away from it - a melee bot to just past its edge (it still
+    // wants to hit it), a ranged or magic bot well clear. True when a step went out.
+    private boolean stepOutOfMob(Character chr) {
+        long now = now();
+        if (now < nextTouchStepMs || now < b.attackWalkLockUntil) {
+            return false;
+        }
+        Point pos = chr.getPosition();
+        if (pos == null || chr.getMap() == null) {
+            return false;
+        }
+        Monster inside = null;
+        java.awt.Rectangle body = null;
+        for (server.maps.MapObject mo : chr.getMap().getMapObjectsInRange(pos, (double) TOUCH_SCAN_PX * TOUCH_SCAN_PX,
+                java.util.List.of(server.maps.MapObjectType.MONSTER))) {
+            Monster m = (Monster) mo;
+            if (!SpotFinder.isHostile(m)) {
+                continue;
+            }
+            java.awt.Rectangle r = GCMovement.mobBounds(m);
+            if (r == null) {
+                continue;
+            }
+            int lower = Math.max(1, r.height / 2); // only the lower half touches (BotContactDamage)
+            java.awt.Rectangle touch = new java.awt.Rectangle(r.x - 4, r.y + r.height - lower, r.width + 8, lower + 6);
+            if (touch.contains(pos.x, pos.y - 8)) {
+                inside = m;
+                body = r;
+                break;
+            }
+        }
+        if (inside == null) {
+            return false;
+        }
+        int center = body.x + body.width / 2;
+        int dir = pos.x >= center ? 1 : -1;
+        int edge = dir > 0 ? body.x + body.width : body.x;
+        int clear = b.keepsDistance || b.style == MovementStyle.RANGED ? 70 + b.rng.nextInt(40) : TOUCH_CLEAR_PX;
+        int tx = edge + dir * clear;
+        if (!stepTo(chr, tx)) {
+            return false;
+        }
+        nextTouchStepMs = now + TOUCH_STEP_COOLDOWN_MS;
+        logCombat(chr, "TOUCH " + chr.getName() + " stands inside " + inside.getName() + ": steps "
+                + (dir > 0 ? "right" : "left") + " to x " + tx);
+        return true;
+    }
+
+    // A mob just knocked the bot back: once the recoil has landed, take another step or two away from it before
+    // going back in, as a player does. Once per hit.
+    private boolean stepBackAfterKnockback(Character chr) {
+        long hit = GCMovement.lastContactHitMs(chr);
+        long now = now();
+        if (hit <= handledHitMs || now - hit > KNOCKBACK_WINDOW_MS) {
+            return false;
+        }
+        if (now - hit < KNOCKBACK_SETTLE_MS) {
+            return true; // still flying back: hold the swing
+        }
+        handledHitMs = hit;
+        Point pos = chr.getPosition();
+        if (pos == null) {
+            return false;
+        }
+        int dir = pos.x >= GCMovement.lastContactHitFromX(chr) ? 1 : -1;
+        int tx = pos.x + dir * (40 + b.rng.nextInt(50));
+        if (!stepTo(chr, tx)) {
+            return false;
+        }
+        logCombat(chr, "KNOCKBACK " + chr.getName() + " steps back to x " + tx + " before re-engaging");
+        return true;
+    }
+
+    // A short walk to x on the bot's own ground, clamped to its leash. False when the leash leaves no room.
+    private boolean stepTo(Character chr, int x) {
+        Point pos = chr.getPosition();
+        int[] leash = b.effectiveLeash(chr);
+        int tx = GrindBrain.clamp(x, leash[0], leash[1]);
+        if (pos == null || Math.abs(tx - pos.x) < TURN_STEP_MIN_PX) {
+            return false;
+        }
+        Point gp = b.strategyGroundAt(chr, tx);
+        if (gp == null || Math.abs(gp.y - pos.y) > GrindBrain.APPROACH_Y) {
+            gp = GCMovement.groundPointBelow(chr.getMap(), tx, pos.y);
+        }
+        GCMovement.move(chr, tx, gp != null ? gp.y : pos.y);
+        b.lastMoveTargetX = tx;
+        b.engaged = false;
+        b.markProgress();
+        return true;
+    }
+
+    static void logCombat(Character chr, String line) {
+        if (soloMapling.qa.QaLog.on(soloMapling.qa.QaLog.Topic.COMBAT)) {
+            soloMapling.qa.QaLog.map(soloMapling.qa.QaLog.Topic.COMBAT, chr.getMapId(), line);
+        }
     }
 
     // Plant (or hop) and swing. Handles the engage flourish once per engagement, fires the attack,
@@ -95,7 +213,11 @@ final class EngageBeat {
         BotAttackDriver.AttackResult r = BotAttackDriver.botAttack(chr);
         if (r != null && (r.hit() || r.killed())) {
             b.markProgress(); // landed hit/kill -> not stuck
-            b.attackWalkLockUntil = now() + ATTACK_WALK_LOCK_MS; // hold position through the swing before walking
+            // hold position through the swing before walking: until its pose has played out, as a player's client
+            // does (BotAttackTiming), never less than ATTACK_WALK_LOCK_MS
+            long poseEnds = soloMapling.ArtificialPlayer.BotAttackSystem.BotAttackTiming.enabled()
+                    ? BotAttackDriver.swingEndsAt(chr.getId()) : 0L;
+            b.attackWalkLockUntil = Math.max(now() + ATTACK_WALK_LOCK_MS, poseEnds);
         }
         if (r != null && r.killed()) {
             b.targetOid = -1; // re-acquire the next mob
@@ -266,7 +388,8 @@ final class EngageBeat {
         }
         Point pos = chr.getPosition();
         Point mp = (mob != null) ? mob.getPosition() : null;
-        if (pos == null || mp == null || Math.abs(pos.x - mp.x) >= KITE_MIN_PX) {
+        int comfort = b.style == MovementStyle.RANGED ? KITE_MIN_PX : MAGE_COMFORT_PX;
+        if (pos == null || mp == null || Math.abs(pos.x - mp.x) >= comfort) {
             return false; // comfortable spacing already
         }
         int dir = (pos.x >= mp.x) ? 1 : -1; // step further from the mob
@@ -280,6 +403,8 @@ final class EngageBeat {
         b.lastMoveTargetX = tx;
         b.engaged = false;
         nextKiteMs = now() + KITE_COOLDOWN_MS;
+        logCombat(chr, "KITE " + chr.getName() + " backs off from " + mob.getName() + " (dx " + Math.abs(pos.x - mp.x)
+                + ") to x " + tx);
         return true;
     }
 

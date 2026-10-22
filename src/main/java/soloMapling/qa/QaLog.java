@@ -45,7 +45,11 @@ public final class QaLog {
         WEALTH,         // bot wealth ceiling: intake cut, spending, decay (ga-2)
         AFFINITY,       // bot<->player affinity: events, state changes, and what bots do about it (af-1..af-3)
         COUPLE,         // bot couples and their weddings: forming, hops, parties, chairs, rings, the ceremony (cp-1, we-1)
-        BOT_GUILD;      // bot guilds: joins, invites, applications, guild chat, recruiting, jabs, boss runs, quits (gu-1..gu-7)
+        BOT_GUILD,      // bot guilds: joins, invites, applications, guild chat, recruiting, jabs, boss runs, quits (gu-1..gu-7)
+        COMBAT,         // 1.5.0 rc3: skill choice (mobs in reach, AoE/single, boss, sloppy), buffs, facing, touch steps, pacing (cb-1, cb-2)
+        HABITS,         // 1.5.0 rc3: per-bot loot style, potions, restock trips, deaths and the walk back (cb-3)
+        MANNERS,        // 1.5.0 rc3: neutral bots yielding a player's platform, moving on, "cc?" (cb-4)
+        SPREAD;         // 1.5.0 rc3: spot claims per channel, personal space, rope waits (sp-1)
 
         final int bit = 1 << ordinal();
     }

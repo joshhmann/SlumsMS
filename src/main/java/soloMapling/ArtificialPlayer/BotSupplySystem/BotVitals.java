@@ -58,13 +58,33 @@ public final class BotVitals {
 
     /* The bot takes a hit: off its HP (never below 1), then it pots if it is low. */
     public static void hurt(Character bot, int damage) {
-        if (bot == null || damage <= 0) {
-            return;
+        if (bot == null || damage <= 0 || soloMapling.ArtificialPlayer.BotCombatSystem.BotDeaths.isDead(bot.getId())) {
+            return; // 1.5.0 rc3: a bot lying dead takes no more hits (and is not healed back to 1)
         }
         synchronized (lock(bot)) {
+            if (bot.getHp() - damage <= 0 && soloMapling.ArtificialPlayer.BotCombatSystem.BotDeaths.rollsDeath(bot)) {
+                soloMapling.ArtificialPlayer.BotCombatSystem.BotDeaths.die(bot); // 1.5.0 rc3: a rare real death
+                return;
+            }
             setHp(bot, Math.max(1, bot.getHp() - damage));
             topUp(bot);
         }
+    }
+
+    /*
+     * 1.5.0 rc3 (owner decision 5): the HP share under which this bot drinks. On a map a player can see, each bot
+     * drinks at its own habit (40-60%), and now and then notices late (15 points lower that time). Offscreen it keeps
+     * the shared 50% (the simple path).
+     */
+    static double hpPotAt(Character bot) {
+        if (!soloMapling.ArtificialPlayer.BotCombatSystem.BotCombatTuning.human()
+                || !soloMapling.ArtificialPlayer.GCMoveSystem.GCMovement.isMapObserved(bot.getMapId())) {
+            return HP_POT_AT;
+        }
+        soloMapling.ArtificialPlayer.BotCombatSystem.BotHabits h =
+                soloMapling.ArtificialPlayer.BotCombatSystem.BotHabits.of(bot.getId());
+        boolean late = java.util.concurrent.ThreadLocalRandom.current().nextDouble() < h.latePotChance();
+        return late ? h.hpPotAt() - 0.15 : h.hpPotAt();
     }
 
     /* What one cast of this skill costs in MP, by the server's rule (StatEffect.calcMPChange). */
@@ -154,10 +174,19 @@ public final class BotVitals {
     /* Drinks what the bot needs: HP potions under half HP, MP potions under 30% MP, a few at most. */
     public static void topUp(Character bot) {
         synchronized (lock(bot)) {
-            for (int i = 0; i < MAX_DRINKS && bot.getHp() < bot.getCurrentMaxHp() * HP_POT_AT; i++) {
+            double hpAt = bot.getHp() < bot.getCurrentMaxHp() * 0.75 ? hpPotAt(bot) : HP_POT_AT; // roll only when low
+            int before = bot.getHp();
+            int drank = 0;
+            for (int i = 0; i < MAX_DRINKS && bot.getHp() < bot.getCurrentMaxHp() * hpAt; i++) {
                 if (!drink(bot, true)) {
                     break;
                 }
+                drank++;
+            }
+            if (drank > 0 && soloMapling.qa.QaLog.on(soloMapling.qa.QaLog.Topic.HABITS)) {
+                soloMapling.qa.QaLog.map(soloMapling.qa.QaLog.Topic.HABITS, bot.getMapId(), "POT " + bot.getName()
+                        + " drinks " + drank + " at " + Math.round(100.0 * before / Math.max(1, bot.getCurrentMaxHp()))
+                        + "% HP (its line " + Math.round(hpAt * 100) + "%), " + potionCount(bot, true) + " HP pots left");
             }
             for (int i = 0; i < MAX_DRINKS && bot.getMp() < bot.getCurrentMaxMp() * MP_POT_AT; i++) {
                 if (!drink(bot, false)) {
@@ -239,6 +268,19 @@ public final class BotVitals {
             n += item.getQuantity();
         }
         return n;
+    }
+
+    /* QA cb-3: uses up HP potions until the bot holds at most {@code keep}; how many went. */
+    public static int drainHpPotionsTo(Character bot, int keep) {
+        int over = potionCount(bot, true) - Math.max(0, keep);
+        int gone = 0;
+        for (Item item : potions(bot, true)) {
+            if (over - gone <= 0) {
+                break;
+            }
+            gone += BotHoldings.consumeHeld(bot, item, Math.min(item.getQuantity(), over - gone));
+        }
+        return gone;
     }
 
     /* What all the bot's HP (or MP) potions would restore, at its current max. */

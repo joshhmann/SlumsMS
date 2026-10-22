@@ -12,6 +12,9 @@ import net.server.world.PartyCharacter;
 import net.server.world.World;
 import soloMapling.ArtificialPlayer.BotAttackSystem.BotAttackDriver;
 import soloMapling.ArtificialPlayer.BotAttackSystem.BotBuffDriver;
+import soloMapling.ArtificialPlayer.BotCombatSystem.BotCombatTuning;
+import soloMapling.ArtificialPlayer.BotCombatSystem.BotDeaths;
+import soloMapling.ArtificialPlayer.BotCombatSystem.BotHabits;
 import soloMapling.ArtificialPlayer.BotGearSystem.BotGear;
 import soloMapling.ArtificialPlayer.BotScrollSystem.BotScrolling;
 import soloMapling.ArtificialPlayer.BotHoldings;
@@ -248,8 +251,8 @@ public class TrainingBot extends BotSM {
 
     private void combatTick() {
         Character chr = getChr();
-        if (chr == null || !getRunning() || phase != Phase.GRIND) {
-            return; // gated; removal happens in leaveGrind()/stopScheduledTask()
+        if (chr == null || !getRunning() || phase != Phase.GRIND || BotDeaths.isDead(chr.getId())) {
+            return; // gated; removal happens in leaveGrind()/stopScheduledTask() (and a dead bot does nothing)
         }
         grind.tick(chr); // observed → spot grind (FIGHT⇄WAIT); unobserved → no-op (the macro tick accrues abstract EXP)
     }
@@ -441,6 +444,10 @@ public class TrainingBot extends BotSM {
         getDebugger().debugLoggingFull(
                 String.format("%s TrainingBot phase: %s", chr.getName(), phase), String.format("%s", phase));
 
+        if (handleDeath(chr)) {
+            return; // 1.5.0 rc3: lying dead, or just respawned in town
+        }
+
         if (eventCall) {
             eventCall = false;
             answerEventCall(chr);
@@ -465,6 +472,41 @@ public class TrainingBot extends BotSM {
         pollRecruitInvite(); // gated party-invite drain (the "wanna party up?" flow)
         soloMenu.poll();
         partyMenu.poll();    // kept last: a "Follow me!" selection converts this bot away
+    }
+
+    // ── Deaths (1.5.0 rc3, owner decision 5) ─────────────────────────────────
+
+    private int walkBackMapId = -1; // the map it died on: after town it walks back there
+
+    // A bot that died (BotDeaths) lies still for a few seconds, then respawns in the map's return town, where the town
+    // stop rests and restocks it; its next DECIDE walks back to the map it died on. True while this owns the tick.
+    private boolean handleDeath(Character chr) {
+        if (!BotDeaths.isDead(chr.getId())) {
+            return false;
+        }
+        if (!BotDeaths.readyToRespawn(chr.getId())) {
+            return true; // still lying there
+        }
+        int diedOn = chr.getMapId();
+        int back = currentTrainMapId >= 0 ? currentTrainMapId : diedOn;
+        if (phase == Phase.GRIND) {
+            leaveGrind();
+        }
+        GCMovement.releaseCommitmentHold(chr);
+        int town = chr.getMap() != null ? chr.getMap().getReturnMapId() : -1;
+        if (town <= 0 || town == MapId.NONE || MapMobIndex.level(town) >= 0) {
+            town = homeMapId >= 0 ? homeMapId : MapId.HENESYS;
+        }
+        chr.respawn(town);
+        walkBackMapId = back;
+        log("[TrainingBot] " + chr.getName() + " died on map " + diedOn + "; respawned in " + town
+                + ", will walk back to " + back);
+        if (soloMapling.qa.QaLog.on(soloMapling.qa.QaLog.Topic.HABITS)) {
+            soloMapling.qa.QaLog.any(soloMapling.qa.QaLog.Topic.HABITS, "RESPAWN " + chr.getName() + " died on "
+                    + diedOn + ", respawned in town " + town + ", will rest, restock and walk back to " + back);
+        }
+        enterPhase(Phase.IN_TOWN);
+        return true;
     }
 
     // ── World events (ticket 21) ─────────────────────────────────────────────
@@ -885,6 +927,20 @@ public class TrainingBot extends BotSM {
             enterPhase(chr.getMapId() == eventMap ? Phase.GRIND : Phase.GO_TRAIN);
             return;
         }
+        // 1.5.0 rc3: back from a death in town - walk back to the map it died on, as a player does
+        int back = walkBackMapId;
+        walkBackMapId = -1;
+        if (back > 0 && MapMobIndex.level(back) >= 0 && BotMapGates.mayEnter(back, BotMapGates.rebirthsOf(chr))) {
+            debugChat("DECIDE: walking back to map " + back + " after a death");
+            if (soloMapling.qa.QaLog.on(soloMapling.qa.QaLog.Topic.HABITS)) {
+                soloMapling.qa.QaLog.any(soloMapling.qa.QaLog.Topic.HABITS, "WALK BACK " + chr.getName()
+                        + " heads back from " + chr.getMapId() + " to " + back);
+            }
+            setTrainTarget(back, Math.max(1, MapMobIndex.level(back)));
+            firstTrip = false;
+            enterPhase(chr.getMapId() == back ? Phase.GRIND : Phase.GO_TRAIN);
+            return;
+        }
         Set<Integer> excluded = crowdExcludedMaps(); // maps on crowd-cooldown (pruned) — steer away from them
         clearTrainTarget(); // release any stale reservation before choosing (choose() reserves the pick's slot)
         pendingHomeMapId = -1; // a relocation that never arrived is forgotten; the bot keeps its old home
@@ -1030,6 +1086,8 @@ public class TrainingBot extends BotSM {
             lastExpAccrualMs = now();
             nextBuffMs = now(); // buff up as soon as a player can see it (looks already-buffed on arrival)
             ACTIVE_GRINDERS.add(this);
+            BotDeaths.setEligible(chr.getId(), partyTargetMapId() == null && !recruitingNow()); // 1.5.0 rc3
+            hpPotsAtGrindStart = BotVitals.potionCount(chr, true);
             soloMapling.ArtificialPlayer.BotGrindSystem.LevelingPathCensus.grinding(chr.getId(), chr.getMapId());
             lastKnownLevel = chr.getLevel();
             if (!resumingFromBreak) {
@@ -1161,7 +1219,8 @@ public class TrainingBot extends BotSM {
         if (!CROWD_BAIL_UNOBSERVED && !GCMovement.isMapObserved(chr.getMapId())) {
             return false; // old gate: only relieve crowding a player can actually see
         }
-        if (!grind.mapSaturated() || crowdHopsThisEpisode >= MAX_MAP_HOPS_PER_EPISODE) {
+        boolean yielding = grind.yieldsMap(); // 1.5.0 rc3: only a real player's platforms are left here
+        if (!(grind.mapSaturated() || yielding) || crowdHopsThisEpisode >= MAX_MAP_HOPS_PER_EPISODE) {
             mapSaturatedSinceMs = 0L; // not saturated, or out of hops -> reset the persist timer
             return false;
         }
@@ -1174,12 +1233,30 @@ public class TrainingBot extends BotSM {
         }
         int leaving = chr.getMapId();
         debugChat("crowd: map " + leaving + " saturated -> bail to a deeper map");
+        if (yielding) {
+            sayCc(chr);
+        }
         mapCrowdCooldown.put(leaving, now() + MAP_EXCLUDE_MS);
         crowdHopsThisEpisode++;
         mapSaturatedSinceMs = 0L;
         leaveGrind();
         enterPhase(Phase.DECIDE);
         return true;
+    }
+
+    private static final String[] CC_LINES = {"cc?", "cc", "ccing", "ok ill cc", "np cc", "kk cc"};
+
+    // KS manners: moving on from a map a player has, a bot sometimes says so (its own habit).
+    private void sayCc(Character chr) {
+        boolean says = rng.nextDouble() < BotHabits.of(chr.getId()).ccChance();
+        String line = CC_LINES[rng.nextInt(CC_LINES.length)];
+        if (says && GCMovement.isMapObserved(chr.getMapId())) {
+            BotSpeak(chr, line);
+        }
+        if (soloMapling.qa.QaLog.on(soloMapling.qa.QaLog.Topic.MANNERS)) {
+            soloMapling.qa.QaLog.map(soloMapling.qa.QaLog.Topic.MANNERS, chr.getMapId(), "MOVE ON " + chr.getName()
+                    + " leaves map " + chr.getMapId() + " to the player(s)" + (says ? ", says \"" + line + "\"" : ""));
+        }
     }
 
     // ── Grind breaks (rest flavor — behavior in GrindBreakRoutine; the phases just delegate) ──
@@ -1294,8 +1371,13 @@ public class TrainingBot extends BotSM {
     // Real bots 08: out of what it fights with (no potion left at a quarter HP, no MP potion for its attack, no ammo)
     // the bot leaves for town, where it rests and asks the resupply hook (BotSupplies.visitTown). Not mid-way
     // through talking to a player.
+    private int hpPotsAtGrindStart = 0;
+
     private boolean supplyRetreat(Character chr) {
         BotSupplies.Shortage shortage = BotSupplies.shortage(chr);
+        if (shortage == BotSupplies.Shortage.NONE && !recruitingNow() && runningLow(chr)) {
+            return true; // 1.5.0 rc3: down to its own low-water mark of potions -> town to restock
+        }
         if (shortage == BotSupplies.Shortage.NONE || recruitingNow()) {
             return false;
         }
@@ -1311,8 +1393,35 @@ public class TrainingBot extends BotSM {
         return true;
     }
 
+    // 1.5.0 rc3 (owner decision 5): some players head back for potions when they run low, not only when they run out.
+    // A bot whose habit has a low-water mark, and that came out with more than that, leaves when it drinks down to it.
+    private boolean runningLow(Character chr) {
+        if (!BotCombatTuning.human()) {
+            return false;
+        }
+        int mark = BotHabits.of(chr.getId()).restockBelow();
+        if (mark <= 0 || hpPotsAtGrindStart <= mark) {
+            return false;
+        }
+        int left = BotVitals.potionCount(chr, true);
+        if (left >= mark) {
+            return false;
+        }
+        debugChat("supplies: running low (" + left + " HP pots) -> town to restock");
+        if (soloMapling.qa.QaLog.on(soloMapling.qa.QaLog.Topic.HABITS)) {
+            soloMapling.qa.QaLog.map(soloMapling.qa.QaLog.Topic.HABITS, chr.getMapId(), "RESTOCK " + chr.getName()
+                    + " is down to " + left + " HP pots (its mark " + mark + ", came out with " + hpPotsAtGrindStart
+                    + ") -> heads to town");
+        }
+        sayContext("MapTransition", chr, null);
+        leaveGrind();
+        enterPhase(Phase.GO_TOWN);
+        return true;
+    }
+
     private void leaveGrind() {
         ACTIVE_GRINDERS.remove(this);
+        BotDeaths.setEligible(getChr().getId(), false);
         grind.release(getChr()); // drop the spot claim + reset combat state
         clearTrainTarget(); // release this map's occupancy slot
         GCMovement.setRestHold(getChr(), false); // belt-and-braces: never leave a rope rest hold set on bail
@@ -1348,6 +1457,12 @@ public class TrainingBot extends BotSM {
         }
         if (!GCMovement.isMapObserved(chr.getMapId())) {
             return; // hold the timer until it's worth showing.
+        }
+        if (BotCombatTuning.human()) {
+            // 1.5.0 rc3: each buff recast as it runs out, a little late by the bot's habit (party buffs on time)
+            BotBuffDriver.maintain(chr, BotHabits.of(chr.getId()).rebuffLateNowMs());
+            nextBuffMs = now() + 2_000;
+            return;
         }
         BotBuffDriver.forceBuff(chr);
         nextBuffMs = now() + BUFF_MIN_MS + (long) (rng.nextDouble() * (BUFF_MAX_MS - BUFF_MIN_MS));
@@ -1730,6 +1845,8 @@ public class TrainingBot extends BotSM {
             soloMapling.ArtificialPlayer.BotGrindSystem.LevelingPathCensus.forget(chr.getId());
             BotAttackDriver.clearBot(chr.getId());
             BotBuffDriver.clearBot(chr.getId());
+            BotDeaths.clearBot(chr.getId());
+            GCMovement.releaseCommitmentHold(chr);
             BotWanderSystem.stop(chr); // end any shop-dwell flavor wander
             TownLoiter.stop(chr); // free any town-loiter ledge claim + fidget before releasing movement
             GCMovement.disable(chr); // releases the shared movement lock the recorded engine needs

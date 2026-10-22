@@ -290,6 +290,33 @@ public final class GCMovement {
         return (st == null) ? null : st.facingDir < 0;
     }
 
+    /* 1.5.0 rc3: when a mob last landed a touch hit on the bot (epoch ms, 0 = never) and the x it hit from. */
+    public static long lastContactHitMs(Character bot) {
+        BotMovementState st = bot == null ? null : STATES.get(bot.getId());
+        return st == null ? 0L : st.lastContactHitMs;
+    }
+
+    public static int lastContactHitFromX(Character bot) {
+        BotMovementState st = bot == null ? null : STATES.get(bot.getId());
+        return st == null ? 0 : st.lastContactHitFromX;
+    }
+
+    /* 1.5.0 rc3: bounce-zones.yaml blocks Flash Jump on this map, so bots do not plan or cast it there. */
+    public static boolean flashJumpBlocked(int mapId) {
+        return NavMovementSkills.flashJumpBlocked(mapId);
+    }
+
+    /* 1.5.0 rc3: the mob's body box (its touch-damage bounds), or null when its hitbox is unknown. */
+    public static java.awt.Rectangle mobBounds(server.life.Monster mob) {
+        return mob == null ? null : BotMobHitboxProvider.getMobBounds(mob);
+    }
+
+    /* 1.5.0 rc3: the rope or ladder the bot is on, or null. */
+    public static Rope climbingRope(Character bot) {
+        BotMovementState st = bot == null ? null : STATES.get(bot.getId());
+        return st != null && st.climbing ? st.climbRope : null;
+    }
+
     // ── Commitment hold (ticket 05) ──────────────────────────────────────────
 
     /* A player-facing commitment owns the bot's position: hold it exactly where it stands until the

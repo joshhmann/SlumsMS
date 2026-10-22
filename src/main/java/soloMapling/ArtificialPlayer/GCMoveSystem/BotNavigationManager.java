@@ -675,6 +675,10 @@ final class BotNavigationManager {
         if (rope == null) {
             return null;
         }
+        if (RopeShare.shouldWait(entry, bot, rope)) {
+            entry.lastEdgeBlockReason = "rope-taken"; // 1.5.0 rc3: another bot is on it; wait a moment
+            return null;
+        }
         if (!canExecuteClimbEntryFromCurrentPosition(bot.getMap(), botPos, edge, rope)) {
             entry.lastEdgeBlockReason = "climb-pos";
             return null;

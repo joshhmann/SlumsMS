@@ -730,4 +730,46 @@ final class GameQaWorld implements QaWorld {
         var g = soloMapling.ArtificialPlayer.BotGuildSystem.BotGuilds.byName(guild);
         return g != null && soloMapling.ArtificialPlayer.BotGuildSystem.BotGuilds.joinPlayer(gm, g.guildId());
     }
+
+    // ---- 1.5.0 rc3 (cb-1 .. cb-4, sp-1) ----
+
+    @Override
+    public List<Integer> stageGrinders(Character gm, List<String> jobs, int count, int levelOffset, boolean hold,
+                                       boolean atGm) {
+        List<client.Job> parsed = new ArrayList<>();
+        for (String j : jobs) {
+            client.Job job = soloMapling.ArtificialPlayer.BotCombatSystem.CombatStaging.job(j);
+            if (job != null) {
+                parsed.add(job);
+            }
+        }
+        Point at = atGm ? null : busiestMobSpot(gm);
+        return soloMapling.ArtificialPlayer.BotCombatSystem.CombatStaging.stage(gm, parsed, count, levelOffset, at, hold);
+    }
+
+    @Override
+    public void unstageGrinders(List<Integer> ids) {
+        soloMapling.ArtificialPlayer.BotCombatSystem.CombatStaging.unstage(ids);
+    }
+
+    @Override
+    public List<String> grinderReport(List<Integer> ids, String what) {
+        return soloMapling.ArtificialPlayer.BotCombatSystem.CombatStaging.report(ids, what);
+    }
+
+    @Override
+    public List<String> spreadTally(Character gm) {
+        return gm.getMap() == null ? List.of()
+                : soloMapling.ArtificialPlayer.BotCombatSystem.CombatStaging.spreadTally(gm.getMap());
+    }
+
+    @Override
+    public List<String> grinderAction(List<Integer> ids, String action) {
+        return soloMapling.ArtificialPlayer.BotCombatSystem.CombatStaging.act(ids, action);
+    }
+
+    @Override
+    public String combatTuning() {
+        return soloMapling.ArtificialPlayer.BotCombatSystem.BotCombatTuning.describe();
+    }
 }

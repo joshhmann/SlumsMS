@@ -539,6 +539,25 @@ public final class SpotFinder {
 
     // ── Selection + the FIGHT/WAIT radius scan ──
 
+    /*
+     * 1.5.0 rc3 (spread): the key the grind strategies claim spots under - this map instance (channel + map id), so
+     * bots on different channels no longer fill each other's spots. With BOT_SPREAD off, the old channel-blind key.
+     */
+    public static long claimKey(Character chr) {
+        if (chr == null) {
+            return -1;
+        }
+        MapleMap map = chr.getMap();
+        if (!soloMapling.ArtificialPlayer.BotCombatSystem.BotCombatTuning.spread() || map == null) {
+            return chr.getMapId();
+        }
+        return BotSpotClaims.instanceKey(map.getChannelId(), map.getId());
+    }
+
+    // 1.5.0 rc3 (KS manners): a spot on a real player's platform scores this much lower for a bot that respects
+    // the player, so it is taken only when nothing else on the map is left.
+    static final double PLAYER_PLATFORM_PENALTY = 400.0;
+
     // Score each candidate spot for this bot and return the highest scorer (or null if none reachable).
     // Hard filters: a spot's region must be reachable from where the bot stands (skip the filter if that
     // set is empty — graph unbaked / on no ledge); skip the just-left spot while its cooldown holds. An
@@ -556,6 +575,7 @@ public final class SpotFinder {
         Set<Integer> reach = GCMovement.reachableRegions(map, pos.x, pos.y);
         boolean filter = !reach.isEmpty();
         long now = System.currentTimeMillis();
+        List<Character> players = KsManners.respectedPlayers(chr); // usually none: no cost
         List<Spot> spots = p.spots();
         Spot best = null;
         double bestScore = -Double.MAX_VALUE;
@@ -567,7 +587,7 @@ public final class SpotFinder {
             if (i == excludedIdx && now < excludedUntilMs) {
                 continue; // just-left this spot — let it cool down
             }
-            int holders = BotSpotClaims.holders(map.getId(), i);
+            int holders = BotSpotClaims.holders(claimKey(chr), i);
             double score = SPAWN_DENSITY_W * s.sameLedgeSpawnCount()
                     + TIGHTNESS_W * (100.0 * s.sameLedgeSpawnCount() / Math.max(1, 2 * s.radius()))
                     + LEDGE_EXTENT_W * (Math.min(s.ledgeSpanPx(), LEDGE_EXTENT_CAP_PX) / 100.0)
@@ -576,6 +596,8 @@ public final class SpotFinder {
                     - CROWDING_W * holders
                     - OVER_CAP_PENALTY * Math.max(0, holders - s.shareCap() + 1)
                     + PLAYER_HEAT_W * PlayerHeat.warmth(map.getId(), s.anchor()) // ticket 18: where players grind
+                    - (players.isEmpty() || KsManners.playerOn(chr, players, s.anchor(), s.radius()) == null
+                            ? 0 : PLAYER_PLATFORM_PENALTY)
                     + ThreadLocalRandom.current().nextDouble() * SELECT_JITTER;
             if (score > bestScore) {
                 bestScore = score;

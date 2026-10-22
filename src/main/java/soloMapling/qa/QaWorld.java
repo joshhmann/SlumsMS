@@ -211,4 +211,40 @@ public interface QaWorld {
 
     /** The GM joins a bot guild now as the stock accept does (gu-8). False when in a guild or it is full. */
     boolean joinBotGuild(Character gm, String guild);
+
+    // ---- 1.5.0 rc3: bots fight like people, spread out (cb-1 .. cb-4, sp-1) ----
+
+    /**
+     * Grinders on the GM's map: one per job name given (that job's check level, skills maxed), else {@code count}
+     * bots of random classes at the map's mob level + {@code levelOffset}. {@code hold}: kept on the map; else they
+     * only start there. {@code atGm}: next to the GM, else in the map's densest mob pack. Their ids.
+     */
+    default List<Integer> stageGrinders(Character gm, List<String> jobs, int count, int levelOffset, boolean hold,
+                                        boolean atGm) {
+        return List.of();
+    }
+
+    /** Takes staged grinders away. */
+    default void unstageGrinders(List<Integer> ids) {
+    }
+
+    /** One line per staged bot: {@code buffs | position | habits}. */
+    default List<String> grinderReport(List<Integer> ids, String what) {
+        return List.of();
+    }
+
+    /** sp-1: the spread of every bot on the GM's map instance. */
+    default List<String> spreadTally(Character gm) {
+        return List.of();
+    }
+
+    /** cb-3 steps on staged grinders: die | lowpots | hurt. */
+    default List<String> grinderAction(List<Integer> ids, String action) {
+        return List.of();
+    }
+
+    /** The human-combat switches, one line. */
+    default String combatTuning() {
+        return "";
+    }
 }

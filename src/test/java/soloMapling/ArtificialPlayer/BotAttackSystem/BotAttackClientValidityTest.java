@@ -202,6 +202,9 @@ class BotAttackClientValidityTest {
                 }
                 for (int pose : poses) {
                     BotSwingPlan sent = plan.withAction(pose);
+                    if (BotAttackTiming.poseMs(pose, sent.speed()) <= 0) {
+                        failures.add(who + "pose " + pose + " has no length in bot-action-delays.tsv");
+                    }
                     Packet packet = BotAttackEffects.attackPacket(bot, sent, targets(sent),
                             (sent.maxMobs() << 4) | sent.lines(),
                             sent.route() == BotAttackProfile.Route.RANGED && BotClientPoses.isShootingWeapon(weaponId)

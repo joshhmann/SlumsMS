@@ -80,6 +80,7 @@ public final class QaScenarios {
                 new Mv1AttackSlide(), new Pe1MapEntry(), new Jq1BounceBlock(), new Ga1Gachapon(), new Ga2BotWealth(),
                 new Af1Friend(), new Af2Rival(), new Af3DramaOff(), new Cp1Couple(), new We1Wedding()));
         out.addAll(GuildScenarios.all()); // 1.5.0 bot guilds: gu-1 .. gu-7
+        out.addAll(CombatScenarios.all()); // 1.5.0 rc3: bots fight like people (cb-1 .. cb-4), spread out (sp-1)
         return List.copyOf(out);
     }
 

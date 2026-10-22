@@ -19,12 +19,48 @@ public final class BotSpotClaims {
     private BotSpotClaims() {
     }
 
-    // mapId -> spotId -> (botId -> slotIndex)
-    private static final Map<Integer, Map<Integer, Map<Integer, Integer>>> CLAIMS = new ConcurrentHashMap<>();
+    // map key -> spotId -> (botId -> slotIndex). The key is a plain map id for the town callers (all channels
+    // share it), or 1.5.0 rc3's per-instance key (instanceKey: channel + map id) for the grind strategies, so a bot
+    // on an empty channel is no longer told every spot is taken by bots on another channel.
+    private static final Map<Long, Map<Integer, Map<Integer, Integer>>> CLAIMS = new ConcurrentHashMap<>();
+
+    /** One map instance's claim key: its channel and map id (channel 0 = the old, channel-blind key). */
+    public static long instanceKey(int channel, int mapId) {
+        return ((long) Math.max(0, channel) << 32) | (mapId & 0xFFFFFFFFL);
+    }
+
+    /** The map id inside a claim key. */
+    public static int mapIdOf(long key) {
+        return (int) key;
+    }
+
+    /** Holders of a spot summed over every channel's instance of the map (read-outs). */
+    public static synchronized int holdersAllChannels(int mapId, int spotId) {
+        int n = 0;
+        for (Map.Entry<Long, Map<Integer, Map<Integer, Integer>>> e : CLAIMS.entrySet()) {
+            if (mapIdOf(e.getKey()) == mapId) {
+                Map<Integer, Integer> slots = e.getValue().get(spotId);
+                n += slots == null ? 0 : slots.size();
+            }
+        }
+        return n;
+    }
+
+    public static int claim(int mapId, int spotId, int capacity, int botId) {
+        return claim((long) mapId, spotId, capacity, botId);
+    }
+
+    public static void release(int mapId, int spotId, int botId) {
+        release((long) mapId, spotId, botId);
+    }
+
+    public static int holders(int mapId, int spotId) {
+        return holders((long) mapId, spotId);
+    }
 
     // Claim a slot on (mapId, spotId) if it isn't full. Returns the slot index [0, capacity) the bot
     // holds (its existing one if already claimed), or -1 if the spot is full.
-    public static synchronized int claim(int mapId, int spotId, int capacity, int botId) {
+    public static synchronized int claim(long mapId, int spotId, int capacity, int botId) {
         Map<Integer, Map<Integer, Integer>> bySpot = CLAIMS.computeIfAbsent(mapId, k -> new HashMap<>());
         Map<Integer, Integer> slots = bySpot.computeIfAbsent(spotId, k -> new HashMap<>());
         Integer existing = slots.get(botId);
@@ -45,7 +81,7 @@ public final class BotSpotClaims {
         return -1;
     }
 
-    public static synchronized void release(int mapId, int spotId, int botId) {
+    public static synchronized void release(long mapId, int spotId, int botId) {
         Map<Integer, Map<Integer, Integer>> bySpot = CLAIMS.get(mapId);
         if (bySpot == null) {
             return;
@@ -83,7 +119,7 @@ public final class BotSpotClaims {
         return released;
     }
 
-    public static synchronized int holders(int mapId, int spotId) {
+    public static synchronized int holders(long mapId, int spotId) {
         Map<Integer, Map<Integer, Integer>> bySpot = CLAIMS.get(mapId);
         if (bySpot == null) {
             return 0;

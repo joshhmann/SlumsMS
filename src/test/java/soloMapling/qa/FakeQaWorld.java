@@ -271,4 +271,36 @@ class FakeQaWorld implements QaWorld {
         }
         return joinWorks;
     }
+
+    // ---- 1.5.0 rc3 (cb-1 .. cb-4, sp-1) ----
+    final List<Integer> grindersUnstaged = new ArrayList<>();
+    int nextGrinder = 900;
+
+    @Override public List<Integer> stageGrinders(Character gm, List<String> jobs, int count, int levelOffset,
+                                                 boolean hold, boolean atGm) {
+        int n = jobs.isEmpty() ? count : jobs.size();
+        List<Integer> ids = new ArrayList<>();
+        for (int i = 0; i < n; i++) {
+            ids.add(nextGrinder++);
+        }
+        calls.add("grinders " + (jobs.isEmpty() ? "random" : String.join(",", jobs)) + " x" + n + " offset "
+                + levelOffset + (hold ? " held" : " free") + (atGm ? " at-gm" : " at-pack"));
+        return ids;
+    }
+
+    @Override public void unstageGrinders(List<Integer> ids) { grindersUnstaged.addAll(ids); calls.add("ungrinders " + ids); }
+
+    @Override public List<String> grinderReport(List<Integer> ids, String what) {
+        calls.add("report " + what);
+        return List.of(what + " of " + ids);
+    }
+
+    @Override public List<String> spreadTally(Character gm) { calls.add("spread"); return List.of("SPREAD 8 bots"); }
+
+    @Override public List<String> grinderAction(List<Integer> ids, String action) {
+        calls.add("act " + action);
+        return List.of(action + " done");
+    }
+
+    @Override public String combatTuning() { return "human true"; }
 }
