@@ -142,7 +142,7 @@ Only maps a real player can see run any of this; offscreen grinders keep the che
 `!botcombat pets [n]` holds n (default 3) grinders with looting pets next to you (as pt-1), `!botcombat pet <bot>`
 prints a bot's pet, pet equips and loot style.
 
-## Ticket 59: natural conversations (cv-1 .. cv-7)
+## Ticket 59: natural conversations (cv-1 .. cv-8)
 
 Every bot is an on-demand bot staged next to you (ticket 58's staging: it counts you as the given state), memory only,
 and it leaves at stop. The `CONVO` topic logs how each of your lines was read (`INTENT ... -> action: YES/NO (reason)
@@ -159,6 +159,7 @@ run alongside.
 | `cv-5` | Warps you to Henesys, stages two bots and starts a thread now (LFG). `!qa do thread [beef\|gossip\|lfg\|trade\|training]` | `THREAD` / `THREAD LINE` (llm or bank). Within 45 s of the last line, say something without a name: `JOIN`, and the last speaker answers you with the thread in mind |
 | `cv-6` | A friend bot. `!qa do last` | Talk, then `!rate good` / `!rate bad too formal "certainly"`: `RATE` with what changed (a bank line's weight, or the tune file's examples and don't-say list). `!rate last` shows the line and its source |
 | `cv-7` | Bank mode ON for the whole server while it runs (`-Dsolomapling.convo.forceBank`), and a friend bot. `!qa do llm` / `!qa do bank` | Every reply is `SAID ... bank#id` or scripted, in the bot's voice, not repeating; flip to the LLM and back to compare. Stop turns bank mode off |
+| `cv-8` `[question...]` | A stranger bot next to you asks the map a scripted question (default "anyone from the east coast?"), like an ambient pack line. `!qa do ask [question]` asks again | Answer within 60 s WITHOUT its name ("im from the east"): `ROUTE` shows it went to the asker, `PROMPT` the exact prompt (system \|\| history with its question as its own turn \|\| the map transcript, its lines marked `(you)`, then `You just said: ... answered: ...`), and `SAID` follows up on its own question |
 
 **`!rate`** (GM 1+, every server): `!rate good|bad [note]` rates the last line a bot said to you (10 min; a thread line
 on your map: 2 min), `!rate last`, `!rate reload` (re-reads `data/convo/tune.json`), `!rate score [yyyy-mm-dd]` writes

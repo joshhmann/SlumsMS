@@ -41,7 +41,7 @@ class ConvoScenariosTest {
     @Test
     void everyChatScenarioIsRegistered() {
         List<String> ids = QaScenarios.all().stream().map(QaScenario::id).toList();
-        for (String id : List.of("cv-1", "cv-2", "cv-3", "cv-4", "cv-5", "cv-6", "cv-7")) {
+        for (String id : List.of("cv-1", "cv-2", "cv-3", "cv-4", "cv-5", "cv-6", "cv-7", "cv-8")) {
             assertTrue(ids.contains(id), id);
         }
     }
@@ -78,6 +78,17 @@ class ConvoScenariosTest {
         assertEquals(1, called("convo thread"));
         suite.action(world.online, "thread", new String[]{"trade"});
         assertEquals(2, called("convo thread"));
+    }
+
+    @Test
+    void cv8StagesAStrangerThatAsksTheMapAndAsksAgainOnRequest() {
+        start("cv-8", 100000000, "anyone", "from", "the", "east", "coast?");
+        assertEquals(1, called("convobot neutral social"));
+        assertEquals(1, called("convo ask anyone from the east coast?"), world.calls.toString());
+        suite.action(world.online, "ask", new String[0]);
+        assertEquals(2, called("convo ask"));
+        suite.stop(1, "!qa stop");
+        assertEquals(1, called("unconvobot"));
     }
 
     @Test

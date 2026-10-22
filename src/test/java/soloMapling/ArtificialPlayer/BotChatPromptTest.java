@@ -67,10 +67,46 @@ class BotChatPromptTest {
         assertTrue(system.contains("level 41 assassin in Ant Tunnel I, currently grinding, in a party with them."));
         assertTrue(system.contains("Mood: focused on grinding"));
         assertTrue(system.contains("You have not talked to Josh before."));
-        assertTrue(system.contains("Recent chat around you: Josh: anyone here / Kimchiz: ya."));
+        assertTrue(!system.contains("Recent chat around you"), "the map's chat goes in the final turn now");
         assertTrue(system.contains("your reply must say so: You agreed to party"));
         assertEquals("wary of this player after how they acted before, short with them",
                 BotChatPrompt.mood(3, "grinding", true, 0));
+    }
+
+    @Test
+    void theFinalTurnCarriesTheTranscriptWhatTheBotJustSaidAndTheInstructionLast() {
+        // owner report 2026-10-22: "anyone from the east coast?" -> "im from the east" -> a reply about the west coast
+        String transcript = "Kiki (you): anyone from the east coast?\nJosh: im from the east";
+        List<BotBrain.Turn> turns = BotChatPrompt.conversation("sys", List.of(BotBrain.Turn.user("yo"),
+                BotBrain.Turn.assistant("sup"), BotBrain.Turn.assistant("anyone from the east coast?"),
+                BotBrain.Turn.user("im from the east")), transcript, "Josh", "anyone from the east coast?");
+        assertEquals(5, turns.size(), "system + the earlier turns + one final user turn");
+        assertEquals(BotBrain.Role.ASSISTANT, turns.get(3).role());
+        assertEquals("anyone from the east coast?", turns.get(3).content(), "its question is its own turn");
+        String last = turns.get(4).content();
+        assertEquals(BotBrain.Role.USER, turns.get(4).role());
+        assertTrue(last.startsWith("Public chat on this map just now, oldest first:\nKiki (you): anyone from the east"
+                + " coast?\nJosh: im from the east\n\n"), last);
+        assertTrue(last.contains("You just said: \"anyone from the east coast?\". Josh answered: \"im from the east\"."),
+                last);
+        assertTrue(last.endsWith("Reply to what Josh actually said, stay on the same topic. If they asked you something,"
+                + " answer it. One short line, only your own words."), last);
+
+        String plain = BotChatPrompt.finalTurn("Josh: yo", "Josh", null, "yo");
+        assertTrue(plain.contains("Josh says to you: \"yo\""), plain);
+        assertEquals("hi", BotChatPrompt.finalTurn("", "Josh", null, "hi"), "a whisper is the line alone");
+    }
+
+    @Test
+    void worldFactsOnlyWhenTheLineAsksAboutTheWorld() {
+        BotChatPrompt.Context c = new BotChatPrompt.Context("Kimchiz", 41, "assassin", "Henesys", null, null, null,
+                "Josh", 30, "page", List.of(), List.of(), null);
+        assertTrue(!BotChatPrompt.system(c, BotPersona.generate(3), 0.3, null, null, false).contains("World facts"));
+        assertTrue(BotChatPrompt.system(c, BotPersona.generate(3), 0.3, null, null, true).contains("World facts"));
+        assertTrue(BotChatPrompt.asksAboutTheWorld("how do i get to ellinia"));
+        assertTrue(BotChatPrompt.asksAboutTheWorld("where do u train at lv 30"));
+        assertTrue(!BotChatPrompt.asksAboutTheWorld("im from the east"));
+        assertTrue(!BotChatPrompt.asksAboutTheWorld("lol same"));
     }
 
     @Test

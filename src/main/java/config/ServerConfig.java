@@ -139,6 +139,12 @@ public class ServerConfig {
     //Extra request fields for the cloud as raw JSON, e.g. reasoning_effort: '"none"': thinking models spend max_tokens thinking and
     //answer nothing without it
     public Map<String, String> BOT_LLM_CLOUD_EXTRA_BODY = new HashMap<>();
+    //Extra HTTP headers for the cloud, e.g. OpenRouter's HTTP-Referer and X-Title.
+    public Map<String, String> BOT_LLM_CLOUD_EXTRA_HEADERS = new HashMap<>();
+    //Where the cloud sits: overflow (players' replies when local is full or slow), players (players' replies go to
+    //the cloud first) or all (every chat call goes to the cloud first; threads, ambient and notes stop at 80% of the
+    //daily budget). Local is the fallback in every mode, and the daily budget is a hard cap.
+    public String BOT_LLM_CLOUD_MODE = "overflow";
     //Local model latency (moving average, ms) above which a real player's reply overflows to the cloud.
     public int BOT_LLM_LOCAL_SLOW_MS = 2500;
     //1.5.0 rc3 (bots fight like people): only maps a real player can see run any of this (BotCombatTuning).

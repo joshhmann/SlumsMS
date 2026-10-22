@@ -272,6 +272,17 @@ final class GameQaWorld implements QaWorld {
                         topic, System.currentTimeMillis()));
             }
             case "last" -> out.addAll(soloMapling.ArtificialPlayer.BotConvo.ConvoQuality.describeLast(gm));
+            case "ask" -> {
+                // !qa cv-8: the bot says a scripted question in map chat, exactly like an ambient pack line
+                Character a = bots.isEmpty() ? null : BotHelpers.getCharFromChannelStorage(bots.get(0));
+                if (a == null || a.getMap() == null) {
+                    out.add("needs a staged bot on your map");
+                    break;
+                }
+                String question = args.length == 0 ? "anyone from the east coast?" : String.join(" ", args);
+                soloMapling.ArtificialPlayer.BotCommandsPack.SocialCommands.BotSpeak(a, question);
+                out.add(a.getName() + " asked the map: \"" + question + "\"");
+            }
             case "bank" -> {
                 boolean on = args.length == 0 || !"off".equalsIgnoreCase(args[0]);
                 String was = System.getProperty("solomapling.convo.forceBank", "false");

@@ -204,6 +204,21 @@ drama) stay after it, because they carry rules ("never flirt with X", "PG-13", "
 - **Keys:** `BOT_LLM_CLOUD_API_KEY` in config, or env `SOLOMAPLING_LLM_CLOUD_API_KEY`. Shipped empty: no cloud
   until the owner sets it.
 - Off-screen bots never call the LLM: every LLM path needs a real player on the map (or in the chat).
+- **Cloud mode** (`BOT_LLM_CLOUD_MODE`, 2026-10-22): `overflow` (default, the table above), `players` (every
+  `PLAYER` reply goes to the cloud first) or `all` (every call goes to the cloud first: player replies, partner chat,
+  threads, ambient lines, roasts and memory notes). In every mode the local model answers when the cloud fails, times
+  out or the budget is spent (low priorities that find no free local slot fall to the bank), every cloud call
+  reserves its worst case against the hard cap first, and in `all` mode everything but `PLAYER` stops using the cloud
+  at 80% of the day's budget so players keep the rest. One log line an hour (`Cloud chat, last hour ...`) counts cloud
+  calls by priority and notes, local fallbacks and the dollars spent.
+- **Reply context** (owner report 2026-10-22): `MapChatLog` keeps every public line per map and channel (players,
+  LLM replies, scripted ambient and pack lines, thread and bank lines; 8 lines, 3 min). A reply prompt ends with that
+  transcript (the bot's own lines marked `(you)`), "You just said: ... {player} answered: ..." when the player answers
+  the bot's own public line (which also joins the chat history as the bot's turn), and "reply to what they actually
+  said, stay on the same topic, one short line". A nameless line goes to the bot it answers (a question within 60 s,
+  any line within 30 s; a shared word, else the newest question, else the newest line) before threads and guessing.
+  Replies run at temperature at most 0.7 (`-Dsolomapling.chat.replyTemperatureMax`); world facts only when the line
+  asks about the world. `!qa cv-8` logs the exact prompt (`PROMPT`) and the route (`ROUTE`).
 
 ## 8. Pre-generated line bank (owner requirement, 2026-10-22)
 
@@ -291,6 +306,8 @@ henny, nlc...) and player names against the characters on the map.
 | `BOT_LLM_CLOUD_PRICE_IN_PER_MTOK` | `0.28` | USD per million input tokens (check the provider's price) |
 | `BOT_LLM_CLOUD_PRICE_OUT_PER_MTOK` | `0.42` | USD per million output tokens |
 | `BOT_LLM_LOCAL_SLOW_MS` | `2500` | local latency (EWMA) above which player replies overflow |
+| `BOT_LLM_CLOUD_MODE` | `overflow` | `overflow`, `players` or `all` (section 7) |
+| `BOT_LLM_CLOUD_EXTRA_HEADERS` | `{}` | extra HTTP headers for the cloud (OpenRouter: `HTTP-Referer`, `X-Title`) |
 
 Rollout switches (system properties, all default on except where noted):
 `solomapling.convo.contract`, `.sense` (the 3-question Decide call), `.card`, `.persona`, `.styler`, `.timing`,

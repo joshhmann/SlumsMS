@@ -102,6 +102,10 @@ public final class BotNoiseFilter {
         if (map == null) {
             return;
         }
+        // owner report 2026-10-22: every public bot line (LLM, scripted, ambient, thread, bank) joins the map's log
+        soloMapling.ArtificialPlayer.BotMessagingSystem.MapChatLog.record(
+                soloMapling.ArtificialPlayer.BotMessagingSystem.MapChatLog.channelOf(map), map.getId(), bot.getId(),
+                bot.getName(), line, true, System.currentTimeMillis());
         if (soloMapling.qa.QaLog.on(soloMapling.qa.QaLog.Topic.BOT_CHAT)) { // !qa gd-1, gh-1
             soloMapling.qa.QaLog.map(soloMapling.qa.QaLog.Topic.BOT_CHAT, map.getId(), bot.getName() + ": " + line);
         }

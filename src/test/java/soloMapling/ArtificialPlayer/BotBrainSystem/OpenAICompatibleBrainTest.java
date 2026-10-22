@@ -106,6 +106,17 @@ class OpenAICompatibleBrainTest {
     }
 
     @Test
+    void aReplyRunsCoolerThanAThread() throws Exception {
+        // owner report 2026-10-22: temperature 1.0 made the small model ramble off topic; replies cap it at 0.7
+        OpenAICompatibleBrain b = brain(3000, 2, 0, "");
+        b.reply(Priority.PLAYER, 1, HAT).get(10, TimeUnit.SECONDS);
+        b.reply(Priority.THREAD, 0, HAT).get(10, TimeUnit.SECONDS);
+        assertEquals(0.7, ((Number) ((Map<?, ?>) Json.parse(bodies.get(0))).get("temperature")).doubleValue(), 1e-9);
+        assertEquals(1.0, ((Number) ((Map<?, ?>) Json.parse(bodies.get(1))).get("temperature")).doubleValue(), 1e-9,
+                "a thread keeps the configured temperature for variety");
+    }
+
+    @Test
     void noKeyMeansNoAuthorizationHeader() throws Exception {
         await(brain(3000, 2, 0, "").complete(1, HAT));
         // Unless the environment supplies one, a local server gets no Authorization header at all.

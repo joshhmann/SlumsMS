@@ -131,8 +131,14 @@ public final class BotConversation {
         session.lastAt = now;
         session.deliver = deliver;
         session.priority = priority;
+        // Owner report 2026-10-22: what was said in public on the map, and the bot's own line the player answers
+        Heard heard = deliver == null ? heard(bot.getChr(), player, now) : Heard.NONE;
         List<BotBrain.Turn> history;
         synchronized (session.history) {
+            if (heard.justSaid() != null && !alreadyInHistory(session.history, heard.justSaid())) {
+                // the bot's public line (scripted or not) is a real turn of this chat: the player is answering it
+                session.history.add(BotBrain.Turn.assistant(heard.justSaid()));
+            }
             session.history.add(BotBrain.Turn.user(line));
             while (session.history.size() > HISTORY_TURNS) {
                 session.history.remove(0);
@@ -142,12 +148,50 @@ public final class BotConversation {
         // Off the caller's thread: the first recall of a pair reads the database.
         ExecutorServiceManager.runAsync(() -> {
             try {
-                ask(session, history, line, now, fallback);
+                ask(session, history, line, now, fallback, heard);
             } catch (RuntimeException | LinkageError e) {
                 log.warn("Bot chat failed for {}", bot.getChr().getName(), e);
             }
         });
         return true;
+    }
+
+    /** The map's public chat for this bot's prompt, and its own line the player's line answers (or null). */
+    record Heard(String transcript, String justSaid) {
+        static final Heard NONE = new Heard("", null);
+    }
+
+    /** How long after a bot's public line the player's next line counts as answering it. */
+    static final long JUST_SAID_MS = soloMapling.ArtificialPlayer.BotMessagingSystem.MapChatLog.QUESTION_MS;
+
+    static Heard heard(Character bot, Character player, long now) {
+        if (bot == null || player == null) {
+            return Heard.NONE;
+        }
+        List<soloMapling.ArtificialPlayer.BotMessagingSystem.MapChatLog.Line> lines =
+                soloMapling.ArtificialPlayer.BotMessagingSystem.MapChatLog.recent(
+                        soloMapling.ArtificialPlayer.BotMessagingSystem.MapChatLog.channelOf(bot.getMap()),
+                        bot.getMapId(), now);
+        soloMapling.ArtificialPlayer.BotMessagingSystem.MapChatLog.Line own =
+                soloMapling.ArtificialPlayer.BotMessagingSystem.MapChatLog.ownLineBefore(lines, bot.getId(),
+                        player.getId(), JUST_SAID_MS, now);
+        return new Heard(soloMapling.ArtificialPlayer.BotMessagingSystem.MapChatLog.transcript(lines, bot.getId()),
+                own == null ? null : own.text());
+    }
+
+    /** Whether one of the last two bot turns already holds this line (a reply said in parts is one turn). */
+    static boolean alreadyInHistory(List<BotBrain.Turn> history, String said) {
+        int seen = 0;
+        for (int i = history.size() - 1; i >= 0 && seen < 2; i--) {
+            BotBrain.Turn t = history.get(i);
+            if (t.role() == BotBrain.Role.ASSISTANT) {
+                seen++;
+                if (t.content() != null && t.content().contains(said)) {
+                    return true;
+                }
+            }
+        }
+        return false;
     }
 
     /** Opens a chat without a line yet (the player named the bot): their next lines go to it. */
@@ -224,7 +268,8 @@ public final class BotConversation {
      * server, filler gets an emote or nothing, small talk a scripted line, and only real talk (or an action to
      * narrate) takes an LLM slot. Every line's tier and latency go to {@link ChatStats}.
      */
-    private static void ask(Session session, List<BotBrain.Turn> history, String line, long asked, Runnable fallback) {
+    private static void ask(Session session, List<BotBrain.Turn> history, String line, long asked, Runnable fallback,
+                            Heard heard) {
         Character bot = session.bot.getChr();
         Character player = session.player;
         int slot = bot.getId() - BotStore.BOT_ID_BASE;
@@ -312,13 +357,17 @@ public final class BotConversation {
         boolean wary = BotChatActions.wary(slot, player.getId());
         // Ticket 26: the chat's first reply to a player the bot knows greets them like an acquaintance.
         boolean recognise = !botHasSpoken(session) && !wary && BotRecognition.knows(slot, player.getId());
-        String system = systemPrompt(session, slot, activity, wary, recognise, action.fact(), asked, whisper);
+        String system = systemPrompt(session, slot, activity, wary, recognise, action.fact(), asked, whisper,
+                BotChatPrompt.asksAboutTheWorld(line));
         if (action.outcome() == BotChatActions.Outcome.NONE && soloMapling.ArtificialPlayer.BotConvo.ConvoSwitches.on("contract")) {
             system += " " + soloMapling.ArtificialPlayer.BotConvo.ConvoContract.instructions();
         }
         String detail = triage.describe() + " " + read.describe() + (action.outcome() == BotChatActions.Outcome.NONE ? ""
                 : " -> " + action.outcome().name().toLowerCase());
-        BotBrains.get().reply(session.priority, player.getId(), BotChatPrompt.conversation(system, history))
+        List<BotBrain.Turn> prompt = BotChatPrompt.conversation(system, history, heard.transcript(), player.getName(),
+                heard.justSaid());
+        qaPrompt(bot, player, session.priority, prompt);
+        BotBrains.get().reply(session.priority, player.getId(), prompt)
                 .thenAccept(contract -> {
             if (!sessions.containsKey(new Key(bot.getId(), player.getId()))) {
                 return; // the chat ended while the brain was thinking
@@ -382,7 +431,7 @@ public final class BotConversation {
      * merchant's stock (ticket 26), and whether to greet the player as someone the bot knows.
      */
     private static String systemPrompt(Session session, int slot, String activity, boolean wary, boolean recognise,
-                                       String outcome, long now, boolean whisper) {
+                                       String outcome, long now, boolean whisper, boolean worldFacts) {
         Character bot = session.bot.getChr();
         Character player = session.player;
         BotRoster.Member member = BotRoster.member(slot);
@@ -394,7 +443,7 @@ public final class BotConversation {
         MerchantStock.Stock stock = MerchantStock.of(session.bot);
         BotChatPrompt.Context context = BotChatPrompt.context(bot, player, activity,
                 BotChatPrompt.mood(slot, activity, wary, now), BotMemory.recall(slot, player.getId(), now),
-                whisper ? List.of() : BotChatRouting.recentOnMap(bot.getMapId(), now), outcome)
+                List.of(), outcome) // the map's chat goes in the final turn (BotChatPrompt.finalTurn)
                 .with(stock == null ? null : stock.fact(), recognise);
         String card = null;
         String voiceLine = null;
@@ -409,7 +458,8 @@ public final class BotConversation {
             voiceLine = voice.prompt(context.job(), bot.getGuildId() > 0)
                     + soloMapling.ArtificialPlayer.BotConvo.ConvoTune.promptLines();
         }
-        return BotChatPrompt.system(context, persona, traits == null ? 0.4 : traits.chattiness(), card, voiceLine)
+        return BotChatPrompt.system(context, persona, traits == null ? 0.4 : traits.chattiness(), card, voiceLine,
+                worldFacts)
                 + soloMapling.ArtificialPlayer.BotAffinitySystem.AffinityReactions.promptLine(bot.getId(), player) // ticket 58: friend or beef
                 + soloMapling.ArtificialPlayer.BotCoupleSystem.BotCouples.promptLine(bot.getId()) // ticket 58: a partner
                 + soloMapling.ArtificialPlayer.BotGuildSystem.BotGuilds.promptLine(bot.getId()) // 1.5.0: its guild
@@ -452,11 +502,15 @@ public final class BotConversation {
                 }
                 BotRoster.Activity doing = bot.activitySnapshot();
                 String activity = BotChatPrompt.activityPhrase(doing == null ? null : doing.name());
-                String system = systemPrompt(session, slot, activity, false, true, null, now, false)
+                String system = systemPrompt(session, slot, activity, false, true, null, now, false, false)
                         + " Nobody has said anything yet: you just noticed " + player.getName()
                         + " near you. Write your first line to them.";
+                String transcript = heard(chr, player, now).transcript();
                 List<BotBrain.Turn> prompt = BotChatPrompt.conversation(system,
-                        List.of(BotBrain.Turn.user("(" + player.getName() + " is standing near you)")));
+                        List.of(BotBrain.Turn.user((transcript.isEmpty() ? ""
+                                : "Public chat on this map just now, oldest first:\n" + transcript + "\n\n")
+                                + "(" + player.getName() + " is standing near you)")));
+                qaPrompt(chr, player, soloMapling.ArtificialPlayer.BotBrainSystem.Priority.AMBIENT, prompt);
                 BotBrains.get().reply(soloMapling.ArtificialPlayer.BotBrainSystem.Priority.AMBIENT, player.getId(), prompt)
                         .thenAccept(contract -> {
                     java.util.Optional<String> raw = contract.map(soloMapling.ArtificialPlayer.BotConvo.ConvoContract.Reply::text);
@@ -475,6 +529,27 @@ public final class BotConversation {
             }
         });
         return true;
+    }
+
+    /** !qa cv-8: the exact prompt a reply is asked with, one log line (newlines shown as \n). */
+    static void qaPrompt(Character bot, Character player, soloMapling.ArtificialPlayer.BotBrainSystem.Priority priority,
+                         List<BotBrain.Turn> prompt) {
+        if (!soloMapling.qa.QaLog.on(soloMapling.qa.QaLog.Topic.CONVO)) {
+            return;
+        }
+        soloMapling.qa.QaLog.map(soloMapling.qa.QaLog.Topic.CONVO, bot.getMapId(), "PROMPT " + bot.getName() + " -> "
+                + player.getName() + " [" + priority.name().toLowerCase(java.util.Locale.ROOT) + "] "
+                + renderPrompt(prompt));
+    }
+
+    /** A prompt as one line: each turn as [role] text, newlines as \n. */
+    public static String renderPrompt(List<BotBrain.Turn> prompt) {
+        StringBuilder s = new StringBuilder();
+        for (BotBrain.Turn t : prompt) {
+            s.append(s.length() == 0 ? "" : " || ").append('[').append(t.role().name().toLowerCase(java.util.Locale.ROOT))
+                    .append("] ").append(t.content() == null ? "" : t.content().replace("\n", "\\n"));
+        }
+        return s.toString();
     }
 
     /** A flagged con: no LLM, an in-character brush-off (or silence), and a note so the bot is warier next time. */
@@ -664,6 +739,9 @@ public final class BotConversation {
             ExecutorServiceManager.getScheduledExecutorService().scheduleAtFixedRate(() -> {
                 long now = System.currentTimeMillis();
                 ChatStats.maybeSummarize(now);
+                if (BotBrains.get() instanceof soloMapling.ArtificialPlayer.BotBrainSystem.ChatRouter router) {
+                    router.maybeReport(); // the hourly cloud usage line
+                }
                 for (Map.Entry<Key, Session> entry : sessions.entrySet()) {
                     if (now - entry.getValue().lastAt > IDLE_MS) {
                         end(entry.getKey().botId(), entry.getKey().playerId());

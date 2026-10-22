@@ -16,7 +16,7 @@ import static soloMapling.qa.QaLog.Topic.CONVO;
 import static soloMapling.qa.QaLog.Topic.TRADE;
 
 /**
- * Ticket 59: natural conversations (cv-1 .. cv-7). Every staged bot is an on-demand bot that counts the GM as the
+ * Ticket 59: natural conversations (cv-1 .. cv-8). Every staged bot is an on-demand bot that counts the GM as the
  * given state (ticket 58's staging), memory only, and leaves at stop. The CONVO topic logs each line's read (SENSE /
  * INTENT / TAG), what the gates decided, every bot line said ({@code SAID} with its tier, bank id, voice and latency),
  * the timing plan ({@code TIMING}), threads ({@code THREAD}, {@code JOIN}) and ratings ({@code RATE}).
@@ -30,7 +30,7 @@ final class ConvoScenarios {
 
     static List<QaScenario> all() {
         return List.of(new Cv1Actions(), new Cv2Haggle(), new Cv3Mood(), new Cv4Voices(), new Cv5Thread(), new Cv6Rate(),
-                new Cv7Bank());
+                new Cv7Bank(), new Cv8FollowUp());
     }
 
     /** Shared: staged bots per GM, undone at stop. */
@@ -241,6 +241,35 @@ final class ConvoScenarios {
                 return world(ctx, "last", args);
             }
             throw new QaRefusal("cv-6 steps: last");
+        }
+    }
+
+    /**
+     * cv-8 (owner report 2026-10-22): a bot asks the map a scripted question; the GM answers without a name. ROUTE
+     * shows which bot took the answer and why, PROMPT the exact prompt it was asked with (transcript, "You just said",
+     * history), SAID its reply.
+     */
+    static final class Cv8FollowUp extends ConvoScenario {
+        public String id() { return "cv-8"; }
+        public String title() { return "A bot asks the map a question; your nameless answer gets a follow-up (convo fix)"; }
+        public String usage() { return "[question...]; then !qa do ask [question...]"; }
+
+        public List<String> stage(QaContext ctx) {
+            int id = stage(ctx, "neutral", false, null);
+            List<String> out = new ArrayList<>(world(ctx, "ask", ctx.args()));
+            out.add(0, "Bot " + id + " is next to you and has never talked to you.");
+            out.add("Answer it in map chat WITHOUT its name (e.g. 'im from the east'), within 60 s.");
+            out.add("Log: ROUTE (who took your line and which of its lines it answers), PROMPT (the exact prompt:");
+            out.add("system || history || the transcript with its own lines marked (you) and 'You just said ...'), SAID.");
+            out.add("The reply must follow up on its own question. !qa do ask [question] asks again.");
+            return out;
+        }
+
+        public List<String> action(QaContext ctx, String name, String[] args) {
+            if ("ask".equals(name)) {
+                return world(ctx, "ask", args);
+            }
+            throw new QaRefusal("cv-8 steps: ask [question]");
         }
     }
 

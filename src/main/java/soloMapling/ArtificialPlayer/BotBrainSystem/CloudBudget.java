@@ -109,6 +109,12 @@ public final class CloudBudget {
         save();
     }
 
+    /** Spent plus in flight, as a share of the daily cap (1 when there is no cap). */
+    public synchronized double usedShare() {
+        roll();
+        return dailyUsd <= 0 ? 1 : (spent + reserved) / dailyUsd;
+    }
+
     public synchronized double spentToday() {
         roll();
         return spent;

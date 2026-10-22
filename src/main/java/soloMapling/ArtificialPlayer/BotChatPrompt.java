@@ -107,6 +107,17 @@ public final class BotChatPrompt {
      * the persona's own voice line in place of the shared voice examples (null = the shared ones).
      */
     public static String system(Context c, BotPersona.Persona persona, double chattiness, String card, String voiceLine) {
+        return system(c, persona, chattiness, card, voiceLine, true);
+    }
+
+    /**
+     * As above; {@code worldFacts} false leaves the world facts out (owner report 2026-10-22: a small model reads a
+     * shorter prompt better, and the facts only matter when the line asks about the game world - see
+     * {@link #asksAboutTheWorld}). The recent map chat is not in here: it goes last, in the final turn
+     * ({@link #finalTurn}).
+     */
+    public static String system(Context c, BotPersona.Persona persona, double chattiness, String card, String voiceLine,
+                                boolean worldFacts) {
         StringBuilder s = new StringBuilder();
         s.append("You are ").append(c.botName()).append(", a real person playing MapleStory in 2008. ");
         s.append("Right now you are a level ").append(c.level()).append(' ').append(c.job());
@@ -148,10 +159,9 @@ public final class BotChatPrompt {
         if (c.stock() != null && !c.stock().isEmpty()) {
             s.append(c.stock()).append(' ');
         }
-        if (c.recentChat() != null && !c.recentChat().isEmpty()) {
-            s.append("Recent chat around you: ").append(String.join(" / ", c.recentChat())).append(". ");
+        if (worldFacts) {
+            s.append(WORLD_FACTS).append(' ');
         }
-        s.append(WORLD_FACTS).append(' ');
         if (voiceLine != null) {
             s.append(VOICE_BASE).append(' ').append(voiceLine).append(' ');
         } else {
@@ -194,6 +204,59 @@ public final class BotChatPrompt {
                 "lazy, half afk"};
         long hour = now / 3_600_000L;
         return moods[(int) Math.floorMod(botSlot * 31L + hour, moods.length)];
+    }
+
+    private static final java.util.regex.Pattern WORLD_WORDS = java.util.regex.Pattern.compile(
+            "(?i).*\\b(where|how do|how to|how 2|town|henesys|ellinia|perion|kerning|nautilus|lith|sleepywood|orbis|"
+                    + "el ?nath|ludi|ludibrium|leafre|ship|boat|cab|taxi|job|adv|advance|advancement|instructor|2nd|3rd|"
+                    + "4th|pq|party quest|train|lvl|level|lv|map|fm|free market|ant tunnel)\\b.*");
+
+    /** Whether a line asks about the game world (towns, routes, jobs, training), so the world facts help. */
+    public static boolean asksAboutTheWorld(String line) {
+        return line != null && WORLD_WORDS.matcher(line).matches();
+    }
+
+    /**
+     * Owner report 2026-10-22: the last turn of a reply prompt - the map's public chat as a transcript (oldest first,
+     * the bot's own lines marked "(you)"), what the bot just said when the player is answering it, the player's
+     * line, and the one instruction a small model needs most, placed right before it answers. With no transcript
+     * and nothing just said (a whisper) the turn is the player's line alone.
+     */
+    public static String finalTurn(String transcript, String playerName, String justSaid, String line) {
+        boolean hasTranscript = transcript != null && !transcript.isBlank();
+        if (!hasTranscript && justSaid == null) {
+            return line;
+        }
+        StringBuilder s = new StringBuilder();
+        if (hasTranscript) {
+            s.append("Public chat on this map just now, oldest first:\n").append(transcript.trim()).append("\n\n");
+        }
+        if (justSaid != null) {
+            s.append("You just said: \"").append(justSaid).append("\". ").append(playerName).append(" answered: \"")
+                    .append(line).append("\".\n");
+        } else {
+            s.append(playerName).append(" says to you: \"").append(line).append("\"\n");
+        }
+        s.append("Reply to what ").append(playerName).append(" actually said, stay on the same topic. If they asked you ")
+                .append("something, answer it. One short line, only your own words.");
+        return s.toString();
+    }
+
+    /**
+     * The full message list: the system prompt, the conversation so far as user/assistant turns, and the player's
+     * latest line as {@link #finalTurn} (the history's last turn is that line).
+     */
+    public static List<BotBrain.Turn> conversation(String system, List<BotBrain.Turn> history, String transcript,
+                                                   String playerName, String justSaid) {
+        if (history.isEmpty() || history.get(history.size() - 1).role() != BotBrain.Role.USER) {
+            return conversation(system, history);
+        }
+        List<BotBrain.Turn> turns = new ArrayList<>(history.size() + 1);
+        turns.add(BotBrain.Turn.system(system));
+        turns.addAll(history.subList(0, history.size() - 1));
+        String line = history.get(history.size() - 1).content();
+        turns.add(BotBrain.Turn.user(finalTurn(transcript, playerName, justSaid, line)));
+        return turns;
     }
 
     /** The full message list: the system prompt, then the conversation so far, ending with the player's line. */

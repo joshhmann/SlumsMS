@@ -64,8 +64,6 @@ public class Dispatcher implements Runnable {
 
     private void dispatch(ChatMessage message) {
         try {
-            BotChatRouting.noteMapLine(message.getSender().getMapId(), message.getSender().getName(),
-                    message.getContent(), System.currentTimeMillis());
             if (partyOrder(message)) {
                 return;
             }
@@ -144,6 +142,18 @@ public class Dispatcher implements Runnable {
             }
         }
         BotAddressee.Result named = nearby.isEmpty() ? null : BotAddressee.resolve(message.getContent(), nearby);
+        // Owner report 2026-10-22: a nameless line answers the bot that just spoke on this map ("anyone from the east
+        // coast?" -> "im from the east"), not whichever bot happens to be listening or in a thread.
+        boolean nameless = named == null || !(named.sure() || named.worthAsking() || named.ambiguous());
+        MapChatLog.Line answersBot = nameless && !BotChatRouting.namesSomeoneElse(message.getContent(), otherPlayers)
+                ? answeredLine(sender, message.getContent(), now) : null;
+        BotChatRouting.Attention listening = BotChatRouting.attention(sender.getId());
+        if (answersBot != null && listening != null && listening.botId() != answersBot.speakerId()
+                && MapChatLog.isQuestion(answersBot.text()) && answersBot.at() > listening.lastAt()) {
+            // a newer question from another bot than the last line of the chat the player was in
+            routeToAnswered(answersBot, sender, message.getContent());
+            return true;
+        }
         // Ticket 37: the bot this player is talking to keeps listening for a while - unless the line is for
         // someone else, the player went quiet, or walked away.
         if (followUpToListeningBot(sender, message.getContent(), named, otherPlayers, now)) {
@@ -173,6 +183,10 @@ public class Dispatcher implements Runnable {
             askFirst(named.best().id(), message, now);
             return true;
         }
+        if (answersBot != null) {
+            routeToAnswered(answersBot, sender, message.getContent());
+            return true;
+        }
         // Ticket 59: two bots are talking on this map - a line that names no one joins their thread, and the bot that
         // spoke last answers it like any chat.
         if (!BotChatRouting.namesSomeoneElse(message.getContent(), otherPlayers)) {
@@ -200,6 +214,30 @@ public class Dispatcher implements Runnable {
             }
         }));
         return true;
+    }
+
+    /**
+     * The bot line a nameless line most plausibly answers ({@link MapChatLog#answeredBy}), when its bot is still on
+     * the map and talks like a player; else null.
+     */
+    private static MapChatLog.Line answeredLine(Character sender, String line, long now) {
+        List<MapChatLog.Line> lines = MapChatLog.recent(MapChatLog.channelOf(sender.getMap()), sender.getMapId(), now);
+        MapChatLog.Line l = MapChatLog.answeredBy(lines, sender.getId(), line, now);
+        if (l == null || !BotMenus.natural() || checkIfInvisibleBot(l.speakerId())) {
+            return null;
+        }
+        BotSM bot = getBotById(l.speakerId());
+        return bot != null && bot.getChr() != null && bot.getChr().getMapId() == sender.getMapId()
+                && talksNaturally(bot) ? l : null;
+    }
+
+    private void routeToAnswered(MapChatLog.Line answered, Character sender, String line) {
+        BotSM bot = getBotById(answered.speakerId());
+        if (soloMapling.qa.QaLog.on(soloMapling.qa.QaLog.Topic.CONVO)) { // !qa cv-8
+            soloMapling.qa.QaLog.map(soloMapling.qa.QaLog.Topic.CONVO, sender.getMapId(), "ROUTE \"" + line + "\" -> "
+                    + answered.speaker() + " (answers its \"" + answered.text() + "\")");
+        }
+        executor.execute(() -> talkNaturally(bot, sender, line));
     }
 
     /** Whether this bot type shows a hint of its own when named (it overrides {@code BotSM.displayCommands}). */

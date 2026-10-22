@@ -128,7 +128,8 @@ public final class OpenAICompatibleBrain implements ChatRouter.Slotted {
             return result;
         }
         calls.execute(() -> {
-            Optional<String> line = call(conversation, deadline, settings.model(), settings.maxTokens(), raw -> {
+            Optional<String> line = call(conversation, deadline, settings.model(), settings.maxTokens(), replyTemperature(),
+                    raw -> {
                 soloMapling.ArtificialPlayer.BotConvo.ConvoContract.Reply r =
                         soloMapling.ArtificialPlayer.BotConvo.ConvoContract.parse(raw);
                 parsed.set(r);
@@ -171,6 +172,11 @@ public final class OpenAICompatibleBrain implements ChatRouter.Slotted {
 
     private Optional<String> call(List<Turn> conversation, long deadline, String model, int maxTokens,
                                   java.util.function.Function<String, Optional<String>> cleaner, boolean chat) {
+        return call(conversation, deadline, model, maxTokens, settings.temperature(), cleaner, chat);
+    }
+
+    private Optional<String> call(List<Turn> conversation, long deadline, String model, int maxTokens, double temperature,
+                                  java.util.function.Function<String, Optional<String>> cleaner, boolean chat) {
         boolean acquired = false;
         long started = System.nanoTime();
         try {
@@ -185,7 +191,7 @@ public final class OpenAICompatibleBrain implements ChatRouter.Slotted {
             HttpRequest.Builder request = HttpRequest.newBuilder(endpoint)
                     .timeout(Duration.ofMillis(leftMs))
                     .header("Content-Type", "application/json")
-                    .POST(HttpRequest.BodyPublishers.ofString(requestBody(conversation, model, maxTokens)));
+                    .POST(HttpRequest.BodyPublishers.ofString(requestBody(conversation, model, maxTokens, temperature)));
             String key = apiKey();
             if (!key.isEmpty()) {
                 request.header("Authorization", "Bearer " + key);
@@ -225,7 +231,25 @@ public final class OpenAICompatibleBrain implements ChatRouter.Slotted {
         return requestBody(conversation, settings.model(), settings.maxTokens());
     }
 
+    /**
+     * Owner report 2026-10-22: a reply to a line is one short on-topic answer, so it runs cooler than a thread (which
+     * wants variety): the configured temperature, at most {@code -Dsolomapling.chat.replyTemperatureMax} (0.7).
+     */
+    double replyTemperature() {
+        double max = 0.7;
+        try {
+            max = Double.parseDouble(System.getProperty("solomapling.chat.replyTemperatureMax", "0.7"));
+        } catch (NumberFormatException ignored) {
+            // keep 0.7
+        }
+        return Math.min(settings.temperature(), max);
+    }
+
     String requestBody(List<Turn> conversation, String model, int maxTokens) {
+        return requestBody(conversation, model, maxTokens, settings.temperature());
+    }
+
+    String requestBody(List<Turn> conversation, String model, int maxTokens, double temperature) {
         Map<String, Object> body = new LinkedHashMap<>();
         if (!model.isEmpty()) {
             body.put("model", model);
@@ -239,7 +263,7 @@ public final class OpenAICompatibleBrain implements ChatRouter.Slotted {
         }
         body.put("messages", messages);
         body.put("max_tokens", maxTokens);
-        body.put("temperature", settings.temperature());
+        body.put("temperature", temperature);
         body.put("stream", false);
         body.putAll(extraBody);
         return Json.write(body);

@@ -51,7 +51,7 @@ public final class BotBrains {
                 java.time.ZoneId.systemDefault(), java.nio.file.Path.of(
                         soloMapling.ArtificialPlayer.BotConvo.ConvoSwitches.str("dataDir", "data/convo"), "cloud-budget.json"));
         return new ChatRouter(local, cloud, budget, server.BOT_LLM_LOCAL_SLOW_MS, System::currentTimeMillis,
-                server.BOT_LLM_MAX_TOKENS);
+                server.BOT_LLM_MAX_TOKENS).withMode(ChatRouter.CloudMode.parse(server.BOT_LLM_CLOUD_MODE));
     }
 
     /** The cloud overflow brain, or null when no cloud URL is configured. Its key: config, else the env. */
@@ -67,7 +67,8 @@ public final class BotBrains {
         return new OpenAICompatibleBrain(new OpenAICompatibleBrain.Settings(
                 server.BOT_LLM_CLOUD_BASE_URL.trim(), key, orEmpty(server.BOT_LLM_CLOUD_MODEL), server.BOT_LLM_MAX_TOKENS,
                 server.BOT_LLM_TEMPERATURE, server.BOT_LLM_CLOUD_TIMEOUT_MS, 4, server.BOT_LLM_PLAYER_MIN_INTERVAL_MS,
-                server.BOT_LLM_CLOUD_EXTRA_BODY == null ? Map.of() : server.BOT_LLM_CLOUD_EXTRA_BODY, Map.of(), ""));
+                server.BOT_LLM_CLOUD_EXTRA_BODY == null ? Map.of() : server.BOT_LLM_CLOUD_EXTRA_BODY,
+                server.BOT_LLM_CLOUD_EXTRA_HEADERS == null ? Map.of() : server.BOT_LLM_CLOUD_EXTRA_HEADERS, ""));
     }
 
     static OpenAICompatibleBrain localFrom(ServerConfig server) {

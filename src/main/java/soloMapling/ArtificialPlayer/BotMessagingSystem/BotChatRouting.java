@@ -61,49 +61,7 @@ public final class BotChatRouting {
         if (bot != null && bot.getMap() != null) {
             lastSpeakerByMap.put(bot.getMapId(), new LastSpeaker(bot.getId(), bot.getName(), line,
                     System.currentTimeMillis()));
-            noteMapLine(bot.getMapId(), bot.getName(), line, System.currentTimeMillis());
         }
-    }
-
-    // ── what was said on a map lately (ticket 37 grounding: the prompt carries recent chat) ──
-
-    static final int RECENT_LINES = 4;
-    static final long RECENT_MS = TimeUnit.MINUTES.toMillis(2);
-
-    private record MapLine(String speaker, String line, long at) {
-    }
-
-    private static final Map<Integer, java.util.Deque<MapLine>> recentByMap = new ConcurrentHashMap<>();
-
-    /** A line said in map chat, by a player or a bot. */
-    public static void noteMapLine(int mapId, String speaker, String line, long now) {
-        if (speaker == null || line == null || line.isBlank()) {
-            return;
-        }
-        java.util.Deque<MapLine> lines = recentByMap.computeIfAbsent(mapId, k -> new java.util.ArrayDeque<>());
-        synchronized (lines) {
-            lines.addLast(new MapLine(speaker, line.length() > 80 ? line.substring(0, 80) : line, now));
-            while (lines.size() > RECENT_LINES) {
-                lines.removeFirst();
-            }
-        }
-    }
-
-    /** The last few lines said on a map in the last two minutes, oldest first, as "name: line". */
-    public static List<String> recentOnMap(int mapId, long now) {
-        java.util.Deque<MapLine> lines = recentByMap.get(mapId);
-        if (lines == null) {
-            return List.of();
-        }
-        List<String> out = new java.util.ArrayList<>();
-        synchronized (lines) {
-            for (MapLine l : lines) {
-                if (now - l.at() <= RECENT_MS) {
-                    out.add(l.speaker() + ": " + l.line());
-                }
-            }
-        }
-        return out;
     }
 
     public static LastSpeaker lastSpeaker(int mapId, long now) {
