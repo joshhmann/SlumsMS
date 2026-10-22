@@ -208,4 +208,7 @@ public interface QaWorld {
 
     /** The GM leaves their guild, as the guild window's Leave button does. False when in none. */
     boolean leaveGuild(Character gm);
+
+    /** The GM joins a bot guild now as the stock accept does (gu-8). False when in a guild or it is full. */
+    boolean joinBotGuild(Character gm, String guild);
 }

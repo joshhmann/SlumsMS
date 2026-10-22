@@ -36,12 +36,13 @@ import java.util.concurrent.CopyOnWriteArrayList;
  * !botguild bossstop                     end the boss run now
  * !botguild quit &lt;bot&gt; [rivals|ignored]  the bot quits its guild now with that reason's line
  * !botguild join &lt;bot&gt; &lt;guild&gt;           an online bot joins a guild now
+ * !botguild kick &lt;guild&gt;                 the leader kicks rival players now (no rate limit), whispering why
  * !botguild step                         run the guild step now (chatter, parties, recruiting, rivalry, quits)
  * </pre>
  */
 public class BotGuildCommand extends Command {
     {
-        setDescription("Bot guilds (GM): !botguild [list] | info <guild> | form <name> [vibe] [size] | stage [n] [join] [neutral|rival] [guild] | unstage | recruit <guild> | jab <guild> | bossrun <guild> [boss] [fast] | bossstop | quit <bot> [rivals|ignored] | join <bot> <guild> | step");
+        setDescription("Bot guilds (GM): !botguild [list] | info <guild> | form <name> [vibe] [size] | stage [n] [join] [neutral|rival] [guild] | unstage | recruit <guild> | jab <guild> | bossrun <guild> [boss] [fast] | bossstop | quit <bot> [rivals|ignored] | join <bot> <guild> | kick <guild> | step");
     }
 
     private static final Map<Integer, List<Integer>> staged = new ConcurrentHashMap<>();
@@ -146,6 +147,12 @@ public class BotGuildCommand extends Command {
                 }
                 gm.yellowMessage(BotGuilds.join(bot, g.guildId(), 5, System.currentTimeMillis())
                         ? bot.getName() + " joined " + g.name() + "." : bot.getName() + " could not join (in a guild already, or full).");
+            }
+            case "kick" -> {
+                GuildRow g = guild(gm, params, 1);
+                if (g != null) {
+                    BotGuilds.checkKicks(g.guildId(), System.currentTimeMillis(), true).forEach(gm::yellowMessage);
+                }
             }
             case "step" -> {
                 BotGuilds.stepNow();

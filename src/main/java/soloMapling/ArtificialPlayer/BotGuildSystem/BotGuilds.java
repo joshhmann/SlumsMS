@@ -824,6 +824,9 @@ public final class BotGuilds {
             if (take("quit:" + gid, now, GuildRules.minutes("quitCheckMinutes", 10))) {
                 checkQuits(gid, now);
             }
+            if (isBotGuild(gid) && take("kickcheck:" + gid, now, GuildRules.minutes("quitCheckMinutes", 10))) {
+                checkKicks(gid, now, false);
+            }
         }
         rivalry(now, rng);
     }
@@ -1174,6 +1177,164 @@ public final class BotGuilds {
         return m.name() + " quit " + guildName(m.guildId()) + " (" + why.name().toLowerCase(Locale.ROOT) + ")";
     }
 
+    // ── a bot guild's leader kicks a rival player ──
+
+    private static final java.util.Deque<Long> worldKicks = new java.util.ArrayDeque<>();
+
+    /**
+     * In a bot-run guild, the leader expels an online player member who is its rival, or a rival of most of the bot
+     * members with feelings about them ({@link GuildRules#kick}), after a whisper saying why. Through the stock expel
+     * (the player gets the usual "expelled" result). One kick per guild per {@code kickMinutes} (30) and
+     * {@code kicksPerHour} (3) world-wide; {@code force} (GM / !qa) skips both. What happened.
+     */
+    public static List<String> checkKicks(int guildId, long now, boolean force) {
+        List<String> out = new ArrayList<>();
+        GuildRow gr = guilds.get(guildId);
+        Guild g = gr == null ? null : Server.getInstance().getGuild(guildId);
+        if (g == null) {
+            out.add("not a bot guild (or not loaded)");
+            return out;
+        }
+        int leaderId = g.getLeaderId();
+        GuildCharacter leader = g.getMGC(leaderId);
+        if (leader == null || !BotHelpers.isArtificial(leaderId)) {
+            out.add("the guild has no bot leader");
+            return out;
+        }
+        List<MemberRow> bots = membersOf(guildId);
+        for (GuildCharacter mc : new ArrayList<>(g.getMembers())) {
+            int pid = mc.getId();
+            if (BotHelpers.isArtificial(pid) || !mc.isOnline() || !BotAffinity.loaded(pid)) {
+                continue;
+            }
+            boolean hostileToLeader = BotAffinity.hostile(leaderId, pid);
+            int hostile = 0;
+            int known = 0;
+            for (MemberRow m : bots) {
+                AffinityState st = BotAffinity.state(m.charId(), pid);
+                if (st != AffinityState.NEUTRAL) {
+                    known++;
+                }
+                if (st.hostile()) {
+                    hostile++;
+                }
+            }
+            if (!GuildRules.kick(hostileToLeader, hostile, known)) {
+                continue;
+            }
+            if (!force && (worldKicksLastHour(now) >= GuildRules.prop("kicksPerHour", 3)
+                    || !take("kick:" + guildId, now, GuildRules.kickGapMs()))) {
+                out.add("rate-limited: " + mc.getName() + " stays for now");
+                qa(0, "KICK HELD " + mc.getName() + " from " + gr.name() + " (rate limit)");
+                break;
+            }
+            noteWorldKick(now);
+            Character player = onlinePlayer(pid);
+            String why = hostileToLeader ? "KickLeader" : "KickMembers";
+            String line = GuildLines.pick(why, Map.of("PLAYER", mc.getName(), "GUILD", gr.name()));
+            if (player != null && line != null) {
+                Character live = online.apply(leaderId);
+                int ch = live != null ? channelOf(live) : channelOf(player);
+                player.sendPacket(PacketCreator.getWhisperReceive(leader.getName(), ch - 1, false, line));
+            }
+            Server.getInstance().expelMember(leader, mc.getName(), pid);
+            String what = leader.getName() + " kicked " + mc.getName() + " from " + gr.name() + " ("
+                    + (hostileToLeader ? "the leader's rival" : "rival of " + hostile + "/" + known + " members") + ")";
+            out.add(what + (line == null ? "" : ": \"" + line + "\""));
+            qa(player == null ? 0 : player.getMapId(), "KICK " + what + (line == null ? "" : ", whisper: " + line));
+        }
+        if (out.isEmpty()) {
+            out.add("nobody to kick in " + gr.name());
+        }
+        return out;
+    }
+
+    private static synchronized int worldKicksLastHour(long now) {
+        while (!worldKicks.isEmpty() && now - worldKicks.peekFirst() > TimeUnit.HOURS.toMillis(1)) {
+            worldKicks.pollFirst();
+        }
+        return worldKicks.size();
+    }
+
+    private static synchronized void noteWorldKick(long now) {
+        worldKicks.addLast(now);
+    }
+
+    /**
+     * GM / !qa: a player joins a guild now, as the stock accept does (rank 5, saved, tag over the head). False when
+     * they are in one, or it is full or gone.
+     */
+    public static boolean joinPlayer(Character player, int guildId) {
+        if (player == null || player.getGuildId() > 0 || player.getMGC() == null) {
+            return false;
+        }
+        Guild g = Server.getInstance().getGuild(guildId, player.getWorld(), null);
+        if (g == null) {
+            return false;
+        }
+        player.getMGC().setGuildId(guildId);
+        player.getMGC().setGuildRank(5);
+        player.getMGC().setAllianceRank(5);
+        if (Server.getInstance().addGuildMember(player.getMGC(), player) == 0) {
+            player.getMGC().setGuildId(0);
+            return false;
+        }
+        player.sendPacket(GuildPackets.showGuildInfo(player));
+        player.saveGuildStatus();
+        showGuildOverHead(player, g);
+        return true;
+    }
+
+    // ── ambient recruiting ──
+
+    /**
+     * The ambient megaphone ticker's GuildRecruitment pick: a real bot guild with room recruits, through an online
+     * member (the given bot if it is one). {speaker, line}, or null when there is no bot guild to recruit for (then
+     * no guild recruitment megaphone goes out at all: never a made-up guild).
+     */
+    public static Object[] ambientRecruit(Character fallback, Random rng) {
+        if (!enabled()) {
+            return null;
+        }
+        List<GuildRow> open = new ArrayList<>();
+        for (GuildRow g : guilds.values()) {
+            Guild live = Server.getInstance().getGuild(g.guildId());
+            if (live == null || live.getMembers().size() < live.getCapacity()) {
+                open.add(g);
+            }
+        }
+        if (open.isEmpty()) {
+            return null;
+        }
+        GuildRow pick = null;
+        Character speaker = null;
+        MemberRow own = fallback == null ? null : members.get(fallback.getId());
+        if (own != null && guilds.containsKey(own.guildId()) && open.contains(guilds.get(own.guildId()))) {
+            pick = guilds.get(own.guildId());
+            speaker = fallback;
+        } else {
+            java.util.Collections.shuffle(open, rng);
+            for (GuildRow g : open) {
+                List<Character> on = onlineMembers(g.guildId());
+                if (!on.isEmpty()) {
+                    pick = g;
+                    speaker = on.get(rng.nextInt(on.size()));
+                    break;
+                }
+            }
+        }
+        if (pick == null) {
+            return null;
+        }
+        GuildRow chosen = pick;
+        int minLevel = GuildPlan.SPECS.stream().filter(s -> s.name().equalsIgnoreCase(chosen.name()))
+                .mapToInt(GuildPlan.Spec::minLevel).findFirst().orElse(1);
+        String line = GuildLines.pick("AmbientRecruit", Map.of("GUILD", pick.name(), "LEVEL",
+                Integer.toString(Math.max(1, minLevel)), "STYLE", pick.vibe().label(),
+                "WHERE", rng.nextBoolean() ? "fm" : "henesys"));
+        return line == null ? null : new Object[]{speaker, line};
+    }
+
     // ── founding ──
 
     /**
@@ -1492,6 +1653,7 @@ public final class BotGuilds {
         deciding.clear();
         synchronized (BotGuilds.class) {
             worldWhispers.clear();
+            worldKicks.clear();
         }
         loaded = false;
         seedTried = false;

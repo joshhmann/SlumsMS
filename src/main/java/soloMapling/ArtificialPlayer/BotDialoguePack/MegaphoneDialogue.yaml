@@ -194,6 +194,7 @@ MegaphoneBroadcast:
       - "B> bulk white potions and any scrolls paying 10% above market"
     emote: 2
     wait: 1
+  # 1.5.0: unused by the ambient ticker, which recruits for real bot guilds (GuildDialogue.yaml AmbientRecruit).
   GuildRecruitment:
     text:
       - "Join Resilience! Lvl 50+ active guild, daily boss runs!"

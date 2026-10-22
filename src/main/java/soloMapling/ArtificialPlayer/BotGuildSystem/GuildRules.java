@@ -148,6 +148,24 @@ public final class GuildRules {
         return now - joinedAt >= ignore && now - since >= ignore ? QuitReason.IGNORED : null;
     }
 
+    // ── a bot guild's leader kicks a rival player ──
+
+    /**
+     * A bot-run guild's leader expels a player member who is its rival (or nemesis), or a rival of most of the bot
+     * members that have feelings about them (owner 2026-10-21). Bots never kick a player they feel nothing about.
+     *
+     * @param hostile bot members hostile to the player
+     * @param known   bot members with any feelings (hostile included) about the player
+     */
+    public static boolean kick(boolean hostileToLeader, int hostile, int known) {
+        return hostileToLeader || (known > 0 && hostile * 2 > known);
+    }
+
+    /** At most one kick per guild per this many minutes. */
+    static long kickGapMs() {
+        return minutes("kickMinutes", 30);
+    }
+
     // ── a player invites a bot to a party ──
 
     /**

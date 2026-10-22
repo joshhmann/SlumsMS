@@ -223,13 +223,13 @@ class FakeQaWorld implements QaWorld {
     @Override public boolean onEventChannel(Character gm) { return eventChannel; }
 
     // ---- 1.5.0 bot guilds ----
-    String botGuild = "Lionheart";
-    String rival = "Nightfall";
+    String botGuild = "Legendz";
+    String rival = "ZakumSlayerz";
     int gmGuild;
     final List<Integer> guildBotsUnstaged = new ArrayList<>();
     List<String> bossRunAnswer = List.of("boss run started at map 211042400 (you were warped there)");
 
-    @Override public List<String> botGuildList() { return List.of("#1 Lionheart (hardcore): 38 bots"); }
+    @Override public List<String> botGuildList() { return List.of("#1 Legendz (hardcore): 38 bots"); }
 
     @Override public String pickBotGuild(String wanted, boolean withRival) {
         if (botGuild == null) {
@@ -260,5 +260,15 @@ class FakeQaWorld implements QaWorld {
         boolean was = gmGuild > 0;
         gmGuild = 0;
         return was;
+    }
+
+    boolean joinWorks = true;
+
+    @Override public boolean joinBotGuild(Character gm, String guild) {
+        calls.add("join guild " + guild);
+        if (joinWorks) {
+            gmGuild = 99;
+        }
+        return joinWorks;
     }
 }

@@ -25,7 +25,7 @@ final class GuildScenarios {
 
     static List<QaScenario> all() {
         return List.of(new Gu1Apply(), new Gu2InviteBots(), new Gu3Recruit(), new Gu4Rivalry(), new Gu5BossRun(),
-                new Gu6Quit(), new Gu7Party());
+                new Gu6Quit(), new Gu7Party(), new Gu8Kick());
     }
 
     /** Shared: staged bots per GM, undone at stop, and the guild list in the log at start. */
@@ -296,6 +296,45 @@ final class GuildScenarios {
                     "follows you (it trains with you on a mob map), the neutral one joins about 1 time in 3 (a no holds 3 min),",
                     "the rival never. KPQ/LPQ: a follower standing by you at the PQ NPC is registered with the party; it does",
                     "no stage puzzles (OPQ steps exist only for the OPQ lobby bots).");
+        }
+    }
+
+    /** gu-8: a bot guild's leader kicks a rival player, with a whisper saying why. */
+    static final class Gu8Kick extends GuildScenario {
+        public String id() { return "gu-8"; }
+        public String title() { return "A bot guild kicks a rival player, with a whisper (1.5.0)"; }
+        public String usage() { return "[guild]; then !qa do kick | vote"; }
+        private final Map<Integer, String> chosen = new ConcurrentHashMap<>();
+
+        public List<String> stage(QaContext ctx) {
+            requireGuildless(ctx);
+            String guild = botGuild(ctx, false);
+            chosen.put(ctx.run().gmId(), guild);
+            ctx.onStop("forget", () -> chosen.remove(ctx.run().gmId()));
+            if (!ctx.world().joinBotGuild(ctx.gm(), guild)) {
+                throw new QaRefusal("Could not put you in " + guild + " (full?).");
+            }
+            ctx.log("the GM joined " + guild);
+            leaveJoinedGuildAtStop(ctx);
+            stage(ctx, "friend", guild, 5);
+            return List.of("You are a member of " + guild + " now, with a bot member next to you that likes you.",
+                    "!qa do kick: the guild's leader turns into your rival and the kick check runs: a whisper from the leader,",
+                    "then the stock \"expelled\" (KICK). !qa do vote (rejoin first with a new run): two more members that are",
+                    "your rivals join; 2 of 3 members with feelings is most of them - kicked. Rate limits are skipped here",
+                    "(live: one kick per guild per 30 min, 3 an hour world-wide). @botdrama off means never kicked.");
+        }
+
+        public List<String> action(QaContext ctx, String name, String[] args) {
+            String guild = chosen.getOrDefault(ctx.run().gmId(), botGuild(ctx, false));
+            if ("kick".equals(name)) {
+                return act(ctx, "kick", guild);
+            }
+            if ("vote".equals(name)) {
+                stage(ctx, "rival", guild, 5);
+                stage(ctx, "rival", guild, 5);
+                return act(ctx, "kickcheck", guild);
+            }
+            throw new QaRefusal("gu-8 steps: kick, vote");
         }
     }
 }

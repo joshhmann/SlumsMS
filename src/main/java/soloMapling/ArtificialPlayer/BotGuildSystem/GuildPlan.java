@@ -28,25 +28,25 @@ public final class GuildPlan {
     }
 
     public static final List<Spec> SPECS = List.of(
-            new Spec("Lionheart", Vibe.HARDCORE, 38, 60, 200, 1003, 1, 2000, 3, "Nightfall",
+            new Spec("Legendz", Vibe.HARDCORE, 38, 60, 200, 1003, 1, 2000, 3, "ZakumSlayerz",
                     "boss runs every night. lv60+ whisper an officer"),
-            new Spec("Moonlight", Vibe.CASUAL, 34, 20, 120, 1010, 8, 3004, 13, "SlumLords",
+            new Spec("MoonLiteX", Vibe.CASUAL, 34, 20, 120, 1010, 8, 3004, 13, "SlumLords",
                     "chill guild, all levels, be nice"),
-            new Spec("GoldenBazaar", Vibe.MERCHANT, 26, 25, 200, 1006, 4, 9002, 5, null,
+            new Spec("MesoMafia", Vibe.MERCHANT, 26, 25, 200, 1006, 4, 9002, 5, null,
                     "merchants and traders. pc your stuff in guild chat"),
-            new Spec("SlumLords", Vibe.SOCIAL, 24, 15, 150, 1001, 12, 5018, 1, "Moonlight",
+            new Spec("SlumLords", Vibe.SOCIAL, 24, 15, 150, 1001, 12, 5018, 1, "MoonLiteX",
                     "hangout guild. fm ch1 most nights"),
-            new Spec("Nightfall", Vibe.PVM, 24, 55, 200, 1014, 11, 2011, 9, "Lionheart",
+            new Spec("ZakumSlayerz", Vibe.PVM, 24, 55, 200, 1014, 11, 2011, 9, "Legendz",
                     "zak pap ht. bring pots"),
-            new Spec("MapleLeaf", Vibe.SOCIAL, 22, 10, 90, 1008, 6, 3001, 6, null,
+            new Spec("KoreanBBQ", Vibe.SOCIAL, 22, 10, 90, 1008, 6, 3001, 6, null,
                     "friendly guild, we pq a lot"),
-            new Spec("RedSnails", Vibe.CASUAL, 20, 10, 60, 1004, 2, 2005, 2, null,
+            new Spec("SnailGang", Vibe.CASUAL, 20, 10, 60, 1004, 2, 2005, 2, null,
                     "slow and steady. no drama"),
-            new Spec("Ironclad", Vibe.HARDCORE, 18, 40, 150, 1017, 9, 4005, 10, null,
+            new Spec("Pwnage", Vibe.HARDCORE, 18, 40, 150, 1017, 9, 4005, 10, null,
                     "grind grind grind"),
-            new Spec("Sprouts", Vibe.NEWBIE, 8, 1, 35, 1012, 7, 3006, 7, null,
+            new Spec("NoobTeam", Vibe.NEWBIE, 8, 1, 35, 1012, 7, 3006, 7, null,
                     "new guild! everyone welcome"),
-            new Spec("DawnRunners", Vibe.NEWBIE, 6, 10, 50, 1020, 5, 9008, 4, null,
+            new Spec("HenesysKidz", Vibe.NEWBIE, 6, 10, 50, 1020, 5, 9008, 4, null,
                     "just started, help us grow"));
 
     /** A roster bot that can be put in a guild. */

@@ -661,6 +661,20 @@ final class GameQaWorld implements QaWorld {
                 }
             }
             case "bossstop" -> out.add("stopped " + soloMapling.ArtificialPlayer.BotGuildSystem.GuildBossRuns.stop(gm.getName()) + " run(s)");
+            case "kick", "kickcheck" -> {
+                if (g == null) {
+                    out.add("no bot guild " + first);
+                } else {
+                    if ("kick".equals(action)) {
+                        int leader = g.leaderId();
+                        boolean set = soloMapling.ArtificialPlayer.BotAffinitySystem.BotAffinity.stage(leader, gm.getId(),
+                                soloMapling.ArtificialPlayer.BotAffinitySystem.AffinityState.RIVAL);
+                        out.add("the leader of " + g.name() + " counts you as a rival: " + set);
+                    }
+                    out.addAll(soloMapling.ArtificialPlayer.BotGuildSystem.BotGuilds.checkKicks(g.guildId(),
+                            System.currentTimeMillis(), true));
+                }
+            }
             case "step" -> {
                 soloMapling.ArtificialPlayer.BotGuildSystem.BotGuilds.stepNow();
                 out.add("guild step ran");
@@ -709,5 +723,11 @@ final class GameQaWorld implements QaWorld {
         gm.saveGuildStatus();
         gm.getMap().broadcastPacket(gm, net.server.guild.GuildPackets.guildNameChanged(gm.getId(), ""));
         return true;
+    }
+
+    @Override
+    public boolean joinBotGuild(Character gm, String guild) {
+        var g = soloMapling.ArtificialPlayer.BotGuildSystem.BotGuilds.byName(guild);
+        return g != null && soloMapling.ArtificialPlayer.BotGuildSystem.BotGuilds.joinPlayer(gm, g.guildId());
     }
 }

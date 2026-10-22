@@ -58,7 +58,7 @@ class BotGuildsTest {
         assertEquals(220, members);
         assertEquals(220, store.members.size(), "every member is stored");
         assertEquals(4, rivals);
-        assertTrue(BotGuilds.isBotGuild(BotGuilds.byName("lionheart").guildId()));
+        assertTrue(BotGuilds.isBotGuild(BotGuilds.byName("legendz").guildId()));
     }
 
     @Test
@@ -85,7 +85,7 @@ class BotGuildsTest {
     void foundingSkipsATakenName() {
         BotGuilds.seed(1000, new Random(5));
         int before = store.guilds.size();
-        String result = BotGuilds.formNow("Lionheart", GuildRules.Vibe.CASUAL, 5, 3000);
+        String result = BotGuilds.formNow("Legendz", GuildRules.Vibe.CASUAL, 5, 3000);
         assertTrue(result.contains("could not found"), result);
         assertEquals(before, store.guilds.size());
         String ok = BotGuilds.formNow("Mushrooms", GuildRules.Vibe.NEWBIE, 5, 3000);
@@ -127,10 +127,10 @@ class BotGuildsTest {
     @Test
     void thePromptKnowsTheGuild() {
         BotGuilds.seed(1000, new Random(5));
-        GuildRow lion = BotGuilds.byName("Lionheart");
+        GuildRow lion = BotGuilds.byName("Legendz");
         MemberRow leader = BotGuilds.membersOf(lion.guildId()).get(0);
         String line = BotGuilds.promptLine(leader.charId());
-        assertTrue(line.contains("the leader of the guild Lionheart") && line.contains("hardcore") && line.contains("Nightfall"), line);
+        assertTrue(line.contains("the leader of the guild Legendz") && line.contains("hardcore") && line.contains("ZakumSlayerz"), line);
         assertEquals("", BotGuilds.promptLine(BotStore.BOT_ID_BASE + 1));
     }
 }

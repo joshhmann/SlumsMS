@@ -42,7 +42,7 @@ class GuildScenariosTest {
     @Test
     void everyGuildScenarioIsRegistered() {
         List<String> ids = QaScenarios.all().stream().map(QaScenario::id).toList();
-        for (String id : List.of("gu-1", "gu-2", "gu-3", "gu-4", "gu-5", "gu-6", "gu-7")) {
+        for (String id : List.of("gu-1", "gu-2", "gu-3", "gu-4", "gu-5", "gu-6", "gu-7", "gu-8")) {
             assertTrue(ids.contains(id), id);
         }
     }
@@ -50,7 +50,7 @@ class GuildScenariosTest {
     @Test
     void gu1StagesAFriendlyOfficerAndLeavesTheJoinedGuildAtStop() {
         start("gu-1", 100000000);
-        assertTrue(called("guildbot friend Lionheart r2"));
+        assertTrue(called("guildbot friend Legendz r2"));
         world.gmGuild = 77; // the GM accepted the invite during the run
         suite.stop(1, "!qa stop");
         assertTrue(world.calls.contains("leave guild"));
@@ -83,9 +83,9 @@ class GuildScenariosTest {
     void gu3WarpsToHenesysStagesAnOfficerAndRecruits() {
         start("gu-3", 104040000);
         assertTrue(world.calls.contains("warp 100000000"));
-        assertTrue(world.calls.contains("guild recruit Lionheart"));
+        assertTrue(world.calls.contains("guild recruit Legendz"));
         suite.action(world.online, "recruit", new String[0]);
-        assertEquals(2, world.calls.stream().filter(c -> c.equals("guild recruit Lionheart")).count());
+        assertEquals(2, world.calls.stream().filter(c -> c.equals("guild recruit Legendz")).count());
         assertThrows(QaRefusal.class, () -> suite.action(world.online, "hug", new String[0]));
         suite.stop(1, "!qa stop");
     }
@@ -94,9 +94,9 @@ class GuildScenariosTest {
     void gu4StagesBothRivalsInTheFmAndJabs() {
         start("gu-4", 100000000);
         assertTrue(world.calls.contains("warp 910000000"));
-        assertTrue(called("guildbot neutral Lionheart"));
-        assertTrue(called("guildbot neutral Nightfall"));
-        assertTrue(world.calls.contains("guild jab Lionheart"));
+        assertTrue(called("guildbot neutral Legendz"));
+        assertTrue(called("guildbot neutral ZakumSlayerz"));
+        assertTrue(world.calls.contains("guild jab Legendz"));
         suite.stop(1, "!qa stop");
         assertEquals(2, world.guildBotsUnstaged.size());
     }
@@ -104,7 +104,7 @@ class GuildScenariosTest {
     @Test
     void gu5StartsAFastRunAndStopsItAtStop() {
         start("gu-5", 100000000, "zakum");
-        assertTrue(world.calls.contains("guild bossrun Lionheart zakum"));
+        assertTrue(world.calls.contains("guild bossrun Legendz zakum"));
         suite.stop(1, "!qa stop");
         assertTrue(world.calls.contains("guild bossstop"));
     }
@@ -135,5 +135,27 @@ class GuildScenariosTest {
         assertTrue(called("guildbot rival null"));
         suite.stop(1, "!qa stop");
         assertEquals(3, world.guildBotsUnstaged.size());
+    }
+
+    @Test
+    void gu8JoinsTheGmToABotGuildAndKickAndVoteRunTheKickCheck() {
+        start("gu-8", 100000000, "Legendz");
+        assertTrue(world.calls.contains("join guild Legendz"));
+        assertTrue(called("guildbot friend Legendz r5"));
+        suite.action(world.online, "kick", new String[0]);
+        assertTrue(world.calls.contains("guild kick Legendz"));
+        suite.action(world.online, "vote", new String[0]);
+        assertEquals(2, world.calls.stream().filter(c -> c.startsWith("guildbot rival Legendz")).count());
+        assertTrue(world.calls.contains("guild kickcheck Legendz"));
+        assertThrows(QaRefusal.class, () -> suite.action(world.online, "hug", new String[0]));
+        suite.stop(1, "!qa stop");
+        assertTrue(world.calls.contains("leave guild"));
+        assertEquals(3, world.guildBotsUnstaged.size());
+    }
+
+    @Test
+    void gu8RefusesWhenTheGmCannotJoin() {
+        world.joinWorks = false;
+        assertThrows(QaRefusal.class, () -> start("gu-8", 100000000));
     }
 }

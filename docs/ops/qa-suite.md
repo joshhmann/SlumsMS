@@ -61,6 +61,7 @@ the showcase's own minutes plus one.
 | `gu-5` `[guild] [gpq\|zakum\|pap\|horntail]` (1.5.0) | A fast staged boss run on your channel: 60 s gathering at the entrance (you are warped there), 2 min inside, then back. Needs 2+ online roster members of the guild at the boss's level. Party a crew member while they gather to join for real (it always accepts and follows you). Runs 8 minutes | `BOSS RUN` (crew, channel, map), `PARTY INVITE` / `REAL` (a member went with you), `INSIDE` (who left the world), `BACK`, `RESULT` (cleared or wiped; loot named only, no item; GP on a clear) |
 | `gu-6` (1.5.0) | You must be in a guild. Stages a friend bot that is a member of it. `!qa do rival` makes it your rival and runs the quit check; `!qa do ignore` backdates it 30 days and runs the check (player-led guilds) | `JOIN`, the step's lines, the quit line in guild chat (`GUILD SAY`) and `LEAVE ... its guild's players are its rivals` / `ignored for weeks` |
 | `gu-7` (1.5.0) | Stages a friend, a neutral and a rival bot next to you, guildless. Invite each to a party without asking first | `PARTY INVITE <you> -> <bot>: friend/neutral/rival, chance 100%/30%/0%`; the friend joins and follows you, the neutral one about 1 time in 3 (a no holds 3 minutes), the rival never |
+| `gu-8` `[guild]` (1.5.0) | You must be guildless. Puts you in the bot guild (default the biggest) and stages a member that likes you. `!qa do kick`: the leader turns into your rival and the kick check runs; `!qa do vote`: two rival members join, so most members with feelings are rivals, and the check runs. Rate limits skipped here. Stop makes you leave the guild if still in it | `KICK <leader> kicked <you> from <guild> (the leader's rival / rival of n/m members), whisper: ...` (the whisper arrives first, then the stock "expelled"), `KICK HELD` when rate-limited on live rules |
 
 What `!qa stop` undoes:
 
@@ -71,7 +72,7 @@ What `!qa stop` undoes:
 - A summoned test pet stays with you.
 - af-1/af-2/af-3: the staged bot leaves and every tie it had is forgotten; af-3 puts your `@botdrama` back.
 - cp-1/we-1: the staged couple is broken up and both bots leave; we-1 also stops the wedding event if it still runs.
-- gu-1..gu-7: staged guild bots leave their guild and the world; gu-1/gu-3 make you leave a guild you joined during the
+- gu-1..gu-8: staged guild bots leave their guild and the world; gu-1/gu-3/gu-8 make you leave a guild you joined during the
   run; gu-5 ends the boss run (bots inside log back in).
 
 You are not warped back. Mesos you earned in fm-1 stay with you.

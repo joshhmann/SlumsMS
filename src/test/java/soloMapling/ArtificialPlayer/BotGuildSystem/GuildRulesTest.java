@@ -132,7 +132,7 @@ class GuildRulesTest {
             assertEquals(2, f.rankAt(2));
             assertEquals(5, f.rankAt(f.members().size() - 1));
         }
-        GuildPlan.Founding lion = plan.stream().filter(f -> f.spec().name().equals("Lionheart")).findFirst().orElseThrow();
+        GuildPlan.Founding lion = plan.stream().filter(f -> f.spec().name().equals("Legendz")).findFirst().orElseThrow();
         assertTrue(lion.members().stream().allMatch(c -> c.level() >= 60), "hardcore band");
     }
 
@@ -153,5 +153,24 @@ class GuildRulesTest {
         assertEquals(15, GuildPlan.capacityFor(3));
         assertEquals(50, GuildPlan.capacityFor(38));
         assertEquals(100, GuildPlan.capacityFor(99));
+    }
+
+    @Test
+    void aBotGuildKicksTheLeadersRivalOrARivalOfMostMembers() {
+        assertTrue(GuildRules.kick(true, 0, 0));
+        assertTrue(GuildRules.kick(false, 2, 3));
+        assertFalse(GuildRules.kick(false, 1, 2), "half is not most");
+        assertFalse(GuildRules.kick(false, 0, 0), "nobody has feelings: stays");
+        assertFalse(GuildRules.kick(false, 1, 4));
+    }
+
+    @Test
+    void theGuildNamesFollowTheClientsRule() {
+        for (String name : List.of("Legendz", "MoonLiteX", "MesoMafia", "SlumLords", "ZakumSlayerz", "KoreanBBQ",
+                "SnailGang", "Pwnage", "NoobTeam", "HenesysKidz")) {
+            assertTrue(GuildPlan.SPECS.stream().anyMatch(s -> s.name().equals(name)), name);
+        }
+        assertEquals("ZakumSlayerz", GuildPlan.SPECS.get(0).rival());
+        assertEquals("SlumLords", GuildPlan.SPECS.get(1).rival());
     }
 }

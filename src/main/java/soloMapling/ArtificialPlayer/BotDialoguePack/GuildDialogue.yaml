@@ -208,3 +208,22 @@ Guild:
       - "wiped at {BOSS} lol. next time"
       - "{BOSS} beat us, gotta gear up"
       - "rip {BOSS} run, we ran out of pots"
+  # The ambient megaphone ticker's GuildRecruitment category (a megaphone, through the gate). {STYLE} is the vibe.
+  AmbientRecruit:
+    text:
+      - "{GUILD} is recruiting!! lv{LEVEL}+ whisper me"
+      - "join {GUILD} ^^ {STYLE} guild, lv{LEVEL}+, find me in {WHERE}"
+      - "{GUILD} looking for active ppl lv{LEVEL}+, whisper me"
+      - "need a guild? {GUILD} has room, lv{LEVEL}+"
+      - "{GUILD} recruiting!! we pq and boss, lv{LEVEL}+ pm me"
+  # Whispers from a bot guild's leader just before it kicks a rival player.
+  KickLeader:
+    text:
+      - "sorry {PLAYER}, not having u in {GUILD} anymore"
+      - "{PLAYER} we both know this isnt working. ur out"
+      - "kicking u {PLAYER}, no hard feelings. ok some hard feelings"
+  KickMembers:
+    text:
+      - "{PLAYER} the guild doesnt want u around anymore, sorry"
+      - "too many ppl in {GUILD} have beef with u {PLAYER}. gotta let u go"
+      - "{PLAYER} sorry, the guild voted. ur out"

@@ -112,10 +112,10 @@ Code: `src/main/java/soloMapling/ArtificialPlayer/BotGuildSystem/` (`BotGuilds`,
   holds every bot in any guild. `Guild`'s member load adds the bot members (name, level, job from `botstore`), so
   the guild list shows them with offline/online dots. On-demand (staged) bots are members in memory only.
 - **Founding:** the first guild step with migration 014 and 40+ roster bots founds the ten guilds of
-  `GuildPlan.SPECS` (Lionheart hardcore 38, Moonlight casual 34, GoldenBazaar merchant 26, SlumLords social 24,
-  Nightfall pvm 24, MapleLeaf social 22, RedSnails casual 20, Ironclad hardcore 18, Sprouts newbie 8, DawnRunners
+  `GuildPlan.SPECS` (Legendz hardcore 38, MoonLiteX casual 34, MesoMafia merchant 26, SlumLords social 24,
+  ZakumSlayerz pvm 24, KoreanBBQ social 22, SnailGang casual 20, Pwnage hardcore 18, NoobTeam newbie 8, HenesysKidz
   newbie 6). Bots come from each guild's level band; the strongest leads, two officers (rank 2), the next fifth rank
-  3. A small roster shrinks the guilds to half of it at most. Rival pairs: Lionheart/Nightfall, Moonlight/SlumLords.
+  3. A small roster shrinks the guilds to half of it at most. Rival pairs: Legendz/ZakumSlayerz, MoonLiteX/SlumLords.
 - **Bot login/logout** (`BotGeneration`): a member takes its guild before it shows on the map (name and emblem over
   its head), and goes online/offline on the guild list. A bot's online dot is only broadcast to a guild with a real
   player online (`Guild.setOnline`), so roster churn costs nothing elsewhere.
@@ -145,6 +145,16 @@ Code: `src/main/java/soloMapling/ArtificialPlayer/BotGuildSystem/` (`BotGuilds`,
 - **Rivalry:** where members of a rival pair stand on the same map a player sees, one jabs (map chat), maybe one jabs
   back - every 15 min per pair; a megaphone jab every ~8 h (gate); now and then one guild's party leader goes to grind
   on the rival's party map for 25 min (`WorldEventSteer.hold`). Never at players.
+- **Rival players in a bot guild** (owner, 2026-10-21 follow-up): the bot leader kicks an online player member who is
+  its rival or nemesis, or a rival of most of the bot members with feelings about them (`GuildRules.kick`), after an
+  in-character whisper (`KickLeader` / `KickMembers`), through the stock expel. Checked every 10 min per bot guild
+  with a player online; one kick per guild per 30 min, 3 an hour world-wide; `@botdrama off` players are never
+  kicked (their feelings read neutral). Logged as `KICK` in `BOT_GUILD`.
+- **Ambient guild megaphones:** the ticker's `GuildRecruitment` category now recruits for a real bot guild with room,
+  shouted by one of its online members (`GuildDialogue.yaml` `AmbientRecruit`); with no bot guild it sends nothing.
+- **Names** (owner, 2008 v83 style; all pass the 3-12 letters rule): Lionheart -> Legendz, Moonlight -> MoonLiteX,
+  GoldenBazaar -> MesoMafia, SlumLords, Nightfall -> ZakumSlayerz, MapleLeaf -> KoreanBBQ, RedSnails -> SnailGang,
+  Ironclad -> Pwnage, Sprouts -> NoobTeam, DawnRunners -> HenesysKidz.
 - **Staged boss runs** (`GuildBossRuns`, one at a time, a guild every 8 h at most, evenings): GPQ (30+), Zakum (50+),
   Papulatus (70+), Horntail (110+), picked by who is online. 3-6 free roster members gather at the entrance on one
   channel (4 min, visible, chat), go in (they log out where they stand; the director leaves them out), come back after
@@ -160,6 +170,6 @@ Code: `src/main/java/soloMapling/ArtificialPlayer/BotGuildSystem/` (`BotGuilds`,
   bots (`BotTypes/OPQ`).
 - **GM** (`!botguild`, GM 4): `list`, `info <guild>`, `form <name> [vibe] [size]`, `stage [n] [join] [neutral|rival]
   [guild]`, `unstage`, `recruit <guild>`, `jab <guild>`, `bossrun <guild> [boss] [fast]`, `bossstop`,
-  `quit <bot> [rivals|ignored]`, `join <bot> <guild>`, `step`.
+  `quit <bot> [rivals|ignored]`, `join <bot> <guild>`, `kick <guild>`, `step`.
 - **`!qa`:** `gu-1` (apply to a bot guild), `gu-2` (invite bots, soft limit), `gu-3` (recruit), `gu-4` (rivalry),
-  `gu-5` (staged boss run), `gu-6` (a bot quits), `gu-7` (party invites by affinity). Log topic `BOT_GUILD`.
+  `gu-5` (staged boss run), `gu-6` (a bot quits), `gu-7` (party invites by affinity), `gu-8` (a bot guild kicks a rival player). Log topic `BOT_GUILD`.
