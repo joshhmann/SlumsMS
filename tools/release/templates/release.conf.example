@@ -35,6 +35,10 @@ PRECHECK_SQL=()
 # Optional nav cache to copy into Server/cache/bot-nav/ (a directory on the host, e.g. .../cache/bot-nav/v68).
 NAV_CACHE_SRC=""
 
+# Optional Cash Shop catalogue (repo path, e.g. cashshop/catalog.tsv, made by tools/cashshop). Staged next to the jar
+# and copied over Server/cashshop/catalog.tsv in the apply step; the old one is in server-runtime.tgz for rollback.
+CASHSHOP_CATALOG=""
+
 # Smoke test. "SlumsMS v<jar version>" and "is now online" are always expected.
 EXPECT_LOG=("SoloMapling initialized")
 FORBID_LOG=("failed to load" "Starting world 0")

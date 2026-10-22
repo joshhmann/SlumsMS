@@ -1,7 +1,8 @@
 # ---- body: tools/release/templates/deploy.body.sh (the same for every release; the settings are above) ----
 #
 # Order: pre-checks (live still up; any failure aborts before the stop) -> stop -> backup (DB with table locks,
-# runtime, unit) -> ledger-checked migrations -> stage jar + scripts + src/main data + config together -> unit ->
+# runtime incl. cashshop/catalog.tsv, unit) -> ledger-checked migrations -> stage jar + scripts + src/main data +
+# config (+ the Cash Shop catalogue when CASHSHOP_CATALOG is set) together -> unit ->
 # start -> smoke test -> receipt. After the stop every abort says "server is DOWN" and what to run.
 #
 # Phases (tools/release/release runs them one by one, with the client publish between stop-backup and apply-start).
@@ -139,6 +140,10 @@ if [ "${#UNIT_EDITS[@]}" -gt 0 ]; then
   done
 fi
 if [ -n "$NAV_CACHE_SRC" ]; then [ -d "$NAV_CACHE_SRC" ] || die "nav cache source $NAV_CACHE_SRC missing"; fi
+if [ -n "$CASHSHOP_CATALOG" ]; then   # the Cash Shop catalogue goes live with the jar (tools/cashshop)
+  [ -s "$ST/$CASHSHOP_CATALOG" ] || die "staging lacks the catalogue $CASHSHOP_CATALOG"
+  [ -d "$SRV/cashshop" ] || die "server folder has no cashshop/ (the catalogue's working dir)"
+fi
 for f in "${MIGRATION_FILES[@]}"; do [ -f "$ST/migrations/$f.sql" ] && [ -f "$ST/migrations/$f.rollback.sql" ] || die "staging lacks migrations/$f(.rollback).sql"; done
 l=$(ledger); echo "ledger: $l"
 [ "$l" = "$LEDGER_BEFORE" ] || die "migration ledger is not the expected '$LEDGER_BEFORE'"
@@ -164,6 +169,7 @@ if [ "$DRY_RUN" = 1 ]; then
   [ -n "$CONFIG_APPEND" ] && echo "  append to config.yaml: $(grep -oE '^[[:space:]]+[A-Z][A-Z0-9_]*:' "$ST/$CONFIG_APPEND" | tr -d ' :\t' | paste -sd' ')"
   for e in "${UNIT_EDITS[@]}"; do echo "  unit: sed '$e'"; done
   [ -n "$NAV_CACHE_SRC" ] && echo "  nav cache from $NAV_CACHE_SRC"
+  [ -n "$CASHSHOP_CATALOG" ] && echo "  cashshop/catalog.tsv from staging ($(sha256sum "$ST/$CASHSHOP_CATALOG" | cut -c1-16); now $( [ -f "$SRV/cashshop/catalog.tsv" ] && sha256sum "$SRV/cashshop/catalog.tsv" | cut -c1-16 || echo none))"
   echo "  start ($START_CMD), wait for 'is now online', smoke test ${SMOKE_SECONDS}s, receipt $RECEIPT"
   echo "  maintenance mode on before the stop and off once online, with these public posts:"
   maint start --dry-run
@@ -186,7 +192,9 @@ step "backup: DB with table locks, runtime, unit"
 eval "$DUMP_CMD" 2>/dev/null | gzip > "$B/mapleroot.sql.gz"
 gzip -t "$B/mapleroot.sql.gz" && [ "$(zcat "$B/mapleroot.sql.gz" | tail -1 | grep -c 'Dump completed')" = 1 ] || down "DB backup is incomplete"
 ls -la "$B/mapleroot.sql.gz"
-tar -czf "$B/server-runtime.tgz" -C "$SRV" target/Cosmic.jar config.yaml scripts src/main
+rt=(target/Cosmic.jar config.yaml scripts src/main)
+[ -f "$SRV/cashshop/catalog.tsv" ] && rt+=(cashshop/catalog.tsv)   # the catalogue goes back with the old jar
+tar -czf "$B/server-runtime.tgz" -C "$SRV" "${rt[@]}"
 tar -tzf "$B/server-runtime.tgz" > /dev/null || down "runtime backup unreadable"
 cp "$C" "$B/config.yaml"
 [ -f "$UNIT_FILE" ] && cp "$UNIT_FILE" "$B/slumsms.service" || true
@@ -234,6 +242,10 @@ if [ -n "$CHANNELS$CHANNEL_LOAD" ]; then
   "$ST/set-release-config" "$C" --channels "$CHANNELS" --channel-load "$CHANNEL_LOAD" || down "channel config edit failed"
 fi
 if [ -n "$NAV_CACHE_SRC" ]; then mkdir -p "$SRV/cache/bot-nav"; cp -a "$NAV_CACHE_SRC" "$SRV/cache/bot-nav/"; fi
+if [ -n "$CASHSHOP_CATALOG" ]; then
+  cp "$ST/$CASHSHOP_CATALOG" "$SRV/cashshop/catalog.tsv"
+  cmp -s "$ST/$CASHSHOP_CATALOG" "$SRV/cashshop/catalog.tsv" || down "staged catalogue did not land"
+fi
 cmp -s "$ST/Cosmic.jar" "$SRV/target/Cosmic.jar" || down "staged jar did not land"
 if [ "${#UNIT_EDITS[@]}" -gt 0 ]; then
   for e in "${UNIT_EDITS[@]}"; do sed -i -e "$e" "$UNIT_FILE"; done

@@ -84,6 +84,14 @@ the entire old config with the old jar before starting, including the previous g
 Do not set these values with `CONFIG_APPEND`: existing keys would be duplicated. The gate helper continues to
 refuse lowering the minimum; rollback restores the backup instead.
 
+## Cash Shop catalogue: `CASHSHOP_CATALOG`
+
+When a release changes `cashshop/catalog.tsv` (made by `tools/cashshop`), set `CASHSHOP_CATALOG=cashshop/catalog.tsv`
+in the release conf. A catalogue and a jar must go live together (1.5.0: the partner rings are sold only by a jar that
+knows `CashShopPartnerRings`). `stage` copies the file into `staging/` (in `SHA256SUMS`); the deploy pre-checks that
+`Server/cashshop/` exists, backs up the old `cashshop/catalog.tsv` in `server-runtime.tgz`, and copies the new one in
+the apply step next to the jar. `rollback.sh` puts the old catalogue back with the old jar. Unset: no catalogue change.
+
 Offline tests (fixture config only; no SSH or deploy execution):
 
 ```bash

@@ -17,7 +17,7 @@ valid_version "$VERSION" || die "bad version $VERSION"
 # defaults, then the release's settings
 MIGRATIONS=() LEDGER_NOT_LIVE=() LEDGER_BEFORE=__auto__ CONFIG_APPEND="" CONFIG_HEAD="" CONFIG_HEAD_BEFORE=""
 MIN_CLIENT_BUILD="" CHANNELS="" CHANNEL_LOAD=""
-UNIT_EDITS=() PRECHECK_SQL=() NAV_CACHE_SRC="" EXPECT_LOG=() FORBID_LOG=() SMOKE_SECONDS=30
+UNIT_EDITS=() PRECHECK_SQL=() NAV_CACHE_SRC="" CASHSHOP_CATALOG="" EXPECT_LOG=() FORBID_LOG=() SMOKE_SECONDS=30
 IN_GAME_CHECK="In game: log in, enter a character, change channel."
 MAINT_MINUTES=5 MAINT_REASON=""
 . "$CONF"
@@ -44,7 +44,7 @@ if [ "$LEDGER_BEFORE" = __auto__ ]; then
 fi
 EXPECT_LOG=("SlumsMS v$JAR_VERSION" "is now online" "${EXPECT_LOG[@]}")
 [ -z "$CONFIG_HEAD" ] || [ -n "$CONFIG_HEAD_BEFORE" ] || die "CONFIG_HEAD needs CONFIG_HEAD_BEFORE"
-for f in "$CONFIG_HEAD" "$CONFIG_APPEND"; do [ -z "$f" ] || [ -f "$REPO/$f" ] || die "no $REPO/$f"; done
+for f in "$CONFIG_HEAD" "$CONFIG_APPEND" "$CASHSHOP_CATALOG"; do [ -z "$f" ] || [ -f "$REPO/$f" ] || die "no $REPO/$f"; done
 
 mkdir -p "$OUT"
 sq() { local s=${1//\'/\'\\\'\'}; printf "'%s'" "$s"; }   # single-quote for the generated file
@@ -63,6 +63,7 @@ H
     printf '%s=%s\n' "$v" "$(sq "${!v}")"
   done
   # staged copies of the config files live in staging/ under their base names
+  printf 'CASHSHOP_CATALOG=%s\n' "$(sq "${CASHSHOP_CATALOG:+$(basename "$CASHSHOP_CATALOG")}")"
   printf 'CONFIG_HEAD=%s\nCONFIG_APPEND=%s\n' "$(sq "${CONFIG_HEAD:+$(basename "$CONFIG_HEAD")}")" "$(sq "${CONFIG_APPEND:+$(basename "$CONFIG_APPEND")}")"
   for a in MIGRATION_FILES MIGRATION_IDS UNIT_EDITS PRECHECK_SQL EXPECT_LOG FORBID_LOG; do
     declare -n arr=$a; printf '%s=(' "$a"; sep=""; for x in "${arr[@]}"; do printf '%s%s' "$sep" "$(sq "$x")"; sep=" "; done; echo ')'; unset -n arr

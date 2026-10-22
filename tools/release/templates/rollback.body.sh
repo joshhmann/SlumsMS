@@ -100,7 +100,10 @@ if [ ! -e "$B/.rollback-extracted" ]; then
   tar -xzf "$B/server-runtime.tgz" -C "$restore"
   touch "$B/.rollback-extracted"
 fi
-for path in scripts src/main target/Cosmic.jar config.yaml; do
+paths=(scripts src/main target/Cosmic.jar config.yaml)
+# the old Cash Shop catalogue, when the deploy backed one up (it goes with the old jar)
+tar -tzf "$B/server-runtime.tgz" | has -x 'cashshop/catalog.tsv' && paths+=(cashshop/catalog.tsv)
+for path in "${paths[@]}"; do
   marker=${path//\//-}
   if [ ! -e "$B/.rollback-$marker.saved" ]; then
     mkdir -p "$aside/$(dirname "$path")"

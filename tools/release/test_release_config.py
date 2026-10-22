@@ -147,6 +147,22 @@ class ReleaseConfigTest(unittest.TestCase):
         release = (HERE / 'release').read_text()
         self.assertLess(release.index('# ---- 3. client publish'), release.index('# ---- 4. apply + start'))
 
+    def test_cashshop_catalogue_step(self):
+        deploy, rollback = self.generate('LEDGER_BEFORE=""\n')
+        self.assertIn("CASHSHOP_CATALOG=''", deploy)
+        (ROOT / 'cashshop/catalog.tsv').stat()
+        deploy, rollback = self.generate((ROOT / 'docs/release/1.5.0.conf').read_text())
+        self.assertIn("CASHSHOP_CATALOG='catalog.tsv'", deploy)
+        backup = deploy.index('rt+=(cashshop/catalog.tsv)')
+        apply = deploy.index('touch "$B/.apply-start.started"')
+        copy = deploy.index('cp "$ST/$CASHSHOP_CATALOG" "$SRV/cashshop/catalog.tsv"')
+        start = deploy.index('step "start"', apply)
+        self.assertLess(backup, apply)
+        self.assertLess(apply, copy)
+        self.assertLess(copy, start)
+        self.assertIn('paths+=(cashshop/catalog.tsv)', rollback)
+        self.assertLess(rollback.index('paths+=(cashshop/catalog.tsv)'), rollback.index('step "start"'))
+
 
 if __name__ == '__main__':
     unittest.main()
