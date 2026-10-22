@@ -50,13 +50,14 @@ class BotWhispersTest {
         assertFalse(BotWhispers.take(1, false, 100_000));
     }
 
-    @Test void evenRepliesAreDroppedWhenRecipientIsBusyWithoutSpendingBudget() {
+    @Test void repliesGoThroughWhileBusyButUnsolicitedWhispersAreDropped() {
         Character player = mock(Character.class);
         when(player.getId()).thenReturn(1);
         when(player.getTrade()).thenReturn(mock(Trade.class));
-        assertFalse(BotWhispers.send(player, "bot", 0, "hi", true));
         assertFalse(BotWhispers.send(player, "bot", 0, "hi", false));
         verify(player, never()).sendPacket(any());
+        assertTrue(BotWhispers.send(player, "bot", 0, "hi", true));
+        verify(player).sendPacket(any());
         assertTrue(BotWhispers.take(1, false, System.currentTimeMillis()));
     }
 

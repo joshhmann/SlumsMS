@@ -6,14 +6,14 @@ import tools.PacketCreator;
 import java.util.HashMap;
 import java.util.Map;
 
-/** One unsolicited whisper budget per recipient across all bots/channels; replies spend no budget. */
+/** One unsolicited whisper budget per recipient across all bots/channels; replies spend no budget and ignore busy. */
 public final class BotWhispers {
     private static final Map<Integer, Long> lastSent = new HashMap<>();
 
     private BotWhispers() { }
 
     public static boolean send(Character player, String sender, int channel, String line, boolean reply) {
-        if (line == null || PlayerBusy.isBusy(player)) {
+        if (line == null || !reply && PlayerBusy.isBusy(player)) { // a reply to the player's own whisper always goes through
             return false;
         }
         if (!take(player.getId(), reply, System.currentTimeMillis())) {
