@@ -320,6 +320,11 @@ public class LifeFactory {
         return new Pair<>(stats,attackInfos);
 }
 
+/** Whether Mob.wz has this mob (quiet: no error log, unlike {@link #getMonster} for a missing id). */
+public static boolean monsterExists(int mid) {
+    return monsterStats.containsKey(mid) || data.getData(StringUtil.getLeftPaddedStr(mid + ".img", '0', 11)) != null;
+}
+
 public static Monster getMonster(int mid) {
     try {
         MonsterStats stats = monsterStats.get(mid);
