@@ -484,12 +484,12 @@ public final class BotShopping {
         long cost = 0;
         while (want > 0) {
             int qty = rechargeable ? stack : Math.min(want, stack);
-            long price = rechargeable ? l.price() : (long) Math.min((float) l.price() * qty, Integer.MAX_VALUE);
+            long price = rechargeable ? l.price() : (long) l.price() * qty;   // exact: a float total undercharges
             if (!rechargeable && price > budget[0]) {
                 qty = (int) Math.min(qty, budget[0] / l.price());
                 price = (long) l.price() * qty;
             }
-            if (qty <= 0 || price > budget[0] || !buy(bot, l.itemId(), qty, (int) price)) {
+            if (qty <= 0 || price > budget[0] || price > Integer.MAX_VALUE || !buy(bot, l.itemId(), qty, (int) price)) {
                 break;
             }
             budget[0] -= price;

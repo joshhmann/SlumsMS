@@ -60,14 +60,30 @@ public final class MesoSinks {
      */
     public static void onShopSale(Item sold, long totalPrice, int fee, boolean realSeller, boolean realBuyer,
                                   boolean botShop) {
+        onShopSale(sold, totalPrice, fee, realSeller, realBuyer, botShop, null, null);
+    }
+
+    /**
+     * As above, with the two sides when known: a sale between two real players then leaves a sample only when they
+     * are not linked (one account, address or machine) and the pair has not left one for this item today
+     * ({@link PriceBook#recordBetween}).
+     */
+    public static void onShopSale(Item sold, long totalPrice, int fee, boolean realSeller, boolean realBuyer,
+                                  boolean botShop, PriceBook.Party seller, PriceBook.Party buyer) {
         try {
             if (fee > 0) {
                 EconomyMeters.add(EconomyMeters.TAX, fee);
             }
-            int units = sold == null ? 0 : Math.max(1, sold.getQuantity());
+            int units = sold == null ? 0 : PriceBook.units(sold);
             PriceBook.Source src = botShop ? (realBuyer ? PriceBook.Source.BOT_SHOP : PriceBook.Source.BOT_SEED)
                     : realSeller ? PriceBook.Source.SHOP : PriceBook.Source.BOT_SEED;
-            PriceBook.record(sold, totalPrice, units, src, realSeller || realBuyer);
+            if (realSeller && realBuyer && !botShop) {
+                // a sale between two players: only between parties that are not one person in two hats
+                PriceBook.recordBetween(sold, totalPrice, units, src, seller != null ? seller
+                        : new PriceBook.Party(0, null, null), buyer != null ? buyer : new PriceBook.Party(0, null, null));
+            } else {
+                PriceBook.record(sold, totalPrice, units, src, realSeller || realBuyer);
+            }
             if (QaLog.on(QaLog.Topic.TRADE) && sold != null) {
                 QaLog.any(QaLog.Topic.TRADE, String.format("SHOP SALE %d x%d for %,d: fee/tax %,d (%s seller, %s buyer%s)",
                         sold.getItemId(), units, totalPrice, fee, realSeller ? "player" : "bot",

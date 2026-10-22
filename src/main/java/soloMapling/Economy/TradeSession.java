@@ -11,7 +11,7 @@ import java.util.function.ToLongFunction;
  * ports so it is testable without a server ({@link BotDirectTrade} drives it with the real window).
  * <ul>
  *   <li><b>The player sells</b> ({@link Mode#BOT_BUYS}): the player puts items in; the bot prices them
- *   ({@link PriceBook#fairValue}), refuses what {@link BotBuying} refuses, and posts an opening offer inside its band
+ *   ({@link PriceBook#botBuyValue}, per {@link PriceBook#units unit}: a star stack is one set), refuses what {@link BotBuying} refuses, and posts an opening offer inside its band
  *   ({@link PriceBand}). Mesos posted in a v83 window can only go up, so the bot only raises. It confirms only after
  *   the player locked, and only if the items in the window are the ones it priced and its posted mesos are inside the
  *   band for them (a swap after the offer is refused).</li>
@@ -85,7 +85,7 @@ public final class TradeSession {
 
     /** The bot is selling {@code item} (already in the window): its opening ask. */
     public void startSelling(Item item, long quotedPrice) {
-        long f = Math.max(1, fair.applyAsLong(item)) * Math.max(1, item.getQuantity());
+        long f = Math.max(1, fair.applyAsLong(item)) * Math.max(1, PriceBook.units(item));
         band = PriceBand.of(PriceBand.Side.BOT_SELLS, f, wallet.friend());
         price = quotedPrice > 0 ? PriceBand.clamp(band, quotedPrice) : PriceBand.opening(band);
         note("SELL ask " + price + " band " + band.low() + ".." + band.high());
@@ -128,7 +128,8 @@ public final class TradeSession {
                                     : "nah not buying that", null);
                     return;
                 }
-                total += v * Math.max(1, it.getQuantity());
+                // a star or bullet stack is one set: its value is already the set's (PriceBook.units)
+                total += v * Math.max(1, PriceBook.units(it));
             }
             PriceBand.Band b = PriceBand.of(PriceBand.Side.BOT_BUYS, total, wallet.friend());
             if (window.postedMeso() > b.high()) {
@@ -195,6 +196,11 @@ public final class TradeSession {
             case OTHER -> {
             }
         }
+    }
+
+    /** Counters so far in this window. */
+    public int rounds() {
+        return rounds;
     }
 
     private void haggle(long theirs) {

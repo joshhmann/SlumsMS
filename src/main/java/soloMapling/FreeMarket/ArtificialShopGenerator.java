@@ -321,7 +321,18 @@ public class ArtificialShopGenerator {
     }
 
     private static void addEquipToShop(HiredMerchantArtificial merchant, FMEquip fmEquip) {
+        if (isGodly(fmEquip.getEquip())) {
+            return;   // 1.5.0 rc3 review: bot-sold gear stays below the godly line (SaleRules)
+        }
         addItemToShop(merchant, fmEquip.getEquip(), 1, fmEquip.getPrice());
+    }
+
+    private static boolean isGodly(Item item) {
+        try {
+            return item instanceof client.inventory.Equip eq && soloMapling.Economy.GearGrade.godly(eq);
+        } catch (RuntimeException | LinkageError e) {
+            return false;
+        }
     }
 
     public static Item generateItem(int itemId, int position, int qty) {

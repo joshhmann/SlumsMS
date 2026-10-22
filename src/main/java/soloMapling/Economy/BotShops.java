@@ -42,6 +42,9 @@ import java.util.function.LongSupplier;
  *   level {@code botShops.minLevel} (15)+. At a town stop ({@code TrainingBot}) such a bot with at least
  *   {@code botShops.minItems} (3) things to sell opens a shop in an FM room on channel 1 under its own name, while the
  *   world has fewer than {@code botShops.maxShops} (8) bot shops. It stays open {@code botShops.hours} (6).</li>
+ *   <li><b>Where:</b> FM rooms 1-12 on channels 1-3 (owner decision, rc3 review): each new shop goes to the channel
+ *   furthest under its soft share of the world cap ({@code botShops.channelTargets}, "4,2,2": channel 1 busiest).
+ *   A bot has one shop at most, on one channel. Payouts and the price board do not depend on the channel.</li>
  *   <li><b>What:</b> drops and scrolls it earned (its bag, never what it wears) and items bots bought from players
  *   (the resale pool: FM shopper purchases and direct trades), so items circulate. Never: what {@link SaleRules}
  *   refuses (godly gear, Chaos/White scrolls, boss-only drops, cash items).</li>
@@ -73,14 +76,16 @@ public final class BotShops {
     static final class Shop {
         final int botId;
         final String botName;
+        final int channel;
         final HiredMerchantArtificial merchant;
         final long openedAt;
         final long closesAt;
         final List<PlayerShopItem> items = new ArrayList<>();
 
-        Shop(int botId, String botName, HiredMerchantArtificial merchant, long openedAt, long closesAt) {
+        Shop(int botId, String botName, int channel, HiredMerchantArtificial merchant, long openedAt, long closesAt) {
             this.botId = botId;
             this.botName = botName;
+            this.channel = channel;
             this.merchant = merchant;
             this.openedAt = openedAt;
             this.closesAt = closesAt;
@@ -92,6 +97,7 @@ public final class BotShops {
     }
 
     private static final Map<Integer, Shop> shops = new ConcurrentHashMap<>();
+    private static final java.util.Set<Integer> opening = ConcurrentHashMap.newKeySet();   // bots opening right now
     private static final Map<PlayerShopItem, Listing> listings = new ConcurrentHashMap<>();
     private static final Map<Integer, Long> owed = new ConcurrentHashMap<>();
     private static final Deque<Resale> resale = new ArrayDeque<>();
@@ -134,6 +140,7 @@ public final class BotShops {
             nextTryAt.put(bot.getId(), now + TimeUnit.MINUTES.toMillis(2)
                     + ThreadLocalRandom.current().nextLong(TimeUnit.MINUTES.toMillis(2)));
             collect(bot);
+            PendingGrants.deliver(bot);   // items it could not take back earlier
             if (enabled() && merchantMinded(bot.getId()) && !shops.containsKey(bot.getId())
                     && bot.getLevel() >= EconomyConfig.getInt("botShops.minLevel", 15) && shops.size() < maxShops()) {
                 open(bot, 0, null, false);
@@ -168,9 +175,29 @@ public final class BotShops {
      * happened.
      */
     public static List<String> open(Character bot, int mapId, Point at, boolean force) {
+        return open(bot, 0, mapId, at, force);
+    }
+
+    /**
+     * As above on {@code channel} (0 = the channel {@link #pickChannel} chooses; a GM's staging passes its own). A
+     * bot has at most one shop in the world: a second open, on any channel, even at the same moment, is refused.
+     */
+    public static List<String> open(Character bot, int channel, int mapId, Point at, boolean force) {
+        if (!opening.add(bot.getId())) {
+            return new ArrayList<>(List.of(bot.getName() + " is opening a shop already"));
+        }
+        try {
+            return openOnce(bot, channel, mapId, at, force);
+        } finally {
+            opening.remove(bot.getId());
+        }
+    }
+
+    private static List<String> openOnce(Character bot, int channelWanted, int mapId, Point at, boolean force) {
         List<String> out = new ArrayList<>();
         if (shops.containsKey(bot.getId())) {
-            out.add(bot.getName() + " already has a shop open");
+            Shop open = shops.get(bot.getId());
+            out.add(bot.getName() + " already has a shop open" + (open != null ? " on channel " + open.channel : ""));
             return out;
         }
         if (!force && shops.size() >= maxShops()) {
@@ -212,7 +239,9 @@ public final class BotShops {
                     : "; kept back: " + String.join(", ", refused.subList(0, Math.min(5, refused.size())))) + ")");
             return out;
         }
-        Placement where = mapId > 0 && at != null ? new Placement(mapId, at) : findSpot();
+        int channel = channelWanted > 0 ? channelWanted : pickChannel(openPerChannel(), channelTargets(),
+                availableChannels());
+        Placement where = mapId > 0 && at != null ? new Placement(mapId, at) : findSpot(channel);
         if (where == null) {
             giveBackToPool(fromPool);
             out.add("no free spot in the FM rooms");
@@ -220,7 +249,7 @@ public final class BotShops {
         }
         HiredMerchantArtificial merchant;
         try {
-            merchant = spawnMerchant(bot, where);
+            merchant = spawnMerchant(bot, channel, where);
         } catch (RuntimeException e) {
             giveBackToPool(fromPool);
             out.add("could not open a merchant: " + e);
@@ -228,7 +257,7 @@ public final class BotShops {
         }
         long now = clock.getAsLong();
         long hours = Math.max(1, EconomyConfig.getLong("botShops.hours", 6));
-        Shop shop = new Shop(bot.getId(), bot.getName(), merchant, now, now + TimeUnit.HOURS.toMillis(hours));
+        Shop shop = new Shop(bot.getId(), bot.getName(), channel, merchant, now, now + TimeUnit.HOURS.toMillis(hours));
         // the bot's own items leave its holdings only now that the shop exists
         for (int i = 0; i < stock.size(); i++) {
             PlayerShopItem p = stock.get(i);
@@ -242,13 +271,13 @@ public final class BotShops {
                 out.add(String.format("  %s %s x%d at %,d (%s)", own ? "loot" : "resale", nameOf(p.getItem().getItemId()),
                         p.getItem().getQuantity(), p.getPrice(), quoteNote(p.getItem())));
             } else if (own) {
-                BotHoldings.grantItem(bot, taken.get(i));
+                PendingGrants.giveBack(bot, taken.get(i), "shop refused the listing");
             }
         }
         shops.put(bot.getId(), shop);
         startSweeper();
-        String head = String.format("%s opened a shop in FM room %d (%d items, closes in %d h)", bot.getName(),
-                where.mapId() % 100, shop.items.size(), hours);
+        String head = String.format("%s opened a shop in FM room %d on channel %d (%d items, closes in %d h)",
+                bot.getName(), where.mapId() % 100, channel, shop.items.size(), hours);
         out.add(0, head);
         log.info("[BotShops] {}", head);
         if (QaLog.on(QaLog.Topic.TRADE)) {
@@ -287,15 +316,14 @@ public final class BotShops {
                 out.add(item);
             }
         }
-        out.sort((a, b) -> Long.compare(PriceBook.fairValue(b) * Math.max(1, b.getQuantity()),
-                PriceBook.fairValue(a) * Math.max(1, a.getQuantity())));
+        out.sort((a, b) -> Long.compare(PriceBook.stackValue(b), PriceBook.stackValue(a)));
         return out;
     }
 
     /** The asking price for a whole stack: fair value x markup, never under twice the NPC price; 0 = not for sale. */
     static long askFor(Item item, Kind kind, long paid) {
         long fair = PriceBook.fairValue(item);
-        int qty = Math.max(1, item.getQuantity());
+        int qty = Math.max(1, PriceBook.units(item));   // a star stack is one set
         long base = kind == Kind.RESALE ? Math.max(fair * qty, paid) : fair * qty;
         if (base <= 0) {
             return 0;
@@ -321,9 +349,77 @@ public final class BotShops {
                 : "no recent sales: usual value";
     }
 
-    /** A free merchant spot in one of the FM rooms (channel 1), away from the shops already there. */
-    static Placement findSpot() {
-        Channel ch = channelOne();
+    // ---- channels ----
+
+    /** The channels bot shops use: 1..{@code botShops.channels} (3). */
+    static int channelCount() {
+        return Math.max(1, Math.min(20, EconomyConfig.getInt("botShops.channels", 3)));
+    }
+
+    /** Each channel's soft share of the world cap, channel 1 first ({@code botShops.channelTargets}, "4,2,2"). */
+    static int[] channelTargets() {
+        int n = channelCount();
+        int[] out = new int[n];
+        String raw = String.valueOf(EconomyConfig.raw("botShops.channelTargets") == null ? "4,2,2"
+                : EconomyConfig.raw("botShops.channelTargets"));
+        String[] parts = raw.replaceAll("[\\[\\]\\s]", "").split(",");
+        for (int i = 0; i < n; i++) {
+            try {
+                out[i] = i < parts.length ? Math.max(0, Integer.parseInt(parts[i])) : 0;
+            } catch (NumberFormatException e) {
+                out[i] = 0;
+            }
+        }
+        return out;
+    }
+
+    /** Open bot shops per channel (index 0 = channel 1). */
+    static int[] openPerChannel() {
+        int[] out = new int[channelCount()];
+        for (Shop s : shops.values()) {
+            if (s.channel >= 1 && s.channel <= out.length) {
+                out[s.channel - 1]++;
+            }
+        }
+        return out;
+    }
+
+    /** Which of channels 1..n run in this world (index 0 = channel 1). */
+    static boolean[] availableChannels() {
+        boolean[] out = new boolean[channelCount()];
+        for (int i = 0; i < out.length; i++) {
+            out[i] = channel(i + 1) != null;
+        }
+        return out;
+    }
+
+    /**
+     * The channel a new shop goes to: the running channel furthest under its soft target (ties to the lower
+     * channel), or, with every channel at its target, the one with fewest shops for its target. Channel 1 when none
+     * of the others runs.
+     */
+    static int pickChannel(int[] open, int[] targets, boolean[] available) {
+        int best = -1;
+        double bestScore = Double.NEGATIVE_INFINITY;
+        for (int i = 0; i < open.length; i++) {
+            if (available != null && i < available.length && !available[i]) {
+                continue;
+            }
+            int target = i < targets.length ? targets[i] : 0;
+            // room under the target first; past every target, the lowest load per share of the cap
+            double score = target - open[i] > 0 ? 1_000 + (target - open[i])
+                    : -(open[i] + 1.0) / Math.max(0.5, target);
+            if (score > bestScore) {
+                bestScore = score;
+                best = i;
+            }
+        }
+        return best < 0 ? 1 : best + 1;
+    }
+
+    /** A free merchant spot in one of the FM rooms of {@code channel}, away from the shops already there. */
+    static Placement findSpot(int channel) {
+        Channel ch = channel(channel);
         if (ch == null) {
             return null;
         }
@@ -354,21 +450,21 @@ public final class BotShops {
         return null;
     }
 
-    private static Channel channelOne() {
+    private static Channel channel(int channel) {
         try {
             int world = soloMapling.server.SoloMaplingConstants.GameConstants.homeWorld();
-            return Server.getInstance().getChannel(world, 1);
-        } catch (RuntimeException e) {
+            return Server.getInstance().getChannel(world, channel);
+        } catch (RuntimeException | LinkageError e) {
             return null;
         }
     }
 
-    private static HiredMerchantArtificial spawnMerchant(Character bot, Placement where) {
-        Channel ch = channelOne();
+    private static HiredMerchantArtificial spawnMerchant(Character bot, int channel, Placement where) {
+        Channel ch = channel(channel);
         if (ch == null) {
-            throw new IllegalStateException("no channel 1");
+            throw new IllegalStateException("no channel " + channel);
         }
-        Client cm = soloMapling.ArtificialPlayer.BotClientHandler.getBotClient();
+        Client cm = soloMapling.ArtificialPlayer.BotClientHandler.getBotClient(channel);
         Character stand = Character.getDefault(cm);
         stand.setWorld(soloMapling.server.SoloMaplingConstants.GameConstants.homeWorld());
         stand.setPosition(where.at());
@@ -465,7 +561,7 @@ public final class BotShops {
             return "no shop";
         }
         Character bot = onlineBot(botId);
-        int back = 0, pooled = 0, lost = 0;
+        int back = 0, pooled = 0, kept = 0;
         for (PlayerShopItem p : s.items) {
             Listing l = listings.remove(p);
             if (l == null || !s.merchant.withdrawListing(p)) {
@@ -475,27 +571,25 @@ public final class BotShops {
             item.setPosition((short) 0);
             if (bot != null && BotHoldings.grantItem(bot, item)) {
                 back++;
-            } else if (l.kind() == Kind.RESALE || bot == null) {
-                if (offerResale(item, l.price())) {
-                    pooled++;
-                } else {
-                    lost++;
-                }
+            } else if ((l.kind() == Kind.RESALE || bot == null) && offerResale(item, l.price())) {
+                pooled++;
             } else {
-                lost++;
+                // 1.5.0 rc3 review: never lost; it waits for the bot (PendingGrants)
+                PendingGrants.hold(botId, s.botName, item, "its shop closed and it had no room");
+                kept++;
             }
         }
         try {
             s.merchant.forceClose();
-            Channel ch = channelOne();
+            Channel ch = channel(s.channel);
             if (ch != null) {
                 ch.removeHiredMerchant(botId);
             }
         } catch (RuntimeException e) {
             log.debug("closing bot shop", e);
         }
-        String line = String.format("%s's shop closed (%s): %d back to the bot, %d to the resale pool, %d lost",
-                s.botName, why, back, pooled, lost);
+        String line = String.format("%s's shop closed (%s): %d back to the bot, %d to the resale pool, %d kept for"
+                + " the bot until it has room", s.botName, why, back, pooled, kept);
         log.info("[BotShops] {}", line);
         if (QaLog.on(QaLog.Topic.TRADE)) {
             QaLog.any(QaLog.Topic.TRADE, "SHOP " + line);
@@ -538,11 +632,13 @@ public final class BotShops {
         long now = clock.getAsLong();
         out.add(String.format("Bot shops: %d open (max %d), %d listings, resale pool %d, %,d mesos owed to bots",
                 shops.size(), maxShops(), listings.size(), resalePoolSize(),
-                owed.values().stream().mapToLong(Long::longValue).sum()));
+                owed.values().stream().mapToLong(Long::longValue).sum())
+                + " (per channel " + java.util.Arrays.toString(openPerChannel()) + ", targets "
+                + java.util.Arrays.toString(channelTargets()) + ")");
         for (Shop s : shops.values()) {
             long left = s.items.stream().filter(p -> p.isExist() && p.getBundles() > 0).count();
-            out.add(String.format("  %s: FM room %d, %d of %d items left, closes in %d min", s.botName,
-                    s.merchant.getMapId() % 100, left, s.items.size(), Math.max(0, (s.closesAt - now) / 60_000)));
+            out.add(String.format("  %s: ch %d FM room %d, %d of %d items left, closes in %d min", s.botName,
+                    s.channel, s.merchant.getMapId() % 100, left, s.items.size(), Math.max(0, (s.closesAt - now) / 60_000)));
         }
         return out;
     }
@@ -565,6 +661,7 @@ public final class BotShops {
     static void resetForTest(LongSupplier testClock) {
         clock = testClock == null ? System::currentTimeMillis : testClock;
         shops.clear();
+        opening.clear();
         listings.clear();
         owed.clear();
         nextTryAt.clear();
@@ -575,6 +672,15 @@ public final class BotShops {
 
     static long owedForTest(int botId) {
         return owed.getOrDefault(botId, 0L);
+    }
+
+    /** A shop on {@code channel} for the channel spread tests (no merchant behind it). */
+    static void putShopForTest(int botId, int channel) {
+        shops.put(botId, new Shop(botId, "bot" + botId, channel, null, clock.getAsLong(), Long.MAX_VALUE));
+    }
+
+    static boolean tryOpeningForTest(int botId) {
+        return opening.add(botId);
     }
 
     static void listForTest(int botId, PlayerShopItem item, Kind kind) {

@@ -143,6 +143,27 @@ public final class BotSellerCaps {
         }
     }
 
+    /**
+     * 1.5.0 rc3 review: {@link #tryReserve} and then the world's daily budget for bots buying from players
+     * ({@link soloMapling.Economy.EconomyMeters#tryBotBuy}); when the budget has no room the seller's reservation is
+     * given back and nothing is held. Undo both with {@link #releaseWithWorldBudget}.
+     */
+    public static boolean tryReserveWithWorldBudget(int sellerAccountId, String sellerName, long price) {
+        if (!tryReserve(sellerAccountId, sellerName, price)) {
+            return false;
+        }
+        if (!soloMapling.Economy.EconomyMeters.tryBotBuy(price)) {
+            release(sellerAccountId, price);
+            return false;
+        }
+        return true;
+    }
+
+    public static void releaseWithWorldBudget(int sellerAccountId, long price) {
+        release(sellerAccountId, price);
+        soloMapling.Economy.EconomyMeters.releaseBotBuy(price);
+    }
+
     public static void release(int sellerAccountId, long price) {
         Daily daily = dailies.get(sellerAccountId);
         if (daily != null && price > 0) {

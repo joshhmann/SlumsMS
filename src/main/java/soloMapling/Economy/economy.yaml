@@ -12,6 +12,13 @@ priceBook:
   minSamples: 3             # fewer samples: the board shows the static value (item pool / EquipValuation)
   botSeedPerItemPerDay: 6   # bot-only purchases that may seed one item's board per day
   keepDays: 14              # rows older than this are pruned from pricesamples
+  # 1.5.0 rc3 review (pump and dump): trades between linked players (one account, address or machine) leave no
+  # sample, one pair of accounts leaves at most one per item per day, and bots price within a band of static value
+  distinctTraders: 3        # player samples replace bot seeds only once this many different sellers and buyers made them
+  bandLow: 0.25             # fair value stays within 0.25x..4x of the item's static value (item pool / NPC price)
+  bandHigh: 4.0
+  equipBandLow: 0.25        # an equip: 0.25x..8x of its static value (EquipValuation's)
+  equipBandHigh: 8.0
 
 # The band a bot trades inside (fractions of fair value). Enforced in code: no chat line moves a bot outside it.
 bands:
@@ -19,7 +26,8 @@ bands:
   botBuysHigh: 0.95
   botSellsLow: 0.95         # a bot selling to a player takes 95%..125% of fair value
   botSellsHigh: 1.25
-  friendBonus: 0.05         # a friend (affinity) gets 5% of fair value better on both edges
+  friendBonus: 0.05         # a friend (affinity) gets a 5% better opening (buy low edge, sell high edge); never on the
+                            # edges a bot settles at: a bot's buy ceiling stays at or under every bot's sell floor
   maxRounds: 4              # counters before the bot names its last price
   decideMin: 0.5            # Decide model confidence needed to read accept/refuse/ask from a line
 
@@ -36,11 +44,15 @@ botShops:
   lootMarkup: 1.00          # own drops and scrolls: fair value
   resaleMarkup: 1.15        # bought from players: 15% over the higher of what was paid and fair value
   resalePoolMax: 200
+  channels: 3               # bot shops open in FM rooms 1-12 of channels 1..this
+  channelTargets: "4,2,2"   # soft share of maxShops per channel (channel 1 first); a bot has one shop, on one channel
 
 # Owner decision 2: bots buying from real players (on top of ticket 56A: 1.0x fair value, 5m per seller account a day).
 botBuying:
   worldDailyBudget: 40000000   # mesos all bots together pay real players per day (FM shoppers + direct trades)
   equipsAboveAverageOnly: true # from players, bots take gear only when it is above average
+  npcCapBelow: 100000          # a low-value item (static value up to this; a star stack counts as one set)...
+  npcValueMultiple: 3.0        # ...is bought at most at this many times what an NPC pays for it
 
 # Owner decision 3: direct trades in the trade window.
 directTrade:
@@ -53,6 +65,7 @@ gifts:
   chancePerSighting: 0.03   # when a friend bot notices the player nearby
   perBotDays: 7             # at most one gift per bot and player in this many days
   worldPerDay: 20           # gifts a day, world-wide
+  perAccountPerDay: 2       # gifts a day per player account, all its characters together
   weightPotions: 45
   weightScroll: 30
   weightMesos: 25

@@ -66,9 +66,15 @@ class PriceBookTest {
         for (int i = 0; i < 5; i++) {
             sale(2_000_000, PriceBook.Source.SHOP, true);
         }
+        assertFalse(PriceBook.quote(GLOVE_60, 0).playerOnly(),
+                "player sales whose sellers and buyers are unknown cannot replace the seeds (1.5.0 rc3 review)");
+        for (int i = 0; i < 3; i++) {
+            PriceBook.recordBetween(EconomyTestSupport.item(GLOVE_60, 1), 2_000_000, 1, PriceBook.Source.SHOP,
+                    new PriceBook.Party(10 + i, "10.0.0." + i, null), new PriceBook.Party(20 + i, "10.0.1." + i, null));
+        }
         PriceBook.Quote q = PriceBook.quote(GLOVE_60, 0);
         assertTrue(q.playerOnly());
-        assertEquals(2_000_000, q.median(), "five player sales: bot seeds stop counting");
+        assertEquals(2_000_000, q.median(), "players from three sellers and buyers: bot seeds stop counting");
     }
 
     @Test

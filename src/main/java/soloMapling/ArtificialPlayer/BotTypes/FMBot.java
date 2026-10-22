@@ -520,7 +520,8 @@ public class FMBot extends BotSM {
             boolean fromPlayerShop = isRealPlayersShop(currentTarget);
             String playerSkip = null;
             if (fromPlayerShop) {
-                long fair = soloMapling.Economy.PriceBook.fairValue(thisItem);
+                // per set for stars, and never far over what an NPC pays for a low-value item (1.5.0 rc3 review)
+                long fair = soloMapling.Economy.PriceBook.botBuyValue(thisItem);
                 itemMarketValue = fair > 0 ? (int) Math.min(Integer.MAX_VALUE, fair) : itemMarketValue;
                 playerSkip = soloMapling.Economy.BotBuying.whyNotBuyFromPlayer(thisItem);
             }
@@ -630,10 +631,12 @@ public class FMBot extends BotSM {
             return false;
         }
         boolean fromPlayer = sellerAccount >= 0;
+        // 1.5.0 rc3 review: a wanted scroll bought from a player counts against the world's daily budget too
         if (fromPlayer && (!BotSellerCaps.withinPriceCeiling(itemPrice, value)
-                || !BotSellerCaps.tryReserve(sellerAccount, currentTarget.getOwner(), itemPrice))) {
+                || !BotSellerCaps.tryReserveWithWorldBudget(sellerAccount, currentTarget.getOwner(), itemPrice))) {
             if (qa) {
-                qaBuy("skip wanted", scrollId, itemPrice, value, "56A: over the price ceiling or the seller's cap");
+                qaBuy("skip wanted", scrollId, itemPrice, value,
+                        "56A: over the price ceiling, the seller's cap or the world's daily budget");
             }
             return false;
         }
@@ -648,7 +651,7 @@ public class FMBot extends BotSM {
             return pItem.getBundles() < before;
         });
         if (forBot == null && fromPlayer) {
-            BotSellerCaps.release(sellerAccount, itemPrice);
+            BotSellerCaps.releaseWithWorldBudget(sellerAccount, itemPrice);
         }
         if (qa) {
             qaBuy(forBot != null ? "BUY for " + forBot : "skip wanted", scrollId, itemPrice, value,

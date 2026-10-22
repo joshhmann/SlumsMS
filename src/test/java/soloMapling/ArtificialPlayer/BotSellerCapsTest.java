@@ -56,6 +56,25 @@ class BotSellerCapsTest {
         assertTrue(BotSellerCaps.report(5).stream().anyMatch(l -> l.contains("Seller") && l.contains("4,920,000")));
     }
 
+    /** 1.5.0 rc3 review: FMBot.buyWantedScroll reserved the seller's cap but never the world's daily budget. */
+    @Test
+    void aWantedScrollPurchaseCountsAgainstTheWorldBudget() {
+        soloMapling.Economy.EconomyConfig.useForTest(java.util.Map.of("botBuying.worldDailyBudget", "1000000"));
+        soloMapling.Economy.EconomyMeters.useForTest(new soloMapling.Economy.EconomyStore.Memory(), Runnable::run,
+                () -> LocalDate.of(2026, 10, 21));
+        try {
+            assertTrue(BotSellerCaps.tryReserveWithWorldBudget(7, "Seller", 800_000));
+            assertFalse(BotSellerCaps.tryReserveWithWorldBudget(8, "Other", 300_000), "over the world's budget");
+            assertEquals(0, BotSellerCaps.paidTodayForTest(8), "the seller's cap is given back when the budget says no");
+            BotSellerCaps.releaseWithWorldBudget(7, 800_000);
+            assertEquals(0, soloMapling.Economy.EconomyMeters.get(soloMapling.Economy.EconomyMeters.BOT_BUY));
+            assertEquals(0, BotSellerCaps.paidTodayForTest(7));
+        } finally {
+            soloMapling.Economy.EconomyMeters.useForTest(null, null, null);
+            soloMapling.Economy.EconomyConfig.useForTest(null);
+        }
+    }
+
     @Test
     void theCapComesBackTheNextDay() {
         assertTrue(BotSellerCaps.tryReserve(7, "Seller", 5_000_000));

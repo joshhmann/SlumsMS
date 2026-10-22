@@ -104,7 +104,13 @@ public class Shop {
         }
         ItemInformationProvider ii = ItemInformationProvider.getInstance();
         if (item.getPrice() > 0) {
-            int amount = (int) Math.min((float) item.getPrice() * quantity, Integer.MAX_VALUE);
+            // 1.5.0 rc3 review: exact long math; a total over the most mesos a character holds is refused
+            long total = ItemConstants.isRechargeable(itemId) ? item.getPrice() : ShopMath.total(item.getPrice(), quantity);
+            if (total < 0 || quantity < 1) {
+                c.sendPacket(PacketCreator.shopTransaction((byte) 2));
+                return;
+            }
+            int amount = (int) total;
             if (c.getPlayer().getMeso() >= amount) {
                 if (InventoryManipulator.checkSpace(c, itemId, quantity, "")) {
                     if (!ItemConstants.isRechargeable(itemId)) { //Pets can't be bought from shops
@@ -129,7 +135,12 @@ public class Shop {
             }
 
         } else if (item.getPitch() > 0) {
-            int amount = (int) Math.min((float) item.getPitch() * quantity, Integer.MAX_VALUE);
+            long pitchTotal = ShopMath.total(item.getPitch(), quantity);
+            if (pitchTotal < 0 || quantity < 1) {
+                c.sendPacket(PacketCreator.shopTransaction((byte) 2));
+                return;
+            }
+            int amount = (int) pitchTotal;
 
             if (c.getPlayer().getInventory(InventoryType.ETC).countById(ItemId.PERFECT_PITCH) >= amount) {
                 if (InventoryManipulator.checkSpace(c, itemId, quantity, "")) {
@@ -150,11 +161,15 @@ public class Shop {
 
         } else if (c.getPlayer().getInventory(InventoryType.CASH).countById(token) != 0) {
             int amount = c.getPlayer().getInventory(InventoryType.CASH).countById(token);
-            int value = amount * tokenvalue;
-            int cost = item.getPrice() * quantity;
+            long value = (long) amount * tokenvalue;
+            long cost = (long) item.getPrice() * quantity;
+            if (quantity < 1 || cost < 0) {
+                c.sendPacket(PacketCreator.shopTransaction((byte) 2));
+                return;
+            }
             if (c.getPlayer().getMeso() + value >= cost) {
-                int cardreduce = value - cost;
-                int diff = cardreduce + c.getPlayer().getMeso();
+                long cardreduce = value - cost;
+                int diff = (int) Math.max(Integer.MIN_VALUE, Math.min(Integer.MAX_VALUE, cardreduce + c.getPlayer().getMeso()));
                 if (InventoryManipulator.checkSpace(c, itemId, quantity, "")) {
                     if (ItemConstants.isPet(itemId)) {
                         int petid = Pet.createPet(itemId);

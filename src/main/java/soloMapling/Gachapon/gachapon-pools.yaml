@@ -1900,3 +1900,40 @@ towns:
       - 2040811            # Dark Scroll for Gloves for ATT 30%
       - 2040815            # Dark Scroll for Gloves for Magic ATT 30%
 
+
+  # 1.5.0 rc3 review: the Singapore (CBD) machine, NPC 9270043 (scripts/npc/9270043.js). Its common list is the old
+  # script's own Singapore items; the other tiers come from the shared lists.
+  singapore:
+    name: Singapore
+    npc: 9270043
+    maps:
+      - 540000000
+    common:
+      - 2030007 x5
+      - 1302022
+      - 1322021
+      - 1322026
+      - 1302026
+      - 1442017
+      - 1082147
+      - 1102043
+      - 1442016
+      - 1402012
+      - 1302027
+      - 1322027
+      - 1322025
+      - 1312012
+      - 1332020
+      - 1302028
+      - 1372002
+      - 1092022
+      - 1302021
+      - 1102041
+      - 1102042
+      - 1322024
+      - 1082148
+      - 1082146
+      - 1102084
+      - 1102086
+      - 1032026
+      - 1082149

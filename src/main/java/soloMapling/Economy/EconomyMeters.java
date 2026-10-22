@@ -30,8 +30,11 @@ public final class EconomyMeters {
     public static final String GODLIES = "godlies";
     public static final String BOT_SHOP_SALES = "botshopsales";
     public static final String SINK_SHOP = "sinkshop";
+    /** Per-account gift counts ({@link BotGifts}): "giftacct" + the account id. Not shown in {@link #line}. */
+    public static final String GIFT_ACCOUNT_PREFIX = "giftacct";
 
     private static final Map<String, Long> today = new ConcurrentHashMap<>();
+    private static final Map<String, Object> writeLocks = new ConcurrentHashMap<>();
     private static volatile LocalDate day;
     private static volatile EconomyStore store = new EconomyStore.Jdbc();
     private static volatile Executor writer = ExecutorServiceManager::runAsync;
@@ -69,10 +72,24 @@ public final class EconomyMeters {
             v = 0;
         }
         LocalDate d = day;
-        long saved = v;
+        long seen = v;
         EconomyStore st = store;
-        writer.execute(() -> st.saveMeter(d, meter, saved));
+        writer.execute(() -> save(st, d, meter, seen));
         return v;
+    }
+
+    /**
+     * Writes a meter's total. The writes run on a pool, so two of them can run in any order: each one writes the
+     * total as it is when it runs (not as it was when it was queued), under one lock per meter, so the last write to
+     * run always holds the latest total and a stale one can never land after it (1.5.0 rc3 review).
+     * {@code seen} is used only when the day has rolled over since (that day's total is no longer in memory).
+     */
+    private static void save(EconomyStore st, LocalDate d, String meter, long seen) {
+        Object lock = writeLocks.computeIfAbsent(meter, k -> new Object());
+        synchronized (lock) {
+            long total = d.equals(day) ? today.getOrDefault(meter, 0L) : seen;
+            st.saveMeter(d, meter, total);
+        }
     }
 
     /**
@@ -114,6 +131,7 @@ public final class EconomyMeters {
                 .append(String.format("%,d of %,d", get(BOT_BUY), botBuyBudget()));
         Map<String, Long> rest = new TreeMap<>(today);
         rest.remove(BOT_BUY);
+        rest.keySet().removeIf(k -> k.startsWith(GIFT_ACCOUNT_PREFIX));
         rest.forEach((k, v) -> sb.append(String.format("; %s %,d", k, v)));
         return sb.toString();
     }

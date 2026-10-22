@@ -60,8 +60,11 @@ public final class BotDirectTrade {
     static final long IDLE_MS = 120_000;
     static final long QUOTE_MS = TimeUnit.MINUTES.toMillis(5);
 
-    /** A price a bot named in chat for an item it carries. */
-    record Quote(Item item, long price, long expiresAt) {
+    /** A price a bot named in chat for an item it carries; {@code rounds}: the player's counters to it so far. */
+    record Quote(Item item, long price, long expiresAt, int rounds) {
+        Quote(Item item, long price, long expiresAt) {
+            this(item, price, expiresAt, 0);
+        }
     }
 
     static final class Live {
@@ -139,6 +142,7 @@ public final class BotDirectTrade {
             return;   // the player cancelled the invite
         }
         BotTradeQueue.getInstance().removeTradeRequest(bot);
+        PendingGrants.deliver(bot);
         if (AffinityReactions.refusesTrade(bot, player)) {
             qa(bot, "REFUSE " + bot.getName() + " will not trade with " + player.getName() + " (rival)");
             BotTradeCommands.declineTradeInvite(bot);
@@ -155,8 +159,10 @@ public final class BotDirectTrade {
         Quote q = quotes.remove(key(bot.getId(), player.getId()));
         boolean selling = q != null && q.expiresAt() > System.currentTimeMillis();
         GameWindow window = new GameWindow(bot, player);
-        TradeSession session = new TradeSession(selling ? TradeSession.Mode.BOT_SELLS : TradeSession.Mode.BOT_BUYS,
-                window, new GameWallet(bot, player), PriceBook::fairValue);
+        TradeSession session = selling
+                ? new TradeSession(TradeSession.Mode.BOT_SELLS, window, new GameWallet(bot, player), PriceBook::fairValue)
+                : new TradeSession(TradeSession.Mode.BOT_BUYS, window, new GameWallet(bot, player),
+                PriceBook::botBuyValue);
         Item selling2 = null;
         if (selling) {
             Item inBag = q.item();
@@ -165,13 +171,13 @@ public final class BotDirectTrade {
                 if (BotTradeCommands.addHeldItemToTrade(bot, copy, 1)) {
                     selling2 = copy;
                 } else {
-                    BotHoldings.grantItem(bot, inBag);
+                    PendingGrants.giveBack(bot, inBag, "could not put it in the trade window");
                 }
             }
             if (selling2 == null) {
                 window.say("Say you do not have it any more.", "oh i dont have that anymore sry", null);
                 session = new TradeSession(TradeSession.Mode.BOT_BUYS, window, new GameWallet(bot, player),
-                        PriceBook::fairValue);
+                        PriceBook::botBuyValue);
             }
         }
         Live l = new Live(bot, player, session, selling2);
@@ -248,7 +254,8 @@ public final class BotDirectTrade {
         } else {
             l.session.closedUnsuccessful();
             if (l.selling != null) {
-                BotHoldings.grantItem(l.bot, l.selling);   // it never left the bot after all
+                // it never left the bot after all; a full bag keeps it waiting for the bot, never loses it
+                PendingGrants.giveBack(l.bot, l.selling, "trade closed without a sale");
             }
             qa(l.bot, "CLOSED without a trade: " + l.bot.getName() + " <-> " + l.player.getName());
         }
@@ -257,9 +264,11 @@ public final class BotDirectTrade {
 
     private static void onSuccess(Live l) {
         TradeSession s = l.session;
+        PriceBook.Party botSide = new PriceBook.Party(-l.bot.getId(), null, null);
+        PriceBook.Party playerSide = PriceBook.Party.of(l.player);
         if (s.mode() == TradeSession.Mode.BOT_SELLS && l.selling != null) {
-            PriceBook.record(l.selling, s.price(), Math.max(1, l.selling.getQuantity()), PriceBook.Source.BOT_TRADE,
-                    true);
+            PriceBook.recordBetween(l.selling, s.price(), PriceBook.units(l.selling), PriceBook.Source.BOT_TRADE,
+                    botSide, playerSide);
             qa(l.bot, String.format("SOLD %s sold %s to %s for %,d", l.bot.getName(), BotShops.nameOf(
                     l.selling.getItemId()), l.player.getName(), s.price()));
             return;
@@ -269,12 +278,11 @@ public final class BotDirectTrade {
         long paid = s.price();
         long totalFair = 0;
         for (Item it : bought) {
-            totalFair += Math.max(1, PriceBook.fairValue(it)) * Math.max(1, it.getQuantity());
+            totalFair += PriceBook.stackValue(it);
         }
         for (Item it : bought) {
-            long share = totalFair <= 0 ? paid : Math.round(paid * (Math.max(1, PriceBook.fairValue(it))
-                    * Math.max(1, it.getQuantity()) / (double) totalFair));
-            PriceBook.record(it, share, Math.max(1, it.getQuantity()), PriceBook.Source.BOT_TRADE, true);
+            long share = totalFair <= 0 ? paid : Math.round(paid * (PriceBook.stackValue(it) / (double) totalFair));
+            PriceBook.recordBetween(it, share, PriceBook.units(it), PriceBook.Source.BOT_TRADE, playerSide, botSide);
             BotBuying.toResale(l.bot, it, share);
         }
         qa(l.bot, String.format("BOUGHT %s paid %s %,d for %d item(s)", l.bot.getName(), l.player.getName(), paid,
@@ -326,12 +334,16 @@ public final class BotDirectTrade {
         boolean friend = BotAffinity.friend(bot.getId(), player.getId());
         // haggling over a quote it already gave
         if (q != null && q.expiresAt() > System.currentTimeMillis() && read.move() == HaggleBrain.Move.OFFER) {
-            long f = Math.max(1, PriceBook.fairValue(q.item())) * Math.max(1, q.item().getQuantity());
-            PriceBand.Band band = PriceBand.of(PriceBand.Side.BOT_SELLS, f, friend);
-            PriceBand.Decision d = PriceBand.respond(band, q.price(), read.price(), 0);
-            quotes.put(k, new Quote(q.item(), d.price(), System.currentTimeMillis() + QUOTE_MS));
+            Haggled next = haggleQuote(q, read.price(), friend, System.currentTimeMillis());
+            PriceBand.Decision d = next.decision();
+            quotes.put(k, next.quote());
             String p = PriceBook.shorthand(d.price());
             qa(bot, "QUOTE haggle " + read.price() + " -> " + d.kind() + " " + d.price());
+            if (d.kind() == PriceBand.Kind.FINAL) {
+                return new Answer(true, "Say " + p + " is your last price for the " + BotShops.nameOf(
+                        q.item().getItemId()) + "; they can open a trade with you if they want it.",
+                        p + " is my last price, trade me if u want it", p);
+            }
             return new Answer(true, (d.kind() == PriceBand.Kind.ACCEPT ? "Agree to " : "Say you would do ") + p
                     + " for the " + BotShops.nameOf(q.item().getItemId()) + "; they should open a trade with you.",
                     d.kind() == PriceBand.Kind.ACCEPT ? "ok " + p + ", trade me" : "can do " + p + ", trade me", p);
@@ -339,7 +351,7 @@ public final class BotDirectTrade {
         List<Item> mine = BotShops.sellable(bot, new ArrayList<>());
         Item wanted = match(mine, text);
         if (wanted != null) {
-            long f = Math.max(1, PriceBook.fairValue(wanted)) * Math.max(1, wanted.getQuantity());
+            long f = PriceBook.stackValue(wanted);
             PriceBand.Band band = PriceBand.of(PriceBand.Side.BOT_SELLS, f, friend);
             long price = PriceBand.opening(band);
             quotes.put(k, new Quote(wanted, price, System.currentTimeMillis() + QUOTE_MS));
@@ -361,13 +373,27 @@ public final class BotDirectTrade {
         StringBuilder list = new StringBuilder();
         for (int i = 0; i < Math.min(3, mine.size()); i++) {
             Item it = mine.get(i);
-            long f = Math.max(1, PriceBook.fairValue(it)) * Math.max(1, it.getQuantity());
+            long f = PriceBook.stackValue(it);
             long price = PriceBand.opening(PriceBand.of(PriceBand.Side.BOT_SELLS, f, friend));
             list.append(i == 0 ? "" : ", ").append(BotShops.nameOf(it.getItemId()).toLowerCase(Locale.ROOT))
                     .append(" ").append(PriceBook.shorthand(price));
         }
         return new Answer(true, "Say what you could sell them: " + list + ". They can ask for one.",
                 "i got " + list, null);
+    }
+
+    /** A haggle over a quote: the bot's answer and the quote it now stands at. */
+    record Haggled(Quote quote, PriceBand.Decision decision) {
+    }
+
+    /**
+     * The player bid {@code theirs} for a quoted item: the band answers with the real round (a bot names its last price
+     * after {@code bands.maxRounds} counters; it used to be told round 0 every time and haggle forever).
+     */
+    static Haggled haggleQuote(Quote q, long theirs, boolean friend, long now) {
+        PriceBand.Band band = PriceBand.of(PriceBand.Side.BOT_SELLS, PriceBook.stackValue(q.item()), friend);
+        PriceBand.Decision d = PriceBand.respond(band, q.price(), theirs, q.rounds());
+        return new Haggled(new Quote(q.item(), d.price(), now + QUOTE_MS, q.rounds() + 1), d);
     }
 
     /** The bag item a line names: its full name, or most of its name's longer words. */

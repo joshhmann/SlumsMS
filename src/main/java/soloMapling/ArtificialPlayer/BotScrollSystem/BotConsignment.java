@@ -19,6 +19,7 @@ import java.util.function.LongSupplier;
 
 /**
  * Ticket 11: a scrolled equip a bot does not wear goes on sale in a bot FM shop, priced by {@code EquipValuation}.
+ * Never what {@code SaleRules} keeps from bot sales (godly gear, 1.5.0 rc3 review): that stays with the bot.
  *
  * <p>Grinding bots have no shop of their own, so the item is put in one of the bot merchants already open in the FM
  * rooms (channel 1), the way a player hands stock to a friend's shop. The item leaves the bot's holdings when it is
@@ -70,6 +71,14 @@ public final class BotConsignment {
                 || (equip.getFlag() & constants.inventory.ItemConstants.UNTRADEABLE) != 0) {
             return null;
         }
+        String rule = whyNotList(equip);
+        if (rule != null) {
+            if (QaLog.on(QaLog.Topic.SCROLL) && bot.getMap() != null) {
+                QaLog.map(QaLog.Topic.SCROLL, bot.getMapId(), bot.getName() + " keeps " + equip.getItemId()
+                        + " (bots never sell: " + rule + ")");
+            }
+            return null;
+        }
         HiredMerchant shop = pickShop(bot);
         if (shop == null) {
             return null;
@@ -79,12 +88,20 @@ public final class BotConsignment {
         }
         PlayerShopItem item = new PlayerShopItem(equip, (short) 1, price);
         if (!shop.addItem(item)) {
-            BotHoldings.grantItem(bot, equip);
+            soloMapling.Economy.PendingGrants.giveBack(bot, equip, "the shop refused the listing");
             return null;
         }
         listings.put(item, new Listing(bot.getId(), bot.getName(), shop, item, price, clock.getAsLong()));
         ScrollLedger.listed.incrementAndGet();
         return shop.getOwner() + "'s shop (FM room " + (shop.getMapId() - 910000000) + ")";
+    }
+
+    /**
+     * 1.5.0 rc3 review: why a bot may not put this equip on sale, or null when it may. What bots never sell
+     * ({@link soloMapling.Economy.SaleRules}: godly gear above all) stays with the bot here too; it used to be listed.
+     */
+    static String whyNotList(Equip equip) {
+        return soloMapling.Economy.SaleRules.whyNot(equip);
     }
 
     private static HiredMerchant pickShop(Character bot) {
@@ -159,7 +176,7 @@ public final class BotConsignment {
             if (BotHoldings.canHold(bot, l.item().getItem()) && l.shop().withdrawListing(l.item())) {
                 listings.remove(l.item());
                 l.item().getItem().setPosition((short) 0);
-                if (BotHoldings.grantItem(bot, l.item().getItem())) {
+                if (soloMapling.Economy.PendingGrants.giveBack(bot, l.item().getItem(), "unsold listing")) {
                     out.append(out.length() > 0 ? "; " : "").append("took back unsold ")
                             .append(l.item().getItem().getItemId());
                 }

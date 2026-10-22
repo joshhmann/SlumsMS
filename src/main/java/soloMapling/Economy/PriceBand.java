@@ -8,8 +8,10 @@ package soloMapling.Economy;
  *   (0.95) of the item's fair value (the board's 7-day median, {@link PriceBook#fairValue}).</li>
  *   <li><b>A bot selling</b> to a player takes between {@code bands.botSellsLow} (0.95) and
  *   {@code bands.botSellsHigh} (1.25) of it.</li>
- *   <li><b>A friend</b> (affinity) gets {@code bands.friendBonus} (0.05) of fair value better on both edges; a bot never pays
- *   more than fair value, and never sells under half of it.</li>
+ *   <li><b>A friend</b> (affinity) gets {@code bands.friendBonus} (0.05) of fair value on the edges bots open from (a
+ *   buying bot's low edge, a selling bot's high edge), never on the edges they settle at: a bot's buy ceiling is always
+ *   at or under every bot's sell floor, so buying from one friend bot and selling to another cannot turn a profit
+ *   (1.5.0 rc3 review). A bot never pays more than fair value, and never sells under half of it.</li>
  *   <li>At most {@code bands.maxRounds} (4) counters, then the bot names its last price.</li>
  * </ul>
  * Invariant (tested): a price this class returns for a bot to pay is never above the band's high edge, and a price
@@ -35,14 +37,17 @@ public final class PriceBand {
 
     public static Band of(Side side, long fair, boolean friend) {
         long f = Math.max(1, fair);
-        double bonus = friend ? EconomyConfig.getDouble("bands.friendBonus", 0.05) : 0;
+        double bonus = friend ? Math.max(0, EconomyConfig.getDouble("bands.friendBonus", 0.05)) : 0;
+        // every bot's sell floor; a bot never pays more than it (or any other bot) would sell the item for, so
+        // buying from one bot and selling to another never pays (1.5.0 rc3 review)
+        double sellFloor = Math.max(0.5, EconomyConfig.getDouble("bands.botSellsLow", 0.95));
         double lo, hi;
         if (side == Side.BOT_BUYS) {
-            lo = EconomyConfig.getDouble("bands.botBuysLow", 0.70) + bonus;
-            hi = Math.min(1.0, EconomyConfig.getDouble("bands.botBuysHigh", 0.95) + bonus);
+            hi = Math.min(Math.min(1.0, sellFloor), EconomyConfig.getDouble("bands.botBuysHigh", 0.95));
+            lo = Math.min(hi, EconomyConfig.getDouble("bands.botBuysLow", 0.70) + bonus);   // a friend: a better opening
         } else {
-            lo = Math.max(0.5, EconomyConfig.getDouble("bands.botSellsLow", 0.95) - bonus);
-            hi = Math.max(lo, EconomyConfig.getDouble("bands.botSellsHigh", 1.25) - bonus);
+            lo = sellFloor;
+            hi = Math.max(lo, EconomyConfig.getDouble("bands.botSellsHigh", 1.25) - bonus);  // a friend: a lower opening
         }
         long low = Math.max(1, Math.round(f * Math.min(lo, hi)));
         long high = Math.max(low, Math.round(f * Math.max(lo, hi)));

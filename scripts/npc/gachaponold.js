@@ -48,8 +48,9 @@ function action(mode, type, selection) {
         cm.dispose();
     } else if (mode == 1 && cm.haveItem(ticketId)) {
         if (cm.canHold(1302000) && cm.canHold(2000000) && cm.canHold(3010001) && cm.canHold(4000000)) { // One free slot in every inventory.
-            cm.gainItem(ticketId, -1);
-            cm.doGachapon();
+            // 1.5.0 rc3 review: doGachapon(ticketId) takes the one ticket itself, after the prize fits; taking it
+            // here as well cost two tickets (or the remote ticket plus a Gachapon Ticket) per roll
+            cm.doGachapon(ticketId);
         } else {
             cm.sendOk("Please have at least one slot in your #rEQUIP, USE, SET-UP, #kand #bETC#k inventories free.");
         }
