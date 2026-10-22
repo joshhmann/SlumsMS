@@ -171,9 +171,9 @@ class FakeQaWorld implements QaWorld {
     String weddingProblem;
     boolean eventChannel = true;
 
-    @Override public int[] stageCouple(Character gm, boolean married) {
+    @Override public int[] stageCouple(Character gm, String kind, Boolean sameGender) {
         int[] ids = {nextBot++, nextBot++};
-        calls.add("couple " + ids[0] + " " + ids[1] + (married ? " married" : ""));
+        calls.add("couple " + ids[0] + " " + ids[1] + " " + kind + (sameGender == null ? "" : sameGender ? " same" : " mixed"));
         return ids;
     }
 

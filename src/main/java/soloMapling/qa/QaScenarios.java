@@ -1128,22 +1128,28 @@ public final class QaScenarios {
         private final Map<Integer, int[]> couples = new ConcurrentHashMap<>();
 
         public String id() { return "cp-1"; }
-        public String title() { return "A bot couple: party together, mention each other, couple chair, rings (ticket 58)"; }
-        public String usage() { return "[married]; then !qa do step"; }
+        public String title() { return "A bot couple or best friends: party, mention each other, couple chair, rings (ticket 58)"; }
+        public String usage() { return "[married|friends] [same|mixed]; then !qa do step"; }
         public Set<QaLog.Topic> topics() { return EnumSet.of(COUPLE, BOT_CHAT); }
         public int tickSeconds() { return 60; }
 
         public List<String> stage(QaContext ctx) {
-            boolean married = java.util.Arrays.stream(ctx.args()).anyMatch(a -> a.toLowerCase().startsWith("mar"));
-            int[] ids = ctx.world().stageCouple(ctx.gm(), married);
+            String kind = AffinityScenario.word(ctx.args(), "dating", "married", "friends");
+            Boolean same = sameArg(ctx.args());
+            boolean married = "married".equals(kind);
+            int[] ids = ctx.world().stageCouple(ctx.gm(), kind, same);
             if (ids == null) {
                 throw new QaRefusal("No couple could be staged here.");
             }
-            ctx.log("staged couple " + ids[0] + " + " + ids[1] + (married ? " (married)" : " (dating)"));
+            ctx.log("staged " + kind + " pair " + ids[0] + " + " + ids[1] + (same == null ? "" : same ? " (same gender)" : " (mixed)"));
             ctx.onStop("unstage couple " + ids[0] + " + " + ids[1], () -> ctx.world().unstageCouple(ids));
             couples.put(ctx.run().gmId(), ids);
             ctx.onStop("forget", () -> couples.remove(ctx.run().gmId()));
             ctx.world().coupleStep();
+            if ("friends".equals(kind)) {
+                return List.of("Two bots next to you are best friends: friendship rings (look at their equips).",
+                        "Every minute (or !qa do step): they party up (PARTY) and now and then talk to each other.");
+            }
             return List.of("Two bots next to you are a couple" + (married ? " (married: rings and the Amorian Loveseat)." : "."),
                     "Every minute (or !qa do step): they party up (PARTY), now and then one says something to the other,",
                     "married ones sit on the loveseat together (SIT) and wear rings (look at their equips).",
@@ -1164,12 +1170,26 @@ public final class QaScenarios {
         }
     }
 
+    /** "same" / "mixed" in the arguments: both one gender / one of each; null = whatever comes. */
+    static Boolean sameArg(String[] args) {
+        for (String a : args) {
+            if ("same".equalsIgnoreCase(a)) {
+                return true;
+            }
+            if ("mixed".equalsIgnoreCase(a)) {
+                return false;
+            }
+        }
+        return null;
+    }
+
     /** we-1: a staged couple marries in Amoria now: notice, ceremony, rings, guests, then everyone goes home. */
     static final class We1Wedding implements QaScenario {
         public static final int AMORIA = 680000000;
 
         public String id() { return "we-1"; }
-        public String title() { return "A bot wedding in Amoria: notice, ceremony, rings, guests (ticket 58)"; }
+        public String title() { return "A bot wedding in Amoria: notice, ceremony, rings, guests, bless EXP (ticket 58)"; }
+        public String usage() { return "[same|mixed]"; }
         public Set<QaLog.Topic> topics() { return EnumSet.of(COUPLE, BOT_CHAT); }
         public Set<Integer> watchedMaps(Character gm, String[] args) { return Set.of(AMORIA); }
         public Set<String> claims(Character gm, String[] args) { return Set.of("map:" + AMORIA); }
@@ -1185,7 +1205,7 @@ public final class QaScenarios {
                 throw new QaRefusal("Cannot warp to " + AMORIA + ".");
             }
             ctx.log("warped to " + AMORIA);
-            int[] ids = w.stageCouple(ctx.gm(), false);
+            int[] ids = w.stageCouple(ctx.gm(), "dating", sameArg(ctx.args()));
             if (ids == null) {
                 throw new QaRefusal("No couple could be staged here.");
             }
@@ -1199,7 +1219,8 @@ public final class QaScenarios {
             }
             ctx.log("wedding started");
             return List.of("A blue notice says they are getting married here. Guests appear by the chapel.",
-                    "In about two minutes: the officiant speaks, both say i do, rings (RINGS), \"married\" (MARRIED).",
+                    "In about two minutes: the officiant speaks, both say i do (you get a small EXP blessing, BLESS, once),",
+                    "rings (RINGS), \"married\" (MARRIED). Any two genders can marry; same/mixed picks the pair.",
                     "Guests cheer until the event ends (6 min); then guests leave and the couple goes home. !qa stop ends it early.");
         }
     }

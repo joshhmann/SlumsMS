@@ -66,7 +66,14 @@ public final class BotCouples {
 
     private static final Logger log = LoggerFactory.getLogger(BotCouples.class);
 
-    public enum Stage { DATING, MARRIED }
+    /** DATING and MARRIED are couples; FRIENDS are best friends (never marry). */
+    public enum Stage {
+        DATING, MARRIED, FRIENDS;
+
+        public boolean couple() {
+            return this != FRIENDS;
+        }
+    }
 
     /** One couple. {@code a} and {@code b} are bot slots (character id minus {@link BotStore#BOT_ID_BASE}). */
     public record Couple(long id, int a, int b, Stage stage, long formedAt, long marriedAt, long lastNoteAt,
@@ -114,6 +121,8 @@ public final class BotCouples {
     static final int LOVESEAT = 3012005;
     /** Wedding rings (Moonstone, Star Gem, Golden Heart, Silver Swan); a couple wears one kind, by its id. */
     static final int[] WEDDING_RINGS = {1112803, 1112806, 1112807, 1112809};
+    /** Friendship rings (Clover, Flower Petal, Star): best friends wear one kind, by their id. */
+    static final int[] FRIENDSHIP_RINGS = {1112800, 1112801, 1112802};
     static final short RING_SLOT = -12;
     static final short CASH_HAT_SLOT = -101;
 
@@ -124,6 +133,7 @@ public final class BotCouples {
     private static volatile boolean loaded;
     private static volatile long lastStepAt;
     private static volatile long lastFormRollAt;
+    private static volatile long lastFriendRollAt;
     private static volatile long lastWeddingAt;
     private static final Map<String, Long> nextAt = new ConcurrentHashMap<>();
     /** Matching-hat days: the bot's own hat to put back (0 = none). */
@@ -212,10 +222,12 @@ public final class BotCouples {
 
     // ── the rules (pure) ──
 
-    /** Two bots that may become a couple: a man and a woman within 20 levels, both level 15+. */
+    /**
+     * Two bots that may pair up: any genders (owner 2026-10-21: same-gender couples too), both level 15+, within 20
+     * levels.
+     */
     static boolean compatible(Candidate x, Candidate y) {
-        return x.charId() != y.charId() && x.gender() != y.gender() && x.gender() <= 1 && y.gender() <= 1
-                && x.level() >= 15 && y.level() >= 15 && Math.abs(x.level() - y.level()) <= 20;
+        return x.charId() != y.charId() && x.level() >= 15 && y.level() >= 15 && Math.abs(x.level() - y.level()) <= 20;
     }
 
     /** A random compatible pair standing on the same map of the same channel, none of them taken; or null. */
@@ -255,7 +267,8 @@ public final class BotCouples {
     }
 
     static int ringOf(Couple c) {
-        return WEDDING_RINGS[(int) Math.floorMod(c.id(), WEDDING_RINGS.length)];
+        int[] kinds = c.stage() == Stage.FRIENDS ? FRIENDSHIP_RINGS : WEDDING_RINGS;
+        return kinds[(int) Math.floorMod(c.id(), kinds.length)];
     }
 
     // ── forming and breaking ──
@@ -265,20 +278,26 @@ public final class BotCouples {
      * kept in memory only.
      */
     public static Couple form(int aCharId, int bCharId, boolean staged, long now) {
+        return form(aCharId, bCharId, Stage.DATING, staged, now);
+    }
+
+    /** As {@link #form(int, int, boolean, long)}: a couple (DATING) or best friends (FRIENDS). One pair per bot. */
+    public static Couple form(int aCharId, int bCharId, Stage stage, boolean staged, long now) {
         ensureLoaded();
         if (aCharId == bCharId || coupleOf(aCharId) != null || coupleOf(bCharId) != null) {
             return null;
         }
-        Couple c = new Couple(0, aCharId - BotStore.BOT_ID_BASE, bCharId - BotStore.BOT_ID_BASE, Stage.DATING, now, 0,
-                0, staged);
+        Couple c = new Couple(0, aCharId - BotStore.BOT_ID_BASE, bCharId - BotStore.BOT_ID_BASE,
+                stage == Stage.FRIENDS ? Stage.FRIENDS : Stage.DATING, now, 0, 0, staged);
         long id = staged ? 0 : store.insert(c);
         if (id <= 0) {
             id = memoryIds.decrementAndGet(); // staged, or not stored (no migration): a memory-only id
         }
         c = c.withId(id);
         couples.put(id, c);
-        log.info("Bots {} and {} are a couple now{}", aCharId, bCharId, staged ? " (staged)" : "");
-        qa("FORMED couple #" + id + ": " + aCharId + " + " + bCharId + (staged ? " (staged)" : ""));
+        log.info("Bots {} and {} are {} now{}", aCharId, bCharId, stage == Stage.FRIENDS ? "best friends" : "a couple",
+                staged ? " (staged)" : "");
+        qa("FORMED " + (stage == Stage.FRIENDS ? "best friends" : "couple") + " #" + id + ": " + aCharId + " + " + bCharId + (staged ? " (staged)" : ""));
         return c;
     }
 
@@ -353,14 +372,31 @@ public final class BotCouples {
     }
 
     private static void maybeForm(long now, Random rng) {
-        if (couples.values().stream().filter(c -> !c.staged()).count() >= maxCouples()
-                || now - lastFormRollAt < hours("formEveryHours", 12)) {
-            return;
+        long couplesNow = couples.values().stream().filter(c -> !c.staged() && c.stage().couple()).count();
+        long friendsNow = couples.values().stream().filter(c -> !c.staged() && !c.stage().couple()).count();
+        boolean coupleRoll = couplesNow < maxCouples() && now - lastFormRollAt >= hours("formEveryHours", 12);
+        boolean friendRoll = friendsNow < maxFriendships() && now - lastFriendRollAt >= hours("formEveryHours", 12);
+        if (coupleRoll) {
+            lastFormRollAt = now;
+            coupleRoll = rng.nextDouble() < prop("formChance", 0.5);
         }
-        lastFormRollAt = now;
-        if (rng.nextDouble() >= prop("formChance", 0.5)) {
-            return;
+        if (friendRoll) {
+            lastFriendRollAt = now;
+            friendRoll = rng.nextDouble() < prop("formChance", 0.5);
         }
+        if (coupleRoll) {
+            formFromOnline(Stage.DATING, now, rng);
+        }
+        if (friendRoll) {
+            formFromOnline(Stage.FRIENDS, now, rng);
+        }
+    }
+
+    static int maxFriendships() {
+        return (int) prop("maxFriendships", 4);
+    }
+
+    private static void formFromOnline(Stage stage, long now, Random rng) {
         Set<Integer> taken = new HashSet<>();
         for (Couple c : couples.values()) {
             taken.add(c.charA());
@@ -379,21 +415,23 @@ public final class BotCouples {
         if (pair == null) {
             return;
         }
-        Couple c = form(pair[0].charId(), pair[1].charId(), false, now);
+        Couple c = form(pair[0].charId(), pair[1].charId(), stage, false, now);
         Character a = online.apply(pair[0].charId());
         Character b = online.apply(pair[1].charId());
         if (c != null && a != null && b != null) {
-            say(a, "Formed", b.getName());
+            say(a, stage == Stage.FRIENDS ? "FriendFormed" : "Formed", b.getName());
         }
     }
 
     /** What a couple does this minute; both are online. */
     static void behave(Couple c, Character a, Character b, long now, Random rng) {
-        if (c.stage() == Stage.MARRIED) {
+        if (c.stage() != Stage.DATING) { // married couples wear wedding rings, best friends friendship rings
             wearRing(a, ringOf(c));
             wearRing(b, ringOf(c));
         }
-        matchHats(c, a, b, now);
+        if (c.stage().couple()) {
+            matchHats(c, a, b, now);
+        }
         if (BotWeddings.inCeremony(a.getId()) || BotWeddings.inCeremony(b.getId())) {
             return; // the wedding drives them now
         }
@@ -409,11 +447,13 @@ public final class BotCouples {
             if (take("mention:" + c.id(), now, TimeUnit.MINUTES.toMillis((long) prop("mentionMinutes", 20)))
                     && rng.nextDouble() < 0.5) {
                 Character speaker = rng.nextBoolean() ? a : b;
-                say(speaker, "Mention", (speaker == a ? b : a).getName());
+                say(speaker, c.stage().couple() ? "Mention" : "FriendMention", (speaker == a ? b : a).getName());
             }
-            maybeSit(c, a, b, now, rng);
+            if (c.stage().couple()) {
+                maybeSit(c, a, b, now, rng);
+            }
         }
-        if (noteDue(c, now) && rng.nextDouble() < 0.05) {
+        if (c.stage().couple() && noteDue(c, now) && rng.nextDouble() < 0.05) {
             Character speaker = rng.nextBoolean() ? a : b;
             Character partner = speaker == a ? b : a;
             boolean offered = WorldEventMegaphones.getInstance().offerEvent(speaker, "CoupleLoveNote",
@@ -559,6 +599,10 @@ public final class BotCouples {
         String n = soloMapling.ArtificialPlayer.BotBuddies.nameOf(BotStore.BOT_ID_BASE
                 + c.other(botCharId - BotStore.BOT_ID_BASE));
         String name = n == null ? "your partner" : n;
+        if (c.stage() == Stage.FRIENDS) {
+            return " Your best friend in the game is " + name + " (another player); you hang out and train together, and"
+                    + " may mention them now and then.";
+        }
         return c.stage() == Stage.MARRIED
                 ? " You are married to " + name + " (another player); you may mention them now and then, sweetly."
                 : " You are dating " + name + " (another player); you may mention them now and then. You are taken: if"
@@ -582,7 +626,7 @@ public final class BotCouples {
         if (out.isEmpty()) {
             out.add("no couples yet");
         }
-        out.add("(* = online) max " + maxCouples() + " couples; next wedding allowed in "
+        out.add("(* = online) max " + maxCouples() + " couples and " + maxFriendships() + " best friends; next wedding allowed in "
                 + Math.max(0, TimeUnit.MILLISECONDS.toMinutes(lastWeddingAt + hours("weddingGapHours", 24) - now)) + " min");
         return out;
     }
@@ -706,6 +750,7 @@ public final class BotCouples {
         loaded = false;
         lastStepAt = 0;
         lastFormRollAt = 0;
+        lastFriendRollAt = 0;
         lastWeddingAt = 0;
     }
 }

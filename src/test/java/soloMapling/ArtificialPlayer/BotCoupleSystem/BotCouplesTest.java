@@ -42,9 +42,10 @@ class BotCouplesTest {
     }
 
     @Test
-    void onlyAManAndAWomanOfSimilarLevelPair() {
+    void anyTwoBotsOfSimilarLevelPair() {
         assertTrue(BotCouples.compatible(cand(A, 0, 40, 1, 1), cand(B, 1, 55, 1, 1)));
-        assertFalse(BotCouples.compatible(cand(A, 0, 40, 1, 1), cand(B, 0, 40, 1, 1)), "same gender: no wedding ring in v83");
+        assertTrue(BotCouples.compatible(cand(A, 0, 40, 1, 1), cand(B, 0, 40, 1, 1)), "two men");
+        assertTrue(BotCouples.compatible(cand(A, 1, 40, 1, 1), cand(B, 1, 45, 1, 1)), "two women");
         assertFalse(BotCouples.compatible(cand(A, 0, 20, 1, 1), cand(B, 1, 45, 1, 1)), "more than 20 levels apart");
         assertFalse(BotCouples.compatible(cand(A, 0, 12, 1, 1), cand(B, 1, 14, 1, 1)), "too young");
     }
@@ -144,5 +145,29 @@ class BotCouplesTest {
         for (String node : List.of("Mention", "Sit", "Formed")) {
             assertNotNull(BotCouples.pick("Couple", node, java.util.Map.of("PARTNER", "Kat")), node);
         }
+    }
+
+    @Test
+    void bestFriendsWearFriendshipRingsAndNeverMarry() {
+        BotCouples.Couple f = BotCouples.form(A, B, BotCouples.Stage.FRIENDS, false, 0);
+        assertEquals(BotCouples.Stage.FRIENDS, f.stage());
+        assertEquals(BotCouples.Stage.FRIENDS, store.rows.get(f.id()).stage(), "stored as friends");
+        assertEquals(11128, BotCouples.ringOf(f) / 100);
+        assertTrue(java.util.Arrays.stream(BotCouples.FRIENDSHIP_RINGS).anyMatch(r -> r == BotCouples.ringOf(f)));
+        assertFalse(BotCouples.readyToMarry(f, 100 * DAY));
+        assertEquals("best friends do not marry", BotWeddings.start(f, "test"));
+        assertNull(BotCouples.form(A, C, false, 0), "one pair per bot");
+        assertEquals(0, BotCouples.coupleChair(f, null, null), "no loveseat for friends");
+    }
+
+    @Test
+    void weddingOutfitsFollowEachOnesGenderAndTheBlessingIsSmall() {
+        assertEquals(BotWeddings.TUXEDO, BotWeddings.outfitFor(0));
+        assertEquals(BotWeddings.WEDDING_DRESS, BotWeddings.outfitFor(1));
+        assertEquals(0, BotWeddings.blessExp(0));
+        assertEquals(0, BotWeddings.blessExp(200), "nothing to gain at the cap");
+        assertTrue(BotWeddings.blessExp(10) >= 1 && BotWeddings.blessExp(10) <= 20000);
+        assertTrue(BotWeddings.blessExp(150) <= 20000, "capped");
+        assertTrue(BotWeddings.blessExp(150) >= BotWeddings.blessExp(10), "grows with level");
     }
 }

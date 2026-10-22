@@ -1,5 +1,5 @@
 # Ticket 58 (1.5.0): bot couples (BotCouples) and the Amoria wedding ceremony (BotWeddings). Bot map chat, so
-# @quiet bots hides it. Bots only ever pair with bots. Sweet, never explicit (ticket 47 content rules).
+# @quiet bots hides it. Bots only ever pair with bots, any genders; FRIENDS are best friends (Friend* nodes). Sweet, never explicit (ticket 47 content rules).
 # Tokens: {PARTNER} the other half, {GROOM} {BRIDE} the couple, {OFFICIANT} the bot leading the ceremony.
 # Keep the old-GMS chat feel: short, lowercase.
 Couple:
@@ -22,6 +22,19 @@ Couple:
       - "{PARTNER} ur cute lol"
       - "wanna hang out more {PARTNER}?"
       - "{PARTNER} :$"
+  FriendMention:
+    text:
+      - "{PARTNER} come train w me"
+      - "yo {PARTNER} lol"
+      - "{PARTNER} u seeing this?"
+      - "{PARTNER} ^^ lets go"
+      - "{PARTNER} wait up"
+      - "{PARTNER} brb pots"
+  FriendFormed:
+    text:
+      - "{PARTNER} ur cool, lets train together more"
+      - "gg {PARTNER} we make a good team"
+      - "{PARTNER} add me lol"
 Wedding:
   Officiant:
     text:

@@ -68,6 +68,8 @@ public final class BotWeddings {
         final Map<Integer, Integer> ownOverall = new ConcurrentHashMap<>(); // charId -> item id, 0 = none
         final List<Integer> guests = new ArrayList<>();
         final Set<Integer> fired = new HashSet<>();
+        /** Real players already blessed at this wedding. */
+        final Set<Integer> blessed = ConcurrentHashMap.newKeySet();
         final long startedAt;
         volatile boolean married;
         long nextCheer;
@@ -103,6 +105,9 @@ public final class BotWeddings {
         if (couple.stage() == BotCouples.Stage.MARRIED) {
             return "they are married already";
         }
+        if (couple.stage() == BotCouples.Stage.FRIENDS) {
+            return "best friends do not marry";
+        }
         if (running()) {
             return "a wedding is already on";
         }
@@ -128,7 +133,8 @@ public final class BotWeddings {
         if (a == null || b == null) {
             return "the couple is not online";
         }
-        Character groom = a.getGender() == 0 ? a : b;
+        // Any pair may marry (owner 2026-10-21). "Groom" and "bride" are only the two halves' places at the altar.
+        Character groom = a.getGender() == b.getGender() || a.getGender() == 0 ? a : b;
         Character bride = groom == a ? b : a;
         Ceremony c = new Ceremony(couple, groom.getId(), bride.getId(), System.currentTimeMillis());
         Point altar = altar(map);
@@ -144,8 +150,8 @@ public final class BotWeddings {
         inCeremony.add(bride.getId());
         place(groom, map, new Point(altar.x - 30, altar.y));
         place(bride, map, new Point(altar.x + 30, altar.y));
-        dress(c, groom, TUXEDO);
-        dress(c, bride, WEDDING_DRESS);
+        dress(c, groom, outfitFor(groom.getGender()));
+        dress(c, bride, outfitFor(bride.getGender()));
         int base = BotStore.nextDynamicSlots(GUESTS);
         for (int i = 0; i < GUESTS; i++) {
             Point at = new Point(altar.x + (i % 2 == 0 ? -1 : 1) * (110 + 45 * (i / 2)), altar.y);
@@ -195,9 +201,11 @@ public final class BotWeddings {
         }
         if (beat(c, GROOM_VOWS, s)) {
             line(groom, "Vows", names, -1);
+            bless(c, groom);
         }
         if (beat(c, BRIDE_VOWS, s)) {
             line(bride, "Vows", names, -1);
+            bless(c, bride);
         }
         if (beat(c, RINGS, s)) {
             line(officiant, "RingsGiven", names, -1);
@@ -263,6 +271,41 @@ public final class BotWeddings {
     }
 
     // ── pieces ──
+
+    /** Each wears what fits them: a tuxedo for a man, a wedding dress for a woman. */
+    static int outfitFor(int gender) {
+        return gender == 1 ? WEDDING_DRESS : TUXEDO;
+    }
+
+    /**
+     * "I do": every real player on the map who is watching gets a small blessing - once per player per wedding:
+     * about 1% of their level's EXP, at most {@code -Dsolomapling.couples.blessExpCap} (20000).
+     */
+    private static void bless(Ceremony c, Character speaker) {
+        if (speaker == null || speaker.getMap() == null) {
+            return;
+        }
+        for (Character chr : speaker.getMap().getAllPlayers()) {
+            if (BotHelpers.isBot(chr) || !BotHelpers.isVisibleRealPlayer(chr) || !c.blessed.add(chr.getId())) {
+                continue;
+            }
+            int exp = blessExp(chr.getLevel());
+            if (exp > 0) {
+                chr.gainExp(exp, true, true);
+                chr.dropMessage(5, "You feel blessed by the newlyweds' happiness.");
+                BotCouples.qa("BLESS " + chr.getName() + " +" + exp + " EXP");
+            }
+        }
+    }
+
+    static int blessExp(int level) {
+        long cap = (long) BotCouples.prop("blessExpCap", 20000);
+        if (level <= 0 || level >= 200 || cap <= 0) {
+            return 0;
+        }
+        long needed = constants.game.ExpTable.getExpNeededForLevel(level);
+        return (int) Math.max(1, Math.min(cap, needed / 100));
+    }
 
     private static boolean beat(Ceremony c, int at, long seconds) {
         return seconds >= at && c.fired.add(at);

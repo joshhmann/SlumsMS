@@ -289,8 +289,8 @@ class QaScenarioStagingTest {
 
     @Test
     void cp1StagesACoupleStepsItAndUnstagesIt() {
-        start("cp-1", 100000000, "married");
-        assertTrue(world.calls.stream().anyMatch(c -> c.startsWith("couple ") && c.endsWith("married")));
+        start("cp-1", 100000000, "married", "same");
+        assertTrue(world.calls.stream().anyMatch(c -> c.startsWith("couple ") && c.endsWith("married same")));
         int before = world.coupleSteps;
         scheduler.repeating.get(0).run();
         suite.action(world.online, "step", new String[0]);
@@ -304,11 +304,20 @@ class QaScenarioStagingTest {
         world.eventChannel = false;
         assertThrows(QaRefusal.class, () -> start("we-1", 100000000));
         world.eventChannel = true;
-        start("we-1", 100000000);
+        start("we-1", 100000000, "same");
         assertTrue(world.calls.contains("warp 680000000"));
+        assertTrue(world.calls.stream().anyMatch(c -> c.startsWith("couple ") && c.endsWith("dating same")));
         assertTrue(world.calls.stream().anyMatch(c -> c.startsWith("wedding ")));
         suite.stop(1, "!qa stop");
         assertTrue(world.calls.contains("stop weddings"));
+        assertEquals(1, world.couplesUnstaged.size());
+    }
+
+    @Test
+    void cp1StagesBestFriends() {
+        start("cp-1", 100000000, "friends");
+        assertTrue(world.calls.stream().anyMatch(c -> c.startsWith("couple ") && c.endsWith("friends")));
+        suite.stop(1, "!qa stop");
         assertEquals(1, world.couplesUnstaged.size());
     }
 }

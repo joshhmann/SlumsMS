@@ -246,8 +246,13 @@ final class GameQaWorld implements QaWorld {
     }
 
     @Override
-    public int[] stageCouple(Character gm, boolean married) {
-        return soloMapling.ArtificialPlayer.BotCoupleSystem.CoupleStaging.stage(gm, married);
+    public int[] stageCouple(Character gm, String kind, Boolean sameGender) {
+        soloMapling.ArtificialPlayer.BotCoupleSystem.BotCouples.Stage stage = switch (kind) {
+            case "married" -> soloMapling.ArtificialPlayer.BotCoupleSystem.BotCouples.Stage.MARRIED;
+            case "friends" -> soloMapling.ArtificialPlayer.BotCoupleSystem.BotCouples.Stage.FRIENDS;
+            default -> soloMapling.ArtificialPlayer.BotCoupleSystem.BotCouples.Stage.DATING;
+        };
+        return soloMapling.ArtificialPlayer.BotCoupleSystem.CoupleStaging.stage(gm, stage, sameGender);
     }
 
     @Override

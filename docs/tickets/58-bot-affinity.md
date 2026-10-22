@@ -171,9 +171,13 @@ Code: `src/main/java/soloMapling/ArtificialPlayer/BotCoupleSystem/` (lines in `B
 the love note in `MegaphoneDialogue.yaml` `CoupleLoveNote`, wedding chatter `WeddingDuring/After` in
 `WorldEventDialogue.yaml`), migration `012-bot-couples`.
 
-- **Rare:** at most 4 couples in the world. About twice a day the world rolls once; on a hit, two roster bots
-  (training or social, a man and a woman, level 15+, within 20 levels) standing on the same map and channel get
-  together. Bots only ever pair with bots.
+- **Rare:** at most 4 couples and 4 pairs of best friends in the world. About twice a day the world rolls once for
+  each; on a hit, two roster bots (training or social, level 15+, within 20 levels, **any genders** - owner
+  2026-10-21) standing on the same map and channel get together. Bots only ever pair with bots.
+- **Best friends** (`FRIENDS`): hang out like a couple (same channel, party, train on the leader's map, talk to each
+  other) and wear friendship rings (Clover / Flower Petal / Star, 1112800-1112802, one kind per pair). They never marry,
+  use no couple chair and send no love notes. Players cannot get friendship rings today (the Cash Shop window leaves out
+  every partner ring, ticket 52), so bots wear them as plain items, like the wedding rings.
 - **Together** (checked once a minute, only for couples with both online - a handful of bots): the second hops to the
   first one's channel; they party (bots only - never out of a real player's party) and a training bot trains on its
   partner's map when the partner leads (`TrainingBot.partyTargetMapId`); where a real player can see, one now and then
@@ -187,11 +191,38 @@ the love note in `MegaphoneDialogue.yaml` `CoupleLoveNote`, wedding chatter `Wed
   as world event `amoria_wedding` (new kind `wedding`, weight 0 so the generic scheduler never picks it). The stock v83
   wedding (reservations, Cathedral/Chapel instances, `marriages` rows) is built for two real players and real
   reservations must win, so the ceremony is staged in Amoria town by the chapel staff where anyone can walk up: blue
-  notice "[Wedding] A & B are getting married in Amoria!", the couple comes to channel 1 and Amoria in a tuxedo and a
-  wedding dress (their own clothes back afterwards), 5 guests appear, a guest officiates, "i do", rings, "married",
-  cheering; at the end guests leave and the couple goes back to where it was, doing what it did. Nothing is paid out;
+  notice "[Wedding] A & B are getting married in Amoria!", the couple comes to channel 1 and Amoria, each in what fits
+  them (a man in the tuxedo, a woman in the wedding dress; any pair marries), their own clothes back afterwards, 5 guests
+  appear, a guest officiates, "i do", rings, "married", cheering; at the end guests leave and the couple goes back to where it was, doing what it did. Nothing is paid out;
   no `characters`, `marriages` or `rings` row changes.
-- **GM** (`!couple`, GM 4): `list`, `spawn [married]` (a staged couple next to you, memory only), `form <a> <b>`,
-  `wedding [id]`, `note [id]`, `step`, `break <id>`, `unstage`. **`!qa`**: `cp-1 [married]` (`!qa do step`), `we-1`.
-- **`-D` tunables** (`solomapling.couples.*`): `enabled` (true), `maxCouples` (4), `formEveryHours` (12), `formChance`
+- **Bless EXP:** when each half says "i do", every real player on the map gets a small blessing, once per player per
+  wedding: about 1% of their level's EXP, at most `solomapling.couples.blessExpCap` (20000).
+- **GM** (`!couple`, GM 4): `list`, `spawn [married|friends] [same|mixed]` (a staged pair next to you, memory only),
+  `form <a> <b> [friends]`, `wedding [id]`, `note [id]`, `step`, `break <id>`, `unstage`. **`!qa`**:
+  `cp-1 [married|friends] [same|mixed]` (`!qa do step`), `we-1 [same|mixed]`.
+- **`-D` tunables** (`solomapling.couples.*`): `enabled` (true), `maxCouples` (4), `maxFriendships` (4),
+  `blessExpCap` (20000), `formEveryHours` (12), `formChance`
   (0.5), `weddingAfterDays` (2), `weddingGapHours` (24), `loveNoteDays` (3), `mentionMinutes` (20), `chairMinutes` (15).
+
+### (d) Same-gender marriage for real players (owner, 2026-10-21)
+
+"We gotta be progressive chief let's get same gender marriage working too and friendships!!"
+
+- Where the v83 flow enforced opposite genders, and what changed:
+  - `RingActionHandler.sendEngageProposal` refused a proposal to the same gender: removed.
+  - `RingActionHandler.breakEngagement` worked out the partner's engagement token from the breaker's gender (+1 for a
+    man, -1 for a woman): now the token recorded on the partner, else whichever half of the pair they carry.
+  - Moony (`scripts/npc/9201000.js`) crafted ring boxes for men only: anyone now.
+  - Messages that said "she" / "the girl" are neutral.
+- Already gender-free (checked): the wedding reservation (`9201005/9201008`, `Channel.pushWeddingReservation`),
+  `groomId`/`brideId` (the reserving player and their partner), `Marriage.isMarriageGroom`, the wishlists, the
+  ceremony scripts (`sendWeddingAction` only orders the two ids), `Ring.createRing`. Wedding-guest outfits and the
+  Amoria hair shops still pick by the player's own gender, as they should.
+- `WeddingPackets.OnMarriageResult` still writes a man first when there is one; for a same-gender pair both partners
+  get the same order. What the **client** might still check is written up for the client lane in
+  [58-client-same-gender-marriage.md](58-client-same-gender-marriage.md) (to verify on a real client).
+
+### Deploy
+
+[docs/release/1.5.0-bots-affinity-deploy.md](../release/1.5.0-bots-affinity-deploy.md): migrations 011 and 012, no
+config keys, and the one-time nav cache clean-up (non-base graph files) the owner approved.

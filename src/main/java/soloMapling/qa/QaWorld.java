@@ -129,8 +129,11 @@ public interface QaWorld {
     /** A fresh grudge of the bot against the GM, and a KS spree when they share a map; what happened. */
     String forceGrudge(int botId, Character gm);
 
-    /** Ticket 58 (cp-1, we-1): two new bots next to the GM that are a couple; {groom, bride} ids or null. */
-    int[] stageCouple(Character gm, boolean married);
+    /**
+     * Ticket 58 (cp-1, we-1): two new bots next to the GM that are a pair: {@code kind} dating | married | friends;
+     * {@code sameGender} true / false / null (any). Their ids, or null.
+     */
+    int[] stageCouple(Character gm, String kind, Boolean sameGender);
 
     /** Breaks a staged couple up and takes both bots away. */
     void unstageCouple(int[] ids);
