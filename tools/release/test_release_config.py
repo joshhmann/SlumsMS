@@ -147,6 +147,19 @@ class ReleaseConfigTest(unittest.TestCase):
         release = (HERE / 'release').read_text()
         self.assertLess(release.index('# ---- 3. client publish'), release.index('# ---- 4. apply + start'))
 
+    def test_publish_client_release_without_no_packs_does_not_exit(self):
+        # `x=$([ 0 = 1 ] && echo y)` fails under set -e: publish-client stopped silently after the hash-diff
+        # whenever --no-packs was not given (found publishing the 1.5.0-rc4 client to /launcher-rc/).
+        src = (HERE / 'publish-client').read_text()
+        line = next(l for l in src.splitlines() if l.startswith('pub_rel='))
+        self.assertIn('echo " --no-packs" || true)', line)
+        for nopacks, want in (('0', ''), ('1', ' --no-packs')):
+            out = subprocess.run(['bash', '-c', 'set -euo pipefail; NOPACKS=$1; '
+                                  'x="r$([ "$NOPACKS" = 1 ] && echo " --no-packs" || true)"; echo "$x"', '_', nopacks],
+                                 text=True, capture_output=True)
+            self.assertEqual(out.returncode, 0)
+            self.assertEqual(out.stdout.strip(), 'r' + want)
+
     def test_cashshop_catalogue_step(self):
         deploy, rollback = self.generate('LEDGER_BEFORE=""\n')
         self.assertIn("CASHSHOP_CATALOG=''", deploy)
