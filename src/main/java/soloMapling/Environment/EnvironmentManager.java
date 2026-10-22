@@ -146,6 +146,7 @@ public class EnvironmentManager {
         soloMapling.ArtificialPlayer.BotConvo.BotThreads.start(); // ticket 59: bot-to-bot threads near real players
         soloMapling.ArtificialPlayer.BotConvo.ConvoEntities.warmUp(); // ticket 59: String.wz names for chat
         soloMapling.ArtificialPlayer.BotConvo.ConvoQuality.boot(); // ticket 59: !rate weights, daily score
+        soloMapling.autoqa.AutoQa.boot(); // auto-QA health sweeps + nightly checks (test server, off by default)
         soloMapling.worldevents.WorldEvents.getInstance().start(); // ticket 21: scripted world events
 
         runWave(4, "Expand FM + Henesys Market", List.of(

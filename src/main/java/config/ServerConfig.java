@@ -102,6 +102,16 @@ public class ServerConfig {
     //owner 2026-10-21: 5 channels, weights 100/85/50/30/20. Live config.yaml for 1.5.0: channels 5, CHANNEL_LOAD 125
     //(owner 2026-10-22), so the peak bars sit at about 85/70/40/25/15 %.
     public String BOT_CHANNEL_WEIGHTS = "100,55,35,20,15"; //owner 2026-10-22 (rc5): channel 1 clearly the busiest, ~45%
+    //Auto-QA (docs/ops/qa-suite.md "Auto-QA"; test server only): health sweeps every AUTOQA_SWEEP_MINUTES and the
+    //synthetic-player check runner. Off unless this is true or the JVM has -Dslums.autoqa=true. Results go to data/autoqa/.
+    public boolean AUTOQA_ENABLED = false;
+    public int AUTOQA_SWEEP_MINUTES = 5;
+    public int AUTOQA_SWEEP_MAX_BOTS = 3000;    //bots looked at per sweep (an even sample past this)
+    public int AUTOQA_STUCK_MINUTES = 3;        //same spot this long while moving = stuck
+    public int AUTOQA_CLUMP_RADIUS = 30;        //px
+    public int AUTOQA_CLUMP_MIN_BOTS = 5;       //driven bots within the radius that make a clump
+    public int AUTOQA_NIGHTLY_UTC_HOUR = 10;    //the nightly '!autoqa run all' (10 UTC = 3 AM PDT); -1 = no nightly run
+    public int AUTOQA_JUDGE_MAX_CALLS = 40;     //LLM judge calls per run at most
     //SoloMapling: shrink the seed waves (training cohorts + town presence) for a pilot on a small host; 1.0 = full.
     public double BOT_POPULATION_SCALE = 1.0;
     //SoloMapling: roster lifecycle (bot-persistence ticket 10) - new players, quitting, coming back. Rates are per day.

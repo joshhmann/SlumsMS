@@ -553,6 +553,28 @@ public final class GCMovement {
                 from, destMapId, route.size(), routeFare(from, route, bot.getJob().getId()), route, ms);
     }
 
+    /**
+     * Auto-QA health sweep (soloMapling.autoqa.HealthSweep): the bot's pose for the foothold check, "AIRBORNE",
+     * "CLIMBING", "SWIMMING" or "GROUNDED", or null when the movement driver does not run this bot. Reads the
+     * tick thread's fields without a lock: it is a sample, and a pose that changes mid-read is re-sampled next sweep.
+     */
+    public static String sweepPose(Character bot) {
+        BotMovementState st = bot == null ? null : STATES.get(bot.getId());
+        if (st == null) {
+            return null;
+        }
+        if (st.climbing) {
+            return "CLIMBING";
+        }
+        if (st.swimming) {
+            return "SWIMMING";
+        }
+        if (st.inAir || st.portalDropAtMs > 0L) {
+            return "AIRBORNE";
+        }
+        return "GROUNDED";
+    }
+
     public static boolean isMoving(Character bot) {
         BotMovementState st = bot == null ? null : STATES.get(bot.getId());
         return st != null && (st.moveTarget != null || st.following || st.inAir || st.climbing

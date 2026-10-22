@@ -56,12 +56,13 @@ public final class QaLog {
         ROMANCE,        // 1.5.0 bot drama: flirts, dates, proposals, weddings, breakups, gossip (rm-1..rm-4)
         RIVALRY,        // 1.5.0 bot drama: roasts, KS wars, callouts, revenge follows (rv-1..rv-4)
         GUILD_WAR,      // 1.5.0 bot drama: guild wars, turf, poaching, alliances and betrayals (gw-1..gw-4)
-        CONVO;          // ticket 59: chat sense, gates, actions, personas, timing, bank, router, threads, ratings (cv-1..cv-7)
+        CONVO,          // ticket 59: chat sense, gates, actions, personas, timing, bank, router, threads, ratings (cv-1..cv-7)
+        AUTOQA;         // auto-QA: health sweep results and the runner's check verdicts (docs/ops/qa-suite.md "Auto-QA")
 
-        final int bit = 1 << ordinal();
+        final long bit = 1L << ordinal(); // a long: 33 topics no longer fit an int
     }
 
-    private static volatile int mask;
+    private static volatile long mask;
     private static final List<QaRun> runs = new CopyOnWriteArrayList<>();
     private static final Map<String, Long> lastByKey = new ConcurrentHashMap<>();
 
@@ -132,7 +133,7 @@ public final class QaLog {
     }
 
     private static void recompute() {
-        int m = 0;
+        long m = 0;
         for (QaRun run : runs) {
             for (Topic t : run.topics()) {
                 m |= t.bit;
