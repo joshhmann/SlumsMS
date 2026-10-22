@@ -103,6 +103,8 @@ final class BotContactDamage {
         MobHitKnockback kb = resolveMobHitKnockback(bot.getPosition(), mob.getPosition());
         if (dmg > 0) {
             IdleSafety.onHit(entry, bot, mob); // idle and hit: relocate as soon as it lands (1.4.2)
+            // ticket 58: a player who kills this mob in the next few seconds rescued the bot
+            soloMapling.ArtificialPlayer.BotAffinitySystem.AffinityHooks.onMobHitBot(bot, mob, System.currentTimeMillis());
         }
         applyDamage(entry, bot, dmg, -1, mob.getId(), kb.direction(), kb.airVelX());
     }

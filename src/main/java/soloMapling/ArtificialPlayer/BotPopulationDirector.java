@@ -263,6 +263,7 @@ public final class BotPopulationDirector {
             }
             BotRosterLifecycle.maybeStep(now, onlineIds);
             BotGossip.maybeStep(now);
+            soloMapling.ArtificialPlayer.BotCoupleSystem.BotCouples.maybeStep(now); // ticket 58: a handful of couples
             // Logins trickle in across the tick instead of landing together (the boot fill lands at once).
             long spreadMs = maxLogins == Integer.MAX_VALUE ? 0 : TimeUnit.SECONDS.toMillis(server.BOT_DIRECTOR_TICK_SECONDS);
             for (int botId : plan.logins()) {

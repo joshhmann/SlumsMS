@@ -629,6 +629,16 @@ public final class BotBuddies {
         }), delay, TimeUnit.SECONDS);
     }
 
+    /**
+     * Ticket 58: a bot that counts this player as a friend may ask them to be buddies when it sees them, without a
+     * chat first. Every other gate stays: the player's daily cap, the world's hourly cap, retries, full lists, the
+     * roll. What happened, for the log.
+     */
+    public static String offerAsFriend(int botCharId, int playerId) {
+        Gate gate = maybeOffer(botCharId, playerId, (int) setting("offerMinLines", 3));
+        return "buddy offer: " + gate.name().toLowerCase(Locale.ROOT);
+    }
+
     static Gate maybeOffer(int botCharId, int playerId, int playerLines) {
         Character bot = liveBot(botCharId);
         Character player = onlinePlayer(playerId);

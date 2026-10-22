@@ -258,6 +258,7 @@ public class CommandsExecutor {
         addCommand("mobhp", MobHpCommand.class);
         addCommand("roll", RollCommand.class);
         addCommand("quiet", QuietCommand.class);
+        addCommand("botdrama", client.command.commands.gm0.BotDramaCommand.class);   // ticket 58
 	    addCommand("shop", ShopCommand.class);
        // addCommand("damageskin",  DamageSkinCommand.class);
 	    /*
@@ -364,6 +365,8 @@ public class CommandsExecutor {
             addCommand("botscroll", 4, client.command.commands.gm4.BotScrollCommand.class);   // ticket 11
             addCommand("botwealth", 4, client.command.commands.gm4.BotWealthCommand.class);   // ticket 56B
             addCommand(new String[]{"event", "worldevent"}, 4, client.command.commands.gm4.WorldEventCommand.class);
+            addCommand("affinity", 4, client.command.commands.gm4.AffinityCommand.class);   // ticket 58
+            addCommand("couple", 4, client.command.commands.gm4.CoupleCommand.class);   // ticket 58
         }
         addCommand("gacharoll", 3, client.command.commands.gm4.GachaRollCommand.class);   // 1.5.0 gachapon
         addCommand("gachasim", 3, client.command.commands.gm4.GachaSimCommand.class);

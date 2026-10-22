@@ -22,6 +22,7 @@ public final class WorldEventText {
             case HOT_SPOT -> "[Hot Spot] +{BONUS}% EXP at {MAP} for the next {MIN} minutes! (Ch {CH})";
             case WANDERING_NPC -> "[Traveler] {NPC} has wandered into {MAP} and is asking adventurers for help."
                     + " (Ch {CH}, {MIN} min)";
+            case WEDDING -> "[Wedding] {BOSS} are getting married in {MAP}! Everyone is welcome. (Ch {CH})";
         };
     }
 
@@ -32,6 +33,7 @@ public final class WorldEventText {
             case TREASURE_HUNT -> "[Treasure Hunt] {PLAYER} found the treasure in {MAP}!";
             case HOT_SPOT -> "[Hot Spot] The bonus at {MAP} has ended.";
             case WANDERING_NPC -> "[Traveler] {NPC} thanks everyone who helped, and moves on from {MAP}.";
+            case WEDDING -> "[Wedding] {BOSS} are now married. Congratulations!";
         };
     }
 
@@ -42,6 +44,7 @@ public final class WorldEventText {
             case TREASURE_HUNT -> "[Treasure Hunt] Nobody found the treasure. It was hidden in {MAP}.";
             case HOT_SPOT -> "[Hot Spot] The bonus at {MAP} has ended.";
             case WANDERING_NPC -> "[Traveler] {NPC} has packed up and left {MAP}.";
+            case WEDDING -> "[Wedding] The wedding of {BOSS} in {MAP} is over. Congratulations to the couple!";
         };
     }
 

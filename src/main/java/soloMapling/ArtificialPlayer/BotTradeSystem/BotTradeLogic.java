@@ -17,7 +17,8 @@ public class BotTradeLogic {
             queue.removeTradeRequest(fakechar);
             return false;
         }
-        if (BotBlockList.getInstance().isBlocked(fakechar.getId(), partner.getId())) {
+        if (BotBlockList.getInstance().isBlocked(fakechar.getId(), partner.getId())
+                || soloMapling.ArtificialPlayer.BotAffinitySystem.AffinityReactions.refusesTrade(fakechar, partner)) {
             queue.removeTradeRequest(fakechar);
             BotTradeCommands.declineTradeInvite(fakechar);
             return false;

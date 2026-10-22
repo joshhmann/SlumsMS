@@ -130,22 +130,29 @@ public final class RingActionHandler extends AbstractPacketHandler {
             source.dropMessage(1, "You can't propose while holding a marriage ring!");
             source.sendPacket(WeddingPackets.OnMarriageResult((byte) 0));
             return;
-        } else if (target.getGender() == source.getGender()) {
-            source.dropMessage(1, "You may only propose to a " + (source.getGender() == 1 ? "male" : "female") + "!");
-            source.sendPacket(WeddingPackets.OnMarriageResult((byte) 0));
-            return;
         } else if (!InventoryManipulator.checkSpace(c, newBoxId, 1, "")) {
             source.dropMessage(5, "You don't have a ETC slot available right now!");
             source.sendPacket(WeddingPackets.OnMarriageResult((byte) 0));
             return;
         } else if (!InventoryManipulator.checkSpace(target.getClient(), newBoxId + 1, 1, "")) {
-            source.dropMessage(5, "The girl you proposed doesn't have a ETC slot available right now.");
+            source.dropMessage(5, "The person you proposed to doesn't have a ETC slot available right now.");
             source.sendPacket(WeddingPackets.OnMarriageResult((byte) 0));
             return;
         }
 
         source.setMarriageItemId(itemid);
         target.sendPacket(WeddingPackets.onMarriageRequest(source.getName(), source.getId()));
+    }
+
+    /**
+     * The engagement token the partner holds: the one recorded on the partner, else the other half of the pair (the
+     * proposer holds the box, the one who said yes holds box + 1) - whichever of the two the partner carries.
+     */
+    static int partnerEngagementItem(int mine, int partnersRecorded, java.util.function.IntPredicate partnerHas) {
+        if (partnersRecorded > 0) {
+            return partnersRecorded;
+        }
+        return partnerHas.test(mine + 1) ? mine + 1 : mine - 1;
     }
 
     private static void eraseEngagementOffline(int characterId) {
@@ -248,7 +255,9 @@ public final class RingActionHandler extends AbstractPacketHandler {
         } else {
             partner.dropMessage(5, chr.getName() + " has decided to break up the engagement.");
 
-            int partnerMarriageitemid = marriageitemid + ((chr.getGender() == 0) ? 1 : -1);
+            // SlumsMS 1.5.0 (ticket 58): any two characters may marry, so the partner's token is not read off a gender.
+            int partnerMarriageitemid = partnerEngagementItem(marriageitemid, partner.getMarriageItemId(),
+                    partner::haveItem);
             if (partner.haveItem(partnerMarriageitemid)) {
                 InventoryManipulator.removeById(partner.getClient(), InventoryType.ETC, partnerMarriageitemid, (short) 1, false, false);
             }
@@ -374,7 +383,7 @@ public final class RingActionHandler extends AbstractPacketHandler {
                         log.error("Error with engagement", e);
                     }
                 } else {
-                    source.dropMessage(1, "She has politely declined your engagement request.");
+                    source.dropMessage(1, target.getName() + " has politely declined your engagement request.");
                     source.sendPacket(WeddingPackets.OnMarriageResult((byte) 0));
 
                     source.setMarriageItemId(-1);

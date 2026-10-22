@@ -1,0 +1,64 @@
+# Ticket 58 (1.5.0): bot couples (BotCouples) and the Amoria wedding ceremony (BotWeddings). Bot map chat, so
+# @quiet bots hides it. Bots only ever pair with bots, any genders; FRIENDS are best friends (Friend* nodes). Sweet, never explicit (ticket 47 content rules).
+# Tokens: {PARTNER} the other half, {GROOM} {BRIDE} the couple, {OFFICIANT} the bot leading the ceremony.
+# Keep the old-GMS chat feel: short, lowercase.
+Couple:
+  Mention:
+    text:
+      - "{PARTNER} come here lol"
+      - "waiting for {PARTNER} ^^"
+      - "{PARTNER} <3"
+      - "{PARTNER} wanna go train after this?"
+      - "hehe {PARTNER}"
+      - "{PARTNER} look at this map"
+      - "miss u {PARTNER}"
+  Sit:
+    text:
+      - "sit w me {PARTNER}"
+      - "comfy :)"
+      - "break time w {PARTNER}"
+  Formed:
+    text:
+      - "{PARTNER} ur cute lol"
+      - "wanna hang out more {PARTNER}?"
+      - "{PARTNER} :$"
+  FriendMention:
+    text:
+      - "{PARTNER} come train w me"
+      - "yo {PARTNER} lol"
+      - "{PARTNER} u seeing this?"
+      - "{PARTNER} ^^ lets go"
+      - "{PARTNER} wait up"
+      - "{PARTNER} brb pots"
+  FriendFormed:
+    text:
+      - "{PARTNER} ur cool, lets train together more"
+      - "gg {PARTNER} we make a good team"
+      - "{PARTNER} add me lol"
+Wedding:
+  Officiant:
+    text:
+      - "we are gathered here today in amoria..."
+      - "{GROOM} and {BRIDE}, step up to the altar"
+  Vows:
+    text:
+      - "i do"
+      - "i do <3"
+      - "yes, i do ^^"
+  RingsGiven:
+    text:
+      - "{GROOM} and {BRIDE}, please exchange the rings"
+      - "the rings please ^^"
+  Pronounce:
+    text:
+      - "i now pronounce {GROOM} and {BRIDE} married!!"
+      - "congratulations {GROOM} and {BRIDE}!! <3"
+  Guest:
+    text:
+      - "congrats!!"
+      - "omg so cute"
+      - "grats {GROOM} {BRIDE} <3"
+      - "T_T so happy for u two"
+      - "kiss kiss lol"
+      - "gz!!"
+      - "*throws flowers*"

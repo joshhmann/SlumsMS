@@ -11,10 +11,12 @@ import java.util.Map;
 import java.util.Set;
 import java.util.concurrent.ConcurrentHashMap;
 
+import static soloMapling.qa.QaLog.Topic.AFFINITY;
 import static soloMapling.qa.QaLog.Topic.ATTACK;
 import static soloMapling.qa.QaLog.Topic.BOUNCE;
 import static soloMapling.qa.QaLog.Topic.BOT_CHAT;
 import static soloMapling.qa.QaLog.Topic.CHANNEL_LOAD;
+import static soloMapling.qa.QaLog.Topic.COUPLE;
 import static soloMapling.qa.QaLog.Topic.EQUIP;
 import static soloMapling.qa.QaLog.Topic.FM_BUY;
 import static soloMapling.qa.QaLog.Topic.GACHA;
@@ -75,7 +77,8 @@ public final class QaScenarios {
         return List.of(new Bk1Showcase(), new Gd1Guild(), new Fm1BuyerCap(), new Ld1Ladders(), new Gh1Hide(),
                 new Np1Rosen(), new Np2Fredrick(), new Np3Merchant(), new Cs2PetEquip(), new Gn2Scrolling(), new Sc2BotScrolling(),
                 new Wd1ChannelBars(), new Wd2DreamyPortal(), new Id1IdleSafety(),
-                new Mv1AttackSlide(), new Pe1MapEntry(), new Jq1BounceBlock(), new Ga1Gachapon(), new Ga2BotWealth());
+                new Mv1AttackSlide(), new Pe1MapEntry(), new Jq1BounceBlock(), new Ga1Gachapon(), new Ga2BotWealth(),
+                new Af1Friend(), new Af2Rival(), new Af3DramaOff(), new Cp1Couple(), new We1Wedding());
     }
 
     // ---- ga-1 ----
@@ -1111,6 +1114,256 @@ public final class QaScenarios {
             if (gm != null) {
                 ctx.world().message(gm, line);
             }
+        }
+    }
+
+    // ---- af-1 / af-2 / af-3 (1.5.0, ticket 58: bot affinity) ----
+
+    /**
+     * Shared staging for the affinity tests: one bot next to the GM that already feels a chosen way about them,
+     * a 30 s read-out of its feelings, and every affinity event and action on the map in the log.
+     */
+    abstract static class AffinityScenario implements QaScenario {
+        private final Map<Integer, Integer> botByGm = new ConcurrentHashMap<>();
+
+        public Set<QaLog.Topic> topics() { return EnumSet.of(AFFINITY, BOT_CHAT); }
+        public int tickSeconds() { return 30; }
+
+        public Set<Integer> watchedMaps(Character gm, String[] args) {
+            return new java.util.HashSet<>(List.of(gm.getMapId(), HENESYS_HUNTING_GROUND));
+        }
+
+        /** Stages the bot; hostile bots need mobs, so a GM on a map without any is warped to the Hunting Ground. */
+        int stageBot(QaContext ctx, String state, boolean training) {
+            QaWorld w = ctx.world();
+            Character gm = ctx.gm();
+            if (training && w.liveMobCount(gm) == 0) {
+                if (!w.warp(gm, HENESYS_HUNTING_GROUND)) {
+                    throw new QaRefusal("Cannot warp to " + HENESYS_HUNTING_GROUND + ".");
+                }
+                ctx.log("warped to " + HENESYS_HUNTING_GROUND + " (needs mobs)");
+            }
+            int id = w.stageAffinityBot(gm, state, training);
+            if (id < 0) {
+                throw new QaRefusal("No bot could be staged here.");
+            }
+            ctx.log("staged bot " + id + " as the GM's " + state + (training ? " (training, held on this map)" : " (social)"));
+            ctx.onStop("unstage bot " + id + " and forget its ties", () -> w.unstageAffinityBot(id));
+            botByGm.put(ctx.run().gmId(), id);
+            ctx.onStop("final read-out", () -> {
+                readOut(ctx, "FINAL");
+                botByGm.remove(ctx.run().gmId());
+            });
+            readOut(ctx, "START");
+            return id;
+        }
+
+        public void tick(QaContext ctx) {
+            readOut(ctx, "STATE");
+        }
+
+        void readOut(QaContext ctx, String tag) {
+            Integer id = botByGm.get(ctx.run().gmId());
+            Character gm = ctx.gmNow();
+            if (id != null && gm != null) {
+                ctx.run().note(tag, "bot " + id + ": " + ctx.world().affinityOf(id, gm));
+            }
+        }
+
+        Integer bot(QaContext ctx) {
+            return botByGm.get(ctx.run().gmId());
+        }
+
+        static String word(String[] args, String fallback, String... allowed) {
+            for (String a : args) {
+                for (String ok : allowed) {
+                    if (ok.equalsIgnoreCase(a)) {
+                        return ok;
+                    }
+                }
+            }
+            return fallback;
+        }
+    }
+
+    /** af-1: a friend bot. It greets, sends a buddy request or a party invite, buffs; party, fame, "ty" raise it. */
+    static final class Af1Friend extends AffinityScenario {
+        public String id() { return "af-1"; }
+        public String title() { return "A bot friend: greetings, buddy request, party invite, buffs (ticket 58)"; }
+        public String usage() { return "[social|training]"; }
+
+        public List<String> stage(QaContext ctx) {
+            boolean training = "training".equals(word(ctx.args(), "social", "social", "training"));
+            stageBot(ctx, "friend", training);
+            return List.of("A bot next to you now counts you as a friend (GM read-out every 30 s in the log).",
+                    "Stand near it: within a few minutes it greets you, and may send a buddy request or a party invite,",
+                    "or buff you if it has a party buff. Each action is an ACT line. Say 'ty' or 'gg' to it: EVENT kind_chat.",
+                    "Party it, fame it, trade it: EVENT party / fame / trade. No number is ever shown to you as a player.");
+        }
+    }
+
+    /** af-2: a rival or nemesis bot on a mob map: taunts, KS sprees, refused trades, a nemesis may defame. */
+    static final class Af2Rival extends AffinityScenario {
+        public String id() { return "af-2"; }
+        public String title() { return "A bot rival or nemesis: trash talk, KS sprees, refusals, defame (ticket 58)"; }
+        public String usage() { return "[rival|nemesis]; then !qa do grudge"; }
+
+        public List<String> stage(QaContext ctx) {
+            String state = word(ctx.args(), "rival", "rival", "nemesis");
+            stageBot(ctx, state, true);
+            return List.of("A training bot held on this map now counts you as its " + state + ".",
+                    "Fight mobs near it: it taunts you now and then and goes on KS sprees (KS lines, at most 3 mobs per spree).",
+                    "Hit a mob it is already fighting: EVENT ks. Try to trade it: REFUSE. A nemesis may defame you once a day.",
+                    "It never follows you to another map. !qa do grudge forces a fresh grudge and a KS spree now.");
+        }
+
+        public List<String> action(QaContext ctx, String name, String[] args) {
+            Integer id = bot(ctx);
+            if (!"grudge".equals(name) || id == null) {
+                throw new QaRefusal("af-2 steps: grudge");
+            }
+            String result = ctx.world().forceGrudge(id, ctx.gm());
+            ctx.run().note("STEP", result);
+            readOut(ctx, "STATE");
+            return List.of(result);
+        }
+    }
+
+    /** af-3: @botdrama off. A nemesis bot next to the GM with drama off must stay neutral; !qa do on compares. */
+    static final class Af3DramaOff extends AffinityScenario {
+        public String id() { return "af-3"; }
+        public String title() { return "@botdrama off: a nemesis bot stays neutral to you (ticket 58)"; }
+        public String usage() { return "; then !qa do on | off"; }
+
+        public List<String> stage(QaContext ctx) {
+            QaWorld w = ctx.world();
+            Character gm = ctx.gm();
+            boolean was = w.setBotDramaOff(gm, true);
+            ctx.log("@botdrama off (was " + (was ? "off" : "on") + ")");
+            ctx.onStop("@botdrama back " + (was ? "off" : "on"), () -> {
+                Character now = ctx.gmNow();
+                if (now != null) {
+                    w.setBotDramaOff(now, was);
+                }
+            });
+            stageBot(ctx, "nemesis", true);
+            return List.of("@botdrama is OFF for you and a nemesis bot is next to you.",
+                    "Expect: the read-out says neutral, no taunt / ks / defame ACT lines, and its trades are not refused.",
+                    "KS its mobs: no EVENT ks lines while off. !qa do on turns drama on to see the difference; stop restores it.");
+        }
+
+        public List<String> action(QaContext ctx, String name, String[] args) {
+            if (!"on".equals(name) && !"off".equals(name)) {
+                throw new QaRefusal("af-3 steps: on, off");
+            }
+            ctx.world().setBotDramaOff(ctx.gm(), "off".equals(name));
+            ctx.run().note("STEP", "@botdrama " + name);
+            readOut(ctx, "STATE");
+            return List.of("@botdrama " + name + ".");
+        }
+    }
+
+    // ---- cp-1 / we-1 (1.5.0, ticket 58: bot couples and weddings) ----
+
+    /** cp-1: a staged bot couple next to the GM. Party, chat about each other, a couple chair, rings, a love note. */
+    static final class Cp1Couple implements QaScenario {
+        private final Map<Integer, int[]> couples = new ConcurrentHashMap<>();
+
+        public String id() { return "cp-1"; }
+        public String title() { return "A bot couple or best friends: party, mention each other, couple chair, rings (ticket 58)"; }
+        public String usage() { return "[married|friends] [same|mixed]; then !qa do step"; }
+        public Set<QaLog.Topic> topics() { return EnumSet.of(COUPLE, BOT_CHAT); }
+        public int tickSeconds() { return 60; }
+
+        public List<String> stage(QaContext ctx) {
+            String kind = AffinityScenario.word(ctx.args(), "dating", "married", "friends");
+            Boolean same = sameArg(ctx.args());
+            boolean married = "married".equals(kind);
+            int[] ids = ctx.world().stageCouple(ctx.gm(), kind, same);
+            if (ids == null) {
+                throw new QaRefusal("No couple could be staged here.");
+            }
+            ctx.log("staged " + kind + " pair " + ids[0] + " + " + ids[1] + (same == null ? "" : same ? " (same gender)" : " (mixed)"));
+            ctx.onStop("unstage couple " + ids[0] + " + " + ids[1], () -> ctx.world().unstageCouple(ids));
+            couples.put(ctx.run().gmId(), ids);
+            ctx.onStop("forget", () -> couples.remove(ctx.run().gmId()));
+            ctx.world().coupleStep();
+            if ("friends".equals(kind)) {
+                return List.of("Two bots next to you are best friends: friendship rings (look at their equips).",
+                        "Every minute (or !qa do step): they party up (PARTY) and now and then talk to each other.");
+            }
+            return List.of("Two bots next to you are a couple" + (married ? " (married: rings and the Amorian Loveseat)." : "."),
+                    "Every minute (or !qa do step): they party up (PARTY), now and then one says something to the other,",
+                    "married ones sit on the loveseat together (SIT) and wear rings (look at their equips).",
+                    "!couple note sends a love-note megaphone (through the megaphone gate).");
+        }
+
+        public void tick(QaContext ctx) {
+            ctx.world().coupleStep();
+        }
+
+        public List<String> action(QaContext ctx, String name, String[] args) {
+            if (!"step".equals(name)) {
+                throw new QaRefusal("cp-1 steps: step");
+            }
+            ctx.world().coupleStep();
+            ctx.run().note("STEP", "couple step");
+            return List.of("Ran the couples' step.");
+        }
+    }
+
+    /** "same" / "mixed" in the arguments: both one gender / one of each; null = whatever comes. */
+    static Boolean sameArg(String[] args) {
+        for (String a : args) {
+            if ("same".equalsIgnoreCase(a)) {
+                return true;
+            }
+            if ("mixed".equalsIgnoreCase(a)) {
+                return false;
+            }
+        }
+        return null;
+    }
+
+    /** we-1: a staged couple marries in Amoria now: notice, ceremony, rings, guests, then everyone goes home. */
+    static final class We1Wedding implements QaScenario {
+        public static final int AMORIA = 680000000;
+
+        public String id() { return "we-1"; }
+        public String title() { return "A bot wedding in Amoria: notice, ceremony, rings, guests, bless EXP (ticket 58)"; }
+        public String usage() { return "[same|mixed]"; }
+        public Set<QaLog.Topic> topics() { return EnumSet.of(COUPLE, BOT_CHAT); }
+        public Set<Integer> watchedMaps(Character gm, String[] args) { return Set.of(AMORIA); }
+        public Set<String> claims(Character gm, String[] args) { return Set.of("map:" + AMORIA); }
+        public int minutes(String[] args) { return 10; }
+
+        public List<String> stage(QaContext ctx) {
+            QaWorld w = ctx.world();
+            Character gm = ctx.gm();
+            if (!w.onEventChannel(gm)) {
+                throw new QaRefusal("World events run on channel 1: change to channel 1 first.");
+            }
+            if (!w.warp(gm, AMORIA)) {
+                throw new QaRefusal("Cannot warp to " + AMORIA + ".");
+            }
+            ctx.log("warped to " + AMORIA);
+            int[] ids = w.stageCouple(ctx.gm(), "dating", sameArg(ctx.args()));
+            if (ids == null) {
+                throw new QaRefusal("No couple could be staged here.");
+            }
+            ctx.log("staged couple " + ids[0] + " + " + ids[1]);
+            ctx.onStop("unstage couple " + ids[0] + " + " + ids[1], () -> w.unstageCouple(ids));
+            ctx.onStop("stop the wedding if it still runs", () -> ctx.run().note("CLEANUP", "stopped "
+                    + w.stopWeddings("!qa stop") + " wedding(s)"));
+            String problem = w.startWedding(ids[0], "!qa we-1");
+            if (problem != null) {
+                throw new QaRefusal("The wedding did not start: " + problem);
+            }
+            ctx.log("wedding started");
+            return List.of("A blue notice says they are getting married here. Guests appear by the chapel.",
+                    "In about two minutes: the officiant speaks, both say i do (you get a small EXP blessing, BLESS, once),",
+                    "rings (RINGS), \"married\" (MARRIED). Any two genders can marry; same/mixed picks the pair.",
+                    "Guests cheer until the event ends (6 min); then guests leave and the couple goes home. !qa stop ends it early.");
         }
     }
 }

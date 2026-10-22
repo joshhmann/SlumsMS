@@ -291,4 +291,79 @@ class QaScenarioStagingTest {
             server.bounce.BounceZones.useForTest(null);
         }
     }
+
+    // ---- ticket 58 ----
+
+    @Test
+    void af1StagesASocialFriendAndUnstagesItAtStop() throws Exception {
+        start("af-1", 100000000);
+        assertTrue(world.calls.stream().anyMatch(c -> c.startsWith("stage friend social")));
+        scheduler.repeating.get(0).run();
+        Path log = suite.runOf(1).logPath();
+        suite.stop(1, "!qa stop");
+        assertEquals(1, world.unstaged.size());
+        String text = Files.readString(log);
+        assertTrue(text.contains("START") && text.contains("STATE") && text.contains("FINAL"));
+    }
+
+    @Test
+    void af2StagesATrainingRivalOnAMobMapAndForcesAGrudge() {
+        world.mobs = 0;
+        start("af-2", 100000000, "nemesis");
+        assertTrue(world.calls.contains("warp 104040000"), "hostile bots need mobs");
+        assertTrue(world.calls.stream().anyMatch(c -> c.startsWith("stage nemesis training")));
+        List<String> out = suite.action(world.online, "grudge", new String[0]);
+        assertEquals(List.of("grudge + KS spree"), out);
+        assertThrows(QaRefusal.class, () -> suite.action(world.online, "hug", new String[0]));
+        suite.stop(1, "!qa stop");
+        assertEquals(1, world.unstaged.size());
+    }
+
+    @Test
+    void af3TurnsDramaOffAndPutsItBackAtStop() {
+        world.dramaOff = false;
+        start("af-3", 104040000);
+        assertTrue(world.dramaOff);
+        assertTrue(world.calls.stream().anyMatch(c -> c.startsWith("stage nemesis training")));
+        suite.action(world.online, "on", new String[0]);
+        assertFalse(world.dramaOff);
+        suite.action(world.online, "off", new String[0]);
+        assertTrue(world.dramaOff);
+        suite.stop(1, "!qa stop");
+        assertFalse(world.dramaOff, "restored to what it was");
+    }
+
+    @Test
+    void cp1StagesACoupleStepsItAndUnstagesIt() {
+        start("cp-1", 100000000, "married", "same");
+        assertTrue(world.calls.stream().anyMatch(c -> c.startsWith("couple ") && c.endsWith("married same")));
+        int before = world.coupleSteps;
+        scheduler.repeating.get(0).run();
+        suite.action(world.online, "step", new String[0]);
+        assertEquals(before + 2, world.coupleSteps);
+        suite.stop(1, "!qa stop");
+        assertEquals(1, world.couplesUnstaged.size());
+    }
+
+    @Test
+    void we1NeedsChannelOneWarpsToAmoriaAndStartsTheWedding() {
+        world.eventChannel = false;
+        assertThrows(QaRefusal.class, () -> start("we-1", 100000000));
+        world.eventChannel = true;
+        start("we-1", 100000000, "same");
+        assertTrue(world.calls.contains("warp 680000000"));
+        assertTrue(world.calls.stream().anyMatch(c -> c.startsWith("couple ") && c.endsWith("dating same")));
+        assertTrue(world.calls.stream().anyMatch(c -> c.startsWith("wedding ")));
+        suite.stop(1, "!qa stop");
+        assertTrue(world.calls.contains("stop weddings"));
+        assertEquals(1, world.couplesUnstaged.size());
+    }
+
+    @Test
+    void cp1StagesBestFriends() {
+        start("cp-1", 100000000, "friends");
+        assertTrue(world.calls.stream().anyMatch(c -> c.startsWith("couple ") && c.endsWith("friends")));
+        suite.stop(1, "!qa stop");
+        assertEquals(1, world.couplesUnstaged.size());
+    }
 }

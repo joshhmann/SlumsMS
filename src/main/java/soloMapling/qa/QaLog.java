@@ -42,7 +42,9 @@ public final class QaLog {
         MAP_ENTRY,      // a GM's map entries: time, packets, bytes, deferred spawns, the map's objects (pe-1)
         BOUNCE,         // bounce / Flash Jump uses the server saw on a watched map, refusals, zone pushes (jq-1)
         GACHA,          // gachapon rolls by players and bots, notices, bot ticket buys (ga-1, ga-2)
-        WEALTH;         // bot wealth ceiling: intake cut, spending, decay (ga-2)
+        WEALTH,         // bot wealth ceiling: intake cut, spending, decay (ga-2)
+        AFFINITY,       // bot<->player affinity: events, state changes, and what bots do about it (af-1..af-3)
+        COUPLE;         // bot couples and their weddings: forming, hops, parties, chairs, rings, the ceremony (cp-1, we-1)
 
         final int bit = 1 << ordinal();
     }

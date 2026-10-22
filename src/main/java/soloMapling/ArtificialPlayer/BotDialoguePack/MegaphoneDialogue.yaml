@@ -795,6 +795,17 @@ MegaphoneBroadcast:
     text:
       - "some explorer in {MAP} ch{CH} wants {ITEM}, free stuff"
       - "{NPC} is in {MAP} ch{CH} giving a quest, go check"
+  WorldEventWedding:
+    text:
+      - "{EVENT} in amoria ch{CH}! everyone come ^^"
+      - "wedding at amoria ch{CH}, come celebrate!!"
+  # Ticket 58: a bot couple's love note. Tokens: {PARTNER}.
+  CoupleLoveNote:
+    text:
+      - "{PARTNER} <3 love u"
+      - "happy to be with u {PARTNER} ^^"
+      - "{PARTNER} ur the best <3"
+      - "shoutout to my {PARTNER} <3"
   WorldEventWon:
     text:
       - "gg {PLAYER}!! won the {EVENT}"

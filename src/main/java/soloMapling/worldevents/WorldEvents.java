@@ -363,6 +363,13 @@ public final class WorldEvents {
                 e.npcName = npc.getName();
             }
             case HOT_SPOT -> hotSpots.put(e.mapId(), Math.min(EventTemplates.MAX_EXP_BONUS, t.expBonus()));
+            case WEDDING -> {
+                // Ticket 58: a bot couple's staged ceremony; it runs its own few-second beat until the event ends.
+                String problem = soloMapling.ArtificialPlayer.BotCoupleSystem.BotWeddings.begin(e, map);
+                if (problem != null) {
+                    return problem;
+                }
+            }
             case WANDERING_NPC -> {
                 Portal p = map.getRandomPlayerSpawnpoint();
                 Point at = p != null ? p.getPosition() : randomSpot(map, rng);
@@ -502,6 +509,9 @@ public final class WorldEvents {
 
     private void cleanUp(ActiveEvent e, MapleMap map) {
         hotSpots.remove(e.mapId());
+        if (e.template.kind() == EventTemplate.Kind.WEDDING) {
+            soloMapling.ArtificialPlayer.BotCoupleSystem.BotWeddings.end(e); // ticket 58: guests leave, couple goes home
+        }
         if (map == null) {
             return;
         }

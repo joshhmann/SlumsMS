@@ -483,6 +483,21 @@ public class Monster extends AbstractLoadedLife {
         return takenDamage.containsKey(chr.getId());
     }
 
+    /** SoloMapling (ticket 58): an attacker other than {@code exceptId} with an id at or above {@code minId} (a bot), or -1. */
+    public int otherAttackerAtOrAbove(int minId, int exceptId) {
+        lockMonster();
+        try {
+            for (Integer id : takenDamage.keySet()) {
+                if (id >= minId && id != exceptId) {
+                    return id;
+                }
+            }
+            return -1;
+        } finally {
+            unlockMonster();
+        }
+    }
+
     private static boolean isWhiteExpGain(Character chr, Map<Integer, Float> personalRatio, double sdevRatio) {
         Float pr = personalRatio.get(chr.getId());
         if (pr == null) {

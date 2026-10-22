@@ -1119,6 +1119,8 @@ public class StatEffect {
             affectedc += affectedp.size();   // used for heal
             for (Character affected : affectedp) {
                 applyTo(applyfrom, affected, false, null, useMaxRange, affectedc);
+                soloMapling.server.MapleRootSolo.runHook("affinity buff", () ->   // ticket 58: a player buffed a bot
+                        soloMapling.ArtificialPlayer.BotAffinitySystem.AffinityHooks.onBuff(applyfrom, affected, isHeal()));
                 affected.sendPacket(PacketCreator.showOwnBuffEffect(sourceid, 2));
                 affected.getMap().broadcastMessage(affected, PacketCreator.showBuffEffect(affected.getId(), sourceid, 2), false);
             }

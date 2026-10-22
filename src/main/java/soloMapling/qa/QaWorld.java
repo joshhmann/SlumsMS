@@ -134,4 +134,43 @@ public interface QaWorld {
 
     /** One forced spending step (gachapon if its map has a machine, then upkeep): what it did. */
     List<String> botWealthStep(int botId);
+
+    /**
+     * Ticket 58 (af-1..af-3): a new bot next to the GM that feels {@code state} (friend | rival | nemesis) about them;
+     * a training bot held on the GM's map when {@code training}, else a social bot. Its id, or -1.
+     */
+    int stageAffinityBot(Character gm, String state, boolean training);
+
+    /** Takes a staged affinity bot away and forgets its ties. */
+    void unstageAffinityBot(int botId);
+
+    /** {@code @botdrama} for the GM: off = true. The previous value. */
+    boolean setBotDramaOff(Character gm, boolean off);
+
+    /** GM-only read-out of how a bot feels about the GM ("rival: score -40 ..."). */
+    String affinityOf(int botId, Character gm);
+
+    /** A fresh grudge of the bot against the GM, and a KS spree when they share a map; what happened. */
+    String forceGrudge(int botId, Character gm);
+
+    /**
+     * Ticket 58 (cp-1, we-1): two new bots next to the GM that are a pair: {@code kind} dating | married | friends;
+     * {@code sameGender} true / false / null (any). Their ids, or null.
+     */
+    int[] stageCouple(Character gm, String kind, Boolean sameGender);
+
+    /** Breaks a staged couple up and takes both bots away. */
+    void unstageCouple(int[] ids);
+
+    /** Runs the couples' minute step now. */
+    void coupleStep();
+
+    /** Starts the Amoria wedding for the couple this bot is in; the problem, or null. */
+    String startWedding(int botId, String by);
+
+    /** Stops a running bot wedding, if any; how many stopped. */
+    int stopWeddings(String by);
+
+    /** Whether the GM is on the channel world events run on (channel 1). */
+    boolean onEventChannel(Character gm);
 }

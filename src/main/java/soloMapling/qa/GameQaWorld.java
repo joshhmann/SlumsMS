@@ -207,6 +207,93 @@ final class GameQaWorld implements QaWorld {
     }
 
     @Override
+    public int stageAffinityBot(Character gm, String state, boolean training) {
+        soloMapling.ArtificialPlayer.BotAffinitySystem.AffinityState s =
+                soloMapling.ArtificialPlayer.BotAffinitySystem.AffinityState.parse(state);
+        return s == null ? -1 : soloMapling.ArtificialPlayer.BotAffinitySystem.AffinityStaging.stage(gm, s, training);
+    }
+
+    @Override
+    public void unstageAffinityBot(int botId) {
+        soloMapling.ArtificialPlayer.BotAffinitySystem.AffinityStaging.unstage(botId);
+    }
+
+    @Override
+    public boolean setBotDramaOff(Character gm, boolean off) {
+        boolean was = soloMapling.ArtificialPlayer.BotAffinitySystem.BotAffinity.optedOut(gm.getId());
+        soloMapling.ArtificialPlayer.BotAffinitySystem.BotAffinity.setOptedOut(gm, off);
+        return was;
+    }
+
+    @Override
+    public String affinityOf(int botId, Character gm) {
+        String spree = soloMapling.ArtificialPlayer.BotAffinitySystem.AffinityReactions.spreeOf(botId);
+        return soloMapling.ArtificialPlayer.BotAffinitySystem.BotAffinity.describe(botId, gm.getId())
+                + (spree == null ? "" : "; " + spree);
+    }
+
+    @Override
+    public String forceGrudge(int botId, Character gm) {
+        if (!soloMapling.ArtificialPlayer.BotAffinitySystem.BotAffinity.forceGrudge(botId, gm.getId())) {
+            return "no grudge (not loaded, or @botdrama off)";
+        }
+        Character bot = BotHelpers.getCharFromChannelStorage(botId);
+        if (bot != null && bot.getMapId() == gm.getMapId()) {
+            soloMapling.ArtificialPlayer.BotAffinitySystem.AffinityReactions.forceSpree(bot, gm);
+            return "grudge + KS spree";
+        }
+        return "grudge (bot not on your map, no spree)";
+    }
+
+    @Override
+    public int[] stageCouple(Character gm, String kind, Boolean sameGender) {
+        soloMapling.ArtificialPlayer.BotCoupleSystem.BotCouples.Stage stage = switch (kind) {
+            case "married" -> soloMapling.ArtificialPlayer.BotCoupleSystem.BotCouples.Stage.MARRIED;
+            case "friends" -> soloMapling.ArtificialPlayer.BotCoupleSystem.BotCouples.Stage.FRIENDS;
+            default -> soloMapling.ArtificialPlayer.BotCoupleSystem.BotCouples.Stage.DATING;
+        };
+        return soloMapling.ArtificialPlayer.BotCoupleSystem.CoupleStaging.stage(gm, stage, sameGender);
+    }
+
+    @Override
+    public void unstageCouple(int[] ids) {
+        soloMapling.ArtificialPlayer.BotCoupleSystem.CoupleStaging.unstage(ids);
+    }
+
+    @Override
+    public void coupleStep() {
+        soloMapling.ArtificialPlayer.BotCoupleSystem.BotCouples.stepNow();
+    }
+
+    @Override
+    public String startWedding(int botId, String by) {
+        soloMapling.ArtificialPlayer.BotCoupleSystem.BotCouples.Couple c =
+                soloMapling.ArtificialPlayer.BotCoupleSystem.BotCouples.coupleOf(botId);
+        return c == null ? "that bot is in no couple" : soloMapling.ArtificialPlayer.BotCoupleSystem.BotWeddings.start(c, by);
+    }
+
+    @Override
+    public int stopWeddings(String by) {
+        int n = 0;
+        for (soloMapling.worldevents.ActiveEvent e : soloMapling.worldevents.WorldEvents.getInstance().active()) {
+            if (e.template.kind() == soloMapling.worldevents.EventTemplate.Kind.WEDDING
+                    && soloMapling.worldevents.WorldEvents.getInstance().stop(e.id, by)) {
+                n++;
+            }
+        }
+        return n;
+    }
+
+    @Override
+    public boolean onEventChannel(Character gm) {
+        try {
+            return gm.getClient().getChannel() == soloMapling.server.SoloMaplingConstants.mainChannel().getId();
+        } catch (RuntimeException e) {
+            return true;
+        }
+    }
+
+    @Override
     public void despawnBot(int botId) {
         Character bot = BotHelpers.getCharFromChannelStorage(botId);
         if (bot == null) {

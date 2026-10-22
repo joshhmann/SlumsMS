@@ -38,6 +38,9 @@ public final class BotRecognition {
 
     /** Whether the bot holds a note of its own about this player and is not wary of them. Reads memory. */
     public static boolean knows(int botSlot, int playerId) {
+        if (soloMapling.ArtificialPlayer.BotAffinitySystem.BotAffinity.friend(BotStore.BOT_ID_BASE + botSlot, playerId)) {
+            return true; // ticket 58: a friend is someone it knows, notes or not
+        }
         try {
             return hasOwnNote(BotMemory.about(botSlot, playerId)) && !BotChatActions.wary(botSlot, playerId);
         } catch (RuntimeException e) {

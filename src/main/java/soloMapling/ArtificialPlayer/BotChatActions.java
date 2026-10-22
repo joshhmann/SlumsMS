@@ -107,6 +107,10 @@ public final class BotChatActions {
 
     /** Whether this bot holds a note that makes it wary of this player. */
     static boolean wary(int botSlot, int playerId) {
+        // Ticket 58: a rival or nemesis is wary of the player too (no parties, no buddy, no trades). Memory only.
+        if (soloMapling.ArtificialPlayer.BotAffinitySystem.BotAffinity.hostile(BotStore.BOT_ID_BASE + botSlot, playerId)) {
+            return true;
+        }
         try {
             for (BotMemory.Note note : BotMemory.about(botSlot, playerId)) {
                 String text = note.text().toLowerCase(Locale.ROOT);

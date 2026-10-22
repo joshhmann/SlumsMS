@@ -1,0 +1,73 @@
+# Ticket 58 (1.5.0): what a bot says because of how it feels about a real player (AffinityReactions).
+# Bot map chat, so @quiet bots hides it, and a player with @botdrama off never gets the hostile nodes.
+# Petty, never cruel: no slurs, no threats, nothing about real life (ticket 47 content rules). Rate limited in code.
+# Tokens: {PLAYER} the player, {OTHER} a third party (gossip), {MAP} the map name. A line with an unfilled token is skipped.
+# Keep the old-GMS chat feel: short, lowercase.
+Affinity:
+  FriendHello:
+    text:
+      - "{PLAYER}!! hey :D"
+      - "yo {PLAYER} whats up"
+      - "heyyy {PLAYER}"
+      - "o hi {PLAYER} ^^"
+      - "{PLAYER} :) long time"
+      - "sup {PLAYER}, grinding?"
+  FriendInvite:
+    text:
+      - "{PLAYER} wanna pt? sent u an inv"
+      - "inv'd u {PLAYER}, lets train"
+      - "{PLAYER} come pt w me"
+      - "party? sent inv ^^"
+  FriendHelp:
+    text:
+      - "here {PLAYER} buffs"
+      - "buffed u {PLAYER} :)"
+      - "{PLAYER} got u"
+  RivalTaunt:
+    text:
+      - "oh great its {PLAYER}"
+      - "{PLAYER} again... ugh"
+      - "dont ks me {PLAYER}"
+      - "{PLAYER} go find ur own map"
+      - "lol {PLAYER} still here"
+      - "{PLAYER} the ks king is back"
+      - "watch out everyone {PLAYER} is here"
+      - "-_- {PLAYER}"
+  NemesisTaunt:
+    text:
+      - "{PLAYER}. of course."
+      - "not u again {PLAYER}"
+      - "{PLAYER} i havent forgotten"
+      - "every time {PLAYER} shows up my mobs vanish"
+      - "{PLAYER} ur still a ks'er"
+      - "imagine being {PLAYER} lol"
+      - "this map isnt big enough for me and {PLAYER}"
+  KsAnnounce:
+    text:
+      - "mine now {PLAYER} :P"
+      - "how does it feel {PLAYER}"
+      - "taste of ur own medicine {PLAYER}"
+      - "lol too slow {PLAYER}"
+  Refuse:
+    text:
+      - "nah not with u"
+      - "no thx"
+      - "lol no"
+      - "pass"
+      - "nope"
+  Defame:
+    text:
+      - "-1 {PLAYER}, u know why"
+      - "defamed. thats for the ks {PLAYER}"
+      - "{PLAYER} enjoy the -1"
+  GossipBad:
+    text:
+      - "careful around {OTHER}, ks'er"
+      - "{OTHER} ks'd me earlier btw"
+      - "if u see {OTHER} watch ur mobs lol"
+      - "ugh {OTHER} took my drops today"
+  GossipGood:
+    text:
+      - "{OTHER} is cool, partied w them"
+      - "if u see {OTHER} say hi, theyre nice"
+      - "{OTHER} helped me out earlier ^^"

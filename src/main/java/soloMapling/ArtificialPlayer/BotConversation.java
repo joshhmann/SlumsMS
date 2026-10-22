@@ -210,6 +210,8 @@ public final class BotConversation {
         int slot = bot.getId() - BotStore.BOT_ID_BASE;
         boolean whisper = session.deliver != null;
         ChatTriage.Result triage = ChatTriage.classify(line, ChatDecide.get());
+        // Ticket 58: a kind line warms the bot to the player, a rude one cools it (rules, then the cheap Decide model).
+        soloMapling.ArtificialPlayer.BotAffinitySystem.AffinityReactions.judgeLine(bot, player, line, triage);
 
         if (triage.flagged()) {
             onFlagged(session, slot, triage, line, asked);
@@ -316,7 +318,9 @@ public final class BotConversation {
                 BotChatPrompt.mood(slot, activity, wary, now), BotMemory.recall(slot, player.getId(), now),
                 whisper ? List.of() : BotChatRouting.recentOnMap(bot.getMapId(), now), outcome)
                 .with(stock == null ? null : stock.fact(), recognise);
-        return BotChatPrompt.system(context, persona, traits == null ? 0.4 : traits.chattiness());
+        return BotChatPrompt.system(context, persona, traits == null ? 0.4 : traits.chattiness())
+                + soloMapling.ArtificialPlayer.BotAffinitySystem.AffinityReactions.promptLine(bot.getId(), player) // ticket 58: friend or beef
+                + soloMapling.ArtificialPlayer.BotCoupleSystem.BotCouples.promptLine(bot.getId()); // ticket 58: a partner
     }
 
     /**

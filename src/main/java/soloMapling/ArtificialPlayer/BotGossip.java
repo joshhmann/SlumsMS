@@ -75,6 +75,10 @@ public final class BotGossip {
             BotMemory.Note note = notes.get(rng.nextInt(notes.size()));
             if (BotMemory.hear(pair[1].getId() - BotStore.BOT_ID_BASE, note, now)) {
                 passed++;
+                // Ticket 58: hearing that a player KSes (or is a good friend) nudges the listener a little.
+                soloMapling.ArtificialPlayer.BotAffinitySystem.BotAffinity.onHearsay(pair[1].getId() - BotStore.BOT_ID_BASE, note.aboutCharId(), note.text());
+                soloMapling.ArtificialPlayer.BotAffinitySystem.AffinityReactions.maybeMentionGossip(pair[0], pair[1],
+                        note.aboutCharId(), note.text(), rng);
             }
         }
         return passed;

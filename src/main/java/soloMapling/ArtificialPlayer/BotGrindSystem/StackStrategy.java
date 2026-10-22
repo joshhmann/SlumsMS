@@ -313,7 +313,7 @@ final class StackStrategy implements GrindStrategy {
         long scanStart = System.nanoTime();
         Monster t = stickyTarget(chr, st);
         if (t == null) {
-            t = acquireTarget(chr, st);
+            t = soloMapling.ArtificialPlayer.BotAffinitySystem.AffinityReactions.ksPick(chr, acquireTarget(chr, st)); // ticket 58
             b.targetOid = (t != null) ? t.getObjectId() : -1;
             b.resetApproachProgress(chr);
         }
@@ -365,7 +365,7 @@ final class StackStrategy implements GrindStrategy {
             return;
         }
         long scanStart = System.nanoTime();
-        Monster t = acquireTarget(chr, st);
+        Monster t = soloMapling.ArtificialPlayer.BotAffinitySystem.AffinityReactions.ksPick(chr, acquireTarget(chr, st)); // ticket 58
         BotPerformanceMonitor.recordCombatScan(System.nanoTime() - scanStart);
         if (t != null) {
             b.targetOid = t.getObjectId();

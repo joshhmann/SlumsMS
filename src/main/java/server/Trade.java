@@ -402,6 +402,9 @@ public class Trade {
                 }
             }
 
+            soloMapling.server.MapleRootSolo.runHook("affinity trade", () ->   // ticket 58: trades and gifts
+                    soloMapling.ArtificialPlayer.BotAffinitySystem.AffinityHooks.onTrade(local.getChr(), local.getItems(), local.getExchangeMesos(),
+                            partner.getChr(), partner.getItems(), partner.getExchangeMesos()));
             logTrade(local, partner);
             local.completeTrade();
             partner.completeTrade();

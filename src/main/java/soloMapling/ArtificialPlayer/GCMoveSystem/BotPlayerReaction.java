@@ -61,7 +61,17 @@ final class BotPlayerReaction {
 
         List<Character> players = BotLogic.getRealPlayersInRange(bot, DETECT_WIDTH, DETECT_HEIGHT);
         for (Character player : players) {
-            if (player == null || onCooldown(player.getId(), nowMs)) {
+            if (player == null) {
+                continue;
+            }
+            // Ticket 58: a bot that feels something about this player (friend, rival, nemesis) may act on it - its
+            // own per-pair cooldowns and world caps, so it does not wait on the shared reaction cooldown.
+            if (soloMapling.ArtificialPlayer.BotAffinitySystem.AffinityReactions.onSight(
+                    CharacterStorage.getBotById(bot.getId()), player)) {
+                entry.reactingUntilMs = nowMs + STOP_PAUSE_MIN_MS;
+                return;
+            }
+            if (onCooldown(player.getId(), nowMs)) {
                 continue;
             }
             switch (PlayerReaction.rollReaction(IGNORE_WEIGHT, STOP_WEIGHT, WALK_WEIGHT)) {
