@@ -82,8 +82,6 @@ scrolling:
 # Owner decision 6: player meso sinks.
 sinks:
   shopTaxPercent: 3         # FM shop tax: the seller pays max(v83 fee, 3%) on player shop / hired merchant sales
-  storageFeePerSlot: 2000   # storing an item: + 2,000 per slot already in use ...
-  storageFeeMax: 100000     # ... at most 100,000 on top of the keeper's fee
   shopPrices:               # NPC price bumps: itemId: price, in every NPC shop that sells the item
     2120000: 2000           # Pet Food (was 30)
     5041000: 3000000        # VIP Teleport Rock (was 1,500,000)

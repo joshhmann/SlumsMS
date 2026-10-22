@@ -11,8 +11,8 @@ import java.util.Set;
  * 1.5.0 rc3 economy lane: the {@code tr-*} test scenarios (bot shops, direct trades, gifts, the price board and tax,
  * haggling, the cosmetics merchant). Registered in {@link QaScenarios#all()}; docs/ops/qa-suite.md has the rows.
  * <p>
- * Trading in the window as a GM needs {@code -Dslumsms.gm.allowGiving=true} on the test server (ticket 43 blocks
- * GM trades); without it use a non-GM character for the window and the {@code !qa do sim} steps for the logic.
+ * Ticket 43 blocks trades between a GM and a non-GM (the owner keeps it): use a non-GM character for the window and
+ * the {@code !qa do sim} / {@code !qa do quote} steps for the logic.
  */
 final class QaTradeScenarios {
 
@@ -145,8 +145,8 @@ final class QaTradeScenarios {
             ctx.giveBack(SWORD_60, 2);
             return List.of("Invite the bot next to you to trade and put a Gloves ATT 60% in: it offers a price.",
                     "Haggle in the window chat (\"1.5m?\", \"deal\"), then lock: it confirms only inside its band.",
-                    "Swap the item after its offer: it refuses. GM characters need -Dslumsms.gm.allowGiving=true to trade;",
-                    "otherwise !qa do sim <line> runs the haggle headless.");
+                    "Swap the item after its offer: it refuses. A GM cannot trade (ticket 43): use a non-GM character,",
+                    "or !qa do sim <line> to run the haggle headless.");
         }
 
         public List<String> action(QaContext ctx, String name, String[] args) {
@@ -324,14 +324,14 @@ final class QaTradeScenarios {
 
     /**
      * tr-7: the player meso sinks. Warps the GM to the FM entrance by the cosmetics merchant (Hanako) and gives 50m
-     * (taken back at stop, up to what is left). Buying from her, storing items (upkeep by slot) and NPC price bumps show
+     * (taken back at stop, up to what is left). Buying from her and NPC price bumps show
      * in the meters; {@code !qa do meters}.
      */
     static final class Tr7Sinks implements QaScenario {
         private volatile int given;
 
         public String id() { return "tr-7"; }
-        public String title() { return "Meso sinks: cosmetics merchant, storage upkeep, NPC price bumps, meters logged"; }
+        public String title() { return "Meso sinks: cosmetics merchant, NPC price bumps, meters logged"; }
         public Set<QaLog.Topic> topics() { return trade(); }
         public int minutes(String[] args) { return 15; }
 
@@ -355,7 +355,6 @@ final class QaTradeScenarios {
             });
             ctx.log(trade.meters());
             return List.of("Talk to Hanako (left of the Maple TV): coupons, cosmetics and Gachapon Tickets for mesos.",
-                    "Store a few items at the storage keeper: each store costs the upkeep per slot in use (yellow line).",
                     "Pet food at a pet shop costs economy.yaml's bumped price. !qa do meters shows the day's sinks.");
         }
 

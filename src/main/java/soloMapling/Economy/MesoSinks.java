@@ -22,8 +22,6 @@ import java.util.Map;
  *   5m, so the tax lifts small sales to 3% and leaves big ones at v83's 3-6%.</li>
  *   <li><b>NPC price bumps:</b> {@code sinks.shopPrices} replaces the price of an item in every NPC shop that sells it
  *   (pet food, the VIP teleport rock, ...), read when a shop loads.</li>
- *   <li><b>Storage upkeep:</b> storing an item costs the keeper's v83 fee plus {@code sinks.storageFeePerSlot} per
- *   slot already in use, at most {@code sinks.storageFeeMax}.</li>
  *   <li><b>The cosmetics merchant</b> (Hanako, 9209006, placed in the FM entrance by migration 021): hair, face, lens,
  *   skin and dye coupons, a few classic cosmetic items and Gachapon Tickets, for big mesos
  *   ({@code cosmeticShop.items}: itemId: price).</li>
@@ -91,14 +89,7 @@ public final class MesoSinks {
         return bump == null || bump <= 0 ? shopPrice : (int) Math.min(Integer.MAX_VALUE, bump);
     }
 
-    // ---- storage upkeep ----
-
-    /** What storing one more item costs on top of the keeper's fee, with {@code used} slots already full. */
-    public static int storageUpkeep(int used) {
-        long per = Math.max(0, EconomyConfig.getLong("sinks.storageFeePerSlot", 2_000));
-        long max = Math.max(0, EconomyConfig.getLong("sinks.storageFeeMax", 100_000));
-        return (int) Math.min(max, per * Math.max(0, used));
-    }
+    // ---- the cosmetics merchant ----
 
     /** A purchase from the cosmetics merchant: booked as a sink. */
     public static void onSinkPurchase(Character chr, int itemId, int quantity, long mesos) {
@@ -108,23 +99,6 @@ public final class MesoSinks {
                     chr == null ? "?" : chr.getName(), itemId, quantity, mesos));
         }
     }
-
-    /** Books a storage upkeep payment and tells the player once per payment. */
-    public static void onStorageUpkeep(Character chr, int upkeep, int used) {
-        if (upkeep <= 0) {
-            return;
-        }
-        EconomyMeters.add(EconomyMeters.STORAGE_FEES, upkeep);
-        if (QaLog.on(QaLog.Topic.TRADE)) {
-            QaLog.any(QaLog.Topic.TRADE, String.format("SINK %s paid %,d storage upkeep (%d slots in use)",
-                    chr == null ? "?" : chr.getName(), upkeep, used));
-        }
-        if (chr != null) {
-            chr.dropMessage(5, String.format("Storage upkeep: %,d mesos (%d slots in use).", upkeep, used));
-        }
-    }
-
-    // ---- the cosmetics merchant ----
 
     public static int cosmeticNpc() {
         return EconomyConfig.getInt("cosmeticShop.npcId", COSMETIC_NPC_DEFAULT);

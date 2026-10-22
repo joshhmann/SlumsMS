@@ -30,7 +30,7 @@ CREATE TABLE IF NOT EXISTS pricesamples
 
 -- economyday: one number per meter per server day (botbuy = mesos bots paid real players against the world's daily
 -- budget; gifts / giftmesos; tax = FM shop tax; godlies = bot scroll results past the godly line; botshopsales;
--- sinkshop = the cosmetics merchant; storagefees). Small: a handful of rows a day.
+-- sinkshop = the cosmetics merchant). Small: a handful of rows a day.
 CREATE TABLE IF NOT EXISTS economyday
 (
     Day    DATE        NOT NULL,

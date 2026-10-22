@@ -30,7 +30,6 @@ public final class EconomyMeters {
     public static final String GODLIES = "godlies";
     public static final String BOT_SHOP_SALES = "botshopsales";
     public static final String SINK_SHOP = "sinkshop";
-    public static final String STORAGE_FEES = "storagefees";
 
     private static final Map<String, Long> today = new ConcurrentHashMap<>();
     private static volatile LocalDate day;

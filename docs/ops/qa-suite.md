@@ -60,7 +60,7 @@ the showcase's own minutes plus one.
 | `tr-4` (1.5.0 rc3) | Stages a social bot that counts you as a friend, with 5m and a 60% scroll; for the run a friend bot that sees you gives a gift for sure (the weekly limit forgotten for this pair). `!qa do gift [potions\|scroll\|mesos]` forces one | `GIFT` lines (what, bought for how much), affinity events |
 | `tr-5` `[item id]` (1.5.0 rc3) | Nothing: logs the price board's detail for the item (default 2040804) and the FM shop tax at 100k, 1m, 5m, 25m and 100m. `!qa do price <id>`, `!qa do tax <price>` | Every `PRICE sample` and `SHOP SALE` fee while it runs, server-wide |
 | `tr-6` `[fair, e.g. 1m]` (1.5.0 rc3) | Nothing: runs 11 player lines (prompt injections included) through the haggle brain and the price band, the bot buying and selling. `!qa do line <text>` tries another | Each line's move and the bot's answer marked `inside the band` or `OUTSIDE THE BAND`; `SUMMARY` with the count outside (must be 0) |
-| `tr-7` (1.5.0 rc3) | Warps you to the FM entrance by the cosmetics merchant (Hanako) and gives you 50m (taken back at stop, up to what is left). `!qa do meters` | `SINK` lines: cosmetics merchant purchases, storage upkeep; the economy meters at start |
+| `tr-7` (1.5.0 rc3) | Warps you to the FM entrance by the cosmetics merchant (Hanako) and gives you 50m (taken back at stop, up to what is left). `!qa do meters` | `SINK` lines: cosmetics merchant purchases; the economy meters at start |
 
 What `!qa stop` undoes:
 
@@ -74,9 +74,9 @@ What `!qa stop` undoes:
 - tr-1: the bot's shop closes (unsold items back to it) and the bot leaves. tr-4: the gift chance goes back to
   economy.yaml and the friend bot leaves. tr-7: the 50m are taken back, up to what you still have.
 
-tr-2 and tr-3 open a trade window with a bot. Ticket 43 blocks trades between a GM and a non-GM, so on a server
-without `-Dslumsms.gm.allowGiving=true` use a non-GM test character for the window (the GM runs `!qa`), or the
-headless `!qa do sim` / `!qa do quote` steps. Details and the owner's veto tables: docs/release/1.5.0-economy-trade.md.
+tr-2 and tr-3 open a trade window with a bot. Ticket 43 blocks trades between a GM and a non-GM (the owner keeps
+it), so use a non-GM test character for the window (the GM runs `!qa`), or the headless `!qa do sim` /
+`!qa do quote` steps. Details and the owner's veto tables: docs/release/1.5.0-economy-trade.md.
 
 You are not warped back. Mesos you earned in fm-1 stay with you.
 

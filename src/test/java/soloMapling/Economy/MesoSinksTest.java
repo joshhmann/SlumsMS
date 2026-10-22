@@ -50,10 +50,17 @@ class MesoSinksTest {
     }
 
     @Test
-    void storageUpkeepBySlotsInUseCapped() {
-        assertEquals(0, MesoSinks.storageUpkeep(0));
-        assertEquals(20_000, MesoSinks.storageUpkeep(10));
-        assertEquals(100_000, MesoSinks.storageUpkeep(80));
+    void storageCarriesNoUpkeep() {
+        // owner, 2026-10-21: no storage upkeep (hidden fees feel bad); the keeper's v83 fee is the only charge
+        Map<String, Object> shipped;
+        try (java.io.FileReader in = new java.io.FileReader(EconomyConfig.FILE)) {
+            shipped = EconomyConfig.parse(in);
+        } catch (Exception e) {
+            throw new AssertionError(e);
+        }
+        assertTrue(shipped.keySet().stream().noneMatch(k -> k.toLowerCase().contains("storage")), "no storage fee key");
+        assertFalse(java.util.Arrays.stream(MesoSinks.class.getDeclaredMethods())
+                .anyMatch(m -> m.getName().toLowerCase().contains("storage")), "no storage hook left");
     }
 
     @Test
