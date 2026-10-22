@@ -168,4 +168,13 @@ class BotGachaTest {
         }
         assertEquals(3_500, fans, 300);
     }
+
+    @Test
+    void aBotWalksUpToAMachineBeforePlaying() {
+        java.awt.Point machine = new java.awt.Point(1120, 288);
+        assertTrue(BotGacha.needsWalk(new java.awt.Point(600, 288), machine));
+        assertTrue(BotGacha.needsWalk(new java.awt.Point(1120, 150), machine), "another floor");
+        assertTrue(!BotGacha.needsWalk(new java.awt.Point(1060, 285), machine));
+        assertTrue(BotGacha.needsWalk(null, machine));
+    }
 }

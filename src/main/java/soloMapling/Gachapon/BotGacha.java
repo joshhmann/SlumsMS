@@ -17,7 +17,8 @@ import java.util.function.LongSupplier;
 
 /**
  * 1.5.0: bots play the gachapon too. A bot standing in a town with a machine ({@code maps:} in the pool file) buys a
- * ticket with its own mesos and plays it there, as a remote ticket would. The ticket's mesos are burned: a sink, never
+ * ticket with its own mesos and plays it there. When the machine NPC stands on its map it first walks up to it
+ * ({@code TownLoiter}) and plays on a later step; with no machine on the map it plays as a remote ticket would. The ticket's mesos are burned: a sink, never
  * paid to anyone. The prize goes into its holdings; a rare or jackpot may get a server-wide notice under the bot
  * limits of {@link GachaAnnouncer}.
  * <p>
@@ -90,7 +91,45 @@ public final class BotGacha {
                 || rng.nextDouble() >= doubleProperty("solomapling.botGachaCasualChance", DEFAULT_CASUAL_CHANCE))) {
             return null;
         }
+        // 1.5.0: a machine standing on this map: walk up to it first and play on a later step once there.
+        java.awt.Point machine = machineOn(bot.getMap(), town.npcId());
+        Long walked = walkedAt.get(bot.getId());
+        boolean walkedLately = walked != null && clock.getAsLong() - walked < WALK_RETRY_MS;
+        if (machine != null && needsWalk(bot.getPosition(), machine) && !walkedLately) {
+            walkedAt.put(bot.getId(), clock.getAsLong());
+            try {
+                soloMapling.ArtificialPlayer.BotTownSystem.TownLoiter.settle(bot, machine.x, machine.y, WALK_RADIUS,
+                        true);
+            } catch (RuntimeException e) {
+                return play(bot, town, overCeiling, rng, false);   // no nav data here: play from where it stands
+            }
+            String line = bot.getName() + " walks to the " + town.name() + " Gachapon";
+            if (QaLog.on(QaLog.Topic.GACHA)) {
+                QaLog.any(QaLog.Topic.GACHA, line);
+            }
+            return line;
+        }
         return play(bot, town, overCeiling, rng, false);
+    }
+
+    static final int WALK_RADIUS = 90;
+    /** A bot that walked to the machine and was moved off again plays from where it stands instead of walking again. */
+    static final long WALK_RETRY_MS = 5 * 60_000L;
+    private static final Map<Integer, Long> walkedAt = new ConcurrentHashMap<>();
+    static final int NEAR_X = 150, NEAR_Y = 60;
+
+    /** True when a bot at {@code at} is not yet at the machine (more than 150 px across or 60 px up/down). */
+    static boolean needsWalk(java.awt.Point at, java.awt.Point machine) {
+        return at == null || Math.abs(at.x - machine.x) > NEAR_X || Math.abs(at.y - machine.y) > NEAR_Y;
+    }
+
+    private static java.awt.Point machineOn(server.maps.MapleMap map, int npcId) {
+        try {
+            server.life.NPC npc = map.getNPCById(npcId);
+            return npc == null ? null : npc.getPosition();
+        } catch (RuntimeException e) {
+            return null;
+        }
     }
 
     /**
@@ -204,6 +243,7 @@ public final class BotGacha {
         clock = testClock == null ? System::currentTimeMillis : testClock;
         dayClock = testDay == null ? () -> LocalDate.now().toEpochDay() : testDay;
         days.clear();
+        walkedAt.clear();
         hourStart.set(0);
         hourCount.set(0);
     }
