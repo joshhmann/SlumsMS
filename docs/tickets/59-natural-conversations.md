@@ -3,7 +3,7 @@
 **Area:** Real bots / chat
 **Depends on:** 36 (fast/slow chat brain), 37 (natural conversations), 58 (affinity), 1.5.0 drama, guilds, economy
 **Status:** designed and built on `bots-convo-150` (from `test-1.5.0-rc4`, owner decision 2026-10-22: "squeeze it in,
-we're not in a rush"). Not deployed.
+we're not in a rush"). Not deployed. See "Built" at the end.
 
 ## Goal
 
@@ -328,3 +328,28 @@ id is 017 (with a rollback file and the `mapleroot_integration_migrations` ledge
 The owner talks to bots over several lines and they remember him, sound like different people, answer at human
 speed, and do what they say. Threads show up in towns and he can join them. `!rate` works and the daily JSON is
 there. With the LLM off the bank keeps bots talking without repeats. The cloud spend never passes its cap.
+
+## Built (branch `bots-convo-150`, 2026-10-22)
+
+| Phase | Commit | What |
+|---|---|---|
+| design | `ead6b6fe0` | this ticket, the probe tool, the labelled set |
+| 1 | `18a7942e3` | `ConvoContract`, `ConvoAction`, `ConvoGates`, `ConvoActions`, `ConvoSense`, `ConvoEntities`; `Priority` and `reply()` on the brain |
+| 2 | `1fcbeadbb` | wired into `BotConversation`; `RelationshipCard`, `ConvoPersona`, `VoiceStyler`, `HumanTiming`, `ChatBank`, `ConvoLines`, `RecentLines`, `ChatBankGen` + the first 419-line bank |
+| 3 | `ea9265f0c` | `ChatRouter`, `CloudBudget`, the `BOT_LLM_CLOUD_*` keys |
+| 4 | `b321f9a72` | `BotThreads`, the jump-in route in `Dispatcher`; tag acceptance tightened after probing qwen9b |
+| 5 | `5e0f8d896` | `!rate`, `ConvoTune`, `ConvoQuality` (transcripts, weights), `ConvoDailyScore`, `!qa cv-1..cv-7` |
+
+**Measured:**
+
+- GLiNER Decide: section 9 (held-out intent: rules 73%, rules + Decide 77%, no talk line read as a request).
+- Line bank heap: about 6.3 MB per 100k lines of 35 characters (`ChatBankTest`); the gzip file about 6 KB for the
+  first 419 lines (about 1.5 MB per 100k).
+- qwen9b with the contract prompt (6 lines, 0.35-0.63 s): plain lines read right ("lol ya u carried the whole thing
+  tbh"); it tags too freely, so tags need matching words (phase 4). One call for a 4-line thread takes about 2 s; its
+  leet kid sometimes types "XxXxXxXx", which the thread parser drops.
+
+Full suite: 4000 tests, 0 failures, 0 skipped (baseline rc4: 3899).
+
+**Not done / open:** the big bank generation (owner runs `tools/chatbank/generate.sh gen`), the cloud key and price
+check (owner), an owner check in game with the `cv-*` scenarios, a scratch-server run with real clients.
