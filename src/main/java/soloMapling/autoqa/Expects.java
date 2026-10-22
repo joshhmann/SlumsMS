@@ -84,6 +84,9 @@ public final class Expects {
     public static Expect atMost(int n, String regex, String afterMark, String beforeMark) {
         String where = (afterMark == null ? "" : " after " + afterMark) + (beforeMark == null ? "" : " before " + beforeMark);
         return of("at most " + n + " x /" + regex + "/" + where, r -> {
+            if (r.compile(regex) == null) {
+                return Verdict.fail("unknown placeholder in /" + regex + "/: nothing to judge");
+            }
             List<AutoQaLine> m = r.matching(regex, afterMark, beforeMark);
             if (m.size() <= n) {
                 return Verdict.pass("/" + r.fill(regex) + "/" + where + ": " + m.size() + " (max " + n + ")");
@@ -166,7 +169,10 @@ public final class Expects {
      */
     public static Expect numbersWithin(String regex, double min, double max) {
         return of("numbers of /" + regex + "/ within [" + min + ", " + max + "]", r -> {
-            Pattern p = Pattern.compile(r.fill(regex));
+            Pattern p = r.compile(regex);
+            if (p == null) {
+                return Verdict.fail("unknown placeholder in /" + regex + "/");
+            }
             List<String> bad = new ArrayList<>();
             int seen = 0;
             for (AutoQaLine l : r.lines()) {
@@ -197,7 +203,10 @@ public final class Expects {
             if (judge == null || !judge.available()) {
                 return Verdict.skip("no LLM judge configured (BOT_LLM_CLOUD_* or BOT_LLM_*)");
             }
-            Pattern p = Pattern.compile(r.fill(regex));
+            Pattern p = r.compile(regex);
+            if (p == null) {
+                return Verdict.fail("unknown placeholder in /" + regex + "/");
+            }
             List<AutoQaLine> lines = r.lines();
             List<String> evidence = new ArrayList<>();
             int sent = 0;

@@ -113,7 +113,10 @@ public final class SyntheticClient extends Client {
             String text = p.readString();
             add("MULTICHAT", (mode == 0 ? "buddy" : mode == 1 ? "party" : mode == 2 ? "guild" : "alliance") + " " + name + ": " + text);
         } else if (op == SPOUSE_CHAT) {
-            add("SPOUSE_CHAT", p.readString() + ": " + p.readString());
+            int mode = p.readByte();
+            String from = mode == 5 ? p.readString() : "";
+            p.readByte();
+            add("SPOUSE_CHAT", from + ": " + p.readString());
         } else if (op == PARTY) {
             int code = p.readByte() & 0xFF;
             if (code == 4) {

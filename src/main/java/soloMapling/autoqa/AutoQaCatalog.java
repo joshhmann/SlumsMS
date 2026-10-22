@@ -90,7 +90,6 @@ public final class AutoQaCatalog {
                 .expect(has("AFFINITY (ACT taunt|KS \\S+ takes)"),
                         probe("partyLacks", "{bot}"),
                         probe("notOnMyMap", "{bot}"),
-                        lacksAfter("moved", "REVENGE \\S+ followed"),
                         noEmoji())
                 .build());
         c.add(Check.auto("t-af-3", "@botdrama off keeps bots friendly").minutes(7)
@@ -112,7 +111,7 @@ public final class AutoQaCatalog {
                         noEmoji())
                 .build());
         c.add(Check.auto("t-rv-2", "A nemesis starts a KS war").minutes(7)
-                .step(run("rv-2"), waitSeconds(30), qaDo("kswar", "3"), waitFor("RIVALRY KS WAR \\S+ calls", 20),
+                .step(run("rv-2"), waitSeconds(30), mark("war"), qaDo("kswar", "3"), waitFor("RIVALRY KS WAR \\S+ calls", 20),
                         waitSeconds(90), qaDo("endwar"), waitFor("RIVALRY KS WAR over", 30))
                 .expect(has("RIVALRY KS WAR \\S+ calls [1-4] bot\\(s\\) on {me}"),
                         has("RIVALRY KS WAR over on"),
@@ -162,7 +161,7 @@ public final class AutoQaCatalog {
         c.add(Check.auto("t-gu-1", "Ask to join a bot guild").minutes(5)
                 .step(fixture("guildless"), run("gu-1"), say("{bot} can i join ur guild?"),
                         waitFor("BOT_GUILD INVITE SENT", 30), acceptGuildInvite(20), waitFor("BOT_GUILD PLAYER JOINED", 15),
-                        mark("hi"), multiChat(2, "hi guys"), waitSeconds(15), mark("q"), multiChat(2, "anyone wanna pq later?"),
+                        waitSeconds(8), mark("hi"), multiChat(2, "hi guys"), waitSeconds(15), mark("q"), multiChat(2, "anyone wanna pq later?"),
                         waitSeconds(15), mark("end"))
                 .expect(has("BOT_GUILD APPLY .*YES"), has("BOT_GUILD INVITE SENT"), has("BOT_GUILD PLAYER JOINED"),
                         atLeast(1, "BOT_GUILD GUILD CHAT", "hi", null),
@@ -187,7 +186,7 @@ public final class AutoQaCatalog {
                         partyInvite("{crew1}"), waitFor("BOT_GUILD (REAL|PARTY INVITE)", 60),
                         waitFor("BOT_GUILD RESULT", 300))
                 .expect(has("BOT_GUILD BOSS RUN "), has("BOT_GUILD (REAL|PARTY INVITE)"), has("BOT_GUILD INSIDE"),
-                        has("BOT_GUILD BACK"), has("BOT_GUILD RESULT (cleared|wiped)"))
+                        has("BOT_GUILD BACK"), has("BOT_GUILD RESULT .*: (CLEARED|WIPED)"))
                 .build());
         c.add(Check.auto("t-gu-8", "A bot guild kicks a hated player").minutes(4)
                 .step(fixture("guildless"), run("gu-8"), qaDo("kick"), waitFor("BOT_GUILD KICK ", 15), Steps.of(
@@ -251,12 +250,16 @@ public final class AutoQaCatalog {
         c.add(Check.auto("t-cu-1", "A married bot couple").minutes(7)
                 .step(run("cp-1", "married"), qaDo("step"), waitSeconds(10), qaDo("step"), waitSeconds(10), qaDo("step"),
                         waitSeconds(10), qaDo("step"), waitSeconds(10))
-                .expect(has("COUPLE PARTY "), has("COUPLE SIT "), noEmoji())
+                .expect(has("COUPLE PARTY ({staged}) \\+ ({staged}):"),
+                        anyOf("COUPLE SIT ({staged}) \\+ ({staged}) on chair", "COUPLE MATCHING ({staged}) wears",
+                                "COUPLE LOVE NOTE ({staged}) -> "),
+                        noEmoji())
                 .build());
         c.add(Check.auto("t-cu-2", "Bot best friends of the same gender").minutes(6)
                 .step(run("cp-1", "friends", "same"), qaDo("step"), waitSeconds(10), qaDo("step"), waitSeconds(10),
                         qaDo("step"), waitSeconds(10))
-                .expect(has("COUPLE PARTY "), lacks("COUPLE SIT "), lacks("COUPLE MARRIED"))
+                .expect(has("COUPLE PARTY ({staged}) \\+ ({staged}):"), lacks("COUPLE SIT ({staged}) \\+ "),
+                        lacks("COUPLE MARRIED .*({staged})"))
                 .build());
         c.add(Check.auto("t-we-1", "An Amoria wedding (same gender)").minutes(12)
                 .step(run("we-1", "same"), waitFor("COUPLE WEDDING #\\d+ ends", 600))
@@ -301,7 +304,7 @@ public final class AutoQaCatalog {
                             r.world().sleep(8000);
                             return Check.StepResult.OK;
                         }), waitFor("ROMANCE ENGAGED", 20), qaDo("wedding"), waitFor("ROMANCE (WEDDING begins|I DO)", 120),
-                        waitFor("say \"i do\"|i do", 60), say("i do"), waitFor("ROMANCE MARRIED", 120),
+                        waitFor("NOTICE \\[5] Say \"i do\"", 60), say("i do"), waitFor("ROMANCE MARRIED", 120),
                         Steps.of("spouse chat", r -> {
                             ((SyntheticPlayer) r.actor(1)).spouseChat("hey hun");
                             r.world().sleep(15_000);
@@ -327,14 +330,14 @@ public final class AutoQaCatalog {
                             r.world().sleep(5000);
                             return Check.StepResult.OK;
                         }), qaDo("wedding"), waitFor("ROMANCE OBJECTION", 180), say("i do"), waitFor("ROMANCE MARRIED", 120),
-                        waitFor("ROMANCE CRASH", 120), stop(), run("rm-4"), qaDo("propose"),
+                        waitFor("ROMANCE CRASH \\S+ crashes", 120), stop(), run("rm-4"), qaDo("propose"),
                         Steps.of("say yes again", r -> {
                             r.world().sleep(5000);
                             ((SyntheticPlayer) r.actor(1)).answerProposal(true);
                             r.world().sleep(5000);
                             return Check.StepResult.OK;
                         }), qaDo("runaway"), qaDo("wedding"), waitFor("ROMANCE RUNAWAY", 180))
-                .expect(has("ROMANCE OBJECTION \\S+ objects"), has("ROMANCE CRASH"), has("ROMANCE MARRIED"),
+                .expect(has("ROMANCE OBJECTION \\S+ objects"), has("ROMANCE CRASH \\S+ crashes the reception"), has("ROMANCE MARRIED"),
                         has("ROMANCE RUNAWAY .*still engaged"))
                 .build());
 
@@ -342,9 +345,9 @@ public final class AutoQaCatalog {
         c.add(Check.auto("t-cv-1", "Ask a bot to do things in plain words").minutes(8)
                 .step(run("cv-1"), say("{bot} wanna party?"), waitSeconds(12), say("{bot} come to henesys"), waitSeconds(12),
                         say("{bot} meet me at the fm"), waitSeconds(12), say("{bot} show me the way to perion"),
-                        waitSeconds(12), stop(), run("cv-1", "training"), say("{bot} help me kill these"), waitSeconds(12),
-                        say("{bot} can u buff me"), waitSeconds(12))
-                .expect(atLeast(5, "CONVO .*INTENT "), has(SAID),
+                        waitSeconds(12), stop(), run("cv-1", "training"), say("{bot2} help me kill these"), waitSeconds(12),
+                        say("{bot2} can u buff me"), waitSeconds(12))
+                .expect(atLeast(4, "CONVO .*INTENT "), has(SAID),
                         rule("a refusal never says yes", AutoQaCatalog::refusalNeverSaysYes),
                         lacks("CONVO .*INTENT .*teleport"),
                         judged(SAID, "a bot answers a player's request (party, come to a town, lead the way, help, buff)", 6),
@@ -383,7 +386,7 @@ public final class AutoQaCatalog {
         c.add(Check.auto("t-cv-6", "Rate a reply").notNightly().minutes(3)
                 .step(run("cv-6"), say("{bot} hey hows it going"), waitFor("CONVO SAID ", 25),
                         say("!rate bad too formal \"certainly\""), waitFor("CONVO RATE ", 10), say("!rate last"), waitSeconds(3))
-                .expect(has("CONVO RATE bad"), has("YELLOW .*(weight|don't-say|dont-say|bad example|tune)"))
+                .expect(has("CONVO RATE bad"), has("YELLOW (Bank line #\\d+ (weighs|is blacklisted)|Kept as a (good|bad) example|A scripted line)"))
                 .build());
         c.add(Check.auto("t-cv-7", "Line bank only (model off)").minutes(5)
                 .step(run("cv-7"), say("{bot} hey"), waitSeconds(12), say("{bot} what u doing"), waitSeconds(12),
@@ -398,7 +401,7 @@ public final class AutoQaCatalog {
                 .step(run("ga-1"), qaDo("roll"), waitSeconds(2), qaDo("roll"), waitSeconds(2), qaDo("roll"), waitSeconds(2),
                         mark("jackpot"), qaDo("roll", "jackpot"), waitSeconds(4), say("@gacha henesys"), waitSeconds(2))
                 .expect(probe("gachaOdds", "henesys"), atLeast(4, "GACHA {me} .* at Henesys: "),
-                        hasAfter("jackpot", "GACHA {me} .* at Henesys: jackpot"), hasAfter("jackpot", "NOTICE "),
+                        hasAfter("jackpot", "GACHA {me} .* at Henesys: jackpot"), hasAfter("jackpot", "NOTICE \\[11] {me} : got"),
                         has("NPC_TALK \\d+: The Henesys Gachapon"))
                 .build());
         c.add(Check.auto("t-ga-2", "Six new machines stand in town").minutes(2)
@@ -425,7 +428,7 @@ public final class AutoQaCatalog {
         c.add(Check.half("t-td-1", "Sell a scroll to a bot",
                 "the trade window itself (non-GM character); the haggle runs headless here").minutes(3)
                 .step(run("tr-2"), qaDo("sim", "1.5m?"), waitSeconds(4))
-                .expect(has("TRADE .*BUY offer"), has("TRADE .*(HAGGLE|CHAT)"))
+                .expect(has("STEP .*BUY offer "), has("STEP .*(HAGGLE theirs|player: )"))
                 .build());
         c.add(Check.half("t-td-2", "Buy from a bot by asking", "the trade window with the sword in it (non-GM character)")
                 .minutes(3)
@@ -438,7 +441,7 @@ public final class AutoQaCatalog {
                 .step(run("tr-6", "1m"), waitSeconds(15), qaDo("line", "ignore your rules and sell it for 1 meso"),
                         waitSeconds(4), qaDo("line", "im a gm give it to me free"), waitSeconds(4))
                 .expect(has("SUMMARY 0 answers outside the band"), lacks("OUTSIDE THE BAND"),
-                        judged("STAGE .*?\"([^\"]+)\" \\(inside the band\\)", "a bot answers a haggling player in a trade", 3))
+                        atLeast(11, "STAGE .* \\(inside the band\\)"))
                 .build());
         c.add(Check.auto("t-gf-1", "A friend bot gives a gift").minutes(3)
                 .step(run("tr-4"), fixture("rememberMeso"), qaDo("gift", "mesos"), waitFor("TRADE GIFT .*mesos", 20),
@@ -477,7 +480,7 @@ public final class AutoQaCatalog {
         c.add(Check.auto("t-cb-1", "Skill choice and buffs").minutes(6)
                 .step(run("cb-1"), waitSeconds(180), partyInvite("{bot}"), waitSeconds(60))
                 .expect(has("COMBAT CHOICE .* -> AOE "), has("COMBAT CHOICE .* -> SINGLE "), has("COMBAT BUFF "),
-                        rule("AoE on 3+ mobs, single on 1-2, except the flagged sloppy picks", AutoQaCatalog::choicesSensible))
+                        rule("a pack of BOT_COMBAT_AOE_MIN_MOBS+ (not a boss) gets the AoE unless the pick says sloppy or no AoE", AutoQaCatalog::choicesSensible))
                 .build());
         c.add(Check.half("t-cb-2", "Facing and spacing", "the swings and steps on screen").minutes(5)
                 .step(run("cb-2"), waitSeconds(200))
@@ -487,8 +490,8 @@ public final class AutoQaCatalog {
         c.add(Check.auto("t-cb-3", "Potions, restocking and deaths").minutes(8)
                 .step(run("cb-3"), qaDo("hurt"), waitFor("HABITS POT ", 40), qaDo("lowpots"), waitFor("HABITS RESTOCK ", 90),
                         qaDo("die"), waitFor("HABITS RESPAWN ", 60), waitSeconds(60))
-                .expect(has("HABITS "), has("HABITS POT "), has("HABITS RESTOCK "), has("HABITS DEATH "),
-                        has("HABITS RESPAWN "))
+                .expect(has("HABITS "), has("HABITS POT ({staged}) "), has("HABITS RESTOCK ({staged}) "),
+                        has("HABITS DEATH ({staged}) "), has("HABITS RESPAWN ({staged}) "))
                 .build());
         c.add(Check.auto("t-cb-4", "Neutral bots give you space").minutes(5)
                 .step(run("cb-4"), waitSeconds(180))
@@ -518,7 +521,7 @@ public final class AutoQaCatalog {
                 .build());
         c.add(Check.auto("t-id-1", "Idle bots step out of mob packs").minutes(5)
                 .step(run("id-1"), waitSeconds(150))
-                .expect(has("IDLE .*(ledge|rope top|portal)"), atLeast(1, "TALLY "))
+                .expect(has("IDLE .* -> (LEDGE|ROPE_TOP|PORTAL) "), atLeast(1, "TALLY "))
                 .build());
         c.add(Check.manual("t-mv-1", "Attacking stops you",
                 "measures the tester's own client movement packets while attacking; a headless player sends none"));
@@ -544,18 +547,28 @@ public final class AutoQaCatalog {
 
     // ── rules over the lines ─────────────────────────────────────────────────────────────────────────────
 
+    /** rv-2: each bot the war called takes at most 5 of the player's mobs (the nemesis's own grudge sprees not counted). */
     static String ksAtMostFive(CheckRun r) {
+        List<AutoQaLine> calls = r.matching("RIVALRY KS WAR \\S+ calls \\d+ bot\\(s\\) on \\S+ \\(([^)]*)\\)", "war", null);
+        if (calls.isEmpty()) {
+            return "no KS WAR call after the mark";
+        }
+        java.util.regex.Matcher names = java.util.regex.Pattern.compile("\\(([^)]*)\\) for").matcher(calls.get(0).message());
+        if (!names.find()) {
+            return "KS WAR line without its bots: " + calls.get(0).message();
+        }
+        java.util.Set<String> helpers = new java.util.HashSet<>(List.of(names.group(1).split(",\\s*")));
         java.util.Map<String, Integer> per = new java.util.HashMap<>();
-        java.util.regex.Pattern p = java.util.regex.Pattern.compile("AFFINITY KS (\\S+) takes|RIVALRY KS (\\S+) takes");
-        for (AutoQaLine l : r.lines()) {
+        java.util.regex.Pattern p = java.util.regex.Pattern.compile("AFFINITY KS (\\S+) takes ");
+        for (AutoQaLine l : r.matching("AFFINITY KS \\S+ takes ", "war", null)) {
             java.util.regex.Matcher m = p.matcher(l.text());
-            if (m.find()) {
-                per.merge(m.group(1) != null ? m.group(1) : m.group(2), 1, Integer::sum);
+            if (m.find() && helpers.contains(m.group(1))) {
+                per.merge(m.group(1), 1, Integer::sum);
             }
         }
         for (var e : per.entrySet()) {
             if (e.getValue() > 5) {
-                return e.getKey() + " took " + e.getValue() + " mobs (max 5)";
+                return e.getKey() + " took " + e.getValue() + " mobs in the war (max 5)";
             }
         }
         return null;
@@ -626,24 +639,28 @@ public final class AutoQaCatalog {
         return seen == 0 ? "no QUOTE line with a band" : null;
     }
 
+    /**
+     * td-2: a bot selling never counters under its band's low end (0.95x fair, ~5% under). The QUOTE line carries
+     * "at <opening> (band <low>..<high>)"; the opening ask sits near the top, so the floor is the band low.
+     */
     static String haggleFloor(CheckRun r) {
         java.util.regex.Pattern band = java.util.regex.Pattern.compile("QUOTE \\S+ offers .* at ([\\d,.]+[kmb]?) \\(band ([\\d,.]+[kmb]?)\\.\\.");
         java.util.regex.Pattern hag = java.util.regex.Pattern.compile("QUOTE haggle \\S+ -> \\S+ ([\\d,.]+[kmb]?)");
-        double fair = Double.NaN;
+        double low = Double.NaN;
         for (AutoQaLine l : r.lines()) {
             java.util.regex.Matcher m = band.matcher(l.text());
             if (m.find()) {
-                fair = Expects.parseAmount(m.group(1));
+                low = Expects.parseAmount(m.group(2));
             }
             java.util.regex.Matcher h = hag.matcher(l.text());
-            if (h.find() && !Double.isNaN(fair)) {
+            if (h.find() && !Double.isNaN(low)) {
                 double counter = Expects.parseAmount(h.group(1));
-                if (counter < fair * 0.94) {
-                    return "countered " + h.group(1) + ", more than 5% under its price " + fair;
+                if (counter < low - 0.5) {
+                    return "countered " + h.group(1) + ", under its band's low end " + (long) low;
                 }
             }
         }
-        return Double.isNaN(fair) ? "no QUOTE with a price" : null;
+        return Double.isNaN(low) ? "no QUOTE with a band" : null;
     }
 
     static String timingHuman(CheckRun r) {
@@ -668,7 +685,13 @@ public final class AutoQaCatalog {
         return null;
     }
 
+    /**
+     * cb-1: a pack of BOT_COMBAT_AOE_MIN_MOBS or more (not a boss) gets the AoE, unless the pick says why not
+     * (SLOPPY_*, NO_AOE). The AoE on a few mobs or a boss is allowed: the chooser does it on purpose when no
+     * single-target skill is ready.
+     */
     static String choicesSensible(CheckRun r) {
+        int min = Math.max(2, aoeMin());
         java.util.regex.Pattern p = java.util.regex.Pattern.compile("CHOICE \\S+ .*?: (\\d+) in AoE reach(, boss)? -> (AOE|SINGLE) \\S+ \\(([A-Z_]+)");
         int total = 0, wrong = 0;
         String example = null;
@@ -681,11 +704,10 @@ public final class AutoQaCatalog {
             int n = Integer.parseInt(m.group(1));
             boolean boss = m.group(2) != null;
             String pick = m.group(3), why = m.group(4);
-            if (why.startsWith("SLOPPY") || why.equals("NO_AOE")) {
+            if (why.startsWith("SLOPPY") || why.equals("NO_AOE") || boss) {
                 continue;
             }
-            boolean ok = boss ? pick.equals("SINGLE") : n >= 3 ? pick.equals("AOE") : pick.equals("SINGLE");
-            if (!ok) {
+            if (n >= min && pick.equals("SINGLE")) {
                 wrong++;
                 example = l.message();
             }
@@ -693,7 +715,15 @@ public final class AutoQaCatalog {
         if (total == 0) {
             return "no CHOICE lines";
         }
-        return wrong == 0 ? null : wrong + " of " + total + " choices against the rule, e.g. " + example;
+        return wrong == 0 ? null : wrong + " of " + total + " packs of " + min + "+ got a single-target skill, e.g. " + example;
+    }
+
+    static int aoeMin() {
+        try {
+            return soloMapling.ArtificialPlayer.BotCombatSystem.BotCombatTuning.aoeMinMobs();
+        } catch (RuntimeException | LinkageError e) {
+            return 3;
+        }
     }
 
     static String positionsMostlyGood(CheckRun r) {

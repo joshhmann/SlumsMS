@@ -129,9 +129,13 @@ public final class Steps {
         return of("wait up to " + seconds + " s for /" + regex + "/", r -> {
             long deadline = r.world.now() + seconds * 1000L;
             long from = r.previousStepStart();
+            Pattern p = r.compile(regex);
+            if (p == null) {
+                return StepResult.OK; // noted; the expectations will fail on the same unknown
+            }
             while (r.world.now() < deadline) {
                 for (AutoQaLine l : r.lines()) {
-                    if (l.timeMs() >= from && Pattern.compile(r.fill(regex)).matcher(l.text()).find()) {
+                    if (l.timeMs() >= from && p.matcher(l.text()).find()) {
                         return StepResult.OK;
                     }
                 }
@@ -156,7 +160,10 @@ public final class Steps {
      */
     public static Step capture(String var, String regex) {
         return of("capture {" + var + "} from /" + regex + "/", r -> {
-            Pattern p = Pattern.compile(r.fill(regex));
+            Pattern p = r.compile(regex);
+            if (p == null) {
+                return StepResult.fail("unknown placeholder in /" + regex + "/");
+            }
             for (AutoQaLine l : r.lines()) {
                 Matcher m = p.matcher(l.text());
                 if (m.find()) {

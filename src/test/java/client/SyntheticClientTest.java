@@ -68,6 +68,13 @@ class SyntheticClientTest {
     }
 
     @Test
+    void spouseChatSkipsItsModeBytes() {
+        SyntheticClient c = new SyntheticClient(1, 0, 1);
+        c.sendPacket(PacketCreator.OnCoupleMessage("AutoQaOne", "hi love", true));
+        assertEquals(List.of("SPOUSE_CHAT AutoQaOne: hi love"), c.heardSince(0).stream().map(AutoQaLine::text).toList());
+    }
+
+    @Test
     void npcTalkIsReadWithoutItsColourCodes() {
         SyntheticClient c = new SyntheticClient(1, 0, 1);
         c.sendPacket(PacketCreator.getNPCTalk(9010000, (byte) 0, "The #bHenesys#k Gachapon:\r\n#rCOMMON#k 70%", "00 00", (byte) 0));

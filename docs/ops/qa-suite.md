@@ -326,6 +326,11 @@ reads map player lists (copies taken under the map lock) and never loads a map. 
 | (e) `invalidMaps` | A bot on map 999999999 or a GM, jail or developer map, standing in a map other than its character's map id, or outside the map's foothold bounds by 200+ px | FAIL |
 | (f) `errors` | Lines in `logs/cosmic-log.log` containing ` ERROR ` (or an uncaught exception) since the last sweep, against the median of the last 12 windows: 20+ and over 3x the median is a spike | FAIL |
 
+The sweep is the periodic, server-wide form of `!botground channel` (rc5 ground fix): `!botground` uses a 1 px
+tolerance on demand, the sweep 2 px so slope rounding never pages anyone. `HenesysGroundWzTest` also checks the three
+townspeople of the rc5 report (NachoHat08 at (1148, 363) on y 334, MochiUltra, CandyClock: 28-29 px down) come out
+SUNK.
+
 Why the foothold check looks both ways: `FootholdTree.findBelow` only looks at or below a point. A bot sunk into
 the ground finds the next platform down, or nothing, and every server lookup thinks it is fine.
 `HenesysGroundWzTest` shows a real case on rc5. The Henesys filler range "left side top plat", (-286, 101) to
@@ -357,6 +362,12 @@ level 70 Warriors in Henesys, with normal database ids far below the bot id base
   proposals and their answer, spouse chat.
 - What their client receives is kept as lines: map chat, whispers, notices, the yellow command answers, buddy,
   party and guild chat, invites, proposals and NPC talk. Other packets are dropped after reading their opcode.
+
+They are not counted as connected players: `PlayerStorage.getConnectedPlayerCount` leaves them out as it leaves out
+bots, so a run never fills a world, trips the world-full check or raises a channel's real-player count. In the load
+bar they weigh like a bot (a quarter of a player, two of them at most). They are not bots either, so the bot counts
+(`BotChannels`, the population director) never see them. Login limits do not apply: they have their own accounts and
+skip the login server.
 
 They cannot move by input (a move is a server warp or `!warp`), attack, open the Cash Shop, buy from NPC or player
 shops, or use a trade window yet. Checks that need those are half or manual, below.
@@ -449,5 +460,11 @@ local model (`BOT_LLM_*`), else none.
 3. `AutoQaCatalogTest` keeps the page order, checks that every `!qa run` scenario exists, and compiles every
    pattern. `AutoQaRunnerTest` drives the runner against a scripted world.
 
+Patterns must match what the hook really writes (case, order, topic and note kind). `AutoQaCatalogPatternTest` feeds
+checks lines copied from the game's own format strings. Add a case there when you add or change a pattern. A
+placeholder that never gets filled (a staged bot that did not show up) fails the expectation. It never passes a
+`lacks` and never throws.
+
 Tests: `FootholdCheckTest`, `SweepMathTest`, `HealthSweepTest`, `HenesysGroundWzTest` (needs wz/), `AutoQaRunnerTest`,
-`AutoQaReportTest`, `AutoQaCatalogTest`, `LlmJudgeTest`, `SyntheticClientTest`.
+`AutoQaReportTest`, `AutoQaCatalogTest`, `AutoQaCatalogPatternTest`, `LlmJudgeTest`, `SyntheticClientTest`,
+`PlayerStorageTest`.

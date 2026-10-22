@@ -107,10 +107,12 @@ public final class CheckRun {
     /** Remembers staged bot ids found in the lines ({@code {bot}} is the first, then {@code {bot2}} ...). */
     void learnBots(List<AutoQaLine> lines) {
         for (AutoQaLine l : lines) {
-            if (!l.isQa() || !("STAGE".equals(l.kind()) || "PERSONA".equals(l.kind()))) {
+            boolean staging = l.isQa() && ("STAGE".equals(l.kind()) || "PERSONA".equals(l.kind())
+                    || "AFFINITY".equals(l.kind()) && l.message().startsWith("STAGED bot "));
+            if (!staging) {
                 continue;
             }
-            Matcher m = BOT_ID.matcher(l.message());
+            Matcher m = BOT_ID.matcher("AFFINITY".equals(l.kind()) ? l.message().split(" -> ")[0] : l.message());
             while (m.find()) {
                 int id = Integer.parseInt(m.group(1));
                 if (stagedBots.add(id)) {
@@ -118,6 +120,8 @@ public final class CheckRun {
                     String name = world.nameOf(id);
                     if (name != null) {
                         vars.putIfAbsent(n == 1 ? "bot" : "bot" + n, name);
+                        String all = vars.get("staged");
+                        vars.put("staged", (all == null ? "" : all + "|") + Pattern.quote(name));
                     }
                 }
             }
@@ -137,6 +141,27 @@ public final class CheckRun {
         return out;
     }
 
+    static final Pattern UNFILLED = Pattern.compile("\\{[a-z][a-z0-9]*}");
+
+    /**
+     * The pattern with its placeholders filled, or null (with a note) when one is still unknown - a staged bot that
+     * never showed up must make the expectation fail cleanly, not throw "Illegal repetition".
+     */
+    public Pattern compile(String regex) {
+        String filled = fill(regex);
+        Matcher m = UNFILLED.matcher(filled);
+        if (m.find()) {
+            lines(); // learn the staged bots logged since, then try again
+            filled = fill(regex);
+            m = UNFILLED.matcher(filled);
+        }
+        if (m.find(0)) {
+            note("unknown " + m.group() + " in /" + regex + "/ (no staged bot or variable by that name)");
+            return null;
+        }
+        return Pattern.compile(filled);
+    }
+
     /** Every line of this check so far: the GM's qa lines and what each player heard, in time order. */
     public List<AutoQaLine> lines() {
         List<AutoQaLine> all = new ArrayList<>();
@@ -154,7 +179,10 @@ public final class CheckRun {
 
     /** The lines matching the pattern (against "KIND message", placeholders filled) between two marks. */
     public List<AutoQaLine> matching(String regex, String afterMark, String beforeMark) {
-        Pattern p = Pattern.compile(fill(regex));
+        Pattern p = compile(regex);
+        if (p == null) {
+            return List.of();
+        }
         long from = afterMark == null ? startMs : markTime(afterMark);
         long to = beforeMark == null ? Long.MAX_VALUE : markTime(beforeMark);
         List<AutoQaLine> out = new ArrayList<>();
