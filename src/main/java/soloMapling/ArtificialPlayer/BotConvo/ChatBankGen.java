@@ -341,9 +341,6 @@ public final class ChatBankGen {
             }
             s.append("(they are filled in later). ");
         }
-        s.append("Each line under 55 characters, era slang, no emojis, no hashtags, no quotes, no numbering. ")
-                .append("Never mention being an AI, a bot or a program. Nothing about real life, real places or news. ")
-                .append("Vary them: different words, not the same line reworded. One line per row, nothing else.");
         return s.toString();
     }
 
@@ -367,14 +364,25 @@ public final class ChatBankGen {
         }
     }
 
+    /**
+     * The fixed rules, first and word for word the same in every call: providers with prefix caching (DeepSeek) bill
+     * a repeated prefix at about 1/50 of the input price. Only the cell's details follow, in the user message.
+     */
+    static final String SYSTEM = "You write short in-game chat lines for a game's line bank: what real players typed "
+            + "in MapleStory in 2008. Output only the lines, one per row, nothing else. Rules for every line: under 55 "
+            + "characters; era slang; no emojis, no hashtags, no quotes, no numbering; never mention being an AI, a bot "
+            + "or a program; nothing about real life, real places or news; insults only about the game (gear, level, "
+            + "skill, KS), never about anyone's looks, family, race, gender or sexuality. Vary them: different words, "
+            + "not the same line reworded. Placeholders like {map} or {player} are kept exactly as written; they are "
+            + "filled in later. When a request names a typing style, use it lightly.";
+
     /** One completion; returns [text, prompt tokens, completion tokens] or null. */
     Object[] complete(String url, String model, String key, String prompt) throws InterruptedException {
         Map<String, Object> body = new LinkedHashMap<>();
         if (model != null && !model.isBlank()) {
             body.put("model", model);
         }
-        body.put("messages", List.of(Map.of("role", "system", "content",
-                        "You write short in-game chat lines for a game's line bank. Output only the lines."),
+        body.put("messages", List.of(Map.of("role", "system", "content", SYSTEM),
                 Map.of("role", "user", "content", prompt)));
         body.put("max_tokens", 260);
         body.put("temperature", 1.0);
