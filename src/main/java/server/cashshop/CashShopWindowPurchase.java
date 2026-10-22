@@ -198,6 +198,13 @@ public final class CashShopWindowPurchase {
                 if (r == null) {
                     return new Result(CashShopWindowPackets.BUY_UNKNOWN_ITEM, itemId, 0, 0);
                 }
+                // A couple/friendship ring needs a partner and its ring rows (CashShopPartnerRings): never as a
+                // plain item, so never in a cart. The window's single Buy takes it through the name prompt.
+                if (CashShopPartnerRings.isPartnerRing(itemId)) {
+                    chr.dropMessage(1, "Buy couple and friendship rings on their own with Buy: you will be asked"
+                            + " for your partner's name. Nothing was bought.");
+                    return new Result(CashShopWindowPackets.BUY_BAD_CART, itemId, 0, 0);
+                }
                 // The stock purchase gates and the service caps. Refused here, before any
                 // NX or inventory is touched, with the reason as a popup: the DLL only has
                 // fixed texts for its result codes.

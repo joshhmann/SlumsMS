@@ -6,6 +6,7 @@ import net.AbstractPacketHandler;
 import net.packet.InPacket;
 import net.packet.Packet;
 import server.cashshop.CashShopCatalog;
+import server.cashshop.CashShopPartnerRings;
 import server.cashshop.CashShopServices;
 import server.cashshop.CashShopWindowPackets;
 import server.cashshop.CashShopWindowPurchase;
@@ -121,6 +122,11 @@ public final class CashShopWindowHandler extends AbstractPacketHandler {
             return;
         }
         final int itemId = p.readInt();
+        if (CashShopPartnerRings.isPartnerRing(itemId)) {
+            // Couple/friendship rings need a partner name first; the result is sent when the prompt is answered.
+            CashShopPartnerRings.begin(c, chr, itemId);
+            return;
+        }
         final CashShopWindowPurchase.Result r =
                 CashShopWindowPurchase.buy(c, chr, new int[]{itemId});
         c.sendPacket(CashShopWindowPackets.buyResult(r.code(), itemId));

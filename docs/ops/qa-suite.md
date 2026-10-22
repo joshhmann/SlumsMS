@@ -22,7 +22,7 @@ using live's and the test server's real command lines. The command needs GM leve
 | `!qa stop` | Ends the run, undoes the staging and closes the log |
 
 You can run one scenario at a time. Scenarios that claim a map (bk, gd, fm, gh, tr-1) refuse to start while another GM's
-scenario holds that map. A run stops on its own after 15 minutes. ld-1, mv-1, pe-1, ga-2, tr-4 and tr-6 stop after 10, ga-1 and tr-1 after 20, tr-5 after 30, wd-2 after 5, and bk-1 after
+scenario holds that map. A run stops on its own after 15 minutes. ld-1, mv-1, pe-1, ga-2, tr-4 and tr-6 stop after 10, ga-1, tr-1, pr-1 and pr-2 after 20, tr-5 after 30, wd-2 after 5, and bk-1 after
 the showcase's own minutes plus one.
 
 ## Scenarios (1.4.1)
@@ -75,6 +75,8 @@ the showcase's own minutes plus one.
 | `tr-5` `[item id]` (1.5.0 rc3) | Nothing: logs the price board's detail for the item (default 2040804) and the FM shop tax at 100k, 1m, 5m, 25m and 100m. `!qa do price <id>`, `!qa do tax <price>` | Every `PRICE sample` and `SHOP SALE` fee while it runs, server-wide |
 | `tr-6` `[fair, e.g. 1m]` (1.5.0 rc3) | Nothing: runs 11 player lines (prompt injections included) through the haggle brain and the price band, the bot buying and selling. `!qa do line <text>` tries another | Each line's move and the bot's answer marked `inside the band` or `OUTSIDE THE BAND`; `SUMMARY` with the count outside (must be 0) |
 | `tr-7` (1.5.0 rc3) | Warps you to the FM entrance by the cosmetics merchant (Hanako) and gives you 50m (taken back at stop, up to what is left). `!qa do meters` | `SINK` lines: cosmetics merchant purchases; the economy meters at start |
+| `pr-1` `<partner> [ring id]` (1.5.0, real client, two players) | Needs a second, non-bot character online (a second account; bots are refused as ring partners): name it. Gives you 12,000 NX credit and pulls the partner next to you (same channel; otherwise move it by hand). Then by hand: (1) Cash Shop, Ring category, **Friendship Ring : Clover** (1112800, 3600 NX; or the id given), press **Buy** (Buy Cart refuses partner rings). (2) The Maple Administrator prompt asks for the partner's name: type it. (3) Both get the ring in the Equip inventory, the partner with a popup; NX goes down once. (4) Both equip it and **change channel once**, come back together: the friendship ring effect shows on both screens (and on a third client if you have one). (5) Esc on the prompt, a wrong name and an offline name: popup, nothing charged. (6) Buy the same ring with the same partner again: refused. `!qa do rings` lists both characters' ring records | `RING`: `PROMPT`, `REFUSED` (code and reason), `CANCELLED`, `NOTHING WAITING`, `BOUGHT` (both ring row ids and partner ids); `EQUIP` lines when either equips the ring. `before:` lines with both characters' ring records at stage |
+| `pr-2` `<partner> [ring id]` (1.5.0, real client, two players) | As pr-1 with a **couple** ring (default Crush Ring 1112001, 4800 NX; any of 1112001-1112003, 1112005-1112007, 1112012). Use two characters of the **same** gender at least once: there is no gender check (owner decision) | As pr-1 |
 
 What `!qa stop` undoes:
 
@@ -88,6 +90,8 @@ What `!qa stop` undoes:
 - cb-1..cb-4, sp-1, pt-1: the staged grinders leave (pt-1: their pets with them) (a cb-3 bot that died loses the EXP, as any death does, then leaves).
 - gu-1..gu-8: staged guild bots leave their guild and the world; gu-1/gu-3/gu-8 make you leave a guild you joined during the
   run; gu-5 ends the boss run (bots inside log back in).
+- pr-1/pr-2: the NX given is taken back, up to what is left of it. Rings bought and their ring records stay
+  (they are real purchases; delete a test pair with the GM tools if needed). The partner is not warped back.
 - tr-1: the bot's shop closes (unsold items back to it) and the bot leaves. tr-4: the gift chance goes back to
   economy.yaml and the friend bot leaves. tr-7: the 50m are taken back, up to what you still have.
 

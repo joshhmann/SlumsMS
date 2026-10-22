@@ -51,7 +51,8 @@ public final class QaLog {
         MANNERS,        // 1.5.0 rc3: neutral bots yielding a player's platform, moving on, "cc?" (cb-4)
         SPREAD,         // 1.5.0 rc3: spot claims per channel, personal space, rope waits (sp-1)
         TRADE,          // 1.5.0 rc3 economy: bot shops, direct trades and haggles, gifts, price samples, tax (tr-1..tr-6)
-        PETS;           // 1.5.0 rc4: bot pets: who has which, pet pickups (pt-1)
+        PETS,           // 1.5.0 rc4: bot pets: who has which, pet pickups (pt-1)
+        RING;           // 1.5.0: Cash Shop couple/friendship rings: prompts, refusals, both ring records (pr-1, pr-2)
 
         final int bit = 1 << ordinal();
     }

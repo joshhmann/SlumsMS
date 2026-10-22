@@ -59,8 +59,11 @@ on disk is stale.
   equips and "Transparent" items.
 - Equips that are not cash-flagged. A `cash` flag stored as a string counts as not cash-flagged.
   This matches what cashshop-fixes dropped.
-- **Rings that need a partner ring record**: every ring in `Effect.wz/ItemEff`, which covers
-  crush, friendship, wedding and couple rings. They stay out until the window has a partner flow.
+- **Rings that need a partner ring record** and are not sold by the window's partner flow: every ring
+  in `Effect.wz/ItemEff` (crush, friendship, wedding and the newer couple/effect rings) except the ids in
+  `CashShopPartnerRings.COUPLE_RINGS` / `FRIENDSHIP_RINGS` (1.5.0). Those 13 v83 rings are sold: Buy asks
+  for the partner's name and makes both ring records (see "Partner rings" below). `catalog_rules.py`
+  reads the id lists from that Java file, so the catalogue and the server cannot disagree.
 - **Packages** (9xxxxxx, until unpacking exists) and storage +8. The service rows
   5430000/9111000-9114000 are kept.
 - Items with no working handler:
@@ -83,6 +86,22 @@ The Coloring Prism (5782000, addon-colorprism) is not in stock v83 data. Its row
 that has had `tools/colorprism/install_wz.py` applied; lint it with `--wz` pointing at such a WZ, or
 add the item to the default WZ the same way. A server WZ without it refuses the purchase
 (`BUY_UNKNOWN_ITEM`) without charging.
+
+### Partner rings (1.5.0)
+
+Couple rings 1112001-1112003, 1112005-1112007, 1112012 and friendship rings 1112800-1112802,
+1112810-1112812 are stock rows at their stock Commodity.img price (the price buys the pair). The window's
+Buy on one of them opens a name prompt (`scripts/npc/cashshop_partner_ring.js`); the partner must be another
+player online in the world. Both `rings` rows are written in one transaction, each player gets a copy straight
+into their Equip inventory, then the NX is taken (`server.cashshop.CashShopPartnerRings`). A cart never takes
+a partner ring. No gender check (owner decision). To sell another ItemEff ring, add its id to the Java set
+(after checking its effect on a real client), rebuild and lint.
+
+The ring band (type 111) is pinned at 4400 in `prices.band_defaults`: the partner rings are stock samples and
+would otherwise have moved every band-priced label/quote ring to 4500.
+
+The Coloring Prism row needs a WZ with `tools/colorprism/install_wz.py` applied (see below). Build against
+such a WZ (a scratch copy is fine) or the rebuild drops 5782000.
 
 ### Categories the window does not have yet
 

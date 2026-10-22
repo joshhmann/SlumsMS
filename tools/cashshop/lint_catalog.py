@@ -97,7 +97,7 @@ def lint(path, wz, ov, kcats):
             if why:
                 err(n, i, f"never sellable: {why}")
             if R.ring_record_needed(i, wz):
-                err(n, i, "ring needs a partner ring record")
+                err(n, i, "ring needs a partner ring record (not in CashShopPartnerRings)")
             for flag, (ids, desc) in R.FLAG_GATED.items():
                 if i in ids and not flags.get(flag, False):
                     err(n, i, f"flag {flag} is off: {desc}")

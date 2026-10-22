@@ -120,10 +120,33 @@ NEVER = [
     ((4000000, 4999999), "Etc/quest item, not Cash Shop merchandise"),
     ((9110000, 9110000), "Storage +8: every storage is already at the server cap"),
 ]
-# Rings that only work with a partner ring record (Ring.createRing + the partner's copy),
-# which the window cannot make: every ring whose look lives in Effect.wz/ItemEff -- crush
-# 11120xx, friendship 11128xx, wedding 1112803-09 and the newer couple rings. Those effects
-# are drawn only for a ring with a ring record. Label/quote rings (no ItemEff) are fine.
+# Rings that only work with a partner ring record (both rings rows + the partner's copy):
+# every ring whose look lives in Effect.wz/ItemEff -- crush 11120xx, friendship 11128xx,
+# wedding 1112803-09 and the newer couple/effect rings. Those effects are drawn only for a
+# ring with a ring record. Label/quote rings (no ItemEff) are fine.
+# Since 1.5.0 the window has a partner flow (server.cashshop.CashShopPartnerRings: Buy asks
+# for the partner's name and makes both records). The rings it handles are SOLD; every other
+# ItemEff ring (wedding/engagement, the newer post-v83 effect rings) stays out. The id list is
+# read from that Java file, so the server and the catalogue cannot disagree.
+PARTNER_RINGS_JAVA = os.path.join(REPO, "src", "main", "java", "server", "cashshop",
+                                  "CashShopPartnerRings.java")
+
+
+def partner_rings(path=PARTNER_RINGS_JAVA):
+    """{itemId: "couple"|"friendship"} from CashShopPartnerRings.COUPLE_RINGS / FRIENDSHIP_RINGS."""
+    out = {}
+    if not os.path.exists(path):
+        return out
+    src = open(path, encoding="utf-8").read()
+    for name, kind in (("COUPLE_RINGS", "couple"), ("FRIENDSHIP_RINGS", "friendship")):
+        m = re.search(name + r"\s*=\s*Set\.of\(([^)]*)\)", src)
+        if m:
+            for x in re.findall(r"\d{7}", m.group(1)):
+                out[int(x)] = kind
+    return out
+
+
+PARTNER_RINGS = partner_rings()
 
 PACKAGE_PREFIX_MILLION = 9   # 9xxxxxx: getInventoryType() == UNDEFINED -> loader drops it
 SERVICE_IDS = {5430000, 9111000, 9112000, 9113000, 9114000}  # CashShopServices.isService
@@ -215,7 +238,8 @@ def wz_problem(item_id, wz):
 
 
 def ring_record_needed(item_id, wz):
-    return item_id // 10000 == 111 and item_id in wz.item_eff
+    """An ItemEff ring the window's partner flow does not sell (it would arrive without records)."""
+    return item_id // 10000 == 111 and item_id in wz.item_eff and item_id not in PARTNER_RINGS
 
 
 # ---------------------------------------------------------------------------------------------

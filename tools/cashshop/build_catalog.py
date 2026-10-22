@@ -109,7 +109,7 @@ def build(wz, ov, featured_extra=(), repo=R.REPO):
         if why is None and cat_key is None:
             why = "no shop category for this item type"
         if why is None and R.ring_record_needed(i, wz):
-            why = "ring needs a partner ring record (no partner flow in the window)"
+            why = "ring needs a partner ring record (not one the window's partner flow sells)"
         if why is None:
             for flag, (ids, desc) in R.FLAG_GATED.items():
                 if i in ids and not flags.get(flag, False):

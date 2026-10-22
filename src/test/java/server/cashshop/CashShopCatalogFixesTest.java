@@ -96,11 +96,17 @@ class CashShopCatalogFixesTest {
         assertTrue(coupons > 30);
     }
 
-    @Test void shippedCatalogDropsPartnerRingsAndInertAreaEffects() throws Exception {
+    @Test void shippedCatalogSellsPartnerRingsOnlyThroughThePartnerFlowAndDropsInertAreaEffects() throws Exception {
         final Map<Integer, String[]> rows = shippedRows();
+        // 1.5.0: the v83 couple/friendship rings are sold, and only because the window's Buy routes them
+        // through CashShopPartnerRings (name prompt, both ring records). Wedding/engagement rings stay out.
         for (int id : List.of(1112001, 1112002, 1112003, 1112005, 1112006, 1112007, 1112012,
                 1112800, 1112801, 1112802, 1112810, 1112811, 1112812)) {
-            assertFalse(rows.containsKey(id), "partner ring sold without a partner flow: " + id);
+            assertTrue(rows.containsKey(id), "partner ring not sold: " + id);
+            assertTrue(CashShopPartnerRings.isPartnerRing(id), "partner ring sold without a partner flow: " + id);
+        }
+        for (int id : List.of(1112803, 1112804, 1112806, 1112807, 1112809)) {
+            assertFalse(rows.containsKey(id), "wedding/engagement ring sold: " + id);
         }
         assertFalse(rows.containsKey(5281000), "Passed Gas has no handler");
         assertFalse(rows.containsKey(5281001), "Floral Scent has no handler");
