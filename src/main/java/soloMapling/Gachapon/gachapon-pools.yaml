@@ -1,0 +1,1902 @@
+# Gachapon pools (SlumsMS 1.5.0). The owner's data: what each town's machine gives and how often.
+#
+# A roll picks a TIER by its weight, then one ITEM of that tier from the town's list plus the shared list,
+# by the item's weight (default 1). A tier a machine has nothing in is skipped (its weight goes to the others).
+#
+# Item entry: "<item id>[ x<quantity>][ w<weight>]", e.g. "2000004 x10" (10 Elixirs) or "2049100 w40".
+# The comment after an entry is its WZ name, for people; the server ignores it.
+#
+# Check the file and print the odds before you ship a change:
+#   python3 tools/gachapon/gachapon_pools.py validate      (every id against the WZ; exit 1 on an error)
+#   python3 tools/gachapon/gachapon_pools.py odds henesys  (per-tier and per-item odds; --markdown for notes)
+# In game: @gacha <town> lists a machine, !gachasim <town> <n> rolls n times without giving anything.
+#
+# Seeded from the v83 town lists (HeavenMS server/gachapon) and MapleRoot's chair machine, cleaned up:
+# no GM scrolls, boss summoning sacks, return scrolls, pet-equip scrolls, expiring items, quest items,
+# untradeable post-v83 scrolls, beginner (lv 10 and under) equips, or ids whose name and data disagree.
+
+tiers:
+  common:
+    weight: 7000
+  uncommon:
+    weight: 2450
+  rare:
+    weight: 500
+    announce: true
+  jackpot:
+    weight: 50
+    announce: true
+
+shared:
+  name: All machines
+  common:
+    - 2000004 x20        # Elixir
+    - 2000005 x10        # Power Elixir
+    - 2001002 x10        # Red Bean Sundae
+    - 2001001 x20        # Ice Cream Pop
+    - 4004000 x2         # Power Crystal Ore
+    - 4004001 x2         # Wisdom Crystal Ore
+    - 4004002 x2         # DEX Crystal Ore
+    - 4004003 x2         # LUK Crystal Ore
+    - 4006000 x2         # The Magic Rock
+    - 4006001 x2         # The Summoning Rock
+    - 4010000 x5         # Bronze Ore
+    - 4010001 x5         # Steel Ore
+    - 4010002 x5         # Mithril Ore
+    - 4010003 x5         # Adamantium Ore
+    - 4010004 x5         # Silver Ore
+    - 4010005 x5         # Orihalcon Ore
+    - 4010006 x5         # Gold Ore
+    - 4010007 x5         # Lidium Ore
+    - 4020000 x5         # Garnet Ore
+    - 4020001 x5         # Amethyst Ore
+    - 4020002 x5         # AquaMarine Ore
+    - 4020003 x5         # Emerald Ore
+    - 4020004 x5         # Opal Ore
+    - 4020005 x5         # Sapphire Ore
+    - 4020006 x5         # Topaz Ore
+    - 4020007 x5         # Diamond Ore
+  uncommon:
+    - 2020012 x5         # Melting Cheese
+    - 2020013 x5         # Reindeer Milk
+    - 2020014 x5         # Sunrise Dew
+    - 2020015 x5         # Sunset Dew
+    - 4004004            # Dark Crystal Ore
+    - 4020008            # Black Crystal Ore
+    - 2022179 x5         # Onyx Apple
+    - 2022273 x5         # Ssiws Cheese
+    - 2022282 x5         # Naricain's Demon Elixir
+    - 2022283 x5         # Subani's Mystic Cauldron
+    - 2022285 x5         # Sweet Heart
+    - 2022245 x5         # Heartstopper
+    - 2022182 x5         # Crystalized Pineapple Chew
+    - 3010075            # Music Box
+    - 3010068            # Lotus Leaf Chair
+    - 3010058            # WorldEnd
+    - 3010055            # Mochi Ice Cream Chair
+    - 3010052            # Sand Bunny
+    - 3010049            # Igloo
+    - 3010036            # Maple Tree Chair
+    - 3010021            # Wooden Tub
+    - 3010000            # The Relaxer
+    - 3010001            # Sky-blue Wooden Chair
+    - 3010002            # Green Chair
+    - 3010003            # Red Chair
+    - 3010004            # The Yellow Relaxer
+    - 3010005            # The Red Relaxer
+    - 3010006            # Yellow Chair
+    - 3010007            # Pink Seal Cushion
+    - 3010008            # Blue Seal Cushion
+    - 3010009            # Red Round Chair
+    - 3010010            # White Seal Cushion
+    - 3010011            # Amorian Relaxer
+    - 3010012            # Warrior Throne
+    - 3010013            # Beach Chair
+    - 3010014            # Moon Star Chair
+    - 3010015            # The Red Relaxer
+    - 3010016            # Grey Seal Cushion
+    - 3010017            # Gold Seal Cushion
+    - 3010018            # Palm Tree Beach Chair
+    - 3010019            # Kadomatsu
+    - 3010025            # Under the Maple Tree...
+    - 3011000            # Fishing Chair
+  rare:
+    - 2049003            # Clean Slate Scroll 20%
+    - 3010063            # Moon and Star Cushion
+    - 3010064            # Male Desert Rabbit Cushion
+    - 3010072            # Miwok Chief's Chair
+    - 3010057            # BloodyRose
+    - 3010060            # Noblesse Chair
+    - 3010061            # Underneath the Maple Tree…
+    - 3010062            # Bamboo Chair
+    - 3010065            # Pink Beach Parasol
+    - 3010066            # Navy Velvet Sofa
+    - 3010067            # Red Designer Chair
+    - 3010043            # Halloween Broomstick Chair
+    - 3010071            # Mini Shinsoo Chair
+    - 3010085            # Olivia's Chair
+    - 3010098            # TV Recliner
+    - 3010116            # The Spirit of Rock Chair
+    - 3010101            # Christmas Gift Box
+    - 3010073            # Giant Pink Bean Cushion
+    - 3010099            # Cuddly Polar Bear
+    - 3010044            # Red Umbrella Chair
+    - 3010106            # Ryko Chair
+    - 3010111            # Tiger Skin Chair
+    - 3010080            # Swing on the Persimmon Tree
+    - 3010092            # Witch's Broomstick
+    - 3012010            # Half-Heart Chocolate Cake Chair
+    - 3012011            # Chocolate Fondue Chair
+    - 3010069            # Yellow Robot Chair
+    - 1000030            # Sachiel Wig (M)
+    - 1000031            # Veamoth Wig (M)
+    - 1000032            # Janus Wig (M)
+    - 1102097            # Janus Wings
+    - 1102148            # Tania Cloak
+    - 1102149            # Mercury Cloak
+    - 1702118            # Janus Sword
+    - 1702119            # Sachiel Sword
+    - 1702120            # Veamoth Sword
+    - 1072281            # Sachiel Shoes
+    - 1072282            # Veamoth Shoes
+    - 1072283            # Janus Shoes
+  jackpot:
+    - 2049100 w40        # Chaos Scroll 60%
+    - 2340000 w40        # White Scroll
+    - 3010175            # Easel Chair
+    - 3010174            # Scary Witch Chair
+    - 3010173            # Psychic Chair
+    - 3010172            # Sky Chair
+    - 3010171            # Snuggle Chair
+    - 3010170            # December Chair
+    - 3010169            # Kitten Chair
+    - 3010168            # Chair on the Range
+    - 3010161            # Squeep
+    - 3010155            # Owl Chair
+    - 3010152            # Yellow Tent Chair
+    - 3010139            # Your Throne
+    - 3010137            # Dragon Lord Chair
+    - 3010133            # Tent Chair
+    - 3010132            # Fuzzy Kitty Chair
+    - 3010131            # Chewing Panda Chair
+    - 3010117            # Magic Book Chair
+    - 3010115            # Teddy Bear Bed
+    - 3010114            # Lord Pirate Chair
+    - 3010108            # Baby Swing
+    - 3010107            # Dragon Egg
+    - 3010097            # Strong Wooden Chair
+    - 3010096            # Dragon Skull Chair
+    - 3010095            # Stone Golem Hand Chair
+    - 3010027            # Cheetos Flag
+    - 3010037            # Iron Mouth
+    - 3010048            # Christmas Tree
+    - 3010050            # Weaboo Window
+    - 3010077            # Owl Cage
+    - 3010086            # Loli's Sofa
+    - 3010087            # Ray Charles
+    - 3010090            # Ringo Starr
+    - 3010112            # Locker
+    - 3010121            # Destiny Door
+    - 3010122            # Famine Dragon
+    - 3010142            # Fishtank
+    - 3010144            # Bamboo Stars
+    - 3010148            # Blue Monsta
+    - 3010200            # Evan Chair
+    - 3012012            # Flower Chair
+    - 3013001            # Fire Chair
+    - 3018180            # Honey Jar Chair
+    - 3018183            # Sakura Tree field chair
+    - 3018184            # Moonlight chair
+    - 3018188            # Space Yeti chair
+    - 3018190            # Nether Power chair
+    - 3018195            # Cosmic Swan chair
+    - 3018197            # Fancy Halloween chair
+    - 3018198            # Sakura Window chair
+    - 3018205            # Maple Tree field chair
+    - 3018207            # Onigiriman chair
+    - 3018209            # Mulung Dojo chair
+    - 3018222            # PicNic chair
+    - 3018223            # Wooden Toyhouse chair
+    - 3018224            # Window chair
+    - 3018225            # Yeti Holmes chair
+    - 3018227            # Bergcream chair
+    - 3018229            # Snowman Candy chair
+    - 3018232            # Dark Chariot chair
+    - 3018233            # Simple Tent chair
+    - 3018236            # Magic Ball o Ween chair
+    - 3018237            # Login chair
+    - 3018243            # The Halloween chair
+    - 3018246            # Chill Penthouse chair
+    - 3018248            # Wolffy Houser chair
+    - 3018249            # Umbrella Cat chair
+    - 3018252            # Grilled Shroom chair
+    - 3018255            # Ancient Memory chair
+    - 3018256            # Second Place chair
+    - 3018257            # First Place chair
+    - 3018261            # Coffe Cup chair
+    - 3018263            # Jins Glasses chair
+    - 3018273            # Le Paint chair
+    - 3018275            # Dressupwall chair
+    - 3018276            # Rich Gang chair
+    - 3018278            # Bath Time chair
+    - 3018279            # Fancy Lady chair
+    - 3018280            # Fancy Man chair
+    - 3019001            # Huge Dragon chair
+    - 3019003            # New Year chair
+    - 3014019            # Neon Sign chair
+    - 3014020            # Platinum Trophy chair
+    - 3014021            # Sakura Frame chair
+    - 3014022            # Steampunk Frame chair
+    - 3014023            # Waterwheel Frame chair
+    - 3014024            # Stary Frame chair
+    - 3015006            # Xmas Presents chair
+    - 3015010            # Attack on Titan chair
+    - 3015046            # Chinese Puppet chair
+    - 3015058            # Carnival chair
+    - 3015091            # Chocoginger chair
+    - 3015155            # Alchemist chair
+    - 3015183            # Slime Pool chair
+    - 3015195            # YingYang Wolf chair
+    - 3015215            # Sharkando chair
+    - 3015225            # Slefiephant chair
+    - 3015227            # Happydays chair
+    - 3015228            # Targa chair
+    - 3015229            # Scarlion chair
+    - 3015245            # Thousand Swords chair
+    - 3015261            # Maple Chariot chair
+    - 3015275            # Hungry Sun chair
+    - 3015277            # Slayer chair
+    - 3015279            # Spiky Night chair
+    - 3015373            # Mountains Globe chair
+    - 3015670            # Dumb Yeti chair
+    - 3015680            # Bottle and Balls chair
+    - 3015696            # Frozen Slime chair
+    - 3015763            # Rocket Launch chair
+    - 3015767            # Celeb chair
+    - 3015898            # Wizard chair
+    - 3015906            # Forgotten Hero chair
+    - 3015907            # Arnah chair
+    - 3015991            # Night Bath chair
+
+towns:
+  henesys:
+    name: Henesys
+    npc: 9100100
+    maps:
+      - 100000000
+      - 100000100
+    common:
+      - 2040001            # Scroll for Helmet for DEF 60%
+      - 1302022            # Bamboo Sword
+      - 1322027            # Frying Pan
+      - 1302027            # Green Umbrella
+      - 1062000            # Ice Jeans
+      - 1332020            # Korean Fan
+      - 1302028            # Light Purple Umbrella
+      - 1372002            # Metal Wand
+      - 1002033            # Old Wisconsin
+      - 1092022            # Palette
+      - 1302021            # Pico-Pico Hammer
+      - 1322009            # Plunger
+      - 1002012            # Red Baseball Cap
+      - 1322012            # Red Brick
+      - 1322022            # Red Flowery Tube
+      - 1002020            # Red Starry Bandana
+      - 1302013            # Red Whip
+      - 1442014            # Silver Snowboard
+      - 1002096            # Sky Blue Starry Bandana
+      - 1302017            # Sky Blue Umbrella
+      - 1442012            # Sky Snowboard
+      - 1302003            # Eloon
+      - 1432001            # Fork on a Stick
+      - 1002088            # Gold Sharp Helm
+      - 1041020            # Green Lamelle
+      - 1322015            # Heavy Hammer
+      - 1442004            # Janitor's Mop
+      - 1422008            # Sledgehammer
+      - 1041053            # Black Amoria Top
+      - 1041029            # Black Split
+      - 1061036            # Blue Fairy Skirt
+      - 1002034            # Blue Jester
+      - 1051025            # Blue Moonlight
+      - 1002072            # Blue Wizardry Hat
+      - 1002144            # Brown Matty
+      - 1050039            # Dark Starlight
+      - 1372000            # Fairy Wand
+      - 1002013            # Golden Pride
+      - 1002036            # Green Jester
+      - 1092021            # Mystic Shield
+      - 1040019            # Orange Split Piece
+      - 1041031            # Purple Split
+      - 1051024            # Red Moonlight
+      - 1382003            # Sapphire Staff
+      - 1050025            # White Doros Robe
+      - 1372001            # Wizard Wand
+      - 1060057            # Dark Hunter's Pants
+      - 1040071            # Green Archer Top
+      - 1002137            # Green Pole-Feather Hat
+      - 1040025            # Red Bennis Chainmail
+      - 1041027            # Red Shivermail
+      - 1452005            # Ryden
+      - 1061057            # Yellow Avelin Skirt
+      - 1472006            # Adamantium Igor
+      - 1472004            # Bronze Igor
+      - 1002179            # Brown Burgler
+      - 1472007            # Meba
+      - 1472002            # Mithril Titans
+      - 1051009            # Purple Avenger
+      - 1041044            # Red Nightshift
+      - 1041003            # Red Qi Pao
+      - 1002622            # White Oceania Cap
+      - 1482004            # Prime Hands
+      - 1442018            # Frozen Tuna
+    uncommon:
+      - 2041002            # Scroll for Cape for Magic DEF 10%
+      - 2040702            # Scroll for Shoes for DEX 10%
+      - 2040402            # Scroll for Topwear for DEF 10%
+      - 1322021            # Black Tube
+      - 1442017            # Blood Snowboard
+      - 1082147            # Blue Work Gloves
+      - 1102043            # Brown Adventurer Cape
+      - 1442016            # Dark Snowboard
+      - 1322025            # Emergency Rescue Tube
+      - 1312012            # Hula Hoop
+      - 1322024            # Purple Tube
+      - 1082148            # Purple Work Gloves
+      - 1082146            # Red Work Gloves
+      - 1092011            # Adamantium Legend Shield
+      - 1092014            # Adamantium Tower Shield
+      - 1442005            # The Nine Dragons
+      - 1382001            # Arc Staff
+      - 1050053            # Blue Anakamoon
+      - 1051032            # Blue Calaf
+      - 1050067            # Blue Requiem
+      - 1051052            # Blue Requierre
+      - 1051054            # Brown Requierre
+      - 1050069            # Brown Requiem
+      - 1372007            # Cromi
+      - 1050056            # Dark Anakamoon
+      - 1002218            # Dark Golden Circlet
+      - 1051055            # Dark Requierre
+      - 1002246            # Dark Seraphis
+      - 1382007            # Evil Wings
+      - 1002244            # Green Seraphis
+      - 1372008            # Hinomaru Fan
+      - 1382011            # Mystic Cane
+      - 1051034            # Orange Calaf
+      - 1050047            # Orange Calas
+      - 1051033            # Red Calaf
+      - 1002153            # Red Guiltian
+      - 1051053            # Red Requierre
+      - 1050068            # Red Requiem
+      - 1382006            # Thorns
+      - 1050055            # White Anakamoon
+      - 1051031            # White Calaf
+      - 1002155            # White Guiltian
+      - 1002245            # White Seraphis
+      - 1452004            # Asianic Bow
+      - 1452023            # Cao Cao Bow
+      - 1452007            # Vaulter 2000
+      - 1472019            # Blood Slain
+      - 1060084            # Blue China Pants
+      - 1082074            # Dark Cleave
+      - 1040100            # Dark Scorpio
+      - 1332015            # Deadly Fin
+      - 1040097            # Green China
+      - 1060071            # Khaki Shadow Pants
+      - 1332016            # Sai
+      - 1472020            # Sapphire Slain
+      - 1332003            # Shinkita
+      - 1082198            # Brown Royce
+      - 1002631            # Brown Leather Ocean Hat
+      - 1482007            # Fury Claw
+      - 1492007            # Mr. Rasfelt
+      - 1102041            # Pink Adventurer Cape
+      - 1102042            # Purple Adventurer Cape
+    rare:
+      - 2043802            # Scroll for Staff for Magic ATT 10%
+      - 2043702            # Scroll for Wand for Magic ATT 10%
+      - 1302026            # Black Umbrella
+      - 1322026            # Colorful Tube
+      - 1402012            # Doombringer
+      - 1312011            # Gaea
+      - 1302056            # Sparta
+      - 1050073            # Blue Enigmatic
+      - 1002253            # Blue Infinium Circlet
+      - 1050074            # Dark Enigmatic
+      - 1002254            # Dark Infinium Circlet
+      - 1002274            # Dark Galaxy
+      - 1382010            # Dark Ritual
+      - 1050072            # Green Enigmatic
+      - 1382008            # Kage
+      - 1002252            # Red Infinium Circlet
+      - 1462009            # Gross Jaeger
+      - 1452017            # Metus
+      - 1472028            # Blue Scarab
+      - 1472029            # Black Scarab
+      - 1082204            # Black Bisk
+      - 1082213            # Black Skellduke
+      - 1052122            # Red Viska
+      - 1482012            # King Cent
+      - 1052131            # Red Belly Duke
+      - 1072318            # Black Duke Barkin Shoes
+      - 2040805            # Scroll for Gloves for ATT 10%
+
+  ellinia:
+    name: Ellinia
+    npc: 9100101
+    maps:
+      - 101000000
+    common:
+      - 1402010            # Aluminum Baseball Bat
+      - 1442013            # Aqua Snowboard
+      - 1002060            # Black Baseball Cap
+      - 1002063            # Blue Baseball Cap
+      - 1322023            # Blue Flowery Tube
+      - 1002042            # Blue Metal Gear
+      - 1050018            # Blue Sauna Robe
+      - 1002026            # Brown Bamboo Hat
+      - 1002392            # Brown Bandana
+      - 1322027            # Frying Pan
+      - 1302027            # Green Umbrella
+      - 1372006            # Hardwood Wand
+      - 1092022            # Palette
+      - 1302021            # Pico-Pico Hammer
+      - 1041004            # Pink Starry Shirt
+      - 1002395            # Purple Bandana
+      - 1002012            # Red Baseball Cap
+      - 1322012            # Red Brick
+      - 1032028            # Red Emerald Earrings
+      - 1322022            # Red Flowery Tube
+      - 1051017            # Red Sauna Robe
+      - 1302013            # Red Whip
+      - 1442014            # Silver Snowboard
+      - 1302017            # Sky Blue Umbrella
+      - 1002041            # Yellow Metal Gear
+      - 1002097            # Yellow Starry Bandana
+      - 1412006            # Blue Axe
+      - 1040029            # Blue Dragon
+      - 1050005            # Blue Kendo Robe
+      - 1060028            # Blue Lolico Pants
+      - 1002059            # Bronze Viking Helm
+      - 1060008            # Brown Lolico Pants
+      - 1302003            # Eloon
+      - 1432002            # Forked Spear
+      - 1302008            # Gladius
+      - 1040030            # Gold Dragon
+      - 1002004            # Great Brown Helmet
+      - 1322015            # Heavy Hammer
+      - 1442006            # Iron Ball
+      - 1002056            # Mithril Football Helmet
+      - 1002058            # Mithril Viking Helm
+      - 1002050            # Orihalcon Burgernet Helm
+      - 1060011            # Orihalcon Master Sergeant Kilt
+      - 1322009            # Plunger
+      - 1322011            # Pointed Shovel
+      - 1051011            # Red Engrit
+      - 1061016            # Red Ramel Skirt
+      - 1060018            # Red Martial Arts Pants
+      - 1041024            # Red Shark
+      - 1061020            # Red Shark Skirt
+      - 1302005            # Sabre
+      - 1402002            # Scimitar
+      - 1041023            # Sky Shark
+      - 1422008            # Sledgehammer
+      - 1060009            # Steel Corporal Pants
+      - 1051000            # Steel Fitted Mail
+      - 1402000            # Two-Handed Sword
+      - 1002037            # Black Jester
+      - 1060014            # Black Split Pants
+      - 1040018            # Black Split Piece
+      - 1061027            # Black Split Skirt
+      - 1050002            # Blood Chaos Robe
+      - 1051027            # Brown Moonlight
+      - 1050035            # Brown Starlight
+      - 1002013            # Golden Pride
+      - 1372002            # Metal Wand
+      - 1372003            # Mithril Wand
+      - 1382004            # Old Wooden Staff
+      - 1040019            # Orange Split Piece
+      - 1041041            # Purple Fairy Top
+      - 1061034            # Purple Fairy Skirt
+      - 1041051            # Red Amoria Top
+      - 1051024            # Red Moonlight
+      - 1041030            # Red Split
+      - 1002073            # Red Wizardry Hat
+      - 1382003            # Sapphire Staff
+      - 1050025            # White Doros Robe
+      - 1060015            # White Split Pants
+      - 1462003            # Balanche
+      - 1002118            # Blue Robin Hat
+      - 1061058            # Brown Able Skirt
+      - 1040003            # Brown Hard Leather Top
+      - 1002160            # Brown Hunter
+      - 1002121            # Brown Robin Hat
+      - 1040068            # Dark Hunter's Armor
+      - 1061063            # Dark Legolia Pants
+      - 1462004            # Eagle Crow
+      - 1041008            # Green Able Armor
+      - 1061006            # Green Able Armor Skirt
+      - 1061009            # Green Avelin Skirt
+      - 1040022            # Green Bennis Chainmail
+      - 1040067            # Green Hunter's Armor
+      - 1060056            # Green Hunter's Pants
+      - 1041054            # Green Huntress Armor
+      - 1041067            # Green Legolia
+      - 1060063            # Green Legolier Pants
+      - 1002119            # Green Robin Hat
+      - 1462005            # Heckler
+      - 1452001            # Hunter's Bow
+      - 1462000            # Mountain Crossbow
+      - 1040025            # Red Bennis Chainmail
+      - 1002161            # Red Hawkeye
+      - 1040069            # Red Hunter's Armor
+      - 1452006            # Red Viper
+      - 1041062            # Yellow Able Armor
+      - 1472010            # Adamantium Guards
+      - 1472006            # Adamantium Igor
+      - 1041048            # Black Steal
+      - 1002128            # Blue Loosecap
+      - 1060025            # Blue Nightshift Pants
+      - 1041040            # Blue Qi Pao
+      - 1061033            # Blue Qi Pao Pants
+      - 1472011            # Bronze Guardian
+      - 1062002            # Brown Hard Leather Pants
+      - 1002129            # Brown Loosecap
+      - 1332009            # Cass
+      - 1060043            # Dark Brown Stealer Pants
+      - 1002173            # Green Guise
+      - 1002148            # Green Tiberian
+      - 1332004            # Forked Dagger
+      - 1472009            # Mithril Guards
+      - 1002176            # Red Burgler
+      - 1041044            # Red Nightshift
+      - 1061037            # Red Nightshift Pants
+      - 1060032            # Red Pao Bottom
+      - 1040060            # Silver Black Stealer
+      - 1332013            # Stinger
+      - 1332002            # Triple-Tipped Zamadar
+      - 1002625            # Blue Den Marine
+      - 1002616            # Brown Double Marine
+      - 1482005            # Silver Maiden
+      - 1052098            # Brown Cotton Lagger
+      - 1482003            # Norman Grip
+      - 1482001            # Leather Arms
+      - 1492004            # Cold Mind
+      - 1002622            # White Oceania Cap
+      - 1492005            # Shooting Star
+      - 1002391            # Green Bandana
+    uncommon:
+      - 2040002            # Scroll for Helmet for DEF 10%
+      - 2041017            # Scroll for Cape for INT 10%
+      - 2022025 x5         # Takoyaki (jumbo)
+      - 2022026 x5         # Yakisoba
+      - 1082147            # Blue Work Gloves
+      - 1442016            # Dark Snowboard
+      - 1322025            # Emergency Rescue Tube
+      - 1302019            # Nameless Sword
+      - 1322024            # Purple Tube
+      - 1082148            # Purple Work Gloves
+      - 1102012            # Red Justice Cape
+      - 1082146            # Red Work Gloves
+      - 1102013            # White Justice Cape
+      - 1102003            # White Napoleon
+      - 1302016            # Yellow Umbrella
+      - 1082145            # Yellow Work Gloves
+      - 1040086            # Blue Jangoon Armor
+      - 1061088            # Dark Shouldermail Pants
+      - 1432006            # Holy Spear
+      - 1002085            # Mithril Crusader Helm
+      - 1092013            # Mithril Tower Shield
+      - 1092004            # Skull Shield
+      - 1002021            # Steel Nordic Helm
+      - 1442005            # The Nine Dragons
+      - 1412003            # The Rising
+      - 1412007            # The Shining
+      - 1422007            # Titan
+      - 1302009            # Traus
+      - 1402007            # Zard
+      - 1432005            # Zeco
+      - 1382001            # Arc Staff
+      - 1002152            # Blue Guiltian
+      - 1050056            # Dark Anakamoon
+      - 1051047            # Dark Anakarune
+      - 1051030            # Dark Calaf
+      - 1002218            # Dark Golden Circlet
+      - 1082088            # Dark Manute
+      - 1382007            # Evil Wings
+      - 1082087            # Gold Manute
+      - 1372008            # Hinomaru Fan
+      - 1382011            # Mystic Cane
+      - 1050047            # Orange Calas
+      - 1051045            # Red Anakarune
+      - 1082081            # Red Pennance
+      - 1082086            # Steel Manute
+      - 1382014            # Sun Quan Staff
+      - 1050055            # White Anakamoon
+      - 1002155            # White Guiltian
+      - 1452004            # Asianic Bow
+      - 1060070            # Blue Piette Pants
+      - 1040080            # Dark Piette
+      - 1002168            # Green Distinction
+      - 1002213            # Green Maro
+      - 1002166            # Red Distinction
+      - 1051039            # Red Lumati
+      - 1462006            # Silver Crow
+      - 1452007            # Vaulter 2000
+      - 1332011            # Bazlud
+      - 1472019            # Blood Slain
+      - 1041095            # Bloody Mantis
+      - 1040095            # Blue China
+      - 1061077            # Blue Moon Pants
+      - 1472022            # Bronze Gigantic
+      - 1040096            # Brown China
+      - 1002249            # Dark Identity
+      - 1472021            # Dark Slain
+      - 1040084            # Dark Shadow
+      - 1332015            # Deadly Fin
+      - 1061069            # Purple Shadow Pants
+      - 1472020            # Sapphire Slain
+      - 1472018            # Steel Slain
+      - 1082195            # Brown Barbee
+      - 1082149            # Brown Work Gloves
+    rare:
+      - 2043302            # Scroll for Dagger for ATT 10%
+      - 2043102            # Scroll for One-Handed Axe for ATT 10%
+      - 2043002            # Scroll for One-Handed Sword for ATT 10%
+      - 2044402            # Scroll for Pole Arm for ATT 10%
+      - 2044302            # Scroll for Spear for ATT 10%
+      - 2043802            # Scroll for Staff for Magic ATT 10%
+      - 2044002            # Scroll for Two-handed Sword for ATT 10%
+      - 2044902            # Scroll for Gun for ATT 10%
+      - 1062024            # Camouflaged Army Pants
+      - 1402012            # Doombringer
+      - 1312011            # Gaea
+      - 1402015            # Heaven's Gate
+      - 1322028            # Heaven's Justice
+      - 1002030            # Silver Planet
+      - 1002274            # Dark Galaxy
+      - 1050074            # Dark Enigmatic
+      - 1002254            # Dark Infinium Circlet
+      - 1382008            # Kage
+      - 1472031            # Black Mamba
+      - 1472028            # Blue Scarab
+      - 1472026            # Brown Scarab
+      - 1332018            # Kandine
+      - 1002419            # Mark of the Beta
+
+  perion:
+    name: Perion
+    npc: 9100102
+    maps:
+      - 102000000
+    common:
+      - 1402010            # Aluminum Baseball Bat
+      - 1302022            # Bamboo Sword
+      - 1002060            # Black Baseball Cap
+      - 1002026            # Brown Bamboo Hat
+      - 1002392            # Brown Bandana
+      - 1322027            # Frying Pan
+      - 1332020            # Korean Fan
+      - 1322007            # Leather Purse
+      - 1302021            # Pico-Pico Hammer
+      - 1002395            # Purple Bandana
+      - 1322012            # Red Brick
+      - 1302017            # Sky Blue Umbrella
+      - 1322010            # Square Shovel
+      - 1032000            # Weighted Earrings
+      - 1002097            # Yellow Starry Bandana
+      - 1302004            # Cutlus
+      - 1312006            # Dankke
+      - 1082036            # Dark Briggon
+      - 1302008            # Gladius
+      - 1002048            # Great Blue Helmet
+      - 1422001            # Mithril Maul
+      - 1002050            # Orihalcon Burgernet Helm
+      - 1092002            # Red Cross Shield
+      - 1050006            # Red Kendo Robe
+      - 1061019            # Sky Shark Skirt
+      - 1060009            # Steel Corporal Pants
+      - 1051000            # Steel Fitted Mail
+      - 1322014            # War Hammer
+      - 1040018            # Black Split Piece
+      - 1051027            # Brown Moonlight
+      - 1002036            # Green Jester
+      - 1061061            # Blue Legolia Pants
+      - 1060062            # Blue Legolier Pants
+      - 1040075            # Dark Legolier
+      - 1041065            # Red Legolia
+      - 1452006            # Red Viper
+      - 1041049            # Blue Steal
+      - 1332009            # Cass
+      - 1060024            # Dark Nightshift Pants
+      - 1041060            # Gold Sneak
+      - 1061032            # Purple Qi Pao Pants
+      - 1041003            # Red Qi Pao
+      - 1041059            # Sky Sneak
+      - 1482001            # Leather Arms
+      - 1492002            # The Negotiator
+      - 1002616            # Brown Double Marine
+      - 1072294            # Brown Paulie Boots
+      - 1492004            # Cold Mind
+      - 1082192            # Brown Jeweled
+      - 1082189            # Yellow Tartis
+      - 1002391            # Green Bandana
+    uncommon:
+      - 1322021            # Black Tube
+      - 1082147            # Blue Work Gloves
+      - 1002006            # Bone Helm
+      - 1322025            # Emergency Rescue Tube
+      - 1102000            # Green Napoleon
+      - 1082150            # Grey Work Gloves
+      - 1082148            # Purple Work Gloves
+      - 1102013            # White Justice Cape
+      - 1312007            # Blue Counter
+      - 1312008            # Buck
+      - 1061088            # Dark Shouldermail Pants
+      - 1422005            # Golden Mole
+      - 1061087            # Ivory Shouldermail Pants
+      - 1322017            # Knuckle Mace
+      - 1060077            # Oaker Shouldermail Pants
+      - 1002022            # Old Steel Nordic Helm
+      - 1041092            # Red Ice Queen
+      - 1432004            # Serpent's Tongue
+      - 1002021            # Steel Nordic Helm
+      - 1432005            # Zeco
+      - 1051032            # Blue Calaf
+      - 1372007            # Cromi
+      - 1050049            # Dark Calas
+      - 1382012            # Maple Lama Staff
+      - 1002217            # Orange Golden Circlet
+      - 1051033            # Red Calaf
+      - 1382006            # Thorns
+      - 1050048            # White Calas
+      - 1040095            # Blue China
+      - 1060084            # Blue China Pants
+      - 1002182            # Blue Pilfer
+      - 1002247            # Bronze Identity
+      - 1332024            # Bushido
+      - 1332015            # Deadly Fin
+      - 1041074            # Purple Shadow
+      - 1332016            # Sai
+      - 1472020            # Sapphire Slain
+      - 1332003            # Shinkita
+      - 1052113            # Red Barbay
+      - 1482006            # Neozard
+      - 1082195            # Brown Barbee
+      - 1082149            # Brown Work Gloves
+      - 1102041            # Pink Adventurer Cape
+    rare:
+      - 2044802            # Scroll for Knuckle for ATT 10%
+      - 1322020            # Bent Judgement
+      - 1082117            # Dark Emperor
+      - 1302018            # Khan
+      - 1040103            # Mithril Platine
+      - 1432030            # Pinaka
+      - 1402037            # Stonetooth Sword
+      - 1462013            # Dark Raven
+      - 1002419            # Mark of the Beta
+
+  kerning:
+    name: Kerning City
+    npc: 9100103
+    maps:
+      - 103000000
+    common:
+      - 2041016            # Scroll for Cape for INT 60%
+      - 1442013            # Aqua Snowboard
+      - 1050018            # Blue Sauna Robe
+      - 1002392            # Brown Bandana
+      - 1002394            # Grey Bandana
+      - 1442004            # Janitor's Mop
+      - 1372002            # Metal Wand
+      - 1002418            # Newspaper Hat
+      - 1002033            # Old Wisconsin
+      - 1092008            # Pan Lid
+      - 1062001            # Sandblasted Jeans
+      - 1302017            # Sky Blue Umbrella
+      - 1002041            # Yellow Metal Gear
+      - 1002097            # Yellow Starry Bandana
+      - 1051010            # Dark Engrit
+      - 1432001            # Fork on a Stick
+      - 1002056            # Mithril Football Helmet
+      - 1060011            # Orihalcon Master Sergeant Kilt
+      - 1322011            # Pointed Shovel
+      - 1051000            # Steel Fitted Mail
+      - 1442007            # Studded Polearm
+      - 1302002            # Viking Sword
+      - 1002037            # Black Jester
+      - 1002034            # Blue Jester
+      - 1082020            # Blue Morrican
+      - 1050039            # Dark Starlight
+      - 1372000            # Fairy Wand
+      - 1040019            # Orange Split Piece
+      - 1061034            # Purple Fairy Skirt
+      - 1382003            # Sapphire Staff
+      - 1050025            # White Doros Robe
+      - 1002118            # Blue Robin Hat
+      - 1452006            # Red Viper
+      - 1472010            # Adamantium Guards
+      - 1041048            # Black Steal
+      - 1060031            # Blue Pao Bottom
+      - 1061033            # Blue Qi Pao Pants
+      - 1041049            # Blue Steal
+      - 1472011            # Bronze Guardian
+      - 1051006            # Dark Avenger
+      - 1092020            # Jurgen Wristguard
+      - 1092019            # Nimble Wristguard
+      - 1040032            # Red Cloth Vest
+      - 1040059            # Red Gold Stealer
+      - 1040060            # Silver Black Stealer
+      - 1060046            # Silver / Black Stealer Pants
+      - 1472005            # Steel Igor
+      - 1082192            # Brown Jeweled
+      - 1072288            # Brown Skeedy Sandals
+      - 1492003            # Golden Hook
+      - 1052104            # Brown Turk Gally
+      - 1492002            # The Negotiator
+      - 1052095            # Brown Rocky Suit
+      - 1492001            # Dellinger Special
+      - 1002613            # Brown Lagger Cap
+      - 1492004            # Cold Mind
+    uncommon:
+      - 2040902            # Scroll for Shield for DEF 10%
+      - 2022025 x5         # Takoyaki (jumbo)
+      - 2022027 x5         # Yakisoba (x2)
+      - 1322021            # Black Tube
+      - 1082148            # Purple Work Gloves
+      - 1102013            # White Justice Cape
+      - 1102040            # Yellow Adventurer Cape
+      - 1422005            # Golden Mole
+      - 1302010            # Jeweled Katar
+      - 1432004            # Serpent's Tongue
+      - 1002028            # Silver Crusader Helm
+      - 1002215            # Flame Golden Circlet
+      - 1051034            # Orange Calaf
+      - 1382006            # Thorns
+      - 1061081            # Brown Piettra Skirt
+      - 1452007            # Vaulter 2000
+      - 1041095            # Bloody Mantis
+      - 1040096            # Brown China
+      - 1082074            # Dark Cleave
+      - 1472025            # Dark Gigantic
+      - 1040084            # Dark Shadow
+      - 1332015            # Deadly Fin
+      - 1002183            # Green Pilfer
+      - 1002209            # Green Sonata
+      - 1332029            # Liu Bei Dagger
+      - 1332003            # Shinkita
+      - 1052113            # Red Barbay
+      - 1082149            # Brown Work Gloves
+      - 1102041            # Pink Adventurer Cape
+    rare:
+      - 2043302            # Scroll for Dagger for ATT 10%
+      - 2044804            # Scroll for Knuckle for ATT 30%
+      - 1032023            # Strawberry Earrings
+      - 1332026            # Cursayer
+      - 1332019            # Golden River
+      - 1452011            # Golden Hinkel
+      - 1462012            # Golden Raven
+      - 1472029            # Black Scarab
+      - 1472033            # Casters
+      - 1061106            # Dark Pirate Skirt
+      - 1061099            # Purple Mystique Pants
+      - 1060106            # Purple Osfa Pants
+      - 1332027            # Varkit
+      - 2040805            # Scroll for Gloves for ATT 10%
+
+  sleepywood:
+    name: Sleepywood
+    npc: 9100104
+    maps:
+      - 105040300
+    common:
+      - 2040601            # Scroll for Bottomwear for DEF 60%
+      - 2041019            # Scroll for Cape for DEX 60%
+      - 2041016            # Scroll for Cape for INT 60%
+      - 2041022            # Scroll for Cape for LUK 60%
+      - 2041010            # Scroll for Cape for MP 60%
+      - 2041013            # Scroll for Cape for STR 60%
+      - 2040301            # Scroll for Earring for INT 60%
+      - 2040801            # Scroll for Gloves for DEX 60%
+      - 2040001            # Scroll for Helmet for DEF 60%
+      - 2040004            # Scroll for Helmet for HP 60%
+      - 2040504            # Scroll for Overall Armor for DEF 60%
+      - 2040501            # Scroll for Overall Armor for DEX 60%
+      - 2040901            # Scroll for Shield for DEF 60%
+      - 2040701            # Scroll for Shoes for DEX 60%
+      - 2040704            # Scroll for Shoes for Jump 60%
+      - 2040707            # Scroll for Shoes for Speed 60%
+      - 2012000 x20        # Drake's Blood
+      - 2012003 x20        # Drake's Meat
+      - 2012001 x20        # Fairy's Honey
+      - 2012002 x20        # Sap of Ancient Tree
+      - 2002001 x20        # Speed Potion
+      - 1032003            # Amethyst Earrings
+      - 1002392            # Brown Bandana
+      - 1332020            # Korean Fan
+      - 1092030            # Maple Shield
+      - 1322022            # Red Flowery Tube
+      - 1402014            # Thermometer
+      - 1032000            # Weighted Earrings
+      - 1051010            # Dark Engrit
+      - 1442006            # Iron Ball
+      - 1322002            # Iron Mace
+      - 1422004            # Monkey Wrench
+      - 1051011            # Red Engrit
+      - 1060018            # Red Martial Arts Pants
+      - 1422003            # Square Hammer
+      - 1002034            # Blue Jester
+      - 1002142            # Blue Matty
+      - 1002013            # Golden Pride
+      - 1002065            # Steel Pride
+      - 1452003            # Composite Bow
+      - 1002165            # Dark Hawkeye
+      - 1040068            # Dark Hunter's Armor
+      - 1061050            # Green Huntress Pants
+      - 1002161            # Red Hawkeye
+      - 1002175            # Dark Guise
+      - 1040042            # Blue Pao
+      - 1472004            # Bronze Igor
+      - 1040057            # Dark Brown Stealer
+      - 1332010            # Iron Dagger
+      - 1002171            # Red Guise
+      - 1060046            # Silver / Black Stealer Pants
+      - 1442018            # Frozen Tuna
+    uncommon:
+      - 2044501            # Scroll for Bow for ATT 60%
+      - 2043301            # Scroll for Dagger for ATT 60%
+      - 2043101            # Scroll for One-Handed Axe for ATT 60%
+      - 2043201            # Scroll for One-Handed BW for ATT 60%
+      - 2043001            # Scroll for One-Handed Sword for ATT 60%
+      - 2044401            # Scroll for Pole Arm for ATT 60%
+      - 2044301            # Scroll for Spear for ATT 60%
+      - 2043801            # Scroll for Staff for Magic ATT 60%
+      - 2044101            # Scroll for Two-handed Axe for ATT 60%
+      - 2044201            # Scroll for Two-handed BW for ATT 60%
+      - 2044001            # Scroll for Two-handed Sword for ATT 60%
+      - 2040602            # Scroll for Bottomwear for DEF 10%
+      - 2041020            # Scroll for Cape for DEX 10%
+      - 2041017            # Scroll for Cape for INT 10%
+      - 2041023            # Scroll for Cape for LUK 10%
+      - 2041014            # Scroll for Cape for STR 10%
+      - 2041005            # Scroll for Cape for Weapon DEF 10%
+      - 2040302            # Scroll for Earring for INT 10%
+      - 2040802            # Scroll for Gloves for DEX 10%
+      - 2040005            # Scroll for Helmet for HP 10%
+      - 2040505            # Scroll for Overall Armor for DEF 10%
+      - 2040502            # Scroll for Overall Armor for DEX 10%
+      - 2040902            # Scroll for Shield for DEF 10%
+      - 2040702            # Scroll for Shoes for DEX 10%
+      - 2040705            # Scroll for Shoes for Jump 10%
+      - 2040708            # Scroll for Shoes for Speed 10%
+      - 2044801            # Scroll for Knuckle for ATT 60%
+      - 2044903            # Scroll for Gun for ATT 70%
+      - 2020007 x5         # Dried Squid
+      - 2020008 x5         # Fat Sausage
+      - 1102014            # Black Justice Cape
+      - 1102018            # Black Magic Cape
+      - 1312012            # Hula Hoop
+      - 1032014            # Pink-Flowered Earrings
+      - 1322024            # Purple Tube
+      - 1032013            # Red-Hearted Earrings
+      - 1102016            # Red Magic Cape
+      - 1032012            # Skull Earrings
+      - 1102017            # White Magic Cape
+      - 1402017            # Daiwa Sword
+      - 1412003            # The Rising
+      - 1382011            # Mystic Cane
+      - 1050047            # Orange Calas
+      - 1332031            # Dragon Toenail
+      - 1002631            # Brown Leather Ocean Hat
+      - 1002634            # Purple Cast Linen
+      - 1052116            # Green Plasteer
+      - 1052119            # Black Royal Barone
+      - 1072303            # Brown Double Boots
+      - 1072306            # Black Basile Boots
+      - 1082198            # Brown Royce
+      - 1082201            # Black Schult
+      - 1482007            # Fury Claw
+      - 1482008            # Psycho Claw
+      - 2040804            # Scroll for Gloves for ATT 60%
+      - 2040817            # Scroll for Gloves for Magic ATT 60%
+      - 1082149            # Brown Work Gloves
+    rare:
+      - 2044502            # Scroll for Bow for ATT 10%
+      - 2044702            # Scroll for Claw for ATT 10%
+      - 2044602            # Scroll for Crossbow for ATT 10%
+      - 2043302            # Scroll for Dagger for ATT 10%
+      - 2043202            # Scroll for One-Handed BW for ATT 10%
+      - 2043002            # Scroll for One-Handed Sword for ATT 10%
+      - 2044402            # Scroll for Pole Arm for ATT 10%
+      - 2044302            # Scroll for Spear for ATT 10%
+      - 2043802            # Scroll for Staff for Magic ATT 10%
+      - 2044202            # Scroll for Two-handed BW for ATT 10%
+      - 2044002            # Scroll for Two-handed Sword for ATT 10%
+      - 2070005            # Steely Throwing-Knives
+      - 1322026            # Colorful Tube
+      - 1032022            # Half Earrings
+      - 1032016            # Metal Heart Earrings
+      - 1032015            # Metal Silver Earrings
+      - 1032023            # Strawberry Earrings
+      - 1432011            # Fairfrozen
+      - 1432010            # Omega Spear
+      - 1382010            # Dark Ritual
+      - 1382008            # Kage
+      - 1462013            # Dark Raven
+      - 1462011            # Fire Raven
+      - 1462012            # Golden Raven
+      - 1462010            # Marine Raven
+      - 1332022            # Angelic Betrayal
+      - 1332023            # Dragon's Tail
+      - 1002637            # Black Pirate's Bandana
+      - 1052122            # Red Viska
+      - 1072309            # Black Voyson Shoes
+      - 1082204            # Black Bisk
+      - 1482009            # Beia Crash
+      - 2040805            # Scroll for Gloves for ATT 10%
+    jackpot:
+      - 2070006 w20        # Ilbi Throwing-Stars
+
+  mushroom_shrine:
+    name: Mushroom Shrine
+    npc: 9100105
+    maps:
+      - 800000000
+    common:
+      - 2040017            # Scroll for Helmet for Accuracy 60%
+      - 1002392            # Brown Bandana
+      - 1002393            # Pink Bandana
+      - 1002394            # Grey Bandana
+      - 1032028            # Red Emerald Earrings
+      - 1002585            # Blue Old Wisconsin
+      - 1002586            # Purple Old Wisconsin
+      - 1432013            # Pumpkin Spear
+      - 1322027            # Frying Pan
+      - 1072264            # Silver Strap Shoes
+      - 1072262            # Black Strap Shoes
+      - 1072263            # Green Strap Shoes
+      - 1322002            # Iron Mace
+      - 1442004            # Janitor's Mop
+      - 1422008            # Sledgehammer
+      - 1050022            # Dark Crusader Chainmail
+      - 1060014            # Black Split Pants
+      - 1051026            # Dark Moonlight
+      - 1050029            # Dark Chaos Robe
+      - 1041015            # Black Armine
+      - 1382015            # Poison Mushroom
+      - 1041068            # Dark Legolia
+      - 1060052            # Black Knucklevest Pants
+      - 1472013            # Dark Guardian
+      - 1002180            # Dark Burgler
+      - 1492004            # Cold Mind
+      - 1052107            # Brown Pollard
+      - 1082189            # Yellow Tartis
+    uncommon:
+      - 2040306            # Dark Scroll for Earring for DEX 70%
+      - 2040308            # Dark Scroll for Earrings for DEF 70%
+      - 2044604            # Dark Scroll for Crossbow for ATT 70%
+      - 2041034            # Dark Scroll for Cape for STR 70%
+      - 2040608            # Dark Scroll for Bottomwear for HP 70%
+      - 2040604            # Dark Scroll for Bottomwear for DEF 70%
+      - 2040610            # Dark Scroll for Bottomwear for DEX 70%
+      - 2040808            # Dark Scroll for Gloves for DEX 70%
+      - 2043004            # Dark Scroll for One-Handed Sword for ATT 70%
+      - 2040406            # Dark Scroll for Topwear for STR 70%
+      - 2040410            # Dark Scroll for Topwear for LUK 70%
+      - 2040508            # Dark Scroll for Overall Armor for DEX 70%
+      - 2040904            # Dark Scroll for Shield for DEF 70%
+      - 2040908            # Dark Scroll for Shield for HP 70%
+      - 2043104            # Dark Scroll for One-Handed Axe for ATT 70%
+      - 2044104            # Dark Scroll for Two-handed Axe for ATT 70%
+      - 2043006            # Dark Scroll for One-Handed Sword for Magic ATT 70%
+      - 2044004            # Dark Scroll for Two-handed Sword for ATT 70%
+      - 2043304            # Dark Scroll for Dagger for ATT 70%
+      - 1102040            # Yellow Adventurer Cape
+      - 1082147            # Blue Work Gloves
+      - 1082148            # Purple Work Gloves
+      - 1060074            # White Jangoon Pants
+      - 1050056            # Dark Anakamoon
+      - 1051030            # Dark Calaf
+      - 1372008            # Hinomaru Fan
+      - 1452018            # Bow of Magical Destruction
+      - 1462007            # Rower
+      - 1002170            # Dark Distinction
+      - 1060073            # Dark Shadow Pants
+      - 1072303            # Brown Double Boots
+      - 1052116            # Green Plasteer
+      - 2040810            # Dark Scroll for Gloves for ATT 70%
+      - 1102041            # Pink Adventurer Cape
+      - 1102042            # Purple Adventurer Cape
+      - 1082149            # Brown Work Gloves
+      - 1102084            # Pink Gaia Cape
+    rare:
+      - 2040305            # Dark Scroll for Earring for INT 30%
+      - 2041039            # Dark Scroll for Cape for DEX 30%
+      - 2041037            # Dark Scroll for Cape for INT 30%
+      - 2041035            # Dark Scroll for Cape for STR 30%
+      - 2041041            # Dark Scroll for Cape for LUK 30%
+      - 2040605            # Dark Scroll for Bottomwear for DEF 30%
+      - 2040611            # Dark Scroll for Bottomwear for DEX 30%
+      - 2040813            # Dark Scroll for Gloves for HP 30%
+      - 2040015            # Dark Scroll for Helmet for Accuracy 30%
+      - 2040011            # Dark Scroll for Helmet for HP 30%
+      - 2040013            # Dark Scroll for Helmet for INT 30%
+      - 2040405            # Dark Scroll for Topwear for DEF 30%
+      - 2040511            # Dark Scroll for Overall Armor for DEF 30%
+      - 2040509            # Dark Scroll for Overall Armor for DEX 30%
+      - 2040519            # Dark Scroll for Overall Armor for INT 30%
+      - 2040521            # Dark Scroll for Overall Armor for LUK 30%
+      - 2040108            # Dark Scroll for Face Accessory for Avoidability 30%
+      - 2043005            # Dark Scroll for One-Handed Sword for ATT 30%
+      - 2044205            # Dark Scroll for Two-handed BW for ATT 30%
+      - 2040607            # Dark Scroll for Bottomwear for Jump 30%
+      - 2040715            # Dark Scroll for Shoes for Jump 30%
+      - 2040713            # Dark Scroll for Shoes for DEX 30%
+      - 2044305            # Dark Scroll for Spear for ATT 30%
+      - 2044904            # Scroll for Gun for ATT 30%
+      - 1022047            # Owl Ball Mask
+      - 1012056            # Doggy Mouth
+      - 1432018            # Sky Ski
+      - 1002340            # Dark Dragon Babuta
+      - 1402037            # Stonetooth Sword
+      - 1382037            # Doomsday Staff
+      - 1382036            # Dragon Staff
+      - 1372032            # Dragon Wand
+      - 1382008            # Kage
+      - 1060099            # Dark Pirate Pants
+      - 1492012            # Concerto
+      - 1482009            # Beia Crash
+      - 1002637            # Black Pirate's Bandana
+      - 1072309            # Black Voyson Shoes
+      - 2040811            # Dark Scroll for Gloves for ATT 30%
+      - 2040815            # Dark Scroll for Gloves for Magic ATT 30%
+
+  showa_male:
+    name: Showa Spa (M)
+    npc: 9100106
+    maps:
+      - 801000000
+      - 809000101
+    common:
+      - 2041307            # Scroll for Belts for DEX 60%
+      - 1332020            # Korean Fan
+      - 1332032            # Christmas Tree
+      - 1322023            # Blue Flowery Tube
+      - 1322022            # Red Flowery Tube
+      - 1322012            # Red Brick
+      - 1302017            # Sky Blue Umbrella
+      - 1432016            # Orange Ski
+      - 1402044            # Pumpkin Lantern
+      - 1442014            # Silver Snowboard
+      - 1002418            # Newspaper Hat
+      - 1082178            # Pink Marker
+      - 1082179            # Yellow Marker
+      - 1032032            # Fallen Leaf Earrings
+      - 1322011            # Pointed Shovel
+      - 1302003            # Eloon
+      - 1302004            # Cutlus
+      - 1302008            # Gladius
+      - 1372000            # Fairy Wand
+      - 1372001            # Wizard Wand
+      - 1452006            # Red Viper
+      - 1452005            # Ryden
+      - 1462002            # Battle Crossbow
+      - 1462003            # Balanche
+      - 1332012            # Reef Claw
+      - 1332006            # Field Dagger
+      - 1052107            # Brown Pollard
+    uncommon:
+      - 2043214            # Scroll for One-Handed BW for Accuracy 10%
+      - 2044104            # Dark Scroll for Two-handed Axe for ATT 70%
+      - 2043304            # Dark Scroll for Dagger for ATT 70%
+      - 2044901            # Scroll for Gun for ATT 60%
+      - 2044903            # Scroll for Gun for ATT 70%
+      - 2022016 x5         # Maple Special Bento
+      - 2022025 x5         # Takoyaki (jumbo)
+      - 2022027 x5         # Yakisoba (x2)
+      - 1302049            # Glowing Whip
+      - 1432017            # Green Ski
+      - 1402013            # Japanese Map
+      - 1442017            # Blood Snowboard
+      - 1442016            # Dark Snowboard
+      - 1442025            # Guan Yu Pole Arm
+      - 1082148            # Purple Work Gloves
+      - 1032027            # Black Emerald Earrings
+      - 1102086            # Purple Gaia Cape
+      - 1412005            # Sabretooth
+      - 1372011            # Zhu-Ge-Liang Wand
+      - 1382006            # Thorns
+      - 1382014            # Sun Quan Staff
+      - 1452018            # Bow of Magical Destruction
+      - 1452008            # Olympus
+      - 1462007            # Rower
+      - 1002169            # Brown Distinction
+      - 1472023            # Blood Gigantic
+      - 1332017            # Serpent's Coil
+      - 1332029            # Liu Bei Dagger
+      - 1040097            # Green China
+      - 1492007            # Mr. Rasfelt
+      - 2040916            # Dark Scroll for Shield for Weapon ATT 70%
+      - 1102042            # Purple Adventurer Cape
+    rare:
+      - 2043202            # Scroll for One-Handed BW for ATT 10%
+      - 2044602            # Scroll for Crossbow for ATT 10%
+      - 2041035            # Dark Scroll for Cape for STR 30%
+      - 2044505            # Dark Scroll for Bow for ATT 30%
+      - 2044305            # Dark Scroll for Spear for ATT 30%
+      - 2044902            # Scroll for Gun for ATT 10%
+      - 2044804            # Scroll for Knuckle for ATT 30%
+      - 1322026            # Colorful Tube
+      - 1102028            # Red Seraph Cape
+      - 1402048            # Raven's Wing
+      - 1402049            # Night Raven's Wing
+      - 1372009            # Magicodar
+      - 1332022            # Angelic Betrayal
+      - 1082204            # Black Bisk
+      - 1072318            # Black Duke Barkin Shoes
+      - 1002637            # Black Pirate's Bandana
+      - 1482009            # Beia Crash
+
+  showa_female:
+    name: Showa Spa (F)
+    npc: 9100107
+    maps:
+      - 809000201
+    common:
+      - 2041307            # Scroll for Belts for DEX 60%
+      - 2041309            # Scroll for Belts for LUK 100%
+      - 2044010            # Scroll for Two-Handed Sword for Accuracy 100%
+      - 1402000            # Two-Handed Sword
+      - 1002418            # Newspaper Hat
+      - 1082178            # Pink Marker
+      - 1082175            # Red Marker
+      - 1372002            # Metal Wand
+      - 1382003            # Sapphire Staff
+      - 1040023            # Black Bennis Chainmail
+      - 1492004            # Cold Mind
+    uncommon:
+      - 2043214            # Scroll for One-Handed BW for Accuracy 10%
+      - 2044104            # Dark Scroll for Two-handed Axe for ATT 70%
+      - 2043304            # Dark Scroll for Dagger for ATT 70%
+      - 2044803            # Scroll for Knuckle for ATT 70%
+      - 2044901            # Scroll for Gun for ATT 60%
+      - 2022016 x5         # Maple Special Bento
+      - 2022025 x5         # Takoyaki (jumbo)
+      - 2022027 x5         # Yakisoba (x2)
+      - 1402013            # Japanese Map
+      - 1082145            # Yellow Work Gloves
+      - 1082147            # Blue Work Gloves
+      - 1082146            # Red Work Gloves
+      - 1332003            # Shinkita
+      - 1002209            # Green Sonata
+      - 1082198            # Brown Royce
+      - 1482007            # Fury Claw
+      - 2040916            # Dark Scroll for Shield for Weapon ATT 70%
+      - 1102042            # Purple Adventurer Cape
+    rare:
+      - 2043202            # Scroll for One-Handed BW for ATT 10%
+      - 2044602            # Scroll for Crossbow for ATT 10%
+      - 2041035            # Dark Scroll for Cape for STR 30%
+      - 2044505            # Dark Scroll for Bow for ATT 30%
+      - 2044305            # Dark Scroll for Spear for ATT 30%
+      - 2044904            # Scroll for Gun for ATT 30%
+      - 2044902            # Scroll for Gun for ATT 10%
+      - 1022047            # Owl Ball Mask
+      - 1422013            # Leomite
+      - 1432030            # Pinaka
+      - 1082213            # Black Skellduke
+      - 1002646            # Black Polax Hat
+
+  ludibrium:
+    name: Ludibrium
+    npc: 9100108
+    maps:
+      - 220000000
+      - 220000305
+    common:
+      - 2040601            # Scroll for Bottomwear for DEF 60%
+      - 2041019            # Scroll for Cape for DEX 60%
+      - 2041007            # Scroll for Cape for HP 60%
+      - 2041016            # Scroll for Cape for INT 60%
+      - 2041022            # Scroll for Cape for LUK 60%
+      - 2041001            # Scroll for Cape for Magic Def. 60%
+      - 2041010            # Scroll for Cape for MP 60%
+      - 2041013            # Scroll for Cape for STR 60%
+      - 2041004            # Scroll for Cape for Weapon DEF 60%
+      - 2040301            # Scroll for Earring for INT 60%
+      - 2040901            # Scroll for Shield for DEF 60%
+      - 2040701            # Scroll for Shoes for DEX 60%
+      - 2040704            # Scroll for Shoes for Jump 60%
+      - 2040707            # Scroll for Shoes for Speed 60%
+      - 1032003            # Amethyst Earrings
+      - 1302022            # Bamboo Sword
+      - 1312013            # Green Paint Brush
+      - 1032008            # Cat's Eye
+      - 1032007            # Emerald Earrings
+      - 1032004            # Gold Earrings
+      - 1302027            # Green Umbrella
+      - 1032006            # Lightning Earrings
+      - 1302028            # Light Purple Umbrella
+      - 1322003            # Lollipop
+      - 1302024            # Newspaper Sword
+      - 1092008            # Pan Lid
+      - 1302021            # Pico-Pico Hammer
+      - 1322012            # Red Brick
+      - 1032005            # Red Cross Earrings
+      - 1302013            # Red Whip
+      - 1032002            # Sapphire Earrings
+      - 1032001            # Single Earring
+      - 1302017            # Sky Blue Umbrella
+      - 1032010            # Star Earrings
+      - 1402014            # Thermometer
+      - 1442021            # Yellow Mop
+      - 1032009            # Yellow Square
+      - 1422011            # Sake Bottle
+      - 1002023            # Jousting Helmet
+      - 1002037            # Black Jester
+      - 1002034            # Blue Jester
+      - 1002064            # Bronze Pride
+      - 1002038            # Brown Jester
+      - 1002013            # Golden Pride
+      - 1002036            # Green Jester
+      - 1002035            # Pink Jester
+      - 1002065            # Steel Pride
+      - 1372001            # Wizard Wand
+      - 1002162            # Blue Hawkeye
+      - 1002164            # Brown Hawkeye
+      - 1002165            # Dark Hawkeye
+      - 1002163            # Green Hawkeye
+      - 1002161            # Red Hawkeye
+      - 1002175            # Dark Guise
+      - 1002172            # Blue Guise
+      - 1002174            # Brown Guise
+      - 1002173            # Green Guise
+      - 1002171            # Red Guise
+      - 1442018            # Frozen Tuna
+    uncommon:
+      - 2044701            # Scroll for Claw for ATT 60%
+      - 2043301            # Scroll for Dagger for ATT 60%
+      - 2040602            # Scroll for Bottomwear for DEF 10%
+      - 2041020            # Scroll for Cape for DEX 10%
+      - 2041008            # Scroll for Cape for HP 10%
+      - 2041017            # Scroll for Cape for INT 10%
+      - 2041023            # Scroll for Cape for LUK 10%
+      - 2041002            # Scroll for Cape for Magic DEF 10%
+      - 2041011            # Scroll for Cape for MP 10%
+      - 2041014            # Scroll for Cape for STR 10%
+      - 2041005            # Scroll for Cape for Weapon DEF 10%
+      - 2040302            # Scroll for Earring for INT 10%
+      - 2040002            # Scroll for Helmet for DEF 10%
+      - 2040702            # Scroll for Shoes for DEX 10%
+      - 2040705            # Scroll for Shoes for Jump 10%
+      - 2040708            # Scroll for Shoes for Speed 10%
+      - 2040402            # Scroll for Topwear for DEF 10%
+      - 1302029            # Beige Umbrella
+      - 1102014            # Black Justice Cape
+      - 1102018            # Black Magic Cape
+      - 1312014            # Black Paint Brush
+      - 1102015            # Blue Magic Cape
+      - 1032011            # Blue Moon
+      - 1032019            # Crystal Flower Earrings
+      - 1332030            # Fan
+      - 1032020            # Gold Drop Earrings
+      - 1312012            # Hula Hoop
+      - 1032021            # Holy Cross Earrings
+      - 1032018            # Pansy Earrings
+      - 1032014            # Pink-Flowered Earrings
+      - 1332021            # Plastic Bottle
+      - 1032013            # Red-Hearted Earrings
+      - 1102012            # Red Justice Cape
+      - 1302025            # Red Umbrella
+      - 1032012            # Skull Earrings
+      - 1102017            # White Magic Cape
+      - 1102013            # White Justice Cape
+      - 1402017            # Daiwa Sword
+      - 1422005            # Golden Mole
+      - 1332016            # Sai
+      - 1432005            # Zeco
+      - 1382011            # Mystic Cane
+      - 1382014            # Sun Quan Staff
+      - 1462007            # Rower
+      - 1040096            # Brown China
+      - 1332054            # Diamond Dagger
+      - 1472054            # Shinobi Bracer
+    rare:
+      - 2044702            # Scroll for Claw for ATT 10%
+      - 2043302            # Scroll for Dagger for ATT 10%
+      - 2044402            # Scroll for Pole Arm for ATT 10%
+      - 2044302            # Scroll for Spear for ATT 10%
+      - 2043802            # Scroll for Staff for Magic ATT 10%
+      - 2043702            # Scroll for Wand for Magic ATT 10%
+      - 1302026            # Black Umbrella
+      - 1032022            # Half Earrings
+      - 1032016            # Metal Heart Earrings
+      - 1032015            # Metal Silver Earrings
+      - 1452026            # Black Metus
+      - 1462018            # Casa Crow
+      - 1452014            # Golden Arund
+      - 1452012            # Marine Arund
+      - 1452009            # Red Hinkel
+      - 1332022            # Angelic Betrayal
+      - 1472033            # Casters
+      - 1002646            # Black Polax Hat
+      - 2040805            # Scroll for Gloves for ATT 10%
+      - 1002419            # Mark of the Beta
+
+  new_leaf_city:
+    name: New Leaf City
+    npc: 9100109
+    maps:
+      - 600000000
+    common:
+      - 1002395            # Purple Bandana
+      - 1002083            # Black Bandana
+      - 1002392            # Brown Bandana
+      - 1002587            # Black Old Wisconsin
+      - 1312002            # Scythe
+      - 1432013            # Pumpkin Spear
+      - 1060030            # Dark Master Sergeant Kilt
+      - 1422008            # Sledgehammer
+      - 1050022            # Dark Crusader Chainmail
+      - 1050011            # Black Dragon Robe
+      - 1002074            # Blue Apprentice Hat
+      - 1050029            # Dark Chaos Robe
+      - 1050039            # Dark Starlight
+      - 1002159            # Black Hunter
+      - 1061051            # Black Huntress Pants
+      - 1040023            # Black Bennis Chainmail
+      - 1061054            # Blood Sneak Pants
+      - 1060052            # Black Knucklevest Pants
+    uncommon:
+      - 2040406            # Dark Scroll for Topwear for STR 70%
+      - 2040408            # Dark Scroll for Topwear for HP 70%
+      - 2040404            # Dark Scroll for Topwear for DEF 70%
+      - 2040610            # Dark Scroll for Bottomwear for DEX 70%
+      - 2040812            # Dark Scroll for Gloves for HP 70%
+      - 2041040            # Dark Scroll for Cape for LUK 70%
+      - 2041034            # Dark Scroll for Cape for STR 70%
+      - 2041030            # Dark Scroll for Cape for HP 70%
+      - 2043304            # Dark Scroll for Dagger for ATT 70%
+      - 2043004            # Dark Scroll for One-Handed Sword for ATT 70%
+      - 2043204            # Dark Scroll for One-Handed BW for ATT 70%
+      - 2044204            # Dark Scroll for Two-handed BW for ATT 70%
+      - 2040510            # Dark Scroll for Overall Armor for DEF 70%
+      - 2040908            # Dark Scroll for Shield for HP 70%
+      - 2040904            # Dark Scroll for Shield for DEF 70%
+      - 2040014            # Dark Scroll for Helmet for Accuracy 70%
+      - 2040714            # Dark Scroll for Shoes for Jump 70%
+      - 2040712            # Dark Scroll for Shoes for DEX 70%
+      - 2044004            # Dark Scroll for Two-handed Sword for ATT 70%
+      - 2040204            # Dark Scroll for Eye Accessory for Accuracy 70%
+      - 2040104            # Dark Scroll for Face Accessory for HP 70%
+      - 2040109            # Dark Scroll for Face Accessory for Avoidability 70%
+      - 2044704            # Dark Scroll for Claw for ATT 70%
+      - 2040906            # Dark Scroll for Shield for LUK 70%
+      - 2044304            # Dark Scroll for Spear for ATT 70%
+      - 2040304            # Dark Scroll for Earring for INT 70%
+      - 2040209            # Dark Scroll for Eye Accessory for INT 70%
+      - 2044803            # Scroll for Knuckle for ATT 70%
+      - 1102040            # Yellow Adventurer Cape
+      - 1102086            # Purple Gaia Cape
+      - 1082145            # Yellow Work Gloves
+      - 1032027            # Black Emerald Earrings
+      - 1082146            # Red Work Gloves
+      - 1402013            # Japanese Map
+      - 1402017            # Daiwa Sword
+      - 1040093            # Dark Orientican
+      - 1050056            # Dark Anakamoon
+      - 1002249            # Dark Identity
+      - 1040084            # Dark Shadow
+      - 1472054            # Shinobi Bracer
+      - 2022284 x5         # Barricade Booster
+      - 1102041            # Pink Adventurer Cape
+      - 1102042            # Purple Adventurer Cape
+      - 1082149            # Brown Work Gloves
+    rare:
+      - 2040411            # Dark Scroll for Topwear for LUK 30%
+      - 2040409            # Dark Scroll for Topwear for HP 30%
+      - 2044405            # Dark Scroll for Pole Arm for ATT 30%
+      - 2040607            # Dark Scroll for Bottomwear for Jump 30%
+      - 2041039            # Dark Scroll for Cape for DEX 30%
+      - 2041037            # Dark Scroll for Cape for INT 30%
+      - 2043105            # Dark Scroll for One-Handed Axe for ATT 30%
+      - 2040103            # Dark Scroll for Face Accessory for HP 30%
+      - 2040605            # Dark Scroll for Bottomwear for DEF 30%
+      - 2040611            # Dark Scroll for Bottomwear for DEX 30%
+      - 2044005            # Dark Scroll for Two-handed Sword for ATT 30%
+      - 2040521            # Dark Scroll for Overall Armor for LUK 30%
+      - 2040907            # Dark Scroll for Shield for LUK 30%
+      - 2040809            # Dark Scroll for Gloves for DEX 30%
+      - 2043705            # Dark Scroll for Wand for Magic ATT 30%
+      - 2044505            # Dark Scroll for Bow for ATT 30%
+      - 2040519            # Dark Scroll for Overall Armor for INT 30%
+      - 2043007            # Dark Scroll for One-Handed Sword for Magic ATT 30%
+      - 2040307            # Dark Scroll for Earring for DEX 30%
+      - 2040309            # Dark Scroll for Earrings for DEF 30%
+      - 2040208            # Dark Scroll for Eye Accessory for INT 30%
+      - 1022047            # Owl Ball Mask
+      - 1302012            # Red Katana
+      - 1382008            # Kage
+      - 1061106            # Dark Pirate Skirt
+      - 1002640            # Blue Sun Boat Hat
+      - 1002643            # Red Brave Hamal
+      - 1002646            # Black Polax Hat
+      - 1052125            # White Pioneer
+      - 1052128            # White Marquini
+      - 1052131            # Red Belly Duke
+      - 1072312            # Blue Pageant
+      - 1072315            # Black Markintz
+      - 1072318            # Black Duke Barkin Shoes
+      - 1082207            # Blue Halfglove
+      - 1082210            # Red Martier
+      - 1082213            # Black Skellduke
+      - 1482010            # Steelno
+      - 1482011            # White Fangz
+      - 1482012            # King Cent
+      - 1492010            # Infinity's Wrath
+      - 1492011            # The Peacemaker
+      - 1492012            # Concerto
+      - 2040811            # Dark Scroll for Gloves for ATT 30%
+      - 2040815            # Dark Scroll for Gloves for Magic ATT 30%
+
+  el_nath:
+    name: El Nath
+    npc: 9100110
+    maps:
+      - 211000000
+      - 211000102
+    common:
+      - 2041012            # Scroll for Cape for STR 100%
+      - 2043800            # Scroll for Staff for Magic ATT 100%
+      - 2040301            # Scroll for Earring for INT 60%
+      - 1402010            # Aluminum Baseball Bat
+      - 1032003            # Amethyst Earrings
+      - 1442013            # Aqua Snowboard
+      - 1302022            # Bamboo Sword
+      - 1322023            # Blue Flowery Tube
+      - 1032008            # Cat's Eye
+      - 1032007            # Emerald Earrings
+      - 1322027            # Frying Pan
+      - 1442015            # Golden Snowboard
+      - 1302027            # Green Umbrella
+      - 1372006            # Hardwood Wand
+      - 1372004            # Ice Wand
+      - 1332020            # Korean Fan
+      - 1322007            # Leather Purse
+      - 1032006            # Lightning Earrings
+      - 1302028            # Light Purple Umbrella
+      - 1322003            # Lollipop
+      - 1092030            # Maple Shield
+      - 1302021            # Pico-Pico Hammer
+      - 1322012            # Red Brick
+      - 1032005            # Red Cross Earrings
+      - 1322022            # Red Flowery Tube
+      - 1302013            # Red Whip
+      - 1032002            # Sapphire Earrings
+      - 1032001            # Single Earring
+      - 1302017            # Sky Blue Umbrella
+      - 1442012            # Sky Snowboard
+      - 1032000            # Weighted Earrings
+      - 1442021            # Yellow Mop
+      - 1032009            # Yellow Square
+      - 1442003            # Axe Pole Arm
+      - 1402008            # Broadsword
+      - 1302004            # Cutlus
+      - 1312006            # Dankke
+      - 1302003            # Eloon
+      - 1312005            # Fireman's Axe
+      - 1432002            # Forked Spear
+      - 1432001            # Fork on a Stick
+      - 1302008            # Gladius
+      - 1040030            # Gold Dragon
+      - 1322015            # Heavy Hammer
+      - 1322002            # Iron Mace
+      - 1402006            # Lionheart
+      - 1422001            # Mithril Maul
+      - 1442001            # Mithril Pole Arm
+      - 1422004            # Monkey Wrench
+      - 1412004            # Niam
+      - 1322009            # Plunger
+      - 1322011            # Pointed Shovel
+      - 1402002            # Scimitar
+      - 1422008            # Sledgehammer
+      - 1442007            # Studded Polearm
+      - 1412000            # Two-Handed Axe
+      - 1322014            # War Hammer
+      - 1372000            # Fairy Wand
+      - 1372003            # Mithril Wand
+      - 1452000            # Battle Bow
+      - 1462000            # Mountain Crossbow
+      - 1452006            # Red Viper
+      - 1472006            # Adamantium Igor
+      - 1472010            # Adamantium Guards
+      - 1472011            # Bronze Guardian
+      - 1332009            # Cass
+      - 1472013            # Dark Guardian
+      - 1332004            # Forked Dagger
+      - 1472007            # Meba
+      - 1332012            # Reef Claw
+      - 1472012            # Silver Guardian
+      - 1472005            # Steel Igor
+      - 1472001            # Steel Titans
+      - 1072294            # Brown Paulie Boots
+    uncommon:
+      - 2043301            # Scroll for Dagger for ATT 60%
+      - 2043101            # Scroll for One-Handed Axe for ATT 60%
+      - 2043201            # Scroll for One-Handed BW for ATT 60%
+      - 2043001            # Scroll for One-Handed Sword for ATT 60%
+      - 2044301            # Scroll for Spear for ATT 60%
+      - 2043801            # Scroll for Staff for Magic ATT 60%
+      - 2044201            # Scroll for Two-handed BW for ATT 60%
+      - 2043701            # Scroll for Wand for Magic ATT 60%
+      - 2041011            # Scroll for Cape for MP 10%
+      - 2041014            # Scroll for Cape for STR 10%
+      - 1302029            # Beige Umbrella
+      - 1322021            # Black Tube
+      - 1442017            # Blood Snowboard
+      - 1102011            # Blue Justice Cape
+      - 1442016            # Dark Snowboard
+      - 1322025            # Emergency Rescue Tube
+      - 1032020            # Gold Drop Earrings
+      - 1432017            # Green Ski
+      - 1302049            # Glowing Whip
+      - 1032021            # Holy Cross Earrings
+      - 1322024            # Purple Tube
+      - 1032013            # Red-Hearted Earrings
+      - 1302025            # Red Umbrella
+      - 1102013            # White Justice Cape
+      - 1442022            # White Mop
+      - 1302016            # Yellow Umbrella
+      - 1312007            # Blue Counter
+      - 1312008            # Buck
+      - 1442009            # Crescent Polearm
+      - 1432006            # Holy Spear
+      - 1302010            # Jeweled Katar
+      - 1322017            # Knuckle Mace
+      - 1402003            # Lion's Fang
+      - 1412005            # Sabretooth
+      - 1432004            # Serpent's Tongue
+      - 1442010            # Skylar
+      - 1422009            # The Blessing
+      - 1412003            # The Rising
+      - 1412007            # The Shining
+      - 1302009            # Traus
+      - 1402007            # Zard
+      - 1432005            # Zeco
+      - 1382001            # Arc Staff
+      - 1372007            # Cromi
+      - 1382007            # Evil Wings
+      - 1382011            # Mystic Cane
+      - 1382006            # Thorns
+      - 1452004            # Asianic Bow
+      - 1452008            # Olympus
+      - 1462006            # Silver Crow
+      - 1452007            # Vaulter 2000
+      - 1332011            # Bazlud
+      - 1472015            # Blood Avarice
+      - 1472016            # Adamantium Avarice
+      - 1472023            # Blood Gigantic
+      - 1472022            # Bronze Gigantic
+      - 1332024            # Bushido
+      - 1472017            # Dark Avarice
+      - 1472021            # Dark Slain
+      - 1332015            # Deadly Fin
+      - 1332031            # Dragon Toenail
+      - 1332016            # Sai
+      - 1472024            # Sapphire Gigantic
+      - 1332017            # Serpent's Coil
+      - 1332003            # Shinkita
+      - 1472014            # Steel Avarice
+      - 1472018            # Steel Slain
+      - 2022439 x5         # Elixir of Darkness
+      - 2040804            # Scroll for Gloves for ATT 60%
+      - 1102085            # Yellow Gaia Cape
+    rare:
+      - 2044502            # Scroll for Bow for ATT 10%
+      - 2044602            # Scroll for Crossbow for ATT 10%
+      - 2043302            # Scroll for Dagger for ATT 10%
+      - 2043202            # Scroll for One-Handed BW for ATT 10%
+      - 2043002            # Scroll for One-Handed Sword for ATT 10%
+      - 2044402            # Scroll for Pole Arm for ATT 10%
+      - 2044302            # Scroll for Spear for ATT 10%
+      - 2043802            # Scroll for Staff for Magic ATT 10%
+      - 2044102            # Scroll for Two-handed Axe for ATT 10%
+      - 2044202            # Scroll for Two-handed BW for ATT 10%
+      - 2043702            # Scroll for Wand for Magic ATT 10%
+      - 1302026            # Black Umbrella
+      - 1322026            # Colorful Tube
+      - 1032022            # Half Earrings
+      - 1032017            # Rose Earrings
+      - 1432018            # Sky Ski
+      - 1412008            # Chrono
+      - 1402012            # Doombringer
+      - 1402015            # Heaven's Gate
+      - 1322019            # The Judgement
+      - 1382010            # Dark Ritual
+      - 1452010            # Blue Hinkel
+      - 1452015            # Dark Arund
+      - 1452014            # Golden Arund
+      - 1462012            # Golden Raven
+      - 1462010            # Marine Raven
+      - 1452017            # Metus
+      - 1332022            # Angelic Betrayal
+      - 1472028            # Blue Scarab
+      - 1472026            # Brown Scarab
+      - 1472029            # Black Scarab
+      - 1332023            # Dragon's Tail
+      - 1332019            # Golden River
+      - 1472027            # Green Scarab
+      - 1332018            # Kandine
+      - 1492009            # Abyss Shooter
+      - 2040805            # Scroll for Gloves for ATT 10%
+
+  nautilus:
+    name: Nautilus Harbor
+    npc: 9100117
+    maps:
+      - 120000000
+      - 120000200
+    common:
+      - 2012000 x20        # Drake's Blood
+      - 2012002 x20        # Sap of Ancient Tree
+      - 1002037            # Black Jester
+      - 1002034            # Blue Jester
+      - 1002064            # Bronze Pride
+      - 1002038            # Brown Jester
+      - 1372000            # Fairy Wand
+      - 1002013            # Golden Pride
+      - 1002035            # Pink Jester
+      - 1002065            # Steel Pride
+      - 1472010            # Adamantium Guards
+      - 1002175            # Dark Guise
+      - 1002610            # Brown Rocky Bandana
+      - 1002616            # Brown Double Marine
+      - 1002622            # White Oceania Cap
+      - 1052095            # Brown Rocky Suit
+      - 1052101            # Beige Carribean
+      - 1052107            # Brown Pollard
+      - 1072285            # Brown Lagger Slipper
+      - 1072291            # Brown Wooden Krag
+      - 1072297            # Brown Locote Shoes
+      - 1082180            # Green Lagger Halfglove
+      - 1082186            # Hard Leather Glove
+      - 1082192            # Brown Jeweled
+      - 1482001            # Leather Arms
+      - 1482003            # Norman Grip
+      - 1482005            # Silver Maiden
+      - 1492002            # The Negotiator
+      - 1492004            # Cold Mind
+      - 1002613            # Brown Lagger Cap
+      - 1002619            # Brown Pitz Bandana
+      - 1002625            # Blue Den Marine
+      - 1052098            # Brown Cotton Lagger
+      - 1052104            # Brown Turk Gally
+      - 1052110            # Blue Brace Look
+      - 1072288            # Brown Skeedy Sandals
+      - 1072294            # Brown Paulie Boots
+      - 1072338            # Purple Snowshoes
+      - 1082183            # Brown Leather Armor Glove
+      - 1082189            # Yellow Tartis
+      - 1482002            # Double Tail Knuckler
+      - 1482004            # Prime Hands
+      - 1492001            # Dellinger Special
+      - 1492003            # Golden Hook
+      - 1492005            # Shooting Star
+      - 2044800            # Scroll for Knuckle for ATT 100%
+      - 2044805            # Scroll for Knuckle for Accuracy 100%
+      - 2044807            # Scroll for Knuckle for Accuracy 60%
+      - 2044900            # Scroll for Gun for ATT 100%
+    uncommon:
+      - 2044901            # Scroll for Gun for ATT 60%
+      - 2020008 x5         # Fat Sausage
+      - 1092014            # Adamantium Tower Shield
+      - 1402017            # Daiwa Sword
+      - 1452018            # Bow of Magical Destruction
+      - 1472017            # Dark Avarice
+      - 1472025            # Dark Gigantic
+      - 1002628            # Red Misty
+      - 1002634            # Purple Cast Linen
+      - 1052113            # Red Barbay
+      - 1052119            # Black Royal Barone
+      - 1072303            # Brown Double Boots
+      - 1082198            # Brown Royce
+      - 1482007            # Fury Claw
+      - 1492006            # Lunar Shooter
+      - 1492008            # Burning Hell
+      - 1002631            # Brown Leather Ocean Hat
+      - 1052116            # Green Plasteer
+      - 1072300            # Brown Leather Krag
+      - 1072306            # Black Basile Boots
+      - 1082195            # Brown Barbee
+      - 1082201            # Black Schult
+      - 1482006            # Neozard
+      - 1482008            # Psycho Claw
+      - 1492007            # Mr. Rasfelt
+      - 2044801            # Scroll for Knuckle for ATT 60%
+      - 2044803            # Scroll for Knuckle for ATT 70%
+      - 2044806            # Scroll for Knuckle for Accuracy 70%
+      - 2044809            # Scroll for Knuckle for Accuracy 10%
+      - 2044903            # Scroll for Gun for ATT 70%
+    rare:
+      - 2040605            # Dark Scroll for Bottomwear for DEF 30%
+      - 2040626            # Scroll for Bottomwear for DEX 30%
+      - 2040609            # Dark Scroll for Bottomwear for HP 30%
+      - 2040607            # Dark Scroll for Bottomwear for Jump 30%
+      - 2041029            # Dark Scroll for Cape for Weapon DEF 30%
+      - 2041027            # Dark Scroll for Cape for Magic DEF 30%
+      - 2041031            # Dark Scroll for Cape for HP 30%
+      - 2041037            # Dark Scroll for Cape for INT 30%
+      - 2041033            # Dark Scroll for Cape for MP 30%
+      - 2041039            # Dark Scroll for Cape for DEX 30%
+      - 2041041            # Dark Scroll for Cape for LUK 30%
+      - 2041035            # Dark Scroll for Cape for STR 30%
+      - 2040809            # Dark Scroll for Gloves for DEX 30%
+      - 2040813            # Dark Scroll for Gloves for HP 30%
+      - 2040015            # Dark Scroll for Helmet for Accuracy 30%
+      - 2040009            # Dark Scroll for Helmet for DEF 30%
+      - 2040011            # Dark Scroll for Helmet for HP 30%
+      - 2040013            # Dark Scroll for Helmet for INT 30%
+      - 2040509            # Dark Scroll for Overall Armor for DEX 30%
+      - 2040521            # Dark Scroll for Overall Armor for LUK 30%
+      - 2040519            # Dark Scroll for Overall Armor for INT 30%
+      - 2040905            # Dark Scroll for Shield for DEF 30%
+      - 2040909            # Dark Scroll for Shield for HP 30%
+      - 2040907            # Dark Scroll for Shield for LUK 30%
+      - 2040713            # Dark Scroll for Shoes for DEX 30%
+      - 2040715            # Dark Scroll for Shoes for Jump 30%
+      - 2040717            # Dark Scroll for Shoes for Speed 30%
+      - 2040405            # Dark Scroll for Topwear for DEF 30%
+      - 2040409            # Dark Scroll for Topwear for HP 30%
+      - 2040407            # Dark Scroll for Topwear for STR 30%
+      - 2040426            # Dark Scroll for Topwear for LUK 30%
+      - 2040307            # Dark Scroll for Earring for DEX 30%
+      - 2040309            # Dark Scroll for Earrings for DEF 30%
+      - 2044505            # Dark Scroll for Bow for ATT 30%
+      - 2044705            # Dark Scroll for Claw for ATT 30%
+      - 2044605            # Dark Scroll for Crossbow for ATT 30%
+      - 2043305            # Dark Scroll for Dagger for ATT 30%
+      - 2043105            # Dark Scroll for One-Handed Axe for ATT 30%
+      - 2043205            # Dark Scroll for One-Handed BW for ATT 30%
+      - 2043005            # Dark Scroll for One-Handed Sword for ATT 30%
+      - 2043007            # Dark Scroll for One-Handed Sword for Magic ATT 30%
+      - 2044405            # Dark Scroll for Pole Arm for ATT 30%
+      - 2044305            # Dark Scroll for Spear for ATT 30%
+      - 2043805            # Dark Scroll for Staff for Magic ATT 30%
+      - 2044105            # Dark Scroll for Two-handed Axe for ATT 30%
+      - 2044205            # Dark Scroll for Two-handed BW for ATT 30%
+      - 2044005            # Dark Scroll for Two-handed Sword for ATT 30%
+      - 2043705            # Dark Scroll for Wand for Magic ATT 30%
+      - 1382037            # Doomsday Staff
+      - 1002640            # Blue Sun Boat Hat
+      - 1002646            # Black Polax Hat
+      - 1052125            # White Pioneer
+      - 1052131            # Red Belly Duke
+      - 1072309            # Black Voyson Shoes
+      - 1072315            # Black Markintz
+      - 1082204            # Black Bisk
+      - 1082210            # Red Martier
+      - 1482009            # Beia Crash
+      - 1482011            # White Fangz
+      - 1492010            # Infinity's Wrath
+      - 1492012            # Concerto
+      - 1002637            # Black Pirate's Bandana
+      - 1002643            # Red Brave Hamal
+      - 1052122            # Red Viska
+      - 1052128            # White Marquini
+      - 1072312            # Blue Pageant
+      - 1072318            # Black Duke Barkin Shoes
+      - 1082207            # Blue Halfglove
+      - 1082213            # Black Skellduke
+      - 1482010            # Steelno
+      - 1482012            # King Cent
+      - 1492009            # Abyss Shooter
+      - 1492011            # The Peacemaker
+      - 2044802            # Scroll for Knuckle for ATT 10%
+      - 2044804            # Scroll for Knuckle for ATT 30%
+      - 2044808            # Scroll for Knuckle for Accuracy 30%
+      - 2044902            # Scroll for Gun for ATT 10%
+      - 2044904            # Scroll for Gun for ATT 30%
+      - 2040811            # Dark Scroll for Gloves for ATT 30%
+      - 2040815            # Dark Scroll for Gloves for Magic ATT 30%
+

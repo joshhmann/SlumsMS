@@ -31,6 +31,8 @@ public class BotYieldCommand extends Command {
             BotYieldCaps.report(10).forEach(player::yellowMessage);
             player.yellowMessage(BotShopping.report());   // ticket 09: what bots spent at NPC shops
             soloMapling.ArtificialPlayer.BotScrollSystem.ScrollLedger.report().forEach(player::yellowMessage);   // ticket 11
+            player.yellowMessage(soloMapling.ArtificialPlayer.BotWealth.ledgerLine());   // ticket 56B
+            player.yellowMessage(soloMapling.Gachapon.GachaStats.line());                 // 1.5.0 gachapon
             return;
         }
         if (params[0].equalsIgnoreCase("top")) {

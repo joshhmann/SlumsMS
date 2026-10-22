@@ -414,4 +414,77 @@ final class GameQaWorld implements QaWorld {
                         soloMapling.ArtificialPlayer.BotScrollSystem.ScrollRules.Appetite.of(botId));
         return soloMapling.ArtificialPlayer.BotScrollSystem.BotScrolling.stepNow(bot, a);
     }
+
+    @Override
+    public String gachaRoll(Character gm, String town, String tier) {
+        soloMapling.Gachapon.GachaPools.Town t = soloMapling.Gachapon.GachaPools.get().find(town);
+        if (t == null) {
+            return "no gachapon town '" + town + "'";
+        }
+        soloMapling.Gachapon.GachaPools.Tier forced = soloMapling.Gachapon.GachaPools.Tier.of(tier);
+        soloMapling.Gachapon.GachaMachine.Result r = soloMapling.Gachapon.GachaMachine.playForPlayer(gm, t, 0,
+                "qa roll", java.util.concurrent.ThreadLocalRandom.current(), forced);
+        if (!r.ok()) {
+            return "no roll: " + r.refusal();
+        }
+        return String.format("%s at %s: %s %s (%d) x%d, %s", gm.getName(), t.name(), r.prize().tier().key(),
+                itemName(r.prize().itemId()), r.prize().itemId(), r.prize().quantity(), r.announced() ? "ANNOUNCED"
+                        : r.prize().announce() ? "notice held back or queued by the rate limit" : "not announced (tier)");
+    }
+
+    @Override
+    public List<String> gachaOdds(String town, int simulateRolls) {
+        soloMapling.Gachapon.GachaPools pools = soloMapling.Gachapon.GachaPools.get();
+        soloMapling.Gachapon.GachaPools.Town t = pools.find(town);
+        if (t == null) {
+            return List.of("no gachapon town '" + town + "'");
+        }
+        List<String> out = new ArrayList<>();
+        soloMapling.Gachapon.GachaPools.Simulation sim = simulateRolls > 0
+                ? pools.simulate(t, simulateRolls, java.util.concurrent.ThreadLocalRandom.current()) : null;
+        for (soloMapling.Gachapon.GachaPools.TierOdds o : pools.odds(t)) {
+            String line = String.format("%s %s: %s per ticket, %d items", t.name(), o.tier().key(),
+                    server.gachapon.Gachapon.pct(o.chance()), o.items().size());
+            if (sim != null) {
+                int got = sim.tiers().getOrDefault(o.tier(), 0);
+                line += String.format("; %,d of %,d simulated = %s", got, sim.rolls(),
+                        server.gachapon.Gachapon.pct((double) got / Math.max(1, sim.rolls())));
+            }
+            out.add(line);
+        }
+        return out;
+    }
+
+    @Override
+    public int gachaMap(String town) {
+        soloMapling.Gachapon.GachaPools.Town t = soloMapling.Gachapon.GachaPools.get().find(town);
+        return t == null || t.maps().isEmpty() ? 0 : t.maps().get(t.maps().size() - 1);
+    }
+
+    @Override
+    public int giveBotMeso(int botId, int amount) {
+        Character bot = BotHelpers.getCharFromChannelStorage(botId);
+        return bot != null && amount > 0 && soloMapling.ArtificialPlayer.BotHoldings.grantMeso(bot, amount) ? amount : 0;
+    }
+
+    @Override
+    public long botCeiling(int botId) {
+        Character bot = BotHelpers.getCharFromChannelStorage(botId);
+        return bot == null ? -1 : soloMapling.ArtificialPlayer.BotWealth.ceiling(bot);
+    }
+
+    @Override
+    public String botWealthLine(int botId) {
+        Character bot = BotHelpers.getCharFromChannelStorage(botId);
+        return bot == null ? "bot " + botId + " is gone" : soloMapling.ArtificialPlayer.BotWealth.line(bot);
+    }
+
+    @Override
+    public List<String> botWealthStep(int botId) {
+        Character bot = BotHelpers.getCharFromChannelStorage(botId);
+        if (bot == null) {
+            return List.of("bot " + botId + " is gone");
+        }
+        return soloMapling.ArtificialPlayer.BotWealth.step(bot, java.util.concurrent.ThreadLocalRandom.current(), true);
+    }
 }

@@ -82,3 +82,44 @@ Bot scrolling is built. Gachapon is not.
   - Most of it is a sink, against 7.8b a day of bot mob-meso intake.
   - Payments to real players are at most 3 scrolls per bot per day, inside 56A's 5m per seller account per day.
   - Nothing here mints mesos. A restart only resets in-memory counts, which can only let bots spend more of their own.
+
+## 1.5.0: gachapon redesign (branch `economy-gacha-150`)
+
+Owner decision 2026-10-21: "fun + fair". Built:
+
+- **Pools per town, data-driven:** `src/main/java/soloMapling/Gachapon/gachapon-pools.yaml` (12 machines + a shared
+  list, 1,751 entries). Seeded from the v83 town lists (the old `server/gachapon/*.java` classes, now deleted) and
+  MapleRoot's donor chair machine (the old `scripts/npc/gachapon.js`), cleaned: no GM scrolls, boss summoning sacks,
+  return scrolls, pet-equip scrolls, expiring or quest items, untradeable post-v83 knuckle/gun scrolls, NPC-shop
+  beginner weapons, cash effects, Korean-only names, a scroll whose name and data disagree (2040507), duplicates.
+- **Tiers:** common 70%, uncommon 24.5%, rare 5%, jackpot 0.5% per ticket; items inside a tier by weight (Chaos and
+  White Scroll w40 in the jackpot tier). The odds table for the notes: `docs/release/1.5.0-gachapon-odds.md`.
+- **Tool:** `python3 tools/gachapon/gachapon_pools.py validate` checks every id against the WZ (exists, named, not
+  quest/expiring/GM/boss sack, stack size, scroll % matches its data); `odds [town] [--markdown] [--items]` prints
+  the odds. In game `!gachasim <town> [n]` simulates, `!gachasim reload` re-reads the file. `GachaPoolsFileTest` checks
+  the shipped file and every id against `String.wz` in the suite.
+- **Machines:** the NPC script (`gachapon.js`) and the Remote Gachapon Ticket (`gachaponRemote.js`) roll through
+  `GachaMachine`; a ticket is taken only when the prize fits. `@gacha <town>` (players) lists prizes and odds.
+- **Notice:** rare and jackpot wins send the v83 yellow item notice server-wide (`GachaAnnouncer`): one per 20 s
+  server-wide, one per character per minute, players queue (5 deep, 5 min), bots must get the bot megaphone budget
+  (`BotMegaphoneGate`) and are announced at most once per 15 min; a player's notice also claims that budget.
+- **Bots play:** `BotGacha` from the town stop (`BotWealth.townTick`): a bot over its wealth ceiling buys a ticket
+  each step (up to 11 a day); a "gacha fan" (about a third of bots) under it plays at a 2% chance per step, at most
+  2 a day, keeping half its ceiling. 120 bot tickets an hour world-wide. A ticket costs 1,000,000 mesos, burned.
+- **Henesys Market show bots** (`GachaBot`) now pop a prize from the Henesys pool instead of always Stormcaster
+  Gloves, and cheer real rolls on their map. The box retirement from `perf-map-entry-142` is untouched.
+
+### 1.5.0 follow-up (owner answers 2026-10-21)
+
+- **Machines in all 12 towns:** migration `011-gachapon-machines.sql` (+ rollback) adds `plife` rows (worlds 0 and 1)
+  for 9100101 Ellinia, 9100102 Perion, 9100103 Kerning City, 9100104 Sleepywood, 9100105 Mushroom Shrine and 9100109
+  New Leaf City, on the ground near the shops and clear of portals (`GachaponMachinesMigrationTest` checks each spot
+  against the WZ footholds and portals). The client needs no change: it draws server-spawned NPCs from `Npc.wz`
+  (`docs/release/1.5.0-gachapon-machines-client.md`).
+- **Bots walk to the machine** when it stands on their map (`TownLoiter.settle` near it), then play on a later step;
+  if moved off again within 5 minutes they play from where they stand.
+- **Show bots mint nothing:** their pop's drops were already conjured (bots that loot them are credited nothing); now
+  whatever is still on the floor 12 s after a pop vanishes (`CustomReactor.sweepShowDrops`), before the 15 s owner
+  protection would let a player take it.
+- **Remote slot 11 = Ludibrium** stays; checked on a real client in QA `ga-3`.
+- Ceiling, chairs as jackpots and the 1m bot ticket: kept as built.

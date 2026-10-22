@@ -280,6 +280,33 @@ public class CustomReactor {
         threeHitReactor(map, oid);
         sprayFromReactor(map, oid, drops, fakechar);
         retireLater(map, box, retireDelayMs(drops.size()));
+        server.TimerManager.getInstance().schedule(() -> sweepShowDrops(map, box), SHOW_SWEEP_MS);
+    }
+
+    /*
+        1.5.0: a show pop's prize and filler never enter the economy. They are conjured (bots that loot them are
+        credited nothing), and whatever is still on the floor SHOW_SWEEP_MS after the pop vanishes, before its owner
+        protection (15 s) would let a player pick it up.
+     */
+    static final long SHOW_SWEEP_MS = 12_000;
+
+    /** Removes every conjured drop the box sprayed that is still on the map; how many. */
+    static int sweepShowDrops(MapleMap map, Reactor box) {
+        if (map == null || box == null) {
+            return 0;
+        }
+        int removed = 0;
+        for (server.maps.MapObject o : map.getMapObjectsInRange(box.getPosition(), Double.POSITIVE_INFINITY,
+                java.util.List.of(server.maps.MapObjectType.ITEM))) {
+            if (o instanceof server.maps.MapItem item && isShowDrop(item, box) && map.makeDisappearItemFromMap(item)) {
+                removed++;
+            }
+        }
+        return removed;
+    }
+
+    static boolean isShowDrop(server.maps.MapItem item, Reactor box) {
+        return item.isConjured() && item.getDropper() == box;
     }
 
     /* The spray drops one item every 200 ms (delayedReactorDrops); the box goes after the last one has landed. */

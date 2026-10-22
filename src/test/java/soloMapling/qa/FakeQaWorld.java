@@ -142,4 +142,39 @@ class FakeQaWorld implements QaWorld {
         calls.add("bot " + botId + " scroll " + appetite);
         return scrollSteps.isEmpty() ? List.of("bot has nothing it would scroll") : List.of(scrollSteps.remove(0));
     }
+
+    final List<String> wealthSteps = new ArrayList<>();
+    long botMeso;
+    long ceiling = 5_000_000;
+
+    @Override public String gachaRoll(Character gm, String town, String tier) {
+        calls.add("gacha " + town + " " + tier);
+        return "rolled at " + town + (tier == null ? "" : " " + tier);
+    }
+
+    @Override public List<String> gachaOdds(String town, int n) {
+        calls.add("odds " + town + " " + n);
+        return List.of(town + " rare: 5% per ticket");
+    }
+
+    @Override public int gachaMap(String town) { return "henesys".equals(town) ? 100000100 : 0; }
+
+    @Override public int giveBotMeso(int botId, int amount) {
+        botMeso += amount;
+        calls.add("bot " + botId + " meso " + amount);
+        return amount;
+    }
+
+    @Override public long botCeiling(int botId) { return ceiling; }
+
+    @Override public String botWealthLine(int botId) { return "bot " + botId + " holds " + botMeso; }
+
+    @Override public List<String> botWealthStep(int botId) {
+        calls.add("bot " + botId + " wealth step");
+        if (wealthSteps.isEmpty()) {
+            return List.of();
+        }
+        botMeso = Math.max(0, botMeso - 1_000_000);
+        return List.of(wealthSteps.remove(0));
+    }
 }

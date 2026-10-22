@@ -52,7 +52,6 @@ import server.events.gm.Event;
 import server.expeditions.Expedition;
 import server.expeditions.ExpeditionType;
 import server.gachapon.Gachapon;
-import server.gachapon.Gachapon.GachaponItem;
 import server.life.*;
 import server.maps.*;
 import server.partyquest.AriantColiseum;
@@ -452,23 +451,52 @@ public class NPCConversationManager extends AbstractPlayerInteraction {
         getPlayer().sendKeymap();
     }
 
-    public void doGachapon() {
-        GachaponItem item = Gachapon.getInstance().process(npc);
-        Item itemGained = gainItem(item.getId(), (short) (item.getId() / 10000 == 200 ? 100 : 1), true, true); // For normal potions, make it give 100.
+    /** 1.5.0: one Gachapon Ticket at this machine (soloMapling/Gachapon). False when nothing happened. */
+    public boolean doGachapon() {
+        return doGachapon(soloMapling.Gachapon.GachaMachine.TICKET);
+    }
 
-        sendNext("You have obtained a #b#t" + item.getId() + "##k.");
-
-        int[] maps = {MapId.HENESYS, MapId.ELLINIA, MapId.PERION, MapId.KERNING_CITY, MapId.SLEEPYWOOD, MapId.MUSHROOM_SHRINE,
-                MapId.SHOWA_SPA_M, MapId.SHOWA_SPA_F, MapId.NEW_LEAF_CITY, MapId.NAUTILUS_HARBOR};
-        final int mapId = maps[(getNpc() != NpcId.GACHAPON_NAUTILUS && getNpc() != NpcId.GACHAPON_NLC) ?
-                (getNpc() - NpcId.GACHAPON_HENESYS) : getNpc() == NpcId.GACHAPON_NLC ? 8 : 9];
-        String map = c.getChannelServer().getMapFactory().getMap(mapId).getMapName();
-
-        Gachapon.log(getPlayer(), item.getId(), map);
-
-        if (item.getTier() > 0) { //Uncommon and Rare
-            Server.getInstance().broadcastMessage(c.getWorld(), PacketCreator.gachaponMessage(itemGained, map, getPlayer()));
+    /**
+     * One ticket of {@code ticketId} at this NPC's machine: the ticket is taken only when the prize fits. Shows the
+     * prize (or why not) and returns whether a roll happened.
+     */
+    public boolean doGachapon(int ticketId) {
+        soloMapling.Gachapon.GachaPools.Town town = soloMapling.Gachapon.GachaPools.get().byNpc(npc);
+        soloMapling.Gachapon.GachaMachine.Result r = soloMapling.Gachapon.GachaMachine.playForPlayer(getPlayer(), town,
+                ticketId, ticketId == soloMapling.Gachapon.GachaMachine.REMOTE_TICKET ? "remote ticket" : "ticket");
+        if (!r.ok()) {
+            sendOk(r.refusal());
+            return false;
         }
+        soloMapling.Gachapon.GachaPools.Prize p = r.prize();
+        String tier = switch (p.tier()) {
+            case JACKPOT -> "\r\n\r\n#r#eJACKPOT!#n#k";
+            case RARE -> "\r\n\r\n#bA rare one!#k";
+            default -> "";
+        };
+        sendOk("You have obtained #v" + p.itemId() + "# #b#t" + p.itemId() + "#" + (p.quantity() > 1 ? " x" + p.quantity()
+                : "") + "#k." + tier);
+        return true;
+    }
+
+    /** The odds of this NPC's machine, one line per tier, for the machine's info text. */
+    public String gachaponOdds() {
+        soloMapling.Gachapon.GachaPools pools = soloMapling.Gachapon.GachaPools.get();
+        soloMapling.Gachapon.GachaPools.Town town = pools.byNpc(npc);
+        if (town == null) {
+            return "";
+        }
+        StringBuilder sb = new StringBuilder();
+        for (soloMapling.Gachapon.GachaPools.TierOdds t : pools.odds(town)) {
+            sb.append(t.tier().key().substring(0, 1).toUpperCase()).append(t.tier().key().substring(1)).append(": ")
+                    .append(Gachapon.pct(t.chance())).append(" (").append(t.items().size()).append(" items)\r\n");
+        }
+        return sb.toString();
+    }
+
+    public String gachaponTownName() {
+        soloMapling.Gachapon.GachaPools.Town town = soloMapling.Gachapon.GachaPools.get().byNpc(npc);
+        return town == null ? getPlayer().getMap().getMapName() : town.name();
     }
 
     public void upgradeAlliance() {

@@ -93,7 +93,9 @@ public final class ScrollBudget {
             if (spare <= 0) {
                 return 0;
             }
-            return Math.max(0, Math.min(dailyCap(level) - d.spent, (long) (spare * MAX_SHARE_OF_SPARE)));
+            // 56B: a bot over its wealth ceiling may spend half of the excess on scrolls on top of its daily cap
+            long cap = dailyCap(level) + soloMapling.ArtificialPlayer.BotWealth.scrollBonus(level, mesosHeld);
+            return Math.max(0, Math.min(cap - d.spent, (long) (spare * MAX_SHARE_OF_SPARE)));
         }
     }
 

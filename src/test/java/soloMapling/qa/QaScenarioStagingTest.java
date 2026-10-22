@@ -171,6 +171,52 @@ class QaScenarioStagingTest {
     }
 
     @Test
+    void ga1GivesTicketsAtTheMachineAndRollsOnRequest() throws Exception {
+        start("ga-1", 100000000);
+        assertTrue(world.calls.contains("odds henesys 10000"), world.calls.toString());
+        assertTrue(world.calls.contains("warp 100000100"));
+        assertTrue(world.calls.contains("give 5220000 x3"));
+        List<String> out = suite.action(world.online, "roll", new String[]{"rare"});
+        assertEquals(List.of("rolled at henesys rare"), out);
+        suite.action(world.online, "sim", new String[]{"500"});
+        assertTrue(world.calls.contains("odds henesys 500"));
+        assertThrows(QaRefusal.class, () -> suite.action(world.online, "spin", new String[0]));
+        Path log = suite.runOf(1).logPath();
+        suite.stop(1, "!qa stop");
+        assertTrue(world.calls.stream().anyMatch(c -> c.startsWith("take 5220000")), world.calls.toString());
+        String text = Files.readString(log);
+        assertTrue(text.contains("ROLL") && text.contains("rare: 5% per ticket"), text);
+    }
+
+    @Test
+    void ga1RefusesAnUnknownTown() {
+        suite = QaTestSupport.suite(QaScenarios.all(), new FakeQaWorld() {
+            @Override public List<String> gachaOdds(String town, int n) { return List.of("no gachapon town '" + town + "'"); }
+        }, dir, scheduler);
+        Character gm = QaTestSupport.gm(1, "Admin", 100000000);
+        QaRefusal r = assertThrows(QaRefusal.class, () -> suite.start(gm, "ga-1", new String[]{"leafre"}));
+        assertTrue(r.getMessage().contains("no gachapon town 'leafre'"), r.getMessage());
+    }
+
+    @Test
+    void ga2GivesABotMesosOverItsCeilingAndStepsUntilItIsUnder() throws Exception {
+        start("ga-2", 100000000, "henesys", "3");
+        int bot = world.nextBot - 1;
+        assertTrue(world.calls.contains("warp 100000100"));
+        assertTrue(world.calls.contains("bot " + bot + " meso 15000000"), world.calls.toString());
+        assertEquals(1, scheduler.repeating.size());
+        world.wealthSteps.add("bot bought a 1,000,000 ticket at Henesys: common Elixir x20");
+        scheduler.repeating.get(0).run();
+        scheduler.repeating.get(0).run();   // the fake line has no "over by": done
+        assertEquals(1, world.calls.stream().filter(c -> c.equals("bot " + bot + " wealth step")).count());
+        Path log = suite.runOf(1).logPath();
+        suite.stop(1, "!qa stop");
+        String text = Files.readString(log);
+        assertTrue(text.contains("bought a 1,000,000 ticket") && text.contains("DONE"), text);
+        assertEquals(1, world.despawned.size());
+    }
+
+    @Test
     void bk1SpawnsTheShowcaseOnTheGmsMapAndDespawnsIt() {
         start("bk-1", 104040000);
         assertTrue(suite.runOf(1).maps().contains(104040000));

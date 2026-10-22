@@ -24,7 +24,6 @@ package net.server.channel.handlers;
 import client.Client;
 import client.autoban.AutobanFactory;
 import constants.id.ItemId;
-import constants.id.NpcId;
 import constants.inventory.ItemConstants;
 import net.AbstractPacketHandler;
 import net.packet.InPacket;
@@ -51,12 +50,14 @@ public final class RemoteGachaponHandler extends AbstractPacketHandler {
             c.disconnect(false, false);
             return;
         }
-        int npcId = NpcId.GACHAPON_HENESYS;
-        if (gacha != 8 && gacha != 9) {
-            npcId += gacha;
-        } else {
-            npcId = gacha == 8 ? NpcId.GACHAPON_NLC : NpcId.GACHAPON_NAUTILUS;
+        // 1.5.0: the selection names a pool town (server.gachapon.Gachapon.REMOTE_ORDER); the script runs as its NPC
+        soloMapling.Gachapon.GachaPools.Town town = server.gachapon.Gachapon.remote(gacha);
+        if (town == null) {
+            c.getPlayer().dropMessage(1, "That Gachapon is not available.");
+            c.sendPacket(tools.PacketCreator.enableActions());
+            return;
         }
+        int npcId = town.npcId();
         NPCScriptManager.getInstance().start(c, npcId, "gachaponRemote", null);
     }
 }

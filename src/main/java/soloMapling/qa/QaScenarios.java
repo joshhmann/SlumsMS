@@ -17,6 +17,7 @@ import static soloMapling.qa.QaLog.Topic.BOT_CHAT;
 import static soloMapling.qa.QaLog.Topic.CHANNEL_LOAD;
 import static soloMapling.qa.QaLog.Topic.EQUIP;
 import static soloMapling.qa.QaLog.Topic.FM_BUY;
+import static soloMapling.qa.QaLog.Topic.GACHA;
 import static soloMapling.qa.QaLog.Topic.GUILD;
 import static soloMapling.qa.QaLog.Topic.HIDE;
 import static soloMapling.qa.QaLog.Topic.IDLE;
@@ -27,6 +28,7 @@ import static soloMapling.qa.QaLog.Topic.ROPE;
 import static soloMapling.qa.QaLog.Topic.SCROLL;
 import static soloMapling.qa.QaLog.Topic.SLIDE;
 import static soloMapling.qa.QaLog.Topic.STORAGE;
+import static soloMapling.qa.QaLog.Topic.WEALTH;
 
 /**
  * The {@code !qa} scenarios, one per test on the 1.4.1 release notes page that the server can stage. Ids are the
@@ -60,6 +62,7 @@ public final class QaScenarios {
     public static final int SWORD_ATT_60 = 2043001, SWORD_ATT_10 = 2043002, SWORD_ATT_DARK_70 = 2043004;
     public static final int WHITE_SCROLL = 2340000;
     public static final long BUY_CAP = 5_000_000;
+    public static final int GACHA_TICKET = 5220000;
 
     /* Scrolls with a normal value in the bots' price list: fm-1 stocks the shop from these until it passes the cap. */
     static final int[] FM_STOCK = {2040301, 2040302, 2044701, 2044702, 2043301, 2043302, 2043001, 2043002, 2044001,
@@ -72,7 +75,146 @@ public final class QaScenarios {
         return List.of(new Bk1Showcase(), new Gd1Guild(), new Fm1BuyerCap(), new Ld1Ladders(), new Gh1Hide(),
                 new Np1Rosen(), new Np2Fredrick(), new Np3Merchant(), new Cs2PetEquip(), new Gn2Scrolling(), new Sc2BotScrolling(),
                 new Wd1ChannelBars(), new Wd2DreamyPortal(), new Id1IdleSafety(),
-                new Mv1AttackSlide(), new Pe1MapEntry(), new Jq1BounceBlock());
+                new Mv1AttackSlide(), new Pe1MapEntry(), new Jq1BounceBlock(), new Ga1Gachapon(), new Ga2BotWealth());
+    }
+
+    // ---- ga-1 ----
+
+    /**
+     * ga-1 (1.5.0): the gachapon. Gives the GM 3 Gachapon Tickets and warps it to the chosen town's machine (default
+     * Henesys, in the Henesys Market); every roll by anyone (players and bots) goes to the log with its tier, and the
+     * odds and a 10,000-roll simulation are logged at the start. {@code !qa do roll [tier]} is a free roll now (a
+     * forced {@code rare} or {@code jackpot} shows the server-wide notice), {@code !qa do sim [n]} simulates again.
+     */
+    static final class Ga1Gachapon implements QaScenario {
+        private volatile String town = "henesys";
+
+        public String id() { return "ga-1"; }
+        public String title() { return "Gachapon: 3 tickets at a town's machine, rolls, notices and odds logged"; }
+        public String usage() { return "[town], default henesys (ellinia, perion, kerning, ludibrium, el_nath, ...)"; }
+        public Set<QaLog.Topic> topics() { return EnumSet.of(GACHA); }
+        public int minutes(String[] args) { return 20; }
+
+        public List<String> stage(QaContext ctx) {
+            String town = ctx.arg(0, "henesys");
+            this.town = town;
+            QaWorld w = ctx.world();
+            List<String> odds = w.gachaOdds(town, 10_000);
+            if (odds.size() == 1 && odds.get(0).startsWith("no gachapon town")) {
+                throw new QaRefusal(odds.get(0) + ".");
+            }
+            odds.forEach(ctx::log);
+            int map = w.gachaMap(town);
+            if (map > 0 && map != ctx.gm().getMapId() && !w.warp(ctx.gm(), map)) {
+                ctx.log("could not warp to " + map);
+            }
+            ctx.giveBack(GACHA_TICKET, 3);
+            return List.of("Talk to the Gachapon machine and use your 3 tickets: each prize is logged with its tier.",
+                    "The machine's 'What can I win' answer shows the odds; @gacha " + town + " lists every prize.",
+                    "!qa do roll rare (or jackpot) gives a free prize of that tier now: the yellow server notice must show"
+                            + " your name, the item and the town. A second one within 60 s is not announced.",
+                    "!qa do sim 100000 simulates again. A full inventory tab must refuse the roll and keep the ticket.");
+        }
+
+        public List<String> action(QaContext ctx, String name, String[] args) {
+            if ("roll".equalsIgnoreCase(name)) {
+                String line = ctx.world().gachaRoll(ctx.gmNow() == null ? ctx.gm() : ctx.gmNow(), town,
+                        args.length > 0 ? args[0] : null);
+                ctx.run().note("ROLL", line);
+                return List.of(line);
+            }
+            if ("sim".equalsIgnoreCase(name)) {
+                int n = args.length > 0 && args[0].matches("\\d{1,7}") ? Integer.parseInt(args[0]) : 10_000;
+                List<String> lines = ctx.world().gachaOdds(town, n);
+                lines.forEach(l -> ctx.run().note("SIM", l));
+                return lines;
+            }
+            throw new QaRefusal("ga-1 steps: roll [common|uncommon|rare|jackpot], sim [n].");
+        }
+    }
+
+    // ---- ga-2 ----
+
+    /**
+     * ga-2 (1.5.0, ticket 56B): a bot over its wealth ceiling spends down. Warps the GM to the town's machine
+     * (default Henesys Market), spawns a bot next to it and gives it mesos up to {@code x} times its ceiling (default
+     * 2.5). Every ~8 s the bot takes one spending step: a gachapon ticket bought with its own mesos (a rare may be
+     * announced, subject to the bot notice limits), then 10% upkeep on what is still over. Each step and the bot's
+     * wealth line are logged; the run ends when it is back under its ceiling. {@code !qa do step} steps now.
+     */
+    static final class Ga2BotWealth implements QaScenario {
+        private volatile int botId;
+        private volatile boolean done;
+
+        public String id() { return "ga-2"; }
+        public String title() { return "Bot wealth ceiling: a rich bot plays the gachapon and pays upkeep until under its ceiling"; }
+        public String usage() { return "[town] [times its ceiling], default henesys 2.5"; }
+        public Set<QaLog.Topic> topics() { return EnumSet.of(GACHA, WEALTH); }
+        public int tickSeconds() { return 8; }
+        public int minutes(String[] args) { return 10; }
+
+        public List<String> stage(QaContext ctx) {
+            QaWorld w = ctx.world();
+            String town = ctx.arg(0, "henesys");
+            double times = 2.5;
+            if (ctx.args().length > 1 && ctx.args()[1].matches("\\d+(\\.\\d+)?")) {
+                times = Math.max(1.1, Math.min(10, Double.parseDouble(ctx.args()[1])));
+            }
+            int map = w.gachaMap(town);
+            if (map <= 0) {
+                throw new QaRefusal("No gachapon town '" + town + "' with a machine map.");
+            }
+            if (map != ctx.gm().getMapId() && !w.warp(ctx.gm(), map)) {
+                throw new QaRefusal("Cannot warp to " + map + ".");
+            }
+            done = false;
+            Character gm = ctx.gmNow() == null ? ctx.gm() : ctx.gmNow();
+            List<Integer> bots = w.spawnIdleBots(gm, gm.getPosition(), 1);
+            if (bots.isEmpty()) {
+                throw new QaRefusal("Could not spawn a bot here.");
+            }
+            botId = bots.get(0);
+            ctx.despawnAtStop(bots, "rich bot (its mesos and prizes leave with it)");
+            long ceiling = w.botCeiling(botId);
+            long target = (long) (ceiling * times);
+            int give = (int) Math.min(Integer.MAX_VALUE - 1L, Math.max(0, target));
+            ctx.log("bot " + botId + " given " + w.giveBotMeso(botId, give) + " mesos (" + times + "x its ceiling "
+                    + ceiling + ")");
+            ctx.log(w.botWealthLine(botId));
+            return List.of("A bot next to you holds " + times + "x its wealth ceiling.",
+                    "Every ~8 s it buys a gachapon ticket with its own mesos (watch for a yellow notice on a rare; bots"
+                            + " are announced at most once per 15 min) and pays 10% upkeep on what is still over.",
+                    "Each step and its wealth line are logged; the run ends when it is under its ceiling. !qa do step"
+                            + " steps now. !botwealth " + botId + " shows it any time.");
+        }
+
+        public void tick(QaContext ctx) {
+            if (!done && botId != 0) {
+                step(ctx);
+            }
+        }
+
+        public List<String> action(QaContext ctx, String name, String[] args) {
+            if (!"step".equalsIgnoreCase(name)) {
+                throw new QaRefusal("ga-2 has one step: step.");
+            }
+            return step(ctx);
+        }
+
+        private List<String> step(QaContext ctx) {
+            QaWorld w = ctx.world();
+            List<String> lines = new ArrayList<>(w.botWealthStep(botId));
+            String wealth = w.botWealthLine(botId);
+            lines.add(wealth);
+            for (String l : lines) {
+                ctx.run().note("STEP", l);
+            }
+            if (wealth.contains("is gone") || !wealth.contains("over by")) {
+                done = true;
+                ctx.run().note("DONE", wealth.contains("is gone") ? wealth : "under its ceiling: " + wealth);
+            }
+            return lines;
+        }
     }
 
     // ---- jq-1 ----

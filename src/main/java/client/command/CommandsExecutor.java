@@ -232,7 +232,7 @@ public class CommandsExecutor {
         addCommand(new String[]{"qs", "qsell"}, QuickSellCommand.class);
         addCommand(new String[]{"bb", "buyback"}, BuyBackCommand.class);
         addCommand("uptime", UptimeCommand.class);
-        //addCommand("gacha", GachaCommand.class);
+        addCommand("gacha", GachaCommand.class);   // 1.5.0: prizes and odds per machine
         addCommand("exchange", ExchangeCommand.class);
         addCommand(new String[] {"elb", "expeditionleaderboard"}, ExpeditionLeaderboardCommand.class);
         addCommand("dispose", DisposeCommand.class);
@@ -362,8 +362,11 @@ public class CommandsExecutor {
             addCommand("brain", 4, client.command.commands.gm4.BrainCommand.class);
             addCommand("botyield", 4, client.command.commands.gm4.BotYieldCommand.class);
             addCommand("botscroll", 4, client.command.commands.gm4.BotScrollCommand.class);   // ticket 11
+            addCommand("botwealth", 4, client.command.commands.gm4.BotWealthCommand.class);   // ticket 56B
             addCommand(new String[]{"event", "worldevent"}, 4, client.command.commands.gm4.WorldEventCommand.class);
         }
+        addCommand("gacharoll", 3, client.command.commands.gm4.GachaRollCommand.class);   // 1.5.0 gachapon
+        addCommand("gachasim", 3, client.command.commands.gm4.GachaSimCommand.class);
         addCommand("spawn", 3, SpawnCommand.class);
         addCommand("mutemap", 3, MuteMapCommand.class);
         addCommand("checkdmg", 3, CheckDmgCommand.class);

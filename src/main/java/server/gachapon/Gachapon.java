@@ -21,153 +21,83 @@
  */
 package server.gachapon;
 
-import client.Character;
-import constants.id.NpcId;
-import org.slf4j.Logger;
-import org.slf4j.LoggerFactory;
 import server.ItemInformationProvider;
-import tools.Randomizer;
+import soloMapling.Gachapon.GachaPools;
+
+import java.util.ArrayList;
+import java.util.List;
 
 /**
- * @author Alan (SharpAceX)
+ * The gachapon machines as the NPC scripts see them. 1.5.0: the per-town item lists that were Java classes here now
+ * live in {@code soloMapling/Gachapon/gachapon-pools.yaml} ({@link GachaPools}); this class keeps the script-facing
+ * read-out ({@code gachaponInfo.js}) and the remote ticket's machine numbers.
+ *
+ * @author Alan (SharpAceX), 1.5.0 SlumsMS
  */
-public class Gachapon {
-    private static final Logger log = LoggerFactory.getLogger(Gachapon.class);
-    private static final Gachapon instance = new Gachapon();
+public final class Gachapon {
 
-    public static Gachapon getInstance() {
-        return instance;
+    private Gachapon() {
     }
 
-    public enum GachaponType {
+    /**
+     * Remote Gachapon Ticket machine numbers (the client's list, 0-11) to pool town keys. 0-10 as the old handler
+     * mapped them (NPC 9100100 + n, 8 = New Leaf City, 9 = Nautilus, 10 = El Nath); 11 had no machine and is
+     * Ludibrium now.
+     */
+    static final String[] REMOTE_ORDER = {"henesys", "ellinia", "perion", "kerning", "sleepywood", "mushroom_shrine",
+            "showa_male", "showa_female", "new_leaf_city", "nautilus", "el_nath", "ludibrium"};
 
-        GLOBAL(-1, -1, -1, -1, new Global()),
-        HENESYS(NpcId.GACHAPON_HENESYS, 90, 8, 2, new Henesys()),
-        ELLINIA(NpcId.GACHAPON_ELLINIA, 90, 8, 2, new Ellinia()),
-        PERION(NpcId.GACHAPON_PERION, 90, 8, 2, new Perion()),
-        KERNING_CITY(NpcId.GACHAPON_KERNING, 90, 8, 2, new KerningCity()),
-        SLEEPYWOOD(NpcId.GACHAPON_SLEEPYWOOD, 90, 8, 2, new Sleepywood()),
-        MUSHROOM_SHRINE(NpcId.GACHAPON_MUSHROOM_SHRINE, 90, 8, 2, new MushroomShrine()),
-        SHOWA_SPA_MALE(NpcId.GACHAPON_SHOWA_MALE, 90, 8, 2, new ShowaSpaMale()),
-        SHOWA_SPA_FEMALE(NpcId.GACHAPON_SHOWA_FEMALE, 90, 8, 2, new ShowaSpaFemale()),
-        LUDIBRIUM(NpcId.GACHAPON_LUDIBRIUM, 90, 8, 2, new Ludibrium()),
-        NEW_LEAF_CITY(NpcId.GACHAPON_NLC, 90, 8, 2, new NewLeafCity()),
-        EL_NATH(NpcId.GACHAPON_EL_NATH, 90, 8, 2, new ElNath()),
-        NAUTILUS_HARBOR(NpcId.GACHAPON_NAUTILUS, 90, 8, 2, new NautilusHarbor());
-
-        private static final GachaponType[] values = GachaponType.values();
-
-        private final GachaponItems gachapon;
-        private final int npcId;
-        private final int common;
-        private final int uncommon;
-        private final int rare;
-
-        GachaponType(int npcid, int c, int u, int r, GachaponItems g) {
-            this.npcId = npcid;
-            this.gachapon = g;
-            this.common = c;
-            this.uncommon = u;
-            this.rare = r;
-        }
-
-        private int getTier() {
-            int chance = Randomizer.nextInt(common + uncommon + rare) + 1;
-            if (chance > common + uncommon) {
-                return 2; //Rare
-            } else if (chance > common) {
-                return 1; //Uncommon
-            } else {
-                return 0; //Common
-            }
-        }
-
-        public int[] getItems(int tier) {
-            return gachapon.getItems(tier);
-        }
-
-        public int getItem(int tier) {
-            int[] gacha = getItems(tier);
-            int[] global = GLOBAL.getItems(tier);
-            int chance = Randomizer.nextInt(gacha.length + global.length);
-            return chance < gacha.length ? gacha[chance] : global[chance - gacha.length];
-        }
-
-        public static GachaponType getByNpcId(int npcId) {
-            for (GachaponType gacha : values) {
-                if (npcId == gacha.npcId) {
-                    return gacha;
-                }
-            }
+    /** The machine a Remote Gachapon Ticket's selection (0-11) plays, or null. */
+    public static GachaPools.Town remote(int selection) {
+        if (selection < 0 || selection >= REMOTE_ORDER.length) {
             return null;
         }
+        return GachaPools.get().town(REMOTE_ORDER[selection]);
+    }
 
-        public static String[] getLootInfo() {
-            ItemInformationProvider ii = ItemInformationProvider.getInstance();
-
-            String[] strList = new String[values.length + 1];
-
-            String menuStr = "";
-            int j = 0;
-            for (GachaponType gacha : values) {
-                menuStr += "#L" + j + "#" + gacha.name() + "#l\r\n";
-                j++;
-
-                String str = "";
-                for (int i = 0; i < 3; i++) {
-                    int[] gachaItems = gacha.getItems(i);
-
-                    if (gachaItems.length > 0) {
-                        str += ("  #rTier " + i + "#k:\r\n");
-                        for (int itemid : gachaItems) {
-                            String itemName = ii.getName(itemid);
-                            if (itemName == null) {
-                                itemName = "MISSING NAME #" + itemid;
-                            }
-
-                            str += ("    " + itemName + "\r\n");
-                        }
-
-                        str += "\r\n";
-                    }
+    /** For gachaponInfo.js: [menu, then one text block per machine in menu order]. */
+    public static String[] getLootInfo() {
+        ItemInformationProvider ii = ItemInformationProvider.getInstance();
+        GachaPools pools = GachaPools.get();
+        List<GachaPools.Town> towns = new ArrayList<>(pools.towns().values());
+        String[] out = new String[towns.size() + 1];
+        StringBuilder menu = new StringBuilder();
+        for (int j = 0; j < towns.size(); j++) {
+            GachaPools.Town town = towns.get(j);
+            menu.append("#L").append(j).append('#').append(town.name()).append("#l\r\n");
+            StringBuilder sb = new StringBuilder();
+            for (GachaPools.TierOdds tier : pools.odds(town)) {
+                sb.append("  #r").append(cap(tier.tier().key())).append("#k (").append(pct(tier.chance()))
+                        .append(" per ticket, ").append(tier.items().size()).append(" items):\r\n");
+                for (GachaPools.ItemOdds item : tier.items()) {
+                    String name = ii.getName(item.itemId());
+                    sb.append("    ").append(name == null ? "#" + item.itemId() : name)
+                            .append(item.quantity() > 1 ? " x" + item.quantity() : "").append("\r\n");
                 }
-                str += "\r\n";
-
-                strList[j] = str;
+                sb.append("\r\n");
             }
-            strList[0] = menuStr;
-
-            return strList;
+            out[j + 1] = sb.toString();
         }
+        out[0] = menu.toString();
+        return out;
     }
 
-    public GachaponItem process(int npcId) {
-        GachaponType gacha = GachaponType.getByNpcId(npcId);
-        int tier = gacha.getTier();
-        int item = gacha.getItem(tier);
-        return new GachaponItem(tier, item);
+    /** gachaponInfo.js names the machines through this, in menu order. */
+    public static String[] machineNames() {
+        return GachaPools.get().towns().values().stream().map(GachaPools.Town::name).toArray(String[]::new);
     }
 
-    public static class GachaponItem {
-        private final int id;
-        private final int tier;
-
-        public GachaponItem(int t, int i) {
-            id = i;
-            tier = t;
+    public static String pct(double p) {
+        if (p >= 0.1) {
+            return String.format("%.0f%%", p * 100);
         }
-
-        public int getTier() {
-            return tier;
+        if (p >= 0.01) {
+            return String.format("%.1f%%", p * 100);
         }
-
-        public int getId() {
-            return id;
-        }
+        return String.format("%.2f%%", p * 100);
     }
 
-    public static void log(Character player, int itemId, String map) {
-        String itemName = ItemInformationProvider.getInstance().getName(itemId);
-        log.info("{} got a {} ({}) from the {} gachapon.", player.getName(), itemName, itemId, map);
+    private static String cap(String s) {
+        return s.isEmpty() ? s : Character.toUpperCase(s.charAt(0)) + s.substring(1);
     }
 }

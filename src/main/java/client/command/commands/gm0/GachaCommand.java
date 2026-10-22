@@ -28,42 +28,37 @@ import client.command.Command;
 import constants.id.NpcId;
 import server.ItemInformationProvider;
 import server.gachapon.Gachapon;
+import soloMapling.Gachapon.GachaPools;
 
+/** {@code @gacha <town>}: a machine's prizes and odds (1.5.0: from soloMapling/Gachapon/gachapon-pools.yaml). */
 public class GachaCommand extends Command {
     {
-        setDescription("Show gachapon rewards.");
+        setDescription("Show a gachapon's prizes and odds.");
     }
 
     @Override
     public void execute(Client c, String[] params) {
-        Gachapon.GachaponType gacha = null;
-        String search = c.getPlayer().getLastCommandMessage();
-        String gachaName = "";
-        String[] names = {"Henesys", "Ellinia", "Perion", "Kerning City", "Sleepywood", "Mushroom Shrine", "Showa Spa Male", "Showa Spa Female", "New Leaf City", "Nautilus Harbor"};
-        int[] ids = {NpcId.GACHAPON_HENESYS, NpcId.GACHAPON_ELLINIA, NpcId.GACHAPON_PERION, NpcId.GACHAPON_KERNING,
-                NpcId.GACHAPON_SLEEPYWOOD, NpcId.GACHAPON_MUSHROOM_SHRINE, NpcId.GACHAPON_SHOWA_MALE,
-                NpcId.GACHAPON_SHOWA_FEMALE, NpcId.GACHAPON_NLC, NpcId.GACHAPON_NAUTILUS};
-        for (int i = 0; i < names.length; i++) {
-            if (search.equalsIgnoreCase(names[i])) {
-                gachaName = names[i];
-                gacha = Gachapon.GachaponType.getByNpcId(ids[i]);
-            }
-        }
-        if (gacha == null) {
-            c.getPlayer().yellowMessage("Please use @gacha <name> where name corresponds to one of the below:");
-            for (String name : names) {
-                c.getPlayer().yellowMessage(name);
+        GachaPools pools = GachaPools.get();
+        GachaPools.Town town = params.length == 0 ? null : pools.find(String.join(" ", params));
+        if (town == null) {
+            c.getPlayer().yellowMessage("Use @gacha <town>, one of:");
+            for (GachaPools.Town t : pools.towns().values()) {
+                c.getPlayer().yellowMessage("  " + t.name() + "  (@gacha " + t.key() + ")");
             }
             return;
         }
-        String talkStr = "The #b" + gachaName + "#k Gachapon contains the following items.\r\n\r\n";
-        for (int i = 0; i < 2; i++) {
-            for (int id : gacha.getItems(i)) {
-                talkStr += "-" + ItemInformationProvider.getInstance().getName(id) + "\r\n";
+        ItemInformationProvider ii = ItemInformationProvider.getInstance();
+        StringBuilder sb = new StringBuilder("The #b" + town.name() + "#k Gachapon: one prize per ticket.\r\n\r\n");
+        for (GachaPools.TierOdds t : pools.odds(town)) {
+            sb.append("#r").append(t.tier().key().toUpperCase()).append("#k ").append(Gachapon.pct(t.chance()))
+                    .append(pools.announces(t.tier()) ? " (announced)" : "").append(":\r\n");
+            for (GachaPools.ItemOdds item : t.items()) {
+                String name = ii.getName(item.itemId());
+                sb.append(" - ").append(name == null ? "#" + item.itemId() : name)
+                        .append(item.quantity() > 1 ? " x" + item.quantity() : "").append("\r\n");
             }
+            sb.append("\r\n");
         }
-        talkStr += "\r\nPlease keep in mind that there are items that are in all gachapons and are not listed here.";
-
-        c.getAbstractPlayerInteraction().npcTalk(NpcId.MAPLE_ADMINISTRATOR, talkStr);
+        c.getAbstractPlayerInteraction().npcTalk(NpcId.MAPLE_ADMINISTRATOR, sb.toString());
     }
 }

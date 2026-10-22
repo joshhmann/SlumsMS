@@ -36,6 +36,14 @@ public final class BotMegaphoneGate {
         }
     }
 
+    /**
+     * Notes a megaphone-like line that went out without asking (1.5.0: a player's gachapon notice), so the next bot
+     * megaphone waits a full gap after it. Never refuses anything.
+     */
+    public static void note() {
+        lastAt.accumulateAndGet(clock.getAsLong(), Math::max);
+    }
+
     /** Test seam: a fixed clock (null restores the system clock) and a fresh budget. */
     static void useClockForTest(LongSupplier testClock) {
         clock = testClock == null ? System::currentTimeMillis : testClock;
