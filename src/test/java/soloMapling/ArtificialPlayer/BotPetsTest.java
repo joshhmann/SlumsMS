@@ -9,6 +9,7 @@ import org.junit.jupiter.api.Test;
 import server.maps.MapItem;
 import server.maps.MapleMap;
 import soloMapling.ArtificialPlayer.BotCombatSystem.BotHabits;
+import soloMapling.WzTestData;
 import soloMapling.ArtificialPlayer.BotCommandsPack.DropCommands;
 
 import java.awt.Point;
@@ -89,6 +90,7 @@ class BotPetsTest {
 
     @Test
     void everyPoolPetIsInTheClientData() {
+        WzTestData.assumePresent("Item.wz"); // the pets' client data
         provider.DataProvider item = provider.DataProviderFactory.getDataProvider(provider.wz.WZFiles.ITEM);
         provider.Data names = provider.DataProviderFactory.getDataProvider(provider.wz.WZFiles.STRING).getData("Pet.img");
         assertEquals(BotPets.POOL.length, BotPets.SPECIES.length);
@@ -102,6 +104,7 @@ class BotPetsTest {
 
     @Test
     void attachGivesTheBotItsSummonedPetAndLootEquipsOnce() {
+        WzTestData.assumePresent("Item.wz"); // the pets' client data
         int id = idWith(BotHabits.Loot.PET, true);
         Character bot = bot(id, 45);
         assertTrue(BotPets.attach(bot));
@@ -153,6 +156,7 @@ class BotPetsTest {
 
     @Test
     void aBotPetNeverGetsHungryAndIsNeverWrittenToThePetsTable() {
+        WzTestData.assumePresent("Item.wz"); // the pets' client data
         Character bot = bot(idWith(BotHabits.Loot.PET, true), 50);
         BotPets.attach(bot);
         Pet pet = bot.getPets()[0];
@@ -165,6 +169,7 @@ class BotPetsTest {
 
     @Test
     void detachTakesThePetAndItsEquipsAway() {
+        WzTestData.assumePresent("Item.wz"); // the pets' client data
         Character bot = bot(idWith(BotHabits.Loot.PET, true), 50);
         BotPets.attach(bot);
         BotPets.detach(bot);
@@ -175,6 +180,7 @@ class BotPetsTest {
 
     @Test
     void stagingGivesAnyBotALootingPet() {
+        WzTestData.assumePresent("Item.wz"); // the pets' client data
         Character bot = bot(idWith(BotHabits.Loot.BATCH, false), 50);
         assertNotNull(BotPets.stage(bot, true));
         assertTrue(BotPets.hasBotPet(bot));
@@ -197,6 +203,7 @@ class BotPetsTest {
 
     @Test
     void thePetTakesItsOwnDropsAndNeverAPlayersDuringOwnership() {
+        WzTestData.assumePresent("Item.wz"); // the pets' client data
         Character bot = bot(idWith(BotHabits.Loot.PET, true), 50);
         BotPets.attach(bot);
         long now = 1_000_000L;
@@ -214,6 +221,7 @@ class BotPetsTest {
 
     @Test
     void mesosNeedTheMagnetAndItemsThePouch() {
+        WzTestData.assumePresent("Item.wz"); // the pets' client data
         Character bot = bot(idWith(BotHabits.Loot.BATCH, false), 50);
         BotPets.attach(bot, new BotPets.Choice(5000001, "Peanut", true, false));
         long now = 1_000_000L;
@@ -251,6 +259,7 @@ class BotPetsTest {
 
     @Test
     void followIsThrottledButAStopGoesOutAtOnce() {
+        WzTestData.assumePresent("Item.wz"); // the pets' client data
         Character bot = bot(idWith(BotHabits.Loot.PET, true), 50);
         BotPets.attach(bot);
         MapleMap map = mock(MapleMap.class);

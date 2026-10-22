@@ -5,14 +5,16 @@ import server.maps.MapObject;
 import server.maps.MapleMap;
 import server.maps.Portal;
 import soloMapling.ArtificialPlayer.BotHelpers;
+import soloMapling.ArtificialPlayer.BotMovementSystem.BotGround;
+import soloMapling.ArtificialPlayer.BotMovementSystem.MovementCommands;
 import soloMapling.ArtificialPlayer.BotMovementSystem.MovementStructures.MovementRecording;
 
+import java.awt.Point;
 import java.util.HashMap;
 import java.util.Map;
 
 import static soloMapling.ArtificialPlayer.BotClientHandler.getBotClient;
 import static soloMapling.ArtificialPlayer.BotMovementSystem.InPacketReader.getMovementRecording;
-import static soloMapling.ArtificialPlayer.BotMovementSystem.MovementCommands.BotMoveStreamOffset;
 
 public class WarpCommands {
 
@@ -102,7 +104,10 @@ public class WarpCommands {
         String recName = "portalenterdrop";
 //        List<MovementPacket> mvp = readPacketsFromFile(0, recName);
         MovementRecording mvr = getMovementRecording(0, recName);
-        BotMoveStreamOffset(mvr, fakechar);
+        // 1.5.0 rc5: drop onto the floor under the bot (a portal sits above it; a restored town bot already stands
+        // on it), not 1 px below wherever the bot is: that 1 px a boot sank the Henesys social bots into the ground.
+        Point landing = BotGround.landing(fakechar.getMap(), fakechar.getPosition());
+        MovementCommands.BotMoveStreamOffsetLanding(mvr, fakechar, landing);
     }
 
     public static void botEnterPortalDropDown(Character fakechar) {

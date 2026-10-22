@@ -54,9 +54,9 @@ class BotPopulationBudgetTest {
     }
 
     @Test
-    void theShippedDefaultsAddUpToAboutTwelveHundredAtPeak() {
+    void theShippedDefaultsKeepTheFullRosterOnTopOfTheEnvironmentAtPeak() {
         ServerConfig server = new ServerConfig();
-        assertEquals(1200, server.BOT_POPULATION_PEAK);
+        assertEquals(1600, server.BOT_POPULATION_PEAK);
         assertEquals(1200, server.BOT_ROSTER_PEAK_ONLINE);
         assertEquals(0.5, server.BOT_ENVIRONMENT_SCALE, 1e-9);
 
@@ -65,7 +65,8 @@ class BotPopulationBudgetTest {
 
         int directorPeak = BotChannels.directorPeak(server.BOT_ROSTER_PEAK_ONLINE, server.BOT_POPULATION_PEAK,
                 (int) Math.round(environment));
-        assertTrue(directorPeak >= 810 && directorPeak <= 870, "director peak " + directorPeak);
+        // rc5 (owner 2026-10-22): the cap leaves the full 1,200 roster on top of the environment, as on 1.4.1
+        assertEquals(1200, directorPeak, "director peak " + directorPeak);
         // Live keeps BOT_ROSTER_PEAK_ONLINE: 1200 in its config.yaml; the cap still holds the total.
         assertEquals(directorPeak, BotChannels.directorPeak(1200, server.BOT_POPULATION_PEAK,
                 (int) Math.round(environment)));
@@ -114,7 +115,7 @@ class BotPopulationBudgetTest {
         for (int i = 0; i < 1200; i++) {
             counts[BotChannels.pickByDeficit(counts, shares)]++;
         }
-        int[] expected = {421, 358, 211, 126, 84};
+        int[] expected = {533, 293, 187, 107, 80};
         for (int c = 0; c < 5; c++) {
             assertEquals(expected[c], counts[c], 1, "ch" + (c + 1));
         }
@@ -122,12 +123,13 @@ class BotPopulationBudgetTest {
 
     @Test
     void theBarsReadWhatTheOwnerAskedForAtThePeak() {
-        // Owner 2026-10-21: channel bars 100 / 85 / 50 / 30 / 20 % at the peak. A bot counts 0.25 of a player in the
-        // bar (Channel.getChannelCapacity) and live runs CHANNEL_LOAD 105 with this release.
+        // Owner 2026-10-22 (rc5): weights 100/55/35/20/15 over ~1,560 bots at the peak (the 1,200 roster plus the
+        // environment). A bot counts 0.25 of a player in the bar (Channel.getChannelCapacity) at CHANNEL_LOAD 125:
+        // channel 1 full, the rest falling off much as the 100/85/50/30/20 bars asked for on 2026-10-21.
         double[] shares = BotChannels.shares(new ServerConfig().BOT_CHANNEL_WEIGHTS, 5);
-        double[] want = {1.00, 0.85, 0.50, 0.30, 0.20};
+        double[] want = {1.00, 0.76, 0.49, 0.28, 0.21};
         for (int c = 0; c < 5; c++) {
-            double bar = Math.min(1.0, shares[c] * 1200 * 0.25 / 105.0);
+            double bar = Math.min(1.0, shares[c] * 1560 * 0.25 / 125.0);
             assertEquals(want[c], bar, 0.02, "ch" + (c + 1));
         }
     }

@@ -13,6 +13,7 @@ import org.slf4j.LoggerFactory;
 import server.Trade;
 import server.maps.MapleMap;
 import soloMapling.ArtificialPlayer.BotDecoratorSystem.BotWeapons;
+import soloMapling.ArtificialPlayer.BotMovementSystem.BotGround;
 import soloMapling.ArtificialPlayer.BotProgressionSystem.BotProgression;
 import soloMapling.ArtificialPlayer.BotProgressionSystem.BotRealStats;
 import soloMapling.ArtificialPlayer.BotSupplySystem.StarterStash;
@@ -290,16 +291,20 @@ public final class BotStore {
 
         /**
          * Puts an adopted bot back where it was last seen, when the wave spawned it on the map the row
-         * remembers. The point is applied as stored - ground is not re-derived here, because every path
-         * that makes a bot visible again (observed physics, and the promotion rebuild) snaps it to the
-         * ground before it can be seen. A bot whose home map changed with the environment config keeps
-         * the spawn point the wave placed it on instead.
+         * remembers. A bot whose home map changed with the environment config keeps the spawn point the wave
+         * placed it on instead.
+         *
+         * <p>1.5.0 rc5: the point is put back on its foothold ({@link BotGround#settle}). Town bots on the
+         * recorded engine have no physics to do it for them, and each boot's spawn drop used to leave them 1 px
+         * lower, so a stored point could be up to 30 px inside the ground (bots half sunk in Henesys).
          */
         void restorePlacement(Character bot, MapleMap waveMap) {
             if (waveMap == null || waveMap.getId() != mapId) {
                 return;
             }
-            bot.setPosition(new Point(posX, posY));
+            Point stored = new Point(posX, posY);
+            Point ground = BotGround.settle(waveMap, stored);
+            bot.setPosition(ground != null ? ground : stored);
         }
     }
 
