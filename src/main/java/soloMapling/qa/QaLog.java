@@ -66,7 +66,33 @@ public final class QaLog {
     private static final List<QaRun> runs = new CopyOnWriteArrayList<>();
     private static final Map<String, Long> lastByKey = new ConcurrentHashMap<>();
 
+    private static final List<Listener> listeners = new CopyOnWriteArrayList<>();
+
     private QaLog() {
+    }
+
+    /**
+     * Auto-QA (soloMapling.autoqa): hears every line any run writes to its log (events, STAGE, STEP, STOP, CLEANUP,
+     * SUMMARY), with the run's GM and scenario. Called on the thread that wrote the line; must be quick.
+     */
+    public interface Listener {
+        void line(int gmId, String scenarioId, String kind, String message);
+    }
+
+    /** Adds a listener; the returned Runnable removes it. */
+    public static Runnable listen(Listener listener) {
+        listeners.add(listener);
+        return () -> listeners.remove(listener);
+    }
+
+    static void toListeners(int gmId, String scenarioId, String kind, String message) {
+        for (Listener l : listeners) {
+            try {
+                l.line(gmId, scenarioId, kind, message);
+            } catch (RuntimeException ignored) {
+                // a listener never breaks the hook that logged
+            }
+        }
     }
 
     /** True while a running scenario listens to this topic. The only call a hook makes when nothing runs. */

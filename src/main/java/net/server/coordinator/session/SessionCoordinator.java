@@ -303,6 +303,14 @@ public class SessionCoordinator {
         }
     }
 
+    /**
+     * Auto-QA synthetic players (soloMapling.autoqa.SyntheticPlayers) skip the login server: this stands in for the
+     * entry the login server leaves for the channel's PlayerLoggedinHandler to pick up.
+     */
+    public void primeSyntheticLogin(String remoteHost, Hwid hwid) {
+        hostHwidCache.addEntry(remoteHost, hwid);
+    }
+
     public Hwid pickLoginSessionHwid(Client client) {
         String remoteHost = client.getRemoteAddress();
         // thanks BHB, resinate for noticing players from same network not being able to login

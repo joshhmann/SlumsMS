@@ -162,6 +162,9 @@ public final class QaRun {
     }
 
     private synchronized void write(String kind, String message) {
+        if (!stopped) {
+            QaLog.toListeners(gmId, scenarioId, kind, message); // auto-QA reads the run as it goes
+        }
         if (out == null || stopped || logBroken) {
             return;
         }

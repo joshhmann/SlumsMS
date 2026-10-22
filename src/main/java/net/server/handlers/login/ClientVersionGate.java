@@ -43,6 +43,18 @@ public final class ClientVersionGate {
         return !(config.MIN_CLIENT_BUILD_GM_BYPASS && gmLevel > 0);
     }
 
+    /**
+     * Auto-QA (t-vg-1, soloMapling.autoqa): the gate's verdict for a client build against a minimum, with no GM bypass,
+     * and the line such a client is shown. Uses a scratch config; the live one is not touched.
+     */
+    public static String verdictFor(int clientBuild, int minimumBuild) {
+        ServerConfig scratch = new ServerConfig();
+        scratch.MIN_CLIENT_BUILD = minimumBuild;
+        scratch.MIN_CLIENT_BUILD_GM_BYPASS = false;
+        scratch.CLIENT_UPDATE_MESSAGE = config.YamlConfig.config.server.CLIENT_UPDATE_MESSAGE;
+        return outdated(clientBuild, 0, scratch) ? "REFUSED: " + message(scratch) : "ALLOWED";
+    }
+
     static String message(ServerConfig config) {
         String text = config.CLIENT_UPDATE_MESSAGE;
         return text == null || text.isBlank() ? "Your game is out of date: open the SlumsMS launcher to update." : text;
