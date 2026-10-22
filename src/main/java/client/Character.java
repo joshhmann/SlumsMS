@@ -1587,7 +1587,7 @@ public class Character extends AbstractCharacterObject {
     }
 
     public void changeMap(final MapleMap target, Portal pto) {
-        warpLock.lock();
+        final boolean locked = lockWarp();
         try {
             canWarpCounter++;
 
@@ -1606,12 +1606,14 @@ public class Character extends AbstractCharacterObject {
 
             eventAfterChangedMap(this.getMapId());
         } finally {
-            warpLock.unlock();
+            if (locked) {
+                warpLock.unlock();
+            }
         }
     }
 
     public void changeMap(final MapleMap target, final Point pos) {
-        warpLock.lock();
+        final boolean locked = lockWarp();
         try {
             canWarpCounter++;
 
@@ -1627,13 +1629,29 @@ public class Character extends AbstractCharacterObject {
 
             eventAfterChangedMap(this.getMapId());
         } finally {
-            warpLock.unlock();
+            if (locked) {
+                warpLock.unlock();
+            }
         }
     }
 
-    /** Held across every map change (reentrant); see {@code BotChannels.moveToChannel}. */
+    /**
+     * Held across every map change of a bot (reentrant); see {@code BotChannels.moveToChannel}.
+     * 1.5.0 rc4: bots only. A real player's warp often warps others while it runs (a party quest script ending the
+     * event for the party, a mini dungeon leader leaving, the Ariant arena closing under its monitor when a member
+     * leaves): with every character locked, two such warps racing each other (or a lock holder warping a player who
+     * is leaving its map) could deadlock. Only bots change channels under this lock, so only bots need it.
+     */
     public java.util.concurrent.locks.Lock getWarpLock() {
         return warpLock;
+    }
+
+    private boolean lockWarp() {
+        if (client instanceof BotClient) {
+            warpLock.lock();
+            return true;
+        }
+        return false;
     }
 
     public void forceChangeMap(final MapleMap target, Portal pto) {

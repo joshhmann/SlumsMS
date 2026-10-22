@@ -103,4 +103,32 @@ class BotDeathPersistenceTest {
         warp.join(5_000);
         assertTrue(entered.get());
     }
+
+    // 1.5.0 rc4: only bots take the warp lock. A player's warp can warp others while it runs (party quest scripts, a
+    // mini dungeon leader, the Ariant arena closing); two of those racing could deadlock on each other's warp lock.
+    @Test
+    void aPlayersMapChangeTakesNoWarpLock() throws Exception {
+        Character chr = Character.getDefault(mock(client.Client.class));
+        MapleMap target = mock(MapleMap.class);
+        AtomicBoolean entered = new AtomicBoolean();
+        when(target.getId()).thenAnswer(call -> {
+            entered.set(true);
+            throw new IllegalStateException("stop here");
+        });
+        chr.getWarpLock().lock();
+        Thread warp = new Thread(() -> {
+            try {
+                chr.changeMap(target, new Point(0, 0));
+            } catch (RuntimeException expected) {
+                // the mock map ends the warp once it is inside
+            }
+        });
+        try {
+            warp.start();
+            warp.join(5_000);
+            assertTrue(entered.get(), "a player's changeMap waited for the warp lock");
+        } finally {
+            chr.getWarpLock().unlock();
+        }
+    }
 }

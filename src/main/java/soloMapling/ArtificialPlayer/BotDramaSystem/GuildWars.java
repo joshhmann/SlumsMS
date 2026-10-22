@@ -297,7 +297,7 @@ public final class GuildWars {
         String us = BotGuilds.guildName(botGuild);
         Map<String, String> t = Map.of("GUILD", us, "RIVAL", BotGuilds.guildName(gid), "PLAYER", player.getName());
         if (speaker != null) {
-            DramaKit.whisper(speaker, player, DramaKit.pick("WarPeaceReply", t));
+            DramaKit.reply(speaker, player, DramaKit.pick("WarPeaceReply", t)); // answers @guildwar peace
             WorldEventMegaphones.getInstance().offerEvent(speaker, "GuildWarPeace", t, "drama:peace:" + w.id());
         }
         for (Character p : playersOf(gid)) {

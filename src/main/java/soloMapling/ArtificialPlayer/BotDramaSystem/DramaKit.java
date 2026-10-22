@@ -185,8 +185,19 @@ public final class DramaKit {
         return line;
     }
 
-    /** A whisper from a bot to a player (the stock whisper window). */
+    /**
+     * A whisper from a bot to a player (the stock whisper window). Held (dropped) while the player is busy - an event
+     * or boss map, a trade or shop, an NPC dialog, AFK - like every unsolicited bot whisper (rc3b PlayerBusy hold-off).
+     */
     static void whisper(Character bot, Character player, String line) {
+        if (player != null && soloMapling.ArtificialPlayer.PlayerBusy.isBusy(player)) {
+            return;
+        }
+        reply(bot, player, line);
+    }
+
+    /** A bot's whisper answering something the player just did (never held: the player is waiting for it). */
+    static void reply(Character bot, Character player, String line) {
         if (bot == null || player == null || line == null) {
             return;
         }
