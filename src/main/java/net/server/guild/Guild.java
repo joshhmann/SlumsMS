@@ -95,14 +95,16 @@ public class Guild {
                 ps.setInt(1, guildid);
 
                 try (ResultSet rs = ps.executeQuery()) {
-                    if (!rs.next()) {
-                        return;
-                    }
-
-                    do {
+                    while (rs.next()) {
                         members.add(new GuildCharacter(null, rs.getInt("id"), rs.getInt("level"), rs.getString("name"), (byte) -1, world, rs.getInt("job"), rs.getInt("guildrank"), guildid, false, rs.getInt("allianceRank")));
-                    } while (rs.next());
+                    }
                 }
+            }
+            // SlumsMS 1.5.0 bot guilds: bots have no characters row; their membership is botguildmember
+            List<GuildCharacter> bots = soloMapling.ArtificialPlayer.BotGuildSystem.BotGuilds.guildCharacters(guildid, world);
+            if (!bots.isEmpty()) {
+                members.addAll(bots);
+                members.sort(java.util.Comparator.comparingInt(GuildCharacter::getGuildRank).thenComparing(GuildCharacter::getName));
             }
         } catch (SQLException se) {
             log.error("Unable to read guild information from sql", se);
@@ -401,13 +403,28 @@ public class Guild {
                     break;
                 }
             }
-            if (bBroadcast) {
+            // SlumsMS: a bot's online dot is only news to a guild with a real player online (bots log in and out all day)
+            boolean bot = soloMapling.ArtificialPlayer.BotHelpers.isArtificial(cid);
+            if (bBroadcast && (!bot || hasOnlineRealMember())) {
                 this.broadcast(GuildPackets.guildMemberOnline(id, cid, online), cid);
             }
             bDirty = true;
+            if (online && bBroadcast && !bot) {
+                soloMapling.ArtificialPlayer.BotGuildSystem.BotGuilds.onRealMemberOnline(id, cid, channel); // bots say hi, show up
+            }
         } finally {
             membersLock.unlock();
         }
+    }
+
+    /** SlumsMS: whether any real (non-bot) member is online. Call with membersLock held or accept a racy read. */
+    private boolean hasOnlineRealMember() {
+        for (GuildCharacter mgc : members) {
+            if (mgc.isOnline() && !soloMapling.ArtificialPlayer.BotHelpers.isArtificial(mgc.getId())) {
+                return true;
+            }
+        }
+        return false;
     }
 
     public void guildChat(String name, int cid, String message) {
@@ -510,7 +527,10 @@ public class Guild {
                     itr.remove();
                     bDirty = true;
                     try {
-                        if (mgc.isOnline()) {
+                        if (soloMapling.ArtificialPlayer.BotHelpers.isArtificial(cid)) {
+                            // SlumsMS: a bot has no characters row and reads no notes; its membership is botguildmember
+                            soloMapling.ArtificialPlayer.BotGuildSystem.BotGuilds.onExpelled(cid);
+                        } else if (mgc.isOnline()) {
                             Server.getInstance().getWorld(mgc.getWorld()).setGuildAndRank(cid, 0, 5);
                         } else {
                             noteService.sendNormal("You have been expelled from the guild.", initiator.getName(), mgc.getName());
@@ -563,6 +583,7 @@ public class Guild {
         } finally {
             membersLock.unlock();
         }
+        soloMapling.ArtificialPlayer.BotGuildSystem.BotGuilds.onRankChanged(mgc.getId(), newRank); // SlumsMS: kept for bots
     }
 
     public void setGuildNotice(String notice) {
@@ -636,6 +657,7 @@ public class Guild {
         } finally {
             membersLock.unlock();
         }
+        soloMapling.ArtificialPlayer.BotGuildSystem.BotGuilds.onDisband(id); // SlumsMS: bot members leave too
     }
 
     public void setGuildEmblem(short bg, byte bgcolor, short logo, byte logocolor) {
@@ -707,6 +729,9 @@ public class Guild {
         }
 
         Character sender = c.getPlayer();
+        if (soloMapling.ArtificialPlayer.BotHelpers.isBot(mc)) { // SlumsMS 1.5.0: a bot answers in a while (friends say yes)
+            return soloMapling.ArtificialPlayer.BotGuildSystem.BotGuilds.playerInvitesBot(sender, mc);
+        }
         if (InviteCoordinator.createInvite(InviteType.GUILD, sender, sender.getGuildId(), mc.getId())) {
             mc.sendPacket(GuildPackets.guildInvite(sender.getGuildId(), sender.getName()));
             return null;

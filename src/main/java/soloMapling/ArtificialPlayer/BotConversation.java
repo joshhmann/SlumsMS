@@ -217,6 +217,13 @@ public final class BotConversation {
             onFlagged(session, slot, triage, line, asked);
             return;
         }
+        // 1.5.0 bot guilds: "can i join ur guild?" - the leader decides, and a real invite follows on a yes
+        String guildAnswer = soloMapling.ArtificialPlayer.BotGuildSystem.BotGuilds.answerApplication(bot, player, line);
+        if (guildAnswer != null) {
+            deliver(session, guildAnswer, asked, ChatStats.Tier.SCRIPTED, "guild application",
+                    new Cue(triage, BotChatActions.Outcome.NONE, line));
+            return;
+        }
         BotChatActions.Result action = triage.intent() == ChatTriage.Intent.NONE ? BotChatActions.Result.NONE
                 : BotChatActions.act(session.bot, player, triage.intent());
         Cue cue = new Cue(triage, action.outcome(), line);
@@ -320,7 +327,8 @@ public final class BotConversation {
                 .with(stock == null ? null : stock.fact(), recognise);
         return BotChatPrompt.system(context, persona, traits == null ? 0.4 : traits.chattiness())
                 + soloMapling.ArtificialPlayer.BotAffinitySystem.AffinityReactions.promptLine(bot.getId(), player) // ticket 58: friend or beef
-                + soloMapling.ArtificialPlayer.BotCoupleSystem.BotCouples.promptLine(bot.getId()); // ticket 58: a partner
+                + soloMapling.ArtificialPlayer.BotCoupleSystem.BotCouples.promptLine(bot.getId()) // ticket 58: a partner
+                + soloMapling.ArtificialPlayer.BotGuildSystem.BotGuilds.promptLine(bot.getId()); // 1.5.0: its guild
     }
 
     /**

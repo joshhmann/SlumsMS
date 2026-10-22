@@ -221,4 +221,44 @@ class FakeQaWorld implements QaWorld {
     @Override public int stopWeddings(String by) { calls.add("stop weddings"); return 1; }
 
     @Override public boolean onEventChannel(Character gm) { return eventChannel; }
+
+    // ---- 1.5.0 bot guilds ----
+    String botGuild = "Lionheart";
+    String rival = "Nightfall";
+    int gmGuild;
+    final List<Integer> guildBotsUnstaged = new ArrayList<>();
+    List<String> bossRunAnswer = List.of("boss run started at map 211042400 (you were warped there)");
+
+    @Override public List<String> botGuildList() { return List.of("#1 Lionheart (hardcore): 38 bots"); }
+
+    @Override public String pickBotGuild(String wanted, boolean withRival) {
+        if (botGuild == null) {
+            return null;
+        }
+        return wanted == null || wanted.equalsIgnoreCase(botGuild) ? botGuild : null;
+    }
+
+    @Override public String rivalOf(String guild) { return rival; }
+
+    @Override public int stageGuildBot(Character gm, String state, String guild, int rank) {
+        int id = nextBot++;
+        calls.add("guildbot " + state + " " + guild + " r" + rank + " " + id);
+        return id;
+    }
+
+    @Override public void unstageGuildBot(int botId) { guildBotsUnstaged.add(botId); calls.add("unguildbot " + botId); }
+
+    @Override public List<String> botGuildAction(Character gm, String action, String[] args) {
+        calls.add("guild " + action + (args.length > 0 ? " " + String.join(" ", args) : ""));
+        return "bossrun".equals(action) ? bossRunAnswer : List.of(action + " done");
+    }
+
+    @Override public int guildIdOf(Character gm) { return gmGuild; }
+
+    @Override public boolean leaveGuild(Character gm) {
+        calls.add("leave guild");
+        boolean was = gmGuild > 0;
+        gmGuild = 0;
+        return was;
+    }
 }

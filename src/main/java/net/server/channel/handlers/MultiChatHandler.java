@@ -67,6 +67,7 @@ public final class MultiChatHandler extends AbstractPacketHandler {
         } else if (type == 2 && player.getGuildId() > 0) {
             Server.getInstance().guildChat(player.getGuildId(), player.getName(), player.getId(), chattext);
             ChatLogger.log(c, "Guild", chattext);
+            soloMapling.ArtificialPlayer.BotGuildSystem.BotGuilds.onGuildChat(player, chattext); // 1.5.0: bot guildmates answer
         } else if (type == 3 && player.getGuild() != null) {
             int allianceId = player.getGuild().getAllianceId();
             if (allianceId > 0) {

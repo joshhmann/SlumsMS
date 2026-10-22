@@ -44,7 +44,8 @@ public final class QaLog {
         GACHA,          // gachapon rolls by players and bots, notices, bot ticket buys (ga-1, ga-2)
         WEALTH,         // bot wealth ceiling: intake cut, spending, decay (ga-2)
         AFFINITY,       // bot<->player affinity: events, state changes, and what bots do about it (af-1..af-3)
-        COUPLE;         // bot couples and their weddings: forming, hops, parties, chairs, rings, the ceremony (cp-1, we-1)
+        COUPLE,         // bot couples and their weddings: forming, hops, parties, chairs, rings, the ceremony (cp-1, we-1)
+        BOT_GUILD;      // bot guilds: joins, invites, applications, guild chat, recruiting, jabs, boss runs, quits (gu-1..gu-7)
 
         final int bit = 1 << ordinal();
     }

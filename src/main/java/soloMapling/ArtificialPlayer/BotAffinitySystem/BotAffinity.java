@@ -281,6 +281,10 @@ public final class BotAffinity {
         if (before != after) {
             onStateChange(slot, playerId, after, event);
         }
+        if (delta > 0 && !event.hearsay()) {
+            // 1.5.0 bot guilds: a guildmate who does things with the bot is not ignoring it
+            soloMapling.ArtificialPlayer.BotGuildSystem.BotGuilds.noteAttention(botCharId, playerId);
+        }
         return true;
     }
 

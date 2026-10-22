@@ -173,4 +173,39 @@ public interface QaWorld {
 
     /** Whether the GM is on the channel world events run on (channel 1). */
     boolean onEventChannel(Character gm);
+
+    // ---- 1.5.0 bot guilds (gu-1 .. gu-7) ----
+
+    /** Every bot guild, player guilds with bot members, and the boss run on now, one line each. */
+    List<String> botGuildList();
+
+    /**
+     * A bot guild for a scenario: the named one, else one with a rival ({@code withRival}), else the biggest; null
+     * when there is none.
+     */
+    String pickBotGuild(String wanted, boolean withRival);
+
+    /** The rival guild's name of a bot guild, or null. */
+    String rivalOf(String guild);
+
+    /**
+     * A new bot next to the GM that feels {@code state} (friend | neutral | rival | nemesis) about them, a member of
+     * {@code guild} at once ("mine" = the GM's guild, a bot guild's name, null = no guild). Its id, or -1.
+     */
+    int stageGuildBot(Character gm, String state, String guild, int rank);
+
+    /** Takes a staged guild bot out of its guild and the world. */
+    void unstageGuildBot(int botId);
+
+    /**
+     * A bot guild action now (recruit | jab | bossrun | bossstop | step | quit | ignore | rival): what happened.
+     * {@code args}: the guild (or the bot id for quit/ignore/rival), then extras.
+     */
+    List<String> botGuildAction(Character gm, String action, String[] args);
+
+    /** The GM's guild id (0 = none). */
+    int guildIdOf(Character gm);
+
+    /** The GM leaves their guild, as the guild window's Leave button does. False when in none. */
+    boolean leaveGuild(Character gm);
 }

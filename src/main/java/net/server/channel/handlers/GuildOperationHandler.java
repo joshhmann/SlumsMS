@@ -189,6 +189,7 @@ public final class GuildOperationHandler extends AbstractPacketHandler {
                 mc.saveGuildStatus(); // update database
                 mc.getMap().broadcastPacket(mc, GuildPackets.guildNameChanged(mc.getId(), mc.getGuild().getName())); // thanks Vcoc for pointing out an issue with updating guild tooltip to players in the map
                 mc.getMap().broadcastPacket(mc, GuildPackets.guildMarkChanged(mc.getId(), mc.getGuild()));
+                soloMapling.ArtificialPlayer.BotGuildSystem.BotGuilds.onPlayerJoined(mc); // 1.5.0: a bot guildmate says welcome
                 break;
             case 0x07:
                 cid = p.readInt();

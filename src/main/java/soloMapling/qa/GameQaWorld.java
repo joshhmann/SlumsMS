@@ -574,4 +574,140 @@ final class GameQaWorld implements QaWorld {
         }
         return soloMapling.ArtificialPlayer.BotWealth.step(bot, java.util.concurrent.ThreadLocalRandom.current(), true);
     }
+
+    // ---- 1.5.0 bot guilds ----
+
+    @Override
+    public List<String> botGuildList() {
+        return soloMapling.ArtificialPlayer.BotGuildSystem.BotGuilds.describe();
+    }
+
+    @Override
+    public String pickBotGuild(String wanted, boolean withRival) {
+        var all = soloMapling.ArtificialPlayer.BotGuildSystem.BotGuilds.botGuilds();
+        if (wanted != null) {
+            var g = soloMapling.ArtificialPlayer.BotGuildSystem.BotGuilds.byName(wanted);
+            return g == null ? null : g.name();
+        }
+        String best = null;
+        int most = -1;
+        for (var g : all) {
+            if (withRival && (g.rivalId() <= 0 || soloMapling.ArtificialPlayer.BotGuildSystem.BotGuilds.guild(g.rivalId()) == null)) {
+                continue;
+            }
+            int n = soloMapling.ArtificialPlayer.BotGuildSystem.BotGuilds.membersOf(g.guildId()).size();
+            if (n > most) {
+                most = n;
+                best = g.name();
+            }
+        }
+        return best;
+    }
+
+    @Override
+    public String rivalOf(String guild) {
+        var g = soloMapling.ArtificialPlayer.BotGuildSystem.BotGuilds.byName(guild);
+        var r = g == null ? null : soloMapling.ArtificialPlayer.BotGuildSystem.BotGuilds.guild(g.rivalId());
+        return r == null ? null : r.name();
+    }
+
+    @Override
+    public int stageGuildBot(Character gm, String state, String guild, int rank) {
+        var feels = soloMapling.ArtificialPlayer.BotAffinitySystem.AffinityState.parse(state);
+        if (feels == null) {
+            feels = soloMapling.ArtificialPlayer.BotAffinitySystem.AffinityState.NEUTRAL;
+        }
+        int gid = 0;
+        if ("mine".equals(guild)) {
+            gid = gm.getGuildId();
+        } else if (guild != null) {
+            var g = soloMapling.ArtificialPlayer.BotGuildSystem.BotGuilds.byName(guild);
+            gid = g == null ? -1 : g.guildId();
+        }
+        if (gid < 0 || (guild != null && gid == 0)) {
+            return -1;
+        }
+        return soloMapling.ArtificialPlayer.BotGuildSystem.GuildStaging.stage(gm, feels, gid, rank);
+    }
+
+    @Override
+    public void unstageGuildBot(int botId) {
+        soloMapling.ArtificialPlayer.BotGuildSystem.GuildStaging.unstage(botId);
+    }
+
+    @Override
+    public List<String> botGuildAction(Character gm, String action, String[] args) {
+        String first = args.length > 0 ? args[0] : null;
+        var g = first == null ? null : soloMapling.ArtificialPlayer.BotGuildSystem.BotGuilds.byName(first);
+        List<String> out = new ArrayList<>();
+        switch (action) {
+            case "recruit" -> out.addAll(g == null ? List.of("no bot guild " + first)
+                    : soloMapling.ArtificialPlayer.BotGuildSystem.BotGuilds.recruitNow(g));
+            case "jab" -> out.addAll(g == null ? List.of("no bot guild " + first)
+                    : soloMapling.ArtificialPlayer.BotGuildSystem.BotGuilds.jabNow(g));
+            case "bossrun" -> {
+                if (g == null) {
+                    out.add("no bot guild " + first);
+                } else {
+                    var boss = args.length > 1 ? soloMapling.ArtificialPlayer.BotGuildSystem.GuildRules.boss(args[1]) : null;
+                    String problem = soloMapling.ArtificialPlayer.BotGuildSystem.GuildBossRuns.start(g, boss, true, gm.getName(),
+                            gm.getClient().getChannel());
+                    int entrance = soloMapling.ArtificialPlayer.BotGuildSystem.GuildBossRuns.entranceMap();
+                    if (problem == null && entrance > 0 && gm.getMapId() != entrance) {
+                        warp(gm, entrance);
+                    }
+                    out.add(problem == null ? "boss run started at map " + entrance + " (you were warped there)"
+                            : "no boss run: " + problem);
+                }
+            }
+            case "bossstop" -> out.add("stopped " + soloMapling.ArtificialPlayer.BotGuildSystem.GuildBossRuns.stop(gm.getName()) + " run(s)");
+            case "step" -> {
+                soloMapling.ArtificialPlayer.BotGuildSystem.BotGuilds.stepNow();
+                out.add("guild step ran");
+            }
+            case "quit", "ignore", "rival" -> {
+                int botId = first == null ? -1 : Integer.parseInt(first);
+                var m = soloMapling.ArtificialPlayer.BotGuildSystem.BotGuilds.membership(botId);
+                if (m == null) {
+                    out.add("bot " + botId + " is in no guild");
+                } else if ("quit".equals(action)) {
+                    out.add(soloMapling.ArtificialPlayer.BotGuildSystem.BotGuilds.quit(botId,
+                            soloMapling.ArtificialPlayer.BotGuildSystem.GuildRules.QuitReason.RIVALS, gm.getName()));
+                } else {
+                    if ("rival".equals(action)) {
+                        soloMapling.ArtificialPlayer.BotAffinitySystem.BotAffinity.stage(botId, gm.getId(),
+                                soloMapling.ArtificialPlayer.BotAffinitySystem.AffinityState.RIVAL);
+                        out.add("bot " + botId + " now counts you as a rival");
+                    } else {
+                        soloMapling.ArtificialPlayer.BotGuildSystem.BotGuilds.backdate(botId, 30);
+                        out.add("bot " + botId + " joined and was last noticed 30 days ago");
+                    }
+                    List<String> quits = soloMapling.ArtificialPlayer.BotGuildSystem.BotGuilds.checkQuits(m.guildId(),
+                            System.currentTimeMillis());
+                    out.add(quits.isEmpty() ? "quit check: nobody quits" : "quit check: " + String.join("; ", quits));
+                }
+            }
+            default -> out.add("unknown action " + action);
+        }
+        return out;
+    }
+
+    @Override
+    public int guildIdOf(Character gm) {
+        return gm.getGuildId();
+    }
+
+    @Override
+    public boolean leaveGuild(Character gm) {
+        if (gm.getGuildId() <= 0 || gm.getMGC() == null) {
+            return false;
+        }
+        Server.getInstance().leaveGuild(gm.getMGC());
+        gm.sendPacket(net.server.guild.GuildPackets.showGuildInfo(null));
+        gm.getMGC().setGuildId(0);
+        gm.getMGC().setGuildRank(5);
+        gm.saveGuildStatus();
+        gm.getMap().broadcastPacket(gm, net.server.guild.GuildPackets.guildNameChanged(gm.getId(), ""));
+        return true;
+    }
 }
