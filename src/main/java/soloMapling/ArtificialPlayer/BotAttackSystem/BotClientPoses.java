@@ -26,8 +26,8 @@ import java.util.function.IntFunction;
  *   (CUser::CheckAttackAction 0x92edb2 -> 0x7665b1 / 0x766525). A skill with skillType 3 uses the second row.
  * - The skill lists the exe hard-codes: the keydown skills, the ones a viewer draws without checking the pose, the
  *   ones shot without a bullet.
- * - The attack speed a player's client sends: the weapon's "attackSpeed", clamped to 2..10 (0x765066; MapleRoot has
- *   no boosters).
+ * - The attack speed a player's client sends: MapleRoot hooks 0x765066 and sends a degree by weapon class plus Speed
+ *   Infusion (BotAttackTiming.speedDegree); the stock exe sent the weapon's "attackSpeed" clamped to 2..10.
  *
  * The weapon data is read from the server's Character.wz (the same as the client's); a test supplies its own.
  */
@@ -196,8 +196,20 @@ public final class BotClientPoses {
         return wt == 45 || wt == 46 || wt == 47 || wt == 49;
     }
 
-    /* The attack speed a player holding this weapon sends: its attackSpeed, clamped to 2..10 (0x765066). */
+    /*
+     * The attack speed a player holding this weapon sends. MapleRoot's client hooks 0x765066 and sets it from the
+     * weapon class (BotAttackTiming.speedDegree); with -Dslums.botattacktiming=false, the stock rule: the weapon's
+     * attackSpeed, clamped to 2..10.
+     */
     public static int actionSpeed(int weaponItemId) {
+        return actionSpeed(weaponItemId, 0);
+    }
+
+    /* As actionSpeed, with Speed Infusion's x (partyBooster, -1 or -2) on top under MapleRoot's rule. */
+    public static int actionSpeed(int weaponItemId, int partyBooster) {
+        if (BotAttackTiming.enabled() && weaponItemId > 0) {
+            return BotAttackTiming.speedDegree(weaponItemId, partyBooster);
+        }
         int speed = weapon(weaponItemId).attackSpeed();
         if (speed <= 0) {
             return BotAttackData.DEFAULT_ATTACK_SPEED;

@@ -65,6 +65,49 @@ No capture session was available: the test server's `attack-capture.tsv` only ho
 2. Run `!botshowcase 4th` on the test server and go AFK next to the bots.
 3. Read `attackdiag.log`.
 
+## Attack timing without a capture (2026-10-21, branch `bots-attack-timing-150`)
+
+The owner no longer has to play every job for timing. The timing is now read from the client's own data, and the
+owner only spot-checks it. Details are in `docs/real-bots/client-remote-attack-rules.md`, "Attack timing".
+
+**Derived from the client:**
+- **Pose lengths:** from the client's `Character/00002000.img`, written by `tools/bot-attack-rules/action_delays.py`.
+  - `bot-action-delays.tsv` holds all 161 poses that have frames.
+  - `bot-skill-timing.tsv` holds all 253 client attack skills, per weapon class: 2,340 rows covering every job image from beginner to Aran 4th.
+- **The attack speed MapleRoot's client sends:** a DLL hook that ignores the item's `attackSpeed`.
+- **The stretch:** length x (speed + 10) / 16.
+
+**Checked against the only capture there is.** A GM beginner sends a 1302000 sword at speed 3, and its swings follow each other 633-677 ms apart. The table says 650 ms.
+
+**Mismatches it found (fixed behind `-Dslums.botattacktiming`, on by default):**
+- **Speed byte:** bots sent the item's `attackSpeed`, which differs from MapleRoot's speed for nearly every weapon.
+  - A staff went out at 8 instead of 3, a 2H sword or bow at 6 instead of 4, a claw at 4 instead of 3.
+  - So the bots' poses were drawn up to about 40% slower than a player's.
+- **Cadence:** a fixed 720-900 ms cooldown per route, whatever the pose. Of 229 job/skill pairs, 120 were slower than a player and 48 faster.
+  - Long poses were cut off by the next swing: Thunder Breaker Barrage 2.1 s, Aran Tempest 2.4 s, Corsair Air Strike 2.3 s, Genesis 2.2 s, Blizzard 2.1 s, Dark Knight 1321011 1.5 s. This may be some of the "bland" and "pause" reports.
+- **Walk lock:** a grinding bot could walk 500 ms into a 650+ ms swing. It now holds still until the pose ends.
+- **Server vs client data:** the server's Character.wz XML differs from the client's in 17 poses. Bots use the client's.
+
+**Still not exact:**
+- The 250 ms combat ticker rounds each swing up to the next tick (650 ms becomes 750 ms).
+- Keydown bursts are unchanged: 120 ms shots.
+- Skill poses with negative frames count them at full length. This is read from the data and has not been seen on a client.
+
+**Automated client check: not done.**
+- The owner's desktop has the owner's console session active, so a client launched there would take over their screen.
+- The v83 client has no auto-login, so logging in needs synthetic keys and clicks into a DX8 window. That is not reliable, and it is intrusive.
+- The capture-free path would need a client debug option `[debug] autologin=` (client repo). A Wine + Xvfb client on the build host would also need a 23 GB Data copy. Neither is in this branch.
+
+**Owner spot-check (about 12 min, test server once the branch is on it):**
+1. **Setup, 2 min.** Use a client with `[debug] attackdiag=1`. On a map with mobs, run `!botshowcase 4th 10`. Each attack now goes out 3 times back to back at a player's pace, then pauses.
+2. **Long poses, 4 min.** Watch Thunder Breaker Barrage, Aran Tempest, Corsair Air Strike, Bishop Genesis, I/L Blizzard and Dark Knight. Each pose should play to its end before the next starts, with no idle gap between the 3 repeats.
+3. **Swing speed, 2 min.** Bishop or F/P (staff), Bowmaster (bow) and Hero (2H sword) should swing as fast as your own character with the same weapon.
+4. **Quick poses, 2 min.** Check Aran's double and triple swings, Blaze Wizard 12121012 and F/P 2121054 (a 219 ms `alert2` pose), and Dawn Warrior 11121101. Do they machine-gun?
+5. **Grinding, 2 min.** On any bot training map, bots should not slide or walk while a swing is still playing.
+6. Afterwards, `attackdiag.log` should list no drops.
+
+Rollback without a code change: `-Dslums.botattacktiming=false` (needs a restart).
+
 ## Method: copy a real player
 
 Guessing a class's attacks from skill data produced every bug so far. The reliable source is a real client.

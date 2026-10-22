@@ -95,7 +95,11 @@ final class EngageBeat {
         BotAttackDriver.AttackResult r = BotAttackDriver.botAttack(chr);
         if (r != null && (r.hit() || r.killed())) {
             b.markProgress(); // landed hit/kill -> not stuck
-            b.attackWalkLockUntil = now() + ATTACK_WALK_LOCK_MS; // hold position through the swing before walking
+            // hold position through the swing before walking: until its pose has played out, as a player's client
+            // does (BotAttackTiming), never less than ATTACK_WALK_LOCK_MS
+            long poseEnds = soloMapling.ArtificialPlayer.BotAttackSystem.BotAttackTiming.enabled()
+                    ? BotAttackDriver.swingEndsAt(chr.getId()) : 0L;
+            b.attackWalkLockUntil = Math.max(now() + ATTACK_WALK_LOCK_MS, poseEnds);
         }
         if (r != null && r.killed()) {
             b.targetOid = -1; // re-acquire the next mob

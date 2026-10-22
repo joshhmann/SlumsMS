@@ -234,8 +234,22 @@ final class ClientAttackRules {
     }
 
     /*
+     * The attack speed a player's client sends without Speed Infusion: MapleRoot's slums/ijl15 DLL hooks
+     * get_attack_speed_degree (0x765066) with ActiveSkill.h's GetAttackSpeedDegree, which ignores the weapon's
+     * attackSpeed and the booster: 3 for weapon classes 30-32, 37, 38, 44, 47, 49; 2 for 33; 4 otherwise. A real
+     * player's 1302000 sword (attackSpeed 4) went out at 3 in the test server's attack-capture.tsv.
+     */
+    static int playerSpeed(int weaponItemId) {
+        return switch (weaponItemId / 10000 % 100) {
+            case 30, 31, 32, 37, 38, 44, 47, 49 -> 3;
+            case 33 -> 2;
+            default -> 4;
+        };
+    }
+
+    /*
      * What a player's client would have sent differently (CUserLocal's send paths): the route DoActiveSkill takes,
-     * the pose its route picks, the weapon's attack speed, the counts the level allows.
+     * the pose its route picks, the attack speed, the counts the level allows.
      */
     List<String> playerLike(Decoded d, Attacker attacker) {
         List<String> bad = new ArrayList<>();
@@ -243,9 +257,10 @@ final class ClientAttackRules {
         ClientAttackData.ExeSkill exe = data.exe.get(d.skillId());
         ClientAttackData.Weapon weapon = data.weapons.get(attacker.weaponItemId());
         if (weapon != null && weapon.attackSpeed() > 0) {
-            int speed = Math.max(2, Math.min(10, weapon.attackSpeed()));
+            int speed = playerSpeed(attacker.weaponItemId());
             if (d.speed() != speed) {
-                bad.add("unlike: attack speed " + d.speed() + ", the weapon's is " + speed + " (0x765066)");
+                bad.add("unlike: attack speed " + d.speed() + ", a player's client sends " + speed
+                        + " (MapleRoot's GetAttackSpeedDegree over 0x765066)");
             }
         }
         if (skill == null || exe == null) {

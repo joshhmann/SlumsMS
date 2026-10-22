@@ -143,6 +143,17 @@ public final class BotAttackDriver {
         return weapon != null ? weapon.getItemId() : 0;
     }
 
+    /* When the bot's last swing ends (its pose has played out): 0 when it has not swung. */
+    public static long swingEndsAt(int botId) {
+        return nextAttackByBot.getOrDefault(botId, 0L);
+    }
+
+    /* Speed Infusion's x (-1 / -2) while the bot has it: MapleRoot's client adds it to the attack speed. */
+    static int speedInfusion(Character bot) {
+        Integer x = bot.getBuffedValue(client.BuffStat.SPEED_INFUSION);
+        return x != null ? x : 0;
+    }
+
     /* Release a despawned bot's cooldown timers so the maps don't grow unbounded. */
     public static void clearBot(int botId) {
         nextAttackByBot.remove(botId);
@@ -317,7 +328,8 @@ public final class BotAttackDriver {
         // weapon's plain attack (a viewer would drop it, and say so in chat for the weapon).
         int weaponItemId = equippedWeaponId(bot);
         int linesHint = shadowDoubled(bot, profile.numDamage);
-        BotSwingPlan plan = BotSwingPlan.of(profile, packetLevel(bot, profile), weaponItemId, facingLeft, linesHint);
+        BotSwingPlan plan = BotSwingPlan.of(profile, packetLevel(bot, profile), weaponItemId, facingLeft, linesHint,
+                speedInfusion(bot));
         BotAttackProfile reachAs = plan.skillId() == profile.skillId ? profile : BotAttackProfile.basicSwing();
 
         List<Monster> targets = cap(mobsInReach(bot, reachAs, facingLeft), plan.maxMobs());
@@ -373,7 +385,7 @@ public final class BotAttackDriver {
 
         supply.commit(bot, route, skillId); // the ammo fired, the MP/HP the skill cost (and a potion if it is low)
         BotComboOrbs.afterStrike(bot, skillId); // after the packet: a finisher is drawn with the orbs it spends
-        nextAttackByBot.put(bot.getId(), now + profile.cooldownMs + plan.burstMs());
+        nextAttackByBot.put(bot.getId(), now + plan.busyMs(profile.cooldownMs)); // the pose's length (BotAttackTiming)
         startCooltime(bot, skillId, skillLevel, now);
         if (extra != null && skillId == extra.profile().skillId) {
             extraUsedByBot.computeIfAbsent(bot.getId(), k -> new ConcurrentHashMap<>()).put(skillId, now);
