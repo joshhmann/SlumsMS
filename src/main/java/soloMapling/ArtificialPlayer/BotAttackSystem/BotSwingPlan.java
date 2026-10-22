@@ -8,7 +8,7 @@ package soloMapling.ArtificialPlayer.BotAttackSystem;
  *   BotAttackClientValidityTest checks against the exe's DoActiveSkill switch and MapleRoot's custom-skill table);
  * - the pose: the skill's own (a level's action, else one of its actions; Brandish/Raging Blow by the weapon), else
  *   one of the weapon's plain poses for that route (BotAttackData.actionFor);
- * - the attack speed: the weapon's attackSpeed (BotClientPoses.actionSpeed);
+ * - the attack speed: MapleRoot's degree for the weapon class, Speed Infusion added (BotClientPoses.actionSpeed);
  * - for a keydown skill: the prepare packet (its keydown pose, 0x7fff when the client knows none) before the shots,
  *   and for Hurricane / Rapid Fire a stream of shots and a release packet;
  * - the mob and line counts the skill's level allows (mobCount, attackCount or bulletCount).
@@ -38,6 +38,14 @@ public record BotSwingPlan(BotAttackProfile.Route route, int skillId, int skillL
         return (prepareAction & 0x7fff) | (facingLeft ? 0x8000 : 0);
     }
 
+    /*
+     * How long this swing keeps the bot busy before its next one: the pose's length at the plan's speed
+     * (BotAttackTiming), else the profile's fixed cooldown; plus the rest of a keydown burst.
+     */
+    public long busyMs(int profileCooldownMs) {
+        return BotAttackTiming.swingMs(this, profileCooldownMs) + burstMs();
+    }
+
     /* How long the swing keeps the bot busy beyond its normal cooldown: the rest of a keydown burst. */
     public long burstMs() {
         return shots > 1 ? (shots - 1) * KEYDOWN_SHOT_MS : 0;
@@ -49,6 +57,12 @@ public record BotSwingPlan(BotAttackProfile.Route route, int skillId, int skillL
      */
     public static BotSwingPlan of(BotAttackProfile profile, int skillLevel, int weaponItemId, boolean facingLeft,
                                   int linesHint) {
+        return of(profile, skillLevel, weaponItemId, facingLeft, linesHint, 0);
+    }
+
+    /* As above, for a bot under Speed Infusion (partyBooster: its x, -1 or -2; 0 without). */
+    public static BotSwingPlan of(BotAttackProfile profile, int skillLevel, int weaponItemId, boolean facingLeft,
+                                  int linesHint, int partyBooster) {
         int skillId = profile.skillId;
         BotAttackProfile.Route route = profile.route;
         int level = skillLevel;
@@ -65,7 +79,7 @@ public record BotSwingPlan(BotAttackProfile.Route route, int skillId, int skillL
                     ? BotAttackProfile.Route.RANGED : BotAttackProfile.Route.CLOSE;
             action = BotAttackData.actionFor(0, 0, weaponItemId, route);
         }
-        int speed = BotClientPoses.actionSpeed(weaponItemId);
+        int speed = BotClientPoses.actionSpeed(weaponItemId, partyBooster);
         boolean prepare = skillId != 0 && (BotClientPoses.isKeydown(skillId) || BotSkillActions.hasPrepare(skillId));
         int shots = skillId != 0 && BotClientPoses.keepsKeydownPose(skillId) ? KEYDOWN_SHOTS : 1;
         int maxMobs = profile.numAttacked;

@@ -151,7 +151,11 @@ These are the `CUserLocal` send paths. Bots copy them in `BotSwingPlan` and `Bot
 
 ### Speed and the other fields
 
-- **Speed:** `0x00765066`: weapon `attackSpeed` + booster + Speed Infusion, clamped to 2..10. MapleRoot has no boosters.
+- **Speed:** the stock exe's `0x00765066` is weapon `attackSpeed` + booster + Speed Infusion, clamped to 2..10 (Double Stab -2). **MapleRoot hooks it** (client repo `mapleroot/ijl15/SkillEdits/ActiveSkill.h` `GetAttackSpeedDegree`, set in `MapleHook.cpp`): the weapon class alone sets it, the booster and the item's `attackSpeed` are ignored, and only Speed Infusion's x is added, clamped at 0:
+  - 3 for 1H swords, axes and blunts, wands, staves, pole-arms, claws and guns (classes 30-32, 37, 38, 44, 47, 49);
+  - 2 for daggers (33);
+  - 4 for everything else (2H weapons, spears, bows, crossbows, knuckles).
+  - Seen on a real client: the test server's `attack-capture.tsv` has a GM beginner's 1302000 sword (item `attackSpeed` 4) sent at 3, 117 times.
 - **Option byte:** bit 5 is a "serial" flag, bits 4 and 7 come from temporary stats, and the low nibble is 1 for a skillType 3 skill after Slash Blast. A plain attack sends 0.
 - **Counts:** a melee or magic skill sends `attackCount` lines per mob. A shot sends `bulletCount` lines, doubled under Shadow Partner. The client hits at most `mobCount` mobs.
 
@@ -165,10 +169,29 @@ These are the `CUserLocal` send paths. Bots copy them in `BotSwingPlan` and `Bot
   - Piercing Arrow sends one shot;
   - Grenade and Poison Bomb send a `THROW_GRENADE`.
 
+## Attack timing
+
+How long an attack keeps a player busy, which bots now copy (`BotAttackTiming`, on unless `-Dslums.botattacktiming=false`).
+
+- **A pose's length** is the sum of its frame delays in the client's `Character/00002000.img`.
+  - A negative delay counts by its size. The skill poses write the frames before the hit negative (brandish1: 3 x -120, then 4 x 120).
+  - A skill pose's frame that names another action (`action`, `frame`) shows that frame's picture for its own delay.
+  - `tools/bot-attack-rules/action_delays.py` writes the lengths to `src/main/resources/soloMapling/bot-action-delays.tsv` (on the classpath, so a jar-only install has it). It also writes `src/test/resources/soloMapling/bot-skill-timing.tsv`: every client attack skill (253) and weapon class it takes, with its poses and their length at that class's speed.
+  - The client's `00002000.img` is MapleRoot's and differs from the server's XML in 17 actions (alert2, meteor, blizzard, blast, showdown, pyramid, the Aran combo poses, the Evan dragon poses ...). The table is the client's.
+- **Speed stretches it:** length x (speed + 10) / 16 (`0x009525ED`). A beginner's 800 ms sword swing at speed 3 is 650 ms. In the capture, the same player's swings follow each other 633-677 ms apart (most 655-662).
+- **Confidence:**
+  - High for the speed rule (code and capture agree) and for plain swings (capture).
+  - Medium for skill poses with negative frames: that they count by their size is read from the data, not yet seen on a client.
+
+What the bots do with it:
+- They send MapleRoot's speed (above) instead of the item's `attackSpeed`. Before, almost every weapon went out slower than a player's, for example a staff at 8 instead of 3.
+- A bot swings again when its pose has played out, instead of after a fixed 720-900 ms. A long pose (Barrage 2.1 s, Tempest 2.4 s, Genesis 2.2 s) is no longer cut off by the next swing, and short ones (Aran's double swing, 341 ms) come faster.
+- A grinding bot holds still until its pose ends, not a fixed 500 ms.
+- The shared combat ticker runs every 250 ms. A swing therefore starts on the first tick after the pose ends: 650 ms becomes 750 ms.
+
 ## What code alone cannot establish (needs eyes)
 
-- **Timing.** The bots send the keydown packet and the first shot together. The rest of a Hurricane or Rapid Fire burst follows 120 ms apart, then the release. A player's prepare time (Skill.wz `prepare/time`, 960 ms for Hurricane) and the real shot interval have not been measured.
-- **Attack cadence.** The bots' swing cooldowns are not derived from the pose's frame delays. A bot may start the next swing before the pose ends, or idle after it.
+- **Keydown timing.** The bots send the keydown packet and the first shot together. The rest of a Hurricane or Rapid Fire burst follows 120 ms apart, then the release. A player's prepare time (Skill.wz `prepare/time`, 960 ms for Hurricane) and the real shot interval have not been measured.
 - **The option byte.** The temporary-stat bits a player's client sets (bits 4 and 7) are not modelled. Bots send 0.
 - **What counts look like.** Whether a skill with wrong counts looks right. Bots now send what the level allows.
 - **The attacker's name** in the diagnostic log (`CUser+0x11AC`) is a best guess from the chat code. The character id is exact.
