@@ -67,10 +67,14 @@ final class PatrolStrategy extends CampStrategy {
         int n = ring.size();
         int fallbackPos = -1;
         int fallbackHolders = Integer.MAX_VALUE;
+        List<Character> players = KsManners.respectedPlayers(chr);
         for (int i = 1; i <= n; i++) {
             int pos = (Math.max(ringPos, 0) + i) % n;
             int idx = ring.get(pos);
             Spot s = p.spots().get(idx);
+            if (SpotFinder.playersPlatform(chr, players, s)) {
+                continue; // 1.5.0 rc3 KS manners: a respected player's platform is never ours
+            }
             int holders = BotSpotClaims.holders(SpotFinder.claimKey(chr), idx);
             if (holders < s.shareCap()) {
                 ringPos = pos;
@@ -80,6 +84,9 @@ final class PatrolStrategy extends CampStrategy {
                 fallbackHolders = holders;
                 fallbackPos = pos;
             }
+        }
+        if (fallbackPos < 0) {
+            return null; // every ring member is a player's platform: CampStrategy yields the map
         }
         ringPos = fallbackPos;
         return p.spots().get(ring.get(fallbackPos));

@@ -1205,12 +1205,25 @@ public final class BotStore {
         ps.setInt(4, stats.luk());
         ps.setInt(5, stats.maxHp());
         ps.setInt(6, stats.maxMp());
-        ps.setInt(7, Math.max(0, stats.hp()));
+        ps.setInt(7, savedHp(stats.hp(), stats.maxHp()));
         ps.setInt(8, Math.max(0, stats.mp()));
         ps.setInt(9, stats.remainingAp());
         ps.setString(10, stats.encodeSp());
         ps.setInt(11, stats.buildLevel());
     }
+
+    /** 1.5.0 rc3: a bot is never stored dead (0 HP): one saved mid-death keeps the respawn HP instead. */
+    static int savedHp(int hp, int maxHp) {
+        return hp > 0 ? hp : Math.max(1, Math.min(RESPAWN_HP, maxHp));
+    }
+
+    /** 1.5.0 rc3: a row stored dead (0 HP, from before {@link #savedHp}) comes back at half its max HP. */
+    public static int restoredHp(int hp, int maxHp) {
+        return hp > 0 ? hp : Math.max(1, (int) (maxHp * 0.5));
+    }
+
+    /** What {@code Character.respawn} gives back. */
+    static final int RESPAWN_HP = 50;
 
     /** An unknown column or table: the schema predates migration 005. */
     static boolean isMissingSchema(SQLException e) {

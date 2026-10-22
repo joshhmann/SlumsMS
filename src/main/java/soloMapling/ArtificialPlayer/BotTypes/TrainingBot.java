@@ -172,6 +172,9 @@ public class TrainingBot extends BotSM {
     private static final long MAP_SATURATED_DWELL_MS = 8_000; // saturation must persist this long before a crowd-bail (ride out arrival races)
     private static final long MAP_EXCLUDE_MS = 45_000;        // don't re-pick a map we just left for crowding
     private static final int MAX_MAP_HOPS_PER_EPISODE = 2;    // crowd-driven map changes before the bot settles & shares
+    // 1.5.0 rc3 KS manners: map changes away from a real player's platforms. They bypass the crowd hop cap (the bot
+    // must not settle on a player's platform); past this many the bot goes to town instead (which resets both).
+    static final int MAX_YIELD_HOPS_PER_EPISODE = 4;
     // Crowd-bail runs unobserved too: an unobserved changeMap is invisible and near-free, and it levels
     // crowding BEFORE a player arrives — with the old observed-only gate, a stacked map showed its full
     // stack at the exact moment someone first walked in. Unobserved bots tick at 60-120s while grinding,
@@ -258,7 +261,7 @@ public class TrainingBot extends BotSM {
     }
 
     // ── Macro brain state ────────────────────────────────────────────────────
-    private enum Phase { INIT, IN_TOWN, SHOP_TRAVEL, SHOP_DWELL, SHOP_RETURN, DECIDE, GO_TRAIN, GRIND, GO_TOWN,
+    enum Phase { INIT, IN_TOWN, SHOP_TRAVEL, SHOP_DWELL, SHOP_RETURN, DECIDE, GO_TRAIN, GRIND, GO_TOWN,
         BREAK_TRAVEL, BREAK_REST }
 
     private volatile Phase phase = Phase.INIT;
@@ -312,6 +315,7 @@ public class TrainingBot extends BotSM {
     // sharing instead of migrating forever; and the persist timer for the saturation dwell.
     private final Map<Integer, Long> mapCrowdCooldown = new HashMap<>();
     private int crowdHopsThisEpisode = 0;
+    private int yieldHopsThisEpisode = 0;
     private long mapSaturatedSinceMs = 0L;       // when the current grind first read saturated (0 = not saturated)
 
     // ── Grind breaks (macro tick only; state + behavior in GrindBreakRoutine) ──
@@ -489,8 +493,11 @@ public class TrainingBot extends BotSM {
         }
         int diedOn = chr.getMapId();
         int back = currentTrainMapId >= 0 ? currentTrainMapId : diedOn;
-        if (phase == Phase.GRIND) {
-            leaveGrind();
+        if (isBreak(phase)) {
+            breaks.abandon(chr); // sign down, rest/idle cleared, no saved remainder (a fresh session after town)
+        }
+        if (phase == Phase.GRIND || isBreak(phase)) {
+            leaveGrind(); // a break is still part of the grind: ACTIVE_GRINDERS, grinding nav, train slot
         }
         GCMovement.releaseCommitmentHold(chr);
         int town = chr.getMap() != null ? chr.getMap().getReturnMapId() : -1;
@@ -507,6 +514,27 @@ public class TrainingBot extends BotSM {
         }
         enterPhase(Phase.IN_TOWN);
         return true;
+    }
+
+    /**
+     * 1.5.0 rc3: a couple, guild or boss-run channel move takes this bot (BotChannels.moveToChannel). A grind or a
+     * grind break is left cleanly first (no stale spot claim, train slot, break sign or remainder); it re-decides.
+     */
+    public void leaveForChannelMove() {
+        Phase p = phase;
+        if (p != Phase.GRIND && !isBreak(p)) {
+            return;
+        }
+        Character chr = getChr();
+        if (isBreak(p)) {
+            breaks.abandon(chr);
+        }
+        leaveGrind();
+        enterPhase(Phase.DECIDE);
+    }
+
+    static boolean isBreak(Phase p) {
+        return p == Phase.BREAK_TRAVEL || p == Phase.BREAK_REST;
     }
 
     // ── World events (ticket 21) ─────────────────────────────────────────────
@@ -611,6 +639,7 @@ public class TrainingBot extends BotSM {
         if (!phaseEntered) {
             phaseEntered = true;
             crowdHopsThisEpisode = 0; // back home -> fresh outing, reset the crowd-migration budget
+            yieldHopsThisEpisode = 0;
             SupplyNeeds needs = BotSupplies.arriveInTown(getChr()); // real bots 08: rest to full, see what it needs
             buildShopPlan();
             // Ticket 09: a bot short of potions or ammo walks to a shop in town that sells them and buys there -
@@ -1222,7 +1251,8 @@ public class TrainingBot extends BotSM {
             return false; // old gate: only relieve crowding a player can actually see
         }
         boolean yielding = grind.yieldsMap(); // 1.5.0 rc3: only a real player's platforms are left here
-        if (!(grind.mapSaturated() || yielding) || crowdHopsThisEpisode >= MAX_MAP_HOPS_PER_EPISODE) {
+        CrowdBail action = crowdBail(grind.mapSaturated(), yielding, crowdHopsThisEpisode, yieldHopsThisEpisode);
+        if (action == CrowdBail.STAY) {
             mapSaturatedSinceMs = 0L; // not saturated, or out of hops -> reset the persist timer
             return false;
         }
@@ -1239,11 +1269,33 @@ public class TrainingBot extends BotSM {
             sayCc(chr);
         }
         mapCrowdCooldown.put(leaving, now() + MAP_EXCLUDE_MS);
-        crowdHopsThisEpisode++;
         mapSaturatedSinceMs = 0L;
         leaveGrind();
+        if (action == CrowdBail.TOWN) {
+            enterPhase(Phase.GO_TOWN); // players hold every map it tried: rest in town, then a fresh outing
+            return true;
+        }
+        if (yielding) {
+            yieldHopsThisEpisode++;
+        } else {
+            crowdHopsThisEpisode++;
+        }
         enterPhase(Phase.DECIDE);
         return true;
+    }
+
+    enum CrowdBail { STAY, HOP, TOWN }
+
+    /**
+     * What a crowded grinder does: a saturated map is left for another while crowd hops remain (then it settles and
+     * shares); a map where only a real player's platforms are left is always left, past the crowd hop cap, for
+     * another map or, once the yield hops are used up, for town.
+     */
+    static CrowdBail crowdBail(boolean saturated, boolean yielding, int crowdHops, int yieldHops) {
+        if (yielding) {
+            return yieldHops < MAX_YIELD_HOPS_PER_EPISODE ? CrowdBail.HOP : CrowdBail.TOWN;
+        }
+        return saturated && crowdHops < MAX_MAP_HOPS_PER_EPISODE ? CrowdBail.HOP : CrowdBail.STAY;
     }
 
     private static final String[] CC_LINES = {"cc?", "cc", "ccing", "ok ill cc", "np cc", "kk cc"};

@@ -199,17 +199,18 @@ class CampStrategy implements GrindStrategy {
         MapGrindProfile p = SpotFinder.profile(chr.getMap()); // cached; builds clusters on first touch (kept outside the lock)
         Spot s = selectAndClaim(chr, p);
         if (s == null) {
-            return; // no reachable spot (rare — DECIDE guarantees mobs), or released mid-flight
+            // 1.5.0 rc3 (KS manners): a player's platform is never picked (SpotFinder), so when only players'
+            // platforms are left nothing is claimed or walked to; TrainingBot moves on to another map (or town).
+            Character owner = onlyPlayersPlatformsLeft(chr, p);
+            if (owner != null && !b.yieldMap) {
+                KsManners.log(chr, "CROWDED " + chr.getName() + ": the only spots left are " + owner.getName()
+                        + "'s platform -> moving on");
+                GCMovement.stop(chr); // never walk on toward the player's platform
+            }
+            b.yieldMap = owner != null;
+            return; // no reachable spot (rare — DECIDE guarantees mobs), only players' platforms, or released
         }
-        // 1.5.0 rc3 (KS manners): the best spot left is a real player's platform -> every spot here is theirs;
-        // TrainingBot moves on to another map.
-        List<Character> players = b.respectedPlayers(chr);
-        Character owner = players.isEmpty() ? null : KsManners.playerOn(chr, players, s.anchor(), s.radius());
-        b.yieldMap = owner != null;
-        if (owner != null) {
-            KsManners.log(chr, "CROWDED " + chr.getName() + ": the only spots left are " + owner.getName()
-                    + "'s platform -> moving on");
-        }
+        b.yieldMap = false;
         // Movement + transition stay outside the lock (the movement driver takes its own locks).
         b.resetApproachProgress(chr);
         b.lastKillMs = now();
@@ -279,6 +280,21 @@ class CampStrategy implements GrindStrategy {
             bandFallback = false;
             return s;
         }
+    }
+
+    // The respected player whose platform holds one of this map's spots when selection found nothing else, or null.
+    private Character onlyPlayersPlatformsLeft(Character chr, MapGrindProfile p) {
+        List<Character> players = b.respectedPlayers(chr);
+        if (players.isEmpty() || p == null) {
+            return null;
+        }
+        for (Spot s : p.spots()) {
+            Character owner = KsManners.playerOn(chr, players, s.anchor(), s.radius());
+            if (owner != null) {
+                return owner;
+            }
+        }
+        return null;
     }
 
     // The next spot candidate for SELECT (one attempt of the claim-retry loop above). CAMP re-scores

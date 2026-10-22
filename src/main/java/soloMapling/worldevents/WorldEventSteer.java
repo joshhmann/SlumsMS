@@ -47,6 +47,12 @@ public final class WorldEventSteer {
         }
     }
 
+    /** True while GM / {@code !qa} staging holds this bot on a map ({@link #hold}). */
+    public static boolean isStagingHeld(int charId) {
+        Call c = calls.get(charId);
+        return c != null && c.eventId() == STAGING;
+    }
+
     /** Drops every bot headed to this event. */
     static void release(int eventId) {
         calls.values().removeIf(c -> c.eventId() == eventId);

@@ -174,6 +174,11 @@ public final class GCMovement {
         return GCFollow.isFollowing(bot);
     }
 
+    /** The character this bot is following (cross-map follow), or null. */
+    public static Character followTarget(Character bot) {
+        return GCFollow.target(bot);
+    }
+
     /* Cancel the current move/follow/travel; the bot idles in place (stays under dynamic control). */
     public static void stop(Character bot) {
         if (bot == null) {

@@ -259,6 +259,9 @@ public class Character extends AbstractCharacterObject {
     private final Lock prtLock = new ReentrantLock();
     private final Lock cpnLock = new ReentrantLock();
     private final Lock ringLock = new ReentrantLock();
+    // 1.5.0 rc3: held across a map change; BotChannels.moveToChannel holds it across a bot's channel swap so the bot's
+    // own changeMap (travel, portal, respawn) cannot run between leaving the old channel and joining the new one.
+    private final ReentrantLock warpLock = new ReentrantLock();
     private final Map<Integer, Set<Integer>> excluded = new LinkedHashMap<>();
     private final Set<Integer> excludedItems = new LinkedHashSet<>();
     private final Set<Integer> disabledPartySearchInvites = new LinkedHashSet<>();
@@ -1584,38 +1587,53 @@ public class Character extends AbstractCharacterObject {
     }
 
     public void changeMap(final MapleMap target, Portal pto) {
-        canWarpCounter++;
+        warpLock.lock();
+        try {
+            canWarpCounter++;
 
-        eventChangedMap(target.getId());    // player can be dropped from an event here, hence the new warping target.
-        MapleMap to = getWarpMap(target.getId());
-        if (pto == null) {
-            pto = to.getPortal(0);
+            eventChangedMap(target.getId());    // player can be dropped from an event here, hence the new warping target.
+            MapleMap to = getWarpMap(target.getId());
+            if (pto == null) {
+                pto = to.getPortal(0);
+            }
+            changeMapInternal(to, pto.getPosition(), PacketCreator.getWarpToMap(to, pto.getId(), this));
+            canWarpMap = false;
+
+            canWarpCounter--;
+            if (canWarpCounter == 0) {
+                canWarpMap = true;
+            }
+
+            eventAfterChangedMap(this.getMapId());
+        } finally {
+            warpLock.unlock();
         }
-        changeMapInternal(to, pto.getPosition(), PacketCreator.getWarpToMap(to, pto.getId(), this));
-        canWarpMap = false;
-
-        canWarpCounter--;
-        if (canWarpCounter == 0) {
-            canWarpMap = true;
-        }
-
-        eventAfterChangedMap(this.getMapId());
     }
 
     public void changeMap(final MapleMap target, final Point pos) {
-        canWarpCounter++;
+        warpLock.lock();
+        try {
+            canWarpCounter++;
 
-        eventChangedMap(target.getId());
-        MapleMap to = getWarpMap(target.getId());
-        changeMapInternal(to, pos, PacketCreator.getWarpToMap(to, 0x80, pos, this));
-        canWarpMap = false;
+            eventChangedMap(target.getId());
+            MapleMap to = getWarpMap(target.getId());
+            changeMapInternal(to, pos, PacketCreator.getWarpToMap(to, 0x80, pos, this));
+            canWarpMap = false;
 
-        canWarpCounter--;
-        if (canWarpCounter == 0) {
-            canWarpMap = true;
+            canWarpCounter--;
+            if (canWarpCounter == 0) {
+                canWarpMap = true;
+            }
+
+            eventAfterChangedMap(this.getMapId());
+        } finally {
+            warpLock.unlock();
         }
+    }
 
-        eventAfterChangedMap(this.getMapId());
+    /** Held across every map change (reentrant); see {@code BotChannels.moveToChannel}. */
+    public java.util.concurrent.locks.Lock getWarpLock() {
+        return warpLock;
     }
 
     public void forceChangeMap(final MapleMap target, Portal pto) {

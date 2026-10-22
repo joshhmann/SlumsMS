@@ -219,11 +219,11 @@ public final class CombatStaging {
             }
             switch (action) {
                 case "die" -> {
-                    BotDeaths.forceNextDeath(true);
+                    BotDeaths.forceNextDeath(id, true);
                     BotVitals.drainHpPotionsTo(bot, 0);
                     BotVitals.hurt(bot, bot.getHp() + 1);
                     out.add(bot.getName() + (BotDeaths.isDead(id) ? " died" : " did not die (not grinding yet?)"));
-                    BotDeaths.forceNextDeath(false);
+                    BotDeaths.forceNextDeath(id, false);
                     return out; // one bot is enough
                 }
                 case "lowpots" -> {
