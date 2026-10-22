@@ -31,7 +31,7 @@ import java.util.concurrent.atomic.AtomicLong;
  * deadline that covers both the wait for a free slot and the request itself. Whatever goes wrong, the
  * future completes with empty and the caller uses its scripted line.
  */
-public final class OpenAICompatibleBrain implements BotBrain {
+public final class OpenAICompatibleBrain implements ChatRouter.Slotted {
 
     private static final Logger log = LoggerFactory.getLogger(OpenAICompatibleBrain.class);
 
@@ -132,10 +132,12 @@ public final class OpenAICompatibleBrain implements BotBrain {
     }
 
     /** How many slots are free right now (ticket 59's router reads it). */
+    @Override
     public int freeSlots() {
         return slots.availablePermits();
     }
 
+    @Override
     public int maxSlots() {
         return Math.max(1, settings.maxConcurrent());
     }

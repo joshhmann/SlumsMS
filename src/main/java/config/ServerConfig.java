@@ -125,6 +125,18 @@ public class ServerConfig {
     public Map<String, String> BOT_LLM_EXTRA_BODY = new HashMap<>();
     public Map<String, String> BOT_LLM_EXTRA_HEADERS = new HashMap<>();
     public String BOT_LLM_NOTES_MODEL = "";
+    //Ticket 59 (router): an optional OpenAI-compatible cloud provider for OVERFLOW only - replies to real players when
+    //the local model's slots are all busy or it is slow. Blank URL = no cloud. The key can also come from env
+    //SOLOMAPLING_LLM_CLOUD_API_KEY. Spend is estimated from tokens and capped per server-local day.
+    public String BOT_LLM_CLOUD_BASE_URL = "";
+    public String BOT_LLM_CLOUD_API_KEY = "";
+    public String BOT_LLM_CLOUD_MODEL = "";
+    public int BOT_LLM_CLOUD_TIMEOUT_MS = 6000;
+    public double BOT_LLM_CLOUD_DAILY_BUDGET_USD = 1.0;
+    public double BOT_LLM_CLOUD_PRICE_IN_PER_MTOK = 0.28;
+    public double BOT_LLM_CLOUD_PRICE_OUT_PER_MTOK = 0.42;
+    //Local model latency (moving average, ms) above which a real player's reply overflows to the cloud.
+    public int BOT_LLM_LOCAL_SLOW_MS = 2500;
     //1.5.0 rc3 (bots fight like people): only maps a real player can see run any of this (BotCombatTuning).
     //Master switch for the human combat layer: class-correct skill choice, facing first, touch avoidance,
     //platform pacing, per-bot loot/potion habits. false = the 1.5.0 rc2 behaviour.

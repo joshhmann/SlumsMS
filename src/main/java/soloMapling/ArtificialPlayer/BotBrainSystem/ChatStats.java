@@ -109,6 +109,19 @@ public final class ChatStats {
         }
     }
 
+    private static final AtomicLong cloudCalls = new AtomicLong();
+    private static final AtomicLong cloudFailures = new AtomicLong();
+    private static final AtomicLong cloudTotalMs = new AtomicLong();
+
+    /** Ticket 59: a cloud overflow call (router). */
+    static void cloudCall(long ms, boolean ok) {
+        cloudCalls.incrementAndGet();
+        cloudTotalMs.addAndGet(ms);
+        if (!ok) {
+            cloudFailures.incrementAndGet();
+        }
+    }
+
     static void decideCacheHit() {
         decideCacheHits.incrementAndGet();
     }
@@ -138,7 +151,8 @@ public final class ChatStats {
             }
             line.append(" flags=").append(counts(flags)).append(" actions=").append(counts(actions))
                     .append(" decide calls=").append(decideCalls.get()).append(" failed=").append(decideFailures.get())
-                    .append(" cached=").append(decideCacheHits.get());
+                    .append(" cached=").append(decideCacheHits.get())
+                    .append(" cloud calls=").append(cloudCalls.get()).append(" failed=").append(cloudFailures.get());
             log.info(line.toString());
             lastHour = summary;
             hour.values().forEach(Counter::reset);
@@ -162,6 +176,12 @@ public final class ChatStats {
         decide.put("cacheHits", decideCacheHits.get());
         decide.put("rateLimited", decideSkipped.get());
         m.put("decide", decide);
+        Map<String, Object> cloud = new LinkedHashMap<>();
+        long cc = cloudCalls.get();
+        cloud.put("calls", cc);
+        cloud.put("avgMs", cc == 0 ? 0 : cloudTotalMs.get() / cc);
+        cloud.put("failed", cloudFailures.get());
+        m.put("cloud", cloud);
         BotBrain brain = BotBrains.peek();
         if (brain != null) {
             m.put("llm", brain.describe());
@@ -206,6 +226,9 @@ public final class ChatStats {
         flags.clear();
         actions.clear();
         decideCalls.set(0);
+        cloudCalls.set(0);
+        cloudFailures.set(0);
+        cloudTotalMs.set(0);
         decideCacheHits.set(0);
         decideFailures.set(0);
         decideSkipped.set(0);
