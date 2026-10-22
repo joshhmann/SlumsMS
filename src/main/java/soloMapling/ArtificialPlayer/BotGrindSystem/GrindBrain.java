@@ -235,6 +235,9 @@ public final class GrindBrain {
             return false;
         }
         Character owner = KsManners.ownerOf(chr, players, m);
+        if (owner != null) { // 1.5.0: a mob it leaves to a player is theirs - their hit on it is never a KS
+            soloMapling.ArtificialPlayer.BotAffinitySystem.AffinityHooks.onBotYield(chr, m, System.currentTimeMillis());
+        }
         if (owner != null && soloMapling.qa.QaLog.on(soloMapling.qa.QaLog.Topic.MANNERS)
                 && soloMapling.qa.QaLog.every("ksmob:" + chr.getId(), 5_000)) {
             KsManners.log(chr, "LEAVE " + chr.getName() + " leaves " + m.getName() + " to " + owner.getName());

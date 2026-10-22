@@ -345,17 +345,49 @@ public final class AffinityReactions {
 
     // ── defame ──
 
-    static boolean mayDefame(int playerId, long now) {
-        Long day = defamedDay.get(playerId);
-        return day == null || day != Math.floorDiv(now, TimeUnit.DAYS.toMillis(1));
+    /** The lowest fame a defame takes a player to (v83's own floor; the game clamps there too). */
+    static final int FAME_FLOOR = -30000;
+
+    /** The server's zone for "a day" (the roster's, America/Los_Angeles by default). */
+    static java.time.ZoneId zone() {
+        try {
+            String z = config.YamlConfig.config.server.BOT_ROSTER_TIMEZONE;
+            return z == null || z.isBlank() ? java.time.ZoneId.of("America/Los_Angeles") : java.time.ZoneId.of(z);
+        } catch (RuntimeException | LinkageError e) { // no config (tests, tools): the roster's default
+            return java.time.ZoneId.of("America/Los_Angeles");
+        }
     }
 
-    private static String defame(Character bot, Character player) {
+    /** When the server's local day holding {@code now} began (epoch ms). */
+    static long dayStart(long now, java.time.ZoneId zone) {
+        return java.time.Instant.ofEpochMilli(now).atZone(zone).toLocalDate().atStartOfDay(zone).toInstant().toEpochMilli();
+    }
+
+    /** Cheap pre-check on the driver thread (memory only); {@link #defame} makes the durable claim. */
+    static boolean mayDefame(int playerId, long now) {
+        Long day = defamedDay.get(playerId);
+        return day == null || day < dayStart(now, zone());
+    }
+
+    /**
+     * A nemesis defames: at most once per player per server day across all bots (claimed durably and atomically in
+     * the store, so a restart or two bots at once cannot double it). Fame may go negative, as in v83, down to the
+     * game's own floor ({@link #FAME_FLOOR}).
+     */
+    static String defame(Character bot, Character player) {
         long now = BotAffinity.now();
         if (!mayDefame(player.getId(), now) || player.getMapId() != bot.getMapId()) {
             return "skipped";
         }
-        defamedDay.put(player.getId(), Math.floorDiv(now, TimeUnit.DAYS.toMillis(1)));
+        if (player.getFame() <= FAME_FLOOR) {
+            return "fame at its floor: no defame";
+        }
+        long start = dayStart(now, zone());
+        if (!BotAffinity.claimDefame(player.getId(), start, now)) {
+            defamedDay.put(player.getId(), start);
+            return "a bot defamed them today already";
+        }
+        defamedDay.put(player.getId(), start);
         if (!player.gainFame(-1, bot, 0)) {
             return "fame already at its floor";
         }

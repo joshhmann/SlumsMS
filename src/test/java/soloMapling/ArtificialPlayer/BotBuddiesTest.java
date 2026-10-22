@@ -188,6 +188,18 @@ class BotBuddiesTest {
     }
 
     @Test
+    void aRequestNeverTouchesTheTableOnThePacketThread() {
+        java.util.ArrayDeque<Runnable> queued = new java.util.ArrayDeque<>();
+        BotBuddies.useWriterForTest(queued::add);
+        int channel = BotBuddies.playerRequests(player(PLAYER, "Josh", false), new Target(BOT, "Ressurectme"));
+        assertEquals(-1, channel);
+        assertNull(table.pair(BOT, PLAYER), "nothing read or written on the caller's thread");
+        assertEquals(1, queued.size());
+        queued.poll().run();
+        assertEquals(Link.REQUESTED, table.pair(BOT, PLAYER).link());
+    }
+
+    @Test
     void askingAgainRightAfterANoIsIgnored() {
         table.put(new Row(BOT, PLAYER, Link.REFUSED, TODAY));
         BotBuddies.playerRequests(player(PLAYER, "Josh", false), new Target(BOT, "Ressurectme"));

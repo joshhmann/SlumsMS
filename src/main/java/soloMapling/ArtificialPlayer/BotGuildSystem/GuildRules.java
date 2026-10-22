@@ -127,9 +127,10 @@ public final class GuildRules {
     }
 
     /**
-     * A bot quits when the guild's players became its rivals (the player leader, or at least half of the guild's
-     * players it has feelings about), or when, in a player-led guild, nobody of the guild did anything with it for
-     * {@code ignoreDays} (21) - and it has been in the guild at least that long.
+     * A bot in a player-led guild quits when the guild's players became its rivals (the player leader, or at least
+     * half of the guild's players it has feelings about), or when nobody of the guild did anything with it for
+     * {@code ignoreDays} (21) - and it has been in the guild at least that long. A bot in a bot-run guild never quits:
+     * a grudge against a player member is the leader's to settle ({@link #kick}), and bot guilds would only shrink.
      *
      * @param hostileToLeader the guild's leader is a real player this bot is a rival or nemesis of
      * @param hostile         guild players (online, feelings loaded) it is hostile to
@@ -137,11 +138,11 @@ public final class GuildRules {
      */
     public static QuitReason quit(boolean playerLed, boolean hostileToLeader, int hostile, int known, long joinedAt,
                                   long attentionAt, long now) {
+        if (!playerLed) {
+            return null; // a bot-run guild keeps its bots, whatever they think of its players
+        }
         if (hostileToLeader || (hostile > 0 && hostile * 2 >= known)) {
             return QuitReason.RIVALS;
-        }
-        if (!playerLed) {
-            return null; // a bot-run guild keeps its bots busy itself
         }
         long ignore = (long) (prop("ignoreDays", 21) * TimeUnit.DAYS.toMillis(1));
         long since = Math.max(joinedAt, attentionAt);
@@ -151,14 +152,57 @@ public final class GuildRules {
     // ── a bot guild's leader kicks a rival player ──
 
     /**
-     * A bot-run guild's leader expels a player member who is its rival (or nemesis), or a rival of most of the bot
-     * members that have feelings about them (owner 2026-10-21). Bots never kick a player they feel nothing about.
+     * A bot-run guild's leader expels a player member who is its nemesis, or whom the guild's bots hold a real grudge
+     * against: at least {@code kickMinKnown} (3) bot members have feelings about them and more than half of those are
+     * rivals or nemeses (owner 2026-10-21; 1.5.0 review: one grudge must never get a player kicked). Bots never kick a
+     * player they feel nothing about.
      *
-     * @param hostile bot members hostile to the player
-     * @param known   bot members with any feelings (hostile included) about the player
+     * @param leaderNemesis the leader is the player's nemesis
+     * @param hostile       bot members hostile to the player
+     * @param known         bot members with any feelings (hostile included) about the player
      */
-    public static boolean kick(boolean hostileToLeader, int hostile, int known) {
-        return hostileToLeader || (known > 0 && hostile * 2 > known);
+    public static boolean kick(boolean leaderNemesis, int hostile, int known) {
+        return leaderNemesis || (known >= (int) prop("kickMinKnown", 3) && hostile * 2 > known);
+    }
+
+    // ── guild points ──
+
+    /**
+     * The GP a bot guild is founded with: a little history, small enough that a players' guild doing real Guild PQs
+     * passes it within days (owner 2026-10-22). About 50 a member, 300 to 2,000 ({@code seedGpPerMember},
+     * {@code seedGpMin}, {@code seedGpMax}).
+     */
+    public static int seedGp(int size) {
+        int per = (int) prop("seedGpPerMember", 50);
+        return Math.max((int) prop("seedGpMin", 300), Math.min((int) prop("seedGpMax", 2000), size * per));
+    }
+
+    /** What a staged boss clear gives the guild ({@code bossGp}, 30): a real GPQ gives several hundred. */
+    public static int bossGp() {
+        return (int) prop("bossGp", 30);
+    }
+
+    /** The rc builds founded with {@code size * 120} GP and gave 150 per staged clear. */
+    static final int OLD_GP_PER_MEMBER = 120, OLD_BOSS_GP = 150;
+
+    /**
+     * A guild founded by an rc build, still holding exactly the GP that build gave it (its old founding GP plus whole
+     * old boss clears, nothing earned by players), gets the GP the current rules would have given it; -1 for any
+     * other GP (left alone: it may hold GP players earned).
+     */
+    public static int rescaledGp(int gp, int size) {
+        int oldSeed = size * OLD_GP_PER_MEMBER;
+        if (size <= 0 || gp < oldSeed || (gp - oldSeed) % OLD_BOSS_GP != 0) {
+            return -1;
+        }
+        int clears = (gp - oldSeed) / OLD_BOSS_GP;
+        int now = seedGp(size) + clears * bossGp();
+        return now == gp ? -1 : now;
+    }
+
+    /** A bot guild below its target size takes in a roster bot now and then ({@code BotGuilds.refill}). */
+    public static boolean refillDue(int members, int targetSize) {
+        return targetSize > 0 && members < targetSize;
     }
 
     /** At most one kick per guild per this many minutes. */

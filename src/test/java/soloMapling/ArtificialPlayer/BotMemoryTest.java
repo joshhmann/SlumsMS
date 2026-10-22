@@ -70,6 +70,11 @@ class BotMemoryTest {
                 table.add(row);
             } else if (sql.equals(BotMemory.DELETE)) {
                 table.removeIf(r -> r.get("Id").equals(bound.get(1)));
+            } else if (sql.startsWith("DELETE FROM botmemory WHERE AboutCharacterId = ?")) {
+                int before = table.size();
+                table.removeIf(r -> r.get("AboutCharacterId").equals(bound.get(1)) && ("HEARSAY".equals(r.get("Source"))
+                        || bound.entrySet().stream().anyMatch(e -> e.getKey() > 1 && e.getValue().equals(r.get("Note")))));
+                return before - table.size();
             }
             return 1;
         });
@@ -194,5 +199,18 @@ class BotMemoryTest {
         assertEquals(2, prompt.size());
         assertTrue(prompt.get(0).content().contains("If nothing is worth remembering, write NONE"));
         assertEquals("Josh: im saving for a cape\nYou: nice gl", prompt.get(1).content());
+    }
+
+    @Test
+    void anOptOutPurgesTheGossipAboutThePlayerButNotTheBotsOwnChats() {
+        long now = 1_000_000L;
+        BotMemory.remember(1, 42, List.of("likes pink capes"), BotMemory.Source.DIRECT, 0, 0, now);
+        BotMemory.remember(1, 42, List.of("keeps ksing my mobs"), BotMemory.Source.DIRECT, 0, 0, now);
+        BotMemory.remember(2, 42, List.of("likes pink capes"), BotMemory.Source.HEARSAY, 1, 1, now);
+        BotMemory.remember(1, 43, List.of("keeps ksing my mobs"), BotMemory.Source.DIRECT, 0, 0, now);
+        assertEquals(2, BotMemory.forgetGossipAbout(42, List.of("keeps ksing my mobs", "we have beef")));
+        assertEquals(List.of("likes pink capes"), BotMemory.about(1, 42).stream().map(BotMemory.Note::text).toList());
+        assertTrue(BotMemory.about(2, 42).isEmpty(), "hearsay gone");
+        assertEquals(1, BotMemory.about(1, 43).size(), "other players untouched");
     }
 }

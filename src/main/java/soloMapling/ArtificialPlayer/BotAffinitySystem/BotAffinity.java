@@ -51,6 +51,8 @@ public final class BotAffinity {
     /** Notes that, heard second hand, make a listener a little cooler or warmer toward that player. */
     static final List<String> HOSTILE_NOTES = List.of(NOTE_KS, NOTE_STEAL, NOTE_DEFAME, NOTE_BEEF, NOTE_NEMESIS);
     static final List<String> FRIENDLY_NOTES = List.of(NOTE_FRIEND);
+    /** The grudge notes an {@code @botdrama off} purges (gossip passes them on). */
+    static final List<String> DRAMA_NOTES = List.of(NOTE_KS, NOTE_STEAL, NOTE_DEFAME, NOTE_RUDE, NOTE_BEEF, NOTE_NEMESIS);
 
     /** One online player's ties. Guarded by itself. */
     static final class PlayerTies {
@@ -72,6 +74,21 @@ public final class BotAffinity {
     /** Whether a player is still online (the sweep drops the others). */
     private static volatile IntPredicate isOnline = BotAffinity::playerOnline;
     private static volatile boolean sweeperStarted;
+    /**
+     * Every player with {@code @botdrama off}: read from {@code botdrama} at boot ({@link #loadOptOuts}) and kept in
+     * step with every toggle, so the opt-out holds whether or not the player's ties are loaded.
+     */
+    private static final java.util.Set<Integer> optedOutIds = ConcurrentHashMap.newKeySet();
+    private static volatile boolean optOutsLoaded;
+    private static volatile long optOutsTriedAt;
+    /** Writes for one player land in order (a save never overtakes the delete of the same tie, or the reverse). */
+    private static final soloMapling.ArtificialPlayer.SerialWrites writes =
+            new soloMapling.ArtificialPlayer.SerialWrites(r -> writer.execute(r));
+    /** What a toggle to off purges: the gossip about the player that bots hold (a seam for tests). */
+    private static final java.util.function.IntConsumer MEMORY_PURGE = BotAffinity::purgeGossip;
+    private static volatile java.util.function.IntConsumer purge = MEMORY_PURGE;
+    /** Defame claims when the store cannot answer (no migration, database down): player id -> when. */
+    private static final Map<Integer, Long> defamedInMemory = new ConcurrentHashMap<>();
 
     private BotAffinity() {
     }
@@ -112,6 +129,9 @@ public final class BotAffinity {
             return;
         }
         startSweeper();
+        if (!optOutsLoaded) {
+            writer.execute(BotAffinity::loadOptOuts); // the boot read failed: try again (at most once a minute)
+        }
         writer.execute(() -> {
             try {
                 load(charId);
@@ -127,7 +147,7 @@ public final class BotAffinity {
     static PlayerTies load(int charId) {
         long now = now();
         PlayerTies pt = new PlayerTies(charId);
-        pt.optedOut = store.optedOut(charId);
+        pt.optedOut = store.optedOut(charId) || optedOutIds.contains(charId);
         List<Tie> faded = new ArrayList<>();
         for (Tie tie : store.load(charId)) {
             if (AffinityRules.faded(tie, now)) {
@@ -139,7 +159,7 @@ public final class BotAffinity {
         for (Tie tie : faded) {
             store.delete(charId, tie.botId);
         }
-        for (Tie dropped : bound(pt, now)) {
+        for (Tie dropped : bound(pt, now, -1)) {
             store.delete(charId, dropped.botId);
         }
         pt.touchedAt = now;
@@ -147,16 +167,21 @@ public final class BotAffinity {
         return pt;
     }
 
-    /** Keeps at most {@link #maxTiesPerPlayer()} ties, dropping the weakest; the dropped ones. */
-    private static List<Tie> bound(PlayerTies pt, long now) {
+    /**
+     * Keeps at most {@link #maxTiesPerPlayer()} ties, dropping the weakest; the dropped ones. The tie of bot slot
+     * {@code keep} (the one an event just touched, -1 for none) is never dropped: the weakest of the others goes.
+     */
+    static List<Tie> bound(PlayerTies pt, long now, int keep) {
         int max = maxTiesPerPlayer();
         List<Tie> dropped = new ArrayList<>();
         if (pt.ties.size() <= max) {
             return dropped;
         }
         List<Tie> all = new ArrayList<>(pt.ties.values());
+        all.removeIf(t -> t.botId == keep);
         all.sort(Comparator.comparingDouble(t -> Math.abs(AffinityRules.scoreAt(t, now))));
-        for (Tie t : all.subList(0, all.size() - max)) {
+        int excess = pt.ties.size() - max;
+        for (Tie t : all.subList(0, Math.min(excess, all.size()))) {
             pt.ties.remove(t.botId);
             dropped.add(t);
         }
@@ -181,7 +206,7 @@ public final class BotAffinity {
         }
         synchronized (pt) {
             Tie tie = pt.ties.get(slot(botCharId));
-            AffinityState s = AffinityRules.state(tie, now(), pt.optedOut);
+            AffinityState s = AffinityRules.state(tie, now(), out(pt));
             return s.hostile() && !hostilityEnabled() ? AffinityState.NEUTRAL : s;
         }
     }
@@ -200,10 +225,51 @@ public final class BotAffinity {
         return online.containsKey(charId);
     }
 
-    /** Whether the player turned bot drama off. Memory only (false until their ties are loaded). */
+    /**
+     * Whether the player turned bot drama off. Memory only, and authoritative: the set of opted-out players is read
+     * from {@code botdrama} at boot and kept in step with every toggle, so it holds whether or not the player's ties
+     * are loaded (before the boot read lands, a player whose ties are loaded still answers from their own row).
+     */
     public static boolean optedOut(int playerId) {
+        if (optedOutIds.contains(playerId)) {
+            return true;
+        }
         PlayerTies pt = online.get(playerId);
         return pt != null && pt.optedOut;
+    }
+
+    private static boolean out(PlayerTies pt) {
+        return pt.optedOut || optedOutIds.contains(pt.charId);
+    }
+
+    /**
+     * Boot: reads every {@code @botdrama off} into memory. A failed read leaves the set unloaded and is retried (at
+     * most once a minute) the next time a player's ties load. True when the set is loaded.
+     */
+    public static boolean loadOptOuts() {
+        if (optOutsLoaded) {
+            return true;
+        }
+        long now = now();
+        synchronized (optedOutIds) {
+            if (optOutsLoaded || (optOutsTriedAt > 0 && now - optOutsTriedAt < TimeUnit.MINUTES.toMillis(1))) {
+                return optOutsLoaded;
+            }
+            optOutsTriedAt = now;
+            java.util.Set<Integer> ids;
+            try {
+                ids = store.loadOptedOut();
+            } catch (RuntimeException e) {
+                ids = null;
+            }
+            if (ids == null) {
+                log.warn("Could not read the @botdrama opt-outs; trying again later");
+                return false;
+            }
+            optedOutIds.addAll(ids); // toggles made meanwhile are already in the set (and in the table)
+            optOutsLoaded = true;
+            return true;
+        }
     }
 
     /** Whether any bot holds a non-neutral tie with this player (a cheap pre-check for the on-sight reactions). */
@@ -251,27 +317,30 @@ public final class BotAffinity {
         AffinityState after;
         Tie snapshot;
         synchronized (pt) {
+            boolean off = out(pt);
             Tie tie = pt.ties.get(slot);
             if (tie == null) {
-                if (delta < 0 && pt.optedOut) {
+                if (delta < 0 && off) {
                     return false;
                 }
                 tie = new Tie(slot, playerId, 0, 0, 0, now);
             }
-            before = AffinityRules.state(pt.ties.get(slot), now, pt.optedOut);
-            if (!AffinityRules.apply(tie, event, delta, now, pt.optedOut)) {
+            before = AffinityRules.state(pt.ties.get(slot), now, off);
+            if (!AffinityRules.apply(tie, event, delta, now, off)) {
                 return false;
             }
             pt.ties.put(slot, tie);
-            after = AffinityRules.state(tie, now, pt.optedOut);
+            after = AffinityRules.state(tie, now, off);
             snapshot = tie.snapshot();
             tie.dirty = false;
-            for (Tie dropped : bound(pt, now)) {
-                writer.execute(() -> store.delete(playerId, dropped.botId));
+            // The cap drops the weakest other tie, never the one just touched; queued in order with the save below,
+            // so a delete and a save of the same tie can never land the wrong way round.
+            for (Tie dropped : bound(pt, now, slot)) {
+                writes.submit(playerId, () -> store.delete(playerId, dropped.botId));
             }
+            writes.submit(playerId, () -> store.save(snapshot));
         }
         pt.touchedAt = now;
-        writer.execute(() -> store.save(snapshot));
         if (QaLog.on(QaLog.Topic.AFFINITY)) { // !qa af-1..af-3
             QaLog.map(QaLog.Topic.AFFINITY, mapId, "EVENT " + event.key() + " " + signed(delta) + " bot " + name(botName,
                     botCharId) + " -> " + name(playerName, playerId) + ": score " + Math.round(snapshot.score)
@@ -362,21 +431,73 @@ public final class BotAffinity {
 
     // ── @botdrama ──
 
-    /** {@code @botdrama off|on}: stored per character, effective at once. */
+    /**
+     * {@code @botdrama off|on}: stored per character, effective at once (also for the gossip about them and every
+     * check made while their ties are not loaded). Off also purges what bots gossip about them.
+     */
     public static void setOptedOut(Character player, boolean out) {
         int charId = player.getId();
+        if (out) {
+            optedOutIds.add(charId);
+        } else {
+            optedOutIds.remove(charId);
+        }
         PlayerTies pt = online.get(charId);
         if (pt != null) {
             pt.optedOut = out;
         }
         long now = now();
-        writer.execute(() -> {
+        writes.submit(charId, () -> {
             store.setOptedOut(charId, out, now);
             if (online.get(charId) == null) {
                 PlayerTies loaded = load(charId); // they typed it before their ties were loaded
                 loaded.optedOut = out;
             }
         });
+        if (out) {
+            writes.submit(charId, () -> purge.accept(charId));
+        }
+    }
+
+    /** Bots forget the gossip about this player: every hearsay note, and every affinity note they could pass on. */
+    private static void purgeGossip(int charId) {
+        try {
+            int purged = BotMemory.forgetGossipAbout(charId, DRAMA_NOTES);
+            if (purged > 0 && QaLog.on(QaLog.Topic.AFFINITY)) {
+                QaLog.any(QaLog.Topic.AFFINITY, "PURGED " + purged + " gossip notes about " + charId + " (@botdrama off)");
+            }
+        } catch (RuntimeException e) {
+            log.warn("Could not purge the gossip about character {}", charId, e);
+        }
+    }
+
+    /**
+     * Claims today's one bot defame of this player (the server's local day, which starts at {@code dayStart}):
+     * true when this call got it. Durable and atomic through the store; when the store cannot answer, a claim in
+     * memory stands in so the limit still holds until a restart.
+     */
+    public static boolean claimDefame(int playerId, long dayStart, long now) {
+        synchronized (defamedInMemory) {
+            Long last = defamedInMemory.get(playerId);
+            if (last != null && last >= dayStart) {
+                return false; // this process already gave one today
+            }
+            Boolean stored;
+            try {
+                stored = store.claimDefame(playerId, dayStart, now);
+            } catch (RuntimeException e) {
+                stored = null;
+            }
+            if (stored != null && !stored) {
+                defamedInMemory.put(playerId, now);
+                return false;
+            }
+            defamedInMemory.put(playerId, now);
+            if (defamedInMemory.size() > 10_000) {
+                defamedInMemory.values().removeIf(t -> t < dayStart);
+            }
+            return true;
+        }
     }
 
     // ── GM tools (!affinity) ──
@@ -398,9 +519,9 @@ public final class BotAffinity {
             }
         }
         if (state == AffinityState.NEUTRAL) {
-            writer.execute(() -> store.delete(playerId, snapshot.botId));
+            writes.submit(playerId, () -> store.delete(playerId, snapshot.botId));
         } else {
-            writer.execute(() -> store.save(snapshot));
+            writes.submit(playerId, () -> store.save(snapshot));
         }
         if (QaLog.on(QaLog.Topic.AFFINITY)) {
             QaLog.any(QaLog.Topic.AFFINITY, "STAGED bot " + botCharId + " -> " + playerId + " " + state.label());
@@ -411,7 +532,7 @@ public final class BotAffinity {
     /** A fresh grudge: at least a rival, as of now. False when the player is not loaded or opted out. */
     public static boolean forceGrudge(int botCharId, int playerId) {
         PlayerTies pt = tiesLoading(playerId);
-        if (pt == null || !isBotId(botCharId) || pt.optedOut) {
+        if (pt == null || !isBotId(botCharId) || out(pt)) {
             return false;
         }
         long now = now();
@@ -421,7 +542,7 @@ public final class BotAffinity {
             AffinityRules.forceGrudge(tie, now);
             snapshot = tie.snapshot();
         }
-        writer.execute(() -> store.save(snapshot));
+        writes.submit(playerId, () -> store.save(snapshot));
         onStateChange(snapshot.botId, playerId, AffinityState.RIVAL, AffinityEvent.KS);
         return true;
     }
@@ -436,11 +557,11 @@ public final class BotAffinity {
         synchronized (pt) {
             Tie tie = pt.ties.get(slot(botCharId));
             if (tie == null) {
-                return "neutral (no history)" + (pt.optedOut ? ", player has @botdrama off" : "");
+                return "neutral (no history)" + (out(pt) ? ", player has @botdrama off" : "");
             }
-            return AffinityRules.state(tie, now, pt.optedOut).label() + ": score " + Math.round(AffinityRules.scoreAt(tie,
+            return AffinityRules.state(tie, now, out(pt)).label() + ": score " + Math.round(AffinityRules.scoreAt(tie,
                     now)) + " (stored " + Math.round(tie.score) + " " + age(now - tie.updatedAt) + " ago), kind "
-                    + tie.kind + ", hostile " + tie.hostile + (pt.optedOut ? ", player has @botdrama off" : "")
+                    + tie.kind + ", hostile " + tie.hostile + (out(pt) ? ", player has @botdrama off" : "")
                     + (hostilityEnabled() ? "" : ", hostility switched off server-wide");
         }
     }
@@ -463,14 +584,14 @@ public final class BotAffinity {
         }
         ties.sort(Comparator.comparingDouble((Tie t) -> -Math.abs(AffinityRules.scoreAt(t, now))));
         for (Tie t : ties) {
-            out.add(botNames.apply(BotStore.BOT_ID_BASE + t.botId) + ": " + AffinityRules.state(t, now, pt.optedOut)
+            out.add(botNames.apply(BotStore.BOT_ID_BASE + t.botId) + ": " + AffinityRules.state(t, now, out(pt))
                     .label() + " " + Math.round(AffinityRules.scoreAt(t, now)) + " (kind " + t.kind + ", hostile "
                     + t.hostile + ")");
         }
         if (out.isEmpty()) {
             out.add("no bot has feelings about them yet");
         }
-        if (pt.optedOut) {
+        if (out(pt)) {
             out.add("@botdrama is off for them");
         }
         return out;
@@ -486,7 +607,7 @@ public final class BotAffinity {
             }
             if (had) {
                 int charId = pt.charId;
-                writer.execute(() -> store.delete(charId, slot));
+                writes.submit(charId, () -> store.delete(charId, slot));
             }
         }
     }
@@ -577,7 +698,17 @@ public final class BotAffinity {
         writer = testWriter != null ? testWriter : ExecutorServiceManager::runAsync;
         clock = testClock != null ? testClock : System::currentTimeMillis;
         isOnline = testOnline != null ? testOnline : BotAffinity::playerOnline;
+        purge = testStore != null ? id -> { } : MEMORY_PURGE;
         online.clear();
         loading.clear();
+        optedOutIds.clear();
+        optOutsLoaded = false;
+        optOutsTriedAt = 0;
+        defamedInMemory.clear();
+    }
+
+    /** Tests: what an opt-out purges (null = bot memory). */
+    public static void usePurgeForTest(java.util.function.IntConsumer testPurge) {
+        purge = testPurge != null ? testPurge : MEMORY_PURGE;
     }
 }

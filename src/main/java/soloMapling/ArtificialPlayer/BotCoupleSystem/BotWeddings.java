@@ -8,7 +8,6 @@ import server.maps.MapObject;
 import server.maps.MapObjectType;
 import server.maps.MapleMap;
 import soloMapling.ArtificialPlayer.BotChannels;
-import soloMapling.ArtificialPlayer.BotCustomization;
 import soloMapling.ArtificialPlayer.BotGeneration;
 import soloMapling.ArtificialPlayer.BotHelpers;
 import soloMapling.ArtificialPlayer.BotMessagingSystem.CharacterStorage;
@@ -44,6 +43,10 @@ import static soloMapling.ArtificialPlayer.BotCommandsPack.SocialCommands.BotSpe
  *   on), they are pronounced married; the guests cheer until the event ends.</li>
  *   <li>End: guests leave, the couple gets its own clothes back and returns to where it was, doing what it did.</li>
  * </ul>
+ * Only a couple of free bots marries: neither may be partied, following or grouped with a real player, in an event
+ * or PQ, trading, or gathering for a guild boss run ({@link BotCouples#freeForWedding}). The wedding clothes are a loan
+ * ({@link OutfitLoans}): the bots' stored rows keep their own clothes throughout, and a bot never leaves the world
+ * mid-ceremony. Watchers are blessed once the couple is married, so a ceremony stopped early blesses nobody.
  * Nothing is paid out, no {@code characters} or {@code marriages} row changes, and no reservation is touched.
  */
 public final class BotWeddings {
@@ -65,7 +68,6 @@ public final class BotWeddings {
         final int groom, bride;
         final Map<Integer, int[]> home = new ConcurrentHashMap<>();      // charId -> {mapId, x, y}
         final Map<Integer, String> type = new ConcurrentHashMap<>();     // charId -> TRAINING / SOCIAL
-        final Map<Integer, Integer> ownOverall = new ConcurrentHashMap<>(); // charId -> item id, 0 = none
         final List<Integer> guests = new ArrayList<>();
         final Set<Integer> fired = new HashSet<>();
         /** Real players already blessed at this wedding. */
@@ -132,6 +134,11 @@ public final class BotWeddings {
         Character b = live(couple.charB());
         if (a == null || b == null) {
             return "the couple is not online";
+        }
+        for (Character chr : List.of(a, b)) {
+            if (!BotCouples.freeForWedding(chr)) {
+                return chr.getName() + " is busy (with a player, in an event, trading or on a guild run)";
+            }
         }
         // Any pair may marry (owner 2026-10-21). "Groom" and "bride" are only the two halves' places at the altar.
         Character groom = a.getGender() == b.getGender() || a.getGender() == 0 ? a : b;
@@ -201,11 +208,9 @@ public final class BotWeddings {
         }
         if (beat(c, GROOM_VOWS, s)) {
             line(groom, "Vows", names, -1);
-            bless(c, groom);
         }
         if (beat(c, BRIDE_VOWS, s)) {
             line(bride, "Vows", names, -1);
-            bless(c, bride);
         }
         if (beat(c, RINGS, s)) {
             line(officiant, "RingsGiven", names, -1);
@@ -220,8 +225,10 @@ public final class BotWeddings {
         }
         if (beat(c, PRONOUNCE, s)) {
             line(officiant, "Pronounce", names, -1);
-            BotCouples.marry(c.couple, now);
+            BotCouples.marry(c.couple, now); // recorded first: a couple blessed once is married, so never blessed again
             c.married = true;
+            bless(c, groom);
+            bless(c, bride);
             c.nextCheer = now + 4_000;
             BotCouples.qa("MARRIED couple #" + c.couple.id() + ": " + names.get("GROOM") + " & " + names.get("BRIDE"));
         }
@@ -263,8 +270,9 @@ public final class BotWeddings {
                     place(chr, back, new Point(home[1], home[2]));
                 }
             }
-            if ("TRAINING".equals(c.type.get(id))) {
-                BotTypeManager.convertBotType(chr, BotTypeManager.BotType.TRAINING_BOT);
+            if ("TRAINING".equals(c.type.get(id))
+                    && CharacterStorage.getBotById(id) instanceof soloMapling.ArtificialPlayer.BotTypes.SocialBot) {
+                BotTypeManager.convertBotType(chr, BotTypeManager.BotType.TRAINING_BOT); // only the type it was given
             }
         }
         BotCouples.qa("WEDDING #" + e.id + " ends: " + (c.married ? "married" : "not married (stopped early)"));
@@ -278,11 +286,12 @@ public final class BotWeddings {
     }
 
     /**
-     * "I do": every real player on the map who is watching gets a small blessing - once per player per wedding:
-     * about 1% of their level's EXP, at most {@code -Dsolomapling.couples.blessExpCap} (20000).
+     * "I now pronounce": every real player on the map who is watching gets a small blessing - once per player per
+     * wedding, and only once the marriage is recorded: about 1% of their level's EXP, at most
+     * {@code -Dsolomapling.couples.blessExpCap} (20000).
      */
-    private static void bless(Ceremony c, Character speaker) {
-        if (speaker == null || speaker.getMap() == null) {
+    static void bless(Ceremony c, Character speaker) {
+        if (speaker == null || speaker.getMap() == null || !c.married) {
             return;
         }
         for (Character chr : speaker.getMap().getAllPlayers()) {
@@ -358,36 +367,56 @@ public final class BotWeddings {
         chr.changeMap(map, at);
     }
 
-    private static void dress(Ceremony c, Character chr, int outfit) {
+    /** The wedding outfit goes on as a loan: the bot's own overall is kept (never a tux or dress) and goes back. */
+    static void dress(Ceremony c, Character chr, int outfit) {
         try {
-            Item own = chr.getInventory(InventoryType.EQUIPPED).getItem(OVERALL_SLOT);
-            c.ownOverall.put(chr.getId(), own == null ? 0 : own.getItemId());
-            BotCustomization.EquipItem(chr, outfit, OVERALL_SLOT);
+            OutfitLoans.lend(chr, OVERALL_SLOT, outfit, TUXEDO, WEDDING_DRESS);
         } catch (RuntimeException ex) {
             BotCouples.qa("could not dress " + chr.getName() + ": " + ex);
         }
     }
 
-    private static void undress(Ceremony c, Character chr) {
-        Integer own = c.ownOverall.get(chr.getId());
-        if (own == null) {
-            return;
-        }
+    static void undress(Ceremony c, Character chr) {
         try {
-            if (own > 0) {
-                BotCustomization.EquipItem(chr, own, OVERALL_SLOT);
-            } else {
-                chr.getInventory(InventoryType.EQUIPPED).removeSlot(OVERALL_SLOT);
-                chr.equipChanged();
+            if (!OutfitLoans.giveBack(chr, OVERALL_SLOT)) {
+                takeOffWeddingClothes(chr);
             }
         } catch (RuntimeException ex) {
             BotCouples.qa("could not undress " + chr.getName() + ": " + ex);
         }
     }
 
+    /** Whether this item is wedding clothes (the tuxedo or the dress). */
+    static boolean weddingOutfit(int itemId) {
+        return itemId == TUXEDO || itemId == WEDDING_DRESS;
+    }
+
+    /**
+     * A bot wearing wedding clothes outside a ceremony (an older build stored them as its own) takes them off; true
+     * when it did. Its own clothes from before are not known any more, so the slot is left empty.
+     */
+    static boolean takeOffWeddingClothes(Character chr) {
+        if (inCeremony(chr.getId()) || OutfitLoans.lent(chr, OVERALL_SLOT)) {
+            return false;
+        }
+        Item worn = chr.getInventory(InventoryType.EQUIPPED).getItem(OVERALL_SLOT);
+        if (worn == null || !weddingOutfit(worn.getItemId())) {
+            return false;
+        }
+        chr.getInventory(InventoryType.EQUIPPED).removeSlot(OVERALL_SLOT);
+        chr.equipChanged();
+        BotCouples.qa("UNDRESSED " + chr.getName() + ": wedding clothes outside a wedding");
+        return true;
+    }
+
     private static Character live(int charId) {
         BotSM sm = CharacterStorage.getBotById(charId);
         return sm == null ? null : sm.getChr();
+    }
+
+    /** Tests: the bot is in a ceremony now. */
+    static void markInCeremonyForTest(int charId) {
+        inCeremony.add(charId);
     }
 
     /** Tests. */

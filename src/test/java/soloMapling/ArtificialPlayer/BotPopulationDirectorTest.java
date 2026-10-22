@@ -210,4 +210,16 @@ class BotPopulationDirectorTest {
         assertEquals(10, plan.logins().size(), "and is replaced by someone else");
         assertTrue(plan.logins().stream().allMatch(id -> id >= 10));
     }
+
+    @Test
+    void aBotHasOneLoginAtATime() {
+        assertTrue(BotPopulationDirector.claimLogin(987654));
+        assertFalse(BotPopulationDirector.claimLogin(987654), "a second login of the same bot is refused");
+        assertFalse(BotPopulationDirector.logIn(987654), "logIn backs off while another login runs");
+        assertTrue(BotPopulationDirector.claimLogin(987655), "another bot is not held up");
+        BotPopulationDirector.releaseLogin(987654);
+        BotPopulationDirector.releaseLogin(987655);
+        assertTrue(BotPopulationDirector.claimLogin(987654));
+        BotPopulationDirector.releaseLogin(987654);
+    }
 }

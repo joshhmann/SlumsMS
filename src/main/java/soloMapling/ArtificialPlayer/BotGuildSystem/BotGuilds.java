@@ -91,7 +91,16 @@ public final class BotGuilds {
     private static final java.util.Deque<Long> worldWhispers = new java.util.ArrayDeque<>();
     private static final Set<Long> deciding = ConcurrentHashMap.newKeySet();
     private static volatile boolean loaded;
+    private static volatile long loadTriedAt;
     private static volatile boolean seedTried;
+    private static volatile boolean gpRescaled;
+    /**
+     * Membership writes: queued off the caller's thread (stock guild code calls in from packet handlers, some holding
+     * the guild's member lock, and a bot's database work can wait on the bots' share of the pool), in order per bot.
+     */
+    private static volatile java.util.concurrent.Executor writer = ExecutorServiceManager::runAsync;
+    private static final soloMapling.ArtificialPlayer.SerialWrites memberWrites =
+            new soloMapling.ArtificialPlayer.SerialWrites(r -> writer.execute(r));
     private static volatile long lastStepAt;
     private static volatile IntFunction<Character> online = BotGuilds::liveBot;
     /** Active roster members' bot ids (a seam: tests give their own). */
@@ -108,25 +117,57 @@ public final class BotGuilds {
 
     // ── loading ──
 
+    /**
+     * Reads the bot guilds and memberships once. A failed read is not "nothing stored": nothing is kept, the guilds
+     * stay unloaded (no step, no founding, no membership write) and the read is tried again after half a minute.
+     */
     static void ensureLoaded() {
         if (loaded) {
             return;
         }
         synchronized (BotGuilds.class) {
-            if (loaded) {
+            long now = System.currentTimeMillis();
+            if (loaded || (loadTriedAt > 0 && now - loadTriedAt < TimeUnit.SECONDS.toMillis(30))) {
                 return;
             }
-            for (GuildRow g : store.loadGuilds()) {
-                guilds.put(g.guildId(), g);
+            loadTriedAt = now;
+            List<GuildRow> g;
+            List<MemberRow> m;
+            try {
+                g = store.loadGuilds();
+                m = g == null ? null : store.loadMembers();
+            } catch (RuntimeException e) {
+                g = null;
+                m = null;
             }
-            for (MemberRow m : store.loadMembers()) {
-                members.put(m.charId(), m);
+            if (g == null || m == null) {
+                log.warn("Bot guilds could not be read; trying again later (nothing is founded or written meanwhile)");
+                return;
+            }
+            for (GuildRow row : g) {
+                guilds.put(row.guildId(), row);
+            }
+            for (MemberRow row : m) {
+                members.putIfAbsent(row.charId(), row);
             }
             loaded = true;
             if (!guilds.isEmpty() || !members.isEmpty()) {
                 log.info("Bot guilds: {} bot-run guilds, {} bot members", guilds.size(), members.size());
             }
         }
+    }
+
+    /** Whether the stored guilds have been read (until then nothing is founded or written). */
+    static boolean loaded() {
+        return loaded;
+    }
+
+    private static void saveMemberLater(MemberRow row) {
+        memberWrites.submit(row.charId(), () -> store.saveMember(row));
+    }
+
+    private static void deleteMemberLater(int charId) {
+        memberWrites.submit(charId, () -> store.deleteMember(charId));
     }
 
     public static boolean enabled() {
@@ -241,7 +282,7 @@ public final class BotGuilds {
             log.info("Bot {}'s guild {} is gone: it leaves it", bot.getName(), m.guildId());
             members.remove(bot.getId());
             if (!memoryOnly.remove(bot.getId())) {
-                store.deleteMember(bot.getId());
+                deleteMemberLater(bot.getId());
             }
             bot.setGuildId(0);
             bot.setGuildRank(5);
@@ -286,8 +327,9 @@ public final class BotGuilds {
      * on-demand bot never logs back in). False when it is in a guild already or the guild is full or gone.
      */
     public static boolean join(Character bot, int guildId, int rank, long now) {
-        if (bot == null || bot.getGuildId() > 0 || members.containsKey(bot.getId())) {
-            return false;
+        ensureLoaded();
+        if (!loaded || bot == null || bot.getGuildId() > 0 || members.containsKey(bot.getId())) {
+            return false; // unloaded: a write now could clash with the stored rows still to be read
         }
         Guild g = Server.getInstance().getGuild(guildId, bot.getWorld(), null);
         if (g == null || g.getMembers().size() >= g.getCapacity()) {
@@ -307,7 +349,7 @@ public final class BotGuilds {
         bot.setMGC(mgc);
         members.put(bot.getId(), row);
         if (BotRoster.isMember(bot.getId() - BotStore.BOT_ID_BASE)) {
-            store.saveMember(row);
+            saveMemberLater(row);
         } else {
             memoryOnly.add(bot.getId());
         }
@@ -324,7 +366,7 @@ public final class BotGuilds {
             return false;
         }
         if (!memoryOnly.remove(botCharId)) {
-            store.deleteMember(botCharId);
+            deleteMemberLater(botCharId); // queued: the stock expel calls in holding the guild's member lock
         }
         Guild g = Server.getInstance().getGuild(m.guildId());
         if (g != null) {
@@ -388,7 +430,7 @@ public final class BotGuilds {
             MemberRow r = m.withRank(rank);
             members.put(charId, r);
             if (!memoryOnly.contains(charId)) {
-                store.saveMember(r);
+                saveMemberLater(r); // queued: never database work on the packet thread
             }
         }
     }
@@ -664,7 +706,7 @@ public final class BotGuilds {
                 continue;
             }
             int botId = m.charId() - BotStore.BOT_ID_BASE;
-            if (BotRoster.member(botId) != null && BotPopulationDirector.logIn(botId)) {
+            if (BotRoster.member(botId) != null && BotPopulationDirector.logInBounded(botId)) {
                 n++;
                 Character bot = online.apply(m.charId());
                 if (bot != null && channelOf(bot) != channel && free(bot)) {
@@ -692,7 +734,7 @@ public final class BotGuilds {
         MemberRow r = m.attended(now);
         members.put(botCharId, r);
         if (!memoryOnly.contains(botCharId) && now - m.attentionAt() > TimeUnit.HOURS.toMillis(6)) {
-            store.saveMember(r);
+            saveMemberLater(r); // queued: affinity hooks run on packet threads
         }
     }
 
@@ -802,6 +844,13 @@ public final class BotGuilds {
 
     static void step(long now, Random rng) {
         ensureLoaded();
+        if (!loaded) {
+            return; // the stored guilds could not be read yet: founding now would found them twice
+        }
+        if (!gpRescaled) {
+            gpRescaled = true;
+            rescaleOldGp();
+        }
         if (!seedTried && GuildRules.seedEnabled()) {
             seedTried = seed(now, rng) >= 0;
         }
@@ -828,7 +877,100 @@ public final class BotGuilds {
                 checkKicks(gid, now, false);
             }
         }
+        refill(now, rng);
         rivalry(now, rng);
+    }
+
+    /**
+     * Once per boot: bot guilds founded by an rc build with its large GP ({@link GuildRules#rescaledGp}) get the GP
+     * the current rules give, so players can compete for the top of the guild ranking. A guild whose GP does not match
+     * that build's pattern (players earned some) is left alone. What changed.
+     */
+    static List<String> rescaleOldGp() {
+        List<String> out = new ArrayList<>();
+        for (GuildRow g : botGuilds()) {
+            try {
+                Guild live = Server.getInstance().getGuild(g.guildId()); // loaded: change it there, it writes itself
+                int gp = live != null ? live.getGP() : store.gp(g.guildId());
+                int now = gp < 0 ? -1 : GuildRules.rescaledGp(gp, g.targetSize());
+                if (now < 0) {
+                    continue;
+                }
+                if (live != null) {
+                    live.removeGP(gp - now);
+                } else if (!store.replaceGp(g.guildId(), gp, now)) {
+                    continue;
+                }
+                out.add(g.name() + ": " + gp + " -> " + now + " GP");
+                log.info("Bot guild {}: GP {} -> {} (rc founding GP rescaled)", g.name(), gp, now);
+            } catch (RuntimeException e) {
+                log.debug("guild gp rescale {}", g.name(), e);
+            }
+        }
+        return out;
+    }
+
+    // ── refilling ──
+
+    /**
+     * Bot guilds lose members (quits, a GM, a bot retired from the roster) and nothing else adds any, so a guild below
+     * its target size takes in an online, free, guildless roster bot of its level band now and then: at most one per
+     * guild per {@code refillHours} (8), so a few a day. What joined.
+     */
+    static List<String> refill(long now, Random rng) {
+        List<String> out = new ArrayList<>();
+        List<Character> pool = null;
+        for (GuildRow g : botGuilds()) {
+            GuildPlan.Spec spec = specOf(g.name());
+            if (spec == null || !GuildRules.refillDue(membersOf(g.guildId()).size(), g.targetSize())
+                    || !take("refill:" + g.guildId(), now, GuildRules.hours("refillHours", 8))) {
+                continue;
+            }
+            if (pool == null) {
+                pool = refillPool();
+            }
+            Character pick = pickRefill(pool, spec, rng);
+            if (pick != null && join(pick, g.guildId(), 5, now)) {
+                pool.remove(pick);
+                out.add(pick.getName() + " joined " + g.name());
+                qa(pick.getMapId(), "REFILL " + pick.getName() + " (lv " + pick.getLevel() + ") joins " + g.name()
+                        + " (" + membersOf(g.guildId()).size() + "/" + g.targetSize() + ")");
+            }
+        }
+        return out;
+    }
+
+    /** One of these bots in the guild's level band, at random; null when none fits. */
+    static Character pickRefill(List<Character> pool, GuildPlan.Spec spec, Random rng) {
+        List<Character> fit = new ArrayList<>();
+        for (Character c : pool) {
+            if (c.getLevel() >= spec.minLevel() && c.getLevel() <= spec.maxLevel()) {
+                fit.add(c);
+            }
+        }
+        return fit.isEmpty() ? null : fit.get(rng.nextInt(fit.size()));
+    }
+
+    /** Online roster bots (training or social) in no guild and free to join one. */
+    private static List<Character> refillPool() {
+        List<Character> out = new ArrayList<>();
+        for (BotSM sm : CharacterStorage.getAllBots().values()) {
+            Character c = sm.getChr();
+            if (c != null && c.getGuildId() <= 0 && !members.containsKey(c.getId())
+                    && BotRoster.isMember(c.getId() - BotStore.BOT_ID_BASE) && free(c)) {
+                out.add(c);
+            }
+        }
+        return out;
+    }
+
+    static GuildPlan.Spec specOf(String guildName) {
+        for (GuildPlan.Spec s : GuildPlan.SPECS) {
+            if (s.name().equalsIgnoreCase(guildName)) {
+                return s;
+            }
+        }
+        return null;
     }
 
     private static double curve() {
@@ -1182,8 +1324,8 @@ public final class BotGuilds {
     private static final java.util.Deque<Long> worldKicks = new java.util.ArrayDeque<>();
 
     /**
-     * In a bot-run guild, the leader expels an online player member who is its rival, or a rival of most of the bot
-     * members with feelings about them ({@link GuildRules#kick}), after a whisper saying why. Through the stock expel
+     * In a bot-run guild, the leader expels an online player member who is its nemesis, or a rival of most of at least
+     * three bot members with feelings about them ({@link GuildRules#kick}), after a whisper saying why. Through the stock expel
      * (the player gets the usual "expelled" result). One kick per guild per {@code kickMinutes} (30) and
      * {@code kicksPerHour} (3) world-wide; {@code force} (GM / !qa) skips both. What happened.
      */
@@ -1207,7 +1349,7 @@ public final class BotGuilds {
             if (BotHelpers.isArtificial(pid) || !mc.isOnline() || !BotAffinity.loaded(pid)) {
                 continue;
             }
-            boolean hostileToLeader = BotAffinity.hostile(leaderId, pid);
+            boolean leaderNemesis = BotAffinity.state(leaderId, pid) == AffinityState.NEMESIS;
             int hostile = 0;
             int known = 0;
             for (MemberRow m : bots) {
@@ -1219,7 +1361,7 @@ public final class BotGuilds {
                     hostile++;
                 }
             }
-            if (!GuildRules.kick(hostileToLeader, hostile, known)) {
+            if (!GuildRules.kick(leaderNemesis, hostile, known)) {
                 continue;
             }
             if (!force && (worldKicksLastHour(now) >= GuildRules.prop("kicksPerHour", 3)
@@ -1230,7 +1372,7 @@ public final class BotGuilds {
             }
             noteWorldKick(now);
             Character player = onlinePlayer(pid);
-            String why = hostileToLeader ? "KickLeader" : "KickMembers";
+            String why = leaderNemesis ? "KickLeader" : "KickMembers";
             String line = GuildLines.pick(why, Map.of("PLAYER", mc.getName(), "GUILD", gr.name()));
             if (player != null && line != null) {
                 Character live = online.apply(leaderId);
@@ -1239,7 +1381,7 @@ public final class BotGuilds {
             }
             Server.getInstance().expelMember(leader, mc.getName(), pid);
             String what = leader.getName() + " kicked " + mc.getName() + " from " + gr.name() + " ("
-                    + (hostileToLeader ? "the leader's rival" : "rival of " + hostile + "/" + known + " members") + ")";
+                    + (leaderNemesis ? "the leader's nemesis" : "rival of " + hostile + "/" + known + " members") + ")";
             out.add(what + (line == null ? "" : ": \"" + line + "\""));
             qa(player == null ? 0 : player.getMapId(), "KICK " + what + (line == null ? "" : ", whisper: " + line));
         }
@@ -1393,7 +1535,7 @@ public final class BotGuilds {
                 MemberRow row = new MemberRow(charId, gid, f.rankAt(i), now - (long) (i * 3_600_000L), now,
                         b == null || b.name() == null ? "bot" + c.botId() : b.name(), c.level(), b == null ? 0 : b.job());
                 members.put(charId, row);
-                store.saveMember(row);
+                saveMemberLater(row);
             }
             log.info("Founded bot guild {} ({}, {} members)", f.spec().name(), f.spec().vibe().label(), f.members().size());
             qa(0, "FOUNDED " + f.spec().name() + " #" + gid + " (" + f.spec().vibe().label() + ", " + f.members().size() + " members)");
@@ -1656,8 +1798,21 @@ public final class BotGuilds {
             worldKicks.clear();
         }
         loaded = false;
+        loadTriedAt = 0;
         seedTried = false;
+        gpRescaled = false;
         lastStepAt = 0;
+        writer = testStore != null ? Runnable::run : ExecutorServiceManager::runAsync;
+    }
+
+    /** Tests: the next load attempt runs at once (no wait after a failed one). */
+    static void retryLoadForTest() {
+        loadTriedAt = 0;
+    }
+
+    /** Tests: where membership writes run (null = a worker thread). */
+    static void useWriterForTest(java.util.concurrent.Executor testWriter) {
+        writer = testWriter != null ? testWriter : ExecutorServiceManager::runAsync;
     }
 
     /** Tests: put a member row in memory. */

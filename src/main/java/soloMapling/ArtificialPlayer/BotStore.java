@@ -1288,7 +1288,12 @@ public final class BotStore {
             inv.lockInventory();
             try {
                 for (Item item : inv.list()) {
-                    items.add(new Pair<>(copyForWrite(item), type));
+                    // 1.5.0: clothes a bot only borrowed (a wedding outfit, a partner's hat) are written as its own
+                    Item stored = type == InventoryType.EQUIPPED
+                            ? soloMapling.ArtificialPlayer.BotCoupleSystem.OutfitLoans.persisted(bot, item) : item;
+                    if (stored != null) {
+                        items.add(new Pair<>(copyForWrite(stored), type));
+                    }
                 }
             } finally {
                 inv.unlockInventory();

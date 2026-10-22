@@ -198,6 +198,9 @@ public class EnvironmentManager {
 
         BotDecorationQueue.start();
         BotEquipChecker.start();
+        // 1.5.0: who said @botdrama off, read once so the opt-out holds for players whose ties are not loaded
+        soloMapling.server.ExecutorServiceManager.runAsync(
+                soloMapling.ArtificialPlayer.BotAffinitySystem.BotAffinity::loadOptOuts);
 
         double totalSeconds = (System.currentTimeMillis() - startupStart) / 1000.0;
         System.out.println(String.format(

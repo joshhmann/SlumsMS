@@ -91,6 +91,8 @@ public class Monster extends AbstractLoadedLife {
     private int parentMobOid = 0;
     private int spawnEffect = 0;
     private final HashMap<Integer, AtomicLong> takenDamage = new HashMap<>();
+    /** SoloMapling (1.5.0): when each attacker last landed damage (epoch ms), guarded like takenDamage. */
+    private final HashMap<Integer, Long> lastHitAt = new HashMap<>();
     private ScheduledFuture<?> monsterItemDrop = null;
     private Runnable removeAfterAction = null;
     private boolean availablePuppetUpdate = true;
@@ -451,6 +453,7 @@ public class Monster extends AbstractLoadedLife {
         } else {
             takenDamage.get(from.getId()).addAndGet(fake ? 1 : trueDamage);
         }
+        lastHitAt.put(from.getId(), System.currentTimeMillis());
 
         broadcastMobHpBar(from);
     }
@@ -481,6 +484,40 @@ public class Monster extends AbstractLoadedLife {
 
     public boolean isAttackedBy(Character chr) {
         return takenDamage.containsKey(chr.getId());
+    }
+
+    /**
+     * SoloMapling (1.5.0): the attacker other than {@code exceptId}, with an id at or above {@code minId} (a bot), that
+     * hit this mob most recently and no earlier than {@code since} (epoch ms); -1 when none did.
+     */
+    public int recentAttackerAtOrAbove(int minId, int exceptId, long since) {
+        lockMonster();
+        try {
+            int best = -1;
+            long bestAt = Long.MIN_VALUE;
+            for (Map.Entry<Integer, Long> e : lastHitAt.entrySet()) {
+                int id = e.getKey();
+                long at = e.getValue();
+                if (id >= minId && id != exceptId && at >= since && at > bestAt) {
+                    best = id;
+                    bestAt = at;
+                }
+            }
+            return best;
+        } finally {
+            unlockMonster();
+        }
+    }
+
+    /** SoloMapling (1.5.0): when this attacker last hit the mob (epoch ms), or 0. */
+    public long lastHitBy(int attackerId) {
+        lockMonster();
+        try {
+            Long at = lastHitAt.get(attackerId);
+            return at == null ? 0 : at;
+        } finally {
+            unlockMonster();
+        }
     }
 
     /** SoloMapling (ticket 58): an attacker other than {@code exceptId} with an id at or above {@code minId} (a bot), or -1. */
