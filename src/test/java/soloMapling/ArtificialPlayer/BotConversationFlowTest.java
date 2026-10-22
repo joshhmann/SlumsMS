@@ -40,6 +40,9 @@ class BotConversationFlowTest {
     void fakes() {
         System.setProperty("solomapling.chat.typingScale", "0.01");
         System.setProperty("solomapling.chat.logReplies", "false");
+        // ticket 59's voice and bank layers re-word lines; this test checks the ticket 36/37 layer underneath
+        System.setProperty("solomapling.convo.persona", "false");
+        System.setProperty("solomapling.convo.bank", "false");
         ChatStats.resetForTest();
         ChatDecide.useForTest(null);
         BotBrains.useForTest(new BotBrain() {
@@ -92,6 +95,8 @@ class BotConversationFlowTest {
     void reset() {
         System.clearProperty("solomapling.chat.typingScale");
         System.clearProperty("solomapling.chat.logReplies");
+        System.clearProperty("solomapling.convo.persona");
+        System.clearProperty("solomapling.convo.bank");
         BotBrains.useForTest(null);
         ChatDecide.useForTest(null);
         BotMemory.useConnectionSourceForTest(null);
@@ -127,6 +132,8 @@ class BotConversationFlowTest {
         CompletableFuture<Optional<String>> answer = new CompletableFuture<>();
         BotBrain brain = mock(BotBrain.class);
         when(brain.isLive()).thenReturn(true);
+        when(brain.reply(org.mockito.ArgumentMatchers.any(), anyInt(), org.mockito.ArgumentMatchers.any()))
+                .thenCallRealMethod();
         when(brain.complete(anyInt(), org.mockito.ArgumentMatchers.any())).thenAnswer(call -> {
             asked.add(call.getArgument(1));
             return answer;

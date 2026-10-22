@@ -79,6 +79,26 @@ public final class BotMemory {
         return recalled;
     }
 
+    /**
+     * Ticket 59's memory card: the same notes {@link #recall} picks (own before hearsay, newest first), as notes with
+     * their dates, at most {@code limit}. Stamped as used.
+     */
+    public static List<Note> recallNotes(int botId, int charId, long now, int limit) {
+        List<Note> notes = new ArrayList<>(about(botId, charId));
+        notes.sort(Comparator.comparing((Note n) -> n.source() != Source.DIRECT)
+                .thenComparing(Comparator.comparingLong(Note::createdAt).reversed()));
+        List<Note> out = new ArrayList<>(notes.subList(0, Math.min(Math.max(0, limit), notes.size())));
+        for (Note note : out) {
+            touch(note, now);
+        }
+        return out;
+    }
+
+    /** The name a listener knows a teller by ("someone" when unknown). */
+    public static String tellerName(int fromBotId) {
+        return teller(fromBotId);
+    }
+
     /** Who passed a note on, as the listener knows them: the teller's name, or "someone". */
     private static String teller(int fromBotId) {
         try {

@@ -94,6 +94,19 @@ public final class BotChatPrompt {
 
     /** Everything above the conversation itself, from its parts. */
     public static String system(Context c, BotPersona.Persona persona, double chattiness) {
+        return system(c, persona, chattiness, null, null);
+    }
+
+    /** The voice rules when the persona's own voice line (ticket 59) says how to type. */
+    static final String VOICE_BASE = String.join(" ",
+            "How you type: a player in 2008 MapleStory chat. One short line, under 60 characters. Era slang is fine.",
+            "No emojis, no markdown or asterisks, no lists, no quotes, no name prefix.");
+
+    /**
+     * Ticket 59: as above, with the relationship memory card in place of the plain memory list (null = the list) and
+     * the persona's own voice line in place of the shared voice examples (null = the shared ones).
+     */
+    public static String system(Context c, BotPersona.Persona persona, double chattiness, String card, String voiceLine) {
         StringBuilder s = new StringBuilder();
         s.append("You are ").append(c.botName()).append(", a real person playing MapleStory in 2008. ");
         s.append("Right now you are a level ").append(c.level()).append(' ').append(c.job());
@@ -114,7 +127,12 @@ public final class BotChatPrompt {
         s.append("You are talking to ").append(c.playerName()).append(", a level ").append(c.playerLevel())
                 .append(' ').append(c.playerJob()).append(". ");
         List<String> memories = c.memories();
-        if (memories != null && !memories.isEmpty()) {
+        if (card != null) {
+            s.append(card).append(' ');
+            if (c.recognise()) {
+                s.append(recognitionHint(c.playerName()));
+            }
+        } else if (memories != null && !memories.isEmpty()) {
             s.append("What you remember about ").append(c.playerName()).append(": ")
                     .append(String.join("; ", memories)).append(". ");
             if (memories.stream().anyMatch(m -> m.startsWith("heard from "))) {
@@ -134,7 +152,12 @@ public final class BotChatPrompt {
             s.append("Recent chat around you: ").append(String.join(" / ", c.recentChat())).append(". ");
         }
         s.append(WORLD_FACTS).append(' ');
-        s.append(VOICE).append(' ').append(NEVER).append(' ');
+        if (voiceLine != null) {
+            s.append(VOICE_BASE).append(' ').append(voiceLine).append(' ');
+        } else {
+            s.append(VOICE).append(' ');
+        }
+        s.append(NEVER).append(' ');
         s.append("Do not bring up your map or what you are doing unless it fits the chat.");
         if (c.outcome() != null && !c.outcome().isEmpty()) {
             // Last, where a small model pays the most attention: the words must match what the game did.

@@ -60,6 +60,24 @@ public final class ContentGuard {
         return null;
     }
 
+    /**
+     * Ticket 59: everything a chat line must pass before a bot may say it, for code outside the brain (the line bank's
+     * generator): the voice check (assistant phrasing, markdown, real-world references, AI talk) and this guard.
+     */
+    public static String chatProblem(String line) {
+        String voice = ReplyCleaner.voiceProblem(line);
+        if (voice != null) {
+            return voice;
+        }
+        if (AI_TALK.matcher(normalise(line)).find()) {
+            return "ai talk";
+        }
+        return problem(line);
+    }
+
+    private static final Pattern AI_TALK = Pattern.compile("\\b(ai|a\\.i\\.|bot|bots|robot|program|programmed|model|chatgpt"
+            + "|gpt|llm|prompt|algorithm|artificial|machine|computer generated|language)\\b");
+
     /** Whether the line is safe to say. */
     public static boolean ok(String line) {
         return problem(line) == null;

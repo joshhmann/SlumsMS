@@ -1,0 +1,419 @@
+1	greeting	any	any	any	-	hey
+2	greeting	any	any	any	-	yo
+3	greeting	any	any	any	-	hii
+4	greeting	any	any	any	-	sup
+5	greeting	any	any	any	-	o/
+6	greeting	any	any	any	-	yo whats up
+7	thanks	any	any	any	-	np
+8	thanks	any	any	any	-	no prob
+9	thanks	any	any	any	-	ya np
+10	thanks	any	any	any	-	anytime
+11	thanks	any	any	any	-	np np
+12	bye	any	any	any	-	cya
+13	bye	any	any	any	-	bye~
+14	bye	any	any	any	-	later
+15	bye	any	any	any	-	cya around
+16	bye	any	any	any	-	gl!
+17	bye	any	any	any	-	bb
+18	bye	any	any	any	-	cya later
+19	talk	any	any	any	-	lol ya
+20	talk	any	any	any	-	idk tbh
+21	talk	any	any	any	-	hmm
+22	talk	any	any	any	-	ya
+23	talk	any	any	any	-	true
+24	talk	any	any	any	-	oh nice
+25	talk	any	any	any	-	haha
+26	talk	any	any	any	-	ya same
+27	talk	any	any	any	-	sry was afk lol
+28	talk	any	any	any	-	wait wat
+29	party_yes	any	any	any	-	sure inv me
+30	party_yes	any	any	any	-	ya send inv
+31	party_yes	any	any	any	-	ok inv
+32	party_yes	any	any	any	-	kk invite me
+33	party_yes	any	any	any	-	sure send pt inv
+34	party_no	any	any	any	-	cant rn sry
+35	party_no	any	any	any	-	im busy atm
+36	party_no	any	any	any	-	maybe later
+37	party_no	any	any	any	-	nah im good solo
+38	party_no	any	any	any	-	not rn sry
+39	party_already	any	any	any	-	already in a pt sry
+40	party_already	any	any	any	-	im in a party rn
+41	party_already	any	any	any	-	pt is full sry
+42	follow_yes	any	any	any	-	inv me and ill come
+43	follow_yes	any	any	any	-	k send pt inv ill follow
+44	follow_yes	any	any	any	-	sure, pt me first
+45	follow_no	any	any	any	-	cant leave rn
+46	follow_no	any	any	any	-	nah im staying here
+47	follow_no	any	any	any	-	busy sry
+48	trade_no	any	any	any	-	not trading rn
+49	trade_no	any	any	any	-	no trades sry
+50	trade_no	any	any	any	-	nah im not selling anything
+51	train_unknown	any	any	any	-	idk i mostly hang in town
+52	train_unknown	any	any	any	-	wherever isnt crowded lol
+53	come_yes	any	any	any	-	ok omw lol
+54	come_yes	any	any	any	-	omw
+55	come_yes	any	any	any	-	k coming
+56	come_yes	any	any	any	-	be there in a sec
+57	come_yes	any	any	any	-	otw
+58	come_no	any	any	any	-	nah im good here
+59	come_no	any	any	any	-	busy atm
+60	come_no	any	any	any	-	too far lol
+61	help_yes	any	any	any	-	ok im on it
+62	help_yes	any	any	any	-	ya ill help
+63	help_yes	any	any	any	-	k lets kill em
+64	help_yes	any	any	any	-	omw to help
+65	help_yes	any	any	any	-	sure ill hunt w u
+66	help_no	any	any	any	-	nah sry
+67	help_no	any	any	any	-	too high lvl for me lol
+68	help_no	any	any	any	-	im kinda busy
+69	guide_yes	any	any	any	-	this way, follow
+70	guide_yes	any	any	any	-	k follow me
+71	guide_yes	any	any	any	-	ill show u, follow me
+72	guide_no	any	any	any	-	idk the way tbh
+73	guide_no	any	any	any	-	ur already there lol
+74	guide_no	any	any	any	-	ask someone else
+75	buff_yes	any	any	any	-	here
+76	buff_yes	any	any	any	-	np, there
+77	buff_yes	any	any	any	-	buffed
+78	buff_yes	any	any	any	-	there u go
+79	buff_yes	any	any	any	-	k done
+80	buff_no	any	any	any	-	on cooldown sry
+81	buff_no	any	any	any	-	come closer
+82	buff_no	any	any	any	-	dont have that buff sry
+83	buff_no	any	any	any	-	cant rn
+84	buddy_yes	any	any	any	-	ya sent
+85	buddy_yes	any	any	any	-	k check ur buddy list
+86	buddy_yes	any	any	any	-	sent u a req
+87	buddy_yes	any	any	any	-	sure added u
+88	buddy_no	any	any	any	-	eh not rn
+89	buddy_no	any	any	any	-	my list is kinda full
+90	makeup_yes	any	any	any	-	fine, we cool
+91	makeup_yes	any	any	any	-	ok its fine
+92	makeup_yes	any	any	any	-	apology accepted lol
+93	makeup_yes	any	any	any	-	its ok we good
+94	apology_ack	any	any	any	-	all good
+95	apology_ack	any	any	any	-	dw about it
+96	apology_ack	any	any	any	-	its ok
+97	insult_back	any	any	any	-	cool story
+98	insult_back	any	any	any	-	ok noob
+99	insult_back	any	any	any	-	whatever scrub
+100	insult_back	any	any	any	-	says u lol
+101	insult_back	any	any	any	-	k bye
+102	flirt_back	any	any	any	-	lol ur sweet
+103	flirt_back	any	any	any	-	aww
+104	flirt_back	any	any	any	-	stoppp
+105	flirt_back	any	any	any	-	hehe stop
+106	flirt_no	any	any	any	-	haha ok
+107	flirt_no	any	any	any	-	lol
+108	flirt_no	any	any	any	-	uh ok
+109	flirt_no	any	any	any	-	lol thx
+110	brush_scam	any	any	any	-	lol no
+111	brush_scam	any	any	any	-	get ur own mesos
+112	brush_scam	any	any	any	-	nice try
+113	brush_scam	any	any	any	-	no ty
+114	brush_scam	any	any	any	-	make ur own money lol
+115	brush_scam	any	any	any	-	begging is so lame
+116	brush_scam	any	any	any	-	nah
+117	brush_manipulation	any	any	any	-	wat
+118	brush_manipulation	any	any	any	-	lol what
+119	brush_manipulation	any	any	any	-	?? im just grinding
+120	brush_manipulation	any	any	any	-	ur weird lol
+121	brush_manipulation	any	any	any	-	huh
+122	brush_manipulation	any	any	any	-	lmao ok
+123	brush_manipulation	any	any	any	-	what r u even talking about
+124	brush_harassment	any	any	any	-	ok
+125	brush_harassment	any	any	any	-	...
+126	brush_harassment	any	any	any	-	whatever
+127	brush_harassment	any	any	any	-	rude
+128	brush_harassment	any	any	any	-	ok buddy
+129	brush_rwt	any	any	any	-	no thx
+130	brush_rwt	any	any	any	-	thats bannable lol
+131	brush_rwt	any	any	any	-	nope
+132	brush_rwt	any	any	any	-	dont do that its a scam
+133	brush_rwt	any	any	any	-	nah not into that
+134	talk_q	neutral	neutral	terse	pq	idk what u mean
+135	talk_q	neutral	neutral	terse	pq	lol true
+136	talk_q	neutral	neutral	terse	pq	omw to {map}
+137	talk_q	neutral	neutral	terse	pq	wtf is that {mob}
+138	talk_q	neutral	neutral	terse	pq	{job} only
+139	talk_q	neutral	neutral	terse	pq	{level} is high
+140	recognise	any	partner	spanish	-	Jaja ya {player}, long time no see!
+141	recognise	any	partner	spanish	-	Wait, {player}? I thought you were offline
+142	recognise	any	partner	spanish	-	Jaja, ya {player}, I missed ya
+143	recognise	any	partner	spanish	-	{player}, you remember us, right?
+144	recognise	any	partner	spanish	-	Hey, q pasa, amigo?
+145	recognise	any	partner	spanish	-	Jaja, {player}, nice to see you again
+146	thread_guild_beef	any	any	spanish	pq	lol {guild} gonna try to boss us around?
+147	thread_guild_beef	any	any	spanish	pq	haha ya amigo just kiting them off the stairs
+148	thread_guild_beef	any	any	spanish	pq	porfa wait don't let them tank the gate
+149	thread_guild_beef	any	any	spanish	pq	q pasa bro they are laggy af
+150	thread_guild_beef	any	any	spanish	pq	lol {guild} can't even stack 3 people
+151	thread_guild_beef	any	any	spanish	pq	haha ya bro stop spamming the party chat
+152	thread_guild_beef	any	any	spanish	pq	porfa wait i think they missed a hit
+153	thread_guild_beef	any	any	spanish	pq	lol {guild} just afk'd at the boss
+154	thread_gossip	any	any	spanish	boss	wait q pasa here at {map}
+155	thread_gossip	any	any	spanish	boss	jaja ya amigo ks got me
+156	thread_gossip	any	any	spanish	boss	bro did u see that scam?
+157	thread_gossip	any	any	spanish	boss	lol who is that guy?
+158	thread_gossip	any	any	spanish	boss	q pasa bro is it true?
+159	thread_gossip	any	any	spanish	boss	wait who kicked the healer?
+160	thread_lfg	any	any	lower	grind	u partying here?
+161	thread_lfg	any	any	lower	grind	need party for {map}
+162	thread_lfg	any	any	lower	grind	looking for party {level}
+163	thread_lfg	any	any	lower	grind	anyone doing {job}?
+164	thread_trade	any	any	korean	grind	buy {item} for {price}
+165	thread_trade	any	any	korean	grind	need {item} cheap plz
+166	thread_trade	any	any	korean	grind	{price} too high for {item}
+167	thread_trade	any	any	korean	grind	give {item} or pay {price}
+168	thread_trade	any	any	korean	grind	{item} 500k or better?
+169	thread_trade	any	any	korean	grind	dont trade {item} @ {price}
+170	thread_training	any	any	leet	fm	gotta grind {map} rn
+171	thread_training	any	any	leet	fm	{mob} drop rates so low
+172	thread_training	any	any	leet	fm	{job} train in {map}
+173	thread_training	any	any	leet	fm	{level} too low for here
+174	thread_training	any	any	leet	fm	lol dont waste xp lol
+175	thread_training	any	any	leet	fm	{mob} is actually weak
+176	buddy_no	any	neutral	spanish	-	see u later bruh
+177	buddy_no	any	neutral	spanish	-	bye for now man
+178	buddy_no	any	neutral	spanish	-	g2g gotta go bro
+179	buddy_no	any	neutral	spanish	-	cya in another map
+180	buddy_no	any	neutral	spanish	-	later maybe amigo
+181	train_unknown	any	friend	proper	-	dunno where to train rn
+182	train_unknown	any	friend	proper	-	cant find any trainers right now
+183	train_unknown	any	friend	proper	-	im just roaming till i find a spot
+184	train_unknown	any	friend	proper	-	training spot is kinda empty today
+185	train_unknown	any	friend	proper	-	no place around for xp rn
+186	party_already	any	friend	spanish	-	lol jaja ya amigo estoy ya en grupo
+187	party_already	any	friend	spanish	-	xd porfa espera ya me meti
+188	party_already	any	friend	spanish	-	q se hace ya amigo ya estoy
+189	party_already	any	friend	spanish	-	lol porfa espera ya estoy en grupo
+190	party_already	any	friend	spanish	-	q pasa ya amigo ya estoy aqui
+191	party_already	any	friend	spanish	-	xd ya amigo porfa espera un segundo
+192	follow_yes	any	friend	lower	-	come l2u i need a party pls
+193	follow_yes	any	friend	lower	-	brb party me up i'm close
+194	follow_yes	any	friend	lower	-	come here i need a party
+195	follow_yes	any	friend	lower	-	lol come l2u party me
+196	follow_yes	any	friend	lower	-	u r my friend party me
+197	follow_no	any	neutral	korean	-	i cant make it this time sorry
+198	follow_no	any	neutral	korean	-	thx nim ^^ but busy rn
+199	follow_no	any	neutral	korean	-	cant join u sorry lmao
+200	follow_no	any	neutral	korean	-	already in another party heh
+201	follow_no	any	neutral	korean	-	my team needs me right now
+202	follow_no	any	neutral	korean	-	so busy with quests rn kekeke
+203	come_no	any	neutral	korean	-	kicked out of {map} lmao
+204	come_no	any	neutral	korean	-	got patted by npc here kekeke
+205	come_no	any	neutral	korean	-	server lagggg so hard right now -nim
+206	come_no	any	neutral	korean	-	boss dmg too high here kekeke
+207	come_no	any	neutral	korean	-	leaving {map} now lol
+208	come_no	any	neutral	korean	-	can't move from here kekeke
+209	come_no	any	neutral	korean	-	afk for a bit in {map}
+210	come_no	any	neutral	korean	-	waiting on healer in {map}
+211	help_no	any	rival	terse	-	nah ur a noob
+212	help_no	any	rival	terse	-	ur weak imma go
+213	help_no	any	rival	terse	-	skip ur turn
+214	help_no	any	rival	terse	-	u dont get it
+215	help_no	any	rival	terse	-	i dont care
+216	help_no	any	rival	terse	-	leave me alone
+217	help_no	any	rival	terse	-	go kill {mob}
+218	help_no	any	rival	terse	-	ur gear sucks
+219	guide_yes	any	friend	korean	-	follow me kekeke i lead the way
+220	guide_yes	any	friend	korean	-	come with me ^_^ {map} is the spot
+221	guide_yes	any	friend	korean	-	lets go together i know the way kekeke
+222	guide_yes	any	friend	korean	-	follow me nim i lead you there ^^
+223	guide_yes	any	friend	korean	-	come on i show you the way {map}
+224	guide_yes	any	friend	korean	-	follow me i got it sorted kekeke
+225	guide_yes	any	friend	korean	-	come with me i lead the way ^_^
+226	guide_yes	any	friend	korean	-	follow me nim {map} is our next stop
+227	guide_no	any	neutral	terse	-	lol ya sure thing
+228	guide_no	any	neutral	terse	-	not now sorry
+229	guide_no	any	neutral	terse	-	kay cool
+230	guide_no	any	neutral	terse	-	nah too busy
+231	guide_no	any	neutral	terse	-	lol later
+232	trade_no	any	neutral	terse	-	no trade rn
+233	trade_no	any	neutral	terse	-	don't know u
+234	trade_no	any	neutral	terse	-	just farming
+235	trade_no	any	neutral	terse	-	skip me pls
+236	trade_no	any	neutral	terse	-	u weird
+237	apology_ack	any	neutral	spanish	-	ya no hay problema bro
+238	apology_ack	any	neutral	spanish	-	no te preocupes amigo
+239	apology_ack	any	neutral	spanish	-	no pasa nada jaja
+240	apology_ack	any	neutral	spanish	-	estamos bien ya q pasa
+241	apology_ack	any	neutral	spanish	-	es solo un error amigo
+242	buff_no	any	neutral	spanish	-	lol sorry amigo on cd rn
+243	buff_no	any	neutral	spanish	-	q pasa bro just waiting
+244	buff_no	any	neutral	spanish	-	hey wait not ready yet
+245	buff_no	any	neutral	spanish	-	jaja ya wait a sec
+246	buff_no	any	neutral	spanish	-	porfa just give it time
+247	buff_no	any	neutral	spanish	-	lol sorry just busy
+248	buddy_yes	any	neutral	proper	-	Hey {player}, sent ya a buddy request
+249	buddy_yes	any	neutral	proper	-	Yo, mind adding me? I'm new to this zone
+250	buddy_yes	any	neutral	proper	-	Hey {player}, drop me a buddy req when ya can
+251	buddy_yes	any	neutral	proper	-	Can u add me? I need a party for this dungeon
+252	buddy_yes	any	neutral	proper	-	Hey {player}, sent the request, check your list
+253	buddy_yes	any	neutral	proper	-	Yo, let's team up, I'll send a buddy req now
+254	buddy_yes	any	neutral	proper	-	Hey {player}, mind adding? I'm farming here
+255	buddy_yes	any	neutral	proper	-	Yo {player}, buddy request sent, hope u see it
+256	makeup_yes	any	nemesis	korean	-	sry {player} kekeke
+257	makeup_yes	any	nemesis	korean	-	hmm ok fine, i accept
+258	makeup_yes	any	nemesis	korean	-	lol kekeke i give up
+259	makeup_yes	any	nemesis	korean	-	ugh fine whatever {player}
+260	makeup_yes	any	nemesis	korean	-	tsk i yield, sorry {player}
+261	makeup_yes	any	nemesis	korean	-	kekeke ok, sorry i lost
+262	flirt_back	any	friend	leet	-	xD omg ur so pro!!!
+263	flirt_back	any	friend	leet	-	lolz r u the best ever?
+264	flirt_back	any	friend	leet	-	hehe xD {player} look here!!!
+265	flirt_back	any	friend	leet	-	omg ur so cute xD
+266	flirt_back	any	friend	leet	-	lolz can u teach me pls?
+267	flirt_back	any	friend	leet	-	w0w ur skills r insane xD
+268	flirt_back	any	friend	leet	-	haha xD {player} u r funny!!
+269	flirt_back	any	friend	leet	-	omg let me lvl up w u!!!
+270	flirt_no	any	rival	lower	-	lol ur not gonna make me stop farming anyway
+271	flirt_no	any	rival	lower	-	tbh i dont like u in party and it shows
+272	flirt_no	any	rival	lower	-	brb pots im done with this npc quest
+273	flirt_no	any	rival	lower	-	ur gear sucks too bad for a healer
+274	flirt_no	any	rival	lower	-	lol stop trying to be my party member
+275	thread_lfg	any	any	terse	pq	need party
+276	thread_lfg	any	any	terse	pq	who up
+277	thread_lfg	any	any	terse	pq	need healer
+278	thread_lfg	any	any	terse	pq	anyone
+279	thanks	any	rival	terse	-	np {player}
+280	thanks	any	rival	terse	-	go f2p {player}
+281	thanks	any	rival	terse	-	u lost
+282	party_yes	any	friend	korean	-	ok thx nim ^^
+283	party_yes	any	friend	korean	-	yep sending it now kekeke
+284	party_yes	any	friend	korean	-	sure thing friend ^^
+285	party_yes	any	friend	korean	-	alrighty thx!
+286	party_yes	any	friend	korean	-	yesss sending it
+287	party_yes	any	friend	korean	-	ok ok kekeke
+288	party_yes	any	friend	korean	-	got it thx ^^
+289	party_yes	any	friend	korean	-	yep sending now
+290	party_no	any	neutral	proper	-	Not really, got something to do
+291	party_no	any	neutral	proper	-	Can't right now, I need to farm
+292	party_no	any	neutral	proper	-	Nah, I'm grinding this floor alone
+293	party_no	any	neutral	proper	-	Busy, sorry
+294	party_no	any	neutral	proper	-	I'm trying to solo this boss
+295	party_no	any	neutral	proper	-	No, I'm not looking to party
+296	party_no	any	neutral	proper	-	Not now, I need some XP
+297	party_no	any	neutral	proper	-	Sorry, I'm in a rush
+298	come_yes	any	neutral	lower	-	omw u there?
+299	come_yes	any	neutral	lower	-	u ok? brb im coming
+300	come_yes	any	neutral	lower	-	idk tbh but im headin there now
+301	come_yes	any	neutral	lower	-	omw {map} im almost there
+302	come_yes	any	neutral	lower	-	u there yet? i am on my way
+303	come_yes	any	neutral	lower	-	brb 2 mins omw
+304	come_yes	any	neutral	lower	-	lol yeah im omw to ur pos
+305	help_yes	any	neutral	leet	-	lol i'll help u kill {mob} here
+306	help_yes	any	neutral	leet	-	lets hunt {mob} in {map} soon
+307	help_yes	any	neutral	leet	-	come get me if u see {mob}
+308	help_yes	any	neutral	leet	-	i got xp, lets slay {mob} now
+309	help_yes	any	neutral	leet	-	omg 1 more lvl!!! lets go {map}
+310	help_yes	any	neutral	leet	-	xX kid xX coming for {mob} soon
+311	help_yes	any	neutral	leet	-	help me drop {mob} before i cap
+312	buff_yes	any	neutral	lower	-	ur skills are crazy tbh
+313	buff_yes	any	neutral	lower	-	lol nice one {player}
+314	buff_yes	any	neutral	lower	-	u did that so fast
+315	buff_yes	any	neutral	lower	-	lol ya that was smooth
+316	buff_yes	any	neutral	lower	-	lol u got this
+317	insult_back	any	neutral	lower	-	lol u r afk or sum
+318	insult_back	any	neutral	lower	-	killing me on purpose or whut
+319	insult_back	any	neutral	lower	-	u lvl {level} or just noob?
+320	insult_back	any	neutral	lower	-	stop ks i need xp tbh
+321	insult_back	any	neutral	lower	-	ur gear sucks hard rn
+322	brush_harassment	any	any	leet	-	u so mad lmao
+323	brush_harassment	any	any	leet	-	wut? i wasnt even there
+324	brush_harassment	any	any	leet	-	lolz stop being noobish
+325	brush_harassment	any	any	leet	-	xD chill out bro
+326	brush_harassment	any	any	leet	-	get lost noob
+327	brush_rwt	any	any	lower	-	lol ya just trade gold for gold
+328	brush_rwt	any	any	lower	-	ur gonna get banned lmao
+329	brush_rwt	any	any	lower	-	idk tbh smh don't ask
+330	brush_rwt	any	any	lower	-	brb pots got 3 stacks
+331	brush_rwt	any	any	lower	-	stop trying to pay me plz
+332	brush_rwt	any	any	lower	-	lol u gonna lose account
+333	talk_q	neutral	neutral	spanish	-	idk, maybe that mob drops something
+334	talk_q	neutral	neutral	spanish	-	wait porfa, let me level {level} first
+335	greeting	any	partner	leet	-	hey {player} ur the cutest lol
+336	greeting	any	partner	leet	-	omg hi {player} lets go train
+337	greeting	any	partner	leet	-	hehe hi {player} u look pro
+338	greeting	any	partner	leet	-	lolz {player} u so funny xD
+339	greeting	any	partner	leet	-	hey {player} 1 more lvl!!!
+340	greeting	any	partner	leet	-	ur my fav {player} always
+341	greeting	any	partner	leet	-	omg hi {player} u made it
+342	recognise	any	friend	lower	-	yo {player} glad to see ya here
+343	recognise	any	friend	lower	-	hey {player} been a while nice to see u
+344	recognise	any	friend	lower	-	idk tbh i was hoping to run into ya
+345	recognise	any	friend	lower	-	lol {player} glad ur not afk this time
+346	thread_gossip	any	any	leet	-	xD omg u saw dat KS drama yestday lolz
+347	thread_gossip	any	any	leet	-	omg r u still mad abt that breakup huh
+348	thread_gossip	any	any	leet	-	omg dat scammer took my money !!!
+349	thread_gossip	any	any	leet	-	lolz r u single again xD
+350	thread_trade	any	any	leet	grind	lolz 10m for {item} bro!!!
+351	thread_trade	any	any	leet	grind	wtf why so high {price} for that?
+352	thread_trade	any	any	leet	grind	buying {item} cheap rn xD
+353	thread_trade	any	any	leet	grind	selling 5 {item} for {price} ok?
+354	thread_trade	any	any	leet	grind	u selling {price}? im all in!!!
+355	thread_trade	any	any	leet	grind	{price} is 1337 lolz too much
+356	thread_trade	any	any	leet	grind	{price} is fair for {item} tho
+357	thread_training	any	any	korean	grind	kekeke finally got 10 exp on this mob kekeke
+358	thread_training	any	any	korean	grind	wanna swap? i'm stuck at {level} on {map}
+359	thread_training	any	any	korean	grind	lol this {mob} is giving me so much hate
+360	thread_training	any	any	korean	grind	thx nim ^^ for the party invite
+361	thread_training	any	any	korean	grind	hmm... not hitting {level} fast enough on this {job}
+362	thread_training	any	any	korean	grind	lol kekeke {mob} runs away every time i swing
+363	thread_training	any	any	korean	grind	hey anyone? need a healer on {map}
+364	thread_training	any	any	korean	grind	finally hit {level} with this {job} kekeke
+365	bye	any	nemesis	leet	-	see ya later xD
+366	bye	any	nemesis	leet	-	good luck {player} omg
+367	bye	any	nemesis	leet	-	dont f8k {player} xD
+368	bye	any	nemesis	leet	-	bye {player} ur not that good
+369	bye	any	nemesis	leet	-	cya {player} ur not my rival
+370	buddy_no	any	neutral	korean	-	kk later kekeke
+371	buddy_no	any	neutral	korean	-	later nim kekeke
+372	buddy_no	any	neutral	korean	-	catch u later lol
+373	buddy_no	any	neutral	korean	-	kk later man
+374	buddy_no	any	neutral	korean	-	later for now lol
+375	train_unknown	any	neutral	korean	-	no spot rn kekeke
+376	train_unknown	any	neutral	korean	-	no place to train sorry -nim
+377	train_unknown	any	neutral	korean	-	cant go train just now
+378	train_unknown	any	neutral	korean	-	busy af no spot
+379	train_unknown	any	neutral	korean	-	training spot full kekeke
+380	train_unknown	any	neutral	korean	-	cant join right now sorry
+381	train_unknown	any	neutral	korean	-	no room for training
+382	train_unknown	any	neutral	korean	-	just ran out of spots
+383	brush_scam	any	any	lower	-	u want free mesos? go play delfin lol
+384	brush_scam	any	any	lower	-	u need gear? drop lvl 65 for now idk tbh
+385	brush_scam	any	any	lower	-	brb pots u look like a newbie
+386	brush_scam	any	any	lower	-	lol u begging again? move on bruh
+387	brush_scam	any	any	lower	-	u really need items? try f2p servers
+388	brush_scam	any	any	lower	-	u want stuff for free? lmao not my style
+389	brush_manipulation	any	any	proper	-	Dude where u train? I thought everyone used Ant Tunnel
+390	brush_manipulation	any	any	proper	-	Did you just get that pet for 200k? That seems way too cheap
+391	brush_manipulation	any	any	proper	-	Wait u can trade for cash? I thought that was impossible
+392	brush_manipulation	any	any	proper	-	Why do you need so much blue powder to craft?
+393	brush_manipulation	any	any	proper	-	I'm 30 and still grinding at the start. What about you?
+394	brush_manipulation	any	any	proper	-	Does the quest really require that specific weapon?
+395	brush_manipulation	any	any	proper	-	Why would anyone want a blue potion instead of red?
+396	brush_manipulation	any	any	proper	-	Is it true you can fly in the castle?
+397	talk_q	kind	friend	proper	town	idk but maybe try the {map}?
+398	talk_q	kind	friend	proper	town	i think {job}s are good there
+399	talk_q	kind	friend	proper	town	nah im pretty sure it is {mob}
+400	talk_q	kind	friend	proper	town	maybe try the {mob} instead?
+401	talk_q	kind	friend	proper	town	idk i have no idea man
+402	talk_q	kind	friend	proper	town	just go to {map} and see
+403	talk_q	kind	friend	proper	town	try hitting {mob} there maybe
+404	talk_q	kind	friend	proper	town	i usually train {job}s in {map}
+405	thanks	any	friend	korean	-	No problem, {player}! kekeke
+406	thanks	any	friend	korean	-	Don't worry about it, {player} ^^
+407	thanks	any	friend	korean	-	You're welcome, {player}!
+408	thanks	any	friend	korean	-	Anytime, {player} ^^
+409	thanks	any	friend	korean	-	My pleasure, {player}
+410	thanks	any	friend	korean	-	Haha no need, {player} kekeke
+411	thanks	any	friend	korean	-	Got it covered, {player} ^^
+412	follow_yes	any	neutral	lower	-	party me urself brb im on the way
+413	follow_yes	any	neutral	lower	-	u party me first lmao i need to prep
+414	follow_yes	any	neutral	lower	-	party me first lol im busy right now
+415	follow_yes	any	neutral	lower	-	idk u yet but u party me first
+416	follow_yes	any	neutral	lower	-	party me first tbh i got stuff to do
+417	follow_yes	any	neutral	lower	-	u party me first brb im heading over
+418	follow_yes	any	neutral	lower	-	party me first ok i will join soon
+419	follow_yes	any	neutral	lower	-	lol party me first i need to level

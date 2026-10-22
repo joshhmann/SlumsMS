@@ -902,6 +902,17 @@ public final class GuildWars {
 
     // ── GM ──
 
+    /** Ticket 59's memory card: "war", "allied" or null between two guilds (bot or player guilds). */
+    public static String relation(int guildA, int guildB) {
+        if (!enabled() || guildA <= 0 || guildB <= 0 || guildA == guildB) {
+            return null;
+        }
+        if (activeWar(guildA, guildB) != null) {
+            return "war";
+        }
+        return alliesOf(guildA).contains(guildB) ? "allied" : null;
+    }
+
     /** The active war between two guilds, or null. */
     public static War warBetween(int a, int b) {
         return activeWar(a, b);

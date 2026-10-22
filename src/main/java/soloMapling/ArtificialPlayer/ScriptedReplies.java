@@ -79,6 +79,45 @@ public final class ScriptedReplies {
         });
     }
 
+    /** Ticket 59: the lists by bank intent key, to seed the line bank (ChatBankGen seed). */
+    public static List<String> seedLines(String key) {
+        return switch (key) {
+            case "greeting" -> GREETING;
+            case "thanks" -> THANKS;
+            case "bye" -> BYE;
+            case "talk" -> TALK;
+            case "party_yes" -> PARTY_YES;
+            case "party_no" -> PARTY_NO;
+            case "party_already" -> PARTY_ALREADY;
+            case "follow_yes" -> FOLLOW_YES;
+            case "follow_no" -> FOLLOW_NO;
+            case "trade_no" -> TRADE_NO;
+            case "train_unknown" -> TRAIN_UNKNOWN;
+            case "brush_scam" -> SCAM;
+            case "brush_manipulation" -> MANIPULATION;
+            case "brush_harassment" -> HARASSMENT;
+            case "brush_rwt" -> RWT;
+            default -> {
+                List<String> l = new java.util.ArrayList<>();
+                try {
+                    String probe = outcome(key);
+                    // outcome() picks at random; collect the whole list by asking until it repeats enough
+                    java.util.Set<String> seen = new java.util.LinkedHashSet<>();
+                    for (int i = 0; i < 200; i++) {
+                        seen.add(outcome(key));
+                    }
+                    l.addAll(seen);
+                    if (l.isEmpty()) {
+                        l.add(probe);
+                    }
+                } catch (RuntimeException e) {
+                    // none
+                }
+                yield TALK.containsAll(l) ? List.of() : l;
+            }
+        };
+    }
+
     private ScriptedReplies() {
     }
 

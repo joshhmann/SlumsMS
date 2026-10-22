@@ -50,6 +50,9 @@ public final class BotConversation {
         volatile long lastAt;
         /** How the bot answers: in map chat, or back as a whisper when that is how the player spoke (ticket 22). */
         volatile Consumer<String> deliver;
+        /** Ticket 59: who the LLM call is for (a player's own line, or buddy/party channel chat). */
+        volatile soloMapling.ArtificialPlayer.BotBrainSystem.Priority priority =
+                soloMapling.ArtificialPlayer.BotBrainSystem.Priority.PLAYER;
 
         Session(BotSM bot, Character player, long now) {
             this.bot = bot;
@@ -98,7 +101,7 @@ public final class BotConversation {
      * reading buddy chat (ticket 49). With no LLM the scripted tier still answers.
      */
     public static boolean talk(BotSM bot, Character player, String line, Consumer<String> deliver) {
-        return start(bot, player, line, null, deliver);
+        return start(bot, player, line, null, deliver, soloMapling.ArtificialPlayer.BotBrainSystem.Priority.PARTNER);
     }
 
     /** How many lines the player has said in their current chat with this bot (0 when they are not talking). */
@@ -113,6 +116,11 @@ public final class BotConversation {
     }
 
     private static boolean start(BotSM bot, Character player, String line, Runnable fallback, Consumer<String> deliver) {
+        return start(bot, player, line, fallback, deliver, soloMapling.ArtificialPlayer.BotBrainSystem.Priority.PLAYER);
+    }
+
+    private static boolean start(BotSM bot, Character player, String line, Runnable fallback, Consumer<String> deliver,
+                                 soloMapling.ArtificialPlayer.BotBrainSystem.Priority priority) {
         if (bot == null || bot.getChr() == null || player == null) {
             return false;
         }
@@ -122,6 +130,7 @@ public final class BotConversation {
                 k -> new Session(bot, player, now));
         session.lastAt = now;
         session.deliver = deliver;
+        session.priority = priority;
         List<BotBrain.Turn> history;
         synchronized (session.history) {
             session.history.add(BotBrain.Turn.user(line));
@@ -209,9 +218,13 @@ public final class BotConversation {
         Character player = session.player;
         int slot = bot.getId() - BotStore.BOT_ID_BASE;
         boolean whisper = session.deliver != null;
-        ChatTriage.Result triage = ChatTriage.classify(line, ChatDecide.get());
-        // Ticket 58: a kind line warms the bot to the player, a rude one cools it (rules, then the cheap Decide model).
-        soloMapling.ArtificialPlayer.BotAffinitySystem.AffinityReactions.judgeLine(bot, player, line, triage);
+        // Ticket 59: one fast read - rules, then one Decide call for intent, tone and con together
+        soloMapling.ArtificialPlayer.BotConvo.ConvoSense.Read read =
+                soloMapling.ArtificialPlayer.BotConvo.ConvoSense.read(line, ChatDecide.get());
+        ChatTriage.Result triage = read.triage();
+        // Ticket 58: a kind line warms the bot to the player, a rude one cools it (the tone read above, no extra call).
+        soloMapling.ArtificialPlayer.BotAffinitySystem.AffinityReactions.judgeTone(bot, player, read.affinityTone(),
+                read.tone() == soloMapling.ArtificialPlayer.BotConvo.ConvoSense.Tone.FLIRTY, triage);
 
         // 1.5.0 bot drama: asking the bot out, the apology a rival demanded - answered by the drama rules
         String drama = soloMapling.ArtificialPlayer.BotDramaSystem.BotDrama.onPlayerLine(bot, player, line);
@@ -233,9 +246,11 @@ public final class BotConversation {
                     new Cue(triage, BotChatActions.Outcome.NONE, line));
             return;
         }
-        BotChatActions.Result action = triage.intent() == ChatTriage.Intent.NONE ? BotChatActions.Result.NONE
-                : BotChatActions.act(session.bot, player, triage.intent(), line);
-        Cue cue = new Cue(triage, action.outcome(), line);
+        BotChatActions.Result action = triage.intent() != ChatTriage.Intent.NONE
+                ? BotChatActions.act(session.bot, player, triage.intent(), line)
+                // ticket 59: come, help, guide, buff, buddy and the moods - the server decides and does it
+                : soloMapling.ArtificialPlayer.BotConvo.ConvoActions.onIntent(session.bot, player, read, line);
+        Cue cue = new Cue(triage, action.outcome(), line, action.mustMention());
         BotRoster.Activity doing = session.bot.activitySnapshot();
         String activity = BotChatPrompt.activityPhrase(doing == null ? null : doing.name());
         if (action.outcome() == BotChatActions.Outcome.NONE) {
@@ -246,8 +261,8 @@ public final class BotConversation {
                 }
                 case EMOTE -> {
                     if (whisper) {
-                        deliver(session, ScriptedReplies.pick(ScriptedReplies.TALK), asked, ChatStats.Tier.SCRIPTED,
-                                "filler whisper", cue);
+                        deliver(session, bank(session, "talk", read, ScriptedReplies.pick(ScriptedReplies.TALK)), asked,
+                                ChatStats.Tier.SCRIPTED, "filler whisper", cue);
                     } else {
                         int face = ReplyEmote.forFiller(line);
                         BotTiming.chain().pause(400 + ThreadLocalRandom.current().nextInt(900))
@@ -257,19 +272,22 @@ public final class BotConversation {
                     return;
                 }
                 case THANKS, BYE -> {
-                    deliver(session, ScriptedReplies.forKind(triage.kind()), asked, ChatStats.Tier.SCRIPTED,
+                    deliver(session, bank(session, soloMapling.ArtificialPlayer.BotConvo.ConvoLines.key(triage.kind(), line),
+                                    read, ScriptedReplies.forKind(triage.kind())), asked, ChatStats.Tier.SCRIPTED,
                             triage.kind().name().toLowerCase(), cue);
                     return;
                 }
                 case GREETING -> {
                     if (botHasSpoken(session)) { // a greeting mid-chat is small talk; the first one gets a real reply
-                        deliver(session, ScriptedReplies.forKind(triage.kind()), asked, ChatStats.Tier.SCRIPTED,
-                                "greeting", cue);
+                        deliver(session, bank(session, "greeting", read, ScriptedReplies.forKind(triage.kind())), asked,
+                                ChatStats.Tier.SCRIPTED, "greeting", cue);
                         return;
                     }
                 }
                 default -> {
-                    if (!whisper && "grinding".equals(activity) && botHasSpoken(session)
+                    // ticket 59: with human timing on, the fighting bot's skipped line is HumanTiming's call
+                    if (!soloMapling.ArtificialPlayer.BotConvo.ConvoSwitches.on("timing")
+                            && !whisper && "grinding".equals(activity) && botHasSpoken(session)
                             && ThreadLocalRandom.current().nextDouble() < busyIgnoreChance()) {
                         // Mid-fight a real player sometimes just does not answer.
                         ChatStats.reply(ChatStats.Tier.IGNORED, System.currentTimeMillis() - asked, bot.getName(),
@@ -284,11 +302,35 @@ public final class BotConversation {
         // Ticket 26: the chat's first reply to a player the bot knows greets them like an acquaintance.
         boolean recognise = !botHasSpoken(session) && !wary && BotRecognition.knows(slot, player.getId());
         String system = systemPrompt(session, slot, activity, wary, recognise, action.fact(), asked, whisper);
-        String detail = triage.describe() + (action.outcome() == BotChatActions.Outcome.NONE ? ""
+        if (action.outcome() == BotChatActions.Outcome.NONE && soloMapling.ArtificialPlayer.BotConvo.ConvoSwitches.on("contract")) {
+            system += " " + soloMapling.ArtificialPlayer.BotConvo.ConvoContract.instructions();
+        }
+        String detail = triage.describe() + " " + read.describe() + (action.outcome() == BotChatActions.Outcome.NONE ? ""
                 : " -> " + action.outcome().name().toLowerCase());
-        BotBrains.get().complete(player.getId(), BotChatPrompt.conversation(system, history)).thenAccept(reply -> {
+        BotBrains.get().reply(session.priority, player.getId(), BotChatPrompt.conversation(system, history))
+                .thenAccept(contract -> {
             if (!sessions.containsKey(new Key(bot.getId(), player.getId()))) {
                 return; // the chat ended while the brain was thinking
+            }
+            java.util.Optional<String> reply = contract.map(soloMapling.ArtificialPlayer.BotConvo.ConvoContract.Reply::text);
+            if (contract.isPresent() && action.outcome() == BotChatActions.Outcome.NONE
+                    && contract.get().action() != soloMapling.ArtificialPlayer.BotConvo.ConvoAction.NONE
+                    && soloMapling.ArtificialPlayer.BotDramaSystem.BotDrama.replyAllowed(bot, player, contract.get().text())) {
+                // Ticket 59: the model proposed an action; the gates decide, and the words must match what happened.
+                soloMapling.ArtificialPlayer.BotConvo.ConvoActions.Proposal p =
+                        soloMapling.ArtificialPlayer.BotConvo.ConvoActions.onProposal(session.bot, player, contract.get(),
+                                read, line);
+                if (p.result().outcome() != BotChatActions.Outcome.NONE) {
+                    String said = contract.get().text();
+                    boolean fits = p.result().fits(said);
+                    deliver(session, fits ? new soloMapling.ArtificialPlayer.BotConvo.ConvoLines.Line(said, -1, "llm")
+                            : bank(session, soloMapling.ArtificialPlayer.BotConvo.ConvoLines.key(p.result().outcome()), read,
+                            p.result().scripted()), asked, fits ? ChatStats.Tier.LLM
+                            : ChatStats.Tier.SCRIPTED, detail + " tag=" + p.action().tag() + ":"
+                            + p.decision().verdict().name().toLowerCase() + (fits ? "" : ", words did not fit"),
+                            new Cue(triage, p.result().outcome(), line));
+                    return;
+                }
             }
             if (reply.isPresent() && !soloMapling.ArtificialPlayer.BotDramaSystem.BotDrama.replyAllowed(bot, player,
                     reply.get())) {
@@ -300,20 +342,25 @@ public final class BotConversation {
             }
             if (reply.isPresent()) {
                 // The model ignored what the game did ("sure" to a declined party): the scripted line says it right.
-                deliver(session, action.scripted(), asked, ChatStats.Tier.SCRIPTED, detail + ", llm reply did not fit: "
+                deliver(session, bank(session, soloMapling.ArtificialPlayer.BotConvo.ConvoLines.key(action.outcome()),
+                        read, action.scripted()), asked, ChatStats.Tier.SCRIPTED, detail + ", llm reply did not fit: "
                         + reply.get(), cue);
                 return;
             }
             if (action.scripted() != null) {
-                deliver(session, action.scripted(), asked, ChatStats.Tier.SCRIPTED, detail + ", llm fell back", cue);
+                deliver(session, bank(session, soloMapling.ArtificialPlayer.BotConvo.ConvoLines.key(action.outcome()),
+                        read, action.scripted()), asked, ChatStats.Tier.SCRIPTED, detail + ", llm fell back", cue);
             } else if (fallback != null) {
                 fallback.run();
                 ChatStats.reply(ChatStats.Tier.SCRIPTED, System.currentTimeMillis() - asked, bot.getName(),
                         detail + ", llm fell back to the caller's script");
             } else {
-                String scripted = recognise && triage.kind() == ChatTriage.Kind.GREETING
-                        ? BotRecognition.scriptedHello(player.getName(), ThreadLocalRandom.current())
-                        : ScriptedReplies.forKind(triage.kind());
+                soloMapling.ArtificialPlayer.BotConvo.ConvoLines.Line scripted = recognise
+                        && triage.kind() == ChatTriage.Kind.GREETING
+                        ? bank(session, "recognise", read, BotRecognition.scriptedHello(player.getName(),
+                        ThreadLocalRandom.current()))
+                        : bank(session, soloMapling.ArtificialPlayer.BotConvo.ConvoLines.key(triage.kind(), line), read,
+                        ScriptedReplies.forKind(triage.kind()));
                 deliver(session, scripted, asked, ChatStats.Tier.SCRIPTED, detail + ", llm fell back", cue);
             }
         });
@@ -338,7 +385,20 @@ public final class BotConversation {
                 BotChatPrompt.mood(slot, activity, wary, now), BotMemory.recall(slot, player.getId(), now),
                 whisper ? List.of() : BotChatRouting.recentOnMap(bot.getMapId(), now), outcome)
                 .with(stock == null ? null : stock.fact(), recognise);
-        return BotChatPrompt.system(context, persona, traits == null ? 0.4 : traits.chattiness())
+        String card = null;
+        String voiceLine = null;
+        if (soloMapling.ArtificialPlayer.BotConvo.ConvoSwitches.on("card")) {
+            // ticket 59: the relationship memory card (feelings in words, dated memories, romance, guild, situation)
+            card = soloMapling.ArtificialPlayer.BotConvo.RelationshipCard.of(bot, player, activity,
+                    soloMapling.ArtificialPlayer.BotConvo.BotThreads.contextFor(bot.getId(), player.getId()), now);
+        }
+        if (soloMapling.ArtificialPlayer.BotConvo.ConvoSwitches.on("persona")) {
+            soloMapling.ArtificialPlayer.BotConvo.ConvoPersona voice = soloMapling.ArtificialPlayer.BotConvo.ConvoPersona.of(
+                    slot, traits == null ? -1 : traits.chattiness());
+            voiceLine = voice.prompt(context.job(), bot.getGuildId() > 0)
+                    + soloMapling.ArtificialPlayer.BotConvo.ConvoTune.promptLines();
+        }
+        return BotChatPrompt.system(context, persona, traits == null ? 0.4 : traits.chattiness(), card, voiceLine)
                 + soloMapling.ArtificialPlayer.BotAffinitySystem.AffinityReactions.promptLine(bot.getId(), player) // ticket 58: friend or beef
                 + soloMapling.ArtificialPlayer.BotCoupleSystem.BotCouples.promptLine(bot.getId()) // ticket 58: a partner
                 + soloMapling.ArtificialPlayer.BotGuildSystem.BotGuilds.promptLine(bot.getId()) // 1.5.0: its guild
@@ -386,7 +446,9 @@ public final class BotConversation {
                         + " near you. Write your first line to them.";
                 List<BotBrain.Turn> prompt = BotChatPrompt.conversation(system,
                         List.of(BotBrain.Turn.user("(" + player.getName() + " is standing near you)")));
-                BotBrains.get().complete(player.getId(), prompt).thenAccept(raw -> {
+                BotBrains.get().reply(soloMapling.ArtificialPlayer.BotBrainSystem.Priority.AMBIENT, player.getId(), prompt)
+                        .thenAccept(contract -> {
+                    java.util.Optional<String> raw = contract.map(soloMapling.ArtificialPlayer.BotConvo.ConvoContract.Reply::text);
                     java.util.Optional<String> reply = raw.filter(l ->  // 1.5.0: no flirt without @romance on
                             soloMapling.ArtificialPlayer.BotDramaSystem.BotDrama.replyAllowed(chr, player, l));
                     if (sessions.get(key) != session) {
@@ -422,7 +484,8 @@ public final class BotConversation {
                     kind + "/" + triage.conSource().name().toLowerCase() + ", ignored");
             return;
         }
-        deliver(session, ScriptedReplies.brushOff(triage.con()), asked, ChatStats.Tier.FLAGGED,
+        deliver(session, bank(session, soloMapling.ArtificialPlayer.BotConvo.ConvoLines.key(triage.con()), null,
+                        ScriptedReplies.brushOff(triage.con())), asked, ChatStats.Tier.FLAGGED,
                 kind + "/" + triage.conSource().name().toLowerCase(), new Cue(triage, BotChatActions.Outcome.NONE, line));
     }
 
@@ -433,50 +496,112 @@ public final class BotConversation {
     }
 
     /** What a reply answers, for the face that goes with it. */
-    private record Cue(ChatTriage.Result triage, BotChatActions.Outcome outcome, String asked) {
+    private record Cue(ChatTriage.Result triage, BotChatActions.Outcome outcome, String asked, String protect) {
+        Cue(ChatTriage.Result triage, BotChatActions.Outcome outcome, String asked) {
+            this(triage, outcome, asked, null);
+        }
+    }
+
+    /** Ticket 59: a line from the bank for this key (the bot's voice, feelings and situation), else the script's. */
+    private static soloMapling.ArtificialPlayer.BotConvo.ConvoLines.Line bank(Session session, String key,
+            soloMapling.ArtificialPlayer.BotConvo.ConvoSense.Read read, String fallback) {
+        String tone = read == null ? null : read.tone().name().toLowerCase(java.util.Locale.ROOT);
+        soloMapling.ArtificialPlayer.BotConvo.ConvoLines.Line l = soloMapling.ArtificialPlayer.BotConvo.ConvoLines.line(
+                key, session.bot.getChr(), session.player, tone, null, fallback, session.deliver != null);
+        return l == null ? new soloMapling.ArtificialPlayer.BotConvo.ConvoLines.Line(fallback, -1, "scripted") : l;
+    }
+
+    private static void deliver(Session session, String line, long asked, ChatStats.Tier tier, String detail, Cue cue) {
+        deliver(session, new soloMapling.ArtificialPlayer.BotConvo.ConvoLines.Line(line, -1,
+                tier == ChatStats.Tier.LLM ? "llm" : "scripted"), asked, tier, detail, cue);
     }
 
     /**
      * Types a line at a human pace, then says it (map chat or whisper) and records its tier. In map chat the bot
-     * sometimes makes a fitting face as the bubble appears ({@link ReplyEmote}).
+     * sometimes makes a fitting face as the bubble appears ({@link ReplyEmote}). Ticket 59: the line is said in the
+     * bot's own voice ({@code VoiceStyler}) and timed like a person ({@code HumanTiming}: typing, a split, a late
+     * answer or a "brb", or no answer mid-fight), and the quality loop remembers it for {@code !rate}.
      */
-    private static void deliver(Session session, String line, long asked, ChatStats.Tier tier, String detail, Cue cue) {
+    private static void deliver(Session session, soloMapling.ArtificialPlayer.BotConvo.ConvoLines.Line said, long asked,
+                                ChatStats.Tier tier, String detail, Cue cue) {
+        if (said == null || said.text() == null) {
+            return;
+        }
         Character bot = session.bot.getChr();
         Character player = session.player;
+        int slot = bot.getId() - BotStore.BOT_ID_BASE;
+        BotRoster.Member member = BotRoster.member(slot);
+        BotPersonality.Traits traits = member == null ? null : member.traits();
+        soloMapling.ArtificialPlayer.BotConvo.ConvoPersona persona = soloMapling.ArtificialPlayer.BotConvo.ConvoPersona.of(
+                slot, traits == null ? -1 : traits.chattiness());
+        String line = soloMapling.ArtificialPlayer.BotConvo.ConvoSwitches.on("persona")
+                ? soloMapling.ArtificialPlayer.BotConvo.VoiceStyler.style(said.text(), persona, slot,
+                java.util.List.of(player.getName().toLowerCase(java.util.Locale.ROOT),
+                        bot.getName().toLowerCase(java.util.Locale.ROOT), cue == null || cue.protect() == null ? ""
+                                : cue.protect()))
+                : said.text();
         synchronized (session.history) {
             session.history.add(BotBrain.Turn.assistant(line));
         }
-        long typing = typingDelay(line, System.currentTimeMillis() - asked, ThreadLocalRandom.current());
         Consumer<String> deliver = session.deliver;
+        boolean firstLine;
+        synchronized (session.history) {
+            firstLine = session.history.stream().filter(t -> t.role() == BotBrain.Role.ASSISTANT).count() <= 1;
+        }
+        BotRoster.Activity doing = session.bot.activitySnapshot();
+        boolean fighting = "grinding".equals(BotChatPrompt.activityPhrase(doing == null ? null : doing.name()))
+                && !soloMapling.ArtificialPlayer.BotConvo.RelationshipCard.mobs(bot).isEmpty();
+        boolean isAction = cue != null && cue.outcome() != null && cue.outcome() != BotChatActions.Outcome.NONE;
+        soloMapling.ArtificialPlayer.BotConvo.HumanTiming.Plan plan = soloMapling.ArtificialPlayer.BotConvo.HumanTiming.plan(
+                line, System.currentTimeMillis() - asked, persona,
+                new soloMapling.ArtificialPlayer.BotConvo.HumanTiming.Context(isAction, deliver != null, fighting, firstLine),
+                ThreadLocalRandom.current());
+        if (plan.ignored()) {
+            ChatStats.reply(ChatStats.Tier.IGNORED, System.currentTimeMillis() - asked, bot.getName(), "busy fighting");
+            soloMapling.ArtificialPlayer.BotConvo.ConvoQuality.timing(bot, player, plan);
+            return;
+        }
+        soloMapling.ArtificialPlayer.BotConvo.ConvoQuality.timing(bot, player, plan);
         int face = deliver != null || cue == null ? ReplyEmote.NONE
                 : ReplyEmote.pick(cue.triage(), cue.outcome(), cue.asked(), line, ThreadLocalRandom.current());
-        BotTiming.chain()
-                .stopUnless(() -> sessions.containsKey(new Key(bot.getId(), player.getId())))
-                .pause(typing)
-                .run(() -> {
-                    if (deliver == null && bot.getMapId() == player.getMapId()) {
-                        botFaceTowardsPoint(bot, player.getPosition());
-                    }
-                })
-                .run(() -> {
-                    if (deliver != null) {
-                        if (PlayerBusy.isBusy(player)) {
-                            return;
+        String fullDetail = detail + (said.fromBank() ? " bank#" + said.bankId() : "") + " plan=" + plan.kind();
+        BotTiming.Chain chain = BotTiming.chain()
+                .stopUnless(() -> sessions.containsKey(new Key(bot.getId(), player.getId())));
+        java.util.List<soloMapling.ArtificialPlayer.BotConvo.HumanTiming.Part> parts = plan.parts();
+        for (int i = 0; i < parts.size(); i++) {
+            soloMapling.ArtificialPlayer.BotConvo.HumanTiming.Part part = parts.get(i);
+            boolean last = i == parts.size() - 1;
+            chain = chain.pause(part.delayMs())
+                    .run(() -> {
+                        if (deliver == null && bot.getMapId() == player.getMapId()) {
+                            botFaceTowardsPoint(bot, player.getPosition());
                         }
-                        deliver.accept(line);
-                    } else {
-                        BotSpeak(bot, line);
-                        if (face != ReplyEmote.NONE) {
-                            BotEmote(bot, face);
+                    })
+                    .run(() -> {
+                        if (deliver != null) {
+                            if (PlayerBusy.isBusy(player)) {
+                                return;
+                            }
+                            deliver.accept(part.text());
+                        } else {
+                            BotSpeak(bot, part.text());
+                            if (last && face != ReplyEmote.NONE) {
+                                BotEmote(bot, face);
+                            }
                         }
-                    }
-                    session.lastAt = System.currentTimeMillis();
-                    if (deliver == null) { // ticket 37: having answered, the bot keeps listening a while longer
-                        BotChatRouting.touchAttention(player.getId(), bot.getId(), session.lastAt);
-                    }
-                    ChatStats.reply(tier, System.currentTimeMillis() - asked, bot.getName(), detail);
-                })
-                .start();
+                        session.lastAt = System.currentTimeMillis();
+                        if (deliver == null) { // ticket 37: having answered, the bot keeps listening a while longer
+                            BotChatRouting.touchAttention(player.getId(), bot.getId(), session.lastAt);
+                        }
+                        if (last) {
+                            ChatStats.reply(tier, System.currentTimeMillis() - asked, bot.getName(), fullDetail);
+                            soloMapling.ArtificialPlayer.BotConvo.ConvoQuality.said(bot, player, line, said, tier.name(),
+                                    persona, cue == null || cue.triage() == null ? null : cue.asked(),
+                                    System.currentTimeMillis() - asked);
+                        }
+                    });
+        }
+        chain.start();
     }
 
     /**

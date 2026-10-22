@@ -230,7 +230,7 @@ bots never go silent or repeat the same few lines.
     every slot idle**, a pause between calls, optional hours window (`--hours 2-8`); the cloud provider can be used
     with `--cloud` inside `--budget-usd`;
   - every line: `ContentGuard`, the voice check (no AI reveal, no assistant phrasing, era words), length cap 70 after
-    slot filling, slot whitelist, exact and near-duplicate check (normalised text, then 3-gram Jaccard >= 0.75 within
+    slot filling, slot whitelist, exact and near-duplicate check (normalised text, then 3-gram Jaccard >= 0.6 within
     the cell);
   - resumable: `tools/chatbank/state/` keeps accepted lines, rejects and per-cell progress; `--pack` writes the bank.
   - A tiny first batch ships now to prove the pipeline; the owner runs the big generation.

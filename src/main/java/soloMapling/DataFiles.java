@@ -55,6 +55,7 @@ public final class DataFiles {
             "soloMapling/ArtificialPlayer/BotDialoguePack/DropGameLootPool.yaml",
             "soloMapling/ArtificialPlayer/BotDialoguePack/LogoutDialogue.yaml",
             "soloMapling/ArtificialPlayer/BotDialoguePack/TownChatterDialogue.yaml",
+            "soloMapling/ArtificialPlayer/BotConvo/chatbank.bin",
             "soloMapling/ArtificialPlayer/BotNames",
             "soloMapling/FreeMarket/FMNameDesc",
             "soloMapling/FreeMarket/FMNameDesc/randomRealMaplestoryIGNs.txt",

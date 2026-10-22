@@ -131,7 +131,7 @@ public final class OpenAICompatibleBrain implements BotBrain {
         return result;
     }
 
-    /** Whether every local slot is taken right now (ticket 59's router reads it). */
+    /** How many slots are free right now (ticket 59's router reads it). */
     public int freeSlots() {
         return slots.availablePermits();
     }
@@ -247,6 +247,16 @@ public final class OpenAICompatibleBrain implements BotBrain {
             // no usage block
         }
         return new long[]{-1, -1};
+    }
+
+    /** Ticket 59's bank generator: the reply text of a chat completion response body. */
+    public static String replyTextOf(String responseBody) {
+        return replyText(responseBody);
+    }
+
+    /** Ticket 59's bank generator and budget: {prompt_tokens, completion_tokens}, -1 when absent. */
+    public static long[] usageOf(String responseBody) {
+        return usage(responseBody);
     }
 
     /** {@code choices[0].message.content}, or null when the response has no such text. */
