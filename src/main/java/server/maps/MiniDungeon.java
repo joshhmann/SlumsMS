@@ -94,19 +94,21 @@ public class MiniDungeon {
     }
 
     public void close() {
+        List<Character> lchr;
         lock.lock();
         try {
-            List<Character> lchr = new ArrayList<>(players);
-
-            for (Character chr : lchr) {
-                chr.changeMap(baseMap);
-            }
-
-            dispose();
-            timeoutTask = null;
+            lchr = new ArrayList<>(players);
         } finally {
             lock.unlock();
         }
+
+        // Warp outside the lock: changeMap holds the character's warp lock and leaving this map calls
+        // unregisterPlayer, which takes this lock - warping under it could deadlock against the player's own warp.
+        for (Character chr : lchr) {
+            chr.changeMap(baseMap);
+        }
+
+        dispose();
     }
 
     public void dispose() {
