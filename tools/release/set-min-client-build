@@ -39,7 +39,9 @@ echo "MIN_CLIENT_BUILD: ${current:-unset} -> $BUILD in $C"
 tmp=$(mktemp "$C.min-client-build.XXXXXX")
 trap 'rm -f "$tmp"' EXIT
 if [ -n "$current" ]; then
-  awk -v b="$BUILD" '/^[[:space:]]+MIN_CLIENT_BUILD:/ { cr = /\r$/ ? "\r" : ""; match($0, /^[[:space:]]+/); print substr($0, 1, RLENGTH) "MIN_CLIENT_BUILD: " b cr; next } { print }' "$C" > "$tmp"
+  awk -v b="$BUILD" '/^[[:space:]]+MIN_CLIENT_BUILD:/ { match($0, /MIN_CLIENT_BUILD:[ \t]*[0-9]+/); prefix = substr($0, 1, RSTART - 1); field = substr($0, RSTART, RLENGTH); suffix = substr($0, RSTART + RLENGTH); sub(/[0-9]+$/, b, field); print prefix field suffix; next } { print }' "$C" > "$tmp"
+  # awk prints a final newline; retain the original EOF style when replacing a value.
+  [ -z "$(tail -c1 "$C")" ] || truncate -s -1 "$tmp"
 else
   # indent of the first key under server:, CRLF if the file uses it; make sure the file ends with a newline first
   indent=$(awk '/^server:/{f=1; next} f && /^[[:space:]]+[A-Za-z_]/ { match($0, /^[[:space:]]+/); print substr($0, 1, RLENGTH); exit }' "$C")

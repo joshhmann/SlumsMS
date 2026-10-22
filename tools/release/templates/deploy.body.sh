@@ -118,6 +118,11 @@ step "pre-checks (live still up)"
 [ -f "$C" ] && [ -f "$SRV/target/Cosmic.jar" ] && [ -d "$SRV/scripts" ] && [ -d "$SRV/src/main" ] \
   || die "server folder is missing config.yaml, target/Cosmic.jar, scripts/ or src/main/"
 grep -q '^server:' "$C" || die "no server: line in config.yaml"
+# Validate value edits before stopping; repeat after CONFIG_HEAD/APPEND in apply-start.
+[ -z "$MIN_CLIENT_BUILD" ] || "$ST/set-min-client-build" "$C" "$MIN_CLIENT_BUILD" --dry-run
+if [ -n "$CHANNELS$CHANNEL_LOAD" ]; then
+  "$ST/set-release-config" "$C" --channels "$CHANNELS" --channel-load "$CHANNEL_LOAD" --dry-run
+fi
 if [ -n "$CONFIG_HEAD" ]; then
   h=$(head_hash "$C"); [ "$h" = "$CONFIG_HEAD_BEFORE" ] \
     || die "config.yaml block above server: changed ($h, expected $CONFIG_HEAD_BEFORE); re-make $CONFIG_HEAD"
@@ -221,6 +226,11 @@ if [ -n "$CONFIG_APPEND" ]; then
   [ -n "$(tail -c1 "$C")" ] && { [ "$crlf" -gt 0 ] && printf '\r\n' >> "$C" || printf '\n' >> "$C"; }
   if [ "$crlf" -gt 0 ]; then sed 's/\r\?$/\r/' "$ST/$CONFIG_APPEND" >> "$C"; else cat "$ST/$CONFIG_APPEND" >> "$C"; fi
   tail -n "$(wc -l < "$ST/$CONFIG_APPEND")" "$C"
+fi
+# release publishes the client between stop-backup and apply-start: the gate lands before start.
+[ -z "$MIN_CLIENT_BUILD" ] || "$ST/set-min-client-build" "$C" "$MIN_CLIENT_BUILD" || down "client gate edit failed"
+if [ -n "$CHANNELS$CHANNEL_LOAD" ]; then
+  "$ST/set-release-config" "$C" --channels "$CHANNELS" --channel-load "$CHANNEL_LOAD" || down "channel config edit failed"
 fi
 if [ -n "$NAV_CACHE_SRC" ]; then mkdir -p "$SRV/cache/bot-nav"; cp -a "$NAV_CACHE_SRC" "$SRV/cache/bot-nav/"; fi
 cmp -s "$ST/Cosmic.jar" "$SRV/target/Cosmic.jar" || down "staged jar did not land"

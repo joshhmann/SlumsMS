@@ -54,14 +54,38 @@ Order for a release with a new client (the MMO order: the client goes out while 
    minimum without `--allow-lower`; keeps CRLF, owner and mode; `--dry-run` and `--show` available).
 4. Start the server: from now on older clients are refused with the update message.
 
-Hook for the deploy template (kept to one call so the release-flow work can wire it in): in `release.conf`, set
-`MIN_CLIENT_BUILD=<build>` (empty = leave config.yaml alone), have `stage` copy `set-min-client-build` into
-`staging/`, and in `deploy.body.sh`, after the config.yaml edits and before the start:
+Set these optional values in `docs/release/<version>.conf` (or the conf passed to `stage`):
 
-```
-[ -z "${MIN_CLIENT_BUILD:-}" ] || "$ST/set-min-client-build" "$C" "$MIN_CLIENT_BUILD"
+```bash
+MIN_CLIENT_BUILD=10500
+CHANNELS=5
+CHANNEL_LOAD=105
 ```
 
-Its `--dry-run` belongs in the deploy's dry-run block. Rollback needs nothing extra: `rollback.sh` restores the backed-up
-config.yaml, which has the old minimum. Do not set `MIN_CLIENT_BUILD` with `CONFIG_APPEND`: that aborts once the key
-exists, and every later release has to raise the value.
+`stage` copies `set-min-client-build` and `set-release-config` into `staging/`, includes them in
+`SHA256SUMS`, and `gen-deploy` bakes the values into the generated scripts. Unset or empty values leave that
+setting alone. `MIN_CLIENT_BUILD` is a non-negative integer; `CHANNELS` and `CHANNEL_LOAD` are positive integers.
+The channel editor requires Python 3 (standard library only).
+
+Pre-flight (including `--dry-run`) validates the requested edits and prints before/after values without writing.
+In `apply-start`, after the backup and any `CONFIG_HEAD`/`CONFIG_APPEND` edits, while the server is stopped,
+the deploy calls the existing gate helper, sets every `worlds[*].channels`, and sets `server.CHANNEL_LOAD`.
+Each helper prints before/after values. Repeating the same values is safe. The editors preserve comments,
+spacing, CRLF, owner and mode; they replace decimal scalars or insert only these known keys in their owning
+mappings. The channel editor accepts block-style world mappings and refuses ambiguous or unsupported structures
+rather than reserializing YAML. It never adds a `CHANNELS` key to the strict server config.
+
+Use `tools/release/release` for a combined client/server release: it publishes the client between `stop-backup`
+and `apply-start`, so the client is available before the gate takes effect at server start. Standalone `deploy.sh`
+does not publish a client; arrange the same publish order yourself when using its phases.
+
+The backup includes both `backup/config.yaml` and config.yaml in `backup/server-runtime.tgz`. Rollback restores
+the entire old config with the old jar before starting, including the previous gate, channel counts and load.
+Do not set these values with `CONFIG_APPEND`: existing keys would be duplicated. The gate helper continues to
+refuse lowering the minimum; rollback restores the backup instead.
+
+Offline tests (fixture config only; no SSH or deploy execution):
+
+```bash
+python3 -m unittest discover -s tools/release -p 'test_*.py'
+```

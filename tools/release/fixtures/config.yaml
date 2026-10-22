@@ -1,0 +1,11 @@
+# Release config fixture; comments must survive.
+worlds:
+  - id: 1 # Bera
+    channels: 3  # world one
+    exp_rate: 2
+  - id: 2
+    channels: 2 # world two
+server:
+    CHANNEL_LOAD:   90 # bar capacity
+    MIN_CLIENT_BUILD: 10402  # old client gate
+    SERVER_NAME: SlumsMS

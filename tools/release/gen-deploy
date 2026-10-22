@@ -16,6 +16,7 @@ valid_version "$VERSION" || die "bad version $VERSION"
 
 # defaults, then the release's settings
 MIGRATIONS=() LEDGER_NOT_LIVE=() LEDGER_BEFORE=__auto__ CONFIG_APPEND="" CONFIG_HEAD="" CONFIG_HEAD_BEFORE=""
+MIN_CLIENT_BUILD="" CHANNELS="" CHANNEL_LOAD=""
 UNIT_EDITS=() PRECHECK_SQL=() NAV_CACHE_SRC="" EXPECT_LOG=() FORBID_LOG=() SMOKE_SECONDS=30
 IN_GAME_CHECK="In game: log in, enter a character, change channel."
 MAINT_MINUTES=5 MAINT_REASON=""
@@ -58,7 +59,7 @@ header() {
 H
   echo "D=$DEPLOY_ROOT/v$VERSION"
   for v in VERSION COMMIT JAR_VERSION JAR_SHA16 LEDGER_BEFORE NAV_CACHE_SRC SMOKE_SECONDS IN_GAME_CHECK CONFIG_HEAD_BEFORE \
-           MAINT_MINUTES MAINT_REASON; do
+           MAINT_MINUTES MAINT_REASON MIN_CLIENT_BUILD CHANNELS CHANNEL_LOAD; do
     printf '%s=%s\n' "$v" "$(sq "${!v}")"
   done
   # staged copies of the config files live in staging/ under their base names

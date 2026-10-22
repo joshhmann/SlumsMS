@@ -86,6 +86,8 @@ step "restore jar, config.yaml, scripts, src/main$([ "${#UNIT_EDITS[@]}" -gt 0 ]
 aside="$B/rolled-back-$(date -u +%Y%m%dT%H%M%SZ)"; mkdir -p "$aside/src"
 mv "$SRV/scripts" "$aside/scripts"; mv "$SRV/src/main" "$aside/src/main"
 cp "$SRV/target/Cosmic.jar" "$aside/Cosmic.jar"; cp "$SRV/config.yaml" "$aside/config.yaml"
+# Restores MIN_CLIENT_BUILD, worlds[*].channels and CHANNEL_LOAD together with the old jar.
+echo "restore config.yaml (client gate, channels, channel load) from backup"
 tar -xzf "$B/server-runtime.tgz" -C "$SRV"
 (cd "$SRV" && sha256sum -c "$B/old-jar.sha256") || die "restored jar hash mismatch"
 cmp -s "$B/config.yaml" "$SRV/config.yaml" || die "restored config.yaml differs from the backup copy"
