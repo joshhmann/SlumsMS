@@ -471,6 +471,7 @@ public class SocialBot extends BotSM {
         if (!BotPartyQueue.getInstance().hasPendingInvite(chr)) {
             return;
         }
+        BotRecruitManager.armIfWelcome(chr); // 1.5.0: friends and guildmates take an unasked invite
         int recruiterId = BotRecruitManager.armedInviterId(chr.getId()); // read BEFORE poll - JOINED clears it
         BotRecruitManager.InvitePoll res = BotRecruitManager.pollInvites(chr);
         if (res != BotRecruitManager.InvitePoll.JOINED) {

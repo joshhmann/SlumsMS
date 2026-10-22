@@ -1377,7 +1377,9 @@ public class TrainingBot extends BotSM {
         Character member = firstRealPartyMember(party);
         if (member == null) {
             // Ticket 58: a bot couple trains together - the partner who leads the party picks the map.
-            return soloMapling.ArtificialPlayer.BotCoupleSystem.BotCouples.partnerTrainingMap(getChr());
+            Integer couple = soloMapling.ArtificialPlayer.BotCoupleSystem.BotCouples.partnerTrainingMap(getChr());
+            // 1.5.0: a guild party grinds where its (bot) leader grinds
+            return couple != null ? couple : soloMapling.ArtificialPlayer.BotGuildSystem.BotGuilds.leaderTrainingMap(getChr());
         }
         int memberMap = member.getMapId();
         if (MapMobIndex.level(memberMap) >= 0) {
@@ -1406,6 +1408,7 @@ public class TrainingBot extends BotSM {
         if (!BotPartyQueue.getInstance().hasPendingInvite(chr)) {
             return;
         }
+        BotRecruitManager.armIfWelcome(chr); // 1.5.0: friends and guildmates take an unasked invite
         int recruiterId = BotRecruitManager.armedInviterId(chr.getId()); // read BEFORE poll - JOINED clears it
         if (BotRecruitManager.pollInvites(chr) == BotRecruitManager.InvitePoll.JOINED) {
             Character recruiter = chr.getClient().getChannelServer()

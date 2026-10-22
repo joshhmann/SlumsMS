@@ -87,6 +87,45 @@ public class BotRecruitManager {
         return RecruitAnswer.DECLINED;
     }
 
+    /**
+     * 1.5.0 (owner 2026-10-21): a real player's party invite the bot was not asked for in chat first. A friend (or a
+     * guild boss-run crew member at the entrance) always takes it, a guildmate nearly always, a neutral bot sometimes,
+     * a rival never (BotGuilds.partyChance). On a yes the invite window is armed for that player, exactly as a "sure"
+     * in chat would, so the normal accept below runs (a SocialBot then follows them, a TrainingBot trains on their
+     * map). A no puts the pair on the usual decline cooldown. Idempotent; call before reading armedInviterId.
+     */
+    public static void armIfWelcome(Character botChr) {
+        try {
+            BotPartyQueue.PartyInviteEntry entry = BotPartyQueue.getInstance().getPartyInvite(botChr);
+            Character inviter = entry == null ? null : entry.getInviter();
+            if (inviter == null || soloMapling.ArtificialPlayer.BotHelpers.isBot(inviter) || botChr.getLevel() < 10) {
+                return;
+            }
+            Armed armed = ARMED.get(botChr.getId());
+            if (armed != null && armed.inviterId() == inviter.getId()) {
+                return;
+            }
+            long pairKey = pairKey(botChr.getId(), inviter.getId());
+            Long coolUntil = DECLINED_UNTIL.get(pairKey);
+            if (coolUntil != null && System.currentTimeMillis() < coolUntil) {
+                return;
+            }
+            double chance = soloMapling.ArtificialPlayer.BotGuildSystem.BotGuilds.partyChance(botChr, inviter);
+            if (chance <= 0) {
+                return; // a rival: the invite is turned down below
+            }
+            BotSM sm = CharacterStorage.getBotById(botChr.getId());
+            boolean follower = sm instanceof soloMapling.ArtificialPlayer.BotTypes.SocialBot;
+            if (random.nextDouble() < chance) {
+                ARMED.put(botChr.getId(), new Armed(inviter.getId(), System.currentTimeMillis() + INVITE_WINDOW_MS, follower));
+            } else {
+                DECLINED_UNTIL.put(pairKey, System.currentTimeMillis() + DECLINE_COOLDOWN_MS);
+            }
+        } catch (RuntimeException e) {
+            debugprint("armIfWelcome failed: " + e);
+        }
+    }
+
     // Per-tick invite drain for recruit-enabled bots. BotPartyQueue is last-wins per bot, so a
     // pending invite must always be answered: accept if it's the armed inviter (id match),
     // politely reject everything else (frees the slot; the inviter gets the normal declined notice).
@@ -94,6 +133,7 @@ public class BotRecruitManager {
         if (!BotPartyQueue.getInstance().hasPendingInvite(botChr)) {
             return InvitePoll.NONE;
         }
+        armIfWelcome(botChr);
         BotPartyQueue.PartyInviteEntry entry = BotPartyQueue.getInstance().getPartyInvite(botChr);
         if (entry == null) {
             return InvitePoll.NONE;

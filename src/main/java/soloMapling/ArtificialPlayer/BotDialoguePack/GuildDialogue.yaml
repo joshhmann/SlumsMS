@@ -1,0 +1,229 @@
+# 1.5.0 bot guilds (BotGuilds, GuildBossRuns). Guild chat lines go to the guild's members only; Recruit, Jab,
+# JabBack and BossWait are map chat (said only where a real player stands, @quiet bots hides them).
+# Tokens: {GUILD} {RIVAL} {MEMBER} {PLAYER} {LEADER} {LEVEL} {BOSS} {LOOT} {LOOTER} {CH}. A line whose tokens cannot
+# be filled is skipped. <Vibe><Node> (CasualChatter, HardcoreJab ...) is used before the shared node.
+# Keep the old-GMS chat feel: short, lowercase, no modern slang. Never say or hint the speaker is not a person.
+Guild:
+  Chatter:
+    text:
+      - "anyone wanna pq"
+      - "gm guild"
+      - "how is everyone doing"
+      - "anyone selling pots cheap"
+      - "lf training spot for 3rd job"
+      - "who is on rn"
+      - "{MEMBER} where u training"
+      - "{MEMBER} hiii"
+      - "brb food"
+      - "anyone got a spare 60% glove scroll"
+      - "omg finally lvl'd"
+      - "so tired of grinding lol"
+  CasualChatter:
+    text:
+      - "chill night lol"
+      - "anyone hanging out in fm"
+      - "afk fishing in henesys park lol"
+      - "who wants to do some pqs later"
+      - "{MEMBER} u still alive?"
+  HardcoreChatter:
+    text:
+      - "zak tonight, be ready"
+      - "who is close to next job adv"
+      - "grind check, what lvl is everyone"
+      - "dont forget pots for the run"
+      - "{MEMBER} how much exp/hr u getting"
+      - "need 2 more for pap"
+  MerchantChatter:
+    text:
+      - "pc on a 5 att glove?"
+      - "fm ch1 is dead today"
+      - "anyone selling steely throwing knives"
+      - "{MEMBER} what u pricing ur shop at"
+      - "prices are crashing lol"
+      - "who has a 10 slot work glove"
+  SocialChatter:
+    text:
+      - "fm ch1 hangout later?"
+      - "anyone wanna sit in henesys"
+      - "{MEMBER} ur outfit is so cute"
+      - "who is up for some chatting"
+      - "guild photo in henesys later lol"
+  NewbieChatter:
+    text:
+      - "how do i get to ellinia"
+      - "what job should i pick"
+      - "is it worth buying a pet"
+      - "where should i train at lv20"
+      - "{MEMBER} thx for the help earlier"
+      - "we should invite more people"
+  PvmChatter:
+    text:
+      - "zak run soon, who is in"
+      - "anyone have the pap cert"
+      - "ht someday lol"
+      - "need a cleric for the run"
+      - "{MEMBER} bring all cures"
+  Gz:
+    text:
+      - "gz {PLAYER}!"
+      - "gz"
+      - "grats {PLAYER}"
+      - "gzgz"
+      - "nice {PLAYER}!!"
+      - "grats :)"
+  Greet:
+    text:
+      - "hey {PLAYER}"
+      - "yo {PLAYER}"
+      - "hi {PLAYER} ^^"
+      - "{PLAYER}!! hi"
+      - "wb {PLAYER}"
+  JoinThanks:
+    text:
+      - "ty for the invite {PLAYER}!"
+      - "hi {GUILD} :)"
+      - "thx {PLAYER}, happy to be here"
+      - "yay ty!"
+  Welcome:
+    text:
+      - "welcome {PLAYER}!"
+      - "welcome to {GUILD} {PLAYER} :)"
+  AppAskLeader:
+    text:
+      - "ask {LEADER}, they run {GUILD}"
+      - "{LEADER} does the invites, ask them"
+  AppYes:
+    text:
+      - "sure! sending u an invite"
+      - "ya we got room, check ur invite"
+      - "welcome {PLAYER}, sending inv now"
+  AppYesLeader:
+    text:
+      - "ya sure, {LEADER} will send u an invite"
+      - "i asked {LEADER}, check ur invite"
+      - "sure, {LEADER} is sending it"
+  AppNoHostile:
+    text:
+      - "nah sorry"
+      - "not for u lol"
+      - "we are full. for u anyway"
+  AppNoLevel:
+    text:
+      - "we need lv {LEVEL}+ sorry, come back later"
+      - "{GUILD} is {LEVEL}+ only, sorry!"
+      - "get to {LEVEL} and ask again :)"
+  AppNoFull:
+    text:
+      - "sorry we are full rn"
+      - "no room atm sorry"
+  AppNoInguild:
+    text:
+      - "ur already in a guild lol"
+      - "leave ur guild first"
+  AppNoNotnow:
+    text:
+      - "maybe later, {LEADER} isnt taking new people today"
+      - "not right now, ask again some other time"
+  WhisperInvite:
+    text:
+      - "hey {PLAYER}, wanna join {GUILD}? sending u an invite"
+      - "{PLAYER} u should join {GUILD} lol, check ur invite"
+      - "we got room in {GUILD} if u want, sending inv"
+  Recruit:
+    text:
+      - "{GUILD} is recruiting! ask me"
+      - "anyone want a guild? {GUILD} has room"
+      - "looking for a guild? join {GUILD}"
+  MerchantRecruit:
+    text:
+      - "{GUILD} recruiting merchants and traders, ask me"
+  HardcoreRecruit:
+    text:
+      - "{GUILD} recruiting active grinders, ask me"
+  Jab:
+    text:
+      - "lol {RIVAL} again"
+      - "{RIVAL} cant even do zak lol"
+      - "{RIVAL} members are so slow"
+      - "who even joins {RIVAL}"
+      - "{MEMBER} ur guild is a joke lol"
+      - "{GUILD} > {RIVAL}"
+      - "{RIVAL} spotted, hide ur drops"
+  HardcoreJab:
+    text:
+      - "{RIVAL} still stuck in 3rd job lol"
+      - "{GUILD} cleared zak twice this week, {RIVAL}?"
+  CasualJab:
+    text:
+      - "{RIVAL} trying so hard lol"
+      - "{RIVAL} needs to chill"
+  JabBack:
+    text:
+      - "lol ok {MEMBER}"
+      - "{RIVAL} is just jealous"
+      - "says {RIVAL} lol"
+      - "keep talking {MEMBER}"
+      - "whatever {MEMBER}"
+  QuitRivals:
+    text:
+      - "cant be in a guild with {PLAYER}, later"
+      - "im out. good luck {GUILD}"
+      - "not staying with {PLAYER} around. bye"
+  QuitIgnored:
+    text:
+      - "nobody talks here anymore, im out"
+      - "guild is dead for me, bye guys"
+      - "gonna find a more active guild, gl"
+  BossCall:
+    text:
+      - "{BOSS} run in a few, meet at the entrance ch{CH}"
+      - "{BOSS} time! come to the door ch{CH}"
+      - "who is in for {BOSS}? going now ch{CH}"
+  BossWait:
+    text:
+      - "waiting for more"
+      - "everyone got pots?"
+      - "buff up first"
+      - "who has hb"
+      - "ready?"
+      - "{BOSS} here we go"
+      - "dont die this time lol"
+  BossGo:
+    text:
+      - "going in, wish us luck"
+      - "in we go"
+      - "ok entering {BOSS} now"
+  BossReal:
+    text:
+      - "gl in {BOSS}!"
+      - "have fun at {BOSS} guys"
+  BossWin:
+    text:
+      - "{BOSS} down!! gg all"
+      - "gg {BOSS} cleared, {LOOTER} got {LOOT}"
+      - "{BOSS} done, {LOOTER} looted {LOOT} lol"
+      - "ez {BOSS}, gg"
+  BossFail:
+    text:
+      - "wiped at {BOSS} lol. next time"
+      - "{BOSS} beat us, gotta gear up"
+      - "rip {BOSS} run, we ran out of pots"
+  # The ambient megaphone ticker's GuildRecruitment category (a megaphone, through the gate). {STYLE} is the vibe.
+  AmbientRecruit:
+    text:
+      - "{GUILD} is recruiting!! lv{LEVEL}+ whisper me"
+      - "join {GUILD} ^^ {STYLE} guild, lv{LEVEL}+, find me in {WHERE}"
+      - "{GUILD} looking for active ppl lv{LEVEL}+, whisper me"
+      - "need a guild? {GUILD} has room, lv{LEVEL}+"
+      - "{GUILD} recruiting!! we pq and boss, lv{LEVEL}+ pm me"
+  # Whispers from a bot guild's leader just before it kicks a rival player.
+  KickLeader:
+    text:
+      - "sorry {PLAYER}, not having u in {GUILD} anymore"
+      - "{PLAYER} we both know this isnt working. ur out"
+      - "kicking u {PLAYER}, no hard feelings. ok some hard feelings"
+  KickMembers:
+    text:
+      - "{PLAYER} the guild doesnt want u around anymore, sorry"
+      - "too many ppl in {GUILD} have beef with u {PLAYER}. gotta let u go"
+      - "{PLAYER} sorry, the guild voted. ur out"

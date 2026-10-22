@@ -96,7 +96,8 @@ public final class BotLogout {
         }
         boolean partiedWithPlayer = partiedWithPlayer(chr);
         boolean watched = partiedWithPlayer || bot.checkMainPlayersOnMap();
-        if (watched) {
+        boolean intoBoss = soloMapling.ArtificialPlayer.BotGuildSystem.GuildBossRuns.away(chr.getId() - BotStore.BOT_ID_BASE);
+        if (watched && !intoBoss) { // a bot going into a staged boss run says nothing (its guild chat did)
             String line = line(partiedWithPlayer ? "Party" : "Alone");
             if (line != null) {
                 SocialCommands.BotSpeak(chr, line);

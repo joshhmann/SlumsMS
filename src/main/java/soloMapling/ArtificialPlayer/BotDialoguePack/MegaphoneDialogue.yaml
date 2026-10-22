@@ -194,6 +194,7 @@ MegaphoneBroadcast:
       - "B> bulk white potions and any scrolls paying 10% above market"
     emote: 2
     wait: 1
+  # 1.5.0: unused by the ambient ticker, which recruits for real bot guilds (GuildDialogue.yaml AmbientRecruit).
   GuildRecruitment:
     text:
       - "Join Resilience! Lvl 50+ active guild, daily boss runs!"
@@ -823,3 +824,28 @@ MegaphoneBroadcast:
       - "rip my {ITEM}, {PASSED} passes and it boomed"
       - "dark scroll ate my {PASSED}/{TOTAL} {ITEM} T_T"
       - "{ITEM} with {PASSED} passes just boomed. im done scrolling"
+  # 1.5.0 bot guilds (BotGuilds, GuildBossRuns), all through the megaphone gate. Tokens: {GUILD} {RIVAL} {LEVEL}
+  # {WHERE} (fm or henesys) {STYLE} {BOSS} {LOOT} {LOOTER} {CH}.
+  GuildRecruitCall:
+    text:
+      - "{GUILD} is recruiting! lv{LEVEL}+ whisper me or find me in {WHERE}"
+      - "join {GUILD}! {STYLE} guild, lv{LEVEL}+, whisper me"
+      - "{GUILD} has room, lv{LEVEL}+ come say hi in {WHERE}"
+      - "looking for a guild? {GUILD} is recruiting, whisper me"
+  GuildJab:
+    text:
+      - "{GUILD} > {RIVAL} lol"
+      - "{RIVAL} still cant clear anything lol"
+      - "shoutout to {RIVAL} for always being second"
+      - "{RIVAL} pls stop following us to our maps"
+  GuildBossCall:
+    text:
+      - "{GUILD} {BOSS} run now ch{CH}, members to the entrance!"
+      - "{GUILD} going {BOSS} ch{CH}, last call"
+  GuildBossWin:
+    text:
+      - "gg {GUILD} {BOSS} down!! grats {LOOTER} on the {LOOT}"
+      - "{GUILD} cleared {BOSS} tonight ^^"
+  GuildBossFail:
+    text:
+      - "{GUILD} wiped at {BOSS} lol we will be back"

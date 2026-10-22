@@ -297,7 +297,16 @@ public class SocialHotPotatoManager {
     private void doMegaphone(Character bot) {
         String category = selectWeightedMegaCategory();
         if (category == null) return;
-        String line = getRandomLine(MEGA_DIALOGUE_PATH, MEGA_BOT_TYPE, category);
+        String line;
+        if ("GuildRecruitment".equals(category)) {
+            // 1.5.0: recruit for a real bot guild, by one of its members; no bot guild = no guild megaphone
+            Object[] recruit = soloMapling.ArtificialPlayer.BotGuildSystem.BotGuilds.ambientRecruit(bot, random);
+            if (recruit == null) return;
+            bot = (Character) recruit[0];
+            line = (String) recruit[1];
+        } else {
+            line = getRandomLine(MEGA_DIALOGUE_PATH, MEGA_BOT_TYPE, category);
+        }
         if (line == null || !BotMegaphoneGate.tryAcquire()) return;
 
         // An avatar megaphone shows 4 lines of 13 characters; longer lines would be cut off, so they go super.

@@ -7480,6 +7480,7 @@ public class Character extends AbstractCharacterObject {
 
         if (this.guildid > 0) {
             getGuild().broadcast(PacketCreator.levelUpMessage(2, level, name), this.getId());
+            soloMapling.ArtificialPlayer.BotGuildSystem.BotGuilds.onMemberLevelUp(this); // 1.5.0: a bot guildmate says gz
         }
 
         if (level % 20 == 0) {

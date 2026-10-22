@@ -163,6 +163,7 @@ public class BotGeneration {
         }
         addBotToServer(bot, client);
         BotBuddies.onBotLogin(bot); // ticket 49: its player buddies see it online; requests made while away are answered
+        soloMapling.ArtificialPlayer.BotGuildSystem.BotGuilds.onBotLogin(bot); // 1.5.0: its guild, before it shows on the map
         placeBotOnMap(bot, placePos, placeMap);
         placedBots.incrementAndGet();
         if (adopted) {
@@ -294,6 +295,7 @@ public class BotGeneration {
         BotRoster.recordSessions(java.util.List.of(fakechar), System.currentTimeMillis(), true);
         BotConversation.endAllOf(fakechar.getId()); // a bot leaving mid-chat still writes down what it heard
         BotBuddies.onBotLogout(fakechar); // ticket 49: its player buddies see it go offline
+        soloMapling.ArtificialPlayer.BotGuildSystem.BotGuilds.onBotLogout(fakechar); // 1.5.0: offline on its guild's list
         if (fakechar.getMap() != null) fakechar.getMap().removePlayer(fakechar);
         removeFromChannels(fakechar);
         world().getPlayerStorage().removePlayer(fakechar.getId());
