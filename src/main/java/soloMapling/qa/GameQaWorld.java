@@ -245,10 +245,14 @@ final class GameQaWorld implements QaWorld {
                 }
             }
             case "sense" -> {
+                // review 2026-10-22: the Decide call is HTTP - off the command thread; the answer follows as a message
                 String line = String.join(" ", args);
-                soloMapling.ArtificialPlayer.BotConvo.ConvoSense.Read r = soloMapling.ArtificialPlayer.BotConvo.ConvoSense.read(
-                        line, soloMapling.ArtificialPlayer.BotBrainSystem.ChatDecide.get());
-                out.add("\"" + line + "\": " + r.triage().describe() + " " + r.describe());
+                soloMapling.server.ExecutorServiceManager.runAsync(() -> {
+                    String said = senseLine(line);
+                    gm.yellowMessage(said);
+                    soloMapling.qa.QaLog.owner(soloMapling.qa.QaLog.Topic.CONVO, gm.getId(), "SENSE " + said);
+                });
+                out.add("reading \"" + line + "\" (the answer follows)");
             }
             case "thread" -> {
                 Character a = bots.size() > 0 ? BotHelpers.getCharFromChannelStorage(bots.get(0)) : null;
@@ -277,6 +281,13 @@ final class GameQaWorld implements QaWorld {
             default -> out.add("unknown chat step " + action);
         }
         return out;
+    }
+
+    /** How a line is read: rules, then the Decide call (blocking: call it off the command thread). */
+    static String senseLine(String line) {
+        soloMapling.ArtificialPlayer.BotConvo.ConvoSense.Read r = soloMapling.ArtificialPlayer.BotConvo.ConvoSense.read(
+                line, soloMapling.ArtificialPlayer.BotBrainSystem.ChatDecide.get());
+        return "\"" + line + "\": " + r.triage().describe() + " " + r.describe();
     }
 
     @Override

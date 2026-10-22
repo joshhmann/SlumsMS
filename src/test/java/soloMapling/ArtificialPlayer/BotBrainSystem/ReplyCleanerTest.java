@@ -89,4 +89,12 @@ class ReplyCleanerTest {
         assertEquals(Optional.of("brb pots..."), ReplyCleaner.chat("brb pots..."));
         assertEquals(Optional.of("gg"), ReplyCleaner.chat("gg \uD83D\uDE02"));
     }
+
+    @Test
+    void aModelReplyTalkingAboutBeingARobotNeverReachesChat() {
+        // ticket 59 review 2026-10-22: "im a robot" passed the assistant regex; the stronger check now runs on every reply
+        assertEquals(Optional.empty(), ReplyCleaner.chat("lol im a robot"));
+        assertEquals("ai talk", ReplyCleaner.voiceProblem("my programming says no"));
+        assertEquals(Optional.of("lol ya ant tunnel"), ReplyCleaner.chat("lol ya ant tunnel"));
+    }
 }

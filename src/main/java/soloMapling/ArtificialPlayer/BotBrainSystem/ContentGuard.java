@@ -75,7 +75,12 @@ public final class ContentGuard {
         return problem(line);
     }
 
-    private static final Pattern AI_TALK = Pattern.compile("\\b(ai|a\\.i\\.|bot|bots|robot|program|programmed|model|chatgpt"
+    /** Whether a line talks about AI, bots, models or prompts (a bot must never; review 2026-10-22). */
+    public static boolean aiTalk(String line) {
+        return line != null && AI_TALK.matcher(normalise(line)).find();
+    }
+
+    private static final Pattern AI_TALK = Pattern.compile("\\b(ai|a\\.i\\.|bot|bots|robot|program|programmed|programming|model|chatgpt"
             + "|gpt|llm|prompt|algorithm|artificial|machine|computer generated|language)\\b");
 
     /** Whether the line is safe to say. */

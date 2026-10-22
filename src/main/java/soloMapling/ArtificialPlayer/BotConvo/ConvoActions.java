@@ -20,6 +20,7 @@ import soloMapling.ArtificialPlayer.BotTypes.TrainingBot;
 import soloMapling.ArtificialPlayer.ScriptedReplies;
 import soloMapling.qa.QaLog;
 
+import java.util.List;
 import java.util.Locale;
 import java.util.Map;
 import java.util.concurrent.ConcurrentHashMap;
@@ -209,8 +210,8 @@ public final class ConvoActions {
         switch (action) {
             case COME -> {
                 if (!yes) {
-                    return result(Outcome.COME_NO, "Say no, you are not coming over right now (" + d.reason() + ").",
-                            "come_no");
+                    return tooFar(d) ? tooFar(Outcome.COME_NO) : result(Outcome.COME_NO,
+                            "Say no, you are not coming over right now (" + d.reason() + ").", "come_no");
                 }
                 String where = mapWord(f.targetMap());
                 if (!f.targetIsHere()) {
@@ -227,8 +228,8 @@ public final class ConvoActions {
             }
             case HELP -> {
                 if (!yes) {
-                    return result(Outcome.HELP_NO, "Say no, you cannot help them hunt right now (" + d.reason() + ").",
-                            "help_no");
+                    return tooFar(d) ? tooFar(Outcome.HELP_NO) : result(Outcome.HELP_NO,
+                            "Say no, you cannot help them hunt right now (" + d.reason() + ").", "help_no");
                 }
                 if (!f.targetIsHere()) {
                     walkedAt.put(pair(chr.getId(), player.getId()), now);
@@ -239,8 +240,8 @@ public final class ConvoActions {
             }
             case GUIDE -> {
                 if (!yes) {
-                    return result(Outcome.GUIDE_NO, "Say you cannot show them the way right now (" + d.reason() + ").",
-                            "guide_no");
+                    return tooFar(d) ? tooFar(Outcome.GUIDE_NO) : result(Outcome.GUIDE_NO,
+                            "Say you cannot show them the way right now (" + d.reason() + ").", "guide_no");
                 }
                 walkedAt.put(pair(chr.getId(), player.getId()), now);
                 effects.walkTo(chr, f.targetMap(), null);
@@ -278,7 +279,8 @@ public final class ConvoActions {
                     return result(Outcome.MOOD, "They were rude: answer with short game-only trash talk (gear, level,"
                             + " job, deaths, KS), never real life, no slurs, no threats.", "insult_back");
                 }
-                return result(Outcome.MOOD_NO, "Shrug it off, short and plain.", "insult_back");
+                // review 2026-10-22: a refused insult (no grudge, @botdrama off) falls back to a neutral brush-off
+                return result(Outcome.MOOD_NO, "Shrug it off, short and plain, no insult.", "shrug");
             }
             case FLIRT -> {
                 if (yes) {
@@ -293,6 +295,19 @@ public final class ConvoActions {
                 return BotChatActions.Result.NONE;
             }
         }
+    }
+
+    private static boolean tooFar(ConvoGates.Decision d) {
+        return ConvoGates.TOO_FAR.equals(d.reason());
+    }
+
+    private static final List<String> TOO_FAR_LINES = List.of("too far lol", "thats way too far", "nah too far rn",
+            "too far for me lol");
+
+    /** A place the bot cannot walk to: it says so, and nothing moves. */
+    private static BotChatActions.Result tooFar(Outcome outcome) {
+        return new BotChatActions.Result(outcome, "Say it is too far to go there right now, casually.",
+                TOO_FAR_LINES.get(java.util.concurrent.ThreadLocalRandom.current().nextInt(TOO_FAR_LINES.size())), null);
     }
 
     private static BotChatActions.Result result(Outcome outcome, String fact, String list) {
@@ -319,7 +334,8 @@ public final class ConvoActions {
 
     static void qa(Character bot, Character player, String message) {
         if (QaLog.on(QaLog.Topic.CONVO)) { // !qa cv-1, cv-3
-            QaLog.map(QaLog.Topic.CONVO, player.getMapId(), bot.getName() + " <- " + player.getName() + ": " + message);
+            QaLog.map(QaLog.Topic.CONVO, player.getMapId(), bot.getName() + " <- player "
+                    + ConvoQuality.hash(player.getId()) + ": " + ConvoQuality.anonymise(message, player.getName()));
         }
     }
 
@@ -329,6 +345,8 @@ public final class ConvoActions {
         @Override
         public void grindAt(BotSM bot, int mapId) {
             int id = bot.getChr().getId();
+            // the walk a player asked for never warps (review 2026-10-22): its own trips give up instead
+            soloMapling.ArtificialPlayer.GCMoveSystem.GCMovement.forbidWarps(bot.getChr(), HOLD_MS);
             soloMapling.worldevents.WorldEventSteer.hold(id, mapId);
             if (bot instanceof TrainingBot tb && bot.getChr().getMapId() != mapId) {
                 tb.callToEvent(); // leaves its spot at the next tick and walks to the held map
@@ -355,6 +373,7 @@ public final class ConvoActions {
                     log.debug("No spawn point for {} on {}", bot.getName(), mapId, e);
                 }
             }
+            soloMapling.ArtificialPlayer.GCMoveSystem.GCMovement.forbidWarps(bot, HOLD_MS);
             soloMapling.ArtificialPlayer.GCMoveSystem.GCMovement.travelTo(bot, mapId, x, y);
         }
 
@@ -402,7 +421,16 @@ public final class ConvoActions {
                             ? soloMapling.ArtificialPlayer.BotBuffRequestSystem.BotBuffRequestHandler.buffProblem(chr, player, line)
                             : null,
                     recentlyWalked(chr.getId(), player.getId(), System.currentTimeMillis()),
-                    read.intent() == ConvoIntent.APOLOGY, read.tone() == ConvoSense.Tone.RUDE);
+                    read.intent() == ConvoIntent.APOLOGY, read.tone() == ConvoSense.Tone.RUDE,
+                    target >= 0 && walkable(chr, target));
+        }
+
+        static boolean walkable(Character bot, int target) {
+            try {
+                return soloMapling.ArtificialPlayer.GCMoveSystem.GCMovement.walkable(bot, target);
+            } catch (RuntimeException | LinkageError e) {
+                return false; // no world graph: do not promise a walk
+            }
         }
 
         static ConvoGates.BotKind kindOf(BotSM bot) {

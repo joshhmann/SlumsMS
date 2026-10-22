@@ -76,7 +76,10 @@ public final class BotChatActions {
                 case PARTY_DECLINED, PARTY_WARY, FOLLOW_DECLINED, TRADE_DECLINED, COME_NO, HELP_NO, GUIDE_NO, BUFF_NO,
                      BUDDY_NO -> !yes || no;
                 case MAKEUP_YES, MOOD -> true;
-                case MOOD_NO -> !soloMapling.ArtificialPlayer.BotBrainSystem.ContentGuard.flirty(reply);
+                // a refused mood: no flirt and no trash talk in the words either
+                case MOOD_NO -> !soloMapling.ArtificialPlayer.BotBrainSystem.ContentGuard.flirty(reply)
+                        && soloMapling.ArtificialPlayer.BotAffinitySystem.ChatTone.rule(reply, null).orElse(null)
+                        != soloMapling.ArtificialPlayer.BotAffinitySystem.ChatTone.Tone.RUDE;
                 case PARTY_ALREADY -> text.contains("party") || text.contains(" pt") || no;
                 case TRADE_SHOP -> mustMention != null ? text.contains(mustMention)
                         : text.contains("shop") || text.contains("store");

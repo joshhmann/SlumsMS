@@ -56,6 +56,8 @@ public final class ScriptedReplies {
     static final List<String> INSULT_BACK = List.of("ok noob", "says u lol", "cool story", "whatever scrub", "k bye");
     static final List<String> FLIRT_BACK = List.of("hehe stop", "lol ur sweet", "aww", "stoppp");
     static final List<String> FLIRT_NO = List.of("lol thx", "uh ok", "haha ok", "lol");
+    /** A neutral brush-off: never an insult (an insult the gate refused, @botdrama off). */
+    static final List<String> SHRUG = List.of("ok", "k", "...", "lol ok", "uh ok", "mhm", "alright then");
 
     /** A line from one of the lists above, by name (ConvoActions picks by outcome). */
     public static String outcome(String list) {
@@ -75,6 +77,7 @@ public final class ScriptedReplies {
             case "insult_back" -> INSULT_BACK;
             case "flirt_back" -> FLIRT_BACK;
             case "flirt_no" -> FLIRT_NO;
+            case "shrug" -> SHRUG;
             default -> TALK;
         });
     }
@@ -133,6 +136,11 @@ public final class ScriptedReplies {
             case BYE -> BYE;
             default -> TALK;
         });
+    }
+
+    /** A neutral brush-off (ticket 59 review: with @botdrama off a bot never trash-talks back). */
+    public static String shrug() {
+        return pick(SHRUG);
     }
 
     /** An in-character brush-off for a flagged line. */

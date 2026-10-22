@@ -93,6 +93,38 @@ class ConvoQualityTest {
     }
 
     @Test
+    void thePlayersNameNeverReachesTheTranscriptOrTheRatings() throws Exception {
+        // review 2026-10-22: recognition and buddy lines carried the name in the text itself
+        System.setProperty("solomapling.convo.transcriptDir", dir.resolve("logs").toString());
+        System.setProperty("solomapling.convo.dataDir", dir.resolve("data").toString());
+        ConvoQuality.writeFilesForTest(true);
+        try {
+            Character bot = chr(BotStore.BOT_ID_BASE + 9, "Kimchi");
+            Character josh = chr(4007, "xJoshx");
+            ConvoQuality.said(bot, josh, "oh hey xJoshx, josh u still a page?", new ConvoLines.Line("x", -1, "llm"), "LLM",
+                    LOWER, "yo its XJOSHX", 700);
+            ConvoQuality.rate(josh, false, "");
+            ConvoQuality.flushForTest();
+            String transcript = java.nio.file.Files.readString(ConvoQuality.transcriptFile(java.time.LocalDate.now()));
+            String ratings = java.nio.file.Files.readString(ConvoQuality.ratingsFile());
+            for (String text : List.of(transcript, ratings)) {
+                assertTrue(!text.toLowerCase().contains("josh"), text);
+                assertTrue(text.contains("{player}"), text);
+            }
+        } finally {
+            System.clearProperty("solomapling.convo.transcriptDir");
+            System.clearProperty("solomapling.convo.dataDir");
+        }
+    }
+
+    @Test
+    void anonymiseReplacesWholeNamesOnly() {
+        assertEquals("hi {player}, {player} here", ConvoQuality.anonymise("hi Pinky, pinky here", "Pinky"));
+        assertEquals("pinkyy is someone else", ConvoQuality.anonymise("pinkyy is someone else", "Pinky"));
+        assertEquals("{player} and {player}", ConvoQuality.anonymise("xKaizx and kaiz", "xKaizx"));
+    }
+
+    @Test
     void thePlayerIsAHashNeverAName() {
         assertTrue(!ConvoQuality.hash(4006).contains("4006"));
         assertEquals(ConvoQuality.hash(4006), ConvoQuality.hash(4006));

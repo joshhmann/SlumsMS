@@ -495,7 +495,11 @@ public final class BotConversation {
                     kind + "/" + triage.conSource().name().toLowerCase() + ", ignored");
             return;
         }
-        deliver(session, bank(session, soloMapling.ArtificialPlayer.BotConvo.ConvoLines.key(triage.con()), null,
+        // review 2026-10-22: with @botdrama off a rude player gets a neutral brush-off, never trash talk back
+        boolean neutral = triage.con() == ChatTriage.Con.HARASSMENT
+                && soloMapling.ArtificialPlayer.BotAffinitySystem.BotAffinity.optedOut(player.getId());
+        deliver(session, neutral ? new soloMapling.ArtificialPlayer.BotConvo.ConvoLines.Line(ScriptedReplies.shrug(), -1,
+                        "scripted") : bank(session, soloMapling.ArtificialPlayer.BotConvo.ConvoLines.key(triage.con()), null,
                         ScriptedReplies.brushOff(triage.con())), asked, ChatStats.Tier.FLAGGED,
                 kind + "/" + triage.conSource().name().toLowerCase(), new Cue(triage, BotChatActions.Outcome.NONE, line));
     }

@@ -32,6 +32,8 @@ public final class CloudBudget {
     private final Path file;
     private LocalDate day;
     private double spent;
+    /** Worst-case cost of calls in flight (reserved before they go out, settled when they come back). */
+    private double reserved;
     private long calls;
     private long skipped;
 
@@ -55,19 +57,43 @@ public final class CloudBudget {
         if (!t.equals(day)) {
             day = t;
             spent = 0;
+            reserved = 0;
             calls = 0;
             skipped = 0;
         }
     }
 
-    /** Whether a call may go out now (spend so far below the cap). Counts a skip when not. */
+    /** Whether anything is left today (spent plus calls in flight below the cap). Does not reserve. */
     public synchronized boolean canSpend() {
         roll();
-        if (dailyUsd <= 0 || spent >= dailyUsd) {
+        return dailyUsd > 0 && spent + reserved < dailyUsd;
+    }
+
+    /**
+     * Reserves a call's worst-case cost before it goes out. False (and nothing reserved) when it would not fit under
+     * the cap with everything already spent and in flight: the hard cap. Settle with {@link #settle}.
+     */
+    public synchronized boolean reserve(double worstUsd) {
+        roll();
+        if (dailyUsd <= 0 || spent + reserved + worstUsd > dailyUsd) {
             skipped++;
             return false;
         }
+        reserved += worstUsd;
         return true;
+    }
+
+    /** A reserved call came back: frees its reservation and charges what it really used (never more than reserved). */
+    public synchronized void settle(double reservedUsd, long inTokens, long outTokens) {
+        roll();
+        reserved = Math.max(0, reserved - reservedUsd);
+        spent += Math.min(reservedUsd, cost(Math.max(0, inTokens), Math.max(0, outTokens)));
+        calls++;
+        save();
+    }
+
+    synchronized double reservedNow() {
+        return reserved;
     }
 
     /** The cost of a call in USD. */

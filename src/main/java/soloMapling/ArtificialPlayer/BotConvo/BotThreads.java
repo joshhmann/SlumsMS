@@ -167,16 +167,16 @@ public final class BotThreads {
             }
             int channel = channelOf(map);
             long k = key(channel, map.getId());
-            Long next = nextAt.get(k);
-            if (next != null && now < next) {
+            long gap = gapMs(rng);
+            if (!due(k, now)) {
                 continue;
             }
-            nextAt.put(k, now + gapMs(rng));
             if (rng.nextDouble() >= mapWeight(map)) {
+                defer(k, now + gap); // this map rolled no this time: its next roll is a gap away
                 continue;
             }
             List<Character> pair = pickPair(map, rng);
-            if (pair != null) {
+            if (pair != null && claim(k, now, gap)) {
                 run(map, channel, pair, null, now);
             }
         }
@@ -203,17 +203,45 @@ public final class BotThreads {
         return started.size() < (int) ConvoSwitches.num("threadsPer10Min", 6);
     }
 
-    private static synchronized void noteStarted(long now) {
+    static synchronized boolean due(long mapKey, long now) {
+        Long next = nextAt.get(mapKey);
+        return next == null || now >= next;
+    }
+
+    static synchronized void defer(long mapKey, long until) {
+        nextAt.put(mapKey, until);
+    }
+
+    /**
+     * One atomic check-and-record for both limits (review 2026-10-22: overlapping ticks could pass both checks): the
+     * world's threads per 10 minutes and the map's gap. True when this thread may start; both are then recorded.
+     */
+    static synchronized boolean claim(long mapKey, long now, long gapMs) {
+        if (!budgetLeft(now) || !due(mapKey, now)) {
+            return false;
+        }
         started.addLast(now);
+        nextAt.put(mapKey, now + gapMs);
+        return true;
     }
 
     /** Towns and the FM 1, grind maps 0.1, boss and event maps 0. */
     static double mapWeight(MapleMap map) {
-        return mapWeight(map.getId(), map.getEventInstance() != null, map.isTown(), map.getAllMonsters().isEmpty());
+        return mapWeight(map.getId(), map.getEventInstance() != null || map.isEventMap(), map.isTown(),
+                map.getAllMonsters().isEmpty());
+    }
+
+    /**
+     * Never on a boss map, an event map (with or without an instance attached: the Jewel event's empty maps) or a
+     * mini-dungeon (review 2026-10-22).
+     */
+    static boolean excluded(int mapId, boolean event) {
+        return event || soloMapling.ArtificialPlayer.BotChatTuning.isBossMap(mapId)
+                || server.maps.MiniDungeonInfo.isDungeonMap(mapId);
     }
 
     static double mapWeight(int mapId, boolean event, boolean town, boolean noMobs) {
-        if (soloMapling.ArtificialPlayer.BotChatTuning.isBossMap(mapId) || event) {
+        if (excluded(mapId, event)) {
             return 0;
         }
         if (mapId >= 910000000 && mapId <= 910000022 || town || noMobs) {
@@ -300,7 +328,6 @@ public final class BotThreads {
         live.put(key(channel, map.getId()), l);
         lastThreadOf.put(a.getId(), l);
         lastThreadOf.put(b.getId(), l);
-        noteStarted(now);
         qa(map.getId(), "THREAD " + a.getName() + " + " + b.getName() + " on " + map.getId() + ": " + topic.words
                 + (about == null ? "" : " (" + about + ")"));
         if (BotBrains.get().isLive() && !ConvoSwitches.forceBank()) {
@@ -458,7 +485,7 @@ public final class BotThreads {
         if (l == null || now > l.endsAt) {
             return null;
         }
-        qa(mapId, "JOIN " + playerName + " jumps into " + l.names + " (" + l.topic.words + "): " + line);
+        qa(mapId, "JOIN a player jumps into " + l.names + " (" + l.topic.words + "): " + ConvoQuality.anonymise(line, playerName));
         return l.lastSpeakerId;
     }
 

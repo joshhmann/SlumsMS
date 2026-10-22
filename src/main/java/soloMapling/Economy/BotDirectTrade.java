@@ -555,9 +555,11 @@ public final class BotDirectTrade {
                 + ". Reply with one short casual chat line (lowercase is fine, no quotes, no emojis). " + fact
                 + (mustMention != null ? " Write the price exactly as " + mustMention + "." : "")
                 + " Never name any other price.";
-        brain.complete(player.getId(), List.of(BotBrain.Turn.system(system), BotBrain.Turn.user("(your turn)")))
+        // ticket 59: the player is haggling with the bot right now - a player's reply (the cloud may overflow it)
+        brain.reply(soloMapling.ArtificialPlayer.BotBrainSystem.Priority.PLAYER, player.getId(),
+                        List.of(BotBrain.Turn.system(system), BotBrain.Turn.user("(your turn)")))
                 .thenAccept(reply -> {
-                    String r = reply.orElse(null);
+                    String r = reply.map(soloMapling.ArtificialPlayer.BotConvo.ConvoContract.Reply::text).orElse(null);
                     boolean fits = r != null && !r.isBlank() && (mustMention == null
                             || r.toLowerCase(Locale.ROOT).contains(mustMention.toLowerCase(Locale.ROOT)))
                             && (mustMention != null || HaggleBrain.price(r) < 0);

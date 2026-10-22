@@ -50,7 +50,8 @@ public final class BotBrains {
                 server.BOT_LLM_CLOUD_PRICE_IN_PER_MTOK, server.BOT_LLM_CLOUD_PRICE_OUT_PER_MTOK, System::currentTimeMillis,
                 java.time.ZoneId.systemDefault(), java.nio.file.Path.of(
                         soloMapling.ArtificialPlayer.BotConvo.ConvoSwitches.str("dataDir", "data/convo"), "cloud-budget.json"));
-        return new ChatRouter(local, cloud, budget, server.BOT_LLM_LOCAL_SLOW_MS, System::currentTimeMillis);
+        return new ChatRouter(local, cloud, budget, server.BOT_LLM_LOCAL_SLOW_MS, System::currentTimeMillis,
+                server.BOT_LLM_MAX_TOKENS);
     }
 
     /** The cloud overflow brain, or null when no cloud URL is configured. Its key: config, else the env. */

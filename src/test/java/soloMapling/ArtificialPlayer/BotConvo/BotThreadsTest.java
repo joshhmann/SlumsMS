@@ -40,6 +40,10 @@ class BotThreadsTest {
         assertEquals(0.1, BotThreads.mapWeight(105050000, false, false, false));
         assertEquals(0, BotThreads.mapWeight(105050000, true, false, false));
         assertEquals(0, BotThreads.mapWeight(280030000, false, false, false), "Zakum's altar");
+        // review 2026-10-22: event maps without an instance and mini-dungeons too
+        assertEquals(0, BotThreads.mapWeight(109010000, true, false, true), "an event map with no instance attached");
+        int dungeon = constants.id.MapId.HENESYS_PIG_FARM_BASE;
+        assertEquals(0, BotThreads.mapWeight(dungeon, false, false, true), "a mini-dungeon");
     }
 
     @Test
@@ -51,8 +55,48 @@ class BotThreadsTest {
         }
         System.setProperty("solomapling.convo.threadsPer10Min", "2");
         assertTrue(BotThreads.budgetLeft(1_000_000));
-        BotThreads.putLiveForTest(1, 1, 1, "a", 2, "b", BotThreads.Topic.LFG, 0); // not counted: only run() counts
+        BotThreads.putLiveForTest(1, 1, 1, "a", 2, "b", BotThreads.Topic.LFG, 0); // not counted: only claim() counts
         assertTrue(BotThreads.budgetLeft(1_000_000));
+    }
+
+    @Test
+    void bothLimitsAreOneAtomicClaim() throws Exception {
+        // review 2026-10-22: overlapping ticks could both pass the checks and start threads past the cap
+        System.setProperty("solomapling.convo.threadsPer10Min", "6");
+        long now = 5_000_000;
+        java.util.concurrent.atomic.AtomicInteger won = new java.util.concurrent.atomic.AtomicInteger();
+        java.util.concurrent.atomic.AtomicInteger sameMap = new java.util.concurrent.atomic.AtomicInteger();
+        java.util.concurrent.ExecutorService pool = java.util.concurrent.Executors.newFixedThreadPool(16);
+        java.util.concurrent.CountDownLatch go = new java.util.concurrent.CountDownLatch(1);
+        List<java.util.concurrent.Future<?>> fs = new java.util.ArrayList<>();
+        for (int i = 0; i < 64; i++) {
+            int map = i;
+            fs.add(pool.submit(() -> {
+                go.await();
+                if (BotThreads.claim(BotThreads.key(1, map % 40), now, 200_000)) {
+                    won.incrementAndGet();
+                }
+                if (BotThreads.claim(BotThreads.key(2, 777), now, 200_000)) {
+                    sameMap.incrementAndGet();
+                }
+                return null;
+            }));
+        }
+        go.countDown();
+        for (java.util.concurrent.Future<?> f : fs) {
+            f.get();
+        }
+        pool.shutdown();
+        assertEquals(6, won.get() + sameMap.get(), "never past the world cap");
+        assertTrue(sameMap.get() <= 1, "one map, one thread per gap");
+    }
+
+    @Test
+    void aMapIsDueAgainOnlyAfterItsGap() {
+        long k = BotThreads.key(1, 100000000);
+        assertTrue(BotThreads.claim(k, 1_000, 180_000));
+        assertTrue(!BotThreads.claim(k, 100_000, 180_000));
+        assertTrue(BotThreads.claim(k, 181_000, 180_000));
     }
 
     @Test

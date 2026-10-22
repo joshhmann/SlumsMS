@@ -112,6 +112,7 @@ final class GCTravel {
         // Ticket 03 transit state.
         final int rebirths;     // rebirth gates the route may pass (BotMapGates)
         boolean noFares;        // couldn't pay a fare: replan over free hops only
+        final boolean noWarp;   // ticket 59: a chat-asked walk - give up rather than warp anywhere
         boolean sellerVisited;  // walked past the ticket seller on this map already
         volatile boolean awaitingBoarding; // standing at a boarding NPC until the event opens entry
         volatile boolean aboard;           // on a waiting room / deck / ride map
@@ -124,7 +125,34 @@ final class GCTravel {
             this.destMapId = destMapId;
             this.callback = callback;
             this.rebirths = soloMapling.ArtificialPlayer.BotTravelSystem.BotMapGates.rebirthsOf(bot);
+            this.noWarp = warpsForbidden(bot.getId());
         }
+    }
+
+    /** Ticket 59: bots whose trips must never warp (a walk a player asked for in chat), until when. */
+    private static final Map<Integer, Long> NO_WARP_UNTIL = new java.util.concurrent.ConcurrentHashMap<>();
+
+    /** For {@code ms} from now every trip this bot starts gives up instead of warping (chat-asked walks). */
+    public static void forbidWarps(int botId, long ms) {
+        NO_WARP_UNTIL.put(botId, nowMs() + Math.max(0, ms));
+    }
+
+    static boolean warpsForbidden(int botId) {
+        Long until = NO_WARP_UNTIL.get(botId);
+        if (until == null) {
+            return false;
+        }
+        if (until < nowMs()) {
+            NO_WARP_UNTIL.remove(botId, until);
+            return false;
+        }
+        return true;
+    }
+
+    /** A no-warp trip gives up: logged, and its callback hears false. */
+    private static void giveUpNoWarp(Trip trip, String reason) {
+        BotLogger.log("[GCTravel] " + trip.bot.getName() + " gave up a chat-asked walk (no warps) - " + reason);
+        finish(trip, false);
     }
 
     static void travel(Character bot, int destMapId, Consumer<Boolean> callback) {
@@ -263,6 +291,10 @@ final class GCTravel {
                 finish(trip, false);
                 return;
             }
+            if (trip.noWarp) {
+                giveUpNoWarp(trip, "no route to " + trip.destMapId);
+                return;
+            }
             // Nothing connects the two maps at all - warp the remainder to the destination.
             warp(bot, trip.destMapId, "no portal or transit route to " + trip.destMapId);
             return;
@@ -293,6 +325,10 @@ final class GCTravel {
         if (sw != null) {
             Point trigger = BotScriptedWarp.portalPos(bot.getMap(), sw.portalName());
             if (trigger == null) {
+                if (trip.noWarp) {
+                    giveUpNoWarp(trip, "scripted portal '" + sw.portalName() + "' not on map " + cur);
+                    return;
+                }
                 warp(bot, nextHop, "scripted portal '" + sw.portalName() + "' not on map " + cur);
                 return;
             }
@@ -300,6 +336,10 @@ final class GCTravel {
                     "scripted portal '" + sw.portalName() + "' -> map " + nextHop,
                     () -> warpToPortal(bot, sw.toMapId(), sw.toPortalId(),
                             "scripted warp " + cur + " -> " + nextHop));
+            return;
+        }
+        if (trip.noWarp) {
+            giveUpNoWarp(trip, "no walkable portal on map " + cur + " to " + nextHop);
             return;
         }
         warp(bot, nextHop, "no walkable portal/transit/scripted-warp on map " + cur + " to " + nextHop);
@@ -527,7 +567,7 @@ final class GCTravel {
 
         // Absolute per-hop ceiling: whatever the physics looked like, a hop this old has failed.
         if (now - trip.hopStartAtMs >= HOP_MAX_MS) {
-            escape(bot, nextHop, giveUp, "HOP-CEILING: hop " + (HOP_MAX_MS / 1000) + "s old on map "
+            escape(trip, bot, nextHop, giveUp, "HOP-CEILING: hop " + (HOP_MAX_MS / 1000) + "s old on map "
                     + bot.getMapId() + " at (" + bp.x + "," + bp.y + "), intent: " + intent);
             return;
         }
@@ -587,7 +627,7 @@ final class GCTravel {
                 trip.softMinY = bp.y;
                 trip.softMaxY = bp.y;
             } else if (now - trip.softLockSinceMs >= SOFT_LOCK_MS) {
-                escape(bot, nextHop, giveUp, "SOFT-LOCK: confined to "
+                escape(trip, bot, nextHop, giveUp, "SOFT-LOCK: confined to "
                         + (trip.softMaxX - trip.softMinX) + "x" + (trip.softMaxY - trip.softMinY)
                         + "px for " + (SOFT_LOCK_MS / 1000) + "s on map " + bot.getMapId()
                         + " at (" + bp.x + "," + bp.y + "), intent: " + intent);
@@ -613,7 +653,7 @@ final class GCTravel {
             trip.lastPosY = bp.y;
             trip.hopProgressAtMs = now;
         } else if (now - trip.hopProgressAtMs > HOP_STUCK_MS) {
-            escape(bot, nextHop, giveUp, "stuck " + (HOP_STUCK_MS / 1000) + "s — not moving toward hop target on map " + bot.getMapId());
+            escape(trip, bot, nextHop, giveUp, "stuck " + (HOP_STUCK_MS / 1000) + "s — not moving toward hop target on map " + bot.getMapId());
             return;
         }
 
@@ -632,7 +672,11 @@ final class GCTravel {
     }
 
     /* A hop's escape hatch: warp the hop, or the hop's own giveUp when it must not be skipped. */
-    private static void escape(Character bot, int nextHop, Runnable giveUp, String reason) {
+    private static void escape(Trip trip, Character bot, int nextHop, Runnable giveUp, String reason) {
+        if (giveUp == null && trip.noWarp) {
+            giveUpNoWarp(trip, reason);
+            return;
+        }
         if (giveUp == null) {
             warp(bot, nextHop, reason);
             return;

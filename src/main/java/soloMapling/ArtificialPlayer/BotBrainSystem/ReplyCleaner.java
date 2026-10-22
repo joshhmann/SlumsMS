@@ -66,6 +66,9 @@ final class ReplyCleaner {
         if (REAL_WORLD.matcher(text).find()) {
             return "real-world reference";
         }
+        if (ContentGuard.aiTalk(text)) {
+            return "ai talk"; // ticket 59 review: "im a robot" passed the assistant regex; every model reply gets this
+        }
         return ContentGuard.problem(text); // 1.5.0 bot drama: PG-13 romance, game-only trash talk
     }
 

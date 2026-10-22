@@ -96,6 +96,16 @@ class ConvoActionsTest {
     }
 
     @Test
+    void aPlaceItCannotWalkToGetsTooFarAndNothingMoves() {
+        facts = ConvoGatesTest.with(f -> { f[17] = false; return f; });
+        BotChatActions.Result r = ConvoActions.onIntent(bot(), chr(3012, "Josh"), ConvoSense.rules("come to ant tunnel"),
+                "come to ant tunnel");
+        assertEquals(BotChatActions.Outcome.COME_NO, r.outcome());
+        assertTrue(r.scripted().contains("too far"), r.scripted());
+        assertTrue(done.isEmpty(), done.toString());
+    }
+
+    @Test
     void aSecondWalkInTenMinutesIsRefusedByTheRealCooldown() {
         BotSM bot = bot();
         Character josh = chr(3003, "Josh");
@@ -158,6 +168,20 @@ class ConvoActionsTest {
         assertFalse(flirt.done(), "a flirt tag needs a flirty player");
         assertTrue(done.isEmpty(), done.toString());
         assertEquals(null, ConvoActions.tagProblem(ConvoAction.COME, "k omw", ConvoSense.rules("lol")));
+    }
+
+    @Test
+    void aRefusedInsultIsANeutralBrushOffNeverTrashTalk() {
+        // review 2026-10-22: with @botdrama off the fallback was "ok noob" / "whatever scrub"
+        facts = ConvoGatesTest.with(f -> { f[2] = true; f[4] = true; f[16] = true; return f; });
+        for (int i = 0; i < 30; i++) {
+            BotChatActions.Result r = ConvoActions.onIntent(bot(), chr(3020 + i, "Josh"), ConvoSense.rules("ur trash noob"),
+                    "ur trash noob");
+            assertEquals(BotChatActions.Outcome.MOOD_NO, r.outcome());
+            assertTrue(soloMapling.ArtificialPlayer.ScriptedReplies.seedLines("shrug").contains(r.scripted()), r.scripted());
+            assertFalse(r.fits("ok noob"), "trash talk in the model's words does not fit a refusal");
+            assertTrue(r.fits("lol ok"));
+        }
     }
 
     @Test

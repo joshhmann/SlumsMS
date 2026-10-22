@@ -61,7 +61,7 @@ class ChatRouterTest {
         }
     }
 
-    static final class FakeCloud implements BotBrain {
+    static class FakeCloud implements BotBrain {
         final AtomicInteger calls = new AtomicInteger();
 
         public CompletableFuture<Optional<String>> complete(int playerId, List<Turn> c) {
@@ -151,15 +151,59 @@ class ChatRouterTest {
 
     @Test
     void theDailyCapStopsTheCloudUntilMidnight() {
-        // price 1 USD per token in this test: one call is about 104 input + a few output tokens -> over a $50 cap
-        ChatRouter r = router(50);
+        // price 1 USD per token in this test: a call reserves ~286 tokens and uses ~110 -> one call fits a $300 cap
+        ChatRouter r = router(300);
         local.free = 0;
         assertEquals("cloud reply here", ask(r, Priority.PLAYER));
-        assertTrue(r.budget().spentToday() >= 50, r.budget().describe());
+        assertTrue(r.budget().spentToday() >= 100, r.budget().describe());
         assertEquals("local", ask(r, Priority.PLAYER), "over the cap: back to the local queue");
         assertEquals(1, cloud.calls.get());
         now.addAndGet(13 * 3_600_000L); // past midnight
         assertEquals("cloud reply here", ask(r, Priority.PLAYER));
+    }
+
+    @Test
+    void theCapIsHardCallsInFlightReserveTheirWorstCase() {
+        // review 2026-10-22: charging after the call let several calls pass just under the cap
+        CompletableFuture<Optional<String>> pending = new CompletableFuture<>();
+        AtomicInteger cloudCalls = new AtomicInteger();
+        BotBrain slowCloud = new FakeCloud() {
+            @Override
+            public CompletableFuture<Optional<String>> complete(int playerId, List<Turn> c) {
+                cloudCalls.incrementAndGet();
+                return pending;
+            }
+        };
+        // $1 per million tokens; a call reserves about (412/2 + 16) in + 64 out = ~286 tokens -> $0.000286
+        CloudBudget budget = new CloudBudget(0.0004, 1, 1, now::get, ZONE, null);
+        ChatRouter r = new ChatRouter(local, slowCloud, budget, 2500, now::get, 64);
+        local.free = 0;
+        CompletableFuture<Optional<ConvoContract.Reply>> first = r.reply(Priority.PLAYER, 7, conv());
+        assertEquals("local", ask(r, Priority.PLAYER), "the second does not fit while the first is in flight");
+        assertEquals(1, cloudCalls.get());
+        pending.complete(Optional.of("ok"));
+        first.join();
+        assertTrue(budget.spentToday() <= 0.0004, "never past the cap: " + budget.describe());
+        assertEquals(0, budget.reservedNow(), 1e-12);
+    }
+
+    @Test
+    void aReservationThatDoesNotFitRefusesTheCall() {
+        CloudBudget budget = new CloudBudget(0.0001, 1, 1, now::get, ZONE, null);
+        ChatRouter r = new ChatRouter(local, cloud, budget, 2500, now::get, 64);
+        local.free = 0;
+        assertEquals("local", ask(r, Priority.PLAYER), "worst case > cap: no cloud call at all");
+        assertEquals(0, cloud.calls.get());
+        assertEquals(0, budget.spentToday(), 1e-12);
+    }
+
+    @Test
+    void legacyCompleteCallsAreAmbientAndNeverReachTheCloud() {
+        // review 2026-10-22: BotRivalry.roast (an on-sight taunt) went through complete() as a player reply
+        ChatRouter r = router(1000);
+        local.free = 0;
+        assertEquals(Optional.empty(), r.complete(7, conv()).join());
+        assertEquals(0, cloud.calls.get());
     }
 
     @Test

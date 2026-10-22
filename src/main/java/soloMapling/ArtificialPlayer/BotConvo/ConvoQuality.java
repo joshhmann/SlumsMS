@@ -89,6 +89,11 @@ public final class ConvoQuality {
         writeFiles = on;
     }
 
+    /** Test seam: waits until every queued file write is done. */
+    static void flushForTest() throws Exception {
+        writer.submit(() -> { }).get(5, TimeUnit.SECONDS);
+    }
+
     static void resetForTest() {
         lastToPlayer.clear();
         lastThreadOnMap.clear();
@@ -168,13 +173,17 @@ public final class ConvoQuality {
     public static void said(Character bot, Character player, String line, ConvoLines.Line source, String tier,
                             ConvoPersona persona, String asked, long ms) {
         String src = source == null ? "scripted" : source.fromBank() ? "bank" : source.source();
+        // privacy (review 2026-10-22): the player's name never reaches a transcript, a rating or a QA line
+        String name = player.getName();
+        asked = anonymise(asked, name);
+        line = anonymise(line, name);
         Said s = new Said(System.currentTimeMillis(), bot.getId(), bot.getName(), player.getId(), asked, line, src,
                 source == null ? -1 : source.bankId(), persona == null ? null : persona.voice().label(),
                 tier.toLowerCase(Locale.ROOT), ms, player.getMapId());
         lastToPlayer.put(player.getId(), s);
         transcript(s, player.getId());
         if (QaLog.on(QaLog.Topic.CONVO)) { // !qa cv-4, cv-6, cv-7
-            QaLog.map(QaLog.Topic.CONVO, player.getMapId(), "SAID " + bot.getName() + " -> " + player.getName() + " ["
+            QaLog.map(QaLog.Topic.CONVO, player.getMapId(), "SAID " + bot.getName() + " -> player " + hash(player.getId()) + " ["
                     + s.tier() + ", " + src + (s.bankId() >= 0 ? "#" + s.bankId() : "") + ", " + s.voice() + ", " + ms
                     + " ms] " + line);
         }
@@ -198,6 +207,23 @@ public final class ConvoQuality {
             }
             QaLog.map(QaLog.Topic.CONVO, player.getMapId(), s.toString());
         }
+    }
+
+    /**
+     * The text with a player's name replaced by {@code {player}} (case-insensitive, whole words; an xX-wrapped name also
+     * by its bare middle), for anything written down.
+     */
+    public static String anonymise(String text, String playerName) {
+        if (text == null || playerName == null || playerName.isBlank()) {
+            return text;
+        }
+        String out = text.replaceAll("(?i)(?<![A-Za-z0-9])" + java.util.regex.Pattern.quote(playerName) + "(?![A-Za-z0-9])",
+                "{player}");
+        String bare = playerName.replaceAll("^[xX]+|[xX]+$", "");
+        if (bare.length() >= 4 && !bare.equalsIgnoreCase(playerName)) {
+            out = out.replaceAll("(?i)(?<![A-Za-z0-9])" + java.util.regex.Pattern.quote(bare) + "(?![A-Za-z0-9])", "{player}");
+        }
+        return out;
     }
 
     /** A short stable hash for a player in the transcript (never the name). */
@@ -305,7 +331,7 @@ public final class ConvoQuality {
             writer.execute(() -> append(f, row));
         }
         if (QaLog.on(QaLog.Topic.CONVO)) { // !qa cv-6
-            QaLog.map(QaLog.Topic.CONVO, player.getMapId(), "RATE " + (good ? "good" : "bad") + " by " + player.getName()
+            QaLog.map(QaLog.Topic.CONVO, player.getMapId(), "RATE " + (good ? "good" : "bad") + " by player " + hash(player.getId())
                     + ": " + s.botName() + " \"" + s.line() + "\" [" + s.source() + (s.bankId() >= 0 ? "#" + s.bankId() : "")
                     + "] " + (note == null ? "" : note) + " -> " + String.join(" ", out.subList(1, out.size())));
         }

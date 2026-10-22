@@ -48,12 +48,16 @@ public final class ConvoGates {
      * @param recentlyWalked  this bot already walked or guided for this player in the last 10 minutes
      * @param playerSorry     the player's line is an apology
      * @param playerRude      the player's line was rude
+     * @param targetWalkable  the bot can walk there: a route of walkable portals only (never a warp, review 2026-10-22)
      */
     public record Facts(boolean busy, boolean flagged, boolean hostile, boolean wary, boolean dramaOptOut,
                         boolean mayFlirt, BotKind kind, boolean freeForScene, int targetMap, boolean targetIsHere,
                         boolean targetIsPlayers, boolean targetGrindable, boolean targetIsTown, String buffProblem,
-                        boolean recentlyWalked, boolean playerSorry, boolean playerRude) {
+                        boolean recentlyWalked, boolean playerSorry, boolean playerRude, boolean targetWalkable) {
     }
+
+    /** The reason when the place cannot be reached on foot: the bot says so ("too far lol"), it never warps. */
+    public static final String TOO_FAR = "too far to walk";
 
     private ConvoGates() {
     }
@@ -109,6 +113,9 @@ public final class ConvoGates {
         if (f.recentlyWalked()) {
             return Decision.no("walked for them recently");
         }
+        if (!f.targetWalkable()) {
+            return Decision.no(TOO_FAR);
+        }
         return switch (f.kind()) {
             case GRINDER -> f.targetGrindable() ? Decision.yes("grinds there") : Decision.no("grinding, not a map for it");
             case SOCIAL, WANDERER -> f.targetIsTown() ? Decision.yes("walks over") : Decision.no("stays in town");
@@ -135,6 +142,9 @@ public final class ConvoGates {
         if (!f.targetIsHere() && f.recentlyWalked()) {
             return Decision.no("walked for them recently");
         }
+        if (!f.targetIsHere() && !f.targetWalkable()) {
+            return Decision.no(TOO_FAR);
+        }
         return Decision.yes(f.targetIsHere() ? "grinds here" : "walks over to grind");
     }
 
@@ -156,6 +166,9 @@ public final class ConvoGates {
         }
         if (!f.freeForScene() || f.recentlyWalked()) {
             return Decision.no(f.recentlyWalked() ? "guided recently" : "busy with something");
+        }
+        if (!f.targetWalkable()) {
+            return Decision.no(TOO_FAR);
         }
         return Decision.yes("leads the way");
     }

@@ -48,7 +48,16 @@ public final class ChatRouter implements BotBrain {
     private final AtomicLong toCloud = new AtomicLong();
     private final AtomicLong forced = new AtomicLong();
 
+    /** Output tokens a cloud reply may use at most (its max_tokens): the worst case the budget reserves. */
+    private final int cloudMaxTokens;
+
     public ChatRouter(Slotted local, BotBrain cloud, CloudBudget budget, long slowMs, LongSupplier clock) {
+        this(local, cloud, budget, slowMs, clock, 64);
+    }
+
+    public ChatRouter(Slotted local, BotBrain cloud, CloudBudget budget, long slowMs, LongSupplier clock,
+                      int cloudMaxTokens) {
+        this.cloudMaxTokens = Math.max(1, cloudMaxTokens);
         this.local = local;
         this.cloud = cloud;
         this.budget = budget;
@@ -89,6 +98,19 @@ public final class ChatRouter implements BotBrain {
         if (priority == Priority.PLAYER) {
             lastPlayerAt = clock.getAsLong();
         }
+        double reservation = 0;
+        if (route == Route.CLOUD) {
+            // the hard cap: the worst case (input at two characters a token, the full max_tokens out) is reserved first
+            long chars = 0;
+            for (Turn t : conversation) {
+                chars += t.content() == null ? 0 : t.content().length();
+            }
+            reservation = budget.cost((chars + 1) / 2 + 16, cloudMaxTokens);
+            if (!budget.reserve(reservation)) {
+                route = Route.LOCAL;
+            }
+        }
+        final double reserved = reservation;
         switch (route) {
             case BANK -> {
                 (ConvoSwitches.forceBank() ? forced : toBank.get(priority)).incrementAndGet();
@@ -110,7 +132,7 @@ public final class ChatRouter implements BotBrain {
                             out = Math.max(1, usage[1]);
                         }
                     }
-                    budget.charge(in, out);
+                    budget.settle(reserved, in, out);
                     ChatStats.cloudCall(clock.getAsLong() - started, r.isPresent());
                     return r;
                 });
@@ -129,7 +151,8 @@ public final class ChatRouter implements BotBrain {
 
     @Override
     public CompletableFuture<Optional<String>> complete(int playerId, List<Turn> conversation) {
-        return reply(Priority.PLAYER, playerId, conversation).thenApply(o -> o.map(ConvoContract.Reply::text));
+        // legacy callers are not a player's own line (an on-sight roast, a GM test): never the cloud
+        return reply(Priority.AMBIENT, playerId, conversation).thenApply(o -> o.map(ConvoContract.Reply::text));
     }
 
     @Override

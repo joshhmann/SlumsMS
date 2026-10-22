@@ -47,6 +47,8 @@ public final class QaRun {
     private final List<Runnable> cancels = new ArrayList<>();
     private BufferedWriter out;
     private boolean stopped;
+    /** The log file failed (a full disk): no more lines, but stop() still runs every cleanup (review 2026-10-22). */
+    private boolean logBroken;
 
     QaRun(String scenarioId, int gmId, String gmName, Instant started, Path logDir, Set<QaLog.Topic> topics,
           Set<Integer> maps, Set<String> claims) {
@@ -160,7 +162,7 @@ public final class QaRun {
     }
 
     private synchronized void write(String kind, String message) {
-        if (out == null || stopped) {
+        if (out == null || stopped || logBroken) {
             return;
         }
         try {
@@ -172,7 +174,7 @@ public final class QaRun {
             out.newLine();
             out.flush();
         } catch (IOException e) {
-            stopped = true; // a full disk must not break the hook that called us
+            logBroken = true; // a full disk must not break the hook that called us, nor skip the cleanups at stop
         }
     }
 

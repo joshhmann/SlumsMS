@@ -27,14 +27,23 @@ public class RateCommand extends Command {
             return;
         }
         String note = params.length > 1 ? String.join(" ", java.util.Arrays.copyOfRange(params, 1, params.length)) : "";
-        List<String> out = switch (params[0].toLowerCase(java.util.Locale.ROOT)) {
-            case "good", "+", "up" -> ConvoQuality.rate(player, true, note);
-            case "bad", "-", "down" -> ConvoQuality.rate(player, false, note);
-            case "last" -> ConvoQuality.describeLast(player);
-            case "reload" -> List.of(soloMapling.ArtificialPlayer.BotConvo.ConvoTune.reload());
-            case "score" -> ConvoQuality.scoreNow(params.length > 1 ? params[1] : null);
-            default -> List.of("Syntax: !rate good|bad [note]  |  !rate last  |  !rate reload  |  !rate score [date]");
-        };
-        out.forEach(player::yellowMessage);
+        String what = params[0].toLowerCase(java.util.Locale.ROOT);
+        String day = params.length > 1 ? params[1] : null;
+        // review 2026-10-22: the tune file, the ratings file and the daily score are file IO - never on the
+        // command (packet) thread. The reply comes when the work is done.
+        executor.execute(() -> {
+            List<String> out = switch (what) {
+                case "good", "+", "up" -> ConvoQuality.rate(player, true, note);
+                case "bad", "-", "down" -> ConvoQuality.rate(player, false, note);
+                case "last" -> ConvoQuality.describeLast(player);
+                case "reload" -> List.of(soloMapling.ArtificialPlayer.BotConvo.ConvoTune.reload());
+                case "score" -> ConvoQuality.scoreNow(day);
+                default -> List.of("Syntax: !rate good|bad [note]  |  !rate last  |  !rate reload  |  !rate score [date]");
+            };
+            out.forEach(player::yellowMessage);
+        });
     }
+
+    /** Where the work runs: the server's async executor (a test seam). */
+    static volatile java.util.concurrent.Executor executor = soloMapling.server.ExecutorServiceManager::runAsync;
 }

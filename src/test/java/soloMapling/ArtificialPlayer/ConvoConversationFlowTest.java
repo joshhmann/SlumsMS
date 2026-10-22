@@ -113,7 +113,7 @@ class ConvoConversationFlowTest {
             }
         }, (bot, player, action, read, line) -> new soloMapling.ArtificialPlayer.BotConvo.ConvoGates.Facts(false, false,
                 false, false, false, false, soloMapling.ArtificialPlayer.BotConvo.ConvoGates.BotKind.GRINDER, true,
-                player.getMapId(), false, true, true, false, null, false, false, false));
+                player.getMapId(), false, true, true, false, null, false, false, false, true));
     }
 
     private PreparedStatement statement() throws Exception {
@@ -212,7 +212,7 @@ class ConvoConversationFlowTest {
             }
         }, (bot, player, action, read, line) -> new soloMapling.ArtificialPlayer.BotConvo.ConvoGates.Facts(false, false,
                 true, false, false, false, soloMapling.ArtificialPlayer.BotConvo.ConvoGates.BotKind.GRINDER, true,
-                105050000, false, false, true, false, null, false, false, false));
+                105050000, false, false, true, false, null, false, false, false, true));
         brainReply = Optional.of("sure omw");
         System.setProperty("solomapling.convo.persona", "false");
         try {

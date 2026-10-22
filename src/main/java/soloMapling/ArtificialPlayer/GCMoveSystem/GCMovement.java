@@ -430,6 +430,49 @@ public final class GCMovement {
                 GCTravel.savedReturn(bot), bot.getLevel());
     }
 
+    /* Ticket 59: for ms from now this bot's trips give up instead of warping (a walk a player asked for in chat). */
+    public static void forbidWarps(Character bot, long ms) {
+        if (bot != null) {
+            GCTravel.forbidWarps(bot.getId(), ms);
+        }
+    }
+
+    /*
+     * Ticket 59: whether a bot can WALK from its map to destMapId - a route exists and every hop on it is a walkable
+     * portal (no cab, boat or scripted warp). Chat-asked walks need this; anything else is refused ("too far lol").
+     */
+    public static boolean walkable(Character bot, int destMapId) {
+        if (bot == null || bot.getMap() == null) {
+            return false;
+        }
+        if (bot.getMapId() == destMapId) {
+            return true;
+        }
+        List<Integer> r = route(bot, destMapId);
+        return r != null && walkableHops(bot.getMapId(), r, GCWorldGraph.get());
+    }
+
+    static boolean walkableHops(int from, List<Integer> route, java.util.Map<Integer, int[]> portals) {
+        int at = from;
+        for (int next : route) {
+            int[] n = portals.get(at);
+            boolean found = false;
+            if (n != null) {
+                for (int m : n) {
+                    if (m == next) {
+                        found = true;
+                        break;
+                    }
+                }
+            }
+            if (!found) {
+                return false;
+            }
+            at = next;
+        }
+        return true;
+    }
+
     /* Ticket 03: what a route costs in fares for a bot of this job (each paid transit hop on it). */
     public static int routeFare(int fromMapId, List<Integer> route, int jobId) {
         int fare = 0;
