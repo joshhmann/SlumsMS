@@ -107,7 +107,7 @@ public final class WhisperHandler extends AbstractPacketHandler {
         BotSM brain = CharacterStorage.getBotById(bot.getId());
         int channel = user.getClient().getChannel() - 1;
         java.util.function.Consumer<String> whisperBack = line ->
-                user.sendPacket(PacketCreator.getWhisperReceive(bot.getName(), channel, false, line));
+                soloMapling.ArtificialPlayer.BotWhispers.send(user, bot.getName(), channel, line, true);
         if (brain == null || !BotConversation.say(brain, user, message, null, whisperBack)) {
             if (java.util.concurrent.ThreadLocalRandom.current().nextInt(3) == 0) {
                 whisperBack.accept(BUSY_WHISPERS.get(java.util.concurrent.ThreadLocalRandom.current().nextInt(BUSY_WHISPERS.size())));

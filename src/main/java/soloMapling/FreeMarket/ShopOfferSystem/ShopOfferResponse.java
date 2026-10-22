@@ -85,10 +85,9 @@ public class ShopOfferResponse {
             shop.broadcast(PacketCreator.getPlayerShopItemUpdate(shop));
 
             if (player.isLoggedin()) {
-                player.sendPacket(PacketCreator.getWhisperReceive(
-                        ownerName, player.getClient().getChannel(), false,
+                notifyPrice(player, ownerName, ownerId,
                         "Hey, I updated the price on " + itemName + " to " + formatPrice(acceptedPrice) + ". Come grab it! " + roomLabel
-                ));
+                );
             }
         }, delay);
     }
@@ -117,12 +116,19 @@ public class ShopOfferResponse {
             if (broadcastUpdate != null) broadcastUpdate.run();
 
             if (player.isLoggedin()) {
-                player.sendPacket(PacketCreator.getWhisperReceive(
-                        ownerName, player.getClient().getChannel(), false,
+                notifyPrice(player, ownerName, ownerId,
                         "Hey, I updated the price on " + itemName + " to " + formatPrice(acceptedPrice) + ". Come grab it! " + roomLabel
-                ));
+                );
             }
         }, delay);
+    }
+
+    private static void notifyPrice(Character player, String owner, int ownerId, String line) {
+        if (soloMapling.ArtificialPlayer.BotHelpers.isArtificial(ownerId)) {
+            soloMapling.ArtificialPlayer.BotWhispers.send(player, owner, player.getClient().getChannel(), line, false);
+        } else {
+            player.sendPacket(PacketCreator.getWhisperReceive(owner, player.getClient().getChannel(), false, line));
+        }
     }
 
     private static void acceptOffer(PlayerShop shop, Character owner, Character player,

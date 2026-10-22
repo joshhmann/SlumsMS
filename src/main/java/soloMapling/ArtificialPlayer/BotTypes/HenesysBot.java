@@ -218,7 +218,7 @@ public class HenesysBot extends BotSM {
         if (rollChanceInverse(20)) {
             try {
                 String line = getRandomResolvedLine(this, dialogueNode);
-                if (line != null) BotSpeak(getChr(), line);
+                if (line != null) soloMapling.ArtificialPlayer.BotCommandsPack.SocialCommands.BotAmbientSpeak(getChr(), line);
             } catch (Exception e) {
                 // dialogue YAML node missing, skip
             }

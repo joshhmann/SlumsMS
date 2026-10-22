@@ -1,6 +1,7 @@
 package soloMapling.ArtificialPlayer.BotTypes;
 
 import client.Character;
+import soloMapling.ArtificialPlayer.BotChatTuning;
 import soloMapling.ArtificialPlayer.BotChatterSystem.BotChatter;
 import soloMapling.ArtificialPlayer.BotFlavorSystem.BotFlavor;
 import soloMapling.ArtificialPlayer.BotFlavorSystem.LevelUpCongrats;
@@ -188,11 +189,11 @@ public class TownWandererBot extends BotSM {
     }
 
     private void doRandomChat(String dialogueNode) {
-        if (rollChanceInverse(20)) {
+        if (rng.nextDouble() < Math.min(1, 0.05 * BotChatTuning.multiplier(getChr().getMap()))) {
             try {
                 String line = getRandomResolvedLine(this, dialogueNode);
                 if (line != null) {
-                    BotSpeak(getChr(), line);
+                    soloMapling.ArtificialPlayer.BotCommandsPack.SocialCommands.BotAmbientSpeak(getChr(), line);
                 }
             } catch (Exception e) {
                 // dialogue node missing - skip quietly

@@ -134,6 +134,7 @@ public class Client extends ChannelInboundHandlerAdapter {
     private int visibleWorlds;
     private long lastNpcClick;
     private long lastPacket = System.currentTimeMillis();
+    private volatile long lastPlayerAction = System.currentTimeMillis();
     private int lang = 0;
 
     public byte autolog = 0;
@@ -213,6 +214,7 @@ public class Client extends ChannelInboundHandlerAdapter {
         if (handler != null && handler.validateState(this)) {
             try {
                 MonitoredChrLogger.logPacketIfMonitored(this, opcode, packet.getBytes());
+                notePlayerAction(opcode);
                 handler.handlePacket(packet, this);
             } catch (final Throwable t) {
                 final String chrInfo = player != null ? player.getName() + " on map " + player.getMapId() : "?";
@@ -270,6 +272,62 @@ public class Client extends ChannelInboundHandlerAdapter {
 
     public void updateLastPacket() {
         lastPacket = System.currentTimeMillis();
+    }
+
+    /** Movement and deliberate player input; keepalive, mob/pet movement and passive damage do not count. */
+    public void notePlayerAction(short opcode) {
+        if (isPlayerAction(opcode)) {
+            lastPlayerAction = System.currentTimeMillis();
+        }
+    }
+
+    public static boolean isPlayerAction(short opcode) {
+        for (net.opcodes.RecvOpcode action : PLAYER_ACTIONS) {
+            if (opcode == action.getValue()) {
+                return true;
+            }
+        }
+        return false;
+    }
+
+    private static final java.util.Set<net.opcodes.RecvOpcode> PLAYER_ACTIONS = java.util.EnumSet.of(
+            net.opcodes.RecvOpcode.MOVE_PLAYER, net.opcodes.RecvOpcode.CHANGE_MAP,
+            net.opcodes.RecvOpcode.CHANGE_MAP_SPECIAL, net.opcodes.RecvOpcode.CHANGE_CHANNEL,
+            net.opcodes.RecvOpcode.CLOSE_RANGE_ATTACK, net.opcodes.RecvOpcode.RANGED_ATTACK,
+            net.opcodes.RecvOpcode.MAGIC_ATTACK, net.opcodes.RecvOpcode.SPECIAL_MOVE,
+            net.opcodes.RecvOpcode.GENERAL_CHAT, net.opcodes.RecvOpcode.WHISPER,
+            net.opcodes.RecvOpcode.MULTI_CHAT, net.opcodes.RecvOpcode.SPOUSE_CHAT,
+            net.opcodes.RecvOpcode.NPC_TALK, net.opcodes.RecvOpcode.NPC_TALK_MORE,
+            net.opcodes.RecvOpcode.NPC_SHOP, net.opcodes.RecvOpcode.STORAGE,
+            net.opcodes.RecvOpcode.PLAYER_INTERACTION, net.opcodes.RecvOpcode.BUDDYLIST_MODIFY,
+            net.opcodes.RecvOpcode.PARTY_OPERATION, net.opcodes.RecvOpcode.GUILD_OPERATION,
+            net.opcodes.RecvOpcode.USE_ITEM, net.opcodes.RecvOpcode.USE_CASH_ITEM,
+            net.opcodes.RecvOpcode.ITEM_MOVE, net.opcodes.RecvOpcode.ITEM_SORT,
+            net.opcodes.RecvOpcode.USE_CHAIR, net.opcodes.RecvOpcode.CANCEL_CHAIR,
+            net.opcodes.RecvOpcode.FACE_EXPRESSION, net.opcodes.RecvOpcode.QUEST_ACTION,
+            net.opcodes.RecvOpcode.DISTRIBUTE_AP, net.opcodes.RecvOpcode.DISTRIBUTE_SP,
+            net.opcodes.RecvOpcode.USE_INNER_PORTAL, net.opcodes.RecvOpcode.USE_DOOR,
+            net.opcodes.RecvOpcode.ITEM_PICKUP, net.opcodes.RecvOpcode.MESO_DROP,
+            net.opcodes.RecvOpcode.USE_UPGRADE_SCROLL, net.opcodes.RecvOpcode.USE_SKILL_BOOK,
+            net.opcodes.RecvOpcode.USE_TELEPORT_ROCK, net.opcodes.RecvOpcode.USE_RETURN_SCROLL,
+            net.opcodes.RecvOpcode.USE_HYPERROCK, net.opcodes.RecvOpcode.USE_HAMMER,
+            net.opcodes.RecvOpcode.MAKER_SKILL, net.opcodes.RecvOpcode.USE_ITEM_REWARD,
+            net.opcodes.RecvOpcode.PET_COMMAND, net.opcodes.RecvOpcode.PET_CHAT,
+            net.opcodes.RecvOpcode.PET_FOOD, net.opcodes.RecvOpcode.SPAWN_PET,
+            net.opcodes.RecvOpcode.GIVE_FAME, net.opcodes.RecvOpcode.CHAR_INFO_REQUEST,
+            net.opcodes.RecvOpcode.MESSENGER, net.opcodes.RecvOpcode.NOTE_ACTION,
+            net.opcodes.RecvOpcode.RING_ACTION, net.opcodes.RecvOpcode.WEDDING_ACTION,
+            net.opcodes.RecvOpcode.WEDDING_TALK, net.opcodes.RecvOpcode.BBS_OPERATION,
+            net.opcodes.RecvOpcode.ALLIANCE_OPERATION, net.opcodes.RecvOpcode.MONSTER_CARNIVAL,
+            net.opcodes.RecvOpcode.DAMAGE_REACTOR, net.opcodes.RecvOpcode.SNOWBALL,
+            net.opcodes.RecvOpcode.COCONUT, net.opcodes.RecvOpcode.HIRED_MERCHANT_REQUEST,
+            net.opcodes.RecvOpcode.FREDRICK_ACTION, net.opcodes.RecvOpcode.REMOTE_STORE,
+            net.opcodes.RecvOpcode.OWL_ACTION, net.opcodes.RecvOpcode.OWL_WARP,
+            net.opcodes.RecvOpcode.USE_ITEMUI, net.opcodes.RecvOpcode.CASHSHOP_OPERATION,
+            net.opcodes.RecvOpcode.CASHSHOP_WINDOW_ACTION, net.opcodes.RecvOpcode.MTS_OPERATION);
+
+    public long getLastPlayerAction() {
+        return lastPlayerAction;
     }
 
     public long getLastPacket() {

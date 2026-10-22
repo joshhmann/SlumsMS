@@ -444,6 +444,9 @@ public final class BotConversation {
                 })
                 .run(() -> {
                     if (deliver != null) {
+                        if (PlayerBusy.isBusy(player)) {
+                            return;
+                        }
                         deliver.accept(line);
                     } else {
                         BotSpeak(bot, line);

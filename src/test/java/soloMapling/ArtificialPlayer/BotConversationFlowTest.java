@@ -123,6 +123,34 @@ class BotConversationFlowTest {
     }
 
     @Test
+    void aPendingWhisperIsDroppedIfThePlayerOpensATradeBeforeDelivery() throws Exception {
+        CompletableFuture<Optional<String>> answer = new CompletableFuture<>();
+        BotBrain brain = mock(BotBrain.class);
+        when(brain.isLive()).thenReturn(true);
+        when(brain.complete(anyInt(), org.mockito.ArgumentMatchers.any())).thenAnswer(call -> {
+            asked.add(call.getArgument(1));
+            return answer;
+        });
+        BotBrains.useForTest(brain);
+        BotSM bot = mock(TownWandererBot.class);
+        when(bot.getChr()).thenReturn(character(BotStore.BOT_ID_BASE + 40_000 + nextPlayer, "Walkr"));
+        Character player = org.mockito.Mockito.spy(character(nextPlayer++, "Josh"));
+        client.Client realPlayerClient = mock(client.Client.class);
+        org.mockito.Mockito.doReturn(realPlayerClient).when(player).getClient();
+        assertTrue(BotConversation.say(bot, player, "where should i train at level 35?", null, said::add));
+        waitFor(() -> !asked.isEmpty());
+        assertTrue(!asked.isEmpty(), "the reply is waiting on the brain");
+        java.util.concurrent.CountDownLatch checked = new java.util.concurrent.CountDownLatch(1);
+        org.mockito.Mockito.doAnswer(call -> {
+            checked.countDown();
+            return mock(server.Trade.class);
+        }).when(player).getTrade();
+        answer.complete(Optional.of("ant tunnel is good at 35"));
+        assertTrue(checked.await(5, java.util.concurrent.TimeUnit.SECONDS), "busy state checked at delivery");
+        assertTrue(said.isEmpty(), said.toString());
+    }
+
+    @Test
     void aFlaggedConSkipsTheModelGetsABrushOffAndLeavesANote() throws Exception {
         whisper("lend me 10m ill pay u back tmrw");
         waitFor(() -> !said.isEmpty());

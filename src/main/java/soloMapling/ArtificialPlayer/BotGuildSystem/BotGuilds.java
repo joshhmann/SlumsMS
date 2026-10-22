@@ -12,6 +12,8 @@ import net.server.world.Party;
 import net.server.world.PartyCharacter;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
+import soloMapling.ArtificialPlayer.BotWhispers;
+import soloMapling.ArtificialPlayer.PlayerBusy;
 import soloMapling.ArtificialPlayer.BotAffinitySystem.AffinityState;
 import soloMapling.ArtificialPlayer.BotAffinitySystem.BotAffinity;
 import soloMapling.ArtificialPlayer.BotChannels;
@@ -512,7 +514,7 @@ public final class BotGuilds {
     /** A real guild invite from a bot, through the stock invite flow (the player clicks accept as usual). */
     static boolean sendInvite(Character fromBot, Guild g, Character player) {
         try {
-            if (player.getGuildId() > 0 || !player.isLoggedinWorld()) {
+            if (PlayerBusy.isBusy(player) || player.getGuildId() > 0 || !player.isLoggedinWorld()) {
                 return false;
             }
             if (InviteCoordinator.createInvite(InviteType.GUILD, fromBot, g.getId(), player.getId())) {
@@ -959,9 +961,13 @@ public final class BotGuilds {
                 if (line == null) {
                     break;
                 }
+                if (!BotWhispers.send(p, bot.getName(),
+                        channelOf(bot) - 1, line, false)) {
+                    break;
+                }
                 whispered.put(p.getId(), now);
                 noteWorldWhisper(now);
-                p.sendPacket(PacketCreator.getWhisperReceive(bot.getName(), channelOf(bot) - 1, false, line));
+
                 Character from = bot;
                 ExecutorServiceManager.getScheduledExecutorService().schedule(() -> sendInvite(from, g, p),
                         6, TimeUnit.SECONDS);
@@ -1235,7 +1241,7 @@ public final class BotGuilds {
             if (player != null && line != null) {
                 Character live = online.apply(leaderId);
                 int ch = live != null ? channelOf(live) : channelOf(player);
-                player.sendPacket(PacketCreator.getWhisperReceive(leader.getName(), ch - 1, false, line));
+                BotWhispers.send(player, leader.getName(), ch - 1, line, false);
             }
             Server.getInstance().expelMember(leader, mc.getName(), pid);
             String what = leader.getName() + " kicked " + mc.getName() + " from " + gr.name() + " ("

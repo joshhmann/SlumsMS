@@ -2,6 +2,7 @@ package soloMapling.ArtificialPlayer.BotChatterSystem;
 
 import client.Character;
 import server.maps.MapleMap;
+import soloMapling.ArtificialPlayer.BotChatTuning;
 import soloMapling.ArtificialPlayer.BotSM;
 import soloMapling.ArtificialPlayer.DialogueContextResolver;
 import soloMapling.ArtificialPlayer.BotMessagingSystem.CharacterStorage;
@@ -18,7 +19,7 @@ import java.util.concurrent.ConcurrentHashMap;
 import java.util.concurrent.ThreadLocalRandom;
 
 import static soloMapling.ArtificialPlayer.BotCommandsPack.SocialCommands.BotEmote;
-import static soloMapling.ArtificialPlayer.BotCommandsPack.SocialCommands.BotSpeak;
+import static soloMapling.ArtificialPlayer.BotCommandsPack.SocialCommands.BotAmbientSpeak;
 import static soloMapling.ArtificialPlayer.BotHelpers.isBot;
 import static soloMapling.ArtificialPlayer.BotMovementSystem.MovementCommands.botFaceTowardsPoint;
 
@@ -100,7 +101,8 @@ public final class BotChatter {
             if (onCooldown(me)) {
                 return false;
             }
-            if (ThreadLocalRandom.current().nextDouble() >= CHATTER_CHANCE) {
+            double chance = Math.min(1, CHATTER_CHANCE * BotChatTuning.multiplier(me.getMap()));
+            if (ThreadLocalRandom.current().nextDouble() >= chance) {
                 return false; // quiet tick; no cooldown consumed
             }
         }
@@ -221,7 +223,7 @@ public final class BotChatter {
             }
             line = filled.get();
         }
-        BotSpeak(speaker, line);
+        BotAmbientSpeak(speaker, line);
         if (ThreadLocalRandom.current().nextDouble() < CHATTER_EMOTE_CHANCE) {
             BotEmote(speaker, FRIENDLY_EMOTES[ThreadLocalRandom.current().nextInt(FRIENDLY_EMOTES.length)]);
         }

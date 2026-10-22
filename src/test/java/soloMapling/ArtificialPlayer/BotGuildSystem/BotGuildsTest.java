@@ -20,6 +20,14 @@ class BotGuildsTest {
     GuildStore.Memory store;
     final List<Integer> roster = new ArrayList<>();
 
+    @Test
+    void delayedGuildInviteIsDroppedIfPlayerBecameBusy() {
+        client.Character player = org.mockito.Mockito.mock(client.Character.class);
+        org.mockito.Mockito.when(player.getTrade()).thenReturn(org.mockito.Mockito.mock(server.Trade.class));
+        assertFalse(BotGuilds.sendInvite(null, null, player));
+        org.mockito.Mockito.verify(player, org.mockito.Mockito.never()).sendPacket(org.mockito.ArgumentMatchers.any());
+    }
+
     @BeforeEach
     void setUp() {
         store = new GuildStore.Memory();

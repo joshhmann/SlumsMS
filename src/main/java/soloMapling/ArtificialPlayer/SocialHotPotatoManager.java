@@ -128,6 +128,12 @@ public class SocialHotPotatoManager {
             ids.add(id);
         }
         ids.addAll(TownPresenceConfig.allTownMapIds());
+        ids.add(constants.id.MapId.FM_ENTRANCE);
+        ids.add(constants.id.MapId.MAPLEROOT_HUB);
+        for (int room = 1; room <= 22; room++) {
+            ids.add(constants.id.MapId.FM_ENTRANCE + room);
+            ids.add(constants.id.MapId.MAPLEROOT_HUB + room);
+        }
         return ids;
     }
 
@@ -144,7 +150,8 @@ public class SocialHotPotatoManager {
 
     private void scheduleNextTick() {
         if (!running) return;
-        int delay = MIN_INTERVAL_MS + random.nextInt(MAX_INTERVAL_MS - MIN_INTERVAL_MS);
+        int delay = (int) ((MIN_INTERVAL_MS + random.nextInt(MAX_INTERVAL_MS - MIN_INTERVAL_MS))
+                / Math.max(0.01, BotChatTuning.multiplier(BotChatTuning.MapType.TOWN)));
         scheduledTask = ExecutorServiceManager.getScheduledExecutorService().schedule(() -> {
             try {
                 tick();
@@ -246,7 +253,7 @@ public class SocialHotPotatoManager {
         String category = SOCIAL_CATEGORIES[random.nextInt(SOCIAL_CATEGORIES.length)];
         String line = getRandomLine(SOCIAL_DIALOGUE_PATH, SOCIAL_BOT_TYPE, category);
         if (line != null) {
-            BotSpeak(bot, line);
+            BotAmbientSpeak(bot, line);
         }
     }
 
@@ -283,7 +290,7 @@ public class SocialHotPotatoManager {
         String category = SOCIAL_CATEGORIES[random.nextInt(SOCIAL_CATEGORIES.length)];
         String line = getRandomLine(SOCIAL_DIALOGUE_PATH, SOCIAL_BOT_TYPE, category);
         if (line != null) {
-            BotSpeak(bot, line);
+            BotAmbientSpeak(bot, line);
         }
     }
 
