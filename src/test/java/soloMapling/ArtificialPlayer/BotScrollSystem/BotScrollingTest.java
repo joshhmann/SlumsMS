@@ -214,7 +214,15 @@ class BotScrollingTest {
         give(bot, ItemId.WHITE_SCROLL, 1);
         dice.add(BotScrolling.Outcome.FAIL);
 
-        BotScrolling.Plan plan = BotScrolling.plan(bot, Appetite.CAREFUL, new Random(1));
+        assertNull(BotScrolling.plan(bot, Appetite.CAREFUL, new Random(1)),
+                "1.5.0 rc3: by default a careful bot keeps its white scroll off a 10%");
+        soloMapling.Economy.EconomyConfig.useForTest(java.util.Map.of("scrolling.whiteOnLongShots", "true"));
+        BotScrolling.Plan plan;
+        try {
+            plan = BotScrolling.plan(bot, Appetite.CAREFUL, new Random(1));
+        } finally {
+            soloMapling.Economy.EconomyConfig.useForTest(null);
+        }
         assertNotNull(plan);
         assertTrue(plan.choice().whiteScroll());
         BotScrolling.RollReport r = BotScrolling.rollOnce(bot, plan);

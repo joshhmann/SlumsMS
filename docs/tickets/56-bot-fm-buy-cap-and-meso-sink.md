@@ -101,3 +101,15 @@ Owner QA (`!qa run fm-1`, 2026-10-21): 450 FM_BUY events in 90 s, none in the GM
 `mapleroot_persist` is an outlier: 1,242 bots hold over 25m (234b between them), all created 2026-10-19, while the
 yield meter shows at most 12.6m per bot per day. That cannot come from metered mob mesos; it predates the meter or
 came from a run with the caps off. Worth a look before reading its economy numbers.
+
+## 1.5.0 rc3: world budget, fair prices, resale (branch `economy-trade-150`)
+
+Owner decision 2 (2026-10-21 grill), see docs/release/1.5.0-economy-trade.md:
+- **World budget:** bots together pay real players at most `botBuying.worldDailyBudget` (40m) a day, persisted in
+  `economyday` (migration 020). This covers FM shopper purchases and direct trades, on top of 56A's 5m per seller.
+- **Price:** for a player's item the FM shopper uses the price board's fair value (the 7-day median of real trades,
+  else the static value).
+- **Gear:** from players, bots take gear only when it is above average (`GearGrade`). Godly gear and average gear stay
+  on the market.
+- **Resale:** what bots buy from players moves to the resale pool. Merchant-minded bots resell it in their own FM
+  shops at +15%.

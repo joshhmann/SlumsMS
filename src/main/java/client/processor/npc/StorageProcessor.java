@@ -154,7 +154,10 @@ public class StorageProcessor {
                             c.sendPacket(PacketCreator.getStorageError((byte) 0x11));
                             return;
                         }
-                        int storeFee = storage.getStoreFee();
+                        // 1.5.0 rc3: storage upkeep by slots in use (economy.yaml sinks.storageFeePerSlot)
+                        int usedSlots = storage.getItems().size();
+                        int upkeep = soloMapling.Economy.MesoSinks.storageUpkeep(usedSlots);
+                        int storeFee = storage.getStoreFee() + upkeep;
                         if (chr.getMeso() < storeFee) {
                             c.sendPacket(PacketCreator.getStorageError((byte) 0x0B));
                         } else {
@@ -186,6 +189,7 @@ public class StorageProcessor {
                             }
 
                             chr.gainMeso(-storeFee, false, true, false);
+                            soloMapling.Economy.MesoSinks.onStorageUpkeep(chr, upkeep, usedSlots);
 
                             KarmaManipulator.toggleKarmaFlagToUntradeable(item);
                             item.setQuantity(quantity);

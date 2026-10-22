@@ -74,6 +74,12 @@ public final class QaScenarios {
     }
 
     public static List<QaScenario> all() {
+        List<QaScenario> all = new ArrayList<>(core());
+        all.addAll(QaTradeScenarios.all());   // 1.5.0 rc3 economy lane: tr-1..tr-7
+        return List.copyOf(all);
+    }
+
+    private static List<QaScenario> core() {
         return List.of(new Bk1Showcase(), new Gd1Guild(), new Fm1BuyerCap(), new Ld1Ladders(), new Gh1Hide(),
                 new Np1Rosen(), new Np2Fredrick(), new Np3Merchant(), new Cs2PetEquip(), new Gn2Scrolling(), new Sc2BotScrolling(),
                 new Wd1ChannelBars(), new Wd2DreamyPortal(), new Id1IdleSafety(),

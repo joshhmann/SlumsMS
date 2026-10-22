@@ -299,7 +299,10 @@ public class HiredMerchant extends AbstractMapObject {
             if (c.getPlayer().getMeso() >= price) {
                 if (canBuy(c, newItem)) {
                     c.getPlayer().gainMeso(-price, false);
-                    price -= Trade.getFee(price);  // thanks BHB for pointing out trade fees not applying here
+                    int paid = price;
+                    int fee = soloMapling.Economy.MesoSinks.shopFee(price);   // 1.5.0 rc3: FM shop tax
+                    price -= fee;
+                    soloMapling.Economy.MesoSinks.onShopSale(newItem, paid, fee, isPersistent(), true, !isPersistent());
 
                     synchronized (sold) {
                         sold.add(new SoldItem(c.getPlayer().getName(), pItem.getItem().getItemId(), newItem.getQuantity(), price));
@@ -312,6 +315,7 @@ public class HiredMerchant extends AbstractMapObject {
                     if (!isPersistent()) {
                         // Ticket 11: an equip a bot put on sale in a bot shop - the bot is paid what the player paid
                         soloMapling.ArtificialPlayer.BotScrollSystem.BotConsignment.onSold(pItem, price);
+                        soloMapling.Economy.BotShops.onSold(pItem, price);   // 1.5.0 rc3: a bot's own FM shop
                     }
 
                     if (YamlConfig.config.server.USE_ANNOUNCE_SHOPITEMSOLD) {   // idea thanks to Vcoc
@@ -870,7 +874,10 @@ public class HiredMerchant extends AbstractMapObject {
                 return false;
             }
 
-            price -= Trade.getFee(price);  // thanks BHB for pointing out trade fees not applying here
+            int paid = price;
+            int fee = soloMapling.Economy.MesoSinks.shopFee(price);   // 1.5.0 rc3: FM shop tax
+            price -= fee;
+            soloMapling.Economy.MesoSinks.onShopSale(newItem, paid, fee, isPersistent(), false, !isPersistent());
 
             synchronized (sold) {
                 sold.add(new SoldItem(fakechar.getName(), pItem.getItem().getItemId(), quantity, price));

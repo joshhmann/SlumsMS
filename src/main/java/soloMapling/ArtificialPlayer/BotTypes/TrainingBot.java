@@ -592,6 +592,7 @@ public class TrainingBot extends BotSM {
         pollResupply();
         BotScrolling.townTick(getChr());   // ticket 11: scroll its own gear while it stands in town
         soloMapling.ArtificialPlayer.BotWealth.townTick(getChr());   // 56B / 1.5.0: spend down, gachapon
+        soloMapling.Economy.BotShops.townTick(getChr());   // 1.5.0 rc3: collect shop takings, maybe open a shop
         if (now() < phaseDeadlineMs) {
             return;
         }
@@ -726,6 +727,7 @@ public class TrainingBot extends BotSM {
         }
         BotScrolling.townTick(getChr());   // ticket 11: buy scrolls at this store, scroll its gear while it browses
         soloMapling.ArtificialPlayer.BotWealth.townTick(getChr());   // 56B / 1.5.0: spend down, gachapon
+        soloMapling.Economy.BotShops.townTick(getChr());   // 1.5.0 rc3: collect shop takings, maybe open a shop
         if (now() < phaseDeadlineMs) {
             return;
         }

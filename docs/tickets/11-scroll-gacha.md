@@ -123,3 +123,12 @@ Owner decision 2026-10-21: "fun + fair". Built:
   protection would let a player take it.
 - **Remote slot 11 = Ludibrium** stays; checked on a real client in QA `ga-3`.
 - Ceiling, chairs as jackpots and the 1m bot ticket: kept as built.
+
+## 1.5.0 rc3: keeping bot-made godlies rare (branch `economy-trade-150`)
+
+From the gear audit in docs/release/1.5.0-economy-trade.md. Every number is in economy.yaml under `scrolling.`:
+- **Appetites:** 40% careful, 50% normal, 10% gamblers (was 15% gamblers).
+- **Normal bots:** take a 10%/30% scroll 10% of the time (was 25%).
+- **White scrolls:** no longer spent on long shots, so careful bots never take a 10%.
+- **Daily cap:** after 5 godly results world-wide in a day, every bot sticks to 60%+ non-dark scrolls.
+- **"ScrollPerfect" megaphone:** only for a godly result.

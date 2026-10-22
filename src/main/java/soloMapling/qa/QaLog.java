@@ -44,7 +44,8 @@ public final class QaLog {
         GACHA,          // gachapon rolls by players and bots, notices, bot ticket buys (ga-1, ga-2)
         WEALTH,         // bot wealth ceiling: intake cut, spending, decay (ga-2)
         AFFINITY,       // bot<->player affinity: events, state changes, and what bots do about it (af-1..af-3)
-        COUPLE;         // bot couples and their weddings: forming, hops, parties, chairs, rings, the ceremony (cp-1, we-1)
+        COUPLE,         // bot couples and their weddings: forming, hops, parties, chairs, rings, the ceremony (cp-1, we-1)
+        TRADE;          // 1.5.0 rc3 economy: bot shops, direct trades and haggles, gifts, price samples, tax (tr-1..tr-6)
 
         final int bit = 1 << ordinal();
     }

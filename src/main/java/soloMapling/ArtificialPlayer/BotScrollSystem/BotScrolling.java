@@ -200,13 +200,26 @@ public final class BotScrolling {
         return bot.getInventory(InventoryType.USE).countById(ItemId.WHITE_SCROLL) > 0;
     }
 
+    /**
+     * 1.5.0 rc3: once the world's bots made {@code scrolling.godliesPerDay} (5) godly items today, they stick to 60%+
+     * non-dark scrolls for the rest of the day.
+     */
+    static boolean longShotsAllowed() {
+        try {
+            return soloMapling.Economy.EconomyMeters.get(soloMapling.Economy.EconomyMeters.GODLIES)
+                    < soloMapling.Economy.EconomyConfig.getLong("scrolling.godliesPerDay", 5);
+        } catch (RuntimeException e) {
+            return true;
+        }
+    }
+
     /** What the bot scrolls next, or null when it has nothing it would use on anything. */
     public static Plan plan(Character bot, Appetite appetite, Random rng) {
         boolean white = holdsWhite(bot);
         for (Equip e : targets(bot)) {
             List<ScrollFacts> fitting = fittingHeld(bot, e);
             Choice c = ScrollRules.choose(appetite, new Target(e.getItemId(), e.getUpgradeSlots(),
-                    e.getPosition() < 0), fitting, white, rng);
+                    e.getPosition() < 0), fitting, white, rng, longShotsAllowed());
             if (c != null) {
                 for (ScrollFacts f : fitting) {
                     if (f.scrollId() == c.scrollId()) {
@@ -251,6 +264,7 @@ public final class BotScrolling {
             Item ws = use.findById(ItemId.WHITE_SCROLL);
             white = ws != null && BotHoldings.consumeHeld(bot, ws, 1) == 1;
         }
+        boolean godlyBefore = soloMapling.Economy.GearGrade.godly(equip);
         Item result = roller.roll(equip, scrollId, white);
         Outcome outcome = result == null ? Outcome.CURSE
                 : ((Equip) result).getLevel() > levelBefore ? Outcome.SUCCESS : Outcome.FAIL;
@@ -267,6 +281,10 @@ public final class BotScrolling {
                     false, white));
         }
         ScrollLedger.rolled(outcome, white, outcome == Outcome.CURSE ? valueBefore : null);
+        if (outcome == Outcome.SUCCESS && !godlyBefore && soloMapling.Economy.GearGrade.godly(equip)) {
+            // 1.5.0 rc3: a bot-made godly counts toward the world's daily cap (scrolling.godliesPerDay)
+            soloMapling.Economy.EconomyMeters.add(soloMapling.Economy.EconomyMeters.GODLIES, 1);
+        }
         RollReport report = new RollReport(bot.getName(), equip.getItemId(), worn, scrollId,
                 plan.scroll().success(), plan.scroll().curse(), white, outcome, before,
                 outcome == Outcome.CURSE ? "destroyed" : stats(equip));
@@ -318,6 +336,9 @@ public final class BotScrolling {
         String node = ScrollRules.megaphoneFor(outcome, passed, facts.totalSlots(equip), equip.getUpgradeSlots());
         if (node == null) {
             return;
+        }
+        if ("ScrollPerfect".equals(node) && !soloMapling.Economy.GearGrade.godly(equip)) {
+            return;   // 1.5.0 rc3 (gear audit): a "perfect" of 100%/60% scrolls is no news; only a godly result is
         }
         State st = states.computeIfAbsent(bot.getId(), id -> new State());
         long now = clock.getAsLong();
@@ -459,7 +480,7 @@ public final class BotScrolling {
                 }
             }
             Choice c = ScrollRules.choose(appetite, new Target(e.getItemId(), e.getUpgradeSlots(),
-                    e.getPosition() < 0), market, false, rng);
+                    e.getPosition() < 0), market, false, rng, longShotsAllowed());
             if (c == null) {
                 continue;
             }

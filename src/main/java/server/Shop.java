@@ -78,6 +78,15 @@ public class Shop {
         items.add(item);
     }
 
+    /** 1.5.0 rc3 (economy lane): a shop built in code, not from the shops table (the cosmetics merchant). */
+    public static Shop custom(int id, int npcId, List<ShopItem> stock) {
+        Shop shop = new Shop(id, npcId);
+        for (ShopItem item : stock) {
+            shop.addItem(item);
+        }
+        return shop;
+    }
+
     public void sendShop(Client c) {
         c.getPlayer().setShop(this);
         c.sendPacket(PacketCreator.getNPCShop(c, getNpcId(), items));
@@ -101,6 +110,9 @@ public class Shop {
                     if (!ItemConstants.isRechargeable(itemId)) { //Pets can't be bought from shops
                         InventoryManipulator.addById(c, itemId, quantity, "", -1);
                         c.getPlayer().gainMeso(-amount, false);
+                        if (soloMapling.Economy.MesoSinks.isCosmeticNpc(npcId)) {   // 1.5.0 rc3: a meso sink
+                            soloMapling.Economy.MesoSinks.onSinkPurchase(c.getPlayer(), itemId, quantity, amount);
+                        }
                     } else {
                         short slotMax = ii.getSlotMax(c.getPlayer(), item.getItemId());
                         quantity = slotMax;
@@ -278,7 +290,10 @@ public class Shop {
                                 recharges.remove(Integer.valueOf(starItem.getItemId()));
                             }
                         } else {
-                            ret.addItem(new ShopItem((short) 1000, rs.getInt("itemid"), rs.getInt("price"), rs.getInt("pitch")));
+                            // 1.5.0 rc3: economy.yaml's sinks.shopPrices bumps an item's price in every NPC shop
+                            ret.addItem(new ShopItem((short) 1000, rs.getInt("itemid"),
+                                    soloMapling.Economy.MesoSinks.npcPrice(rs.getInt("itemid"), rs.getInt("price")),
+                                    rs.getInt("pitch")));
                         }
                     }
                     for (Integer recharge : recharges) {

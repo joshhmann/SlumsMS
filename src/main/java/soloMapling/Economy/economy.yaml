@@ -1,0 +1,112 @@
+# SlumsMS 1.5.0 rc3 economy lane: every number for bot shops, direct trades with bots, the price board, friend
+# gifts, the gear rules, bot scrolling and the player meso sinks. The owner's veto table is in
+# docs/release/1.5.0-economy-trade.md. A missing key uses the safe default in the code (the same as below); any key
+# can be overridden on the JVM with -Dsolomapling.economy.<key>=<value> (e.g. -Dsolomapling.economy.sinks.shopTaxPercent=2).
+# !economy reload re-reads this file. Mesos are the world's real mesos (the server runs 10x meso).
+
+# The price board (@price): median of real trades over a window.
+priceBook:
+  enabled: true
+  windowDays: 7             # the median covers this many days
+  playerOnlyAt: 5           # with this many samples that involve a real player, bot samples stop counting
+  minSamples: 3             # fewer samples: the board shows the static value (item pool / EquipValuation)
+  botSeedPerItemPerDay: 6   # bot-only purchases that may seed one item's board per day
+  keepDays: 14              # rows older than this are pruned from pricesamples
+
+# The band a bot trades inside (fractions of fair value). Enforced in code: no chat line moves a bot outside it.
+bands:
+  botBuysLow: 0.70          # a bot buying from a player pays 70%..95% of fair value
+  botBuysHigh: 0.95
+  botSellsLow: 0.95         # a bot selling to a player takes 95%..125% of fair value
+  botSellsHigh: 1.25
+  friendBonus: 0.05         # a friend (affinity) gets 5% of fair value better on both edges
+  maxRounds: 4              # counters before the bot names its last price
+  decideMin: 0.5            # Decide model confidence needed to read accept/refuse/ask from a line
+
+# Owner decision 1: bots open hired merchants in the FM (channel 1, rooms 1-12).
+botShops:
+  enabled: true
+  maxShops: 8               # bot shops open at once, world-wide
+  ownerPercent: 10          # share of bots that are merchant minded (fixed per bot)
+  minLevel: 15
+  minItems: 3               # a shop opens only with at least this much to sell
+  maxItems: 12              # at most 16 (a merchant's limit)
+  maxOwnItems: 10           # of which the bot's own loot; the rest from the resale pool
+  hours: 6                  # then it closes; unsold goes back to the bot (or the resale pool)
+  lootMarkup: 1.00          # own drops and scrolls: fair value
+  resaleMarkup: 1.15        # bought from players: 15% over the higher of what was paid and fair value
+  resalePoolMax: 200
+
+# Owner decision 2: bots buying from real players (on top of ticket 56A: 1.0x fair value, 5m per seller account a day).
+botBuying:
+  worldDailyBudget: 40000000   # mesos all bots together pay real players per day (FM shoppers + direct trades)
+  equipsAboveAverageOnly: true # from players, bots take gear only when it is above average
+
+# Owner decision 3: direct trades in the trade window.
+directTrade:
+  enabled: true
+  reserveShareOfCeiling: 0.25  # a bot keeps this share of its wealth ceiling and never trades it away
+
+# Owner decision 4: friend gifts.
+gifts:
+  enabled: true
+  chancePerSighting: 0.03   # when a friend bot notices the player nearby
+  perBotDays: 7             # at most one gift per bot and player in this many days
+  worldPerDay: 20           # gifts a day, world-wide
+  weightPotions: 45
+  weightScroll: 30
+  weightMesos: 25
+  mesoMin: 100000
+  mesoMax: 500000
+  scrollMaxValue: 500000    # a scroll gift is a common 60%+ scroll from the bot's bag worth at most this
+
+# Gear rules (gear audit 2026-10-21). Slots = the item's WZ slots + hammers.
+gear:
+  godlyAttackPerSlot: 2     # godly: attack gain over clean > 2 x slots (+5 on weapons for the drop roll) ...
+  godlyWeaponAllowance: 5
+  godlyStatPerSlot: 2       # ... or main-stat gain > 2 x slots + 2
+  godlyStatAllowance: 2
+  aboveAverageScore: 3      # above average: statGain + 3 x attackGain >= 3, no slot burned
+
+# Ticket 11 bot scrolling, tuned so bot-made godlies stay rare (was: normal long shot 25%, gamblers 15%, white
+# scrolls on long shots).
+scrolling:
+  carefulPercent: 40
+  gamblerPercent: 10        # normal bots are the rest (50%)
+  normalLongShotChance: 0.10
+  normalDarkChance: 0.03
+  gamblerDarkChance: 0.10
+  whiteOnLongShots: false
+  godliesPerDay: 5          # after this many bot-made godlies today, all bots use only 60%+ non-dark scrolls
+
+# Owner decision 6: player meso sinks.
+sinks:
+  shopTaxPercent: 3         # FM shop tax: the seller pays max(v83 fee, 3%) on player shop / hired merchant sales
+  storageFeePerSlot: 2000   # storing an item: + 2,000 per slot already in use ...
+  storageFeeMax: 100000     # ... at most 100,000 on top of the keeper's fee
+  shopPrices:               # NPC price bumps: itemId: price, in every NPC shop that sells the item
+    2120000: 2000           # Pet Food (was 30)
+    5041000: 3000000        # VIP Teleport Rock (was 1,500,000)
+
+# The cosmetics merchant (Hanako, 9209006, FM entrance; migration 021).
+cosmeticShop:
+  enabled: true
+  npcId: 9209006
+  items:                    # itemId: price, in this order
+    5150001: 5000000        # Henesys Hair Style Coupon (VIP)
+    5151001: 2000000        # Henesys Hair Color Coupon (VIP)
+    5152001: 5000000        # Henesys Face Coupon (VIP)
+    5152013: 3000000        # Henesys Cosmetic Lens Coupon (VIP)
+    5153000: 2000000        # Henesys Skin Coupon
+    5150040: 15000000       # Royal Hair Coupon
+    5220000: 3000000        # Gachapon Ticket (bots pay 1m for theirs)
+    1002186: 10000000       # Transparent Hat
+    1102039: 10000000       # Transparent Cape
+    1102041: 8000000        # Pink Adventurer Cape
+    1102042: 8000000        # Purple Adventurer Cape
+
+# Boss-only drops bots never sell, on top of what drop_data says (itemId: 1).
+saleRules:
+  bossOnly:
+    1002357: 1              # Zakum Helmet
+    1122000: 1              # Horntail Necklace
