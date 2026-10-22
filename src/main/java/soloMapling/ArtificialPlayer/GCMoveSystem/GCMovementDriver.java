@@ -2,8 +2,11 @@ package soloMapling.ArtificialPlayer.GCMoveSystem;
 
 import client.Character;
 import constants.game.CharacterStance;
+import server.maps.FootholdTree;
 import server.maps.MapleMap;
+import server.maps.Portal;
 import server.maps.Rope;
+import soloMapling.ArtificialPlayer.BotMovementSystem.BotGround;
 import soloMapling.server.BotShutdown;
 
 import java.awt.Point;
@@ -276,6 +279,7 @@ final class GCMovementDriver {
         Point target = resolveTarget(entry, bot);
         boolean hasGoal = target != null || entry.inAir || entry.climbing || entry.navEdge != null;
         if (!hasGoal) {
+            landAbandonedCoarseTrip(entry, bot);
             if (entry.duckUntilMs > System.currentTimeMillis()) {
                 BotPhysicsEngine.proneOnGround(entry, bot); // idle fidget: hold a crouch/duck pose
             } else {
@@ -362,6 +366,31 @@ final class GCMovementDriver {
             arriveCoarse(entry, bot, entry.coarsePlanTarget);
         }
         return true;
+    }
+
+    /*
+     * 1.5.0 rc5: a coarse trip whose goal went away part-way (clearMoveIntent, a new activity, a stop) left the bot
+     * at its last interpolated point - half-way up a rope climb, on a jump arc, inside a platform - and the idle
+     * branch then held it there as "standing" until its next goal. Put it on the foothold it belongs on (BotGround.settle,
+     * else the recovery ground) and drop the stale plan. A no-op when no trip is in flight.
+     */
+    static void landAbandonedCoarseTrip(BotMovementState entry, Character bot) {
+        if (entry.coarsePlan == null) {
+            return;
+        }
+        entry.coarsePlan = null;
+        entry.coarsePlanTarget = null;
+        entry.coarsePlanStartMs = 0L;
+        entry.coarsePlanMapId = -1;
+        MapleMap map = bot.getMap();
+        Point pos = bot.getPosition();
+        Point ground = BotGround.settle(map, pos); // lifts a point a lerp left inside a platform back onto it
+        if (ground == null) {
+            ground = recoveryGround(map, pos, null);
+        }
+        if (ground != null && !ground.equals(pos)) {
+            BotPhysicsEngine.teleportTo(entry, bot, ground);
+        }
     }
 
     /* Finish a coarse trip: snap to the goal, clear the plan + move target, fire the arrival callback. */
@@ -742,8 +771,7 @@ final class GCMovementDriver {
         MapleMap map = entry.bot.getMap();
         NavStuckLog.record(NavStuckLog.Kind.AIR_FROZEN, map, pos, entry.navGraph, entry.navEdge);
         Point goal = entry.moveTarget != null ? entry.moveTarget : entry.navTargetPos;
-        Point base = goal != null ? goal : pos;
-        Point ground = BotPhysicsEngine.findGroundPoint(map, new Point(base.x, base.y - 1));
+        Point ground = recoveryGround(map, pos, goal);
         BotPhysicsEngine.teleportTo(entry, entry.bot, ground != null ? ground : pos);
         BotMovementManager.resetEntryStateAfterTeleport(entry);
         broadcastIfObserved(entry);
@@ -774,19 +802,70 @@ final class GCMovementDriver {
             return;
         }
         NavStuckLog.record(NavStuckLog.Kind.FELL_OFF_MAP, map, pos, entry.navGraph, entry.navEdge);
-        // Snap to ground under the current goal (grind spot / nav target); if there's no goal, drop onto the
-        // first foothold below the VR top at the bot's clamped X.
         Point goal = entry.moveTarget != null ? entry.moveTarget : entry.navTargetPos;
-        Point base = (goal != null)
-                ? new Point(goal.x, goal.y)
-                : new Point(Math.max(vr.x, Math.min(vr.x + vr.width, pos.x)), vr.y);
-        Point ground = BotPhysicsEngine.findGroundPoint(map, new Point(base.x, base.y - 1));
-        BotPhysicsEngine.teleportTo(entry, bot, ground != null ? ground : base);
+        Point ground = recoveryGround(map, pos, goal);
+        BotPhysicsEngine.teleportTo(entry, bot, ground != null ? ground
+                : new Point(Math.max(vr.x, Math.min(vr.x + vr.width, pos.x)), vr.y));
         BotMovementManager.resetEntryStateAfterTeleport(entry);
         // De-thrash: resetEntryStateAfterTeleport only clears NAV state, leaving moveTarget — so the bot
         // would re-aim at the same too-far-below goal and re-fire the same doomed descent (teleport loop =
         // the "glitchy" fall on tall maps). Drop the goal too so the brain re-decides a safe target next tick.
         entry.moveTarget = null;
         broadcastIfObserved(entry);
+    }
+
+    /*
+     * 1.5.0 rc5: where a fallen or frozen bot is put back - always onto a foothold when the map has one. In order:
+     * the ground under its goal; the ground under where it is; the top floor at its x pulled into the footholds' x
+     * range; the ground under the map's nearest spawn point. Null only for a map with no footholds and no spawn.
+     *
+     * The fall-off-map recovery used to clamp x only to the VR rectangle and, when no foothold lay under that x,
+     * teleport the bot to (x, VR top) - into the sky. On El Nath 211030000 the VR reaches 58 px left of the first
+     * foothold, so grinders that fell off the left edge were parked at (-908, -1195), fell off again, and looped
+     * (the rc5 health sweep's two NO_GROUND bots; FELL_OFF_MAP at (-908, 737) and NO_REGION at (-908, -1195) in the
+     * stuck log).
+     */
+    private static final int MAP_TOP_Y = -1_000_000; // above every map: findGroundPoint from here finds the top floor
+
+    static Point recoveryGround(MapleMap map, Point pos, Point goal) {
+        if (map == null) {
+            return null;
+        }
+        Point ground = null;
+        if (goal != null) {
+            ground = BotPhysicsEngine.findGroundPoint(map, new Point(goal.x, goal.y - 1));
+        }
+        if (ground == null && pos != null) {
+            ground = BotPhysicsEngine.findGroundPoint(map, new Point(pos.x, pos.y - 1));
+        }
+        FootholdTree footholds = map.getFootholds();
+        if (ground == null && pos != null && footholds != null && footholds.getMinDropX() < footholds.getMaxDropX()) {
+            int x = Math.max(footholds.getMinDropX(), Math.min(footholds.getMaxDropX(), pos.x));
+            ground = BotPhysicsEngine.findGroundPoint(map, new Point(x, MAP_TOP_Y));
+        }
+        if (ground == null) {
+            Portal spawn = nearestSpawnPortal(map, pos);
+            if (spawn != null) {
+                Point sp = spawn.getPosition();
+                ground = BotPhysicsEngine.findGroundPoint(map, new Point(sp.x, sp.y - 1));
+                if (ground == null) {
+                    ground = new Point(sp);
+                }
+            }
+        }
+        return ground;
+    }
+
+    private static Portal nearestSpawnPortal(MapleMap map, Point pos) {
+        Portal best = null;
+        for (Portal p : map.getPortals()) {
+            if (p.getType() != Portal.MAP_PORTAL && p.getType() != 0) {
+                continue;
+            }
+            if (best == null || (pos != null && Math.abs(p.getPosition().x - pos.x) < Math.abs(best.getPosition().x - pos.x))) {
+                best = p;
+            }
+        }
+        return best;
     }
 }
