@@ -212,7 +212,7 @@ public class DropCommands {
         // 1000 Range = next to feet // 3000 = 2.5 character widths length
         List<MapObject> items = fakechar.getMap().getMapObjectsInRange(itemLocation, range, Arrays.asList(MapObjectType.ITEM));
         for (MapObject item : items) {
-            pickUpAndCredit(fakechar, (MapItem) item);
+            pickUpAndCredit(fakechar, (MapItem) item, -1);
         }
     }
 
@@ -232,7 +232,7 @@ public class DropCommands {
         for (MapObject item : items) {
             MapItem mapItem = (MapItem) item;
             if (mapItem.getOwnerId() == targetCharacter.getId()) {
-                pickUpAndCredit(fakechar, mapItem);
+                pickUpAndCredit(fakechar, mapItem, -1);
             }
         }
     }
@@ -241,7 +241,7 @@ public class DropCommands {
     // data-driven. Callers (blackjack payouts, loot scripts) rely on the hold.
     public static void lootItemListOnFloor(Character fakechar, List<MapObject> items) {
         for (MapObject item : items) {
-            pickUpAndCredit(fakechar, (MapItem) item);
+            pickUpAndCredit(fakechar, (MapItem) item, -1);
             BotHelpers.blockingSleep(100);
         }
     }
@@ -272,13 +272,25 @@ public class DropCommands {
 
     // Pick up one specific drop (organic single-item loot, paced by the caller for a natural look).
     public static void botLootSingleDrop(Character fakechar, MapItem mapItem) {
-        pickUpAndCredit(fakechar, mapItem);
+        pickUpAndCredit(fakechar, mapItem, -1);
+    }
+
+    // 1.5.0 rc4: the bot's pet in that slot picks the drop up (clients play the pet pickup), credited to the bot
+    // exactly as its own pickup is. Which drops a pet may take is BotPets.petMayTake's call.
+    public static void botPetLootSingleDrop(Character fakechar, MapItem mapItem, int petSlot) {
+        pickUpAndCredit(fakechar, mapItem, petSlot);
+    }
+
+    private static Packet pickupPacket(MapItem mapItem, int chrId, int petSlot) {
+        return petSlot >= 0
+                ? PacketCreator.removeItemFromMap(mapItem.getObjectId(), 5, chrId, true, petSlot)
+                : PacketCreator.removeItemFromMap(mapItem.getObjectId(), 2, chrId);
     }
 
     // The bot equivalent of Character.pickupItem: the drop is credited to the bot's holdings first, and only a
     // successful credit removes it from the map. A drop the bot cannot hold (full inventory, no meso room) stays
     // on the floor for someone who can — it must never be deleted uncredited.
-    private static void pickUpAndCredit(Character fakechar, MapItem mapItem) {
+    private static void pickUpAndCredit(Character fakechar, MapItem mapItem, int petSlot) {
         if (mapItem == null) {
             return;
         }
@@ -294,7 +306,7 @@ public class DropCommands {
             if (mapItem.isConjured()) {
                 // A prop is a display artifact: no value leaves the world with it, so it is removed exactly like
                 // a normal pickup but credited nowhere. Leaving it would only make bots walk to it forever.
-                final Packet pickupPacket = PacketCreator.removeItemFromMap(mapItem.getObjectId(), 2, fakechar.getId());
+                final Packet pickupPacket = pickupPacket(mapItem, fakechar.getId(), petSlot);
                 fakechar.getMap().pickItemDrop(pickupPacket, mapItem);
                 return;
             }
@@ -302,7 +314,7 @@ public class DropCommands {
                 return;
             }
             credited = mapItem.getItem();
-            final Packet pickupPacket = PacketCreator.removeItemFromMap(mapItem.getObjectId(), 2, fakechar.getId());
+            final Packet pickupPacket = pickupPacket(mapItem, fakechar.getId(), petSlot);
             fakechar.getMap().pickItemDrop(pickupPacket, mapItem);
         } finally {
             mapItem.unlockItem();

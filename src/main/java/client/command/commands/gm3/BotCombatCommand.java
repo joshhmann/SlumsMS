@@ -22,7 +22,9 @@ import java.util.concurrent.ConcurrentHashMap;
  *   !botcombat stage [job ...]          held grinders next to you (default crusader fp_mage ranger hermit)
  *   !botcombat clear                    takes your staged grinders away
  *   !botcombat spread                   how spread the bots on this map are
- * The !qa scenarios cb-1 .. cb-4 and sp-1 stage the same things with a log (docs/ops/qa-suite.md).
+ *   !botcombat pets [n]                 1.5.0 rc4: n (default 3) held grinders with looting pets next to you
+ *   !botcombat pet <bot name>           that bot's pet, pet equips and loot style
+ * The !qa scenarios cb-1 .. cb-4, sp-1 and pt-1 stage the same things with a log (docs/ops/qa-suite.md).
  */
 public class BotCombatCommand extends Command {
     {
@@ -37,7 +39,7 @@ public class BotCombatCommand extends Command {
         if (params.length == 0) {
             gm.yellowMessage("Bot combat: " + BotCombatTuning.describe());
             gm.yellowMessage("!botcombat set <human|aoe|sloppy|deaths|manners|spread> <value|clear> | habits <bot> |"
-                    + " stage [job ...] | clear | spread");
+                    + " stage [job ...] | clear | spread | pets [n] | pet <bot>");
             return;
         }
         switch (params[0].toLowerCase(java.util.Locale.ROOT)) {
@@ -89,7 +91,26 @@ public class BotCombatCommand extends Command {
                     CombatStaging.spreadTally(gm.getMap()).forEach(gm::yellowMessage);
                 }
             }
-            default -> gm.yellowMessage("!botcombat [set|habits|stage|clear|spread]");
+            case "pets" -> {
+                int n = 3;
+                if (params.length > 1 && params[1].matches("\\d")) {
+                    n = Math.max(1, Math.min(6, Integer.parseInt(params[1])));
+                }
+                List<Integer> ids = CombatStaging.stage(gm, List.of(), n, 0, null, true);
+                staged.computeIfAbsent(gm.getId(), k -> new java.util.concurrent.CopyOnWriteArrayList<>()).addAll(ids);
+                soloMapling.ArtificialPlayer.BotPets.stageAll(ids, true).forEach(gm::yellowMessage);
+                gm.yellowMessage(ids.size() + " grinder(s) with looting pets held here. !botcombat clear removes them.");
+            }
+            case "pet" -> {
+                Character bot = params.length > 1
+                        ? c.getChannelServer().getPlayerStorage().getCharacterByName(params[1]) : null;
+                if (bot == null || !BotHelpers.isBot(bot)) {
+                    gm.yellowMessage("No bot called " + (params.length > 1 ? params[1] : "?") + " on this channel.");
+                    return;
+                }
+                gm.yellowMessage(soloMapling.ArtificialPlayer.BotPets.describe(bot));
+            }
+            default -> gm.yellowMessage("!botcombat [set|habits|stage|clear|spread|pets|pet]");
         }
     }
 }

@@ -769,6 +769,21 @@ final class GameQaWorld implements QaWorld {
     }
 
     @Override
+    public List<String> stagePets(List<Integer> ids, boolean loots) {
+        return soloMapling.ArtificialPlayer.BotPets.stageAll(ids, loots);
+    }
+
+    @Override
+    public List<String> petReport(List<Integer> ids) {
+        return soloMapling.ArtificialPlayer.BotPets.report(ids);
+    }
+
+    @Override
+    public List<String> petDrops(Character gm, List<Integer> ids) {
+        return soloMapling.ArtificialPlayer.BotPets.dropsFor(gm, ids);
+    }
+
+    @Override
     public String combatTuning() {
         return soloMapling.ArtificialPlayer.BotCombatSystem.BotCombatTuning.describe();
     }

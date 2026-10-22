@@ -15,6 +15,7 @@ import static soloMapling.qa.QaLog.Topic.BOT_CHAT;
 import static soloMapling.qa.QaLog.Topic.COMBAT;
 import static soloMapling.qa.QaLog.Topic.HABITS;
 import static soloMapling.qa.QaLog.Topic.MANNERS;
+import static soloMapling.qa.QaLog.Topic.PETS;
 import static soloMapling.qa.QaLog.Topic.SPREAD;
 
 /**
@@ -32,7 +33,8 @@ final class CombatScenarios {
     }
 
     static List<QaScenario> all() {
-        return List.of(new Cb1Skills(), new Cb2Positioning(), new Cb3Habits(), new Cb4Manners(), new Sp1Spread());
+        return List.of(new Cb1Skills(), new Cb2Positioning(), new Cb3Habits(), new Cb4Manners(), new Sp1Spread(),
+                new Pt1Pets());
     }
 
     /** Shared: the staged grinders per GM, a mob map, the undo, a read-out tick. */
@@ -257,5 +259,55 @@ final class CombatScenarios {
 
     static String join(String[] args) {
         return String.join(" ", Arrays.asList(args));
+    }
+
+    // ---- pt-1 ----
+
+    /** pt-1 (1.5.0 rc4): bots with pets: the pet shows, follows its bot, and loots for it (Meso Magnet, Item Pouch). */
+    static final class Pt1Pets extends GrinderScenario {
+        public String id() { return "pt-1"; }
+        public String title() { return "Bot pets: grinders with a pet that follows them and loots their drops"; }
+        public String usage() { return "[bots 1-6, default 3] [noloot]"; }
+        public Set<QaLog.Topic> topics() { return EnumSet.of(PETS, HABITS); }
+
+        public List<String> stage(QaContext ctx) {
+            onMobMap(ctx);
+            int n = 3;
+            boolean loots = true;
+            for (String a : ctx.args()) {
+                if (a.matches("\\d")) {
+                    n = Math.max(1, Math.min(6, Integer.parseInt(a)));
+                } else if ("noloot".equalsIgnoreCase(a)) {
+                    loots = false;
+                }
+            }
+            List<Integer> ids = stage(ctx, List.of(), n, 0, true, true);
+            ctx.world().stagePets(ids, loots).forEach(l -> ctx.run().note("PET", l));
+            return List.of(n + " grinders held next to you, each with a pet" + (loots
+                            ? " wearing a Meso Magnet and an Item Pouch: their pets loot for them." : " (no loot equips)."),
+                    "Watch: the pet stands behind its bot and trots after it. PET LOOT lines: the pet picks up the"
+                            + " bot's drops (the pet pickup animation, not the bot's), never a drop of yours before"
+                            + " 15 s and never an item you dropped yourself.",
+                    "!qa do drop puts 77 mesos of each bot's own and 66 of yours next to it: the pet takes the 77 in"
+                            + " ~2 s and leaves the 66 for 15 s. Their pets every 30 s.");
+        }
+
+        public List<String> action(QaContext ctx, String name, String[] args) {
+            if (!"drop".equalsIgnoreCase(name)) {
+                return List.of("steps: drop");
+            }
+            Character gm = ctx.gmNow() != null ? ctx.gmNow() : ctx.gm();
+            List<String> lines = ctx.world().petDrops(gm, staged(ctx));
+            lines.forEach(l -> ctx.run().note("DO drop", l));
+            return lines;
+        }
+
+        public int tickSeconds() {
+            return 30;
+        }
+
+        public void tick(QaContext ctx) {
+            ctx.world().petReport(staged(ctx)).forEach(l -> ctx.run().note("PETS", l));
+        }
     }
 }
