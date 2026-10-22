@@ -3,6 +3,8 @@ package soloMapling.ArtificialPlayer.BotCombatSystem;
 import client.Character;
 import soloMapling.ArtificialPlayer.BotGrindSystem.MapMobIndex;
 import soloMapling.ArtificialPlayer.GCMoveSystem.GCMovement;
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
 import soloMapling.qa.QaLog;
 
 import java.util.Map;
@@ -25,6 +27,7 @@ import java.util.concurrent.ThreadLocalRandom;
  * seconds, then TrainingBot respawns it in town, where it rests and restocks, and walks back to the map.
  */
 public final class BotDeaths {
+    private static final Logger log = LoggerFactory.getLogger(BotDeaths.class);
 
     private BotDeaths() {
     }
@@ -110,6 +113,8 @@ public final class BotDeaths {
         } catch (RuntimeException ignored) {
             // the pose is presentation only
         }
+        // One line per death so a soak can count them (the world cap is WORLD_PER_10_MIN).
+        log.info("[BotDeaths] {} (lv {}) died on map {}", bot.getName(), bot.getLevel(), bot.getMapId());
         if (QaLog.on(QaLog.Topic.HABITS)) {
             QaLog.map(QaLog.Topic.HABITS, bot.getMapId(), "DEATH " + bot.getName() + " (lv " + bot.getLevel()
                     + ") dies on map " + bot.getMapId() + " (mobs lv " + MapMobIndex.level(bot.getMapId())
