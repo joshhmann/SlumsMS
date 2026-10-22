@@ -6422,6 +6422,9 @@ public class Character extends AbstractCharacterObject {
     }
 
     public void closePlayerInteractions() {
+        if (storage != null) {
+            storage.close();
+        }
         closeNpcShop();
         closeTrade();
         closePlayerShop();

@@ -52,6 +52,8 @@ public class Storage {
 
     private final int id;
     private int currentNpcid;
+    private volatile boolean open;
+
     private int meso;
     private byte slots;
     private final Map<InventoryType, List<Item>> typeItems = new HashMap<>();
@@ -62,6 +64,10 @@ public class Storage {
         this.id = id;
         this.slots = slots;
         this.meso = meso;
+    }
+
+    public boolean isOpen() {
+        return open;
     }
 
     private static Storage create(int id, int world) throws SQLException {
@@ -249,6 +255,7 @@ public class Storage {
             }
 
             currentNpcid = npcId;
+            open = true;
             c.sendPacket(PacketCreator.getStorage(npcId, slots, storageItems, meso));
         } finally {
             lock.unlock();
@@ -362,6 +369,7 @@ public class Storage {
     public void close() {
         lock.lock();
         try {
+            open = false;
             typeItems.clear();
         } finally {
             lock.unlock();

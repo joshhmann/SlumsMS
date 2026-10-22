@@ -664,7 +664,7 @@ public final class BotBuddies {
     static Gate maybeOffer(int botCharId, int playerId, int playerLines) {
         Character bot = liveBot(botCharId);
         Character player = onlinePlayer(playerId);
-        if (bot == null || player == null) {
+        if (bot == null || player == null || PlayerBusy.isBusy(player)) {
             return Gate.NOT_VISIBLE;
         }
         long now = System.currentTimeMillis();

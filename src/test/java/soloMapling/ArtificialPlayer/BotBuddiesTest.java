@@ -339,6 +339,17 @@ class BotBuddiesTest {
     }
 
     @Test
+    void aBusyPlayerIsNotAskedAndNoPendingRequestIsStored() {
+        liveBot(BOT, "Ressurectme", mock(World.class));
+        Character busy = player(PLAYER, "Josh", false);
+        online.put(PLAYER, busy);
+        when(busy.getTrade()).thenReturn(mock(server.Trade.class));
+        assertEquals(Gate.NOT_VISIBLE, BotBuddies.maybeOffer(BOT, PLAYER, 6));
+        assertNull(table.pair(BOT, PLAYER));
+        verify(busy.getClient(), never()).sendPacket(any());
+    }
+
+    @Test
     void aHiddenGmIsNeverAsked() {
         liveBot(BOT, "Ressurectme", mock(World.class));
         Character gm = player(PLAYER, "Gm", true);

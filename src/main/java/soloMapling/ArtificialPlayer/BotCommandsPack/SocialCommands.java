@@ -22,6 +22,13 @@ public class SocialCommands {
         BotNoiseFilter.broadcastBotChat(fakechar, PacketCreator.getChatText(fakechar.getId(), message, fakechar.isGM(), (byte) 0), message);
     }
 
+    /** Idle/ambient speech shares the per-map and world budgets; dropped lines are never queued. */
+    public static void BotAmbientSpeak(Character bot, String message) {
+        if (soloMapling.ArtificialPlayer.BotChatTuning.allowAmbient(bot)) {
+            BotSpeak(bot, message);
+        }
+    }
+
     public static void BotSpeak(Character fakechar, String message) {
         soloMapling.ArtificialPlayer.BotMessagingSystem.BotChatRouting.noteBotSpoke(fakechar, message); // ticket 19
         if (botChatTypingStyle) {

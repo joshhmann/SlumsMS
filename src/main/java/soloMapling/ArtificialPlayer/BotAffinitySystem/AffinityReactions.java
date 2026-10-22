@@ -3,6 +3,7 @@ package soloMapling.ArtificialPlayer.BotAffinitySystem;
 import client.Character;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
+import soloMapling.ArtificialPlayer.PlayerBusy;
 import soloMapling.ArtificialPlayer.BotBrainSystem.ChatDecide;
 import soloMapling.ArtificialPlayer.BotBrainSystem.ChatTriage;
 import soloMapling.ArtificialPlayer.BotBuddies;
@@ -212,6 +213,9 @@ public final class AffinityReactions {
     }
 
     private static void act(Action action, BotSM botSM, Character bot, Character player, AffinityState state) {
+        if (PlayerBusy.isBusy(player)) {
+            return;
+        }
         String detail = switch (action) {
             case GREET -> greet(botSM, bot, player);
             case BUDDY -> BotBuddies.offerAsFriend(bot.getId(), player.getId());

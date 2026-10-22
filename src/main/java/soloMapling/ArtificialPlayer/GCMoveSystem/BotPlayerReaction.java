@@ -2,6 +2,8 @@ package soloMapling.ArtificialPlayer.GCMoveSystem;
 
 import client.Character;
 import soloMapling.ArtificialPlayer.BotDialogueHandler;
+import soloMapling.ArtificialPlayer.BotChatTuning;
+import soloMapling.ArtificialPlayer.PlayerBusy;
 import soloMapling.ArtificialPlayer.BotLogic;
 import soloMapling.ArtificialPlayer.BotRecognition;
 import soloMapling.ArtificialPlayer.BotSM;
@@ -61,7 +63,7 @@ final class BotPlayerReaction {
 
         List<Character> players = BotLogic.getRealPlayersInRange(bot, DETECT_WIDTH, DETECT_HEIGHT);
         for (Character player : players) {
-            if (player == null) {
+            if (player == null || PlayerBusy.isBusy(player)) {
                 continue;
             }
             // Ticket 58: a bot that feels something about this player (friend, rival, nemesis) may act on it - its
@@ -85,12 +87,12 @@ final class BotPlayerReaction {
                 }
                 case WALK_REACT -> {
                     speak(bot, player);                 // line on the move, no movement change
-                    markReacted(player.getId(), nowMs);
+                    markReacted(player.getId(), nowMs, bot);
                     return;
                 }
                 case STOP_REACT -> {
                     reactStop(entry, bot, player);
-                    markReacted(player.getId(), nowMs);
+                    markReacted(player.getId(), nowMs, bot);
                     return;
                 }
             }
@@ -115,12 +117,18 @@ final class BotPlayerReaction {
     // the driver thread so the line's hold never stalls it. Bots without an FSM fall back to the old
     // generic emote/chat so the layer still works for any non-TrainingBot GCMovement mover.
     private static void speak(Character bot, Character player) {
+        if (PlayerBusy.isBusy(player) || !BotChatTuning.allowAmbient(bot)) {
+            return;
+        }
         BotSM botSM = CharacterStorage.getBotById(bot.getId());
         if (botSM == null) {
             PlayerReaction.executeWalkReaction(bot);
             return;
         }
         ExecutorServiceManager.runAsync(() -> {
+            if (PlayerBusy.isBusy(player)) {
+                return;
+            }
             if (BotRecognition.maybeGreetOnSight(botSM, player)) {
                 return; // ticket 26: a player it knows gets a "hey again" instead of the generic reaction line
             }
@@ -141,8 +149,9 @@ final class BotPlayerReaction {
         return true;
     }
 
-    private static void markReacted(int playerId, long nowMs) {
+    private static void markReacted(int playerId, long nowMs, Character bot) {
         PLAYER_REACT_UNTIL.put(playerId,
-                nowMs + ThreadLocalRandom.current().nextLong(REACT_COOLDOWN_MIN_MS, REACT_COOLDOWN_MAX_MS + 1));
+                nowMs + (long) (ThreadLocalRandom.current().nextLong(REACT_COOLDOWN_MIN_MS, REACT_COOLDOWN_MAX_MS + 1)
+                        / Math.max(0.01, BotChatTuning.multiplier(bot.getMap()))));
     }
 }

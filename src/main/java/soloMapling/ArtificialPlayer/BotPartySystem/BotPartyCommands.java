@@ -10,6 +10,7 @@ import net.server.world.PartyCharacter;
 import net.server.world.PartyOperation;
 import net.server.world.World;
 import server.maps.MapleMap;
+import soloMapling.ArtificialPlayer.PlayerBusy;
 import tools.PacketCreator;
 
 import static soloMapling.DebugUtilities.debugprint;
@@ -113,7 +114,7 @@ public class BotPartyCommands {
     // If bot has no party, creates one (bot becomes leader).
     // If bot is already in a party but NOT the leader, the invite is refused.
     public static boolean botInvitePlayer(Character fakechar, Character target) {
-        if (target == null) {
+        if (target == null || PlayerBusy.isBusy(target)) {
             debugprint("botInvitePlayer: target null.");
             return false;
         }

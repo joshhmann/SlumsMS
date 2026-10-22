@@ -6,6 +6,7 @@ import client.inventory.Item;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import server.Trade;
+import soloMapling.ArtificialPlayer.PlayerBusy;
 import tools.PacketCreator;
 
 import java.util.ArrayList;
@@ -37,6 +38,9 @@ public class BotTradeCommands {
     }
 
     public static void sendTradeRequestToPlayer(Character fakechar, Character invitee) {
+        if (PlayerBusy.isBusy(invitee)) {
+            return;
+        }
         startTradeRequest(fakechar);
 
         invitee.setTrade(new Trade((byte) 1, invitee));

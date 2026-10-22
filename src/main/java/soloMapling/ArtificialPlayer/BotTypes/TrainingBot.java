@@ -1,5 +1,6 @@
 package soloMapling.ArtificialPlayer.BotTypes;
 
+import soloMapling.ArtificialPlayer.BotChatTuning;
 import soloMapling.ArtificialPlayer.BotRoster;
 
 import client.Character;
@@ -1498,7 +1499,14 @@ public class TrainingBot extends BotSM {
         if (!GCMovement.isMapObserved(chr.getMapId())) {
             return; // gate advanced so we don't re-roll every tick; nothing worth saying unobserved
         }
-        sayContext("GrindAmbient", chr, null);
+        if (rng.nextDouble() < Math.min(1, BotChatTuning.multiplier(chr.getMap()))) {
+            ExecutorServiceManager.runAsync(() -> {
+                String line = BotDialogueHandler.getRandomResolvedLine(dialoguePath, botType, "GrindAmbient", chr, null);
+                if (line != null) {
+                    soloMapling.ArtificialPlayer.BotCommandsPack.SocialCommands.BotAmbientSpeak(chr, line);
+                }
+            });
+        }
     }
 
     // Re-show the bot's class buffs every 90-120s while grinding. Only fires when a player can see it and

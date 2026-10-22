@@ -70,7 +70,7 @@ public final class BotGifts {
      * later, off this thread). Cheap when nothing happens: a memory read and a roll.
      */
     public static boolean maybeGift(Character bot, Character player) {
-        if (!enabled() || bot == null || player == null || BotHelpers.isBot(player)
+        if (!enabled() || bot == null || player == null || soloMapling.ArtificialPlayer.PlayerBusy.isBusy(player) || BotHelpers.isBot(player)
                 || !BotAffinity.friend(bot.getId(), player.getId())) {
             return false;
         }
@@ -134,7 +134,8 @@ public final class BotGifts {
      * happened, or null when the bot had nothing suitable.
      */
     public static String give(Character bot, Character player, Kind kind, Random rng) {
-        if (bot.getMap() == null || player.getMap() == null || bot.getMapId() != player.getMapId()) {
+        if (soloMapling.ArtificialPlayer.PlayerBusy.isBusy(player)
+                || bot.getMap() == null || player.getMap() == null || bot.getMapId() != player.getMapId()) {
             return null;
         }
         List<Kind> order = new ArrayList<>();

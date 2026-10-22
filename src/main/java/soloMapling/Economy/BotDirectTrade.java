@@ -324,6 +324,9 @@ public final class BotDirectTrade {
         if (!enabled() || bot == null || player == null || handlesOwnTrades(sm)) {
             return null;
         }
+        if (soloMapling.ArtificialPlayer.PlayerBusy.isBusy(player)) {
+            return new Answer(false, "The player is busy; do not offer a trade now.", "maybe later", null);
+        }
         if (BotAffinity.hostile(bot.getId(), player.getId())) {
             return new Answer(false, "Say no, you do not trade with them.", "nah not trading with u", null);
         }
