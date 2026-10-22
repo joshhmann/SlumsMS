@@ -39,6 +39,46 @@ public final class ScriptedReplies {
             "%s, come if u want");
     static final List<String> TRAIN_UNKNOWN = List.of("idk i mostly hang in town", "wherever isnt crowded lol", "idk tbh");
 
+    // ── ticket 59: the conversation layer's outcomes (the bank's lines replace these when it has them) ──
+    static final List<String> COME_YES = List.of("omw", "k coming", "otw", "be there in a sec", "ok omw lol", "coming");
+    static final List<String> COME_NO = List.of("cant rn sry", "nah im good here", "busy atm", "maybe later", "too far lol");
+    static final List<String> HELP_YES = List.of("ya ill help", "k lets kill em", "omw to help", "sure ill hunt w u",
+            "ok im on it");
+    static final List<String> HELP_NO = List.of("cant rn sry", "im kinda busy", "too high lvl for me lol", "nah sry");
+    static final List<String> GUIDE_YES = List.of("follow me", "k follow me", "this way, follow", "ill show u, follow me");
+    static final List<String> GUIDE_NO = List.of("idk the way tbh", "cant rn sry", "ur already there lol", "ask someone else");
+    static final List<String> BUFF_YES = List.of("there u go", "buffed", "here", "np, there", "k done");
+    static final List<String> BUFF_NO = List.of("dont have that buff sry", "on cooldown sry", "come closer", "cant rn");
+    static final List<String> BUDDY_YES = List.of("sent u a req", "sure added u", "ya sent", "k check ur buddy list");
+    static final List<String> BUDDY_NO = List.of("maybe later", "my list is kinda full", "eh not rn");
+    static final List<String> MAKEUP_YES = List.of("its ok we good", "fine, we cool", "apology accepted lol", "ok its fine");
+    static final List<String> APOLOGY_ACK = List.of("its ok", "np", "dw about it", "all good");
+    static final List<String> INSULT_BACK = List.of("ok noob", "says u lol", "cool story", "whatever scrub", "k bye");
+    static final List<String> FLIRT_BACK = List.of("hehe stop", "lol ur sweet", "aww", "stoppp");
+    static final List<String> FLIRT_NO = List.of("lol thx", "uh ok", "haha ok", "lol");
+
+    /** A line from one of the lists above, by name (ConvoActions picks by outcome). */
+    public static String outcome(String list) {
+        return pick(switch (list) {
+            case "come_yes" -> COME_YES;
+            case "come_no" -> COME_NO;
+            case "help_yes" -> HELP_YES;
+            case "help_no" -> HELP_NO;
+            case "guide_yes" -> GUIDE_YES;
+            case "guide_no" -> GUIDE_NO;
+            case "buff_yes" -> BUFF_YES;
+            case "buff_no" -> BUFF_NO;
+            case "buddy_yes" -> BUDDY_YES;
+            case "buddy_no" -> BUDDY_NO;
+            case "makeup_yes" -> MAKEUP_YES;
+            case "apology_ack" -> APOLOGY_ACK;
+            case "insult_back" -> INSULT_BACK;
+            case "flirt_back" -> FLIRT_BACK;
+            case "flirt_no" -> FLIRT_NO;
+            default -> TALK;
+        });
+    }
+
     private ScriptedReplies() {
     }
 

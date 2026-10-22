@@ -1,0 +1,32 @@
+# Ticket 59: held-out lines, written AFTER the ConvoSense rules were tuned on convo-lines.tsv and never used to tune
+# them. Same columns and labels as convo-lines.tsv.
+yo u wanna team up for kpq	party	neutral	map:kpq
+lf1 for opq im a cleric	party	neutral	map:opq
+can i tag along	follow	neutral	-
+wait for me at the portal	follow	neutral	-
+c'mon over to perion	come	neutral	map:perion
+hey come to the fm real quick i wanna show u something	come	neutral	map:free market
+got any pots to sell?	trade	neutral	-
+wtb steely throwing knives	trade	neutral	item:steely throwing-knives
+800k and its a deal	haggle	neutral	-
+nah thats a ripoff, lower pls	haggle	rude	-
+hs plz	buff	neutral	-
+mind giving me some haste	buff	neutral	-
+can u kill the jr balrog with me	help_kill	neutral	mob:jr. balrog
+im getting wrecked by these stumps, help?	help_kill	neutral	-
+which way to el nath	guide	neutral	map:el nath
+idk how to get to ludi can u show me	guide	neutral	map:ludibrium
+r u single lol	date	flirty	-
+wanna be my gf	date	flirty	-
+lets be buddies!	buddy	kind	-
+ill add u ok?	buddy	kind	-
+whats ur guild called	guild	neutral	-
+im really sorry about the ks	apology	kind	-
+apologies for earlier	apology	kind	-
+lmao get rekt noob	insult	rude	-
+ur so slow at killing its sad	insult	rude	-
+ur actually kinda cute	flirt	flirty	-
+how much hp do u have	talk	neutral	-
+lol i just got a dark scroll to pass	talk	kind	-
+anyone know when the event starts	talk	neutral	-
+this server is so fun	talk	kind	-

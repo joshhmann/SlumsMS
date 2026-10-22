@@ -456,6 +456,36 @@ public final class AffinityReactions {
         });
     }
 
+    /**
+     * Ticket 59: the same, with the tone ticket 59's one Decide call already read (no second model call). A flirty
+     * line counts as kind only from a player the bot may flirt with (romance on); otherwise it moves nothing.
+     */
+    public static void judgeTone(Character bot, Character player, ChatTone.Tone tone, boolean flirty,
+                                 ChatTriage.Result triage) {
+        if (bot == null || player == null || !BotAffinity.loaded(player.getId())) {
+            return;
+        }
+        if (flirty) {
+            if (soloMapling.ArtificialPlayer.BotDramaSystem.BotRomance.mayFlirtWith(bot.getId(), player.getId())) {
+                BotAffinity.record(bot, player, AffinityEvent.KIND_CHAT);
+            }
+            return;
+        }
+        switch (tone) {
+            case KIND -> BotAffinity.record(bot, player, AffinityEvent.KIND_CHAT);
+            case RUDE -> {
+                int delta = AffinityEvent.RUDE_CHAT.delta();
+                if (triage != null && triage.con() == ChatTriage.Con.HARASSMENT) {
+                    delta *= 2;
+                }
+                BotAffinity.record(bot.getId(), player.getId(), AffinityEvent.RUDE_CHAT, delta, player.getName(),
+                        bot.getName(), player.getMapId());
+            }
+            case PLAIN -> {
+            }
+        }
+    }
+
     /** What the chat prompt adds about the bot's feelings: a sentence, or "". Never a number. */
     public static String promptLine(int botCharId, Character player) {
         if (player == null) {

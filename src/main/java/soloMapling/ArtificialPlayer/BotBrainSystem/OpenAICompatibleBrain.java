@@ -97,6 +97,54 @@ public final class OpenAICompatibleBrain implements BotBrain {
         return result;
     }
 
+    /**
+     * Ticket 59: the contract reply. The action tag is read and stripped first, then the line goes through the same
+     * voice check and cleaning as {@link #complete}. Same rate limit, slots and deadline.
+     */
+    @Override
+    public CompletableFuture<Optional<soloMapling.ArtificialPlayer.BotConvo.ConvoContract.Reply>> reply(
+            Priority priority, int playerId, List<Turn> conversation) {
+        long now = System.currentTimeMillis();
+        Long last = lastCallByPlayer.get(playerId);
+        if (playerId > 0 && last != null && now - last < settings.playerMinIntervalMs()) {
+            fail("rate limited");
+            return CompletableFuture.completedFuture(Optional.empty());
+        }
+        if (playerId > 0) {
+            lastCallByPlayer.put(playerId, now);
+        }
+        long deadline = System.nanoTime() + TimeUnit.MILLISECONDS.toNanos(settings.timeoutMs());
+        CompletableFuture<Optional<soloMapling.ArtificialPlayer.BotConvo.ConvoContract.Reply>> result =
+                new CompletableFuture<>();
+        java.util.concurrent.atomic.AtomicReference<soloMapling.ArtificialPlayer.BotConvo.ConvoContract.Reply> parsed =
+                new java.util.concurrent.atomic.AtomicReference<>();
+        calls.execute(() -> {
+            Optional<String> line = call(conversation, deadline, settings.model(), settings.maxTokens(), raw -> {
+                soloMapling.ArtificialPlayer.BotConvo.ConvoContract.Reply r =
+                        soloMapling.ArtificialPlayer.BotConvo.ConvoContract.parse(raw);
+                parsed.set(r);
+                return r == null ? Optional.empty() : ReplyCleaner.chat(r.text());
+            }, true);
+            result.complete(line.map(text -> parsed.get() == null
+                    ? soloMapling.ArtificialPlayer.BotConvo.ConvoContract.Reply.plain(text) : parsed.get().withText(text)));
+        });
+        return result;
+    }
+
+    /** Whether every local slot is taken right now (ticket 59's router reads it). */
+    public int freeSlots() {
+        return slots.availablePermits();
+    }
+
+    public int maxSlots() {
+        return Math.max(1, settings.maxConcurrent());
+    }
+
+    /** The last call's token use from the response's {@code usage}, or -1 (ticket 59's budget reads it). */
+    public long[] lastUsage() {
+        return lastUsage.get();
+    }
+
     @Override
     public CompletableFuture<Optional<String>> notes(List<Turn> conversation) {
         // No per-player limit: one call per finished conversation. The notes model, when set, can be a stronger one.
@@ -134,6 +182,7 @@ public final class OpenAICompatibleBrain implements BotBrain {
             if (response.statusCode() / 100 != 2) {
                 return fail("HTTP " + response.statusCode());
             }
+            lastUsage.set(usage(response.body()));
             String raw = replyText(response.body());
             Optional<String> line = cleaner.apply(raw);
             if (line.isEmpty()) {
@@ -181,6 +230,23 @@ public final class OpenAICompatibleBrain implements BotBrain {
         body.put("stream", false);
         body.putAll(extraBody);
         return Json.write(body);
+    }
+
+    private final java.util.concurrent.atomic.AtomicReference<long[]> lastUsage =
+            new java.util.concurrent.atomic.AtomicReference<>(new long[]{-1, -1});
+
+    /** {prompt_tokens, completion_tokens} from {@code usage}, -1 each when absent. */
+    static long[] usage(String responseBody) {
+        try {
+            if (Json.parse(responseBody) instanceof Map<?, ?> root && root.get("usage") instanceof Map<?, ?> u) {
+                long in = u.get("prompt_tokens") instanceof Number n ? n.longValue() : -1;
+                long out = u.get("completion_tokens") instanceof Number n ? n.longValue() : -1;
+                return new long[]{in, out};
+            }
+        } catch (RuntimeException ignored) {
+            // no usage block
+        }
+        return new long[]{-1, -1};
     }
 
     /** {@code choices[0].message.content}, or null when the response has no such text. */

@@ -68,6 +68,17 @@ public interface BotBrain {
     CompletableFuture<Optional<String>> complete(int playerId, List<Turn> conversation);
 
     /**
+     * Ticket 59: one reply under the reply + action contract (text plus at most one proposed action), for a caller of
+     * this priority. The default reads the plain reply as text with no action; the real brain parses the tag first.
+     * Like {@link #complete}, it always completes normally, empty meaning "use the bank or a script".
+     */
+    default CompletableFuture<Optional<soloMapling.ArtificialPlayer.BotConvo.ConvoContract.Reply>> reply(
+            Priority priority, int playerId, List<Turn> conversation) {
+        return complete(playerId, conversation).thenApply(o -> o.map(
+                soloMapling.ArtificialPlayer.BotConvo.ConvoContract.Reply::plain));
+    }
+
+    /**
      * Short memory notes about a finished conversation (bot-persistence ticket 14): up to two lines, each under
      * 140 characters, or empty when there is nothing worth remembering - and always empty for the scripted brain, so
      * a fallback never invents a memory. Not rate limited per player; the future always completes normally.

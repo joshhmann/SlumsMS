@@ -73,10 +73,12 @@ public final class ReplyEmote {
         }
         if (outcome != null) {
             switch (outcome) {
-                case PARTY_ACCEPTED, FOLLOW_ACCEPTED, TRADE_SHOP, TRADE_OFFER, WHERE_TRAIN, WHERE_AT -> {
+                case PARTY_ACCEPTED, FOLLOW_ACCEPTED, TRADE_SHOP, TRADE_OFFER, WHERE_TRAIN, WHERE_AT, COME_YES, HELP_YES,
+                     GUIDE_YES, BUFF_YES, BUDDY_YES, MAKEUP_YES -> {
                     return SMILE;
                 }
-                case PARTY_DECLINED, FOLLOW_DECLINED, TRADE_DECLINED, PARTY_ALREADY, WHERE_TRAIN_UNKNOWN -> {
+                case PARTY_DECLINED, FOLLOW_DECLINED, TRADE_DECLINED, PARTY_ALREADY, WHERE_TRAIN_UNKNOWN, COME_NO, HELP_NO,
+                     GUIDE_NO, BUFF_NO, BUDDY_NO, MOOD_NO -> {
                     return TROUBLED;
                 }
                 case PARTY_WARY -> {

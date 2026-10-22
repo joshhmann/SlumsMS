@@ -273,6 +273,26 @@ public final class BotRomance {
         return out;
     }
 
+    // ── ticket 59: the conversation layer's gates (public views of the romance rules) ──
+
+    /** Whether a line asks a bot out ("wanna go out", "be my gf"). */
+    public static boolean asksOutLine(String line) {
+        return RomanceRules.asksOut(line);
+    }
+
+    /** Whether this bot may flirt with this player now: romance on, dating, or a crush the rules allow. */
+    public static boolean mayFlirtWith(int botCharId, int playerId) {
+        if (!enabled() || !romanceOn(playerId)) {
+            return false;
+        }
+        Romance r = with(playerId, botCharId);
+        if (r != null && r.stage().together()) {
+            return true;
+        }
+        return RomanceRules.mayFlirt(true, BotAffinity.state(botCharId, playerId), BotAffinity.score(botCharId, playerId),
+                taken(botCharId));
+    }
+
     // ── the chat brain ──
 
     /** What the chat prompt adds about romance with this player; "" when there is nothing to say. */

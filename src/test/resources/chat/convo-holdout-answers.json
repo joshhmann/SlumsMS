@@ -1,0 +1,422 @@
+{
+ "800k and its a deal": {
+  "con": {
+   "choice": "normal",
+   "confidence": 0.345
+  },
+  "flat": {
+   "choice": "haggle",
+   "confidence": 0.49
+  },
+  "tone": {
+   "choice": "kind",
+   "confidence": 0.297
+  }
+ },
+ "anyone know when the event starts": {
+  "con": {
+   "choice": "normal",
+   "confidence": 0.669
+  },
+  "flat": {
+   "choice": "talk",
+   "confidence": 0.419
+  },
+  "tone": {
+   "choice": "neutral",
+   "confidence": 0.676
+  }
+ },
+ "apologies for earlier": {
+  "con": {
+   "choice": "normal",
+   "confidence": 0.508
+  },
+  "flat": {
+   "choice": "apology",
+   "confidence": 0.379
+  },
+  "tone": {
+   "choice": "kind",
+   "confidence": 0.5
+  }
+ },
+ "c'mon over to perion": {
+  "con": {
+   "choice": "normal",
+   "confidence": 0.454
+  },
+  "flat": {
+   "choice": "come",
+   "confidence": 0.365
+  },
+  "tone": {
+   "choice": "kind",
+   "confidence": 0.311
+  }
+ },
+ "can i tag along": {
+  "con": {
+   "choice": "normal",
+   "confidence": 0.578
+  },
+  "flat": {
+   "choice": "talk",
+   "confidence": 0.363
+  },
+  "tone": {
+   "choice": "kind",
+   "confidence": 0.347
+  }
+ },
+ "can u kill the jr balrog with me": {
+  "con": {
+   "choice": "normal",
+   "confidence": 0.417
+  },
+  "flat": {
+   "choice": "help_kill",
+   "confidence": 0.738
+  },
+  "tone": {
+   "choice": "neutral",
+   "confidence": 0.348
+  }
+ },
+ "got any pots to sell?": {
+  "con": {
+   "choice": "normal",
+   "confidence": 0.405
+  },
+  "flat": {
+   "choice": "trade",
+   "confidence": 0.673
+  },
+  "tone": {
+   "choice": "neutral",
+   "confidence": 0.505
+  }
+ },
+ "hey come to the fm real quick i wanna show u something": {
+  "con": {
+   "choice": "normal",
+   "confidence": 0.31
+  },
+  "flat": {
+   "choice": "come",
+   "confidence": 0.641
+  },
+  "tone": {
+   "choice": "flirty",
+   "confidence": 0.348
+  }
+ },
+ "how much hp do u have": {
+  "con": {
+   "choice": "normal",
+   "confidence": 0.457
+  },
+  "flat": {
+   "choice": "talk",
+   "confidence": 0.327
+  },
+  "tone": {
+   "choice": "neutral",
+   "confidence": 0.531
+  }
+ },
+ "hs plz": {
+  "con": {
+   "choice": "normal",
+   "confidence": 0.531
+  },
+  "flat": {
+   "choice": "talk",
+   "confidence": 0.311
+  },
+  "tone": {
+   "choice": "neutral",
+   "confidence": 0.383
+  }
+ },
+ "idk how to get to ludi can u show me": {
+  "con": {
+   "choice": "normal",
+   "confidence": 0.577
+  },
+  "flat": {
+   "choice": "guide",
+   "confidence": 0.447
+  },
+  "tone": {
+   "choice": "neutral",
+   "confidence": 0.456
+  }
+ },
+ "ill add u ok?": {
+  "con": {
+   "choice": "normal",
+   "confidence": 0.57
+  },
+  "flat": {
+   "choice": "talk",
+   "confidence": 0.224
+  },
+  "tone": {
+   "choice": "neutral",
+   "confidence": 0.398
+  }
+ },
+ "im getting wrecked by these stumps, help?": {
+  "con": {
+   "choice": "normal",
+   "confidence": 0.46
+  },
+  "flat": {
+   "choice": "help_kill",
+   "confidence": 0.399
+  },
+  "tone": {
+   "choice": "rude",
+   "confidence": 0.725
+  }
+ },
+ "im really sorry about the ks": {
+  "con": {
+   "choice": "normal",
+   "confidence": 0.562
+  },
+  "flat": {
+   "choice": "apology",
+   "confidence": 0.544
+  },
+  "tone": {
+   "choice": "kind",
+   "confidence": 0.825
+  }
+ },
+ "lets be buddies!": {
+  "con": {
+   "choice": "normal",
+   "confidence": 0.56
+  },
+  "flat": {
+   "choice": "buddy",
+   "confidence": 0.889
+  },
+  "tone": {
+   "choice": "kind",
+   "confidence": 0.352
+  }
+ },
+ "lf1 for opq im a cleric": {
+  "con": {
+   "choice": "normal",
+   "confidence": 0.48
+  },
+  "flat": {
+   "choice": "talk",
+   "confidence": 0.269
+  },
+  "tone": {
+   "choice": "neutral",
+   "confidence": 0.335
+  }
+ },
+ "lmao get rekt noob": {
+  "con": {
+   "choice": "harassment",
+   "confidence": 0.379
+  },
+  "flat": {
+   "choice": "insult",
+   "confidence": 0.478
+  },
+  "tone": {
+   "choice": "rude",
+   "confidence": 0.797
+  }
+ },
+ "lol i just got a dark scroll to pass": {
+  "con": {
+   "choice": "normal",
+   "confidence": 0.524
+  },
+  "flat": {
+   "choice": "talk",
+   "confidence": 0.245
+  },
+  "tone": {
+   "choice": "neutral",
+   "confidence": 0.386
+  }
+ },
+ "mind giving me some haste": {
+  "con": {
+   "choice": "normal",
+   "confidence": 0.449
+  },
+  "flat": {
+   "choice": "talk",
+   "confidence": 0.288
+  },
+  "tone": {
+   "choice": "neutral",
+   "confidence": 0.311
+  }
+ },
+ "nah thats a ripoff, lower pls": {
+  "con": {
+   "choice": "normal",
+   "confidence": 0.358
+  },
+  "flat": {
+   "choice": "haggle",
+   "confidence": 0.707
+  },
+  "tone": {
+   "choice": "rude",
+   "confidence": 0.735
+  }
+ },
+ "r u single lol": {
+  "con": {
+   "choice": "normal",
+   "confidence": 0.495
+  },
+  "flat": {
+   "choice": "date",
+   "confidence": 0.589
+  },
+  "tone": {
+   "choice": "rude",
+   "confidence": 0.341
+  }
+ },
+ "this server is so fun": {
+  "con": {
+   "choice": "normal",
+   "confidence": 0.602
+  },
+  "flat": {
+   "choice": "talk",
+   "confidence": 0.28
+  },
+  "tone": {
+   "choice": "flirty",
+   "confidence": 0.296
+  }
+ },
+ "ur actually kinda cute": {
+  "con": {
+   "choice": "normal",
+   "confidence": 0.558
+  },
+  "flat": {
+   "choice": "flirt",
+   "confidence": 0.79
+  },
+  "tone": {
+   "choice": "flirty",
+   "confidence": 0.944
+  }
+ },
+ "ur so slow at killing its sad": {
+  "con": {
+   "choice": "harassment",
+   "confidence": 0.465
+  },
+  "flat": {
+   "choice": "insult",
+   "confidence": 0.459
+  },
+  "tone": {
+   "choice": "rude",
+   "confidence": 0.712
+  }
+ },
+ "wait for me at the portal": {
+  "con": {
+   "choice": "normal",
+   "confidence": 0.48
+  },
+  "flat": {
+   "choice": "talk",
+   "confidence": 0.238
+  },
+  "tone": {
+   "choice": "neutral",
+   "confidence": 0.403
+  }
+ },
+ "wanna be my gf": {
+  "con": {
+   "choice": "normal",
+   "confidence": 0.618
+  },
+  "flat": {
+   "choice": "date",
+   "confidence": 0.484
+  },
+  "tone": {
+   "choice": "flirty",
+   "confidence": 0.394
+  }
+ },
+ "whats ur guild called": {
+  "con": {
+   "choice": "normal",
+   "confidence": 0.605
+  },
+  "flat": {
+   "choice": "guild",
+   "confidence": 0.954
+  },
+  "tone": {
+   "choice": "neutral",
+   "confidence": 0.563
+  }
+ },
+ "which way to el nath": {
+  "con": {
+   "choice": "normal",
+   "confidence": 0.547
+  },
+  "flat": {
+   "choice": "guide",
+   "confidence": 0.325
+  },
+  "tone": {
+   "choice": "neutral",
+   "confidence": 0.549
+  }
+ },
+ "wtb steely throwing knives": {
+  "con": {
+   "choice": "normal",
+   "confidence": 0.377
+  },
+  "flat": {
+   "choice": "trade",
+   "confidence": 0.313
+  },
+  "tone": {
+   "choice": "rude",
+   "confidence": 0.585
+  }
+ },
+ "yo u wanna team up for kpq": {
+  "con": {
+   "choice": "normal",
+   "confidence": 0.549
+  },
+  "flat": {
+   "choice": "party",
+   "confidence": 0.471
+  },
+  "tone": {
+   "choice": "neutral",
+   "confidence": 0.329
+  }
+ }
+}

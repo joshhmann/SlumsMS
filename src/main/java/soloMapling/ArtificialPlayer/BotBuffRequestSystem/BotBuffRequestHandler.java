@@ -272,6 +272,71 @@ public final class BotBuffRequestHandler {
         return lines[ThreadLocalRandom.current().nextInt(lines.length)];
     }
 
+    /** Why a named bot cannot buff a player now, or null when it can (ticket 59's buff gate). */
+    public static String buffProblem(Character bot, Character player, String line) {
+        if (bot == null || player == null || bot.getMap() == null || player.getMap() == null) {
+            return "not here";
+        }
+        if (bot.getMapId() != player.getMapId()) {
+            return "not on your map";
+        }
+        BuffConcept concept = conceptFor(bot, line);
+        if (concept == null) {
+            return "no such buff";
+        }
+        Long until = cooldownUntil.get(bot.getId());
+        if (until != null && System.currentTimeMillis() < until) {
+            return "buff on cooldown";
+        }
+        Point bp = bot.getPosition();
+        Point pp = player.getPosition();
+        if (bp == null || pp == null || Math.abs(bp.x - pp.x) > PROXIMITY_X * 3 || Math.abs(bp.y - pp.y) > PROXIMITY_Y * 2) {
+            return "too far";
+        }
+        return null;
+    }
+
+    /**
+     * Ticket 59: a bot asked by name in chat casts its real buff on the player (the one the line names, else the
+     * first party buff its job has). The chat reply says the words, so no bubble here. The buff's name, or null when
+     * {@link #buffProblem} says no.
+     */
+    public static String grantFromBot(Character bot, Character player, String line) {
+        if (buffProblem(bot, player, line) != null) {
+            return null;
+        }
+        BuffConcept concept = conceptFor(bot, line);
+        int skillId = resolveSkill(concept, bot);
+        long now = System.currentTimeMillis();
+        synchronized (cooldownUntil) {
+            Long until = cooldownUntil.get(bot.getId());
+            if (until != null && now < until) {
+                return null;
+            }
+            cooldownUntil.put(bot.getId(), now + COOLDOWN_MS);
+        }
+        if (player.getPosition() != null) {
+            MovementCommands.botFaceTowardsPoint(bot, player.getPosition());
+        }
+        BotBuffEffects.giveExtendedBuff(bot, skillId, List.of(player), BotBuffEffects.EXTENDED_DURATION_MS);
+        return concept.name();
+    }
+
+    /** The buff a line asks this bot for, else the first party buff the bot's job has; null when it has none. */
+    private static BuffConcept conceptFor(Character bot, String line) {
+        String[] tokens = line == null ? new String[0] : line.trim().toLowerCase().split("\\s+");
+        BuffConcept asked = matchConcept(tokens);
+        if (asked != null) {
+            return resolveSkill(asked, bot) == 0 ? null : asked;
+        }
+        for (BuffConcept c : new java.util.LinkedHashSet<>(ALIASES.values())) {
+            if (resolveSkill(c, bot) != 0) {
+                return c;
+            }
+        }
+        return null;
+    }
+
     /** Drop a despawned bot's cooldown entry so the map doesn't grow unbounded. */
     public static void clearBot(int botId) {
         cooldownUntil.remove(botId);

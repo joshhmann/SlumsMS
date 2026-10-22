@@ -7,13 +7,15 @@ requests at a time), prints the accuracy, and writes the answers to
 src/test/resources/chat/convo-decide-answers.json. ConvoSenseTest replays that file offline, so the rules + Decide
 numbers in docs/tickets/59 stay checked by the suite without the network.
 
-    python3 tools/convo/decide_probe.py [http://192.168.0.17:8900]
+    python3 tools/convo/decide_probe.py [http://192.168.0.17:8900] [--holdout] [--chain]
 """
 import json, sys, time, concurrent.futures, urllib.request, pathlib
 
 ROOT = pathlib.Path(__file__).resolve().parents[2]
-LINES = ROOT / "src/test/resources/chat/convo-lines.tsv"
-OUT = ROOT / "src/test/resources/chat/convo-decide-answers.json"
+HOLDOUT = "--holdout" in sys.argv
+LINES = ROOT / ("src/test/resources/chat/convo-holdout.tsv" if HOLDOUT else "src/test/resources/chat/convo-lines.tsv")
+OUT = ROOT / ("src/test/resources/chat/convo-holdout-answers.json" if HOLDOUT
+              else "src/test/resources/chat/convo-decide-answers.json")
 URL = ([a for a in sys.argv[1:] if not a.startswith("--")] or [None])[0]
 URL = (URL if URL else "http://192.168.0.17:8900").rstrip("/") + "/v1/systemone"
 

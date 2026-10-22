@@ -41,6 +41,12 @@ public final class BotChatActions {
         TRADE_OFFER,
         WHERE_TRAIN, WHERE_TRAIN_UNKNOWN,
         WHERE_AT,
+        /** Ticket 59: the conversation layer's actions (BotConvo.ConvoActions): yes = done, no = refused. */
+        COME_YES, COME_NO, HELP_YES, HELP_NO, GUIDE_YES, GUIDE_NO, BUFF_YES, BUFF_NO, BUDDY_YES, BUDDY_NO,
+        /** Words that move feelings: a grudge eased, an apology taken, game-only trash talk back, a flirt back. */
+        MAKEUP_YES, MOOD,
+        /** A mood the rules did not allow (no flirting without romance on, no insult without a grudge): stay plain. */
+        MOOD_NO,
         NONE
     }
 
@@ -49,7 +55,7 @@ public final class BotChatActions {
      * @param scripted the line to say when the model does not answer
      */
     public record Result(Outcome outcome, String fact, String scripted, String mustMention) {
-        static final Result NONE = new Result(Outcome.NONE, null, null, null);
+        public static final Result NONE = new Result(Outcome.NONE, null, null, null);
 
         Result(Outcome outcome, String fact, String scripted) {
             this(outcome, fact, scripted, null);
@@ -66,7 +72,11 @@ public final class BotChatActions {
             boolean no = NO.matcher(text).find();
             return switch (outcome) {
                 case PARTY_ACCEPTED, FOLLOW_ACCEPTED -> (yes || text.contains(" inv")) && !no;
-                case PARTY_DECLINED, PARTY_WARY, FOLLOW_DECLINED, TRADE_DECLINED -> !yes || no;
+                case COME_YES, HELP_YES, GUIDE_YES, BUFF_YES, BUDDY_YES -> !no || yes;
+                case PARTY_DECLINED, PARTY_WARY, FOLLOW_DECLINED, TRADE_DECLINED, COME_NO, HELP_NO, GUIDE_NO, BUFF_NO,
+                     BUDDY_NO -> !yes || no;
+                case MAKEUP_YES, MOOD -> true;
+                case MOOD_NO -> !soloMapling.ArtificialPlayer.BotBrainSystem.ContentGuard.flirty(reply);
                 case PARTY_ALREADY -> text.contains("party") || text.contains(" pt") || no;
                 case TRADE_SHOP -> mustMention != null ? text.contains(mustMention)
                         : text.contains("shop") || text.contains("store");
@@ -81,7 +91,7 @@ public final class BotChatActions {
     }
 
     private static final java.util.regex.Pattern YES = java.util.regex.Pattern.compile(
-            " (sure|yes|yea|yeah|yep|yup|ok|okay|kk|k|lets go|omw|alright|bet|ofc|why not) ");
+            " (sure|yes|yea|yeah|yep|yup|ok|okay|kk|k|lets go|omw|otw|coming|alright|bet|ofc|why not|on my way) ");
     private static final java.util.regex.Pattern NO = java.util.regex.Pattern.compile(
             " (no|nah|nope|cant|can't|cannot|not|busy|later|nvm|pass|sry|sorry) ");
 
@@ -118,7 +128,7 @@ public final class BotChatActions {
     }
 
     /** Whether this bot holds a note that makes it wary of this player. */
-    static boolean wary(int botSlot, int playerId) {
+    public static boolean wary(int botSlot, int playerId) {
         // Ticket 58: a rival or nemesis is wary of the player too (no parties, no buddy, no trades). Memory only.
         if (soloMapling.ArtificialPlayer.BotAffinitySystem.BotAffinity.hostile(BotStore.BOT_ID_BASE + botSlot, playerId)) {
             return true;

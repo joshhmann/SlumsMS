@@ -55,7 +55,8 @@ public final class QaLog {
         RING,           // 1.5.0: Cash Shop couple/friendship rings: prompts, refusals, both ring records (pr-1, pr-2)
         ROMANCE,        // 1.5.0 bot drama: flirts, dates, proposals, weddings, breakups, gossip (rm-1..rm-4)
         RIVALRY,        // 1.5.0 bot drama: roasts, KS wars, callouts, revenge follows (rv-1..rv-4)
-        GUILD_WAR;      // 1.5.0 bot drama: guild wars, turf, poaching, alliances and betrayals (gw-1..gw-4)
+        GUILD_WAR,      // 1.5.0 bot drama: guild wars, turf, poaching, alliances and betrayals (gw-1..gw-4)
+        CONVO;          // ticket 59: chat sense, gates, actions, personas, timing, bank, router, threads, ratings (cv-1..cv-7)
 
         final int bit = 1 << ordinal();
     }
