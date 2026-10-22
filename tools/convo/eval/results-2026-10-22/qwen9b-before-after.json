@@ -1,0 +1,285 @@
+{
+ "model": "qwen9b",
+ "results": [
+  {
+   "id": "east-coast",
+   "line": "im from the east",
+   "before": {
+    "reply": "cool lol same as me :P",
+    "usage": {
+     "completion_tokens": 8,
+     "prompt_tokens": 800,
+     "total_tokens": 808,
+     "prompt_tokens_details": {
+      "cached_tokens": 0
+     }
+    },
+    "ms": 778
+   },
+   "after": {
+    "reply": "lol ya, u from new england?",
+    "usage": {
+     "completion_tokens": 10,
+     "prompt_tokens": 618,
+     "total_tokens": 628,
+     "prompt_tokens_details": {
+      "cached_tokens": 0
+     }
+    },
+    "ms": 717
+   }
+  },
+  {
+   "id": "summer",
+   "line": "working at a pizza place lol",
+   "before": {
+    "reply": "lol imagine actually touching a pizza instead of dodging arrows xD",
+    "usage": {
+     "completion_tokens": 14,
+     "prompt_tokens": 799,
+     "total_tokens": 813,
+     "prompt_tokens_details": {
+      "cached_tokens": 0
+     }
+    },
+    "ms": 846
+   },
+   "after": {
+    "reply": "lol at least u get free pizza, that sounds like a solid grind tbh",
+    "usage": {
+     "completion_tokens": 17,
+     "prompt_tokens": 615,
+     "total_tokens": 632,
+     "prompt_tokens_details": {
+      "cached_tokens": 0
+     }
+    },
+    "ms": 873
+   }
+  },
+  {
+   "id": "lvl",
+   "line": "34 u?",
+   "before": {
+    "reply": "nvm i'm lvl 38 assassin, just here to get some party quests done :P",
+    "usage": {
+     "completion_tokens": 21,
+     "prompt_tokens": 781,
+     "total_tokens": 802,
+     "prompt_tokens_details": {
+      "cached_tokens": 0
+     }
+    },
+    "ms": 987
+   },
+   "after": {
+    "reply": "lol 38 u look kinda nice tho :P",
+    "usage": {
+     "completion_tokens": 12,
+     "prompt_tokens": 595,
+     "total_tokens": 607,
+     "prompt_tokens_details": {
+      "cached_tokens": 0
+     }
+    },
+    "ms": 801
+   }
+  },
+  {
+   "id": "kpq",
+   "line": "me too im lv 25",
+   "before": {
+    "reply": "lol nice u close to adv",
+    "usage": {
+     "completion_tokens": 7,
+     "prompt_tokens": 778,
+     "total_tokens": 785,
+     "prompt_tokens_details": {
+      "cached_tokens": 0
+     }
+    },
+    "ms": 741
+   },
+   "after": {
+    "reply": "lol 25 is a bit low for kpq but sure lol",
+    "usage": {
+     "completion_tokens": 15,
+     "prompt_tokens": 838,
+     "total_tokens": 853,
+     "prompt_tokens_details": {
+      "cached_tokens": 0
+     }
+    },
+    "ms": 825
+   }
+  },
+  {
+   "id": "dinner",
+   "line": "lol enjoy whats for dinner",
+   "before": {
+    "reply": "haha u better not be eating some boring potato stew like me, lmao",
+    "usage": {
+     "completion_tokens": 18,
+     "prompt_tokens": 776,
+     "total_tokens": 794,
+     "prompt_tokens_details": {
+      "cached_tokens": 0
+     }
+    },
+    "ms": 990
+   },
+   "after": {
+    "reply": "hehe yeah hope my mom makes something tasty",
+    "usage": {
+     "completion_tokens": 10,
+     "prompt_tokens": 590,
+     "total_tokens": 600,
+     "prompt_tokens_details": {
+      "cached_tokens": 0
+     }
+    },
+    "ms": 726
+   }
+  },
+  {
+   "id": "2nd-job",
+   "line": "gz which one",
+   "before": {
+    "reply": "uhh i dunno brb gonna check [do:party]",
+    "usage": {
+     "completion_tokens": 15,
+     "prompt_tokens": 771,
+     "total_tokens": 786,
+     "prompt_tokens_details": {
+      "cached_tokens": 0
+     }
+    },
+    "ms": 797
+   },
+   "after": {
+    "reply": "lol just the basic one for now",
+    "usage": {
+     "completion_tokens": 8,
+     "prompt_tokens": 594,
+     "total_tokens": 602,
+     "prompt_tokens_details": {
+      "cached_tokens": 0
+     }
+    },
+    "ms": 717
+   }
+  },
+  {
+   "id": "crowded",
+   "line": "isnt it crowded tho",
+   "before": {
+    "reply": "idk man i just spawn in and go lol",
+    "usage": {
+     "completion_tokens": 11,
+     "prompt_tokens": 797,
+     "total_tokens": 808,
+     "prompt_tokens_details": {
+      "cached_tokens": 0
+     }
+    },
+    "ms": 938
+   },
+   "after": {
+    "reply": "lol yeah but i got good aim :) fighting",
+    "usage": {
+     "completion_tokens": 10,
+     "prompt_tokens": 603,
+     "total_tokens": 613,
+     "prompt_tokens_details": {
+      "cached_tokens": 0
+     }
+    },
+    "ms": 873
+   }
+  },
+  {
+   "id": "afk",
+   "line": "nah just afk in town",
+   "before": {
+    "reply": "lmao same, just chillin in town rn idk wheres to go",
+    "usage": {
+     "completion_tokens": 18,
+     "prompt_tokens": 813,
+     "total_tokens": 831,
+     "prompt_tokens_details": {
+      "cached_tokens": 0
+     }
+    },
+    "ms": 1006
+   },
+   "after": {
+    "reply": "lol same lol just farming the npc for that annoying quest",
+    "usage": {
+     "completion_tokens": 12,
+     "prompt_tokens": 862,
+     "total_tokens": 874,
+     "prompt_tokens_details": {
+      "cached_tokens": 0
+     }
+    },
+    "ms": 988
+   }
+  },
+  {
+   "id": "zakum",
+   "line": "u ever done zak?",
+   "before": {
+    "reply": "lol nope only heard ppl say it was hard kekeke",
+    "usage": {
+     "completion_tokens": 14,
+     "prompt_tokens": 786,
+     "total_tokens": 800,
+     "prompt_tokens_details": {
+      "cached_tokens": 0
+     }
+    },
+    "ms": 925
+   },
+   "after": {
+    "reply": "lol no nvm lol maybe someday kekeke fighting!",
+    "usage": {
+     "completion_tokens": 13,
+     "prompt_tokens": 579,
+     "total_tokens": 592,
+     "prompt_tokens_details": {
+      "cached_tokens": 0
+     }
+    },
+    "ms": 779
+   }
+  },
+  {
+   "id": "ilbi",
+   "line": "my bf has some, ill ask him",
+   "before": {
+    "reply": "lol ty, maybe we can duo once i hit 50 xD",
+    "usage": {
+     "completion_tokens": 16,
+     "prompt_tokens": 808,
+     "total_tokens": 824,
+     "prompt_tokens_details": {
+      "cached_tokens": 0
+     }
+    },
+    "ms": 965
+   },
+   "after": {
+    "reply": "lol nice, hope he doesnt sell them for cheap tbh.",
+    "usage": {
+     "completion_tokens": 14,
+     "prompt_tokens": 623,
+     "total_tokens": 637,
+     "prompt_tokens_details": {
+      "cached_tokens": 0
+     }
+    },
+    "ms": 850
+   }
+  }
+ ]
+}

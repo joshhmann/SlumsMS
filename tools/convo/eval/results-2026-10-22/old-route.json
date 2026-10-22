@@ -1,0 +1,72 @@
+{
+ "qwen9b": {
+  "model": "qwen9b",
+  "results": [
+   {
+    "id": "east-coast-old-route",
+    "line": "im from the east",
+    "before": {
+     "reply": "lol east coast or east ellinia?",
+     "usage": {
+      "completion_tokens": 9,
+      "prompt_tokens": 790,
+      "total_tokens": 799,
+      "prompt_tokens_details": {
+       "cached_tokens": 0
+      }
+     },
+     "ms": 759
+    },
+    "after": {
+     "reply": "lol nice, guess ill just farm the west side then",
+     "usage": {
+      "completion_tokens": 12,
+      "prompt_tokens": 625,
+      "total_tokens": 637,
+      "prompt_tokens_details": {
+       "cached_tokens": 74
+      }
+     },
+     "ms": 819
+    }
+   }
+  ]
+ },
+ "deepseek-flash": {
+  "model": "deepseek-flash",
+  "results": [
+   {
+    "id": "east-coast-old-route",
+    "line": "im from the east",
+    "before": {
+     "reply": "East coast, nice. I'm just chilling in Henesys myself.",
+     "usage": {
+      "prompt_tokens": 778,
+      "completion_tokens": 15,
+      "total_tokens": 793,
+      "prompt_tokens_details": {
+       "cached_tokens": 0
+      },
+      "prompt_cache_hit_tokens": 0,
+      "prompt_cache_miss_tokens": 778
+     },
+     "ms": 848
+    },
+    "after": {
+     "reply": "east coast of henesys? thats just the potion shop lol",
+     "usage": {
+      "prompt_tokens": 608,
+      "completion_tokens": 15,
+      "total_tokens": 623,
+      "prompt_tokens_details": {
+       "cached_tokens": 256
+      },
+      "prompt_cache_hit_tokens": 256,
+      "prompt_cache_miss_tokens": 352
+     },
+     "ms": 857
+    }
+   }
+  ]
+ }
+}

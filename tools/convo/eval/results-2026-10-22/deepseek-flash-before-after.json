@@ -1,0 +1,325 @@
+{
+ "model": "deepseek-flash",
+ "results": [
+  {
+   "id": "east-coast",
+   "line": "im from the east",
+   "before": {
+    "reply": "nice lol east coast ppl represent :P",
+    "usage": {
+     "prompt_tokens": 789,
+     "completion_tokens": 9,
+     "total_tokens": 798,
+     "prompt_tokens_details": {
+      "cached_tokens": 0
+     },
+     "prompt_cache_hit_tokens": 0,
+     "prompt_cache_miss_tokens": 789
+    },
+    "ms": 826
+   },
+   "after": {
+    "reply": "oh nice, same here lol what town",
+    "usage": {
+     "prompt_tokens": 611,
+     "completion_tokens": 8,
+     "total_tokens": 619,
+     "prompt_tokens_details": {
+      "cached_tokens": 0
+     },
+     "prompt_cache_hit_tokens": 0,
+     "prompt_cache_miss_tokens": 611
+    },
+    "ms": 896
+   }
+  },
+  {
+   "id": "summer",
+   "line": "working at a pizza place lol",
+   "before": {
+    "reply": "nice, free pizza tho? xD",
+    "usage": {
+     "prompt_tokens": 786,
+     "completion_tokens": 8,
+     "total_tokens": 794,
+     "prompt_tokens_details": {
+      "cached_tokens": 0
+     },
+     "prompt_cache_hit_tokens": 0,
+     "prompt_cache_miss_tokens": 786
+    },
+    "ms": 1023
+   },
+   "after": {
+    "reply": "lol free pizza tho?",
+    "usage": {
+     "prompt_tokens": 608,
+     "completion_tokens": 6,
+     "total_tokens": 614,
+     "prompt_tokens_details": {
+      "cached_tokens": 0
+     },
+     "prompt_cache_hit_tokens": 0,
+     "prompt_cache_miss_tokens": 608
+    },
+    "ms": 984
+   }
+  },
+  {
+   "id": "lvl",
+   "line": "34 u?",
+   "before": {
+    "reply": "38 sin tbh, leveling in henesys for now",
+    "usage": {
+     "prompt_tokens": 768,
+     "completion_tokens": 13,
+     "total_tokens": 781,
+     "prompt_tokens_details": {
+      "cached_tokens": 0
+     },
+     "prompt_cache_hit_tokens": 0,
+     "prompt_cache_miss_tokens": 768
+    },
+    "ms": 1109
+   },
+   "after": {
+    "reply": "38 sin, grinding to 40 for avenger soon",
+    "usage": {
+     "prompt_tokens": 589,
+     "completion_tokens": 11,
+     "total_tokens": 600,
+     "prompt_tokens_details": {
+      "cached_tokens": 0
+     },
+     "prompt_cache_hit_tokens": 0,
+     "prompt_cache_miss_tokens": 589
+    },
+    "ms": 1002
+   }
+  },
+  {
+   "id": "kpq",
+   "line": "me too im lv 25",
+   "before": {
+    "reply": "nice man fighter right? kpq should be ez for u lol",
+    "usage": {
+     "prompt_tokens": 764,
+     "completion_tokens": 13,
+     "total_tokens": 777,
+     "prompt_tokens_details": {
+      "cached_tokens": 0
+     },
+     "prompt_cache_hit_tokens": 0,
+     "prompt_cache_miss_tokens": 764
+    },
+    "ms": 1024
+   },
+   "after": {
+    "reply": "nice lv25 works, we just need 4 ppl",
+    "usage": {
+     "prompt_tokens": 829,
+     "completion_tokens": 13,
+     "total_tokens": 842,
+     "prompt_tokens_details": {
+      "cached_tokens": 0
+     },
+     "prompt_cache_hit_tokens": 0,
+     "prompt_cache_miss_tokens": 829
+    },
+    "ms": 804
+   }
+  },
+  {
+   "id": "dinner",
+   "line": "lol enjoy whats for dinner",
+   "before": {
+    "reply": "thanks, probably rice again. r u grinding anything today or just chillin in henesys",
+    "usage": {
+     "prompt_tokens": 765,
+     "completion_tokens": 19,
+     "total_tokens": 784,
+     "prompt_tokens_details": {
+      "cached_tokens": 0
+     },
+     "prompt_cache_hit_tokens": 0,
+     "prompt_cache_miss_tokens": 765
+    },
+    "ms": 1046
+   },
+   "after": {
+    "reply": "idk yet, probably rice again. Haha, nice.",
+    "usage": {
+     "prompt_tokens": 584,
+     "completion_tokens": 13,
+     "total_tokens": 597,
+     "prompt_tokens_details": {
+      "cached_tokens": 0
+     },
+     "prompt_cache_hit_tokens": 0,
+     "prompt_cache_miss_tokens": 584
+    },
+    "ms": 1049
+   }
+  },
+  {
+   "id": "2nd-job",
+   "line": "gz which one",
+   "before": {
+    "reply": "fp wizard lol, u",
+    "usage": {
+     "prompt_tokens": 763,
+     "completion_tokens": 5,
+     "total_tokens": 768,
+     "prompt_tokens_details": {
+      "cached_tokens": 0
+     },
+     "prompt_cache_hit_tokens": 0,
+     "prompt_cache_miss_tokens": 763
+    },
+    "ms": 1028
+   },
+   "after": {
+    "reply": "fp wizard lol, fire arrows all day",
+    "usage": {
+     "prompt_tokens": 590,
+     "completion_tokens": 8,
+     "total_tokens": 598,
+     "prompt_tokens_details": {
+      "cached_tokens": 0
+     },
+     "prompt_cache_hit_tokens": 0,
+     "prompt_cache_miss_tokens": 590
+    },
+    "ms": 1087
+   }
+  },
+  {
+   "id": "crowded",
+   "line": "isnt it crowded tho",
+   "before": {
+    "reply": "yea sometimes but i just change channel kekeke",
+    "usage": {
+     "prompt_tokens": 780,
+     "completion_tokens": 10,
+     "total_tokens": 790,
+     "prompt_tokens_details": {
+      "cached_tokens": 0
+     },
+     "prompt_cache_hit_tokens": 0,
+     "prompt_cache_miss_tokens": 780
+    },
+    "ms": 961
+   },
+   "after": {
+    "reply": "bit crowded but spawn is good kekeke",
+    "usage": {
+     "prompt_tokens": 593,
+     "completion_tokens": 8,
+     "total_tokens": 601,
+     "prompt_tokens_details": {
+      "cached_tokens": 0
+     },
+     "prompt_cache_hit_tokens": 0,
+     "prompt_cache_miss_tokens": 593
+    },
+    "ms": 755
+   }
+  },
+  {
+   "id": "afk",
+   "line": "nah just afk in town",
+   "before": {
+    "reply": "lol same, just chillin in henesys til i get bored",
+    "usage": {
+     "prompt_tokens": 796,
+     "completion_tokens": 15,
+     "total_tokens": 811,
+     "prompt_tokens_details": {
+      "cached_tokens": 0
+     },
+     "prompt_cache_hit_tokens": 0,
+     "prompt_cache_miss_tokens": 796
+    },
+    "ms": 694
+   },
+   "after": {
+    "reply": "same tbh, henesys is chill for afk",
+    "usage": {
+     "prompt_tokens": 851,
+     "completion_tokens": 12,
+     "total_tokens": 863,
+     "prompt_tokens_details": {
+      "cached_tokens": 0
+     },
+     "prompt_cache_hit_tokens": 0,
+     "prompt_cache_miss_tokens": 851
+    },
+    "ms": 950
+   }
+  },
+  {
+   "id": "zakum",
+   "line": "u ever done zak?",
+   "before": {
+    "reply": "nah im only 41 lol, one day tho :) u?",
+    "usage": {
+     "prompt_tokens": 774,
+     "completion_tokens": 13,
+     "total_tokens": 787,
+     "prompt_tokens_details": {
+      "cached_tokens": 0
+     },
+     "prompt_cache_hit_tokens": 0,
+     "prompt_cache_miss_tokens": 774
+    },
+    "ms": 939
+   },
+   "after": {
+    "reply": "nah im only 41 lol, zak is a dream for me someday fighting!",
+    "usage": {
+     "prompt_tokens": 573,
+     "completion_tokens": 16,
+     "total_tokens": 589,
+     "prompt_tokens_details": {
+      "cached_tokens": 0
+     },
+     "prompt_cache_hit_tokens": 0,
+     "prompt_cache_miss_tokens": 573
+    },
+    "ms": 1121
+   }
+  },
+  {
+   "id": "ilbi",
+   "line": "my bf has some, ill ask him",
+   "before": {
+    "reply": "o nice ty, tell him ill pay decent mesos for a pair",
+    "usage": {
+     "prompt_tokens": 797,
+     "completion_tokens": 14,
+     "total_tokens": 811,
+     "prompt_tokens_details": {
+      "cached_tokens": 0
+     },
+     "prompt_cache_hit_tokens": 0,
+     "prompt_cache_miss_tokens": 797
+    },
+    "ms": 810
+   },
+   "after": {
+    "reply": "oh nice ty, tell him i got mesos ready",
+    "usage": {
+     "prompt_tokens": 617,
+     "completion_tokens": 11,
+     "total_tokens": 628,
+     "prompt_tokens_details": {
+      "cached_tokens": 0
+     },
+     "prompt_cache_hit_tokens": 0,
+     "prompt_cache_miss_tokens": 617
+    },
+    "ms": 978
+   }
+  }
+ ]
+}

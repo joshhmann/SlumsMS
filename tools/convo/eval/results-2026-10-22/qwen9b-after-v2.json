@@ -1,0 +1,165 @@
+{
+ "model": "qwen9b",
+ "results": [
+  {
+   "id": "east-coast",
+   "line": "im from the east",
+   "after": {
+    "reply": "lol nice, me too, ur a fighter tho",
+    "usage": {
+     "completion_tokens": 11,
+     "prompt_tokens": 627,
+     "total_tokens": 638,
+     "prompt_tokens_details": {
+      "cached_tokens": 514
+     }
+    },
+    "ms": 681
+   }
+  },
+  {
+   "id": "summer",
+   "line": "working at a pizza place lol",
+   "after": {
+    "reply": "lol at least ur not grinding mobs for mesos like a poor bowman xD",
+    "usage": {
+     "completion_tokens": 18,
+     "prompt_tokens": 624,
+     "total_tokens": 642,
+     "prompt_tokens_details": {
+      "cached_tokens": 524
+     }
+    },
+    "ms": 710
+   }
+  },
+  {
+   "id": "lvl",
+   "line": "34 u?",
+   "after": {
+    "reply": "lol 38 just leveled up yesterday :P",
+    "usage": {
+     "completion_tokens": 11,
+     "prompt_tokens": 604,
+     "total_tokens": 615,
+     "prompt_tokens_details": {
+      "cached_tokens": 508
+     }
+    },
+    "ms": 503
+   }
+  },
+  {
+   "id": "kpq",
+   "line": "me too im lv 25",
+   "after": {
+    "reply": "lol im lvl 27 u can join brb",
+    "usage": {
+     "completion_tokens": 12,
+     "prompt_tokens": 847,
+     "total_tokens": 859,
+     "prompt_tokens_details": {
+      "cached_tokens": 741
+     }
+    },
+    "ms": 516
+   }
+  },
+  {
+   "id": "dinner",
+   "line": "lol enjoy whats for dinner",
+   "after": {
+    "reply": "haha yeah hopefully its not just plain rice again lmao",
+    "usage": {
+     "completion_tokens": 14,
+     "prompt_tokens": 599,
+     "total_tokens": 613,
+     "prompt_tokens_details": {
+      "cached_tokens": 502
+     }
+    },
+    "ms": 581
+   }
+  },
+  {
+   "id": "2nd-job",
+   "line": "gz which one",
+   "after": {
+    "reply": "alchemist lol",
+    "usage": {
+     "completion_tokens": 4,
+     "prompt_tokens": 605,
+     "total_tokens": 609,
+     "prompt_tokens_details": {
+      "cached_tokens": 0
+     }
+    },
+    "ms": 572
+   }
+  },
+  {
+   "id": "crowded",
+   "line": "isnt it crowded tho",
+   "after": {
+    "reply": "yea but i got good aim kekeke fighting!",
+    "usage": {
+     "completion_tokens": 13,
+     "prompt_tokens": 612,
+     "total_tokens": 625,
+     "prompt_tokens_details": {
+      "cached_tokens": 502
+     }
+    },
+    "ms": 605
+   }
+  },
+  {
+   "id": "afk",
+   "line": "nah just afk in town",
+   "after": {
+    "reply": "lol same, tbh just chillin till the cab comes :P",
+    "usage": {
+     "completion_tokens": 15,
+     "prompt_tokens": 871,
+     "total_tokens": 886,
+     "prompt_tokens_details": {
+      "cached_tokens": 764
+     }
+    },
+    "ms": 659
+   }
+  },
+  {
+   "id": "zakum",
+   "line": "u ever done zak?",
+   "after": {
+    "reply": "lol no i havent but i will someday kekeke fighting! [do:party]",
+    "usage": {
+     "completion_tokens": 20,
+     "prompt_tokens": 588,
+     "total_tokens": 608,
+     "prompt_tokens_details": {
+      "cached_tokens": 485
+     }
+    },
+    "ms": 654
+   }
+  },
+  {
+   "id": "ilbi",
+   "line": "my bf has some, ill ask him",
+   "after": {
+    "reply": "lol u lucky, most ppl here are too busy farming to ask their bf",
+    "usage": {
+     "completion_tokens": 16,
+     "prompt_tokens": 632,
+     "total_tokens": 648,
+     "prompt_tokens_details": {
+      "cached_tokens": 522
+     }
+    },
+    "ms": 620
+   }
+  }
+ ]
+}

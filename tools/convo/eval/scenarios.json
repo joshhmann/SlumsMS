@@ -1,0 +1,406 @@
+[
+ {
+  "id": "east-coast",
+  "kind": "scripted question -> player answer (the owner's report)",
+  "bot": {
+   "name": "Kiki",
+   "slot": 4711,
+   "level": 23,
+   "job": 200,
+   "map": "Henesys",
+   "activity": "social"
+  },
+  "player": {
+   "name": "Josh",
+   "level": 31,
+   "job": 110
+  },
+  "chat": [
+   [
+    "Mochi",
+    "bot",
+    "pigs drop nothing lol"
+   ],
+   [
+    "Kiki",
+    "self",
+    "anyone from the east coast?"
+   ],
+   [
+    "Bunz",
+    "bot",
+    "brb pots"
+   ],
+   [
+    "Josh",
+    "player",
+    "im from the east"
+   ]
+  ],
+  "history": [],
+  "expect": "follows up on Josh being from the east (where, time zone, same/not same)"
+ },
+ {
+  "id": "summer",
+  "kind": "scripted question -> player answer",
+  "bot": {
+   "name": "Pinkyy",
+   "slot": 812,
+   "level": 41,
+   "job": 300,
+   "map": "Henesys Park",
+   "activity": "social"
+  },
+  "player": {
+   "name": "Josh",
+   "level": 31,
+   "job": 110
+  },
+  "chat": [
+   [
+    "Pinkyy",
+    "self",
+    "what is everyone doing this summer"
+   ],
+   [
+    "Josh",
+    "player",
+    "working at a pizza place lol"
+   ]
+  ],
+  "history": [],
+  "expect": "reacts to the pizza job"
+ },
+ {
+  "id": "lvl",
+  "kind": "scripted question -> short answer with a question back",
+  "bot": {
+   "name": "xKaizx",
+   "slot": 3001,
+   "level": 38,
+   "job": 410,
+   "map": "Henesys",
+   "activity": "social"
+  },
+  "player": {
+   "name": "Ann",
+   "level": 34,
+   "job": 220
+  },
+  "chat": [
+   [
+    "xKaizx",
+    "self",
+    "what lvl is everyone here"
+   ],
+   [
+    "Ann",
+    "player",
+    "34 u?"
+   ]
+  ],
+  "history": [],
+  "expect": "says its own level (38) and maybe reacts to 34"
+ },
+ {
+  "id": "kpq",
+  "kind": "scripted recruit -> two players answer",
+  "bot": {
+   "name": "Shopz",
+   "slot": 77,
+   "level": 27,
+   "job": 400,
+   "map": "Kerning City",
+   "activity": "social"
+  },
+  "player": {
+   "name": "Josh",
+   "level": 25,
+   "job": 110
+  },
+  "chat": [
+   [
+    "Shopz",
+    "self",
+    "who wants to do kpq"
+   ],
+   [
+    "Ann",
+    "player",
+    "me"
+   ],
+   [
+    "Josh",
+    "player",
+    "me too im lv 25"
+   ]
+  ],
+  "history": [],
+  "expect": "includes Josh in the KPQ plan (lv 25 fits 21-30)"
+ },
+ {
+  "id": "dinner",
+  "kind": "ambient statement -> player reacts",
+  "bot": {
+   "name": "Mochi",
+   "slot": 1520,
+   "level": 19,
+   "job": 100,
+   "map": "Henesys",
+   "activity": "social"
+  },
+  "player": {
+   "name": "Josh",
+   "level": 31,
+   "job": 110
+  },
+  "chat": [
+   [
+    "Mochi",
+    "self",
+    "brb mom says dinner"
+   ],
+   [
+    "Josh",
+    "player",
+    "lol enjoy whats for dinner"
+   ]
+  ],
+  "history": [],
+  "expect": "names a dinner food, stays on dinner"
+ },
+ {
+  "id": "2nd-job",
+  "kind": "ambient brag -> player follow-up question",
+  "bot": {
+   "name": "Bunz",
+   "slot": 2290,
+   "level": 30,
+   "job": 210,
+   "map": "Ellinia",
+   "activity": "social"
+  },
+  "player": {
+   "name": "Ann",
+   "level": 34,
+   "job": 220
+  },
+  "chat": [
+   [
+    "Bunz",
+    "self",
+    "finally got my 2nd job adv!!"
+   ],
+   [
+    "Ann",
+    "player",
+    "gz which one"
+   ]
+  ],
+  "history": [],
+  "expect": "names a magician 2nd job (fire/poison, ice/lightning, cleric)"
+ },
+ {
+  "id": "crowded",
+  "kind": "player follow-up on the bot's earlier answer",
+  "bot": {
+   "name": "Kimchiz",
+   "slot": 640,
+   "level": 41,
+   "job": 410,
+   "map": "Ant Tunnel I",
+   "activity": "grind"
+  },
+  "player": {
+   "name": "Josh",
+   "level": 31,
+   "job": 110
+  },
+  "chat": [
+   [
+    "Josh",
+    "player",
+    "kimchiz where do u train"
+   ],
+   [
+    "Kimchiz",
+    "self",
+    "ant tunnel mostly, zombie mushies"
+   ],
+   [
+    "Josh",
+    "player",
+    "isnt it crowded tho"
+   ]
+  ],
+  "history": [
+   [
+    "user",
+    "where do u train"
+   ],
+   [
+    "assistant",
+    "ant tunnel mostly, zombie mushies"
+   ]
+  ],
+  "expect": "answers whether Ant Tunnel is crowded"
+ },
+ {
+  "id": "afk",
+  "kind": "player answers the bot's own question from the chat",
+  "bot": {
+   "name": "Kiki",
+   "slot": 4711,
+   "level": 23,
+   "job": 200,
+   "map": "Henesys",
+   "activity": "social"
+  },
+  "player": {
+   "name": "Josh",
+   "level": 31,
+   "job": 110
+  },
+  "chat": [
+   [
+    "Josh",
+    "player",
+    "hey kiki"
+   ],
+   [
+    "Kiki",
+    "self",
+    "yo sup, u grinding today?"
+   ],
+   [
+    "Josh",
+    "player",
+    "nah just afk in town"
+   ]
+  ],
+  "history": [
+   [
+    "user",
+    "hey"
+   ],
+   [
+    "assistant",
+    "yo sup, u grinding today?"
+   ]
+  ],
+  "expect": "reacts to Josh being afk in town, not grinding"
+ },
+ {
+  "id": "zakum",
+  "kind": "two players talking, then one asks the bot",
+  "bot": {
+   "name": "Kimchiz",
+   "slot": 640,
+   "level": 41,
+   "job": 410,
+   "map": "Henesys",
+   "activity": "social"
+  },
+  "player": {
+   "name": "Josh",
+   "level": 31,
+   "job": 110
+  },
+  "chat": [
+   [
+    "Ann",
+    "player",
+    "zak runs are so long"
+   ],
+   [
+    "Josh",
+    "player",
+    "ya my guild did one last night"
+   ],
+   [
+    "Ann",
+    "player",
+    "did u get anything"
+   ],
+   [
+    "Josh",
+    "player",
+    "kimchiz u ever done zak?"
+   ]
+  ],
+  "history": [],
+  "expect": "answers about doing Zakum (at lv41: no / not yet)"
+ },
+ {
+  "id": "ilbi",
+  "kind": "scripted buy call -> player offers",
+  "bot": {
+   "name": "Pinkyy",
+   "slot": 812,
+   "level": 41,
+   "job": 400,
+   "map": "Free Market Entrance",
+   "activity": "social"
+  },
+  "player": {
+   "name": "Ann",
+   "level": 34,
+   "job": 220
+  },
+  "chat": [
+   [
+    "Mochi",
+    "bot",
+    "anyone wanna duo"
+   ],
+   [
+    "Pinkyy",
+    "self",
+    "anyone selling ilbis?"
+   ],
+   [
+    "Ann",
+    "player",
+    "my bf has some, ill ask him"
+   ]
+  ],
+  "history": [],
+  "expect": "thanks Ann / asks the price of the ilbis"
+ },
+ {
+  "id": "east-coast-old-route",
+  "kind": "the owner's report as 1.5.0-rc5 routed it: the answer reached a bot that did not ask (a thread's last speaker)",
+  "bot": {
+   "name": "Mochi",
+   "slot": 1520,
+   "level": 19,
+   "job": 100,
+   "map": "Henesys",
+   "activity": "social"
+  },
+  "player": {
+   "name": "Josh",
+   "level": 31,
+   "job": 110
+  },
+  "chat": [
+   [
+    "Mochi",
+    "self",
+    "west side henesys is way better for afk"
+   ],
+   [
+    "Kiki",
+    "bot",
+    "anyone from the east coast?"
+   ],
+   [
+    "Josh",
+    "player",
+    "im from the east"
+   ]
+  ],
+  "history": [],
+  "expect": "(routing now sends this to Kiki; shown to reproduce the report)"
+ }
+]
