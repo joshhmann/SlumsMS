@@ -4,6 +4,7 @@ import org.junit.jupiter.api.AfterEach;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
 
+import java.util.List;
 import java.util.Map;
 import java.util.Random;
 
@@ -31,8 +32,31 @@ class PriceBandTest {
         assertEquals(950_000, sell.low());
         assertEquals(1_250_000, sell.high());
         PriceBand.Band friendBuy = PriceBand.of(PriceBand.Side.BOT_BUYS, 1_000_000, true);
-        assertEquals(1_000_000, friendBuy.high(), "a friend gets 5% more, never past fair value");
-        assertEquals(900_000, PriceBand.of(PriceBand.Side.BOT_SELLS, 1_000_000, true).low());
+        assertEquals(750_000, friendBuy.low(), "a friend gets a 5% better opening");
+        assertEquals(950_000, friendBuy.high(), "but the same ceiling");
+        PriceBand.Band friendSell = PriceBand.of(PriceBand.Side.BOT_SELLS, 1_000_000, true);
+        assertEquals(950_000, friendSell.low(), "and the same floor");
+        assertEquals(1_200_000, friendSell.high(), "with a 5% lower opening ask");
+    }
+
+    /**
+     * 1.5.0 rc3 review: with the friend bonus on both edges a player bought from friend bot A at 0.90 and sold to
+     * friend bot B at 1.00 of fair value, about 10% a cycle. No bot's buy ceiling may be over any bot's sell floor.
+     */
+    @Test
+    void buyingFromOneFriendBotAndSellingToAnotherNeverPays() {
+        for (Map<String, Object> cfg : List.<Map<String, Object>>of(Map.of(),
+                Map.of("bands.friendBonus", 0.2, "bands.botBuysHigh", 1.1, "bands.botSellsLow", 0.9))) {
+            EconomyConfig.useForTest(cfg);
+            for (long fair : new long[]{1, 999, 1_000_000, 123_456_789}) {
+                long lowestSell = Math.min(PriceBand.of(PriceBand.Side.BOT_SELLS, fair, true).low(),
+                        PriceBand.of(PriceBand.Side.BOT_SELLS, fair, false).low());
+                long highestBuy = Math.max(PriceBand.of(PriceBand.Side.BOT_BUYS, fair, true).high(),
+                        PriceBand.of(PriceBand.Side.BOT_BUYS, fair, false).high());
+                assertTrue(highestBuy <= lowestSell, cfg + " fair " + fair + ": buys up to " + highestBuy
+                        + " but sells from " + lowestSell);
+            }
+        }
     }
 
     @Test

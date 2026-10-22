@@ -61,6 +61,7 @@ public class HiredMerchant extends AbstractMapObject {
     private static final int VISITOR_HISTORY_LIMIT = 10;
     private static final int BLACKLIST_LIMIT = 20;
     protected int ownerId;
+    protected int ownerAccountId;
     private final int itemId;
     private final int mesos = 0;
     private final int channel;
@@ -87,12 +88,26 @@ public class HiredMerchant extends AbstractMapObject {
         this.setPosition(owner.getPosition());
         this.start = System.currentTimeMillis();
         this.ownerId = owner.getId();
+        this.ownerAccountId = owner.getAccountID();
         this.channel = owner.getClient().getChannel();
         this.world = owner.getWorld();
         this.itemId = itemId;
         this.ownerName = owner.getName();
         this.description = desc;
         this.map = owner.getMap();
+    }
+
+    /** The owner's side of a sale for the price board: its account, and its address when it is online. */
+    private soloMapling.Economy.PriceBook.Party ownerParty() {
+        try {
+            Character owner = Server.getInstance().getWorld(world).getPlayerStorage().getCharacterById(ownerId);
+            if (owner != null) {
+                return soloMapling.Economy.PriceBook.Party.of(owner);
+            }
+        } catch (RuntimeException e) {
+            // no world here: the account alone
+        }
+        return new soloMapling.Economy.PriceBook.Party(ownerAccountId, null, null);
     }
 
     public void broadcastToVisitorsThreadsafe(Packet packet) {
@@ -295,14 +310,21 @@ public class HiredMerchant extends AbstractMapObject {
 
             KarmaManipulator.toggleKarmaFlagToUntradeable(newItem);
 
-            int price = (int) Math.min((float) pItem.getPrice() * quantity, Integer.MAX_VALUE);
+            long total = server.ShopMath.total(pItem.getPrice(), quantity);   // 1.5.0 rc3 review: exact
+            if (total < 0) {
+                c.getPlayer().dropMessage(1, "That costs more mesos than anyone can carry at once.");
+                c.sendPacket(PacketCreator.enableActions());
+                return;
+            }
+            int price = (int) total;
             if (c.getPlayer().getMeso() >= price) {
                 if (canBuy(c, newItem)) {
                     c.getPlayer().gainMeso(-price, false);
                     int paid = price;
                     int fee = soloMapling.Economy.MesoSinks.shopFee(price);   // 1.5.0 rc3: FM shop tax
                     price -= fee;
-                    soloMapling.Economy.MesoSinks.onShopSale(newItem, paid, fee, isPersistent(), true, !isPersistent());
+                    soloMapling.Economy.MesoSinks.onShopSale(newItem, paid, fee, isPersistent(), true, !isPersistent(),
+                            isPersistent() ? ownerParty() : null, soloMapling.Economy.PriceBook.Party.of(c.getPlayer()));
 
                     synchronized (sold) {
                         sold.add(new SoldItem(c.getPlayer().getName(), pItem.getItem().getItemId(), newItem.getQuantity(), price));
@@ -861,7 +883,11 @@ public class HiredMerchant extends AbstractMapObject {
         synchronized (items) {
             Item newItem = pItem.getItem().copy();
             newItem.setQuantity((short) (pItem.getItem().getQuantity() * quantity));
-            int price = (int) Math.min((float) pItem.getPrice() * quantity, Integer.MAX_VALUE);
+            long total = server.ShopMath.total(pItem.getPrice(), quantity);   // 1.5.0 rc3 review: exact
+            if (total < 0) {
+                return false;
+            }
+            int price = (int) total;
 
             if (!BotHoldings.spendMeso(fakechar, price)) {
                 fakechar.dropMessage(1, "You don't have enough mesos to purchase this item.");

@@ -1,57 +1,47 @@
 /*
-	This file is part of the OdinMS Maple Story Server
-    Copyright (C) 2008 Patrick Huy <patrick.huy@frz.cc>
-		       Matthias Butz <matze@odinms.de>
-		       Jan Christian Meyer <vimes@odinms.de>
+    SlumsMS 1.5.0 rc3 review: the Singapore (CBD) Gachapon machine, NPC 9270043.
 
-    This program is free software: you can redistribute it and/or modify
-    it under the terms of the GNU Affero General Public License as
-    published by the Free Software Foundation version 3 as published by
-    the Free Software Foundation. You may not use, modify or distribute
-    this program under any other version of the GNU Affero General Public
-    License.
-
-    This program is distributed in the hope that it will be useful,
-    but WITHOUT ANY WARRANTY; without even the implied warranty of
-    MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
-    GNU Affero General Public License for more details.
-
-    You should have received a copy of the GNU Affero General Public License
-    along with this program.  If not, see <http://www.gnu.org/licenses/>.
+    It used to take a Remote Gachapon Ticket (5451000) and then call doGachapon(), which plays a Gachapon Ticket
+    (5220000) at a pool this NPC did not have: the remote ticket was eaten and nothing was won. It is now the town
+    machine of gachapon.js: one Gachapon Ticket (5220000) = one roll of the Singapore pool in
+    soloMapling/Gachapon/gachapon-pools.yaml, and the ticket is taken only after the prize fits (GachaMachine).
+    A Remote Gachapon Ticket is used from the item (gachaponRemote.js), never here.
 */
-//Gachapon
-
-var ids = [2000004, 2020012, 2000005, 2030007, 2022027, 1302022, 1322021, 1322026, 1302026, 1442017, 1082147, 1102043, 1442016, 1402012, 1302027, 1322027, 1322025, 1312012, 1062000, 1332020, 1302028, 1372002, 1002033, 1092022, 1302021, 1102041, 1102042, 1322024, 1082148, 1002012, 1322012, 1322022, 1002020, 1302013, 1082146, 1442014, 1002096, 1302017, 1442012, 1322010, 1442011, 1442018, 1092011, 1092014, 1302003, 1432001, 1312011, 1002088, 1041020, 1322015, 1442004, 1422008, 1302056, 1432000, 1382001, 1041053, 1060014, 1050053, 1051032, 1050073, 1061036, 1002253, 1002034, 1051025, 1050067, 1051052, 1002072, 1002144, 1051054, 1050069, 1372007, 1050056, 1050074, 1002254, 1002274, 1002218, 1051055, 1382010, 1002246, 1050039, 1382007, 1372000, 1002013, 1050072, 1002036, 1002243, 1372008, 1382008, 1382011, 1092021, 1051034, 1050047, 1040019, 1041031, 1051033, 1002153, 1002252, 1051024, 1002153, 1050068, 1382003, 1382006, 1050055, 1051031, 1050025, 1002155, 1002245, 1452004, 1452023, 1060057, 1040071, 1002137, 1462009, 1452017, 1040025, 1041027, 1452005, 1452007, 1061057, 1472006, 1472019, 1060084, 1472028, 1002179, 1082074, 1332015, 1432001, 1060071, 1472007, 1472002, 1051009, 1061037, 1332016, 1332034, 1472020, 1102084, 1102086, 1102042, 1032026, 1082149];
-var status = 0;
+var status;
+var TICKET = 5220000;
 
 function start() {
-    if (cm.haveItem(5451000)) {
-        cm.gainItem(5451000, -1);
-        cm.doGachapon();
-        cm.dispose();
-    } else if (cm.haveItem(5220000)) {
-        cm.sendYesNo("You may use Gachapon. Would you like to use your Gachapon ticket?");
-    } else {
-        cm.sendSimple("Welcome to the " + cm.getPlayer().getMap().getMapName() + " Gachapon. How may I help you?\r\n\r\n#L0#What is Gachapon?#l\r\n#L1#Where can you buy Gachapon tickets?#l");
-    }
+    status = -1;
+    action(1, 0, 0);
 }
 
 function action(mode, type, selection) {
-    if (mode == 1 && cm.haveItem(5220000)) {
-        cm.doGachapon();
+    if (mode == -1 || (mode == 0 && status <= 0)) {
         cm.dispose();
-    } else {
-        if (mode > 0) {
-            status++;
-            if (selection == 0) {
-                cm.sendNext("Play Gachapon to earn rare scrolls, equipment, chairs, mastery books, and other cool items! All you need is a #bGachapon Ticket#k to be the winner of a random mix of items.");
-            } else if (selection == 1) {
-                cm.sendNext("Gachapon Tickets are available in the #rCash Shop#k and can be purchased using NX or Maple Points. Click on the red SHOP at the lower right hand corner of the screen to visit the #rCash Shop #kwhere you can purchase tickets.");
-                cm.dispose();
-            } else if (status == 2) {
-                cm.sendNext("You'll find a variety of items from the " + cm.getPlayer().getMap().getMapName() + " Gachapon, but you'll most likely find several related items and scrolls since " + cm.getPlayer().getMap().getMapName() + " is known as the town.");
-                cm.dispose();
-            }
+        return;
+    }
+    status++;
+    if (status == 0) {
+        var text = "Welcome to the #b" + cm.gachaponTownName() + " Gachapon#k!\r\n\r\n";
+        if (cm.haveItem(TICKET)) {
+            text += "#L0#Use a #t" + TICKET + "##l\r\n";
         }
+        text += "#L1#What can I win, and how likely is it?#l\r\n#L2#Where do I get tickets?#l";
+        cm.sendSimple(text);
+    } else if (status == 1) {
+        if (selection == 0) {
+            cm.doGachapon(TICKET);
+            cm.dispose();
+        } else if (selection == 1) {
+            cm.sendOk("Every ticket gives one prize from this town's machine:\r\n\r\n#b" + cm.gachaponOdds()
+                + "#k\r\nRare and jackpot prizes are announced to the whole server. Type #r@gacha " + cm.gachaponTownName()
+                + "#k to see every prize.");
+            cm.dispose();
+        } else {
+            cm.sendOk("#bGachapon Tickets#k are sold in the #rCash Shop#k, and the daily check-in gives some too. A #bRemote Gachapon Ticket#k plays any town's machine from wherever you are.");
+            cm.dispose();
+        }
+    } else {
+        cm.dispose();
     }
 }

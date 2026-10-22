@@ -33,7 +33,7 @@ public final class GameQaTradeWorld implements QaTradeWorld {
         if (b == null) {
             return List.of("bot " + botId + " is gone");
         }
-        return BotShops.open(b, gm.getMapId(), gm.getPosition(), true);
+        return BotShops.open(b, gm.getClient().getChannel(), gm.getMapId(), gm.getPosition(), true);
     }
 
     @Override
@@ -144,7 +144,7 @@ public final class GameQaTradeWorld implements QaTradeWorld {
             public boolean friend() {
                 return false;
             }
-        }, PriceBook::fairValue);
+        }, PriceBook::botBuyValue);
         s.tick();
         for (String line : lines) {
             HaggleBrain.Read r = HaggleBrain.read(line, ChatDecide.get());

@@ -29,9 +29,10 @@ class GachaPoolsFileTest {
     void theShippedFileLoadsWithoutProblems() throws Exception {
         GachaPools p = shipped(id -> true);
         assertEquals(List.of(), p.problems());
-        assertEquals(12, p.towns().size());
+        assertEquals(13, p.towns().size());
         for (GachaPools.Town t : p.towns().values()) {
-            assertTrue(t.npcId() >= 9100100 && t.npcId() <= 9100117, t.key());
+            // the town machines 9100100-9100117, and Singapore's own (9270043, 1.5.0 rc3 review)
+            assertTrue(t.npcId() >= 9100100 && t.npcId() <= 9100117 || t.npcId() == 9270043, t.key());
             assertTrue(!t.maps().isEmpty(), t.key() + " has maps a bot can play from");
             double sum = p.odds(t).stream().mapToDouble(GachaPools.TierOdds::chance).sum();
             assertEquals(1.0, sum, 1e-9, t.key());

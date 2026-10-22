@@ -57,7 +57,9 @@ public class EconomyCommand extends Command {
                     break;
                 }
                 boolean inFm = gm.getMapId() >= 910000001 && gm.getMapId() <= 910000022;
-                out.addAll(BotShops.open(bot, inFm ? gm.getMapId() : 0, inFm ? gm.getPosition() : null, true));
+                // in an FM room: right here, on the GM's channel; elsewhere the usual channel spread picks
+                out.addAll(BotShops.open(bot, inFm ? gm.getClient().getChannel() : 0, inFm ? gm.getMapId() : 0,
+                        inFm ? gm.getPosition() : null, true));
             }
             case "close" -> out.add(rest.length == 0 ? "!economy close <bot>" : closeShop(gm, rest[0]));
             case "gift" -> {

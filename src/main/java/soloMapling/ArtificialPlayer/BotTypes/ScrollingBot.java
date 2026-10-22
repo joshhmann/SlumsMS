@@ -87,8 +87,12 @@ public class ScrollingBot extends BotSM {
 
     private void setScrollingItems() {
         itemsToScroll.clear();
-        while (itemsToScroll.isEmpty()) {
-            itemsToScroll = generateCommonEquipList("A");
+        for (int tries = 0; itemsToScroll.isEmpty(); tries++) {
+            itemsToScroll = new java.util.ArrayList<>(generateCommonEquipList("A"));
+            // 1.5.0 rc3 review: bots never sell godly gear (SaleRules); a rare godly roll is just not offered
+            if (tries < 20) {
+                itemsToScroll.removeIf(fm -> isGodly(fm.getEquip()));
+            }
         }
         FMEquip eq = itemsToScroll.get(listIndex);
         successfulScrolls = eq.getEquip().getLevel();
@@ -96,6 +100,14 @@ public class ScrollingBot extends BotSM {
         upgradeSlots = cleanItem.getUpgradeSlots();
         scrollResults = generateExactScrollList(successfulScrolls, upgradeSlots);
         currentPosition = 0;
+    }
+
+    private static boolean isGodly(Equip equip) {
+        try {
+            return equip != null && soloMapling.Economy.GearGrade.godly(equip);
+        } catch (RuntimeException | LinkageError e) {
+            return false;
+        }
     }
 
     public boolean[] generateExactScrollList(int succScroll, int upgradeSlots) {

@@ -349,6 +349,26 @@ class BotScrollingTest {
                 "the budget reservation is given back");
     }
 
+    /** 1.5.0 rc3 review: afterRoll sent spare equips to BotConsignment.list with no SaleRules / godly check. */
+    @Test
+    void aGodlyPieceABotScrolledIsNeverPutOnSale() {
+        soloMapling.Economy.SaleRules.useForTest(java.util.Set.of(), id -> false, id -> false);
+        try {
+            org.mockito.Mockito.when(server.ItemInformationProvider.getInstance().getEquipStats(SWORD))
+                    .thenReturn(java.util.Map.of("PAD", 17, "tuc", 7, "reqLevel", 50));
+            Equip fair = new Equip(SWORD, (short) 1, 0);
+            fair.setLevel((byte) 7);
+            fair.setWatk((short) (17 + 14));   // seven 60% passes: +14, under the godly line (2 x 7 + 5)
+            Equip godly = new Equip(SWORD, (short) 2, 0);
+            godly.setLevel((byte) 7);
+            godly.setWatk((short) (17 + 35));   // seven 10% passes: +35
+            assertNull(BotConsignment.whyNotList(fair), "an average or good piece may be listed");
+            assertEquals("godly gear", BotConsignment.whyNotList(godly));
+        } finally {
+            soloMapling.Economy.SaleRules.useForTest(null, null, null);
+        }
+    }
+
     @Test
     void aSoldListingPaysTheBotAndAnUnsoldOneComesBack() throws Exception {
         Character bot = newBot(50);

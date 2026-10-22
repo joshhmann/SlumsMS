@@ -273,7 +273,13 @@ public class PlayerShop extends AbstractMapObject {
 
                 visitorLock.lock();
                 try {
-                    int price = (int) Math.min((float) pItem.getPrice() * quantity, Integer.MAX_VALUE);
+                    long total = server.ShopMath.total(pItem.getPrice(), quantity);   // 1.5.0 rc3 review: exact
+                    if (total < 0) {
+                        c.getPlayer().dropMessage(1, "That costs more mesos than anyone can carry at once.");
+                        c.sendPacket(PacketCreator.enableActions());
+                        return false;
+                    }
+                    int price = (int) total;
 
                     if (c.getPlayer().getMeso() >= price) {
                         if (!owner.canHoldMeso(price)) {    // thanks Rohenn for noticing owner hold check misplaced
@@ -288,7 +294,8 @@ public class PlayerShop extends AbstractMapObject {
                             int fee = soloMapling.Economy.MesoSinks.shopFee(price);   // 1.5.0 rc3: FM shop tax
                             price -= fee;
                             owner.gainMeso(price, true);
-                            soloMapling.Economy.MesoSinks.onShopSale(newItem, paid, fee, !soloMapling.ArtificialPlayer.BotHelpers.isBot(owner), true, false);
+                            soloMapling.Economy.MesoSinks.onShopSale(newItem, paid, fee, !soloMapling.ArtificialPlayer.BotHelpers.isBot(owner), true, false,
+                                    soloMapling.Economy.PriceBook.Party.of(owner), soloMapling.Economy.PriceBook.Party.of(c.getPlayer()));
                             // A bot can own this shop (FreeMarket stalls); its take must be holdings, not ambient income.
                             BotHoldings.noteMesoEarned(owner, price);
 
@@ -645,7 +652,11 @@ public class PlayerShop extends AbstractMapObject {
             newItem.setQuantity((short) ((pItem.getItem().getQuantity() * quantity)));
             visitorLock.lock();
             try {
-                int price = (int) Math.min((float) pItem.getPrice() * quantity, Integer.MAX_VALUE);
+                long total = server.ShopMath.total(pItem.getPrice(), quantity);   // 1.5.0 rc3 review: exact
+                if (total < 0) {
+                    return false;
+                }
+                int price = (int) total;
 
                 if (!BotHoldings.spendMeso(fakechar, price)) {
                     fakechar.dropMessage(1, "You don't have enough mesos to purchase this item.");

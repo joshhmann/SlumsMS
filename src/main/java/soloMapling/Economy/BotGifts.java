@@ -31,7 +31,8 @@ import java.util.function.LongSupplier;
  *   <li><b>Who:</b> a bot whose affinity state toward the player is friend ({@link BotAffinity#friend}, the public
  *   API), when it notices them nearby ({@code BotPlayerReaction}), with {@code gifts.chancePerSighting} (3%).</li>
  *   <li><b>How often:</b> at most once per {@code gifts.perBotDays} (7) days per bot and player (kept in
- *   {@code botgifts}, migration 020), and at most {@code gifts.worldPerDay} (20) gifts a day world-wide.</li>
+ *   {@code botgifts}, migration 020), at most {@code gifts.perAccountPerDay} (2) a day per player account (alts
+ *   share it), and at most {@code gifts.worldPerDay} (20) gifts a day world-wide.</li>
  *   <li><b>What:</b> potions for the player's level (the bot pays the NPC price), a common scroll from its own bag
  *   (60%+ plain scroll worth at most {@code gifts.scrollMaxValue}), or {@code gifts.mesoMin}..{@code gifts.mesoMax}
  *   (100k-500k) of its own mesos when it keeps half its wealth ceiling. Nothing is minted: every gift comes out of the
@@ -83,7 +84,12 @@ public final class BotGifts {
         if (last != null && now - last < periodMs()) {
             return false;
         }
+        int account = player.getAccountID();
+        if (!claimAccount(account)) {
+            return false;   // this player's account (alts included) had its gifts for today
+        }
         if (!EconomyMeters.tryAdd(EconomyMeters.GIFTS, 1, Math.max(0, EconomyConfig.getLong("gifts.worldPerDay", 20)))) {
+            releaseAccount(account);
             return false;
         }
         lastGift.put(k, now);   // claim it now, so the next sighting does not race the store read
@@ -92,15 +98,35 @@ public final class BotGifts {
             if (stored > 0 && now - stored < periodMs()) {
                 lastGift.put(k, stored);
                 EconomyMeters.add(EconomyMeters.GIFTS, -1);
+                releaseAccount(account);
                 return;
             }
             String line = give(bot, player, null, rng);
             if (line == null) {
                 EconomyMeters.add(EconomyMeters.GIFTS, -1);
+                releaseAccount(account);
                 lastGift.remove(k);
             }
         });
         return true;
+    }
+
+    /**
+     * 1.5.0 rc3 review: gifts were limited per character only, so one person's alts could take most of the world's
+     * {@code gifts.worldPerDay}. An account gets at most {@code gifts.perAccountPerDay} (2) a day, counted in the
+     * daily meters (kept across a restart). True when one was claimed for it.
+     */
+    static boolean claimAccount(int account) {
+        long cap = Math.max(0, EconomyConfig.getLong("gifts.perAccountPerDay", 2));
+        return EconomyMeters.tryAdd(accountMeter(account), 1, cap);
+    }
+
+    static void releaseAccount(int account) {
+        EconomyMeters.add(accountMeter(account), -1);
+    }
+
+    static String accountMeter(int account) {
+        return EconomyMeters.GIFT_ACCOUNT_PREFIX + account;
     }
 
     /**
