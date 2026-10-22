@@ -25,8 +25,8 @@ tools/chatbank/generate.sh pack               # writes chatbank.bin; commit it w
 `gen` options: `--url` (http://192.168.0.17:8095/v1), `--model` (qwen9b), `--target` (100000 lines),
 `--per-cell` (40), `--batch` (8 lines a call), `--calls` (50 this run), `--pause-ms` (1500), `--hours 2-8` (only
 between these hours, server time), `--no-verify`, `--no-idle-check`, and for the cloud provider later
-`--url <cloud base> --model <model> --api-key-env SOLOMAPLING_LLM_CLOUD_API_KEY --budget-usd 1 --price-in 0.28
---price-out 0.42` (it stops at the budget, estimated from the responses' token counts).
+`--url <cloud base> --model <model> --api-key-env SOLOMAPLING_LLM_CLOUD_API_KEY --budget-usd 1 --price-in 0.30
+--price-out 1.20 --reasoning-effort none` (it stops at the budget, estimated from the responses' token counts).
 
 ## What keeps it safe and varied
 

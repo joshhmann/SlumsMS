@@ -190,4 +190,14 @@ class OpenAICompatibleBrainTest {
         config.BOT_LLM_BASE_URL = "http://127.0.0.1:" + server.getAddress().getPort() + "/v1";
         assertTrue(BotBrains.fromConfig(config).isLive());
     }
+
+    @Test
+    void cloudSendsItsExtraBodySoThinkingModelsAnswer() {
+        ServerConfig config = new ServerConfig();
+        config.BOT_LLM_CLOUD_BASE_URL = "https://cloud.example/v1";
+        config.BOT_LLM_CLOUD_MODEL = "deepseek-flash";
+        config.BOT_LLM_CLOUD_EXTRA_BODY = new java.util.HashMap<>(Map.of("reasoning_effort", "\"none\""));
+        String body = BotBrains.cloudFrom(config).requestBody(List.of());
+        assertTrue(body.contains("\"reasoning_effort\":\"none\""), body);
+    }
 }

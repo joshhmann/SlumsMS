@@ -67,7 +67,7 @@ public final class BotBrains {
         return new OpenAICompatibleBrain(new OpenAICompatibleBrain.Settings(
                 server.BOT_LLM_CLOUD_BASE_URL.trim(), key, orEmpty(server.BOT_LLM_CLOUD_MODEL), server.BOT_LLM_MAX_TOKENS,
                 server.BOT_LLM_TEMPERATURE, server.BOT_LLM_CLOUD_TIMEOUT_MS, 4, server.BOT_LLM_PLAYER_MIN_INTERVAL_MS,
-                Map.of(), Map.of(), ""));
+                server.BOT_LLM_CLOUD_EXTRA_BODY == null ? Map.of() : server.BOT_LLM_CLOUD_EXTRA_BODY, Map.of(), ""));
     }
 
     static OpenAICompatibleBrain localFrom(ServerConfig server) {

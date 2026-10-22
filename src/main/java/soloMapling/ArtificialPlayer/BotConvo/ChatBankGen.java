@@ -126,6 +126,8 @@ public final class ChatBankGen {
     private int nextId = 1;
     private int accepted;
     private int rejected;
+    /** Sent as {@code reasoning_effort} when set (a cloud thinking model); blank = the local {@code enable_thinking: false}. */
+    private String reasoningEffort = "";
     private final Map<String, Integer> rejectReasons = new LinkedHashMap<>();
 
     ChatBankGen(Path state) throws IOException {
@@ -317,9 +319,13 @@ public final class ChatBankGen {
         StringBuilder s = new StringBuilder();
         s.append("Write ").append(n).append(" different chat lines a real player would type in MapleStory in 2008, ")
                 .append(intent[0]).append(". ");
+        // the sample batch had lines from the wrong side ("bruh thanks man" for the one GIVING the buff)
+        s.append("You are the one typing and you are answering another player: every line is your side of it, never ")
+                .append("theirs. ");
         if (v != null) {
             s.append("The player ").append(v.prompt).append(" (like \"").append(String.join("\" / \"", v.examples))
-                    .append("\"); use that style lightly, most lines should just read like a normal player. ");
+                    .append("\"); use that style lightly: at most one such word in a line, about half the lines with none, ")
+                    .append("and the English is otherwise normal chat, not broken. ");
         }
         String tone = TONE_WORDS.getOrDefault(c.tone(), "");
         if (!tone.isEmpty()) {
@@ -373,7 +379,11 @@ public final class ChatBankGen {
         body.put("max_tokens", 260);
         body.put("temperature", 1.0);
         body.put("stream", false);
-        body.put("chat_template_kwargs", Map.of("enable_thinking", false));
+        if (reasoningEffort.isEmpty()) {
+            body.put("chat_template_kwargs", Map.of("enable_thinking", false));
+        } else {
+            body.put("reasoning_effort", reasoningEffort); // cloud thinking models, e.g. "none" for deepseek-flash
+        }
         HttpRequest.Builder req = HttpRequest.newBuilder(URI.create(url.replaceAll("/$", "") + "/chat/completions"))
                 .timeout(Duration.ofSeconds(60)).header("Content-Type", "application/json")
                 .POST(HttpRequest.BodyPublishers.ofString(Json.write(body)));
@@ -405,8 +415,9 @@ public final class ChatBankGen {
         int calls = Integer.parseInt(o.getOrDefault("calls", "50"));
         long pause = Long.parseLong(o.getOrDefault("pause-ms", "1500"));
         double budget = Double.parseDouble(o.getOrDefault("budget-usd", "0"));
-        double priceIn = Double.parseDouble(o.getOrDefault("price-in", "0.28"));
-        double priceOut = Double.parseDouble(o.getOrDefault("price-out", "0.42"));
+        double priceIn = Double.parseDouble(o.getOrDefault("price-in", "0.30"));
+        double priceOut = Double.parseDouble(o.getOrDefault("price-out", "1.20"));
+        reasoningEffort = o.getOrDefault("reasoning-effort", "");
         boolean idleCheck = !o.containsKey("no-idle-check");
         int[] hours = o.containsKey("hours") ? java.util.Arrays.stream(o.get("hours").split("-")).mapToInt(Integer::parseInt)
                 .toArray() : null;
@@ -540,7 +551,9 @@ public final class ChatBankGen {
         for (int i = 0; i < lines.size(); i++) {
             p.append(i + 1).append(". ").append(lines.get(i)).append('\n');
         }
-        p.append("Reply with only the numbers of the lines that do NOT fit that purpose, comma separated, or none.");
+        p.append("A line does NOT fit if it has another purpose, is what the OTHER player would say (the wrong side), ")
+                .append("makes no sense, or piles up accent or slang words. ")
+                .append("Reply with only the numbers of the lines that do NOT fit, comma separated, or none.");
         Object[] r = complete(url, model, key, p.toString());
         Set<Integer> out = new HashSet<>();
         if (r != null && r[0] instanceof String text && !text.toLowerCase(Locale.ROOT).contains("none")) {

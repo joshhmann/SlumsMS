@@ -133,8 +133,12 @@ public class ServerConfig {
     public String BOT_LLM_CLOUD_MODEL = "";
     public int BOT_LLM_CLOUD_TIMEOUT_MS = 6000;
     public double BOT_LLM_CLOUD_DAILY_BUDGET_USD = 1.0;
-    public double BOT_LLM_CLOUD_PRICE_IN_PER_MTOK = 0.28;
-    public double BOT_LLM_CLOUD_PRICE_OUT_PER_MTOK = 0.42;
+    //DeepSeek's peak prices for deepseek-flash (2026-10-22); off-peak is half, so this overestimates
+    public double BOT_LLM_CLOUD_PRICE_IN_PER_MTOK = 0.30;
+    public double BOT_LLM_CLOUD_PRICE_OUT_PER_MTOK = 1.20;
+    //Extra request fields for the cloud as raw JSON, e.g. reasoning_effort: '"none"': thinking models spend max_tokens thinking and
+    //answer nothing without it
+    public Map<String, String> BOT_LLM_CLOUD_EXTRA_BODY = new HashMap<>();
     //Local model latency (moving average, ms) above which a real player's reply overflows to the cloud.
     public int BOT_LLM_LOCAL_SLOW_MS = 2500;
     //1.5.0 rc3 (bots fight like people): only maps a real player can see run any of this (BotCombatTuning).
