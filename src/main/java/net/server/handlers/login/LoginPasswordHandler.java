@@ -78,7 +78,17 @@ public final class LoginPasswordHandler implements PacketHandler {
         byte[] hwidNibbles = p.readBytes(4);
         Hwid hwid = new Hwid(HexTool.toCompactHexString(hwidNibbles));
         int loginok = c.login(login, pwd, hwid, false);
+        // 1.5.0: the version gate runs as soon as the password is verified, before the loginok 7 block below kicks
+        // the account's live session, and before AUTOMATIC_REGISTER creates an account (a new account has no GM).
+        if (ClientVersionGate.passwordVerified(loginok) && ClientVersionGate.refuseIfOutdated(c, login)) {
+            SessionCoordinator.getInstance().closeLoginSession(c);
+            return;
+        }
         if (YamlConfig.config.server.AUTOMATIC_REGISTER && loginok == 5) {
+            if (ClientVersionGate.refuseIfOutdated(c, login, YamlConfig.config.server, accountId -> 0)) {
+                SessionCoordinator.getInstance().closeLoginSession(c);
+                return;
+            }
             AutoRegisterGuard.Refusal refusal = AutoRegisterGuard.check(remoteHost, login, pwd, System.currentTimeMillis());
             if (refusal != null) {
                 log.info("Refused new account '{}' from {}: {}", login, remoteHost, refusal);
@@ -194,7 +204,7 @@ public final class LoginPasswordHandler implements PacketHandler {
             SessionCoordinator.getInstance().closeLoginSession(c);
             return;
         }
-        if (ClientVersionGate.refuseIfOutdated(c, login)) {
+        if (c.autolog > 0 && ClientVersionGate.refuseIfOutdated(c, login)) { // autologin skips the password check above
             SessionCoordinator.getInstance().closeLoginSession(c);
             return;
         }

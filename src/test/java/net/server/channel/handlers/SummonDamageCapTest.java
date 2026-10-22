@@ -29,6 +29,12 @@ class SummonDamageCapTest {
     }
 
     @Test
+    void aNegativeHitIsAMiss() {
+        assertEquals(0, SummonDamageHandler.capSummonDamage(-1, 5_000));
+        assertEquals(0, SummonDamageHandler.capSummonDamage(Integer.MIN_VALUE, 5_000));
+    }
+
+    @Test
     void weaponSummonEstimateScalesWithTheOwnersDamage() {
         StatEffect hawk = mock(StatEffect.class);
         when(hawk.getWatk()).thenReturn((short) 100);

@@ -569,7 +569,7 @@ public abstract class AbstractDealDamageHandler extends AbstractPacketHandler {
                     int bullets = p.readByte();
                     List<Integer> allDamageNumbers = new ArrayList<>();
                     for (int j = 0; j < bullets; j++) {
-                        int damage = p.readInt();
+                        int damage = clientDamage(p.readInt(), chr, ret.skill);
                         allDamageNumbers.add(damage);
                     }
                     ret.allDamage.put(oid, allDamageNumbers);
@@ -815,7 +815,7 @@ public abstract class AbstractDealDamageHandler extends AbstractPacketHandler {
             }
 
             for (int j = 0; j < ret.numDamage; j++) {
-                int damage = p.readInt();
+                int damage = clientDamage(p.readInt(), chr, ret.skill);
                 long hitDmgMax = calcDmgMax;
                 if (ret.skill == Buccaneer.BARRAGE || ret.skill == ThunderBreaker.BARRAGE) {
                     if (j > 3) {
@@ -865,6 +865,20 @@ public abstract class AbstractDealDamageHandler extends AbstractPacketHandler {
             ret.position.setLocation(p.readShort(), p.readShort());
         }
         return ret;
+    }
+
+    /**
+     * A damage number as the client sent it, with a negative one turned into a miss. The real client never sends a
+     * negative line (it has no crit flag; the server marks crits itself, below), and applyAttack decodes a negative
+     * line as a crit with {@code += Integer.MAX_VALUE}, so a packet-edited -1 used to land as ~2.1b damage.
+     */
+    static int clientDamage(int damage, Character chr, int skill) {
+        if (damage >= 0) {
+            return damage;
+        }
+        AutobanFactory.DAMAGE_HACK.alert(chr, "negative damage line " + damage + " SID: " + skill
+                + (chr != null ? " Map: " + chr.getMapId() : ""));
+        return 0;
     }
 
     /** Cosmic's crit flag on a damage line ({@code -Integer.MAX_VALUE + damage - 1}); a miss stays 0. */

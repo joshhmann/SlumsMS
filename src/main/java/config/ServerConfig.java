@@ -99,7 +99,8 @@ public class ServerConfig {
     public double BOT_ENVIRONMENT_SCALE = 0.5;
     //1.4.2 (ticket 57): how bots split over the channels, ch1 first. Any count of weights; channels past the list
     //get the last weight; they are normalised. Blank = every channel alike.
-    //owner 2026-10-21: 5 channels, bars 100/85/50/30/20 % at the peak (live config.yaml: channels 5, CHANNEL_LOAD 105).
+    //owner 2026-10-21: 5 channels, weights 100/85/50/30/20. Live config.yaml for 1.5.0: channels 5, CHANNEL_LOAD 125
+    //(owner 2026-10-22), so the peak bars sit at about 85/70/40/25/15 %.
     public String BOT_CHANNEL_WEIGHTS = "100,85,50,30,20";
     //SoloMapling: shrink the seed waves (training cohorts + town presence) for a pilot on a small host; 1.0 = full.
     public double BOT_POPULATION_SCALE = 1.0;
