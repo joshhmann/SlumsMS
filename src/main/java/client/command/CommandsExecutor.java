@@ -259,6 +259,8 @@ public class CommandsExecutor {
         addCommand("roll", RollCommand.class);
         addCommand("quiet", QuietCommand.class);
         addCommand("botdrama", client.command.commands.gm0.BotDramaCommand.class);   // ticket 58
+        addCommand("romance", client.command.commands.gm0.RomanceCommand.class);   // 1.5.0 bot drama: romance opt-in
+        addCommand("guildwar", client.command.commands.gm0.GuildWarCommand.class);   // 1.5.0 bot drama: guild wars
         addCommand("price", client.command.commands.gm0.PriceCommand.class);   // 1.5.0 rc3: the price board
 	    addCommand("shop", ShopCommand.class);
        // addCommand("damageskin",  DamageSkinCommand.class);
@@ -370,6 +372,9 @@ public class CommandsExecutor {
             addCommand(new String[]{"event", "worldevent"}, 4, client.command.commands.gm4.WorldEventCommand.class);
             addCommand("affinity", 4, client.command.commands.gm4.AffinityCommand.class);   // ticket 58
             addCommand("couple", 4, client.command.commands.gm4.CoupleCommand.class);   // ticket 58
+            addCommand("botromance", 4, client.command.commands.gm4.BotRomanceCommand.class);   // 1.5.0 bot drama
+            addCommand("botrival", 4, client.command.commands.gm4.BotRivalCommand.class);   // 1.5.0 bot drama
+            addCommand("botwar", 4, client.command.commands.gm4.BotWarCommand.class);   // 1.5.0 bot drama
             addCommand("botguild", 4, client.command.commands.gm4.BotGuildCommand.class);   // 1.5.0 bot guilds
         }
         addCommand("gacharoll", 3, client.command.commands.gm4.GachaRollCommand.class);   // 1.5.0 gachapon

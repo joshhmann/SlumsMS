@@ -66,6 +66,12 @@ final class BotPlayerReaction {
             if (player == null || PlayerBusy.isBusy(player)) {
                 continue;
             }
+            // 1.5.0 bot drama: a partner, an ex, a crush or a rival with a score to settle (own cooldowns and caps)
+            if (soloMapling.ArtificialPlayer.BotDramaSystem.BotDrama.onSight(
+                    CharacterStorage.getBotById(bot.getId()), player)) {
+                entry.reactingUntilMs = nowMs + STOP_PAUSE_MIN_MS;
+                return;
+            }
             // Ticket 58: a bot that feels something about this player (friend, rival, nemesis) may act on it - its
             // own per-pair cooldowns and world caps, so it does not wait on the shared reaction cooldown.
             if (soloMapling.ArtificialPlayer.BotAffinitySystem.AffinityReactions.onSight(

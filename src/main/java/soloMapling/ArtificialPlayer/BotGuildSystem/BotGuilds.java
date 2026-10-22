@@ -554,7 +554,7 @@ public final class BotGuilds {
     }
 
     /** A real guild invite from a bot, through the stock invite flow (the player clicks accept as usual). */
-    static boolean sendInvite(Character fromBot, Guild g, Character player) {
+    public static boolean sendInvite(Character fromBot, Guild g, Character player) {
         try {
             if (PlayerBusy.isBusy(player) || player.getGuildId() > 0 || !player.isLoggedinWorld()) {
                 return false;
@@ -620,7 +620,7 @@ public final class BotGuilds {
     }
 
     /** A bot says a line in its guild's chat (every online member sees it). */
-    static void sayInGuild(Character bot, String line) {
+    public static void sayInGuild(Character bot, String line) {
         if (bot == null || line == null || line.isBlank() || bot.getGuildId() <= 0) {
             return;
         }
@@ -628,7 +628,7 @@ public final class BotGuilds {
         qa(bot.getMapId(), "GUILD SAY " + bot.getName() + " [" + guildName(bot.getGuildId()) + "]: " + line);
     }
 
-    static String guildName(int gid) {
+    public static String guildName(int gid) {
         GuildRow r = guilds.get(gid);
         if (r != null) {
             return r.name();
@@ -1109,7 +1109,7 @@ public final class BotGuilds {
                 }
                 whispered.put(p.getId(), now);
                 noteWorldWhisper(now);
-
+                soloMapling.ArtificialPlayer.BotDramaSystem.BotRomance.onBotWhispered(bot.getId(), p); // a jealous partner
                 Character from = bot;
                 ExecutorServiceManager.getScheduledExecutorService().schedule(() -> sendInvite(from, g, p),
                         6, TimeUnit.SECONDS);

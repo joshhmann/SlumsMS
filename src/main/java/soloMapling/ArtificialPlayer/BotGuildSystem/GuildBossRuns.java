@@ -158,7 +158,8 @@ public final class GuildBossRuns {
         if (curve < 0.4) {
             return;
         }
-        String problem = start(g, null, false, "guilds");
+        String problem = start(g, null, false, "guilds", 0,
+                soloMapling.ArtificialPlayer.BotDramaSystem.GuildWars.alliesOf(g.guildId())); // 1.5.0: allies join
         if (problem != null) {
             log.debug("No boss run for {}: {}", g.name(), problem);
         }
@@ -174,11 +175,29 @@ public final class GuildBossRuns {
 
     /** As {@link #start(GuildRow, Boss, boolean, String)} on a given channel (0 = where a member plays). */
     public static synchronized String start(GuildRow g, Boss wanted, boolean fast, String by, int onChannel) {
+        return start(g, wanted, fast, by, onChannel, List.of());
+    }
+
+    /**
+     * As {@link #start(GuildRow, Boss, boolean, String, int)}, a joint run with the members of allied guilds too
+     * (1.5.0 bot drama: alliances).
+     */
+    public static synchronized String start(GuildRow g, Boss wanted, boolean fast, String by, int onChannel,
+                                            List<Integer> allies) {
         if (running()) {
             return "a boss run is already on (" + current.guildName + ")";
         }
+        List<Character> members = new ArrayList<>(BotGuilds.onlineMembers(g.guildId()));
+        StringBuilder joint = new StringBuilder(g.name());
+        for (int ally : allies == null ? List.<Integer>of() : allies) {
+            List<Character> theirs = BotGuilds.onlineMembers(ally);
+            if (!theirs.isEmpty()) {
+                members.addAll(theirs);
+                joint.append(" + ").append(BotGuilds.guildName(ally));
+            }
+        }
         List<Character> able = new ArrayList<>();
-        for (Character c : BotGuilds.onlineMembers(g.guildId())) {
+        for (Character c : members) {
             BotSM sm = CharacterStorage.getBotById(c.getId());
             if (sm != null && BotGuilds.free(c) && BotRoster.member(c.getId() - BotStore.BOT_ID_BASE) != null
                     && !withRealPlayer(c)) {
@@ -209,7 +228,7 @@ public final class GuildBossRuns {
         for (Character c : crew) {
             ids.add(c.getId());
         }
-        Run run = new Run(g.guildId(), g.name(), boss, channel, ids, gather, inside, by, now);
+        Run run = new Run(g.guildId(), joint.toString(), boss, channel, ids, gather, inside, by, now);
         MapleMap map = BotChannels.map(channel, boss.entranceMap());
         if (map == null) {
             return "no map " + boss.entranceMap() + " on channel " + channel;

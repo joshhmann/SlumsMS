@@ -79,6 +79,7 @@ public final class QaScenarios {
         all.addAll(CombatScenarios.all());    // 1.5.0 rc3: bots fight like people (cb-1 .. cb-4), spread out (sp-1)
         all.addAll(QaTradeScenarios.all());   // 1.5.0 rc3 economy lane: tr-1..tr-7
         all.addAll(PartnerRingScenarios.all()); // 1.5.0: Cash Shop friendship/couple rings (pr-1, pr-2)
+        all.addAll(DramaScenarios.all());     // 1.5.0 bot drama: rm-1..rm-4, rv-1..rv-4, gw-1..gw-4
         return List.copyOf(all);
     }
 

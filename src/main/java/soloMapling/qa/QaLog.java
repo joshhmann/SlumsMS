@@ -52,7 +52,10 @@ public final class QaLog {
         SPREAD,         // 1.5.0 rc3: spot claims per channel, personal space, rope waits (sp-1)
         TRADE,          // 1.5.0 rc3 economy: bot shops, direct trades and haggles, gifts, price samples, tax (tr-1..tr-6)
         PETS,           // 1.5.0 rc4: bot pets: who has which, pet pickups (pt-1)
-        RING;           // 1.5.0: Cash Shop couple/friendship rings: prompts, refusals, both ring records (pr-1, pr-2)
+        RING,           // 1.5.0: Cash Shop couple/friendship rings: prompts, refusals, both ring records (pr-1, pr-2)
+        ROMANCE,        // 1.5.0 bot drama: flirts, dates, proposals, weddings, breakups, gossip (rm-1..rm-4)
+        RIVALRY,        // 1.5.0 bot drama: roasts, KS wars, callouts, revenge follows (rv-1..rv-4)
+        GUILD_WAR;      // 1.5.0 bot drama: guild wars, turf, poaching, alliances and betrayals (gw-1..gw-4)
 
         final int bit = 1 << ordinal();
     }

@@ -1,0 +1,406 @@
+# 1.5.0 bot drama (BotDramaSystem): romance with players (opt-in: @romance on), spicy rivals, guild wars.
+# Bot map chat and whispers, so @quiet bots hides the chatter. Content rules (owner, 2026-10-22), checked by a test and by
+# ContentGuard at speaking time:
+#   - romance is flirty, cheesy and dramatic, PG-13: never sexual or explicit
+#   - trash talk stays about the GAME (gear, level, job, deaths, KS habits): never slurs, looks, family or real life
+# Tokens: {PLAYER} the player, {BOT} the bot speaking about itself or the partner, {OTHER} a third character,
+# {MAP} a map name, {LEVEL} {JOB} {DEATHS} {WEAPON} {GUILD} {RIVAL} {SCORE} as named. A line with an unfilled token is
+# skipped. Keep the old-GMS chat feel: short, lowercase, no emojis (the v83 client cannot draw them).
+Drama:
+  # ---- romance: flirting and asking out ----
+  RomanceFlirt:
+    text:
+      - "{PLAYER} u look extra cute today ngl"
+      - "hey {PLAYER} ;) come train w me"
+      - "is it hot in here or is it just {PLAYER}"
+      - "{PLAYER} r u a 4th job skill? cuz ur out of my league"
+      - "{PLAYER} saving u a spot next to me ^^"
+      - "kinda glad ur here {PLAYER}"
+      - "{PLAYER} u must be a rare drop cuz i found u >.<"
+      - "are u a pot? cuz u restore my hp {PLAYER}"
+  RomanceAskOut:
+    text:
+      - "{PLAYER}... wanna go out with me? :$ (yes/no)"
+      - "ok im just gonna say it. {PLAYER} be my partner? yes or no"
+      - "{PLAYER} wanna go to amoria together sometime? like... a date? (yes/no)"
+      - "{PLAYER} i like u. go out w me? yes/no >.<"
+  RomanceYay:
+    text:
+      - "YAY {PLAYER} <3"
+      - "omg ok!! we're official {PLAYER} ^^"
+      - "best day ever lol <3"
+      - "{PLAYER} ur stuck with me now hehe"
+  RomanceRejected:
+    text:
+      - "oh... ok. its fine lol"
+      - "ouch. ok {PLAYER} no worries"
+      - "rejected in front of everyone. cool cool cool"
+      - "ok ill just go cry in the sleepywood dungeon"
+  RomanceNotInterested:
+    text:
+      - "lol ur sweet but nah"
+      - "haha we're friends {PLAYER} ^^"
+      - "uhh lets just train lol"
+  RomanceAlreadyTogether:
+    text:
+      - "we already are silly <3"
+      - "{PLAYER} we're literally together lol"
+      - "ask me that again and ill say yes again ^^"
+  RomanceTaken:
+    text:
+      - "sorry {PLAYER} im taken"
+      - "aww but im seeing someone"
+      - "my partner would not like that lol"
+  RomanceSaidYes:
+    text:
+      - "omg... yes!! <3"
+      - "i thought u would never ask {PLAYER} ^^"
+      - "YES. finally lol"
+      - "ok yes. dont make it weird {PLAYER} hehe"
+  RomanceSaidNo:
+    text:
+      - "aw {PLAYER}... i dont know u that well yet"
+      - "maybe after a few more pq runs lol"
+      - "haha slow down {PLAYER}, lets train first"
+  RomanceRingHint:
+    text:
+      - "get a ring box from moony in amoria and ask me properly ;)"
+      - "moony makes rings u know... just saying ^^"
+  RomancePartnerHello:
+    text:
+      - "{PLAYER}!! missed u <3"
+      - "there u are {PLAYER} ^^"
+      - "my fav person is here"
+      - "hiii {PLAYER} :D"
+  RomanceFollow:
+    text:
+      - "wait for me {PLAYER}!!"
+      - "{PLAYER} where u going without me lol"
+      - "found u {PLAYER} ^^"
+      - "cant let u grind alone {PLAYER}"
+  RomanceChair:
+    text:
+      - "scoot over {PLAYER} ^^"
+      - "this chair is for two right"
+      - "{PLAYER} comfy?"
+  RomanceCuteWhisper:
+    text:
+      - "thinking about u {PLAYER} ^^"
+      - "dont die out there {PLAYER} <3"
+      - "{PLAYER} grind safe ok"
+      - "miss u. come say hi when ur free"
+      - "{PLAYER} ur my fav player on this server"
+      - "brb but <3"
+  RomanceJealousWhisper:
+    text:
+      - "who is {OTHER} and why are they whispering u"
+      - "{OTHER} whispering u?? hmm"
+      - "i saw {OTHER} whisper u. should i be worried lol"
+      - "{PLAYER} tell {OTHER} ur taken ok"
+  RomanceJealousRival:
+    text:
+      - "back off {OTHER}, {PLAYER} is with me"
+      - "{OTHER} leave my {PLAYER} alone"
+      - "{OTHER} go ks someone else"
+      - "dont even look at {PLAYER} {OTHER}"
+  RomanceNeglectWarning:
+    text:
+      - "{PLAYER}... we never hang out anymore"
+      - "do u even remember me {PLAYER}"
+      - "{PLAYER} come find me or were done for real"
+      - "been waiting forever {PLAYER}. hello??"
+  RomanceDumped:
+    text:
+      - "were done {PLAYER}. bye"
+      - "u never had time for me {PLAYER}. its over"
+      - "dont whisper me {PLAYER}. were through"
+  RomanceDumpedCheater:
+    text:
+      - "u were seeing {OTHER} the whole time?? were done {PLAYER}"
+      - "cheater. dont talk to me {PLAYER}"
+      - "two-timing me in my own server?? bye {PLAYER}"
+  RomanceQuietBreakup:
+    text:
+      - "hey {PLAYER}, i think we should just be friends. take care"
+      - "{PLAYER} i dont think this is working. no hard feelings"
+  RomanceExTaunt:
+    text:
+      - "oh look its my ex"
+      - "{PLAYER} still grinding {MAP}? figures"
+      - "glad i dumped u {PLAYER} lol"
+      - "{PLAYER} ur loss honestly"
+      - "{PLAYER} still using that weapon? yikes"
+  RomanceExRebound:
+    text:
+      - "im with {OTHER} now btw. way better than u {PLAYER}"
+      - "{OTHER} actually parties with me {PLAYER}"
+      - "{PLAYER} meet {OTHER}. my upgrade lol"
+  RomanceOldFlame:
+    text:
+      - "{PLAYER}... been a while huh"
+      - "hey {PLAYER}. i still think about us sometimes"
+      - "{PLAYER} i was dumb back then. can we talk?"
+  RomanceRingYes:
+    text:
+      - "YES YES YES {PLAYER} <3 omg"
+      - "{PLAYER}... yes. a million times yes"
+      - "im crying in henesys rn. yes!!"
+  RomanceRingNo:
+    text:
+      - "{PLAYER} its too soon..."
+      - "im not ready for that {PLAYER}"
+  RomanceRingNotDating:
+    text:
+      - "uh {PLAYER} we're not even dating lol"
+      - "a ring?? we barely know each other {PLAYER}"
+  RomanceBotProposes:
+    text:
+      - "{PLAYER}... will u marry me? <3"
+      - "{PLAYER} i got us a ring. marry me?"
+      - "everyone look! {PLAYER} will u marry me??"
+  RomanceProposalTurnedDown:
+    text:
+      - "oh. ok. i get it"
+      - "thats ok {PLAYER}... ill wait"
+      - "everyone saw that huh. great"
+  RomanceDivorced:
+    text:
+      - "wow {PLAYER}. after everything"
+      - "fine. keep the house in amoria {PLAYER}"
+      - "divorced?? ok... take care {PLAYER}"
+  RomanceEngagementOff:
+    text:
+      - "the engagement is off?? {PLAYER}..."
+      - "guess the wedding is cancelled then"
+  RomanceGossip:
+    text:
+      - "saw {BOT} with {PLAYER} at {MAP} o.o"
+      - "{BOT} and {PLAYER}?? at {MAP}?? spill"
+      - "so {BOT} and {PLAYER} are a thing now huh"
+  # ---- romance: two-timing found out (public chat on the player's map) ----
+  RomanceCaught1:
+    text:
+      - "{PLAYER}... who is {OTHER}??"
+      - "{PLAYER} why is {OTHER} saying ur dating them??"
+  RomanceCaught2:
+    text:
+      - "excuse me? {PLAYER} is with ME"
+      - "um {PLAYER} told me u were just a friend"
+  RomanceCaught3:
+    text:
+      - "since when?? {PLAYER} explain"
+      - "wow. WOW. {PLAYER}"
+  RomanceCaught4:
+    text:
+      - "{PLAYER} u have some explaining to do"
+      - "everyone in this map is watching {PLAYER} lol"
+  RomanceCaughtStays:
+    text:
+      - "{PLAYER} ur lucky i like u. dont do it again"
+      - "im staying. but im watching u {PLAYER}"
+  # ---- weddings (a player and their bot fiance, Amoria) ----
+  WeddingOfficiant:
+    text:
+      - "we are gathered here in amoria for {PLAYER} and {BOT}"
+      - "dearly beloved... and randoms from the fm... welcome"
+  WeddingSpeakNow:
+    text:
+      - "if anyone objects to this marriage, speak now or forever hold ur pots"
+      - "anyone object? speak now lol"
+  WeddingObjection:
+    text:
+      - "I OBJECT!! {PLAYER} was supposed to be with ME"
+      - "I OBJECT. {PLAYER} u cant marry {BOT}!!"
+      - "STOP THE WEDDING. {PLAYER} what about us??"
+  WeddingObjectionReply:
+    text:
+      - "{OTHER} seriously?? at my wedding??"
+      - "who even invited {OTHER}"
+      - "{OTHER} security pls lol"
+  WeddingObjectionOverruled:
+    text:
+      - "...ok. moving on"
+      - "objection noted and ignored. anyway"
+  WeddingRunaway:
+    text:
+      - "i... i cant do this. im sorry {PLAYER}"
+      - "{PLAYER} im not ready!! sorry!!"
+      - "too much pressure. bye {PLAYER}"
+  WeddingBotVows:
+    text:
+      - "{PLAYER} ur my favorite person on this server. i do"
+      - "i promise to always share my elixirs. i do <3"
+      - "i do. forever and ever {PLAYER}"
+  WeddingAskPlayer:
+    text:
+      - "{PLAYER}, do u take {BOT} as ur partner?"
+      - "{PLAYER}... do u?"
+  WeddingTakenAsYes:
+    text:
+      - "...we'll take that as a yes"
+      - "silence means yes right? great"
+  WeddingPronounce:
+    text:
+      - "i now pronounce u married!! {PLAYER} and {BOT}"
+      - "by the power of the maple tree, ur married!"
+  WeddingJustMarried:
+    text:
+      - "WE'RE MARRIED <3"
+      - "{PLAYER} ur stuck with me forever now ^^"
+  WeddingCheer:
+    text:
+      - "gratz {PLAYER} and {BOT}!!"
+      - "so cute omg"
+      - "wooo"
+      - "cake when"
+      - "congrats u two ^^"
+  WeddingCrash:
+    text:
+      - "cant believe u married {BOT} over me {PLAYER}"
+      - "nice wedding {PLAYER}. shame about the partner"
+      - "oh is this the reception? i brought drama"
+  WeddingCrashLeave:
+    text:
+      - "whatever. have fun i guess"
+      - "im out. enjoy ur cake"
+  # ---- rivals: roasts (real facts about the player's game; the game only) ----
+  RoastOverleveled:
+    text:
+      - "lv {LEVEL} still in {MAP} lol"
+      - "{PLAYER} lv {LEVEL} farming {MAP}?? move on bro"
+      - "imagine being lv {LEVEL} in {MAP}"
+      - "{MAP} at lv {LEVEL}... u lost or something"
+  RoastDeaths:
+    text:
+      - "{DEATHS} deaths today {PLAYER}? buy pots lol"
+      - "{PLAYER} died {DEATHS} times today and still talks"
+      - "{PLAYER} the respawn point knows u by name"
+      - "{DEATHS} deaths. my pet dies less than u"
+  RoastGear:
+    text:
+      - "lv {LEVEL} with a lv {WLEVEL} weapon lmao"
+      - "{PLAYER} still using {WEAPON}? its not 2003"
+      - "nice {WEAPON} {PLAYER}, did u loot it from a snail"
+      - "{PLAYER} scroll ur weapon sometime"
+  RoastKs:
+    text:
+      - "{PLAYER} the ks king"
+      - "{PLAYER} ks'd me again. shocker"
+      - "{PLAYER} cant find their own mobs lol"
+      - "every mob i hit, {PLAYER} shows up. weird"
+  RoastJob:
+    text:
+      - "{JOB} main lol"
+      - "{PLAYER} picked {JOB}. explains a lot"
+      - "of course ur a {JOB} {PLAYER}"
+      - "{JOB}s and ks, name a better duo"
+  RoastLevel:
+    text:
+      - "lv {LEVEL}? cute"
+      - "{PLAYER} lv {LEVEL}, i was there last week"
+      - "{PLAYER} grind more talk less"
+      - "{PLAYER} ur dmg is a rounding error"
+  # ---- rivals: KS wars ----
+  KsWarCall:
+    text:
+      - "come to {MAP} ch{CH}, {PLAYER} keeps ksing me"
+      - "need backup in {MAP} ch{CH}. {PLAYER} again"
+      - "anyone free? ks war on {PLAYER} in {MAP} ch{CH}"
+  KsWarRally:
+    text:
+      - "ok {PLAYER}, u want to ks? lets ks"
+      - "calling my friends {PLAYER}. have fun"
+      - "{PLAYER} ur about to have no mobs lol"
+  KsWarArrive:
+    text:
+      - "which one is {PLAYER}?"
+      - "we here. which mobs"
+      - "yo {PLAYER} heard u like ksing"
+      - "ks squad reporting in"
+  KsWarLeave:
+    text:
+      - "ez. later {PLAYER}"
+      - "ok we made our point. gg {PLAYER}"
+      - "dont ks us again {PLAYER}. bye"
+  # ---- rivals: the revenge follow ----
+  RevengeDemand:
+    text:
+      - "{PLAYER} u ksed me back there. say sorry"
+      - "thought u could just leave {PLAYER}? apologize"
+      - "{PLAYER}. ur ks. apology. now"
+      - "followed u {PLAYER}. u owe me a sorry"
+  RevengeAccepted:
+    text:
+      - "...fine. we cool {PLAYER}"
+      - "ok apology accepted. dont do it again"
+      - "hm. ok {PLAYER}. truce"
+  RevengeEscalate:
+    text:
+      - "oh its ON now {PLAYER}"
+      - "ok {PLAYER}. ur on my list now"
+      - "u just made a nemesis {PLAYER}"
+  RevengeTimeout:
+    text:
+      - "whatever {PLAYER}. watch ur mobs"
+      - "no sorry? ok. noted {PLAYER}"
+  # ---- guild wars (guild chat, map chat, whispers) ----
+  WarDeclaredOurs:
+    text:
+      - "its war on {RIVAL}!! everyone to the grind maps"
+      - "we're at war with {RIVAL} this week. hold the maps"
+      - "{RIVAL} wanted war, they got it. lets go {GUILD}"
+  WarDeclaredTheirs:
+    text:
+      - "{RIVAL} declared war on us lol. bring it"
+      - "war with {RIVAL}?? ok. everyone grind together this week"
+  WarJab:
+    text:
+      - "{PLAYER} this map is {GUILD} turf now"
+      - "{GUILD} owns {MAP} this week {PLAYER}"
+      - "move over {PLAYER}, {GUILD} grinds here now"
+  WarPeaceReply:
+    text:
+      - "fine. peace. but we were winning {PLAYER}"
+      - "ok peace. {GUILD} lets u off this time"
+      - "peace accepted. tell ur guild to stay off our maps"
+  # ---- poaching ----
+  PoachLeaveOld:
+    text:
+      - "sorry guys, {GUILD} offered me a spot. cya"
+      - "im out. {GUILD} actually runs bosses"
+      - "gonna try {GUILD} for a bit. no hard feelings"
+  PoachTraitor:
+    text:
+      - "{MEMBER} left for {GUILD}?? traitor"
+      - "bye {MEMBER}. enjoy {GUILD} lol"
+      - "{MEMBER} u'll be back"
+  PoachWelcome:
+    text:
+      - "welcome {MEMBER}!! told u {OLD} was dead"
+      - "{MEMBER} is one of us now ^^"
+      - "say hi to {MEMBER} everyone, fresh from {OLD}"
+  PoachWhisper:
+    text:
+      - "yo {PLAYER} {OLD} kinda quiet huh. {GUILD} has a spot for u ;)"
+      - "{PLAYER} ever thought about {GUILD}? leave {OLD} and ill inv u"
+      - "psst {PLAYER}. {GUILD} > {OLD}. just saying. ill inv if u leave"
+  # ---- alliances and betrayals ----
+  AllyFormed:
+    text:
+      - "we're allied with {RIVAL} now. be nice to them"
+      - "{GUILD} + {RIVAL} alliance is official"
+      - "{RIVAL} are our allies now. boss runs together soon"
+  AllyShoutout:
+    text:
+      - "shoutout to our allies {RIVAL}"
+      - "{RIVAL} pt anyone? allies help allies"
+      - "{RIVAL} cleared a boss yesterday, gj allies"
+  AllyBetrayedChat:
+    text:
+      - "{GUILD} BETRAYED us. alliance over. war"
+      - "cant believe {GUILD}. we trusted them"
+      - "{GUILD} backstabbed us. everyone to the maps"
+  AllyBetrayerChat:
+    text:
+      - "{RIVAL} were holding us back anyway"
+      - "alliance with {RIVAL} is done. dont ask"
