@@ -17,7 +17,8 @@ public final class VoiceStyler {
 
     static final int MAX = 70;
 
-    private static final Map<String, String> SHORT = Map.ofEntries(
+    // ordered (review fix: Map.of iterates in a random order per JVM, so a line styled differently per run)
+    private static final Map<String, String> SHORT = ordered(
             Map.entry("you", "u"), Map.entry("your", "ur"), Map.entry("you're", "ur"), Map.entry("youre", "ur"),
             Map.entry("are", "r"), Map.entry("please", "pls"), Map.entry("thanks", "thx"), Map.entry("okay", "ok"),
             Map.entry("because", "cuz"), Map.entry("people", "ppl"), Map.entry("i'm", "im"), Map.entry("don't", "dont"),
@@ -25,7 +26,8 @@ public final class VoiceStyler {
             Map.entry("what's", "whats"), Map.entry("i'll", "ill"), Map.entry("didn't", "didnt"),
             Map.entry("doesn't", "doesnt"), Map.entry("isn't", "isnt"), Map.entry("really", "rly"),
             Map.entry("though", "tho"), Map.entry("right now", "rn"));
-    private static final Map<String, String> LONG = Map.ofEntries(
+    // ordered (review fix: Map.of iterates in a random order per JVM, so a line styled differently per run)
+    private static final Map<String, String> LONG = ordered(
             Map.entry("u", "you"), Map.entry("ur", "your"), Map.entry("r", "are"), Map.entry("pls", "please"),
             Map.entry("plz", "please"), Map.entry("im", "I'm"), Map.entry("i", "I"), Map.entry("dont", "don't"),
             Map.entry("cant", "can't"), Map.entry("wont", "won't"), Map.entry("ill", "I'll"), Map.entry("thx", "thanks"),
@@ -34,6 +36,15 @@ public final class VoiceStyler {
             Map.entry("thats", "that's"), Map.entry("whats", "what's"), Map.entry("its", "it's"));
 
     private VoiceStyler() {
+    }
+
+    @SafeVarargs
+    private static Map<String, String> ordered(Map.Entry<String, String>... entries) {
+        Map<String, String> m = new java.util.LinkedHashMap<>();
+        for (Map.Entry<String, String> e : entries) {
+            m.put(e.getKey(), e.getValue());
+        }
+        return java.util.Collections.unmodifiableMap(m);
     }
 
     /** The line in this persona's voice. {@code protect}: words to leave exactly as they are (lower case). */
@@ -89,7 +100,7 @@ public final class VoiceStyler {
     }
 
     static String proper(String line, Set<String> keep, Random rng) {
-        String t = words(line, LONG, keep, rng, 0.9);
+        String t = words(line, LONG, keep, rng, 1.0); // a proper typer always spells it out
         if (!t.isEmpty() && Character.isLetter(t.charAt(0)) && !keep.contains(firstWord(t))) {
             t = Character.toUpperCase(t.charAt(0)) + t.substring(1);
         }
