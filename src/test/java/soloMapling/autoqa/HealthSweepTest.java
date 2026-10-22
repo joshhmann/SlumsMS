@@ -66,7 +66,25 @@ class HealthSweepTest {
         assertEquals(3, worst.get(0).get("id"));
         assertEquals(46.0, worst.get(0).get("dy"));
         assertEquals("SUNK", worst.get(0).get("kind"));
+        assertEquals("GROUNDED", worst.get(0).get("pose"));
+        assertEquals(true, worst.get(0).get("driven"));
+        assertEquals(Map.of("AIRBORNE", 1), fh.get("skippedByPose"));
         assertTrue(String.valueOf(r.get("summary")).contains("foothold FAIL"));
+    }
+
+    @Test
+    void botsMidCoarseMoveAreCountedAsSkippedNotOffTheirFoothold() {
+        // rc5: 42 of the 50 worst bots of the first two sweeps sat on a baked nav edge, mid analytic move.
+        HealthSweep s = new HealthSweep(HealthSweep.Limits.defaults());
+        List<HealthSweep.BotSample> bots = List.of(
+                bot(1, 1, 0, 274, GROUNDED, false),
+                bot(2, 1, 100, 90, FootholdCheck.Pose.COARSE, true),   // half-way up a rope edge
+                bot(3, 1, 200, 400, FootholdCheck.Pose.COARSE, true)); // a drop edge passing under a platform
+        Map<String, Object> fh = check(s.run(snap(0, bots, new int[]{3, 0, 0, 0, 0}, 0), m -> GROUND), "foothold");
+        assertEquals("OK", fh.get("status"), String.valueOf(fh.get("summary")));
+        assertEquals(1, fh.get("checked"));
+        assertEquals(2, fh.get("skipped"));
+        assertEquals(Map.of("COARSE", 2), fh.get("skippedByPose"));
     }
 
     @Test

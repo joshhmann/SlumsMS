@@ -85,8 +85,8 @@ class FootholdCheckTest {
     }
 
     @Test
-    void airborneClimbingSwimmingAndUnknownBotsAreNotChecked() {
-        for (Pose p : List.of(Pose.AIRBORNE, Pose.CLIMBING, Pose.SWIMMING, Pose.UNKNOWN)) {
+    void airborneClimbingSwimmingCoarseAndUnknownBotsAreNotChecked() {
+        for (Pose p : List.of(Pose.AIRBORNE, Pose.CLIMBING, Pose.SWIMMING, Pose.COARSE, Pose.UNKNOWN)) {
             FootholdCheck.Verdict v = FootholdCheck.check(MAP, -500, 100, p);
             assertEquals(Kind.SKIPPED, v.kind(), p.name());
             assertFalse(v.bad());
@@ -108,5 +108,16 @@ class FootholdCheckTest {
         assertEquals(Pose.CLIMBING, GameHealthSource.poseFromStance(14, false)); // ladder
         assertEquals(Pose.CLIMBING, GameHealthSource.poseFromStance(17, false)); // rope, facing left
         assertEquals(Pose.SWIMMING, GameHealthSource.poseFromStance(4, true));
+    }
+
+    @Test
+    void onASwimMapEveryBotIsSwimmingWhateverTheDriverSays() {
+        // rc5 sweep: Aquarium (230000000) and Aqua Road bots moved over the water graph by the unobserved (coarse)
+        // driver never set its swimming flag, and were flagged 50-100 px "floating".
+        assertEquals(Pose.SWIMMING, GameHealthSource.pose("GROUNDED", 4, true));
+        assertEquals(Pose.SWIMMING, GameHealthSource.pose(null, 4, true));
+        assertEquals(Pose.GROUNDED, GameHealthSource.pose("GROUNDED", 6, false), "the driver's pose beats the stance");
+        assertEquals(Pose.COARSE, GameHealthSource.pose("COARSE", 4, false));
+        assertEquals(Pose.AIRBORNE, GameHealthSource.pose(null, 6, false));
     }
 }

@@ -35,9 +35,13 @@ public final class FootholdCheck {
         }
     }
 
-    /** What the bot is doing, as far as the movement code says. Only GROUNDED is checked. */
+    /**
+     * What the bot is doing, as far as the movement code says. Only GROUNDED is checked. COARSE: an unobserved bot
+     * part-way along an analytic (LOD) move, whose position is interpolated along a nav edge - a rope climb, a jump
+     * or drop arc - rather than simulated, so it is legitimately in the air or inside a platform.
+     */
     public enum Pose {
-        GROUNDED, AIRBORNE, CLIMBING, SWIMMING, UNKNOWN
+        GROUNDED, AIRBORNE, CLIMBING, SWIMMING, COARSE, UNKNOWN
     }
 
     /** The verdict for one bot. {@code dy} is bot y minus ground y: positive = under the ground (sunk). */
@@ -56,7 +60,7 @@ public final class FootholdCheck {
         FLOATING,
         /** No foothold spans its x at all. */
         NO_GROUND,
-        /** Not checked: airborne, on a rope or ladder, swimming, or the pose is unknown. */
+        /** Not checked: airborne, on a rope or ladder, swimming, mid analytic move, or the pose is unknown. */
         SKIPPED
     }
 

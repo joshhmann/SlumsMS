@@ -91,6 +91,7 @@ public final class HealthSweep {
         Map<Integer, Integer> byMap = new TreeMap<>();
         List<Map<String, Object>> worst = new ArrayList<>();
         Map<Integer, List<FootholdCheck.Seg>> cache = new HashMap<>();
+        Map<String, Integer> skippedByPose = new TreeMap<>();
         for (BotSample b : s.bots()) {
             List<FootholdCheck.Seg> fhs = cache.computeIfAbsent(b.mapId(), footholds);
             if (fhs == null || fhs.isEmpty()) {
@@ -100,6 +101,7 @@ public final class HealthSweep {
             FootholdCheck.Verdict v = FootholdCheck.check(fhs, b.x(), b.y(), b.pose(), limits.footholdTolerancePx());
             if (v.kind() == FootholdCheck.Kind.SKIPPED) {
                 skipped++;
+                skippedByPose.merge(b.pose().name(), 1, Integer::sum);
                 continue;
             }
             checked++;
@@ -108,6 +110,8 @@ public final class HealthSweep {
                 byMap.merge(b.mapId(), 1, Integer::sum);
                 Map<String, Object> m = bot(b);
                 m.put("kind", v.kind().name());
+                m.put("pose", b.pose().name());
+                m.put("driven", b.driven());
                 m.put("groundY", Double.isNaN(v.groundY()) ? null : round1(v.groundY()));
                 m.put("dy", Double.isNaN(v.dy()) ? null : round1(v.dy()));
                 worst.add(m);
@@ -121,6 +125,7 @@ public final class HealthSweep {
                 : bad + " of " + checked + " grounded bots off their foothold " + byKind + " on maps " + byMap.keySet());
         c.put("checked", checked);
         c.put("skipped", skipped);
+        c.put("skippedByPose", skippedByPose);
         c.put("bad", bad);
         c.put("byKind", byKind);
         c.put("byMap", keyed(byMap));

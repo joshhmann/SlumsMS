@@ -319,7 +319,7 @@ reads map player lists (copies taken under the map lock) and never loads a map. 
 
 | Check | Rule | Status |
 |---|---|---|
-| (a) `foothold` | Every grounded bot stands within 2 px of the nearest foothold line spanning its x, above or below. Bots in the air, on a rope or ladder, swimming, or dead are skipped. The pose comes from the movement driver (`GCMovement.sweepPose`) or, for town dressing, from the stance. Each problem is reported as `SUNK` (under the line, with its depth `dy`), `FLOATING` or `NO_GROUND` | FAIL on any SUNK, WARN on the others |
+| (a) `foothold` | Every grounded bot stands within 2 px of the nearest foothold line spanning its x, above or below. Bots in the air, on a rope or ladder, swimming (every bot on a swim map), part-way along an unobserved analytic move (`COARSE`: its position is interpolated along a nav edge, so it is in the air or inside a platform by design), or dead are skipped, and counted by pose in `skippedByPose`. The pose comes from the movement driver (`GCMovement.sweepPose`) or, for town dressing, from the stance. Each problem is reported as `SUNK` (under the line, with its depth `dy`), `FLOATING` or `NO_GROUND`, with the bot's `pose` and `driven` | FAIL on any SUNK, WARN on the others |
 | (b) `stuck` | A bot the driver says is moving (`isMoving`, not resting) that has not left an 8 px box for `AUTOQA_STUCK_MINUTES` | WARN, FAIL at 10+ |
 | (c) `clumps` | `AUTOQA_CLUMP_MIN_BOTS` driven bots within `AUTOQA_CLUMP_RADIUS` px on one map. FM rooms are left out | WARN |
 | (d) `channelSplit` | Bots per channel against `BOT_CHANNEL_WEIGHTS` (`BotChannels.shares`): more than 15 points off, a channel weighted 0 that has bots, or a weighted channel with none. Not judged under 40 bots | WARN |
@@ -465,6 +465,6 @@ checks lines copied from the game's own format strings. Add a case there when yo
 placeholder that never gets filled (a staged bot that did not show up) fails the expectation. It never passes a
 `lacks` and never throws.
 
-Tests: `FootholdCheckTest`, `SweepMathTest`, `HealthSweepTest`, `HenesysGroundWzTest` (needs wz/), `AutoQaRunnerTest`,
+Tests: `FootholdCheckTest`, `SweepMathTest`, `HealthSweepTest`, `CoarseGroundTest`, `HenesysGroundWzTest` (needs wz/), `AutoQaRunnerTest`,
 `AutoQaReportTest`, `AutoQaCatalogTest`, `AutoQaCatalogPatternTest`, `LlmJudgeTest`, `SyntheticClientTest`,
 `PlayerStorageTest`.

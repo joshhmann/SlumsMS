@@ -555,11 +555,21 @@ public final class GCMovement {
 
     /**
      * Auto-QA health sweep (soloMapling.autoqa.HealthSweep): the bot's pose for the foothold check, "AIRBORNE",
-     * "CLIMBING", "SWIMMING" or "GROUNDED", or null when the movement driver does not run this bot. Reads the
-     * tick thread's fields without a lock: it is a sample, and a pose that changes mid-read is re-sampled next sweep.
+     * "CLIMBING", "SWIMMING", "COARSE" or "GROUNDED", or null when the movement driver does not run this bot. Reads
+     * the tick thread's fields without a lock: it is a sample, and a pose that changes mid-read is re-sampled next
+     * sweep.
      */
     public static String sweepPose(Character bot) {
-        BotMovementState st = bot == null ? null : STATES.get(bot.getId());
+        return sweepPose(bot == null ? null : STATES.get(bot.getId()));
+    }
+
+    /*
+     * 1.5.0 rc5: "COARSE" while an unobserved bot is part-way along an analytic plan (MovementPlan). Its position is
+     * then a straight-line interpolation along a baked nav edge - up a rope, across a jump arc, down a drop - with
+     * inAir and climbing both false, so it is in the air or inside a platform by design. The rc5 health sweep flagged
+     * these as sunk/floating: 42 of the 50 worst bots of the first two sweeps sat on such an edge to the pixel.
+     */
+    static String sweepPose(BotMovementState st) {
         if (st == null) {
             return null;
         }
@@ -571,6 +581,9 @@ public final class GCMovement {
         }
         if (st.inAir || st.portalDropAtMs > 0L) {
             return "AIRBORNE";
+        }
+        if (st.coarsePlan != null) {
+            return "COARSE";
         }
         return "GROUNDED";
     }

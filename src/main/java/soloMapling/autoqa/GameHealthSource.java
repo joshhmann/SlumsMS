@@ -92,10 +92,22 @@ final class GameHealthSource {
     private HealthSweep.BotSample sample(int channel, MapleMap map, Character bot) {
         Point p = bot.getPosition();
         String gc = GCMovement.sweepPose(bot);
-        FootholdCheck.Pose pose = gc != null ? FootholdCheck.Pose.valueOf(gc) : poseFromStance(bot.getStance(), map.isSwim());
+        FootholdCheck.Pose pose = pose(gc, bot.getStance(), map.isSwim());
         boolean moving = gc != null && GCMovement.isMoving(bot) && !GCMovement.isResting(bot);
         return new HealthSweep.BotSample(bot.getId(), bot.getName(), channel, map.getId(), p.x, p.y, pose, moving,
                 gc != null, mapProblem(map, bot, p));
+    }
+
+    /**
+     * The pose for the foothold check: on a swim map always SWIMMING (an unobserved driven bot moving over the water
+     * graph never sets the driver's swimming flag, so the rc5 sweep flagged Aquarium swimmers as floating); else the
+     * movement driver's pose, or for a bot the driver does not run ({@code gc} null) the pose its stance shows.
+     */
+    static FootholdCheck.Pose pose(String gc, int stance, boolean swimMap) {
+        if (swimMap) {
+            return FootholdCheck.Pose.SWIMMING;
+        }
+        return gc != null ? FootholdCheck.Pose.valueOf(gc) : poseFromStance(stance, false);
     }
 
     /**
