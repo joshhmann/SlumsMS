@@ -51,6 +51,8 @@ public final class OpenAICompatibleBrain implements ChatRouter.Slotted {
     /** How long a note-writing call may take: not chat, so nobody is waiting on it. */
     private static final long NOTES_TIMEOUT_MS = 30_000;
     private static final int NOTES_MAX_TOKENS = 120;
+    /** Ticket 59: a bot thread (2-4 lines in one call). */
+    private static final int THREAD_MAX_TOKENS = 140;
 
     private final Settings settings;
     private final URI endpoint;
@@ -118,6 +120,13 @@ public final class OpenAICompatibleBrain implements ChatRouter.Slotted {
                 new CompletableFuture<>();
         java.util.concurrent.atomic.AtomicReference<soloMapling.ArtificialPlayer.BotConvo.ConvoContract.Reply> parsed =
                 new java.util.concurrent.atomic.AtomicReference<>();
+        if (priority == Priority.THREAD) {
+            // a whole bot-to-bot exchange: several lines, each checked by BotThreads
+            calls.execute(() -> result.complete(call(conversation, deadline, settings.model(),
+                    Math.max(settings.maxTokens(), THREAD_MAX_TOKENS), ReplyCleaner::lines, false)
+                    .map(soloMapling.ArtificialPlayer.BotConvo.ConvoContract.Reply::plain)));
+            return result;
+        }
         calls.execute(() -> {
             Optional<String> line = call(conversation, deadline, settings.model(), settings.maxTokens(), raw -> {
                 soloMapling.ArtificialPlayer.BotConvo.ConvoContract.Reply r =

@@ -46,6 +46,7 @@ class ConvoConversationFlowTest {
     void fakes() throws Exception {
         System.setProperty("solomapling.chat.typingScale", "0.01");
         System.setProperty("solomapling.chat.logReplies", "false");
+        System.setProperty("solomapling.convo.quality", "false"); // no transcript files from tests
         ChatStats.resetForTest();
         ChatDecide.useForTest(null);
         BotBrains.useForTest(new BotBrain() {
@@ -127,6 +128,7 @@ class ConvoConversationFlowTest {
     void reset() {
         System.clearProperty("solomapling.chat.typingScale");
         System.clearProperty("solomapling.chat.logReplies");
+        System.clearProperty("solomapling.convo.quality");
         BotBrains.useForTest(null);
         ChatBank.useForTest(null);
         ConvoActions.useForTest(null, null);

@@ -138,11 +138,26 @@ class ConvoActionsTest {
     @Test
     void aTaggedBuffGoesThroughTheBuffGate() {
         facts = ConvoGatesTest.with(f -> { f[13] = "no such buff"; return f; });
-        ConvoActions.Proposal p = ConvoActions.onProposal(bot(), chr(3008, "Josh"), ConvoContract.parse("here [do:buff]"),
+        ConvoActions.Proposal p = ConvoActions.onProposal(bot(), chr(3008, "Josh"), ConvoContract.parse("here u go [do:buff]"),
                 ConvoSense.rules("ugh so slow"), "ugh so slow");
         assertFalse(p.done());
         assertEquals(BotChatActions.Outcome.BUFF_NO, p.result().outcome());
         assertTrue(done.isEmpty());
+    }
+
+    @Test
+    void aTagTheWordsDoNotSayIsIgnored() {
+        // qwen9b, probed 2026-10-22: "grindin zombie mushies for potions lol [do:buff]" to "what are u up to"
+        ConvoActions.Proposal p = ConvoActions.onProposal(bot(), chr(3010, "Josh"),
+                ConvoContract.parse("grindin zombie mushies for potions lol [do:buff]"), ConvoSense.rules("what are u up to"),
+                "what are u up to");
+        assertFalse(p.done());
+        ConvoActions.Proposal flirt = ConvoActions.onProposal(bot(), chr(3011, "Josh"),
+                ConvoContract.parse("lol thanks bro [do:flirt]"), ConvoSense.rules("ur so helpful ngl"),
+                "ur so helpful ngl");
+        assertFalse(flirt.done(), "a flirt tag needs a flirty player");
+        assertTrue(done.isEmpty(), done.toString());
+        assertEquals(null, ConvoActions.tagProblem(ConvoAction.COME, "k omw", ConvoSense.rules("lol")));
     }
 
     @Test

@@ -22,6 +22,10 @@ public final class ConvoQuality {
         }
     }
 
+    /** A bot-to-bot thread line went out on a map (phase 5 keeps it for !rate and the transcript). */
+    public static void threadLine(Character bot, int mapId, String line, String source, String topic) {
+    }
+
     /** How a reply was timed. */
     public static void timing(Character bot, Character player, HumanTiming.Plan plan) {
         if (QaLog.on(QaLog.Topic.CONVO)) { // !qa cv-4

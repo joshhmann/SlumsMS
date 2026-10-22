@@ -121,6 +121,18 @@ final class ReplyCleaner {
         return Optional.of(line);
     }
 
+    /**
+     * Ticket 59's bot threads: several "Name: text" lines in one reply. Only the reasoning is stripped here; each line is
+     * checked on its own by the thread code (voice, ContentGuard, length).
+     */
+    static Optional<String> lines(String raw) {
+        if (raw == null) {
+            return Optional.empty();
+        }
+        String text = UNCLOSED_THINK.matcher(THINK_BLOCK.matcher(raw).replaceAll("")).replaceAll("").trim();
+        return THINKING_HEADER.matcher(text).find() || text.isEmpty() ? Optional.empty() : Optional.of(text);
+    }
+
     /** A memory note's limit: longer than a chat line, still one thought. */
     static final int MAX_NOTE_LENGTH = 140;
     static final int MAX_NOTES = 2;

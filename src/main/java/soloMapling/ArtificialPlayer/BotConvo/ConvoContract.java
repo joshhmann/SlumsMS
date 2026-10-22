@@ -35,8 +35,9 @@ public final class ConvoContract {
     public static String instructions() {
         List<String> tags = java.util.Arrays.stream(ConvoAction.values()).filter(a -> a.postHoc)
                 .map(a -> "[do:" + a.tag() + "]").collect(Collectors.toList());
-        return "If you agree to DO something for them right now, end your line with one tag: " + String.join(" ", tags)
-                + ". Most lines have no tag. Never write a tag you do not mean; the tag is hidden from them.";
+        return "Only if your line itself says you will DO something for them right now, end it with one tag: "
+                + String.join(" ", tags) + " (like \"omw [do:come]\" or \"here, haste [do:buff]\"). Almost every line has"
+                + " no tag. The tag is hidden from them.";
     }
 
     private ConvoContract() {

@@ -40,6 +40,7 @@ class BotConversationFlowTest {
     void fakes() {
         System.setProperty("solomapling.chat.typingScale", "0.01");
         System.setProperty("solomapling.chat.logReplies", "false");
+        System.setProperty("solomapling.convo.quality", "false"); // no transcript files from tests
         // ticket 59's voice and bank layers re-word lines; this test checks the ticket 36/37 layer underneath
         System.setProperty("solomapling.convo.persona", "false");
         System.setProperty("solomapling.convo.bank", "false");
@@ -95,6 +96,7 @@ class BotConversationFlowTest {
     void reset() {
         System.clearProperty("solomapling.chat.typingScale");
         System.clearProperty("solomapling.chat.logReplies");
+        System.clearProperty("solomapling.convo.quality");
         System.clearProperty("solomapling.convo.persona");
         System.clearProperty("solomapling.convo.bank");
         BotBrains.useForTest(null);

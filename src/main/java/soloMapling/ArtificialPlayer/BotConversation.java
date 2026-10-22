@@ -160,6 +160,17 @@ public final class BotConversation {
         sessions.computeIfAbsent(new Key(bot.getChr().getId(), player.getId()), k -> new Session(bot, player, now)).lastAt = now;
     }
 
+    /** Ticket 59: whether this bot is mid-chat with any player (a bot thread leaves it alone). */
+    public static boolean hasAnyChat(int botCharId) {
+        long now = System.currentTimeMillis();
+        for (Map.Entry<Key, Session> e : sessions.entrySet()) {
+            if (e.getKey().botId() == botCharId && now - e.getValue().lastAt <= IDLE_MS) {
+                return true;
+            }
+        }
+        return false;
+    }
+
     /** Whether this player is mid-chat with this bot. */
     public static boolean isTalking(int botCharId, int playerId) {
         Session session = sessions.get(new Key(botCharId, playerId));
@@ -562,6 +573,8 @@ public final class BotConversation {
             return;
         }
         soloMapling.ArtificialPlayer.BotConvo.ConvoQuality.timing(bot, player, plan);
+        // a late answer or a "brb" keeps the chat open until it is said (the sweeper ends chats idle for a minute)
+        session.lastAt = Math.max(session.lastAt, System.currentTimeMillis() + plan.totalMs());
         int face = deliver != null || cue == null ? ReplyEmote.NONE
                 : ReplyEmote.pick(cue.triage(), cue.outcome(), cue.asked(), line, ThreadLocalRandom.current());
         String fullDetail = detail + (said.fromBank() ? " bank#" + said.bankId() : "") + " plan=" + plan.kind();

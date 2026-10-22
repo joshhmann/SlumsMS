@@ -143,6 +143,8 @@ public class EnvironmentManager {
         ));
         SocialHotPotatoManager.getInstance().start();
         ConversationManager.getInstance().start();
+        soloMapling.ArtificialPlayer.BotConvo.BotThreads.start(); // ticket 59: bot-to-bot threads near real players
+        soloMapling.ArtificialPlayer.BotConvo.ConvoEntities.warmUp(); // ticket 59: String.wz names for chat
         soloMapling.worldevents.WorldEvents.getInstance().start(); // ticket 21: scripted world events
 
         runWave(4, "Expand FM + Henesys Market", List.of(

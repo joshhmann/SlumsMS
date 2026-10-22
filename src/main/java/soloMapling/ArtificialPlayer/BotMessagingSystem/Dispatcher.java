@@ -173,6 +173,18 @@ public class Dispatcher implements Runnable {
             askFirst(named.best().id(), message, now);
             return true;
         }
+        // Ticket 59: two bots are talking on this map - a line that names no one joins their thread, and the bot that
+        // spoke last answers it like any chat.
+        if (!BotChatRouting.namesSomeoneElse(message.getContent(), otherPlayers)) {
+            Integer threadBot = soloMapling.ArtificialPlayer.BotConvo.BotThreads.jumpIn(
+                    sender.getClient() == null ? 1 : sender.getClient().getChannel(), sender.getMapId(), sender.getName(),
+                    message.getContent(), now);
+            BotSM joined = threadBot == null ? null : getBotById(threadBot);
+            if (joined != null && joined.getChr() != null && joined.getChr().getMapId() == sender.getMapId()) {
+                executor.execute(() -> talkNaturally(joined, sender, message.getContent()));
+                return true;
+            }
+        }
         // Layer 3a: a short acceptance right after a bot asked or recruited answers that bot.
         BotChatRouting.LastSpeaker last = BotChatRouting.lastSpeaker(sender.getMapId(), now);
         java.util.Optional<Integer> answered = BotChatRouting.replyToLastSpeaker(message.getContent(), last);

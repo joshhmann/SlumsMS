@@ -217,6 +217,7 @@ public class ConversationManager {
                 // roamer mid-stroll. Henesys is already all SocialBots, so this is a no-op there.
                 if (!(bot instanceof SocialBot)) continue;
                 if (botsInConversation.contains(chr.getId())) continue;
+                if (soloMapling.ArtificialPlayer.BotConvo.BotThreads.busy(chr.getId())) continue; // ticket 59
                 fillerBots.add(chr);
             }
 

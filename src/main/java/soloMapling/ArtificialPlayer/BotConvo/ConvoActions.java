@@ -141,6 +141,14 @@ public final class ConvoActions {
                     : read.triage().flagged() ? "flagged" : "player asked for " + read.intent().label()) + ")");
             return Proposal.IGNORED;
         }
+        String why = tagProblem(action, reply.text(), read);
+        if (why != null) {
+            // Probed 2026-10-22: qwen9b tags freely ("grindin zombie mushies lol [do:buff]"). A tag only counts when
+            // the words say it and the player's line called for it.
+            ChatStats.action("tag-ignored:" + action.tag());
+            qa(bot.getChr(), player, "TAG [do:" + action.tag() + "] ignored (" + why + ")");
+            return Proposal.IGNORED;
+        }
         if (action == ConvoAction.PARTY) {
             BotChatActions.Result party = BotChatActions.act(bot, player, ChatTriage.Intent.PARTY, line);
             boolean yes = party.outcome() == Outcome.PARTY_ACCEPTED;
@@ -158,6 +166,38 @@ public final class ConvoActions {
         qa(bot.getChr(), player, "TAG [do:" + action.tag() + "] -> " + d.verdict() + " (" + d.reason() + ") -> "
                 + result.outcome());
         return new Proposal(action, d, result);
+    }
+
+    private static final java.util.regex.Pattern COMMITS_COME = java.util.regex.Pattern.compile(
+            "\\b(omw|otw|on my way|coming|be there|heading (over|there)|brt|be right there)\\b");
+    private static final java.util.regex.Pattern COMMITS_HELP = java.util.regex.Pattern.compile(
+            "\\b(omw|otw|coming|on my way|i'?ll help|lemme help|let me help|lets kill|let'?s kill|on it|help (u|you)"
+                    + "|i got (u|you)|ill come)\\b");
+    private static final java.util.regex.Pattern COMMITS_BUFF = java.util.regex.Pattern.compile(
+            "\\b(buff|buffs|buffed|buffing|haste|bless|hs|holy symbol|heal|healed|healing|hb|se|mw|there u go|there you go"
+                    + "|here u go|here you go)\\b");
+    private static final java.util.regex.Pattern COMMITS_BUDDY = java.util.regex.Pattern.compile(
+            "\\b(add|added|adding|buddy|buddies|req|request)\\b");
+    private static final java.util.regex.Pattern COMMITS_PARTY = java.util.regex.Pattern.compile(
+            "\\b(inv|invite|party|pt|send it)\\b");
+    private static final java.util.regex.Pattern COMMITS_SORRY = java.util.regex.Pattern.compile(
+            "\\b(sorry|sry|my bad|mb|oops|didnt mean|didn'?t mean)\\b");
+
+    /** Why a model's tag does not count, or null: the words must say it, and moods need the player's tone. */
+    static String tagProblem(ConvoAction action, String text, ConvoSense.Read read) {
+        String t = text == null ? "" : text.toLowerCase(Locale.ROOT);
+        return switch (action) {
+            case COME -> COMMITS_COME.matcher(t).find() ? null : "words do not say it";
+            case HELP -> COMMITS_HELP.matcher(t).find() ? null : "words do not say it";
+            case BUFF, HEAL -> COMMITS_BUFF.matcher(t).find() ? null : "words do not say it";
+            case BUDDY -> COMMITS_BUDDY.matcher(t).find() ? null : "words do not say it";
+            case PARTY -> COMMITS_PARTY.matcher(t).find() ? null : "words do not say it";
+            case APOLOGIZE -> COMMITS_SORRY.matcher(t).find() ? null : "words do not say it";
+            case FLIRT -> read.tone() == ConvoSense.Tone.FLIRTY ? null : "the player was not flirting";
+            case INSULT -> read.tone() == ConvoSense.Tone.RUDE ? null : "the player was not rude";
+            case MAKEUP -> read.intent() == ConvoIntent.APOLOGY ? null : "the player did not say sorry";
+            default -> null;
+        };
     }
 
     private static BotChatActions.Result carryOut(BotSM bot, Character player, ConvoAction action,
