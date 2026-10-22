@@ -24,6 +24,13 @@ import java.util.Arrays;
  * - Speed stretches the pose: length * (speed + 10) / 16 (0x9525ed). A beginner's 800 ms swing at speed 3 is 650 ms,
  *   which is the gap a real player's client spams basic attacks at (633-677 ms in the capture).
  *
+ * - The client's logic runs in 30 ms steps (CWvsApp's update loop adds 30 to its update time per step, 0x9f85ba;
+ *   get_update_time 0x987257 reads it), so a held key attacks again on the first step after the pose ends: the cadence
+ *   is the pose's length rounded up to 30 ms. 650 ms becomes 660 ms, the middle of the capture's 655-662 ms.
+ * - A held keydown skill (Hurricane, WA Hurricane, Rapid Fire) fires on the first step more than 100 ms after its last
+ *   shot (CUserLocal's keydown update, 0x94ba7e-0x94bab0): a shot every 120 ms, from the first step after the keydown
+ *   packet, for as long as the key is held. Its pose is the keydown pose, not one per shot.
+ *
  * On by default; -Dslums.botattacktiming=false sends the weapon's item attackSpeed and the profiles' fixed cooldowns
  * again (the behaviour before this class).
  */
@@ -35,6 +42,11 @@ public final class BotAttackTiming {
     static final String RESOURCE = "/soloMapling/bot-action-delays.tsv";
     /* Body-action codes run 0..161 in the client's action table (0x4a38e7). */
     static final int ACTION_COUNT = 162;
+
+    /* The client's update step: CWvsApp::CallUpdate advances its update time by 30 ms per step (0x9f85ba). */
+    public static final int UPDATE_STEP_MS = 30;
+    /* A held keydown skill shoots on the first step more than 100 ms after its last shot (0x94ba8e): every 120 ms. */
+    public static final int KEYDOWN_SHOT_MS = 120;
 
     private static volatile Boolean enabledOverride; // tests
     private static volatile int[] delays;            // code -> total ms at speed 6, -1 = no frames
@@ -73,15 +85,21 @@ public final class BotAttackTiming {
         return ms <= 0 ? -1 : ms * (Math.max(0, speed) + 10) / 16;
     }
 
+    /* When a player holding the key attacks again after a pose of this length: the first update step after it ends. */
+    public static int cadenceMs(int poseMs) {
+        return poseMs <= 0 ? poseMs : (poseMs + UPDATE_STEP_MS - 1) / UPDATE_STEP_MS * UPDATE_STEP_MS;
+    }
+
     /*
-     * How long a swing of this plan keeps the bot busy before it may swing again: the pose's length at the plan's speed
-     * when the flag is on and the pose is known, else the profile's fixed cooldown.
+     * How long a swing of this plan keeps the bot busy before it may swing again: the pose's length at the plan's speed,
+     * rounded up to the client's update step, when the flag is on and the pose is known, else the profile's fixed
+     * cooldown.
      */
     public static long swingMs(BotSwingPlan plan, int profileCooldownMs) {
         if (!enabled() || plan == null) {
             return profileCooldownMs;
         }
-        int ms = poseMs(plan.action(), plan.speed());
+        int ms = cadenceMs(poseMs(plan.action(), plan.speed()));
         return ms > 0 ? ms : profileCooldownMs;
     }
 

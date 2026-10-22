@@ -309,7 +309,7 @@ public final class QaScenarios {
         public String id() { return "bk-1"; }
         public List<String> aliases() { return List.of("bk-2"); }
         public String title() { return "4th-job bot showcase, every bot attack logged (skill, pose, weapon)"; }
-        public String usage() { return "[4th | pirates | <job> ...] [minutes], default 4th 10"; }
+        public String usage() { return "[4th | pirates | pacing | <job> ...] [minutes], default 4th 10"; }
         public Set<QaLog.Topic> topics() { return EnumSet.of(ATTACK); }
         public Set<Integer> watchedMaps(Character gm, String[] args) { return Set.of(gm.getMapId()); }
         public Set<String> claims(Character gm, String[] args) { return Set.of("map:" + gm.getMapId()); }

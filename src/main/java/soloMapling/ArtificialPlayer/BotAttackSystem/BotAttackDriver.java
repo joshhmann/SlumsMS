@@ -65,6 +65,10 @@ public final class BotAttackDriver {
     // botId -> (extra skillId -> epoch-ms the bot last used it), for BotAttackConfig.Extra.everyMs.
     private static final Map<Integer, Map<Integer, Long>> extraUsedByBot = new ConcurrentHashMap<>();
 
+    // botId -> epoch-ms of its last swing, kept only while the !qa attack log is on (its "gap" field: the cadence a
+    // viewer sees, swing to swing).
+    private static final Map<Integer, Long> lastSwingAtByBot = new ConcurrentHashMap<>();
+
     // Candidate pre-filter radius (px); the per-profile reach box is the hard gate.
     private static final int SEEK_RANGE = 700;
     private static final double SEEK_RANGE_SQ = (double) SEEK_RANGE * SEEK_RANGE;
@@ -140,7 +144,7 @@ public final class BotAttackDriver {
     }
 
     /* The item id of the weapon the bot holds, or 0. */
-    static int equippedWeaponId(Character bot) {
+    public static int equippedWeaponId(Character bot) {
         Item weapon = bot.getInventory(InventoryType.EQUIPPED).getItem((short) -11);
         return weapon != null ? weapon.getItemId() : 0;
     }
@@ -148,6 +152,14 @@ public final class BotAttackDriver {
     /* When the bot's last swing ends (its pose has played out): 0 when it has not swung. */
     public static long swingEndsAt(int botId) {
         return nextAttackByBot.getOrDefault(botId, 0L);
+    }
+
+    /*
+     * A held keydown skill was released (its mobs died or left its reach, or it shot its last shot): the bot may press
+     * again from then on, as a player can, instead of at the end of the longest hold.
+     */
+    static void releasedEarly(int botId, long releasedAt) {
+        nextAttackByBot.computeIfPresent(botId, (k, until) -> Math.min(until, releasedAt));
     }
 
     /* Speed Infusion's x (-1 / -2) while the bot has it: MapleRoot's client adds it to the attack speed. */
@@ -162,6 +174,7 @@ public final class BotAttackDriver {
         nextUltimateByBot.remove(botId);
         skillReadyByBot.remove(botId);
         extraUsedByBot.remove(botId);
+        lastSwingAtByBot.remove(botId);
         BotAranCombo.clearBot(botId);
         BotAttackStats.clear(botId);
         BotComboOrbs.clearBot(botId);
@@ -391,22 +404,26 @@ public final class BotAttackDriver {
 
         final BotAttackProfile reach = reachAs;
         final boolean left = facingLeft;
+        final int botId = bot.getId();
         boolean killed = BotAttackEffects.strike(bot, plan, hits, projectile, profile.hitDelayMs, () -> {
             Map<Monster, List<Integer>> more = new LinkedHashMap<>();
             for (Monster mob : cap(mobsInReach(bot, reach, left), plan.maxMobs())) {
                 more.put(mob, swing.roll(mob, lines));
             }
             return more;
-        });
+        }, releasedAt -> releasedEarly(botId, releasedAt));
         BotAranCombo.afterStrike(bot, skillId, targets.size() * Math.max(1, plan.shots()));
         if (soloMapling.qa.QaLog.on(soloMapling.qa.QaLog.Topic.ATTACK)) { // !qa bk-1
+            Long last = lastSwingAtByBot.put(bot.getId(), now);
             soloMapling.qa.QaLog.map(soloMapling.qa.QaLog.Topic.ATTACK, bot.getMapId(), bot.getName() + " "
                     + bot.getJob() + " skill " + skillId + " lv " + skillLevel + " route " + route + " action "
                     + plan.action() + " facing " + (plan.facingLeft() ? "left" : "right") + " speed " + plan.speed()
                     + (plan.prepare() ? " prepare " + plan.prepareAction() : "") + " shots " + plan.shots()
                     + " weapon " + weaponItemId + " " + weapon + " projectile " + projectile + " mobs "
                     + targets.size() + " lines " + lines + " dmg " + reported + (killed ? " killed" : "")
-                    + (supply.fallback() != null ? " fallback " + supply.fallback() : ""));
+                    + (supply.fallback() != null ? " fallback " + supply.fallback() : "")
+                    + " busy " + plan.busyMs(profile.cooldownMs) + "ms"
+                    + (last != null && now - last < 10_000 ? " gap " + (now - last) + "ms" : ""));
         }
 
         supply.commit(bot, route, skillId); // the ammo fired, the MP/HP the skill cost (and a potion if it is low)

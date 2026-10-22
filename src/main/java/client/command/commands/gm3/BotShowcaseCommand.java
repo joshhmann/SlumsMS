@@ -21,10 +21,13 @@ import java.util.List;
 
 /*
  * Test server only (registered when attack capture is on, -Dslums.attackcapture=true; ticket 32):
- *   !botshowcase [4th | pirates | <job name or id> ...] [minutes]
+ *   !botshowcase [4th | pirates | pacing | <job name or id> ...] [minutes]
  * spawns one bot per chosen job next to the GM - level 200 for a 4th job, every skill of its line at master level,
  * a weapon of its own kind, its ammo - that cycles every attack its job has (ShowcaseBot) at the nearest mobs for the
- * given minutes (default 5, at most 30) and then leaves. Stand on a map with mobs. With the client's attack
+ * given minutes (default 5, at most 30) and then leaves. Each bot's report line lists its attacks with the cadence a
+ * player gets for them (1.5.0 attack pacing): "pacing" spawns the set the owner's spot check watches - Hurricane and
+ * Rapid Fire held streams, Inferno Aura 2121054 and Flame Barrier 12121012 (MapleRoot's 219 ms alert2 spells), staff,
+ * bow and 2H-sword swings, Aran's quick swings and the long Barrage pose. Stand on a map with mobs. With the client's attack
  * diagnostic on (slums.ini [Debug] AttackDiag=1) the client logs every bot attack it drops, with the reason.
  */
 public class BotShowcaseCommand extends Command {
@@ -36,6 +39,8 @@ public class BotShowcaseCommand extends Command {
             Job.BISHOP, Job.BOWMASTER, Job.MARKSMAN, Job.NIGHTLORD, Job.SHADOWER, Job.BUCCANEER, Job.CORSAIR,
             Job.DAWNWARRIOR4, Job.BLAZEWIZARD4, Job.WINDARCHER4, Job.NIGHTWALKER4, Job.THUNDERBREAKER4, Job.ARAN4);
     static final List<Job> PIRATES = List.of(Job.BUCCANEER, Job.CORSAIR, Job.THUNDERBREAKER4, Job.ARAN4);
+    static final List<Job> PACING = List.of(Job.BOWMASTER, Job.CORSAIR, Job.FP_ARCHMAGE, Job.BLAZEWIZARD4, Job.BISHOP,
+            Job.HERO, Job.ARAN4, Job.THUNDERBREAKER4);
     private static final int DEFAULT_MINUTES = 5, MAX_MINUTES = 30;
 
     public record Request(List<Job> jobs, int minutes) {}
@@ -45,7 +50,7 @@ public class BotShowcaseCommand extends Command {
         Character player = c.getPlayer();
         Request request = parse(params);
         if (request == null) {
-            player.yellowMessage("Syntax: !botshowcase [4th | pirates | <job name or id> ...] [minutes]"
+            player.yellowMessage("Syntax: !botshowcase [4th | pirates | pacing | <job name or id> ...] [minutes]"
                     + "   e.g. !botshowcase 4th 10, !botshowcase aran4 buccaneer");
             return;
         }
@@ -85,7 +90,7 @@ public class BotShowcaseCommand extends Command {
             showcase.startScheduledTask(2000L);
             List<String> skills = new ArrayList<>();
             for (BotAttackProfile p : ShowcaseBot.rotationFor(bot)) {
-                skills.add(String.valueOf(p.skillId));
+                skills.add(p.skillId + " " + ShowcaseBot.cadenceLabel(bot, p));
             }
             ids.add(bot.getId());
             report.add(job.name() + " " + bot.getName() + " (" + botId + ") " + skills);
@@ -111,6 +116,8 @@ public class BotShowcaseCommand extends Command {
                     addAll(jobs, FOURTH);
                 } else if (p.equalsIgnoreCase("pirates") || p.equalsIgnoreCase("wave1")) {
                     addAll(jobs, PIRATES);
+                } else if (p.equalsIgnoreCase("pacing")) {
+                    addAll(jobs, PACING);
                 } else {
                     Job job = job(p);
                     if (job == null) {

@@ -27,6 +27,14 @@ class BotShowcaseCommandTest {
     }
 
     @Test
+    void thePacingSetIsTheSpotChecksJobs() {
+        BotShowcaseCommand.Request r = BotShowcaseCommand.parse(new String[]{"pacing", "12"});
+        assertEquals(List.of(Job.BOWMASTER, Job.CORSAIR, Job.FP_ARCHMAGE, Job.BLAZEWIZARD4, Job.BISHOP, Job.HERO,
+                Job.ARAN4, Job.THUNDERBREAKER4), r.jobs());
+        assertEquals(12, r.minutes());
+    }
+
+    @Test
     void anUnknownWordIsRefused() {
         assertNull(BotShowcaseCommand.parse(new String[]{"pirate-king"}));
     }

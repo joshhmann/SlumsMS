@@ -10,7 +10,7 @@ package soloMapling.ArtificialPlayer.BotAttackSystem;
  *   one of the weapon's plain poses for that route (BotAttackData.actionFor);
  * - the attack speed: MapleRoot's degree for the weapon class, Speed Infusion added (BotClientPoses.actionSpeed);
  * - for a keydown skill: the prepare packet (its keydown pose, 0x7fff when the client knows none) before the shots,
- *   and for Hurricane / Rapid Fire a stream of shots and a release packet;
+ *   and for Hurricane / Rapid Fire a held stream of shots at the client's keydown cadence and a release packet;
  * - the mob and line counts the skill's level allows (mobCount, attackCount or bulletCount).
  *
  * A skill the weapon cannot use, or one with no pose a viewer accepts, is sent as the weapon's plain attack instead:
@@ -19,9 +19,15 @@ package soloMapling.ArtificialPlayer.BotAttackSystem;
 public record BotSwingPlan(BotAttackProfile.Route route, int skillId, int skillLevel, int action, boolean facingLeft,
                            int speed, boolean prepare, int prepareAction, int shots, int maxMobs, int lines) {
 
-    /* Shots of a held keydown skill (Hurricane, Rapid Fire) in one burst, and the gap between them. */
-    public static final int KEYDOWN_SHOTS = 6;
-    public static final long KEYDOWN_SHOT_MS = 120;
+    /*
+     * A held keydown skill (Hurricane, WA Hurricane, Rapid Fire): a shot every KEYDOWN_SHOT_MS - the client's own keydown
+     * cadence (BotAttackTiming.KEYDOWN_SHOT_MS) - for as long as a mob is in reach, at most KEYDOWN_MAX_SHOTS (a 3 s
+     * hold), then the release. The bot may press again as soon as it has released, as a player can.
+     * KEYDOWN_OLD_SHOTS is the fixed 6-shot burst kept for -Dslums.botattacktiming=false.
+     */
+    public static final int KEYDOWN_MAX_SHOTS = 25;
+    public static final int KEYDOWN_OLD_SHOTS = 6;
+    public static final long KEYDOWN_SHOT_MS = BotAttackTiming.KEYDOWN_SHOT_MS;
 
     /* This plan with another pose (tests walk every pose a plan may pick). */
     public BotSwingPlan withAction(int pose) {
@@ -39,11 +45,21 @@ public record BotSwingPlan(BotAttackProfile.Route route, int skillId, int skillL
     }
 
     /*
-     * How long this swing keeps the bot busy before its next one: the pose's length at the plan's speed
-     * (BotAttackTiming), else the profile's fixed cooldown; plus the rest of a keydown burst.
+     * How long this swing keeps the bot busy before its next one: the pose's length at the plan's speed rounded up to the
+     * client's update step (BotAttackTiming), else the profile's fixed cooldown. A held keydown skill keeps it busy
+     * until its release (the longest hold; BotAttackEffects pulls it in when the hold ends early): its pose is the
+     * keydown pose, held, not one per shot.
      */
     public long busyMs(int profileCooldownMs) {
+        if (shots > 1 && BotAttackTiming.enabled()) {
+            return holdMs();
+        }
         return BotAttackTiming.swingMs(this, profileCooldownMs) + burstMs();
+    }
+
+    /* A held keydown skill: from the keydown packet to the release, when it is held for all its shots. */
+    public long holdMs() {
+        return shots > 1 ? shots * KEYDOWN_SHOT_MS : 0;
     }
 
     /* How long the swing keeps the bot busy beyond its normal cooldown: the rest of a keydown burst. */
@@ -81,7 +97,9 @@ public record BotSwingPlan(BotAttackProfile.Route route, int skillId, int skillL
         }
         int speed = BotClientPoses.actionSpeed(weaponItemId, partyBooster);
         boolean prepare = skillId != 0 && (BotClientPoses.isKeydown(skillId) || BotSkillActions.hasPrepare(skillId));
-        int shots = skillId != 0 && BotClientPoses.keepsKeydownPose(skillId) ? KEYDOWN_SHOTS : 1;
+        // held and shot in a stream: Hurricane, WA Hurricane, Rapid Fire (Spark keeps the pose too but is no keydown)
+        int shots = skillId != 0 && BotClientPoses.isKeydown(skillId) && BotClientPoses.keepsKeydownPose(skillId)
+                ? (BotAttackTiming.enabled() ? KEYDOWN_MAX_SHOTS : KEYDOWN_OLD_SHOTS) : 1;
         int maxMobs = profile.numAttacked;
         int lines = linesHint;
         if (skillId == 0) {

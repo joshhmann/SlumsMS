@@ -131,12 +131,19 @@ public final class BotAttackEffects {
     }
 
     /*
-     * Lands a planned swing: the keydown packet first when the skill has one, then the attack; a held keydown skill
-     * (plan.shots() > 1) streams the rest of its shots KEYDOWN_SHOT_MS apart - each re-rolled by nextHits over the
-     * mobs still alive - and then releases. Returns true if the first shot killed a mob.
+     * Lands a planned swing: the keydown packet first when the skill has one, then the attack. A held keydown skill
+     * (plan.shots() > 1: Hurricane, Rapid Fire) keeps shooting KEYDOWN_SHOT_MS apart - the client's keydown cadence -
+     * each shot re-rolled by nextHits over the mobs then in reach, until no mob is left in reach or plan.shots() went
+     * out, and then releases; onRelease gets the epoch ms of the release. Returns true if the first shot killed a mob.
      */
     public static boolean strike(Character bot, BotSwingPlan plan, Map<Monster, List<Integer>> hits, int projectile,
                                  short hitDelay, java.util.function.Supplier<Map<Monster, List<Integer>>> nextHits) {
+        return strike(bot, plan, hits, projectile, hitDelay, nextHits, null);
+    }
+
+    public static boolean strike(Character bot, BotSwingPlan plan, Map<Monster, List<Integer>> hits, int projectile,
+                                 short hitDelay, java.util.function.Supplier<Map<Monster, List<Integer>>> nextHits,
+                                 java.util.function.LongConsumer onRelease) {
         if (notReady(bot, hits)) {
             return false;
         }
@@ -145,26 +152,41 @@ public final class BotAttackEffects {
         }
         Packet first = attackPacket(bot, plan, toTargets(hits, hitDelay), numAttackedAndDamage(hits), projectile);
         boolean killed = broadcastAndApply(bot, first, hits, hitDelay);
-        for (int shot = 1; shot < plan.shots(); shot++) {
-            MethodScheduler.runAfterDelay(() -> {
-                if (bot.getMap() == null) {
-                    return;
-                }
-                Map<Monster, List<Integer>> more = nextHits.get();
-                if (!notReady(bot, more)) {
-                    broadcastAndApply(bot, attackPacket(bot, plan, toTargets(more, hitDelay),
-                            numAttackedAndDamage(more), projectile), more, hitDelay);
-                }
-            }, shot * BotSwingPlan.KEYDOWN_SHOT_MS);
-        }
         if (plan.shots() > 1) {
-            MethodScheduler.runAfterDelay(() -> {
-                if (bot.getMap() != null) {
-                    bot.getMap().broadcastMessage(bot, releasePacket(bot, plan), false);
-                }
-            }, plan.shots() * BotSwingPlan.KEYDOWN_SHOT_MS);
+            long startedAt = System.currentTimeMillis();
+            MapleMap map = bot.getMap();
+            MethodScheduler.runAfterDelay(() -> holdKeydown(bot, map, plan, projectile, hitDelay, nextHits, onRelease,
+                    startedAt, 1), BotSwingPlan.KEYDOWN_SHOT_MS);
         }
         return killed;
+    }
+
+    /* Shot number `shot` of a held keydown skill (due at startedAt + shot * KEYDOWN_SHOT_MS), or its release. */
+    private static void holdKeydown(Character bot, MapleMap map, BotSwingPlan plan, int projectile, short hitDelay,
+                                    java.util.function.Supplier<Map<Monster, List<Integer>>> nextHits,
+                                    java.util.function.LongConsumer onRelease, long startedAt, int shot) {
+        if (bot.getMap() != map) {
+            map.broadcastMessage(bot, releasePacket(bot, plan), false); // left the map mid-hold: end the pose there
+            release(onRelease);
+            return;
+        }
+        Map<Monster, List<Integer>> more = shot < plan.shots() ? nextHits.get() : null;
+        if (notReady(bot, more)) {
+            map.broadcastMessage(bot, releasePacket(bot, plan), false);
+            release(onRelease);
+            return;
+        }
+        broadcastAndApply(bot, attackPacket(bot, plan, toTargets(more, hitDelay), numAttackedAndDamage(more),
+                projectile), more, hitDelay);
+        long next = startedAt + (shot + 1) * BotSwingPlan.KEYDOWN_SHOT_MS;
+        MethodScheduler.runAfterDelay(() -> holdKeydown(bot, map, plan, projectile, hitDelay, nextHits, onRelease,
+                startedAt, shot + 1), Math.max(0, next - System.currentTimeMillis()));
+    }
+
+    private static void release(java.util.function.LongConsumer onRelease) {
+        if (onRelease != null) {
+            onRelease.accept(System.currentTimeMillis());
+        }
     }
 
     private static boolean notReady(Character bot, Map<Monster, List<Integer>> hits) {
