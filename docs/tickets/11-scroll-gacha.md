@@ -111,7 +111,7 @@ Owner decision 2026-10-21: "fun + fair". Built:
 
 ### 1.5.0 follow-up (owner answers 2026-10-21)
 
-- **Machines in all 12 towns:** migration `011-gachapon-machines.sql` (+ rollback) adds `plife` rows (worlds 0 and 1)
+- **Machines in all 12 towns:** migration `013-gachapon-machines.sql` (+ rollback) adds `plife` rows (worlds 0 and 1)
   for 9100101 Ellinia, 9100102 Perion, 9100103 Kerning City, 9100104 Sleepywood, 9100105 Mushroom Shrine and 9100109
   New Leaf City, on the ground near the shops and clear of portals (`GachaponMachinesMigrationTest` checks each spot
   against the WZ footholds and portals). The client needs no change: it draws server-spawned NPCs from `Npc.wz`

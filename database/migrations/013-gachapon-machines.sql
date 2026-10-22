@@ -10,13 +10,13 @@
 -- does not run never loads its rows.
 --
 -- No existing row changes. Stop the game and take a backup first, as for every migration here. Applying it twice
--- changes nothing (ledger id '011-gachapon-machines', and each row is inserted only when missing).
+-- changes nothing (ledger id '013-gachapon-machines', and each row is inserted only when missing).
 CREATE TABLE IF NOT EXISTS mapleroot_integration_migrations (
   migration_id varchar(100) PRIMARY KEY,
   applied_at timestamp NOT NULL DEFAULT CURRENT_TIMESTAMP
 ) ENGINE=InnoDB;
 
-SET @apply = NOT EXISTS (SELECT 1 FROM mapleroot_integration_migrations WHERE migration_id = '011-gachapon-machines');
+SET @apply = NOT EXISTS (SELECT 1 FROM mapleroot_integration_migrations WHERE migration_id = '013-gachapon-machines');
 
 START TRANSACTION;
 INSERT INTO plife (world, map, life, type, cy, f, fh, rx0, rx1, x, y, hide, mobtime, team)
@@ -33,5 +33,5 @@ CROSS JOIN (
 ) m
 WHERE @apply
   AND NOT EXISTS (SELECT 1 FROM plife p WHERE p.world = w.world AND p.map = m.map AND p.life = m.life);
-INSERT IGNORE INTO mapleroot_integration_migrations(migration_id) VALUES ('011-gachapon-machines');
+INSERT IGNORE INTO mapleroot_integration_migrations(migration_id) VALUES ('013-gachapon-machines');
 COMMIT;

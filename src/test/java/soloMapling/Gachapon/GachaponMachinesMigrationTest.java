@@ -21,11 +21,11 @@ import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertNotNull;
 import static org.junit.jupiter.api.Assertions.assertTrue;
 
-/** Migration 011: the six town gachapon machines stand on real ground, clear of portals, and are wired to their pool. */
+/** Migration 013: the six town gachapon machines stand on real ground, clear of portals, and are wired to their pool. */
 class GachaponMachinesMigrationTest {
 
-    static final Path SQL = Path.of("database/migrations/011-gachapon-machines.sql");
-    static final Path ROLLBACK = Path.of("database/migrations/011-gachapon-machines.rollback.sql");
+    static final Path SQL = Path.of("database/migrations/013-gachapon-machines.sql");
+    static final Path ROLLBACK = Path.of("database/migrations/013-gachapon-machines.rollback.sql");
     static final Pattern ROW = Pattern.compile("SELECT\\s+(?:(\\d{9}) AS map, (\\d{7}) AS life, (-?\\d+) AS x, (-?\\d+) AS y, "
             + "(\\d+) AS fh|(\\d{9}),\\s*(\\d{7}),\\s*(-?\\d+),\\s*(-?\\d+),\\s*(\\d+))");
 
