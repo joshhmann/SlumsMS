@@ -126,13 +126,17 @@ public class PlayerStorage {
         }
     }
 
-    /** Players with a real connection: SoloMapling bots (BotClient) are left out, so they never fill a world. */
+    /**
+     * Players with a real connection: SoloMapling bots (BotClient) are left out, so they never fill a world, and so
+     * are auto-QA's synthetic players (SyntheticClient): a test run never takes a real player's place or lights the
+     * load bar.
+     */
     public int getConnectedPlayerCount() {
         rlock.lock();
         try {
             int count = 0;
             for (Character chr : storage.values()) {
-                if (!(chr.getClient() instanceof BotClient)) {
+                if (!(chr.getClient() instanceof BotClient) && !(chr.getClient() instanceof client.SyntheticClient)) {
                     count++;
                 }
             }

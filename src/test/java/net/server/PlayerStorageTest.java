@@ -22,6 +22,17 @@ class PlayerStorageTest {
         assertEquals(1, storage.getConnectedPlayerCount());
     }
 
+    @Test
+    void autoQaSyntheticPlayersNeverFillAWorld() {
+        PlayerStorage storage = new PlayerStorage();
+        storage.addPlayer(character(1, "Player", mock(Client.class)));
+        storage.addPlayer(character(2, "AutoQaOne", new client.SyntheticClient(1, 0, 1)));
+        storage.addPlayer(character(3, "AutoQaTwo", new client.SyntheticClient(2, 0, 1)));
+
+        assertEquals(3, storage.getSize());
+        assertEquals(1, storage.getConnectedPlayerCount());
+    }
+
     private static Character character(int id, String name, Client client) {
         Character chr = mock(Character.class);
         when(chr.getId()).thenReturn(id);

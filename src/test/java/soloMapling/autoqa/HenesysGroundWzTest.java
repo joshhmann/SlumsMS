@@ -57,6 +57,19 @@ class HenesysGroundWzTest {
     }
 
     @Test
+    void theTownspeopleTheOwnerSawSinkingAreFlagged() throws Exception {
+        // the rc5 stored rows before the ground fix (87c9df5ef): NachoHat08, MochiUltra, CandyClock in Henesys
+        WzTestData.assumePresent("Map.wz");
+        List<FootholdCheck.Seg> fh = footholds(100000000);
+        int[][] bots = {{1148, 363, 29}, {813, 303, 29}, {1227, 122, 28}};
+        for (int[] b : bots) {
+            FootholdCheck.Verdict v = FootholdCheck.check(fh, b[0], b[1], FootholdCheck.Pose.GROUNDED);
+            assertEquals(FootholdCheck.Kind.SUNK, v.kind(), b[0] + "," + b[1]);
+            assertEquals(b[2], v.dy(), 0.01);
+        }
+    }
+
+    @Test
     void fillerBotsOnTheLeftTopPlatformOfHenesysAreSunk() throws Exception {
         WzTestData.assumePresent("Map.wz");
         List<FootholdCheck.Seg> fh = footholds(100000000);
