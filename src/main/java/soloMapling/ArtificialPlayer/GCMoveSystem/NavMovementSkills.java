@@ -62,7 +62,19 @@ final class NavMovementSkills {
         if ((mask & BotNavigationGraph.SKILL_FLASH_JUMP) != 0 && heldSkill(bot, FLASH_JUMP_SKILLS) == 0) {
             mask &= ~BotNavigationGraph.SKILL_FLASH_JUMP;
         }
+        if ((mask & BotNavigationGraph.SKILL_FLASH_JUMP) != 0 && map != null && flashJumpBlocked(map.getId())) {
+            mask &= ~BotNavigationGraph.SKILL_FLASH_JUMP; // 1.5.0 rc3: a bounce zone (jump quest) blocks it for players
+        }
         return mask;
+    }
+
+    /* 1.5.0 rc3: bounce-zones.yaml blocks Flash Jump on this map (jump quests): bots walk it like players must. */
+    static boolean flashJumpBlocked(int mapId) {
+        try {
+            return server.bounce.BounceZones.getInstance().blocksFlashJump(mapId);
+        } catch (RuntimeException | LinkageError noZones) {
+            return false;
+        }
     }
 
     /* The mask a live bot plans and executes with: what it holds, less what it cannot pay for right now. */

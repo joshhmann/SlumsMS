@@ -120,6 +120,9 @@ class BotMovementState {
 
     // ── Contact-damage state (BotContactDamage; bots take visible hits but never lose HP) ──
     int mobHitCooldownMs = 0;             // i-frame countdown after a contact/fall hit
+    volatile long lastContactHitMs = 0L;  // 1.5.0 rc3: when a mob last landed a touch hit (the grind steps back)
+    volatile int lastContactHitFromX = 0; //   and where that mob stood
+    long ropeWaitSinceMs = 0L;            // 1.5.0 rc3: waiting at a rope another bot is on (RopeShare), 0 = not
     Point lastMobTouchCheckPos = null;    // previous-tick foot pos for the swept anti-tunnel AABB
     int lastMobTouchMapId = -1;           // invalidates the sweep across a map change
 

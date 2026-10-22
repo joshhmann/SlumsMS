@@ -8,6 +8,7 @@ import soloMapling.ArtificialPlayer.GCMoveSystem.BotPerformanceMonitor;
 import soloMapling.ArtificialPlayer.GCMoveSystem.GCMovement;
 
 import java.awt.Point;
+import java.util.List;
 import java.util.Random;
 import java.util.function.Consumer;
 
@@ -70,6 +71,18 @@ public final class GrindBrain {
     long attackWalkLockUntil = 0L;           // hold walking until this time after a swing (bypassed by blink/dash)
     long lastKillMs = 0L;
 
+    // ── 1.5.0 rc3: human combat (positioning, KS manners, spread) ──
+    boolean keepsDistance = false;           // archers and mages hold mobs off; warriors close in (start())
+    soloMapling.ArtificialPlayer.BotCombatSystem.BotHabits.Loot lootStyle =
+            soloMapling.ArtificialPlayer.BotCombatSystem.BotHabits.Loot.BATCH; // the bot's loot habit (start())
+    volatile boolean yieldMap = false;       // every spot left here is a real player's platform -> TrainingBot moves on
+    private List<Character> respectedPlayers = List.of();
+    private long playersReadMs = 0L;
+    private long nextPersonalSpaceMs = 0L;
+    private static final long PLAYERS_REFRESH_MS = 1_000;
+    private static final long PERSONAL_SPACE_EVERY_MS = 1_000;
+    private static final int PERSONAL_SPACE_PX = 34;   // another bot this close (x) on our ledge is too close
+
     // ── Combat heartbeat (read by TrainingBot's macro watchdog -> volatile) ──
     private volatile long lastCombatProgressMs = 0L;
     private boolean wasObserved = false;
@@ -102,6 +115,14 @@ public final class GrindBrain {
             targetOid = -1;
             lastMoveTargetX = Integer.MIN_VALUE;
             lastKillMs = now();
+            keepsDistance = keepsDistance(chr, style);
+            lootStyle = chr != null && soloMapling.ArtificialPlayer.BotCombatSystem.BotCombatTuning.human()
+                    ? soloMapling.ArtificialPlayer.BotCombatSystem.BotHabits.lootNow(chr)
+                    : soloMapling.ArtificialPlayer.BotCombatSystem.BotHabits.Loot.BATCH;
+            yieldMap = false;
+            respectedPlayers = List.of();
+            playersReadMs = 0L;
+            nextPersonalSpaceMs = 0L;
             approachX = -1;   // re-derive the reach: a ranged bot out of ammo now closes to melee (real bots 08)
             approachY = -1;
             lastNarrate = "";
@@ -166,10 +187,114 @@ public final class GrindBrain {
             return;
         }
         climb.onGrounded();
+        if (keepPersonalSpace(chr)) {
+            return; // 1.5.0 rc3: stepped off another bot's pixel this tick
+        }
         GrindStrategy s = strategy;
         if (s != null) {
             s.tick(chr);
         }
+    }
+
+    // ── 1.5.0 rc3 ──
+
+    // Archers (2nd job up) and mages fight from range and keep mobs off; warriors and thieves close in.
+    static boolean keepsDistance(Character chr, MovementStyle style) {
+        if (style == MovementStyle.RANGED) {
+            return true;
+        }
+        if (chr == null || chr.getJob() == null) {
+            return false;
+        }
+        int niche = chr.getJob().getJobNiche(); // 2 = magician, 3 = bowman
+        return niche == 2 || niche == 3;
+    }
+
+    /** True when the episode found only real players' platforms left on this map (KS manners: move on). */
+    public boolean yieldsMap() {
+        return yieldMap;
+    }
+
+    // The real players on the map this bot respects (KsManners), re-read at most once a second.
+    List<Character> respectedPlayers(Character chr) {
+        long now = now();
+        if (now - playersReadMs >= PLAYERS_REFRESH_MS) {
+            playersReadMs = now;
+            respectedPlayers = KsManners.respectedPlayers(chr);
+        }
+        return respectedPlayers;
+    }
+
+    // A mob a respected player is fighting or standing by: a neutral bot leaves it alone.
+    boolean playersMob(Character chr, Monster m) {
+        if (m == null) {
+            return false;
+        }
+        List<Character> players = respectedPlayers(chr);
+        if (players.isEmpty()) {
+            return false;
+        }
+        Character owner = KsManners.ownerOf(chr, players, m);
+        if (owner != null && soloMapling.qa.QaLog.on(soloMapling.qa.QaLog.Topic.MANNERS)
+                && soloMapling.qa.QaLog.every("ksmob:" + chr.getId(), 5_000)) {
+            KsManners.log(chr, "LEAVE " + chr.getName() + " leaves " + m.getName() + " to " + owner.getName());
+        }
+        return owner != null;
+    }
+
+    // KS manners: null instead of a mob that belongs to a real player this bot respects.
+    Monster mannerly(Character chr, Monster m) {
+        return m != null && playersMob(chr, m) ? null : m;
+    }
+
+    // Two bots on one pixel read as a stack: the second steps a little aside (owner decision 6). Once a second at
+    // most, never mid-swing, and only inside the bot's own leash.
+    private boolean keepPersonalSpace(Character chr) {
+        long now = now();
+        if (now < nextPersonalSpaceMs || now < attackWalkLockUntil || !soloMapling.ArtificialPlayer.BotCombatSystem
+                .BotCombatTuning.spread() || chr.getMap() == null) {
+            return false;
+        }
+        nextPersonalSpaceMs = now + PERSONAL_SPACE_EVERY_MS;
+        Point pos = chr.getPosition();
+        if (pos == null || GCMovement.isMoving(chr)) {
+            return false;
+        }
+        Character close = null;
+        for (Character c : chr.getMap().getCharacters()) {
+            if (c == null || c.getId() == chr.getId() || !soloMapling.ArtificialPlayer.BotHelpers.isBot(c)) {
+                continue;
+            }
+            Point cp = c.getPosition();
+            if (cp != null && Math.abs(cp.x - pos.x) < PERSONAL_SPACE_PX && Math.abs(cp.y - pos.y) < 20
+                    && c.getId() > chr.getId()) { // one of the pair moves: the higher id stays
+                close = c;
+                break;
+            }
+        }
+        if (close == null) {
+            return false;
+        }
+        int[] leash = effectiveLeash(chr);
+        int away = pos.x >= close.getPosition().x ? 1 : -1;
+        int step = 45 + rng.nextInt(45);
+        int tx = clamp(pos.x + away * step, leash[0], leash[1]);
+        if (Math.abs(tx - pos.x) < 20) {
+            tx = clamp(pos.x - away * step, leash[0], leash[1]); // pinned at the leash edge: step the other way
+        }
+        if (Math.abs(tx - pos.x) < 20) {
+            return false;
+        }
+        Point gp = strategyGroundAt(chr, tx);
+        GCMovement.move(chr, tx, gp != null ? gp.y : pos.y);
+        lastMoveTargetX = tx;
+        engaged = false;
+        if (soloMapling.qa.QaLog.on(soloMapling.qa.QaLog.Topic.SPREAD)) {
+            soloMapling.qa.QaLog.map(soloMapling.qa.QaLog.Topic.SPREAD, chr.getMapId(), "SPACE " + chr.getName()
+                    + " stood on " + close.getName() + " (dx " + Math.abs(close.getPosition().x - pos.x)
+                    + "): steps to x " + tx);
+        }
+        return true;
     }
 
     // Drop the spot claim + reset combat state when the bot leaves the map / stops.
@@ -309,12 +434,38 @@ public final class GrindBrain {
     }
 
     boolean walkAndLoot(Character chr, int x0, int x1, int searchPx) {
+        if (lootStyle == soloMapling.ArtificialPlayer.BotCombatSystem.BotHabits.Loot.PET) {
+            lootAtFeet(chr); // 1.5.0 rc3: the pet fetches; the owner does not walk for drops
+            return false;
+        }
         long startedAt = System.nanoTime();
         try {
-            return loot.tryWalkAndLoot(chr, x0, x1, searchPx);
+            boolean went = loot.tryWalkAndLoot(chr, x0, x1, searchPx);
+            if (went && soloMapling.qa.QaLog.on(soloMapling.qa.QaLog.Topic.HABITS)
+                    && soloMapling.qa.QaLog.every("sweep:" + chr.getId(), 6_000)) {
+                soloMapling.qa.QaLog.map(soloMapling.qa.QaLog.Topic.HABITS, chr.getMapId(), "LOOT " + chr.getName()
+                        + " (" + lootStyle + ") sweeps its drops");
+            }
+            return went;
         } finally {
             BotPerformanceMonitor.recordCombatLoot(System.nanoTime() - startedAt);
         }
+    }
+
+    // 1.5.0 rc3: an instant looter walks over to a settled drop right after a kill, before the next mob; true when
+    // it went for one this tick.
+    boolean instantLoot(Character chr, int[] leash) {
+        if (lootStyle != soloMapling.ArtificialPlayer.BotCombatSystem.BotHabits.Loot.INSTANT
+                || now() - lastKillMs > GrindLoot.INSTANT_AFTER_KILL_MS || now() < attackWalkLockUntil) {
+            return false;
+        }
+        boolean went = walkAndLoot(chr, leash[0], leash[1], GrindLoot.INSTANT_LOOT_PX);
+        if (went && soloMapling.qa.QaLog.on(soloMapling.qa.QaLog.Topic.HABITS)
+                && soloMapling.qa.QaLog.every("instantloot:" + chr.getId(), 4_000)) {
+            soloMapling.qa.QaLog.map(soloMapling.qa.QaLog.Topic.HABITS, chr.getMapId(), "LOOT " + chr.getName()
+                    + " (INSTANT) goes for its drops right after the kill");
+        }
+        return went;
     }
 
     // ── Approach-progress tracking (no-progress give-up on an unreachable target/spot) ──

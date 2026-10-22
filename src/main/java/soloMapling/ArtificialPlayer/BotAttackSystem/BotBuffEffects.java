@@ -70,6 +70,13 @@ public final class BotBuffEffects {
         return effect.getDuration();
     }
 
+    /* True when the buff reaches party members (its effect has an area box). */
+    public static boolean isPartyBuff(int skillId) {
+        Skill skill = SkillFactory.getSkill(skillId);
+        StatEffect effect = skill == null ? null : skill.getEffect(skill.getMaxLevel());
+        return effect != null && effect.isPartyBuff();
+    }
+
     /* The buff's WZ duration (ms) at max level, or 0 if unresolvable. Cheap memoized lookup. */
     public static int durationOf(int skillId) {
         Skill skill = SkillFactory.getSkill(skillId);

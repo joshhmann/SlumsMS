@@ -44,7 +44,7 @@ final class StackStrategy implements GrindStrategy {
     private volatile List<Spot> members;         // resolved member spots (top-down, same order as spotIndices)
     private volatile Spot assigned;              // this bot's member ledge (null = squatter/whole-stack)
     private volatile int primaryIdx = -1;        // claim key: the stack's primary spot index
-    private int claimMapId = -1;                 // claim released against the RECORDED map + bot (never the current map)
+    private long claimMapId = -1;                 // claim released against the RECORDED map + bot (never the current map)
     private int claimBotId = -1;
     private volatile int claimedSlot = -1;
     private long ledgeEmptySinceMs = 0L;         // assigned ledge last read empty (0 = feeding)
@@ -207,7 +207,7 @@ final class StackStrategy implements GrindStrategy {
                 }
                 pickedPrimary = primaryIndexOf(p, picked);
                 int cap = Math.min(picked.spotIndices().size(), SpotFinder.SHARE_CAP_MAX);
-                slot = BotSpotClaims.claim(chr.getMapId(), pickedPrimary, cap, chr.getId());
+                slot = BotSpotClaims.claim(SpotFinder.claimKey(chr), pickedPrimary, cap, chr.getId());
                 if (slot >= 0) {
                     claimed = true;
                     break;
@@ -215,12 +215,12 @@ final class StackStrategy implements GrindStrategy {
             }
             mapSaturated = !claimed; // every traversable stack full -> sharing -> macro crowd-bail signal
             if (!claimed) {
-                slot = BotSpotClaims.claim(chr.getMapId(), pickedPrimary, Integer.MAX_VALUE, chr.getId());
+                slot = BotSpotClaims.claim(SpotFinder.claimKey(chr), pickedPrimary, Integer.MAX_VALUE, chr.getId());
                 b.narrate("all stacks taken -> sharing the least-crowded one");
             }
             stack = picked;
             primaryIdx = pickedPrimary;
-            claimMapId = chr.getMapId();
+            claimMapId = SpotFinder.claimKey(chr);
             claimBotId = chr.getId();
             claimedSlot = slot;
             List<Spot> mem = new ArrayList<>(picked.spotIndices().size());
@@ -250,7 +250,7 @@ final class StackStrategy implements GrindStrategy {
             if (primary == excludedPrimaryIdx && now() < excludedUntilMs) {
                 continue;
             }
-            int holders = BotSpotClaims.holders(chr.getMapId(), primary);
+            int holders = BotSpotClaims.holders(SpotFinder.claimKey(chr), primary);
             double dist = (pos != null)
                     ? pos.distance(new Point((st.x0() + st.x1()) / 2, (st.topY() + st.bottomY()) / 2))
                     : 0;
@@ -313,7 +313,7 @@ final class StackStrategy implements GrindStrategy {
         long scanStart = System.nanoTime();
         Monster t = stickyTarget(chr, st);
         if (t == null) {
-            t = soloMapling.ArtificialPlayer.BotAffinitySystem.AffinityReactions.ksPick(chr, acquireTarget(chr, st)); // ticket 58
+            t = soloMapling.ArtificialPlayer.BotAffinitySystem.AffinityReactions.ksPick(chr, b.mannerly(chr, acquireTarget(chr, st))); // ticket 58
             b.targetOid = (t != null) ? t.getObjectId() : -1;
             b.resetApproachProgress(chr);
         }
@@ -365,7 +365,7 @@ final class StackStrategy implements GrindStrategy {
             return;
         }
         long scanStart = System.nanoTime();
-        Monster t = soloMapling.ArtificialPlayer.BotAffinitySystem.AffinityReactions.ksPick(chr, acquireTarget(chr, st)); // ticket 58
+        Monster t = soloMapling.ArtificialPlayer.BotAffinitySystem.AffinityReactions.ksPick(chr, b.mannerly(chr, acquireTarget(chr, st))); // ticket 58
         BotPerformanceMonitor.recordCombatScan(System.nanoTime() - scanStart);
         if (t != null) {
             b.targetOid = t.getObjectId();

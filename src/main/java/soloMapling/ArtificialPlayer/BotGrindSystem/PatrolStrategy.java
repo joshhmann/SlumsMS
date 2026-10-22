@@ -71,7 +71,7 @@ final class PatrolStrategy extends CampStrategy {
             int pos = (Math.max(ringPos, 0) + i) % n;
             int idx = ring.get(pos);
             Spot s = p.spots().get(idx);
-            int holders = BotSpotClaims.holders(chr.getMapId(), idx);
+            int holders = BotSpotClaims.holders(SpotFinder.claimKey(chr), idx);
             if (holders < s.shareCap()) {
                 ringPos = pos;
                 return s;

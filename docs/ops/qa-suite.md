@@ -61,6 +61,11 @@ the showcase's own minutes plus one.
 | `gu-5` `[guild] [gpq\|zakum\|pap\|horntail]` (1.5.0) | A fast staged boss run on your channel: 60 s gathering at the entrance (you are warped there), 2 min inside, then back. Needs 2+ online roster members of the guild at the boss's level. Party a crew member while they gather to join for real (it always accepts and follows you). Runs 8 minutes | `BOSS RUN` (crew, channel, map), `PARTY INVITE` / `REAL` (a member went with you), `INSIDE` (who left the world), `BACK`, `RESULT` (cleared or wiped; loot named only, no item; GP on a clear) |
 | `gu-6` (1.5.0) | You must be in a guild. Stages a friend bot that is a member of it. `!qa do rival` makes it your rival and runs the quit check; `!qa do ignore` backdates it 30 days and runs the check (player-led guilds) | `JOIN`, the step's lines, the quit line in guild chat (`GUILD SAY`) and `LEAVE ... its guild's players are its rivals` / `ignored for weeks` |
 | `gu-7` (1.5.0) | Stages a friend, a neutral and a rival bot next to you, guildless. Invite each to a party without asking first | `PARTY INVITE <you> -> <bot>: friend/neutral/rival, chance 100%/30%/0%`; the friend joins and follows you, the neutral one about 1 time in 3 (a no holds 3 minutes), the rival never |
+| `cb-1` `[job ...]` (1.5.0 rc3) | Stages one grinder per job (default Crusader, F/P Mage, Ranger, Hermit; that job's check level, its line's skills maxed, starter pots and ammo) in your map's densest mob pack, held on the map. No mobs here: warps you to 104040000 | `CHOICE` per swing: mobs in AoE reach, `AOE`/`SINGLE` and why (`PACK` 3+, `FEW`, `BOSS`, `NO_AOE`, `SLOPPY_SINGLE`/`SLOPPY_AOE`); `BUFF` per cast with when it is next due (after it runs out, a little late; on time for a party buff when partied with you); every attack (`ATTACK`); `BUFFS` timers every 15 s |
+| `cb-2` `[job ...]` (1.5.0 rc3) | As cb-1 | `FACE` (turned before a swing), `TOUCH` (stepped out of a mob's body), `KNOCKBACK` (stepped back after a hit), `KITE` (archer/mage backed off), `PACE` (walked its platform in a lull); `POSITION` every 15 s: each bot's spot, facing and nearest mob, flagged `INSIDE its body` / `FACING AWAY` |
+| `cb-3` `[bots 1-6]` (1.5.0 rc3) | Stages 4 (or n) grinders of random classes 5 levels under your map (a harder map), not held. Their habits go to the log first. `!qa do hurt` hits each to ~45%, `!qa do lowpots` drains their HP pots to their restock mark, `!qa do die` kills one now | `HABITS` (loot style, potion line, restock mark, rebuff lateness, sloppiness), `LOOT` (sweep / instant), `POT` (drank at what HP, its line), `RESTOCK` (down to its mark -> town), `DEATH`, `RESPAWN` (town), `WALK BACK`; `STATE` every 15 s |
+| `cb-4` `[bots 1-6]` (1.5.0 rc3) | Stages 3 (or n) neutral grinders at your map's level right next to you, on your platform, not held | `YIELD` (gave up its spot on your platform), `LEAVE` (left a mob you fight or stand by), `CROWDED` (only your platform left here), `MOVE ON` (left the map, with the "cc?" line if it said one), bot chat |
+| `sp-1` `[bots 2-12]` (1.5.0 rc3) | Stages 8 (or n) grinders at your map's level in one clump next to you, not held | `SPREAD` tally at start and every 15 s (bots, 100 px spots covered, pairs closer than 34 px, bots per rope or ladder), `SPACE` (stepped off another bot), `ROPE` (waited for a rope another bot was on, and when it gave up waiting) |
 
 What `!qa stop` undoes:
 
@@ -71,6 +76,7 @@ What `!qa stop` undoes:
 - A summoned test pet stays with you.
 - af-1/af-2/af-3: the staged bot leaves and every tie it had is forgotten; af-3 puts your `@botdrama` back.
 - cp-1/we-1: the staged couple is broken up and both bots leave; we-1 also stops the wedding event if it still runs.
+- cb-1..cb-4, sp-1: the staged grinders leave (a cb-3 bot that died loses the EXP, as any death does, then leaves).
 - gu-1..gu-7: staged guild bots leave their guild and the world; gu-1/gu-3 make you leave a guild you joined during the
   run; gu-5 ends the boss run (bots inside log back in).
 
@@ -78,6 +84,25 @@ You are not warped back. Mesos you earned in fm-1 stay with you.
 
 Planned for 1.4.2 (`QaScenarios.PLANNED` lists them, with TODO notes in that file): bot buddies, multi-channel follow,
 and 5-channel population. Their branches are not merged into rc1 yet.
+
+## 1.5.0 rc3: bots fight like people, spread out (cb-1 .. cb-4, sp-1)
+
+Only maps a real player can see run any of this; offscreen grinders keep the cheap path. Switches in `config.yaml`
+(`server:`), all on by default:
+
+| Key | Default | Meaning |
+|---|---|---|
+| `BOT_COMBAT_HUMAN` | true | The whole human combat layer (skill choice, facing first, touch steps, pacing, habits). false = rc2 behaviour |
+| `BOT_COMBAT_AOE_MIN_MOBS` | 3 | Mobs in reach before the AoE; bosses and lone mobs get the single-target skill |
+| `BOT_COMBAT_SLOPPINESS` | 1.0 | Scales each bot's own suboptimal-cast and late-rebuff chances (0 = textbook) |
+| `BOT_COMBAT_DEATHS` | true | Rare deaths on maps 3+ levels above the bot (then town, rest, restock, walk back) |
+| `BOT_KS_MANNERS` | true | Neutral bots stay off a real player's platform and mobs and move on from a crowded map |
+| `BOT_SPREAD` | true | Spot claims per channel, squatters get their own band, personal space, one bot per rope |
+
+`!botcombat` (GM 3, test server only, registered with `!qa`) does the same by hand: `!botcombat` shows the switches,
+`!botcombat set <human|aoe|sloppy|deaths|manners|spread> <value|clear>` overrides one until restart,
+`!botcombat habits <bot>` prints a bot's habits, `!botcombat stage [job ...]` holds grinders next to you,
+`!botcombat clear` removes them, `!botcombat spread` prints the spread tally of your map.
 
 ## mv-1: attack slide
 

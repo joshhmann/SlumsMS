@@ -334,6 +334,7 @@ public class CommandsExecutor {
         }
         if (soloMapling.qa.QaSuite.isEnabled()) {
             addCommand("qa", 3, client.command.commands.gm3.QaCommand.class); // test scenarios + logs/qa (docs/ops/qa-suite.md)
+            addCommand("botcombat", 3, client.command.commands.gm3.BotCombatCommand.class); // 1.5.0 rc3 bot combat staging
         }
         addCommand("editShop", 2,  EditShopCommand.class);
 

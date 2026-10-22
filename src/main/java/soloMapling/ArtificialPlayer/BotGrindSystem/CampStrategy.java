@@ -65,7 +65,7 @@ class CampStrategy implements GrindStrategy {
     private volatile int claimedSlot = -1;   // this bot's stable claim slot on the spot (-1 = none) -> its section band
     // The claim is released with the RECORDED map + bot id, not chr.getMapId() at release time, so a
     // bot moved off-map mid-claim (GM warp) can never orphan a ghost claim (Audit III 1.2).
-    private int claimMapId = -1;
+    private long claimMapId = -1;
     private int claimBotId = -1;
     private long bandEmptySinceMs = 0L;      // when the personal band last read empty of mobs (0 = feeding)
     private boolean bandFallback = false;    // hunting spot-wide because the band dried; cleared on a band acquisition
@@ -201,6 +201,15 @@ class CampStrategy implements GrindStrategy {
         if (s == null) {
             return; // no reachable spot (rare — DECIDE guarantees mobs), or released mid-flight
         }
+        // 1.5.0 rc3 (KS manners): the best spot left is a real player's platform -> every spot here is theirs;
+        // TrainingBot moves on to another map.
+        List<Character> players = b.respectedPlayers(chr);
+        Character owner = players.isEmpty() ? null : KsManners.playerOn(chr, players, s.anchor(), s.radius());
+        b.yieldMap = owner != null;
+        if (owner != null) {
+            KsManners.log(chr, "CROWDED " + chr.getName() + ": the only spots left are " + owner.getName()
+                    + "'s platform -> moving on");
+        }
         // Movement + transition stay outside the lock (the movement driver takes its own locks).
         b.resetApproachProgress(chr);
         b.lastKillMs = now();
@@ -244,7 +253,7 @@ class CampStrategy implements GrindStrategy {
                     return null; // rare (DECIDE guarantees mobs)
                 }
                 idx = indexOfSame(p.spots(), s);
-                slot = BotSpotClaims.claim(chr.getMapId(), idx, s.shareCap(), chr.getId());
+                slot = BotSpotClaims.claim(SpotFinder.claimKey(chr), idx, s.shareCap(), chr.getId());
                 if (slot >= 0) {
                     claimed = true;
                     break;
@@ -258,11 +267,11 @@ class CampStrategy implements GrindStrategy {
                 // Register the share anyway (uncapped claim) so later overflow bots see this sharer in
                 // holders() and the scaled penalty spreads the surplus evenly. A squatter slot lands past
                 // shareCap, so personalBand treats it as unbanded (whole-spot leash) — correct here.
-                slot = BotSpotClaims.claim(chr.getMapId(), idx, Integer.MAX_VALUE, chr.getId());
+                slot = BotSpotClaims.claim(SpotFinder.claimKey(chr), idx, Integer.MAX_VALUE, chr.getId());
                 b.narrate("all spots taken -> sharing the least-crowded one");
             }
             spotIndex = idx;
-            claimMapId = chr.getMapId();
+            claimMapId = SpotFinder.claimKey(chr);
             claimBotId = chr.getId();
             spot = s;
             claimedSlot = slot;
@@ -316,10 +325,13 @@ class CampStrategy implements GrindStrategy {
         if (enforceAnchorProximity(chr, s)) {
             return; // off the anchor ledge too long -> Layer 3 took this tick to escalate the return
         }
+        if (yieldToPlayer(chr, s)) {
+            return; // 1.5.0 rc3: a player took this platform -> relocate
+        }
         long scanStart = System.nanoTime();
         Monster t = stickyTarget(chr, s);
         if (t == null) {
-            t = soloMapling.ArtificialPlayer.BotAffinitySystem.AffinityReactions.ksPick(chr, acquireTarget(chr, s)); // ticket 58
+            t = soloMapling.ArtificialPlayer.BotAffinitySystem.AffinityReactions.ksPick(chr, b.mannerly(chr, acquireTarget(chr, s))); // ticket 58
             b.targetOid = (t != null) ? t.getObjectId() : -1;
             b.resetApproachProgress(chr);
         }
@@ -330,6 +342,9 @@ class CampStrategy implements GrindStrategy {
         }
         // Passive at-feet loot: never interrupts the swing or diverts to distant loot.
         b.lootAtFeet(chr);
+        if (!b.inAttackRange(chr, t) && b.instantLoot(chr, leash(chr))) {
+            return; // 1.5.0 rc3: an instant looter picks up its kill's drops before walking to the next mob
+        }
         if (b.inAttackRange(chr, t)) {
             if (b.engage.preSwingAdjust(chr, t)) {
                 return; // turned / kited / re-centred this beat — swing next beat
@@ -385,8 +400,11 @@ class CampStrategy implements GrindStrategy {
         if (enforceAnchorProximity(chr, s)) {
             return; // corral back to the anchor before waiting out a lull off-ledge
         }
+        if (yieldToPlayer(chr, s)) {
+            return; // 1.5.0 rc3: a player took this platform -> relocate
+        }
         long scanStart = System.nanoTime();
-        Monster t = soloMapling.ArtificialPlayer.BotAffinitySystem.AffinityReactions.ksPick(chr, acquireTarget(chr, s)); // ticket 58
+        Monster t = soloMapling.ArtificialPlayer.BotAffinitySystem.AffinityReactions.ksPick(chr, b.mannerly(chr, acquireTarget(chr, s))); // ticket 58
         BotPerformanceMonitor.recordCombatScan(System.nanoTime() - scanStart);
         if (t != null) {
             b.targetOid = t.getObjectId();
@@ -409,7 +427,76 @@ class CampStrategy implements GrindStrategy {
         // or spread map gives up on a dry spot much sooner than a dense compact one).
         if (now() - waitStartedMs >= waitPatienceMs(chr) && now() - b.lastKillMs >= unproductiveMs(chr)) {
             toRelocate();
+            return;
         }
+        paceThePlatform(chr, leash);
+    }
+
+    // ── 1.5.0 rc3 ──
+
+    private static final long PACE_GAP_MIN_MS = 2_500;
+    private static final long PACE_GAP_MAX_MS = 6_000;
+    private static final int PACE_INSET_PX = 30;
+    private long nextPaceMs = 0L;
+
+    // Owner decision 2, "use the whole platform": in a lull a grinder walks its stretch end to end instead of standing
+    // on one pixel. Each bot paces by its own habit (some stand and wait more), observed maps only (this tick is).
+    private void paceThePlatform(Character chr, int[] leash) {
+        if (!soloMapling.ArtificialPlayer.BotCombatSystem.BotCombatTuning.human()) {
+            return;
+        }
+        long now = now();
+        if (now < nextPaceMs || GCMovement.isMoving(chr)) {
+            return;
+        }
+        nextPaceMs = now + PACE_GAP_MIN_MS + (long) (b.rng.nextDouble() * (PACE_GAP_MAX_MS - PACE_GAP_MIN_MS));
+        if (b.rng.nextDouble() >= soloMapling.ArtificialPlayer.BotCombatSystem.BotHabits.of(chr.getId()).paceChance()) {
+            return; // stands this one out
+        }
+        Point pos = chr.getPosition();
+        Spot s = spot;
+        if (pos == null || s == null) {
+            return;
+        }
+        int lo = leash[0] + PACE_INSET_PX;
+        int hi = leash[1] - PACE_INSET_PX;
+        if (hi - lo < 80) {
+            return; // no stretch to walk
+        }
+        // the far end from where it stands, a little short of the edge
+        int tx = (pos.x - lo < hi - pos.x) ? hi - b.rng.nextInt(Math.max(1, (hi - lo) / 5))
+                : lo + b.rng.nextInt(Math.max(1, (hi - lo) / 5));
+        Point gp = GCMovement.groundPointInRegion(chr.getMap(), s.regionId(), tx);
+        if (gp == null) {
+            return; // not on the spot's ledge there
+        }
+        GCMovement.move(chr, tx, gp.y);
+        b.lastMoveTargetX = tx;
+        EngageBeat.logCombat(chr, "PACE " + chr.getName() + " walks its platform from x " + pos.x + " to x " + tx);
+    }
+
+    private long nextYieldCheckMs = 0L;
+
+    // KS manners: once a second, if a respected player now stands on this spot's platform, give it up (excluded for a
+    // while) and pick another. True when it relocated.
+    private boolean yieldToPlayer(Character chr, Spot s) {
+        long now = now();
+        if (now < nextYieldCheckMs || b.yieldMap) {
+            return false; // b.yieldMap: no free platform left here; TrainingBot is about to move on (its mobs stay off-limits)
+        }
+        nextYieldCheckMs = now + 1_000;
+        List<Character> players = b.respectedPlayers(chr);
+        if (players.isEmpty()) {
+            return false;
+        }
+        Character owner = KsManners.playerOn(chr, players, s.anchor(), s.radius());
+        if (owner == null) {
+            return false;
+        }
+        KsManners.log(chr, "YIELD " + chr.getName() + " gives up its spot at x " + s.anchor().x + " to "
+                + owner.getName() + " and looks for another");
+        toRelocate();
+        return true;
     }
 
     private void toRelocate() {
@@ -459,12 +546,22 @@ class CampStrategy implements GrindStrategy {
     // single-capacity spot, alone on the spot, or holding a squatter slot past the cap — and the caller
     // uses the whole spot span.
     private int[] personalBand(Character chr, Spot s) {
-        if (s == null || claimedSlot < 0 || claimedSlot >= s.shareCap() || s.shareCap() <= 1) {
+        if (s == null || claimedSlot < 0) {
             return null;
         }
-        int mapForClaim = claimMapId >= 0 ? claimMapId : chr.getMapId();
-        if (BotSpotClaims.holders(mapForClaim, spotIndex) <= 1) {
+        long mapForClaim = claimMapId >= 0 ? claimMapId : SpotFinder.claimKey(chr);
+        int holders = BotSpotClaims.holders(mapForClaim, spotIndex);
+        if (holders <= 1) {
             return null; // alone -> use the whole spot (banding kicks in when a second bot claims)
+        }
+        if (claimedSlot >= s.shareCap() || s.shareCap() <= 1) {
+            // 1.5.0 rc3 (spread): a squatter on a full spot used to hunt the whole spot on top of the holders; it
+            // now takes a slice of its own too (the spot split by everyone on it), so a crowd stands spaced out.
+            if (!soloMapling.ArtificialPlayer.BotCombatSystem.BotCombatTuning.spread()) {
+                return null;
+            }
+            int k = Math.max(holders, claimedSlot + 1);
+            return BotSpotClaims.section(s.anchor().x - s.radius(), s.anchor().x + s.radius(), claimedSlot % k, k);
         }
         return BotSpotClaims.section(s.anchor().x - s.radius(), s.anchor().x + s.radius(),
                 claimedSlot, s.shareCap());

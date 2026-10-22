@@ -136,6 +136,9 @@ public class RestSpotFinder {
         Point bestHang = null;
         double bestScore = -Double.MAX_VALUE;
         for (Rope rope : map.getRopes()) {
+            if (ropeTaken(map, rope, chr.getId())) {
+                continue; // 1.5.0 rc3 (spread): another bot already hangs on this rope
+            }
             int topY = rope.topY();
             int bottomY = rope.bottomY();
             Point bg = GCMovement.groundPointBelow(map, rope.x(), bottomY);
@@ -167,6 +170,25 @@ public class RestSpotFinder {
             }
         }
         return bestRope == null ? null : new RestSpot(bestHang, Kind.ROPE, bestRope);
+    }
+
+    // 1.5.0 rc3: a rope another bot is on (climbing or hanging at its x within its span) is taken for a rest hang.
+    static boolean ropeTaken(MapleMap map, Rope rope, int selfId) {
+        if (!soloMapling.ArtificialPlayer.BotCombatSystem.BotCombatTuning.spread()) {
+            return false;
+        }
+        for (Character c : map.getCharacters()) {
+            if (c == null || c.getId() == selfId || !soloMapling.ArtificialPlayer.BotHelpers.isBot(c)) {
+                continue;
+            }
+            Rope on = GCMovement.climbingRope(c);
+            Point p = c.getPosition();
+            if (rope.equals(on) || (p != null && Math.abs(p.x - rope.x()) <= 8 && p.y >= rope.topY()
+                    && p.y <= rope.bottomY())) {
+                return true;
+            }
+        }
+        return false;
     }
 
     private static boolean inReach(Set<Integer> reachable, int regionId) {

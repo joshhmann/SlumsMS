@@ -45,6 +45,62 @@ public final class BotBuffDriver {
         return castDueBuffs(bot, true);
     }
 
+    /*
+     * 1.5.0 rc3 (owner decision 1): keep the class buffs up the way a player does - recast each one when it runs out,
+     * a little late (up to lateMaxMs, and now and then a buff is forgotten for a while longer), staggered one cast at
+     * a time. A party buff is recast on time while the bot is partied with a real player. The first call casts every
+     * buff the bot holds (it arrives buffed). Returns how many casts were queued.
+     */
+    public static int maintain(Character bot, long lateMaxMs) {
+        if (bot == null) return 0;
+        List<Integer> buffIds = BotBuffConfig.buffsFor(bot);
+        if (buffIds.isEmpty()) return 0;
+        long now = System.currentTimeMillis();
+        Map<Integer, Long> timers = nextCastByBot.computeIfAbsent(bot.getId(), k -> new ConcurrentHashMap<>());
+        boolean partied = partiedWithPlayer(bot);
+        java.util.concurrent.ThreadLocalRandom rng = java.util.concurrent.ThreadLocalRandom.current();
+        int cast = 0;
+        for (int skillId : buffIds) {
+            if (now < timers.getOrDefault(skillId, 0L)) {
+                continue;
+            }
+            final int sid = skillId;
+            MethodScheduler.runAfterDelay(() -> BotBuffEffects.castBuff(bot, sid), cast * STAGGER_MS);
+            int durationMs = BotBuffEffects.durationOf(sid);
+            long late = lateMaxMs > 0 ? rng.nextLong(lateMaxMs + 1) : 0;
+            if (lateMaxMs > 0 && rng.nextDouble() < 0.08) {
+                late += 15_000 + rng.nextLong(30_001); // forgot it for a while
+            }
+            if (partied && BotBuffEffects.isPartyBuff(sid)) {
+                late = 0; // the party is counting on it
+            }
+            timers.put(sid, now + (durationMs > 0 ? durationMs : FALLBACK_RECAST_MS) + late);
+            if (soloMapling.qa.QaLog.on(soloMapling.qa.QaLog.Topic.COMBAT)) {
+                soloMapling.qa.QaLog.map(soloMapling.qa.QaLog.Topic.COMBAT, bot.getMapId(), "BUFF " + bot.getName()
+                        + " casts " + sid + " (lasts " + (durationMs / 1000) + " s, next cast " + (late / 1000)
+                        + " s after it runs out" + (partied ? ", partied" : "") + ")");
+            }
+            cast++;
+        }
+        return cast;
+    }
+
+    /* When each of the bot's buffs is due again (skill -> epoch ms), for the cb-1 read-out. */
+    public static Map<Integer, Long> timersOf(int botId) {
+        Map<Integer, Long> t = nextCastByBot.get(botId);
+        return t == null ? Map.of() : Map.copyOf(t);
+    }
+
+    private static boolean partiedWithPlayer(Character bot) {
+        net.server.world.Party party = bot.getParty();
+        if (party == null) return false;
+        for (net.server.world.PartyCharacter pc : party.getMembers()) {
+            Character p = pc == null ? null : pc.getPlayer();
+            if (p != null && p != bot && !soloMapling.ArtificialPlayer.BotHelpers.isBot(p)) return true;
+        }
+        return false;
+    }
+
     /* Release a despawned bot's recast timers so the map doesn't grow unbounded. */
     public static void clearBot(int botId) {
         nextCastByBot.remove(botId);

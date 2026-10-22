@@ -70,6 +70,9 @@ final class BotContactDamage {
     // Per bot per tick: if a hostile mob is touching the bot, apply a hit. LOD-gated (skips entirely
     // when no real player shares the bot's map) and i-frame-gated. Called from GCMovementDriver.tick.
     static void tickMobDamage(BotMovementState entry, Character bot) {
+        if (soloMapling.ArtificialPlayer.BotCombatSystem.BotDeaths.isDead(bot.getId())) {
+            return; // 1.5.0 rc3: lying dead
+        }
         if (!GCMovement.isMapObserved(bot.getMapId())) {
             entry.mobHitCooldownMs = 0; // reset i-frames so the first hit on re-entry is instant
             return;
@@ -102,6 +105,8 @@ final class BotContactDamage {
         int dmg = MobContactDamage.roll(bot, mob.getPADamage());
         MobHitKnockback kb = resolveMobHitKnockback(bot.getPosition(), mob.getPosition());
         if (dmg > 0) {
+            entry.lastContactHitFromX = mob.getPosition() != null ? mob.getPosition().x : bot.getPosition().x;
+            entry.lastContactHitMs = System.currentTimeMillis(); // 1.5.0 rc3: the grind steps back after a knockback
             IdleSafety.onHit(entry, bot, mob); // idle and hit: relocate as soon as it lands (1.4.2)
             // ticket 58: a player who kills this mob in the next few seconds rescued the bot
             soloMapling.ArtificialPlayer.BotAffinitySystem.AffinityHooks.onMobHitBot(bot, mob, System.currentTimeMillis());

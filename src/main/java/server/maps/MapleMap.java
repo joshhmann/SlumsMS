@@ -252,6 +252,11 @@ public class MapleMap {
         return mapid;
     }
 
+    /** The channel this map instance belongs to (1.5.0 rc3: bot spot claims are kept per instance). */
+    public int getChannelId() {
+        return channel;
+    }
+
     public Channel getChannelServer() {
         return Server.getInstance().getWorld(world).getChannel(channel);
     }

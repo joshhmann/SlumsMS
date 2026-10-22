@@ -6,6 +6,7 @@ import server.maps.MapObject;
 import server.maps.MapObjectType;
 import soloMapling.ArtificialPlayer.BotCommandsPack.DropCommands;
 import soloMapling.ArtificialPlayer.BotHoldings;
+import soloMapling.ArtificialPlayer.BotCombatSystem.BotHabits;
 import soloMapling.ArtificialPlayer.GCMoveSystem.GCMovement;
 
 import java.awt.Point;
@@ -52,7 +53,9 @@ final class GrindLoot {
         if (now() < lootNextMs) {
             return;
         }
-        MapItem drop = nearestCollectableDrop(chr, LOOT_PICKUP_PX, Integer.MIN_VALUE, Integer.MAX_VALUE, LOOT_PICKUP_PX);
+        // 1.5.0 rc3: a bot whose pet loots picks up what lands around it, without walking for it
+        int reach = b.lootStyle == BotHabits.Loot.PET ? PET_LOOT_PX : LOOT_PICKUP_PX;
+        MapItem drop = nearestCollectableDrop(chr, reach, Integer.MIN_VALUE, Integer.MAX_VALUE, reach);
         if (drop != null) {
             DropCommands.botLootSingleDrop(chr, drop);
             lootNextMs = now() + lootGapMs();
@@ -120,6 +123,20 @@ final class GrindLoot {
         return true;
     }
 
+    // ── 1.5.0 rc3: loot habits (BotHabits.Loot) ──
+    static final int PET_LOOT_PX = 160;          // what a looting pet reaches around its owner
+    static final int INSTANT_LOOT_PX = 180;      // an instant looter walks this far for a fresh drop
+    static final long INSTANT_AFTER_KILL_MS = 3_000;
+
+    // Etc. drops that are no quest's: what a junk-skipping bot leaves behind (mesos, equips and usables it takes).
+    static boolean isJunk(MapItem mi) {
+        if (mi.getMeso() > 0 || mi.getItem() == null || mi.getQuest() > 0) {
+            return false;
+        }
+        return constants.inventory.ItemConstants.getInventoryType(mi.getItem().getItemId())
+                == client.inventory.InventoryType.ETC;
+    }
+
     private MapItem nearestCollectableDrop(Character chr, int rangePx, int x0, int x1, int yLimit) {
         Point pos = chr.getPosition();
         if (pos == null) {
@@ -135,6 +152,9 @@ final class GrindLoot {
             }
             if (!BotHoldings.canCreditDrop(chr, mi)) {
                 continue; // no room for it: don't walk a bot to loot it cannot hold (and never delete uncredited)
+            }
+            if (b.lootStyle == BotHabits.Loot.SKIP_JUNK && isJunk(mi)) {
+                continue; // 1.5.0 rc3: this bot leaves etc. junk on the ground
             }
             if (now() - mi.getDropTime() < LOOT_SETTLE_MS) {
                 continue; // too fresh — let it land first; it'll be collected on a later tick
@@ -169,6 +189,9 @@ final class GrindLoot {
             }
             if (!BotHoldings.canCreditDrop(chr, mi)) {
                 continue; // no room for it: don't plan a walk to loot it cannot hold (and never delete uncredited)
+            }
+            if (b.lootStyle == BotHabits.Loot.SKIP_JUNK && isJunk(mi)) {
+                continue; // 1.5.0 rc3: this bot leaves etc. junk on the ground
             }
             if (now() - mi.getDropTime() < LOOT_SETTLE_MS) {
                 continue; // too fresh — let it land first; the pass-over grabs whatever has settled by then

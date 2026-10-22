@@ -124,6 +124,20 @@ public class ServerConfig {
     public Map<String, String> BOT_LLM_EXTRA_BODY = new HashMap<>();
     public Map<String, String> BOT_LLM_EXTRA_HEADERS = new HashMap<>();
     public String BOT_LLM_NOTES_MODEL = "";
+    //1.5.0 rc3 (bots fight like people): only maps a real player can see run any of this (BotCombatTuning).
+    //Master switch for the human combat layer: class-correct skill choice, facing first, touch avoidance,
+    //platform pacing, per-bot loot/potion habits. false = the 1.5.0 rc2 behaviour.
+    public boolean BOT_COMBAT_HUMAN = true;
+    //Mobs in reach before a bot throws its AoE (owner: 3+); bosses and lone mobs always get the single-target skill.
+    public int BOT_COMBAT_AOE_MIN_MOBS = 3;
+    //Scales every bot's own chance of a suboptimal cast and a late rebuff (0 = textbook rotation).
+    public double BOT_COMBAT_SLOPPINESS = 1.0;
+    //Rare deaths on maps above a bot's level: it lies down, respawns in town and walks back.
+    public boolean BOT_COMBAT_DEATHS = true;
+    //Neutral bots stay off a real player's platform and move on from a crowded map (rivals still KS).
+    public boolean BOT_KS_MANNERS = true;
+    //Spread: claims per channel, squatters get a band, personal space between bots, one bot per rope.
+    public boolean BOT_SPREAD = true;
     //SoloMapling: bot menus in the client's NPC window (clickable) instead of numbered chat hints (ticket 23).
     public boolean BOT_MENU_WINDOW = true;
 
