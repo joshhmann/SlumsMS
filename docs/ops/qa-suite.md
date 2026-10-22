@@ -274,3 +274,180 @@ ssh root@192.168.0.164 'cat /opt/mapleroot-dev/persistence-test/Server/logs/qa/f
    `// !qa <id>` comment.
 4. Add a staging test to `QaScenarioStagingTest`, then add the `!qa run <id>` line to the test's `.how` text on the
    notes page (`tools/release/notes-page/README.md`).
+
+## Auto-QA: health sweeps and checks that run themselves
+
+Auto-QA runs most of the release checklist without a person: periodic health sweeps over the live bots, and a
+runner that plays the checklist with two headless synthetic players. It is off by default and meant for the test
+server only. Code: `soloMapling.autoqa`.
+
+### Switching it on
+
+Pass either of these (both work):
+
+- `-Dslums.autoqa=true` on the java command line, or
+- `AUTOQA_ENABLED: true` under `server:` in config.yaml.
+
+The runner drives `!qa`, so it also needs the `!qa` suite: `-Dslums.qa=true`, or attack capture, which start-test.sh
+already passes. The health sweeps work without it. Live passes neither switch, so nothing registers there.
+
+| Key (`server:`) | Default | Meaning |
+|---|---|---|
+| `AUTOQA_ENABLED` | false | Switch (or `-Dslums.autoqa=true`) |
+| `AUTOQA_SWEEP_MINUTES` | 5 | Minutes between health sweeps |
+| `AUTOQA_SWEEP_MAX_BOTS` | 3000 | Bots looked at per sweep; past this an even sample is taken |
+| `AUTOQA_STUCK_MINUTES` | 3 | A moving bot in one spot this long counts as stuck |
+| `AUTOQA_CLUMP_RADIUS` / `AUTOQA_CLUMP_MIN_BOTS` | 30 / 5 | This many driven bots within this many px make a clump |
+| `AUTOQA_NIGHTLY_UTC_HOUR` | 10 | The nightly `all` run (10 UTC = 3 AM PDT); -1 = no nightly run |
+| `AUTOQA_JUDGE_MAX_CALLS` | 40 | LLM judge calls per run, at most |
+
+### Commands (GM 3)
+
+| Command | What it does |
+|---|---|
+| `!autoqa run <check>` | Runs checks in the background. `<check>` can be a page id (`t-af-1`), a short id (`af-1`), a group (`af`) or `all`. Each result is posted to you as it finishes |
+| `!autoqa status` | The runner's state, check and step |
+| `!autoqa stop` | Stops after the current step. Cleanup still runs |
+| `!autoqa report` | Today's totals, the last health sweep, then every FAIL and SKIP with its reason |
+| `!autoqa health` | Runs a health sweep now and prints its summary |
+| `!autoqa list` | Every check, marked automated, half (logic only) or manual. `*` = left out of the nightly run |
+
+### Health sweeps
+
+Every `AUTOQA_SWEEP_MINUTES` the sweep runs on the shared scheduled executor, never on a game or tick thread. It
+reads map player lists (copies taken under the map lock) and never loads a map. It checks:
+
+| Check | Rule | Status |
+|---|---|---|
+| (a) `foothold` | Every grounded bot stands within 2 px of the nearest foothold line spanning its x, above or below. Bots in the air, on a rope or ladder, swimming, or dead are skipped. The pose comes from the movement driver (`GCMovement.sweepPose`) or, for town dressing, from the stance. Each problem is reported as `SUNK` (under the line, with its depth `dy`), `FLOATING` or `NO_GROUND` | FAIL on any SUNK, WARN on the others |
+| (b) `stuck` | A bot the driver says is moving (`isMoving`, not resting) that has not left an 8 px box for `AUTOQA_STUCK_MINUTES` | WARN, FAIL at 10+ |
+| (c) `clumps` | `AUTOQA_CLUMP_MIN_BOTS` driven bots within `AUTOQA_CLUMP_RADIUS` px on one map. FM rooms are left out | WARN |
+| (d) `channelSplit` | Bots per channel against `BOT_CHANNEL_WEIGHTS` (`BotChannels.shares`): more than 15 points off, a channel weighted 0 that has bots, or a weighted channel with none. Not judged under 40 bots | WARN |
+| (e) `invalidMaps` | A bot on map 999999999 or a GM, jail or developer map, standing in a map other than its character's map id, or outside the map's foothold bounds by 200+ px | FAIL |
+| (f) `errors` | Lines in `logs/cosmic-log.log` containing ` ERROR ` (or an uncaught exception) since the last sweep, against the median of the last 12 windows: 20+ and over 3x the median is a spike | FAIL |
+
+Why the foothold check looks both ways: `FootholdTree.findBelow` only looks at or below a point. A bot sunk into
+the ground finds the next platform down, or nothing, and every server lookup thinks it is fine.
+`HenesysGroundWzTest` shows a real case on rc5. The Henesys filler range "left side top plat", (-286, 101) to
+(7, 94), puts every bot at y=101. Where the platform rises to 94 that is 7 px inside the ground, and the sweep
+reports those bots as SUNK.
+
+Output:
+
+- `data/autoqa/health-latest.json` holds the last sweep: `time`, `build`, `durationMs`, `status`, `summary`,
+  `botsSeen`, `botsSampled`, `mapsSeen`, and `checks.<name>` with `status`, `summary` and the worst cases (bot id,
+  name, channel, map, x, y, and the check's own fields).
+- `data/autoqa/health/<yyyy-MM-dd>.jsonl` gets one line per sweep (UTC day).
+- An `AUTOQA HEALTH <status>: <summary>` line goes to any running `!qa` log that listens to the `AUTOQA` topic,
+  and to the server log (info when OK, warn otherwise).
+
+### Synthetic players
+
+There are two real characters on their own accounts. `AutoQaOne` (account `autoqa1`) is GM level 3 and runs
+`!qa`. `AutoQaTwo` (account `autoqa2`) is a plain player for the two-player checks. They are made on first use as
+level 70 Warriors in Henesys, with normal database ids far below the bot id base, and log in on channel 1.
+
+- They log in through the real `PlayerLoggedinHandler`, on a `client.SyntheticClient`.
+  `SessionCoordinator.primeSyntheticLogin` stands in for the login server's part.
+- They log out the way a closed client does (`Client.disconnect`), at the end of every run.
+- `SyntheticClient` is a Client with no socket and is deliberately not a `BotClient`. `BotHelpers.isBot` is false
+  for them, so affinity, chat replies, trades, parties, guilds and drama treat them as people.
+- Everything they do is a packet body handed to the channel's handler, the same bytes a v83 client sends: map chat
+  and commands, whispers, party invite and accept, guild invite and accept, buddy add, buddy, party and guild chat,
+  proposals and their answer, spouse chat.
+- What their client receives is kept as lines: map chat, whispers, notices, the yellow command answers, buddy,
+  party and guild chat, invites, proposals and NPC talk. Other packets are dropped after reading their opcode.
+
+They cannot move by input (a move is a server warp or `!warp`), attack, open the Cash Shop, buy from NPC or player
+shops, or use a trade window yet. Checks that need those are half or manual, below.
+
+### The runner and its checks
+
+`AutoQaCatalog` holds every check of the 1.5.0 notes page in page order.
+
+- A check's steps follow the page's Steps line: `!qa run <scenario>`, `!qa do <step>`, the chat lines (with
+  `{bot}` = the staged bot's name), and waits.
+- Its expectations follow the Expect line, read from four places:
+  - the `!qa` log lines of its run, through `QaLog.listen`;
+  - what the players heard;
+  - server-side probes (party, guild and buddy membership, maps, mesos, odds, prices, the version gate);
+  - for chat, an LLM judge.
+
+`AutoQaRunner` is a state machine: `IDLE -> PREPARING -> (per check: STEPPING -> ASSERTING -> CLEANING) ->
+FINISHED | ABORTED -> IDLE`. It runs on its own daemon thread. Each check gets one of three results:
+
+- **PASS**: every expectation held. SKIP expectations, such as when no judge is configured, do not fail a check.
+- **FAIL**: an expectation failed, a step failed (`!qa run` refused for a reason that is not a precondition, a
+  `{bot}` that never appeared), or the check ran past its minute budget. The evidence lists the lines that matched
+  or what was missing.
+- **SKIP**: a manual check, a precondition refusal (no bot guilds, wrong channel, guild state ...), a check left out
+  of the nightly run, or the run was stopped.
+
+Cleanup always sends `!qa stop`. Guild state is set up by fixtures:
+
+- "be guildless" leaves the guild, and disbands the runner's own test guild so nightly runs do not pile them up.
+- "be in a player guild" makes `AutoQa<nnnnn>`.
+
+Checks that leave a lasting change run only when asked by id, never nightly: t-gw-3 (the poached bot stays), t-cv-6
+(a rating changes the bank weights), t-mr-1, t-rm-2 and t-rm-4 (engagements and marriages).
+
+| Kind | Checks |
+|---|---|
+| Automated | af-1/2/3, rv-1..4, bb-1/2, bg-1, gu-1/2/3/4/5/6/8, gw-1..4, pb-1, cu-1/2, we-1, mr-1, rm-1..4, cv-1/2/3/5/6/7, ga-1/2, wc-1, bs-1, td-3, gf-1, pr-1, sk-1/2, sc-1/2, cb-1/3/4, sp-1, id-1, vg-1, ch-1 |
+| Half (logic here, look by eye) | cv-4 (the voices), cb-2 (swings on screen), pt-1 (pets following), bk-1 and at-1 (swing pacing on screen), td-1 and td-2 (the trade window: the haggle runs headless with `!qa do sim` / `quote`), ga-3 (the client's label for the last remote slot) |
+| Manual | ga-4 (a real client's pick-up), rg-1/rg-2 (the Cash Shop purchase flow is not driven yet), mv-1 (needs the tester's own movement packets), jq-1, cl-1/2/3, cc-1, mr-2, la-1 |
+
+Notes on what some checks prove:
+
+- **vg-1** runs `ClientVersionGate.verdictFor` on a scratch config: build 10500 against a minimum of 10500 is
+  allowed, 10410 is refused with the update message. No restart, and the live gate is untouched.
+- **ga-2** checks each new machine NPC with the foothold rule and keeps it 40+ px from a portal.
+- **ch-1** reads `BotChannels.botsPerChannel()`: 5 channels, ch1-4 have bots with ch1 the busiest, ch5 has none.
+
+### The LLM judge
+
+`LlmJudge` grades bot lines for the conversation, drama and guild checks. It uses the cloud provider when
+`BOT_LLM_CLOUD_BASE_URL` is set (key from `BOT_LLM_CLOUD_API_KEY` or `SOLOMAPLING_LLM_CLOUD_API_KEY`), else the
+local model (`BOT_LLM_*`), else none.
+
+- **Rubric:** on-topic, coherent with the line before it, in character for a 2008 player, PG-13 with game-only
+  insults, and never says it is an AI or a bot.
+- **Answer:** the model returns JSON. An unreadable answer is undecided, never a FAIL.
+- **Model-free checks:** a line that says "as an AI" or carries an emoji fails without asking the model.
+- **Limits:** at most `AUTOQA_JUDGE_MAX_CALLS` calls per run, each with the provider's timeout. The key is never
+  logged or put in evidence.
+
+### The report
+
+`data/autoqa/report-<yyyy-MM-dd>.json` (UTC day) and `data/autoqa/latest.json`:
+
+```json
+{ "build": "1.5.0-rc5", "day": "2026-10-23", "updated": "2026-10-23T11:42:07Z",
+  "summary": {"PASS": 41, "FAIL": 3, "SKIP": 20, "NOT_RUN": 9, "total": 73},
+  "health": {"status": "FAIL", "summary": "foothold FAIL: 6 of 900 grounded bots off ...", "time": "..."},
+  "runs": [{"trigger": "nightly by the schedule", "started": "...", "finished": "...", "checks": 73,
+            "PASS": 41, "FAIL": 3, "SKIP": 29}],
+  "checks": {"t-af-1": {"status": "PASS", "title": "A friend bot acts like a friend", "kind": "AUTO",
+                        "reason": null, "evidence": ["started: QA af-1 running: ...", "ok: at least 1 x /AFFINITY ACT .../", "  qa AFFINITY ACT greet ..."],
+                        "started": "...", "finished": "...", "seconds": 214, "build": "1.5.0-rc5"}}}
+```
+
+- A day's runs merge: a check run again replaces its entry, and the others stay.
+- A new day's report lists every page check: NOT_RUN, or SKIP with the reason for manual ones.
+- `!autoqa report` prints the short version.
+
+### Adding a check
+
+1. Add it to `AutoQaCatalog` where it sits on the page. Use:
+   - `Check.auto(id, title)`, or `half(id, title, what still needs eyes)`, or `manual(id, title, why)`;
+   - `.step(...)` from `Steps`: `run`, `qaDo`, `say`, `waitFor`, `mark`, `capture`, `fixture`, invites and chat;
+   - `.expect(...)` from `Expects`: `has`, `atLeast`, `lacks`, `hasAfter`/`lacksBefore` around a mark, `inOrder`,
+     `probe`, `rule`, `numbersWithin`, `judged`, `noEmoji`;
+   - `.minutes(n)` for the budget, and `.notNightly()` if a run leaves something behind.
+2. A server fact the lines do not carry becomes a probe in `GameAutoQaWorld.probe`. Its first line is
+   PASS/FAIL/SKIP, and `VAR name=value` lines set variables.
+3. `AutoQaCatalogTest` keeps the page order, checks that every `!qa run` scenario exists, and compiles every
+   pattern. `AutoQaRunnerTest` drives the runner against a scripted world.
+
+Tests: `FootholdCheckTest`, `SweepMathTest`, `HealthSweepTest`, `HenesysGroundWzTest` (needs wz/), `AutoQaRunnerTest`,
+`AutoQaReportTest`, `AutoQaCatalogTest`, `LlmJudgeTest`, `SyntheticClientTest`.

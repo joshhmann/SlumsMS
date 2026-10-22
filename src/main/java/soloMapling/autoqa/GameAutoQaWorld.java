@@ -165,6 +165,7 @@ final class GameAutoQaWorld implements AutoQaWorld {
                 case "clientGate" -> clientGate();
                 case "gachaMachines" -> gachaMachines(me);
                 case "remoteLastSlot" -> remoteLastSlot();
+                case "gachaOdds" -> gachaOdds(a[0]);
                 case "npcPrices" -> npcPrices();
                 case "cosmeticStock" -> cosmeticStock();
                 case "botShops" -> botShops();
@@ -385,6 +386,27 @@ final class GameAutoQaWorld implements AutoQaWorld {
             }
         }
         out.add(0, bad.isEmpty() ? "PASS all 6 machines on the ground, off the portals" : "FAIL " + String.join("; ", bad));
+        return out;
+    }
+
+    /** t-ga-1: the town machine's odds are 70 / 24.5 / 5 / 0.5 %. */
+    private static List<String> gachaOdds(String town) {
+        var pools = soloMapling.Gachapon.GachaPools.get();
+        var t = pools.find(town);
+        if (t == null) {
+            return List.of("FAIL no gachapon town " + town);
+        }
+        double[] want = {0.70, 0.245, 0.05, 0.005};
+        List<String> out = new ArrayList<>();
+        boolean ok = true;
+        int i = 0;
+        for (var o : pools.odds(t)) {
+            out.add(o.tier().key() + " " + o.chance());
+            ok &= i < want.length && Math.abs(o.chance() - want[i]) < 1e-6;
+            i++;
+        }
+        ok &= i == want.length;
+        out.add(0, (ok ? "PASS " : "FAIL ") + t.name() + " odds " + out + " (want 0.70 / 0.245 / 0.05 / 0.005)");
         return out;
     }
 

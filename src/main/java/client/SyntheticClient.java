@@ -38,6 +38,7 @@ public final class SyntheticClient extends Client {
     private static final int GUILD = SendOpcode.GUILD_OPERATION.getValue();
     private static final int INTERACTION = SendOpcode.PLAYER_INTERACTION.getValue();
     private static final int MARRIAGE_REQUEST = SendOpcode.MARRIAGE_REQUEST.getValue();
+    private static final int NPC_TALK = SendOpcode.NPC_TALK.getValue();
 
     private final int slot;
     private final Deque<AutoQaLine> heard = new ArrayDeque<>();
@@ -76,7 +77,7 @@ public final class SyntheticClient extends Client {
         }
         int op = (bytes[0] & 0xFF) | ((bytes[1] & 0xFF) << 8);
         if (op != CHATTEXT && op != WHISPER && op != SERVERMESSAGE && op != YELLOW && op != MULTICHAT && op != SPOUSE_CHAT
-                && op != PARTY && op != BUDDY && op != GUILD && op != INTERACTION && op != MARRIAGE_REQUEST) {
+                && op != PARTY && op != BUDDY && op != GUILD && op != INTERACTION && op != MARRIAGE_REQUEST && op != NPC_TALK) {
             return;
         }
         InPacket p = new ByteBufInPacket(Unpooled.wrappedBuffer(bytes));
@@ -136,6 +137,14 @@ public final class SyntheticClient extends Client {
                 lastGuildInviter = p.readString();
                 add("GUILD_INVITE", lastGuildInviter);
             }
+        } else if (op == NPC_TALK) {
+            p.readByte();
+            int npc = p.readInt();
+            p.readByte();
+            p.readByte();
+            String talk = p.readString().replaceFirst("^#w", "").replaceAll("#[bkrdegnl]", "").replace("\r\n", " ")
+                    .replaceAll("\\s+", " ").trim();
+            add("NPC_TALK", npc + ": " + talk);
         } else if (op == MARRIAGE_REQUEST) {
             p.readByte();
             lastProposer = p.readString();

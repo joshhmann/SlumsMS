@@ -397,9 +397,9 @@ public final class AutoQaCatalog {
         c.add(Check.auto("t-ga-1", "Play a town machine").minutes(4)
                 .step(run("ga-1"), qaDo("roll"), waitSeconds(2), qaDo("roll"), waitSeconds(2), qaDo("roll"), waitSeconds(2),
                         mark("jackpot"), qaDo("roll", "jackpot"), waitSeconds(4), say("@gacha henesys"), waitSeconds(2))
-                .expect(has("STAGE .*COMMON: 70(\\.0)?% per ticket"), has("STAGE .*UNCOMMON: 24\\.5% per ticket"),
-                        has("STAGE .*RARE: 5(\\.0)?% per ticket"), has("STAGE .*JACKPOT: 0\\.5% per ticket"),
-                        atLeast(4, "GACHA .* at HENESYS: "), hasAfter("jackpot", "NOTICE "), has("YELLOW .*Gachapon"))
+                .expect(probe("gachaOdds", "henesys"), atLeast(4, "GACHA {me} .* at Henesys: "),
+                        hasAfter("jackpot", "GACHA {me} .* at Henesys: jackpot"), hasAfter("jackpot", "NOTICE "),
+                        has("NPC_TALK \\d+: The Henesys Gachapon"))
                 .build());
         c.add(Check.auto("t-ga-2", "Six new machines stand in town").minutes(2)
                 .expect(probe("gachaMachines"))

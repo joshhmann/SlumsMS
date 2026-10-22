@@ -68,6 +68,14 @@ class SyntheticClientTest {
     }
 
     @Test
+    void npcTalkIsReadWithoutItsColourCodes() {
+        SyntheticClient c = new SyntheticClient(1, 0, 1);
+        c.sendPacket(PacketCreator.getNPCTalk(9010000, (byte) 0, "The #bHenesys#k Gachapon:\r\n#rCOMMON#k 70%", "00 00", (byte) 0));
+        assertEquals(List.of("NPC_TALK 9010000: The Henesys Gachapon: COMMON 70%"),
+                c.heardSince(0).stream().map(AutoQaLine::text).toList());
+    }
+
+    @Test
     void otherPacketsAndGarbageAreIgnored() {
         SyntheticClient c = new SyntheticClient(1, 0, 1);
         c.sendPacket(() -> new byte[]{(byte) 0xA2, 0, 1}); // a truncated chat packet
