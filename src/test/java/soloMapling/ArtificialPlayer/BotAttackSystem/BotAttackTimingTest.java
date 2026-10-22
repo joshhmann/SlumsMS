@@ -78,8 +78,66 @@ class BotAttackTimingTest {
             assertEquals(800, BotAttackTiming.actionMs(pose));
             assertEquals(650, BotAttackTiming.poseMs(pose, 3));
         }
+        // the next swing goes out on the client's first 30 ms update step after the 650 ms pose: 660 ms, the middle of
+        // the capture's 655-662 ms
         BotSwingPlan plan = BotSwingPlan.of(BotAttackProfile.basicSwing(), 0, 1302000, false, 1);
-        assertEquals(650, plan.busyMs(720));
+        assertEquals(660, plan.busyMs(720));
+    }
+
+    @Test
+    void aHeldKeyAttacksAgainOnTheFirstUpdateStepAfterThePose() {
+        assertEquals(30, BotAttackTiming.UPDATE_STEP_MS);
+        assertEquals(660, BotAttackTiming.cadenceMs(650));
+        assertEquals(660, BotAttackTiming.cadenceMs(660));
+        assertEquals(240, BotAttackTiming.cadenceMs(219));
+        assertEquals(360, BotAttackTiming.cadenceMs(341));
+        assertEquals(-1, BotAttackTiming.cadenceMs(-1));
+    }
+
+    /*
+     * 1.5.0 attack pacing, point 3: MapleRoot's Flame Barrier (12121012) and Inferno Aura (2121054) really are cast in
+     * alert2 - the client's and the server's Skill.wz both name it as the skill's only action, and neither has a
+     * cooltime at any level - and the client's alert2 is 270 ms (3 frames). With a staff or wand (speed 3) that is a
+     * 219 ms pose, so a player holding the key casts every 240 ms, and so do the bots.
+     */
+    @Test
+    void mapleRootsAlert2SpellsGoAtAPlayersPace() {
+        assertEquals("alert2", DATA.actions.get(41));
+        assertEquals(270, BotAttackTiming.actionMs(41));
+        for (int skill : new int[]{12121012, 2121054}) {
+            for (int weapon : new int[]{1372000, 1382000}) { // wand, staff
+                BotAttackProfile p = BotAttackProfile.magicAoe(skill, 4);
+                BotSwingPlan plan = BotSwingPlan.of(p, 10, weapon, false, 4);
+                assertEquals(skill, plan.skillId(), skill + " with " + weapon);
+                assertEquals(41, plan.action(), skill + " pose");
+                assertEquals(219, BotAttackTiming.poseMs(plan.action(), plan.speed()));
+                assertEquals(240, plan.busyMs(p.cooldownMs), skill + " cadence");
+            }
+        }
+    }
+
+    /*
+     * Point 2: a held keydown skill shoots every 120 ms (the client shoots on the first 30 ms step more than 100 ms
+     * after its last shot) for as long as it is held - up to 25 shots, a 3 s hold - and the bot may press again when it
+     * releases. Only Hurricane, WA Hurricane and Rapid Fire stream; Spark keeps its pose but is no keydown skill.
+     */
+    @Test
+    void aHeldKeydownSkillStreamsAtTheClientsKeydownCadence() {
+        assertEquals(120, BotSwingPlan.KEYDOWN_SHOT_MS);
+        BotSwingPlan hurricane = BotSwingPlan.of(BotAttackProfile.ranged(3121004, 3), 30, 1452000, false, 3);
+        assertTrue(hurricane.prepare());
+        assertEquals(BotSwingPlan.KEYDOWN_MAX_SHOTS, hurricane.shots());
+        assertEquals(25 * 120, hurricane.holdMs());
+        assertEquals(hurricane.holdMs(), hurricane.busyMs(720));
+        BotSwingPlan rapidFire = BotSwingPlan.of(BotAttackProfile.ranged(5221004, 1), 30, 1492000, false, 1);
+        assertEquals(BotSwingPlan.KEYDOWN_MAX_SHOTS, rapidFire.shots());
+        BotSwingPlan spark = BotSwingPlan.of(BotAttackProfile.ranged(15111006, 1), 20, 1482000, false, 1);
+        assertEquals(1, spark.shots());
+
+        BotAttackTiming.setEnabledForTest(false); // rollback: the old 6-shot burst after the profile's cooldown
+        BotSwingPlan old = BotSwingPlan.of(BotAttackProfile.ranged(3121004, 3), 30, 1452000, false, 3);
+        assertEquals(BotSwingPlan.KEYDOWN_OLD_SHOTS, old.shots());
+        assertEquals(720 + 5 * 120, old.busyMs(720));
     }
 
     @Test

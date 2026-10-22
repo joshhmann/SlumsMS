@@ -12,6 +12,7 @@ import net.server.world.PartyCharacter;
 import net.server.world.World;
 import soloMapling.ArtificialPlayer.BotAttackSystem.BotAttackDriver;
 import soloMapling.ArtificialPlayer.BotAttackSystem.BotBuffDriver;
+import soloMapling.ArtificialPlayer.BotAttackSystem.BotSwingClock;
 import soloMapling.ArtificialPlayer.BotCombatSystem.BotCombatTuning;
 import soloMapling.ArtificialPlayer.BotCombatSystem.BotDeaths;
 import soloMapling.ArtificialPlayer.BotCombatSystem.BotHabits;
@@ -224,7 +225,7 @@ public class TrainingBot extends BotSM {
         long sweepStart = System.currentTimeMillis();
         for (TrainingBot bot : ACTIVE_GRINDERS) {
             try {
-                bot.combatTick();
+                bot.sweepVisit(sweepStart);
             } catch (Exception e) {
                 // a single bot's combat error must never kill the shared ticker
             }
@@ -258,6 +259,29 @@ public class TrainingBot extends BotSM {
             return; // gated; removal happens in leaveGrind()/stopScheduledTask() (and a dead bot does nothing)
         }
         grind.tick(chr); // observed → spot grind (FIGHT⇄WAIT); unobserved → no-op (the macro tick accrues abstract EXP)
+    }
+
+    // 1.5.0 attack pacing (BotSwingClock): the next swing goes out the moment the last one ends, not on the next
+    // 250 ms sweep. The sweep skips a bot whose swing is still playing and whose due tick is armed.
+    private final BotSwingClock swingClock = new BotSwingClock();
+
+    private void sweepVisit(long now) {
+        Character chr = getChr();
+        if (chr != null && !swingClock.sweepVisits(now, BotAttackDriver.swingEndsAt(chr.getId()))) {
+            return; // mid-swing: its due tick runs it when the pose ends
+        }
+        swingClock.trySweep(this::pacedCombatTick);
+    }
+
+    // A combat tick, then a due tick armed for the moment the bot's swing (or its turn to face a mob) ends - only on an
+    // observed map, where somebody sees the cadence; unobserved bots keep the coarse tick.
+    private void pacedCombatTick() {
+        combatTick();
+        Character chr = getChr();
+        if (chr != null && getRunning() && phase == Phase.GRIND && GCMovement.isMapObserved(chr.getMapId())) {
+            swingClock.armAt(BotAttackDriver.swingEndsAt(chr.getId()), System.currentTimeMillis(),
+                    this::pacedCombatTick);
+        }
     }
 
     // ── Macro brain state ────────────────────────────────────────────────────
@@ -1475,6 +1499,7 @@ public class TrainingBot extends BotSM {
 
     private void leaveGrind() {
         ACTIVE_GRINDERS.remove(this);
+        swingClock.disarm();
         BotDeaths.setEligible(getChr().getId(), false);
         grind.release(getChr()); // drop the spot claim + reset combat state
         clearTrainTarget(); // release this map's occupancy slot
@@ -1885,6 +1910,7 @@ public class TrainingBot extends BotSM {
     @Override
     public synchronized void stopScheduledTask() {
         ACTIVE_GRINDERS.remove(this);
+        swingClock.disarm();
         // Disarm the Sleepywood sauna errand: its door-walk cap and the dwell that walks the bot out of the sauna are
         // one-shot tasks on the shared scheduler that outlive this FSM. Left armed, a bot logged out mid-sauna was
         // sent travelling (and warped) after its removal - the "got stuck when moving to map 10504040x" flood.

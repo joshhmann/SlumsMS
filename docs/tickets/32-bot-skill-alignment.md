@@ -88,10 +88,56 @@ owner only spot-checks it. Details are in `docs/real-bots/client-remote-attack-r
 - **Walk lock:** a grinding bot could walk 500 ms into a 650+ ms swing. It now holds still until the pose ends.
 - **Server vs client data:** the server's Character.wz XML differs from the client's in 17 poses. Bots use the client's.
 
-**Still not exact:**
+**Still not exact (fixed below in "Attack pacing"):**
 - The 250 ms combat ticker rounds each swing up to the next tick (650 ms becomes 750 ms).
 - Keydown bursts are unchanged: 120 ms shots.
 - Skill poses with negative frames count them at full length. This is read from the data and has not been seen on a client.
+
+## Attack pacing (2026-10-22, branch `bots-attack-pacing-150`, for 1.5.0)
+
+Details are in `docs/real-bots/client-remote-attack-rules.md`, "Attack timing".
+
+**Swing at the exact moment.**
+- A bot that swings on an observed map arms a one-shot tick (`BotSwingClock`) for when its swing ends. The swing after it goes out at that moment, not on the next 250 ms tick.
+- While that tick is armed and the swing is still playing, the shared ticker skips the bot. Off-screen bots keep the coarse tick.
+- The walk lock (still until the pose ends) is unchanged.
+- The cadence is the pose rounded up to the client's 30 ms update step, read from the exe: the client's logic advances 30 ms per step. A 650 ms swing comes every 660 ms, the middle of the capture's 655-662 ms.
+- Rollback: `-Dslums.botswingclock=false`.
+
+**CPU, measured by `BotSwingPacingPerfTest`.** The test puts 40 grinders on one observed map, each with its real attack's cadence (240-1320 ms).
+
+| | Coarse 250 ms ticker | Ticker + swing clock |
+|---|---|---|
+| Combat ticks/s | 160 | 61 |
+| Swings/s | 54.4 | 60.9 |
+| Swing late after its pose ends | 80 ms average, 240 max | 0 |
+| Swing to swing, against a player's | 1.12x | 1.00x |
+
+- A combat tick is the unit of combat work: the grind brain, the target scan and the attack call. The mid-pose ticks that did nothing are gone, so there are 62% fewer of them, though bots swing 12% more often.
+- The clock's own cost on a real 10-thread pool with an empty tick body: 6.0 ms of CPU per second, against 1.9 ms for the ticker alone. That is about 0.1 ms per second per grinder.
+- Due ticks land 0.1 ms after the pose ends.
+
+**Keydown streams.**
+- The client shoots a held Hurricane, WA Hurricane or Rapid Fire on the first 30 ms step that is more than 100 ms after its last shot. That is every 120 ms, from the first step after the keydown packet; nothing waits for `prepare/time`. The 120 ms shot interval was already right.
+- The pacing was wrong:
+  - Bots shot a fixed 6, then stood for the length of the keydown pose on top of it.
+  - Now they hold while a mob is in reach (at most 25 shots, 3 s), release, and may press again at once.
+- Bots use no release-type keydown skill (Monster Magnet, Big Bang, Piercing Arrow, Corkscrew, Grenade, Poison Bomb, the Evan breaths). Their client-side reuse delays are written down for whoever adds one.
+
+**Flame Barrier 12121012 and Inferno Aura 2121054.**
+- The data is right: both are cast in `alert2`, the client's 270 ms pose, which is 219 ms with a staff or wand. Neither has a cooltime in the server's or the client's Skill.wz, and MapleRoot's DLL adds no delay.
+- A player holding the key casts them every 240 ms, and bots now do the same (250 ms before, on the ticker).
+- They will look fast, because a player's would too. If they look wrong next to a real player, the next step is a capture, not a guess.
+
+**Owner spot-check, updated (about 12 min).**
+1. **Setup.** Use `[debug] attackdiag=1`. On a map with mobs, run `!botshowcase pacing 12` (or `!qa run bk-1 pacing 12` for the log).
+   - It spawns Bowmaster, Corsair, F/P, Blaze Wizard, Bishop, Hero, Aran and Thunder Breaker.
+   - Each bot's chat line lists its attacks with the cadence a player gets ("every 660 ms (pose 650 ms)", "held, a shot every 120 ms").
+2. **Swing speed, 3 min.** Hero (2H sword), Bishop (staff) and Bowmaster should swing as fast as your own character with the same weapon, with no hitch every few swings.
+3. **Keydown, 3 min.** Hurricane and Rapid Fire should be one keydown pose with a steady stream of shots, held while mobs are in reach (up to 3 s), then a release. There should be no pause of about half a second between bursts.
+4. **Quick spells, 2 min.** Inferno Aura and Flame Barrier every 240 ms. Do they look like a player spamming them?
+5. **Long poses and grinding, 2 min.** Thunder Breaker Barrage and Aran Tempest play to the end. On a training map, bots do not walk mid-swing.
+6. **Afterwards.** The bk-1 log's `gap` field shows the time between a bot's swings. It should match the cadence on the chat line (±5 ms). `attackdiag.log` should list no drops.
 
 **Automated client check: not done.**
 - The owner's desktop has the owner's console session active, so a client launched there would take over their screen.

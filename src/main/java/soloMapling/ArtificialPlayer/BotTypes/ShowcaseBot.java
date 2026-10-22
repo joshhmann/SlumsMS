@@ -6,6 +6,8 @@ import soloMapling.ArtificialPlayer.BotAttackSystem.BotAttackConfig;
 import soloMapling.ArtificialPlayer.BotAttackSystem.BotAttackDriver;
 import soloMapling.ArtificialPlayer.BotAttackSystem.BotAttackProfile;
 import soloMapling.ArtificialPlayer.BotAttackSystem.BotAttackTiming;
+import soloMapling.ArtificialPlayer.BotAttackSystem.BotClientPoses;
+import soloMapling.ArtificialPlayer.BotAttackSystem.BotSwingClock;
 import soloMapling.ArtificialPlayer.BotAttackSystem.BotSwingPlan;
 import soloMapling.ArtificialPlayer.BotCommandsPack.BotAttack;
 import soloMapling.ArtificialPlayer.BotGeneration;
@@ -21,7 +23,10 @@ import static soloMapling.server.ExecutorServiceManager.runAsync;
  * AoE, ultimate and rotation extras, one after another - at the nearest mobs, so a player standing next to it (with
  * the client's attack diagnostic on) sees each one drawn or logged as dropped. Leaves the world when its time is up.
  * With bot attack timing on (BotAttackTiming), each attack goes out REPEATS times back to back at a player's cadence
- * (the next swing when the pose has played out), so its rhythm can be checked too, then a gap before the next one.
+ * (the next swing on the client's first update step after the pose has played out), so its rhythm can be checked too,
+ * then a gap before the next one. A held keydown skill (Hurricane, Rapid Fire) goes out once, held for its full stream.
+ * The bot's own swing clock (BotSwingClock) times each repeat to the millisecond: the macro tick (2-6 s) only starts
+ * the cycle and notices when the time is up.
  */
 public class ShowcaseBot extends BotSM {
 
@@ -33,7 +38,8 @@ public class ShowcaseBot extends BotSM {
     private int next;
     private int repeat;
     private long nextSwingAt;
-    private boolean leaving;
+    private volatile boolean leaving;
+    private final BotSwingClock clock = new BotSwingClock();
 
     public ShowcaseBot(Character character, long durationMs) {
         super(character);
@@ -61,16 +67,38 @@ public class ShowcaseBot extends BotSM {
         return rotation;
     }
 
+    /*
+     * What a player's cadence for this attack is with the bot's weapon, for the owner's spot check: "every 660 ms" for a
+     * swing (the pose rounded up to the client's 30 ms update step), "held, a shot every 120 ms" for a keydown stream.
+     */
+    public static String cadenceLabel(Character bot, BotAttackProfile p) {
+        BotSwingPlan plan = BotSwingPlan.of(p, BotAttackDriver.packetLevel(bot, p),
+                BotAttackDriver.equippedWeaponId(bot), false, p.numDamage);
+        if (plan.shots() > 1) {
+            return "held, a shot every " + BotSwingPlan.KEYDOWN_SHOT_MS + " ms";
+        }
+        int pose = BotAttackTiming.poseMs(plan.action(), plan.speed());
+        long every = plan.busyMs(p.cooldownMs);
+        return pose > 0 ? "every " + every + " ms (pose " + pose + " ms)" : "every " + every + " ms (fixed)";
+    }
+
     @Override
     public void updateState() {
         super.updateState();
+        clock.trySweep(this::step);
+    }
+
+    // One showcase beat: run from the macro tick and from the swing clock, never both at once (BotSwingClock).
+    private void step() {
         if (checkIfNotRunningOrPaused() || leaving) {
+            clock.disarm();
             return;
         }
         Character chr = getChr();
         long now = System.currentTimeMillis();
         if (now >= endsAt) {
             leaving = true;
+            clock.disarm();
             setRunning(false);
             runAsync(() -> BotGeneration.removeBotFromServer(chr));
             return;
@@ -82,6 +110,7 @@ public class ShowcaseBot extends BotSM {
             }
         }
         if (now < nextSwingAt) {
+            clock.armAt(nextSwingAt, now, this::step);
             return;
         }
         BotAttackProfile p = rotation.get(next % rotation.size());
@@ -90,13 +119,19 @@ public class ShowcaseBot extends BotSM {
             soloMapling.qa.QaLog.map(soloMapling.qa.QaLog.Topic.ATTACK, chr.getMapId(), chr.getName() + " "
                     + chr.getJob() + " skill " + p.skillId + " not sent: " + r.reason());
         }
-        if (r.hit() && BotAttackTiming.enabled() && ++repeat < REPEATS) {
-            nextSwingAt = BotAttackDriver.swingEndsAt(chr.getId()); // again as soon as a player could
-            return;
+        long swingEnds = Math.max(now, BotAttackDriver.swingEndsAt(chr.getId()));
+        int repeats = isHeldStream(p) ? 1 : REPEATS;
+        if (r.hit() && BotAttackTiming.enabled() && ++repeat < repeats) {
+            nextSwingAt = swingEnds; // again as soon as a player could
+        } else {
+            repeat = 0;
+            next++; // a skill with nothing in its reach is skipped this round, not retried forever
+            nextSwingAt = r.hit() ? swingEnds + GAP_MS : now + 400;
         }
-        repeat = 0;
-        next++; // a skill with nothing in its reach is skipped this round, not retried forever
-        long burst = BotSwingPlan.KEYDOWN_SHOTS * BotSwingPlan.KEYDOWN_SHOT_MS;
-        nextSwingAt = now + (r.hit() ? GAP_MS + burst : 400);
+        clock.armAt(nextSwingAt, now, this::step);
+    }
+
+    private static boolean isHeldStream(BotAttackProfile p) {
+        return BotClientPoses.isKeydown(p.skillId) && BotClientPoses.keepsKeydownPose(p.skillId);
     }
 }

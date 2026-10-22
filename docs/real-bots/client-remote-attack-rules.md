@@ -179,19 +179,35 @@ How long an attack keeps a player busy, which bots now copy (`BotAttackTiming`, 
   - `tools/bot-attack-rules/action_delays.py` writes the lengths to `src/main/resources/soloMapling/bot-action-delays.tsv` (on the classpath, so a jar-only install has it). It also writes `src/test/resources/soloMapling/bot-skill-timing.tsv`: every client attack skill (253) and weapon class it takes, with its poses and their length at that class's speed.
   - The client's `00002000.img` is MapleRoot's and differs from the server's XML in 17 actions (alert2, meteor, blizzard, blast, showdown, pyramid, the Aran combo poses, the Evan dragon poses ...). The table is the client's.
 - **Speed stretches it:** length x (speed + 10) / 16 (`0x009525ED`). A beginner's 800 ms sword swing at speed 3 is 650 ms. In the capture, the same player's swings follow each other 633-677 ms apart (most 655-662).
+- **The client thinks in 30 ms steps.** `CWvsApp`'s update loop adds 30 to its update time once per step (`0x009F85BA`), and `get_update_time` (`0x00987257`) reads that time. A held key therefore attacks again on the first step after the pose ends: the cadence is the pose's length rounded up to 30 ms. The 650 ms swing comes out every 660 ms, the middle of the capture's 655-662.
+- **Keydown streams** (Hurricane, WA Hurricane, Rapid Fire). CUserLocal's keydown update shoots when more than 100 ms have passed since the last shot (`0x0094BA7E`-`0x0094BAB0`, the last-shot times at `+0x3144` and `+0x3148`). On 30 ms steps that is a shot every 120 ms, from the first step after the keydown packet, for as long as the key is held. The shot loop (`0x0094B9FA`-`0x0094BC2E`) does not check Skill.wz `prepare/time` (960 ms for Hurricane), so the first shot does not wait for it. **Medium confidence:** that the prepare time plays no other part. Its only use found is a comparison of the hold time with a level field at `0x0096CFAD`.
+  - The keydown packet's pose plays once, and the shots keep it (`OnAttack` leaves the pose alone for these skills). There is no pose per shot.
+  - Releasing the key sends `CANCEL_BUFF`, which the server relays as `CANCEL_SKILL_EFFECT`.
+- **Client-side reuse delays** of the release-type keydown skills (`0x009535E3`): Monster Magnet 2000 ms, Grenade 1000 ms, Poison Bomb 1500 ms. No bot uses a release-type keydown skill (Monster Magnet, Big Bang, Piercing Arrow, Corkscrew, Grenade, Poison Bomb, the Evan breaths). Anyone adding one needs these delays, plus a hold between the keydown packet and the release attack.
+- **Prepare-only skills** (Explosion 2111002, Chakra): the client knows no `explosion` pose, so the keydown packet carries `0x7FFF` and the spell follows at once. Bots send it the same way.
 - **Confidence:**
   - High for the speed rule (code and capture agree) and for plain swings (capture).
   - Medium for skill poses with negative frames: that they count by their size is read from the data, not yet seen on a client.
 
 What the bots do with it:
 - They send MapleRoot's speed (above) instead of the item's `attackSpeed`. Before, almost every weapon went out slower than a player's, for example a staff at 8 instead of 3.
-- A bot swings again when its pose has played out, instead of after a fixed 720-900 ms. A long pose (Barrage 2.1 s, Tempest 2.4 s, Genesis 2.2 s) is no longer cut off by the next swing, and short ones (Aran's double swing, 341 ms) come faster.
-- A grinding bot holds still until its pose ends, not a fixed 500 ms.
-- The shared combat ticker runs every 250 ms. A swing therefore starts on the first tick after the pose ends: 650 ms becomes 750 ms.
+- A bot swings again on the first 30 ms step after its pose has played out, instead of after a fixed 720-900 ms. A long pose (Barrage 2.1 s, Tempest 2.4 s, Genesis 2.2 s) is no longer cut off by the next swing, and short ones (Aran's double swing, 341 ms, every 360 ms) come faster.
+- A grinding bot holds still until its pose ends, never less than 500 ms.
+- **Swing clock (1.5.0, `BotSwingClock`).** The shared combat ticker still visits every grinder every 250 ms. A bot that swings on an observed map also arms a one-shot tick for the moment its swing ends, so the next swing goes out then, not on the next visit. Before, 650 ms became 750 ms.
+  - While that tick is armed and the swing is still playing, the ticker skips the bot.
+  - Unobserved bots arm nothing and keep the coarse tick.
+  - Rollback: `-Dslums.botswingclock=false`.
+- **Keydown streams (1.5.0).** Hurricane and Rapid Fire send the keydown packet, then shoot every 120 ms while a mob is in reach, then release. A hold lasts at most 25 shots (3 s), and the bot may press again as soon as it has released.
+  - Before, the burst was a fixed 6 shots, and the bot then stood for the pose's length on top of it.
+  - With `-Dslums.botattacktiming=false`, the old 6-shot burst comes back.
+- **MapleRoot's alert2 spells.** Flame Barrier 12121012 (Blaze Wizard) and Inferno Aura 2121054 (F/P) really are cast in `alert2`.
+  - Both the client's and the server's Skill.wz name it as their only action, neither has a cooltime at any level, and the client's DLL routes both through Fire Arrow's spell path without a delay of its own.
+  - The client's `alert2` is 270 ms, so 219 ms with a staff or wand. A player holding the key casts every 240 ms, and so do the bots.
+  - The effect animations last longer than that (720 ms and 1140 ms), so a viewer sees them overlap.
 
 ## What code alone cannot establish (needs eyes)
 
-- **Keydown timing.** The bots send the keydown packet and the first shot together. The rest of a Hurricane or Rapid Fire burst follows 120 ms apart, then the release. A player's prepare time (Skill.wz `prepare/time`, 960 ms for Hurricane) and the real shot interval have not been measured.
+- **Keydown timing on a screen.** The 120 ms shot interval and the absence of a prepare wait are read from the exe (above), not yet seen next to a real player's Hurricane.
 - **The option byte.** The temporary-stat bits a player's client sets (bits 4 and 7) are not modelled. Bots send 0.
 - **What counts look like.** Whether a skill with wrong counts looks right. Bots now send what the level allows.
 - **The attacker's name** in the diagnostic log (`CUser+0x11AC`) is a best guess from the chat code. The character id is exact.
