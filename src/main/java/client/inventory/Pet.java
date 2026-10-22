@@ -53,6 +53,7 @@ public class Pet extends Item {
     private int stance;
     private boolean summoned;
     private int petAttribute = 0;
+    private boolean botPet = false; // 1.5.0 rc4: a bot's pet lives in memory only, never in the pets table
 
     public enum PetAttribute {
         OWNER_SPEED(0x01);
@@ -72,6 +73,26 @@ public class Pet extends Item {
         super(id, position, (short) 1);
         this.uniqueid = uniqueid;
         this.pos = new Point(0, 0);
+    }
+
+    /**
+     * 1.5.0 rc4: a bot's pet (BotPets). It has no pets row: it is rebuilt from the bot's id at every login, so
+     * {@link #saveToDb()} skips it (its unique id may well be a real pet's id in the pets table).
+     */
+    public static Pet botPet(int itemid, int uniqueid, String name) {
+        Pet ret = new Pet(itemid, (short) 0, uniqueid);
+        ret.botPet = true;
+        ret.name = name;
+        ret.tameness = 0;
+        ret.level = 1;
+        ret.fullness = 100;
+        ret.summoned = true;
+        return ret;
+    }
+
+    /** A bot's in-memory pet (see {@link #botPet}). */
+    public boolean isBotPet() {
+        return botPet;
     }
 
     public static Pet loadFromDb(int itemid, short position, int petid) {
@@ -110,6 +131,9 @@ public class Pet extends Item {
     }
 
     public void saveToDb() {
+        if (botPet) {
+            return; // 1.5.0 rc4: no row to write, and its id must never touch a real pet's row
+        }
         try (Connection con = DatabaseConnection.getConnection();
              PreparedStatement ps = con.prepareStatement("UPDATE pets SET name = ?, level = ?, closeness = ?, fullness = ?, summoned = ?, flag = ? WHERE petid = ?")) {
             ps.setString(1, getName());

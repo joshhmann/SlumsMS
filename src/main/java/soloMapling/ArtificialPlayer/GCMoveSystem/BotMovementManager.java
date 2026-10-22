@@ -943,6 +943,8 @@ class BotMovementManager {
         InPacket packet = new ByteBufInPacket(Unpooled.wrappedBuffer(data));
         Packet movePacket = PacketCreator.movePlayer(bot.getId(), packet, data.length);
         BotPerformanceMonitor.recordBroadcastFanout(bot.getMap().broadcastMessage(bot, movePacket, false));
+        // 1.5.0 rc4: its pet trots along (watched maps only: this path is gated on ObserverTracker above)
+        soloMapling.ArtificialPlayer.BotPets.follow(bot, x, y, snapshot.velX(), snapshot.velY(), snapshot.stance(), fhId);
     }
 
     // Broadcast a hand-built movement fragment path ([numCommands][fragments...]) verbatim to observers. Used

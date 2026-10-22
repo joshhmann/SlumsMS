@@ -189,6 +189,7 @@ public class BotGeneration {
                 e.printStackTrace();
             }
         }
+        BotPets.attach(bot); // 1.5.0 rc4: its pet, now that its level is known (drawn from its id: nothing stored)
         // Choreography sleeps ~2.5-6s in total; play it on a virtual thread so
         // mass spawning isn't gated on each bot's arrival animation. Drop-down ->
         // turn-around ordering is preserved because it's one sequential task.
@@ -302,6 +303,7 @@ public class BotGeneration {
         CharacterStorage.removeActiveBot(fakechar.getId());//
         BotBuffDriver.clearBot(fakechar.getId());   // Phase 3a: release buff recast timers
         BotBuffRequestHandler.clearBot(fakechar.getId());   // release chat-buff-request cooldown
+        BotPets.forget(fakechar.getId());   // 1.5.0 rc4: its pet's follow state (the pet left the map with it)
     }
 
     /** Ticket 57: the shared client of the map's channel (channel 1 when the map has none). */

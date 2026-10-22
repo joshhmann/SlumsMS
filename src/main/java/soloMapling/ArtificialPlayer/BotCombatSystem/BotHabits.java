@@ -62,7 +62,8 @@ public record BotHabits(Loot loot, double hpPotAt, double latePotChance, int res
      * without one the bot batches like most players.
      */
     public static Loot lootNow(Character bot) {
-        Loot l = of(bot.getId()).loot();
+        // 1.5.0 rc4: a pt-1 staged bot's pet loots for it whatever its own habit
+        Loot l = soloMapling.ArtificialPlayer.BotPets.isStagedLooter(bot.getId()) ? Loot.PET : of(bot.getId()).loot();
         return l == Loot.PET && !hasLootingPet(bot) ? Loot.BATCH : l;
     }
 

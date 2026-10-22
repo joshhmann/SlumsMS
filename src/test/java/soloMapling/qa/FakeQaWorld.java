@@ -302,5 +302,14 @@ class FakeQaWorld implements QaWorld {
         return List.of(action + " done");
     }
 
+    @Override public List<String> stagePets(List<Integer> ids, boolean loots) {
+        calls.add("pets " + ids + (loots ? " loot" : " noloot"));
+        return List.of(ids.size() + " pets");
+    }
+
+    @Override public List<String> petReport(List<Integer> ids) { calls.add("pet report"); return List.of("pets of " + ids); }
+
+    @Override public List<String> petDrops(Character gm, List<Integer> ids) { calls.add("pet drops " + ids); return List.of("dropped"); }
+
     @Override public String combatTuning() { return "human true"; }
 }

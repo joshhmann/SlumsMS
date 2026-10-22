@@ -6,6 +6,7 @@ import server.maps.MapObject;
 import server.maps.MapObjectType;
 import soloMapling.ArtificialPlayer.BotCommandsPack.DropCommands;
 import soloMapling.ArtificialPlayer.BotHoldings;
+import soloMapling.ArtificialPlayer.BotPets;
 import soloMapling.ArtificialPlayer.BotCombatSystem.BotHabits;
 import soloMapling.ArtificialPlayer.GCMoveSystem.GCMovement;
 
@@ -54,10 +55,21 @@ final class GrindLoot {
             return;
         }
         // 1.5.0 rc3: a bot whose pet loots picks up what lands around it, without walking for it
-        int reach = b.lootStyle == BotHabits.Loot.PET ? PET_LOOT_PX : LOOT_PICKUP_PX;
-        MapItem drop = nearestCollectableDrop(chr, reach, Integer.MIN_VALUE, Integer.MAX_VALUE, reach);
+        // 1.5.0 rc4: and it is the pet that picks it up (BotPets: its loot equips, ownership, player drops)
+        int petSlot = b.lootStyle == BotHabits.Loot.PET ? BotPets.lootingPetSlot(chr) : -1;
+        int reach = petSlot >= 0 ? PET_LOOT_PX : LOOT_PICKUP_PX;
+        MapItem drop = nearestCollectableDrop(chr, reach, Integer.MIN_VALUE, Integer.MAX_VALUE, reach, petSlot >= 0);
         if (drop != null) {
-            DropCommands.botLootSingleDrop(chr, drop);
+            if (petSlot >= 0) {
+                DropCommands.botPetLootSingleDrop(chr, drop, petSlot);
+                if (soloMapling.qa.QaLog.on(soloMapling.qa.QaLog.Topic.PETS)) {
+                    soloMapling.qa.QaLog.map(soloMapling.qa.QaLog.Topic.PETS, chr.getMapId(), "PET LOOT " + chr.getName()
+                            + "'s pet picks up " + (drop.getMeso() > 0 ? drop.getMeso() + " mesos" : "item "
+                            + drop.getItemId()) + (drop.getOwnerId() == chr.getId() ? " (its own drop)" : " (free drop)"));
+                }
+            } else {
+                DropCommands.botLootSingleDrop(chr, drop);
+            }
             lootNextMs = now() + lootGapMs();
             b.markProgress(); // collecting loot is productive, not wedged
             narrateLoot("scooping up loot at my feet");
@@ -138,6 +150,10 @@ final class GrindLoot {
     }
 
     private MapItem nearestCollectableDrop(Character chr, int rangePx, int x0, int x1, int yLimit) {
+        return nearestCollectableDrop(chr, rangePx, x0, x1, yLimit, false);
+    }
+
+    private MapItem nearestCollectableDrop(Character chr, int rangePx, int x0, int x1, int yLimit, boolean byPet) {
         Point pos = chr.getPosition();
         if (pos == null) {
             return null;
@@ -158,6 +174,9 @@ final class GrindLoot {
             }
             if (now() - mi.getDropTime() < LOOT_SETTLE_MS) {
                 continue; // too fresh — let it land first; it'll be collected on a later tick
+            }
+            if (byPet && !BotPets.petMayTake(chr, mi, System.currentTimeMillis())) {
+                continue; // 1.5.0 rc4: not the pet's to take (no equip for it, a player's drop, or still owned)
             }
             Point ip = mi.getPosition();
             if (ip.x < x0 || ip.x > x1 || Math.abs(ip.y - pos.y) > yLimit) {

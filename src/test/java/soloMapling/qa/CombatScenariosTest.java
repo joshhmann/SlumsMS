@@ -42,7 +42,7 @@ class CombatScenariosTest {
     @Test
     void everyCombatScenarioIsRegistered() {
         List<String> ids = QaScenarios.all().stream().map(QaScenario::id).toList();
-        for (String id : List.of("cb-1", "cb-2", "cb-3", "cb-4", "sp-1")) {
+        for (String id : List.of("cb-1", "cb-2", "cb-3", "cb-4", "sp-1", "pt-1")) {
             assertTrue(ids.contains(id), id);
         }
     }
@@ -81,6 +81,23 @@ class CombatScenariosTest {
         start("sp-1", "10");
         assertTrue(called("grinders random x10"));
         assertTrue(called("spread"));
+    }
+
+    @Test
+    void pt1StagesHeldGrindersWithLootingPetsAndDropsOnRequest() {
+        Character gm = start("pt-1");
+        assertTrue(called("grinders random x3 offset 0 held at-gm"));
+        assertTrue(called("pets [900, 901, 902] loot"));
+        suite.action(gm, "drop", new String[0]);
+        assertTrue(called("pet drops [900, 901, 902]"));
+        suite.stop(1, "!qa stop");
+        assertEquals(3, world.grindersUnstaged.size());
+    }
+
+    @Test
+    void pt1NoLootGivesPetsWithoutTheLootEquips() {
+        start("pt-1", "2", "noloot");
+        assertTrue(called("pets [900, 901] noloot"));
     }
 
     @Test

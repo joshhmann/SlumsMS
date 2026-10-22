@@ -10911,8 +10911,8 @@ public class Character extends AbstractCharacterObject {
 
     public void runFullnessSchedule(int petSlot) {
         Pet pet = getPet(petSlot);
-        if (pet == null) {
-            return;
+        if (pet == null || pet.isBotPet()) {
+            return; // 1.5.0 rc4: a bot's pet never gets hungry (BotPets)
         }
 
         int newFullness = pet.getFullness() - PetDataFactory.getHunger(pet.getItemId());
@@ -11531,6 +11531,15 @@ public class Character extends AbstractCharacterObject {
         } else if (itemid == ItemId.ITEM_IGNORE) {
             equippedPetItemIgnore = false;
         }
+    }
+
+    /**
+     * 1.5.0 rc4: a bot's pet wears a Meso Magnet / an Item Pouch without the items (BotPets): the bot's pet is
+     * rebuilt at each login and never stored, so its pet equips are flags too, kept out of the bot's holdings.
+     */
+    public void setBotPetEquips(boolean mesoMagnet, boolean itemPouch) {
+        equippedMesoMagnet = mesoMagnet;
+        equippedItemPouch = itemPouch;
     }
 
     public boolean isEquippedMesoMagnet() {

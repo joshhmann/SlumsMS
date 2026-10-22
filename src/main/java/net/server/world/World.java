@@ -1480,6 +1480,9 @@ public class World {
     }
 
     public void registerPetHunger(Character chr, byte petSlot) {
+        if (soloMapling.ArtificialPlayer.BotHelpers.isBot(chr)) {
+            return; // 1.5.0 rc4: a bot's pet never gets hungry (BotPets)
+        }
         if (chr.isGM() && YamlConfig.config.server.GM_PETS_NEVER_HUNGRY || YamlConfig.config.server.PETS_NEVER_HUNGRY) {
             return;
         }

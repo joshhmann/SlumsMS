@@ -243,6 +243,23 @@ public interface QaWorld {
         return List.of();
     }
 
+    // ---- 1.5.0 rc4: bot pets (pt-1) ----
+
+    /** Gives staged bots a pet (with Meso Magnet and Item Pouch when {@code loots}); one line per bot. */
+    default List<String> stagePets(List<Integer> ids, boolean loots) {
+        return List.of();
+    }
+
+    /** One line per staged bot: its pet, pet equips and loot style. */
+    default List<String> petReport(List<Integer> ids) {
+        return List.of();
+    }
+
+    /** pt-1 {@code drop}: a meso pile of each bot's own and one of the GM's next to it. */
+    default List<String> petDrops(Character gm, List<Integer> ids) {
+        return List.of();
+    }
+
     /** The human-combat switches, one line. */
     default String combatTuning() {
         return "";

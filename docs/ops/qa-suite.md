@@ -67,6 +67,7 @@ the showcase's own minutes plus one.
 | `cb-3` `[bots 1-6]` (1.5.0 rc3) | Stages 4 (or n) grinders of random classes 5 levels under your map (a harder map), not held. Their habits go to the log first. `!qa do hurt` hits each to ~45%, `!qa do lowpots` drains their HP pots to their restock mark, `!qa do die` kills one now | `HABITS` (loot style, potion line, restock mark, rebuff lateness, sloppiness), `LOOT` (sweep / instant), `POT` (drank at what HP, its line), `RESTOCK` (down to its mark -> town), `DEATH`, `RESPAWN` (town), `WALK BACK`; `STATE` every 15 s |
 | `cb-4` `[bots 1-6]` (1.5.0 rc3) | Stages 3 (or n) neutral grinders at your map's level right next to you, on your platform, not held | `YIELD` (gave up its spot on your platform), `LEAVE` (left a mob you fight or stand by), `CROWDED` (only your platform left here), `MOVE ON` (left the map, with the "cc?" line if it said one), bot chat |
 | `sp-1` `[bots 2-12]` (1.5.0 rc3) | Stages 8 (or n) grinders at your map's level in one clump next to you, not held | `SPREAD` tally at start and every 15 s (bots, 100 px spots covered, pairs closer than 34 px, bots per rope or ladder), `SPACE` (stepped off another bot), `ROPE` (waited for a rope another bot was on, and when it gave up waiting) |
+| `pt-1` `[bots 1-6] [noloot]` (1.5.0 rc4) | Stages 3 (or n) grinders at your map's level next to you, held on the map, each with a pet (its own draw, else one from the pool) wearing a Meso Magnet and an Item Pouch (`noloot`: no loot equips), so the pet loots for it. No mobs here: warps you to 104040000. `!qa do drop` puts 77 display mesos of each bot's own and 66 of yours next to it (credited to nobody) | `PET` per bot at start (pet id, name, `+magnet`/`+pouch`, loot style), `PET LOOT` (the pet picked up mesos / an item, its own drop or a free one), `PETS` every 30 s. Real client: the pet shows behind its bot and follows it, pickups play the pet animation; the 77 go in ~2 s, the 66 stay 15 s, an item you drop yourself is never taken |
 | `tr-1` `[FM room 1-12]` (1.5.0 rc3) | Needs channel 1. Warps you to the FM room (default 1), spawns a bot next to you holding 3 Sword ATT 60%, 2 Claw ATT 60%, 10 Power Crystal Ore, a sword and a Chaos Scroll, and opens that bot's own hired merchant where you stand. `!qa do collect` pays the bot its takings, `!qa do close` closes the shop | `SHOP` lines: what was listed at what price (and the board's median or "usual value"), sales (`SHOP SALE` with the fee/tax, `SHOP SOLD ... owed to the bot`), collection, closing. `PRICE sample` lines. The Chaos Scroll must not be listed |
 | `tr-2` (1.5.0 rc3) | Spawns a bot with 10m next to you and gives you 2 Gloves ATT 60% and 2 Sword ATT 60% (taken back at stop). Invite the bot to trade, put a scroll in, haggle in the window chat, lock. `!qa do sim [line]` runs the haggle headless (nothing changes hands) | `OPEN`, `TRADE ... BUY offer` with the band, each `CHAT` line's move (rule or decide), `HAGGLE` answers, `CONFIRM` or `CANCEL` (a swapped item, a locked window with nothing it buys), `BOUGHT`, `RESALE`, `PRICE sample` |
 | `tr-3` (1.5.0 rc3) | Spawns a bot holding a sword and 2 Sword ATT 60% next to you. Ask it in chat for the sword (or `!qa do quote sword`); open a trade and it puts the sword in the window at its price | `QUOTE` (price and band), `QUOTE haggle`, `OPEN ... BOT_SELLS`, `SELL ask`, `CONFIRM`/`CANCEL`, `SOLD`, bot chat |
@@ -84,7 +85,7 @@ What `!qa stop` undoes:
 - A summoned test pet stays with you.
 - af-1/af-2/af-3: the staged bot leaves and every tie it had is forgotten; af-3 puts your `@botdrama` back.
 - cp-1/we-1: the staged couple is broken up and both bots leave; we-1 also stops the wedding event if it still runs.
-- cb-1..cb-4, sp-1: the staged grinders leave (a cb-3 bot that died loses the EXP, as any death does, then leaves).
+- cb-1..cb-4, sp-1, pt-1: the staged grinders leave (pt-1: their pets with them) (a cb-3 bot that died loses the EXP, as any death does, then leaves).
 - gu-1..gu-8: staged guild bots leave their guild and the world; gu-1/gu-3/gu-8 make you leave a guild you joined during the
   run; gu-5 ends the boss run (bots inside log back in).
 - tr-1: the bot's shop closes (unsold items back to it) and the bot leaves. tr-4: the gift chance goes back to
@@ -116,7 +117,9 @@ Only maps a real player can see run any of this; offscreen grinders keep the che
 `!botcombat` (GM 3, test server only, registered with `!qa`) does the same by hand: `!botcombat` shows the switches,
 `!botcombat set <human|aoe|sloppy|deaths|manners|spread> <value|clear>` overrides one until restart,
 `!botcombat habits <bot>` prints a bot's habits, `!botcombat stage [job ...]` holds grinders next to you,
-`!botcombat clear` removes them, `!botcombat spread` prints the spread tally of your map.
+`!botcombat clear` removes them, `!botcombat spread` prints the spread tally of your map. 1.5.0 rc4:
+`!botcombat pets [n]` holds n (default 3) grinders with looting pets next to you (as pt-1), `!botcombat pet <bot>`
+prints a bot's pet, pet equips and loot style.
 
 ## mv-1: attack slide
 
