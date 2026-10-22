@@ -325,6 +325,21 @@ public static boolean monsterExists(int mid) {
     return monsterStats.containsKey(mid) || data.getData(StringUtil.getLeftPaddedStr(mid + ".img", '0', 11)) != null;
 }
 
+/**
+ * Whether the mob is a boss, read quietly (1.5.0 rc4, bot shop sale rules): the info/boss flag the full load would
+ * set, without building the monster. drop_data names droppers whose Mob.wz entry is missing, or present but
+ * incomplete (no level or maxHP: 4300017, 9302010, 9400523-9400534 ...); getMonster logs each as SEVERE.
+ */
+public static boolean monsterIsBoss(int mid) {
+    MonsterStats cached = monsterStats.get(mid);
+    if (cached != null) {
+        return cached.isBoss();
+    }
+    Data monsterData = data.getData(StringUtil.getLeftPaddedStr(mid + ".img", '0', 11));
+    Data info = monsterData == null ? null : monsterData.getChildByPath("info");
+    return info != null && DataTool.getIntConvert("boss", info, 0) > 0;
+}
+
 public static Monster getMonster(int mid) {
     try {
         MonsterStats stats = monsterStats.get(mid);

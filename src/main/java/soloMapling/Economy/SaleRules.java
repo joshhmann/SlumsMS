@@ -122,12 +122,9 @@ public final class SaleRules {
 
     private static boolean mobIsBoss(int mobId) {
         try {
-            // drop_data names droppers this WZ lacks (event/other-version mobs); getMonster would log each as SEVERE
-            if (!server.life.LifeFactory.monsterExists(mobId)) {
-                return false;
-            }
-            server.life.Monster m = server.life.LifeFactory.getMonster(mobId);
-            return m != null && m.isBoss();
+            // drop_data names droppers this WZ lacks or has only in part (event/other-version mobs); getMonster would
+            // log each as SEVERE ("failed to load"), so read only the boss flag, quietly
+            return server.life.LifeFactory.monsterIsBoss(mobId);
         } catch (RuntimeException | LinkageError e) {
             return false;
         }
