@@ -495,6 +495,8 @@ class CampStrategy implements GrindStrategy {
         }
         KsManners.log(chr, "YIELD " + chr.getName() + " gives up its spot at x " + s.anchor().x + " to "
                 + owner.getName() + " and looks for another");
+        // 1.5.0: what it gave up is the player's now - their hits on it are never a KS
+        soloMapling.ArtificialPlayer.BotAffinitySystem.AffinityHooks.onBotYield(chr, null, System.currentTimeMillis());
         toRelocate();
         return true;
     }

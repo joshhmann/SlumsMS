@@ -2208,12 +2208,22 @@ public class Character extends AbstractCharacterObject {
     }
 
     public final void pickupItem(MapObject ob, int petIndex) {
+        MapItem picking = ob instanceof MapItem mi && petIndex < 0 ? mi : null;
+        if (picking != null) {
+            MapleMap.clearPickedOnThisThread();
+        }
         if (isUsingModifiedPickupItem()) {
             // Run the modified version
             modifiedPickupItem(ob, petIndex);
         } else {
             // Run the original version
             originalPickupItem(ob, petIndex);
+        }
+        // Ticket 58 (1.5.0): only a pickup the player really made (this thread took it off the map) of a bot's fresh
+        // drop counts as taking it; a failed pickup does not, and neither does a pet's auto-loot.
+        if (picking != null && MapleMap.pickedOnThisThread(picking)) {
+            soloMapling.server.MapleRootSolo.runHook("affinity pickup", () ->
+                    soloMapling.ArtificialPlayer.BotAffinitySystem.AffinityHooks.onPickup(this, picking));
         }
     }
 
@@ -2228,8 +2238,6 @@ public class Character extends AbstractCharacterObject {
                 sendPacket(PacketCreator.enableActions());
                 return;
             }
-            soloMapling.server.MapleRootSolo.runHook("affinity pickup", () ->   // ticket 58: a bot's fresh drop
-                    soloMapling.ArtificialPlayer.BotAffinitySystem.AffinityHooks.onPickup(this, mapitem));
 
             List<Character> mpcs = new LinkedList<>();
             if (mapitem.getMeso() > 0 && !mapitem.isAlreadyPickedUp()) {
@@ -2377,8 +2385,6 @@ public class Character extends AbstractCharacterObject {
                 sendPacket(PacketCreator.enableActions());
                 return;
             }
-            soloMapling.server.MapleRootSolo.runHook("affinity pickup", () ->   // ticket 58: a bot's fresh drop
-                    soloMapling.ArtificialPlayer.BotAffinitySystem.AffinityHooks.onPickup(this, mapitem));
 
             List<Character> mpcs = new LinkedList<>();
             if (mapitem.getMeso() > 0 && !mapitem.isAlreadyPickedUp()) {

@@ -135,6 +135,12 @@ public final class BotPopulationDirector {
      */
     private static final java.util.concurrent.Semaphore LOGIN_SLOTS = new java.util.concurrent.Semaphore(8);
 
+    /**
+     * Bots with a login in progress: claimed before the online check and released when the login ends, so two
+     * logins of one bot (the director's, a guild show-up, a boss run coming back, a GM) can never both run.
+     */
+    private static final java.util.Set<Integer> loggingIn = java.util.concurrent.ConcurrentHashMap.newKeySet();
+
     /** Logouts planned but not yet started (spread across the tick): already gone as far as planning is concerned. */
     private static final java.util.Set<Integer> scheduledLogouts = java.util.concurrent.ConcurrentHashMap.newKeySet();
 
@@ -307,6 +313,9 @@ public final class BotPopulationDirector {
         if (bot.getChr() != null && soloMapling.ArtificialPlayer.BotGuildSystem.GuildBossRuns.gathering(bot.getChr().getId())) {
             return false; // 1.5.0: waiting at a boss entrance with its guild
         }
+        if (bot.getChr() != null && soloMapling.ArtificialPlayer.BotCoupleSystem.BotWeddings.inCeremony(bot.getChr().getId())) {
+            return false; // 1.5.0: getting married (and wearing the wedding clothes over its own)
+        }
         if (bot instanceof SocialBot social && social.hasActiveRespondant()) {
             return false;
         }
@@ -326,26 +335,61 @@ public final class BotPopulationDirector {
         if (soloMapling.ArtificialPlayer.BotGuildSystem.GuildBossRuns.away(botId)) {
             return; // 1.5.0: "inside" a staged guild boss run; the run logs it back in
         }
+        logInBounded(botId);
+    }
+
+    /**
+     * Logs one roster member in through the director's login slots (at most a few loads at once, so the bots never
+     * take the whole connection pool). Every login outside a GM command goes through here. Blocks the caller while it
+     * waits for a slot; true when the bot logged in.
+     */
+    public static boolean logInBounded(int botId) {
         try {
             LOGIN_SLOTS.acquire();
         } catch (InterruptedException e) {
             Thread.currentThread().interrupt();
-            return;
+            return false;
         }
         long started = System.nanoTime();
         try {
             if (logIn(botId)) {
                 soloMapling.ArtificialPlayer.GCMoveSystem.BotPerformanceMonitor.recordRosterLogin(System.nanoTime() - started);
+                return true;
             }
+            return false;
         } catch (Exception e) {
             log.warn("Login of roster bot {} failed", botId, e);
+            return false;
         } finally {
             LOGIN_SLOTS.release();
         }
     }
 
-    /** Logs one roster member in, where it logged out, as the activity its session calls for. */
+    /** Claims a bot's login: false when another login of it is in progress. Release with {@link #releaseLogin}. */
+    static boolean claimLogin(int botId) {
+        return loggingIn.add(botId);
+    }
+
+    static void releaseLogin(int botId) {
+        loggingIn.remove(botId);
+    }
+
+    /**
+     * Logs one roster member in, where it logged out, as the activity its session calls for. Atomic per bot: a login
+     * that finds another one of the same bot in progress, or the bot online, does nothing (false).
+     */
     public static boolean logIn(int botId) {
+        if (!claimLogin(botId)) {
+            return false; // another login of this bot is running right now
+        }
+        try {
+            return logInClaimed(botId);
+        } finally {
+            releaseLogin(botId);
+        }
+    }
+
+    private static boolean logInClaimed(int botId) {
         BotRoster.Member member = BotRoster.member(botId);
         if (member == null || CharacterStorage.botLoggedIn(member.charId()) || BotShutdown.isQuiesced()) {
             return false;

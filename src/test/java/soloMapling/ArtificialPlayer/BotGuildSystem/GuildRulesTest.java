@@ -54,7 +54,8 @@ class GuildRulesTest {
         assertEquals(QuitReason.RIVALS, GuildRules.quit(true, true, 0, 0, now - DAY, now, now));
         assertEquals(QuitReason.RIVALS, GuildRules.quit(true, false, 1, 2, now - DAY, now, now)); // half its players
         assertNull(GuildRules.quit(true, false, 1, 3, now - DAY, now, now)); // one of three: stays
-        assertEquals(QuitReason.RIVALS, GuildRules.quit(false, false, 2, 2, now - DAY, now, now)); // bot guilds too
+        assertNull(GuildRules.quit(false, false, 2, 2, now - DAY, now, now), "a bot guild never loses a bot to rivals");
+        assertNull(GuildRules.quit(false, true, 5, 5, now - DAY, now, now));
         assertEquals(QuitReason.IGNORED, GuildRules.quit(true, false, 0, 0, now - 30 * DAY, now - 22 * DAY, now));
         assertNull(GuildRules.quit(true, false, 0, 0, now - 30 * DAY, now - 3 * DAY, now)); // noticed lately
         assertNull(GuildRules.quit(true, false, 0, 0, now - 5 * DAY, 0, now)); // new member
@@ -162,6 +163,32 @@ class GuildRulesTest {
         assertFalse(GuildRules.kick(false, 1, 2), "half is not most");
         assertFalse(GuildRules.kick(false, 0, 0), "nobody has feelings: stays");
         assertFalse(GuildRules.kick(false, 1, 4));
+        assertFalse(GuildRules.kick(false, 1, 1), "one grudge never gets a player kicked");
+        assertFalse(GuildRules.kick(false, 2, 2), "two bots are not the guild: at least three must know them");
+        assertTrue(GuildRules.kick(false, 3, 4));
+    }
+
+    @Test
+    void botGuildsStartWithLittleGpAndStagedClearsGiveLittle() {
+        assertEquals(300, GuildRules.seedGp(6));
+        assertEquals(1000, GuildRules.seedGp(20));
+        assertEquals(1900, GuildRules.seedGp(38));
+        assertTrue(GuildRules.seedGp(1000) <= 2000);
+        assertEquals(30, GuildRules.bossGp());
+        // an rc guild: old seed (24 * 120) plus two old clears -> the new seed plus two new clears
+        assertEquals(GuildRules.seedGp(24) + 60, GuildRules.rescaledGp(24 * 120 + 300, 24));
+        assertEquals(GuildRules.seedGp(24), GuildRules.rescaledGp(24 * 120, 24));
+        assertEquals(-1, GuildRules.rescaledGp(24 * 120 + 700, 24), "players earned some: left alone");
+        assertEquals(-1, GuildRules.rescaledGp(GuildRules.seedGp(24), 24), "already the new GP");
+        assertEquals(-1, GuildRules.rescaledGp(GuildRules.rescaledGp(24 * 120 + 300, 24), 24), "never twice");
+    }
+
+    @Test
+    void aBotGuildBelowItsSizeRefills() {
+        assertTrue(GuildRules.refillDue(20, 24));
+        assertFalse(GuildRules.refillDue(24, 24));
+        assertFalse(GuildRules.refillDue(30, 24));
+        assertFalse(GuildRules.refillDue(0, 0));
     }
 
     @Test

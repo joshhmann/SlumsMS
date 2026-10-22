@@ -51,8 +51,10 @@ public interface GuildStore {
     /** Whether migration 014 is applied (the tables exist). */
     boolean available();
 
+    /** Every bot-run guild; null when the table could not be read (empty when the migration is not applied). */
     List<GuildRow> loadGuilds();
 
+    /** Every bot membership; null when the table could not be read (empty when the migration is not applied). */
     List<MemberRow> loadMembers();
 
     /** A stored bot, for founding. */
@@ -73,6 +75,12 @@ public interface GuildStore {
     void saveMember(MemberRow row);
 
     void deleteMember(int charId);
+
+    /** The guild's stored GP, or -1 when it cannot be read. */
+    int gp(int guildId);
+
+    /** Sets the guild's stored GP to {@code value} if it still is {@code expected}; true when it did. */
+    boolean replaceGp(int guildId, int expected, int value);
 
     final class Jdbc implements GuildStore {
         private static final Logger log = LoggerFactory.getLogger(Jdbc.class);
@@ -107,6 +115,14 @@ public interface GuildStore {
 
         @Override
         public boolean available() {
+            return Boolean.TRUE.equals(probe());
+        }
+
+        /**
+         * True when the tables exist, false when the migration is not applied (remembered), null when the database
+         * could not be asked (asked again next time: a failed read at boot is not "no migration").
+         */
+        private Boolean probe() {
             Boolean a = available;
             if (a != null) {
                 return a;
@@ -116,15 +132,27 @@ public interface GuildStore {
                 available = true;
             } catch (SQLException e) {
                 missing(e);
+                if (!noTable(e)) {
+                    return null;
+                }
                 available = false;
             }
             return available;
         }
 
+        /** MySQL's "table doesn't exist". */
+        static boolean noTable(SQLException e) {
+            return e.getErrorCode() == 1146 || "42S02".equals(e.getSQLState());
+        }
+
         @Override
         public List<GuildRow> loadGuilds() {
             List<GuildRow> out = new ArrayList<>();
-            if (!available()) {
+            Boolean a = probe();
+            if (a == null) {
+                return null;
+            }
+            if (!a) {
                 return out;
             }
             try (Connection con = BotDbGate.connection(); PreparedStatement ps = con.prepareStatement(GUILDS);
@@ -136,6 +164,7 @@ public interface GuildStore {
                 }
             } catch (SQLException e) {
                 missing(e);
+                return null;
             }
             return out;
         }
@@ -143,7 +172,11 @@ public interface GuildStore {
         @Override
         public List<MemberRow> loadMembers() {
             List<MemberRow> out = new ArrayList<>();
-            if (!available()) {
+            Boolean a = probe();
+            if (a == null) {
+                return null;
+            }
+            if (!a) {
                 return out;
             }
             try (Connection con = BotDbGate.connection(); PreparedStatement ps = con.prepareStatement(MEMBERS);
@@ -159,6 +192,7 @@ public interface GuildStore {
                 }
             } catch (SQLException e) {
                 missing(e);
+                return null;
             }
             return out;
         }
@@ -200,7 +234,7 @@ public interface GuildStore {
                     ps.setInt(7, spec.logoBG());
                     ps.setInt(8, spec.logoBGColor());
                     ps.setString(9, spec.notice());
-                    ps.setInt(10, spec.size() * 120); // a guild that has been around a while has some GP
+                    ps.setInt(10, GuildRules.seedGp(spec.size())); // some history, small enough to pass
                     ps.executeUpdate();
                     try (ResultSet keys = ps.getGeneratedKeys()) {
                         if (keys == null || !keys.next()) {
@@ -252,6 +286,34 @@ public interface GuildStore {
         }
 
         @Override
+        public int gp(int guildId) {
+            try (Connection con = BotDbGate.connection();
+                 PreparedStatement ps = con.prepareStatement("SELECT GP FROM guilds WHERE guildid = ?")) {
+                ps.setInt(1, guildId);
+                try (ResultSet rs = ps.executeQuery()) {
+                    return rs.next() ? rs.getInt(1) : -1;
+                }
+            } catch (SQLException e) {
+                missing(e);
+                return -1;
+            }
+        }
+
+        @Override
+        public boolean replaceGp(int guildId, int expected, int value) {
+            try (Connection con = BotDbGate.connection();
+                 PreparedStatement ps = con.prepareStatement("UPDATE guilds SET GP = ? WHERE guildid = ? AND GP = ?")) {
+                ps.setInt(1, value);
+                ps.setInt(2, guildId);
+                ps.setInt(3, expected);
+                return ps.executeUpdate() > 0;
+            } catch (SQLException e) {
+                missing(e);
+                return false;
+            }
+        }
+
+        @Override
         public void deleteMember(int charId) {
             if (!available()) {
                 return;
@@ -269,9 +331,12 @@ public interface GuildStore {
     final class Memory implements GuildStore {
         final Map<Integer, GuildRow> guilds = new ConcurrentHashMap<>();
         final Map<Integer, MemberRow> members = new ConcurrentHashMap<>();
+        final Map<Integer, Integer> gp = new ConcurrentHashMap<>();
         final List<StoredBot> bots = new ArrayList<>();
         private final AtomicInteger ids = new AtomicInteger(500);
         boolean available = true;
+        /** Tests: reads fail (a database that is down at boot). */
+        volatile boolean failing;
 
         @Override
         public boolean available() {
@@ -280,12 +345,12 @@ public interface GuildStore {
 
         @Override
         public List<GuildRow> loadGuilds() {
-            return new ArrayList<>(guilds.values());
+            return failing ? null : new ArrayList<>(guilds.values());
         }
 
         @Override
         public List<MemberRow> loadMembers() {
-            return new ArrayList<>(members.values());
+            return failing ? null : new ArrayList<>(members.values());
         }
 
         @Override
@@ -302,7 +367,18 @@ public interface GuildStore {
             }
             int id = ids.incrementAndGet();
             guilds.put(id, new GuildRow(id, spec.name(), leaderCharId, spec.vibe(), 0, spec.size(), now));
+            gp.put(id, GuildRules.seedGp(spec.size()));
             return id;
+        }
+
+        @Override
+        public int gp(int guildId) {
+            return gp.getOrDefault(guildId, -1);
+        }
+
+        @Override
+        public boolean replaceGp(int guildId, int expected, int value) {
+            return gp.replace(guildId, expected, value);
         }
 
         @Override

@@ -1140,8 +1140,23 @@ public class MapleMap {
         return count;
     }
 
+    /** SoloMapling (1.5.0): the drop the current thread last took off a map, so a pickup can tell it succeeded. */
+    private static final ThreadLocal<MapItem> PICKED_ON_THREAD = new ThreadLocal<>();
+
+    public static void clearPickedOnThisThread() {
+        PICKED_ON_THREAD.remove();
+    }
+
+    /** Whether this thread took {@code item} off the map since the last clear (and clears it). */
+    public static boolean pickedOnThisThread(MapItem item) {
+        MapItem picked = PICKED_ON_THREAD.get();
+        PICKED_ON_THREAD.remove();
+        return picked != null && picked == item;
+    }
+
     public void pickItemDrop(Packet pickupPacket, MapItem mdrop) { // mdrop must be already locked and not-pickedup checked at this point
         broadcastMessage(pickupPacket, mdrop.getPosition());
+        PICKED_ON_THREAD.set(mdrop);
 
         droppedItemCount.decrementAndGet();
         this.removeMapObject(mdrop);

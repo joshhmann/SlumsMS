@@ -179,6 +179,10 @@ public final class BotBuddies {
     private static volatile IntFunction<Character> players = BotBuddies::onlinePlayerInWorld;
     private static volatile Judge judge = BotBuddies::familiarity;
     private static volatile java.util.function.DoubleSupplier rolls = () -> ThreadLocalRandom.current().nextDouble();
+    /** Where the player-side writes run: never on the packet thread (a seam: tests run them in place). */
+    private static volatile java.util.concurrent.Executor writer = ExecutorServiceManager::runAsync;
+    /** One pair's writes land in order (a request, then the player removing the bot again). */
+    private static final SerialWrites pairWrites = new SerialWrites(r -> writer.execute(r));
     private static final Deque<Long> worldOffers = new ArrayDeque<>();
     /** Pairs with a decision already scheduled, so a re-sent request does not roll twice. */
     private static final Set<Long> deciding = ConcurrentHashMap.newKeySet();
@@ -376,12 +380,29 @@ public final class BotBuddies {
     /**
      * A player added a bot to their list. Records the request on the bot's side and has an online bot answer after a
      * human delay (an offline one answers at its next login). Returns the channel to show the bot on - its channel if
-     * they already are buddies and it is online, -1 otherwise.
+     * the online bot already has them, -1 otherwise. Called from the buddy-list packet: the table is read and written
+     * off this thread (a bot's database work can wait on the bots' share of the pool); a pair that turns out to be
+     * buddies already shows the bot online a moment later.
      */
     public static int playerRequests(Character player, Target bot) {
         if (player == null || bot == null || BotHelpers.isBot(player)) {
             return -1;
         }
+        Character live = liveBot(bot.charId());
+        int playerId = player.getId();
+        pairWrites.submit(pairKey(bot.charId(), playerId), () -> recordRequest(player, bot));
+        if (live != null && live.getBuddylist() != null && live.getBuddylist().containsVisible(playerId)) {
+            try {
+                return live.getClient().getChannel(); // memory only: the bot already has them
+            } catch (RuntimeException e) {
+                return -1;
+            }
+        }
+        return -1;
+    }
+
+    /** The table side of {@link #playerRequests}, off the packet thread. */
+    static void recordRequest(Character player, Target bot) {
         Character live = liveBot(bot.charId());
         try {
             Row existing = rows().pair(bot.charId(), player.getId());
@@ -390,9 +411,11 @@ public final class BotBuddies {
                 if (live != null) {
                     live.getBuddylist().put(new BuddylistEntry(player.getName(), GROUP, player.getId(),
                             player.getClient().getChannel(), true));
-                    return live.getClient().getChannel();
+                    // What the stock accept does for the asker: the bot shows online on their list.
+                    live.getWorldServer().buddyChanged(player.getId(), bot.charId(), live.getName(),
+                            live.getClient().getChannel(), BuddyList.BuddyOperation.ADDED);
                 }
-                return -1;
+                return;
             }
             if (existing == null || existing.link() == Link.SENT || existing.link() == Link.RESENT
                     || existing.link() == Link.DECLINED || existing.link() == Link.DELETED
@@ -400,16 +423,15 @@ public final class BotBuddies {
                     && today(System.currentTimeMillis()) - existing.day() >= (long) setting("refusalDays", 1))) {
                 rows().put(new Row(bot.charId(), player.getId(), Link.REQUESTED, 0));
             } else if (existing.link() == Link.REFUSED) {
-                return -1; // asked again too soon after a no: ignored, like a person would
+                return; // asked again too soon after a no: ignored, like a person would
             }
         } catch (RuntimeException e) {
             log.warn("Could not record {}'s buddy request to bot {}", player.getName(), bot.name(), e);
-            return -1;
+            return;
         }
         if (live != null) {
             scheduleDecision(live, player.getId(), player.getName());
         }
-        return -1;
     }
 
     private static void scheduleDecision(Character bot, int playerId, String playerName) {
@@ -487,7 +509,7 @@ public final class BotBuddies {
         if (player == null || !BotHelpers.isArtificial(botCharId)) {
             return;
         }
-        ExecutorServiceManager.runAsync(() -> {
+        pairWrites.submit(pairKey(botCharId, player.getId()), () -> {
             try {
                 recordAccept(player, botCharId);
             } catch (RuntimeException e) {
@@ -518,7 +540,7 @@ public final class BotBuddies {
             bot.getBuddylist().remove(player.getId());
         }
         int playerId = player.getId();
-        ExecutorServiceManager.runAsync(() -> {
+        pairWrites.submit(pairKey(botCharId, playerId), () -> {
             try {
                 recordRemoval(playerId, botCharId);
             } catch (RuntimeException e) {
@@ -782,10 +804,16 @@ public final class BotBuddies {
         return r;
     }
 
+    /** Tests: where the player-side writes run (null = a worker thread). */
+    static void useWriterForTest(java.util.concurrent.Executor testWriter) {
+        writer = testWriter != null ? testWriter : ExecutorServiceManager::runAsync;
+    }
+
     /** Test seams: a fake table, names, online players, judge and dice (null restores the real ones). */
     static void useForTest(Rows testRows, IntFunction<String> testNames, IntFunction<Character> testPlayers,
                            Judge testJudge, java.util.function.DoubleSupplier testRolls) {
         rows = testRows;
+        writer = testRows != null ? Runnable::run : ExecutorServiceManager::runAsync;
         names = testNames;
         players = testPlayers != null ? testPlayers : BotBuddies::onlinePlayerInWorld;
         judge = testJudge != null ? testJudge : BotBuddies::familiarity;

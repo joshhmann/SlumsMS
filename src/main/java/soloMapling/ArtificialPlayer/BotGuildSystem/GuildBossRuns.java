@@ -350,7 +350,7 @@ public final class GuildBossRuns {
             ExecutorServiceManager.runAsync(() -> {
                 try {
                     if (BotGuilds.live(id) == null) {
-                        BotPopulationDirector.logIn(botId);
+                        BotPopulationDirector.logInBounded(botId); // through the director's login slots
                     }
                     Character c = BotGuilds.live(id); // the director picks its own channel: come back on the run's
                     if (c != null && BotGuilds.channelOf(c) != run.channel) {
@@ -399,7 +399,7 @@ public final class GuildBossRuns {
             try {
                 Guild g = Server.getInstance().getGuild(run.guildId);
                 if (g != null) {
-                    g.gainGP((int) GuildRules.prop("bossGp", 150));
+                    g.gainGP(GuildRules.bossGp()); // small: players' real GPQs must be able to pass bot guilds
                 }
             } catch (RuntimeException e) {
                 log.debug("guild gp", e);

@@ -8,7 +8,6 @@ import net.server.world.PartyCharacter;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import soloMapling.ArtificialPlayer.BotChannels;
-import soloMapling.ArtificialPlayer.BotCustomization;
 import soloMapling.ArtificialPlayer.BotDialogueHandler;
 import soloMapling.ArtificialPlayer.BotHelpers;
 import soloMapling.ArtificialPlayer.BotMegaphoneSystem.WorldEventMegaphones;
@@ -123,7 +122,8 @@ public final class BotCouples {
     static final int[] WEDDING_RINGS = {1112803, 1112806, 1112807, 1112809};
     /** Friendship rings (Clover, Flower Petal, Star): best friends wear one kind, by their id. */
     static final int[] FRIENDSHIP_RINGS = {1112800, 1112801, 1112802};
-    static final short RING_SLOT = -12;
+    /** The four ring slots; a couple ring takes the first free one and never replaces a ring the bot wears. */
+    static final short[] RING_SLOTS = {-12, -13, -15, -16};
     static final short CASH_HAT_SLOT = -101;
 
     private static final Map<Long, Couple> couples = new ConcurrentHashMap<>();
@@ -131,14 +131,15 @@ public final class BotCouples {
     /** Ids of couples that are not stored (staged, or no migration): negative, so they never meet a table id. */
     private static final java.util.concurrent.atomic.AtomicLong memoryIds = new java.util.concurrent.atomic.AtomicLong();
     private static volatile boolean loaded;
+    private static volatile long loadTriedAt;
     private static volatile long lastStepAt;
     private static volatile long lastFormRollAt;
     private static volatile long lastFriendRollAt;
     private static volatile long lastWeddingAt;
     private static final Map<String, Long> nextAt = new ConcurrentHashMap<>();
-    /** Matching-hat days: the bot's own hat to put back (0 = none). */
-    private static final Map<Integer, Integer> ownHat = new ConcurrentHashMap<>();
     private static volatile IntFunction<Character> online = BotCouples::liveBot;
+    /** Whether a bot may be pulled into a wedding now (a seam for tests). */
+    private static volatile java.util.function.Predicate<Character> weddingFree = BotCouples::freeForWedding;
 
     private BotCouples() {
     }
@@ -175,19 +176,51 @@ public final class BotCouples {
 
     // ── queries ──
 
+    /**
+     * Reads the stored couples once. A failed read is not "no couples": nothing is kept, no couple forms or changes
+     * (a write now could pair a bot that is in a stored couple), and the read is tried again after a minute. A bot found
+     * in two rows keeps the older one only.
+     */
     private static void ensureLoaded() {
         if (loaded) {
             return;
         }
         synchronized (BotCouples.class) {
-            if (loaded) {
+            long now = System.currentTimeMillis();
+            if (loaded || (loadTriedAt > 0 && now - loadTriedAt < TimeUnit.MINUTES.toMillis(1))) {
                 return;
             }
-            for (Couple c : store.loadAll()) {
+            loadTriedAt = now;
+            List<Couple> stored;
+            try {
+                stored = store.loadAll();
+            } catch (RuntimeException e) {
+                stored = null;
+            }
+            if (stored == null) {
+                log.warn("Bot couples could not be read; trying again in a minute (no couple forms meanwhile)");
+                return;
+            }
+            stored = new ArrayList<>(stored);
+            stored.sort((x, y) -> Long.compare(x.id(), y.id()));
+            Set<Integer> seen = new HashSet<>();
+            for (Couple c : stored) {
+                if (seen.contains(c.a()) || seen.contains(c.b())) {
+                    log.warn("Bot couple #{} ({} + {}) names a bot that is in an older couple; ignored", c.id(),
+                            c.charA(), c.charB());
+                    continue;
+                }
+                seen.add(c.a());
+                seen.add(c.b());
                 couples.put(c.id(), c);
             }
             loaded = true;
         }
+    }
+
+    /** Whether the stored couples have been read (until then nothing forms, marries or breaks up). */
+    static boolean loaded() {
+        return loaded;
     }
 
     public static List<Couple> all() {
@@ -282,14 +315,18 @@ public final class BotCouples {
     }
 
     /** As {@link #form(int, int, boolean, long)}: a couple (DATING) or best friends (FRIENDS). One pair per bot. */
-    public static Couple form(int aCharId, int bCharId, Stage stage, boolean staged, long now) {
+    public static synchronized Couple form(int aCharId, int bCharId, Stage stage, boolean staged, long now) {
         ensureLoaded();
-        if (aCharId == bCharId || coupleOf(aCharId) != null || coupleOf(bCharId) != null) {
+        if (!loaded || aCharId == bCharId || coupleOf(aCharId) != null || coupleOf(bCharId) != null) {
             return null;
         }
         Couple c = new Couple(0, aCharId - BotStore.BOT_ID_BASE, bCharId - BotStore.BOT_ID_BASE,
                 stage == Stage.FRIENDS ? Stage.FRIENDS : Stage.DATING, now, 0, 0, staged);
         long id = staged ? 0 : store.insert(c);
+        if (id == CoupleStore.TAKEN) {
+            log.warn("Bots {} and {}: one is in a stored couple already; no new couple", aCharId, bCharId);
+            return null;
+        }
         if (id <= 0) {
             id = memoryIds.decrementAndGet(); // staged, or not stored (no migration): a memory-only id
         }
@@ -302,12 +339,26 @@ public final class BotCouples {
     }
 
     public static boolean breakUp(long id) {
+        if (!loaded) {
+            return false;
+        }
         Couple c = couples.remove(id);
         if (c == null) {
             return false;
         }
         if (!c.staged()) {
             store.delete(id);
+        }
+        for (int charId : new int[]{c.charA(), c.charB()}) { // their rings come off (offline ones: at the next sweep)
+            Character chr = online.apply(charId);
+            if (chr != null) {
+                takeOffCoupleRings(chr, 0);
+                try {
+                    OutfitLoans.giveBack(chr, CASH_HAT_SLOT);
+                } catch (RuntimeException e) {
+                    log.debug("Could not give {} its hat back", chr.getName(), e);
+                }
+            }
         }
         qa("BROKE UP couple #" + id);
         return true;
@@ -348,19 +399,19 @@ public final class BotCouples {
 
     static void step(long now, Random rng) {
         ensureLoaded();
+        if (!loaded) {
+            return;
+        }
         maybeForm(now, rng);
-        Couple ready = null;
         for (Couple c : all()) {
             Character a = online.apply(c.charA());
             Character b = online.apply(c.charB());
-            if (a == null || b == null) {
-                continue;
-            }
-            behave(c, a, b, now, rng);
-            if (ready == null && readyToMarry(c, now)) {
-                ready = c;
+            if (a != null && b != null) {
+                behave(c, a, b, now, rng);
             }
         }
+        sweep();
+        Couple ready = weddingCouple(all(), now);
         if (ready != null && now - lastWeddingAt >= hours("weddingGapHours", 24) && !BotWeddings.running()
                 && soloMapling.worldevents.WorldEvents.curveFraction() >= 0.5 && rng.nextDouble() < 0.1) {
             lastWeddingAt = now;
@@ -368,6 +419,60 @@ public final class BotCouples {
             if (problem != null) {
                 log.info("A bot wedding could not start: {}", problem);
             }
+        }
+    }
+
+    /**
+     * The couple to marry next: ready to marry, both online, and both free - not partied, following or grouped with a
+     * real player, not in an event or PQ, not trading, not gathering for a guild boss run. A busy couple waits; the
+     * next ready one goes instead. Null when none can.
+     */
+    static Couple weddingCouple(List<Couple> candidates, long now) {
+        for (Couple c : candidates) {
+            if (!readyToMarry(c, now)) {
+                continue;
+            }
+            Character a = online.apply(c.charA());
+            Character b = online.apply(c.charB());
+            if (a != null && b != null && weddingFree.test(a) && weddingFree.test(b)) {
+                return c;
+            }
+        }
+        return null;
+    }
+
+    /**
+     * A bot a wedding may take away now: a roster bot doing its own thing (training or social, never a follower or a
+     * party bot), free of every player-facing commitment ({@link BotPopulationDirector#mayLogOut}: no open trade,
+     * no party with a real player, not following anyone, not at a guild boss run), and in no event or PQ.
+     */
+    public static boolean freeForWedding(Character bot) {
+        if (bot == null) {
+            return false;
+        }
+        BotSM sm = CharacterStorage.getBotById(bot.getId());
+        return (sm instanceof TrainingBot || sm instanceof SocialBot) && free(bot) && !withRealPlayer(bot)
+                && !BotWeddings.inCeremony(bot.getId());
+    }
+
+    /**
+     * Once a minute, over the bots online: couple rings on a bot no longer in that couple come off, and wedding
+     * clothes outside a wedding come off (both can be left over from a breakup while offline, or from an older build).
+     */
+    private static void sweep() {
+        try {
+            OutfitLoans.forgetStale(online);
+            for (BotSM sm : CharacterStorage.getAllBots().values()) {
+                Character chr = sm.getChr();
+                if (chr == null) {
+                    continue;
+                }
+                Couple c = coupleOf(chr.getId());
+                takeOffCoupleRings(chr, c == null || c.stage() == Stage.DATING ? 0 : ringOf(c));
+                BotWeddings.takeOffWeddingClothes(chr);
+            }
+        } catch (RuntimeException e) {
+            log.debug("Couple sweep failed", e);
         }
     }
 
@@ -552,38 +657,88 @@ public final class BotCouples {
         return 0;
     }
 
-    static void wearRing(Character bot, int ringId) {
-        try {
-            Item worn = bot.getInventory(InventoryType.EQUIPPED).getItem(RING_SLOT);
-            if (worn == null || worn.getItemId() != ringId) {
-                BotCustomization.EquipItem(bot, ringId, RING_SLOT);
+    /** Whether this item is a couple ring (wedding or friendship). */
+    static boolean coupleRing(int itemId) {
+        for (int r : WEDDING_RINGS) {
+            if (r == itemId) {
+                return true;
             }
+        }
+        for (int r : FRIENDSHIP_RINGS) {
+            if (r == itemId) {
+                return true;
+            }
+        }
+        return false;
+    }
+
+    /**
+     * Puts the couple's ring on, in the first free ring slot - never over a ring the bot already wears; with every
+     * slot taken it goes without. Nothing changes when it wears that ring already (any other couple ring it wears is
+     * swapped for it in place). True when the bot wears the ring after.
+     */
+    static boolean wearRing(Character bot, int ringId) {
+        try {
+            short free = 0;
+            for (short slot : RING_SLOTS) {
+                Item worn = bot.getInventory(InventoryType.EQUIPPED).getItem(slot);
+                if (worn == null) {
+                    if (free == 0) {
+                        free = slot;
+                    }
+                } else if (worn.getItemId() == ringId) {
+                    return true; // on already: no re-equip
+                } else if (coupleRing(worn.getItemId())) {
+                    free = slot; // an old couple ring of its own: the new one takes its place
+                    break;
+                }
+            }
+            if (free == 0) {
+                return false; // every ring slot holds a ring of its own
+            }
+            OutfitLoans.equip(bot, ringId, free);
+            return true;
         } catch (RuntimeException e) {
             log.debug("Could not put a ring on {}", bot.getName(), e);
+            return false;
         }
     }
 
-    /** On a matching day the second wears the first's cash hat; the next day it gets its own back. */
-    private static void matchHats(Couple c, Character a, Character b, long now) {
+    /** Takes every couple ring off except {@code keep} (0 = all of them). True when one came off. */
+    static boolean takeOffCoupleRings(Character bot, int keep) {
+        boolean changed = false;
+        try {
+            for (short slot : RING_SLOTS) {
+                Item worn = bot.getInventory(InventoryType.EQUIPPED).getItem(slot);
+                if (worn != null && worn.getItemId() != keep && coupleRing(worn.getItemId())) {
+                    bot.getInventory(InventoryType.EQUIPPED).removeSlot(slot);
+                    changed = true;
+                }
+            }
+            if (changed) {
+                bot.equipChanged();
+            }
+        } catch (RuntimeException e) {
+            log.debug("Could not take the rings off {}", bot.getName(), e);
+        }
+        return changed;
+    }
+
+    /**
+     * On a matching day the second wears the first's cash hat; the next day it gets its own back. The hat is a loan
+     * ({@link OutfitLoans}): the bot's stored row keeps its own hat all day, so a logout or restart never swaps it.
+     */
+    static void matchHats(Couple c, Character a, Character b, long now) {
         try {
             Item hatA = a.getInventory(InventoryType.EQUIPPED).getItem(CASH_HAT_SLOT);
             Item hatB = b.getInventory(InventoryType.EQUIPPED).getItem(CASH_HAT_SLOT);
             if (matchingDay(c, now) && hatA != null) {
                 if (hatB == null || hatB.getItemId() != hatA.getItemId()) {
-                    ownHat.putIfAbsent(b.getId(), hatB == null ? 0 : hatB.getItemId());
-                    BotCustomization.EquipItem(b, hatA.getItemId(), CASH_HAT_SLOT);
+                    OutfitLoans.lend(b, CASH_HAT_SLOT, hatA.getItemId());
                     qa("MATCHING " + b.getName() + " wears " + a.getName() + "'s hat " + hatA.getItemId());
                 }
-            } else {
-                Integer own = ownHat.remove(b.getId());
-                if (own != null) {
-                    if (own > 0) {
-                        BotCustomization.EquipItem(b, own, CASH_HAT_SLOT);
-                    } else {
-                        b.getInventory(InventoryType.EQUIPPED).removeSlot(CASH_HAT_SLOT);
-                        b.equipChanged();
-                    }
-                }
+            } else if (OutfitLoans.giveBack(b, CASH_HAT_SLOT)) {
+                qa("MATCHING over: " + b.getName() + " has its own hat back");
             }
         } catch (RuntimeException e) {
             log.debug("Matching hats failed for couple {}", c.id(), e);
@@ -740,14 +895,26 @@ public final class BotCouples {
 
     // ── test seams ──
 
+    /** Tests: the next load attempt runs at once (no wait after a failed one). */
+    static void retryLoadForTest() {
+        loadTriedAt = 0;
+    }
+
+    /** Tests: who counts as free for a wedding (null = the real check). */
+    static void useWeddingFreeForTest(java.util.function.Predicate<Character> test) {
+        weddingFree = test != null ? test : BotCouples::freeForWedding;
+    }
+
     /** Tests: a store and an online lookup (nulls restore the real ones); forgets every couple and timer. */
     static void useForTest(CoupleStore testStore, IntFunction<Character> testOnline) {
         store = testStore != null ? testStore : new CoupleStore.Jdbc();
         online = testOnline != null ? testOnline : BotCouples::liveBot;
         couples.clear();
         nextAt.clear();
-        ownHat.clear();
+        OutfitLoans.clearForTest();
         loaded = false;
+        loadTriedAt = 0;
+        weddingFree = BotCouples::freeForWedding;
         lastStepAt = 0;
         lastFormRollAt = 0;
         lastFriendRollAt = 0;

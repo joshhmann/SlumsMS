@@ -73,6 +73,9 @@ public final class BotGossip {
                 continue;
             }
             BotMemory.Note note = notes.get(rng.nextInt(notes.size()));
+            if (soloMapling.ArtificialPlayer.BotAffinitySystem.BotAffinity.optedOut(note.aboutCharId())) {
+                continue; // 1.5.0: nobody gossips about a player with @botdrama off
+            }
             if (BotMemory.hear(pair[1].getId() - BotStore.BOT_ID_BASE, note, now)) {
                 passed++;
                 // Ticket 58: hearing that a player KSes (or is a good friend) nudges the listener a little.

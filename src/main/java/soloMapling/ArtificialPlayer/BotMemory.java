@@ -205,6 +205,31 @@ public final class BotMemory {
         });
     }
 
+    /**
+     * 1.5.0 {@code @botdrama off}: every bot forgets the gossip about this player - each note it heard second hand,
+     * and each of the given notes (the bots' grudges, which are what gossip passes on) - so none of it is told again.
+     * Notes from the bot's own conversations stay. How many notes went.
+     */
+    public static int forgetGossipAbout(int charId, List<String> passableNotes) {
+        StringBuilder sql = new StringBuilder("DELETE FROM botmemory WHERE AboutCharacterId = ? AND (Source = 'HEARSAY'");
+        if (!passableNotes.isEmpty()) {
+            sql.append(" OR Note IN (").append("?, ".repeat(passableNotes.size() - 1)).append("?)");
+        }
+        sql.append(')');
+        int removed = 0;
+        try (Connection con = connections().get(); PreparedStatement ps = con.prepareStatement(sql.toString())) {
+            ps.setInt(1, charId);
+            for (int i = 0; i < passableNotes.size(); i++) {
+                ps.setString(i + 2, passableNotes.get(i));
+            }
+            removed = ps.executeUpdate();
+        } catch (SQLException e) {
+            log.warn("Could not purge the gossip about {}", charId, e);
+        }
+        cache.keySet().removeIf(k -> (int) (k & 0xffffffffL) == charId); // re-read without the purged notes
+        return removed;
+    }
+
     // ── storage ─────────────────────────────────────────────────────────────────────────────────
 
     private static List<Note> load(int botId, int charId) {

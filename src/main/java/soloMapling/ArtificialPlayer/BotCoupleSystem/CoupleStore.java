@@ -21,10 +21,16 @@ import java.util.concurrent.atomic.AtomicLong;
  */
 public interface CoupleStore {
 
+    /** Every stored couple; null when the table could not be read (empty when the migration is not applied). */
     List<BotCouples.Couple> loadAll();
 
-    /** Stores a new couple; its id (0 when it could not be stored, a memory-only id is used then). */
+    /**
+     * Stores a new couple; its id. 0 when it could not be stored (a memory-only id is used then), {@link #TAKEN} when
+     * either bot is already in a stored couple (in either column): then there is no couple.
+     */
     long insert(BotCouples.Couple couple);
+
+    long TAKEN = -1;
 
     void update(BotCouples.Couple couple);
 
@@ -34,8 +40,13 @@ public interface CoupleStore {
         private static final Logger log = LoggerFactory.getLogger(Jdbc.class);
 
         static final String SELECT = "SELECT * FROM botcouple";
+        /**
+         * The table's unique keys hold per column only (BotA, BotB), so a bot could be BotA of one row and BotB of
+         * another: the insert checks both columns itself, in the same statement.
+         */
         static final String INSERT = "INSERT INTO botcouple (BotA, BotB, Stage, FormedAt, MarriedAt, LastNoteAt) "
-                + "VALUES (?, ?, ?, ?, ?, ?)";
+                + "SELECT ?, ?, ?, ?, ?, ? FROM DUAL WHERE NOT EXISTS (SELECT 1 FROM botcouple "
+                + "WHERE BotA IN (?, ?) OR BotB IN (?, ?))";
         static final String UPDATE = "UPDATE botcouple SET Stage = ?, MarriedAt = ?, LastNoteAt = ? WHERE CoupleId = ?";
         static final String DELETE = "DELETE FROM botcouple WHERE CoupleId = ?";
 
@@ -67,8 +78,14 @@ public interface CoupleStore {
                 }
             } catch (SQLException e) {
                 missing(e);
+                return noTable(e) ? out : null; // no migration: memory only; anything else: not read, try again
             }
             return out;
+        }
+
+        /** MySQL's "table doesn't exist". */
+        static boolean noTable(SQLException e) {
+            return e.getErrorCode() == 1146 || "42S02".equals(e.getSQLState());
         }
 
         @Override
@@ -81,13 +98,19 @@ public interface CoupleStore {
                 ps.setLong(4, c.formedAt());
                 ps.setLong(5, c.marriedAt());
                 ps.setLong(6, c.lastNoteAt());
-                ps.executeUpdate();
+                ps.setInt(7, c.a());
+                ps.setInt(8, c.b());
+                ps.setInt(9, c.a());
+                ps.setInt(10, c.b());
+                if (ps.executeUpdate() == 0) {
+                    return TAKEN;
+                }
                 try (ResultSet keys = ps.getGeneratedKeys()) {
                     return keys != null && keys.next() ? keys.getLong(1) : 0;
                 }
             } catch (SQLException e) {
                 missing(e);
-                return 0;
+                return e.getErrorCode() == 1062 ? TAKEN : 0; // 1062: a unique key - one of them is in a couple
             }
         }
 
@@ -119,14 +142,21 @@ public interface CoupleStore {
     final class Memory implements CoupleStore {
         final Map<Long, BotCouples.Couple> rows = new ConcurrentHashMap<>();
         private final AtomicLong ids = new AtomicLong();
+        /** Tests: reads fail (a database that is down at boot). */
+        volatile boolean failing;
 
         @Override
         public List<BotCouples.Couple> loadAll() {
-            return new ArrayList<>(rows.values());
+            return failing ? null : new ArrayList<>(rows.values());
         }
 
         @Override
-        public long insert(BotCouples.Couple c) {
+        public synchronized long insert(BotCouples.Couple c) {
+            for (BotCouples.Couple r : rows.values()) {
+                if (r.has(c.a()) || r.has(c.b())) {
+                    return TAKEN; // as the table's insert: both columns
+                }
+            }
             long id = ids.incrementAndGet();
             rows.put(id, c.withId(id));
             return id;

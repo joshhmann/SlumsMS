@@ -32,11 +32,36 @@ public interface AffinityStore {
 
     void setOptedOut(int charId, boolean optedOut, long now);
 
+    /**
+     * Every character with {@code @botdrama off}, read once at boot (and again until a read works). Null when the
+     * table could not be read; an empty set when it holds nobody (or the migration is not applied).
+     */
+    Set<Integer> loadOptedOut();
+
+    /**
+     * The per-player daily bot-defame claim: true when this call claimed the day that starts at {@code dayStart} (no
+     * bot defamed the player since then), false when it was taken already, null when the store could not answer.
+     * Atomic in the store: two claims of one day never both succeed.
+     */
+    Boolean claimDefame(int charId, long dayStart, long now);
+
+    /**
+     * {@code botaffinity} row that holds a player's last bot defame ({@link #claimDefame}) instead of a tie: a bot id
+     * no bot can have (character ids are signed ints, so a bot's id is at most about 1.15 billion). Never loaded as a tie.
+     */
+    long DEFAME_MARK = 4_000_000_000L;
+
     /** The real store: the server's database through the bots' share of the pool. */
     final class Jdbc implements AffinityStore {
         private static final Logger log = LoggerFactory.getLogger(Jdbc.class);
 
-        static final String SELECT = "SELECT BotId, Score, Kind, Hostile, UpdatedAt FROM botaffinity WHERE CharacterId = ?";
+        static final String SELECT = "SELECT BotId, Score, Kind, Hostile, UpdatedAt FROM botaffinity WHERE CharacterId = ?"
+                + " AND BotId < " + DEFAME_MARK;
+        static final String DRAMA_ALL = "SELECT CharacterId FROM botdrama";
+        static final String DEFAME_ROLL = "UPDATE botaffinity SET UpdatedAt = ? WHERE BotId = " + DEFAME_MARK
+                + " AND CharacterId = ? AND UpdatedAt < ?";
+        static final String DEFAME_FIRST = "INSERT IGNORE INTO botaffinity (BotId, CharacterId, Score, Kind, Hostile,"
+                + " UpdatedAt) VALUES (" + DEFAME_MARK + ", ?, 0, 0, 0, ?)";
         static final String UPSERT = "INSERT INTO botaffinity (BotId, CharacterId, Score, Kind, Hostile, UpdatedAt) "
                 + "VALUES (?, ?, ?, ?, ?, ?) ON DUPLICATE KEY UPDATE Score = VALUES(Score), Kind = VALUES(Kind), "
                 + "Hostile = VALUES(Hostile), UpdatedAt = VALUES(UpdatedAt)";
@@ -118,6 +143,48 @@ public interface AffinityStore {
         }
 
         @Override
+        public Set<Integer> loadOptedOut() {
+            Set<Integer> out = new java.util.HashSet<>();
+            try (Connection con = connection(); PreparedStatement ps = con.prepareStatement(DRAMA_ALL);
+                 ResultSet rs = ps.executeQuery()) {
+                while (rs.next()) {
+                    out.add(rs.getInt(1));
+                }
+                return out;
+            } catch (SQLException e) {
+                missing(e);
+                return noTable(e) ? out : null;
+            }
+        }
+
+        @Override
+        public Boolean claimDefame(int charId, long dayStart, long now) {
+            try (Connection con = connection()) {
+                try (PreparedStatement ps = con.prepareStatement(DEFAME_ROLL)) {
+                    ps.setLong(1, now);
+                    ps.setInt(2, charId);
+                    ps.setLong(3, dayStart);
+                    if (ps.executeUpdate() > 0) {
+                        return true; // the last defame was before today: this one takes today
+                    }
+                }
+                try (PreparedStatement ps = con.prepareStatement(DEFAME_FIRST)) {
+                    ps.setInt(1, charId);
+                    ps.setLong(2, now);
+                    return ps.executeUpdate() > 0; // 0: the row exists and is from today
+                }
+            } catch (SQLException e) {
+                missing(e);
+                return null;
+            }
+        }
+
+        /** MySQL's "table doesn't exist": the migration is not applied, which is not a failure to retry. */
+        static boolean noTable(SQLException e) {
+            return e.getErrorCode() == 1146 || "42S02".equals(e.getSQLState());
+        }
+
+        @Override
         public void setOptedOut(int charId, boolean optedOut, long now) {
             try (Connection con = connection();
                  PreparedStatement ps = con.prepareStatement(optedOut ? DRAMA_OFF : DRAMA_ON)) {
@@ -179,6 +246,30 @@ public interface AffinityStore {
             } else {
                 out.remove(charId);
             }
+        }
+
+        final Map<Integer, Long> defamedAt = new ConcurrentHashMap<>();
+        volatile boolean failing;
+
+        @Override
+        public Set<Integer> loadOptedOut() {
+            return failing ? null : new java.util.HashSet<>(out);
+        }
+
+        @Override
+        public Boolean claimDefame(int charId, long dayStart, long now) {
+            if (failing) {
+                return null;
+            }
+            boolean[] claimed = new boolean[1];
+            defamedAt.compute(charId, (k, last) -> {
+                if (last == null || last < dayStart) {
+                    claimed[0] = true;
+                    return now;
+                }
+                return last;
+            });
+            return claimed[0];
         }
 
         public int size() {
