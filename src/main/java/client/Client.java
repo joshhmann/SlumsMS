@@ -671,10 +671,7 @@ public class Client extends ChannelInboundHandlerAdapter {
                         return 3;
                     }
 
-                    if (getLoginState() > LOGIN_NOTLOGGEDIN) { // already loggedin
-                        loggedIn = false;
-                        loginok = 7;
-                    } else if (passhash.charAt(0) == '$' && passhash.charAt(1) == '2' && BCrypt.checkpw(pwd, passhash)) {
+                    if (passhash.charAt(0) == '$' && passhash.charAt(1) == '2' && BCrypt.checkpw(pwd, passhash)) {
                         loginok = (tos == 0) ? 23 : 0;
                     } else if (pwd.equals(passhash) || checkHash(passhash, "SHA-1", pwd) || checkHash(passhash, "SHA-512", pwd)) {
                         // thanks GabrielSin for detecting some no-bcrypt inconsistencies here
@@ -682,6 +679,13 @@ public class Client extends ChannelInboundHandlerAdapter {
                     } else {
                         loggedIn = false;
                         loginok = 4;
+                    }
+                    // 1.5.0: "already logged in" (7) only after the password checks out. It used to be decided first,
+                    // so a wrong password on an online account came back as 7 and LoginPasswordHandler kicked the
+                    // live session: anyone who knew an account name could disconnect its player.
+                    loginok = alreadyLoggedInCheck(loginok, this::getLoginState);
+                    if (loginok == 7) {
+                        loggedIn = false;
                     }
                 } else {
                     accId = -3;
@@ -720,6 +724,14 @@ public class Client extends ChannelInboundHandlerAdapter {
         } else {
             return loginok;
         }
+    }
+
+    /** Turns a verified-password result into 7 when the account is still logged in; a wrong password (4) stays 4. */
+    static int alreadyLoggedInCheck(int passwordResult, java.util.function.IntSupplier loginState) {
+        if (passwordResult == 4) {
+            return 4;
+        }
+        return loginState.getAsInt() > LOGIN_NOTLOGGEDIN ? 7 : passwordResult;
     }
 
     public Calendar getTempBanCalendarFromDB() {

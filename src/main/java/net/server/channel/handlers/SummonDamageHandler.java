@@ -137,7 +137,7 @@ public final class SummonDamageHandler extends AbstractDealDamageHandler {
 
     /** A summon hit above the stat-based estimate is cut to it (Cosmic, "thanks Darter for reporting unchecked max dmg"). */
     static int capSummonDamage(int damage, int maxDmg) {
-        return Math.min(damage, maxDmg);
+        return Math.max(0, Math.min(damage, maxDmg)); // a packet-edited negative line is a miss
     }
 
     static int calcMaxDamage(StatEffect summonEffect, Character player, boolean magic) {
