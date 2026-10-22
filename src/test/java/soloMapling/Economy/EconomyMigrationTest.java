@@ -33,6 +33,10 @@ class EconomyMigrationTest {
             assertTrue(rollback.contains("migration_id='" + id + "'") || rollback.contains("migration_id = '" + id + "'"),
                     id + " rollback clears its ledger row");
         }
+        String merchantRollback = Files.readString(DIR.resolve("021-cosmetics-merchant.rollback.sql"));
+        assertTrue(merchantRollback.contains("DELETE FROM plife WHERE id IN ("));
+        assertTrue(merchantRollback.contains("SELECT row_id FROM mapleroot_integration_migration_rows"));
+        assertTrue(merchantRollback.contains("migration_id = '021-cosmetics-merchant' AND table_name = 'plife'"));
         String econ = Files.readString(DIR.resolve("020-economy-trade.sql"));
         for (String table : List.of("pricesamples", "economyday", "botgifts")) {
             assertTrue(econ.contains("CREATE TABLE IF NOT EXISTS " + table), table);

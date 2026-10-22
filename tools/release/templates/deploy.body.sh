@@ -204,7 +204,8 @@ step "migrations (ledger-checked): ${MIGRATION_IDS[*]:-none}"
 for i in "${!MIGRATION_FILES[@]}"; do
   f=${MIGRATION_FILES[$i]}; id=${MIGRATION_IDS[$i]}
   if [ "$(in_ledger "$id")" = 1 ]; then echo "$id already in the ledger - skipped"; continue; fi
-  sql < "$ST/migrations/$f.sql"
+  touch "$B/.migration-$id.attempted"
+  sql < "$ST/migrations/$f.sql" || down "$id failed (possibly after partial DDL); run rollback.sh"
   [ "$(in_ledger "$id")" = 1 ] || down "$id did not record itself in the ledger"
   echo "applied $id"
 done

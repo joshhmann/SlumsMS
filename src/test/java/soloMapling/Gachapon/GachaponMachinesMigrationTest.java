@@ -61,9 +61,10 @@ class GachaponMachinesMigrationTest {
         }
         assertEquals(Set.of("ellinia", "perion", "kerning", "sleepywood", "mushroom_shrine", "new_leaf_city"), towns);
         String rollback = Files.readString(ROLLBACK);
-        for (Machine m : ms) {
-            assertTrue(rollback.contains("(" + m.map() + ", " + m.npc() + ")"), "rollback removes " + m);
-        }
+        assertTrue(rollback.contains("DELETE FROM plife WHERE id IN ("));
+        assertTrue(rollback.contains("SELECT row_id FROM mapleroot_integration_migration_rows"));
+        assertTrue(rollback.contains("migration_id = '013-gachapon-machines' AND table_name = 'plife'"));
+        assertTrue(Files.readString(SQL).contains("INSERT INTO mapleroot_integration_migration_rows"));
     }
 
     @Test
