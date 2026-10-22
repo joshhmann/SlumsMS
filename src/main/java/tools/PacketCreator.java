@@ -2120,23 +2120,21 @@ public class PacketCreator {
         } else {
             rings = chr.getFriendshipRings();
         }
-        boolean yes = false;
+        // The client reads ONE optional record per list (a flag byte, then SN, pair SN, item id). Writing every
+        // equipped ring after a single flag, as this did, shifted the rest of the spawn/look packet as soon as a
+        // player wore two friendship (or two couple) rings at once -- easy now that the Cash Shop sells them.
         for (Ring ring : rings) {
             if (ring.equipped()) {
-                if (yes == false) {
-                    yes = true;
-                    p.writeByte(1);
-                }
+                p.writeByte(1);
                 p.writeInt(ring.getRingId());
                 p.writeInt(0);
                 p.writeInt(ring.getPartnerRingId());
                 p.writeInt(0);
                 p.writeInt(ring.getItemId());
+                return;
             }
         }
-        if (yes == false) {
-            p.writeByte(0);
-        }
+        p.writeByte(0);
     }
 
     private static void addMarriageRingLook(Client target, final OutPacket p, Character chr) {

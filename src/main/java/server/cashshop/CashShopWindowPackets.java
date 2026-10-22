@@ -58,6 +58,9 @@ public final class CashShopWindowPackets {
     /** Wrong-gender equip. Shares code 7 with the level gate (a requirement the character
      * does not meet), so the current DLL shows "Purchase failed." and the server popup says why. */
     public static final int BUY_CANNOT_WEAR = BUY_LEVEL_TOO_LOW;
+    /** A partner ring was not bought: the prompt was closed, or the partner was refused (offline, unknown, a bot,
+     * no room). No kBuyMsg text in the current DLL ("Purchase failed."); the server popup says why. */
+    public static final int BUY_PARTNER_REFUSED = 9;
 
     /**
      * Entries per packet. The wire cap is a hard 64KB on both sides (16-bit length in

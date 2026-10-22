@@ -192,6 +192,10 @@ public class NPCScriptManager extends AbstractScriptManager {
         c.getPlayer().setNpcCooldown(System.currentTimeMillis());
         cms.remove(c);
         scripts.remove(c);
+        if (server.cashshop.CashShopPartnerRings.SCRIPT.equals(cm.getScriptName())) {
+            // The Cash Shop window's partner-name prompt closed: cancel a ring still waiting for a name.
+            server.cashshop.CashShopPartnerRings.dialogClosed(c, c.getPlayer());
+        }
 
         String scriptFolder = (cm.isItemScript() ? "item" : "npc");
         if (cm.getScriptName() != null) {

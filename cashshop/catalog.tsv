@@ -27,9 +27,8 @@
 #   Pet Snack: no use handler (546): 5460000
 #   WZ cash flag is a string, not an int (treated as not cash): 1002950 1002951 1002952 1022037 1042141 1112916
 #   package / special (no inventory type; nothing unpacks it): 9101182 9101183 9101199 9101225 9101233 9101256 9101302 9101313 9101362 9101376 9101385 9101418 ... (+17)
-#   ring needs a partner ring record (no partner flow in the window): 1112001 1112002 1112003 1112005 1112006 1112007 1112012 1112800 1112801 1112802 1112810 1112811 ... (+1)
 #
-# 10363 rows. itemId	price	count	tab	category	period	gender	name
+# 10376 rows. itemId	price	count	tab	category	period	gender	name
 1002711	3100	1	2	0	0	2	White Kitty Ears
 1002712	3100	1	2	0	0	2	Black Kitty Ears
 1002842	3100	1	2	0	0	2	Golden Fox Ears
@@ -5808,6 +5807,13 @@
 1032310	2400	1	2	9	0	2	EVA Android Hat
 1033000	2400	1	2	9	0	2	Lucid's Earrings
 1112000	4400	1	2	9	0	2	Sparkling Ring
+1112001	4800	1	2	9	0	2	Crush Ring
+1112002	6000	1	2	9	0	2	Cloud Ring
+1112003	4800	1	2	9	0	2	Cupid Ring
+1112005	3600	1	2	9	0	2	Venus Fireworks
+1112006	4800	1	2	9	0	2	Crossed Hearts
+1112007	4500	1	2	9	0	2	Mistletoe Crush Ring
+1112012	3600	1	2	9	0	2	Rose Crush Ring
 1112023	4400	1	2	9	0	2	Planetarium for Two Promise Ring
 1112100	3200	1	2	9	0	2	White Label Ring
 1112101	4000	1	2	9	0	2	Blue Label Ring
@@ -5975,7 +5981,13 @@
 1112296	4400	1	2	9	0	2	Meadow Sheep Chat Bubble Ring
 1112741	4400	1	2	9	0	2	Welcome Back Ring
 1112757	4400	1	2	9	0	2	Grin Ring
+1112800	3600	1	2	9	0	2	Friendship Ring : Clover
+1112801	3600	1	2	9	0	2	Friendship Ring : Flower Petal
+1112802	3600	1	2	9	0	2	Friendship Ring : Star
 1112808	4500	1	2	9	0	2	MapleBowl Quote Ring
+1112810	4500	1	2	9	0	2	Christmas Night Bells
+1112811	4500	1	2	9	0	2	Christmas Party
+1112812	4500	1	2	9	0	2	Shared Umbrella Ring
 1112900	3000	1	2	9	0	2	Lalala Ring
 1112901	3100	1	2	9	0	2	Starry Spotlight Ring
 1112902	4500	1	2	9	0	2	Baba Blue

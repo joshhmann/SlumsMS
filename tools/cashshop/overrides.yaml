@@ -32,6 +32,9 @@ prices:
     113: 3000          # belts
     114: 3000          # medals
     115: 3000          # shoulders
+    # Rings: pinned at the median the 111 band had before 1.5.0. The 13 partner rings (stock rows,
+    # CashShopPartnerRings) joined the stock samples and would have moved every label/quote ring to 4500.
+    111: 4400
 
 # Price multipliers for band-priced rows; give an item `tier: premium` below to use one.
 tiers:

@@ -320,12 +320,8 @@ public final class CashOperationHandler extends AbstractPacketHandler {
                         if (partner == null) {
                             chr.sendPacket(PacketCreator.serverNotice(1, "The partner you specified cannot be found.\r\nPlease make sure your partner is online and in the same channel."));
                         } else {
-
-                          /*  if (partner.getGender() == chr.getGender()) {
-                                chr.dropMessage(5, "You and your partner are the same gender, please buy a friendship ring.");
-                                c.enableCSActions();
-                                return;
-                            }*/ //Gotta let them faggots marry too, hence why this is commented out <3 
+                            // No gender check: any two players may share a couple ring (owner decision, 1.5.0).
+                            // SlumsMS sells rings from the Cash Shop window: server.cashshop.CashShopPartnerRings.
 
                             if (itemRing.toItem() instanceof Equip eqp) {
                                 Pair<Integer, Integer> rings = Ring.createRing(itemRing.getItemId(), chr, partner);
