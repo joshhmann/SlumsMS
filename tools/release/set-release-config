@@ -1,0 +1,111 @@
+#!/usr/bin/env python3
+"""Edit known channel settings in block-style config.yaml without reserializing YAML.
+
+set-release-config config.yaml [--channels N] [--channel-load N] [--dry-run]
+Only decimal scalar values are replaced; unexpected/ambiguous structure fails closed.
+Missing known keys are inserted in their owning mapping. No third-party dependencies.
+"""
+import argparse
+from pathlib import Path
+import re
+import sys
+
+
+def edit(text, channels, load):
+    lines = text.splitlines(keepends=True)
+    newline = "\r\n" if "\r\n" in text else "\n"
+    changes = []
+
+    def block(key):
+        starts = [i for i, line in enumerate(lines)
+                  if re.match(rf"^{key}:\s*(?:#.*)?$", line.rstrip("\r\n"))]
+        if len(starts) != 1:
+            raise ValueError(f"expected one block-style {key}: mapping")
+        start = starts[0]
+        end = next((i for i in range(start + 1, len(lines))
+                    if re.match(r"^[A-Za-z_]", lines[i])), len(lines))
+        return start, end
+
+    def scalar(start, end, key, value, indent, label):
+        pattern = re.compile(rf"^({re.escape(indent + key)}:[ \t]*)([0-9]+)([ \t]*(?:#.*)?)(\r?\n)?$")
+        keys = [i for i in range(start, end)
+                if re.match(rf"^{re.escape(indent + key)}:", lines[i])]
+        if len(keys) > 1:
+            raise ValueError(f"duplicate {label}")
+        if keys:
+            i = keys[0]
+            match = pattern.fullmatch(lines[i])
+            if not match:
+                raise ValueError(f"{label} must be a decimal scalar")
+            before = match[2]
+            lines[i] = match[1] + value + match[3] + (match[4] or "")
+        else:
+            before = "unset"
+            if end and not lines[end - 1].endswith("\n"):
+                lines[end - 1] += newline
+            lines.insert(end, f"{indent}{key}: {value}{newline}")
+        changes.append(f"{label}: {before} -> {value}")
+
+    if load:
+        start, end = block("server")
+        indent = next((re.match(r"^([ ]+)[A-Za-z_]", line)[1]
+                       for line in lines[start + 1:end]
+                       if re.match(r"^([ ]+)[A-Za-z_]", line)), "    ")
+        scalar(start + 1, end, "CHANNEL_LOAD", load, indent, "server.CHANNEL_LOAD")
+    if channels:
+        start, end = block("worlds")
+        entries = [(i, re.match(r"^([ ]*)- +([A-Za-z_]+):", lines[i]))
+                   for i in range(start + 1, end)
+                   if re.match(r"^[ ]*- +[A-Za-z_]+:", lines[i])]
+        if not entries or len({len(m[1]) for _, m in entries}) != 1:
+            raise ValueError("worlds must contain block-style world mappings")
+        # Reverse order keeps earlier ranges stable when a key is inserted.
+        for n in range(len(entries) - 1, -1, -1):
+            i, match = entries[n]
+            stop = entries[n + 1][0] if n + 1 < len(entries) else end
+            indent = match[1] + "  "
+            channel_lines = [line for line in lines[i + 1:stop]
+                             if re.match(r"^[ ]+channels:", line)]
+            if (match[2] == "channels" and channel_lines) or any(
+                    not line.startswith(indent + "channels:") for line in channel_lines):
+                raise ValueError(f"ambiguous worlds[{n}].channels")
+            if match[2] == "channels":
+                # The first key may be on the sequence marker itself.
+                scalar(i, i + 1, "channels", channels,
+                       match[1] + "- ", f"worlds[{n}].channels")
+            else:
+                scalar(i + 1, stop, "channels", channels, indent, f"worlds[{n}].channels")
+    return "".join(lines), changes
+
+
+def main():
+    parser = argparse.ArgumentParser(description=__doc__)
+    parser.add_argument("config", type=Path)
+    parser.add_argument("--channels", default="")
+    parser.add_argument("--channel-load", default="")
+    parser.add_argument("--dry-run", action="store_true")
+    args = parser.parse_args()
+    for name in ("channels", "channel_load"):
+        value = getattr(args, name)
+        if value:
+            if not re.fullmatch(r"[0-9]{1,9}", value) or int(value) < 1:
+                parser.error(f"{name} must be a positive integer")
+            setattr(args, name, str(int(value)))
+    try:
+        original = args.config.read_bytes()
+        updated, changes = edit(original.decode(), args.channels, args.channel_load)
+        for change in changes:
+            print(change)
+        if args.dry_run:
+            print("[dry-run] not written")
+        elif updated.encode() != original:
+            # Preserve inode, owner, mode, line endings, comments and unrelated text.
+            with args.config.open("r+b") as stream:
+                stream.write(updated.encode())
+                stream.truncate()
+    except (OSError, ValueError) as error:
+        sys.exit(f"ABORT: {error}")
+
+
+if __name__ == "__main__":
+    main()

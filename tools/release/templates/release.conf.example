@@ -17,6 +17,11 @@ LEDGER_NOT_LIVE=()
 CONFIG_APPEND=""
 CONFIG_HEAD=""
 CONFIG_HEAD_BEFORE=""
+# Optional in-place scalar edits (unset/empty = no change). Applied after the above config edits, before start.
+# MIN_CLIENT_BUILD refuses a decrease; use release so the new client is published first while the server is down.
+MIN_CLIENT_BUILD=""
+CHANNELS=""       # every worlds[*].channels
+CHANNEL_LOAD=""   # server.CHANNEL_LOAD
 
 # systemd unit edits: sed expressions applied to /etc/systemd/system/slumsms.service, then daemon-reload. Each must
 # change something or the deploy aborts before the stop. Rollback puts the backed-up unit back.

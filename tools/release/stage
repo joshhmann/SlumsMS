@@ -54,6 +54,7 @@ tar --owner=0 --group=0 -cf "$ST/scripts.tar" -T "$ST/scripts.list"
 tar --owner=0 --group=0 -cf "$ST/srcdata.tar" -T "$ST/srcdata.list"
 cp database/migrations/*.sql "$ST/migrations/"
 ( . "$CONF"; for f in "${CONFIG_HEAD:-}" "${CONFIG_APPEND:-}"; do [ -z "$f" ] || cp "$REPO/$f" "$ST/"; done )
+cp "$here/set-min-client-build" "$here/set-release-config" "$ST/"
 (cd "$ST" && find . -type f ! -name SHA256SUMS -printf '%P\n' | LC_ALL=C sort | xargs -d '\n' sha256sum > SHA256SUMS)
 "$here/gen-deploy" "$CONF" "$BUILD" "$OUT" "$VERSION"
 cp -r "$here"/. "$OUT/tools/"
