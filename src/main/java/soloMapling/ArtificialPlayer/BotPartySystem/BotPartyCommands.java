@@ -36,13 +36,22 @@ public class BotPartyCommands {
             return;
         }
 
+        World world = fakechar.getWorldServer();
+        int partyId = party.getId();
+
+        if (world.getParty(partyId) == null) {
+            // the world already dropped this party (disbanded elsewhere): only the bot's own reference is left, and
+            // updateParty would throw on every logout attempt, so the bot could never log out
+            fakechar.setParty(null);
+            fakechar.setMPC(null);
+            debugprint("botLeaveParty: bot=" + fakechar.getName() + " held a stale party " + partyId + ", cleared");
+            return;
+        }
+
         PartyCharacter botPC = fakechar.getMPC();
         if (botPC == null) {
             botPC = new PartyCharacter(fakechar);
         }
-
-        World world = fakechar.getWorldServer();
-        int partyId = party.getId();
 
         if (botPC.getId() == party.getLeaderId()) {
             world.removeMapPartyMembers(partyId);
