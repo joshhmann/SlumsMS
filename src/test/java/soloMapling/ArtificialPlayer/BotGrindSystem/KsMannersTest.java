@@ -68,4 +68,21 @@ class KsMannersTest {
         when(player.getParty()).thenReturn(party);
         assertFalse(KsManners.respects(bot, player));
     }
+
+    @Test
+    void aKsWarHelperDoesNotRespectThePlayersMobs() {
+        // rc6 auto-QA triage (rv-2): the war's called helpers are neutral, so their manners kept them off the player
+        Character bot = at(1_000_009_001, 0, 100);
+        Character player = at(1, 600, 100);
+        when(player.getMapId()).thenReturn(104040000);
+        assertTrue(KsManners.respects(bot, player));
+        soloMapling.ArtificialPlayer.BotAffinitySystem.AffinityReactions.startWarSpree(bot, player, 60_000, 5);
+        try {
+            assertFalse(KsManners.respects(bot, player), "on a KS spree against this player");
+            assertTrue(KsManners.respects(bot, at(2, 600, 100)), "another player is still respected");
+        } finally {
+            soloMapling.ArtificialPlayer.BotAffinitySystem.AffinityReactions.stopSpree(bot.getId());
+        }
+        assertTrue(KsManners.respects(bot, player), "the spree over: manners again");
+    }
 }

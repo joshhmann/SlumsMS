@@ -58,11 +58,18 @@ public final class KsManners {
         return out == null ? List.of() : out;
     }
 
-    /** A bot respects a player's platform unless it is the player's rival or nemesis, or they share a party. */
+    /**
+     * A bot respects a player's platform unless it is the player's rival or nemesis, they share a party, or it is on a
+     * KS spree against the player (a KS war's called helper).
+     */
     static boolean respects(Character bot, Character player) {
         if (bot.getParty() != null && player.getParty() != null
                 && bot.getParty().getId() == player.getParty().getId()) {
             return false; // partied: grinding together is the point
+        }
+        if (soloMapling.ArtificialPlayer.BotAffinitySystem.AffinityReactions.onKsSpreeAgainst(bot.getId(),
+                player.getId())) {
+            return false; // a KS war's helper is here to steal this player's mobs
         }
         try {
             return !BotAffinity.hostile(bot.getId(), player.getId());

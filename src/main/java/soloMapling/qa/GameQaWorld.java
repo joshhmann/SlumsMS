@@ -241,7 +241,9 @@ final class GameQaWorld implements QaWorld {
     @Override
     public List<Integer> spawnShowcase(Character gm, String[] args, List<String> report) {
         BotShowcaseCommand.Request request = BotShowcaseCommand.parse(args);
-        return request == null ? List.of() : BotShowcaseCommand.spawn(gm, request, report);
+        // rc6 triage (t-bk-1/t-at-1): showcase bots stand still, and spawned on the GM's empty ledge half of them
+        // never swung ("no targetable mobs within 700px"); spawn them where the mobs are
+        return request == null ? List.of() : BotShowcaseCommand.spawn(gm, request, report, busiestMobSpot(gm));
     }
 
     @Override

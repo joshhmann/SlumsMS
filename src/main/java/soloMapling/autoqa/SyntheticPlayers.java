@@ -117,7 +117,18 @@ public final class SyntheticPlayers {
         if (!h.validateState(c)) {
             throw new IllegalStateException(op + " refused: not logged in");
         }
+        noteReceived(c, op);
         h.handlePacket(new ByteBufInPacket(Unpooled.wrappedBuffer(body)), c);
+    }
+
+    /**
+     * What {@code Client.channelRead} notes for every packet: the player's last deliberate action and last packet.
+     * Without it the pretend player counted as "AFK over five minutes" five minutes into a run, and every bot
+     * whisper, gift, invite and friendly act aimed at it was dropped (PlayerBusy) - rc6 auto-QA triage.
+     */
+    static void noteReceived(SyntheticClient c, RecvOpcode op) {
+        c.notePlayerAction((short) op.getValue());
+        c.updateLastPacket();
     }
 
     /** A fixed, valid-looking hwid per slot (8 hex digits). */

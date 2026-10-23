@@ -228,11 +228,29 @@ public final class QaScenarios {
             for (String l : lines) {
                 ctx.run().note("STEP", l);
             }
-            if (wealth.contains("is gone") || !wealth.contains("over by")) {
+            if (wealth.contains("is gone") || settled(wealth)) {
                 done = true;
-                ctx.run().note("DONE", wealth.contains("is gone") ? wealth : "under its ceiling: " + wealth);
+                ctx.run().note("DONE", wealth.contains("is gone") ? wealth : "settled at its ceiling: " + wealth);
             }
             return lines;
+        }
+
+        private static final java.util.regex.Pattern OVER =
+                java.util.regex.Pattern.compile("ceiling ([\\d,]+).*over by ([\\d,]+)");
+
+        /**
+         * Under its ceiling, or within 1% over it. rc6 triage (t-wc-1): upkeep is 10% of the excess, so once the daily
+         * ticket cap stops the gachapon the excess only shrinks by a tenth a step and never reaches zero ("over by
+         * 1,078" of a 12M ceiling after 8 minutes) - the run never ended.
+         */
+        static boolean settled(String wealth) {
+            java.util.regex.Matcher m = OVER.matcher(wealth);
+            if (!m.find()) {
+                return true;
+            }
+            long ceiling = Long.parseLong(m.group(1).replace(",", ""));
+            long over = Long.parseLong(m.group(2).replace(",", ""));
+            return over * 100 <= ceiling;
         }
     }
 

@@ -114,6 +114,26 @@ class BotRomanceTest {
     }
 
     @Test
+    void theQaNeglectStepWarnsAPartnerStandingNextToThePlayer() {
+        // rc6 auto-QA triage (t-rm-3): !qa do neglect backdated the romance and ran a step, but the staged partner
+        // stands on the player's map, so the step counted them together and never warned.
+        Character p = chr(PLAYER, "Bob");
+        Character b = chr(BOT, "Amy");
+        BotRomance.useForTest(store, id -> id == BOT ? b : null, id -> id == PLAYER ? p : null, clock::get);
+        when(b.getMapId()).thenReturn(1);
+        when(p.getMapId()).thenReturn(1);
+        BotRomance.setRomance(p, true);
+        BotRomance.startDating(b, p, false);
+        assertTrue(BotRomance.backdate(PLAYER, BOT, 5 * DAY));
+        BotRomance.step(clock.get(), new java.util.Random(1));
+        assertFalse(BotRomance.neglectNow(p, b), "a step on one map refreshed 'together': nothing to warn about");
+        assertTrue(BotRomance.backdate(PLAYER, BOT, 5 * DAY));
+        assertTrue(BotRomance.neglectNow(p, b), "the QA step warns straight after the backdate");
+        assertFalse(BotRomance.neglectNow(p, b), "once");
+        assertEquals(Romance.Stage.DATING, BotRomance.with(PLAYER, BOT).stage(), "a warning, not a breakup");
+    }
+
+    @Test
     void twoPartnersAreTracked() {
         Character p = chr(PLAYER, "Bob");
         BotRomance.setRomance(p, true);

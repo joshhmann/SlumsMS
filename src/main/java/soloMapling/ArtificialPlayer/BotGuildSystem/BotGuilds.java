@@ -1403,16 +1403,18 @@ public final class BotGuilds {
             Character player = onlinePlayer(pid);
             String why = leaderNemesis ? "KickLeader" : "KickMembers";
             String line = GuildLines.pick(why, Map.of("PLAYER", mc.getName(), "GUILD", gr.name()));
+            boolean whispered = false;
             if (player != null && line != null) {
                 Character live = online.apply(leaderId);
                 int ch = live != null ? channelOf(live) : channelOf(player);
-                BotWhispers.send(player, leader.getName(), ch - 1, line, false);
+                whispered = kickWhisper(player, leader.getName(), ch - 1, line);
             }
             Server.getInstance().expelMember(leader, mc.getName(), pid);
             String what = leader.getName() + " kicked " + mc.getName() + " from " + gr.name() + " ("
                     + (leaderNemesis ? "the leader's nemesis" : "rival of " + hostile + "/" + known + " members") + ")";
             out.add(what + (line == null ? "" : ": \"" + line + "\""));
-            qa(player == null ? 0 : player.getMapId(), "KICK " + what + (line == null ? "" : ", whisper: " + line));
+            qa(player == null ? 0 : player.getMapId(), "KICK " + what
+                    + (line == null ? "" : whispered ? ", whisper: " + line : ", whisper not sent (player offline)"));
         }
         if (out.isEmpty()) {
             out.add("nobody to kick in " + gr.name());
@@ -1862,5 +1864,14 @@ public final class BotGuilds {
     /** Tests: put a member row in memory. */
     static void putForTest(MemberRow row) {
         members.put(row.charId(), row);
+    }
+
+    /**
+     * The leader's whisper telling a kicked player why. It answers something done to the player, so it goes through
+     * like a reply: rc6 auto-QA triage (t-gu-8) found it counted against the one-unsolicited-whisper-per-10-minutes
+     * budget, so a recruiter's whisper minutes earlier silently swallowed it while the QA line still claimed it.
+     */
+    static boolean kickWhisper(Character player, String leader, int channel, String line) {
+        return BotWhispers.send(player, leader, channel, line, true);
     }
 }

@@ -103,6 +103,23 @@ class BotRivalryTest {
     }
 
     @Test
+    void aHeldPlayerIsNeverFollowed() {
+        // rc6 auto-QA triage (t-af-2): !qa af-2 holds KS wars and promises the rival never follows, but its KS spree
+        // armed the revenge follow and the probe found it on the player's next map
+        Character p = chr(PLAYER, "Bob", 100);
+        Character b = chr(BOT, "Amy", 100);
+        BotRivalry.holdWars(PLAYER, true);
+        try {
+            BotRivalry.arm(b, p);
+            assertNull(BotRivalry.armedFor(PLAYER));
+        } finally {
+            BotRivalry.holdWars(PLAYER, false);
+        }
+        BotRivalry.arm(b, p);
+        assertEquals(100, BotRivalry.armedFor(PLAYER).mapId(), "released: arms as before");
+    }
+
+    @Test
     void anArmedRivalFollowsOnlyFromTheMapItWasOn() {
         Character p = chr(PLAYER, "Bob", 100);
         Character b = chr(BOT, "Amy", 100);

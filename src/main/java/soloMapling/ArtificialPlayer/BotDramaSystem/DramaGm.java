@@ -199,8 +199,10 @@ public final class DramaGm {
                     out.add("no romance with that bot");
                     return out;
                 }
-                BotRomance.stepNow();
-                out.add("moved " + bot.getName() + "'s romance " + days + " days back: a warning whisper now; "
+                // the staged partner stands next to the GM: a plain step would count them together and not warn
+                boolean warned = BotRomance.neglectNow(gm, bot);
+                out.add("moved " + bot.getName() + "'s romance " + days + " days back: "
+                        + (warned ? "a warning whisper now; " : "no warning (already warned, or not neglected); ")
                         + "!botromance breakup ends it with the full drama (live: 30 min after the warning)");
             }
             case "breakup" -> {
@@ -356,8 +358,10 @@ public final class DramaGm {
                     out.add("Usage: !botwar check <bot guild>");
                     return out;
                 }
+                // only the GM's own guild when it has one: never a war on whoever else is online
+                int mine = gm.getGuildId() > 0 && !soloMapling.ArtificialPlayer.BotGuildSystem.BotGuilds.isBotGuild(gm.getGuildId()) ? gm.getGuildId() : 0;
                 out.addAll(GuildWars.checkPlayerGuilds(a, System.currentTimeMillis(),
-                        java.util.concurrent.ThreadLocalRandom.current(), true));
+                        java.util.concurrent.ThreadLocalRandom.current(), true, mine));
                 if (gm.getGuildId() > 0) {
                     remember(gm, GuildWars.warBetween(a.guildId(), gm.getGuildId()));
                 }

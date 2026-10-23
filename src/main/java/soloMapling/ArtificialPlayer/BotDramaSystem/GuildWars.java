@@ -485,43 +485,46 @@ public final class GuildWars {
      */
     static String turfFight(War w, int us, Random rng) {
         int them = w.other(us);
-        Integer target = null;
+        List<Integer> maps = new ArrayList<>();
         Character targetPlayer = null;
         Map<Integer, Integer> h = held.get(w.id());
         if (h != null) {
-            List<Integer> theirs = new ArrayList<>();
             h.forEach((map, holder) -> {
                 if (holder == them) {
-                    theirs.add(map);
+                    maps.add(map);
                 }
             });
-            if (!theirs.isEmpty()) {
-                target = theirs.get(rng.nextInt(theirs.size()));
-            }
+            java.util.Collections.shuffle(maps, rng);
         }
         if (w.bPlayer() && us == w.a()) {
             List<Character> players = playersOf(them);
             players.removeIf(p -> MapMobIndex.level(p.getMapId()) < 0 || p.getEventInstance() != null);
             if (!players.isEmpty()) {
                 targetPlayer = players.get(rng.nextInt(players.size()));
-                target = targetPlayer.getMapId();
+                maps.clear();
+                maps.add(targetPlayer.getMapId());
             }
         }
-        if (target == null) {
+        if (maps.isEmpty()) {
             return "no map held by " + BotGuilds.guildName(them) + " to contest";
         }
-        int mobLevel = MapMobIndex.level(target);
-        Character fighter = null;
+        List<Character> free = new ArrayList<>();
         for (Character c : onlineBots(us)) {
-            if (CharacterStorage.getBotById(c.getId()) instanceof TrainingBot && DramaKit.freeForScene(c)
-                    && Math.abs(c.getLevel() - mobLevel) <= 25 && c.getMapId() != target) {
-                fighter = c;
-                break;
+            if (CharacterStorage.getBotById(c.getId()) instanceof TrainingBot && DramaKit.freeForScene(c)) {
+                free.add(c);
             }
         }
-        if (fighter == null) {
-            return "no free grinder of " + BotGuilds.guildName(us) + " fits map " + target;
+        List<int[]> grinders = new ArrayList<>();
+        for (Character c : free) {
+            grinders.add(new int[]{c.getLevel(), c.getMapId()});
         }
+        int[] pick = pickContest(maps, MapMobIndex::level, grinders);
+        if (pick == null) {
+            return "no free grinder of " + BotGuilds.guildName(us) + " fits map" + (maps.size() == 1 ? " " : "s ")
+                    + maps;
+        }
+        int target = maps.get(pick[0]);
+        Character fighter = free.get(pick[1]);
         int id = fighter.getId();
         soloMapling.worldevents.WorldEventSteer.hold(id, target);
         BotTiming.after(DramaKit.minutes("wars.turfHoldMinutes", 20), () -> soloMapling.worldevents.WorldEventSteer.unhold(id));
@@ -538,6 +541,25 @@ public final class GuildWars {
         qa(fighter.getMapId(), "TURF " + fighter.getName() + " [" + BotGuilds.guildName(us) + "] goes to contest map "
                 + target + " (held by " + BotGuilds.guildName(them) + ")");
         return fighter.getName() + " goes to contest map " + target;
+    }
+
+    /**
+     * The first contested map (in the given order) with a grinder fit for it: within 25 levels of its mobs and not
+     * already there. {map index, grinder index} or null. rc6 auto-QA triage (t-gw-1): the turf fight picked one held
+     * map at random and gave up when no grinder fitted it, though another held map had one.
+     */
+    static int[] pickContest(List<Integer> maps, java.util.function.IntUnaryOperator mobLevel, List<int[]> grinders) {
+        for (int m = 0; m < maps.size(); m++) {
+            int map = maps.get(m);
+            int level = mobLevel.applyAsInt(map);
+            for (int g = 0; g < grinders.size(); g++) {
+                int[] who = grinders.get(g); // {level, map}
+                if (Math.abs(who[0] - level) <= 25 && who[1] != map) {
+                    return new int[]{m, g};
+                }
+            }
+        }
+        return null;
     }
 
     // ── declaring ──
@@ -576,10 +598,19 @@ public final class GuildWars {
 
     /** One bot guild weighs every player guild with members online. What it decided. */
     public static List<String> checkPlayerGuilds(GuildRow g, long now, Random rng, boolean force) {
+        return checkPlayerGuilds(g, now, rng, force, 0);
+    }
+
+    /**
+     * As above, only weighing guild {@code onlyGuildId} when it is above 0: a GM's !botwar check (QA t-gw-2) must not
+     * declare on whichever other player guild happens to be online - the rc6 auto-QA run declared on the owner's.
+     */
+    public static List<String> checkPlayerGuilds(GuildRow g, long now, Random rng, boolean force, int onlyGuildId) {
         List<String> out = new ArrayList<>();
         Map<Integer, List<Character>> byGuild = new HashMap<>();
         for (Character p : DramaKit.realPlayers()) {
-            if (p.getGuildId() > 0 && !BotGuilds.isBotGuild(p.getGuildId()) && !BotAffinity.optedOut(p.getId())) {
+            if (p.getGuildId() > 0 && weighs(p.getGuildId(), onlyGuildId) && !BotGuilds.isBotGuild(p.getGuildId())
+                    && !BotAffinity.optedOut(p.getId())) {
                 byGuild.computeIfAbsent(p.getGuildId(), k -> new ArrayList<>()).add(p);
             }
         }
@@ -618,6 +649,11 @@ public final class GuildWars {
             out.add("no player guild with members online (with @botdrama on)");
         }
         return out;
+    }
+
+    /** Whether a check limited to {@code onlyGuildId} (0 = every guild) weighs this player guild. */
+    static boolean weighs(int playerGuildId, int onlyGuildId) {
+        return onlyGuildId <= 0 || playerGuildId == onlyGuildId;
     }
 
     // ── poaching ──
@@ -1032,7 +1068,11 @@ public final class GuildWars {
             return out;
         }
         out.add(taunt(w, ThreadLocalRandom.current()));
-        out.add(turfFight(w, w.a(), ThreadLocalRandom.current()));
+        String turf = turfFight(w, w.a(), ThreadLocalRandom.current());
+        out.add(turf);
+        if (turf.startsWith("no ") && !w.bPlayer()) { // rc6 triage (t-gw-1): the other side may have a fit grinder
+            out.add(turfFight(w, w.b(), ThreadLocalRandom.current()));
+        }
         return out;
     }
 
