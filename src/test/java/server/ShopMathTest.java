@@ -3,6 +3,8 @@ package server;
 import org.junit.jupiter.api.Test;
 
 import static org.junit.jupiter.api.Assertions.assertEquals;
+import static org.junit.jupiter.api.Assertions.assertFalse;
+import static org.junit.jupiter.api.Assertions.assertTrue;
 
 /** 1.5.0 rc3 review: Shop.buy and HiredMerchant.buy charged a float total capped at Integer.MAX_VALUE. */
 class ShopMathTest {
@@ -17,5 +19,14 @@ class ShopMathTest {
         assertEquals(-1, ShopMath.total(Integer.MAX_VALUE, Short.MAX_VALUE));
         assertEquals(-1, ShopMath.total(-5, 2));
         assertEquals(0, ShopMath.total(7, 0));
+    }
+
+    @Test
+    void aListingIsSaleableOnlyBetweenOneMesoAndTheMostAnyoneCanHold() {
+        assertFalse(ShopMath.isSaleablePrice(0), "a haggle overflow wrote 0: never a free item");
+        assertFalse(ShopMath.isSaleablePrice(-2_094_967_296), "nor a price that pays the buyer");
+        assertFalse(ShopMath.isSaleablePrice(ShopMath.MAX_MESO + 1));
+        assertTrue(ShopMath.isSaleablePrice(1));
+        assertTrue(ShopMath.isSaleablePrice(Integer.MAX_VALUE));
     }
 }

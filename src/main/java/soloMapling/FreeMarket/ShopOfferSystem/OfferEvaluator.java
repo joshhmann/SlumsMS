@@ -14,6 +14,8 @@ public class OfferEvaluator {
 
     public static Decision evaluate(long offerPrice, int listingPrice) {
         if (listingPrice <= 0) return Decision.DECLINE;
+        // A listing price is an int: an offer outside 1..Integer.MAX_VALUE can never become one.
+        if (offerPrice < 1 || offerPrice > Integer.MAX_VALUE) return Decision.DECLINE;
 
         double ratio = offerPrice / (double) listingPrice;
 

@@ -105,6 +105,11 @@ public class OfferParser {
         }
     }
 
+    /**
+     * The largest number in the message (k/m/b suffixes allowed), or -1 when there is none. A number outside
+     * 1..Integer.MAX_VALUE is skipped: a listing price is an int, and "4294967296" or "2.2b" used to wrap to a
+     * free or negative price when the accepted offer was cast back to int.
+     */
     public static long extractPrice(String message) {
         Matcher matcher = PRICE_PATTERN.matcher(message);
         long bestPrice = -1;
@@ -119,6 +124,9 @@ public class OfferParser {
                         case "m": value *= 1_000_000; break;
                         case "b": value *= 1_000_000_000; break;
                     }
+                }
+                if (!(value >= 1) || value > Integer.MAX_VALUE) {
+                    continue;   // out of the range a listing can hold (NaN fails the first test too)
                 }
                 long parsed = (long) value;
                 if (parsed > bestPrice) {

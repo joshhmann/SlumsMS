@@ -14,6 +14,15 @@ public final class ShopMath {
     private ShopMath() {
     }
 
+    /**
+     * 1.5.0 rc6 bug hunt: whether a player-shop / hired-merchant listing can be bought at {@code unitPrice}. A price
+     * of 0 or less is never a sale (a haggle overflow once wrote 0 or a negative price, which made the item free or
+     * paid the buyer), and a price over {@link #MAX_MESO} can't be a listing.
+     */
+    public static boolean isSaleablePrice(long unitPrice) {
+        return unitPrice >= 1 && unitPrice <= MAX_MESO;
+    }
+
     /** {@code unitPrice} x {@code quantity}, exactly; -1 when it is over {@link #MAX_MESO} or the input is negative. */
     public static long total(long unitPrice, long quantity) {
         if (unitPrice < 0 || quantity < 0) {

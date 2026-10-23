@@ -33,7 +33,7 @@ public class ShopOfferResponse {
         }
 
         if (session.hasCounterPending()) {
-            if (offer.getOfferPrice() >= session.getCounterPrice()) {
+            if (offer.getOfferPrice() >= session.getCounterPrice() && server.ShopMath.isSaleablePrice(session.getCounterPrice())) {
                 acceptOffer(shop, owner, player, offer, session.getCounterPrice());
                 return;
             }
@@ -63,7 +63,7 @@ public class ShopOfferResponse {
     public static void handleAFKOwner(Character player, PlayerShop shop, OfferParser.ParsedOffer offer, ShopOfferSystem system) {
         OfferEvaluator.Decision decision = OfferEvaluator.evaluate(offer.getOfferPrice(), offer.getShopItem().getPrice());
 
-        if (decision == OfferEvaluator.Decision.DECLINE) {
+        if (decision == OfferEvaluator.Decision.DECLINE || !server.ShopMath.isSaleablePrice(offer.getOfferPrice())) {
             return;
         }
 
@@ -81,7 +81,7 @@ public class ShopOfferResponse {
         log("[ShopOfferSystem] AFK accept scheduled: " + itemName + " @ " + acceptedPrice + " for " + player.getName() + " (delay=" + (delay / 60000) + "min)");
 
         MethodScheduler.runAfterDelay(() -> {
-            shopItem.setPrice((int) acceptedPrice);
+            shopItem.setPrice(Math.toIntExact(acceptedPrice));
             shop.broadcast(PacketCreator.getPlayerShopItemUpdate(shop));
 
             if (player.isLoggedin()) {
@@ -97,7 +97,7 @@ public class ShopOfferResponse {
                                                ShopOfferSystem system, Runnable broadcastUpdate) {
         OfferEvaluator.Decision decision = OfferEvaluator.evaluate(offer.getOfferPrice(), shopItem.getPrice());
 
-        if (decision == OfferEvaluator.Decision.DECLINE) {
+        if (decision == OfferEvaluator.Decision.DECLINE || !server.ShopMath.isSaleablePrice(offer.getOfferPrice())) {
             return;
         }
 
@@ -112,7 +112,7 @@ public class ShopOfferResponse {
         log("[ShopOfferSystem] HiredMerchant AFK accept scheduled: " + itemName + " @ " + acceptedPrice + " for " + player.getName() + " (delay=" + (delay / 60000) + "min)");
 
         MethodScheduler.runAfterDelay(() -> {
-            shopItem.setPrice((int) acceptedPrice);
+            shopItem.setPrice(Math.toIntExact(acceptedPrice));
             if (broadcastUpdate != null) broadcastUpdate.run();
 
             if (player.isLoggedin()) {
@@ -133,10 +133,13 @@ public class ShopOfferResponse {
 
     private static void acceptOffer(PlayerShop shop, Character owner, Character player,
                                      OfferParser.ParsedOffer offer, long finalPrice) {
+        if (!server.ShopMath.isSaleablePrice(finalPrice)) {
+            return;   // never write a price a listing can't hold (it used to wrap to 0 or negative)
+        }
         String msg = getDialogueLine("AcceptResponse", offer, player);
         shopOwnerChat(shop, owner, msg);
 
-        offer.getShopItem().setPrice((int) finalPrice);
+        offer.getShopItem().setPrice(Math.toIntExact(finalPrice));
         shop.broadcast(PacketCreator.getPlayerShopItemUpdate(shop));
 
         ShopOfferSystem.getInstance().lockItem(owner.getId(), offer.getItemIndex());

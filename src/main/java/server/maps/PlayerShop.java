@@ -268,6 +268,11 @@ public class PlayerShop extends AbstractMapObject {
                     c.sendPacket(PacketCreator.enableActions());
                     return false;
                 }
+                if (!server.ShopMath.isSaleablePrice(pItem.getPrice())) {   // 1.5.0 rc6: never free, never paid to buy
+                    c.getPlayer().dropMessage(1, "That item isn't for sale right now.");
+                    c.sendPacket(PacketCreator.enableActions());
+                    return false;
+                }
 
                 KarmaManipulator.toggleKarmaFlagToUntradeable(newItem);
 
@@ -650,6 +655,9 @@ public class PlayerShop extends AbstractMapObject {
         synchronized (items) {
             Item newItem = pItem.getItem().copy();
             newItem.setQuantity((short) ((pItem.getItem().getQuantity() * quantity)));
+            if (!server.ShopMath.isSaleablePrice(pItem.getPrice())) {   // 1.5.0 rc6: never free, never paid to buy
+                return false;
+            }
             visitorLock.lock();
             try {
                 long total = server.ShopMath.total(pItem.getPrice(), quantity);   // 1.5.0 rc3 review: exact
