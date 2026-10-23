@@ -24,7 +24,8 @@ var status = 0;
 var sel;
 
 function start() {
-    cm.sendSimple("What would you like to do?\r\n#b#L0#Create a Guild#l\r\n#L1#Disband your Guild#l\r\n#L2#Increase your Guild's capacity#l#k");
+    // SlumsMS rc6: the stock guild ranking window (the Honorable Rock's), bot and player guilds by GP
+    cm.sendSimple("What would you like to do?\r\n#b#L0#Create a Guild#l\r\n#L1#Disband your Guild#l\r\n#L2#Increase your Guild's capacity#l\r\n#L3#See the guild rankings#l#k");
 }
 
 function action(mode, type, selection) {
@@ -42,6 +43,11 @@ function action(mode, type, selection) {
         }
         if (status == 1) {
             sel = selection;
+            if (selection == 3) {
+                cm.displayGuildRanks();
+                cm.dispose();
+                return;
+            }
             if (selection == 0) {
                 if (cm.getPlayer().getGuildId() > 0) {
                     cm.sendOk("You may not create a new Guild while you are in one.");
