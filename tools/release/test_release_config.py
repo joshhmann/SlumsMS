@@ -107,6 +107,89 @@ class ReleaseConfigTest(unittest.TestCase):
             self.run_helper('set-release-config', '--channels', '5', '--channel-load', '105', ok=False)
             self.assertEqual(self.config.read_bytes(), data)
 
+    def test_set_edits_existing_numeric_keys_and_adds_missing_ones(self):
+        self.config.write_bytes(FIXTURE + b'    BOT_ROSTER_PEAK_ONLINE: 1200  # soaked\n    BOT_EXTRA:\n        k: v\n')
+        result = self.run_helper('set-release-config', '--set', 'BOT_ROSTER_PEAK_ONLINE=3000',
+                                 '--set', 'BOT_POPULATION_PEAK=3500', '--set', 'BOT_ROSTER_VETERAN_FILL_BELOW=1.0')
+        text = self.config.read_text()
+        self.assertIn('    BOT_ROSTER_PEAK_ONLINE: 3000  # soaked\n', text)
+        self.assertTrue(text.endswith('        k: v\n    BOT_POPULATION_PEAK: 3500\n    BOT_ROSTER_VETERAN_FILL_BELOW: 1.0\n'))
+        self.assertEqual(text.count('BOT_ROSTER_PEAK_ONLINE'), 1)
+        self.assertIn('server.BOT_ROSTER_PEAK_ONLINE: 1200 -> 3000', result.stdout)
+        self.assertIn('server.BOT_POPULATION_PEAK: unset -> 3500', result.stdout)
+        before = self.config.read_bytes()
+        self.run_helper('set-release-config', '--set', 'BOT_ROSTER_PEAK_ONLINE=3000',
+                        '--set', 'BOT_POPULATION_PEAK=3500', '--set', 'BOT_ROSTER_VETERAN_FILL_BELOW=1.0')
+        self.assertEqual(self.config.read_bytes(), before, 'idempotent')
+        self.run_helper('set-release-config', '--set', 'BOT_ROSTER_VETERAN_FILL_BELOW=0.5')
+        self.assertIn('    BOT_ROSTER_VETERAN_FILL_BELOW: 0.5\n', self.config.read_text())
+
+    def test_set_keeps_crlf_and_inserts_before_the_next_top_level_block(self):
+        self.config.write_bytes(b'server:\r\n  A: 1\r\nlater:\r\n  B: 2\r\n')
+        self.run_helper('set-release-config', '--set', 'BOT_MAP_CAP=50', '--set', 'A=7')
+        self.assertEqual(self.config.read_bytes(), b'server:\r\n  A: 7\r\n  BOT_MAP_CAP: 50\r\nlater:\r\n  B: 2\r\n')
+
+    def test_set_refuses_bad_input_and_leaves_the_file(self):
+        self.config.write_bytes(FIXTURE + b'    BOT_ROSTER_TIMEZONE: "America/Los_Angeles"\n')
+        data = self.config.read_bytes()
+        for args in (['--set', 'BOT_ROSTER_PEAK_ONLINE'], ['--set', 'bot_x=1'], ['--set', 'BOT_X=-1'],
+                     ['--set', 'BOT_X=1e3'], ['--set', 'BOT_X=1; echo BAD'], ['--set', 'CHANNEL_LOAD=105'],
+                     ['--set', 'MIN_CLIENT_BUILD=1'], ['--set', 'BOT_ROSTER_TIMEZONE=5'],
+                     ['--set', 'BOT_X=1', '--set', 'BOT_X=2']):
+            self.run_helper('set-release-config', *args, ok=False)
+            self.assertEqual(self.config.read_bytes(), data, args)
+        self.config.write_bytes(FIXTURE + b'    BOT_X: 1\n    BOT_X: 2\n')
+        self.run_helper('set-release-config', '--set', 'BOT_X=3', ok=False)
+
+    def test_set_dry_run_does_not_write(self):
+        result = self.run_helper('set-release-config', '--set', 'BOT_MAP_CAP=50', '--dry-run')
+        self.assertIn('server.BOT_MAP_CAP: unset -> 50', result.stdout)
+        self.assertEqual(self.config.read_bytes(), FIXTURE)
+
+    def generate_fails(self, conf):
+        (self.work / 'release.conf').write_text(conf)
+        (self.work / 'BUILD.txt').write_text('commit=fixture\nversion=1.5.0\njar_sha256=1234567890abcdef\n')
+        result = subprocess.run([str(HERE / 'gen-deploy'), str(self.work / 'release.conf'),
+                                 str(self.work), str(self.work / 'out'), '1.5.0'],
+                                text=True, capture_output=True)
+        self.assertNotEqual(result.returncode, 0)
+        return result.stderr
+
+    def test_server_set_keys_must_be_numeric_server_config_fields(self):
+        self.assertIn('not a numeric field', self.generate_fails('LEDGER_BEFORE=""\nSERVER_SET=(BOT_NOT_A_KEY=1)\n'))
+        self.assertIn('not a numeric field', self.generate_fails('LEDGER_BEFORE=""\nSERVER_SET=(BOT_ROSTER_CURVE=1)\n'))
+        self.assertIn('not a whole number', self.generate_fails('LEDGER_BEFORE=""\nSERVER_SET=(BOT_MAP_CAP=1.5)\n'))
+        self.assertIn('twice', self.generate_fails('LEDGER_BEFORE=""\nSERVER_SET=(BOT_MAP_CAP=1 BOT_MAP_CAP=2)\n'))
+        self.assertIn('use CHANNEL_LOAD', self.generate_fails('LEDGER_BEFORE=""\nSERVER_SET=(CHANNEL_LOAD=1)\n'))
+        deploy, _ = self.generate('LEDGER_BEFORE=""\n')
+        self.assertIn('SERVER_SET=()', deploy)
+        pre = deploy.index('"$ST/set-release-config" "$C" "${SET_ARGS[@]}" --dry-run')
+        stop = deploy.index('step "stop"')
+        apply = deploy.index('"$ST/set-release-config" "$C" "${SET_ARGS[@]}" || down')
+        start = deploy.index('step "start"', apply)
+        self.assertLess(pre, stop)
+        self.assertLess(deploy.index('touch "$B/.apply-start.started"'), apply)
+        self.assertLess(apply, start)
+
+    def test_release_150_sets_3k_bots_and_the_6g_heap(self):
+        deploy, _ = self.generate((ROOT / 'docs/release/1.5.0.conf').read_text())
+        self.assertIn("SERVER_SET=('BOT_ROSTER_PEAK_ONLINE=3000' 'BOT_POPULATION_PEAK=3500' 'BOT_MAP_CAP=50' "
+                      "'BOT_ROSTER_VETERAN_FILL_BELOW=1.0' 'BOT_ROSTER_VETERANS_PER_DAY=7200')", deploy)
+        self.assertIn("UNIT_EDITS=('s# -Dslumsms.channelLoad.botWeight=0.1##' "
+                      "'s#/usr/bin/java -Xmx4G #/usr/bin/java -Xms4G -Xmx6G #')", deploy)
+        self.assertIn("CHANNEL_LOAD='125'", deploy)
+        unit = ('ExecStart=/usr/bin/java -Xmx4G -Dmapleroot.login-port=8485 -Dsolomapling.enabled=true '
+                '-Dslumsms.channelLoad.botWeight=0.1 -jar target/Cosmic.jar\n')
+        path = self.work / 'slumsms.service'
+        for edit in ('s# -Dslumsms.channelLoad.botWeight=0.1##', 's#/usr/bin/java -Xmx4G #/usr/bin/java -Xms4G -Xmx6G #'):
+            path.write_text(unit)
+            subprocess.run(['sed', '-i', '-e', edit, str(path)], check=True)
+            self.assertNotEqual(path.read_text(), unit, edit)   # each edit changes live's unit on its own
+        for edit in ('s# -Dslumsms.channelLoad.botWeight=0.1##', 's#/usr/bin/java -Xmx4G #/usr/bin/java -Xms4G -Xmx6G #'):
+            subprocess.run(['sed', '-i', '-e', edit, str(path)], check=True)
+        self.assertEqual(path.read_text(), 'ExecStart=/usr/bin/java -Xms4G -Xmx6G -Dmapleroot.login-port=8485 '
+                                           '-Dsolomapling.enabled=true -jar target/Cosmic.jar\n')
+
     def generate(self, conf):
         (self.work / 'release.conf').write_text(conf)
         (self.work / 'BUILD.txt').write_text('commit=fixture\nversion=1.5.0\njar_sha256=1234567890abcdef\n')

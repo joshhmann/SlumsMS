@@ -1,9 +1,13 @@
 #!/usr/bin/env python3
-"""Edit known channel settings in block-style config.yaml without reserializing YAML.
+"""Edit known settings in block-style config.yaml without reserializing YAML.
 
-set-release-config config.yaml [--channels N] [--channel-load N] [--dry-run]
+set-release-config config.yaml [--channels N] [--channel-load N] [--set KEY=VALUE ...] [--dry-run]
 Only decimal scalar values are replaced; unexpected/ambiguous structure fails closed.
 Missing known keys are inserted in their owning mapping. No third-party dependencies.
+
+--set KEY=VALUE (repeatable; release conf SERVER_SET): a numeric server: key (an integer or a decimal like 1.0).
+An existing key is edited in place (it must hold a plain number); a missing one is added at the end of server:.
+The strict config loader aborts on unknown keys, so gen-deploy checks every KEY against ServerConfig.java.
 """
 import argparse
 from pathlib import Path
@@ -11,7 +15,20 @@ import re
 import sys
 
 
-def edit(text, channels, load):
+NUMBER = r"[0-9]{1,9}(?:\.[0-9]{1,6})?"
+RESERVED = {"CHANNEL_LOAD", "MIN_CLIENT_BUILD", "CHANNELS"}
+
+
+def parse_set(item):
+    match = re.fullmatch(rf"([A-Z][A-Z0-9_]*)=({NUMBER})", item)
+    if not match:
+        raise ValueError(f"--set wants KEY=NUMBER, got {item!r}")
+    if match[1] in RESERVED:
+        raise ValueError(f"--set {match[1]}: use --channels/--channel-load/set-min-client-build")
+    return match[1], match[2]
+
+
+def edit(text, channels, load, sets=()):
     lines = text.splitlines(keepends=True)
     newline = "\r\n" if "\r\n" in text else "\n"
     changes = []
@@ -26,8 +43,8 @@ def edit(text, channels, load):
                     if re.match(r"^[A-Za-z_]", lines[i])), len(lines))
         return start, end
 
-    def scalar(start, end, key, value, indent, label):
-        pattern = re.compile(rf"^({re.escape(indent + key)}:[ \t]*)([0-9]+)([ \t]*(?:#.*)?)(\r?\n)?$")
+    def scalar(start, end, key, value, indent, label, number=r"[0-9]+"):
+        pattern = re.compile(rf"^({re.escape(indent + key)}:[ \t]*)({number})([ \t]*(?:#.*)?)(\r?\n)?$")
         keys = [i for i in range(start, end)
                 if re.match(rf"^{re.escape(indent + key)}:", lines[i])]
         if len(keys) > 1:
@@ -46,12 +63,22 @@ def edit(text, channels, load):
             lines.insert(end, f"{indent}{key}: {value}{newline}")
         changes.append(f"{label}: {before} -> {value}")
 
+    def server_indent(start, end):
+        return next((re.match(r"^([ ]+)[A-Za-z_]", line)[1]
+                     for line in lines[start + 1:end]
+                     if re.match(r"^([ ]+)[A-Za-z_]", line)), "    ")
+
     if load:
         start, end = block("server")
-        indent = next((re.match(r"^([ ]+)[A-Za-z_]", line)[1]
-                       for line in lines[start + 1:end]
-                       if re.match(r"^([ ]+)[A-Za-z_]", line)), "    ")
-        scalar(start + 1, end, "CHANNEL_LOAD", load, indent, "server.CHANNEL_LOAD")
+        scalar(start + 1, end, "CHANNEL_LOAD", load, server_indent(start, end), "server.CHANNEL_LOAD")
+    seen = set()
+    for key, value in sets:
+        if key in seen:
+            raise ValueError(f"--set {key} given twice")
+        seen.add(key)
+        # Re-find the block each time: an inserted key moves its end.
+        start, end = block("server")
+        scalar(start + 1, end, key, value, server_indent(start, end), f"server.{key}", NUMBER)
     if channels:
         start, end = block("worlds")
         entries = [(i, re.match(r"^([ ]*)- +([A-Za-z_]+):", lines[i]))
@@ -83,6 +110,7 @@ def main():
     parser.add_argument("config", type=Path)
     parser.add_argument("--channels", default="")
     parser.add_argument("--channel-load", default="")
+    parser.add_argument("--set", action="append", default=[], metavar="KEY=VALUE")
     parser.add_argument("--dry-run", action="store_true")
     args = parser.parse_args()
     for name in ("channels", "channel_load"):
@@ -93,7 +121,8 @@ def main():
             setattr(args, name, str(int(value)))
     try:
         original = args.config.read_bytes()
-        updated, changes = edit(original.decode(), args.channels, args.channel_load)
+        sets = [parse_set(item) for item in args.set]
+        updated, changes = edit(original.decode(), args.channels, args.channel_load, sets)
         for change in changes:
             print(change)
         if args.dry_run:

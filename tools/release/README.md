@@ -84,6 +84,30 @@ the entire old config with the old jar before starting, including the previous g
 Do not set these values with `CONFIG_APPEND`: existing keys would be duplicated. The gate helper continues to
 refuse lowering the minimum; rollback restores the backup instead.
 
+## Other numeric server settings: `SERVER_SET`
+
+For a numeric `server:` key a release changes (1.5.0: the 3k-bot population), list `KEY=VALUE` pairs:
+
+```bash
+SERVER_SET=(BOT_ROSTER_PEAK_ONLINE=3000 BOT_POPULATION_PEAK=3500 BOT_MAP_CAP=50)
+```
+
+`gen-deploy` checks every key against this build's `src/main/java/config/ServerConfig.java` (the loader is strict: an
+unknown key aborts the boot): it must be an `int`, `long`, `double` or `float` field, an integer field gets a whole
+number, no key twice, not `CHANNEL_LOAD`/`MIN_CLIENT_BUILD` (they have their own settings) and not one `CONFIG_APPEND`
+adds. The deploy runs `set-release-config "$C" --set KEY=VALUE ...` with `--dry-run` in the pre-checks (before -> after
+for each key) and for real in `apply-start` after the channel edit, before the start. A key live already has is
+edited in place (its value must be a plain number; comments, CRLF, owner and mode are kept), so a value is never
+duplicated; a missing key is added at the end of `server:`. Repeating it is safe. Rollback restores the whole old
+config with the old jar. Unset (the default `SERVER_SET=()`): nothing changes.
+
+## Unit edits: `UNIT_EDITS`
+
+`sed` expressions applied to `/etc/systemd/system/slumsms.service` in `apply-start` (then `daemon-reload`). The
+pre-check aborts when one of them, on its own, would not change live's unit, so a stale edit (live already changed by
+hand, or a typo) stops the deploy before the stop. The unit is backed up and rollback puts it back. 1.5.0:
+`"s# -Dslumsms.channelLoad.botWeight=0.1##" "s#/usr/bin/java -Xmx4G #/usr/bin/java -Xms4G -Xmx6G #"`.
+
 ## Cash Shop catalogue: `CASHSHOP_CATALOG`
 
 When a release changes `cashshop/catalog.tsv` (made by `tools/cashshop`), set `CASHSHOP_CATALOG=cashshop/catalog.tsv`
