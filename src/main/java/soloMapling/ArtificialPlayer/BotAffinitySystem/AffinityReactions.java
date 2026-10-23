@@ -115,6 +115,17 @@ public final class AffinityReactions {
         return ((long) a.ordinal() << 58) ^ ((long) (botCharId - BotStore.BOT_ID_BASE) << 30) ^ playerId;
     }
 
+    /**
+     * Forgets this bot's cooldowns with every player and its spree: a staged bot is unstaged and its id comes back for
+     * the next run. rc6 auto-QA triage (t-af-1): the same staged bot id met the same GM run after run, and its
+     * greet/invite/buddy cooldowns (2-24 h) from the last run kept it silent.
+     */
+    public static void forgetBot(int botCharId) {
+        long slot = botCharId - BotStore.BOT_ID_BASE;
+        nextAt.keySet().removeIf(k -> ((k >>> 30) & 0x0FFFFFFFL) == slot);
+        sprees.remove(botCharId);
+    }
+
     /** True (and the cooldown starts) when this pair may do this now and the world cap has room. */
     static boolean take(Action a, int botCharId, int playerId, long now) {
         long k = key(a, botCharId, playerId);
@@ -587,6 +598,16 @@ public final class AffinityReactions {
     public static void startWarSpree(Character bot, Character player, long ms, int mobs) {
         sprees.put(bot.getId(), new KsSpree(player.getId(), player.getMapId(), BotAffinity.now() + ms, new int[]{mobs},
                 true));
+    }
+
+    /**
+     * Whether this bot is on a live KS spree against this player (mobs left, time left). KS manners step aside for
+     * it: rc6 triage of rv-2 found a KS war's called helpers - neutral bots - kept off the player's platform and mobs
+     * by their manners, so none of them ever took a mob.
+     */
+    public static boolean onKsSpreeAgainst(int botCharId, int playerId) {
+        KsSpree s = sprees.get(botCharId);
+        return s != null && s.playerId() == playerId && BotAffinity.now() <= s.until() && s.left()[0] > 0;
     }
 
     /** 1.5.0 bot drama: the bot's KS spree ends now. */

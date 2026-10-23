@@ -54,6 +54,7 @@ public final class AffinityStaging {
         WorldEventSteer.unhold(botId);
         soloMapling.ArtificialPlayer.StageSpots.unpin(botId);
         BotAffinity.forgetBot(botId);
+        AffinityReactions.forgetBot(botId);
         Character bot = BotHelpers.getCharFromChannelStorage(botId);
         if (bot == null) {
             return;

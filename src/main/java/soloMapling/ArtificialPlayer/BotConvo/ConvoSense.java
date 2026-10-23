@@ -277,6 +277,12 @@ public final class ConvoSense {
             // a counter-offer goes down the trade path, where the quote and PriceBand live
             triage = new ChatTriage.Result(triage.kind(), ChatTriage.Intent.TRADE, ChatTriage.Source.RULE, triage.con(),
                     triage.conSource(), triage.conConfidence());
+        } else if (intentSource == Source.RULE && intent == ConvoIntent.COME
+                && triage.intent() == ChatTriage.Intent.WHERE_AT) {
+            // rc6 triage (t-cv-1): "meet me at the fm" names a place, so the convo layer walks the bot there; the
+            // legacy WHERE_AT rule ("meet me") only made it say where it stands
+            triage = new ChatTriage.Result(triage.kind(), ChatTriage.Intent.NONE, ChatTriage.Source.DEFAULT,
+                    triage.con(), triage.conSource(), triage.conConfidence());
         }
         return new Read(triage, intent, intentSource, intentConfidence, tone, toneSource, ConvoEntities.find(line));
     }

@@ -60,6 +60,17 @@ class ConvoSenseTest {
     }
 
     @Test
+    void meetMeAtAPlaceIsAWalkNotAWhereAreYou() {
+        // rc6 triage (t-cv-1): the legacy WHERE_AT rule kept "meet me at the fm" on ticket 37's "where are you" path
+        ConvoSense.Read r = ConvoSense.combine("meet me at the fm", ChatTriage.rules("meet me at the fm"), Map.of(),
+                0.4, 0.8, 0.4);
+        assertEquals(ConvoIntent.COME, r.intent());
+        assertEquals(ChatTriage.Intent.NONE, r.triage().intent());
+        ConvoSense.Read where = ConvoSense.combine("where r u", ChatTriage.rules("where r u"), Map.of(), 0.4, 0.8, 0.4);
+        assertEquals(ChatTriage.Intent.WHERE_AT, where.triage().intent(), "a plain 'where are you' keeps its path");
+    }
+
+    @Test
     void aCounterOfferGoesDownTheTradePath() {
         ConvoSense.Read r = ConvoSense.rules("would u do 500k");
         assertEquals(ConvoIntent.HAGGLE, r.intent());
