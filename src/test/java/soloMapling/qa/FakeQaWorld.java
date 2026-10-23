@@ -199,6 +199,7 @@ class FakeQaWorld implements QaWorld {
 
     @Override public String affinityOf(int botId, Character gm) { return "rival: score -40"; }
 
+    @Override public void holdKsWars(Character gm, boolean hold) { calls.add("hold ks wars " + hold); }
     @Override public String forceGrudge(int botId, Character gm) { calls.add("grudge " + botId); return "grudge + KS spree"; }
 
     final List<int[]> couplesUnstaged = new ArrayList<>();

@@ -314,6 +314,11 @@ final class GameQaWorld implements QaWorld {
     }
 
     @Override
+    public void holdKsWars(Character gm, boolean hold) {
+        soloMapling.ArtificialPlayer.BotDramaSystem.BotRivalry.holdWars(gm.getId(), hold);
+    }
+
+    @Override
     public String affinityOf(int botId, Character gm) {
         String spree = soloMapling.ArtificialPlayer.BotAffinitySystem.AffinityReactions.spreeOf(botId);
         return soloMapling.ArtificialPlayer.BotAffinitySystem.BotAffinity.describe(botId, gm.getId())

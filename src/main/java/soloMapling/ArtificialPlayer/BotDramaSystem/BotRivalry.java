@@ -212,7 +212,7 @@ public final class BotRivalry {
         long now = now();
         Random rng = ThreadLocalRandom.current();
         boolean nemesis = state == AffinityState.NEMESIS;
-        if (sm instanceof TrainingBot && !wars.containsKey(player.getId())
+        if (sm instanceof TrainingBot && !wars.containsKey(player.getId()) && warRollDue(bot.getId(), player.getId(), now)
                 && rng.nextDouble() < DramaKit.prop(nemesis ? "rivals.ksWarNemesis" : "rivals.ksWarRival", nemesis ? 0.15 : 0.05)
                 && warAllowedToday(player.getId(), now) && MapMobIndex.level(player.getMapId()) >= 0
                 && player.getEventInstance() == null && DramaKit.hourly("rv-kswar",
@@ -230,8 +230,37 @@ public final class BotRivalry {
 
     // ── KS wars ──
 
-    private static boolean warAllowedToday(int playerId, long now) {
-        return DramaKit.free("rv:kswar:" + playerId, now);
+    static boolean warAllowedToday(int playerId, long now) {
+        return !warsHeld.contains(playerId) && DramaKit.free("rv:kswar:" + playerId, now);
+    }
+
+    /**
+     * 1.5.0 rc6 (QA t-af-2): the war chance is rolled once per rival and player every {@code ksWarRollMinutes} (10),
+     * not on every sighting. Sightings come every 1.5 s while the two stand together, so a 5% roll per sighting
+     * called a KS war within about half a minute of meeting any rival ("two random bots just spawn and started going
+     * full ks mode").
+     */
+    static boolean warRollDue(int botId, int playerId, long now) {
+        return DramaKit.take("rv:kswar-roll:" + botId + ":" + playerId, now, DramaKit.minutes("rivals.ksWarRollMinutes", 10));
+    }
+
+    /** Players no rival may call a KS war on by itself now (a !qa af-2/af-3 run: its KS sprees are the test). */
+    private static final java.util.Set<Integer> warsHeld = ConcurrentHashMap.newKeySet();
+
+    public static void holdWars(int playerId, boolean hold) {
+        if (hold) {
+            warsHeld.add(playerId);
+        } else {
+            warsHeld.remove(playerId);
+        }
+    }
+
+    /** {@code @botdrama off}: a KS war on the player ends now (its bots go back), as a spree already stops. */
+    public static void onDramaOff(int playerId) {
+        KsWar w = wars.get(playerId);
+        if (w != null) {
+            endKsWar(w, "@botdrama off");
+        }
     }
 
     /**
@@ -621,6 +650,7 @@ public final class BotRivalry {
         wars.clear();
         armed.clear();
         arcs.clear();
+        warsHeld.clear();
         lastStepAt = 0;
     }
 

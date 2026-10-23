@@ -320,6 +320,20 @@ class QaScenarioStagingTest {
     }
 
     @Test
+    void af2AndAf3HoldSpontaneousKsWarsForTheRun() {
+        // rc6 (QA t-af-2): a KS war rolled on sight brought "two random bots" in during the af-2 run
+        start("af-2", 104040000);
+        assertTrue(world.calls.contains("hold ks wars true"));
+        suite.stop(1, "!qa stop");
+        assertTrue(world.calls.contains("hold ks wars false"), "allowed again at stop");
+        world.calls.clear();
+        start("af-3", 104040000);
+        assertTrue(world.calls.contains("hold ks wars true"));
+        suite.stop(1, "!qa stop");
+        assertTrue(world.calls.contains("hold ks wars false"));
+    }
+
+    @Test
     void af3TurnsDramaOffAndPutsItBackAtStop() {
         world.dramaOff = false;
         start("af-3", 104040000);

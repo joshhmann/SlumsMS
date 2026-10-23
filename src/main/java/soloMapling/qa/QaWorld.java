@@ -153,6 +153,10 @@ public interface QaWorld {
     /** A fresh grudge of the bot against the GM, and a KS spree when they share a map; what happened. */
     String forceGrudge(int botId, Character gm);
 
+    /** af-2/af-3: no rival calls a KS war on the GM by itself while held (the run's own KS sprees are the test). */
+    default void holdKsWars(Character gm, boolean hold) {
+    }
+
     /**
      * Ticket 58 (cp-1, we-1): two new bots next to the GM that are a pair: {@code kind} dating | married | friends;
      * {@code sameGender} true / false / null (any). Their ids, or null.

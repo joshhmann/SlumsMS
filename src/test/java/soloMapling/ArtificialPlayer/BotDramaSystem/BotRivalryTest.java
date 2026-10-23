@@ -135,4 +135,33 @@ class BotRivalryTest {
         assertTrue(BotRivalry.promptLine(BOT, p).contains("apology"));
         assertEquals("", BotRivalry.promptLine(BOT + 1, p));
     }
+
+    // ── rc6 (QA t-af-2 / t-af-3) ──
+
+    @Test
+    void theKsWarChanceIsRolledOncePerPairEveryTenMinutesNotEverySighting() {
+        long now = clock.get();
+        assertTrue(BotRivalry.warRollDue(BOT, PLAYER, now), "the first sighting rolls");
+        for (int i = 1; i < 400; i++) { // ten minutes of sightings every 1.5 s
+            assertFalse(BotRivalry.warRollDue(BOT, PLAYER, now + i * 1_500L));
+        }
+        assertTrue(BotRivalry.warRollDue(BOT, PLAYER, now + TimeUnit.MINUTES.toMillis(10) + 1));
+        assertTrue(BotRivalry.warRollDue(BOT + 1, PLAYER, now), "another rival rolls on its own");
+    }
+
+    @Test
+    void aQaRunHoldsSpontaneousWarsOnItsGm() {
+        long now = clock.get();
+        assertTrue(BotRivalry.warAllowedToday(PLAYER, now));
+        BotRivalry.holdWars(PLAYER, true);
+        assertFalse(BotRivalry.warAllowedToday(PLAYER, now));
+        BotRivalry.holdWars(PLAYER, false);
+        assertTrue(BotRivalry.warAllowedToday(PLAYER, now));
+    }
+
+    @Test
+    void dramaOffWithNoWarIsHarmless() {
+        BotRivalry.onDramaOff(PLAYER);
+        assertTrue(BotRivalry.describe(PLAYER).contains("no KS war"));
+    }
 }

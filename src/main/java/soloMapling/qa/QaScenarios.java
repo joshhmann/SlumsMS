@@ -1144,6 +1144,23 @@ public final class QaScenarios {
             return new java.util.HashSet<>(List.of(gm.getMapId(), HENESYS_HUNTING_GROUND));
         }
 
+        /**
+         * A hostile test (af-2/af-3) is about the staged bot's own KS sprees: no rival calls a KS war on the GM by
+         * itself during the run (rc6, QA t-af-2: "two random bots just spawn and started going full ks mode" was a
+         * war rolled on sight; rv-2 is the KS war test).
+         */
+        void holdKsWars(QaContext ctx) {
+            QaWorld w = ctx.world();
+            w.holdKsWars(ctx.gm(), true);
+            ctx.log("no KS wars on you during this run (rv-2 tests those)");
+            ctx.onStop("KS wars allowed again", () -> {
+                Character now = ctx.gmNow();
+                if (now != null) {
+                    w.holdKsWars(now, false);
+                }
+            });
+        }
+
         /** Stages the bot; hostile bots need mobs, so a GM on a map without any is warped to the Hunting Ground. */
         int stageBot(QaContext ctx, String state, boolean training) {
             QaWorld w = ctx.world();
@@ -1221,6 +1238,7 @@ public final class QaScenarios {
 
         public List<String> stage(QaContext ctx) {
             String state = word(ctx.args(), "rival", "rival", "nemesis");
+            holdKsWars(ctx);
             stageBot(ctx, state, true);
             return List.of("A training bot held on this map now counts you as its " + state + ".",
                     "Fight mobs near it: it taunts you now and then and goes on KS sprees (KS lines, at most 3 mobs per spree).",
@@ -1257,6 +1275,7 @@ public final class QaScenarios {
                     w.setBotDramaOff(now, was);
                 }
             });
+            holdKsWars(ctx);
             stageBot(ctx, "nemesis", true);
             return List.of("@botdrama is OFF for you and a nemesis bot is next to you.",
                     "Expect: the read-out says neutral, no taunt / ks / defame ACT lines, and its trades are not refused.",
