@@ -79,7 +79,7 @@ public final class ChatBankGen {
         intent("buff_yes", "after you just buffed them, a short 'there you go'", "player");
         intent("buff_no", "saying you can't buff them right now (no such buff or on cooldown)", "");
         intent("buddy_yes", "saying you sent them a buddy request", "player");
-        intent("buddy_no", "saying maybe later to being buddies", "");
+        intent("buddy_no", "turning down a buddy request casually and briefly, like 'nah im good' or 'maybe another time'; no made-up excuses about logging off, levels or grinding, and no insults", "");
         intent("trade_no", "saying you are not trading anything right now", "");
         intent("train_unknown", "saying you do not really have a training spot right now", "");
         intent("makeup_yes", "accepting their apology after you had beef, a bit grudging", "player");
