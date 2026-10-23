@@ -1,0 +1,119 @@
+#!/bin/bash
+# Deploy this checkout to the TEST server (never live). Builds the jar, copies it plus every runtime data file that
+# changed since the last test deploy, applies pending migrations, restarts the test unit and checks the boot.
+#
+#   tools/ops/deploy-test [--skip-build] [--dry-run] [--since <commit>] [--no-migrations]
+#
+# What it touches, all on root@192.168.0.164:
+#   /opt/mapleroot-dev/persistence-test/Server/   target/Cosmic.jar, scripts/**, src/main/** (non-.java), cashshop/
+#   docker container mapleroot-integration-db, schema mapleroot_persist  (migrations from database/migrations, ledger
+#   table mapleroot_integration_migrations; only ids not already in the ledger, in name order)
+#   unit slums-persistence-test, restarted through /opt/mapleroot-dev/persistence-test/start-test.sh
+# Backups go to /opt/mapleroot-dev/persistence-test/deploys/<UTC stamp>/ (old jar, replaced files, DB dump when a
+# migration runs). The deployed commit is written to Server/DEPLOYED_COMMIT, which the next run diffs against.
+#
+# Rules: this script refuses to run against the live paths, never reads or prints keys, and stops if the boot shows
+# ERROR/Exception lines. A running auto-QA or a GM testing on the server is interrupted by the restart: ask first.
+set -euo pipefail
+
+HOST=root@192.168.0.164
+BASE=/opt/mapleroot-dev/persistence-test
+SRV=$BASE/Server
+UNIT=slums-persistence-test
+DBC=mapleroot-integration-db
+DBN=mapleroot_persist
+
+SKIP_BUILD=0; DRY=0; SINCE=""; MIGRATE=1
+while [ $# -gt 0 ]; do
+  case "$1" in
+    --skip-build) SKIP_BUILD=1 ;;
+    --dry-run) DRY=1 ;;
+    --since) SINCE="$2"; shift ;;
+    --no-migrations) MIGRATE=0 ;;
+    -h|--help) sed -n '2,20p' "$0"; exit 0 ;;
+    *) echo "unknown option $1" >&2; exit 2 ;;
+  esac
+  shift
+done
+
+cd "$(git rev-parse --show-toplevel)"
+case "$SRV" in *"/opt/mapleroot/"*|*"Full Repack"*) echo "refusing: that is the live server" >&2; exit 1 ;; esac
+HEAD=$(git rev-parse --short=9 HEAD)
+VERSION=$(sed -n 's/.*SLUMSMS_VERSION = "\(.*\)".*/\1/p' src/main/java/constants/net/ServerConstants.java)
+echo "== deploy-test: $VERSION at $HEAD =="
+
+if [ -z "$SINCE" ]; then
+  SINCE=$(ssh $HOST "cat $SRV/DEPLOYED_COMMIT 2>/dev/null || true")
+  [ -n "$SINCE" ] || { echo "no $SRV/DEPLOYED_COMMIT on the server: pass --since <commit the server runs>" >&2; exit 1; }
+fi
+git cat-file -e "$SINCE^{commit}" 2>/dev/null || { echo "commit $SINCE not in this checkout (git fetch?)" >&2; exit 1; }
+echo "server runs $SINCE; changes since then:"
+
+# runtime data the server reads from disk (the jar carries the .java)
+mapfile -t DATA < <(git diff --name-only --diff-filter=AM "$SINCE" HEAD -- scripts src/main cashshop \
+  | grep -v '\.java$' || true)
+mapfile -t GONE < <(git diff --name-only --diff-filter=D "$SINCE" HEAD -- scripts src/main cashshop \
+  | grep -v '\.java$' || true)
+mapfile -t MIGS < <(git diff --name-only --diff-filter=A "$SINCE" HEAD -- database/migrations \
+  | grep -v '\.rollback\.sql$' | grep '\.sql$' | sort || true)
+printf '  data: %s\n' "${#DATA[@]} changed, ${#GONE[@]} deleted"; for f in "${DATA[@]}" "${GONE[@]}"; do echo "    $f"; done
+printf '  migrations: %s\n' "${#MIGS[@]}"; for f in "${MIGS[@]}"; do echo "    $f"; done
+[ $DRY = 1 ] && { echo "dry run: nothing changed"; exit 0; }
+
+if [ $SKIP_BUILD = 0 ]; then
+  [ -f config.yaml ] || cp config.example.yaml config.yaml
+  echo "building (tests skipped here: run mvn -q -o test before deploying)"
+  mvn -q -o -DskipTests package
+fi
+JAR=target/Cosmic.jar
+SHA=$(sha256sum $JAR | cut -c1-16)
+STAMP=$(date -u +%Y%m%dT%H%M%SZ)
+D=$BASE/deploys/$STAMP
+echo "jar $SHA -> $D"
+
+ssh $HOST "mkdir -p $D/files"
+scp -q $JAR $HOST:$D/Cosmic.jar
+if [ ${#DATA[@]} -gt 0 ]; then tar czf /tmp/deploy-test-$$.tgz "${DATA[@]}"; scp -q /tmp/deploy-test-$$.tgz $HOST:$D/data.tgz; rm -f /tmp/deploy-test-$$.tgz; fi
+for m in "${MIGS[@]}"; do scp -q "$m" $HOST:$D/files/; done
+printf '%s\n' "${GONE[@]}" | ssh $HOST "cat > $D/deleted.txt"
+echo "$HEAD $VERSION $SHA" | ssh $HOST "cat > $D/DEPLOY.txt"
+
+ssh $HOST bash -s -- "$D" "$HEAD" "$MIGRATE" <<'REMOTE'
+set -euo pipefail
+D=$1; HEAD=$2; MIGRATE=$3
+BASE=/opt/mapleroot-dev/persistence-test; SRV=$BASE/Server; UNIT=slums-persistence-test
+DBC=mapleroot-integration-db; DBN=mapleroot_persist
+db() { docker exec -i $DBC sh -c 'mysql -uroot -p"$MYSQL_ROOT_PASSWORD" -N -B '"$DBN" 2>/dev/null; }
+
+systemctl stop $UNIT || true
+for i in $(seq 1 60); do systemctl is-active -q $UNIT || break; sleep 5; done
+systemctl reset-failed $UNIT 2>/dev/null || true
+
+cp -p $SRV/target/Cosmic.jar $D/Cosmic.jar.before
+if [ -f $D/data.tgz ]; then
+  (cd $SRV && tar tzf $D/data.tgz | xargs -r tar czf $D/data.before.tgz --ignore-failed-read 2>/dev/null || true)
+  tar xzf $D/data.tgz -C $SRV
+fi
+while read -r f; do [ -n "$f" ] && [ -e "$SRV/$f" ] && { mkdir -p "$D/gone/$(dirname "$f")"; mv "$SRV/$f" "$D/gone/$f"; }; done < $D/deleted.txt
+
+if [ "$MIGRATE" = 1 ] && ls $D/files/*.sql >/dev/null 2>&1; then
+  docker exec $DBC sh -c 'mysqldump -uroot -p"$MYSQL_ROOT_PASSWORD" --single-transaction '"$DBN" 2>/dev/null | gzip > $D/db-before.sql.gz
+  for m in $(ls $D/files/*.sql | sort); do
+    id=$(basename "$m" .sql)
+    have=$(echo "SELECT COUNT(*) FROM mapleroot_integration_migrations WHERE migration_id='$id';" | db || echo 0)
+    if [ "$have" = 1 ]; then echo "migration $id already applied"; else echo "applying $id"; db < "$m"; fi
+  done
+fi
+
+cp $D/Cosmic.jar $SRV/target/Cosmic.jar
+echo "$HEAD" > $SRV/DEPLOYED_COMMIT
+S=$(date -u +%H:%M:%S)
+bash $BASE/start-test.sh >/dev/null 2>&1
+for i in $(seq 1 90); do journalctl -u $UNIT --since "$S" | grep -q "Auto-QA on\|is now online" && break; sleep 5; done
+journalctl -u $UNIT --since "$S" | grep -E "SlumsMS v|is now online|Population director started|Auto-QA on" | sed -E 's/^.{0,60}//' | cut -c1-140
+E=$(journalctl -u $UNIT --since "$S" | grep -cE "ERROR|Exception" || true)
+echo "boot ERROR/Exception lines: $E"
+systemctl is-active $UNIT
+[ "$E" = 0 ] || { echo "BOOT HAS ERRORS: read journalctl -u $UNIT; roll back with the files in $D" >&2; exit 1; }
+REMOTE
+echo "done: test server runs $VERSION ($HEAD), backups in $D"

@@ -1,0 +1,30 @@
+#!/bin/bash
+# One-screen status of the TEST server: version, uptime, errors, bots, auto-QA and health. Read-only.
+#
+#   tools/ops/test-status [--since "30 min ago"]
+set -euo pipefail
+SINCE="1 hour ago"
+[ "${1:-}" = "--since" ] && SINCE="${2:?--since needs a value}"
+# ssh joins its arguments into one string, so quote the value for the remote shell
+ssh root@192.168.0.164 "bash -s -- $(printf %q "$SINCE")" <<'REMOTE'
+SINCE=$1; U=slums-persistence-test; S=/opt/mapleroot-dev/persistence-test/Server
+echo "unit: $(systemctl is-active $U) since $(systemctl show $U -p ActiveEnterTimestamp --value)"
+echo "commit: $(cat $S/DEPLOYED_COMMIT 2>/dev/null || echo unknown)"
+journalctl -u $U --since "$(systemctl show $U -p ActiveEnterTimestamp --value)" | grep -m1 -oE "SlumsMS v[^ ]+"
+echo "ERROR/Exception lines since $SINCE: $(journalctl -u $U --since "$SINCE" | grep -cE 'ERROR|Exception')"
+journalctl -u $U --since "$SINCE" | grep -E "ERROR|Exception" | sed -E 's/^.{0,45}//; s/[0-9]{9,}/N/g' | cut -c1-120 | sort | uniq -c | sort -rn | head -5
+python3 - "$S" <<'PY'
+import json, sys, os
+s = sys.argv[1]
+def load(p):
+    try: return json.load(open(os.path.join(s, p)))
+    except Exception: return None
+h = load('data/autoqa/health-latest.json')
+if h: print('health:', h.get('status'), {k: v.get('status') for k, v in h.get('checks', {}).items()})
+r = load('data/autoqa/latest.json')
+if r:
+    print('auto-QA latest:', r.get('summary'))
+    for k, v in (r.get('checks') or {}).items():
+        if v.get('status') == 'FAIL': print('  FAIL', k, (v.get('reason') or '')[:110])
+PY
+REMOTE
