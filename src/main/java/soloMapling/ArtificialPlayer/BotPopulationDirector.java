@@ -416,6 +416,22 @@ public final class BotPopulationDirector {
         int charId;
         try {
             MapleMap home = homeMap(member, channel);
+            // 1.5.0 (3k bots): the per-map bot cap - a full home map sends the bot to the same map on another
+            // channel, else to the map's return town, else the login waits for a later tick.
+            if (home != null && !BotMapCap.hasRoom(home)) {
+                MapleMap placed = placeUnderCap(home, channel);
+                if (placed == null) {
+                    BotMapCap.noteTurnedAway();
+                    log.debug("Roster bot {} login deferred: map {} full on every channel", botId, home.getId());
+                    return false;
+                }
+                BotMapCap.noteTurnedAway();
+                if (placed.getChannelId() != channel) {
+                    BotChannels.transfer(channel, placed.getChannelId());
+                    channel = placed.getChannelId();
+                }
+                home = placed;
+            }
             if (home == null || home.getPortal(0) == null) {
                 log.warn("Roster bot {} has no map to log in to", botId);
                 return false;
@@ -449,6 +465,35 @@ public final class BotPopulationDirector {
         }
         BotLogout.request(charId, System.currentTimeMillis());
         return true;
+    }
+
+    /**
+     * Where a login goes when its home map is full on the reserved channel (the per-map bot cap): the same map on the
+     * channel with room holding the fewest bots on it, else the map's return town on the reserved channel, else that
+     * town on another channel. Null when all of those are full.
+     */
+    static MapleMap placeUnderCap(MapleMap home, int channel) {
+        MapleMap other = leastLoaded(home.getId(), channel);
+        if (other != null) {
+            return other;
+        }
+        int town = home.getReturnMapId();
+        if (town <= 0 || town == constants.id.MapId.NONE || town == home.getId()) {
+            return null;
+        }
+        return leastLoaded(town, channel);
+    }
+
+    /** This map on {@code preferred} if it has room, else on the channel with room and the fewest bots on it. */
+    private static MapleMap leastLoaded(int mapId, int preferred) {
+        List<net.server.channel.Channel> chs = BotChannels.channels();
+        int[] counts = new int[chs.size()];
+        for (int i = 0; i < chs.size(); i++) {
+            net.server.channel.Channel c = chs.get(i);
+            counts[i] = c.getMapFactory().isMapLoaded(mapId) ? c.getMapFactory().getMap(mapId).getBotCount() : 0;
+        }
+        int pick = BotMapCap.pickChannel(preferred, counts, BotMapCap.cap(mapId));
+        return pick < 0 ? null : BotChannels.map(pick, mapId);
     }
 
     private static MapleMap homeMap(BotRoster.Member member, int channel) {

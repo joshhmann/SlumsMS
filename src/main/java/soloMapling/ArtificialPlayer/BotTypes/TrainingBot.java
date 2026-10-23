@@ -976,7 +976,8 @@ public class TrainingBot extends BotSM {
         }
         // Ticket 21: answering a world event - train on the event map instead of our own pick.
         int eventMap = soloMapling.worldevents.WorldEventSteer.decide(chr.getId());
-        if (eventMap > 0 && BotMapGates.mayEnter(eventMap, BotMapGates.rebirthsOf(chr))) {
+        if (eventMap > 0 && BotMapGates.mayEnter(eventMap, BotMapGates.rebirthsOf(chr))
+                && soloMapling.ArtificialPlayer.BotMapCap.admit(chr, eventMap)) { // 1.5.0: full -> a normal pick
             debugChat("DECIDE: world event -> map " + eventMap);
             setTrainTarget(eventMap, Math.max(1, MapMobIndex.level(eventMap)));
             firstTrip = false;
@@ -986,7 +987,8 @@ public class TrainingBot extends BotSM {
         // 1.5.0 rc3: back from a death in town - walk back to the map it died on, as a player does
         int back = walkBackMapId;
         walkBackMapId = -1;
-        if (back > 0 && MapMobIndex.level(back) >= 0 && BotMapGates.mayEnter(back, BotMapGates.rebirthsOf(chr))) {
+        if (back > 0 && MapMobIndex.level(back) >= 0 && BotMapGates.mayEnter(back, BotMapGates.rebirthsOf(chr))
+                && soloMapling.ArtificialPlayer.BotMapCap.admit(chr, back)) { // 1.5.0: full -> a normal pick
             debugChat("DECIDE: walking back to map " + back + " after a death");
             if (soloMapling.qa.QaLog.on(soloMapling.qa.QaLog.Topic.HABITS)) {
                 soloMapling.qa.QaLog.any(soloMapling.qa.QaLog.Topic.HABITS, "WALK BACK " + chr.getName()

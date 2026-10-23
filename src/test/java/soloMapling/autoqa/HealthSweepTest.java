@@ -139,4 +139,36 @@ class HealthSweepTest {
         assertEquals(2, lines.size());
         assertTrue(Json.isValid(lines.get(1)));
     }
+
+    @Test
+    void aMapOverItsBotCapWarnsAndListsTheWorstFirst() {
+        HealthSweep s = new HealthSweep(HealthSweep.Limits.defaults());
+        List<HealthSweep.BotSample> bots = List.of(bot(1, 1, 0, 274, GROUNDED, false));
+        var loads = List.of(
+                new soloMapling.ArtificialPlayer.BotMapCap.Load(1, HENESYS, 54, 50),
+                new soloMapling.ArtificialPlayer.BotMapCap.Load(2, 910000001, 50, 50),   // full, not over
+                new soloMapling.ArtificialPlayer.BotMapCap.Load(1, 600020300, 61, 50),
+                new soloMapling.ArtificialPlayer.BotMapCap.Load(3, 104040000, 80, 0));   // no cap there
+        Map<String, Object> r = s.run(new HealthSweep.Snapshot(0, bots, 1, 1, new int[]{1, 0, 0, 0, 0},
+                BotChannels.shares("100,85,50,30,20", 5), 0, "test.log", loads), m -> GROUND);
+        Map<String, Object> cap = check(r, "mapCap");
+        assertEquals("WARN", cap.get("status"));
+        assertEquals("2 map instance(s) over the cap, worst map 600020300 ch1 61/50", cap.get("summary"));
+        assertEquals(2, ((List<?>) cap.get("over")).size());
+        assertEquals(3, cap.get("full"));
+        assertEquals(80, cap.get("busiest"));
+        assertTrue(String.valueOf(r.get("summary")).contains("mapCap WARN"));
+        assertTrue(Json.isValid(Json.write(r)));
+    }
+
+    @Test
+    void noMapOverItsCapIsOk() {
+        HealthSweep s = new HealthSweep(HealthSweep.Limits.defaults());
+        List<HealthSweep.BotSample> bots = List.of(bot(1, 1, 0, 274, GROUNDED, false));
+        Map<String, Object> r = s.run(new HealthSweep.Snapshot(0, bots, 1, 1, new int[]{1, 0, 0, 0, 0},
+                BotChannels.shares("100,85,50,30,20", 5), 0, "test.log",
+                List.of(new soloMapling.ArtificialPlayer.BotMapCap.Load(1, HENESYS, 45, 50))), m -> GROUND);
+        assertEquals("OK", check(r, "mapCap").get("status"));
+        assertEquals("1 map instance(s) with bots, none over its cap (busiest 45)", check(r, "mapCap").get("summary"));
+    }
 }

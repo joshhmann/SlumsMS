@@ -102,6 +102,13 @@ public class ServerConfig {
     //owner 2026-10-21: 5 channels, weights 100/85/50/30/20. Live config.yaml for 1.5.0: channels 5, CHANNEL_LOAD 125
     //(owner 2026-10-22), so the peak bars sit at about 85/70/40/25/15 %.
     public String BOT_CHANNEL_WEIGHTS = "100,55,35,20,15"; //owner 2026-10-22 (rc5): channel 1 clearly the busiest, ~45%
+    //1.5.0 (3k bots, owner 2026-10-23): the most bots the director, grind, town, FM and travel picks put on one map
+    //instance (one map on one channel). A full map makes a bot pick another map or another channel's instance;
+    //bots already there are never moved. Staff set pieces (merchants, dealers, casino, the boot town dressing) and
+    //bots following a player or a story scene are exempt but counted. 0 = no cap. See soloMapling.ArtificialPlayer.BotMapCap.
+    public int BOT_MAP_CAP = 50;
+    //Per-map caps over BOT_MAP_CAP, "mapId:cap,mapId:cap" (e.g. "910000000:60,100000000:70"); 0 = no cap there.
+    public String BOT_MAP_CAP_OVERRIDES = "";
     //Auto-QA (docs/ops/qa-suite.md "Auto-QA"; test server only): health sweeps every AUTOQA_SWEEP_MINUTES and the
     //synthetic-player check runner. Off unless this is true or the JVM has -Dslums.autoqa=true. Results go to data/autoqa/.
     public boolean AUTOQA_ENABLED = false;

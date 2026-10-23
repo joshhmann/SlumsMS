@@ -75,6 +75,9 @@ public class MapleMap {
     private final AtomicInteger spawnedMonstersOnMap = new AtomicInteger(0);
     private final AtomicInteger droppedItemCount = new AtomicInteger(0);
     private final Collection<Character> characters = new LinkedHashSet<>();
+    // 1.5.0 (3k bots): bots in this instance, kept with characters under chrWLock, so the per-map bot cap
+    // (soloMapling.ArtificialPlayer.BotMapCap) reads a count instead of scanning the player list.
+    private final AtomicInteger botCount = new AtomicInteger();
     // 1.4.2 (perf): one stamp per character per entry into this map (MapEntryPlacement's deferred spawns check it)
     private static final java.util.concurrent.atomic.AtomicLong ENTRY_SEQ = new java.util.concurrent.atomic.AtomicLong();
     private final Map<Integer, Long> entryStamps = new java.util.concurrent.ConcurrentHashMap<>();
@@ -250,6 +253,11 @@ public class MapleMap {
 
     public int getId() {
         return mapid;
+    }
+
+    /** Bots in this map instance right now (1.5.0: the per-map bot cap, BotMapCap). */
+    public int getBotCount() {
+        return Math.max(0, botCount.get());
     }
 
     /** The channel this map instance belongs to (1.5.0 rc3: bot spot claims are kept per instance). */
@@ -2717,10 +2725,14 @@ public class MapleMap {
     public void addPlayer(final Character chr) {
         environment.clear();
         int chrSize;
+        boolean bot = false;
         Party party = chr.getParty();
         chrWLock.lock();
         try {
-            characters.add(chr);
+            if (characters.add(chr) && soloMapling.ArtificialPlayer.BotHelpers.isBot(chr)) {
+                botCount.incrementAndGet();
+                bot = true;
+            }
             entryStamps.put(chr.getId(), ENTRY_SEQ.incrementAndGet());
             chrSize = characters.size();
 
@@ -2730,6 +2742,9 @@ public class MapleMap {
             itemMonitorTimeout = 1;
         } finally {
             chrWLock.unlock();
+        }
+        if (bot) {
+            soloMapling.ArtificialPlayer.BotMapCap.onBotCountChanged(this);
         }
 
         chr.setMapId(mapid);
@@ -3074,6 +3089,7 @@ public class MapleMap {
     public void removePlayer(Character chr) {
         Channel cserv = chr.getClient().getChannelServer();
         chr.unregisterChairBuff();
+        boolean bot = false;
 
         Party party = chr.getParty();
         chrWLock.lock();
@@ -3082,10 +3098,16 @@ public class MapleMap {
                 removePartyMemberInternal(chr, party.getId());
             }
 
-            characters.remove(chr);
+            if (characters.remove(chr) && soloMapling.ArtificialPlayer.BotHelpers.isBot(chr)) {
+                botCount.decrementAndGet();
+                bot = true;
+            }
             entryStamps.remove(chr.getId());
         } finally {
             chrWLock.unlock();
+        }
+        if (bot) {
+            soloMapling.ArtificialPlayer.BotMapCap.onBotCountChanged(this);
         }
 
         if (MiniDungeonInfo.isDungeonMap(mapid)) {

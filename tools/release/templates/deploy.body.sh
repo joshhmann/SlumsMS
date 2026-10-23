@@ -124,6 +124,8 @@ grep -q '^server:' "$C" || die "no server: line in config.yaml"
 if [ -n "$CHANNELS$CHANNEL_LOAD" ]; then
   "$ST/set-release-config" "$C" --channels "$CHANNELS" --channel-load "$CHANNEL_LOAD" --dry-run
 fi
+SET_ARGS=(); for kv in "${SERVER_SET[@]}"; do SET_ARGS+=(--set "$kv"); done
+[ "${#SET_ARGS[@]}" = 0 ] || "$ST/set-release-config" "$C" "${SET_ARGS[@]}" --dry-run
 if [ -n "$CONFIG_HEAD" ]; then
   h=$(head_hash "$C"); [ "$h" = "$CONFIG_HEAD_BEFORE" ] \
     || die "config.yaml block above server: changed ($h, expected $CONFIG_HEAD_BEFORE); re-make $CONFIG_HEAD"
@@ -167,6 +169,7 @@ if [ "$DRY_RUN" = 1 ]; then
   echo "  stage Cosmic.jar ($JAR_SHA16), scripts.tar ($(wc -l < "$ST/scripts.list") files), srcdata.tar ($(wc -l < "$ST/srcdata.list") files)"
   [ -n "$CONFIG_HEAD" ] && echo "  replace config.yaml above server: with $CONFIG_HEAD"
   [ -n "$CONFIG_APPEND" ] && echo "  append to config.yaml: $(grep -oE '^[[:space:]]+[A-Z][A-Z0-9_]*:' "$ST/$CONFIG_APPEND" | tr -d ' :\t' | paste -sd' ')"
+  [ "${#SERVER_SET[@]}" -gt 0 ] && echo "  config.yaml server: values (set-release-config --set): ${SERVER_SET[*]}"
   for e in "${UNIT_EDITS[@]}"; do echo "  unit: sed '$e'"; done
   [ -n "$NAV_CACHE_SRC" ] && echo "  nav cache from $NAV_CACHE_SRC"
   [ -n "$CASHSHOP_CATALOG" ] && echo "  cashshop/catalog.tsv from staging ($(sha256sum "$ST/$CASHSHOP_CATALOG" | cut -c1-16); now $( [ -f "$SRV/cashshop/catalog.tsv" ] && sha256sum "$SRV/cashshop/catalog.tsv" | cut -c1-16 || echo none))"
@@ -240,6 +243,10 @@ fi
 [ -z "$MIN_CLIENT_BUILD" ] || "$ST/set-min-client-build" "$C" "$MIN_CLIENT_BUILD" || down "client gate edit failed"
 if [ -n "$CHANNELS$CHANNEL_LOAD" ]; then
   "$ST/set-release-config" "$C" --channels "$CHANNELS" --channel-load "$CHANNEL_LOAD" || down "channel config edit failed"
+fi
+if [ "${#SERVER_SET[@]}" -gt 0 ]; then
+  SET_ARGS=(); for kv in "${SERVER_SET[@]}"; do SET_ARGS+=(--set "$kv"); done
+  "$ST/set-release-config" "$C" "${SET_ARGS[@]}" || down "server config edit failed"
 fi
 if [ -n "$NAV_CACHE_SRC" ]; then mkdir -p "$SRV/cache/bot-nav"; cp -a "$NAV_CACHE_SRC" "$SRV/cache/bot-nav/"; fi
 if [ -n "$CASHSHOP_CATALOG" ]; then
