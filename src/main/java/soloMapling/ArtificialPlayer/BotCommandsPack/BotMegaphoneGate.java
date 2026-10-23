@@ -6,13 +6,13 @@ import java.util.function.LongSupplier;
 
 /**
  * One server-wide budget for the megaphones bots use on their own (the ambient megaphone ticker, scrolling bots'
- * sale ads): at most one every {@code -Dsolomapling.botMegaphoneGapSeconds} (default 120). With hundreds of bots
+ * sale ads): at most one every {@code -Dsolomapling.botMegaphoneGapSeconds} (default 45). With hundreds of bots
  * online the pink lines otherwise flood every player's chat. A bot that loses the race just skips its megaphone.
  * GM commands that make a bot shout do not go through the gate.
  */
 public final class BotMegaphoneGate {
 
-    static final long DEFAULT_GAP_SECONDS = 120;
+    static final long DEFAULT_GAP_SECONDS = 45; // owner 2026-10-23: more megaphones are fine (was 120)
 
     private static final AtomicLong lastAt = new AtomicLong(Long.MIN_VALUE / 2);
     private static volatile LongSupplier clock = System::currentTimeMillis;

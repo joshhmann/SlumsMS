@@ -23,7 +23,7 @@ class BotMegaphoneGateTest {
         BotMegaphoneGate.useClockForTest(now::get);
         assertTrue(BotMegaphoneGate.tryAcquire());
         assertFalse(BotMegaphoneGate.tryAcquire());
-        now.addAndGet(119_000);
+        now.addAndGet(44_000);
         assertFalse(BotMegaphoneGate.tryAcquire());
         now.addAndGet(1_000);
         assertTrue(BotMegaphoneGate.tryAcquire());
