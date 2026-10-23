@@ -178,6 +178,7 @@ final class GameAutoQaWorld implements AutoQaWorld {
                 case "nearbyBot" -> nearbyBot(me);
                 case "buddy" -> buddy(me, a[0], a[1]);
                 case "engaged" -> engaged(actor(Integer.parseInt(a[0])));
+                case "notEngaged" -> notEngaged();
                 default -> List.of("FAIL no probe '" + what + "'");
             };
         } catch (RuntimeException e) {
@@ -281,26 +282,49 @@ final class GameAutoQaWorld implements AutoQaWorld {
         for (int i = 0; i < per.length; i++) {
             sb.append(" ch").append(i + 1).append('=').append(per[i]);
         }
+        String bad = channelVerdict(per, BotChannels.currentShares());
+        out.add(bad == null ? "PASS" + sb : "FAIL " + bad);
+        out.add("bots per channel:" + sb);
+        out.add(BotChannels.describe());
+        return out;
+    }
+
+    /**
+     * t-ch-1: five channels, ch1 the busiest, ch5 the quietest, and each near its configured share. rc6 auto-QA
+     * triage: the probe still wanted ch5 empty (the old split); the owner later gave ch5 a share (weights
+     * 100,55,35,20,15), and the server matched it exactly. Null when fine, else what is wrong.
+     */
+    static String channelVerdict(int[] per, double[] shares) {
         List<String> bad = new ArrayList<>();
         if (per.length != 5) {
             bad.add(per.length + " channels, want 5");
         }
-        for (int i = 0; i < Math.min(4, per.length); i++) {
-            if (per[i] == 0) {
+        int total = 0;
+        for (int n : per) {
+            total += n;
+        }
+        for (int i = 0; i < per.length; i++) {
+            if (i < 4 && per[i] == 0) {
                 bad.add("ch" + (i + 1) + " has no bots");
             }
             if (per[i] > per[0]) {
                 bad.add("ch" + (i + 1) + " busier than ch1");
             }
+            if (i < 4 && per.length >= 5 && per[4] > per[i]) {
+                bad.add("ch5 (" + per[4] + ") busier than ch" + (i + 1) + " (" + per[i] + ")");
+            }
+            if (i < shares.length) {
+                long want = Math.round(shares[i] * total);
+                long slack = Math.max(10, Math.round(want * 0.25));
+                if (Math.abs(per[i] - want) > slack) {
+                    bad.add("ch" + (i + 1) + " has " + per[i] + ", want about " + want);
+                }
+            }
         }
-        if (per.length >= 5 && per[4] > 0) {
-            bad.add("ch5 has " + per[4] + " bots, want 0");
-        }
-        out.add(bad.isEmpty() ? "PASS" + sb : "FAIL " + String.join(", ", bad));
-        out.add("bots per channel:" + sb);
-        out.add(BotChannels.describe());
-        return out;
+        return bad.isEmpty() ? null : String.join(", ", bad);
     }
+
+    static final int MAX_EMPTY_BOT_GUILDS = 2;
 
     /** t-bg-1: the ten bot guilds exist with members online and two rival pairs. */
     private static List<String> botGuilds() {
@@ -331,10 +355,14 @@ final class GameAutoQaWorld implements AutoQaWorld {
         if (rivals < 4) {
             bad.add(rivals / 2 + " rival pair(s), want 2");
         }
-        if (emptyOnline > 0) {
-            bad.add(emptyOnline + " guild(s) with nobody online");
+        // rc6 triage: bot guilds run ~10% online, so a 20-member guild has nobody on now and then; a couple empty is
+        // normal, most empty means the guild bots are not logging in
+        if (emptyOnline > MAX_EMPTY_BOT_GUILDS) {
+            bad.add(emptyOnline + " guild(s) with nobody online (at most " + MAX_EMPTY_BOT_GUILDS + ")");
         }
-        out.add(bad.isEmpty() ? "PASS 10 bot guilds, " + rivals / 2 + " rival pairs" : "FAIL " + String.join("; ", bad));
+        out.add(bad.isEmpty() ? "PASS 10 bot guilds, " + rivals / 2 + " rival pairs"
+                + (emptyOnline > 0 ? ", " + emptyOnline + " with nobody online right now" : "")
+                : "FAIL " + String.join("; ", bad));
         out.addAll(lines);
         return out;
     }
@@ -518,6 +546,34 @@ final class GameAutoQaWorld implements AutoQaWorld {
     }
 
     /** t-mr-1: player 1 and the given player are engaged to each other. */
+    /**
+     * rc6 triage: t-mr-1 leaves the pretend players engaged to each other, and every later romance check's proposal
+     * was refused ("already engaged"). Breaks any engagement or marriage of an online pretend player the way the
+     * client's inventory "break" does (RING_ACTION mode 3 on its token or ring).
+     */
+    private List<String> notEngaged() {
+        List<String> out = new ArrayList<>();
+        boolean ok = true;
+        for (int slot = 1; slot <= SyntheticPlayers.NAMES.length; slot++) {
+            SyntheticPlayer p = SyntheticPlayers.get(slot);
+            Character c = p == null ? null : p.character();
+            if (c == null || c.getPartnerId() <= 0) {
+                continue;
+            }
+            int partner = c.getPartnerId();
+            net.packet.ByteBufOutPacket body = new net.packet.ByteBufOutPacket();
+            body.writeByte(3);
+            body.writeInt(c.getMarriageItemId());
+            p.send(net.opcodes.RecvOpcode.RING_ACTION, body);
+            boolean freed = c.getPartnerId() <= 0;
+            ok &= freed;
+            out.add((freed ? "broke " : "could not break ") + c.getName() + "'s engagement to " + partner
+                    + " (token " + c.getMarriageItemId() + ")");
+        }
+        out.add(0, ok ? (out.isEmpty() ? "PASS nobody engaged" : "PASS nobody engaged now") : "FAIL still engaged");
+        return out;
+    }
+
     private List<String> engaged(Actor other) {
         Character a = ((SyntheticPlayer) actor(1)).character();
         Character b = ((SyntheticPlayer) other).character();

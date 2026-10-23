@@ -1,7 +1,9 @@
 package soloMapling.autoqa;
 
 import java.util.ArrayList;
+import java.util.HashMap;
 import java.util.List;
+import java.util.Map;
 
 import static soloMapling.autoqa.Expects.anyOf;
 import static soloMapling.autoqa.Expects.atLeast;
@@ -125,7 +127,8 @@ public final class AutoQaCatalog {
                         noEmoji())
                 .build());
         c.add(Check.auto("t-rv-4", "A rival follows you once for an apology").minutes(8)
-                .step(run("rv-4"), mark("w1"), say("!warp " + HHG2), waitFor("RIVALRY REVENGE \\S+ followed", 20), say("sorry"),
+                // rc6 triage: start off HHG2's neighbour, else a check that ended on HHG1 makes the first warp a no-op
+                .step(say("!warp " + HHG1), waitSeconds(3), run("rv-4"), mark("w1"), say("!warp " + HHG2), waitFor("RIVALRY REVENGE \\S+ followed", 20), say("sorry"),
                         waitFor("RIVALRY REVENGE apology", 20),
                         qaDo("revenge"), mark("w2"), say("!warp " + HHG1), waitFor("RIVALRY REVENGE \\S+ followed {me} to " + HHG1, 20),
                         say("lol cry more"), waitFor("RIVALRY REVENGE mocked", 20),
@@ -205,7 +208,11 @@ public final class AutoQaCatalog {
         c.add(Check.auto("t-gu-2", "Friend bots join your guild").minutes(4)
                 .step(fixture("inPlayerGuild"), run("gu-2"), guildInvite("{bot}"), guildInvite("{bot2}"),
                         guildInvite("{bot3}"), waitSeconds(8), qaDo("join"), waitSeconds(10))
-                .expect(atLeast(2, "BOT_GUILD INVITE {me} -> \\S+: friend.*JOINED"), has("BOT_GUILD GUILD SAY "))
+                // rc6 triage: one player in the fixture guild, so the second friend meets the soft half-bots limit
+                // (bots 1/2, about 32%) and usually declines - that is the rule this check shows, not a failure
+                .expect(atLeast(1, "BOT_GUILD INVITE {me} -> \\S+: friend.*JOINED"),
+                        has("BOT_GUILD INVITE {me} -> \\S+: friend, bots 1/2, chance \\d+%"),
+                        has("BOT_GUILD GUILD SAY "))
                 .build());
         c.add(Check.auto("t-gu-6", "A bot leaves your guild for a reason").minutes(5)
                 .step(fixture("inPlayerGuild"), run("gu-6"), qaDo("rival"), waitFor("BOT_GUILD LEAVE ", 30), stop(),
@@ -242,11 +249,12 @@ public final class AutoQaCatalog {
                         noEmoji())
                 .build());
         c.add(Check.auto("t-pb-1", "Party invites follow feelings").minutes(4)
-                .step(run("gu-7"), partyInvite("{bot}"), waitSeconds(6), partyInvite("{bot2}"), waitSeconds(6),
+                // rc6 triage: earlier checks leave the player in El Nath; the friend must walk to HHG2 in the wait
+                .step(say("!warp " + HHG1), waitSeconds(3), run("gu-7"), partyInvite("{bot}"), waitSeconds(6), partyInvite("{bot2}"), waitSeconds(6),
                         partyInvite("{bot3}"), waitSeconds(8),
                         Steps.capture("friend", "BOT_GUILD PARTY INVITE {me} -> (\\S+): friend"),
                         Steps.capture("rival", "BOT_GUILD PARTY INVITE {me} -> (\\S+): rival"),
-                        say("!warp " + HHG2), waitSeconds(20))
+                        say("!warp " + HHG2), waitSeconds(40))
                 .expect(has("BOT_GUILD PARTY INVITE {me} -> \\S+: friend, chance 100%"),
                         has("BOT_GUILD PARTY INVITE {me} -> \\S+: rival, chance 0%"),
                         probe("partyHas", "{friend}"), probe("partyLacks", "{rival}"), probe("onMyMap", "{friend}"))
@@ -275,7 +283,7 @@ public final class AutoQaCatalog {
                         SceneFocus.weddingFocus())
                 .build());
         c.add(Check.auto("t-mr-1", "Two players of the same gender get engaged").players(2).notNightly().minutes(3)
-                .step(fixture("giveItem", "1", "2240000", "1"), Steps.of("player 2 comes over", r -> {
+                .step(fixture("notEngaged"), fixture("giveItem", "1", "2240000", "1"), Steps.of("player 2 comes over", r -> {
                             r.actor(2);
                             r.world().probe("warpPlayer", r.actor(1), "2", String.valueOf(r.actor(1).mapId()));
                             r.world().sleep(2000);
@@ -294,10 +302,12 @@ public final class AutoQaCatalog {
                             r.world().sleep(2000);
                             return Check.StepResult.OK;
                         }))
+                // rc6 triage: mr-1 leaves both players engaged (its probe reads that after the steps), so rm-1, rm-2
+                // and rm-4 start with fixture notEngaged - else "already engaged" refused every proposal
                 .expect(probe("engaged", "2"), Expects.has("SPOUSE_CHAT {me}: hi love"))
                 .build());
         c.add(Check.auto("t-rm-1", "A bot flirts, asks you out and dates you").minutes(7)
-                .step(say("@romance on"), run("rm-1"), qaDo("ask"), waitFor("ROMANCE ASK OUT", 40), say("yes"),
+                .step(fixture("notEngaged"), say("@romance on"), run("rm-1"), qaDo("ask"), waitFor("ROMANCE ASK OUT", 40), say("yes"),
                         waitFor("ROMANCE DATING", 20), say("!warp " + HHG2), waitFor("ROMANCE FOLLOW", 30), qaDo("whisper"),
                         waitFor("WHISPER {bot}: ", 20), qaDo("jealous"), waitFor("ROMANCE JEALOUS", 30), mark("off"),
                         qaDo("off"), waitSeconds(45))
@@ -306,7 +316,7 @@ public final class AutoQaCatalog {
                         judged(BOT_SAYS, "a bot with a crush flirts with the player, cheesy and PG-13", 3), noEmoji())
                 .build());
         c.add(Check.auto("t-rm-2", "Propose to a bot and marry it").notNightly().minutes(16)
-                .step(say("@romance on"), run("rm-2"), Steps.of("use the ring box on the partner", r -> {
+                .step(fixture("notEngaged"), say("@romance on"), run("rm-2"), Steps.of("use the ring box on the partner", r -> {
                             ((SyntheticPlayer) r.actor(1)).ringPropose(r.fill("{bot}"), 2240000);
                             r.world().sleep(8000);
                             return Check.StepResult.OK;
@@ -322,15 +332,17 @@ public final class AutoQaCatalog {
                 .build());
         c.add(Check.auto("t-rm-3", "Neglect, breakups, two-timing and gossip").minutes(8)
                 .step(say("@romance on"), run("rm-3"), qaDo("neglect"), waitFor("ROMANCE NEGLECT warning", 20),
-                        qaDo("breakup"), waitFor("ROMANCE BREAKUP", 20), waitFor("ROMANCE REBOUND", 45), qaDo("second"),
-                        waitSeconds(5), qaDo("confront"), waitFor("ROMANCE TWO-TIMING", 30), qaDo("flame"),
-                        waitFor("ROMANCE OLD FLAME", 20), qaDo("gossip"), waitFor("ROMANCE GOSSIP", 20))
+                        // rc6 triage: the flame step works on the latest staged bot, so it runs while that is still
+                        // the ex; two-timing needs two live partners after the breakup, so two more are staged
+                        qaDo("breakup"), waitFor("ROMANCE BREAKUP", 20), waitFor("ROMANCE REBOUND", 45), qaDo("flame"),
+                        waitFor("ROMANCE OLD FLAME", 20), qaDo("second"), qaDo("second"), waitSeconds(5),
+                        qaDo("confront"), waitFor("ROMANCE TWO-TIMING", 30), qaDo("gossip"), waitFor("ROMANCE GOSSIP", 20))
                 .expect(has("ROMANCE NEGLECT warning"), has("ROMANCE BREAKUP \\S+ dumps {me}"), has("ROMANCE REBOUND"),
                         has("ROMANCE TWO-TIMING"), has("ROMANCE OLD FLAME"), has("ROMANCE GOSSIP"), noEmoji(),
-                        judged("CHAT \\S+: (.+)", "bot relationship drama aimed at the player: breakup, jealousy, gossip; game-only", 4))
+                        judged("CHAT ({staged}): (.+)", "bot relationship drama aimed at the player: breakup, jealousy, gossip; game-only", 4))
                 .build());
         c.add(Check.auto("t-rm-4", "Wedding drama: an objection, a crash, a runaway").notNightly().minutes(18)
-                .step(say("@romance on"), run("rm-4"), qaDo("propose"), Steps.of("say yes in the proposal window", r -> {
+                .step(fixture("notEngaged"), say("@romance on"), run("rm-4"), qaDo("propose"), Steps.of("say yes in the proposal window", r -> {
                             r.world().sleep(5000);
                             boolean had = ((SyntheticPlayer) r.actor(1)).answerProposal(true);
                             r.note(had ? "accepted the bot's proposal" : "no proposal window arrived");
@@ -397,7 +409,8 @@ public final class AutoQaCatalog {
         c.add(Check.auto("t-cv-6", "Rate a reply").notNightly().minutes(3)
                 .step(run("cv-6"), say("{bot} hey hows it going"), waitFor("CONVO SAID ", 25),
                         say("!rate bad too formal \"certainly\""), waitFor("CONVO RATE ", 10), say("!rate last"), waitSeconds(3))
-                .expect(has("CONVO RATE bad"), has("YELLOW (Bank line #\\d+ (weighs|is blacklisted)|Kept as a (good|bad) example|A scripted line)"))
+                // rc6 triage: it passed by rating a leftover cv-5 thread line when the staged bot never answered
+                .expect(has("CONVO SAID {bot} "), lacks("CONVO RATE .*thread-"), has("CONVO RATE bad"), has("YELLOW (Bank line #\\d+ (weighs|is blacklisted)|Kept as a (good|bad) example|A scripted line)"))
                 .build());
         c.add(Check.auto("t-cv-7", "Line bank only (model off)").minutes(5)
                 .step(run("cv-7"), say("{bot} hey"), waitSeconds(12), say("{bot} what u doing"), waitSeconds(12),
@@ -504,7 +517,9 @@ public final class AutoQaCatalog {
                         rule("at most 10% of positions inside a mob or facing away", AutoQaCatalog::positionsMostlyGood))
                 .build());
         c.add(Check.auto("t-cb-3", "Potions, restocking and deaths").minutes(8)
-                .step(run("cb-3"), qaDo("hurt"), waitFor("HABITS POT ", 40), qaDo("lowpots"), waitFor("HABITS RESTOCK ", 90),
+                // rc6 triage: give the grinders time to start grinding (they note their pots then), and wait for a
+                // staged bot's POT line - another bot's satisfied the wait at once and lowpots ran too early
+                .step(run("cb-3"), waitSeconds(30), qaDo("hurt"), waitFor("HABITS POT ({staged}) ", 40), qaDo("lowpots"), waitFor("HABITS RESTOCK ", 90),
                         qaDo("die"), waitFor("HABITS RESPAWN ", 60), waitSeconds(60))
                 .expect(has("HABITS "), has("HABITS POT ({staged}) "), has("HABITS RESTOCK ({staged}) "),
                         has("HABITS DEATH ({staged}) "), has("HABITS RESPAWN ({staged}) "))
@@ -527,13 +542,13 @@ public final class AutoQaCatalog {
                 "the swings on screen and attackdiag.log next to the client").minutes(6)
                 .step(run("bk-1", "pacing"), waitSeconds(240))
                 .expect(atLeast(20, "ATTACK .* busy \\d+ms"),
-                        rule("no machine-gun swings (gap under 60% of busy) and no hitch (gap over busy + 1.5 s)",
+                        rule("no machine-gun swings (gap under 60% of busy) and no hitch (gap over busy + 3 s at a live mob)",
                                 AutoQaCatalog::pacingSteady))
                 .build());
         c.add(Check.half("t-at-1", "Bots attack at a player's pace", "the swings next to your own character").minutes(14)
                 .step(run("bk-1"), waitSeconds(600))
                 .expect(atLeast(40, "ATTACK .* busy \\d+ms"),
-                        rule("no machine-gun swings (gap under 60% of busy)", AutoQaCatalog::pacingSteady))
+                        rule("no machine-gun swings (gap under 60% of busy)", AutoQaCatalog::pacingNotFast))
                 .build());
         c.add(Check.auto("t-id-1", "Idle bots step out of mob packs").minutes(5)
                 .step(run("id-1"), waitSeconds(150))
@@ -768,29 +783,52 @@ public final class AutoQaCatalog {
     }
 
     static String pacingSteady(CheckRun r) {
-        java.util.regex.Pattern p = java.util.regex.Pattern.compile("busy (\\d+)ms gap (\\d+)ms");
+        return pacing(r.matching("ATTACK ", null, null), true);
+    }
+
+    static String pacingNotFast(CheckRun r) {
+        return pacing(r.matching("ATTACK ", null, null), false);
+    }
+
+    private static final java.util.regex.Pattern ATTACK_BOT = java.util.regex.Pattern.compile("^ATTACK (\\S+) ");
+    private static final java.util.regex.Pattern BUSY_GAP = java.util.regex.Pattern.compile("busy (\\d+)ms gap (\\d+)ms");
+
+    /**
+     * Swing rhythm per bot: a gap is the time since that bot's previous swing, so it is judged against the previous
+     * swing's busy time. rc6 auto-QA triage (t-at-1, t-bk-1): one-hit kills of low mobs meant most gaps were a bot
+     * waiting for a respawn or walking to the next mob (686 of 695 swings "killed"), and the showcase's own 1.5 s
+     * round gap counted as a hitch. Gaps after a kill are skipped; a hitch is a gap over busy + 3 s after a live hit.
+     */
+    static String pacing(List<AutoQaLine> lines, boolean hitches) {
+        Map<String, int[]> prev = new HashMap<>(); // bot -> {busy, killed}
         int seen = 0, fast = 0, slow = 0;
         String example = null;
-        for (AutoQaLine l : r.matching("ATTACK ", null, null)) {
-            java.util.regex.Matcher m = p.matcher(l.message());
-            if (!m.find()) {
+        for (AutoQaLine l : lines) {
+            java.util.regex.Matcher who = ATTACK_BOT.matcher(l.text());
+            java.util.regex.Matcher m = BUSY_GAP.matcher(l.message());
+            if (!who.find() || !m.find()) {
                 continue;
             }
-            seen++;
             int busy = Integer.parseInt(m.group(1)), gap = Integer.parseInt(m.group(2));
-            if (gap < busy * 0.6) {
+            int[] before = prev.put(who.group(1), new int[]{busy, l.message().contains(" killed") ? 1 : 0});
+            if (before == null || before[1] == 1) {
+                continue; // a bot's first swing, or the one after a kill: retargeting, not rhythm
+            }
+            seen++;
+            if (gap < before[0] * 0.6) {
                 fast++;
                 example = l.message();
-            } else if (gap > busy + 1500 && gap < 10_000) {
+            } else if (gap > before[0] + 3000 && gap < 10_000) {
                 slow++;
             }
         }
         if (seen == 0) {
-            return "no ATTACK lines with busy and gap";
+            return null; // every swing killed or retargeted: nothing to judge (the line count says whether it swung)
         }
         if (fast > 0) {
-            return fast + " of " + seen + " swings came faster than 60% of the swing time, e.g. " + example;
+            return fast + " of " + seen + " swings came faster than 60% of the swing before, e.g. " + example;
         }
-        return slow * 5 > seen ? slow + " of " + seen + " swings waited over 1.5 s past the swing" : null;
+        return hitches && slow * 5 > seen ? slow + " of " + seen + " swings at a live mob waited over 3 s past the swing"
+                : null;
     }
 }

@@ -460,7 +460,7 @@ Notes on what some checks prove:
 - **vg-1** runs `ClientVersionGate.verdictFor` on a scratch config: build 10500 against a minimum of 10500 is
   allowed, 10410 is refused with the update message. No restart, and the live gate is untouched.
 - **ga-2** checks each new machine NPC with the foothold rule and keeps it 40+ px from a portal.
-- **ch-1** reads `BotChannels.botsPerChannel()`: 5 channels, ch1-4 have bots with ch1 the busiest, ch5 has none.
+- **ch-1** reads `BotChannels.botsPerChannel()`: 5 channels, ch1-4 have bots, ch1 the busiest and ch5 the quietest, each within max(10, 25%) of its `BOT_CHANNEL_WEIGHTS` share.
 
 ### The LLM judge
 

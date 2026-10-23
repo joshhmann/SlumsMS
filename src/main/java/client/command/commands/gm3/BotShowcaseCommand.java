@@ -64,8 +64,18 @@ public class BotShowcaseCommand extends Command {
 
     /* Spawns the showcase next to the player; the bots' ids, one report line per bot added to {@code report} (also !qa bk-1). */
     public static List<Integer> spawn(Character player, Request request, List<String> report) {
+        return spawn(player, request, report, null);
+    }
+
+    /** Where the showcase line is centred: by the mobs when a spot is known, else at the player. */
+    static Point anchor(Point near, Point player) {
+        return near != null ? new Point(near) : player;
+    }
+
+    /** As above, around {@code near} instead of the player when it is not null (!qa bk-1: by the mobs). */
+    public static List<Integer> spawn(Character player, Request request, List<String> report, Point near) {
         MapleMap map = player.getMap();
-        Point pos = player.getPosition();
+        Point pos = anchor(near, player.getPosition());
         List<Integer> ids = new ArrayList<>();
         int slotBase = BotStore.nextDynamicSlots(request.jobs().size());
         int i = 0;
