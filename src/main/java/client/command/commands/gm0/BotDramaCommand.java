@@ -21,12 +21,18 @@ public class BotDramaCommand extends Command {
         String arg = params.length == 0 ? "" : params[0].toLowerCase();
         switch (arg) {
             case "off", "no", "0", "false" -> {
-                BotAffinity.setOptedOut(player, true);
-                player.yellowMessage("Bot drama is off: bots will stay neutral or friendly toward you.");
+                switch (BotAffinity.toggleByPlayer(player, true)) {
+                    case CHANGED -> player.yellowMessage("Bot drama is off: bots will stay neutral or friendly toward you.");
+                    case UNCHANGED -> player.yellowMessage("Bot drama is already off.");
+                    case TOO_SOON -> player.yellowMessage("You just changed that. Try again in a few seconds.");
+                }
             }
             case "on", "yes", "1", "true" -> {
-                BotAffinity.setOptedOut(player, false);
-                player.yellowMessage("Bot drama is on: bots remember how you treat them, good and bad.");
+                switch (BotAffinity.toggleByPlayer(player, false)) {
+                    case CHANGED -> player.yellowMessage("Bot drama is on: bots remember how you treat them, good and bad.");
+                    case UNCHANGED -> player.yellowMessage("Bot drama is already on.");
+                    case TOO_SOON -> player.yellowMessage("You just changed that. Try again in a few seconds.");
+                }
             }
             default -> {
                 player.yellowMessage("Usage: @botdrama off | @botdrama on");

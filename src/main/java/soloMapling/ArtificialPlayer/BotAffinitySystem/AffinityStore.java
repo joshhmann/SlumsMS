@@ -200,7 +200,7 @@ public interface AffinityStore {
     }
 
     /** A store in memory: tests, and a server without a database. */
-    final class Memory implements AffinityStore {
+    class Memory implements AffinityStore {
         final Map<Long, Tie> rows = new ConcurrentHashMap<>();
         final Set<Integer> out = ConcurrentHashMap.newKeySet();
 

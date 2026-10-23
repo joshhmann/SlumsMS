@@ -485,8 +485,14 @@ public final class BotAffinity {
      * {@code @botdrama off|on}: stored per character, effective at once (also for the gossip about them and every
      * check made while their ties are not loaded). Off also purges what bots gossip about them.
      */
-    public static void setOptedOut(Character player, boolean out) {
+    public static boolean setOptedOut(Character player, boolean out) {
         int charId = player.getId();
+        Boolean was = knownOptOut(charId);
+        if (was != null && was == out) {
+            // 1.5.0 rc6 bug hunt: a no-change toggle is a no-op. Each "off" used to write the row again and run the
+            // gossip purge (a DELETE over botmemory) again, so repeating it flooded the DB.
+            return false;
+        }
         if (out) {
             optedOutIds.add(charId);
         } else {
@@ -513,6 +519,48 @@ public final class BotAffinity {
                 log.debug("Could not end a KS war on {}", charId, e);
             }
         }
+        return true;
+    }
+
+    /** The player's opt-out when it is known for sure (the boot read landed, or their ties are loaded), else null. */
+    private static Boolean knownOptOut(int charId) {
+        if (optedOutIds.contains(charId)) {
+            return true;
+        }
+        PlayerTies pt = online.get(charId);
+        if (pt != null) {
+            return pt.optedOut;
+        }
+        return optOutsLoaded ? Boolean.FALSE : null;
+    }
+
+    /** What a player's {@code @botdrama} toggle did. */
+    public enum Toggle { CHANGED, UNCHANGED, TOO_SOON }
+
+    /** The least time between two {@code @botdrama} changes by one player. */
+    static final long TOGGLE_MIN_MS = TimeUnit.SECONDS.toMillis(10);
+    private static final Map<Integer, Long> lastToggleAt = new ConcurrentHashMap<>();
+
+    /**
+     * {@code @botdrama off|on} typed by a player: a no-change toggle does nothing, and a real change is allowed at most
+     * once every {@link #TOGGLE_MIN_MS} per player (1.5.0 rc6 bug hunt: spamming it flooded the DB).
+     */
+    public static Toggle toggleByPlayer(Character player, boolean out) {
+        int charId = player.getId();
+        Boolean was = knownOptOut(charId);
+        if (was != null && was == out) {
+            return Toggle.UNCHANGED;
+        }
+        long now = now();
+        Long last = lastToggleAt.get(charId);
+        if (last != null && now - last < TOGGLE_MIN_MS) {
+            return Toggle.TOO_SOON;
+        }
+        lastToggleAt.put(charId, now);
+        if (lastToggleAt.size() > 10_000) {
+            lastToggleAt.values().removeIf(t -> now - t >= TOGGLE_MIN_MS);
+        }
+        return setOptedOut(player, out) ? Toggle.CHANGED : Toggle.UNCHANGED;
     }
 
     /** Bots forget the gossip about this player: every hearsay note, and every affinity note they could pass on. */
@@ -761,6 +809,7 @@ public final class BotAffinity {
         optOutsLoaded = false;
         optOutsTriedAt = 0;
         defamedInMemory.clear();
+        lastToggleAt.clear();
     }
 
     /** Tests: what an opt-out purges (null = bot memory). */
