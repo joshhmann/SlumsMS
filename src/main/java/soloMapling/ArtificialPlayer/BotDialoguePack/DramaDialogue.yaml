@@ -329,6 +329,18 @@ Drama:
       - "thought u could just leave {PLAYER}? apologize"
       - "{PLAYER}. ur ks. apology. now"
       - "followed u {PLAYER}. u owe me a sorry"
+  # rc6 (QA t-rv-4): asked again while the player says nothing, and after it chased them to the next map
+  RevengeRemind:
+    text:
+      - "{PLAYER} im still waiting. say sorry"
+      - "hello?? {PLAYER} sorry or what"
+      - "not leaving till u say sorry {PLAYER}"
+      - "{PLAYER} just say sorry lol"
+  RevengeChase:
+    text:
+      - "running away {PLAYER}? say sorry"
+      - "u cant just walk off {PLAYER}. apologize"
+      - "{PLAYER} i followed u again. sorry. now"
   RevengeAccepted:
     text:
       - "...fine. we cool {PLAYER}"

@@ -49,6 +49,16 @@ public final class DramaGm {
         return id;
     }
 
+    /** Whether any GM staged this bot (a test bot: scenes leave it where it is). */
+    static boolean isStaged(int botId) {
+        for (List<Integer> ids : staged.values()) {
+            if (ids.contains(botId)) {
+                return true;
+            }
+        }
+        return false;
+    }
+
     /** The bots this GM staged, oldest first. */
     public static List<Integer> stagedBy(int gmId) {
         return staged.getOrDefault(gmId, List.of());

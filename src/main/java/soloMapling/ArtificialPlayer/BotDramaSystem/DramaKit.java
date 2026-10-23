@@ -376,6 +376,32 @@ public final class DramaKit {
         }
     }
 
+    /** Says exactly this line in map chat. */
+    static void speak(Character bot, String line) {
+        if (line != null && bot != null && bot.getMap() != null) {
+            BotSpeak(bot, line);
+        }
+    }
+
+    /**
+     * A bot done with a scene goes back to what it did, where it stands (no warp): a training bot fights here when
+     * the map has mobs, else it hangs around.
+     */
+    static void settle(Character bot, Home home) {
+        if (bot == null || home == null) {
+            return;
+        }
+        try {
+            BotSM sm = CharacterStorage.getBotById(bot.getId());
+            boolean mobs = soloMapling.ArtificialPlayer.BotGrindSystem.MapMobIndex.level(bot.getMapId()) >= 0;
+            if (home.training() && mobs && !(sm instanceof TrainingBot)) {
+                BotTypeManager.convertBotType(bot, BotTypeManager.BotType.TRAINING_BOT);
+            }
+        } catch (RuntimeException e) {
+            log.debug("Could not settle {}", bot.getName(), e);
+        }
+    }
+
     /**
      * Sends a bot back where it was before the scene, doing what it did. A map hold the scene set is the caller's to
      * release (a staged bot keeps the hold it had).

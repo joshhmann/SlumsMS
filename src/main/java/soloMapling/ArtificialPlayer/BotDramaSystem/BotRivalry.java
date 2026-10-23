@@ -88,8 +88,13 @@ public final class BotRivalry {
         final int botId;
         final int playerId;
         final DramaKit.Home home;
-        final long until;
+        /** When it gives up; a chase to the player's next map starts the wait again. */
+        volatile long until;
         volatile boolean over;
+        /** How often it chased the player to another map in this arc (rc6: at most once). */
+        volatile int chases;
+        /** The map it waits on now. */
+        volatile int mapId;
 
         Arc(int botId, int playerId, DramaKit.Home home, long until) {
             this.botId = botId;
@@ -420,12 +425,17 @@ public final class BotRivalry {
 
     /** The player changed maps: an armed rival on the map they left may follow them, once. */
     static void onMapChanged(Character player, int from) {
-        if (armed.isEmpty()) {
+        if (armed.isEmpty() && arcs.isEmpty()) {
+            return;
+        }
+        Arc open = arcs.get(player.getId());
+        if (open != null) {
+            chase(open, player, from);
             return;
         }
         Arm arm = armed.get(player.getId());
         long now = now();
-        if (arm == null || arm.mapId() != from || now > arm.until() || arcs.containsKey(player.getId())) {
+        if (arm == null || arm.mapId() != from || now > arm.until()) {
             return;
         }
         armed.remove(player.getId());
@@ -453,24 +463,111 @@ public final class BotRivalry {
             return "the rival could not come to " + map;
         }
         DramaKit.busy(botId, "revenge follow");
-        Arc arc = new Arc(botId, player.getId(), home, now() + DramaKit.minutes("rivals.apologyWaitMinutes", 1.5));
+        Arc arc = new Arc(botId, player.getId(), home, now() + waitMs());
+        arc.mapId = map;
         arcs.put(player.getId(), arc);
         BotSM sm = CharacterStorage.getBotById(botId);
         if (sm != null) {
             BotConversation.open(sm, player); // the player's answer reaches it
         }
-        String line = DramaKit.say(bot, "RevengeDemand", Map.of("PLAYER", player.getName()));
+        String line = demand(arc, bot, player, "RevengeDemand");
         qa(map, "REVENGE " + bot.getName() + " followed " + player.getName() + " to " + map + ": " + line);
-        BotTiming.after(arc.until - now() + 1_000, () -> {
-            if (!arc.over) {
-                Character b = DramaKit.liveBot(botId);
-                DramaKit.say(b, "RevengeTimeout", Map.of("PLAYER", player.getName()));
-                qa(map, "REVENGE no answer from " + player.getName() + ": " + (b == null ? botId : b.getName())
-                        + " gives up");
-                leave(arc, 2_500);
+        scheduleTimeout(arc, player);
+        return bot.getName() + " followed " + player.getName() + " and wants an apology";
+    }
+
+    static long waitMs() {
+        return DramaKit.minutes("rivals.apologyWaitMinutes", 1.5);
+    }
+
+    /**
+     * rc6 (QA t-rv-4: "bot followed me once, but didnt really ask for apology till way later"): the demand is said a
+     * beat after the bot lands (its spawn is drawn first, so the line is not lost), whispered too (a busy town's chat
+     * scrolls it away), and repeated at 30 s and 60 s while no answer came, the bot walking up to the player.
+     */
+    static String demand(Arc arc, Character bot, Character player, String node) {
+        String line = DramaKit.pick(node, Map.of("PLAYER", player.getName()));
+        if (line == null) {
+            return null;
+        }
+        BotTiming.after(1_200, () -> {
+            Character b = DramaKit.liveBot(arc.botId);
+            if (!arc.over && b != null && b.getMapId() == player.getMapId()) {
+                soloMapling.ArtificialPlayer.BotMovementSystem.MovementCommands.botFaceTowardsPoint(b, player.getPosition());
+                DramaKit.speak(b, line);
+                DramaKit.reply(b, player, line);
             }
         });
-        return bot.getName() + " followed " + player.getName() + " and wants an apology";
+        int chases = arc.chases;
+        for (long at : new long[]{30_000, 60_000}) {
+            BotTiming.after(at, () -> remind(arc, player, chases));
+        }
+        return line;
+    }
+
+    /** No answer yet: it walks up to the player and asks again (not after a chase moved the arc on). */
+    static void remind(Arc arc, Character player, int chases) {
+        Character b = DramaKit.liveBot(arc.botId);
+        if (arc.over || arc.chases != chases || b == null || player.getMapId() != b.getMapId()) {
+            return;
+        }
+        java.awt.Point p = player.getPosition();
+        if (p != null && b.getPosition() != null && Math.abs(b.getPosition().x - p.x) > 70) {
+            soloMapling.ArtificialPlayer.GCMoveSystem.GCMovement.move(b, p.x + (b.getPosition().x < p.x ? -45 : 45), p.y);
+        }
+        String line = DramaKit.say(b, "RevengeRemind", Map.of("PLAYER", player.getName()));
+        qa(b.getMapId(), "REVENGE " + b.getName() + " asks again: " + line);
+    }
+
+    /** The arc gives up at its time; a chase pushed the time on, so a check before then waits again. */
+    static void scheduleTimeout(Arc arc, Character player) {
+        BotTiming.after(Math.max(1_000, arc.until - now() + 1_000), () -> {
+            if (arc.over) {
+                return;
+            }
+            if (now() < arc.until) {
+                scheduleTimeout(arc, player);
+                return;
+            }
+            Character b = DramaKit.liveBot(arc.botId);
+            DramaKit.say(b, "RevengeTimeout", Map.of("PLAYER", player.getName()));
+            qa(arc.mapId, "REVENGE no answer from " + player.getName() + ": " + (b == null ? arc.botId : b.getName())
+                    + " gives up");
+            leave(arc, 2_500);
+        });
+    }
+
+    /**
+     * rc6 (QA t-rv-4): the player walked off before answering. The rival comes after them once more (a few seconds
+     * later, by the portal as a player would) and asks again; it used to stay behind with the arc open, then pop back
+     * to its grind spot in front of the player when it gave up.
+     */
+    static void chase(Arc arc, Character player, int from) {
+        Character bot = DramaKit.liveBot(arc.botId);
+        if (arc.over || bot == null || bot.getMapId() != from || player.getEventInstance() != null) {
+            return;
+        }
+        if (arc.chases >= 1) {
+            qa(from, "REVENGE " + bot.getName() + " lets " + player.getName() + " go (already chased once)");
+            leave(arc, 1_000);
+            return;
+        }
+        arc.chases++;
+        int map = player.getMapId();
+        BotTiming.after(3_000 + ThreadLocalRandom.current().nextInt(2_000), () -> {
+            Character b = DramaKit.liveBot(arc.botId);
+            if (arc.over || b == null || player.getMapId() != map) {
+                return;
+            }
+            if (!DramaKit.bringTo(b, player, 60, false)) {
+                leave(arc, 1_000);
+                return;
+            }
+            arc.mapId = map;
+            arc.until = now() + waitMs();
+            String line = demand(arc, b, player, "RevengeChase");
+            qa(map, "REVENGE " + b.getName() + " chased " + player.getName() + " to " + map + ": " + line);
+        });
     }
 
     /** The player's map chat during a revenge follow. True when it was the answer (not routed on to the bots). */
@@ -548,7 +645,11 @@ public final class BotRivalry {
         leave(arc, 4_000);
     }
 
-    /** The arc is over: the bot goes back where it was (it never follows again). */
+    /**
+     * The arc is over: the bot goes back where it was (it never follows again). rc6 (QA t-rv-4: "then tp'd back to
+     * where he spawned"): a bot staged for a test stays where it is, and no bot pops back onto its old spot in front of
+     * the player (when the player stands on the bot's home map it stays on the map it is on).
+     */
     private static void leave(Arc arc, long afterMs) {
         if (arc.over) {
             return;
@@ -557,8 +658,22 @@ public final class BotRivalry {
         arcs.remove(arc.playerId, arc);
         BotTiming.after(afterMs, () -> {
             DramaKit.unbusy(arc.botId);
-            DramaKit.sendHome(DramaKit.liveBot(arc.botId), arc.home);
+            Character b = DramaKit.liveBot(arc.botId);
+            Character p = DramaKit.onlinePlayer(arc.playerId);
+            if (b == null) {
+                return;
+            }
+            if (staysPut(DramaGm.isStaged(arc.botId), b.getMapId(), arc.home.mapId(), p == null ? -1 : p.getMapId())) {
+                DramaKit.settle(b, arc.home);
+            } else {
+                DramaKit.sendHome(b, arc.home);
+            }
         });
+    }
+
+    /** Whether a bot leaving an arc stays on its map instead of warping home. */
+    static boolean staysPut(boolean staged, int botMap, int homeMap, int playerMap) {
+        return staged || (botMap != homeMap && playerMap == homeMap);
     }
 
     // ── the chat prompt ──
