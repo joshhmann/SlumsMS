@@ -101,13 +101,19 @@ public final class BounceZones {
     private static volatile BounceZones instance;
 
     private final List<Category> categories;
+    private final BounceImpulses impulses;
     private final List<MapRange> bounceRanges;
     private final List<MapRange> flashJumpRanges;
     private final int[] bounceFirst;
     private final int[] flashJumpFirst;
 
     BounceZones(List<Category> categories) {
+        this(categories, BounceImpulses.DEFAULT);
+    }
+
+    BounceZones(List<Category> categories, BounceImpulses impulses) {
         this.categories = List.copyOf(categories);
+        this.impulses = impulses;
         List<MapRange> bounce = new ArrayList<>();
         List<MapRange> fj = new ArrayList<>();
         for (Category c : this.categories) {
@@ -152,6 +158,11 @@ public final class BounceZones {
 
     public List<Category> categories() {
         return categories;
+    }
+
+    /** The bounce strengths from the {@code impulses:} section (defaults when it is absent). */
+    public BounceImpulses impulses() {
+        return impulses;
     }
 
     public boolean blocksBounce(int mapId) {
@@ -257,6 +268,9 @@ public final class BounceZones {
             log.info("Bounce zones: {} categories from {}; blocked now: {} bounce ranges, {} Flash Jump ranges ({})",
                     zones.categories.size(), file, zones.bounceRanges.size(), zones.flashJumpRanges.size(),
                     zones.categories.stream().map(c -> c.name() + (c.enabled() ? "" : " (off)")).toList());
+            log.info("Bounce impulses: ninja {} (other jobs {}), vertical {} (other jobs {})",
+                    zones.impulses.ninjaNative(), zones.impulses.ninjaOther(),
+                    zones.impulses.verticalNative(), zones.impulses.verticalOther());
             return zones;
         } catch (Exception e) {
             log.error("Bounce zones: could not read {}, bounces are allowed everywhere", file, e);
@@ -268,8 +282,9 @@ public final class BounceZones {
     static BounceZones parse(Object root, List<String> problems) {
         if (!(root instanceof Map<?, ?> top) || !(top.get("categories") instanceof List<?> list)) {
             problems.add("expected a top-level 'categories:' list");
-            return EMPTY;
+            return root instanceof Map<?, ?> m ? new BounceZones(List.of(), BounceImpulses.parse(m.get("impulses"), problems)) : EMPTY;
         }
+        BounceImpulses impulses = BounceImpulses.parse(top.get("impulses"), problems);
         List<Category> out = new ArrayList<>();
         Set<String> names = new LinkedHashSet<>();
         for (int i = 0; i < list.size(); i++) {
@@ -283,7 +298,7 @@ public final class BounceZones {
                 problems.add("category #" + (i + 1) + " skipped: " + e.getMessage());
             }
         }
-        return new BounceZones(out);
+        return new BounceZones(out, impulses);
     }
 
     private static Category category(Object o, List<String> problems) {

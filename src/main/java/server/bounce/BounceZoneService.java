@@ -62,11 +62,13 @@ public final class BounceZoneService {
         }
     }
 
-    /** Sends the zones to each recipient (its own native bounce). Returns how many were sent. */
+    /** Sends the zones (its own native bounce) and the bounce strengths to each recipient. Returns how many got them. */
     static int pushTo(BounceZones zones, Iterable<? extends Recipient> recipients) {
         int sent = 0;
+        Packet impulses = BounceZonePackets.impulses(zones.impulses());
         for (Recipient r : recipients) {
             r.send(BounceZonePackets.sync(zones, BounceZones.nativeBounce(r.jobType())));
+            r.send(impulses);
             sent++;
         }
         return sent;

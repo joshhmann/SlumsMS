@@ -62,7 +62,8 @@ class BounceZoneServiceTest {
 
         assertEquals(3, BounceZoneService.reloadAndPush(() -> BounceZones.reload(f), online));
         for (Fake r : online) {
-            assertEquals(1, r.got.size());
+            assertEquals(2, r.got.size()); // the zones, then the bounce strengths (version 2)
+            assertEquals(BounceZonePacketsTest.IMPULSES_DEFAULT, HexFormat.of().formatHex(r.got.get(1).getBytes()));
             assertEquals(BounceZonePackets.sync(BounceZones.getInstance(), BounceZones.nativeBounce(r.jobType)).getBytes().length,
                     r.got.get(0).getBytes().length);
         }
@@ -75,7 +76,7 @@ class BounceZoneServiceTest {
                 "enabled: false\n    block_flash_jump: true"));
         BounceZoneService.reloadAndPush(() -> BounceZones.reload(f), online);
         assertFalse(BounceZones.getInstance().blocksBounce(101000100));
-        assertTrue(adventurer.got.get(1).getBytes().length < adventurer.got.get(0).getBytes().length);
+        assertTrue(adventurer.got.get(2).getBytes().length < adventurer.got.get(0).getBytes().length);
     }
 
     @Test

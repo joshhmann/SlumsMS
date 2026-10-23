@@ -16,6 +16,35 @@
 #
 # Lists compiled 2026-10-21 from the server WZ export (String.wz names, Map.wz info/life/portal nodes) and
 # scripts/event, scripts/npc, scripts/portal; each group's source is in its comment.
+# How hard the bounces throw (server.bounce.BounceImpulses). slums.dll writes these into the bound jump's three
+# impulse immediates each time one is used: left_vx = sideways speed facing left, right_vx = facing right,
+# vy = vertical (negative is up; a normal jump is about -555). Limit +-5000.
+#   native: thieves (job 4xx) and Night Walkers (14xx), whose own book has Flash Jump. Real Flash Jump
+#           4111006/14101004 also uses ninja_bounce.native.
+#   other:  every other job.
+# Defaults (also used for anything left out): ninja native -683/606/-688 (MapleRoot), ninja other -350/350/-250
+# (stock Flash Jump), vertical native -1/0/-1200 (MapleRoot), vertical other -1/0/-750. `!bounce reload` re-reads
+# this file and pushes the new values to everyone online; no restart. Clients older than 1.5.0-rc5 ignore them.
+impulses:
+  ninja_bounce:
+    native:
+      left_vx: -683
+      right_vx: 606
+      vy: -688
+    other:
+      left_vx: -350
+      right_vx: 350
+      vy: -250
+  vertical_bounce:
+    native:
+      left_vx: -1
+      right_vx: 0
+      vy: -1200
+    other:
+      left_vx: -1
+      right_vx: 0
+      vy: -750
+
 categories:
   - name: jump_quests
     description: "Jump quests: Pet-Walking Roads, Forest of Patience, Deep Forest of Patience, Kerning subway B1-B3, Breath of Lava, Toy Factory, Puppeteer, Ola Ola, Physical Fitness, Witch Tower, Rescue Gaga and the custom Yoshi/Donkey Kong JQs. Flash Jump is blocked too: stock v83 Map.wz sets fieldLimit 0x02 (movement skills) on every vanilla stage here."
