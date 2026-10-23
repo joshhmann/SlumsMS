@@ -417,7 +417,8 @@ public final class BotRivalry {
 
     /** A rival just did something petty to the player on this map: it may follow them once to their next map. */
     public static void arm(Character bot, Character player) {
-        if (!enabled() || bot == null || player == null || !allowed(player.getId())) {
+        if (!enabled() || bot == null || player == null || !allowed(player.getId())
+                || warsHeld.contains(player.getId())) { // rc6 triage (!qa af-2): its rival "never follows you"
             return;
         }
         armed.put(player.getId(), new Arm(bot.getId(), player.getMapId(), now() + DramaKit.minutes("rivals.armMinutes", 10)));

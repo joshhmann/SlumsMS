@@ -1411,6 +1411,25 @@ public final class BotRomance {
         return true;
     }
 
+    /**
+     * GM / !qa rm-3: the neglect check for this pair now, skipping the "together on one map" refresh a step does
+     * first. The staged partner stands next to the player, so {@link #stepNow()} after a backdate found them together
+     * and never warned (rc6 auto-QA triage). True when the warning went out.
+     */
+    public static boolean neglectNow(Character player, Character bot) {
+        if (player == null || bot == null) {
+            return false;
+        }
+        Romance r = with(player.getId(), bot.getId());
+        if (r == null || !r.stage().together()) {
+            return false;
+        }
+        long pair = key(r.charId(), r.botId());
+        boolean before = neglectWarnedAt.containsKey(pair);
+        neglectCheck(r, player, bot, now());
+        return !before && neglectWarnedAt.containsKey(pair);
+    }
+
     /** GM / !qa: confront a two-timing player now. */
     public static String confrontNow(Character player) {
         List<Romance> mine = partners(player.getId());
