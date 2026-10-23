@@ -401,6 +401,7 @@ public final class GCMovement {
 
     /* As .travel(Character, int) with a success/fail callback fired on arrival/abort. */
     public static void travel(Character bot, int destMapId, java.util.function.Consumer<Boolean> onDone) {
+        soloMapling.ArtificialPlayer.BotConvo.SayDo.event(bot, soloMapling.ArtificialPlayer.BotConvo.SayDo.Ev.TRAVEL, destMapId); // rc6 say-do
         GCTravel.travel(bot, destMapId, onDone);
     }
 

@@ -1669,6 +1669,12 @@ public class MapleMap {
         if (monster == null) {
             return;
         }
+        if (chr != null && soloMapling.ArtificialPlayer.BotConvo.SayDo.watching(chr.getId())) { // rc6 say-do: "training at X"
+            soloMapling.ArtificialPlayer.BotConvo.SayDo.event(chr, soloMapling.ArtificialPlayer.BotConvo.SayDo.Ev.KILL, mapid);
+        }
+        if (chr != null && soloMapling.qa.QaLog.on(soloMapling.qa.QaLog.Topic.GUILD_WAR)) { // rc6 scene focus: gw-1 kills per side
+            soloMapling.ArtificialPlayer.BotDramaSystem.GuildWars.onKill(chr, mapid);
+        }
 
         if (chr == null) {
             if (removeKilledMonsterObject(monster)) {
@@ -2723,6 +2729,15 @@ public class MapleMap {
     }
 
     public void addPlayer(final Character chr) {
+        if (chr.getClient() instanceof client.SyntheticClient) { // auto-QA's pretend players land like a client would
+            soloMapling.autoqa.SyntheticPlayers.groundOnEntry(this, chr);
+        }
+        if (soloMapling.autoqa.SentPositions.on()) { // what clients were told about the old map no longer applies
+            soloMapling.autoqa.SentPositions.entered(chr.getId());
+        }
+        if (soloMapling.ArtificialPlayer.BotConvo.SayDo.watching(chr.getId())) { // rc6 say-do: a map change
+            soloMapling.ArtificialPlayer.BotConvo.SayDo.event(chr, soloMapling.ArtificialPlayer.BotConvo.SayDo.Ev.MAP, mapid);
+        }
         environment.clear();
         int chrSize;
         boolean bot = false;

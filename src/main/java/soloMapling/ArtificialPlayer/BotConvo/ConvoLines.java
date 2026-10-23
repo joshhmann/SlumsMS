@@ -98,7 +98,7 @@ public final class ConvoLines {
                     slots.putAll(extra);
                 }
                 ChatBank.Query q = new ChatBank.Query(key, tone, affinity(bot, player), persona.voice(),
-                        situation(bot, whisper), slots);
+                        situation(bot, whisper), slots, ChatBank.claimMask(claimsFor(key)));
                 RecentLines.Window window = new RecentLines.Window(player == null ? 0 : player.getId(), bot.getId());
                 ChatBank.Pick pick = bank.pick(q, window, weights, ThreadLocalRandom.current());
                 if (pick != null) {
@@ -110,6 +110,27 @@ public final class ConvoLines {
             }
         }
         return fallback == null ? null : new Line(fallback, -1, "scripted");
+    }
+
+    /**
+     * rc6 say-do: the claims a bank line for this key may carry - what the decided action does ("come_yes": omw;
+     * "party_yes": inv me; "buff_yes": buffed u). Anything else ("brb pots", "gtg", "omw" in a refusal) is skipped for a
+     * line without it: the reply says nothing the bot is not doing.
+     */
+    static java.util.Set<ClaimRules.Kind> claimsFor(String key) {
+        String k = key == null ? "" : key;
+        return switch (k) {
+            case "come_yes", "help_yes" -> java.util.EnumSet.of(ClaimRules.Kind.COME, ClaimRules.Kind.GO_TO,
+                    ClaimRules.Kind.TRAIN_AT, ClaimRules.Kind.FOLLOW);
+            case "guide_yes", "follow_yes" -> java.util.EnumSet.of(ClaimRules.Kind.FOLLOW, ClaimRules.Kind.COME,
+                    ClaimRules.Kind.GO_TO);
+            case "party_yes" -> java.util.EnumSet.of(ClaimRules.Kind.PARTY_OFFER, ClaimRules.Kind.PARTY_ASK);
+            case "buff_yes" -> java.util.EnumSet.of(ClaimRules.Kind.BUFF, ClaimRules.Kind.GIFT);
+            case "trade_shop", "trade_offer" -> java.util.EnumSet.of(ClaimRules.Kind.TRADE, ClaimRules.Kind.SELL,
+                    ClaimRules.Kind.BUY);
+            case "thread_lfg" -> java.util.EnumSet.of(ClaimRules.Kind.PARTY_ASK);
+            default -> java.util.EnumSet.noneOf(ClaimRules.Kind.class);
+        };
     }
 
     /** "friend", "rival", "nemesis", "partner", "ex", "neutral". */

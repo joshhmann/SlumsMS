@@ -301,6 +301,9 @@ public final class BotHoldings {
      * @return units actually paid; 0 when the bot holds none of the item, has no map, or quantity is not positive
      */
     public static int payOut(Character bot, int itemId, int quantity, Character recipient, Point position) {
+        if (recipient != null && bot != null && recipient != bot) {
+            soloMapling.ArtificialPlayer.BotConvo.SayDo.event(bot, soloMapling.ArtificialPlayer.BotConvo.SayDo.Ev.GIFT, bot.getMapId()); // rc6 say-do
+        }
         if (quantity <= 0) {
             return 0;
         }

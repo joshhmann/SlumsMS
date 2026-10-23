@@ -240,6 +240,37 @@ public final class Expects {
         });
     }
 
+    /**
+     * rc6 say-do (owner goal): every action a bot claimed in this check ("omw", "inv me", "brb pots") was backed by
+     * the action. Waits (up to {@code maxWaitS}) for the check's open claims to be judged, then FAILs on any strong
+     * {@code SAYDO UNBACKED} line, with the line and why as evidence. Weak claims ("coming" alone) are listed, not failed.
+     */
+    public static Expect sayDo(int maxWaitS) {
+        return of("say-do: every action a bot claimed was done", r -> {
+            long until = r.world.now() + maxWaitS * 1000L;
+            while (soloMapling.ArtificialPlayer.BotConvo.SayDo.openSince(r.startMs) > 0 && r.world.now() < until) {
+                r.world.sleep(5000);
+            }
+            int open = soloMapling.ArtificialPlayer.BotConvo.SayDo.openSince(r.startMs);
+            List<AutoQaLine> backed = r.matching("CONVO SAYDO BACKED ", null, null);
+            List<AutoQaLine> unbacked = r.matching("CONVO SAYDO UNBACKED ", null, null);
+            List<String> ev = new ArrayList<>();
+            int strong = 0;
+            for (AutoQaLine l : unbacked) {
+                boolean weak = l.message().contains(" (weak) ");
+                if (!weak) {
+                    strong++;
+                }
+                if (ev.size() < EVIDENCE + 2) {
+                    ev.add((weak ? "weak: " : "") + l.message());
+                }
+            }
+            ev.add(0, backed.size() + " backed, " + unbacked.size() + " unbacked (" + strong + " strong)"
+                    + (open > 0 ? ", " + open + " still open" : ""));
+            return new Verdict(strong > 0 ? Status.FAIL : Status.PASS, ev);
+        });
+    }
+
     static List<String> evidence(List<AutoQaLine> m) {
         List<String> out = new ArrayList<>();
         for (int i = 0; i < m.size() && i < EVIDENCE; i++) {

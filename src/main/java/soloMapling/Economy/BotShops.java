@@ -183,6 +183,7 @@ public final class BotShops {
      * bot has at most one shop in the world: a second open, on any channel, even at the same moment, is refused.
      */
     public static List<String> open(Character bot, int channel, int mapId, Point at, boolean force) {
+        soloMapling.ArtificialPlayer.BotConvo.SayDo.event(bot, soloMapling.ArtificialPlayer.BotConvo.SayDo.Ev.SHOP, mapId); // rc6 say-do
         if (!opening.add(bot.getId())) {
             return new ArrayList<>(List.of(bot.getName() + " is opening a shop already"));
         }

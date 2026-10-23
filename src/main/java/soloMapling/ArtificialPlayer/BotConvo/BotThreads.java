@@ -452,7 +452,12 @@ public final class BotThreads {
         for (String[] line : lines) {
             Character who = line[0].equals(a.getName()) ? a : b;
             int slot = who.getId() - BotStore.BOT_ID_BASE;
-            String styled = VoiceStyler.style(line[1], ConvoPersona.of(slot), slot,
+            // rc6 say-do: a thread line never promises what nobody will do ("brb", "omw to fm"); an LFG ask may stay
+            String honest = ClaimActions.guardReply(line[1], java.util.EnumSet.of(ClaimRules.Kind.PARTY_ASK));
+            if (honest == null) {
+                continue;
+            }
+            String styled = VoiceStyler.style(honest, ConvoPersona.of(slot), slot,
                     List.of(a.getName().toLowerCase(Locale.ROOT), b.getName().toLowerCase(Locale.ROOT)));
             long wait = HumanTiming.typingMs(styled, 0, rng) + 400 + rng.nextInt(1200);
             total += wait;
@@ -460,7 +465,7 @@ public final class BotThreads {
                 if (who.getMap() == null || who.getMapId() != l.mapId) {
                     return;
                 }
-                BotSpeak(who, styled);
+                SayDo.withSource("thread-" + source, () -> BotSpeak(who, styled));
                 l.lastSpeakerId = who.getId();
                 l.endsAt = System.currentTimeMillis() + JOIN_MS;
                 ConvoQuality.threadLine(who, l.mapId, styled, source, l.topic.words);

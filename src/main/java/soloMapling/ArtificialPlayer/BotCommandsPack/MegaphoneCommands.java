@@ -20,6 +20,7 @@ public class MegaphoneCommands {
     private final static List<Integer> MapleTVPartnerItems = List.of(5075001, 5075002);
 
     public static void BotItemMegaphone(Character fakechar, String message, Item item) {
+        soloMapling.ArtificialPlayer.BotConvo.SayDo.said(fakechar, null, message, "megaphone");
         String msg = fakechar.getName() + " : " + message; // medal + // optional medal
         boolean whisper = true;
         BotNoiseFilter.broadcastBotMegaphone(world().getId(), PacketCreator.itemMegaphone(msg, whisper, fakechar.getClient().getChannel(), item));
@@ -35,6 +36,7 @@ public class MegaphoneCommands {
     }
 
     public static void BotSuperMegaphone(Character fakechar, String msg) {
+        soloMapling.ArtificialPlayer.BotConvo.SayDo.said(fakechar, null, msg, "megaphone");
         BotSuperMegaphone(fakechar, msg, true);
     }
 
@@ -48,6 +50,7 @@ public class MegaphoneCommands {
 
 
     public static void BotAvatarMegaphone(Character fakechar, String msg) {
+        soloMapling.ArtificialPlayer.BotConvo.SayDo.said(fakechar, null, msg, "megaphone");
         int itemId = getRandomElement(AvatarMegaphoneItems);
         BotAvatarMegaphone(fakechar, msg, itemId);
     }

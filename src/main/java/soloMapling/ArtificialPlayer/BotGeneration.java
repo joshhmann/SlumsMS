@@ -288,6 +288,7 @@ public class BotGeneration {
     }
 
     public static void removeBotFromServer(Character fakechar) {
+        soloMapling.ArtificialPlayer.BotConvo.SayDo.event(fakechar, soloMapling.ArtificialPlayer.BotConvo.SayDo.Ev.LOGOUT, fakechar.getMapId()); // rc6 say-do
         // MapleRoot: stop the bot's FSM, wander, recruit/party queues and any trade before anything else.
         BotLifecycle.stopActivities(fakechar);
         // A bot's lifecycle commitments end here, in this one place, so every caller leaves the same clean

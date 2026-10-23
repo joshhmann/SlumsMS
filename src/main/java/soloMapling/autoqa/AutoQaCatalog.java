@@ -115,7 +115,8 @@ public final class AutoQaCatalog {
                         waitSeconds(90), qaDo("endwar"), waitFor("RIVALRY KS WAR over", 30))
                 .expect(has("RIVALRY KS WAR \\S+ calls [1-4] bot\\(s\\) on {me}"),
                         has("RIVALRY KS WAR over on"),
-                        rule("each called bot takes at most 5 mobs", AutoQaCatalog::ksAtMostFive))
+                        rule("each called bot takes at most 5 mobs", AutoQaCatalog::ksAtMostFive),
+                        SceneFocus.ksFocus())
                 .build());
         c.add(Check.auto("t-rv-3", "A callout megaphone").minutes(4)
                 .step(run("rv-3"), waitFor("RIVALRY CALLOUT ", 20), qaDo("callout"), waitSeconds(8))
@@ -215,10 +216,12 @@ public final class AutoQaCatalog {
         // ── Guild drama ──────────────────────────────────────────────────────────────────────────────────────
         c.add(Check.auto("t-gw-1", "Two bot guilds go to war").minutes(5)
                 .step(run("gw-1"), waitFor("GUILD_WAR WAR DECLARED", 20), qaDo("turf"), waitSeconds(4), qaDo("taunt"),
-                        waitSeconds(6), qaDo("score"), waitSeconds(3), qaDo("end"), waitFor("GUILD_WAR WAR OVER", 20))
+                        waitSeconds(6), qaDo("skirmish"), waitSeconds(40), qaDo("score"), waitSeconds(3), qaDo("end"),
+                        waitFor("GUILD_WAR WAR OVER", 20))
                 .expect(has("GUILD_WAR WAR DECLARED \\S+ vs \\S+.*megaphone sent"), has("GUILD_WAR MEGAPHONE \\S+ ch\\d+: "),
                         has("GUILD_WAR TURF "), has("GUILD_WAR WAR TAUNT .*: sent"),
-                        has("GUILD_WAR TURF \\S+ \\[[^]]+] goes to contest map"), has("GUILD_WAR WAR OVER .*score"), noEmoji())
+                        has("GUILD_WAR TURF \\S+ \\[[^]]+] goes to contest map"), has("GUILD_WAR WAR OVER .*score"), noEmoji(),
+                        SceneFocus.warFocus())
                 .build());
         c.add(Check.auto("t-gw-2", "A bot guild declares war on your guild").minutes(5)
                 .step(fixture("inPlayerGuild"), run("gw-2"), waitFor("GUILD_WAR WAR DECLARED", 30), say("@guildwar"),
@@ -268,7 +271,8 @@ public final class AutoQaCatalog {
                 .step(run("we-1", "same"), waitFor("COUPLE WEDDING #\\d+ ends", 600))
                 .expect(has("COUPLE WEDDING #\\d+ begins"), atLeast(2, "COUPLE SAY .*i do"), has("COUPLE RINGS"),
                         has("COUPLE MARRIED couple"), Expects.atLeast(1, "COUPLE BLESS", null, null),
-                        atMost(1, "COUPLE BLESS .*{me}", null, null), has("COUPLE WEDDING #\\d+ ends"))
+                        atMost(1, "COUPLE BLESS .*{me}", null, null), has("COUPLE WEDDING #\\d+ ends"),
+                        SceneFocus.weddingFocus())
                 .build());
         c.add(Check.auto("t-mr-1", "Two players of the same gender get engaged").players(2).notNightly().minutes(3)
                 .step(fixture("giveItem", "1", "2240000", "1"), Steps.of("player 2 comes over", r -> {
@@ -354,6 +358,7 @@ public final class AutoQaCatalog {
                         rule("a refusal never says yes", AutoQaCatalog::refusalNeverSaysYes),
                         lacks("CONVO .*INTENT .*teleport"),
                         judged(SAID, "a bot answers a player's request (party, come to a town, lead the way, help, buff)", 6),
+                        Expects.sayDo(130),
                         noEmoji())
                 .build());
         c.add(Check.auto("t-cv-2", "Haggle by chat").minutes(4)
@@ -361,7 +366,8 @@ public final class AutoQaCatalog {
                         say("{bot} would u do 300k"), waitSeconds(12), say("{bot} thats too much"), waitSeconds(12))
                 .expect(has("TRADE QUOTE \\S+ offers {me} "),
                         rule("the quoted price sits inside its band", AutoQaCatalog::quoteInsideBand),
-                        judged(SAID, "a bot haggles over the price of work gloves with a player", 4), noEmoji())
+                        judged(SAID, "a bot haggles over the price of work gloves with a player", 4), noEmoji(),
+                        Expects.sayDo(130))
                 .build());
         c.add(Check.auto("t-cv-3", "Apologise, insult, flirt").minutes(6)
                 .step(say("@botdrama on"), run("cv-3"), say("{bot} sorry for ksing u"), waitFor("AFFINITY EVENT apology", 15),
@@ -371,20 +377,22 @@ public final class AutoQaCatalog {
                         say("@romance off"))
                 .expect(has("CONVO .*INTENT .*apolog.*YES"), has("AFFINITY EVENT apology"), has("AFFINITY EVENT rude_chat"),
                         judged(SAID, "a rival bot answers an apology, an insult (game-only trash talk back) and a flirt", 5),
-                        noEmoji())
+                        noEmoji(), Expects.sayDo(130))
                 .build());
         c.add(Check.half("t-cv-4", "Four voices, human timing", "the four voices' casing and slang side by side").minutes(5)
                 .step(run("cv-4"), say("{bot} hey whats up"), waitSeconds(3), say("{bot2} hey whats up"), waitSeconds(3),
                         say("{bot3} hey whats up"), waitSeconds(3), say("{bot4} hey whats up"), waitSeconds(60))
                 .expect(atLeast(4, "PERSONA "), atLeast(3, "CONVO TIMING "),
                         rule("no reply is planned faster than 900 ms", AutoQaCatalog::timingHuman),
-                        judged(SAID, "a player answers 'hey whats up' in their own typing style", 4), noEmoji())
+                        judged(SAID, "a player answers 'hey whats up' in their own typing style", 4), noEmoji(),
+                        Expects.sayDo(130))
                 .build());
         c.add(Check.auto("t-cv-5", "Join a bot-to-bot conversation").minutes(4)
                 .step(run("cv-5"), waitFor("CONVO THREAD LINE", 30), waitSeconds(10), say("i can come too"),
                         waitFor("CONVO JOIN", 20), waitSeconds(12))
                 .expect(has("CONVO THREAD "), atLeast(2, "CONVO THREAD LINE"), has("CONVO JOIN"),
-                        judged(SAID, "a bot in a group chat answers a player who joined the conversation", 3), noEmoji())
+                        judged(SAID, "a bot in a group chat answers a player who joined the conversation", 3), noEmoji(),
+                        Expects.sayDo(130))
                 .build());
         c.add(Check.auto("t-cv-6", "Rate a reply").notNightly().minutes(3)
                 .step(run("cv-6"), say("{bot} hey hows it going"), waitFor("CONVO SAID ", 25),
@@ -396,7 +404,12 @@ public final class AutoQaCatalog {
                         say("{bot} wanna grind together"), waitSeconds(12), say("{bot} lol ok"), waitSeconds(12))
                 .expect(atLeast(2, "CONVO SAID .*\\[[^]]*(bank#|script)"), lacks("CONVO SAID .*\\[[^]]*llm"),
                         rule("bank replies do not repeat", AutoQaCatalog::noRepeats),
-                        judged(SAID, "a bot chats with a player in its own voice", 4))
+                        judged(SAID, "a bot chats with a player in its own voice", 4), Expects.sayDo(130))
+                .build());
+
+        // rc6 inference: the last 24 h of bot chat, scored (ChatQuality): relevance, stiffness, repeats, say-do
+        c.add(Check.auto("t-cq-1", "Daily chat quality (relevance, stiffness, say-do)").minutes(3)
+                .expect(ChatQuality.expectation())
                 .build());
 
         // ── Gachapon and the rich ────────────────────────────────────────────────────────────────────────────

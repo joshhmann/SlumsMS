@@ -112,10 +112,24 @@ public class SellingMerchantBot extends BotSM {
             return;
         }
         String itemName = getItemName(itm.getItemId());
-        if (itemName != null) {
+        if (itemName != null && holdsForSale(itm.getItemId())) {
             String msg = buildSellingMessage(itemName);
-            SocialCommands.BotSpeak(getChr(), msg);
+            soloMapling.ArtificialPlayer.BotConvo.SayDo.withSource("ad", () -> SocialCommands.BotSpeak(getChr(), msg));
         }
+    }
+
+    /**
+     * rc6 say-do: an "S> item" ad only for what this bot really has up for trade (its trade window's item) or in its
+     * bag; an item it no longer holds is not advertised.
+     */
+    boolean holdsForSale(int itemId) {
+        var forSale = getTradeInventory() == null ? null : getTradeInventory().getMainItemForSale();
+        return holdsForSale(forSale, getChr() == null ? 0 : getChr().countItem(itemId), itemId);
+    }
+
+    /** Pure: the trade window's item is this one, or the bag holds at least one. */
+    static boolean holdsForSale(client.inventory.Item forSale, int inBag, int itemId) {
+        return forSale != null && forSale.getItemId() == itemId || inBag > 0;
     }
 
     static String buildSellingMessage(String itemName) {

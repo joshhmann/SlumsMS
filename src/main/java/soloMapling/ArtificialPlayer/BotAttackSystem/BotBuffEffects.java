@@ -121,6 +121,7 @@ public final class BotBuffEffects {
      * Used by the !bot givebuff command.
      */
     public static void givePartyBuff(Character bot, int skillId, Collection<Character> targets) {
+        soloMapling.ArtificialPlayer.BotConvo.SayDo.event(bot, soloMapling.ArtificialPlayer.BotConvo.SayDo.Ev.BUFF, bot.getMapId()); // rc6 say-do
         showBuff(bot, skillId);
         if (targets == null || targets.isEmpty()) return;
 
@@ -163,6 +164,7 @@ public final class BotBuffEffects {
      * cosmetic. Useful for extending key party buffs (Holy Symbol, Maple Warrior, ...).
      */
     public static void giveExtendedBuff(Character bot, int skillId, Collection<Character> targets, int durationMs) {
+        soloMapling.ArtificialPlayer.BotConvo.SayDo.event(bot, soloMapling.ArtificialPlayer.BotConvo.SayDo.Ev.BUFF, bot.getMapId()); // rc6 say-do
         showBuff(bot, skillId);
         if (targets == null || targets.isEmpty()) return;
 

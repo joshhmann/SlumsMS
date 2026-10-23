@@ -40,13 +40,21 @@ final class GameHealthSource {
         long now = System.currentTimeMillis();
         List<Channel> channels = BotChannels.channels();
         List<HealthSweep.BotSample> all = new ArrayList<>();
+        List<HealthSweep.BotSample> synthetic = new ArrayList<>();
+        List<HealthSweep.SentSample> sent = new ArrayList<>();
         int maps = 0;
         for (Channel ch : channels) {
             for (MapleMap map : ch.getMapFactory().getMaps().values()) {
                 List<Character> chars = map.getAllPlayers();
                 boolean any = false;
+                boolean watched = false;
                 for (Character c : chars) {
                     if (!BotHelpers.isBot(c)) {
+                        watched = true;
+                        if (SyntheticPlayers.isSynthetic(c)) { // rc6: auto-QA's pretend players are swept too
+                            cacheMap(map);
+                            synthetic.add(sample(ch.getId(), map, c));
+                        }
                         continue;
                     }
                     if (!any) {
@@ -56,15 +64,25 @@ final class GameHealthSource {
                     }
                     all.add(sample(ch.getId(), map, c));
                 }
+                if (watched) {
+                    cacheMap(map);
+                    for (Character c : chars) {
+                        HealthSweep.SentSample ss = sent(ch.getId(), map, c, now);
+                        if (ss != null) {
+                            sent.add(ss);
+                        }
+                    }
+                }
             }
         }
         int seen = all.size();
-        List<HealthSweep.BotSample> sampled = SweepMath.sample(all, maxBots);
+        List<HealthSweep.BotSample> sampled = new ArrayList<>(SweepMath.sample(all, maxBots));
+        sampled.addAll(synthetic);
         int[] perChannel = BotChannels.botsPerChannel();
         double[] expected = BotChannels.shares(YamlConfig.config.server.BOT_CHANNEL_WEIGHTS, perChannel.length);
         int errors = countNewErrorLines();
         return new HealthSweep.Snapshot(now, sampled, seen, maps, perChannel, expected, errors, SERVER_LOG.toString(),
-                soloMapling.ArtificialPlayer.BotMapCap.loads());
+                soloMapling.ArtificialPlayer.BotMapCap.loads(), SweepMath.sample(sent, maxBots));
     }
 
     List<FootholdCheck.Seg> footholds(int mapId) {
@@ -92,11 +110,25 @@ final class GameHealthSource {
 
     private HealthSweep.BotSample sample(int channel, MapleMap map, Character bot) {
         Point p = bot.getPosition();
-        String gc = GCMovement.sweepPose(bot);
+        boolean synthetic = SyntheticPlayers.isSynthetic(bot);
+        String gc = synthetic ? null : GCMovement.sweepPose(bot);
         FootholdCheck.Pose pose = pose(gc, bot.getStance(), map.isSwim());
         boolean moving = gc != null && GCMovement.isMoving(bot) && !GCMovement.isResting(bot);
         return new HealthSweep.BotSample(bot.getId(), bot.getName(), channel, map.getId(), p.x, p.y, pose, moving,
-                gc != null, mapProblem(map, bot, p));
+                gc != null, synthetic ? null : mapProblem(map, bot, p), synthetic);
+    }
+
+    /** rc6 "foothold (sent)": the last position clients on this map were sent for the character, or null. */
+    private static HealthSweep.SentSample sent(int channel, MapleMap map, Character c, long now) {
+        SentPositions.Sent s = SentPositions.get(c.getId());
+        if (s == null || s.mapId() != map.getId()) {
+            return null;
+        }
+        boolean bot = BotHelpers.isBot(c);
+        String gc = bot ? GCMovement.sweepPose(c) : null;
+        String kind = bot ? "bot" : SyntheticPlayers.isSynthetic(c) ? "synthetic" : "player";
+        return new HealthSweep.SentSample(c.getId(), c.getName(), channel, map.getId(), s.x(), s.y(),
+                SentPositions.pose(s.stance(), s.fh(), map.isSwim(), gc), kind, Math.max(0, now - s.atMs()), s.how());
     }
 
     /**

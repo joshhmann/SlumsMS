@@ -403,6 +403,14 @@ public class Trade {
                 }
             }
 
+            soloMapling.ArtificialPlayer.BotConvo.SayDo.event(local.getChr(), soloMapling.ArtificialPlayer.BotConvo.SayDo.Ev.TRADE, 0);
+            soloMapling.ArtificialPlayer.BotConvo.SayDo.event(partner.getChr(), soloMapling.ArtificialPlayer.BotConvo.SayDo.Ev.TRADE, 0);
+            if (local.getItems().isEmpty() && local.getExchangeMesos() == 0) { // rc6 say-do: the partner gave a gift
+                soloMapling.ArtificialPlayer.BotConvo.SayDo.event(partner.getChr(), soloMapling.ArtificialPlayer.BotConvo.SayDo.Ev.GIFT, 0);
+            }
+            if (partner.getItems().isEmpty() && partner.getExchangeMesos() == 0) {
+                soloMapling.ArtificialPlayer.BotConvo.SayDo.event(local.getChr(), soloMapling.ArtificialPlayer.BotConvo.SayDo.Ev.GIFT, 0);
+            }
             soloMapling.server.MapleRootSolo.runHook("affinity trade", () ->   // ticket 58: trades and gifts
                     soloMapling.ArtificialPlayer.BotAffinitySystem.AffinityHooks.onTrade(local.getChr(), local.getItems(), local.getExchangeMesos(),
                             partner.getChr(), partner.getItems(), partner.getExchangeMesos()));

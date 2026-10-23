@@ -292,6 +292,7 @@ public class TrainingBot extends BotSM {
     private volatile Phase phase = Phase.INIT;
     // Ticket 21: a world event called this bot (WorldEventReactions); the macro tick answers it.
     private volatile boolean eventCall = false;
+    private volatile boolean restockCall = false; // rc6 say-do: it said "brb pots": go and buy them
     private boolean phaseEntered = false;     // has this phase run its one-time setup?
     private long phaseDeadlineMs = 0;         // travel timeout / town dwell
 
@@ -477,6 +478,15 @@ public class TrainingBot extends BotSM {
             return; // 1.5.0 rc3: lying dead, or just respawned in town
         }
 
+        if (restockCall) {
+            restockCall = false;
+            if (phase == Phase.GRIND && !recruitingNow()) {
+                leaveGrind();
+                enterPhase(Phase.GO_TOWN);
+                soloMapling.ArtificialPlayer.BotConvo.SayDo.event(chr, soloMapling.ArtificialPlayer.BotConvo.SayDo.Ev.RESUPPLY,
+                        homeMapId);
+            }
+        }
         if (eventCall) {
             eventCall = false;
             answerEventCall(chr);
@@ -563,6 +573,31 @@ public class TrainingBot extends BotSM {
     }
 
     // ── World events (ticket 21) ─────────────────────────────────────────────
+
+    /**
+     * rc6 say-do: the bot just said "brb pots" (or another restock line): it leaves the grind for town at its next
+     * tick and runs the normal resupply trip (GO_TOWN, shop, back). False when it is not grinding or is mid-recruit,
+     * so the caller can pick a line without the claim instead.
+     */
+    public boolean requestRestockTrip() {
+        if (phase != Phase.GRIND || recruitingNow()) {
+            return false;
+        }
+        restockCall = true;
+        nudgeSoon(300);
+        return true;
+    }
+
+    /** rc6 say-do: grinding now (a "brb" line would be a lie: it keeps fighting). */
+    public boolean isGrinding() {
+        return phase == Phase.GRIND;
+    }
+
+    /** rc6 say-do: resting (a grind break, in town, or at a shop): a "brb"/"afk" line is true as it is. */
+    public boolean isIdleNow() {
+        Phase p = phase;
+        return isBreak(p) || p == Phase.IN_TOWN || p == Phase.SHOP_DWELL;
+    }
 
     /** A world event wants this bot: it drops what it is doing at its next tick (see answerEventCall). */
     public void callToEvent() {
@@ -1481,6 +1516,8 @@ public class TrainingBot extends BotSM {
         }, chr, null);
         leaveGrind();
         enterPhase(Phase.GO_TOWN);
+        soloMapling.ArtificialPlayer.BotConvo.SayDo.event(chr, soloMapling.ArtificialPlayer.BotConvo.SayDo.Ev.RESUPPLY,
+                homeMapId);
         return true;
     }
 
@@ -1507,6 +1544,8 @@ public class TrainingBot extends BotSM {
         sayContext("MapTransition", chr, null);
         leaveGrind();
         enterPhase(Phase.GO_TOWN);
+        soloMapling.ArtificialPlayer.BotConvo.SayDo.event(chr, soloMapling.ArtificialPlayer.BotConvo.SayDo.Ev.RESUPPLY,
+                homeMapId);
         return true;
     }
 

@@ -607,6 +607,29 @@ public final class BotConversation {
                 tier == ChatStats.Tier.LLM ? "llm" : "scripted"), asked, tier, detail, cue);
     }
 
+    /** Short claim-free answers for a reply whose every clause promised something the game did not decide. */
+    private static final java.util.List<String> NEUTRAL = java.util.List.of("hm", "ya", "lol", "maybe", "eh", "true");
+
+    /** rc6 say-do: the reply with any claim the decided outcome does not back taken out. */
+    static String guardClaims(Character bot, Character player, String line, Cue cue) {
+        if (line == null) {
+            return null;
+        }
+        java.util.Set<soloMapling.ArtificialPlayer.BotConvo.ClaimRules.Kind> allowed =
+                soloMapling.ArtificialPlayer.BotConvo.ClaimActions.allowedFor(cue == null ? null : cue.outcome());
+        String guarded = soloMapling.ArtificialPlayer.BotConvo.ClaimActions.guardReply(line, allowed);
+        if (guarded == null) {
+            guarded = NEUTRAL.get(ThreadLocalRandom.current().nextInt(NEUTRAL.size()));
+        }
+        if (!guarded.equals(line) && soloMapling.qa.QaLog.on(soloMapling.qa.QaLog.Topic.CONVO)) {
+            soloMapling.qa.QaLog.map(soloMapling.qa.QaLog.Topic.CONVO, bot.getMapId(), "SAYDO GUARD " + bot.getName()
+                    + " (" + (cue == null ? "no action" : cue.outcome()) + "): \""
+                    + soloMapling.ArtificialPlayer.BotConvo.ConvoQuality.anonymise(line, player.getName()) + "\" -> \""
+                    + soloMapling.ArtificialPlayer.BotConvo.ConvoQuality.anonymise(guarded, player.getName()) + "\"");
+        }
+        return guarded;
+    }
+
     /**
      * Types a line at a human pace, then says it (map chat or whisper) and records its tier. In map chat the bot
      * sometimes makes a fitting face as the bubble appears ({@link ReplyEmote}). Ticket 59: the line is said in the
@@ -625,12 +648,16 @@ public final class BotConversation {
         BotPersonality.Traits traits = member == null ? null : member.traits();
         soloMapling.ArtificialPlayer.BotConvo.ConvoPersona persona = soloMapling.ArtificialPlayer.BotConvo.ConvoPersona.of(
                 slot, traits == null ? -1 : traits.chattiness());
-        String line = soloMapling.ArtificialPlayer.BotConvo.ConvoSwitches.on("persona")
+        String styledLine = soloMapling.ArtificialPlayer.BotConvo.ConvoSwitches.on("persona")
                 ? soloMapling.ArtificialPlayer.BotConvo.VoiceStyler.style(said.text(), persona, slot,
                 java.util.List.of(player.getName().toLowerCase(java.util.Locale.ROOT),
                         bot.getName().toLowerCase(java.util.Locale.ROOT), cue == null || cue.protect() == null ? ""
                                 : cue.protect()))
                 : said.text();
+        // rc6 say-do: a reply never promises what the decided action does not do ("omw" with the walk refused,
+        // "inv me" with no party decided): the clause with that claim is taken out (ClaimActions.guardReply)
+        String line = guardClaims(bot, player, styledLine, cue);
+        String claimSource = "reply-" + said.source();
         synchronized (session.history) {
             session.history.add(BotBrain.Turn.assistant(line));
         }
@@ -647,6 +674,13 @@ public final class BotConversation {
                 line, System.currentTimeMillis() - asked, persona,
                 new soloMapling.ArtificialPlayer.BotConvo.HumanTiming.Context(isAction, deliver != null, fighting, firstLine),
                 ThreadLocalRandom.current());
+        if ("brb".equals(plan.kind()) && !soloMapling.ArtificialPlayer.BotConvo.ClaimActions.canBack(bot,
+                soloMapling.ArtificialPlayer.BotConvo.ClaimRules.classify("brb"))) {
+            // rc6 say-do: no "brb" from a bot that would not go anywhere (a grinder mid-fight): just answer
+            plan = new soloMapling.ArtificialPlayer.BotConvo.HumanTiming.Plan(java.util.List.of(
+                    new soloMapling.ArtificialPlayer.BotConvo.HumanTiming.Part(plan.parts().get(0).delayMs(), line)),
+                    "plain");
+        }
         if (plan.ignored()) {
             ChatStats.reply(ChatStats.Tier.IGNORED, System.currentTimeMillis() - asked, bot.getName(), "busy fighting");
             soloMapling.ArtificialPlayer.BotConvo.ConvoQuality.timing(bot, player, plan);
@@ -671,16 +705,21 @@ public final class BotConversation {
                         }
                     })
                     .run(() -> {
+                        soloMapling.ArtificialPlayer.BotConvo.SayDo.said(bot, player, part.text(), claimSource);
                         if (deliver != null) {
                             if (PlayerBusy.isBusy(player)) {
                                 return;
                             }
                             deliver.accept(part.text());
                         } else {
-                            BotSpeak(bot, part.text());
+                            soloMapling.ArtificialPlayer.BotConvo.SayDo.withSource(claimSource, () -> BotSpeak(bot, part.text()));
                             if (last && face != ReplyEmote.NONE) {
                                 BotEmote(bot, face);
                             }
+                        }
+                        if ("brb".equals(part.text())) { // the timing's "brb": it really steps away until it answers
+                            soloMapling.ArtificialPlayer.BotConvo.ClaimActions.start(bot,
+                                    soloMapling.ArtificialPlayer.BotConvo.ClaimRules.classify("brb"));
                         }
                         session.lastAt = System.currentTimeMillis();
                         if (deliver == null) { // ticket 37: having answered, the bot keeps listening a while longer

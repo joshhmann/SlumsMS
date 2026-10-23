@@ -41,6 +41,7 @@ public class BotTradeCommands {
         if (PlayerBusy.isBusy(invitee)) {
             return;
         }
+        soloMapling.ArtificialPlayer.BotConvo.SayDo.event(fakechar, soloMapling.ArtificialPlayer.BotConvo.SayDo.Ev.TRADE, fakechar.getMapId()); // rc6 say-do: the trade window opens
         startTradeRequest(fakechar);
 
         invitee.setTrade(new Trade((byte) 1, invitee));
@@ -50,6 +51,7 @@ public class BotTradeCommands {
     }
 
     public static void acceptTradeInvite(Character fakechar) {
+        soloMapling.ArtificialPlayer.BotConvo.SayDo.event(fakechar, soloMapling.ArtificialPlayer.BotConvo.SayDo.Ev.TRADE, fakechar.getMapId()); // rc6 say-do
         if (isValidTrade(fakechar)) {
             Trade.visitTrade(fakechar, getTradePartnerCharacter(fakechar));
         }

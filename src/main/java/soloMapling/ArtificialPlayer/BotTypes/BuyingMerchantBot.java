@@ -112,9 +112,27 @@ public class BuyingMerchantBot extends BotSM {
             return;
         }
         String itemName = getItemName(itm.getItemId());
-        if (itemName != null) {
+        if (itemName != null && wants(itm.getItemId())) {
             String msg = buildBuyingMessage(itemName, getTradeWants().getMesoOffering());
-            SocialCommands.BotSpeak(getChr(), msg);
+            soloMapling.ArtificialPlayer.BotConvo.SayDo.withSource("ad", () -> SocialCommands.BotSpeak(getChr(), msg));
+        }
+    }
+
+    /** rc6 say-do: a "B> item" ad only for an item on this bot's wish list (its trade wants). */
+    boolean wants(int itemId) {
+        return wants(getTradeWants(), itemId);
+    }
+
+    /** Pure: the item is on the wish list. */
+    static boolean wants(soloMapling.ArtificialPlayer.BotTradeSystem.BotTradeWants list, int itemId) {
+        for (int i = 0; ; i++) {
+            var iq = list.getItemQuantityAt(i);
+            if (iq == null) {
+                return false;
+            }
+            if (iq.getItemId() == itemId) {
+                return true;
+            }
         }
     }
 

@@ -1964,9 +1964,16 @@ public class PacketCreator {
             spawnPos.y -= 42;
             p.writePos(spawnPos);
             p.writeByte(6);
+            if (soloMapling.autoqa.SentPositions.on()) { // auto-QA "foothold (sent)": what the viewer was told
+                soloMapling.autoqa.SentPositions.spawned(chr.getId(), sentMap(target, chr), spawnPos.x, spawnPos.y, 6);
+            }
         } else {
-            p.writePos(chr.getPosition());
+            Point pos = chr.getPosition();
+            p.writePos(pos);
             p.writeByte(chr.getStance());
+            if (soloMapling.autoqa.SentPositions.on()) {
+                soloMapling.autoqa.SentPositions.spawned(chr.getId(), sentMap(target, chr), pos.x, pos.y, chr.getStance());
+            }
         }
 
         p.writeShort(0);//chr.getFh()
@@ -2258,7 +2265,16 @@ public class PacketCreator {
         p.writeInt(chrId);
         p.writeInt(0);
         rebroadcastMovementList(p, movementPacket, movementDataLength);
+        if (soloMapling.autoqa.SentPositions.on()) { // auto-QA "foothold (sent)": the last position clients were sent
+            soloMapling.autoqa.SentPositions.moved(chrId, p.getBytes());
+        }
         return p;
+    }
+
+    /** The map a spawn packet describes: the receiving player's, else the character's own. */
+    private static int sentMap(Client target, Character chr) {
+        Character viewer = target == null ? null : target.getPlayer();
+        return viewer != null ? viewer.getMapId() : chr.getMapId();
     }
 
     public static Packet moveSummon(int cid, int oid, Point startPos, InPacket movementPacket, long movementDataLength) {

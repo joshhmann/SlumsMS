@@ -580,15 +580,37 @@ public final class ChatBankGen {
                 ? Files.readAllLines(state.resolve("lines.tsv"), StandardCharsets.UTF_8) : List.of();
         try (OutputStream raw = Files.newOutputStream(out); GZIPOutputStream gz = new GZIPOutputStream(raw);
              BufferedWriter w = new BufferedWriter(new java.io.OutputStreamWriter(gz, StandardCharsets.UTF_8))) {
-            w.write("#chatbank v1\tid\tintent\ttone\taffinity\tvoice\ttags\ttext\n");
+            w.write(ChatBank.HEADER_V2 + "\tid\tintent\ttone\taffinity\tvoice\ttags\ttext\n");
             for (String row : rows) {
                 if (!row.isBlank() && !row.startsWith("#")) {
-                    w.write(row);
+                    w.write(withClaimTags(row));
                     w.write('\n');
                 }
             }
         }
         System.out.println("packed " + rows.size() + " lines into " + out + " (" + Files.size(out) / 1024 + " KB)");
+    }
+
+    /**
+     * rc6 say-do: a lines.tsv row with its claim tags added to the tags field ({@code claim:resupply} ...), so the
+     * server knows at pick time which lines promise an action ({@link ChatBank#claimTags}).
+     */
+    static String withClaimTags(String row) {
+        String[] f = row.split("\t", 7);
+        if (f.length != 7) {
+            return row;
+        }
+        List<String> tags = new ArrayList<>();
+        if (!f[5].isBlank() && !"-".equals(f[5].trim())) {
+            for (String t : f[5].split(",")) {
+                if (!t.trim().startsWith("claim:")) {
+                    tags.add(t.trim());
+                }
+            }
+        }
+        tags.addAll(ChatBank.claimTags(f[6]));
+        f[5] = tags.isEmpty() ? "-" : String.join(",", tags);
+        return String.join("\t", f);
     }
 
     void stats() {

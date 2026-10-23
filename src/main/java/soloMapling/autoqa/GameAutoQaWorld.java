@@ -138,6 +138,11 @@ final class GameAutoQaWorld implements AutoQaWorld {
         return HealthSweeper.get().last();
     }
 
+    @Override
+    public Map<String, Object> chatQuality() {
+        return ChatQuality.runNow();
+    }
+
     // ───────────────────────────────────────────────────────────────── probes
 
     @Override
