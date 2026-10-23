@@ -27,8 +27,7 @@ public final class AffinityStaging {
         int mobLevel = MapMobIndex.level(gm.getMapId());
         boolean fights = training && MapMobIndex.mobCount(gm.getMapId()) > 0;
         int slot = BotStore.nextDynamicSlots(1);
-        Point pos = gm.getPosition();
-        Point at = new Point(pos.x + 80, pos.y);
+        Point at = soloMapling.ArtificialPlayer.StageSpots.nearGm(gm); // rc6 (QA t-pb-1): spread, on the ground
         int id = fights
                 ? BotGeneration.createBot(slot, at, gm.getMap(), 0, Math.max(1, mobLevel), Math.max(10, mobLevel + 12))
                 : BotGeneration.createBot(slot, at, gm.getMap());

@@ -1355,16 +1355,21 @@ public final class QaScenarios {
         return null;
     }
 
-    /** we-1: a staged couple marries in Amoria now: notice, ceremony, rings, guests, then everyone goes home. */
+    /**
+     * we-1: a staged couple marries in Amoria's chapel now: notice, ceremony, rings, guests, then everyone goes home.
+     * rc6 (QA t-we-1: "we-1 mixed sent me just to amoria not the chapel"): the run is held in the chapel (the White
+     * Wedding Altar) and warps the GM there; live bot weddings stay in Amoria town.
+     */
     static final class We1Wedding implements QaScenario {
         public static final int AMORIA = 680000000;
+        public static final int CHAPEL = 680000110;
 
         public String id() { return "we-1"; }
         public String title() { return "A bot wedding in Amoria: notice, ceremony, rings, guests, bless EXP (ticket 58)"; }
         public String usage() { return "[same|mixed]"; }
         public Set<QaLog.Topic> topics() { return EnumSet.of(COUPLE, BOT_CHAT); }
-        public Set<Integer> watchedMaps(Character gm, String[] args) { return Set.of(AMORIA); }
-        public Set<String> claims(Character gm, String[] args) { return Set.of("map:" + AMORIA); }
+        public Set<Integer> watchedMaps(Character gm, String[] args) { return Set.of(CHAPEL, AMORIA); }
+        public Set<String> claims(Character gm, String[] args) { return Set.of("map:" + CHAPEL); }
         public int minutes(String[] args) { return 10; }
 
         public List<String> stage(QaContext ctx) {
@@ -1373,10 +1378,10 @@ public final class QaScenarios {
             if (!w.onEventChannel(gm)) {
                 throw new QaRefusal("World events run on channel 1: change to channel 1 first.");
             }
-            if (!w.warp(gm, AMORIA)) {
-                throw new QaRefusal("Cannot warp to " + AMORIA + ".");
+            if (!w.warp(gm, CHAPEL)) {
+                throw new QaRefusal("Cannot warp to the chapel (" + CHAPEL + ").");
             }
-            ctx.log("warped to " + AMORIA);
+            ctx.log("warped to the chapel " + CHAPEL);
             int[] ids = w.stageCouple(ctx.gm(), "dating", sameArg(ctx.args()));
             if (ids == null) {
                 throw new QaRefusal("No couple could be staged here.");
@@ -1385,12 +1390,12 @@ public final class QaScenarios {
             ctx.onStop("unstage couple " + ids[0] + " + " + ids[1], () -> w.unstageCouple(ids));
             ctx.onStop("stop the wedding if it still runs", () -> ctx.run().note("CLEANUP", "stopped "
                     + w.stopWeddings("!qa stop") + " wedding(s)"));
-            String problem = w.startWedding(ids[0], "!qa we-1");
+            String problem = w.startWedding(ids[0], "!qa we-1", CHAPEL);
             if (problem != null) {
                 throw new QaRefusal("The wedding did not start: " + problem);
             }
             ctx.log("wedding started");
-            return List.of("A blue notice says they are getting married here. Guests appear by the chapel.",
+            return List.of("You are in Amoria's chapel. A blue notice says they are getting married; guests gather below the altar.",
                     "In about two minutes: the officiant speaks, both say i do (you get a small EXP blessing, BLESS, once),",
                     "rings (RINGS), \"married\" (MARRIED). Any two genders can marry; same/mixed picks the pair.",
                     "Guests cheer until the event ends (6 min); then guests leave and the couple goes home. !qa stop ends it early.");

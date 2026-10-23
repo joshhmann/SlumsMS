@@ -126,4 +126,6 @@ templates:
     weight: 0
     minutes: 6
     cooldown_minutes: 0
-    maps: [680000000]                            # Amoria
+    # 680000110 (the White Wedding Altar, Amoria's chapel) only when asked for (BotWeddings.start with CHAPEL: !qa we-1);
+    # BotWeddings always names the map, so a live wedding stays in Amoria town where anyone can watch.
+    maps: [680000000, 680000110]                 # Amoria, its chapel

@@ -53,6 +53,15 @@ public final class BotWeddings {
 
     public static final String TEMPLATE = "amoria_wedding";
     public static final int AMORIA = 680000000;
+    /**
+     * The White Wedding Altar (Amoria's chapel). 1.5.0 rc6 (QA t-we-1): a {@code !qa we-1} ceremony is held here, the
+     * chapel itself; live bot weddings stay in Amoria town where anyone can walk up and watch. The channel's own map
+     * is used: the stock player weddings run in event-instance copies of it and never meet a bot ceremony.
+     */
+    public static final int CHAPEL = 680000110;
+    /** Where the couple stands on a map without the chapel NPCs (the altar steps), and where guests gather. */
+    static final java.util.Map<Integer, Point> ALTARS = java.util.Map.of(CHAPEL, new Point(200, -123));
+    static final java.util.Map<Integer, Point> GUEST_AREAS = java.util.Map.of(CHAPEL, new Point(110, 209));
     /** Amoria NPCs the ceremony gathers by (the wedding staff in front of the chapel), first found wins. */
     static final int[] CHAPEL_NPCS = {9201002, 9201005, 9201003, 9201004, 9201000};
     static final int TUXEDO = 1050113, WEDDING_DRESS = 1051114;
@@ -75,6 +84,11 @@ public final class BotWeddings {
         final long startedAt;
         volatile boolean married;
         long nextCheer;
+        /** Before "married": the next time a guest murmurs about the wedding. */
+        long nextMurmur;
+        /** Where it is held (the event's map and channel) and the couple's names, for the guests' chatter. */
+        volatile int mapId = -1, channel = -1;
+        volatile String groomName = "", brideName = "";
 
         Ceremony(BotCouples.Couple couple, int groom, int bride, long startedAt) {
             this.couple = couple;
@@ -99,8 +113,13 @@ public final class BotWeddings {
         return inCeremony.contains(charId);
     }
 
-    /** Starts the wedding event for this couple now; the problem, or null when it started. */
-    public static synchronized String start(BotCouples.Couple couple, String by) {
+    /** Starts the wedding event for this couple now, in Amoria town; the problem, or null when it started. */
+    public static String start(BotCouples.Couple couple, String by) {
+        return start(couple, by, AMORIA);
+    }
+
+    /** As above on a chosen map of the template ({@link #AMORIA} or {@link #CHAPEL}). */
+    public static synchronized String start(BotCouples.Couple couple, String by, int mapId) {
         if (couple == null) {
             return "no couple";
         }
@@ -115,7 +134,7 @@ public final class BotWeddings {
         }
         requested = couple;
         try {
-            WorldEvents.StartResult r = WorldEvents.getInstance().startById(TEMPLATE, 0, by);
+            WorldEvents.StartResult r = WorldEvents.getInstance().startById(TEMPLATE, mapId, by);
             return r.error();
         } finally {
             requested = null;
@@ -161,7 +180,7 @@ public final class BotWeddings {
         dress(c, bride, outfitFor(bride.getGender()));
         int base = BotStore.nextDynamicSlots(GUESTS);
         for (int i = 0; i < GUESTS; i++) {
-            Point at = new Point(altar.x + (i % 2 == 0 ? -1 : 1) * (110 + 45 * (i / 2)), altar.y);
+            Point at = soloMapling.ArtificialPlayer.StageSpots.near(map, guestArea(map, altar)); // rc6: not a row
             int id = BotGeneration.createBot(base + i, at, map);
             Character guest = id > 0 ? BotHelpers.getCharFromChannelStorage(id) : null;
             if (guest != null) {
@@ -170,6 +189,11 @@ public final class BotWeddings {
             }
         }
         e.setSubject(groom.getName() + " & " + bride.getName());
+        c.mapId = map.getId();
+        c.channel = e.channel;
+        c.groomName = groom.getName();
+        c.brideName = bride.getName();
+        c.nextMurmur = c.startedAt + 8_000;
         byEvent.put(e.id, c);
         java.util.concurrent.ScheduledFuture<?>[] beat = new java.util.concurrent.ScheduledFuture<?>[1];
         beat[0] = soloMapling.server.ExecutorServiceManager.getScheduledExecutorService().scheduleAtFixedRate(() -> {
@@ -231,6 +255,11 @@ public final class BotWeddings {
             bless(c, bride);
             c.nextCheer = now + 4_000;
             BotCouples.qa("MARRIED couple #" + c.couple.id() + ": " + names.get("GROOM") + " & " + names.get("BRIDE"));
+        }
+        if (!c.married && now >= c.nextMurmur && c.guests.size() > 1) { // rc6 (QA t-we-1): the guests talk wedding
+            Character guest = live(c.guests.get(1 + ThreadLocalRandom.current().nextInt(c.guests.size() - 1)));
+            line(guest, "GuestWait", names, -1);
+            c.nextMurmur = now + 10_000 + ThreadLocalRandom.current().nextInt(10_000);
         }
         if (c.married && now >= c.nextCheer && !c.guests.isEmpty()) {
             Character guest = live(c.guests.get(ThreadLocalRandom.current().nextInt(c.guests.size())));
@@ -347,6 +376,10 @@ public final class BotWeddings {
 
     /** Where the couple stands: by a wedding NPC on the map, else at the map's first portal. */
     static Point altar(MapleMap map) {
+        Point fixed = ALTARS.get(map.getId());
+        if (fixed != null) {
+            return new Point(fixed);
+        }
         for (int npcId : CHAPEL_NPCS) {
             for (MapObject mo : map.getMapObjectsInRange(new Point(0, 0), Double.POSITIVE_INFINITY,
                     List.of(MapObjectType.NPC))) {
@@ -356,6 +389,44 @@ public final class BotWeddings {
             }
         }
         return map.getPortal(0) != null ? new Point(map.getPortal(0).getPosition()) : new Point(0, 0);
+    }
+
+    // ── what bots chat about at a wedding (rc6, QA t-we-1: "all are just talking about random stuff") ──
+
+    /**
+     * The ambient line a bot says now ({@code SocialCommands.BotAmbientSpeak}): at a ceremony on its map the couple
+     * and the officiant say nothing ambient (they only speak their ceremony lines), and everyone else talks about the
+     * wedding instead of their small talk. Anywhere else, the line itself.
+     */
+    public static String ambientLine(Character bot, String line) {
+        if (byEvent.isEmpty() || bot == null) {
+            return line;
+        }
+        int channel = BotCouples.channelOf(bot);
+        for (Ceremony c : byEvent.values()) {
+            if (c.mapId == bot.getMapId() && c.channel == channel) {
+                boolean altar = bot.getId() == c.groom || bot.getId() == c.bride
+                        || (!c.guests.isEmpty() && c.guests.get(0) == bot.getId());
+                return overlay(line, altar, c.married, node -> BotCouples.pick("Wedding", node,
+                        Map.of("GROOM", c.groomName, "BRIDE", c.brideName)));
+            }
+        }
+        return line;
+    }
+
+    /** At a ceremony: nothing for those at the altar, else a wedding line (before or after "married"), else the line. */
+    static String overlay(String line, boolean atAltar, boolean married, java.util.function.Function<String, String> pick) {
+        if (atAltar) {
+            return null;
+        }
+        String wedding = pick.apply(married ? "Guest" : "GuestWait");
+        return wedding != null ? wedding : line;
+    }
+
+    /** Where the guests gather: by the altar, or on the chapel's floor below its steps. */
+    static Point guestArea(MapleMap map, Point altar) {
+        Point area = map == null ? null : GUEST_AREAS.get(map.getId());
+        return area != null ? new Point(area) : altar;
     }
 
     private static void place(Character chr, MapleMap map, Point at) {

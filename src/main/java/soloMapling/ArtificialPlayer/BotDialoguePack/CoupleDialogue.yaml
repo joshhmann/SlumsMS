@@ -53,6 +53,23 @@ Wedding:
     text:
       - "i now pronounce {GROOM} and {BRIDE} married!!"
       - "congratulations {GROOM} and {BRIDE}!! <3"
+  # rc6 (QA t-we-1): the crowd's chatter before "married" (GuestWait) and after it (Guest)
+  GuestWait:
+    text:
+      - "omg {GROOM} and {BRIDE} are actually getting married"
+      - "i always cry at weddings lol"
+      - "who's catching the bouquet"
+      - "{BRIDE} looks so good"
+      - "{GROOM} looks nervous lol"
+      - "shh its starting"
+      - "this is so cute"
+      - "is there cake after"
+      - "i saw them training together at the subway lol"
+      - "ok who brought tissues"
+      - "front row seats ^^"
+      - "they make a cute couple"
+      - "my turn next? lol jk"
+      - "i dressed up for this lol"
   Guest:
     text:
       - "congrats!!"
@@ -62,3 +79,9 @@ Wedding:
       - "kiss kiss lol"
       - "gz!!"
       - "*throws flowers*"
+      - "*claps*"
+      - "best wedding ever"
+      - "the rings r so pretty"
+      - "{GROOM} {BRIDE} forever <3"
+      - "after party at the fm lol"
+      - "kiss!! kiss!!"

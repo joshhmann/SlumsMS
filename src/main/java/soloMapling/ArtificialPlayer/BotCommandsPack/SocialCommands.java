@@ -24,8 +24,10 @@ public class SocialCommands {
 
     /** Idle/ambient speech shares the per-map and world budgets; dropped lines are never queued. */
     public static void BotAmbientSpeak(Character bot, String message) {
-        if (soloMapling.ArtificialPlayer.BotChatTuning.allowAmbient(bot)) {
-            BotSpeak(bot, message);
+        // rc6 (QA t-we-1): at a bot wedding the crowd talks about the wedding, the couple says only its vows
+        String line = soloMapling.ArtificialPlayer.BotCoupleSystem.BotWeddings.ambientLine(bot, message);
+        if (line != null && soloMapling.ArtificialPlayer.BotChatTuning.allowAmbient(bot)) {
+            BotSpeak(bot, line);
         }
     }
 

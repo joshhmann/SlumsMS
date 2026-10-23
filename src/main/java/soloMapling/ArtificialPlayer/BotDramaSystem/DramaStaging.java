@@ -33,8 +33,8 @@ public final class DramaStaging {
         int mobLevel = MapMobIndex.level(gm.getMapId());
         boolean fights = training && MapMobIndex.mobCount(gm.getMapId()) > 0;
         int slot = BotStore.nextDynamicSlots(1);
-        Point pos = gm.getPosition() == null ? new Point(0, 0) : gm.getPosition();
-        Point at = new Point(pos.x + offset, pos.y);
+        // rc6 (QA t-pb-1): either side at a random distance, on the ground, clear of everyone (was a row at +offset)
+        Point at = soloMapling.ArtificialPlayer.StageSpots.nearGm(gm);
         int lo = level > 0 ? level : fights ? Math.max(1, mobLevel) : 0;
         int hi = level > 0 ? level : fights ? Math.max(10, mobLevel + 12) : 0;
         int id = lo > 0 ? BotGeneration.createBot(slot, at, gm.getMap(), 0, lo, hi) : BotGeneration.createBot(slot, at,

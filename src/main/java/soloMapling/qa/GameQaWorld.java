@@ -169,7 +169,7 @@ final class GameQaWorld implements QaWorld {
         MapleMap map = gm.getMap();
         int slotBase = BotStore.nextDynamicSlots(count);
         for (int i = 0; i < count; i++) {
-            Point at = new Point(around.x + (i % 2 == 0 ? 1 : -1) * (50 + 40 * (i / 2)), around.y);
+            Point at = soloMapling.ArtificialPlayer.StageSpots.near(map, around); // rc6 (QA t-pb-1): not a row
             int id = BotGeneration.createBot(slotBase + i, at, map);
             if (id > 0) {
                 ids.add(id);
@@ -363,6 +363,14 @@ final class GameQaWorld implements QaWorld {
         soloMapling.ArtificialPlayer.BotCoupleSystem.BotCouples.Couple c =
                 soloMapling.ArtificialPlayer.BotCoupleSystem.BotCouples.coupleOf(botId);
         return c == null ? "that bot is in no couple" : soloMapling.ArtificialPlayer.BotCoupleSystem.BotWeddings.start(c, by);
+    }
+
+    @Override
+    public String startWedding(int botId, String by, int mapId) {
+        soloMapling.ArtificialPlayer.BotCoupleSystem.BotCouples.Couple c =
+                soloMapling.ArtificialPlayer.BotCoupleSystem.BotCouples.coupleOf(botId);
+        return c == null ? "that bot is in no couple"
+                : soloMapling.ArtificialPlayer.BotCoupleSystem.BotWeddings.start(c, by, mapId);
     }
 
     @Override

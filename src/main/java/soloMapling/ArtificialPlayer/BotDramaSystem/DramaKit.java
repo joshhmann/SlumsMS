@@ -325,6 +325,10 @@ public final class DramaKit {
             soloMapling.ArtificialPlayer.BotMovementSystem.MovementCommands.standUp(bot); // rc6: no chair along
             Point at = player.getPosition() == null ? new Point(0, 0) : new Point(player.getPosition());
             at.translate(offsetX, 0);
+            if (offsetX != 0) { // rc6 (QA t-pb-1): either side near the player, on the ground, clear of others
+                at = soloMapling.ArtificialPlayer.StageSpots.near(map, player.getPosition() == null ? at
+                        : player.getPosition());
+            }
             if (bot.getMapId() != map.getId()) {
                 bot.changeMap(map, at);
             }

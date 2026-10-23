@@ -172,6 +172,11 @@ public interface QaWorld {
     /** Starts the Amoria wedding for the couple this bot is in; the problem, or null. */
     String startWedding(int botId, String by);
 
+    /** As above on a chosen map (we-1: the chapel). */
+    default String startWedding(int botId, String by, int mapId) {
+        return startWedding(botId, by);
+    }
+
     /** Stops a running bot wedding, if any; how many stopped. */
     int stopWeddings(String by);
 

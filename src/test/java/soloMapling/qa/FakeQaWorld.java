@@ -218,6 +218,10 @@ class FakeQaWorld implements QaWorld {
     @Override public void coupleStep() { coupleSteps++; }
 
     @Override public String startWedding(int botId, String by) { calls.add("wedding " + botId); return weddingProblem; }
+    @Override public String startWedding(int botId, String by, int mapId) {
+        calls.add("wedding " + botId + " on " + mapId);
+        return weddingProblem;
+    }
 
     @Override public int stopWeddings(String by) { calls.add("stop weddings"); return 1; }
 
