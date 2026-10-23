@@ -1776,7 +1776,9 @@ public class World {
     
     public void runPlayerHpDecreaseSchedule() {
         Map<Character, Integer> m = new HashMap<>();
-        m.putAll(playerHpDec);
+        synchronized (playerHpDec) {   // a synchronizedMap must be locked while it is iterated (putAll iterates it)
+            m.putAll(playerHpDec);
+        }
         
         for (Entry<Character, Integer> e : m.entrySet()) {
             Character chr = e.getKey();

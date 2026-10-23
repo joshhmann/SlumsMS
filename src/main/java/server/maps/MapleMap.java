@@ -5128,18 +5128,36 @@ public class MapleMap {
     }
 
     public void runCharacterStatUpdate() {
-        if (!statUpdateRunnables.isEmpty()) {
-            List<Runnable> toRun = new ArrayList<>(statUpdateRunnables);
+        // rc6 bug hunt: the list is added to from many threads; unsynchronized, a resize race left null slots (an NPE
+        // here that dropped every other queued update). Swap under the lock, skip nulls, and keep one failing update
+        // from cancelling the rest.
+        List<Runnable> toRun;
+        synchronized (statUpdateRunnables) {
+            if (statUpdateRunnables.isEmpty()) {
+                return;
+            }
+            toRun = new ArrayList<>(statUpdateRunnables);
             statUpdateRunnables.clear();
-
-            for (Runnable r : toRun) {
+        }
+        for (Runnable r : toRun) {
+            if (r == null) {
+                continue;
+            }
+            try {
                 r.run();
+            } catch (RuntimeException e) {
+                log.warn("Character stat update failed on map {}", mapid, e);
             }
         }
     }
 
     public void registerCharacterStatUpdate(Runnable r) {
-        statUpdateRunnables.add(r);
+        if (r == null) {
+            return;
+        }
+        synchronized (statUpdateRunnables) {
+            statUpdateRunnables.add(r);
+        }
     }
 
     public void dispose() {

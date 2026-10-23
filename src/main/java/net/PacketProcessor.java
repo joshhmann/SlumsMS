@@ -69,7 +69,7 @@ public final class PacketProcessor {
     }
 
     public PacketHandler getHandler(short packetId) {
-        if (packetId > handlers.length) {
+        if (packetId < 0 || packetId >= handlers.length) {   // rc6 bug hunt: was ">", and a negative id threw
             return null;
         }
         PacketHandler handler = handlers[packetId];
