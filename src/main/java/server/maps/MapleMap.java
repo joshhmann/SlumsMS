@@ -2166,7 +2166,12 @@ public class MapleMap {
     public Point getGroundBelow(Point pos) {
         Point spos = new Point(pos.x, pos.y - 14); // Using -14 fixes spawning pets causing a lot of issues.
         spos = calcPointBelow(spos);
-        spos.y--;//shouldn't be null!
+        if (spos == null) {
+            // 1.5.0 rc6 bug hunt: no foothold below (a bot placed off the ground). This threw in addPlayer's pet
+            // loop, which aborted the entry so viewers never saw the character spawn; stand on the given point.
+            return new Point(pos);
+        }
+        spos.y--;
         return spos;
     }
 
