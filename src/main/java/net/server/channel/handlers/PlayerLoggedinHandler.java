@@ -228,7 +228,7 @@ public final class PlayerLoggedinHandler extends AbstractPacketHandler {
 
             c.sendPacket(PacketCreator.getCharInfo(player));
             if (!player.isHidden()) {
-                if (player.isGM() && YamlConfig.config.server.USE_AUTOHIDE_GM) {
+                if (autoHides(player.isGM(), YamlConfig.config.server.USE_AUTOHIDE_GM, c)) {
                     player.toggleHide(true);
                 }
             }
@@ -515,5 +515,14 @@ public final class PlayerLoggedinHandler extends AbstractPacketHandler {
         timedBuffs.sort((p1, p2) -> p1.getLeft().compareTo(p2.getLeft()));
 
         return timedBuffs;
+    }
+
+    /**
+     * Whether a GM logs in hidden ({@code USE_AUTOHIDE_GM}). Never auto-QA's pretend player (rc6 auto-QA triage): a
+     * hidden GM is invisible to bots - its map chat never reaches them, nobody greets, follows or answers it - so
+     * every chat, romance, guild and affinity check failed on a test server that auto-hides GMs.
+     */
+    static boolean autoHides(boolean gm, boolean autohideGm, Client c) {
+        return gm && autohideGm && !(c instanceof SyntheticClient);
     }
 }
