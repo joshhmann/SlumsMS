@@ -7548,7 +7548,10 @@ public class Character extends AbstractCharacterObject {
 
         if (YamlConfig.config.server.USE_PERFECT_PITCH && level >= 30) {
             //milestones?
-            if (InventoryManipulator.checkSpace(client, ItemId.PERFECT_PITCH, (short) 1, "")) {
+            // rc6 bug hunt: never for a bot. Its shared BotClient has no player, so this threw out of levelUp and,
+            // through gainExp, out of Monster.killBy's EXP share for everyone on the mob.
+            if (!(client instanceof BotClient)
+                    && InventoryManipulator.checkSpace(client, ItemId.PERFECT_PITCH, (short) 1, "")) {
                 InventoryManipulator.addById(client, ItemId.PERFECT_PITCH, (short) 1, "", -1);
             }
         } else if (level == 10) {
@@ -7595,7 +7598,7 @@ public class Character extends AbstractCharacterObject {
             if (partyLeader) {
                 party.assignNewLeader(client);
             }
-            Party.leaveParty(party, client);
+            Party.leaveParty(party, this);   // by character: a bot's shared client has no player
 
             return true;
         } else {
@@ -8672,7 +8675,16 @@ public class Character extends AbstractCharacterObject {
         }
         if (possesed > 0 && !MapId.isDojo(getMapId())) {
             message("You have used a safety charm, so your EXP points have not been decreased.");
-            InventoryManipulator.removeById(client, ItemConstants.getInventoryType(charmID[i]), charmID[i], 1, true, false);
+            if (client instanceof BotClient) {
+                // rc6 bug hunt: a bot's shared BotClient has no player, so removeById threw here. Use the charm up
+                // through the bot's holdings ledger instead.
+                Item charm = getInventory(ItemConstants.getInventoryType(charmID[i])).findById(charmID[i]);
+                if (charm != null) {
+                    soloMapling.ArtificialPlayer.BotHoldings.consumeHeld(this, charm, 1);
+                }
+            } else {
+                InventoryManipulator.removeById(client, ItemConstants.getInventoryType(charmID[i]), charmID[i], 1, true, false);
+            }
             usedSafetyCharm = true;
         } else if (getJob() != Job.BEGINNER) { //Hmm...
             if (!FieldLimit.NO_EXP_DECREASE.check(getMap().getFieldLimit())) {  // thanks Conrad for noticing missing FieldLimit check
@@ -11634,7 +11646,7 @@ public class Character extends AbstractCharacterObject {
                     continue;
                 }
 
-                nEquip.gainItemExp(client, expGain);
+                nEquip.gainItemExp(this, expGain);   // the wearer: a bot's shared BotClient has no player
             }
         }
     }

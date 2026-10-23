@@ -21,6 +21,7 @@
  */
 package client.inventory;
 
+import client.Character;
 import client.Client;
 import config.YamlConfig;
 import constants.game.ExpTable;
@@ -535,7 +536,7 @@ public class Equip extends Item {
         return new Pair<>(lvupStr, new Pair<>(gotSlot, gotVicious));
     }
 
-    private void gainLevel(Client c) {
+    private void gainLevel(Character chr) {
         List<Pair<StatUpgrade, Integer>> stats = new LinkedList<>();
 
         if (isElemental) {
@@ -556,14 +557,16 @@ public class Equip extends Item {
         Pair<String, Pair<Boolean, Boolean>> res = this.gainStats(stats);
         lvupStr += res.getLeft();
 
-        c.getPlayer().equipChanged();
+        chr.equipChanged();
 
-        showLevelupMessage(showStr, c); // thanks to Polaris dev team !
-        c.getPlayer().dropMessage(6, lvupStr);
+        chr.showHint(showStr, 300); // thanks to Polaris dev team !
+        chr.dropMessage(6, lvupStr);
 
-        c.sendPacket(PacketCreator.showEquipmentLevelUp());
-        c.getPlayer().getMap().broadcastPacket(c.getPlayer(), PacketCreator.showForeignEffect(c.getPlayer().getId(), 15));
-        c.getPlayer().forceUpdateItem(this);
+        chr.sendPacket(PacketCreator.showEquipmentLevelUp());
+        if (chr.getMap() != null) {
+            chr.getMap().broadcastPacket(chr, PacketCreator.showForeignEffect(chr.getId(), 15));
+        }
+        chr.forceUpdateItem(this);
     }
 
     public int getItemExp() {
@@ -587,7 +590,19 @@ public class Equip extends Item {
         }
     }
 
-    public synchronized void gainItemExp(Client c, int gain) {  // Ronan's Equip Exp gain method
+    public synchronized void gainItemExp(Client c, int gain) {
+        gainItemExp(c.getPlayer(), gain);
+    }
+
+    /**
+     * 1.5.0 rc6 bug hunt: takes the wearer, not their client. Every bot shares one BotClient whose getPlayer() is
+     * null, so a bot's equip EXP threw a NullPointerException out of Monster.killBy and cut the EXP share short for
+     * everyone else on the mob.
+     */
+    public synchronized void gainItemExp(Character chr, int gain) {  // Ronan's Equip Exp gain method
+        if (chr == null) {
+            return;
+        }
         ItemInformationProvider ii = ItemInformationProvider.getInstance();
         if (!ii.isUpgradeable(this.getItemId())) {
             return;
@@ -610,13 +625,13 @@ public class Equip extends Item {
 
         if (YamlConfig.config.server.USE_DEBUG_SHOW_INFO_EQPEXP) {
             log.debug("{} -> EXP Gain: {}, Mastery: {}, Base gain: {}, exp: {} / {}, Kills TNL: {}", ii.getName(getItemId()),
-                    gain, masteryModifier, baseExpGain, itemExp, expNeeded, expNeeded / (baseExpGain / c.getPlayer().getExpRate()));
+                    gain, masteryModifier, baseExpGain, itemExp, expNeeded, expNeeded / (baseExpGain / chr.getExpRate()));
         }
 
         if (itemExp >= expNeeded) {
             while (itemExp >= expNeeded) {
                 itemExp -= expNeeded;
-                gainLevel(c);
+                gainLevel(chr);
 
                 if (itemLevel >= equipMaxLevel) {
                     itemExp = 0.0f;
@@ -627,7 +642,7 @@ public class Equip extends Item {
             }
         }
 
-        c.getPlayer().forceUpdateItem(this);
+        chr.forceUpdateItem(this);
         //if(YamlConfig.config.server.USE_DEBUG) c.getPlayer().dropMessage("'" + ii.getName(this.getItemId()) + "': " + itemExp + " / " + expNeeded);
     }
 
@@ -651,10 +666,6 @@ public class Equip extends Item {
         String eqpInfo = reachedMaxLevel() ? " #e#rMAX LEVEL#k#n" : (" EXP: #e#b" + (int) itemExp + "#k#n / " + ExpTable.getEquipExpNeededForLevel(itemLevel));
 
         return "'" + eqpName + "' -> LV: #e#b" + itemLevel + "#k#n    " + eqpInfo + "\r\n";
-    }
-
-    private static void showLevelupMessage(String msg, Client c) {
-        c.getPlayer().showHint(msg, 300);
     }
 
     public void setItemExp(int exp) {

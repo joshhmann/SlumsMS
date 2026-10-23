@@ -416,13 +416,23 @@ public class Party {
     }
 
     public static void leaveParty(Party party, Client c) {
-        World world = c.getWorldServer();
-        Character player = c.getPlayer();
+        leaveParty(party, c.getPlayer());
+    }
+
+    /**
+     * 1.5.0 rc6 bug hunt: by character, so a bot (whose shared BotClient has no player) can leave too; Character
+     * .leaveParty runs for a bot at level 10 and on deletion.
+     */
+    public static void leaveParty(Party party, Character player) {
+        if (player == null) {
+            return;
+        }
+        World world = player.getWorldServer();
         PartyCharacter partyplayer = player.getMPC();
 
         if (party != null && partyplayer != null) {
             if (partyplayer.getId() == party.getLeaderId()) {
-                c.getWorldServer().removeMapPartyMembers(party.getId());
+                world.removeMapPartyMembers(party.getId());
 
                 MonsterCarnival mcpq = player.getMonsterCarnival();
                 if (mcpq != null) {
@@ -456,7 +466,7 @@ public class Party {
 
             player.setParty(null);
 
-            MatchCheckerCoordinator mmce = c.getWorldServer().getMatchCheckerCoordinator();
+            MatchCheckerCoordinator mmce = world.getMatchCheckerCoordinator();
             if (mmce.getMatchConfirmationLeaderid(player.getId()) == player.getId() && mmce.getMatchConfirmationType(player.getId()) == MatchCheckerType.GUILD_CREATION) {
                 mmce.dismissMatchConfirmation(player.getId());
             }
