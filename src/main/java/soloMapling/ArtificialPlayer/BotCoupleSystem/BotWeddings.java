@@ -360,6 +360,7 @@ public final class BotWeddings {
 
     private static void place(Character chr, MapleMap map, Point at) {
         soloMapling.ArtificialPlayer.GCMoveSystem.GCMovement.stop(chr);
+        soloMapling.ArtificialPlayer.BotMovementSystem.MovementCommands.standUp(chr);
         BotSM sm = CharacterStorage.getBotById(chr.getId());
         if (sm instanceof TrainingBot) {
             BotTypeManager.convertBotType(chr, BotTypeManager.BotType.SOCIAL_BOT); // stand and mingle, not grind

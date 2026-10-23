@@ -275,7 +275,7 @@ public final class BotChatActions {
     }
 
     /** The bot's real training map: where a grinder trains, the field it stands on, or a fitting map for its level. */
-    static String trainingMapName(BotSM bot, Character chr) {
+    public static String trainingMapName(BotSM bot, Character chr) {
         try {
             BotRoster.Activity doing = bot.activitySnapshot();
             int train = doing == null ? -1 : doing.intState(BotRoster.TRAIN_STATE, -1);

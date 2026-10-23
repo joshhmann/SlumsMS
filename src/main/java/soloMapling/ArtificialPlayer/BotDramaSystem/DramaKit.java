@@ -322,6 +322,7 @@ public final class DramaKit {
                 return false;
             }
             soloMapling.ArtificialPlayer.GCMoveSystem.GCMovement.stop(bot);
+            soloMapling.ArtificialPlayer.BotMovementSystem.MovementCommands.standUp(bot); // rc6: no chair along
             Point at = player.getPosition() == null ? new Point(0, 0) : new Point(player.getPosition());
             at.translate(offsetX, 0);
             if (bot.getMapId() != map.getId()) {
@@ -355,6 +356,7 @@ public final class DramaKit {
             MapleMap back = BotChannels.map(channelOf(bot), home.mapId());
             if (back != null && bot.getMapId() != home.mapId()) {
                 soloMapling.ArtificialPlayer.GCMoveSystem.GCMovement.stop(bot);
+                soloMapling.ArtificialPlayer.BotMovementSystem.MovementCommands.standUp(bot);
                 bot.changeMap(back, new Point(home.x(), home.y()));
             }
             BotSM sm = CharacterStorage.getBotById(bot.getId());

@@ -519,6 +519,20 @@ public class MovementCommands {
         fakechar.getMap().broadcastMessage(fakechar, PacketCreator.showChair(fakechar.getId(), chairId), false);
     }
 
+    /** Tests: what standing up from a chair does (default: {@link #botCancelChair}). */
+    static volatile java.util.function.Consumer<Character> chairCancel = MovementCommands::botCancelChair;
+
+    /**
+     * 1.5.0 rc6 (QA t-af-1: "when playerbot sits and you double click em, their chair still there when they're
+     * standing"): a seated bot that stands, turns or starts moving first gets up properly, which clears the chair
+     * for everyone watching (the show-chair packet with chair 0). A bot that is not sitting is left alone.
+     */
+    public static void standUp(Character bot) {
+        if (bot != null && bot.getChair() > 0) {
+            chairCancel.accept(bot);
+        }
+    }
+
     public static void botCancelChair(Character fakechar) {
         fakechar.setChair(-1);
         int stance = fakechar.getStance();
@@ -598,6 +612,7 @@ public class MovementCommands {
      */
     public static void botFaceTowardsPoint(Character fakechar, Point target) {
         if (fakechar == null || target == null) return;
+        standUp(fakechar); // rc6 (QA t-af-1): turning to a player from a chair drew the bot standing ON its chair
 
         boolean targetIsLeft = target.getX() < fakechar.getPosition().getX();
 

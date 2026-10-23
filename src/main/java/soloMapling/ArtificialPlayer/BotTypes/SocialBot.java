@@ -598,6 +598,12 @@ public class SocialBot extends BotSM {
         getInteractors().setRespondant(player);
         lastRespondantMessageTime = System.currentTimeMillis();
         socialState = SocialBotState.AWAITING_CHOICE;
+        // rc6 (QA t-af-1): the double-click opened the menu with the bot turned and standing but its chair still
+        // drawn; it gets up properly now (and may sit back down when the chat ends, as after a typed chat)
+        if (getChr().getChair() > 0) {
+            wasSittingBeforeInteraction = true;
+            originalChairId = getChr().getChair();
+        }
         botFaceTowardsPoint(getChr(), player.getPosition());
         showInteractiveOptions(player);
     }
