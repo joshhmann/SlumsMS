@@ -81,7 +81,7 @@ public class ShopOfferResponse {
         log("[ShopOfferSystem] AFK accept scheduled: " + itemName + " @ " + acceptedPrice + " for " + player.getName() + " (delay=" + (delay / 60000) + "min)");
 
         MethodScheduler.runAfterDelay(() -> {
-            shopItem.setPrice((int) acceptedPrice);
+            shopItem.setPrice(Math.toIntExact(acceptedPrice));
             shop.broadcast(PacketCreator.getPlayerShopItemUpdate(shop));
 
             if (player.isLoggedin()) {
@@ -113,7 +113,7 @@ public class ShopOfferResponse {
         log("[ShopOfferSystem] HiredMerchant AFK accept scheduled: " + itemName + " @ " + acceptedPrice + " for " + player.getName() + " (delay=" + (delay / 60000) + "min)");
 
         MethodScheduler.runAfterDelay(() -> {
-            shopItem.setPrice((int) acceptedPrice);
+            shopItem.setPrice(Math.toIntExact(acceptedPrice));
             if (broadcastUpdate != null) broadcastUpdate.run();
 
             if (player.isLoggedin()) {
@@ -130,7 +130,7 @@ public class ShopOfferResponse {
         String msg = getDialogueLine("AcceptResponse", offer, player);
         shopOwnerChat(shop, owner, msg);
 
-        offer.getShopItem().setPrice((int) finalPrice);
+        offer.getShopItem().setPrice(Math.toIntExact(finalPrice));
         shop.broadcast(PacketCreator.getPlayerShopItemUpdate(shop));
 
         ShopOfferSystem.getInstance().lockItem(owner.getId(), offer.getItemIndex());

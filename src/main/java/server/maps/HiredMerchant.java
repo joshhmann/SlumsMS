@@ -291,6 +291,9 @@ public class HiredMerchant extends AbstractMapObject {
             } else if (newItem.getInventoryType().equals(InventoryType.EQUIP) && newItem.getQuantity() > 1) {
                 c.sendPacket(PacketCreator.enableActions());
                 return;
+            } else if (pItem.getPrice() <= 0) {   // 1.4.2 hotfix: never free, never paid to buy
+                c.sendPacket(PacketCreator.enableActions());
+                return;
             }
 
             KarmaManipulator.toggleKarmaFlagToUntradeable(newItem);
@@ -838,6 +841,9 @@ public class HiredMerchant extends AbstractMapObject {
         synchronized (items) {
             Item newItem = pItem.getItem().copy();
             newItem.setQuantity((short) (pItem.getItem().getQuantity() * quantity));
+            if (pItem.getPrice() <= 0) {   // 1.4.2 hotfix: never free, never paid to buy
+                return false;
+            }
             int price = (int) Math.min((float) pItem.getPrice() * quantity, Integer.MAX_VALUE);
 
             if (!BotHoldings.spendMeso(fakechar, price)) {

@@ -120,6 +120,9 @@ public class OfferParser {
                         case "b": value *= 1_000_000_000; break;
                     }
                 }
+                if (!(value >= 1) || value > Integer.MAX_VALUE) {
+                    continue;   // 1.4.2 hotfix: a listing price is an int; bigger offers wrapped to a free or negative price
+                }
                 long parsed = (long) value;
                 if (parsed > bestPrice) {
                     bestPrice = parsed;

@@ -14,6 +14,7 @@ public class OfferEvaluator {
 
     public static Decision evaluate(long offerPrice, int listingPrice) {
         if (listingPrice <= 0) return Decision.DECLINE;
+        if (offerPrice < 1 || offerPrice > Integer.MAX_VALUE) return Decision.DECLINE;   // 1.4.2 hotfix: never a listing price
 
         double ratio = offerPrice / (double) listingPrice;
 

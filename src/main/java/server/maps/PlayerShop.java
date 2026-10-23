@@ -267,6 +267,9 @@ public class PlayerShop extends AbstractMapObject {
                 } else if (newItem.getInventoryType().equals(InventoryType.EQUIP) && newItem.getQuantity() > 1) {
                     c.sendPacket(PacketCreator.enableActions());
                     return false;
+                } else if (pItem.getPrice() <= 0) {   // 1.4.2 hotfix: never free, never paid to buy
+                    c.sendPacket(PacketCreator.enableActions());
+                    return false;
                 }
 
                 KarmaManipulator.toggleKarmaFlagToUntradeable(newItem);
@@ -640,6 +643,9 @@ public class PlayerShop extends AbstractMapObject {
         synchronized (items) {
             Item newItem = pItem.getItem().copy();
             newItem.setQuantity((short) ((pItem.getItem().getQuantity() * quantity)));
+            if (pItem.getPrice() <= 0) {   // 1.4.2 hotfix: never free, never paid to buy
+                return false;
+            }
             visitorLock.lock();
             try {
                 int price = (int) Math.min((float) pItem.getPrice() * quantity, Integer.MAX_VALUE);
