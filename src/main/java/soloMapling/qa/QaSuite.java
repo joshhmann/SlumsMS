@@ -268,6 +268,12 @@ public final class QaSuite {
         return scenario.action(new QaContext(run, world, gm, args), name, args);
     }
 
+    /** The id of the GM's running scenario ({@code !qa} menu), or null. */
+    public synchronized String runningId(int gmId) {
+        QaRun run = active.get(gmId);
+        return run == null ? null : run.scenarioId();
+    }
+
     synchronized QaRun runOf(int gmId) {
         return active.get(gmId);
     }

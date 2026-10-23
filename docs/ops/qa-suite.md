@@ -15,6 +15,7 @@ using live's and the test server's real command lines. The command needs GM leve
 
 | Command | What it does |
 |---|---|
+| `!qa` | Opens the QA menu in the NPC window (see below) |
 | `!qa list` | Lists every scenario with its id, aliases, one-line description and arguments |
 | `!qa run <id> [args]` | Stages the scenario for you and starts its log |
 | `!qa do <step>` | Runs one of the scenario's steps (np-3: `!qa do close`) |
@@ -24,6 +25,31 @@ using live's and the test server's real command lines. The command needs GM leve
 You can run one scenario at a time. Scenarios that claim a map (bk, gd, fm, gh, tr-1) refuse to start while another GM's
 scenario holds that map. A run stops on its own after 15 minutes. ld-1, mv-1, pe-1, ga-2, tr-4 and tr-6 stop after 10, ga-1, tr-1, pr-1 and pr-2 after 20, tr-5 after 30, wd-2 after 5, and bk-1 after
 the showcase's own minutes plus one.
+
+### The `!qa` menu (1.5.0)
+
+`!qa` with no arguments opens a menu in the stock NPC talk window (Maple Administrator's head; no NPC needs to be on
+the map). Nothing in it is new behaviour: every click types the matching command for you through the normal command
+path, so the GM audit, refusals and the QA log are exactly as if you typed it.
+
+- **First page:** the three evenings of the release QA page (1 bots social, 2 economy, 3 combat/client) with their
+  scenario counts, and **Auto-QA** when auto-QA is on. While you have a run going, the page starts with
+  `Running <id>`, that scenario's `!qa do` steps as clickable lines (`Do: step` = `!qa do step`), steps that need
+  typed text as hints (`type: !qa do sim <player line>`), and **Stop**.
+- **An evening:** its scenarios under the page's section headings, 9 per page with Next/Previous. 1.4.x scenarios
+  that are not on the 1.5.0 page sit in the closest evening (np-* and fm-1 in economy; gh-1, ld-1, wd-2, pe-1 under
+  "Older checks" in evening 3).
+- **A scenario:** its full title, arguments and steps, then `Run <id>` and one line per variant (we-1 same/mixed,
+  rv-2 small, cp-1 married/friends/married same/married mixed, af-1 social/training, ...). Running closes the window
+  (staging may warp you); its instructions are in chat as usual. A step keeps the window on the steps unless it
+  moved you to another map.
+- **Auto-QA:** the latest report's day and build, PASS/FAIL/SKIP/NOT_RUN counts, and each failing check with its
+  one-line reason (click: run it again). **Run the smoke set** runs `!autoqa run bg-1,vg-1,ch-1`; **Run one check**
+  lists every check with its last status, paged.
+
+Where each scenario sits, its variants and its clickable steps are in `soloMapling/menus/QaMenuCatalog.java`.
+`QaMenuTest` fails when a registered scenario is not placed there, or has `!qa do` steps the menu does not list, so
+add the new id to the catalog when you add a scenario. The typed commands all keep working.
 
 ### Megaphones in a QA run (rc6)
 
@@ -282,6 +308,8 @@ ssh root@192.168.0.164 'cat /opt/mapleroot-dev/persistence-test/Server/logs/qa/f
    `// !qa <id>` comment.
 4. Add a staging test to `QaScenarioStagingTest`, then add the `!qa run <id>` line to the test's `.how` text on the
    notes page (`tools/release/notes-page/README.md`).
+5. Place it in the `!qa` menu: an `add(...)` line in `soloMapling/menus/QaMenuCatalog.java` under its evening and
+   section, with its run variants and clickable `!qa do` steps (`QaMenuTest` fails until you do).
 
 ## Auto-QA: health sweeps and checks that run themselves
 
@@ -313,7 +341,7 @@ already passes. The health sweeps work without it. Live passes neither switch, s
 
 | Command | What it does |
 |---|---|
-| `!autoqa run <check>` | Runs checks in the background. `<check>` can be a page id (`t-af-1`), a short id (`af-1`), a group (`af`) or `all`. Each result is posted to you as it finishes |
+| `!autoqa run <check>` | Runs checks in the background. `<check>` can be a page id (`t-af-1`), a short id (`af-1`), a group (`af`), a comma list (`bg-1,vg-1,ch-1`), `smoke` (that quick set) or `all`. Each result is posted to you as it finishes. The `!qa` menu's Auto-QA page runs these for you |
 | `!autoqa status` | The runner's state, check and step |
 | `!autoqa stop` | Stops after the current step. Cleanup still runs |
 | `!autoqa report` | Today's totals, the last health sweep, then every FAIL and SKIP with its reason |

@@ -84,6 +84,12 @@ public class CommandsExecutor {
         return c == null ? -1 : c.getRank();
     }
 
+    /* Tests: the class a command name runs, or null. */
+    Class<?> classForTest(String name) {
+        Command c = registeredCommands.get(name);
+        return c == null ? null : c.getClass();
+    }
+
     /* Tests: a fresh registry built under the current system properties. */
     static CommandsExecutor freshForTest() {
         return new CommandsExecutor();
@@ -262,6 +268,7 @@ public class CommandsExecutor {
         addCommand("romance", client.command.commands.gm0.RomanceCommand.class);   // 1.5.0 bot drama: romance opt-in
         addCommand("guildwar", client.command.commands.gm0.GuildWarCommand.class);   // 1.5.0 bot drama: guild wars
         addCommand("price", client.command.commands.gm0.PriceCommand.class);   // 1.5.0 rc3: the price board
+        addCommand("settings", client.command.commands.gm0.SettingsCommand.class);   // 1.5.0: bot settings menu
 	    addCommand("shop", ShopCommand.class);
        // addCommand("damageskin",  DamageSkinCommand.class);
 	    /*

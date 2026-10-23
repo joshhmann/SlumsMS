@@ -94,6 +94,24 @@ class AutoQaCatalogTest {
     }
 
     @Test
+    void aCommaListAndTheSmokeSetPickEachCheck() {
+        List<Check> all = AutoQaCatalog.all();
+        List<String> smoke = AutoQaService.select(all, "smoke").stream().map(Check::id).toList();
+        assertEquals(List.of("t-bg-1", "t-vg-1", "t-ch-1"), smoke);
+        assertEquals(smoke, AutoQaService.select(all, "bg-1, vg-1,ch-1").stream().map(Check::id).toList());
+        assertEquals(4, AutoQaService.select(all, "af,bg-1").size());
+    }
+
+    @Test
+    void aReportSnapshotCountsEveryStatus() {
+        java.util.Map<String, Object> r = AutoQaReport.empty("b", "2026-10-23", AutoQaCatalog.all());
+        AutoQaReport.Snapshot s = AutoQaReport.snapshot(r);
+        assertEquals(AutoQaCatalog.all().size(), s.checks().size());
+        assertEquals(s.checks().size(), s.count("PASS") + s.count("FAIL") + s.count("SKIP") + s.count("NOT_RUN"));
+        assertEquals(null, AutoQaReport.snapshot(null));
+    }
+
+    @Test
     void theNightlyRunIsAtTheNextFullHourUtc() {
         long t = java.time.Instant.parse("2026-10-23T09:30:00Z").toEpochMilli();
         assertEquals(30 * 60_000L, AutoQaService.msUntilNext(10, t));

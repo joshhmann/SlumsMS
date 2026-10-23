@@ -8,6 +8,10 @@ import soloMapling.ArtificialPlayer.BotDramaSystem.Romance;
 import soloMapling.ArtificialPlayer.BotDramaSystem.RomanceWedding;
 import soloMapling.server.ExecutorServiceManager;
 
+import java.util.Map;
+import java.util.concurrent.CompletableFuture;
+import java.util.concurrent.ConcurrentHashMap;
+
 /**
  * 1.5.0 bot drama: {@code @romance on|off}. Off (the default): no bot ever flirts with, asks out or proposes to this
  * character. On: a bot friend that likes you a lot may flirt, ask you out (or say yes when you ask), and propose; you
@@ -23,14 +27,24 @@ public class RomanceCommand extends Command {
     public void execute(Client c, String[] params) {
         Character player = c.getPlayer();
         String arg = params.length == 0 ? "" : params[0].toLowerCase();
-        ExecutorServiceManager.getExecutorService().execute(() -> {
+        int id = player.getId();
+        CompletableFuture<Void> work = CompletableFuture.runAsync(() -> {
             try {
                 run(player, arg, params);
             } catch (RuntimeException e) {
                 player.yellowMessage("@romance failed: " + e.getMessage());
             }
-        });
+        }, ExecutorServiceManager.getExecutorService());
+        pending.put(id, work);
+        work.whenComplete((r, e) -> pending.remove(id, work));
     }
+
+    /** The player's @romance still running off the game thread, or null (the @settings menu redraws after it). */
+    public static CompletableFuture<Void> pending(int playerId) {
+        return pending.get(playerId);
+    }
+
+    private static final Map<Integer, CompletableFuture<Void>> pending = new ConcurrentHashMap<>();
 
     private void run(Character player, String arg, String[] params) {
         switch (arg) {

@@ -163,6 +163,44 @@ public final class AutoQaReport {
         AutoQa.writeAtomic(dir.resolve("latest.json"), json);
     }
 
+    /** One check's line in a report: id ({@code t-af-1}), title, status (PASS/FAIL/SKIP/NOT_RUN) and the reason. */
+    public record CheckLine(String id, String title, String status, String reason) {
+    }
+
+    /** A report read for the {@code !qa} menu: day, build, counts per status, and every check in report order. */
+    public record Snapshot(String day, String build, Map<String, Integer> counts, List<CheckLine> checks) {
+
+        public int count(String status) {
+            return counts.getOrDefault(status, 0);
+        }
+    }
+
+    /** The report as a {@link Snapshot} (counts recounted from its checks); null for no report. */
+    @SuppressWarnings("unchecked")
+    public static Snapshot snapshot(Map<String, Object> report) {
+        if (report == null || !(report.get("checks") instanceof Map)) {
+            return null;
+        }
+        Map<String, Integer> counts = new LinkedHashMap<>();
+        for (String k : List.of("PASS", "FAIL", "SKIP", "NOT_RUN")) {
+            counts.put(k, 0);
+        }
+        List<CheckLine> lines = new ArrayList<>();
+        for (Map.Entry<String, Object> e : ((Map<String, Object>) report.get("checks")).entrySet()) {
+            if (!(e.getValue() instanceof Map)) {
+                continue;
+            }
+            Map<String, Object> c = (Map<String, Object>) e.getValue();
+            String status = String.valueOf(c.get("status"));
+            counts.merge(status, 1, Integer::sum);
+            Object reason = c.get("reason");
+            lines.add(new CheckLine(e.getKey(), String.valueOf(c.get("title")), status,
+                    reason == null ? null : String.valueOf(reason)));
+        }
+        return new Snapshot(String.valueOf(report.get("day")), String.valueOf(report.get("build")), counts,
+                List.copyOf(lines));
+    }
+
     /** The {@code !autoqa report} lines: totals, health, then every FAIL and a few SKIP reasons. */
     @SuppressWarnings("unchecked")
     static List<String> summaryLines(Map<String, Object> report, int maxLines) {

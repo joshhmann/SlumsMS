@@ -46,13 +46,34 @@ public final class AutoQaService {
         if (s.equals("all")) {
             return catalogue;
         }
+        if (s.equals("smoke")) {
+            s = String.join(",", SMOKE);
+        }
         List<Check> out = new ArrayList<>();
+        // 1.5.0: a comma list ("bg-1,vg-1,ch-1") runs each, in catalogue order
+        List<String> wanted = new ArrayList<>();
+        for (String part : s.split(",")) {
+            if (!part.isBlank()) {
+                wanted.add(part.trim());
+            }
+        }
         for (Check c : catalogue) {
-            if (c.id().equals(s) || c.shortId().equals(s) || c.shortId().startsWith(s + "-")) {
-                out.add(c);
+            for (String w : wanted) {
+                if (c.id().equals(w) || c.shortId().equals(w) || c.shortId().startsWith(w + "-")) {
+                    out.add(c);
+                    break;
+                }
             }
         }
         return out;
+    }
+
+    /** {@code !autoqa run smoke}: the quick smoke set (a minute each). */
+    public static final List<String> SMOKE = List.of("bg-1", "vg-1", "ch-1");
+
+    /** The latest report for the {@code !qa} menu; null when there is none yet. */
+    public AutoQaReport.Snapshot latest() {
+        return AutoQaReport.snapshot(AutoQaReport.read(AutoQa.dataDir().resolve("latest.json")));
     }
 
     /**

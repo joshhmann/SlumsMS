@@ -30,7 +30,7 @@ public class AutoQaCommand extends Command {
         switch (sub) {
             case "run" -> {
                 if (params.length < 2) {
-                    gm.yellowMessage("Syntax: !autoqa run <t-af-1 | af-1 | af | all>");
+                    gm.yellowMessage("Syntax: !autoqa run <t-af-1 | af-1 | af | bg-1,vg-1,ch-1 | smoke | all>");
                     return;
                 }
                 int gmId = gm.getId();
@@ -75,7 +75,7 @@ public class AutoQaCommand extends Command {
                 }
                 gm.yellowMessage("* = not in the nightly run (leaves a lasting change).");
             }
-            default -> gm.yellowMessage("!autoqa run <check|all> | status | stop | report | health | list");
+            default -> gm.yellowMessage("!autoqa run <check|a,b,c|smoke|all> | status | stop | report | health | list (!qa: menu)");
         }
     }
 

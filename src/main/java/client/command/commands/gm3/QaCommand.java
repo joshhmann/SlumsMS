@@ -3,6 +3,7 @@ package client.command.commands.gm3;
 import client.Character;
 import client.Client;
 import client.command.Command;
+import soloMapling.menus.QaMenu;
 import soloMapling.qa.QaRefusal;
 import soloMapling.qa.QaSuite;
 
@@ -11,18 +12,25 @@ import java.util.List;
 
 /*
  * Test server only (registered when QaSuite.isEnabled(): -Dslums.qa=true or -Dslums.attackcapture=true):
- *   !qa list | !qa run <id> [args] | !qa do <step> [args] | !qa where | !qa stop
+ *   !qa (a menu) | !qa list | !qa run <id> [args] | !qa do <step> [args] | !qa where | !qa stop
  * Runs a release-notes test scenario for the GM with its debug log in logs/qa/ (docs/ops/qa-suite.md).
  */
 public class QaCommand extends Command {
     {
-        setDescription("Test server: run a release test scenario with its debug log (!qa list).");
+        setDescription("Test server: run a release test scenario with its debug log (!qa: menu, !qa list).");
     }
 
     @Override
     public void execute(Client c, String[] params) {
         Character gm = c.getPlayer();
-        String sub = params.length == 0 ? "help" : params[0];
+        if (params.length == 0) {
+            // 1.5.0: the scenarios as a menu in the NPC window (each click runs the typed !qa command)
+            if (!QaMenu.open(gm)) {
+                gm.yellowMessage("Close the NPC window first. !qa list | !qa run <id> [args] | !qa do <step> | !qa where | !qa stop");
+            }
+            return;
+        }
+        String sub = params[0];
         String[] rest = params.length > 1 ? Arrays.copyOfRange(params, 1, params.length) : new String[0];
         QaSuite suite = QaSuite.get();
         try {
@@ -44,7 +52,7 @@ public class QaCommand extends Command {
                 }
                 case "where" -> show(gm, suite.where(gm.getId()));
                 case "stop" -> show(gm, suite.stop(gm.getId(), "!qa stop"));
-                default -> gm.yellowMessage("!qa list | !qa run <id> [args] | !qa do <step> | !qa where | !qa stop");
+                default -> gm.yellowMessage("!qa (menu) | !qa list | !qa run <id> [args] | !qa do <step> | !qa where | !qa stop");
             }
         } catch (QaRefusal r) {
             gm.yellowMessage(r.getMessage());
