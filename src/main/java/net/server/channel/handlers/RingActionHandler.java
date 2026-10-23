@@ -134,7 +134,7 @@ public final class RingActionHandler extends AbstractPacketHandler {
             source.dropMessage(5, "You don't have a ETC slot available right now!");
             source.sendPacket(WeddingPackets.OnMarriageResult((byte) 0));
             return;
-        } else if (!InventoryManipulator.checkSpace(target.getClient(), newBoxId + 1, 1, "")) {
+        } else if (!targetHasEtcSpace(target, newBoxId + 1)) {
             source.dropMessage(5, "The person you proposed to doesn't have a ETC slot available right now.");
             source.sendPacket(WeddingPackets.OnMarriageResult((byte) 0));
             return;
@@ -147,6 +147,18 @@ public final class RingActionHandler extends AbstractPacketHandler {
             return;
         }
         target.sendPacket(WeddingPackets.onMarriageRequest(source.getName(), source.getId()));
+    }
+
+    /**
+     * Whether the proposal's target can take its engagement token. A bot holds no client of its own (its shared bot
+     * client has no player), so the stock check threw for every bot partner and the bot never answered (1.5.0 rc6,
+     * QA t-rm-2); a bot partner's token is recorded on it, never put in an inventory, so it always has room.
+     */
+    static boolean targetHasEtcSpace(Character target, int tokenId) {
+        if (soloMapling.ArtificialPlayer.BotHelpers.isBot(target)) {
+            return true;
+        }
+        return InventoryManipulator.checkSpace(target.getClient(), tokenId, 1, "");
     }
 
     /**
