@@ -82,6 +82,12 @@ public final class ConvoActions {
         return ((long) botId << 32) ^ (playerId & 0xffffffffL);
     }
 
+    /** A bot walked over for a player; the map forgets walks older than the gap (rc6 bug hunt: it grew forever). */
+    private static void markWalked(int botId, int playerId, long now) {
+        walkedAt.put(pair(botId, playerId), now);
+        soloMapling.server.BoundedMaps.prune(walkedAt, 2_000, 10_000, at -> now - at >= WALK_GAP_MS);
+    }
+
     static boolean recentlyWalked(int botId, int playerId, long now) {
         Long at = walkedAt.get(pair(botId, playerId));
         return at != null && now - at < WALK_GAP_MS;
@@ -215,7 +221,7 @@ public final class ConvoActions {
                 }
                 String where = mapWord(f.targetMap());
                 if (!f.targetIsHere()) {
-                    walkedAt.put(pair(chr.getId(), player.getId()), now);
+                    markWalked(chr.getId(), player.getId(), now);
                     if (f.kind() == ConvoGates.BotKind.GRINDER) {
                         effects.grindAt(bot, f.targetMap());
                     } else {
@@ -232,7 +238,7 @@ public final class ConvoActions {
                             "Say no, you cannot help them hunt right now (" + d.reason() + ").", "help_no");
                 }
                 if (!f.targetIsHere()) {
-                    walkedAt.put(pair(chr.getId(), player.getId()), now);
+                    markWalked(chr.getId(), player.getId(), now);
                 }
                 effects.grindAt(bot, f.targetMap());
                 return result(Outcome.HELP_YES, f.targetIsHere() ? "Say yes, you will help kill the mobs here with them."
@@ -243,7 +249,7 @@ public final class ConvoActions {
                     return tooFar(d) ? tooFar(Outcome.GUIDE_NO) : result(Outcome.GUIDE_NO,
                             "Say you cannot show them the way right now (" + d.reason() + ").", "guide_no");
                 }
-                walkedAt.put(pair(chr.getId(), player.getId()), now);
+                markWalked(chr.getId(), player.getId(), now);
                 effects.walkTo(chr, f.targetMap(), null);
                 String where = mapWord(f.targetMap());
                 return new BotChatActions.Result(Outcome.GUIDE_YES, "Tell them to follow you, you are walking to "

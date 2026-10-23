@@ -181,6 +181,8 @@ public final class ConvoQuality {
                 source == null ? -1 : source.bankId(), persona == null ? null : persona.voice().label(),
                 tier.toLowerCase(Locale.ROOT), ms, player.getMapId());
         lastToPlayer.put(player.getId(), s);
+        long cutoff = s.at() - RATE_WINDOW_MS;   // past the !rate window a line is never rated again
+        soloMapling.server.BoundedMaps.prune(lastToPlayer, 1_000, 5_000, old -> old.at() < cutoff);
         transcript(s, player.getId());
         if (QaLog.on(QaLog.Topic.CONVO)) { // !qa cv-4, cv-6, cv-7
             QaLog.map(QaLog.Topic.CONVO, player.getMapId(), "SAID " + bot.getName() + " -> player " + hash(player.getId()) + " ["

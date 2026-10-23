@@ -93,6 +93,9 @@ public final class BotGifts {
             return false;
         }
         lastGift.put(k, now);   // claim it now, so the next sighting does not race the store read
+        // rc6 bug hunt: forget gifts older than the period (the store still has them), so the map stays bounded
+        long period = periodMs();
+        soloMapling.server.BoundedMaps.prune(lastGift, 5_000, 20_000, at -> now - at >= period);
         ExecutorServiceManager.runAsync(() -> {
             long stored = store.lastGift(bot.getId(), player.getId());
             if (stored > 0 && now - stored < periodMs()) {

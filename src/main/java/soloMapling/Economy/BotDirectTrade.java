@@ -88,6 +88,12 @@ public final class BotDirectTrade {
     private static final Map<Integer, Live> live = new ConcurrentHashMap<>();       // by bot id
     private static final Map<Long, Quote> quotes = new ConcurrentHashMap<>();       // (bot, player)
 
+    /** Expired quotes are never honoured; drop them once the map grows (rc6 bug hunt: it grew forever). */
+    private static void pruneQuotes() {
+        long now = System.currentTimeMillis();
+        soloMapling.server.BoundedMaps.prune(quotes, 500, 2_000, q -> q.expiresAt() <= now);
+    }
+
     private BotDirectTrade() {
     }
 
@@ -340,6 +346,7 @@ public final class BotDirectTrade {
             Haggled next = haggleQuote(q, read.price(), friend, System.currentTimeMillis());
             PriceBand.Decision d = next.decision();
             quotes.put(k, next.quote());
+            pruneQuotes();
             String p = PriceBook.shorthand(d.price());
             qa(bot, "QUOTE haggle " + read.price() + " -> " + d.kind() + " " + d.price());
             if (d.kind() == PriceBand.Kind.FINAL) {
@@ -358,6 +365,7 @@ public final class BotDirectTrade {
             PriceBand.Band band = PriceBand.of(PriceBand.Side.BOT_SELLS, f, friend);
             long price = PriceBand.opening(band);
             quotes.put(k, new Quote(wanted, price, System.currentTimeMillis() + QUOTE_MS));
+            pruneQuotes();
             String name = BotShops.nameOf(wanted.getItemId()).toLowerCase(Locale.ROOT);
             String p = PriceBook.shorthand(price);
             qa(bot, "QUOTE " + bot.getName() + " offers " + player.getName() + " " + name + " at " + price + " (band "

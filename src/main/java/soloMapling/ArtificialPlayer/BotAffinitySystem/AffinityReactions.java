@@ -424,6 +424,8 @@ public final class AffinityReactions {
         Long last = lastRefuseLine.get(k);
         if (last == null || now - last > TimeUnit.MINUTES.toMillis(10)) {
             lastRefuseLine.put(k, now);
+            soloMapling.server.BoundedMaps.prune(lastRefuseLine, 1_000, 5_000,
+                    at -> now - at > TimeUnit.MINUTES.toMillis(10));
             ExecutorServiceManager.runAsync(() -> say(bot, "Refuse", partner.getName()));
         }
         if (QaLog.on(QaLog.Topic.AFFINITY)) {

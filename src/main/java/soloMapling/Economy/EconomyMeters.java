@@ -34,7 +34,17 @@ public final class EconomyMeters {
     public static final String GIFT_ACCOUNT_PREFIX = "giftacct";
 
     private static final Map<String, Long> today = new ConcurrentHashMap<>();
-    private static final Map<String, Object> writeLocks = new ConcurrentHashMap<>();
+    /**
+     * Striped write locks: a meter always maps to the same lock, so its writes stay ordered, and the per-account gift
+     * meters ("giftacct" + id, new ones every day) no longer leave a lock object behind each (rc6 bug hunt).
+     */
+    private static final Object[] writeLocks = new Object[64];
+
+    static {
+        for (int i = 0; i < writeLocks.length; i++) {
+            writeLocks[i] = new Object();
+        }
+    }
     private static volatile LocalDate day;
     private static volatile EconomyStore store = new EconomyStore.Jdbc();
     private static volatile Executor writer = ExecutorServiceManager::runAsync;
@@ -85,7 +95,7 @@ public final class EconomyMeters {
      * {@code seen} is used only when the day has rolled over since (that day's total is no longer in memory).
      */
     private static void save(EconomyStore st, LocalDate d, String meter, long seen) {
-        Object lock = writeLocks.computeIfAbsent(meter, k -> new Object());
+        Object lock = writeLocks[Math.floorMod(meter.hashCode(), writeLocks.length)];
         synchronized (lock) {
             long total = d.equals(day) ? today.getOrDefault(meter, 0L) : seen;
             st.saveMeter(d, meter, total);
