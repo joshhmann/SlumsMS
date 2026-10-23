@@ -27,8 +27,7 @@ public final class AffinityStaging {
         int mobLevel = MapMobIndex.level(gm.getMapId());
         boolean fights = training && MapMobIndex.mobCount(gm.getMapId()) > 0;
         int slot = BotStore.nextDynamicSlots(1);
-        Point pos = gm.getPosition();
-        Point at = new Point(pos.x + 80, pos.y);
+        Point at = soloMapling.ArtificialPlayer.StageSpots.nearGm(gm); // rc6 (QA t-pb-1): spread, on the ground
         int id = fights
                 ? BotGeneration.createBot(slot, at, gm.getMap(), 0, Math.max(1, mobLevel), Math.max(10, mobLevel + 12))
                 : BotGeneration.createBot(slot, at, gm.getMap());
@@ -44,6 +43,7 @@ public final class AffinityStaging {
             BotTypeManager.convertBotType(bot, BotTypeManager.BotType.TRAINING_BOT);
         } else {
             BotTypeManager.convertBotType(bot, BotTypeManager.BotType.SOCIAL_BOT);
+            soloMapling.ArtificialPlayer.StageSpots.pin(id); // rc6 (QA cv-1): it stays next to the GM
         }
         BotAffinity.stage(id, gm.getId(), state);
         return id;
@@ -52,6 +52,7 @@ public final class AffinityStaging {
     /** Takes a staged bot out of the world and forgets every tie it had. */
     public static void unstage(int botId) {
         WorldEventSteer.unhold(botId);
+        soloMapling.ArtificialPlayer.StageSpots.unpin(botId);
         BotAffinity.forgetBot(botId);
         Character bot = BotHelpers.getCharFromChannelStorage(botId);
         if (bot == null) {

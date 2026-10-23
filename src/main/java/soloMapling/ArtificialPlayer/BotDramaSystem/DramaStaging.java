@@ -33,8 +33,8 @@ public final class DramaStaging {
         int mobLevel = MapMobIndex.level(gm.getMapId());
         boolean fights = training && MapMobIndex.mobCount(gm.getMapId()) > 0;
         int slot = BotStore.nextDynamicSlots(1);
-        Point pos = gm.getPosition() == null ? new Point(0, 0) : gm.getPosition();
-        Point at = new Point(pos.x + offset, pos.y);
+        // rc6 (QA t-pb-1): either side at a random distance, on the ground, clear of everyone (was a row at +offset)
+        Point at = soloMapling.ArtificialPlayer.StageSpots.nearGm(gm);
         int lo = level > 0 ? level : fights ? Math.max(1, mobLevel) : 0;
         int hi = level > 0 ? level : fights ? Math.max(10, mobLevel + 12) : 0;
         int id = lo > 0 ? BotGeneration.createBot(slot, at, gm.getMap(), 0, lo, hi) : BotGeneration.createBot(slot, at,
@@ -51,6 +51,7 @@ public final class DramaStaging {
             BotTypeManager.convertBotType(bot, BotTypeManager.BotType.TRAINING_BOT);
         } else {
             BotTypeManager.convertBotType(bot, BotTypeManager.BotType.SOCIAL_BOT);
+            soloMapling.ArtificialPlayer.StageSpots.pin(id); // rc6 (QA cv-1): it stays next to the GM
         }
         if (state != null && state != AffinityState.NEUTRAL) {
             BotAffinity.stage(id, gm.getId(), state);
@@ -61,6 +62,7 @@ public final class DramaStaging {
     /** Takes a staged bot away: its ties, its staged romances and couple, its scene holds, then the bot itself. */
     public static void unstage(int botId) {
         WorldEventSteer.unhold(botId);
+        soloMapling.ArtificialPlayer.StageSpots.unpin(botId);
         DramaKit.unbusy(botId);
         BotAffinity.forgetBot(botId);
         BotRomance.forgetBot(botId);

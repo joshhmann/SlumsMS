@@ -120,6 +120,12 @@ public class SocialBot extends BotSM {
         return getInteractors().getRespondant() != null;
     }
 
+    /** Whether the player it is talking with now is this one. */
+    public boolean isTalkingTo(int playerId) {
+        Character r = getInteractors().getRespondant();
+        return r != null && r.getId() == playerId;
+    }
+
     @Override
     public void checkPrioritySpeed() {
         // Snappy while a player is mid-conversation, and also while the bot is armed after saying yes -
@@ -236,8 +242,8 @@ public class SocialBot extends BotSM {
             return; // don't walk a bot that a chatter chain just engaged this tick
         }
         Character chr = getChr();
-        if (chr == null || chr.getMap() == null) {
-            return;
+        if (chr == null || chr.getMap() == null || soloMapling.ArtificialPlayer.StageSpots.pinned(chr.getId())) {
+            return; // rc6: a staged test bot stays next to the GM
         }
         long now = System.currentTimeMillis();
         if (now < nextRelocateAtMs) {
@@ -598,6 +604,12 @@ public class SocialBot extends BotSM {
         getInteractors().setRespondant(player);
         lastRespondantMessageTime = System.currentTimeMillis();
         socialState = SocialBotState.AWAITING_CHOICE;
+        // rc6 (QA t-af-1): the double-click opened the menu with the bot turned and standing but its chair still
+        // drawn; it gets up properly now (and may sit back down when the chat ends, as after a typed chat)
+        if (getChr().getChair() > 0) {
+            wasSittingBeforeInteraction = true;
+            originalChairId = getChr().getChair();
+        }
         botFaceTowardsPoint(getChr(), player.getPosition());
         showInteractiveOptions(player);
     }

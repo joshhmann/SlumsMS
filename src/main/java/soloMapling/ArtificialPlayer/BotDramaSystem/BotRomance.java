@@ -989,7 +989,10 @@ public final class BotRomance {
         for (Romance r : partners(player.getId())) {
             Character bot = bots.apply(r.botCharId());
             if (bot == null || bot.getMapId() != from || DramaKit.channelOf(bot) != DramaKit.channelOf(player)
-                    || !DramaKit.freeForScene(bot)) {
+                    || !DramaKit.freeForSceneWith(bot, player)) {
+                if (bot != null && bot.getMapId() == from) {
+                    qa(player.getMapId(), "FOLLOW held: " + bot.getName() + " is busy (" + whyNotFree(bot) + ")");
+                }
                 continue;
             }
             boolean qa = QaLog.on(QaLog.Topic.ROMANCE);
@@ -1006,7 +1009,7 @@ public final class BotRomance {
     }
 
     private static void follow(Character bot, Character player, int map) {
-        if (player.getMapId() != map || !DramaKit.freeForScene(bot)) {
+        if (player.getMapId() != map || !DramaKit.freeForSceneWith(bot, player)) {
             return;
         }
         boolean grind = CharacterStorage.getBotById(bot.getId()) instanceof TrainingBot && MapMobIndex.level(map) >= 0;
@@ -1020,6 +1023,21 @@ public final class BotRomance {
             soloMapling.server.BotTiming.after(DramaKit.minutes("romance.followHoldMinutes", 10),
                     () -> soloMapling.worldevents.WorldEventSteer.unhold(id));
         }
+    }
+
+    /** Why a partner could not follow (the QA log). */
+    static String whyNotFree(Character bot) {
+        if (bot.getEventInstance() != null) {
+            return "in an event";
+        }
+        if (DramaKit.inScene(bot.getId())) {
+            return "in a scene: " + DramaKit.sceneOf(bot.getId());
+        }
+        BotSM sm = CharacterStorage.getBotById(bot.getId());
+        if (!(sm instanceof TrainingBot) && !(sm instanceof soloMapling.ArtificialPlayer.BotTypes.SocialBot)) {
+            return "a " + (sm == null ? "gone" : sm.getClass().getSimpleName()) + " bot";
+        }
+        return "with another player, trading or following someone";
     }
 
     // ── jealousy ──
@@ -1410,8 +1428,9 @@ public final class BotRomance {
         for (Romance r : partners(player.getId())) {
             Character bot = bots.apply(r.botCharId());
             if (bot != null) {
-                if (busy(player)) {
-                    return "held: you are busy (event, trade, shop, NPC chat or mid-chat with a bot)";
+                if (busy(player) && BotConversation.partnerOf(player.getId()) != bot.getId()) {
+                    // rc6 (QA t-rm-1): chatting with this partner itself is no reason to hold its whisper
+                    return "held: you are busy (event, trade, shop, NPC chat or mid-chat with another bot)";
                 }
                 String line = DramaKit.pick("RomanceCuteWhisper", Map.of("PLAYER", player.getName(), "MAP",
                         DramaKit.mapName(bot)));

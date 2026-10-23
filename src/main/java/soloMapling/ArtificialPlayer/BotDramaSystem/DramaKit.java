@@ -270,6 +270,37 @@ public final class DramaKit {
                 && bot.getEventInstance() == null && !inScene(bot.getId()) && !withRealPlayer(bot);
     }
 
+    /**
+     * As {@link #freeForScene(Character)} for a scene with {@code player} itself: chatting with that player, or
+     * being in a party with them, does not hold the bot (1.5.0 rc6, QA t-rm-1: the partner was mid-chat with the
+     * player it dates - it had just said yes - so it never followed them to the next map).
+     */
+    static boolean freeForSceneWith(Character bot, Character player) {
+        if (player == null) {
+            return freeForScene(bot);
+        }
+        if (bot == null || bot.getMap() == null) {
+            return false;
+        }
+        BotSM sm = CharacterStorage.getBotById(bot.getId());
+        return (sm instanceof TrainingBot || sm instanceof SocialBot)
+                && BotPopulationDirector.mayLogOut(sm, player.getId()) && bot.getEventInstance() == null
+                && !inScene(bot.getId()) && !withRealPlayerOtherThan(bot, player.getId());
+    }
+
+    static boolean withRealPlayerOtherThan(Character bot, int playerId) {
+        Party p = bot.getParty();
+        if (p == null) {
+            return false;
+        }
+        for (PartyCharacter m : p.getMembers()) {
+            if (m != null && !BotHelpers.isArtificial(m.getId()) && m.getId() != playerId) {
+                return true;
+            }
+        }
+        return false;
+    }
+
     static boolean withRealPlayer(Character bot) {
         Party p = bot.getParty();
         if (p == null) {
@@ -322,8 +353,13 @@ public final class DramaKit {
                 return false;
             }
             soloMapling.ArtificialPlayer.GCMoveSystem.GCMovement.stop(bot);
+            soloMapling.ArtificialPlayer.BotMovementSystem.MovementCommands.standUp(bot); // rc6: no chair along
             Point at = player.getPosition() == null ? new Point(0, 0) : new Point(player.getPosition());
             at.translate(offsetX, 0);
+            if (offsetX != 0) { // rc6 (QA t-pb-1): either side near the player, on the ground, clear of others
+                at = soloMapling.ArtificialPlayer.StageSpots.near(map, player.getPosition() == null ? at
+                        : player.getPosition());
+            }
             if (bot.getMapId() != map.getId()) {
                 bot.changeMap(map, at);
             }
@@ -337,6 +373,32 @@ public final class DramaKit {
         } catch (RuntimeException e) {
             log.debug("Could not bring {} to {}", bot.getName(), player.getName(), e);
             return false;
+        }
+    }
+
+    /** Says exactly this line in map chat. */
+    static void speak(Character bot, String line) {
+        if (line != null && bot != null && bot.getMap() != null) {
+            BotSpeak(bot, line);
+        }
+    }
+
+    /**
+     * A bot done with a scene goes back to what it did, where it stands (no warp): a training bot fights here when
+     * the map has mobs, else it hangs around.
+     */
+    static void settle(Character bot, Home home) {
+        if (bot == null || home == null) {
+            return;
+        }
+        try {
+            BotSM sm = CharacterStorage.getBotById(bot.getId());
+            boolean mobs = soloMapling.ArtificialPlayer.BotGrindSystem.MapMobIndex.level(bot.getMapId()) >= 0;
+            if (home.training() && mobs && !(sm instanceof TrainingBot)) {
+                BotTypeManager.convertBotType(bot, BotTypeManager.BotType.TRAINING_BOT);
+            }
+        } catch (RuntimeException e) {
+            log.debug("Could not settle {}", bot.getName(), e);
         }
     }
 
@@ -355,6 +417,7 @@ public final class DramaKit {
             MapleMap back = BotChannels.map(channelOf(bot), home.mapId());
             if (back != null && bot.getMapId() != home.mapId()) {
                 soloMapling.ArtificialPlayer.GCMoveSystem.GCMovement.stop(bot);
+                soloMapling.ArtificialPlayer.BotMovementSystem.MovementCommands.standUp(bot);
                 bot.changeMap(back, new Point(home.x(), home.y()));
             }
             BotSM sm = CharacterStorage.getBotById(bot.getId());

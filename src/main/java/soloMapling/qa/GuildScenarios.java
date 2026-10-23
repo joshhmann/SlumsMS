@@ -119,7 +119,7 @@ final class GuildScenarios {
             listGuilds(ctx);
             int id = stage(ctx, "friend", guild, 2);
             leaveJoinedGuildAtStop(ctx);
-            return List.of("Bot " + id + " next to you is an officer of " + guild + " (and counts you as a friend); its",
+            return List.of(QaScenarios.who(ctx, id) + " next to you is an officer of " + guild + " (and counts you as a friend); its",
                     "guild name shows over its head. Talk to it: \"<name> can i join ur guild?\" - it answers (APPLY YES)",
                     "and an invite pops up a few seconds later (INVITE SENT). Accept: you are in " + guild + " with its bots",
                     "on the guild list. Say \"hi guys\" in guild chat (/g or the guild tab): at most one bot answers (GUILD CHAT).",
@@ -258,7 +258,7 @@ final class GuildScenarios {
         public List<String> stage(QaContext ctx) {
             requireGuild(ctx);
             int id = stage(ctx, "friend", "mine", 5);
-            return List.of("Bot " + id + " is a member of your guild now.",
+            return List.of(QaScenarios.who(ctx, id) + " is a member of your guild now.",
                     "!qa do rival: it turns into your rival and the quit check runs - it says why in guild chat and leaves (LEAVE).",
                     "!qa do ignore: it joined and was last noticed 30 days ago - it leaves (player-led guilds only). A step on a",
                     "member that already left stages a fresh one and runs on it.");
@@ -295,7 +295,8 @@ final class GuildScenarios {
             int f = stage(ctx, "friend", null, 5);
             int n = stage(ctx, "neutral", null, 5);
             int r = stage(ctx, "rival", null, 5);
-            return List.of("Three bots: " + f + " (friend), " + n + " (neutral), " + r + " (rival).",
+            return List.of("Three bots: " + QaScenarios.who(ctx, f) + " (friend), " + QaScenarios.who(ctx, n) + " (neutral), "
+                    + QaScenarios.who(ctx, r) + " (rival).",
                     "Invite each to a party without asking first (PARTY INVITE lines show the chance): the friend joins and",
                     "follows you (it trains with you on a mob map), the neutral one joins about 1 time in 3 (a no holds 3 min),",
                     "the rival never. KPQ/LPQ: a follower standing by you at the PQ NPC is registered with the party; it does",

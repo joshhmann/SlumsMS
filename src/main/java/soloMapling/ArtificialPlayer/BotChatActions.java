@@ -176,6 +176,11 @@ public final class BotChatActions {
             return busy(follow);
         }
         int slot = chr.getId() - BotStore.BOT_ID_BASE;
+        if (BotRecruitManager.holdsAGrudge(chr, player)) {
+            // 1.5.0 rc6 (QA t-af-2): a rival or nemesis never parties with the player it has beef with
+            return new Result(Outcome.PARTY_WARY, "Say no to the party, coldly and a bit petty: they are your rival in"
+                    + " the game and you are not helping them.", ScriptedReplies.pick(ScriptedReplies.PARTY_NO));
+        }
         if (wary(slot, player.getId())) {
             return new Result(Outcome.PARTY_WARY, "Say no to the party, a bit coldly: you do not trust them after how they acted before.",
                     ScriptedReplies.pick(ScriptedReplies.PARTY_NO));
@@ -270,7 +275,7 @@ public final class BotChatActions {
     }
 
     /** The bot's real training map: where a grinder trains, the field it stands on, or a fitting map for its level. */
-    static String trainingMapName(BotSM bot, Character chr) {
+    public static String trainingMapName(BotSM bot, Character chr) {
         try {
             BotRoster.Activity doing = bot.activitySnapshot();
             int train = doing == null ? -1 : doing.intState(BotRoster.TRAIN_STATE, -1);

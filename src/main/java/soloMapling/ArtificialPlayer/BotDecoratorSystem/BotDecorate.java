@@ -297,9 +297,22 @@ public class BotDecorate {
     }
 
     public static void setBotVariables(Character bot) {
+        setBotVariablesInRange(bot, 10, 80);
+    }
+
+    /** The level an any-class bot gets for a range: exactly {@code minLevel} when the range is one level. */
+    static int levelInRange(BotTier tier, int minLevel, int maxLevel) {
+        return minLevel >= maxLevel ? minLevel : generateBotLevel(tier, minLevel, maxLevel);
+    }
+
+    /**
+     * As {@link #setBotVariables(Character)} (any class, the casual decoration mix) at a level in the range: staging
+     * that asks for "a lv 60 partner" or "grinders at the map's level" without picking a class.
+     */
+    public static void setBotVariablesInRange(Character bot, int minLevel, int maxLevel) {
         BotTier tier = getRandomTier();
         bot.setTier(tier);
-        int level = generateBotLevel(tier, 10, 80);
+        int level = levelInRange(tier, minLevel, maxLevel);
         int job = selectJobByLevel(level);
         bot.setGender(selectRandomGender());
         bot.setLevel(level);

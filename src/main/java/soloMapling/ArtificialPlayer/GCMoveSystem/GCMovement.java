@@ -121,6 +121,7 @@ public final class GCMovement {
         if (bot == null) {
             return;
         }
+        soloMapling.ArtificialPlayer.BotMovementSystem.MovementCommands.standUp(bot); // rc6: never walk off seated
         enable(bot);
         BotMovementState st = STATES.get(bot.getId());
         if (st == null) {
@@ -166,6 +167,7 @@ public final class GCMovement {
         if (bot == null || target == null) {
             return;
         }
+        soloMapling.ArtificialPlayer.BotMovementSystem.MovementCommands.standUp(bot); // rc6: never walk off seated
         enable(bot);
         GCFollow.start(bot, target);
     }

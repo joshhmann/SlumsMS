@@ -70,6 +70,13 @@ public class BotRecruitManager {
             debugprint("rollPartyAsk: " + botChr.getName() + " ON_COOLDOWN for " + player.getName());
             return RecruitAnswer.ON_COOLDOWN;
         }
+        if (holdsAGrudge(botChr, player)) {
+            // 1.5.0 rc6 (QA t-af-2): the chat window and the menus asked "wanna party?" with no feelings check, so a
+            // rival said yes there and joined; the same rule as an unasked invite (BotGuilds.partyChance): never
+            DECLINED_UNTIL.put(pairKey, System.currentTimeMillis() + DECLINE_COOLDOWN_MS);
+            debugprint("rollPartyAsk: " + botChr.getName() + " DECLINED " + player.getName() + " (rival or nemesis)");
+            return RecruitAnswer.DECLINED;
+        }
         if (willBecomeFollower && activeFollowerCount() >= FOLLOWER_CAP) {
             debugprint("rollPartyAsk: follower cap reached (" + FOLLOWER_CAP + "), declining");
             return RecruitAnswer.FOLLOWERS_FULL;
@@ -85,6 +92,18 @@ public class BotRecruitManager {
         debugprint("rollPartyAsk: " + botChr.getName() + " DECLINED " + player.getName()
                 + " (rolled no, " + (DECLINE_COOLDOWN_MS / 60000) + "min cooldown)");
         return RecruitAnswer.DECLINED;
+    }
+
+    /** A rival or nemesis of this real player (never with @botdrama off: the state then reads neutral). */
+    public static boolean holdsAGrudge(Character botChr, Character player) {
+        if (botChr == null || player == null || soloMapling.ArtificialPlayer.BotHelpers.isBot(player)) {
+            return false;
+        }
+        try {
+            return soloMapling.ArtificialPlayer.BotAffinitySystem.BotAffinity.hostile(botChr.getId(), player.getId());
+        } catch (RuntimeException e) {
+            return false;
+        }
     }
 
     /**
@@ -285,5 +304,14 @@ public class BotRecruitManager {
 
     private static long pairKey(int botId, int playerId) {
         return ((long) botId << 32) | (playerId & 0xffffffffL);
+    }
+
+    // Tests: forget a pair's decline cooldown / a bot's invite window.
+    static void clearCooldownForTest(int botId, int playerId) {
+        DECLINED_UNTIL.remove(pairKey(botId, playerId));
+    }
+
+    static void clearArmedForTest(int botId) {
+        ARMED.remove(botId);
     }
 }

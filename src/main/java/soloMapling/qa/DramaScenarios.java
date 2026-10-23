@@ -3,6 +3,7 @@ package soloMapling.qa;
 import client.Character;
 
 import java.util.ArrayList;
+import java.util.Arrays;
 import java.util.EnumSet;
 import java.util.List;
 import java.util.Set;
@@ -297,9 +298,22 @@ final class DramaScenarios {
     static final class Rv2KsWar extends RivalScenario {
         public String id() { return "rv-2"; }
         public String title() { return "KS war: a rival calls 2-4 bots to KS you for a few minutes, then they leave (1.5.0)"; }
-        public String usage() { return "; then !qa do kswar [2-4] | endwar"; }
+        public String usage() { return "[small]; then !qa do kswar [2-4] | endwar"; }
+
+        /**
+         * rc6 (QA t-rv-2: "the 3 bots are just finding their own lanes and killing ... maybe in other maps with less
+         * lanes is better"): {@code small} holds the war on a compact field (the Rain-Forest East of Henesys: three
+         * bands of low mobs, Map.wz 100020000), where the callers have to crowd into the GM's own lane.
+         */
+        static final int SMALL_MAP = 100020000;
 
         public List<String> stage(QaContext ctx) {
+            if (Arrays.stream(ctx.args()).anyMatch("small"::equalsIgnoreCase)) {
+                if (!ctx.world().warp(ctx.gm(), SMALL_MAP)) {
+                    throw new QaRefusal("Cannot warp to " + SMALL_MAP + ".");
+                }
+                ctx.log("warped to " + SMALL_MAP + " (a field with few lanes)");
+            }
             List<String> out = stageRival(ctx, "nemesis");
             ctx.onStop("end the KS war", () -> ctx.world().dramaAction(ctx.gmNow() != null ? ctx.gmNow() : ctx.gm(),
                     "rival", "endwar"));

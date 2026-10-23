@@ -135,6 +135,18 @@ class DramaScenariosTest {
     }
 
     @Test
+    void rv2SmallHoldsTheWarOnAFieldWithFewLanes() {
+        // rc6 (QA t-rv-2): "maybe in other maps with less lanes is better"
+        start("rv-2", 10, "small");
+        assertTrue(world.calls.contains("warp 100020000"), world.calls.toString());
+        assertTrue(world.drama.contains("rival stage nemesis"));
+        suite.stop(1, "!qa stop");
+        world.calls.clear();
+        start("rv-2", 10);
+        assertFalse(world.calls.contains("warp 100020000"), "without it: where the GM fights");
+    }
+
+    @Test
     void warScenariosDeclareCheckPoachAllyAndCleanUp() {
         start("gw-1", 10);
         // rc6, owner QA 2026-10-23: a war already on is declared fresh, the sides grind here and skirmish at once

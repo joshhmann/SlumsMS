@@ -463,7 +463,8 @@ public final class BotConversation {
                 + soloMapling.ArtificialPlayer.BotAffinitySystem.AffinityReactions.promptLine(bot.getId(), player) // ticket 58: friend or beef
                 + soloMapling.ArtificialPlayer.BotCoupleSystem.BotCouples.promptLine(bot.getId()) // ticket 58: a partner
                 + soloMapling.ArtificialPlayer.BotGuildSystem.BotGuilds.promptLine(bot.getId()) // 1.5.0: its guild
-                + soloMapling.ArtificialPlayer.BotDramaSystem.BotDrama.promptLine(bot.getId(), player); // 1.5.0: romance, beef
+                + soloMapling.ArtificialPlayer.BotDramaSystem.BotDrama.promptLine(bot.getId(), player) // 1.5.0: romance, beef
+                + soloMapling.ArtificialPlayer.BotConvo.LevelTalk.promptLine(session.bot, now); // rc6: level, grind, news
     }
 
     /**

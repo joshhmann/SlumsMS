@@ -60,6 +60,11 @@ class FakeQaWorld implements QaWorld {
     @Override public List<Integer> spawnIdleBots(Character gm, Point around, int count) {
         return bots("idle", count);
     }
+    @Override public List<Integer> spawnIdleBots(Character gm, Point around, int count, int level) {
+        calls.add("idle bots lv " + level);
+        return bots("idle", count);
+    }
+    @Override public String botLabel(Character gm, int botId) { return "Botty" + botId + " (lv 30, 90 px to your right)"; }
 
     @Override public List<Integer> spawnFmShoppers(Character gm, int count) {
         return bots("fm", count);
@@ -199,6 +204,7 @@ class FakeQaWorld implements QaWorld {
 
     @Override public String affinityOf(int botId, Character gm) { return "rival: score -40"; }
 
+    @Override public void holdKsWars(Character gm, boolean hold) { calls.add("hold ks wars " + hold); }
     @Override public String forceGrudge(int botId, Character gm) { calls.add("grudge " + botId); return "grudge + KS spree"; }
 
     final List<int[]> couplesUnstaged = new ArrayList<>();
@@ -217,6 +223,10 @@ class FakeQaWorld implements QaWorld {
     @Override public void coupleStep() { coupleSteps++; }
 
     @Override public String startWedding(int botId, String by) { calls.add("wedding " + botId); return weddingProblem; }
+    @Override public String startWedding(int botId, String by, int mapId) {
+        calls.add("wedding " + botId + " on " + mapId);
+        return weddingProblem;
+    }
 
     @Override public int stopWeddings(String by) { calls.add("stop weddings"); return 1; }
 

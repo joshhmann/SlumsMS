@@ -217,6 +217,19 @@ class QaScenarioStagingTest {
     }
 
     @Test
+    void ga2StagesARichLevel100BotByNameAtThreeTimesItsCeiling() throws Exception {
+        // rc6 (QA t-wc-1): a lv 13 bot at 2.5x was done in 17 s; the line named it by id only
+        start("ga-2", 100000000);
+        int bot = world.nextBot - 1;
+        assertTrue(world.calls.contains("idle bots lv 100"), world.calls.toString());
+        assertTrue(world.calls.contains("bot " + bot + " meso 15000000"), "3x a 5,000,000 ceiling");
+        String text = Files.readString(suite.runOf(1).logPath());
+        assertTrue(text.contains("told GM: Botty" + bot + " (lv 30, 90 px to your right) holds 3.0x"), text);
+        assertEquals(1, scheduler.repeating.size());
+        suite.stop(1, "!qa stop");
+    }
+
+    @Test
     void bk1SpawnsTheShowcaseOnTheGmsMapAndDespawnsIt() {
         start("bk-1", 104040000);
         assertTrue(suite.runOf(1).maps().contains(104040000));
@@ -320,6 +333,20 @@ class QaScenarioStagingTest {
     }
 
     @Test
+    void af2AndAf3HoldSpontaneousKsWarsForTheRun() {
+        // rc6 (QA t-af-2): a KS war rolled on sight brought "two random bots" in during the af-2 run
+        start("af-2", 104040000);
+        assertTrue(world.calls.contains("hold ks wars true"));
+        suite.stop(1, "!qa stop");
+        assertTrue(world.calls.contains("hold ks wars false"), "allowed again at stop");
+        world.calls.clear();
+        start("af-3", 104040000);
+        assertTrue(world.calls.contains("hold ks wars true"));
+        suite.stop(1, "!qa stop");
+        assertTrue(world.calls.contains("hold ks wars false"));
+    }
+
+    @Test
     void af3TurnsDramaOffAndPutsItBackAtStop() {
         world.dramaOff = false;
         start("af-3", 104040000);
@@ -346,17 +373,27 @@ class QaScenarioStagingTest {
     }
 
     @Test
-    void we1NeedsChannelOneWarpsToAmoriaAndStartsTheWedding() {
+    void we1NeedsChannelOneWarpsToTheChapelAndStartsTheWeddingThere() {
         world.eventChannel = false;
         assertThrows(QaRefusal.class, () -> start("we-1", 100000000));
         world.eventChannel = true;
-        start("we-1", 100000000, "same");
-        assertTrue(world.calls.contains("warp 680000000"));
-        assertTrue(world.calls.stream().anyMatch(c -> c.startsWith("couple ") && c.endsWith("dating same")));
-        assertTrue(world.calls.stream().anyMatch(c -> c.startsWith("wedding ")));
+        start("we-1", 100000000, "mixed");
+        // rc6 (QA t-we-1): "we-1 mixed sent me just to amoria not the chapel"
+        assertTrue(world.calls.contains("warp 680000110"), world.calls.toString());
+        assertFalse(world.calls.contains("warp 680000000"));
+        assertTrue(world.calls.stream().anyMatch(c -> c.startsWith("couple ") && c.endsWith("dating mixed")));
+        assertTrue(world.calls.stream().anyMatch(c -> c.startsWith("wedding ") && c.endsWith(" on 680000110")),
+                world.calls.toString());
         suite.stop(1, "!qa stop");
         assertTrue(world.calls.contains("stop weddings"));
         assertEquals(1, world.couplesUnstaged.size());
+    }
+
+    @Test
+    void cp1StepsEveryTwentySeconds() {
+        // rc6 (QA t-cu-1): a step a minute showed nothing within the first minute
+        assertEquals(20, QaScenarios.all().stream().filter(s -> s.id().equals("cp-1")).findFirst().orElseThrow()
+                .tickSeconds());
     }
 
     @Test

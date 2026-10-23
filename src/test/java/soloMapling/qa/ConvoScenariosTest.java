@@ -9,6 +9,7 @@ import java.nio.file.Path;
 import java.util.List;
 
 import static org.junit.jupiter.api.Assertions.assertEquals;
+import static org.junit.jupiter.api.Assertions.assertFalse;
 import static org.junit.jupiter.api.Assertions.assertTrue;
 
 /** Ticket 59's scenarios (cv-1 .. cv-7) against a recording world. */
@@ -44,6 +45,17 @@ class ConvoScenariosTest {
         for (String id : List.of("cv-1", "cv-2", "cv-3", "cv-4", "cv-5", "cv-6", "cv-7", "cv-8")) {
             assertTrue(ids.contains(id), id);
         }
+    }
+
+    @Test
+    void cv1NamesTheBotAndSaysWhereItIs() throws Exception {
+        // rc6 (QA cv-1): "Bot 1000000140 counts you as a friend. Name it..." - an id, and nowhere to look
+        start("cv-1", 100000000);
+        String text = java.nio.file.Files.readString(suite.runOf(1).logPath());
+        assertTrue(text.contains("told GM: Botty"), text);
+        assertTrue(text.contains("px to your right) counts you as a friend"), text);
+        assertFalse(text.contains("told GM: Bot 9"), "never the id");
+        suite.stop(1, "!qa stop");
     }
 
     @Test

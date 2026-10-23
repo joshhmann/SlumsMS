@@ -1358,6 +1358,16 @@ public class TrainingBot extends BotSM {
                 + (phase == Phase.GRIND ? " (live swap on next combat tick)" : " (applies at next grind)");
     }
 
+    // !qa sp-1 (rc6): a break now that hangs on a rope when the map has a safe rope band (else a ground rest).
+    public boolean forceRopeBreakNow() {
+        if (phase != Phase.GRIND) {
+            return false;
+        }
+        breaks.forceRopeNow();
+        nudgeSoon(300);
+        return true;
+    }
+
     // Dev hook (!bot breaknow): pull a break to the next grind tick.
     public boolean forceBreakNow() {
         if (phase != Phase.GRIND) {

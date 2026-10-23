@@ -237,16 +237,40 @@ final class CombatScenarios {
                 }
             }
             stage(ctx, List.of(), n, 0, false, true);
+            ticks.put(ctx.run().gmId(), 0);
+            ctx.onStop("forget the ticks", () -> ticks.remove(ctx.run().gmId()));
             tally(ctx, "START");
             return List.of(n + " grinders start in one clump next to you.",
                     "Every 15 s a SPREAD tally: bots, how many 100 px spots they cover, pairs closer than 34 px, bots"
                             + " per rope. SPACE (stepped off another bot) and ROPE (waited for a rope) lines show the moves.",
                     "Watch: within a minute they cover several platforms, no two stand on one pixel, no two hang on one"
-                            + " rope. Extra bots may move on to another map (that is spread too).");
+                            + " rope. Extra bots may move on to another map (that is spread too).",
+                    "About 30 s in, two of them take a break hanging on a rope (ROPE REST; a map with a safe rope above"
+                            + " the mobs). !qa do rope does it again.");
         }
+
+        /** rc6 (QA t-sp-1: "dont see any rope hanging"): the second tally (about 30 s in) sends two to a rope rest. */
+        private final Map<Integer, Integer> ticks = new ConcurrentHashMap<>();
 
         public void tick(QaContext ctx) {
             tally(ctx, "TALLY");
+            int n = ticks.merge(ctx.run().gmId(), 1, Integer::sum);
+            if (n == 2) {
+                rope(ctx);
+            }
+        }
+
+        public List<String> action(QaContext ctx, String name, String[] args) {
+            if (!"rope".equals(name)) {
+                throw new QaRefusal("sp-1 steps: rope");
+            }
+            return rope(ctx);
+        }
+
+        private List<String> rope(QaContext ctx) {
+            List<String> out = ctx.world().grinderAction(staged(ctx), "rope");
+            out.forEach(l -> ctx.run().note("ROPE REST", l));
+            return out;
         }
 
         private void tally(QaContext ctx, String kind) {

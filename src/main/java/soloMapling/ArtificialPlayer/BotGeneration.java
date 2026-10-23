@@ -18,6 +18,7 @@ import java.util.concurrent.atomic.AtomicInteger;
 import static soloMapling.ArtificialPlayer.BotClientHandler.getBotClient;
 import static soloMapling.ArtificialPlayer.BotCommandsPack.WarpCommands.botEnterPortalDropDown;
 import static soloMapling.ArtificialPlayer.BotDecoratorSystem.BotDecorate.setBotVariables;
+import static soloMapling.ArtificialPlayer.BotDecoratorSystem.BotDecorate.setBotVariablesInRange;
 import static soloMapling.ArtificialPlayer.BotMovementSystem.MovementCommands.microTurnAroundToLeft;
 import static soloMapling.DebugUtilities.debugprint;
 import static soloMapling.FreeMarket.FMShopDescGen.registerCharacterName;
@@ -79,6 +80,20 @@ public class BotGeneration {
         consoleBot = setConsoleBot(consoleBot, botId); // Bot onDemandBot
         addBotToServer(consoleBot);
         return consoleBot;
+    }
+
+    /** How a brand new bot is decorated: any class at 10-80, any class in the asked level range, or the asked class. */
+    enum Decoration { RANDOM, LEVEL_RANGE, CLASS }
+
+    /**
+     * 1.5.0 rc6 (QA t-rm-2): a level range with no class (staging "a lv 60 partner", "grinders at the map's level")
+     * keeps its range; it used to fall into the random 10-80 path and lose it.
+     */
+    static Decoration decorationFor(int baseClass, int minLevel) {
+        if (baseClass > 0) {
+            return Decoration.CLASS;
+        }
+        return minLevel > 0 ? Decoration.LEVEL_RANGE : Decoration.RANDOM;
     }
 
     public static int createBot(int slot, Point pos, MapleMap map) {
@@ -172,10 +187,10 @@ public class BotGeneration {
         } else {
             // Decorate before the drop-down plays so the bot arrives fully dressed
             // (decoration is an in-memory cache lookup, takes microseconds).
-            if (baseClass <= 0) {
-                setBotVariables(bot);
-            } else {
-                setBotVariables(bot, baseClass, minLevel, maxLevel, forcedJobId);
+            switch (decorationFor(baseClass, minLevel)) {
+                case RANDOM -> setBotVariables(bot);
+                case LEVEL_RANGE -> setBotVariablesInRange(bot, minLevel, Math.max(minLevel, maxLevel));
+                case CLASS -> setBotVariables(bot, baseClass, minLevel, maxLevel, forcedJobId);
             }
             bot.setFame(BotFame.forBot(botId, bot.getLevel()));
             // A brand new bot is minted with the initial-creator grants and gets its store row right away,

@@ -92,6 +92,10 @@ public final class BotAttack {
 
         int facingMask = facingLeft(chr) ? BotAttackData.FACING_LEFT_MASK : BotAttackData.FACING_RIGHT_MASK;
         int weaponId = equippedWeaponId(chr);
+        if (!drawable(skillId, weaponId)) {
+            basicSwing(chr);
+            return;
+        }
         int level = resolveSkillLevel(skillId);
         int bodyActionId = BotAttackData.actionFor(skillId, level, weaponId, BotAttackProfile.Route.CLOSE);
         if (bodyActionId < 0) {
@@ -119,6 +123,9 @@ public final class BotAttack {
 
         int facingMask = facingLeft(chr) ? BotAttackData.FACING_LEFT_MASK : BotAttackData.FACING_RIGHT_MASK;
         int weaponId = equippedWeaponId(chr);
+        if (!drawable(skillId, weaponId)) {
+            return; // a mage with no wand or staff: nothing a viewer could draw
+        }
         int level = resolveSkillLevel(skillId);
         int bodyActionId = BotAttackData.actionFor(skillId, level, weaponId, BotAttackProfile.Route.MAGIC);
         if (bodyActionId < 0) {
@@ -133,6 +140,16 @@ public final class BotAttack {
                         BotClientPoses.actionSpeed(weaponId), bodyActionId, /* display */ 0),
                 false
         );
+    }
+
+    /**
+     * 1.5.0 rc6 (QA t-rv-4: "saw a skill cannot be used with equipped item"): whether a viewer's client accepts this
+     * skill from a character holding this weapon. The idle show-off swings (BotFlavor) sent the job's skill whatever
+     * the bot held; a remote attack whose skill does not fit the weapon is dropped and the viewer's chat reads "This
+     * skill cannot be used with the equipped item." Every combat swing already checked this (BotSwingPlan).
+     */
+    static boolean drawable(int skillId, int weaponId) {
+        return soloMapling.ArtificialPlayer.BotAttackSystem.BotSkillActions.weaponFits(skillId, weaponId);
     }
 
     private static int equippedWeaponId(Character chr) {

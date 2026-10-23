@@ -506,6 +506,12 @@ public final class BotAffinity {
         });
         if (out) {
             writes.submit(charId, () -> purge.accept(charId));
+            try {
+                // 1.5.0 rc6 (QA t-af-3): a KS war running on them ends too; its bots no longer hang around
+                soloMapling.ArtificialPlayer.BotDramaSystem.BotRivalry.onDramaOff(charId);
+            } catch (RuntimeException | LinkageError e) {
+                log.debug("Could not end a KS war on {}", charId, e);
+            }
         }
     }
 

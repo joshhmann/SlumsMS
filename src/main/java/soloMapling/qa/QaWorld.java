@@ -50,6 +50,19 @@ public interface QaWorld {
     /** Spawns idle bots (no FSM) around a point of the GM's map; their character ids. */
     List<Integer> spawnIdleBots(Character gm, Point around, int count);
 
+    /** As above at one level (ga-2: a rich lv 100 bot, whose spend-down takes a couple of minutes). */
+    default List<Integer> spawnIdleBots(Character gm, Point around, int count, int level) {
+        return spawnIdleBots(gm, around, count);
+    }
+
+    /**
+     * rc6 (QA cv-1: "Bot 1000000140 counts you as a friend. Name it..." - an id, never a name, and nowhere to look):
+     * how a staged bot is named to the GM: its character name, level and where it stands from the GM.
+     */
+    default String botLabel(Character gm, int botId) {
+        return "bot " + botId;
+    }
+
     /** Spawns FM shopper bots in the GM's FM room that stay in that room; their character ids. */
     List<Integer> spawnFmShoppers(Character gm, int count);
 
@@ -153,6 +166,10 @@ public interface QaWorld {
     /** A fresh grudge of the bot against the GM, and a KS spree when they share a map; what happened. */
     String forceGrudge(int botId, Character gm);
 
+    /** af-2/af-3: no rival calls a KS war on the GM by itself while held (the run's own KS sprees are the test). */
+    default void holdKsWars(Character gm, boolean hold) {
+    }
+
     /**
      * Ticket 58 (cp-1, we-1): two new bots next to the GM that are a pair: {@code kind} dating | married | friends;
      * {@code sameGender} true / false / null (any). Their ids, or null.
@@ -167,6 +184,11 @@ public interface QaWorld {
 
     /** Starts the Amoria wedding for the couple this bot is in; the problem, or null. */
     String startWedding(int botId, String by);
+
+    /** As above on a chosen map (we-1: the chapel). */
+    default String startWedding(int botId, String by, int mapId) {
+        return startWedding(botId, by);
+    }
 
     /** Stops a running bot wedding, if any; how many stopped. */
     int stopWeddings(String by);

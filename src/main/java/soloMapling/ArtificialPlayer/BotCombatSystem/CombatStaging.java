@@ -212,6 +212,16 @@ public final class CombatStaging {
     /** A cb-3 step on the staged bots: {@code die | lowpots | hurt}; the lines of what happened. */
     public static List<String> act(List<Integer> ids, String action) {
         List<String> out = new ArrayList<>();
+        if ("rope".equals(action)) { // rc6 (QA t-sp-1): two grinders take a rope rest now
+            for (int id : ids) {
+                if (out.size() < 2 && soloMapling.ArtificialPlayer.BotMessagingSystem.CharacterStorage.getBotById(id)
+                        instanceof soloMapling.ArtificialPlayer.BotTypes.TrainingBot tb && tb.forceRopeBreakNow()) {
+                    out.add(tb.getChr().getName() + " takes a break on a rope (a safe rope above the mobs; else it"
+                            + " rests on the ground)");
+                }
+            }
+            return out.isEmpty() ? List.of("no grinder is fighting right now: try again in a few seconds") : out;
+        }
         for (int id : ids) {
             Character bot = BotHelpers.getCharFromChannelStorage(id);
             if (bot == null) {
@@ -239,7 +249,7 @@ public final class CombatStaging {
                             + "% (line " + Math.round(BotHabits.of(id).hpPotAt() * 100) + "%)");
                 }
                 default -> {
-                    return List.of("steps: die, lowpots, hurt");
+                    return List.of("steps: die, lowpots, hurt, rope");
                 }
             }
         }

@@ -104,7 +104,7 @@ final class ConvoScenarios {
         public List<String> stage(QaContext ctx) {
             boolean training = "training".equals(word(ctx.args(), "social", "social", "training"));
             int id = stage(ctx, "friend", training, null);
-            return List.of("Bot " + id + " counts you as a friend. Name it, then ask in plain words:",
+            return List.of(QaScenarios.who(ctx, id) + " counts you as a friend. Name it, then ask in plain words:",
                     "'wanna party?' (party rules), 'come to henesys' or 'meet me at the fm' (a social bot walks there),",
                     training ? "'help me kill these' (it grinds next to you), 'can u buff me' (its real buff, if its job has one)."
                             : "'show me the way to perion' (it walks ahead: follow it), 'add me' (a real buddy request).",
@@ -145,7 +145,7 @@ final class ConvoScenarios {
                 throw new QaRefusal("Could not give the bot item " + item + ".");
             }
             ctx.log("gave bot " + id + " item " + item + " (" + name + ")");
-            return List.of("Bot " + id + " carries " + name + ".",
+            return List.of(QaScenarios.who(ctx, id) + " carries " + name + ".",
                     "Ask it: '<name> how much for the " + (name == null ? "item" : name.toLowerCase()) + "' -> QUOTE in the log.",
                     "Counter: 'would u do <lower>' or 'thats too much' -> the band's answer (accept, counter, last price).",
                     "The number is always PriceBand's; the words come from the model or the bank. Open a trade to buy.");
@@ -161,7 +161,7 @@ final class ConvoScenarios {
         public List<String> stage(QaContext ctx) {
             String state = word(ctx.args(), "rival", "rival", "nemesis", "friend");
             int id = stage(ctx, state, true, null);
-            return List.of("Bot " + id + " counts you as its " + state + ".",
+            return List.of(QaScenarios.who(ctx, id) + " counts you as its " + state + ".",
                     "Say 'sorry for ksing u' -> INTENT apology -> makeup: YES and EVENT apology (a rival's grudge eases).",
                     "Say 'ur trash noob' -> tone rude, EVENT rude_chat, and game-only trash talk back (if @botdrama is on).",
                     "Say 'ur cute' -> a flirt back only with @romance on and a bot that may flirt; else it stays friendly.",
@@ -180,7 +180,7 @@ final class ConvoScenarios {
             for (String voice : List.of("lower", "proper", "leet", "korean")) {
                 ids.add(stage(ctx, "neutral", false, voice));
             }
-            return List.of("Four bots next to you: lowercase, proper typer, xX leet kid, Korean-flavoured (ids " + ids + ").",
+            return List.of("Four bots next to you: lowercase, proper typer, xX leet kid, Korean-flavoured: " + ids.stream().map(i -> QaScenarios.who(ctx, i)).toList() + ".",
                     "Talk to each by name with the same line: the words, casing and laugh differ; a catchphrase now and then.",
                     "TIMING lines show the plan: typed 1-6 s by length, sometimes split, late or brb; never faster than a",
                     "person could type. !qa do persona prints each card again.");
@@ -207,7 +207,7 @@ final class ConvoScenarios {
             int a = stage(ctx, "neutral", false, null);
             int b = stage(ctx, "neutral", false, null);
             List<String> out = new ArrayList<>(world(ctx, "thread", new String[]{"lfg"}));
-            out.add(0, "Bots " + a + " and " + b + " start talking now (THREAD lines). Within 45 s of the last line,");
+            out.add(0, QaScenarios.who(ctx, a) + " and " + QaScenarios.who(ctx, b) + " start talking now (THREAD lines). Within 45 s of the last line,");
             out.add(1, "say something without a name ('i can come too'): JOIN, and the last speaker answers you.");
             out.add(2, "!qa do thread <topic> starts another (beef needs bots of guilds at war: it falls back to gossip).");
             return out;
@@ -229,7 +229,7 @@ final class ConvoScenarios {
 
         public List<String> stage(QaContext ctx) {
             int id = stage(ctx, "friend", false, null);
-            return List.of("Bot " + id + " is next to you. Talk to it, then:",
+            return List.of(QaScenarios.who(ctx, id) + " is next to you. Talk to it, then:",
                     "!rate good  -> RATE good (a model line joins the good examples; a bank line weighs x1.5)",
                     "!rate bad too formal \"certainly\"  -> RATE bad: a model line joins the bad examples and \"certainly\"",
                     "the don't-say list in data/convo/tune.json; a bank line weighs x0.25, a second bad blacklists it.",
@@ -257,7 +257,7 @@ final class ConvoScenarios {
         public List<String> stage(QaContext ctx) {
             int id = stage(ctx, "neutral", false, null);
             List<String> out = new ArrayList<>(world(ctx, "ask", ctx.args()));
-            out.add(0, "Bot " + id + " is next to you and has never talked to you.");
+            out.add(0, QaScenarios.who(ctx, id) + " is next to you and has never talked to you.");
             out.add("Answer it in map chat WITHOUT its name (e.g. 'im from the east'), within 60 s.");
             out.add("Log: ROUTE (who took your line and which of its lines it answers), PROMPT (the exact prompt:");
             out.add("system || history || the transcript with its own lines marked (you) and 'You just said ...'), SAID.");
@@ -285,7 +285,7 @@ final class ConvoScenarios {
                     List.of(), new String[]{"off"}));
             int id = stage(ctx, "friend", false, null);
             List<String> out = new ArrayList<>(was);
-            out.add("Bot " + id + " is next to you. Bank mode is ON for the whole server while this runs: every chat");
+            out.add(QaScenarios.who(ctx, id) + " is next to you. Bank mode is ON for the whole server while this runs: every chat");
             out.add("reply comes from the line bank (SAID ... bank#id) or a script, in the bot's voice, never repeating.");
             out.add("!qa do llm switches the LLM back on to compare the same lines; !qa do bank switches it off again.");
             return out;
