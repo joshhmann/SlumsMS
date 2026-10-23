@@ -1303,7 +1303,8 @@ public final class QaScenarios {
         public String title() { return "A bot couple or best friends: party, mention each other, couple chair, rings (ticket 58)"; }
         public String usage() { return "[married|friends] [same|mixed]; then !qa do step"; }
         public Set<QaLog.Topic> topics() { return EnumSet.of(COUPLE, BOT_CHAT); }
-        public int tickSeconds() { return 60; }
+        /** rc6 (QA t-cu-1: "not really seeing any behavior"): a step every 20 s, so they act within the first minute. */
+        public int tickSeconds() { return 20; }
 
         public List<String> stage(QaContext ctx) {
             String kind = AffinityScenario.word(ctx.args(), "dating", "married", "friends");
@@ -1320,11 +1321,12 @@ public final class QaScenarios {
             ctx.world().coupleStep();
             if ("friends".equals(kind)) {
                 return List.of("Two bots next to you are best friends: friendship rings (look at their equips).",
-                        "Every minute (or !qa do step): they party up (PARTY) and now and then talk to each other.");
+                        "Every 20 s (or !qa do step): they party up (PARTY), one walks over to the other (TOGETHER),",
+                        "they smile at each other (SMILE) and talk to each other.");
             }
             return List.of("Two bots next to you are a couple" + (married ? " (married: rings and the Amorian Loveseat)." : "."),
-                    "Every minute (or !qa do step): they party up (PARTY), now and then one says something to the other,",
-                    "married ones sit on the loveseat together (SIT) and wear rings (look at their equips).",
+                    "Every 20 s (or !qa do step): they party up (PARTY), one walks over to the other (TOGETHER), they",
+                    "smile (SIT for married ones: the loveseat, side by side), talk to each other, wear rings.",
                     "!couple note sends a love-note megaphone (through the megaphone gate).");
         }
 

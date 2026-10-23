@@ -553,14 +553,19 @@ public final class BotCouples {
             return;
         }
         partyUp(c, a, b, now);
-        if (a.getMapId() == b.getMapId() && realPlayerSees(a)) {
-            if (take("mention:" + c.id(), now, TimeUnit.MINUTES.toMillis((long) prop("mentionMinutes", 20)))
-                    && rng.nextDouble() < 0.5) {
+        // rc6 (QA t-cu-1/t-cu-2: "not really seeing any behavior"): a watched couple (or best friends) stays
+        // together - one walks over to the other, they smile at each other, talk, and a couple sits down together.
+        // A staged !qa pair does it within the first steps (seconds apart); live pairs at a calm pace.
+        boolean qaPair = c.staged() && QaLog.on(QaLog.Topic.COUPLE);
+        if (a.getMapId() == b.getMapId() && (qaPair || realPlayerSees(a))) {
+            together(c, a, b, now, qaPair);
+            long mentionGap = qaPair ? TimeUnit.SECONDS.toMillis(50) : TimeUnit.MINUTES.toMillis((long) prop("mentionMinutes", 20));
+            if (take("mention:" + c.id(), now, mentionGap) && (qaPair || rng.nextDouble() < 0.5)) {
                 Character speaker = rng.nextBoolean() ? a : b;
                 say(speaker, c.stage().couple() ? "Mention" : "FriendMention", (speaker == a ? b : a).getName());
             }
             if (c.stage().couple()) {
-                maybeSit(c, a, b, now, rng);
+                maybeSit(c, a, b, now, rng, qaPair);
             }
         }
         if (c.stage().couple() && noteDue(c, now) && rng.nextDouble() < 0.05) {
@@ -627,14 +632,53 @@ public final class BotCouples {
         return soloMapling.ArtificialPlayer.BotGrindSystem.MapMobIndex.level(map) >= 0 ? map : null;
     }
 
-    private static void maybeSit(Couple c, Character a, Character b, long now, Random rng) {
+    /**
+     * Two social bots of a pair stand together: the second walks over when they are apart, and when they are side by
+     * side they smile at each other now and then. Logged as TOGETHER / SMILE for !qa cp-1.
+     */
+    static void together(Couple c, Character a, Character b, long now, boolean qaPair) {
+        if (!(CharacterStorage.getBotById(a.getId()) instanceof SocialBot)
+                || !(CharacterStorage.getBotById(b.getId()) instanceof SocialBot)
+                || a.getPosition() == null || b.getPosition() == null || (a.getChair() > 0 && b.getChair() > 0)) {
+            return;
+        }
+        java.awt.Point pa = a.getPosition();
+        java.awt.Point pb = b.getPosition();
+        if (apart(pa, pb)) {
+            if (take("near:" + c.id(), now, qaPair ? 12_000 : TimeUnit.MINUTES.toMillis(2))) {
+                java.awt.Point to = besideSpot(pa, pb);
+                soloMapling.ArtificialPlayer.GCMoveSystem.GCMovement.move(b, to.x, to.y);
+                qa("TOGETHER " + b.getName() + " walks over to " + a.getName());
+            }
+        } else if (take("smile:" + c.id(), now, qaPair ? 25_000 : TimeUnit.MINUTES.toMillis(5))) {
+            soloMapling.ArtificialPlayer.BotMovementSystem.MovementCommands.botFaceTowardsPoint(a, pb);
+            soloMapling.ArtificialPlayer.BotMovementSystem.MovementCommands.botFaceTowardsPoint(b, pa);
+            soloMapling.ArtificialPlayer.BotCommandsPack.SocialCommands.BotEmote(a, soloMapling.ArtificialPlayer.ReplyEmote.SMILE);
+            soloMapling.ArtificialPlayer.BotCommandsPack.SocialCommands.BotEmote(b, soloMapling.ArtificialPlayer.ReplyEmote.SMILE);
+            qa("SMILE " + a.getName() + " + " + b.getName());
+        }
+    }
+
+    /** Whether two of a pair stand apart (more than a step from each other, or on different platforms). */
+    static boolean apart(java.awt.Point a, java.awt.Point b) {
+        return Math.abs(a.x - b.x) > 80 || Math.abs(a.y - b.y) > 40;
+    }
+
+    /** Where the second one stands: 40 px from the first, on the side it comes from. */
+    static java.awt.Point besideSpot(java.awt.Point first, java.awt.Point second) {
+        return new java.awt.Point(first.x + (second.x < first.x ? -40 : 40), first.y);
+    }
+
+    private static void maybeSit(Couple c, Character a, Character b, long now, Random rng, boolean qaPair) {
         int chair = coupleChair(c, a, b);
+        long chairGap = qaPair ? TimeUnit.SECONDS.toMillis(90) : TimeUnit.MINUTES.toMillis((long) prop("chairMinutes", 15));
         if (chair == 0 || !(CharacterStorage.getBotById(a.getId()) instanceof SocialBot)
                 || !(CharacterStorage.getBotById(b.getId()) instanceof SocialBot)
                 || a.getPosition() == null || b.getPosition() == null
-                || a.getPosition().distance(b.getPosition()) > 250
-                || !take("chair:" + c.id(), now, TimeUnit.MINUTES.toMillis((long) prop("chairMinutes", 15)))
-                || rng.nextDouble() >= 0.5) {
+                || apart(a.getPosition(), b.getPosition()) // side by side first (together walks them over)
+                || (a.getChair() > 0 && b.getChair() > 0)
+                || !take("chair:" + c.id(), now, chairGap)
+                || (!qaPair && rng.nextDouble() >= 0.5)) {
             return;
         }
         botSitChair(a, chair);

@@ -377,6 +377,13 @@ class QaScenarioStagingTest {
     }
 
     @Test
+    void cp1StepsEveryTwentySeconds() {
+        // rc6 (QA t-cu-1): a step a minute showed nothing within the first minute
+        assertEquals(20, QaScenarios.all().stream().filter(s -> s.id().equals("cp-1")).findFirst().orElseThrow()
+                .tickSeconds());
+    }
+
+    @Test
     void cp1StagesBestFriends() {
         start("cp-1", 100000000, "friends");
         assertTrue(world.calls.stream().anyMatch(c -> c.startsWith("couple ") && c.endsWith("friends")));
