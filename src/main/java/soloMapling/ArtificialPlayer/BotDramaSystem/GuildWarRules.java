@@ -58,6 +58,14 @@ public final class GuildWarRules {
         return rivalsOfUs >= 1 && membersOnline >= 1 && rivalsOfUs * 2 >= membersOnline;
     }
 
+    /**
+     * Whether a player may offer peace ({@code @guildwar peace}): the guild's master (by the guild's own leader id,
+     * whatever rank the character carries) or a jr. master (rank 2).
+     */
+    static boolean mayOfferPeace(int guildRank, boolean isMaster) {
+        return isMaster || guildRank == 1 || guildRank == 2;
+    }
+
     /** The winner's guild id, or 0 for a draw. */
     static int winner(int a, int scoreA, int b, int scoreB) {
         return scoreA > scoreB ? a : scoreB > scoreA ? b : 0;

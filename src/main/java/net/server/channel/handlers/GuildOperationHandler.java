@@ -140,6 +140,9 @@ public final class GuildOperationHandler extends AbstractPacketHandler {
                 }
                 break;
             case 0x05:
+                if (mc.getGuildId() > 0 && mc.getGuild() != null) {
+                    mc.getGuild().mendLeaderRank(mc); // SlumsMS rc6: a master left at rank 5 could not invite at all
+                }
                 if (mc.getGuildId() <= 0 || mc.getGuildRank() > 2) {
                     return;
                 }

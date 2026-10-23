@@ -54,9 +54,11 @@ public class GuildCharacter {
         this.level = _lv;
         this.id = _id;
         this.name = _name;
+        // SlumsMS rc6: the world is set for offline members too. It used to stay 0, so on a server whose world is 1
+        // Guild.changeRank looked up world 0, threw, and a new guild's master kept rank 5 (owner QA 2026-10-23).
+        this.world = _world;
         if (_on) {
             this.channel = _channel;
-            this.world = _world;
         }
         this.jobid = _job;
         this.online = _on;

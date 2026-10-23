@@ -202,8 +202,10 @@ public final class GuildWars {
         War w = open(Kind.WAR, a.guildId(), b.guildId(), false, false);
         Character speaker = speaker(a.guildId());
         Map<String, String> t = Map.of("GUILD", a.name(), "RIVAL", b.name());
+        String mega = "no member online to megaphone";
         if (speaker != null) {
-            WorldEventMegaphones.getInstance().offerEvent(speaker, "GuildWarDeclare", t, "drama:war:" + w.id());
+            mega = WorldEventMegaphones.getInstance().offerEvent(speaker, "GuildWarDeclare", t, "drama:war:" + w.id())
+                    ? "megaphone sent" : "megaphone queued/gated";
             BotGuilds.sayInGuild(speaker, DramaKit.pick("WarDeclaredOurs", t));
         }
         Character theirs = speaker(b.guildId());
@@ -211,7 +213,7 @@ public final class GuildWars {
             BotGuilds.sayInGuild(theirs, DramaKit.pick("WarDeclaredTheirs", Map.of("GUILD", b.name(), "RIVAL", a.name())));
         }
         qa(0, "WAR DECLARED " + a.name() + " vs " + b.name() + " (#" + w.id() + ", " + by + ") for "
-                + TimeUnit.MILLISECONDS.toDays(GuildWarRules.warMs()) + " days");
+                + TimeUnit.MILLISECONDS.toDays(GuildWarRules.warMs()) + " days; " + mega);
         return w;
     }
 
@@ -229,15 +231,17 @@ public final class GuildWars {
         War w = open(Kind.WAR, a.guildId(), playerGuildId, true, false);
         Character speaker = speaker(a.guildId());
         Map<String, String> t = Map.of("GUILD", a.name(), "RIVAL", target);
+        String mega = "no member online to megaphone";
         if (speaker != null) {
-            WorldEventMegaphones.getInstance().offerEvent(speaker, "GuildWarOnPlayers", t, "drama:war:" + w.id());
+            mega = WorldEventMegaphones.getInstance().offerEvent(speaker, "GuildWarOnPlayers", t, "drama:war:" + w.id())
+                    ? "megaphone sent" : "megaphone queued/gated";
             BotGuilds.sayInGuild(speaker, DramaKit.pick("WarDeclaredOurs", t));
         }
         for (Character p : playersOf(playerGuildId)) {
             p.dropMessage(6, "[Guild War] " + a.name() + " declared war on " + target + "! It lasts a week: hold the grind"
                     + " maps with your guildmates. @guildwar shows the score; @guildwar peace (master or jr. master) offers peace.");
         }
-        qa(0, "WAR DECLARED " + a.name() + " on player guild " + target + " (#" + w.id() + ", " + by + ")");
+        qa(0, "WAR DECLARED " + a.name() + " on player guild " + target + " (#" + w.id() + ", " + by + "); " + mega);
         return w;
     }
 
@@ -287,7 +291,9 @@ public final class GuildWars {
         if (mine.isEmpty()) {
             return "Your guild is not at war.";
         }
-        if (player.getGuildRank() > 2) {
+        Guild guild = Server.getInstance().getGuild(gid);
+        boolean master = guild != null && guild.getLeaderId() == player.getId();
+        if (!GuildWarRules.mayOfferPeace(player.getGuildRank(), master)) {
             return "Only your guild master or a jr. master can offer peace.";
         }
         War w = mine.get(0);
@@ -988,7 +994,7 @@ public final class GuildWars {
 
     /** GM: end a war or alliance now (a war by time: the result is posted). */
     public static String endNow(long id) {
-        War w = id > 0 ? byId(id) : active().stream().filter(x -> x.kind() == Kind.WAR).findFirst().orElse(null);
+        War w = id != 0 ? byId(id) : active().stream().filter(x -> x.kind() == Kind.WAR).findFirst().orElse(null);
         if (w == null || !w.active()) {
             return "no active war or alliance #" + id;
         }
@@ -1020,7 +1026,7 @@ public final class GuildWars {
     /** GM / !qa: a war taunt and a turf fight now for the war (first active one when id is 0). */
     public static List<String> tauntNow(long id) {
         List<String> out = new ArrayList<>();
-        War w = id > 0 ? byId(id) : active().stream().filter(x -> x.kind() == Kind.WAR).findFirst().orElse(null);
+        War w = id != 0 ? byId(id) : active().stream().filter(x -> x.kind() == Kind.WAR).findFirst().orElse(null);
         if (w == null) {
             out.add("no war");
             return out;

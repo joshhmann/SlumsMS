@@ -56,6 +56,16 @@ class GuildWarsTest {
     }
 
     @Test
+    void theGuildMasterMayOfferPeaceWhateverRankTheCharacterCarries() {
+        // owner QA 2026-10-23 (t-gw-2): the master of a new guild carried rank 5 and was refused
+        assertTrue(GuildWarRules.mayOfferPeace(5, true), "the guild's leader id decides for the master");
+        assertTrue(GuildWarRules.mayOfferPeace(1, false));
+        assertTrue(GuildWarRules.mayOfferPeace(2, false), "a jr. master");
+        assertFalse(GuildWarRules.mayOfferPeace(3, false));
+        assertFalse(GuildWarRules.mayOfferPeace(5, false));
+    }
+
+    @Test
     void winnersAndDaysLeft() {
         assertEquals(7, GuildWarRules.winner(7, 30, 9, 12));
         assertEquals(9, GuildWarRules.winner(7, 3, 9, 12));

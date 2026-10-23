@@ -288,6 +288,9 @@ public final class PlayerLoggedinHandler extends AbstractPacketHandler {
                     playerGuild.getMGC(player.getId()).setCharacter(player);
                     player.setMGC(playerGuild.getMGC(player.getId()));
                     server.setGuildMemberOnline(player, true, c.getChannel());
+                    if (playerGuild.mendLeaderRank(player)) { // SlumsMS rc6: a master left at rank 5 by the creation bug
+                        log.info("Chr {} is the master of guild {}: rank set back to 1", player.getName(), playerGuild.getName());
+                    }
                     c.sendPacket(GuildPackets.showGuildInfo(player));
                     int allianceId = player.getGuild().getAllianceId();
                     if (allianceId > 0) {

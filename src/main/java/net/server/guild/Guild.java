@@ -566,10 +566,10 @@ public class Guild {
     public void changeRank(GuildCharacter mgc, int newRank) {
         try {
             if (mgc.isOnline()) {
-                Server.getInstance().getWorld(mgc.getWorld()).setGuildAndRank(mgc.getId(), this.id, newRank);
+                Server.getInstance().getWorld(this.world).setGuildAndRank(mgc.getId(), this.id, newRank); // the guild's world: every member is in it
                 mgc.setGuildRank(newRank);
             } else {
-                Server.getInstance().getWorld(mgc.getWorld()).setOfflineGuildStatus((short) this.id, (byte) newRank, mgc.getId());
+                Server.getInstance().getWorld(this.world).setOfflineGuildStatus((short) this.id, (byte) newRank, mgc.getId());
                 mgc.setOfflineGuildRank(newRank);
             }
         } catch (Exception re) {
@@ -584,6 +584,22 @@ public class Guild {
             membersLock.unlock();
         }
         soloMapling.ArtificialPlayer.BotGuildSystem.BotGuilds.onRankChanged(mgc.getId(), newRank); // SlumsMS: kept for bots
+    }
+
+    /**
+     * SlumsMS rc6: the guild's master logged in with a rank other than 1 (a guild created while rank changes failed,
+     * owner QA 2026-10-23) gets rank 1 back. True when it was mended.
+     */
+    public boolean mendLeaderRank(Character chr) {
+        if (chr == null || chr.getId() != leader || chr.getGuildRank() == 1) {
+            return false;
+        }
+        changeRank(chr.getId(), 1);
+        if (chr.getGuildRank() != 1) { // not in the member list: set it on the character and save it
+            chr.setGuildRank(1);
+            chr.saveGuildStatus();
+        }
+        return true;
     }
 
     public void setGuildNotice(String notice) {
