@@ -14,7 +14,9 @@ import soloMapling.qa.QaLog;
 import soloMapling.server.EventMessageSystem.EventBus;
 import soloMapling.server.EventMessageSystem.EventFactory;
 
+import java.util.Map;
 import java.util.Random;
+import java.util.concurrent.ConcurrentHashMap;
 import java.util.concurrent.ThreadLocalRandom;
 
 /**
@@ -24,6 +26,13 @@ import java.util.concurrent.ThreadLocalRandom;
  * ({@link GachaAnnouncer}).
  * <p>
  * A player's ticket is taken only once the prize is known to fit: a full inventory costs nothing.
+ * <p>
+ * 1.5.0 rc6 bug hunt: a prize that doesn't fit used to be thrown away, so filling a tab and pulling again was a free
+ * reroll until a rare came up. A ticket roll is now committed: the prize waits for that player at that town and the
+ * next ticket there is offered the same prize until it fits ({@link #pending}). This was picked over "need a free slot
+ * in every tab before rolling" because it asks nothing extra of a player whose prize already fits, and a player
+ * whose prize doesn't fit still keeps their ticket and only has to clear the one tab the prize needs. Pending prizes
+ * live in memory: a restart forgets them, which costs the player nothing (the ticket was never taken).
  */
 public final class GachaMachine {
 
@@ -32,7 +41,23 @@ public final class GachaMachine {
     public static final int TICKET = 5220000;
     public static final int REMOTE_TICKET = 5451000;
 
+    /** A ticket roll that didn't fit yet, by (character id, town key); claimed by that player's next ticket there. */
+    private static final Map<String, GachaPools.Prize> pending = new ConcurrentHashMap<>();
+
     private GachaMachine() {
+    }
+
+    private static String pendingKey(Character chr, GachaPools.Town town) {
+        return chr.getId() + ":" + town.key();
+    }
+
+    /** The prize waiting for {@code chr} at {@code town}, or null. */
+    public static GachaPools.Prize pendingPrize(Character chr, GachaPools.Town town) {
+        return chr == null || town == null ? null : pending.get(pendingKey(chr, town));
+    }
+
+    static void clearPendingForTest() {
+        pending.clear();
     }
 
     /** What happened: the prize and the item handed over, or why nothing was (then {@code prize} may be null). */
@@ -67,12 +92,24 @@ public final class GachaMachine {
         if (ticketId > 0 && chr.getItemQuantity(ticketId, false) < 1) {
             return Result.refused(null, "You need a ticket.");
         }
-        GachaPools.Prize prize = tier == null ? GachaPools.get().roll(town, rng)
-                : GachaPools.get().rollTier(town, tier, rng);
+        // A ticket's roll is committed (rc6 bug hunt): a prize that didn't fit is offered again, not rerolled. A GM's
+        // forced roll (no ticket, or a forced tier) is free anyway, so it neither claims nor leaves a pending prize.
+        boolean committed = ticketId > 0 && tier == null;
+        String key = pendingKey(chr, town);
+        GachaPools.Prize prize = committed ? pending.get(key) : null;
+        if (prize == null) {
+            prize = tier == null ? GachaPools.get().roll(town, rng) : GachaPools.get().rollTier(town, tier, rng);
+        }
         if (prize == null) {
             return Result.refused(null, "That gachapon is empty.");
         }
         if (!InventoryManipulator.checkSpace(chr.getClient(), prize.itemId(), prize.quantity(), "")) {
+            if (committed) {
+                pending.put(key, prize);
+                return Result.refused(prize, "Your prize, " + nameOf(prize.itemId()) + ", is waiting for you here. Make room"
+                        + " in your " + ItemConstants.getInventoryType(prize.itemId()).name() + " inventory and use"
+                        + " a ticket again to claim it. Your ticket was not used.");
+            }
             return Result.refused(prize, "Please make room in your " + ItemConstants.getInventoryType(prize.itemId())
                     .name() + " inventory first. Your ticket was not used.");
         }
@@ -87,7 +124,13 @@ public final class GachaMachine {
             if (ticketId > 0) {
                 chr.getClient().getAbstractPlayerInteraction().gainItem(ticketId, (short) 1, false, false);
             }
+            if (committed) {
+                pending.put(key, prize);
+            }
             return Result.refused(prize, "Your inventory is full. Your ticket was given back.");
+        }
+        if (committed) {
+            pending.remove(key, prize);
         }
         return after(chr, town, prize, given, source);
     }
