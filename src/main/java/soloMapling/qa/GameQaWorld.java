@@ -179,6 +179,44 @@ final class GameQaWorld implements QaWorld {
     }
 
     @Override
+    public List<Integer> spawnIdleBots(Character gm, Point around, int count, int level) {
+        List<Integer> ids = new ArrayList<>();
+        MapleMap map = gm.getMap();
+        int slotBase = BotStore.nextDynamicSlots(count);
+        for (int i = 0; i < count; i++) {
+            Point at = soloMapling.ArtificialPlayer.StageSpots.near(map, around);
+            int id = BotGeneration.createBot(slotBase + i, at, map, 0, level, level);
+            if (id > 0) {
+                ids.add(id);
+            }
+        }
+        return ids;
+    }
+
+    @Override
+    public String botLabel(Character gm, int botId) {
+        Character bot = BotHelpers.getCharFromChannelStorage(botId);
+        if (bot == null) {
+            return "bot " + botId + " (gone)";
+        }
+        return label(bot.getName(), bot.getLevel(), gm == null ? -1 : gm.getMapId(), bot.getMapId(),
+                gm == null || gm.getPosition() == null ? 0 : gm.getPosition().x,
+                bot.getPosition() == null ? 0 : bot.getPosition().x);
+    }
+
+    /** "Aria (lv 34, 120 px to your right)". */
+    static String label(String name, int level, int gmMap, int botMap, int gmX, int botX) {
+        String where;
+        if (gmMap != botMap) {
+            where = "on map " + botMap;
+        } else {
+            int dx = botX - gmX;
+            where = Math.abs(dx) < 30 ? "right next to you" : Math.abs(dx) + " px to your " + (dx < 0 ? "left" : "right");
+        }
+        return name + " (lv " + level + ", " + where + ")";
+    }
+
+    @Override
     public List<Integer> spawnFmShoppers(Character gm, int count) {
         List<Integer> ids = new ArrayList<>();
         MapleMap map = gm.getMap();

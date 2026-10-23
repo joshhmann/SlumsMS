@@ -57,6 +57,7 @@ public final class CoupleStaging {
                 second = id;
             }
             BotTypeManager.convertBotType(bot, BotTypeManager.BotType.SOCIAL_BOT);
+            soloMapling.ArtificialPlayer.StageSpots.pin(id); // rc6 (QA cv-1): the pair stays by the GM
         }
         extra.forEach(CoupleStaging::remove);
         if (first == null || second == null) {
@@ -94,6 +95,7 @@ public final class CoupleStaging {
     }
 
     static void remove(int id) {
+        soloMapling.ArtificialPlayer.StageSpots.unpin(id);
         Character bot = BotHelpers.getCharFromChannelStorage(id);
         if (bot == null) {
             return;

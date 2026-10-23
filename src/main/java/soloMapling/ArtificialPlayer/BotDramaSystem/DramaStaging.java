@@ -51,6 +51,7 @@ public final class DramaStaging {
             BotTypeManager.convertBotType(bot, BotTypeManager.BotType.TRAINING_BOT);
         } else {
             BotTypeManager.convertBotType(bot, BotTypeManager.BotType.SOCIAL_BOT);
+            soloMapling.ArtificialPlayer.StageSpots.pin(id); // rc6 (QA cv-1): it stays next to the GM
         }
         if (state != null && state != AffinityState.NEUTRAL) {
             BotAffinity.stage(id, gm.getId(), state);
@@ -61,6 +62,7 @@ public final class DramaStaging {
     /** Takes a staged bot away: its ties, its staged romances and couple, its scene holds, then the bot itself. */
     public static void unstage(int botId) {
         WorldEventSteer.unhold(botId);
+        soloMapling.ArtificialPlayer.StageSpots.unpin(botId);
         DramaKit.unbusy(botId);
         BotAffinity.forgetBot(botId);
         BotRomance.forgetBot(botId);

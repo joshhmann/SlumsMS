@@ -43,6 +43,7 @@ public final class AffinityStaging {
             BotTypeManager.convertBotType(bot, BotTypeManager.BotType.TRAINING_BOT);
         } else {
             BotTypeManager.convertBotType(bot, BotTypeManager.BotType.SOCIAL_BOT);
+            soloMapling.ArtificialPlayer.StageSpots.pin(id); // rc6 (QA cv-1): it stays next to the GM
         }
         BotAffinity.stage(id, gm.getId(), state);
         return id;
@@ -51,6 +52,7 @@ public final class AffinityStaging {
     /** Takes a staged bot out of the world and forgets every tie it had. */
     public static void unstage(int botId) {
         WorldEventSteer.unhold(botId);
+        soloMapling.ArtificialPlayer.StageSpots.unpin(botId);
         BotAffinity.forgetBot(botId);
         Character bot = BotHelpers.getCharFromChannelStorage(botId);
         if (bot == null) {

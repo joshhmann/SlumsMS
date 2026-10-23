@@ -217,6 +217,19 @@ class QaScenarioStagingTest {
     }
 
     @Test
+    void ga2StagesARichLevel100BotByNameAtThreeTimesItsCeiling() throws Exception {
+        // rc6 (QA t-wc-1): a lv 13 bot at 2.5x was done in 17 s; the line named it by id only
+        start("ga-2", 100000000);
+        int bot = world.nextBot - 1;
+        assertTrue(world.calls.contains("idle bots lv 100"), world.calls.toString());
+        assertTrue(world.calls.contains("bot " + bot + " meso 15000000"), "3x a 5,000,000 ceiling");
+        String text = Files.readString(suite.runOf(1).logPath());
+        assertTrue(text.contains("told GM: Botty" + bot + " (lv 30, 90 px to your right) holds 3.0x"), text);
+        assertEquals(1, scheduler.repeating.size());
+        suite.stop(1, "!qa stop");
+    }
+
+    @Test
     void bk1SpawnsTheShowcaseOnTheGmsMapAndDespawnsIt() {
         start("bk-1", 104040000);
         assertTrue(suite.runOf(1).maps().contains(104040000));

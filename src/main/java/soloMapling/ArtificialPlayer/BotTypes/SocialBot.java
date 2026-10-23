@@ -242,8 +242,8 @@ public class SocialBot extends BotSM {
             return; // don't walk a bot that a chatter chain just engaged this tick
         }
         Character chr = getChr();
-        if (chr == null || chr.getMap() == null) {
-            return;
+        if (chr == null || chr.getMap() == null || soloMapling.ArtificialPlayer.StageSpots.pinned(chr.getId())) {
+            return; // rc6: a staged test bot stays next to the GM
         }
         long now = System.currentTimeMillis();
         if (now < nextRelocateAtMs) {

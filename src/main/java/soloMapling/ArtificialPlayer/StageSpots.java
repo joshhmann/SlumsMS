@@ -27,7 +27,26 @@ public final class StageSpots {
     }
 
     /**
-     * A spot near {@code center}: random side, 70-330 px out (growing with each try), on the ground {@code ground}
+     * rc6 (QA cv-1: the owner "had nobody to talk to"): a staged social bot stays where it was put, next to the GM,
+     * instead of drifting off to another spot of the town (SocialBot's idle relocation). It still turns, chats,
+     * sits, and walks when something asks it to (a follow, a couple walking together).
+     */
+    private static final java.util.Set<Integer> pinned = java.util.concurrent.ConcurrentHashMap.newKeySet();
+
+    public static void pin(int botId) {
+        pinned.add(botId);
+    }
+
+    public static void unpin(int botId) {
+        pinned.remove(botId);
+    }
+
+    public static boolean pinned(int botId) {
+        return !pinned.isEmpty() && pinned.contains(botId);
+    }
+
+    /**
+     * A spot near {@code center}: random side, 70-290 px out (growing with each try), on the ground {@code ground}
      * finds below a point (null = none), at most {@link #MAX_DY} from the centre's height, and at least
      * {@link #MIN_GAP} from every {@code taken} point. Falls back to the nearest grounded try, then the centre.
      */
@@ -35,7 +54,7 @@ public final class StageSpots {
         Point fallback = null;
         for (int i = 0; i < TRIES; i++) {
             int side = rng.nextBoolean() ? 1 : -1;
-            int dx = side * (70 + 20 * i + rng.nextInt(60));
+            int dx = side * (70 + 12 * i + rng.nextInt(60)); // a short walk: 70-290 px
             Point g = ground.apply(center.x + dx, center.y - 40);
             if (g == null || Math.abs(g.y - center.y) > MAX_DY) {
                 continue;

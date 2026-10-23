@@ -60,6 +60,11 @@ class FakeQaWorld implements QaWorld {
     @Override public List<Integer> spawnIdleBots(Character gm, Point around, int count) {
         return bots("idle", count);
     }
+    @Override public List<Integer> spawnIdleBots(Character gm, Point around, int count, int level) {
+        calls.add("idle bots lv " + level);
+        return bots("idle", count);
+    }
+    @Override public String botLabel(Character gm, int botId) { return "Botty" + botId + " (lv 30, 90 px to your right)"; }
 
     @Override public List<Integer> spawnFmShoppers(Character gm, int count) {
         return bots("fm", count);
