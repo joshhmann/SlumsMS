@@ -22,8 +22,14 @@ def load(p):
 h = load('data/autoqa/health-latest.json')
 if h: print('health:', h.get('status'), {k: v.get('status') for k, v in h.get('checks', {}).items()})
 r = load('data/autoqa/latest.json')
+if h:
+    for k in ('foothold', 'foothold (sent)'):
+        c = (h.get('checks') or {}).get(k)
+        if c: print('  %s: %s %s' % (k, c.get('status'), (c.get('summary') or '')[:100]))
 if r:
     print('auto-QA latest:', r.get('summary'))
+    cq = r.get('chatQuality') or {}
+    if cq: print('chat quality:', cq.get('headline'), ('PROBLEMS %s' % cq.get('problems')) if cq.get('problems') else '')
     for k, v in (r.get('checks') or {}).items():
         if v.get('status') == 'FAIL': print('  FAIL', k, (v.get('reason') or '')[:110])
 PY

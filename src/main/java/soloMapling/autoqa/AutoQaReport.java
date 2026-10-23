@@ -95,9 +95,27 @@ public final class AutoQaReport {
             h.put("status", health.get("status"));
             h.put("summary", health.get("summary"));
             h.put("time", health.get("time"));
+            // rc6: grounding as the server holds it and as clients were told it, side by side
+            if (health.get("checks") instanceof Map<?, ?> sweepChecks) {
+                for (String k : List.of("foothold", HealthSweep.SENT_CHECK)) {
+                    if (sweepChecks.get(k) instanceof Map<?, ?> c) {
+                        h.put(k, c.get("status") + ": " + c.get("summary"));
+                    }
+                }
+            }
             report.put("health", h);
         }
         summarise(report);
+    }
+
+    /** rc6: the chat-quality headline and scores, and the say-do counts since boot, into the report. */
+    static void putInference(Map<String, Object> report, Map<String, Object> chatQuality, Map<String, Object> sayDo) {
+        if (chatQuality != null) {
+            report.put("chatQuality", chatQuality);
+        }
+        if (sayDo != null) {
+            report.put("sayDo", sayDo);
+        }
     }
 
     /** Adds the run's line to "runs": who started it, when, and its counts. */
@@ -216,6 +234,16 @@ public final class AutoQaReport {
         Map<String, Object> h = (Map<String, Object>) report.get("health");
         if (h != null) {
             out.add("Health " + h.get("status") + ": " + h.get("summary"));
+            if (h.get("foothold") != null || h.get(HealthSweep.SENT_CHECK) != null) {
+                out.add("Grounding: server " + h.get("foothold") + " | sent " + h.get(HealthSweep.SENT_CHECK));
+            }
+        }
+        if (report.get("chatQuality") instanceof Map<?, ?> cq) {
+            out.add("Chat: " + cq.get("headline") + (cq.get("problems") instanceof List<?> p && !p.isEmpty()
+                    ? " PROBLEMS " + p : ""));
+        }
+        if (report.get("sayDo") instanceof Map<?, ?> sd && sd.get("claims") instanceof Number c && c.longValue() > 0) {
+            out.add("Say-do since boot: " + sd.get("backed") + " of " + c + " claims backed");
         }
         Map<String, Object> checks = (Map<String, Object>) report.get("checks");
         for (String want : List.of("FAIL", "PASS", "SKIP")) {

@@ -23,6 +23,10 @@ public class BotPartyCommands {
             return false;
         }
         boolean created = Party.createParty(fakechar, false);
+        if (created) {
+            soloMapling.ArtificialPlayer.BotConvo.SayDo.event(fakechar, soloMapling.ArtificialPlayer.BotConvo.SayDo.Ev.PARTY,
+                    fakechar.getMapId()); // rc6 say-do
+        }
         debugprint("botMakeParty: created=" + created);
         return created;
     }
@@ -30,6 +34,7 @@ public class BotPartyCommands {
     // Server-side only leave. Skips player-client concerns (MCPQ, EventInstance,
     // MatchChecker, partySearch) since bots don't participate in any of those.
     public static void botLeaveParty(Character fakechar) {
+        soloMapling.ArtificialPlayer.BotConvo.SayDo.event(fakechar, soloMapling.ArtificialPlayer.BotConvo.SayDo.Ev.LEAVE_GROUP, fakechar.getMapId()); // rc6 say-do
         Party party = fakechar.getParty();
         if (party == null) {
             debugprint("botLeaveParty: no party, skipping.");
@@ -91,6 +96,10 @@ public class BotPartyCommands {
                             + " couldn't join your party (it was full or disbanded) - try inviting again."));
                 }
             }
+            if (joined) {
+                soloMapling.ArtificialPlayer.BotConvo.SayDo.event(fakechar, soloMapling.ArtificialPlayer.BotConvo.SayDo.Ev.PARTY,
+                        fakechar.getMapId()); // rc6 say-do
+            }
             debugprint("botAcceptPartyInvite: joined=" + joined + " partyId=" + partyId);
             return joined;
         }
@@ -151,6 +160,7 @@ public class BotPartyCommands {
 
         if (InviteCoordinator.createInvite(InviteType.PARTY, fakechar, party.getId(), target.getId())) {
             target.sendPacket(PacketCreator.partyInvite(fakechar));
+            soloMapling.ArtificialPlayer.BotConvo.SayDo.event(fakechar, soloMapling.ArtificialPlayer.BotConvo.SayDo.Ev.PARTY, fakechar.getMapId()); // rc6 say-do: the invite went out
             debugprint("botInvitePlayer: invite sent to " + target.getName() + " for partyId=" + party.getId());
             return true;
         }

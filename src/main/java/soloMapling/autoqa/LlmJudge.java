@@ -66,8 +66,18 @@ public final class LlmJudge {
                     ? System.getenv("SOLOMAPLING_LLM_CLOUD_API_KEY") : cfg.BOT_LLM_CLOUD_API_KEY;
             // rc6 bug hunt: the judge's cloud calls are charged to the server's one daily cloud budget
             CloudBudget budget = BotBrains.cloudBudget(cfg);
-            return new LlmJudge(budgeted(budget, wire(cfg.BOT_LLM_CLOUD_BASE_URL.trim(), cfg.BOT_LLM_CLOUD_MODEL, key,
-                    Math.max(cfg.BOT_LLM_CLOUD_TIMEOUT_MS, 15_000), true)), max, "cloud " + cfg.BOT_LLM_CLOUD_MODEL);
+            Transport cloud = budgeted(budget, wire(cfg.BOT_LLM_CLOUD_BASE_URL.trim(), cfg.BOT_LLM_CLOUD_MODEL, key,
+                    Math.max(cfg.BOT_LLM_CLOUD_TIMEOUT_MS, 15_000), true));
+            if (cfg.BOT_LLM_BASE_URL != null && !cfg.BOT_LLM_BASE_URL.isBlank()) {
+                // rc6: the cheap local fallback when the cloud budget is spent (or the cloud does not answer)
+                String lkey = cfg.BOT_LLM_API_KEY == null || cfg.BOT_LLM_API_KEY.isBlank()
+                        ? System.getenv("SOLOMAPLING_LLM_API_KEY") : cfg.BOT_LLM_API_KEY;
+                Wire local = wire(cfg.BOT_LLM_BASE_URL.trim(), cfg.BOT_LLM_MODEL, lkey,
+                        Math.max(cfg.BOT_LLM_TIMEOUT_MS, 20_000), false);
+                return new LlmJudge(withFallback(cloud, (system, user) -> textOf(local.post(system, user))), max,
+                        "cloud " + cfg.BOT_LLM_CLOUD_MODEL + " (local " + cfg.BOT_LLM_MODEL + " when the budget is spent)");
+            }
+            return new LlmJudge(cloud, max, "cloud " + cfg.BOT_LLM_CLOUD_MODEL);
         }
         if (cfg.BOT_LLM_BASE_URL != null && !cfg.BOT_LLM_BASE_URL.isBlank()) {
             String key = cfg.BOT_LLM_API_KEY == null || cfg.BOT_LLM_API_KEY.isBlank()
@@ -145,6 +155,95 @@ public final class LlmJudge {
         Object reason = map.get("reason");
         String why = (bad.length() == 0 ? "ok" : bad.toString()) + (reason == null ? "" : " (" + reason + ")");
         return new Grade(bad.length() == 0, true, why);
+    }
+
+    /** The first transport's answer, else the second's (rc6: cloud first, the local model when it is not there). */
+    static Transport withFallback(Transport first, Transport second) {
+        return (system, user) -> {
+            String a = first.complete(system, user);
+            return a != null ? a : second.complete(system, user);
+        };
+    }
+
+    // ── rc6: batched relevance for the daily chat-quality report ──
+
+    /** A line and the reply to it. */
+    public record Pair(String asked, String reply) {
+    }
+
+    /** The judge's view of one pair; {@code answers} null when the first line asked nothing. */
+    public record Relevance(boolean relevant, Boolean answers, boolean decided) {
+        static final Relevance UNDECIDED = new Relevance(true, null, false);
+    }
+
+    /** Pairs per call: one call grades this many replies. */
+    public static final int BATCH = 20;
+
+    static final String RELEVANCE_SYSTEM = "You rate chat replies between players of MapleStory (2008 era). You get "
+            + "numbered pairs: the line a player or bot said, then the reply to it. Answer with one JSON array only, no "
+            + "other text: [{\"n\":1,\"relevant\":true|false,\"answers\":true|false|null}, ...]. relevant: the reply "
+            + "responds to that line (casual follow-up small talk counts; a non sequitur or a canned line that ignores it "
+            + "does not). answers: if the first line is a question, whether the reply answers it (\"idk\" counts as an "
+            + "answer); null if the first line is not a question.";
+
+    /** Grades up to {@link #BATCH} pairs in one call. Unreadable or no judge: every pair undecided. */
+    public List<Relevance> relevance(List<Pair> pairs) throws InterruptedException {
+        List<Relevance> out = new java.util.ArrayList<>();
+        for (int i = 0; i < pairs.size(); i++) {
+            out.add(Relevance.UNDECIDED);
+        }
+        if (!available() || pairs.isEmpty()) {
+            return out;
+        }
+        StringBuilder user = new StringBuilder();
+        for (int i = 0; i < pairs.size() && i < BATCH; i++) {
+            Pair p = pairs.get(i);
+            user.append(i + 1).append(". line: ").append(clip(p.asked())).append("\n   reply: ").append(clip(p.reply()))
+                    .append('\n');
+        }
+        String answer = transport.complete(RELEVANCE_SYSTEM, user.toString());
+        return readRelevance(answer, pairs.size());
+    }
+
+    private static String clip(String s) {
+        String t = s == null ? "" : s.replace('\n', ' ');
+        return t.length() > 160 ? t.substring(0, 160) : t;
+    }
+
+    /** Reads the judge's JSON array; pairs it does not mention stay undecided. */
+    static List<Relevance> readRelevance(String answer, int n) {
+        List<Relevance> out = new java.util.ArrayList<>();
+        for (int i = 0; i < n; i++) {
+            out.add(Relevance.UNDECIDED);
+        }
+        if (answer == null) {
+            return out;
+        }
+        Matcher m = Pattern.compile("\\[.*]", Pattern.DOTALL).matcher(answer);
+        if (!m.find()) {
+            return out;
+        }
+        Object parsed;
+        try {
+            parsed = Json.parse(m.group());
+        } catch (RuntimeException e) {
+            return out;
+        }
+        if (!(parsed instanceof List<?> list)) {
+            return out;
+        }
+        for (Object o : list) {
+            if (!(o instanceof Map<?, ?> row) || !(row.get("n") instanceof Number num)) {
+                continue;
+            }
+            int i = num.intValue() - 1;
+            if (i < 0 || i >= n || !(row.get("relevant") instanceof Boolean rel)) {
+                continue;
+            }
+            Object ans = row.get("answers");
+            out.set(i, new Relevance(rel, ans instanceof Boolean b ? b : null, true));
+        }
+        return out;
     }
 
     /** The judge's answer at most (its max_tokens): the worst case a cloud call reserves. */

@@ -163,6 +163,7 @@ public final class BotGifts {
                 EconomyStore st = store;
                 ExecutorServiceManager.runAsync(() -> st.saveGift(bot.getId(), player.getId(), now, line));
                 log.info("[Gift] {}", line);
+                soloMapling.ArtificialPlayer.BotConvo.SayDo.event(bot, soloMapling.ArtificialPlayer.BotConvo.SayDo.Ev.GIFT, bot.getMapId()); // rc6 say-do: the gift was given
                 if (QaLog.on(QaLog.Topic.TRADE)) {
                     QaLog.any(QaLog.Topic.TRADE, "GIFT " + line);
                 }

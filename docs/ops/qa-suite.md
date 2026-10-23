@@ -344,7 +344,7 @@ already passes. The health sweeps work without it. Live passes neither switch, s
 | `!autoqa run <check>` | Runs checks in the background. `<check>` can be a page id (`t-af-1`), a short id (`af-1`), a group (`af`), a comma list (`bg-1,vg-1,ch-1`), `smoke` (that quick set) or `all`. Each result is posted to you as it finishes. The `!qa` menu's Auto-QA page runs these for you |
 | `!autoqa status` | The runner's state, check and step |
 | `!autoqa stop` | Stops after the current step. Cleanup still runs |
-| `!autoqa report` | Today's totals, the last health sweep, then every FAIL and SKIP with its reason |
+| `!autoqa report` | Today's totals, the last health sweep, grounding (server and sent), the chat-quality headline, say-do since boot, then every FAIL and SKIP with its reason |
 | `!autoqa health` | Runs a health sweep now and prints its summary |
 | `!autoqa list` | Every check, marked automated, half (logic only) or manual. `*` = left out of the nightly run |
 
@@ -356,6 +356,7 @@ reads map player lists (copies taken under the map lock) and never loads a map. 
 | Check | Rule | Status |
 |---|---|---|
 | (a) `foothold` | Every grounded bot stands within 2 px of the nearest foothold line spanning its x, above or below. Bots in the air, on a rope or ladder, swimming (every bot on a swim map), part-way along an unobserved analytic move (`COARSE`: its position is interpolated along a nav edge, so it is in the air or inside a platform by design), or dead are skipped, and counted by pose in `skippedByPose`. The pose comes from the movement driver (`GCMovement.sweepPose`) or, for town dressing, from the stance. Each problem is reported as `SUNK` (under the line, with its depth `dy`), `FLOATING` or `NO_GROUND`, with the bot's `pose` and `driven` | FAIL on any SUNK, WARN on the others |
+| (a2) `foothold (sent)` | rc6: the same rule on what clients were TOLD. For every character (bot, real player or synthetic player) on a map where a real or synthetic player is, the y of the last spawn (`SPAWN_PLAYER`) or move (`MOVE_PLAYER`) packet built for it (`SentPositions`, recorded in `PacketCreator` only while auto-QA is on) is checked against the foothold under that x. Same 2 px tolerance and skip rules: the pose comes from the sent stance (a spawn's drop, stance 6, is airborne; a "standing" fragment with foothold 0 is airborne), a swim map is SWIMMING, and a bot the driver says is `COARSE` is skipped. A character's record is dropped when it enters a map, so a move on the old map never counts on the new one. Each problem lists `who` (bot/synthetic/player), the `packet` (spawn/move) and its `ageSeconds` | FAIL on any SUNK, WARN on the others |
 | (b) `stuck` | A bot the driver says is moving (`isMoving`, not resting) that has not left an 8 px box for `AUTOQA_STUCK_MINUTES` | WARN, FAIL at 10+ |
 | (c) `clumps` | `AUTOQA_CLUMP_MIN_BOTS` driven bots within `AUTOQA_CLUMP_RADIUS` px on one map. FM rooms are left out | WARN |
 | (d) `channelSplit` | Bots per channel against `BOT_CHANNEL_WEIGHTS` (`BotChannels.shares`): more than 15 points off, a channel weighted 0 that has bots, or a weighted channel with none. Not judged under 40 bots | WARN |
@@ -370,7 +371,16 @@ SUNK.
 
 Why the foothold check looks both ways: `FootholdTree.findBelow` only looks at or below a point. A bot sunk into
 the ground finds the next platform down, or nothing, and every server lookup thinks it is fine.
-`HenesysGroundWzTest` shows a real case on rc5. The Henesys filler range "left side top plat", (-286, 101) to
+`HenesysGroundWzTest` shows a real case on rc5.
+
+rc6: the synthetic players are in the `foothold` check too (`syntheticChecked`, `"synthetic": true` on a problem),
+but not in the bot-only checks (stuck, clumps, invalid maps). They send no movement packets, so when one enters a
+map (`MapleMap.addPlayer`) it is put on its foothold with `BotGround.settle`, the way a client falls onto the floor
+under a portal; before rc6 they floated at the spawn point.
+
+The server check reads the server's copy of each position; `foothold (sent)` reads what a viewer's client draws. A
+bot whose server y is right but whose last move packet said otherwise (or the other way round) shows up in only one
+of them. The Henesys filler range "left side top plat", (-286, 101) to
 (7, 94), puts every bot at y=101. Where the platform rises to 94 that is 7 px inside the ground, and the sweep
 reports those bots as SUNK.
 
@@ -472,7 +482,11 @@ local model (`BOT_LLM_*`), else none.
 ```json
 { "build": "1.5.0-rc5", "day": "2026-10-23", "updated": "2026-10-23T11:42:07Z",
   "summary": {"PASS": 41, "FAIL": 3, "SKIP": 20, "NOT_RUN": 9, "total": 73},
-  "health": {"status": "FAIL", "summary": "foothold FAIL: 6 of 900 grounded bots off ...", "time": "..."},
+  "health": {"status": "FAIL", "summary": "foothold FAIL: 6 of 900 grounded bots off ...", "time": "...",
+             "foothold": "FAIL: 6 of 900 grounded bots off ...", "foothold (sent)": "OK: 212 sent grounded positions on their footholds"},
+  "chatQuality": {"headline": "chat 24h: ...", "relevance": 0.82, "stiffness": 0.04, "repetition": 0.06,
+                  "unanswered": 3, "sayDo": 0.64, "problems": [], "file": "chat-quality-2026-10-23.json"},
+  "sayDo": {"claims": 45, "backed": 29, "rate": 0.644, "bySource": {...}, "byKind": {...}, "open": 3},
   "runs": [{"trigger": "nightly by the schedule", "started": "...", "finished": "...", "checks": 73,
             "PASS": 41, "FAIL": 3, "SKIP": 29}],
   "checks": {"t-af-1": {"status": "PASS", "title": "A friend bot acts like a friend", "kind": "AUTO",
@@ -483,6 +497,101 @@ local model (`BOT_LLM_*`), else none.
 - A day's runs merge: a check run again replaces its entry, and the others stay.
 - A new day's report lists every page check: NOT_RUN, or SKIP with the reason for manual ones.
 - `!autoqa report` prints the short version.
+
+### Inference checks (rc6): things we used to think needed a person
+
+#### Chat quality, daily (`ChatQuality`, check `t-cq-1`)
+
+After every auto-QA run and once a day (half an hour before `AUTOQA_NIGHTLY_UTC_HOUR`, 09:30 UTC by default) the
+last 24 h of bot chat is scored and written to `data/autoqa/chat-quality-<UTC date>.json`. Input: the ConvoQuality
+transcripts (`logs/convo/transcript-<date>.jsonl`: bot replies to players, and bot thread lines) and the say-do
+verdicts (`data/autoqa/saydo/<UTC day>.jsonl`, below).
+
+| Score | How | Threshold (t-cq-1 FAILs) |
+|---|---|---|
+| `relevance` | The LLM judge, 20 reply pairs per call, at most 5 calls (100 pairs, spread over the day), charged to the server's cloud budget; when the budget is spent the local model (`BOT_LLM_*`) answers; with neither, `score` is null and not judged. A reply is paired with the player's line; a thread line with the other bot's line before it on that map (2 min) | under 70% on topic, with 10+ judged |
+| `stiffness` | Per line: assistant phrasing ("feel free", "let me know", "certainly" ...), over 90 characters or 18 words, or, for a bot whose voice is not `proper`, a proper-case full sentence with no slang. `byVoice` shows stiff/total per voice | over 25%, with 20+ lines |
+| `repetition` | A line that repeats an earlier one in the window, exactly or near (80%+ of the words of a 3+ word line), from any bot to any player; `mostRepeated` lists the top 5 | reported only |
+| `unanswered` | A player's question (ends in ?, or starts with who/what/where/how ...) the reply did not answer: the judge's `answers`, or without a judge a one- or two-word dodge | reported only |
+| `sayDo` | Strong claims backed / made, per source and kind, with the top unbacked kinds and examples (below) | under 50% backed, with 20+ claims |
+
+The file also has `worst`: the 15 worst lines (off topic, stiff, repeated, unanswered, or a claim not kept) with
+the bot, its voice, the source, the player as the transcript's hash, and the flags. Player names are never written:
+the transcript already has `{player}` and a hash, and say-do lines have the names of the real players on the map
+replaced by `{player}`. `latest.json` gets `chatQuality` (the headline, the scores, the problems, the file name) and
+`sayDo` (counts since boot). Example headline:
+
+```
+chat 24h: 129 lines; relevance 100% (60 judged); stiff 0%; repeats 0%; unanswered 0/6 questions; say-do n/a backed (0 claims)
+```
+
+#### Say-do: a bot does what it says (`BotConvo.ClaimRules`, `SayDo`, `ClaimActions`)
+
+The owner's goal. Every bot line (map chat and bubbles via `SocialCommands.BotFullChat`/`BotChatbubble`, reply
+whispers, drama whispers, megaphones) is read by `ClaimRules`, cheap first-person rules that ignore negation ("no
+buff for u"), third person ("she quit the guild") and quoted speech:
+
+| Claim | Examples | Backed by | Window |
+|---|---|---|---|
+| `come` | omw, otw, be there in a sec, ill come | a walk the convo layer started, a trip, a map change, or ending up within 400 px of the player | 120 s |
+| `go_to` | going to orbis, heading to the fm, omw to fm | a map change or trip into that town's area (map id / 1,000,000; FM rooms are the FM), or already there | 120 s |
+| `follow` | follow me, this way (weak), ill show u | a walk, trip or map change, or 150+ px moved | 60 s |
+| `party_offer` | ill invite u, inv sent | a party invite, create or join | 90 s |
+| `party_ask` | inv me, lf party, LFG, J> | a party join, or really being partyless when it asked | 90 s |
+| `buff` | here buff, healing u, buffed u | a buff or heal cast (`BotBuffEffects`) | 30 s |
+| `sell` / `buy` | S> ilbis, selling X / B> X, wtb X | the item in its bag or trade window (sell) or on its wish list (buy), an open shop, or a trade | 120 s |
+| `trade` | trade me, ill trade u | a trade window | 120 s |
+| `resupply` | brb pots, gotta restock, out of pots | a resupply trip started (TrainingBot GO_TOWN for supplies) | 180 s |
+| `away` | brb, afk, mom's calling, brb dinner | going idle or sitting, logging out, or staying put and quiet for the window | 60 s |
+| `leaving` | gtg, night all, logging off | logging out | 180 s |
+| `train_at` | training at ant tunnel | being in that area, or a trip there | 120 s |
+| `gift` | here take this, free for u | a gift (BotGifts, a payout, a trade where only the bot gave) | 60 s |
+| `leave_group` | leaving pt, gquit, im out (weak) | leaving a guild or party, a map change or logout | 120 s |
+
+A weak claim (words that often mean something else: "coming" in a question, "this way", "here you go", "im out")
+is recorded and listed but never fails anything. Events come from cheap hooks that return at once unless the bot has
+an open claim (map change, `GCMovement.travel`, the convo walk, party commands, buffs, trades, shops, gifts, guild
+leave, kills, chairs, logout); a trip that starts up to 10 s before its line still counts. At most 2,000 claims are
+open. All of this is in memory everywhere, live included (off with `-Dslums.saydo=false`); only with auto-QA on is
+each verdict appended to `data/autoqa/saydo/<UTC day>.jsonl`, and each is a `SAYDO CLAIM` / `SAYDO BACKED` /
+`SAYDO UNBACKED` line on the CONVO topic. Sources: `reply-llm`, `reply-bank`, `reply-scripted`, `thread-llm`,
+`thread-bank`, `pack:SocialHotPotato/<category>`, `ad` (merchant ads, and scripted S>/B>/LFG lines), `megaphone`,
+`drama-whisper`, `scripted` (any other dialogue).
+
+Claims are also made true or not said:
+
+- **Ambient chatter** (`BotAmbientSpeak`, the SocialHotPotato picker): a line with a strong claim is said only when
+  `ClaimActions.canBack` says the bot will do it, and `ClaimActions.start` then does it: "brb pots" makes a grinding
+  TrainingBot leave for its resupply trip (`TrainingBot.requestRestockTrip`); "brb"/"afk"/"mom's calling" makes a
+  town bot stop and maybe sit for 30-90 s (a TrainingBot only when it is already resting; a grinder mid-fight never
+  takes the line); "gtg"/"night all" logs a roster bot out through `BotLogout.request` within 10-40 s if the
+  director's `mayLogOut` allows; "going to <town>" sends a town wanderer there. Come, follow, invite, buff, trade and
+  gift claims have no one to be for in ambient chatter and are never said. The picker tries up to 6 lines, then a
+  line with no claim.
+- **The line bank:** `ChatBankGen pack` writes each line's strong claims into its tags field (`claim:resupply`),
+  under the header `#chatbank v2 claims` (an older pack is tagged at load). A reply only picks a line whose claims its
+  decided action backs (`ConvoLines.claimsFor`: come_yes/help_yes may say omw, party_yes inv me, buff_yes buffed u,
+  trade_offer S>/trade me, thread_lfg LFG; nothing else may claim).
+- **Replies** (`BotConversation.deliver`): `ClaimActions.guardReply` takes out a clause whose claim the decided
+  outcome does not back ("omw" with the walk refused, "inv me" with no party, a tacked-on "brb"); with nothing left
+  the bot says a short neutral word. The timing layer's "brb" is only used when the bot can step away, and then it
+  does. Thread lines get the same guard (an LFG ask may stay).
+- **Ads:** a SellingMerchantBot advertises "S> item" only for the item in its trade window or bag, a BuyingMerchantBot
+  "B> item" only for an item on its wish list.
+
+Every `t-cv-*` check that chats (1-5, 7) ends with `Expects.sayDo(130)`: it waits up to 130 s for the check's open
+claims to be judged, then FAILs on any strong `SAYDO UNBACKED` line, with the line and why as evidence.
+
+#### Scene focus (`SceneFocus`, in t-we-1, t-gw-1, t-rv-2)
+
+| Check | Measures | FAIL when |
+|---|---|---|
+| t-we-1 | From `WEDDING #n begins` to `ends`: the guest lines (what player 1 heard on the ceremony map, else the run's `BOT_CHAT`; not the couple's or the officiant's) that are about the wedding (keyword set: wedding, rings, vows, cake, bouquet, cute, congrats, gz, <3 ... or the couple's names); the guests still on the map at the end (`WEDDING #n guests at the end: k of n`, new in rc6, with the officiant and guests named in `WEDDING #n cast`); whether officiant -> groom's vow -> bride's vow -> rings -> married came in order; the gaps between those beats | under 60% of 5+ guest lines on topic, more than half the guests gone early, a beat missing or out of order, or a gap over 60 s |
+| t-gw-1 | Kills per side (`GUILD_WAR KILL <bot> [guild] on <map>`, new in rc6, logged while a run listens), jabs and taunts per side, and war talk (a member's line with a war word or the other guild's name). The check now waits 40 s after a skirmish so both sides can fight | a side never says a word about the war, or (with kills logged) a side kills nothing |
+| t-rv-2 | The bots the KS war called, and the mobs each took (`AFFINITY KS <bot> takes`) | fewer than half the called bots took a mob |
+
+`SceneFocus.parseQaLog` reads a `logs/qa/<id>-<UTC>.log` file, so the same measures run on old logs (as the tests do,
+with lines from the test server's 2026-10-23 runs).
 
 ### Adding a check
 
@@ -502,6 +611,7 @@ checks lines copied from the game's own format strings. Add a case there when yo
 placeholder that never gets filled (a staged bot that did not show up) fails the expectation. It never passes a
 `lacks` and never throws.
 
-Tests: `FootholdCheckTest`, `SweepMathTest`, `HealthSweepTest`, `CoarseGroundTest`, `HenesysGroundWzTest` (needs wz/), `AutoQaRunnerTest`,
+Tests: `GroundingAsSentTest` (synthetic grounding, sent positions), `ChatQualityTest`, `SceneFocusTest`,
+`ClaimRulesTest`, `SayDoTest`, `BankClaimsTest`, `MerchantAdHonestyTest`, `FootholdCheckTest`, `SweepMathTest`, `HealthSweepTest`, `CoarseGroundTest`, `HenesysGroundWzTest` (needs wz/), `AutoQaRunnerTest`,
 `AutoQaReportTest`, `AutoQaCatalogTest`, `AutoQaCatalogPatternTest`, `LlmJudgeTest`, `SyntheticClientTest`,
 `PlayerStorageTest`.

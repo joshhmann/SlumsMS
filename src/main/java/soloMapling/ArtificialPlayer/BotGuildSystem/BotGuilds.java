@@ -363,6 +363,7 @@ public final class BotGuilds {
 
     /** The bot leaves its guild now (it quit, or a GM made it). False when it is in none. */
     public static boolean leave(int botCharId, String why) {
+        soloMapling.ArtificialPlayer.BotConvo.SayDo.event(botCharId, soloMapling.ArtificialPlayer.BotConvo.SayDo.Ev.LEAVE_GROUP, 0); // rc6 say-do
         MemberRow m = members.remove(botCharId);
         if (m == null) {
             return false;

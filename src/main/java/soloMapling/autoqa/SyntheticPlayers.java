@@ -207,6 +207,28 @@ public final class SyntheticPlayers {
         return c.getId();
     }
 
+    /**
+     * rc6 inference checks: a synthetic player sends no movement packets, so without this it would stay wherever it
+     * entered the map (a portal sits above its floor) and float there for every viewer and for the foothold sweep.
+     * A real client falls onto the ground at once; this does the same on entry ({@code MapleMap.addPlayer}), before
+     * the map tells anyone where it stands.
+     */
+    public static void groundOnEntry(server.maps.MapleMap map, Character chr) {
+        if (map == null || chr == null || !(chr.getClient() instanceof SyntheticClient)) {
+            return;
+        }
+        java.awt.Point ground = groundPoint(map.getFootholds(), chr.getPosition());
+        if (ground != null) {
+            chr.setPosition(ground);
+            chr.setStance(4 | (chr.getStance() & 1)); // standing (v83 stance 4/5), facing as before
+        }
+    }
+
+    /** Where a synthetic player entering at {@code p} lands: {@code BotGround.settle}; null with no ground under it. */
+    static java.awt.Point groundPoint(server.maps.FootholdTree footholds, java.awt.Point p) {
+        return soloMapling.ArtificialPlayer.BotMovementSystem.BotGround.settle(footholds, p);
+    }
+
     /** The names in use, for the docs and the report. */
     static List<String> names() {
         return List.of(NAMES);

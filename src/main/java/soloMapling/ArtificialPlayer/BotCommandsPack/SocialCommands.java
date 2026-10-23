@@ -19,6 +19,7 @@ public class SocialCommands {
     static boolean debugSkipDialog = false;
 
     public static void BotFullChat(Character fakechar, String message) {
+        soloMapling.ArtificialPlayer.BotConvo.SayDo.said(fakechar, message); // rc6 say-do: claims in what bots say
         BotNoiseFilter.broadcastBotChat(fakechar, PacketCreator.getChatText(fakechar.getId(), message, fakechar.isGM(), (byte) 0), message);
     }
 
@@ -26,8 +27,19 @@ public class SocialCommands {
     public static void BotAmbientSpeak(Character bot, String message) {
         // rc6 (QA t-we-1): at a bot wedding the crowd talks about the wedding, the couple says only its vows
         String line = soloMapling.ArtificialPlayer.BotCoupleSystem.BotWeddings.ambientLine(bot, message);
-        if (line != null && soloMapling.ArtificialPlayer.BotChatTuning.allowAmbient(bot)) {
+        if (line == null) {
+            return;
+        }
+        // rc6 say-do: a line that claims an action ("brb pots", "gtg", "going to orbis") is said only by a bot that
+        // then does it (ClaimActions); otherwise it is dropped and the bot stays quiet this time
+        java.util.List<soloMapling.ArtificialPlayer.BotConvo.ClaimRules.Claim> claims =
+                soloMapling.ArtificialPlayer.BotConvo.ClaimRules.classify(line);
+        if (!soloMapling.ArtificialPlayer.BotConvo.ClaimActions.canBack(bot, claims)) {
+            return;
+        }
+        if (soloMapling.ArtificialPlayer.BotChatTuning.allowAmbient(bot)) {
             BotSpeak(bot, line);
+            soloMapling.ArtificialPlayer.BotConvo.ClaimActions.start(bot, claims);
         }
     }
 
@@ -41,6 +53,7 @@ public class SocialCommands {
     }
 
     public static void BotChatbubble(Character fakechar, String message) {
+        soloMapling.ArtificialPlayer.BotConvo.SayDo.said(fakechar, message);
         BotNoiseFilter.broadcastBotChat(fakechar, PacketCreator.getChatText(fakechar.getId(), message, false, 1), message); // Send message just bubble, no chat box
     }
 

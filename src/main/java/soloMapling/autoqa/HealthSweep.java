@@ -20,13 +20,31 @@ public final class HealthSweep {
 
     /** One bot as the sweep saw it. {@code moving}: the movement driver says it is going somewhere. */
     public record BotSample(int id, String name, int channel, int mapId, int x, int y, FootholdCheck.Pose pose,
-                            boolean moving, boolean driven, String mapProblem) {
+                            boolean moving, boolean driven, String mapProblem, boolean synthetic) {
+        public BotSample(int id, String name, int channel, int mapId, int x, int y, FootholdCheck.Pose pose,
+                         boolean moving, boolean driven, String mapProblem) {
+            this(id, name, channel, mapId, x, y, pose, moving, driven, mapProblem, false);
+        }
+    }
+
+    /**
+     * rc6: a position the server last SENT to clients (spawn or move packet) for a character on a map a real or
+     * synthetic player is on: what a viewer's client draws. {@code kind} is "bot", "synthetic" or "player".
+     */
+    public record SentSample(int id, String name, int channel, int mapId, int x, int y, FootholdCheck.Pose pose,
+                             String kind, long ageMs, String how) {
     }
 
     /** Everything a sweep needs from the game, taken at one moment. */
     public record Snapshot(long nowMs, List<BotSample> bots, int botsSeen, int mapsSeen, int[] botsPerChannel,
                            double[] expectedShares, int errorLines, String errorSource,
-                           List<soloMapling.ArtificialPlayer.BotMapCap.Load> mapLoads) {
+                           List<soloMapling.ArtificialPlayer.BotMapCap.Load> mapLoads, List<SentSample> sent) {
+        public Snapshot(long nowMs, List<BotSample> bots, int botsSeen, int mapsSeen, int[] botsPerChannel,
+                        double[] expectedShares, int errorLines, String errorSource,
+                        List<soloMapling.ArtificialPlayer.BotMapCap.Load> mapLoads) {
+            this(nowMs, bots, botsSeen, mapsSeen, botsPerChannel, expectedShares, errorLines, errorSource, mapLoads, null);
+        }
+
         /** Without map loads (the map-cap check then has nothing to look at). */
         public Snapshot(long nowMs, List<BotSample> bots, int botsSeen, int mapsSeen, int[] botsPerChannel,
                         double[] expectedShares, int errorLines, String errorSource) {
@@ -61,6 +79,7 @@ public final class HealthSweep {
     public synchronized Map<String, Object> run(Snapshot s, Function<Integer, List<FootholdCheck.Seg>> footholds) {
         Map<String, Object> checks = new LinkedHashMap<>();
         checks.put("foothold", footholdCheck(s, footholds));
+        checks.put(SENT_CHECK, footholdSentCheck(s, footholds));
         checks.put("stuck", stuckCheck(s));
         checks.put("clumps", clumpCheck(s));
         checks.put("channelSplit", channelCheck(s));
@@ -91,9 +110,79 @@ public final class HealthSweep {
         return out;
     }
 
-    /* (a) grounded bots stand on a foothold, within the tolerance. */
-    private Map<String, Object> footholdCheck(Snapshot s, Function<Integer, List<FootholdCheck.Seg>> footholds) {
+    /** The report name of the client-side grounding check (next to "foothold", the server's own positions). */
+    public static final String SENT_CHECK = "foothold (sent)";
+
+    /*
+     * (a2) rc6: the same rule on what clients were TOLD: the y of the last spawn/move packet each character on a map
+     * with a real or synthetic player got, against the foothold under that x. Same tolerance, poses and skip rules.
+     */
+    private Map<String, Object> footholdSentCheck(Snapshot s, Function<Integer, List<FootholdCheck.Seg>> footholds) {
+        List<SentSample> sent = s.sent() == null ? List.of() : s.sent();
         int checked = 0, skipped = 0;
+        Map<String, Integer> byKind = new TreeMap<>();
+        Map<Integer, Integer> byMap = new TreeMap<>();
+        Map<String, Integer> skippedByPose = new TreeMap<>();
+        Map<String, Integer> checkedByKind = new TreeMap<>();
+        List<Map<String, Object>> worst = new ArrayList<>();
+        Map<Integer, List<FootholdCheck.Seg>> cache = new HashMap<>();
+        for (SentSample b : sent) {
+            List<FootholdCheck.Seg> fhs = cache.computeIfAbsent(b.mapId(), footholds);
+            if (fhs == null || fhs.isEmpty()) {
+                skipped++;
+                continue;
+            }
+            FootholdCheck.Verdict v = FootholdCheck.check(fhs, b.x(), b.y(), b.pose(), limits.footholdTolerancePx());
+            if (v.kind() == FootholdCheck.Kind.SKIPPED) {
+                skipped++;
+                skippedByPose.merge(b.pose().name(), 1, Integer::sum);
+                continue;
+            }
+            checked++;
+            checkedByKind.merge(b.kind(), 1, Integer::sum);
+            if (v.bad()) {
+                byKind.merge(v.kind().name(), 1, Integer::sum);
+                byMap.merge(b.mapId(), 1, Integer::sum);
+                Map<String, Object> m = new LinkedHashMap<>();
+                m.put("id", b.id());
+                m.put("name", b.name());
+                m.put("channel", b.channel());
+                m.put("map", b.mapId());
+                m.put("x", b.x());
+                m.put("y", b.y());
+                m.put("who", b.kind());
+                m.put("kind", v.kind().name());
+                m.put("pose", b.pose().name());
+                m.put("packet", b.how());
+                m.put("ageSeconds", b.ageMs() / 1000);
+                m.put("groundY", Double.isNaN(v.groundY()) ? null : round1(v.groundY()));
+                m.put("dy", Double.isNaN(v.dy()) ? null : round1(v.dy()));
+                worst.add(m);
+            }
+        }
+        worst.sort((a, b) -> Double.compare(absOr((Double) b.get("dy")), absOr((Double) a.get("dy"))));
+        int bad = worst.size();
+        int sunk = byKind.getOrDefault("SUNK", 0);
+        Status st = sunk > 0 ? Status.FAIL : bad > 0 ? Status.WARN : Status.OK;
+        String summary = sent.isEmpty() ? "no character on a map a player watches"
+                : bad == 0 ? checked + " sent grounded positions on their footholds"
+                : bad + " of " + checked + " sent positions off their foothold " + byKind + " on maps " + byMap.keySet();
+        Map<String, Object> c = check(st, summary);
+        c.put("sampled", sent.size());
+        c.put("checked", checked);
+        c.put("checkedByWho", checkedByKind);
+        c.put("skipped", skipped);
+        c.put("skippedByPose", skippedByPose);
+        c.put("bad", bad);
+        c.put("byKind", byKind);
+        c.put("byMap", keyed(byMap));
+        c.put("worst", head(worst));
+        return c;
+    }
+
+    /* (a) grounded bots (and auto-QA's synthetic players, rc6) stand on a foothold, within the tolerance. */
+    private Map<String, Object> footholdCheck(Snapshot s, Function<Integer, List<FootholdCheck.Seg>> footholds) {
+        int checked = 0, skipped = 0, syntheticChecked = 0;
         Map<String, Integer> byKind = new TreeMap<>();
         Map<Integer, Integer> byMap = new TreeMap<>();
         List<Map<String, Object>> worst = new ArrayList<>();
@@ -112,6 +201,9 @@ public final class HealthSweep {
                 continue;
             }
             checked++;
+            if (b.synthetic()) {
+                syntheticChecked++;
+            }
             if (v.bad()) {
                 byKind.merge(v.kind().name(), 1, Integer::sum);
                 byMap.merge(b.mapId(), 1, Integer::sum);
@@ -119,6 +211,9 @@ public final class HealthSweep {
                 m.put("kind", v.kind().name());
                 m.put("pose", b.pose().name());
                 m.put("driven", b.driven());
+                if (b.synthetic()) {
+                    m.put("synthetic", true);
+                }
                 m.put("groundY", Double.isNaN(v.groundY()) ? null : round1(v.groundY()));
                 m.put("dy", Double.isNaN(v.dy()) ? null : round1(v.dy()));
                 worst.add(m);
@@ -131,6 +226,7 @@ public final class HealthSweep {
         Map<String, Object> c = check(st, bad == 0 ? checked + " grounded bots on their footholds"
                 : bad + " of " + checked + " grounded bots off their foothold " + byKind + " on maps " + byMap.keySet());
         c.put("checked", checked);
+        c.put("syntheticChecked", syntheticChecked);
         c.put("skipped", skipped);
         c.put("skippedByPose", skippedByPose);
         c.put("bad", bad);
@@ -146,6 +242,9 @@ public final class HealthSweep {
         List<Map<String, Object>> list = new ArrayList<>();
         int moving = 0;
         for (BotSample b : s.bots()) {
+            if (b.synthetic()) {
+                continue; // a pretend player stands where the check put it
+            }
             present.add(b.id());
             if (b.moving()) {
                 moving++;
@@ -231,7 +330,7 @@ public final class HealthSweep {
     private Map<String, Object> invalidMapCheck(Snapshot s) {
         List<Map<String, Object>> list = new ArrayList<>();
         for (BotSample b : s.bots()) {
-            if (b.mapProblem() != null) {
+            if (b.mapProblem() != null && !b.synthetic()) {
                 Map<String, Object> m = bot(b);
                 m.put("problem", b.mapProblem());
                 list.add(m);

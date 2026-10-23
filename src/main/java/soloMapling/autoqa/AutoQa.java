@@ -52,11 +52,15 @@ public final class AutoQa {
         if (!isEnabled()) {
             return;
         }
+        SentPositions.enable(true); // rc6: the "foothold (sent)" check reads what spawn/move packets told clients
         HealthSweeper.get().start();
         if (soloMapling.qa.QaSuite.isEnabled()) {
             AutoQaService.get().scheduleNightly(); // the checks drive !qa: no suite, no nightly run
             AutoQaService.get().watchRunRequests(); // tools/ops/autoqa-run: start a run without logging in
         }
+        // rc6: the daily chat-quality summary, half an hour before the nightly run (09:30 UTC by default)
+        int hour = YamlConfig.config.server.AUTOQA_NIGHTLY_UTC_HOUR;
+        ChatQuality.scheduleDaily(hour >= 0 && hour <= 23 ? hour - 1 : 9);
         log.info("Auto-QA on: health sweeps every {} min, results in {}", HealthSweeper.get().periodMinutes(), dataDir());
     }
 

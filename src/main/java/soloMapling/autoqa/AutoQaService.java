@@ -127,6 +127,11 @@ public final class AutoQaService {
         } catch (RuntimeException e) {
             AutoQa.log.warn("Auto-QA run failed", e);
         } finally {
+            try {
+                ChatQuality.runNow(); // rc6: the chat-quality summary after every run
+            } catch (RuntimeException e) {
+                AutoQa.log.warn("Auto-QA chat quality failed", e);
+            }
             write(runTrigger, t0, done, true);
             world.close();
             if (progress != null) {
@@ -147,6 +152,8 @@ public final class AutoQaService {
         if (report == null) {
             report = AutoQaReport.empty(ServerConstants.SLUMSMS_VERSION, day, AutoQaCatalog.all());
         }
+        AutoQaReport.putInference(report, ChatQuality.brief(ChatQuality.last()),
+                soloMapling.ArtificialPlayer.BotConvo.SayDo.stats());
         if (finalLine) {
             AutoQaReport.mergeChecks(report, ServerConstants.SLUMSMS_VERSION, List.of(), HealthSweeper.get().last());
             AutoQaReport.addRun(report, runTrigger, t0, System.currentTimeMillis(), results);

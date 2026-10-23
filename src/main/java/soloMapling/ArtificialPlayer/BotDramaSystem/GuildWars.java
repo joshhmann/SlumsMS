@@ -1040,6 +1040,26 @@ public final class GuildWars {
         DramaKit.qa(QaLog.Topic.GUILD_WAR, mapId, line);
     }
 
+    /**
+     * rc6 scene focus (!qa gw-1, auto-QA t-gw-1): a member of a bot guild at war killed a mob, so the check can count
+     * the kills per side ("KILL name [guild] on map"). Only called while a run listens to GUILD_WAR.
+     */
+    public static void onKill(Character chr, int mapId) {
+        if (!soloMapling.ArtificialPlayer.BotHelpers.isBot(chr)) {
+            return;
+        }
+        var m = BotGuilds.membership(chr.getId());
+        if (m == null) {
+            return;
+        }
+        for (War w : active()) {
+            if (w.kind() == Kind.WAR && (w.a() == m.guildId() || w.b() == m.guildId())) {
+                qa(mapId, "KILL " + chr.getName() + " [" + BotGuilds.guildName(m.guildId()) + "] on " + mapId);
+                return;
+            }
+        }
+    }
+
     /** Tests. */
     static void useForTest(GuildWarStore testStore, LongSupplier testClock) {
         store = testStore != null ? testStore : new GuildWarStore.Jdbc();

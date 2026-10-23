@@ -511,6 +511,7 @@ public class MovementCommands {
     }
 
     public static void botSitChair(Character fakechar, Integer chairId) {
+        soloMapling.ArtificialPlayer.BotConvo.SayDo.event(fakechar, soloMapling.ArtificialPlayer.BotConvo.SayDo.Ev.IDLE, fakechar.getMapId()); // rc6 say-do
         fakechar.setChair(chairId);
         int stance = fakechar.getStance();
         InPacket sitPacket = createSitPacket(fakechar);

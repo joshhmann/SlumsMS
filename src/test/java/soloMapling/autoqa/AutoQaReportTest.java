@@ -65,6 +65,25 @@ class AutoQaReportTest {
     }
 
     @Test
+    void theReportCarriesGroundingAsSentChatQualityAndSayDo() {
+        Map<String, Object> r = AutoQaReport.empty("1.5.0-rc6", "2026-10-23", AutoQaCatalog.all());
+        Map<String, Object> health = Map.of("status", "FAIL", "summary", "foothold (sent) FAIL: 1 of 3", "time", "x",
+                "checks", Map.of("foothold", Map.of("status", "OK", "summary", "40 grounded bots on their footholds"),
+                        HealthSweep.SENT_CHECK, Map.of("status", "FAIL", "summary", "1 of 3 sent positions off")));
+        AutoQaReport.putInference(r, Map.of("headline", "chat 24h: 129 lines; relevance 82% (60 judged)",
+                "problems", List.of("stiffness 31% > 25%")), Map.of("claims", 12L, "backed", 7L));
+        AutoQaReport.merge(r, "1.5.0-rc6", "t", 1, 2, List.of(), health);
+        Map<?, ?> h = (Map<?, ?>) r.get("health");
+        assertEquals("FAIL: 1 of 3 sent positions off", h.get(HealthSweep.SENT_CHECK));
+        List<String> lines = AutoQaReport.summaryLines(r, 25);
+        assertTrue(lines.contains("Grounding: server OK: 40 grounded bots on their footholds | sent FAIL: 1 of 3 sent positions off"),
+                lines.toString());
+        assertTrue(lines.contains("Chat: chat 24h: 129 lines; relevance 82% (60 judged) PROBLEMS [stiffness 31% > 25%]"),
+                lines.toString());
+        assertTrue(lines.contains("Say-do since boot: 7 of 12 claims backed"), lines.toString());
+    }
+
+    @Test
     void theReportCommandShowsTotalsHealthAndFailures() {
         Map<String, Object> r = AutoQaReport.empty("1.5.0-rc5", "2026-10-23", AutoQaCatalog.all());
         AutoQaReport.merge(r, "1.5.0-rc5", "t", 1, 2, List.of(result("t-af-1", Check.Status.FAIL, "no greet")),

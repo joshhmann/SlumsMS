@@ -83,6 +83,8 @@ public final class ChatBank {
     private final byte[] affinity;
     private final byte[] voice;
     private final long[] tags;
+    /** rc6 say-do: the action claims each line carries ({@link ClaimRules.Kind} bits, strong claims only). */
+    private final long[] claims;
     private final List<String> intents;
     private final Map<Integer, int[]> cells;
     /** Rows sorted by id ({@code idOrder[k]} is the row with the k-th smallest id), for {@link #textOf}. */
@@ -90,7 +92,8 @@ public final class ChatBank {
     private final int[] sortedIds;
 
     private ChatBank(byte[] text, int[] offsets, int[] ids, byte[] intent, byte[] tone, byte[] affinity, byte[] voice,
-                     long[] tags, List<String> intents, Map<Integer, int[]> cells) {
+                     long[] tags, long[] claims, List<String> intents, Map<Integer, int[]> cells) {
+        this.claims = claims;
         this.text = text;
         this.offsets = offsets;
         this.ids = ids;
@@ -134,7 +137,8 @@ public final class ChatBank {
 
     /** Approximate heap held by the bank's arrays and index, in bytes. */
     public long heapBytes() {
-        long b = text.length + 4L * offsets.length + 4L * ids.length + 4L * ids.length + 8L * tags.length;
+        long b = text.length + 4L * offsets.length + 4L * ids.length + 4L * ids.length + 8L * tags.length
+                + 8L * claims.length;
         for (int[] cell : cells.values()) {
             b += 16 + 4L * cell.length;
         }
@@ -183,12 +187,19 @@ public final class ChatBank {
         }
     }
 
+    /** The pack header of a bank whose tags field carries the claim tags ({@code claim:resupply}). */
+    public static final String HEADER_V2 = "#chatbank v2 claims";
+
     /** Reads an uncompressed TSV stream. Bad rows are skipped. */
     public static ChatBank read(InputStream in) throws IOException {
         List<String[]> rows = new ArrayList<>();
+        boolean tagged = false;
         try (BufferedReader r = new BufferedReader(new InputStreamReader(in, StandardCharsets.UTF_8))) {
             String line;
             while ((line = r.readLine()) != null) {
+                if (line.startsWith(HEADER_V2)) {
+                    tagged = true;
+                }
                 if (line.isEmpty() || line.startsWith("#")) {
                     continue;
                 }
@@ -198,11 +209,42 @@ public final class ChatBank {
                 }
             }
         }
-        return build(rows);
+        return build(rows, tagged);
     }
 
-    /** Builds a bank from parsed rows (id, intent, tone, affinity, voice, tags, text). */
+    /** Builds a bank from parsed rows (id, intent, tone, affinity, voice, tags, text); the claims from the text. */
     public static ChatBank build(List<String[]> rows) {
+        return build(rows, false);
+    }
+
+    /**
+     * The claim tags of a line, as the pack writes them into its tags field: {@code claim:<kind>} for each strong
+     * claim ({@link ClaimRules}).
+     */
+    public static List<String> claimTags(String text) {
+        List<String> out = new ArrayList<>();
+        for (ClaimRules.Claim c : ClaimRules.classify(text)) {
+            if (!c.weak() && !out.contains("claim:" + c.kind().tag())) {
+                out.add("claim:" + c.kind().tag());
+            }
+        }
+        return out;
+    }
+
+    /** The claim bits of a set of kinds. */
+    public static long claimMask(java.util.Collection<ClaimRules.Kind> kinds) {
+        long m = 0;
+        for (ClaimRules.Kind k : kinds) {
+            m |= 1L << k.ordinal();
+        }
+        return m;
+    }
+
+    /**
+     * Builds a bank. {@code claimsTagged}: the rows' tags carry the pack-time claim tags (a v2 pack); otherwise each
+     * line's claims are worked out from its text here (an older pack).
+     */
+    public static ChatBank build(List<String[]> rows, boolean claimsTagged) {
         int n = rows.size();
         List<String> intents = new ArrayList<>();
         Map<String, Integer> intentIndex = new HashMap<>();
@@ -214,6 +256,7 @@ public final class ChatBank {
         byte[] af = new byte[n];
         byte[] vo = new byte[n];
         long[] tg = new long[n];
+        long[] cl = new long[n];
         Map<Integer, List<Integer>> cellLists = new HashMap<>();
         int kept = 0;
         for (String[] f : rows) {
@@ -237,12 +280,25 @@ public final class ChatBank {
             int ai = Math.max(0, AFFINITIES.indexOf(f[3].trim().toLowerCase(Locale.ROOT)));
             ConvoPersona.Voice v = ConvoPersona.Voice.parse(f[4]);
             long mask = 0;
+            long claimBits = 0;
             if (!f[5].isBlank() && !"-".equals(f[5].trim())) {
                 for (String t : f[5].split(",")) {
+                    if (t.trim().startsWith("claim:")) {
+                        ClaimRules.Kind k = ClaimRules.Kind.parse(t.trim().substring(6));
+                        if (k != null) {
+                            claimBits |= 1L << k.ordinal();
+                        }
+                        continue;
+                    }
                     Tag tag = Tag.parse(t);
                     if (tag != null) {
                         mask |= tag.bit;
                     }
+                }
+            }
+            if (!claimsTagged) {
+                for (String t : claimTags(f[6])) {
+                    claimBits |= 1L << ClaimRules.Kind.parse(t.substring(6)).ordinal();
                 }
             }
             byte[] utf = f[6].trim().getBytes(StandardCharsets.UTF_8);
@@ -254,6 +310,7 @@ public final class ChatBank {
             af[kept] = (byte) ai;
             vo[kept] = (byte) (v == null ? -1 : v.ordinal());
             tg[kept] = mask;
+            cl[kept] = claimBits;
             cellLists.computeIfAbsent(cell(ii, ai), k -> new ArrayList<>()).add(kept);
             kept++;
         }
@@ -262,7 +319,8 @@ public final class ChatBank {
         cellLists.forEach((k, v) -> cells.put(k, v.stream().mapToInt(Integer::intValue).toArray()));
         return new ChatBank(bytes.toByteArray(), java.util.Arrays.copyOf(offsets, kept + 1), java.util.Arrays.copyOf(ids, kept),
                 java.util.Arrays.copyOf(in, kept), java.util.Arrays.copyOf(to, kept), java.util.Arrays.copyOf(af, kept),
-                java.util.Arrays.copyOf(vo, kept), java.util.Arrays.copyOf(tg, kept), List.copyOf(intents), cells);
+                java.util.Arrays.copyOf(vo, kept), java.util.Arrays.copyOf(tg, kept), java.util.Arrays.copyOf(cl, kept),
+                List.copyOf(intents), cells);
     }
 
     private static int cell(int intentIndex, int affinityIndex) {
@@ -282,7 +340,18 @@ public final class ChatBank {
      * @param slots     slot values ("player" -> "Pinky"); a line needing a missing slot is skipped
      */
     public record Query(String intent, String tone, String affinity, ConvoPersona.Voice voice, long situation,
-                        Map<String, String> slots) {
+                        Map<String, String> slots, long claimsOk) {
+        /** Any claim allowed (tests, tools). */
+        public Query(String intent, String tone, String affinity, ConvoPersona.Voice voice, long situation,
+                     Map<String, String> slots) {
+            this(intent, tone, affinity, voice, situation, slots, -1L);
+        }
+    }
+
+    /** The claim bits of the line with this id (0 = none, or no such line). */
+    public long claimsOf(int id) {
+        int k = java.util.Arrays.binarySearch(sortedIds, id);
+        return k < 0 ? 0 : claims[idOrder[k]];
     }
 
     /** A picked line: its id and the text with the slots filled. */
@@ -344,6 +413,9 @@ public final class ChatBank {
             }
             if (recent != null && recent.contains(ids[row])) {
                 continue;
+            }
+            if ((claims[row] & ~q.claimsOk()) != 0) {
+                continue; // rc6 say-do: it promises something this reply's action does not do
             }
             double weight = weights == null ? 1 : weights.of(ids[row]);
             if (weight <= 0) {

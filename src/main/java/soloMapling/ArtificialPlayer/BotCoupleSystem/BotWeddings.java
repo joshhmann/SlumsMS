@@ -1,5 +1,7 @@
 package soloMapling.ArtificialPlayer.BotCoupleSystem;
 
+import soloMapling.qa.QaLog;
+
 import client.Character;
 import client.inventory.InventoryType;
 import client.inventory.Item;
@@ -209,6 +211,15 @@ public final class BotWeddings {
         }, 3, 3, java.util.concurrent.TimeUnit.SECONDS);
         BotCouples.qa("WEDDING #" + e.id + " begins: " + groom.getName() + " & " + bride.getName() + ", " + c.guests.size() + " guests at ("
                 + altar.x + "," + altar.y + ")");
+        if (QaLog.on(QaLog.Topic.COUPLE)) { // rc6 scene focus (t-we-1): who the officiant and the guests are
+            List<String> names = new java.util.ArrayList<>();
+            for (int id : c.guests) {
+                Character g = live(id);
+                names.add(g == null ? String.valueOf(id) : g.getName());
+            }
+            BotCouples.qa("WEDDING #" + e.id + " cast: officiant " + (names.isEmpty() ? "-" : names.get(0)) + "; guests "
+                    + (names.size() > 1 ? String.join(", ", names.subList(1, names.size())) : "-"));
+        }
         return null;
     }
 
@@ -273,6 +284,20 @@ public final class BotWeddings {
         Ceremony c = byEvent.remove(e.id);
         if (c == null) {
             return;
+        }
+        if (QaLog.on(QaLog.Topic.COUPLE)) { // rc6 scene focus (t-we-1): did the guests stay to the end?
+            List<String> left = new java.util.ArrayList<>();
+            int stayed = 0;
+            for (int i = 1; i < c.guests.size(); i++) {
+                Character g = live(c.guests.get(i));
+                if (g != null && g.getMapId() == c.mapId) {
+                    stayed++;
+                } else {
+                    left.add(g == null ? String.valueOf(c.guests.get(i)) : g.getName());
+                }
+            }
+            BotCouples.qa("WEDDING #" + e.id + " guests at the end: " + stayed + " of " + Math.max(0, c.guests.size() - 1)
+                    + " on the map" + (left.isEmpty() ? "" : "; left: " + String.join(", ", left)));
         }
         for (int id : c.guests) {
             Character guest = BotHelpers.getCharFromChannelStorage(id);

@@ -251,10 +251,39 @@ public class SocialHotPotatoManager {
 
     private void doChat(Character bot) {
         String category = SOCIAL_CATEGORIES[random.nextInt(SOCIAL_CATEGORIES.length)];
-        String line = getRandomLine(SOCIAL_DIALOGUE_PATH, SOCIAL_BOT_TYPE, category);
+        String line = backableLine(bot, category);
         if (line != null) {
-            BotAmbientSpeak(bot, line);
+            soloMapling.ArtificialPlayer.BotConvo.SayDo.withSource("pack:SocialHotPotato/" + category,
+                    () -> BotAmbientSpeak(bot, line));
         }
+    }
+
+    /**
+     * rc6 say-do: a random line of the category this bot can stand behind: a claim line ("brb dinner", "brb pots")
+     * only when it will then do it (ClaimActions), else another pick (up to 6), else a line with no claim, else none.
+     */
+    private String backableLine(Character bot, String category) {
+        String fallback = null;
+        for (int i = 0; i < 6; i++) {
+            String line = getRandomLine(SOCIAL_DIALOGUE_PATH, SOCIAL_BOT_TYPE, category);
+            if (line == null) {
+                return null;
+            }
+            var claims = soloMapling.ArtificialPlayer.BotConvo.ClaimRules.classify(line);
+            if (claims.isEmpty()) {
+                if (fallback == null) {
+                    fallback = line;
+                }
+                if (random.nextInt(4) != 0) {
+                    return line; // most of the time any claim-free line will do
+                }
+                continue;
+            }
+            if (soloMapling.ArtificialPlayer.BotConvo.ClaimActions.canBack(bot, claims)) {
+                return line;
+            }
+        }
+        return fallback;
     }
 
     private void doEmote(Character bot) {
@@ -288,9 +317,10 @@ public class SocialHotPotatoManager {
         int emoteId = 1 + random.nextInt(22);
         BotEmote(bot, emoteId);
         String category = SOCIAL_CATEGORIES[random.nextInt(SOCIAL_CATEGORIES.length)];
-        String line = getRandomLine(SOCIAL_DIALOGUE_PATH, SOCIAL_BOT_TYPE, category);
+        String line = backableLine(bot, category);
         if (line != null) {
-            BotAmbientSpeak(bot, line);
+            soloMapling.ArtificialPlayer.BotConvo.SayDo.withSource("pack:SocialHotPotato/" + category,
+                    () -> BotAmbientSpeak(bot, line));
         }
     }
 

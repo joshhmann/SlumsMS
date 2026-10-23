@@ -202,6 +202,7 @@ public final class DramaKit {
             return;
         }
         player.sendPacket(PacketCreator.getWhisperReceive(bot.getName(), Math.max(0, channelOf(bot) - 1), false, line));
+        soloMapling.ArtificialPlayer.BotConvo.SayDo.said(bot, player, line, "drama-whisper");
     }
 
     // ── who is where ──

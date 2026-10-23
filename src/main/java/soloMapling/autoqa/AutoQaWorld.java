@@ -40,6 +40,11 @@ public interface AutoQaWorld {
     /** The last health sweep's result, or null. */
     Map<String, Object> lastHealth();
 
+    /** rc6: a fresh daily chat-quality summary ({@link ChatQuality#runNow}), or null where there is none. */
+    default Map<String, Object> chatQuality() {
+        return null;
+    }
+
     /** A synthetic player: talks through the real packet handlers, hears what its client would. */
     interface Actor {
         int id();

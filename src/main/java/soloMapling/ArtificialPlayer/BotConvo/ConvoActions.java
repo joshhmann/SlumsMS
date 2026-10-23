@@ -350,6 +350,7 @@ public final class ConvoActions {
     static final class GameEffects implements Effects {
         @Override
         public void grindAt(BotSM bot, int mapId) {
+            SayDo.event(bot.getChr(), SayDo.Ev.WALK, mapId); // rc6 say-do: "omw" is backed by the walk
             int id = bot.getChr().getId();
             // the walk a player asked for never warps (review 2026-10-22): its own trips give up instead
             soloMapling.ArtificialPlayer.GCMoveSystem.GCMovement.forbidWarps(bot.getChr(), HOLD_MS);
@@ -362,6 +363,7 @@ public final class ConvoActions {
 
         @Override
         public void walkTo(Character bot, int mapId, Character player) {
+            SayDo.event(bot, SayDo.Ev.WALK, mapId); // rc6 say-do
             int x = 0;
             int y = 0;
             if (player != null && player.getMapId() == mapId && player.getPosition() != null) {
