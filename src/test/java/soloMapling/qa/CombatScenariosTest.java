@@ -9,6 +9,7 @@ import java.nio.file.Path;
 import java.util.List;
 
 import static org.junit.jupiter.api.Assertions.assertEquals;
+import static org.junit.jupiter.api.Assertions.assertFalse;
 import static org.junit.jupiter.api.Assertions.assertTrue;
 
 /** 1.5.0 rc3: the combat and spread scenarios (cb-1 .. cb-4, sp-1) against a recording world. */
@@ -81,6 +82,20 @@ class CombatScenariosTest {
         start("sp-1", "10");
         assertTrue(called("grinders random x10"));
         assertTrue(called("spread"));
+    }
+
+    @Test
+    void sp1SendsTwoToARopeRestAbout30sInAndOnRequest() {
+        // rc6 (QA t-sp-1: "dont see any rope hanging"): a rope rest was ~1 bot in 30 per session, rarely seen
+        Character gm = start("sp-1");
+        scheduler.repeating.get(0).run();
+        assertFalse(called("act rope"), "not at the first tally");
+        scheduler.repeating.get(0).run();
+        assertEquals(1, world.calls.stream().filter(c -> c.equals("act rope")).count(), "the second tally, ~30 s");
+        scheduler.repeating.get(0).run();
+        assertEquals(1, world.calls.stream().filter(c -> c.equals("act rope")).count(), "once by itself");
+        suite.action(gm, "rope", new String[0]);
+        assertEquals(2, world.calls.stream().filter(c -> c.equals("act rope")).count(), "!qa do rope");
     }
 
     @Test

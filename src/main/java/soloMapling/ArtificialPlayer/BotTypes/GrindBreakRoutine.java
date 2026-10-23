@@ -86,6 +86,19 @@ final class GrindBreakRoutine {
         breakAtMs = now();
     }
 
+    // rc6 (QA t-sp-1: "dont see any rope hanging"): the next break hangs on a rope when the map has a safe rope band
+    // (a rope rest is a 30% session break x 35% rope pick: about one bot in thirty on a map, rarely while watched).
+    private boolean ropeNext = false;
+
+    void forceRopeNow() {
+        ropeNext = true;
+        forceNow();
+    }
+
+    static boolean hangsOnRope(boolean ropeAvailable, boolean ropeAsked, double roll) {
+        return ropeAvailable && (ropeAsked || roll < ROPE_HANG_CHANCE);
+    }
+
     boolean resuming() {
         return resumeRemainingMs > 0;
     }
@@ -112,7 +125,8 @@ final class GrindBreakRoutine {
             return false;
         }
         RestSpotFinder.RestSpot rope = RestSpotFinder.findRope(chr);
-        RestSpotFinder.RestSpot chosen = (rope != null && rng.nextDouble() < ROPE_HANG_CHANCE) ? rope : ground;
+        RestSpotFinder.RestSpot chosen = hangsOnRope(rope != null, ropeNext, rng.nextDouble()) ? rope : ground;
+        ropeNext = false;
         restSpot = chosen.point();
         restKind = chosen.kind();
         restRope = chosen.rope();
