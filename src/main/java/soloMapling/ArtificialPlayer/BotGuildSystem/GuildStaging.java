@@ -20,7 +20,15 @@ public final class GuildStaging {
      * (bot guilds and the GM's own guild alike).
      */
     public static int stage(Character gm, AffinityState state, int guildId, int rank) {
-        int id = AffinityStaging.stage(gm, state, state.hostile());
+        return stage(gm, state, guildId, rank, false);
+    }
+
+    /**
+     * As {@link #stage(Character, AffinityState, int, int)}; {@code grinder}: a training bot held on the GM's map that
+     * fights its mobs (when the map has mobs), whatever it feels about the GM.
+     */
+    public static int stage(Character gm, AffinityState state, int guildId, int rank, boolean grinder) {
+        int id = AffinityStaging.stage(gm, state, grinder || state.hostile());
         if (id < 0) {
             return -1;
         }

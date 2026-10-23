@@ -28,6 +28,16 @@ class BotGuildsTest {
         org.mockito.Mockito.verify(player, org.mockito.Mockito.never()).sendPacket(org.mockito.ArgumentMatchers.any());
     }
 
+    @Test
+    void aBotThatTurnsDownAGuildInviteSaysWhy() {
+        // rc6, owner QA 2026-10-23 (t-gu-2): the guild window / right-click invite reaches bots; a no comes with a line
+        for (soloMapling.ArtificialPlayer.BotAffinitySystem.AffinityState feels
+                : soloMapling.ArtificialPlayer.BotAffinitySystem.AffinityState.values()) {
+            String line = BotGuilds.declineLine(feels, "Josh", "jimbobs");
+            assertTrue(line != null && !line.isBlank() && !line.contains("{"), feels + ": " + line);
+        }
+    }
+
     @BeforeEach
     void setUp() {
         store = new GuildStore.Memory();

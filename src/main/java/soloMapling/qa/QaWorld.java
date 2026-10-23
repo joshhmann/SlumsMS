@@ -198,6 +198,14 @@ public interface QaWorld {
     void unstageGuildBot(int botId);
 
     /**
+     * As {@link #stageGuildBot}, but a grinder held on the GM's map (it fights the map's mobs) instead of a bot that
+     * stands next to the GM: gw-1's war sides, so turf and skirmishes start at once.
+     */
+    default int stageGuildGrinder(Character gm, String state, String guild, int rank) {
+        return stageGuildBot(gm, state, guild, rank);
+    }
+
+    /**
      * A bot guild action now (recruit | jab | bossrun | bossstop | step | quit | ignore | rival): what happened.
      * {@code args}: the guild (or the bot id for quit/ignore/rival), then extras.
      */

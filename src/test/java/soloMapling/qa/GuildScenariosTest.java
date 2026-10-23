@@ -128,6 +128,20 @@ class GuildScenariosTest {
     }
 
     @Test
+    void gu6OnAMemberThatAlreadyLeftStagesAFreshOneAndRunsTheStepOnIt() {
+        // rc6, owner QA 2026-10-23: "run the step again" read as start over, so the ignore check never ran
+        world.gmGuild = 3;
+        start("gu-6", 100000000);
+        world.guildAnswers.put("ignore", List.of("bot 1 is in no guild"));
+        suite.action(world.online, "ignore", new String[0]);
+        assertEquals(2, world.calls.stream().filter(c -> c.startsWith("guildbot friend mine r5")).count(),
+                "a fresh member was staged");
+        assertEquals(2, world.calls.stream().filter(c -> c.startsWith("guild ignore ")).count(),
+                "and the ignore check ran on it at once");
+        suite.stop(1, "!qa stop");
+    }
+
+    @Test
     void gu7StagesAFriendANeutralAndARival() {
         start("gu-7", 104040000);
         assertTrue(called("guildbot friend null"));

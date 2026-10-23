@@ -486,8 +486,30 @@ public final class BotGuilds {
             sayInGuild(bot, GuildLines.pick("JoinThanks", Map.of("PLAYER", player.getName(), "GUILD", g.getName())));
         } else {
             player.sendPacket(GuildResponse.DENIED_INVITE.getPacket(bot.getName()));
+            sayNo(bot, player, declineLine(feels, player.getName(), g.getName()));
         }
         return yes;
+    }
+
+    /**
+     * rc6 (owner QA 2026-10-23, gu-2): a bot that turns down a guild invite (the guild window, right-click invite or
+     * /ginvite: all the same packet) says why in a line, not only the stock "denied" notice.
+     */
+    static String declineLine(AffinityState feels, String player, String guild) {
+        String node = feels != null && feels.hostile() ? "InviteNoHostile" : "InviteNo";
+        return GuildLines.pick(node, Map.of("PLAYER", player == null ? "" : player, "GUILD", guild == null ? "" : guild));
+    }
+
+    /** Out loud when the two stand on one map, else a whisper. */
+    private static void sayNo(Character bot, Character player, String line) {
+        if (line == null) {
+            return;
+        }
+        if (bot.getMapId() == player.getMapId() && channelOf(bot) == channelOf(player)) {
+            BotSpeak(bot, line);
+        } else {
+            BotWhispers.send(player, bot.getName(), Math.max(0, channelOf(bot) - 1), line, true);
+        }
     }
 
     // ── a player asks to join a bot guild ──
@@ -1686,6 +1708,21 @@ public final class BotGuilds {
         out.add(megaJab(g, ThreadLocalRandom.current()));
         out.add(claim(g, ThreadLocalRandom.current()));
         return out;
+    }
+
+    /**
+     * GM / !qa gw-1: members of two guilds standing on one map trade jabs now (a war's skirmish). What happened.
+     * Works for player guilds too when bots of both stand together; the rival link is not needed.
+     */
+    public static String mapJabNow(int guildA, int guildB) {
+        GuildRow a = guilds.get(guildA);
+        GuildRow b = guilds.get(guildB);
+        if (a == null || b == null) {
+            return "skirmish: both sides must be bot guilds";
+        }
+        boolean met = mapJab(a, onlineMembers(guildA), b, onlineMembers(guildB), ThreadLocalRandom.current());
+        return met ? "skirmish: " + a.name() + " and " + b.name() + " trade jabs on the map"
+                : "skirmish: no member of " + a.name() + " and " + b.name() + " share a map a player sees";
     }
 
     // ── helpers ──

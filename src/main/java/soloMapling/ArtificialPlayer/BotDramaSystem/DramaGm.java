@@ -328,6 +328,14 @@ public final class DramaGm {
                 }
                 var target = b != null ? b : a.rivalId() > 0
                         ? soloMapling.ArtificialPlayer.BotGuildSystem.BotGuilds.guild(a.rivalId()) : null;
+                if (target != null && java.util.Arrays.asList(args).contains("fresh")) {
+                    // !qa gw-1: a war the pair already fights (ambient) ends quietly, so the declaration is seen
+                    GuildWarStore.War running = GuildWars.warBetween(a.guildId(), target.guildId());
+                    if (running != null && running.active() && running.kind() == GuildWarStore.Kind.WAR) {
+                        GuildWars.endQuietly(running);
+                        out.add("ended the war already on between them (#" + running.id() + ") to declare it fresh");
+                    }
+                }
                 var w = GuildWars.declare(a, target, gm.getName());
                 remember(gm, w);
                 out.add(w == null ? "no war (no rival, or already at war)" : a.name() + " declared war on "
@@ -345,7 +353,15 @@ public final class DramaGm {
                 }
             }
             case "turf" -> out.addAll(GuildWars.turfNow());
-            case "taunt" -> out.addAll(GuildWars.tauntNow(intArg(args, 0)));
+            case "taunt" -> out.addAll(GuildWars.tauntNow(intArg(args, 0) > 0 ? intArg(args, 0) : lastWar(gm)));
+            case "skirmish" -> { // !qa gw-1: the two sides on the GM's map trade jabs now
+                GuildWarStore.War w = GuildWars.byId(lastWar(gm));
+                if (w == null || !w.active()) {
+                    out.add("no war started here");
+                } else {
+                    out.add(soloMapling.ArtificialPlayer.BotGuildSystem.BotGuilds.mapJabNow(w.a(), w.b()));
+                }
+            }
             case "score" -> out.addAll(GuildWars.describeFor(gm));
             case "peace" -> out.add(GuildWars.peace(gm));
             case "end" -> {
@@ -427,6 +443,18 @@ public final class DramaGm {
                     + " bossrun <guild> | step | unstage");
         }
         return out;
+    }
+
+    /** The last war or alliance this GM started (0 = none): steps act on it, not on some other war. */
+    private static long lastWar(Character gm) {
+        List<Long> mine = gmWars.getOrDefault(gm.getId(), List.of());
+        for (int i = mine.size() - 1; i >= 0; i--) {
+            GuildWarStore.War w = GuildWars.byId(mine.get(i));
+            if (w != null && w.active() && w.kind() == GuildWarStore.Kind.WAR) {
+                return w.id();
+            }
+        }
+        return 0;
     }
 
     private static void remember(Character gm, GuildWarStore.War w) {

@@ -246,10 +246,24 @@ class FakeQaWorld implements QaWorld {
         return id;
     }
 
+    @Override public int stageGuildGrinder(Character gm, String state, String guild, int rank) {
+        int id = nextBot++;
+        calls.add("guildgrinder " + state + " " + guild + " r" + rank + " " + id);
+        return id;
+    }
+
+    /** What botGuildAction answers per action (default "<action> done"). */
+    public final java.util.Map<String, List<String>> guildAnswers = new java.util.HashMap<>();
+
     @Override public void unstageGuildBot(int botId) { guildBotsUnstaged.add(botId); calls.add("unguildbot " + botId); }
 
     @Override public List<String> botGuildAction(Character gm, String action, String[] args) {
         calls.add("guild " + action + (args.length > 0 ? " " + String.join(" ", args) : ""));
+        if (guildAnswers.containsKey(action)) {
+            List<String> answer = guildAnswers.get(action);
+            guildAnswers.remove(action); // once
+            return answer;
+        }
         return "bossrun".equals(action) ? bossRunAnswer : List.of(action + " done");
     }
 

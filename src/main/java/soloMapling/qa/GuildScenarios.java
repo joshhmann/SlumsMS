@@ -260,7 +260,8 @@ final class GuildScenarios {
             int id = stage(ctx, "friend", "mine", 5);
             return List.of("Bot " + id + " is a member of your guild now.",
                     "!qa do rival: it turns into your rival and the quit check runs - it says why in guild chat and leaves (LEAVE).",
-                    "!qa do ignore (stage again first): it joined and was last noticed 30 days ago - it leaves (player-led guilds only).");
+                    "!qa do ignore: it joined and was last noticed 30 days ago - it leaves (player-led guilds only). A step on a",
+                    "member that already left stages a fresh one and runs on it.");
         }
 
         public List<String> action(QaContext ctx, String name, String[] args) {
@@ -274,9 +275,12 @@ final class GuildScenarios {
             int id = ids.get(ids.size() - 1);
             List<String> out = act(ctx, name, Integer.toString(id));
             if (out.stream().anyMatch(l -> l.contains("in no guild"))) {
-                stage(ctx, "friend", "mine", 5);
+                // rc6 (owner QA 2026-10-23): "run the step again" read as "start over", so the ignore check never ran;
+                // the step now stages a fresh member and runs on it at once
+                int fresh = stage(ctx, "friend", "mine", 5);
                 out = new ArrayList<>(out);
-                out.add("staged a new member: run the step again");
+                out.add("staged a new member (" + fresh + ") and ran " + name + " on it:");
+                out.addAll(act(ctx, name, Integer.toString(fresh)));
             }
             return out;
         }

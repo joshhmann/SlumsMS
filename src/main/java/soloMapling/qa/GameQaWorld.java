@@ -701,6 +701,15 @@ final class GameQaWorld implements QaWorld {
 
     @Override
     public int stageGuildBot(Character gm, String state, String guild, int rank) {
+        return stageGuildBot(gm, state, guild, rank, false);
+    }
+
+    @Override
+    public int stageGuildGrinder(Character gm, String state, String guild, int rank) {
+        return stageGuildBot(gm, state, guild, rank, true);
+    }
+
+    private int stageGuildBot(Character gm, String state, String guild, int rank, boolean grinder) {
         var feels = soloMapling.ArtificialPlayer.BotAffinitySystem.AffinityState.parse(state);
         if (feels == null) {
             feels = soloMapling.ArtificialPlayer.BotAffinitySystem.AffinityState.NEUTRAL;
@@ -715,7 +724,7 @@ final class GameQaWorld implements QaWorld {
         if (gid < 0 || (guild != null && gid == 0)) {
             return -1;
         }
-        return soloMapling.ArtificialPlayer.BotGuildSystem.GuildStaging.stage(gm, feels, gid, rank);
+        return soloMapling.ArtificialPlayer.BotGuildSystem.GuildStaging.stage(gm, feels, gid, rank, grinder);
     }
 
     @Override

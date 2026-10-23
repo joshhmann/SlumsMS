@@ -392,7 +392,12 @@ final class DramaScenarios {
         }
 
         int stageMember(QaContext ctx, String state, String guild) {
-            int id = ctx.world().stageGuildBot(ctx.gm(), state, guild, 5);
+            return stageMember(ctx, state, guild, false);
+        }
+
+        int stageMember(QaContext ctx, String state, String guild, boolean grinder) {
+            int id = grinder ? ctx.world().stageGuildGrinder(ctx.gm(), state, guild, 5)
+                    : ctx.world().stageGuildBot(ctx.gm(), state, guild, 5);
             if (id < 0) {
                 throw new QaRefusal("No bot could be staged in " + guild + ".");
             }
@@ -422,21 +427,26 @@ final class DramaScenarios {
             String rival = ctx.world().rivalOf(g);
             onAGrindMap(ctx);
             cleanupAtStop(ctx);
-            stageMember(ctx, "neutral", g);
-            stageMember(ctx, "neutral", g);
-            stageMember(ctx, "neutral", rival);
-            List<String> out = new ArrayList<>(act(ctx, "declare", g, rival));
+            // rc6 (owner QA 2026-10-23: "rival guild members just stood there"): the sides grind this map, held here
+            stageMember(ctx, "neutral", g, true);
+            stageMember(ctx, "neutral", g, true);
+            stageMember(ctx, "neutral", rival, true);
+            // "fresh": a war the pair already fights ends first, so this run's declaration (and its megaphone) happens
+            List<String> out = new ArrayList<>(act(ctx, "declare", g, rival, "fresh"));
+            out.addAll(act(ctx, "skirmish"));
             out.addAll(act(ctx, "turf"));
-            out.add(g + " declared war on " + rival + " (WAR DECLARED; GuildWarDeclare megaphone through the gate, a");
-            out.add("line in both guild chats). Two of " + g + " and one of " + rival + " stand on this grind map, so " + g);
-            out.add("holds it (TURF). Every minute each grind map is held by the side with more members there (+1).");
-            out.add("!qa do turf (score a minute now), !qa do taunt (a war megaphone + a turf fight: a grinder goes to a");
-            out.add("map the other side holds), !qa do score (@guildwar), !qa do end (ends it with the result megaphone).");
+            out.add(g + " declared war on " + rival + " (WAR DECLARED; the GuildWarDeclare megaphone goes out at once in a");
+            out.add("QA run, MEGAPHONE in the log; a line in both guild chats). Two of " + g + " and one of " + rival
+                    + " grind this map,");
+            out.add("trade jabs now (JAB) and " + g + " holds it (TURF). Every minute each grind map is held by the side with");
+            out.add("more members there (+1). !qa do turf (score a minute now), !qa do taunt (a war megaphone + a turf fight:");
+            out.add("a grinder goes to a map the other side holds), !qa do skirmish (jabs again), !qa do score (@guildwar),");
+            out.add("!qa do end (ends it with the result megaphone).");
             return out;
         }
 
         public List<String> action(QaContext ctx, String name, String[] args) {
-            return step(ctx, name, List.of("turf", "taunt", "score", "end", "list", "step"));
+            return step(ctx, name, List.of("turf", "taunt", "skirmish", "score", "end", "list", "step"));
         }
     }
 
@@ -457,7 +467,7 @@ final class DramaScenarios {
             List<String> out = new ArrayList<>(act(ctx, "check", g));
             out.add("A member of " + g + " next to you is your rival, so " + g + "'s rivals are all of your guild online:");
             out.add("it declares war on your guild (WAR DECLARED ... on player guild; a [Guild War] notice for your guild's");
-            out.add("members; a megaphone). @guildwar shows the score and the maps each side holds; !qa do turf scores a");
+            out.add("members; a megaphone, at once in a QA run: MEGAPHONE in the log). @guildwar shows the score and the maps each side holds; !qa do turf scores a");
             out.add("minute; !qa do taunt sends a grinder to your map with a jab. @guildwar peace (master / jr. master)");
             out.add("ends it (GuildWarPeace megaphone, a whisper). @botdrama off members are never counted or notified.");
             return out;

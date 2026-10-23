@@ -137,8 +137,11 @@ class DramaScenariosTest {
     @Test
     void warScenariosDeclareCheckPoachAllyAndCleanUp() {
         start("gw-1", 10);
-        assertTrue(world.drama.contains("war declare Legendz ZakumSlayerz"));
-        assertEquals(3, world.calls.stream().filter(c -> c.startsWith("guildbot neutral")).count());
+        // rc6, owner QA 2026-10-23: a war already on is declared fresh, the sides grind here and skirmish at once
+        assertTrue(world.drama.contains("war declare Legendz ZakumSlayerz fresh"));
+        assertTrue(world.drama.contains("war skirmish"));
+        assertEquals(3, world.calls.stream().filter(c -> c.startsWith("guildgrinder neutral")).count());
+        suite.action(world.online, "skirmish", new String[0]);
         suite.stop(1, "!qa stop");
         assertTrue(world.drama.contains("war cleanup"));
         assertEquals(3, world.guildBotsUnstaged.size());

@@ -88,6 +88,17 @@ Guild:
     text:
       - "welcome {PLAYER}!"
       - "welcome to {GUILD} {PLAYER} :)"
+  InviteNo:
+    text:
+      - "ty but im good solo for now"
+      - "sry {PLAYER}, not looking for a guild rn"
+      - "maybe later! im kinda busy"
+      - "nah im ok, ty tho"
+  InviteNoHostile:
+    text:
+      - "lol no"
+      - "{GUILD}? pass"
+      - "not with u {PLAYER}"
   AppAskLeader:
     text:
       - "ask {LEADER}, they run {GUILD}"
