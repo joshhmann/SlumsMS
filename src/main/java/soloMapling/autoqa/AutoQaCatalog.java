@@ -171,7 +171,8 @@ public final class AutoQaCatalog {
         c.add(Check.auto("t-gu-3", "Bot guilds recruit").minutes(4)
                 .step(fixture("guildless"), run("gu-3"), waitFor("BOT_GUILD RECRUIT (WHISPER|MEGAPHONE)", 60),
                         qaDo("recruit"), waitFor("BOT_GUILD INVITE SENT", 30))
-                .expect(has("BOT_GUILD RECRUIT MEGAPHONE"), has("BOT_GUILD RECRUIT WHISPER"), has("WHISPER \\S+: "),
+                .expect(has("BOT_GUILD RECRUIT MEGAPHONE \\S+ for \\S+: sent"), has("BOT_GUILD MEGAPHONE \\S+ ch\\d+: "),
+                        has("BOT_GUILD RECRUIT WHISPER"), has("WHISPER \\S+: "),
                         anyOf("GUILD_INVITE ", "BOT_GUILD INVITE SENT"))
                 .build());
         c.add(Check.auto("t-gu-4", "Rival guilds jab at each other").minutes(4)
@@ -215,14 +216,16 @@ public final class AutoQaCatalog {
         c.add(Check.auto("t-gw-1", "Two bot guilds go to war").minutes(5)
                 .step(run("gw-1"), waitFor("GUILD_WAR WAR DECLARED", 20), qaDo("turf"), waitSeconds(4), qaDo("taunt"),
                         waitSeconds(6), qaDo("score"), waitSeconds(3), qaDo("end"), waitFor("GUILD_WAR WAR OVER", 20))
-                .expect(has("GUILD_WAR WAR DECLARED \\S+ vs \\S+"), has("GUILD_WAR TURF "), has("GUILD_WAR WAR TAUNT"),
+                .expect(has("GUILD_WAR WAR DECLARED \\S+ vs \\S+.*megaphone sent"), has("GUILD_WAR MEGAPHONE \\S+ ch\\d+: "),
+                        has("GUILD_WAR TURF "), has("GUILD_WAR WAR TAUNT .*: sent"),
                         has("GUILD_WAR TURF \\S+ \\[[^]]+] goes to contest map"), has("GUILD_WAR WAR OVER .*score"), noEmoji())
                 .build());
         c.add(Check.auto("t-gw-2", "A bot guild declares war on your guild").minutes(5)
                 .step(fixture("inPlayerGuild"), run("gw-2"), waitFor("GUILD_WAR WAR DECLARED", 30), say("@guildwar"),
                         waitSeconds(2), qaDo("turf"), waitSeconds(3), qaDo("taunt"), waitSeconds(15), say("@guildwar peace"),
                         waitFor("GUILD_WAR WAR OVER", 15))
-                .expect(has("GUILD_WAR WAR DECLARED \\S+ on player guild"), has("YELLOW \\[Guild War] "),
+                .expect(has("GUILD_WAR WAR DECLARED \\S+ on player guild.*megaphone sent"), has("GUILD_WAR MEGAPHONE \\S+ ch\\d+: "),
+                        has("YELLOW \\[Guild War] "),
                         has("GUILD_WAR WAR OVER .*peace"))
                 .build());
         c.add(Check.auto("t-gw-3", "Guilds poach members").notNightly().minutes(4)

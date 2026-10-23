@@ -67,6 +67,9 @@ public final class WorldEventMegaphones implements EventSubscriber {
     private volatile LongSupplier clock = System::currentTimeMillis;
     private volatile BooleanSupplier gate = BotMegaphoneGate::tryAcquire;
     private volatile Consumer<Shout> poster = WorldEventMegaphones::post;
+    /** rc6: shouts a running !qa scenario is watching go out at once (see {@link #qaWatches}). */
+    private volatile java.util.function.Predicate<String> forced = WorldEventMegaphones::qaWatches;
+    private volatile Runnable gateNote = BotMegaphoneGate::note;
     private volatile java.util.function.BiConsumer<Runnable, Long> retryScheduler = (task, delayMs) ->
             soloMapling.server.ExecutorServiceManager.getScheduledExecutorService()
                     .schedule(task, delayMs, TimeUnit.MILLISECONDS);
@@ -280,6 +283,14 @@ public final class WorldEventMegaphones implements EventSubscriber {
      */
     public boolean offer(Shout shout) {
         long now = clock.getAsLong();
+        if (forced.test(shout.key())) {
+            // !qa (test server only): the scenario the tester runs is about this very megaphone. It skips the gate
+            // and the cooldown, and the next bot megaphone still waits a full gap after it (owner QA 2026-10-23:
+            // war declarations and recruit calls sat behind OPQ megaphones and never showed).
+            gateNote.run();
+            send(shout, now);
+            return true;
+        }
         Long last = lastShoutAt.get(shout.key());
         if (last != null && now - last < TimeUnit.SECONDS.toMillis(cooldownSeconds())) {
             return false;
@@ -287,6 +298,10 @@ public final class WorldEventMegaphones implements EventSubscriber {
         if (gate.getAsBoolean()) {
             send(shout, now);
             return true;
+        }
+        Shout waiting = pending.get();
+        if (waiting != null && routine(shout) && !routine(waiting)) {
+            return false; // a routine PQ call never pushes a waiting guild or drama event out of the slot
         }
         if (pending.getAndSet(shout) == null) {
             // Try again just after the gate's gap, so the event does not wait for the next ambient tick.
@@ -360,6 +375,37 @@ public final class WorldEventMegaphones implements EventSubscriber {
         }
         MegaphoneCommands.BotSuperMegaphone(speaker, line);
         log("[WorldEventMegaphones] " + speaker.getName() + " : " + line);
+        soloMapling.qa.QaLog.Topic topic = qaTopic(shout.key());
+        if (topic != null && soloMapling.qa.QaLog.on(topic)) { // the line itself, so the QA log shows what went out
+            soloMapling.qa.QaLog.any(topic, "MEGAPHONE " + speaker.getName() + " ch" + speaker.getClient().getChannel()
+                    + ": " + line);
+        }
+    }
+
+    /** PQ lobby calls: frequent and replaceable, unlike a guild or drama event. */
+    static boolean routine(Shout shout) {
+        return shout != null && "WorldPQForming".equals(shout.node());
+    }
+
+    /** The QA topic a megaphone key belongs to: guild wars and their drama, or bot guilds; null for the rest. */
+    static soloMapling.qa.QaLog.Topic qaTopic(String key) {
+        if (key == null) {
+            return null;
+        }
+        if (key.startsWith("drama:war") || key.startsWith("drama:peace") || key.startsWith("drama:poach")
+                || key.startsWith("drama:ally") || key.startsWith("drama:betray")) {
+            return soloMapling.qa.QaLog.Topic.GUILD_WAR;
+        }
+        if (key.startsWith("guild:")) {
+            return soloMapling.qa.QaLog.Topic.BOT_GUILD;
+        }
+        return null;
+    }
+
+    /** A !qa run is logging this megaphone's topic (only ever on the test server: live has no !qa). */
+    static boolean qaWatches(String key) {
+        soloMapling.qa.QaLog.Topic topic = qaTopic(key);
+        return topic != null && soloMapling.qa.QaLog.on(topic);
     }
 
     /** A random line of the node with every {TOKEN} filled; lines with a token we cannot fill are skipped. */
@@ -397,6 +443,12 @@ public final class WorldEventMegaphones implements EventSubscriber {
         return Math.max(0, Long.getLong("solomapling.worldMegaphoneMaxDelaySeconds", DEFAULT_MAX_DELAY_SECONDS));
     }
 
+    /** Test seam: which keys a QA run forces through, and what noting the gate does. */
+    void forceForTest(java.util.function.Predicate<String> testForced, Runnable testGateNote) {
+        forced = testForced == null ? key -> false : testForced;
+        gateNote = testGateNote == null ? () -> { } : testGateNote;
+    }
+
     Shout pendingShout() {
         return pending.get();
     }
@@ -410,6 +462,8 @@ public final class WorldEventMegaphones implements EventSubscriber {
         clock = testClock == null ? System::currentTimeMillis : testClock;
         gate = testGate == null ? BotMegaphoneGate::tryAcquire : testGate;
         poster = testPoster == null ? WorldEventMegaphones::post : testPoster;
+        forced = testClock == null ? WorldEventMegaphones::qaWatches : key -> false;
+        gateNote = testClock == null ? BotMegaphoneGate::note : () -> { };
         lastShoutAt.clear();
         pending.set(null);
     }

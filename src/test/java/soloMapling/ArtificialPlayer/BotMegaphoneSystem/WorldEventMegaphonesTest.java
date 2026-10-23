@@ -127,4 +127,48 @@ class WorldEventMegaphonesTest {
         assertTrue(posted.isEmpty());
         assertNull(megas.pendingShout());
     }
+    // ---- rc6, owner QA 2026-10-23: war / recruit megaphones never showed during !qa gw-1, gw-2, gu-3 ----
+
+    private WorldEventMegaphones.Shout shout(String node, String key) {
+        return new WorldEventMegaphones.Shout(null, node, Map.of("GUILD", "Legendz"), key, now.get());
+    }
+
+    @Test
+    void aMegaphoneTheRunningQaScenarioWatchesSkipsTheGateAndTheCooldown() {
+        seams();
+        List<String> noted = new ArrayList<>();
+        megas.forceForTest(key -> key.startsWith("drama:war"), () -> noted.add("note"));
+        gateOpen.set(false);
+        assertTrue(megas.offer(shout("GuildWarDeclare", "drama:war:7")), "out at once though the gate is shut");
+        assertTrue(megas.offer(shout("GuildWarDeclare", "drama:war:7")), "and again: a QA step repeats on purpose");
+        assertEquals(2, posted.size());
+        assertEquals(2, noted.size(), "the next ambient megaphone still waits a full gap");
+        assertFalse(megas.offer(shout("GuildRecruitCall", "guild:recruit:1")), "a key nobody watches keeps the gate");
+        assertEquals(2, posted.size());
+    }
+
+    @Test
+    void aRoutinePqCallNeverPushesAWaitingGuildEventOutOfTheSlot() {
+        seams();
+        gateOpen.set(false);
+        assertFalse(megas.offer(shout("GuildWarTaunt", "drama:wartaunt:7:1")));
+        assertFalse(megas.offer(shout("WorldPQForming", "pq:opq")));
+        assertEquals("GuildWarTaunt", megas.pendingShout().node(), "the war taunt still waits");
+        assertFalse(megas.offer(shout("GuildPoach", "drama:poach:9")));
+        assertEquals("GuildPoach", megas.pendingShout().node(), "a newer real event still replaces it");
+        gateOpen.set(true);
+        assertTrue(megas.flushPending());
+        assertEquals("GuildPoach", posted.get(0).node());
+    }
+
+    @Test
+    void guildAndWarKeysMapToTheirQaTopics() {
+        assertEquals(soloMapling.qa.QaLog.Topic.GUILD_WAR, WorldEventMegaphones.qaTopic("drama:war:3"));
+        assertEquals(soloMapling.qa.QaLog.Topic.GUILD_WAR, WorldEventMegaphones.qaTopic("drama:wartaunt:3:99"));
+        assertEquals(soloMapling.qa.QaLog.Topic.GUILD_WAR, WorldEventMegaphones.qaTopic("drama:peace:3"));
+        assertEquals(soloMapling.qa.QaLog.Topic.BOT_GUILD, WorldEventMegaphones.qaTopic("guild:recruit:1:5"));
+        assertNull(WorldEventMegaphones.qaTopic("drama:breakup:4"), "romance drama is not a guild megaphone");
+        assertNull(WorldEventMegaphones.qaTopic("pq:opq"));
+        assertFalse(WorldEventMegaphones.qaWatches("guild:recruit:1"), "no !qa run: never forced (live)");
+    }
 }
