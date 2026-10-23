@@ -139,6 +139,10 @@ public class FMBot extends BotSM {
             waitFor(1000);
             return;
         }
+        if (!roomUnderCap()) {
+            waitFor(5000); // 1.5.0: every FM room is at its per-map bot cap on this channel - browse the entrance a while
+            return;
+        }
         Point doorPt = getDoorPoint(this.fmRoom);
         if (isPointNear(this.getChr().getPosition(), doorPt, 20) || doorWalkAttempts >= MAX_DOOR_WALK_ATTEMPTS) {
             // at the door - or the walk keeps dying, so enter anyway (the old code's timed warp
@@ -796,6 +800,24 @@ public class FMBot extends BotSM {
             return;
         }
         fmRoom = getChr().getMapId() - FM_ENTRANCE;
+    }
+
+    /**
+     * 1.5.0 (3k bots): the per-map bot cap. Keeps {@link #fmRoom} on a room with room for one more bot on this
+     * channel, moving on to the next ones; false when all twelve are full (a pinned room is never changed).
+     */
+    private boolean roomUnderCap() {
+        for (int tries = 0; tries < 12; tries++) {
+            if (soloMapling.ArtificialPlayer.BotMapCap.mayEnter(getChr(), FM_ENTRANCE + fmRoom)) {
+                return true;
+            }
+            soloMapling.ArtificialPlayer.BotMapCap.noteTurnedAway();
+            if (pinnedRoom > 0) {
+                return true; // a QA pin wins over the cap
+            }
+            incrementFMRoom();
+        }
+        return false;
     }
 
     private void incrementFMRoom() {

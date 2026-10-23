@@ -381,6 +381,7 @@ public class CommandsExecutor {
             addCommand("botrival", 4, client.command.commands.gm4.BotRivalCommand.class);   // 1.5.0 bot drama
             addCommand("botwar", 4, client.command.commands.gm4.BotWarCommand.class);   // 1.5.0 bot drama
             addCommand("botguild", 4, client.command.commands.gm4.BotGuildCommand.class);   // 1.5.0 bot guilds
+            addCommand("botmapcap", 4, client.command.commands.gm4.BotMapCapCommand.class);   // 1.5.0 per-map bot cap
         }
         addCommand("gacharoll", 3, client.command.commands.gm4.GachaRollCommand.class);   // 1.5.0 gachapon
         addCommand("gachasim", 3, client.command.commands.gm4.GachaSimCommand.class);

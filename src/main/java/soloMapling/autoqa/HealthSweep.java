@@ -11,7 +11,7 @@ import java.util.TreeMap;
 import java.util.function.Function;
 
 /**
- * One auto-QA health sweep over a sample of the live bots: the invariants (a) to (f) of docs/ops/qa-suite.md
+ * One auto-QA health sweep over a sample of the live bots: the invariants (a) to (g) of docs/ops/qa-suite.md
  * "Auto-QA". Holds the state that spans sweeps (where each bot stood still, the error-rate history), so one instance
  * lives for the server's lifetime. Pure: the game side ({@link GameHealthSource}) hands it {@link BotSample}s and the
  * footholds, so the whole sweep is unit-tested ({@code HealthSweepTest}).
@@ -25,7 +25,13 @@ public final class HealthSweep {
 
     /** Everything a sweep needs from the game, taken at one moment. */
     public record Snapshot(long nowMs, List<BotSample> bots, int botsSeen, int mapsSeen, int[] botsPerChannel,
-                           double[] expectedShares, int errorLines, String errorSource) {
+                           double[] expectedShares, int errorLines, String errorSource,
+                           List<soloMapling.ArtificialPlayer.BotMapCap.Load> mapLoads) {
+        /** Without map loads (the map-cap check then has nothing to look at). */
+        public Snapshot(long nowMs, List<BotSample> bots, int botsSeen, int mapsSeen, int[] botsPerChannel,
+                        double[] expectedShares, int errorLines, String errorSource) {
+            this(nowMs, bots, botsSeen, mapsSeen, botsPerChannel, expectedShares, errorLines, errorSource, List.of());
+        }
     }
 
     /** Thresholds; {@link #defaults()} matches config.yaml's AUTOQA_* defaults. */
@@ -60,6 +66,7 @@ public final class HealthSweep {
         checks.put("channelSplit", channelCheck(s));
         checks.put("invalidMaps", invalidMapCheck(s));
         checks.put("errors", errorCheck(s));
+        checks.put("mapCap", mapCapCheck(s));
 
         Status worst = Status.OK;
         List<String> problems = new ArrayList<>();
@@ -246,6 +253,44 @@ public final class HealthSweep {
         c.put("errorLines", s.errorLines());
         c.put("median", base);
         c.put("source", s.errorSource());
+        return c;
+    }
+
+    /*
+     * (g) 1.5.0 (3k bots): map instances holding more bots than their per-map cap (BOT_MAP_CAP). The cap only stops
+     * additions and some arrivals are exempt (set pieces, followers, story scenes), so a map can go over: WARN, with
+     * the instances listed busiest first. Every instance with bots is looked at, not the bot sample.
+     */
+    private Map<String, Object> mapCapCheck(Snapshot s) {
+        List<Map<String, Object>> list = new ArrayList<>();
+        int busiest = 0;
+        int full = 0;
+        List<soloMapling.ArtificialPlayer.BotMapCap.Load> loads = s.mapLoads() == null ? List.of() : s.mapLoads();
+        for (soloMapling.ArtificialPlayer.BotMapCap.Load l : loads) {
+            busiest = Math.max(busiest, l.bots());
+            if (l.full()) {
+                full++;
+            }
+            if (l.over()) {
+                Map<String, Object> m = new LinkedHashMap<>();
+                m.put("channel", l.channel());
+                m.put("map", l.mapId());
+                m.put("bots", l.bots());
+                m.put("cap", l.cap());
+                list.add(m);
+            }
+        }
+        list.sort((a, b) -> Integer.compare((Integer) b.get("bots") - (Integer) b.get("cap"),
+                (Integer) a.get("bots") - (Integer) a.get("cap")));
+        Status st = list.isEmpty() ? Status.OK : Status.WARN;
+        Map<String, Object> c = check(st, list.isEmpty()
+                ? loads.size() + " map instance(s) with bots, none over its cap (busiest " + busiest + ")"
+                : list.size() + " map instance(s) over the cap, worst map " + list.get(0).get("map") + " ch"
+                + list.get(0).get("channel") + " " + list.get(0).get("bots") + "/" + list.get(0).get("cap"));
+        c.put("instances", loads.size());
+        c.put("full", full);
+        c.put("busiest", busiest);
+        c.put("over", head(list));
         return c;
     }
 

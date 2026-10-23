@@ -67,6 +67,16 @@ public final class TrainingMapChooser {
     // steering us deeper. Null = nothing reachable with mobs, the bot's own map included (caller grinds
     // where it stands if that map has mobs, else idles in town and retries later).
     public static TrainingMap choose(Character chr, int homeMapId, Set<Integer> excluded, Consumer<String> debug) {
+        // 1.5.0 (3k bots): maps at their per-map bot cap on this channel are out, like crowd-cooldown maps (the
+        // bot's own map stays in: grinding where it stands adds nobody). Every pick below - leveling path, a
+        // region move, the local search and the first-trip warp - sees the same set.
+        Set<Integer> withFull = soloMapling.ArtificialPlayer.BotMapCap.excludeFull(chr, excluded);
+        if (withFull != excluded) {
+            Set<Integer> before = excluded == null ? Set.of() : excluded;
+            debug.accept("DECIDE: skipping full maps " + withFull.stream().filter(m -> !before.contains(m)).toList());
+            soloMapling.ArtificialPlayer.BotMapCap.noteTurnedAway();
+            excluded = withFull;
+        }
         int level = chr.getLevel();
         int reach = hopsForLevel(level);
         // Deep-hub grind: a cohort that spawns on a mob-bearing "deep hub" field may grind the hub

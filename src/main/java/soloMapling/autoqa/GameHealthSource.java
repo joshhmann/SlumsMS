@@ -63,7 +63,8 @@ final class GameHealthSource {
         int[] perChannel = BotChannels.botsPerChannel();
         double[] expected = BotChannels.shares(YamlConfig.config.server.BOT_CHANNEL_WEIGHTS, perChannel.length);
         int errors = countNewErrorLines();
-        return new HealthSweep.Snapshot(now, sampled, seen, maps, perChannel, expected, errors, SERVER_LOG.toString());
+        return new HealthSweep.Snapshot(now, sampled, seen, maps, perChannel, expected, errors, SERVER_LOG.toString(),
+                soloMapling.ArtificialPlayer.BotMapCap.loads());
     }
 
     List<FootholdCheck.Seg> footholds(int mapId) {

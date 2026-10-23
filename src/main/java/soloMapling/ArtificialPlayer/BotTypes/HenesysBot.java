@@ -230,6 +230,8 @@ public class HenesysBot extends BotSM {
         if (connected.isEmpty()) return;
 
         List<Integer> options = new ArrayList<>(connected);
+        options.removeIf(m -> !soloMapling.ArtificialPlayer.BotMapCap.admit(getChr(), m)); // 1.5.0: per-map bot cap
+        if (options.isEmpty()) return;
         int chosen = pickLeastCrowdedMap(options);
 
         PortalConnection.PortalRoute route = portalConnection.getRoute(getChr().getMapId(), chosen);

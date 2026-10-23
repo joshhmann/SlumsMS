@@ -175,7 +175,8 @@ public class TownWandererBot extends BotSM {
     private int pickNextMap(List<Integer> family, int currentMapId) {
         List<Integer> options = new ArrayList<>();
         for (int m : family) {
-            if (m != currentMapId) {
+            // 1.5.0: a map at its per-map bot cap on this channel is skipped (a counter read, no player list)
+            if (m != currentMapId && soloMapling.ArtificialPlayer.BotMapCap.admit(getChr(), m)) {
                 options.add(m);
             }
         }

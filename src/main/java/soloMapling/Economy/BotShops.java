@@ -433,6 +433,10 @@ public final class BotShops {
             if (map == null) {
                 continue;
             }
+            if (!soloMapling.ArtificialPlayer.BotMapCap.hasRoom(map)) {
+                soloMapling.ArtificialPlayer.BotMapCap.noteTurnedAway(); // 1.5.0: room at its per-map bot cap
+                continue;
+            }
             List<Point> spots = new ArrayList<>(new FMShopInfoManager().getRegionFMSpots(
                     FMShopInfoManager.getRegionByMapId(mapId)));
             Collections.shuffle(spots);

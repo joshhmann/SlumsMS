@@ -296,6 +296,18 @@ public final class BotChannels {
         releaseIn(ch, inFlight);
     }
 
+    /**
+     * 1.5.0 (per-map bot cap): moves a {@link #reserve()} to another channel, for a login whose map is full on the
+     * reserved one. Release the new channel afterwards.
+     */
+    public static synchronized void transfer(int from, int to) {
+        releaseIn(from, inFlight);
+        int i = to - 1;
+        if (i >= 0 && i < inFlight.length) {
+            inFlight[i]++;
+        }
+    }
+
     public static synchronized void releaseDressing(int ch) {
         releaseIn(ch, dressingInFlight);
     }
