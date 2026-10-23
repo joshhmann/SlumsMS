@@ -1,0 +1,12 @@
+#!/bin/bash
+# Start an auto-QA run on the TEST server without logging in to the game.
+#
+#   tools/ops/autoqa-run [all|smoke|<check id or family>|<id,id,...>]     (default: smoke)
+#
+# Writes the selector to Server/data/autoqa/run-request.txt; the server picks it up within 30 s (logged as
+# "Auto-QA run request"). A run already in progress is not interrupted. Results: tools/ops/test-status.
+set -euo pipefail
+SEL="${1:-smoke}"
+[[ "$SEL" =~ ^[A-Za-z0-9,_-]+$ ]] || { echo "bad selector: $SEL" >&2; exit 2; }
+ssh root@192.168.0.164 "echo '$SEL' > /opt/mapleroot-dev/persistence-test/Server/data/autoqa/run-request.txt"
+echo "requested auto-QA '$SEL'; the test server starts it within 30 s"

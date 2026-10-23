@@ -55,6 +55,7 @@ public final class AutoQa {
         HealthSweeper.get().start();
         if (soloMapling.qa.QaSuite.isEnabled()) {
             AutoQaService.get().scheduleNightly(); // the checks drive !qa: no suite, no nightly run
+            AutoQaService.get().watchRunRequests(); // tools/ops/autoqa-run: start a run without logging in
         }
         log.info("Auto-QA on: health sweeps every {} min, results in {}", HealthSweeper.get().periodMinutes(), dataDir());
     }

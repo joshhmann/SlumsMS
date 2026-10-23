@@ -203,6 +203,48 @@ public final class AutoQaService {
         AutoQa.log.info("Auto-QA nightly run at {}:00 UTC (in {} min)", hour, first / 60_000);
     }
 
+    /** The file an operator writes to start a run without logging in (tools/ops/autoqa-run). */
+    static final String REQUEST_FILE = "run-request.txt";
+    private boolean requestWatch;
+
+    /**
+     * Polls {@code <dataDir>/run-request.txt} every 30 s: its first line is a selector ({@code all}, {@code smoke},
+     * a check id or family, or a comma list), the file is deleted and the run starts as if a GM had typed
+     * {@code !autoqa run <selector>}. A run already in progress keeps going and the request is reported and dropped.
+     */
+    synchronized void watchRunRequests() {
+        if (requestWatch) {
+            return;
+        }
+        requestWatch = true;
+        soloMapling.server.ExecutorServiceManager.getScheduledExecutorService().scheduleWithFixedDelay(() -> {
+            try {
+                String selector = takeRequest(AutoQa.dataDir().resolve(REQUEST_FILE));
+                if (selector != null && AutoQa.isEnabled()) {
+                    AutoQa.log.info("Auto-QA run request '{}': {}", selector, start(selector, "a run request", false, null));
+                }
+            } catch (RuntimeException e) {
+                AutoQa.log.warn("Auto-QA run request failed", e);
+            }
+        }, 30, 30, TimeUnit.SECONDS);
+    }
+
+    /** The selector in a request file (first non-blank line, trimmed), deleting the file; null when there is none. */
+    static String takeRequest(java.nio.file.Path file) {
+        try {
+            if (!java.nio.file.Files.isRegularFile(file)) {
+                return null;
+            }
+            String selector = java.nio.file.Files.readAllLines(file).stream().map(String::trim)
+                    .filter(l -> !l.isEmpty()).findFirst().orElse("");
+            java.nio.file.Files.deleteIfExists(file);
+            return selector.isEmpty() ? null : selector;
+        } catch (java.io.IOException e) {
+            AutoQa.log.warn("Auto-QA could not read {}", file, e);
+            return null;
+        }
+    }
+
     /** Milliseconds from now until the next HH:00 UTC. */
     static long msUntilNext(int hourUtc, long nowMs) {
         ZonedDateTime now = Instant.ofEpochMilli(nowMs).atZone(ZoneOffset.UTC);

@@ -117,6 +117,7 @@ mvn -q -o test                      # green first
 tools/ops/deploy-test --dry-run      # shows the data files and migrations that will go out
 tools/ops/deploy-test                # build, back up, copy, migrate, restart, check the boot
 tools/ops/test-status                # version, errors, auto-QA and health at a glance
+tools/ops/autoqa-run smoke|all|<id>   # start auto-QA without logging in (picked up within 30 s)
 ```
 `deploy-test` diffs against `Server/DEPLOYED_COMMIT`, keeps backups in
 `/opt/mapleroot-dev/persistence-test/deploys/<stamp>/`, and fails if the boot logs an error. The test server's
