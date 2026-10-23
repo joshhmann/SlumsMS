@@ -93,9 +93,12 @@ public final class OpenAICompatibleBrain implements ChatRouter.Slotted {
         }
         lastCallByPlayer.put(playerId, now);
         long deadline = System.nanoTime() + TimeUnit.MILLISECONDS.toNanos(settings.timeoutMs());
-        CompletableFuture<Optional<String>> result = new CompletableFuture<>();
-        calls.execute(() -> result.complete(call(conversation, deadline, settings.model(), settings.maxTokens(),
-                ReplyCleaner::chat, true)));
+        Metered<Optional<String>> result = new Metered<>();
+        calls.execute(() -> {
+            Optional<String> line = call(conversation, deadline, settings.model(), settings.maxTokens(), ReplyCleaner::chat,
+                    true);
+            result.complete(line, takeCallUsage());
+        });
         return result;
     }
 
@@ -116,15 +119,17 @@ public final class OpenAICompatibleBrain implements ChatRouter.Slotted {
             lastCallByPlayer.put(playerId, now);
         }
         long deadline = System.nanoTime() + TimeUnit.MILLISECONDS.toNanos(settings.timeoutMs());
-        CompletableFuture<Optional<soloMapling.ArtificialPlayer.BotConvo.ConvoContract.Reply>> result =
-                new CompletableFuture<>();
+        Metered<Optional<soloMapling.ArtificialPlayer.BotConvo.ConvoContract.Reply>> result = new Metered<>();
         java.util.concurrent.atomic.AtomicReference<soloMapling.ArtificialPlayer.BotConvo.ConvoContract.Reply> parsed =
                 new java.util.concurrent.atomic.AtomicReference<>();
         if (priority == Priority.THREAD) {
             // a whole bot-to-bot exchange: several lines, each checked by BotThreads
-            calls.execute(() -> result.complete(call(conversation, deadline, settings.model(),
-                    Math.max(settings.maxTokens(), THREAD_MAX_TOKENS), ReplyCleaner::lines, false)
-                    .map(soloMapling.ArtificialPlayer.BotConvo.ConvoContract.Reply::plain)));
+            calls.execute(() -> {
+                Optional<String> lines = call(conversation, deadline, settings.model(),
+                        Math.max(settings.maxTokens(), THREAD_MAX_TOKENS), ReplyCleaner::lines, false);
+                result.complete(lines.map(soloMapling.ArtificialPlayer.BotConvo.ConvoContract.Reply::plain),
+                        takeCallUsage());
+            });
             return result;
         }
         calls.execute(() -> {
@@ -138,7 +143,8 @@ public final class OpenAICompatibleBrain implements ChatRouter.Slotted {
                         .filter(t -> soloMapling.ArtificialPlayer.BotConvo.ConvoTune.violation(t) == null);
             }, true);
             result.complete(line.map(text -> parsed.get() == null
-                    ? soloMapling.ArtificialPlayer.BotConvo.ConvoContract.Reply.plain(text) : parsed.get().withText(text)));
+                    ? soloMapling.ArtificialPlayer.BotConvo.ConvoContract.Reply.plain(text) : parsed.get().withText(text)),
+                    takeCallUsage());
         });
         return result;
     }
@@ -154,9 +160,38 @@ public final class OpenAICompatibleBrain implements ChatRouter.Slotted {
         return Math.max(1, settings.maxConcurrent());
     }
 
-    /** The last call's token use from the response's {@code usage}, or -1 (ticket 59's budget reads it). */
+    /**
+     * The last call's token use from the response's {@code usage}, or -1. Brain-wide: a concurrent call overwrites
+     * it, so the budget reads {@link Metered#usage()} of the call's own future instead (1.5.0 rc6 bug hunt).
+     */
     public long[] lastUsage() {
         return lastUsage.get();
+    }
+
+    /**
+     * A call's future that also carries that call's own token use ({prompt, completion}, -1 each when the response
+     * had no usage block or there was no response). Set before the future completes, so a callback can read it.
+     */
+    public static final class Metered<T> extends CompletableFuture<T> {
+        private volatile long[] usage = {-1, -1};
+
+        public long[] usage() {
+            return usage.clone();
+        }
+
+        void complete(T value, long[] used) {
+            this.usage = used == null ? new long[]{-1, -1} : used.clone();
+            complete(value);
+        }
+    }
+
+    /** The token use of the call on this (virtual, one-per-call) thread. */
+    private static final ThreadLocal<long[]> CALL_USAGE = new ThreadLocal<>();
+
+    private static long[] takeCallUsage() {
+        long[] u = CALL_USAGE.get();
+        CALL_USAGE.remove();
+        return u == null ? new long[]{-1, -1} : u;
     }
 
     @Override
@@ -165,8 +200,11 @@ public final class OpenAICompatibleBrain implements ChatRouter.Slotted {
         long deadline = System.nanoTime() + TimeUnit.MILLISECONDS.toNanos(NOTES_TIMEOUT_MS);
         String model = settings.notesModel() == null || settings.notesModel().isBlank() ? settings.model()
                 : settings.notesModel();
-        CompletableFuture<Optional<String>> result = new CompletableFuture<>();
-        calls.execute(() -> result.complete(call(conversation, deadline, model, NOTES_MAX_TOKENS, ReplyCleaner::notes, false)));
+        Metered<Optional<String>> result = new Metered<>();
+        calls.execute(() -> {
+            Optional<String> notes = call(conversation, deadline, model, NOTES_MAX_TOKENS, ReplyCleaner::notes, false);
+            result.complete(notes, takeCallUsage());
+        });
         return result;
     }
 
@@ -201,7 +239,9 @@ public final class OpenAICompatibleBrain implements ChatRouter.Slotted {
             if (response.statusCode() / 100 != 2) {
                 return fail("HTTP " + response.statusCode());
             }
-            lastUsage.set(usage(response.body()));
+            long[] used = usage(response.body());
+            lastUsage.set(used);
+            CALL_USAGE.set(used);   // this call's own, read by the future it completes
             String raw = replyText(response.body());
             Optional<String> line = cleaner.apply(raw);
             if (line.isEmpty()) {

@@ -83,16 +83,21 @@ public final class CloudBudget {
         return true;
     }
 
-    /** A reserved call came back: frees its reservation and charges what it really used (never more than reserved). */
+    /**
+     * A reserved call came back: frees its reservation and charges what it really used. 1.5.0 rc6 bug hunt: the
+     * charge used to be capped at the reservation, so a call that ran over its estimate (a longer prompt in real
+     * tokens than characters / 2, reasoning tokens) was under-counted and the day could go past the cap unseen. The
+     * whole real cost is charged now; an overrun then stops further calls until midnight.
+     */
     public synchronized void settle(double reservedUsd, long inTokens, long outTokens) {
         roll();
         reserved = Math.max(0, reserved - reservedUsd);
-        spent += Math.min(reservedUsd, cost(Math.max(0, inTokens), Math.max(0, outTokens)));
+        spent += cost(Math.max(0, inTokens), Math.max(0, outTokens));
         calls++;
         save();
     }
 
-    synchronized double reservedNow() {
+    public synchronized double reservedNow() {
         return reserved;
     }
 

@@ -1,6 +1,8 @@
 package soloMapling.autoqa;
 
 import config.ServerConfig;
+import soloMapling.ArtificialPlayer.BotBrainSystem.BotBrains;
+import soloMapling.ArtificialPlayer.BotBrainSystem.CloudBudget;
 import soloMapling.ArtificialPlayer.BotBrainSystem.OpenAICompatibleBrain;
 import soloMapling.server.Json;
 
@@ -62,14 +64,19 @@ public final class LlmJudge {
         if (cfg.BOT_LLM_CLOUD_BASE_URL != null && !cfg.BOT_LLM_CLOUD_BASE_URL.isBlank()) {
             String key = cfg.BOT_LLM_CLOUD_API_KEY == null || cfg.BOT_LLM_CLOUD_API_KEY.isBlank()
                     ? System.getenv("SOLOMAPLING_LLM_CLOUD_API_KEY") : cfg.BOT_LLM_CLOUD_API_KEY;
-            return new LlmJudge(http(cfg.BOT_LLM_CLOUD_BASE_URL.trim(), cfg.BOT_LLM_CLOUD_MODEL, key,
-                    Math.max(cfg.BOT_LLM_CLOUD_TIMEOUT_MS, 15_000), true), max, "cloud " + cfg.BOT_LLM_CLOUD_MODEL);
+            // rc6 bug hunt: the judge's cloud calls are charged to the server's one daily cloud budget
+            CloudBudget budget = BotBrains.cloudBudget(cfg);
+            return new LlmJudge(budgeted(budget, wire(cfg.BOT_LLM_CLOUD_BASE_URL.trim(), cfg.BOT_LLM_CLOUD_MODEL, key,
+                    Math.max(cfg.BOT_LLM_CLOUD_TIMEOUT_MS, 15_000), true)), max, "cloud " + cfg.BOT_LLM_CLOUD_MODEL);
         }
         if (cfg.BOT_LLM_BASE_URL != null && !cfg.BOT_LLM_BASE_URL.isBlank()) {
             String key = cfg.BOT_LLM_API_KEY == null || cfg.BOT_LLM_API_KEY.isBlank()
                     ? System.getenv("SOLOMAPLING_LLM_API_KEY") : cfg.BOT_LLM_API_KEY;
-            return new LlmJudge(http(cfg.BOT_LLM_BASE_URL.trim(), cfg.BOT_LLM_MODEL, key,
-                    Math.max(cfg.BOT_LLM_TIMEOUT_MS, 20_000), false), max, "local " + cfg.BOT_LLM_MODEL);
+            Wire local = wire(cfg.BOT_LLM_BASE_URL.trim(), cfg.BOT_LLM_MODEL, key, Math.max(cfg.BOT_LLM_TIMEOUT_MS, 20_000),
+                    false);
+            return new LlmJudge((system, user) -> {
+                return textOf(local.post(system, user));
+            }, max, "local " + cfg.BOT_LLM_MODEL);
         }
         return new LlmJudge(null, 0, "none");
     }
@@ -140,7 +147,53 @@ public final class LlmJudge {
         return new Grade(bad.length() == 0, true, why);
     }
 
-    private static Transport http(String baseUrl, String model, String key, int timeoutMs, boolean cloud) {
+    /** The judge's answer at most (its max_tokens): the worst case a cloud call reserves. */
+    static final int MAX_TOKENS = 120;
+
+    /** One chat-completions POST: the 2xx response body, or null. */
+    interface Wire {
+        String post(String system, String user) throws InterruptedException;
+    }
+
+    /**
+     * A cloud transport that charges {@code budget} like every other cloud call (1.5.0 rc6 bug hunt): the worst case
+     * is reserved first (no call when it doesn't fit under the day's cap), and the call's real cost is settled from
+     * its own response's usage, else estimated. No budget, no cloud call.
+     */
+    static Transport budgeted(CloudBudget budget, Wire wire) {
+        return (system, user) -> {
+            if (budget == null) {
+                return null;
+            }
+            long inChars = (system == null ? 0 : system.length()) + (user == null ? 0 : user.length());
+            double worst = budget.cost((inChars + 1) / 2 + 16, MAX_TOKENS);
+            if (!budget.reserve(worst)) {
+                AutoQa.log.info("Auto-QA judge: skipped, the cloud budget is spent for today ({})", budget.describe());
+                return null;
+            }
+            String body = null;
+            try {
+                body = wire.post(system, user);
+            } finally {
+                long[] used = body == null ? new long[]{-1, -1} : OpenAICompatibleBrain.usageOf(body);
+                String text = textOf(body);
+                long in = used[0] > 0 ? used[0] : CloudBudget.estimateTokens(system) + CloudBudget.estimateTokens(user);
+                long out = used[0] > 0 ? Math.max(1, used[1]) : CloudBudget.estimateTokens(text) + 4;
+                budget.settle(worst, in, out);
+            }
+            return textOf(body);
+        };
+    }
+
+    private static String textOf(String body) {
+        try {
+            return body == null ? null : OpenAICompatibleBrain.replyTextOf(body);
+        } catch (RuntimeException e) {
+            return null;
+        }
+    }
+
+    private static Wire wire(String baseUrl, String model, String key, int timeoutMs, boolean cloud) {
         HttpClient client = HttpClient.newBuilder().connectTimeout(Duration.ofSeconds(5)).build();
         return (system, user) -> {
             Map<String, Object> body = new LinkedHashMap<>();
@@ -148,7 +201,7 @@ public final class LlmJudge {
                 body.put("model", model);
             }
             body.put("messages", List.of(Map.of("role", "system", "content", system), Map.of("role", "user", "content", user)));
-            body.put("max_tokens", 120);
+            body.put("max_tokens", MAX_TOKENS);
             body.put("temperature", 0.0);
             body.put("stream", false);
             if (cloud) {
@@ -168,7 +221,7 @@ public final class LlmJudge {
                     AutoQa.log.warn("Auto-QA judge: HTTP {} from {}", r.statusCode(), cloud ? "the cloud provider" : "the local model");
                     return null;
                 }
-                return OpenAICompatibleBrain.replyTextOf(r.body());
+                return r.body();
             } catch (IOException e) {
                 AutoQa.log.warn("Auto-QA judge: request failed ({})", e.getClass().getSimpleName());
                 return null;

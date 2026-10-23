@@ -37,6 +37,28 @@ public final class BotBrains {
     /** Test seam: a stand-in brain (null rebuilds from config on next use). */
     public static void useForTest(BotBrain testBrain) {
         brain = testBrain;
+        synchronized (BotBrains.class) {
+            sharedBudget = null;
+        }
+    }
+
+    private static CloudBudget sharedBudget;
+
+    /**
+     * The server's one cloud budget, or null when no cloud provider is configured. Every cloud caller charges it -
+     * the chat router and the auto-QA judge (1.5.0 rc6 bug hunt: the judge used to call the cloud outside it) - so
+     * there is one daily cap and one spend file.
+     */
+    public static synchronized CloudBudget cloudBudget(ServerConfig server) {
+        if (sharedBudget == null && server != null && server.BOT_LLM_CLOUD_BASE_URL != null
+                && !server.BOT_LLM_CLOUD_BASE_URL.isBlank()) {
+            sharedBudget = new CloudBudget(server.BOT_LLM_CLOUD_DAILY_BUDGET_USD,
+                    server.BOT_LLM_CLOUD_PRICE_IN_PER_MTOK, server.BOT_LLM_CLOUD_PRICE_OUT_PER_MTOK,
+                    System::currentTimeMillis, java.time.ZoneId.systemDefault(), java.nio.file.Path.of(
+                            soloMapling.ArtificialPlayer.BotConvo.ConvoSwitches.str("dataDir", "data/convo"),
+                            "cloud-budget.json"));
+        }
+        return sharedBudget;
     }
 
     static BotBrain fromConfig(ServerConfig server) {
@@ -46,10 +68,7 @@ public final class BotBrains {
         OpenAICompatibleBrain local = localFrom(server);
         // Ticket 59: the router - local first, the cloud for players' overflow only, inside the daily budget
         OpenAICompatibleBrain cloud = cloudFrom(server);
-        CloudBudget budget = cloud == null ? null : new CloudBudget(server.BOT_LLM_CLOUD_DAILY_BUDGET_USD,
-                server.BOT_LLM_CLOUD_PRICE_IN_PER_MTOK, server.BOT_LLM_CLOUD_PRICE_OUT_PER_MTOK, System::currentTimeMillis,
-                java.time.ZoneId.systemDefault(), java.nio.file.Path.of(
-                        soloMapling.ArtificialPlayer.BotConvo.ConvoSwitches.str("dataDir", "data/convo"), "cloud-budget.json"));
+        CloudBudget budget = cloud == null ? null : cloudBudget(server);
         return new ChatRouter(local, cloud, budget, server.BOT_LLM_LOCAL_SLOW_MS, System::currentTimeMillis,
                 server.BOT_LLM_MAX_TOKENS).withMode(ChatRouter.CloudMode.parse(server.BOT_LLM_CLOUD_MODE));
     }

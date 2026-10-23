@@ -192,9 +192,10 @@ public final class ChatRouter implements BotBrain {
                 toCloud.incrementAndGet();
                 cloudHour.computeIfAbsent(priority.name(), k -> new AtomicLong()).incrementAndGet();
                 long started = clock.getAsLong();
-                return cloud.reply(priority, playerId, conversation).handle((got, e) -> {
+                CompletableFuture<Optional<ConvoContract.Reply>> call = cloud.reply(priority, playerId, conversation);
+                return call.handle((got, e) -> {
                     Optional<ConvoContract.Reply> r = e == null && got != null ? got : Optional.empty();
-                    settle(reserved, conversation, r.map(ConvoContract.Reply::text));
+                    settle(reserved, conversation, r.map(ConvoContract.Reply::text), usageOf(call));
                     ChatStats.cloudCall(clock.getAsLong() - started, r.isPresent());
                     return r;
                 }).thenCompose(r -> {
@@ -241,18 +242,24 @@ public final class ChatRouter implements BotBrain {
         return budget.cost((chars + 1) / 2 + 16, maxOut);
     }
 
-    private void settle(double reserved, List<Turn> conversation, Optional<String> reply) {
+    /** The call's own token use when its brain reports one (never another call's: rc6 bug hunt), else null. */
+    static long[] usageOf(CompletableFuture<?> call) {
+        return call instanceof OpenAICompatibleBrain.Metered<?> m ? m.usage() : null;
+    }
+
+    /**
+     * Charges a cloud call: its own {@code usage} when the response had one, else an estimate from the text. It used
+     * to read the brain-wide last usage, which a concurrent call could already have overwritten.
+     */
+    private void settle(double reserved, List<Turn> conversation, Optional<String> reply, long[] usage) {
         long in = 0;
         for (Turn t : conversation) {
             in += CloudBudget.estimateTokens(t.content());
         }
         long out = reply.map(x -> CloudBudget.estimateTokens(x) + 4).orElse(4L);
-        if (cloud instanceof OpenAICompatibleBrain o) {
-            long[] usage = o.lastUsage();
-            if (usage[0] > 0) {
-                in = usage[0];
-                out = Math.max(1, usage[1]);
-            }
+        if (usage != null && usage.length >= 2 && usage[0] > 0) {
+            in = usage[0];
+            out = Math.max(1, usage[1]);
         }
         budget.settle(reserved, in, out);
     }
@@ -330,9 +337,10 @@ public final class ChatRouter implements BotBrain {
         }
         toCloud.incrementAndGet();
         cloudHour.computeIfAbsent(NOTES, k -> new AtomicLong()).incrementAndGet();
-        return cloud.notes(conversation).handle((got, e) -> {
+        CompletableFuture<Optional<String>> call = cloud.notes(conversation);
+        return call.handle((got, e) -> {
             Optional<String> r = e == null && got != null ? got : Optional.<String>empty();
-            settle(reserved, conversation, r);
+            settle(reserved, conversation, r, usageOf(call));
             return r;
         }).thenCompose(r -> {
             if (r.isPresent()) {
