@@ -95,6 +95,9 @@ public final class GuildBossRuns {
     }
 
     private static volatile Run current;
+    /** How a bot leaves its party (a seam for tests). */
+    private static volatile java.util.function.Consumer<Character> partyLeaver =
+            soloMapling.ArtificialPlayer.BotPartySystem.BotPartyCommands::botLeaveParty;
     private static volatile long lastRunAt;
     private static final Map<Integer, Long> lastGuildRun = new ConcurrentHashMap<>();
 
@@ -110,6 +113,32 @@ public final class GuildBossRuns {
     public static boolean gathering(int charId) {
         Run r = current;
         return r != null && r.phase == Phase.GATHER && r.crew.contains(charId) && !r.withPlayers.contains(charId);
+    }
+
+    /**
+     * rc6 (owner QA 2026-10-23, gu-5: "some are in a party already"): a crew member gathering for a run that sits in a
+     * party of bots leaves it, so a real player's party invite reaches it instead of "already in a party". A party with
+     * a real player in it is kept. True when it left one.
+     */
+    public static boolean freeForInvite(Character bot) {
+        if (bot == null || !gathering(bot.getId())) {
+            return false;
+        }
+        return leaveBotParty(bot);
+    }
+
+    static boolean leaveBotParty(Character bot) {
+        if (bot == null || bot.getParty() == null || withRealPlayer(bot)) {
+            return false;
+        }
+        try {
+            partyLeaver.accept(bot);
+        } catch (RuntimeException e) {
+            log.debug("boss run crew {} could not leave its party", bot.getName(), e);
+            return false;
+        }
+        BotGuilds.qa(bot.getMapId(), "PARTY LEFT " + bot.getName() + " left its bot party to take a player's invite");
+        return true;
     }
 
     /** The director must not log this roster bot in: it is "inside" a staged run. */
@@ -272,6 +301,7 @@ public final class GuildBossRuns {
                 BotChannels.moveToChannel(c, channel);
             }
             soloMapling.ArtificialPlayer.GCMoveSystem.GCMovement.stop(c);
+            leaveBotParty(c); // a partied bot cannot take a player's invite at the entrance
             if (CharacterStorage.getBotById(c.getId()) instanceof TrainingBot) {
                 BotTypeManager.convertBotType(c, BotTypeManager.BotType.SOCIAL_BOT); // stand and wait, not grind
             }
@@ -294,6 +324,11 @@ public final class GuildBossRuns {
         switch (run.phase) {
             case GATHER -> {
                 noteJoins(run);
+                for (int id : run.crew) { // one that got pulled into a bot party while it waits leaves it again
+                    if (!run.withPlayers.contains(id)) {
+                        leaveBotParty(BotGuilds.live(id));
+                    }
+                }
                 if (now - run.lastChatAt > 35_000) {
                     run.lastChatAt = now;
                     Character c = liveCrew(run, rng);
@@ -504,5 +539,9 @@ public final class GuildBossRuns {
 
     static void setForTest(Run run) {
         current = run;
+    }
+
+    static void usePartyLeaverForTest(java.util.function.Consumer<Character> leaver) {
+        partyLeaver = leaver != null ? leaver : soloMapling.ArtificialPlayer.BotPartySystem.BotPartyCommands::botLeaveParty;
     }
 }

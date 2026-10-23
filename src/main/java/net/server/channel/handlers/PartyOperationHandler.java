@@ -86,6 +86,9 @@ public final class PartyOperationHandler extends AbstractPacketHandler {
                         return;
                     }
 
+                    if (invited.getParty() != null && soloMapling.ArtificialPlayer.BotHelpers.isBot(invited)) {
+                        soloMapling.ArtificialPlayer.BotGuildSystem.GuildBossRuns.freeForInvite(invited); // SlumsMS rc6
+                    }
                     if (invited.getParty() == null) {
                         if (party == null) {
                             if (!Party.createParty(player, false)) {
