@@ -13,8 +13,13 @@ effective set must still be in the new one (`removed <glob>` allows a deliberate
 dropped by mistake even where the reference client has no such file (the 1.2.0 Arcane-maps crash); changed files are
 listed. Exit 0 = PASS (zero unexpected missing, different or extra). Reference hashes are cached by
 (size, mtime) in --cache so a rerun only hashes what changed. Read-only apart from the cache file.
+
+--live-feed DIR (the LIVE patch dir, e.g. /srv/slums-patch): the client layer's config.ini must point at the same
+server ([config] host and port) as the client layer of the release live players have now (DIR/manifest.json).
+A test-server client published to the live feed sends every player to the test server; this refuses it. A
+deliberate move of the live server passes --allow-endpoint-change.
 """
-import argparse, fnmatch, hashlib, json, os, sys
+import argparse, configparser, fnmatch, hashlib, json, os, sys
 
 
 def sha256(path):
@@ -78,6 +83,73 @@ def release_files(top):
     return m['version'], out
 
 
+def ini_endpoint(path):
+    """(host, port) from a client config.ini's [config] section; None for each that is absent."""
+    cp = configparser.ConfigParser(strict=False, interpolation=None)
+    with open(path, encoding='utf-8', errors='replace') as f:
+        cp.read_string(f.read())
+    for section in cp.sections():
+        if section.strip().lower() == 'config':
+            sec = cp[section]
+            host = sec.get('host')
+            port = sec.get('port')
+            return (host.strip().lower() if host else None, port.strip() if port else None)
+    return (None, None)
+
+
+def layer_file(layer_manifest, rel):
+    """The on-disk path of file `rel` (case-insensitive) in a published layer, or None."""
+    with open(layer_manifest) as f:
+        m = json.load(f)
+    for e in m['files']:
+        if e['path'].lower() == rel.lower():
+            return os.path.join(os.path.dirname(layer_manifest), e.get('url') or ('files/' + e['path']))
+    return None
+
+
+def live_config(feed):
+    """The config.ini of the client layer live players have now (feed/manifest.json), or None."""
+    with open(os.path.join(feed, 'manifest.json')) as f:
+        m = json.load(f)
+    for layer in m['layers']:
+        if layer['name'] == 'client':
+            return layer_file(os.path.join(feed, layer['manifestUrl']), 'config.ini')
+    return None
+
+
+def client_config(client_dir=None, client_manifest=None):
+    if client_dir:
+        for name in os.listdir(client_dir):
+            if name.lower() == 'config.ini':
+                return os.path.join(client_dir, name)
+        return None
+    return layer_file(client_manifest, 'config.ini')
+
+
+def check_live_endpoint(feed, client_dir=None, client_manifest=None, allow_change=False):
+    """0 when the new client layer points at the live server (or the change is allowed), else 1. Prints why."""
+    live = live_config(feed)
+    if not live or not os.path.isfile(live):
+        print(f'LIVE ENDPOINT FAIL: no config.ini in the live client layer under {feed} to compare against')
+        return 1
+    new = client_config(client_dir, client_manifest)
+    if not new or not os.path.isfile(new):
+        print('LIVE ENDPOINT FAIL: the new client layer has no config.ini')
+        return 1
+    want, got = ini_endpoint(live), ini_endpoint(new)
+    print(f'live endpoint {want[0]}:{want[1]} ({live}); new client layer {got[0]}:{got[1]}')
+    if None in got or got != want:
+        if allow_change and None not in got:
+            print('LIVE ENDPOINT CHANGE ALLOWED (--allow-endpoint-change): players will connect to '
+                  f'{got[0]}:{got[1]}')
+            return 0
+        print('LIVE ENDPOINT FAIL: this client would send live players to another server. Nothing may be '
+              'published to the live feed with it')
+        return 1
+    print('LIVE ENDPOINT PASS')
+    return 0
+
+
 def main():
     ap = argparse.ArgumentParser()
     ap.add_argument('--base-manifest', required=True)
@@ -89,7 +161,13 @@ def main():
     ap.add_argument('--cache')
     ap.add_argument('--previous')
     ap.add_argument('--show', type=int, default=40)
+    ap.add_argument('--live-feed')
+    ap.add_argument('--allow-endpoint-change', action='store_true')
     a = ap.parse_args()
+
+    endpoint_bad = 0
+    if a.live_feed:
+        endpoint_bad = check_live_endpoint(a.live_feed, a.client_dir, a.client_manifest, a.allow_endpoint_change)
 
     allow = {'missing': [], 'different': [], 'extra': [], 'removed': []}
     if a.allow:
@@ -153,7 +231,9 @@ def main():
             print(f'  ... {len(unexpected) - a.show} more')
         bad += len(unexpected)
     print('HASH-DIFF PASS' if bad == 0 else f'HASH-DIFF FAIL: {bad} unexpected differences')
-    return 0 if bad == 0 else 1
+    if endpoint_bad:
+        print('FAIL: the client layer does not point at the live server (see LIVE ENDPOINT above)')
+    return 0 if bad == 0 and not endpoint_bad else 1
 
 
 if __name__ == '__main__':
