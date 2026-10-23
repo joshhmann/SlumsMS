@@ -270,6 +270,37 @@ public final class DramaKit {
                 && bot.getEventInstance() == null && !inScene(bot.getId()) && !withRealPlayer(bot);
     }
 
+    /**
+     * As {@link #freeForScene(Character)} for a scene with {@code player} itself: chatting with that player, or
+     * being in a party with them, does not hold the bot (1.5.0 rc6, QA t-rm-1: the partner was mid-chat with the
+     * player it dates - it had just said yes - so it never followed them to the next map).
+     */
+    static boolean freeForSceneWith(Character bot, Character player) {
+        if (player == null) {
+            return freeForScene(bot);
+        }
+        if (bot == null || bot.getMap() == null) {
+            return false;
+        }
+        BotSM sm = CharacterStorage.getBotById(bot.getId());
+        return (sm instanceof TrainingBot || sm instanceof SocialBot)
+                && BotPopulationDirector.mayLogOut(sm, player.getId()) && bot.getEventInstance() == null
+                && !inScene(bot.getId()) && !withRealPlayerOtherThan(bot, player.getId());
+    }
+
+    static boolean withRealPlayerOtherThan(Character bot, int playerId) {
+        Party p = bot.getParty();
+        if (p == null) {
+            return false;
+        }
+        for (PartyCharacter m : p.getMembers()) {
+            if (m != null && !BotHelpers.isArtificial(m.getId()) && m.getId() != playerId) {
+                return true;
+            }
+        }
+        return false;
+    }
+
     static boolean withRealPlayer(Character bot) {
         Party p = bot.getParty();
         if (p == null) {

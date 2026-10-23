@@ -120,6 +120,12 @@ public class SocialBot extends BotSM {
         return getInteractors().getRespondant() != null;
     }
 
+    /** Whether the player it is talking with now is this one. */
+    public boolean isTalkingTo(int playerId) {
+        Character r = getInteractors().getRespondant();
+        return r != null && r.getId() == playerId;
+    }
+
     @Override
     public void checkPrioritySpeed() {
         // Snappy while a player is mid-conversation, and also while the bot is armed after saying yes -

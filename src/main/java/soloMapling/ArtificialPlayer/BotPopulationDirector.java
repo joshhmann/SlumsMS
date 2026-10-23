@@ -308,6 +308,15 @@ public final class BotPopulationDirector {
      * conversation in progress, no party with a real player, not following anyone.
      */
     public static boolean mayLogOut(BotSM bot) {
+        return mayLogOut(bot, -1);
+    }
+
+    /**
+     * As {@link #mayLogOut(BotSM)}, except that talking with, or being partied with, this one real player does not
+     * count as a commitment (1.5.0 rc6, QA t-rm-1: a romance partner chatting with the player it dates is free to
+     * follow that player; any other player still holds it). {@code exceptPlayerId} below 0 = no exception.
+     */
+    public static boolean mayLogOut(BotSM bot, int exceptPlayerId) {
         if (BotCommitments.inFlight(bot) || bot instanceof FollowerBot) {
             return false;
         }
@@ -323,14 +332,15 @@ public final class BotPopulationDirector {
         if (bot.getChr() != null && soloMapling.ArtificialPlayer.BotDramaSystem.BotDrama.inScene(bot.getChr().getId())) {
             return false; // 1.5.0: in a drama scene (a wedding, a KS war, a revenge follow, a confrontation)
         }
-        if (bot instanceof SocialBot social && social.hasActiveRespondant()) {
+        if (bot instanceof SocialBot social && social.hasActiveRespondant()
+                && (exceptPlayerId < 0 || !social.isTalkingTo(exceptPlayerId))) {
             return false;
         }
         Character chr = bot.getChr();
         Party party = chr == null ? null : chr.getParty();
         if (party != null) {
             for (PartyCharacter member : party.getMembers()) {
-                if (member != null && !BotHelpers.isArtificial(member.getId())) {
+                if (member != null && !BotHelpers.isArtificial(member.getId()) && member.getId() != exceptPlayerId) {
                     return false;
                 }
             }
