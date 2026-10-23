@@ -315,6 +315,11 @@ public final class RomanceWedding {
     /**
      * The stock end state of a wedding: tokens gone, the rings pair, the player's ring (with its ring id), both
      * marriage rings, both marriage item ids. The problem, or null.
+     * <p>
+     * 1.5.0 rc6 bug hunt: the ring is delivered before anything is taken or recorded. This used to remove the tokens,
+     * ignore whether the ring reached the player's inventory and mark the pair married regardless, so a full equip
+     * tab (filled during the ceremony) lost the ring for good. Now space is checked again, a ring that can't be
+     * delivered deletes the rows just written, and the tokens and the married state are left as they were.
      */
     static String makeItReal(Character player, Character bot, long now) {
         Romance r = BotRomance.with(player.getId(), bot.getId());
@@ -322,30 +327,72 @@ public final class RomanceWedding {
             return "you are no longer engaged";
         }
         int ringItem = r.ringItemId() > 0 ? r.ringItemId() : 1112803;
-        Pair<Integer, Integer> rings = Ring.createRing(ringItem, player, bot);
+        if (!ops.hasRoom(player, ringItem)) {
+            return "make room for the ring in your equip inventory";
+        }
+        Equip ringEqp = ops.newRing(ringItem);
+        if (ringEqp == null) {
+            return "the ring has no item data";
+        }
+        Pair<Integer, Integer> rings = ops.createRings(ringItem, player, bot);
         if (rings.getLeft() <= 0 || rings.getRight() <= 0) {
             return "the rings could not be written";
         }
-        BotRomance.removeTokens(player, player.getMarriageItemId());
-        Equip ringEqp = (Equip) ItemInformationProvider.getInstance().getEquipById(ringItem);
         ringEqp.setRingId(rings.getLeft());
-        player.addMarriageRing(Ring.loadFromDb(rings.getLeft()));
-        InventoryManipulator.addFromDrop(player.getClient(), ringEqp, false, -1);
-        player.setMarriageItemId(ringItem);
-        player.broadcastMarriageMessage();
-        Ring botRing = Ring.loadFromDb(rings.getRight());
-        if (botRing != null) {
-            botRing.equip();
-            bot.addMarriageRing(botRing);
+        if (!ops.deliver(player, ringEqp)) {
+            ops.deleteRings(rings.getLeft(), rings.getRight(), bot, ringItem);
+            return "the ring could not be put in your inventory (make room in your equip inventory)";
         }
-        bot.setMarriageItemId(ringItem);
-        BotCouples.wearRing(bot, ringItem);
-        BotRomance.married(r, rings.getRight(), now);
-        BotRomance.note(bot.getId(), player.getId(), "we got married in amoria <3");
+        ops.removeTokens(player, player.getMarriageItemId());
+        ops.bond(r, player, bot, ringItem, rings, now);
         qa("MARRIED " + player.getName() + " & " + bot.getName() + ": rings " + rings.getLeft() + "/" + rings.getRight()
                 + " (" + ringItem + "), marriage #" + player.getRelationshipId());
         return null;
     }
+
+    /** The steps of {@link #makeItReal} that touch the DB, the item data and the inventory; tests replace them. */
+    static class Ops {
+        boolean hasRoom(Character player, int ringItem) {
+            return InventoryManipulator.checkSpace(player.getClient(), ringItem, 1, "");
+        }
+
+        Equip newRing(int ringItem) {
+            return ItemInformationProvider.getInstance().getEquipById(ringItem) instanceof Equip e ? e : null;
+        }
+
+        Pair<Integer, Integer> createRings(int ringItem, Character player, Character bot) {
+            return Ring.createRing(ringItem, player, bot);
+        }
+
+        boolean deliver(Character player, Equip ring) {
+            return InventoryManipulator.addFromDrop(player.getClient(), ring, false, -1);
+        }
+
+        void deleteRings(int playerRingId, int botRingId, Character bot, int ringItem) {
+            Ring.removeRing(new Ring(playerRingId, botRingId, bot.getId(), ringItem, bot.getName()));
+        }
+
+        void removeTokens(Character player, int recorded) {
+            BotRomance.removeTokens(player, recorded);
+        }
+
+        void bond(Romance r, Character player, Character bot, int ringItem, Pair<Integer, Integer> rings, long now) {
+            player.addMarriageRing(Ring.loadFromDb(rings.getLeft()));
+            player.setMarriageItemId(ringItem);
+            player.broadcastMarriageMessage();
+            Ring botRing = Ring.loadFromDb(rings.getRight());
+            if (botRing != null) {
+                botRing.equip();
+                bot.addMarriageRing(botRing);
+            }
+            bot.setMarriageItemId(ringItem);
+            BotCouples.wearRing(bot, ringItem);
+            BotRomance.married(r, rings.getRight(), now);
+            BotRomance.note(bot.getId(), player.getId(), "we got married in amoria <3");
+        }
+    }
+
+    static Ops ops = new Ops();
 
     /** Who shouts "I OBJECT": an ex of the player, else a bot with a crush on them; brought to the altar. */
     private static void object(Ceremony c, Character player, Character bot) {
