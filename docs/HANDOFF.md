@@ -35,7 +35,8 @@ The test server runs the same 1.5.0 build (`06a724dfc`) with the same settings p
    `/srv/slums-patch/tauri/launcher.json` to `/srv/slums-staging/live-tauri-launcher.json.before-1.5.2`. Undo Test:
    copy `/srv/slums-staging/launcher-test-tauri-launcher.json.before-1.5.2` back. The Electron hand-over's
    `game-config.mjs` still writes only changed keys (has the right fallbacks); fine until Electron is retired.
-2. **Friends launcher with the key built in:** the owner runs `Z:\MSv83\SlumsMS-dev\bake-tauri-key.ps1` (key piped from
+2. **Friends launcher with the key built in: BUILT 2026-10-24** (`Z:\MSv83\SlumsMS-dev\launcher-tauri-152-friends\out\SlumsMS Launcher.exe`,
+   1.5.2, sha256 `BD5EFBE0…2DB2`, verifier OK). The owner shares that exe with new friends. To rebuild: the owner runs `Z:\MSv83\SlumsMS-dev\bake-tauri-key.ps1` (key piped from
    164, never seen by an agent); output in `Z:\MSv83\SlumsMS-dev\launcher-tauri-152-friends\out\`; check it with
    `Z:\MSv83\SlumsMS-dev\verify-tauri-key.ps1 -Exe <exe>`. Needs no signature; it self-updates to later signed builds
    and keeps the key. `launcher-tauri-152-bakedryrun\` holds only a fake key and can be deleted.
