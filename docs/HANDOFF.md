@@ -196,6 +196,14 @@ Owner-reported or found, roughly by priority:
   line (commit `402851969`); backup `/root/slumsms-monitor.before-director-fix`. The repo copy also has the newer
   `maintenance end --client` feature, not installed yet; install the whole file with the 1.5.1 release.
 
+- **PQ/event clears crash (fixed on `151-clearpq-expedition`, merged into release-1.5.1, NOT on TEST or live yet):**
+  `EventInstanceManager.clearPQ` wrote the boss log assuming an expedition, so every non-expedition instance that
+  finishes through `clearPQ` (the Kenta mount room, KPQ/LPQ/other PQs, Cathedral/Chapel weddings: 57 scripts) threw a
+  NullPointerException and the player was never sent out or rewarded. Seen on live 2026-10-24 (npc 9060000, a player
+  doing quest 6002). Owner: ship with 1.5.1, no hotfix. **Next agent:** deploy release-1.5.1 to TEST and check the
+  mount room end to end (quest 6002 hand-in at Kenta, 6007 Tatamo 20m, 6003 perfume, catch in map 922200000 where
+  the hog must be under 40% HP) plus one PQ clear (e.g. KPQ), and add the mount path to `docs/release/1.5.1-qa.md`.
+
 ## 4. Decisions the owner made (don't re-ask)
 
 - 3,000 bots on live; reduce if needed. Per-map cap 50 to start (FM may need more).
