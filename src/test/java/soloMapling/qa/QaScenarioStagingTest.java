@@ -333,6 +333,20 @@ class QaScenarioStagingTest {
     }
 
     @Test
+    void af2FightsTheMobsAroundTheGmUntilTheRunStops() {
+        // rc6 triage (t-af-2: no KS line): a rival's KS spree takes only mobs the player has hit
+        start("af-2", 104040000);
+        int before = world.mobsHit;
+        suite.action(world.online, "fight", new String[0]);
+        assertEquals(before + 1, world.mobsHit);
+        scheduler.repeating.forEach(Runnable::run);
+        assertEquals(before + 2, world.mobsHit, "and again on the tick");
+        suite.stop(1, "!qa stop");
+        scheduler.repeating.forEach(Runnable::run);
+        assertEquals(before + 2, world.mobsHit, "not after the stop");
+    }
+
+    @Test
     void af2AndAf3HoldSpontaneousKsWarsForTheRun() {
         // rc6 (QA t-af-2): a KS war rolled on sight brought "two random bots" in during the af-2 run
         start("af-2", 104040000);

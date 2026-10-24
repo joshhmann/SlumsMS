@@ -44,7 +44,7 @@ public final class QaMenuCatalog {
         eveningNo = 1;
         section("Bots remember you");
         add("af-1", v("social", "training"), steps());
-        add("af-2", v("rival", "nemesis"), steps("grudge"));
+        add("af-2", v("rival", "nemesis"), steps("grudge", "fight"));
         add("af-3", v(), steps("on", "off"));
         section("Spicy rivals");
         add("rv-1", v(), steps("roast", "die", "nemesis", "status"));

@@ -87,7 +87,8 @@ public final class AutoQaCatalog {
                         noEmoji())
                 .build());
         c.add(Check.auto("t-af-2", "A rival bot holds a grudge").minutes(6)
-                .step(run("af-2"), qaDo("grudge"), waitFor("AFFINITY (ACT taunt|KS \\S+ takes)", 120),
+                // rc6 triage: a KS spree takes only mobs the player has hit; the pretend player fights from here on
+                .step(run("af-2"), qaDo("fight"), qaDo("grudge"), waitFor("AFFINITY (ACT taunt|KS \\S+ takes)", 120),
                         partyInvite("{bot}"), waitSeconds(10), mark("moved"), say("!warp " + HHG2), waitSeconds(20))
                 .expect(has("AFFINITY (ACT taunt|KS \\S+ takes)"),
                         probe("partyLacks", "{bot}"),
