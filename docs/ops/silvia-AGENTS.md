@@ -79,3 +79,7 @@ Server code, the test server, auto-QA, releases and Discord posts are done from 
 `/root/work/SlumsMS-150` (read its `AGENTS.md`, `docs/HANDOFF.md` and `docs/release/RUNBOOK.md`). From this PC: don't
 ssh to the servers yourself. Finish your client/launcher part (built files + hashes + NOTES.md here) and tell the owner
 what the server side needs; an agent on 187 picks it up. A copy of the current state is `HANDOFF.md` in this folder.
+
+Plans and QA live in the server repo too: `docs/ROADMAP.md` (1.5.x, 1.6.0, 1.7.0) and `docs/qa/QA.md` (auto-QA and
+how agents on 187 drive `client-mcp\` through `tools/ops/client-mcp`). Before starting the client-MCP worker, delete
+`client-mcp\logs\worker-inbox.jsonl`: the worker replays every line in it.

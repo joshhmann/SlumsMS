@@ -15,7 +15,7 @@ checkout of the release branch on 187 (for 1.5.0: `/root/work/SlumsMS-150`). Hos
      `.claude/skills/qa-triage/SKILL.md`.
    - Write the release's player QA checklist in `docs/release/<version>-qa.md` (one line per check: id, what to do, what
      to expect; reuse the `t-xx-n` ids). The owner tests what auto-QA can't (looks, feel, client).
-   - Client visual checks: `Z:\MSv83\SlumsMS-dev\client-mcp\` (owner's PC, see its README).
+   - Client visual checks: the client MCP on the owner's PC, driven with `tools/ops/client-mcp` (`docs/qa/QA.md`).
 6. Patch notes: write `docs/site/releases/<version>.md` (the public site's format, see the 1.5.0 file) and keep a
    Discord version under 2,000 characters per message.
 

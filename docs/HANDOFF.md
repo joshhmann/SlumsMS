@@ -77,15 +77,14 @@ Owner-reported or found, roughly by priority:
 - Romance with bots is opt-in (`@romance on`), PG-13. `@botdrama off` is always respected.
 - 1.6.0 headline: **the bot brain** (`docs/tickets/60-bot-brain.md`), plus fishing, medals, a daily dungeon,
   chaos bosses, an Evan test, chat-routing tuning, the Parsec fix (dgVoodoo2), a real client settings window. 1.7.0:
-  new regions, Evan or a skill cover, client QoL, a browser-client research spike. Roadmap page:
-  https://claude.ai/artifact/Up4b1XZCejv87FkrxErveG
+  new regions, Evan or a skill cover, client QoL, a browser-client research spike. Full roadmap: `docs/ROADMAP.md`.
 
 ## 5. Tools that make this easier
 
 - `tools/ops/deploy-test` (deploy to test), `tools/ops/test-status`, `tools/ops/autoqa-run all|smoke|<id>`.
   Auto-QA also runs nightly at 10:00 UTC and daily at 22:00 UTC (cron on 164).
-- Release pipeline: `tools/release/` (README). 1.5.0's exact live steps are in this file's history and in
-  `/opt/mapleroot-deployments/v1.5.0/`.
+- Release pipeline: `tools/release/` (README); the whole cycle step by step: `docs/release/RUNBOOK.md`.
+- QA (auto-QA, client MCP via `tools/ops/client-mcp`, owner checklist): `docs/qa/QA.md`.
 - Client visual QA on the owner's PC: `Z:\MSv83\SlumsMS-dev\client-mcp\` (Codex-built MCP; runs only in the owner's
   session, as admin, with the PC idle; see its README). Its test account is `autoqaclient` / character `AqClient`
   (GM 3 on the test server only).

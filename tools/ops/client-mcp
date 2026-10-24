@@ -1,0 +1,55 @@
+#!/bin/bash
+# Call one client-MCP tool on the owner's PC (Silvia) from 187, through the elevated worker's file queue.
+#
+#   tools/ops/client-mcp status
+#   tools/ops/client-mcp start_client
+#   tools/ops/client-mcp login '{"channel":1}'
+#   tools/ops/client-mcp command '{"line":"!qa run we-1"}'
+#   tools/ops/client-mcp go_to '{"map_id":100000000}'
+#   tools/ops/client-mcp screenshot '{"label":"henesys"}'     # PNG saved on Silvia under client-mcp\shots\
+#   tools/ops/client-mcp read_logs '{"lines":100}'
+#   tools/ops/client-mcp stop_client
+#
+# Needs the owner to have started the worker and controller in their own desktop (docs/qa/CLIENT-MCP.md); the
+# worker lasts one hour. Every tool but status refuses while the owner used the PC in the last 10 minutes.
+# Prints the tool's text replies; exits 1 on an error or refusal, 3 if no worker answered.
+set -euo pipefail
+NAME="${1:?tool name}"; ARGS="${2:-{\}}"
+[[ "$NAME" =~ ^(status|start_client|login|command|go_to|screenshot|read_logs|stop_client)$ ]] || { echo "unknown tool $NAME" >&2; exit 2; }
+WAIT="${CLIENT_MCP_WAIT:-120}"
+python3 -c 'import json,sys; json.loads(sys.argv[1])' "$ARGS" || { echo "arguments must be JSON" >&2; exit 2; }
+REQ=$(python3 -c 'import json,sys,uuid; print(json.dumps({"id":"cli-"+uuid.uuid4().hex,"action":"call","name":sys.argv[1],"arguments":json.loads(sys.argv[2])}))' "$NAME" "$ARGS")
+ssh -i ~/.ssh/id_rsprox_desktop crims@192.168.0.186 "python -B - $WAIT" <<PY
+import json, sys, time
+from pathlib import Path
+root = Path(r'Z:\MSv83\SlumsMS-dev\client-mcp\logs')
+inbox, outbox = root / 'worker-inbox.jsonl', root / 'worker-outbox.jsonl'
+req = json.loads(r'''$REQ''')
+offset = outbox.stat().st_size if outbox.exists() else 0
+with inbox.open('a', encoding='utf-8') as f:
+    f.write(json.dumps(req) + '\n')
+deadline = time.monotonic() + int(sys.argv[1])
+while time.monotonic() < deadline:
+    if outbox.exists():
+        with outbox.open(encoding='utf-8') as f:
+            f.seek(offset)
+            for line in f:
+                if not line.endswith('\n'):
+                    break
+                offset += len(line.encode('utf-8'))
+                r = json.loads(line)
+                if r.get('id') != req['id']:
+                    continue
+                if r.get('error'):
+                    print('ERROR:', r['error']); sys.exit(1)
+                res = r.get('result', {})
+                for c in res.get('content', []):
+                    print(c['text'] if c.get('type') == 'text' else '[%s]' % c.get('type'))
+                sys.exit(1 if res.get('isError') else 0)
+    time.sleep(0.5)
+# The worker reads its inbox from the start when it launches: take this request back out so it never replays.
+lines = inbox.read_text(encoding='utf-8').splitlines(keepends=True)
+inbox.write_text(''.join(l for l in lines if req['id'] not in l), encoding='utf-8')
+print('no answer from the client-MCP worker (not running or expired; the owner starts it, see docs/qa/CLIENT-MCP.md)')
+sys.exit(3)
+PY
