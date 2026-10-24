@@ -1,0 +1,129 @@
+# Hosting the SlumsMS website
+
+The site is plain static files: no database, no PHP, no Node, nothing to run. These steps put it on a fresh
+Debian LXC at `theslumsms.asslorde.com`, served from `/srv/slums-site`.
+
+## 1. Build
+
+On the build machine, from the repo root (Python 3, standard library only):
+
+```
+python3 tools/site/build.py
+```
+
+This writes `dist/site/` and `dist/slums-site.tar.gz`. It also checks the output and stops (and packs nothing) if a
+page has a broken link, loads anything from another website, or contains something private (LAN addresses,
+test-server ports, the patch site's name, QA tooling; the list is in `tools/site/check.py`).
+
+Tests: `python3 -m unittest discover -s tools/site -p 'test_*.py'`. Preview: `python3 -m http.server -d dist/site 8000`.
+
+## 2. Prepare the LXC (once)
+
+- DNS: point an A (and AAAA, if the LXC has IPv6) record for `theslumsms.asslorde.com` at the address the
+  internet reaches the LXC on. Forward ports 80 and 443 to it if it sits behind NAT. Port 80 must be reachable for
+  the HTTPS certificate.
+- Make the folder and let your deploy user write to it:
+
+```
+apt update && apt install -y rsync
+mkdir -p /srv/slums-site
+```
+
+Then pick **one** web server.
+
+### Option A: Caddy (recommended: automatic HTTPS)
+
+```
+apt install -y caddy
+```
+
+Put this in `/etc/caddy/Caddyfile` (replacing the example site):
+
+```
+theslumsms.asslorde.com {
+	root * /srv/slums-site
+	file_server
+	encode gzip
+	handle_errors {
+		@404 expression {err.status_code} == 404
+		rewrite @404 /404.html
+		file_server
+	}
+	header {
+		X-Content-Type-Options nosniff
+		Referrer-Policy no-referrer
+		X-Frame-Options DENY
+		-Server
+	}
+	@assets path /assets/*
+	header @assets Cache-Control "public, max-age=86400"
+}
+```
+
+```
+systemctl reload caddy
+```
+
+Caddy gets and renews the Let's Encrypt certificate by itself and redirects http to https.
+
+### Option B: nginx
+
+```
+apt install -y nginx certbot python3-certbot-nginx
+```
+
+`/etc/nginx/sites-available/slums-site`:
+
+```
+server {
+    listen 80;
+    listen [::]:80;
+    server_name theslumsms.asslorde.com;
+    root /srv/slums-site;
+    index index.html;
+    error_page 404 /404.html;
+    location / { try_files $uri $uri/ =404; }
+    location /assets/ { add_header Cache-Control "public, max-age=86400"; }
+    add_header X-Content-Type-Options nosniff;
+    add_header Referrer-Policy no-referrer;
+    add_header X-Frame-Options DENY;
+    server_tokens off;
+    gzip on;
+    gzip_types text/css image/svg+xml;
+}
+```
+
+```
+ln -s /etc/nginx/sites-available/slums-site /etc/nginx/sites-enabled/
+rm -f /etc/nginx/sites-enabled/default
+nginx -t && systemctl reload nginx
+certbot --nginx -d theslumsms.asslorde.com    # adds HTTPS and the http->https redirect, renews by timer
+```
+
+## 3. Publish an update
+
+Build, then copy the output over. `--delete` removes pages that no longer exist; the trailing slashes matter.
+
+```
+python3 tools/site/build.py
+rsync -av --delete dist/site/ root@<lxc-address>:/srv/slums-site/
+```
+
+No reload is needed: the web server serves the new files right away. Without rsync, copy the tarball instead:
+
+```
+scp dist/slums-site.tar.gz root@<lxc-address>:/tmp/
+ssh root@<lxc-address> 'rm -rf /srv/slums-site/* && tar -xzf /tmp/slums-site.tar.gz -C /srv/slums-site --strip-components=1'
+```
+
+## 4. Add a release's patch notes
+
+1. Write `docs/site/releases/<version>.md` (copy the last one for the format: front matter with `version`,
+   `title`, `date` and `summary`, then `## Sections` with `- [New]`, `[Fix]`, `[Change]` or `[Same]` bullets).
+   Player-facing notes only: no QA lists, internal notes, hashes or test-server details.
+2. Run the build. The newest version becomes the home page's "latest patch" card and tops the patch notes list.
+3. Publish (step 3).
+
+The player guide is copied from the generated wiki in `docs/wiki/`. Refresh that first (`python3 docs/wiki/build.py`)
+when its sources change. Public-only text changes for it live in `docs/site/guide-fixes.json` and
+`docs/site/guide-overrides/`.
