@@ -33,8 +33,8 @@ controller window in front, the PC idle for 10 minutes, and the real monitor as 
 = startup error -2147467259). It never runs from ssh alone.
 
 **Starting it (the owner does this, then leaves the PC alone for 10 minutes):**
-1. Empty the old queue: delete `Z:\MSv83\SlumsMS-dev\client-mcp\logs\worker-inbox.jsonl` (the worker replays every
-   line in it at start).
+1. Empty the old queue: `type nul > Z:\MSv83\SlumsMS-dev\client-mcp\logs\worker-inbox.jsonl` (the worker replays every
+   line in it at start; keep the file, the worker fails if it's missing).
 2. Admin PowerShell: `Start-Process pythonw.exe -ArgumentList '-B','Z:\MSv83\SlumsMS-dev\client-mcp\scripts\focus-controller.py'`
    and leave the "SlumsMS client-driver controller" window in front.
 3. Admin PowerShell: `python -B Z:\MSv83\SlumsMS-dev\client-mcp\scripts\elevated-worker.py` (lasts one hour).
