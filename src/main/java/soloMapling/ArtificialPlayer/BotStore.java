@@ -37,6 +37,7 @@ import java.util.SortedMap;
 import java.util.TreeMap;
 import java.util.concurrent.ConcurrentHashMap;
 import java.util.concurrent.ThreadLocalRandom;
+import java.util.concurrent.TimeUnit;
 import java.util.concurrent.atomic.AtomicInteger;
 
 /**
@@ -916,38 +917,49 @@ public final class BotStore {
     private static int saveAll(Collection<Character> characters, boolean lastWrite) {
         int saved = 0;
         for (Character chr : characters) {
-            if (chr == null || !BotHelpers.isBot(chr) || !BotHelpers.isArtificial(chr.getId())) { // only stored bots, not the console
+            if (!isStoredBot(chr)) { // only stored bots, not the console
                 continue;
             }
-            try {
-                int captured = save(chr);
+            if (saveOne(chr, lastWrite)) {
                 saved++;
-                if (captured == NO_STAMP || BotHoldings.discardIfUnchanged(chr, captured)) {
-                    // Same rule as saveThenSettle: once the value is durable, the ledger must not hand it to
-                    // the world a second time. The comparison and the removal are one step, so a delta that
-                    // arrived after the capture stays and takes the changed route below.
-                    continue;
-                }
-                if (!lastWrite) {
-                    log.warn("Bot {} ({}) changed while its row was being written, so its deltas are kept for"
-                            + " the next write", chr.getId(), chr.getName());
-                    continue;
-                }
-                // There is no next write: this is the process's last. A delta the row missed - a debit the
-                // recipient still holds, a credit the bot earned - dies with the ledger, so it is written or
-                // taken down instead of being left for a restart to get wrong.
-                log.warn("Bot {} ({}) changed while the last row of the process was being written, so that row"
-                        + " does not record it", chr.getId(), chr.getName());
-                recordDebit(chr);
-                continue;
-            } catch (Exception e) {
-                log.warn("Could not save bot {} ({})", chr.getId(), chr.getName(), e);
-            }
-            if (lastWrite && BotHoldings.hasUnpersistedDebit(chr)) {
-                recordDebit(chr);
             }
         }
         return saved;
+    }
+
+    private static boolean isStoredBot(Character chr) {
+        return chr != null && BotHelpers.isBot(chr) && BotHelpers.isArtificial(chr.getId());
+    }
+
+    /** One bot of a sweep (see {@link #saveAll(Collection, boolean)}); true when its row was written. */
+    private static boolean saveOne(Character chr, boolean lastWrite) {
+        try {
+            int captured = save(chr);
+            if (captured == NO_STAMP || BotHoldings.discardIfUnchanged(chr, captured)) {
+                // Same rule as saveThenSettle: once the value is durable, the ledger must not hand it to
+                // the world a second time. The comparison and the removal are one step, so a delta that
+                // arrived after the capture stays and takes the changed route below.
+                return true;
+            }
+            if (!lastWrite) {
+                log.warn("Bot {} ({}) changed while its row was being written, so its deltas are kept for"
+                        + " the next write", chr.getId(), chr.getName());
+                return true;
+            }
+            // There is no next write: this is the process's last. A delta the row missed - a debit the
+            // recipient still holds, a credit the bot earned - dies with the ledger, so it is written or
+            // taken down instead of being left for a restart to get wrong.
+            log.warn("Bot {} ({}) changed while the last row of the process was being written, so that row"
+                    + " does not record it", chr.getId(), chr.getName());
+            recordDebit(chr);
+            return true;
+        } catch (Exception e) {
+            log.warn("Could not save bot {} ({})", chr.getId(), chr.getName(), e);
+        }
+        if (lastWrite && BotHoldings.hasUnpersistedDebit(chr)) {
+            recordDebit(chr);
+        }
+        return false;
     }
 
 
@@ -959,15 +971,89 @@ public final class BotStore {
      * process: they are dropped, not settled, because nothing of theirs is held out of a wallet.
      */
     public static int settleAndSaveAll(Collection<Character> characters) {
-        for (Character chr : characters) {
-            if (chr == null || !BotHelpers.isBot(chr) || !BotHelpers.isArtificial(chr.getId())) { // only stored bots, not the console
-                continue;
-            }
-            closeOpenWindow(chr);
-        }
+        closeOpenWindows(characters);
         // The last write of the process: a bot whose row will not write must not be left claiming value it has
         // already given away, because no later sweep can correct it.
         return saveAll(characters, true);
+    }
+
+    private static void closeOpenWindows(Collection<Character> characters) {
+        for (Character chr : characters) {
+            if (isStoredBot(chr)) {
+                closeOpenWindow(chr);
+            }
+        }
+    }
+
+    /**
+     * What the budgeted shutdown sweep did: bots whose row was written, bots whose write failed, and the bots it
+     * ran out of time for (not written this time: they come back from their last save).
+     */
+    public record SweepReport(int saved, int failed, List<String> unsaved, long elapsedMs) {
+    }
+
+    /**
+     * The shutdown sweep with a hard time budget (1.5.0 rehearsal: the unbudgeted sweep hung for five minutes and
+     * the server was killed). {@code writers} threads take bots off one queue and write them straight on the pool,
+     * outside the bots' share ({@link BotDbGate#unmetered}); no bot is started once the budget is spent, and the
+     * call returns when the budget ends even if a write is still in flight. A bot not written resumes from its last
+     * save.
+     */
+    public static SweepReport settleAndSaveAll(Collection<Character> characters, long budgetMs, int writers) {
+        long started = System.nanoTime();
+        long deadline = started + TimeUnit.MILLISECONDS.toNanos(Math.max(0, budgetMs));
+        closeOpenWindows(characters);
+        List<Character> bots = new ArrayList<>();
+        for (Character chr : characters) {
+            if (isStoredBot(chr)) {
+                bots.add(chr);
+            }
+        }
+        java.util.concurrent.ConcurrentLinkedQueue<Character> queue = new java.util.concurrent.ConcurrentLinkedQueue<>(bots);
+        Set<Integer> written = ConcurrentHashMap.newKeySet();
+        AtomicInteger saved = new AtomicInteger();
+        AtomicInteger failed = new AtomicInteger();
+        java.util.concurrent.CountDownLatch done = new java.util.concurrent.CountDownLatch(Math.max(1, writers));
+        for (int i = 0; i < Math.max(1, writers); i++) {
+            Thread writer = new Thread(() -> {
+                try {
+                    BotDbGate.unmetered(() -> {
+                        Character chr;
+                        while (System.nanoTime() - deadline < 0 && (chr = queue.poll()) != null) {
+                            boolean ok = saveOne(chr, true);
+                            synchronized (written) {
+                                (ok ? saved : failed).incrementAndGet();
+                                written.add(chr.getId());
+                            }
+                        }
+                    });
+                } finally {
+                    done.countDown();
+                }
+            }, "bot-shutdown-save-" + i);
+            // A write still in flight when the budget ends must not keep the process alive.
+            writer.setDaemon(true);
+            writer.start();
+        }
+        try {
+            done.await(Math.max(0, deadline - System.nanoTime()), TimeUnit.NANOSECONDS);
+        } catch (InterruptedException e) {
+            Thread.currentThread().interrupt();
+        }
+        int savedNow;
+        int failedNow;
+        List<String> unsaved = new ArrayList<>();
+        synchronized (written) {   // one snapshot: a write still landing is in the counts or in the list, never neither
+            savedNow = saved.get();
+            failedNow = failed.get();
+            for (Character chr : bots) {
+                if (!written.contains(chr.getId())) {
+                    unsaved.add(chr.getName() + " (" + chr.getId() + ")");
+                }
+            }
+        }
+        long elapsedMs = TimeUnit.NANOSECONDS.toMillis(System.nanoTime() - started);
+        return new SweepReport(savedNow, failedNow, unsaved, elapsedMs);
     }
 
     /** Closes a bot's trade window through the trade's own cancel path, which refunds both sides. */

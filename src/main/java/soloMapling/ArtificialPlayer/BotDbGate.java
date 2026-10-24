@@ -95,6 +95,38 @@ public final class BotDbGate {
         }
     }
 
+    /**
+     * Runs work whose database calls go straight to the pool, outside the bots' share, on this thread only.
+     * <p>
+     * For the shutdown sweep (1.5.0 rehearsal): by then the players have been saved and bot activity has been
+     * stopped, so the share has nothing left to protect - but bot work still in flight (a boot fill's logins,
+     * a tick the drain gave up on) can keep holding it, and the sweep then waited {@link #MAX_WAIT_MS} for every
+     * bot it saved until systemd killed the server. The sweep is a handful of writers; the pool's own timeout
+     * bounds it.
+     */
+    public static <T> T unmetered(SqlWork<T> work) throws SQLException {
+        AtomicInteger mine = held.get();
+        // Counted as a permit this thread holds without having taken it from the semaphore: every request below
+        // takes the nested path (straight to the pool), and nothing is released for it.
+        mine.incrementAndGet();
+        try {
+            return work.run();
+        } finally {
+            mine.decrementAndGet();
+        }
+    }
+
+    /** {@link #unmetered(SqlWork)} for work that throws no checked exception. */
+    public static void unmetered(Runnable work) {
+        AtomicInteger mine = held.get();
+        mine.incrementAndGet();
+        try {
+            work.run();
+        } finally {
+            mine.decrementAndGet();
+        }
+    }
+
     /** A pooled connection that holds one permit of the bots' share until it is closed. */
     public static Connection connection() throws SQLException {
         return connection(DatabaseConnection::getConnection);
@@ -117,6 +149,11 @@ public final class BotDbGate {
         }
         mine.incrementAndGet();
         return releasingOnClose(con, mine);
+    }
+
+    /** Test seam: the gate in front of a mock pool, as {@link #connection()} is in front of the real one. */
+    static BotStore.ConnectionSource gatedForTest(BotStore.ConnectionSource pool) {
+        return () -> connection(pool);
     }
 
     /** Test seam: a shorter wait before going to the pool uncounted ({@code <= 0} restores the default). */

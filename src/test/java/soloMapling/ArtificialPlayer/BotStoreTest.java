@@ -958,6 +958,102 @@ class BotStoreTest {
         }
     }
 
+    /** Holds the bots' whole share of the pool on another thread until the returned latch is counted down. */
+    private static java.util.concurrent.CountDownLatch holdTheWholeShare(java.util.concurrent.ExecutorService other)
+            throws InterruptedException {
+        java.util.concurrent.CountDownLatch holding = new java.util.concurrent.CountDownLatch(1);
+        java.util.concurrent.CountDownLatch release = new java.util.concurrent.CountDownLatch(1);
+        other.submit(() -> BotDbGate.hold(BotDbGate.PERMITS, () -> {
+            holding.countDown();
+            try {
+                release.await();
+            } catch (InterruptedException e) {
+                Thread.currentThread().interrupt();
+            }
+            return null;
+        }));
+        assertTrue(holding.await(5, java.util.concurrent.TimeUnit.SECONDS));
+        assertEquals(0, BotDbGate.available(), "bot work still in flight holds every permit");
+        return release;
+    }
+
+    private static List<Character> bots(int count) {
+        List<Character> bots = new ArrayList<>();
+        for (int i = 0; i < count; i++) {
+            bots.add(newBot(BotStore.BOT_ID_BASE + 5000 + i, "Sweep" + i));
+        }
+        return bots;
+    }
+
+    @Test
+    void theShutdownSweepDoesNotWaitForTheBotsShareOfThePool() throws Exception {
+        // 1.5.0 rehearsal on a copy of live: with the bots' share held by work still in flight, the sweep waited
+        // the gate's full timeout for every bot it saved, and systemd killed the server five minutes in. The sweep
+        // runs after the players are saved and after bot activity stopped, so it goes straight to the pool.
+        Connection con = mockPool(accepting());
+        BotDbGate.useMaxWaitForTest(10_000);
+        BotStore.useConnectionSourceForTest(BotDbGate.gatedForTest(() -> con));
+        java.util.concurrent.ExecutorService other = java.util.concurrent.Executors.newSingleThreadExecutor();
+        java.util.concurrent.CountDownLatch release = holdTheWholeShare(other);
+        try {
+            long started = System.nanoTime();
+            BotStore.SweepReport report = BotStore.settleAndSaveAll(bots(5), 30_000, 2);
+            long ms = java.util.concurrent.TimeUnit.NANOSECONDS.toMillis(System.nanoTime() - started);
+
+            assertAll(
+                    () -> assertEquals(5, report.saved(), "every bot was written"),
+                    () -> assertTrue(report.unsaved().isEmpty(), "nothing left over: " + report.unsaved()),
+                    () -> assertTrue(ms < 5_000, "took " + ms + " ms: the sweep waited on the gate"),
+                    () -> assertEquals(0, BotDbGate.available(), "the sweep took no permit and gave none back"));
+        } finally {
+            release.countDown();
+            other.shutdown();
+            assertTrue(other.awaitTermination(5, java.util.concurrent.TimeUnit.SECONDS));
+            BotStore.useConnectionSourceForTest(null);
+            BotDbGate.useMaxWaitForTest(0);
+        }
+        assertEquals(BotDbGate.PERMITS, BotDbGate.available(), "every permit came back");
+    }
+
+    @Test
+    void theShutdownSweepStopsAtItsBudgetAndNamesTheBotsItDidNotWrite() throws Exception {
+        // The gate is exhausted and the pool is slow (each connection takes 100 ms): 200 bots would take 10 s on two
+        // writers. The sweep gets 600 ms and has to come back then, naming the bots it did not get to.
+        Connection con = mockPool(accepting());
+        BotDbGate.useMaxWaitForTest(10_000);
+        BotStore.useConnectionSourceForTest(BotDbGate.gatedForTest(() -> {
+            try {
+                Thread.sleep(100);
+            } catch (InterruptedException e) {
+                Thread.currentThread().interrupt();
+            }
+            return con;
+        }));
+        java.util.concurrent.ExecutorService other = java.util.concurrent.Executors.newSingleThreadExecutor();
+        java.util.concurrent.CountDownLatch release = holdTheWholeShare(other);
+        try {
+            List<Character> all = bots(200);
+            long started = System.nanoTime();
+            BotStore.SweepReport report = BotStore.settleAndSaveAll(all, 600, 2);
+            long ms = java.util.concurrent.TimeUnit.NANOSECONDS.toMillis(System.nanoTime() - started);
+
+            assertAll(
+                    () -> assertTrue(ms < 2_500, "took " + ms + " ms against a 600 ms budget"),
+                    () -> assertTrue(report.saved() > 0, "it wrote what it could in the time"),
+                    () -> assertFalse(report.unsaved().isEmpty(), "and it did not get to every bot"),
+                    () -> assertTrue(report.saved() + report.failed() + report.unsaved().size() >= all.size(),
+                            "every bot is either written, failed or named as not written: " + report),
+                    () -> assertTrue(report.unsaved().stream().anyMatch(name -> name.startsWith("Sweep199 (")),
+                            "the bots it did not write are named, by name and id"));
+        } finally {
+            release.countDown();
+            other.shutdown();
+            assertTrue(other.awaitTermination(5, java.util.concurrent.TimeUnit.SECONDS));
+            BotStore.useConnectionSourceForTest(null);
+            BotDbGate.useMaxWaitForTest(0);
+        }
+    }
+
     @Test
     void anOpenWindowIsClosedThroughTheTradesOwnPath() {
         Character bot = newBot(BOT_ID, "Trader");

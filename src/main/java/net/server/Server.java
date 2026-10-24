@@ -62,6 +62,7 @@ import server.life.PlayerNPCFactory;
 import server.quest.Quest;
 import service.NoteService;
 import soloMapling.ArtificialPlayer.BotClientHandler;
+import soloMapling.ArtificialPlayer.BotDbGate;
 import soloMapling.ArtificialPlayer.BotRoster;
 import soloMapling.ArtificialPlayer.BotStore;
 import soloMapling.ArtificialPlayer.BotYieldCaps;
@@ -69,6 +70,7 @@ import soloMapling.Environment.EnvironmentManager;
 import soloMapling.server.BotShutdown;
 import soloMapling.server.BotTickService;
 import soloMapling.server.MethodScheduler;
+import soloMapling.server.ShutdownSaves;
 import tools.DatabaseConnection;
 import tools.HairsAndFacesHandler;
 import tools.PacketCreator;
@@ -2038,45 +2040,79 @@ public class Server {
         return () -> shutdownInternal(restart);
     }
 
+    /**
+     * The bot phase of a shutdown, within {@code budgetMs}. Every database call here goes straight to the pool
+     * ({@link BotDbGate#unmetered}): the players are saved already, and bot work still in flight may be holding
+     * the bots' share.
+     */
+    private void shutdownBots(long budgetMs) {
+        long deadline = System.nanoTime() + java.util.concurrent.TimeUnit.MILLISECONDS.toNanos(budgetMs);
+        BotDbGate.unmetered((Runnable) () -> {
+            // Ticket 09: bot activity is not part of the player disconnect path either. Quiesce it and drain what
+            // is already in flight BEFORE the settlement sweep and before the worlds dispose their maps, so the
+            // sweep records a population nothing is mutating and no bot task (wheel, combat ticker, scanner,
+            // movement tick) runs against a map whose footholds are already gone.
+            BotShutdown.begin();
+            BotTickService.stop();
+        });
+        // Ticket 06: bots never log in - the one Client they share has no player attached to it - so their state
+        // is settled and written here, while the worlds (and therefore their maps) are still alive. An open trade
+        // window is closed first: it holds items and mesos out of both wallets.
+        for (World w : getWorlds()) {
+            PlayerStorage players = w.getPlayerStorage();
+            if (players == null) {
+                continue;
+            }
+            List<Character> everyone = new ArrayList<>(players.getAllCharacters());
+            long leftMs = java.util.concurrent.TimeUnit.NANOSECONDS.toMillis(deadline - System.nanoTime());
+            BotStore.SweepReport report = BotStore.settleAndSaveAll(everyone, Math.max(0, leftMs),
+                    ShutdownSaves.BOT_WRITERS);
+            log.info("Shutdown: {} bots written, {} failed, {} not written in the budget, in {} ms",
+                    report.saved(), report.failed(), report.unsaved().size(), report.elapsedMs());
+            if (!report.unsaved().isEmpty()) {
+                log.warn("Shutdown: the bot save ran out of its {} ms budget; these {} bots resume from their last"
+                        + " save: {}", budgetMs, report.unsaved().size(), String.join(", ", report.unsaved()));
+            }
+            if (deadline - System.nanoTime() > 0) {
+                BotDbGate.unmetered((Runnable) () -> BotRoster.recordSessions(everyone, System.currentTimeMillis(), true));
+            }
+        }
+        if (deadline - System.nanoTime() > 0) {
+            BotDbGate.unmetered((Runnable) BotYieldCaps::flush);   // ticket 15: bots' daily meso counts survive the restart
+        }
+    }
+
     private synchronized void shutdownInternal(boolean restart) {
-
-        for (Client client : Server.getInstance().connectedClients.values()) {
-            client.disconnect(true, false);
-        }
-
-        try {
-            Thread.sleep(5000);
-        } catch (InterruptedException ie) {
-            ie.printStackTrace();
-        }
         log.info("{} the server!", restart ? "Restarting" : "Shutting down");
         if (getWorlds() == null) {
             return;//already shutdown
         }
 
-        if (soloMapling.server.MapleRootSolo.isEnabled()) {
-            // Ticket 09: bot activity is not part of the player disconnect path either, and nothing below stops
-            // it. Quiesce it and drain what is already in flight BEFORE the settlement sweep and before the
-            // worlds dispose their maps, so the sweep records a population nothing is mutating and no bot task
-            // (wheel, combat ticker, scanner, movement tick) runs against a map whose footholds are already gone.
-            BotShutdown.begin();
-            BotTickService.stop();
-
-            // Ticket 06: bots are not part of the player disconnect path below - they never log in, and the one
-            // Client they share has no player attached to it - so their state is settled and written here,
-            // while the worlds (and therefore their maps) are still alive. An open trade window is closed first:
-            // it holds items and mesos out of both wallets, and the player on the other side is saved later in
-            // this same sequence, so a window left open would be written out as a loss for that player.
-            for (World w : getWorlds()) {
-                PlayerStorage players = w.getPlayerStorage();
-                if (players != null) {
-                    List<Character> everyone = new ArrayList<>(players.getAllCharacters());
-                    BotStore.settleAndSaveAll(everyone);
-                    BotRoster.recordSessions(everyone, System.currentTimeMillis(), true);
+        // 1.5.0 release rehearsal: the real players are saved first and the shutdown waits for their saves; only
+        // then does any bot work start, and that runs under a time budget (ShutdownSaves). Before, the bot sweep
+        // ran ahead of the world shutdown, waited 15 s on the bots' share of the pool for each bot, and systemd
+        // killed the server after five minutes - with the real players' final save still to come.
+        ShutdownSaves.run(new ShutdownSaves.Steps() {
+            @Override
+            public void saveRealPlayers(long budgetMs) {
+                List<Client> clients = new ArrayList<>(connectedClients.values());
+                // A disconnect closes the player's trades and shops (refunding a bot on the other side, which is
+                // written later) and saves the character, straight on the pool: never through the bots' share.
+                List<Client> late = ShutdownSaves.forEachWithin(clients, Client::forceDisconnect,
+                        ShutdownSaves.PLAYER_SAVERS, budgetMs);
+                log.info("Shutdown: {} connected client(s) disconnected and saved", clients.size() - late.size());
+                for (Client c : late) {
+                    log.warn("Shutdown: the save of account {} was not done after {} ms", c.getAccountName(), budgetMs);
                 }
             }
-            BotYieldCaps.flush();   // ticket 15: bots' daily meso counts survive the restart
-        }
+
+            @Override
+            public void saveBots(long budgetMs) {
+                if (soloMapling.server.MapleRootSolo.isEnabled()) {
+                    shutdownBots(budgetMs);
+                }
+            }
+        });
 
         for (World w : getWorlds()) {
             w.shutdown();

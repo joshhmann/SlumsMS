@@ -466,6 +466,9 @@ public final class BotPopulationDirector {
      * waits for a slot; true when the bot logged in.
      */
     public static boolean logInBounded(int botId) {
+        if (BotShutdown.isQuiesced()) {
+            return false; // 1.5.0 rehearsal: a boot fill queued behind the slots must not log in during a shutdown
+        }
         try {
             LOGIN_SLOTS.acquire();
         } catch (InterruptedException e) {
