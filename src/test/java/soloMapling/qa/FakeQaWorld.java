@@ -317,6 +317,22 @@ class FakeQaWorld implements QaWorld {
         return ids;
     }
 
+    int mobLevel = -1;
+    int mobsHit = 0;
+
+    @Override public int mobLevel(Character gm) { return mobLevel; }
+
+    @Override public int playerHitsMobs(Character gm, int rangeX, int rangeY, int max) {
+        calls.add("hitmobs " + rangeX + " " + max);
+        mobsHit++;
+        return Math.min(max, mobs);
+    }
+
+    @Override public String stepOntoBot(Character gm, List<Integer> botIds, int minAwayPx) {
+        calls.add("stepon " + botIds + " " + minAwayPx);
+        return botIds.isEmpty() ? null : "bot" + botIds.get(0);
+    }
+
     @Override public void unstageGrinders(List<Integer> ids) { grindersUnstaged.addAll(ids); calls.add("ungrinders " + ids); }
 
     @Override public List<String> grinderReport(List<Integer> ids, String what) {

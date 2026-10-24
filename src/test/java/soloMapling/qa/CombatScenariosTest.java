@@ -78,6 +78,46 @@ class CombatScenariosTest {
     }
 
     @Test
+    void cb2StagesItsClassesNearTheMapsMobLevel() {
+        // rc6 triage (t-cb-2, 25 of 52 positions bad): level 120 bots on the level 10 Henesys Hunting Ground
+        world.mobLevel = 10;
+        start("cb-2");
+        assertTrue(called("grinders WARRIOR:15,MAGICIAN:15,BOWMAN:15,THIEF:15 x4"), world.calls.toString());
+        assertEquals(List.of("HERO:125", "FP_ARCHMAGE:125", "BOWMASTER:125", "NIGHTLORD:125"),
+                CombatScenarios.Cb2Positioning.jobsNear(120));
+        assertEquals(List.of("FIGHTER:45", "FP_WIZARD:45", "HUNTER:45", "ASSASSIN:45"),
+                CombatScenarios.Cb2Positioning.jobsNear(40));
+        assertEquals(CombatScenarios.DEFAULT_JOBS, CombatScenarios.Cb2Positioning.jobsNear(-1), "no mob level: as before");
+        for (int lv : new int[]{1, 10, 29, 64, 70, 118, 150}) {
+            for (String j : CombatScenarios.Cb2Positioning.jobsNear(lv)) {
+                int level = Integer.parseInt(j.split(":")[1]);
+                assertTrue(Math.abs(level - lv) <= 20, j + " vs mobs " + lv);
+            }
+        }
+    }
+
+    @Test
+    void cb2TakesTheJobsGivenAsTheyAre() {
+        world.mobLevel = 10;
+        start("cb-2", "hero");
+        assertTrue(called("grinders hero x1"));
+    }
+
+    @Test
+    void cb4StepsOntoABotsSpotAndFights() {
+        // rc6 triage (t-cb-4: no YIELD/LEAVE/MOVE ON): a pretend player that stands still and never attacks gives a
+        // mannerly bot nothing to yield
+        Character gm = start("cb-4");
+        suite.action(gm, "stepon", new String[0]);
+        assertTrue(called("stepon [900, 901, 902] 150"), world.calls.toString());
+        suite.action(gm, "fight", new String[0]);
+        assertEquals(1, world.mobsHit);
+        scheduler.repeating.forEach(Runnable::run);
+        assertEquals(2, world.mobsHit, "fights again on the tick");
+        suite.stop(1, "!qa stop");
+    }
+
+    @Test
     void sp1StartsAClumpAndTalliesTheSpread() {
         start("sp-1", "10");
         assertTrue(called("grinders random x10"));
