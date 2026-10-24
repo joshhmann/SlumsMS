@@ -1,0 +1,38 @@
+package soloMapling.ArtificialPlayer;
+
+import org.junit.jupiter.api.Test;
+import java.util.concurrent.CountDownLatch;
+import java.util.concurrent.TimeUnit;
+import static org.junit.jupiter.api.Assertions.*;
+
+class BotChannelVirtualThreadTest {
+    @Test void waitingLoginsLeaveWorkersFreeToResumeTheStorageOwner() throws Exception {
+        Process child = new ProcessBuilder(System.getProperty("java.home") + "/bin/java",
+                "-Djdk.virtualThreadScheduler.parallelism=2", "-Djdk.virtualThreadScheduler.maxPoolSize=2",
+                "-cp", System.getProperty("java.class.path"), Probe.class.getName()).redirectErrorStream(true).start();
+        try {
+            assertTrue(child.waitFor(25, TimeUnit.SECONDS), "reservation probe did not finish");
+            assertEquals(0, child.exitValue(), new String(child.getInputStream().readAllBytes()));
+        } finally { child.destroyForcibly(); }
+    }
+    public static class Probe {
+        public static void main(String[] args) throws Exception {
+            CountDownLatch holding = new CountDownLatch(1), storageReady = new CountDownLatch(1);
+            Thread owner = Thread.startVirtualThread(() -> BotChannels.withReservationLock(() -> {
+                holding.countDown();
+                try { storageReady.await(); } catch (InterruptedException e) { throw new RuntimeException(e); }
+                return null;
+            }));
+            if (!holding.await(5, TimeUnit.SECONDS)) System.exit(2);
+            Thread waiter = Thread.startVirtualThread(() -> BotChannels.release(1));
+            long deadline = System.nanoTime() + TimeUnit.SECONDS.toNanos(5);
+            while (waiter.getState() != Thread.State.BLOCKED && waiter.getState() != Thread.State.WAITING) {
+                if (System.nanoTime() > deadline) System.exit(3);
+                Thread.sleep(10);
+            }
+            Thread.startVirtualThread(storageReady::countDown);
+            owner.join(10_000); waiter.join(1_000);
+            if (owner.isAlive() || waiter.isAlive()) { System.err.println("all workers pinned by channel reservations"); System.exit(4); }
+        }
+    }
+}
