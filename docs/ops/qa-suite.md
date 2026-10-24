@@ -179,7 +179,7 @@ Only maps a real player can see run any of this; offscreen grinders keep the che
 `!botcombat pets [n]` holds n (default 3) grinders with looting pets next to you (as pt-1), `!botcombat pet <bot>`
 prints a bot's pet, pet equips and loot style.
 
-## Ticket 59: natural conversations (cv-1 .. cv-8)
+## Ticket 59: natural conversations (cv-1 .. cv-9)
 
 Every bot is an on-demand bot staged next to you (ticket 58's staging: it counts you as the given state), memory only,
 and it leaves at stop. The `CONVO` topic logs how each of your lines was read (`INTENT ... -> action: YES/NO (reason)
@@ -197,6 +197,9 @@ run alongside.
 | `cv-6` | A friend bot. `!qa do last` | Talk, then `!rate good` / `!rate bad too formal "certainly"`: `RATE` with what changed (a bank line's weight, or the tune file's examples and don't-say list). `!rate last` shows the line and its source |
 | `cv-7` | Bank mode ON for the whole server while it runs (`-Dsolomapling.convo.forceBank`), and a friend bot. `!qa do llm` / `!qa do bank` | Every reply is `SAID ... bank#id` or scripted, in the bot's voice, not repeating; flip to the LLM and back to compare. Stop turns bank mode off |
 | `cv-8` `[question...]` | A stranger bot next to you asks the map a scripted question (default "anyone from the east coast?"), like an ambient pack line. `!qa do ask [question]` asks again | Answer within 60 s WITHOUT its name ("im from the east"): `ROUTE` shows it went to the asker, `PROMPT` the exact prompt (system \|\| history with its question as its own turn \|\| the map transcript, its lines marked `(you)`, then `You just said: ... answered: ...`), and `SAID` follows up on its own question |
+| `cv-9` `[line...]` | A friend bot next to you. `!qa do hold` says a line to it, unpins it and starts the wander a town wanderer's `ensureRoaming` starts (the walk that used to carry a chatting bot off). `!qa do sample` logs the distance again | `HOLD <bot>: <px> px from you, <s> s of hold left, with you\|WANDERED OFF (150 px)`. Every line must read "with you" for the 45 s after the last exchange: the conversation hold keeps it there (a third character does not push it away, personal space keeps the pair together). Auto-QA runs it as `t-cv-8` (five samples 5 s apart) |
+
+**Hanging around:** a bot in a conversation is held in place for 45 s after the last exchange (`BotConversation.HOLD_MS`, from the player's line, its reply, the typing time and a player who names the bot). Every ambient walk skips while `BotConversation.isHoldingChat` is true: the town wander (`BotWanderSystem`: an in-flight stroll is stopped and the dwell runs to the end of the hold), loiter (`TownLoiter`), fidget (`GCFidget`), `SocialBot`'s relocate, `TownWandererBot`/`HenesysBot` roaming, the training bot's town dwells, and personal space (`PersonalSpace.keepNow`: a partner keeps the pair 18-27 px apart, a third character no longer displaces the bot). Grinding combat is not held. It yields to a real reason to go: a shutdown quiesce, the logout curve, an event instance, or a drama scene (`heldByChat`).
 
 **`!rate`** (GM 1+, every server): `!rate good|bad [note]` rates the last line a bot said to you (10 min; a thread line
 on your map: 2 min), `!rate last`, `!rate reload` (re-reads `data/convo/tune.json`), `!rate score [yyyy-mm-dd]` writes

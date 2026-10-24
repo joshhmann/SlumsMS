@@ -9,6 +9,7 @@ import soloMapling.ArtificialPlayer.BotBrainSystem.ChatTriage;
 import soloMapling.ArtificialPlayer.BotMessagingSystem.BotChatRouting;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
+import soloMapling.server.BotShutdown;
 import soloMapling.server.BotTiming;
 import soloMapling.server.ExecutorServiceManager;
 
@@ -39,6 +40,15 @@ public final class BotConversation {
 
     static final int HISTORY_TURNS = 8;
     static final long IDLE_MS = TimeUnit.SECONDS.toMillis(60);
+
+    /**
+     * Owner report 2026-10-24: a bot in a conversation walked off mid-sentence. {@link #IDLE_MS} kept the chat but
+     * nothing kept the bot in place, so the town wander, the fidget and a social bot's relocate all moved it away.
+     * This is how long after the last exchange (either side, counting the time its reply is still typing) the bot
+     * keeps its spot: 45 s, between the owner's 30 s floor and the 60 s session. Movement paths ask
+     * {@link #isHoldingChat(Character)}; nothing holds a bot that has a real reason to go.
+     */
+    static final long HOLD_MS = TimeUnit.SECONDS.toMillis(45);
 
     private record Key(int botId, int playerId) {
     }
@@ -83,6 +93,10 @@ public final class BotConversation {
     }
 
     private static final Map<Key, Session> sessions = new ConcurrentHashMap<>();
+    /** Bot id -> the moment its conversation hold ends. One entry per bot that is talking or just talked. */
+    private static final Map<Integer, Long> holds = new ConcurrentHashMap<>();
+    /** Test seam: the hold length, {@link #HOLD_MS} in production. */
+    private static volatile long holdLengthMs = HOLD_MS;
     private static volatile boolean sweeperStarted;
 
     private BotConversation() {
@@ -103,6 +117,10 @@ public final class BotConversation {
      */
     public static boolean say(BotSM bot, Character player, String line, Runnable fallback, Consumer<String> deliver) {
         if (!BotBrains.get().isLive()) {
+            // no LLM: the caller answers from its script, but the player is still talking to this bot, so it stays put
+            if (bot != null && bot.getChr() != null && player != null) {
+                hold(bot.getChr().getId(), System.currentTimeMillis());
+            }
             return false;
         }
         return start(bot, player, line, fallback, deliver);
@@ -151,6 +169,7 @@ public final class BotConversation {
                 k -> new Session(bot, player, now));
         Session session = new Session(conversation, deliver, priority);
         session.state.lastAt = now;
+        hold(bot.getChr().getId(), now); // owner report 2026-10-24: the busy bot stays with the player it answers
         // Owner report 2026-10-22: what was said in public on the map, and the bot's own line the player answers
         Heard heard = deliver == null ? heard(bot.getChr(), player, now) : Heard.NONE;
         List<BotBrain.Turn> history;
@@ -222,6 +241,7 @@ public final class BotConversation {
         startSweeper();
         long now = System.currentTimeMillis();
         sessions.computeIfAbsent(new Key(bot.getChr().getId(), player.getId()), k -> new Session(bot, player, now)).state.lastAt = now;
+        hold(bot.getChr().getId(), now); // a player who just named the bot is having a conversation with it
     }
 
     /** Ticket 59: whether this bot is mid-chat with any player (a bot thread leaves it alone). */
@@ -255,6 +275,65 @@ public final class BotConversation {
         return latest == null ? -1 : latest.bot.getChr().getId();
     }
 
+    /**
+     * How much longer this bot keeps its spot for the conversation it is in, in ms; 0 when it is free to wander.
+     * The callers are the movement paths (town wander, fidget, relocate, town loiter): a held bot answers, emotes
+     * and faces the player, it just does not stroll off. Cheap: one map read, no allocation.
+     */
+    public static long holdMs(int botCharId) {
+        Long until = holds.get(botCharId);
+        if (until == null) {
+            return 0;
+        }
+        long left = until - System.currentTimeMillis();
+        if (left <= 0) {
+            holds.remove(botCharId, until);
+            return 0;
+        }
+        return left;
+    }
+
+    /** Whether this bot is mid-conversation and so must keep near the player it is talking to. */
+    public static boolean isHoldingChat(int botCharId) {
+        return holdMs(botCharId) > 0;
+    }
+
+    /**
+     * As {@link #isHoldingChat(int)}, for a bot with a real reason to leave: the server is quiescing, the bot is
+     * logging out, or a drama scene / party quest owns its movement. Null when none of that applies.
+     */
+    public static Character heldByChat(Character bot) {
+        if (bot == null || BotShutdown.isQuiesced() || !isHoldingChat(bot.getId())) {
+            return null;
+        }
+        try {
+            if (bot.getEventInstance() != null || BotLogout.isLeaving(bot.getId())
+                    || soloMapling.ArtificialPlayer.BotDramaSystem.DramaKit.inScene(bot.getId())) {
+                return null;
+            }
+        } catch (RuntimeException | LinkageError e) {
+            return null;
+        }
+        return bot;
+    }
+
+    /** As {@link #heldByChat(Character)}: whether this bot keeps its spot for the chat right now. */
+    public static boolean isHoldingChat(Character bot) {
+        return heldByChat(bot) != null;
+    }
+
+    /** Records an exchange at {@code at}: the bot keeps its spot until {@link #HOLD_MS} after it. */
+    private static void hold(int botCharId, long at) {
+        long until = Math.max(System.currentTimeMillis(), at) + holdLengthMs;
+        holds.merge(botCharId, until, Math::max);
+    }
+
+    /** Test seam: shortens or restores the hold; also clears it so one test's chat cannot hold the next one's bot. */
+    static void holdMsForTest(long ms) {
+        holdLengthMs = ms;
+        holds.clear();
+    }
+
     /** The chat is over: forget it, and let the bot write down what it wants to remember. */
     public static void end(int botCharId, int playerId) {
         Session session = sessions.remove(new Key(botCharId, playerId));
@@ -275,6 +354,7 @@ public final class BotConversation {
 
     /** Ends every chat of a bot that is leaving the world. */
     public static void endAllOf(int botCharId) {
+        holds.remove(botCharId); // a bot leaving the world keeps no hold for the next one that gets its id
         for (Key key : new ArrayList<>(sessions.keySet())) {
             if (key.botId() == botCharId) {
                 end(key.botId(), key.playerId());
@@ -710,6 +790,7 @@ public final class BotConversation {
         soloMapling.ArtificialPlayer.BotConvo.ConvoQuality.timing(bot, player, plan, System.currentTimeMillis() - asked);
         // a late answer or a "brb" keeps the chat open until it is said (the sweeper ends chats idle for a minute)
         session.state.lastAt = Math.max(session.state.lastAt, System.currentTimeMillis() + plan.totalMs());
+        hold(bot.getId(), session.state.lastAt); // its reply is an exchange too, typing time included
         int face = deliver != null || cue == null ? ReplyEmote.NONE
                 : ReplyEmote.pick(cue.triage(), cue.outcome(), cue.asked(), line, ThreadLocalRandom.current());
         String fullDetail = detail + (said.fromBank() ? " bank#" + said.bankId() : "") + " plan=" + plan.kind();
@@ -743,6 +824,7 @@ public final class BotConversation {
                                     soloMapling.ArtificialPlayer.BotConvo.ClaimRules.classify("brb"));
                         }
                         session.state.lastAt = System.currentTimeMillis();
+                        hold(bot.getId(), session.state.lastAt); // the line just went out: the hold runs from it
                         if (deliver == null) { // ticket 37: having answered, the bot keeps listening a while longer
                             BotChatRouting.touchAttention(player.getId(), bot.getId(), session.state.lastAt);
                         }
@@ -807,6 +889,9 @@ public final class BotConversation {
                     if (now - entry.getValue().state.lastAt > IDLE_MS) {
                         end(entry.getKey().botId(), entry.getKey().playerId());
                     }
+                }
+                if (!holds.isEmpty()) {
+                    holds.entrySet().removeIf(e -> e.getValue() <= now); // a lapsed hold keeps nobody in place
                 }
             }, 10, 10, TimeUnit.SECONDS);
         }

@@ -233,6 +233,22 @@ public final class BotWanderSystem {
         Point bp = bot.getPosition();
         long now = nowMs();
 
+        // Owner report 2026-10-24: a bot mid-conversation keeps its place next to the player instead of strolling
+        // off - the chat session alone never held the movement. An in-flight stroll is stopped here, and the dwell
+        // is pushed out to the end of the hold so the stroll resumes only once the chat is over.
+        long holdMs = soloMapling.ArtificialPlayer.BotConversation.heldByChat(bot) == null
+                ? 0 : soloMapling.ArtificialPlayer.BotConversation.holdMs(bot.getId());
+        if (holdMs > 0) {
+            if (w.state == WALKING) {
+                w.state = DWELLING;
+                w.target = null;
+                w.bestDist = Integer.MAX_VALUE;
+                GCMovement.stop(bot);
+            }
+            w.dwellUntilMs = Math.max(w.dwellUntilMs, now + holdMs);
+            return;
+        }
+
         if (w.state == DWELLING) {
             if (now < w.dwellUntilMs) {
                 return; // still loitering

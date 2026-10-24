@@ -185,6 +185,9 @@ public class HenesysBot extends BotSM {
      * sometimes moves to a nearby one, sometimes picks from the full map.
      */
     private void wanderPlatforms() {
+        if (soloMapling.ArtificialPlayer.BotConversation.isHoldingChat(getChr())) {
+            return; // owner report 2026-10-24: stands its ground while a player talks to it
+        }
         List<String> platforms = getWanderablePlatforms(getChr().getMapId());
         if (platforms.isEmpty()) return;
 
@@ -232,6 +235,9 @@ public class HenesysBot extends BotSM {
     }
 
     private void changeMap() {
+        if (soloMapling.ArtificialPlayer.BotConversation.isHoldingChat(getChr())) {
+            return; // owner report 2026-10-24: no map hop away from the player it is talking to
+        }
         Set<Integer> connected = portalConnection.getConnectedMaps(getChr().getMapId());
         if (connected.isEmpty()) return;
 

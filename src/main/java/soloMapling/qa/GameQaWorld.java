@@ -318,6 +318,32 @@ final class GameQaWorld implements QaWorld {
                 }
             }
             case "last" -> out.addAll(soloMapling.ArtificialPlayer.BotConvo.ConvoQuality.describeLast(gm));
+            case "hold" -> {
+                // !qa cv-9 (owner report 2026-10-24): the player's line, then the walk-away, so every run stages it
+                Character a = bots.isEmpty() ? null : BotHelpers.getCharFromChannelStorage(bots.get(0));
+                if (a == null || a.getMap() == null || gm.getMap() == null || a.getMapId() != gm.getMapId()) {
+                    out.add("needs a staged bot on your map");
+                    break;
+                }
+                String line = args.length == 0 ? "hey where are you going?" : String.join(" ", args);
+                soloMapling.ArtificialPlayer.StageSpots.unpin(a.getId()); // the owner's bot is no pinned test prop
+                soloMapling.ArtificialPlayer.BotSM sm =
+                        soloMapling.ArtificialPlayer.BotMessagingSystem.CharacterStorage.getBotById(a.getId());
+                boolean heard = sm != null
+                        && soloMapling.ArtificialPlayer.BotConversation.say(sm, gm, line, null);
+                out.add("you said \"" + line + "\"" + (heard ? "" : " (no model: its script answers)"));
+                // the wander a town wanderer's ensureRoaming starts: the walk that used to carry it off mid-chat
+                soloMapling.ArtificialPlayer.BotWanderSystem.BotWanderSystem.start(a);
+                out.add(holdLine(gm, a, "the wander is on"));
+            }
+            case "sample" -> {
+                Character a = bots.isEmpty() ? null : BotHelpers.getCharFromChannelStorage(bots.get(0));
+                if (a == null || a.getMap() == null || gm.getMap() == null) {
+                    out.add("needs a staged bot on your map");
+                    break;
+                }
+                out.add(holdLine(gm, a, null));
+            }
             case "ask" -> {
                 // !qa cv-8: the bot says a scripted question in map chat, exactly like an ambient pack line
                 Character a = bots.isEmpty() ? null : BotHelpers.getCharFromChannelStorage(bots.get(0));
@@ -338,6 +364,21 @@ final class GameQaWorld implements QaWorld {
             default -> out.add("unknown chat step " + action);
         }
         return out;
+    }
+
+    /** How far a chatting bot may be from the player it is talking to, in px. */
+    static final int HOLD_PX = 150;
+
+    /** !qa cv-9: the distance that is logged every few seconds, and the QA log line the auto-QA check reads. */
+    private static String holdLine(Character gm, Character bot, String note) {
+        long left = soloMapling.ArtificialPlayer.BotConversation.holdMs(bot.getId());
+        int px = (int) Math.round(Math.hypot(bot.getPosition().x - gm.getPosition().x,
+                bot.getPosition().y - gm.getPosition().y));
+        String line = "HOLD bot " + bot.getId() + " (" + bot.getName() + "): " + px + " px from you, "
+                + Math.round(left / 1_000.0) + " s of hold left, " + (px <= HOLD_PX ? "with you" : "WANDERED OFF")
+                + (note == null ? "" : " (" + note + ")");
+        soloMapling.qa.QaLog.owner(soloMapling.qa.QaLog.Topic.CONVO, gm.getId(), line);
+        return line;
     }
 
     /** How a line is read: rules, then the Decide call (blocking: call it off the command thread). */

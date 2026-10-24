@@ -112,7 +112,12 @@ Owner-reported or found, roughly by priority:
 - **A bot you're talking to walks away** mid-conversation (personal space or its wander habit pulls it away). A
   conversation partner should stay put ~30-60 s. Source audit: `BotConversation` already keeps a 60 s session,
   but the wanderer and fidget paths do not use it as a movement hold; personal space only recognises the pair.
-  This remains unfixed.
+  **Fixed on `151-convo-hold`:** `BotConversation.holdMs/isHoldingChat/heldByChat` holds a bot 45 s from the last
+  exchange (a player's line, its reply, the typing time); the wander stops an in-flight stroll and the dwell runs
+  to the end of the hold, and loiter, fidget, `SocialBot` relocate, `TownWandererBot`/`HenesysBot` roaming, the
+  training bot's town dwells and `PersonalSpace.keepNow` consult it. Yields to a shutdown quiesce, the logout
+  curve, an event instance and a drama scene; grinding combat is not held. QA `cv-9` / auto-QA `t-cv-8`. Needs a
+  TEST run and the owner in game.
 - **Guide pages too long** for the v83 NPC window (a scrollbar shows). Cut each page to about 6-7 short lines; check
   in a real client.
 - **"overlap" health check** still flags some stacked town bots; `foothold` flags ~1% (27 of 2,713) off the ground.
