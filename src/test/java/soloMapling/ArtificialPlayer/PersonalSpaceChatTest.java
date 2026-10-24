@@ -23,6 +23,7 @@ import java.sql.ResultSet;
 import java.util.List;
 import java.util.Optional;
 import java.util.concurrent.CompletableFuture;
+import java.util.concurrent.TimeUnit;
 
 import static org.junit.jupiter.api.Assertions.*;
 import static org.mockito.ArgumentMatchers.*;
@@ -100,6 +101,7 @@ class PersonalSpaceChatTest {
         BotRoster.useConnectionSourceForTest(null);
         ChatStats.resetForTest();
         BotConversation.holdMsForTest(BotConversation.HOLD_MS);
+        BotConversation.clockForTest(null);
     }
 
     private static Character character(int id, String name, Point at) {
@@ -168,14 +170,37 @@ class PersonalSpaceChatTest {
         }
     }
 
+    /**
+     * Waits until the bot's answer is out. The reply's own virtual thread arms the hold just before it counts the
+     * reply, so once it is counted no further hold can arrive: the wait is on that event, never on a bare sleep.
+     */
+    private static void awaitReply(long repliesBefore) throws InterruptedException {
+        long deadline = System.nanoTime() + TimeUnit.SECONDS.toNanos(10);
+        while (replies() <= repliesBefore) {
+            assertTrue(System.nanoTime() < deadline, "the bot never finished its reply");
+            Thread.sleep(2);
+        }
+    }
+
+    private static long replies() {
+        long n = 0;
+        for (long c : ChatStats.tierCounts()) {
+            n += c;
+        }
+        return n;
+    }
+
     @Test
     void onceTheHoldLapsesAStrangerMayClearTheSpotAgain() throws Exception {
         Character bot = town(BotStore.BOT_ID_BASE + 60_020, new Point(0, 274), new Point(40, 274), new Point(12, 274));
-        BotConversation.holdMsForTest(40); // a 40 ms hold, cleared: this test's chat arms it afresh
+        long repliesBefore = replies();
         chat(bot, "hey, where are you going?");
-        for (int i = 0; i < 100 && BotConversation.isHoldingChat(bot); i++) {
-            Thread.sleep(25); // the bot's own reply re-arms the hold once; then it lapses
-        }
+        awaitReply(repliesBefore);
+        // The lapse is the hold clock's, not the test's: jump past the hold instead of sleeping through it (the bot's
+        // reply re-arms the hold, and a line that goes out late would arm it again after a sleep had seen it gone).
+        java.util.concurrent.atomic.AtomicLong ahead =
+                new java.util.concurrent.atomic.AtomicLong(BotConversation.HOLD_MS + 1_000);
+        BotConversation.clockForTest(() -> System.currentTimeMillis() + ahead.get());
         assertFalse(BotConversation.isHoldingChat(bot), "the hold lapsed");
         try (var movement = mockStatic(GCMovement.class); var commands = mockStatic(MovementCommands.class);
              var tuning = mockStatic(BotCombatTuning.class)) {
