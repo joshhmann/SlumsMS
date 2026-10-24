@@ -78,6 +78,7 @@ class PersonalSpaceChatTest {
         BotMemory.useConnectionSourceForTest(fake);
         BotRoster.useConnectionSourceForTest(fake);
         BotConversation.holdMsForTest(BotConversation.HOLD_MS);
+        BotConversation.holdExpiryClockForTest(null);
     }
 
     private PreparedStatement statement() throws Exception {
@@ -100,6 +101,7 @@ class PersonalSpaceChatTest {
         BotRoster.useConnectionSourceForTest(null);
         ChatStats.resetForTest();
         BotConversation.holdMsForTest(BotConversation.HOLD_MS);
+        BotConversation.holdExpiryClockForTest(null);
     }
 
     private static Character character(int id, String name, Point at) {
@@ -171,11 +173,10 @@ class PersonalSpaceChatTest {
     @Test
     void onceTheHoldLapsesAStrangerMayClearTheSpotAgain() throws Exception {
         Character bot = town(BotStore.BOT_ID_BASE + 60_020, new Point(0, 274), new Point(40, 274), new Point(12, 274));
-        BotConversation.holdMsForTest(40); // a 40 ms hold, cleared: this test's chat arms it afresh
         chat(bot, "hey, where are you going?");
-        for (int i = 0; i < 100 && BotConversation.isHoldingChat(bot); i++) {
-            Thread.sleep(25); // the bot's own reply re-arms the hold once; then it lapses
-        }
+        // A pending reply can re-arm a real-time 40 ms hold between the expiry assertion and keepNow.
+        // Move only the expiry clock instead: every reply in this fixture is before that time.
+        BotConversation.holdExpiryClockForTest(() -> Long.MAX_VALUE);
         assertFalse(BotConversation.isHoldingChat(bot), "the hold lapsed");
         try (var movement = mockStatic(GCMovement.class); var commands = mockStatic(MovementCommands.class);
              var tuning = mockStatic(BotCombatTuning.class)) {

@@ -113,7 +113,7 @@ public final class BotBuffRequestHandler {
         if (message == null || message.isBlank()) {
             return false;
         }
-        String[] tokens = message.trim().toLowerCase().split("\\s+");
+        String[] tokens = soloMapling.ArtificialPlayer.BotBrainSystem.PlayerChatMeaning.requests(message).text().split("\\s+");
         return hasRequestWord(tokens) && matchConcept(tokens) != null;
     }
 
@@ -124,7 +124,7 @@ public final class BotBuffRequestHandler {
         if (message == null || message.isBlank()) {
             return;
         }
-        String[] tokens = message.trim().toLowerCase().split("\\s+");
+        String[] tokens = soloMapling.ArtificialPlayer.BotBrainSystem.PlayerChatMeaning.requests(message).text().split("\\s+");
         if (!hasRequestWord(tokens)) {
             return;
         }
@@ -324,7 +324,7 @@ public final class BotBuffRequestHandler {
 
     /** The buff a line asks this bot for, else the first party buff the bot's job has; null when it has none. */
     private static BuffConcept conceptFor(Character bot, String line) {
-        String[] tokens = line == null ? new String[0] : line.trim().toLowerCase().split("\\s+");
+        String[] tokens = line == null ? new String[0] : soloMapling.ArtificialPlayer.BotBrainSystem.PlayerChatMeaning.requests(line).text().split("\\s+");
         BuffConcept asked = matchConcept(tokens);
         if (asked != null) {
             return resolveSkill(asked, bot) == 0 ? null : asked;

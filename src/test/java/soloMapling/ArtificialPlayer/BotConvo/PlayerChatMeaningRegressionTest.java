@@ -53,4 +53,37 @@ class PlayerChatMeaningRegressionTest {
                 Map.entry("i killed balrog yesterday, can u help kill him today?", ConvoIntent.HELP_KILL));
         examples.forEach((line, intent) -> assertEquals(intent, ConvoSense.rules(line).intent(), line));
     }
+    @Test void scopedNegatorsAndReportingFramesGeneralizeBeyondTheFirstExamples() {
+        for (String line : new String[]{"i can't come to perion now", "no im not selling today",
+                "stop asking me for a buff", "not looking to trade thanks",
+                "some player was yelling party pls near the taxi", "the sign says add me to ur guild",
+                "i bargained for the hat last night"}) {
+            assertEquals(ConvoIntent.TALK, ConvoSense.rules(line).intent(), line);
+        }
+        assertEquals(ConvoIntent.BUFF, ConvoSense.rules("dont forget to buff me pls").intent());
+        assertEquals(ConvoIntent.COME, ConvoSense.rules("no worries, come to perion when u can").intent());
+        assertEquals(ConvoIntent.PARTY, ConvoSense.rules("dont be late, party starts soon").intent());
+    }
+
+    @Test void warningScopesAndFairOffersDoNotLetAModelAccuseThePlayer() {
+        for (String line : new String[]{"be careful of people offering free mesos", "dont trust him with your password",
+                "never share ur password", "its a scam if they want u to give first", "could u take 600k instead",
+                "can you knock 40k off", "selling red pots for mesos, interested?"}) {
+            var read = ConvoSense.combine(line, ChatTriage.rules(line),
+                    Map.of("con", new ChatDecide.Answer("scam", .99)), .4, .8, .4);
+            assertFalse(read.triage().flagged(), line);
+        }
+        assertEquals(ChatTriage.Con.SCAM, ChatTriage.rules("watch out for scammers and give me 10m ill double it").con());
+        assertEquals(ChatTriage.Con.SCAM, ChatTriage.rules("could u take 600k instead, u give first").con());
+        assertEquals(ChatTriage.Con.RWT, ChatTriage.rules("could u take 600k instead paypal").con());
+    }
+
+    @Test void theSeparateBuffShortcutRespectsTheSameRefusalsAndReports() {
+        for (String line : new String[]{"dont bless me pls", "she typed hs pls yesterday", "never give me haste please"}) {
+            assertFalse(soloMapling.ArtificialPlayer.BotBuffRequestSystem.BotBuffRequestHandler.isBuffRequest(line), line);
+        }
+        assertTrue(soloMapling.ArtificialPlayer.BotBuffRequestSystem.BotBuffRequestHandler.isBuffRequest("dont forget hs pls"));
+        assertTrue(soloMapling.ArtificialPlayer.BotBuffRequestSystem.BotBuffRequestHandler.isBuffRequest("she said hs pls, but bless me pls"));
+    }
+
 }

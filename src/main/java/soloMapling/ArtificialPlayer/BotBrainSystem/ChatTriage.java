@@ -211,7 +211,7 @@ public final class ChatTriage {
         if (HARASSMENT.matcher(text).find()) {
             return Optional.of(Con.HARASSMENT);
         }
-        return meaning.filtered() && text.isBlank() ? Optional.of(Con.NORMAL) : Optional.empty();
+        return meaning.filtered() && text.isBlank() || ChatPriceTalk.fair(text) ? Optional.of(Con.NORMAL) : Optional.empty();
     }
 
     /** Rules only: what a bot does when the model is off, slow or down. */

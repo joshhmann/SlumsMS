@@ -49,6 +49,7 @@ public final class BotConversation {
      * {@link #isHoldingChat(Character)}; nothing holds a bot that has a real reason to go.
      */
     static final long HOLD_MS = TimeUnit.SECONDS.toMillis(45);
+    private static volatile java.util.function.LongSupplier holdExpiryClock = System::currentTimeMillis;
 
     private record Key(int botId, int playerId) {
     }
@@ -292,7 +293,7 @@ public final class BotConversation {
         if (until == null) {
             return 0;
         }
-        long left = until - System.currentTimeMillis();
+        long left = until - holdExpiryClock.getAsLong();
         if (left <= 0) {
             holds.remove(botCharId, until);
             return 0;
@@ -339,6 +340,11 @@ public final class BotConversation {
     static void holdMsForTest(long ms) {
         holdLengthMs = ms;
         holds.clear();
+    }
+
+    /** Tests can advance hold expiry past any pending reply without sleeping or racing that reply. */
+    static void holdExpiryClockForTest(java.util.function.LongSupplier clock) {
+        holdExpiryClock = clock == null ? System::currentTimeMillis : clock;
     }
 
     /** The chat is over: forget it, and let the bot write down what it wants to remember. */
