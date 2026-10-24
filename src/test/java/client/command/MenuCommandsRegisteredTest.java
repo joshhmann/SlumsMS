@@ -32,6 +32,13 @@ class MenuCommandsRegisteredTest {
     }
 
     @Test
+    void playersCanGotoTowns() {
+        CommandsExecutor ex = CommandsExecutor.freshForTest();
+        assertEquals(client.command.commands.gm2.GotoCommand.class, ex.classForTest("goto"));
+        assertEquals(0, ex.rankForTest("goto"), "friends asked for town hopping (1.5.0)");
+    }
+
+    @Test
     void theQaMenuIsTheQaCommand() {
         System.setProperty(QaSuite.PROPERTY, "true");
         assertEquals(QaCommand.class, CommandsExecutor.freshForTest().classForTest("qa"));

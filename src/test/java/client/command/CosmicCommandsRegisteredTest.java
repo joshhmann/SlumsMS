@@ -24,8 +24,9 @@ class CosmicCommandsRegisteredTest {
     }
 
     @Test
-    void gotoIsAGmLevelTwoCommand() {
+    void gotoIsAPlayerCommand() {
+        // 1.5.0: the owner opened @goto to players for town hopping (GotoCommand keeps non-GMs to towns)
         List<Pair<List<String>, List<String>>> tiers = CommandsExecutor.getInstance().getGmCommands();
-        assertTrue(tiers.get(2).getLeft().contains("goto"), "GM-2 tier: " + tiers.get(2).getLeft());
+        assertTrue(tiers.get(0).getLeft().contains("goto"), "player tier: " + tiers.get(0).getLeft());
     }
 }

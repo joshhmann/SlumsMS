@@ -269,6 +269,7 @@ public class CommandsExecutor {
         addCommand("guildwar", client.command.commands.gm0.GuildWarCommand.class);   // 1.5.0 bot drama: guild wars
         addCommand("price", client.command.commands.gm0.PriceCommand.class);   // 1.5.0 rc3: the price board
         addCommand("settings", client.command.commands.gm0.SettingsCommand.class);   // 1.5.0: bot settings menu
+        addCommand("goto", 0, GotoCommand.class);   // 1.5.0 (friends asked): players hop between towns; GotoCommand limits non-GMs to GOTO_TOWNS and blocks events, dungeons and no-migrate maps
 	    addCommand("shop", ShopCommand.class);
        // addCommand("damageskin",  DamageSkinCommand.class);
 	    /*
@@ -301,7 +302,6 @@ public class CommandsExecutor {
     private void registerLv2Commands() {
         levelCommandsCursor = new Pair<>(new ArrayList<String>(), new ArrayList<String>());
 
-        addCommand("goto", 2,  GotoCommand.class);
         addCommand("recharge", 2, RechargeCommand.class);
         addCommand("whereami", 2, WhereaMiCommand.class);
         addCommand("hide", 2, HideCommand.class);
