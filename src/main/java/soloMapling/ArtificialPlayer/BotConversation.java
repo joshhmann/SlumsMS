@@ -43,21 +43,42 @@ public final class BotConversation {
     private record Key(int botId, int playerId) {
     }
 
+    /** History and idle expiry are shared across channels; pending replies keep their own destination. */
+    private static final class ConversationState {
+        final List<BotBrain.Turn> history = new ArrayList<>();
+        volatile long lastAt;
+
+        ConversationState(long now) {
+            lastAt = now;
+        }
+    }
+
     private static final class Session {
         final BotSM bot;
         final Character player;
-        final List<BotBrain.Turn> history = new ArrayList<>();
-        volatile long lastAt;
-        /** How the bot answers: in map chat, or back as a whisper when that is how the player spoke (ticket 22). */
-        volatile Consumer<String> deliver;
-        /** Ticket 59: who the LLM call is for (a player's own line, or buddy/party channel chat). */
-        volatile soloMapling.ArtificialPlayer.BotBrainSystem.Priority priority =
-                soloMapling.ArtificialPlayer.BotBrainSystem.Priority.PLAYER;
+        final ConversationState state;
+        final List<BotBrain.Turn> history;
+        /** Immutable for this reply, even if the player switches channels while it is being generated. */
+        final Consumer<String> deliver;
+        final soloMapling.ArtificialPlayer.BotBrainSystem.Priority priority;
 
         Session(BotSM bot, Character player, long now) {
             this.bot = bot;
             this.player = player;
-            this.lastAt = now;
+            this.state = new ConversationState(now);
+            this.history = state.history;
+            this.deliver = null;
+            this.priority = soloMapling.ArtificialPlayer.BotBrainSystem.Priority.PLAYER;
+        }
+
+        Session(Session conversation, Consumer<String> deliver,
+                soloMapling.ArtificialPlayer.BotBrainSystem.Priority priority) {
+            this.bot = conversation.bot;
+            this.player = conversation.player;
+            this.state = conversation.state;
+            this.history = state.history;
+            this.deliver = deliver;
+            this.priority = priority;
         }
     }
 
@@ -107,7 +128,7 @@ public final class BotConversation {
     /** How many lines the player has said in their current chat with this bot (0 when they are not talking). */
     public static int playerLines(int botCharId, int playerId) {
         Session session = sessions.get(new Key(botCharId, playerId));
-        if (session == null || System.currentTimeMillis() - session.lastAt > IDLE_MS) {
+        if (session == null || System.currentTimeMillis() - session.state.lastAt > IDLE_MS) {
             return 0;
         }
         synchronized (session.history) {
@@ -126,11 +147,10 @@ public final class BotConversation {
         }
         startSweeper();
         long now = System.currentTimeMillis();
-        Session session = sessions.computeIfAbsent(new Key(bot.getChr().getId(), player.getId()),
+        Session conversation = sessions.computeIfAbsent(new Key(bot.getChr().getId(), player.getId()),
                 k -> new Session(bot, player, now));
-        session.lastAt = now;
-        session.deliver = deliver;
-        session.priority = priority;
+        Session session = new Session(conversation, deliver, priority);
+        session.state.lastAt = now;
         // Owner report 2026-10-22: what was said in public on the map, and the bot's own line the player answers
         Heard heard = deliver == null ? heard(bot.getChr(), player, now) : Heard.NONE;
         List<BotBrain.Turn> history;
@@ -201,14 +221,14 @@ public final class BotConversation {
         }
         startSweeper();
         long now = System.currentTimeMillis();
-        sessions.computeIfAbsent(new Key(bot.getChr().getId(), player.getId()), k -> new Session(bot, player, now)).lastAt = now;
+        sessions.computeIfAbsent(new Key(bot.getChr().getId(), player.getId()), k -> new Session(bot, player, now)).state.lastAt = now;
     }
 
     /** Ticket 59: whether this bot is mid-chat with any player (a bot thread leaves it alone). */
     public static boolean hasAnyChat(int botCharId) {
         long now = System.currentTimeMillis();
         for (Map.Entry<Key, Session> e : sessions.entrySet()) {
-            if (e.getKey().botId() == botCharId && now - e.getValue().lastAt <= IDLE_MS) {
+            if (e.getKey().botId() == botCharId && now - e.getValue().state.lastAt <= IDLE_MS) {
                 return true;
             }
         }
@@ -218,7 +238,7 @@ public final class BotConversation {
     /** Whether this player is mid-chat with this bot. */
     public static boolean isTalking(int botCharId, int playerId) {
         Session session = sessions.get(new Key(botCharId, playerId));
-        return session != null && System.currentTimeMillis() - session.lastAt <= IDLE_MS;
+        return session != null && System.currentTimeMillis() - session.state.lastAt <= IDLE_MS;
     }
 
     /** The bot this player is mid-chat with, or -1 (the most recent one, if several). */
@@ -227,8 +247,8 @@ public final class BotConversation {
         Session latest = null;
         for (Map.Entry<Key, Session> entry : sessions.entrySet()) {
             Session s = entry.getValue();
-            if (entry.getKey().playerId() == playerId && now - s.lastAt <= IDLE_MS
-                    && (latest == null || s.lastAt > latest.lastAt)) {
+            if (entry.getKey().playerId() == playerId && now - s.state.lastAt <= IDLE_MS
+                    && (latest == null || s.state.lastAt > latest.state.lastAt)) {
                 latest = s;
             }
         }
@@ -688,7 +708,7 @@ public final class BotConversation {
         }
         soloMapling.ArtificialPlayer.BotConvo.ConvoQuality.timing(bot, player, plan);
         // a late answer or a "brb" keeps the chat open until it is said (the sweeper ends chats idle for a minute)
-        session.lastAt = Math.max(session.lastAt, System.currentTimeMillis() + plan.totalMs());
+        session.state.lastAt = Math.max(session.state.lastAt, System.currentTimeMillis() + plan.totalMs());
         int face = deliver != null || cue == null ? ReplyEmote.NONE
                 : ReplyEmote.pick(cue.triage(), cue.outcome(), cue.asked(), line, ThreadLocalRandom.current());
         String fullDetail = detail + (said.fromBank() ? " bank#" + said.bankId() : "") + " plan=" + plan.kind();
@@ -721,9 +741,9 @@ public final class BotConversation {
                             soloMapling.ArtificialPlayer.BotConvo.ClaimActions.start(bot,
                                     soloMapling.ArtificialPlayer.BotConvo.ClaimRules.classify("brb"));
                         }
-                        session.lastAt = System.currentTimeMillis();
+                        session.state.lastAt = System.currentTimeMillis();
                         if (deliver == null) { // ticket 37: having answered, the bot keeps listening a while longer
-                            BotChatRouting.touchAttention(player.getId(), bot.getId(), session.lastAt);
+                            BotChatRouting.touchAttention(player.getId(), bot.getId(), session.state.lastAt);
                         }
                         if (last) {
                             ChatStats.reply(tier, System.currentTimeMillis() - asked, bot.getName(), fullDetail);
@@ -783,7 +803,7 @@ public final class BotConversation {
                     router.maybeReport(); // the hourly cloud usage line
                 }
                 for (Map.Entry<Key, Session> entry : sessions.entrySet()) {
-                    if (now - entry.getValue().lastAt > IDLE_MS) {
+                    if (now - entry.getValue().state.lastAt > IDLE_MS) {
                         end(entry.getKey().botId(), entry.getKey().playerId());
                     }
                 }

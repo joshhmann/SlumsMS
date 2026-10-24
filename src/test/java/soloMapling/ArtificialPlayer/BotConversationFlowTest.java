@@ -33,6 +33,7 @@ class BotConversationFlowTest {
     private final List<List<BotBrain.Turn>> asked = new CopyOnWriteArrayList<>();
     private final List<String> said = new CopyOnWriteArrayList<>();
     private final List<String> notes = new CopyOnWriteArrayList<>();
+    private volatile CompletableFuture<Optional<String>> controlledReply;
     private volatile Optional<String> brainReply = Optional.of("lol ya ant tunnel is ok");
     private static int nextPlayer = 2001; // sessions are static: every test talks to a fresh pair
 
@@ -49,8 +50,9 @@ class BotConversationFlowTest {
         BotBrains.useForTest(new BotBrain() {
             @Override
             public CompletableFuture<Optional<String>> complete(int playerId, List<Turn> conversation) {
+                CompletableFuture<Optional<String>> answer = controlledReply;
                 asked.add(conversation);
-                return CompletableFuture.completedFuture(brainReply);
+                return answer == null ? CompletableFuture.completedFuture(brainReply) : answer;
             }
 
             @Override
@@ -127,6 +129,34 @@ class BotConversationFlowTest {
         for (int i = 0; i < 200 && !done.getAsBoolean(); i++) {
             Thread.sleep(25);
         }
+    }
+
+    @Test
+    void aLaterGuildMessageCannotRedirectAPendingWhisperReply() throws Exception {
+        BotSM bot = mock(TownWandererBot.class);
+        when(bot.getChr()).thenReturn(character(BotStore.BOT_ID_BASE + 40_000 + nextPlayer, "Walkr"));
+        Character player = character(nextPlayer++, "Josh");
+        List<String> whispers = new CopyOnWriteArrayList<>();
+        List<String> guild = new CopyOnWriteArrayList<>();
+        CompletableFuture<Optional<String>> first = new CompletableFuture<>();
+        CompletableFuture<Optional<String>> second = new CompletableFuture<>();
+        controlledReply = first;
+        assertTrue(BotConversation.say(bot, player, "where should i train at level 35?", null, whispers::add));
+        waitFor(() -> asked.size() == 1);
+        assertEquals(1, asked.size(), "the whisper reply must be waiting on the brain");
+        controlledReply = second;
+        assertTrue(BotConversation.talk(bot, player, "where should i train at level 36?", guild::add));
+        waitFor(() -> asked.size() == 2);
+        assertEquals(2, asked.size());
+        assertEquals(2, asked.get(1).stream().filter(t -> t.role() == BotBrain.Role.USER).count(),
+                "switching channels still shares conversation history");
+        first.complete(Optional.of("ant tunnel is ok"));
+        waitFor(() -> !whispers.isEmpty() || !guild.isEmpty());
+        assertEquals(List.of("ant tunnel is ok"), whispers, "the first reply belongs in the original whisper");
+        assertTrue(guild.isEmpty(), "a later guild message must not steal the whisper's reply");
+        second.complete(Optional.of("try wild boars"));
+        waitFor(() -> !guild.isEmpty());
+        assertEquals(List.of("try wild boars"), guild);
     }
 
     @Test
