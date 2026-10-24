@@ -5,7 +5,7 @@ import client.Client;
 import client.command.Command;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
-import soloMapling.ArtificialPlayer.BotLifeSystem.LifeInspection;
+import soloMapling.ArtificialPlayer.BotLifeSystem.LifeObservation;
 import soloMapling.ArtificialPlayer.BotMessagingSystem.CharacterStorage;
 import soloMapling.ArtificialPlayer.BotSM;
 import soloMapling.qa.QaSuite;
@@ -39,9 +39,8 @@ public class BotWhyCommand extends Command {
             gm.yellowMessage("No active bot with that name in this world.");
             return;
         }
-        LifeInspection.Snapshot snapshot = LifeInspection.capture(bot);
-        var result = LifeInspection.preview(snapshot);
-        for (String line : LifeInspection.describe(snapshot, result)) {
+        var report = LifeObservation.capture(bot, System.currentTimeMillis());
+        for (String line : LifeObservation.describe(report)) {
             gm.yellowMessage(line);
             log.info("[BotLifePreview] bot={} {}", target.getId(), line);
         }

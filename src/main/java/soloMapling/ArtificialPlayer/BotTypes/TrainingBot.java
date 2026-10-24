@@ -290,6 +290,11 @@ public class TrainingBot extends BotSM {
         BREAK_TRAVEL, BREAK_REST }
 
     private volatile Phase phase = Phase.INIT;
+    /** Read-only telemetry for the daily-life shadow inspector; not another owner of the FSM. */
+    public record LifePhase(String name, long sinceMs) {}
+    private volatile LifePhase lifePhase = new LifePhase("INIT", 0);
+
+    public LifePhase lifePhase() { return lifePhase; }
     // Ticket 21: a world event called this bot (WorldEventReactions); the macro tick answers it.
     private volatile boolean eventCall = false;
     private volatile boolean restockCall = false; // rc6 say-do: it said "brb pots": go and buy them
@@ -455,6 +460,7 @@ public class TrainingBot extends BotSM {
             TownLoiter.stop(getChr()); // leaving town: end the loiter (stop fidget, free the ledge claim)
         }
         phase = next;
+        lifePhase = new LifePhase(next.name(), now());
         phaseEntered = false;
         moveDone = false;
         moveOk = false;

@@ -159,6 +159,11 @@ public final class BotRoster {
         return all().get(botId);
     }
 
+    /** Memory-only diagnostic lookup: unlike member(), never starts a database load. Null means unknown. */
+    public static Member loadedMember(int botId) {
+        return members.get(botId);
+    }
+
     /** Every member, active or dormant. */
     public static Collection<Member> members() {
         return all().values();
