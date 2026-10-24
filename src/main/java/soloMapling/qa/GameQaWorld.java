@@ -373,7 +373,9 @@ final class GameQaWorld implements QaWorld {
         Character bot = BotHelpers.getCharFromChannelStorage(botId);
         if (bot != null && bot.getMapId() == gm.getMapId()) {
             soloMapling.ArtificialPlayer.BotAffinitySystem.AffinityReactions.forceSpree(bot, gm);
-            return "grudge + KS spree";
+            boolean taunt = soloMapling.ArtificialPlayer.BotAffinitySystem.AffinityReactions.forceTaunt(
+                    soloMapling.ArtificialPlayer.BotMessagingSystem.CharacterStorage.getBotById(botId), bot, gm);
+            return "grudge + KS spree" + (taunt ? " + taunt" : "");
         }
         return "grudge (bot not on your map, no spree)";
     }

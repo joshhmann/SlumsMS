@@ -148,8 +148,11 @@ public final class AutoQaCatalog {
                 .expect(probe("buddy", "{near}", "accepted"))
                 .build());
         c.add(Check.auto("t-bb-2", "Buddy chat with a bot").minutes(10)
+                // rc6 triage: this checks buddy CHAT; a stranger accepts only 20% of requests, so the accept is
+                // made certain for the run (t-bb-1 still tests the real accept rules)
                 .step(say("!warp 100000000"), waitSeconds(5), fixture("nearbyBot"), say("hi {near}"), waitSeconds(20),
-                        buddyAdd("{near}"), waitSeconds(200), fixture("buddy", "{near}", "accepted"),
+                        fixture("certainBuddies", "5"), buddyAdd("{near}"), waitSeconds(200),
+                        fixture("buddy", "{near}", "accepted"),
                         Steps.of("buddy chat 'where r u'", r -> {
                             SyntheticPlayer p = (SyntheticPlayer) r.actor(1);
                             int bot = p.character().getBuddylist().get(r.fill("{near}")).getCharacterId();
@@ -320,7 +323,8 @@ public final class AutoQaCatalog {
                             ((SyntheticPlayer) r.actor(1)).ringPropose(r.fill("{bot}"), 2240000);
                             r.world().sleep(8000);
                             return Check.StepResult.OK;
-                        }), waitFor("ROMANCE ENGAGED", 20), qaDo("wedding"), waitFor("ROMANCE (WEDDING begins|I DO)", 120),
+                        }), waitFor("ROMANCE ENGAGED", 20), fixture("equipRoom", "2"), qaDo("wedding"),
+                        waitFor("ROMANCE (WEDDING begins|I DO)", 120),
                         waitFor("NOTICE \\[5] Say \"i do\"", 60), say("i do"), waitFor("ROMANCE MARRIED", 120),
                         Steps.of("spouse chat", r -> {
                             ((SyntheticPlayer) r.actor(1)).spouseChat("hey hun");
@@ -339,7 +343,8 @@ public final class AutoQaCatalog {
                         qaDo("confront"), waitFor("ROMANCE TWO-TIMING", 30), qaDo("gossip"), waitFor("ROMANCE GOSSIP", 20))
                 .expect(has("ROMANCE NEGLECT warning"), has("ROMANCE BREAKUP \\S+ dumps {me}"), has("ROMANCE REBOUND"),
                         has("ROMANCE TWO-TIMING"), has("ROMANCE OLD FLAME"), has("ROMANCE GOSSIP"), noEmoji(),
-                        judged("CHAT ({staged}): (.+)", "bot relationship drama aimed at the player: breakup, jealousy, gossip; game-only", 4))
+                        // rc6 triage: a non-capturing name group - group 1 is what the judge reads, and it got the name
+                        judged("CHAT (?:{staged}): (.+)", "bot relationship drama aimed at the player: breakup, jealousy, gossip; game-only", 4))
                 .build());
         c.add(Check.auto("t-rm-4", "Wedding drama: an objection, a crash, a runaway").notNightly().minutes(18)
                 .step(fixture("notEngaged"), say("@romance on"), run("rm-4"), qaDo("propose"), Steps.of("say yes in the proposal window", r -> {
@@ -348,14 +353,16 @@ public final class AutoQaCatalog {
                             r.note(had ? "accepted the bot's proposal" : "no proposal window arrived");
                             r.world().sleep(5000);
                             return Check.StepResult.OK;
-                        }), qaDo("wedding"), waitFor("ROMANCE OBJECTION", 180), say("i do"), waitFor("ROMANCE MARRIED", 120),
+                        // rc6 triage: both weddings were refused for a full equip tab (the ring needs a slot)
+                        }), fixture("equipRoom", "2"), qaDo("wedding"), waitFor("ROMANCE OBJECTION", 180), say("i do"),
+                        waitFor("ROMANCE MARRIED", 120),
                         waitFor("ROMANCE CRASH \\S+ crashes", 120), stop(), run("rm-4"), qaDo("propose"),
                         Steps.of("say yes again", r -> {
                             r.world().sleep(5000);
                             ((SyntheticPlayer) r.actor(1)).answerProposal(true);
                             r.world().sleep(5000);
                             return Check.StepResult.OK;
-                        }), qaDo("runaway"), qaDo("wedding"), waitFor("ROMANCE RUNAWAY", 180))
+                        }), qaDo("runaway"), fixture("equipRoom", "2"), qaDo("wedding"), waitFor("ROMANCE RUNAWAY", 180))
                 .expect(has("ROMANCE OBJECTION \\S+ objects"), has("ROMANCE CRASH \\S+ crashes the reception"), has("ROMANCE MARRIED"),
                         has("ROMANCE RUNAWAY .*still engaged"))
                 .build());
@@ -475,7 +482,9 @@ public final class AutoQaCatalog {
                         atLeast(11, "STAGE .* \\(inside the band\\)"))
                 .build());
         c.add(Check.auto("t-gf-1", "A friend bot gives a gift").minutes(3)
-                .step(run("tr-4"), fixture("rememberMeso"), qaDo("gift", "mesos"), waitFor("TRADE GIFT .*mesos", 20),
+                // rc6 triage: the check before it ends in FM room 1, where drops vanish, so an item gift never landed
+                .step(say("!warp 100000000"), waitSeconds(3), run("tr-4"), fixture("rememberMeso"), qaDo("gift", "mesos"),
+                        waitFor("TRADE GIFT .*mesos", 20),
                         qaDo("gift", "scroll"), waitFor("TRADE GIFT .*(scroll|from its bag| x )", 20))
                 .expect(atLeast(2, "TRADE GIFT \\S+ gave {me}"), probe("mesoGained", "100000", "500000"))
                 .build());

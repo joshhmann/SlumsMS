@@ -179,6 +179,12 @@ final class GameAutoQaWorld implements AutoQaWorld {
                 case "buddy" -> buddy(me, a[0], a[1]);
                 case "engaged" -> engaged(actor(Integer.parseInt(a[0])));
                 case "notEngaged" -> notEngaged();
+                case "equipRoom" -> equipRoom(me, Integer.parseInt(a[0]));
+                case "certainBuddies" -> {
+                    soloMapling.ArtificialPlayer.BotBuddies.certainFor(java.util.concurrent.TimeUnit.MINUTES.toMillis(
+                            Long.parseLong(a[0])));
+                    yield List.of("PASS bots accept every buddy request for " + a[0] + " min");
+                }
                 default -> List.of("FAIL no probe '" + what + "'");
             };
         } catch (RuntimeException e) {
@@ -555,9 +561,71 @@ final class GameAutoQaWorld implements AutoQaWorld {
     /** t-bb-1: my buddy entry for a name: want "accepted", "pending" or "none". */
     private static List<String> buddy(Character me, String name, String want) {
         var e = me.getBuddylist().get(name);
-        String state = e == null ? "none" : e.isVisible() ? "accepted" : "pending";
+        // rc6 triage (t-bb-2): the requester's own entry is visible while the request is still open, and also after
+        // a bot turned it down, so the old probe said "accepted" for ElliniQueen, which had refused; buddy chat then
+        // went nowhere. Accepted now means the bot's list has the player too.
+        Character bot = e == null ? null : me.getWorldServer().getPlayerStorage().getCharacterById(e.getCharacterId());
+        boolean botHas = bot != null && bot.getBuddylist().containsVisible(me.getId());
+        String state = buddyState(e != null, e != null && e.isVisible(), bot != null, botHas);
         return List.of((state.equals(want) ? "PASS " : "FAIL ") + name + " on " + me.getName() + "'s buddy list: " + state
                 + " (want " + want + ")");
+    }
+
+    /** The buddy state a probe reports: none, pending (asked, not accepted, or the bot is offline) or accepted. */
+    static String buddyState(boolean entry, boolean visible, boolean botOnline, boolean botHasPlayer) {
+        if (!entry) {
+            return "none";
+        }
+        return visible && botOnline && botHasPlayer ? "accepted" : "pending";
+    }
+
+    /**
+     * rc6 triage (t-rm-4, 2026-10-23): "!qa do wedding" refused twice with "make room for the ring in your equip
+     * inventory": the pretend player's equip tab fills over a day of checks (each t-rm-2 divorce left its dead wedding
+     * ring behind, plus gachapon rolls and bought swords) and is never emptied. Frees at least {@code want} equip
+     * slots of the pretend player by dropping its unequipped equips, the highest slots first, never a live ring.
+     */
+    private static List<String> equipRoom(Character me, int want) {
+        client.inventory.Inventory inv = me.getInventory(client.inventory.InventoryType.EQUIP);
+        List<String> out = new ArrayList<>();
+        List<Short> slots = new ArrayList<>();
+        List<Boolean> live = new ArrayList<>();
+        for (client.inventory.Item it : inv.list()) {
+            slots.add(it.getPosition());
+            live.add(it instanceof client.inventory.Equip eq && eq.getRingId() > 0);
+        }
+        List<Short> drop = slotsToFree(inv.getNumFreeSlot(), want, slots, live);
+        for (short slot : drop) {
+            client.inventory.Item it = inv.getItem(slot);
+            if (it != null) {
+                out.add("dropped " + it.getItemId() + " from slot " + slot);
+                client.inventory.manipulator.InventoryManipulator.removeFromSlot(me.getClient(),
+                        client.inventory.InventoryType.EQUIP, slot, (short) 1, false);
+            }
+        }
+        int free = inv.getNumFreeSlot();
+        out.add(0, (free >= want ? "PASS " : "FAIL ") + free + " free equip slot(s) (want " + want + ")");
+        return out;
+    }
+
+    /** Which equip slots to empty so {@code want} are free: the highest slots first, never a live ring. */
+    static List<Short> slotsToFree(int free, int want, List<Short> slots, List<Boolean> liveRing) {
+        List<Integer> order = new ArrayList<>();
+        for (int i = 0; i < slots.size(); i++) {
+            order.add(i);
+        }
+        order.sort((x, y) -> Short.compare(slots.get(y), slots.get(x)));
+        List<Short> out = new ArrayList<>();
+        for (int i : order) {
+            if (free + out.size() >= want) {
+                break;
+            }
+            if (liveRing.get(i)) {
+                continue;
+            }
+            out.add(slots.get(i));
+        }
+        return out;
     }
 
     /** t-mr-1: player 1 and the given player are engaged to each other. */

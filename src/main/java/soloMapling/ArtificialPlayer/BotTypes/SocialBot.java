@@ -166,6 +166,7 @@ public class SocialBot extends BotSM {
         if (isAvailableForAmbientActions()) {
             ensureTownClaim(); // claim this bot's ledge once (coordinates with returning training-bot loiter)
             BotFlavor.maybeExpress(this); // occasional idle emote / buff-flex / skill-swing (self-gated)
+            maybeNoticePlayers(); // ticket 58 / bot drama / gifts: a stationed bot reacts to a player it feels about
             BotChatter.maybeStartChatter(this); // occasional short back-and-forth with a nearby town bot
             maybeIdleChair(); // occasional sit/stand while idle - a resting townsperson
             maybeRelocate(); // last: rare drift to a fresh anchor-weighted spot (may block the tick's walk)
@@ -176,6 +177,24 @@ public class SocialBot extends BotSM {
             PersonalSpace.maybeKeep(getChr());
         }
         pollRecruitInvite(); // last: a JOINED poll converts this bot to a FollowerBot
+    }
+
+    /** How often a stationed bot looks for a player it feels something about (the roaming bots scan every 1.5 s). */
+    static final long NOTICE_SCAN_MS = 3_000;
+    private volatile long nextNoticeScanMs;
+
+    // rc6 auto-QA triage (t-af-1): the sighting hooks lived only in the roaming bots' movement driver, so a social bot
+    // that likes the player stood next to them for minutes and never greeted, invited or buffed.
+    private void maybeNoticePlayers() {
+        long now = System.currentTimeMillis();
+        Character chr = getChr();
+        if (now < nextNoticeScanMs || chr == null || chr.getMap() == null) {
+            return;
+        }
+        nextNoticeScanMs = now + NOTICE_SCAN_MS;
+        soloMapling.ArtificialPlayer.BotAffinitySystem.AffinityReactions.noticePlayers(this, chr,
+                soloMapling.ArtificialPlayer.BotLogic.getRealPlayersInRange(chr, 300, 200),
+                soloMapling.ArtificialPlayer.BotAffinitySystem.AffinityReactions.STATIONED);
     }
 
     @Override

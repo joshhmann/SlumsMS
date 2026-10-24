@@ -141,16 +141,7 @@ public final class BotGifts {
                 || bot.getMap() == null || player.getMap() == null || bot.getMapId() != player.getMapId()) {
             return null;
         }
-        List<Kind> order = new ArrayList<>();
-        Kind first = kind != null ? kind : pick(rng);
-        order.add(first);
-        if (kind == null) {
-            for (Kind k : Kind.values()) {
-                if (k != first) {
-                    order.add(k);
-                }
-            }
-        }
+        List<Kind> order = order(kind, pick(rng), dropsAllowed(player.getMap().getFieldLimit()));
         for (Kind k : order) {
             String line = switch (k) {
                 case POTIONS -> potions(bot, player);
@@ -171,6 +162,34 @@ public final class BotGifts {
             }
         }
         return null;
+    }
+
+    /**
+     * rc6 auto-QA triage (t-gf-1, 2026-10-23): item gifts drop at the player's feet, and a map with
+     * {@code FieldLimit.DROP_LIMIT} (every Free Market room) only shows the drop vanish - payOut puts the units back
+     * and the gift came to nothing: "!qa do gift scroll" in FM room 1 failed in both runs. Mesos go straight to the
+     * player, so they still work there.
+     */
+    static boolean dropsAllowed(int fieldLimit) {
+        return !server.maps.FieldLimit.DROP_LIMIT.check(fieldLimit);
+    }
+
+    /** The kinds to try, in order: the forced one only, else the rolled one first; no item gifts where drops vanish. */
+    static List<Kind> order(Kind forced, Kind rolled, boolean drops) {
+        List<Kind> out = new ArrayList<>();
+        Kind first = forced != null ? forced : rolled;
+        out.add(first);
+        if (forced == null) {
+            for (Kind k : Kind.values()) {
+                if (k != first) {
+                    out.add(k);
+                }
+            }
+        }
+        if (!drops) {
+            out.removeIf(k -> k != Kind.MESOS);
+        }
+        return out;
     }
 
     static Kind pick(Random rng) {
@@ -222,8 +241,8 @@ public final class BotGifts {
         inv.lockInventory();
         try {
             for (Item it : inv.list()) {
-                if (ScrollRules.isPlainScroll(it.getItemId()) && SaleRules.botMaySell(it) && successOf(it.getItemId()) >= 60
-                        && PriceBook.fairValue(it) <= max) {
+                if (ScrollRules.isPlainScroll(it.getItemId())
+                        && scrollProblem(SaleRules.whyNot(it), successOf(it.getItemId()), PriceBook.fairValue(it), max) == null) {
                     pick = it;
                     break;
                 }
@@ -237,6 +256,49 @@ public final class BotGifts {
         greet(bot, player, "found this, u can have it");
         return String.format("%s gave %s a %s from its bag", bot.getName(), player.getName(),
                 BotShops.nameOf(pick.getItemId()));
+    }
+
+    /**
+     * Why the bot's bag holds no scroll it would give, one reason per plain scroll it holds (GM / !qa read-out). rc6
+     * auto-QA triage (t-gf-1): "!qa do gift scroll" found "nothing suitable" in both runs of the day although the bot
+     * was given a 60% scroll a moment earlier; this says which rule turned it away (or that the bag has none).
+     */
+    public static List<String> scrollReasons(Character bot) {
+        List<String> out = new ArrayList<>();
+        long max = EconomyConfig.getLong("gifts.scrollMaxValue", 500_000);
+        Inventory inv = bot.getInventory(InventoryType.USE);
+        int held = 0;
+        inv.lockInventory();
+        try {
+            for (Item it : inv.list()) {
+                held++;
+                if (!ScrollRules.isPlainScroll(it.getItemId())) {
+                    continue;
+                }
+                String why = scrollProblem(SaleRules.whyNot(it), successOf(it.getItemId()), PriceBook.fairValue(it), max);
+                out.add(it.getItemId() + " x" + it.getQuantity() + ": " + (why == null ? "giftable" : why));
+            }
+        } finally {
+            inv.unlockInventory();
+        }
+        if (out.isEmpty()) {
+            out.add("no plain scroll in its use tab (" + held + " stacks)");
+        }
+        return out;
+    }
+
+    /** Why a plain scroll is not a gift, or null: the same rules as {@link #scroll}. */
+    static String scrollProblem(String saleWhyNot, int success, long value, long max) {
+        if (saleWhyNot != null) {
+            return "bots may not sell it (" + saleWhyNot + ")";
+        }
+        if (success < 60) {
+            return "success " + success + "% < 60%";
+        }
+        if (value > max) {
+            return String.format("worth %,d > %,d", value, max);
+        }
+        return null;
     }
 
     private static String mesos(Character bot, Character player, Random rng) {
