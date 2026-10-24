@@ -8,69 +8,60 @@ Times: give the owner Pacific next to UTC (PDT = UTC-7).
 
 **Owner's work split (2026-10-24):** this bug-fix pass is finished. The owner will hand continuing **1.5.1 bug
 squashing to DeepSeek**; use `release-1.5.1`, the current TEST receipt below and section 3's remaining leads.
-**Codex is working on 1.6.0**, Ticket 60 on `160-bot-brain`
-(`/root/work/SlumsMS-bot-brain-160`; plans `5ca02907f`, `2c57baa41`). The owner approved provisional blends and
-level/gear goal seeding for the first test version. Three local checkpoints now implement the pure scorer,
-provisional profiles/goals, memory-only context and opt-in `!botwhy` shadow inspection. Automatic activity
-selection and persistent goal/drift changes are not installed. Explicit restock requests now start one at a time
-from the bot's normal update, behind the test-only flag. The roadmap puts the bot brain first.
-Fishing, medals, the daily dungeon and chaos bosses still need more
-detailed tickets and their listed owner decisions. Ticket 61's "spec/to be built" header is stale: the client MCP
-already exists per section 5.
-Keep the shared `slums-persistence-test` build for the bug pass; feature work must coordinate any test checkpoint
-or use a separately isolated test instance within the host caps. Do not merge 1.6.0 features into `release-1.5.1`.
+**Codex: 1.6.0 Ticket 60 first-test implementation is complete** on `160-bot-brain`
+(`/root/work/SlumsMS-bot-brain-160`). The owner approved provisional blends and goals seeded from level/gear.
+The runtime now chooses activities, starts them one at a time from each bot's own update, saves goals and bounded
+personality changes, and ties action replies to accepted work. Source implementation `4d78245d3`; isolated-test
+helper support `e2d6ab70a`; latest source/deployed build `ddfcaa886`. Both `slums.botlife.enabled` and `slums.botlife.execute` must be true;
+all behavior remains off by default. GM 3 `!botwhy` works with the runtime, or QA plus `slums.botlife.preview`.
 
-**1.6.0 checkpoint 2:** profiles/context `1fd3d5700`; acceptance/restock adapter and staged QA `97c74c095`.
-Original scorer `ba7833379` and initial inspector `c0ce7dbe6` remain included, as do the 1.5.1 fixes through
-`2c7e5bf22`. Seven-archetype blends are stable per character ID, with a 55-70% dominant share; durations are
-20-60 min grind / 5-20 min town. Goals derive from job stage and cached weapon requirements without granting,
-buying or forcing gear changes. These are provisional shadow aspirations, not persisted goals or roster writes.
+Supported work uses existing grind/travel/restock/break/social/FM/party/logout systems. SELL means an existing
+hired-shop listing, not new NPC-sale income. PQ acknowledges existing party readiness, not quest completion.
+Guild departures stay with the director's batch plan. Fishing, medals, daily dungeons and chaos bosses remain
+separate tickets. No combat tuning, rewards or economy limits changed.
 
-GM 3 `!botwhy <name>` still requires QA plus `-Dslums.botlife.preview=true`, off by default. It now shows the
-profile, goals, HP/bag/progress needs, known session fatigue/phase age, bounded local affinity, component scores,
-selection/holds and unavailable options. Missing MP/ammo pressure, social timing, distant friends/destinations,
-shop/selling and event/PQ data stay unknown. The new roster lookup is memory-only; cached weapon data is never
-loaded on demand. Per-player drama opt-out suppresses hostile pull. Travel and commitments keep their owner.
+Full `mvn -q -o test`: **4,570 tests, 0 failures, 0 errors, 38 skipped**, 413 report classes
+(`/tmp/160-brain-final-full.log`). Release tools: **35 Python tests pass**. Queue tests cover duplicates,
+expired/old plans, phase changes and commitments; new tests cover persisted goals/blends, drift limits, automatic
+restock selection, town reservations and truthful pending replies. No real-client verification has been done.
 
-`LifeAcceptance` returns action facts only for accepted work; refused or failed requests have none. The original
-restock adapter was not connected to bot updates at checkpoint 2; checkpoint 3 below now supplies that connection.
+A separate feature TEST runs on **8491**, channels **8185-8189**, world **1**, unit `slums-life160`, folder
+`/opt/mapleroot-dev/bot-life-160/Server`, test-only schema `mapleroot_life160`. It uses TEST data and a 2-core CPU /
+6 GiB memory limit, with chat-model URLs/keys cleared. `tools/ops/{deploy-test,test-status,autoqa-run} --feature`
+target only this copy; default shared TEST targets are unchanged. Deployment receipt:
+`/opt/mapleroot-dev/bot-life-160/deploys/20261024T193837Z`, jar prefix `21fa9c40db93cc5a`.
+**Verified before the 1.5.1 forward merge:** build `b5608ef4c` passed `t-bl-1/2/3` and the guild/client-version/
+channel smoke checks on the isolated copy. A completed 605 s window held **3,218-3,276 bots**, averaged **1.184 CPU
+cores**, and peaked at **3.576 GiB**. It recorded **10,497 decisions** (1,048.9/min) and **680 accepted starts**;
+394 resolved strong chat claims were all backed. This is scripted/test-only evidence, not real-client or model-voice QA.
+A normal stop wrote **3,419 bots**, 0 failed/missed, in 22.6 s. The copied DB held **3,739 saved life profiles**,
+all with seven weights; 3,655 had one or two goals. JSON round-trip and drift-limit tests also pass.
 
-`!qa run bl-1` and auto-QA `t-bl-1` run golden policy/refusal fixtures without touching the game world. The local
-scenario test passes; it has not run on TEST. **23 new focused tests plus 10 existing catalogue checks pass**;
-the prior 19 scorer/inspector tests also pass. Full `mvn -q -o test`: **4,532 tests, 0 failures, 0 errors,
-38 skipped**, 404 report classes (`/tmp/160-life-v2-full.log`).
-Local pure-policy benchmark: 60,000 evaluations in 365.6 ms wall / 363.1 ms thread CPU, average 18.3 ms wall per
-3,000 after warm-up, prebuilt profiles/contexts. This excludes capture/scheduling/execution and is not a server
-soak. Details/calibration: `docs/tickets/60-bot-brain.md`; runtime checklist: `docs/release/1.6.0-qa.md`.
-No shared TEST deploy/restart, real-client check, live operation or Discord post for either feature checkpoint.
-Next: finish supply/destination/event adapters, persistence/drift, serialised activity acceptance and truthful
-chat integration; coordinate feature TEST use and real-load QA before enabling automatic decisions.
+**Roles / owner decision:** with the feature on, roster logins use one TrainingBot actor; fixed staff keep their
+jobs. The brain chooses the roles: the completed run counted **227 HANG_OUT**, **211 SELL**, **58 FREE_MARKET**
+and **1 SHOW_OFF** starts. Henesys had **59 level 1-30 / 120 level 31-70 / 60 level 71+** bots. Activities are
+present; the desired old-school level mix is not yet proven. The owner chose **keep the shared actor and review the
+mix in game** on 2026-10-24. Do not change routing, weights or quotas as part of this merge.
 
-**Checkpoint 3: one request at a time.** Queue `0f9ed4de5`; bot update and staged QA `f51ad81f4`.
-The previous code could check a request but could not stop the same request
-from being started twice. Each TrainingBot now has one waiting slot and one running activity. A repeated request
-cannot start another trip. Newer waiting plans replace older ones. Requests older than 30 seconds, plans made
-before a phase change, and requests belonging to a stopped/different bot instance cannot run.
+`ddfcaa886` fixes `!botwhy` to show the actual recorded decision with its age, plus current phase/request state,
+rather than recomputing the old shadow guess. Its full suite is green (counts above); isolated load verification
+is in progress. Latest owner instruction: merge `origin/release-1.5.1` into this feature branch before the next
+large step, preserve both behaviors, rerun the full suite and push. Record the merge result here when complete.
 
-A worker or command may submit a request, but the bot's normal update starts it. At that moment it checks again
-for a trade, invitation, conversation or other hold. The restock start leaves GRIND and enters GO_TOWN directly;
-the new path does not use the old cross-thread restock flag. The running request ends when grinding resumes or
-is cancelled when the bot dies, changes channel, stops or another event takes over. Returning to grinding does
-not prove it reached a shop or bought anything. An old completion callback cannot clear a newer activity.
+**Resource / remaining QA:** the feature unit is capped at 2 CPU cores, Nice 19, 6 GiB total, Java heap max 5 GiB.
+Alongside live/shared TEST heap limits of 6 GiB each, the host had 31,502 MiB available at the budget check.
+Stop `slums-life160` after testing; do not leave it idling. Health still flags footing/overlap (also seen on shared
+TEST), and an earlier load found an out-of-bounds training position on map 230040300. These remain movement leads,
+not a claimed clean health sweep. See `docs/release/1.6.0-qa.md` for receipts and the owner's visual checks.
 
-QA and `-Dslums.botlife.execute=true` are still required. That flag alone creates no requests, and automatic
-activity choices and new chat lines are not connected. `!botwhy` remains read-only and now also shows waiting and
-running request numbers. There is no extra scheduler or growing request history.
+**Bug-pass lead from the load test:** standalone fix `bc514fca3` replaces the channel-reservation intrinsic
+monitor with a ReentrantLock. The first feature fill stalled around 1,108 bots with all four virtual-thread
+workers pinned in reserve/release; the player-storage owner could not resume. Its two-worker child-JVM regression
+fails before and passes after. DeepSeek can review/cherry-pick this small fix separately for 1.5.1; no feature merge
+is needed. The stalled scratch run required systemd's normal stop timeout. Its partial smoke run is not a pass.
 
-`!qa run bl-2` stages one temporary grinder. Once it is ready, `!qa do restock` submits the same request twice;
-`!qa do repeat` retries it later. Exactly one `HABITS LIFE START activity=RESTOCK` must appear. Auto-QA `t-bl-2`
-checks that count; with the execute flag off it skips. Stopping QA removes the fixture and closes its requests.
-Local focused tests pass for duplicate/overlapping starts, real TrainingBot phase changes, conversation/trade holds,
-flags and QA cleanup; existing combat/logout checks also pass. **20 new tests pass**. Full `mvn -q -o test`:
-**4,552 tests, 0 failures, 0 errors, 38 skipped**, 407 report classes (`/tmp/160-life-serial-full.log`).
-No shared TEST deploy/restart, live changes or in-game checks were made.
-Next: coordinate the feature TEST check and watch the trip in a real client, then add completion checks and
-automatic choices. Runtime QA checklist: `docs/release/1.6.0-qa.md`.
+Keep DeepSeek's shared `slums-persistence-test` running for the bug pass. Do not merge this feature branch into
+`release-1.5.1`. No live operation, live DB read, desktop change or Discord post was made.
 
 ## 1. What is live
 
