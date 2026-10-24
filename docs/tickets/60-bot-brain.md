@@ -1,7 +1,8 @@
 # Ticket 60: the bot brain (weighted daily-life decisions)
 
 Status: designed 2026-10-23 with the owner (grill), planned as the **1.6.0 headline**, alongside fishing, medals and
-the daily dungeon, which become options the brain chooses. Not started.
+the daily dungeon, which become options the brain chooses. Planning started by Codex on 2026-10-24; runtime
+implementation has not started. Work branch: `160-bot-brain`.
 
 ## Why
 
@@ -58,3 +59,38 @@ or help friends.
 - The exact archetype list and blend ranges, tuned against live data from 1.5.0.
 - How goals are seeded for the existing roster (from current level and gear).
 - Fishing, medals and the daily dungeon: each needs its option definition when it lands.
+
+## Implementation plan (Codex, 2026-10-24)
+
+1. **Pure decision core first.** Add a separate `soloMapling.ArtificialPlayer.BotLifeSystem` package for needs,
+   options, context, score breakdowns and a deterministic picker. The existing `BotBrainSystem` is the chat/model
+   backend; it remains separate. Inject the clock, noise and all weights into the core. No model calls, database
+   writes, purchases or movement in the scorer. Test fixtures may use the seven archetypes already listed above;
+   they are not approval of production blend ranges.
+2. **Read-only adapters and explanations.** Inspect `BotPopulationDirector`, `BotRoster`, `BotCommitments`,
+   `BotCombatSystem/BotHabits`, `BotGrindSystem/GrindBrain` and `BotSupplySystem/BotResupply`/`BotShopping`.
+   Build a bounded snapshot from existing state and show top-three choices with reasons. Add/wire the GM-only
+   `!botwhy` command and decision logs. Begin in an opt-in shadow mode that cannot change a bot's activity.
+3. **Execution in small steps.** Hand chosen activities to existing systems, preserving combat tuning, map caps,
+   player-facing commitments, supply costs and economy caps. Narrate an action only after its executor accepts it.
+   Re-score on interrupts and activity completion; do not add per-tick model calls or roster-wide map scans.
+4. **Goals and drift after decisions below.** Derive goals from existing roster state only once seeding rules and
+   production personality ranges are settled. Reuse persistence where possible; any necessary migration follows
+   AGENTS.md's idempotent apply/rollback requirements. Fishing, medals and dungeon options stay unavailable until
+   their systems and owner-approved rewards exist.
+
+**Tests/checkpoints:** deterministic scoring and ties; stickiness/interrupt margins; socialite/friend, empty-potion
+and helper scenarios; commitment refusal and executor failure; chat never claiming a rejected action; three-thousand
+bot CPU/decision-rate measurements. Add staged `!qa`/auto-QA checks before enabling execution. Run the full offline
+suite before a handoff, and follow the release runbook for any coordinated test deployment.
+
+**Coordination:** DeepSeek owns the 1.5.1 bug-fix pass. This branch starts from `origin/release-1.5.0`, as prompt 7
+requires; merge forward the current 1.5.1 fixes before runtime integration so they are not lost. Never merge 1.6.0
+features back into `release-1.5.1`. Do not replace or restart DeepSeek's shared test build for feature work without
+coordinating the checkpoint. Keep early work local; plan an isolated test instance if concurrent runtime testing is
+needed, within the host's test resource caps. Live and the owner's desktop remain under AGENTS.md's restrictions.
+
+**Owner choices still open:** production archetype/blend bounds and event-driven drift amounts; initial one/two-goal
+seeding rules for existing bots. Pure scoring with injected fixture values can proceed without deciding these.
+Fishing reward items/rarities, the medal list and chaos-boss difficulty remain separate owner decisions; this ticket
+must not silently pick them. No live database reads are needed for the first slice.
