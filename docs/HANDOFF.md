@@ -25,7 +25,8 @@ The test server runs the same 1.5.0 build (`06a724dfc`) with the same settings p
 
 ## 2. In flight right now
 
-1. **Launcher 1.5.2: on the Test channel since 2026-10-24 ~08:45 UTC; Live still 1.5.1.** Branch `launcher-ui-compact`
+1. **Launcher 1.5.2: LIVE since 2026-10-24 ~08:50 UTC** (Test and Live; undo Live by copying
+   `/srv/slums-staging/live-tauri-launcher.json.before-1.5.2` over `/srv/slums-patch/tauri/launcher.json`). Branch `launcher-ui-compact`
    @ `573d7a2`. Game Options now write every option into the launched folder's config.ini, doubletapjump defaults to
    false and is read the way the client reads it, and a friends build's built-in key survives self-updates. Exe
    `/root/work/launcher-tauri-release/1.5.2/SlumsMS Launcher.exe` sha256 `9719282c…5158`, staged on 164 in
@@ -40,16 +41,14 @@ The test server runs the same 1.5.0 build (`06a724dfc`) with the same settings p
    164, never seen by an agent); output in `Z:\MSv83\SlumsMS-dev\launcher-tauri-152-friends\out\`; check it with
    `Z:\MSv83\SlumsMS-dev\verify-tauri-key.ps1 -Exe <exe>`. Needs no signature; it self-updates to later signed builds
    and keeps the key. `launcher-tauri-152-bakedryrun\` holds only a fake key and can be deleted.
-3. **Public website** (done, not deployed): branch `site` @ `74099f82c`, worktree `/root/work/SlumsMS-site`. Build
-   `python3 tools/site/build.py` → `dist/site/` (checked: no private strings, links OK). **Plan agreed with the
-   owner:** serve it from 164's existing nginx on a new **port 8091** (`root /srv/slums-site`), and the owner adds
-   `theslumsms.asslorde.com { reverse_proxy 192.168.0.164:8091 }` on their Caddy LXC plus a DNS record. The nginx
-   change needs the owner's go (same nginx as the patch site on 8090; don't touch 8090). Before deploy: set the
-   1.5.0 `date:` in `docs/site/releases/1.5.0.md` to 2026-10-24.
-4. **Patch notes on Discord:** Cody's hype post went out. The 5 patch-note parts were held by the monitor's rate
-   cap (6/hour). Plan: once the site is up, Cody posts one message linking `theslumsms.asslorde.com/patch-notes/1.5.0/`
-   (`slumsms-monitor announce live "<text>"` on 164). Drafts: the release branch has none; the text is in the site
-   (`docs/site/releases/1.5.0.md`).
+3. **Public website: deployed 2026-10-24** on 164 nginx **port 8092** (`/etc/nginx/sites-available/slums-site`, files
+   `/srv/slums-site`; 8091 is the test admin dashboard, 8090 the patch site: don't touch either). Source: branch
+   `site`, worktree `/root/work/SlumsMS-site`; `python3 tools/site/build.py` builds and checks `dist/site/`. Redeploy:
+   `rsync -a --delete dist/site/ root@192.168.0.164:/srv/slums-site/`. The owner's Caddy points
+   theslumsms.asslorde.com at 192.168.0.164:8092 (owner's side; first set to 8091 by mistake, being moved).
+4. **Patch notes on Discord:** Cody's hype post went out; the 5-part notes were held by the rate cap. Cody posts one
+   message linking `https://theslumsms.asslorde.com/patch-notes/1.5.0/` once that URL answers 200 (owner OK'd
+   2026-10-24). If it isn't posted yet: check `journalctl -u slumsms-monitor` / ask the owner before posting twice.
 
 ## 3. Backlog for 1.5.1 (hotfixes until 1.6.0)
 
@@ -65,8 +64,10 @@ Owner-reported or found, roughly by priority:
   warm-up once shutdown starts.
 - **Auto-QA flakes** still failing: rv-2, rv-4, gw-4, pb-1, cu-1, rm-1, rm-4, cv-4, cv-7, cb-2 (see the latest
   `data/autoqa/latest.json` on the test server; triage with `.claude/skills/qa-triage`).
-- **After the roster reaches ~9,000** (about a day after release): set BOT_ROSTER_VETERAN_FILL_BELOW back to 0.5 and
-  BOT_ROSTER_VETERANS_PER_DAY to 300 on live (config edit + restart = owner's go).
+- **Roster growth back to normal, in the 1.5.1 deploy** (owner OK'd 2026-10-24; held so tonight's 3k peak has enough
+  bots): once the roster is past ~9,000 (`journalctl -u slumsms | grep "roster holds\|Roster:"`), set
+  BOT_ROSTER_VETERAN_FILL_BELOW 0.5 and BOT_ROSTER_VETERANS_PER_DAY 300 in live `config.yaml` during the 1.5.1
+  stop-backup/apply-start window, so it costs no extra restart.
 - Watch live memory for a few days (the 3k soak crept ~80 MB/h in old-gen).
 - Merge `release-1.5.0` back where needed: `test-1.5.0-rc6` is history; new work branches from `release-1.5.0`.
 
@@ -98,5 +99,5 @@ Owner-reported or found, roughly by priority:
 
 ## 6. Ask the owner when
 
-Anything on live, any publish to the Live launcher/client feed, the nginx 8091 change, Discord posts, economy changes,
+Anything on live, any publish to the Live launcher/client feed, nginx changes, Discord posts, economy changes,
 or anything this file or AGENTS.md doesn't cover.
