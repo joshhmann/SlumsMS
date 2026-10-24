@@ -1,12 +1,10 @@
 # Ticket 60: the bot brain (weighted daily-life decisions)
 
-Status: first-test implementation complete; runtime verification recorded below. Designed 2026-10-23 with the owner
-(grill), planned as the **1.6.0 headline**, alongside fishing, medals and
-the daily dungeon, which become options the brain chooses. First local implementation checkpoint by Codex on
-2026-10-24: pure scorer and opt-in read-only GM preview. Checkpoint 2 adds provisional profiles/goals, memory-only
-context and a guarded restock-trip adapter. Checkpoint 3 starts explicitly queued restock requests from each bot's
-normal update, with duplicate/old-request protection. Automatic scoring-and-action selection remains off.
-Work branch: `160-bot-brain`. The finish-the-ticket implementation below supersedes the checkpoint limitations.
+Status: implemented as an opt-in first-test version on `160-bot-brain`, forward-merged with 1.5.1 and verified
+on the isolated TEST copy. The owner approved provisional blends/goals and keeping one shared actor; review the
+Henesys mix in game before tuning it. The isolated unit is stopped after validation. This is not a live release.
+Fishing, medals and the daily dungeon remain separate options to add when their own systems/rewards exist.
+Historical local checkpoints below are superseded by the implementation and verification here.
 
 ## Complete first-test implementation
 
@@ -64,12 +62,27 @@ TEST, not live. CPUQuota=200%, Nice=19, MemoryMax=6G, Java heap max 5G. Local/cl
 in that copy. Operations helpers take `--feature`; their default shared TEST target is unchanged. Live paths are
 still refused.
 
-Verification: full offline Maven suite **4,570 tests, 0 failures, 0 errors, 38 skipped** (413 report classes),
-plus **35 release-tool Python tests**, passed on the final implementation. Feature auto-QA **t-bl-1 / t-bl-2 /
-t-bl-3 passed** again at 11:57 AM PT (18:57 UTC) on 2026-10-24, build `ea4051169`, jar `0929847426977523…`.
-Graceful shutdown saved **40 roster rows with life version 1** before restarting the same copy for load testing.
-Deployment backup: `/opt/mapleroot-dev/bot-life-160/deploys/20261024T185057Z`.
-See `docs/release/1.6.0-qa.md` for load measurements and the remaining real-client checks.
+Verification: `origin/release-1.5.1` snapshot `1a3155d2e` merged cleanly as `c37c9d528`, retaining both sides'
+QA/chat/wedding behavior and the brain hooks. Post-merge `mvn -q -o test`: **4,580 tests, 0 failures, 0 errors,
+38 skipped**, 415 report classes. Release-tool Python tests: **35 pass** (tools unchanged by the forward merge).
+The earlier inspector/runtime suite was 4,570/0/0/38. The merged build `1bb349053`, jar `b42e3988adb01de4`, passed
+**seven selected server checks** at 1:00-1:02 PM PT (20:00-20:02 UTC): `bg-1,ps-2,vg-1,ch-1,bl-1,bl-2,bl-3`.
+Zero boot/runtime ERROR/Exception lines through QA; this is not a claim that all 78 QA checks ran.
+Merged receipt: `/opt/mapleroot-dev/bot-life-160/deploys/20261024T195826Z` (`autoqa-result.json`, `test-status.txt`).
+
+Latest load was on `ddfcaa886` before that merge: **3,030-3,228 sampled bots** for 605 s, **0.722 mean CPU cores**,
+**3.311 GiB peak**, 11,052 decisions (1,103.9/min), 740 accepted starts. Role counters and level bands are below.
+Raw report/samples: `/opt/mapleroot-dev/bot-life-160/deploys/20261024T193837Z/bot-life-load.json` and
+`bot-life-load-samples.jsonl`. CPU is total server cgroup use, not incremental cost or the `cpuNanos` wall timer.
+The copied DB now has **5,283 saved life profiles**, seven weights each; 5,262 have one or two goals. JSON
+round-trip/goal-completion/drift-limit tests pass. No schema migration. The final small run saved 388 bots with
+zero failed/missed writes, then stopped at **1:03:17 PM PT (20:03:17 UTC)**. Unit `slums-life160` is inactive;
+login 8491 has no listener. Keep it stopped when not testing.
+
+Overall movement health is not cleared: the 3k run flagged footing/overlap and an earlier out-of-bounds position;
+the final small run was WARN on footing/overlap. Real-client travel/purchases, appearance, timing and model voice
+remain to check. The next proposed rc1 step is the owner's small in-game pass, then review the mix without
+replacing the approved shared actor. No live operation, shared TEST deployment/restart, desktop change or Discord post.
 
 ## Load-test stall and fix
 
@@ -121,9 +134,9 @@ Latest completed load (`ddfcaa886`, pre-merge): 12:43:27-12:53:32 PM PT (19:43:2
 3,030-3,228 bots, 0.722 mean cgroup CPU cores and 3.311 GiB service peak. 11,052 decisions (1,103.9/min), 740
 accepted starts in the window. Since boot: 176 HANG_OUT, 210 SELL, 52 FREE_MARKET starts; Henesys 78 / 141 / 51
 in level bands 1-30 / 31-70 / 71+, including fixed staff and brain actors. All 485 resolved strong claims were
-backed; none open at the sample. This proves the activities run, not that the mix is tuned. The current test DB
-has 5,281 life profiles with seven weights each. Footing/overlap and earlier out-of-bounds movement remain leads.
-The copy is stopped between runs and after final validation; post-merge server QA is still pending at this receipt.
+backed; none open at the sample. This proves the activities run, not that the mix is tuned. The load-time test DB
+had 5,281 life profiles with seven weights each (5,283 after the final merged run). Footing/overlap and earlier out-of-bounds movement remain leads.
+The copy is stopped after final validation; seven post-merge server checks passed as recorded above.
 
 ## Finish-the-ticket pass
 

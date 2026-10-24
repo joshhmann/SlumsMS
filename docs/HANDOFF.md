@@ -29,7 +29,7 @@ Post-merge `mvn -q -o test`: **4,580 tests, 0 failures, 0 errors, 38 skipped**, 
 It recorded **11,052 decisions (1,103.9/min)** and **740 accepted starts** during the window. All **485 resolved
 strong claims** since boot were backed; 0 were open at the last sample. This is total server CPU, not an
 incremental brain-cost claim. A normal earlier stop wrote 3,419 bots with no failed/missed writes. The latest
-copied DB holds **5,281 life profiles**, all with seven weights; 5,260 have one or two goals. JSON round-trip,
+copied DB holds **5,283 life profiles**, all with seven weights; 5,262 have one or two goals after final validation. JSON round-trip,
 goal completion and drift-limit tests pass. Model endpoints/keys are cleared in this copy, so model voice remains
 untested. Health still flags footing/overlap; an earlier sample found a training bot out of bounds on 230040300.
 Those are open movement leads, not a clean overall health verdict.
@@ -43,14 +43,26 @@ exists; this does not prove the desired old-school mix is tuned. Routing, weight
 **Test copy / budget:** `/opt/mapleroot-dev/bot-life-160/Server`, unit `slums-life160`, login 8491,
 channels 8185-8189, world 1, schema `mapleroot_life160` in the integration DB container. Unit limit 2 CPU cores,
 Nice 19, 6 GiB total; Java heap max 5 GiB. Live/shared TEST heap limits are 6 GiB each; the host had 31,502 MiB
-available at the budget check. The feature copy was stopped after the load measurement. A small post-merge
-integration check is next, then stop it again; do not leave it idling. Use ops helpers with `--feature` only.
-Latest pre-merge receipt: `/opt/mapleroot-dev/bot-life-160/deploys/20261024T193837Z`, jar `21fa9c40db93cc5a`.
+available at the budget check. The feature copy is **stopped/inactive**, and login 8491 has no listener. Do not leave it idling.
+Use ops helpers with `--feature` only. Latest pre-merge load receipt: `/opt/mapleroot-dev/bot-life-160/deploys/20261024T193837Z`, jar `21fa9c40db93cc5a`.
 
-**Remaining for rc1:** run the merged build's selected QA on the small isolated copy; record the receipt and stop
-it. Then an owner in-game pass: restock round trip and purchases, friend help/PQ readiness, conversation/trade
-holds, actual `!botwhy` display, town/FM movement and the Henesys mix. Keep the shared actor and tune only after
-that review. No client/MCP check, live operation, live DB read, desktop change or Discord post was made.
+**Merged TEST verification complete:** build `1bb349053` (code from merge `c37c9d528`) booted at
+12:58:28 PM PT (19:58:28 UTC), 2026-10-24, with zero errors. Seven selected checks passed by 1:02:27 PM PT
+(20:02:27 UTC): `bg-1,ps-2,vg-1,ch-1,bl-1,bl-2,bl-3`. This includes upstream NPC spacing plus policy safeguards,
+one start for repeated requests and a trip chosen from a real potion shortage. It is not a full 78-check run.
+Small-run health was WARN on footing/overlap; the earlier 3k run had FAILs, so movement health is not cleared.
+Receipt `/opt/mapleroot-dev/bot-life-160/deploys/20261024T195826Z`, jar `b42e3988adb01de4`, contains
+`autoqa-result.json` and `test-status.txt`. The pre-merge load receipt contains `bot-life-load.json` and raw samples.
+
+The final small run used 40 roster / 400 total caps. It was stopped at **1:03:17 PM PT (20:03:17 UTC)**:
+388 bots saved, 0 failed/missed writes, no connected clients; bot writes took 1.584 s. The unit is inactive.
+No live operation, live DB read, shared TEST deployment/restart, desktop change or Discord post was made.
+
+**Proposed rc1 next step:** a short owner in-game pass on a temporarily started small isolated copy: restock round
+trip and purchases, friend help/PQ readiness, conversation/trade holds, actual `!botwhy` display, town/FM movement
+and Henesys levels. Keep the approved shared actor; adjust the provisional mix only after that review. Real-client
+appearance/pacing and real model voice remain unverified. Fishing, medals and dungeon content remain unavailable.
+Before another large feature step, sync any newer 1.5.1 integration work and repeat the relevant checks.
 
 **Bug-pass lead from the load test:** standalone fix `bc514fca3` replaces the channel-reservation intrinsic
 monitor with a ReentrantLock. The first feature fill stalled around 1,108 bots with all four virtual-thread
