@@ -202,6 +202,11 @@ public final class MenuWindow {
         done.whenComplete((r, e) -> scheduler.schedule(() -> open(player, npc, menu), REOPEN_DELAY_MS));
     }
 
+    /** Runs {@code task} after {@code delayMs} on the server timer (tests run it at once). */
+    static void later(Runnable task, long delayMs) {
+        scheduler.schedule(task, delayMs);
+    }
+
     /**
      * A menu of {@code lines} split into pages of {@link #PER_PAGE} clickable lines with Next / Back. Headings
      * (non-clickable lines) stay with the lines under them, and repeat at the top of a page that starts under them.

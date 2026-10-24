@@ -1,0 +1,88 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1">
+<title>Gachapon, shops and trading - SlumsMS Player Guide</title>
+<link rel="stylesheet" href="style.css">
+</head>
+<body>
+<header class="top">
+  <a class="logo" href="index.html"><span class="leaf">&#127809;</span> SlumsMS <small>player guide</small></a>
+  <label class="menu-btn" for="menu">Menu</label>
+</header>
+<input type="checkbox" id="menu" hidden>
+<div class="wrap">
+<nav class="side"><div class="box"><div class="box-h">Pages</div><ul><li><a href="index.html">Home</a></li><li><a href="getting-started.html">Getting started</a></li><li><a href="rates.html">Rates</a></li><li><a href="hubs.html">Base of Roots and the FM</a></li><li><a href="getting-around.html">Getting around</a></li><li><a href="jobs.html">Jobs and skills</a></li><li><a href="leveling.html">Where to train</a></li><li><a href="travel.html">Travel routes</a></li><li><a href="rebirths.html">Rebirths</a></li><li><a href="regulars.html">The town&#x27;s regulars</a></li><li><a href="shops.html" aria-current=page>Gachapon, shops and trading</a></li><li><a href="commands.html">Commands</a></li><li><a href="money.html">Making mesos</a></li><li><a href="faq.html">FAQ and known issues</a></li><li><a href="changelog.html">Changelog</a></li><li><a href="guidebook.html">In-game guidebook</a></li></ul></div></nav>
+<main>
+<div class="box"><div class="box-h"><h1>Gachapon, shops and trading</h1></div>
+<div class="box-b">
+<p>New in 1.5.0.</p>
+
+<h2>Gachapon</h2>
+<p>There is a machine in <b>12 towns</b>: Henesys, Ellinia, Perion, Kerning City, Sleepywood, Mushroom Shrine,
+Showa (the men's and women's spas), Ludibrium, New Leaf City, El Nath, Nautilus Harbor and Singapore. Each town has
+its own prizes (Perion has warrior gear, Ellinia has mage gear and scrolls, and so on), plus a list every machine
+shares.</p>
+<ul>
+<li>One ticket gives one prize: common 70%, uncommon 24.5%, rare 5%, jackpot 0.5%. Jackpots include Chaos Scroll
+60%, White Scroll and chairs. Rare and jackpot wins are announced to the server.</li>
+<li><code>@gacha &lt;town&gt;</code> lists every prize of a machine.</li>
+<li>A <b>Remote Gachapon Ticket</b> plays any machine from anywhere, except Singapore's.</li>
+<li>If the prize doesn't fit in your inventory, you keep your ticket and the prize waits at that machine.</li>
+<li><b>Tickets:</b> from <b>Hanako</b> (below) for 3,000,000 mesos, or from the Cash Shop.</li>
+</ul>
+
+<h2>Hanako</h2>
+<p>Hanako stands in the <b>Free Market Entrance</b> and sells for mesos:</p>
+<div class="scroll"><table>
+<tr><th>Item</th><th>Mesos</th></tr>
+<tr><td>Gachapon Ticket</td><td>3m</td></tr>
+<tr><td>VIP hair and face coupons</td><td>5m</td></tr>
+<tr><td>Hair colour and skin coupons</td><td>2m</td></tr>
+<tr><td>Cosmetic lens coupon</td><td>3m</td></tr>
+<tr><td>Royal Hair Coupon</td><td>15m</td></tr>
+<tr><td>Transparent Hat, Transparent Cape</td><td>10m each</td></tr>
+<tr><td>Pink and Purple Adventurer Capes</td><td>8m each</td></tr>
+</table></div>
+
+<h2>Bot shops</h2>
+<p>Up to 8 regulars at a time keep a hired merchant in <b>FM rooms 1-12 on channels 1-3</b> (about 4 on channel 1
+and 2 each on channels 2 and 3), each for about 6 hours. They sell their own loot and things they bought from
+players. They never sell godly gear, Chaos or White Scrolls, boss-only drops or cash items.</p>
+
+<h2>Trading and haggling</h2>
+<ul>
+<li><b>To buy</b>, ask in chat, for example <i>"how much for the work gloves"</i>. They name a price and put the
+item in the trade window.</li>
+<li><b>To sell</b>, invite them to trade and put your item in. They make an offer and only go up.</li>
+<li>Haggle in chat or in the trade window. Friends get a better deal. Rivals won't trade with you.</li>
+<li>Regulars also buy from players' shops at fair prices, mostly better-than-average gear.</li>
+<li>GM characters can't trade with them.</li>
+</ul>
+
+<h2><code>@price &lt;item&gt;</code></h2>
+<p>What an item really sold for over the last 7 days: the middle price, the range and the number of sales. Sales
+between your own characters, or between friends on one connection, don't count.</p>
+
+<h2>Shop tax</h2>
+<p>Free Market shops (personal stores and hired merchants) pay at least <b>3%</b> of each sale. Bigger sales pay
+the old, higher v83 rate (see <a href="money.html">Making mesos</a>).</p>
+
+<h2>Partner rings</h2>
+<p>The Cash Shop's <b>Ring</b> category sells 7 couple rings and 6 friendship rings at their v83 prices (3,600 to
+6,000 NX for the pair). Press Buy, type your partner's name (another player online in the world), and you both get
+the ring. Equip it and change channel once to see the effect. Any two characters can share one.</p>
+<p>Engagement ring boxes come from <b>Moony</b> in Amoria, for any two characters. Weddings are in Amoria.</p>
+
+<p class="src">Sources: <code>soloMapling/Gachapon/gachapon-pools.yaml</code>, <code>MesoSinks</code> and
+<code>economy.yaml</code> (Hanako 9209006, <code>shopTaxPercent: 3</code>), migration
+<code>021-cosmetics-merchant.sql</code>, <code>scripts/npc/9201000.js</code> (Moony), the 1.5.0 patch notes.</p>
+
+</div></div>
+</main>
+</div>
+<footer>SlumsMS - a private v83 world on MapleRoot. Fan project, not affiliated with Nexon.<br>
+Built from the server repo by docs/wiki/build.py. Notes marked <span class="owner">owner check</span> need the owner to confirm.</footer>
+</body>
+</html>

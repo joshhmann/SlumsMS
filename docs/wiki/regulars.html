@@ -13,7 +13,7 @@
 </header>
 <input type="checkbox" id="menu" hidden>
 <div class="wrap">
-<nav class="side"><div class="box"><div class="box-h">Pages</div><ul><li><a href="index.html">Home</a></li><li><a href="getting-started.html">Getting started</a></li><li><a href="rates.html">Rates</a></li><li><a href="hubs.html">Base of Roots and the FM</a></li><li><a href="jobs.html">Jobs and skills</a></li><li><a href="leveling.html">Where to train</a></li><li><a href="travel.html">Travel routes</a></li><li><a href="rebirths.html">Rebirths</a></li><li><a href="regulars.html" aria-current=page>The town&#x27;s regulars</a></li><li><a href="commands.html">Commands</a></li><li><a href="money.html">Making mesos</a></li><li><a href="faq.html">FAQ and known issues</a></li><li><a href="changelog.html">Changelog</a></li><li><a href="guidebook.html">In-game guidebook</a></li></ul></div></nav>
+<nav class="side"><div class="box"><div class="box-h">Pages</div><ul><li><a href="index.html">Home</a></li><li><a href="getting-started.html">Getting started</a></li><li><a href="rates.html">Rates</a></li><li><a href="hubs.html">Base of Roots and the FM</a></li><li><a href="getting-around.html">Getting around</a></li><li><a href="jobs.html">Jobs and skills</a></li><li><a href="leveling.html">Where to train</a></li><li><a href="travel.html">Travel routes</a></li><li><a href="rebirths.html">Rebirths</a></li><li><a href="regulars.html" aria-current=page>The town&#x27;s regulars</a></li><li><a href="shops.html">Gachapon, shops and trading</a></li><li><a href="commands.html">Commands</a></li><li><a href="money.html">Making mesos</a></li><li><a href="faq.html">FAQ and known issues</a></li><li><a href="changelog.html">Changelog</a></li><li><a href="guidebook.html">In-game guidebook</a></li></ul></div></nav>
 <main>
 <div class="box"><div class="box-h"><h1>The town&#x27;s regulars</h1></div>
 <div class="box-b">
@@ -31,9 +31,11 @@ Zone host, jump-quest regulars, people forming Orbis PQ parties.</li>
 </ul>
 
 <h2>Talking to someone</h2>
+<p>Talk in plain words: <i>"wanna party?"</i>, <i>"come to henesys"</i>, <i>"how much for the work gloves"</i>.
+They do it, then answer like a player, at typing speed.</p>
 <ol>
-<li><b>Say their name</b> in normal chat, or part of it (a nickname like "fire" for xFirex works). They answer in a
-chat bubble.</li>
+<li><b>Say their name</b> in normal chat, or part of it (a nickname like "fire" for xFirex works). Without a name,
+the one you are <b>facing</b> answers, or the one standing <b>closest</b> to you. They answer in a chat bubble.</li>
 <li><b>Keep talking.</b> For about <b>50 seconds</b> after each line they keep listening, so follow-ups don't need
 the name. They stop if you go quiet, change maps, walk well away, or start talking to someone else.</li>
 <li>Not sure who you meant? If a line nearly matches a name, they may ask <i>"u talking to me?"</i>; answer "ya".</li>
@@ -48,8 +50,8 @@ Nobody under level 10 parties, and merchants and hosts are too busy.</td></tr>
 <tr><td><code>&lt;name&gt; where do u train</code></td><td>They tell you their spot, if they have one.</td></tr>
 <tr><td><code>&lt;name&gt; follow</code> / "come with me"</td><td>A townsperson who agrees joins your party and
 follows you. A trainer already in your party comes along. Tell a follower "train here" to make them stay and train.</td></tr>
-<tr><td><code>&lt;name&gt; trade</code></td><td>Merchants point you to their shop; everything they sell is there at
-the posted price. Others say no.</td></tr>
+<tr><td><code>&lt;name&gt; how much for &lt;item&gt;</code></td><td>They name a price and put the item in a trade
+window. Haggle in chat or in the window; friends pay less, rivals won't trade.</td></tr>
 <tr><td>anything else</td><td>Just chat. They know where they are, what they're doing, and they remember you.</td></tr>
 </table></div>
 
@@ -61,11 +63,54 @@ train...). Merchants, the gacha, dealers and hosts have their own menus.</li>
 Mistyped name? You'll get a "did you mean...?" for people nearby.</li>
 </ul>
 
+<h2 id="feelings">They remember you (1.5.0)</h2>
+<p>Every regular keeps a feeling about each player, and it changes with what you do.</p>
+<ul>
+<li><b>Friends:</b> partying, buffs, heals, rescues, trades, gifts, fame and friendly chat. Friends greet you, send
+buddy requests, invite you to parties and buff you. A friend may give you potions, a scroll or 100k-500k mesos, at
+most once a week. A friend always joins your party; a stranger about one time in three.</li>
+<li><b>Rivals:</b> KS, taking their drops, defame and rude chat. Rivals trash-talk (about your game: level, gear,
+deaths, KS count), steal a few mobs on that map and won't trade or party. A nemesis may call guildmates for a short
+KS war or post a "KSer" megaphone; saying "sorry" calms it.</li>
+<li>Grudges fade over a few days, friendships over a few weeks.</li>
+<li><code>@botdrama off</code> keeps everyone neutral or friendly toward you: no rivals at all.</li>
+<li>They leave you alone while you're in a party quest or event, at a boss, trading, in a shop, talking to an NPC,
+or away.</li>
+</ul>
+
+<h2 id="buddies">Buddies</h2>
+<p>Add a regular to your buddy list. One who knows you answers buddy chat like a person, after a few seconds to a
+few minutes; a stranger ignores you. Ask "where r u" and they name their map and invite you over.</p>
+
+<h2 id="guilds">Guilds and wars</h2>
+<ul>
+<li>Ten regular guilds: Legendz, MoonLiteX, MesoMafia, SlumLords, ZakumSlayerz, KoreanBBQ, SnailGang, Pwnage,
+NoobTeam and HenesysKidz. They chat in guild chat, recruit, and run boss trips you can join by partying a member.</li>
+<li>Ask an officer to join one. Regulars who like you join <i>your</i> guild too, but get picky once it is half
+regulars.</li>
+<li>Rival guilds go to war for a week over grind maps. A guild can declare war on a player guild it can't stand:
+<code>@guildwar</code> shows the score, and <code>@guildwar peace</code> (master or jr. master) ends it.</li>
+<li>Guild rankings, regulars and players together: <b>Heracle</b> in Orbis (Guild Base) or any
+<b>Honorable Rock</b>.</li>
+</ul>
+
+<h2 id="romance">Romance (opt-in)</h2>
+<p>Off unless you type <code>@romance on</code>. Then a regular who really likes you may flirt and ask you out, or
+you can ask. A partner turns up when you're online, sometimes follows you to a new map, and whispers now and then.
+Propose with an engagement ring box from <b>Moony</b> in Amoria (level 50, any genders), and marry in Amoria with
+<code>@romance wedding</code>. Ignore a partner for four days and you get dumped. <code>@romance off</code> stops
+it; <code>@romance divorce</code> ends a marriage. It stays PG-13.</p>
+
+<h2 id="settings"><code>@settings</code></h2>
+<p>One window for bot drama, romance, their megaphones and their chatter, each with its state: click a line to
+switch it.</p>
+
 <h2>Good to know</h2>
 <ul>
-<li>They remember people. Be decent and they'll be friendly. Try to scam, beg or mess with them and they'll be
-cold, may refuse to party, and may tell their friends.</li>
-<li>Nobody hands out items or mesos for nothing. Trade in the FM like everyone else.</li>
+<li>Be decent and they'll be friendly. Try to scam, beg or mess with them and they'll be cold, may refuse to
+party, and may tell their friends.</li>
+<li>Gifts come only from friends. Otherwise trade, and haggle: see <a href="shops.html">Gachapon, shops and
+trading</a>.</li>
 <li>Too much chatter? See <a href="commands.html#quiet"><code>@quiet</code></a>.</li>
 </ul>
 
@@ -73,7 +118,8 @@ cold, may refuse to party, and may tell their friends.</li>
 says "bots" out loud. Rename the command's word, or leave it? Also confirm that live has the
 chat-attention build (talk by name, 50 s follow-ups, double-click menu): it is in test-rc1, and ticket 37 still says
 "not yet checked on a server or in game".</p>
-<p class="src">Sources: <code>BotChatRouting</code> (50 s attention, 700 px range), <code>Dispatcher.talkNaturally</code>,
+<p class="src">Sources (1.5.0 sections): the 1.5.0 patch notes, <code>BotAffinity</code>, <code>BotRomance</code>,
+<code>SettingsMenu</code>, <code>GuildWarCommand</code>, <code>scripts/npc/2010007.js</code> (Heracle). Older sections: <code>BotChatRouting</code> (50 s attention, 700 px range), <code>Dispatcher.talkNaturally</code>,
 <code>BotChatActions</code> (party/follow/trade/where-train rules), <code>BotRecruitManager</code> (level 10),
 <code>CharInfoRequestHandler</code> (double-click, default "after"), <code>WhisperHandler</code>,
 <code>EnvironmentManager</code> (who is where), <code>docs/tickets/37-natural-conversations.md</code>,

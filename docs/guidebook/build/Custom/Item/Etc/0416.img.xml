@@ -7,15 +7,15 @@
 <string name="text" value="#eSlumsMS Guide#n"/>
 </imgdir>
 <imgdir name="1">
-<string name="text" value="Welcome to #bSlumsMS#k, on the world of #bBera#k.\n\nThis book covers what is different here. Open it any time from your ETC tab.\n\nType #b@help#k in chat for the full list of commands."/>
+<string name="text" value="Welcome to #bSlumsMS#k on #bBera#k! Click a chapter:\n\n#L2##b1. What is SlumsMS?#k#l\n#L4##b2. Rates#k#l\n#L6##b3. Base of Roots and the FM#k#l\n#L8##b4. Hub NPCs#k#l\n#L10##b5. Jobs and the Job Master#k#l\n#L12##b6. Rebirths#k#l"/>
 </imgdir>
 </imgdir>
 <imgdir name="1">
 <imgdir name="0">
-<string name="text" value="#eContents#n"/>
+<string name="text" value=""/>
 </imgdir>
 <imgdir name="1">
-<string name="text" value="#L2##b1. What is SlumsMS?#k#l\n#L4##b2. Rates#k#l\n#L6##b3. Base of Roots and the FM#k#l\n#L8##b4. Hub NPCs#k#l\n#L10##b5. Jobs and the Job Master#k#l\n#L12##b6. Rebirths#k#l\n#L14##b7. The 5th tier#k#l\n#L16##b8. The town's regulars#k#l\n#L18##b9. Talking to people#k#l\n#L20##b10. Megaphones and @quiet#k#l\n#L22##b11. Commands#k#l\n#L24##b12. Getting help#k#l"/>
+<string name="text" value="#L14##b7. The 5th tier#k#l\n#L16##b8. The town's regulars#k#l\n#L18##b9. Talking to people#k#l\n#L20##b10. Megaphones and @quiet#k#l\n#L22##b11. Commands#k#l\n#L24##b12. Getting help#k#l\n#L26##b13. Friends, rivals, romance#k#l\n#L28##b14. Gachapon, shops, @price#k#l\n#L30##b15. Getting around#k#l\n\nType #b@guide#k for the quick tour."/>
 </imgdir>
 </imgdir>
 <imgdir name="2">
@@ -31,7 +31,7 @@
 <string name="text" value=""/>
 </imgdir>
 <imgdir name="1">
-<string name="text" value="#eGood to know#n\n- One world, #bBera#k, 8 channels.\n- The FM button and the hub are the same place: #bBase of Roots#k.\n- The #bSHOP#k button opens the cash shop in a window.\n- Day, night and weather change on outdoor maps.\n\n#L1##bBack to Contents#k#l"/>
+<string name="text" value="#eGood to know#n\n- One world, #bBera#k, 5 channels.\n- The #bTRADE#k button takes you to the hub, #bBase of Roots#k.\n- The #bSHOP#k button opens the cash shop in a window.\n- Day, night and weather change on outdoor maps.\n\n#L0##bBack to Contents#k#l"/>
 </imgdir>
 </imgdir>
 <imgdir name="4">
@@ -47,7 +47,7 @@
 <string name="text" value=""/>
 </imgdir>
 <imgdir name="1">
-<string name="text" value="#eAfter a rebirth#n your EXP rate changes:\n- No rebirth: 3x\n- 1st rebirth: 3x\n- 2nd rebirth: 2x\n- 3rd rebirth: 1x\n\nThe numbers on this page can change between updates. #b@rates#k always shows the real ones.\n\n#L1##bBack to Contents#k#l"/>
+<string name="text" value="#eAfter a rebirth#n your EXP rate changes:\n- No rebirth: 3x\n- 1st rebirth: 3x\n- 2nd rebirth: 2x\n- 3rd rebirth: 1x\n\nThe numbers on this page can change between updates. #b@rates#k always shows the real ones.\n\n#L0##bBack to Contents#k#l"/>
 </imgdir>
 </imgdir>
 <imgdir name="6">
@@ -55,7 +55,7 @@
 <string name="text" value="#e3. Base of Roots and the FM#n"/>
 </imgdir>
 <imgdir name="1">
-<string name="text" value="#bBase of Roots#k is the main hub. The #bFM button#k takes you there. The Job Master, the rebirth NPC, the warper and storage are all in it.\n\nThe #bclassic Free Market#k is still here: use its portal in the hub, or the FM portal in any town. Leaving the FM takes you back where you came in."/>
+<string name="text" value="#bBase of Roots#k is the main hub. The #bTRADE#k button takes you there. The Job Master, the rebirth NPC, the warper and storage are all in it.\n\nThe #bclassic Free Market#k is still here: use its portal in the hub, or the FM portal in any town. Leaving the FM takes you back where you came in."/>
 </imgdir>
 </imgdir>
 <imgdir name="7">
@@ -63,7 +63,7 @@
 <string name="text" value=""/>
 </imgdir>
 <imgdir name="1">
-<string name="text" value="#eIn the Free Market#n you'll find player shops and the town's merchants. Their prices are on the shop sign; buy as you would from anyone.\n\nFredrick holds what your hired merchant didn't sell.\n\n#L1##bBack to Contents#k#l"/>
+<string name="text" value="#eIn the Free Market#n you'll find player shops and the town's merchants. Their prices are on the shop sign; buy as you would from anyone.\n\nFredrick holds what your hired merchant didn't sell.\n\n#L0##bBack to Contents#k#l"/>
 </imgdir>
 </imgdir>
 <imgdir name="8">
@@ -79,7 +79,7 @@
 <string name="text" value=""/>
 </imgdir>
 <imgdir name="1">
-<string name="text" value="#bNimble#k - forge equipment, refine ores.\n#bRooty#k - NX goodies and server info.\n#bCotton Stylist#k - hair, face, skin.\n#bGerrard#k - storage.\n#bLab Tech#k - your expedition (boss) attempts.\n\n#L1##bBack to Contents#k#l"/>
+<string name="text" value="#bNimble#k - forge equipment, refine ores.\n#bRooty#k - NX goodies and server info.\n#bCotton Stylist#k - hair, face, skin.\n#bGerrard#k - storage.\n#bLab Tech#k - your expedition (boss) attempts.\n\n#L0##bBack to Contents#k#l"/>
 </imgdir>
 </imgdir>
 <imgdir name="10">
@@ -95,7 +95,7 @@
 <string name="text" value=""/>
 </imgdir>
 <imgdir name="1">
-<string name="text" value="MapleRoot changed many skills: new 4th job attacks, more lines and targets, and some old skills removed (boosters, Steal, Big Bang and others).\n\nWarriors are sword or spear only.\n\n#L1##bBack to Contents#k#l"/>
+<string name="text" value="MapleRoot changed many skills: new 4th job attacks, more lines and targets, and some old skills removed (boosters, Steal, Big Bang and others).\n\nWarriors are sword or spear only.\n\n#L0##bBack to Contents#k#l"/>
 </imgdir>
 </imgdir>
 <imgdir name="12">
@@ -111,7 +111,7 @@
 <string name="text" value=""/>
 </imgdir>
 <imgdir name="1">
-<string name="text" value="#eStones are made from:#n\nBlue: Zakum Diamond + Nine Spirit's Egg\nRed: Rock of Time + Von Leon's Seal\nBlack: Cygnus Circlet + Cygnus Knight Emblem\n\n#eRebirths open maps:#n\n1: Lion King's Castle\n2: Twilight Perion\n3: Grandis and Arcane River\n\n#L1##bBack to Contents#k#l"/>
+<string name="text" value="#eStones are made from:#n\nBlue: Zakum Diamond + Nine Spirit's Egg\nRed: Rock of Time + Von Leon's Seal\nBlack: Cygnus Circlet + Cygnus Knight Emblem\n\n#eRebirths open maps:#n\n1: Lion King's Castle\n2: Twilight Perion\n3: Grandis and Arcane River\n\n#L0##bBack to Contents#k#l"/>
 </imgdir>
 </imgdir>
 <imgdir name="14">
@@ -127,7 +127,7 @@
 <string name="text" value=""/>
 </imgdir>
 <imgdir name="1">
-<string name="text" value="#bWorld's Engine#k comes from the quest #bMagnus the Tyrant!#k: level 200, defeat Magnus, then report to Wyatt the Reborn.\n\nA Super Beginner at level 120 with 3 rebirths and World's Engine can become a #bSynth Master#k.\n\n#L1##bBack to Contents#k#l"/>
+<string name="text" value="#bWorld's Engine#k comes from the quest #bMagnus the Tyrant!#k: level 200, defeat Magnus, then report to Wyatt the Reborn.\n\nA Super Beginner at level 120 with 3 rebirths and World's Engine can become a #bSynth Master#k.\n\n#L0##bBack to Contents#k#l"/>
 </imgdir>
 </imgdir>
 <imgdir name="16">
@@ -143,7 +143,7 @@
 <string name="text" value=""/>
 </imgdir>
 <imgdir name="1">
-<string name="text" value="They remember people. Be nice and they'll be glad to see you; scam or bother them and they won't.\n\nNobody will give you items or mesos for nothing - trade fairly in the FM.\n\n#L1##bBack to Contents#k#l"/>
+<string name="text" value="They remember you. Party, help, trade and fame them and they become friends; KS them or be rude and they become rivals.\n\nFriends sometimes give gifts. See chapter 13.\n\n#L0##bBack to Contents#k#l"/>
 </imgdir>
 </imgdir>
 <imgdir name="18">
@@ -159,7 +159,7 @@
 <string name="text" value=""/>
 </imgdir>
 <imgdir name="1">
-<string name="text" value="#eThings to ask:#n\n#b&lt;name&gt; party#k - if they say yes, send the invite.\n#b&lt;name&gt; where do u train#k\n#b&lt;name&gt; follow#k - a party member comes with you.\n#b&lt;name&gt; trade#k - merchants point you to their shop.\n\n#bDouble-click#k someone for their menu. You can #bwhisper#k them too."/>
+<string name="text" value="#eThings to ask:#n\n#b&lt;name&gt; party#k - if they say yes, send the invite.\n#b&lt;name&gt; where do u train#k\n#b&lt;name&gt; follow#k - a party member comes with you.\n#b&lt;name&gt; how much for &lt;item&gt;#k - buy and haggle.\n\n#bDouble-click#k someone for their menu. You can #bwhisper#k them too."/>
 </imgdir>
 </imgdir>
 <imgdir name="20">
@@ -175,7 +175,7 @@
 <string name="text" value=""/>
 </imgdir>
 <imgdir name="1">
-<string name="text" value="People you are talking to or partied with still show when their chatter is hidden.\n\nThe setting lasts until the server restarts.\n\n#L1##bBack to Contents#k#l"/>
+<string name="text" value="People you are talking to or partied with still show when their chatter is hidden.\n\nThe setting lasts until the server restarts.\n\n#L0##bBack to Contents#k#l"/>
 </imgdir>
 </imgdir>
 <imgdir name="22">
@@ -183,7 +183,7 @@
 <string name="text" value="#e11. Commands#n"/>
 </imgdir>
 <imgdir name="1">
-<string name="text" value="#b@help#k - all commands\n#b@rates#k / #b@check#k - rates, resets\n#b@online#k - who is on\n#b@str @dex @int @luk &lt;n&gt;#k - add AP\n#b@resetap#k / #b@resetsp#k\n#b@whodrops &lt;item&gt;#k\n#b@whatdropsfrom &lt;mob&gt;#k\n#b@mobhp#k / #b@bosshp#k"/>
+<string name="text" value="#b@help#k - all commands\n#b@guide#k - the quick tour\n#b@rates#k / #b@check#k - rates, resets\n#b@online#k - who is on\n#b@str @dex @int @luk &lt;n&gt;#k - add AP\n#b@whodrops &lt;item&gt;#k\n#b@whatdropsfrom &lt;mob&gt;#k\n#b@mobhp#k / #b@bosshp#k"/>
 </imgdir>
 </imgdir>
 <imgdir name="23">
@@ -191,7 +191,7 @@
 <string name="text" value=""/>
 </imgdir>
 <imgdir name="1">
-<string name="text" value="#b@sell#k / #b@qs#k - sell items\n#b@bb#k - buy back\n#b@bank#k - store mesos\n#b@weekly#k - boss attempts\n#b@ranks#k / #b@equiplv#k\n#b@shop#k - all-in-one shop\n#b@quiet#k - see page 10\n#b@dispose#k - fix a stuck NPC chat\n\n#L1##bBack to Contents#k#l"/>
+<string name="text" value="#b@qs#k - quick sell\n#b@bb#k - buy back\n#b@bank#k - store mesos\n#b@weekly#k - boss attempts\n#b@ranks#k / #b@equiplv#k\n#b@shop#k - all-in-one shop\n#b@settings#k - bot settings\n#b@goto &lt;town&gt;#k - hop to a town\n#b@dispose#k - fix a stuck NPC chat\n\n#L0##bBack to Contents#k#l"/>
 </imgdir>
 </imgdir>
 <imgdir name="24">
@@ -207,7 +207,55 @@
 <string name="text" value=""/>
 </imgdir>
 <imgdir name="1">
-<string name="text" value="Have fun, and say hi to the regulars.\n\n#L1##bBack to Contents#k#l"/>
+<string name="text" value="Have fun, and say hi to the regulars.\n\n#L0##bBack to Contents#k#l"/>
+</imgdir>
+</imgdir>
+<imgdir name="26">
+<imgdir name="0">
+<string name="text" value="#e13. Friends, rivals, romance#n"/>
+</imgdir>
+<imgdir name="1">
+<string name="text" value="Every regular has a feeling about you. Party, buffs, heals, trades, gifts and fame make #bfriends#k: they greet you, invite you and may send a gift.\n\nKS, taking drops or rude chat make #brivals#k: trash talk and a few stolen mobs. Grudges fade in days."/>
+</imgdir>
+</imgdir>
+<imgdir name="27">
+<imgdir name="0">
+<string name="text" value=""/>
+</imgdir>
+<imgdir name="1">
+<string name="text" value="#b@settings#k - switch it all with a click.\n#b@botdrama off#k - no rivals for you.\n#b@romance on#k - they may flirt and date you (off by default). Marry in #bAmoria#k.\n\nAdd them as #bbuddies#k. Ten #bbot guilds#k recruit and go to war: #b@guildwar#k.\n\n#L0##bBack to Contents#k#l"/>
+</imgdir>
+</imgdir>
+<imgdir name="28">
+<imgdir name="0">
+<string name="text" value="#e14. Gachapon, shops, @price#n"/>
+</imgdir>
+<imgdir name="1">
+<string name="text" value="#bGachapon#k machines stand in 12 towns, each with its own prizes. #b@gacha &lt;town&gt;#k lists them.\n\nTickets: #bHanako#k in the FM Entrance (3m mesos) or the Cash Shop.\n\n#b@price &lt;item&gt;#k - what it really sold for this week."/>
+</imgdir>
+</imgdir>
+<imgdir name="29">
+<imgdir name="0">
+<string name="text" value=""/>
+</imgdir>
+<imgdir name="1">
+<string name="text" value='Up to 8 regulars keep shops in FM rooms 1-12 on channels 1-3.\n\nTo buy, ask: #b"how much for the work gloves"#k. To sell, invite them to trade. Haggle in chat; friends pay less.\n\nShops pay a #b3%#k tax on sales.\n\n#L0##bBack to Contents#k#l'/>
+</imgdir>
+</imgdir>
+<imgdir name="30">
+<imgdir name="0">
+<string name="text" value="#e15. Getting around#n"/>
+</imgdir>
+<imgdir name="1">
+<string name="text" value="#b@goto &lt;town&gt;#k hops to a town (not from events, PQs or maps you can't leave). #b@goto#k lists them.\n\nChannel 1 is the busiest, channel 5 the quietest.\n\nThe #bDaily Check-In#k gives a gift each day from level 10: #b@daily#k."/>
+</imgdir>
+</imgdir>
+<imgdir name="31">
+<imgdir name="0">
+<string name="text" value=""/>
+</imgdir>
+<imgdir name="1">
+<string name="text" value="#eBounces#n: Thieves and Night Walkers keep the strong Ninja and Vertical Bounce. Everyone else gets a Flash Jump-sized one. Ninja Bounce works only in the air.\n\n#L0##bBack to Contents#k#l"/>
 </imgdir>
 </imgdir>
 </imgdir>
