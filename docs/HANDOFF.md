@@ -119,14 +119,23 @@ Owner-reported or found, roughly by priority:
 - **PQ bots "not great"** (a friend's report; times/channel to come from the owner). Also tone down PQ lobby spam.
 - **Shutdown noise:** the nav-graph warm-up thread logs "footholds is null" while maps unload at shutdown; skip
   warm-up once shutdown starts.
-- **Open auto-QA leads** in the latest mixed report: af-1, af-2, rv-2, rm-1, rm-4, cv-2, cv-5, cv-7, cb-2.
-  gu-1 is now a repaired QA check with two passing server runs (section 2 item 8). The original full-run baseline
-  was 54 PASS / 9 FAIL / 11 SKIP; its QA logs and journal were read during the first bug-fix pass. In that older run:
-  rm-4 explicitly logged "nobody to crash the reception (no ex or rival online)" after staging an ex (fixture issue).
-  af-1 did greet the player, but its judge also graded ambient arrow-shopping chat as a greeting. cv-5's routing
-  snapshot chose the staged Orbis-PQ speaker by reply words while its active thread candidate was a different
-  Kerning-PQ thread; thread fixture isolation needs investigation. The missing KS/follow actions,
-  chat-content judgements and combat positions still need separate reproduction and fixes.
+- **Auto-QA harness fixes (branch `151-qa-chat-gate`, commits `79f30a3bb`, `3da97eee4`; on TEST 2026-10-24).**
+  Five checks failed for reasons outside the game, and all five now pass on TEST: rv-2 (a spree helper credits a
+  mob it is already fighting, and heads back to its rival instead of grinding another ledge; the pretend player
+  walks to the mobs when its "fight" finds none), rv-4 (`!qa do revenge` was being dropped - see below), pb-1
+  (staged bots are level 10-45, fighting ones included: a level-7 rival ignores party invites), rm-4 (two exes
+  staged: the objection takes one, the other crashes; an ex is no longer recruited as a wedding guest, which made
+  it "busy" and unable to crash) and rm-1 (starts off HHG2 so its follow warp is a real map change).
+  **The dropped GM line was a server bug too:** the chat gate compares stamps against the tick clock
+  (`UPDATE_INTERVAL`, 777 ms on both servers), so two lines typed ~400 ms apart can land in the same tick and the
+  second is dropped silently. GM chat and whispers are now exempt; **real players still lose a line typed inside
+  one tick** - a gameplay change to raise the resolution or the window is the owner's call.
+- **Remaining auto-QA leads:** af-1/af-2 (flaky - both passed several runs on this build, fail when the staged bot
+  greets through `CONVO SAID` instead of `AFFINITY ACT`), cv-2/cv-5/cv-7 (chat-content judgements and thread
+  fixture isolation; cv-5's routing snapshot picked the staged speaker by reply words while its thread candidate was
+  a different PQ thread), cb-2 (the position metric compares against the nearest mob anywhere on the map, so walking
+  away from a distant mob counts as "facing away"), ga-1. Original baseline was 54 PASS / 9 FAIL / 11 SKIP; the
+  mixed report after the first pass was 55/9 and then 57/7 (af-1, af-2, cv-2, cv-5, cv-7 passing).
 - **Partial-nightly lead:** af-2 also failed on the old build during the interrupted 3:00 AM PT (10:00 UTC) nightly (missing
   taunt/KS action). It needs reproduction on the latest build; it was not changed as part of these fixes.
   The account-cache exception found in the older logs is fixed (section 2 item 6).
