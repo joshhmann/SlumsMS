@@ -27,6 +27,7 @@ import java.util.Deque;
 import java.util.List;
 import java.util.Map;
 import java.util.Random;
+import java.util.Set;
 import java.util.concurrent.ConcurrentHashMap;
 import java.util.concurrent.ThreadLocalRandom;
 import java.util.concurrent.TimeUnit;
@@ -74,12 +75,20 @@ public final class AffinityReactions {
     /** Per bot: the KS spree it is on. */
     private static final Map<Integer, KsSpree> sprees = new ConcurrentHashMap<>();
     private static final Map<Long, Long> lastRefuseLine = new ConcurrentHashMap<>();
+    private static final Map<Integer, Long> lastNoTake = new ConcurrentHashMap<>();
     private static volatile long lastGossipLine;
 
-    /** A KS spree; {@code war}: called in by a rival for a KS war (1.5.0 bot drama), not the bot's own grudge. */
-    record KsSpree(int playerId, int mapId, long until, int[] left, boolean war) {
+    /**
+     * A KS spree; {@code war}: called in by a rival for a KS war (1.5.0 bot drama), not the bot's own grudge.
+     * {@code counted}: the mobs it has been credited with, so one mob is never taken twice.
+     */
+    record KsSpree(int playerId, int mapId, long until, int[] left, boolean war, Set<Integer> counted) {
         KsSpree(int playerId, int mapId, long until, int[] left) {
-            this(playerId, mapId, until, left, false);
+            this(playerId, mapId, until, left, false, ConcurrentHashMap.newKeySet());
+        }
+
+        KsSpree(int playerId, int mapId, long until, int[] left, boolean war) {
+            this(playerId, mapId, until, left, war, ConcurrentHashMap.newKeySet());
         }
     }
 
@@ -401,12 +410,23 @@ public final class AffinityReactions {
         }
         server.life.Monster best = null;
         double bestSq = Double.MAX_VALUE;
+        int saw = 0;
+        int rivalHit = 0;
+        int ours = 0;
         for (server.maps.MapObject mo : bot.getMap().getMapObjectsInRange(pos, (double) KS_REACH_X * KS_REACH_X,
                 List.of(server.maps.MapObjectType.MONSTER))) {
             server.life.Monster m = (server.life.Monster) mo;
             java.awt.Point mp = m.getPosition();
-            if (!m.isAlive() || mp == null || Math.abs(mp.y - pos.y) > KS_REACH_Y || !m.isAttackedBy(rival)
-                    || m.isAttackedBy(bot)) {
+            if (!m.isAlive() || mp == null || Math.abs(mp.y - pos.y) > KS_REACH_Y) {
+                continue;
+            }
+            saw++;
+            if (!m.isAttackedBy(rival)) {
+                continue;
+            }
+            rivalHit++;
+            if (m.isAttackedBy(bot)) {
+                ours++;
                 continue;
             }
             double d = pos.distanceSq(mp);
@@ -415,19 +435,43 @@ public final class AffinityReactions {
                 best = m;
             }
         }
-        if (best == null || (picked != null && picked.getObjectId() == best.getObjectId())) {
+        if (best == null) {
+            noTake(bot, rival, saw, rivalHit, ours);
             return picked;
+        }
+        // 1.5.1 rv-2: a helper standing next to the player usually has that very mob as its pick already - it is
+        // taking the player's mob, so the spree is credited with it too, once per mob. Counting only the picks that
+        // *change* the target made a whole KS war look like no bot ever took a mob.
+        boolean alreadyPicked = picked != null && picked.getObjectId() == best.getObjectId();
+        if (!spree.counted().add(best.getObjectId())) {
+            return picked; // this mob was credited to the spree already
         }
         spree.left()[0]--;
         if (QaLog.on(QaLog.Topic.AFFINITY)) {
             QaLog.map(QaLog.Topic.AFFINITY, bot.getMapId(), "KS " + bot.getName() + " takes " + best.getName()
-                    + " (oid " + best.getObjectId() + ") from " + rival.getName() + ", " + spree.left()[0] + " left");
+                    + " (oid " + best.getObjectId() + ") from " + rival.getName()
+                    + (alreadyPicked ? " (its pick already)" : "") + ", " + spree.left()[0] + " left");
         }
         if (spree.left()[0] == 0 && ThreadLocalRandom.current().nextDouble() < 0.4) {
             String name = rival.getName();
             ExecutorServiceManager.runAsync(() -> say(bot, "KsAnnounce", name));
         }
         return best;
+    }
+
+    /** Why a spree bot found nothing to take, once per bot per 10 s: auto-QA rv-2 reads these to explain a miss. */
+    private static void noTake(Character bot, Character rival, int saw, int rivalHit, int ours) {
+        if (!QaLog.on(QaLog.Topic.AFFINITY)) {
+            return;
+        }
+        long now = BotAffinity.now();
+        Long last = lastNoTake.get(bot.getId());
+        if (last != null && now - last < TimeUnit.SECONDS.toMillis(10)) {
+            return;
+        }
+        lastNoTake.put(bot.getId(), now);
+        QaLog.map(QaLog.Topic.AFFINITY, bot.getMapId(), "KS " + bot.getName() + " takes none: " + saw
+                + " mob(s) in reach, " + rivalHit + " hit by " + rival.getName() + ", " + ours + " already ours");
     }
 
     // ── defame ──
@@ -698,6 +742,7 @@ public final class AffinityReactions {
         defamedDay.clear();
         sprees.clear();
         lastRefuseLine.clear();
+        lastNoTake.clear();
         lastGossipLine = 0;
     }
 }

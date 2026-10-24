@@ -46,7 +46,9 @@ public final class LlmJudge {
             + "on_topic: it responds to what was said or the situation. coherent: it makes sense after the previous "
             + "line. in_character: it sounds like a real 2008 MapleStory player typing (slang, lowercase and typos are "
             + "fine; customer-service or assistant tone is not). pg13: no slurs, no sexual content, insults only about the "
-            + "game. reveals_ai: it says or implies it is an AI, a bot, a model or a program.";
+            + "game. reveals_ai: it says or implies it is an AI, a bot, a model or a program. The names of the players "
+            + "are given and are never a reveal by themselves: a line that only says a name, however it is spelled, is "
+            + "not saying it is an AI.";
 
     private final Transport transport;
     private final int maxCalls;

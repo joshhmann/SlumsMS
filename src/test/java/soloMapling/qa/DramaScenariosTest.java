@@ -101,6 +101,8 @@ class DramaScenariosTest {
         int ex = world.drama.indexOf("romance stage ex");
         int partner = world.drama.indexOf("romance stage dating 60");
         assertTrue(ex >= 0 && partner > ex, "the ex first, the partner last (the steps act on the latest)");
+        assertEquals(2, world.drama.stream().filter("romance stage ex"::equals).count(),
+                "two exes: the objection takes one, the other crashes the reception");
         assertTrue(world.drama.contains("romance object"));
         assertTrue(world.drama.contains("romance crash"));
         suite.action(world.online, "runaway", new String[0]);
