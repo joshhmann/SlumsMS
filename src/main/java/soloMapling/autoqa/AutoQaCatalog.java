@@ -624,6 +624,15 @@ public final class AutoQaCatalog {
                 .build());
         c.add(Check.manual("t-la-1", "The Tauri launcher's own checklist", "a desktop app with its own page"));
 
+        c.add(Check.auto("t-fh-1", "Fishing timer and cancellation").minutes(1)
+                .step(run("fh-1"), waitFor("FISHING POLICY PASS grants=1 duplicate=blocked movement=cancelled", 10))
+                .expect(has("FISHING POLICY PASS grants=1 duplicate=blocked movement=cancelled"))
+                .build());
+        c.add(Check.half("t-fh-2", "Actual fishing chair and item grant", "watch the chair and catch effects in a real client").minutes(3)
+                .step(run("fh-2"), waitFor("FISHING REAL catches=1 active=true", 130), qaDo("stop"))
+                .expect(has("FISHING REAL catches=1 active=true"), has("FISHING STOPPED active=false"))
+                .build());
+
         c.add(Check.auto("t-bl-1", "Bot life shadow policy and rejected-action safeguards").minutes(1)
                 .step(run("bl-1"), waitFor("LIFE REFUSAL accepted=false actionFact=false", 10))
                 .expect(has("LIFE SHADOW case=socialite selected=HANG_OUT"),

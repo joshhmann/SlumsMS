@@ -67,7 +67,7 @@ public final class LifeObservation {
             }
             Activity activity = grinding ? Activity.GRIND
                     : phase != null && (phase.name().equals("IN_TOWN") || phase.name().equals("LIFE_DWELL"))
-                    ? Activity.HANG_OUT : null;
+                    ? phase.name().equals("LIFE_DWELL") ? training.currentLifeVisit() : Activity.HANG_OUT : null;
             if (activity != null && phase != null && phase.sinceMs() > 0 && phase.sinceMs() <= nowMs) {
                 long duration = grinding ? profile.grindDurationMs() : profile.townDurationMs();
                 current = new Current(activity, phase.sinceMs(), duration, LifePolicy.STICKINESS);

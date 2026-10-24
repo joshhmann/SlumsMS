@@ -2107,6 +2107,10 @@ public class World {
     }
 
     public void runCheckFishingSchedule() {
+        soloMapling.fishing.GameFishing.tick(id);
+        if (soloMapling.fishing.FishingPolicy.enabled()) {
+            return; // Never mix the legacy meso/EXP/rare pool into timed fishing.
+        }
         double[] fishingLikelihoods = Fishing.fetchFishingLikelihood();
         double yearLikelihood = fishingLikelihoods[0], timeLikelihood = fishingLikelihoods[1];
 
@@ -2198,6 +2202,7 @@ public class World {
             mapOwnershipSchedule = null;
         }
 
+        soloMapling.fishing.GameFishing.stopWorld(id);
         if (fishingSchedule != null) {
             fishingSchedule.cancel(false);
             fishingSchedule = null;
