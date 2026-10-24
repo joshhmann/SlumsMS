@@ -6,6 +6,16 @@ something.
 
 Times: give the owner Pacific next to UTC (PDT = UTC-7).
 
+**1.6.0-rc1 preparation (owner approved):** branch `test-1.6.0-rc1`, worktree
+`/root/work/SlumsMS-160-rc1`, based on bot-brain checkpoint `d0de8c8e9`. Current 1.5.1 snapshot `ddddd2b83`
+is merged as `cd6232f84`. Resolve the town-timing conflict by keeping both profile duration and chat holds;
+later chat ticks extend rather than shorten a planned stay. The regression fails before and passes after, and
+conversation-hold/spacing focused tests pass. The other conflict was the shared TEST receipt, preserving both
+histories. Candidate scope is the bot brain and inherited fixes; the approved shared actor/weights stay unchanged.
+Server label: `1.6.0-rc1`; source runtime switches still default off. No new rewards, fishing/medals/dungeon work,
+client protocol changes or live deployment. Full release build and isolated QA are pending. Notes/checklist:
+`docs/release/1.6.0-rc1-notes.md`, `docs/release/1.6.0-rc1-qa.md`. Stop the isolated copy after testing.
+
 **Owner's work split (2026-10-24):** this bug-fix pass is finished. The owner will hand continuing **1.5.1 bug
 squashing to DeepSeek**; use `release-1.5.1`, the current TEST receipt below and section 3's remaining leads.
 **Codex: Ticket 60 is implemented on `160-bot-brain`** (`/root/work/SlumsMS-bot-brain-160`). It now has weighted
