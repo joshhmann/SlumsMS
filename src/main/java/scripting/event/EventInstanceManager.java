@@ -864,15 +864,27 @@ public class EventInstanceManager {
 
     public void clearPQ() {
         try {
-            BossLogEntry ent = ExpeditionType.typeToEntry(this.expedition.getType());
-            if(ent != null) {
-                for(Character chr : this.expedition.getActiveMembers()) {
-                    ExpeditionBossLog.insertPlayerEntry(chr.getId(), ent);
-                }
-            }
+            logBossClear(this.expedition);
             invokeScriptFunction("clearPQ", EventInstanceManager.this);
         } catch (ScriptException | NoSuchMethodException ex) {
             ex.printStackTrace();
+        }
+    }
+
+    /**
+     * Writes the boss log for an expedition's clear. Party quests and solo events (KPQ, the mount quest's breeding
+     * room, weddings) have no expedition: before 1.5.1 this threw a NullPointerException, so their clearPQ script
+     * never ran and the player was left in the instance without a reward.
+     */
+    static void logBossClear(Expedition exped) {
+        if (exped == null) {
+            return;
+        }
+        BossLogEntry ent = ExpeditionType.typeToEntry(exped.getType());
+        if (ent != null) {
+            for (Character chr : exped.getActiveMembers()) {
+                ExpeditionBossLog.insertPlayerEntry(chr.getId(), ent);
+            }
         }
     }
 
