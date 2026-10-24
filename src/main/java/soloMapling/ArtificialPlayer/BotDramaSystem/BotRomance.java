@@ -1204,8 +1204,20 @@ public final class BotRomance {
             soloMapling.ArtificialPlayer.GCMoveSystem.GCMovement.stop(bot);
             java.awt.Point at = new java.awt.Point(player.getPosition());
             at.translate(-30, 0);
-            bot.changeMap(player.getMap(), at);
-            botSitChair(bot, chair);
+            Runnable sit = () -> {
+                try {
+                    botSitChair(bot, chair);
+                } catch (RuntimeException e) {
+                    log.debug("couple chair sit", e);
+                }
+            };
+            if (bot.getMapId() != player.getMapId()) {
+                bot.changeMap(player.getMap(), at);
+                sit.run();
+            } else {
+                // Already on the player's map: walk up to the chair. changeMap here was a teleport the player saw.
+                DramaKit.walkTo(bot, at, player.getMapId(), sit);
+            }
             DramaKit.say(bot, "RomanceChair", Map.of("PLAYER", player.getName()));
             qa(player.getMapId(), "CHAIR " + bot.getName() + " sits with " + player.getName() + " on " + chair);
         } catch (RuntimeException e) {
