@@ -440,6 +440,16 @@ public final class AutoQaCatalog {
                         judged(SAID, "a bot chats with a player in its own voice", 4), Expects.sayDo(130))
                 .build());
 
+        // rc6 (owner report 2026-10-24): the walk-away is staged, not waited for: the line is said, then the wander a
+        // town wanderer's ensureRoaming starts, then five samples 5 s apart must all find the bot within 150 px
+        c.add(Check.auto("t-cv-8", "A bot you talk to stays with you").minutes(4)
+                .step(run("cv-9"), say("{bot} hey where are you going?"), qaDo("hold"), waitSeconds(5), qaDo("sample"),
+                        waitSeconds(5), qaDo("sample"), waitSeconds(5), qaDo("sample"), waitSeconds(5), qaDo("sample"),
+                        waitSeconds(5), qaDo("sample"))
+                .expect(has("CONVO HOLD .*the wander is on"), atLeast(5, "CONVO HOLD .*with you"),
+                        lacks("CONVO HOLD .*WANDERED OFF"))
+                .build());
+
         // rc6 inference: the last 24 h of bot chat, scored (ChatQuality): relevance, stiffness, repeats, say-do
         c.add(Check.auto("t-cq-1", "Daily chat quality (relevance, stiffness, say-do)").minutes(3)
                 .expect(ChatQuality.expectation())

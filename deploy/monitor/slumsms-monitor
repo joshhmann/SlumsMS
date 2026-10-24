@@ -440,7 +440,8 @@ def director_settings(t, unit, info):
     code, out, _ = run(["journalctl", "-u", unit, "--since", "@%d" % (started - 5), "--no-pager", "-o", "cat", "-q",
                         "--grep", "Population director started"], timeout=60)
     for ln in out.splitlines():
-        m = re.search(r"Population director started: peak (\d+), curve (\S+), tick", ln)
+        # 1.5.0 added "(roster peak N, population cap N)" after the peak; older servers log without it
+        m = re.search(r"Population director started: peak (\d+)(?: \([^)]*\))?, curve (\S+), tick", ln)
         if m:
             save_json(cache_path, {"started": started, "peak": int(m.group(1)), "curve": m.group(2)})
             return int(m.group(1)), m.group(2)

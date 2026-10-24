@@ -951,18 +951,24 @@ public class TrainingBot extends BotSM {
             buildShopPlan();
             // Ticket 09: a bot short of potions or ammo walks to a shop in town that sells them and buys there -
             // on this map right away, or as the first store of the itinerary.
-            boolean errand = planResupply(needs);
+            // Owner report 2026-10-24: a player talking to this bot keeps it here - no errand walk and no stroll
+            // off the arrival spot while the chat holds (every later tick extends the hold as well).
+            boolean chatting = soloMapling.ArtificialPlayer.BotConversation.isHoldingChat(getChr());
+            boolean errand = !chatting && planResupply(needs);
             // A deep hub's restock is an ON-MAP food-cart / grocer (no separate store map), so walk to it in
             // place and linger like a shop browse instead of idling on the entry portal. Extends the dwell.
-            errand = errand || maybeStartHubErrand();
-            if (!errand) {
+            errand = errand || (!chatting && maybeStartHubErrand());
+            if (!errand && !chatting) {
                 // Normal town return: walk off the arrival portal to a scattered spot and fidget there, so a
                 // town of returning grinders reads as milling players instead of a statue clump on the portal.
                 // A hub errand already walks the bot to its vendor, so it doesn't need this.
                 TownLoiter.settle(getChr());
             }
-            phaseDeadlineMs = now() + (errand ? shopDwellMs() : LifeRuntime.enabled()
-                    ? dailyLife.memory().profile().townDurationMs() : dwellMs());
+            long townDwell = errand ? shopDwellMs() : LifeRuntime.enabled()
+                    ? dailyLife.memory().profile().townDurationMs() : dwellMs();
+            phaseDeadlineMs = now() + (chatting
+                    ? Math.max(townDwell, soloMapling.ArtificialPlayer.BotConversation.holdMs(getChr().getId()))
+                    : townDwell);
             if (rng.nextInt(3) == 0) {
                 BotEmote(getChr(), 1 + rng.nextInt(7)); // a little life in town
             }
@@ -973,6 +979,12 @@ public class TrainingBot extends BotSM {
         BotScrolling.townTick(getChr());   // ticket 11: scroll its own gear while it stands in town
         soloMapling.ArtificialPlayer.BotWealth.townTick(getChr());   // 56B / 1.5.0: spend down, gachapon
         soloMapling.Economy.BotShops.townTick(getChr());   // 1.5.0 rc3: collect shop takings, maybe open a shop
+        long holdMs = soloMapling.ArtificialPlayer.BotConversation.isHoldingChat(getChr())
+                ? soloMapling.ArtificialPlayer.BotConversation.holdMs(getChr().getId()) : 0;
+        if (holdMs > 0) {
+            phaseDeadlineMs = Math.max(phaseDeadlineMs, now() + holdMs); // extend the hold without shortening a planned stay
+            return;
+        }
         if (now() < phaseDeadlineMs) {
             return;
         }

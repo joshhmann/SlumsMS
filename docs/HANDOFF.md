@@ -88,8 +88,10 @@ Deploy receipt and backups: `/opt/mapleroot-deployments/v1.5.0/` on 164. Rollbac
 /opt/mapleroot-deployments/v1.5.0/rollback.sh` (server, ~30 s) and `tools/release/publish-client --restore-manifest
 /srv/slums-staging/manifest-before-1.5.0.json` (client). **Live actions always need the owner's go** (AGENTS.md).
 
-The earlier Codex bug-pass receipt was **1.5.1 integration commit `c2b1a7974`** (NPC spacing, synthetic login, reply routing and
-guild-chat QA fixes), installed on 2026-10-24 at **5:57 AM PT (12:57 UTC)**. Its version banner still says 1.5.0;
+The test server now runs **1.5.1 integration commit `1c1e5dd9c`** (the conversation hold, the KS-rally walk-in,
+couple-chair walks, the GM boss-run preemption and the mob-body step-out), deployed on 2026-10-24 under stamp
+`20261024T205847Z` with **0 boot errors**. That build also carries the earlier `c2b1a7974` NPC spacing, synthetic
+login and reply-routing fixes (checkpoint at **5:57 AM PT / 12:57 UTC**). Its version banner still says 1.5.0;
 this is a test integration build, not a live release. Source: `release-1.5.1` in `/root/work/SlumsMS-npc-space`.
 Later shared TEST was observed at `1204367b7`, running since 12:40:06 PM PT (19:40:06 UTC), from the parallel
 bug pass. This feature task did not restart or deploy to it. The forward merge above is the tested integration
@@ -172,7 +174,13 @@ Owner-reported or found, roughly by priority:
 - **A bot you're talking to walks away** mid-conversation (personal space or its wander habit pulls it away). A
   conversation partner should stay put ~30-60 s. Source audit: `BotConversation` already keeps a 60 s session,
   but the wanderer and fidget paths do not use it as a movement hold; personal space only recognises the pair.
-  This remains unfixed.
+  **Fixed on `151-convo-hold`:** `BotConversation.holdMs/isHoldingChat/heldByChat` holds a bot 45 s from the last
+  exchange (a player's line, its reply, the typing time); the wander stops an in-flight stroll and the dwell runs
+  to the end of the hold, and loiter, fidget, `SocialBot` relocate, `TownWandererBot`/`HenesysBot` roaming, the
+  training bot's town dwells and `PersonalSpace.keepNow` consult it. Yields to a shutdown quiesce, the logout
+  curve, an event instance and a drama scene; grinding combat is not held. QA `cv-9` / auto-QA `t-cv-8`.
+  **Merged into `release-1.5.1` as `f13e16375`; `1c1e5dd9c` on TEST. `t-cv-8` PASS: the bot held 113-115 px
+  across five samples over 33 s.** The real-client feel of the hold still needs the owner (`t-cv-9`).
 - **Guide pages too long** for the v83 NPC window (a scrollbar shows). Cut each page to about 6-7 short lines; check
   in a real client.
 - **"overlap" health check** still flags some stacked town bots; `foothold` flags ~1% (27 of 2,713) off the ground.
@@ -199,28 +207,37 @@ Owner-reported or found, roughly by priority:
   the nearest mob in the bot's back counted, so 22 of 52 were strollers 150-550 px from any mob; facing away now
   counts only at 45 px, standing inside a mob still always counts). The KS-war helper rule also no longer needs the
   check's mark: a nemesis that calls its own war 14 s in used to make it fail with "no KS WAR call after the mark".
-- **Open: KS war helpers grind on their own platform** (ticket 66, t-rv-2, about half the runs). `DramaKit.bringTo`
-  only moves a helper that is on a different map; on a stacked map (104040000) the helpers end up 300-500 px above
-  the player and `ksPick`'s 350x90 px reach never touches the player's mobs. Fixed here: same-map helpers are moved
-  too when a scene grinds, and a staged spot is used only on the player's own ledge (|dy| <= 30). Still open: the
-  training brain picks its own grind spot after landing, so a scene cannot keep the helper beside the player. Needs
-  a forced/pinned grind spot for a scene's duration (`WorldEventSteer.hold` pins only the map; `GCMovement.follow`
-  made the helpers stop fighting).
+- **KS war helpers grind on their own platform** (ticket 66, t-rv-2). **FIXED in `1fef2540e`, merged as
+  `30648a5d2`:** `DramaKit.walkTo` walks a called helper in instead of teleporting it, bounded at 4.5 s (a helper
+  with no walkable ledge stands and fights rather than popping in), and a couple chair now walks on the same map.
+  It replaced the teleport `DramaKit.bringTo`, which only moved a helper on a different map: on a stacked map
+  (104040000) the helpers ended up 300-500 px above the player and `ksPick`'s 350x90 px reach never touched the
+  player's mobs. `t-rv-2` PASS with 3 of 3 called bots taking mobs on the merged build
+  (`logs/qa/rv-2-20261024T211000Z.log`); the check is still flaky (it failed 1 of 3 helpers twice that evening on
+  the pre-fix build and passed 3 of 3 four times after), so a single PASS is not yet trusted.
 - **Full auto-QA baseline on the fixed build (2026-10-24 17:43-19:20 UTC, `all`, 75 checks): 56 PASS / 7 FAIL /
   12 SKIP** (was 54/9/11, then 57/7, then 60/4). Green again: rv-2, rv-4, pb-1, rm-1, rm-4, bb-2, ga-1. Also fixed
   since: cv-4 (the reply log printed each fragment's remaining wait instead of its offset from the player's line, so a
-  split reply that took 1,005 ms read "+150 ms" and failed "planned faster than 900 ms"). Failures now:
+  split reply that took 1,005 ms read "+150 ms" and failed "planned faster than 900 ms"). Failures in that run (the fixed ones say so):
   gw-1 (the enemy guild killed nothing: `ZakumSlayerz killed nothing`, turf staging/time, not the harness), gw-4 +
-  gu-5 (`at least 1 x BOT_GUILD BOSS RUN` / SKIP "a boss run is already on (SlumLords)": the alliance's joint boss
-  run never started because a boss run was already up), cv-5 (thread routing fixture: `{thread}` is filled and the
-  route still picks the staged speaker by reply words), cv-7 (judge BAD on a bank line - content quality), cb-2 (13 of
-  52 POSITION samples had a bot `INSIDE` a mob's body, dx 11-34: melee bots do clip into the mobs they hit - a real
-  bot behaviour wart, not a metric artefact, so the ratio stays) and rv-2 half the time (ticket 66).
+  gu-5 (`at least 1 x BOT_GUILD BOSS RUN` / SKIP "a boss run is already on (SlumLords)"), **both FIXED in
+  `b83aab5e6`** - a GM/`!qa` start now stops the run on first, bot runs still never preempt. `t-gw-4` PASS
+  (`logs/qa/gw-4-20261024T210035Z.log`: `BOSS RUN Legendz -> papulatus ch1`, `BOSS RUN Legendz + MoonLiteX stopped
+  by AutoQaOne`) and `t-gu-5` PASS in 198 s with the run cleared (`logs/qa/gu-5-20261024T211206Z.log`), cv-5 (thread routing fixture: `{thread}` is
+  filled and the route still picks the staged speaker by reply words), cv-7 (judge BAD on a bank line - content
+  quality), cb-2 (13 of 52 POSITION samples had a bot `INSIDE` a mob's body, dx 11-34: melee bots do clip into the
+  mobs they hit - a real bot behaviour wart, not a metric artefact, so the ratio stays; **FIXED in `1204367b7`**,
+  `t-cb-2` PASS at 5 of 52, 9.6% under the 10% bar) and rv-2 half the time (ticket 66).
 - **Remaining auto-QA leads:** af-1/af-2 (flaky - both passed several runs on this build, fail when the staged bot
   greets through `CONVO SAID` instead of `AFFINITY ACT`), cv-2/cv-5/cv-7 (chat-content judgements and thread
   fixture isolation; cv-5's routing snapshot picked the staged speaker by reply words while its thread candidate was
   a different PQ thread). Original baseline was 54 PASS / 9 FAIL / 11 SKIP; the mixed report after the first pass
   was 55/9, then 57/7, then 60/4.
+- **On the 2026-10-24 evening build (`1c1e5dd9c`) only five checks ran, all PASS:** `t-cv-8` (113-115 px over five
+  samples, 33 s), `t-rv-2` (3 of 3 helpers on mobs), `t-cb-2` (9.6% inside a mob), `t-gw-4` and `t-gu-5` (198 s,
+  run cleared). **No full auto-QA run of all 75 checks was made on this build.** Still open: gw-1 (the enemy guild
+  killed nothing), cv-5 (thread routing picks the staged speaker), cv-7 (judge BAD on a bank line), rv-2's
+  flakiness (ticket 66) and the overlap/foothold health flags.
 - **Partial-nightly lead:** af-2 also failed on the old build during the interrupted 3:00 AM PT (10:00 UTC) nightly (missing
   taunt/KS action). It needs reproduction on the latest build; it was not changed as part of these fixes.
   The account-cache exception found in the older logs is fixed (section 2 item 6).

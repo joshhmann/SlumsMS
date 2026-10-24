@@ -66,6 +66,9 @@ public final class TownLoiter {
         if (bot == null || bot.getMap() == null) {
             return;
         }
+        if (soloMapling.ArtificialPlayer.BotConversation.isHoldingChat(bot)) {
+            return; // owner report 2026-10-24: a bot in a conversation keeps its place instead of loitering off
+        }
         MapleMap map = bot.getMap();
         int mapId = bot.getMapId();
         int botId = bot.getId();

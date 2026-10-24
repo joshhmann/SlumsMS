@@ -16,7 +16,9 @@ import soloMapling.ArtificialPlayer.BotSM;
 import soloMapling.ArtificialPlayer.BotTypeManager;
 import soloMapling.ArtificialPlayer.BotTypes.SocialBot;
 import soloMapling.ArtificialPlayer.BotTypes.TrainingBot;
+import soloMapling.ArtificialPlayer.GCMoveSystem.GCMovement;
 import soloMapling.qa.QaLog;
+import soloMapling.server.ExecutorServiceManager;
 import soloMapling.server.SoloMaplingUtilities;
 import tools.PacketCreator;
 
@@ -30,6 +32,7 @@ import java.util.Map;
 import java.util.Set;
 import java.util.concurrent.ConcurrentHashMap;
 import java.util.concurrent.TimeUnit;
+import java.util.concurrent.atomic.AtomicBoolean;
 
 import static soloMapling.ArtificialPlayer.BotCommandsPack.SocialCommands.BotSpeak;
 
@@ -372,9 +375,15 @@ public final class DramaKit {
                     || Math.abs(bot.getPosition().x - at.x) > 120 || Math.abs(bot.getPosition().y - at.y) > 120)) {
                 // A bot already on the player's map keeps its own spot, so a guildmate training on another ledge of
                 // the same map never came to the rally and fought its own mobs (auto-QA t-rv-2: 0 of 3 helpers ever
-                // took a mob from the player). A rally that made the bot run here puts it beside the player; a
-                // walk-in scene (grind false) still walks.
-                bot.changeMap(map, at);
+                // took a mob from the player). It walks there, never warps: a changeMap on the map the player is
+                // watching made the bot vanish and reappear beside them (owner review of the KS rally).
+                Point from = bot.getPosition() == null ? null : new Point(bot.getPosition());
+                Point dest = at;
+                int mapId = map.getId();
+                walkTo(bot, dest, mapId, () -> qa(QaLog.Topic.RIVALRY, mapId, "RALLY WALK " + bot.getName()
+                        + " from " + from + " to " + bot.getPosition() + (bot.getPosition() != null
+                        && Math.abs(bot.getPosition().x - dest.x) <= 40 && Math.abs(bot.getPosition().y - dest.y) <= 40
+                        ? " arrived" : " stopped short of " + dest)));
             }
             if (grind) {
                 soloMapling.worldevents.WorldEventSteer.hold(bot.getId(), map.getId());
@@ -387,6 +396,49 @@ public final class DramaKit {
             log.debug("Could not bring {} to {}", bot.getName(), player.getName(), e);
             return false;
         }
+    }
+
+    /** How long a same-map approach walks before it stops and lets the bot fight from where it is. */
+    private static final long WALK_TO_MS = 4_500L;
+
+    /**
+     * A bot already on the scene's map walks to {@code at} on its feet; it never warps, because the player it is
+     * coming to can see the map. The walk is bounded ({@value #WALK_TO_MS} ms) and ends with
+     * {@link GCMovement#stop(Character)} on the scheduler, so a bot whose path is wedged is still free to fight, and
+     * the caller never blocks. The bot itself finished {@code bringTo} as before: held on the map and, when it grinds,
+     * converted to a training bot that takes the player's mobs from where the walk left it (the KS pick drifts to them).
+     */
+    private static void walkTo(Character bot, Point at, int mapId) {
+        walkTo(bot, at, mapId, null);
+    }
+
+    /** As {@link #walkTo(Character, Point, int)}; {@code done} runs once, on arrival or when the walk is stopped. */
+    static void walkTo(Character bot, Point at, int mapId, Runnable done) {
+        AtomicBoolean finished = new AtomicBoolean();
+        Runnable finish = () -> {
+            if (done != null && finished.compareAndSet(false, true)) {
+                done.run();
+            }
+        };
+        try {
+            GCMovement.move(bot, at.x, at.y, finish);
+        } catch (RuntimeException e) {
+            log.debug("Could not walk {} to {},{}", bot.getName(), at.x, at.y, e);
+        }
+        ExecutorServiceManager.getScheduledExecutorService().schedule(() -> ExecutorServiceManager.runAsync(() -> {
+            try {
+                if (!finished.get() && bot.getMapId() == mapId) {
+                    GCMovement.stop(bot);
+                }
+            } catch (RuntimeException e) {
+                log.debug("Could not end {}'s walk", bot.getName(), e);
+            }
+            try {
+                finish.run();
+            } catch (RuntimeException e) {
+                log.debug("Could not finish {}'s walk", bot.getName(), e);
+            }
+        }), WALK_TO_MS, TimeUnit.MILLISECONDS);
     }
 
     /** Says exactly this line in map chat. */

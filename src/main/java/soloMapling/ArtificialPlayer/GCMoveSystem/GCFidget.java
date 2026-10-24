@@ -110,6 +110,12 @@ final class GCFidget {
         }
 
         long now = System.currentTimeMillis();
+        if (soloMapling.ArtificialPlayer.BotConversation.isHoldingChat(bot)) {
+            // Owner report 2026-10-24: no hop or wander-nudge mid-conversation; re-anchor where the bot stands
+            // (the chat pair's small step may have moved it) and look again on the normal beat.
+            s.base = new Point(pos);
+            return;
+        }
         if (now < s.nextActionAtMs) {
             return;
         }

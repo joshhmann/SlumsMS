@@ -30,7 +30,7 @@ final class ConvoScenarios {
 
     static List<QaScenario> all() {
         return List.of(new Cv1Actions(), new Cv2Haggle(), new Cv3Mood(), new Cv4Voices(), new Cv5Thread(), new Cv6Rate(),
-                new Cv7Bank(), new Cv8FollowUp());
+                new Cv7Bank(), new Cv8FollowUp(), new Cv9Hold());
     }
 
     /** Shared: staged bots per GM, undone at stop. */
@@ -271,6 +271,34 @@ final class ConvoScenarios {
                 return world(ctx, "ask", args);
             }
             throw new QaRefusal("cv-8 steps: ask [question]");
+        }
+    }
+
+    /** cv-9 (owner report 2026-10-24): the bot you are talking to walked away mid-conversation. */
+    static final class Cv9Hold extends ConvoScenario {
+        public String id() { return "cv-9"; }
+        public String title() { return "A bot you are talking to stays with you (conversation hold, 25 s of samples)"; }
+        public String usage() { return "[line...]; then !qa do sample"; }
+
+        public int minutes(String[] args) { return 4; }
+
+        public List<String> stage(QaContext ctx) {
+            int id = stage(ctx, "friend", false, null);
+            List<String> out = new ArrayList<>();
+            out.add(QaScenarios.who(ctx, id) + " is next to you. !qa do hold says a line to it and starts the wander");
+            out.add("(BotWanderSystem.start, the one a town wanderer's ensureRoaming uses) that used to carry it off.");
+            out.add("!qa do sample logs the distance again. Log: HOLD <bot>: <px> px from you, <s> s of hold left,");
+            out.add("with you | WANDERED OFF (150 px). It must say \"with you\" for the 25 s after the last line.");
+            out.add("Auto-QA runs it as t-cv-8 (cv-9, 5 x 5 s samples).");
+            return out;
+        }
+
+        public List<String> action(QaContext ctx, String name, String[] args) {
+            return switch (name) {
+                case "hold" -> world(ctx, "hold", args);
+                case "sample" -> world(ctx, "sample", args);
+                default -> throw new QaRefusal("cv-9 steps: hold [line], sample");
+            };
         }
     }
 

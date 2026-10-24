@@ -153,6 +153,10 @@ public class TownWandererBot extends BotSM {
 
     private void doChangeMap() {
         Character chr = getChr();
+        if (soloMapling.ArtificialPlayer.BotConversation.isHoldingChat(chr)) {
+            wanderState = WanderState.IDLE;
+            return; // owner report 2026-10-24: no map hop away from the player it is talking to
+        }
         int dest = pickNextMap(townFamily, chr.getMapId());
         if (dest < 0) {
             wanderState = WanderState.IDLE;

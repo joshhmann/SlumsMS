@@ -149,6 +149,51 @@ class TrainingBotLifeExecutionTest {
         });
     }
 
+    @Test
+    void townArrivalKeepsBothTheProfileDurationAndTheConversationHold() throws Exception {
+        String enabled = System.getProperty("slums.botlife.enabled");
+        try {
+            System.setProperty("slums.botlife.enabled", "true");
+            for (boolean longHold : List.of(false, true)) {
+                withBot((bot, chr) -> {
+                    long townMs = bot.lifeRuntime().memory().profile().townDurationMs();
+                    long holdMs = longHold ? townMs + 60_000 : 45_000;
+                    field("phase").set(bot, TrainingBot.Phase.IN_TOWN);
+                    field("phaseEntered").setBoolean(bot, false);
+                    try (var chat = mockStatic(BotConversation.class);
+                         var supplies = mockStatic(soloMapling.ArtificialPlayer.BotSupplySystem.BotSupplies.class);
+                         var loiter = mockStatic(soloMapling.ArtificialPlayer.BotTownSystem.TownLoiter.class);
+                         var speech = mockStatic(soloMapling.ArtificialPlayer.BotCommandsPack.SocialCommands.class);
+                         var space = mockStatic(soloMapling.ArtificialPlayer.BotTownSystem.PersonalSpace.class);
+                         var scrolling = mockStatic(soloMapling.ArtificialPlayer.BotScrollSystem.BotScrolling.class);
+                         var wealth = mockStatic(soloMapling.ArtificialPlayer.BotWealth.class);
+                         var shops = mockStatic(soloMapling.Economy.BotShops.class)) {
+                        chat.when(() -> BotConversation.isHoldingChat(chr)).thenReturn(true);
+                        chat.when(() -> BotConversation.holdMs(chr.getId())).thenReturn(holdMs);
+                        Method arrive = TrainingBot.class.getDeclaredMethod("doInTown");
+                        arrive.setAccessible(true);
+                        long before = System.currentTimeMillis();
+                        arrive.invoke(bot);
+                        long after = System.currentTimeMillis();
+                        long deadline = field("phaseDeadlineMs").getLong(bot);
+                        long expected = Math.max(townMs, holdMs);
+                        assertTrue(deadline >= before + expected, "keep both profile dwell and chat hold");
+                        assertTrue(deadline <= after + expected);
+                        long secondTick = System.currentTimeMillis();
+                        arrive.invoke(bot);
+                        assertTrue(field("phaseDeadlineMs").getLong(bot) >= deadline,
+                                "a short chat hold must not shorten the profile's planned stay");
+                        assertTrue(field("phaseDeadlineMs").getLong(bot) >= secondTick + holdMs);
+                        loiter.verifyNoInteractions();
+                    }
+                });
+            }
+        } finally {
+            if (enabled == null) System.clearProperty("slums.botlife.enabled");
+            else System.setProperty("slums.botlife.enabled", enabled);
+        }
+    }
+
     private interface Body { void run(TrainingBot bot, Character chr) throws Exception; }
 
     private static void withBot(Body body) throws Exception {
