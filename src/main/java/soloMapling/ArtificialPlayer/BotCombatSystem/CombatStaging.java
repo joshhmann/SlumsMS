@@ -17,13 +17,16 @@ import soloMapling.ArtificialPlayer.BotStore;
 import soloMapling.ArtificialPlayer.BotSupplySystem.BotVitals;
 import soloMapling.ArtificialPlayer.BotSupplySystem.StarterStash;
 import soloMapling.ArtificialPlayer.BotTypeManager;
+import soloMapling.ArtificialPlayer.BotTypes.TrainingBot;
 import soloMapling.ArtificialPlayer.GCMoveSystem.GCMovement;
 import soloMapling.worldevents.WorldEventSteer;
 
 import java.awt.Point;
 import java.util.ArrayList;
+import java.util.HashSet;
 import java.util.List;
 import java.util.Map;
+import java.util.Set;
 import java.util.TreeMap;
 
 /**
@@ -256,13 +259,16 @@ public final class CombatStaging {
         List<String> out = new ArrayList<>();
         if ("rope".equals(action)) { // rc6 (QA t-sp-1): two grinders take a rope rest now
             for (int id : ids) {
-                if (out.size() < 2 && soloMapling.ArtificialPlayer.BotMessagingSystem.CharacterStorage.getBotById(id)
-                        instanceof soloMapling.ArtificialPlayer.BotTypes.TrainingBot tb && tb.forceRopeBreakNow()) {
+                if (out.size() < 2 && CharacterStorage.getBotById(id)
+                        instanceof TrainingBot tb && tb.forceRopeBreakNow()) {
                     out.add(tb.getChr().getName() + " takes a break on a rope (a safe rope above the mobs; else it"
                             + " rests on the ground)");
                 }
             }
             return out.isEmpty() ? List.of("no grinder is fighting right now: try again in a few seconds") : out;
+        }
+        if ("die".equals(action)) { // its own pass: the death has to land on a bot that can still die
+            return die(ids);
         }
         for (int id : ids) {
             Character bot = BotHelpers.getCharFromChannelStorage(id);
@@ -270,14 +276,6 @@ public final class CombatStaging {
                 continue;
             }
             switch (action) {
-                case "die" -> {
-                    BotDeaths.forceNextDeath(id, true);
-                    BotVitals.drainHpPotionsTo(bot, 0);
-                    BotVitals.hurt(bot, bot.getHp() + 1);
-                    out.add(bot.getName() + (BotDeaths.isDead(id) ? " died" : " did not die (not grinding yet?)"));
-                    BotDeaths.forceNextDeath(id, false);
-                    return out; // one bot is enough
-                }
                 case "lowpots" -> {
                     int mark = BotHabits.of(id).restockBelow();
                     int gone = BotVitals.drainHpPotionsTo(bot, Math.max(0, mark - 1));
@@ -296,6 +294,61 @@ public final class CombatStaging {
             }
         }
         return out;
+    }
+
+    /**
+     * QA t-cb-3, rc6 triage: the staged list is in staging order, and {@code lowpots} drains the first bot's HP pots,
+     * which sends it to town - and a bot that left the grind is not death-eligible any more ({@link BotDeaths} rolls
+     * nothing for it), so forcing a lethal hit on it did nothing and the check failed "did not die". Try the bots that
+     * are grinding first, then the others, and report the first one that actually died.
+     */
+    static List<String> die(List<Integer> ids) {
+        String first = null;
+        for (int id : dieOrder(ids, grinding(ids))) {
+            Character bot = BotHelpers.getCharFromChannelStorage(id);
+            if (bot == null) {
+                continue;
+            }
+            if (first == null) {
+                first = bot.getName();
+            }
+            BotDeaths.forceNextDeath(id, true);
+            BotVitals.drainHpPotionsTo(bot, 0);
+            BotVitals.hurt(bot, bot.getHp() + 1);
+            boolean dead = BotDeaths.isDead(id);
+            BotDeaths.forceNextDeath(id, false);
+            if (dead) {
+                return List.of(bot.getName() + " died");
+            }
+        }
+        return first == null ? List.of("no staged bot is here: nothing to kill")
+                : List.of(first + " did not die (not grinding yet?)");
+    }
+
+    /** The staged ids, the ones that are fighting first: a death step has to reach a bot the deaths system watches. */
+    static List<Integer> dieOrder(List<Integer> ids, Set<Integer> grinding) {
+        List<Integer> order = new ArrayList<>(ids.size());
+        for (int id : ids) {
+            if (grinding.contains(id)) {
+                order.add(id);
+            }
+        }
+        for (int id : ids) {
+            if (!grinding.contains(id)) {
+                order.add(id);
+            }
+        }
+        return order;
+    }
+
+    private static Set<Integer> grinding(List<Integer> ids) {
+        Set<Integer> grinding = new HashSet<>();
+        for (int id : ids) {
+            if (CharacterStorage.getBotById(id) instanceof TrainingBot tb && tb.isGrinding()) {
+                grinding.add(id);
+            }
+        }
+        return grinding;
     }
 
     private static long pct(int a, int b) {
