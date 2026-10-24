@@ -15,12 +15,33 @@ public class BotWhyCommand extends Command {
     private static final Logger log = LoggerFactory.getLogger(BotWhyCommand.class);
 
     {
-        setDescription("Inspect a bot's daily-life preview without changing it: !botwhy <name>");
+        setDescription("Inspect a bot's latest daily-life decision without changing it: !botwhy <name>");
     }
 
     public static boolean isEnabled() {
         return soloMapling.ArtificialPlayer.BotLifeSystem.LifeRuntime.enabled()
                 || QaSuite.isEnabled() && Boolean.getBoolean("slums.botlife.preview");
+    }
+
+    static java.util.List<String> inspectionLines(BotSM bot, long now) {
+        if (bot instanceof soloMapling.ArtificialPlayer.BotTypes.TrainingBot training
+                && soloMapling.ArtificialPlayer.BotLifeSystem.LifeRuntime.enabled()) {
+            var latest = training.lifeRuntime().lastDecision();
+            if (latest != null) {
+                var saved = latest.report();
+                // Scores/needs are exactly those evaluated then; request state and phase are read now.
+                var report = new LifeObservation.Report(saved.observed(), saved.profile(), saved.context(),
+                        saved.result(), training.lifeActivityState());
+                var lines = new java.util.ArrayList<String>();
+                var phase = training.lifePhase();
+                lines.add("Last actual decision " + Math.max(0, now - latest.at()) / 1000
+                        + " s ago; phase now " + (phase == null ? "unknown" : phase.name())
+                        + ". Request state below is current.");
+                lines.addAll(LifeObservation.describe(report, true));
+                return java.util.List.copyOf(lines);
+            }
+        }
+        return LifeObservation.describe(LifeObservation.capture(bot, now));
     }
 
     @Override
@@ -40,8 +61,7 @@ public class BotWhyCommand extends Command {
             gm.yellowMessage("No active bot with that name in this world.");
             return;
         }
-        var report = LifeObservation.capture(bot, System.currentTimeMillis());
-        for (String line : LifeObservation.describe(report)) {
+        for (String line : inspectionLines(bot, System.currentTimeMillis())) {
             gm.yellowMessage(line);
             log.info("[BotLifePreview] bot={} {}", target.getId(), line);
         }

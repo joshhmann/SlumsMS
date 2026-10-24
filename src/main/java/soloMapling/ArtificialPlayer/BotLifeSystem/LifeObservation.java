@@ -133,10 +133,14 @@ public final class LifeObservation {
     }
 
     public static List<String> describe(Report report) {
+        return describe(report, false);
+    }
+
+    public static List<String> describe(Report report, boolean actualDecision) {
         List<String> lines = new ArrayList<>();
         var observed = report.observed();
         var context = report.context();
-        lines.add("Bot life SHADOW v" + LifeProfile.VERSION + ": " + observed.name() + " lv " + observed.level()
+        lines.add("Bot life " + (actualDecision ? "DECISION v" : "SHADOW v") + LifeProfile.VERSION + ": " + observed.name() + " lv " + observed.level()
                 + " map " + observed.mapId() + " " + observed.role() + "/" + observed.state());
         lines.add("Provisional personality " + report.profile().primary() + ": " + report.profile().blend());
         lines.add("Goals: " + context.goals().stream().map(LifeGoals.Goal::description).toList());
@@ -144,7 +148,8 @@ public final class LifeObservation {
                 + context.friends() + "/" + context.strangers() + "/" + context.rivals());
         lines.add("Unknown: " + String.join(", ", context.unknown()));
         lines.add("Outcome " + report.result().outcome() + ", selected " + report.result().selected()
-                + "; preview eligibility only. No activity is executed.");
+                + (actualDecision ? "; recorded decision. This command starts no work."
+                : "; preview only. This command starts no work."));
         if (report.execution() != null) {
             var execution = report.execution();
             lines.add("Activity requests: waiting=" + execution.waiting() + ", running=" + execution.active()

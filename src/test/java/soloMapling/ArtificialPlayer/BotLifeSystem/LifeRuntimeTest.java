@@ -53,6 +53,8 @@ class LifeRuntimeTest {
             verify(bot).prepareLifeActivity(decision.capture());
             assertEquals(Activity.RESTOCK,decision.getValue().selected().orElseThrow());
             assertTrue(queue.hasWaiting());
+            assertNotNull(runtime.lastDecision(), "keep the actual result for the read-only inspector");
+            assertEquals(Activity.RESTOCK, runtime.lastDecision().report().result().selected().orElseThrow());
             runtime.tick(now+1000);
             verify(bot,times(1)).prepareLifeActivity(any());
             assertFalse(runtime.memory().goals().isEmpty());

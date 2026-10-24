@@ -19,6 +19,9 @@ public final class LifeRuntime {
     private static final LongAdder decisions = new LongAdder(), accepted = new LongAdder(), cpuNanos = new LongAdder();
     private static final java.util.concurrent.atomic.AtomicLong nextReport = new java.util.concurrent.atomic.AtomicLong();
     private static final java.util.concurrent.ConcurrentHashMap<Activity, LongAdder> activityCounts = new java.util.concurrent.ConcurrentHashMap<>();
+    public record DecisionSnapshot(long at, LifeObservation.Report report) {}
+    private volatile DecisionSnapshot lastDecision;
+    public DecisionSnapshot lastDecision() { return lastDecision; }
     private final TrainingBot bot;
     private final LifeMemory memory;
     private final long bornAt;
@@ -125,6 +128,8 @@ public final class LifeRuntime {
             long socialSince = memory.lastSocial() > 0 ? memory.lastSocial() : bornAt;
             needs.put(Need.SOCIAL, Math.min(1, Math.max(0, now - socialSince)
                     / (double) memory.profile().townDurationMs()));
+            List<String> unknown = new ArrayList<>(original.unknown());
+            unknown.remove("time since social activity");
             // Read-only checks: do not call shortage(), which changes the ammo-fallback state.
             try {
                 double pressure = needs.getOrDefault(Need.SUPPLIES, 0.0);
@@ -134,6 +139,7 @@ public final class LifeRuntime {
                 }
                 if (BotSupplies.shouldRetryAmmoTrip(chr.getId()) && BotSupplies.outOfAmmo(chr)) pressure = 1;
                 needs.put(Need.SUPPLIES, pressure);
+                unknown.remove("MP/ammo pressure");
             } catch (RuntimeException unavailable) { /* the shadow report continues to mark unavailable supply data */ }
             Map<Activity, String> eligible = new EnumMap<>(Activity.class);
             for (Activity activity : Activity.values()) if (bot.canStartLifeActivity(activity, now)) {
@@ -142,7 +148,7 @@ public final class LifeRuntime {
             Character friend = friend(now);
             boolean free = bot.freeForAutomaticLifeActivity(now);
             var context = new LifePolicy.Context(new Needs(needs), eligible, original.friends(), original.strangers(),
-                    original.rivals(), friend != null, false, !free, original.current(), memory.goals(), original.unknown());
+                    original.rivals(), friend != null, false, !free, original.current(), memory.goals(), unknown);
             long signature = Objects.hash(phase, free, eligible.keySet(), original.friends(), original.rivals(),
                     friend == null ? 0 : friend.getId(), needs.entrySet().stream()
                             .map(e -> e.getKey() + ":" + (int) (e.getValue() * 4)).toList());
@@ -158,6 +164,8 @@ public final class LifeRuntime {
                     now, LifePolicy.INTERRUPT_MARGIN, .02,
                     a -> new SplittableRandom(chr.getId() * 31L + a.ordinal() * 101L + now / 30_000).nextDouble(-1, 1),
                     context.commitment());
+            lastDecision = new DecisionSnapshot(now, new LifeObservation.Report(report.observed(),
+                    memory.profile(), context, result, bot.lifeActivityState()));
             decisions.increment();
             if (soloMapling.qa.QaLog.on(soloMapling.qa.QaLog.Topic.HABITS)) {
                 soloMapling.qa.QaLog.any(soloMapling.qa.QaLog.Topic.HABITS,
