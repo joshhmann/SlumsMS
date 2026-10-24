@@ -102,6 +102,7 @@ class BotConversationHoldTest {
         BotRoster.useConnectionSourceForTest(null);
         ChatStats.resetForTest();
         BotConversation.holdMsForTest(BotConversation.HOLD_MS);
+        BotConversation.clockForTest(null);
     }
 
     private static Character character(int id, String name) {
@@ -147,6 +148,8 @@ class BotConversationHoldTest {
         BotConversation.holdMsForTest(150); // a short hold, cleared, to see what the reply itself arms
         pending.complete(Optional.of("ant tunnel is ok"));
         waitFor(() -> !said.isEmpty());
+        // the line going out arms the hold a statement after it is delivered: wait for that arm, do not assume it
+        waitFor(() -> BotConversation.holdMs(id) > 0);
         assertEquals(List.of("ant tunnel is ok"), said);
         long afterReply = BotConversation.holdMs(id);
         assertTrue(afterReply > 0 && afterReply <= 150,
@@ -155,13 +158,17 @@ class BotConversationHoldTest {
 
     @Test
     void theHoldWearsOffAndTheBotIsFreeToGoAgain() throws Exception {
-        BotConversation.holdMsForTest(60); // the hold length, cleared: this test's chat must arm it afresh
+        BotConversation.holdMsForTest(60); // a short hold, cleared: this test's chat arms it afresh
         BotSM bot = whisperTo("where are you going?");
         int id = bot.getChr().getId();
         assertTrue(BotConversation.isHoldingChat(bot.getChr()), "a short hold is still a hold");
-        for (int i = 0; i < 100 && BotConversation.isHoldingChat(bot.getChr()); i++) {
-            Thread.sleep(25); // the bot's own reply re-arms the hold once; then it lapses
-        }
+        waitFor(() -> !said.isEmpty()); // the reply goes out ...
+        waitFor(() -> BotConversation.holdMs(id) > 0); // ... and arms the hold right after it: no later arm can come
+        // the lapse is the hold clock's, not the test's: jump past it instead of sleeping and hoping the reply's
+        // virtual thread does not arm it again in the meantime
+        java.util.concurrent.atomic.AtomicLong ahead =
+                new java.util.concurrent.atomic.AtomicLong(BotConversation.HOLD_MS + 1_000);
+        BotConversation.clockForTest(() -> System.currentTimeMillis() + ahead.get());
         assertFalse(BotConversation.isHoldingChat(bot.getChr()), "after the hold the bot wanders again");
         assertEquals(0, BotConversation.holdMs(id), "a lapsed hold reports nothing left");
     }

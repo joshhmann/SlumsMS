@@ -1,12 +1,15 @@
 package soloMapling.ArtificialPlayer.BotBrainSystem;
 
 import org.junit.jupiter.api.Test;
+import soloMapling.ArtificialPlayer.BotChatActions;
+import soloMapling.ArtificialPlayer.BotConvo.ConvoLines;
 
 import java.util.List;
 import java.util.Map;
 import java.util.concurrent.atomic.AtomicInteger;
 
 import static org.junit.jupiter.api.Assertions.assertEquals;
+import static org.junit.jupiter.api.Assertions.assertNotEquals;
 import static org.junit.jupiter.api.Assertions.assertTrue;
 
 class ChatTriageTest {
@@ -74,7 +77,7 @@ class ChatTriageTest {
         AtomicInteger calls = new AtomicInteger();
         ChatDecide decide = stub("{\"answers\":{\"intent\":{\"choice\":\"come_with_me\",\"confidence\":0.7},"
                 + "\"con\":{\"choice\":\"harassment\",\"confidence\":0.3}}}", calls);
-        ChatTriage.Result r = ChatTriage.classify("wanna go hunt stumps", decide);
+        ChatTriage.Result r = ChatTriage.classify("wanna hang out sometime", decide);
         assertEquals(ChatTriage.Intent.COME_WITH_ME, r.intent());
         assertEquals(ChatTriage.Source.DECIDE, r.intentSource());
         assertEquals(ChatTriage.Con.NORMAL, r.con(), "a 0.3 flag does not count");
@@ -115,6 +118,24 @@ class ChatTriageTest {
         assertEquals(ChatTriage.Con.SCAM, r.con());
         assertEquals(0.57, r.conConfidence(), 1e-9);
         assertEquals(1.0, ChatTriage.rules("selling mesos for paypal").conConfidence(), 1e-9);
+    }
+
+    @Test
+    void anInvitationToGrindOrHuntTogetherIsAnInviteNotSmallTalk() { // cv-7: the reply ignored "wanna grind together"
+        for (String line : List.of("wanna grind together", "lets grind", "want to train together?", "u wanna hunt orbis",
+                "lets go do some leveling", "grind with me?", "come grind henesys", "wanna go hunt stumps together")) {
+            assertEquals(ChatTriage.Intent.COME_WITH_ME, ChatTriage.rules(line).intent(), line);
+        }
+        for (String line : List.of("grinding here is slow", "i hate grinding", "i wanna grind here",
+                "nice hat where u get it", "lol ok")) {
+            assertEquals(ChatTriage.Intent.NONE, ChatTriage.rules(line).intent(), line);
+        }
+        // the invite is answered by an accept or a decline from the come bank, never by a topic line
+        assertEquals("come_yes", ConvoLines.key(BotChatActions.Outcome.COME_YES));
+        assertEquals("come_no", ConvoLines.key(BotChatActions.Outcome.COME_NO));
+        assertNotEquals("talk", ConvoLines.key(BotChatActions.Outcome.COME_NO));
+        assertEquals("talk", ConvoLines.key(ChatTriage.Kind.TALK, "wanna grind together"),
+                "the topic bank is what answered before");
     }
 
     @Test

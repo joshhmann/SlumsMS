@@ -97,6 +97,11 @@ public final class BotConversation {
     private static final Map<Integer, Long> holds = new ConcurrentHashMap<>();
     /** Test seam: the hold length, {@link #HOLD_MS} in production. */
     private static volatile long holdLengthMs = HOLD_MS;
+    /**
+     * Test seam: the clock the hold reads, real time in production. A test that waits for a hold to lapse would
+     * otherwise race the reply's own virtual thread, which arms the hold again when a parked line finally goes out.
+     */
+    private static volatile java.util.function.LongSupplier clock = System::currentTimeMillis;
     private static volatile boolean sweeperStarted;
 
     private BotConversation() {
@@ -285,7 +290,7 @@ public final class BotConversation {
         if (until == null) {
             return 0;
         }
-        long left = until - System.currentTimeMillis();
+        long left = until - clock.getAsLong();
         if (left <= 0) {
             holds.remove(botCharId, until);
             return 0;
@@ -324,7 +329,7 @@ public final class BotConversation {
 
     /** Records an exchange at {@code at}: the bot keeps its spot until {@link #HOLD_MS} after it. */
     private static void hold(int botCharId, long at) {
-        long until = Math.max(System.currentTimeMillis(), at) + holdLengthMs;
+        long until = Math.max(clock.getAsLong(), at) + holdLengthMs;
         holds.merge(botCharId, until, Math::max);
     }
 
@@ -332,6 +337,11 @@ public final class BotConversation {
     static void holdMsForTest(long ms) {
         holdLengthMs = ms;
         holds.clear();
+    }
+
+    /** Test seam: the clock the hold reads ({@code null} restores real time). */
+    static void clockForTest(java.util.function.LongSupplier testClock) {
+        clock = testClock == null ? System::currentTimeMillis : testClock;
     }
 
     /** The chat is over: forget it, and let the bot write down what it wants to remember. */

@@ -76,7 +76,10 @@ Make Decide the fast "system one" for social decisions, and keep the 9B for the 
   confidence is at least 0.4 (`-Dsolomapling.chat.intentMin`, `-Dsolomapling.chat.conMin`). Filler and small talk
   never call Decide. Three questions:
   - **Line kind / response tier** (ignore, emote, small talk, real talk): **rules only.** Decide could not do it.
-  - **Action intent** (party, follow, come_with_me, trade, where_train, none): rules + Decide.
+  - **Action intent** (party, follow, come_with_me, trade, where_train, none): rules + Decide. By rule since
+    2026-10-24 (cv-7): an invitation to grind, train, hunt or farm together ("wanna grind together", "lets go hunt",
+    "grind with me?") is `come_with_me`, so the reply comes from the come bank (an accept or a decline, with the
+    action that matches), not a topic line; a statement about oneself ("i wanna grind here") is not an invite.
   - **Is it a con?** (normal, scam, manipulation, harassment, rwt): rules + Decide (ticket 37 soft layer).
 - `BotConversation` is the gate: only real talk and action outcomes take an LLM slot. Filler gets an emote or
   nothing, thanks/bye (and a greeting after the first line) a scripted line, a flagged con a scripted brush-off.
