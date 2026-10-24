@@ -25,15 +25,20 @@ The test server runs the same 1.5.0 build (`06a724dfc`) with the same settings p
 
 ## 2. In flight right now
 
-1. **Launcher 1.5.2** (agent working, branch `launcher-ui-compact`): Game Options showed ticks that didn't match the
-   game until toggled. The fix writes every option into the channel's config.ini explicitly, sets doubletapjump's
-   default to false (the client's default), fixes its description, and bumps the version to 1.5.2. Build folder on Silvia:
-   `Z:\MSv83\SlumsMS-dev\launcher-tauri-152\`; signed exe goes to `/root/work/launcher-tauri-release/1.5.2/`.
-   **Then:** publish to the Test channel, the owner checks Game Options, then to Live (both on the owner's go; commands
-   in `/root/work/launcher-tauri-release/RUNBOOK.md` style).
-2. **Friends launcher with the key built in** (same agent): a bake script `Z:\MSv83\SlumsMS-dev\bake-tauri-key.ps1`
-   that **the owner runs** (key piped from 164, never seen by an agent), producing
-   `Z:\MSv83\SlumsMS-dev\launcher-tauri-152-friends\`. Owner shares that exe with new friends.
+1. **Launcher 1.5.2: on the Test channel since 2026-10-24 ~08:45 UTC; Live still 1.5.1.** Branch `launcher-ui-compact`
+   @ `573d7a2`. Game Options now write every option into the launched folder's config.ini, doubletapjump defaults to
+   false and is read the way the client reads it, and a friends build's built-in key survives self-updates. Exe
+   `/root/work/launcher-tauri-release/1.5.2/SlumsMS Launcher.exe` sha256 `9719282c…5158`, staged on 164 in
+   `/srv/slums-staging/tauri-1.5.2/` (ignore `1.5.2-old/`, it lacks the key carry). Not yet checked with a real game.
+   **Next:** the owner updates through the Test channel and checks Game Options vs the game; then **GO** Live with the
+   Tauri command in `docs/release/RUNBOOK.md` step 2.6 (`<lv>`=1.5.2), after backing up
+   `/srv/slums-patch/tauri/launcher.json` to `/srv/slums-staging/live-tauri-launcher.json.before-1.5.2`. Undo Test:
+   copy `/srv/slums-staging/launcher-test-tauri-launcher.json.before-1.5.2` back. The Electron hand-over's
+   `game-config.mjs` still writes only changed keys (has the right fallbacks); fine until Electron is retired.
+2. **Friends launcher with the key built in:** the owner runs `Z:\MSv83\SlumsMS-dev\bake-tauri-key.ps1` (key piped from
+   164, never seen by an agent); output in `Z:\MSv83\SlumsMS-dev\launcher-tauri-152-friends\out\`; check it with
+   `Z:\MSv83\SlumsMS-dev\verify-tauri-key.ps1 -Exe <exe>`. Needs no signature; it self-updates to later signed builds
+   and keeps the key. `launcher-tauri-152-bakedryrun\` holds only a fake key and can be deleted.
 3. **Public website** (done, not deployed): branch `site` @ `74099f82c`, worktree `/root/work/SlumsMS-site`. Build
    `python3 tools/site/build.py` → `dist/site/` (checked: no private strings, links OK). **Plan agreed with the
    owner:** serve it from 164's existing nginx on a new **port 8091** (`root /srv/slums-site`), and the owner adds
