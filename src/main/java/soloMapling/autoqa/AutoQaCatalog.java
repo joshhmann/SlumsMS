@@ -169,12 +169,16 @@ public final class AutoQaCatalog {
                 .expect(probe("botGuilds"))
                 .build());
         c.add(Check.auto("t-gu-1", "Ask to join a bot guild").minutes(5)
+                // A general greeting may legitimately get no answer (chance/cooldown). Address the staged
+                // officer for the required reply, and assert delivery rather than only the intention hook.
                 .step(fixture("guildless"), run("gu-1"), say("{bot} can i join ur guild?"),
                         waitFor("BOT_GUILD INVITE SENT", 30), acceptGuildInvite(20), waitFor("BOT_GUILD PLAYER JOINED", 15),
-                        waitSeconds(8), mark("hi"), multiChat(2, "hi guys"), waitSeconds(15), mark("q"), multiChat(2, "anyone wanna pq later?"),
+                        waitSeconds(8), mark("hi"), multiChat(2, "{bot} hi guys"),
+                        waitFor("MULTICHAT guild {bot}: ", 30), mark("q"), multiChat(2, "anyone wanna pq later?"),
                         waitSeconds(15), mark("end"))
                 .expect(has("BOT_GUILD APPLY .*YES"), has("BOT_GUILD INVITE SENT"), has("BOT_GUILD PLAYER JOINED"),
                         atLeast(1, "BOT_GUILD GUILD CHAT", "hi", null),
+                        atLeast(1, "MULTICHAT guild {bot}: ", "hi", "q"),
                         Expects.atMost(1, "MULTICHAT guild (?!{me})\\S+: ", "hi", "q"),
                         Expects.atMost(1, "MULTICHAT guild (?!{me})\\S+: ", "q", "end"))
                 .build());
