@@ -222,10 +222,15 @@ class AutoQaCatalogPatternTest {
                     + ", FACING AWAY");
         }
         assertEquals(null, AutoQaCatalog.positionsMostlyGood(r), "a stroller far from every mob is not facing wrong");
-        w.qa("POSITION", "Fighter WARRIOR lv 10 at (500,-85) facing left, nearest Spore dx 30, FACING AWAY");
-        assertEquals(null, AutoQaCatalog.positionsMostlyGood(r)); // 1 of 12 still within the 10%
-        w.qa("POSITION", "Sitter WARRIOR lv 10 at (500,-85) facing left, nearest Spore dx 2 INSIDE its body, facing it");
-        assertTrue(AutoQaCatalog.positionsMostlyGood(r).contains("2 of 13"), "point blank facing and standing inside count");
+        for (int i = 0; i < 10; i++) {
+            w.qa("POSITION", "Close WARRIOR lv 10 at (500,-85) facing left, nearest Spore dx " + (10 + i)
+                    + ", FACING AWAY" + " (walking past)");
+        }
+        assertEquals(null, AutoQaCatalog.positionsMostlyGood(r), "which way a walking bot faces is not a fault");
+        for (int i = 0; i < 3; i++) {
+            w.qa("POSITION", "Sitter WARRIOR lv 10 at (500,-85) facing left, nearest Spore dx 2 INSIDE its body, facing it");
+        }
+        assertTrue(AutoQaCatalog.positionsMostlyGood(r).contains("3 of 24"), "standing inside a mob counts");
     }
 
     @Test

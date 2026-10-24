@@ -814,16 +814,13 @@ public final class AutoQaCatalog {
     }
 
     static String positionsMostlyGood(CheckRun r) {
-        // A bot walking somewhere with the nearest mob 300 px behind it is not facing the wrong way; only point-blank
-        // facing counts, and standing inside a mob counts at any distance. rc6 counted every sample (22 of 52 bad on
-        // TEST 2026-10-24, almost all of them strollers), which said nothing about how the bots fight.
+        // Only "inside a mob's body" counts here. Which way a bot faces when sampled says nothing on its own: a bot
+        // walking to its next mob faces away from the one it just passed, and a 52-sample check called 22 of them
+        // faults on TEST 2026-10-24. Facing before a swing is what matters and has its own evidence (COMBAT FACE).
         List<AutoQaLine> pos = r.matching("POSITION ", null, null);
-        java.util.regex.Pattern dx = java.util.regex.Pattern.compile("dx (-?\\d+)");
         int bad = 0;
         for (AutoQaLine l : pos) {
-            java.util.regex.Matcher m = dx.matcher(l.message());
-            int gap = m.find() ? Math.abs(Integer.parseInt(m.group(1))) : Integer.MAX_VALUE;
-            if (l.message().contains("INSIDE its body") || (l.message().contains("FACING AWAY") && gap <= 45)) {
+            if (l.message().contains("INSIDE its body")) {
                 bad++;
             }
         }

@@ -200,15 +200,31 @@ public final class ConvoQuality {
         transcript(s, 0);
     }
 
-    /** How a reply was timed (!qa cv-4). */
-    public static void timing(Character bot, Character player, HumanTiming.Plan plan) {
+    /**
+     * How a reply was timed (!qa cv-4), each part at its offset from the player's line: the plan's delays are what is
+     * left after the brain's own thinking ({@code alreadyMs}), so logging them raw made a 1,005 ms reply read "+150 ms"
+     * and t-cv-4 called it too fast.
+     */
+    public static void timing(Character bot, Character player, HumanTiming.Plan plan, long alreadyMs) {
         if (QaLog.on(QaLog.Topic.CONVO)) {
             StringBuilder s = new StringBuilder("TIMING " + bot.getName() + ": " + plan.kind());
-            for (HumanTiming.Part part : plan.parts()) {
-                s.append(" | +").append(part.delayMs()).append(" ms \"").append(part.text()).append('"');
+            int i = 0;
+            for (long at : cumulativeMs(plan.parts(), alreadyMs)) {
+                s.append(" | +").append(at).append(" ms \"").append(plan.parts().get(i++).text()).append('"');
             }
             QaLog.map(QaLog.Topic.CONVO, player.getMapId(), s.toString());
         }
+    }
+
+    /** When each part goes out, counted from the player's line (the brain's own time plus the plan's delays). */
+    static java.util.List<Long> cumulativeMs(java.util.List<HumanTiming.Part> parts, long alreadyMs) {
+        java.util.List<Long> out = new java.util.ArrayList<>(parts.size());
+        long at = Math.max(0, alreadyMs);
+        for (HumanTiming.Part part : parts) {
+            at += part.delayMs();
+            out.add(at);
+        }
+        return out;
     }
 
     /**
