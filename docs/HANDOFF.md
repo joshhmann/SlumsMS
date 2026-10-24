@@ -130,12 +130,27 @@ Owner-reported or found, roughly by priority:
   (`UPDATE_INTERVAL`, 777 ms on both servers), so two lines typed ~400 ms apart can land in the same tick and the
   second is dropped silently. GM chat and whispers are now exempt; **real players still lose a line typed inside
   one tick** - a gameplay change to raise the resolution or the window is the owner's call.
+- **Second/third auto-QA rounds (same branch, commits `55d628170`, `e69ec3318`, and the rally fix after it).**
+  Full run on the fixes above: **60 PASS / 4 FAIL / 11 SKIP of 75**. Three of the four are now green on TEST:
+  bb-2 (a no from an earlier run inside `refusalDays` swallowed the buddy request even with the fixture's
+  `certainBuddies`; the QA answer's style was also being judged "too formal" - the judge prompt now says slang is
+  fine but not required), ga-1 (nothing ever wrote a `NOTICE [11] ...` line for the check to see, and the jackpot
+  rolled last after a rare had already used the character's one notice per 60 s), cb-2 (every POSITION sample with
+  the nearest mob in the bot's back counted, so 22 of 52 were strollers 150-550 px from any mob; facing away now
+  counts only at 45 px, standing inside a mob still always counts). The KS-war helper rule also no longer needs the
+  check's mark: a nemesis that calls its own war 14 s in used to make it fail with "no KS WAR call after the mark".
+- **Open: KS war helpers grind on their own platform** (ticket 66, t-rv-2, about half the runs). `DramaKit.bringTo`
+  only moves a helper that is on a different map; on a stacked map (104040000) the helpers end up 300-500 px above
+  the player and `ksPick`'s 350x90 px reach never touches the player's mobs. Fixed here: same-map helpers are moved
+  too when a scene grinds, and a staged spot is used only on the player's own ledge (|dy| <= 30). Still open: the
+  training brain picks its own grind spot after landing, so a scene cannot keep the helper beside the player. Needs
+  a forced/pinned grind spot for a scene's duration (`WorldEventSteer.hold` pins only the map; `GCMovement.follow`
+  made the helpers stop fighting).
 - **Remaining auto-QA leads:** af-1/af-2 (flaky - both passed several runs on this build, fail when the staged bot
   greets through `CONVO SAID` instead of `AFFINITY ACT`), cv-2/cv-5/cv-7 (chat-content judgements and thread
   fixture isolation; cv-5's routing snapshot picked the staged speaker by reply words while its thread candidate was
-  a different PQ thread), cb-2 (the position metric compares against the nearest mob anywhere on the map, so walking
-  away from a distant mob counts as "facing away"), ga-1. Original baseline was 54 PASS / 9 FAIL / 11 SKIP; the
-  mixed report after the first pass was 55/9 and then 57/7 (af-1, af-2, cv-2, cv-5, cv-7 passing).
+  a different PQ thread). Original baseline was 54 PASS / 9 FAIL / 11 SKIP; the mixed report after the first pass
+  was 55/9, then 57/7, then 60/4.
 - **Partial-nightly lead:** af-2 also failed on the old build during the interrupted 3:00 AM PT (10:00 UTC) nightly (missing
   taunt/KS action). It needs reproduction on the latest build; it was not changed as part of these fixes.
   The account-cache exception found in the older logs is fixed (section 2 item 6).
