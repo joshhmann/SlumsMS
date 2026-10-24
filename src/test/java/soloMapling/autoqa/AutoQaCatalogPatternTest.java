@@ -190,6 +190,27 @@ class AutoQaCatalogPatternTest {
     }
 
     @Test
+    void rv2CountsTheWarEvenWhenTheNemesisStartsItBeforeTheMark() {
+        // On TEST 2026-10-24 16:20 the nemesis called its own war 14 s into the run, before the harness reached its
+        // mark; the old rule looked for a call after the mark, found none, and failed a war that behaved correctly.
+        Check c = AutoQaCatalog.find("t-rv-2");
+        AutoQaRunnerTest.FakeWorld w = new AutoQaRunnerTest.FakeWorld();
+        CheckRun r = runAt(c, w);
+        w.qa("RIVALRY", "KS WAR Nemesis calls 2 bot(s) on AutoQaOne (Helper1, Helper2) for 180 s");
+        for (int i = 0; i < 6; i++) {
+            w.now += 10;
+            w.qa("AFFINITY", "KS Helper1 takes Snail (oid " + i + ") from AutoQaOne, 3 left");
+        }
+        r.mark("war");
+        assertTrue(AutoQaCatalog.ksAtMostFive(r).contains("Helper1 took 6"));
+        w.now += 10;
+        w.qa("RIVALRY", "KS WAR over on 44 (stopped): 2 bot(s) went back");
+        w.now += 10;
+        w.qa("AFFINITY", "KS Helper1 takes Snail (oid 99) from AutoQaOne, 3 left"); // after the war: not its mobs
+        assertTrue(AutoQaCatalog.ksAtMostFive(r).contains("Helper1 took 6"), "a take after the war is not counted");
+    }
+
+    @Test
     void td2FloorIsTheBandsLowEndNotTheOpeningAsk() {
         Check c = AutoQaCatalog.find("t-td-2");
         AutoQaRunnerTest.FakeWorld w = new AutoQaRunnerTest.FakeWorld();

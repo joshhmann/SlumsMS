@@ -611,28 +611,48 @@ public final class AutoQaCatalog {
 
     // ── rules over the lines ─────────────────────────────────────────────────────────────────────────────
 
-    /** rv-2: each bot the war called takes at most 5 of the player's mobs (the nemesis's own grudge sprees not counted). */
+    /**
+     * rv-2: each bot the war called takes at most 5 of the player's mobs (the nemesis's own grudge sprees not counted).
+     * Counted inside each war's own window (its call line to its "KS WAR over" line) rather than after a mark: the
+     * nemesis may start a war on its own well before the check asks for one, and then the mark sat after the call.
+     */
     static String ksAtMostFive(CheckRun r) {
-        List<AutoQaLine> calls = r.matching("RIVALRY KS WAR \\S+ calls \\d+ bot\\(s\\) on \\S+ \\(([^)]*)\\)", "war", null);
+        List<AutoQaLine> calls = r.matching("RIVALRY KS WAR \\S+ calls \\d+ bot\\(s\\) on \\S+ \\(([^)]*)\\)", null, null);
         if (calls.isEmpty()) {
-            return "no KS WAR call after the mark";
+            return "no KS WAR call in the run";
         }
-        java.util.regex.Matcher names = java.util.regex.Pattern.compile("\\(([^)]*)\\) for").matcher(calls.get(0).message());
-        if (!names.find()) {
-            return "KS WAR line without its bots: " + calls.get(0).message();
-        }
-        java.util.Set<String> helpers = new java.util.HashSet<>(List.of(names.group(1).split(",\\s*")));
-        java.util.Map<String, Integer> per = new java.util.HashMap<>();
+        List<AutoQaLine> overs = r.matching("RIVALRY KS WAR over on", null, null);
+        List<AutoQaLine> takes = r.matching("AFFINITY KS \\S+ takes ", null, null);
+        java.util.regex.Pattern names = java.util.regex.Pattern.compile("\\(([^)]*)\\) for");
         java.util.regex.Pattern p = java.util.regex.Pattern.compile("AFFINITY KS (\\S+) takes ");
-        for (AutoQaLine l : r.matching("AFFINITY KS \\S+ takes ", "war", null)) {
-            java.util.regex.Matcher m = p.matcher(l.text());
-            if (m.find() && helpers.contains(m.group(1))) {
-                per.merge(m.group(1), 1, Integer::sum);
+        for (AutoQaLine call : calls) {
+            java.util.regex.Matcher nm = names.matcher(call.text());
+            if (!nm.find()) {
+                continue;
             }
-        }
-        for (var e : per.entrySet()) {
-            if (e.getValue() > 5) {
-                return e.getKey() + " took " + e.getValue() + " mobs in the war (max 5)";
+            java.util.Set<String> helpers = new java.util.HashSet<>(List.of(nm.group(1).split(",\\s*")));
+            long from = call.timeMs();
+            long to = Long.MAX_VALUE;
+            for (AutoQaLine over : overs) {
+                if (over.timeMs() > from) {
+                    to = over.timeMs();
+                    break;
+                }
+            }
+            java.util.Map<String, Integer> per = new java.util.HashMap<>();
+            for (AutoQaLine t : takes) {
+                if (t.timeMs() < from || t.timeMs() >= to) {
+                    continue;
+                }
+                java.util.regex.Matcher m = p.matcher(t.text());
+                if (m.find() && helpers.contains(m.group(1))) {
+                    per.merge(m.group(1), 1, Integer::sum);
+                }
+            }
+            for (var e : per.entrySet()) {
+                if (e.getValue() > 5) {
+                    return e.getKey() + " took " + e.getValue() + " mobs in one war (max 5)";
+                }
             }
         }
         return null;

@@ -981,30 +981,30 @@ final class GameQaWorld implements QaWorld {
         if (map == null || p == null) {
             return 0;
         }
-        List<server.life.Monster> near = within(map, p, rangeX, rangeY);
-        if (near.isEmpty()) {
-            // auto-QA rv-2: the pretend player can stand where its map has no mobs (a ledge edge, a warp spot), and
-            // then it hits nothing and no bot can ever take a mob from it. Walk it to the nearest mob first.
-            server.life.Monster nearest = null;
-            double bestSq = Double.MAX_VALUE;
-            for (server.life.Monster m : map.getAllMonsters()) {
-                Point mp = m.getPosition();
-                if (m.isAlive() && mp != null && m.getHp() > 1) {
-                    double d = p.distanceSq(mp);
-                    if (d < bestSq) {
-                        bestSq = d;
-                        nearest = m;
-                    }
+        // auto-QA rv-2: a "fight" the pretend player stands far away for is no fight - the mobs it damages sit on
+        // another platform, the bots it stages for the drama land elsewhere, and nobody can ever take a mob from it.
+        // Walk the player onto the nearest mob first (a GM teleport, same map), whenever it is not already there.
+        server.life.Monster nearest = null;
+        double bestSq = Double.MAX_VALUE;
+        for (server.life.Monster m : map.getAllMonsters()) {
+            Point mp = m.getPosition();
+            if (m.isAlive() && mp != null && m.getHp() > 1) {
+                double d = p.distanceSq(mp);
+                if (d < bestSq) {
+                    bestSq = d;
+                    nearest = m;
                 }
             }
-            if (nearest == null) {
-                return 0;
-            }
-            Point mp = nearest.getPosition();
+        }
+        if (nearest == null) {
+            return 0;
+        }
+        Point mp = nearest.getPosition();
+        if (Math.abs(mp.x - p.x) > 100 || Math.abs(mp.y - p.y) > 60) {
             gm.changeMap(map, new Point(mp.x, mp.y)); // a GM teleport onto the mobs, same map
             p = gm.getPosition();
-            near = within(map, p, rangeX, rangeY);
         }
+        List<server.life.Monster> near = within(map, p, rangeX, rangeY);
         Point at = p;
         near.sort(java.util.Comparator.comparingDouble(m -> at.distanceSq(m.getPosition())));
         List<String> hit = new ArrayList<>();
