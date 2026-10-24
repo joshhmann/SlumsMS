@@ -2,7 +2,8 @@
 
 Status: designed 2026-10-23 with the owner (grill), planned as the **1.6.0 headline**, alongside fishing, medals and
 the daily dungeon, which become options the brain chooses. First local implementation checkpoint by Codex on
-2026-10-24: pure scorer and opt-in read-only GM preview; activity execution is not implemented.
+2026-10-24: pure scorer and opt-in read-only GM preview. Checkpoint 2 adds provisional profiles/goals, memory-only
+context and a guarded restock-trip adapter. Automatic activity execution is not installed.
 Work branch: `160-bot-brain`.
 
 ## Why
@@ -91,8 +92,9 @@ features back into `release-1.5.1`. Do not replace or restart DeepSeek's shared 
 coordinating the checkpoint. Keep early work local; plan an isolated test instance if concurrent runtime testing is
 needed, within the host's test resource caps. Live and the owner's desktop remain under AGENTS.md's restrictions.
 
-**Owner choices still open:** production archetype/blend bounds and event-driven drift amounts; initial one/two-goal
-seeding rules for existing bots. Pure scoring with injected fixture values can proceed without deciding these.
+**Owner decision on continuation:** provisional blends and goal seeding from current level/gear are approved for
+the first test version (checkpoint 2 below). Final production tuning and event-driven drift amounts remain open;
+they do not block the approved provisional implementation.
 Fishing reward items/rarities, the medal list and chaos-boss difficulty remain separate owner decisions; this ticket
 must not silently pick them. No live database reads are needed for the first slice.
 
@@ -158,3 +160,81 @@ availability adapters, agree production blends and goal seeding, add executor/ac
 4. With the preview flag absent, verify `!botwhy` is unregistered. Ordinary player accounts must not access this
    GM 3 diagnostic. Real-client output, registry permissions and runtime log checks remain unverified until this
    checkpoint is deployed; the current evidence is unit tests only.
+
+## Checkpoint 2: provisional profiles, context and acceptance (2026-10-24)
+
+The owner approved **provisional blends and level/gear goal seeding** for the first feature test version.
+
+- `LifeProfile` v1 uses the character ID to choose one of all seven archetypes, with a dominant share of 55-70%.
+  The remaining share is distributed among the other six using positive random weights, normalised once per
+  derivation. Profiles are deterministic, do not reroll on inspection, and do not change the existing roster's
+  personality columns. Grind duration is 20-60 minutes, town duration 5-20 minutes. Activity bias is 0.6 times the
+  corresponding archetype share (restock gets half the grinder share; PQ averages grinder/socialite).
+- `LifeGoals` derives at most two aspirations from current job stage and cached weapon requirements. Recognised
+  Explorer/Cygnus/Aran stages point to their next 10/30/70/120 advance, including an overdue advance. A weapon
+  at least one ten-level tier behind prompts a weapon-tier aspiration. Unknown gear creates no upgrade fact;
+  custom fifth jobs and Evan do not get invented advance goals. A next-level fallback respects 120/200 caps.
+  Goals do not grant anything, spend money or force equipment changes. They are recomputed aspirations for now,
+  not persisted commitments. Required level is only a rough gear proxy: future execution must use the existing
+  gear optimiser so a strong old weapon is not replaced by a worse one.
+- `LifeObservation` reads existing HP/bag pressure, goal pressure, loaded session fatigue, TrainingBot phase age
+  and local affinity. `BotRoster.loadedMember()` is explicitly memory-only; `member()` could lazily load the DB.
+  Weapon requirements come only from an already initialised metadata cache. No shop lookup, new map load, model
+  call or database read is performed. A local sample stops at 64 characters; hidden GMs and bots are excluded,
+  unloaded affinity stays unknown, and per-player drama opt-outs remove hostile pull. Whole observations remain
+  best-effort across independently changing systems, not an atomic world snapshot.
+- TrainingBot publishes immutable phase-name/start-time telemetry at its existing transitions. It does not give
+  the life engine ownership of the FSM. Travel/shopping and existing player, party, guild, scene and conversation
+  commitments hold selection. Newborn/future/invalid session timestamps are unknown; sessions older than 24 h
+  are treated as stale. MP/ammo pressure, time since social activity, distant friends, destinations, PQ/events,
+  shop routes and sellable contents still need adapters.
+
+The shadow policy uses **provisional**, explicit coefficients:
+
+| Option | Need coefficients |
+|---|---|
+| Grind | progress 1.4, supplies -1.6, bag pressure -0.8, fatigue -0.5 |
+| Restock / sell | supplies 3.0 / bag pressure 2.0 |
+| Hang out / move maps | social 1.0 + boredom 0.4 / boredom 1.2 |
+| Help / show off | social 0.3 / social 0.5 + boredom 0.2 |
+| PQ / FM | progress 0.8 + social 0.5 / bag pressure 0.6 + boredom 0.3 |
+| Break / logout | fatigue 1.7 + boredom 0.3 / fatigue 2.0 |
+
+Friends add 0.6 each up to 1.2 to town options; strangers 0.04 each up to 0.2; rivals subtract 0.4 each up to 0.8
+unless drama is off. A verified friend help request adds 1.5; no chat-intent hook is connected yet. Initial
+stickiness is 0.8 and an interrupt must beat the current option by more than 0.25. Shadow noise is zero.
+Eligibility is explicit: current grinding, current-town presence and the existing restock trip can be inspected;
+unsupported destinations, selling, PQ, FM and logout are excluded by the observation adapter. A grind-break
+candidate can be previewed but its executor is not installed. Preview eligibility is not execution support.
+
+`!botwhy` now prints the provisional blend, derived goals, measured/unknown needs, local affinity counts,
+top-three eligible options with component scores, held/selected outcome and unavailable options. It remains
+QA + `slums.botlife.preview` gated and read-only. The earlier two-candidate inspector is the checkpoint 1 baseline.
+
+`LifeAcceptance` separates selection from accepted work. Shadow/held/unchanged results do not execute; eligibility
+is rechecked before starting, unsupported/rejected/failed/wrong-action receipts produce no action fact.
+`RestockTripExecutor` additionally requires **QA and `-Dslums.botlife.execute=true`**, rechecks commitments,
+conversation and the director's hold rules, and calls only TrainingBot's existing `requestRestockTrip()` hook.
+Its receipt says the trip was requested and that purchase is unconfirmed. There is no narrator connection,
+automatic scheduler or bot-tick integration. Future integration must serialise decisions through each activity's
+owner, prevent replaying a receipt, and record completed actions separately from accepted requests.
+
+`!qa run bl-1` / auto-QA `t-bl-1` exercise the actual provisional policy's socialite, empty-potion grinder and helper
+fixtures plus rejected-executor/no-action-fact ordering. They run without spawning a bot or changing holdings.
+This checks the feature jar's policy, not real travel, purchases, population mix or a server soak.
+
+Focused verification: **23 new tests** plus the existing catalogue checks pass; prior checkpoint tests also pass.
+New cases cover stable varied profiles across 3,000 IDs, goal stages/unknown gear, local affinity and drama opt-out,
+bounded sampling, missing/future/stale sessions, real phase telemetry, cached gear lookup, all acceptance failure
+paths and the restock adapter's gates/holds. Full `mvn -q -o test`: **4,532 tests, 0 failures, 0 errors, 38 skipped**,
+404 report classes (`/tmp/160-life-v2-full.log`). Profiles/context commit `1fd3d5700`;
+acceptance/restock adapter and staged QA commit `97c74c095`.
+
+Local pure-policy microbenchmark on 187: 60,000 evaluations, 365.6 ms wall / 363.1 ms thread CPU, averaging
+18.3 ms wall per 3,000 evaluations after warm-up. Profiles and synthetic contexts were prebuilt; all 11 options
+were eligible. Runner `/tmp/LifeShadowBenchmark.java`, output `/tmp/160-life-v2-benchmark.log`.
+This excludes context capture, scheduling, execution and real server load; it is **not a 3,000-bot server soak**.
+
+No TEST deployment/restart or real-client verification for this checkpoint. Keep DeepSeek's shared TEST build.
+Next: finish supply/destination/event adapters, persist goals and bounded event-driven drift, integrate serialised
+activity acceptance and truthful chat facts, then coordinate a feature TEST checkpoint and measure real load.

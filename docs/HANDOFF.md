@@ -9,28 +9,44 @@ Times: give the owner Pacific next to UTC (PDT = UTC-7).
 **Owner's work split (2026-10-24):** this bug-fix pass is finished. The owner will hand continuing **1.5.1 bug
 squashing to DeepSeek**; use `release-1.5.1`, the current TEST receipt below and section 3's remaining leads.
 **Codex is working on 1.6.0**, Ticket 60 on `160-bot-brain`
-(`/root/work/SlumsMS-bot-brain-160`; plan `5ca02907f`). The first checkpoint implements a pure daily-life scorer and
-an opt-in, read-only `!botwhy` preview. No bot activity execution, production personality assignment or goals are
-enabled. The roadmap puts the bot brain first. Fishing, medals, the daily dungeon and chaos bosses still need more
+(`/root/work/SlumsMS-bot-brain-160`; plans `5ca02907f`, `2c57baa41`). The owner approved provisional blends and
+level/gear goal seeding for the first test version. Two local checkpoints now implement the pure scorer,
+provisional profiles/goals, memory-only context and opt-in `!botwhy` shadow inspection. Automatic activity
+execution and persistent goal/drift changes are not installed. The roadmap puts the bot brain first.
+Fishing, medals, the daily dungeon and chaos bosses still need more
 detailed tickets and their listed owner decisions. Ticket 61's "spec/to be built" header is stale: the client MCP
 already exists per section 5.
 Keep the shared `slums-persistence-test` build for the bug pass; feature work must coordinate any test checkpoint
 or use a separately isolated test instance within the host caps. Do not merge 1.6.0 features into `release-1.5.1`.
 
-**1.6.0 checkpoint details:** core `ba7833379`, inspector/GM command `c0ce7dbe6`.
-`LifeDecision` accepts all weights, time and noise from its caller; tests cover the
-socialite/friends, empty-potion grinder and helper/friend cases, sticky durations, interrupt margins, commitments,
-availability, deterministic ties and validation. `LifeInspection` reads one bot's Character and inventory without
-using the state-changing supply helper. GM level 3 `!botwhy <name>` requires QA plus
-`-Dslums.botlife.preview=true` (off by default), logs `[BotLifePreview]`, and compares only explicitly labelled
-HP-potion and bag-pressure candidates. It marks all unadapted needs and destination availability as unknown.
-Conversations and existing commitments hold selection. No decisions run automatically and no action/chat executor
-is connected. The 1.5.1 fixes through `2c7e5bf22` were merged forward. Focused tests: **19 passed**.
-Full `mvn -q -o test`: **4,509 tests, 0 failures, 0 errors, 38 skipped**, 398 report classes;
-local log `/tmp/160-bot-life-full.log`. The 3,000-input deterministic test is a work-count check, not a performance
-soak. No TEST deploy or restart,
-real-client check, live operation or Discord post for this checkpoint. Next: complete context/availability adapters
-and production blend/goal choices, then acceptance/say-do tests and staged QA before execution is enabled.
+**1.6.0 checkpoint 2:** profiles/context `1fd3d5700`; acceptance/restock adapter and staged QA `97c74c095`.
+Original scorer `ba7833379` and initial inspector `c0ce7dbe6` remain included, as do the 1.5.1 fixes through
+`2c7e5bf22`. Seven-archetype blends are stable per character ID, with a 55-70% dominant share; durations are
+20-60 min grind / 5-20 min town. Goals derive from job stage and cached weapon requirements without granting,
+buying or forcing gear changes. These are provisional shadow aspirations, not persisted goals or roster writes.
+
+GM 3 `!botwhy <name>` still requires QA plus `-Dslums.botlife.preview=true`, off by default. It now shows the
+profile, goals, HP/bag/progress needs, known session fatigue/phase age, bounded local affinity, component scores,
+selection/holds and unavailable options. Missing MP/ammo pressure, social timing, distant friends/destinations,
+shop/selling and event/PQ data stay unknown. The new roster lookup is memory-only; cached weapon data is never
+loaded on demand. Per-player drama opt-out suppresses hostile pull. Travel and commitments keep their owner.
+
+`LifeAcceptance` returns action facts only for accepted executor receipts; shadow, stale eligibility, rejection,
+failure and unsupported actions expose no action fact. `RestockTripExecutor` requires QA and the separate
+`-Dslums.botlife.execute=true` flag, checks holds again, then uses only the existing TrainingBot restock-trip hook.
+A queued trip is not a confirmed purchase. No scheduler, bot-tick hook or chat narrator calls it; the execute
+flag alone does nothing. Future integration still needs per-bot serialisation and replay prevention.
+
+`!qa run bl-1` and auto-QA `t-bl-1` run golden policy/refusal fixtures without touching the game world. The local
+scenario test passes; it has not run on TEST. **23 new focused tests plus 10 existing catalogue checks pass**;
+the prior 19 scorer/inspector tests also pass. Full `mvn -q -o test`: **4,532 tests, 0 failures, 0 errors,
+38 skipped**, 404 report classes (`/tmp/160-life-v2-full.log`).
+Local pure-policy benchmark: 60,000 evaluations in 365.6 ms wall / 363.1 ms thread CPU, average 18.3 ms wall per
+3,000 after warm-up, prebuilt profiles/contexts. This excludes capture/scheduling/execution and is not a server
+soak. Details/calibration: `docs/tickets/60-bot-brain.md`; runtime checklist: `docs/release/1.6.0-qa.md`.
+No shared TEST deploy/restart, real-client check, live operation or Discord post for either feature checkpoint.
+Next: finish supply/destination/event adapters, persistence/drift, serialised activity acceptance and truthful
+chat integration; coordinate feature TEST use and real-load QA before enabling automatic decisions.
 
 ## 1. What is live
 
