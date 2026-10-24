@@ -8,12 +8,29 @@ Times: give the owner Pacific next to UTC (PDT = UTC-7).
 
 **Owner's work split (2026-10-24):** this bug-fix pass is finished. The owner will hand continuing **1.5.1 bug
 squashing to DeepSeek**; use `release-1.5.1`, the current TEST receipt below and section 3's remaining leads.
-**Codex is moving to 1.6.0 feature work**, starting with Ticket 60's implementation plan on `160-bot-brain`
-(`5ca02907f`, `/root/work/SlumsMS-bot-brain-160`). Runtime implementation has not started. The roadmap puts the bot
-brain first. Fishing, medals, the daily dungeon and chaos bosses still need more detailed tickets and their listed
-owner decisions. Ticket 61's "spec/to be built" header is stale: the client MCP already exists per section 5.
+**Codex is working on 1.6.0**, Ticket 60 on `160-bot-brain`
+(`/root/work/SlumsMS-bot-brain-160`; plan `5ca02907f`). The first checkpoint implements a pure daily-life scorer and
+an opt-in, read-only `!botwhy` preview. No bot activity execution, production personality assignment or goals are
+enabled. The roadmap puts the bot brain first. Fishing, medals, the daily dungeon and chaos bosses still need more
+detailed tickets and their listed owner decisions. Ticket 61's "spec/to be built" header is stale: the client MCP
+already exists per section 5.
 Keep the shared `slums-persistence-test` build for the bug pass; feature work must coordinate any test checkpoint
 or use a separately isolated test instance within the host caps. Do not merge 1.6.0 features into `release-1.5.1`.
+
+**1.6.0 checkpoint details:** core `ba7833379`, inspector/GM command `c0ce7dbe6`.
+`LifeDecision` accepts all weights, time and noise from its caller; tests cover the
+socialite/friends, empty-potion grinder and helper/friend cases, sticky durations, interrupt margins, commitments,
+availability, deterministic ties and validation. `LifeInspection` reads one bot's Character and inventory without
+using the state-changing supply helper. GM level 3 `!botwhy <name>` requires QA plus
+`-Dslums.botlife.preview=true` (off by default), logs `[BotLifePreview]`, and compares only explicitly labelled
+HP-potion and bag-pressure candidates. It marks all unadapted needs and destination availability as unknown.
+Conversations and existing commitments hold selection. No decisions run automatically and no action/chat executor
+is connected. The 1.5.1 fixes through `2c7e5bf22` were merged forward. Focused tests: **19 passed**.
+Full `mvn -q -o test`: **4,509 tests, 0 failures, 0 errors, 38 skipped**, 398 report classes;
+local log `/tmp/160-bot-life-full.log`. The 3,000-input deterministic test is a work-count check, not a performance
+soak. No TEST deploy or restart,
+real-client check, live operation or Discord post for this checkpoint. Next: complete context/availability adapters
+and production blend/goal choices, then acceptance/say-do tests and staged QA before execution is enabled.
 
 ## 1. What is live
 

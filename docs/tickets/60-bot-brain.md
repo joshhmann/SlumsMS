@@ -1,8 +1,9 @@
 # Ticket 60: the bot brain (weighted daily-life decisions)
 
 Status: designed 2026-10-23 with the owner (grill), planned as the **1.6.0 headline**, alongside fishing, medals and
-the daily dungeon, which become options the brain chooses. Planning started by Codex on 2026-10-24; runtime
-implementation has not started. Work branch: `160-bot-brain`.
+the daily dungeon, which become options the brain chooses. First local implementation checkpoint by Codex on
+2026-10-24: pure scorer and opt-in read-only GM preview; activity execution is not implemented.
+Work branch: `160-bot-brain`.
 
 ## Why
 
@@ -94,3 +95,58 @@ needed, within the host's test resource caps. Live and the owner's desktop remai
 seeding rules for existing bots. Pure scoring with injected fixture values can proceed without deciding these.
 Fishing reward items/rarities, the medal list and chaos-boss difficulty remain separate owner decisions; this ticket
 must not silently pick them. No live database reads are needed for the first slice.
+
+## Checkpoint 1: scorer and inspection (2026-10-24)
+
+Implemented in `BotLifeSystem/LifeDecision.java`:
+
+- Immutable needs, options and score breakdowns, with caller-supplied weights, context/personality bonuses, time,
+  bounded noise, duration, stickiness and interrupt margin. No production profile defaults or random assignment.
+- Deterministic tie ordering; unavailable options excluded; linearly decaying stickiness; a challenger must
+  strictly exceed the interrupt margin. A commitment holds selection even if the current activity is unknown.
+  Scores and final selection are separate so a high-scoring interrupt is never mistaken for an accepted action.
+- Missing needs remain absent in explanations. Invalid/non-finite inputs, duplicate options and score overflow
+  are rejected. There is no executor, chat integration, background job, migration or population-policy change.
+
+`LifeInspection` reads one bot's Character directly, its existing role/state, HP potions, existing restock threshold,
+fullest carried bag, trade/invite commitment and conversation status. It does not call `BotSupplies.needs()`:
+that helper calls `shortage()`, which can clear the existing ammo-fallback tracking. It must not be used for a
+read-only inspection. Inventory reads take existing inventory locks; the complete snapshot is best-effort across
+systems, not an atomic world snapshot.
+
+`!botwhy <online bot name>` is GM level 3, registered only with **QA enabled and
+`-Dslums.botlife.preview=true`**, and rechecks that gate when invoked. It reports to the GM and logs
+`[BotLifePreview]` lines. The flag is off by default; no config YAML changes are needed. The preview compares only
+two explicitly labelled diagnostic candidates: HP-potion restocking pressure and fullest-bag selling pressure.
+Empty HP potions maps to 1, the existing positive per-bot restock threshold maps to 0 (for an only-when-out bot,
+one potion maps to 0); bag pressure is the occupied share of the fullest equip/use/setup/etc bag.
+Both diagnostic weights are 1. These are **inspection calibration, not approved
+production decision weights**. It reports MP/ammo, boredom, social, fatigue, progress, destinations and activity
+duration as unknown. Shop reachability and sellable contents are unverified. It neither assigns personalities nor
+pretends those two candidates are a complete top-three plan. Active conversations also hold this preview.
+
+Verification: 19 new focused tests pass, including the three golden personas, timing/margin boundaries, commitment
+holds, unavailable options, ties/noise, input validation, immutable inputs, unknown needs, inventory read-only
+inspection and the command gate. A deterministic 3,000-input work-count test passes; this is not a CPU benchmark
+or server soak. Full `mvn -q -o test`: **4,509 tests, 0 failures, 0 errors, 38 skipped** (398 report classes),
+log `/tmp/160-bot-life-full.log`. Core commit `ba7833379`; inspector/command commit `c0ce7dbe6`.
+
+The current `release-1.5.1` fixes through `2c7e5bf22` were merged forward before implementation. No shared TEST
+deployment or restart was performed for this checkpoint. Before execution is enabled: finish state/context and
+availability adapters, agree production blends and goal seeding, add executor/acceptance and say-do tests, stage
+`!qa`/auto-QA scenarios, measure the 3,000-bot load, and use a coordinated or isolated TEST environment.
+
+### Future coordinated GM check (not run yet)
+
+1. Deploy this feature branch only at an agreed checkpoint or into an isolated test instance. Preserve the current
+   1.5.1 TEST receipt and do not restart a running bug-pass QA session. Enable QA and the preview JVM property on
+   that feature instance; do not add it to YAML.
+2. As GM 3, run `!botwhy <online bot name>` using a bot in the same world (world 1 on TEST). Expect its role/state,
+   HP potions and bag pressure, exactly two diagnostic candidate scores, the unknown-input list and PREVIEW ONLY.
+   Check `[BotLifePreview]` log lines match the GM's output. A real player name must report no active bot.
+3. Inspect a bot during an existing trade/invite or active conversation. Expect HOLD_COMMITMENT and no selected
+   activity. Normal bot systems keep running; the inspector itself must not move the bot, consume/grant items,
+   spend mesos or announce any action. Do not interpret normal movement as proof of a life-brain decision.
+4. With the preview flag absent, verify `!botwhy` is unregistered. Ordinary player accounts must not access this
+   GM 3 diagnostic. Real-client output, registry permissions and runtime log checks remain unverified until this
+   checkpoint is deployed; the current evidence is unit tests only.
