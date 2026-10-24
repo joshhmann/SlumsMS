@@ -27,6 +27,11 @@ run commands / agent brief: `tools/convo/benchmark/README.md`. Original captures
 ignored `dist/`; `dist/slumsms-decide-kit.tar.gz` is the transfer package. No production Java, model endpoint
 selection, thresholds, game-server settings, deployment, restart, Live DB, desktop or Discord changes. Nothing
 merged into RC1 or 1.5.1. The isolated game server was not started for this tool work.
+The owner requested a copy on 17 for its agent: **`/root/slumsms-decide-benchmark`** now contains the tool,
+synthetic cases, selected source/docs, offline Java bridge/dependency jar, raw results and `START_HERE.md`.
+Transfer checksums and all 8 Python tests pass there; offline rules and GLiNER replay reproduce 77.9% / 81.4%
+intent accuracy with Java capped at 256 MiB and one CPU. No model inference or service changes during transfer.
+See `docs/convo/decide-benchmark-host17.md` for local commands and work boundaries.
 
 **1.6.0-rc1 is prepared for TEST review:** branch `test-1.6.0-rc1`, worktree
 `/root/work/SlumsMS-160-rc1`. Annotated candidate tag `v1.6.0-rc1` points to the exact built code **`93cfe9b33`**;
