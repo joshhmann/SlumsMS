@@ -483,6 +483,26 @@ public final class BotGuilds {
         return null;
     }
 
+    /** !qa gu-2: staged friends whose invite answer under the soft half-bots limit is a sure yes (not a 95% roll). */
+    private static final java.util.Set<Integer> qaSure = ConcurrentHashMap.newKeySet();
+
+    public static void qaSureJoin(int botId, boolean on) {
+        if (on) {
+            qaSure.add(botId);
+        } else {
+            qaSure.remove(botId);
+        }
+    }
+
+    /**
+     * The roll a guild-invite answer uses: a {@link #qaSureJoin} bot rolls 0 while the chance is the full base (under the
+     * soft limit), so t-gu-2's first friend always joins and the second meets "bots 1/2"; past the limit, the real dice.
+     * The rc6 auto-QA run's first friend lost its 95% roll, so no invite ever reached bots 1/2.
+     */
+    static double rollFor(int botId, double chance, double roll) {
+        return qaSure.contains(botId) && chance >= GuildRules.prop("inviteAccept", 0.95) ? 0 : roll;
+    }
+
     static boolean answerGuildInvite(Character player, Character bot, double roll) {
         Guild g = player.getGuild();
         if (g == null || bot.getGuildId() > 0 || online.apply(bot.getId()) == null) {
@@ -497,6 +517,7 @@ public final class BotGuilds {
             }
         }
         double chance = GuildRules.inviteAcceptChance(feels, bots + 1, size + 1);
+        roll = rollFor(bot.getId(), chance, roll);
         boolean yes = roll < chance && join(bot, g.getId(), 5, System.currentTimeMillis());
         qa(bot.getMapId(), "INVITE " + player.getName() + " -> " + bot.getName() + ": " + feels.label() + ", bots "
                 + bots + "/" + size + ", chance " + Math.round(chance * 100) + "% -> " + (yes ? "JOINED" : "declined"));

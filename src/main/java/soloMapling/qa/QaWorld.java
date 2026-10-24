@@ -207,6 +207,15 @@ public interface QaWorld {
      */
     String pickBotGuild(String wanted, boolean withRival);
 
+    /**
+     * A bot guild {@code applicant} may ask to join (t-gu-1): as {@link #pickBotGuild}, but past a guild whose leader is
+     * hostile to the applicant or that is full - the leader decides an application, so the rc6 auto-QA run's friendly
+     * officer of Legendz still got HOSTILE from Legendz's rival leader. The named guild is kept as asked.
+     */
+    default String pickBotGuildFor(Character applicant, String wanted) {
+        return pickBotGuild(wanted, false);
+    }
+
     /** The rival guild's name of a bot guild, or null. */
     String rivalOf(String guild);
 

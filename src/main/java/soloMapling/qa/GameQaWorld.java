@@ -746,6 +746,41 @@ final class GameQaWorld implements QaWorld {
     }
 
     @Override
+    public String pickBotGuildFor(Character applicant, String wanted) {
+        if (wanted != null || applicant == null) {
+            return pickBotGuild(wanted, false);
+        }
+        List<GuildCandidate> all = new ArrayList<>();
+        for (var g : soloMapling.ArtificialPlayer.BotGuildSystem.BotGuilds.botGuilds()) {
+            net.server.guild.Guild live = net.server.Server.getInstance().getGuild(g.guildId());
+            int leader = live != null ? live.getLeaderId() : g.leaderId();
+            boolean full = live != null && live.getMembers().size() >= live.getCapacity();
+            all.add(new GuildCandidate(g.name(), soloMapling.ArtificialPlayer.BotGuildSystem.BotGuilds.membersOf(g.guildId()).size(),
+                    leader > 0 && soloMapling.ArtificialPlayer.BotAffinitySystem.BotAffinity.hostile(leader, applicant.getId()), full));
+        }
+        return chooseForApplicant(all);
+    }
+
+    /** A bot guild as {@link #chooseForApplicant} weighs it. */
+    record GuildCandidate(String name, int members, boolean leaderHostile, boolean full) {
+    }
+
+    /** The biggest guild whose leader would say yes (not hostile, not full); else the biggest; null when none. */
+    static String chooseForApplicant(List<GuildCandidate> all) {
+        GuildCandidate best = null;
+        GuildCandidate biggest = null;
+        for (GuildCandidate c : all) {
+            if (biggest == null || c.members() > biggest.members()) {
+                biggest = c;
+            }
+            if (!c.leaderHostile() && !c.full() && (best == null || c.members() > best.members())) {
+                best = c;
+            }
+        }
+        return best != null ? best.name() : biggest == null ? null : biggest.name();
+    }
+
+    @Override
     public String rivalOf(String guild) {
         var g = soloMapling.ArtificialPlayer.BotGuildSystem.BotGuilds.byName(guild);
         var r = g == null ? null : soloMapling.ArtificialPlayer.BotGuildSystem.BotGuilds.guild(g.rivalId());
@@ -823,6 +858,31 @@ final class GameQaWorld implements QaWorld {
                     }
                     out.addAll(soloMapling.ArtificialPlayer.BotGuildSystem.BotGuilds.checkKicks(g.guildId(),
                             System.currentTimeMillis(), true));
+                }
+            }
+            case "sure" -> { // !qa gu-2: these staged friends take an invite under the soft limit for sure
+                for (String a : args) {
+                    if (a.matches("-?\\d+")) {
+                        soloMapling.ArtificialPlayer.BotGuildSystem.BotGuilds.qaSureJoin(Integer.parseInt(a), true);
+                    }
+                }
+                out.add("sure yes under the soft limit: " + String.join(" ", args));
+            }
+            case "unsure" -> {
+                for (String a : args) {
+                    if (a.matches("-?\\d+")) {
+                        soloMapling.ArtificialPlayer.BotGuildSystem.BotGuilds.qaSureJoin(Integer.parseInt(a), false);
+                    }
+                }
+                out.add("real dice again: " + String.join(" ", args));
+            }
+            case "unkick" -> { // !qa gu-8 stop: the leader made a rival by "kick" is neutral to the GM again
+                if (g == null) {
+                    out.add("no bot guild " + first);
+                } else {
+                    boolean set = soloMapling.ArtificialPlayer.BotAffinitySystem.BotAffinity.stage(g.leaderId(), gm.getId(),
+                            soloMapling.ArtificialPlayer.BotAffinitySystem.AffinityState.NEUTRAL);
+                    out.add("the leader of " + g.name() + " is neutral to you again: " + set);
                 }
             }
             case "step" -> {

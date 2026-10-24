@@ -999,6 +999,20 @@ public final class GuildWars {
     }
 
     /** GM / !qa cleanup: a war or alliance ends with no result megaphone (a test is over). */
+    /**
+     * QA "fresh" staging (t-gw-1, t-gw-2): a war guilds {@code a} and {@code b} already fight ends quietly, so the run
+     * sees its own declaration and megaphone. The rc6 auto-QA t-gw-2 found Legendz still at war with the fixture
+     * guild from earlier, so the check said "already at war" and nothing was declared. What it did, or null.
+     */
+    public static String endForFreshDeclare(int a, int b) {
+        War running = activeWar(a, b);
+        if (running == null || running.kind() != Kind.WAR) {
+            return null;
+        }
+        endQuietly(running);
+        return "ended the war already on between them (#" + running.id() + ") to declare it fresh";
+    }
+
     public static void endQuietly(War w) {
         if (w != null && w.active()) {
             save(w.ended(State.ENDED, now()));

@@ -50,6 +50,7 @@ class GuildScenariosTest {
     @Test
     void gu1StagesAFriendlyOfficerAndLeavesTheJoinedGuildAtStop() {
         start("gu-1", 100000000);
+        assertTrue(called("pickguild for"), "a guild whose leader would take the GM (rc6 auto-QA: HOSTILE leader)");
         assertTrue(called("guildbot friend Legendz r2"));
         world.gmGuild = 77; // the GM accepted the invite during the run
         suite.stop(1, "!qa stop");
@@ -73,10 +74,12 @@ class GuildScenariosTest {
         start("gu-2", 100000000, "3");
         assertEquals(3, world.calls.stream().filter(c -> c.startsWith("guildbot friend null")).count());
         assertTrue(called("guildbot neutral null"));
+        assertTrue(called("guild sure "), "staged friends take an invite under the soft limit for sure");
         suite.action(world.online, "join", new String[0]);
         assertTrue(called("guildbot friend mine r5"));
         suite.stop(1, "!qa stop");
         assertEquals(5, world.guildBotsUnstaged.size());
+        assertTrue(called("guild unsure "), "and real dice again at stop");
     }
 
     @Test
@@ -164,6 +167,7 @@ class GuildScenariosTest {
         assertThrows(QaRefusal.class, () -> suite.action(world.online, "hug", new String[0]));
         suite.stop(1, "!qa stop");
         assertTrue(world.calls.contains("leave guild"));
+        assertTrue(world.calls.contains("guild unkick Legendz"), "the staged rival leader is undone at stop");
         assertEquals(3, world.guildBotsUnstaged.size());
     }
 
