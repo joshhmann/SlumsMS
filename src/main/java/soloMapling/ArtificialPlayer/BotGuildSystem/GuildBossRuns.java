@@ -170,6 +170,18 @@ public final class GuildBossRuns {
 
     // ── starting ──
 
+    /** The {@code by} the guild step starts runs with; every other starter is a GM or an !qa check. */
+    static final String BOT_STARTER = "guilds";
+
+    /**
+     * A run a GM or !qa asked for takes over the one on: the QA checks stage a run and must get it (TEST 2026-10-24,
+     * t-gw-4 logged no run and t-gu-5 skipped with "a boss run is already on (SlumLords)"). Bot-run guilds never
+     * preempt each other.
+     */
+    static boolean mayPreempt(String by) {
+        return !BOT_STARTER.equals(by);
+    }
+
     /** From the guild step: now and then a guild with enough members online calls a run (evenings, one at a time). */
     static void maybeStart(GuildRow g, long now, Random rng) {
         if (running() || now - lastRunAt < GuildRules.hours("bossGapHours", 2)
@@ -187,7 +199,7 @@ public final class GuildBossRuns {
         if (curve < 0.4) {
             return;
         }
-        String problem = start(g, null, false, "guilds", 0,
+        String problem = start(g, null, false, BOT_STARTER, 0,
                 soloMapling.ArtificialPlayer.BotDramaSystem.GuildWars.alliesOf(g.guildId())); // 1.5.0: allies join
         if (problem != null) {
             log.debug("No boss run for {}: {}", g.name(), problem);
@@ -214,7 +226,10 @@ public final class GuildBossRuns {
     public static synchronized String start(GuildRow g, Boss wanted, boolean fast, String by, int onChannel,
                                             List<Integer> allies) {
         if (running()) {
-            return "a boss run is already on (" + current.guildName + ")";
+            if (!mayPreempt(by)) {
+                return "a boss run is already on (" + current.guildName + ")";
+            }
+            stop(by); // GM / !qa: the run replaces the one on - its crew goes home (no result) and the log says so
         }
         List<Character> members = new ArrayList<>(BotGuilds.onlineMembers(g.guildId()));
         StringBuilder joint = new StringBuilder(g.name());
