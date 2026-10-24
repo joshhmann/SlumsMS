@@ -99,7 +99,10 @@ public final class LifeRuntime {
         if (!dirty && now < nextCheck && now < dueAt) return;
         nextCheck = now + 30_000;
         if (!Set.of("GRIND", "IN_TOWN", "LIFE_DWELL").contains(phase)) { dirty = false; return; }
-        if (bot.lifeActivityState().active() != 0 || bot.lifeActivityState().waiting() != 0) return;
+        var running = bot.lifeActivityState();
+        if (running.waiting() != 0) return;
+        // A friend can interrupt a safe town stay. Trips and other active work retain their owner.
+        if (running.active() != 0 && !(phase.equals("LIFE_DWELL") && friend(now) != null)) return;
         long began = System.nanoTime();
         try {
             Character chr = bot.getChr();
@@ -172,6 +175,8 @@ public final class LifeRuntime {
             if (result.outcome() == Outcome.CHOOSE && result.selected().isPresent()
                     && !(phase.equals("GRIND") && result.selected().get() == Activity.GRIND)
                     && !(phase.equals("LIFE_DWELL") && result.selected().get() == Activity.HANG_OUT)) {
+                if (running.active() != 0 && (!Set.of(Activity.HELP_FRIEND, Activity.PARTY_QUEST)
+                        .contains(result.selected().get()) || !bot.interruptLifeDwell(running.active()))) return;
                 bot.submitLifeActivity(bot.prepareLifeActivity(result));
             }
         } finally { cpuNanos.add(System.nanoTime() - began); reportIfDue(now); }

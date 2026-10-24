@@ -797,6 +797,11 @@ public class TrainingBot extends BotSM {
         return true;
     }
 
+    /** A chosen friend interrupt ends the exact old dwell before another request can start. */
+    public boolean interruptLifeDwell(long requestNumber) {
+        return phase == Phase.LIFE_DWELL && lifeActivities.finish(requestNumber, LifeActivityQueue.End.CANCELLED);
+    }
+
     public void keepLifeActivity(LifeDecision.Activity activity, long until) {
         if (activity == LifeDecision.Activity.GRIND) grindUntilMs = until;
         else phaseDeadlineMs = until;
@@ -815,7 +820,7 @@ public class TrainingBot extends BotSM {
             lifeNote("ARRIVED activity=" + lifeVisit);
         }
         soloMapling.ArtificialPlayer.BotTownSystem.PersonalSpace.maybeKeep(getChr());
-        if (now() >= phaseDeadlineMs) enterPhase(Phase.DECIDE);
+        if (now() >= phaseDeadlineMs && freeForAutomaticLifeActivity(now())) enterPhase(Phase.DECIDE);
     }
 
     private void lifeNote(String text) {

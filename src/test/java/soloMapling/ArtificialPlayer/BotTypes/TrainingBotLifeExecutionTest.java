@@ -48,6 +48,45 @@ class TrainingBotLifeExecutionTest {
     }
 
     @Test
+    void friendInterruptOnlyEndsTheExactDwellAndLeavesTripsAlone() throws Exception {
+        withBot((bot, chr) -> {
+            var request = bot.prepareLifeActivity(RESTOCK);
+            bot.submitLifeActivity(request);
+            try (var movement = mockStatic(GCMovement.class); var sayDo = mockStatic(SayDo.class)) {
+                drain(bot);
+                assertFalse(bot.interruptLifeDwell(request.number()), "do not interrupt an errand in progress");
+                assertEquals(request.number(), bot.lifeActivityState().active());
+                field("phase").set(bot, TrainingBot.Phase.LIFE_DWELL);
+                assertFalse(bot.interruptLifeDwell(request.number() + 1), "old callbacks cannot cancel another request");
+                assertTrue(bot.interruptLifeDwell(request.number()));
+                assertEquals(0, bot.lifeActivityState().active());
+                assertEquals(LifeActivityQueue.End.CANCELLED, bot.lifeActivityState().end());
+            }
+        });
+    }
+
+    @Test
+    void townStayDoesNotExpireThroughAPlayerCommitment() throws Exception {
+        withBot((bot, chr) -> {
+            TrainingBot actor = bot;
+            field("phase").set(actor, TrainingBot.Phase.LIFE_DWELL);
+            field("phaseEntered").setBoolean(actor, true);
+            field("phaseDeadlineMs").setLong(actor, 0);
+            var dwell = TrainingBot.class.getDeclaredMethod("doLifeDwell");
+            dwell.setAccessible(true);
+            try (var space = mockStatic(soloMapling.ArtificialPlayer.BotTownSystem.PersonalSpace.class);
+                 var loiter = mockStatic(soloMapling.ArtificialPlayer.BotTownSystem.TownLoiter.class)) {
+                doReturn(false).when(actor).freeForAutomaticLifeActivity(anyLong());
+                dwell.invoke(actor);
+                assertEquals("LIFE_DWELL", phase(actor), "a conversation or trade holds the departure");
+                doReturn(true).when(actor).freeForAutomaticLifeActivity(anyLong());
+                dwell.invoke(actor);
+                assertEquals("DECIDE", phase(actor), "the elapsed stay ends once the hold clears");
+            }
+        });
+    }
+
+    @Test
     void aConversationOrTradeThatStartsAfterSubmissionRefusesTheTrip() throws Exception {
         for (boolean trade : List.of(false, true)) {
             withBot((bot, chr) -> {
