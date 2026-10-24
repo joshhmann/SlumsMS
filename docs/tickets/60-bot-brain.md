@@ -163,6 +163,14 @@ availability adapters, agree production blends and goal seeding, add executor/ac
 
 ## Checkpoint 2: provisional profiles, context and acceptance (2026-10-24)
 
+**Next work (owner request):** finish one-at-a-time activity execution. Give each TrainingBot a bounded request
+slot and one active activity; consume requests only on its normal update. Reject duplicate, old, expired and
+previous-instance requests; newer waiting decisions replace older waiting decisions. Recheck trades, invitations,
+conversations and phase ownership at start. Use the existing restock routine from that update, remember the
+accepted trip until return/cancellation, and close the slot on stop. Add concurrent/replay/lifecycle tests and a
+staged QA check. Keep flags off by default and preserve the shared bug-fix TEST build. Owner updates should use
+simple wording: one request at a time, no repeat starts, and queued work can still be refused.
+
 The owner approved **provisional blends and level/gear goal seeding** for the first feature test version.
 
 - `LifeProfile` v1 uses the character ID to choose one of all seven archetypes, with a dominant share of 55-70%.
