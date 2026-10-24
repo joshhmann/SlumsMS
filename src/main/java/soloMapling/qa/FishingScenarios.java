@@ -76,7 +76,8 @@ final class FishingScenarios {
                 if (given != 1) throw new QaRefusal("No room for the fixture chair.");
                 ctx.onStop("remove only the fixture chair", () -> world.takeItem(gm, FishingPolicy.CHAIR, 1));
             }
-            if (!world.warp(gm, 120010000)) throw new QaRefusal("Fishing map unavailable.");
+            // The random spawn picker also includes the upper st000 portal, outside the water-height rule.
+            if (!world.warpToPortal(gm, 120010000, "sp")) throw new QaRefusal("Waterside fishing spawn unavailable.");
             gm.sitChair(FishingPolicy.CHAIR);
             if (!GameFishing.active(gm)) throw new QaRefusal("The actual fishing service refused the seated player.");
             ctx.run().note("FISHING", "REAL STARTED; first catch waits 90 seconds plus the world tick");
