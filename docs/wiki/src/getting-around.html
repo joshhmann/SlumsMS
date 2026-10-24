@@ -1,0 +1,53 @@
+<!-- title: Getting around | nav: 35 | blurb: The buttons by the chat bar, five channels, @goto, bounces by class, the Daily Check-In and the @guide tour. -->
+<p>New in 1.5.0. The short version is in game: type <code>@guide</code> (or <code>@tutorial</code>). It also opens
+by itself the first time each character logs in on 1.5.0.</p>
+
+<h2>The buttons by the chat bar</h2>
+<div class="scroll"><table>
+<tr><th>Button</th><th>Does</th></tr>
+<tr><td><b>SHOP</b></td><td>Opens the Cash Shop in a window. You stay on your map while you shop.</td></tr>
+<tr><td><b>TRADE</b></td><td>Takes you to <a href="hubs.html">Base of Roots</a>, the hub (Job Master, rebirths,
+warper, storage, the Free Market portal). It doesn't work during an event or in a mini-dungeon. The old Maple
+Trade System is gone.</td></tr>
+<tr><td><b>MENU</b> and <b>SHORTCUT</b></td><td>The game's usual v83 menus for your windows and options. SlumsMS
+doesn't change them.</td></tr>
+</table></div>
+
+<h2>Five channels</h2>
+<p>Bera has <b>five channels</b>. Channel 1 is the busiest (about 45% of the regulars) and channel 5 the quietest.
+At the evening peak channel 1's bar shows full. You can still pick it, and real players are never turned away
+because of the regulars.</p>
+
+<h2><code>@goto &lt;town&gt;</code></h2>
+<p>Everyone can hop between towns. Type <code>@goto</code> for the list. The names include
+<code>henesys</code>, <code>ellinia</code>, <code>perion</code>, <code>kerning</code>, <code>lith</code>,
+<code>sleepywood</code>, <code>orbis</code>, <code>elnath</code>, <code>ludi</code>, <code>aqua</code>,
+<code>leafre</code>, <code>mulung</code>, <code>herb</code>, <code>nlc</code>, <code>showa</code>,
+<code>shrine</code>, <code>ariant</code>, <code>magatia</code>, <code>singapore</code>, <code>amoria</code> and
+<code>temple</code>.</p>
+<ul>
+<li>Towns only. Boss maps and dungeons are not on the list.</li>
+<li>It doesn't work from events, party quests, mini-dungeons or maps you can't leave.</li>
+<li>The "take me there" lines in <code>@guide</code> follow the same rules.</li>
+</ul>
+
+<h2>Bounces by class</h2>
+<ul>
+<li><b>Thieves and Night Walkers</b> keep the strong Ninja Bounce and Vertical Bounce.</li>
+<li><b>Everyone else</b> gets a Ninja Bounce as strong as Flash Jump and a shorter Vertical Bounce.</li>
+<li>Ninja Bounce only works in the air, like Flash Jump.</li>
+<li>No bouncing or Flash Jump on jump quest maps.</li>
+<li>Double-tap jump is off by default. To make a second jump in the air do your Ninja Bounce, set
+<code>doubletapjump=true</code> under <code>[clienthax]</code> in <code>config.ini</code>.</li>
+</ul>
+
+<h2>Daily Check-In</h2>
+<p>Log in each day for a reward. The window opens by itself when a reward is waiting, or type <code>@daily</code>
+(or <code>@checkin</code>). The streak runs for 28 days, one per account, from level 10.</p>
+
+<p class="owner">MENU and SHORTCUT: the client and server have no code for them, so they should be the stock v83
+menus. Nobody has checked what's in them on the SlumsMS client. Look once and fill in the list.</p>
+<p class="src">Sources: <code>EnterCashShopHandler</code> (SHOP, with <code>-Dcashshop.window.enabled=true</code>
+as on live and test), <code>EnterMTSHandler</code> (TRADE to Base of Roots 993910000),
+<code>GotoCommand</code> and <code>GameConstants.GOTO_TOWNS</code>, <code>DailyCheckin</code>,
+<code>soloMapling/menus/GuideMenu.java</code>, the 1.5.0 patch notes (channels, bounces).</p>

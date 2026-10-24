@@ -269,6 +269,7 @@ public class CommandsExecutor {
         addCommand("guildwar", client.command.commands.gm0.GuildWarCommand.class);   // 1.5.0 bot drama: guild wars
         addCommand("price", client.command.commands.gm0.PriceCommand.class);   // 1.5.0 rc3: the price board
         addCommand("settings", client.command.commands.gm0.SettingsCommand.class);   // 1.5.0: bot settings menu
+        addCommand(new String[]{"guide", "tutorial"}, client.command.commands.gm0.GuideCommand.class);   // 1.5.0: beginner's guide window (@help stays the command list)
         addCommand("goto", 0, GotoCommand.class);   // 1.5.0 (friends asked): players hop between towns; GotoCommand limits non-GMs to GOTO_TOWNS and blocks events, dungeons and no-migrate maps
 	    addCommand("shop", ShopCommand.class);
        // addCommand("damageskin",  DamageSkinCommand.class);

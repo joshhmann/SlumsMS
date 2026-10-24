@@ -27,7 +27,7 @@ pages:
 
   - id: toc2
     heading: ""
-    body: "#L{{page:fifth}}##b7. The 5th tier#k#l\n#L{{page:regulars}}##b8. The town's regulars#k#l\n#L{{page:talk}}##b9. Talking to people#k#l\n#L{{page:quiet}}##b10. Megaphones and @quiet#k#l\n#L{{page:cmds}}##b11. Commands#k#l\n#L{{page:help}}##b12. Getting help#k#l\n\nType #b@help#k in chat for every command."
+    body: "#L{{page:fifth}}##b7. The 5th tier#k#l\n#L{{page:regulars}}##b8. The town's regulars#k#l\n#L{{page:talk}}##b9. Talking to people#k#l\n#L{{page:quiet}}##b10. Megaphones and @quiet#k#l\n#L{{page:cmds}}##b11. Commands#k#l\n#L{{page:help}}##b12. Getting help#k#l\n#L{{page:bots}}##b13. Friends, rivals, romance#k#l\n#L{{page:shops}}##b14. Gachapon, shops, @price#k#l\n#L{{page:around}}##b15. Getting around#k#l\n\nType #b@guide#k for the quick tour."
 
   - id: what
     heading: "#e1. What is SlumsMS?#n"
@@ -35,7 +35,7 @@ pages:
 
   - id: what2
     heading: ""
-    body: "#eGood to know#n\n- One world, #bBera#k, 8 channels.\n- The FM button and the hub are the same place: #bBase of Roots#k.\n- The #bSHOP#k button opens the cash shop in a window.\n- Day, night and weather change on outdoor maps.\n\n#L{{page:toc}}##bBack to Contents#k#l"
+    body: "#eGood to know#n\n- One world, #bBera#k, 5 channels.\n- The #bTRADE#k button takes you to the hub, #bBase of Roots#k.\n- The #bSHOP#k button opens the cash shop in a window.\n- Day, night and weather change on outdoor maps.\n\n#L{{page:toc}}##bBack to Contents#k#l"
 
   - id: rates
     heading: "#e2. Rates#n"
@@ -47,7 +47,7 @@ pages:
 
   - id: hubs
     heading: "#e3. Base of Roots and the FM#n"
-    body: "#bBase of Roots#k is the main hub. The #bFM button#k takes you there. The Job Master, the rebirth NPC, the warper and storage are all in it.\n\nThe #bclassic Free Market#k is still here: use its portal in the hub, or the FM portal in any town. Leaving the FM takes you back where you came in."
+    body: "#bBase of Roots#k is the main hub. The #bTRADE#k button takes you there. The Job Master, the rebirth NPC, the warper and storage are all in it.\n\nThe #bclassic Free Market#k is still here: use its portal in the hub, or the FM portal in any town. Leaving the FM takes you back where you came in."
 
   - id: hubs2
     heading: ""
@@ -91,7 +91,7 @@ pages:
 
   - id: regulars2
     heading: ""
-    body: "They remember people. Be nice and they'll be glad to see you; scam or bother them and they won't.\n\nNobody will give you items or mesos for nothing - trade fairly in the FM.\n\n#L{{page:toc}}##bBack to Contents#k#l"
+    body: "They remember you. Party, help, trade and fame them and they become friends; KS them or be rude and they become rivals.\n\nFriends sometimes give gifts. See chapter 13.\n\n#L{{page:toc}}##bBack to Contents#k#l"
 
   - id: talk
     heading: "#e9. Talking to people#n"
@@ -99,7 +99,7 @@ pages:
 
   - id: talk2
     heading: ""
-    body: "#eThings to ask:#n\n#b<name> party#k - if they say yes, send the invite.\n#b<name> where do u train#k\n#b<name> follow#k - a party member comes with you.\n#b<name> trade#k - merchants point you to their shop.\n\n#bDouble-click#k someone for their menu. You can #bwhisper#k them too."
+    body: "#eThings to ask:#n\n#b<name> party#k - if they say yes, send the invite.\n#b<name> where do u train#k\n#b<name> follow#k - a party member comes with you.\n#b<name> how much for <item>#k - buy and haggle.\n\n#bDouble-click#k someone for their menu. You can #bwhisper#k them too."
 
   - id: quiet
     heading: "#e10. Megaphones and @quiet#n"
@@ -111,11 +111,11 @@ pages:
 
   - id: cmds
     heading: "#e11. Commands#n"
-    body: "#b@help#k - all commands\n#b@rates#k / #b@check#k - rates, resets\n#b@online#k - who is on\n#b@str @dex @int @luk <n>#k - add AP\n#b@resetap#k / #b@resetsp#k\n#b@whodrops <item>#k\n#b@whatdropsfrom <mob>#k\n#b@mobhp#k / #b@bosshp#k"
+    body: "#b@help#k - all commands\n#b@guide#k - the quick tour\n#b@rates#k / #b@check#k - rates, resets\n#b@online#k - who is on\n#b@str @dex @int @luk <n>#k - add AP\n#b@whodrops <item>#k\n#b@whatdropsfrom <mob>#k\n#b@mobhp#k / #b@bosshp#k"
 
   - id: cmds2
     heading: ""
-    body: "#b@sell#k / #b@qs#k - sell items\n#b@bb#k - buy back\n#b@bank#k - store mesos\n#b@weekly#k - boss attempts\n#b@ranks#k / #b@equiplv#k\n#b@shop#k - all-in-one shop\n#b@quiet#k - see page 10\n#b@dispose#k - fix a stuck NPC chat\n\n#L{{page:toc}}##bBack to Contents#k#l"
+    body: "#b@qs#k - quick sell\n#b@bb#k - buy back\n#b@bank#k - store mesos\n#b@weekly#k - boss attempts\n#b@ranks#k / #b@equiplv#k\n#b@shop#k - all-in-one shop\n#b@settings#k - bot settings\n#b@goto <town>#k - hop to a town\n#b@dispose#k - fix a stuck NPC chat\n\n#L{{page:toc}}##bBack to Contents#k#l"
 
   - id: help
     heading: "#e12. Getting help#n"
@@ -124,3 +124,27 @@ pages:
   - id: help2
     heading: ""
     body: "Have fun, and say hi to the regulars.\n\n#L{{page:toc}}##bBack to Contents#k#l"
+
+  - id: bots
+    heading: "#e13. Friends, rivals, romance#n"
+    body: "Every regular has a feeling about you. Party, buffs, heals, trades, gifts and fame make #bfriends#k: they greet you, invite you and may send a gift.\n\nKS, taking drops or rude chat make #brivals#k: trash talk and a few stolen mobs. Grudges fade in days."
+
+  - id: bots2
+    heading: ""
+    body: "#b@settings#k - switch it all with a click.\n#b@botdrama off#k - no rivals for you.\n#b@romance on#k - they may flirt and date you (off by default). Marry in #bAmoria#k.\n\nAdd them as #bbuddies#k. Ten #bbot guilds#k recruit and go to war: #b@guildwar#k.\n\n#L{{page:toc}}##bBack to Contents#k#l"
+
+  - id: shops
+    heading: "#e14. Gachapon, shops, @price#n"
+    body: "#bGachapon#k machines stand in 12 towns, each with its own prizes. #b@gacha <town>#k lists them.\n\nTickets: #bHanako#k in the FM Entrance (3m mesos) or the Cash Shop.\n\n#b@price <item>#k - what it really sold for this week."
+
+  - id: shops2
+    heading: ""
+    body: "Up to 8 regulars keep shops in FM rooms 1-12 on channels 1-3.\n\nTo buy, ask: #b\"how much for the work gloves\"#k. To sell, invite them to trade. Haggle in chat; friends pay less.\n\nShops pay a #b3%#k tax on sales.\n\n#L{{page:toc}}##bBack to Contents#k#l"
+
+  - id: around
+    heading: "#e15. Getting around#n"
+    body: "#b@goto <town>#k hops to a town (not from events, PQs or maps you can't leave). #b@goto#k lists them.\n\nChannel 1 is the busiest, channel 5 the quietest.\n\nThe #bDaily Check-In#k gives a gift each day from level 10: #b@daily#k."
+
+  - id: around2
+    heading: ""
+    body: "#eBounces#n: Thieves and Night Walkers keep the strong Ninja and Vertical Bounce. Everyone else gets a Flash Jump-sized one. Ninja Bounce works only in the air.\n\n#L{{page:toc}}##bBack to Contents#k#l"

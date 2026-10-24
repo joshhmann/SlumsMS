@@ -32,6 +32,18 @@ class MenuCommandsRegisteredTest {
     }
 
     @Test
+    void guideAndTutorialOpenTheGuideAndHelpStaysTheCommandList() {
+        CommandsExecutor ex = CommandsExecutor.freshForTest();
+        assertEquals(client.command.commands.gm0.GuideCommand.class, ex.classForTest("guide"));
+        assertEquals(client.command.commands.gm0.GuideCommand.class, ex.classForTest("tutorial"));
+        assertEquals(client.command.commands.gm0.HelpCommand.class, ex.classForTest("help"));
+        assertEquals(client.command.commands.gm0.HelpCommand.class, ex.classForTest("commands"));
+        for (String name : new String[]{"guide", "tutorial", "help", "commands"}) {
+            assertEquals(0, ex.rankForTest(name), name);
+        }
+    }
+
+    @Test
     void playersCanGotoTowns() {
         CommandsExecutor ex = CommandsExecutor.freshForTest();
         assertEquals(client.command.commands.gm2.GotoCommand.class, ex.classForTest("goto"));

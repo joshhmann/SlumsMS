@@ -403,6 +403,7 @@ public final class PlayerLoggedinHandler extends AbstractPacketHandler {
             player.commitExcludedItems();
             showDueyNotification(c, player);
             DailyCheckin.onLogin(c);
+            soloMapling.menus.GuideMenu.onLogin(player); // 1.5.0: the beginner's guide, once per character
 
             player.resetPlayerRates();
             if (YamlConfig.config.server.USE_ADD_RATES_BY_LEVEL) {
