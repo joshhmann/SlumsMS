@@ -82,6 +82,7 @@ public final class QaScenarios {
         all.addAll(DramaScenarios.all());     // 1.5.0 bot drama: rm-1..rm-4, rv-1..rv-4, gw-1..gw-4
         all.addAll(ConvoScenarios.all());     // ticket 59: natural conversations cv-1..cv-7
         all.addAll(PersonalSpaceScenarios.all()); // rc6: town bots never stand pixel to pixel (ps-1)
+        all.addAll(BotLifeScenarios.all()); // 1.6.0 shadow policy and refusal safeguards (bl-1)
         return List.copyOf(all);
     }
 

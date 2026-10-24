@@ -604,6 +604,13 @@ public final class AutoQaCatalog {
                 .build());
         c.add(Check.manual("t-la-1", "The Tauri launcher's own checklist", "a desktop app with its own page"));
 
+        c.add(Check.auto("t-bl-1", "Bot life shadow policy and rejected-action safeguards").minutes(1)
+                .step(run("bl-1"), waitFor("LIFE REFUSAL accepted=false actionFact=false", 10))
+                .expect(has("LIFE SHADOW case=socialite selected=HANG_OUT"),
+                        has("LIFE SHADOW case=empty-potions selected=RESTOCK"),
+                        has("LIFE SHADOW case=helper selected=HELP_FRIEND"),
+                        has("LIFE REFUSAL accepted=false actionFact=false"))
+                .build());
         return List.copyOf(c);
     }
 
