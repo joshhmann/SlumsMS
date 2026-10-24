@@ -32,6 +32,7 @@ final class EngageBeat {
     private static final int KITE_MIN_PX = 150;             // a mob nearer than this (|dx|) triggers a step back
     private static final int KITE_STEP_PX = 90;             // how far the bot retreats per kite step
     private static final long KITE_COOLDOWN_MS = 400;       // cadence floor between kite steps
+    private static final int OWN_LEDGE_SLACK = 90;          // a mob this far off the bot's own height is another ledge
     private static final int MAGE_COMFORT_PX = 120;         // 1.5.0 rc3: a mage keeps mobs at least this far off
 
     // ── Attack tempo (real classes can't walk mid-attack; only jumps/teleports move while attacking) ──
@@ -129,11 +130,12 @@ final class EngageBeat {
         int dir = pos.x >= center ? 1 : -1;
         int edge = dir > 0 ? body.x + body.width : body.x;
         int clear = b.keepsDistance || b.style == MovementStyle.RANGED ? 70 + b.rng.nextInt(40) : TOUCH_CLEAR_PX;
-        int tx = edge + dir * clear;
+        int tx = clearOfMobs(chr, pos, edge + dir * clear, dir);
         if (!stepTo(chr, tx)) {
             return false;
         }
         nextTouchStepMs = now + TOUCH_STEP_COOLDOWN_MS;
+        nextKiteMs = Math.max(nextKiteMs, now + TOUCH_STEP_COOLDOWN_MS); // the step out is the reposition, not a kite too
         logCombat(chr, "TOUCH " + chr.getName() + " stands inside " + inside.getName() + ": steps "
                 + (dir > 0 ? "right" : "left") + " to x " + tx);
         return true;
@@ -162,6 +164,50 @@ final class EngageBeat {
         }
         logCombat(chr, "KNOCKBACK " + chr.getName() + " steps back to x " + tx + " before re-engaging");
         return true;
+    }
+
+    /**
+     * {@code wanted}, moved further along {@code dir} until the bot would not stand inside a mob there: t-cb-2 on TEST
+     * (2026-10-24) caught a bowman stepping out to x 457 and kiting straight back to x 335, through the snail it was
+     * clearing, 250 ms later. Walks in CHECKS of {@link #TOUCH_CLEAR_PX} up to {@link #TOUCH_SCAN_PX} and keeps
+     * {@code wanted} when nothing clear turns up (a pack can leave no gap).
+     */
+    int clearOfMobs(Character chr, Point from, int wanted, int dir) {
+        if (chr.getMap() == null || from == null || dir == 0) {
+            return wanted;
+        }
+        java.util.List<java.awt.Rectangle> bodies = new java.util.ArrayList<>();
+        for (server.maps.MapObject mo : chr.getMap().getMapObjectsInRange(new Point(wanted, from.y),
+                (double) TOUCH_SCAN_PX * TOUCH_SCAN_PX, java.util.List.of(server.maps.MapObjectType.MONSTER))) {
+            Monster m = (Monster) mo;
+            java.awt.Rectangle r = GCMovement.mobBounds(m);
+            if (r != null && SpotFinder.isHostile(m) && m.isAlive()
+                    && Math.abs(m.getPosition().y - from.y) <= OWN_LEDGE_SLACK) {
+                bodies.add(r);
+            }
+        }
+        return clearOf(bodies, from.y, wanted, dir);
+    }
+
+    /** The pure part of {@link #clearOfMobs}: where to stand, given the mob bodies around, on ledge height {@code y}. */
+    static int clearOf(java.util.List<java.awt.Rectangle> bodies, int y, int wanted, int dir) {
+        if (dir == 0) {
+            return wanted;
+        }
+        for (int step = 0; step <= TOUCH_SCAN_PX / TOUCH_CLEAR_PX; step++) {
+            int x = wanted + dir * step * TOUCH_CLEAR_PX;
+            boolean inside = false;
+            for (java.awt.Rectangle r : bodies) {
+                if (r.contains(x, y - 8)) {
+                    inside = true;
+                    break;
+                }
+            }
+            if (!inside) {
+                return x;
+            }
+        }
+        return wanted;
     }
 
     // A short walk to x on the bot's own ground, clamped to its leash. False when the leash leaves no room.
@@ -394,7 +440,7 @@ final class EngageBeat {
         }
         int dir = (pos.x >= mp.x) ? 1 : -1; // step further from the mob
         int[] leash = b.effectiveLeash(chr);
-        int tx = GrindBrain.clamp(pos.x + dir * KITE_STEP_PX, leash[0], leash[1]);
+        int tx = GrindBrain.clamp(clearOfMobs(chr, pos, pos.x + dir * KITE_STEP_PX, dir), leash[0], leash[1]);
         if (Math.abs(tx - pos.x) < TURN_STEP_MIN_PX) {
             return false; // leash edge -> can't back up, just fire
         }
@@ -403,6 +449,7 @@ final class EngageBeat {
         b.lastMoveTargetX = tx;
         b.engaged = false;
         nextKiteMs = now() + KITE_COOLDOWN_MS;
+        nextTouchStepMs = Math.max(nextTouchStepMs, now() + KITE_COOLDOWN_MS); // one reposition at a time
         logCombat(chr, "KITE " + chr.getName() + " backs off from " + mob.getName() + " (dx " + Math.abs(pos.x - mp.x)
                 + ") to x " + tx);
         return true;
