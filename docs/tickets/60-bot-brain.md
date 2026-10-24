@@ -3,7 +3,8 @@
 Status: designed 2026-10-23 with the owner (grill), planned as the **1.6.0 headline**, alongside fishing, medals and
 the daily dungeon, which become options the brain chooses. First local implementation checkpoint by Codex on
 2026-10-24: pure scorer and opt-in read-only GM preview. Checkpoint 2 adds provisional profiles/goals, memory-only
-context and a guarded restock-trip adapter. Automatic activity execution is not installed.
+context and a guarded restock-trip adapter. Checkpoint 3 starts explicitly queued restock requests from each bot's
+normal update, with duplicate/old-request protection. Automatic scoring-and-action selection remains off.
 Work branch: `160-bot-brain`.
 
 ## Why
@@ -246,3 +247,63 @@ This excludes context capture, scheduling, execution and real server load; it is
 No TEST deployment/restart or real-client verification for this checkpoint. Keep DeepSeek's shared TEST build.
 Next: finish supply/destination/event adapters, persist goals and bounded event-driven drift, integrate serialised
 activity acceptance and truthful chat facts, then coordinate a feature TEST checkpoint and measure real load.
+
+## Checkpoint 3: one request at a time (2026-10-24)
+
+The owner asked to finish the one-at-a-time activity work and use simpler explanations.
+Queue commit `0f9ed4de5`; bot-update integration and staged QA `f51ad81f4`.
+
+**What now happens:** another thread may send a request, but it cannot start a trip itself. The bot checks that
+request during its normal update. If it is still free, it leaves grinding and starts the existing town trip. A
+trade, invite, conversation or other commitment can still block the request before it starts. The bot remembers
+the trip until it returns to grinding, is stopped, dies, changes channel or another event takes over.
+
+`LifeActivityQueue` belongs to one TrainingBot instance, with one waiting request and one running activity. There
+is no extra worker thread or global request history. A request carries a queue-issued number, its queue identity,
+the current phase generation and a maximum 30-second waiting life. The newest waiting plan replaces an older
+waiting plan; it never replaces work already running. Old/expired plans are discarded rather than held for an
+unbounded time. A blocked/rejected/failed request is spent: a caller must make a fresh decision before trying again.
+
+- Repeating the same request never calls the start hook or exposes its action fact twice. Numbers already handled
+  stay handled without retaining a growing list of old requests.
+- Changes of phase discard waiting and prepared-but-not-submitted plans. Another bot or a new bot instance cannot
+  use an old instance's request. Stop permanently closes that instance's request slot.
+- The start callback runs under the queue lock. Overlapping or nested drains cannot start twice. The concrete bot
+  start method also requires that the current thread is inside its own queue's start callback.
+- Only the running request's number may finish or cancel it. A late callback cannot clear a newer running activity.
+  Stop clears both waiting and running work, including error and reentrant-callback cases.
+
+TrainingBot checks its waiting slot after normal pause/death handling. It does not score every tick or scan the
+world. `RestockTripExecutor` now calls `startLifeRestockTrip()` there, which rechecks the holds, leaves grinding and
+enters GO_TOWN immediately. It no longer hands new life requests to the old cross-thread `restockCall` flag.
+Existing chat-triggered restock behavior is unchanged. An accepted receipt now says **started a trip**, followed
+by **purchase not yet confirmed**. Returning to GRIND ends the running request; it is not proof that the bot
+reached a shop or bought anything. The existing travel/shop routine still owns that work.
+
+`!botwhy` stays read-only and now also shows the waiting/running request numbers and the last ended request.
+Starting new work still requires QA plus `-Dslums.botlife.execute=true`, and a request must actually be submitted.
+The flag alone does not create decisions, and the life engine does not yet choose activities automatically or
+speak about them in chat. Legacy conversation/wander behavior outside this new request path remains bug-pass work.
+
+### Test-server check, prepared but not run
+
+`!qa run bl-2` stages one temporary training bot on a map with mobs. It refuses before spawning anything if the
+execute flag is off. When the bot is grinding, `!qa do restock` sends the same request twice; `!qa do repeat` retries
+that same request again. The log must contain one `HABITS LIFE START activity=RESTOCK` and reject the retries as
+duplicate or stale. `!qa stop` removes the fixture and closes its requests. The scenario takes an exclusive claim
+so two copies cannot confuse the trip count. Its run log reports waiting/running state every two seconds.
+
+Auto-QA `t-bl-2` performs these steps and checks exactly one start. The owner still needs to watch the trip in a
+real client. With the flag off the auto-QA check skips for its missing prerequisite. This check does not prove a
+purchase or a successful return; those need completion checks in the existing travel/shop routines.
+
+Local tests cover overlapping starts, retries, newest-waiting behavior, expiration and backwards time, phase
+changes, stale callbacks, errors, shutdown and old-instance requests. Real TrainingBot tests cover the actual
+GRIND → GO_TOWN start, one movement stop/one action event, return to GRIND, direct-call refusal, flags, a conversation
+or trade starting after submission, and stop cleanup. Scenario tests verify request reuse, refusal of a bad replay
+and fixture cleanup. **20 new tests pass**. Full `mvn -q -o test`: **4,552 tests, 0 failures, 0 errors, 38 skipped**,
+407 report classes (`/tmp/160-life-serial-full.log`).
+
+No shared TEST deployment/restart, live operation, Discord post or real-client check was done for this work.
+Next: coordinate a feature TEST run of `bl-2`, check the actual trip, and connect automatic decisions and truthful
+chat only after the remaining context and completion checks are ready.

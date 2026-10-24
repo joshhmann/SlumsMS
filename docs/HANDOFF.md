@@ -10,9 +10,10 @@ Times: give the owner Pacific next to UTC (PDT = UTC-7).
 squashing to DeepSeek**; use `release-1.5.1`, the current TEST receipt below and section 3's remaining leads.
 **Codex is working on 1.6.0**, Ticket 60 on `160-bot-brain`
 (`/root/work/SlumsMS-bot-brain-160`; plans `5ca02907f`, `2c57baa41`). The owner approved provisional blends and
-level/gear goal seeding for the first test version. Two local checkpoints now implement the pure scorer,
+level/gear goal seeding for the first test version. Three local checkpoints now implement the pure scorer,
 provisional profiles/goals, memory-only context and opt-in `!botwhy` shadow inspection. Automatic activity
-execution and persistent goal/drift changes are not installed. The roadmap puts the bot brain first.
+selection and persistent goal/drift changes are not installed. Explicit restock requests now start one at a time
+from the bot's normal update, behind the test-only flag. The roadmap puts the bot brain first.
 Fishing, medals, the daily dungeon and chaos bosses still need more
 detailed tickets and their listed owner decisions. Ticket 61's "spec/to be built" header is stale: the client MCP
 already exists per section 5.
@@ -31,11 +32,8 @@ selection/holds and unavailable options. Missing MP/ammo pressure, social timing
 shop/selling and event/PQ data stay unknown. The new roster lookup is memory-only; cached weapon data is never
 loaded on demand. Per-player drama opt-out suppresses hostile pull. Travel and commitments keep their owner.
 
-`LifeAcceptance` returns action facts only for accepted executor receipts; shadow, stale eligibility, rejection,
-failure and unsupported actions expose no action fact. `RestockTripExecutor` requires QA and the separate
-`-Dslums.botlife.execute=true` flag, checks holds again, then uses only the existing TrainingBot restock-trip hook.
-A queued trip is not a confirmed purchase. No scheduler, bot-tick hook or chat narrator calls it; the execute
-flag alone does nothing. Future integration still needs per-bot serialisation and replay prevention.
+`LifeAcceptance` returns action facts only for accepted work; refused or failed requests have none. The original
+restock adapter was not connected to bot updates at checkpoint 2; checkpoint 3 below now supplies that connection.
 
 `!qa run bl-1` and auto-QA `t-bl-1` run golden policy/refusal fixtures without touching the game world. The local
 scenario test passes; it has not run on TEST. **23 new focused tests plus 10 existing catalogue checks pass**;
@@ -47,6 +45,32 @@ soak. Details/calibration: `docs/tickets/60-bot-brain.md`; runtime checklist: `d
 No shared TEST deploy/restart, real-client check, live operation or Discord post for either feature checkpoint.
 Next: finish supply/destination/event adapters, persistence/drift, serialised activity acceptance and truthful
 chat integration; coordinate feature TEST use and real-load QA before enabling automatic decisions.
+
+**Checkpoint 3: one request at a time.** Queue `0f9ed4de5`; bot update and staged QA `f51ad81f4`.
+The previous code could check a request but could not stop the same request
+from being started twice. Each TrainingBot now has one waiting slot and one running activity. A repeated request
+cannot start another trip. Newer waiting plans replace older ones. Requests older than 30 seconds, plans made
+before a phase change, and requests belonging to a stopped/different bot instance cannot run.
+
+A worker or command may submit a request, but the bot's normal update starts it. At that moment it checks again
+for a trade, invitation, conversation or other hold. The restock start leaves GRIND and enters GO_TOWN directly;
+the new path does not use the old cross-thread restock flag. The running request ends when grinding resumes or
+is cancelled when the bot dies, changes channel, stops or another event takes over. Returning to grinding does
+not prove it reached a shop or bought anything. An old completion callback cannot clear a newer activity.
+
+QA and `-Dslums.botlife.execute=true` are still required. That flag alone creates no requests, and automatic
+activity choices and new chat lines are not connected. `!botwhy` remains read-only and now also shows waiting and
+running request numbers. There is no extra scheduler or growing request history.
+
+`!qa run bl-2` stages one temporary grinder. Once it is ready, `!qa do restock` submits the same request twice;
+`!qa do repeat` retries it later. Exactly one `HABITS LIFE START activity=RESTOCK` must appear. Auto-QA `t-bl-2`
+checks that count; with the execute flag off it skips. Stopping QA removes the fixture and closes its requests.
+Local focused tests pass for duplicate/overlapping starts, real TrainingBot phase changes, conversation/trade holds,
+flags and QA cleanup; existing combat/logout checks also pass. **20 new tests pass**. Full `mvn -q -o test`:
+**4,552 tests, 0 failures, 0 errors, 38 skipped**, 407 report classes (`/tmp/160-life-serial-full.log`).
+No shared TEST deploy/restart, live changes or in-game checks were made.
+Next: coordinate the feature TEST check and watch the trip in a real client, then add completion checks and
+automatic choices. Runtime QA checklist: `docs/release/1.6.0-qa.md`.
 
 ## 1. What is live
 
