@@ -152,10 +152,12 @@ Owner-reported or found, roughly by priority:
   split reply that took 1,005 ms read "+150 ms" and failed "planned faster than 900 ms"). Failures now:
   gw-1 (the enemy guild killed nothing: `ZakumSlayerz killed nothing`, turf staging/time, not the harness), gw-4 +
   gu-5 (`at least 1 x BOT_GUILD BOSS RUN` / SKIP "a boss run is already on (SlumLords)": the alliance's joint boss
-  run never started because a boss run was already up), cv-5 (thread routing fixture: `{thread}` is filled and the
-  route still picks the staged speaker by reply words), cv-7 (judge BAD on a bank line - content quality), cb-2 (13 of
-  52 POSITION samples had a bot `INSIDE` a mob's body, dx 11-34: melee bots do clip into the mobs they hit - a real
-  bot behaviour wart, not a metric artefact, so the ratio stays) and rv-2 half the time (ticket 66).
+  run never started because a boss run was already up; fixed on branch `151-qa-bossruns` - a GM/`!qa` start now stops
+  the run on first, bot runs still never preempt - not yet run on TEST), cv-5 (thread routing fixture: `{thread}` is
+  filled and the route still picks the staged speaker by reply words), cv-7 (judge BAD on a bank line - content
+  quality), cb-2 (13 of 52 POSITION samples had a bot `INSIDE` a mob's body, dx 11-34: melee bots do clip into the
+  mobs they hit - a real bot behaviour wart, not a metric artefact, so the ratio stays) and rv-2 half the time
+  (ticket 66).
 - **Remaining auto-QA leads:** af-1/af-2 (flaky - both passed several runs on this build, fail when the staged bot
   greets through `CONVO SAID` instead of `AFFINITY ACT`), cv-2/cv-5/cv-7 (chat-content judgements and thread
   fixture isolation; cv-5's routing snapshot picked the staged speaker by reply words while its thread candidate was
