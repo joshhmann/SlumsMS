@@ -48,6 +48,9 @@ The test server runs the same 1.5.0 build (`06a724dfc`) with the same settings p
 ## 3. Backlog for 1.5.1 (hotfixes until 1.6.0)
 
 Owner-reported or found, roughly by priority:
+- **Technical source review:** tickets [62–65](tickets/README.md) target 1.5.1: active-player shutdown saves (P1),
+  unsaved bot debits at the shutdown deadline (P1), Bera wealth-scroll bonus (P2), and save-failure reporting (P2).
+  Findings are source-reviewed against `06a724dfc`; runtime reproduction and fixes are still pending.
 - **A bot you're talking to walks away** mid-conversation (personal space or its wander habit pulls it away). A
   conversation partner should stay put ~30-60 s.
 - **Guide pages too long** for the v83 NPC window (a scrollbar shows). Cut each page to about 6-7 short lines; check

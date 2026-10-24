@@ -1,5 +1,21 @@
 # SlumsMS tickets
 
+## 1.5.1 technical review follow-ups (2026-10-24)
+
+Source review of 1.5.0 `06a724dfc`; all four tickets are open and need regression/runtime validation.
+These are additions to the current [handoff backlog](../HANDOFF.md), not changes to historical status below.
+
+| # | Ticket | Priority |
+|---|---|---|
+| [62](62-shutdown-active-player-saves.md) | Save active player sessions before bot shutdown | P1 |
+| [63](63-shutdown-unsaved-bot-debits.md) | Preserve bot debits when the shutdown budget expires | P1 |
+| [64](64-bera-wealth-scroll-budget.md) | Use Bera's rate for the bot wealth scrolling bonus | P2 |
+| [65](65-shutdown-save-failure-reporting.md) | Report failed player saves accurately | P2 |
+
+The temporary roster-growth reset is already tracked in `docs/HANDOFF.md` section 3; do not duplicate it here.
+
+## Historical ticket index
+
 Created 2026-10-19 from the owner's plan. Order: nav v2 → real bots → companions → economy → bots live → addons and later items. See `HANDOFF.md` for where everything runs.
 
 **Status** is checked against git as of 2026-10-21: "vX" means the ticket's branch is contained in tag vX (`git tag
