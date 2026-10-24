@@ -555,6 +555,12 @@ public final class AutoQaCatalog {
                         rule("fewer pairs closer than 34 px at the end than at the start", AutoQaCatalog::spreadImproves),
                         probe("clumpsOnMyMap", "34", "4"))
                 .build());
+        c.add(Check.auto("t-ps-2", "Town bots keep clear of NPCs").minutes(2)
+                .step(say("!warp 100000000"), waitSeconds(3), run("ps-2"),
+                        waitFor("NPC CLEARANCE bot \\d+ dx=\\d+ clear=true", 45))
+                .expect(has("PERSONAL SPACE .* px from an NPC.*steps to x"),
+                        has("NPC CLEARANCE bot \\d+ dx=\\d+ clear=true"))
+                .build());
         c.add(Check.half("t-pt-1", "Bots walk with pets that loot", "the pets following and the loot animation").minutes(5)
                 .step(run("pt-1"), waitSeconds(60), mark("drop"), qaDo("drop"), waitSeconds(20))
                 .expect(atLeast(1, "PET "), hasAfter("drop", "PETS PET LOOT|PET LOOT"))
