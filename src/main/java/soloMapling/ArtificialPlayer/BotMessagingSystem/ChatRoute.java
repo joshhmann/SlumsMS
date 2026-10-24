@@ -241,6 +241,7 @@ public final class ChatRoute {
         int threadWords = 0;
         int threadEntities = 0;
         boolean threadHeard = false;
+        boolean threadSubjectHit = false;
         if (thread != null) {
             Seen last = null;
             Seen any = null;
@@ -271,8 +272,14 @@ public final class ChatRoute {
                     }
                 }
                 if (thread.topic() != null) { // the thread's subject ("looking for a party (Ludi PQ)") counts too
-                    tw.addAll(MapChatLog.words(thread.topic()));
-                    te.addAll(keys(ConvoEntities.find(thread.topic())));
+                    Set<String> sw = MapChatLog.words(thread.topic());
+                    Set<String> se = keys(ConvoEntities.find(thread.topic()));
+                    // A line that names what the thread is about is a reply to the thread, even when a nearby bot's
+                    // line echoes more of its words (cv-5: the QA thread's lines never said "Orbis PQ", axeperion's
+                    // "come orbis" did). Without the subject a bare "who wiped?" cannot reach this.
+                    threadSubjectHit = shared(words, sw) > 0 || shared(entities, se) > 0;
+                    tw.addAll(sw);
+                    te.addAll(se);
                 }
                 for (String n : thread.names()) {
                     te.add("player:" + ConvoEntities.norm(n));
@@ -308,8 +315,10 @@ public final class ChatRoute {
         } else if (faced != null) {
             step = Step.FACING;
             chosen = faced;
-        } else if (threadBot != null && threadWords + threadEntities > 0 && (bestLine == null
+        } else if (threadBot != null && threadWords + threadEntities > 0 && (bestLine == null || threadSubjectHit
                 || threadWords + threadEntities >= bestLine.bestWords + bestLine.bestEntities)) {
+            // cv-5: a line that names the live thread's subject joins the thread even when a nearby bot's line
+            // echoes more of its words. A name, facing, the player's own partner and a menu request still come first.
             step = Step.THREAD_WORDS;
             chosen = threadBot;
             viaThread = true;

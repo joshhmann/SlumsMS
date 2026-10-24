@@ -181,7 +181,9 @@ thread they were obviously answering (auto-QA `t-cv-5`). The order now:
    as much as any single line (`3-reply-thread`); a bot line shares words (`3-reply-words`; a thread participant's
    line joins the thread); the newest question (`3-reply-question`, newer than the chat the player was already in); a
    short acceptance of the last speaker's ask (`3-reply-accept`); the bot already listening to the player
-   (`3-ongoing-chat`, ticket 37); the thread's last line was under 45 s ago (`3-thread-recent`).
+   (`3-ongoing-chat`, ticket 37); the thread's last line was under 45 s ago (`3-thread-recent`). A line that names
+   the live thread's subject ("Orbis PQ? i can come too") joins the thread even when a nearby bot's line echoes
+   more of its words — cv-5 on the 2026-10-24 build picked `axeperion [3-reply-words]` for exactly that line.
 4. **Otherwise the closest bot in the bubble** answers (`4-closest`). With a GLiNER Decide endpoint configured, a
    request for a kind of player ("which one of u is the thief") still asks the model first.
 5. **Nobody in the bubble and no name:** nobody answers (`5-none`); a line that names another real player also goes

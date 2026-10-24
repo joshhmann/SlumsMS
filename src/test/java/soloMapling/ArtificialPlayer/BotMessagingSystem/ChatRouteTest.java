@@ -99,6 +99,25 @@ class ChatRouteTest {
     }
 
     @Test
+    void aReplyThatNamesTheThreadsSubjectJoinsItOverANearbyBotThatEchoesTheWords() {
+        // cv-5 on the TEST server (logs/qa/cv-5-20261024T054725Z.log): the QA thread's own lines never said the PQ
+        // out loud - its subject carried it ("looking for a party (Orbis PQ)") - while axeperion's line said
+        // "come orbis", so reply-word matching outscored the thread the player was plainly answering.
+        bot(A, "Princessy", 85, 0);
+        bot(B, "SkillSpamz", -98, 0);
+        bot(C, "axeperion", 150, 0);
+        said(A, "anyone up for a party tonight", T);
+        said(B, "sure, need a cleric though", T + 2_000);
+        said(C, "come orbis, i can carry", T + 5_000);
+        BotThreads.View thread = new BotThreads.View(9, List.of(A, B), List.of("Princessy", "SkillSpamz"), B,
+                T - 1_000, T + 2_000, "looking for a party (Orbis PQ)");
+        ChatRoute.Decision d = route("Orbis PQ? i can come too", null, thread, T + 7_000);
+        assertEquals(ChatRoute.Step.THREAD_WORDS, d.step(), "naming the thread's subject joins the thread");
+        assertEquals(B, d.botId(), "the thread's last speaker answers");
+        assertEquals("thread:9", d.chosenKey());
+    }
+
+    @Test
     void anAnswerToAnotherBotsQuestionGoesToThatBotWhileAThreadRuns() {
         BotThreads.View thread = zakumThread();
         said(C, "anyone selling ilbis?", T + 9_000);
