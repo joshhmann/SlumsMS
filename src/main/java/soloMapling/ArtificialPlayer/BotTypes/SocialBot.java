@@ -14,6 +14,7 @@ import soloMapling.ArtificialPlayer.BotMessagingSystem.MessageQueue;
 import soloMapling.ArtificialPlayer.BotPartySystem.BotPartyQueue;
 import soloMapling.ArtificialPlayer.BotPartySystem.BotRecruitManager;
 import soloMapling.ArtificialPlayer.BotSM;
+import soloMapling.ArtificialPlayer.BotTownSystem.PersonalSpace;
 import soloMapling.ArtificialPlayer.BotTownSystem.TownStation;
 import soloMapling.ArtificialPlayer.BotTypeManager;
 import soloMapling.ArtificialPlayer.GCMoveSystem.GCMovement;
@@ -168,6 +169,11 @@ public class SocialBot extends BotSM {
             BotChatter.maybeStartChatter(this); // occasional short back-and-forth with a nearby town bot
             maybeIdleChair(); // occasional sit/stand while idle - a resting townsperson
             maybeRelocate(); // last: rare drift to a fresh anchor-weighted spot (may block the tick's walk)
+        }
+        if (!relocating) {
+            // rc6: personal space - step off a character standing on this bot (or, talking with a player or in a
+            // scene, keep 15-30 px from the partner instead of sharing its pixel). Throttled; a short real walk.
+            PersonalSpace.maybeKeep(getChr());
         }
         pollRecruitInvite(); // last: a JOINED poll converts this bot to a FollowerBot
     }

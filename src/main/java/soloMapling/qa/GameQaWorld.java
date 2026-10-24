@@ -908,6 +908,66 @@ final class GameQaWorld implements QaWorld {
     }
 
     @Override
+    public boolean personalSpaceApplies(Character gm) {
+        return soloMapling.ArtificialPlayer.BotTownSystem.PersonalSpace.appliesOn(gm.getMap());
+    }
+
+    @Override
+    public List<Integer> stageStackedTownBots(Character gm, int count) {
+        MapleMap map = gm.getMap();
+        Point at = new Point(gm.getPosition());
+        List<Integer> ids = new ArrayList<>();
+        int slotBase = BotStore.nextDynamicSlots(count);
+        for (int i = 0; i < count; i++) {
+            int id = BotGeneration.createBot(slotBase + i, at, map); // on purpose: all on the GM's pixel
+            if (id > 0) {
+                ids.add(id);
+            }
+        }
+        if (!ids.isEmpty()) {
+            soloMapling.ArtificialPlayer.BotTypeManager.setAndStartBots(ids,
+                    soloMapling.ArtificialPlayer.BotTypeManager.BotType.SOCIAL_BOT);
+        }
+        return ids;
+    }
+
+    @Override
+    public List<String> overlapTally(Character gm) {
+        MapleMap map = gm.getMap();
+        List<Character> chars = new ArrayList<>();
+        for (Character c : map.getAllPlayers()) {
+            if (c != null && !c.isHidden() && c.getPosition() != null) {
+                chars.add(c);
+            }
+        }
+        int overlap = 0, close = 0;
+        List<String> worst = new ArrayList<>();
+        for (int i = 0; i < chars.size(); i++) {
+            for (int j = i + 1; j < chars.size(); j++) {
+                Point a = chars.get(i).getPosition(), b = chars.get(j).getPosition();
+                int dx = Math.abs(a.x - b.x), dy = Math.abs(a.y - b.y);
+                if (dy > soloMapling.ArtificialPlayer.BotTownSystem.PersonalSpace.SAME_FH_DY) {
+                    continue;
+                }
+                boolean pair = soloMapling.ArtificialPlayer.BotTownSystem.PersonalSpace.deliberate(chars.get(i),
+                        chars.get(j));
+                if (dx < 12 && dy < 5 && !pair) {
+                    overlap++;
+                    if (worst.size() < 5) {
+                        worst.add(chars.get(i).getName() + " / " + chars.get(j).getName() + " dx " + dx);
+                    }
+                } else if (dx < soloMapling.ArtificialPlayer.BotTownSystem.PersonalSpace.CROWD_PX && !pair) {
+                    close++;
+                }
+            }
+        }
+        return List.of(chars.size() + " characters on map " + map.getId() + ": " + overlap
+                + " overlapping pair(s) (|dx| < 12, |dy| < 5), " + close + " more closer than "
+                + soloMapling.ArtificialPlayer.BotTownSystem.PersonalSpace.CROWD_PX + " px"
+                + (worst.isEmpty() ? "" : "; " + String.join(", ", worst)));
+    }
+
+    @Override
     public List<String> spreadTally(Character gm) {
         return gm.getMap() == null ? List.of()
                 : soloMapling.ArtificialPlayer.BotCombatSystem.CombatStaging.spreadTally(gm.getMap());

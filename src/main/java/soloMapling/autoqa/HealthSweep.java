@@ -19,8 +19,20 @@ import java.util.function.Function;
 public final class HealthSweep {
 
     /** One bot as the sweep saw it. {@code moving}: the movement driver says it is going somewhere. */
+    /*
+     * rc6 personal space: {@code idle} = not walking by any engine (a recorded-path walk counts too); {@code pairKey}
+     * = the deliberate pair it is in (couple, talking with a player, a scene, a shop), or null; {@code town} = a town
+     * or hangout map; {@code player} = a real player (the overlap check counts players; the other checks never see
+     * them).
+     */
     public record BotSample(int id, String name, int channel, int mapId, int x, int y, FootholdCheck.Pose pose,
-                            boolean moving, boolean driven, String mapProblem, boolean synthetic) {
+                            boolean moving, boolean driven, String mapProblem, boolean synthetic, boolean idle,
+                            String pairKey, boolean town, boolean player) {
+        public BotSample(int id, String name, int channel, int mapId, int x, int y, FootholdCheck.Pose pose,
+                         boolean moving, boolean driven, String mapProblem, boolean synthetic) {
+            this(id, name, channel, mapId, x, y, pose, moving, driven, mapProblem, synthetic, !moving, null, false, false);
+        }
+
         public BotSample(int id, String name, int channel, int mapId, int x, int y, FootholdCheck.Pose pose,
                          boolean moving, boolean driven, String mapProblem) {
             this(id, name, channel, mapId, x, y, pose, moving, driven, mapProblem, false);
@@ -38,7 +50,16 @@ public final class HealthSweep {
     /** Everything a sweep needs from the game, taken at one moment. */
     public record Snapshot(long nowMs, List<BotSample> bots, int botsSeen, int mapsSeen, int[] botsPerChannel,
                            double[] expectedShares, int errorLines, String errorSource,
-                           List<soloMapling.ArtificialPlayer.BotMapCap.Load> mapLoads, List<SentSample> sent) {
+                           List<soloMapling.ArtificialPlayer.BotMapCap.Load> mapLoads, List<SentSample> sent,
+                           List<BotSample> players) {
+        /** rc6: without the real players (the overlap check then looks at bots only). */
+        public Snapshot(long nowMs, List<BotSample> bots, int botsSeen, int mapsSeen, int[] botsPerChannel,
+                        double[] expectedShares, int errorLines, String errorSource,
+                        List<soloMapling.ArtificialPlayer.BotMapCap.Load> mapLoads, List<SentSample> sent) {
+            this(nowMs, bots, botsSeen, mapsSeen, botsPerChannel, expectedShares, errorLines, errorSource, mapLoads, sent,
+                    null);
+        }
+
         public Snapshot(long nowMs, List<BotSample> bots, int botsSeen, int mapsSeen, int[] botsPerChannel,
                         double[] expectedShares, int errorLines, String errorSource,
                         List<soloMapling.ArtificialPlayer.BotMapCap.Load> mapLoads) {
@@ -55,11 +76,28 @@ public final class HealthSweep {
     /** Thresholds; {@link #defaults()} matches config.yaml's AUTOQA_* defaults. */
     public record Limits(int footholdTolerancePx, long stuckMs, int clumpRadiusPx, int clumpMinBots,
                          double channelTolerance, int channelMinTotal, int errorMinPerWindow, double errorSpikeFactor,
-                         int maxListed) {
+                         int maxListed, int townClumpRadiusPx, int townClumpMinBots, int overlapDxPx, int overlapDyPx,
+                         int overlapFailAt) {
+        /** rc6: town clumps of 3 within 20 px; overlap = |dx| < 12 and |dy| < 5, FAIL at 5 pairs. */
+        public Limits(int footholdTolerancePx, long stuckMs, int clumpRadiusPx, int clumpMinBots,
+                      double channelTolerance, int channelMinTotal, int errorMinPerWindow, double errorSpikeFactor,
+                      int maxListed) {
+            this(footholdTolerancePx, stuckMs, clumpRadiusPx, clumpMinBots, channelTolerance, channelMinTotal,
+                    errorMinPerWindow, errorSpikeFactor, maxListed, TOWN_CLUMP_RADIUS, TOWN_CLUMP_MIN, OVERLAP_DX,
+                    OVERLAP_DY, OVERLAP_FAIL_AT);
+        }
+
         public static Limits defaults() {
             return new Limits(FootholdCheck.TOLERANCE_PX, 3 * 60_000L, 30, 5, 0.15, 40, 20, 3.0, 25);
         }
     }
+
+    /*
+     * rc6 personal space. Town bots keep 25 px from strangers and 15 px from a partner, so 3 bots inside a 20 px
+     * radius on a town map is already a stack (the field threshold of 5 within 30 px never saw pairs or trios).
+     */
+    static final int TOWN_CLUMP_RADIUS = 20, TOWN_CLUMP_MIN = 3;
+    static final int OVERLAP_DX = 12, OVERLAP_DY = 5, OVERLAP_FAIL_AT = 5;
 
     public enum Status { OK, WARN, FAIL }
 
@@ -82,6 +120,7 @@ public final class HealthSweep {
         checks.put(SENT_CHECK, footholdSentCheck(s, footholds));
         checks.put("stuck", stuckCheck(s));
         checks.put("clumps", clumpCheck(s));
+        checks.put("overlap", overlapCheck(s));
         checks.put("channelSplit", channelCheck(s));
         checks.put("invalidMaps", invalidMapCheck(s));
         checks.put("errors", errorCheck(s));
@@ -268,22 +307,39 @@ public final class HealthSweep {
         return c;
     }
 
-    /* (c) too many driven bots within a small radius on one map (town dressing and FM rooms are left out). */
+    /*
+     * (c) too many driven bots within a small radius on one map (FM rooms are left out). rc6: on town and hangout maps
+     * every grounded idle bot counts (the recorded-path town crowd has no physics, so it was never looked at), and 3
+     * within 20 px is a clump there.
+     */
     private Map<String, Object> clumpCheck(Snapshot s) {
         Map<String, List<SweepMath.Spot>> byMap = new LinkedHashMap<>();
+        Set<String> townMaps = new HashSet<>();
         for (BotSample b : s.bots()) {
-            if (!b.driven() || isFreeMarket(b.mapId())) {
+            if (isFreeMarket(b.mapId()) || b.player()) {
                 continue;
             }
-            byMap.computeIfAbsent(b.channel() + ":" + b.mapId(), k -> new ArrayList<>()).add(new SweepMath.Spot(b.id(), b.x(), b.y()));
+            boolean townIdle = b.town() && b.idle() && b.pose() == FootholdCheck.Pose.GROUNDED;
+            if (!b.driven() && !townIdle) {
+                continue;
+            }
+            String key = b.channel() + ":" + b.mapId();
+            if (b.town()) {
+                townMaps.add(key);
+            }
+            byMap.computeIfAbsent(key, k -> new ArrayList<>()).add(new SweepMath.Spot(b.id(), b.x(), b.y()));
         }
         List<Map<String, Object>> list = new ArrayList<>();
         for (Map.Entry<String, List<SweepMath.Spot>> e : byMap.entrySet()) {
-            for (SweepMath.Clump cl : SweepMath.clumps(SweepMath.sample(e.getValue(), 200), limits.clumpRadiusPx(), limits.clumpMinBots())) {
+            boolean town = townMaps.contains(e.getKey());
+            int radius = town ? limits.townClumpRadiusPx() : limits.clumpRadiusPx();
+            int min = town ? limits.townClumpMinBots() : limits.clumpMinBots();
+            for (SweepMath.Clump cl : SweepMath.clumps(SweepMath.sample(e.getValue(), 200), radius, min)) {
                 Map<String, Object> m = new LinkedHashMap<>();
                 String[] k = e.getKey().split(":");
                 m.put("channel", Integer.parseInt(k[0]));
                 m.put("map", Integer.parseInt(k[1]));
+                m.put("town", town);
                 m.put("x", cl.x());
                 m.put("y", cl.y());
                 m.put("bots", cl.members().size());
@@ -294,11 +350,81 @@ public final class HealthSweep {
         list.sort((a, b) -> Integer.compare((Integer) b.get("bots"), (Integer) a.get("bots")));
         Status st = list.isEmpty() ? Status.OK : Status.WARN;
         Map<String, Object> c = check(st, list.isEmpty() ? "no clumps of " + limits.clumpMinBots() + "+ within "
-                + limits.clumpRadiusPx() + " px" : list.size() + " clump(s), biggest " + list.get(0).get("bots") + " bots on map "
+                + limits.clumpRadiusPx() + " px (towns: " + limits.townClumpMinBots() + "+ within "
+                + limits.townClumpRadiusPx() + " px)" : list.size() + " clump(s), biggest " + list.get(0).get("bots") + " bots on map "
                 + list.get(0).get("map") + " ch" + list.get(0).get("channel"));
         c.put("radiusPx", limits.clumpRadiusPx());
         c.put("minBots", limits.clumpMinBots());
+        c.put("townRadiusPx", limits.townClumpRadiusPx());
+        c.put("townMinBots", limits.townClumpMinBots());
         c.put("clumps", head(list));
+        return c;
+    }
+
+    /*
+     * (h) rc6 personal space: two grounded, idle characters (bots, auto-QA's pretend players and real players) on one
+     * map instance with |dx| < 12 px and |dy| < 5 px: their name tags overlap and the one below can't be clicked.
+     * Ropes, ladders, jumps and coarse unwatched moves are left out (only GROUNDED idle samples count), and so are
+     * deliberate pairs (the same pair key). WARN at any overlap, FAIL at 5; the worst maps are listed.
+     */
+    private Map<String, Object> overlapCheck(Snapshot s) {
+        List<SweepMath.Body> bodies = new ArrayList<>();
+        Map<Integer, BotSample> byId = new HashMap<>();
+        List<BotSample> all = new ArrayList<>(s.bots());
+        if (s.players() != null) {
+            all.addAll(s.players());
+        }
+        for (BotSample b : all) {
+            if (!b.idle() || b.pose() != FootholdCheck.Pose.GROUNDED || byId.containsKey(b.id())) {
+                continue;
+            }
+            byId.put(b.id(), b);
+            bodies.add(new SweepMath.Body(b.id(), b.channel(), b.mapId(), b.x(), b.y(), b.pairKey()));
+        }
+        List<SweepMath.Overlap> overlaps = SweepMath.overlaps(bodies, limits.overlapDxPx(), limits.overlapDyPx());
+        Map<String, Integer> byMap = new HashMap<>();
+        List<Map<String, Object>> pairs = new ArrayList<>();
+        for (SweepMath.Overlap o : overlaps) {
+            BotSample a = byId.get(o.a()), b = byId.get(o.b());
+            byMap.merge(a.channel() + ":" + a.mapId(), 1, Integer::sum);
+            Map<String, Object> m = new LinkedHashMap<>();
+            m.put("channel", a.channel());
+            m.put("map", a.mapId());
+            m.put("a", a.name() + (a.player() ? " (player)" : ""));
+            m.put("b", b.name() + (b.player() ? " (player)" : ""));
+            m.put("ids", List.of(a.id(), b.id()));
+            m.put("x", a.x());
+            m.put("y", a.y());
+            m.put("dx", Math.abs(a.x() - b.x()));
+            m.put("dy", Math.abs(a.y() - b.y()));
+            pairs.add(m);
+        }
+        pairs.sort((p, q) -> Integer.compare((Integer) p.get("dx") + (Integer) p.get("dy"),
+                (Integer) q.get("dx") + (Integer) q.get("dy")));
+        List<Map<String, Object>> worstMaps = new ArrayList<>();
+        byMap.entrySet().stream()
+                .sorted((p, q) -> q.getValue() != p.getValue().intValue() ? Integer.compare(q.getValue(), p.getValue())
+                        : p.getKey().compareTo(q.getKey()))
+                .forEach(e -> {
+                    String[] k = e.getKey().split(":");
+                    Map<String, Object> m = new LinkedHashMap<>();
+                    m.put("channel", Integer.parseInt(k[0]));
+                    m.put("map", Integer.parseInt(k[1]));
+                    m.put("pairs", e.getValue());
+                    worstMaps.add(m);
+                });
+        int n = overlaps.size();
+        Status st = n == 0 ? Status.OK : n >= limits.overlapFailAt() ? Status.FAIL : Status.WARN;
+        String summary = n == 0 ? bodies.size() + " grounded idle characters, none on top of another"
+                : n + " overlapping pair(s) (|dx| < " + limits.overlapDxPx() + ", |dy| < " + limits.overlapDyPx()
+                + " px), worst map " + worstMaps.get(0).get("map") + " ch" + worstMaps.get(0).get("channel") + " ("
+                + worstMaps.get(0).get("pairs") + ")";
+        Map<String, Object> c = check(st, summary);
+        c.put("checked", bodies.size());
+        c.put("pairs", n);
+        c.put("failAt", limits.overlapFailAt());
+        c.put("worstMaps", head(worstMaps));
+        c.put("overlaps", head(pairs));
         return c;
     }
 

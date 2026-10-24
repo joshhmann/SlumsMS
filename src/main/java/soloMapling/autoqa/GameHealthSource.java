@@ -9,6 +9,8 @@ import server.maps.FootholdTree;
 import server.maps.MapleMap;
 import soloMapling.ArtificialPlayer.BotChannels;
 import soloMapling.ArtificialPlayer.BotHelpers;
+import soloMapling.ArtificialPlayer.BotMovementSystem.MovementCommands;
+import soloMapling.ArtificialPlayer.BotTownSystem.PersonalSpace;
 import soloMapling.ArtificialPlayer.GCMoveSystem.GCMovement;
 
 import java.awt.Point;
@@ -42,18 +44,26 @@ final class GameHealthSource {
         List<HealthSweep.BotSample> all = new ArrayList<>();
         List<HealthSweep.BotSample> synthetic = new ArrayList<>();
         List<HealthSweep.SentSample> sent = new ArrayList<>();
+        List<HealthSweep.BotSample> players = new ArrayList<>();
         int maps = 0;
         for (Channel ch : channels) {
             for (MapleMap map : ch.getMapFactory().getMaps().values()) {
                 List<Character> chars = map.getAllPlayers();
+                if (chars.isEmpty()) {
+                    continue;
+                }
                 boolean any = false;
                 boolean watched = false;
+                boolean town = PersonalSpace.appliesOn(map);
+                Map<Integer, String> keys = chars.size() > 1 ? pairKeys(chars) : Map.of();
                 for (Character c : chars) {
                     if (!BotHelpers.isBot(c)) {
                         watched = true;
                         if (SyntheticPlayers.isSynthetic(c)) { // rc6: auto-QA's pretend players are swept too
                             cacheMap(map);
-                            synthetic.add(sample(ch.getId(), map, c));
+                            synthetic.add(sample(ch.getId(), map, c, keys, town));
+                        } else if (!c.isHidden() && c.getPosition() != null) {
+                            players.add(player(ch.getId(), map, c, keys, town)); // rc6: for the overlap check
                         }
                         continue;
                     }
@@ -62,7 +72,7 @@ final class GameHealthSource {
                         maps++;
                         cacheMap(map);
                     }
-                    all.add(sample(ch.getId(), map, c));
+                    all.add(sample(ch.getId(), map, c, keys, town));
                 }
                 if (watched) {
                     cacheMap(map);
@@ -82,7 +92,7 @@ final class GameHealthSource {
         double[] expected = BotChannels.shares(YamlConfig.config.server.BOT_CHANNEL_WEIGHTS, perChannel.length);
         int errors = countNewErrorLines();
         return new HealthSweep.Snapshot(now, sampled, seen, maps, perChannel, expected, errors, SERVER_LOG.toString(),
-                soloMapling.ArtificialPlayer.BotMapCap.loads(), SweepMath.sample(sent, maxBots));
+                soloMapling.ArtificialPlayer.BotMapCap.loads(), SweepMath.sample(sent, maxBots), players);
     }
 
     List<FootholdCheck.Seg> footholds(int mapId) {
@@ -108,14 +118,85 @@ final class GameHealthSource {
         }
     }
 
-    private HealthSweep.BotSample sample(int channel, MapleMap map, Character bot) {
+    private HealthSweep.BotSample sample(int channel, MapleMap map, Character bot, Map<Integer, String> keys,
+                                         boolean town) {
         Point p = bot.getPosition();
         boolean synthetic = SyntheticPlayers.isSynthetic(bot);
         String gc = synthetic ? null : GCMovement.sweepPose(bot);
         FootholdCheck.Pose pose = pose(gc, bot.getStance(), map.isSwim());
         boolean moving = gc != null && GCMovement.isMoving(bot) && !GCMovement.isResting(bot);
+        // rc6: a recorded-path walk (old engine) holds the movement lock; a walking stance is not idle either
+        boolean idle = !moving && !(gc != null && GCMovement.isMoving(bot)) && !walkingStance(bot.getStance())
+                && (gc != null || synthetic || !MovementCommands.isBotMoving(bot));
         return new HealthSweep.BotSample(bot.getId(), bot.getName(), channel, map.getId(), p.x, p.y, pose, moving,
-                gc != null, synthetic ? null : mapProblem(map, bot, p), synthetic);
+                gc != null, synthetic ? null : mapProblem(map, bot, p), synthetic, idle, keys.get(bot.getId()), town,
+                false);
+    }
+
+    /** rc6: a real player, for the overlap check only. */
+    private static HealthSweep.BotSample player(int channel, MapleMap map, Character c, Map<Integer, String> keys,
+                                                boolean town) {
+        Point p = c.getPosition();
+        FootholdCheck.Pose pose = poseFromStance(c.getStance(), map.isSwim());
+        return new HealthSweep.BotSample(c.getId(), c.getName(), channel, map.getId(), p.x, p.y, pose, false, false,
+                null, false, !walkingStance(c.getStance()), keys.get(c.getId()), town, true);
+    }
+
+    /** v83 stance (pose << 1 | facing): pose 1 is walking. */
+    static boolean walkingStance(int stance) {
+        return ((stance & 0xFF) >> 1) == 1;
+    }
+
+    /**
+     * rc6 personal space: the deliberate pairs on one map, as a key per character (same key = may stand together): a
+     * player and the bot it talks with ("talk:id"), a couple ("couple:a:b"), else a bot's scene, cluster talk, ambient
+     * chatter or shop ({@link PersonalSpace#groupKey}).
+     */
+    static Map<Integer, String> pairKeys(List<Character> chars) {
+        Map<Integer, String> keys = new HashMap<>();
+        Map<Integer, Character> byId = new HashMap<>();
+        for (Character c : chars) {
+            byId.put(c.getId(), c);
+        }
+        for (Character c : chars) {
+            if (BotHelpers.isBot(c)) {
+                continue;
+            }
+            int bot = PersonalSpace.talkPartnerOf(c);
+            if (bot > 0 && byId.containsKey(bot)) {
+                keys.put(c.getId(), "talk:" + c.getId());
+                keys.put(bot, "talk:" + c.getId());
+            }
+        }
+        for (Character c : chars) {
+            if (!BotHelpers.isBot(c) || keys.containsKey(c.getId())) {
+                continue;
+            }
+            try {
+                soloMapling.ArtificialPlayer.BotSM sm =
+                        soloMapling.ArtificialPlayer.BotMessagingSystem.CharacterStorage.getBotById(c.getId());
+                Character r = sm == null ? null : sm.getInteractors().getRespondant();
+                if (r != null && byId.containsKey(r.getId()) && !keys.containsKey(r.getId())) {
+                    keys.put(c.getId(), "talk:" + r.getId());
+                    keys.put(r.getId(), "talk:" + r.getId());
+                    continue;
+                }
+                int partner = soloMapling.ArtificialPlayer.BotCoupleSystem.BotCouples.partnerOf(c.getId());
+                if (partner > 0 && byId.containsKey(partner)) {
+                    String k = "couple:" + Math.min(c.getId(), partner) + ":" + Math.max(c.getId(), partner);
+                    keys.put(c.getId(), k);
+                    keys.putIfAbsent(partner, k);
+                    continue;
+                }
+            } catch (RuntimeException | LinkageError ignored) {
+                // no signal
+            }
+            String g = PersonalSpace.groupKey(c);
+            if (g != null) {
+                keys.put(c.getId(), g);
+            }
+        }
+        return keys;
     }
 
     /** rc6 "foothold (sent)": the last position clients on this map were sent for the character, or null. */

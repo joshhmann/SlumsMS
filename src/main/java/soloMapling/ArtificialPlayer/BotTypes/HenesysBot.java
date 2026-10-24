@@ -8,6 +8,7 @@ import soloMapling.ArtificialPlayer.BotMessagingSystem.MessageQueue;
 import soloMapling.ArtificialPlayer.BotMovementSystem.NavigationSystem.PortalConnection;
 import soloMapling.ArtificialPlayer.BotSM;
 import soloMapling.ArtificialPlayer.BotTypeManager;
+import soloMapling.ArtificialPlayer.BotTownSystem.PersonalSpace;
 
 import java.util.ArrayList;
 import java.util.Collections;
@@ -21,7 +22,6 @@ import static soloMapling.ArtificialPlayer.BotCommandsPack.SocialCommands.BotEmo
 import static soloMapling.ArtificialPlayer.BotCommandsPack.SocialCommands.BotSpeak;
 import static soloMapling.ArtificialPlayer.BotCommandsPack.WarpCommands.botWarpMapOnPortal;
 import static soloMapling.ArtificialPlayer.BotDialogueHandler.getRandomResolvedLine;
-import static soloMapling.ArtificialPlayer.BotMovementSystem.MovementCommands.nudgeAwayFromOverlap;
 import static soloMapling.ArtificialPlayer.BotMovementSystem.MovementCommands.pathFinderAware;
 import static soloMapling.BotLogger.log;
 import static soloMapling.Environment.PlatformPlacement.botMoveToPlatformAnyUnoccupiedSpotAware;
@@ -113,6 +113,9 @@ public class HenesysBot extends BotSM {
                 break;
             case IDLE:
                 decideNextAction();
+                if (henesysBotState == HenesysBotState.IDLE) {
+                    PersonalSpace.maybeKeep(getChr()); // rc6: standing around: make room if someone is on top of it
+                }
                 break;
             case WANDER:
                 wanderPlatforms();
@@ -131,6 +134,7 @@ public class HenesysBot extends BotSM {
                 lastMapChangeTime = System.currentTimeMillis();
                 doRandomEmote();
                 wanderToMainPlatform();
+                PersonalSpace.keepNow(getChr()); // rc6: arrived through a portal and walked to a recorded endpoint
                 setHenesysBotState(HenesysBotState.IDLE);
                 break;
             default:
@@ -201,8 +205,10 @@ public class HenesysBot extends BotSM {
             moved = true;
         }
 
-        if (moved && rollChanceInverse(2)) {
-            nudgeAwayFromOverlap(getChr());
+        if (moved) {
+            // rc6: the recorded walk ends on the recorded point nearest its target, often the very pixel another bot
+            // already stands on. The old half-the-time 20 px nudge left many stacks; personal space always checks.
+            PersonalSpace.keepNow(getChr());
         }
     }
 

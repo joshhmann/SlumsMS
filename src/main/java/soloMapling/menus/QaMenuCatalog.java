@@ -129,6 +129,7 @@ public final class QaMenuCatalog {
         add("bk-1", v("4th", "pirates", "pacing"), steps());
         section("Idle bots, slide, bounces");
         add("id-1", v("off"), steps());
+        add("ps-1", v(), steps());
         add("mv-1", v(), steps());
         add("jq-1", v(), steps("push"));
         section("Client and channels");

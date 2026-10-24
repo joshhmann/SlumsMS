@@ -721,6 +721,7 @@ public class TrainingBot extends BotSM {
             return;
         }
         pollResupply();
+        soloMapling.ArtificialPlayer.BotTownSystem.PersonalSpace.maybeKeep(getChr()); // rc6: not on anyone's pixel
         BotScrolling.townTick(getChr());   // ticket 11: scroll its own gear while it stands in town
         soloMapling.ArtificialPlayer.BotWealth.townTick(getChr());   // 56B / 1.5.0: spend down, gachapon
         soloMapling.Economy.BotShops.townTick(getChr());   // 1.5.0 rc3: collect shop takings, maybe open a shop
@@ -767,7 +768,10 @@ public class TrainingBot extends BotSM {
         if (!shopQueue.isEmpty() || rng.nextDouble() >= SHOP_VISIT_CHANCE) {
             return false; // a store itinerary already covers this stop, or skipping the errand this visit
         }
-        GCMovement.move(chr, hub.potionNpc().x, hub.potionNpc().y);
+        // rc6: every errand bot used to walk onto the vendor's own pixel; take a free spot in front of it
+        Point front = soloMapling.ArtificialPlayer.BotTownSystem.PersonalSpace.freeSpotNear(chr.getMap(),
+                hub.potionNpc(), chr.getId());
+        GCMovement.move(chr, front.x, front.y);
         sayContext("ShopRestock", chr, null);
         return true;
     }
@@ -808,8 +812,9 @@ public class TrainingBot extends BotSM {
         int side = rng.nextBoolean() ? 1 : -1;
         resupplyArrived = false;
         resupplyWalkDeadlineMs = now() + RESUPPLY_WALK_MAX_MS;
-        GCMovement.move(chr, npc.x + side * (RESUPPLY_STAND_OFF_PX + rng.nextInt(40)), npc.y,
-                () -> resupplyArrived = true);
+        Point front = soloMapling.ArtificialPlayer.BotTownSystem.PersonalSpace.freeSpotNear(chr.getMap(),
+                new Point(npc.x + side * (RESUPPLY_STAND_OFF_PX + rng.nextInt(40)), npc.y), chr.getId()); // rc6
+        GCMovement.move(chr, front.x, front.y, () -> resupplyArrived = true);
     }
 
     // Buys once the bot is at the shopkeeper (or the walk ran out of time on its map). True when it just shopped.

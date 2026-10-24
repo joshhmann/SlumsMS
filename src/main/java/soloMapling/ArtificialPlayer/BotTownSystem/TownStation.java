@@ -96,7 +96,8 @@ public final class TownStation {
         if (spots.isEmpty()) {
             return false; // nav graph not baked / no eligible ledge - stay put
         }
-        Point dest = spots.get(0);
+        // rc6: never the spot another character stands on or another bot is walking to (a ring around it instead)
+        Point dest = PersonalSpace.freeSpotNear(map, spots.get(0), bot.getId());
 
         releaseSpot(bot); // free the old ledge before the walk so it isn't held stale mid-stroll
         try {
@@ -104,6 +105,9 @@ public final class TownStation {
         } catch (Exception e) {
             // pathing failed - fall through and re-claim wherever we are
         }
+        // rc6: the recorded walk ends on the recorded point nearest the target, which another bot may already
+        // stand on to the pixel - make room right away
+        PersonalSpace.keepNow(bot);
         claimSpot(bot); // claim the ledge we actually ended on
         return true;
     }

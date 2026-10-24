@@ -127,8 +127,14 @@ public final class TownLoiter {
             }
         }
         if (chosen == null) {
-            return; // no reachable spot right now; standing on the portal beats a crash
+            // rc6: every ledge full. Standing on the arrival portal put every such bot on the portal's pixel; take
+            // the first spot unclaimed instead (personal space still keeps it off everyone else).
+            if (candidateSpots.isEmpty()) {
+                return; // no reachable spot right now; standing on the portal beats a crash
+            }
+            chosen = candidateSpots.get(0);
         }
+        chosen = PersonalSpace.freeSpotNear(map, chosen, botId); // rc6: not on anyone, not where another walks
 
         GCMovement.move(bot, chosen.x, chosen.y); // walk (observed) or coarse-relocate (unobserved)
         GCMovement.setFidget(bot, fidget); // true: stands down while walking then fidgets; false: cancels any prior

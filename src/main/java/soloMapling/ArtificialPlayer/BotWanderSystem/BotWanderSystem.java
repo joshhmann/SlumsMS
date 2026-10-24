@@ -252,6 +252,7 @@ public final class BotWanderSystem {
         if (dx <= ARRIVE_X && dy <= ARRIVE_Y && !GCMovement.isMoving(bot)) {
             w.state = DWELLING;
             w.dwellUntilMs = now + DWELL_MIN_MS + (long) (RANDOM.nextDouble() * (DWELL_MAX_MS - DWELL_MIN_MS));
+            soloMapling.ArtificialPlayer.BotTownSystem.PersonalSpace.keepNow(bot); // rc6: came to rest (town only)
             return;
         }
 
@@ -296,6 +297,11 @@ public final class BotWanderSystem {
     }
 
     private static void issueMove(Wander w, Point spot, long now) {
+        MapleMap map = w.bot.getMap();
+        if (soloMapling.ArtificialPlayer.BotTownSystem.PersonalSpace.appliesOn(map)) {
+            // rc6: in town, never stroll onto a spot someone stands on or another bot is already walking to
+            spot = soloMapling.ArtificialPlayer.BotTownSystem.PersonalSpace.freeSpotNear(map, spot, w.bot.getId());
+        }
         w.target = spot;
         w.state = WALKING;
         w.bestDist = Integer.MAX_VALUE;
