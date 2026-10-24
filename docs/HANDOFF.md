@@ -6,15 +6,41 @@ something.
 
 Times: give the owner Pacific next to UTC (PDT = UTC-7).
 
-**1.6.0-rc1 preparation (owner approved):** branch `test-1.6.0-rc1`, worktree
-`/root/work/SlumsMS-160-rc1`, based on bot-brain checkpoint `d0de8c8e9`. Current 1.5.1 snapshot `ddddd2b83`
-is merged as `cd6232f84`. Resolve the town-timing conflict by keeping both profile duration and chat holds;
-later chat ticks extend rather than shorten a planned stay. The regression fails before and passes after, and
-conversation-hold/spacing focused tests pass. The other conflict was the shared TEST receipt, preserving both
-histories. Candidate scope is the bot brain and inherited fixes; the approved shared actor/weights stay unchanged.
-Server label: `1.6.0-rc1`; source runtime switches still default off. No new rewards, fishing/medals/dungeon work,
-client protocol changes or live deployment. Full release build and isolated QA are pending. Notes/checklist:
-`docs/release/1.6.0-rc1-notes.md`, `docs/release/1.6.0-rc1-qa.md`. Stop the isolated copy after testing.
+**1.6.0-rc1 is prepared for TEST review:** branch `test-1.6.0-rc1`, worktree
+`/root/work/SlumsMS-160-rc1`. Annotated candidate tag `v1.6.0-rc1` points to the exact built code **`93cfe9b33`**;
+subsequent branch changes record QA only. Based on bot-brain checkpoint `d0de8c8e9`, with current 1.5.1 snapshot
+`ddddd2b83` merged as **`cd6232f84`**. The town-timing conflict keeps both the profile duration and conversation
+hold, including later ticks extending rather than shortening a stay. The regression fails before and passes
+after; conversation-hold and spacing tests pass. The other conflict was this shared TEST receipt; both histories
+are retained. No feature was merged back into 1.5.1.
+
+**RC1 build:** `tools/release/build` ran the full clean/package suite: **4,599 tests, 0 failures, 0 errors,
+38 skipped**, 420 report classes. Release-tool Python tests: **35 pass**. Build took 602 s. Local receipt/jar:
+`/root/work/SlumsMS-160-rc1/dist/release-build/BUILD.txt` and `Cosmic.jar`. Jar SHA-256:
+`3b40e4b1bfa26c12e0cf3ee5a7c0d29f77dcf07deb02ba313d8a17516f401322`. Server label is `1.6.0-rc1`; v83 protocol and client gate are unchanged.
+
+**RC1 isolated QA:** exact built jar `93cfe9b33` booted at **2:52:13 PM PT (21:52:13 UTC)** on 2026-10-24,
+with zero boot/runtime ERROR/Exception lines through QA. **Eight selected checks passed** by 2:57:03 PM PT
+(21:57:03 UTC): `bg-1,cv-8,ps-2,vg-1,ch-1,bl-1,bl-2,bl-3`. Conversation station hold now has actual five-sample
+server evidence as well as the merge regression. Saved summary: 8 PASS / 0 FAIL / 11 SKIP / 60 NOT_RUN of 79;
+not a full catalogue run. Receipt `/opt/mapleroot-dev/bot-life-160/deploys/20261024T215211Z` stores the jar,
+`BUILD.txt`, `autoqa-result.json`, `test-status.txt` and the rc1 checklist. Overall health is still **FAIL on
+footing/overlap** (watched-position check OK); it is not cleared for Live promotion or claimed visually fixed.
+
+The isolated copy remains separate: login **8491**, channels 8185-8189, world 1, unit `slums-life160`, copied DB
+`mapleroot_life160`. Shared 1.5.1 TEST stays on 8489 with its own unit/database. This allows 1.5.1 to release first.
+RC1 used 40 roster / 400 total caps, 2 CPU cores, Nice 19, 5 GiB Java heap and 6 GiB total unit cap. It was stopped
+at **2:59:22 PM PT (21:59:22 UTC)**: 400 bots written, 0 failed/missed, 1.248 s for writes. Unit is **inactive**;
+login 8491 has no listener. Keep it stopped when not testing. Storage check: 193 GiB free of 430 GiB (56% used);
+rc1 server folder 864 MiB, shared TEST folder 7.2 GiB. No storage bump or cleanup was needed.
+
+**Candidate scope / remaining rc1 review:** bot brain plus inherited fixes, keeping the approved shared actor and
+provisional weights/goals. Runtime switches still default off. No new rewards, role quotas, fishing, medals,
+dungeon content, client protocol changes or live deployment. Real-client movement, purchases, pacing, level mix,
+actual `!botwhy` display and real model voice remain for the owner's in-game pass. Chat-model endpoints/keys stay
+cleared in this automated copy. Checklist: `docs/release/1.6.0-rc1-qa.md`; internal notes/draft message:
+`docs/release/1.6.0-rc1-notes.md`. No Live/shared TEST deployment or restart, desktop change, site/feed publication,
+Discord post or Live DB read was performed. This is a TEST candidate, not a cleared production release.
 
 **Owner's work split (2026-10-24):** this bug-fix pass is finished. The owner will hand continuing **1.5.1 bug
 squashing to DeepSeek**; use `release-1.5.1`, the current TEST receipt below and section 3's remaining leads.
@@ -103,8 +129,8 @@ couple-chair walks, the GM boss-run preemption and the mob-body step-out), deplo
 `20261024T205847Z` with **0 boot errors**. That build also carries the earlier `c2b1a7974` NPC spacing, synthetic
 login and reply-routing fixes (checkpoint at **5:57 AM PT / 12:57 UTC**). Its version banner still says 1.5.0;
 this is a test integration build, not a live release. Source: `release-1.5.1` in `/root/work/SlumsMS-npc-space`.
-Later shared TEST was observed at `1204367b7`, running since 12:40:06 PM PT (19:40:06 UTC), from the parallel
-bug pass. This feature task did not restart or deploy to it. The forward merge above is the tested integration
+An earlier observation found shared TEST at `1204367b7`, running since 12:40:06 PM PT (19:40:06 UTC); the newer
+1.5.1 deployment receipt above comes from the parallel bug pass. This feature task did not restart or deploy to it. The forward merge above is the tested integration
 branch snapshot `1a3155d2e`; a TEST work branch can be ahead of that snapshot. Live was not changed.
 
 ## 2. In flight right now
