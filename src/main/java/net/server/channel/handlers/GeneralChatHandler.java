@@ -15,11 +15,24 @@ import tools.PacketCreator;
 public final class GeneralChatHandler extends AbstractPacketHandler {
     private static final Logger log = LoggerFactory.getLogger(GeneralChatHandler.class);
 
+    /** The chat gate: at most one line per this many ms. */
+    static final long CHAT_SPAM_MS = 200;
+
+    /**
+     * Whether a chat line is dropped as spam. The stamps are compared against the server's tick clock, which only
+     * moves every {@code UPDATE_INTERVAL} (777 ms on the servers), so back-to-back lines can fall inside the same
+     * tick and be dropped silently. A GM's lines are never dropped: the owner's and the auto-QA accounts' commands
+     * must not vanish because two of them were typed within one tick.
+     */
+    static boolean spamBlocked(boolean gm, long lastSpam, long now) {
+        return !gm && lastSpam + CHAT_SPAM_MS > now;
+    }
+
     @Override
     public void handlePacket(InPacket p, Client c) {
         String s = p.readString();
         Character chr = c.getPlayer();
-        if (chr.getAutobanManager().getLastSpam(7) + 200 > currentServerTime()) {
+        if (spamBlocked(chr.isGM(), chr.getAutobanManager().getLastSpam(7), currentServerTime())) {
             c.sendPacket(PacketCreator.enableActions());
             return;
         }

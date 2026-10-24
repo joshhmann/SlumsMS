@@ -703,10 +703,11 @@ public final class BotConversation {
         }
         if (plan.ignored()) {
             ChatStats.reply(ChatStats.Tier.IGNORED, System.currentTimeMillis() - asked, bot.getName(), "busy fighting");
-            soloMapling.ArtificialPlayer.BotConvo.ConvoQuality.timing(bot, player, plan);
+            soloMapling.ArtificialPlayer.BotConvo.ConvoQuality.timing(bot, player, plan,
+                    System.currentTimeMillis() - asked);
             return;
         }
-        soloMapling.ArtificialPlayer.BotConvo.ConvoQuality.timing(bot, player, plan);
+        soloMapling.ArtificialPlayer.BotConvo.ConvoQuality.timing(bot, player, plan, System.currentTimeMillis() - asked);
         // a late answer or a "brb" keeps the chat open until it is said (the sweeper ends chats idle for a minute)
         session.state.lastAt = Math.max(session.state.lastAt, System.currentTimeMillis() + plan.totalMs());
         int face = deliver != null || cue == null ? ReplyEmote.NONE

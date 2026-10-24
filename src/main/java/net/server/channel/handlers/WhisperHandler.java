@@ -133,7 +133,8 @@ public final class WhisperHandler extends AbstractPacketHandler {
     }
 
     private void handleWhisper(String message, Character user, Character target) {
-        if (user.getAutobanManager().getLastSpam(7) + 200 > currentServerTime()) {
+        // Same gate as general chat (see GeneralChatHandler.spamBlocked): a GM's whispers are never dropped.
+        if (GeneralChatHandler.spamBlocked(user.isGM(), user.getAutobanManager().getLastSpam(7), currentServerTime())) {
             return;
         }
         user.getAutobanManager().spam(7);

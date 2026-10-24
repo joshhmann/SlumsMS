@@ -226,6 +226,20 @@ class BotBuddiesTest {
     }
 
     @Test
+    void theAutoQaCertaintyOverridesARefusalFromAnEarlierRun() {
+        // TEST 2026-10-24: t-bb-2's fixture made the accept certain, but a no from an earlier run within
+        // refusalDays still swallowed the request, so the runner saw "pending" all over again.
+        table.put(new Row(BOT, PLAYER, Link.REFUSED, TODAY));
+        BotBuddies.certainFor(60_000);
+        try {
+            BotBuddies.playerRequests(player(PLAYER, "Josh", false), new Target(BOT, "Ressurectme"));
+            assertEquals(Link.REQUESTED, table.pair(BOT, PLAYER).link(), "the run asks again");
+        } finally {
+            BotBuddies.certainFor(0);
+        }
+    }
+
+    @Test
     void anAcceptingBotShowsOnlineOnTheAskersList() {
         World world = mock(World.class);
         Character bot = liveBot(BOT, "Ressurectme", world);

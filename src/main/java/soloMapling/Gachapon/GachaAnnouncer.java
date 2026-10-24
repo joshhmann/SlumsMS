@@ -189,6 +189,13 @@ public final class GachaAnnouncer {
         log.info("[GachaNotice] {}{} : {} ({}) from the {} gachapon", chr.getName(), n.bot() ? " (bot)" : "",
                 n.item().getItemId(), server.ItemInformationProvider.getInstance().getName(n.item().getItemId()),
                 n.townName());
+        if (soloMapling.qa.QaLog.on(soloMapling.qa.QaLog.Topic.GACHA)) {
+            // t-ga-1 can only see the notice if it is written down: the yellow packet itself leaves no log line, and
+            // the check used to wait for a NOTICE line nobody produced.
+            soloMapling.qa.QaLog.any(soloMapling.qa.QaLog.Topic.GACHA, "NOTICE [11] " + chr.getName() + " : got "
+                    + server.ItemInformationProvider.getInstance().getName(n.item().getItemId())
+                    + " from the " + n.townName() + " gachapon");
+        }
     }
 
     /** "notices 12 (3 by bots), 4 not announced, 0 waiting" */

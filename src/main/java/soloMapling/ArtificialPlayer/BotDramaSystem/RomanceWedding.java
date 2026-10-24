@@ -186,6 +186,12 @@ public final class RomanceWedding {
             if (n >= 3 || id == c.botId) {
                 continue;
             }
+            // auto-QA rm-4: an ex is the drama, not the crowd - recruited as a guest it came to the altar busy and
+            // could not crash the reception ("nobody to crash"). It stays free and crashes it instead.
+            Romance ex = BotRomance.with(player.getId(), id);
+            if (ex != null && ex.stage() == Romance.Stage.EX) {
+                continue;
+            }
             Character friend = DramaKit.liveBot(id);
             if (friend != null && DramaKit.freeForScene(friend)) {
                 DramaKit.Home home = DramaKit.homeOf(friend);
@@ -448,10 +454,15 @@ public final class RomanceWedding {
         Character who = null;
         for (Romance r : BotRomance.all(player.getId())) {
             Character ex = r.stage() == Romance.Stage.EX ? DramaKit.liveBot(r.botCharId()) : null;
-            if (ex != null && ex.getId() != c.objector && DramaKit.freeForScene(ex)) {
+            if (ex == null || ex.getId() == c.objector) {
+                continue;
+            }
+            if (DramaKit.freeForScene(ex)) {
                 who = ex;
                 break;
             }
+            String scene = DramaKit.sceneOf(ex.getId()); // auto-QA rm-4: say why an ex cannot crash the reception
+            qa("CRASH: " + ex.getName() + " cannot crash it: " + (scene == null ? "not free" : "busy (" + scene + ")"));
         }
         if (who == null) {
             for (int id : BotAffinity.botsFeeling(player.getId(), AffinityState.RIVAL)) {
