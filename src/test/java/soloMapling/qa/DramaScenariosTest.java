@@ -1,6 +1,7 @@
 package soloMapling.qa;
 
 import client.Character;
+import soloMapling.ArtificialPlayer.BotDramaSystem.RomanceWedding;
 import org.junit.jupiter.api.AfterEach;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.io.TempDir;
@@ -108,6 +109,15 @@ class DramaScenariosTest {
         suite.action(world.online, "runaway", new String[0]);
         assertTrue(world.drama.contains("romance runaway"));
         assertFalse(world.drama.contains("romance wedding"));
+    }
+
+    @Test
+    void rm4TurnsTheRandomRunawayOffForTheWeddingItStages() {
+        // rc6 t-rm-4: the 8% runaway beat can fire at +38 s, before the staged wedding reaches MARRIED and CRASH
+        RomanceWedding.runawayBeat(false, 0.0); // drop a runaway another test forced
+        start("rm-4", 70);
+        assertFalse(RomanceWedding.runawayBeat(true, 0.0), "the staged wedding must not run away on the random roll");
+        assertTrue(RomanceWedding.runawayBeat(true, 0.0), "and the next wedding rolls it again");
     }
 
     @Test

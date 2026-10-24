@@ -63,6 +63,7 @@ public final class RomanceWedding {
     public enum Drama { OBJECTION, RUNAWAY, CRASH }
 
     private static final Set<Drama> forced = java.util.concurrent.ConcurrentHashMap.newKeySet();
+    private static volatile boolean noRandomRunaway; // QA rm-4: the next wedding is staged for the vows and the crash
     private static volatile Ceremony current;
 
     private static final Pattern I_DO = Pattern.compile("(?i)\\b(i do|i will|yes|yess+|ya|yeah|of course|ofc|absolutely)\\b");
@@ -104,6 +105,24 @@ public final class RomanceWedding {
 
     public static void force(Drama d) {
         forced.add(d);
+    }
+
+    /**
+     * QA rm-4: the staged wedding is watched for MARRIED and CRASH, and the random runaway beat (8%, at +38 s at the
+     * latest) would end it before either. Turns that beat off for the next wedding only; a {@link #force(Drama) forced}
+     * runaway still runs away.
+     */
+    public static void noRandomRunaway() {
+        noRandomRunaway = true;
+    }
+
+    /** The runaway beat of the next wedding: a forced one wins, a staged one has the random roll off. */
+    public static boolean runawayBeat(boolean allowed, double roll) {
+        boolean forcedRunaway = forced.remove(Drama.RUNAWAY);
+        boolean off = noRandomRunaway;
+        noRandomRunaway = false;
+        return allowed && (forcedRunaway
+                || (!off && roll < DramaKit.prop("wedding.runawayChance", 0.08)));
     }
 
     /** Starts the wedding of the player and their fiance now; the problem, or null when it started. */
@@ -152,7 +171,7 @@ public final class RomanceWedding {
         boolean allowed = !BotAffinity.optedOut(player.getId()) && BotAffinity.hostilityEnabled();
         ThreadLocalRandom rng = ThreadLocalRandom.current();
         c.objection = allowed && (forced.remove(Drama.OBJECTION) || rng.nextDouble() < DramaKit.prop("wedding.objectChance", 0.35));
-        c.runaway = allowed && (forced.remove(Drama.RUNAWAY) || rng.nextDouble() < DramaKit.prop("wedding.runawayChance", 0.08));
+        c.runaway = runawayBeat(allowed, rng.nextDouble());
         c.crash = allowed && (forced.remove(Drama.CRASH) || rng.nextDouble() < DramaKit.prop("wedding.crashChance", 0.3));
         current = c;
         try {
@@ -588,5 +607,6 @@ public final class RomanceWedding {
     static void resetForTest() {
         current = null;
         forced.clear();
+        noRandomRunaway = false;
     }
 }
