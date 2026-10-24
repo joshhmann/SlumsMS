@@ -4,6 +4,9 @@ import soloMapling.ArtificialPlayer.BotChatTuning;
 import soloMapling.ArtificialPlayer.BotRoster;
 
 import client.Character;
+import soloMapling.ArtificialPlayer.BotLifeSystem.LifeActivityQueue;
+import soloMapling.ArtificialPlayer.BotLifeSystem.LifeDecision;
+import soloMapling.ArtificialPlayer.BotLifeSystem.RestockTripExecutor;
 import client.inventory.InventoryType;
 import client.inventory.Item;
 import constants.id.MapId;
@@ -293,6 +296,7 @@ public class TrainingBot extends BotSM {
     /** Read-only telemetry for the daily-life shadow inspector; not another owner of the FSM. */
     public record LifePhase(String name, long sinceMs) {}
     private volatile LifePhase lifePhase = new LifePhase("INIT", 0);
+    private final LifeActivityQueue lifeActivities = new LifeActivityQueue();
 
     public LifePhase lifePhase() { return lifePhase; }
     // Ticket 21: a world event called this bot (WorldEventReactions); the macro tick answers it.
@@ -461,6 +465,14 @@ public class TrainingBot extends BotSM {
         }
         phase = next;
         lifePhase = new LifePhase(next.name(), now());
+        lifeActivities.invalidateWaiting();
+        if (next == Phase.GRIND) {
+            var active = lifeActivities.state();
+            if (active.activity() == LifeDecision.Activity.RESTOCK) {
+                lifeActivities.finish(active.active(), LifeActivityQueue.End.COMPLETED);
+                lifeNote("RETURNED request=" + active.active()); // returned to grinding, not proof of a purchase
+            }
+        }
         phaseEntered = false;
         moveDone = false;
         moveOk = false;
@@ -481,8 +493,11 @@ public class TrainingBot extends BotSM {
                 String.format("%s TrainingBot phase: %s", chr.getName(), phase), String.format("%s", phase));
 
         if (handleDeath(chr)) {
+            cancelLifeActivity();
             return; // 1.5.0 rc3: lying dead, or just respawned in town
         }
+
+        runLifeActivities(); // only queued work; no scoring, world scan or extra scheduler on a normal tick
 
         if (restockCall) {
             restockCall = false;
@@ -495,6 +510,7 @@ public class TrainingBot extends BotSM {
         }
         if (eventCall) {
             eventCall = false;
+            cancelLifeActivity();
             answerEventCall(chr);
         }
 
@@ -562,6 +578,7 @@ public class TrainingBot extends BotSM {
      * grind break is left cleanly first (no stale spot claim, train slot, break sign or remainder); it re-decides.
      */
     public void leaveForChannelMove() {
+        cancelLifeActivity();
         Phase p = phase;
         if (p != Phase.GRIND && !isBreak(p)) {
             return;
@@ -592,6 +609,77 @@ public class TrainingBot extends BotSM {
         restockCall = true;
         nudgeSoon(300);
         return true;
+    }
+
+    /** Prepare once, then retry with the same request object. A newer plan makes older waiting plans stale. */
+    public LifeActivityQueue.Request prepareLifeActivity(LifeDecision.Result decision) {
+        return lifeActivities.prepare(decision, now(), LifeActivityQueue.MAX_WAIT_MS);
+    }
+
+    /** Safe to call from a command/worker: it queues work and never changes phase on the calling thread. */
+    public LifeActivityQueue.Offer submitLifeActivity(LifeActivityQueue.Request request) {
+        if (!lifeExecutionEnabled()) return LifeActivityQueue.Offer.DISABLED;
+        var offered = lifeActivities.offer(request, now());
+        if (offered == LifeActivityQueue.Offer.QUEUED || offered == LifeActivityQueue.Offer.REPLACED) {
+            nudgeSoon(300); // outside the queue lock; the existing wheel still owns the actual update
+        }
+        return offered;
+    }
+
+    public LifeActivityQueue.State lifeActivityState() { return lifeActivities.state(); }
+
+    public boolean cancelLifeRequest(LifeActivityQueue.Request request) {
+        return lifeActivities.cancelWaiting(request);
+    }
+
+    public static boolean lifeExecutionEnabled() {
+        return soloMapling.qa.QaSuite.isEnabled() && Boolean.getBoolean("slums.botlife.execute");
+    }
+
+    private boolean freeForLifeActivity() {
+        return getRunning() && phase == Phase.GRIND && !recruitingNow()
+                && getChr() != null && getChr().getMap() != null
+                && !soloMapling.ArtificialPlayer.BotCommitments.inFlight(this)
+                && !soloMapling.ArtificialPlayer.BotConversation.hasAnyChat(getChr().getId())
+                && soloMapling.ArtificialPlayer.BotPopulationDirector.mayLogOut(this);
+    }
+
+    private void runLifeActivities() {
+        if (!lifeActivities.hasWaiting()) return;
+        var result = lifeActivities.drain(now(), lifeExecutionEnabled(), this::freeForLifeActivity,
+                new RestockTripExecutor(this));
+        if (result.attempt().isPresent()) {
+            lifeNote("REQUEST request=" + result.number() + " outcome=" + result.attempt().get().status());
+        } else if (result.status() == LifeActivityQueue.RunStatus.STALE) {
+            lifeNote("STALE request=" + result.number());
+        }
+    }
+
+    /** Concrete start: only this bot's update may call it through the queue's executor callback. */
+    public boolean startLifeRestockTrip() {
+        if (!lifeActivities.isStartingHere() || !lifeExecutionEnabled() || !freeForLifeActivity()) return false;
+        leaveGrind();
+        enterPhase(Phase.GO_TOWN);
+        soloMapling.ArtificialPlayer.BotConvo.SayDo.event(getChr(),
+                soloMapling.ArtificialPlayer.BotConvo.SayDo.Ev.RESUPPLY, homeMapId);
+        lifeNote("START activity=RESTOCK");
+        return true;
+    }
+
+    private void cancelLifeActivity() {
+        lifeActivities.invalidateWaiting();
+        var active = lifeActivities.state();
+        if (active.active() != 0) {
+            lifeActivities.finish(active.active(), LifeActivityQueue.End.CANCELLED);
+            lifeNote("CANCELLED request=" + active.active());
+        }
+    }
+
+    private void lifeNote(String text) {
+        if (soloMapling.qa.QaLog.on(soloMapling.qa.QaLog.Topic.HABITS)) {
+            soloMapling.qa.QaLog.any(soloMapling.qa.QaLog.Topic.HABITS,
+                    "LIFE " + text + " bot=" + getChr().getName());
+        }
     }
 
     /** rc6 say-do: grinding now (a "brb" line would be a lie: it keeps fighting). */
@@ -1979,6 +2067,7 @@ public class TrainingBot extends BotSM {
     // Release combat + movement when the bot stops (FINISHED / converted / manually stopped).
     @Override
     public synchronized void stopScheduledTask() {
+        lifeActivities.close();
         ACTIVE_GRINDERS.remove(this);
         swingClock.disarm();
         // Disarm the Sleepywood sauna errand: its door-walk cap and the dwell that walks the bot out of the sauna are

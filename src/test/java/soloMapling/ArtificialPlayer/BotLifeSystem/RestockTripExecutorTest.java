@@ -16,10 +16,10 @@ class RestockTripExecutorTest {
     @Test
     void usesOnlyTheExistingTripHookAndNeverClaimsAPurchase() {
         withFixture((bot, executor) -> {
-            when(bot.requestRestockTrip()).thenReturn(true);
+            when(bot.startLifeRestockTrip()).thenReturn(true);
             var accepted = executor.start(Activity.RESTOCK).orElseThrow();
             assertTrue(accepted.fact().contains("purchase not yet confirmed"));
-            verify(bot).requestRestockTrip();
+            verify(bot).startLifeRestockTrip();
             assertTrue(executor.start(Activity.SELL).isEmpty());
         });
     }
@@ -34,13 +34,13 @@ class RestockTripExecutorTest {
         withFixture((bot, executor) -> {
             System.clearProperty("slums.botlife.execute");
             assertTrue(executor.start(Activity.RESTOCK).isEmpty());
-            verify(bot, never()).requestRestockTrip();
+            verify(bot, never()).startLifeRestockTrip();
         });
         withFixture((bot, executor) -> {
             try (var qa = mockStatic(QaSuite.class)) {
                 qa.when(QaSuite::isEnabled).thenReturn(false);
                 assertTrue(executor.start(Activity.RESTOCK).isEmpty());
-                verify(bot, never()).requestRestockTrip();
+                verify(bot, never()).startLifeRestockTrip();
             }
         }, false);
     }
@@ -51,21 +51,21 @@ class RestockTripExecutorTest {
             try (var conversations = mockStatic(BotConversation.class)) {
                 conversations.when(() -> BotConversation.hasAnyChat(1_000_005_001)).thenReturn(true);
                 assertTrue(executor.start(Activity.RESTOCK).isEmpty());
-                verify(bot, never()).requestRestockTrip();
+                verify(bot, never()).startLifeRestockTrip();
             }
         });
         withFixture((bot, executor) -> {
             try (var commitments = mockStatic(BotCommitments.class)) {
                 commitments.when(() -> BotCommitments.inFlight(bot)).thenReturn(true);
                 assertTrue(executor.start(Activity.RESTOCK).isEmpty());
-                verify(bot, never()).requestRestockTrip();
+                verify(bot, never()).startLifeRestockTrip();
             }
         });
         withFixture((bot, executor) -> {
             try (var director = mockStatic(BotPopulationDirector.class)) {
                 director.when(() -> BotPopulationDirector.mayLogOut(bot)).thenReturn(false);
                 assertTrue(executor.start(Activity.RESTOCK).isEmpty());
-                verify(bot, never()).requestRestockTrip();
+                verify(bot, never()).startLifeRestockTrip();
             }
         }, true, false);
     }

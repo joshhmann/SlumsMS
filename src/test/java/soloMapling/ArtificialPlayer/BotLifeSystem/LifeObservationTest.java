@@ -129,6 +129,9 @@ class LifeObservationTest {
     @Test
     void phaseTelemetryFollowsTheRealTransitionWithoutChangingTheStateOwner() throws Exception {
         TrainingBot bot = mock(TrainingBot.class);
+        var requests = TrainingBot.class.getDeclaredField("lifeActivities");
+        requests.setAccessible(true);
+        requests.set(bot, new LifeActivityQueue());
         var enter = TrainingBot.class.getDeclaredMethod("enterPhase",
                 Class.forName("soloMapling.ArtificialPlayer.BotTypes.TrainingBot$Phase"));
         enter.setAccessible(true);

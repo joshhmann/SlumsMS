@@ -611,6 +611,16 @@ public final class AutoQaCatalog {
                         has("LIFE SHADOW case=helper selected=HELP_FRIEND"),
                         has("LIFE REFUSAL accepted=false actionFact=false"))
                 .build());
+        c.add(Check.half("t-bl-2", "One request starts one bot restock trip",
+                        "watch the staged bot reach town and return; a started trip does not prove a purchase").minutes(3)
+                .step(say("!warp 104040000"), waitSeconds(3), run("bl-2"), waitFor("LIFE READY bot=", 60),
+                        qaDo("restock"), waitFor("HABITS LIFE START activity=RESTOCK", 30),
+                        qaDo("repeat"), waitSeconds(5))
+                .expect(has("LIFE QUEUED request=\\d+ result=QUEUED"),
+                        has("LIFE REPLAY request=\\d+ result=(DUPLICATE|STALE)"),
+                        atLeast(1, "HABITS LIFE START activity=RESTOCK"),
+                        atMost(1, "HABITS LIFE START activity=RESTOCK", null, null))
+                .build());
         return List.copyOf(c);
     }
 

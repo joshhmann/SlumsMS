@@ -27,7 +27,7 @@ public final class LifeObservation {
     public static final int LOCAL_SAMPLE_LIMIT = 64;
 
     public record Report(LifeInspection.Snapshot observed, LifeProfile profile, LifePolicy.Context context,
-                         Result result) {}
+                         Result result, LifeActivityQueue.State execution) {}
 
     public static Report capture(BotSM bot, long nowMs) {
         LifeInspection.Snapshot observed = LifeInspection.capture(bot);
@@ -82,7 +82,8 @@ public final class LifeObservation {
         int[] people = people(chr, unknown);
         LifePolicy.Context context = new LifePolicy.Context(new Needs(needs), eligible, people[0], people[1],
                 people[2], false, false, busy, current, goals, unknown);
-        return new Report(observed, profile, context, LifePolicy.preview(context, profile, nowMs));
+        return new Report(observed, profile, context, LifePolicy.preview(context, profile, nowMs),
+                bot instanceof TrainingBot training ? training.lifeActivityState() : null);
     }
 
     private static OptionalInt weaponLevel(Character chr) {
@@ -140,6 +141,12 @@ public final class LifeObservation {
         lines.add("Unknown: " + String.join(", ", context.unknown()));
         lines.add("Outcome " + report.result().outcome() + ", selected " + report.result().selected()
                 + "; preview eligibility only. No activity is executed.");
+        if (report.execution() != null) {
+            var execution = report.execution();
+            lines.add("Activity requests: waiting=" + execution.waiting() + ", running=" + execution.active()
+                    + ", activity=" + execution.activity() + ", last ended=" + execution.lastEnded()
+                    + "/" + execution.end() + ", closed=" + execution.closed());
+        }
         for (Score score : report.result().topThree()) {
             lines.add(String.format(java.util.Locale.ROOT, "%s %.3f needs=%s context=%.3f personality=%.3f sticky=%.3f: %s",
                     score.activity(), score.total(), score.contributions(), score.contextBonus(),
