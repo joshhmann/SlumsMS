@@ -317,7 +317,9 @@ public final class AutoQaCatalog {
                 .expect(probe("engaged", "2"), Expects.has("SPOUSE_CHAT {me}: hi love"))
                 .build());
         c.add(Check.auto("t-rm-1", "A bot flirts, asks you out and dates you").minutes(7)
-                .step(fixture("notEngaged"), say("@romance on"), run("rm-1"), qaDo("ask"), waitFor("ROMANCE ASK OUT", 40), say("yes"),
+                // rc6 triage: start off HHG2, else a check that ended there makes the follow warp a no-op (rv-4's fix)
+                .step(fixture("notEngaged"), say("!warp " + HHG1), waitSeconds(3), say("@romance on"), run("rm-1"),
+                        qaDo("ask"), waitFor("ROMANCE ASK OUT", 40), say("yes"),
                         waitFor("ROMANCE DATING", 20), say("!warp " + HHG2), waitFor("ROMANCE FOLLOW", 30), qaDo("whisper"),
                         waitFor("WHISPER {bot}: ", 20), qaDo("jealous"), waitFor("ROMANCE JEALOUS", 30), mark("off"),
                         qaDo("off"), waitSeconds(45))

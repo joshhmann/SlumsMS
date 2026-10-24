@@ -437,7 +437,11 @@ public final class AffinityReactions {
         }
         if (best == null) {
             noTake(bot, rival, saw, rivalHit, ours);
-            return picked;
+            // 1.5.1 rv-2: a helper that finds nothing to take at hand drifts to the mobs of its own ledge and never
+            // comes back. A KSer came for the rival: head for the closest mob around the rival, so it fights where the
+            // player fights and the easy takes are in reach. Bounded by the rival's own reach, so it never chases far.
+            server.life.Monster toward = nearestToRival(bot, rival);
+            return toward == null ? picked : toward;
         }
         // 1.5.1 rv-2: a helper standing next to the player usually has that very mob as its pick already - it is
         // taking the player's mob, so the spree is credited with it too, once per mob. Counting only the picks that
@@ -459,6 +463,34 @@ public final class AffinityReactions {
         return best;
     }
 
+    /** The closest mob around the rival the bot could take next (the spree bot walks back toward its rival), or null. */
+    private static server.life.Monster nearestToRival(Character bot, Character rival) {
+        java.awt.Point rp = rival.getPosition();
+        if (rp == null || bot.getMap() == null) {
+            return null;
+        }
+        // Twice the take reach both ways: a helper that drifted to its own ledge gets a target on the player's side
+        // and walks back; the take itself still happens inside the normal reach.
+        int x = KS_REACH_X * 2;
+        int y = KS_REACH_Y * 2;
+        server.life.Monster near = null;
+        double nearSq = Double.MAX_VALUE;
+        for (server.maps.MapObject mo : bot.getMap().getMapObjectsInRange(rp, (double) x * x,
+                List.of(server.maps.MapObjectType.MONSTER))) {
+            server.life.Monster m = (server.life.Monster) mo;
+            java.awt.Point mp = m.getPosition();
+            if (!m.isAlive() || mp == null || Math.abs(mp.y - rp.y) > y) {
+                continue;
+            }
+            double d = rp.distanceSq(mp);
+            if (d < nearSq) {
+                nearSq = d;
+                near = m;
+            }
+        }
+        return near;
+    }
+
     /** Why a spree bot found nothing to take, once per bot per 10 s: auto-QA rv-2 reads these to explain a miss. */
     private static void noTake(Character bot, Character rival, int saw, int rivalHit, int ours) {
         if (!QaLog.on(QaLog.Topic.AFFINITY)) {
@@ -470,8 +502,10 @@ public final class AffinityReactions {
             return;
         }
         lastNoTake.put(bot.getId(), now);
-        QaLog.map(QaLog.Topic.AFFINITY, bot.getMapId(), "KS " + bot.getName() + " takes none: " + saw
-                + " mob(s) in reach, " + rivalHit + " hit by " + rival.getName() + ", " + ours + " already ours");
+        java.awt.Point at = bot.getPosition();
+        QaLog.map(QaLog.Topic.AFFINITY, bot.getMapId(), "KS " + bot.getName() + " no take at "
+                + (at == null ? "?" : at.x + "," + at.y) + ": " + saw + " mob(s) in reach, " + rivalHit
+                + " hit by " + rival.getName() + ", " + ours + " already ours");
     }
 
     // ── defame ──

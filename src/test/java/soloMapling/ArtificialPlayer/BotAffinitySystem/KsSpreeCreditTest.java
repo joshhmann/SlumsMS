@@ -108,6 +108,25 @@ class KsSpreeCreditTest {
         assertTrue(AffinityReactions.spreeOf(bot.getId()).contains("4 mobs left"));
     }
 
+    /**
+     * A helper with nothing to take at hand heads for the closest mob around its rival instead of drifting off to
+     * its own ledge, which is how a whole war could pass with the helpers 500 px below the player.
+     */
+    @Test
+    void aHelperWithNothingToTakeWalksBackToItsRival() {
+        when(mob.isAttackedBy(any(Character.class))).thenReturn(false); // the player has not touched it
+        player.setPosition(new Point(400, 10));
+        when(mob.getPosition()).thenReturn(new Point(430, 10)); // but it stands next to the player
+        AffinityReactions.startWarSpree(bot, player, 90_000, 5);
+        Monster own = mock(Monster.class); // the bot's own distant pick
+        when(own.getObjectId()).thenReturn(9002);
+
+        Monster chosen = AffinityReactions.ksPick(bot, own);
+
+        assertEquals(mob, chosen, "it walks toward its rival instead of its own pick");
+        assertTrue(AffinityReactions.spreeOf(bot.getId()).contains("5 mobs left"), "no take: nothing to credit");
+    }
+
     /** A mob the player has not touched is not a take: the spree is untouched. */
     @Test
     void anotherPlayersMobIsNotATake() {
