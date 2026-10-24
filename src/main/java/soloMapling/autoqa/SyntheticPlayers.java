@@ -68,6 +68,9 @@ public final class SyntheticPlayers {
             SyntheticClient c = new SyntheticClient(slot, world, CHANNEL);
             c.setAccID(accountId);
             c.setAccountName("autoqa" + slot);
+            // Normal login loads these views when sending the character list. Channel login skips that
+            // screen here, but autosave and disconnect still update the same account-view cache.
+            Server.getInstance().loadAccountCharacters(c);
             // the login server's part: the account row says "in transition", and the session cache knows our hwid
             c.updateLoginState(Client.LOGIN_SERVER_TRANSITION);
             c.setAccID(accountId);
