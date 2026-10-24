@@ -126,8 +126,8 @@ public final class ConvoLines {
                     ClaimRules.Kind.GO_TO);
             case "party_yes" -> java.util.EnumSet.of(ClaimRules.Kind.PARTY_OFFER, ClaimRules.Kind.PARTY_ASK);
             case "buff_yes" -> java.util.EnumSet.of(ClaimRules.Kind.BUFF, ClaimRules.Kind.GIFT);
-            case "trade_shop", "trade_offer" -> java.util.EnumSet.of(ClaimRules.Kind.TRADE, ClaimRules.Kind.SELL,
-                    ClaimRules.Kind.BUY);
+            case "trade_shop", "trade_offer" -> java.util.EnumSet.of(ClaimRules.Kind.TRADE, ClaimRules.Kind.TRADE_ASK,
+                    ClaimRules.Kind.SELL, ClaimRules.Kind.BUY);
             case "thread_lfg" -> java.util.EnumSet.of(ClaimRules.Kind.PARTY_ASK);
             default -> java.util.EnumSet.noneOf(ClaimRules.Kind.class);
         };

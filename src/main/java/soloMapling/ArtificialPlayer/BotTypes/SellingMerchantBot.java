@@ -223,7 +223,7 @@ public class SellingMerchantBot extends BotSM {
                 break;
             case ADVERTISE:
                 if (rollChanceInverse(25)) {
-                    getDialogueHandler().executeBotFlavorDialogue(getRandomElement(FLAVOR_NODES), this);
+                    getDialogueHandler().executeBotFlavorDialogueBacked(getRandomElement(FLAVOR_NODES), this); // rc6 say-do
                 } else {
                     advertise();
                 }

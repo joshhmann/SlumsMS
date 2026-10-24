@@ -192,7 +192,7 @@ run alongside.
 | `cv-2` `[item id]` | A neutral social bot carrying Work Gloves (or the item) | "how much for the work gloves" -> `QUOTE`; "would u do 300k" / "thats too much" -> the band's answer; the price is always `PriceBand`'s |
 | `cv-3` `[rival\|nemesis\|friend]` | A training bot that counts you as its rival | "sorry for ksing u" -> `makeup: YES` and `EVENT apology`; "ur trash noob" -> `EVENT rude_chat` and game-only trash talk back (only with `@botdrama on`); "ur cute" -> a flirt back only with `@romance on` and a bot that may flirt |
 | `cv-4` | Four bots, one per voice: lowercase, proper typer, xX leet kid, Korean-flavoured (`PERSONA` lines). `!qa do persona` | Say the same line to each: casing, abbreviations and laughs differ, a catchphrase now and then. `TIMING`: 1-6 s by length, sometimes split, late (15-60 s) or "brb" first; never faster than a person types |
-| `cv-5` | Warps you to Henesys, stages two bots and starts a thread now (LFG). `!qa do thread [beef\|gossip\|lfg\|trade\|training]` | `THREAD` / `THREAD LINE` (llm or bank). Within 45 s of the last line, say something without a name: `JOIN`, and the last speaker answers you with the thread in mind. `ROUTE CANDIDATES` shows every candidate and the step that chose (`3-reply-thread` or `3-thread-recent`; ticket 59 section 5a) |
+| `cv-5` | Warps you to Henesys, stages two bots and starts a thread now (LFG). `!qa do thread [beef\|gossip\|lfg\|trade\|training]` | `THREAD` / `THREAD LINE` (llm or bank). Within 45 s of the last line, say something without a name that answers it (auto-QA says "{thread}? i can come too", the subject the staging hands over as `VAR thread=Ludi PQ`; a thread's subject counts as its words for routing): `JOIN`, and the last speaker answers you with the thread in mind. `ROUTE CANDIDATES` shows every candidate and the step that chose (`3-reply-thread` or `3-thread-recent`; ticket 59 section 5a) |
 | `cv-6` | A friend bot. `!qa do last` | Talk, then `!rate good` / `!rate bad too formal "certainly"`: `RATE` with what changed (a bank line's weight, or the tune file's examples and don't-say list). `!rate last` shows the line and its source |
 | `cv-7` | Bank mode ON for the whole server while it runs (`-Dsolomapling.convo.forceBank`), and a friend bot. `!qa do llm` / `!qa do bank` | Every reply is `SAID ... bank#id` or scripted, in the bot's voice, not repeating; flip to the LLM and back to compare. Stop turns bank mode off |
 | `cv-8` `[question...]` | A stranger bot next to you asks the map a scripted question (default "anyone from the east coast?"), like an ambient pack line. `!qa do ask [question]` asks again | Answer within 60 s WITHOUT its name ("im from the east"): `ROUTE` shows it went to the asker, `PROMPT` the exact prompt (system \|\| history with its question as its own turn \|\| the map transcript, its lines marked `(you)`, then `You just said: ... answered: ...`), and `SAID` follows up on its own question |
@@ -543,7 +543,8 @@ buff for u"), third person ("she quit the guild") and quoted speech:
 | `party_ask` | inv me, lf party, LFG, J> | a party join, or really being partyless when it asked | 90 s |
 | `buff` | here buff, healing u, buffed u | a buff or heal cast (`BotBuffEffects`) | 30 s |
 | `sell` / `buy` | S> ilbis, selling X / B> X, wtb X | the item in its bag or trade window (sell) or on its wish list (buy), an open shop, or a trade | 120 s |
-| `trade` | trade me, ill trade u | a trade window | 120 s |
+| `trade` | ill trade u, sending a trade | a trade window | 120 s |
+| `trade_ask` | trade me, just open a trade with me | a trade window, or the bot takes a trade when one is opened (a merchant in trade mode, a drop game taking bets, a bot that trades in person and does not refuse that player); rc6: "trade me" asks the reader, it promises no window | 120 s |
 | `resupply` | brb pots, gotta restock, out of pots | a resupply trip started (TrainingBot GO_TOWN for supplies) | 180 s |
 | `away` | brb, afk, mom's calling, brb dinner | going idle or sitting, logging out, or staying put and quiet for the window | 60 s |
 | `leaving` | gtg, night all, logging off | logging out | 180 s |
@@ -569,8 +570,10 @@ Claims are also made true or not said:
   town bot stop and maybe sit for 30-90 s (a TrainingBot only when it is already resting; a grinder mid-fight never
   takes the line); "gtg"/"night all" logs a roster bot out through `BotLogout.request` within 10-40 s if the
   director's `mayLogOut` allows; "going to <town>" sends a town wanderer there. Come, follow, invite, buff, trade and
-  gift claims have no one to be for in ambient chatter and are never said. The picker tries up to 6 lines, then a
-  line with no claim.
+  gift claims have no one to be for in ambient chatter and are never said ("trade me" only from a bot that takes
+  trades). The picker tries up to 6 lines, then a line with no claim. The same pick guards megaphone lines
+  (SocialHotPotato), merchants' scam/begging/RWT/funny flavor (`executeBotFlavorDialogueBacked`) and couple
+  mentions ("{PARTNER} brb pots"). A TrainingBot's grind break counts as its "brb bathroom" (an idle event).
 - **The line bank:** `ChatBankGen pack` writes each line's strong claims into its tags field (`claim:resupply`),
   under the header `#chatbank v2 claims` (an older pack is tagged at load). A reply only picks a line whose claims its
   decided action backs (`ConvoLines.claimsFor`: come_yes/help_yes may say omw, party_yes inv me, buff_yes buffed u,

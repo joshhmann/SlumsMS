@@ -120,6 +120,27 @@ public final class BotDirectTrade {
                 || sm instanceof soloMapling.ArtificialPlayer.BotTypes.FollowerBot);
     }
 
+    /**
+     * rc6 say-do: whether {@code bot} takes a trade {@code from} opens now ({@code from} null: anyone) - what its
+     * "trade me" / "just open a trade with me" promises. A merchant type when it is set up to trade (its own flow); a
+     * bot that trades in person (grinding, social, wandering, following, or a staged one) unless direct trades are off,
+     * it is in one already or it refuses this player (a rival); a service bot never.
+     */
+    public static boolean takesTradeFrom(Character bot, Character from) {
+        if (bot == null) {
+            return false;
+        }
+        BotSM sm = CharacterStorage.getBotById(bot.getId());
+        if (sm instanceof SellingMerchantBot || sm instanceof BuyingMerchantBot || sm instanceof NXMerchantBot
+                || sm instanceof ScrollingBot || sm instanceof DropGameBot) {
+            return sm.takesTradesNow();
+        }
+        if (handlesOwnTrades(sm) || !enabled() || live.containsKey(bot.getId())) {
+            return false;
+        }
+        return from == null || BotHelpers.isBot(from) || !AffinityReactions.refusesTrade(bot, from);
+    }
+
     private static long key(int botId, int playerId) {
         return ((long) botId << 32) ^ (playerId & 0xffffffffL);
     }

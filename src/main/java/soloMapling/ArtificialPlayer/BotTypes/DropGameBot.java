@@ -255,6 +255,12 @@ public class DropGameBot extends BotSM {
     // STATE IMPLEMENTATIONS
     // =========================================================================
 
+    /** rc6 say-do: advertising, it accepts trade invites (its "trade me to play" is true); mid-game it does not. */
+    @Override
+    public boolean takesTradesNow() {
+        return dropGameState == DropGameState.IDLE_ADVERTISE || dropGameState == DropGameState.RESET;
+    }
+
     // --- IDLE / ADVERTISE ---
     private void idleAdvertise() {
         // Auto-accept incoming trade invites (parent doesn't do this for us).

@@ -310,6 +310,11 @@ final class GameQaWorld implements QaWorld {
                 int channel = gm.getClient() == null ? 1 : gm.getClient().getChannel();
                 out.add("thread: " + soloMapling.ArtificialPlayer.BotConvo.BotThreads.run(a.getMap(), channel, List.of(a, b),
                         topic, System.currentTimeMillis()));
+                // auto-QA t-cv-5 answers the thread by its subject ("{thread}? i can come too"): a clear reply to it
+                String about = soloMapling.ArtificialPlayer.BotConvo.BotThreads.aboutOf(channel, a.getMapId());
+                if (about != null) {
+                    out.add("VAR thread=" + about);
+                }
             }
             case "last" -> out.addAll(soloMapling.ArtificialPlayer.BotConvo.ConvoQuality.describeLast(gm));
             case "ask" -> {

@@ -36,7 +36,8 @@ class ClaimRulesTest {
         claims("healing u", BUFF);
         claims("S> Ilbi 4.5m per set cheap!!! pm me", SELL);
         claims("B> 60% scroll for claw att paying 15m ea @@@", BUY);
-        claims("trade me", TRADE);
+        claims("trade me", TRADE_ASK);
+        claims("ill trade u for it", TRADE);
         claims("brb dinner", AWAY);
         claims("my mom's calling me hold on", AWAY);
         claims("gtg", LEAVING);
@@ -62,6 +63,60 @@ class ClaimRulesTest {
         claims("the worst part is I knew it was coming");
         claims("honestly been stalking this shop waiting for you to restock");
         claims("Can't buff you right now, I'm out of it");
+    }
+
+    /**
+     * The rc6 auto-QA run of 21095df97 (data/autoqa/saydo/2026-10-23.jsonl): 426 "trade me" claims, 0 backed - the ad
+     * asks the reader to open the trade, it promises no window of its own. A first-person "ill trade u" still does.
+     */
+    @Test
+    void tradeMeAsksItDoesNotPromise() {
+        claims("Selling> Ilbi Throwing-Stars just trade me! @@@@@@@@", SELL, TRADE_ASK);
+        claims("9,520 for the wokr gloves, just open a trade with me lmao", TRADE_ASK);
+        claims("got nx codes, 10k for 50m, trade me fast", TRADE_ASK);
+        claims("giving away 50m to the first person who trades me their weapon ;)", TRADE_ASK);
+        claims("ok ill send a trade", TRADE);
+        claims("sending u a trade now", TRADE);
+    }
+
+    /** Item words the ledger checks the bag for: the run's "does not hold" came from these reads (176 claims). */
+    @Test
+    void adItemsAreReadWithoutTheirCountsAndTails() {
+        assertEquals("nx cash code", item("Selling 10k nx cash code, 50m TRADE ME!"));
+        assertEquals("nx code", item("S> 10k NX code 50m, no lowballs"));
+        assertEquals("nx code", item("S>> 10,000 NX code, 50m, serious offers only"));
+        assertEquals("nx", item("SELLING NX 10K CODE!! 50m!! no scammers"));
+        assertEquals("elixir", item("Selling> Elixir hotties only @@@@@@@@ @@@@@@@@"));
+        assertEquals("heartstopper", item("S> Heartstopper dont waste my time @@@@@@@@"));
+        assertEquals("ilbi throwing stars", item("S>> Ilbi Throwing-Stars just trade me!"));
+        assertEquals("30% helm def", item("S> 30% helm def 500k ea, clearing out my inventory"));
+        assertEquals("dark scroll", item("S> DARK SCROLL FOR BOTTOMWEAR FOR DEX 30% NO NOOBS"));
+    }
+
+    private static String item(String line) {
+        return ClaimRules.classify(line).stream().filter(c -> c.kind() == SELL).findFirst().orElseThrow().item();
+    }
+
+    @Test
+    void sellingTalkIsNotAnAd() {
+        claims("my fingers hurt from typing S> all day");
+        claims("the FM is my home now. i sleep here. i dream in S>");
+        claims("lf party, s> ilbis 4m", PARTY_ASK, SELL);
+    }
+
+    /** "lv 40 sin still training at henesys? lol sit down" (a roast at the player) was judged as the bot's plan. */
+    @Test
+    void trainingAtIsAboutTheSpeaker() {
+        claims("lv 40 sin still training at henesys? lol sit down");
+        claims("u still training at kerning?");
+        claims("im still training at ant tunnel", TRAIN_AT);
+        claims("still training at ant tunnel", TRAIN_AT);
+    }
+
+    @Test
+    void aRestockForLaterIsWeak() {
+        assertTrue(ClaimRules.classify("i need to go buy some pots after that").get(0).weak());
+        claims("brb pots", RESUPPLY);
     }
 
     @Test

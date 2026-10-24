@@ -400,7 +400,9 @@ public final class AutoQaCatalog {
                         Expects.sayDo(130))
                 .build());
         c.add(Check.auto("t-cv-5", "Join a bot-to-bot conversation").minutes(4)
-                .step(run("cv-5"), waitFor("CONVO THREAD LINE", 30), waitSeconds(10), say("i can come too"),
+                // rc6 chat routing: the line answers the thread's subject ("Ludi PQ? i can come too": the staging's
+                // VAR thread), so it is a clear reply to the thread and not to the nearest bot or a passing question
+                .step(run("cv-5"), waitFor("CONVO THREAD LINE", 30), waitSeconds(10), say("{thread}? i can come too"),
                         waitFor("CONVO JOIN", 20), waitSeconds(12))
                 // rc6 chat routing: the unnamed line goes to the thread (step 3), not to the newest speaker
                 .expect(has("CONVO THREAD "), atLeast(2, "CONVO THREAD LINE"), has("CONVO JOIN"),

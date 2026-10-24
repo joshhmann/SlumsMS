@@ -50,6 +50,11 @@ public final class ClaimActions {
         boolean partied(Character bot);
 
         boolean holdsOrWants(Character bot, ClaimRules.Claim claim);
+
+        /** Whether the bot takes a trade {@code from} (null: anyone) opens now ("trade me" is true). */
+        default boolean takesTrade(Character bot, Character from) {
+            return false;
+        }
     }
 
     private static volatile Game game = new GameSide();
@@ -81,6 +86,7 @@ public final class ClaimActions {
                 case TRAIN_AT -> ClaimRules.sameArea(bot.getMapId(), c.mapId());
                 case PARTY_ASK -> !game.partied(bot);
                 case SELL, BUY -> game.holdsOrWants(bot, c);
+                case TRADE_ASK -> game.takesTrade(bot, null);
                 default -> false; // come, follow, invite, buff, trade, gift, leave: nobody to do it for here
             };
             if (!ok) {
@@ -147,7 +153,8 @@ public final class ClaimActions {
                     ClaimRules.Kind.GO_TO);
             case PARTY_ACCEPTED -> EnumSet.of(ClaimRules.Kind.PARTY_OFFER, ClaimRules.Kind.PARTY_ASK);
             case BUFF_YES -> EnumSet.of(ClaimRules.Kind.BUFF, ClaimRules.Kind.GIFT);
-            case TRADE_SHOP, TRADE_OFFER -> EnumSet.of(ClaimRules.Kind.TRADE, ClaimRules.Kind.SELL, ClaimRules.Kind.BUY);
+            case TRADE_SHOP, TRADE_OFFER -> EnumSet.of(ClaimRules.Kind.TRADE, ClaimRules.Kind.TRADE_ASK,
+                    ClaimRules.Kind.SELL, ClaimRules.Kind.BUY);
             default -> EnumSet.noneOf(ClaimRules.Kind.class);
         };
     }
@@ -155,8 +162,8 @@ public final class ClaimActions {
     /** The claims a reply is checked for (the ones a reply can promise to the player it answers). */
     static final Set<ClaimRules.Kind> GUARDED = EnumSet.of(ClaimRules.Kind.COME, ClaimRules.Kind.FOLLOW,
             ClaimRules.Kind.PARTY_OFFER, ClaimRules.Kind.PARTY_ASK, ClaimRules.Kind.BUFF, ClaimRules.Kind.GIFT,
-            ClaimRules.Kind.TRADE, ClaimRules.Kind.GO_TO, ClaimRules.Kind.RESUPPLY, ClaimRules.Kind.LEAVING,
-            ClaimRules.Kind.AWAY);
+            ClaimRules.Kind.TRADE, ClaimRules.Kind.TRADE_ASK, ClaimRules.Kind.GO_TO, ClaimRules.Kind.RESUPPLY,
+            ClaimRules.Kind.LEAVING, ClaimRules.Kind.AWAY);
 
     /** A "brb"/"afk" tacked on at either end of a line (the chat model's habit): cut off before anything else. */
     private static final java.util.regex.Pattern TACKED_AWAY = java.util.regex.Pattern.compile(
@@ -209,6 +216,11 @@ public final class ClaimActions {
     /** Whether the bot holds what its S> line sells (bag, trade window, shop) or wants what its B> line buys. */
     public static boolean holdsOrWants(Character bot, ClaimRules.Claim c) {
         return game.holdsOrWants(bot, c);
+    }
+
+    /** Whether the bot takes a trade {@code from} opens now (null: anyone) - what a "trade me" promises. */
+    public static boolean takesTrade(Character bot, Character from) {
+        return game.takesTrade(bot, from);
     }
 
     /** Words of an item name in an ad, matched loosely ("ilbi" against "Ilbi Throwing-Stars"). */
@@ -321,9 +333,23 @@ public final class ClaimActions {
         }
 
         @Override
+        public boolean takesTrade(Character bot, Character from) {
+            try {
+                return soloMapling.Economy.BotDirectTrade.takesTradeFrom(bot, from);
+            } catch (RuntimeException | LinkageError e) {
+                return false;
+            }
+        }
+
+        @Override
         public boolean holdsOrWants(Character bot, ClaimRules.Claim c) {
             BotSM s = sm(bot);
             try {
+                // the NX merchant sells its code through the window (a filler item) and delivers it by messenger
+                if (c.kind() == ClaimRules.Kind.SELL && s instanceof soloMapling.ArtificialPlayer.BotTypes.NXMerchantBot nx
+                        && nx.sellsCode() && c.item() != null && c.item().contains("nx")) {
+                    return true;
+                }
                 if (c.kind() == ClaimRules.Kind.BUY) {
                     if (s != null) {
                         for (int i = 0; ; i++) {

@@ -914,9 +914,18 @@ public final class BotCouples {
     }
 
     static void say(Character bot, String node, String partner) {
-        String line = pick("Couple", node, Map.of("PARTNER", partner == null ? "" : partner));
-        if (line != null) {
-            BotSpeak(bot, line);
+        // rc6 say-do: "{PARTNER} brb pots" only from a bot that then goes for pots (else another line, else quiet)
+        for (int i = 0; i < 4; i++) {
+            String line = pick("Couple", node, Map.of("PARTNER", partner == null ? "" : partner));
+            if (line == null) {
+                return;
+            }
+            var claims = soloMapling.ArtificialPlayer.BotConvo.ClaimRules.classify(line);
+            if (soloMapling.ArtificialPlayer.BotConvo.ClaimActions.canBack(bot, claims)) {
+                BotSpeak(bot, line);
+                soloMapling.ArtificialPlayer.BotConvo.ClaimActions.start(bot, claims);
+                return;
+            }
         }
     }
 

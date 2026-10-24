@@ -208,7 +208,8 @@ final class ConvoScenarios {
             int b = stage(ctx, "neutral", false, null);
             List<String> out = new ArrayList<>(world(ctx, "thread", new String[]{"lfg"}));
             out.add(0, QaScenarios.who(ctx, a) + " and " + QaScenarios.who(ctx, b) + " start talking now (THREAD lines). Within 45 s of the last line,");
-            out.add(1, "say something without a name ('i can come too'): JOIN, and the last speaker answers you.");
+            out.add(1, "say something without a name that answers it ('lpq? i can come too'): JOIN, and the last speaker"
+                    + " answers you.");
             out.add(2, "!qa do thread <topic> starts another (beef needs bots of guilds at war: it falls back to gossip).");
             return out;
         }

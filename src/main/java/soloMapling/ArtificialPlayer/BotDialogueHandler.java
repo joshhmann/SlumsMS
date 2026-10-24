@@ -260,6 +260,58 @@ public class BotDialogueHandler {
         runDialogue(character, dialog, dialog.getDialogue(), dialog.getEmote());
     }
 
+    /**
+     * rc6 say-do: flavor the bot is not tied to by an action of its own (a merchant's scam, begging, RWT and funny
+     * lines): a line that claims something ("S> my soul", "follow me for a drop party", "trade me") only when this bot
+     * would back it ({@code ClaimActions.canBack}), else another pick, else a claim-free line, else nothing.
+     */
+    public void executeBotFlavorDialogueBacked(String DialogueNodeName, BotSM botSM) {
+        runBotFlavorDialogueBacked(botSM.getChr(), getDialogueCon(botSM.dialoguePath, botSM.botType, DialogueNodeName));
+    }
+
+    static final int BACKED_PICKS = 8;
+
+    public static void runBotFlavorDialogueBacked(Character character, DialogueConstructor dialog) {
+        if (dialog == null || dialog.getDialogue().isEmpty()) {
+            return;
+        }
+        int idx = pickBacked(dialog.getDialogue(), line -> soloMapling.ArtificialPlayer.BotConvo.ClaimActions.canBack(
+                character, soloMapling.ArtificialPlayer.BotConvo.ClaimRules.classify(line)), random);
+        if (idx < 0) {
+            return;
+        }
+        String text = dialog.getDialogue().get(idx);
+        runDialogue(character, dialog, Collections.singletonList(text), dialog.getEmoteForIndex(idx));
+        soloMapling.ArtificialPlayer.BotConvo.ClaimActions.start(character,
+                soloMapling.ArtificialPlayer.BotConvo.ClaimRules.classify(text));
+    }
+
+    /**
+     * Pure: the index of a random line the speaker can stand behind - a claim line only when {@code backed} says so,
+     * up to {@link #BACKED_PICKS} picks, then the first claim-free line seen (or any claim-free line); -1 when every
+     * line claims something the bot would not do.
+     */
+    static int pickBacked(List<String> lines, java.util.function.Predicate<String> backed, java.util.Random rng) {
+        int claimFree = -1;
+        for (int i = 0; i < BACKED_PICKS; i++) {
+            int idx = rng.nextInt(lines.size());
+            String line = lines.get(idx);
+            if (soloMapling.ArtificialPlayer.BotConvo.ClaimRules.classify(line).isEmpty()) {
+                return idx;
+            }
+            if (backed.test(line)) {
+                return idx;
+            }
+        }
+        for (int i = 0; i < lines.size(); i++) {
+            if (soloMapling.ArtificialPlayer.BotConvo.ClaimRules.classify(lines.get(i)).isEmpty()) {
+                claimFree = i;
+                break;
+            }
+        }
+        return claimFree;
+    }
+
     public static void runBotFlavorDialogue(Character character, DialogueConstructor dialog) {
         if (dialog == null || dialog.getDialogue().isEmpty()) {
             return;
