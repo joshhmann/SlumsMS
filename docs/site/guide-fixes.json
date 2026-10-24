@@ -2,7 +2,7 @@
   "_about": "Text fixes applied to the docs/wiki pages when they are copied to the public site's /guide/. Each 'find' must still be in the page, or the build stops (so a stale fix gets noticed). Owner-check notes, source notes and empty sections are removed by the builder on every page, so they need no entry here.",
   "skip": ["changelog.html"],
   "fixes": [
-    {"page": "index.html", "find": "Install with the launcher, the access key, first login", "replace": "Install with the launcher, your key, first login"},
+    {"page": "index.html", "find": "Install with the launcher, the access key, first login", "replace": "Install with the launcher, first login"},
     {"page": "faq.html", "find": "<p>Ask the owner; the server is friends-only.</p>", "replace": "<p>Ask an admin; the server is friends-only.</p>"},
     {"page": "faq.html", "find": "No windowed-mode wrapper yet (dgVoodoo is planned, ticket 39).", "replace": "No windowed-mode wrapper yet (one is planned)."},
     {"page": "faq.html", "find": "Scripted world events (ticket 21) and companion alts (<code>@bot</code>, tickets 13/14) are not built yet.", "replace": "Scripted world events and companion alts are not built yet."},
