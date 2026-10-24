@@ -113,7 +113,9 @@ public final class AutoQaCatalog {
                         noEmoji())
                 .build());
         c.add(Check.auto("t-rv-2", "A nemesis starts a KS war").minutes(7)
-                .step(run("rv-2"), waitSeconds(30), mark("war"), qaDo("kswar", "3"), waitFor("RIVALRY KS WAR \\S+ calls", 20),
+                // rc6 say-do triage: a called bot only takes a mob the player has hit, and the pretend player never
+                // attacks (0 of 3 took one): it fights the mobs around it from before the call to the end
+                .step(run("rv-2"), waitSeconds(30), qaDo("fight"), mark("war"), qaDo("kswar", "3"), waitFor("RIVALRY KS WAR \\S+ calls", 20),
                         waitSeconds(90), qaDo("endwar"), waitFor("RIVALRY KS WAR over", 30))
                 .expect(has("RIVALRY KS WAR \\S+ calls [1-4] bot\\(s\\) on {me}"),
                         has("RIVALRY KS WAR over on"),
@@ -527,8 +529,13 @@ public final class AutoQaCatalog {
                         has("HABITS DEATH ({staged}) "), has("HABITS RESPAWN ({staged}) "))
                 .build());
         c.add(Check.auto("t-cb-4", "Neutral bots give you space").minutes(5)
-                .step(run("cb-4"), waitSeconds(180))
-                .expect(anyOf("MANNERS YIELD ", "MANNERS MOVE ON ", "MANNERS LEAVE "))
+                // rc6 say-do triage (no MANNERS line in 3 runs): a mannerly bot never picks the player's platform, so
+                // next to a pretend player that stands still and never attacks nothing ever needed yielding. The
+                // player now steps onto a bot's spot once they have settled, then fights the mobs around it.
+                .step(run("cb-4"), waitSeconds(30), mark("step"), qaDo("stepon"), waitFor("MANNERS (YIELD|CROWDED) ", 20),
+                        qaDo("fight"), waitSeconds(120))
+                .expect(anyOf("MANNERS YIELD ", "MANNERS MOVE ON ", "MANNERS LEAVE "),
+                        hasAfter("step", "MANNERS (YIELD|CROWDED) "))
                 .build());
         c.add(Check.auto("t-sp-1", "Bots spread out").minutes(5)
                 .step(run("sp-1"), waitSeconds(150))
@@ -800,21 +807,35 @@ public final class AutoQaCatalog {
      * swing's busy time. rc6 auto-QA triage (t-at-1, t-bk-1): one-hit kills of low mobs meant most gaps were a bot
      * waiting for a respawn or walking to the next mob (686 of 695 swings "killed"), and the showcase's own 1.5 s
      * round gap counted as a hitch. Gaps after a kill are skipped; a hitch is a gap over busy + 3 s after a live hit.
+     * rc6 say-do triage (t-bk-1, run of 2026-10-23 22:00 UTC, "1 of 1 swings ... over 3 s"): both long gaps were a
+     * showcase bot logging "skill ... not sent: no targetable mobs within 700px" every 400 ms until a mob walked back
+     * into reach (the other showcase bots had cleared its ledge): waiting for a mob, not a hitch. A gap the bot spent
+     * with nothing in reach is skipped too.
      */
     static String pacing(List<AutoQaLine> lines, boolean hitches) {
-        Map<String, int[]> prev = new HashMap<>(); // bot -> {busy, killed}
+        Map<String, int[]> prev = new HashMap<>(); // bot -> {busy, killed or nothing in reach since}
         int seen = 0, fast = 0, slow = 0;
         String example = null;
         for (AutoQaLine l : lines) {
             java.util.regex.Matcher who = ATTACK_BOT.matcher(l.text());
+            if (!who.find()) {
+                continue;
+            }
+            if (l.message().contains(" not sent: ")) {
+                int[] p = prev.get(who.group(1));
+                if (p != null) {
+                    p[1] = 1; // nothing it could hit: the next gap is a wait for a mob, not rhythm
+                }
+                continue;
+            }
             java.util.regex.Matcher m = BUSY_GAP.matcher(l.message());
-            if (!who.find() || !m.find()) {
+            if (!m.find()) {
                 continue;
             }
             int busy = Integer.parseInt(m.group(1)), gap = Integer.parseInt(m.group(2));
             int[] before = prev.put(who.group(1), new int[]{busy, l.message().contains(" killed") ? 1 : 0});
             if (before == null || before[1] == 1) {
-                continue; // a bot's first swing, or the one after a kill: retargeting, not rhythm
+                continue; // a bot's first swing, the one after a kill, or after nothing was in reach: not rhythm
             }
             seen++;
             if (gap < before[0] * 0.6) {

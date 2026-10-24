@@ -136,7 +136,12 @@ final class CombatScenarios {
         public List<String> stage(QaContext ctx) {
             onMobMap(ctx);
             List<String> jobs = jobArgs(ctx.args());
-            stage(ctx, jobs.isEmpty() ? DEFAULT_JOBS : jobs, 0, 0, true, false);
+            if (jobs.isEmpty()) {
+                int mobLevel = ctx.world().mobLevel(ctx.gmNow() != null ? ctx.gmNow() : ctx.gm());
+                jobs = jobsNear(mobLevel);
+                ctx.log("map mob level " + mobLevel + ": " + jobs);
+            }
+            stage(ctx, jobs, 0, 0, true, false);
             return List.of("Grinders of each class fight here. Every 15 s the log lists each bot's position, facing and"
                             + " its nearest mob (INSIDE its body / FACING AWAY are the faults to look for).",
                     "FACE (turned before a swing), TOUCH (stepped out of a mob), KNOCKBACK (stepped back after a hit),"
@@ -147,6 +152,28 @@ final class CombatScenarios {
 
         public void tick(QaContext ctx) {
             report(ctx, "POSITION", "position");
+        }
+
+        /**
+         * rc6 auto-QA triage (t-cb-2, 25 of 52 positions bad): the default 3rd-job set came in at level 120 on the
+         * Henesys Hunting Ground (mobs about level 10): one-hit kills, mobs walking through bots that never needed
+         * to step. One bot per class at the tier that fits the map, about 5 levels over its mobs (within 20 of
+         * them), as "JOB:level"; with no mob level, the old default set.
+         */
+        static List<String> jobsNear(int mobLevel) {
+            if (mobLevel <= 0) {
+                return DEFAULT_JOBS;
+            }
+            int level = Math.max(10, Math.min(200, mobLevel + 5));
+            List<String> tier = level < 30 ? List.of("WARRIOR", "MAGICIAN", "BOWMAN", "THIEF")
+                    : level < 70 ? List.of("FIGHTER", "FP_WIZARD", "HUNTER", "ASSASSIN")
+                    : level < 120 ? DEFAULT_JOBS
+                    : List.of("HERO", "FP_ARCHMAGE", "BOWMASTER", "NIGHTLORD");
+            List<String> out = new ArrayList<>();
+            for (String j : tier) {
+                out.add(j + ":" + level);
+            }
+            return out;
         }
     }
 
@@ -215,7 +242,46 @@ final class CombatScenarios {
                             + " and when only your platform is left here they move on (CROWDED, MOVE ON, sometimes"
                             + " 'cc?' in chat).",
                     "Walk to another platform: they may come back to the one you left. A rival still KSes you"
-                            + " (af-2), that is on purpose.");
+                            + " (af-2), that is on purpose.",
+                    "!qa do stepon puts you on a staged bot's spot (it must YIELD); !qa do fight hits the mobs around you"
+                            + " now and every 15 s (they are yours: LEAVE).");
+        }
+
+        /** GMs whose run "fights" (every tick they hit the mobs around them again). */
+        final Set<Integer> fighting = ConcurrentHashMap.newKeySet();
+
+        public void tick(QaContext ctx) {
+            if (fighting.contains(ctx.run().gmId()) && ctx.gmNow() != null) {
+                ctx.world().playerHitsMobs(ctx.gmNow(), 400, 120, 6);
+            }
+        }
+
+        /**
+         * rc6 auto-QA triage (t-cb-4: no YIELD, LEAVE or MOVE ON in three runs that day): a mannerly bot never picks a
+         * player's platform (SpotFinder), so bots that start by a pretend player who stands still and never attacks
+         * just walk off to other spots and log nothing. These steps make the player do what a player does: walk onto
+         * a bot's spot (stepon) and fight the mobs around it (fight).
+         */
+        public List<String> action(QaContext ctx, String name, String[] args) {
+            Character gm = ctx.gmNow() != null ? ctx.gmNow() : ctx.gm();
+            String line;
+            switch (name) {
+                case "stepon" -> {
+                    String to = ctx.world().stepOntoBot(gm, staged(ctx), 150);
+                    line = to == null ? "no staged bot stands 150+ px away on this map" : "stepped onto " + to;
+                }
+                case "fight" -> {
+                    int n = ctx.world().playerHitsMobs(gm, 400, 120, 6);
+                    int id = ctx.run().gmId();
+                    if (fighting.add(id)) {
+                        ctx.onStop("stop fighting", () -> fighting.remove(id));
+                    }
+                    line = "fighting: hit " + n + " mob(s) within 400 px (again every 15 s)";
+                }
+                default -> throw new QaRefusal("cb-4 steps: stepon, fight");
+            }
+            ctx.run().note("STEP", name + ": " + line);
+            return List.of(line);
         }
     }
 

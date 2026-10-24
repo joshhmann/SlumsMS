@@ -298,7 +298,7 @@ final class DramaScenarios {
     static final class Rv2KsWar extends RivalScenario {
         public String id() { return "rv-2"; }
         public String title() { return "KS war: a rival calls 2-4 bots to KS you for a few minutes, then they leave (1.5.0)"; }
-        public String usage() { return "[small]; then !qa do kswar [2-4] | endwar"; }
+        public String usage() { return "[small]; then !qa do fight | kswar [2-4] | endwar"; }
 
         /**
          * rc6 (QA t-rv-2: "the 3 bots are just finding their own lanes and killing ... maybe in other maps with less
@@ -325,11 +325,41 @@ final class DramaScenarios {
             return out;
         }
 
+        /** GMs whose run "fights": every tick they hit the mobs around them again (new spawns, the ones still up). */
+        final Set<Integer> fighting = java.util.concurrent.ConcurrentHashMap.newKeySet();
+
+        /** How far the GM's "fight" reaches: past where the called bots stand (60-180 px) plus their KS reach. */
+        static final int FIGHT_X = 500, FIGHT_Y = 120, FIGHT_MOBS = 8;
+
+        public int tickSeconds() {
+            return 5;
+        }
+
+        public void tick(QaContext ctx) {
+            if (fighting.contains(ctx.run().gmId()) && ctx.gmNow() != null) {
+                ctx.world().playerHitsMobs(ctx.gmNow(), FIGHT_X, FIGHT_Y, FIGHT_MOBS);
+            }
+        }
+
         public List<String> action(QaContext ctx, String name, String[] args) {
             if ("kswar".equals(name)) {
                 return act(ctx, "kswar", args.length > 0 ? args[0] : "3");
             }
-            return step(ctx, name, List.of("kswar", "endwar", "status"));
+            if ("fight".equals(name)) {
+                // rc6 auto-QA triage (t-rv-2: 0 of 3 called bots took a mob): a helper takes only a mob the player
+                // has hit (AffinityReactions.ksPick: Monster.isAttackedBy), and the pretend player never attacks.
+                // "fight" hits the mobs around the GM now and every 5 s until the run stops, as a fighting player does.
+                Character gm = ctx.gmNow() != null ? ctx.gmNow() : ctx.gm();
+                int n = ctx.world().playerHitsMobs(gm, FIGHT_X, FIGHT_Y, FIGHT_MOBS);
+                int id = ctx.run().gmId();
+                if (fighting.add(id)) {
+                    ctx.onStop("stop fighting", () -> fighting.remove(id));
+                }
+                String line = "fighting: hit " + n + " mob(s) within " + FIGHT_X + " px (again every 5 s)";
+                ctx.run().note("STEP", line);
+                return List.of(line);
+            }
+            return step(ctx, name, List.of("kswar", "endwar", "status", "fight"));
         }
     }
 

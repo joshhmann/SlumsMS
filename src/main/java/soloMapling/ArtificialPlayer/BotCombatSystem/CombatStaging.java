@@ -45,6 +45,15 @@ public final class CombatStaging {
      */
     public static List<Integer> stage(Character gm, List<Job> jobs, int count, int levelOffset, Point around,
                                       boolean hold) {
+        return stage(gm, jobs, List.of(), count, levelOffset, around, hold);
+    }
+
+    /**
+     * As above; {@code levels} (parallel to {@code jobs}, 0 or missing = the job's check level) sets each job bot's
+     * level (cb-2 stages its classes near the map's mob level, rc6 triage).
+     */
+    public static List<Integer> stage(Character gm, List<Job> jobs, List<Integer> levels, int count, int levelOffset,
+                                      Point around, boolean hold) {
         MapleMap map = gm.getMap();
         Point pos = around != null ? around : gm.getPosition();
         List<Integer> ids = new ArrayList<>();
@@ -56,7 +65,8 @@ public final class CombatStaging {
             int id;
             if (!jobs.isEmpty()) {
                 Job job = jobs.get(i);
-                int level = ClassTestCommand.defaultLevel(job);
+                int level = i < levels.size() && levels.get(i) != null && levels.get(i) > 0 ? levels.get(i)
+                        : ClassTestCommand.defaultLevel(job);
                 int niche = Math.max(1, Math.min(5, job.getJobNiche()));
                 id = BotGeneration.createBot(slotBase + i, at, map, niche, level, level, job.getId());
             } else {
@@ -151,23 +161,55 @@ public final class CombatStaging {
     private static String position(Character bot) {
         Point p = bot.getPosition();
         Boolean left = GCMovement.isFacingLeft(bot);
-        Monster nearest = null;
-        double best = Double.MAX_VALUE;
-        if (bot.getMap() != null) {
-            for (Monster m : bot.getMap().getAllMonsters()) {
-                if (m.isAlive() && m.getPosition() != null && p.distanceSq(m.getPosition()) < best) {
-                    best = p.distanceSq(m.getPosition());
-                    nearest = m;
+        MapleMap map = bot.getMap();
+        List<MobAt> mobs = new ArrayList<>();
+        if (map != null && p != null) {
+            for (Monster m : map.getAllMonsters()) {
+                Point mp = m.getPosition();
+                if (m.isAlive() && mp != null) {
+                    mobs.add(new MobAt(m.getName(), mp, GCMovement.mobBounds(m),
+                            onOwnLedge(p, mp, (ax, ay, bx, by) -> GCMovement.onDifferentLedge(map, ax, ay, bx, by))));
                 }
             }
         }
-        String mob = "no mob";
+        return positionLine(p, left, mobs);
+    }
+
+    /** A live mob for a POSITION read-out: name, where, its body, whether it stands on the bot's own ledge. */
+    record MobAt(String name, Point at, java.awt.Rectangle body, boolean ownLedge) {
+    }
+
+    interface LedgeSplit {
+        boolean differentLedge(int ax, int ay, int bx, int by);
+    }
+
+    /** The vertical slack for "on the same ledge" (KS manners' own: a sloped ledge's height). */
+    static final int OWN_LEDGE_DY = 90;
+
+    static boolean onOwnLedge(Point bot, Point mob, LedgeSplit split) {
+        return Math.abs(mob.y - bot.y) <= OWN_LEDGE_DY && !split.differentLedge(bot.x, bot.y, mob.x, mob.y);
+    }
+
+    /**
+     * One POSITION line. rc6 auto-QA triage (t-cb-2, 25 of 52 positions bad): the nearest mob was taken from the whole
+     * map, so a mob on the ledge above or below - one the bot could not hit and never faced - counted as "facing away"
+     * or "inside its body". Only mobs on the bot's own ledge count now; with none there it says so.
+     */
+    static String positionLine(Point p, Boolean left, List<MobAt> mobs) {
+        MobAt nearest = null;
+        double best = Double.MAX_VALUE;
+        for (MobAt m : mobs) {
+            if (m.ownLedge() && p.distanceSq(m.at()) < best) {
+                best = p.distanceSq(m.at());
+                nearest = m;
+            }
+        }
+        String mob = "no mob on its ledge";
         if (nearest != null) {
-            int dx = nearest.getPosition().x - p.x;
-            java.awt.Rectangle body = GCMovement.mobBounds(nearest);
-            boolean inside = body != null && body.contains(p.x, p.y - 8);
+            int dx = nearest.at().x - p.x;
+            boolean inside = nearest.body() != null && nearest.body().contains(p.x, p.y - 8);
             boolean facesIt = left == null || Math.abs(dx) <= 15 || (dx < 0) == left;
-            mob = "nearest " + nearest.getName() + " dx " + dx + (inside ? " INSIDE its body" : "")
+            mob = "nearest " + nearest.name() + " dx " + dx + (inside ? " INSIDE its body" : "")
                     + (facesIt ? ", facing it" : ", FACING AWAY");
         }
         return "at (" + p.x + "," + p.y + ")" + (left == null ? "" : left ? " facing left" : " facing right") + ", " + mob;

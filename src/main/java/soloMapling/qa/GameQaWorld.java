@@ -887,14 +887,69 @@ final class GameQaWorld implements QaWorld {
     public List<Integer> stageGrinders(Character gm, List<String> jobs, int count, int levelOffset, boolean hold,
                                        boolean atGm) {
         List<client.Job> parsed = new ArrayList<>();
+        List<Integer> levels = new ArrayList<>();
         for (String j : jobs) {
-            client.Job job = soloMapling.ArtificialPlayer.BotCombatSystem.CombatStaging.job(j);
+            String[] w = j.split(":", 2); // "JOB" or "JOB:level" (cb-2 stages near the map's mob level)
+            client.Job job = soloMapling.ArtificialPlayer.BotCombatSystem.CombatStaging.job(w[0]);
             if (job != null) {
                 parsed.add(job);
+                levels.add(w.length > 1 && w[1].matches("\\d{1,3}") ? Integer.parseInt(w[1]) : 0);
             }
         }
         Point at = atGm ? null : busiestMobSpot(gm);
-        return soloMapling.ArtificialPlayer.BotCombatSystem.CombatStaging.stage(gm, parsed, count, levelOffset, at, hold);
+        return soloMapling.ArtificialPlayer.BotCombatSystem.CombatStaging.stage(gm, parsed, levels, count, levelOffset,
+                at, hold);
+    }
+
+    @Override
+    public int mobLevel(Character gm) {
+        return soloMapling.ArtificialPlayer.BotGrindSystem.MapMobIndex.level(gm.getMapId());
+    }
+
+    @Override
+    public int playerHitsMobs(Character gm, int rangeX, int rangeY, int max) {
+        MapleMap map = gm.getMap();
+        Point p = gm.getPosition();
+        if (map == null || p == null) {
+            return 0;
+        }
+        List<server.life.Monster> near = new ArrayList<>();
+        for (server.life.Monster m : map.getAllMonsters()) {
+            Point mp = m.getPosition();
+            if (m.isAlive() && mp != null && m.getHp() > 1 && Math.abs(mp.x - p.x) <= rangeX
+                    && Math.abs(mp.y - p.y) <= rangeY) {
+                near.add(m);
+            }
+        }
+        near.sort(java.util.Comparator.comparingDouble(m -> p.distanceSq(m.getPosition())));
+        int n = 0;
+        for (server.life.Monster m : near) {
+            if (n >= max) {
+                break;
+            }
+            m.applyFakeDamage(gm, 1, true); // the game's own attacker record: Monster.isAttackedBy(gm) from now on
+            n++;
+        }
+        return n;
+    }
+
+    @Override
+    public String stepOntoBot(Character gm, List<Integer> botIds, int minAwayPx) {
+        MapleMap map = gm.getMap();
+        Point p = gm.getPosition();
+        if (map == null || p == null) {
+            return null;
+        }
+        for (int id : botIds) {
+            Character bot = map.getCharacterById(id);
+            Point bp = bot == null ? null : bot.getPosition();
+            if (bp == null || bp.distance(p) < minAwayPx) {
+                continue;
+            }
+            gm.changeMap(map, new Point(bp)); // a GM teleport onto the bot's spot, same map
+            return bot.getName() + " at (" + bp.x + "," + bp.y + ")";
+        }
+        return null;
     }
 
     @Override
