@@ -112,9 +112,18 @@ That 605 s run held 3,218-3,276 bots, used 1.184 mean cgroup CPU cores and peake
 CPU claim is made without a feature-off comparison. A normal shutdown wrote all 3,419 online bots with no failed
 or missed writes. The copied roster held 3,739 saved life profiles afterwards (seven weights each).
 
-Before the next large feature step, merge `origin/release-1.5.1` into `160-bot-brain`, preserving both the updated
-QA/drama/spacing behavior and the brain changes, then rerun the full suite and push. Never merge the feature into
-1.5.1. The isolated unit stays capped at 2 CPU cores / 6 GiB total / 5 GiB heap and must be stopped when not used.
+Forward merge completed: `origin/release-1.5.1` at `1a3155d2e` is merged as `c37c9d528`, with no Git conflicts.
+Reviewed QA/drama/spacing integration retains both sides' behavior and all bl-1/2/3 hooks. Post-merge full offline
+suite: **4,580 tests, 0 failures, 0 errors, 38 skipped**, 415 report classes (`/tmp/160-brain-postmerge-full.log`).
+Never merge this feature branch back into 1.5.1. The isolated unit stays capped at 2 CPU cores / 6 GiB total / 5 GiB heap and must be stopped when not used.
+
+Latest completed load (`ddfcaa886`, pre-merge): 12:43:27-12:53:32 PM PT (19:43:27-19:53:32 UTC), 605 s,
+3,030-3,228 bots, 0.722 mean cgroup CPU cores and 3.311 GiB service peak. 11,052 decisions (1,103.9/min), 740
+accepted starts in the window. Since boot: 176 HANG_OUT, 210 SELL, 52 FREE_MARKET starts; Henesys 78 / 141 / 51
+in level bands 1-30 / 31-70 / 71+, including fixed staff and brain actors. All 485 resolved strong claims were
+backed; none open at the sample. This proves the activities run, not that the mix is tuned. The current test DB
+has 5,281 life profiles with seven weights each. Footing/overlap and earlier out-of-bounds movement remain leads.
+The copy is stopped between runs and after final validation; post-merge server QA is still pending at this receipt.
 
 ## Finish-the-ticket pass
 
@@ -217,7 +226,12 @@ they do not block the approved provisional implementation.
 Fishing reward items/rarities, the medal list and chaos-boss difficulty remain separate owner decisions; this ticket
 must not silently pick them. No live database reads are needed for the first slice.
 
-## Checkpoint 1: scorer and inspection (2026-10-24)
+## Historical checkpoints
+
+These record what was true at each local checkpoint. Their old follow-ups were implemented above; use the current
+implementation and `docs/release/1.6.0-qa.md` for current flags and commands. They are not the current backlog.
+
+## Historical checkpoint 1: scorer and inspection (2026-10-24)
 
 **Next checkpoint approved by the owner:** use provisional blends and seed goals from each bot's current level
 and gear for the first test version. Implement stable, versioned seven-archetype blends; derive job/gear goals
@@ -265,7 +279,7 @@ deployment or restart was performed for this checkpoint. Before execution is ena
 availability adapters, agree production blends and goal seeding, add executor/acceptance and say-do tests, stage
 `!qa`/auto-QA scenarios, measure the 3,000-bot load, and use a coordinated or isolated TEST environment.
 
-### Future coordinated GM check (not run yet)
+### Historical GM-check plan (real-client display still unverified)
 
 1. Deploy this feature branch only at an agreed checkpoint or into an isolated test instance. Preserve the current
    1.5.1 TEST receipt and do not restart a running bug-pass QA session. Enable QA and the preview JVM property on
@@ -280,7 +294,7 @@ availability adapters, agree production blends and goal seeding, add executor/ac
    GM 3 diagnostic. Real-client output, registry permissions and runtime log checks remain unverified until this
    checkpoint is deployed; the current evidence is unit tests only.
 
-## Checkpoint 2: provisional profiles, context and acceptance (2026-10-24)
+## Historical checkpoint 2: provisional profiles, context and acceptance (2026-10-24)
 
 **Next work (owner request):** finish one-at-a-time activity execution. Give each TrainingBot a bounded request
 slot and one active activity; consume requests only on its normal update. Reject duplicate, old, expired and
@@ -363,10 +377,10 @@ were eligible. Runner `/tmp/LifeShadowBenchmark.java`, output `/tmp/160-life-v2-
 This excludes context capture, scheduling, execution and real server load; it is **not a 3,000-bot server soak**.
 
 No TEST deployment/restart or real-client verification for this checkpoint. Keep DeepSeek's shared TEST build.
-Next: finish supply/destination/event adapters, persist goals and bounded event-driven drift, integrate serialised
+Historical follow-up, now implemented above: finish supply/destination/event adapters, persist goals and bounded event-driven drift, integrate serialised
 activity acceptance and truthful chat facts, then coordinate a feature TEST checkpoint and measure real load.
 
-## Checkpoint 3: one request at a time (2026-10-24)
+## Historical checkpoint 3: one request at a time (2026-10-24)
 
 The owner asked to finish the one-at-a-time activity work and use simpler explanations.
 Queue commit `0f9ed4de5`; bot-update integration and staged QA `f51ad81f4`.
@@ -403,7 +417,7 @@ Starting new work still requires QA plus `-Dslums.botlife.execute=true`, and a r
 The flag alone does not create decisions, and the life engine does not yet choose activities automatically or
 speak about them in chat. Legacy conversation/wander behavior outside this new request path remains bug-pass work.
 
-### Test-server check, prepared but not run
+### Historical staged-check plan (automated run now passed; real-client trip unverified)
 
 `!qa run bl-2` stages one temporary training bot on a map with mobs. It refuses before spawning anything if the
 execute flag is off. When the bot is grinding, `!qa do restock` sends the same request twice; `!qa do repeat` retries
@@ -423,5 +437,5 @@ and fixture cleanup. **20 new tests pass**. Full `mvn -q -o test`: **4,552 tests
 407 report classes (`/tmp/160-life-serial-full.log`).
 
 No shared TEST deployment/restart, live operation, Discord post or real-client check was done for this work.
-Next: coordinate a feature TEST run of `bl-2`, check the actual trip, and connect automatic decisions and truthful
+Historical follow-up, now automated above (visual trip still pending): coordinate a feature TEST run of `bl-2`, check the actual trip, and connect automatic decisions and truthful
 chat only after the remaining context and completion checks are ready.

@@ -8,51 +8,49 @@ Times: give the owner Pacific next to UTC (PDT = UTC-7).
 
 **Owner's work split (2026-10-24):** this bug-fix pass is finished. The owner will hand continuing **1.5.1 bug
 squashing to DeepSeek**; use `release-1.5.1`, the current TEST receipt below and section 3's remaining leads.
-**Codex: 1.6.0 Ticket 60 first-test implementation is complete** on `160-bot-brain`
-(`/root/work/SlumsMS-bot-brain-160`). The owner approved provisional blends and goals seeded from level/gear.
-The runtime now chooses activities, starts them one at a time from each bot's own update, saves goals and bounded
-personality changes, and ties action replies to accepted work. Source implementation `4d78245d3`; isolated-test
-helper support `e2d6ab70a`; latest source/deployed build `ddfcaa886`. Both `slums.botlife.enabled` and `slums.botlife.execute` must be true;
-all behavior remains off by default. GM 3 `!botwhy` works with the runtime, or QA plus `slums.botlife.preview`.
+**Codex: Ticket 60 is implemented on `160-bot-brain`** (`/root/work/SlumsMS-bot-brain-160`). It now has weighted
+choices, provisional blended profiles and level/gear goals, saved goals and bounded drift, one waiting/one active
+activity, real restock trips, existing town/FM/help/PQ adapters and truthful pending/accepted replies. GM 3
+`!botwhy` shows the last actual decision with its age and the current phase/request state. Both
+`slums.botlife.enabled` and `slums.botlife.execute` must be true; behavior stays off by default. Preview-only QA
+remains available. No combat tuning, new rewards or economy limits changed. SELL means existing hired-shop
+listing; PQ means accepted party readiness, not quest entry. Fishing/medals/dungeons remain separate work.
 
-Supported work uses existing grind/travel/restock/break/social/FM/party/logout systems. SELL means an existing
-hired-shop listing, not new NPC-sale income. PQ acknowledges existing party readiness, not quest completion.
-Guild departures stay with the director's batch plan. Fishing, medals, daily dungeons and chaos bosses remain
-separate tickets. No combat tuning, rewards or economy limits changed.
+**Forward merge completed:** `origin/release-1.5.1` at `1a3155d2e` merged into this branch as **`c37c9d528`**,
+with no Git conflicts. Reviewed shared QA/chat/wedding code: the upstream timing/staging/ex-guest fixes and the
+brain's pending-reply, marriage-event and bl-1/2/3 hooks remain. PersonalSpace/DramaKit match the upstream behavior;
+the feature's QaWorld hooks remain. Nothing was merged back into 1.5.1.
+Post-merge `mvn -q -o test`: **4,580 tests, 0 failures, 0 errors, 38 skipped**, 415 report classes
+(`/tmp/160-brain-postmerge-full.log`). Pre-merge inspector/runtime build `ddfcaa886`: 4,570/0/0/38. Release tools:
+35 Python tests pass. These are automated checks, not a real-client result.
 
-Full `mvn -q -o test`: **4,570 tests, 0 failures, 0 errors, 38 skipped**, 413 report classes
-(`/tmp/160-brain-final-full.log`). Release tools: **35 Python tests pass**. Queue tests cover duplicates,
-expired/old plans, phase changes and commitments; new tests cover persisted goals/blends, drift limits, automatic
-restock selection, town reservations and truthful pending replies. No real-client verification has been done.
+**Latest isolated load evidence (`ddfcaa886`, before the forward merge):** 12:43:27-12:53:32 PM PT
+(19:43:27-19:53:32 UTC), 605 s at **3,030-3,228 bots**, **0.722 mean CPU cores**, **3.311 GiB peak service memory**.
+It recorded **11,052 decisions (1,103.9/min)** and **740 accepted starts** during the window. All **485 resolved
+strong claims** since boot were backed; 0 were open at the last sample. This is total server CPU, not an
+incremental brain-cost claim. A normal earlier stop wrote 3,419 bots with no failed/missed writes. The latest
+copied DB holds **5,281 life profiles**, all with seven weights; 5,260 have one or two goals. JSON round-trip,
+goal completion and drift-limit tests pass. Model endpoints/keys are cleared in this copy, so model voice remains
+untested. Health still flags footing/overlap; an earlier sample found a training bot out of bounds on 230040300.
+Those are open movement leads, not a clean overall health verdict.
 
-A separate feature TEST runs on **8491**, channels **8185-8189**, world **1**, unit `slums-life160`, folder
-`/opt/mapleroot-dev/bot-life-160/Server`, test-only schema `mapleroot_life160`. It uses TEST data and a 2-core CPU /
-6 GiB memory limit, with chat-model URLs/keys cleared. `tools/ops/{deploy-test,test-status,autoqa-run} --feature`
-target only this copy; default shared TEST targets are unchanged. Deployment receipt:
-`/opt/mapleroot-dev/bot-life-160/deploys/20261024T193837Z`, jar prefix `21fa9c40db93cc5a`.
-**Verified before the 1.5.1 forward merge:** build `b5608ef4c` passed `t-bl-1/2/3` and the guild/client-version/
-channel smoke checks on the isolated copy. A completed 605 s window held **3,218-3,276 bots**, averaged **1.184 CPU
-cores**, and peaked at **3.576 GiB**. It recorded **10,497 decisions** (1,048.9/min) and **680 accepted starts**;
-394 resolved strong chat claims were all backed. This is scripted/test-only evidence, not real-client or model-voice QA.
-A normal stop wrote **3,419 bots**, 0 failed/missed, in 22.6 s. The copied DB held **3,739 saved life profiles**,
-all with seven weights; 3,655 had one or two goals. JSON round-trip and drift-limit tests also pass.
+**Role design confirmed by the owner:** keep the shared actor for rc1 and review the mix in game. Roster logins
+use TrainingBot, then the brain chooses its work; fixed staff keep their jobs. Latest counters since boot:
+**176 HANG_OUT, 210 SELL, 52 FREE_MARKET** starts. Henesys held **78 level 1-30 / 141 level 31-70 / 51 level 71+**
+bots, including fixed staff and brain actors. An earlier run also recorded SHOW_OFF. Town and merchant activity
+exists; this does not prove the desired old-school mix is tuned. Routing, weights and quotas are unchanged.
 
-**Roles / owner decision:** with the feature on, roster logins use one TrainingBot actor; fixed staff keep their
-jobs. The brain chooses the roles: the completed run counted **227 HANG_OUT**, **211 SELL**, **58 FREE_MARKET**
-and **1 SHOW_OFF** starts. Henesys had **59 level 1-30 / 120 level 31-70 / 60 level 71+** bots. Activities are
-present; the desired old-school level mix is not yet proven. The owner chose **keep the shared actor and review the
-mix in game** on 2026-10-24. Do not change routing, weights or quotas as part of this merge.
+**Test copy / budget:** `/opt/mapleroot-dev/bot-life-160/Server`, unit `slums-life160`, login 8491,
+channels 8185-8189, world 1, schema `mapleroot_life160` in the integration DB container. Unit limit 2 CPU cores,
+Nice 19, 6 GiB total; Java heap max 5 GiB. Live/shared TEST heap limits are 6 GiB each; the host had 31,502 MiB
+available at the budget check. The feature copy was stopped after the load measurement. A small post-merge
+integration check is next, then stop it again; do not leave it idling. Use ops helpers with `--feature` only.
+Latest pre-merge receipt: `/opt/mapleroot-dev/bot-life-160/deploys/20261024T193837Z`, jar `21fa9c40db93cc5a`.
 
-`ddfcaa886` fixes `!botwhy` to show the actual recorded decision with its age, plus current phase/request state,
-rather than recomputing the old shadow guess. Its full suite is green (counts above); isolated load verification
-is in progress. Latest owner instruction: merge `origin/release-1.5.1` into this feature branch before the next
-large step, preserve both behaviors, rerun the full suite and push. Record the merge result here when complete.
-
-**Resource / remaining QA:** the feature unit is capped at 2 CPU cores, Nice 19, 6 GiB total, Java heap max 5 GiB.
-Alongside live/shared TEST heap limits of 6 GiB each, the host had 31,502 MiB available at the budget check.
-Stop `slums-life160` after testing; do not leave it idling. Health still flags footing/overlap (also seen on shared
-TEST), and an earlier load found an out-of-bounds training position on map 230040300. These remain movement leads,
-not a claimed clean health sweep. See `docs/release/1.6.0-qa.md` for receipts and the owner's visual checks.
+**Remaining for rc1:** run the merged build's selected QA on the small isolated copy; record the receipt and stop
+it. Then an owner in-game pass: restock round trip and purchases, friend help/PQ readiness, conversation/trade
+holds, actual `!botwhy` display, town/FM movement and the Henesys mix. Keep the shared actor and tune only after
+that review. No client/MCP check, live operation, live DB read, desktop change or Discord post was made.
 
 **Bug-pass lead from the load test:** standalone fix `bc514fca3` replaces the channel-reservation intrinsic
 monitor with a ReentrantLock. The first feature fill stalled around 1,108 bots with all four virtual-thread
@@ -78,10 +76,12 @@ Deploy receipt and backups: `/opt/mapleroot-deployments/v1.5.0/` on 164. Rollbac
 /opt/mapleroot-deployments/v1.5.0/rollback.sh` (server, ~30 s) and `tools/release/publish-client --restore-manifest
 /srv/slums-staging/manifest-before-1.5.0.json` (client). **Live actions always need the owner's go** (AGENTS.md).
 
-The test server now runs **1.5.1 integration commit `c2b1a7974`** (NPC spacing, synthetic login, reply routing and
+The earlier Codex bug-pass receipt was **1.5.1 integration commit `c2b1a7974`** (NPC spacing, synthetic login, reply routing and
 guild-chat QA fixes), installed on 2026-10-24 at **5:57 AM PT (12:57 UTC)**. Its version banner still says 1.5.0;
 this is a test integration build, not a live release. Source: `release-1.5.1` in `/root/work/SlumsMS-npc-space`.
-The same test settings and QA flags remain. Live was not changed.
+Later shared TEST was observed at `1204367b7`, running since 12:40:06 PM PT (19:40:06 UTC), from the parallel
+bug pass. This feature task did not restart or deploy to it. The forward merge above is the tested integration
+branch snapshot `1a3155d2e`; a TEST work branch can be ahead of that snapshot. Live was not changed.
 
 ## 2. In flight right now
 
