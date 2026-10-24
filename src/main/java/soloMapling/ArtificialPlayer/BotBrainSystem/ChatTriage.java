@@ -172,7 +172,8 @@ public final class ChatTriage {
 
     /** The intent by rule alone, or empty. */
     public static Optional<Intent> intentRule(String line) {
-        String text = normal(line);
+        PlayerChatMeaning.View meaning = PlayerChatMeaning.requests(line);
+        String text = normal(meaning.text());
         if (WHERE_TRAIN.matcher(text).find()) {
             return Optional.of(Intent.WHERE_TRAIN);
         }
@@ -191,12 +192,13 @@ public final class ChatTriage {
         if (TRADE.matcher(text).find()) {
             return Optional.of(Intent.TRADE);
         }
-        return Optional.empty();
+        return meaning.filtered() ? Optional.of(Intent.NONE) : Optional.empty();
     }
 
     /** The con flag by rule alone, or empty. */
     public static Optional<Con> conRule(String line) {
-        String text = normal(line);
+        PlayerChatMeaning.View meaning = PlayerChatMeaning.safety(line);
+        String text = normal(meaning.text());
         if (MANIPULATION.matcher(text).find()) {
             return Optional.of(Con.MANIPULATION);
         }
@@ -209,7 +211,7 @@ public final class ChatTriage {
         if (HARASSMENT.matcher(text).find()) {
             return Optional.of(Con.HARASSMENT);
         }
-        return Optional.empty();
+        return meaning.filtered() && text.isBlank() ? Optional.of(Con.NORMAL) : Optional.empty();
     }
 
     /** Rules only: what a bot does when the model is off, slow or down. */

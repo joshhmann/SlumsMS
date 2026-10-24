@@ -450,6 +450,11 @@ public final class AutoQaCatalog {
                         lacks("CONVO HOLD .*WANDERED OFF"))
                 .build());
 
+        c.add(Check.auto("t-cv-9", "Refusals, stories and warnings stay plain chat").minutes(1)
+                .step(run("cv-10"), waitFor("MEANING PASS refusals-stories=4 warnings=3 positive-follow=true", 10))
+                .expect(has("MEANING PASS refusals-stories=4 warnings=3 positive-follow=true"))
+                .build());
+
         // rc6 inference: the last 24 h of bot chat, scored (ChatQuality): relevance, stiffness, repeats, say-do
         c.add(Check.auto("t-cq-1", "Daily chat quality (relevance, stiffness, say-do)").minutes(3)
                 .expect(ChatQuality.expectation())
