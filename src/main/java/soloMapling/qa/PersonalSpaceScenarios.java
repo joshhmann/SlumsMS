@@ -18,7 +18,43 @@ final class PersonalSpaceScenarios {
     }
 
     static List<QaScenario> all() {
-        return List.of(new Ps1PersonalSpace());
+        return List.of(new Ps1PersonalSpace(), new Ps2NpcSpace());
+    }
+
+    static final class Ps2NpcSpace implements QaScenario {
+        private final java.util.Map<Integer, List<Integer>> bots = new java.util.concurrent.ConcurrentHashMap<>();
+
+        public String id() { return "ps-2"; }
+        public String title() { return "Personal space: a town bot walks off an NPC"; }
+        public Set<QaLog.Topic> topics() { return EnumSet.of(SPREAD); }
+        public int minutes(String[] args) { return 2; }
+        public int tickSeconds() { return 2; }
+        public Set<Integer> watchedMaps(Character gm, String[] args) { return Set.of(gm.getMapId()); }
+
+        public List<String> stage(QaContext ctx) {
+            if (!ctx.world().personalSpaceApplies(ctx.gm())) {
+                throw new QaRefusal("Stand in a town with an NPC, such as Henesys.");
+            }
+            List<Integer> ids = ctx.world().stageNpcTownBot(ctx.gm());
+            if (ids.isEmpty()) {
+                throw new QaRefusal("No grounded NPC could be staged on this map.");
+            }
+            ctx.despawnAtStop(ids, "town bot on an NPC");
+            bots.put(ctx.run().gmId(), ids);
+            ctx.onStop("forget NPC fixture", () -> bots.remove(ctx.run().gmId()));
+            tick(ctx);
+            return List.of("One bot starts on an NPC. Within a few seconds it should walk 40-120 px away.",
+                    "The log should show PERSONAL SPACE ... an NPC, then NPC CLEARANCE ... clear=true.",
+                    "Check that the NPC name tag is readable and the NPC can be clicked. !qa stop when done.");
+        }
+
+        public void tick(QaContext ctx) {
+            Character gm = ctx.gmNow();
+            if (gm != null) {
+                ctx.world().npcClearance(gm, bots.getOrDefault(ctx.run().gmId(), List.of()))
+                        .forEach(line -> ctx.run().note("TALLY", line));
+            }
+        }
     }
 
     /** ps-1: town bots on one pixel step apart (and off the GM), 40-120 px, on their own ground. */

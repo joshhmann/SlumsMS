@@ -21,7 +21,7 @@ class AutoQaCatalogTest {
             "t-gw-3", "t-gw-4", "t-pb-1", "t-cu-1", "t-cu-2", "t-we-1", "t-mr-1", "t-rm-1", "t-rm-2", "t-rm-3", "t-rm-4",
             "t-cv-1", "t-cv-2", "t-cv-3", "t-cv-4", "t-cv-5", "t-cv-6", "t-cv-7", "t-cq-1", "t-ga-1", "t-ga-2", "t-ga-3", "t-ga-4",
             "t-wc-1", "t-bs-1", "t-td-1", "t-td-2", "t-td-3", "t-gf-1", "t-pr-1", "t-sk-1", "t-sk-2", "t-rg-1", "t-rg-2",
-            "t-sc-1", "t-sc-2", "t-cb-1", "t-cb-2", "t-cb-3", "t-cb-4", "t-sp-1", "t-pt-1", "t-bk-1", "t-at-1", "t-id-1",
+            "t-sc-1", "t-sc-2", "t-cb-1", "t-cb-2", "t-cb-3", "t-cb-4", "t-sp-1", "t-ps-2", "t-pt-1", "t-bk-1", "t-at-1", "t-id-1",
             "t-mv-1", "t-jq-1", "t-cl-1", "t-cl-2", "t-cl-3", "t-cc-1", "t-mr-2", "t-vg-1", "t-ch-1", "t-la-1");
 
     @Test

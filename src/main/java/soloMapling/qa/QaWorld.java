@@ -304,6 +304,16 @@ public interface QaWorld {
         return List.of();
     }
 
+    /** ps-2: one physics-driven town bot placed on an NPC, with normal personal-space checks. */
+    default List<Integer> stageNpcTownBot(Character gm) {
+        return List.of();
+    }
+
+    /** ps-2: distance from the staged bot to its nearest same-ground NPC. */
+    default List<String> npcClearance(Character gm, List<Integer> ids) {
+        return List.of();
+    }
+
     /** ps-1: overlapping and too-close pairs among the grounded characters on the GM's map instance. */
     default List<String> overlapTally(Character gm) {
         return List.of();
