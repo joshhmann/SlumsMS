@@ -584,6 +584,12 @@ public final class PersonalSpace {
         }
         Character other = byId.get(close.id());
         boolean pair = deliberate(bot, other);
+        if (!pair && soloMapling.ArtificialPlayer.BotConversation.isHoldingChat(bot)) {
+            // Owner report 2026-10-24: a bot in a conversation keeps its place. Personal space still holds the pair
+            // together (it steps to 15-30 px of a partner standing on it) but a third character no longer pushes it
+            // away from the player it is talking to.
+            return false;
+        }
         Random rng = ThreadLocalRandom.current();
         Point to;
         if (pair) {

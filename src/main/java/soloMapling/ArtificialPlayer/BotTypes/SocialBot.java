@@ -270,6 +270,9 @@ public class SocialBot extends BotSM {
         if (chr == null || chr.getMap() == null || soloMapling.ArtificialPlayer.StageSpots.pinned(chr.getId())) {
             return; // rc6: a staged test bot stays next to the GM
         }
+        if (soloMapling.ArtificialPlayer.BotConversation.isHoldingChat(chr)) {
+            return; // owner report 2026-10-24: never drift off a player it is talking to
+        }
         long now = System.currentTimeMillis();
         if (now < nextRelocateAtMs) {
             return;
