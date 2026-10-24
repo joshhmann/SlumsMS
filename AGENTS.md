@@ -137,7 +137,7 @@ promote an RC client layer to Live: those point at the test server.
 
 ### Full release cycle, Discord, notes and QA
 
-**`docs/ROADMAP.md`** is what comes next (1.5.x hotfixes, 1.6.0, 1.7.0). **`docs/qa/QA.md`** is how to QA: auto-QA,
+**`docs/AGENT-PROMPTS.md`** has starter prompts per kind of work. **`docs/ROADMAP.md`** is what comes next (1.5.x hotfixes, 1.6.0, 1.7.0). **`docs/qa/QA.md`** is how to QA: auto-QA,
 client visual QA through the client MCP (`tools/ops/client-mcp`), and the owner's checklist.
 **`docs/release/RUNBOOK.md`** has every step: development, test deploys, auto-QA and the player QA checklist, patch notes,
 pre-checks, the live sequence with the owner's go points, rollback, and Cody's Discord posts through `slumsms-monitor`.
