@@ -34,7 +34,7 @@ import java.util.function.LongSupplier;
  *   bot under its ceiling would.</li>
  *   <li><b>Upkeep:</b> at a town stop at most every {@code decayMinutes} (10), it loses {@code decayShare} (10%) of
  *   what is still over the ceiling: repairs, fees, things it bought and lost. Burned, ledgered, never paid to
- *   anyone. Repeated stops bring it back to the ceiling.</li>
+ *   anyone. Repeated stops bring it back to within 1% of the ceiling, where upkeep stops.</li>
  * </ul>
  * Potions and ammo ({@code BotShopping}) are not limited by a rich bot's mesos already (its kit size is), so they
  * are unchanged. FM shopper bots hold nothing between purchases ({@code FMBotWallet}) and are never over.
@@ -206,7 +206,7 @@ public final class BotWealth {
         if (played != null) {
             out.add(played);
         }
-        if (!over) {
+        if (!over || !upkeepDue(excess(bot), ceiling(bot))) {
             return out;
         }
         State st = states.computeIfAbsent(bot.getId(), id -> new State());
@@ -221,7 +221,7 @@ public final class BotWealth {
         long excess = excess(bot);
         double share = Math.min(1.0, Math.max(0, doubleProperty("solomapling.botWealthDecayShare",
                 DEFAULT_DECAY_SHARE)));
-        long burn = (long) Math.ceil(excess * share);
+        long burn = upkeep(excess, ceiling(bot), share);
         if (burn > 0 && burn <= Integer.MAX_VALUE && BotHoldings.spendMeso(bot, (int) burn)) {
             decayed.addAndGet(burn);
             decayEvents.incrementAndGet();
@@ -234,6 +234,20 @@ public final class BotWealth {
             }
         }
         return out;
+    }
+
+    /**
+     * Whether a bot this far over its ceiling pays upkeep. rc6 (owner, QA t-wc-1): 10% of the excess never takes it
+     * to zero, so a bot "over by 1,078 of 12,000,000" paid a few mesos forever. Within 1% of the ceiling it pays
+     * nothing; the auto-QA ga-2 run calls that settled too ({@code QaScenarios.Ga2BotWealth.settled}).
+     */
+    public static boolean upkeepDue(long excess, long ceiling) {
+        return excess > 0 && excess * 100 > ceiling;
+    }
+
+    /** The upkeep a bot pays on {@code excess} over {@code ceiling}: {@code share} of it, or 0 within 1%. */
+    static long upkeep(long excess, long ceiling, double share) {
+        return upkeepDue(excess, ceiling) ? (long) Math.ceil(excess * share) : 0;
     }
 
     // ---- read-outs ----

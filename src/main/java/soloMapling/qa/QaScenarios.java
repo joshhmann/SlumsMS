@@ -241,7 +241,9 @@ public final class QaScenarios {
         /**
          * Under its ceiling, or within 1% over it. rc6 triage (t-wc-1): upkeep is 10% of the excess, so once the daily
          * ticket cap stops the gachapon the excess only shrinks by a tenth a step and never reaches zero ("over by
-         * 1,078" of a 12M ceiling after 8 minutes) - the run never ended.
+         * 1,078" of a 12M ceiling after 8 minutes) - the run never ended. The owner then stopped upkeep within 1%
+         * ({@link soloMapling.ArtificialPlayer.BotWealth#upkeepDue}); this asks the same rule, so DONE means "upkeep
+         * has stopped".
          */
         static boolean settled(String wealth) {
             java.util.regex.Matcher m = OVER.matcher(wealth);
@@ -250,7 +252,7 @@ public final class QaScenarios {
             }
             long ceiling = Long.parseLong(m.group(1).replace(",", ""));
             long over = Long.parseLong(m.group(2).replace(",", ""));
-            return over * 100 <= ceiling;
+            return !soloMapling.ArtificialPlayer.BotWealth.upkeepDue(over, ceiling);
         }
     }
 

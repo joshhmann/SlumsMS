@@ -111,4 +111,43 @@ class BotWealthTest {
         assertTrue(line.contains("over by 150,000"), line);
         assertTrue(line.contains("intake 50%"), line);
     }
+
+    @Test
+    void upkeepStopsWithinOnePercentOfTheCeiling() {
+        // rc6 t-wc-1: "over by 1,078 of 12,000,000" paid 108 mesos a step forever.
+        assertEquals(0, BotWealth.upkeep(1_078, 12_000_000, 0.10));
+        assertEquals(0, BotWealth.upkeep(120_000, 12_000_000, 0.10), "exactly 1% over pays nothing");
+        assertEquals(12_001, BotWealth.upkeep(120_001, 12_000_000, 0.10), "just past 1% pays the usual 10%");
+        assertEquals(39_537, BotWealth.upkeep(395_365, 12_000_000, 0.10));
+        assertEquals(0, BotWealth.upkeep(0, 12_000_000, 0.10));
+        assertFalse(BotWealth.upkeepDue(-5, 12_000_000));
+    }
+
+    @Test
+    void aStepWithinOnePercentBurnsNothing() throws Exception {
+        // Level 50 with no server: ceiling 300,000, so 1% is 3,000.
+        Character near = bot(50, 302_000);
+        BotWealth.step(near, new Random(1), true);
+        assertEquals(302_000, near.getMeso());
+        assertEquals(0, BotWealth.decayed.get());
+
+        Character far = bot(51, 400_000);
+        long ceiling = BotWealth.ceiling(far);
+        BotWealth.step(far, new Random(1), true);
+        assertEquals(400_000 - (long) Math.ceil((400_000 - ceiling) * 0.10), far.getMeso());
+        assertTrue(BotWealth.decayed.get() > 0);
+    }
+
+    @Test
+    void repeatedUpkeepSettlesWithinOnePercentAndStops() {
+        long ceiling = 12_000_000, excess = 5_000_000;
+        int steps = 0;
+        while (BotWealth.upkeepDue(excess, ceiling)) {
+            excess -= BotWealth.upkeep(excess, ceiling, 0.10);
+            steps++;
+            assertTrue(steps < 100, "upkeep never stopped");
+        }
+        assertTrue(excess > 0 && excess * 100 <= ceiling, "settled at " + excess);
+        assertEquals(0, BotWealth.upkeep(excess, ceiling, 0.10));
+    }
 }
