@@ -301,7 +301,10 @@ public class Dispatcher implements Runnable {
      * are real choices (merchants, games, gacha, jump quests...) keep their menus.
      */
     static boolean talksNaturally(BotSM bot) {
+        // HenesysBot: the townsfolk standing around Henesys are players to the people walking by; their menu is a
+        // double-click extra, not a service (1.5.0: idle townsfolk only answered when named)
         return bot instanceof SocialBot || bot instanceof TrainingBot || bot instanceof FollowerBot
+                || bot instanceof soloMapling.ArtificialPlayer.BotTypes.HenesysBot
                 || (!bot.consumesFreeText() && !showsOwnHint(bot));
     }
 

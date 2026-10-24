@@ -138,6 +138,8 @@ class BotAttentionTest {
         assertTrue(Dispatcher.talksNaturally(mock(SocialBot.class)));
         assertTrue(Dispatcher.talksNaturally(mock(FollowerBot.class)));
         assertTrue(Dispatcher.talksNaturally(new TownWandererBot(chr)));
+        assertTrue(Dispatcher.talksNaturally(mock(soloMapling.ArtificialPlayer.BotTypes.HenesysBot.class)),
+                "townsfolk standing in Henesys answer a nearby player like anyone else");
         assertFalse(Dispatcher.talksNaturally(new SellingMerchantBot(chr)), "a shop is a real choice");
         assertFalse(Dispatcher.talksNaturally(new BuyingMerchantBot(chr)));
         assertFalse(Dispatcher.talksNaturally(mock(DiceBot.class)), "a game reads its own lines");
