@@ -72,3 +72,10 @@ ctest --test-dir build -C Release --output-on-failure
 
 Write what you did in your task folder (`NOTES.md`): commands run, hashes of what you built, what you tested, what
 you didn't. Push your branch to GitHub if it's a repo change. Leave the folder in place; the coordinator cleans up.
+
+## 7. When the task needs the server or a release
+
+Server code, the test server, auto-QA, releases and Discord posts are done from the dev box 192.168.0.187, in
+`/root/work/SlumsMS-150` (read its `AGENTS.md`, `docs/HANDOFF.md` and `docs/release/RUNBOOK.md`). From this PC: don't
+ssh to the servers yourself. Finish your client/launcher part (built files + hashes + NOTES.md here) and tell the owner
+what the server side needs; an agent on 187 picks it up. A copy of the current state is `HANDOFF.md` in this folder.

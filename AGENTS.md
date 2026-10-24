@@ -135,6 +135,19 @@ Client and launcher go out in MMO order, client first: `stage-client`, then `pub
 A client published to the Live feed must point at `slumsms.asslorde.com:8485` (the tools refuse otherwise). Never
 promote an RC client layer to Live: those point at the test server.
 
+### Full release cycle, Discord, notes and QA
+
+**`docs/release/RUNBOOK.md`** has every step: development, test deploys, auto-QA and the player QA checklist, patch notes,
+pre-checks, the live sequence with the owner's go points, rollback, and Cody's Discord posts through `slumsms-monitor`.
+Release notes and QA checklists live in the repo (`docs/site/releases/<v>.md`, `docs/release/<v>-qa.md`); the older
+claude.ai pages are only readable by Claude.
+
+### Which agent can do what
+
+Claude, Codex and DeepSeek agents on 187 can all use ssh to 164 (`root@192.168.0.164`) and to the owner's PC
+(`crims@192.168.0.186`, key `~/.ssh/id_rsprox_desktop`), git and the scripts here. Claude-only tools (claude.ai
+artifact pages, their databases) are not required for any step; use the repo files instead.
+
 ## 4. Working on the client (`slums.dll`)
 
 - Source: `/root/work/client/src` (+ worktrees such as `src-150fixes`). Make a branch from the current client line.
