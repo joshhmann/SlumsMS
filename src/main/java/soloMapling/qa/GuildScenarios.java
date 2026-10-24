@@ -115,7 +115,12 @@ final class GuildScenarios {
 
         public List<String> stage(QaContext ctx) {
             requireGuildless(ctx);
-            String guild = botGuild(ctx, false);
+            // the leader decides an application: a guild whose leader hates the GM answers HOSTILE (rc6 auto-QA)
+            String wanted = ctx.args().length > 0 ? ctx.args()[0] : null;
+            String guild = ctx.world().pickBotGuildFor(ctx.gm(), wanted);
+            if (guild == null) {
+                guild = botGuild(ctx, false); // the refusal text
+            }
             listGuilds(ctx);
             int id = stage(ctx, "friend", guild, 2);
             leaveJoinedGuildAtStop(ctx);
@@ -141,9 +146,14 @@ final class GuildScenarios {
                     n = Integer.parseInt(a);
                 }
             }
+            List<String> friends = new ArrayList<>();
             for (int i = 0; i < n; i++) {
-                stage(ctx, "friend", null, 5);
+                friends.add(Integer.toString(stage(ctx, "friend", null, 5)));
             }
+            // no 95% dice under the soft limit: the first friend joins, so the next one meets "bots 1/2" (rc6 auto-QA)
+            String[] ids = friends.toArray(new String[0]);
+            act(ctx, "sure", ids);
+            ctx.onStop("real dice again for the staged friends", () -> act(ctx, "unsure", ids));
             stage(ctx, "neutral", null, 5);
             return List.of(n + " friend bots and 1 neutral bot stand next to you, guildless.",
                     "Invite each (/ginvite <name> or the guild window). In 4-40 s: friends join (INVITE ... JOINED, a thank-you in",
@@ -332,6 +342,8 @@ final class GuildScenarios {
         public List<String> action(QaContext ctx, String name, String[] args) {
             String guild = chosen.getOrDefault(ctx.run().gmId(), botGuild(ctx, false));
             if ("kick".equals(name)) {
+                // the leader's staged grudge outlived the run and made later t-gu-1 applications HOSTILE (rc6 auto-QA)
+                ctx.onStop("the leader of " + guild + " is neutral again", () -> act(ctx, "unkick", guild));
                 return act(ctx, "kick", guild);
             }
             if ("vote".equals(name)) {

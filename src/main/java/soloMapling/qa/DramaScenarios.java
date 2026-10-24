@@ -478,7 +478,8 @@ final class DramaScenarios {
             onAGrindMap(ctx);
             cleanupAtStop(ctx);
             stageMember(ctx, "rival", g);
-            List<String> out = new ArrayList<>(act(ctx, "check", g));
+            // "fresh": a war on the GM's guild left from an earlier run ends first (rc6 auto-QA: "already at war")
+            List<String> out = new ArrayList<>(act(ctx, "check", g, "fresh"));
             out.add("A member of " + g + " next to you is your rival, so " + g + "'s rivals are all of your guild online:");
             out.add("it declares war on your guild (WAR DECLARED ... on player guild; a [Guild War] notice for your guild's");
             out.add("members; a megaphone, at once in a QA run: MEGAPHONE in the log). @guildwar shows the score and the maps each side holds; !qa do turf scores a");

@@ -162,7 +162,7 @@ class DramaScenariosTest {
         world.gmGuild = 9;
         start("gw-2", 10);
         assertTrue(world.calls.stream().anyMatch(c -> c.startsWith("guildbot rival Legendz")));
-        assertTrue(world.drama.contains("war check Legendz"));
+        assertTrue(world.drama.contains("war check Legendz fresh"), "a war left from an earlier run ends first");
         suite.stop(1, "!qa stop");
 
         start("gw-3", 10);

@@ -248,6 +248,11 @@ class FakeQaWorld implements QaWorld {
         return wanted == null || wanted.equalsIgnoreCase(botGuild) ? botGuild : null;
     }
 
+    @Override public String pickBotGuildFor(Character applicant, String wanted) {
+        calls.add("pickguild for " + (applicant == null ? "-" : applicant.getName()));
+        return pickBotGuild(wanted, false);
+    }
+
     @Override public String rivalOf(String guild) { return rival; }
 
     @Override public int stageGuildBot(Character gm, String state, String guild, int rank) {

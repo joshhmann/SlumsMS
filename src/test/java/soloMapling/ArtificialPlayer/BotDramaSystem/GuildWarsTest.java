@@ -90,6 +90,19 @@ class GuildWarsTest {
     }
 
     @Test
+    void aFreshDeclareEndsOnlyAWarThePairAlreadyFights() {
+        // rc6 auto-QA t-gw-2: Legendz was still at war with the fixture guild, so the check declared nothing
+        GuildWarStore.War w = GuildWars.openForTest(GuildWarStore.Kind.WAR, 7, 14, false);
+        GuildWarStore.War ally = GuildWars.openForTest(GuildWarStore.Kind.ALLIANCE, 7, 11, false);
+        assertNull(GuildWars.endForFreshDeclare(7, 9), "no war between them: nothing to end");
+        assertNull(GuildWars.endForFreshDeclare(7, 11), "an alliance is not a war");
+        assertTrue(GuildWars.endForFreshDeclare(14, 7).contains("#" + w.id()));
+        assertNull(GuildWars.warBetween(7, 14));
+        assertNotNull(GuildWars.byId(ally.id()));
+        assertEquals(List.of(11), GuildWars.alliesOf(7));
+    }
+
+    @Test
     void aFailedReadKeepsNothing() {
         store.failing = true;
         assertTrue(GuildWars.active().isEmpty());
