@@ -7,6 +7,15 @@ context and a guarded restock-trip adapter. Checkpoint 3 starts explicitly queue
 normal update, with duplicate/old-request protection. Automatic scoring-and-action selection remains off.
 Work branch: `160-bot-brain`.
 
+## Finish-the-ticket pass
+
+The owner asked for the remaining ticket in one pass, without stopping after each building block. Finish the
+automatic decisions, existing-system action adapters, saved goals and bounded personality changes, player-intent
+and truthful chat links, then run the full tests and feature QA on a separate test copy. Keep future fishing,
+medal and dungeon options unavailable. Do not invent a new NPC-selling income path or change economy limits.
+The separate copy must use test data, spare ports and the documented scratch CPU/memory limits; DeepSeek's shared
+TEST instance stays running. Record any genuinely unavailable action with its reason instead of pretending it ran.
+
 ## Why
 
 Bots today pick their day from separate systems (the population director, grinder logic, town/social roles,
