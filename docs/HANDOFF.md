@@ -6,6 +6,15 @@ something.
 
 Times: give the owner Pacific next to UTC (PDT = UTC-7).
 
+**Owner's work split (2026-10-24):** this bug-fix pass is finished. The owner will hand continuing **1.5.1 bug
+squashing to DeepSeek**; use `release-1.5.1`, the current TEST receipt below and section 3's remaining leads.
+**Codex is moving to 1.6.0 feature work**, starting with Ticket 60's implementation plan on `160-bot-brain`
+(`5ca02907f`, `/root/work/SlumsMS-bot-brain-160`). Runtime implementation has not started. The roadmap puts the bot
+brain first. Fishing, medals, the daily dungeon and chaos bosses still need more detailed tickets and their listed
+owner decisions. Ticket 61's "spec/to be built" header is stale: the client MCP already exists per section 5.
+Keep the shared `slums-persistence-test` build for the bug pass; feature work must coordinate any test checkpoint
+or use a separately isolated test instance within the host caps. Do not merge 1.6.0 features into `release-1.5.1`.
+
 ## 1. What is live
 
 | Thing | Version | Where it came from |
@@ -21,7 +30,10 @@ Deploy receipt and backups: `/opt/mapleroot-deployments/v1.5.0/` on 164. Rollbac
 /opt/mapleroot-deployments/v1.5.0/rollback.sh` (server, ~30 s) and `tools/release/publish-client --restore-manifest
 /srv/slums-staging/manifest-before-1.5.0.json` (client). **Live actions always need the owner's go** (AGENTS.md).
 
-The test server runs the same 1.5.0 build (`06a724dfc`) with the same settings plus `-Dslums.qa`/`-Dslums.autoqa`.
+The test server now runs **1.5.1 integration commit `c2b1a7974`** (NPC spacing, synthetic login, reply routing and
+guild-chat QA fixes), installed on 2026-10-24 at **5:57 AM PT (12:57 UTC)**. Its version banner still says 1.5.0;
+this is a test integration build, not a live release. Source: `release-1.5.1` in `/root/work/SlumsMS-npc-space`.
+The same test settings and QA flags remain. Live was not changed.
 
 ## 2. In flight right now
 
@@ -49,20 +61,75 @@ The test server runs the same 1.5.0 build (`06a724dfc`) with the same settings p
 4. **Patch notes on Discord: DONE 2026-10-24** (Cody linked https://theslumsms.asslorde.com; the monitor's public filter
    blanks long URLs like `/patch-notes/1.5.0/`, so link the home page).
 
+5. **NPC spacing fixed on TEST (2026-10-24):** branch `151-npc-space` commit `743f2373d`, merged as
+   `3b0c51aa1`, now included in `c2b1a7974`. Personal space ignored NPCs in both destination selection and resting
+   checks. NPC positions now count as immovable obstacles, using the existing spacing and floor rules. Two
+   regression cases failed before the fix. Latest `t-ps-2` PASS: the staged bot walked from 0 px to 49 px off an NPC
+   in 2 seconds, then despawned at cleanup (`logs/qa/ps-2-20261024T130238Z.log`). **Owner next:** in Henesys on TEST
+   run `!qa run ps-2`, check the NPC name is readable and clickable, then `!qa stop`. Real-client appearance is
+   unverified. Checklist: `docs/release/1.5.1-qa.md`. Draft notes: `docs/site/releases/1.5.1.md` (not published).
+6. **Synthetic QA login/save fix on TEST:** branch `151-qa-account-cache` commit `15b2dada8`, merged as
+   `eb7e1bd18`. Both fix branches and the release branch are pushed. Synthetic login skipped the normal
+   character-list call to `Server.loadAccountCharacters`, leaving the world account-view cache absent. Saving
+   then threw in `World.registerAccountCharacterView:462` during logout and autosave, and also blocked the old
+   build's channel shutdown. Synthetic login now loads those views before its channel transition; regular-player
+   login and save code are unchanged. Regression tests for both fixture slots failed before and pass after.
+   Full offline Maven suites passed on each fix branch and after merging. **Combined suite at that checkpoint:
+   4,486 tests, 0 failures, 0 errors, 38 skipped** (no local WZ data).
+   Test jar `1eb53708272173b1…`; install backup `/opt/mapleroot-dev/persistence-test/deploys/20261024T100747Z/`.
+   The old TEST process hung on the same cache exception during that deploy: zero connected clients and all
+   1,169 bots had been saved with zero failures before it was ended with `systemctl kill --signal=SIGKILL
+   slums-persistence-test`. The fixed build passed `t-ps-2` and smoke `t-bg-1`, `t-vg-1`, `t-ch-1`, with zero
+   ERROR/Exception lines through both login/logout cycles. A controlled restart of the same jar then completed
+   normally: shutdown about 14 s, 1,162 bots saved, zero failures, zero boot errors; backup
+   `/opt/mapleroot-dev/persistence-test/deploys/20261024T101345Z/`. Hourly autosave was not separately waited for.
+   The old build's scheduled 3:00 AM PT (10:00 UTC) nightly was interrupted by that fix deploy. The broader
+   QA and health leads remain open; see item 8 for the latest verification and saved-report counts.
+7. **Delayed replies stay in their original channel:** branch `151-chat-reply-routing` commit `8f11d3f8e`,
+   merged into `release-1.5.1` as `c2b1a7974`. A bot/player pair shared a mutable reply callback: a guild message
+   sent while a whisper reply waited on the model could redirect the whisper's reply into guild chat. Each
+   request now captures its destination and priority before asynchronous work starts; history and the 60 s
+   idle clock remain shared. A controlled delayed-future test failed before and passes after, checking both
+   destinations and shared history. Full fix-branch suite: 4,480 tests, 0 failures/errors, 38 skipped. The real-client
+   overlapping-channel case remains untested: use the `t-gu-1` manual checklist in `docs/release/1.5.1-qa.md`.
+8. **Guild-chat QA checks real delivery:** branch `151-qa-guild-chat` commit `2b79bdbf8`, merged as `124e13aee`.
+   The old check demanded an answer to "hi guys" despite the normal 60% greeting chance and cooldown, and accepted
+   an "answers" hook without proving delivery. It now names the staged officer, waits up to 30 s for that bot's
+   guild packet, and requires the packet before the next exchange. Normal guild-chat probabilities are unchanged.
+   Two regression cases failed before; three tests now cover named staging, undelivered replies and successful
+   receipt. Full fix-branch suite: 4,482 tests, 0 failures/errors, 38 skipped. Both new branches are pushed.
+   **Combined suite after both merges: 4,490 tests, 0 failures, 0 errors, 38 skipped** (local WZ data absent).
+   Test jar `ba4e2fb5bb790f98…`; backup `/opt/mapleroot-dev/persistence-test/deploys/20261024T125727Z/`.
+   `t-gu-1` PASS twice, including actual `MULTICHAT guild <officer>:` receipt and clean cleanup:
+   `logs/qa/gu-1-20261024T125935Z.log` and `gu-1-20261024T130034Z.log`. Smoke `t-bg-1`, `t-vg-1`, `t-ch-1` and
+   NPC check `t-ps-2` PASS on this build; zero ERROR/Exception lines since deployment. The saved mixed report is
+   now 55 PASS / 9 FAIL / 11 SKIP (75 checks); this is not a completed full run on the new build. Foothold and
+   overlap health flags remain open. No real-client checks, live changes or Discord posts were made.
+
 ## 3. Backlog for 1.5.1 (hotfixes until 1.6.0)
 
 Owner-reported or found, roughly by priority:
 - **A bot you're talking to walks away** mid-conversation (personal space or its wander habit pulls it away). A
-  conversation partner should stay put ~30-60 s.
+  conversation partner should stay put ~30-60 s. Source audit: `BotConversation` already keeps a 60 s session,
+  but the wanderer and fidget paths do not use it as a movement hold; personal space only recognises the pair.
+  This remains unfixed.
 - **Guide pages too long** for the v83 NPC window (a scrollbar shows). Cut each page to about 6-7 short lines; check
   in a real client.
-- **Bots standing in front of NPCs** cover NPC name tags; personal space should keep clear of NPCs too.
 - **"overlap" health check** still flags some stacked town bots; `foothold` flags ~1% (27 of 2,713) off the ground.
 - **PQ bots "not great"** (a friend's report; times/channel to come from the owner). Also tone down PQ lobby spam.
 - **Shutdown noise:** the nav-graph warm-up thread logs "footholds is null" while maps unload at shutdown; skip
   warm-up once shutdown starts.
-- **Auto-QA flakes** still failing: rv-2, rv-4, gw-4, pb-1, cu-1, rm-1, rm-4, cv-4, cv-7, cb-2 (see the latest
-  `data/autoqa/latest.json` on the test server; triage with `.claude/skills/qa-triage`).
+- **Open auto-QA leads** in the latest mixed report: af-1, af-2, rv-2, rm-1, rm-4, cv-2, cv-5, cv-7, cb-2.
+  gu-1 is now a repaired QA check with two passing server runs (section 2 item 8). The original full-run baseline
+  was 54 PASS / 9 FAIL / 11 SKIP; its QA logs and journal were read during the first bug-fix pass. In that older run:
+  rm-4 explicitly logged "nobody to crash the reception (no ex or rival online)" after staging an ex (fixture issue).
+  af-1 did greet the player, but its judge also graded ambient arrow-shopping chat as a greeting. cv-5's routing
+  snapshot chose the staged Orbis-PQ speaker by reply words while its active thread candidate was a different
+  Kerning-PQ thread; thread fixture isolation needs investigation. The missing KS/follow actions,
+  chat-content judgements and combat positions still need separate reproduction and fixes.
+- **Partial-nightly lead:** af-2 also failed on the old build during the interrupted 3:00 AM PT (10:00 UTC) nightly (missing
+  taunt/KS action). It needs reproduction on the latest build; it was not changed as part of these fixes.
+  The account-cache exception found in the older logs is fixed (section 2 item 6).
 - **Roster growth back to normal, in the 1.5.1 deploy** (owner OK'd 2026-10-24; held so tonight's 3k peak has enough
   bots): once the roster is past ~9,000 (`journalctl -u slumsms | grep "roster holds\|Roster:"`), set
   BOT_ROSTER_VETERAN_FILL_BELOW 0.5 and BOT_ROSTER_VETERANS_PER_DAY 300 in live `config.yaml` during the 1.5.1

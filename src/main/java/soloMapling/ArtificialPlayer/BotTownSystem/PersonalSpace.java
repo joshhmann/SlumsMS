@@ -2,6 +2,8 @@ package soloMapling.ArtificialPlayer.BotTownSystem;
 
 import client.Character;
 import server.maps.MapleMap;
+import server.maps.MapObject;
+import server.maps.MapObjectType;
 import soloMapling.ArtificialPlayer.BotHelpers;
 import soloMapling.ArtificialPlayer.BotMovementSystem.MovementCommands;
 import soloMapling.ArtificialPlayer.GCMoveSystem.GCMovement;
@@ -444,6 +446,7 @@ public final class PersonalSpace {
     /** Where everyone on the map stands, plus the reserved destinations, without {@code self}. */
     private static List<Point> taken(MapleMap map, int selfId, long now) {
         List<Point> out = new ArrayList<>(reserved(key(map), selfId, now));
+        out.addAll(npcPositions(map));
         try {
             for (Character c : map.getAllPlayers()) {
                 if (c != null && c.getId() != selfId && !c.isHidden() && c.getPosition() != null) {
@@ -454,6 +457,17 @@ public final class PersonalSpace {
             // nobody known: reservations only
         }
         return out;
+    }
+
+    /** NPCs occupy their spot permanently; neither destination selection nor resting bots may ignore them. */
+    private static List<Point> npcPositions(MapleMap map) {
+        List<Point> positions = new ArrayList<>();
+        for (MapObject object : map.getMapObjects()) {
+            if (object.getType() == MapObjectType.NPC && object.getPosition() != null) {
+                positions.add(new Point(object.getPosition()));
+            }
+        }
+        return positions;
     }
 
     /**
@@ -546,6 +560,12 @@ public final class PersonalSpace {
         List<Body> bodies = new ArrayList<>(chars.size());
         Map<Integer, Character> byId = new java.util.HashMap<>();
         List<Point> spots = new ArrayList<>(reserved(key(map), bot.getId(), now));
+        // Negative ids are local obstacle ids, never character ids or conversation partners.
+        int obstacleId = -1;
+        for (Point npc : npcPositions(map)) {
+            spots.add(npc);
+            bodies.add(new Body(obstacleId--, npc.x, npc.y, false, false, 0));
+        }
         for (Character c : chars) {
             if (c == null || c.getId() == bot.getId() || c.isHidden() || c.getPosition() == null) {
                 continue;
@@ -580,7 +600,8 @@ public final class PersonalSpace {
         step(bot, to, physics, pair ? new Point(close.x(), close.y()) : null);
         if (soloMapling.qa.QaLog.on(soloMapling.qa.QaLog.Topic.SPREAD)) {
             soloMapling.qa.QaLog.map(soloMapling.qa.QaLog.Topic.SPREAD, map.getId(), "PERSONAL SPACE " + bot.getName()
-                    + " stood " + Math.abs(close.x() - pos.x) + " px from " + (other == null ? close.id() : other.getName())
+                    + " stood " + Math.abs(close.x() - pos.x) + " px from "
+                    + (close.id() < 0 ? "an NPC" : other == null ? close.id() : other.getName())
                     + (pair ? " (pair)" : close.player() ? " (player)" : "") + ": steps to x " + to.x
                     + (physics ? " (walk)" : " (small move)"));
         }

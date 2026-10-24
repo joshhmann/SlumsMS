@@ -28,6 +28,7 @@ import soloMapling.ArtificialPlayer.BotSellerCaps;
 import soloMapling.ArtificialPlayer.BotStore;
 import soloMapling.ArtificialPlayer.BotTypeManager;
 import soloMapling.ArtificialPlayer.BotTypes.FMBot;
+import soloMapling.ArtificialPlayer.BotTownSystem.PersonalSpace;
 import soloMapling.itemPool.ItemDatabase;
 import tools.PacketCreator;
 
@@ -1051,6 +1052,53 @@ final class GameQaWorld implements QaWorld {
                     soloMapling.ArtificialPlayer.BotTypeManager.BotType.SOCIAL_BOT);
         }
         return ids;
+    }
+
+    @Override
+    public List<Integer> stageNpcTownBot(Character gm) {
+        MapleMap map = gm.getMap();
+        for (server.maps.MapObject object : map.getMapObjects()) {
+            if (object.getType() != server.maps.MapObjectType.NPC) {
+                continue;
+            }
+            Point at = object.getPosition();
+            Point ground = soloMapling.ArtificialPlayer.GCMoveSystem.GCMovement.groundPointBelow(map, at.x, at.y);
+            if (ground == null || Math.abs(ground.y - at.y) > PersonalSpace.SAME_FH_DY) {
+                continue;
+            }
+            int id = BotGeneration.createBot(BotStore.nextDynamicSlots(1), ground, map);
+            if (id > 0) {
+                // No FSM or fidget: only the ordinary personal-space check may move this fixture.
+                Character bot = map.getCharacterById(id);
+                soloMapling.ArtificialPlayer.GCMoveSystem.GCMovement.enable(bot);
+                return List.of(id);
+            }
+        }
+        return List.of();
+    }
+
+    @Override
+    public List<String> npcClearance(Character gm, List<Integer> ids) {
+        List<String> lines = new ArrayList<>();
+        MapleMap map = gm.getMap();
+        for (int id : ids) {
+            Character bot = map.getCharacterById(id);
+            if (bot == null) {
+                lines.add("NPC CLEARANCE bot " + id + " missing");
+                continue;
+            }
+            soloMapling.ArtificialPlayer.BotTownSystem.PersonalSpace.maybeKeep(bot);
+            int nearest = Integer.MAX_VALUE;
+            for (server.maps.MapObject object : map.getMapObjects()) {
+                if (object.getType() == server.maps.MapObjectType.NPC
+                        && Math.abs(object.getPosition().y - bot.getPosition().y) <= PersonalSpace.SAME_FH_DY) {
+                    nearest = Math.min(nearest, Math.abs(object.getPosition().x - bot.getPosition().x));
+                }
+            }
+            lines.add("NPC CLEARANCE bot " + id + " dx=" + nearest + " clear="
+                    + (nearest != Integer.MAX_VALUE && nearest >= PersonalSpace.CROWD_PX));
+        }
+        return lines;
     }
 
     @Override
