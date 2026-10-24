@@ -266,8 +266,8 @@ public final class BotChannels {
      * Picks the channel for one bot about to log in and holds its place until {@link #release(int)}, so logins in
      * parallel see each other. Returns a channel id (1-based).
      */
-    public static synchronized int reserve() {
-        return reserveIn(botsPerChannel(false), inFlight);
+    public static int reserve() {
+        return withReservationLock(() -> reserveIn(botsPerChannel(false), inFlight));
     }
 
     /**
@@ -276,8 +276,19 @@ public final class BotChannels {
      * channel 1's towns would get almost no dressing. The director's logins, counted against everyone, even the
      * total out. Release with {@link #releaseDressing(int)}.
      */
-    public static synchronized int reserveDressing() {
-        return reserveIn(botsPerChannel(true), dressingInFlight);
+    public static int reserveDressing() {
+        return withReservationLock(() -> reserveIn(botsPerChannel(true), dressingInFlight));
+    }
+
+    // Java 21 virtual threads must be able to unmount while player storage is locked. An intrinsic
+    // monitor here can pin every carrier during a boot fill, preventing the storage owner from resuming.
+    private static final java.util.concurrent.locks.ReentrantLock RESERVATION_LOCK =
+            new java.util.concurrent.locks.ReentrantLock();
+
+    static <T> T withReservationLock(java.util.function.Supplier<T> work) {
+        RESERVATION_LOCK.lock();
+        try { return work.get(); }
+        finally { RESERVATION_LOCK.unlock(); }
     }
 
     private static int reserveIn(int[] counts, int[] flight) {
@@ -292,24 +303,25 @@ public final class BotChannels {
     }
 
     /** Releases a {@link #reserve()} once the bot is in its channel's storage (or failed to log in). */
-    public static synchronized void release(int ch) {
-        releaseIn(ch, inFlight);
+    public static void release(int ch) {
+        withReservationLock(() -> { releaseIn(ch, inFlight); return null; });
     }
 
     /**
      * 1.5.0 (per-map bot cap): moves a {@link #reserve()} to another channel, for a login whose map is full on the
      * reserved one. Release the new channel afterwards.
      */
-    public static synchronized void transfer(int from, int to) {
-        releaseIn(from, inFlight);
-        int i = to - 1;
-        if (i >= 0 && i < inFlight.length) {
-            inFlight[i]++;
-        }
+    public static void transfer(int from, int to) {
+        withReservationLock(() -> {
+            releaseIn(from, inFlight);
+            int i = to - 1;
+            if (i >= 0 && i < inFlight.length) inFlight[i]++;
+            return null;
+        });
     }
 
-    public static synchronized void releaseDressing(int ch) {
-        releaseIn(ch, dressingInFlight);
+    public static void releaseDressing(int ch) {
+        withReservationLock(() -> { releaseIn(ch, dressingInFlight); return null; });
     }
 
     private static void releaseIn(int ch, int[] flight) {
