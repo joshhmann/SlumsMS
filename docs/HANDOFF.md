@@ -188,6 +188,14 @@ Owner-reported or found, roughly by priority:
 - Watch live memory for a few days (the 3k soak crept ~80 MB/h in old-gen).
 - Merge `release-1.5.0` back where needed: `test-1.5.0-rc6` is history; new work branches from `release-1.5.0`.
 
+- **Rate coupons on sale (owner, 2026-10-24 22:51 UTC / 3:51 PM PDT):** live `config.yaml` now has
+  `USE_SUPPLY_RATE_COUPONS: true` (backup `/root/config.yaml.before-rate-coupons-20261024T225139Z` on 164); the owner
+  turned it on in game with `!supplyratecoupon yes`. The config makes it survive restarts. Keep it `true` in every
+  deploy; prices and periods (`cashshop/catalog.tsv`, 5211xxx/5360xxx) are unchanged and the owner's call.
+- **Monitor fix installed on live (2026-10-24):** `/usr/local/bin/slumsms-monitor` reads the 1.5.0 director start
+  line (commit `402851969`); backup `/root/slumsms-monitor.before-director-fix`. The repo copy also has the newer
+  `maintenance end --client` feature, not installed yet; install the whole file with the 1.5.1 release.
+
 ## 4. Decisions the owner made (don't re-ask)
 
 - 3,000 bots on live; reduce if needed. Per-map cap 50 to start (FM may need more).
