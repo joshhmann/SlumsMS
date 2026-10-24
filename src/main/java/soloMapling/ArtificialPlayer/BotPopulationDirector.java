@@ -31,7 +31,8 @@ import java.util.concurrent.TimeUnit;
  * a real server's players do. Every tick it compares the bots online with the curve's target and logs some in or
  * out; besides that, a bot whose session has run its length logs out and someone else takes its place, so the
  * faces change even while the count holds. Logins prefer bots whose usual play window covers now, so the same
- * regulars show up at similar hours. A bot holding a player-facing commitment is never logged out.
+ * regulars show up at similar hours. A bot holding a player-facing commitment is never logged out. While there is room
+ * under the target, every bot guild keeps at least one member online (rc6).
  *
  * <p>Replaces boot waves 8 and 9 once the roster holds members; until then those waves seed it.
  */
@@ -69,8 +70,11 @@ public final class BotPopulationDirector {
         }
     }
 
-    /** What one tick does. */
-    record Plan(List<Integer> logins, List<Integer> logouts, int target, int online) {
+    /** What one tick does; {@code guildLogins} of the logins are there to keep a bot guild from standing empty. */
+    record Plan(List<Integer> logins, List<Integer> logouts, int target, int online, int guildLogins) {
+        Plan(List<Integer> logins, List<Integer> logouts, int target, int online) {
+            this(logins, logouts, target, online, 0);
+        }
     }
 
     /**
@@ -80,6 +84,19 @@ public final class BotPopulationDirector {
      */
     static Plan plan(List<Candidate> roster, int target, int minuteOfDay, long now, int maxLogins, int maxLogouts,
                      Random rng) {
+        return plan(roster, Map.of(), target, minuteOfDay, now, maxLogins, maxLogouts, rng);
+    }
+
+    /**
+     * As above, with the bot guild of each roster bot ({@code guildOf}: roster bot id to bot guild id; bots in no bot
+     * guild are left out). rc6 (owner): every bot guild keeps at least one member online. While the count is under
+     * the target, a bot guild with nobody online (after this tick's logouts) gets one of its members logged in ahead
+     * of everyone else, picked the same way as any login (usually someone whose play window is now). Never past the
+     * target, one login per empty guild, the same cooldown; the per-map cap still applies at login. Above the curve,
+     * the last online member of a guild is logged out only after everyone else who could go.
+     */
+    static Plan plan(List<Candidate> roster, Map<Integer, Integer> guildOf, int target, int minuteOfDay, long now,
+                     int maxLogins, int maxLogouts, Random rng) {
         List<Candidate> online = new ArrayList<>();
         List<Candidate> offline = new ArrayList<>();
         for (Candidate c : roster) {
@@ -94,37 +111,105 @@ public final class BotPopulationDirector {
                 .forEach(c -> logouts.add(c.botId()));
         int projected = online.size() - logouts.size();
         int slack = (int) Math.ceil(target * SLACK);
-        // 2. Above the curve: players outside their window leave first, then the longest sessions.
+        // 2. Above the curve: players outside their window leave first, then the longest sessions; a guild's last
+        // member online goes only when no one else can.
         if (projected > target + slack && logouts.size() < maxLogouts) {
             int excess = Math.min(projected - target, maxLogouts - logouts.size());
-            online.stream()
+            Map<Integer, Integer> guildOnline = guildsOnline(online, logouts, guildOf);
+            List<Candidate> lastOfGuild = new ArrayList<>();
+            List<Candidate> order = online.stream()
                     .filter(c -> c.mayLogOut() && !logouts.contains(c.botId()))
                     .sorted(Comparator.comparing((Candidate c) -> c.inWindow(minuteOfDay))
                             .thenComparingLong(Candidate::loginAt))
-                    .limit(excess)
-                    .forEach(c -> logouts.add(c.botId()));
-            projected = online.size() - logouts.size();
-        }
-        // 3. Below the curve: log players in, weighted toward those whose usual window is now.
-        List<Integer> logins = new ArrayList<>();
-        if (projected < target - slack || (projected < target && !logouts.isEmpty())) {
-            int needed = Math.min(target - projected, maxLogins);
-            List<double[]> keyed = new ArrayList<>(); // {key, botId}: weighted sampling without replacement
-            for (Candidate c : offline) {
-                // The cooldown is for sessions the director ended: a server restart logs everyone out at once,
-                // and those players must be able to come straight back.
-                if (!c.active() || (c.endedOnPurpose() && c.logoutAt() > 0 && now - c.logoutAt() < RELOG_COOLDOWN_MS)) {
+                    .toList();
+            int picked = 0;
+            for (Candidate c : order) {
+                if (picked >= excess) {
+                    break;
+                }
+                Integer g = guildOf.get(c.botId());
+                if (g != null && guildOnline.getOrDefault(g, 0) <= 1) {
+                    lastOfGuild.add(c);
                     continue;
                 }
-                double weight = c.inWindow(minuteOfDay) ? 1.0 : OFF_WINDOW_WEIGHT;
-                keyed.add(new double[]{Math.pow(rng.nextDouble(), 1.0 / weight), c.botId()});
+                logouts.add(c.botId());
+                picked++;
+                if (g != null) {
+                    guildOnline.merge(g, -1, Integer::sum);
+                }
+            }
+            for (int i = 0; picked < excess && i < lastOfGuild.size(); i++, picked++) {
+                logouts.add(lastOfGuild.get(i).botId());
+            }
+            projected = online.size() - logouts.size();
+        }
+        List<Candidate> eligible = new ArrayList<>();
+        for (Candidate c : offline) {
+            // The cooldown is for sessions the director ended: a server restart logs everyone out at once,
+            // and those players must be able to come straight back.
+            if (!c.active() || (c.endedOnPurpose() && c.logoutAt() > 0 && now - c.logoutAt() < RELOG_COOLDOWN_MS)) {
+                continue;
+            }
+            eligible.add(c);
+        }
+        List<Integer> logins = new ArrayList<>();
+        // 3. Room under the target: one member of each bot guild with nobody online.
+        int room = Math.min(target - projected, maxLogins);
+        if (room > 0 && !guildOf.isEmpty()) {
+            Map<Integer, Integer> guildOnline = guildsOnline(online, logouts, guildOf);
+            Map<Integer, double[]> best = new java.util.TreeMap<>(); // guild -> {key, botId}
+            for (Candidate c : eligible) {
+                Integer g = guildOf.get(c.botId());
+                if (g == null || guildOnline.getOrDefault(g, 0) > 0) {
+                    continue;
+                }
+                double key = loginKey(c, minuteOfDay, rng);
+                double[] cur = best.get(g);
+                if (cur == null || key > cur[0]) {
+                    best.put(g, new double[]{key, c.botId()});
+                }
+            }
+            List<double[]> picks = new ArrayList<>(best.values());
+            picks.sort((a, b) -> Double.compare(b[0], a[0]));
+            for (int i = 0; i < room && i < picks.size(); i++) {
+                logins.add((int) picks.get(i)[1]);
+            }
+        }
+        int guildLogins = logins.size();
+        // 4. Below the curve: log players in, weighted toward those whose usual window is now.
+        if (projected < target - slack || (projected < target && !logouts.isEmpty())) {
+            int needed = Math.min(target - projected, maxLogins) - logins.size();
+            List<double[]> keyed = new ArrayList<>(); // {key, botId}: weighted sampling without replacement
+            for (Candidate c : eligible) {
+                if (!logins.contains(c.botId())) {
+                    keyed.add(new double[]{loginKey(c, minuteOfDay, rng), c.botId()});
+                }
             }
             keyed.sort((a, b) -> Double.compare(b[0], a[0]));
             for (int i = 0; i < needed && i < keyed.size(); i++) {
                 logins.add((int) keyed.get(i)[1]);
             }
         }
-        return new Plan(logins, logouts, target, online.size());
+        return new Plan(logins, logouts, target, online.size(), guildLogins);
+    }
+
+    /** A weighted-sampling key: the highest keys log in, in-window players far more often than off-window ones. */
+    private static double loginKey(Candidate c, int minuteOfDay, Random rng) {
+        double weight = c.inWindow(minuteOfDay) ? 1.0 : OFF_WINDOW_WEIGHT;
+        return Math.pow(rng.nextDouble(), 1.0 / weight);
+    }
+
+    /** Online members per bot guild, not counting this tick's logouts. */
+    private static Map<Integer, Integer> guildsOnline(List<Candidate> online, List<Integer> logouts,
+                                                      Map<Integer, Integer> guildOf) {
+        Map<Integer, Integer> counts = new java.util.HashMap<>();
+        for (Candidate c : online) {
+            Integer g = guildOf.get(c.botId());
+            if (g != null && !logouts.contains(c.botId())) {
+                counts.merge(g, 1, Integer::sum);
+            }
+        }
+        return counts;
     }
 
     // ── live wiring ──────────────────────────────────────────────────────────────────────────────
@@ -148,6 +233,7 @@ public final class BotPopulationDirector {
     private static volatile boolean paused;
     private static volatile Plan lastPlan;
     private static volatile long lastTickAt;
+    private static volatile long startedAt;
 
     private BotPopulationDirector() {
     }
@@ -168,6 +254,7 @@ public final class BotPopulationDirector {
             return;
         }
         ServerConfig server = YamlConfig.config.server;
+        startedAt = System.currentTimeMillis();
         tick(Integer.MAX_VALUE);
         long period = Math.max(5, server.BOT_DIRECTOR_TICK_SECONDS);
         ticker = ExecutorServiceManager.getScheduledExecutorService()
@@ -188,6 +275,13 @@ public final class BotPopulationDirector {
             ticker.cancel(false);
             ticker = null;
         }
+        startedAt = 0;
+    }
+
+    /** How long the director has been ticking (0 when it is off). Auto-QA t-bg-1 judges bot guilds after ~10 min. */
+    public static long runningForMs() {
+        long at = startedAt;
+        return ticker == null || at == 0 ? 0 : Math.max(0, System.currentTimeMillis() - at);
     }
 
     /** GM: hold the population where it is (no logins or logouts) or let the director run again. */
@@ -233,7 +327,7 @@ public final class BotPopulationDirector {
             long now = System.currentTimeMillis();
             List<Candidate> roster = candidates();
             int target = curve().target(directorPeak(), local);
-            Plan plan = plan(roster, target, local.getHour() * 60 + local.getMinute(), now, maxLogins,
+            Plan plan = plan(roster, guildOfRoster(), target, local.getHour() * 60 + local.getMinute(), now, maxLogins,
                     server.BOT_DIRECTOR_MAX_LOGOUTS_PER_TICK, ThreadLocalRandom.current());
             lastPlan = plan;
             lastTickAt = now;
@@ -284,6 +378,17 @@ public final class BotPopulationDirector {
             log.warn("Population director tick failed", e);
             System.out.println("[Director] tick failed: " + e);
         }
+    }
+
+    /** Roster bot id to bot guild id, for every roster bot in a bot guild (empty until the guilds are loaded). */
+    private static Map<Integer, Integer> guildOfRoster() {
+        Map<Integer, Integer> out = new java.util.HashMap<>();
+        soloMapling.ArtificialPlayer.BotGuildSystem.BotGuilds.botGuildMembers().forEach((charId, guildId) -> {
+            if (charId >= BotStore.BOT_ID_BASE) {
+                out.put(charId - BotStore.BOT_ID_BASE, guildId);
+            }
+        });
+        return out;
     }
 
     private static List<Candidate> candidates() {
@@ -512,11 +617,12 @@ public final class BotPopulationDirector {
         ServerConfig server = YamlConfig.config.server;
         int environment = BotChannels.environmentOnline();
         return String.format("director %s: %d roster bots online, target now %d (peak %d = min(roster peak %d,"
-                        + " cap %d - %d environment)), %d waiting to leave; last tick %s: +%d / -%d",
+                        + " cap %d - %d environment)), %d waiting to leave; last tick %s: +%d (%d for empty guilds) / -%d",
                 ticker == null ? "off" : paused ? "paused" : "on", online, targetNow(), directorPeak(),
                 server.BOT_ROSTER_PEAK_ONLINE, server.BOT_POPULATION_PEAK, environment, BotLogout.waiting(),
                 lastTickAt == 0 ? "never" : ((System.currentTimeMillis() - lastTickAt) / 1000) + "s ago",
-                plan == null ? 0 : plan.logins().size(), plan == null ? 0 : plan.logouts().size());
+                plan == null ? 0 : plan.logins().size(), plan == null ? 0 : plan.guildLogins(),
+                plan == null ? 0 : plan.logouts().size());
     }
 
     /** For the GM preview: the target at each hour today. */

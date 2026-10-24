@@ -220,6 +220,23 @@ public final class BotGuilds {
         return out;
     }
 
+    /**
+     * Every bot member of a bot guild: char id to guild id (the population director keeps one of each guild online).
+     * Memory only, never a database read: empty until the guild step has loaded the guilds.
+     */
+    public static Map<Integer, Integer> botGuildMembers() {
+        if (!enabled() || !loaded) {
+            return Map.of();
+        }
+        Map<Integer, Integer> out = new java.util.HashMap<>();
+        for (MemberRow m : members.values()) {
+            if (guilds.containsKey(m.guildId())) {
+                out.put(m.charId(), m.guildId());
+            }
+        }
+        return out;
+    }
+
     /** Bot members of the guild that are online now. */
     static List<Character> onlineMembers(int guildId) {
         List<Character> out = new ArrayList<>();

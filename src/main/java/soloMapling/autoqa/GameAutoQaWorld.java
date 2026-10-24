@@ -324,7 +324,21 @@ final class GameAutoQaWorld implements AutoQaWorld {
         return bad.isEmpty() ? null : String.join(", ", bad);
     }
 
-    static final int MAX_EMPTY_BOT_GUILDS = 2;
+    /** t-bg-1: how long the population director runs before every bot guild must have someone online. */
+    static final long GUILD_PRESENCE_SETTLE_MS = java.util.concurrent.TimeUnit.MINUTES.toMillis(10);
+
+    /**
+     * t-bg-1's verdict on empty guilds: null when fine. rc6 (owner): the director keeps at least one member of every
+     * bot guild online, so once it has run ~10 minutes a guild with nobody on is a FAIL. Before that (just booted, or
+     * the director off) empty guilds are reported, not judged.
+     */
+    static String emptyGuildsVerdict(int emptyOnline, long directorRunningMs) {
+        if (emptyOnline == 0 || directorRunningMs < GUILD_PRESENCE_SETTLE_MS) {
+            return null;
+        }
+        return emptyOnline + " guild(s) with nobody online (want every guild to have one, director up "
+                + directorRunningMs / 60_000 + " min)";
+    }
 
     /** t-bg-1: the ten bot guilds exist with members online and two rival pairs. */
     private static List<String> botGuilds() {
@@ -355,13 +369,14 @@ final class GameAutoQaWorld implements AutoQaWorld {
         if (rivals < 4) {
             bad.add(rivals / 2 + " rival pair(s), want 2");
         }
-        // rc6 triage: bot guilds run ~10% online, so a 20-member guild has nobody on now and then; a couple empty is
-        // normal, most empty means the guild bots are not logging in
-        if (emptyOnline > MAX_EMPTY_BOT_GUILDS) {
-            bad.add(emptyOnline + " guild(s) with nobody online (at most " + MAX_EMPTY_BOT_GUILDS + ")");
+        long directorUp = soloMapling.ArtificialPlayer.BotPopulationDirector.runningForMs();
+        String empty = emptyGuildsVerdict(emptyOnline, directorUp);
+        if (empty != null) {
+            bad.add(empty);
         }
         out.add(bad.isEmpty() ? "PASS 10 bot guilds, " + rivals / 2 + " rival pairs"
-                + (emptyOnline > 0 ? ", " + emptyOnline + " with nobody online right now" : "")
+                + (emptyOnline > 0 ? ", " + emptyOnline + " with nobody online right now (not judged: director up "
+                        + directorUp / 60_000 + " min, under 10)" : "")
                 : "FAIL " + String.join("; ", bad));
         out.addAll(lines);
         return out;

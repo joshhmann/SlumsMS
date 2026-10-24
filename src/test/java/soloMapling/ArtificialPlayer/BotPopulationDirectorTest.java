@@ -46,6 +46,7 @@ class BotPopulationDirectorTest {
         final long[] loginAt;
         final long[] logoutAt;
         final Set<Integer> pinned = new HashSet<>();
+        final Map<Integer, Integer> guildOf = new HashMap<>();
         int maxLoginsSeen;
 
         World(int size) {
@@ -78,8 +79,8 @@ class BotPopulationDirectorTest {
         BotPopulationDirector.Plan tick(ZonedDateTime when, BotPopulationCurve curve, int peak, int maxLogins,
                                         Random rng) {
             long now = when.toInstant().toEpochMilli();
-            BotPopulationDirector.Plan plan = BotPopulationDirector.plan(candidates(), curve.target(peak, when),
-                    when.getHour() * 60 + when.getMinute(), now, maxLogins, 25, rng);
+            BotPopulationDirector.Plan plan = BotPopulationDirector.plan(candidates(), guildOf,
+                    curve.target(peak, when), when.getHour() * 60 + when.getMinute(), now, maxLogins, 25, rng);
             for (int id : plan.logouts()) {
                 assertFalse(pinned.contains(id), "a bot holding a commitment was logged out");
                 online[id] = false;
@@ -221,5 +222,157 @@ class BotPopulationDirectorTest {
         BotPopulationDirector.releaseLogin(987655);
         assertTrue(BotPopulationDirector.claimLogin(987654));
         BotPopulationDirector.releaseLogin(987654);
+    }
+
+    // ── rc6: every bot guild keeps someone online ──
+
+    private static BotPopulationDirector.Candidate offline(int id, int windowStart, int windowLen) {
+        return new BotPopulationDirector.Candidate(id, false, true, 0, 0, windowStart, windowLen, 60, false);
+    }
+
+    private static BotPopulationDirector.Candidate onlineBot(int id, long loginAt) {
+        return new BotPopulationDirector.Candidate(id, true, true, loginAt, 0, 0, 1440, 100_000, true);
+    }
+
+    @Test
+    void anEmptyGuildGetsOneMemberWhenThereIsRoomUnderTheTarget() {
+        long now = TimeUnit.DAYS.toMillis(30);
+        List<BotPopulationDirector.Candidate> roster = new ArrayList<>();
+        for (int i = 0; i < 49; i++) {
+            roster.add(onlineBot(i, now - 1000));
+        }
+        // guild 7: three offline members; bot 102's window covers noon (720), the others' do not
+        roster.add(offline(100, 0, 60));
+        roster.add(offline(101, 0, 60));
+        roster.add(offline(102, 600, 240));
+        for (int i = 200; i < 260; i++) {
+            roster.add(offline(i, 0, 1440));
+        }
+        Map<Integer, Integer> guildOf = Map.of(100, 7, 101, 7, 102, 7);
+        // 49 online of 50: inside the 2% slack, so without the guild rule nobody logs in
+        BotPopulationDirector.Plan none = BotPopulationDirector.plan(roster, 50, 720, now, 25, 25, new Random(3));
+        assertTrue(none.logins().isEmpty());
+        int inWindow = 0;
+        for (int seed = 0; seed < 200; seed++) {
+            BotPopulationDirector.Plan plan = BotPopulationDirector.plan(roster, guildOf, 50, 720, now, 25, 25,
+                    new Random(seed));
+            assertEquals(1, plan.logins().size(), "one login, and never past the target");
+            assertEquals(1, plan.guildLogins());
+            int id = plan.logins().get(0);
+            assertTrue(id >= 100 && id <= 102, "a member of the empty guild logs in: " + id);
+            inWindow += id == 102 ? 1 : 0;
+        }
+        assertTrue(inWindow > 170, "the member whose hours fit now is preferred: " + inWindow + "/200");
+    }
+
+    @Test
+    void theGuildRuleNeverPassesTheTargetOrTouchesAGuildWithSomeoneOn() {
+        long now = TimeUnit.DAYS.toMillis(30);
+        List<BotPopulationDirector.Candidate> roster = new ArrayList<>();
+        for (int i = 0; i < 50; i++) {
+            roster.add(onlineBot(i, now - 1000));
+        }
+        roster.add(offline(100, 0, 1440));
+        roster.add(offline(101, 0, 1440));
+        Map<Integer, Integer> guildOf = Map.of(100, 7, 0, 8, 101, 8);
+        BotPopulationDirector.Plan atTarget = BotPopulationDirector.plan(roster, guildOf, 50, 720, now, 25, 25,
+                new Random(1));
+        assertTrue(atTarget.logins().isEmpty(), "at the target: no room, no guild login");
+        BotPopulationDirector.Plan room = BotPopulationDirector.plan(roster, guildOf, 52, 720, now, 25, 25,
+                new Random(1));
+        assertEquals(List.of(100), room.logins(), "guild 8 has bot 0 online; only guild 7 is empty");
+        BotPopulationDirector.Plan capped = BotPopulationDirector.plan(roster, guildOf, 52, 720, now, 0, 25,
+                new Random(1));
+        assertTrue(capped.logins().isEmpty(), "the per-tick login cap holds");
+    }
+
+    @Test
+    void aMemberOnTheCooldownOrRetiredIsNotLoggedInForItsGuild() {
+        long now = TimeUnit.DAYS.toMillis(30);
+        List<BotPopulationDirector.Candidate> roster = new ArrayList<>();
+        roster.add(new BotPopulationDirector.Candidate(100, false, true, now - 60_000, now - 1000, 0, 1440, 60, false));
+        roster.add(new BotPopulationDirector.Candidate(101, false, false, 0, 0, 0, 1440, 60, false));
+        BotPopulationDirector.Plan plan = BotPopulationDirector.plan(roster, Map.of(100, 7, 101, 7), 10, 720, now,
+                25, 25, new Random(1));
+        assertTrue(plan.logins().isEmpty(), plan.logins().toString());
+    }
+
+    @Test
+    void aboveTheCurveTheLastMemberOfAGuildLeavesLast() {
+        long now = TimeUnit.DAYS.toMillis(30);
+        List<BotPopulationDirector.Candidate> roster = new ArrayList<>();
+        // bot 0 logged in first (would leave first) and is guild 7's only member online
+        roster.add(onlineBot(0, now - 10_000));
+        for (int i = 1; i <= 20; i++) {
+            roster.add(onlineBot(i, now - 5_000 + i));
+        }
+        BotPopulationDirector.Plan plan = BotPopulationDirector.plan(roster, Map.of(0, 7), 15, 720, now, 25, 25,
+                new Random(1));
+        assertEquals(6, plan.logouts().size());
+        assertFalse(plan.logouts().contains(0), "guild 7's last member stays while others can go");
+        BotPopulationDirector.Plan all = BotPopulationDirector.plan(roster, Map.of(0, 7), 1, 720, now, 25, 25,
+                new Random(1));
+        assertEquals(20, all.logouts().size());
+        assertFalse(all.logouts().contains(0));
+        BotPopulationDirector.Plan none = BotPopulationDirector.plan(roster, Map.of(0, 7), 0, 720, now, 25, 25,
+                new Random(1));
+        assertTrue(none.logouts().contains(0), "it still goes when the curve needs everyone gone");
+    }
+
+    @Test
+    void aCommittedLastMemberIsNeverLoggedOutForTheGuildRule() {
+        World world = new World(300);
+        world.guildOf.put(0, 7);
+        world.online[0] = true;
+        world.loginAt[0] = 1;
+        world.pinned.add(0);
+        BotPopulationCurve curve = BotPopulationCurve.parse("flat", 1.0);
+        ZonedDateTime when = ZonedDateTime.of(2026, 10, 14, 12, 0, 0, 0, UTC);
+        for (int t = 0; t < 400; t++) {
+            world.tick(when, curve, 30, 25, new Random(t)); // the World asserts no pinned bot is logged out
+            when = when.plusSeconds(30);
+        }
+    }
+
+    @Test
+    void overSimulatedDaysEveryBotGuildKeepsSomeoneOnline() {
+        World world = new World(1500);
+        // ten guilds of 20 members, as the 1.5.0 bot guilds are seeded (~10% of members online on their own)
+        for (int g = 0; g < 10; g++) {
+            for (int k = 0; k < 20; k++) {
+                world.guildOf.put(g * 20 + k + 37, 1000 + g);
+            }
+        }
+        BotPopulationCurve curve = BotPopulationCurve.parse(BotPopulationCurve.DEFAULT, 1.0);
+        int peak = 400;
+        Random rng = new Random(17);
+        ZonedDateTime when = ZonedDateTime.of(2026, 10, 14, 0, 0, 0, 0, UTC);
+        world.tick(when, curve, peak, Integer.MAX_VALUE, rng);
+        int samples = 0, emptySamples = 0, guildLogins = 0;
+        double worstMiss = 0;
+        for (int t = 1; t < 2 * 24 * 120; t++) {
+            when = when.plusSeconds(30);
+            int before = world.onlineCount();
+            BotPopulationDirector.Plan plan = world.tick(when, curve, peak, 25, rng);
+            int target = curve.target(peak, when);
+            assertTrue(plan.guildLogins() == 0 || world.onlineCount() <= Math.max(before, target),
+                    "a guild login took the count past the target");
+            guildLogins += plan.guildLogins();
+            if (t >= 20) { // ten minutes in
+                int[] perGuild = new int[10];
+                world.guildOf.forEach((id, g) -> perGuild[g - 1000] += world.online[id] ? 1 : 0);
+                for (int n : perGuild) {
+                    samples++;
+                    emptySamples += n == 0 ? 1 : 0;
+                }
+            }
+            if (when.getMinute() == 0 && when.getSecond() == 0 && t > 120) {
+                worstMiss = Math.max(worstMiss, Math.abs(world.onlineCount() - target) / (double) peak);
+            }
+        }
+        assertTrue(guildLogins > 0, "the rule never had to act");
+        assertTrue(emptySamples * 1000L <= samples, "guilds stood empty in " + emptySamples + " of " + samples
+                + " guild-ticks");
+        assertTrue(worstMiss < 0.06, "the guild rule pushed the count off the curve: " + worstMiss);
     }
 }

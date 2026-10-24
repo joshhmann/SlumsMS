@@ -80,6 +80,21 @@ class BotGuildsTest {
     }
 
     @Test
+    void theDirectorSeesEveryBotGuildMemberAndItsGuild() {
+        BotGuilds.ensureLoaded(); // as the guild step does before it seeds
+        BotGuilds.seed(1000, new Random(5));
+        java.util.Map<Integer, Integer> of = BotGuilds.botGuildMembers();
+        assertEquals(220, of.size());
+        for (GuildRow g : BotGuilds.botGuilds()) {
+            for (MemberRow m : BotGuilds.membersOf(g.guildId())) {
+                assertEquals(g.guildId(), of.get(m.charId()), m.name());
+            }
+        }
+        BotGuilds.useForTest(store, id -> null, () -> roster); // a restart, not loaded yet
+        assertTrue(BotGuilds.botGuildMembers().isEmpty(), "never reads the database from the director's tick");
+    }
+
+    @Test
     void seedingWaitsForTheRosterAndNeverRunsWithoutTheMigration() {
         roster.clear();
         assertEquals(-1, BotGuilds.seed(1000, new Random(1)), "no roster yet: try again later");
