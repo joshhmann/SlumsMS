@@ -11,6 +11,22 @@ purchases, pacing, mix and model voice remain open for rc1 review. Checklist: `d
 This is not a Live release. Fishing, medals and the dungeon remain separate work. Earlier records below describe
 implementation on `160-bot-brain` and superseded local checkpoints, not the current backlog.
 
+## Decision-model comparison tooling
+
+Separate branch `160-decide-benchmark` (tool commit `647e1d5f1`) benchmarks the five owner-supplied endpoints on
+17 against 172 player-chat cases and the real RC1 request/parser/rules. See
+[`docs/convo/decide-model-benchmark.md`](../convo/decide-model-benchmark.md) for results and existing rule-bug leads;
+[`tools/convo/benchmark/README.md`](../../tools/convo/benchmark/README.md) has commands and the model-host agent brief.
+The owner approved gentle benchmarking of all five and is open to more than one decision model if useful.
+All five completed 172-case serial runs with zero transport/schema failures. Combined intent: current GLiNER
+81.4%, gliclass 86.0%, OneJev 84.9%, Laya 79.1%, Amber 77.9% (all Amber answers late). Gliclass is the first shadow
+candidate, with 129 ms p95 and fewer added mistakes than current GLiNER; fresh unseen and in-game checks remain.
+The benchmark also exposes seven existing false request intents from negation/quoting and three false abuse flags;
+these are separate server-rule bug leads, not fixes included here.
+That is authorization to evaluate, not a decision to ship a multi-model router. No endpoint, confidence threshold,
+daily-life scoring, economy, runtime flag or server deployment changes. This still reads players only; the brain
+itself makes no model calls. Full offline suite: 4,603 tests, zero failures/errors, 38 skipped; 8 Python tool tests pass.
+
 ## Complete first-test implementation
 
 The daily-life runtime is now connected to the existing bot update. Both `-Dslums.botlife.enabled=true` and

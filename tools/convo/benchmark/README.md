@@ -3,10 +3,13 @@
 This tests the model that reads **player chat**, not the bot's daily-life brain or the model that writes replies.
 The daily-life brain uses weighted scores and makes no model calls. See ticket 60 and ticket 59.
 
+Measured candidate results and rule-bug leads: [comparison report](../../../docs/convo/decide-model-benchmark.md).
+
 The benchmark asks exactly the server's current three choice questions in one `/v1/systemone` call:
 15 conversation intents, 4 tones, and 5 scam/abuse classes. The Java bridge exports `ChatDecide.request()` and
 replays responses through `ChatDecide.parse()` and `ConvoSense.combine()`. It also checks whether
 `ConvoSense.read()` would ask the model. No copied Python regexes or approximated rule precedence.
+Entity lookup uses the built-in aliases; this offline bridge does not warm the WZ name index or test destination resolution.
 
 No server starts, database access, game changes, or deployments are needed. Do not run the old `decide_probe.py`
 for model comparisons: it uses older question names and overwrites the historical recorded answers.

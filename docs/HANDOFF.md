@@ -6,6 +6,28 @@ something.
 
 Times: give the owner Pacific next to UTC (PDT = UTC-7).
 
+**Decision-model benchmark (separate tooling branch):** `160-decide-benchmark`, worktree
+`/root/work/SlumsMS-decide-benchmark`, based on frozen RC1 `6fae8d954`; tool commit `647e1d5f1`.
+The owner supplied five model endpoints on 17 and approved gentle comparisons of each, including current port
+8900. The tool sends the exact three production player-chat questions and replays answers through the real Java
+parser/rules with the existing 400 ms HTTP deadline and 0.4/0.8/0.4 thresholds. Daily-life scoring remains math.
+It includes 172 synthetic/development cases and a Python-only capture kit for the model-host agent.
+Full `mvn -q -o test`: **4,603 tests, 0 failures/errors, 38 skipped**, 421 classes; **8 Python tests pass**.
+Packaging, offline replay, default-classpath execution and the standalone capture-kit test pass.
+All five endpoints completed **172 cases each** (860 measured calls), serial at <=1 start/second, with zero
+transport/schema errors. Current GLiNER: **81.4%** combined intent, **118 ms p95**, 2 new wrong intents / 2 new
+false abuse flags. Gliclass: **86.0%**, **129 ms**, 1 / 1; OneJev: **84.9%**, **104 ms**, 4 / 1 and one 2.2 s late
+response; Laya: **79.1%**, **63 ms**, 16 / 0; Amber: **77.9%**, **715 ms**, all 172 over the 400 ms deadline.
+Rules-only intent is 77.9%; new negatives expose seven existing false request intents and three false abuse flags.
+Final reports share one dataset hash; the first gliclass capture was rescored after a manual label correction.
+Propose gliclass shadow comparison on fresh unseen cases, plus a separate negation/quote regression fix. No model
+switch or multi-model selector was implemented; footprint/peak capacity and real-client behavior remain unmeasured.
+Results, rule-bug leads, limitations and next steps: `docs/convo/decide-model-benchmark.md`;
+run commands / agent brief: `tools/convo/benchmark/README.md`. Original captures and reports are in the worktree's
+ignored `dist/`; `dist/slumsms-decide-kit.tar.gz` is the transfer package. No production Java, model endpoint
+selection, thresholds, game-server settings, deployment, restart, Live DB, desktop or Discord changes. Nothing
+merged into RC1 or 1.5.1. The isolated game server was not started for this tool work.
+
 **1.6.0-rc1 is prepared for TEST review:** branch `test-1.6.0-rc1`, worktree
 `/root/work/SlumsMS-160-rc1`. Annotated candidate tag `v1.6.0-rc1` points to the exact built code **`93cfe9b33`**;
 subsequent branch changes record QA only. Based on bot-brain checkpoint `d0de8c8e9`, with current 1.5.1 snapshot
