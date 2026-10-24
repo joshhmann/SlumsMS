@@ -162,8 +162,59 @@ drama) stay after it, because they carry rules ("never flirt with X", "PG-13", "
   item and its `PriceBook` value), training.
 - **Lines:** 2-4. One LLM call writes the whole exchange (`THREAD` priority: only when the local model has a spare
   slot); otherwise the bank's thread lines or a cut of a `ConversationDialogue` script. Timed with `HumanTiming`.
-- **Jump in:** while a thread is live (and 45 s after), a player's line on the map that names no one goes to the
-  thread's last speaker as a normal conversation, with "you were just talking with X about Y" in its card.
+- **Jump in:** while a thread is live (and 45 s after), a player's line that fits it (see 5a) goes to the thread's
+  last speaker as a normal conversation, with "you were just talking with X about Y" in its card (`JOIN`).
+
+## 5a. Who answers a line (1.5.0 rc6, owner's routing order)
+
+`ChatRoute` (pure; `Dispatcher.routeWithoutExactName` feeds it the map's chat log, positions, facing and the live
+thread). Before rc6 the newest bot speaker was tried before a live thread, so in a busy town a player never joined the
+thread they were obviously answering (auto-QA `t-cv-5`). The order now:
+
+1. **A name wins anywhere** on the map, in the bubble or not (exact, nickname or typo: `BotAddressee`; a near miss
+   asks "u talking to me?" first).
+2. **Facing:** the player faces a bot 200 px or less in front, about the same height (50 px), inside the bubble, and
+   it is the nearest bot that way. Facing comes from the player's last stance (odd = left); a player with no movement
+   yet (stance 0) or an auto-QA pretend player has no facing and the step is skipped.
+3. **A clear reply** to a bot line in the bubble: it shares a content word or an entity (map, mob, item, a name) with
+   that line (60 s), or answers a question asked in the last 60 s. In order: the live thread's lines share at least
+   as much as any single line (`3-reply-thread`); a bot line shares words (`3-reply-words`; a thread participant's
+   line joins the thread); the newest question (`3-reply-question`, newer than the chat the player was already in); a
+   short acceptance of the last speaker's ask (`3-reply-accept`); the bot already listening to the player
+   (`3-ongoing-chat`, ticket 37); the thread's last line was under 45 s ago (`3-thread-recent`).
+4. **Otherwise the closest bot in the bubble** answers (`4-closest`). With a GLiNER Decide endpoint configured, a
+   request for a kind of player ("which one of u is the thief") still asks the model first.
+5. **Nobody in the bubble and no name:** nobody answers (`5-none`); a line that names another real player also goes
+   to nobody.
+
+The **hearing bubble** is 400 px either side and 150 px up or down (`-Dsolomapling.convo.hearPx` / `hearPy`). Only
+bots that talk like players (social, training, follower and menu-less bots) are picked for an unnamed line. A yes to
+"u talking to me?", a menu-less bot's chat (ticket 21) and buff requests keep their own paths ahead of the order.
+
+### Routing log and offline labels
+
+Each decision is one `ROUTE CANDIDATES {json}` line in the QaLog CONVO topic and, when auto-QA is on or the JVM has
+`-Dsolomapling.convo.routeLog=true`, one row in `data/convo/routing/<day>.jsonl` (live writes nothing by default).
+The row has the player as a hash, the line with the player's name as `{player}` and other real players' as
+`{someone}`, the line's features (question, length, entities), the map's recent lines, every candidate (each bot
+that spoke on the map in the last 90 s, the faced bot, the closest bot, the listening bot, the named bot and
+`thread:<id>`) with `named`, `nameScore`, `secs`, `words`, `ents`, `question`, `addressed` (its line named the
+player), `thread`, `dist`, `dx`, `dy`, `bubble`, `facing`, `tier` (partner, friend, rival, nemesis, neutral) and its
+last line, then `chosen` and `step`.
+
+`tools/convo/route_labels.py` labels those rows offline: it shows a model the context and candidates in batches (10
+per call), asks which candidate the line replies to, appends `labels.jsonl` next to the input and prints how often
+the server's choice agrees, overall and per step. Cost is estimated before each call and the run stops before the
+budget (default $0.20) would pass. The key is read only from the env var named by `--key-env`:
+
+```
+set -a; . /root/.config/slumsms/cloud-llm.env; set +a
+python3 tools/convo/route_labels.py data/convo/routing/*.jsonl --base https://api.deepseek.com \
+    --model deepseek-flash --key-env SOLOMAPLING_LLM_CLOUD_API_KEY --extra reasoning_effort='"none"'
+python3 tools/convo/route_labels.py data/convo/routing/*.jsonl --score-only
+```
+
+Tests: `ChatRouteTest`, `RouteLogTest`, `python3 -m unittest discover -s tools/convo -p 'test_*.py'`.
 
 ## 6. Quality loop (owner decision 6)
 
@@ -313,7 +364,8 @@ Rollout switches (system properties, all default on except where noted):
 `solomapling.convo.contract`, `.sense` (the 3-question Decide call), `.card`, `.persona`, `.styler`, `.timing`,
 `.bank`, `.threads`, `.router`, `.quality`; `solomapling.convo.forceBank=true` (LLM off for chat: bank and scripts
 only, for comparison); `solomapling.convo.dataDir` (`data/convo`); `solomapling.convo.threadGapMin` (3) / `Max` (6);
-`solomapling.convo.scoreHour` (4).
+`solomapling.convo.scoreHour` (4); `solomapling.convo.hearPx` (400) / `hearPy` (150), the hearing bubble;
+`solomapling.convo.routeLog` (off: routing records to disk outside auto-QA).
 
 ## 11. Migrations
 

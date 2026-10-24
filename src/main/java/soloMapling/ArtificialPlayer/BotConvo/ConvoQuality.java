@@ -229,7 +229,7 @@ public final class ConvoQuality {
     }
 
     /** A short stable hash for a player in the transcript (never the name). */
-    static String hash(int playerId) {
+    public static String hash(int playerId) {
         return playerId <= 0 ? "-" : Integer.toHexString((playerId * 0x9E3779B1) ^ 0x5bd1e995);
     }
 

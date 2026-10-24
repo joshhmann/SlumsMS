@@ -153,6 +153,18 @@ class BotThreadsTest {
     }
 
     @Test
+    void routingSeesTheLiveThreadItsLastSpeakerAndWhenItLastSpoke() {
+        long now = System.currentTimeMillis();
+        BotThreads.putLiveForTest(2, 100000000, 10_001, "Kimchi", 10_002, "Bob", BotThreads.Topic.LFG, now + 30_000);
+        BotThreads.View v = BotThreads.liveView(2, 100000000, now);
+        assertEquals(java.util.List.of(10_001, 10_002), v.botIds());
+        assertEquals(10_002, v.lastSpeakerId());
+        assertEquals(now + 30_000 - BotThreads.JOIN_MS, v.lastLineAt());
+        assertNull(BotThreads.liveView(1, 100000000, now), "another channel");
+        assertNull(BotThreads.liveView(2, 100000000, now + 60_000), "over");
+    }
+
+    @Test
     void topicsParseFromGmWords() {
         assertEquals(BotThreads.Topic.GUILD_BEEF, BotThreads.Topic.parse("beef"));
         assertEquals(BotThreads.Topic.LFG, BotThreads.Topic.parse("lfg"));

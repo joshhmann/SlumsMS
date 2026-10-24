@@ -94,6 +94,11 @@ public final class BotThreads {
         final String about;
         volatile long endsAt;
         volatile int lastSpeakerId;
+        /** For the routing log ("thread:<id>"). */
+        final int id = SEQ.incrementAndGet();
+        volatile long startedAt;
+        /** When its last line went out (0 before the first). */
+        volatile long lastLineAt;
 
         Live(int channel, int mapId, List<Integer> botIds, List<String> names, Topic topic, String about, long endsAt,
              int lastSpeakerId) {
@@ -106,6 +111,16 @@ public final class BotThreads {
             this.endsAt = endsAt;
             this.lastSpeakerId = lastSpeakerId;
         }
+    }
+
+    private static final java.util.concurrent.atomic.AtomicInteger SEQ = new java.util.concurrent.atomic.AtomicInteger();
+
+    /**
+     * What chat routing needs to know about a live thread (1.5.0 rc6): who is in it, who spoke last and when, and
+     * when it started (its lines in {@code MapChatLog} are the participants' lines since then).
+     */
+    public record View(int id, List<Integer> botIds, List<String> names, int lastSpeakerId, long startedAt,
+                       long lastLineAt, String topic) {
     }
 
     static final long JOIN_MS = TimeUnit.SECONDS.toMillis(45);
@@ -325,6 +340,7 @@ public final class BotThreads {
         String about = about(topic, a, b);
         Live l = new Live(channel, map.getId(), List.of(a.getId(), b.getId()), List.of(a.getName(), b.getName()), topic,
                 about, now + TimeUnit.MINUTES.toMillis(2), a.getId());
+        l.startedAt = now;
         live.put(key(channel, map.getId()), l);
         lastThreadOf.put(a.getId(), l);
         lastThreadOf.put(b.getId(), l);
@@ -467,7 +483,8 @@ public final class BotThreads {
                 }
                 SayDo.withSource("thread-" + source, () -> BotSpeak(who, styled));
                 l.lastSpeakerId = who.getId();
-                l.endsAt = System.currentTimeMillis() + JOIN_MS;
+                l.lastLineAt = System.currentTimeMillis();
+                l.endsAt = l.lastLineAt + JOIN_MS;
                 ConvoQuality.threadLine(who, l.mapId, styled, source, l.topic.words);
                 qa(l.mapId, "THREAD LINE [" + source + "] " + who.getName() + ": " + styled);
             });
@@ -492,6 +509,18 @@ public final class BotThreads {
         }
         qa(mapId, "JOIN a player jumps into " + l.names + " (" + l.topic.words + "): " + ConvoQuality.anonymise(line, playerName));
         return l.lastSpeakerId;
+    }
+
+    /** The live thread on a map, for chat routing, or null (none, over, or threads switched off). */
+    public static View liveView(int channel, int mapId, long now) {
+        if (!ConvoSwitches.on("threads")) {
+            return null;
+        }
+        Live l = live.get(key(channel, mapId));
+        if (l == null || now > l.endsAt) {
+            return null;
+        }
+        return new View(l.id, l.botIds, l.names, l.lastSpeakerId, l.startedAt, l.lastLineAt, l.topic.words);
     }
 
     /** The memory card's line for a player who joined a thread with this bot. */
@@ -523,6 +552,7 @@ public final class BotThreads {
     /** Test seam: a live thread on a map. */
     static void putLiveForTest(int channel, int mapId, int a, String nameA, int b, String nameB, Topic topic, long endsAt) {
         Live l = new Live(channel, mapId, List.of(a, b), List.of(nameA, nameB), topic, null, endsAt, b);
+        l.lastLineAt = Math.max(0, endsAt - JOIN_MS);
         live.put(key(channel, mapId), l);
         lastThreadOf.put(a, l);
         lastThreadOf.put(b, l);

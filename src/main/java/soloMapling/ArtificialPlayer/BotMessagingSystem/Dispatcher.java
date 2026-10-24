@@ -110,13 +110,16 @@ public class Dispatcher implements Runnable {
     }
 
     /**
-     * bot-persistence ticket 19: a line with no exact bot name may still be aimed at one - a nickname or typo
-     * ("hey resme"), an answer to the bot that just spoke ("ill come"), or a yes to a bot that asked "u talking to
-     * me?". Lines of a conversation already under way keep their old path. Returns true when the line was handled.
+     * bot-persistence ticket 19, reordered in 1.5.0 rc6 by the owner ({@link ChatRoute}): a line with no exact bot
+     * name - (1) a name, nickname or typo wins anywhere on the map; (2) a close bot the player faces; (3) a clear reply
+     * to a bot line in the hearing bubble, or to a live thread there; (4) else the closest bot in the bubble; (5) no
+     * bot in the bubble: public chat, nobody answers. A yes to "u talking to me?", a menu bot's chat (ticket 21) and a
+     * buff request keep their own paths. Every decision is logged ({@link RouteLog}). True when the line was handled.
      */
     private boolean routeWithoutExactName(Collection<Character> charsOnMap, ChatMessage message) {
         Character sender = message.getSender();
         long now = System.currentTimeMillis();
+        String content = message.getContent();
         BotChatRouting.Pending pending = BotChatRouting.pendingFor(sender.getId());
         if (pending != null) {
             BotSM asker = getBotById(pending.botId());
@@ -131,111 +134,141 @@ public class Dispatcher implements Runnable {
         }
         List<BotAddressee.Candidate> nearby = new ArrayList<>();
         List<String> otherPlayers = new ArrayList<>();
+        java.util.Map<Integer, ChatRoute.Bot> bots = new java.util.LinkedHashMap<>();
+        boolean natural = BotMenus.natural();
         for (Character chr : charsOnMap) {
             if (chr.getId() == sender.getId() || checkIfInvisibleBot(chr.getId())) {
                 continue;
             }
-            if (getBotById(chr.getId()) != null) {
+            BotSM bot = getBotById(chr.getId());
+            if (bot != null) {
                 nearby.add(new BotAddressee.Candidate(chr.getId(), chr.getName(), chr.getJob().getId()));
+                java.awt.Point at = chr.getPosition();
+                bots.put(chr.getId(), new ChatRoute.Bot(chr.getId(), chr.getName(), at.x, at.y,
+                        natural && talksNaturally(bot)));
             } else {
                 otherPlayers.add(chr.getName());
             }
         }
-        BotAddressee.Result named = nearby.isEmpty() ? null : BotAddressee.resolve(message.getContent(), nearby);
-        // Owner report 2026-10-22: a nameless line answers the bot that just spoke on this map ("anyone from the east
-        // coast?" -> "im from the east"), not whichever bot happens to be listening or in a thread.
-        boolean nameless = named == null || !(named.sure() || named.worthAsking() || named.ambiguous());
-        MapChatLog.Line answersBot = nameless && !BotChatRouting.namesSomeoneElse(message.getContent(), otherPlayers)
-                ? answeredLine(sender, message.getContent(), now) : null;
-        BotChatRouting.Attention listening = BotChatRouting.attention(sender.getId());
-        if (answersBot != null && listening != null && listening.botId() != answersBot.speakerId()
-                && MapChatLog.isQuestion(answersBot.text()) && answersBot.at() > listening.lastAt()) {
-            // a newer question from another bot than the last line of the chat the player was in
-            routeToAnswered(answersBot, sender, message.getContent());
+        if (nearby.isEmpty()) {
+            return false;
+        }
+        BotAddressee.Result named = BotAddressee.resolve(content, nearby);
+        int listening = listeningBot(sender, content, named, otherPlayers, now);
+        BotChatRouting.Attention attention = listening < 0 ? null : BotChatRouting.attention(sender.getId());
+        int channel = sender.getClient() == null ? 1 : sender.getClient().getChannel();
+        List<MapChatLog.Line> lines = MapChatLog.recent(MapChatLog.channelOf(sender.getMap()), sender.getMapId(), now);
+        java.awt.Point me = sender.getPosition();
+        ChatRoute.Decision d = ChatRoute.decide(lines,
+                new ChatRoute.Player(sender.getId(), sender.getName(), content, me.x, me.y, facingLeft(sender), listening,
+                        attention == null ? 0 : attention.lastAt()),
+                bots, soloMapling.ArtificialPlayer.BotConvo.BotThreads.liveView(channel, sender.getMapId(), now), named,
+                RouteLog.wanted() ? bot -> tierOf(bot, sender.getId()) : null, now);
+        java.util.function.BiConsumer<Integer, String> logAs = (bot, step) -> {
+            BotSM b = bot < 0 ? null : getBotById(bot);
+            String key = d.step().label.equals(step) ? d.chosenKey()
+                    : b == null || b.getChr() == null ? null : b.getChr().getName();
+            RouteLog.log(sender.getMapId(), sender.getId(), sender.getName(), content, d, key, step, lines, otherPlayers,
+                    now);
+        };
+        // 1. a name wins anywhere, in the bubble or across the map
+        if (d.step() == ChatRoute.Step.NAME) {
+            logAs.accept(d.botId(), d.step().label);
+            handleBotRunning(new int[]{d.botId()}, message);
             return true;
         }
-        // Ticket 37: the bot this player is talking to keeps listening for a while - unless the line is for
-        // someone else, the player went quiet, or walked away.
-        if (followUpToListeningBot(sender, message.getContent(), named, otherPlayers, now)) {
+        if (d.step() == ChatRoute.Step.NAME_ASK) {
+            logAs.accept(d.botId(), d.step().label);
+            askFirst(d.botId(), message, now);
             return true;
         }
-        // Mid-chat with a bot that has no menu: the next line is for that bot (ticket 21).
+        if (BotChatRouting.namesSomeoneElse(content, otherPlayers)) {
+            logAs.accept(-1, ChatRoute.Step.NONE.label + " (names a player)");
+            return true; // a line to another player: no bot butts in
+        }
+        // Mid-chat with a bot that has no menu and does not talk naturally: the next line is for that bot (ticket 21).
         int partner = BotConversation.partnerOf(sender.getId());
         BotSM partnerBot = partner < 0 ? null : getBotById(partner);
         if (partnerBot != null && !partnerBot.consumesFreeText() && partnerBot.getChr() != null
                 && partnerBot.getChr().getMapId() == sender.getMapId()
-                && !(BotMenus.natural() && talksNaturally(partnerBot))) { // natural talkers: attention decides
+                && !(BotMenus.natural() && talksNaturally(partnerBot))) {
+            logAs.accept(partner, ChatRoute.Step.OTHER.label + " (menu-bot chat)");
             BotNoiseFilter.noteEngaged(sender.getId(), partner);
-            BotConversation.say(partnerBot, sender, message.getContent(), null);
+            BotConversation.say(partnerBot, sender, content, null);
             return true;
         }
-        if (soloMapling.ArtificialPlayer.BotBuffRequestSystem.BotBuffRequestHandler.isBuffRequest(message.getContent())) {
+        if (soloMapling.ArtificialPlayer.BotBuffRequestSystem.BotBuffRequestHandler.isBuffRequest(content)) {
+            logAs.accept(-1, ChatRoute.Step.OTHER.label + " (buff request)");
             return true; // "hs pls": the buff handler already has the nearest eligible bot cast it
         }
-        if (nearby.isEmpty()) {
-            return false;
+        BotSM chosen = d.botId() < 0 ? null : getBotById(d.botId());
+        if (chosen == null || chosen.getChr() == null || chosen.getChr().getMapId() != sender.getMapId()) {
+            logAs.accept(-1, ChatRoute.Step.NONE.label);
+            return true; // 5. nobody in the bubble: public chat
         }
-        if (named.sure()) {
-            handleBotRunning(new int[]{named.best().id()}, message);
-            return true;
+        if (d.step().thread()) {
+            // ticket 59: the player joins the thread; its last speaker answers with the thread in mind (JOIN)
+            soloMapling.ArtificialPlayer.BotConvo.BotThreads.jumpIn(channel, sender.getMapId(), sender.getName(), content,
+                    now);
         }
-        if (named.worthAsking() || named.ambiguous()) {
-            askFirst(named.best().id(), message, now);
-            return true;
-        }
-        if (answersBot != null) {
-            routeToAnswered(answersBot, sender, message.getContent());
-            return true;
-        }
-        // Ticket 59: two bots are talking on this map - a line that names no one joins their thread, and the bot that
-        // spoke last answers it like any chat.
-        if (!BotChatRouting.namesSomeoneElse(message.getContent(), otherPlayers)) {
-            Integer threadBot = soloMapling.ArtificialPlayer.BotConvo.BotThreads.jumpIn(
-                    sender.getClient() == null ? 1 : sender.getClient().getChannel(), sender.getMapId(), sender.getName(),
-                    message.getContent(), now);
-            BotSM joined = threadBot == null ? null : getBotById(threadBot);
-            if (joined != null && joined.getChr() != null && joined.getChr().getMapId() == sender.getMapId()) {
-                executor.execute(() -> talkNaturally(joined, sender, message.getContent()));
-                return true;
+        if (d.step() == ChatRoute.Step.CLOSEST && BotChatRouting.decideConfigured()) {
+            // a request for a kind of player ("which one of u is the thief") still asks the decision model first -
+            // a network call, so off the dispatcher; the closest bot answers when it has no confident pick
+            List<BotAddressee.Candidate> hearing = new ArrayList<>();
+            for (ChatRoute.Candidate c : d.candidates()) {
+                if (c.inBubble() && !c.key().startsWith("thread:")) {
+                    BotAddressee.Candidate n = nearby.stream().filter(x -> x.id() == c.botId()).findFirst().orElse(null);
+                    if (n != null) {
+                        hearing.add(n);
+                    }
+                }
             }
-        }
-        // Layer 3a: a short acceptance right after a bot asked or recruited answers that bot.
-        BotChatRouting.LastSpeaker last = BotChatRouting.lastSpeaker(sender.getMapId(), now);
-        java.util.Optional<Integer> answered = BotChatRouting.replyToLastSpeaker(message.getContent(), last);
-        if (answered.isPresent() && getBotById(answered.get()) != null) {
-            handleBotRunning(new int[]{answered.get()}, message);
+            executor.execute(() -> {
+                java.util.Optional<BotChatRouting.Choice> pick = BotChatRouting.decideByJob(content, hearing);
+                if (pick.isPresent() && pick.get().confidence() >= config.YamlConfig.config.server.BOT_DECIDE_ASK) {
+                    logAs.accept(pick.get().botId(), ChatRoute.Step.OTHER.label + " (job request)");
+                    askFirst(pick.get().botId(), message, System.currentTimeMillis());
+                } else {
+                    logAs.accept(d.botId(), d.step().label);
+                    routeTo(chosen, d, sender, content);
+                }
+            });
             return true;
         }
-        // Layer 3b: a request for a kind of player ("can i get a bless") - a network call, so off the dispatcher. The
-        // model is right often, not always, so the one bot of that kind asks first instead of answering outright.
-        executor.execute(() -> BotChatRouting.decideByJob(message.getContent(), nearby).ifPresent(choice -> {
-            if (choice.confidence() >= config.YamlConfig.config.server.BOT_DECIDE_ASK) {
-                askFirst(choice.botId(), message, System.currentTimeMillis());
-            }
-        }));
+        logAs.accept(d.botId(), d.step().label);
+        routeTo(chosen, d, sender, content);
         return true;
     }
 
-    /**
-     * The bot line a nameless line most plausibly answers ({@link MapChatLog#answeredBy}), when its bot is still on
-     * the map and talks like a player; else null.
-     */
-    private static MapChatLog.Line answeredLine(Character sender, String line, long now) {
-        List<MapChatLog.Line> lines = MapChatLog.recent(MapChatLog.channelOf(sender.getMap()), sender.getMapId(), now);
-        MapChatLog.Line l = MapChatLog.answeredBy(lines, sender.getId(), line, now);
-        if (l == null || !BotMenus.natural() || checkIfInvisibleBot(l.speakerId())) {
-            return null;
+    /** The player's facing from their last stance (odd = left), or null when it cannot be read. */
+    static Boolean facingLeft(Character player) {
+        if (player.getClient() instanceof client.SyntheticClient || player.getStance() == 0) {
+            return null; // a pretend player sends no movement; stance 0 = no movement seen yet
         }
-        BotSM bot = getBotById(l.speakerId());
-        return bot != null && bot.getChr() != null && bot.getChr().getMapId() == sender.getMapId()
-                && talksNaturally(bot) ? l : null;
+        return player.isFacingLeft();
     }
 
-    private void routeToAnswered(MapChatLog.Line answered, Character sender, String line) {
-        BotSM bot = getBotById(answered.speakerId());
+    /** How a bot feels about the player, for the routing log: partner, friend, rival, nemesis or neutral. */
+    static String tierOf(int botId, int playerId) {
+        try {
+            soloMapling.ArtificialPlayer.BotDramaSystem.Romance r =
+                    soloMapling.ArtificialPlayer.BotDramaSystem.BotRomance.with(playerId, botId);
+            if (r != null && r.stage().together()) {
+                return "partner";
+            }
+            soloMapling.ArtificialPlayer.BotAffinitySystem.AffinityState s =
+                    soloMapling.ArtificialPlayer.BotAffinitySystem.BotAffinity.state(botId, playerId);
+            return s == null ? "neutral" : s.label();
+        } catch (RuntimeException | LinkageError e) {
+            return "-";
+        }
+    }
+
+    private void routeTo(BotSM bot, ChatRoute.Decision d, Character sender, String line) {
         if (soloMapling.qa.QaLog.on(soloMapling.qa.QaLog.Topic.CONVO)) { // !qa cv-8
             soloMapling.qa.QaLog.map(soloMapling.qa.QaLog.Topic.CONVO, sender.getMapId(), "ROUTE \"" + line + "\" -> "
-                    + answered.speaker() + " (answers its \"" + answered.text() + "\")");
+                    + bot.getChr().getName() + " [" + d.step().label + "]"
+                    + (d.answers() == null ? "" : " (answers its \"" + d.answers().text() + "\")"));
         }
         executor.execute(() -> talkNaturally(bot, sender, line));
     }
@@ -272,12 +305,15 @@ public class Dispatcher implements Runnable {
                 || (!bot.consumesFreeText() && !showsOwnHint(bot));
     }
 
-    /** A line for the bot that is listening to this player, sent to it. False when no bot is listening any more. */
-    private boolean followUpToListeningBot(Character sender, String line, BotAddressee.Result named,
-                                           List<String> otherPlayers, long now) {
+    /**
+     * Ticket 37: the bot listening to this player (-1 none). Attention ends - and is dropped - when the player went
+     * quiet, walked away or turned to someone else.
+     */
+    private int listeningBot(Character sender, String line, BotAddressee.Result named, List<String> otherPlayers,
+                             long now) {
         BotChatRouting.Attention attention = BotChatRouting.attention(sender.getId());
         if (attention == null) {
-            return false;
+            return -1;
         }
         BotSM listening = BotMenus.natural() ? getBotById(attention.botId()) : null;
         Character chr = listening == null ? null : listening.getChr();
@@ -291,10 +327,9 @@ public class Dispatcher implements Runnable {
         }
         if (drift != BotChatRouting.Drift.LISTENING) {
             BotChatRouting.dropAttention(sender.getId());
-            return false;
+            return -1;
         }
-        executor.execute(() -> talkNaturally(listening, sender, line));
-        return true;
+        return attention.botId();
     }
 
     /**

@@ -18,7 +18,7 @@ import java.util.regex.Pattern;
  * the player answered "im from the east", and the bot that replied had no idea what was asked). One shared log per
  * map and channel holds every public line - players, the bots' LLM replies, scripted ambient and pack lines, thread
  * lines, bank lines - with the speaker's name and id. Every reply prompt shows it as a transcript, and a line that
- * names nobody goes to the bot it most plausibly answers ({@link #answeredBy}).
+ * names nobody is routed by {@link ChatRoute} (1.5.0 rc6; {@link #answeredBy} was the earlier rule).
  */
 public final class MapChatLog {
 

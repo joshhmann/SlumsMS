@@ -128,7 +128,7 @@ public final class ConvoEntities {
         });
     }
 
-    static String norm(String s) {
+    public static String norm(String s) {
         return s == null ? "" : s.toLowerCase(Locale.ROOT).replaceAll("[^a-z0-9 ]", " ").replaceAll("\\s+", " ").trim();
     }
 

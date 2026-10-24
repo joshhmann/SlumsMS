@@ -402,7 +402,9 @@ public final class AutoQaCatalog {
         c.add(Check.auto("t-cv-5", "Join a bot-to-bot conversation").minutes(4)
                 .step(run("cv-5"), waitFor("CONVO THREAD LINE", 30), waitSeconds(10), say("i can come too"),
                         waitFor("CONVO JOIN", 20), waitSeconds(12))
+                // rc6 chat routing: the unnamed line goes to the thread (step 3), not to the newest speaker
                 .expect(has("CONVO THREAD "), atLeast(2, "CONVO THREAD LINE"), has("CONVO JOIN"),
+                        has("CONVO ROUTE CANDIDATES .*\"step\":\"3-(reply-thread|thread-recent)\""),
                         judged(SAID, "a bot in a group chat answers a player who joined the conversation", 3), noEmoji(),
                         Expects.sayDo(130))
                 .build());
