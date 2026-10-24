@@ -220,6 +220,9 @@ final class DramaScenarios {
             romanceOnForRun(ctx);
             unstageAtStop(ctx);
             List<String> out = new ArrayList<>(act(ctx, "stage", "ex"));
+            // 1.5.1 rm-4: the objection takes the first ex and the reception crash skips the objector, so a single ex
+            // meant no crasher ever stood at the wedding ("CRASH: nobody to crash the reception"). A second ex crashes.
+            out.addAll(act(ctx, "stage", "ex"));
             out.addAll(act(ctx, "stage", "dating", "60"));
             act(ctx, "object");
             act(ctx, "crash");

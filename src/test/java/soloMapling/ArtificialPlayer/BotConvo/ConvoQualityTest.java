@@ -132,6 +132,16 @@ class ConvoQualityTest {
     }
 
     @Test
+    void timingIsCountedFromThePlayersLineNotFromThePlan() {
+        // t-cv-4 on TEST 2026-10-24: a split reply whose brain had already taken 855 ms logged "+150 ms" for its first
+        // part and was failed as "planned faster than 900 ms" although the player waited 1,005 ms for it.
+        List<HumanTiming.Part> parts = List.of(new HumanTiming.Part(150, "not much,"), new HumanTiming.Part(4900, "gg"));
+        assertEquals(List.of(1_005L, 5_905L), ConvoQuality.cumulativeMs(parts, 855));
+        assertEquals(List.of(150L), ConvoQuality.cumulativeMs(List.of(new HumanTiming.Part(150, "hi")), 0));
+        assertEquals(List.of(0L), ConvoQuality.cumulativeMs(List.of(new HumanTiming.Part(0, "hi")), -40));
+    }
+
+    @Test
     void theDailyScoreRunsAtTheConfiguredHour() {
         java.time.ZoneId zone = java.time.ZoneId.of("America/Chicago");
         long at3 = java.time.LocalDateTime.of(2026, 10, 22, 3, 0).atZone(zone).toInstant().toEpochMilli();

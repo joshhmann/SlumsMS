@@ -981,6 +981,53 @@ final class GameQaWorld implements QaWorld {
         if (map == null || p == null) {
             return 0;
         }
+        // auto-QA rv-2: a "fight" the pretend player stands far away for is no fight - the mobs it damages sit on
+        // another platform, the bots it stages for the drama land elsewhere, and nobody can ever take a mob from it.
+        // Walk the player onto the nearest mob first (a GM teleport, same map), whenever it is not already there.
+        server.life.Monster nearest = null;
+        double bestSq = Double.MAX_VALUE;
+        for (server.life.Monster m : map.getAllMonsters()) {
+            Point mp = m.getPosition();
+            if (m.isAlive() && mp != null && m.getHp() > 1) {
+                double d = p.distanceSq(mp);
+                if (d < bestSq) {
+                    bestSq = d;
+                    nearest = m;
+                }
+            }
+        }
+        if (nearest == null) {
+            return 0;
+        }
+        Point mp = nearest.getPosition();
+        if (Math.abs(mp.x - p.x) > 100 || Math.abs(mp.y - p.y) > 60) {
+            gm.changeMap(map, new Point(mp.x, mp.y)); // a GM teleport onto the mobs, same map
+            p = gm.getPosition();
+        }
+        List<server.life.Monster> near = within(map, p, rangeX, rangeY);
+        Point at = p;
+        near.sort(java.util.Comparator.comparingDouble(m -> at.distanceSq(m.getPosition())));
+        List<String> hit = new ArrayList<>();
+        int n = 0;
+        for (server.life.Monster m : near) {
+            if (n >= max) {
+                break;
+            }
+            m.applyFakeDamage(gm, 1, true); // the game's own attacker record: Monster.isAttackedBy(gm) from now on
+            if (soloMapling.qa.QaLog.on(soloMapling.qa.QaLog.Topic.AFFINITY)) {
+                hit.add(m.getObjectId() + "@" + m.getPosition().x + "," + m.getPosition().y);
+            }
+            n++;
+        }
+        if (soloMapling.qa.QaLog.on(soloMapling.qa.QaLog.Topic.AFFINITY)) {
+            soloMapling.qa.QaLog.map(soloMapling.qa.QaLog.Topic.AFFINITY, gm.getMapId(), "FIGHT "
+                    + gm.getName() + " at " + p.x + "," + p.y + " hit " + hit);
+        }
+        return n;
+    }
+
+    /** The living mobs around {@code p} that a fake hit can land on (they keep at least 1 HP). */
+    private static List<server.life.Monster> within(MapleMap map, Point p, int rangeX, int rangeY) {
         List<server.life.Monster> near = new ArrayList<>();
         for (server.life.Monster m : map.getAllMonsters()) {
             Point mp = m.getPosition();
@@ -989,16 +1036,7 @@ final class GameQaWorld implements QaWorld {
                 near.add(m);
             }
         }
-        near.sort(java.util.Comparator.comparingDouble(m -> p.distanceSq(m.getPosition())));
-        int n = 0;
-        for (server.life.Monster m : near) {
-            if (n >= max) {
-                break;
-            }
-            m.applyFakeDamage(gm, 1, true); // the game's own attacker record: Monster.isAttackedBy(gm) from now on
-            n++;
-        }
-        return n;
+        return near;
     }
 
     @Override

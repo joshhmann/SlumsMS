@@ -19,6 +19,14 @@ import java.awt.Point;
  */
 public final class AffinityStaging {
 
+    /**
+     * The level range a staged bot that does not fight is given. The floor is the one BotRecruitManager keeps:
+     * a bot under level 10 ignores party invites outright, so a QA bot staged below it can never answer the
+     * invite a check sends (auto-QA t-pb-1's rival came out at level 7 and the check saw no decision line).
+     */
+    static final int SOCIAL_MIN_LEVEL = 10;
+    static final int SOCIAL_MAX_LEVEL = 45;
+
     private AffinityStaging() {
     }
 
@@ -28,9 +36,12 @@ public final class AffinityStaging {
         boolean fights = training && MapMobIndex.mobCount(gm.getMapId()) > 0;
         int slot = BotStore.nextDynamicSlots(1);
         Point at = soloMapling.ArtificialPlayer.StageSpots.nearGm(gm); // rc6 (QA t-pb-1): spread, on the ground
+        // The level floor holds for a fighting staged bot too: a hostile one (a rival, a nemesis) fights, and on a
+        // low-level mob map it came out under 10 - too young to be answered on a party invite (auto-QA t-pb-1).
         int id = fights
-                ? BotGeneration.createBot(slot, at, gm.getMap(), 0, Math.max(1, mobLevel), Math.max(10, mobLevel + 12))
-                : BotGeneration.createBot(slot, at, gm.getMap());
+                ? BotGeneration.createBot(slot, at, gm.getMap(), 0, Math.max(SOCIAL_MIN_LEVEL, mobLevel),
+                        Math.max(SOCIAL_MAX_LEVEL, mobLevel + 12))
+                : BotGeneration.createBot(slot, at, gm.getMap(), 0, SOCIAL_MIN_LEVEL, SOCIAL_MAX_LEVEL);
         if (id <= 0) {
             return -1;
         }

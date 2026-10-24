@@ -358,10 +358,22 @@ public final class DramaKit {
             Point at = player.getPosition() == null ? new Point(0, 0) : new Point(player.getPosition());
             at.translate(offsetX, 0);
             if (offsetX != 0) { // rc6 (QA t-pb-1): either side near the player, on the ground, clear of others
-                at = soloMapling.ArtificialPlayer.StageSpots.near(map, player.getPosition() == null ? at
+                Point staged = soloMapling.ArtificialPlayer.StageSpots.near(map, player.getPosition() == null ? at
                         : player.getPosition());
+                // Only when the spot is on the player's own ledge: a staged spot one platform up still put a KS war
+                // helper 300 px above the player, outside the reach it takes mobs in (auto-QA t-rv-2).
+                if (staged != null && Math.abs(staged.y - at.y) <= 30) {
+                    at = staged;
+                }
             }
             if (bot.getMapId() != map.getId()) {
+                bot.changeMap(map, at);
+            } else if (grind && (bot.getPosition() == null
+                    || Math.abs(bot.getPosition().x - at.x) > 120 || Math.abs(bot.getPosition().y - at.y) > 120)) {
+                // A bot already on the player's map keeps its own spot, so a guildmate training on another ledge of
+                // the same map never came to the rally and fought its own mobs (auto-QA t-rv-2: 0 of 3 helpers ever
+                // took a mob from the player). A rally that made the bot run here puts it beside the player; a
+                // walk-in scene (grind false) still walks.
                 bot.changeMap(map, at);
             }
             if (grind) {

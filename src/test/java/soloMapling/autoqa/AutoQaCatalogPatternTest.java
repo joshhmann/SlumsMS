@@ -190,6 +190,50 @@ class AutoQaCatalogPatternTest {
     }
 
     @Test
+    void rv2CountsTheWarEvenWhenTheNemesisStartsItBeforeTheMark() {
+        // On TEST 2026-10-24 16:20 the nemesis called its own war 14 s into the run, before the harness reached its
+        // mark; the old rule looked for a call after the mark, found none, and failed a war that behaved correctly.
+        Check c = AutoQaCatalog.find("t-rv-2");
+        AutoQaRunnerTest.FakeWorld w = new AutoQaRunnerTest.FakeWorld();
+        CheckRun r = runAt(c, w);
+        w.qa("RIVALRY", "KS WAR Nemesis calls 2 bot(s) on AutoQaOne (Helper1, Helper2) for 180 s");
+        for (int i = 0; i < 6; i++) {
+            w.now += 10;
+            w.qa("AFFINITY", "KS Helper1 takes Snail (oid " + i + ") from AutoQaOne, 3 left");
+        }
+        r.mark("war");
+        assertTrue(AutoQaCatalog.ksAtMostFive(r).contains("Helper1 took 6"));
+        w.now += 10;
+        w.qa("RIVALRY", "KS WAR over on 44 (stopped): 2 bot(s) went back");
+        w.now += 10;
+        w.qa("AFFINITY", "KS Helper1 takes Snail (oid 99) from AutoQaOne, 3 left"); // after the war: not its mobs
+        assertTrue(AutoQaCatalog.ksAtMostFive(r).contains("Helper1 took 6"), "a take after the war is not counted");
+    }
+
+    @Test
+    void cb2DoesNotCountABotThatWalksWithAMobFarBehindIt() {
+        // TEST 2026-10-24: 22 of 52 POSITION samples were "FACING AWAY" with the nearest mob 150-550 px away - bots
+        // walking their platform, not bots fighting with their back turned.
+        Check c = AutoQaCatalog.find("t-cb-2");
+        AutoQaRunnerTest.FakeWorld w = new AutoQaRunnerTest.FakeWorld();
+        CheckRun r = runAt(c, w);
+        for (int i = 0; i < 11; i++) {
+            w.qa("POSITION", "Walker WARRIOR lv 10 at (500,-85) facing left, nearest Spore dx " + (150 + i * 40)
+                    + ", FACING AWAY");
+        }
+        assertEquals(null, AutoQaCatalog.positionsMostlyGood(r), "a stroller far from every mob is not facing wrong");
+        for (int i = 0; i < 10; i++) {
+            w.qa("POSITION", "Close WARRIOR lv 10 at (500,-85) facing left, nearest Spore dx " + (10 + i)
+                    + ", FACING AWAY" + " (walking past)");
+        }
+        assertEquals(null, AutoQaCatalog.positionsMostlyGood(r), "which way a walking bot faces is not a fault");
+        for (int i = 0; i < 3; i++) {
+            w.qa("POSITION", "Sitter WARRIOR lv 10 at (500,-85) facing left, nearest Spore dx 2 INSIDE its body, facing it");
+        }
+        assertTrue(AutoQaCatalog.positionsMostlyGood(r).contains("3 of 24"), "standing inside a mob counts");
+    }
+
+    @Test
     void td2FloorIsTheBandsLowEndNotTheOpeningAsk() {
         Check c = AutoQaCatalog.find("t-td-2");
         AutoQaRunnerTest.FakeWorld w = new AutoQaRunnerTest.FakeWorld();

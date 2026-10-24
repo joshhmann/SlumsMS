@@ -167,14 +167,48 @@ Owner-reported or found, roughly by priority:
 - **PQ bots "not great"** (a friend's report; times/channel to come from the owner). Also tone down PQ lobby spam.
 - **Shutdown noise:** the nav-graph warm-up thread logs "footholds is null" while maps unload at shutdown; skip
   warm-up once shutdown starts.
-- **Open auto-QA leads** in the latest mixed report: af-1, af-2, rv-2, rm-1, rm-4, cv-2, cv-5, cv-7, cb-2.
-  gu-1 is now a repaired QA check with two passing server runs (section 2 item 8). The original full-run baseline
-  was 54 PASS / 9 FAIL / 11 SKIP; its QA logs and journal were read during the first bug-fix pass. In that older run:
-  rm-4 explicitly logged "nobody to crash the reception (no ex or rival online)" after staging an ex (fixture issue).
-  af-1 did greet the player, but its judge also graded ambient arrow-shopping chat as a greeting. cv-5's routing
-  snapshot chose the staged Orbis-PQ speaker by reply words while its active thread candidate was a different
-  Kerning-PQ thread; thread fixture isolation needs investigation. The missing KS/follow actions,
-  chat-content judgements and combat positions still need separate reproduction and fixes.
+- **Auto-QA harness fixes (branch `151-qa-chat-gate`, commits `79f30a3bb`, `3da97eee4`; on TEST 2026-10-24).**
+  Five checks failed for reasons outside the game, and all five now pass on TEST: rv-2 (a spree helper credits a
+  mob it is already fighting, and heads back to its rival instead of grinding another ledge; the pretend player
+  walks to the mobs when its "fight" finds none), rv-4 (`!qa do revenge` was being dropped - see below), pb-1
+  (staged bots are level 10-45, fighting ones included: a level-7 rival ignores party invites), rm-4 (two exes
+  staged: the objection takes one, the other crashes; an ex is no longer recruited as a wedding guest, which made
+  it "busy" and unable to crash) and rm-1 (starts off HHG2 so its follow warp is a real map change).
+  **The dropped GM line was a server bug too:** the chat gate compares stamps against the tick clock
+  (`UPDATE_INTERVAL`, 777 ms on both servers), so two lines typed ~400 ms apart can land in the same tick and the
+  second is dropped silently. GM chat and whispers are now exempt; **real players still lose a line typed inside
+  one tick** - a gameplay change to raise the resolution or the window is the owner's call.
+- **Second/third auto-QA rounds (same branch, commits `55d628170`, `e69ec3318`, and the rally fix after it).**
+  Full run on the fixes above: **60 PASS / 4 FAIL / 11 SKIP of 75**. Three of the four are now green on TEST:
+  bb-2 (a no from an earlier run inside `refusalDays` swallowed the buddy request even with the fixture's
+  `certainBuddies`; the QA answer's style was also being judged "too formal" - the judge prompt now says slang is
+  fine but not required), ga-1 (nothing ever wrote a `NOTICE [11] ...` line for the check to see, and the jackpot
+  rolled last after a rare had already used the character's one notice per 60 s), cb-2 (every POSITION sample with
+  the nearest mob in the bot's back counted, so 22 of 52 were strollers 150-550 px from any mob; facing away now
+  counts only at 45 px, standing inside a mob still always counts). The KS-war helper rule also no longer needs the
+  check's mark: a nemesis that calls its own war 14 s in used to make it fail with "no KS WAR call after the mark".
+- **Open: KS war helpers grind on their own platform** (ticket 66, t-rv-2, about half the runs). `DramaKit.bringTo`
+  only moves a helper that is on a different map; on a stacked map (104040000) the helpers end up 300-500 px above
+  the player and `ksPick`'s 350x90 px reach never touches the player's mobs. Fixed here: same-map helpers are moved
+  too when a scene grinds, and a staged spot is used only on the player's own ledge (|dy| <= 30). Still open: the
+  training brain picks its own grind spot after landing, so a scene cannot keep the helper beside the player. Needs
+  a forced/pinned grind spot for a scene's duration (`WorldEventSteer.hold` pins only the map; `GCMovement.follow`
+  made the helpers stop fighting).
+- **Full auto-QA baseline on the fixed build (2026-10-24 17:43-19:20 UTC, `all`, 75 checks): 56 PASS / 7 FAIL /
+  12 SKIP** (was 54/9/11, then 57/7, then 60/4). Green again: rv-2, rv-4, pb-1, rm-1, rm-4, bb-2, ga-1. Also fixed
+  since: cv-4 (the reply log printed each fragment's remaining wait instead of its offset from the player's line, so a
+  split reply that took 1,005 ms read "+150 ms" and failed "planned faster than 900 ms"). Failures now:
+  gw-1 (the enemy guild killed nothing: `ZakumSlayerz killed nothing`, turf staging/time, not the harness), gw-4 +
+  gu-5 (`at least 1 x BOT_GUILD BOSS RUN` / SKIP "a boss run is already on (SlumLords)": the alliance's joint boss
+  run never started because a boss run was already up), cv-5 (thread routing fixture: `{thread}` is filled and the
+  route still picks the staged speaker by reply words), cv-7 (judge BAD on a bank line - content quality), cb-2 (13 of
+  52 POSITION samples had a bot `INSIDE` a mob's body, dx 11-34: melee bots do clip into the mobs they hit - a real
+  bot behaviour wart, not a metric artefact, so the ratio stays) and rv-2 half the time (ticket 66).
+- **Remaining auto-QA leads:** af-1/af-2 (flaky - both passed several runs on this build, fail when the staged bot
+  greets through `CONVO SAID` instead of `AFFINITY ACT`), cv-2/cv-5/cv-7 (chat-content judgements and thread
+  fixture isolation; cv-5's routing snapshot picked the staged speaker by reply words while its thread candidate was
+  a different PQ thread). Original baseline was 54 PASS / 9 FAIL / 11 SKIP; the mixed report after the first pass
+  was 55/9, then 57/7, then 60/4.
 - **Partial-nightly lead:** af-2 also failed on the old build during the interrupted 3:00 AM PT (10:00 UTC) nightly (missing
   taunt/KS action). It needs reproduction on the latest build; it was not changed as part of these fixes.
   The account-cache exception found in the older logs is fixed (section 2 item 6).

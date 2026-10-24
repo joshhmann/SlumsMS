@@ -436,10 +436,12 @@ public final class BotBuddies {
                 }
                 return;
             }
+            boolean certain = certain(); // auto-QA bb-2: the run makes the accept sure, even after an earlier no
             if (existing == null || existing.link() == Link.SENT || existing.link() == Link.RESENT
                     || existing.link() == Link.DECLINED || existing.link() == Link.DELETED
                     || (existing.link() == Link.REFUSED
-                    && today(System.currentTimeMillis()) - existing.day() >= (long) setting("refusalDays", 1))) {
+                    && (certain || today(System.currentTimeMillis()) - existing.day()
+                    >= (long) setting("refusalDays", 1)))) {
                 rows().put(new Row(bot.charId(), player.getId(), Link.REQUESTED, 0));
             } else if (existing.link() == Link.REFUSED) {
                 return; // asked again too soon after a no: ignored, like a person would
