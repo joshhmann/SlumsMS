@@ -2,7 +2,8 @@
 # Deploy this checkout to the TEST server (never live). Builds the jar, copies it plus every runtime data file that
 # changed since the last test deploy, applies pending migrations, restarts the test unit and checks the boot.
 #
-#   tools/ops/deploy-test [--skip-build] [--dry-run] [--since <commit>] [--no-migrations]
+#   tools/ops/deploy-test [--feature] [--skip-build] [--dry-run] [--since <commit>] [--no-migrations]
+# --feature targets only /opt/mapleroot-dev/bot-life-160 (slums-life160 / mapleroot_life160); never shared TEST/live.
 #
 # What it touches, all on root@192.168.0.164:
 #   /opt/mapleroot-dev/persistence-test/Server/   target/Cosmic.jar, scripts/**, src/main/** (non-.java), cashshop/
@@ -26,6 +27,7 @@ DBN=mapleroot_persist
 SKIP_BUILD=0; DRY=0; SINCE=""; MIGRATE=1
 while [ $# -gt 0 ]; do
   case "$1" in
+    --feature) BASE=/opt/mapleroot-dev/bot-life-160; SRV=$BASE/Server; UNIT=slums-life160; DBN=mapleroot_life160 ;;
     --skip-build) SKIP_BUILD=1 ;;
     --dry-run) DRY=1 ;;
     --since) SINCE="$2"; shift ;;
@@ -78,11 +80,15 @@ for m in "${MIGS[@]}"; do scp -q "$m" $HOST:$D/files/; done
 printf '%s\n' "${GONE[@]}" | ssh $HOST "cat > $D/deleted.txt"
 echo "$HEAD $VERSION $SHA" | ssh $HOST "cat > $D/DEPLOY.txt"
 
-ssh $HOST bash -s -- "$D" "$HEAD" "$MIGRATE" <<'REMOTE'
+ssh $HOST bash -s -- "$D" "$HEAD" "$MIGRATE" "$BASE" "$UNIT" "$DBN" <<'REMOTE'
 set -euo pipefail
 D=$1; HEAD=$2; MIGRATE=$3
-BASE=/opt/mapleroot-dev/persistence-test; SRV=$BASE/Server; UNIT=slums-persistence-test
-DBC=mapleroot-integration-db; DBN=mapleroot_persist
+BASE=$4; SRV=$BASE/Server; UNIT=$5
+DBC=mapleroot-integration-db; DBN=$6
+case "$BASE:$UNIT:$DBN" in
+ /opt/mapleroot-dev/persistence-test:slums-persistence-test:mapleroot_persist|/opt/mapleroot-dev/bot-life-160:slums-life160:mapleroot_life160) ;;
+ *) echo "refusing unknown test target" >&2; exit 1 ;;
+esac
 db() { docker exec -i $DBC sh -c 'mysql -uroot -p"$MYSQL_ROOT_PASSWORD" -N -B '"$DBN" 2>/dev/null; }
 
 systemctl stop $UNIT || true
