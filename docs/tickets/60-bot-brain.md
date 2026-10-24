@@ -98,6 +98,14 @@ must not silently pick them. No live database reads are needed for the first sli
 
 ## Checkpoint 1: scorer and inspection (2026-10-24)
 
+**Next checkpoint approved by the owner:** use provisional blends and seed goals from each bot's current level
+and gear for the first test version. Implement stable, versioned seven-archetype blends; derive job/gear goals
+without granting anything; adapt loaded session, local affinity and activity context without lazy database reads;
+show eligibility and full score breakdowns in the shadow inspector. Add an acceptance boundary that rechecks
+commitments and only makes action facts available after an executor accepts. Keep automatic execution disabled
+until its adapters and staged QA are ready. Document provisional constants and test the persona/context fixtures,
+unknown/stale inputs, rejected/failed executors and say-do ordering. Do not replace DeepSeek's shared TEST build.
+
 Implemented in `BotLifeSystem/LifeDecision.java`:
 
 - Immutable needs, options and score breakdowns, with caller-supplied weights, context/personality bonuses, time,
