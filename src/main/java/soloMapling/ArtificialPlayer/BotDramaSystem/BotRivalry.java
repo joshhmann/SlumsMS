@@ -730,10 +730,17 @@ public final class BotRivalry {
 
     /** GM / !qa: arm a rival to follow the player's next map change now (the daily cap for the pair is cleared). */
     public static String armNow(Character bot, Character player) {
+        // rc6 auto-QA triage (t-rv-4, 2026-10-23): the check apologises first (+30: rival -> neutral), then re-arms;
+        // a neutral bot never follows, so the second and third follows never came. Re-arming makes it a rival again.
+        String again = "";
+        if (!BotAffinity.hostile(bot.getId(), player.getId())
+                && BotAffinity.stage(bot.getId(), player.getId(), AffinityState.RIVAL)) {
+            again = " (your rival again)";
+        }
         long pair = ((long) player.getId() << 32) | (bot.getId() & 0xffffffffL);
         DramaKit.release("rv:arc:" + pair);
         armed.put(player.getId(), new Arm(bot.getId(), player.getMapId(), now() + TimeUnit.MINUTES.toMillis(10)));
-        return bot.getName() + " will follow you once to the next map you enter (it must still be your rival)";
+        return bot.getName() + again + " will follow you once to the next map you enter (it must still be your rival)";
     }
 
     /** GM / !qa: end the KS war on the player now. */

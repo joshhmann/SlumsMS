@@ -194,9 +194,18 @@ final class QaTradeScenarios {
     // ---- tr-4: gifts ----
 
     /**
-     * tr-4: a social bot next to the GM that counts it as a friend, with 5m and a 60% scroll. For the run a friend
-     * bot that sees the GM gives a gift for sure (the weekly limit forgotten for this pair); {@code !qa do gift
-     * [potions|scroll|mesos]} forces one now.
+     * What the tr-4 bot is given so a meso gift can always go out: a meso gift keeps half the bot's wealth ceiling
+     * ({@code BotGifts.mesos}), so a flat 5m left a bot with a high ceiling "nothing suitable" (rc6 triage, t-gf-1's
+     * 14:28 UTC run). Half the ceiling plus 1m (gifts are 100k-500k), at least 5m.
+     */
+    static int giftPurse(long ceiling) {
+        return (int) Math.min(Integer.MAX_VALUE / 2, Math.max(5_000_000L, Math.max(0, ceiling) / 2 + 1_000_000L));
+    }
+
+    /**
+     * tr-4: a social bot next to the GM that counts it as a friend, with half its wealth ceiling + 1m (at least 5m)
+     * and a 60% scroll. For the run a friend bot that sees the GM gives a gift for sure (the weekly limit forgotten for
+     * this pair); {@code !qa do gift [potions|scroll|mesos]} forces one now.
      */
     static final class Tr4Gift implements QaScenario {
         private volatile int botId;
@@ -215,7 +224,7 @@ final class QaTradeScenarios {
             }
             int id = botId;
             ctx.onStop("unstage the friend bot", () -> w.unstageAffinityBot(id));
-            ctx.log("bot " + botId + " given " + w.giveBotMeso(botId, 5_000_000) + " mesos");
+            ctx.log("bot " + botId + " given " + w.giveBotMeso(botId, giftPurse(w.botCeiling(botId))) + " mesos");
             giveBot(ctx, botId, SWORD_60, 1);
             trade.forgetGift(botId, ctx.gm().getId());
             trade.certainGifts(true);

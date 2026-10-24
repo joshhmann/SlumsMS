@@ -59,7 +59,10 @@ public final class SayDo {
     public record Event(Ev kind, int mapId, long at) {
     }
 
-    /** The bot and its addressee when the claim was made. {@code holds}: the S>/B> item is in its bag / wants. */
+    /**
+     * The bot and its addressee when the claim was made. {@code holds}: the S>/B> item is in its bag / wants; for a
+     * "trade me" ({@link ClaimRules.Kind#TRADE_ASK}) that the bot takes a trade opened now.
+     */
     public record Start(int mapId, int x, int y, boolean partied, int targetMap, int targetX, int targetY,
                         boolean holds, boolean shop) {
     }
@@ -474,6 +477,16 @@ public final class SayDo {
                 return first(evs, Ev.TRADE) != null ? Verdict.yes("trade window")
                         : windowOver ? Verdict.no("no trade") : Verdict.WAIT;
             }
+            case TRADE_ASK -> {
+                // "trade me" asks the reader to open the trade; what the bot promises is to take it
+                if (first(evs, Ev.TRADE) != null) {
+                    return Verdict.yes("trade window");
+                }
+                if (s != null && s.holds()) {
+                    return Verdict.yes("takes a trade");
+                }
+                return windowOver ? Verdict.no("would not take a trade") : Verdict.WAIT;
+            }
             case RESUPPLY -> {
                 return first(evs, Ev.RESUPPLY) != null ? Verdict.yes("resupply trip")
                         : windowOver ? Verdict.no("no resupply trip") : Verdict.WAIT;
@@ -701,7 +714,9 @@ public final class SayDo {
             Point tp = target == null ? null : target.getPosition();
             boolean holds = false;
             boolean shop = false;
-            if (claim.kind() == ClaimRules.Kind.SELL || claim.kind() == ClaimRules.Kind.BUY) {
+            if (claim.kind() == ClaimRules.Kind.TRADE_ASK) {
+                holds = ClaimActions.takesTrade(bot, target);
+            } else if (claim.kind() == ClaimRules.Kind.SELL || claim.kind() == ClaimRules.Kind.BUY) {
                 holds = ClaimActions.holdsOrWants(bot, claim);
                 try {
                     shop = soloMapling.Economy.BotShops.hasShop(bot.getId()) || bot.getPlayerShop() != null

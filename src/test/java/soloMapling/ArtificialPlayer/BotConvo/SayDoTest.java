@@ -106,6 +106,13 @@ class SayDoTest {
         public boolean holdsOrWants(Character bot, ClaimRules.Claim claim) {
             return false;
         }
+
+        boolean takes;
+
+        @Override
+        public boolean takesTrade(Character bot, Character from) {
+            return takes;
+        }
     }
 
     World world;
@@ -238,6 +245,36 @@ class SayDoTest {
         ClaimRules.Claim sell = ClaimRules.classify("S> ilbis 4m").get(0);
         assertTrue(SayDo.judge(sell, new SayDo.Start(1, 0, 0, false, -1, 0, 0, true, false), null, List.of(), false).backed());
         assertEquals("does not hold 'ilbis'", SayDo.judge(sell, alone, still, List.of(), true).why());
+    }
+
+    /**
+     * rc6 auto-QA run of 21095df97: every "trade me" (426) was UNBACKED "no trade" because nobody opened one. The ask
+     * is judged like "inv me": by its premise - the bot takes a trade when one is opened - or by a trade window.
+     */
+    @Test
+    void tradeMeIsBackedWhenTheBotTakesTrades() {
+        ClaimRules.Claim ask = ClaimRules.classify("just trade me").get(0);
+        assertEquals(ClaimRules.Kind.TRADE_ASK, ask.kind());
+        SayDo.Start takes = new SayDo.Start(1, 0, 0, false, -1, 0, 0, true, false);
+        SayDo.Start not = new SayDo.Start(1, 0, 0, false, -1, 0, 0, false, false);
+        SayDo.Now now = new SayDo.Now(true, 1, 0, 0, -1, 0, 0, 0);
+        assertEquals("takes a trade", SayDo.judge(ask, takes, now, List.of(), false).why());
+        assertNull(SayDo.judge(ask, not, now, List.of(), false).backed(), "a window may still open");
+        assertEquals("trade window", SayDo.judge(ask, not, now,
+                List.of(new SayDo.Event(SayDo.Ev.TRADE, 1, 0)), false).why());
+        assertEquals("would not take a trade", SayDo.judge(ask, not, now, List.of(), true).why());
+        assertFalse(SayDo.judge(ask, not, now, List.of(), true).backed());
+        ClaimRules.Claim promise = ClaimRules.classify("ill trade u for it").get(0);
+        assertFalse(SayDo.judge(promise, takes, now, List.of(), true).backed(), "a promise needs the window itself");
+    }
+
+    @Test
+    void ambientTradeMeOnlyFromABotThatTakesTrades() {
+        Character b = bot(1_000_000_010, "scammer");
+        game.takes = false;
+        assertFalse(ambient(b, "trade me any equip and ill upgrade it for free no scam i swear"));
+        game.takes = true;
+        assertTrue(ambient(b, "drop game still running! trade me to get in!"));
     }
 
     @Test

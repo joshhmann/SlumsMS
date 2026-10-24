@@ -340,8 +340,22 @@ public class BotGeneration {
         } else {
             soloMapling.server.SoloMaplingUtilities.channel().removePlayer(fakechar);
         }
-        for (net.server.channel.Channel ch : BotChannels.channels()) {
-            if (ch != own && ch.getPlayerStorage().getCharacterById(fakechar.getId()) == fakechar) {
+        removeFromOthers(fakechar, own, BotChannels.channels());
+    }
+
+    /**
+     * Out of every channel but its own that still holds it. A channel that was shut down keeps its place in the world
+     * with no player storage (Channel.shutdown sets it null): skipped. rc6 auto-QA triage: gu-8's "unstage the guild
+     * bots" threw a NullPointerException here on the test server, and the staged bots stayed online.
+     */
+    static void removeFromOthers(Character fakechar, net.server.channel.Channel own,
+                                 Iterable<net.server.channel.Channel> channels) {
+        for (net.server.channel.Channel ch : channels) {
+            if (ch == null || ch == own) {
+                continue;
+            }
+            net.server.PlayerStorage ps = ch.getPlayerStorage();
+            if (ps != null && ps.getCharacterById(fakechar.getId()) == fakechar) {
                 ch.removePlayer(fakechar);
             }
         }

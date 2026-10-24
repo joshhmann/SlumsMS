@@ -357,8 +357,10 @@ public class Guild {
         try {
             for (GuildCharacter mgc : members) {
                 for (Channel cs : Server.getInstance().getChannelsFromWorld(world)) {
-                    if (cs.getPlayerStorage().getCharacterById(mgc.getId()) != null) {
-                        cs.getPlayerStorage().getCharacterById(mgc.getId()).sendPacket(serverNotice);
+                    var ps = cs.getPlayerStorage(); // null on a channel that was shut down
+                    Character c = ps == null ? null : ps.getCharacterById(mgc.getId());
+                    if (c != null) {
+                        c.sendPacket(serverNotice);
                         break;
                     }
                 }

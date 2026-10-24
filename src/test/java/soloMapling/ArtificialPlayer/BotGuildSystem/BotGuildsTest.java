@@ -21,6 +21,21 @@ class BotGuildsTest {
     final List<Integer> roster = new ArrayList<>();
 
     @Test
+    void aQaSureFriendJoinsUnderTheSoftLimitButPastItRollsTheRealDice() {
+        // rc6 auto-QA t-gu-2: the first friend lost its 95% roll, so no invite ever reached "bots 1/2"
+        int bot = 1_000_000_901;
+        assertEquals(0.97, BotGuilds.rollFor(bot, 0.95, 0.97), "not staged: the real roll");
+        BotGuilds.qaSureJoin(bot, true);
+        try {
+            assertEquals(0.0, BotGuilds.rollFor(bot, 0.95, 0.97), "under the soft limit: a sure yes");
+            assertEquals(0.97, BotGuilds.rollFor(bot, 0.32, 0.97), "past the soft limit: the real dice");
+        } finally {
+            BotGuilds.qaSureJoin(bot, false);
+        }
+        assertEquals(0.97, BotGuilds.rollFor(bot, 0.95, 0.97), "undone at stop");
+    }
+
+    @Test
     void delayedGuildInviteIsDroppedIfPlayerBecameBusy() {
         client.Character player = org.mockito.Mockito.mock(client.Character.class);
         org.mockito.Mockito.when(player.getTrade()).thenReturn(org.mockito.Mockito.mock(server.Trade.class));

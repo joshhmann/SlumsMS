@@ -523,6 +523,14 @@ public abstract class BotSM implements EventSubscriber {
         return this.currentTradeMode;
     }
 
+    /**
+     * rc6 say-do: a merchant-type bot is set up to take a trade (it has an item up or wants one and checks its trade
+     * queue), so its "trade me" is true. Bots that trade in person go through {@code BotDirectTrade} instead.
+     */
+    public boolean takesTradesNow() {
+        return currentTradeMode != BotTradeSM.TradeMode.NULL;
+    }
+
     protected void tradeInitialized(BotTradeSM.TradeMode tradeMode) {
         startTradeSM(tradeMode);
     }

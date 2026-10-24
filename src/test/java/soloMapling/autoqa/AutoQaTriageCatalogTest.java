@@ -82,6 +82,37 @@ class AutoQaTriageCatalogTest {
     }
 
     @Test
+    void aWaitWithNothingInReachIsNotAHitch() {
+        // t-bk-1 (2026-10-23 22:00 UTC): RNGslaveZ hit a Red Snail, then logged "not sent: no targetable mobs within
+        // 700px" every 400 ms for 5 s until one walked back: "1 of 1 swings waited over 3 s" was that wait
+        List<AutoQaLine> lines = List.of(attack(1, "A", 660, 800, false),
+                new AutoQaLine(2, "qa", "ATTACK", "A FP_ARCHMAGE skill 2121007 not sent: no targetable mobs within 700px"),
+                attack(3, "A", 240, 5063, true));
+        assertNull(AutoQaCatalog.pacing(lines, true));
+        // another bot's empty reach does not excuse this one's hitch
+        List<AutoQaLine> other = List.of(attack(1, "A", 660, 800, false),
+                new AutoQaLine(2, "qa", "ATTACK", "B BISHOP skill 2321007 not sent: no targetable mobs within 700px"),
+                attack(3, "A", 660, 5063, false));
+        assertNotNull(AutoQaCatalog.pacing(other, true));
+    }
+
+    @Test
+    void rv2FightsBeforeTheKsWarIsCalled() {
+        List<String> s = steps("t-rv-2");
+        int fight = index(s, "!qa do fight"), war = index(s, "!qa do kswar");
+        assertTrue(fight >= 0 && fight < war, s.toString());
+    }
+
+    @Test
+    void cb4StepsOntoABotAndFightsThenWantsAYield() {
+        List<String> s = steps("t-cb-4");
+        int step = index(s, "!qa do stepon"), fight = index(s, "!qa do fight");
+        assertTrue(step > index(s, "wait 30 s") && fight > step, s.toString());
+        String all = AutoQaCatalog.find("t-cb-4").expects().stream().map(Check.Expect::describe).toList().toString();
+        assertTrue(all.contains("YIELD|CROWDED"), all);
+    }
+
+    @Test
     void gu2ExpectsTheSoftHalfBotsLimit() {
         String all = AutoQaCatalog.find("t-gu-2").expects().stream().map(Check.Expect::describe).toList().toString();
         assertTrue(all.contains("bots 1/2"), all);

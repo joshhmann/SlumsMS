@@ -342,10 +342,9 @@ public final class DramaGm {
                         ? soloMapling.ArtificialPlayer.BotGuildSystem.BotGuilds.guild(a.rivalId()) : null;
                 if (target != null && java.util.Arrays.asList(args).contains("fresh")) {
                     // !qa gw-1: a war the pair already fights (ambient) ends quietly, so the declaration is seen
-                    GuildWarStore.War running = GuildWars.warBetween(a.guildId(), target.guildId());
-                    if (running != null && running.active() && running.kind() == GuildWarStore.Kind.WAR) {
-                        GuildWars.endQuietly(running);
-                        out.add("ended the war already on between them (#" + running.id() + ") to declare it fresh");
+                    String ended = GuildWars.endForFreshDeclare(a.guildId(), target.guildId());
+                    if (ended != null) {
+                        out.add(ended);
                     }
                 }
                 var w = GuildWars.declare(a, target, gm.getName());
@@ -360,6 +359,13 @@ public final class DramaGm {
                 }
                 // only the GM's own guild when it has one: never a war on whoever else is online
                 int mine = gm.getGuildId() > 0 && !soloMapling.ArtificialPlayer.BotGuildSystem.BotGuilds.isBotGuild(gm.getGuildId()) ? gm.getGuildId() : 0;
+                if (mine > 0 && java.util.Arrays.asList(args).contains("fresh")) {
+                    // !qa gw-2: a war left on from an earlier run ends first, so this run declares (and megaphones)
+                    String ended = GuildWars.endForFreshDeclare(a.guildId(), mine);
+                    if (ended != null) {
+                        out.add(ended);
+                    }
+                }
                 out.addAll(GuildWars.checkPlayerGuilds(a, System.currentTimeMillis(),
                         java.util.concurrent.ThreadLocalRandom.current(), true, mine));
                 if (gm.getGuildId() > 0) {

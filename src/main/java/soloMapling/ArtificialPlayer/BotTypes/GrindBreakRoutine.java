@@ -137,6 +137,9 @@ final class GrindBreakRoutine {
         muttered = false;
         restStarted = false;
         bot.sayContext("BreakStart", chr, null);
+        // rc6 say-do: the break is the "brb bathroom" / "afk a sec" it just said (it walks to the rest spot, then rests)
+        soloMapling.ArtificialPlayer.BotConvo.SayDo.event(chr, soloMapling.ArtificialPlayer.BotConvo.SayDo.Ev.IDLE,
+                chr.getMapId());
         bot.debugChat("break -> " + (restKind == RestSpotFinder.Kind.ROPE ? "rope hang"
                 : (sitting ? "sit" : "stand")) + " at x" + restSpot.x + " y" + restSpot.y);
         // Travel setup happens here (not on the phase's first tick): the destination is known and the

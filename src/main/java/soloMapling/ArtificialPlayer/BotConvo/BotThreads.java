@@ -520,7 +520,21 @@ public final class BotThreads {
         if (l == null || now > l.endsAt) {
             return null;
         }
-        return new View(l.id, l.botIds, l.names, l.lastSpeakerId, l.startedAt, l.lastLineAt, l.topic.words);
+        return new View(l.id, l.botIds, l.names, l.lastSpeakerId, l.startedAt, l.lastLineAt, subject(l.topic, l.about));
+    }
+
+    /**
+     * What a thread is about, as routing reads it: the topic and its detail ("looking for a party (Ludi PQ)"), so a
+     * player's "lpq? i can come too" is a clear reply to it even when the two bots' own lines never said "lpq".
+     */
+    static String subject(Topic topic, String about) {
+        return topic.words + (about == null || about.isBlank() ? "" : " (" + about + ")");
+    }
+
+    /** The detail of the live thread on a map ("Ludi PQ", "Legendz vs ZakumSlayerz"), else its topic; null none. */
+    public static String aboutOf(int channel, int mapId) {
+        Live l = live.get(key(channel, mapId));
+        return l == null ? null : l.about != null && !l.about.isBlank() ? l.about : l.topic.words;
     }
 
     /** The memory card's line for a player who joined a thread with this bot. */

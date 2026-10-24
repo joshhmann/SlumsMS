@@ -270,6 +270,10 @@ public final class ChatRoute {
                         te.addAll(keys(ConvoEntities.find(l.text())));
                     }
                 }
+                if (thread.topic() != null) { // the thread's subject ("looking for a party (Ludi PQ)") counts too
+                    tw.addAll(MapChatLog.words(thread.topic()));
+                    te.addAll(keys(ConvoEntities.find(thread.topic())));
+                }
                 for (String n : thread.names()) {
                     te.add("player:" + ConvoEntities.norm(n));
                     tw.remove(n.toLowerCase(Locale.ROOT));

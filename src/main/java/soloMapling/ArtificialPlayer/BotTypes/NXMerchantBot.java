@@ -66,6 +66,11 @@ public class NXMerchantBot extends BotSM {
         resetLastTradedCharacter();
     }
 
+    /** rc6 say-do: its code is up for trade (the filler item in the window, 50m wanted): "S> 10k nx code" is true. */
+    public boolean sellsCode() {
+        return takesTradesNow() && getTradeInventory() != null && getTradeInventory().getMainItemForSale() != null;
+    }
+
     private void advertise() {
         List<String> messages = List.of(
                 "Selling 10k nx cash code, 50m TRADE ME!",
@@ -76,7 +81,8 @@ public class NXMerchantBot extends BotSM {
                 "S>> 10,000 NX code, 50m, serious offers only",
                 "got nx codes, 10k for 50m, trade me fast"
         );
-        SocialCommands.BotSpeak(getChr(), getRandomElement(messages));
+        String msg = getRandomElement(messages);
+        soloMapling.ArtificialPlayer.BotConvo.SayDo.withSource("ad", () -> SocialCommands.BotSpeak(getChr(), msg));
     }
 
     private void deliverNXCode() {
@@ -157,7 +163,7 @@ public class NXMerchantBot extends BotSM {
             case ADVERTISE:
                 // 4% (1/25) Chance to advertise flavor, 96% chance to advertise NX
                 if (rollChanceInverse(25)) {
-                    getDialogueHandler().executeBotFlavorDialogue(getRandomElement(FLAVOR_NODES), this);
+                    getDialogueHandler().executeBotFlavorDialogueBacked(getRandomElement(FLAVOR_NODES), this); // rc6 say-do
                 } else {
                     advertise();
                 }

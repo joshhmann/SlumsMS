@@ -1266,7 +1266,7 @@ public final class QaScenarios {
     static final class Af2Rival extends AffinityScenario {
         public String id() { return "af-2"; }
         public String title() { return "A bot rival or nemesis: trash talk, KS sprees, refusals, defame (ticket 58)"; }
-        public String usage() { return "[rival|nemesis]; then !qa do grudge"; }
+        public String usage() { return "[rival|nemesis]; then !qa do fight | grudge"; }
 
         public List<String> stage(QaContext ctx) {
             String state = word(ctx.args(), "rival", "rival", "nemesis");
@@ -1278,10 +1278,39 @@ public final class QaScenarios {
                     "It never follows you to another map. !qa do grudge forces a fresh grudge and a KS spree now.");
         }
 
+        /** GMs whose run "fights": every tick they hit the mobs around them again (as rv-2's fight). */
+        final Set<Integer> fighting = ConcurrentHashMap.newKeySet();
+        static final int FIGHT_X = 500, FIGHT_Y = 120, FIGHT_MOBS = 8;
+
+        @Override
+        public int tickSeconds() {
+            return 5;
+        }
+
+        @Override
+        public void tick(QaContext ctx) {
+            if (fighting.contains(ctx.run().gmId()) && ctx.gmNow() != null) {
+                ctx.world().playerHitsMobs(ctx.gmNow(), FIGHT_X, FIGHT_Y, FIGHT_MOBS);
+            }
+        }
+
         public List<String> action(QaContext ctx, String name, String[] args) {
+            if ("fight".equals(name)) {
+                // rc6 auto-QA triage (t-af-2: no KS line in any run): a rival's KS spree takes only a mob the player
+                // has hit (AffinityReactions.ksPick: Monster.isAttackedBy), and the pretend player never attacks.
+                Character gm = ctx.gmNow() != null ? ctx.gmNow() : ctx.gm();
+                int n = ctx.world().playerHitsMobs(gm, FIGHT_X, FIGHT_Y, FIGHT_MOBS);
+                int gmId = ctx.run().gmId();
+                if (fighting.add(gmId)) {
+                    ctx.onStop("stop fighting", () -> fighting.remove(gmId));
+                }
+                String line = "fighting: hit " + n + " mob(s) within " + FIGHT_X + " px (again every 5 s)";
+                ctx.run().note("STEP", line);
+                return List.of(line);
+            }
             Integer id = bot(ctx);
             if (!"grudge".equals(name) || id == null) {
-                throw new QaRefusal("af-2 steps: grudge");
+                throw new QaRefusal("af-2 steps: grudge, fight");
             }
             String result = ctx.world().forceGrudge(id, ctx.gm());
             ctx.run().note("STEP", result);

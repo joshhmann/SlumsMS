@@ -207,6 +207,15 @@ public interface QaWorld {
      */
     String pickBotGuild(String wanted, boolean withRival);
 
+    /**
+     * A bot guild {@code applicant} may ask to join (t-gu-1): as {@link #pickBotGuild}, but past a guild whose leader is
+     * hostile to the applicant or that is full - the leader decides an application, so the rc6 auto-QA run's friendly
+     * officer of Legendz still got HOSTILE from Legendz's rival leader. The named guild is kept as asked.
+     */
+    default String pickBotGuildFor(Character applicant, String wanted) {
+        return pickBotGuild(wanted, false);
+    }
+
     /** The rival guild's name of a bot guild, or null. */
     String rivalOf(String guild);
 
@@ -252,6 +261,28 @@ public interface QaWorld {
     default List<Integer> stageGrinders(Character gm, List<String> jobs, int count, int levelOffset, boolean hold,
                                         boolean atGm) {
         return List.of();
+    }
+
+    /** cb-2: the median mob level of the GM's map, or -1 (no mobs, or unknown). */
+    default int mobLevel(Character gm) {
+        return -1;
+    }
+
+    /**
+     * rc6 auto-QA triage (t-rv-2, t-cb-4): a pretend player never attacks, so no mob was ever "the player's" (a KS
+     * war's helpers only take mobs the player has hit, {@code Monster.isAttackedBy}). The GM hits up to {@code max} live
+     * mobs within the range once each for 1 damage, through the game's own attacker record. How many it hit.
+     */
+    default int playerHitsMobs(Character gm, int rangeX, int rangeY, int max) {
+        return 0;
+    }
+
+    /**
+     * cb-4: moves the GM onto the spot of the first of these bots standing at least {@code minAwayPx} from it on its
+     * map (a GM teleport), so that bot must yield its platform. The bot it stepped to, or null.
+     */
+    default String stepOntoBot(Character gm, List<Integer> botIds, int minAwayPx) {
+        return null;
     }
 
     /** Takes staged grinders away. */

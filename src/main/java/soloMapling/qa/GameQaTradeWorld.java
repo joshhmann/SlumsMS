@@ -60,7 +60,17 @@ public final class GameQaTradeWorld implements QaTradeWorld {
         }
         BotGifts.Kind k = kind == null ? null : BotGifts.Kind.valueOf(kind.toUpperCase());
         String line = BotGifts.give(b, gm, k, ThreadLocalRandom.current());
-        return line == null ? b.getName() + " had nothing suitable to give (same map? enough mesos?)" : line;
+        if (line != null) {
+            return line;
+        }
+        boolean noDrops = gm.getMap() != null
+                && server.maps.FieldLimit.DROP_LIMIT.check(gm.getMap().getFieldLimit());
+        String why = noDrops && k != BotGifts.Kind.MESOS ? "items cannot be dropped on this map (Free Market)"
+                : k == BotGifts.Kind.SCROLL ? String.join("; ", BotGifts.scrollReasons(b))
+                : (b.getMapId() == gm.getMapId() ? "same map" : "NOT on your map (" + b.getMapId() + ")")
+                + String.format(", holds %,d mesos, ceiling %,d", b.getMeso(),
+                soloMapling.ArtificialPlayer.BotWealth.ceiling(b));
+        return b.getName() + " had nothing suitable to give (" + why + ")";
     }
 
     @Override

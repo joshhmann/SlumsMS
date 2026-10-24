@@ -310,6 +310,11 @@ final class GameQaWorld implements QaWorld {
                 int channel = gm.getClient() == null ? 1 : gm.getClient().getChannel();
                 out.add("thread: " + soloMapling.ArtificialPlayer.BotConvo.BotThreads.run(a.getMap(), channel, List.of(a, b),
                         topic, System.currentTimeMillis()));
+                // auto-QA t-cv-5 answers the thread by its subject ("{thread}? i can come too"): a clear reply to it
+                String about = soloMapling.ArtificialPlayer.BotConvo.BotThreads.aboutOf(channel, a.getMapId());
+                if (about != null) {
+                    out.add("VAR thread=" + about);
+                }
             }
             case "last" -> out.addAll(soloMapling.ArtificialPlayer.BotConvo.ConvoQuality.describeLast(gm));
             case "ask" -> {
@@ -373,7 +378,9 @@ final class GameQaWorld implements QaWorld {
         Character bot = BotHelpers.getCharFromChannelStorage(botId);
         if (bot != null && bot.getMapId() == gm.getMapId()) {
             soloMapling.ArtificialPlayer.BotAffinitySystem.AffinityReactions.forceSpree(bot, gm);
-            return "grudge + KS spree";
+            boolean taunt = soloMapling.ArtificialPlayer.BotAffinitySystem.AffinityReactions.forceTaunt(
+                    soloMapling.ArtificialPlayer.BotMessagingSystem.CharacterStorage.getBotById(botId), bot, gm);
+            return "grudge + KS spree" + (taunt ? " + taunt" : "");
         }
         return "grudge (bot not on your map, no spree)";
     }
@@ -746,6 +753,41 @@ final class GameQaWorld implements QaWorld {
     }
 
     @Override
+    public String pickBotGuildFor(Character applicant, String wanted) {
+        if (wanted != null || applicant == null) {
+            return pickBotGuild(wanted, false);
+        }
+        List<GuildCandidate> all = new ArrayList<>();
+        for (var g : soloMapling.ArtificialPlayer.BotGuildSystem.BotGuilds.botGuilds()) {
+            net.server.guild.Guild live = net.server.Server.getInstance().getGuild(g.guildId());
+            int leader = live != null ? live.getLeaderId() : g.leaderId();
+            boolean full = live != null && live.getMembers().size() >= live.getCapacity();
+            all.add(new GuildCandidate(g.name(), soloMapling.ArtificialPlayer.BotGuildSystem.BotGuilds.membersOf(g.guildId()).size(),
+                    leader > 0 && soloMapling.ArtificialPlayer.BotAffinitySystem.BotAffinity.hostile(leader, applicant.getId()), full));
+        }
+        return chooseForApplicant(all);
+    }
+
+    /** A bot guild as {@link #chooseForApplicant} weighs it. */
+    record GuildCandidate(String name, int members, boolean leaderHostile, boolean full) {
+    }
+
+    /** The biggest guild whose leader would say yes (not hostile, not full); else the biggest; null when none. */
+    static String chooseForApplicant(List<GuildCandidate> all) {
+        GuildCandidate best = null;
+        GuildCandidate biggest = null;
+        for (GuildCandidate c : all) {
+            if (biggest == null || c.members() > biggest.members()) {
+                biggest = c;
+            }
+            if (!c.leaderHostile() && !c.full() && (best == null || c.members() > best.members())) {
+                best = c;
+            }
+        }
+        return best != null ? best.name() : biggest == null ? null : biggest.name();
+    }
+
+    @Override
     public String rivalOf(String guild) {
         var g = soloMapling.ArtificialPlayer.BotGuildSystem.BotGuilds.byName(guild);
         var r = g == null ? null : soloMapling.ArtificialPlayer.BotGuildSystem.BotGuilds.guild(g.rivalId());
@@ -825,6 +867,31 @@ final class GameQaWorld implements QaWorld {
                             System.currentTimeMillis(), true));
                 }
             }
+            case "sure" -> { // !qa gu-2: these staged friends take an invite under the soft limit for sure
+                for (String a : args) {
+                    if (a.matches("-?\\d+")) {
+                        soloMapling.ArtificialPlayer.BotGuildSystem.BotGuilds.qaSureJoin(Integer.parseInt(a), true);
+                    }
+                }
+                out.add("sure yes under the soft limit: " + String.join(" ", args));
+            }
+            case "unsure" -> {
+                for (String a : args) {
+                    if (a.matches("-?\\d+")) {
+                        soloMapling.ArtificialPlayer.BotGuildSystem.BotGuilds.qaSureJoin(Integer.parseInt(a), false);
+                    }
+                }
+                out.add("real dice again: " + String.join(" ", args));
+            }
+            case "unkick" -> { // !qa gu-8 stop: the leader made a rival by "kick" is neutral to the GM again
+                if (g == null) {
+                    out.add("no bot guild " + first);
+                } else {
+                    boolean set = soloMapling.ArtificialPlayer.BotAffinitySystem.BotAffinity.stage(g.leaderId(), gm.getId(),
+                            soloMapling.ArtificialPlayer.BotAffinitySystem.AffinityState.NEUTRAL);
+                    out.add("the leader of " + g.name() + " is neutral to you again: " + set);
+                }
+            }
             case "step" -> {
                 soloMapling.ArtificialPlayer.BotGuildSystem.BotGuilds.stepNow();
                 out.add("guild step ran");
@@ -887,14 +954,69 @@ final class GameQaWorld implements QaWorld {
     public List<Integer> stageGrinders(Character gm, List<String> jobs, int count, int levelOffset, boolean hold,
                                        boolean atGm) {
         List<client.Job> parsed = new ArrayList<>();
+        List<Integer> levels = new ArrayList<>();
         for (String j : jobs) {
-            client.Job job = soloMapling.ArtificialPlayer.BotCombatSystem.CombatStaging.job(j);
+            String[] w = j.split(":", 2); // "JOB" or "JOB:level" (cb-2 stages near the map's mob level)
+            client.Job job = soloMapling.ArtificialPlayer.BotCombatSystem.CombatStaging.job(w[0]);
             if (job != null) {
                 parsed.add(job);
+                levels.add(w.length > 1 && w[1].matches("\\d{1,3}") ? Integer.parseInt(w[1]) : 0);
             }
         }
         Point at = atGm ? null : busiestMobSpot(gm);
-        return soloMapling.ArtificialPlayer.BotCombatSystem.CombatStaging.stage(gm, parsed, count, levelOffset, at, hold);
+        return soloMapling.ArtificialPlayer.BotCombatSystem.CombatStaging.stage(gm, parsed, levels, count, levelOffset,
+                at, hold);
+    }
+
+    @Override
+    public int mobLevel(Character gm) {
+        return soloMapling.ArtificialPlayer.BotGrindSystem.MapMobIndex.level(gm.getMapId());
+    }
+
+    @Override
+    public int playerHitsMobs(Character gm, int rangeX, int rangeY, int max) {
+        MapleMap map = gm.getMap();
+        Point p = gm.getPosition();
+        if (map == null || p == null) {
+            return 0;
+        }
+        List<server.life.Monster> near = new ArrayList<>();
+        for (server.life.Monster m : map.getAllMonsters()) {
+            Point mp = m.getPosition();
+            if (m.isAlive() && mp != null && m.getHp() > 1 && Math.abs(mp.x - p.x) <= rangeX
+                    && Math.abs(mp.y - p.y) <= rangeY) {
+                near.add(m);
+            }
+        }
+        near.sort(java.util.Comparator.comparingDouble(m -> p.distanceSq(m.getPosition())));
+        int n = 0;
+        for (server.life.Monster m : near) {
+            if (n >= max) {
+                break;
+            }
+            m.applyFakeDamage(gm, 1, true); // the game's own attacker record: Monster.isAttackedBy(gm) from now on
+            n++;
+        }
+        return n;
+    }
+
+    @Override
+    public String stepOntoBot(Character gm, List<Integer> botIds, int minAwayPx) {
+        MapleMap map = gm.getMap();
+        Point p = gm.getPosition();
+        if (map == null || p == null) {
+            return null;
+        }
+        for (int id : botIds) {
+            Character bot = map.getCharacterById(id);
+            Point bp = bot == null ? null : bot.getPosition();
+            if (bp == null || bp.distance(p) < minAwayPx) {
+                continue;
+            }
+            gm.changeMap(map, new Point(bp)); // a GM teleport onto the bot's spot, same map
+            return bot.getName() + " at (" + bp.x + "," + bp.y + ")";
+        }
+        return null;
     }
 
     @Override

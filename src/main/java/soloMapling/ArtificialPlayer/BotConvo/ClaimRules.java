@@ -37,7 +37,14 @@ public final class ClaimRules {
         LEAVING("gtg/logging off"),
         TRAIN_AT("train at <place>"),
         GIFT("gift"),
-        LEAVE_GROUP("leave guild/party");
+        LEAVE_GROUP("leave guild/party"),
+        /**
+         * "trade me", "open a trade": the bot asks the reader to open a trade (an ad's "S> ilbis trade me", a quote's
+         * "just open a trade with me"). Like {@link #PARTY_ASK} it is judged by its premise: the bot takes a trade
+         * when one is opened (a merchant in trade mode, a bot that trades in person, a drop game taking bets).
+         * Appended last: bank packs keep claim bits by ordinal.
+         */
+        TRADE_ASK("trade me (ask)");
 
         public final String label;
 
@@ -101,16 +108,21 @@ public final class ClaimRules {
             + "bless)|buffing (?:u|you|ya)|buffed (?:u|you|ya)|healing (?:u|you|ya)|healed (?:u|you|ya)|heal(?:ing)? u up|"
             + "ill buff|i'?ll buff|ill heal|i'?ll heal|hs for (?:u|you)|haste for (?:u|you)|buffs? for (?:u|you))\\b");
 
-    private static final Pattern SELL = Pattern.compile("(?:^|[\\s(\\[])(?:s>|s >|wts|selling|sell(?:in)?g?:)\\s*([^,.!?]{0,40})");
+    private static final Pattern SELL = Pattern.compile("(?:^|[\\s(\\[])(?:s>|s >|wts|selling|sell(?:in)?g?:)\\s*((?:[^,.!?]|(?<=\\d)[,.](?=\\d)){0,40})");
     private static final Pattern SELL_FIRST = Pattern.compile("^(?:s>|s >|wts|selling|sell(?:in)?g?:)|"
-            + "\\b(?:i'?m|im|i am|ok|now) selling\\b|(?:^|\\s)s>|(?:^|\\bi'?m |\\bim )wts\\b");
-    private static final Pattern BUY = Pattern.compile("(?:^|[\\s(\\[])(?:b>|b >|wtb|buying|lf)\\s*([^,.!?]{0,40})");
+            + "\\b(?:i'?m|im|i am|ok|now) selling\\b|(?:^|[,|/;]\\s*|\\b(?:also|and|im|i'?m)\\s)s>|(?:^|\\bi'?m |\\bim )wts\\b");
+    private static final Pattern BUY = Pattern.compile("(?:^|[\\s(\\[])(?:b>|b >|wtb|buying|lf)\\s*((?:[^,.!?]|(?<=\\d)[,.](?=\\d)){0,40})");
     private static final Pattern BUY_FIRST = Pattern.compile("^(?:b>|b >|wtb|buying(?! (?:one|before|first|is|it|that|this|"
             + "stuff|things)\\b))|\\b(?:i'?m|im|i am|ok|now) buying\\b|"
             + "(?:^|\\s)b>|(?:^|\\bi'?m |\\bim )wtb\\b");
 
-    private static final Pattern TRADE = Pattern.compile("\\b(trade me|trade u|ill trade|i'?ll trade|open (?:a )?trade|"
-            + "send (?:a )?trade|accept (?:the )?trade)\\b");
+    /** A first-person promise to trade ("ill trade u", "sending a trade"): only a trade window backs it. */
+    private static final Pattern TRADE = Pattern.compile("\\b(trade u|trade you|ill trade|i'?ll trade|i will trade|"
+            + "(?:ill|i'?ll|i will|gonna|ima) (?:send|open) (?:u |you )?(?:a )?trade|sending (?:u |you )?(?:a )?trade|"
+            + "opening (?:a )?trade)\\b");
+    /** An ask: the reader is to open the trade ("trade me", "just open a trade with me", "send a trade"). */
+    private static final Pattern TRADE_ASK = Pattern.compile("\\b(trade me|trades me|open (?:a |the )?trade|"
+            + "send (?:me )?(?:a )?trade|accept (?:the |my )?trade)\\b");
 
     private static final Pattern RESUPPLY = Pattern.compile("(brb (?:buy(?:ing)? |get(?:ting)? |grab(?:bing)? )?(?:some |more )?(?:pots|potions|pot|elixirs|arrows|stars)\\b|"
             + "(?:^|\\bbrb |\\bi'?m |\\bim |\\bi am |\\bgotta |\\bgonna |\\bneed to |\\bgoing to |\\bgo |\\blet me |\\blemme |\\bima |\\bi'?ll |\\bill |\\bfirst |\\bthen |, |\\. )" + "(?:buy|get|grab|restock|refill)(?:ing)? (?:on |up on |some |more |my |up )?(?:pots|potions|pot|elixirs|arrows|stars)\\b|"
@@ -195,7 +207,8 @@ public final class ClaimRules {
         Matcher m;
         boolean resupply = false;
         if ((m = find(RESUPPLY, t)) != null) {
-            out.add(new Claim(Kind.RESUPPLY, -1, null, m.group(1), false));
+            // "i need to go buy some pots after that": a plan for later, not a "brb"
+            out.add(new Claim(Kind.RESUPPLY, -1, null, m.group(1), LATER.matcher(t).find()));
             resupply = true;
         }
         if ((m = find(LEAVING, t)) != null) {
@@ -207,7 +220,7 @@ public final class ClaimRules {
             out.add(go);
             placeClaim = true;
         }
-        if ((m = find(TRAIN_AT, t)) != null) {
+        if ((m = find(TRAIN_AT, t)) != null && aboutMe(t, m)) {
             int map = place(m.group(1));
             if (map > 0) {
                 out.add(new Claim(Kind.TRAIN_AT, map, null, m.group().trim(), false));
@@ -242,6 +255,8 @@ public final class ClaimRules {
         }
         if ((m = find(TRADE, t)) != null) {
             out.add(new Claim(Kind.TRADE, -1, null, m.group(1), false));
+        } else if ((m = find(TRADE_ASK, t)) != null) {
+            out.add(new Claim(Kind.TRADE_ASK, -1, null, m.group(1), false));
         }
         if (!resupply && (m = find(AWAY, t)) != null) {
             String phrase = m.group(1) == null ? t.split(" ")[0] : m.group(1);
@@ -264,6 +279,21 @@ public final class ClaimRules {
         }
         out.sort(Comparator.comparing(Claim::weak));
         return out;
+    }
+
+    private static final Pattern LATER = Pattern.compile("\\b(after (?:that|this)|later|tomorrow|tmr|next time)\\b");
+
+    /**
+     * "still/just/been training at X" claims only about the speaker: "im still training at ant" does, "lv 40 sin still
+     * training at henesys? lol" and "u still training at kerning?" (a roast, a question to someone else) do not.
+     */
+    private static boolean aboutMe(String t, Matcher m) {
+        String hit = t.substring(m.start()).trim();
+        if (!hit.matches("^(?:still|just|been) .*")) {
+            return true;
+        }
+        String before = t.substring(0, m.start()).trim();
+        return before.isEmpty() || before.matches(".*(?:^|[\\s,.!])(?:i|im|i'?m|i am|ive|i'?ve|me|and|so|ya|yeah|lol)$");
     }
 
     private static final Pattern NEG = Pattern.compile("\\b(no|not|dont|don'?t|cant|can'?t|cannot|never|wont|won'?t|"
@@ -327,11 +357,19 @@ public final class ClaimRules {
         return -1;
     }
 
-    private static String item(String words) {
+    /** The tails merchant ads end with ("hotties only", "dont waste my time"): not part of the item's name. */
+    static final String AD_TAIL = "\\b(?:just trade me|trade me|you offer|pm me|no lowballs?|no noobs|no scammers|pros only|"
+            + "hotties only|baddies only|no nx h0es|no weebs|english only|no spanish|serious offers only|"
+            + "don'?t waste my time|legit only|no time wasters|asap|fast)\\b.*$";
+
+    static String item(String words) {
         if (words == null) {
             return "";
         }
-        String w = words.replaceAll("\\b(for|at|@|pm me|pm|cheap|offer|offers|c/o|b/o|\\d+(?:\\.\\d+)?[kmb]?)\\b.*$", "")
+        String w = words.replaceFirst("^[>\\s]+", "") // "S>> ilbis", "Selling> ilbis"
+                .replaceFirst("^\\d+(?:[.,]\\d+)*[kmb]?\\s+(?=[a-z])", "") // "10k nx code", "10,000 nx code": a count
+                .replaceAll(AD_TAIL, "")
+                .replaceAll("\\b(for|at|@|pm me|pm|cheap|offer|offers|c/o|b/o|\\d+(?:[.,]\\d+)?[kmb]?(?![%\\d]))\\b.*$", "")
                 .replaceAll("[^a-z0-9% ]", " ").replaceAll("\\s+", " ").trim();
         return w.length() > 30 ? w.substring(0, 30).trim() : w;
     }

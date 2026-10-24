@@ -87,7 +87,8 @@ public final class AutoQaCatalog {
                         noEmoji())
                 .build());
         c.add(Check.auto("t-af-2", "A rival bot holds a grudge").minutes(6)
-                .step(run("af-2"), qaDo("grudge"), waitFor("AFFINITY (ACT taunt|KS \\S+ takes)", 120),
+                // rc6 triage: a KS spree takes only mobs the player has hit; the pretend player fights from here on
+                .step(run("af-2"), qaDo("fight"), qaDo("grudge"), waitFor("AFFINITY (ACT taunt|KS \\S+ takes)", 120),
                         partyInvite("{bot}"), waitSeconds(10), mark("moved"), say("!warp " + HHG2), waitSeconds(20))
                 .expect(has("AFFINITY (ACT taunt|KS \\S+ takes)"),
                         probe("partyLacks", "{bot}"),
@@ -113,7 +114,9 @@ public final class AutoQaCatalog {
                         noEmoji())
                 .build());
         c.add(Check.auto("t-rv-2", "A nemesis starts a KS war").minutes(7)
-                .step(run("rv-2"), waitSeconds(30), mark("war"), qaDo("kswar", "3"), waitFor("RIVALRY KS WAR \\S+ calls", 20),
+                // rc6 say-do triage: a called bot only takes a mob the player has hit, and the pretend player never
+                // attacks (0 of 3 took one): it fights the mobs around it from before the call to the end
+                .step(run("rv-2"), waitSeconds(30), qaDo("fight"), mark("war"), qaDo("kswar", "3"), waitFor("RIVALRY KS WAR \\S+ calls", 20),
                         waitSeconds(90), qaDo("endwar"), waitFor("RIVALRY KS WAR over", 30))
                 .expect(has("RIVALRY KS WAR \\S+ calls [1-4] bot\\(s\\) on {me}"),
                         has("RIVALRY KS WAR over on"),
@@ -148,8 +151,11 @@ public final class AutoQaCatalog {
                 .expect(probe("buddy", "{near}", "accepted"))
                 .build());
         c.add(Check.auto("t-bb-2", "Buddy chat with a bot").minutes(10)
+                // rc6 triage: this checks buddy CHAT; a stranger accepts only 20% of requests, so the accept is
+                // made certain for the run (t-bb-1 still tests the real accept rules)
                 .step(say("!warp 100000000"), waitSeconds(5), fixture("nearbyBot"), say("hi {near}"), waitSeconds(20),
-                        buddyAdd("{near}"), waitSeconds(200), fixture("buddy", "{near}", "accepted"),
+                        fixture("certainBuddies", "5"), buddyAdd("{near}"), waitSeconds(200),
+                        fixture("buddy", "{near}", "accepted"),
                         Steps.of("buddy chat 'where r u'", r -> {
                             SyntheticPlayer p = (SyntheticPlayer) r.actor(1);
                             int bot = p.character().getBuddylist().get(r.fill("{near}")).getCharacterId();
@@ -320,7 +326,8 @@ public final class AutoQaCatalog {
                             ((SyntheticPlayer) r.actor(1)).ringPropose(r.fill("{bot}"), 2240000);
                             r.world().sleep(8000);
                             return Check.StepResult.OK;
-                        }), waitFor("ROMANCE ENGAGED", 20), qaDo("wedding"), waitFor("ROMANCE (WEDDING begins|I DO)", 120),
+                        }), waitFor("ROMANCE ENGAGED", 20), fixture("equipRoom", "2"), qaDo("wedding"),
+                        waitFor("ROMANCE (WEDDING begins|I DO)", 120),
                         waitFor("NOTICE \\[5] Say \"i do\"", 60), say("i do"), waitFor("ROMANCE MARRIED", 120),
                         Steps.of("spouse chat", r -> {
                             ((SyntheticPlayer) r.actor(1)).spouseChat("hey hun");
@@ -339,7 +346,8 @@ public final class AutoQaCatalog {
                         qaDo("confront"), waitFor("ROMANCE TWO-TIMING", 30), qaDo("gossip"), waitFor("ROMANCE GOSSIP", 20))
                 .expect(has("ROMANCE NEGLECT warning"), has("ROMANCE BREAKUP \\S+ dumps {me}"), has("ROMANCE REBOUND"),
                         has("ROMANCE TWO-TIMING"), has("ROMANCE OLD FLAME"), has("ROMANCE GOSSIP"), noEmoji(),
-                        judged("CHAT ({staged}): (.+)", "bot relationship drama aimed at the player: breakup, jealousy, gossip; game-only", 4))
+                        // rc6 triage: a non-capturing name group - group 1 is what the judge reads, and it got the name
+                        judged("CHAT (?:{staged}): (.+)", "bot relationship drama aimed at the player: breakup, jealousy, gossip; game-only", 4))
                 .build());
         c.add(Check.auto("t-rm-4", "Wedding drama: an objection, a crash, a runaway").notNightly().minutes(18)
                 .step(fixture("notEngaged"), say("@romance on"), run("rm-4"), qaDo("propose"), Steps.of("say yes in the proposal window", r -> {
@@ -348,14 +356,16 @@ public final class AutoQaCatalog {
                             r.note(had ? "accepted the bot's proposal" : "no proposal window arrived");
                             r.world().sleep(5000);
                             return Check.StepResult.OK;
-                        }), qaDo("wedding"), waitFor("ROMANCE OBJECTION", 180), say("i do"), waitFor("ROMANCE MARRIED", 120),
+                        // rc6 triage: both weddings were refused for a full equip tab (the ring needs a slot)
+                        }), fixture("equipRoom", "2"), qaDo("wedding"), waitFor("ROMANCE OBJECTION", 180), say("i do"),
+                        waitFor("ROMANCE MARRIED", 120),
                         waitFor("ROMANCE CRASH \\S+ crashes", 120), stop(), run("rm-4"), qaDo("propose"),
                         Steps.of("say yes again", r -> {
                             r.world().sleep(5000);
                             ((SyntheticPlayer) r.actor(1)).answerProposal(true);
                             r.world().sleep(5000);
                             return Check.StepResult.OK;
-                        }), qaDo("runaway"), qaDo("wedding"), waitFor("ROMANCE RUNAWAY", 180))
+                        }), qaDo("runaway"), fixture("equipRoom", "2"), qaDo("wedding"), waitFor("ROMANCE RUNAWAY", 180))
                 .expect(has("ROMANCE OBJECTION \\S+ objects"), has("ROMANCE CRASH \\S+ crashes the reception"), has("ROMANCE MARRIED"),
                         has("ROMANCE RUNAWAY .*still engaged"))
                 .build());
@@ -400,7 +410,9 @@ public final class AutoQaCatalog {
                         Expects.sayDo(130))
                 .build());
         c.add(Check.auto("t-cv-5", "Join a bot-to-bot conversation").minutes(4)
-                .step(run("cv-5"), waitFor("CONVO THREAD LINE", 30), waitSeconds(10), say("i can come too"),
+                // rc6 chat routing: the line answers the thread's subject ("Ludi PQ? i can come too": the staging's
+                // VAR thread), so it is a clear reply to the thread and not to the nearest bot or a passing question
+                .step(run("cv-5"), waitFor("CONVO THREAD LINE", 30), waitSeconds(10), say("{thread}? i can come too"),
                         waitFor("CONVO JOIN", 20), waitSeconds(12))
                 // rc6 chat routing: the unnamed line goes to the thread (step 3), not to the newest speaker
                 .expect(has("CONVO THREAD "), atLeast(2, "CONVO THREAD LINE"), has("CONVO JOIN"),
@@ -475,7 +487,9 @@ public final class AutoQaCatalog {
                         atLeast(11, "STAGE .* \\(inside the band\\)"))
                 .build());
         c.add(Check.auto("t-gf-1", "A friend bot gives a gift").minutes(3)
-                .step(run("tr-4"), fixture("rememberMeso"), qaDo("gift", "mesos"), waitFor("TRADE GIFT .*mesos", 20),
+                // rc6 triage: the check before it ends in FM room 1, where drops vanish, so an item gift never landed
+                .step(say("!warp 100000000"), waitSeconds(3), run("tr-4"), fixture("rememberMeso"), qaDo("gift", "mesos"),
+                        waitFor("TRADE GIFT .*mesos", 20),
                         qaDo("gift", "scroll"), waitFor("TRADE GIFT .*(scroll|from its bag| x )", 20))
                 .expect(atLeast(2, "TRADE GIFT \\S+ gave {me}"), probe("mesoGained", "100000", "500000"))
                 .build());
@@ -527,8 +541,13 @@ public final class AutoQaCatalog {
                         has("HABITS DEATH ({staged}) "), has("HABITS RESPAWN ({staged}) "))
                 .build());
         c.add(Check.auto("t-cb-4", "Neutral bots give you space").minutes(5)
-                .step(run("cb-4"), waitSeconds(180))
-                .expect(anyOf("MANNERS YIELD ", "MANNERS MOVE ON ", "MANNERS LEAVE "))
+                // rc6 say-do triage (no MANNERS line in 3 runs): a mannerly bot never picks the player's platform, so
+                // next to a pretend player that stands still and never attacks nothing ever needed yielding. The
+                // player now steps onto a bot's spot once they have settled, then fights the mobs around it.
+                .step(run("cb-4"), waitSeconds(30), mark("step"), qaDo("stepon"), waitFor("MANNERS (YIELD|CROWDED) ", 20),
+                        qaDo("fight"), waitSeconds(120))
+                .expect(anyOf("MANNERS YIELD ", "MANNERS MOVE ON ", "MANNERS LEAVE "),
+                        hasAfter("step", "MANNERS (YIELD|CROWDED) "))
                 .build());
         c.add(Check.auto("t-sp-1", "Bots spread out").minutes(5)
                 .step(run("sp-1"), waitSeconds(150))
@@ -800,21 +819,35 @@ public final class AutoQaCatalog {
      * swing's busy time. rc6 auto-QA triage (t-at-1, t-bk-1): one-hit kills of low mobs meant most gaps were a bot
      * waiting for a respawn or walking to the next mob (686 of 695 swings "killed"), and the showcase's own 1.5 s
      * round gap counted as a hitch. Gaps after a kill are skipped; a hitch is a gap over busy + 3 s after a live hit.
+     * rc6 say-do triage (t-bk-1, run of 2026-10-23 22:00 UTC, "1 of 1 swings ... over 3 s"): both long gaps were a
+     * showcase bot logging "skill ... not sent: no targetable mobs within 700px" every 400 ms until a mob walked back
+     * into reach (the other showcase bots had cleared its ledge): waiting for a mob, not a hitch. A gap the bot spent
+     * with nothing in reach is skipped too.
      */
     static String pacing(List<AutoQaLine> lines, boolean hitches) {
-        Map<String, int[]> prev = new HashMap<>(); // bot -> {busy, killed}
+        Map<String, int[]> prev = new HashMap<>(); // bot -> {busy, killed or nothing in reach since}
         int seen = 0, fast = 0, slow = 0;
         String example = null;
         for (AutoQaLine l : lines) {
             java.util.regex.Matcher who = ATTACK_BOT.matcher(l.text());
+            if (!who.find()) {
+                continue;
+            }
+            if (l.message().contains(" not sent: ")) {
+                int[] p = prev.get(who.group(1));
+                if (p != null) {
+                    p[1] = 1; // nothing it could hit: the next gap is a wait for a mob, not rhythm
+                }
+                continue;
+            }
             java.util.regex.Matcher m = BUSY_GAP.matcher(l.message());
-            if (!who.find() || !m.find()) {
+            if (!m.find()) {
                 continue;
             }
             int busy = Integer.parseInt(m.group(1)), gap = Integer.parseInt(m.group(2));
             int[] before = prev.put(who.group(1), new int[]{busy, l.message().contains(" killed") ? 1 : 0});
             if (before == null || before[1] == 1) {
-                continue; // a bot's first swing, or the one after a kill: retargeting, not rhythm
+                continue; // a bot's first swing, the one after a kill, or after nothing was in reach: not rhythm
             }
             seen++;
             if (gap < before[0] * 0.6) {

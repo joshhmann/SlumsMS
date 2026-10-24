@@ -104,12 +104,23 @@ public final class CheckRun {
         return vars.get(var);
     }
 
-    /** Remembers staged bot ids found in the lines ({@code {bot}} is the first, then {@code {bot2}} ...). */
+    /** A scenario's staging line "VAR name=value" (logged "STAGE told GM: VAR name=value"): sets {name}. */
+    static final Pattern STAGE_VAR = Pattern.compile("(?:^|told GM: )VAR ([a-z][a-z0-9]*)=(\\S.*)$");
+
+    /**
+     * Remembers staged bot ids found in the lines ({@code {bot}} is the first, then {@code {bot2}} ...) and the
+     * variables a scenario's staging hands over ({@link #STAGE_VAR}).
+     */
     void learnBots(List<AutoQaLine> lines) {
         for (AutoQaLine l : lines) {
             boolean staging = l.isQa() && ("STAGE".equals(l.kind()) || "PERSONA".equals(l.kind())
                     || "AFFINITY".equals(l.kind()) && l.message().startsWith("STAGED bot "));
             if (!staging) {
+                continue;
+            }
+            Matcher v = "STAGE".equals(l.kind()) ? STAGE_VAR.matcher(l.message()) : null;
+            if (v != null && v.find()) {
+                vars.putIfAbsent(v.group(1), v.group(2).trim());
                 continue;
             }
             Matcher m = BOT_ID.matcher("AFFINITY".equals(l.kind()) ? l.message().split(" -> ")[0] : l.message());

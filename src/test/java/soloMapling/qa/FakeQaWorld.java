@@ -248,6 +248,11 @@ class FakeQaWorld implements QaWorld {
         return wanted == null || wanted.equalsIgnoreCase(botGuild) ? botGuild : null;
     }
 
+    @Override public String pickBotGuildFor(Character applicant, String wanted) {
+        calls.add("pickguild for " + (applicant == null ? "-" : applicant.getName()));
+        return pickBotGuild(wanted, false);
+    }
+
     @Override public String rivalOf(String guild) { return rival; }
 
     @Override public int stageGuildBot(Character gm, String state, String guild, int rank) {
@@ -310,6 +315,22 @@ class FakeQaWorld implements QaWorld {
         calls.add("grinders " + (jobs.isEmpty() ? "random" : String.join(",", jobs)) + " x" + n + " offset "
                 + levelOffset + (hold ? " held" : " free") + (atGm ? " at-gm" : " at-pack"));
         return ids;
+    }
+
+    int mobLevel = -1;
+    int mobsHit = 0;
+
+    @Override public int mobLevel(Character gm) { return mobLevel; }
+
+    @Override public int playerHitsMobs(Character gm, int rangeX, int rangeY, int max) {
+        calls.add("hitmobs " + rangeX + " " + max);
+        mobsHit++;
+        return Math.min(max, mobs);
+    }
+
+    @Override public String stepOntoBot(Character gm, List<Integer> botIds, int minAwayPx) {
+        calls.add("stepon " + botIds + " " + minAwayPx);
+        return botIds.isEmpty() ? null : "bot" + botIds.get(0);
     }
 
     @Override public void unstageGrinders(List<Integer> ids) { grindersUnstaged.addAll(ids); calls.add("ungrinders " + ids); }

@@ -263,9 +263,13 @@ public class SocialHotPotatoManager {
      * only when it will then do it (ClaimActions), else another pick (up to 6), else a line with no claim, else none.
      */
     private String backableLine(Character bot, String category) {
+        return backableLine(bot, SOCIAL_DIALOGUE_PATH, SOCIAL_BOT_TYPE, category);
+    }
+
+    private String backableLine(Character bot, String path, String type, String category) {
         String fallback = null;
         for (int i = 0; i < 6; i++) {
-            String line = getRandomLine(SOCIAL_DIALOGUE_PATH, SOCIAL_BOT_TYPE, category);
+            String line = getRandomLine(path, type, category);
             if (line == null) {
                 return null;
             }
@@ -342,7 +346,8 @@ public class SocialHotPotatoManager {
             bot = (Character) recruit[0];
             line = (String) recruit[1];
         } else {
-            line = getRandomLine(MEGA_DIALOGUE_PATH, MEGA_BOT_TYPE, category);
+            // rc6 say-do: "S> clean reverse weapon 500m trade me" only from a bot that holds one (else another line)
+            line = backableLine(bot, MEGA_DIALOGUE_PATH, MEGA_BOT_TYPE, category);
         }
         if (line == null || !BotMegaphoneGate.tryAcquire()) return;
 

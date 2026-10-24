@@ -44,11 +44,11 @@ public final class QaMenuCatalog {
         eveningNo = 1;
         section("Bots remember you");
         add("af-1", v("social", "training"), steps());
-        add("af-2", v("rival", "nemesis"), steps("grudge"));
+        add("af-2", v("rival", "nemesis"), steps("grudge", "fight"));
         add("af-3", v(), steps("on", "off"));
         section("Spicy rivals");
         add("rv-1", v(), steps("roast", "die", "nemesis", "status"));
-        add("rv-2", v("small"), steps("kswar 2", "kswar 3", "kswar 4", "endwar", "status"));
+        add("rv-2", v("small"), steps("fight", "kswar 2", "kswar 3", "kswar 4", "endwar", "status"));
         add("rv-3", v(), steps("callout"));
         add("rv-4", v(), steps("revenge"));
         section("Bot guilds (guildless)");
@@ -122,7 +122,7 @@ public final class QaMenuCatalog {
         add("cb-1", v(), steps());
         add("cb-2", v(), steps());
         add("cb-3", v(), steps("hurt", "lowpots", "die"));
-        add("cb-4", v(), steps());
+        add("cb-4", v(), steps("stepon", "fight"));
         add("sp-1", v(), steps("rope"));
         add("pt-1", v("noloot"), steps("drop"));
         section("Bot attack timing");

@@ -135,6 +135,20 @@ class DramaScenariosTest {
     }
 
     @Test
+    void rv2FightHitsTheMobsAroundTheGmUntilTheRunStops() {
+        // rc6 triage (t-rv-2: 0 of 3 called bots took a mob): helpers only take mobs the player has hit
+        start("rv-2", 10);
+        int before = world.mobsHit;
+        suite.action(world.online, "fight", new String[0]);
+        assertEquals(before + 1, world.mobsHit);
+        scheduler.repeating.forEach(Runnable::run);
+        assertEquals(before + 2, world.mobsHit, "and again on the tick");
+        suite.stop(1, "!qa stop");
+        scheduler.repeating.forEach(Runnable::run);
+        assertEquals(before + 2, world.mobsHit, "not after the stop");
+    }
+
+    @Test
     void rv2SmallHoldsTheWarOnAFieldWithFewLanes() {
         // rc6 (QA t-rv-2): "maybe in other maps with less lanes is better"
         start("rv-2", 10, "small");
@@ -162,7 +176,7 @@ class DramaScenariosTest {
         world.gmGuild = 9;
         start("gw-2", 10);
         assertTrue(world.calls.stream().anyMatch(c -> c.startsWith("guildbot rival Legendz")));
-        assertTrue(world.drama.contains("war check Legendz"));
+        assertTrue(world.drama.contains("war check Legendz fresh"), "a war left from an earlier run ends first");
         suite.stop(1, "!qa stop");
 
         start("gw-3", 10);

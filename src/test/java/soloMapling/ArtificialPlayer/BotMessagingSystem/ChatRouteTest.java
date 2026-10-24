@@ -73,6 +73,31 @@ class ChatRouteTest {
         assertEquals("thread:9", d.chosenKey());
     }
 
+    /**
+     * auto-QA t-cv-5 (rc6 run 21095df97): the thread's own lines ("lpq?", "need 2 more tbh u got a cleric?") said
+     * nothing the player's line shared, and a passing question in a busy town took the line. The thread's subject
+     * ("looking for a party (Ludi PQ)") counts: "ludi pq? i can come too" clearly answers the thread.
+     */
+    @Test
+    void aLineAboutTheThreadsSubjectJoinsItOverAPassingQuestion() {
+        bot(A, "Princessy", 85, 0);
+        bot(B, "SkillSpamz", -98, 0);
+        bot(C, "iiSkaterz", 150, 0);
+        said(A, "need 2 more tbh", T);
+        said(B, "u got a cleric", T + 4_000);
+        said(C, "anyone got a bless?", T + 6_000);
+        BotThreads.View thread = new BotThreads.View(9, List.of(A, B), List.of("Princessy", "SkillSpamz"), B, T - 1_000,
+                T + 4_000, "looking for a party (Ludi PQ)");
+        ChatRoute.Decision d = route("Ludi PQ? i can come too", null, thread, T + 8_000);
+        assertEquals(ChatRoute.Step.THREAD_WORDS, d.step());
+        assertEquals(B, d.botId(), "the thread's last speaker answers");
+        assertEquals("thread:9", d.chosenKey());
+        BotThreads.View bare = new BotThreads.View(9, List.of(A, B), List.of("Princessy", "SkillSpamz"), B, T - 1_000,
+                T + 4_000, "looking for a party");
+        assertEquals(ChatRoute.Step.REPLY_QUESTION, route("Ludi PQ? i can come too", null, bare, T + 8_000).step(),
+                "without the subject the passing question took it (the run's failure)");
+    }
+
     @Test
     void anAnswerToAnotherBotsQuestionGoesToThatBotWhileAThreadRuns() {
         BotThreads.View thread = zakumThread();

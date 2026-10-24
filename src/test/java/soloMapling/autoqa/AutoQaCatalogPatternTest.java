@@ -54,6 +54,20 @@ class AutoQaCatalogPatternTest {
         return v.get(i).status();
     }
 
+    /** t-cv-5 answers the thread by its subject: the staging hands it over as "VAR thread=..." in a STAGE line. */
+    @Test
+    void cv5LearnsTheThreadsSubjectFromItsStaging() {
+        AutoQaRunnerTest.FakeWorld w = new AutoQaRunnerTest.FakeWorld();
+        w.actor(1);
+        w.qa("STAGE", "told GM: thread: [looking for a party]");
+        w.qa("STAGE", "told GM: VAR thread=Ludi PQ");
+        w.now += 1000;
+        Check c = AutoQaCatalog.find("t-cv-5");
+        CheckRun r = runAt(c, w);
+        r.lines();
+        assertEquals("Ludi PQ? i can come too", r.fill("{thread}? i can come too"));
+    }
+
     @Test
     void gu5ResultNamesTheGuildAndBossBeforeTheUpperCaseOutcome() throws Exception {
         List<Check.Verdict> v = eval("t-gu-5",
