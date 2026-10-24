@@ -263,6 +263,21 @@ public interface QaWorld {
         return List.of();
     }
 
+    /** ps-1 (rc6 personal space): whether personal space runs on the GM's map (a town or hangout). */
+    default boolean personalSpaceApplies(Character gm) {
+        return false;
+    }
+
+    /** ps-1: {@code count} town (social) bots spawned on the GM's own pixel, running. Their ids. */
+    default List<Integer> stageStackedTownBots(Character gm, int count) {
+        return List.of();
+    }
+
+    /** ps-1: overlapping and too-close pairs among the grounded characters on the GM's map instance. */
+    default List<String> overlapTally(Character gm) {
+        return List.of();
+    }
+
     /** sp-1: the spread of every bot on the GM's map instance. */
     default List<String> spreadTally(Character gm) {
         return List.of();

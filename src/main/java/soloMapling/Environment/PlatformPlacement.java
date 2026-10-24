@@ -70,6 +70,7 @@ public class PlatformPlacement {
             occupied.add(spawn);
             spawnPoints.add(spawn);
         }
+        spawnPoints = spreadOnMap(mapId, spawnPoints); // rc6: clear of the bots already standing there
 
         // Use CountDownLatch to wait for all spawns to complete
         CountDownLatch latch = new CountDownLatch(numBots);
@@ -218,6 +219,7 @@ public class PlatformPlacement {
 
         List<Point> spawnPoints = findUnoccupiedPoints(adHocPlatform, occupied, numBots);
         occupied.addAll(spawnPoints);
+        spawnPoints = spreadOnMap(mapId, spawnPoints); // rc6: overlapping filler bands no longer share pixels
 
         CountDownLatch latch = new CountDownLatch(spawnPoints.size());
         double chairChance = 0.20;
@@ -387,6 +389,23 @@ public class PlatformPlacement {
         return null;
     }
 
+    /** rc6 personal space: spawn points moved off characters already on the map (the main channel's copy). */
+    private static List<Point> spreadOnMap(int mapId, List<Point> points) {
+        try {
+            MapleMap map = soloMapling.server.SoloMaplingUtilities.getMapleMapById(mapId);
+            List<Point> spread = soloMapling.ArtificialPlayer.BotTownSystem.PersonalSpace.spreadSpawns(map, points);
+            return spread == null ? points : spread;
+        } catch (RuntimeException e) {
+            return points;
+        }
+    }
+
+    /** rc6 personal space: a platform target nobody stands on and no other bot is walking to. */
+    private static Point freeTarget(Character bot, Point p) {
+        return p == null ? null
+                : soloMapling.ArtificialPlayer.BotTownSystem.PersonalSpace.freeSpotNear(bot.getMap(), p, bot.getId());
+    }
+
     public static void botMoveToPlatformAnyUnoccupiedSpot(Character fakechar, String platform) {
         int mapId = fakechar.getMapId();
 
@@ -394,7 +413,7 @@ public class PlatformPlacement {
 
         List<Point> occupiedPointsOnPlatform = getListOfCharacterCoordinates(getAllCharsOnPlatform(mapId, platform));
         Platform flatPlatform = PlatformParser.parsePlatform(mapId, platform);
-        Point unoccupiedPt = findUnoccupiedPoint(flatPlatform, occupiedPointsOnPlatform);
+        Point unoccupiedPt = freeTarget(fakechar, findUnoccupiedPoint(flatPlatform, occupiedPointsOnPlatform));
         MovementCommands.pathFinderBeta(fakechar, unoccupiedPt);
     }
 
@@ -403,7 +422,7 @@ public class PlatformPlacement {
 
         List<Point> occupiedPointsOnPlatform = getListOfCharacterCoordinates(getAllCharsOnPlatform(mapId, platform));
         Platform flatPlatform = PlatformParser.parsePlatform(mapId, platform);
-        Point unoccupiedPt = findUnoccupiedPoint(flatPlatform, occupiedPointsOnPlatform);
+        Point unoccupiedPt = freeTarget(fakechar, findUnoccupiedPoint(flatPlatform, occupiedPointsOnPlatform));
         MovementCommands.pathFinderAware(fakechar, unoccupiedPt);
     }
 
@@ -420,7 +439,7 @@ public class PlatformPlacement {
         int mapId = fakechar.getMapId();
         List<Point> occupiedPointsOnPlatform = getListOfCharacterCoordinates(getAllCharsOnPlatform(mapId, platform));
         Platform flatPlatform = PlatformParser.parsePlatform(mapId, platform);
-        Point unoccupiedPt = findUnoccupiedPoint(flatPlatform, occupiedPointsOnPlatform);
+        Point unoccupiedPt = freeTarget(fakechar, findUnoccupiedPoint(flatPlatform, occupiedPointsOnPlatform));
         if (unoccupiedPt == null) {
             return;
         }

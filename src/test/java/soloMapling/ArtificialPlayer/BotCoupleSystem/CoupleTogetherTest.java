@@ -26,8 +26,8 @@ class CoupleTogetherTest {
 
     @Test
     void theSecondStandsBesideTheFirstOnItsOwnSide() {
-        assertEquals(new Point(60, 300), BotCouples.besideSpot(new Point(100, 300), new Point(-200, 300)));
-        assertEquals(new Point(140, 300), BotCouples.besideSpot(new Point(100, 300), new Point(400, 280)));
+        assertEquals(new Point(76, 300), BotCouples.besideSpot(new Point(100, 300), new Point(-200, 300)));
+        assertEquals(new Point(124, 300), BotCouples.besideSpot(new Point(100, 300), new Point(400, 280)));
     }
 
     @Test

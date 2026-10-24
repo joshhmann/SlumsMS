@@ -405,10 +405,15 @@ public class EnvironmentManager {
             return 0;
         }
         Point anchor = map.getPortal(0).getPosition();
-        List<Point> spots = TownPresenceSampler.sample(map, anchor, n, TownPresenceConfig.overridesFor(mapId));
+        List<Point> spots = new ArrayList<>(TownPresenceSampler.sample(map, anchor, n, TownPresenceConfig.overridesFor(mapId)));
+        while (spots.size() < n) {
+            spots.add(anchor); // no baked ledges: the spawn portal (spread below, not all on its pixel)
+        }
+        // rc6: personal space - no two of the cohort, and none of them on a bot already there, share a spot
+        spots = soloMapling.ArtificialPlayer.BotTownSystem.PersonalSpace.spreadSpawns(map, spots);
         List<Integer> ids = new ArrayList<>();
         for (int i = 0; i < n; i++) {
-            Point spawnAt = i < spots.size() ? spots.get(i) : anchor;
+            Point spawnAt = spots.get(i);
             int baseClass = BotDecorate.rollBaseClass(); // weighted 1..4 (Pirate excluded), gear/job set together
             try {
                 int botId = BotGeneration.createBot(slotBase + i, spawnAt, map, baseClass, loLevel, hiLevel);

@@ -664,10 +664,15 @@ public final class BotCouples {
         return Math.abs(a.x - b.x) > 80 || Math.abs(a.y - b.y) > 40;
     }
 
-    /** Where the second one stands: 40 px from the first, on the side it comes from. */
+    /**
+     * Where the second one stands: {@link #BESIDE_PX} from the first, on the side it comes from. rc6 personal space: a
+     * couple stands side by side (15-30 px, closer than strangers' 25 px) but never on one pixel.
+     */
     static java.awt.Point besideSpot(java.awt.Point first, java.awt.Point second) {
-        return new java.awt.Point(first.x + (second.x < first.x ? -40 : 40), first.y);
+        return new java.awt.Point(first.x + (second.x < first.x ? -BESIDE_PX : BESIDE_PX), first.y);
     }
+
+    static final int BESIDE_PX = 24;
 
     private static void maybeSit(Couple c, Character a, Character b, long now, Random rng, boolean qaPair) {
         int chair = coupleChair(c, a, b);

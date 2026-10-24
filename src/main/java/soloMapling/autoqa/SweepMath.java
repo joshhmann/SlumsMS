@@ -108,6 +108,49 @@ public final class SweepMath {
         return out;
     }
 
+    /* ---------------------------------------------------------------- (h) overlap (rc6 personal space) */
+
+    /** One grounded idle character for the overlap check; {@code pairKey}: its deliberate pair, or null. */
+    public record Body(int id, int channel, int mapId, int x, int y, String pairKey) {
+    }
+
+    /** Two characters standing on top of each other ({@code a} left of or level with {@code b}). */
+    public record Overlap(int a, int b) {
+    }
+
+    /**
+     * Every pair on the same map instance (channel and map) with {@code |dx| < dxPx} and {@code |dy| < dyPx}, except
+     * a deliberate pair (both with the same non-null pair key). Sorted by x per map, so it only compares neighbours
+     * within {@code dxPx}: O(n log n) plus the pairs.
+     */
+    public static List<Overlap> overlaps(List<Body> bodies, int dxPx, int dyPx) {
+        Map<Long, List<Body>> byMap = new HashMap<>();
+        for (Body b : bodies) {
+            byMap.computeIfAbsent(((long) b.channel() << 32) | (b.mapId() & 0xffffffffL), k -> new ArrayList<>()).add(b);
+        }
+        List<Overlap> out = new ArrayList<>();
+        for (List<Body> list : byMap.values()) {
+            list.sort((p, q) -> p.x() != q.x() ? Integer.compare(p.x(), q.x()) : Integer.compare(p.id(), q.id()));
+            for (int i = 0; i < list.size(); i++) {
+                Body a = list.get(i);
+                for (int j = i + 1; j < list.size(); j++) {
+                    Body b = list.get(j);
+                    if (b.x() - a.x() >= dxPx) {
+                        break;
+                    }
+                    if (Math.abs(b.y() - a.y()) >= dyPx || a.id() == b.id()) {
+                        continue;
+                    }
+                    if (a.pairKey() != null && a.pairKey().equals(b.pairKey())) {
+                        continue; // a couple, a bot talking to its player, a scene, two shop keepers
+                    }
+                    out.add(new Overlap(a.id(), b.id()));
+                }
+            }
+        }
+        return out;
+    }
+
     /* ---------------------------------------------------------------- (d) channel split */
 
     /** One channel's line in the split check. */

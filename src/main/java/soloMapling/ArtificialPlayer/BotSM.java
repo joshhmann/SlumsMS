@@ -442,6 +442,7 @@ public abstract class BotSM implements EventSubscriber {
         EventBus.getInstance().unsubscribeAll(this);
         botClearChalkboard(this.getChr());
         BotTickService.unregister(getChr().getId());
+        soloMapling.ArtificialPlayer.BotTownSystem.PersonalSpace.forget(getChr()); // rc6: its rest spot is gone
     }
 
     // todo
