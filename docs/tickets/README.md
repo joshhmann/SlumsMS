@@ -70,6 +70,23 @@ has the detail. Live runs 1.4.0.
 | [57](57-bot-population-500.md) | Fewer, better bots: ~500 at peak, spread ch1-heavy over the channels (BUILD, M) | Real bots / Population | 08, 10 | done on `bots-population-142` (1.4.2) |
 | [58](58-bot-affinity.md) | Affinity: bots like or dislike players, `@botdrama`, earned speed, bot couples and weddings (BUILD, L) | Real bots / Social | 49, 21, 52 | 1.5.0 part on `bots-affinity-150` |
 
+## 1.6.0 sprint (current roadmap work)
+
+The older table above is historical. Current sprint state and verification: [sprint board](../release/1.6.0-sprint.md).
+
+| Ticket | Work |
+|---|---|
+| [60](60-bot-brain.md) | Bot brain, RC1 review |
+| [68](68-fishing.md) | Fishing for players and bots |
+| [69](69-achievements-medals.md) | Achievements and medals |
+| [70](70-daily-dungeon.md) | Daily dungeon |
+| [71](71-chaos-bosses.md) | Chaos Zakum and Horntail |
+| [72](72-chat-understanding-routing.md) | Chat requests and routing (59 follow-up) |
+| [39](39-client-dgvoodoo-wrapper.md) | Parsec graphics fix |
+| [73](73-client-settings-window.md) | In-client settings window |
+| [74](74-evan-compatibility-trial.md) | GM-only Evan research, excluded from 1.6.0 release |
+| [61](61-client-mcp.md) | Client visual QA |
+
 ## Priorities after 1.4.0
 
 The owner's list from `docs/release/backlog-after-1.4.0.md` (2026-10-21), in order, with the tickets they touch.
