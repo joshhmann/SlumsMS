@@ -614,12 +614,21 @@ public final class AutoQaCatalog {
         c.add(Check.half("t-bl-2", "One request starts one bot restock trip",
                         "watch the staged bot reach town and return; a started trip does not prove a purchase").minutes(3)
                 .step(say("!warp 104040000"), waitSeconds(3), run("bl-2"), waitFor("LIFE READY bot=", 60),
-                        qaDo("restock"), waitFor("HABITS LIFE START activity=RESTOCK", 30),
+                        qaDo("restock"), waitFor("HABITS LIFE START activity=RESTOCK bot={bot}(?:\\s|$)", 30),
                         qaDo("repeat"), waitSeconds(5))
                 .expect(has("LIFE QUEUED request=\\d+ result=QUEUED"),
                         has("LIFE REPLAY request=\\d+ result=(DUPLICATE|STALE)"),
-                        atLeast(1, "HABITS LIFE START activity=RESTOCK"),
-                        atMost(1, "HABITS LIFE START activity=RESTOCK", null, null))
+                        atLeast(1, "HABITS LIFE START activity=RESTOCK bot={bot}(?:\\s|$)"),
+                        atMost(1, "HABITS LIFE START activity=RESTOCK bot={bot}(?:\\s|$)", null, null))
+                .build());
+        c.add(Check.half("t-bl-3", "Bot chooses restocking from a real supply need",
+                        "watch the trip and supplies after the shop visit").minutes(3)
+                .step(say("!warp 104040000"), waitSeconds(3), run("bl-3"), waitFor("LIFE READY bot=", 60),
+                        qaDo("need"), waitFor("HABITS LIFE DECISION bot={bot} selected=RESTOCK", 40),
+                        waitFor("HABITS LIFE START activity=RESTOCK bot={bot}(?:\\s|$)", 30))
+                .expect(has("LIFE NEED bot=\\d+ HP-potions=0; no trip was directly requested"),
+                        has("HABITS LIFE DECISION bot={bot} selected=RESTOCK"),
+                        has("HABITS LIFE START activity=RESTOCK bot={bot}(?:\\s|$)"))
                 .build());
         return List.copyOf(c);
     }

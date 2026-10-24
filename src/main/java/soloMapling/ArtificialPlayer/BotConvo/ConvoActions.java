@@ -213,6 +213,14 @@ public final class ConvoActions {
         Character chr = bot.getChr();
         boolean yes = d.yes();
         long now = System.currentTimeMillis();
+        if (soloMapling.ArtificialPlayer.BotLifeSystem.LifeRuntime.enabled() && yes
+                && (action == ConvoAction.HELP || action == ConvoAction.COME)
+                && bot instanceof soloMapling.ArtificialPlayer.BotTypes.TrainingBot training
+                && !training.isStartingLifeActivity() && training.lifeRuntime().friendAsk(player, false, now)) {
+            return new BotChatActions.Result(action == ConvoAction.HELP ? Outcome.HELP_NO : Outcome.COME_NO,
+                    "PENDING_LIFE: the action has not started; do not say yes or omw yet.",
+                    "lemme check a sec", null);
+        }
         switch (action) {
             case COME -> {
                 if (!yes) {

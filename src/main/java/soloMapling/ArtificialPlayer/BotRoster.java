@@ -266,6 +266,8 @@ public final class BotRoster {
      * otherwise null, and the caller's choice stands.
      */
     public static BotTypeManager.BotType resumedType(int charId) {
+        if (soloMapling.ArtificialPlayer.BotLifeSystem.LifeRuntime.enabled()
+                && loadedMember(charId - BotStore.BOT_ID_BASE) != null) return BotTypeManager.BotType.TRAINING_BOT;
         Activity armed = peekResume(charId);
         BotPersonality.Activity activity = armed == null ? null : BotPersonality.Activity.fromRecorded(armed.name());
         return activity == null ? null : activity.type;

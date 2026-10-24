@@ -32,12 +32,15 @@ public final class LifeObservation {
     public static Report capture(BotSM bot, long nowMs) {
         LifeInspection.Snapshot observed = LifeInspection.capture(bot);
         Character chr = bot.getChr();
-        LifeProfile profile = LifeProfile.forBot(chr.getId());
+        LifeMemory memory = bot instanceof TrainingBot training && training.lifeRuntime() != null
+                ? training.lifeRuntime().memory() : null;
+        LifeProfile profile = memory == null ? LifeProfile.forBot(chr.getId()) : memory.profile();
         List<String> unknown = new ArrayList<>(List.of("MP/ammo pressure", "time since social activity",
                 "other-map friends/destinations", "PQ/events", "sellable contents and shop route"));
         OptionalInt weaponLevel = weaponLevel(chr);
         if (weaponLevel.isEmpty()) unknown.add("weapon requirements");
-        List<LifeGoals.Goal> goals = LifeGoals.seed(chr.getLevel(), chr.getJob().getId(), weaponLevel);
+        List<LifeGoals.Goal> goals = memory != null && !memory.goals().isEmpty() ? memory.goals()
+                : LifeGoals.seed(chr.getLevel(), chr.getJob().getId(), weaponLevel);
         Map<Need, Double> needs = new EnumMap<>(Need.class);
         needs.putAll(observed.previewNeeds().values());
         needs.put(Need.PROGRESS, goals.stream().mapToDouble(LifeGoals.Goal::pressure).max().orElse(0));
@@ -63,7 +66,8 @@ public final class LifeObservation {
                 eligible.put(Activity.BREAK, "grind break candidate; execution adapter not installed");
             }
             Activity activity = grinding ? Activity.GRIND
-                    : phase != null && phase.name().equals("IN_TOWN") ? Activity.HANG_OUT : null;
+                    : phase != null && (phase.name().equals("IN_TOWN") || phase.name().equals("LIFE_DWELL"))
+                    ? Activity.HANG_OUT : null;
             if (activity != null && phase != null && phase.sinceMs() > 0 && phase.sinceMs() <= nowMs) {
                 long duration = grinding ? profile.grindDurationMs() : profile.townDurationMs();
                 current = new Current(activity, phase.sinceMs(), duration, LifePolicy.STICKINESS);
@@ -86,7 +90,7 @@ public final class LifeObservation {
                 bot instanceof TrainingBot training ? training.lifeActivityState() : null);
     }
 
-    private static OptionalInt weaponLevel(Character chr) {
+    public static OptionalInt weaponLevel(Character chr) {
         // Unlike item-data lookups, get() on an uninitialised cache refuses to load anything.
         if (!EquipMetadataCache.isInitialized()) return OptionalInt.empty();
         var inventory = chr.getInventory(InventoryType.EQUIPPED);

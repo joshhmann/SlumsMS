@@ -18,6 +18,27 @@ class BotLifeExecutionScenarioTest {
     @TempDir Path directory;
 
     @Test
+    void automaticNeedScenarioChangesSuppliesWithoutDirectlyRequestingTheTrip() throws Exception {
+        QaWorld world = mock(QaWorld.class);
+        Character gm = QaTestSupport.gm(1, "Admin", 104040000);
+        when(world.botLifeExecutionEnabled()).thenReturn(true);
+        when(world.botLifeAutomaticEnabled()).thenReturn(true);
+        when(world.mobLevel(gm)).thenReturn(5);
+        when(world.stageGrinders(gm, List.of("WARRIOR:30"), 1, 0, true, true)).thenReturn(List.of(1000005001));
+        when(world.triggerLifeNeed(1000005001)).thenReturn(true);
+        QaSuite suite = QaTestSupport.suite(BotLifeScenarios.all(), world, directory,
+                new QaTestSupport.ManualScheduler());
+        suite.start(gm, "bl-3", new String[0]);
+        suite.action(gm, "need", new String[0]);
+        assertTrue(Files.readString(suite.runOf(1).logPath()).contains("no trip was directly requested"));
+        verify(world).triggerLifeNeed(1000005001);
+        verify(world, never()).prepareLifeRestock(anyInt());
+        verify(world, never()).submitLifeRestock(anyInt(), any());
+        suite.stop(1, "done");
+        verify(world).unstageGrinders(List.of(1000005001));
+    }
+
+    @Test
     void queuesAndRetriesTheSameRequestAndRemovesTheFixtureAtStop() throws Exception {
         QaWorld world = mock(QaWorld.class);
         Character gm = QaTestSupport.gm(1, "Admin", 104040000);

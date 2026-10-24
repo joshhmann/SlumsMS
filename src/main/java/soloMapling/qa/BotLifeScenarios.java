@@ -15,14 +15,16 @@ import static soloMapling.ArtificialPlayer.BotLifeSystem.LifeDecision.*;
 /** Deterministic policy/acceptance smoke inside a running feature jar. Does not stage players or alter holdings. */
 final class BotLifeScenarios {
     private BotLifeScenarios() {}
-    static List<QaScenario> all() { return List.of(new GoldenPolicy(), new OneRestockTrip()); }
+    static List<QaScenario> all() { return List.of(new GoldenPolicy(), new OneRestockTrip(false), new OneRestockTrip(true)); }
 
     static final class OneRestockTrip implements QaScenario {
+        private final boolean automatic;
+        OneRestockTrip(boolean automatic) { this.automatic = automatic; }
         private record Fixture(int botId,
                 soloMapling.ArtificialPlayer.BotLifeSystem.LifeActivityQueue.Request request) {}
         private final Map<Integer, Fixture> fixtures = new java.util.concurrent.ConcurrentHashMap<>();
 
-        public String id() { return "bl-2"; }
+        public String id() { return automatic ? "bl-3" : "bl-2"; }
         public String title() { return "Bot life: one request starts one restock trip"; }
         public Set<QaLog.Topic> topics() { return Set.of(QaLog.Topic.HABITS); }
         public Set<String> claims(client.Character gm, String[] args) { return Set.of("bot-life-execution"); }
@@ -33,6 +35,7 @@ final class BotLifeScenarios {
             if (!ctx.world().botLifeExecutionEnabled()) {
                 throw new QaRefusal("Needs QA and -Dslums.botlife.execute=true on the feature test instance.");
             }
+            if (automatic && !ctx.world().botLifeAutomaticEnabled()) throw new QaRefusal("Needs automatic bot life enabled.");
             if (ctx.world().mobLevel(ctx.gm()) < 0) throw new QaRefusal("Needs a map with live mobs, such as HHG1.");
             List<Integer> ids = ctx.world().stageGrinders(ctx.gm(), List.of("WARRIOR:30"), 1, 0, true, true);
             if (ids.isEmpty()) throw new QaRefusal("No bot could be staged here.");
@@ -43,7 +46,7 @@ final class BotLifeScenarios {
             });
             fixtures.put(ctx.run().gmId(), new Fixture(ids.getFirst(), null));
             tick(ctx);
-            return List.of("One training bot appears. Wait for LIFE READY, then !qa do restock.",
+            return List.of("One training bot appears. Wait for LIFE READY, then !qa do " + (automatic ? "need" : "restock") + ".",
                     "One request is sent twice. Only one restock trip may start. !qa do repeat retries it later.",
                     "Watch the bot leave for town and return. The log does not claim that a purchase succeeded.");
         }
@@ -51,6 +54,11 @@ final class BotLifeScenarios {
         public List<String> action(QaContext ctx, String name, String[] args) {
             Fixture fixture = fixtures.get(ctx.run().gmId());
             if (fixture == null) throw new QaRefusal("No staged bot remains.");
+            if (automatic && name.equals("need")) {
+                if (!ctx.world().triggerLifeNeed(fixture.botId())) throw new QaRefusal("Wait for the bot to start grinding.");
+                ctx.run().note("LIFE", "NEED bot=" + fixture.botId() + " HP-potions=0; no trip was directly requested");
+                return List.of("HP potions removed. The bot must choose and start restocking itself.");
+            }
             if (name.equals("restock")) {
                 if (fixture.request() != null) throw new QaRefusal("Already requested; use repeat to retry that request.");
                 var request = ctx.world().prepareLifeRestock(fixture.botId());

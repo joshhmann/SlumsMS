@@ -262,6 +262,10 @@ public final class BotWeddings {
             line(officiant, "Pronounce", names, -1);
             BotCouples.marry(c.couple, now); // recorded first: a couple blessed once is married, so never blessed again
             c.married = true;
+            soloMapling.ArtificialPlayer.BotLifeSystem.LifeRuntime.event(groom,
+                    soloMapling.ArtificialPlayer.BotLifeSystem.LifeMemory.Event.MARRIAGE);
+            soloMapling.ArtificialPlayer.BotLifeSystem.LifeRuntime.event(bride,
+                    soloMapling.ArtificialPlayer.BotLifeSystem.LifeMemory.Event.MARRIAGE);
             bless(c, groom);
             bless(c, bride);
             c.nextCheer = now + 4_000;

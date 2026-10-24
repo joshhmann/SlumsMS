@@ -1029,6 +1029,20 @@ final class GameQaWorld implements QaWorld {
     public boolean botLifeExecutionEnabled() {
         return soloMapling.ArtificialPlayer.BotTypes.TrainingBot.lifeExecutionEnabled();
     }
+    @Override public boolean botLifeAutomaticEnabled() {
+        return botLifeExecutionEnabled() && soloMapling.ArtificialPlayer.BotLifeSystem.LifeRuntime.enabled();
+    }
+    @Override public boolean triggerLifeNeed(int botId) {
+        if (!botLifeAutomaticEnabled()) return false;
+        if (CharacterStorage.getBotById(botId) instanceof soloMapling.ArtificialPlayer.BotTypes.TrainingBot bot
+                && bot.isGrinding()) {
+            soloMapling.ArtificialPlayer.BotSupplySystem.BotVitals.drainHpPotionsTo(bot.getChr(), 0);
+            bot.lifeRuntime().changed();
+            bot.nudgeSoon(300);
+            return true;
+        }
+        return false;
+    }
 
     @Override
     public soloMapling.ArtificialPlayer.BotLifeSystem.LifeActivityQueue.Request prepareLifeRestock(int botId) {

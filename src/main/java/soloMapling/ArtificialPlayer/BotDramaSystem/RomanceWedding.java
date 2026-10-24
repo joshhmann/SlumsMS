@@ -388,6 +388,8 @@ public final class RomanceWedding {
             bot.setMarriageItemId(ringItem);
             BotCouples.wearRing(bot, ringItem);
             BotRomance.married(r, rings.getRight(), now);
+            soloMapling.ArtificialPlayer.BotLifeSystem.LifeRuntime.event(bot,
+                    soloMapling.ArtificialPlayer.BotLifeSystem.LifeMemory.Event.MARRIAGE);
             BotRomance.note(bot.getId(), player.getId(), "we got married in amoria <3");
         }
     }

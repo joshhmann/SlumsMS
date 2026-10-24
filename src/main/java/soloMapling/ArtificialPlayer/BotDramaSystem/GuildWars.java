@@ -181,6 +181,12 @@ public final class GuildWars {
         }
         w = w.withId(id);
         wars.put(id, w);
+        if (soloMapling.ArtificialPlayer.BotLifeSystem.LifeRuntime.enabled()) {
+            for (int guildId : new int[]{w.a(), w.b()}) for (Character member : BotGuilds.onlineMembers(guildId)) {
+                soloMapling.ArtificialPlayer.BotLifeSystem.LifeRuntime.event(member,
+                        soloMapling.ArtificialPlayer.BotLifeSystem.LifeMemory.Event.GUILD_WAR);
+            }
+        }
         return w;
     }
 
@@ -1108,6 +1114,8 @@ public final class GuildWars {
         }
         for (War w : active()) {
             if (w.kind() == Kind.WAR && (w.a() == m.guildId() || w.b() == m.guildId())) {
+                soloMapling.ArtificialPlayer.BotLifeSystem.LifeRuntime.event(chr,
+                        soloMapling.ArtificialPlayer.BotLifeSystem.LifeMemory.Event.GUILD_WAR);
                 qa(mapId, "KILL " + chr.getName() + " [" + BotGuilds.guildName(m.guildId()) + "] on " + mapId);
                 return;
             }

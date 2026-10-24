@@ -275,6 +275,9 @@ public final class BotAffinity {
         return online.containsKey(charId);
     }
 
+    /** Already-loaded real-player ties, for bounded life context; never starts an affinity/database load. */
+    public static List<Integer> knownPlayers() { return List.copyOf(online.keySet()); }
+
     /**
      * Whether the player turned bot drama off. Memory only, and authoritative: the set of opted-out players is read
      * from {@code botdrama} at boot and kept in step with every toggle, so it holds whether or not the player's ties

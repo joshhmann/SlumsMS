@@ -133,6 +133,7 @@ public final class QaMenuCatalog {
         add("ps-2", v(), steps());
         add("bl-1", v(), steps());
         add("bl-2", v(), steps("restock", "repeat"));
+        add("bl-3", v(), steps("need"));
         add("mv-1", v(), steps());
         add("jq-1", v(), steps("push"));
         section("Client and channels");

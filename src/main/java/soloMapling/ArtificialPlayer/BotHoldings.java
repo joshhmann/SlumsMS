@@ -224,6 +224,11 @@ public final class BotHoldings {
             }
             applyGrant(inv, item);
             mutate(bot, ledger -> ledger.addItem(item.getItemId(), (int) item.getQuantity()));
+            if (soloMapling.ArtificialPlayer.BotLifeSystem.LifeRuntime.enabled()
+                    && item instanceof client.inventory.Equip equip && soloMapling.Economy.GearGrade.godly(equip)) {
+                soloMapling.ArtificialPlayer.BotLifeSystem.LifeRuntime.event(bot,
+                        soloMapling.ArtificialPlayer.BotLifeSystem.LifeMemory.Event.BIG_DROP);
+            }
             return true;
         } finally {
             inv.unlockInventory();

@@ -19,7 +19,8 @@ public class BotWhyCommand extends Command {
     }
 
     public static boolean isEnabled() {
-        return QaSuite.isEnabled() && Boolean.getBoolean("slums.botlife.preview");
+        return soloMapling.ArtificialPlayer.BotLifeSystem.LifeRuntime.enabled()
+                || QaSuite.isEnabled() && Boolean.getBoolean("slums.botlife.preview");
     }
 
     @Override

@@ -348,9 +348,9 @@ public class CommandsExecutor {
         if (soloMapling.qa.QaSuite.isEnabled()) {
             addCommand("qa", 3, client.command.commands.gm3.QaCommand.class); // test scenarios + logs/qa (docs/ops/qa-suite.md)
             addCommand("botcombat", 3, client.command.commands.gm3.BotCombatCommand.class); // 1.5.0 rc3 bot combat staging
-            if (client.command.commands.gm3.BotWhyCommand.isEnabled()) {
-                addCommand("botwhy", 3, client.command.commands.gm3.BotWhyCommand.class); // 1.6.0 read-only preview
-            }
+        }
+        if (client.command.commands.gm3.BotWhyCommand.isEnabled()) {
+            addCommand("botwhy", 3, client.command.commands.gm3.BotWhyCommand.class);
         }
         if (soloMapling.autoqa.AutoQa.isEnabled()) {
             addCommand("autoqa", 3, client.command.commands.gm3.AutoQaCommand.class); // health sweeps + check runner (docs/ops/qa-suite.md)

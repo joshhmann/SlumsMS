@@ -290,6 +290,8 @@ public interface QaWorld {
     }
 
     default boolean botLifeExecutionEnabled() { return false; }
+    default boolean botLifeAutomaticEnabled() { return false; }
+    default boolean triggerLifeNeed(int botId) { return false; }
 
     default soloMapling.ArtificialPlayer.BotLifeSystem.LifeActivityQueue.Request prepareLifeRestock(int botId) {
         return null;

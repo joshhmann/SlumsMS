@@ -238,7 +238,7 @@ public final class BotGuilds {
     }
 
     /** Bot members of the guild that are online now. */
-    static List<Character> onlineMembers(int guildId) {
+    public static List<Character> onlineMembers(int guildId) {
         List<Character> out = new ArrayList<>();
         for (MemberRow m : members.values()) {
             if (m.guildId() == guildId) {
