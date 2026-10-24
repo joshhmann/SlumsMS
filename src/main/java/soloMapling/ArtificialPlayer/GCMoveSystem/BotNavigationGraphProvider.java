@@ -3,10 +3,12 @@ package soloMapling.ArtificialPlayer.GCMoveSystem;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import server.maps.Foothold;
+import server.maps.FootholdTree;
 import server.maps.MapManager;
 import server.maps.MapleMap;
 import server.maps.Portal;
 import server.maps.Rope;
+import soloMapling.server.BotShutdown;
 
 import java.awt.*;
 import java.io.IOException;
@@ -450,8 +452,29 @@ final class BotNavigationGraphProvider {
         return exact != null ? exact : peekClosestGraph(map, movementProfile);
     }
 
+    /*
+     * Ticket 77: no warm-up work once shutdown starts. The gate is the same one the other GCMoveSystem
+     * classes check; the maps are torn down right after it closes and null their footholds
+     * (MapleMap.dispose), so a build started then would only log an NPE.
+     */
+    static boolean warmUpAllowed() {
+        return !BotShutdown.isQuiesced();
+    }
+
+    /*
+     * The footholds a warm-up may scan right now, or null when the map is gone: shutdown has started, or
+     * MapleMap.dispose already nulled them. Callers take this snapshot once and work from it, so a dispose
+     * that lands between a null check and the scan cannot NPE them.
+     */
+    static FootholdTree footholdsForWarmUp(MapleMap map) {
+        if (map == null || !warmUpAllowed()) {
+            return null;
+        }
+        return map.getFootholds();
+    }
+
     static void warmGraphAsync(MapleMap map, BotMovementProfile movementProfile) {
-        if (map == null) {
+        if (map == null || !warmUpAllowed()) {
             return;
         }
         movementProfile = canonicalProfile(map, movementProfile);
@@ -470,8 +493,14 @@ final class BotNavigationGraphProvider {
      */
     static void warmGraphsForRouteAsync(MapManager mapFactory, List<Integer> mapIds,
                                         BotMovementProfile movementProfile) {
+        if (!warmUpAllowed()) {
+            return;
+        }
         GRAPH_WARMUP_EXECUTOR.execute(() -> {
             for (int mapId : mapIds) {
+                if (!warmUpAllowed()) {
+                    return; // shutdown started: stop loading maps for a route nobody will walk
+                }
                 try {
                     warmGraphAsync(mapFactory.getMap(mapId), movementProfile);
                 } catch (RuntimeException e) {
@@ -514,6 +543,9 @@ final class BotNavigationGraphProvider {
     static BotNavigationGraph rebuildGraph(MapleMap map, BotMovementProfile movementProfile) {
         GraphCacheKey key = GraphCacheKey.from(map.getId(), movementProfile);
         BotNavigationGraph rebuilt = buildGraph(map, movementProfile);
+        if (rebuilt == null) {
+            return null; // shutdown started or the map unloaded: leave the cached graph alone
+        }
         GRAPHS.put(key, rebuilt);
         CompletableFuture<BotNavigationGraph> pending = PENDING_GRAPHS.remove(key);
         if (pending != null) {
@@ -559,7 +591,15 @@ final class BotNavigationGraphProvider {
 
         Runnable task = () -> {
             try {
+                if (!warmUpAllowed()) {
+                    future.complete(null); // shutdown closed the gate after this task was queued
+                    return;
+                }
                 BotNavigationGraph graph = loadOrBuildGraph(map, movementProfile, key);
+                if (graph == null) {
+                    future.complete(null); // the map unloaded mid-warm-up: abandoned, not a failure
+                    return;
+                }
                 GRAPHS.put(key, graph);
                 future.complete(graph);
             } catch (Throwable t) {
@@ -584,10 +624,9 @@ final class BotNavigationGraphProvider {
     }
 
     private static boolean isFastWarmupCandidate(MapleMap map) {
-        if (map == null || map.getFootholds() == null) {
-            return false;
-        }
-        return map.getFootholds().getAllFootholds().size() <= FAST_WARMUP_MAX_FOOTHOLDS;
+        FootholdTree footholds = footholdsForWarmUp(map);
+        return footholds != null
+                && footholds.getAllFootholds().size() <= FAST_WARMUP_MAX_FOOTHOLDS;
     }
 
     private static BotNavigationGraph loadOrBuildGraph(MapleMap map,
@@ -599,6 +638,9 @@ final class BotNavigationGraphProvider {
         }
 
         BotNavigationGraph built = buildGraph(map, movementProfile);
+        if (built == null) {
+            return null; // the map unloaded (or shutdown started) mid-warm-up: nothing to save
+        }
         saveGraph(built);
         return built;
     }
@@ -669,11 +711,17 @@ final class BotNavigationGraphProvider {
     }
 
     private static BotNavigationGraph buildGraph(MapleMap map, BotMovementProfile movementProfile) {
+        FootholdTree footholdsTree = footholdsForWarmUp(map);
+        if (footholdsTree == null) {
+            log.debug("Bot nav graph build skipped for map {}: shutdown started or the map unloaded",
+                    map == null ? -1 : map.getId());
+            return null;
+        }
         movementProfile = movementProfile == null ? BotMovementProfile.base() : movementProfile;
         BuildProfileBuilder buildProfile = new BuildProfileBuilder(map.getId(), movementProfile);
         ACTIVE_BUILD_PROFILE.set(buildProfile);
         try {
-            List<Foothold> footholds = map.getFootholds() == null ? List.of() : map.getFootholds().getAllFootholds();
+            List<Foothold> footholds = footholdsTree.getAllFootholds();
             Map<Integer, Foothold> footholdsById = new HashMap<>();
             List<Foothold> walkableFootholds = new ArrayList<>();
             long phaseStartedAt = System.nanoTime();
