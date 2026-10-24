@@ -886,7 +886,14 @@ public final class BotRomance {
         if (inEquip == null) {
             return "Take your wedding ring off first (it must be in your equip inventory), then @romance divorce again.";
         }
+        short slot = inEquip.getPosition();
         net.server.channel.handlers.RingActionHandler.breakMarriageRing(player, ring.getItemId());
+        // rc6 auto-QA triage (t-rm-4): the stock break only shows the ring dropping - in the client the drop itself
+        // (ItemMoveHandler) takes it out of the inventory. Called from a command there is no drop, so every divorce
+        // left a dead wedding ring in the equip tab until the next wedding was refused for want of a slot.
+        if (player.getInventory(InventoryType.EQUIP).getItem(slot) == inEquip) {
+            InventoryManipulator.removeFromSlot(player.getClient(), InventoryType.EQUIP, slot, (short) 1, false);
+        }
         return "Divorced. Your ring is gone.";
     }
 

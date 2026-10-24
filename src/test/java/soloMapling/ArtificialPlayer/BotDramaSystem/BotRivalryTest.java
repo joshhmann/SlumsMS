@@ -103,6 +103,20 @@ class BotRivalryTest {
     }
 
     @Test
+    void reArmingAfterAnApologyMakesItARivalAgain() {
+        // rc6 auto-QA triage (t-rv-4): "sorry" moved the rival to neutral, and "!qa do revenge" armed a neutral bot
+        // that never follows, so the check's second and third follows never came
+        Character p = chr(PLAYER, "Bob", 100);
+        Character b = chr(BOT, "Amy", 100);
+        BotAffinity.stage(BOT, PLAYER, soloMapling.ArtificialPlayer.BotAffinitySystem.AffinityState.NEUTRAL);
+        assertFalse(BotAffinity.hostile(BOT, PLAYER));
+        String said = BotRivalry.armNow(b, p);
+        assertTrue(BotAffinity.hostile(BOT, PLAYER), said);
+        assertTrue(said.contains("rival again"), said);
+        assertEquals(100, BotRivalry.armedFor(PLAYER).mapId());
+    }
+
+    @Test
     void aHeldPlayerIsNeverFollowed() {
         // rc6 auto-QA triage (t-af-2): !qa af-2 holds KS wars and promises the rival never follows, but its KS spree
         // armed the revenge follow and the probe found it on the player's next map

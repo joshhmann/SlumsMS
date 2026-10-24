@@ -92,6 +92,16 @@ class QaTradeScenarioTest {
     }
 
     @Test
+    void tr4GivesTheBotEnoughThatAMesoGiftAlwaysFits() {
+        // rc6 triage (t-gf-1): a meso gift keeps half the bot's wealth ceiling; a flat 5m left high-ceiling bots short
+        assertEquals(5_000_000, QaTradeScenarios.giftPurse(2_000_000));
+        assertEquals(31_000_000, QaTradeScenarios.giftPurse(60_000_000));
+        Character gm = start("tr-4", 100000000);
+        assertTrue(world.calls.stream().anyMatch(c -> c.contains("meso 5000000")), world.calls.toString());
+        suite.stop(1, "!qa stop");
+    }
+
+    @Test
     void tr6CountsAnswersOutsideTheBand() throws Exception {
         start("tr-6", 100000000, "2m");
         assertEquals(QaTradeScenarios.HAGGLE_LINES.size(), trade.haggled.size());

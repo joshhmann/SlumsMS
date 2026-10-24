@@ -202,6 +202,22 @@ public final class BotBuddies {
         }
     }
 
+    /** Until when (epoch ms) every bot accepts a buddy request (auto-QA staging; 0 = the normal rules). */
+    private static volatile long certainUntil;
+
+    /**
+     * rc6 auto-QA triage (t-bb-2, 2026-10-23): the check is about buddy CHAT, but a stranger bot accepts a request
+     * only 20% of the time (ElliniQueen turned AutoQaOne down), and a refusal blocks the pair for the day. For the next
+     * {@code ms} every bot that is not wary says yes, and a refusal from earlier today does not count. Self-expires.
+     */
+    public static void certainFor(long ms) {
+        certainUntil = ms <= 0 ? 0 : System.currentTimeMillis() + ms;
+    }
+
+    static boolean certain() {
+        return certainUntil > System.currentTimeMillis();
+    }
+
     static int maxPlayerBuddies() {
         return (int) setting("maxPlayerBuddies", 20);
     }
@@ -242,6 +258,9 @@ public final class BotBuddies {
     static boolean accepts(Familiarity f, int botMutual, Row existing, long today, double roll) {
         if (f.wary() || botMutual >= maxPlayerBuddies()) {
             return false;
+        }
+        if (certain()) {
+            return true; // auto-QA staging: a check about buddy chat must not hang on the accept roll
         }
         if (existing != null && existing.link() == Link.REFUSED
                 && today - existing.day() < (long) setting("refusalDays", 1)) {
@@ -820,6 +839,7 @@ public final class BotBuddies {
         rolls = testRolls != null ? testRolls : () -> ThreadLocalRandom.current().nextDouble();
         deciding.clear();
         lastBuddyChat.clear();
+        certainUntil = 0;
         synchronized (BotBuddies.class) {
             worldOffers.clear();
         }

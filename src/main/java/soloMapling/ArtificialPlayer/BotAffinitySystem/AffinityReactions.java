@@ -182,6 +182,67 @@ public final class AffinityReactions {
         return true;
     }
 
+    /** What a bot does on noticing a player: the drama, affinity and gift hooks, in the roaming bots' order. */
+    public interface Noticer {
+        boolean noticed(BotSM botSM, Character bot, Character player);
+    }
+
+    /** The real hooks: a partner, ex or rival scene; then a friend/rival act; then maybe a friend's gift. */
+    public static final Noticer HOOKS = (sm, bot, player) ->
+            soloMapling.ArtificialPlayer.BotDramaSystem.BotDrama.onSight(sm, player) || onSight(sm, player)
+                    || soloMapling.Economy.BotGifts.maybeGift(bot, player);
+
+    /**
+     * What a stationed (non-roaming) bot does on noticing a player: the drama and affinity hooks only. Gifts stay
+     * with the roaming bots as designed (rc3, owner decision 4): giving them to every town bot too would change how
+     * many mesos and items reach players, an economy call for the owner.
+     */
+    public static final Noticer STATIONED = (sm, bot, player) ->
+            soloMapling.ArtificialPlayer.BotDramaSystem.BotDrama.onSight(sm, player) || onSight(sm, player);
+
+    /**
+     * rc6 auto-QA triage (t-af-1, 2026-10-23): the sighting hooks ran only from the roaming bots' movement driver
+     * ({@code BotPlayerReaction}), and a staged friend is a social bot standing in town that never roams - in two runs
+     * of four minutes next to the player it greeted, invited and buffed nobody (the one run that passed only acted after
+     * the GM partied it and it became a follower). Stationed bots now call this from their own tick: the real players
+     * within the same 300 x 200 box, one reaction at most. True when one reacted.
+     */
+    public static boolean noticePlayers(BotSM botSM, Character bot, java.util.List<Character> players, Noticer hooks) {
+        if (botSM == null || bot == null || players == null) {
+            return false;
+        }
+        for (Character p : players) {
+            if (p == null || p.getId() == bot.getId() || PlayerBusy.isBusy(p)) {
+                continue;
+            }
+            if (hooks.noticed(botSM, bot, p)) {
+                return true;
+            }
+        }
+        return false;
+    }
+
+    /**
+     * GM / !qa af-2: the rival taunts the player now (its usual taunt, a roast from the player's game). rc6 auto-QA
+     * triage: af-2's taunt came only on a later sighting, and a training bot fighting across the map often never stood
+     * within reach again in the two minutes the check waits. Starts the taunt cooldown as a real one would.
+     */
+    public static boolean forceTaunt(BotSM botSM, Character bot, Character player) {
+        AffinityState state = BotAffinity.state(bot.getId(), player.getId());
+        if (!state.hostile() || !BotAffinity.hostilityEnabled() || BotAffinity.optedOut(player.getId())) {
+            return false;
+        }
+        nextAt.put(key(Action.TAUNT, bot.getId(), player.getId()), BotAffinity.now() + cooldownMs(Action.TAUNT));
+        ExecutorServiceManager.runAsync(() -> {
+            try {
+                act(Action.TAUNT, botSM, bot, player, state);
+            } catch (RuntimeException e) {
+                log.debug("Affinity taunt failed for {}", bot.getName(), e);
+            }
+        });
+        return true;
+    }
+
     /** The one friendly thing to do now, or null. The order is the rarest first. */
     static Action pickFriendly(BotSM botSM, Character bot, Character player, long now) {
         double roll = ThreadLocalRandom.current().nextDouble();

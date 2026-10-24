@@ -80,6 +80,22 @@ class BotBuddiesTest {
     }
 
     @Test
+    void autoQaCertaintyAcceptsEveryRequestButStillNeverWhenWaryOrFull() {
+        Familiarity stranger = new Familiarity(false, false, 0, false, 0.2);
+        Row refused = new Row(BOT, PLAYER, Link.REFUSED, TODAY);
+        assertFalse(BotBuddies.accepts(stranger, 0, refused, TODAY, 0.99), "normal rules");
+        BotBuddies.certainFor(60_000);
+        try {
+            assertTrue(BotBuddies.accepts(stranger, 0, refused, TODAY, 0.99), "t-bb-2 staging: certain");
+            assertFalse(BotBuddies.accepts(new Familiarity(true, true, 4, true, 0.3), 0, null, TODAY, 0.0), "wary");
+            assertFalse(BotBuddies.accepts(stranger, BotBuddies.maxPlayerBuddies(), null, TODAY, 0.0), "at the cap");
+        } finally {
+            BotBuddies.certainFor(0);
+        }
+        assertFalse(BotBuddies.accepts(stranger, 0, null, TODAY, 0.99), "it expires back to the rules");
+    }
+
+    @Test
     void aBotTurnsDownAtItsCapWhenWaryAndWhenAskedAgainRightAfterANo() {
         Familiarity friend = new Familiarity(true, false, 4, true, 0.3);
         assertTrue(BotBuddies.accepts(friend, 0, null, TODAY, 0.1));
