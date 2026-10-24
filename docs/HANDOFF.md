@@ -6,6 +6,15 @@ something.
 
 Times: give the owner Pacific next to UTC (PDT = UTC-7).
 
+**Owner's work split (2026-10-24):** this bug-fix pass is finished. The owner will hand continuing **1.5.1 bug
+squashing to DeepSeek**; use `release-1.5.1`, the current TEST receipt below and section 3's remaining leads.
+**Codex is moving to 1.6.0 feature work**, starting with Ticket 60's implementation plan on `160-bot-brain`
+(`5ca02907f`, `/root/work/SlumsMS-bot-brain-160`). Runtime implementation has not started. The roadmap puts the bot
+brain first. Fishing, medals, the daily dungeon and chaos bosses still need more detailed tickets and their listed
+owner decisions. Ticket 61's "spec/to be built" header is stale: the client MCP already exists per section 5.
+Keep the shared `slums-persistence-test` build for the bug pass; feature work must coordinate any test checkpoint
+or use a separately isolated test instance within the host caps. Do not merge 1.6.0 features into `release-1.5.1`.
+
 ## 1. What is live
 
 | Thing | Version | Where it came from |
