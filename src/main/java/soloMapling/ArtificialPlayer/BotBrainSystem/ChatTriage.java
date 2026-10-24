@@ -122,6 +122,17 @@ public final class ChatTriage {
             + " (to|for) (train|level|lvl|grind|exp)|where.*\\b(train|grind)\\b.*\\?|any good (maps|spots)|best (map|spot)"
             + "s? (for|at|to)|good (map|spot)s? for (a )?l(e)?v(e)?l? ?\\d+)");
 
+    /**
+     * cv-7 (owner, 2026-10-24): an invitation to grind, train or hunt together. Without it "wanna grind together" was
+     * plain talk and the bank answered with a line about the town ("ur right about henesys being crowded"), which
+     * ignores the invite. A statement about oneself ("i wanna grind here") is not an invitation.
+     */
+    private static final Pattern INVITE = Pattern.compile("\\b(lets|let'?s)(( (go|do|run|some))*"
+            + " (grind|train|hunt|farm|level(?:ing)?)\\b)"
+            + "|(?<!\\bi )(?<!\\bim )\\b(wanna|want to|up for)(( (go|do|run|some))*"
+            + " (grind|train|hunt|farm|level(?:ing)?)\\b)"
+            + "|\\b(grind|train|hunt|farm|level(?:ing)?) (together|with me|with u|with you)\\b");
+
     private static final Pattern WHERE_AT = Pattern.compile("(\\bwhere (r|are|re|ru) (u|you|ya|yall)\\b(?! (from|in real|irl))"
             + "|\\bwhere ru\\b(?! (from|in real|irl))|\\bwhere (u|you|ya) at\\b|\\bwya\\b|\\bwru\\b|\\bmeet ?up\\b|\\bmeet me\\b|\\bwanna meet\\b"
             + "|\\b(can|should|shall) we meet\\b|\\bwhat map (r|are) (u|you)( on| in)?\\b)");
@@ -182,7 +193,7 @@ public final class ChatTriage {
         if (FOLLOW.matcher(text).find()) {
             return Optional.of(Intent.FOLLOW);
         }
-        if (COME.matcher(text).find()) {
+        if (INVITE.matcher(text).find() || COME.matcher(text).find()) {
             return Optional.of(Intent.COME_WITH_ME);
         }
         if (PARTY.matcher(text).find()) {
