@@ -189,7 +189,7 @@ public final class LifeRuntime {
         activityCounts.computeIfAbsent(activity, a -> new LongAdder()).increment();
         if (activity == Activity.HELP_FRIEND || activity == Activity.PARTY_QUEST) { friendId = 0; friendUntil = 0; }
         String line = switch (activity) {
-            case RESTOCK -> "brb, heading to town for supplies";
+            case RESTOCK -> "brb, restocking";
             case HANG_OUT, SHOW_OFF -> "gonna hang around town for a bit";
             case FREE_MARKET, SELL -> "heading to the market for a bit";
             case MOVE_MAP -> "gonna try another training spot";

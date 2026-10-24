@@ -9,6 +9,24 @@ import static org.junit.jupiter.api.Assertions.*;
 import static org.mockito.Mockito.*;
 
 class LifeChatDeferralTest {
+    @Test void anAcceptedRestockLineClaimsATripRatherThanGoingIdle() {
+        var bot = mock(TrainingBot.class);
+        var chr = mock(Character.class);
+        when(bot.getChr()).thenReturn(chr);
+        try (var roster = mockStatic(soloMapling.ArtificialPlayer.BotRoster.class);
+             var movement = mockStatic(soloMapling.ArtificialPlayer.GCMoveSystem.GCMovement.class);
+             var chat = mockStatic(soloMapling.ArtificialPlayer.BotCommandsPack.SocialCommands.class)) {
+            movement.when(() -> soloMapling.ArtificialPlayer.GCMoveSystem.GCMovement.isMapObserved(chr.getMapId())).thenReturn(true);
+            var runtime = new LifeRuntime(bot);
+            runtime.accepted(LifeDecision.Activity.RESTOCK, System.currentTimeMillis());
+            var line = org.mockito.ArgumentCaptor.forClass(String.class);
+            chat.verify(() -> soloMapling.ArtificialPlayer.BotCommandsPack.SocialCommands.BotFullChat(eq(chr),line.capture()));
+            var claims = soloMapling.ArtificialPlayer.BotConvo.ClaimRules.classify(line.getValue());
+            assertTrue(claims.stream().anyMatch(c -> c.kind() == soloMapling.ArtificialPlayer.BotConvo.ClaimRules.Kind.RESUPPLY && !c.weak()));
+            assertFalse(claims.stream().anyMatch(c -> c.kind() == soloMapling.ArtificialPlayer.BotConvo.ClaimRules.Kind.AWAY));
+        }
+    }
+
     @Test void pendingFriendPartyRequestCannotBeVoicedAsAnAcceptedAction() {
         String old=System.getProperty("slums.botlife.enabled");
         String execute=System.getProperty("slums.botlife.execute");
