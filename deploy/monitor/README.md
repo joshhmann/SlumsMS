@@ -18,7 +18,7 @@ announcements, for one or more game servers on 192.168.0.164. Python 3 standard 
 | scheduled jobs | a timer in `TIMERS` is not active, its last run failed, or it has not run for `TIMER_MAX_AGE_H` (26) hours | 1 run |
 
 The director target is computed like `BotPopulationCurve` does: peak and curve from the boot line
-`Population director started: peak N, curve C, tick Ts` (cached per server start), weekend lift and timezone from
+`Population director started: peak N [(roster peak N, population cap N)], curve C, tick Ts` (cached per server start), weekend lift and timezone from
 `config.yaml` (defaults from `ServerConfig`). Bots are only checked when the process runs with
 `-Dsolomapling.enabled=true -Dsolomapling.autopopulate=true`. The bot count is the roster's own login/logout stamps,
 so after a crash it can overcount until bots log in again; the server-process alert covers the crash itself.
