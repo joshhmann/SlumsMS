@@ -46,9 +46,8 @@ The test server runs the same 1.5.0 build (`06a724dfc`) with the same settings p
    `site`, worktree `/root/work/SlumsMS-site`; `python3 tools/site/build.py` builds and checks `dist/site/`. Redeploy:
    `rsync -a --delete dist/site/ root@192.168.0.164:/srv/slums-site/`. The owner's Caddy points
    theslumsms.asslorde.com at 192.168.0.164:8092 (owner's side; first set to 8091 by mistake, being moved).
-4. **Patch notes on Discord:** Cody's hype post went out; the 5-part notes were held by the rate cap. Cody posts one
-   message linking `https://theslumsms.asslorde.com/patch-notes/1.5.0/` once that URL answers 200 (owner OK'd
-   2026-10-24). If it isn't posted yet: check `journalctl -u slumsms-monitor` / ask the owner before posting twice.
+4. **Patch notes on Discord: DONE 2026-10-24** (Cody linked https://theslumsms.asslorde.com; the monitor's public filter
+   blanks long URLs like `/patch-notes/1.5.0/`, so link the home page).
 
 ## 3. Backlog for 1.5.1 (hotfixes until 1.6.0)
 
