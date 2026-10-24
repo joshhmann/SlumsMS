@@ -59,6 +59,19 @@ class AutoQaTriageCatalogTest {
         assertTrue(s.stream().anyMatch(x -> x.contains("HABITS POT ({staged})")), "waits for a staged bot's pot");
     }
 
+    @Test
+    void bb1MakesTheBuddyAcceptCertainBeforeItAsks() {
+        // rc6 full run 2026-10-23, 2 of 2: a stranger bot's yes is a 20% roll (0.7-1.3x by its social trait), so the
+        // request sat "pending" for the whole 200 s wait; a silent no also blocks the pair for the rest of the day
+        List<String> s = steps("t-bb-1");
+        int certain = index(s, "fixture certainBuddies"), add = index(s, "buddy add");
+        assertTrue(certain >= 0, "t-bb-1 does not make the accept certain: " + s);
+        assertEquals("fixture certainBuddies 5", s.get(certain), "five minutes: the bot decides within 10-180 s");
+        assertTrue(certain < add, "the accept has to be certain before the request goes out: " + s);
+        assertTrue(index(s, "p1 says '!warp 100000000'") >= 0 && index(s, "p1 says '!warp 100000000'") < certain,
+                "the bot is picked after the warp: " + s);
+    }
+
     static AutoQaLine attack(long t, String bot, int busy, int gap, boolean killed) {
         return new AutoQaLine(t, "qa", "ATTACK", bot + " HERO skill 1121008 busy " + busy + "ms gap " + gap + "ms"
                 + (killed ? " killed" : ""));
