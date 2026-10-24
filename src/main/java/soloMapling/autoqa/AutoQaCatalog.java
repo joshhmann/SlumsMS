@@ -447,8 +447,11 @@ public final class AutoQaCatalog {
 
         // ── Gachapon and the rich ────────────────────────────────────────────────────────────────────────────
         c.add(Check.auto("t-ga-1", "Play a town machine").minutes(4)
-                .step(run("ga-1"), qaDo("roll"), waitSeconds(2), qaDo("roll"), waitSeconds(2), qaDo("roll"), waitSeconds(2),
-                        mark("jackpot"), qaDo("roll", "jackpot"), waitSeconds(4), say("@gacha henesys"), waitSeconds(2))
+                // the jackpot goes first: the notice keeps one per character per 60 s, so a rare won by an earlier
+                // roll of this check swallowed the jackpot's notice and the check could never see it
+                .step(run("ga-1"), mark("jackpot"), qaDo("roll", "jackpot"), waitFor("NOTICE \\[11] {me} : got", 30),
+                        qaDo("roll"), waitSeconds(2), qaDo("roll"), waitSeconds(2), qaDo("roll"), waitSeconds(2),
+                        say("@gacha henesys"), waitSeconds(2))
                 .expect(probe("gachaOdds", "henesys"), atLeast(4, "GACHA {me} .* at Henesys: "),
                         hasAfter("jackpot", "GACHA {me} .* at Henesys: jackpot"), hasAfter("jackpot", "NOTICE \\[11] {me} : got"),
                         has("NPC_TALK \\d+: The Henesys Gachapon"))
@@ -811,10 +814,16 @@ public final class AutoQaCatalog {
     }
 
     static String positionsMostlyGood(CheckRun r) {
+        // A bot walking somewhere with the nearest mob 300 px behind it is not facing the wrong way; only point-blank
+        // facing counts, and standing inside a mob counts at any distance. rc6 counted every sample (22 of 52 bad on
+        // TEST 2026-10-24, almost all of them strollers), which said nothing about how the bots fight.
         List<AutoQaLine> pos = r.matching("POSITION ", null, null);
+        java.util.regex.Pattern dx = java.util.regex.Pattern.compile("dx (-?\\d+)");
         int bad = 0;
         for (AutoQaLine l : pos) {
-            if (l.message().contains("INSIDE its body") || l.message().contains("FACING AWAY")) {
+            java.util.regex.Matcher m = dx.matcher(l.message());
+            int gap = m.find() ? Math.abs(Integer.parseInt(m.group(1))) : Integer.MAX_VALUE;
+            if (l.message().contains("INSIDE its body") || (l.message().contains("FACING AWAY") && gap <= 45)) {
                 bad++;
             }
         }

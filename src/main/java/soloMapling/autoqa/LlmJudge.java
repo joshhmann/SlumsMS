@@ -44,8 +44,10 @@ public final class LlmJudge {
             + "player. Answer with one JSON object only, no other text: {\"on_topic\":true|false,\"coherent\":true|false,"
             + "\"in_character\":true|false,\"pg13\":true|false,\"reveals_ai\":true|false,\"reason\":\"<10 words\"}. "
             + "on_topic: it responds to what was said or the situation. coherent: it makes sense after the previous "
-            + "line. in_character: it sounds like a real 2008 MapleStory player typing (slang, lowercase and typos are "
-            + "fine; customer-service or assistant tone is not). pg13: no slurs, no sexual content, insults only about the "
+            + "line. in_character: it is something a player would type to a friend in 2008 MapleStory; slang, lowercase "
+            + "and typos are fine but slang is NOT required and a plain friendly sentence is in character (only a "
+            + "customer-service or assistant tone, such as offering help with a task, is not). pg13: no slurs, no sexual "
+            + "content, insults only about the "
             + "game. reveals_ai: it says or implies it is an AI, a bot, a model or a program. The names of the players "
             + "are given and are never a reveal by themselves: a line that only says a name, however it is spelled, is "
             + "not saying it is an AI.";

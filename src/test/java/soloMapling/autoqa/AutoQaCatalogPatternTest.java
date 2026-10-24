@@ -211,6 +211,24 @@ class AutoQaCatalogPatternTest {
     }
 
     @Test
+    void cb2DoesNotCountABotThatWalksWithAMobFarBehindIt() {
+        // TEST 2026-10-24: 22 of 52 POSITION samples were "FACING AWAY" with the nearest mob 150-550 px away - bots
+        // walking their platform, not bots fighting with their back turned.
+        Check c = AutoQaCatalog.find("t-cb-2");
+        AutoQaRunnerTest.FakeWorld w = new AutoQaRunnerTest.FakeWorld();
+        CheckRun r = runAt(c, w);
+        for (int i = 0; i < 11; i++) {
+            w.qa("POSITION", "Walker WARRIOR lv 10 at (500,-85) facing left, nearest Spore dx " + (150 + i * 40)
+                    + ", FACING AWAY");
+        }
+        assertEquals(null, AutoQaCatalog.positionsMostlyGood(r), "a stroller far from every mob is not facing wrong");
+        w.qa("POSITION", "Fighter WARRIOR lv 10 at (500,-85) facing left, nearest Spore dx 30, FACING AWAY");
+        assertEquals(null, AutoQaCatalog.positionsMostlyGood(r)); // 1 of 12 still within the 10%
+        w.qa("POSITION", "Sitter WARRIOR lv 10 at (500,-85) facing left, nearest Spore dx 2 INSIDE its body, facing it");
+        assertTrue(AutoQaCatalog.positionsMostlyGood(r).contains("2 of 13"), "point blank facing and standing inside count");
+    }
+
+    @Test
     void td2FloorIsTheBandsLowEndNotTheOpeningAsk() {
         Check c = AutoQaCatalog.find("t-td-2");
         AutoQaRunnerTest.FakeWorld w = new AutoQaRunnerTest.FakeWorld();
