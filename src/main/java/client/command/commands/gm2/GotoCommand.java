@@ -72,6 +72,53 @@ public class GotoCommand extends Command {
         listEntries.sort((e1, e2) -> e1.getValue().compareTo(e2.getValue()));
     }
 
+    /** Where a player may @goto: GMs every town and area, players only the towns (1.5.0). */
+    public static Map<String, Integer> destinations(boolean gm) {
+        Map<String, Integer> out = new HashMap<>(GameConstants.GOTO_TOWNS);
+        if (gm) {
+            out.putAll(GameConstants.GOTO_AREAS);
+        }
+        return out;
+    }
+
+    /** Why the player can't @goto from where they stand, or null when they can. */
+    public static String blockedHere(Character player) {
+        return blockedReason(player.isGM(), player.isAlive(), player.getEventInstance() != null, player.getMapId(),
+                player.getMap() == null ? 0 : player.getMap().getFieldLimit());
+    }
+
+    /** The @goto rules: no dead players; players not from events, mini-dungeons or maps that block migration. */
+    public static String blockedReason(boolean gm, boolean alive, boolean inEvent, int mapId, int fieldLimit) {
+        if (!alive) {
+            return "This command cannot be used when you're dead.";
+        }
+        if (!gm && (inEvent || MiniDungeonInfo.isDungeonMap(mapId) || FieldLimit.CANNOTMIGRATE.check(fieldLimit))) {
+            return "This command can not be used in this map.";
+        }
+        return null;
+    }
+
+    /**
+     * Warps the player to {@code key} under the @goto rules (the {@code @guide}'s "take me there" uses it too).
+     *
+     * @return null when the player went, else why not
+     */
+    public static String warp(Character player, String key) {
+        String blocked = blockedHere(player);
+        if (blocked != null) {
+            return blocked;
+        }
+        Integer mapId = destinations(player.isGM()).get(key);
+        if (mapId == null) {
+            return "'" + key + "' is not a town you can @goto.";
+        }
+        MapleMap target = player.getClient().getChannelServer().getMapFactory().getMap(mapId);
+        Portal targetPortal = target.getRandomPlayerSpawnpoint();
+        player.saveLocationOnWarp();
+        player.changeMap(target, targetPortal);
+        return null;
+    }
+
     @Override
     public void execute(Client c, String[] params) {
         Character player = c.getPlayer();
@@ -85,34 +132,15 @@ public class GotoCommand extends Command {
             return;
         }
 
-        if (!player.isAlive()) {
-            player.dropMessage(1, "This command cannot be used when you're dead.");
+        String blocked = blockedHere(player);
+        if (blocked != null) {
+            player.dropMessage(1, blocked);
             return;
         }
 
-        if (!player.isGM()) {
-            if (player.getEventInstance() != null || MiniDungeonInfo.isDungeonMap(player.getMapId()) || FieldLimit.CANNOTMIGRATE.check(player.getMap().getFieldLimit())) {
-                player.dropMessage(1, "This command can not be used in this map.");
-                return;
-            }
-        }
-
-        Map<String, Integer> gotomaps;
-        if (player.isGM()) {
-            gotomaps = new HashMap<>(GameConstants.GOTO_AREAS);     // distinct map registry for GM/users suggested thanks to Vcoc
-            gotomaps.putAll(GameConstants.GOTO_TOWNS);  // thanks Halcyon (UltimateMors) for pointing out duplicates on listed entries functionality
-        } else {
-            gotomaps = new HashMap<>(GameConstants.GOTO_AREAS);     // distinct map registry for GM/users suggested thanks to Vcoc
-            gotomaps.putAll(GameConstants.GOTO_TOWNS);
-        }
-
-        if (gotomaps.containsKey(params[0])) {
-            MapleMap target = c.getChannelServer().getMapFactory().getMap(gotomaps.get(params[0]));
-
-            // expedition issue with this command detected thanks to Masterrulax
-            Portal targetPortal = target.getRandomPlayerSpawnpoint();
-            player.saveLocationOnWarp();
-            player.changeMap(target, targetPortal);
+        // 1.5.0: players get the towns only (the GM areas include boss maps and the GM map)
+        if (destinations(player.isGM()).containsKey(params[0])) {
+            warp(player, params[0]);
         } else {
             // detailed info on goto available areas suggested thanks to Vcoc
             String sendStr = "Area '#r" + params[0] + "#k' is not available. Available areas:\r\n\r\n#rTowns:#k" + GOTO_TOWNS_INFO;
