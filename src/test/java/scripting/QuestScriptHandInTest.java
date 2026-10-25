@@ -38,6 +38,8 @@ class QuestScriptHandInTest {
         public boolean completed;
         public boolean disposed;
         public String lastText;
+        public final StringBuilder allText = new StringBuilder();
+        public final Map<Integer, Integer> gained = new HashMap<>();
 
         public String getQuestProgress(int quest) {
             return getQuestProgress(quest, 0);
@@ -49,10 +51,24 @@ class QuestScriptHandInTest {
 
         public void sendOk(String text) {
             lastText = text;
+            allText.append(text).append('\n');
         }
 
         public void sendNext(String text) {
             lastText = text;
+            allText.append(text).append('\n');
+        }
+
+        public boolean haveItem(int itemId, int quantity) {
+            return true;
+        }
+
+        public boolean canHold(int itemId, int quantity) {
+            return true;
+        }
+
+        public void gainItem(int itemId, int quantity) {
+            gained.merge(itemId, quantity, Integer::sum);
         }
 
         public void gainExp(int gain) {
@@ -131,5 +147,20 @@ class QuestScriptHandInTest {
         handIn(load(2236, qm));
 
         assertFalse(qm.completed);
+    }
+
+    /** 3714: the repack removed the Dragon Stone reward; the dialogue must no longer promise it. */
+    @Test
+    void horntailEggQuestNoLongerPromisesTheDragonStone() throws Exception {
+        FakeQm qm = new FakeQm();
+        Invocable quest = load(3714, qm);
+        quest.invokeFunction("start", 1, 0, 0);
+        quest.invokeFunction("start", 1, 0, 0);
+
+        assertFalse(qm.allText.toString().contains("2041200"), "no Dragon Stone in the text: " + qm.allText);
+        assertEquals(null, qm.gained.get(2041200), "and none given, as the repack has it");
+        assertEquals(-1, qm.gained.get(4001094), "the egg goes back to the nest");
+        assertEquals(42000, qm.exp);
+        assertTrue(qm.completed);
     }
 }
