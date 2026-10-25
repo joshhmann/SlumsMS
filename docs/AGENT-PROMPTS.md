@@ -77,7 +77,7 @@ Start in `Z:\MSv83\SlumsMS-dev` on the owner's PC to build; signing and publishi
 
 ```
 Read AGENTS.md and HANDOFF.md in this folder first. Task: <describe it>. Clone slumsms-launcher branch
-launcher-ui-compact into a new folder launcher-<topic>, npm ci, npm test, build as in its README. Bump the version.
+main into a new folder launcher-<topic>, npm ci, npm test, build as in its README. Bump the version.
 Never put a key in the source or the build. Copy the unsigned exe and its SHA-256 to NOTES.md; signing and
 publishing are done on 192.168.0.187 (docs/release/RUNBOOK.md step 2.6), Test channel first, Live only on the
 owner's go.
