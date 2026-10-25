@@ -226,7 +226,7 @@ public class Character extends AbstractCharacterObject {
     private final Map<Integer, Map<BuffStat, BuffStatValueHolder>> buffEffects = new LinkedHashMap<>(); // non-overriding buffs thanks to Ronan
     private final Map<Integer, Long> buffExpires = new LinkedHashMap<>();
     private final Map<Integer, KeyBinding> keymap = new LinkedHashMap<>();
-    private final Map<Integer, Summon> summons = new LinkedHashMap<>();
+    private final Map<Integer, Summon> summons = new ConcurrentHashMap<>(); // 1.5.2 (nutnnut/Cosmic ab7253d97): changed from timer and handler threads
     private final Map<Integer, CooldownValueHolder> coolDowns = new LinkedHashMap<>();
     private long bankMesos;
 
@@ -6872,7 +6872,9 @@ public class Character extends AbstractCharacterObject {
     }
 
     public Collection<Summon> getSummonsValues() {
-        return summons.values();
+        // 1.5.2 (nutnnut/Cosmic ab7253d97): a copy. The live view threw ConcurrentModificationException in a
+        // handler's walk when a summon expired or was recast on another thread.
+        return new ArrayList<>(summons.values());
     }
 
     public void clearSummons() {
