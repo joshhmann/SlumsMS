@@ -1158,14 +1158,13 @@ public class ItemInformationProvider {
                                 nEquip.setUpgradeSlots((byte) (nEquip.getUpgradeSlots() + 1));
                             }
                             break;
-                        case ItemId.CHAOS_SCROll_60:
-                        case ItemId.LIAR_TREE_SAP:
-                        case ItemId.MAPLE_SYRUP:
-                            scrollEquipWithChaos(nEquip, YamlConfig.config.server.CHSCROLL_STAT_RANGE);
-                            break;
 
                         default:
-                            improveEquipStats(nEquip, stats);
+                            if (ItemConstants.isChaosScroll(scrollId) || scrollId == ItemId.LIAR_TREE_SAP || scrollId == ItemId.MAPLE_SYRUP) {
+                                scrollEquipWithChaos(nEquip, YamlConfig.config.server.CHSCROLL_STAT_RANGE);
+                            } else {
+                                improveEquipStats(nEquip, stats);
+                            }
                             break;
                     }
                     if (!ItemConstants.isCleanSlate(scrollId)) {

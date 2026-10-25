@@ -91,30 +91,23 @@ public final class ScrollHandler extends AbstractPacketHandler {
                 }
 
                 List<Integer> scrollReqs = ii.getScrollReqs(scroll.getItemId());
-                if (scrollReqs.size() > 0 && !scrollReqs.contains(toScroll.getItemId())) {
-                    announceCannotScroll(c, legendarySpirit);
-                    return;
-                }
-                if (whiteScroll) {
-                    wscroll = useInventory.findById(ItemId.WHITE_SCROLL);
-                    if (wscroll == null) {
-                        whiteScroll = false;
+                if (!scrollReqs.isEmpty()) {
+                    if (!scrollReqs.contains(toScroll.getItemId())) {
+                        announceCannotScroll(c, legendarySpirit);
+                        return;
                     }
-                }
-
-                if (!ItemConstants.isChaosScroll(scroll.getItemId()) && !ItemConstants.isCleanSlate(scroll.getItemId())) {
+                } else if (!ItemConstants.isChaosScroll(scroll.getItemId()) && !ItemConstants.isCleanSlate(scroll.getItemId())) {
                     if (!canScroll(scroll.getItemId(), toScroll.getItemId())) {
                         announceCannotScroll(c, legendarySpirit);
                         return;
                     }
                 }
-
-                Equip scrolled = (Equip) ii.scrollEquipWithId(toScroll, scroll.getItemId(), whiteScroll, 0, chr.isGM());
-                ScrollResult scrollSuccess = Equip.ScrollResult.FAIL; // fail
-                if (scrolled == null) {
-                    scrollSuccess = Equip.ScrollResult.CURSE;
-                } else if (scrolled.getLevel() > oldLevel || (ItemConstants.isCleanSlate(scroll.getItemId()) && scrolled.getUpgradeSlots() == oldSlots + 1) || ItemConstants.isFlagModifier(scroll.getItemId(), scrolled.getFlag())) {
-                    scrollSuccess = Equip.ScrollResult.SUCCESS;
+                if (whiteScroll) {
+                    wscroll = useInventory.findById(ItemId.WHITE_SCROLL);
+                    if (wscroll == null || wscroll.getQuantity() < 1) {
+                        whiteScroll = false;
+                        wscroll = null;
+                    }
                 }
 
                 useInventory.lockInventory();
@@ -125,7 +118,7 @@ public final class ScrollHandler extends AbstractPacketHandler {
                     }
 
                     if (whiteScroll && !ItemConstants.isCleanSlate(scroll.getItemId())) {
-                        if (wscroll.getQuantity() < 1) {
+                        if (wscroll == null || wscroll.getQuantity() < 1) {
                             announceCannotScroll(c, legendarySpirit);
                             return;
                         }
@@ -136,6 +129,14 @@ public final class ScrollHandler extends AbstractPacketHandler {
                     InventoryManipulator.removeFromSlot(c, InventoryType.USE, scroll.getPosition(), (short) 1, false);
                 } finally {
                     useInventory.unlockInventory();
+                }
+
+                Equip scrolled = (Equip) ii.scrollEquipWithId(toScroll, scroll.getItemId(), whiteScroll, 0, chr.isGM());
+                ScrollResult scrollSuccess = Equip.ScrollResult.FAIL; // fail
+                if (scrolled == null) {
+                    scrollSuccess = Equip.ScrollResult.CURSE;
+                } else if (scrolled.getLevel() > oldLevel || (ItemConstants.isCleanSlate(scroll.getItemId()) && scrolled.getUpgradeSlots() == oldSlots + 1) || ItemConstants.isFlagModifier(scroll.getItemId(), scrolled.getFlag())) {
+                    scrollSuccess = Equip.ScrollResult.SUCCESS;
                 }
 
                 final List<ModifyInventory> mods = new ArrayList<>();
@@ -192,7 +193,7 @@ public final class ScrollHandler extends AbstractPacketHandler {
 
     private static boolean useInventoryItemMissing(Character chr, short scrollSlot) {
         Item scroll = chr.getInventory(InventoryType.USE).getItem(scrollSlot);
-        return scroll == null || scroll.getItemId() / 10000 != 204;
+        return scroll == null || scroll.getItemId() / 10000 != 204 || scroll.getQuantity() < 1;
     }
 
     private static void announceCannotScroll(Client c, boolean legendarySpirit) {
