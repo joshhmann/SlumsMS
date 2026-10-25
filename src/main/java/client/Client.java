@@ -878,6 +878,9 @@ public class Client extends ChannelInboundHandlerAdapter {
     }
 
     public void setAccID(int id) {
+        if (accId > 0 && accId != id && player != null && !player.isOwnedAlt()) {
+            soloMapling.companions.OwnedAltService.getInstance().dismissAll(player, true);
+        }
         this.accId = id;
     }
 
@@ -1053,7 +1056,18 @@ public class Client extends ChannelInboundHandlerAdapter {
     }
 
     private void disconnectInternal(boolean shutdown, boolean cashshop) {//once per Client instance
+        if (player != null && player.isOwnedAlt()) {
+            soloMapling.companions.OwnedAltService.getInstance().disconnectAlt(player);
+            return; // no socket/account session, and the registry owns the one final save
+        }
         if (player != null && player.isLoggedin() && player.getClient() != null) {
+            if (!this.serverTransition) {
+                try {
+                    soloMapling.companions.OwnedAltService.getInstance().dismissAll(player, true);
+                } catch (RuntimeException e) {
+                    log.error("Unable to finish saving companions for character {} (login remains blocked)", player.getId(), e);
+                }
+            }
             final int messengerid = player.getMessenger() == null ? 0 : player.getMessenger().getId();
             //final int fid = player.getFamilyId();
             final BuddyList bl = player.getBuddylist();

@@ -17,6 +17,9 @@ public class CharacterStorage {
     private static int currentIndex = 0;
 
     public static void addActiveBot(int id, BotSM character) {
+        if (character.getChr() != null && character.getChr().isOwnedAlt()) {
+            throw new IllegalArgumentException("Owned alts do not belong in the population registry");
+        }
         activeBotMap.put(id, character);
     }
 

@@ -53,10 +53,13 @@ public final class OwnedAltService {
         return row.accountId == owner.getAccountID() && row.world == owner.getWorld()
                 && row.id > 0 && row.id < 1_000_000_000 && row.id != owner.getId();
     }
+    private synchronized boolean available(int id) {
+        return !entries.containsKey(id) && !backend.online(id);
+    }
     public List<Candidate> list(Character owner) {
         requireEnabled();
         return backend.list(owner).stream().filter(row -> eligible(owner, row))
-                .filter(row -> !backend.online(row.id)).toList();
+                .filter(row -> available(row.id)).toList();
     }
     private Set<Integer> occupied(int ownerId) {
         Set<Integer> ids = new HashSet<>(backend.companions(ownerId));
@@ -77,6 +80,8 @@ public final class OwnedAltService {
 
     public Character summon(Character owner, String name) {
         requireEnabled();
+        if (owner.isOwnedAlt() || owner.isBot())
+            throw new IllegalStateException("Only your logged-in character can call an alt.");
         Candidate row = backend.list(owner).stream().filter(c -> c.name.equalsIgnoreCase(name))
                 .filter(c -> eligible(owner, c)).findFirst()
                 .orElseThrow(() -> new IllegalStateException("Choose another character on this account and world."));
@@ -106,10 +111,15 @@ public final class OwnedAltService {
             }
             return alt;
         } catch (RuntimeException e) {
-            synchronized (this) {
+            synchronized (this) { entry.state = State.SAVING; }
+            try {
                 if (entry.alt != null) backend.detach(entry.alt);
-                entries.remove(row.id, entry);
+            } catch (RuntimeException cleanup) {
+                synchronized (this) { entry.state = State.FAILED; }
+                cleanup.addSuppressed(e);
+                throw new IllegalStateException("Unable to finish closing that character. Please contact a GM.", cleanup);
             }
+            synchronized (this) { entries.remove(row.id, entry); }
             throw e;
         }
     }

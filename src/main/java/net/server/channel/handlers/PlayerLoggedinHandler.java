@@ -102,8 +102,10 @@ public final class PlayerLoggedinHandler extends AbstractPacketHandler {
         if (!c.tryacquireClient()) {
             // thanks MedicOP for assisting on concurrency protection here
             c.sendPacket(PacketCreator.getAfterLoginError(10));
+            return;
         }
 
+        soloMapling.companions.OwnedAltService.LoginLease altLogin = null;
         try {
             World wserv = server.getWorld(c.getWorld());
             if (wserv == null) {
@@ -125,7 +127,7 @@ public final class PlayerLoggedinHandler extends AbstractPacketHandler {
             Character player = wserv.getPlayerStorage().getCharacterById(cid);
 
             final Hwid hwid;
-            if (player == null) {
+            if (player == null || player.isOwnedAlt()) {
                 hwid = SessionCoordinator.getInstance().pickLoginSessionHwid(c);
                 if (hwid == null) {
                     c.disconnect(true, false);
@@ -142,6 +144,14 @@ public final class PlayerLoggedinHandler extends AbstractPacketHandler {
                 return;
             }
 
+            try {
+                altLogin = soloMapling.companions.OwnedAltService.getInstance().beginLogin(cid);
+            } catch (IllegalStateException pendingSave) {
+                c.sendPacket(PacketCreator.getAfterLoginError(10));
+                return;
+            }
+            // Takeover saves and removes the old headless object before any DB reload.
+            player = wserv.getPlayerStorage().getCharacterById(cid);
             boolean newcomer = false;
             if (player == null) {
                 try {
@@ -481,6 +491,7 @@ public final class PlayerLoggedinHandler extends AbstractPacketHandler {
         } catch (Exception e) {
             e.printStackTrace();
         } finally {
+            if (altLogin != null) altLogin.close();
             c.releaseClient();
         }
     }

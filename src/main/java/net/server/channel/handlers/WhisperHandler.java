@@ -104,6 +104,8 @@ public final class WhisperHandler extends AbstractPacketHandler {
      * is a busy player: now and then a short "busy" whisper, otherwise nothing.
      */
     private static void whisperBot(String message, Character user, Character bot) {
+        // Owned alts have no population persona. Never manufacture a busy reply on their behalf.
+        if (bot.isOwnedAlt()) return;
         BotSM brain = CharacterStorage.getBotById(bot.getId());
         int channel = user.getClient().getChannel() - 1;
         java.util.function.Consumer<String> whisperBack = line ->

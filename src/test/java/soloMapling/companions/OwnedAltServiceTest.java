@@ -23,7 +23,7 @@ class OwnedAltServiceTest {
         List<OwnedAltService.Candidate> candidates = new ArrayList<>();
         Set<Integer> online = ConcurrentHashMap.newKeySet();
         AtomicInteger saves = new AtomicInteger(), loads = new AtomicInteger();
-        Runnable saving = () -> {};
+        Runnable saving = () -> {}, detaching = () -> {};
         Set<Integer> friends = new HashSet<>();
         public List<OwnedAltService.Candidate> list(Character owner) { return candidates; }
         public boolean online(int id) { return online.contains(id); }
@@ -38,7 +38,7 @@ class OwnedAltServiceTest {
         }
         public void attach(Character owner, Character alt) { online.add(alt.getId()); }
         public void save(Character alt) { saves.incrementAndGet(); saving.run(); }
-        public void detach(Character alt) { online.remove(alt.getId()); }
+        public void detach(Character alt) { detaching.run(); online.remove(alt.getId()); }
         public Set<Integer> companions(int ownerId) { return friends; }
         void add(int id) { candidates.add(new OwnedAltService.Candidate(id, 7, 1, "Alt" + id)); }
     }
@@ -156,6 +156,17 @@ class OwnedAltServiceTest {
             assertTrue(db.online.isEmpty()); assertEquals(0,db.saves.get());
             try (var login = s.beginLogin(2)) { assertTrue(db.online.isEmpty()); }
         } finally { finish.countDown(); worker.shutdownNow(); }
+    }
+
+    @Test void cleanupRetryAfterCommittedSaveNeverSavesTwice() {
+        Memory db = new Memory(); db.add(2);
+        OwnedAltService s = new OwnedAltService(db, () -> true); Character owner = owner(1);
+        s.summon(owner,"Alt2");
+        db.detaching = () -> { throw new IllegalStateException("cleanup failed"); };
+        assertThrows(IllegalStateException.class, () -> s.dismiss(owner,"Alt2"));
+        assertThrows(IllegalStateException.class, () -> s.beginLogin(2));
+        db.detaching = () -> {};
+        assertTrue(s.dismiss(owner,"Alt2")); assertEquals(1,db.saves.get());
     }
 
 }

@@ -275,6 +275,11 @@ public class BotRecruitManager {
     // slot gets true without taking a second one (a double-take would leak capacity on a single
     // release). Callers MUST release once the bot is a follower or provably never will be.
     public static boolean tryReserveFollower(int botCharId) {
+        Armed armed = ARMED.get(botCharId);
+        if (config.YamlConfig.config.server.OWNED_ALTS_ENABLED && armed != null
+                && !soloMapling.companions.OwnedAltService.getInstance().reserveCompanion(armed.inviterId(), botCharId)) {
+            return false;
+        }
         if (!RESERVED_FOLLOWER_IDS.add(botCharId)) {
             return true; // this bot's slot is already held
         }
@@ -282,6 +287,7 @@ public class BotRecruitManager {
             int held = RESERVED_FOLLOWERS.get();
             if (liveFollowerCount() + held >= FOLLOWER_CAP) {
                 RESERVED_FOLLOWER_IDS.remove(botCharId);
+                soloMapling.companions.OwnedAltService.getInstance().releaseCompanion(botCharId);
                 return false;
             }
             if (RESERVED_FOLLOWERS.compareAndSet(held, held + 1)) {
@@ -293,6 +299,7 @@ public class BotRecruitManager {
     // Hand the slot back. Safe to call for a bot that holds none (the set removes nothing, so the
     // counter never moves), which is what makes the caller's "release whatever happens" path simple.
     public static void releaseFollowerReservation(int botCharId) {
+        soloMapling.companions.OwnedAltService.getInstance().releaseCompanion(botCharId);
         if (RESERVED_FOLLOWER_IDS.remove(botCharId)) {
             RESERVED_FOLLOWERS.decrementAndGet();
         }

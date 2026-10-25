@@ -1835,12 +1835,22 @@ public class TrainingBot extends BotSM {
             partyMenu.close(player);
             return;
         }
+        boolean altCap = config.YamlConfig.config.server.OWNED_ALTS_ENABLED;
+        if (altCap && !soloMapling.companions.OwnedAltService.getInstance().reserveCompanion(player.getId(), chr.getId())) {
+            sayRecruit("PartyDecline", player);
+            partyMenu.close(player);
+            return;
+        }
         sayRecruit("FollowAccept", player);
         partyMenu.close(player);
         BotRecruitManager.setPendingLeader(chr.getId(), player.getId());
         // stopScheduledTask (via convert) releases the grind: spot claim, occupancy slot,
         // combat/buff drivers, GC movement lock.
-        BotTypeManager.convertBotType(chr, BotTypeManager.BotType.FOLLOWER_BOT);
+        try {
+            BotTypeManager.convertBotType(chr, BotTypeManager.BotType.FOLLOWER_BOT);
+        } finally {
+            if (altCap) soloMapling.companions.OwnedAltService.getInstance().releaseCompanion(chr.getId());
+        }
     }
 
     private boolean inSameParty(Character player) {

@@ -56,7 +56,10 @@ final class OwnedAltBackend implements OwnedAltService.Backend {
         } catch (SQLException e) { throw new IllegalStateException("Unable to load that character. Please try again later.", e); }
     }
     @Override public void attach(Character owner, Character alt) {
-        if (owner.getEventInstance() != null || owner.getMap().getEventInstance() != null)
+        var target = owner.getMap();
+        if (target == null || target.getChannelServer() != alt.getClient().getChannelServer())
+            throw new IllegalStateException("Your channel changed while loading. Please call your alt again.");
+        if (owner.getEventInstance() != null || target.getEventInstance() != null)
             throw new IllegalStateException("Call your alt before entering an instance.");
         if (owner.getParty() == null && !Party.createParty(owner, true))
             throw new IllegalStateException("Please create a party first.");
@@ -65,12 +68,12 @@ final class OwnedAltBackend implements OwnedAltService.Backend {
         // A saved party is not permission to join an unrelated group.
         alt.setParty(null);
         alt.setMPC(null);
-        alt.setMap(owner.getMap());
+        alt.setMap(target);
         alt.setPosition(owner.getPosition());
         alt.getClient().getChannelServer().addPlayer(alt);
         alt.getWorldServer().addPlayer(alt);
         alt.setEnteredChannelWorld();
-        owner.getMap().addPlayer(alt);
+        target.addPlayer(alt);
         if (!Party.joinParty(alt, owner.getParty().getId(), true))
             throw new IllegalStateException("Your party has no free place.");
     }
