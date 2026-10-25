@@ -141,7 +141,7 @@ public final class AutoQaService {
             if (checks.isEmpty()) {
                 return List.of("Auto-QA rerun skipped: " + plan.refused());
             }
-            carried = narrow(plan.carried(), checks);
+            carried = carriedFor(catalogue, req.selector(), plan.carried());
             carriedRun = plan.sourceRun();
             if (plan.refused() != null) {
                 note = " --failed: " + plan.refused();
@@ -169,6 +169,16 @@ public final class AutoQaService {
                 + (carried.isEmpty() ? "" : ", " + carried.size() + " passed last time carried forward, not rerun")
                 + note + ". Synthetic players " + String.join(" and ", SyntheticPlayers.NAMES)
                 + " log in on channel 1. !autoqa status / stop / report.");
+    }
+
+    /**
+     * The carried entries for the checks a {@code --failed} request covers: those the selector names, which is a
+     * superset of the ones it reruns - a carried pass is by definition not in the rerun list, so narrowing by the
+     * rerun list would drop every one of them and report a partial run as if nothing had been carried.
+     */
+    static Map<String, Map<String, Object>> carriedFor(List<Check> catalogue, String selector,
+                                                       Map<String, Map<String, Object>> carried) {
+        return narrow(carried, select(catalogue, selector));
     }
 
     /** The carried entries for the checks this run actually covers (a selector narrows a rerun too). */
