@@ -4336,21 +4336,17 @@ public class MapleMap {
     }
 
     private int getNumShouldSpawn(int numPlayers) {
-        /*
-        System.out.println("----------------------------------");
-        for (SpawnPoint spawnPoint : getMonsterSpawn()) {
-            System.out.println("sp " + spawnPoint.getPosition().getX() + ", " + spawnPoint.getPosition().getY() + ": " + spawnPoint.getDenySpawn());
-        }
-        System.out.println("try " + monsterSpawn.size() + " - " + spawnedMonstersOnMap.get());
-        System.out.println("----------------------------------");
-        */
+        return numShouldSpawn(numPlayers, monsterSpawn.size(), spawnRateMultiplier, spawnedMonstersOnMap.get(),
+                YamlConfig.config.server.USE_ENABLE_FULL_RESPAWN);
+    }
 
-        if (YamlConfig.config.server.USE_ENABLE_FULL_RESPAWN) {
-            return ((monsterSpawn.size() * spawnRateMultiplier) - spawnedMonstersOnMap.get());
+    /** How many more mobs a map wants. The multiplier is applied once, in either mode. */
+    static int numShouldSpawn(int numPlayers, int spawnPoints, int multiplier, int alive, boolean fullRespawn) {
+        if (fullRespawn) {
+            return (spawnPoints * multiplier) - alive;
         }
-
-        int maxNumShouldSpawn = ((int) Math.ceil(getCurrentSpawnRate(numPlayers, spawnRateMultiplier) * monsterSpawn.size())) * spawnRateMultiplier;
-        return maxNumShouldSpawn - spawnedMonstersOnMap.get();
+        int maxNumShouldSpawn = (int) Math.ceil(getCurrentSpawnRate(numPlayers, multiplier) * spawnPoints);
+        return maxNumShouldSpawn - alive;
     }
 
     public void respawn() {
@@ -4374,18 +4370,26 @@ public class MapleMap {
         if (numShouldSpawn > 0) {
             List<SpawnPoint> randomSpawn = new ArrayList<>(getMonsterSpawn());
             Collections.shuffle(randomSpawn);
-            short spawned = 0;
-            for (SpawnPoint spawnPoint : randomSpawn) {
-                if (spawnPoint.shouldSpawn() || getSpawnRateMultiplier() != 1) {
-                    spawnMonster(spawnPoint.getMonster());
-                    spawned++;
+            spawnFrom(randomSpawn, numShouldSpawn, mob -> spawnMonster(mob));
+        }
+    }
 
-                    if (spawned >= numShouldSpawn) {
-                        break;
-                    }
-                }
+    /**
+     * Spawns from up to {@code max} spawn points that are allowed to. A point's own rules (denied, boss/no-respawn
+     * mobTime, one mob per point, respawn timer) always apply, whatever the spawn-rate multiplier is.
+     */
+    static int spawnFrom(List<SpawnPoint> points, int max, java.util.function.Consumer<Monster> spawn) {
+        int spawned = 0;
+        for (SpawnPoint spawnPoint : points) {
+            if (spawned >= max) {
+                break;
+            }
+            if (spawnPoint.shouldSpawn()) {
+                spawn.accept(spawnPoint.getMonster());
+                spawned++;
             }
         }
+        return spawned;
     }
 
     public void mobMpRecovery() {
