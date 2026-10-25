@@ -6,6 +6,12 @@ something.
 
 Times: give the owner Pacific next to UTC (PDT = UTC-7).
 
+**Client QA worker now running (owner authorized after sprint handback):** started the background worker via
+manual-only Windows task `SlumsMS-Sprint-QA-Worker`. `status` responds: interactive, idle, real primary display,
+force off, no game running. No controller/game launch or focus changes. Current driver remains on 8489 with
+the old DLL, so feature-8491 visual checks are still pending. Worker expires in one hour; see
+`docs/qa/CLIENT-MCP.md` for exact state and task notes. No Live/shared TEST changes.
+
 **1.6.0 sprint in progress (separate feature branch):** `160-life-in-town`, worktree
 `/root/work/SlumsMS-160-sprint`, source `3f8250967` (fishing QA spawn fix atop `a572d4361`). Plans and open work:
 `docs/release/1.6.0-sprint.md`, tickets 68–74. Before changes, origin/release-1.5.1 at `246032b41` merged

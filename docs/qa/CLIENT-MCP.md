@@ -53,3 +53,19 @@ prove another client version is visually correct.
 
 The new settings panel was built and tested in a separate task folder; it was not installed into the driver copy.
 Feature-server visual QA needs a deliberate, reviewed test-client setup that preserves this driver's 8489 guard.
+
+## Worker startup authorized by owner after sprint handback
+
+The owner explicitly authorized starting the QA worker from 187. Started it in the logged-on Windows session
+using the new manual-only task `SlumsMS-Sprint-QA-Worker` (interactive user, elevated pythonw, no UAC prompt,
+no recurring trigger). Operational notes: `Z:\MSv83\SlumsMS-dev\client-mcp-sprint-worker\NOTES.md`.
+The queue was cleared only after verifying no worker was running. Status call succeeded: interactive desktop,
+owner idle ~3,588 s, real XG270/NVIDIA primary display, `local_force=false`, no owned game PIDs.
+No controller or game was launched and no foreground window was changed. Worker expires after one hour;
+the manual-only task definition remains and can be removed after expiry.
+
+This supersedes the earlier unavailable-worker observation, not the endpoint restriction. The current driver
+still controls its original 8489 client with DLL `ffffe1437c91df1fff9aaa8c74bfaf4bbd119085c0cab2435dcdcabecb3d93fa`.
+It cannot verify fishing/settings on feature 8491. No endpoint guard, DLL or client setup changed. Preparing a
+feature-client driver needs a deliberate setup following the PC rules; do not redirect this existing driver or
+replace shared 1.5.1 TEST. No new game/visual result is claimed.
