@@ -66,6 +66,13 @@ public final class NPCMoreTalkHandler extends AbstractPacketHandler {
                     selection += 256;
                 }
             }
+            if (lastMsg == 3) {   // a number box (getNPCTalkNum): the reply must stay inside its bounds
+                if (c.getQM() != null) {
+                    selection = c.getQM().boundNumber(selection);
+                } else if (c.getCM() != null) {
+                    selection = c.getCM().boundNumber(selection);
+                }
+            }
             if (c.getQM() != null) {
                 if (c.getQM().isStart()) {
                     QuestScriptManager.getInstance().start(c, action, lastMsg, selection);
