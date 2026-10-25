@@ -205,6 +205,19 @@ public final class GuildRules {
         return targetSize > 0 && members < targetSize;
     }
 
+    /**
+     * Slots a bot guild keeps free for players: growth the bots make on their own (a poach) stops this far below the
+     * guild's capacity. {@link GuildPlan#capacityFor} gives each guild its target plus 10 or more for players; before
+     * 1.5.2 every poach ate one of those, so a guild that kept poaching from its rival filled to capacity and a player
+     * asking to join only ever heard "sorry we r full" (auto-QA t-gu-1, Legendz 50/50 with a target of 38).
+     */
+    public static final int PLAYER_ROOM = 5;
+
+    /** Whether a bot guild with {@code members} of {@code capacity} may take one more bot by poaching. */
+    public static boolean roomToPoach(int members, int capacity) {
+        return members + 1 <= capacity - PLAYER_ROOM;
+    }
+
     /** At most one kick per guild per this many minutes. */
     static long kickGapMs() {
         return minutes("kickMinutes", 30);

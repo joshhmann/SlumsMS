@@ -547,6 +547,8 @@ final class DramaScenarios {
 
         public List<String> stage(QaContext ctx) {
             String g = guild(ctx, true);
+            // 1.5.2: the stop puts the lured bot back; every run used to move one roster bot into this guild for good
+            cleanupAtStop(ctx);
             List<String> out = new ArrayList<>(act(ctx, "poach", g));
             if (ctx.world().guildIdOf(ctx.gm()) > 0) {
                 stageMember(ctx, "friend", g);

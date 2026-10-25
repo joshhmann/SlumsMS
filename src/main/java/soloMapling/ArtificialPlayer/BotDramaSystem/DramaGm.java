@@ -23,6 +23,8 @@ public final class DramaGm {
     private static final Map<Integer, List<Integer>> staged = new ConcurrentHashMap<>();
     /** Wars and alliances a GM started (ended by {@code !botwar cleanup} / the scenario's stop). */
     private static final Map<Integer, List<Long>> gmWars = new ConcurrentHashMap<>();
+    /** Bots a GM's poach moved (put back by {@code !botwar cleanup} / the scenario's stop). */
+    private static final Map<Integer, List<GuildWars.Poached>> gmPoaches = new ConcurrentHashMap<>();
 
     private DramaGm() {
     }
@@ -406,6 +408,12 @@ public final class DramaGm {
                     }
                 }
                 out.add("ended " + n + " war(s)/alliance(s) started here");
+                List<GuildWars.Poached> poached = gmPoaches.remove(gm.getId());
+                if (poached != null) {
+                    for (GuildWars.Poached p : poached) {
+                        out.add("poach undone: " + GuildWars.undoPoach(p));
+                    }
+                }
             }
             case "poach" -> {
                 if (a == null) {
@@ -417,7 +425,11 @@ public final class DramaGm {
                 } else {
                     var from = b != null ? b : a.rivalId() > 0
                             ? soloMapling.ArtificialPlayer.BotGuildSystem.BotGuilds.guild(a.rivalId()) : null;
-                    out.add(GuildWars.poachBot(a, from, java.util.concurrent.ThreadLocalRandom.current()));
+                    GuildWars.Poached p = GuildWars.poach(a, from, java.util.concurrent.ThreadLocalRandom.current());
+                    if (p.happened()) {
+                        gmPoaches.computeIfAbsent(gm.getId(), k -> new CopyOnWriteArrayList<>()).add(p);
+                    }
+                    out.add(p.line());
                 }
             }
             case "ally" -> {

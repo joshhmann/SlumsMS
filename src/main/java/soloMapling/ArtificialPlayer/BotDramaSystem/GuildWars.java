@@ -9,6 +9,7 @@ import soloMapling.ArtificialPlayer.BotAffinitySystem.AffinityState;
 import soloMapling.ArtificialPlayer.BotAffinitySystem.BotAffinity;
 import soloMapling.ArtificialPlayer.BotGrindSystem.MapMobIndex;
 import soloMapling.ArtificialPlayer.BotGuildSystem.BotGuilds;
+import soloMapling.ArtificialPlayer.BotGuildSystem.GuildRules;
 import soloMapling.ArtificialPlayer.BotGuildSystem.GuildStore.GuildRow;
 import soloMapling.ArtificialPlayer.BotGuildSystem.GuildStore.MemberRow;
 import soloMapling.ArtificialPlayer.BotHelpers;
@@ -674,12 +675,30 @@ public final class GuildWars {
      * traitor, the new one welcomes it, and sometimes a megaphone. What happened.
      */
     public static String poachBot(GuildRow g, GuildRow from, Random rng) {
+        return poach(g, from, rng).line();
+    }
+
+    /** A poach that happened (botId &gt; 0) or why none did, enough to put the bot back ({@link #undoPoach}). */
+    public record Poached(String line, int botId, int fromGuildId, int fromRank, int toGuildId) {
+        static Poached none(String line) {
+            return new Poached(line, 0, 0, 0, 0);
+        }
+
+        public boolean happened() {
+            return botId > 0;
+        }
+    }
+
+    /** {@link #poachBot}, returning who moved where. */
+    public static Poached poach(GuildRow g, GuildRow from, Random rng) {
         if (g == null || from == null) {
-            return "no such guild";
+            return Poached.none("no such guild");
         }
         Guild live = Server.getInstance().getGuild(g.guildId());
-        if (live != null && live.getMembers().size() >= live.getCapacity()) {
-            return g.name() + " is full";
+        // 1.5.2: a poach never takes the slots kept for players (it used to fill a guild to its capacity)
+        if (live != null && !GuildRules.roomToPoach(live.getMembers().size(), live.getCapacity())) {
+            return Poached.none(g.name() + " is full (" + live.getMembers().size() + "/" + live.getCapacity() + ", "
+                    + GuildRules.PLAYER_ROOM + " kept for players)");
         }
         List<Character> candidates = new ArrayList<>();
         for (Character c : onlineBots(from.guildId())) {
@@ -689,9 +708,11 @@ public final class GuildWars {
             }
         }
         if (candidates.isEmpty()) {
-            return "nobody of " + from.name() + " online to poach";
+            return Poached.none("nobody of " + from.name() + " online to poach");
         }
         Character bot = candidates.get(rng.nextInt(candidates.size()));
+        MemberRow was = BotGuilds.membership(bot.getId());
+        int fromRank = was != null ? was.rank() : 5;
         Map<String, String> t = Map.of("MEMBER", bot.getName(), "OLD", from.name(), "GUILD", g.name());
         BotGuilds.sayInGuild(bot, DramaKit.pick("PoachLeaveOld", t));
         BotGuilds.leave(bot.getId(), "poached by " + g.name());
@@ -700,7 +721,8 @@ public final class GuildWars {
             BotTiming.after(3_000, () -> BotGuilds.sayInGuild(oldLead, DramaKit.pick("PoachTraitor", t)));
         }
         if (!BotGuilds.join(bot, g.guildId(), 5, now())) {
-            return bot.getName() + " left " + from.name() + " but could not join " + g.name();
+            return new Poached(bot.getName() + " left " + from.name() + " but could not join " + g.name(),
+                    bot.getId(), from.guildId(), fromRank, 0);
         }
         Character newMate = speaker(g.guildId());
         if (newMate != null && newMate.getId() != bot.getId()) {
@@ -711,7 +733,33 @@ public final class GuildWars {
             WorldEventMegaphones.getInstance().offerEvent(bot, "GuildPoach", t, "drama:poach:" + bot.getId());
         }
         qa(bot.getMapId(), "POACH " + bot.getName() + ": " + from.name() + " -> " + g.name() + (mega ? " (megaphone)" : ""));
-        return bot.getName() + " left " + from.name() + " for " + g.name();
+        return new Poached(bot.getName() + " left " + from.name() + " for " + g.name(), bot.getId(), from.guildId(),
+                fromRank, g.guildId());
+    }
+
+    /**
+     * Puts a GM-staged poach back (!qa gw-3's stop, {@code !botwar cleanup}): the bot leaves the guild it was lured
+     * to and rejoins its old one at its old rank, quietly. Auto-QA t-gu-1, 1.5.2: every gw-3 run moved one real
+     * roster bot into the biggest guild for good, so after a dozen runs Legendz sat at its capacity and every
+     * application or staging in it failed.
+     */
+    public static String undoPoach(Poached p) {
+        if (p == null || !p.happened()) {
+            return "no poach to undo";
+        }
+        MemberRow now = BotGuilds.membership(p.botId());
+        if (p.toGuildId() > 0 && (now == null || now.guildId() != p.toGuildId())) {
+            return "bot " + p.botId() + " moved on since: left as it is";
+        }
+        Character bot = DramaKit.liveBot(p.botId());
+        if (bot == null) {
+            return "bot " + p.botId() + " is offline: left in " + BotGuilds.guildName(p.toGuildId());
+        }
+        if (now != null) {
+            BotGuilds.leave(p.botId(), "QA poach undone");
+        }
+        boolean back = BotGuilds.join(bot, p.fromGuildId(), p.fromRank(), now());
+        return bot.getName() + (back ? " is back in " : " could not rejoin ") + BotGuilds.guildName(p.fromGuildId());
     }
 
     /**

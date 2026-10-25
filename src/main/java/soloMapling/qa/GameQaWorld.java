@@ -795,19 +795,31 @@ final class GameQaWorld implements QaWorld {
             var g = soloMapling.ArtificialPlayer.BotGuildSystem.BotGuilds.byName(wanted);
             return g == null ? null : g.name();
         }
-        String best = null;
-        int most = -1;
+        List<GuildCandidate> candidates = new ArrayList<>();
         for (var g : all) {
             if (withRival && (g.rivalId() <= 0 || soloMapling.ArtificialPlayer.BotGuildSystem.BotGuilds.guild(g.rivalId()) == null)) {
                 continue;
             }
-            int n = soloMapling.ArtificialPlayer.BotGuildSystem.BotGuilds.membersOf(g.guildId()).size();
-            if (n > most) {
-                most = n;
-                best = g.name();
-            }
+            candidates.add(new GuildCandidate(g.name(), soloMapling.ArtificialPlayer.BotGuildSystem.BotGuilds.membersOf(g.guildId()).size(),
+                    false, noRoomForScene(g.guildId())));
         }
-        return best;
+        return chooseForApplicant(candidates);
+    }
+
+    /**
+     * Whether a bot guild is too full for a QA scene: the scene stages one bot in it and then has it take one more
+     * (a player's application, a recruit, a poach), and a poach keeps {@link
+     * soloMapling.ArtificialPlayer.BotGuildSystem.GuildRules#PLAYER_ROOM} slots free. Auto-QA 1.5.2: the biggest guild
+     * was picked whatever its room, so once Legendz reached 49 of 50 the staged officer filled it and gu-1 heard FULL,
+     * gu-3 "Legendz is full", and gu-8, gw-1 and gw-3 could stage nobody.
+     */
+    static boolean noRoomForScene(int members, int capacity) {
+        return !soloMapling.ArtificialPlayer.BotGuildSystem.GuildRules.roomToPoach(members + 1, capacity);
+    }
+
+    private static boolean noRoomForScene(int guildId) {
+        net.server.guild.Guild live = net.server.Server.getInstance().getGuild(guildId);
+        return live != null && noRoomForScene(live.getMembers().size(), live.getCapacity());
     }
 
     @Override
@@ -819,7 +831,7 @@ final class GameQaWorld implements QaWorld {
         for (var g : soloMapling.ArtificialPlayer.BotGuildSystem.BotGuilds.botGuilds()) {
             net.server.guild.Guild live = net.server.Server.getInstance().getGuild(g.guildId());
             int leader = live != null ? live.getLeaderId() : g.leaderId();
-            boolean full = live != null && live.getMembers().size() >= live.getCapacity();
+            boolean full = live != null && noRoomForScene(live.getMembers().size(), live.getCapacity());
             all.add(new GuildCandidate(g.name(), soloMapling.ArtificialPlayer.BotGuildSystem.BotGuilds.membersOf(g.guildId()).size(),
                     leader > 0 && soloMapling.ArtificialPlayer.BotAffinitySystem.BotAffinity.hostile(leader, applicant.getId()), full));
         }

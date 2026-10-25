@@ -25,6 +25,21 @@ class GuildRulesTest {
     static final long DAY = TimeUnit.DAYS.toMillis(1);
 
     @Test
+    void aPoachNeverTakesTheSlotsKeptForPlayers() {
+        // 1.5.2 auto-QA t-gu-1: poaching grew Legendz (target 38) to its capacity of 50, so players heard "full"
+        int cap = GuildPlan.capacityFor(38);
+        assertEquals(50, cap);
+        assertTrue(GuildRules.roomToPoach(38, cap), "at its target a guild still poaches");
+        assertTrue(GuildRules.roomToPoach(44, cap));
+        assertFalse(GuildRules.roomToPoach(45, cap), "45 + 1 would leave fewer than 5 slots for players");
+        assertFalse(GuildRules.roomToPoach(50, cap));
+        for (int target = 1; target <= 90; target++) {
+            int c = GuildPlan.capacityFor(target);
+            assertTrue(GuildRules.roomToPoach(target, c), "a guild at its target " + target + " may poach");
+        }
+    }
+
+    @Test
     void onlyFriendsAcceptAGuildInviteAndGetPickierPastHalfBots() {
         assertEquals(0, GuildRules.inviteAcceptChance(AffinityState.NEUTRAL, 1, 5));
         assertEquals(0, GuildRules.inviteAcceptChance(AffinityState.RIVAL, 1, 5));
