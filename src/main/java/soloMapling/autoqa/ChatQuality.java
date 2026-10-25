@@ -275,7 +275,8 @@ public final class ChatQuality {
             if (!b) {
                 List<String> ex = unbackedExamples.computeIfAbsent(kind, x -> new ArrayList<>());
                 if (ex.size() < 3) {
-                    ex.add(r.get("bot") + " [" + src + "]: \"" + r.get("line") + "\" (" + r.get("why") + ")");
+                    ex.add(r.get("bot") + " [" + src + " @ " + r.getOrDefault("map", "?") + "]: \""
+                            + r.get("line") + "\" (" + r.get("why") + ")");
                 }
             }
         }

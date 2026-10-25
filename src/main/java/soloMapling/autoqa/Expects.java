@@ -1,7 +1,9 @@
 package soloMapling.autoqa;
 
 import java.util.ArrayList;
+import java.util.LinkedHashSet;
 import java.util.List;
+import java.util.Set;
 import java.util.function.Function;
 import java.util.regex.Matcher;
 import java.util.regex.Pattern;
@@ -244,6 +246,12 @@ public final class Expects {
      * rc6 say-do (owner goal): every action a bot claimed in this check ("omw", "inv me", "brb pots") was backed by
      * the action. Waits (up to {@code maxWaitS}) for the check's open claims to be judged, then FAILs on any strong
      * {@code SAYDO UNBACKED} line, with the line and why as evidence. Weak claims ("coming" alone) are listed, not failed.
+     * <p>
+     * rc7 scope: only the claims said by the bots this check staged are judged. The CONVO topic carries every bot
+     * line on the map, so an ambient bot advertising "S&gt; 10% glove att" in the background of t-cv-4 (an unrelated
+     * passer-by, or the AI-run conversation the map runs on its own) landed in the check's evidence and failed it. A
+     * passer-by's unbacked ad is still a say-do finding: it stays a {@code SAYDO UNBACKED ... map <id>} line on the
+     * CONVO topic and a row in the daily say-do report, it is just not this check's verdict.
      */
     public static Expect sayDo(int maxWaitS) {
         return of("say-do: every action a bot claimed was done", r -> {
@@ -252,23 +260,68 @@ public final class Expects {
                 r.world.sleep(5000);
             }
             int open = soloMapling.ArtificialPlayer.BotConvo.SayDo.openSince(r.startMs);
-            List<AutoQaLine> backed = r.matching("CONVO SAYDO BACKED ", null, null);
-            List<AutoQaLine> unbacked = r.matching("CONVO SAYDO UNBACKED ", null, null);
-            List<String> ev = new ArrayList<>();
-            int strong = 0;
-            for (AutoQaLine l : unbacked) {
-                boolean weak = l.message().contains(" (weak) ");
-                if (!weak) {
-                    strong++;
-                }
-                if (ev.size() < EVIDENCE + 2) {
-                    ev.add((weak ? "weak: " : "") + l.message());
-                }
-            }
-            ev.add(0, backed.size() + " backed, " + unbacked.size() + " unbacked (" + strong + " strong)"
-                    + (open > 0 ? ", " + open + " still open" : ""));
-            return new Verdict(strong > 0 ? Status.FAIL : Status.PASS, ev);
+            Set<String> speakers = stagedSpeakers(r);
+            List<AutoQaLine> backedAll = r.matching("CONVO SAYDO BACKED ", null, null);
+            List<AutoQaLine> unbackedAll = r.matching("CONVO SAYDO UNBACKED ", null, null);
+            List<AutoQaLine> backed = bySpeaker(backedAll, speakers);
+            List<AutoQaLine> unbacked = bySpeaker(unbackedAll, speakers);
+            return sayDoVerdict(open, backed, unbacked,
+                    backedAll.size() + unbackedAll.size() - backed.size() - unbacked.size(), speakers.isEmpty());
         });
+    }
+
+    /**
+     * The say-do judgement over the claims of one conversation: FAIL on a strong unbacked claim, list the weak ones,
+     * and say how many claims of other bots were left out (they are reported elsewhere, not judged here).
+     */
+    static Verdict sayDoVerdict(int open, List<AutoQaLine> backed, List<AutoQaLine> unbacked, int otherBots,
+                                boolean unscoped) {
+        List<String> ev = new ArrayList<>();
+        int strong = 0;
+        for (AutoQaLine l : unbacked) {
+            boolean weak = l.message().contains(" (weak) ");
+            if (!weak) {
+                strong++;
+            }
+            if (ev.size() < EVIDENCE + 2) {
+                ev.add((weak ? "weak: " : "") + l.message());
+            }
+        }
+        ev.add(0, backed.size() + " backed, " + unbacked.size() + " unbacked (" + strong + " strong)"
+                + (open > 0 ? ", " + open + " still open" : "")
+                + (otherBots > 0 ? ", " + otherBots + " claim(s) by other bots (not judged here)" : "")
+                + (unscoped ? ", no staged bot known: every claim on the map counted" : ""));
+        return new Verdict(strong > 0 ? Status.FAIL : Status.PASS, ev);
+    }
+
+    /** The names of the bots this check staged ({bot}, {bot2} ...): the speakers its say-do judgement is about. */
+    static Set<String> stagedSpeakers(CheckRun r) {
+        Set<String> out = new LinkedHashSet<>();
+        for (int id : r.stagedBots()) {
+            String name = r.world().nameOf(id);
+            if (name != null) {
+                out.add(name);
+            }
+        }
+        return out;
+    }
+
+    /** {@code SAYDO UNBACKED sell ZhelmRamen98 [pack:...] map 100000000 "S> 10% glove att" (why)} -> the bot name. */
+    static final Pattern SAYDO_SPEAKER = Pattern.compile("^SAYDO (?:BACKED|UNBACKED) \\S+(?: \\(weak\\))? (.+?) \\[");
+
+    /** The lines a bot said; every line when no staged bot is known (nothing to scope to). */
+    static List<AutoQaLine> bySpeaker(List<AutoQaLine> lines, Set<String> speakers) {
+        if (speakers.isEmpty()) {
+            return lines;
+        }
+        List<AutoQaLine> out = new ArrayList<>();
+        for (AutoQaLine l : lines) {
+            Matcher m = SAYDO_SPEAKER.matcher(l.message());
+            if (m.find() && speakers.contains(m.group(1).trim())) {
+                out.add(l);
+            }
+        }
+        return out;
     }
 
     static List<String> evidence(List<AutoQaLine> m) {

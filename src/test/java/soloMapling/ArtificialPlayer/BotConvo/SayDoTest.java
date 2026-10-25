@@ -296,4 +296,18 @@ class SayDoTest {
                 ClaimActions.guardReply("nah im good, grinding solo is faster xp for me brb", none));
         assertEquals("lol ya", ClaimActions.guardReply("lol ya", none), "nothing to take out");
     }
+
+    /** rc7 t-cv-4: an unbacked ad keeps its finding on the CONVO surface, with the bot, the words and the map. */
+    @Test
+    void anUnbackedAdIsReportedWithItsBotItemAndMap() {
+        SayDo.Resolved r = new SayDo.Resolved(1_000, 2_000, "ZhelmRamen98",
+                "scripted", 100_000_000, ClaimRules.Kind.SELL, "selling",
+                false, "S> 10% glove att", false, "does not hold '10% glove att'", "-");
+        assertEquals("SAYDO UNBACKED sell ZhelmRamen98 [scripted] map 100000000"
+                + " \"S> 10% glove att\" (does not hold '10% glove att')", SayDo.info(r));
+        Map<String, Object> row = r.row();
+        assertEquals(100_000_000, row.get("map"));
+        assertEquals("ZhelmRamen98", row.get("bot"));
+        assertEquals("S> 10% glove att", row.get("line"));
+    }
 }
