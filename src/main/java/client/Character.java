@@ -11347,7 +11347,13 @@ public class Character extends AbstractCharacterObject {
 
 
     public void sendPacket(Packet packet) {
-        client.sendPacket(packet);
+        // 1.5.2 (nutnnut/Cosmic b1707d11b): empty(true) nulls client five minutes after logout while stale references
+        // to this character can still sit in a map's list. Drop the packet: throwing here aborted the whole map
+        // broadcast (entry and removal included) for every character after this one.
+        Client c = client;
+        if (c != null) {
+            c.sendPacket(packet);
+        }
     }
 
     @Override
