@@ -129,6 +129,20 @@ class BotConversationHoldTest {
     }
 
     @Test
+    void aWhisperFromAnotherMapDoesNotPinTheBot() {
+        // 1.5.1 review: the hold is for standing with a player; a whisper from elsewhere is a chat, not company
+        BotSM bot = mock(TownWandererBot.class);
+        Character chr = character(BotStore.BOT_ID_BASE + 50_000 + nextPlayer, "Walkr");
+        chr.setMapId(100000000);
+        when(bot.getChr()).thenReturn(chr);
+        Character player = character(nextPlayer++, "Josh");
+        player.setMapId(104040000);
+        assertTrue(BotConversation.say(bot, player, "hey where are you?", null, said::add));
+        assertEquals(0, BotConversation.holdMs(chr.getId()), "a player on another map must not hold the bot");
+        assertFalse(BotConversation.isHoldingChat(chr));
+    }
+
+    @Test
     void oneChatLineHoldsThereForFortyFiveSeconds() {
         BotSM bot = whisperTo("hey where are you going?");
         long hold = BotConversation.holdMs(bot.getChr().getId());

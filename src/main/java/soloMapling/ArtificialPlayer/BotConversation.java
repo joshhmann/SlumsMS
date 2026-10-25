@@ -124,7 +124,7 @@ public final class BotConversation {
         if (!BotBrains.get().isLive()) {
             // no LLM: the caller answers from its script, but the player is still talking to this bot, so it stays put
             if (bot != null && bot.getChr() != null && player != null) {
-                hold(bot.getChr().getId(), System.currentTimeMillis());
+                holdNear(bot.getChr(), player, System.currentTimeMillis());
             }
             return false;
         }
@@ -174,7 +174,7 @@ public final class BotConversation {
                 k -> new Session(bot, player, now));
         Session session = new Session(conversation, deliver, priority);
         session.state.lastAt = now;
-        hold(bot.getChr().getId(), now); // owner report 2026-10-24: the busy bot stays with the player it answers
+        holdNear(bot.getChr(), player, now); // owner report 2026-10-24: the busy bot stays with the player it answers
         // Owner report 2026-10-22: what was said in public on the map, and the bot's own line the player answers
         Heard heard = deliver == null ? heard(bot.getChr(), player, now) : Heard.NONE;
         List<BotBrain.Turn> history;
@@ -246,7 +246,7 @@ public final class BotConversation {
         startSweeper();
         long now = System.currentTimeMillis();
         sessions.computeIfAbsent(new Key(bot.getChr().getId(), player.getId()), k -> new Session(bot, player, now)).state.lastAt = now;
-        hold(bot.getChr().getId(), now); // a player who just named the bot is having a conversation with it
+        holdNear(bot.getChr(), player, now); // a player who just named the bot is having a conversation with it
     }
 
     /** Ticket 59: whether this bot is mid-chat with any player (a bot thread leaves it alone). */
@@ -325,6 +325,24 @@ public final class BotConversation {
     /** As {@link #heldByChat(Character)}: whether this bot keeps its spot for the chat right now. */
     public static boolean isHoldingChat(Character bot) {
         return heldByChat(bot) != null;
+    }
+
+    /**
+     * 1.5.1 review: holds the bot only while the player is on its map and channel. A whisper or buddy line from
+     * elsewhere is still a conversation, but nobody is there to stand with, so it must not pin the bot in town.
+     */
+    private static void holdNear(Character bot, Character player, long at) {
+        if (bot == null || player == null || bot.getMapId() != player.getMapId()) {
+            return;
+        }
+        try {
+            if (bot.getClient().getChannel() != player.getClient().getChannel()) {
+                return;
+            }
+        } catch (RuntimeException e) {
+            return; // no client (a test double, a bot mid-logout): nobody to stand with
+        }
+        hold(bot.getId(), at);
     }
 
     /** Records an exchange at {@code at}: the bot keeps its spot until {@link #HOLD_MS} after it. */
@@ -808,7 +826,7 @@ public final class BotConversation {
         soloMapling.ArtificialPlayer.BotConvo.ConvoQuality.timing(bot, player, plan, System.currentTimeMillis() - asked);
         // a late answer or a "brb" keeps the chat open until it is said (the sweeper ends chats idle for a minute)
         session.state.lastAt = Math.max(session.state.lastAt, System.currentTimeMillis() + plan.totalMs());
-        hold(bot.getId(), session.state.lastAt); // its reply is an exchange too, typing time included
+        holdNear(bot, player, session.state.lastAt); // its reply is an exchange too, typing time included
         int face = deliver != null || cue == null ? ReplyEmote.NONE
                 : ReplyEmote.pick(cue.triage(), cue.outcome(), cue.asked(), line, ThreadLocalRandom.current());
         String fullDetail = detail + (said.fromBank() ? " bank#" + said.bankId() : "") + " plan=" + plan.kind();
@@ -842,7 +860,7 @@ public final class BotConversation {
                                     soloMapling.ArtificialPlayer.BotConvo.ClaimRules.classify("brb"));
                         }
                         session.state.lastAt = System.currentTimeMillis();
-                        hold(bot.getId(), session.state.lastAt); // the line just went out: the hold runs from it
+                        holdNear(bot, player, session.state.lastAt); // the line just went out: the hold runs from it
                         if (deliver == null) { // ticket 37: having answered, the bot keeps listening a while longer
                             BotChatRouting.touchAttention(player.getId(), bot.getId(), session.state.lastAt);
                         }

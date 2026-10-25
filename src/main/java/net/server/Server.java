@@ -2100,7 +2100,8 @@ public class Server {
                 // written later) and saves the character, straight on the pool: never through the bots' share.
                 ShutdownSaves.BatchResult<Client> result = ShutdownSaves.forEachWithin(clients, Client::forceDisconnect,
                         ShutdownSaves.PLAYER_SAVERS, budgetMs);
-                log.info("Shutdown: {} connected client(s) disconnected and saved", result.succeeded().size());
+                // forceDisconnect logs a failed DB write inside the save itself, so "finished" is not proof the row was written.
+                log.info("Shutdown: {} connected client(s) disconnected, save attempted (see save errors above)", result.succeeded().size());
                 for (ShutdownSaves.FailedItem<Client> f : result.failed()) {
                     Client c = f.item();
                     String who = c.getPlayer() != null ? c.getPlayer().getName() : "acc:" + c.getAccountName();

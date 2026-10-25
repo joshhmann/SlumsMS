@@ -94,7 +94,7 @@ public final class GuideMenu {
                     + "#b@botdrama off#k: disable rival grudges.\r\n"
                     + "#b@romance on#k: bot dating (off by default).\r\n"
                     + "#bBuddies#k: add friendly bots to your list.\r\n"
-                    + "#bGuilds#k: 10 bot guilds war daily (#b@guildwar#k).", List.of()),
+                    + "#bGuilds#k: 10 bot guilds at war (#b@guildwar#k).", List.of()),
             new GuidePage("Handy commands", ""
                     + "#eHandy commands#n (type in chat):\r\n"
                     + "#b@settings#k bot options  | #b@daily#k daily gift\r\n"
