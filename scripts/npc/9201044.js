@@ -68,14 +68,28 @@ function spawnMobs(maxSpawn) {
     }
 }
 
-function generateCombo1() {
+function partySize(eim) {   // bots cannot stand on the puzzle platforms, so they never take part in the combo
+    var party = eim.getPlayers();
+    var count = 0;
+
+    for (var i = 0; i < party.size(); i++) {
+        if (!party.get(i).isBot()) {
+            count++;
+        }
+    }
+
+    return count;
+}
+
+function comboSlots(eim) {  // players that must stand on the puzzle: the whole party, capped at the 5 the combo was designed for
+    return Math.max(1, Math.min(5, partySize(eim)));
+}
+
+function generateCombo1(slots) {
     var positions = Array(0, 0, 0, 0, 0, 0, 0, 0, 0);
-    var rndPicked = Math.floor(Math.random() * Math.pow(3, 5));
 
-    while (rndPicked > 0) {
-        (positions[rndPicked % 3])++;
-
-        rndPicked = Math.floor(rndPicked / 3);
+    for (var i = 0; i < slots; i++) {   // every player is in one of the 3 areas of this stage
+        positions[Math.floor(Math.random() * 3)]++;
     }
 
     var returnString = "";
@@ -89,8 +103,8 @@ function generateCombo1() {
     return returnString;
 }
 
-function generateCombo2() {
-    var toPick = 5, rndPicked;
+function generateCombo2(slots) {
+    var toPick = slots, rndPicked;
     var positions = Array(0, 0, 0, 0, 0, 0, 0, 0, 0);
     while (toPick > 0) {
         rndPicked = Math.floor(Math.random() * 9);
@@ -131,6 +145,26 @@ function clearStage(stage, eim, curMap) {
     }
 }
 
+function comboOccupancy(objset, eim, map) {    // fills how many players stand on each area, returns how many are standing anywhere
+    var party = eim.getPlayers();
+    var playersOnCombo = 0;
+
+    for (var i = 0; i < party.size(); i++) {
+        if (party.get(i).isBot()) {
+            continue;
+        }
+        for (var y = 0; y < map.getAreas().size(); y++) {
+            if (map.getArea(y).contains(party.get(i).getPosition())) {
+                playersOnCombo++;
+                objset[y] += 1;
+                break;
+            }
+        }
+    }
+
+    return playersOnCombo;
+}
+
 function start() {
     curMap = cm.getMapId();
     stage = Math.floor((curMap - 670010200) / 100) + 1;
@@ -168,9 +202,9 @@ function action(mode, type, selection) {
                     if (stage == 1) {
                         cm.sendOk("Hi. Welcome to the #bstage " + stage + "#k of the Amorian Challenge. In this stage, talk to #p9201047#, he will pass to you further details of the mission. After shattering the Magik Mirror down there, return the shard to #p9201047# and come here to gain access to the next stage.");
                     } else if (stage == 2) {
-                        cm.sendOk("Hi. Welcome to the #bstage " + stage + "#k of the Amorian Challenge. In this stage, let 5 of your party members climb up the platforms in such a way to try for a combination to unlock the portal to the next level. When you feel ready, talk to me and I'll let you know the situation. However, be prepared, as in the case the portal does not get unlocked after a few tries, monsters will spawn.");
+                        cm.sendOk("Hi. Welcome to the #bstage " + stage + "#k of the Amorian Challenge. In this stage, let your party members climb up the platforms in such a way to try for a combination to unlock the portal to the next level. When you feel ready, talk to me and I'll let you know the situation. However, be prepared, as in the case the portal does not get unlocked after a few tries, monsters will spawn.");
                     } else if (stage == 3) {
-                        cm.sendOk("Hi. Welcome to the #bstage " + stage + "#k of the Amorian Challenge. In this stage, let 5 of your party members climb up the platforms, one on each, in such a way to try for a combination to unlock the portal to the next level. When you feel ready, talk to me and I'll let you know the situation. Take hint: upon failing, count the number of slimes appearing on the scene, that will tell how many of you had their position right.");
+                        cm.sendOk("Hi. Welcome to the #bstage " + stage + "#k of the Amorian Challenge. In this stage, let your party members climb up the platforms, one on each, in such a way to try for a combination to unlock the portal to the next level. When you feel ready, talk to me and I'll let you know the situation. Take hint: upon failing, count the number of slimes appearing on the scene, that will tell how many of you had their position right.");
                     }
 
                     var st = (autopass) ? 2 : 0;
@@ -193,25 +227,15 @@ function action(mode, type, selection) {
                     } else if (stage == 2 || stage == 3) {
                         if (map.countMonsters() == 0) {
                             objset = [0, 0, 0, 0, 0, 0, 0, 0, 0];
-                            var playersOnCombo = 0;
-                            var party = cm.getEventInstance().getPlayers();
-                            for (var i = 0; i < party.size(); i++) {
-                                for (var y = 0; y < map.getAreas().size(); y++) {
-                                    if (map.getArea(y).contains(party.get(i).getPosition())) {
-                                        playersOnCombo++;
-                                        objset[y] += 1;
-                                        break;
-                                    }
-                                }
-                            }
-
-                            if (playersOnCombo == 5/* || cm.getPlayer().gmLevel() > 1*/ || debug) {
+                            var slots = comboSlots(eim);
+                            var playersOnCombo = comboOccupancy(objset, eim, map);
+                            if (playersOnCombo == slots/* || cm.getPlayer().gmLevel() > 1*/ || debug) {
                                 var comboStr = eim.getProperty("stage" + stage + "combo");
                                 if (comboStr == null || comboStr == "") {
                                     if (stage == 2) {
-                                        comboStr = generateCombo1();
+                                        comboStr = generateCombo1(slots);
                                     } else {
-                                        comboStr = generateCombo2();
+                                        comboStr = generateCombo2(slots);
                                     }
 
                                     eim.setProperty("stage" + stage + "combo", comboStr);
@@ -286,9 +310,9 @@ function action(mode, type, selection) {
                                 }
                             } else {
                                 if (stage == 2) {
-                                    cm.sendNext("It looks like you guys haven't found the ways of this trial yet. Think on an arrangement of 5 members on the platforms. Remember, exactly 5 are allowed to stand on the platforms, and if you move it may not count as an answer, so please keep that in mind. Keep going!");
+                                    cm.sendNext("It looks like you guys haven't found the ways of this trial yet. Think on an arrangement of your party members on the platforms. Remember, exactly " + slots + " are allowed to stand on the platforms, and if you move it may not count as an answer, so please keep that in mind. Keep going!");
                                 } else {
-                                    cm.sendNext("It looks like you guys haven't found the ways of this trial yet. Think on an arrangement of party members on different platforms. Remember, exactly 5 are allowed to stand on the platforms, and if you move it may not count as an answer, so please keep that in mind. Keep going!");
+                                    cm.sendNext("It looks like you guys haven't found the ways of this trial yet. Think on an arrangement of party members on different platforms. Remember, exactly " + slots + " are allowed to stand on the platforms, and if you move it may not count as an answer, so please keep that in mind. Keep going!");
                                 }
 
                                 cm.dispose();

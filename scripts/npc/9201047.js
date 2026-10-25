@@ -75,13 +75,13 @@ function action(mode, type, selection) {
                         cm.sendOk("The fierry appeared! Defeat it to get the #b#t4031596##k!");
                     } else {
                         if (st < 1) {
-                            cm.sendOk("Your task is to recover a shard of the Magik Mirror. To do so, you will need a #b#t4031596##k, that drops on a fierry that appears when all other mobs are killed. To access the rooms the mobs are, pick the portal corresponding to your gender and kill all mobs there. Ladies take the left side, gentlemen the right side.");
+                            cm.sendOk("Your task is to recover a shard of the Magik Mirror. To do so, you will need a #b#t4031596##k, that drops on a fierry that appears when all other mobs are killed. To reach the mobs, both doors in the middle lead to a room and either one is open to everyone, so clear the rooms on both sides (ladies were once the left side, gentlemen the right).");
                         } else {
                             cm.sendOk("Your task is to recover a shard of the Magik Mirror. Defeat the fierry to get the #b#t4031596##k.");
                         }
                     }
                 } else {
-                    cm.sendOk("Your task is to recover a shard of the Magik Mirror. To do so, you will need a #b#t4031596##k, that drops on a fierry that appears when all other mobs are killed. To access the rooms the mobs are, pick the portal corresponding to your gender and kill all mobs there. Ladies take the left side, gentlemen the right side. #bYour leader#k must bring the #b#t4031595##k to have my pass.");
+                    cm.sendOk("Your task is to recover a shard of the Magik Mirror. To do so, you will need a #b#t4031596##k, that drops on a fierry that appears when all other mobs are killed. To reach the mobs, both doors in the middle lead to a room and either one is open to everyone, so clear the rooms on both sides (ladies were once the left side, gentlemen the right). #bYour leader#k must bring the #b#t4031595##k to have my pass.");
                 }
 
                 cm.dispose();
