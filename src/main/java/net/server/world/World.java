@@ -156,6 +156,7 @@ public class World {
     private Map<Character, Integer> playerHpDec = Collections.synchronizedMap(new WeakHashMap<>());
 
     private ScheduledFuture<?> charactersSchedule;
+    private volatile boolean shuttingDown;  // 1.5.2 (nutnnut/Cosmic e61767a42): see beginShutdown
     private ScheduledFuture<?> marriagesSchedule;
     private ScheduledFuture<?> mapOwnershipSchedule;
     private ScheduledFuture<?> fishingSchedule;
@@ -2149,7 +2150,25 @@ public class World {
         closeWorldServices();
     }
 
+    public boolean isShuttingDown() {
+        return shuttingDown;
+    }
+
+    /**
+     * 1.5.2 (nutnnut/Cosmic e61767a42): stop the hourly autosave before the shutdown's own saves start, so the two
+     * never write the same characters at once. Server.shutdownInternal calls this before it saves the players and
+     * the bots (World.shutdown, later, is too late for that); idempotent.
+     */
+    public void beginShutdown() {
+        shuttingDown = true;
+        ScheduledFuture<?> autosave = charactersSchedule;
+        if (autosave != null) {
+            autosave.cancel(false);
+        }
+    }
+
     public final void shutdown() {
+        beginShutdown();
         for (Channel ch : getChannels()) {
             ch.shutdown();
         }

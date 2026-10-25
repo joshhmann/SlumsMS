@@ -2097,6 +2097,11 @@ public class Server {
             return;//already shutdown
         }
 
+        // 1.5.2 (nutnnut/Cosmic e61767a42): no hourly autosave from here on; the saves below are the last ones.
+        for (World w : getWorlds()) {
+            w.beginShutdown();
+        }
+
         // 1.5.0 release rehearsal: the real players are saved first and the shutdown waits for their saves; only
         // then does any bot work start, and that runs under a time budget (ShutdownSaves). Before, the bot sweep
         // ran ahead of the world shutdown, waited 15 s on the bots' share of the pool for each bot, and systemd
