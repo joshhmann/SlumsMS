@@ -59,6 +59,16 @@ public final class CreateCharHandler extends AbstractPacketHandler {
         return IDs.contains(toCompare);
     }
 
+    /**
+     * 1.5.2 handler sweep: the hair colour is added to the hair id and the skin is stored as sent, and neither was
+     * checked (stock Cosmic checks nothing here), so a packet edit made a character with any hair id at all - a cash
+     * hair, or one the client has no data for, which can crash every client that draws it - or a skin with no data.
+     * The creation screen (Etc.wz MakeCharInfo) offers hair colours 0, 7, 3, 2 and skins 0-3.
+     */
+    static boolean isLegalLook(int hairColor, int skinColor) {
+        return hairColor >= 0 && hairColor <= 7 && skinColor >= 0 && skinColor <= 3;
+    }
+
 
     @Override
     public final void handlePacket(InPacket p, Client c) {
@@ -83,6 +93,12 @@ public final class CreateCharHandler extends AbstractPacketHandler {
                 c.disconnect(true, false);
                 return;
             }
+        }
+        if (!isLegalLook(haircolor, skincolor)) {
+            log.warn("Owner from account {} tried to packet edit in chr creation (hair colour {}, skin {})",
+                    c.getAccountName(), haircolor, skincolor);
+            c.disconnect(true, false);
+            return;
         }
 
         int status;
