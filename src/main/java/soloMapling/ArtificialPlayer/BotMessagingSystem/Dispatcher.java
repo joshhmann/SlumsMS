@@ -163,7 +163,9 @@ public class Dispatcher implements Runnable {
                 new ChatRoute.Player(sender.getId(), sender.getName(), content, me.x, me.y, facingLeft(sender), listening,
                         attention == null ? 0 : attention.lastAt()),
                 bots, soloMapling.ArtificialPlayer.BotConvo.BotThreads.liveView(channel, sender.getMapId(), now,
-                        new soloMapling.ArtificialPlayer.BotConvo.BotThreads.Ask(content, me.x, me.y)), named,
+                        new soloMapling.ArtificialPlayer.BotConvo.BotThreads.Ask(content, me.x, me.y),
+                        // only a thread the player can hear is a candidate: the router's own bubble rule
+                        id -> ChatRoute.inBubble(bots.get(id), me.x, me.y)), named,
                 RouteLog.wanted() ? bot -> tierOf(bot, sender.getId()) : null, now);
         java.util.function.BiConsumer<Integer, String> logAs = (bot, step) -> {
             BotSM b = bot < 0 ? null : getBotById(bot);

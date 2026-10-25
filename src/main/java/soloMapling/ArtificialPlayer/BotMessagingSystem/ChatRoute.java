@@ -124,6 +124,15 @@ public final class ChatRoute {
         return Math.abs(dx) <= hearPx() && Math.abs(dy) <= hearPy();
     }
 
+    /**
+     * The one hearing rule: whether a bot standing here would hear a player standing there. Routing applies it to a
+     * bot's own lines and thread selection applies it to a thread's two speakers, so the two can never disagree about
+     * who is in earshot.
+     */
+    public static boolean inBubble(Bot bot, int px, int py) {
+        return bot != null && inBubble(bot.x() - px, bot.y() - py);
+    }
+
     /** Per-bot working state. */
     private static final class Seen {
         final Bot bot;
