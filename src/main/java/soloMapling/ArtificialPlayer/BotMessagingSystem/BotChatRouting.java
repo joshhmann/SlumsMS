@@ -262,6 +262,13 @@ public final class BotChatRouting {
                 case 3 -> BOWMAN;
                 case 4 -> THIEF;
                 case 5 -> PIRATE;
+                // Cygnus Knights and Aran (1.6.0 population: they are 15% of new bots, so a request for "the
+                // thief" must be able to point at a Night Walker)
+                case 11, 21 -> WARRIOR;    // Dawn Warrior, Aran
+                case 12 -> MAGICIAN;       // Blaze Wizard
+                case 13 -> BOWMAN;         // Wind Archer
+                case 14 -> THIEF;          // Night Walker
+                case 15 -> PIRATE;         // Thunder Breaker
                 default -> null;
             };
         }
