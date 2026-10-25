@@ -134,8 +134,9 @@ class ChatTriageTest {
         assertEquals("come_yes", ConvoLines.key(BotChatActions.Outcome.COME_YES));
         assertEquals("come_no", ConvoLines.key(BotChatActions.Outcome.COME_NO));
         assertNotEquals("talk", ConvoLines.key(BotChatActions.Outcome.COME_NO));
-        assertEquals("talk", ConvoLines.key(ChatTriage.Kind.TALK, "wanna grind together"),
-                "the topic bank is what answered before");
+        String invite = "wanna grind together";
+        assertEquals("come_no", ConvoLines.key(ChatTriage.Kind.TALK, ChatTriage.rules(invite).intent(), invite),
+                "the invite is answered by a decline, not the topic bank");
     }
 
     @Test

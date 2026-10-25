@@ -67,19 +67,68 @@ public final class ConvoLines {
         };
     }
 
-    /** The bank key for a line kind with no action (greeting, thanks, bye, talk, a question). */
-    public static String key(ChatTriage.Kind kind, String playerLine) {
+    /**
+     * The bank key for a line kind with no action (greeting, thanks, bye, talk, a question). An invite the game did
+     * not act on ("wanna grind together") gets a decline of its own: the generic talk line asserts things about some
+     * other topic and reads as ignoring the player (TEST cv-7-20261024T222923Z: "that drop rate is awful").
+     */
+    public static String key(ChatTriage.Kind kind, ChatTriage.Intent intent, String playerLine) {
         return switch (kind) {
             case GREETING -> "greeting";
             case THANKS -> "thanks";
             case BYE -> "bye";
-            default -> playerLine != null && playerLine.contains("?") ? "talk_q" : "talk";
+            default -> switch (intent == null ? ChatTriage.Intent.NONE : intent) {
+                case COME_WITH_ME -> "come_no";
+                case PARTY -> "party_no";
+                default -> playerLine != null && playerLine.contains("?") ? "talk_q" : "talk";
+            };
         };
     }
 
     /** The brush-off key for a con flag. */
     public static String key(ChatTriage.Con con) {
         return "brush_" + con.name().toLowerCase(Locale.ROOT);
+    }
+
+    /** The keys with nothing to say but "hm": the generic talk fallbacks (never an action's own outcome). */
+    private static boolean generic(String key) {
+        return "talk".equals(key) || "talk_q".equals(key);
+    }
+
+    /**
+     * The generic fallback line has to answer the player's line, not start a topic of its own ("that drop rate is
+     * awful" to "wanna grind together"): an acknowledgement is preferred, and the caller's neutral script answers when
+     * the bank has no acknowledgement left.
+     */
+    static ChatBank.Pick pickAcknowledgement(ChatBank bank, ChatBank.Query q, RecentLines.Window window, java.util.Random rng) {
+        return bank.pick(q, window, weights, rng, ConvoLines::acknowledgement);
+    }
+
+    /** Words a neutral acknowledgement may carry: it agrees, laughs or hesitates, and claims nothing about a topic. */
+    private static final java.util.Set<String> ACK = java.util.Set.of("same", "true", "haha", "hehe", "lol", "lmao",
+            "okay", "hmm", "mhm", "nice", "cool", "damn", "wow", "sure", "right", "agreed", "fair", "sorry", "maybe",
+            "later", "afk", "brb", "wait", "what", "really", "tbh", "thanks", "thx", "omg", "meh", "gg", "respect",
+            "ikr", "sadly", "unlucky", "idk", "dunno", "yes", "yep", "nope", "nah", "yeah", "kekeke", "hahaha",
+            "xd", "ugh", "alright", "word", "trueee", "sameee");
+
+    /**
+     * Whether a bank line for a generic key is a neutral acknowledgement: at most four words, and every meaning word
+     * one of the {@link #ACK} few. "ur right about hnesys being crowded tbh" claims a topic; "ya same" does not.
+     */
+    static boolean acknowledgement(String text) {
+        if (text == null) {
+            return false;
+        }
+        String[] words = text.trim().split("\\s+");
+        if (words.length > 4) {
+            return false;
+        }
+        for (String word : soloMapling.ArtificialPlayer.BotMessagingSystem.MapChatLog.words(text)) {
+            if (!ACK.contains(word)) {
+                return false;
+            }
+        }
+        return true;
     }
 
     /**
@@ -100,7 +149,9 @@ public final class ConvoLines {
                 ChatBank.Query q = new ChatBank.Query(key, tone, affinity(bot, player), persona.voice(),
                         situation(bot, whisper), slots, ChatBank.claimMask(claimsFor(key)));
                 RecentLines.Window window = new RecentLines.Window(player == null ? 0 : player.getId(), bot.getId());
-                ChatBank.Pick pick = bank.pick(q, window, weights, ThreadLocalRandom.current());
+                ChatBank.Pick pick = generic(key)
+                        ? pickAcknowledgement(bank, q, window, ThreadLocalRandom.current())
+                        : bank.pick(q, window, weights, ThreadLocalRandom.current());
                 if (pick != null) {
                     RecentLines.used(player == null ? 0 : player.getId(), bot.getId(), pick.id());
                     return new Line(pick.text(), pick.id(), "bank");
