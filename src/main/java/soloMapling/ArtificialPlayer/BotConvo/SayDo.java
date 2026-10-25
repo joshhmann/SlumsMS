@@ -117,14 +117,15 @@ public final class SayDo {
     }
 
     /** A judged claim (also one JSONL row). */
-    public record Resolved(long at, long resolvedAt, String bot, String source, ClaimRules.Kind kind, String claim,
-                           boolean weak, String line, boolean backed, String why, String target) {
+    public record Resolved(long at, long resolvedAt, String bot, String source, int mapId, ClaimRules.Kind kind,
+                           String claim, boolean weak, String line, boolean backed, String why, String target) {
         Map<String, Object> row() {
             Map<String, Object> m = new LinkedHashMap<>();
             m.put("at", at);
             m.put("resolvedAt", resolvedAt);
             m.put("bot", bot);
             m.put("source", source);
+            m.put("map", mapId);
             m.put("kind", kind.tag());
             m.put("claim", claim);
             m.put("weak", weak);
@@ -584,15 +585,13 @@ public final class SayDo {
                         continue;
                     }
                     oi.remove();
-                    Resolved r = new Resolved(o.at, t, o.botName, o.source, o.claim.kind(), o.claim.toString(),
+                    int mapId = o.start == null ? 0 : o.start.mapId();
+                    Resolved r = new Resolved(o.at, t, o.botName, o.source, mapId, o.claim.kind(), o.claim.toString(),
                             o.claim.weak(), o.line, v.backed(), v.why(), o.targetHash);
                     out.add(r);
                     keep(r);
                     if (QaLog.on(QaLog.Topic.CONVO)) {
-                        QaLog.map(QaLog.Topic.CONVO, o.start == null ? 0 : o.start.mapId(), "SAYDO "
-                                + (v.backed() ? "BACKED " : "UNBACKED ") + o.claim.kind().tag() + (o.claim.weak() ? " (weak)" : "")
-                                + " " + o.botName + " ["
-                                + o.source + "] \"" + o.line + "\" (" + v.why() + ")");
+                        QaLog.map(QaLog.Topic.CONVO, mapId, info(r));
                     }
                     try {
                         sink.resolved(r);
@@ -606,6 +605,15 @@ public final class SayDo {
             }
         }
         return out;
+    }
+
+    /**
+     * The verdict as the CONVO topic logs it: the bot, the source, the map, the words it said and why. The map is in
+     * the text (the topic only routes by it), so a report can point at the place an ad was made.
+     */
+    static String info(Resolved r) {
+        return "SAYDO " + (r.backed() ? "BACKED " : "UNBACKED ") + r.kind().tag() + (r.weak() ? " (weak)" : "")
+                + " " + r.bot() + " [" + r.source() + "] map " + r.mapId() + " \"" + r.line() + "\" (" + r.why() + ")";
     }
 
     private static void keep(Resolved r) {
