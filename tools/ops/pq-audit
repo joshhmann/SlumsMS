@@ -223,6 +223,7 @@ def main():
         targets += ["scripts/npc/%d.js" % i for i in sorted(npc_scripts)]
         targets += ["scripts/reactor/%d.js" % i for i in sorted(reactor_scripts)]
         targets += ["scripts/portal/%s.js" % s for s in sorted(portal_scripts)]
+        entry["scripts"] = targets   # what the PQ's maps actually call, for later greps and reviews
         for rel in targets:
             status, added, removed = diff_against(args.cosmic, rel)
             if status == "missing":     # Cosmic has it and we lost it: a placed NPC/reactor does nothing now
