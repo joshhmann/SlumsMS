@@ -10,8 +10,17 @@ let job;
 let fee = 0;
 const JobMasterFees = Java.type('constants.game.JobMasterFees');
 
+// No regular expressions in server scripts: this GraalJS build has no regex engine ("No language for id regex").
 function mesos(n) {
-    return String(n).replace(/\B(?=(\d{3})+(?!\d))/g, ",");
+    const digits = String(n);
+    let out = "";
+    for (let i = 0; i < digits.length; i++) {
+        if (i > 0 && (digits.length - i) % 3 === 0) {
+            out += ",";
+        }
+        out += digits.charAt(i);
+    }
+    return out;
 }
 
 function start() {
