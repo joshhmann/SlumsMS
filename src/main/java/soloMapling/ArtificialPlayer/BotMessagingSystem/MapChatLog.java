@@ -185,7 +185,8 @@ public final class MapChatLog {
         return candidates.get(0);
     }
 
-    static Set<String> words(String text) {
+    /** The words that carry meaning in a line (lowercase, 3+ letters, stopwords dropped). */
+    public static Set<String> words(String text) {
         Set<String> out = new java.util.HashSet<>();
         if (text == null) {
             return out;

@@ -367,6 +367,15 @@ public final class ChatBank {
 
     /** Picks a line, or null when the bank has nothing fitting. */
     public Pick pick(Query q, RecentLines.Window recent, Weights weights, Random rng) {
+        return pick(q, recent, weights, rng, null);
+    }
+
+    /**
+     * The same, keeping only lines {@code textOk} accepts (e.g. a neutral acknowledgement for a generic reply), so the
+     * caller never has to take a line back. It applies inside each cell, so a stricter first pass may still find one.
+     */
+    public Pick pick(Query q, RecentLines.Window recent, Weights weights, Random rng,
+                     java.util.function.Predicate<String> textOk) {
         int ii = intents.indexOf(q.intent());
         if (ii < 0) {
             return null;
@@ -375,7 +384,7 @@ public final class ChatBank {
         // the bot's own affinity, then neutral, then "any"; in each, its own voice and situation first, then any
         for (int a : ai == 1 ? new int[]{1, 0} : new int[]{ai, 1, 0}) {
             for (boolean strict : new boolean[]{true, false}) {
-                Pick p = pickIn(ii, a, strict, q, recent, weights, rng);
+                Pick p = pickIn(ii, a, strict, q, recent, weights, rng, textOk);
                 if (p != null) {
                     return p;
                 }
@@ -384,7 +393,8 @@ public final class ChatBank {
         return null;
     }
 
-    private Pick pickIn(int ii, int ai, boolean strict, Query q, RecentLines.Window recent, Weights weights, Random rng) {
+    private Pick pickIn(int ii, int ai, boolean strict, Query q, RecentLines.Window recent, Weights weights, Random rng,
+                        java.util.function.Predicate<String> textOk) {
         int[] cell = cells.get(cell(ii, ai));
         if (cell == null) {
             return null;
@@ -416,6 +426,9 @@ public final class ChatBank {
             }
             if ((claims[row] & ~q.claimsOk()) != 0) {
                 continue; // rc6 say-do: it promises something this reply's action does not do
+            }
+            if (textOk != null && !textOk.test(row(row))) {
+                continue;
             }
             double weight = weights == null ? 1 : weights.of(ids[row]);
             if (weight <= 0) {

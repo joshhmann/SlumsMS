@@ -27,6 +27,7 @@ import java.util.concurrent.CompletableFuture;
 import java.util.concurrent.CopyOnWriteArrayList;
 
 import static org.junit.jupiter.api.Assertions.assertEquals;
+import static org.junit.jupiter.api.Assertions.assertFalse;
 import static org.junit.jupiter.api.Assertions.assertTrue;
 import static org.mockito.ArgumentMatchers.anyInt;
 import static org.mockito.ArgumentMatchers.anyString;
@@ -187,6 +188,22 @@ class ConvoConversationFlowTest {
         } finally {
             System.clearProperty("solomapling.convo.persona");
         }
+    }
+
+    /**
+     * TEST cv-7-20261025T002253Z (bbd1ac0b1): "lol ok" was answered "ur right about deep inside the clocktower being
+     * crowded" - the generic talk key drew a claim about a topic the player never raised. The bank holds only that
+     * claim here, so the wired path must leave it alone and let the neutral script answer.
+     */
+    @Test
+    void theGenericTalkKeyNeverAnswersWithAClaimAboutATopic() throws Exception {
+        ChatBank.useForTest(ChatBank.read(new ByteArrayInputStream(String.join("\n",
+                "1\ttalk\tany\tany\tany\t-\tthat drop rate is awful").getBytes(StandardCharsets.UTF_8))));
+        brainReply = Optional.empty(); // the model has nothing: the bank answers
+        whisper(mock(TownWandererBot.class), 61_004, "lol ok");
+        waitFor(() -> !said.isEmpty());
+        assertFalse(said.contains("that drop rate is awful"),
+                "the small-talk reply must not assert an unrelated topic: " + said);
     }
 
     @Test

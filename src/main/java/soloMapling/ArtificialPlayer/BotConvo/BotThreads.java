@@ -10,6 +10,7 @@ import soloMapling.ArtificialPlayer.BotBrainSystem.ContentGuard;
 import soloMapling.ArtificialPlayer.BotBrainSystem.Priority;
 import soloMapling.ArtificialPlayer.BotHelpers;
 import soloMapling.ArtificialPlayer.BotMessagingSystem.CharacterStorage;
+import soloMapling.ArtificialPlayer.BotMessagingSystem.MapChatLog;
 import soloMapling.ArtificialPlayer.BotSM;
 import soloMapling.ArtificialPlayer.BotStore;
 import soloMapling.ArtificialPlayer.BotTypes.SocialBot;
@@ -27,6 +28,7 @@ import java.util.List;
 import java.util.Locale;
 import java.util.Map;
 import java.util.Random;
+import java.util.Set;
 import java.util.concurrent.ConcurrentHashMap;
 import java.util.concurrent.ThreadLocalRandom;
 import java.util.concurrent.TimeUnit;
@@ -126,7 +128,8 @@ public final class BotThreads {
     static final long JOIN_MS = TimeUnit.SECONDS.toMillis(45);
     static final long CONTEXT_MS = TimeUnit.MINUTES.toMillis(3);
 
-    private static final Map<Long, Live> live = new ConcurrentHashMap<>();
+    /** Up to {@link #MAX_LIVE_PER_MAP} live threads per channel:map, oldest first. */
+    private static final Map<Long, List<Live>> live = new ConcurrentHashMap<>();
     private static final Map<Long, Long> nextAt = new ConcurrentHashMap<>();
     private static final Deque<Long> started = new ArrayDeque<>();
     /** botId -> the thread it was last in, for the memory card after a player joins. */
@@ -158,12 +161,50 @@ public final class BotThreads {
     /** Whether this bot is in a live thread (the scripted town conversations leave it alone). */
     public static boolean busy(int botId) {
         long now = System.currentTimeMillis();
-        for (Live l : live.values()) {
-            if (l.endsAt > now && l.botIds.contains(botId)) {
-                return true;
+        for (List<Live> threads : live.values()) {
+            for (Live l : threads) {
+                if (l.endsAt > now && l.botIds.contains(botId)) {
+                    return true;
+                }
             }
         }
         return false;
+    }
+
+    /** How many threads a map may hold at once; the oldest gives way (its gap keeps the next one minutes away). */
+    static final int MAX_LIVE_PER_MAP = 3;
+
+    /** Puts a thread on its map, dropping the oldest when the map is full. */
+    static synchronized void hold(Live l) {
+        long k = key(l.channel, l.mapId);
+        List<Live> threads = new ArrayList<>(live.getOrDefault(k, List.of()));
+        threads.removeIf(old -> old.id == l.id);
+        threads.add(l);
+        while (threads.size() > MAX_LIVE_PER_MAP) {
+            threads.remove(0);
+        }
+        live.put(k, List.copyOf(threads));
+    }
+
+    /** Drops threads that ended longer ago than the context window keeps. */
+    static synchronized void forget(long now) {
+        for (Long k : new ArrayList<>(live.keySet())) {
+            List<Live> threads = live.get(k);
+            if (threads == null) {
+                continue;
+            }
+            List<Live> kept = new ArrayList<>(threads.size());
+            for (Live l : threads) {
+                if (now - l.endsAt <= CONTEXT_MS) {
+                    kept.add(l);
+                }
+            }
+            if (kept.isEmpty()) {
+                live.remove(k);
+            } else if (kept.size() != threads.size()) {
+                live.put(k, List.copyOf(kept));
+            }
+        }
     }
 
     // ── the tick ──
@@ -172,7 +213,7 @@ public final class BotThreads {
         if (!ConvoSwitches.on("threads") || soloMapling.server.BotShutdown.isQuiesced()) {
             return;
         }
-        live.values().removeIf(l -> now - l.endsAt > CONTEXT_MS);
+        forget(now);
         List<MapleMap> maps = mapsWithRealPlayers();
         Collections.shuffle(maps);
         Random rng = ThreadLocalRandom.current();
@@ -341,7 +382,7 @@ public final class BotThreads {
         Live l = new Live(channel, map.getId(), List.of(a.getId(), b.getId()), List.of(a.getName(), b.getName()), topic,
                 about, now + TimeUnit.MINUTES.toMillis(2), a.getId());
         l.startedAt = now;
-        live.put(key(channel, map.getId()), l);
+        hold(l);
         lastThreadOf.put(a.getId(), l);
         lastThreadOf.put(b.getId(), l);
         qa(map.getId(), "THREAD " + a.getName() + " + " + b.getName() + " on " + map.getId() + ": " + topic.words
@@ -496,31 +537,116 @@ public final class BotThreads {
     // ── a player jumps in ──
 
     /**
-     * A player's line on a map with a live thread that names no one: the bot that answers it (the thread's last
-     * speaker), or null. The bot then talks to the player like any chat, and its card says what the thread was about.
+     * A player's line on a map with a live thread that names no one joins the thread the line is about: the bot that
+     * answers it (that thread's last speaker), or null. The router resolved that thread already
+     * ({@link #liveView(int, int, long, Ask)}) and passes its id, so the JOIN credits the thread the bot answers for.
      */
-    public static Integer jumpIn(int channel, int mapId, String playerName, String line, long now) {
+    public static Integer jumpIn(int channel, int mapId, int threadId, String playerName, String line, long now) {
         if (line == null || line.isBlank() || !ConvoSwitches.on("threads")) {
             return null;
         }
-        Live l = live.get(key(channel, mapId));
-        if (l == null || now > l.endsAt) {
+        Live l = null;
+        for (Live t : liveOn(channel, mapId, now)) {
+            if (t.id == threadId) {
+                l = t;
+                break;
+            }
+        }
+        if (l == null) {
             return null;
         }
         qa(mapId, "JOIN a player jumps into " + l.names + " (" + l.topic.words + "): " + ConvoQuality.anonymise(line, playerName));
         return l.lastSpeakerId;
     }
 
-    /** The live thread on a map, for chat routing, or null (none, over, or threads switched off). */
+    /** What the router knows about the player's line: the words, and where the player stands. */
+    public record Ask(String line, int x, int y) {
+    }
+
+    /** The threads live on a map, oldest first (empty when none, or when threads are switched off). */
+    private static List<Live> liveOn(int channel, int mapId, long now) {
+        List<Live> threads = live.get(key(channel, mapId));
+        if (threads == null || threads.isEmpty()) {
+            return List.of();
+        }
+        List<Live> out = new ArrayList<>(threads.size());
+        for (Live l : threads) {
+            if (now <= l.endsAt) {
+                out.add(l);
+            }
+        }
+        return out;
+    }
+
+    private static View view(Live l) {
+        return new View(l.id, l.botIds, l.names, l.lastSpeakerId, l.startedAt, l.lastLineAt, subject(l.topic, l.about));
+    }
+
+    /** The newest live thread on a map, for chat routing, or null (none, over, or threads switched off). */
     public static View liveView(int channel, int mapId, long now) {
         if (!ConvoSwitches.on("threads")) {
             return null;
         }
-        Live l = live.get(key(channel, mapId));
-        if (l == null || now > l.endsAt) {
+        List<Live> threads = liveOn(channel, mapId, now);
+        return threads.isEmpty() ? null : view(threads.getLast());
+    }
+
+    /**
+     * The live thread on this map that the player's line is about - the one at their feet when two fit it equally
+     * (TEST cv-5-20261024T222812Z: a thread 4964 px away held the map's only slot, so the Kerning PQ thread 129 px
+     * away never got the line). A map used to hold one thread; the newest thread still wins when nothing fits.
+     */
+    public static View liveView(int channel, int mapId, long now, Ask ask) {
+        if (!ConvoSwitches.on("threads")) {
             return null;
         }
-        return new View(l.id, l.botIds, l.names, l.lastSpeakerId, l.startedAt, l.lastLineAt, subject(l.topic, l.about));
+        Live best = null;
+        int bestFit = -1;
+        int bestDistance = Integer.MAX_VALUE;
+        for (Live l : liveOn(channel, mapId, now)) {
+            int fit = ask == null ? 0 : fit(l, ask.line());
+            int distance = ask == null ? 0 : nearest(l, ask.x(), ask.y());
+            if (best == null || fit > bestFit
+                    || (fit == bestFit && (distance < bestDistance
+                    || (distance == bestDistance && l.lastLineAt > best.lastLineAt)))) {
+                best = l;
+                bestFit = fit;
+                bestDistance = distance;
+            }
+        }
+        return best == null ? null : view(best);
+    }
+
+    /** How much of the player's line is about this thread: the words of its subject ("looking for a party (Kerning PQ)"). */
+    static int fit(Live l, String line) {
+        Set<String> said = MapChatLog.words(line);
+        if (said.isEmpty()) {
+            return 0;
+        }
+        int n = 0;
+        for (String word : MapChatLog.words(subject(l.topic, l.about))) {
+            if (said.contains(word)) {
+                n++;
+            }
+        }
+        return n;
+    }
+
+    /** How far the nearest of the thread's two bots stands from this spot (the map's far side when unknown). */
+    static int nearest(Live l, int x, int y) {
+        int best = Integer.MAX_VALUE;
+        for (int id : l.botIds) {
+            try {
+                BotSM sm = CharacterStorage.getBotById(id);
+                Character chr = sm == null ? null : sm.getChr();
+                if (chr != null && chr.getPosition() != null) {
+                    best = Math.min(best, (int) Math.round(Math.hypot(chr.getPosition().x - x, chr.getPosition().y - y)));
+                }
+            } catch (RuntimeException e) {
+                // no position to read: the other thread may win on distance
+            }
+        }
+        return best;
     }
 
     /**
@@ -531,9 +657,10 @@ public final class BotThreads {
         return topic.words + (about == null || about.isBlank() ? "" : " (" + about + ")");
     }
 
-    /** The detail of the live thread on a map ("Ludi PQ", "Legendz vs ZakumSlayerz"), else its topic; null none. */
+    /** The detail of the newest live thread on a map ("Ludi PQ", "Legendz vs ZakumSlayerz"), else its topic; null none. */
     public static String aboutOf(int channel, int mapId) {
-        Live l = live.get(key(channel, mapId));
+        List<Live> threads = liveOn(channel, mapId, System.currentTimeMillis());
+        Live l = threads.isEmpty() ? null : threads.getLast();
         return l == null ? null : l.about != null && !l.about.isBlank() ? l.about : l.topic.words;
     }
 
@@ -565,9 +692,15 @@ public final class BotThreads {
 
     /** Test seam: a live thread on a map. */
     static void putLiveForTest(int channel, int mapId, int a, String nameA, int b, String nameB, Topic topic, long endsAt) {
-        Live l = new Live(channel, mapId, List.of(a, b), List.of(nameA, nameB), topic, null, endsAt, b);
+        putLiveForTest(channel, mapId, a, nameA, b, nameB, topic, null, endsAt);
+    }
+
+    /** Test seam: a live thread on a map, about one thing ("Kerning PQ"). */
+    static void putLiveForTest(int channel, int mapId, int a, String nameA, int b, String nameB, Topic topic, String about,
+                               long endsAt) {
+        Live l = new Live(channel, mapId, List.of(a, b), List.of(nameA, nameB), topic, about, endsAt, b);
         l.lastLineAt = Math.max(0, endsAt - JOIN_MS);
-        live.put(key(channel, mapId), l);
+        hold(l);
         lastThreadOf.put(a, l);
         lastThreadOf.put(b, l);
     }
