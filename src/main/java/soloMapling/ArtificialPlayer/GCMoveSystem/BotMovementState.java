@@ -53,6 +53,7 @@ class BotMovementState {
     int swimMoveDir = 0;                  // -1 left, 0 none, +1 right
     int swimVerticalHold = 0;             // -1 = UP held, 0 = none, +1 = DOWN held
     boolean swimJumpRequested = false;    // one-shot upward burst
+    boolean swimWallBlocked = false;     // swim physics hit a wall while steering; rise to clear it (f424904a8)
     long swimNextJumpAtMs = 0L;
     SwimNavigator.State swimNav;          // ticket 34: the swim graph route this bot is on (null off swim maps)
 

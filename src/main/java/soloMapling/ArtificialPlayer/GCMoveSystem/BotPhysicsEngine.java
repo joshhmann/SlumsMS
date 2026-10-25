@@ -1563,6 +1563,10 @@ final class BotPhysicsEngine {
             } else if (collision.type() == AirCollisionType.WALL) {
                 nextX = collision.point().x;
                 vx = 0.0;
+                // Wall hit while steering: the next computeSwimIntents rises to clear it (f424904a8).
+                entry.swimWallBlocked = entry.swimMoveDir != 0;
+            } else {
+                entry.swimWallBlocked = false;
             }
         }
 
