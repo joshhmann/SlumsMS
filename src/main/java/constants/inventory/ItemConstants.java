@@ -460,7 +460,7 @@ public final class ItemConstants {
     }
 
     public static boolean isChaosScroll(int scrollId) {
-        return scrollId >= 2049100 && scrollId <= 2049103;
+        return (scrollId >= 2049100 && scrollId <= 2049104) || (scrollId >= 2049112 && scrollId <= 2049114);
     }
 
     public static boolean isRateCoupon(int itemId) {

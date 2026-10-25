@@ -296,25 +296,29 @@ public class ItemInformationProvider {
         Data ret = null;
         String idStr = "0" + itemId;
         DataDirectoryEntry root = itemData.getRoot();
-        for (DataDirectoryEntry topDir : root.getSubdirectories()) {
-            for (DataFileEntry iFile : topDir.getFiles()) {
-                if (iFile.getName().equals(idStr.substring(0, 4) + ".img")) {
-                    ret = itemData.getData(topDir.getName() + "/" + iFile.getName());
-                    if (ret == null) {
-                        return null;
+        if (root != null && root.getSubdirectories() != null) {
+            for (DataDirectoryEntry topDir : root.getSubdirectories()) {
+                for (DataFileEntry iFile : topDir.getFiles()) {
+                    if (iFile.getName().equals(idStr.substring(0, 4) + ".img")) {
+                        ret = itemData.getData(topDir.getName() + "/" + iFile.getName());
+                        if (ret == null) {
+                            return null;
+                        }
+                        ret = ret.getChildByPath(idStr);
+                        return ret;
+                    } else if (iFile.getName().equals(idStr.substring(1) + ".img")) {
+                        return itemData.getData(topDir.getName() + "/" + iFile.getName());
                     }
-                    ret = ret.getChildByPath(idStr);
-                    return ret;
-                } else if (iFile.getName().equals(idStr.substring(1) + ".img")) {
-                    return itemData.getData(topDir.getName() + "/" + iFile.getName());
                 }
             }
         }
         root = equipData.getRoot();
-        for (DataDirectoryEntry topDir : root.getSubdirectories()) {
-            for (DataFileEntry iFile : topDir.getFiles()) {
-                if (iFile.getName().equals(idStr + ".img")) {
-                    return equipData.getData(topDir.getName() + "/" + iFile.getName());
+        if (root != null && root.getSubdirectories() != null) {
+            for (DataDirectoryEntry topDir : root.getSubdirectories()) {
+                for (DataFileEntry iFile : topDir.getFiles()) {
+                    if (iFile.getName().equals(idStr + ".img")) {
+                        return equipData.getData(topDir.getName() + "/" + iFile.getName());
+                    }
                 }
             }
         }
@@ -1082,14 +1086,13 @@ public class ItemInformationProvider {
                                 nEquip.setUpgradeSlots((byte) (nEquip.getUpgradeSlots() + 1));
                             }
                             break;
-                        case ItemId.CHAOS_SCROll_60:
-                        case ItemId.LIAR_TREE_SAP:
-                        case ItemId.MAPLE_SYRUP:
-                            scrollEquipWithChaos(nEquip, YamlConfig.config.server.CHSCROLL_STAT_RANGE);
-                            break;
 
                         default:
-                            improveEquipStats(nEquip, stats);
+                            if (ItemConstants.isChaosScroll(scrollId) || scrollId == ItemId.LIAR_TREE_SAP || scrollId == ItemId.MAPLE_SYRUP) {
+                                scrollEquipWithChaos(nEquip, YamlConfig.config.server.CHSCROLL_STAT_RANGE);
+                            } else {
+                                improveEquipStats(nEquip, stats);
+                            }
                             break;
                     }
                     if (!ItemConstants.isCleanSlate(scrollId)) {
@@ -1638,7 +1641,14 @@ public class ItemInformationProvider {
 
     public int[][] getSummonMobs(int itemId) {
         Data data = getItemData(itemId);
-        int theInt = data.getChildByPath("mob").getChildren().size();
+        if (data == null) {
+            return null;
+        }
+        Data mobData = data.getChildByPath("mob");
+        if (mobData == null) {
+            return null;
+        }
+        int theInt = mobData.getChildren().size();
         int[][] mobs2spawn = new int[theInt][2];
         for (int x = 0; x < theInt; x++) {
             mobs2spawn[x][0] = DataTool.getIntConvert("mob/" + x + "/id", data);
@@ -2714,8 +2724,8 @@ public class ItemInformationProvider {
     public Equip statItem(Equip equip, short str, short dex, short luk, short int_) {
         equip.setStr(str);
         equip.setDex(dex);
-        equip.setInt(luk);
-        equip.setLuk(int_);
+        equip.setLuk(luk);
+        equip.setInt(int_);
         return equip;
     }
 
