@@ -4422,6 +4422,10 @@ public class Character extends AbstractCharacterObject {
 
     public void cancelAllBuffs(boolean softcancel) {
         if (softcancel) {
+            // 1.5.2 (nutnnut/Cosmic 8a2d4adaf): prtLock before effLock. cancelEffectFromBuffStat below reaches the
+            // public cancelEffect (prtLock) while this frame holds effLock+chrLock: the reverse of registerEffect's
+            // prt -> eff -> chr, so a party member buffing this character at that moment hung both threads.
+            prtLock.lock();
             effLock.lock();
             chrLock.lock();
             try {
@@ -4437,6 +4441,7 @@ public class Character extends AbstractCharacterObject {
             } finally {
                 chrLock.unlock();
                 effLock.unlock();
+                prtLock.unlock();
             }
         } else {
             Map<StatEffect, Long> mseBuffs = new LinkedHashMap<>();
@@ -4639,6 +4644,11 @@ public class Character extends AbstractCharacterObject {
     }
 
     public void updateActiveEffects() {
+        // 1.5.2 (nutnnut/Cosmic c9ba4f4da): prtLock before effLock. isUpdatingEffect -> StatEffect.isActive ->
+        // getPartyMembersOnSameMap takes prtLock while effLock is held; registerEffect takes them the other way round,
+        // so a party member's buff landing while this character entered a map (MapleMap.addPlayer) hung both threads.
+        // Callers hold neither lock; the inner prtLock is a same-thread re-entry.
+        prtLock.lock();
         effLock.lock();     // thanks davidlafriniere, maple006, RedHat for pointing a deadlock occurring here
         try {
             Set<BuffStat> updatedBuffs = new LinkedHashSet<>();
@@ -4664,6 +4674,7 @@ public class Character extends AbstractCharacterObject {
             updateEffects(updatedBuffs);
         } finally {
             effLock.unlock();
+            prtLock.unlock();
         }
     }
 
@@ -4750,6 +4761,10 @@ public class Character extends AbstractCharacterObject {
     }
 
     public void cancelBuffStats(BuffStat stat) {
+        // 1.5.2 (nutnnut/Cosmic 8a2d4adaf): prtLock before effLock. dropBuffStats -> fetchBestEffectFromItemEffectHolder
+        // -> StatEffect.isActive -> getPartyMembersOnSameMap takes prtLock under effLock+chrLock, the reverse of
+        // registerEffect. Reached from attack handlers (dark sight), unequip (booster) and summons.
+        prtLock.lock();
         effLock.lock();
         try {
             List<Pair<Integer, BuffStatValueHolder>> cancelList = new LinkedList<>();
@@ -4774,6 +4789,7 @@ public class Character extends AbstractCharacterObject {
             }
         } finally {
             effLock.unlock();
+            prtLock.unlock();
         }
 
         cancelPlayerBuffs(Arrays.asList(stat));
