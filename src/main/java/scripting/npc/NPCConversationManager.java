@@ -359,6 +359,36 @@ public class NPCConversationManager extends AbstractPlayerInteraction {
         return REBIRTH_SP_GRANT;
     }
 
+    /** Quest record (no Quest.wz quest) holding the day and the Jump Quest chests a character has been paid from. */
+    public static final int JUMPQUEST_DAILY_QUEST = 32002;
+
+    /**
+     * 1.5.2: MapleRoot's Jump Quest chests (1063000-1063002, 2032003) paid the custom meso and EXP reward on every run,
+     * with a free warp in: a meso farm. Each chest now pays it once per day per character. Returns whether to pay.
+     */
+    public boolean claimJumpQuestReward(int chest) {
+        String today = java.time.LocalDate.now().toString();
+        String next = jumpQuestClaim(getQuestProgress(JUMPQUEST_DAILY_QUEST), today, chest);
+        if (next == null) {
+            return false;
+        }
+        setQuestProgress(JUMPQUEST_DAILY_QUEST, next);
+        return true;
+    }
+
+    /** The record after paying {@code chest} on {@code today}, or null when that chest already paid today. */
+    static String jumpQuestClaim(String progress, String today, int chest) {
+        String[] parts = progress == null ? new String[0] : progress.split(":", 2);
+        Set<String> paid = new LinkedHashSet<>();
+        if (parts.length == 2 && parts[0].equals(today) && !parts[1].isEmpty()) {
+            paid.addAll(Arrays.asList(parts[1].split(",")));
+        }
+        if (!paid.add(String.valueOf(chest))) {
+            return null;
+        }
+        return today + ":" + String.join(",", paid);
+    }
+
     /**
      * 1.5.2: the Cotton Stylist (STYLIST.js) is open to everyone and passes the chosen id straight to these setters, so
      * they check it against the real catalog (a named hair/face in String.wz, colour variants through their base style)

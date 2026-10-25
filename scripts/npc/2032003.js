@@ -50,7 +50,7 @@ function action(mode, type, selection) {
         } else if (status == 2) {
             cm.gainItem(4031062, 1);
             const YamlConfig = Java.type('config.YamlConfig');
-            if (YamlConfig.config.server.JUMPQUEST_CUSTOM_EXP_MESOS_REWARD === 1) {            
+            if (YamlConfig.config.server.JUMPQUEST_CUSTOM_EXP_MESOS_REWARD === 1 && cm.claimJumpQuestReward(2032003)) {            
                 cm.gainExp(YamlConfig.config.server.JUMPQUEST_BASE_EXP_REWARD * cm.getPlayer().getExpRate())
                 cm.gainMeso(YamlConfig.config.server.JUMPQUEST_BASE_MESOS_REWARD)
             }

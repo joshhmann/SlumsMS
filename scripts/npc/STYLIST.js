@@ -221,6 +221,12 @@ function action(mode, type, selection) {
 		msg = "";
 		if (selected == -1)
 			selected = selection;
+		// 1.5.2: only the catalogs the menu shows. The hidden ones (40, 50, 80, 91, 92) skipped the Perfect Pitch fee
+		// when a client sent their selection by hand.
+		if ([0, 1, 2, 3, 4, 5, 6].indexOf(selected) < 0) {
+			cm.dispose();
+			return;
+		}
 		if (selected == 0) {
 			cm.sendStyle("Choose a style!\r\nThere are " + skin.length + " styles to choose from.", skin);
 			SelectedChange = skin;
