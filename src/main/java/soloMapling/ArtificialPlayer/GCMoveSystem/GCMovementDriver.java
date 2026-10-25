@@ -370,6 +370,31 @@ final class GCMovementDriver {
     }
 
     /*
+     * 1.6.0 foothold regression (TEST health sweep, 2026-10-25): where an unobserved bot ends a coarse trip. The trip
+     * used to end exactly on the requested point, but a move target is only an intent: the idle fidget wanders to
+     * (anchor x +-45, anchor y), which past a ledge's end is in the air; an unplannable goal (plan == null) can be
+     * anywhere. A physics walk to such a point walks off the ledge and falls, or stops on the floor; the coarse
+     * arrival teleported the bot onto it and left it standing in the air or inside the ground (Henesys' terraces are
+     * 60 px apart, hence the many dy = +-60). Now it lands where a walk there would: BotGround.landing (the floor at
+     * or just under the target - the one a step off the ledge drops onto - or, with none below, the floor the target
+     * sank into), else the ground under where the bot is, else the fall-off recovery ground. Swim maps keep the
+     * point: there is no floor to stand on.
+     */
+    static Point coarseArrivalPoint(MapleMap map, Point target, Point current) {
+        if (map == null || map.isSwim() || map.getFootholds() == null) {
+            return new Point(target);
+        }
+        Point ground = BotGround.landing(map, target);
+        if (ground == null && current != null) {
+            ground = BotGround.settle(map, current);
+        }
+        if (ground == null) {
+            ground = recoveryGround(map, current, target);
+        }
+        return ground != null ? ground : new Point(target);
+    }
+
+    /*
      * 1.5.0 rc5: a coarse trip whose goal went away part-way (clearMoveIntent, a new activity, a stop) left the bot
      * at its last interpolated point - half-way up a rope climb, on a jump arc, inside a platform - and the idle
      * branch then held it there as "standing" until its next goal. Put it on the foothold it belongs on (BotGround.settle,
@@ -394,10 +419,10 @@ final class GCMovementDriver {
         }
     }
 
-    /* Finish a coarse trip: snap to the goal, clear the plan + move target, fire the arrival callback. */
-    private static void arriveCoarse(BotMovementState entry, Character bot, Point target) {
+    /* Finish a coarse trip: snap to the goal's ground, clear the plan + move target, fire the arrival callback. */
+    static void arriveCoarse(BotMovementState entry, Character bot, Point target) {
         if (target != null) {
-            bot.setPosition(new Point(target));
+            bot.setPosition(coarseArrivalPoint(bot.getMap(), target, bot.getPosition()));
         }
         entry.coarsePlan = null;
         entry.coarsePlanTarget = null;

@@ -51,6 +51,26 @@ final class GCFidget {
         }
     }
 
+    /** A wander may follow its ledge up or down a slope by this much (px); more is another ledge, or none. */
+    static final int WANDER_MAX_DY = 26;
+
+    /**
+     * 1.6.0 foothold regression: where a wander nudge of {@code dx} from {@code base} goes - the ground at that x on the
+     * anchor's own ledge, or null when there is none (past the ledge's end, or a step onto another terrace). The
+     * nudge used to target (base.x + dx, base.y) as is: near a ledge's end that point is in the air, and an
+     * unobserved bot's coarse arrival put it there (Henesys' 60 px terraces: dy = +-60 in the health sweep).
+     */
+    static Point wanderTarget(server.maps.MapleMap map, Point base, int dx) {
+        if (map == null || base == null) {
+            return null;
+        }
+        Point ground = BotPhysicsEngine.findGroundPoint(map, new Point(base.x + dx, base.y));
+        if (ground == null || Math.abs(ground.y - base.y) > WANDER_MAX_DY) {
+            return null;
+        }
+        return ground;
+    }
+
     static void start(Character bot) {
         if (bot == null) {
             return;
@@ -134,8 +154,13 @@ final class GCFidget {
             case 2 -> GCMovement.jumpInPlace(bot);
             default -> {
                 int dx = ThreadLocalRandom.current().nextInt(-WANDER_PX, WANDER_PX + 1);
-                GCMovement.nudgeTo(bot, s.base.x + dx, s.base.y); // small wander near the anchor
-                s.fidgetMoveActive = true;
+                Point to = wanderTarget(bot.getMap(), s.base, dx);
+                if (to == null) {
+                    GCMovement.turnAround(bot); // the nudge would step off the anchor's ledge: look around instead
+                } else {
+                    GCMovement.nudgeTo(bot, to.x, to.y); // small wander near the anchor
+                    s.fidgetMoveActive = true;
+                }
             }
         }
     }
