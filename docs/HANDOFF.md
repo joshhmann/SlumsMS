@@ -250,6 +250,9 @@ Owner-reported or found, roughly by priority:
   Stylist (`scripts/npc/STYLIST.js`, GM/hidden maps only) calls setHair on its special-face pages. Ticket idea for 1.5.1/1.6.0: diff MapleRoot's changes against
   stock Cosmic (handlers, config, scripts) for regressions like clearPQ and PIC; old worktree `SlumsMS-cosmicdiff`.
 
+- **Next two tasks for the bug-fix agent, after the current 1.5.1 items (owner, 2026-10-25):** ticket 68 (audit
+  MapleRoot's changes to Cosmic for broken stock features) then ticket 69 (auto-QA "v83 basics" checks).
+
 ## 4. Decisions the owner made (don't re-ask)
 
 - 3,000 bots on live; reduce if needed. Per-map cap 50 to start (FM may need more).
