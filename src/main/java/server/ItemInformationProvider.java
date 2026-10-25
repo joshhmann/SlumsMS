@@ -2791,8 +2791,8 @@ public class ItemInformationProvider {
     public Equip statItem(Equip equip, short str, short dex, short luk, short int_) {
         equip.setStr(str);
         equip.setDex(dex);
-        equip.setInt(luk);
-        equip.setLuk(int_);
+        equip.setLuk(luk);
+        equip.setInt(int_);
         return equip;
     }
 
