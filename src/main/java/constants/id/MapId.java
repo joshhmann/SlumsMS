@@ -86,7 +86,7 @@ public class MapId {
     public static final int FROM_ORBIS_TO_EREVE = 200090020;
 
     // Aran
-    public static final int ARAN_TUTORIAL_START = MAPLEROOT_HUB;
+    public static final int ARAN_TUTORIAL_START = 914000000;
     public static final int ARAN_TUTORIAL_MAX = 914000500;
     public static final int ARAN_INTRO = 140090000;
     private static final int BURNING_FOREST_1 = 914000200;
