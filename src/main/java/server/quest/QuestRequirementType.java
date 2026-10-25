@@ -49,7 +49,9 @@ public enum QuestRequirementType {
     DAY_BY_DAY(20),
     MESO(21),
     BUFF(22),
-    EXCEPT_BUFF(23);
+    EXCEPT_BUFF(23),
+    // the completion-side meso price (`endmeso`), distinct from `money`, which is paid to start the quest
+    END_MESO(24);
 
     final byte type;
 
@@ -109,6 +111,8 @@ public enum QuestRequirementType {
             return DAY_BY_DAY;
         case "money":
             return MESO;
+        case "endmeso":
+            return END_MESO;
         case "buff":
             return BUFF;
         case "exceptbuff":

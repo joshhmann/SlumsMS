@@ -31,8 +31,8 @@ import server.quest.QuestRequirementType;
 public class MesoRequirement extends AbstractQuestRequirement {
     private int meso = 0;
 
-    public MesoRequirement(Quest quest, Data data) {
-        super(QuestRequirementType.MESO);
+    public MesoRequirement(Quest quest, Data data, QuestRequirementType type) {
+        super(type);
         processData(data);
     }
 
