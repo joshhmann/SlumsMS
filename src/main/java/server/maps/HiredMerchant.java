@@ -75,6 +75,7 @@ public class HiredMerchant extends AbstractMapObject {
     private final List<SoldItem> sold = new LinkedList<>();
     private final AtomicBoolean open = new AtomicBoolean();
     private boolean published = false;
+    private boolean forceClosed;    // 1.5.2: forceClose runs once; a second run would save an empty list over Fredrick's items
     private MapleMap map;
     private final Visitor[] visitors = new Visitor[3];
     private final LinkedList<PastVisitor> visitorHistory = new LinkedList<>();
@@ -430,6 +431,12 @@ public class HiredMerchant extends AbstractMapObject {
     }
 
     public void forceClose() {
+        // 1.5.2: a second close (channel shutdown after the owner closed it, or two shutdown steps) would reach saveItems()
+        // with the already-cleared list, and saveItemsMerchant deletes first: that would wipe the owner's Fredrick items.
+        if (forceClosed) {
+            return;
+        }
+        forceClosed = true;
         if (soloMapling.qa.QaLog.on(soloMapling.qa.QaLog.Topic.MERCHANT)) { // !qa np-3
             soloMapling.qa.QaLog.owner(soloMapling.qa.QaLog.Topic.MERCHANT, ownerId, "hired merchant of " + ownerId
                     + " force-closed with " + items.size() + " item line(s), map " + (map == null ? "?" : map.getId()));
