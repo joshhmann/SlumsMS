@@ -6,7 +6,7 @@ something.
 
 Times: give the owner Pacific next to UTC (PDT = UTC-7).
 
-**Owner's work split (2026-10-24):** this bug-fix pass is finished. The owner will hand continuing **1.5.1 bug
+**Historical work split (superseded by the current direction below):** this bug-fix pass is finished. The owner will hand continuing **1.5.1 bug
 squashing to DeepSeek**; use `release-1.5.1`, the current TEST receipt below and section 3's remaining leads.
 **Codex is moving to 1.6.0 feature work**, starting with Ticket 60's implementation plan on `160-bot-brain`
 (`5ca02907f`, `/root/work/SlumsMS-bot-brain-160`). Runtime implementation has not started. The roadmap puts the bot
@@ -15,27 +15,65 @@ owner decisions. Ticket 61's "spec/to be built" header is stale: the client MCP 
 Keep the shared `slums-persistence-test` build for the bug pass; feature work must coordinate any test checkpoint
 or use a separately isolated test instance within the host caps. Do not merge 1.6.0 features into `release-1.5.1`.
 
+**Current owner direction:** 1.6.0 is paused. **DeepSeek owns tickets 68 and 69 and remains active.**
+Codex keeps the wedding QA correction, extra salon coverage and bank-question fix on separate branches.
+The owner authorized finishing this pass and merging its verified changes, then waiting for DeepSeek and Gemini.
+Their worktrees and tickets 68/69 remain unchanged.
+
+Codex candidate: `151-salon-restoration`, `/root/work/SlumsMS-151-salons`, source `fbc368f97`, contains
+upstream `5b628dda9`, the wedding QA correction and extra salon coverage, and bank-question fix `4a244a37e`.
+Full offline `mvn -q -o test`: **4,592 tests, 0 failures, 0 errors, 38 skipped**, 417 classes; package passes.
+The core salon fix was already merged by Claude as `1fe365733`; our additional name/filter tests extend its
+coverage. Seven corresponding styles also exist in the RC client's Face/Hair data. Read-only QA `sl-1` does
+not change appearance or spend coupons and does not replace ticket 69's vb-1.
+
+Wedding QA fix `f73bb543d` is on `151-qa-wedding-completion` and included in this candidate. The previous rm-2
+log recorded a random runaway before its marriage/divorce assertions; the staged wedding now skips only that
+random roll. A regression fails before and passes after; ordinary/forced runaway coverage remains green.
+
+The earlier `3a6fa1abe` selected TEST run had **7 PASS / 1 FAIL**: cv-7 answered “what u doing” with “oh nice”.
+Bank-question fix `4a244a37e` gives a factual “chatting with u rn” in that script fallback. Its conversation-flow
+regression fails before and passes after. Final deployment and selected results are recorded below.
+
+At task start TEST was `9d5a16def`, already including clearPQ and endmeso despite older notes below. Its prior
+63-check rerun had 58 PASS / 5 FAIL. Actual mount and stock PQ completion remain unverified. The gu-8 failure
+log says “nobody to kick”; its fixture stages a RIVAL leader while the one-leader kick rule requires NEMESIS.
+That is a triage lead, not a fix. Footing/overlap and other health flags remain open.
+
 ## 1. What is live
 
-| Thing | Version | Where it came from |
-|---|---|---|
-| Server | **1.5.0**, online since 2026-10-24 08:01 UTC (1:01 AM PDT) | branch `release-1.5.0`, commit `06a724dfc`, jar `824b250e…` |
-| Client (Live feed) | **1.5.0**, build 10500, slums.dll `FFFFE143…` | `client-1.5.0-fixes3` @ `19d0d72` |
-| Tauri launcher (Live `tauri/launcher.json`) | **1.5.1**, exe `4ff35e76…` | `launcher-ui-compact` @ `cbad0ea` |
-| Electron hand-over (Live `launcher.json`) | **1.5.0** (friends key built in), zip `84929C86…` | `launcher-handover` @ `fa1cabe` |
+**SlumsMS 1.5.1, live since 2026-10-25 07:38 UTC (12:38 AM PDT).** Branch `release-1.5.1` @ `6443043f9`, jar
+`76fa91f3…`, downtime 31.7 s, smoke PASS, 0 errors (1.5.0 had ~34 silent NullPointerExceptions a minute; 1.5.1 has 0).
+Receipt and backups: `/opt/mapleroot-deployments/v1.5.1/` on 164. Rollback: `bash
+/opt/mapleroot-deployments/v1.5.1/rollback.sh` (~30 s, back to 1.5.0; rehearsed). Client 1.5.0 (build 10500),
+Tauri launcher 1.5.2 and the Electron hand-over are unchanged. Patch notes: https://theslumsms.asslorde.com/patch-notes/1.5.1/
+(site branch), Cody posted. Owner QA page: https://claude.ai/artifact/F3UNsKnpg1cmndLop3dVhZ.
 
-Live settings now: 5 channels, CHANNEL_LOAD 125, MIN_CLIENT_BUILD 10500, 3,000 bots at peak (BOT_POPULATION_PEAK 3500),
-BOT_MAP_CAP 50, `-Xms4G -Xmx6G`, temporary roster growth (BOT_ROSTER_VETERAN_FILL_BELOW 1.0, VETERANS_PER_DAY 7200).
-Deploy receipt and backups: `/opt/mapleroot-deployments/v1.5.0/` on 164. Rollback: `bash
-/opt/mapleroot-deployments/v1.5.0/rollback.sh` (server, ~30 s) and `tools/release/publish-client --restore-manifest
-/srv/slums-staging/manifest-before-1.5.0.json` (client). **Live actions always need the owner's go** (AGENTS.md).
+Live config now: ENABLE_PIC true, USE_SUPPLY_RATE_COUPONS true (Cash Shop sells only 2x EXP 7 days / 3x EXP 1 day),
+roster growth back to 0.5 / 300, 5 channels, 3,000 bots at peak, map cap 50, -Xms4G -Xmx6G.
 
-The test server now runs **1.5.1 integration commit `1c1e5dd9c`** (the conversation hold, the KS-rally walk-in,
-couple-chair walks, the GM boss-run preemption and the mob-body step-out), deployed on 2026-10-24 under stamp
-`20261024T205847Z` with **0 boot errors**. That build also carries the earlier `c2b1a7974` NPC spacing, synthetic
-login and reply-routing fixes (checkpoint at **5:57 AM PT / 12:57 UTC**). Its version banner still says 1.5.0;
-this is a test integration build, not a live release. Source: `release-1.5.1` in `/root/work/SlumsMS-npc-space`.
-The same test settings and QA flags remain. Live was not changed.
+What 1.5.1 fixed (details in the patch notes and tickets 68/75-80): autologin password bypass removed; salons and
+face/eye coupons; PQ/event clears (clearPQ); 179 maps loading (mob exp default); quest meso prices; PIC/delete; venom,
+1st-job HP, Silver Hawk, stock summon durations (`stock-summon-skills.yaml`); Spiegelmann, Mr. Do, Maple Administrator;
+PQ reward amounts; chat gate on the real clock; chat hold for every bot; KS-war bots arrive by portal; coupons survive
+death (re-applied on respawn); tiger banners clear after 10 s; @coupons; !maxskill; Amos guard; mount room 3 minutes.
+
+## 1b. Next: 1.5.2 (bug-squash arc, ship when ready; owner 2026-10-25)
+
+1.5.x is "make v83 work": jobs/skills, quests, NPCs, shops, maps, PQs/bosses, swept systematically. No release
+schedule: when a batch is fixed and QA'd, release (live steps on the owner's go). 1.6.0 (bot brain) waits.
+1.5.2 so far:
+- `152-nutnnut-stability` (pushed, ticket 80): lock-order deadlocks, thread safety, disposed characters, warp latch,
+  quest-row bloat, migration `023-character-lookup-indexes`, shutdown autosave, Warrior ids. Needs a 4 h+ 3,000-bot
+  soak on TEST first (plan in the ticket 80 hand-back: jstack every 15 min, no deadlock/CME/new ERRORs, queststatus).
+  Add 023 to `docs/release/1.5.2.conf` (LEDGER_BEFORE = 1.5.1's list).
+- Ticket 75 Amoria PQ for 2-6 players (owner OK'd), ticket 78 Hidden Street site (also the data sweep).
+- Ticket 69 vb-* checks (Gemini) need the 9 reworks from the review before merging.
+- Leftovers: Ninja Ambush DoT, Cygnus AP, free-teleport HyperTP item, GM "za warudo" skill, Pink Bean double clear,
+  Papulatus exit NPC, MapleTV scroll generator, items with no slotMax stacking to 32000, Von Leon map potions, Duey
+  (recommend on), GM-1 trade/drop (recommend back to 4), MapleRoot's summon damage buffs (owner leans to longer
+  summon durations later: edit `stock-summon-skills.yaml`), Flame Thrower venom flag.
+- Parked: ticket 76 Nett's Pyramid (Cosmic PR #221), ticket 77 Omok bots (part 1 in 1.5.x), ticket 79 Basil Market (1.6.x).
 
 ## 2. In flight right now
 
@@ -111,6 +149,9 @@ The same test settings and QA flags remain. Live was not changed.
 ## 3. Backlog for 1.5.1 (hotfixes until 1.6.0)
 
 Owner-reported or found, roughly by priority:
+- **Technical source review:** tickets [62–65](tickets/README.md) target 1.5.1: active-player shutdown saves (P1),
+  unsaved bot debits at the shutdown deadline (P1), Bera wealth-scroll bonus (P2), and save-failure reporting (P2).
+  Findings are source-reviewed against `06a724dfc`; runtime reproduction and fixes are still pending.
 - **A bot you're talking to walks away** mid-conversation (personal space or its wander habit pulls it away). A
   conversation partner should stay put ~30-60 s. Source audit: `BotConversation` already keeps a 60 s session,
   but the wanderer and fidget paths do not use it as a movement hold; personal space only recognises the pair.
@@ -232,7 +273,7 @@ Owner-reported or found, roughly by priority:
   line (commit `402851969`); backup `/root/slumsms-monitor.before-director-fix`. The repo copy also has the newer
   `maintenance end --client` feature, not installed yet; install the whole file with the 1.5.1 release.
 
-- **PQ/event clears crash (fixed on `151-clearpq-expedition`, merged into release-1.5.1, NOT on TEST or live yet):**
+- **PQ/event clears crash (fixed on `151-clearpq-expedition`, merged into release-1.5.1 and present on TEST; no Live deploy by this pass):**
   `EventInstanceManager.clearPQ` wrote the boss log assuming an expedition, so every non-expedition instance that
   finishes through `clearPQ` (the Kenta mount room, KPQ/LPQ/other PQs, Cathedral/Chapel weddings: 57 scripts) threw a
   NullPointerException and the player was never sent out or rewarded. Seen on live 2026-10-24 (npc 9060000, a player
@@ -283,3 +324,57 @@ Owner-reported or found, roughly by priority:
 
 Anything on live, any publish to the Live launcher/client feed, nginx changes, Discord posts, economy changes,
 or anything this file or AGENTS.md doesn't cover.
+
+## Codex coordination note
+
+Owner clarified that DeepSeek is actively working tickets 68 and 69. Changes drafted for those tickets and the
+Cosmic classifier/inventory were removed from the tracked diff and preserved only under ignored
+`dist/audit-68/` in `/root/work/SlumsMS-151-salons`. They are not a separate competing implementation and are
+not published as completed audit work. DeepSeek's files/worktrees were never changed.
+
+The earlier `3a6fa1abe` TEST run completed **7 PASS / 1 FAIL / 0 SKIP** of eight selected checks:
+bg-1, rm-2, cv-4, cv-5, sl-1, vg-1 and ch-1 passed; cv-7 failed reply quality. Its log
+`cv-7-20261025T024552Z.log` shows “what u doing” answered by “oh nice”. The invitation reply itself passed;
+this is a remaining activity-question fallback bug, not evidence that all cv-7 behavior is fixed.
+Receipt `/opt/mapleroot-dev/persistence-test/deploys/20261025T024019Z` holds the saved result, status and failing log.
+Zero ERROR/Exception lines since this boot; overall health remains FAIL (footing, overlap and an invalid-map flag).
+Those health leads were not fixed here. No real client, mount capture or full stock PQ completion was tested.
+
+The narrow fix is `4a244a37e` on pushed branch `151-bank-question`, own worktree
+`/root/work/SlumsMS-151-bank-question`: in script fallback only, direct activity questions get “chatting with u rn”.
+No guessing from a roster role, new model call, action, rate or reward. The real conversation-flow regression
+fails before and passes after; focused tests pass. Its standalone full run was superseded by the combined
+candidate's full verification below. This fix is included in deployed source `fbc368f97`.
+
+## Final combined bank-question candidate
+
+Source `fbc368f97` contains the bank fix `4a244a37e` as well as the previously checked
+wedding/salon coverage and upstream `5b628dda9`. Final full `mvn -q -o test`:
+**4,592 tests, 0 failures, 0 errors, 38 skipped**, 417 classes. Log `/tmp/151-takeover-bank-combined-full.log`.
+The bank-enabled conversation-flow regression failed before (expected an activity answer, got “oh nice”) and
+passes after for three direct question forms. Additional positive/negative wording tests pass. Stories, past
+tense, refusals and compound requests keep their previous paths. The fallback describes only the conversation
+currently happening; it does not guess the bot's physical activity from a saved role. No model or rate changes.
+Owner instruction is to finish and merge this pass, then wait for DeepSeek and Gemini. No further ticket work
+is being started.
+
+Final TEST receipt: `/opt/mapleroot-dev/persistence-test/deploys/20261025T031331Z`, deployed source `fbc368f97`.
+Normal-timing run **8:15:25–8:17:53 PM PT Oct 24 (03:15:25–03:17:53 UTC Oct 25, 2026)**:
+**6 PASS / 0 FAIL / 0 SKIP** — bg-1, rm-2, cv-7, sl-1, vg-1, ch-1. The saved `autoqa-result.json` records
+this run's exact source and six results; `test-status.txt` and the three changed-area QA logs are beside it.
+`cv-7-20261025T031633Z.log` records “what u doing” answered by “chatting with u rn”; its judge, script-only,
+no-repeat and say-do assertions all pass. `rm-2-20261025T031527Z.log` passes marriage/divorce;
+`sl-1-20261025T031742Z.log` passes seven real-data style lookups.
+Zero ERROR/Exception lines since the 8:14 PM PT / 03:14 UTC boot. Health still FAIL: footing and overlap;
+invalid maps and clumps are OK at this checkpoint. The saved daily mixed report has 63 PASS / 3 FAIL / 11 SKIP,
+with older af-1, gu-8 and cb-2 leads, **not a fresh full-catalogue run on this build**.
+No real-client salon preview/coupon use, mount capture or full stock PQ clear was performed.
+
+Release integration: `origin/release-1.5.1` advanced to `625308df5` while the final selected TEST run completed.
+Merged it cleanly as `466f82a18`, retaining the other agent's ticket-68 fixes and our wedding, salon coverage
+and bank reply changes. The full suite is rerun on that combined source; the result is recorded below.
+Shared TEST remains at the separately verified `fbc368f97`; the later ticket-68 merge was not redeployed by
+Codex, so its new script/mount/map changes still need their own TEST verification.
+After the full-suite result, push `151-salon-restoration` and fast-forward `origin/release-1.5.1` to the same
+documentation commit. Leave shared TEST running; wait for DeepSeek and Gemini before further work.
+No Live, Discord, private 1.6.0 server or client changes were made in this finishing pass.

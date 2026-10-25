@@ -66,13 +66,13 @@ Both servers run world id **1**, never 0. Code that assumes world 0 is a bug (se
 | `SoloMapling` | `/root/SoloMapling` | the bot project's history and notes; not deployed |
 
 ### Branches
-- **Live runs 1.5.0** (released 2026-10-24 08:01 UTC) from branch `release-1.5.0` (commit 06a724dfc). That branch
-  is now the integration branch: make fix branches from `origin/release-1.5.0` (`git worktree add ... -b
-  151-<topic> origin/release-1.5.0`), and the coordinator merges them into a `release-1.5.1` branch for the next patch.
-  `test-1.5.0-rc6` is the history of 1.5.0; don't build on it.
-- Previous releases: `hotfix-1.4.2-haggle` (1.4.2), `release-1.4.1`.
+- **Live runs 1.5.1** (released 2026-10-25 07:38 UTC) from branch `release-1.5.1` (commit 6443043f9). That branch
+  is now the integration branch: make fix branches from `origin/release-1.5.1` (`git worktree add ... -b
+  152-<topic> origin/release-1.5.1`), and the coordinator merges them into a `release-1.5.2` branch for the next patch.
+  `151-integration` is the history of 1.5.1. 1.6.0 work (`160-*`) waits until the 1.5.x bug squash settles.
+- Previous releases: `release-1.5.0` (1.5.0), `hotfix-1.4.2-haggle` (1.4.2), `release-1.4.1`.
 - Client: `client-1.5.0-fixes3` is the current client line (live DLL FFFFE143, build 10500). Launcher:
-  `launcher-ui-compact` (Tauri; 1.5.1 on Live, 1.5.2 in progress), `launcher-handover` (Electron hand-over, must include
+  `main` (Tauri; 1.5.2 on Live), `launcher-handover` (Electron hand-over, must include
   `7f385b0`; on Live as 1.5.0).
 - **Current state, open work and decisions: `docs/HANDOFF.md`.** Read it after this file.
 
@@ -81,7 +81,7 @@ Both servers run world id **1**, never 0. Code that assumes world 0 is a bug (se
 ### Start a task
 ```
 git -C /root/work/SlumsMS fetch -q origin
-git -C /root/work/SlumsMS worktree add /root/work/SlumsMS-<topic> -b 151-<topic> origin/release-1.5.0
+git -C /root/work/SlumsMS worktree add /root/work/SlumsMS-<topic> -b 152-<topic> origin/release-1.5.1
 cd /root/work/SlumsMS-<topic> && cp config.example.yaml config.yaml
 ```
 Never work in someone else's worktree. Check `git worktree list` first.

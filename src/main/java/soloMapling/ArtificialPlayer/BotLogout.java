@@ -41,27 +41,65 @@ public final class BotLogout {
     private BotLogout() {
     }
 
-    /** A bot's session is over: it leaves now if it is free, otherwise as soon as it is (or at the cap). */
+    /** Bots whose own reason to leave outranks a conversation (its own goodbye, a staged boss run). */
+    private static final java.util.Set<Integer> ownReason = ConcurrentHashMap.newKeySet();
+
+    /**
+     * A bot's session is over: it leaves now if it is free, otherwise as soon as it is (or at the cap). 1.5.1 (owner
+     * QA: bots "just zoomed away"): a player talking to it on its map counts as a commitment too - the director's
+     * logout waits for the conversation hold to end instead of the bot vanishing mid-chat.
+     */
     public static void request(int charId, long now) {
+        request(charId, now, false);
+    }
+
+    /**
+     * As {@link #request(int, long)} for a leave the bot itself announced (its own "gtg" line, a staged boss run):
+     * a conversation does not keep it; the other commitments still do.
+     */
+    public static void requestOwn(int charId, long now) {
+        request(charId, now, true);
+    }
+
+    private static void request(int charId, long now, boolean own) {
         BotSM bot = CharacterStorage.getBotById(charId);
         if (bot == null || bot.getChr() == null) {
             leaving.remove(charId);
+            ownReason.remove(charId);
             return;
         }
         if (departing.contains(charId)) {
             return;
         }
-        if (BotPopulationDirector.mayLogOut(bot)) {
+        if (mayLeaveNow(bot, own)) {
             leaving.remove(charId);
+            ownReason.remove(charId);
             leave(bot, false);
         } else {
             leaving.putIfAbsent(charId, now + WAIT_CAP_MS);
+            if (own) {
+                ownReason.add(charId);
+            }
         }
+    }
+
+    /**
+     * Free to go now: no commitment ({@link BotPopulationDirector#mayLogOut(BotSM)}) and, unless the bot announced
+     * the leave itself, no player talking to it ({@link BotConversation#keptByChat(Character)}).
+     */
+    static boolean mayLeaveNow(BotSM bot, boolean own) {
+        return BotPopulationDirector.mayLogOut(bot)
+                && (own || !BotConversation.keptByChat(bot.getChr()));
     }
 
     /** Whether this bot is waiting to leave, or already on its way out. */
     public static boolean isLeaving(int charId) {
         return leaving.containsKey(charId) || departing.contains(charId);
+    }
+
+    /** Whether this bot said its goodbye and is about to disappear (not merely waiting for a commitment to end). */
+    public static boolean isDeparting(int charId) {
+        return departing.contains(charId);
     }
 
     public static int waiting() {
@@ -75,11 +113,14 @@ public final class BotLogout {
             BotSM bot = CharacterStorage.getBotById(charId);
             if (bot == null || bot.getChr() == null) {
                 leaving.remove(charId);
-            } else if (BotPopulationDirector.mayLogOut(bot)) {
+                ownReason.remove(charId);
+            } else if (mayLeaveNow(bot, ownReason.contains(charId))) {
                 leaving.remove(charId);
+                ownReason.remove(charId);
                 leave(bot, false);
             } else if (now >= entry.getValue()) {
                 leaving.remove(charId);
+                ownReason.remove(charId);
                 leave(bot, true);
             }
         }

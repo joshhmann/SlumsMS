@@ -55,14 +55,23 @@ use_shortlist_prices: false
 items:
   # ---- Pins that keep the live (pre-tool) price where stock has several on-sale serials ----
   - {id: 1072336, price: 2100, reason: "live price (stock lists 2300 and 2100)"}
-  - id: [5211014, 5211015, 5211016, 5211017, 5211018, 5211039, 5211042, 5211045]
-    price: 8500
-    period: 10
-    reason: "Everyday 2x EXP cards: the 10-day stock serial"
-  - id: [5360001, 5360002, 5360003, 5360004, 5360005, 5360006, 5360007, 5360008]
-    price: 6000
-    period: 10
-    reason: "2x drop cards: the 10-day stock serial"
+  # ---- EXP cards (owner, 1.5.1): two products, both working all day every day ----
+  # 5211048 / 5211060 are the stock "anytime" cards (WZ time and nxcoupons 00-24 every day). The period is
+  # DAYS (CashShopWindowPurchase.periodMillis; the stock "1 means 4h/2h" case is gone from the window path).
+  # Prices are placeholders the owner OK'd for now.
+  - {id: 5211048, price: 6000, period: 7, name: "2x EXP Card 7 days", reason: "2x EXP, all day, 7 days (owner 1.5.1)"}
+  - {id: 5211060, price: 3000, period: 1, name: "3x EXP Card 1 day", reason: "3x EXP, all day, 24 hours (owner 1.5.1)"}
+  # Every other EXP card is off sale. Cards players already own keep working (nxcoupons is unchanged).
+  - id: [5211004, 5211005, 5211006, 5211007, 5211008, 5211009, 5211010, 5211011, 5211012, 5211013,
+         5211014, 5211015, 5211016, 5211017, 5211018, 5211037, 5211038, 5211039, 5211040, 5211041,
+         5211042, 5211043, 5211044, 5211045]
+    hide: true
+    reason: "timed EXP cards off sale: only the two all-day cards are sold (owner 1.5.1)"
+  # ---- Drop cards (owner, 1.5.1): none on sale, drops are already high. Cards players already own keep
+  # working (nxcoupons is unchanged). v83 has no 3x drop card anyway: every 0536 card is rate 2.
+  - id: [5360000, 5360001, 5360002, 5360003, 5360004, 5360005, 5360006, 5360007, 5360008, 5360042]
+    hide: true
+    reason: "drop cards off sale: drops are already high (owner 1.5.1)"
   - {id: 5370000, price: 1000, reason: "Chalkboard: the 1000-NX stock serial"}
   - {id: [5390000, 5390001, 5390002], price: 7500, count: 5, reason: "Avatar megaphones: the x5 stock bundle"}
   - {id: 5240012, price: 1000, count: 1, reason: "single pet food, as live"}

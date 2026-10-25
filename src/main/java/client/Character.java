@@ -1266,6 +1266,31 @@ public class Character extends AbstractCharacterObject {
 
     }
 
+    /** The max HP/MP a job advancement adds for {@code job} (the job just reached). */
+    static Pair<Integer, Integer> jobAdvanceHpMpGain(Job job) {
+        int addhp = 0, addmp = 0;
+        int job_ = job.getId() % 1000; // lame temp "fix"
+        if (job_ == 100) {                      // 1st warrior
+            addhp += Randomizer.rand(200, 250);
+        } else if (job_ == 200) {               // 1st mage
+            addmp += Randomizer.rand(100, 150);
+        } else if (job_ % 100 == 0) {           // 1st others
+            addhp += Randomizer.rand(100, 150);
+            addmp += Randomizer.rand(25, 50);
+        } else if (job_ > 0 && job_ < 200) {    // 2nd~4th warrior
+            addhp += Randomizer.rand(300, 350);
+        } else if (job_ < 300) {                // 2nd~4th mage
+            addmp += Randomizer.rand(450, 500);
+        } else if (job_ > 0) {                  // 2nd~4th others
+            addhp += Randomizer.rand(300, 350);
+            addmp += Randomizer.rand(150, 200);
+        } else if (job_ == 700) {                  // Super Beginner
+            addhp += Randomizer.rand(300, 350);
+            addmp += Randomizer.rand(150, 200);
+        }
+        return new Pair<>(addhp, addmp);
+    }
+
     public synchronized void changeJob(Job newJob) {
         if (newJob == null) {
             return;//the fuck you doing idiot!
@@ -1317,26 +1342,8 @@ public class Character extends AbstractCharacterObject {
             }
         }
 
-        int addhp = 0, addmp = 0;
-        int job_ = job.getId() % 1000; // lame temp "fix"
-        if (job_ == 100) {                      // 1st warrior
-            addhp += Randomizer.rand(200, 250);
-        } else if (job_ == 200) {               // 1st mage
-            addmp += Randomizer.rand(100, 150);
-        } else if (job_ % 100 == 0) {           // 1st others
-            addhp += Randomizer.rand(1, 1);
-            addmp += Randomizer.rand(25, 50);
-        } else if (job_ > 0 && job_ < 200) {    // 2nd~4th warrior
-            addhp += Randomizer.rand(300, 350);
-        } else if (job_ < 300) {                // 2nd~4th mage
-            addmp += Randomizer.rand(450, 500);
-        } else if (job_ > 0) {                  // 2nd~4th others
-            addhp += Randomizer.rand(300, 350);
-            addmp += Randomizer.rand(150, 200);
-        } else if (job_ == 700) {                  // Super Beginner
-            addhp += Randomizer.rand(300, 350);
-            addmp += Randomizer.rand(150, 200);
-        }
+        Pair<Integer, Integer> jobGain = jobAdvanceHpMpGain(job);
+        int addhp = jobGain.getLeft(), addmp = jobGain.getRight();
         
         /*
         //aran perks?
@@ -4448,9 +4455,32 @@ public class Character extends AbstractCharacterObject {
             }
 
             for (Entry<StatEffect, Long> mse : mseBuffs.entrySet()) {
+                if (keepingCoupons && keptOnDeath(mse.getKey().getSourceId())) {
+                    continue;
+                }
                 cancelEffect(mse.getKey(), false, mse.getValue());
             }
         }
+    }
+
+    /**
+     * 1.5.1 (owner): dying clears every buff except EXP/drop coupons. Stock v83 dropped the coupon's effect on death
+     * until it was re-applied, which players read as losing the coupon ("very Nexon").
+     */
+    public void cancelAllBuffsOnDeath() {
+        keepingCoupons = true;
+        try {
+            cancelAllBuffs(false);
+        } finally {
+            keepingCoupons = false;
+        }
+    }
+
+    private boolean keepingCoupons = false;
+
+    /** What a death leaves running: rate coupons only. */
+    static boolean keptOnDeath(int sourceId) {
+        return ItemId.isRateCoupon(sourceId);
     }
 
     private void dropBuffStats(List<Pair<BuffStat, BuffStatValueHolder>> effectsToCancel) {
@@ -6836,7 +6866,7 @@ public class Character extends AbstractCharacterObject {
         }
         if (summons.get(Sniper.GOLDEN_EAGLE) != null) {
             sendPacket(PacketCreator.removeSummon(summons.get(Sniper.GOLDEN_EAGLE), true));
-            getMap().removeMapObject(summons.get(Ranger.SILVER_HAWK));
+            getMap().removeMapObject(summons.get(Sniper.GOLDEN_EAGLE));
         }
         if (summons.get(Marksman.FROST_PREY) != null) {
             sendPacket(PacketCreator.removeSummon(summons.get(Marksman.FROST_PREY), true));
@@ -8653,7 +8683,7 @@ public class Character extends AbstractCharacterObject {
             return;
         }
 
-        cancelAllBuffs(false);
+        cancelAllBuffsOnDeath();
         dispelDebuffs();
         lastDeathtime = Server.getInstance().getCurrentTime();
         soloMapling.server.MapleRootSolo.runHook("drama death", () ->   // 1.5.0: rivals roast today's deaths
@@ -8814,7 +8844,7 @@ public class Character extends AbstractCharacterObject {
 
         changeMap(returnMap);
 
-        cancelAllBuffs(false);  // thanks Oblivium91 for finding out players still could revive in area and take damage before returning to town
+        cancelAllBuffsOnDeath();  // thanks Oblivium91 for finding out players still could revive in area and take damage before returning to town
 
         if (usedSafetyCharm) {  // thanks kvmba for noticing safety charm not providing 30% HP/MP
             addMPHP((int) Math.ceil(this.getClientMaxHp() * 0.3), (int) Math.ceil(this.getClientMaxMp() * 0.3));
@@ -8823,6 +8853,9 @@ public class Character extends AbstractCharacterObject {
         }
 
         setStance(0);
+        // 1.5.1 (owner QA): the client drops every buff icon on death by itself, so the EXP card kept on the server
+        // (cancelAllBuffsOnDeath) vanished from the screen. Re-apply the active cards once the player is back up.
+        updateCouponRates();
     }
 
     private void prepareDragonBlood(final StatEffect bloodEffect) {
@@ -10864,6 +10897,13 @@ public class Character extends AbstractCharacterObject {
             strLines.add(this.getClient().getChannelServer().getServerMessage().isEmpty() ? 0 : 1, "Get off my lawn!!");
 
             this.sendPacket(PacketCreator.getAvatarMega(mapOwner, medal, this.getClient().getChannel(), ItemId.ROARING_TIGER_MESSENGER, strLines, true));
+            // 1.5.1 (owner QA): the "Get off my lawn!!" tiger never left the screen; clear it like a player's avatar
+            // megaphone (UseCashItemHandler) 10 s later. Only this player saw it, so only this player gets the clear.
+            TimerManager.getInstance().schedule(() -> {
+                if (isLoggedin()) {
+                    sendPacket(PacketCreator.byeAvatarMega());
+                }
+            }, SECONDS.toMillis(10));
         }
     }
 

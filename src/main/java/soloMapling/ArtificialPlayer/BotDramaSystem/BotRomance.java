@@ -1212,8 +1212,10 @@ public final class BotRomance {
                 }
             };
             if (bot.getMapId() != player.getMapId()) {
-                bot.changeMap(player.getMap(), at);
-                sit.run();
+                // 1.5.1: from another map it enters at a portal and walks up (no appearing beside the chair)
+                if (!DramaKit.arrive(bot, player.getMap(), at, player.getPosition(), sit)) {
+                    return;
+                }
             } else {
                 // Already on the player's map: walk up to the chair. changeMap here was a teleport the player saw.
                 DramaKit.walkTo(bot, at, player.getMapId(), sit);

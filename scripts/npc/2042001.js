@@ -299,7 +299,8 @@ function action(mode, type, selection) {
                         cm.dispose();
                     }
                 } else if (select == 1) {
-                    if (cm.haveItem(4001129, n2) && cm.canHold(4001129)) {
+                    if (cm.haveItem(4001129, n2) && cm.canHold(2041211)) {
+                        cm.gainItem(2041211, 1);
                         cm.gainItem(4001129, -n2);
                         cm.dispose();
                     } else {

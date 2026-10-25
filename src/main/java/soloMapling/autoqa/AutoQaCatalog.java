@@ -581,6 +581,10 @@ public final class AutoQaCatalog {
                         rule("fewer pairs closer than 34 px at the end than at the start", AutoQaCatalog::spreadImproves),
                         probe("clumpsOnMyMap", "34", "4"))
                 .build());
+        c.add(Check.half("t-sl-1", "Town salon cosmetic names and filtering", "check salon menus and previews in a real client").minutes(1)
+                .step(run("sl-1"), waitFor("SALON LOOKUP PASS styles=7", 10))
+                .expect(has("SALON LOOKUP PASS styles=7"))
+                .build());
         c.add(Check.auto("t-ps-2", "Town bots keep clear of NPCs").minutes(2)
                 .step(say("!warp 100000000"), waitSeconds(3), run("ps-2"),
                         waitFor("NPC CLEARANCE bot \\d+ dx=\\d+ clear=true", 45))

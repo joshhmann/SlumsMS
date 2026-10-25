@@ -160,6 +160,9 @@ final class DramaScenarios {
                     ctx.world().warp(ctx.gm(), AMORIA);
                     out.add("warped to Amoria");
                 }
+                // This scenario verifies marriage and divorce; rm-4 verifies the intentional runaway.
+                // Arm at the wedding action, so merely staging rm-2 cannot change another wedding's roll.
+                RomanceWedding.noRandomRunaway();
                 out.addAll(act(ctx, "wedding"));
                 return out;
             }
@@ -327,7 +330,8 @@ final class DramaScenarios {
             ctx.onStop("end the KS war", () -> ctx.world().dramaAction(ctx.gmNow() != null ? ctx.gmNow() : ctx.gm(),
                     "rival", "endwar"));
             out.add("A nemesis training bot fights here. Start fighting, then !qa do kswar [2-4]: it calls guildmates or");
-            out.add("friends (KS WAR, with who came), they show up next to you and each takes up to 5 of your mobs in");
+            out.add("friends (KS WAR, with who came); from another map they come in through a portal and walk up to you");
+            out.add("(ARRIVE WALK), then each takes up to 5 of your mobs in");
             out.add("its own reach (KS lines) for 3 minutes, then they say something smug and go back (KS WAR over).");
             out.add("Live: at most once per player per day, 3 an hour world-wide (the QA step skips the caps). Nobody");
             out.add("blocks a map; @botdrama off: no KS war.");

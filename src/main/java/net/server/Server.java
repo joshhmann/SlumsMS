@@ -56,6 +56,7 @@ import scripting.portal.PortalPlayerInteraction;
 import server.CashShop.CashItemFactory;
 import server.SkillbookInformationProvider;
 import server.ThreadManager;
+import server.cashshop.CouponSchedule;
 import server.TimerManager;
 import server.expeditions.ExpeditionBossLog;
 import server.life.PlayerNPCFactory;
@@ -108,6 +109,7 @@ public class Server {
 
     private static final Set<Integer> activeFly = new HashSet<>();
     private static final Map<Integer, Integer> couponRates = new HashMap<>(30);
+    private static final Map<Integer, CouponSchedule> couponSchedules = new HashMap<>(30);
     private static final List<Integer> activeCoupons = new LinkedList<>();
     private static ChannelDependencies channelDependencies;
 
@@ -663,7 +665,7 @@ public class Server {
     }
 
     private void loadCouponRates(Connection c) throws SQLException {
-        try (PreparedStatement ps = c.prepareStatement("SELECT couponid, rate FROM nxcoupons");
+        try (PreparedStatement ps = c.prepareStatement("SELECT couponid, rate, activeday, starthour, endhour FROM nxcoupons");
              ResultSet rs = ps.executeQuery()) {
 
             while (rs.next()) {
@@ -671,8 +673,15 @@ public class Server {
                 int rate = rs.getInt("rate");
 
                 couponRates.put(cid, rate);
+                couponSchedules.put(cid, CouponSchedule.fromDb(
+                        rs.getInt("activeday"), rs.getInt("starthour"), rs.getInt("endhour")));
             }
         }
+    }
+
+    /** When a rate coupon works (the nxcoupons row updateActiveCoupons checks), or null if it has none. */
+    public CouponSchedule getCouponSchedule(int couponId) {
+        return couponSchedules.get(couponId);
     }
 
     public List<Integer> getActiveCoupons() {
@@ -2098,11 +2107,18 @@ public class Server {
                 List<Client> clients = new ArrayList<>(connectedClients.values());
                 // A disconnect closes the player's trades and shops (refunding a bot on the other side, which is
                 // written later) and saves the character, straight on the pool: never through the bots' share.
-                List<Client> late = ShutdownSaves.forEachWithin(clients, Client::forceDisconnect,
+                ShutdownSaves.BatchResult<Client> result = ShutdownSaves.forEachWithin(clients, Client::forceDisconnect,
                         ShutdownSaves.PLAYER_SAVERS, budgetMs);
-                log.info("Shutdown: {} connected client(s) disconnected and saved", clients.size() - late.size());
-                for (Client c : late) {
-                    log.warn("Shutdown: the save of account {} was not done after {} ms", c.getAccountName(), budgetMs);
+                // forceDisconnect logs a failed DB write inside the save itself, so "finished" is not proof the row was written.
+                log.info("Shutdown: {} connected client(s) disconnected, save attempted (see save errors above)", result.succeeded().size());
+                for (ShutdownSaves.FailedItem<Client> f : result.failed()) {
+                    Client c = f.item();
+                    String who = c.getPlayer() != null ? c.getPlayer().getName() : "acc:" + c.getAccountName();
+                    log.error("Shutdown: save of {} failed: {}", who, f.error().getMessage(), f.error());
+                }
+                for (Client c : result.timedOut()) {
+                    String who = c.getPlayer() != null ? c.getPlayer().getName() : "acc:" + c.getAccountName();
+                    log.warn("Shutdown: the save of {} was not done after {} ms", who, budgetMs);
                 }
             }
 

@@ -134,11 +134,13 @@ public final class QaMenuCatalog {
         section("Idle bots, slide, bounces");
         add("id-1", v("off"), steps());
         add("ps-1", v(), steps());
+        add("sl-1", v(), steps());
         add("ps-2", v(), steps());
         add("mv-1", v(), steps());
         add("jq-1", v(), steps("push"));
         section("Client and channels");
         add("cs-2", v(), steps());
+        add("co-1", v(), steps());
         add("wd-1", v(), steps());
         section("Ordinary v83 features (ticket 69)");
         add("vb-1", v(), steps("hair", "haircolor", "face", "lens", "skin"));

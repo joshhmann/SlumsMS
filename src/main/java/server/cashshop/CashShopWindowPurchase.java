@@ -7,7 +7,6 @@ import client.inventory.InventoryType;
 import client.inventory.Item;
 import client.inventory.Pet;
 import client.inventory.manipulator.InventoryManipulator;
-import constants.id.ItemId;
 import constants.inventory.ItemConstants;
 import net.server.Server;
 import server.CashShop;
@@ -17,6 +16,8 @@ import tools.Pair;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
+import java.time.ZoneId;
+import java.time.ZonedDateTime;
 import java.util.ArrayList;
 import java.util.HashSet;
 import java.util.LinkedList;
@@ -24,7 +25,6 @@ import java.util.List;
 import java.util.Set;
 
 import static java.util.concurrent.TimeUnit.DAYS;
-import static java.util.concurrent.TimeUnit.HOURS;
 
 /**
  * The purchase path for the standalone Cash Shop window.
@@ -110,21 +110,20 @@ public final class CashShopWindowPurchase {
 
         if (ItemConstants.EXPIRING_ITEMS && r.period() > 0) {
             final long now = Server.getInstance().getCurrentTime();
-            if (r.period() == 1) {
-                // The stock special-cases: a "1" on these coupons means hours, not a day.
-                switch (itemId) {
-                    case ItemId.DROP_COUPON_2X_4H, ItemId.EXP_COUPON_2X_4H ->
-                            item.setExpiration(now + HOURS.toMillis(4));
-                    case ItemId.EXP_COUPON_3X_2H ->
-                            item.setExpiration(now + HOURS.toMillis(2));
-                    default -> item.setExpiration(now + DAYS.toMillis(1));
-                }
-            } else {
-                item.setExpiration(now + DAYS.toMillis(r.period()));
-            }
+            item.setExpiration(now + periodMillis(r.period()));
         }
         item.setSN(r.itemId());
         return item;
+    }
+
+    /**
+     * How long a bought item lasts: the catalogue period, in DAYS, for every item. Stock read a "1" on three
+     * coupons as hours (5211048 and 5360042 4h, 5211060 2h); since 1.5.1 (owner) the two EXP cards are sold by the
+     * day (2x 7 days, 3x 1 day) and no drop card is sold, so the window path has no hours case. The stock Cash Shop path
+     * ({@code CashShop.CashItem.toItem}) keeps its own rules.
+     */
+    static long periodMillis(int periodDays) {
+        return DAYS.toMillis(periodDays);
     }
 
     /**
@@ -163,6 +162,22 @@ public final class CashShopWindowPurchase {
             chr.dropMessage(5, "Your account now has " + c.getCharacterSlots() + " character slots.");
         }
         return 0;
+    }
+
+    /**
+     * The window shows only a name, so a bought EXP/drop coupon gets one chat line saying when it works, on the
+     * server's clock and Pacific time (the coupon task checks hours in the server zone, not the player's).
+     */
+    private static void noteCouponHours(Character chr, List<CashShopCatalog.Row> items) {
+        for (CashShopCatalog.Row r : items) {
+            if (!CashShopServices.isRateCoupon(r.itemId())) {
+                continue;
+            }
+            final CouponSchedule s = Server.getInstance().getCouponSchedule(r.itemId());
+            if (s != null) {
+                chr.dropMessage(5, s.purchaseNote(r.name(), ZonedDateTime.now(ZoneId.systemDefault())));
+            }
+        }
     }
 
     private static void undoSlots(Character chr, List<Integer> grown) {
@@ -339,6 +354,7 @@ public final class CashShopWindowPurchase {
 
             log.info("{} bought {} cash item(s) for {} NX from the Cash Shop window",
                     chr.getName(), delivered, total);
+            noteCouponHours(chr, items);
             return new Result(CashShopWindowPackets.BUY_OK, 0, delivered, (int) total);
             }
             }

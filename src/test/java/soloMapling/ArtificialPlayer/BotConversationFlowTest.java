@@ -106,6 +106,7 @@ class BotConversationFlowTest {
         BotMemory.useConnectionSourceForTest(null);
         BotRoster.useConnectionSourceForTest(null);
         ChatStats.resetForTest();
+        soloMapling.ArtificialPlayer.BotConvo.ChatBank.useForTest(null);
     }
 
     private static Character character(int id, String name) {
@@ -254,6 +255,22 @@ class BotConversationFlowTest {
                 said.toString());
         String system = asked.get(0).get(0).content();
         assertTrue(system.contains("You know Josh from before") && system.contains("wants to be a bishop"), system);
+    }
+
+    @Test
+    void bankModeAnswersAnActivityQuestionInsteadOfAcknowledgingIt() throws Exception {
+        brainReply = Optional.empty();
+        System.setProperty("solomapling.convo.bank", "true");
+        var bytes = "1\ttalk\tany\tany\tany\t-\toh nice\n".getBytes(java.nio.charset.StandardCharsets.UTF_8);
+        soloMapling.ArtificialPlayer.BotConvo.ChatBank.useForTest(
+                soloMapling.ArtificialPlayer.BotConvo.ChatBank.read(new java.io.ByteArrayInputStream(bytes)));
+        for (String line : List.of("what u doing", "wyd?", "what are you up to rn?")) {
+            int before = said.size();
+            whisper(line);
+            waitFor(() -> said.size() > before);
+            assertEquals(before + 1, said.size(), "one answer to " + line);
+            assertEquals("chatting with u rn", said.get(before), "answer the question without inventing an activity");
+        }
     }
 
     @Test

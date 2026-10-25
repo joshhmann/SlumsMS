@@ -11,5 +11,8 @@
 # slots, ids per Item.wz/Special/0911.img) are not delivered as items; buying one grants the
 # slot directly (see CashShopServices). Storage +8 (9110000) is not sold: storage is already capped.
 #
-# Rate coupons (5211xxx EXP, 5360xxx drop) carry the stock Commodity.img periods; a period of 1
-# on 5211048/5211060/5360042 means 4h/2h/4h. They are hidden while USE_SUPPLY_RATE_COUPONS is off.
+# Rate coupons (5211xxx EXP, 5360xxx drop): the period is DAYS. They are hidden while
+# USE_SUPPLY_RATE_COUPONS is off. Owner 1.5.1: only two EXP cards are sold, both working all day:
+# 5211048 2x EXP for 7 days and 5211060 3x EXP for 1 day. No drop card (5360xxx) is sold.
+# Their names are built from the WZ info/time schedule (coupon_schedule.py): "2x EXP M-F 7-11am 30d"
+# = Mon-Fri 07:00-11:00 SERVER time (config TIMEZONE), lasts 30 days. No day = every day.

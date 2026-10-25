@@ -4,9 +4,14 @@ import org.junit.jupiter.api.Test;
 import org.w3c.dom.Element;
 import org.w3c.dom.Node;
 import org.w3c.dom.NodeList;
+import server.maps.Foothold;
+import server.maps.FootholdTree;
+import soloMapling.Environment.Platform;
+import soloMapling.Environment.PlatformSpawner;
 import soloMapling.WzTestData;
 
 import javax.xml.parsers.DocumentBuilderFactory;
+import java.awt.Point;
 import java.nio.file.Path;
 import java.util.ArrayList;
 import java.util.HashMap;
@@ -18,9 +23,10 @@ import static org.junit.jupiter.api.Assertions.assertTrue;
 
 /**
  * The foothold check against the real Henesys (100000000) footholds: the town-dressing filler range
- * "left side top plat" in EnvironmentManager.spawnFillerBotsHenesys runs from (-286, 101) to (7, 94), and
- * PlatformSpawner puts every bot of a FLAT range at the first point's y (101). The ground there rises to 94, so the
- * right part of the range stands bots 7 px inside the platform - the sweep must call them SUNK. Needs wz/Map.wz.
+ * "left side top plat" in EnvironmentManager.spawnFillerBotsHenesys runs from (-286, 101) to (7, 94) across a ledge
+ * that climbs from 101 to 94. 1.5.1: PlatformSpawner used to put every bot of a FLAT range at the range's single Y
+ * (101), so the right part of the range stood 7 px inside the platform and the sweep called it SUNK; the range now
+ * settles each point on the map's ground. Needs wz/Map.wz.
  */
 class HenesysGroundWzTest {
 
@@ -35,6 +41,16 @@ class HenesysGroundWzTest {
             }
         }
         return out;
+    }
+
+    /** The same footholds as a real FootholdTree, which is what placement settles points onto. */
+    static FootholdTree ground(int mapId) throws Exception {
+        FootholdTree tree = new FootholdTree(new Point(-30000, -30000), new Point(30000, 30000));
+        int id = 1;
+        for (FootholdCheck.Seg s : footholds(mapId)) {
+            tree.insert(new Foothold(new Point(s.x1(), s.y1()), new Point(s.x2(), s.y2()), id++));
+        }
+        return tree;
     }
 
     private static void collect(Element e, List<FootholdCheck.Seg> out) {
@@ -70,22 +86,21 @@ class HenesysGroundWzTest {
     }
 
     @Test
-    void fillerBotsOnTheLeftTopPlatformOfHenesysAreSunk() throws Exception {
+    void fillerBotsOnTheLeftTopPlatformOfHenesysStandOnTheirGround() throws Exception {
         WzTestData.assumePresent("Map.wz");
         List<FootholdCheck.Seg> fh = footholds(100000000);
         assertTrue(fh.size() > 100, "Henesys has its footholds");
-        int sunk = 0, ok = 0;
-        for (int x = -286; x <= 7; x += 10) {
-            FootholdCheck.Verdict v = FootholdCheck.check(fh, x, 101, FootholdCheck.Pose.GROUNDED);
-            if (v.kind() == FootholdCheck.Kind.SUNK) {
-                sunk++;
-                assertEquals(7.0, v.dy(), 0.5, "x " + x);
-            } else if (v.kind() == FootholdCheck.Kind.OK) {
-                ok++;
-            }
+        Platform band = new Platform(-286, 7, List.of(new Point(-286, 101), new Point(7, 94)),
+                Platform.Type.FLAT, ground(100000000));
+
+        for (Point spawn : PlatformSpawner.findUnoccupiedPoints(band, List.of(), 8)) {
+            FootholdCheck.Verdict v = FootholdCheck.check(fh, spawn.x, spawn.y, FootholdCheck.Pose.GROUNDED);
+            assertEquals(FootholdCheck.Kind.OK, v.kind(),
+                    spawn + " sits off its ground " + v.groundY() + " by " + v.dy() + " px");
         }
-        assertTrue(sunk >= 10, "the right part of the range is 7 px under the platform (" + sunk + " spots)");
-        assertTrue(ok >= 10, "the flat left part is fine (" + ok + " spots)");
+
+        assertEquals(101, band.getYAtX(-286), "the left end is on the 101 ledge");
+        assertEquals(94, band.getYAtX(7), "the right end is on the 94 ledge, 7 px above the range's first point");
     }
 
     @Test

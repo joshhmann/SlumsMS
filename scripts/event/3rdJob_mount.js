@@ -30,7 +30,7 @@ var maxMapId = 923010000;
 
 var eventMaps = [923010000];
 
-var eventTime = 5; //5 minutes
+var eventTime = 3; // owner 2026-10-25: 3 minutes (stock 5)
 
 const maxLobbies = 7;
 

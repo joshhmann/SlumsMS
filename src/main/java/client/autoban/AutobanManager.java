@@ -93,6 +93,20 @@ public class AutobanManager {
         this.spam[type] = timestamp;
     }
 
+    /**
+     * 1.5.1: the chat gate's own stamp, on the real clock. {@link #spam(int)} stamps with the server tick (every
+     * UPDATE_INTERVAL, 777 ms), so two lines typed within one tick looked 0 ms apart and the second was dropped.
+     */
+    private volatile long lastChatAt;
+
+    public void chatted() {
+        lastChatAt = System.currentTimeMillis();
+    }
+
+    public long getLastChatAt() {
+        return lastChatAt;
+    }
+
     public long getLastSpam(int type) {
         return spam[type];
     }

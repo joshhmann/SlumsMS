@@ -11,6 +11,7 @@ import java.util.concurrent.atomic.AtomicInteger;
 
 import static org.junit.jupiter.api.Assertions.assertAll;
 import static org.junit.jupiter.api.Assertions.assertEquals;
+import static org.junit.jupiter.api.Assertions.assertFalse;
 import static org.junit.jupiter.api.Assertions.assertTrue;
 
 /**
@@ -77,7 +78,7 @@ class ShutdownSavesTest {
     void aPlayerSaveThatHangsIsReportedAndDoesNotHoldTheShutdownForever() {
         CountDownLatch never = new CountDownLatch(1);
         long started = System.nanoTime();
-        List<String> late = ShutdownSaves.forEachWithin(List.of("ok", "stuck"), name -> {
+        ShutdownSaves.BatchResult<String> result = ShutdownSaves.forEachWithin(List.of("ok", "stuck"), name -> {
             if (name.equals("stuck")) {
                 try {
                     never.await();
@@ -90,8 +91,42 @@ class ShutdownSavesTest {
         never.countDown();
 
         assertAll(
-                () -> assertEquals(List.of("stuck"), late),
+                () -> assertEquals(List.of("ok"), result.succeeded()),
+                () -> assertEquals(List.of("stuck"), result.late()),
+                () -> assertEquals(List.of("stuck"), result.timedOut()),
+                () -> assertTrue(result.failed().isEmpty()),
                 () -> assertTrue(ms < 2_000, "waited " + ms + " ms"));
+    }
+
+    @Test
+    void distinctReportingForSuccessFailureAndTimeout() {
+        CountDownLatch never = new CountDownLatch(1);
+        ShutdownSaves.BatchResult<String> result = ShutdownSaves.forEachWithin(
+                List.of("good", "blows_up", "slow"),
+                name -> {
+                    if ("blows_up".equals(name)) {
+                        throw new RuntimeException("simulated db save error");
+                    } else if ("slow".equals(name)) {
+                        try {
+                            never.await();
+                        } catch (InterruptedException e) {
+                            Thread.currentThread().interrupt();
+                        }
+                    }
+                },
+                3, 200
+        );
+        never.countDown();
+
+        assertAll(
+                () -> assertEquals(3, result.total(), "all items are accounted for"),
+                () -> assertEquals(List.of("good"), result.succeeded(), "only good succeeded"),
+                () -> assertEquals(1, result.failed().size(), "blows_up failed"),
+                () -> assertEquals("blows_up", result.failed().get(0).item()),
+                () -> assertEquals("simulated db save error", result.failed().get(0).error().getMessage()),
+                () -> assertEquals(List.of("slow"), result.timedOut(), "slow timed out"),
+                () -> assertFalse(result.allSucceeded())
+        );
     }
 
     private static void sleep(long ms) {

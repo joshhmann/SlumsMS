@@ -231,6 +231,7 @@ public class CommandsExecutor {
         addCommand("droplimit", DropLimitCommand.class);
        // addCommand("craft", CraftCommand.class);
         addCommand("time", TimeCommand.class);
+        addCommand("coupons", CouponsCommand.class);   // 1.5.1: when your EXP/drop coupons work (server and Pacific time)
         addCommand("credits", StaffCommand.class);
         addCommand("minesweeper", MineSweeperCommand.class);
         addCommand("memory", MemoryCommand.class);
@@ -281,7 +282,7 @@ public class CommandsExecutor {
         addCommand(new String[]{"wdf", "whatdropsfrom"}, WhatDropsFromCommand.class);
         addCommand(new String[]{"wd", "whodrops"}, WhoDropsCommand.class);
         //addCommand("orebag", OreBagCommand.class);
-        addCommand("autologin", SetAutoLoginCommand.class);
+        // 1.5.1 security: @autologin removed (it let anyone on the same IP log into any account without a password)
         addCommand("weekly", BossLogCommand.class);
         commandsNameDesc.add(levelCommandsCursor);
     }

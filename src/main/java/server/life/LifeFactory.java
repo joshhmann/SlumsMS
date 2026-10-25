@@ -109,7 +109,7 @@ public class LifeFactory {
         int monsterLevel = DataTool.getIntConvert("level", monsterInfoData);
         int maxHp = DataTool.getIntConvert("maxHP", monsterInfoData);
         // Modify the experience and maxHP based on the monster's level
-        stats.setExp(DataTool.getIntConvert("exp",monsterInfoData));
+        stats.setExp(DataTool.getIntConvert("exp",monsterInfoData,stats.getExp()));
         stats.setFriendly(DataTool.getIntConvert("damagedByMob",monsterInfoData,stats.isFriendly()?1:0)==1);
         stats.setPADamage(DataTool.getIntConvert("PADamage",monsterInfoData));
         stats.setPDDamage(DataTool.getIntConvert("PDDamage",monsterInfoData));
