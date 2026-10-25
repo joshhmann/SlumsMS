@@ -111,14 +111,13 @@ public final class UseCashItemHandler extends AbstractPacketHandler {
         if (itemType == 504) { // VIP Teleport Rock
             String error1 = "Either the player could not be found or you were trying to teleport to an illegal location.";
             boolean vip = p.readByte() == 1 && itemId / 1000 >= 5041; // Check if the rock is a VIP rock
-            remove(c, position, itemId); // Remove the teleport rock from inventory
             boolean success = false;
 
             if (!vip) { // Non-VIP teleportation
                 int mapId = p.readInt();
                 if (itemId / 1000 >= 5041 || mapId / 100000000 == player.getMapId() / 100000000) { // Check VIP or same continent
                     MapleMap targetMap = c.getChannelServer().getMapFactory().getMap(mapId);
-                    if (!FieldLimit.CANNOTVIPROCK.check(targetMap.getFieldLimit()) &&
+                    if (targetMap != null && !FieldLimit.CANNOTVIPROCK.check(targetMap.getFieldLimit()) &&
                             (targetMap.getForcedReturnId() == MapId.NONE || MapId.isMapleIsland(mapId))) {
                         player.forceChangeMap(targetMap, targetMap.getRandomPlayerSpawnpoint());
                         success = true;
@@ -132,10 +131,10 @@ public final class UseCashItemHandler extends AbstractPacketHandler {
                 player.dropMessage(1, "Teleporting to other players is not allowed.");
             }
 
-            if (!success) {
-                InventoryManipulator.addById(c, itemId, (short) 1); // Return the teleport rock to inventory if unsuccessful
-                c.sendPacket(PacketCreator.enableActions());
+            if (success) {
+                remove(c, position, itemId);
             }
+            c.sendPacket(PacketCreator.enableActions());
         }
         else if (itemType == 505) { // AP/SP reset
             if (!player.isAlive()) {
@@ -146,15 +145,21 @@ public final class UseCashItemHandler extends AbstractPacketHandler {
             if (itemId > ItemId.AP_RESET) {
                 int SPTo = p.readInt();
                 if (!AssignSPProcessor.canSPAssign(c, SPTo)) {  // exploit found thanks to Arnah
+                    c.sendPacket(PacketCreator.enableActions());
                     return;
                 }
 
                 int SPFrom = p.readInt();
                 Skill skillSPTo = SkillFactory.getSkill(SPTo);
                 Skill skillSPFrom = SkillFactory.getSkill(SPFrom);
+                if (skillSPTo == null || skillSPFrom == null) {
+                    c.sendPacket(PacketCreator.enableActions());
+                    return;
+                }
                 byte curLevel = player.getSkillLevel(skillSPTo);
                 byte curLevelSPFrom = player.getSkillLevel(skillSPFrom);
-                if ((curLevel < skillSPTo.getMaxLevel()) && curLevelSPFrom > 0) {
+                int maxLevelTo = skillSPTo.isFourthJob() ? player.getMasterLevel(skillSPTo) : skillSPTo.getMaxLevel();
+                if ((curLevel < maxLevelTo) && curLevelSPFrom > 0) {
                     player.changeSkillLevel(skillSPFrom, (byte) (curLevelSPFrom - 1), player.getMasterLevel(skillSPFrom), -1);
                     player.changeSkillLevel(skillSPTo, (byte) (curLevel + 1), player.getMasterLevel(skillSPTo), -1);
 
@@ -188,6 +193,10 @@ public final class UseCashItemHandler extends AbstractPacketHandler {
                             player.sendMacros();
                         }
                     }
+                    remove(c, position, itemId);
+                } else {
+                    c.sendPacket(PacketCreator.enableActions());
+                    return;
                 }
             } else {
                 int APTo = p.readInt();
@@ -196,16 +205,24 @@ public final class UseCashItemHandler extends AbstractPacketHandler {
                 if (!AssignAPProcessor.APResetAction(c, APFrom, APTo)) {
                     return;
                 }
+                remove(c, position, itemId);
             }
-            remove(c, position, itemId);
         } else if (itemType == 506) {
             Item eq = null;
             if (itemId == 5060000) { // Item tag.
                 int equipSlot = p.readShort();
                 if (equipSlot == 0) {
+                    c.sendPacket(PacketCreator.enableActions());
                     return;
                 }
                 eq = player.getInventory(InventoryType.EQUIPPED).getItem((short) equipSlot);
+                if (eq == null && equipSlot > 0) {
+                    eq = player.getInventory(InventoryType.EQUIP).getItem((short) equipSlot);
+                }
+                if (eq == null) {
+                    c.sendPacket(PacketCreator.enableActions());
+                    return;
+                }
                 eq.setOwner(player.getName());
             } else if (itemId == 5060001 || itemId == 5061000 || itemId == 5061001 || itemId == 5061002 || itemId == 5061003) { // Sealing lock
                 InventoryType type = InventoryType.getByType((byte) p.readInt());
@@ -530,7 +547,8 @@ public final class UseCashItemHandler extends AbstractPacketHandler {
             int itemSlot = p.readInt();
             p.readInt();
             final Equip equip = (Equip) player.getInventory(InventoryType.EQUIP).getItem((short) itemSlot);
-            if (equip.getVicious() >= 2 || player.getInventory(InventoryType.CASH).findById(ItemId.VICIOUS_HAMMER) == null) {
+            if (equip == null || equip.getVicious() >= 2 || player.getInventory(InventoryType.CASH).findById(ItemId.VICIOUS_HAMMER) == null) {
+                c.sendPacket(PacketCreator.enableActions());
                 return;
             }
             equip.setVicious(equip.getVicious() + 1);
