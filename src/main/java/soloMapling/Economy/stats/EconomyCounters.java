@@ -45,6 +45,16 @@ public final class EconomyCounters {
         }
     }
 
+    /**
+     * A meso pickup off the floor. Only a mob/reactor drop is new money: a player-dropped meso bag was already
+     * counted when it was earned, so it is a transfer and is not counted here.
+     */
+    public static void recordMesoPickup(boolean playerDrop, boolean isBot, long amount) {
+        if (!playerDrop) {
+            recordMobMesoDrop(isBot, amount);
+        }
+    }
+
     public static void recordNpcSell(long amount) {
         if (amount > 0) {
             npcSellMesos.add(amount);
@@ -158,6 +168,16 @@ public final class EconomyCounters {
         public long nxNet() {
             return nxEarned - nxSpent;
         }
+    }
+
+    /** Reads the current counts without resetting them (on-demand views must not eat the nightly window). */
+    public static Snapshot peek() {
+        return new Snapshot(
+                mobMesoDropsHuman.sum(), mobMesoDropsBot.sum(), npcSellMesos.sum(), questRewardMesos.sum(),
+                npcBuyMesos.sum(), jobMasterFees.sum(), upkeepMesos.sum(), fmTaxMesos.sum(),
+                tradeMesos.sum(), fmSaleMesos.sum(),
+                mapleLeafGained.sum(), mapleLeafSpent.sum(), nxEarned.sum(), nxSpent.sum()
+        );
     }
 
     /**

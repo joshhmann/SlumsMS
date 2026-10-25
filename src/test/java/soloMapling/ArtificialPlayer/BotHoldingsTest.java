@@ -113,6 +113,38 @@ class BotHoldingsTest {
     }
 
     @Test
+    void econCountsAMobMesoDropOnlyOnceTheCreditLands() {
+        soloMapling.Economy.stats.EconomyCounters.resetForTest();
+        Character bot = newBot();
+        MapItem mobDrop = new MapItem(500, new Point(0, 0), bot, bot, bot.getClient(), (byte) 2, false);
+
+        assertTrue(BotHoldings.creditDrop(bot, mobDrop));
+        assertEquals(500L, soloMapling.Economy.stats.EconomyCounters.peek().mobMesoDropsBot());
+
+        // a credit that fails (no meso room) is not new money
+        Character full = newBot();
+        full.gainMeso(Integer.MAX_VALUE - full.getMeso(), false);
+        MapItem refused = new MapItem(500, new Point(0, 0), full, full, full.getClient(), (byte) 2, false);
+        assertFalse(BotHoldings.creditDrop(full, refused));
+        assertEquals(500L, soloMapling.Economy.stats.EconomyCounters.peek().mobMesoDropsBot());
+
+        // a player-dropped meso bag is a transfer, not a faucet
+        assertTrue(BotHoldings.creditDrop(bot, mesoDropOf(bot, 70)));
+        assertEquals(500L, soloMapling.Economy.stats.EconomyCounters.peek().mobMesoDropsBot());
+
+        // with the yield caps switched off the bot still mints mob mesos, so they still count
+        BotYieldCaps.setForTest(new BotYieldCaps.Limits(false, 0, 60_000, 0, 0), null, null);
+        try {
+            MapItem uncapped = new MapItem(40, new Point(0, 0), bot, bot, bot.getClient(), (byte) 2, false);
+            assertTrue(BotHoldings.creditDrop(bot, uncapped));
+            assertEquals(540L, soloMapling.Economy.stats.EconomyCounters.peek().mobMesoDropsBot());
+        } finally {
+            BotYieldCaps.setForTest(null, null, null);
+            soloMapling.Economy.stats.EconomyCounters.resetForTest();
+        }
+    }
+
+    @Test
     void creditedDropItemStacksIntoTheRightInventorySlot() {
         Character bot = newBot();
         Inventory use = bot.getInventory(InventoryType.USE);

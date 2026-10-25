@@ -123,7 +123,7 @@ public final class EconomySnapshotService {
 
         scheduler.scheduleAtFixedRate(() -> {
             try {
-                getInstance().takeSnapshot();
+                getInstance().takeNightlySnapshot(LocalDateTime.now(ZoneOffset.UTC));
             } catch (Exception e) {
                 log.error("Nightly economy snapshot failed", e);
             }
@@ -141,11 +141,25 @@ public final class EconomySnapshotService {
     }
 
     /**
-     * Takes a snapshot using the real server state and default suppliers.
+     * The nightly snapshot: closes the day's flow window (resets the counters) and writes the dated and latest
+     * files. It fires at UTC midnight, so the flows it closes belong to the day that just ended: the file is
+     * labelled with that day (half a day back absorbs scheduler drift either side of midnight).
      */
-    public SnapshotResult takeSnapshot() throws IOException {
-        LocalDate date = LocalDate.now(ZoneOffset.UTC);
-        return executeSnapshot(date, this::loadHumans, this::loadBots, this::loadItemPrices);
+    public SnapshotResult takeNightlySnapshot(LocalDateTime nowUtc) throws IOException {
+        return executeSnapshot(nightlyLabel(nowUtc), this::loadHumans, this::loadBots, this::loadItemPrices);
+    }
+
+    static LocalDate nightlyLabel(LocalDateTime nowUtc) {
+        return nowUtc.minusHours(12).toLocalDate();
+    }
+
+    /**
+     * The GM's on-demand view (!econstats): reads the flows so far without resetting them and writes only
+     * {@code ondemand-*.json}, so it never eats the nightly window or overwrites a dated / latest file.
+     */
+    public SnapshotResult takeOnDemandSnapshot() throws IOException {
+        return executeSnapshot(LocalDate.now(ZoneOffset.UTC), this::loadHumans, this::loadBots,
+                this::loadItemPrices, false);
     }
 
     /**
@@ -156,6 +170,20 @@ public final class EconomySnapshotService {
             Supplier<List<CharacterRecord>> humanSupplier,
             Supplier<List<CharacterRecord>> botSupplier,
             Supplier<Map<Integer, List<Long>>> itemPriceSupplier
+    ) throws IOException {
+        return executeSnapshot(date, humanSupplier, botSupplier, itemPriceSupplier, true);
+    }
+
+    /**
+     * @param nightly true closes the flow window (resets the counters) and writes the dated and latest files;
+     *                false only peeks at the counters and writes the {@code ondemand-*} files.
+     */
+    public SnapshotResult executeSnapshot(
+            LocalDate date,
+            Supplier<List<CharacterRecord>> humanSupplier,
+            Supplier<List<CharacterRecord>> botSupplier,
+            Supplier<Map<Integer, List<Long>>> itemPriceSupplier,
+            boolean nightly
     ) throws IOException {
         Files.createDirectories(outputDir);
 
@@ -186,7 +214,7 @@ public final class EconomySnapshotService {
         wealthMap.put("bots", botWealth);
 
         // 3. Sources, sinks & transfers (from EconomyCounters)
-        EconomyCounters.Snapshot counterSnap = EconomyCounters.snapshotAndReset();
+        EconomyCounters.Snapshot counterSnap = nightly ? EconomyCounters.snapshotAndReset() : EconomyCounters.peek();
         Map<String, Object> flowsMap = formatFlows(counterSnap);
 
         // 4. Item prices
@@ -211,18 +239,23 @@ public final class EconomySnapshotService {
 
         // Write files
         String dateStr = date.toString();
-        Path privateFile = outputDir.resolve(dateStr + "-private.json");
-        Path publicFile = outputDir.resolve(dateStr + "-public.json");
-        Path latestPrivate = outputDir.resolve("latest-private.json");
-        Path latestPublic = outputDir.resolve("latest-public.json");
+        if (!nightly) {
+            publicDoc.put("partialDay", true);
+            privateDoc.put("partialDay", true);
+        }
+        String prefix = nightly ? dateStr : "ondemand";
+        Path privateFile = outputDir.resolve(prefix + "-private.json");
+        Path publicFile = outputDir.resolve(prefix + "-public.json");
 
         writeJsonAtomic(privateFile, privateDoc);
         writeJsonAtomic(publicFile, publicDoc);
-        writeJsonAtomic(latestPrivate, privateDoc);
-        writeJsonAtomic(latestPublic, publicDoc);
+        if (nightly) {
+            writeJsonAtomic(outputDir.resolve("latest-private.json"), privateDoc);
+            writeJsonAtomic(outputDir.resolve("latest-public.json"), publicDoc);
+        }
 
-        log.info("Economy snapshot complete: {} (Humans: %,d, Bots: %,d, Gini: H=%.3f B=%.3f)",
-                dateStr, totalHumanMeso, totalBotMeso, humanGini, botGini);
+        log.info("Economy snapshot complete: {} (Humans: {}, Bots: {}, Gini: H={} B={})",
+                prefix, totalHumanMeso, totalBotMeso, humanGini, botGini);
 
         return new SnapshotResult(
                 totalHumanMeso,

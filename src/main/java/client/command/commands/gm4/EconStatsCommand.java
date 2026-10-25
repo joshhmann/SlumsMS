@@ -11,6 +11,16 @@ import soloMapling.server.ExecutorServiceManager;
  * !econstats - runs a snapshot asynchronously and reports summary stats in chat.
  */
 public class EconStatsCommand extends Command {
+    /** Where the snapshot work runs; tests swap it so a unit test never touches the DB or the disk. */
+    private static volatile java.util.function.Consumer<Runnable> runner = ExecutorServiceManager::runAsync;
+
+    /** Test seam: swaps the runner and returns the previous one. */
+    public static java.util.function.Consumer<Runnable> setRunnerForTest(java.util.function.Consumer<Runnable> r) {
+        var prev = runner;
+        runner = r;
+        return prev;
+    }
+
     {
         setDescription("Run an on-demand economy snapshot: !econstats");
     }
@@ -19,9 +29,9 @@ public class EconStatsCommand extends Command {
     public void execute(Client c, String[] params) {
         Character player = c.getPlayer();
         player.yellowMessage("Starting economy stats snapshot...");
-        ExecutorServiceManager.runAsync(() -> {
+        runner.accept(() -> {
             try {
-                var res = EconomySnapshotService.getInstance().takeSnapshot();
+                var res = EconomySnapshotService.getInstance().takeOnDemandSnapshot();
                 player.yellowMessage(String.format(
                         "Economy snapshot complete -> %s", res.publicFile().getFileName()));
                 player.yellowMessage(String.format(

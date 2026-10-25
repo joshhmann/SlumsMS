@@ -25,9 +25,16 @@ class EconStatsCommandTest {
         Character player = mock(Character.class);
         when(c.getPlayer()).thenReturn(player);
 
-        EconStatsCommand cmd = new EconStatsCommand();
-        cmd.execute(c, new String[]{});
+        java.util.List<Runnable> queued = new java.util.ArrayList<>();
+        var prev = EconStatsCommand.setRunnerForTest(queued::add);   // never run a real snapshot in a unit test
+        try {
+            EconStatsCommand cmd = new EconStatsCommand();
+            cmd.execute(c, new String[]{});
+        } finally {
+            EconStatsCommand.setRunnerForTest(prev);
+        }
 
         verify(player).yellowMessage("Starting economy stats snapshot...");
+        assertEquals(1, queued.size());
     }
 }

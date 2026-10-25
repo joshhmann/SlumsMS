@@ -110,4 +110,13 @@ class EconomyCountersTest {
         assertEquals((long) threads * iterations * 10, snap.mobMesoDropsHuman());
         assertEquals((long) threads * iterations * 5, snap.npcBuyMesos());
     }
+
+    @Test
+    void playerDroppedMesoPickupIsNotAFaucet() {
+        EconomyCounters.resetForTest();
+        EconomyCounters.recordMesoPickup(true, false, 1_000);
+        EconomyCounters.recordMesoPickup(false, false, 300);
+        assertEquals(300L, EconomyCounters.peek().mobMesoDropsHuman());
+        EconomyCounters.resetForTest();
+    }
 }

@@ -2314,9 +2314,10 @@ public class Character extends AbstractCharacterObject {
     }
 
 
-    private void gainMesoDrop(Character chr, int amount) {
+    private static void gainMesoDrop(Character chr, MapItem drop, int amount) {
         chr.gainMeso(amount, true, true, false);
-        soloMapling.Economy.stats.EconomyCounters.recordMobMesoDrop(soloMapling.ArtificialPlayer.BotHelpers.isBot(chr), amount);
+        soloMapling.Economy.stats.EconomyCounters.recordMesoPickup(drop.isPlayerDrop(),
+                soloMapling.ArtificialPlayer.BotHelpers.isBot(chr), amount);
     }
 
     public void originalPickupItem(MapObject ob, int petIndex) {
@@ -2355,11 +2356,11 @@ public class Character extends AbstractCharacterObject {
                         int mesosamm = mapitem.getMeso() / mpcs.size();
                         for (Character partymem : mpcs) {
                             if (partymem.isLoggedinWorld()) {
-                                gainMesoDrop(partymem, mesosamm);
+                                gainMesoDrop(partymem, mapitem, mesosamm);
                             }
                         }
                     } else {
-                        gainMesoDrop(this, mapitem.getMeso());
+                        gainMesoDrop(this, mapitem, mapitem.getMeso());
                     }
 
                     this.getMap().pickItemDrop(pickupPacket, mapitem);
@@ -2410,11 +2411,11 @@ public class Character extends AbstractCharacterObject {
                             int mesosamm = mapitem.getMeso() / mpcs.size();
                             for (Character partymem : mpcs) {
                                 if (partymem.isLoggedinWorld()) {
-                                    gainMesoDrop(partymem, mesosamm);
+                                    gainMesoDrop(partymem, mapitem, mesosamm);
                                 }
                             }
                         } else {
-                            gainMesoDrop(this, mapitem.getMeso());
+                            gainMesoDrop(this, mapitem, mapitem.getMeso());
                         }
                     } else if (ItemId.isNxCard(mapitem.getItemId())) {
                         // Add NX to account, show effect and make item disappear
@@ -2533,11 +2534,11 @@ public class Character extends AbstractCharacterObject {
                                 int mesosamm = mapitem.getMeso() / mpcs.size();
                                 for (Character partymem : mpcs) {
                                     if (partymem.isLoggedinWorld()) {
-                                        gainMesoDrop(partymem, mesosamm);
+                                        gainMesoDrop(partymem, mapitem, mesosamm);
                                     }
                                 }
                             } else {
-                                gainMesoDrop(this, mapitem.getMeso());
+                                gainMesoDrop(this, mapitem, mapitem.getMeso());
                             }
                             this.getMap().pickItemDrop(pickupPacket, mapitem);
                             return;
@@ -2623,11 +2624,11 @@ public class Character extends AbstractCharacterObject {
                         int mesosamm = mapitem.getMeso() / mpcs.size();
                         for (Character partymem : mpcs) {
                             if (partymem.isLoggedinWorld()) {
-                                gainMesoDrop(partymem, mesosamm);
+                                gainMesoDrop(partymem, mapitem, mesosamm);
                             }
                         }
                     } else {
-                        gainMesoDrop(this, mapitem.getMeso());
+                        gainMesoDrop(this, mapitem, mapitem.getMeso());
                     }
                     this.getMap().pickItemDrop(pickupPacket, mapitem);
                     return;

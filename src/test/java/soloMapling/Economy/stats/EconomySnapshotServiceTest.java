@@ -151,4 +151,31 @@ class EconomySnapshotServiceTest {
         assertTrue(prices.containsKey("4001126"));
         assertTrue(prices.containsKey("2000005"));
     }
+
+    @Test
+    void onDemandSnapshotKeepsTheNightlyWindowAndFiles() throws IOException {
+        EconomySnapshotService service = new EconomySnapshotService(tempDir);
+        EconomyCounters.recordNpcSell(1_000);
+
+        service.executeSnapshot(LocalDate.of(2026, 10, 25), List::of, List::of, Map::of, false);
+
+        // the GM's peek must not reset the day's flows or write the dated / latest files the dashboard reads
+        assertEquals(1_000L, EconomyCounters.peek().npcSellMesos());
+        assertFalse(Files.exists(tempDir.resolve("2026-10-25-public.json")));
+        assertFalse(Files.exists(tempDir.resolve("latest-public.json")));
+        assertTrue(Files.exists(tempDir.resolve("ondemand-public.json")));
+
+        service.executeSnapshot(LocalDate.of(2026, 10, 25), List::of, List::of, Map::of, true);
+        assertEquals(0L, EconomyCounters.peek().npcSellMesos());
+        assertTrue(Files.exists(tempDir.resolve("latest-public.json")));
+    }
+
+    @Test
+    void nightlyFileIsLabelledWithTheDayItCloses() {
+        // fires at 00:00 UTC on the 26th: the flows belong to the 25th, even with a little drift either side
+        assertEquals(LocalDate.of(2026, 10, 25),
+                EconomySnapshotService.nightlyLabel(java.time.LocalDateTime.of(2026, 10, 26, 0, 0, 1)));
+        assertEquals(LocalDate.of(2026, 10, 25),
+                EconomySnapshotService.nightlyLabel(java.time.LocalDateTime.of(2026, 10, 25, 23, 59, 59)));
+    }
 }
