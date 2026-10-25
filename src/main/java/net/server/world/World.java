@@ -459,7 +459,11 @@ public class World {
     public void registerAccountCharacterView(Integer accountId, Character chr) {
         accountCharsLock.lock();
         try {
-            accountChars.get(accountId).put(chr.getId(), chr);
+            // 1.5.2: an account whose view this world never loaded (a login that took the "already known" shortcut, an
+            // on-demand synthetic login, a character moved between worlds) has no entry here, and the put threw. The
+            // caller of that put is Server.updateCharacterEntry, which Character.saveCharToDB runs BEFORE it writes the
+            // character: the save died with the NPE and that character kept its old row. Open the view instead.
+            accountChars.computeIfAbsent(accountId, k -> new TreeMap<>()).put(chr.getId(), chr);
         } finally {
             accountCharsLock.unlock();
         }
@@ -468,7 +472,10 @@ public class World {
     public void unregisterAccountCharacterView(Integer accountId, Integer chrId) {
         accountCharsLock.lock();
         try {
-            accountChars.get(accountId).remove(chrId);
+            SortedMap<Integer, Character> accChars = accountChars.get(accountId);
+            if (accChars != null) {     // 1.5.2: no view, nothing to remove (this used to throw at logout)
+                accChars.remove(chrId);
+            }
         } finally {
             accountCharsLock.unlock();
         }
