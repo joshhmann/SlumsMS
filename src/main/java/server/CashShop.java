@@ -327,6 +327,11 @@ public class CashShop {
     }
 
     public void gainCash(int type, int cash) {
+        if (cash > 0) {
+            soloMapling.Economy.stats.EconomyCounters.recordNxEarned(cash);
+        } else if (cash < 0) {
+            soloMapling.Economy.stats.EconomyCounters.recordNxSpent(-cash);
+        }
         switch (type) {
             case 1:
                 nxCredit += cash;

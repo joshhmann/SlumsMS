@@ -175,6 +175,9 @@ public final class BotHoldings {
         }
         if (!credited) {
             BotYieldCaps.returnDrop(bot, drop);
+        } else if (drop.getMeso() > 0) {
+            // 1.6.0 Track D: counted only once the credit landed (a refused or failed take is not new money)
+            soloMapling.Economy.stats.EconomyCounters.recordMesoPickup(drop.isPlayerDrop(), true, drop.getMeso());
         }
         return credited;
     }

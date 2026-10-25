@@ -136,6 +136,10 @@ public class Trade {
 
         if (exchangeMeso > 0) {
             int fee = getFee(exchangeMeso);
+            soloMapling.Economy.stats.EconomyCounters.recordTrade(exchangeMeso);
+            if (fee > 0) {
+                soloMapling.Economy.stats.EconomyCounters.recordFmTax(fee);
+            }
 
             if (isBot(chr)) {
                 creditReceivedMeso(chr, exchangeMeso - fee);

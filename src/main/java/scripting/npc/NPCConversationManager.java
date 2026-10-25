@@ -294,10 +294,16 @@ public class NPCConversationManager extends AbstractPlayerInteraction {
 
     public void gainMeso(int gain) {
         getPlayer().gainMeso(gain);
+        if (gain > 0) {
+            soloMapling.Economy.stats.EconomyCounters.recordQuestReward(gain);
+        }
     }
 
     public void gainMeso(int gain, boolean show) {
         getPlayer().gainMeso(gain, show);
+        if (gain > 0) {
+            soloMapling.Economy.stats.EconomyCounters.recordQuestReward(gain);
+        }
     }
 
     public void gainExp(int gain) {

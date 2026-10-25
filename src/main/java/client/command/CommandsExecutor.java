@@ -470,6 +470,7 @@ public class CommandsExecutor {
     private void registerLv4Commands() {
         levelCommandsCursor = new Pair<>(new ArrayList<String>(), new ArrayList<String>());
 
+        addCommand("econstats", 4, client.command.commands.gm4.EconStatsCommand.class);   // 1.6.0 Track D economy stats snapshot
         addCommand("servermessage", 4, ServerMessageCommand.class);
         addCommand("proitem", 4, ProItemCommand.class);
         addCommand("seteqstat", 4, SetEqStatCommand.class);

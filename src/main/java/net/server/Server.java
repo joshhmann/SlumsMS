@@ -1021,6 +1021,7 @@ public class Server {
         if (Boolean.getBoolean("cashshop.window.enabled")) server.cashshop.CashShopCatalog.load();
         soloMapling.server.MapleRootSolo.start();
         soloMapling.dashboard.DashboardExporter.startIfEnabled(); // ticket 35: off unless -Dsolomapling.dashboard=true
+        soloMapling.Economy.stats.EconomySnapshotService.startNightlyJob(); // 1.6.0 Track D: nightly economy snapshot
        // DamageSkin.loadDamageSkins();
     }
 
