@@ -52,7 +52,7 @@ esc = html.escape
 # ── layout ───────────────────────────────────────────────────────────────────────────────────────
 
 NAV = [("index.html", "Home", "home"), ("patch-notes/", "Patch notes", "notes"), ("guide/", "Guide", "guide"),
-       ("index.html#play", "Play", "play")]
+       ("report/", "Report", "report"), ("index.html#play", "Play", "play")]
 
 
 def layout(title, body, root, section, description="", base=""):
@@ -379,6 +379,12 @@ def build_home(out, rels):
     write(out, "404.html", layout("Not found", nf, "", "", base="/"))
 
 
+def build_report(out):
+    body = read(os.path.join(SRC, "report.html"))
+    write(out, "report/index.html", layout("Report a bug or request a feature", body, "../", "report",
+                                           "Tell the SlumsMS developers about a bug or an idea."))
+
+
 def copy_assets(out):
     shutil.copytree(os.path.join(SRC, "assets"), os.path.join(out, "assets"))
 
@@ -408,6 +414,7 @@ def build(out, tar_path=None):
     rels = build_releases(out)
     guide = build_guide(out)
     build_home(out, rels)
+    build_report(out)
     problems = check.check_all(out)
     if problems:
         for p in problems:

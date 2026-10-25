@@ -1,0 +1,50 @@
+<section class="report">
+  <p class="eyebrow">Help us fix things</p>
+  <h1>Report a bug or request a feature</h1>
+  <p class="lede">Found something broken, or have an idea? Tell us here. You do not need an account.</p>
+
+  <form id="report-form" class="card form" method="post" action="../api/report">
+    <div class="field">
+      <label for="f-type">What is it?</label>
+      <select id="f-type" name="type" required>
+        <option value="bug">Bug (something is broken)</option>
+        <option value="feature">Feature request (an idea)</option>
+      </select>
+    </div>
+    <div class="field">
+      <label for="f-title">Short title</label>
+      <input id="f-title" name="title" type="text" required maxlength="140" autocomplete="off">
+      <span class="hint">One line, up to 140 characters.</span>
+    </div>
+    <div class="field">
+      <label for="f-details">Details <span class="opt">(optional)</span></label>
+      <textarea id="f-details" name="details" rows="6" maxlength="2000"></textarea>
+      <span class="hint">What happened, and what did you expect? Up to 2000 characters.</span>
+    </div>
+    <div class="field">
+      <label for="f-char">Your character name <span class="opt">(optional)</span></label>
+      <input id="f-char" name="character" type="text" maxlength="13" autocomplete="off">
+    </div>
+    <div class="field">
+      <label for="f-where">Where did it happen? <span class="opt">(optional)</span></label>
+      <input id="f-where" name="where" type="text" maxlength="200" autocomplete="off">
+      <span class="hint">A map, an NPC or a quest, for example "Henesys Market" or "Maya".</span>
+    </div>
+    <div class="hp" aria-hidden="true">
+      <label for="f-site">Leave this empty</label>
+      <input id="f-site" name="website" type="text" tabindex="-1" autocomplete="off">
+    </div>
+    <p id="report-status" class="status" role="status" aria-live="polite"></p>
+    <button id="report-send" class="btn primary" type="submit">Send report</button>
+  </form>
+  <noscript><p class="small">JavaScript is off, so sending will open a small thank-you page instead.</p></noscript>
+
+  <div class="card note-box">
+    <h2>What happens next</h2>
+    <p>Your report goes to the developers' list and gets a ticket number, which you will see right after you send it.
+    We read every report. We cannot answer each one, but fixes and new things show up in the
+    <a href="../patch-notes/">patch notes</a>.</p>
+    <p class="small">We only keep what you type here. Please do not put anything private in a report.</p>
+  </div>
+</section>
+<script src="../assets/report.js" defer></script>

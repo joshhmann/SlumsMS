@@ -1,0 +1,30 @@
+[Unit]
+Description=SlumsMS website report form receiver
+After=network.target
+
+[Service]
+Type=simple
+User=slums-report
+Group=slums-report
+ExecStart=/usr/bin/python3 /opt/slums-report/report_service.py
+Environment=SLUMS_REPORT_FILE=/var/lib/slums-feedback/reports.jsonl
+Environment=SLUMS_REPORT_SALT_FILE=/etc/slums-report/salt
+Restart=on-failure
+RestartSec=3
+NoNewPrivileges=true
+PrivateTmp=true
+PrivateDevices=true
+ProtectSystem=strict
+ProtectHome=true
+ReadWritePaths=/var/lib/slums-feedback
+ProtectKernelTunables=true
+ProtectKernelModules=true
+ProtectControlGroups=true
+RestrictAddressFamilies=AF_INET AF_INET6
+RestrictNamespaces=true
+LockPersonality=true
+MemoryMax=128M
+UMask=0027
+
+[Install]
+WantedBy=multi-user.target

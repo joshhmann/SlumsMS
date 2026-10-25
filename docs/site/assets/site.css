@@ -271,3 +271,25 @@ main { max-width: 1120px; margin: 0 auto; padding: 8px 16px 40px; }
   code { white-space: normal; }
 }
 @media (prefers-reduced-motion: reduce) { * { transition: none !important; } }
+
+/* report form */
+.report { max-width: 640px; padding-top: 20px; }
+.report h1 { margin: 0 0 8px; }
+.form { padding: 20px; margin: 20px 0; display: grid; gap: 16px; }
+.field { display: grid; gap: 4px; }
+.field label { font-weight: 700; }
+.field .opt, .hint { font-weight: 400; color: var(--muted); font-size: .85rem; }
+.form input, .form select, .form textarea {
+  width: 100%; font: inherit; color: var(--text); background: var(--bg); border: 1px solid var(--line);
+  border-radius: 10px; padding: 10px 12px;
+}
+.form textarea { resize: vertical; min-height: 120px; }
+.form button { justify-self: start; cursor: pointer; font: inherit; font-weight: 700; }
+.form button:disabled { opacity: .6; cursor: default; }
+.hp { position: absolute; left: -9999px; width: 1px; height: 1px; overflow: hidden; }
+.status { margin: 0; min-height: 1.5em; font-weight: 600; }
+.status.ok { color: var(--new); }
+.status.bad { color: #b3261e; }
+@media (prefers-color-scheme: dark) { .status.bad { color: #ff9b94; } }
+.note-box { padding: 4px 20px 12px; }
+.note-box h2 { font-size: 1.15rem; color: var(--accent-strong); }
