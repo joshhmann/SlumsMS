@@ -94,25 +94,13 @@ public class SearchCommand extends Command {
                     }
                 } else if (searchType == 1) {
                     map = true;
-                    String mapName, streetName;
-                    for (Data searchDataDir : data.getChildren()) {
+                    for (MapSearchHelper.MapMatch m : MapSearchHelper.findMaps(search)) {
                         if (counter >= MAX_RESULTS) {
                             break;
                         }
-                        for (Data searchData : searchDataDir.getChildren()) {
-                            if (counter >= MAX_RESULTS) {
-                                break;
-                            }
-                            mapName = DataTool.getString(searchData.getChildByPath("mapName"), "NO-NAME");
-                            streetName = DataTool.getString(searchData.getChildByPath("streetName"), "NO-NAME");
-
-                            if (mapName.toLowerCase().contains(search.toLowerCase()) || streetName.toLowerCase().contains(search.toLowerCase())) {
-                                int mapId = Integer.parseInt(searchData.getName());
-                                searchdata.add(mapId);
-                                sb.append("#L").append(counter).append("##b").append(mapId).append("#k - #r").append(streetName).append(" - ").append(mapName).append("#l\r\n");
-                                counter++;
-                            }
-                        }
+                        searchdata.add(m.mapId());
+                        sb.append("#L").append(counter).append("##b").append(m.mapId()).append("#k - #r").append(m.streetName()).append(" - ").append(m.mapName()).append("#l\r\n");
+                        counter++;
                     }
                 } else {
                     quest = true;
