@@ -21,6 +21,7 @@
 */
 package net.server.channel.handlers;
 
+import client.Character;
 import client.Client;
 import net.AbstractPacketHandler;
 import net.opcodes.SendOpcode;
@@ -30,7 +31,11 @@ import net.packet.OutPacket;
 public final class NPCAnimationHandler extends AbstractPacketHandler {
     @Override
     public final void handlePacket(InPacket p, Client c) {
-        if (c.getPlayer().isChangingMaps()) {   // possible cause of error 38 in some map transition scenarios, thanks Arnah
+        Character chr = c.getPlayer();
+        if (chr == null) {  // a late NPC packet after the character left the channel (logout, channel change)
+            return;
+        }
+        if (chr.isChangingMaps()) {   // possible cause of error 38 in some map transition scenarios, thanks Arnah
             return;
         }
 
