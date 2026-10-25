@@ -160,6 +160,9 @@ final class DramaScenarios {
                     ctx.world().warp(ctx.gm(), AMORIA);
                     out.add("warped to Amoria");
                 }
+                // This scenario verifies marriage and divorce; rm-4 verifies the intentional runaway.
+                // Arm at the wedding action, so merely staging rm-2 cannot change another wedding's roll.
+                RomanceWedding.noRandomRunaway();
                 out.addAll(act(ctx, "wedding"));
                 return out;
             }
