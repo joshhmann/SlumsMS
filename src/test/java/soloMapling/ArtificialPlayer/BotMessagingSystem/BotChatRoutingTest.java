@@ -73,7 +73,22 @@ class BotChatRoutingTest {
         assertEquals(BotChatRouting.JobFamily.MAGICIAN, BotChatRouting.JobFamily.of(211));
         assertEquals(BotChatRouting.JobFamily.BOWMAN, BotChatRouting.JobFamily.of(310));
         assertEquals(BotChatRouting.JobFamily.THIEF, BotChatRouting.JobFamily.of(420));
+        assertEquals(BotChatRouting.JobFamily.WARRIOR, BotChatRouting.JobFamily.of(110));
+        assertEquals(BotChatRouting.JobFamily.PIRATE, BotChatRouting.JobFamily.of(520));
         assertEquals(null, BotChatRouting.JobFamily.of(0), "beginners are no kind");
+    }
+
+    /** 1.6.0 population: Cygnus Knights and Aran are 15% of new bots, so "which one of u is the thief" must find them. */
+    @Test
+    void cygnusKnightsAndAranAnswerJobRequests() {
+        assertEquals(BotChatRouting.JobFamily.WARRIOR, BotChatRouting.JobFamily.of(1110), "Dawn Warrior");
+        assertEquals(BotChatRouting.JobFamily.MAGICIAN, BotChatRouting.JobFamily.of(1210), "Blaze Wizard");
+        assertEquals(BotChatRouting.JobFamily.BOWMAN, BotChatRouting.JobFamily.of(1310), "Wind Archer");
+        assertEquals(BotChatRouting.JobFamily.THIEF, BotChatRouting.JobFamily.of(1410), "Night Walker");
+        assertEquals(BotChatRouting.JobFamily.PIRATE, BotChatRouting.JobFamily.of(1510), "Thunder Breaker");
+        assertEquals(BotChatRouting.JobFamily.WARRIOR, BotChatRouting.JobFamily.of(2110), "Aran");
+        assertEquals(null, BotChatRouting.JobFamily.of(1000), "a Noblesse is still a beginner");
+        assertEquals(null, BotChatRouting.JobFamily.of(2000), "a Legend is still a beginner");
     }
 
     @Test
