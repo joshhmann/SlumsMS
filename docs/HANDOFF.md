@@ -207,8 +207,11 @@ Owner-reported or found, roughly by priority:
 - **PIC on (owner, 2026-10-25):** live `config.yaml` now has `ENABLE_PIC: true` (Cosmic's default; MapleRoot had turned
   it off, which made deleting characters impossible). Takes effect at the 1.5.1 restart: players are asked to create
   a PIC at their next login. Backup `/root/config.yaml.before-pic-*` on 164. Mention it in the 1.5.1 patch notes.
-- **Owner report, not reproduced:** "Style NPCs are bugged in each town". Salon scripts match Cosmic and log no
-  errors; waiting on details (which NPC, what happens). Ticket idea for 1.5.1/1.6.0: diff MapleRoot's changes against
+- **Salons / face and eye coupons said "no options available" (fixed on release-1.5.1, `1fe365733`):** MapleRoot
+  hard-coded faces as 50000-55000 and hair as 30000-35000 in the name lookup; MapleRoot data has faces 2xxxx+5xxxx and
+  hair 3xxxx/4xxxx/6xxxx. All 368 salon style ids exist; every sold 5150-5153 coupon has an NPC; skin NPCs don't filter.
+  In-game check for 1.5.1: a face coupon at Henesys plastic surgery and a lens coupon. Low priority: the Cotton
+  Stylist (`scripts/npc/STYLIST.js`, GM/hidden maps only) calls setHair on its special-face pages. Ticket idea for 1.5.1/1.6.0: diff MapleRoot's changes against
   stock Cosmic (handlers, config, scripts) for regressions like clearPQ and PIC; old worktree `SlumsMS-cosmicdiff`.
 
 ## 4. Decisions the owner made (don't re-ask)
