@@ -418,14 +418,58 @@ public final class GrindBrain {
     // Lazily derive (and cache) the stop-and-swing distance from this bot's attack reach so ranged/magic
     // bots fire from afar. Floored at the melee values for short attacks.
     boolean inAttackRange(Character chr, Monster mob) {
+        return inAttackRange(chr, mob, false);
+    }
+
+    private boolean inAttackRange(Character chr, Monster mob, boolean deriveOnly) {
         if (approachX < 0) {
             approachX = Math.max(APPROACH_X, (int) (BotAttackDriver.attackReachX(chr) * APPROACH_REACH_FRAC));
             approachY = Math.max(APPROACH_Y, (int) (BotAttackDriver.attackReachY(chr) * APPROACH_REACH_FRAC));
+        }
+        if (deriveOnly) {
+            return false;
         }
         Point pos = chr.getPosition();
         Point mp = mob.getPosition();
         return pos != null && mp != null
                 && Math.abs(mp.x - pos.x) <= approachX && Math.abs(mp.y - pos.y) <= approachY;
+    }
+
+    /** Largest personal stand offset that keeps the target inside the swing: half the approach reach, at most 40 px. */
+    int standReach(Character chr) {
+        if (approachX < 0) {
+            inAttackRange(chr, null, true);
+        }
+        return Math.min(StandOffset.MAX_PX, approachX / 2);
+    }
+
+    /**
+     * Where to stand to fight a mob at (mobX, groundY): the mob's x shifted by this bot's stable offset, kept inside
+     * [lo, hi] and on the mob's platform, and stepped aside when another character already stands within the
+     * name-tag overlap box there. Called when a move is issued, never per tick.
+     */
+    int standX(Character chr, int mobX, int groundY, int lo, int hi) {
+        server.maps.MapleMap map = chr.getMap();
+        if (map == null) {
+            return GrindBrain.clamp(mobX, lo, hi);
+        }
+        int self = chr.getId();
+        return StandOffset.standX(self, mobX, lo, hi, standReach(chr),
+                x -> {
+                    Point g = GCMovement.groundPointBelow(map, x, groundY - 12);
+                    return g != null && Math.abs(g.y - groundY) <= 12;
+                },
+                x -> {
+                    for (MapObject mo : map.getMapObjectsInRange(new Point(x, groundY), 30.0 * 30.0,
+                            java.util.List.of(server.maps.MapObjectType.PLAYER))) {
+                        Character o = (Character) mo;
+                        Point op = o.getPosition();
+                        if (o.getId() != self && op != null && Math.abs(op.x - x) < 16 && Math.abs(op.y - groundY) < 10) {
+                            return true;
+                        }
+                    }
+                    return false;
+                });
     }
 
     // ── Organic loot, driven through here so the collect cost is attributable (see BotPerformanceMonitor) ──
