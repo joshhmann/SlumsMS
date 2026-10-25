@@ -1,5 +1,5 @@
 var status = 0;
-var cost = 10000000;
+var cost = 50000000; // x5 after the Maple Leaf went back to 500k (owner 2026-10-25); was 10m
 
 // Only skills of the player's own job line (and of the jobs from previous rebirths) are sold.
 function teach(skillId, level, masterLevel, expiration) {
@@ -9,7 +9,7 @@ function teach(skillId, level, masterLevel, expiration) {
 }
 
 function start() {
-    cm.sendNext("#eHi i am the NPC in charge of exchanging all 4th job skills for a mere sum of 10m mesos.");
+    cm.sendNext("#eHi i am the NPC in charge of exchanging all 4th job skills for a mere sum of 50m mesos.");
 }
 
 function action(mode, type, selection) {
@@ -30,7 +30,7 @@ function action(mode, type, selection) {
         cost *= cm.getJobId() == 0 ? 10 : 1;
     } else if (status == 2) {
         if (cm.getMeso() < cost) {
-            cm.sendNext("You don't have enough mesos, come back when you have 10m mesos.");
+            cm.sendNext("You don't have enough mesos, come back when you have " + (cost / 1000000) + "m mesos.");
             cm.dispose();
         } else {
             if (mode == 1) {
