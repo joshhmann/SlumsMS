@@ -359,22 +359,43 @@ public class NPCConversationManager extends AbstractPlayerInteraction {
         return REBIRTH_SP_GRANT;
     }
 
-    public void setHair(int hair) {
+    /**
+     * 1.5.2: the Cotton Stylist (STYLIST.js) is open to everyone and passes the chosen id straight to these setters, so
+     * they check it against the real catalog (a named hair/face in String.wz, colour variants through their base style)
+     * or the skin enum. A forged selection is refused and nothing changes. Returns whether the look was applied.
+     */
+    public boolean setHair(int hair) {
+        if (!ItemConstants.isHair(hair) || getCosmeticItem(hair) == -1) {
+            log.warn("Refused an invalid hair id {} for {}", hair, getPlayer().getName());
+            return false;
+        }
         getPlayer().setHair(hair);
         getPlayer().updateSingleStat(Stat.HAIR, hair);
         getPlayer().equipChanged();
+        return true;
     }
 
-    public void setFace(int face) {
+    public boolean setFace(int face) {
+        if (!ItemConstants.isFace(face) || getCosmeticItem(face) == -1) {
+            log.warn("Refused an invalid face id {} for {}", face, getPlayer().getName());
+            return false;
+        }
         getPlayer().setFace(face);
         getPlayer().updateSingleStat(Stat.FACE, face);
         getPlayer().equipChanged();
+        return true;
     }
 
-    public void setSkin(int color) {
-        getPlayer().setSkinColor(SkinColor.getById(color));
+    public boolean setSkin(int color) {
+        SkinColor skin = SkinColor.getById(color);
+        if (skin == null) {
+            log.warn("Refused an invalid skin id {} for {}", color, getPlayer().getName());
+            return false;
+        }
+        getPlayer().setSkinColor(skin);
         getPlayer().updateSingleStat(Stat.SKIN, color);
         getPlayer().equipChanged();
+        return true;
     }
 
     public int itemQuantity(int itemid) {
