@@ -603,7 +603,7 @@ public class OPQBot extends BotSM {
             default -> { /* leader is still in stage 1 with us */ }
         }
 
-        if (sharedContext.isStage1Complete()) {
+        if (sharedContext.isStage1Complete(getChr().getMap())) {
             OPQOrchestrator.getInstance().followLeaderWarp(getChr(), STAGE_1_COMPLETE_TP);
             // Walk to Portal
             MovementCommands.moveToPortal(getChr(), 4);
@@ -854,7 +854,7 @@ public class OPQBot extends BotSM {
         long waitedMs = stageWaitStartTime > 0
                 ? (System.currentTimeMillis() - stageWaitStartTime) : 0;
         debugLogf("handleStage2Wait: waited=" + waitedMs + "ms"
-                + " stage2Complete=" + sharedContext.isStage2Complete());
+                + " stage2Complete=" + sharedContext.isStage2Complete(getChr().getMap()));
 
         // Detect leader leaving Stage 2 (via NPC exit or fast-exit through lobby)
         int leaderMap = leaderMapId();
@@ -871,7 +871,7 @@ public class OPQBot extends BotSM {
             return;
         }
 
-        if (sharedContext.isStage2Complete()) {
+        if (sharedContext.isStage2Complete(getChr().getMap())) {
             transitionTo(OPQBotState.EXIT_DETECT,
                     "stage2Complete flag flipped by orchestrator");
             return;

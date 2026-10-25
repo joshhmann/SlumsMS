@@ -366,19 +366,27 @@ public class OPQOrchestrator {
         OPQPhase phase = context.getCurrentPhase();
         switch (phase) {
             case STAGE_1 -> {
-                if (!context.isStage1Complete() && isLeaderAtStageOneExit()) {
-                    opqLog("Stage 1 complete — leader reached the Chamberlain Eak top platform");
-                    context.setStage1Complete(true);
-                    clearCompletionFlagsForRegistered();
+                for (Character leader : leadersOf(botCharacters())) {
+                    MapleMap runMap = leader.getMap();
+                    if (runMap == null || context.isStage1Complete(runMap)) continue;
+                    if (!isAtStageOneExit(leader.getMapId(), leader.getPosition())) continue;
+                    opqLog("Stage 1 complete in map " + leader.getMapId()
+                            + " — leader " + leader.getName() + " reached the Chamberlain Eak top platform");
+                    context.setStage1Complete(runMap, true);
+                    // Each stage starts with a clean "my part is done" bit: stage 1 sets it when the bot drops
+                    // its clouds, and a stale bit would let stage 2 look cleared before a single box was broken.
+                    clearTaskBitsIn(runMap);
                 }
             }
             case STAGE_2 -> {
-                Character leader = runLeader();
-                if (!context.isStage2Complete()
-                        && allCompleteIn(leader == null ? null : leader.getMap(), botCharacters(), context::isMyTaskComplete)) {
-                    opqLog("Stage 2 complete — every bot in the instance reported done.");
-                    context.setStage2Complete(true);
-                    clearCompletionFlagsForRegistered();
+                List<Character> members = botCharacters();
+                for (Character leader : leadersOf(members)) {
+                    MapleMap runMap = leader.getMap();
+                    if (runMap == null || context.isStage2Complete(runMap)) continue;
+                    if (!allCompleteIn(runMap, members, context::isMyTaskComplete)) continue;
+                    opqLog("Stage 2 complete in map " + leader.getMapId()
+                            + " — every bot in the instance reported done.");
+                    context.setStage2Complete(runMap, true);
                 }
             }
             default -> { /* no-op */ }
@@ -386,17 +394,27 @@ public class OPQOrchestrator {
     }
 
     /**
-     * The leader of the run in progress: the party leader of the first registered bot standing in an OPQ map.
-     * Returns null when no bot of any party is inside the PQ yet.
+     * One party leader per party that has a member inside an OPQ map, in registration order. Every instance is
+     * polled on its own: a party that finishes stage 1 must not decide anything for the party in the copy next
+     * door, and a party that is stuck in the tower or the lobby is not polled at all.
      */
-    Character runLeader() {
-        for (OPQBot bot : registeredBots) {
-            Character member = bot.getChr();
-            if (member.getMap() == null || !OPQConstants.OPQ_INSIDE_MAPS.contains(member.getMapId())) continue;
+    static List<Character> leadersOf(Collection<Character> members) {
+        List<Character> leaders = new ArrayList<>();
+        for (Character member : members) {
+            if (member == null || member.getMap() == null) continue;
+            if (!OPQConstants.OPQ_INSIDE_MAPS.contains(member.getMapId())) continue;
             Character leader = partyLeaderOf(member);
-            if (leader != null) return leader;
+            if (leader == null) continue;
+            boolean seen = false;
+            for (Character known : leaders) {
+                if (known == leader) {
+                    seen = true;
+                    break;
+                }
+            }
+            if (!seen) leaders.add(leader);
         }
-        return null;
+        return leaders;
     }
 
     /**
@@ -405,11 +423,6 @@ public class OPQOrchestrator {
      * map - it always is - so "stage 1 complete" was true from the first second and bots abandoned the cloud work
      * the leader still needed.
      */
-    public boolean isLeaderAtStageOneExit() {
-        Character leader = runLeader();
-        return leader != null && isAtStageOneExit(leader.getMapId(), leader.getPosition());
-    }
-
     static boolean isAtStageOneExit(int mapId, Point pos) {
         if (mapId != OPQConstants.OPQ_STAGE_1 || pos == null) return false;
         return Math.abs(pos.x - OPQConstants.STAGE_1_TOP_PLATFORM_X) <= OPQConstants.STAGE_1_TOP_PLATFORM_TOL_X_PX
@@ -422,9 +435,8 @@ public class OPQOrchestrator {
      */
     public synchronized void noteEnteringStageOne(OPQBot bot) {
         if (anyBotInsidePq()) return;
-        context.setStage1Complete(false);
-        context.setStage2Complete(false);
-        clearCompletionFlagsForRegistered();
+        context.clearCompletionFlags();
+        clearTaskBitsForRegistered();
         opqLog("New run: stage flags cleared for " + bot.getChr().getName());
     }
 
@@ -478,23 +490,6 @@ public class OPQOrchestrator {
         return true;
     }
 
-    private enum StagePhase {STAGE_1, STAGE_2}
-
-    private boolean allAssignedBotsComplete(StagePhase stage) {
-        int assigned = 0;
-        int done = 0;
-        for (OPQBot bot : registeredBots) {
-            int id = bot.getChr().getId();
-            Object assignment = (stage == StagePhase.STAGE_1)
-                    ? context.getMyCloudAssignment(id)
-                    : context.getMyPlatformAssignment(id);
-            if (assignment == null) continue;
-            assigned++;
-            if (context.isMyTaskComplete(id)) done++;
-        }
-        return assigned > 0 && assigned == done;
-    }
-
     /**
      * Stage 2 is done when every bot that is in this instance has reported its box. The old test wanted every
      * registered bot - the lobby's 10-15 idle recruiters included - so the flag never flipped, STAGE_2_WAIT ran
@@ -519,7 +514,22 @@ public class OPQOrchestrator {
         return members;
     }
 
-    private void clearCompletionFlagsForRegistered() {
+    /** Party leaders of the runs inside an OPQ instance right now, one per party. Empty when nobody is in. */
+    public List<Character> activeRunLeaders() {
+        return leadersOf(botCharacters());
+    }
+
+    /** Bots standing in this map instance start the next stage with a clean "my part is done" bit. */
+    private void clearTaskBitsIn(MapleMap runMap) {
+        if (runMap == null) return;
+        for (OPQBot bot : registeredBots) {
+            if (bot.getChr().getMap() == runMap) {
+                context.clearTaskComplete(bot.getChr().getId());
+            }
+        }
+    }
+
+    private void clearTaskBitsForRegistered() {
         for (OPQBot bot : registeredBots) {
             context.clearTaskComplete(bot.getChr().getId());
         }

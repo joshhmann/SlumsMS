@@ -1,6 +1,11 @@
 package soloMapling.ArtificialPlayer.BotTypes.OPQ;
 
+import server.maps.MapleMap;
+
+import java.util.Collections;
 import java.util.Map;
+import java.util.Set;
+import java.util.WeakHashMap;
 import java.util.concurrent.ConcurrentHashMap;
 
 /**
@@ -27,8 +32,13 @@ public class OPQSharedContext {
 
     // ---- Phase & stage flags ------------------------------------------------
     private volatile OPQPhase currentPhase = OPQPhase.INACTIVE;
-    private volatile boolean  stage1Complete = false;
-    private volatile boolean  stage2Complete = false;
+    // Keyed by the map instance, not by the map id: two parties running OPQ at once get two MapleMap objects for
+    // 920010000, and one leader finishing stage 1 must not tell the other party's bots that their stage is over.
+    // Weak keys so a finished instance's map can still be collected.
+    private final Set<MapleMap> stage1Complete = Collections.synchronizedSet(
+            Collections.newSetFromMap(new WeakHashMap<>()));
+    private final Set<MapleMap> stage2Complete = Collections.synchronizedSet(
+            Collections.newSetFromMap(new WeakHashMap<>()));
     private volatile boolean  pqActive       = false;
 
     // ---- Assignments --------------------------------------------------------
@@ -47,8 +57,10 @@ public class OPQSharedContext {
     // =========================================================================
 
     public OPQPhase getCurrentPhase()          { return currentPhase; }
-    public boolean  isStage1Complete()         { return stage1Complete; }
-    public boolean  isStage2Complete()         { return stage2Complete; }
+    /** Stage 1 finished in this map instance (the leader reached the top platform there). */
+    public boolean  isStage1Complete(MapleMap map) { return map != null && stage1Complete.contains(map); }
+    /** Stage 2 finished in this map instance. */
+    public boolean  isStage2Complete(MapleMap map) { return map != null && stage2Complete.contains(map); }
     public boolean  isPqActive()               { return pqActive; }
 
     /** Stage 1 cloud reactor oid this bot has been assigned, or null if none. */
@@ -79,8 +91,8 @@ public class OPQSharedContext {
     // =========================================================================
 
     void setCurrentPhase(OPQPhase phase)        { this.currentPhase = phase; }
-    void setStage1Complete(boolean v)           { this.stage1Complete = v; }
-    void setStage2Complete(boolean v)           { this.stage2Complete = v; }
+    void setStage1Complete(MapleMap map, boolean v) { if (map != null) { if (v) stage1Complete.add(map); else stage1Complete.remove(map); } }
+    void setStage2Complete(MapleMap map, boolean v) { if (map != null) { if (v) stage2Complete.add(map); else stage2Complete.remove(map); } }
     void setPqActive(boolean v)                 { this.pqActive = v; }
 
     void putCloudAssignment(int botId, Integer reactorOid) {
@@ -100,6 +112,12 @@ public class OPQSharedContext {
 
     void clearTaskComplete(int botId)           { botTaskComplete.remove(botId); }
 
+    /** Every instance's stage flags gone: a run (or all of them) ended. */
+    void clearCompletionFlags() {
+        stage1Complete.clear();
+        stage2Complete.clear();
+    }
+
     /** Snapshot views for the orchestrator's completion checks. */
     Map<Integer, Integer> getCloudAssignmentsView()    { return cloudAssignments; }
     Map<Integer, Integer> getBoxAssignmentsView()      { return boxAssignments; }
@@ -112,8 +130,8 @@ public class OPQSharedContext {
      */
     void reset() {
         currentPhase   = OPQPhase.INACTIVE;
-        stage1Complete = false;
-        stage2Complete = false;
+        stage1Complete.clear();
+        stage2Complete.clear();
         pqActive       = false;
         cloudAssignments.clear();
         boxAssignments.clear();
