@@ -130,7 +130,7 @@ public class Trade {
             if (isBot(chr)) {
                 creditReceivedItem(chr, item);
             } else {
-                InventoryManipulator.addFromDrop(chr.getClient(), item, show);
+                giveOrDrop(chr, item, show);
             }
         }
 
@@ -169,7 +169,7 @@ public class Trade {
         // holdings and then onto the floor when the bot despawns. Only its mesos are real - refunded below.
         if (!isBot(chr)) {
             for (Item item : items) {
-                InventoryManipulator.addFromDrop(chr.getClient(), item, show);
+                giveOrDrop(chr, item, show);
             }
         }
         if (meso > 0) {
@@ -188,6 +188,25 @@ public class Trade {
         }
 
         chr.sendPacket(PacketCreator.getTradeResult(number, result));
+    }
+
+    /**
+     * Hands a traded or returned item to a player. The inventory can fill between the fit check and the add (loot
+     * picked up with the window open), in which case addFromDrop returns false and the item used to vanish with the
+     * trade window. It goes to the player's feet instead, with a message.
+     * Ported from nutnnut/Cosmic e8b44ffc4 area (server/Trade.java, nutnnut).
+     */
+    static void giveOrDrop(Character chr, Item item, boolean show) {
+        if (InventoryManipulator.addFromDrop(chr.getClient(), item, show)) {
+            return;
+        }
+        log.warn("Trade item {} x{} did not fit {}'s inventory; dropped to floor",
+                item.getItemId(), item.getQuantity(), chr.getName());
+        MapleMap map = chr.getMap();
+        if (map != null) {
+            map.spawnItemDrop(chr, chr, item, chr.getPosition(), true, true);
+        }
+        chr.dropMessage(1, "Your inventory was full; a traded item was dropped at your feet.");
     }
 
     public boolean isLocked() {
@@ -248,8 +267,11 @@ public class Trade {
     }
 
     public boolean addItem(Item item) {
+        if (locked.get()) {
+            return false;
+        }
         synchronized (items) {
-            if (items.size() > 9) {
+            if (locked.get() || items.size() >= 9) {   // the v83 trade window has 9 slots per side
                 return false;
             }
             for (Item it : items) {

@@ -685,13 +685,14 @@ public final class NavObservedEdges {
             return null;
         }
         int stepX = dir * step;
-        BotPhysicsEngine.JumpLanding fall = BotPhysicsEngine.simulateFallLanding(map, end, stepX);
-        if (!landsIn(graph, from, to, fall) || fall.point().y <= end.y + 4
-                || fall.point().y - end.y > BotNavigationGraphProvider.MAX_DROP_PX) {
+        // Graph v69: the same stable walk-off the builder authors (BotNavigationGraphProvider.stableWalkOffLanding).
+        BotPhysicsEngine.WalkOffLanding walkOff = BotNavigationGraphProvider.stableWalkOffLanding(map, source, start,
+                dir, graph, graph.regionIdByFootholdId, profile);
+        if (walkOff == null || !landsIn(graph, from, to, walkOff.landing())) {
             return null;
         }
-        int cost = Math.max(1, fall.timeMs()) + actualRunway * BotPhysicsEngine.cfg.TICK_MS / Math.max(1, step);
-        return groundEdge(from, to, BotNavigationGraph.EdgeType.DROP, start, fall.point(), stepX, cost);
+        return groundEdge(from, to, BotNavigationGraph.EdgeType.DROP, start, walkOff.landing().point(), stepX,
+                Math.max(1, walkOff.travelTimeMs()));
     }
 
     /** A down-jump through the platform, as the graph's own (straight down, capped and cost-penalised alike). */

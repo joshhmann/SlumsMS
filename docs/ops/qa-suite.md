@@ -23,7 +23,7 @@ using live's and the test server's real command lines. The command needs GM leve
 | `!qa stop` | Ends the run, undoes the staging and closes the log |
 
 You can run one scenario at a time. Scenarios that claim a map (bk, gd, fm, gh, tr-1) refuse to start while another GM's
-scenario holds that map. A run stops on its own after 15 minutes. ld-1, mv-1, pe-1, ga-2, tr-4 and tr-6 stop after 10, ga-1, tr-1, pr-1 and pr-2 after 20, tr-5 after 30, wd-2 after 5, and bk-1 after
+scenario holds that map. A run stops on its own after 15 minutes. ld-1, mv-1, pe-1, ga-2, tr-4 and tr-6 stop after 10, ga-1, tr-1, pr-1 and pr-2 after 20, tr-5, pq-1 and pq-2 after 30, wd-2 after 5, and bk-1 after
 the showcase's own minutes plus one.
 
 ### The `!qa` menu (1.5.0)
@@ -88,6 +88,7 @@ call no longer pushes a waiting guild or drama megaphone out of the single pendi
 | `af-3` (1.5.0) | Turns `@botdrama` off for you and spawns a nemesis training bot. `!qa do on` / `!qa do off` flip it; stop puts it back | As af-2. With drama off: the state reads neutral, and there are no `taunt`/`ks`/`defame` ACT lines and no `EVENT ks` |
 | `cp-1` `[married\|friends] [same\|mixed]` (1.5.0) | Spawns two bots next to you that are a couple (dating, or married with rings and the loveseat) or best friends (friendship rings), any genders unless `same`/`mixed` is given; memory only. Runs the pair's step every 20 s (rc6); `!qa do step` runs it now. The staged pair stays together within the first minute | Each pair action: `PARTY`, `TOGETHER` (one walks over to the other), `SMILE`, `HOP` (channel), `SIT` (couple chair, side by side), `MATCHING` (hat), `LOVE NOTE`, plus bot chat on the map |
 | `we-1` `[same\|mixed]` (1.5.0) | Needs channel 1. Warps you to Amoria's chapel (the White Wedding Altar, 680000110; rc6), stages a couple there (any genders, or `same`/`mixed`) and starts the `amoria_wedding` event at once | The ceremony: `WEDDING ... begins`, every line said (`SAY`), `BLESS` (your EXP blessing at "i do", once), `RINGS`, `MARRIED`, `WEDDING ... ends`, and bot chat. Stop ends the event if it still runs and removes the couple |
+| `pq-1` (ticket 75, real client, two players) | Warps you to the Amoria PQ recruit map (670010100; the run refuses when the host Amos, NPC 9201048, does not stand there), gives you an Entrance Ticket (4031592) and checks the stage 1 map (670010200): live mobs, Glimmer Man (9201047) and the five portals `male00`, `female00`, `go00`, `go01`, `go02`. `!qa do check` re-checks that map, `!qa do where` says where you stand. Runs 30 minutes | `STAGE` lines: the host and where you are, the stage 1 mob count, each portal found or missing (the `PQ` topic). A single-gender party of 2+ has to be able to start it and clear both stage 1 rooms: the doors accept anyone now |
 | `gu-1` `[guild]` (1.5.0, bot guilds) | You must be guildless. Stages an officer (rank 2) of a bot guild (default the biggest) next to you that counts you as a friend; its guild name shows over its head. Ask it "<name> can i join ur guild?": it answers, and a real guild invite follows in a few seconds. Accept, then talk in guild chat. Stop takes the bot away and makes you leave the guild if you joined | `GUILDS` (every bot guild at start), `APPLY` (who asked, feelings, level, YES or the refusal), `INVITE SENT`, `PLAYER JOINED`, `GUILD CHAT` (your line and which bot answers, at most one), `GUILD SAY` (every bot guild chat line), bot chat |
 | `gu-2` `[friends 1-4]` (1.5.0) | You must be in a guild. Stages 2 (or n) friend bots and 1 neutral bot next to you, guildless. Invite each with `/ginvite`. `!qa do join` adds one more friend that is a member at once | `INVITE <you> -> <bot>: friend, bots x/y, chance n% -> JOINED/declined` (friends join after 4 s here; past half bots the chance drops), `JOIN`, the thank-you `GUILD SAY` |
 | `gu-3` `[guild]` (1.5.0) | You must be guildless. Warps you to Henesys and stages an officer of the guild that counts you as a friend, then runs a recruit round. `!qa do recruit` runs another (megaphones still go through the gate) | `RECRUIT MEGAPHONE` (sent or queued/gated), the line said out loud, `RECRUIT WHISPER` and `INVITE SENT` to you |
@@ -139,6 +140,7 @@ What `!qa stop` undoes:
 - cb-1..cb-4, sp-1, pt-1: the staged grinders leave (pt-1: their pets with them) (a cb-3 bot that died loses the EXP, as any death does, then leaves).
 - gu-1..gu-8: staged guild bots leave their guild and the world; gu-1/gu-3/gu-8 make you leave a guild you joined during the
   run; gu-5 ends the boss run (bots inside log back in).
+- pq-1: the Entrance Ticket it gave you is taken back (only what is left of it).
 - pr-1/pr-2: the NX given is taken back, up to what is left of it. Rings bought and their ring records stay
   (they are real purchases; delete a test pair with the GM tools if needed). The partner is not warped back.
 - rv-1..rv-4: the staged rivals leave; rv-2 ends the KS war (the called bots go back where they were).
@@ -204,6 +206,27 @@ run alongside.
 **`!rate`** (GM 1+, every server): `!rate good|bad [note]` rates the last line a bot said to you (10 min; a thread line
 on your map: 2 min), `!rate last`, `!rate reload` (re-reads `data/convo/tune.json`), `!rate score [yyyy-mm-dd]` writes
 `data/convo/quality/<day>.json` and `latest.json` now.
+
+## pq-2: OPQ bots (1.5.2)
+
+| Test | What it stages | What to look for |
+|---|---|---|
+| `pq-2` | Warps you to the Orbis PQ lobby (200080101) and spawns 6 live OPQ bots (the real bot brain: they accept an invite and run the PQ) around you. They leave at stop. Runs 30 minutes | `PQ <bot>: <state> -> <state> \| <reason>` for every transition (lobby recruit, party, stage 1, tower, stage 2, exit) and `PQ <bot> recruit: <line>` for lobby chat |
+
+The friend's report, "PQ bots are not great", covered four things this run is meant to show:
+
+- **Lobby spam.** Each bot used to speak every 12 s regardless of how many bots were there, so 10-15 bots made
+  50-75 lines a minute. The lobby is now capped as a whole (`-Dsolomapling.opq.lobbyRecruitPerMinute`, default 3 a
+  minute, `OPQLobbyChat`) and each bot waits 45-90 s between its own lines. Count the `recruit:` lines: no more than
+  the cap per minute, and none at all when no player is on the map.
+- **Joining and doing nothing.** Invite a bot, then stand still. After 5 minutes in the lobby with the party formed
+  and no stage 1 it says one line, leaves the party and goes back to recruiting (`OPQPartyDuty`). The same happens
+  after 15 s when the leader's character is offline and after 90 s when the leader is on another map.
+- **Idle bots in the stages.** Stage 1 used to count as done the moment the leader entered (the exit NPC is part of
+  the map), so bots jumped to the top platform. They now stay with you until you stand on the top platform, then
+  follow you to the tower and stage 2.
+- **Leaving mid-run.** Stage 2 used to wait for every registered bot - the lobby's recruiters included - and gave up
+  after two minutes. It now finishes when the bots in your instance are done.
 
 ## mv-1: attack slide
 

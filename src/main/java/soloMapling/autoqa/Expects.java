@@ -358,4 +358,17 @@ public final class Expects {
             return Double.NaN;
         }
     }
+
+    /**
+     * Ticket 69: a check that expects success fails when an NPC dialog it received was a refusal. The scenario
+     * reports an unexpected refusal as its own {@code NPC_REFUSAL} line, so this rule can never match a success
+     * line: the token is not a word any dialog or result line uses. Steps that deliberately expect a refusal
+     * (Tatamo with too little meso, a wrong PIC) do not emit the line, so they stay green.
+     */
+    public static Expect noRefusal() {
+        return rule("no NPC refused a step that expects success", run -> {
+            List<AutoQaLine> refused = run.matching("NPC_REFUSAL", null, null);
+            return refused.isEmpty() ? null : "an NPC refused: " + refused.get(0).message();
+        });
+    }
 }

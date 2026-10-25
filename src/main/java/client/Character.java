@@ -226,7 +226,7 @@ public class Character extends AbstractCharacterObject {
     private final Map<Integer, Map<BuffStat, BuffStatValueHolder>> buffEffects = new LinkedHashMap<>(); // non-overriding buffs thanks to Ronan
     private final Map<Integer, Long> buffExpires = new LinkedHashMap<>();
     private final Map<Integer, KeyBinding> keymap = new LinkedHashMap<>();
-    private final Map<Integer, Summon> summons = new LinkedHashMap<>();
+    private final Map<Integer, Summon> summons = new ConcurrentHashMap<>(); // 1.5.2 (nutnnut/Cosmic ab7253d97): changed from timer and handler threads
     private final Map<Integer, CooldownValueHolder> coolDowns = new LinkedHashMap<>();
     private long bankMesos;
 
@@ -307,8 +307,6 @@ public class Character extends AbstractCharacterObject {
     private long loginTime;
     private boolean chasing = false;
 
-    public int potionCount = 0;
-    public boolean inExpedition = false;
     private int reborns;
     private int getLinkedStats;
 
@@ -692,6 +690,14 @@ public class Character extends AbstractCharacterObject {
 
     public boolean isMarried() {
         return marriageRing != null && partnerId > 0;
+    }
+
+    /**
+     * True for AI players (thousands of bots share a single headless BotClient). Event scripts use it to keep bots
+     * out of the party-size maths: a bot cannot climb a PQ platform or hold a conversation.
+     */
+    public boolean isBot() {
+        return client instanceof BotClient;
     }
 
     public boolean hasJustMarried() {
@@ -1270,7 +1276,10 @@ public class Character extends AbstractCharacterObject {
     static Pair<Integer, Integer> jobAdvanceHpMpGain(Job job) {
         int addhp = 0, addmp = 0;
         int job_ = job.getId() % 1000; // lame temp "fix"
-        if (job_ == 100) {                      // 1st warrior
+        if (job_ == 700) {                      // Super Beginner (MapleRoot; checked first: 700 % 100 == 0 is "1st others")
+            addhp += Randomizer.rand(300, 350);
+            addmp += Randomizer.rand(150, 200);
+        } else if (job_ == 100) {               // 1st warrior
             addhp += Randomizer.rand(200, 250);
         } else if (job_ == 200) {               // 1st mage
             addmp += Randomizer.rand(100, 150);
@@ -1282,9 +1291,6 @@ public class Character extends AbstractCharacterObject {
         } else if (job_ < 300) {                // 2nd~4th mage
             addmp += Randomizer.rand(450, 500);
         } else if (job_ > 0) {                  // 2nd~4th others
-            addhp += Randomizer.rand(300, 350);
-            addmp += Randomizer.rand(150, 200);
-        } else if (job_ == 700) {                  // Super Beginner
             addhp += Randomizer.rand(300, 350);
             addmp += Randomizer.rand(150, 200);
         }
@@ -1534,29 +1540,44 @@ public class Character extends AbstractCharacterObject {
     }
 
     public void changeMap(int map) {
-        MapleMap warpMap;
-        EventInstanceManager eim = getEventInstance();
-
-        if (eim != null) {
-            warpMap = eim.getMapInstance(map);
-        } else {
-            warpMap = client.getChannelServer().getMapFactory().getMap(map);
+        MapleMap warpMap = mapInstanceFor(map);
+        if (warpMap == null) {
+            return;
         }
 
         changeMap(warpMap, warpMap.getRandomPlayerSpawnpoint());
     }
 
     public void changeMap(int map, int portal) {
-        MapleMap warpMap;
-        EventInstanceManager eim = getEventInstance();
-
-        if (eim != null) {
-            warpMap = eim.getMapInstance(map);
-        } else {
-            warpMap = client.getChannelServer().getMapFactory().getMap(map);
+        MapleMap warpMap = mapInstanceFor(map);
+        if (warpMap == null) {
+            return;
         }
 
         changeMap(warpMap, warpMap.getPortal(portal));
+    }
+
+    /**
+     * 1.5.2: the map a warp to an id lands on, or null when there is nowhere to land. A channel that has shut down has
+     * no map factory and no map with that id may exist, and the delayed warps (ship, subway, elevator: a TimerManager
+     * task that fires minutes later) used to throw "Cannot invoke MapManager.getMap(int) because the return value of
+     * Channel.getMapFactory() is null" instead of settling.
+     */
+    private MapleMap mapInstanceFor(int map) {
+        EventInstanceManager eim = getEventInstance();
+        if (eim != null) {
+            return eim.getMapInstance(map);
+        }
+
+        Client client = getClient();
+        Channel channel = (client == null) ? null : client.getChannelServer();
+        MapManager mapManager = (channel == null) ? null : channel.getMapFactory();
+        if (mapManager == null) {
+            log.debug("Chr {} cannot warp to map {}: its channel has no maps left", name, map);
+            return null;
+        }
+
+        return mapManager.getMap(map);
     }
 
     public void changeMap(int map, String portal) {
@@ -1597,18 +1618,16 @@ public class Character extends AbstractCharacterObject {
         final boolean locked = lockWarp();
         try {
             canWarpCounter++;
-
-            eventChangedMap(target.getId());    // player can be dropped from an event here, hence the new warping target.
-            MapleMap to = getWarpMap(target.getId());
-            if (pto == null) {
-                pto = to.getPortal(0);
-            }
-            changeMapInternal(to, pto.getPosition(), PacketCreator.getWarpToMap(to, pto.getId(), this));
-            canWarpMap = false;
-
-            canWarpCounter--;
-            if (canWarpCounter == 0) {
-                canWarpMap = true;
+            try {
+                eventChangedMap(target.getId());    // player can be dropped from an event here, hence the new warping target.
+                MapleMap to = getWarpMap(target.getId());
+                if (pto == null) {
+                    pto = to.getPortal(0);
+                }
+                changeMapInternal(to, pto.getPosition(), PacketCreator.getWarpToMap(to, pto.getId(), this));
+                canWarpMap = false;
+            } finally {
+                releaseWarpLatch();
             }
 
             eventAfterChangedMap(this.getMapId());
@@ -1623,15 +1642,13 @@ public class Character extends AbstractCharacterObject {
         final boolean locked = lockWarp();
         try {
             canWarpCounter++;
-
-            eventChangedMap(target.getId());
-            MapleMap to = getWarpMap(target.getId());
-            changeMapInternal(to, pos, PacketCreator.getWarpToMap(to, 0x80, pos, this));
-            canWarpMap = false;
-
-            canWarpCounter--;
-            if (canWarpCounter == 0) {
-                canWarpMap = true;
+            try {
+                eventChangedMap(target.getId());
+                MapleMap to = getWarpMap(target.getId());
+                changeMapInternal(to, pos, PacketCreator.getWarpToMap(to, 0x80, pos, this));
+                canWarpMap = false;
+            } finally {
+                releaseWarpLatch();
             }
 
             eventAfterChangedMap(this.getMapId());
@@ -1653,6 +1670,17 @@ public class Character extends AbstractCharacterObject {
         return warpLock;
     }
 
+    /**
+     * 1.5.2 (nutnnut/Cosmic ae5753df0): the end of a warp, in a finally. A warp that threw used to skip this, so the
+     * counter never got back to 0 and every later warp of the character silently did nothing.
+     */
+    private void releaseWarpLatch() {
+        canWarpCounter--;
+        if (canWarpCounter == 0) {
+            canWarpMap = true;
+        }
+    }
+
     private boolean lockWarp() {
         if (client instanceof BotClient) {
             warpLock.lock();
@@ -1665,32 +1693,31 @@ public class Character extends AbstractCharacterObject {
         // will actually enter the map given as parameter, regardless of being an eventmap or whatnot
 
         canWarpCounter++;
-        eventChangedMap(MapId.NONE);
+        try {
+            eventChangedMap(MapId.NONE);
 
-        EventInstanceManager mapEim = target.getEventInstance();
-        if (mapEim != null) {
-            EventInstanceManager playerEim = this.getEventInstance();
-            if (playerEim != null) {
-                playerEim.exitPlayer(this);
-                if (playerEim.getPlayerCount() == 0) {
-                    playerEim.dispose();
+            EventInstanceManager mapEim = target.getEventInstance();
+            if (mapEim != null) {
+                EventInstanceManager playerEim = this.getEventInstance();
+                if (playerEim != null) {
+                    playerEim.exitPlayer(this);
+                    if (playerEim.getPlayerCount() == 0) {
+                        playerEim.dispose();
+                    }
                 }
+
+                // thanks Thora for finding an issue with players not being actually warped into the target event map (rather sent to the event starting map)
+                mapEim.registerPlayer(this, false);
             }
 
-            // thanks Thora for finding an issue with players not being actually warped into the target event map (rather sent to the event starting map)
-            mapEim.registerPlayer(this, false);
-        }
-
-        MapleMap to = target; // warps directly to the target intead of the target's map id, this allows GMs to patrol players inside instances.
-        if (pto == null) {
-            pto = to.getPortal(0);
-        }
-        changeMapInternal(to, pto.getPosition(), PacketCreator.getWarpToMap(to, pto.getId(), this));
-        canWarpMap = false;
-
-        canWarpCounter--;
-        if (canWarpCounter == 0) {
-            canWarpMap = true;
+            MapleMap to = target; // warps directly to the target intead of the target's map id, this allows GMs to patrol players inside instances.
+            if (pto == null) {
+                pto = to.getPortal(0);
+            }
+            changeMapInternal(to, pto.getPosition(), PacketCreator.getWarpToMap(to, pto.getId(), this));
+            canWarpMap = false;
+        } finally {
+            releaseWarpLatch();
         }
 
         eventAfterChangedMap(this.getMapId());
@@ -1963,6 +1990,15 @@ public class Character extends AbstractCharacterObject {
             map = to;
             setPosition(pos);
             map.addPlayer(this);
+            if (client.getChannelServer().getPlayerStorage().getCharacterById(getId()) == null) {
+                // 1.5.2 (nutnnut/Cosmic ae5753df0): a logout landed between the check above and addPlayer, and its own
+                // map removal saw the old map. Unwind, or the logged-out character stays in this map's lists as a
+                // ghost (and once disposed, breaks broadcasts here). BotGeneration.removeBotFromServer covers the
+                // other order for bots.
+                log.warn("Chr {} logged out mid-warp to map {}: unwinding its map entry", getName(), to.getId());
+                map.removePlayer(this);
+                return;
+            }
             soloMapling.qa.MapEntryMeter.placed(this);
             visitMap(map);
 
@@ -2023,6 +2059,13 @@ public class Character extends AbstractCharacterObject {
     }
 
     public void changeSkillLevel(Skill skill, byte newLevel, int newMasterlevel, long expiration) {
+        if (skill == null) {
+            // 1.5.2: MapleRoot's Skill.wz dropped 64 stock skills (Big Bang, Barrage, Ninja Ambush, Polearm Booster,
+            // ...) that stock scripts still teach. A null key used to land in the skills map before the NPE, and
+            // every later saveToDB then failed on it and rolled the whole character save back.
+            log.warn("Chr {} was given a skill that is not in Skill.wz; ignored", getName(), new Throwable("unknown skill"));
+            return;
+        }
         if (newLevel > -1) {
             skills.put(skill, new SkillEntry(newLevel, newMasterlevel, expiration));
             if (!GameConstants.isHiddenSkills(skill.getId())) {
@@ -2394,6 +2437,7 @@ public class Character extends AbstractCharacterObject {
                         if (mItem.getItemId() == ItemId.ARPQ_SPIRIT_JEWEL) {
                             updateAriantScore();
                         }
+                        server.GodlyDrops.tellLooter(this, mItem, mapitem.isPlayerDrop()); // 1.5.2 godly drops
                     } else {
                         sendPacket(PacketCreator.enableActions());
                         return;
@@ -4422,6 +4466,10 @@ public class Character extends AbstractCharacterObject {
 
     public void cancelAllBuffs(boolean softcancel) {
         if (softcancel) {
+            // 1.5.2 (nutnnut/Cosmic 8a2d4adaf): prtLock before effLock. cancelEffectFromBuffStat below reaches the
+            // public cancelEffect (prtLock) while this frame holds effLock+chrLock: the reverse of registerEffect's
+            // prt -> eff -> chr, so a party member buffing this character at that moment hung both threads.
+            prtLock.lock();
             effLock.lock();
             chrLock.lock();
             try {
@@ -4437,6 +4485,7 @@ public class Character extends AbstractCharacterObject {
             } finally {
                 chrLock.unlock();
                 effLock.unlock();
+                prtLock.unlock();
             }
         } else {
             Map<StatEffect, Long> mseBuffs = new LinkedHashMap<>();
@@ -4639,6 +4688,11 @@ public class Character extends AbstractCharacterObject {
     }
 
     public void updateActiveEffects() {
+        // 1.5.2 (nutnnut/Cosmic c9ba4f4da): prtLock before effLock. isUpdatingEffect -> StatEffect.isActive ->
+        // getPartyMembersOnSameMap takes prtLock while effLock is held; registerEffect takes them the other way round,
+        // so a party member's buff landing while this character entered a map (MapleMap.addPlayer) hung both threads.
+        // Callers hold neither lock; the inner prtLock is a same-thread re-entry.
+        prtLock.lock();
         effLock.lock();     // thanks davidlafriniere, maple006, RedHat for pointing a deadlock occurring here
         try {
             Set<BuffStat> updatedBuffs = new LinkedHashSet<>();
@@ -4664,6 +4718,7 @@ public class Character extends AbstractCharacterObject {
             updateEffects(updatedBuffs);
         } finally {
             effLock.unlock();
+            prtLock.unlock();
         }
     }
 
@@ -4722,7 +4777,7 @@ public class Character extends AbstractCharacterObject {
 
         List<Pair<BuffStat, BuffStatValueHolder>> toCancel = deregisterBuffStats(buffstats);
         if (effect.isMonsterRiding()) {
-            this.getClient().getWorldServer().unregisterMountHunger(this);
+            unregisterMountHunger();        // 1.5.2: was this.getClient().getWorldServer().unregisterMountHunger(this)
             this.getMount().setActive(false);
         }
 
@@ -4750,6 +4805,10 @@ public class Character extends AbstractCharacterObject {
     }
 
     public void cancelBuffStats(BuffStat stat) {
+        // 1.5.2 (nutnnut/Cosmic 8a2d4adaf): prtLock before effLock. dropBuffStats -> fetchBestEffectFromItemEffectHolder
+        // -> StatEffect.isActive -> getPartyMembersOnSameMap takes prtLock under effLock+chrLock, the reverse of
+        // registerEffect. Reached from attack handlers (dark sight), unequip (booster) and summons.
+        prtLock.lock();
         effLock.lock();
         try {
             List<Pair<Integer, BuffStatValueHolder>> cancelList = new LinkedList<>();
@@ -4774,6 +4833,7 @@ public class Character extends AbstractCharacterObject {
             }
         } finally {
             effLock.unlock();
+            prtLock.unlock();
         }
 
         cancelPlayerBuffs(Arrays.asList(stat));
@@ -5438,6 +5498,21 @@ public class Character extends AbstractCharacterObject {
 
     public AbstractPlayerInteraction getAbstractPlayerInteraction() {
         return client.getAbstractPlayerInteraction();
+    }
+
+    /**
+     * 1.5.2 (nutnnut/Cosmic 87fe36eda): getQuest() adds a NOT_STARTED status to the quest map on any lookup (an NPC
+     * checking a quest, a quest list shown) and never removes it, and every save wrote all of them to queststatus, so
+     * the table grew with rows that hold nothing. Such a row is skipped on save; getQuest() recreates it on demand.
+     * Anything with state is still written: a forfeit or completion count, an expiry, progress, medal maps.
+     */
+    static boolean isEmptyQuestPlaceholder(QuestStatus qs) {
+        return qs.getStatus() == QuestStatus.Status.NOT_STARTED
+                && qs.getForfeited() == 0
+                && qs.getCompleted() == 0
+                && qs.getExpirationTime() <= 0
+                && qs.getProgress().isEmpty()
+                && qs.getMedalMaps().isEmpty();
     }
 
     private List<QuestStatus> getQuests() {
@@ -6856,7 +6931,9 @@ public class Character extends AbstractCharacterObject {
     }
 
     public Collection<Summon> getSummonsValues() {
-        return summons.values();
+        // 1.5.2 (nutnnut/Cosmic ab7253d97): a copy. The live view threw ConcurrentModificationException in a
+        // handler's walk when a summon expired or was recast on another thread.
+        return new ArrayList<>(summons.values());
     }
 
     public void clearSummons() {
@@ -6976,6 +7053,20 @@ public class Character extends AbstractCharacterObject {
 
     public int getWorld() {
         return world;
+    }
+
+    /**
+     * 1.5.2: mount hunger is tracked per world. Both callers used `getClient().getWorldServer().unregisterMountHunger`
+     * — a buff cancel here and Mount.empty on logout — and at logout the client or its world is already gone: the NPE
+     * aborted Character.empty halfway (the live "Client.getWorldServer() is null" NPE through Client.clear) and left the
+     * mount registered in the world. Nothing to unregister when no world is left.
+     */
+    void unregisterMountHunger() {
+        Client c = getClient();
+        World world = (c == null) ? null : c.getWorldServer();
+        if (world != null) {
+            world.unregisterMountHunger(this);
+        }
     }
 
     public World getWorldServer() {
@@ -9892,6 +9983,9 @@ public class Character extends AbstractCharacterObject {
                     psStatus.setInt(1, id);
 
                     for (QuestStatus qs : getQuests()) {
+                        if (isEmptyQuestPlaceholder(qs)) {
+                            continue;
+                        }
                         psStatus.setInt(2, qs.getQuest().getId());
                         psStatus.setInt(3, qs.getStatus().getId());
                         psStatus.setInt(4, (int) (qs.getCompletionTime() / 1000));
@@ -10927,9 +11021,21 @@ public class Character extends AbstractCharacterObject {
     }
 
     private void silentPartyUpdateInternal(Party chrParty) {
-        if (chrParty != null) {
-            getWorldServer().updateParty(chrParty.getId(), PartyOperation.SILENT_UPDATE, getMPC());
+        if (chrParty == null) {
+            return;
         }
+
+        // 1.5.2: World.updateParty throws "no party with the specified partyid exists" for a party it no longer holds,
+        // and this runs in the middle of a map change (changeMapInternal), a door push and a logout. A party that was
+        // disbanded, or a world that went away under a shutdown, used to abort the warp after the client had already
+        // been sent the warp packet: the character stayed behind as a ghost, and one vanished party flooded the log
+        // with that exception. There is nothing to announce when nobody holds the party.
+        World world = getWorldServer();
+        if (world == null || world.getParty(chrParty.getId()) == null) {
+            return;
+        }
+
+        world.updateParty(chrParty.getId(), PartyOperation.SILENT_UPDATE, getMPC());
     }
 
     public static class SkillEntry {
@@ -11339,7 +11445,13 @@ public class Character extends AbstractCharacterObject {
 
 
     public void sendPacket(Packet packet) {
-        client.sendPacket(packet);
+        // 1.5.2 (nutnnut/Cosmic b1707d11b): empty(true) nulls client five minutes after logout while stale references
+        // to this character can still sit in a map's list. Drop the packet: throwing here aborted the whole map
+        // broadcast (entry and removal included) for every character after this one.
+        Client c = client;
+        if (c != null) {
+            c.sendPacket(packet);
+        }
     }
 
     @Override
@@ -11833,7 +11945,7 @@ public class Character extends AbstractCharacterObject {
                 setFamilyEntry(null);
             }
 
-            getWorldServer().registerTimedMapObject(new Runnable() {
+            Runnable releaseInventories = new Runnable() {
                 @Override
                 public void run() {
                     client = null;  // clients still triggers handlers a few times after disconnecting
@@ -11846,7 +11958,16 @@ public class Character extends AbstractCharacterObject {
                     }
                     inventory = null;
                 }
-            }, MINUTES.toMillis(5));
+            };
+            // 1.5.2: the world is gone when a logout happens during a shutdown, and nothing would ever run the
+            // delayed cleanup then - the old unguarded getWorldServer() threw right here and left the whole remove
+            // block (party, family, inventories) half done. Release the inventories immediately instead.
+            World wserv = getWorldServer();
+            if (wserv == null) {
+                releaseInventories.run();
+            } else {
+                wserv.registerTimedMapObject(releaseInventories, MINUTES.toMillis(5));
+            }
         }
     }
 
@@ -12396,7 +12517,20 @@ public class Character extends AbstractCharacterObject {
     }
 
 
+    /**
+     * The slots quick-sell may look at: from {@code pos} to {@code lpos}, kept inside 1..the inventory's slot limit.
+     * 1.5.2: the loop counted with a short, so {@code @qs 1 32767} (or the Donation Box with a last slot of 32767)
+     * wrapped to -32768 and never ended, holding the inventory lock and growing a list until the server ran out of
+     * memory. Negative slots also reached the equipped items.
+     */
+    static int[] quickSellRange(int pos, int lpos, int slotLimit) {
+        return new int[]{Math.max(1, pos), Math.min(lpos, slotLimit)};
+    }
+
     public int sellAllPosLast(InventoryType type, short pos, short lpos) {
+        if (type == null || type == InventoryType.EQUIPPED || type == InventoryType.UNDEFINED) {
+            return 0;   // worn gear is never quick-sold (the Donation Box passed the client's inventory number on)
+        }
         int mesoGain = 0;
         ItemInformationProvider ii = ItemInformationProvider.getInstance();
         Inventory inv = getInventory(type);
@@ -12404,8 +12538,9 @@ public class Character extends AbstractCharacterObject {
         inv.lockInventory();
 
         try {
-            for (short i = pos; i <= lpos; i++) {
-                Item item = inv.getItem(i);
+            int[] range = quickSellRange(pos, lpos, inv.getSlotLimit());
+            for (int slot = range[0]; slot <= range[1]; slot++) {
+                Item item = inv.getItem((short) slot);
                 if (item == null) {
                     continue;
                 }

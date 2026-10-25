@@ -32,6 +32,7 @@ import net.server.coordinator.matchchecker.MatchCheckerCoordinator;
 import net.server.coordinator.world.InviteCoordinator;
 import net.server.coordinator.world.InviteCoordinator.InviteResult;
 import net.server.coordinator.world.InviteCoordinator.InviteType;
+import net.server.world.World;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import service.NoteService;
@@ -276,7 +277,11 @@ public class Guild {
     }
 
     public void broadcastNameChanged() {
-        PlayerStorage ps = Server.getInstance().getWorld(world).getPlayerStorage();
+        World wserv = worldServer();
+        if (wserv == null) { // 1.5.2: a guild whose world is not running has nobody to tell
+            return;
+        }
+        PlayerStorage ps = wserv.getPlayerStorage();
 
         for (GuildCharacter mgc : getMembers()) {
             Character chr = ps.getCharacterById(mgc.getId());
@@ -290,7 +295,11 @@ public class Guild {
     }
 
     public void broadcastEmblemChanged() {
-        PlayerStorage ps = Server.getInstance().getWorld(world).getPlayerStorage();
+        World wserv = worldServer();
+        if (wserv == null) { // 1.5.2: a guild whose world is not running has nobody to tell
+            return;
+        }
+        PlayerStorage ps = wserv.getPlayerStorage();
 
         for (GuildCharacter mgc : getMembers()) {
             Character chr = ps.getCharacterById(mgc.getId());
@@ -304,7 +313,11 @@ public class Guild {
     }
 
     public void broadcastInfoChanged() {
-        PlayerStorage ps = Server.getInstance().getWorld(world).getPlayerStorage();
+        World wserv = worldServer();
+        if (wserv == null) { // 1.5.2: a guild whose world is not running has nobody to tell
+            return;
+        }
+        PlayerStorage ps = wserv.getPlayerStorage();
 
         for (GuildCharacter mgc : getMembers()) {
             Character chr = ps.getCharacterById(mgc.getId());
@@ -567,11 +580,16 @@ public class Guild {
 
     public void changeRank(GuildCharacter mgc, int newRank) {
         try {
+            World wserv = worldServer(mgc);
             if (mgc.isOnline()) {
-                Server.getInstance().getWorld(this.world).setGuildAndRank(mgc.getId(), this.id, newRank); // the guild's world: every member is in it
-                mgc.setGuildRank(newRank);
+                if (wserv != null) {
+                    wserv.setGuildAndRank(mgc.getId(), this.id, newRank);
+                }
+                mgc.setGuildRank(newRank); // the rank itself is recorded even when the guild's world cannot be reached
             } else {
-                Server.getInstance().getWorld(this.world).setOfflineGuildStatus((short) this.id, (byte) newRank, mgc.getId());
+                if (wserv != null) {
+                    wserv.setOfflineGuildStatus((short) this.id, (byte) newRank, mgc.getId());
+                }
                 mgc.setOfflineGuildRank(newRank);
             }
         } catch (Exception re) {
@@ -586,6 +604,26 @@ public class Guild {
             membersLock.unlock();
         }
         soloMapling.ArtificialPlayer.BotGuildSystem.BotGuilds.onRankChanged(mgc.getId(), newRank); // SlumsMS: kept for bots
+    }
+
+    /** 1.5.2: the world this guild lives in, or null when the server is not running the world id the guild cached. */
+    private World worldServer() {
+        return Server.getInstance().getWorld(world);
+    }
+
+    /**
+     * 1.5.2: the world to send a rank change through. The cached world id can be one the server is not running (a guild
+     * first loaded with the default world 0 by a bot or a synthetic character), and every rank change then threw
+     * "World.setGuildAndRank(int, int, int) because Server.getWorld(int) is null" and was dropped - which is how a new
+     * guild's master could be left at rank 5 (see mendLeaderRank). The member being changed knows the world it plays in.
+     */
+    private World worldServer(GuildCharacter mgc) {
+        World wserv = worldServer();
+        if (wserv != null || mgc == null || !mgc.isOnline()) {
+            return wserv;
+        }
+        Character chr = mgc.getCharacter();
+        return (chr == null) ? null : chr.getWorldServer();
     }
 
     /**

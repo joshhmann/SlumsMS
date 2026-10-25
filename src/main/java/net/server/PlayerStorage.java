@@ -24,6 +24,8 @@ package net.server;
 import client.BotClient;
 import client.Character;
 import client.Client;
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
 
 import java.util.*;
 import java.util.concurrent.locks.Lock;
@@ -31,6 +33,8 @@ import java.util.concurrent.locks.ReadWriteLock;
 import java.util.concurrent.locks.ReentrantReadWriteLock;
 
 public class PlayerStorage {
+    private static final Logger log = LoggerFactory.getLogger(PlayerStorage.class);
+
     private final Map<Integer, Character> storage = new LinkedHashMap<>();
     private final Map<String, Character> nameStorage = new LinkedHashMap<>();
     private final Lock rlock;
@@ -104,8 +108,15 @@ public class PlayerStorage {
 
         for (Character mc : chrList) {
             Client client = mc.getClient();
-            if (client != null) {
+            if (client == null) {
+                continue;
+            }
+            try {
                 client.forceDisconnect();
+            } catch (RuntimeException e) {
+                // 1.5.2: one character whose save fails must not leave every other character of the channel connected
+                // (and unsaved) while the channel is shutting down.
+                log.warn("Could not disconnect {} while emptying its channel", mc, e);
             }
         }
 

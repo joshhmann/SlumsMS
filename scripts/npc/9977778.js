@@ -68,7 +68,15 @@ function action(mode, type, selection) {
         }
 
     } else if (status == 1 && selection === 1) {
-        cm.getChar().gainSp(100, GameConstants.getSkillBook(cm.getJobId()), false);
+        // Once per rebirth, counted server-side (NPCConversationManager.claimRebirthSp).
+        var claim = cm.claimRebirthSp();
+        if (claim < 0) {
+            cm.sendOk("You have not rebirthed yet, so I have no SP to give you. Come back after your first rebirth!");
+        } else if (claim == 0) {
+            cm.sendOk("You have already taken your 100 SP for each of your rebirths. Rebirth again and I will have more for you.");
+        } else {
+            cm.sendOk("Here you go, #b" + claim + " SP#k. You can take it once for every rebirth.");
+        }
         cm.dispose();
 
     // ==== OPTION: MACRO SETUP ====

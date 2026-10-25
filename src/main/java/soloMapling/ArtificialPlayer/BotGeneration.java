@@ -317,10 +317,25 @@ public class BotGeneration {
         if (fakechar.getMap() != null) fakechar.getMap().removePlayer(fakechar);
         removeFromChannels(fakechar);
         world().getPlayerStorage().removePlayer(fakechar.getId());
+        leaveMapWarpedIntoMeanwhile(fakechar);
         CharacterStorage.removeActiveBot(fakechar.getId());//
         BotBuffDriver.clearBot(fakechar.getId());   // Phase 3a: release buff recast timers
         BotBuffRequestHandler.clearBot(fakechar.getId());   // release chat-buff-request cooldown
         BotPets.forget(fakechar.getId());   // 1.5.0 rc4: its pet's follow state (the pet left the map with it)
+    }
+
+    /**
+     * 1.5.2 (ticket 80, after nutnnut/Cosmic ae5753df0): a warp on another thread (the bot's tick) can land the bot in
+     * a new map between its removal from the old one and its removal from the channel. Once the channel no longer
+     * holds the bot, a warp that has not added it yet unwinds itself (Character.changeMapInternal); one that already
+     * did is caught here, so the bot never stays behind in a map as a ghost.
+     */
+    static void leaveMapWarpedIntoMeanwhile(Character fakechar) {
+        MapleMap now = fakechar.getMap();
+        // the same map too: a warp can re-add the bot to the map it was just taken out of (a respawn, a same-map warp)
+        if (now != null && now.getCharacterById(fakechar.getId()) == fakechar) {
+            now.removePlayer(fakechar);
+        }
     }
 
     /** Ticket 57: the shared client of the map's channel (channel 1 when the map has none). */

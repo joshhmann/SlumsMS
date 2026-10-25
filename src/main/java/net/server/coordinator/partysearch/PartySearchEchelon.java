@@ -27,22 +27,20 @@ import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
 import java.util.concurrent.locks.Lock;
-import java.util.concurrent.locks.ReadWriteLock;
-import java.util.concurrent.locks.ReentrantReadWriteLock;
+import java.util.concurrent.locks.ReentrantLock;
 
 /**
  * @author Ronan
  */
 public class PartySearchEchelon {
-    private final Lock psRLock;
-    private final Lock psWLock;
+    // 1.5.2 (nutnnut/Cosmic dfe03664a): every method changes the map, so one exclusive lock. attach/detach used to
+    // hold the shared READ lock of a ReadWriteLock while changing this HashMap, and concurrent party-hopping bots
+    // corrupted it (lost entries, a negative size and "Illegal Capacity: -1" in exportEchelon).
+    private final Lock psWLock = new ReentrantLock(true);
 
     private final Map<Integer, WeakReference<Character>> echelon = new HashMap<>(20);
 
     public PartySearchEchelon() {
-        ReadWriteLock partySearchLock = new ReentrantReadWriteLock(true);
-        this.psRLock = partySearchLock.readLock();
-        this.psWLock = partySearchLock.writeLock();
     }
 
     public List<Character> exportEchelon() {
@@ -65,20 +63,20 @@ public class PartySearchEchelon {
     }
 
     public void attachPlayer(Character chr) {
-        psRLock.lock();
+        psWLock.lock();
         try {
             echelon.put(chr.getId(), new WeakReference<>(chr));
         } finally {
-            psRLock.unlock();
+            psWLock.unlock();
         }
     }
 
     public boolean detachPlayer(Character chr) {
-        psRLock.lock();
+        psWLock.lock();
         try {
             return echelon.remove(chr.getId()) != null;
         } finally {
-            psRLock.unlock();
+            psWLock.unlock();
         }
     }
 

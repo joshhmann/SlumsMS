@@ -17,13 +17,12 @@
 
     You should have received a copy of the GNU Affero General Public License
     along with this program.  If not, see <http://www.gnu.org/licenses/>.
-*/
-/* The Forgotten Temple Manager
+/* Lotus, The Trial of Earth 65 (2491006): MapleRoot's Lotus expedition recruiter.
  *
- * Deep Place of Temple - Forgotten Twilight (270050000)
- * Vs Von Leon Recruiter NPC
- *
- * @author Ronan
+ * 1.5.2: rewritten on the Papulatus recruiter (2041024). MapleRoot's version fetched the NormalLotusBattle event
+ * on every click, and that event does not exist (only HardLotusBattle does), so the first menu threw; its own
+ * state machine also never loaded the expedition and sent "Start the fight" back to "create one". Only Hard mode
+ * is offered now.
  */
 
 var status = 0;
@@ -32,39 +31,48 @@ var expedMembers;
 var player;
 var em;
 const ExpeditionType = Java.type('server.expeditions.ExpeditionType');
-var exped = ExpeditionType.NORMALLOTUS;
-var expedName = "The Trial of Earth 65";
+var exped = ExpeditionType.HARDLOTUS;
+var expedName = "Hard Lotus";   // HardLotusBattle names its run by lobby, so late members are told it started
 var expedBoss = "Lotus";
-var expedMap = "The Trial of Earth 65";
+var expedMap = "The Trial of Earth 65 [Hard]";
 
 var list = "What would you like to do?#b\r\n\r\n#L1#View current Expedition members#l\r\n#L2#Start the fight!#l\r\n#L3#Stop the expedition.#l";
-var choice = "I am Lotus would you like to play?#b\r\n\r\n#L1#Fight Normal Lotus#l\r\n#L2#Fight Hard Lotus#l\r\n#L3#Maybe not.#l";
 
 function start() {
-    cm.sendNext("Looking for me?");
+    action(1, 0, 0);
 }
 
 function action(mode, type, selection) {
-    em = cm.getEventManager("NormalLotusBattle");
+
     player = cm.getPlayer();
-    if (mode !== 1) {
-        cm.sendOk("Let's play again sometime...");
+    expedition = cm.getExpedition(exped);
+    em = cm.getEventManager("HardLotusBattle");
+
+    if (mode == -1) {
         cm.dispose();
     } else {
+        if (mode == 0) {
+            cm.dispose();
+            return;
+        }
+
         if (status == 0) {
             if (player.getLevel() < exped.getMinLevel() || player.getLevel() > exped.getMaxLevel()) { //Don't fit requirement, thanks Conrad
                 cm.sendOk("You do not meet the criteria to battle " + expedBoss + "!");
                 cm.dispose();
-            } else if (expedition == null) { //Start an expedition
-                cm.sendSimple("#e#b<Expedition: " + expedName + ">\r\n#k#n" + em.getProperty("party") + "\r\n\r\nWould you like to assemble a to try to take on the trial" + "#k?\r\n#b#L1#Normal Mode#l\r\n#L2#Hard Mode#l\r\n#L3#No, I think I'll wait a bit...#l");
-                status = 8;
+            } else if (em == null) {
+                cm.sendOk("The trial could not be prepared, please report this on the discord.");
+                cm.dispose();
+            } else if (expedition == null) { //Start an expedition (Hard only: there is no NormalLotusBattle event)
+                cm.sendSimple("#e#b<Expedition: " + expedName + ">\r\n#k#n" + em.getProperty("party") + "\r\n\r\nWould you like to assemble a team to take on #r" + expedBoss + "#k?\r\n#b#L1#Lets get this going!#l\r\n\#L2#No, I think I'll wait a bit...#l");
+                status = 1;
             } else if (expedition.isLeader(player)) { //If you're the leader, manage the exped
                 if (expedition.isInProgress()) {
                     cm.sendOk("Your expedition is already in progress, for those who remain battling lets pray for those brave souls.");
                     cm.dispose();
                 } else {
                     cm.sendSimple(list);
-                    status = 3;
+                    status = 2;
                 }
             } else if (expedition.isRegistering()) { //If the expedition is registering
                 if (expedition.contains(player)) { //If you're in it but it hasn't started, be patient
@@ -77,7 +85,7 @@ function action(mode, type, selection) {
             } else if (expedition.isInProgress()) { //Only if the expedition is in progress
                 if (expedition.contains(player)) { //If you're registered, warp you in
                     var eim = em.getInstance(expedName + player.getClient().getChannel());
-                    if (eim.getIntProperty("canJoin") == 1) {
+                    if (eim != null && eim.getIntProperty("canJoin") == 1) {
                         eim.registerPlayer(player);
                     } else {
                         cm.sendOk("Your expedition already started the battle against " + expedBoss + ". Lets pray for those brave souls.");
@@ -89,8 +97,8 @@ function action(mode, type, selection) {
                     cm.dispose();
                 }
             }
-        } else if (status == 4) {
-            if (selection == 1 || selection == 2) {
+        } else if (status == 1) {
+            if (selection == 1) {
                 expedition = cm.getExpedition(exped);
                 if (expedition != null) {
                     cm.sendOk("Someone already taken the initiative to be the leader of the expedition. Try joining them!");
@@ -109,12 +117,12 @@ function action(mode, type, selection) {
 
                 cm.dispose();
 
-            } else if (selection == 3) {
+            } else if (selection == 2) {
                 cm.sendOk("Sure, not everyone's up to challenging " + expedBoss + ".");
                 cm.dispose();
 
             }
-        } else if (status == 3) {
+        } else if (status == 2) {
             if (selection == 1) {
                 if (expedition == null) {
                     cm.sendOk("The expedition could not be loaded.");
@@ -134,7 +142,7 @@ function action(mode, type, selection) {
                     text += "\r\n#b#L" + (i + 1) + "#" + (i + 1) + ". " + expedMembers.get(i).getValue() + "#l\n";
                 }
                 cm.sendSimple(text);
-                status = 7;
+                status = 6;
             } else if (selection == 2) {
                 var min = exped.getMinSize();
 
@@ -155,9 +163,9 @@ function action(mode, type, selection) {
                 cm.dispose();
 
             }
-        } else if (status == 6) {
+        } else if (status == 4) {
             if (em == null) {
-                cm.sendOk("The event could not be initialized, please report this on the discord.");
+                cm.sendOk("The event could not be initialized, please report this on the forum.");
                 cm.dispose();
                 return;
             }
@@ -172,7 +180,7 @@ function action(mode, type, selection) {
 
             cm.dispose();
 
-        } else if (status == 7) {
+        } else if (status == 6) {
             if (selection > 0) {
                 var banned = expedMembers.get(selection - 1);
                 expedition.ban(banned);
@@ -180,26 +188,7 @@ function action(mode, type, selection) {
                 cm.dispose();
             } else {
                 cm.sendSimple(list);
-                status = 3;
-            }
-        } else if (status == 8) {
-            if (selection == 1) {
-                em = cm.getEventManager("NormalLotusBattle");
-                exped = ExpeditionType.NORMALLOTUS;
-                expedition = cm.getExpedition(exped);
-                expedName = "The Trial of Earth 65 [NORMAL]"
-                cm.sendSimple("You're sure?\r\n\r\n #L1#Yes#l\r\n #L2#No#l");
-                status = 4;
-            } else if (selection == 2) {
-                em = cm.getEventManager("HardLotusBattle");
-                exped = ExpeditionType.HARDLOTUS;
-                expedition = cm.getExpedition(exped);
-                expedName = "The Trial of Earth 65 [HARD]";
-                cm.sendOk("As you wish.");
-                status = 4;
-            } else {
-                cm.sendOk("Come back and play with me sometime...");
-                cm.dispose();
+                status = 2;
             }
         }
     }

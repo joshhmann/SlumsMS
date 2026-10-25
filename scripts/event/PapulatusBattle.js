@@ -112,8 +112,19 @@ function getEligibleParty(party) {      //selects, from the given party, the tea
     return Java.to(eligible, Java.type('net.server.world.PartyCharacter[]'));
 }
 
+// Two ways in: the entrance portal (Populatus00) starts a party run, setup(level, lobbyid); the recruiter Tana's
+// helper (2041024) starts an expedition, and EventManager calls an expedition's setup with the channel alone. The
+// recruiter finds a running expedition as "Papulatus<channel>" to let late members in (canJoin), as for Zakum.
+// 1.5.2: the expedition path used to name the instance "Papulatusundefined" and scale the map by the channel number.
 function setup(level, lobbyid) {
-    var eim = em.newInstance("Papulatus" + lobbyid);
+    var eim;
+    if (lobbyid === undefined || lobbyid === null) {
+        eim = em.newInstance("Papulatus" + level);     // expedition: `level` is the channel
+        eim.setProperty("canJoin", 1);
+        level = 1;
+    } else {
+        eim = em.newInstance("Papulatus" + lobbyid);
+    }
     eim.setProperty("level", level);
     eim.setProperty("boss", "0");
 

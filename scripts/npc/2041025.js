@@ -53,7 +53,7 @@ function action(mode, type, selection) {
         let mapId = cm.getMapId();
         let warpToMapId = getWarpToMapId(mapId);
 
-        if (warpToMapId !== 0) {
+        if (status == 0) {
             if (eim === null) {
                 cm.sendYesNo("How did you even get in here without starting the expedition? Do you want to leave?");
             } else if (!eim.isEventCleared()) {
@@ -61,34 +61,20 @@ function action(mode, type, selection) {
             } else {
                 cm.sendYesNo("You guys finally overthrew such darkness!, what a superb feat! Congratulations! Are you sure you want to leave now?");
             }
-        } else {
-            cm.sendYesNo("If you leave now, you'll have to start over. Are you sure you want to leave?");
-        }
-
-        if (status == 1) {
-            if (eim.isEventCleared()){
-            let rewarded = eim.getProperty("rewarded") == "true";
-
-            const players = eim.getPlayers();
-
-            // Add item rewards based on the map or other conditions
-            switch (mapId) {
-                case 220080001: //ZAKUM
-                    if (!rewarded) {
-                        players.forEach((chr, index) => {
-                            const playerInteraction = chr.getAbstractPlayerInteraction();
-                            playerInteraction.gainItem(2000005, 100);
-                        })
-
-                        eim.setProperty("rewarded", "true");
-                    }
-                    break;
+        } else if (status == 1) {
+            // 1.5.2: a null instance (a GM warp, or the run just ended) threw here, and a cleared run never disposed
+            // the talk, so the player could talk to no NPC until they relogged. Only the Papulatus room is known.
+            if (eim !== null && eim.isEventCleared() && mapId == 220080001 && eim.getProperty("rewarded") != "true") {
+                eim.setProperty("rewarded", "true");
+                const players = eim.getPlayers();
+                players.forEach((chr) => {
+                    chr.getAbstractPlayerInteraction().gainItem(2000005, 100);  // Power Elixirs, once per run
+                });
             }
-            
-        }else {
+            cm.warp(warpToMapId !== 0 ? warpToMapId : 220080000);
             cm.dispose();
-        }
-            cm.warp(warpToMapId);
+        } else {
+            cm.dispose();
         }
     }
 }

@@ -16,6 +16,7 @@ import static soloMapling.autoqa.Expects.lacks;
 import static soloMapling.autoqa.Expects.lacksAfter;
 import static soloMapling.autoqa.Expects.lacksBefore;
 import static soloMapling.autoqa.Expects.noEmoji;
+import static soloMapling.autoqa.Expects.noRefusal;
 import static soloMapling.autoqa.Expects.numbersWithin;
 import static soloMapling.autoqa.Expects.probe;
 import static soloMapling.autoqa.Expects.rule;
@@ -433,7 +434,8 @@ public final class AutoQaCatalog {
                         Expects.sayDo(130))
                 .build());
         c.add(Check.auto("t-cv-6", "Rate a reply").notNightly().minutes(3)
-                .step(run("cv-6"), say("{bot} hey hows it going"), waitFor("CONVO SAID ", 25),
+                // 1.5.2 triage: ~3% of replies are "late" (human timing, up to ~55 s); wait for this bot's own line, not 25 s for any
+                .step(run("cv-6"), say("{bot} hey hows it going"), waitFor("CONVO SAID {bot} ", 75),
                         say("!rate bad too formal \"certainly\""), waitFor("CONVO RATE ", 10), say("!rate last"), waitSeconds(3))
                 // rc6 triage: it passed by rating a leftover cv-5 thread line when the staged bot never answered
                 .expect(has("CONVO SAID {bot} "), lacks("CONVO RATE .*thread-"), has("CONVO RATE bad"), has("YELLOW (Bank line #\\d+ (weighs|is blacklisted)|Kept as a (good|bad) example|A scripted line)"))
@@ -628,6 +630,51 @@ public final class AutoQaCatalog {
                 .expect(probe("channelSplit"))
                 .build());
         c.add(Check.manual("t-la-1", "The Tauri launcher's own checklist", "a desktop app with its own page"));
+
+
+        // ── Ticket 69: ordinary v83 features (vb-1..vb-7) ────────────────────────────────────────────────────
+        c.add(Check.auto("t-vb-1", "The Henesys salons actually change your look").minutes(6)
+                .step(run("vb-1"), qaDo("hair"), qaDo("haircolor"), qaDo("face"), qaDo("lens"), qaDo("skin"))
+                .expect(atLeast(5, "VB STYLE (hair|haircolor|face|lens|skin) \\d+ -> \\d+ changed"),
+                        atLeast(5, "VB COUPON \\d+ 1 -> 0"), noRefusal())
+                .build());
+        c.add(Check.auto("t-vb-2", "Delete a character with PIC").minutes(3)
+                .step(run("vb-2"), qaDo("delete"), qaDo("wrongpic"))
+                .expect(has("VB DELETE state=\\d+ state 0 gone=true"),
+                        has("VB DELETE wrongpic answer=.* state 20 stillThere=true"), noRefusal())
+                .build());
+        c.add(Check.auto("t-vb-3", "A Kerning PQ clear rewards and warps the party out").minutes(6)
+                .step(run("vb-3"), qaDo("clear"), qaDo("reward"))
+                .expect(has("VB KPQ instance started"), has("VB KPQ cleared=true"),
+                        has("VB KPQ reward given=true .* map=103000805"), noRefusal())
+                .build());
+        c.add(Check.auto("t-vb-4", "The mount chain from Kenta to the hog").minutes(8)
+                .step(run("vb-4"), qaDo("room"), qaDo("bottle-broke"), qaDo("bottle"), qaDo("perfume"),
+                        qaDo("hog"))
+                .expect(has("VB MOUNT room started=true map=923010000"),
+                        has("VB MOUNT quest6002 canComplete=true state=2 .*item1912000=1 skill1004=[1-9]\\d*"),
+                        has("VB MOUNT bottleRefused canComplete=false"),
+                        has("VB MOUNT bottle canComplete=true .* fee=20000000"),
+                        has("VB MOUNT perfume canComplete=true perfume \\d+ -> \\d+"),
+                        has("VB MOUNT hog map=922200000 .* handler=true perfume \\d+ -> 0 perfumeUsed=1 "
+                                + "mountGained=1 mobGone=true"), noRefusal())
+                .build());
+        c.add(Check.auto("t-vb-5", "Buy and sell at a shop and use a Cash Shop EXP card").minutes(5)
+                .step(run("vb-5"), qaDo("buy"), qaDo("sell"), qaDo("expcard"))
+                .expect(has("VB SHOP buy item=\\d+ price=\\d+ meso \\d+ -> \\d+ spent=[1-9]\\d* owned 0 -> 1"),
+                        has("VB SHOP sell item=\\d+ meso \\d+ -> \\d+ gained=[1-9]\\d* owned 1 -> 0"),
+                        has("VB CASH card=5211048 given=true rate 1 -> [2-9]"), noRefusal())
+                .build());
+        c.add(Check.auto("t-vb-6", "Advance your job and spend a skill point").minutes(4)
+                .step(run("vb-6"), qaDo("advance"), qaDo("spend"))
+                .expect(has("VB JOB advance 100 -> 110"), has("VB JOB sp spend .* level 0 -> 1"), noRefusal())
+                .build());
+        c.add(Check.auto("t-vb-7", "Storage, Duey and a trade between two players").minutes(6)
+                .step(run("vb-7"), qaDo("storage"), qaDo("duey"), qaDo("trade"))
+                .expect(has("VB STORAGE stored 4000000 bag 5 -> 4 store \\d+ -> \\d+"),
+                        has("VB STORAGE tookOut bagDelta=0"), has("VB DUEY claimed recipientDelta=1"),
+                        has("VB TRADE offered=true itemDelta=1 mesoDelta=5000"), noRefusal())
+                .build());
 
         return List.copyOf(c);
     }

@@ -51,7 +51,9 @@ function action(mode, type, selection) {
         }
 
         if (status == 1) {
-            if (eim.isEventCleared()) {
+            // 1.5.2: a null instance threw here (the "how did you get in here?" way out), and a cleared run never
+            // disposed the talk, so the player could talk to no NPC until they relogged.
+            if (eim !== null && eim.isEventCleared()) {
                 let rewarded = eim.getProperty("rewarded") == "true";
 
                 const players = eim.getPlayers();
@@ -467,10 +469,9 @@ function action(mode, type, selection) {
                         break;
                 }
 
-            } else {
-                cm.dispose();
             }
-            cm.warp(warpToMapId);
+            cm.warp(warpToMapId !== 0 ? warpToMapId : cm.getPlayer().getMap().getReturnMapId());
+            cm.dispose();
         }
     }
 }

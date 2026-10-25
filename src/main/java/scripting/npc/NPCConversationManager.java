@@ -218,7 +218,19 @@ public class NPCConversationManager extends AbstractPlayerInteraction {
     }
 
     public void sendGetNumber(String text, int def, int min, int max) {
+        numberMin = Math.min(min, max);
+        numberMax = Math.max(min, max);
         getClient().sendPacket(PacketCreator.getNPCTalkNum(npc, text, def, min, max));
+    }
+
+    // The bounds of the last number box. The client enforces them, but its reply is just an int: NPCMoreTalkHandler
+    // keeps a forged answer inside them (1.5.2: memory.js built a board of 2^31 cards from one).
+    private int numberMin = Integer.MIN_VALUE;
+    private int numberMax = Integer.MAX_VALUE;
+
+    /** The answer to the last number box, kept inside the bounds the script asked for. */
+    public int boundNumber(int answer) {
+        return Math.max(numberMin, Math.min(numberMax, answer));
     }
 
     public void sendGetText(String text) {
@@ -297,22 +309,93 @@ public class NPCConversationManager extends AbstractPlayerInteraction {
         getPlayer().getMap().broadcastMessage(PacketCreator.environmentChange(effect, 3));
     }
 
-    public void setHair(int hair) {
+    /**
+     * Gold Compass (2084000): true when the skill belongs to the character's own job line or to the line of a job from
+     * a previous rebirth. The old script sold every class's skills.
+     */
+    public boolean isSkillOnOwnLine(int skillId) {
+        java.util.Set<Integer> lines = new java.util.HashSet<>(constants.game.SkillLines.jobsOnLine(getPlayer().getJob().getId()));
+        try {
+            com.fasterxml.jackson.databind.JsonNode reborn = new com.fasterxml.jackson.databind.ObjectMapper()
+                    .readTree(getPlayer().getAllRebornDataCerezeth());
+            for (com.fasterxml.jackson.databind.JsonNode row : reborn) {
+                lines.addAll(constants.game.SkillLines.jobsOnLine(row.path("job").asInt(-1)));
+            }
+        } catch (Exception e) { // rebirth system off or unreadable data: the own line still applies
+        }
+        return constants.game.SkillLines.isOnLine(skillId, lines);
+    }
+
+    /** Gives the master levels the Leafre instructors give for a 4th job (nothing for other jobs). */
+    public void teachFourthJobMasteries(int jobId) {
+        for (int skillId : constants.game.FourthJobMasteries.forJob(jobId)) {
+            teachSkill(skillId, (byte) 0, (byte) 10, -1);
+        }
+    }
+
+    /**
+     * Quest record that counts the rebirth SP grants a character has taken from the rebirth helper (9977778). It is no
+     * quest in Quest.wz; the progress string lives in questprogress like any other, so it survives relog.
+     */
+    public static final int REBIRTH_SP_CLAIM_QUEST = 32001;
+    public static final int REBIRTH_SP_GRANT = 100;
+
+    /**
+     * 1.5.2: the rebirth helper's "Get 100 SP" option granted 100 SP every time. A character may take it once for each
+     * rebirth. Returns the SP granted, 0 when every rebirth is already claimed, -1 when the character has not rebirthed.
+     */
+    public int claimRebirthSp() {
+        Character chr = getPlayer();
+        int rebirths = chr.getReborns();
+        if (rebirths <= 0) {
+            return -1;
+        }
+        int claimed = getQuestProgressInt(REBIRTH_SP_CLAIM_QUEST);
+        if (claimed >= rebirths) {
+            return 0;
+        }
+        setQuestProgress(REBIRTH_SP_CLAIM_QUEST, claimed + 1);
+        chr.gainSp(REBIRTH_SP_GRANT, GameConstants.getSkillBook(chr.getJob().getId()), false);
+        return REBIRTH_SP_GRANT;
+    }
+
+    /**
+     * 1.5.2: the Cotton Stylist (STYLIST.js) is open to everyone and passes the chosen id straight to these setters, so
+     * they check it against the real catalog (a named hair/face in String.wz, colour variants through their base style)
+     * or the skin enum. A forged selection is refused and nothing changes. Returns whether the look was applied.
+     */
+    public boolean setHair(int hair) {
+        if (!ItemConstants.isHair(hair) || getCosmeticItem(hair) == -1) {
+            log.warn("Refused an invalid hair id {} for {}", hair, getPlayer().getName());
+            return false;
+        }
         getPlayer().setHair(hair);
         getPlayer().updateSingleStat(Stat.HAIR, hair);
         getPlayer().equipChanged();
+        return true;
     }
 
-    public void setFace(int face) {
+    public boolean setFace(int face) {
+        if (!ItemConstants.isFace(face) || getCosmeticItem(face) == -1) {
+            log.warn("Refused an invalid face id {} for {}", face, getPlayer().getName());
+            return false;
+        }
         getPlayer().setFace(face);
         getPlayer().updateSingleStat(Stat.FACE, face);
         getPlayer().equipChanged();
+        return true;
     }
 
-    public void setSkin(int color) {
-        getPlayer().setSkinColor(SkinColor.getById(color));
+    public boolean setSkin(int color) {
+        SkinColor skin = SkinColor.getById(color);
+        if (skin == null) {
+            log.warn("Refused an invalid skin id {} for {}", color, getPlayer().getName());
+            return false;
+        }
+        getPlayer().setSkinColor(skin);
         getPlayer().updateSingleStat(Stat.SKIN, color);
         getPlayer().equipChanged();
+        return true;
     }
 
     public int itemQuantity(int itemid) {

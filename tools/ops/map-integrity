@@ -1,0 +1,270 @@
+#!/usr/bin/env python3
+"""Map data integrity checker for SlumsMS (ticket-152 maps sweep).
+
+Reads the extracted WZ XML the server itself loads and reports every place the data points at something that is not
+there:
+
+  * map -> map:  portals whose target map does not exist, portals whose target map exists but has no portal with the
+    name the source portal asks for ("tn"), and info/link targets that do not exist;
+  * map -> life: mobs and NPCs placed in a map that have no Mob.wz / Npc.wz entry (the server logs "failed to load"
+    and quietly drops them);
+  * map -> reactor: reactors placed in a map that have no Reactor.wz entry;
+  * map -> text: maps with no String.wz name (players see a blank map name / the client shows a raw id);
+  * map -> map: info/returnMap and info/forcedReturn pointing at a map that does not exist (the client then falls
+    back to 0 and the player ends up in the void or in the wrong town). 999999999 (MapId.NONE), 0 and negative
+    values mean "no return map" and are ignored;
+  * map -> map, informational: portals whose tm is negative (the dojo's hidden exits) point at no map at all. They
+    are listed apart and do not fail the run.
+
+Usage:
+    tools/ops/map-integrity [--wz DIR] [--json] [--map ID[,ID...]] [--limit N] [--quiet]
+
+Exit code is 1 when any real issue was found, 0 when the data is clean, so it can gate a deploy.
+"""
+import argparse
+import json
+import os
+import re
+import sys
+import xml.etree.ElementTree as ET
+from collections import Counter, defaultdict
+
+# The client uses 999999999 as "this portal has no map target" (town portals, script portals, inner-map warps).
+NO_TARGET = 999999999
+
+
+def children(elem, name):
+    return [c for c in elem if c.get("name") == name]
+
+
+def int_of(elem, name, default=0):
+    for c in elem:
+        if c.tag == "int" and c.get("name") == name:
+            try:
+                return int(c.get("value"))
+            except (TypeError, ValueError):
+                return default
+    return default
+
+
+def str_of(elem, name, default=""):
+    for c in elem:
+        if c.tag == "string" and c.get("name") == name:
+            return c.get("value") or ""
+    return default
+
+
+class Data:
+    """Indexes built from the extracted WZ XML."""
+
+    def __init__(self, wz):
+        self.wz = wz
+        self.map_files = {}          # mapid -> path
+        self.mob_ids = self._ids(os.path.join(wz, "Mob.wz"))
+        self.npc_ids = self._ids(os.path.join(wz, "Npc.wz"))
+        self.reactor_ids = self._ids(os.path.join(wz, "Reactor.wz"))
+        self.map_names = self._map_names(os.path.join(wz, "String.wz", "Map.img.xml"))
+        self.map_dir = os.path.join(wz, "Map.wz", "Map")
+        for d in sorted(os.listdir(self.map_dir)):
+            if not d.startswith("Map"):
+                continue
+            for f in os.listdir(os.path.join(self.map_dir, d)):
+                m = re.fullmatch(r"(\d+)\.img\.xml", f)
+                if m:
+                    self.map_files[int(m.group(1))] = os.path.join(self.map_dir, d, f)
+
+    @staticmethod
+    def _ids(path):
+        ids = set()
+        if not os.path.isdir(path):
+            return ids
+        for root, _dirs, files in os.walk(path):
+            for f in files:
+                m = re.fullmatch(r"(\d+)\.img\.xml", f)
+                if m:
+                    ids.add(int(m.group(1)))
+                elif f.endswith(".img.xml") and f[:-len(".img.xml")].isdigit():
+                    ids.add(int(f[:-len(".img.xml")]))
+        return ids
+
+    @staticmethod
+    def _map_names(path):
+        names = {}
+        if not os.path.exists(path):
+            return names
+        root = ET.parse(path).getroot()
+        for group in root:
+            for entry in group:
+                if not (entry.get("name") or "").isdigit():
+                    continue
+                name = str_of(entry, "mapName")
+                if name:
+                    names[int(entry.get("name"))] = name
+        return names
+
+    def map(self, mapid):
+        path = self.map_files.get(mapid)
+        if not path:
+            return None
+        return ET.parse(path).getroot()
+
+
+def audit(data, wanted=None, limit=25):
+    issues = {
+        "portalTargetMissing": [],
+        "portalNameMissing": [],
+        "portalInertTarget": [],  # tm negative: not a map id, the portal goes nowhere (not an error, reported apart)
+        "linkMissing": [],
+        "mobMissing": [],
+        "npcMissing": [],
+        "reactorMissing": [],
+        "returnMapMissing": [],
+        "forcedReturnMissing": [],
+        "noName": [],
+    }
+    scanned = 0
+    for mapid in sorted(data.map_files):
+        if wanted and mapid not in wanted:
+            continue
+        root = data.map(mapid)
+        if root is None:
+            continue
+        scanned += 1
+
+        info = children(root, "info")
+        info = info[0] if info else None
+        if info is not None:
+            link = str_of(info, "link")
+            if link and int(link) not in data.map_files:
+                issues["linkMissing"].append((mapid, int(link)))
+            for field in ("returnMap", "forcedReturn"):
+                target = int_of(info, field)
+                # 999999999 is MapId.NONE ("no return map") and 2896 maps use it; a negative or zero field is the same.
+                if target > 0 and target != NO_TARGET and target not in data.map_files:
+                    issues[field + "Missing"].append((mapid, target))
+
+        if mapid not in data.map_names:
+            issues["noName"].append((mapid,))
+
+        portals = children(root, "portal")
+        if portals:
+            for portal in portals[0]:
+                tm = int_of(portal, "tm", NO_TARGET)
+                tn = str_of(portal, "tn")
+                pn = str_of(portal, "pn")
+                pt = int_of(portal, "pt", 0)
+                if tm < 0:  # the dojo hidden exits use tm -1 and reach a same-map script portal by name
+                    issues["portalInertTarget"].append((mapid, pn, pt, tm, tn))
+                    continue
+                if tm != NO_TARGET and tm not in data.map_files:
+                    issues["portalTargetMissing"].append((mapid, pn, pt, tm, tn))
+                    continue
+                if tm == NO_TARGET or not tn:
+                    continue
+                target_root = data.map(tm)
+                if target_root is None:
+                    continue
+                target_portals = children(target_root, "portal")
+                names = {str_of(p, "pn") for p in (target_portals[0] if target_portals else [])}
+                if tn not in names:
+                    issues["portalNameMissing"].append((mapid, pn, pt, tm, tn))
+
+        life = children(root, "life")
+        if life:
+            for entry in life[0]:
+                kind = str_of(entry, "type")
+                raw = str_of(entry, "id")
+                if not raw.isdigit():
+                    continue
+                life_id = int(raw)
+                if kind == "m" and life_id not in data.mob_ids:
+                    issues["mobMissing"].append((mapid, life_id))
+                elif kind == "n" and life_id not in data.npc_ids:
+                    issues["npcMissing"].append((mapid, life_id))
+
+        reactors = children(root, "reactor")
+        if reactors:
+            for entry in reactors[0]:
+                raw = str_of(entry, "id")
+                if raw.isdigit() and int(raw) not in data.reactor_ids:
+                    issues["reactorMissing"].append((mapid, int(raw), str_of(entry, "name")))
+
+    counts = {k: len(v) for k, v in issues.items()}
+    summary = {"mapsScanned": scanned, "counts": counts}
+
+    # Worst cases: which maps pile up the most problems.
+    per_map = Counter()
+    for kind, rows in issues.items():
+        if kind == "portalInertTarget":  # not a data error, do not inflate a map's problem count with it
+            continue
+        for row in rows:
+            per_map[row[0]] += 1
+    summary["worstMaps"] = [
+        {"map": m, "name": data.map_names.get(m, ""), "issues": n} for m, n in per_map.most_common(limit)
+    ]
+
+    # Missing mobs/NPCs/reactors that the most maps ask for: usually a whole family that was never extracted.
+    for kind in ("mobMissing", "npcMissing", "reactorMissing"):
+        freq = Counter(row[1] for row in issues[kind])
+        summary[kind + "Top"] = [{"id": i, "maps": n} for i, n in freq.most_common(limit)]
+
+    summary["issues"] = {k: v[:limit * 4] for k, v in issues.items()}
+    return summary
+
+
+def main():
+    ap = argparse.ArgumentParser(description="Check Map.wz/String.wz data for dangling references.")
+    ap.add_argument("--wz", default=os.environ.get("WZ_PATH", "wz"), help="extracted WZ directory (default: wz)")
+    ap.add_argument("--json", action="store_true", help="print the full report as JSON")
+    ap.add_argument("--map", default="", help="only these map ids, comma separated")
+    ap.add_argument("--limit", type=int, default=25, help="list length for the text report")
+    ap.add_argument("--quiet", action="store_true", help="counts only")
+    args = ap.parse_args()
+
+    if not os.path.isdir(os.path.join(args.wz, "Map.wz")):
+        sys.exit("no Map.wz under %s (pass --wz)" % args.wz)
+
+    wanted = {int(x) for x in args.map.split(",") if x.strip()} if args.map else None
+    report = audit(Data(args.wz), wanted, args.limit)
+
+    if args.json:
+        print(json.dumps(report, indent=2, sort_keys=True))
+    else:
+        print("maps scanned: %d" % report["mapsScanned"])
+        labels = {
+            "portalTargetMissing": "portals to a map that does not exist",
+            "portalNameMissing": "portals to a map that has no such portal name",
+            "portalInertTarget": "portals with a negative tm (inert, not a map id)",
+            "linkMissing": "info/link to a map that does not exist",
+            "mobMissing": "mobs placed with no Mob.wz entry",
+            "npcMissing": "NPCs placed with no Npc.wz entry",
+            "reactorMissing": "reactors placed with no Reactor.wz entry",
+            "returnMapMissing": "returnMap pointing nowhere",
+            "forcedReturnMissing": "forcedReturn pointing nowhere",
+            "noName": "maps with no String.wz name",
+        }
+        for kind, label in labels.items():
+            print("  %-52s %6d" % (label, report["counts"][kind]))
+        if not args.quiet:
+            for kind, label in labels.items():
+                rows = report["issues"].get(kind) or []
+                if not rows:
+                    continue
+                print("\n%s (%d):" % (label, report["counts"][kind]))
+                for row in rows:
+                    print("   ", " ".join(str(x) for x in row))
+            print("\nworst maps:")
+            for w in report["worstMaps"]:
+                print("    %d %-40s %d issues" % (w["map"], w["name"], w["issues"]))
+            for kind in ("mobMissing", "npcMissing", "reactorMissing"):
+                top = report.get(kind + "Top") or []
+                if top:
+                    print("%s, most wanted ids:" % kind)
+                    for t in top:
+                        print("    %d used by %d maps" % (t["id"], t["maps"]))
+
+    return 1 if any(n for kind, n in report["counts"].items() if kind != "portalInertTarget") else 0
+
+
+if __name__ == "__main__":
+    sys.exit(main())

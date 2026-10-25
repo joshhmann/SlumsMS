@@ -77,6 +77,7 @@ public final class QaScenarios {
         List<QaScenario> all = new ArrayList<>(core());
         all.addAll(CosmeticScenarios.all()); // 1.5.1 salon data/name lookup
         all.addAll(CouponScenarios.all());   // 1.5.1 coupon hours readable: co-1
+        all.addAll(GodlyDropScenarios.all()); // 1.5.2 godly drops: gl-1
         all.addAll(GuildScenarios.all());     // 1.5.0 bot guilds: gu-1 .. gu-8
         all.addAll(CombatScenarios.all());    // 1.5.0 rc3: bots fight like people (cb-1 .. cb-4), spread out (sp-1)
         all.addAll(QaTradeScenarios.all());   // 1.5.0 rc3 economy lane: tr-1..tr-7
@@ -84,6 +85,8 @@ public final class QaScenarios {
         all.addAll(DramaScenarios.all());     // 1.5.0 bot drama: rm-1..rm-4, rv-1..rv-4, gw-1..gw-4
         all.addAll(ConvoScenarios.all());     // ticket 59: natural conversations cv-1..cv-7
         all.addAll(PersonalSpaceScenarios.all()); // rc6: town bots never stand pixel to pixel (ps-1)
+        all.addAll(V83Scenarios.all()); // ticket 69: ordinary v83 features a real player uses (vb-1..vb-7)
+        all.addAll(PqScenarios.all());            // ticket 75: Amoria PQ for two players (pq-1); OPQ bots in the lobby (pq-2)
         return List.copyOf(all);
     }
 

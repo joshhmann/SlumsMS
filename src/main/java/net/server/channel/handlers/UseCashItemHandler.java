@@ -54,6 +54,7 @@ import tools.Pair;
 import java.util.ArrayList;
 import java.util.LinkedList;
 import java.util.List;
+import java.util.Map;
 
 import static java.util.concurrent.TimeUnit.DAYS;
 import static java.util.concurrent.TimeUnit.SECONDS;
@@ -111,14 +112,13 @@ public final class UseCashItemHandler extends AbstractPacketHandler {
         if (itemType == 504) { // VIP Teleport Rock
             String error1 = "Either the player could not be found or you were trying to teleport to an illegal location.";
             boolean vip = p.readByte() == 1 && itemId / 1000 >= 5041; // Check if the rock is a VIP rock
-            remove(c, position, itemId); // Remove the teleport rock from inventory
             boolean success = false;
 
             if (!vip) { // Non-VIP teleportation
                 int mapId = p.readInt();
                 if (itemId / 1000 >= 5041 || mapId / 100000000 == player.getMapId() / 100000000) { // Check VIP or same continent
                     MapleMap targetMap = c.getChannelServer().getMapFactory().getMap(mapId);
-                    if (!FieldLimit.CANNOTVIPROCK.check(targetMap.getFieldLimit()) &&
+                    if (targetMap != null && !FieldLimit.CANNOTVIPROCK.check(targetMap.getFieldLimit()) &&
                             (targetMap.getForcedReturnId() == MapId.NONE || MapId.isMapleIsland(mapId))) {
                         player.forceChangeMap(targetMap, targetMap.getRandomPlayerSpawnpoint());
                         success = true;
@@ -132,10 +132,10 @@ public final class UseCashItemHandler extends AbstractPacketHandler {
                 player.dropMessage(1, "Teleporting to other players is not allowed.");
             }
 
-            if (!success) {
-                InventoryManipulator.addById(c, itemId, (short) 1); // Return the teleport rock to inventory if unsuccessful
-                c.sendPacket(PacketCreator.enableActions());
+            if (success) {
+                remove(c, position, itemId);
             }
+            c.sendPacket(PacketCreator.enableActions());
         }
         else if (itemType == 505) { // AP/SP reset
             if (!player.isAlive()) {
@@ -146,15 +146,21 @@ public final class UseCashItemHandler extends AbstractPacketHandler {
             if (itemId > ItemId.AP_RESET) {
                 int SPTo = p.readInt();
                 if (!AssignSPProcessor.canSPAssign(c, SPTo)) {  // exploit found thanks to Arnah
+                    c.sendPacket(PacketCreator.enableActions());
                     return;
                 }
 
                 int SPFrom = p.readInt();
                 Skill skillSPTo = SkillFactory.getSkill(SPTo);
                 Skill skillSPFrom = SkillFactory.getSkill(SPFrom);
+                if (skillSPTo == null || skillSPFrom == null) {
+                    c.sendPacket(PacketCreator.enableActions());
+                    return;
+                }
                 byte curLevel = player.getSkillLevel(skillSPTo);
                 byte curLevelSPFrom = player.getSkillLevel(skillSPFrom);
-                if ((curLevel < skillSPTo.getMaxLevel()) && curLevelSPFrom > 0) {
+                int maxLevelTo = skillSPTo.isFourthJob() ? player.getMasterLevel(skillSPTo) : skillSPTo.getMaxLevel();
+                if ((curLevel < maxLevelTo) && curLevelSPFrom > 0) {
                     player.changeSkillLevel(skillSPFrom, (byte) (curLevelSPFrom - 1), player.getMasterLevel(skillSPFrom), -1);
                     player.changeSkillLevel(skillSPTo, (byte) (curLevel + 1), player.getMasterLevel(skillSPTo), -1);
 
@@ -188,6 +194,10 @@ public final class UseCashItemHandler extends AbstractPacketHandler {
                             player.sendMacros();
                         }
                     }
+                    remove(c, position, itemId);
+                } else {
+                    c.sendPacket(PacketCreator.enableActions());
+                    return;
                 }
             } else {
                 int APTo = p.readInt();
@@ -196,16 +206,24 @@ public final class UseCashItemHandler extends AbstractPacketHandler {
                 if (!AssignAPProcessor.APResetAction(c, APFrom, APTo)) {
                     return;
                 }
+                remove(c, position, itemId);
             }
-            remove(c, position, itemId);
         } else if (itemType == 506) {
             Item eq = null;
             if (itemId == 5060000) { // Item tag.
                 int equipSlot = p.readShort();
                 if (equipSlot == 0) {
+                    c.sendPacket(PacketCreator.enableActions());
                     return;
                 }
                 eq = player.getInventory(InventoryType.EQUIPPED).getItem((short) equipSlot);
+                if (eq == null && equipSlot > 0) {
+                    eq = player.getInventory(InventoryType.EQUIP).getItem((short) equipSlot);
+                }
+                if (eq == null) {
+                    c.sendPacket(PacketCreator.enableActions());
+                    return;
+                }
                 eq.setOwner(player.getName());
             } else if (itemId == 5060001 || itemId == 5061000 || itemId == 5061001 || itemId == 5061002 || itemId == 5061003) { // Sealing lock
                 InventoryType type = InventoryType.getByType((byte) p.readInt());
@@ -530,7 +548,8 @@ public final class UseCashItemHandler extends AbstractPacketHandler {
             int itemSlot = p.readInt();
             p.readInt();
             final Equip equip = (Equip) player.getInventory(InventoryType.EQUIP).getItem((short) itemSlot);
-            if (equip.getVicious() >= 2 || player.getInventory(InventoryType.CASH).findById(ItemId.VICIOUS_HAMMER) == null) {
+            if (equip == null || equip.getVicious() >= 2 || player.getInventory(InventoryType.CASH).findById(ItemId.VICIOUS_HAMMER) == null) {
+                c.sendPacket(PacketCreator.enableActions());
                 return;
             }
             equip.setVicious(equip.getVicious() + 1);
@@ -563,9 +582,11 @@ public final class UseCashItemHandler extends AbstractPacketHandler {
                 return;
             }
 
-            //should have a check here against PE hacks
-            if (itemId / 1000000 != 5) {
-                itemId = 0;
+            final Map<String, Integer> scrollStats = ii.getEquipStats(uitem.getItemId());
+            final Integer scrollSuccess = scrollStats == null ? null : scrollStats.get("success");
+            if (!vegaAccepts(itemId, uitem.getItemId(), scrollSuccess)) {
+                c.sendPacket(PacketCreator.enableActions());
+                return;
             }
 
             player.toggleBlockCashShop();
@@ -573,7 +594,11 @@ public final class UseCashItemHandler extends AbstractPacketHandler {
             final int curlevel = toScroll.getLevel();
             c.sendPacket(PacketCreator.sendVegaScroll(0x40));
 
-            final Equip scrolled = (Equip) ii.scrollEquipWithId(toScroll);
+            // MapleRoot's level-based enhancement; null is a "boom" on a superior item. It used to throw here,
+            // leaving the cash shop blocked and nothing used up, so a boom was a free retry. Until the owner
+            // decides whether a boom should destroy the item, it counts as a failure that keeps the item.
+            final Equip enhanced = (Equip) ii.scrollEquipWithId(toScroll);
+            final Equip scrolled = enhanced != null ? enhanced : toScroll;
             c.sendPacket(PacketCreator.sendVegaScroll(scrolled.getLevel() > curlevel ? 0x41 : 0x43));
             //opcodes 0x42, 0x44: "this item cannot be used"; 0x39, 0x45: crashes
 
@@ -605,6 +630,22 @@ public final class UseCashItemHandler extends AbstractPacketHandler {
             log.warn("NEW CASH ITEM TYPE: {}, packet: {}", itemType, p);
             c.sendPacket(PacketCreator.enableActions());
         }
+    }
+
+    /**
+     * Whether a Vega's Spell may be cast with this USE item. The handler used to consume whatever USE item the
+     * packet named (a potion would do) and enhance the equip anyway. The stock client only offers scrolls whose
+     * success rate matches the spell: 10% scrolls for Vega's Spell(10%), 60% scrolls for Vega's Spell(60%).
+     */
+    static boolean vegaAccepts(int spellId, int useItemId, Integer scrollSuccess) {
+        if (useItemId / 10000 != 204 || scrollSuccess == null) {
+            return false;
+        }
+        return switch (spellId) {
+            case ItemId.VEGAS_SPELL_10 -> scrollSuccess == 10;
+            case ItemId.VEGAS_SPELL_60 -> scrollSuccess == 60;
+            default -> false;
+        };
     }
 
     /** {@link #createWithMapleLife} result: Maple Life B with no character slot left to add. */

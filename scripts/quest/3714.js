@@ -43,13 +43,10 @@ function start(mode, type, selection) {
             }
 
 
-            qm.sendNext("You have brought a #b#t4001094##k, thank you for retrieving one more of my kin to the nest! Please have this...\r\n\r\n....... (bleuuhnuhgh) (blahrgngnhhng) ...\r\n\r\nehh, #b#t2041200##k as a token of my kin's gratitude. And do a favor for us, please, get that thing out of here...");
+            // SlumsMS 1.5.2: the repack took the Dragon Stone (2041200) reward out of this quest but left the text
+            // promising it; the dialogue now only promises what the quest gives (the egg back to the nest, 42,000 EXP).
+            qm.sendNext("You have brought a #b#t4001094##k, thank you for retrieving one more of my kin to the nest! The young one is already stirring... Please accept our gratitude, and the experience you gained bringing it here.");
         } else if (status == 1) {
-            if (!qm.canHold(4001094, 1)) {
-                qm.sendOk("Please make a room on your USE inventory to receive the reward.");
-                qm.dispose();
-                return;
-            }
 
             qm.forceCompleteQuest();
             qm.gainItem(4001094, -1);

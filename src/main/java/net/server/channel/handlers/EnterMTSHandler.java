@@ -82,9 +82,52 @@ public final class EnterMTSHandler extends AbstractPacketHandler {
             return;
         }
 
+        // 1.5.2 handler sweep: the repack's FM button dropped the stock MTS button's map check, so it warped a player
+        // out of any map at all: out of jail, out of a boss or party-quest map that is not an event instance, out of
+        // Monster Carnival. It now leaves only where changing channel or entering the Cash Shop is allowed.
+        String refusal = fmButtonRefusal(mc.getMapId(), mc.getMap().getFieldLimit());
+        if (refusal != null) {
+            c.sendPacket(PacketCreator.serverNotice(5, refusal));
+            c.sendPacket(PacketCreator.enableActions());
+            return;
+        }
+        // Each press saves the whole character: a packet-spammed button was a database flood.
+        if (!pressAllowed(mc.getId(), System.currentTimeMillis())) {
+            c.sendPacket(PacketCreator.enableActions());
+            return;
+        }
+
         // Save the location and change the map to FM_ENTRANCE
         mc.saveLocation("FREE_MARKET");
         mc.changeMap(c.getChannelServer().getMapFactory().getMap(MapId.MAPLEROOT_HUB), 0);
         mc.saveCharToDB();
+    }
+
+    /** Least time between two FM-button warps of one character. */
+    static final long PRESS_COOLDOWN_MS = 2_000;
+
+    private static final java.util.Map<Integer, Long> lastPress = new java.util.concurrent.ConcurrentHashMap<>();
+
+    static boolean pressAllowed(int characterId, long now) {
+        Long last = lastPress.get(characterId);
+        if (last != null && now - last < PRESS_COOLDOWN_MS) {
+            return false;
+        }
+        lastPress.put(characterId, now);
+        return true;
+    }
+
+    /** Why the FM button may not warp from this map, or null when it may. */
+    static String fmButtonRefusal(int mapId, int fieldLimit) {
+        if (mapId == MapId.JAIL) {
+            return "You cannot leave the jail this way.";
+        }
+        if (mapId == MapId.MAPLEROOT_HUB) {
+            return "You are already in the Free Market.";
+        }
+        if (FieldLimit.CANNOTMIGRATE.check(fieldLimit)) {
+            return "You can't use the FM button in this map.";
+        }
+        return null;
     }
 }

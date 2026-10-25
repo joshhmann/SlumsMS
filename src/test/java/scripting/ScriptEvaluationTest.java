@@ -19,10 +19,9 @@ public class ScriptEvaluationTest {
     /**
      * NPC scripts that MapleRoot broke and nobody has restored yet. The NPC assertion was commented out in the
      * MapleRoot baseline (Cosmic has it on), which hid them; keep this list short and fix rather than add.
-     * scroll_generator.js (MapleTV's scroll generator, opened from mapleTV.js) has its tier tables cut down to
-     * {@code [[ [4001006]]]}, so {@code jobWeaponRestricted[1][2][1]} throws when the file loads.
+     * (1.5.2: scroll_generator.js, whose tier tables MapleRoot cut, is restored from HeavenMS and off this list.)
      */
-    private static final Set<String> KNOWN_BROKEN_NPC_SCRIPTS = Set.of("npc/scroll_generator.js");
+    private static final Set<String> KNOWN_BROKEN_NPC_SCRIPTS = Set.of();
 
     private AbstractScriptManager scriptManager = new AbstractScriptManager() {};
 

@@ -535,6 +535,13 @@ class BotMovementManager {
             // and now drifted past LEVEL, switch to free sink so we catch up.
             entry.swimVerticalHold = prevVerticalHold > 0 ? 1 : 0;
         }
+
+        // Wall escape (f424904a8, credit NutNNut): physics hit a wall last tick while steering. The dy-based hold
+        // above would pin the bot against it when the target is at or below its level behind the wall: rise.
+        if (entry.swimWallBlocked && entry.swimMoveDir != 0) {
+            entry.swimVerticalHold = -1;
+            entry.swimJumpRequested = false;
+        }
     }
 
     static void tickGrounded(BotMovementState entry, Point targetPos) {
@@ -641,15 +648,23 @@ class BotMovementManager {
         if (stepX == 0) {
             return MoveAction.idle();
         }
-        boolean canWalkStep = BotPhysicsEngine.canWalkGroundStep(entry.bot.getMap(), botPos, stepX);
+        boolean canWalkStep = BotPhysicsEngine.canWalkGroundStep(entry.bot.getMap(), botPos, currentFh, stepX);
         if (!canWalkStep) {
-            boolean blockedByWall = BotPhysicsEngine.isGroundStepBlockedByWall(entry.bot.getMap(), botPos, stepX);
+            boolean blockedByWall = BotPhysicsEngine.isGroundStepBlockedByWall(entry.bot.getMap(), botPos, currentFh, stepX);
             if (!blockedByWall
                     && ((directionalDrop && Integer.signum(stepX) == Integer.signum(entry.navEdge.launchStepX))
                     || BotFallbackMovementManager.shouldWalkOffLedge(entry, botPos, targetPos, stepX))) {
                 // Walk-off drops should keep walking in the authored direction until physics
                 // detects lost ground and transitions into a fall with preserved momentum.
                 return MoveAction.walk(stepX);
+            }
+            // Swim maps skip the ground nav graph (no JUMP/DROP edges), so a standing bot whose step toward the
+            // target is refused - a wall, or the foot of a rock where its floor chain ends - had no authored way off
+            // the platform when SwimNavigator had no route, and idled forever. Launch into the water; tickSwimming
+            // then steers it over the obstacle. (nutnnut/Cosmic f424904a8, credit NutNNut; theirs jumps on walls
+            // only, ours also at a chain end, since our step preview reports a rock's base as lost ground.)
+            if (entry.bot.getMap().isSwim() && entry.jumpCooldownMs <= 0) {
+                return MoveAction.jump(stepX);
             }
             // Wall-blocked nav edges are stale or invalid. Clear them so the next AI tick can
             // replan instead of holding a walk stance into the wall.

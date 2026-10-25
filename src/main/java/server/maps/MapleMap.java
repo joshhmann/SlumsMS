@@ -685,7 +685,7 @@ public class MapleMap {
                     }
                 } else {
                     if (ItemConstants.getInventoryType(de.itemId) == InventoryType.EQUIP) {
-                        idrop = ii.randomizeStats((Equip) ii.getEquipById(de.itemId));
+                        idrop = server.GodlyDrops.mobDropEquip(ii, de.itemId); // 1.5.2: rare godly roll
                     } else {
                         idrop = new Item(de.itemId, (short) 0, (short) (de.Maximum != 1 ? (de.Maximum - de.Minimum > 0 ? Randomizer.nextInt(de.Maximum - de.Minimum) + de.Minimum : 1) : 1));
                     }
@@ -808,7 +808,7 @@ public class MapleMap {
 
                 // Create item drop
                 if (ItemConstants.getInventoryType(de.itemId) == InventoryType.EQUIP) {
-                    idrop = ii.randomizeStats((Equip) ii.getEquipById(de.itemId));
+                    idrop = server.GodlyDrops.mobDropEquip(ii, de.itemId); // 1.5.2: rare godly roll
                 } else {
                     idrop = new Item(de.itemId, (short) 0, (short) quantity);
                 }

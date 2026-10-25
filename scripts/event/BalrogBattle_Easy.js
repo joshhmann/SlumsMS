@@ -256,6 +256,9 @@ function monsterKilled(mob, eim) {
             eim.clearPQ();
 
             eim.dispatchRaiseQuestMobCount(bossMobId, entryMap);
+            // quest 2239 "Balrog and the Seal" counts the quest-only Lord Balrog id, as BalrogBattle.js does; the easy
+            // fight (3+ players) is the one a level-50 quester can actually gather a party for (SlumsMS 1.5.2)
+            eim.dispatchRaiseQuestMobCount(9101003, entryMap);
             //mob.getMap().broadcastBalrogVictory(eim.getLeader().getName());
         } else {
             if (count == 1) {

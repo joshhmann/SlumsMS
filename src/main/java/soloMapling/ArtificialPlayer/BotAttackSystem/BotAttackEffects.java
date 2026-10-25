@@ -294,7 +294,7 @@ public final class BotAttackEffects {
             } else {
                 Item item;
                 if (ItemConstants.getInventoryType(de.itemId) == InventoryType.EQUIP) {
-                    item = ii.randomizeStats((Equip) ii.getEquipById(de.itemId));
+                    item = server.GodlyDrops.mobDropEquip(ii, de.itemId); // 1.5.2: rare godly roll, as for players
                 } else {
                     short qty = (short) (de.Maximum != 1 ? rollAmount(de.Minimum, de.Maximum) : 1);
                     item = new Item(de.itemId, (short) 0, qty);

@@ -11,18 +11,18 @@ import java.awt.Point;
 import java.util.ArrayDeque;
 import java.util.ArrayList;
 import java.util.Collection;
+import java.util.Collections;
 import java.util.Comparator;
 import java.util.Deque;
 import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
+import java.util.WeakHashMap;
 import java.util.concurrent.CopyOnWriteArrayList;
 import java.util.concurrent.ScheduledFuture;
 import java.util.concurrent.TimeUnit;
 
 import static soloMapling.ArtificialPlayer.BotGeneration.warpBotToLocation;
-import static soloMapling.ArtificialPlayer.BotLogic.isNpcPresent;
-import static soloMapling.ArtificialPlayer.BotTypes.OPQ.OPQConstants.CHAMBERLAIN_EAK;
 import static soloMapling.ArtificialPlayer.BotTypes.OPQ.OPQConstants.STAGE_1_COMPLETE_TP;
 import static soloMapling.BotLogger.log;
 
@@ -55,12 +55,11 @@ public class OPQOrchestrator {
     private final OPQSharedContext context = new OPQSharedContext();
     private final List<OPQBot> registeredBots = new CopyOnWriteArrayList<>();
 
-    // Leader tracking: cached on first observation by any bot, refreshed each tick.
-    private volatile int leaderId = -1;
-
-    // Stage 2: sorted box reactor index (oid -> sorted position 0-6, right-to-left).
-    // Built lazily on first Stage 2 assignment. Cleared on reset.
-    private final Map<Integer, Integer> boxSortedIndex = new HashMap<>();
+    // Stage 2: sorted box reactor index per map instance (oid -> sorted position 0-6, right-to-left).
+    // Per instance, not per map id: two parties run two copies of 920010400 with different oids. Built lazily on
+    // first Stage 2 assignment, cleared on reset. Weak keys: every OPQ instance makes its own stage 2 map, and a strong
+    // map kept each one (and everything on it) alive after the instance was disposed until the next reset.
+    private final Map<MapleMap, Map<Integer, Integer>> boxIndexes = Collections.synchronizedMap(new WeakHashMap<>());
 
     private ScheduledFuture<?> tickHandle;
 
@@ -103,23 +102,30 @@ public class OPQOrchestrator {
     }
 
     /**
-     * Bots call this whenever they observe themselves in a party so the
-     * orchestrator can lock onto the leader id. Cheap; safe to call every tick.
+     * Bots call this when they find themselves in a party. Cheap; safe to call every tick.
+     * <p>
+     * There is deliberately no global leader id here any more: two parties can be running two OPQ instances at the
+     * same time, and a single locked id warped the second party's bots into the first party's map.
      */
-    public void noteLeaderFromBot(OPQBot bot) {
+    public void notePartyJoined(OPQBot bot) {
         if (bot.getChr().getParty() == null) return;
-        int observedLeader = bot.getChr().getParty().getLeaderId();
-        if (observedLeader > 0 && observedLeader != leaderId) {
-            leaderId = observedLeader;
-            opqLog("Leader id locked: " + leaderId);
-        }
         // Auto-activate the run once any bot is partied. Without this the
-        // tick would no-op (pqActive=false) and followLeaderWarp would never
-        // fire. Calling !opq start manually still works and is idempotent.
+        // tick would no-op (pqActive=false). Calling !opq start manually still works and is idempotent.
         if (!context.isPqActive()) {
             context.setPqActive(true);
-            opqLog("Auto-activated run on first leader observation.");
+            Character leader = partyLeaderOf(bot.getChr());
+            opqLog("Auto-activated run; party leader " + (leader == null ? "unknown" : leader.getName()));
         }
+    }
+
+    /**
+     * The live leader of the given party member, or null when the member is not in a party or the leader's
+     * PartyCharacter is offline (its Character is null then).
+     */
+    public static Character partyLeaderOf(Character member) {
+        if (member == null || member.getParty() == null) return null;
+        net.server.world.PartyCharacter leader = member.getParty().getLeader();
+        return leader == null ? null : leader.getPlayer();
     }
 
     /**
@@ -237,7 +243,7 @@ public class OPQOrchestrator {
         }
         int pickedOid = best.getObjectId();
         context.putBoxAssignment(id, pickedOid);
-        String ordinal = getBoxOrdinal(best.getId());
+        String ordinal = getBoxOrdinal(map, best.getId());
 //        opqLog("Assigned box reactor oid=" + pickedOid + " (" + ordinal
 //                + " box, id=" + best.getId() + " pos=" + best.getPosition()
 //                + ") -> " + bot.getChr().getName());
@@ -291,8 +297,7 @@ public class OPQOrchestrator {
         context.reset();
         context.setPqActive(true);
         context.setCurrentPhase(OPQPhase.RECRUITMENT);
-        leaderId = -1;
-        boxSortedIndex.clear();
+        boxIndexes.clear();
     }
 
     public void mirrorPhase(OPQPhase phase) {
@@ -309,8 +314,7 @@ public class OPQOrchestrator {
     public synchronized void shutdownRun() {
         opqLog("Shutting down current run.");
         context.reset();
-        leaderId = -1;
-        boxSortedIndex.clear();
+        boxIndexes.clear();
     }
 
     // =========================================================================
@@ -365,17 +369,27 @@ public class OPQOrchestrator {
         OPQPhase phase = context.getCurrentPhase();
         switch (phase) {
             case STAGE_1 -> {
-                if (!context.isStage1Complete() && isChamberlainSpawned()) {
-                    opqLog("Stage 1 complete — Chamberlain Spawned");
-                    context.setStage1Complete(true);
-                    clearCompletionFlagsForRegistered();
+                for (Character leader : leadersOf(botCharacters())) {
+                    MapleMap runMap = leader.getMap();
+                    if (runMap == null || context.isStage1Complete(runMap)) continue;
+                    if (!isAtStageOneExit(leader.getMapId(), leader.getPosition())) continue;
+                    opqLog("Stage 1 complete in map " + leader.getMapId()
+                            + " — leader " + leader.getName() + " reached the Chamberlain Eak top platform");
+                    context.setStage1Complete(runMap, true);
+                    // Each stage starts with a clean "my part is done" bit: stage 1 sets it when the bot drops
+                    // its clouds, and a stale bit would let stage 2 look cleared before a single box was broken.
+                    clearTaskBitsIn(runMap);
                 }
             }
             case STAGE_2 -> {
-                if (!context.isStage2Complete() && allRegisteredBotsComplete()) {
-                    opqLog("Stage 2 complete — all registered bots reported done.");
-                    context.setStage2Complete(true);
-                    clearCompletionFlagsForRegistered();
+                List<Character> members = botCharacters();
+                for (Character leader : leadersOf(members)) {
+                    MapleMap runMap = leader.getMap();
+                    if (runMap == null || context.isStage2Complete(runMap)) continue;
+                    if (!allCompleteIn(runMap, members, context::isMyTaskComplete)) continue;
+                    opqLog("Stage 2 complete in map " + leader.getMapId()
+                            + " — every bot in the instance reported done.");
+                    context.setStage2Complete(runMap, true);
                 }
             }
             default -> { /* no-op */ }
@@ -383,19 +397,58 @@ public class OPQOrchestrator {
     }
 
     /**
-     * Resolve the live leader Character from any registered bot's channel
-     * server. Returns null if there's no leader yet, no bots registered, or
-     * the leader has logged out / changed channels.
+     * One party leader per party that has a member inside an OPQ map, in registration order. Every instance is
+     * polled on its own: a party that finishes stage 1 must not decide anything for the party in the copy next
+     * door, and a party that is stuck in the tower or the lobby is not polled at all.
      */
-    private Character resolveLeader() {
-        if (leaderId <= 0 || registeredBots.isEmpty()) return null;
-        OPQBot anchor = registeredBots.get(0);
-        return anchor.getChr().getClient().getChannelServer()
-                .getPlayerStorage().getCharacterById(leaderId);
+    static List<Character> leadersOf(Collection<Character> members) {
+        List<Character> leaders = new ArrayList<>();
+        for (Character member : members) {
+            if (member == null || member.getMap() == null) continue;
+            if (!OPQConstants.OPQ_INSIDE_MAPS.contains(member.getMapId())) continue;
+            Character leader = partyLeaderOf(member);
+            if (leader == null) continue;
+            boolean seen = false;
+            for (Character known : leaders) {
+                if (known == leader) {
+                    seen = true;
+                    break;
+                }
+            }
+            if (!seen) leaders.add(leader);
+        }
+        return leaders;
     }
 
-    public boolean isChamberlainSpawned() {
-        return isNpcPresent(resolveLeader().getMap(), CHAMBERLAIN_EAK);
+    /**
+     * Stage 1 is cleared when the leader has been teleported up to the top platform by Chamberlain Eak: that
+     * platform is only reachable through the NPC handin. The old check asked whether the NPC was on the leader's
+     * map - it always is - so "stage 1 complete" was true from the first second and bots abandoned the cloud work
+     * the leader still needed.
+     */
+    static boolean isAtStageOneExit(int mapId, Point pos) {
+        if (mapId != OPQConstants.OPQ_STAGE_1 || pos == null) return false;
+        return Math.abs(pos.x - OPQConstants.STAGE_1_TOP_PLATFORM_X) <= OPQConstants.STAGE_1_TOP_PLATFORM_TOL_X_PX
+                && Math.abs(pos.y - OPQConstants.STAGE_1_TOP_PLATFORM_Y) <= OPQConstants.STAGE_1_TOP_PLATFORM_TOL_Y_PX;
+    }
+
+    /**
+     * Called by a bot that is about to warp into stage 1. The first bot of a run clears the previous run's stage
+     * flags; later bots of the same run leave them alone.
+     */
+    public synchronized void noteEnteringStageOne(OPQBot bot) {
+        if (anyBotInsidePq()) return;
+        context.clearCompletionFlags();
+        clearTaskBitsForRegistered();
+        opqLog("New run: stage flags cleared for " + bot.getChr().getName());
+    }
+
+    private boolean anyBotInsidePq() {
+        for (OPQBot bot : registeredBots) {
+            Character member = bot.getChr();
+            if (member.getMap() != null && OPQConstants.OPQ_INSIDE_MAPS.contains(member.getMapId())) return true;
+        }
+        return false;
     }
 
 
@@ -405,15 +458,27 @@ public class OPQOrchestrator {
      * 2. Leader completes stage 1 by talking to NPC, who teleports him to the tower
      */
     public void followLeaderWarp(Character fakechar, Point pt) {
-        Character leader = resolveLeader();
-        if (leader == null) return;
-
+        MapleMap target = leaderMapFor(fakechar);
+        if (target == null) {
+            opqLog("No live party leader for " + fakechar.getName() + " - warp to " + pt + " skipped");
+            return;
+        }
         try {
-            warpBotToLocation(fakechar, pt, leader.getMap());
+            warpBotToLocation(fakechar, pt, target);
         } catch (Exception e) {
             opqLog("Warp failed for " + fakechar.getName() + ": " + e.getMessage());
             e.printStackTrace();
         }
+    }
+
+    /**
+     * The map a follow-warp for this bot goes to: its own party leader's map. Never a global leader - two parties
+     * can run two OPQ instances at once, and the old single locked leader id warped one party's bots into the other
+     * party's instance. Null when the bot has no live leader (no party, or the leader went offline).
+     */
+    MapleMap leaderMapFor(Character member) {
+        Character leader = partyLeaderOf(member);
+        return leader == null ? null : leader.getMap();
     }
 
     // =========================================================================
@@ -428,32 +493,46 @@ public class OPQOrchestrator {
         return true;
     }
 
-    private enum StagePhase {STAGE_1, STAGE_2}
-
-    private boolean allAssignedBotsComplete(StagePhase stage) {
-        int assigned = 0;
-        int done = 0;
-        for (OPQBot bot : registeredBots) {
-            int id = bot.getChr().getId();
-            Object assignment = (stage == StagePhase.STAGE_1)
-                    ? context.getMyCloudAssignment(id)
-                    : context.getMyPlatformAssignment(id);
-            if (assignment == null) continue;
-            assigned++;
-            if (context.isMyTaskComplete(id)) done++;
+    /**
+     * Stage 2 is done when every bot that is in this instance has reported its box. The old test wanted every
+     * registered bot - the lobby's 10-15 idle recruiters included - so the flag never flipped, STAGE_2_WAIT ran
+     * into its two-minute cap and bots walked out of a run that was still going.
+     */
+    static boolean allCompleteIn(MapleMap runMap, Collection<Character> members, java.util.function.IntPredicate done) {
+        if (runMap == null) return false;
+        int inInstance = 0;
+        for (Character member : members) {
+            if (member.getMap() != runMap) continue;
+            inInstance++;
+            if (!done.test(member.getId())) return false;
         }
-        return assigned > 0 && assigned == done;
+        return inInstance > 0;
     }
 
-    private boolean allRegisteredBotsComplete() {
-        if (registeredBots.isEmpty()) return false;
+    private List<Character> botCharacters() {
+        List<Character> members = new ArrayList<>(registeredBots.size());
         for (OPQBot bot : registeredBots) {
-            if (!context.isMyTaskComplete(bot.getChr().getId())) return false;
+            members.add(bot.getChr());
         }
-        return true;
+        return members;
     }
 
-    private void clearCompletionFlagsForRegistered() {
+    /** Party leaders of the runs inside an OPQ instance right now, one per party. Empty when nobody is in. */
+    public List<Character> activeRunLeaders() {
+        return leadersOf(botCharacters());
+    }
+
+    /** Bots standing in this map instance start the next stage with a clean "my part is done" bit. */
+    private void clearTaskBitsIn(MapleMap runMap) {
+        if (runMap == null) return;
+        for (OPQBot bot : registeredBots) {
+            if (bot.getChr().getMap() == runMap) {
+                context.clearTaskComplete(bot.getChr().getId());
+            }
+        }
+    }
+
+    private void clearTaskBitsForRegistered() {
         for (OPQBot bot : registeredBots) {
             context.clearTaskComplete(bot.getChr().getId());
         }
@@ -474,27 +553,30 @@ public class OPQOrchestrator {
      * Sorts by x-position descending (rightmost = index 0 = "1st").
      * Called lazily on first Stage 2 assignment.
      */
-    private void buildBoxSortedIndex(MapleMap map) {
-        if (!boxSortedIndex.isEmpty()) return;
-        List<Reactor> boxes = new ArrayList<>();
-        for (Reactor r : map.getAllReactors()) {
-            if (isBoxReactor(r)) boxes.add(r);
-        }
-        boxes.sort(Comparator.comparingInt((Reactor r) -> r.getPosition().x).reversed());
-        for (int i = 0; i < boxes.size(); i++) {
-            boxSortedIndex.put(boxes.get(i).getObjectId(), i);
-            opqLog("Box sorted index: pos=" + i + " (" + OPQConstants.STAGE_2_BOX_ORDINALS[i]
-                    + ") oid=" + boxes.get(i).getObjectId()
-                    + " dataId=" + boxes.get(i).getId()
-                    + " x=" + boxes.get(i).getPosition().x);
-        }
+    private Map<Integer, Integer> buildBoxSortedIndex(MapleMap map) {
+        return boxIndexes.computeIfAbsent(map, m -> {
+            Map<Integer, Integer> index = new HashMap<>();
+            List<Reactor> boxes = new ArrayList<>();
+            for (Reactor r : m.getAllReactors()) {
+                if (isBoxReactor(r)) boxes.add(r);
+            }
+            boxes.sort(Comparator.comparingInt((Reactor r) -> r.getPosition().x).reversed());
+            for (int i = 0; i < boxes.size(); i++) {
+                index.put(boxes.get(i).getObjectId(), i);
+                opqLog("Box sorted index: pos=" + i + " (" + OPQConstants.STAGE_2_BOX_ORDINALS[i]
+                        + ") oid=" + boxes.get(i).getObjectId()
+                        + " dataId=" + boxes.get(i).getId()
+                        + " x=" + boxes.get(i).getPosition().x);
+            }
+            return index;
+        });
     }
 
     /**
      * Get the ordinal label for a box reactor based on its sorted position (right-to-left).
      */
-    public String getBoxOrdinal(int reactorOid) {
-        Integer idx = boxSortedIndex.get(reactorOid);
+    public String getBoxOrdinal(MapleMap map, int reactorOid) {
+        Integer idx = map == null ? null : buildBoxSortedIndex(map).get(reactorOid);
         if (idx != null && idx >= 0 && idx < OPQConstants.STAGE_2_BOX_ORDINALS.length) {
             return OPQConstants.STAGE_2_BOX_ORDINALS[idx];
         }
@@ -505,8 +587,8 @@ public class OPQOrchestrator {
      * Get the deterministic item ID that a box reactor should drop, based on sorted position.
      * Box at sorted index 0 (rightmost/"1st") drops STAGE_2_ITEMS[0] = 4001056, etc.
      */
-    public int getBoxItemId(int reactorOid) {
-        Integer idx = boxSortedIndex.get(reactorOid);
+    public int getBoxItemId(MapleMap map, int reactorOid) {
+        Integer idx = map == null ? null : buildBoxSortedIndex(map).get(reactorOid);
         if (idx != null && idx >= 0 && idx < OPQConstants.STAGE_2_ITEMS.size()) {
             return OPQConstants.STAGE_2_ITEMS.get(idx);
         }

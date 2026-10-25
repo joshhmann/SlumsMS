@@ -312,7 +312,7 @@ function action(mode, type, selection) {
 		} else if (selected == 91) {
 			// This part handles the player's selection after choosing a hair from vanillahairs
 			if (cm.getPlayer().getFace() != specialfaces1[selection]) {
-				cm.setHair(specialfaces1[selection]);
+				cm.setFace(specialfaces1[selection]);
 				cm.sendOk("Enjoy your new hairstyle!");
 			} else {
 				cm.sendOk("You already have that hairstyle.");
@@ -323,7 +323,7 @@ function action(mode, type, selection) {
 		} else if (selected == 92) {
 			// This part handles the player's selection after choosing a hair from vanillahairs
 			if (cm.getPlayer().getFace() != specialfaces2[selection]) {
-				cm.setHair(specialfaces2[selection]);
+				cm.setFace(specialfaces2[selection]);
 				cm.sendOk("Enjoy your new hairstyle!");
 			} else {
 				cm.sendOk("You already have that hairstyle.");

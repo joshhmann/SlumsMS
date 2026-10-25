@@ -1,0 +1,129 @@
+-- SlumsMS 1.5.2 (NPC and shop sweep): put back the stock items of three empty NPC shops and nine missing ones.
+--
+-- Live's shops/shopitems are Cosmic's stock data (same 110 shops, same prices), except:
+--  - Puno (1200001, Rien weapon merchant), Puri Puri (1200002, Rien potion merchant) and Thorr (1301000, merchant on
+--    106020000) have a shop row and no items. Those NPCs stand in Rien (140000000, 000015000) and on 106020000 with no
+--    script, so talking to them opens an empty shop. Cosmic sells 37, 21 and 17 items there.
+--  - Singapore's 9270019 lacks the six pirate weapons and 9270020 the three pirate clothes that every other weapon and
+--    armour shop of that kind sells (stock 9270019/9270020 have them).
+-- Every row is Cosmic's stock row (shopid, itemid, price, pitch, position): no price is new, and every item exists in
+-- the server's WZ (ShopStockRestoreMigrationTest).
+--
+-- No existing row changes. Stop the game and take a backup first, as for every migration here. Applying it twice
+-- changes nothing (ledger id '024-restore-stock-shop-items', and each row is inserted only when that shop does not
+-- already sell that item). The server caches shops when first opened, so a running server needs a restart anyway.
+CREATE TABLE IF NOT EXISTS mapleroot_integration_migrations (
+  migration_id varchar(100) PRIMARY KEY,
+  applied_at timestamp NOT NULL DEFAULT CURRENT_TIMESTAMP
+) ENGINE=InnoDB;
+
+CREATE TABLE IF NOT EXISTS mapleroot_integration_migration_rows (
+  migration_id varchar(100) NOT NULL,
+  table_name varchar(64) NOT NULL,
+  row_id bigint NOT NULL,
+  PRIMARY KEY (migration_id, table_name, row_id)
+) ENGINE=InnoDB;
+
+SET @apply = NOT EXISTS (SELECT 1 FROM mapleroot_integration_migrations WHERE migration_id = '024-restore-stock-shop-items');
+
+-- The game must be stopped: snapshot existing ids so only this insert is owned.
+CREATE TEMPORARY TABLE migration_shopitems_before (id bigint PRIMARY KEY);
+START TRANSACTION;
+INSERT INTO migration_shopitems_before SELECT shopitemid FROM shopitems;
+INSERT INTO shopitems (shopid, itemid, price, pitch, position)
+SELECT r.shopid, r.itemid, r.price, r.pitch, r.position
+FROM (
+  SELECT 1200001 AS shopid, 3010001 AS itemid, 1000 AS price, 0 AS pitch, 1 AS position
+  UNION ALL SELECT 1200001, 1092003, 2000, 0, 2
+  UNION ALL SELECT 1200001, 1072063, 10000, 0, 3
+  UNION ALL SELECT 1200001, 1072062, 10000, 0, 4
+  UNION ALL SELECT 1200001, 1072017, 10000, 0, 5
+  UNION ALL SELECT 1200001, 1072049, 5000, 0, 6
+  UNION ALL SELECT 1200001, 1072048, 5000, 0, 7
+  UNION ALL SELECT 1200001, 1072008, 5000, 0, 8
+  UNION ALL SELECT 1200001, 1072005, 50, 0, 9
+  UNION ALL SELECT 1200001, 1072038, 50, 0, 10
+  UNION ALL SELECT 1200001, 1072037, 50, 0, 11
+  UNION ALL SELECT 1200001, 1072001, 50, 0, 12
+  UNION ALL SELECT 1200001, 1062001, 4800, 0, 13
+  UNION ALL SELECT 1200001, 1062000, 4800, 0, 14
+  UNION ALL SELECT 1200001, 1060004, 2800, 0, 15
+  UNION ALL SELECT 1200001, 1060007, 1000, 0, 16
+  UNION ALL SELECT 1200001, 1041012, 3000, 0, 17
+  UNION ALL SELECT 1200001, 1041004, 3000, 0, 18
+  UNION ALL SELECT 1200001, 1040014, 3000, 0, 19
+  UNION ALL SELECT 1200001, 1040013, 3000, 0, 20
+  UNION ALL SELECT 1200001, 1002001, 3000, 0, 21
+  UNION ALL SELECT 1200001, 1002019, 2000, 0, 22
+  UNION ALL SELECT 1200001, 1002134, 800, 0, 23
+  UNION ALL SELECT 1200001, 1002133, 800, 0, 24
+  UNION ALL SELECT 1200001, 1002132, 800, 0, 25
+  UNION ALL SELECT 1200001, 1002069, 450, 0, 26
+  UNION ALL SELECT 1200001, 1002068, 450, 0, 27
+  UNION ALL SELECT 1200001, 1002067, 450, 0, 28
+  UNION ALL SELECT 1200001, 1002066, 450, 0, 29
+  UNION ALL SELECT 1200001, 1002014, 1000, 0, 30
+  UNION ALL SELECT 1200001, 1002008, 500, 0, 31
+  UNION ALL SELECT 1200001, 1332007, 1000, 0, 32
+  UNION ALL SELECT 1200001, 1312000, 3000, 0, 33
+  UNION ALL SELECT 1200001, 1302007, 3000, 0, 34
+  UNION ALL SELECT 1200001, 1322005, 50, 0, 35
+  UNION ALL SELECT 1200001, 1312004, 50, 0, 36
+  UNION ALL SELECT 1200001, 1302000, 50, 0, 37
+  UNION ALL SELECT 1200002, 2330000, 600, 0, 104
+  UNION ALL SELECT 1200002, 2070000, 500, 0, 108
+  UNION ALL SELECT 1200002, 2061000, 1, 0, 120
+  UNION ALL SELECT 1200002, 2060000, 1, 0, 124
+  UNION ALL SELECT 1200002, 2030000, 400, 0, 132
+  UNION ALL SELECT 1200002, 2020028, 3000, 0, 136
+  UNION ALL SELECT 1200002, 2010004, 310, 0, 140
+  UNION ALL SELECT 1200002, 2010003, 100, 0, 144
+  UNION ALL SELECT 1200002, 2010001, 106, 0, 148
+  UNION ALL SELECT 1200002, 2010002, 50, 0, 152
+  UNION ALL SELECT 1200002, 2010000, 30, 0, 156
+  UNION ALL SELECT 1200002, 2002005, 500, 0, 160
+  UNION ALL SELECT 1200002, 2002004, 500, 0, 164
+  UNION ALL SELECT 1200002, 2002002, 500, 0, 168
+  UNION ALL SELECT 1200002, 2002001, 400, 0, 172
+  UNION ALL SELECT 1200002, 2002000, 500, 0, 176
+  UNION ALL SELECT 1200002, 2000006, 620, 0, 180
+  UNION ALL SELECT 1200002, 2000003, 200, 0, 184
+  UNION ALL SELECT 1200002, 2000002, 320, 0, 188
+  UNION ALL SELECT 1200002, 2000001, 160, 0, 192
+  UNION ALL SELECT 1200002, 2000000, 50, 0, 196
+  UNION ALL SELECT 1301000, 2330000, 600, 0, 104
+  UNION ALL SELECT 1301000, 2070000, 500, 0, 108
+  UNION ALL SELECT 1301000, 2061000, 1, 0, 112
+  UNION ALL SELECT 1301000, 2060000, 1, 0, 116
+  UNION ALL SELECT 1301000, 2030000, 400, 0, 124
+  UNION ALL SELECT 1301000, 2022000, 1650, 0, 128
+  UNION ALL SELECT 1301000, 2022003, 1100, 0, 132
+  UNION ALL SELECT 1301000, 2002005, 500, 0, 136
+  UNION ALL SELECT 1301000, 2002004, 500, 0, 140
+  UNION ALL SELECT 1301000, 2002002, 500, 0, 144
+  UNION ALL SELECT 1301000, 2002001, 400, 0, 148
+  UNION ALL SELECT 1301000, 2002000, 500, 0, 152
+  UNION ALL SELECT 1301000, 2000006, 620, 0, 156
+  UNION ALL SELECT 1301000, 2000003, 200, 0, 160
+  UNION ALL SELECT 1301000, 2000002, 320, 0, 164
+  UNION ALL SELECT 1301000, 2000001, 160, 0, 168
+  UNION ALL SELECT 1301000, 2000000, 50, 0, 172
+  UNION ALL SELECT 9270019, 1492006, 160000, 0, 80
+  UNION ALL SELECT 9270019, 1492005, 100000, 0, 84
+  UNION ALL SELECT 9270019, 1492004, 75000, 0, 88
+  UNION ALL SELECT 9270019, 1482006, 150000, 0, 92
+  UNION ALL SELECT 9270019, 1482005, 100000, 0, 96
+  UNION ALL SELECT 9270019, 1482004, 75000, 0, 100
+  UNION ALL SELECT 9270020, 1052113, 120000, 0, 92
+  UNION ALL SELECT 9270020, 1052110, 100000, 0, 96
+  UNION ALL SELECT 9270020, 1002625, 75000, 0, 100
+) r
+WHERE @apply
+  AND EXISTS (SELECT 1 FROM shops s WHERE s.shopid = r.shopid)
+  AND NOT EXISTS (SELECT 1 FROM shopitems i WHERE i.shopid = r.shopid AND i.itemid = r.itemid);
+INSERT INTO mapleroot_integration_migration_rows (migration_id, table_name, row_id)
+SELECT '024-restore-stock-shop-items', 'shopitems', i.shopitemid FROM shopitems i
+WHERE @apply AND NOT EXISTS (SELECT 1 FROM migration_shopitems_before b WHERE b.id = i.shopitemid);
+INSERT IGNORE INTO mapleroot_integration_migrations(migration_id) VALUES ('024-restore-stock-shop-items');
+COMMIT;
+DROP TEMPORARY TABLE migration_shopitems_before;

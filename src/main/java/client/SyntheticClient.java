@@ -39,6 +39,8 @@ public final class SyntheticClient extends Client {
     private static final int INTERACTION = SendOpcode.PLAYER_INTERACTION.getValue();
     private static final int MARRIAGE_REQUEST = SendOpcode.MARRIAGE_REQUEST.getValue();
     private static final int NPC_TALK = SendOpcode.NPC_TALK.getValue();
+    private static final int SHOP_TRANSACTION = SendOpcode.CONFIRM_SHOP_TRANSACTION.getValue();
+    private static final int DELETE_CHAR_RESPONSE = SendOpcode.DELETE_CHAR_RESPONSE.getValue();
 
     private final int slot;
     private final Deque<AutoQaLine> heard = new ArrayDeque<>();
@@ -77,7 +79,8 @@ public final class SyntheticClient extends Client {
         }
         int op = (bytes[0] & 0xFF) | ((bytes[1] & 0xFF) << 8);
         if (op != CHATTEXT && op != WHISPER && op != SERVERMESSAGE && op != YELLOW && op != MULTICHAT && op != SPOUSE_CHAT
-                && op != PARTY && op != BUDDY && op != GUILD && op != INTERACTION && op != MARRIAGE_REQUEST && op != NPC_TALK) {
+                && op != PARTY && op != BUDDY && op != GUILD && op != INTERACTION && op != MARRIAGE_REQUEST && op != NPC_TALK
+                && op != SHOP_TRANSACTION && op != DELETE_CHAR_RESPONSE) {
             return;
         }
         InPacket p = new ByteBufInPacket(Unpooled.wrappedBuffer(bytes));
@@ -148,6 +151,19 @@ public final class SyntheticClient extends Client {
             String talk = p.readString().replaceFirst("^#w", "").replaceAll("#[bkrdegnl]", "").replace("\r\n", " ")
                     .replaceAll("\\s+", " ").trim();
             add("NPC_TALK", npc + ": " + talk);
+            // ticket 69: one greppable QA line per dialog line, so a vb-* check can prove what the NPC answered
+            if (soloMapling.qa.QaLog.on(soloMapling.qa.QaLog.Topic.NPC)) {
+                Character me = getPlayer();
+                if (me != null) {
+                    soloMapling.qa.QaLog.owner(soloMapling.qa.QaLog.Topic.NPC, me.getId(), "NPC " + npc + ": " + talk);
+                }
+            }
+        } else if (op == SHOP_TRANSACTION) {
+            add("SHOP_TRANSACTION", String.valueOf(p.readByte() & 0xFF));
+        } else if (op == DELETE_CHAR_RESPONSE) {
+            int cid = p.readInt();
+            int state = p.readByte() & 0xFF;
+            add("DELETE_CHAR_RESPONSE", cid + " state " + state);
         } else if (op == MARRIAGE_REQUEST) {
             p.readByte();
             lastProposer = p.readString();

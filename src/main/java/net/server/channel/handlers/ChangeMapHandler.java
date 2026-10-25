@@ -143,14 +143,6 @@ public final class ChangeMapHandler extends AbstractPacketHandler {
                             final MapleMap to = chr.getWarpMap(targetMapId);
                             chr.changeMap(to, to.getPortal(0));
                         }
-                        if (targetMapId == 211070100 && chr.getMapId() == 211070000) {
-                            chr.potionCount = 100;
-                        }
-                        if (targetMapId == 211070101 || targetMapId == 211070100) {
-                            chr.inExpedition = true;
-                        } else {
-                            chr.inExpedition = false;
-                        }
                     }
                 }
             }

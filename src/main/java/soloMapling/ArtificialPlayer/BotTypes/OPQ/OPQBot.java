@@ -7,10 +7,12 @@ import server.maps.Reactor;
 import soloMapling.ArtificialPlayer.BotCommandsPack.BotAttack;
 import soloMapling.ArtificialPlayer.BotCommandsPack.DropCommands;
 import soloMapling.ArtificialPlayer.BotCommandsPack.SocialCommands;
+import soloMapling.ArtificialPlayer.BotHelpers;
 import soloMapling.ArtificialPlayer.BotLogic;
 import soloMapling.ArtificialPlayer.BotMessagingSystem.ChatMessage;
 import soloMapling.ArtificialPlayer.BotMessagingSystem.MessageQueue;
 import soloMapling.ArtificialPlayer.BotMovementSystem.MovementCommands;
+import soloMapling.ArtificialPlayer.BotPartySystem.BotPartyCommands;
 import soloMapling.ArtificialPlayer.BotPartySystem.BotPartyLogic;
 import soloMapling.ArtificialPlayer.BotSM;
 import soloMapling.ArtificialPlayer.BotTypes.OPQ.OPQSharedContext.OPQPhase;
@@ -61,10 +63,18 @@ public class OPQBot extends BotSM {
     // Per-state timers / scratch fields
     private long stageWaitStartTime;
     private long lastRecruitMessageAt;
+    private long nextRecruitMessageAt;
     private volatile int reactorHitsThisTarget;
 
     private int cloudPiecesLooted;
     private volatile int lootedRecordItemId = -1;
+    // Stage 2: the box we last told the party about (-1 = none). handleStage2Navigate runs every ~1.5 s while
+    // walking, so an ungated BotSpeak repeated "I'll get the 4th box!" until the bot arrived.
+    private volatile int announcedBoxReactorOid = -1;
+    // When we last entered IN_PARTY_IDLE, and whether this party has already run OPQ with us. Together they decide
+    // when an OPQPartyDuty.LEAVE is due (see handleInPartyIdle).
+    private volatile long inPartySince = 0;
+    private volatile boolean runStarted = false;
 
     public OPQBot(Character character) {
         super(character);
@@ -113,6 +123,16 @@ public class OPQBot extends BotSM {
             return;
         }
         this.opqBotState = next;
+        if (soloMapling.qa.QaLog.on(soloMapling.qa.QaLog.Topic.PQ)) { // !qa pq-2
+            soloMapling.qa.QaLog.map(soloMapling.qa.QaLog.Topic.PQ, getChr().getMapId(),
+                    getChr().getName() + ": " + prev + " -> " + next + " | " + reason);
+        }
+        if (next == OPQBotState.IN_PARTY_IDLE && prev != OPQBotState.IN_PARTY_IDLE) {
+            inPartySince = System.currentTimeMillis();
+        }
+        if (next == OPQBotState.STAGE_1_NAVIGATE) {
+            runStarted = true;
+        }
         log(String.format("[OPQBot %s] %s -> %s | %s | map=%d pos=%s",
                 getChr().getName(), prev, next, reason,
                 getChr().getMapId(), getChr().getPosition()));
@@ -147,9 +167,13 @@ public class OPQBot extends BotSM {
         hint = Collections.singletonList(getChr().getName());
         stageWaitStartTime = 0;
         lastRecruitMessageAt = 0;
+        nextRecruitMessageAt = 0;
         reactorHitsThisTarget = 0;
         cloudPiecesLooted = 0;
         lootedRecordItemId = -1;
+        announcedBoxReactorOid = -1;
+        inPartySince = 0;
+        runStarted = false;
     }
 
     // =========================================================================
@@ -285,16 +309,31 @@ public class OPQBot extends BotSM {
         }
 
         if (isInParty()) {
-            orchestrator.noteLeaderFromBot(this);
+            orchestrator.notePartyJoined(this);
             sharedContext_trySetPhase(OPQPhase.IN_PARTY_IDLE);
             transitionTo(OPQBotState.IN_PARTY_IDLE, "joined a party");
             return;
         }
         long now = System.currentTimeMillis();
-        if (now - lastRecruitMessageAt >= OPQConstants.RECRUIT_MESSAGE_INTERVAL_MS) {
+        if (now >= nextRecruitMessageAt) {
+            if (!anyPlayerListening()) {
+                // Nobody in the lobby to invite us: an empty map does not need advertising.
+                nextRecruitMessageAt = now + OPQConstants.RECRUIT_IDLE_RECHECK_MS;
+                return;
+            }
+            if (!OPQLobbyChat.allowRecruit(now, getChr().getClient().getChannel(), getChr().getMapId())) {
+                // The lobby as a whole has said enough this minute - try again shortly.
+                nextRecruitMessageAt = now + OPQConstants.RECRUIT_IDLE_RECHECK_MS;
+                return;
+            }
             String msg = OPQRecruitMessages.generateRecruitMessage(getChr());
             SocialCommands.BotSpeak(getChr(), msg);
+            if (soloMapling.qa.QaLog.on(soloMapling.qa.QaLog.Topic.PQ)) { // !qa pq-2: how often the lobby speaks
+                soloMapling.qa.QaLog.map(soloMapling.qa.QaLog.Topic.PQ, getChr().getMapId(),
+                        getChr().getName() + " recruit: " + msg);
+            }
             lastRecruitMessageAt = now;
+            nextRecruitMessageAt = now + OPQLobbyChat.nextIntervalMs();
             debugLogf("Recruit chat sent: \"" + msg + "\"");
             // Ticket 47: a lobby bot that can really be invited is a PQ actually forming - worth a megaphone
             // (WorldEventMegaphones rate-limits it to one call per PQ per cooldown).
@@ -326,19 +365,41 @@ public class OPQBot extends BotSM {
         }
 
         // Refresh leader id every tick — covers leader change / re-invite.
-//        orchestrator.noteLeaderFromBot(this);
+//        orchestrator.notePartyJoined(this);
         // The orchestrator's tick polls leader.getMapId() and warps us into
         // Stage 1 server-side once the leader enters. detectPhaseFromMap() at
         // the top of updateState() then flips us into STAGE_1_NAVIGATE.
 
-        if (getPartyLeader().getMapId() == OPQConstants.OPQ_STAGE_1) {
-            cloudPiecesLooted = 0;
-            lootedRecordItemId = -1;
-            // deliberate synchronous warp: warpBotToLocation blocks through the
-            // arrival choreography (up to ~7s) and nothing may overlap it
-            blockingSleep(3000);
-            OPQOrchestrator.getInstance().followLeaderWarp(getChr(), STAGE_1_ENTRY_TP);
-            transitionTo(OPQBotState.STAGE_1_NAVIGATE, "Warp to Stage 1 with Leader");
+        // A player can invite a lobby bot and then do anything at all. Sitting in that party for ever costs the
+        // player a party slot, so the bot decides whether this invitation is going to become an OPQ run.
+        long waitedMs = System.currentTimeMillis() - inPartySince;
+        switch (OPQPartyDuty.decide(leaderMapId(), runStarted, waitedMs)) {
+            case FOLLOW -> {
+                cloudPiecesLooted = 0;
+                lootedRecordItemId = -1;
+                orchestrator.noteEnteringStageOne(this);
+                // deliberate synchronous warp: warpBotToLocation blocks through the
+                // arrival choreography (up to ~7s) and nothing may overlap it
+                blockingSleep(3000);
+                OPQOrchestrator.getInstance().followLeaderWarp(getChr(), STAGE_1_ENTRY_TP);
+                transitionTo(OPQBotState.STAGE_1_NAVIGATE, "Warp to Stage 1 with Leader");
+            }
+            case LEAVE -> {
+                log(String.format("[OPQBot %s] leaving party after %ds - leader map=%d runStarted=%s",
+                        getChr().getName(), waitedMs / 1000, leaderMapId(), runStarted));
+                String line = runStarted ? "gg, back to the lobby!" : "not OPQ? back to the lobby!";
+                SocialCommands.BotSpeak(getChr(), line);
+                if (soloMapling.qa.QaLog.on(soloMapling.qa.QaLog.Topic.PQ)) { // !qa pq-2
+                    soloMapling.qa.QaLog.map(soloMapling.qa.QaLog.Topic.PQ, getChr().getMapId(),
+                            getChr().getName() + " leaves the party: " + line);
+                }
+                BotPartyCommands.botLeaveParty(getChr());
+                resetOPQBotState();
+                transitionTo(OPQBotState.RECRUITMENT, "party was not running OPQ");
+            }
+            case WAIT -> {
+                // keep standing by; the recruit line stays quiet while we are in a party
+            }
         }
     }
 
@@ -524,13 +585,35 @@ public class OPQBot extends BotSM {
     }
 
     private void handleStage1Wait() {
-        if (sharedContext.isStage1Complete() && orchestrator.isChamberlainSpawned()) {
+        // The party moved on without us (leader cleared stage 1, or left altogether): follow instead of standing
+        // in stage 1 for ever. Old code had no exit at all unless the orchestrator's flag flipped.
+        switch (leaderMapId()) {
+            case OPQConstants.OPQ_TOWER -> {
+                transitionTo(OPQBotState.STAGE_1_TRANSITION, "leader already in the tower");
+                return;
+            }
+            case OPQConstants.OPQ_STAGE_2 -> {
+                transitionTo(OPQBotState.STAGE_1_TRANSITION_PT_2, "leader already in stage 2");
+                return;
+            }
+            case OPQConstants.OPQ_EXIT_LOBBY, OPQConstants.OPQ_LOBBY -> {
+                followLeaderOut();
+                return;
+            }
+            default -> { /* leader is still in stage 1 with us */ }
+        }
+
+        if (sharedContext.isStage1Complete(getChr().getMap())) {
             OPQOrchestrator.getInstance().followLeaderWarp(getChr(), STAGE_1_COMPLETE_TP);
             // Walk to Portal
             MovementCommands.moveToPortal(getChr(), 4);
             transitionTo(OPQBotState.STAGE_1_TRANSITION, "stage1Complete flag flipped by orchestrator");
             return;
         }
+
+        // Nothing left for us to break, but the leader is still collecting: keep watching rather than time out.
+        // The old 2-minute style cap is what made bots walk out of a run that was still going.
+        debugLogf("handleStage1Wait: waiting for the leader to hand in the clouds");
     }
 
     private void handleStage1Transition() {
@@ -539,7 +622,7 @@ public class OPQBot extends BotSM {
 
         // I'm not sure how to have the bots enter the proper portal which is to get them to the map of OPQ_TOWER
         // Because technically its a PQ instance, so it's gotta be the correct MapleMap, not just generic map.
-        if (getPartyLeader().getMapId() == OPQConstants.OPQ_TOWER) {
+        if (leaderMapId() == OPQConstants.OPQ_TOWER) {
             // deliberate synchronous warp sequence (blocking arrival choreography)
             blockingSleep(1000);
             OPQOrchestrator.getInstance().followLeaderWarp(getChr(), new Point(-260,-32)); // Spawn point for OPQ tower [x=-260,y=-32]
@@ -551,7 +634,7 @@ public class OPQBot extends BotSM {
 
     private void handleStage1TransitionPart2() {
         // Teleport from Tower to Stage 2
-        if (getPartyLeader().getMapId() == OPQConstants.OPQ_STAGE_2) {
+        if (leaderMapId() == OPQConstants.OPQ_STAGE_2) {
             OPQOrchestrator.getInstance().followLeaderWarp(getChr(), new Point(-113,-321)); // Spawn point for stage 2 [x=-113,y=-321]
             waitFor(1000); // settle after the warp before NAVIGATE ticks
             transitionTo(OPQBotState.STAGE_2_NAVIGATE, "arrived in stage-2 map");
@@ -613,9 +696,13 @@ public class OPQBot extends BotSM {
             return;
         }
 
-        // Chat which box we're going for (ordinal based on sorted position right-to-left)
-        String ordinal = orchestrator.getBoxOrdinal(reactorOid);
-        SocialCommands.BotSpeak(getChr(), "I'll get the " + ordinal + " box!");
+        // Chat which box we're going for (ordinal based on sorted position right-to-left), once per box.
+        if (shouldAnnounceBox(announcedBoxReactorOid, reactorOid)) {
+            announcedBoxReactorOid = reactorOid;
+            SocialCommands.BotSpeak(getChr(), "I'll get the " + orchestrator.getBoxOrdinal(getChr().getMap(), reactorOid)
+                    + " box!");
+        }
+        String ordinal = orchestrator.getBoxOrdinal(getChr().getMap(), reactorOid);
 
         Point reactorPos = reactor.getPosition();
         double dx = Math.abs(getChr().getPosition().getX() - reactorPos.getX());
@@ -683,7 +770,7 @@ public class OPQBot extends BotSM {
 
         byte stateAfter = reactor.getState();
         if (stateAfter >= 4) {
-            int recordItem = orchestrator.getBoxItemId(reactorOid);
+            int recordItem = orchestrator.getBoxItemId(getChr().getMap(), reactorOid);
             CustomReactor.dropItemAtReactor(getChr().getMap(), reactorOid,
                     recordItem, getChr());
             lootedRecordItemId = recordItem;
@@ -767,10 +854,10 @@ public class OPQBot extends BotSM {
         long waitedMs = stageWaitStartTime > 0
                 ? (System.currentTimeMillis() - stageWaitStartTime) : 0;
         debugLogf("handleStage2Wait: waited=" + waitedMs + "ms"
-                + " stage2Complete=" + sharedContext.isStage2Complete());
+                + " stage2Complete=" + sharedContext.isStage2Complete(getChr().getMap()));
 
         // Detect leader leaving Stage 2 (via NPC exit or fast-exit through lobby)
-        int leaderMap = getPartyLeader().getMapId();
+        int leaderMap = leaderMapId();
         if (leaderMap == OPQConstants.OPQ_EXIT_LOBBY) {
             blockingSleep(1000); // deliberate: blocking follow-warp below
             OPQOrchestrator.getInstance().followLeaderWarp(getChr(), new Point(-161, 323));
@@ -784,7 +871,7 @@ public class OPQBot extends BotSM {
             return;
         }
 
-        if (sharedContext.isStage2Complete()) {
+        if (sharedContext.isStage2Complete(getChr().getMap())) {
             transitionTo(OPQBotState.EXIT_DETECT,
                     "stage2Complete flag flipped by orchestrator");
             return;
@@ -803,7 +890,7 @@ public class OPQBot extends BotSM {
 
     private void handleExitDetect() {
         debugLogf("handleExitDetect: mapId=" + getChr().getMapId()
-                + " leaderMap=" + getPartyLeader().getMapId());
+                + " leaderMap=" + leaderMapId());
         sharedContext_trySetPhase(OPQPhase.EXIT);
 
         if (getChr().getMapId() == OPQConstants.OPQ_EXIT_LOBBY) {
@@ -812,7 +899,7 @@ public class OPQBot extends BotSM {
         }
 
         // Actively follow leader to exit lobby or recruitment lobby
-        int leaderMap = getPartyLeader().getMapId();
+        int leaderMap = leaderMapId();
         if (leaderMap == OPQConstants.OPQ_EXIT_LOBBY) {
             blockingSleep(1000); // deliberate: blocking follow-warp below
             OPQOrchestrator.getInstance().followLeaderWarp(getChr(), new Point(-161, 323));
@@ -826,11 +913,11 @@ public class OPQBot extends BotSM {
 
     private void handleExitLobby() {
         debugLogf("handleExitLobby: mapId=" + getChr().getMapId()
-                + " leaderMap=" + getPartyLeader().getMapId());
+                + " leaderMap=" + leaderMapId());
 
         // If leader has already moved to recruitment lobby, follow them
         // (deliberate synchronous warps: arrival choreography blocks and must not overlap)
-        int leaderMap = getPartyLeader().getMapId();
+        int leaderMap = leaderMapId();
         if (leaderMap == OPQConstants.OPQ_LOBBY) {
             blockingSleep(300);
             MapleMap lobbyMap = getChr().getClient().getChannelServer().getMapFactory().getMap(OPQConstants.OPQ_LOBBY);
@@ -865,6 +952,7 @@ public class OPQBot extends BotSM {
         stageWaitStartTime = 0;
         lootedRecordItemId = -1;
         cloudPiecesLooted = 0;
+        announcedBoxReactorOid = -1;    // a second run's box may get the same oid: say the line again
 
         if (isInParty()) {
             transitionTo(OPQBotState.IN_PARTY_IDLE,
@@ -949,17 +1037,50 @@ public class OPQBot extends BotSM {
         return getChr().getParty() != null;
     }
 
-    private Character getPartyLeader() {
-        return getChr().getParty().getLeader().getPlayer();
+    /** Say which box we are taking once per assignment, not once per navigate tick. */
+    static boolean shouldAnnounceBox(int announcedOid, int assignedOid) {
+        return assignedOid > 0 && assignedOid != announcedOid;
+    }
+
+    /**
+     * True when a real player is on this map to read (and act on) a recruit line. Lobby advertising only makes
+     * sense for someone who can invite the bot; a lobby full of other bots does not need it.
+     */
+    private boolean anyPlayerListening() {
+        MapleMap map = getChr().getMap();
+        if (map == null) {
+            return false;
+        }
+        for (Character player : map.getAllPlayers()) {
+            if (player != null && !BotHelpers.isBot(player)) {
+                return true;
+            }
+        }
+        return false;
+    }
+
+    /**
+     * The party leader as a live Character, or null when there is no party, no leader object, or the leader's
+     * PartyCharacter has gone offline (setOnline(false) nulls its Character - the old code called getMapId() on
+     * that null and threw on every tick).
+     */
+    private Character partyLeader() {
+        return OPQOrchestrator.partyLeaderOf(getChr());
+    }
+
+    /** Leader's map, or -1 when the leader is unknown/offline. Never null. */
+    private int leaderMapId() {
+        Character leader = partyLeader();
+        return leader == null ? -1 : leader.getMapId();
     }
 
     private boolean leaderLeftStage2() {
-        int leaderMap = getPartyLeader().getMapId();
+        int leaderMap = leaderMapId();
         return leaderMap == OPQConstants.OPQ_EXIT_LOBBY || leaderMap == OPQConstants.OPQ_LOBBY;
     }
 
     private void followLeaderOut() {
-        int leaderMap = getPartyLeader().getMapId();
+        int leaderMap = leaderMapId();
         blockingSleep(1000); // deliberate: blocking follow-warps below
         if (leaderMap == OPQConstants.OPQ_EXIT_LOBBY) {
             OPQOrchestrator.getInstance().followLeaderWarp(getChr(), new Point(-161, 323));

@@ -301,7 +301,7 @@ public final class OffscreenRewardBudget {
                 if (equip == null) {
                     return;
                 }
-                out.add(ii.randomizeStats((Equip) equip));
+                out.add(server.GodlyDrops.rollMobDrop(ii.randomizeStats((Equip) equip))); // 1.5.2: as on-screen drops
             }
             return;
         }

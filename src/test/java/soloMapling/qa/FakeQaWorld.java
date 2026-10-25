@@ -21,6 +21,7 @@ class FakeQaWorld implements QaWorld {
     boolean shopOpen;
     boolean merchantOpen;
     boolean petOut;
+    Point npcPos = new Point(100, 200);   // null = the NPC is not on the map (pq-1 staging refusal)
     List<int[]> shopStock = List.of();
 
     @Override public Character online(int id) { return online; }
@@ -55,10 +56,14 @@ class FakeQaWorld implements QaWorld {
     @Override public boolean petSummoned(Character gm, int petItemId) { return petOut; }
     @Override public String itemName(int itemId) { return "item" + itemId; }
     @Override public Integer marketValue(int itemId) { return values.get(itemId); }
-    @Override public Point npcPosition(Character gm, int npcId) { return new Point(100, 200); }
+    @Override public Point npcPosition(Character gm, int npcId) { return npcPos; }
 
     @Override public List<Integer> spawnIdleBots(Character gm, Point around, int count) {
         return bots("idle", count);
+    }
+    @Override public List<Integer> spawnOpqLobbyBots(Character gm, Point around, int count) {
+        calls.add("opq lobby bots " + count);
+        return bots("opq", count);
     }
     @Override public List<Integer> spawnIdleBots(Character gm, Point around, int count, int level) {
         calls.add("idle bots lv " + level);

@@ -103,6 +103,9 @@ public class DueyProcessor {
      * @return true when Duey is open and the caller may go on
      */
     public static boolean openOrExplain(Client c, boolean fromNpc) {
+        if (c instanceof client.BotClient) {
+            return false; // bots never use Duey (1.5.2: Duey is on for players only)
+        }
         if (YamlConfig.config.server.USE_DUEY) {
             return true;
         }
@@ -113,6 +116,11 @@ public class DueyProcessor {
         }
         c.sendPacket(PacketCreator.enableActions());
         return false;
+    }
+
+    static boolean isBotSender(Client c) {
+        return c instanceof client.BotClient || c.getPlayer() == null
+                || soloMapling.ArtificialPlayer.BotHelpers.isArtificial(c.getPlayer().getId());
     }
 
     private static Pair<Integer, Integer> getAccountCharacterIdFromCNAME(String name) {
@@ -350,6 +358,11 @@ public class DueyProcessor {
     public static void dueySendItem(Client c, byte invTypeId, short itemPos, short amount, int sendMesos, String sendMessage, String recipient, boolean quick) {
         if (c.tryacquireClient()) {
             try {
+                if (!YamlConfig.config.server.USE_DUEY || isBotSender(c)) {
+                    // Duey off, or a bot: bots never send parcels (no bot-to-player meso/item channel outside trades)
+                    c.sendPacket(PacketCreator.sendDueyMSG(DueyProcessor.Actions.TOCLIENT_SEND_INCORRECT_REQUEST.getCode()));
+                    return;
+                }
                 if (c.getPlayer().isGM() && c.getPlayer().gmLevel() < YamlConfig.config.server.MINIMUM_GM_LEVEL_TO_USE_DUEY) {
                     c.getPlayer().message("You cannot use Duey to send items at your GM level.");
                     log.info(String.format("GM %s tried to send a package to %s", c.getPlayer().getName(), recipient));
@@ -559,6 +572,9 @@ public class DueyProcessor {
     }
 
     public static void dueyCreatePackage(Item item, int mesos, String sender, int recipientCid) {
+        if (soloMapling.ArtificialPlayer.BotHelpers.isArtificial(recipientCid)) {
+            return; // bots never receive Duey parcels (e.g. a wedding invitation to a bot guest)
+        }
         int packageId = createPackage(mesos, null, sender, recipientCid, false);
         if (packageId != -1) {
             insertPackageItem(packageId, item);

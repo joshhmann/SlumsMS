@@ -27,10 +27,19 @@
     
                     if(status == 0) {
                         expedition = cm.getExpedition(exped);
+                        if (!isLeader()) {   // 1.5.2: no expedition threw here, and a non-leader was left in an open talk
+                            cm.sendOk("Only the leader of the expedition can do this.");
+                            cm.dispose();
+                            return;
+                        }
                         if (expedition.isLeader(cm.getPlayer())) {
                             cm.sendYesNo("Sparkles can be seen coming out of the misterious robe, would you like to reveal who is in there?");
                         }
                     } else if (status == 1) {
+                        if (!isLeader()) {   // a forged "next" from a non-leader must not spawn the boss
+                            cm.dispose();
+                            return;
+                        }
                             cm.getMap().spawnMonsterOnGroundBelow(8880150, 1059, 48);
                             cm.spawnMonster(8880172, 1500, 48);
                             cm.spawnMonster(8880165, 420, 48); 
@@ -40,3 +49,8 @@
     
             }
     }
+
+function isLeader() {
+    var expedition = cm.getExpedition(exped);
+    return expedition != null && expedition.isLeader(cm.getPlayer());
+}

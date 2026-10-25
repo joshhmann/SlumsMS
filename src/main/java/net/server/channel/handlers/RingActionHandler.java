@@ -333,14 +333,14 @@ public final class RingActionHandler extends AbstractPacketHandler {
         Equip ringEqp = (Equip) ringObj;
         ringEqp.setRingId(rings.getLeft());
         player.addMarriageRing(Ring.loadFromDb(rings.getLeft()));
-        InventoryManipulator.addFromDrop(player.getClient(), ringEqp, false, -1);
+        InventoryManipulator.addFromDrop(player, ringEqp, false, -1);
         player.broadcastMarriageMessage();
 
         ringObj = ii.getEquipById(marriageRingId);
         ringEqp = (Equip) ringObj;
         ringEqp.setRingId(rings.getRight());
         partner.addMarriageRing(Ring.loadFromDb(rings.getRight()));
-        InventoryManipulator.addFromDrop(partner.getClient(), ringEqp, false, -1);
+        InventoryManipulator.addFromDrop(partner, ringEqp, false, -1);
         partner.broadcastMarriageMessage();
     }
 
@@ -387,7 +387,7 @@ public final class RingActionHandler extends AbstractPacketHandler {
 
                 if (accepted) {
                     final int newItemId = getEngagementBoxId(itemid);
-                    if (!InventoryManipulator.checkSpace(c, newItemId, 1, "") || !InventoryManipulator.checkSpace(source.getClient(), newItemId, 1, "")) {
+                    if (!InventoryManipulator.checkSpace(c, newItemId, 1, "") || !InventoryManipulator.checkSpace(source, newItemId, 1, "")) {
                         target.sendPacket(PacketCreator.enableActions());
                         return;
                     }
@@ -467,7 +467,7 @@ public final class RingActionHandler extends AbstractPacketHandler {
 
                                 String baseMessage = "You've been invited to %s and %s's Wedding!".formatted(groom, bride);
                                 Character guestChr = c.getWorldServer().getPlayerStorage().getCharacterById(guest);
-                                if (guestChr != null && InventoryManipulator.checkSpace(guestChr.getClient(), newItemId, 1, "") && InventoryManipulator.addById(guestChr.getClient(), newItemId, (short) 1, expiration)) {
+                                if (guestChr != null && InventoryManipulator.checkSpace(guestChr, newItemId, 1, "") && InventoryManipulator.addById(guestChr, newItemId, (short) 1, expiration)) {
                                     guestChr.dropMessage(6, "[Wedding] %s".formatted(baseMessage));
                                 } else {
                                     String dueyMessage = baseMessage + " Receive your invitation from Duey!";

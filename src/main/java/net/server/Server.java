@@ -1493,7 +1493,7 @@ public class Server {
         lgnRLock.lock();
         try {
             Set<Integer> accChars = accountChars.get(accountid);
-            return accChars.contains(chrid);
+            return accChars != null && accChars.contains(chrid);
         } finally {
             lgnRLock.unlock();
         }
@@ -1502,7 +1502,8 @@ public class Server {
     public short getAccountCharacterCount(Integer accountid) {
         lgnRLock.lock();
         try {
-            return accountCharacterCount.get(accountid);
+            Short count = accountCharacterCount.get(accountid);
+            return count == null ? 0 : count;
         } finally {
             lgnRLock.unlock();
         }
@@ -2095,6 +2096,11 @@ public class Server {
         log.info("{} the server!", restart ? "Restarting" : "Shutting down");
         if (getWorlds() == null) {
             return;//already shutdown
+        }
+
+        // 1.5.2 (nutnnut/Cosmic e61767a42): no hourly autosave from here on; the saves below are the last ones.
+        for (World w : getWorlds()) {
+            w.beginShutdown();
         }
 
         // 1.5.0 release rehearsal: the real players are saved first and the shutdown waits for their saves; only

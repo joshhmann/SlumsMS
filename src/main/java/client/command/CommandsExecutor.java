@@ -349,6 +349,7 @@ public class CommandsExecutor {
         if (soloMapling.qa.QaSuite.isEnabled()) {
             addCommand("qa", 3, client.command.commands.gm3.QaCommand.class); // test scenarios + logs/qa (docs/ops/qa-suite.md)
             addCommand("botcombat", 3, client.command.commands.gm3.BotCombatCommand.class); // 1.5.0 rc3 bot combat staging
+            addCommand("godlydrop", 3, client.command.commands.gm3.GodlyDropCommand.class); // 1.5.2 godly drop staging
         }
         if (soloMapling.autoqa.AutoQa.isEnabled()) {
             addCommand("autoqa", 3, client.command.commands.gm3.AutoQaCommand.class); // health sweeps + check runner (docs/ops/qa-suite.md)
@@ -478,6 +479,7 @@ public class CommandsExecutor {
         addCommand("itemvac", 4, ItemVacCommand.class);
         addCommand("forcevac", 4, ForceVacCommand.class);
         addCommand("zakum", 4, ZakumCommand.class);
+        addCommand("zakumpq", 4, ZakumPqCommand.class);
         addCommand("horntail", 4, HorntailCommand.class);
         addCommand("pinkbean", 4, PinkbeanCommand.class);
         addCommand("pap", 4, PapCommand.class);

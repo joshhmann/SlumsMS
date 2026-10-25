@@ -50,6 +50,12 @@ public interface QaWorld {
     /** Spawns idle bots (no FSM) around a point of the GM's map; their character ids. */
     List<Integer> spawnIdleBots(Character gm, Point around, int count);
 
+    /**
+     * pq-2: OPQ lobby bots - the real OPQ brain, so they accept a party invite and run the party quest - around a
+     * point of the GM's map; their character ids.
+     */
+    List<Integer> spawnOpqLobbyBots(Character gm, Point around, int count);
+
     /** As above at one level (ga-2: a rich lv 100 bot, whose spend-down takes a couple of minutes). */
     default List<Integer> spawnIdleBots(Character gm, Point around, int count, int level) {
         return spawnIdleBots(gm, around, count);
@@ -391,5 +397,22 @@ public interface QaWorld {
      */
     default List<String> convoAction(Character gm, String action, List<Integer> bots, String[] args) {
         return List.of();
+    }
+
+    /** 1.5.2 gl-1: drops a godly-rolled equip at the GM's feet as a mob drop; what dropped, or null if it can't. */
+    default String dropGodly(Character gm, int itemId) {
+        return null;
+    }
+
+    // ---- ticket 69: v83 basics (vb-1..vb-7) ----
+
+    /**
+     * One step of an ordinary v83 feature a real player uses: {@code feature} is a vb-* id and {@code step} names
+     * what to do (the scenario logs the lines). Every line is an outcome assertion, e.g. the style before and after
+     * or the shop balance that moved. A refusal the step expects is a plain note; a refusal it does not expect is
+     * reported as a line beginning {@code NPC_REFUSAL}, which {@link soloMapling.autoqa.Expects#noRefusal()} fails.
+     */
+    default List<String> v83Step(Character gm, String feature, String step) {
+        return List.of("this world cannot run " + feature + " " + step);
     }
 }

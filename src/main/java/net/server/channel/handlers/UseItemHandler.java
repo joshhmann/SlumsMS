@@ -52,7 +52,7 @@ public final class UseItemHandler extends AbstractPacketHandler {
         short slot = p.readShort();
         int itemId = p.readInt();
         Item toUse = chr.getInventory(InventoryType.USE).getItem(slot);
-        if (toUse != null && toUse.getQuantity() > 0 && toUse.getItemId() == itemId && !chr.inExpedition) {
+        if (toUse != null && toUse.getQuantity() > 0 && toUse.getItemId() == itemId) {
             if (itemId == ItemId.ALL_CURE_POTION) {
                 chr.dispelDebuffs();
                 remove(c, slot);
@@ -103,15 +103,10 @@ public final class UseItemHandler extends AbstractPacketHandler {
                     mse.applyTo(player);
                 }
             }
-        }  else if(toUse != null && toUse.getQuantity() > 0 && toUse.getItemId() == itemId && chr.potionCount > 0) {
-            chr.potionCount--;
-            StatEffect mse = ii.getItemEffect(toUse.getItemId());
-            for (Character player : chr.getMap().getCharacters()) {
-                mse.applyTo(player);
-            }
-            remove(c, slot);
-            chr.dropMessage(5, "Remaining Potion Count: " + chr.potionCount);
         }
+        // 1.5.2 (owner 2026-10-25): MapleRoot's Lion King's Castle "expedition potions" (a potion or any USE item
+        // applied to every character on the map, flags set by ChangeMapHandler that leaked to other maps) are gone:
+        // a potion heals only the one who drinks it, as in stock v83.
     }
 
     private void remove(Client c, short slot) {

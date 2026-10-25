@@ -33,6 +33,50 @@ var debug = false;
 var status = 0;
 var curMap, stage;
 
+function humanParty(eim) {  // bots cannot collect nor hold the trial items, they never count
+    var party = eim.getPlayers();
+    var human = [];
+
+    for (var i = 0; i < party.size(); i++) {
+        if (!party.get(i).isBot()) {
+            human.push(party.get(i));
+        }
+    }
+
+    return human;
+}
+
+function countPartyItems(eim, itemid) {
+    var human = humanParty(eim);
+    var count = 0;
+
+    for (var i = 0; i < human.length; i++) {
+        count += human[i].countItem(itemid);
+    }
+
+    return count;
+}
+
+function takePartyItems(eim, itemid, amount) {  // picks the items from whoever of the party is holding them
+    var human = humanParty(eim);
+    const InventoryType = Java.type('client.inventory.InventoryType');
+    const InventoryManipulator = Java.type('client.inventory.manipulator.InventoryManipulator');
+
+    for (var i = 0; i < human.length && amount > 0; i++) {
+        var take = Math.min(human[i].countItem(itemid), amount);
+        if (take > 0) {
+            // through the manipulator so the holder's client is told: a bare Inventory.removeItem left the items
+            // showing in the ETC tab until relog
+            InventoryManipulator.removeById(human[i].getClient(), InventoryType.ETC, itemid, take, true, false);
+            amount -= take;
+        }
+    }
+}
+
+function stageItemRequirement(eim) {    // 50 trial items were the chore of a 6-player party, scale it for smaller teams
+    return Math.max(1, Math.ceil(50 * humanParty(eim).length / 6));
+}
+
 function isAllGatesOpen() {
     var map = cm.getPlayer().getMap();
 
@@ -106,7 +150,7 @@ function action(mode, type, selection) {
 
                     if (state == -1) {           // preamble
                         if (stage == 4) {
-                            cm.sendOk("Hi. Welcome to the #bstage " + stage + "#k of the Amorian Challenge. In this stage, collect me #b50 #t4031597##k from the mobs around here.");
+                            cm.sendOk("Hi. Welcome to the #bstage " + stage + "#k of the Amorian Challenge. In this stage, collect me #b" + stageItemRequirement(eim) + " #t4031597##k from the mobs around here.");
                         } else if (stage == 5) {
                             cm.sendOk("Hi. Welcome to the #bstage " + stage + "#k of the Amorian Challenge. That was quite the run to reach here, eh? Well, that was your task this stage here, anyway: survival! Firstly, have anyone alive gathered here before challenging the boss.");
                         }
@@ -115,8 +159,9 @@ function action(mode, type, selection) {
                         eim.setProperty("statusStg" + stage, st);
                     } else {       // check stage completion
                         if (stage == 4) {
-                            if (cm.haveItem(4031597, 50)) {
-                                cm.gainItem(4031597, -50);
+                            var need = stageItemRequirement(eim);
+                            if (countPartyItems(eim, 4031597) >= need) {
+                                takePartyItems(eim, 4031597, need);
 
                                 var tl = eim.getTimeLeft();
                                 if (tl >= 5 * 60 * 1000) {
@@ -128,7 +173,7 @@ function action(mode, type, selection) {
                                 cm.mapMessage(5, "Amos: The time runs short now. Your objective is to open the gates and gather together on the other side of the next map. Good luck!");
                                 clearStage(stage, eim, curMap);
                             } else {
-                                cm.sendNext("Hey, didn't you pay heed? I demand #r50 #t4031597##k for the success of this trial.");
+                                cm.sendNext("Hey, didn't you pay heed? I demand #r" + need + " #t4031597##k for the success of this trial.");
                             }
 
                         } else if (stage == 5) {
