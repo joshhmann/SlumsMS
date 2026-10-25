@@ -25,6 +25,7 @@ public final class QaLog {
 
     /** What a log line is about. A scenario lists the topics it wants; nothing else reaches its file. */
     public enum Topic {
+        OWNED_ALT,      // ticket 13: lifecycle reservations, synchronous saves and login takeover
         ATTACK,         // bot attack packets: skill, pose, weapon, targets (bk-1)
         GUILD,          // guild creation steps (gd-1)
         FM_BUY,         // bot purchases from player shops and the seller cap (fm-1)

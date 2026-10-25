@@ -39,7 +39,7 @@ import server.maps.MapleMap;
 import soloMapling.ArtificialPlayer.BotHoldings;
 import soloMapling.ArtificialPlayer.BotTradeSystem.BotTradeQueue;
 
-import static soloMapling.ArtificialPlayer.BotHelpers.isBot;
+import static soloMapling.ArtificialPlayer.BotHelpers.isRosterBot;
 import tools.PacketCreator;
 import tools.Pair;
 
@@ -127,7 +127,7 @@ public class Trade {
 
         for (Item item : exchangeItems) {
             KarmaManipulator.toggleKarmaFlagToUntradeable(item);
-            if (isBot(chr)) {
+            if (isRosterBot(chr)) {
                 creditReceivedItem(chr, item);
             } else {
                 giveOrDrop(chr, item, show);
@@ -137,7 +137,7 @@ public class Trade {
         if (exchangeMeso > 0) {
             int fee = getFee(exchangeMeso);
 
-            if (isBot(chr)) {
+            if (isRosterBot(chr)) {
                 creditReceivedMeso(chr, exchangeMeso - fee);
             } else {
                 chr.gainMeso(exchangeMeso - fee, show, true, show);
@@ -167,14 +167,14 @@ public class Trade {
         // A bot's own offer is generated for the trade window (BotTradeCommands builds it), so it was never taken
         // out of any inventory and must NOT be handed back: crediting it would print the item into the bot's
         // holdings and then onto the floor when the bot despawns. Only its mesos are real - refunded below.
-        if (!isBot(chr)) {
+        if (!isRosterBot(chr)) {
             for (Item item : items) {
                 giveOrDrop(chr, item, show);
             }
         }
         if (meso > 0) {
             chr.gainMeso(meso, show, true, show);
-            if (isBot(chr)) {
+            if (isRosterBot(chr)) {
                 BotHoldings.noteMesoRefund(chr, meso);   // the offer is back, so the ledger is too
             }
         }
@@ -227,7 +227,7 @@ public class Trade {
         }
         if (chr.getMeso() >= meso) {
             chr.gainMeso(-meso, false, true, false);
-            if (isBot(chr)) {
+            if (isRosterBot(chr)) {
                 // Offered mesos are real and must leave the bot's ledger with its wallet, or settling the bot
                 // would drop mesos it already paid away.
                 BotHoldings.noteMesoSpent(chr, meso);
@@ -447,7 +447,7 @@ public class Trade {
 
             partner.getChr().setTrade(null);
             chr.setTrade(null);
-            if (soloMapling.ArtificialPlayer.BotHelpers.isBot(chr)) soloMapling.ArtificialPlayer.BotTradeSystem.BotTradeQueue.getInstance().removeTradeRequest(chr);
+            if (soloMapling.ArtificialPlayer.BotHelpers.isRosterBot(chr)) soloMapling.ArtificialPlayer.BotTradeSystem.BotTradeQueue.getInstance().removeTradeRequest(chr);
         }
     }
 
@@ -581,8 +581,8 @@ public class Trade {
 
                 c1.sendPacket(PacketCreator.getTradeStart(c1.getClient(), c1.getTrade(), (byte) 0));
                 c2.sendPacket(PacketCreator.tradeInvite(c1));
-                if (soloMapling.ArtificialPlayer.BotHelpers.isBot(c2)) soloMapling.ArtificialPlayer.BotTradeSystem.BotTradeQueue.getInstance().addTradeRequest(c2, c1);
-                if (soloMapling.ArtificialPlayer.BotHelpers.isBot(c2)) soloMapling.Economy.BotDirectTrade.onInvite(c2, c1); // 1.5.0 rc3
+                if (soloMapling.ArtificialPlayer.BotHelpers.isRosterBot(c2)) soloMapling.ArtificialPlayer.BotTradeSystem.BotTradeQueue.getInstance().addTradeRequest(c2, c1);
+                if (soloMapling.ArtificialPlayer.BotHelpers.isRosterBot(c2)) soloMapling.Economy.BotDirectTrade.onInvite(c2, c1); // 1.5.0 rc3
             } else {
                 c1.message("The other player is already trading with someone else.");
                 cancelTrade(c1, TradeResult.NO_RESPONSE);
@@ -598,10 +598,10 @@ public class Trade {
         InviteResult inviteRes = InviteCoordinator.answerInvite(InviteType.TRADE, c1.getId(), c2.getId(), true);
 
         InviteResultType res = inviteRes.result;
-        if (res == InviteResultType.ACCEPTED || soloMapling.ArtificialPlayer.BotHelpers.isBot(c2)) {
+        if (res == InviteResultType.ACCEPTED || soloMapling.ArtificialPlayer.BotHelpers.isRosterBot(c2)) {
             if (c1.getTrade() != null && c1.getTrade().getPartner() == c2.getTrade() && c2.getTrade() != null && c2.getTrade().getPartner() == c1.getTrade()) {
                 c2.sendPacket(PacketCreator.getTradePartnerAdd(c1));
-                if (!soloMapling.ArtificialPlayer.BotHelpers.isBot(c1)) c1.sendPacket(PacketCreator.getTradeStart(c1.getClient(), c1.getTrade(), (byte) 1));
+                if (!soloMapling.ArtificialPlayer.BotHelpers.isRosterBot(c1)) c1.sendPacket(PacketCreator.getTradeStart(c1.getClient(), c1.getTrade(), (byte) 1));
                 c1.getTrade().setFullTrade(true);
                 c2.getTrade().setFullTrade(true);
             } else {
@@ -628,7 +628,7 @@ public class Trade {
             }
             trade.cancel(TradeResult.NO_RESPONSE.getValue());
             chr.setTrade(null);
-            if (soloMapling.ArtificialPlayer.BotHelpers.isBot(chr)) soloMapling.ArtificialPlayer.BotTradeSystem.BotTradeQueue.getInstance().removeTradeRequest(chr);
+            if (soloMapling.ArtificialPlayer.BotHelpers.isRosterBot(chr)) soloMapling.ArtificialPlayer.BotTradeSystem.BotTradeQueue.getInstance().removeTradeRequest(chr);
         }
     }
 

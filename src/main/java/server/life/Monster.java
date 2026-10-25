@@ -787,9 +787,10 @@ public class Monster extends AbstractLoadedLife {
 
             int _partyExp = expValueToInteger(partyExp);
 
-            attacker.gainExp(_personalExp, _partyExp, true, false, white);
+            if (attacker.isOwnedAlt() && !attacker.canGainOwnedAltPartyExp()) return;
+            attacker.gainPartyPlayExp(_personalExp, _partyExp, true, false, white);
             attacker.increaseEquipExp(_personalExp);
-            attacker.raiseQuestMobCount(getId());
+            if (!attacker.isOwnedAlt()) attacker.raiseQuestMobCount(getId());
         }
     }
 

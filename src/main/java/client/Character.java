@@ -527,7 +527,7 @@ public class Character extends AbstractCharacterObject {
         awayFromWorld.set(false);
         client.getChannelServer().removePlayerAway(id);
 
-        if (canRecvPartySearchInvite) {
+        if (canRecvPartySearchInvite && !isOwnedAlt()) {
             this.getWorldServer().getPartySearchCoordinator().attachPlayer(this);
         }
     }
@@ -693,11 +693,36 @@ public class Character extends AbstractCharacterObject {
     }
 
     /**
-     * True for AI players (thousands of bots share a single headless BotClient). Event scripts use it to keep bots
-     * out of the party-size maths: a bot cannot climb a PQ platform or hold a conversation.
+     * Population characters only. Event scripts exclude them from party-size maths; owned alts remain
+     * full party members even though their private client is headless.
      */
     public boolean isBot() {
-        return client instanceof BotClient;
+        return client instanceof BotClient && !isOwnedAlt();
+    }
+
+    private volatile Character ownedAltOwner;
+    private boolean ownedAltSaveCommitted;
+    private volatile boolean ownedAltClosing;
+    public boolean isOwnedAltClosing() { return ownedAltClosing; }
+
+    public boolean isOwnedAlt() { return ownedAltOwner != null; }
+    public Character getOwnedAltOwner() { return ownedAltOwner; }
+
+    public void markOwnedAlt(Character owner) {
+        if (!(client instanceof BotClient) || id <= 0 || id >= 1_000_000_000
+                || owner == null || owner.getAccountID() != accountid || owner.getWorld() != world || owner.getId() == id) {
+            throw new IllegalArgumentException("Invalid alt identity");
+        }
+        ownedAltOwner = owner;
+    }
+
+    /** Fail closed if this transaction did not commit; the lifecycle registry retains the character. */
+    public synchronized void saveOwnedAltToDB() {
+        if (!isOwnedAlt() || !loggedIn) throw new IllegalStateException("Alt is not active");
+        ownedAltClosing = true;
+        ownedAltSaveCommitted = false;
+        saveCharToDB(true);
+        if (!ownedAltSaveCommitted) throw new IllegalStateException("Alt save did not commit");
     }
 
     public boolean hasJustMarried() {
@@ -954,6 +979,9 @@ public class Character extends AbstractCharacterObject {
     }
 
     public void newClient(Client c) {
+        if (isOwnedAlt() && !(c instanceof BotClient)) {
+            throw new IllegalStateException("Save and dismiss the alt before attaching a real session");
+        }
         this.loggedIn = true;
         c.setAccountName(this.client.getAccountName());//No null's for accountName
         this.setClient(c);
@@ -3816,6 +3844,24 @@ public class Character extends AbstractCharacterObject {
     }
 
     public void gainExp(int gain, int party, boolean show, boolean inChat, boolean white) {
+        if (isOwnedAlt()) return; // quest, script and solo EXP are not companion progression
+        gainExpAllowed(gain, party, show, inChat, white);
+    }
+
+    public boolean canGainOwnedAltPartyExp() {
+        Character owner = ownedAltOwner;
+        return !ownedAltClosing && owner != null && owner.isLoggedinWorld() && owner.getClient() != null
+                && owner.getClient().getPlayer() == owner && owner.isAlive()
+                && owner.getMap() == getMap() && getParty() != null && owner.getParty() == getParty();
+    }
+
+    /** Only the ordinary monster party-share path may award an alt EXP. */
+    public void gainPartyPlayExp(int gain, int party, boolean show, boolean inChat, boolean white) {
+        if (isOwnedAlt() && !canGainOwnedAltPartyExp()) return;
+        gainExpAllowed(gain, party, show, inChat, white);
+    }
+
+    private void gainExpAllowed(int gain, int party, boolean show, boolean inChat, boolean white) {
         if (hasDisease(Disease.CURSE)) { // 1.4.2: the repack had commented this out; Curse halves EXP as in v83
             gain = cursedExp(gain);
             party = cursedExp(party);
@@ -3872,6 +3918,7 @@ public class Character extends AbstractCharacterObject {
      * @return how many levels were gained
      */
     public synchronized int applyOffscreenExp(long gain, int levelCap) {
+        if (isOwnedAlt()) return 0;
         OffscreenProgression.Gain progressed = OffscreenProgression.accrue(level, exp.get(), gain, levelCap, l -> ExpTable.getExpNeededForLevel((int) l));
         final int levelBefore = level;
         this.level = progressed.level();
@@ -3916,6 +3963,7 @@ public class Character extends AbstractCharacterObject {
     }
 
     private synchronized void gainExpInternal(long gain, int equip, int party, boolean show, boolean inChat, boolean white) {   // need of method synchonization here detected thanks to MedicOP
+        if (isOwnedAlt() && (ownedAltClosing || (gain > 0 && !canGainOwnedAltPartyExp()))) return;
         long total = Math.max(gain + equip + party, -exp.get());
 
         if (level < getMaxLevel() && (allowExpGain || this.getEventInstance() != null)) {
@@ -3941,7 +3989,7 @@ public class Character extends AbstractCharacterObject {
             }
 
             if (level > soloLevelBefore) {
-                if (client instanceof BotClient) {
+                if (soloMapling.ArtificialPlayer.BotHelpers.isRosterBot(this)) {
                     // A bot spends the AP/SP these level-ups granted, and advances, by its build (real bots 06).
                     soloMapling.server.MapleRootSolo.runHook("bot progression", () ->
                             soloMapling.ArtificialPlayer.BotProgressionSystem.BotProgression.afterLevelUp(this, soloLevelBefore));
@@ -8796,7 +8844,7 @@ public class Character extends AbstractCharacterObject {
         }
         if (possesed > 0 && !MapId.isDojo(getMapId())) {
             message("You have used a safety charm, so your EXP points have not been decreased.");
-            if (client instanceof BotClient) {
+            if (soloMapling.ArtificialPlayer.BotHelpers.isRosterBot(this)) {
                 // rc6 bug hunt: a bot's shared BotClient has no player, so removeById threw here. Use the charm up
                 // through the bot's holdings ledger instead.
                 Item charm = getInventory(ItemConstants.getInventoryType(charmID[i])).findById(charmID[i]);
@@ -9431,7 +9479,7 @@ public class Character extends AbstractCharacterObject {
     }
 
     public void saveGuildStatus() {
-        if (soloMapling.ArtificialPlayer.BotHelpers.isBot(this)) return;
+        if (soloMapling.ArtificialPlayer.BotHelpers.isRosterBot(this)) return;
         try (Connection con = DatabaseConnection.getConnection();
              PreparedStatement ps = con.prepareStatement("UPDATE characters SET guildid = ?, guildrank = ?, allianceRank = ? WHERE id = ?")) {
             ps.setInt(1, guildid);
@@ -9577,7 +9625,7 @@ public class Character extends AbstractCharacterObject {
 
                 // No quickslots, or no change.
                 boolean bQuickslotEquals = this.m_pQuickslotKeyMapped == null || (this.m_aQuickslotLoaded != null && Arrays.equals(this.m_pQuickslotKeyMapped.GetKeybindings(), this.m_aQuickslotLoaded));
-                if (!bQuickslotEquals) {
+                if (!isOwnedAlt() && !bQuickslotEquals) {
                     long nQuickslotKeymapped = LongTool.BytesToLong(this.m_pQuickslotKeyMapped.GetKeybindings());
 
                     // Quickslot key config
@@ -9630,7 +9678,7 @@ public class Character extends AbstractCharacterObject {
     }
 
     public void saveCharToDB() {
-        if (soloMapling.ArtificialPlayer.BotHelpers.isBot(this)) return;
+        if (soloMapling.ArtificialPlayer.BotHelpers.isRosterBot(this)) return;
         if (YamlConfig.config.server.USE_AUTOSAVE) {
             Runnable r = new Runnable() {
                 @Override
@@ -9648,7 +9696,7 @@ public class Character extends AbstractCharacterObject {
 
     //ItemFactory saveItems and monsterbook.saveCards are the most time consuming here.
     public synchronized void saveCharToDB(boolean notAutosave) {
-        if (soloMapling.ArtificialPlayer.BotHelpers.isBot(this)) return;
+        if (soloMapling.ArtificialPlayer.BotHelpers.isRosterBot(this)) return;
         if (!loggedIn) {
             return;
         }
@@ -9755,7 +9803,7 @@ public class Character extends AbstractCharacterObject {
                         ps.setInt(i + 31, getSlots(i));
                     }
 
-                    monsterbook.saveCards(con, client.getAccID());
+                    if (!isOwnedAlt()) monsterbook.saveCards(con, client.getAccID());
 
                     ps.setInt(36, bookCover);
                     ps.setInt(37, vanquisherStage);
@@ -9838,7 +9886,7 @@ public class Character extends AbstractCharacterObject {
 
                 // No quickslots, or no change.
                 boolean bQuickslotEquals = this.m_pQuickslotKeyMapped == null || (this.m_aQuickslotLoaded != null && Arrays.equals(this.m_pQuickslotKeyMapped.GetKeybindings(), this.m_aQuickslotLoaded));
-                if (!bQuickslotEquals) {
+                if (!isOwnedAlt() && !bQuickslotEquals) {
                     long nQuickslotKeymapped = LongTool.BytesToLong(this.m_pQuickslotKeyMapped.GetKeybindings());
 
                     try (final PreparedStatement psQuick = con.prepareStatement("INSERT INTO quickslotkeymapped (accountid, keymap) VALUES (?, ?) ON DUPLICATE KEY UPDATE keymap = ?;")) {
@@ -10052,11 +10100,11 @@ public class Character extends AbstractCharacterObject {
                     stmt.executeBatch();
                 }
 
-                if (cashshop != null) {
+                if (cashshop != null && !isOwnedAlt()) {
                     cashshop.save(con);
                 }
 
-                if (storage != null && usedStorage) {
+                if (storage != null && usedStorage && !isOwnedAlt()) {
                     storage.saveToDB(con);
                     usedStorage = false;
                 }
@@ -10065,6 +10113,7 @@ public class Character extends AbstractCharacterObject {
                 server.colorprism.ColorPrismStore.saveLookTints(con, this);
 
                 con.commit();
+                if (isOwnedAlt()) ownedAltSaveCommitted = true;
             } catch (Exception e) {
                 con.rollback();
                 throw e;
@@ -10074,6 +10123,7 @@ public class Character extends AbstractCharacterObject {
             }
         } catch (Exception e) {
             log.error("Error saving chr {}, level: {}, job: {}", name, level, job.getId(), e);
+            if (isOwnedAlt()) throw new IllegalStateException("Alt save failed", e);
         }
     }
 
@@ -10255,7 +10305,7 @@ public class Character extends AbstractCharacterObject {
 
     public void setHasMerchant(boolean set) {
         // A bot has no characters row to flag, and the free market sets up hundreds of bot merchants at boot.
-        if (soloMapling.ArtificialPlayer.BotHelpers.isBot(this)) {
+        if (soloMapling.ArtificialPlayer.BotHelpers.isRosterBot(this)) {
             hasMerchant = set;
             return;
         }
@@ -10924,7 +10974,7 @@ public class Character extends AbstractCharacterObject {
 
     public void setTrade(Trade trade) {
         this.trade = trade;
-        if (trade == null && soloMapling.ArtificialPlayer.BotHelpers.isBot(this)) {
+        if (trade == null && soloMapling.ArtificialPlayer.BotHelpers.isRosterBot(this)) {
             soloMapling.ArtificialPlayer.BotTradeSystem.BotTradeQueue.getInstance().removeTradeRequest(this);
         }
     }
