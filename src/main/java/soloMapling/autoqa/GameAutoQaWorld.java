@@ -644,6 +644,11 @@ final class GameAutoQaWorld implements AutoQaWorld {
                 continue;
             }
             int partner = c.getPartnerId();
+            int token = c.getMarriageItemId();
+            if (token > 0 && c.getItemQuantity(token, false) <= 0) {
+                // a vb-* reset wiped the bag: the break-engagement action needs the ring in it, so put it back first
+                client.inventory.manipulator.InventoryManipulator.addById(c.getClient(), token, (short) 1, "qa", -1);
+            }
             net.packet.ByteBufOutPacket body = new net.packet.ByteBufOutPacket();
             body.writeByte(3);
             body.writeInt(c.getMarriageItemId());
