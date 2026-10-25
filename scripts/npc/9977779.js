@@ -7,12 +7,10 @@ load("scripts/npc/interactions/common/base.js")
 const MenuOption = {
     StringMap: {
         0 : "Crafting Equipment",
-        1 : "Refining Minerals",
-        2 : "Weapon Crafting"
+        1 : "Refining Minerals"
     },
     CraftingEquipment: 0,
-    RefiningMinerals: 1,
-    WeaponCrafting: 2
+    RefiningMinerals: 1
 }
 
 const selectionMenuOptions = [ MenuOption.CraftingEquipment, MenuOption.RefiningMinerals ];
@@ -56,10 +54,6 @@ function action(mode, type, selection) {
                 break;
             case MenuOption.RefiningMinerals:
                 load('scripts/npc/interactions/RefiningMaterials.js');
-                currentInteraction = new RefiningMineralsInteraction(cm);
-                break;
-            case MenuOption.WeaponCrafting:
-                load('scripts/npc/interactions/WeaponCrafting.js');
                 currentInteraction = new RefiningMineralsInteraction(cm);
                 break;
             default:

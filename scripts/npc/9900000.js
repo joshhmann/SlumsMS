@@ -20,7 +20,7 @@ function action(mode, type, selection) {
         if (status == 0) {
             if (selection == 0) { 
                 cm.dispose();
-                cm.openNpc(9900000, "stylist");
+                cm.openNpc(9900000, "STYLIST");
             } else if (selection == 1) { 
                 cm.dispose();
                 cm.openNpc(9900000, "saloon");

@@ -329,10 +329,6 @@ function action(mode, type, selection) {
 				cm.sendOk("You already have that hairstyle.");
 			}
 			cm.dispose(); // This ensures that the NPC dialogue is closed after the action is performed.
-		} else if (selected == 7) {
-			cm.dispose();
-			cm.openNpc(cm.getNpc(), "SpecialStyle");
-			return;
 		} else if (selected == 8) {
 			text = "\t\t\t\t\t\t\t\t Male Hairs";
 			text += "\r\n" + StylesToFix(maleHair);
