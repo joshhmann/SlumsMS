@@ -204,6 +204,13 @@ Owner-reported or found, roughly by priority:
   mount room end to end (quest 6002 hand-in at Kenta, 6007 Tatamo 20m, 6003 perfume, catch in map 922200000 where
   the hog must be under 40% HP) plus one PQ clear (e.g. KPQ), and add the mount path to `docs/release/1.5.1-qa.md`.
 
+- **PIC on (owner, 2026-10-25):** live `config.yaml` now has `ENABLE_PIC: true` (Cosmic's default; MapleRoot had turned
+  it off, which made deleting characters impossible). Takes effect at the 1.5.1 restart: players are asked to create
+  a PIC at their next login. Backup `/root/config.yaml.before-pic-*` on 164. Mention it in the 1.5.1 patch notes.
+- **Owner report, not reproduced:** "Style NPCs are bugged in each town". Salon scripts match Cosmic and log no
+  errors; waiting on details (which NPC, what happens). Ticket idea for 1.5.1/1.6.0: diff MapleRoot's changes against
+  stock Cosmic (handlers, config, scripts) for regressions like clearPQ and PIC; old worktree `SlumsMS-cosmicdiff`.
+
 ## 4. Decisions the owner made (don't re-ask)
 
 - 3,000 bots on live; reduce if needed. Per-map cap 50 to start (FM may need more).
