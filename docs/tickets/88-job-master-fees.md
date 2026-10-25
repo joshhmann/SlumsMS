@@ -1,6 +1,6 @@
-# 88: Job Master advancement fees (1.6.0)
+# 88: Job Master advancement fees (1.5.2)
 
-Owner, 2026-10-25. MapleRoot's Job Master (scripts/npc/9010003.js; Base of Roots 993910000 and Ellinia) gives
+Owner, 2026-10-25. Moved into 1.5.2 at the owner's call (before the first live player reaches 4th job). MapleRoot's Job Master (scripts/npc/9010003.js; Base of Roots 993910000 and Ellinia) gives
 every advancement instantly with no test, which makes the stock job quests pointless. Charge for the skip:
 
 | Advancement | Fee |
