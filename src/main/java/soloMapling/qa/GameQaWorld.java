@@ -1277,7 +1277,9 @@ final class GameQaWorld implements QaWorld {
     }
 
     private void resetPretendPlayer(Character gm, int job, int level, int meso) {
-        if (gm == null) {
+        // Wipes job, skills, items, mesos and quest rows: only ever for auto-QA's pretend players, never a real
+        // character, even if a future caller forgets V83Scenarios' own SyntheticClient check.
+        if (gm == null || !(gm.getClient() instanceof client.SyntheticClient)) {
             return;
         }
         gm.changeJob(client.Job.getById(job));
