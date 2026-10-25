@@ -17,6 +17,8 @@ import tools.Pair;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
+import java.time.ZoneId;
+import java.time.ZonedDateTime;
 import java.util.ArrayList;
 import java.util.HashSet;
 import java.util.LinkedList;
@@ -163,6 +165,22 @@ public final class CashShopWindowPurchase {
             chr.dropMessage(5, "Your account now has " + c.getCharacterSlots() + " character slots.");
         }
         return 0;
+    }
+
+    /**
+     * The window shows only a name, so a bought EXP/drop coupon gets one chat line saying when it works, on the
+     * server's clock and Pacific time (the coupon task checks hours in the server zone, not the player's).
+     */
+    private static void noteCouponHours(Character chr, List<CashShopCatalog.Row> items) {
+        for (CashShopCatalog.Row r : items) {
+            if (!CashShopServices.isRateCoupon(r.itemId())) {
+                continue;
+            }
+            final CouponSchedule s = Server.getInstance().getCouponSchedule(r.itemId());
+            if (s != null) {
+                chr.dropMessage(5, s.purchaseNote(r.name(), ZonedDateTime.now(ZoneId.systemDefault())));
+            }
+        }
     }
 
     private static void undoSlots(Character chr, List<Integer> grown) {
@@ -339,6 +357,7 @@ public final class CashShopWindowPurchase {
 
             log.info("{} bought {} cash item(s) for {} NX from the Cash Shop window",
                     chr.getName(), delivered, total);
+            noteCouponHours(chr, items);
             return new Result(CashShopWindowPackets.BUY_OK, 0, delivered, (int) total);
             }
             }

@@ -20,7 +20,7 @@ import xml.etree.ElementTree as ET
 SKIP_CHAR_DIRS = {"Hair", "Face", "Afterimage", "Dragon"}
 # Frame names that prove an equip draws on the avatar.
 FRAME_NAMES = {"stand1", "stand2", "default", "walk1", "walk2"}
-CACHE_VERSION = 4
+CACHE_VERSION = 6
 
 _NUM = re.compile(r"-?\d+")
 
@@ -141,9 +141,17 @@ def _build(wz):
                 n = c.get("name")
                 if c.tag != "imgdir" or not n.isdigit():
                     continue
-                info = _info(_child(c, "info"))
+                info_el = _child(c, "info")
+                info = _info(info_el)
                 items[int(n)] = {"src": src, "dir": sub, "cash": info.get("cash", 0),
                                  "icon": bool(info.get("_icon")), "frames": True}
+                # Rate coupons (0521 EXP, 0536 drop): info/rate and the info/time list
+                # ("MON:07-11", ...) that the shop name's schedule is built from.
+                tm = _child(info_el, "time") if info_el is not None else None
+                if tm is not None:
+                    items[int(n)]["time"] = [t.get("value") for t in tm if t.tag == "string"]
+                    rate = next((r.get("value") for r in info_el if r.get("name") == "rate"), None)
+                    items[int(n)]["rate"] = int(float(rate)) if rate else None   # int in 0521, float "2.0" in 0536
 
     names = _names(wz)
 

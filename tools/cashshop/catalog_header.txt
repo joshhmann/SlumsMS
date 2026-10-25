@@ -13,3 +13,5 @@
 #
 # Rate coupons (5211xxx EXP, 5360xxx drop) carry the stock Commodity.img periods; a period of 1
 # on 5211048/5211060/5360042 means 4h/2h/4h. They are hidden while USE_SUPPLY_RATE_COUPONS is off.
+# Their names are built from the WZ info/time schedule (coupon_schedule.py): "2x EXP M-F 7-11am 30d"
+# = Mon-Fri 07:00-11:00 SERVER time (config TIMEZONE), lasts 30 days. No day = every day.

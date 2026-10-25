@@ -10,6 +10,7 @@
 | `overrides.yaml` | The human-edited part: prices, hiding, names, categories, featured, owner flags. Always wins. |
 | `catalog_rules.py` | Facts about the server and the window: categories, exclusions, gender, name rules. |
 | `catalog_header.txt` | The comment block at the top of the generated file. |
+| `coupon_schedule.py` | Rate coupon names from the WZ schedule (`test_coupon_schedule.py`). |
 | `wzindex.py` | Reads the server WZ XML. Caches its index in `~/.cache/slumsms-cashshop/` (rebuilt when the WZ changes). |
 
 Python 3 with PyYAML. The WZ is the server's XML dump: `--wz DIR`, `$WZ_PATH`,
@@ -47,7 +48,14 @@ on disk is stale.
   `tier:` scales a band price by a factor from `tiers`.
 - **Gender**: worked out from the item id. For an equip, the thousands digit 0 means male and
   1 means female; anything else is both. This is the client's rule and the server refusal's.
-- **Names**: the String.wz name, cut to 40 characters. These names are rejected: blank,
+- **Names**: the String.wz name, cut to 40 characters. **Rate coupons** (5211xxx/5360xxx) are named
+  from their WZ `info/time` schedule instead (`coupon_schedule.py`), because the window shows nothing
+  but the name: `2x EXP M-F 7-11am 30d` is Mon-Fri 07:00-11:00 server time for 30 days, `Sa-Su` is
+  the weekend, no day means every day, `anytime 4hrs` lasts 4 hours from purchase. The pieces are
+  ordered so the grid's two ~12-character lines break between them. An `items` name still wins.
+  In game, `@coupons` names the server's zone, translates each held coupon's hours to Pacific time and
+  says whether it is working now; buying a coupon in the window prints the same hours in chat.
+  These names are rejected: blank,
   placeholder, Korean or other non-Latin; for non-stock rows also `GM ...`, `Test` and names
   with underscores.
 - **Order**: by tab/category, then featured, then new, then the rest, then item id. File order
