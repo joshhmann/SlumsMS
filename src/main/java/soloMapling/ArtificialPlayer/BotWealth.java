@@ -283,14 +283,14 @@ public final class BotWealth {
 
     private static volatile int cachedWorldRate;
 
-    /** World 0's meso rate, or 0 when there is no running server. */
+    /** The home world's meso rate (bots live there; Bera is world 1, there is no world 0), or 0 with no server. */
     static int worldMesoRate() {
         int r = cachedWorldRate;
         if (r > 0) {
             return r;
         }
         try {
-            var world = net.server.Server.getInstance().getWorld(0);
+            var world = net.server.Server.getInstance().getWorld(soloMapling.server.SoloMaplingConstants.GameConstants.homeWorld());
             if (world != null) {
                 r = Math.max(1, world.getMesoRate());
                 cachedWorldRate = r;
@@ -315,7 +315,7 @@ public final class BotWealth {
     }
 
     /** Test seam: a clock (null = the system clock), a clean ledger and pace. */
-    static void resetForTest(LongSupplier testClock) {
+    public static void resetForTest(LongSupplier testClock) {
         clock = testClock == null ? System::currentTimeMillis : testClock;
         states.clear();
         intakeRefused.set(0);
