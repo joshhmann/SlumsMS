@@ -77,22 +77,16 @@ function action(mode, type, selection) {
                     cm.sendOk("Please have one slot available on #bUSE#k inventory to receive a skill book.");
                 }
             } else if (mode >= 1 && cm.getJobId() % 100 % 10 == 2) {
+                // SlumsMS 1.5.2: Ninja Ambush (4121004/4221004) and Assassinate (4221001) are not in MapleRoot's
+                // skill set; a Shadower has nothing left to learn here, so he is told so instead of "It is done".
                 if (cm.getJobId() == 412) {
                     if (cm.getPlayer().getSkillLevel(4121008) == 0) {
                         cm.teachSkill(4121008, 0, 10, -1);
                     }
-                    if (cm.getPlayer().getSkillLevel(4121004) == 0) {
-                        cm.teachSkill(4121004, 0, 10, -1);
-                    }
-                } else if (cm.getJobId() == 422) {
-                    if (cm.getPlayer().getSkillLevel(4221004) == 0) {
-                        cm.teachSkill(4221004, 0, 10, -1);
-                    }
-                    if (cm.getPlayer().getSkillLevel(4221001) == 0) {
-                        cm.teachSkill(4221001, 0, 10, -1);
-                    }
+                    cm.sendOk("It is done. Leave me now.");
+                } else {
+                    cm.sendOk("There is nothing more I can teach you. The rest of your path you must walk alone.");
                 }
-                cm.sendOk("It is done. Leave me now.");
             }
 
             cm.dispose();

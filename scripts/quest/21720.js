@@ -32,16 +32,16 @@ function end(mode, type, selection) {
     } else if (status == 5) {
         qm.sendNextPrev("Aren't you scared?", 2);
     } else if (status == 6) {
-        qm.sendYesNo("Scared? Pfft. Who cares if the Black Mage appears. You'll be here to protect us. If anything, this makes me want to prepare you for the big battle. Ah, that reminds me, I found a #bskill#k. Would you like to see it?");
+        qm.sendYesNo("Scared? Pfft. Who cares if the Black Mage appears. You'll be here to protect us. If anything, this makes me want to prepare you for the big battle. Ah, that reminds me, I found an old #brecord of your training#k. Would you like to see it?");
     } else if (status == 7) {
         if (qm.getQuestStatus(21720) == 1) {
+            // SlumsMS 1.5.2: Polearm Booster (21001003) is not in MapleRoot's skill set; the record gives EXP only
             qm.forceCompleteQuest();
-            qm.teachSkill(21001003, qm.getPlayer().getSkillLevel(21001003), 20, -1);
             qm.gainExp(3900);
         }
-        qm.sendNext('#b(You remembered the Polearm Booster skill!)#k', 2);
+        qm.sendNext('#b(You read the record. The old movements feel a little more familiar.)#k', 2);
     } else if (status == 8) {
-        qm.sendNextPrev("This skill was found in an ancient incomprehensible script. I had a hunch it might be a skill you used in the past, and I think I was right. You're not as strong as you used to be, but you'll get there, in time.", 8);
+        qm.sendNextPrev("This was written in an ancient incomprehensible script. I had a hunch it was about the way you fought in the past, and I think I was right. You're not as strong as you used to be, but you'll get there, in time.", 8);
     } else if (status == 9) {
         qm.sendNextPrev("You are steadily becoming more powerful, and I'll be here to keep motivating you. You have nothing to be afraid of. You will not lose the battle. You didn't emerge from ice only to lose to the Black Mage, did you? This time, you'll finish him, once and for all!", 8);
     } else if (status == 10) {

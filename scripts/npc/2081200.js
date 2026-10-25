@@ -64,16 +64,13 @@ function action(mode, type, selection) {
                 if (cm.canHold(2280003, 1)) {
                     cm.changeJobById(cm.getJobId() + 1);
                     if (cm.getJobId() == 212) {
-                        cm.teachSkill(2121001, 0, 10, -1);
-                        cm.teachSkill(2121002, 0, 10, -1);
+                        cm.teachSkill(2121002, 0, 10, -1);   // SlumsMS 1.5.2: no Big Bang (2121001) in MapleRoot's set
                         cm.teachSkill(2121006, 0, 10, -1);
                     } else if (cm.getJobId() == 222) {
-                        cm.teachSkill(2221001, 0, 10, -1);
-                        cm.teachSkill(2221002, 0, 10, -1);
+                        cm.teachSkill(2221002, 0, 10, -1);   // no Big Bang (2221001)
                         cm.teachSkill(2221006, 0, 10, -1);
                     } else if (cm.getJobId() == 232) {
-                        cm.teachSkill(2321001, 0, 10, -1);
-                        cm.teachSkill(2321002, 0, 10, -1);
+                        cm.teachSkill(2321002, 0, 10, -1);   // no Big Bang (2321001)
                         cm.teachSkill(2321005, 0, 10, -1);
                     }
                     cm.gainItem(2280003, 1);
