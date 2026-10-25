@@ -46,6 +46,12 @@ function action(mode, type, selection) {
         if (status == 0) {
             cm.sendNext("You don't belong to this world... Return now.");
         } else if (status == 1) {
+            if (cm.isQuestStarted(6363)) {
+                // SlumsMS 1.5.2: the server's Quest.wz has quest 6363 "A New Revelation" (Buccaneer Time Leap) wait for
+                // record 6364 = "2" before Rolonay accepts the hand-in, and nothing set it (stock Cosmic's data has no
+                // such check). Being sent back to the present is the step that record stands for.
+                cm.setQuestProgress(6363, 6364, "2");
+            }
             cm.warp(220080000);
             cm.dispose();
         }
