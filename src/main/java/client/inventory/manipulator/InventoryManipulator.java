@@ -413,9 +413,13 @@ public class InventoryManipulator {
     }
 
     public static boolean checkSpace(Client c, int itemid, int quantity, String owner) {
+        Character chr = (c == null) ? null : c.getPlayer();
+        if (chr == null) { // 1.5.2: the player left between receiving the packet and checking its space
+            return false;
+        }
+
         ItemInformationProvider ii = ItemInformationProvider.getInstance();
         InventoryType type = ItemConstants.getInventoryType(itemid);
-        Character chr = c.getPlayer();
         Inventory inv = chr.getInventory(type);
 
         if (ii.isPickupRestricted(itemid)) {
