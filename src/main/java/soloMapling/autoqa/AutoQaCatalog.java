@@ -650,7 +650,9 @@ public final class AutoQaCatalog {
                         has("VB MOUNT quest6002 canComplete=true state=2 .*item1912000=1"),
                         has("VB MOUNT bottleRefused canComplete=false"),
                         has("VB MOUNT bottle canComplete=true .* fee=20000000"),
-                        has("VB MOUNT perfume canComplete=true perfume \\d+ -> \\d+"), noRefusal())
+                        has("VB MOUNT perfume canComplete=true perfume \\d+ -> \\d+"),
+                        has("VB MOUNT hog map=922200000 .* handler=true perfume \\d+ -> 0 perfumeUsed=1 "
+                                + "mountGained=1 mobGone=true"), noRefusal())
                 .build());
         c.add(Check.auto("t-vb-5", "Buy and sell at a shop and use a Cash Shop EXP card").minutes(5)
                 .step(run("vb-5"), qaDo("buy"), qaDo("sell"), qaDo("expcard"))

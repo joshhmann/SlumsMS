@@ -1568,20 +1568,67 @@ final class GameQaWorld implements QaWorld {
                         + gm.getInventory(InventoryType.USE).countById(2270000)
                         + " bottleLeft=" + gm.getInventory(InventoryType.ETC).countById(4031509));
             }
-            case "hog" -> {
-                server.maps.MapleMap map = gm.getClient().getChannelServer().getMapFactory().getMap(922200000);
-                if (map == null) {
-                    out.add("VB MOUNT hog map=922200000 missing");
-                    return out;
-                }
-                gm.changeMap(map, map.getRandomPlayerSpawnpoint());
-                out.add("VB MOUNT hog map=" + gm.getMapId() + " hog=" + (map.getMonsterById(9300101) != null)
-                        + " item=" + constants.id.ItemId.PHEROMONE_PERFUME
-                        + " (the catch is a WZ item effect on a mob under 40% HP; not driven here)");
-            }
+            case "hog" -> hog(gm, out);
             default -> out.add("VB MOUNT no step " + step);
         }
         return out;
+    }
+
+    /**
+     * The last link of the mount chain: the client's phenomone perfume (2270000) on a tamable hog below 40% HP.
+     * The real path is the USE_CATCH_ITEM packet — {@code net.server.channel.handlers.UseCatchItemHandler} reads the
+     * item and the mob oid, checks the mob's HP and swaps the perfume for a hog saddle (1902000). Nothing on the
+     * server checks level or a worn saddle at catch time, so the preconditions are the item in USE and the HP.
+     */
+    private void hog(Character gm, List<String> out) {
+        MapleMap map = gm.getClient().getChannelServer().getMapFactory().getMap(922200000);
+        if (map == null) {
+            out.add("VB MOUNT hog map=922200000 missing");
+            return;
+        }
+        gm.changeMap(map, map.getRandomPlayerSpawnpoint());
+        if (gm.getMapId() != 922200000) {
+            out.add("VB MOUNT hog could not warp to 922200000, still on " + gm.getMapId());
+            return;
+        }
+        boolean spawned = false;
+        server.life.Monster hog = map.getMonsterById(constants.id.MobId.TAMABLE_HOG);
+        if (hog == null) {
+            // the map spawns the hog for 1200s every 3600s; outside that window QA brings its own
+            map.spawnMonsterOnGroundBelow(constants.id.MobId.TAMABLE_HOG, gm.getPosition().x, gm.getPosition().y);
+            spawned = true;
+            hog = map.getMonsterById(constants.id.MobId.TAMABLE_HOG);
+        }
+        if (hog == null) {
+            out.add("VB MOUNT hog map=922200000 no mob " + constants.id.MobId.TAMABLE_HOG);
+            return;
+        }
+        int oid = hog.getObjectId();
+        long maxHp = hog.getMaxHp();
+        long target = maxHp / 10 * 3;
+        if (hog.getHp() > target) {
+            hog.applyAndGetHpDamage(hog.getHp() - target, false);
+        }
+        long hp = hog.getHp();
+        int perfume = constants.id.ItemId.PHEROMONE_PERFUME;
+        if (gm.getInventory(InventoryType.USE).countById(perfume) <= 0) {
+            InventoryManipulator.addById(gm.getClient(), perfume, (short) 1, "qa", -1);
+        }
+        int perfumeBefore = gm.getInventory(InventoryType.USE).countById(perfume);
+        int mountBefore = gm.getInventory(InventoryType.EQUIP).countById(constants.id.ItemId.HOG);
+        boolean handled = body(gm, net.opcodes.RecvOpcode.USE_CATCH_ITEM, b -> {
+            b.writeInt(0);
+            b.writeShort(0);
+            b.writeInt(perfume);
+            b.writeInt(oid);
+        });
+        int perfumeAfter = gm.getInventory(InventoryType.USE).countById(perfume);
+        int mountAfter = gm.getInventory(InventoryType.EQUIP).countById(constants.id.ItemId.HOG);
+        out.add("VB MOUNT hog map=" + gm.getMapId() + " spawnedByQa=" + spawned + " hp=" + hp + "/" + maxHp
+                + " handler=" + handled + " perfume " + perfumeBefore + " -> " + perfumeAfter
+                + " perfumeUsed=" + (perfumeBefore - perfumeAfter)
+                + " mountGained=" + (mountAfter - mountBefore)
+                + " mobGone=" + (map.getMonsterByOid(oid) == null));
     }
 
     // ── vb-5: NPC shop buy/sell and the Cash Shop EXP card ──
@@ -1737,16 +1784,18 @@ final class GameQaWorld implements QaWorld {
         return out;
     }
 
-    private void body(Character gm, net.opcodes.RecvOpcode op,
-                      java.util.function.Consumer<net.packet.ByteBufOutPacket> writer) {
+    private boolean body(Character gm, net.opcodes.RecvOpcode op,
+                         java.util.function.Consumer<net.packet.ByteBufOutPacket> writer) {
         net.packet.ByteBufOutPacket b = new net.packet.ByteBufOutPacket();
         writer.accept(b);
         net.PacketHandler h = net.PacketProcessor.getChannelServerProcessor(gm.getWorld(), gm.getClient().getChannel())
                 .getHandler((short) op.getValue());
-        if (h != null) {
-            h.handlePacket(new net.packet.ByteBufInPacket(io.netty.buffer.Unpooled.wrappedBuffer(b.getBytes())),
-                    gm.getClient());
+        if (h == null || !h.validateState(gm.getClient())) {
+            return false;
         }
+        h.handlePacket(new net.packet.ByteBufInPacket(io.netty.buffer.Unpooled.wrappedBuffer(b.getBytes())),
+                gm.getClient());
+        return true;
     }
 
     // ── vb-7: storage, Duey and a trade between two pretend players ──

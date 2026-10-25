@@ -202,19 +202,35 @@ class V83ChecksTest {
     @Test
     void mountPassesOnlyOnTheFeeAndTheItemsAndOnTheBrokeRefusal() throws Exception {
         Check c = AutoQaCatalog.find("t-vb-4");
+        String hog = "VB MOUNT hog map=922200000 spawnedByQa=true hp=60/200 handler=true "
+                + "perfume 1 -> 0 perfumeUsed=1 mountGained=1 mobGone=true";
         List<String> good = List.of("VB MOUNT room started=true map=923010000 instance=true",
                 "VB MOUNT quest6002 canComplete=true state=2 item1912000=1 skill1004=1",
                 "VB MOUNT bottleRefused canComplete=false meso 1000000 -> 1000000 stillBottle=true",
                 "VB MOUNT bottle canComplete=true meso 21000000 -> 1000000 fee=20000000 bottle 0 -> 1",
-                "VB MOUNT perfume canComplete=true perfume 0 -> 1 bottleLeft=0");
+                "VB MOUNT perfume canComplete=true perfume 0 -> 1 bottleLeft=0", hog);
         allPass(c, good);
         assertTrue(anyFails(c, List.of(good.get(0), good.get(1), good.get(2),
                 "VB MOUNT bottle canComplete=true meso 21000000 -> 21000000 fee=0 bottle 0 -> 1",
-                good.get(4))), "a bottle that charged no fee must fail");
+                good.get(4), hog)), "a bottle that charged no fee must fail");
         assertTrue(anyFails(c, List.of(good.get(0), "VB MOUNT quest6002 canComplete=false state=1 item1912000=0",
-                good.get(2), good.get(3), good.get(4))), "an unfinished 6002 must fail");
+                good.get(2), good.get(3), good.get(4), hog)), "an unfinished 6002 must fail");
         assertTrue(anyFails(c, List.of(good.get(0), good.get(1), good.get(2), good.get(3),
-                "VB MOUNT perfume canComplete=false perfume 0 -> 0 bottleLeft=0")), "no perfume must fail");
+                "VB MOUNT perfume canComplete=false perfume 0 -> 0 bottleLeft=0", hog)), "no perfume must fail");
+        assertTrue(anyFails(c, List.of(good.get(0), good.get(1), good.get(2), good.get(3), good.get(4))),
+                "a run that only warped to the hog map must fail");
+        assertTrue(anyFails(c, List.of(good.get(0), good.get(1), good.get(2), good.get(3), good.get(4),
+                "VB MOUNT hog map=922200000 spawnedByQa=true hp=60/200 handler=true "
+                        + "perfume 1 -> 0 perfumeUsed=1 mountGained=0 mobGone=true")),
+                "a catch that gave no mount must fail");
+        assertTrue(anyFails(c, List.of(good.get(0), good.get(1), good.get(2), good.get(3), good.get(4),
+                "VB MOUNT hog map=922200000 spawnedByQa=true hp=60/200 handler=true "
+                        + "perfume 1 -> 0 perfumeUsed=1 mountGained=1 mobGone=false")),
+                "a catch that left the mob alive must fail");
+        assertTrue(anyFails(c, List.of(good.get(0), good.get(1), good.get(2), good.get(3), good.get(4),
+                "VB MOUNT hog map=922200000 spawnedByQa=true hp=60/200 handler=true "
+                        + "perfume 1 -> 1 perfumeUsed=0 mountGained=1 mobGone=true")),
+                "a catch that consumed no perfume must fail");
     }
 
     private static final class StubActor implements AutoQaWorld.Actor {
