@@ -60,11 +60,24 @@ public class InventoryManipulator {
         return addById(c.getPlayer(), itemId, quantity, owner, petid, -1);
     }
 
+    /** 1.5.2: the bot-safe twin of addById(Client, ...). A bot shares one headless client whose getPlayer() is null. */
+    public static boolean addById(Character chr, int itemId, short quantity) {
+        return addById(chr, itemId, quantity, null, -1, -1);
+    }
+
+    public static boolean addById(Character chr, int itemId, short quantity, long expiration) {
+        return addById(chr, itemId, quantity, null, -1, (byte) 0, expiration);
+    }
+
     public static boolean addById(Character c, int itemId, short quantity, String owner, int petid, long expiration) {
         return addById(c, itemId, quantity, owner, petid, (byte) 0, expiration);
     }
 
     public static boolean addById(Character chr, int itemId, short quantity, String owner, int petid, short flag, long expiration) {
+        if (chr == null) { // 1.5.2: the Client overloads reach here with a null player (a bot's client has none)
+            return false;
+        }
+
         InventoryType type = ItemConstants.getInventoryType(itemId);
 
         Inventory inv = chr.getInventory(type);
@@ -178,6 +191,27 @@ public class InventoryManipulator {
             throw new RuntimeException("Trying to create equip with non-one quantity");
         }
         return true;
+    }
+
+    /**
+     * 1.5.2: add an item for a character rather than for a client. Bots share one headless BotClient whose getPlayer()
+     * is null, so every bot path that went through the Client overloads (a bot's wedding ring, a bot's romance gift)
+     * threw and the item was lost. Packets to a bot's client go nowhere, which is exactly what should happen.
+     */
+    public static boolean addFromDrop(Character chr, Item item, boolean show, int petId) {
+        Client c = (chr == null) ? null : chr.getClient();
+        if (c == null) {
+            return false;
+        }
+
+        InventoryType type = item.getInventoryType();
+        Inventory inv = chr.getInventory(type);
+        inv.lockInventory();
+        try {
+            return addFromDropInternal(c, chr, type, inv, item, show, petId);
+        } finally {
+            inv.unlockInventory();
+        }
     }
 
     public static boolean addFromDrop(Client c, Item item) {
@@ -297,6 +331,23 @@ public class InventoryManipulator {
         return true;
     }
 
+    /** 1.5.2: the bot-safe twin of add(Client, ...); see addFromDrop(Character, Item, boolean, int). */
+    public static boolean add(Character chr, Item item, boolean show, int petId) {
+        Client c = (chr == null) ? null : chr.getClient();
+        if (c == null) {
+            return false;
+        }
+
+        InventoryType type = item.getInventoryType();
+        Inventory inv = chr.getInventory(type);
+        inv.lockInventory();
+        try {
+            return addInternal(c, chr, type, inv, item, show, petId);
+        } finally {
+            inv.unlockInventory();
+        }
+    }
+
     public static boolean add(Client c, Item item) {
         return add(c, item, true);
     }
@@ -413,7 +464,11 @@ public class InventoryManipulator {
     }
 
     public static boolean checkSpace(Client c, int itemid, int quantity, String owner) {
-        Character chr = (c == null) ? null : c.getPlayer();
+        return checkSpace((c == null) ? null : c.getPlayer(), itemid, quantity, owner);
+    }
+
+    /** 1.5.2: the bot-safe twin of checkSpace(Client, ...): a bot's client has no player. */
+    public static boolean checkSpace(Character chr, int itemid, int quantity, String owner) {
         if (chr == null) { // 1.5.2: the player left between receiving the packet and checking its space
             return false;
         }

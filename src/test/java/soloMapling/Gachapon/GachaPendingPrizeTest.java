@@ -88,7 +88,7 @@ class GachaPendingPrizeTest {
         GachaPools.setForTest(GachaPools.parse(new StringReader(POOL), id -> true));
         GachaMachine.clearPendingForTest();
         inv = mockStatic(InventoryManipulator.class);
-        inv.when(() -> InventoryManipulator.checkSpace(any(), anyInt(), anyInt(), anyString())).thenAnswer(a -> room.get());
+        inv.when(() -> InventoryManipulator.checkSpace(any(Client.class), anyInt(), anyInt(), anyString())).thenAnswer(a -> room.get());
 
         chr = mock(Character.class);
         Client c = mock(Client.class);
