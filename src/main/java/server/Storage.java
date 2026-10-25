@@ -154,7 +154,8 @@ public class Storage {
     public Item getItem(byte slot) {
         lock.lock();
         try {
-            return items.get(slot);
+            // 1.5.2: a take-out for a slot that is not there (getSlot's -1, a stale client) threw IndexOutOfBounds
+            return slot < 0 || slot >= items.size() ? null : items.get(slot);
         } finally {
             lock.unlock();
         }
@@ -216,10 +217,15 @@ public class Storage {
     public byte getSlot(InventoryType type, byte slot) {
         lock.lock();
         try {
+            List<Item> ofType = typeItems.get(type);
+            if (ofType == null || slot < 0 || slot >= ofType.size()) {
+                return -1; // nothing of this type there (it threw NullPointer / IndexOutOfBounds)
+            }
+            Item wanted = ofType.get(slot);
             byte ret = 0;
             List<Item> storageItems = getItems();
             for (Item item : storageItems) {
-                if (item == typeItems.get(type).get(slot)) {
+                if (item == wanted) {
                     return ret;
                 }
                 ret++;
