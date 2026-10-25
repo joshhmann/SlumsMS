@@ -6,6 +6,62 @@ something.
 
 Times: give the owner Pacific next to UTC (PDT = UTC-7).
 
+**1.6.0 sprint in progress (separate feature branch):** `160-life-in-town`, worktree
+`/root/work/SlumsMS-160-sprint`, source `3f8250967` (fishing QA spawn fix atop `a572d4361`). Plans and open work:
+`docs/release/1.6.0-sprint.md`, tickets 68–74. Before changes, origin/release-1.5.1 at `246032b41` merged
+cleanly as `5c061ef29`. No feature merges back into 1.5.1; frozen RC1 branch/tag remain unchanged.
+
+Chat request guards now cover refusals, quoted/reported/past requests, scam warnings and fair price talk,
+including the separate early buff path. New timed fishing shares one session service between players and
+bot-life FISH, cancels when the character becomes ineligible, and grants items through the Character adapter
+(headless BotClient has no player). Both fishing flags default off in source. The owner approved one item
+per 90 seconds: 35% Whitebait 4031627, 30% Carp 4031630, 25% Snail Shell 4000000, 5% Red Potion 2000000,
+5% Blue Potion 2000003. Enabled only in the isolated 8491 start script, with a backup. No legacy rare/meso/EXP
+pool. Existing water maps only; no Henesys fishing zone or chair distribution yet. Actual bot travel and client
+chair/catch effects remain unverified.
+
+Final full `mvn -q -o test`: **4,623 tests, 0 failures/errors, 38 skips**, 426 classes. The first full run exposed
+an existing hold-expiry test race; it now uses a test-only expiry clock (production clock unchanged), and the
+final full run passes. Benchmark Python: 8 pass; release tools: 35 pass; package passes. Isolated deploy receipt
+`/opt/mapleroot-dev/bot-life-160/deploys/20261024T235544Z`; jar SHA-256
+`d123a64f25df2fae9a115288faf68a88e8db967e5f8aef79a63cba5dc2ba3a04`.
+The earlier deploy at `20261024T233704Z` had seven selected PASS and a fishing fixture refusal before any
+reward; `3f8250967` fixes the random-spawn staging and adds a fail-before/pass-after regression.
+The development jar still displays 1.6.0-rc1; it is not a replacement RC1 tag or release freeze.
+
+Agent 17's fresh-v1 results show the original rule precedence undermined both models. Offline replay after
+fixes: rules **94.3%**, GLiNER combined **91.4%**, gliclass combined **92.9%** intent accuracy, versus
+70.0% / 60.0% / 67.1% before. No new inference calls or endpoint/threshold changes. This 70-case set is now a
+regression set after development, not an unseen promotion result. Keep the current model; collect another
+unseen set before a switch. Weighted routing evaluation remains open (ticket 72).
+
+Client settings branch **`client-160-settings` pushed at `360b2e7`**: owned settings window via Ctrl+F10 or
+system menu, validated supported INI options, Save/Cancel and restart guidance. MSVC Win32 Release and
+**20/20 native tests pass**. DLL SHA-256 `4408a63d7218957bccd6c446f18f494bac4bfc5086310cc54549f137aa35142e`,
+in `Z:\MSv83\SlumsMS-dev\client-160-settings\src\build\Release\slums.dll`. No installed game DLL replaced
+or feed published. Real-game visual/focus/restart checks pending. Existing client worker did not answer; no
+GUI bypass attempted. Its existing guard permits 8489, not feature 8491. Ticket 61's historical acceptance
+receipt confirms three successful cycles; that receipt was read, not rerun. See `docs/qa/CLIENT-MCP.md`.
+
+Achievement proposal has 30 cosmetic-only goals and verified existing RC medal art IDs; progress/claim code
+is not built and goal/medal choices still need review. Chaos data exists; dependencies and attacks need an
+audit/client test before playable scripts. Daily dungeon, graphics wrapper and separate Evan trial remain open.
+
+
+**Sprint isolated verification complete:** ten selected checks PASS, zero FAIL/SKIP in the run:
+`bg-1,cv-9,ps-2,vg-1,ch-1,fh-1,fh-2,bl-1,bl-2,bl-3`. Ran 4:57:57–5:01:14 PM PT Oct 24
+(23:57:57 UTC Oct 24–00:01:14 UTC Oct 25, 2026). Actual fishing granted one Snail Shell after ~91.7 s;
+standing stopped the session; fixture item/chair cleanup completed. Actual bot fishing travel and all client
+visuals remain pending. Restock checks prove decision/start/duplicate suppression, not arrival or purchases.
+Zero ERROR/Exception lines since boot. One bot DB permit-wait warning occurred during startup.
+Overall health remains FAIL on footholds (4/383 grounded bots), overlap WARN; no claim these are fixed.
+The QA run crossed UTC midnight, so latest.json's daily summary contains only the two post-midnight checks;
+its `runs` entry records all ten PASS. Receipt includes both daily reports plus selected journal evidence.
+Stopped at **5:01:39 PM PT Oct 24 (00:01:39 UTC Oct 25)**: 385 bots written, zero failed/missed, 1.607 s
+for writes. Unit inactive, MainPID 0, no 8491 listener. Limits unchanged: 2 CPU, 6 GiB total, 5 GiB heap.
+No shared TEST, Live, Live DB, public feed or Discord changes. Server branch pushed through `3f8250967`;
+follow-up documentation records this receipt. Owner/client checklist: `docs/release/1.6.0-sprint-qa.md`.
+
 **Decision-model benchmark (separate tooling branch):** `160-decide-benchmark`, worktree
 `/root/work/SlumsMS-decide-benchmark`, based on frozen RC1 `6fae8d954`; tool commit `647e1d5f1`.
 The owner supplied five model endpoints on 17 and approved gentle comparisons of each, including current port

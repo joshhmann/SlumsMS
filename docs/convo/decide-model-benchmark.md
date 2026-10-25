@@ -175,3 +175,34 @@ such as "don't follow me", a past-tense story and a fair discount. Watch actual 
 chat promises. No in-game or real-client benchmark validation was done in this pass, and the earlier RC1 movement
 health issues remain open. The daily-life brain should continue making its own weighted choices without adding
 per-bot model calls.
+
+## Fresh-v1 follow-up and request guard (1.6.0 sprint)
+
+Agent 17 supplied 70 fresh cases and saved raw outputs, dataset SHA-256
+`c473651dc07aedbe272a9ebd1f07e3940315e15ec31d4ad8e2decbc1240374ea`.
+Its handoff is `/root/slumsms-decide-benchmark/eval/fresh-v1/CODEX-HANDOFF.md` on 17.
+The corrected final labels include a disclosed post-hoc harassment label correction; preserve the exact hash.
+
+| Intent accuracy | Before request guard | New request guard at a572d4361 |
+|---|---:|---:|
+| Rules only | 70.0% | 94.3% |
+| Rules + current GLiNER | 60.0% | 91.4% |
+| Rules + gliclass | 67.1% | 92.9% |
+
+Both models made the original ambiguous-case result worse despite gliclass's stronger raw answers. Rule
+precedence discarded some correct model answers, but merely reversing precedence would also admit wrong ones.
+The guard scopes refusals, quoted/reported/past speech, warnings and fair bargaining before classification.
+Production guard changes include the early buff shortcut, which does not go through ordinary conversation.
+New regressions contain paired real requests so protecting a refusal does not simply disable every action word.
+
+These new numbers replay saved model answers through the current Java implementation, with unchanged 400 ms
+budget and confidence thresholds. No fresh inference, endpoint swap or runtime shadow model was used.
+Versus the improved rules, GLiNER introduces 2 wrong intents and 5 new false abuse flags; gliclass introduces
+1 and 4. This set is now a development regression set, not a blind promotion test. It contains only one
+positive abuse example, so it cannot establish real scam-detection recall. Keep the existing endpoint and
+collect another unseen, more balanced set before promoting a model or changing fusion precedence.
+
+Local raw inputs: ignored `dist/fresh-v1`; final replay outputs:
+`dist/fresh-final-rules`, `dist/fresh-final-gliner`, `dist/fresh-final-gliclass` in the sprint worktree.
+To replay against new code, build the new jar, or put `target/classes` before an older fat jar on the bridge's
+classpath. An old fat jar alone would silently replay the old production rules.

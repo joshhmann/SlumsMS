@@ -26,3 +26,20 @@ without the owner request.
 ## Owner choices
 
 Target party size and difficulty requested. Rewards, entry limits and data source need review after the compatibility audit.
+
+## First data audit
+
+Owner direction: keep existing Chaos values first, then tune on TEST. No boss data or rewards changed.
+Read-only audit found Chaos data on TEST and corresponding core art in the RC client data. Examples:
+Zakum 8800100/101/102 body HP 900,000,000 / 1,000,000,000 / 1,500,000,000;
+Horntail pre-heads 8810100/101 HP 1,650,000,000, main 8810102 HP 2,147,483,647.
+These are the existing TEST data values, not independently verified canonical later-version values.
+The local ignored `dist/chaos-audit/mobs.jsonl` records source hashes, HP, elements and skill references.
+
+A follow-up read-only pass across these 22 core Chaos mob files found all 65 distinct referenced skill/level
+pairs in TEST MobSkill data, and all 11 directly summoned mob files. Receipt: ignored
+`dist/chaos-audit/dependencies.json`. This checks presence only, not recursive summon behavior or client support.
+
+Next: audit linked/summoned behavior and client fields, build separate events and entry checks, then observe
+every attack/phase in a real client. Existing enum entries and data do not prove compatibility. No playable
+Chaos encounter or new event script was added. Normal bosses remain unchanged.

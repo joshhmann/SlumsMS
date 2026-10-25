@@ -1,6 +1,6 @@
 # Ticket 69: Achievements and medals
 
-Target: 1.6.0. Status: Planned: draft goals and rewards while building reusable event progress.
+Target: 1.6.0. Status: 30-goal / existing-medal proposal ready; progress and award implementation pending.
 
 Read AGENTS.md, docs/HANDOFF.md, docs/ROADMAP.md and docs/release/RUNBOOK.md first.
 Sprint tracking: docs/release/1.6.0-sprint.md. This ticket expands an already approved roadmap item; it does not
@@ -25,4 +25,6 @@ without the owner request.
 
 ## Owner choices
 
-The roughly 30 goals and exact medal IDs/stats. Cosmetic versus existing stats requested; final list needs owner review.
+Owner chose cosmetic medals with no new combat stats. Exact 30 goal/medal pairings are proposed in
+[the catalogue](../achievements/1.6.0-proposal.md); final review and atomic player/bot claim persistence remain.
+No medal item or gameplay value was changed.

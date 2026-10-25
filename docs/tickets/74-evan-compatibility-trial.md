@@ -26,3 +26,13 @@ without the owner request.
 ## Owner choices
 
 Go/no-go after observed trial, not before. No additional classes or economy changes in scope.
+
+## Initial source inventory (no trial enabled)
+
+The server has an EVAN beginner job 2001, but EVAN1–10 are mapped to disabled placeholder jobs
+9900/9910–9918. Existing Evan constants, a Dragon map object, spawn/move/remove packet helpers,
+MoveDragonHandler and Character dragon lifecycle hooks are present. Their presence does not establish
+compatibility with the shipped v83 client or data. No job IDs, skill behavior or dragon spawns were changed.
+No separate trial branch/client session has been started; the current client worker is unavailable.
+The next useful result must be an observed GM-only character-and-dragon trial on its own branch, not a
+claim based on these source names. This research remains excluded from the 1.6.0 release.
