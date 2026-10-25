@@ -59,8 +59,9 @@ Screenshots land in `Z:\MSv83\SlumsMS-dev\client-mcp\shots\`; copy them back wit
 them. A Codex agent started on Silvia in `client-mcp\` can call the MCP server directly instead (see its README).
 
 Coordinates are the 800x600 client space of screenshots. The input tools work only on the verified field screen
-(like `command`): a window over the status bar hides it and they refuse. No modifier keys, so no Alt+F4 or Ctrl
-shortcuts. Each event re-checks the idle guard and a held button is always released if the owner takes over.
+(like `command`): a window over the status bar hides it and they refuse; Escape is still allowed after the field was
+seen, since a menu it opens hides the bar. No modifier keys except the one whitelisted combo `CTRL+F10` (the SlumsMS
+settings window), so no Alt+F4. Login waits 2 s after the field before `!unhide` (it used to lose the `!`). Each event re-checks the idle guard and a held button is always released if the owner takes over.
 Added 2026-10-25 for the inventory-resize checks; a worker started before then does not have them.
 
 **A typical pass:** pair a server scene with screenshots. Start the scene from 187 (`tools/ops/client-mcp command
