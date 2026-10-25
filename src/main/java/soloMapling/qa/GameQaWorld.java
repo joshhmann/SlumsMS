@@ -1041,24 +1041,19 @@ final class GameQaWorld implements QaWorld {
         // auto-QA rv-2: a "fight" the pretend player stands far away for is no fight - the mobs it damages sit on
         // another platform, the bots it stages for the drama land elsewhere, and nobody can ever take a mob from it.
         // Walk the player onto the nearest mob first (a GM teleport, same map), whenever it is not already there.
-        server.life.Monster nearest = null;
-        double bestSq = Double.MAX_VALUE;
+        List<Point> mobPoints = new ArrayList<>();
         for (server.life.Monster m : map.getAllMonsters()) {
             Point mp = m.getPosition();
             if (m.isAlive() && mp != null && m.getHp() > 1) {
-                double d = p.distanceSq(mp);
-                if (d < bestSq) {
-                    bestSq = d;
-                    nearest = m;
-                }
+                mobPoints.add(mp);
             }
         }
-        if (nearest == null) {
+        Point spot = fightSpot(p, mobPoints);
+        if (mobPoints.isEmpty()) {
             return 0;
         }
-        Point mp = nearest.getPosition();
-        if (Math.abs(mp.x - p.x) > 100 || Math.abs(mp.y - p.y) > 60) {
-            gm.changeMap(map, new Point(mp.x, mp.y)); // a GM teleport onto the mobs, same map
+        if (spot != null) {
+            gm.changeMap(map, new Point(spot.x, spot.y)); // a GM teleport onto the mobs, same map
             p = gm.getPosition();
         }
         List<server.life.Monster> near = within(map, p, rangeX, rangeY);
@@ -1081,6 +1076,34 @@ final class GameQaWorld implements QaWorld {
                     + gm.getName() + " at " + p.x + "," + p.y + " hit " + hit);
         }
         return n;
+    }
+
+    /**
+     * Where the GM's "fight" stands: null when it already stands among mobs of the lowest ledge, else the nearest
+     * mob of that ledge. Auto-QA t-rv-2: the GM spawns anywhere, and on the map's top ledge the called bots (they enter
+     * at a ground portal and walk up, at most 15 s) never got near enough to take a mob in the check's window.
+     */
+    static Point fightSpot(Point p, List<Point> mobs) {
+        if (mobs.isEmpty()) {
+            return null;
+        }
+        int lowest = Integer.MIN_VALUE;
+        for (Point m : mobs) {
+            lowest = Math.max(lowest, m.y);
+        }
+        Point best = null;
+        for (Point m : mobs) {
+            if (m.y < lowest - 150) {
+                continue;
+            }
+            if (Math.abs(m.x - p.x) <= 100 && Math.abs(m.y - p.y) <= 60) {
+                return null;
+            }
+            if (best == null || p.distanceSq(m) < p.distanceSq(best)) {
+                best = m;
+            }
+        }
+        return best;
     }
 
     /** The living mobs around {@code p} that a fake hit can land on (they keep at least 1 HP). */
