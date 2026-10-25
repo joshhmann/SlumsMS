@@ -2098,11 +2098,17 @@ public class Server {
                 List<Client> clients = new ArrayList<>(connectedClients.values());
                 // A disconnect closes the player's trades and shops (refunding a bot on the other side, which is
                 // written later) and saves the character, straight on the pool: never through the bots' share.
-                List<Client> late = ShutdownSaves.forEachWithin(clients, Client::forceDisconnect,
+                ShutdownSaves.BatchResult<Client> result = ShutdownSaves.forEachWithin(clients, Client::forceDisconnect,
                         ShutdownSaves.PLAYER_SAVERS, budgetMs);
-                log.info("Shutdown: {} connected client(s) disconnected and saved", clients.size() - late.size());
-                for (Client c : late) {
-                    log.warn("Shutdown: the save of account {} was not done after {} ms", c.getAccountName(), budgetMs);
+                log.info("Shutdown: {} connected client(s) disconnected and saved", result.succeeded().size());
+                for (ShutdownSaves.FailedItem<Client> f : result.failed()) {
+                    Client c = f.item();
+                    String who = c.getPlayer() != null ? c.getPlayer().getName() : "acc:" + c.getAccountName();
+                    log.error("Shutdown: save of {} failed: {}", who, f.error().getMessage(), f.error());
+                }
+                for (Client c : result.timedOut()) {
+                    String who = c.getPlayer() != null ? c.getPlayer().getName() : "acc:" + c.getAccountName();
+                    log.warn("Shutdown: the save of {} was not done after {} ms", who, budgetMs);
                 }
             }
 

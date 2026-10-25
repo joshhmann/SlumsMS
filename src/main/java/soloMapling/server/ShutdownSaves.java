@@ -79,14 +79,33 @@ public final class ShutdownSaves {
         }
     }
 
+    /** The failure details for an item whose execution threw an exception. */
+    public record FailedItem<T>(T item, Throwable error) {
+    }
+
+    /** The outcome of a batch of tasks run under a deadline. */
+    public record BatchResult<T>(List<T> succeeded, List<FailedItem<T>> failed, List<T> timedOut) {
+        public List<T> late() {
+            return timedOut;
+        }
+
+        public int total() {
+            return succeeded.size() + failed.size() + timedOut.size();
+        }
+
+        public boolean allSucceeded() {
+            return failed.isEmpty() && timedOut.isEmpty();
+        }
+    }
+
     /**
      * Applies {@code action} to every item on {@code threads} platform threads and waits until all are done or the
-     * budget is spent. Returns the items whose action had not finished by then (still running or never started).
+     * budget is spent. Returns the detailed BatchResult accounting for succeeded, failed, and timed out items.
      */
-    public static <T> List<T> forEachWithin(Collection<T> items, Consumer<T> action, int threads, long budgetMs) {
+    public static <T> BatchResult<T> forEachWithin(Collection<T> items, Consumer<T> action, int threads, long budgetMs) {
         List<T> list = new ArrayList<>(items);
         if (list.isEmpty()) {
-            return List.of();
+            return new BatchResult<>(List.of(), List.of(), List.of());
         }
         ExecutorService pool = Executors.newFixedThreadPool(Math.max(1, Math.min(threads, list.size())), r -> {
             Thread t = new Thread(r, "shutdown-save");
@@ -99,20 +118,26 @@ public final class ShutdownSaves {
         }
         pool.shutdown();
         long deadline = System.nanoTime() + TimeUnit.MILLISECONDS.toNanos(Math.max(0, budgetMs));
-        List<T> late = new ArrayList<>();
+        List<T> succeeded = new ArrayList<>();
+        List<FailedItem<T>> failed = new ArrayList<>();
+        List<T> timedOut = new ArrayList<>();
         for (int i = 0; i < list.size(); i++) {
+            T item = list.get(i);
             try {
                 futures.get(i).get(Math.max(0, deadline - System.nanoTime()), TimeUnit.NANOSECONDS);
+                succeeded.add(item);
             } catch (java.util.concurrent.TimeoutException e) {
-                late.add(list.get(i));
+                timedOut.add(item);
             } catch (java.util.concurrent.ExecutionException e) {
-                log.error("A save at shutdown failed", e.getCause());
+                Throwable cause = e.getCause() != null ? e.getCause() : e;
+                log.error("A save at shutdown failed for item {}", item, cause);
+                failed.add(new FailedItem<>(item, cause));
             } catch (InterruptedException e) {
                 Thread.currentThread().interrupt();
-                late.add(list.get(i));
+                timedOut.add(item);
             }
         }
-        return late;
+        return new BatchResult<>(succeeded, failed, timedOut);
     }
 
     /** Runs work on its own daemon thread and waits for it at most {@code limitMs}; true when it finished. */
