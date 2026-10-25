@@ -369,10 +369,48 @@ final class BotPhysicsEngine {
     static Foothold syncAndDetectGround(BotMovementState entry, Character bot) {
         syncGroundPosition(entry, bot.getPosition().x);
         Foothold fh = findGroundFoothold(bot.getMap(), bot.getPosition());
+        Foothold continuity = findContinuityGroundFoothold(entry, bot.getMap(), bot.getPosition(), fh);
+        if (continuity != null) {
+            fh = continuity;
+        }
         if (fh == null) {
             beginFall(entry, bot, 0);
         }
         return fh;
+    }
+
+    /*
+     * Ground continuity across overlapping chains (ported from nutnnut/Cosmic 235b6aefa, AGPL-3.0. Credit:
+     * NutNNut). Where two foothold chains share the exact same pixels, nav keeps the region the bot walked in on
+     * (v67, BotNavigationManager.resolveCurrentRegionId), but the raw tree lookup can return the OTHER chain. The
+     * motor then previewed its step on the foreign chain - which may end in a wall or a ledge one pixel away - so
+     * the step was refused, the walk edge cleared, and the bot parked on that pixel for good. Like the client,
+     * stay on the chain the bot is on.
+     *
+     * Ours is stricter than theirs: the nav region must pass through the bot's exact position (+-1px for slope
+     * rounding), not just within the walk snap band, because lastRegionId is only refreshed on grounded AI ticks
+     * and can still name the pre-jump platform right after a landing. Cheap: one map lookup unless the raw
+     * foothold is in a different region from the remembered one.
+     */
+    private static Foothold findContinuityGroundFoothold(BotMovementState entry, MapleMap map, Point position,
+                                                         Foothold raw) {
+        if (entry == null || entry.lastRegionId < 0 || map == null || position == null) {
+            return null;
+        }
+        BotNavigationGraph graph = entry.navGraph;
+        if (graph == null || graph.mapId != map.getId()) {
+            return null;
+        }
+        if (raw != null && graph.regionIdByFootholdId.getOrDefault(raw.getId(), -1) == entry.lastRegionId) {
+            return null; // the raw lookup already agrees with nav
+        }
+        WalkRegionLookup lookup = new WalkRegionLookup(map.getId(), graph.regionsById, graph.regionIdByFootholdId,
+                footholdsById(map));
+        GroundRegionSample sample = findWalkRegionGroundSample(lookup, entry.lastRegionId, null, position.x, position.y);
+        if (sample == null || Math.abs(sample.point().y - position.y) > 1) {
+            return null;
+        }
+        return sample.foothold();
     }
 
     static Foothold findGroundFoothold(MapleMap map, Point position) {
@@ -542,7 +580,14 @@ final class BotPhysicsEngine {
         if (map == null || currentPos == null) {
             return false;
         }
-        Foothold foothold = findGroundFoothold(map, currentPos);
+        return canWalkGroundStep(map, currentPos, findGroundFoothold(map, currentPos), stepX);
+    }
+
+    /* Step preview on the foothold the bot is actually standing on this tick (235b6aefa, credit NutNNut). */
+    static boolean canWalkGroundStep(MapleMap map, Point currentPos, Foothold foothold, int stepX) {
+        if (map == null || currentPos == null) {
+            return false;
+        }
         GroundStepPreview preview = previewGroundStep(map, currentPos, foothold, currentPos.x + stepX);
         return preview != null && !preview.lostGround() && !preview.blocked();
     }
@@ -551,7 +596,13 @@ final class BotPhysicsEngine {
         if (map == null || currentPos == null || stepX == 0) {
             return false;
         }
-        Foothold foothold = findGroundFoothold(map, currentPos);
+        return isGroundStepBlockedByWall(map, currentPos, findGroundFoothold(map, currentPos), stepX);
+    }
+
+    static boolean isGroundStepBlockedByWall(MapleMap map, Point currentPos, Foothold foothold, int stepX) {
+        if (map == null || currentPos == null || stepX == 0) {
+            return false;
+        }
         GroundStepPreview preview = previewGroundStep(map, currentPos, foothold, currentPos.x + stepX);
         return preview != null && preview.blocked();
     }
@@ -598,6 +649,12 @@ final class BotPhysicsEngine {
             return null;
         }
         int regionId = lookup.regionIdByFootholdId().getOrDefault(foothold.getId(), -1);
+        return findWalkRegionGroundSample(lookup, regionId, foothold, x, referenceY);
+    }
+
+    /* foothold == null: no standing chain to prefer (a region-only lookup); every segment counts as a chain step. */
+    private static GroundRegionSample findWalkRegionGroundSample(WalkRegionLookup lookup, int regionId,
+                                                                 Foothold foothold, int x, int referenceY) {
         BotNavigationGraph.Region region = lookup.regionsById().get(regionId);
         if (region == null || region.isRopeRegion) {
             return null;
@@ -635,7 +692,7 @@ final class BotPhysicsEngine {
             // or its prev/next) always beats a non-chain segment; the dx/dy score only breaks ties
             // within the same chain class. Crossing footholds that share no chain link keep the old
             // behaviour, so a ramp crossing flat ground can still be walked down.
-            boolean chainStep = isChainStep(foothold, segment.footholdId);
+            boolean chainStep = foothold == null || isChainStep(foothold, segment.footholdId);
             int score = dx * 1000 + Math.abs(dy);
             boolean better = bestSegment == null
                     || (chainStep && !bestChainStep)
