@@ -11,12 +11,15 @@ there:
   * map -> reactor: reactors placed in a map that have no Reactor.wz entry;
   * map -> text: maps with no String.wz name (players see a blank map name / the client shows a raw id);
   * map -> map: info/returnMap and info/forcedReturn pointing at a map that does not exist (the client then falls
-    back to 0 and the player ends up in the void or in the wrong town).
+    back to 0 and the player ends up in the void or in the wrong town). 999999999 (MapId.NONE), 0 and negative
+    values mean "no return map" and are ignored;
+  * map -> map, informational: portals whose tm is negative (the dojo's hidden exits) point at no map at all. They
+    are listed apart and do not fail the run.
 
 Usage:
     tools/ops/map-integrity [--wz DIR] [--json] [--map ID[,ID...]] [--limit N] [--quiet]
 
-Exit code is 1 when any issue was found, 0 when the data is clean, so it can gate a deploy.
+Exit code is 1 when any real issue was found, 0 when the data is clean, so it can gate a deploy.
 """
 import argparse
 import json
@@ -110,6 +113,7 @@ def audit(data, wanted=None, limit=25):
     issues = {
         "portalTargetMissing": [],
         "portalNameMissing": [],
+        "portalInertTarget": [],  # tm negative: not a map id, the portal goes nowhere (not an error, reported apart)
         "linkMissing": [],
         "mobMissing": [],
         "npcMissing": [],
@@ -135,7 +139,8 @@ def audit(data, wanted=None, limit=25):
                 issues["linkMissing"].append((mapid, int(link)))
             for field in ("returnMap", "forcedReturn"):
                 target = int_of(info, field)
-                if target and target not in data.map_files:
+                # 999999999 is MapId.NONE ("no return map") and 2896 maps use it; a negative or zero field is the same.
+                if target > 0 and target != NO_TARGET and target not in data.map_files:
                     issues[field + "Missing"].append((mapid, target))
 
         if mapid not in data.map_names:
@@ -148,6 +153,9 @@ def audit(data, wanted=None, limit=25):
                 tn = str_of(portal, "tn")
                 pn = str_of(portal, "pn")
                 pt = int_of(portal, "pt", 0)
+                if tm < 0:  # the dojo hidden exits use tm -1 and reach a same-map script portal by name
+                    issues["portalInertTarget"].append((mapid, pn, pt, tm, tn))
+                    continue
                 if tm != NO_TARGET and tm not in data.map_files:
                     issues["portalTargetMissing"].append((mapid, pn, pt, tm, tn))
                     continue
@@ -187,6 +195,8 @@ def audit(data, wanted=None, limit=25):
     # Worst cases: which maps pile up the most problems.
     per_map = Counter()
     for kind, rows in issues.items():
+        if kind == "portalInertTarget":  # not a data error, do not inflate a map's problem count with it
+            continue
         for row in rows:
             per_map[row[0]] += 1
     summary["worstMaps"] = [
@@ -224,6 +234,7 @@ def main():
         labels = {
             "portalTargetMissing": "portals to a map that does not exist",
             "portalNameMissing": "portals to a map that has no such portal name",
+            "portalInertTarget": "portals with a negative tm (inert, not a map id)",
             "linkMissing": "info/link to a map that does not exist",
             "mobMissing": "mobs placed with no Mob.wz entry",
             "npcMissing": "NPCs placed with no Npc.wz entry",
@@ -252,7 +263,7 @@ def main():
                     for t in top:
                         print("    %d used by %d maps" % (t["id"], t["maps"]))
 
-    return 1 if any(report["counts"].values()) else 0
+    return 1 if any(n for kind, n in report["counts"].items() if kind != "portalInertTarget") else 0
 
 
 if __name__ == "__main__":
