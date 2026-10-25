@@ -1883,6 +1883,13 @@ final class GameQaWorld implements QaWorld {
 
     // ── vb-6: job advancement and a skill point ──
 
+    /**
+     * The clicks through Dances with Balrog (1022000.js) for Fighter: "Next" on the welcome-back line, "I'll choose my
+     * occupation" (3), Fighter (0), Yes (1). Its start() only shows the first line, so the first click is that "Next";
+     * the old 3, 0, 1 lost a step: Fighter's explanation sent the script back to the menu and the job never changed.
+     */
+    static final int[] JOB_ADVANCE_CLICKS = {0, 3, 0, 1};
+
     private List<String> jobStep(Character gm, String step) {
         List<String> out = new ArrayList<>();
         if ("stage".equals(step)) {
@@ -1895,7 +1902,7 @@ final class GameQaWorld implements QaWorld {
         if ("advance".equals(step)) {
             int before = gm.getJob().getId();
             long since = System.currentTimeMillis();
-            boolean opened = npcScript(gm, 1022000, out, 3, 0, 1);
+            boolean opened = npcScript(gm, 1022000, out, JOB_ADVANCE_CLICKS);
             out.add("VB JOB advance " + before + " -> " + gm.getJob().getId()
                     + (opened ? "" : " (script did not start)"));
             refuseCheck(out, npcDialogs(gm, since));
