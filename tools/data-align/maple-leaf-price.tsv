@@ -1,0 +1,7 @@
+# Maple Leaf (4001126) NPC sell price: the MapleRoot repack sets 500000, stock Cosmic/v83 Item.wz has 1.
+# Apply on the server host (server WZ is host data, not in git), then restart the server:
+#   python3 tools/data-align/wz_set_values.py --wz <server dir>/wz --tsv tools/data-align/maple-leaf-price.tsv --column new_value [--apply]
+# Without --apply it is a dry run; with --apply it backs the file up to <wz>/../wz-backup-<stamp>/ first.
+# The client Item.wz shows its own price in tooltips only; the sell payout comes from the server value.
+file	node	server_value	new_value	note
+Item.wz/Etc/0400.img.xml	04001126/info/price	500000	1	Maple Leaf sold for 500k mesos; stock is 1
