@@ -13,6 +13,8 @@
 #
 # Rate coupons (5211xxx EXP, 5360xxx drop) carry the stock Commodity.img periods; a period of 1
 # on 5211048/5211060/5360042 means 4h/2h/4h. They are hidden while USE_SUPPLY_RATE_COUPONS is off.
+# Their names are built from the WZ info/time schedule (coupon_schedule.py): "2x EXP M-F 7-11am 30d"
+# = Mon-Fri 07:00-11:00 SERVER time (config TIMEZONE), lasts 30 days. No day = every day.
 #
 # PENDING categories -- the window has no category for these yet, so they sit in an
 # existing one (tools/cashshop/overrides.yaml pending_categories moves them):
@@ -8905,46 +8907,46 @@
 5061002	2900	1	5	2	0	2	Item Guard : 90 days
 5061003	3100	1	5	2	0	2	Item Guard : 365 Days
 5130000	3200	5	5	2	0	2	Safety Charm
-5211004	15000	1	5	2	30	2	2x EXP Card Type 1 - Weekdays
-5211005	15000	1	5	2	30	2	2x EXP Card Type 2 - Weekdays
-5211006	15000	1	5	2	30	2	2x EXP Card Type 3 - Weekdays
-5211007	15000	1	5	2	30	2	2x EXP Card Type 4 - Weekdays
-5211008	15000	1	5	2	30	2	2x EXP Card Type 5 - Weekdays
-5211009	9000	1	5	2	30	2	2x EXP Card Type 1 - Weekends
-5211010	9000	1	5	2	30	2	2x EXP Card Type 2 - Weekends
-5211011	9000	1	5	2	30	2	2x EXP Card Type 3 - Weekends
-5211012	9000	1	5	2	30	2	2x EXP Card Type 4 - Weekends
-5211013	9000	1	5	2	30	2	2x EXP Card Type 5 - Weekends
-5211014	8500	1	5	2	10	2	2x EXP Card Type 1 - Everyday
-5211015	8500	1	5	2	10	2	2x EXP Card Type 2 - Everyday
-5211016	8500	1	5	2	10	2	2x EXP Card Type 3 - Everyday
-5211017	8500	1	5	2	10	2	2x EXP Card Type 4 - Everyday
-5211018	8500	1	5	2	10	2	2x EXP Card Type 5 - Everyday
-5211037	15000	1	5	2	30	2	2x EXP Card Type 6 - Weekdays
-5211038	9000	1	5	2	30	2	2x EXP Card Type 6 - Weekends
-5211039	8500	1	5	2	10	2	2x EXP Card Type 6 - Everyday
-5211040	15000	1	5	2	30	2	2x EXP Card Type 7 - Weekdays
-5211041	9000	1	5	2	30	2	2x EXP Card Type 7 - Weekends
-5211042	8500	1	5	2	10	2	2x EXP Card Type 7 - Everyday
-5211043	15000	1	5	2	30	2	2x EXP Card Type 8 - Weekdays
-5211044	9000	1	5	2	30	2	2x EXP Card Type 8 - Weekends
-5211045	8500	1	5	2	10	2	2x EXP Card Type 8 - Everyday
-5211048	2000	1	5	2	1	2	4 hour 2 x EXP special coupon
-5211060	4000	1	5	2	1	2	2 hour 3 x EXP special coupon
+5211004	15000	1	5	2	30	2	2x EXP M-F 7-11am 30d
+5211005	15000	1	5	2	30	2	2x EXP M-F 10am-2pm 30d
+5211006	15000	1	5	2	30	2	2x EXP M-F 1-5pm 30d
+5211007	15000	1	5	2	30	2	2x EXP M-F 4-8pm 30d
+5211008	15000	1	5	2	30	2	2x EXP M-F 7-11pm 30d
+5211009	9000	1	5	2	30	2	2x EXP Sa-Su 7-11am 30d
+5211010	9000	1	5	2	30	2	2x EXP Sa-Su 10am-2pm 30d
+5211011	9000	1	5	2	30	2	2x EXP Sa-Su 1-5pm 30d
+5211012	9000	1	5	2	30	2	2x EXP Sa-Su 4-8pm 30d
+5211013	9000	1	5	2	30	2	2x EXP Sa-Su 7-11pm 30d
+5211014	8500	1	5	2	10	2	2x EXP 7-11am 10d
+5211015	8500	1	5	2	10	2	2x EXP 10am-2pm 10d
+5211016	8500	1	5	2	10	2	2x EXP 1-5pm 10d
+5211017	8500	1	5	2	10	2	2x EXP 4-8pm 10d
+5211018	8500	1	5	2	10	2	2x EXP 7-11pm 10d
+5211037	15000	1	5	2	30	2	2x EXP M-F 12-4am 30d
+5211038	9000	1	5	2	30	2	2x EXP Sa-Su 12-4am 30d
+5211039	8500	1	5	2	10	2	2x EXP 12-4am 10d
+5211040	15000	1	5	2	30	2	2x EXP M-F 3-7am 30d
+5211041	9000	1	5	2	30	2	2x EXP Sa-Su 3-7am 30d
+5211042	8500	1	5	2	10	2	2x EXP 3-7am 10d
+5211043	15000	1	5	2	30	2	2x EXP M-F 6-10am 30d
+5211044	9000	1	5	2	30	2	2x EXP Sa-Su 6-10am 30d
+5211045	8500	1	5	2	10	2	2x EXP 6-10am 10d
+5211048	2000	1	5	2	1	2	2x EXP anytime 4hrs
+5211060	4000	1	5	2	1	2	3x EXP anytime 2hrs
 5220000	8000	11	5	2	0	2	Gachapon Ticket
 5300000	2000	5	5	2	0	2	Fungus Scroll
 5300001	2000	5	5	2	0	2	Oinker Delight
 5300002	2000	5	5	2	0	2	Zeta Nightmare
-5360000	4000	1	5	2	1	2	1day 2x Drop Special Coupon
-5360001	6000	1	5	2	10	2	2x Drop Card Type 1 - Everyday
-5360002	6000	1	5	2	10	2	2x Drop Card Type 2 - Everyday
-5360003	6000	1	5	2	10	2	2x Drop Card Type 3 - Everyday
-5360004	6000	1	5	2	10	2	2x Drop Card Type 4 - Everyday
-5360005	6000	1	5	2	10	2	2x Drop Card Type 5 - Everyday
-5360006	6000	1	5	2	10	2	2x Drop Card Type 6 - Everyday
-5360007	6000	1	5	2	10	2	2x Drop Card Type 7 - Everyday
-5360008	6000	1	5	2	10	2	2x Drop Card Type 8 - Everyday
-5360042	1500	1	5	2	1	2	4 hour 2 x Drop special coupon
+5360000	4000	1	5	2	1	2	2x Drop anytime 1d
+5360001	6000	1	5	2	10	2	2x Drop 7-11am 10d
+5360002	6000	1	5	2	10	2	2x Drop 10am-2pm 10d
+5360003	6000	1	5	2	10	2	2x Drop 1-5pm 10d
+5360004	6000	1	5	2	10	2	2x Drop 4-8pm 10d
+5360005	6000	1	5	2	10	2	2x Drop 7-11pm 10d
+5360006	6000	1	5	2	10	2	2x Drop 12-4am 10d
+5360007	6000	1	5	2	10	2	2x Drop 3-7am 10d
+5360008	6000	1	5	2	10	2	2x Drop 6-10am 10d
+5360042	1500	1	5	2	1	2	2x Drop anytime 4hrs
 5510000	500	1	5	2	0	2	Wheel of Destiny
 5520000	10500	4	5	2	0	2	Scissors of Karma
 5570000	8500	2	5	2	0	2	Vicious' Hammer

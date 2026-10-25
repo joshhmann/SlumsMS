@@ -7,6 +7,8 @@
       effects, weathers, chairs (301xxxx), mounts ... -- priced by category band;
   (c) tools/cashshop/overrides.yaml, which always wins.
 
+Rate coupons are named from their WZ schedule ("2x EXP M-F 7-11am 30d", coupon_schedule.py).
+
 Rules that are facts about the server or the window (what can be delivered, what has a use
 handler, which categories the window shows) live in catalog_rules.py. See README.md.
 
@@ -25,6 +27,7 @@ import sys
 
 sys.path.insert(0, os.path.dirname(os.path.abspath(__file__)))
 import catalog_rules as R  # noqa: E402
+import coupon_schedule  # noqa: E402
 import wzindex  # noqa: E402
 
 HEADER_FILE = os.path.join(R.HERE, "catalog_header.txt")
@@ -146,6 +149,10 @@ def build(wz, ov, featured_extra=(), repo=R.REPO):
         if st and i // 1000 in R.RATE_COUPON_TYPES:
             period = int(st.get("Period", 0))
         period = int(o.get("period", period))
+        if i // 1000 in R.RATE_COUPON_TYPES and not o.get("name"):
+            # The window shows only the name: say when the coupon works and for how long.
+            wi = wz.items.get(i, {})
+            name = coupon_schedule.shop_name(i, wi.get("rate"), wi.get("time"), period) or name
         flag = o.get("flag") or ("featured" if o.get("featured") else "new" if o.get("new") else featured.get(i))
         price = o.get("price")
         if price is None and use_sl_prices and i not in onsale:
