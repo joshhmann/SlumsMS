@@ -23,11 +23,11 @@ import soloMapling.worldevents.WorldEventSteer;
 
 import java.awt.Point;
 import java.util.ArrayList;
-import java.util.HashSet;
 import java.util.List;
 import java.util.Map;
-import java.util.Set;
 import java.util.TreeMap;
+import java.util.concurrent.ConcurrentHashMap;
+import java.util.function.Function;
 
 /**
  * 1.5.0 rc3: GM and {@code !qa} (cb-1 .. cb-4, sp-1) staging for the human combat layer. Grinders are fresh
@@ -35,6 +35,9 @@ import java.util.TreeMap;
  * ammo, so the GM watches them fight, buff, loot, drink, die and spread out. {@link #unstage} takes them away.
  */
 public final class CombatStaging {
+
+    /** The map each staged bot was put on, so a later step can put it back to work where the check watches it. */
+    private static final Map<Integer, Integer> stagedMap = new ConcurrentHashMap<>();
 
     private CombatStaging() {
     }
@@ -94,6 +97,7 @@ public final class CombatStaging {
             }
             BotTypeManager.convertBotType(bot, BotTypeManager.BotType.TRAINING_BOT);
             ids.add(id);
+            stagedMap.put(id, gm.getMapId());
         }
         return ids;
     }
@@ -118,6 +122,7 @@ public final class CombatStaging {
     public static void unstage(List<Integer> ids) {
         for (int id : ids) {
             WorldEventSteer.unhold(id);
+            stagedMap.remove(id);
             BotDeaths.clearBot(id);
             Character bot = BotHelpers.getCharFromChannelStorage(id);
             if (bot == null) {
@@ -297,58 +302,104 @@ public final class CombatStaging {
     }
 
     /**
-     * QA t-cb-3, rc6 triage: the staged list is in staging order, and {@code lowpots} drains the first bot's HP pots,
-     * which sends it to town - and a bot that left the grind is not death-eligible any more ({@link BotDeaths} rolls
-     * nothing for it), so forcing a lethal hit on it did nothing and the check failed "did not die". Try the bots that
-     * are grinding first, then the others, and report the first one that actually died.
+     * The die step's view of one staged bot; the real one wraps the bot in channel storage. Split out so the step's
+     * order and precondition - it only ever hits a bot that is fighting - can be tested without a world.
      */
+    interface DieSubject {
+
+        String name();
+
+        /** In {@code Phase.GRIND}: the state {@link BotDeaths} rolls a death for. */
+        boolean grinding();
+
+        /** Run the return-to-work trip the bot's own restock would end with; true once it is grinding again. */
+        boolean backToGrind();
+
+        /** Drain its HP pots and land the lethal hit; true when it actually died. */
+        boolean killNow();
+    }
+
     static List<String> die(List<Integer> ids) {
-        String first = null;
-        for (int id : dieOrder(ids, grinding(ids))) {
-            Character bot = BotHelpers.getCharFromChannelStorage(id);
-            if (bot == null) {
-                continue;
-            }
-            if (first == null) {
-                first = bot.getName();
-            }
-            BotDeaths.forceNextDeath(id, true);
-            BotVitals.drainHpPotionsTo(bot, 0);
-            BotVitals.hurt(bot, bot.getHp() + 1);
-            boolean dead = BotDeaths.isDead(id);
-            BotDeaths.forceNextDeath(id, false);
-            if (dead) {
-                return List.of(bot.getName() + " died");
-            }
-        }
-        return first == null ? List.of("no staged bot is here: nothing to kill")
-                : List.of(first + " did not die (not grinding yet?)");
+        return die(ids, CombatStaging::subject);
     }
 
-    /** The staged ids, the ones that are fighting first: a death step has to reach a bot the deaths system watches. */
-    static List<Integer> dieOrder(List<Integer> ids, Set<Integer> grinding) {
-        List<Integer> order = new ArrayList<>(ids.size());
+    /**
+     * QA t-cb-3, rc6 triage: {@code lowpots} runs inside the per-id loop, so it drains every staged bot and sends
+     * them all to town - and a bot that left the grind is not death-eligible any more ({@link BotDeaths} rolls
+     * nothing for it), so a forced lethal hit on it did nothing and the check failed "did not die". So the step
+     * establishes its own precondition: put the subject back to work on its staging map first (the trip its own
+     * restock ends with), and only hit it once it actually is in {@code Phase.GRIND}. Bots that are already fighting
+     * are tried first, so a bot mid-grind is not moved for nothing.
+     */
+    static List<String> die(List<Integer> ids, Function<Integer, DieSubject> subject) {
+        List<DieSubject> bots = new ArrayList<>();
         for (int id : ids) {
-            if (grinding.contains(id)) {
-                order.add(id);
+            DieSubject bot = subject.apply(id);
+            if (bot != null) {
+                bots.add(bot);
             }
         }
-        for (int id : ids) {
-            if (!grinding.contains(id)) {
-                order.add(id);
+        if (bots.isEmpty()) {
+            return List.of("no staged bot is here: nothing to kill");
+        }
+        for (DieSubject bot : grindersFirst(bots)) {
+            if (!bot.grinding() && !bot.backToGrind()) {
+                continue; // could not be brought back to work: not a bot the deaths system watches
+            }
+            if (!bot.grinding()) {
+                continue; // the return trip did not settle it back into the grind after all
+            }
+            if (bot.killNow()) {
+                return List.of(bot.name() + " died");
             }
         }
+        StringBuilder names = new StringBuilder();
+        for (DieSubject bot : bots) {
+            names.append(names.length() == 0 ? "" : ", ").append(bot.name());
+        }
+        return List.of("staging: no staged bot could be returned to the grind and killed (" + names + ")");
+    }
+
+    /** The real subject: the staged bot in channel storage, put back to work through {@link TrainingBot}. */
+    private static DieSubject subject(int id) {
+        Character bot = BotHelpers.getCharFromChannelStorage(id);
+        if (bot == null || !(CharacterStorage.getBotById(id) instanceof TrainingBot tb)) {
+            return null;
+        }
+        return new DieSubject() {
+            @Override
+            public String name() {
+                return bot.getName();
+            }
+
+            @Override
+            public boolean grinding() {
+                return tb.isGrinding();
+            }
+
+            @Override
+            public boolean backToGrind() {
+                Integer map = stagedMap.get(id);
+                return map != null && tb.forceGrindOn(map);
+            }
+
+            @Override
+            public boolean killNow() {
+                BotDeaths.forceNextDeath(id, true);
+                BotVitals.drainHpPotionsTo(bot, 0);
+                BotVitals.hurt(bot, bot.getHp() + 1);
+                boolean dead = BotDeaths.isDead(id);
+                BotDeaths.forceNextDeath(id, false);
+                return dead;
+            }
+        };
+    }
+
+    /** The staged bots, the ones that are fighting first: a bot already at work is never moved for nothing. */
+    static <T extends DieSubject> List<T> grindersFirst(List<T> bots) {
+        List<T> order = new ArrayList<>(bots);
+        order.sort(java.util.Comparator.comparing(bot -> !bot.grinding())); // stable: staging order within a group
         return order;
-    }
-
-    private static Set<Integer> grinding(List<Integer> ids) {
-        Set<Integer> grinding = new HashSet<>();
-        for (int id : ids) {
-            if (CharacterStorage.getBotById(id) instanceof TrainingBot tb && tb.isGrinding()) {
-                grinding.add(id);
-            }
-        }
-        return grinding;
     }
 
     private static long pct(int a, int b) {
