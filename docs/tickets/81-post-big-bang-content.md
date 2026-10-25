@@ -1,6 +1,7 @@
 # 81: Post-Big-Bang areas (Grandis, Arcane River, Future/Twilight): finish or close
 
-Status: parked (owner, 2026-10-25). Later content project; nothing is cut until we're sure.
+Status: parked, **keep** (owner, 2026-10-25: "if it's for rebirth we should keep it"). Later content project:
+finish it as the rebirth-3 area (option 1). Do not close it.
 
 ## What is there (TEST server data, counted 2026-10-25)
 - Reached via the Henesys teleporter (scripts/npc/9010002.js, 3 rebirths for Grandis/Arcane) and the
