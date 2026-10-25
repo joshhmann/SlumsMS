@@ -15,7 +15,7 @@ import java.util.regex.Pattern;
 public final class ChatScope {
 
     /** Why a cue is not a request; {@link #NONE} when it is one. */
-    public enum Frame { NONE, QUOTED, REPORTED, WARNING, NEGATED }
+    public enum Frame { NONE, QUOTED, REPORTED, WARNING, NEGATED, NARRATIVE }
 
     private static final Pattern CLAUSE_BREAK = Pattern.compile("[,;.]|\\b(but|and|so)\\b");
     private static final Set<String> NEGATORS = Set.of("no", "not", "dont", "don't", "cant", "can't", "wont", "won't",
@@ -35,6 +35,13 @@ public final class ChatScope {
     /** A warning about something is a mention of it, never a request or a con. */
     private static final Pattern WARNING = Pattern.compile("\\b(watch out|be careful|don'?t trust|never share"
             + "|it'?s a scam)\\b");
+
+    /** "i helped", "we partied", "i bargained down to 300k": the player tells what already happened. */
+    private static final Pattern NARRATIVE = Pattern.compile("^((lol|omg|so|and|but|yeah|ya|well|ok) )*(i|we)"
+            + "( (just|already|also|finally|even|once))? (\\w+ed|got|came|went|sold|bought|did|made|had|took|gave|paid"
+            + "|ran|saw|was|were)\\b");
+    /** A question or a please turns a story back into a request ("i was selling claws earlier u want one?"). */
+    private static final Pattern ASKS = Pattern.compile("\\?|\\b(pls|plz|please)\\b");
 
     private ChatScope() {
     }
@@ -84,6 +91,9 @@ public final class ChatScope {
         }
         if (negatedBy(words, text.substring(at))) {
             return Frame.NEGATED;
+        }
+        if (NARRATIVE.matcher(before).find() && !ASKS.matcher(text).find()) {
+            return Frame.NARRATIVE;
         }
         return Frame.NONE;
     }

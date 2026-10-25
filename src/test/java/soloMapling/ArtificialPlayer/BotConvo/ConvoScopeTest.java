@@ -157,4 +157,27 @@ class ConvoScopeTest {
         assertEquals(ConvoIntent.TRADE, intent("how much for the work gloves"));
     }
 
+    // ── 4d past-tense narrative ──
+
+    @Test
+    void aPastTenseStoryIsTalk() {
+        assertEquals(ConvoIntent.TALK, intent("i bargained down to 300k last time")); // fresh-032
+        assertEquals(ConvoIntent.TALK, intent("i traded with a guy who was selling claws"));
+        assertEquals(ConvoIntent.TALK, intent("i bought a claw from a guy selling them"));
+        // a question or a please makes it a request again; a request in its own clause stays one
+        assertEquals(ConvoIntent.TRADE, intent("i was selling claws earlier u want one?"));
+        assertEquals(ConvoIntent.PARTY, intent("we partied yesterday, wanna party again"));
+        assertEquals(ConvoIntent.HAGGLE, intent("would u do 500k"));
+    }
+
+    @Test
+    void noobIsAnInsultOnlyInTheSecondPerson() {
+        ConvoSense.Read r = ConvoSense.rules("i helped a noob with his quest earlier"); // fresh-030
+        assertEquals(ConvoIntent.TALK, r.intent());
+        assertEquals(ConvoSense.Tone.NEUTRAL, r.tone());
+        for (String line : List.of("u r a noob", "nice dmg noob", "ur such a noob lol", "lmao get rekt noob",
+                "lol u died to that? noob", "ty noob")) {
+            assertEquals(ConvoIntent.INSULT, intent(line), line);
+        }
+    }
 }

@@ -34,7 +34,27 @@ public final class ChatTone {
             + "|stupid|dumb|moron|loser|ugly|go away|get lost|f+u+ ?(you|u)?|screw (you|u)|ur bad|you suck|u suck"
             + "|ks+er|leecher|beggar|clown|cringe|lame|annoying|hate (u|you)|nobody asked|kys)\\b");
 
+    /** "a noob", "the noob": someone else, unless the line also talks to the bot ("ur such a noob"). */
+    private static final Pattern NOOB_ABOUT_SOMEONE = Pattern.compile("\\b(a|an|the|some|this|that|his|her|their|my|our)"
+            + " (noob|nub|newb)$");
+    private static final Pattern SECOND_PERSON = Pattern.compile("\\b(u|you|ur|ya|youre|you're|yourself)\\b");
+
     private ChatTone() {
+    }
+
+    /**
+     * A rude word, said to the bot. 1.6.0 (fresh-v1, CODEX-HANDOFF 4d): "noob" is an insult only in the second person;
+     * "i helped a noob with his quest" tells about someone else.
+     */
+    private static boolean rude(String text) {
+        java.util.regex.Matcher m = RUDE.matcher(text);
+        boolean secondPerson = SECOND_PERSON.matcher(text).find();
+        while (m.find()) {
+            if (secondPerson || !NOOB_ABOUT_SOMEONE.matcher(text.substring(0, m.end())).find()) {
+                return true;
+            }
+        }
+        return false;
     }
 
     private static Map<String, String> labels(String... pairs) {
@@ -54,7 +74,7 @@ public final class ChatTone {
         if (text.isEmpty()) {
             return Optional.of(Tone.PLAIN);
         }
-        if (RUDE.matcher(text).find()) {
+        if (rude(text)) {
             return Optional.of(Tone.RUDE);
         }
         if (KIND.matcher(text).find() || (triage != null && triage.kind() == ChatTriage.Kind.THANKS)) {
