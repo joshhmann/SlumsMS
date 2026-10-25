@@ -97,6 +97,9 @@ public class ServerConfig {
     //1.4.2 (ticket 57): the share of the boot environment's town dressing (Henesys fillers, FM entrance, FM shop
     //bots...) that spawns; set pieces (tutorial, casino tables, drop game, OPQ lobby, gacha) always spawn. 1.0 = all.
     public double BOT_ENVIRONMENT_SCALE = 0.5;
+    //1.5.2 hotfix: the same share for the FM entrance's FM bots and merchants (still split over the channels like
+    //the rest of the dressing). 1.0 = all 90, about 40 on channel 1; BOT_ENVIRONMENT_SCALE's 0.5 left about 20.
+    public double BOT_FM_ENVIRONMENT_SCALE = 1.0;
     //1.4.2 (ticket 57): how bots split over the channels, ch1 first. Any count of weights; channels past the list
     //get the last weight; they are normalised. Blank = every channel alike.
     //owner 2026-10-21: 5 channels, weights 100/85/50/30/20. Live config.yaml for 1.5.0: channels 5, CHANNEL_LOAD 125
