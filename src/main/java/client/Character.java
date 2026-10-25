@@ -10897,6 +10897,13 @@ public class Character extends AbstractCharacterObject {
             strLines.add(this.getClient().getChannelServer().getServerMessage().isEmpty() ? 0 : 1, "Get off my lawn!!");
 
             this.sendPacket(PacketCreator.getAvatarMega(mapOwner, medal, this.getClient().getChannel(), ItemId.ROARING_TIGER_MESSENGER, strLines, true));
+            // 1.5.1 (owner QA): the "Get off my lawn!!" tiger never left the screen; clear it like a player's avatar
+            // megaphone (UseCashItemHandler) 10 s later. Only this player saw it, so only this player gets the clear.
+            TimerManager.getInstance().schedule(() -> {
+                if (isLoggedin()) {
+                    sendPacket(PacketCreator.byeAvatarMega());
+                }
+            }, SECONDS.toMillis(10));
         }
     }
 
