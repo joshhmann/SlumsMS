@@ -249,8 +249,8 @@ class BotWalkOffDropTest {
             for (int i = 0; i < 600 && !reached; i++) {
                 step(entry, DEPT_STORE_EXIT, i);
                 Point p = entry.bot.getPosition();
-                reached = Math.abs(p.x - DEPT_STORE_EXIT.x) <= BotMovementManager.cfg.STOP_DIST
-                        && Math.abs(p.y - DEPT_STORE_EXIT.y) <= 6; // our motor stops STOP_DIST short
+                reached = Math.abs(p.x - DEPT_STORE_EXIT.x) <= BotMovementManager.cfg.FOLLOW_DIST
+                        && Math.abs(p.y - DEPT_STORE_EXIT.y) <= 6; // an idle bot settles inside FOLLOW_DIST
             }
             if (!reached) {
                 Point p = entry.bot.getPosition();
@@ -279,13 +279,13 @@ class BotWalkOffDropTest {
                 step(entry, DEPT_STORE_EXIT, i);
                 if (rep % 3 == 0 && i % 7 == 0) {
                     try {
-                        Thread.sleep(1); // vary the wall-clock timers the motor reads
+                        Thread.sleep(Integer.getInteger("walkoff.test.sleepMs", 1)); // vary the wall-clock timers the motor reads
                     } catch (InterruptedException e) {
                         Thread.currentThread().interrupt();
                     }
                 }
                 Point p = entry.bot.getPosition();
-                reached = Math.abs(p.x - DEPT_STORE_EXIT.x) <= BotMovementManager.cfg.STOP_DIST
+                reached = Math.abs(p.x - DEPT_STORE_EXIT.x) <= BotMovementManager.cfg.FOLLOW_DIST
                         && Math.abs(p.y - DEPT_STORE_EXIT.y) <= 6;
             }
             if (!reached) {
