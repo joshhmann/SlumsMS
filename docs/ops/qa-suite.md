@@ -23,7 +23,7 @@ using live's and the test server's real command lines. The command needs GM leve
 | `!qa stop` | Ends the run, undoes the staging and closes the log |
 
 You can run one scenario at a time. Scenarios that claim a map (bk, gd, fm, gh, tr-1) refuse to start while another GM's
-scenario holds that map. A run stops on its own after 15 minutes. ld-1, mv-1, pe-1, ga-2, tr-4 and tr-6 stop after 10, ga-1, tr-1, pr-1 and pr-2 after 20, tr-5 and pq-1 after 30, wd-2 after 5, and bk-1 after
+scenario holds that map. A run stops on its own after 15 minutes. ld-1, mv-1, pe-1, ga-2, tr-4 and tr-6 stop after 10, ga-1, tr-1, pr-1 and pr-2 after 20, tr-5, pq-1 and pq-2 after 30, wd-2 after 5, and bk-1 after
 the showcase's own minutes plus one.
 
 ### The `!qa` menu (1.5.0)
@@ -206,6 +206,27 @@ run alongside.
 **`!rate`** (GM 1+, every server): `!rate good|bad [note]` rates the last line a bot said to you (10 min; a thread line
 on your map: 2 min), `!rate last`, `!rate reload` (re-reads `data/convo/tune.json`), `!rate score [yyyy-mm-dd]` writes
 `data/convo/quality/<day>.json` and `latest.json` now.
+
+## pq-2: OPQ bots (1.5.2)
+
+| Test | What it stages | What to look for |
+|---|---|---|
+| `pq-2` | Warps you to the Orbis PQ lobby (200080101) and spawns 6 live OPQ bots (the real bot brain: they accept an invite and run the PQ) around you. They leave at stop. Runs 30 minutes | `PQ <bot>: <state> -> <state> \| <reason>` for every transition (lobby recruit, party, stage 1, tower, stage 2, exit) and `PQ <bot> recruit: <line>` for lobby chat |
+
+The friend's report, "PQ bots are not great", covered four things this run is meant to show:
+
+- **Lobby spam.** Each bot used to speak every 12 s regardless of how many bots were there, so 10-15 bots made
+  50-75 lines a minute. The lobby is now capped as a whole (`-Dsolomapling.opq.lobbyRecruitPerMinute`, default 3 a
+  minute, `OPQLobbyChat`) and each bot waits 45-90 s between its own lines. Count the `recruit:` lines: no more than
+  the cap per minute, and none at all when no player is on the map.
+- **Joining and doing nothing.** Invite a bot, then stand still. After 5 minutes in the lobby with the party formed
+  and no stage 1 it says one line, leaves the party and goes back to recruiting (`OPQPartyDuty`). The same happens
+  after 15 s when the leader's character is offline and after 90 s when the leader is on another map.
+- **Idle bots in the stages.** Stage 1 used to count as done the moment the leader entered (the exit NPC is part of
+  the map), so bots jumped to the top platform. They now stay with you until you stand on the top platform, then
+  follow you to the tower and stage 2.
+- **Leaving mid-run.** Stage 2 used to wait for every registered bot - the lobby's recruiters included - and gave up
+  after two minutes. It now finishes when the bots in your instance are done.
 
 ## mv-1: attack slide
 

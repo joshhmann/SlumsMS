@@ -306,6 +306,22 @@ class QaScenarioStagingTest {
         }
     }
 
+    // ---- 1.5.2: PQ bots ----
+
+    @Test
+    void pq2PutsTheGmAndLiveOpqBotsInTheLobbyAndTakesTheBotsAway() throws Exception {
+        Character gm = start("pq-2", 100000000);
+        assertTrue(world.calls.contains("warp " + soloMapling.ArtificialPlayer.BotTypes.OPQ.OPQConstants.OPQ_LOBBY));
+        assertTrue(world.calls.contains("opq lobby bots 6"), world.calls.toString());
+        Path log = suite.runOf(1).logPath();
+        assertTrue(suite.runOf(1).maps().contains(soloMapling.ArtificialPlayer.BotTypes.OPQ.OPQConstants.OPQ_STAGE_2),
+                "the run watches the stages, not only the lobby");
+        suite.stop(1, "!qa stop");
+        assertEquals(6, world.despawned.size());
+        assertTrue(gm != null);
+        assertTrue(Files.readString(log).contains("recruit lines a minute"));
+    }
+
     // ---- ticket 58 ----
 
     @Test

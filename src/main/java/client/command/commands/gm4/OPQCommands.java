@@ -278,14 +278,26 @@ public class OPQCommands extends Command {
 
     private static void printStatus() {
         OPQSharedContext ctx = OPQOrchestrator.getInstance().getSharedContext();
+        OPQOrchestrator orchestrator = OPQOrchestrator.getInstance();
         player.yellowMessage("---- OPQ Status ----");
         player.yellowMessage("phase=" + ctx.getCurrentPhase()
-                + " pqActive=" + ctx.isPqActive()
-                + " stage1Done=" + ctx.isStage1Complete()
-                + " stage2Done=" + ctx.isStage2Complete());
+                + " pqActive=" + ctx.isPqActive());
         int count = 0;
         for (OPQBot bot : snapshotOPQBots()) count++;
         player.yellowMessage("registeredBots=" + count);
+        // Stage flags belong to a map instance, not to the shared context: two parties can be running two copies
+        // of 920010000 at once, so report one line per run that is actually inside.
+        List<Character> leaders = orchestrator.activeRunLeaders();
+        if (leaders.isEmpty()) {
+            player.yellowMessage("running=none (no bot inside an OPQ map)");
+        }
+        for (Character leader : leaders) {
+            MapleMap runMap = leader.getMap();
+            player.yellowMessage("run leader=" + leader.getName()
+                    + " map=" + leader.getMapId()
+                    + " stage1Done=" + ctx.isStage1Complete(runMap)
+                    + " stage2Done=" + ctx.isStage2Complete(runMap));
+        }
     }
 
     private static void printList() {

@@ -50,6 +50,12 @@ public interface QaWorld {
     /** Spawns idle bots (no FSM) around a point of the GM's map; their character ids. */
     List<Integer> spawnIdleBots(Character gm, Point around, int count);
 
+    /**
+     * pq-2: OPQ lobby bots - the real OPQ brain, so they accept a party invite and run the party quest - around a
+     * point of the GM's map; their character ids.
+     */
+    List<Integer> spawnOpqLobbyBots(Character gm, Point around, int count);
+
     /** As above at one level (ga-2: a rich lv 100 bot, whose spend-down takes a couple of minutes). */
     default List<Integer> spawnIdleBots(Character gm, Point around, int count, int level) {
         return spawnIdleBots(gm, around, count);

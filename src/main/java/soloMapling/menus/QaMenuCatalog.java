@@ -70,6 +70,7 @@ public final class QaMenuCatalog {
         add("gu-7", v(), steps());
         section("Party quests");
         add("pq-1", v(), steps("check", "where"));
+        add("pq-2", v(), steps());
         section("Couples and weddings");
         add("cp-1", v("married", "friends", "married same", "married mixed"), steps("step"));
         add("we-1", v("same", "mixed"), steps());

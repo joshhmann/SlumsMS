@@ -195,6 +195,22 @@ final class GameQaWorld implements QaWorld {
     }
 
     @Override
+    public List<Integer> spawnOpqLobbyBots(Character gm, Point around, int count) {
+        List<Integer> ids = new ArrayList<>();
+        MapleMap map = gm.getMap();
+        int slotBase = BotStore.nextDynamicSlots(count);
+        for (int i = 0; i < count; i++) {
+            Point at = soloMapling.ArtificialPlayer.StageSpots.near(map, around);
+            int id = BotGeneration.createBot(slotBase + i, at, map, 0, 55, 65);
+            if (id > 0) {
+                ids.add(id);
+            }
+        }
+        BotTypeManager.setAndStartBots(ids, BotTypeManager.BotType.OPQ_BOT);
+        return ids;
+    }
+
+    @Override
     public String botLabel(Character gm, int botId) {
         Character bot = BotHelpers.getCharFromChannelStorage(botId);
         if (bot == null) {
