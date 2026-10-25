@@ -1,6 +1,6 @@
 # Ticket 68: audit MapleRoot's changes to stock Cosmic for broken v83 features
 
-Status: audit done 2026-10-26, three fixes on `151-*` branches, owner questions and the config flag table below.
+Status: closed 2026-10-25 (done in 1.5.1, branch 151-cosmic-audit, fixes 039d13164 and 1fe365733; open questions moved to ticket 89).
 Live untouched; findings ship in 1.5.1 or later.
 
 ## Why

@@ -1,6 +1,6 @@
 # Ticket 69: auto-QA "v83 basics": the stock features a real player uses
 
-Status: open, 2026-10-25. Owner OK'd. After ticket 68 (or alongside). TEST server only.
+Status: closed 2026-10-25 (done in 1.5.2, commit 7a3ef3080 (16 vb-* scenarios)).
 
 ## Why
 

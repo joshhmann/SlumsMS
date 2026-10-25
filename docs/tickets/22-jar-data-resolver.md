@@ -2,7 +2,7 @@
 
 **Area:** Later  
 **Depends on:** -  
-**Status:** shipped in v1.4.0 (branch `data-resolver`, via `test-rc2`)
+**Status:** closed 2026-10-25 (done in v1.4.0, branch data-resolver (jar-only gap noted in HANDOFF; track as a bug if it bites)).
 
 ## What
 

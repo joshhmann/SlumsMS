@@ -2,7 +2,7 @@
 
 **Area:** Nav v2  
 **Depends on:** 01  
-**Status:** shipped in v1.3.0 (branch `nav-ops`, via `nav-learning`); `slumsms-nav-bake.timer` runs on live
+**Status:** closed 2026-10-25 (done in v1.3.0, branch nav-ops; slumsms-nav-bake.timer on live).
 
 ## What
 

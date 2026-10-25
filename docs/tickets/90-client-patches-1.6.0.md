@@ -17,3 +17,5 @@ Later (1.7.0): custom skill actions, native Hyper Skill tab, NpcForge. Not plann
 
 Each patch: own branch in /root/work/client, address/byte verification, launcher RC build, Start-QA real-client
 check, hash-diff before publishing. Ask the original authors' terms where a mod has no license before shipping it.
+
+Folded in 2026-10-25: ticket 39 (dgVoodoo2) is closed into item 2 above; evaluate dgVoodoo2 as part of that item and pick the route once.

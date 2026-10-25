@@ -2,7 +2,7 @@
 
 **Area:** Gameplay
 **Depends on:** -
-**Status:** open
+**Status:** open, target 1.6.0. Owner decision 2026-10-25: yes, opt-in for new characters.
 
 ## What
 
@@ -18,3 +18,7 @@ The NPC script goes in `scripts/npc/`, and any new NPC placement needs matching 
 ## Done when
 
 A new character can choose the tutorial or skip it, finishes the island without errors, and ends up in the right town.
+
+## Decision (Owner decision 2026-10-25)
+
+Yes: an opt-in Maple Island tutorial for new characters (never forced). Target: 1.6.0.

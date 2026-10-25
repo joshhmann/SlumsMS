@@ -2,7 +2,7 @@
 
 **Area:** Client
 **Depends on:** 1.3.0
-**Status:** open
+**Status:** closed 2026-10-25 (folded into 90 item 2)
 
 ## Today
 
@@ -23,3 +23,5 @@
 
 The client starts and plays with a virtual display as primary (owner's Parsec setup) and on a normal desktop, with no
 regressions in the slums.dll features, and the change is published as a client release.
+
+Folded into ticket 90 item 2 (D3D9 wrapper + ImGui), one route for the Parsec fix and the settings-window host.

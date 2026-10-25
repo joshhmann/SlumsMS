@@ -2,7 +2,7 @@
 
 **Area:** Security / Ops
 **Depends on:** -
-**Status:** shipped in v1.4.0 (branch `gm-safety`, migration 009). Live has no GM: the stock `admin` account was
+**Status:** closed 2026-10-25 (done in v1.4.0, branch gm-safety, migration 009).
 deleted on 2026-10-20; the owner makes one with `slumsms-gm` (below). Open: the dashboard page and the ticket 42 alert
 on GM level changes (both read the tables below); the `@gmauth`/known-IP idea; GM hide (bots still notice a hidden GM,
 1.4.1 backlog).

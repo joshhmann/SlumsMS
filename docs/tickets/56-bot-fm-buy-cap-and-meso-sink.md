@@ -4,7 +4,7 @@
 **Kind:** BUILD
 **Effort:** S (part A), S-M (part B)
 **Depends on:** 15 (yield caps, live). Part of ticket 38's safety rules, pulled forward.
-**Status:** open. Recommendation only (the owner deprioritised economy work). Part A should land before real
+**Status:** closed 2026-10-25 (done in 1.5.0/1.5.1, commits 6b58d62b9 (56A), 319c1555b and 25a2adec8 (56B)).
 players open FM shops.
 
 ## Today (live, 2026-10-21)

@@ -2,7 +2,7 @@
 
 **Area:** Server / Client / Ops
 **Depends on:** -
-**Status:** shipped in v1.3.1 (branch `world-bera`); live runs as Bera
+**Status:** closed 2026-10-25 (done in v1.3.1, branch world-bera).
 
 ## Today
 

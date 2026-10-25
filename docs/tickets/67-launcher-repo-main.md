@@ -1,6 +1,6 @@
 # Ticket 67: put the Tauri launcher on the launcher repo's main, with release tags
 
-Status: open, 2026-10-24. Small, no live impact. Repo: github.com/joshhmann/slumsms-launcher.
+Status: closed 2026-10-25 (done in 1.5.2, launcher tags v1.5.1 and v1.5.2, server commits bcfc3afbe and 04ef9c176).
 
 ## Why
 

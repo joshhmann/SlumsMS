@@ -2,7 +2,7 @@
 
 **Area:** Real bots  
 **Depends on:** 07  
-**Status:** shipped in v1.3.0 (branch `supplies`, with ticket 09)
+**Status:** closed 2026-10-25 (done in v1.3.0, branch supplies).
 
 ## What
 

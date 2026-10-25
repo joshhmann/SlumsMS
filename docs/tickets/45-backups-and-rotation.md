@@ -2,7 +2,7 @@
 
 **Area:** Ops
 **Depends on:** 23 (live backups)
-**Status:** shipped in v1.4.0 (branch `backups`, `deploy/backup/`); restore drill PASSED on 2026-10-20; installed on
+**Status:** closed 2026-10-25 (done in v1.4.0, branch backups; restore drill passed).
 live (`slumsms-backup.timer`, `slumsms-backup-rotate.timer`). The test DB datadir move waits for a window
 
 ## What

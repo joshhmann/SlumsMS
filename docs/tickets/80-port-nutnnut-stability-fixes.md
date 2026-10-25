@@ -1,6 +1,6 @@
 # Ticket 80: port nutnnut/Cosmic's bot-scale stability fixes (1.5.2)
 
-Status: open, 2026-10-25. Source: https://github.com/nutnnut/Cosmic branch `dev` (AGPL-3.0 like us; credit
+Status: closed 2026-10-25 (done in 1.5.2, commit 922510f92, migration 023).
 "nutnnut/Cosmic <sha>" in each port commit and in the patch notes). Research notes: the fork is mostly its own bot
 system (not portable); these core fixes were found running 700+ bots and apply to our 3,000.
 

@@ -1,6 +1,6 @@
 # Ticket 75: Amoria PQ playable for a friends server (1.5.2)
 
-Status: open, owner decided 2026-10-25 ("loosen that"). Bug-squash arc, 1.5.2.
+Status: closed 2026-10-25 (done in 1.5.2, commit 35723c08f).
 
 ## Why
 

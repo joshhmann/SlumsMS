@@ -2,7 +2,7 @@
 
 **Area:** Rollout  
 **Depends on:** 01-15 (owner choice)  
-**Status:** done: bots went live with v1.3.0 (`-Dsolomapling.enabled=true` on live)
+**Status:** closed 2026-10-25 (done in v1.3.0, bots live; live runs about 3,000 bots).
 
 ## What
 

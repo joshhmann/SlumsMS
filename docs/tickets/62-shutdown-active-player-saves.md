@@ -4,7 +4,7 @@
 
 **Priority:** P1 — player persistence and shutdown ordering
 
-**Status:** open; source-reviewed against 1.5.0 `06a724dfc`, not reproduced in a running game
+**Status:** closed 2026-10-25 (done in 1.5.1, commit 4d08a0cba).
 
 **Area:** Server / shutdown
 

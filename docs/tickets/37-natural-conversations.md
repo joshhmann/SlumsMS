@@ -2,7 +2,7 @@
 
 **Area:** Real bots / chat
 **Depends on:** 36 (fast/slow chat brain); 14 (companion commands) for companion actions
-**Status:** phases 1-2 shipped in v1.4.0. Phase 1 (tier log, actions, con layer, voice) on branch `chat-natural`; phase 2
+**Status:** closed 2026-10-25 (superseded by ticket 59 (done in v1.4.0, branches chat-natural and chat-attention)).
 (natural by default, attention, window on double-click only: 1124c0762) and reply faces (1be6e0358) on branch
 `chat-attention`. Open: the owner's in-game check below
 

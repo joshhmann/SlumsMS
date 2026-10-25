@@ -4,7 +4,7 @@
 **Kind:** BUILD (plus a small FIX for the stuck "pending" entry)
 **Effort:** M
 **Depends on:** 36/37 (chat brain), 26 (recognition), the bot-name reservation from SoloMapling 4fc53172
-**Status:** built on branch `bot-buddies` (off `test-1.4.1-rc1`), not deployed. No migration: the bot's side of a pair
+**Status:** closed 2026-10-25 (done in 1.5.0, branch bot-buddies (ancestor of release-1.5.1)).
 is a `buddies` row with `characterid` = the bot (`pending` 0 buddies, 1 asked, 2 bookkeeping with the kind and day in
 `group`, e.g. `sent:20382`). Code: `BotBuddies`; hooks in `BuddyList.loadFromDb` (LEFT JOIN + bot-store name),
 `BuddylistModifyHandler` (add by bot name, accept a bot), `Character.deleteBuddy`, `MultiChatHandler` (buddy chat),

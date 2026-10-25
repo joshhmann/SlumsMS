@@ -2,7 +2,7 @@
 
 **Area:** Real bots  
 **Depends on:** 10  
-**Status:** open. Player scrolling was restored in v1.4.0. Bot scrolling is built on branch `economy-bot-scrolling-142` (below). Gachapon is not built.
+**Status:** closed 2026-10-25 (done in v1.4.0/1.5.0, commit 29d61aefc (bot scrolling), economy-gacha-150 and 319c1555b (gachapon redesign)).
 
 ## What
 

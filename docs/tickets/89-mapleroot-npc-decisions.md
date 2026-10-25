@@ -41,3 +41,5 @@ requirement was where a source states it, and the best guide links. Use it as th
 
 That progression track is planned for 1.7.0. Quick decisions 1-8 above stay in 1.6.0. Many requirements in the doc are marked
 `[mem]` (from memory, unverified): confirm them against the guides before building a gate.
+
+Split out 2026-10-25: quick NPC fixes are now ticket 102.

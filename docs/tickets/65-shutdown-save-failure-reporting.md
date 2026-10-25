@@ -4,7 +4,7 @@
 
 **Priority:** P2 — misleading persistence success reporting
 
-**Status:** open; source-reviewed against 1.5.0 `06a724dfc`, runtime validation pending
+**Status:** closed 2026-10-25 (done in 1.5.1, commits 32806f0a3 and 2b990a20f).
 
 **Area:** Server / shutdown observability
 

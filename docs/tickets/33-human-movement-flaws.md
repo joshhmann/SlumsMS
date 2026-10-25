@@ -2,7 +2,7 @@
 
 **Area:** Nav v2
 **Depends on:** 04 (learning on v68)
-**Status:** shipped in v1.4.0 (branch `movement-flaws` @ 844c6db0c, via `test-rc1`)
+**Status:** closed 2026-10-25 (done in v1.4.0, branch movement-flaws @ 844c6db0c).
 
 ## Why
 

@@ -4,7 +4,7 @@
 **Kind:** ENABLE (config) + FIX (stock Cosmic gaps)
 **Effort:** M
 **Depends on:** -
-**Status:** open
+**Status:** open, target 1.6.0. Owner decision 2026-10-25: turn it on and implement the six stubbed entitlements.
 
 ## Today
 
@@ -45,3 +45,7 @@
 
 - **EXP-rate buffs stack with 3x EXP and the rebirth rates:** cap the total and agree the numbers with the owner.
 - **Family rep updates on every kill write to the DB:** check that the batch save is used, not one write per kill.
+
+## Decision (Owner decision 2026-10-25)
+
+Turn the family system on (USE_FAMILY_SYSTEM) and implement the six stubbed entitlements. Replaces the "coming soon" button. Target: 1.6.0.

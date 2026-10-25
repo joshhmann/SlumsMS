@@ -185,3 +185,14 @@ Key findings:
 5. **Ticket 35:** Should the admin dashboard go on live (it runs on TEST only), or stay TEST-only?
 6. **Ticket 53:** Do we want the family system for friends (turn on and implement the six stubbed entitlements), or keep the "coming soon" button?
 7. **Ticket 77 (row stays B):** Omok/Match Cards for players is a 1.6.0 bug fix; should bots playing omok be 1.6.0 (brain activity) or 1.7.0?
+
+## Decisions applied (2026-10-25)
+
+Owner decisions applied on `152-integration` (docs only):
+
+1. **Closed all 56 class-A tickets** (status line set to "closed 2026-10-25 (...)" with the audit evidence; bodies untouched): 01, 02, 03, 04, 04b, 04c, 05, 06, 07, 08, 09, 10, 11, 12, 14, 15, 16, 17, 18, 19, 21, 22, 23, 26, 27, 28, 31, 33, 34, 36, 37, 38, 41, 42, 43, 44, 45, 46, 47, 49, 50, 51, 52, 55, 56, 57, 58, 59, 62, 65, 67, 68, 69, 75, 80, 88. Also closed 39 (folded into 90 item 2).
+2. **Overlaps:** new Companions epic (99) linking 13, 14, 51, 60, 85, 87 (parent line added to 13, 14, 60, 85, 87; 51 closed as folded in). 39 folded into 90 (line added in 90).
+3. **New tickets:** 99 Companions, 100 Busy FM, 101 v83 quest pass, 102 Quick NPC fixes (from 89), 103 1.6.0 bug intake.
+4. **Owner calls on class D (all set to 1.6.0):** 30 earned rebirth path for all bots; 35 dashboard on live, read-only, behind basic-auth nginx; 53 family system on with the six entitlements; 29 opt-in Maple Island tutorial; 20 first-install chunks before more remote friends; 24 clean old addon clients under `Z:\MSv83\Integration\Addons` (archive first, list before deleting, listing reviewed by Claude/owner, desktop not touched); 77 bots play omok/match cards and accept player challenges. Note: the question-6/7 wording above is superseded by these answers.
+5. **Renumbering plan for branch `160-life-in-town` (branch NOT edited):** 68->92, 69->93, 70->94, 71->95, 72->96, 73->97, 74->98 (fishing, medals, daily dungeon, Chaos Zakum/Horntail, chat routing, settings window, Evan trial). New tickets here start at 99. Cross-references inside the branch (e.g. "72", "73") must be renumbered at merge.
+6. Not done here: README.md index and stale headers of the B/C-class tickets (60, 61, etc.) are unchanged.

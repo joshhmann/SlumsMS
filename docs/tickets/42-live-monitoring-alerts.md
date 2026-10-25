@@ -2,7 +2,7 @@
 
 **Area:** Ops
 **Depends on:** 35 (dashboard)
-**Status:** shipped in v1.4.0 (branch `monitoring`, `deploy/monitor/`); installed on live (`slumsms-monitor@live.timer`).
+**Status:** closed 2026-10-25 (done in v1.4.0, branch monitoring; timers on live).
 Dashboard strip: `/var/lib/slumsms-monitor/<target>/status.json` is ready for ticket 35, the strip itself is not built.
 
 ## What

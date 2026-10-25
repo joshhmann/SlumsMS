@@ -2,7 +2,7 @@
 
 **Area:** Nav v2  
 **Depends on:** 01  
-**Status:** shipped in v1.3.0 (branch `travel`); the high-level follow-up (branch `high-level-routes`) shipped in v1.4.0
+**Status:** closed 2026-10-25 (done in v1.3.0/v1.4.0, branches travel and high-level-routes).
 
 ## What
 

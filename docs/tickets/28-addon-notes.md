@@ -2,7 +2,7 @@
 
 **Area:** Addons  
 **Depends on:** -  
-**Status:** open. Note: a Coloring Prism was since built on branch `addon-colorprism`; its code is in v1.4.0 but held
+**Status:** closed 2026-10-25 (obsolete: decision record only; Coloring Prism since built (branch addon-colorprism, migration 010)).
 back (off, not sold) after QA, fix planned for 1.4.1 (`docs/release/backlog-after-1.4.0.md`)
 
 ## What

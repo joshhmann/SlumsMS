@@ -2,7 +2,7 @@
 
 **Area:** Real bots  
 **Depends on:** 05  
-**Status:** shipped in v1.3.0 (branch `real-stats`, with ticket 05)
+**Status:** closed 2026-10-25 (done in v1.3.0, branch real-stats).
 
 ## What
 

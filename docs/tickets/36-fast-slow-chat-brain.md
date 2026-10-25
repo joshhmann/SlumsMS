@@ -2,7 +2,7 @@
 
 **Area:** Real bots / chat
 **Depends on:** 1.3.0 (bot chat as it ships); pairs with 14 (companion commands) and 21 (world events)
-**Status:** phase 1 shipped in v1.4.0 (branch `chat-natural`, via `test-rc1`)
+**Status:** closed 2026-10-25 (superseded by tickets 59 and 72 (phase 1 done in v1.4.0, branch chat-natural)).
 
 ## Today
 

@@ -58,3 +58,5 @@ or help friends.
 - The exact archetype list and blend ranges, tuned against live data from 1.5.0.
 - How goals are seeded for the existing roster (from current level and gear).
 - Fishing, medals and the daily dungeon: each needs its option definition when it lands.
+
+Parent: ticket 99 (Companions epic).

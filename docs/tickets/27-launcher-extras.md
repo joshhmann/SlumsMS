@@ -2,7 +2,7 @@
 
 **Area:** Launcher  
 **Depends on:** -  
-**Status:** self-update done (launcher main 48decf8); the optional items are open
+**Status:** closed 2026-10-25 (obsolete: Electron launcher replaced by the Tauri launcher in 1.5.2; optional items belong in a launcher backlog).
 
 ## What
 

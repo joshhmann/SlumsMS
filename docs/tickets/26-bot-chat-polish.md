@@ -2,7 +2,7 @@
 
 **Area:** Real bots  
 **Depends on:** 16  
-**Status:** shipped in v1.4.0 (branch `chat-polish`, via `test-rc2`)
+**Status:** closed 2026-10-25 (done in v1.4.0, branch chat-polish).
 
 ## What
 

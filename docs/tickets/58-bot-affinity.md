@@ -2,7 +2,7 @@
 
 **Area:** Real bots / Social
 **Depends on:** 49 (buddies), 50 (guilds), 52 (marriage), 21 (world events), 26/36/37 (chat), 47 (megaphone content)
-**Status:** 1.5.0 part built on `bots-affinity-150` (bot<->player affinity, `@botdrama`, earned speed, bot couples and weddings); player romance, spicy rivals and guild wars built on `bots-drama-150` (1.5.0 rc4, owner 2026-10-22); bot<->bot friendships stay open
+**Status:** closed 2026-10-25 (done in 1.5.0, branches bots-affinity-150 and bots-drama-150 (bot-bot friendships re-enter via ticket 60)).
 
 Owner: "an affinity system? Friends, enemies, nemesis, guild beef, guild alliances, KS wars, friends to lovers to
 marriage." The aim: the world remembers who gets along with whom, and that shows up in play - who greets whom, who

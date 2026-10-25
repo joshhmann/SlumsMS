@@ -2,7 +2,7 @@
 
 **Area:** Nav v2
 **Depends on:** 01 (graph v68), 03 (travel to Aqua Road), 04 (learning)
-**Status:** shipped in v1.4.0 (branch `swim-nav` @ fb54cdba3, via `test-rc2`)
+**Status:** closed 2026-10-25 (done in v1.4.0, branch swim-nav @ fb54cdba3).
 
 ## Today
 

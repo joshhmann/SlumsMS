@@ -4,7 +4,7 @@
 **Kind:** FIX (part A), BUILD (parts B and C)
 **Effort:** A: S. B and C: L
 **Depends on:** A: none. B and C: 49 (botstore name fallback and login notify), 36/37
-**Status:** A built (rc1). B and C built for 1.5.0 on `bots-guilds-150` with the owner's grill decisions (2026-10-21, below)
+**Status:** closed 2026-10-25 (done in 1.5.0, branch bots-guilds-150).
 
 Research: [docs/real-bots/social-systems-research.md](../real-bots/social-systems-research.md).
 

@@ -2,7 +2,7 @@
 
 **Area:** Addons  
 **Depends on:** -  
-**Status:** shipped in v1.4.0 (server and client branch `addon-setequip`, via `test-rc4`)
+**Status:** closed 2026-10-25 (done in v1.4.0, branch addon-setequip).
 
 ## What
 

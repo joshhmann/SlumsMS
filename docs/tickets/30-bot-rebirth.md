@@ -2,7 +2,7 @@
 
 **Area:** Real bots
 **Depends on:** 06 (builds), the MapleRoot skill rework on `real-stats`
-**Status:** open (owner to pick the approach below)
+**Status:** open, target 1.6.0. Owner decision 2026-10-25: earned path for all bots.
 
 ## How MapleRoot does it (for players)
 
@@ -45,3 +45,7 @@ bot that only earns it will reach the 5th tier after weeks or months, and only i
 - A bot at max level rebirths, keeps its past skills, and levels again; the change survives a restart.
 - Veteran bots appear at the configured share, can use rebirth-gated maps, and use x13 skills where they have them.
 - Players see nothing a real MapleRoot player couldn't have.
+
+## Decision (Owner decision 2026-10-25)
+
+Earned path for all bots: any bot that reaches level 200 and meets its goals can rebirth like a player does. No veteran-only slice, and rebirth-3 content is not players-only. Target: 1.6.0 (a goal for the bot brain, ticket 60).

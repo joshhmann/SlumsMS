@@ -2,7 +2,7 @@
 
 **Area:** Real bots / Chat
 **Depends on:** -
-**Status:** shipped in v1.4.0 (branch `chat-content`); RWT megaphones cut from 19% to 3%
+**Status:** closed 2026-10-25 (done in v1.4.0, branch chat-content).
 
 ## Today
 

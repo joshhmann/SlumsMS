@@ -2,8 +2,7 @@
 
 **Area:** Ops
 **Depends on:** 04 / 04b / 04c (nav data), 15 (economy caps)
-**Status:** in progress: code shipped in v1.3.0 (`dashboard`) and v1.4.0 (`dashboard-next`); it runs on the test
-dashboard (164:8091) only, not on live. See "State" below.
+**Status:** open, target 1.6.0. Owner decision 2026-10-25: go on live, read-only, behind the existing basic-auth nginx.
 
 ## What
 
@@ -91,3 +90,7 @@ Test install on 164 (nginx `slums-dashboard-test`, http://192.168.0.164:8091/): 
 
 - Live install (above). Economy against real ticket 15 caps once the ledger is merged (the panel shows the derived
   estimate until then). Shop and trade flows. A monitor target for the dashboard test server itself, if wanted.
+
+## Decision (Owner decision 2026-10-25)
+
+Yes on live: read-only, behind the existing basic-auth nginx. No write actions from the live dashboard. Target: 1.6.0.

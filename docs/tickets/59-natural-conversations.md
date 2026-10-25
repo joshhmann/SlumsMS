@@ -2,7 +2,7 @@
 
 **Area:** Real bots / chat
 **Depends on:** 36 (fast/slow chat brain), 37 (natural conversations), 58 (affinity), 1.5.0 drama, guilds, economy
-**Status:** designed and built on `bots-convo-150` (from `test-1.5.0-rc4`, owner decision 2026-10-22: "squeeze it in,
+**Status:** closed 2026-10-25 (done in 1.5.0, branch bots-convo-150 (follow-up is ticket 72)).
 we're not in a rush"). Not deployed. See "Built" at the end.
 
 ## Goal

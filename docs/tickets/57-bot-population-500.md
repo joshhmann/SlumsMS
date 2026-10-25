@@ -4,7 +4,7 @@
 **Kind:** BUILD
 **Effort:** M
 **Depends on:** 08 (population director), 10 (roster lifecycle)
-**Status:** done on branch `bots-population-142` (for 1.4.2). Not deployed.
+**Status:** closed 2026-10-25 (done in 1.4.2, branch bots-population-142 (numbers since superseded by owner direction)).
 
 ## Owner decision (2026-10-21)
 

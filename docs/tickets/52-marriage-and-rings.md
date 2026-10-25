@@ -5,7 +5,7 @@
 **Effort:** M overall: rings M, wedding check S, bot weddings M
 **Depends on:** Cash Shop window (`cashshop-fixes` and `cashshop-catalog-tool` work), 21 (world events) for bot
 weddings
-**Status:** open
+**Status:** closed 2026-10-25 (done in 1.5.0, branches gameplay-partner-rings-150, gameplay-marriage-result-150, bots-affinity-150, bots-drama-150).
 
 Research: [docs/real-bots/social-systems-research.md](../real-bots/social-systems-research.md).
 

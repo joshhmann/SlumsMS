@@ -4,7 +4,7 @@
 **Kind:** BUILD
 **Effort:** S-M
 **Depends on:** 14 (command parser), 49 (buddies, for invites by buddy bots)
-**Status:** open
+**Status:** closed 2026-10-25 (folded into the Companions epic (ticket 99) and ticket 85 (party chat)).
 
 ## Today
 

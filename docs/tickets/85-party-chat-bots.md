@@ -7,3 +7,5 @@ Today bots answer map chat, whispers, buddy chat (BotBuddies) and guild chat (Bo
 the other channels: replies routed by the same rules (name > clear reply > ...), PQ/boss coordination lines
 ("wait for me", "ready?", "go left"), and the say-do rule (a bot that says it will do something does it). Bot-only
 parties may chat among themselves at a low rate. Include an auto-QA check (cv-* family) and a GM staging command.
+
+Parent: ticket 99 (Companions epic).

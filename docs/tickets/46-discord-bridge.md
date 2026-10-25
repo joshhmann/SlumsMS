@@ -2,7 +2,7 @@
 
 **Area:** Community
 **Depends on:** 42 (alerts share the webhook plumbing)
-**Status:** status message and release news shipped in v1.4.0 (branch `monitoring`, `slumsms-monitor status|news`,
+**Status:** closed 2026-10-25 (done in v1.4.0, branch monitoring (status and news); registration notices optional, chat bridge not wanted).
 webhooks only, nothing read back); `slumsms-status@live.timer` runs on live. Registration notices not done.
 
 ## What

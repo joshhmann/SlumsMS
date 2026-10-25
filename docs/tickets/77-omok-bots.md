@@ -1,6 +1,6 @@
 # Ticket 77: Omok and Match Cards that work, then bots who play them
 
-Status: idea, owner 2026-10-25 ("omok boards ... bots should play and we can have playerbots do it").
+Status: open, target 1.6.0. Owner decision 2026-10-25: bots play each other and accept player challenges.
 Part 1 in the 1.5.x bug squash; part 2 with the 1.6.x bot brain.
 
 ## Part 1 (1.5.x): the minigames work for players
@@ -24,3 +24,7 @@ auto-QA checks with two pretend players (create, join, play a short game to a wi
 
 Part 1: two players can finish an Omok and a Match Cards game and records update; auto-QA covers it. Part 2: a player
 can walk up to a bot's Omok room in Henesys, play, and get a believable game.
+
+## Decision (Owner decision 2026-10-25, brain grill)
+
+Part 2 is in 1.6.0: bots set up omok/match-card rooms in towns and the FM, play each other, and accept players' challenges (a brain activity under ticket 60). Part 1 (rooms work for players) remains a bug-squash item.

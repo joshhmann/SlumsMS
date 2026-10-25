@@ -2,7 +2,7 @@
 
 **Area:** Companions  
 **Depends on:** 13  
-**Status:** shipped in v1.4.0 (branch `command-parser`, via `test-rc2`)
+**Status:** closed 2026-10-25 (done in v1.4.0, branch command-parser (BotCommandParser); the companion command set moves to the Companions epic).
 
 ## What
 
@@ -18,3 +18,5 @@ Port cosmic_agents' command parser (name, prefix and slot targeting) into BotMen
 - Orders: follow / come / fm (FOLLOW), stop / stay / wait / hold (STAY, a new FollowerBot phase), grind / train / farm / hunt / station (GRIND = train here). A line is an order only when it is the order plus filler ("pls", "here", "me"...); anything else stays natural chat (Dispatcher.talkNaturally).
 - Party bots only (`PartyBotOrders.slots`: the sender's party bots in party order; real players take no slot). Runs first in `Dispatcher.dispatch`; a bot sender is never read as giving orders. A follower obeys only its leader; a partied trainer follows on "follow" and just answers "stop"/"grind". Ambiguous names get "which one? 1 Jason / 3 Jane" in a bubble. Nothing opens the NPC window.
 - Not ported: loot and buff orders (no companion loot toggle exists; buffs already go through BotBuffRequestHandler's "hs pls").
+
+Parent: ticket 99 (Companions epic).

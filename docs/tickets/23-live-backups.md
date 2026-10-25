@@ -2,7 +2,7 @@
 
 **Area:** Ops  
 **Depends on:** -  
-**Status:** done 2026-10-19 (ops on live; superseded by ticket 45's scripts in v1.4.0)
+**Status:** closed 2026-10-25 (superseded by ticket 45 (backup scripts, v1.4.0)).
 
 ## What
 

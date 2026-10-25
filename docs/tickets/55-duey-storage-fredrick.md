@@ -5,7 +5,7 @@
 **Effort:** S
 **Depends on:** check the cosmic-diff agent's report (`docs/release/cosmic-diff-1.4.1.md` on `cosmic-diff-1.4.1`)
 first, so nothing is restored twice
-**Status:** Duey done in 1.5.2 (owner 2026-10-25: on, bots never send or receive); storage and Fredrick open
+**Status:** closed 2026-10-25 (done in 1.5.2, Duey 2e3cc3148, Fredrick clearItems in FredrickProcessor).
 
 ## Today
 

@@ -2,7 +2,7 @@
 
 **Area:** Ops
 **Depends on:** -
-**Status:** shipped in v1.4.0 (branch `release-pipeline`) and used for the 1.4.0 release
+**Status:** closed 2026-10-25 (done in v1.4.0, branch release-pipeline, commit 758ff4a76).
 (`/opt/mapleroot-deployments/v1.4.0/deploy.sh`). `tools/release/`: build, stage, rehearse, gen-deploy
 (deploy.sh/rollback.sh with `--dry-run`), publish-client/publish-launcher, checklist template.
 

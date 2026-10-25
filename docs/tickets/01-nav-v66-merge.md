@@ -2,7 +2,7 @@
 
 **Area:** Nav v2  
 **Depends on:** -  
-**Status:** shipped in v1.3.0 (branch `nav-v2` @ 0bef943f8, via `bots-integration`)
+**Status:** closed 2026-10-25 (done in v1.3.0, branch nav-v2 @ 0bef943f8).
 
 ## What
 

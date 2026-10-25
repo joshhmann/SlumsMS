@@ -2,7 +2,7 @@
 
 **Area:** Real bots / Economy
 **Depends on:** 09 (shop resupply), 12 (sell and trade), 15 (yield caps and ledger)
-**Status:** open
+**Status:** closed 2026-10-25 (obsolete: parked by the owner (no economy work unless asked); most of it shipped via 56, gachapon and bf32af563).
 
 Research: [docs/real-bots/economy-research.md](../real-bots/economy-research.md).
 

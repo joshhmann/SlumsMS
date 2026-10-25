@@ -2,7 +2,7 @@
 
 **Area:** Nav v2  
 **Depends on:** 01  
-**Status:** shipped in v1.3.0 (branch `nav-learning`, includes `nav-ops`). The 2026-10-21 follow-up (branch
+**Status:** closed 2026-10-25 (done in v1.3.0, branches nav-learning and nav-player-learning).
 `nav-player-learning`: why live learned nothing from players, fixes, diagnostics, kept data, replay tool; see the last
 section) shipped in v1.4.0
 

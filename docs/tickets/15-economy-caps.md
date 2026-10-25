@@ -2,7 +2,7 @@
 
 **Area:** Economy  
 **Depends on:** 07  
-**Status:** shipped in v1.3.0 (branch `economy`)
+**Status:** closed 2026-10-25 (done in v1.3.0, branch economy (BotYieldCaps)).
 
 ## What
 
