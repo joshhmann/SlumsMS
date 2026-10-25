@@ -99,7 +99,7 @@ public final class ConvoSense {
             + "|\\bcome\\??$)");
     private static final Pattern HAGGLE = Pattern.compile("\\b(go lower|any lower|lower\\?|cheaper|discount|too (much|expensive"
             + "|pricey|high)|(would|will|could) (u|you) (do|take|go)|how about \\d|ill (give|pay|do)|i'?ll (give|pay|do)"
-            + "|best price|last price|meet (me )?(in the )?middle|negotiable|neg\\b)");
+            + "|best price|last price|lowest price|ur lowest|meet (me )?(in the )?middle|negotiable|neg\\b)");
     private static final Pattern BUFF = Pattern.compile("\\b(buff|buffs|bless|haste|hs|heal|heals|hb|hyper body|sharp eyes"
             + "|se|mw|maple warrior|booster|meditation|holy symbol|dispel|res|resurrect)\\b.*\\b(me|pls|plz|please|us|\\?)|"
             + "\\b(can|could) (u|you|i (get|have)) (a |some )?(buff|bless|haste|hs|heal|hb|se)\\b|^(buff|heal|hs|bless|haste)"
@@ -110,6 +110,8 @@ public final class ConvoSense {
     private static final Pattern GUIDE = Pattern.compile("(\\bhow (do|can|would) (i|u|you|we) (get|go) to\\b|\\bhow to get to\\b"
             + "|\\bshow me (the way|where|how)\\b|\\bwhich way (to|is)\\b|\\bwhere('?s| is) (the )?(\\w+ ){0,3}(npc|portal|station|shop"
             + "|entrance|ship|boat|taxi|cab)\\b|\\bway to (get to )?\\w+\\?|\\btake me to\\b(?!.*\\b(date|amoria)\\b)|\\blead the way\\b)");
+    /** "where is kerning city": the way to a place (only when what follows names a map). */
+    private static final Pattern WHERE_IS = Pattern.compile("\\bwhere('?s| is) (.+)$");
     private static final Pattern DATE_EXTRA = Pattern.compile("\\b(take me (to|on) (amoria|a date)|go to amoria (with me|together)"
             + "|amoria date)\\b");
     private static final Pattern MEET_AT = Pattern.compile("\\bmeet (me |u |you |up )?(at|in) \\w+");
@@ -155,6 +157,11 @@ public final class ConvoSense {
         }
         Scope s = new Scope(text);
         if (s.live(GUIDE)) {
+            return Optional.of(ConvoIntent.GUIDE);
+        }
+        java.util.regex.Matcher whereIs = WHERE_IS.matcher(text);
+        if (whereIs.find() && ConvoEntities.find(whereIs.group(2)).first(ConvoEntities.Kind.MAP) != null
+                && s.live(WHERE_IS)) {
             return Optional.of(ConvoIntent.GUIDE);
         }
         if (s.live(MEET_AT) && !ConvoEntities.find(text).isEmpty()) {

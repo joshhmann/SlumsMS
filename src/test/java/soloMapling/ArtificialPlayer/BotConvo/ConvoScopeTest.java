@@ -138,4 +138,23 @@ class ConvoScopeTest {
         assertEquals(ChatTriage.Con.SCAM, ChatTriage.rules("give me 1m and ill double it").con());
     }
 
+    // ── 4c recall gaps ──
+
+    @Test
+    void whereIsAPlaceAsksTheWay() {
+        assertEquals(ConvoIntent.GUIDE, intent("where is kerning city")); // fresh-059
+        assertEquals(ConvoIntent.GUIDE, intent("wheres ellinia"));
+        assertEquals(ConvoIntent.GUIDE, intent("how do i get to orbis"));
+        assertNotEquals(ConvoIntent.GUIDE, intent("where is ur guild master"), "not a place");
+        assertEquals(ChatTriage.Intent.WHERE_AT, ConvoSense.rules("where r u").triage().intent());
+    }
+
+    @Test
+    void askingForTheLowestPriceIsHaggling() {
+        assertEquals(ConvoIntent.HAGGLE, intent("whats ur lowest price")); // fresh-044
+        assertEquals(ConvoIntent.HAGGLE, intent("whats ur best price for the claw"));
+        // "how much for" stays the trade opener the dev set labels it (legacy-tuning-012); flagged for the owner
+        assertEquals(ConvoIntent.TRADE, intent("how much for the work gloves"));
+    }
+
 }
