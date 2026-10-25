@@ -137,6 +137,9 @@ Earlier receipts `20261025T022451Z` (`ad21d0e20`, five selected PASS) and `20261
 ## 3. Backlog for 1.5.1 (hotfixes until 1.6.0)
 
 Owner-reported or found, roughly by priority:
+- **Technical source review:** tickets [62–65](tickets/README.md) target 1.5.1: active-player shutdown saves (P1),
+  unsaved bot debits at the shutdown deadline (P1), Bera wealth-scroll bonus (P2), and save-failure reporting (P2).
+  Findings are source-reviewed against `06a724dfc`; runtime reproduction and fixes are still pending.
 - **A bot you're talking to walks away** mid-conversation (personal space or its wander habit pulls it away). A
   conversation partner should stay put ~30-60 s. Source audit: `BotConversation` already keeps a 60 s session,
   but the wanderer and fidget paths do not use it as a movement hold; personal space only recognises the pair.
