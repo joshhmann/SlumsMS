@@ -368,15 +368,23 @@ final class BotPhysicsEngine {
      */
     static Foothold syncAndDetectGround(BotMovementState entry, Character bot) {
         syncGroundPosition(entry, bot.getPosition().x);
-        Foothold fh = findGroundFoothold(bot.getMap(), bot.getPosition());
-        Foothold continuity = findContinuityGroundFoothold(entry, bot.getMap(), bot.getPosition(), fh);
-        if (continuity != null) {
-            fh = continuity;
-        }
+        Foothold fh = standingGroundFoothold(entry, bot.getMap(), bot.getPosition());
         if (fh == null) {
             beginFall(entry, bot, 0);
         }
         return fh;
+    }
+
+    /*
+     * SSOT for "which foothold is this bot standing on" (nutnnut/Cosmic 26b372e7c, AGPL-3.0. Credit: NutNNut): the
+     * chain of the region the bot walked in on where it passes through the bot's position, else the raw lookup.
+     * Anything that owns a live bot and simulates its ground motion (the motor, the walk-off drop gate) must use
+     * this, or the two disagree about the ground under the same bot.
+     */
+    static Foothold standingGroundFoothold(BotMovementState entry, MapleMap map, Point position) {
+        Foothold raw = findGroundFoothold(map, position);
+        Foothold continuity = findContinuityGroundFoothold(entry, map, position, raw);
+        return continuity != null ? continuity : raw;
     }
 
     /*
@@ -574,6 +582,25 @@ final class BotPhysicsEngine {
     static Point findWalkRegionGroundPoint(MapleMap map, Foothold foothold, int x, int referenceY) {
         GroundRegionSample sample = findWalkRegionGroundSample(map, foothold, x, referenceY);
         return sample == null ? null : sample.point();
+    }
+
+    /*
+     * The foothold of walk region regionId under x near referenceY (26b372e7c, credit NutNNut): a region's own
+     * ground, never a foreign chain. graph null = the map's lookup (the graph being built, inside a build).
+     */
+    static Foothold findWalkRegionGroundFoothold(MapleMap map, BotNavigationGraph graph, int regionId, int x,
+                                                 int referenceY) {
+        if (map == null) {
+            return null;
+        }
+        WalkRegionLookup lookup = graph != null
+                ? new WalkRegionLookup(map.getId(), graph.regionsById, graph.regionIdByFootholdId, footholdsById(map))
+                : resolveWalkRegionLookup(map);
+        if (lookup == null) {
+            return null;
+        }
+        GroundRegionSample sample = findWalkRegionGroundSample(lookup, regionId, null, x, referenceY);
+        return sample == null ? null : sample.foothold();
     }
 
     static boolean canWalkGroundStep(MapleMap map, Point currentPos, int stepX) {
@@ -1267,11 +1294,51 @@ final class BotPhysicsEngine {
                                                  int desiredDir,
                                                  GroundTravelState initialState,
                                                  BotMovementProfile profile) {
+        return simulateWalkOffLanding(map, from, desiredDir, null, initialState, profile);
+    }
+
+    /*
+     * The live launch state at a walk-off lip is not unique (nutnnut/Cosmic 362926fdf, AGPL-3.0. Credit: NutNNut):
+     * the bot arrives with any sub-pixel physX phase, sub-step carry and speed (standing start at the runway anchor,
+     * or walking through at full speed), which moves the dismount pixel and the seeded air drift by a rounding step.
+     * The outcome for a spread of those states, the historical single sim (phase 0, standing start) first, so graph
+     * building can check the landing is stable before authoring an edge from one of them. Entries may be null.
+     */
+    static java.util.List<WalkOffLanding> walkOffLandingVariants(MapleMap map, Point from, int desiredDir,
+                                                       Foothold standingFoothold, BotMovementProfile profile) {
+        java.util.List<WalkOffLanding> outcomes = new java.util.ArrayList<>(12);
+        double terminalHSpeed = maxHSpeedPerClientStep(profile) * desiredDir;
+        double[] physXPhases = {0.0, -0.4, 0.4};
+        double[] carryPhases = {0.0, CLIENT_GROUND_STEP_MS / 2.0};
+        double[] launchHSpeeds = {0.0, terminalHSpeed};
+        for (double phase : physXPhases) {
+            for (double carryMs : carryPhases) {
+                for (double hspeed : launchHSpeeds) {
+                    outcomes.add(simulateWalkOffLanding(map, from, desiredDir, standingFoothold,
+                            new GroundTravelState(from.x + phase, hspeed, carryMs), profile));
+                }
+            }
+        }
+        return outcomes;
+    }
+
+    /*
+     * standingFoothold: the ground the walker is really on (standingGroundFoothold for a live bot, the source
+     * region's own foothold when building). Resolving it from `from` alone re-runs the ambiguous coordinate lookup,
+     * which can start the walk on a foreign chain (an overhead shelf within MAX_SLOPE_UP) and walk off THAT lip
+     * (26b372e7c, credit NutNNut). Null falls back to the coordinate lookup.
+     */
+    static WalkOffLanding simulateWalkOffLanding(MapleMap map,
+                                                 Point from,
+                                                 int desiredDir,
+                                                 Foothold standingFoothold,
+                                                 GroundTravelState initialState,
+                                                 BotMovementProfile profile) {
         if (map == null || from == null || desiredDir == 0 || initialState == null) {
             return null;
         }
 
-        Foothold foothold = findGroundFoothold(map, from);
+        Foothold foothold = standingFoothold != null ? standingFoothold : findGroundFoothold(map, from);
         if (foothold == null) {
             return null;
         }

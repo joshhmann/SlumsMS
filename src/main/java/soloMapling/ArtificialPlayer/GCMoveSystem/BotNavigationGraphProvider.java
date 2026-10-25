@@ -51,7 +51,7 @@ final class BotNavigationGraphProvider {
     //     inside an 8.93 x fs px/s band (no walkSpeed air cap; counter-strafe pins at the
     //     band edge) and no-input flight drags 1 x fs (100 x fs at terminal fall). Committed
     //     arcs still fly the launch key held, so constant-stepX arc sims stay exact.
-    static final int GRAPH_VERSION = 68; // 51: kinetic slippery model + snowshoes; 52: brake-to-stop landings; 53: glide-unless-edge stop policy (slipperyStopDir); 56: uncap straight-drop launch windows (full droppable span, no +/-20 fragmentation); 57: remove the (empirically wrong) 300px down-jump drop cap - down-jumps fall until landing; 58: rope-grab reach counts descent below the ledge (mid-rope jump-grabs from adjacent platforms); 59: fall-sim caps to map height not 1500ms - long single-fall descents (tall shafts: Ellinia tree, Perion) now generate DROP/JUMP/ROPE edges; 60: re-cap drops for organic descent - walk-offs capped at MAX_DROP_PX, down-jumps at the tighter DOWN_JUMP_MAX_DROP_PX, and down-jumps carry DOWN_JUMP_COST_PENALTY_MS so the pathfinder prefers ropes/walk-offs over plummeting an entire vertical map; 61: widened rope top-exit probe (BotPhysicsEngine.findTopExitLanding) - accept a step-off foothold slightly above/below the rope top and a few px off-axis, so uneven/slanted ladder heads mint a clean CLIMB step-off edge instead of only ballistic top jump-offs; 68: nutnnut/Cosmic graph v60-v67 merged onto ours v60-v61 - their 66 (ground walk follows the standing foothold's prev/next chain across a joined fork), 67 (skip phantom cross-region JUMP/FLASH_JUMP edges landing on the source region's own ground), 62 (rope-exit/transfer CLIMB edges carry a Y launch window with per-endpoint cost), 60/61/64/65 (TELEPORT + FLASH_JUMP skill edges with X launch windows; teleport landing SSOT BotPhysicsEngine.teleportLanding, down-teleport to the furthest platform, y-snap 75), keeping our 60 drop caps and 61 widened rope top-exit; their 63 (baked portal route buckets) is not ported
+    static final int GRAPH_VERSION = 69; // 51: kinetic slippery model + snowshoes; 52: brake-to-stop landings; 53: glide-unless-edge stop policy (slipperyStopDir); 56: uncap straight-drop launch windows (full droppable span, no +/-20 fragmentation); 57: remove the (empirically wrong) 300px down-jump drop cap - down-jumps fall until landing; 58: rope-grab reach counts descent below the ledge (mid-rope jump-grabs from adjacent platforms); 59: fall-sim caps to map height not 1500ms - long single-fall descents (tall shafts: Ellinia tree, Perion) now generate DROP/JUMP/ROPE edges; 60: re-cap drops for organic descent - walk-offs capped at MAX_DROP_PX, down-jumps at the tighter DOWN_JUMP_MAX_DROP_PX, and down-jumps carry DOWN_JUMP_COST_PENALTY_MS so the pathfinder prefers ropes/walk-offs over plummeting an entire vertical map; 61: widened rope top-exit probe (BotPhysicsEngine.findTopExitLanding) - accept a step-off foothold slightly above/below the rope top and a few px off-axis, so uneven/slanted ladder heads mint a clean CLIMB step-off edge instead of only ballistic top jump-offs; 68: nutnnut/Cosmic graph v60-v67 merged onto ours v60-v61 - their 66 (ground walk follows the standing foothold's prev/next chain across a joined fork), 67 (skip phantom cross-region JUMP/FLASH_JUMP edges landing on the source region's own ground), 62 (rope-exit/transfer CLIMB edges carry a Y launch window with per-endpoint cost), 60/61/64/65 (TELEPORT + FLASH_JUMP skill edges with X launch windows; teleport landing SSOT BotPhysicsEngine.teleportLanding, down-teleport to the furthest platform, y-snap 75), keeping our 60 drop caps and 61 widened rope top-exit; their 63 (baked portal route buckets) is not ported; 69: nutnnut/Cosmic v68+v69+v71 walk-off DROP fixes (credit NutNNut) - a directional walk-off's landing is authored with the executor's walk-off sim from the runway anchor on the source region's own foothold (not a lip-pixel fall), and only when every live launch state (sub-pixel phase, carry, arrival speed) lands the same region (stableWalkOffLanding); their v70 zMass walls are not ported
 
     // Drop caps for organic descent (re-added; v57 had removed the old single cap). A bot must
     // never plummet down a whole vertical map. Two distinct downward moves, treated differently:
@@ -1233,37 +1233,76 @@ final class BotNavigationGraphProvider {
             return;
         }
 
-        // Ballistic fall from ledge at max walk velocity — single simulation call.
         int stepX = BotPhysicsEngine.walkStep(map, movementProfile) * direction;
-        BotPhysicsEngine.JumpLanding landing = BotPhysicsEngine.simulateFallLanding(map, endpoint, stepX);
-        if (landing == null) {
+        BotPhysicsEngine.WalkOffLanding walkOff = stableWalkOffLanding(map, from, startPoint, direction, null,
+                regionIdByFootholdId, movementProfile);
+        if (walkOff == null) {
             return;
         }
-
-        int toRegionId = regionIdByFootholdId.getOrDefault(landing.foothold().getId(), -1);
-        BotNavigationGraph.Region below = regionsById.get(toRegionId);
-        if (below == null || below.id == from.id) {
+        BotNavigationGraph.Region below = regionsById.get(
+                regionIdByFootholdId.getOrDefault(walkOff.landing().foothold().getId(), -1));
+        if (below == null) {
             return;
         }
-        if (landing.point().y <= endpoint.y + 4) {
-            return;
-        }
-        // Cap how far a walk-off fall may drop, so bots don't fall off a ledge into a full-map shaft.
-        if (landing.point().y - endpoint.y > MAX_DROP_PX) {
-            return;
-        }
-
-        int travelMs = BotPhysicsEngine.estimateFallLandingTimeMs(map, endpoint, stepX)
-                + estimateHorizontalTravelTimeMs(actualRunway, movementProfile);
 
         addEdge(from.id, below.id, BotNavigationGraph.EdgeType.DROP,
                 startPoint,
-                landing.point(),
+                walkOff.landing().point(),
                 stepX,
                 0,
-                travelMs,
+                walkOff.travelTimeMs(),
                 outgoing,
                 edgeKeys);
+    }
+
+    /*
+     * Graph v69 (ported from nutnnut/Cosmic 8a7e7b3a5 + 362926fdf + 26b372e7c, AGPL-3.0. Credit: NutNNut): the
+     * landing of a directional walk-off from startPoint, or null when there is no drop to author. Shared by the
+     * builder and the player-learned edges (NavObservedEdges) so both author the same drops.
+     *  - Execution SSOT: the landing comes from the same walk-off sim the executor gate runs
+     *    (BotNavigationManager.selectDropWaypoint). A real dismount leaves the ground up to a walk step PAST the lip,
+     *    which can land on another platform than a fall from the exact lip pixel (Henesys department store
+     *    100000102: four of its walk-offs really land elsewhere), and the bot then parked at the runway anchor.
+     *  - The walk starts on the source region's own foothold, never a coordinate lookup that can pick a shelf up to
+     *    MAX_SLOPE_UP overhead and walk off THAT lip.
+     *  - Knife-edge guard: every live launch state (BotPhysicsEngine.walkOffLandingVariants) must land the same
+     *    region, or the planner keeps replanning through an edge the bot cannot reproduce (FM 910000000).
+     *  - Ours kept: the walk-off must descend more than 4 px and at most MAX_DROP_PX.
+     * graph: the finished graph (runtime callers); null inside a build (uses the build's walk-region lookup).
+     */
+    static BotPhysicsEngine.WalkOffLanding stableWalkOffLanding(MapleMap map,
+                                                               BotNavigationGraph.Region from,
+                                                               Point startPoint,
+                                                               int direction,
+                                                               BotNavigationGraph graph,
+                                                               Map<Integer, Integer> regionIdByFootholdId,
+                                                               BotMovementProfile movementProfile) {
+        Foothold standing = BotPhysicsEngine.findWalkRegionGroundFoothold(map, graph, from.id, startPoint.x,
+                startPoint.y);
+        if (standing == null) {
+            return null;
+        }
+        List<BotPhysicsEngine.WalkOffLanding> variants = BotPhysicsEngine.walkOffLandingVariants(
+                map, startPoint, direction, standing, movementProfile);
+        BotPhysicsEngine.WalkOffLanding walkOff = variants.isEmpty() ? null : variants.get(0);
+        if (walkOff == null || walkOff.landing() == null || walkOff.landing().foothold() == null) {
+            return null;
+        }
+        int toRegionId = regionIdByFootholdId.getOrDefault(walkOff.landing().foothold().getId(), -1);
+        if (toRegionId < 0 || toRegionId == from.id) {
+            return null;
+        }
+        int dropPx = walkOff.landing().point().y - walkOff.launchPoint().y;
+        if (dropPx <= 4 || dropPx > MAX_DROP_PX) {
+            return null;
+        }
+        for (BotPhysicsEngine.WalkOffLanding variant : variants) {
+            if (variant == null || variant.landing() == null || variant.landing().foothold() == null
+                    || regionIdByFootholdId.getOrDefault(variant.landing().foothold().getId(), -1) != toRegionId) {
+                return null;
+            }
+        }
+        return walkOff;
     }
 
     /*
