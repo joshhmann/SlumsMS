@@ -26,3 +26,9 @@ Still wrong after (19 lines, 2 marked ambiguous):
 Verdict: the scope fix is a real gain on unseen chat (+15.5 points, no regressions, ordinary requests intact). The
 remaining misses are mostly con (scam detection both ways) and quoted-speech variety. fresh-v2 is now spent: a
 model comparison (gliclass shadow) or further rule work needs a new held-back set (fresh-v3).
+
+## Owner decisions (2026-10-25)
+
+1. "he said you should buff me" stays a request (current behaviour). Whether the bot actually buffs is the bot's own
+   call (its brain/affinity), not the classifier's.
+2. "how much for X" keeps opening a trade, not haggle: players can still haggle in the trade window chat.
