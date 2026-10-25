@@ -88,6 +88,22 @@ public abstract class AbstractDealDamageHandler extends AbstractPacketHandler {
         }
     }
 
+    /**
+     * Venomous Star / Venomous Stab / Night Walker Venom: each line may stack one more venom (at most 3). The status
+     * must go in as venom, or Monster.applyStatus starts no damage-over-time and the venom does nothing.
+     */
+    static void applyVenom(Character player, Monster monster, Skill type, StatEffect venomEffect, int attackCount) {
+        for (int i = 0; i < attackCount; i++) {
+            if (venomEffect.makeChanceResult()) {
+                if (monster.getVenomMulti() < 3) {
+                    monster.setVenomMulti((monster.getVenomMulti() + 1));
+                    MonsterStatusEffect monsterStatusEffect = new MonsterStatusEffect(Collections.singletonMap(MonsterStatus.POISON, 1), type, null, false);
+                    monster.applyStatus(player, monsterStatusEffect, false, venomEffect.getDuration(), true, false);
+                }
+            }
+        }
+    }
+
     protected void applyAttack(AttackInfo attack, final Character player, int attackCount) {
         final MapleMap map = player.getMap();
         if (map.isOwnershipRestricted(player)) {
@@ -373,16 +389,7 @@ public abstract class AbstractDealDamageHandler extends AbstractPacketHandler {
                     } else if (job == 412 || job == 422 || job == 1411) {
                         Skill type = SkillFactory.getSkill(player.getJob().getId() == 412 ? 4120005 : (player.getJob().getId() == 1411 ? 14110004 : 4220005));
                         if (player.getSkillLevel(type) > 0) {
-                            StatEffect venomEffect = type.getEffect(player.getSkillLevel(type));
-                            for (int i = 0; i < attackCount; i++) {
-                                if (venomEffect.makeChanceResult()) {
-                                    if (monster.getVenomMulti() < 3) {
-                                        monster.setVenomMulti((monster.getVenomMulti() + 1));
-                                        MonsterStatusEffect monsterStatusEffect = new MonsterStatusEffect(Collections.singletonMap(MonsterStatus.POISON, 1), type, null, false);
-                                        monster.applyStatus(player, monsterStatusEffect, false, venomEffect.getDuration());
-                                    }
-                                }
-                            }
+                            applyVenom(player, monster, type, type.getEffect(player.getSkillLevel(type)), attackCount);
                         }
                     } else if (job >= 311 && job <= 322) {
                         if (!monster.isBoss()) {
