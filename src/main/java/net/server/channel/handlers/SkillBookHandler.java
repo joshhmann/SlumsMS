@@ -59,20 +59,25 @@ public final class SkillBookHandler extends AbstractPacketHandler {
                 Inventory inv = c.getPlayer().getInventory(InventoryType.USE);
                 Item toUse = inv.getItem(slot);
                 if (toUse == null || toUse.getItemId() != itemId) {
+                    c.sendPacket(PacketCreator.enableActions());
                     return;
                 }
                 Map<String, Integer> skilldata = ItemInformationProvider.getInstance().getSkillStats(toUse.getItemId(), c.getPlayer().getJob().getId());
                 if (skilldata == null) {
+                    c.sendPacket(PacketCreator.enableActions());
                     return;
                 }
-                Skill skill2 = SkillFactory.getSkill(skilldata.get("skillid"));
-                if (skilldata.get("skillid") == 0) {
+                skill = skilldata.get("skillid");
+                maxlevel = skilldata.get("masterLevel");
+                Skill skill2 = SkillFactory.getSkill(skill);
+                if (skill == 0) {
                     canuse = false;
-                } else if ((player.getSkillLevel(skill2) >= skilldata.get("reqSkillLevel") || skilldata.get("reqSkillLevel") == 0) && player.getMasterLevel(skill2) < skilldata.get("masterLevel")) {
+                } else if ((player.getSkillLevel(skill2) >= skilldata.get("reqSkillLevel") || skilldata.get("reqSkillLevel") == 0) && player.getMasterLevel(skill2) < maxlevel) {
                     inv.lockInventory();
                     try {
                         Item used = inv.getItem(slot);
                         if (used != toUse || toUse.getQuantity() < 1) {    // thanks ClouD for noticing skillbooks not being usable when stacked
+                            c.sendPacket(PacketCreator.enableActions());
                             return;
                         }
 
@@ -84,7 +89,7 @@ public final class SkillBookHandler extends AbstractPacketHandler {
                     canuse = true;
                     if (ItemInformationProvider.rollSuccessChance(skilldata.get("success"))) {
                         success = true;
-                        player.changeSkillLevel(skill2, player.getSkillLevel(skill2), Math.max(skilldata.get("masterLevel"), player.getMasterLevel(skill2)), -1);
+                        player.changeSkillLevel(skill2, player.getSkillLevel(skill2), Math.max(maxlevel, player.getMasterLevel(skill2)), -1);
                     } else {
                         success = false;
                         //player.dropMessage("The skill book lights up, but the skill winds up as if nothing happened.");
