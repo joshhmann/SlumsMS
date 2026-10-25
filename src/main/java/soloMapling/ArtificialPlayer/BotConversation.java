@@ -328,7 +328,9 @@ public final class BotConversation {
             return null;
         }
         try {
-            if (bot.getEventInstance() != null || BotLogout.isLeaving(bot.getId())
+            // 1.5.1: a bot only waiting to log out (the director's logout waits for this chat) is still held; one
+            // that said its goodbye and is about to disappear is not
+            if (bot.getEventInstance() != null || BotLogout.isDeparting(bot.getId())
                     || soloMapling.ArtificialPlayer.BotDramaSystem.DramaKit.inScene(bot.getId())) {
                 return null;
             }
@@ -336,6 +338,23 @@ public final class BotConversation {
             return null;
         }
         return bot;
+    }
+
+    /**
+     * 1.5.1: whether a player talking to this bot keeps it logged in: the hold is on and nothing outranks it - not a
+     * shutdown, an event or a drama scene. Unlike {@link #heldByChat(Character)} it ignores the logout itself (that
+     * is what it decides). Cheap: one map read for a bot nobody talks to.
+     */
+    public static boolean holdsAgainstLogout(Character bot) {
+        if (bot == null || !isHoldingChat(bot.getId()) || BotShutdown.isQuiesced()) {
+            return false;
+        }
+        try {
+            return bot.getEventInstance() == null
+                    && !soloMapling.ArtificialPlayer.BotDramaSystem.DramaKit.inScene(bot.getId());
+        } catch (RuntimeException | LinkageError e) {
+            return false;
+        }
     }
 
     /** As {@link #heldByChat(Character)}: whether this bot keeps its spot for the chat right now. */

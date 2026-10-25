@@ -405,7 +405,7 @@ public final class GuildBossRuns {
         BotGuilds.sayInGuild(first, GuildLines.pick("BossGo", Map.of("BOSS", run.boss.name())));
         for (int id : staged) {
             run.away.add(id);
-            BotLogout.request(id, now);
+            BotLogout.requestOwn(id, now); // into the boss run: a chat does not keep it
         }
         BotGuilds.qa(0, "INSIDE " + run.guildName + " -> " + run.boss.name() + ": " + names(staged) + " left the world for "
                 + run.insideMs / 1000 + " s" + (run.withPlayers.isEmpty() ? "" : "; with players: " + names(new ArrayList<>(run.withPlayers))));

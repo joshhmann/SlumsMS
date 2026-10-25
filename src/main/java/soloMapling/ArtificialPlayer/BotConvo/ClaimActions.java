@@ -309,7 +309,7 @@ public final class ClaimActions {
         @Override
         public void logOutSoon(Character bot, long ms) {
             int id = bot.getId();
-            soloMapling.server.BotTiming.after(ms, () -> soloMapling.ArtificialPlayer.BotLogout.request(id,
+            soloMapling.server.BotTiming.after(ms, () -> soloMapling.ArtificialPlayer.BotLogout.requestOwn(id,
                     System.currentTimeMillis()));
         }
 
