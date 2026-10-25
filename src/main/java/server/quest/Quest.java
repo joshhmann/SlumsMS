@@ -503,7 +503,8 @@ public class Quest {
                 ret = new MaxLevelRequirement(this, data);
                 break;
             case MESO:
-                ret = new MesoRequirement(this, data);
+            case END_MESO:
+                ret = new MesoRequirement(this, data, type);
                 break;
             case MIN_LEVEL:
                 ret = new MinLevelRequirement(this, data);
