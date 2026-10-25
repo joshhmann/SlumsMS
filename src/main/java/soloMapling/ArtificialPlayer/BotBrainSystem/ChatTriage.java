@@ -236,10 +236,12 @@ public final class ChatTriage {
         if (MANIPULATION.matcher(text).find()) {
             return Optional.of(Con.MANIPULATION);
         }
-        if (RWT.matcher(text).find()) {
+        // a warning about scams names them, it is not one ("dont trust anyone asking for ur password")
+        boolean warns = ChatScope.warns(text);
+        if (RWT.matcher(text).find() && !warns) {
             return Optional.of(Con.RWT);
         }
-        if (SCAM.matcher(text).find()) {
+        if (SCAM.matcher(text).find() && !warns) {
             return Optional.of(Con.SCAM);
         }
         if (HARASSMENT.matcher(text).find()) {

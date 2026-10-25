@@ -81,4 +81,61 @@ class ConvoScopeTest {
         assertEquals(ChatTriage.Intent.FOLLOW, ChatTriage.rules("dont move").intent(), "a negator inside the cue");
     }
 
+    // ── 4b reported / quoted speech and warnings ──
+
+    @Test
+    void aCueInSomeoneElsesReportedWordsIsAMention() {
+        // fresh-013, 014, 015, 017, 018, 019, 020 and the dev set's challenge-065, 066
+        for (String line : List.of("some guy in fm was yelling b> claw 10m", "she typed party pls in guild chat",
+                "he said follow me right before logging off", "someone wrote add me im pro on the board",
+                "my friend said buff me pls then died lol", "they kept spamming trade me trade me",
+                "he asked wanna party but then went afk", "someone said add me but i didnt",
+                "he typed follow me in the guild chat yesterday")) {
+            assertEquals(ConvoIntent.TALK, intent(line), line);
+            assertEquals(ChatTriage.Intent.NONE, ConvoSense.rules(line).triage().intent(), line);
+        }
+    }
+
+    @Test
+    void aCueInsideQuotesIsAMention() {
+        assertEquals(ConvoIntent.TALK, intent("what does \"party pls\" mean"));
+        assertEquals(ConvoIntent.PARTY, intent("\"lol\" party pls"));
+    }
+
+    @Test
+    void aThirdPartySubjectMakesTheCueAMention() {
+        assertEquals(ConvoIntent.TALK, intent("my friend wants a party for kpq"));
+        assertEquals(ConvoIntent.TALK, intent("the npc says come to henesys"));
+        // an address to everyone around is still a request
+        assertEquals(ConvoIntent.HELP_KILL, intent("someone help me kill this boss"));
+        assertEquals(ConvoIntent.PARTY, intent("ppl wanna party?"));
+    }
+
+    @Test
+    void aRelayAddressedToTheBotIsAmbiguousAndStaysARequestForTheOwnerToDecide() {
+        // CODEX-HANDOFF 4b: "he said you should buff me" may be a real relay. The rules do not guess: a report whose
+        // words are addressed to the bot ("said u ...") keeps the request, as before this fix. Flagged for the owner.
+        assertEquals(ConvoIntent.BUFF, intent("he said you should buff me"));
+        assertEquals(ConvoIntent.BUFF, intent("she told me u could buff me pls"));
+    }
+
+    @Test
+    void aWarningIsAMentionAndNeverAConFlag() {
+        // fresh-048 and the warning set fresh-045..054
+        assertEquals(ConvoIntent.TALK, intent("be careful of the trade offer in fm"));
+        for (String line : List.of("watch out for the guy offering to double mesos",
+                "dont trust anyone asking for ur password", "someone told me theyd double my mesos, its a scam",
+                "be careful of the trade offer in fm", "never share ur account info with strangers",
+                "that guy asking for a loan is a scammer", "ppl who ask u to go first are scammers",
+                "watch out, someone is impersonating a gm", "if they ask for ur pin its a scam",
+                "i got scammed yesterday, be careful", "watch out for people offering to double mesos")) {
+            ConvoSense.Read r = ConvoSense.rules(line);
+            assertEquals(ConvoIntent.TALK, r.intent(), line);
+            assertEquals(ChatTriage.Con.NORMAL, r.triage().con(), line);
+        }
+        // the real thing is still flagged
+        assertEquals(ChatTriage.Con.RWT, ChatTriage.rules("whats ur password").con());
+        assertEquals(ChatTriage.Con.SCAM, ChatTriage.rules("give me 1m and ill double it").con());
+    }
+
 }
