@@ -205,7 +205,7 @@ public class ServerConfig {
     public boolean USE_BUYBACK_SYSTEM;
     public boolean USE_FIXED_RATIO_HPMP_UPDATE;
     public boolean USE_FAMILY_SYSTEM;
-    public boolean USE_DUEY;
+    public boolean USE_DUEY = true;   //owner 2026-10-25 (1.5.2): Duey on, as stock v83 (bots never send or receive)
     public boolean USE_RANDOMIZE_HPMP_GAIN;
     public boolean USE_STORAGE_ITEM_SORT;
     public boolean USE_ITEM_SORT;

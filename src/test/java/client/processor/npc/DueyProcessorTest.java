@@ -100,4 +100,65 @@ class DueyProcessorTest {
         verify(c, times(2)).sendPacket(any(Packet.class)); // an error each, no removal packet
         verify(c, atLeastOnce()).releaseClient();
     }
+
+    @Test
+    void dueyIsOnByDefault() {
+        // owner 2026-10-25 (1.5.2): Duey on, as stock v83 (MapleRoot shipped USE_DUEY: false)
+        assertTrue(new config.ServerConfig().USE_DUEY);
+    }
+
+    @Test
+    void aBotNeverSendsAParcel() {
+        YamlConfig.config.server.USE_DUEY = true;
+        Client c = mock(Client.class);
+        Character bot = mock(Character.class);
+        when(c.tryacquireClient()).thenReturn(true);
+        when(c.getPlayer()).thenReturn(bot);
+        when(bot.getId()).thenReturn(1_000_000_005);
+        when(bot.getMeso()).thenReturn(10_000_000);
+
+        try (var db = mockStatic(DatabaseConnection.class)) {
+            DueyProcessor.dueySendItem(c, (byte) 0, (short) 0, (short) 0, 50_000, null, "Someone", false);
+            db.verify(DatabaseConnection::getConnection, never());
+        }
+        verify(bot, never()).gainMeso(anyInt(), anyBoolean());
+        assertFalse(DueyProcessor.openOrExplain(new client.BotClient(1, 1), true), "a bot never opens Duey");
+    }
+
+    @Test
+    void aParcelToABotIsRefusedAndNothingIsCharged() throws Exception {
+        YamlConfig.config.server.USE_DUEY = true;
+        Client c = mock(Client.class);
+        Character chr = mock(Character.class);
+        when(c.tryacquireClient()).thenReturn(true);
+        when(c.getPlayer()).thenReturn(chr);
+        when(c.getAccID()).thenReturn(1);
+        when(chr.getId()).thenReturn(42);
+        when(chr.getName()).thenReturn("Player");
+        when(chr.getMeso()).thenReturn(10_000_000);
+
+        Connection con = mock(Connection.class);
+        PreparedStatement lookup = mock(PreparedStatement.class);
+        ResultSet botRow = mock(ResultSet.class);
+        when(con.prepareStatement("SELECT id,accountid FROM characters WHERE name = ?")).thenReturn(lookup);
+        when(lookup.executeQuery()).thenReturn(botRow);
+        when(botRow.next()).thenReturn(true);
+        when(botRow.getInt("accountid")).thenReturn(99);
+        when(botRow.getInt("id")).thenReturn(1_000_000_007);
+
+        try (var db = mockStatic(DatabaseConnection.class)) {
+            db.when(DatabaseConnection::getConnection).thenReturn(con);
+            DueyProcessor.dueySendItem(c, (byte) 0, (short) 0, (short) 0, 50_000, null, "SomeBot", false);
+        }
+        verify(con, never()).prepareStatement(org.mockito.ArgumentMatchers.startsWith("INSERT"), anyInt());
+        verify(chr, never()).gainMeso(anyInt(), anyBoolean());
+    }
+
+    @Test
+    void aWeddingInvitationToABotGuestIsNotParcelled() {
+        try (var db = mockStatic(DatabaseConnection.class)) {
+            DueyProcessor.dueyCreatePackage(mock(client.inventory.Item.class), 0, "Groom", 1_000_000_001);
+            db.verify(DatabaseConnection::getConnection, never());
+        }
+    }
 }
