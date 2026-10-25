@@ -455,10 +455,12 @@ public class ServerConfig {
     public long EVENT_END_TIMESTAMP;
 
     //GM Security Configuration
-    public int MINIMUM_GM_LEVEL_TO_TRADE;
-    public int MINIMUM_GM_LEVEL_TO_USE_STORAGE;
-    public int MINIMUM_GM_LEVEL_TO_USE_DUEY;
-    public int MINIMUM_GM_LEVEL_TO_DROP;
+    //owner 2026-10-25 (1.5.2): back to Cosmic's 4 (MapleRoot shipped 1: any GM could trade, drop, use storage and Duey).
+    //GmGiving (ticket 43) still blocks GM-to-player trades and drops unless -Dslumsms.gm.allowGiving=true.
+    public int MINIMUM_GM_LEVEL_TO_TRADE = 4;
+    public int MINIMUM_GM_LEVEL_TO_USE_STORAGE = 4;
+    public int MINIMUM_GM_LEVEL_TO_USE_DUEY = 4;
+    public int MINIMUM_GM_LEVEL_TO_DROP = 4;
 
     //Custom NPC overrides. List of NPC IDs.
     public Map<String, String> NPCS_SCRIPTABLE = new HashMap<>();
