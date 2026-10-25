@@ -70,11 +70,26 @@ class NoRedirect(urllib.request.HTTPRedirectHandler):
         return None
 
 
-def call(endpoint, request, timeout):
+def read_api_key(path):
+    """A bearer key for a hosted endpoint, read from a private file (never printed, logged or stored in results)."""
+    if path is None:
+        return None
+    if path.stat().st_mode & 0o077:
+        raise SystemExit("api key file must not be readable by group or others (chmod 600)")
+    key = path.read_text(encoding="utf-8").strip()
+    if not key or "\n" in key:
+        raise SystemExit("api key file must hold exactly one non-empty line")
+    return key
+
+
+def call(endpoint, request, timeout, api_key=None):
     started = time.perf_counter()
     row = {"response": "", "http_status": None, "error": None}
     try:
-        req = urllib.request.Request(endpoint, data=json.dumps(request).encode(), headers={"Content-Type": "application/json"})
+        headers = {"Content-Type": "application/json"}
+        if api_key:
+            headers["Authorization"] = "Bearer " + api_key
+        req = urllib.request.Request(endpoint, data=json.dumps(request).encode(), headers=headers)
         # No proxy or redirect: send synthetic cases only to the explicitly named host.
         opener = urllib.request.build_opener(urllib.request.ProxyHandler({}), NoRedirect())
         with opener.open(req, timeout=timeout) as response:
@@ -167,6 +182,7 @@ def score(rows, labels):
 def main():
     parser = argparse.ArgumentParser(description=__doc__)
     parser.add_argument("--endpoint", help="explicit base URL or full /v1/systemone URL; never defaults to Live")
+    parser.add_argument("--api-key-file", type=pathlib.Path, help="private file (chmod 600) with a bearer key for a hosted endpoint such as https://api.typesafe.ai; the key is never written to results")
     parser.add_argument("--model-id", default="decide", help="wire model id; OneJev needs OneJev1.6-0.8B")
     parser.add_argument("--requests", type=pathlib.Path, help="exported requests.jsonl from this dataset; for capture without Java")
     parser.add_argument("--capture-only", action="store_true", help="collect raw answers only; replay on the build host for server scoring")
@@ -200,6 +216,7 @@ def main():
             if case[name] is not None and case[name] not in labels[name]:
                 parser.error("unknown expected label: " + case["id"] + ":" + name)
     endpoint = endpoint_url(args.endpoint) if args.endpoint else None
+    api_key = read_api_key(args.api_key_file) if endpoint else None
     saved = {}
     if args.replay:
         records = read_jsonl(args.replay)
@@ -241,7 +258,7 @@ def main():
             elif endpoint:
                 time.sleep(max(0, previous + args.interval - time.monotonic()))
                 previous = time.monotonic()
-                record = {"id": case["id"], "request": prep["request"], **call(endpoint, prep["request"], args.timeout)}
+                record = {"id": case["id"], "request": prep["request"], **call(endpoint, prep["request"], args.timeout, api_key)}
             else:
                 record = {"id": case["id"], "request": prep["request"], "response": "", "elapsed_ms": None,
                           "http_status": None, "error": None}
