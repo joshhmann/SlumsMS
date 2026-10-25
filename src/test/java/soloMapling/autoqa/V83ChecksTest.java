@@ -54,6 +54,20 @@ class V83ChecksTest {
         return false;
     }
 
+    /**
+     * vb-1's real-world proof: the salon filters styles with ItemConstants, and the 1.5.0 ranges rejected every
+     * modern face (20000..30000, 50000..60000) and the VIP hair ids (30000..50000, 60000..70000), which is what made
+     * sendStyle() answer "no options". Reverting 1fe365733 makes this fail; see the ticket for the captured text.
+     */
+    @Test
+    void salonStyleIdsAreRecognisedAsCosmetics() {
+        assertTrue(constants.inventory.ItemConstants.isFace(20015), "a face id (20015) is a cosmetic");
+        assertTrue(constants.inventory.ItemConstants.isFace(51520), "a cash face coupon (51520) is a face item");
+        assertTrue(constants.inventory.ItemConstants.isHair(30060), "a hair id (30060) is a cosmetic");
+        assertTrue(constants.inventory.ItemConstants.isHair(33040), "a VIP hair id (33040) is a hair");
+        assertTrue(!constants.inventory.ItemConstants.isFace(30060), "a hair id is not a face");
+    }
+
     @Test
     void everyCheckHasAScenarioOfItsOwn() {
         for (String id : List.of("t-vb-1", "t-vb-2", "t-vb-3", "t-vb-4", "t-vb-5", "t-vb-6", "t-vb-7")) {
@@ -158,6 +172,24 @@ class V83ChecksTest {
                 "VB DUEY claimed recipientDelta=0", good.get(4))), "a Duey claim that delivered nothing must fail");
         assertTrue(anyFails(c, List.of(good.get(0), good.get(1), good.get(2), good.get(3),
                 "VB TRADE offered=true itemDelta=0 mesoDelta=0")), "an empty trade must fail");
+    }
+
+    @Test
+    void mountPassesOnlyOnTheFeeAndTheItemsAndOnTheBrokeRefusal() throws Exception {
+        Check c = AutoQaCatalog.find("t-vb-4");
+        List<String> good = List.of("VB MOUNT room started=true map=923010000 instance=true",
+                "VB MOUNT quest6002 canComplete=true state=2 item1912000=1 skill1004=1",
+                "VB MOUNT bottleRefused canComplete=false meso 1000000 -> 1000000 stillBottle=true",
+                "VB MOUNT bottle canComplete=true meso 21000000 -> 1000000 fee=20000000 bottle 0 -> 1",
+                "VB MOUNT perfume canComplete=true perfume 0 -> 1 bottleLeft=0");
+        allPass(c, good);
+        assertTrue(anyFails(c, List.of(good.get(0), good.get(1), good.get(2),
+                "VB MOUNT bottle canComplete=true meso 21000000 -> 21000000 fee=0 bottle 0 -> 1",
+                good.get(4))), "a bottle that charged no fee must fail");
+        assertTrue(anyFails(c, List.of(good.get(0), "VB MOUNT quest6002 canComplete=false state=1 item1912000=0",
+                good.get(2), good.get(3), good.get(4))), "an unfinished 6002 must fail");
+        assertTrue(anyFails(c, List.of(good.get(0), good.get(1), good.get(2), good.get(3),
+                "VB MOUNT perfume canComplete=false perfume 0 -> 0 bottleLeft=0")), "no perfume must fail");
     }
 
     private static final class StubActor implements AutoQaWorld.Actor {

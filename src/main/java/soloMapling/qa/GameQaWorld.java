@@ -1502,8 +1502,84 @@ final class GameQaWorld implements QaWorld {
     private List<String> mountStep(Character gm, String step) {
         List<String> out = new ArrayList<>();
         switch (step) {
-            case "stage" -> out.add("VB MOUNT staged");
-            default -> out.add("VB MOUNT " + step + " not driven: the mount chain needs WZ quest data and a 3rd-job character");
+            case "stage" -> {
+                gm.changeJob(client.Job.getById(111)); // 6002's check lists the 3rd jobs only; the mount is the point, not the class
+                warp(gm, 923010000);
+                out.add("VB MOUNT staged as job " + gm.getJob().getId() + " on " + gm.getMapId()
+                        + " meso=" + gm.getMeso());
+            }
+            case "room" -> {
+                scripting.event.EventManager em = gm.getClient().getEventManager("3rdJob_mount");
+                out.add("VB MOUNT room manager=" + (em == null ? "MISSING" : "found"));
+                if (em == null) {
+                    return out;
+                }
+                boolean started = em.startInstance(gm);
+                out.add("VB MOUNT room started=" + started + " map=" + gm.getMapId()
+                        + " instance=" + (gm.getEventInstance() != null));
+                if (gm.getEventInstance() != null) {
+                    gm.getEventInstance().clearPQ();
+                    out.add("VB MOUNT room exit map=" + gm.getMapId());
+                }
+                for (int id : new int[]{4031507, 4031508}) {
+                    InventoryManipulator.addById(gm.getClient(), id, (short) 5, "qa", -1);
+                }
+                server.quest.Quest q = server.quest.Quest.getInstance(6002);
+                q.start(gm, 2060005);
+                boolean can = q.canComplete(gm, 2060005);
+                q.complete(gm, 2060005);
+                int rider = gm.getInventory(InventoryType.USE).countById(1912000)
+                        + gm.getInventory(InventoryType.ETC).countById(1912000)
+                        + gm.getInventory(InventoryType.CASH).countById(1912000)
+                        + gm.getInventory(InventoryType.SETUP).countById(1912000);
+                out.add("VB MOUNT quest6002 canComplete=" + can + " state=" + gm.getQuestStatus(6002)
+                        + " item1912000=" + rider + " skill1004=" + gm.getSkillLevel(100));
+                gm.changeJob(client.Job.getById(100)); // the rest of the chain does not need the 3rd job
+            }
+            case "bottle-broke" -> {
+                int meso = gm.getMeso();
+                if (meso >= 20_000_000) {
+                    gm.gainMeso(-(meso - 1_000_000), false);
+                }
+                server.quest.Quest q = server.quest.Quest.getInstance(6007);
+                boolean can = q.canComplete(gm, 2081000);
+                int held = gm.getInventory(InventoryType.ETC).countById(4031509);
+                q.complete(gm, 2081000);
+                out.add("VB MOUNT bottleRefused canComplete=" + can + " meso " + gm.getMeso() + " -> " + gm.getMeso()
+                        + " stillBottle=" + (gm.getInventory(InventoryType.ETC).countById(4031509) == held));
+                gm.gainMeso(20_000_000 - gm.getMeso() + 1_000_000, false);
+            }
+            case "bottle" -> {
+                int before = gm.getMeso();
+                int bottles = gm.getInventory(InventoryType.ETC).countById(4031509);
+                server.quest.Quest q = server.quest.Quest.getInstance(6007);
+                boolean can = q.canComplete(gm, 2081000);
+                q.complete(gm, 2081000);
+                out.add("VB MOUNT bottle canComplete=" + can + " meso " + before + " -> " + gm.getMeso()
+                        + " fee=" + (before - gm.getMeso()) + " bottle " + bottles + " -> "
+                        + gm.getInventory(InventoryType.ETC).countById(4031509));
+            }
+            case "perfume" -> {
+                int before = gm.getInventory(InventoryType.USE).countById(2270000);
+                server.quest.Quest q = server.quest.Quest.getInstance(6003);
+                boolean can = q.canComplete(gm, 2060005);
+                q.complete(gm, 2060005);
+                out.add("VB MOUNT perfume canComplete=" + can + " perfume " + before + " -> "
+                        + gm.getInventory(InventoryType.USE).countById(2270000)
+                        + " bottleLeft=" + gm.getInventory(InventoryType.ETC).countById(4031509));
+            }
+            case "hog" -> {
+                server.maps.MapleMap map = gm.getClient().getChannelServer().getMapFactory().getMap(922200000);
+                if (map == null) {
+                    out.add("VB MOUNT hog map=922200000 missing");
+                    return out;
+                }
+                gm.changeMap(map, map.getRandomPlayerSpawnpoint());
+                out.add("VB MOUNT hog map=" + gm.getMapId() + " hog=" + (map.getMonsterById(9300101) != null)
+                        + " item=" + constants.id.ItemId.PHEROMONE_PERFUME
+                        + " (the catch is a WZ item effect on a mob under 40% HP; not driven here)");
+            }
+            default -> out.add("VB MOUNT no step " + step);
         }
         return out;
     }

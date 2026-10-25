@@ -644,9 +644,13 @@ public final class AutoQaCatalog {
                         has("VB KPQ reward given=true .* map=103000805"), noRefusal())
                 .build());
         c.add(Check.auto("t-vb-4", "The mount chain from Kenta to the hog").minutes(8)
-                .step(run("vb-4"), qaDo("room"), qaDo("bottle"), qaDo("bottle-broke"), qaDo("perfume"), qaDo("hog"))
-                .expect(anyOf("VB MOUNT quest 6002 .*", "VB MOUNT stage 6002 .*"), noRefusal())
-                .notNightly()
+                .step(run("vb-4"), qaDo("room"), qaDo("bottle-broke"), qaDo("bottle"), qaDo("perfume"),
+                        qaDo("hog"))
+                .expect(has("VB MOUNT room started=true map=923010000"),
+                        has("VB MOUNT quest6002 canComplete=true state=2 .*item1912000=1"),
+                        has("VB MOUNT bottleRefused canComplete=false"),
+                        has("VB MOUNT bottle canComplete=true .* fee=20000000"),
+                        has("VB MOUNT perfume canComplete=true perfume \\d+ -> \\d+"), noRefusal())
                 .build());
         c.add(Check.auto("t-vb-5", "Buy and sell at a shop and use a Cash Shop EXP card").minutes(5)
                 .step(run("vb-5"), qaDo("buy"), qaDo("sell"), qaDo("expcard"))
