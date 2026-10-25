@@ -11874,7 +11874,7 @@ public class Character extends AbstractCharacterObject {
                 setFamilyEntry(null);
             }
 
-            getWorldServer().registerTimedMapObject(new Runnable() {
+            Runnable releaseInventories = new Runnable() {
                 @Override
                 public void run() {
                     client = null;  // clients still triggers handlers a few times after disconnecting
@@ -11887,7 +11887,16 @@ public class Character extends AbstractCharacterObject {
                     }
                     inventory = null;
                 }
-            }, MINUTES.toMillis(5));
+            };
+            // 1.5.2: the world is gone when a logout happens during a shutdown, and nothing would ever run the
+            // delayed cleanup then - the old unguarded getWorldServer() threw right here and left the whole remove
+            // block (party, family, inventories) half done. Release the inventories immediately instead.
+            World wserv = getWorldServer();
+            if (wserv == null) {
+                releaseInventories.run();
+            } else {
+                wserv.registerTimedMapObject(releaseInventories, MINUTES.toMillis(5));
+            }
         }
     }
 
