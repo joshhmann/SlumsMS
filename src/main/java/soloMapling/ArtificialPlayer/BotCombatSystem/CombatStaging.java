@@ -17,6 +17,7 @@ import soloMapling.ArtificialPlayer.BotStore;
 import soloMapling.ArtificialPlayer.BotSupplySystem.BotVitals;
 import soloMapling.ArtificialPlayer.BotSupplySystem.StarterStash;
 import soloMapling.ArtificialPlayer.BotTypeManager;
+import soloMapling.ArtificialPlayer.BotTypes.TrainingBot;
 import soloMapling.ArtificialPlayer.GCMoveSystem.GCMovement;
 import soloMapling.worldevents.WorldEventSteer;
 
@@ -25,6 +26,8 @@ import java.util.ArrayList;
 import java.util.List;
 import java.util.Map;
 import java.util.TreeMap;
+import java.util.concurrent.ConcurrentHashMap;
+import java.util.function.Function;
 
 /**
  * 1.5.0 rc3: GM and {@code !qa} (cb-1 .. cb-4, sp-1) staging for the human combat layer. Grinders are fresh
@@ -32,6 +35,9 @@ import java.util.TreeMap;
  * ammo, so the GM watches them fight, buff, loot, drink, die and spread out. {@link #unstage} takes them away.
  */
 public final class CombatStaging {
+
+    /** The map each staged bot was put on, so a later step can put it back to work where the check watches it. */
+    private static final Map<Integer, Integer> stagedMap = new ConcurrentHashMap<>();
 
     private CombatStaging() {
     }
@@ -91,6 +97,7 @@ public final class CombatStaging {
             }
             BotTypeManager.convertBotType(bot, BotTypeManager.BotType.TRAINING_BOT);
             ids.add(id);
+            stagedMap.put(id, gm.getMapId());
         }
         return ids;
     }
@@ -115,6 +122,7 @@ public final class CombatStaging {
     public static void unstage(List<Integer> ids) {
         for (int id : ids) {
             WorldEventSteer.unhold(id);
+            stagedMap.remove(id);
             BotDeaths.clearBot(id);
             Character bot = BotHelpers.getCharFromChannelStorage(id);
             if (bot == null) {
@@ -256,13 +264,16 @@ public final class CombatStaging {
         List<String> out = new ArrayList<>();
         if ("rope".equals(action)) { // rc6 (QA t-sp-1): two grinders take a rope rest now
             for (int id : ids) {
-                if (out.size() < 2 && soloMapling.ArtificialPlayer.BotMessagingSystem.CharacterStorage.getBotById(id)
-                        instanceof soloMapling.ArtificialPlayer.BotTypes.TrainingBot tb && tb.forceRopeBreakNow()) {
+                if (out.size() < 2 && CharacterStorage.getBotById(id)
+                        instanceof TrainingBot tb && tb.forceRopeBreakNow()) {
                     out.add(tb.getChr().getName() + " takes a break on a rope (a safe rope above the mobs; else it"
                             + " rests on the ground)");
                 }
             }
             return out.isEmpty() ? List.of("no grinder is fighting right now: try again in a few seconds") : out;
+        }
+        if ("die".equals(action)) { // its own pass: the death has to land on a bot that can still die
+            return die(ids);
         }
         for (int id : ids) {
             Character bot = BotHelpers.getCharFromChannelStorage(id);
@@ -270,14 +281,6 @@ public final class CombatStaging {
                 continue;
             }
             switch (action) {
-                case "die" -> {
-                    BotDeaths.forceNextDeath(id, true);
-                    BotVitals.drainHpPotionsTo(bot, 0);
-                    BotVitals.hurt(bot, bot.getHp() + 1);
-                    out.add(bot.getName() + (BotDeaths.isDead(id) ? " died" : " did not die (not grinding yet?)"));
-                    BotDeaths.forceNextDeath(id, false);
-                    return out; // one bot is enough
-                }
                 case "lowpots" -> {
                     int mark = BotHabits.of(id).restockBelow();
                     int gone = BotVitals.drainHpPotionsTo(bot, Math.max(0, mark - 1));
@@ -296,6 +299,107 @@ public final class CombatStaging {
             }
         }
         return out;
+    }
+
+    /**
+     * The die step's view of one staged bot; the real one wraps the bot in channel storage. Split out so the step's
+     * order and precondition - it only ever hits a bot that is fighting - can be tested without a world.
+     */
+    interface DieSubject {
+
+        String name();
+
+        /** In {@code Phase.GRIND}: the state {@link BotDeaths} rolls a death for. */
+        boolean grinding();
+
+        /** Run the return-to-work trip the bot's own restock would end with; true once it is grinding again. */
+        boolean backToGrind();
+
+        /** Drain its HP pots and land the lethal hit; true when it actually died. */
+        boolean killNow();
+    }
+
+    static List<String> die(List<Integer> ids) {
+        return die(ids, CombatStaging::subject);
+    }
+
+    /**
+     * QA t-cb-3, rc6 triage: {@code lowpots} runs inside the per-id loop, so it drains every staged bot and sends
+     * them all to town - and a bot that left the grind is not death-eligible any more ({@link BotDeaths} rolls
+     * nothing for it), so a forced lethal hit on it did nothing and the check failed "did not die". So the step
+     * establishes its own precondition: put the subject back to work on its staging map first (the trip its own
+     * restock ends with), and only hit it once it actually is in {@code Phase.GRIND}. Bots that are already fighting
+     * are tried first, so a bot mid-grind is not moved for nothing.
+     */
+    static List<String> die(List<Integer> ids, Function<Integer, DieSubject> subject) {
+        List<DieSubject> bots = new ArrayList<>();
+        for (int id : ids) {
+            DieSubject bot = subject.apply(id);
+            if (bot != null) {
+                bots.add(bot);
+            }
+        }
+        if (bots.isEmpty()) {
+            return List.of("no staged bot is here: nothing to kill");
+        }
+        for (DieSubject bot : grindersFirst(bots)) {
+            if (!bot.grinding() && !bot.backToGrind()) {
+                continue; // could not be brought back to work: not a bot the deaths system watches
+            }
+            if (!bot.grinding()) {
+                continue; // the return trip did not settle it back into the grind after all
+            }
+            if (bot.killNow()) {
+                return List.of(bot.name() + " died");
+            }
+        }
+        StringBuilder names = new StringBuilder();
+        for (DieSubject bot : bots) {
+            names.append(names.length() == 0 ? "" : ", ").append(bot.name());
+        }
+        return List.of("staging: no staged bot could be returned to the grind and killed (" + names + ")");
+    }
+
+    /** The real subject: the staged bot in channel storage, put back to work through {@link TrainingBot}. */
+    private static DieSubject subject(int id) {
+        Character bot = BotHelpers.getCharFromChannelStorage(id);
+        if (bot == null || !(CharacterStorage.getBotById(id) instanceof TrainingBot tb)) {
+            return null;
+        }
+        return new DieSubject() {
+            @Override
+            public String name() {
+                return bot.getName();
+            }
+
+            @Override
+            public boolean grinding() {
+                return tb.isGrinding();
+            }
+
+            @Override
+            public boolean backToGrind() {
+                Integer map = stagedMap.get(id);
+                return map != null && tb.forceGrindOn(map);
+            }
+
+            @Override
+            public boolean killNow() {
+                BotDeaths.forceNextDeath(id, true);
+                BotVitals.drainHpPotionsTo(bot, 0);
+                BotVitals.hurt(bot, bot.getHp() + 1);
+                boolean dead = BotDeaths.isDead(id);
+                BotDeaths.forceNextDeath(id, false);
+                return dead;
+            }
+        };
+    }
+
+    /** The staged bots, the ones that are fighting first: a bot already at work is never moved for nothing. */
+    static <T extends DieSubject> List<T> grindersFirst(List<T> bots) {
+        List<T> order = new ArrayList<>(bots);
+        order.sort(java.util.Comparator.comparing(bot -> !bot.grinding())); // stable: staging order within a group
+        return order;
     }
 
     private static long pct(int a, int b) {

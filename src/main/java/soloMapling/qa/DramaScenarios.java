@@ -1,6 +1,7 @@
 package soloMapling.qa;
 
 import client.Character;
+import soloMapling.ArtificialPlayer.BotDramaSystem.RomanceWedding;
 
 import java.util.ArrayList;
 import java.util.Arrays;
@@ -226,10 +227,15 @@ final class DramaScenarios {
             out.addAll(act(ctx, "stage", "dating", "60"));
             act(ctx, "object");
             act(ctx, "crash");
+            // 1.5.1 rm-4: the wedding this stages is watched for MARRIED and CRASH, and the random runaway beat (8%,
+            // at +38 s) ended it first in the 2026-10-23 full run. Off for that wedding; the runaway wedding below is
+            // forced, so it still runs away.
+            RomanceWedding.noRandomRunaway();
             out.add("Your ex and your current partner (lv 60) stand here. !qa do propose (accept the window), then");
             out.add("!qa do wedding: at \"speak now\" your ex shouts I OBJECT (OBJECTION), your partner snaps back, the");
-            out.add("officiant moves on; after \"married\" someone crashes the reception (CRASH). !qa do runaway before the");
-            out.add("wedding: your partner runs from the altar instead (RUNAWAY - no marriage, still engaged).");
+            out.add("officiant moves on; after \"married\" someone crashes the reception (CRASH). The random runaway beat");
+            out.add("is off for this wedding (it has to reach MARRIED and CRASH). !qa do runaway before the wedding:");
+            out.add("your partner runs from the altar instead (RUNAWAY - no marriage, still engaged).");
             out.add("@botdrama off: none of this drama happens. Stop undoes the engagement or marriage.");
             return out;
         }

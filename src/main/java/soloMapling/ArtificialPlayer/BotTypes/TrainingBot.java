@@ -1421,6 +1421,29 @@ public class TrainingBot extends BotSM {
         return true;
     }
 
+    // !qa cb-3 (QA staging only): put a bot a staging step left in town back to work on {@code mapId} now - the trip
+    // its own restock ends with, on the map the check watches - by warping it there (as the first-trip warp does) and
+    // running the normal GRIND entry, which re-claims a spot and makes it death-eligible again. True when it grinds.
+    public boolean forceGrindOn(int mapId) {
+        Character chr = getChr();
+        if (chr == null || mapId <= 0 || BotDeaths.isDead(chr.getId()) || MapMobIndex.level(mapId) < 0) {
+            return false;
+        }
+        if (isGrinding()) {
+            return true; // already at work: a staging step never restarts a session it does not have to
+        }
+        if (chr.getMapId() != mapId) {
+            GCMovement.cancelTravel(chr);
+            GCMovement.stop(chr);
+            chr.changeMap(mapId);
+        }
+        setTrainTarget(mapId, Math.max(1, MapMobIndex.level(mapId)));
+        firstTrip = false;
+        enterPhase(Phase.GRIND);
+        doGrind(); // the real entry: spot claim, session timers, ACTIVE_GRINDERS, BotDeaths eligibility
+        return isGrinding();
+    }
+
     // Dev hook (!bot breaknow): pull a break to the next grind tick.
     public boolean forceBreakNow() {
         if (phase != Phase.GRIND) {
