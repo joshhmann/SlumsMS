@@ -392,4 +392,9 @@ public interface QaWorld {
     default List<String> convoAction(Character gm, String action, List<Integer> bots, String[] args) {
         return List.of();
     }
+
+    /** 1.5.2 gl-1: drops a godly-rolled equip at the GM's feet as a mob drop; what dropped, or null if it can't. */
+    default String dropGodly(Character gm, int itemId) {
+        return null;
+    }
 }

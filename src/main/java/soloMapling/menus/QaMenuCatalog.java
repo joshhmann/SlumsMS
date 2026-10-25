@@ -138,6 +138,7 @@ public final class QaMenuCatalog {
         section("Client and channels");
         add("cs-2", v(), steps());
         add("co-1", v(), steps());
+        add("gl-1", v(), steps("drop"));
         add("wd-1", v(), steps());
         section("Older checks (1.4.x)");
         add("gh-1", v(), steps());

@@ -2392,6 +2392,7 @@ public class Character extends AbstractCharacterObject {
                         if (mItem.getItemId() == ItemId.ARPQ_SPIRIT_JEWEL) {
                             updateAriantScore();
                         }
+                        server.GodlyDrops.tellLooter(this, mItem, mapitem.isPlayerDrop()); // 1.5.2 godly drops
                     } else {
                         sendPacket(PacketCreator.enableActions());
                         return;

@@ -205,6 +205,12 @@ public class ServerConfig {
     public boolean USE_BUYBACK_SYSTEM;
     public boolean USE_FIXED_RATIO_HPMP_UPDATE;
     public boolean USE_FAMILY_SYSTEM;
+    //Godly drops (owner 2026-10-25, 1.5.2, server.GodlyDrops): this % of monster equip drops gets GODLY_DROP_STATS of
+    //its existing stats raised by GODLY_DROP_MIN_BONUS..GODLY_DROP_MAX_BONUS. 0 = off.
+    public double GODLY_DROP_PERCENT = 1.5;
+    public int GODLY_DROP_STATS = 3;
+    public int GODLY_DROP_MIN_BONUS = 1;
+    public int GODLY_DROP_MAX_BONUS = 5;
     public boolean USE_DUEY = true;   //owner 2026-10-25 (1.5.2): Duey on, as stock v83 (bots never send or receive)
     public boolean USE_RANDOMIZE_HPMP_GAIN;
     public boolean USE_STORAGE_ITEM_SORT;
