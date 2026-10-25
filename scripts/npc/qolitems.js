@@ -49,7 +49,9 @@ function action(mode, type, selection) {
             var item = status == 11 ? item1 : item2;
             var quantity = selection;
             var totalCost = quantity * costItem1;
-            if (cm.haveItem(currency, totalCost)) {
+            if (quantity < 1 || !cm.canHold(item, quantity)) {
+                cm.sendOk("Please make room in your inventory first.");
+            } else if (cm.haveItem(currency, totalCost)) {
                 cm.gainItem(item, quantity);
                 cm.gainItem(currency, -totalCost);
                 cm.sendOk("Thank you for your purchase of " + quantity + " #i" + item + ":#.");
@@ -62,7 +64,9 @@ function action(mode, type, selection) {
             var cost = status == 21 ? costItem3 : costItem4;
             var quantity = selection;
             var totalCost = quantity * cost;
-            if (cm.getMeso() >= totalCost) {
+            if (quantity < 1 || !cm.canHold(item, quantity)) {
+                cm.sendOk("Please make room in your inventory first.");
+            } else if (cm.getMeso() >= totalCost) {
                 cm.gainItem(item, quantity);
                 cm.gainMeso(-totalCost);
                 cm.sendOk("Thank you for your purchase of " + quantity + " #i" + item + ":#.");

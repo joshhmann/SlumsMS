@@ -44,7 +44,13 @@ function action(mode, type, selection) {
             cm.sendYesNo("Are you sure you want to buy #v" + itemId + ":# for " + PRICE + " #v" + CURRENCY_ID + "#?");
         } else if (status == 3) {
             var itemId = getItemId(selectedClass, selectedItem);
-            if (cm.haveItem(CURRENCY_ID, PRICE)) {
+            if (itemId == null) {   // a selection that was not on the menu
+                cm.dispose();
+                return;
+            }
+            if (!cm.canHold(itemId, 1)) {
+                cm.sendOk("Please make room in your USE inventory first.");
+            } else if (cm.haveItem(CURRENCY_ID, PRICE)) {
                 cm.gainItem(CURRENCY_ID, -PRICE); // Deduct currency
                 cm.gainItem(itemId, 1); // Give the item
                 cm.sendOk("Purchase successful! Enjoy your item.");

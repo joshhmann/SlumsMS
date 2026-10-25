@@ -27,6 +27,11 @@ function action(mode, type, selection) {
             cm.sendGetNumber("How many #v" + selectedItem + "# would you like to trade for? Each requires two ores or crystals per item.", 1, 1, 100);
         } else if (status == 2) {
             tradeQuantity = selection;
+            if (tradeQuantity < 1 || !cm.canHold(selectedItem, tradeQuantity)) {   // before any ore is taken
+                cm.sendOk("Please make room in your ETC inventory first.");
+                cm.dispose();
+                return;
+            }
 
             var deductionResult = spreadDeductAcrossItems(selectedItem, tradeQuantity);
 
