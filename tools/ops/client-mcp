@@ -8,6 +8,9 @@
 #   tools/ops/client-mcp go_to '{"map_id":100000000}'
 #   tools/ops/client-mcp screenshot '{"label":"henesys"}'     # PNG saved on Silvia under client-mcp\shots\
 #   tools/ops/client-mcp read_logs '{"lines":100}'
+#   tools/ops/client-mcp press_key '{"name":"I"}'                # one whitelisted key, field only
+#   tools/ops/client-mcp mouse_click '{"x":400,"y":300,"button":"right"}'   # left|right|double, 800x600 space
+#   tools/ops/client-mcp mouse_drag '{"x1":170,"y1":200,"x2":320,"y2":200}' # left-button drag
 #   tools/ops/client-mcp stop_client
 #
 # Needs the owner to have started the worker and controller in their own desktop (docs/qa/CLIENT-MCP.md); the
@@ -15,7 +18,7 @@
 # Prints the tool's text replies; exits 1 on an error or refusal, 3 if no worker answered.
 set -euo pipefail
 NAME="${1:?tool name}"; ARGS="${2:-{\}}"
-[[ "$NAME" =~ ^(status|start_client|login|command|go_to|screenshot|read_logs|stop_client)$ ]] || { echo "unknown tool $NAME" >&2; exit 2; }
+[[ "$NAME" =~ ^(status|start_client|login|command|go_to|screenshot|read_logs|stop_client|press_key|mouse_click|mouse_drag)$ ]] || { echo "unknown tool $NAME" >&2; exit 2; }
 WAIT="${CLIENT_MCP_WAIT:-120}"
 python3 -c 'import json,sys; json.loads(sys.argv[1])' "$ARGS" || { echo "arguments must be JSON" >&2; exit 2; }
 REQ=$(python3 -c 'import json,sys,uuid; print(json.dumps({"id":"cli-"+uuid.uuid4().hex,"action":"call","name":sys.argv[1],"arguments":json.loads(sys.argv[2])}))' "$NAME" "$ARGS")

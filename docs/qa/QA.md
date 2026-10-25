@@ -48,11 +48,20 @@ tools/ops/client-mcp go_to '{"map_id":100000000}'
 tools/ops/client-mcp command '{"line":"!botground"}'
 tools/ops/client-mcp screenshot '{"label":"henesys-ground"}'
 tools/ops/client-mcp read_logs '{"lines":100}'
+tools/ops/client-mcp press_key '{"name":"I"}'                  # one key tap: A-Z, 0-9, F1-F12, Escape, Enter,
+                                                              # Tab, Space, Backspace, arrows, Ins/Del/Home/End/PgUp/PgDn
+tools/ops/client-mcp mouse_click '{"x":400,"y":300}'          # button left (default), right or double
+tools/ops/client-mcp mouse_drag '{"x1":170,"y1":200,"x2":320,"y2":200}'   # left drag, optional steps 1-60
 tools/ops/client-mcp stop_client                              # always end with this
 ```
 Screenshots land in `Z:\MSv83\SlumsMS-dev\client-mcp\shots\`; copy them back with
 `scp -i ~/.ssh/id_rsprox_desktop 'crims@192.168.0.186:Z:/MSv83/SlumsMS-dev/client-mcp/shots/<file>.png' .` and look at
 them. A Codex agent started on Silvia in `client-mcp\` can call the MCP server directly instead (see its README).
+
+Coordinates are the 800x600 client space of screenshots. The input tools work only on the verified field screen
+(like `command`): a window over the status bar hides it and they refuse. No modifier keys, so no Alt+F4 or Ctrl
+shortcuts. Each event re-checks the idle guard and a held button is always released if the owner takes over.
+Added 2026-10-25 for the inventory-resize checks; a worker started before then does not have them.
 
 **A typical pass:** pair a server scene with screenshots. Start the scene from 187 (`tools/ops/client-mcp command
 '{"line":"!qa run we-1"}'` or `tools/ops/autoqa-run we-1`), warp the client there, screenshot at the moments that
