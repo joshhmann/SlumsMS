@@ -1651,8 +1651,10 @@ final class GameQaWorld implements QaWorld {
             if (em == null) {
                 return out;
             }
-            // Cloto (9020000.js) asks for the eligible members first; registerParty reads them (null otherwise: NPE).
-            em.getEligibleParty(gm.getParty());
+            // Cloto (9020000.js) asks KerningPQ.js for the eligible members first (3-4 on its map); registerParty reads
+            // that list (null otherwise: NPE). This check is about stage 5's reward and warp-out with one pretend player,
+            // so it registers that player as the eligible party itself.
+            gm.getParty().setEligibleMembers(new ArrayList<>(List.of(gm.getMPC())));
             boolean started = em.startInstance(-1, gm.getParty(), gm.getMap(), KPQ_LEVEL, gm);
             scripting.event.EventInstanceManager eim = gm.getEventInstance();
             out.add("VB KPQ instance " + (started && eim != null ? "started " + eim.getName() : "DID NOT START"));
