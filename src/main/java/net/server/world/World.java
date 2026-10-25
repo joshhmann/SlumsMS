@@ -1013,7 +1013,12 @@ public class World {
     public boolean updateParty(int partyid, PartyOperation operation, PartyCharacter target) {
         Party party = getParty(partyid);
         if (party == null) {
-            throw new IllegalArgumentException("no party with the specified partyid exists");
+            // 1.5.2: the party is gone - disbanded by its leader, or it never reached this world - before the update
+            // arrived. There is nothing to change, which is what false already means for this method. Throwing made
+            // every caller deal with an expected race: a bot held a party its leader had disbanded and threw
+            // "no party with the specified partyid exists" on every single logout attempt (the biggest line in the
+            // test server's log), and a mass warp inside an event script aborted the script with a ScriptException.
+            return false;
         }
         boolean changed = true;
         switch (operation) {
