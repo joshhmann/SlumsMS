@@ -1266,6 +1266,31 @@ public class Character extends AbstractCharacterObject {
 
     }
 
+    /** The max HP/MP a job advancement adds for {@code job} (the job just reached). */
+    static Pair<Integer, Integer> jobAdvanceHpMpGain(Job job) {
+        int addhp = 0, addmp = 0;
+        int job_ = job.getId() % 1000; // lame temp "fix"
+        if (job_ == 100) {                      // 1st warrior
+            addhp += Randomizer.rand(200, 250);
+        } else if (job_ == 200) {               // 1st mage
+            addmp += Randomizer.rand(100, 150);
+        } else if (job_ % 100 == 0) {           // 1st others
+            addhp += Randomizer.rand(100, 150);
+            addmp += Randomizer.rand(25, 50);
+        } else if (job_ > 0 && job_ < 200) {    // 2nd~4th warrior
+            addhp += Randomizer.rand(300, 350);
+        } else if (job_ < 300) {                // 2nd~4th mage
+            addmp += Randomizer.rand(450, 500);
+        } else if (job_ > 0) {                  // 2nd~4th others
+            addhp += Randomizer.rand(300, 350);
+            addmp += Randomizer.rand(150, 200);
+        } else if (job_ == 700) {                  // Super Beginner
+            addhp += Randomizer.rand(300, 350);
+            addmp += Randomizer.rand(150, 200);
+        }
+        return new Pair<>(addhp, addmp);
+    }
+
     public synchronized void changeJob(Job newJob) {
         if (newJob == null) {
             return;//the fuck you doing idiot!
@@ -1317,26 +1342,8 @@ public class Character extends AbstractCharacterObject {
             }
         }
 
-        int addhp = 0, addmp = 0;
-        int job_ = job.getId() % 1000; // lame temp "fix"
-        if (job_ == 100) {                      // 1st warrior
-            addhp += Randomizer.rand(200, 250);
-        } else if (job_ == 200) {               // 1st mage
-            addmp += Randomizer.rand(100, 150);
-        } else if (job_ % 100 == 0) {           // 1st others
-            addhp += Randomizer.rand(1, 1);
-            addmp += Randomizer.rand(25, 50);
-        } else if (job_ > 0 && job_ < 200) {    // 2nd~4th warrior
-            addhp += Randomizer.rand(300, 350);
-        } else if (job_ < 300) {                // 2nd~4th mage
-            addmp += Randomizer.rand(450, 500);
-        } else if (job_ > 0) {                  // 2nd~4th others
-            addhp += Randomizer.rand(300, 350);
-            addmp += Randomizer.rand(150, 200);
-        } else if (job_ == 700) {                  // Super Beginner
-            addhp += Randomizer.rand(300, 350);
-            addmp += Randomizer.rand(150, 200);
-        }
+        Pair<Integer, Integer> jobGain = jobAdvanceHpMpGain(job);
+        int addhp = jobGain.getLeft(), addmp = jobGain.getRight();
         
         /*
         //aran perks?
@@ -6836,7 +6843,7 @@ public class Character extends AbstractCharacterObject {
         }
         if (summons.get(Sniper.GOLDEN_EAGLE) != null) {
             sendPacket(PacketCreator.removeSummon(summons.get(Sniper.GOLDEN_EAGLE), true));
-            getMap().removeMapObject(summons.get(Ranger.SILVER_HAWK));
+            getMap().removeMapObject(summons.get(Sniper.GOLDEN_EAGLE));
         }
         if (summons.get(Marksman.FROST_PREY) != null) {
             sendPacket(PacketCreator.removeSummon(summons.get(Marksman.FROST_PREY), true));
