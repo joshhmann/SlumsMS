@@ -1261,4 +1261,9 @@ final class GameQaWorld implements QaWorld {
     public boolean romanceOn(Character gm) {
         return soloMapling.ArtificialPlayer.BotDramaSystem.BotRomance.romanceOn(gm.getId());
     }
+
+    @Override
+    public String dropGodly(Character gm, int itemId) {
+        return server.GodlyDrops.stageDrop(gm, itemId);
+    }
 }

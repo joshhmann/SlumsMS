@@ -59,6 +59,9 @@ public final class GearGrade {
     }
 
     public static Grade grade(Equip equip) {
+        if (server.GodlyDrops.isGodlyDrop(equip)) {
+            return Grade.GODLY; // 1.5.2: a godly mob drop (+1..+5 on a few stats) stays under the stat line but counts
+        }
         try {
             return grade(equip.getItemId(), EquipValuation.factsOf(equip));
         } catch (RuntimeException | LinkageError noItemData) {

@@ -307,8 +307,6 @@ public class Character extends AbstractCharacterObject {
     private long loginTime;
     private boolean chasing = false;
 
-    public int potionCount = 0;
-    public boolean inExpedition = false;
     private int reborns;
     private int getLinkedStats;
 
@@ -2416,6 +2414,7 @@ public class Character extends AbstractCharacterObject {
                         if (mItem.getItemId() == ItemId.ARPQ_SPIRIT_JEWEL) {
                             updateAriantScore();
                         }
+                        server.GodlyDrops.tellLooter(this, mItem, mapitem.isPlayerDrop()); // 1.5.2 godly drops
                     } else {
                         sendPacket(PacketCreator.enableActions());
                         return;

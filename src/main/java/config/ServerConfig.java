@@ -205,7 +205,13 @@ public class ServerConfig {
     public boolean USE_BUYBACK_SYSTEM;
     public boolean USE_FIXED_RATIO_HPMP_UPDATE;
     public boolean USE_FAMILY_SYSTEM;
-    public boolean USE_DUEY;
+    //Godly drops (owner 2026-10-25, 1.5.2, server.GodlyDrops): this % of monster equip drops gets GODLY_DROP_STATS of
+    //its existing stats raised by GODLY_DROP_MIN_BONUS..GODLY_DROP_MAX_BONUS. 0 = off.
+    public double GODLY_DROP_PERCENT = 1.5;
+    public int GODLY_DROP_STATS = 3;
+    public int GODLY_DROP_MIN_BONUS = 1;
+    public int GODLY_DROP_MAX_BONUS = 5;
+    public boolean USE_DUEY = true;   //owner 2026-10-25 (1.5.2): Duey on, as stock v83 (bots never send or receive)
     public boolean USE_RANDOMIZE_HPMP_GAIN;
     public boolean USE_STORAGE_ITEM_SORT;
     public boolean USE_ITEM_SORT;
@@ -455,10 +461,12 @@ public class ServerConfig {
     public long EVENT_END_TIMESTAMP;
 
     //GM Security Configuration
-    public int MINIMUM_GM_LEVEL_TO_TRADE;
-    public int MINIMUM_GM_LEVEL_TO_USE_STORAGE;
-    public int MINIMUM_GM_LEVEL_TO_USE_DUEY;
-    public int MINIMUM_GM_LEVEL_TO_DROP;
+    //owner 2026-10-25 (1.5.2): back to Cosmic's 4 (MapleRoot shipped 1: any GM could trade, drop, use storage and Duey).
+    //GmGiving (ticket 43) still blocks GM-to-player trades and drops unless -Dslumsms.gm.allowGiving=true.
+    public int MINIMUM_GM_LEVEL_TO_TRADE = 4;
+    public int MINIMUM_GM_LEVEL_TO_USE_STORAGE = 4;
+    public int MINIMUM_GM_LEVEL_TO_USE_DUEY = 4;
+    public int MINIMUM_GM_LEVEL_TO_DROP = 4;
 
     //Custom NPC overrides. List of NPC IDs.
     public Map<String, String> NPCS_SCRIPTABLE = new HashMap<>();
