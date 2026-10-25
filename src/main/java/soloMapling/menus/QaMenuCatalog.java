@@ -68,6 +68,7 @@ public final class QaMenuCatalog {
         add("gw-4", v(), steps("chat", "bossrun", "betray"));
         section("Partying with bots");
         add("gu-7", v(), steps());
+        add("pq-1", v(), steps());
         section("Couples and weddings");
         add("cp-1", v("married", "friends", "married same", "married mixed"), steps("step"));
         add("we-1", v("same", "mixed"), steps());

@@ -205,6 +205,27 @@ run alongside.
 on your map: 2 min), `!rate last`, `!rate reload` (re-reads `data/convo/tune.json`), `!rate score [yyyy-mm-dd]` writes
 `data/convo/quality/<day>.json` and `latest.json` now.
 
+## pq-1: OPQ bots (1.5.2)
+
+| Test | What it stages | What to look for |
+|---|---|---|
+| `pq-1` | Warps you to the Orbis PQ lobby (200080101) and spawns 6 live OPQ bots (the real bot brain: they accept an invite and run the PQ) around you. They leave at stop. Runs 30 minutes | `PQ <bot>: <state> -> <state> \| <reason>` for every transition (lobby recruit, party, stage 1, tower, stage 2, exit) and `PQ <bot> recruit: <line>` for lobby chat |
+
+The friend's report, "PQ bots are not great", covered four things this run is meant to show:
+
+- **Lobby spam.** Each bot used to speak every 12 s regardless of how many bots were there, so 10-15 bots made
+  50-75 lines a minute. The lobby is now capped as a whole (`-Dsolomapling.opq.lobbyRecruitPerMinute`, default 3 a
+  minute, `OPQLobbyChat`) and each bot waits 45-90 s between its own lines. Count the `recruit:` lines: no more than
+  the cap per minute, and none at all when no player is on the map.
+- **Joining and doing nothing.** Invite a bot, then stand still. After 5 minutes in the lobby with the party formed
+  and no stage 1 it says one line, leaves the party and goes back to recruiting (`OPQPartyDuty`). The same happens
+  after 15 s when the leader's character is offline and after 90 s when the leader is on another map.
+- **Idle bots in the stages.** Stage 1 used to count as done the moment the leader entered (the exit NPC is part of
+  the map), so bots jumped to the top platform. They now stay with you until you stand on the top platform, then
+  follow you to the tower and stage 2.
+- **Leaving mid-run.** Stage 2 used to wait for every registered bot - the lobby's recruiters included - and gave up
+  after two minutes. It now finishes when the bots in your instance are done.
+
 ## mv-1: attack slide
 
 Owner report: holding left/right while attacking on the ground keeps the character sliding. In stock v83 an attack

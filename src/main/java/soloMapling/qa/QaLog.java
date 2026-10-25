@@ -57,6 +57,7 @@ public final class QaLog {
         RIVALRY,        // 1.5.0 bot drama: roasts, KS wars, callouts, revenge follows (rv-1..rv-4)
         GUILD_WAR,      // 1.5.0 bot drama: guild wars, turf, poaching, alliances and betrayals (gw-1..gw-4)
         CONVO,          // ticket 59: chat sense, gates, actions, personas, timing, bank, router, threads, ratings (cv-1..cv-7)
+        PQ,             // 1.5.2: OPQ bots - lobby recruit lines, party joins and leaves, every stage transition (pq-1)
         AUTOQA;         // auto-QA: health sweep results and the runner's check verdicts (docs/ops/qa-suite.md "Auto-QA")
 
         final long bit = 1L << ordinal(); // a long: 33 topics no longer fit an int

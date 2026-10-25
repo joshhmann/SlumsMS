@@ -123,6 +123,10 @@ public class OPQBot extends BotSM {
             return;
         }
         this.opqBotState = next;
+        if (soloMapling.qa.QaLog.on(soloMapling.qa.QaLog.Topic.PQ)) { // !qa pq-1
+            soloMapling.qa.QaLog.map(soloMapling.qa.QaLog.Topic.PQ, getChr().getMapId(),
+                    getChr().getName() + ": " + prev + " -> " + next + " | " + reason);
+        }
         if (next == OPQBotState.IN_PARTY_IDLE && prev != OPQBotState.IN_PARTY_IDLE) {
             inPartySince = System.currentTimeMillis();
         }
@@ -324,6 +328,10 @@ public class OPQBot extends BotSM {
             }
             String msg = OPQRecruitMessages.generateRecruitMessage(getChr());
             SocialCommands.BotSpeak(getChr(), msg);
+            if (soloMapling.qa.QaLog.on(soloMapling.qa.QaLog.Topic.PQ)) { // !qa pq-1: how often the lobby speaks
+                soloMapling.qa.QaLog.map(soloMapling.qa.QaLog.Topic.PQ, getChr().getMapId(),
+                        getChr().getName() + " recruit: " + msg);
+            }
             lastRecruitMessageAt = now;
             nextRecruitMessageAt = now + OPQLobbyChat.nextIntervalMs();
             debugLogf("Recruit chat sent: \"" + msg + "\"");
@@ -379,7 +387,12 @@ public class OPQBot extends BotSM {
             case LEAVE -> {
                 log(String.format("[OPQBot %s] leaving party after %ds - leader map=%d runStarted=%s",
                         getChr().getName(), waitedMs / 1000, leaderMapId(), runStarted));
-                SocialCommands.BotSpeak(getChr(), runStarted ? "gg, back to the lobby!" : "not OPQ? back to the lobby!");
+                String line = runStarted ? "gg, back to the lobby!" : "not OPQ? back to the lobby!";
+                SocialCommands.BotSpeak(getChr(), line);
+                if (soloMapling.qa.QaLog.on(soloMapling.qa.QaLog.Topic.PQ)) { // !qa pq-1
+                    soloMapling.qa.QaLog.map(soloMapling.qa.QaLog.Topic.PQ, getChr().getMapId(),
+                            getChr().getName() + " leaves the party: " + line);
+                }
                 BotPartyCommands.botLeaveParty(getChr());
                 resetOPQBotState();
                 transitionTo(OPQBotState.RECRUITMENT, "party was not running OPQ");
