@@ -1266,4 +1266,770 @@ final class GameQaWorld implements QaWorld {
     public String dropGodly(Character gm, int itemId) {
         return server.GodlyDrops.stageDrop(gm, itemId);
     }
+
+    // ---- ticket 69: v83 basics (vb-1..vb-7) ----
+
+    private void pickupMapItems(Character gm) {
+        if (gm.getMap() == null) {
+            return;
+        }
+        for (server.maps.MapObject obj : gm.getMap().getMapObjectsInRange(gm.getPosition(), Double.POSITIVE_INFINITY, List.of(server.maps.MapObjectType.ITEM))) {
+            if (obj instanceof server.maps.MapItem mi) {
+                mi.setDropTime(System.currentTimeMillis() - 1000);
+                gm.pickupItem(mi);
+            }
+        }
+    }
+
+    private void resetPretendPlayer(Character gm, int job, int level, int meso) {
+        // Wipes job, skills, items, mesos and quest rows: only ever for auto-QA's pretend players, never a real
+        // character, even if a future caller forgets V83Scenarios' own SyntheticClient check.
+        if (gm == null || !(gm.getClient() instanceof client.SyntheticClient)) {
+            return;
+        }
+        gm.changeJob(client.Job.getById(job));
+        gm.setLevel(level);
+        for (int i = 0; i < gm.getRemainingSps().length; i++) {
+            int cur = gm.getRemainingSps()[i];
+            if (cur > 0) {
+                gm.gainSp(-cur, i, false);
+            }
+        }
+        gm.gainMeso(meso - gm.getMeso(), false);
+        for (client.Skill s : new ArrayList<>(gm.getSkills().keySet())) {
+            gm.changeSkillLevel(s, (byte) -1, 0, -1);
+        }
+        for (int qid : new int[]{6002, 6003, 6007, 100003, 100005}) {
+            server.quest.Quest q = server.quest.Quest.getInstance(qid);
+            if (q != null) {
+                gm.getQuestRemove(q);
+            }
+        }
+        try (java.sql.Connection con = tools.DatabaseConnection.getConnection()) {
+            try (java.sql.PreparedStatement ps = con.prepareStatement("DELETE FROM queststatus WHERE characterid = ?")) {
+                ps.setInt(1, gm.getId());
+                ps.executeUpdate();
+            }
+            try (java.sql.PreparedStatement ps = con.prepareStatement("DELETE FROM questprogress WHERE characterid = ?")) {
+                ps.setInt(1, gm.getId());
+                ps.executeUpdate();
+            }
+        } catch (java.sql.SQLException | RuntimeException ignored) {
+        }
+        for (InventoryType t : BAGS) {
+            Inventory inv = gm.getInventory(t);
+            for (short slot : new ArrayList<>(inv.list().stream().map(Item::getPosition).toList())) {
+                InventoryManipulator.removeFromSlot(gm.getClient(), t, slot, (short) 32767, false);
+            }
+        }
+    }
+
+    @Override
+    public List<String> v83Step(Character gm, String feature, String step) {
+        try {
+            return switch (feature) {
+                case "vb-1" -> salonStep(gm, step);
+                case "vb-2" -> deleteStep(gm, step);
+                case "vb-3" -> kpqStep(gm, step);
+                case "vb-4" -> mountStep(gm, step);
+                case "vb-5" -> shopStep(gm, step);
+                case "vb-6" -> jobStep(gm, step);
+                case "vb-7" -> basicsStep(gm, step);
+                default -> List.of("no v83 feature " + feature);
+            };
+        } catch (RuntimeException e) {
+            return List.of("STEP_FAILED " + feature + " " + step + ": " + e);
+        }
+    }
+
+    // ── vb-1: the Henesys salons ──
+
+    private List<String> salonStep(Character gm, String step) {
+        if ("stage".equals(step)) {
+            resetPretendPlayer(gm, 0, 10, 1_000_000);
+            List<String> out = new ArrayList<>();
+            for (int coupon : new int[]{5150001, 5151001, 5152001, 5152013, 5153000}) {
+                InventoryManipulator.addById(gm.getClient(), coupon, (short) 1, "qa", -1);
+            }
+            out.add("VB SALON coupons 5150001 5151001 5152001 5152013 5153000 given");
+            return out;
+        }
+        int npc, menu, style, coupon;
+        String kind;
+        switch (step) {
+            case "hair" -> { npc = 1012103; menu = 1; style = 3; coupon = 5150001; kind = "hair"; }
+            case "haircolor" -> { npc = 1012103; menu = 2; style = 3; coupon = 5151001; kind = "haircolor"; }
+            case "face" -> { npc = 1052004; menu = 2; style = 2; coupon = 5152001; kind = "face"; }
+            case "lens" -> { npc = 9200100; menu = 2; style = 1; coupon = 5152013; kind = "face"; }
+            case "skin" -> { npc = 1012105; menu = 1; style = 3; coupon = 5153000; kind = "skin"; }
+            default -> { return List.of("no salon step " + step); }
+        }
+        int map = switch (npc) {
+            case 1012103 -> 100000104;
+            case 1012105 -> 100000105;
+            default -> 100000103;
+        };
+        warp(gm, map);
+        int before = "hair".equals(kind) || "haircolor".equals(kind) ? gm.getHair()
+                : "skin".equals(kind) ? gm.getSkinColor().getId() : gm.getFace();
+        int couponBefore = countItem(gm, coupon);
+        long since = System.currentTimeMillis();
+        List<String> out = new ArrayList<>();
+        boolean opened = npcScript(gm, npc, out, menu, style);
+        if (!opened) {
+            out.add("VB STYLE " + step + " UNCHANGED (the NPC script did not start)");
+            return out;
+        }
+        int after = "hair".equals(kind) || "haircolor".equals(kind) ? gm.getHair()
+                : "skin".equals(kind) ? gm.getSkinColor().getId() : gm.getFace();
+        int couponAfter = countItem(gm, coupon);
+        out.add("VB STYLE " + step + " " + before + " -> " + after + (after != before ? " changed" : " UNCHANGED"));
+        out.add("VB COUPON " + coupon + " " + couponBefore + " -> " + couponAfter);
+        refuseCheck(out, npcDialogs(gm, since));
+        return out;
+    }
+
+    /** Starts an NPC script on the pretend player and answers it once, the way a player clicking through does. */
+    private boolean npcScript(Character gm, int npc, List<String> out, int... selections) {
+        gm.getClient().removeClickedNPC(); // a real player also waits 500ms between clicks; the surety is not what we test
+        boolean started = scripting.npc.NPCScriptManager.getInstance().start(gm.getClient(), npc, gm);
+        if (!started) {
+            return false;
+        }
+        for (int selection : selections) {
+            scripting.npc.NPCScriptManager.getInstance().action(gm.getClient(), (byte) 1, (byte) 0, selection);
+            gm.getClient().removeClickedNPC();
+        }
+        return true;
+    }
+
+    private static final java.util.regex.Pattern REFUSAL = java.util.regex.Pattern.compile(
+            "(?i)(no options|cannot|can not|can't|is closed|closed for now|not available|error|"
+                    + "i'm sorry|i am sorry|don't have|do not have|not enough|you need(?! to choose)|must have|unavailable)");
+
+    /** Turns a dialog that refuses into an NPC_REFUSAL line; a step that expects a refusal does not call this. */
+    private void refuseCheck(List<String> out, List<String> dialogs) {
+        for (String d : dialogs) {
+            if (REFUSAL.matcher(d).find()) {
+                out.add("NPC_REFUSAL " + d);
+            }
+        }
+    }
+
+    /** The NPC dialog lines this pretend player received since a time, as "{@code <npc>: <text>}". */
+    private List<String> npcDialogs(Character gm, long since) {
+        if (!(gm.getClient() instanceof client.SyntheticClient sc)) {
+            return List.of();
+        }
+        List<String> out = new ArrayList<>();
+        for (soloMapling.autoqa.AutoQaLine line : sc.heardSince(since)) {
+            if ("NPC_TALK".equals(line.kind())) {
+                out.add(line.message());
+            }
+        }
+        return out;
+    }
+
+    // ── vb-2: delete a character with PIC ──
+
+    private List<String> deleteStep(Character gm, String step) {
+        if ("stage".equals(step)) {
+            List<String> out = new ArrayList<>();
+            gm.getClient().setPic("1234");
+            try (java.sql.Connection con = tools.DatabaseConnection.getConnection();
+                 java.sql.PreparedStatement ps = con.prepareStatement(
+                         "SELECT id FROM characters WHERE accountid = ? AND name LIKE 'VbDel%'")) {
+                ps.setInt(1, gm.getClient().getAccID());
+                try (java.sql.ResultSet rs = ps.executeQuery()) {
+                    while (rs.next()) {
+                        gm.getClient().deleteCharacter(rs.getInt(1), gm.getClient().getAccID());
+                    }
+                }
+            } catch (java.sql.SQLException | RuntimeException ignored) {}
+            out.add("VB DELETE pic set on account " + gm.getClient().getAccID());
+            return out;
+        }
+        String name = "VbDel" + (System.currentTimeMillis() % 1_000_000);
+        if (name.length() > 12) {
+            name = name.substring(0, 12);
+        }
+        int made = client.creator.novice.BeginnerCreator.createCharacter(gm.getClient(), name, 20000, 30000, 0,
+                0, 0, 0, 0, 0);
+        List<String> out = new ArrayList<>();
+        if (made != 0) {
+            out.add("VB DELETE could not create a character to delete (status " + made + ")");
+            return out;
+        }
+        int cid = Character.getIdByName(name);
+        out.add("VB DELETE made " + name + " (" + cid + ")");
+        String pic = "wrongpic".equals(step) ? "9999" : "1234";
+        long since = System.currentTimeMillis();
+        boolean handled = loginPacket(gm, net.opcodes.RecvOpcode.DELETE_CHAR, body -> {
+            body.writeString(pic);
+            body.writeInt(cid);
+        });
+        String answer = lastHeard(gm, since, "DELETE_CHAR_RESPONSE");
+        boolean gone = Character.getIdByName(name) < 0;
+        if (!handled) {
+            out.add("VB DELETE the delete packet found no login handler");
+        } else if ("wrongpic".equals(step)) {
+            out.add("VB DELETE wrongpic answer=" + answer + " stillThere=" + !gone);
+            gm.getClient().deleteCharacter(cid, gm.getClient().getAccID());
+        } else {
+            out.add("VB DELETE state=" + answer + " gone=" + gone);
+            refuseCheck(out, List.of()); // no NPC involved; the response code is the assertion
+        }
+        return out;
+    }
+
+    private boolean loginPacket(Character gm, net.opcodes.RecvOpcode op,
+                                java.util.function.Consumer<net.packet.ByteBufOutPacket> body) {
+        net.packet.ByteBufOutPacket b = new net.packet.ByteBufOutPacket();
+        body.accept(b);
+        net.PacketHandler h = net.PacketProcessor.getLoginServerProcessor().getHandler((short) op.getValue());
+        if (h == null) {
+            return false;
+        }
+        h.handlePacket(new net.packet.ByteBufInPacket(io.netty.buffer.Unpooled.wrappedBuffer(b.getBytes())),
+                gm.getClient());
+        return true;
+    }
+
+    private String lastHeard(Character gm, long since, String kind) {
+        if (!(gm.getClient() instanceof client.SyntheticClient sc)) {
+            return "(no synthetic client)";
+        }
+        String answer = "(nothing)";
+        for (soloMapling.autoqa.AutoQaLine line : sc.heardSince(since)) {
+            if (kind.equals(line.kind())) {
+                answer = line.message();
+            }
+        }
+        return answer;
+    }
+
+    // ── vb-3: Kerning PQ clear, reward, exit ──
+
+    private List<String> kpqStep(Character gm, String step) {
+        if ("stage".equals(step)) {
+            resetPretendPlayer(gm, 100, 25, 1_000_000);
+            List<String> out = new ArrayList<>();
+            if (gm.getParty() == null) {
+                net.server.world.Party.createParty(gm, false);
+            }
+            scripting.event.EventManager em = gm.getClient().getEventManager("KerningPQ");
+            out.add("VB KPQ event manager " + (em == null ? "MISSING" : "found"));
+            if (em == null) {
+                return out;
+            }
+            boolean started = em.startInstance(-1, gm.getParty(), gm.getMap(), gm);
+            scripting.event.EventInstanceManager eim = gm.getEventInstance();
+            out.add("VB KPQ instance " + (started && eim != null ? "started " + eim.getName() : "DID NOT START"));
+            if (eim != null) {
+                MapleMap stg5 = eim.getMapInstance(103000804);
+                if (stg5 != null) {
+                    gm.changeMap(stg5, stg5.getPortal(0));
+                }
+                InventoryManipulator.addById(gm.getClient(), 4001008, (short) 10, "qa", -1);
+            }
+            return out;
+        }
+        scripting.event.EventInstanceManager eim = gm.getEventInstance();
+        if (eim == null) {
+            return List.of("VB KPQ no instance on the player");
+        }
+        List<String> out = new ArrayList<>();
+        if ("clear".equals(step)) {
+            npcScript(gm, 9020001, out, 0);
+            out.add("VB KPQ cleared=" + eim.isEventCleared());
+        } else if ("reward".equals(step)) {
+            int before = totalItems(gm);
+            npcScript(gm, 9020001, out, 0);
+            int after = totalItems(gm);
+            boolean given = after > before;
+            boolean warped = gm.getMapId() == 103000805;
+            out.add("VB KPQ reward given=" + given + " items " + before + " -> " + after
+                    + " warped=" + warped + " map=" + gm.getMapId());
+        }
+        return out;
+    }
+
+    private int inventoryCount(Character gm) {
+        return totalItems(gm);
+    }
+
+    private int totalItems(Character gm) {
+        int n = 0;
+        for (InventoryType t : BAGS) {
+            client.inventory.Inventory inv = gm.getInventory(t);
+            for (client.inventory.Item it : inv.list()) {
+                n += it.getQuantity();
+            }
+        }
+        return n;
+    }
+
+    // ── vb-4: the mount chain ──
+
+    private List<String> mountStep(Character gm, String step) {
+        List<String> out = new ArrayList<>();
+        switch (step) {
+            case "stage" -> {
+                resetPretendPlayer(gm, 111, 70, 25_000_000);
+                warp(gm, 923010000);
+                out.add("VB MOUNT staged as job " + gm.getJob().getId() + " on " + gm.getMapId()
+                        + " meso=" + gm.getMeso());
+            }
+            case "room" -> {
+                server.quest.Quest q = server.quest.Quest.getInstance(6002);
+                if (gm.getQuestStatus(6002) != 1) {
+                    q.start(gm, 2060005);
+                }
+                scripting.event.EventManager em = gm.getClient().getEventManager("3rdJob_mount");
+                out.add("VB MOUNT room manager=" + (em == null ? "MISSING" : "found"));
+                if (em == null) {
+                    return out;
+                }
+                boolean started = em.startInstance(gm);
+                out.add("VB MOUNT room started=" + started + " map=" + gm.getMapId()
+                        + " instance=" + (gm.getEventInstance() != null));
+                MapleMap roomMap = gm.getMap();
+                server.life.Monster hog = roomMap.getMonsterById(constants.id.MobId.WATCH_HOG);
+                List<server.maps.Reactor> chests = roomMap.getAllReactors();
+                for (int i = 0; i < 5; i++) {
+                    for (server.maps.Reactor r : chests) {
+                        if (countItem(gm, 4031508) < 5) {
+                            scripting.reactor.ReactorScriptManager.getInstance().act(gm.getClient(), r);
+                            pickupMapItems(gm);
+                        }
+                    }
+                    if (hog != null && countItem(gm, 4031507) < 5) {
+                        roomMap.dropFromFriendlyMonster(gm, hog);
+                        pickupMapItems(gm);
+                    }
+                }
+                if (gm.getEventInstance() != null) {
+                    npcScript(gm, 9060000, out, 0, 0);
+                    if (gm.getEventInstance() != null) {
+                        gm.getEventInstance().clearPQ();
+                    }
+                    out.add("VB MOUNT room exit map=" + gm.getMapId());
+                }
+                boolean can = q.canComplete(gm, 2060005);
+                q.complete(gm, 2060005);
+                int rider = countItem(gm, 1912000);
+                out.add("VB MOUNT quest6002 canComplete=" + can + " state=" + gm.getQuestStatus(6002)
+                        + " item1912000=" + rider + " skill1004=" + gm.getSkillLevel(1004));
+                gm.changeJob(client.Job.getById(100)); // the rest of the chain does not need the 3rd job
+            }
+            case "bottle-broke" -> {
+                server.quest.Quest q = server.quest.Quest.getInstance(6007);
+                if (gm.getQuestStatus(6007) != 1) {
+                    q.start(gm, 2081000);
+                }
+                int meso = gm.getMeso();
+                if (meso >= 20_000_000) {
+                    gm.gainMeso(-(meso - 1_000_000), false);
+                }
+                int mesoBefore = gm.getMeso();
+                int held = countItem(gm, 4031509);
+                boolean can = q.canComplete(gm, 2081000);
+                q.complete(gm, 2081000);
+                int mesoAfter = gm.getMeso();
+                out.add("VB MOUNT bottleRefused canComplete=" + can + " meso " + mesoBefore + " -> " + mesoAfter
+                        + " stillBottle=" + (countItem(gm, 4031509) == held));
+                gm.gainMeso(20_000_000 - gm.getMeso() + 1_000_000, false);
+            }
+            case "bottle" -> {
+                server.quest.Quest q = server.quest.Quest.getInstance(6007);
+                if (gm.getQuestStatus(6007) != 1) {
+                    q.start(gm, 2081000);
+                }
+                int before = gm.getMeso();
+                int bottles = countItem(gm, 4031509);
+                boolean can = q.canComplete(gm, 2081000);
+                q.complete(gm, 2081000);
+                int after = gm.getMeso();
+                out.add("VB MOUNT bottle canComplete=" + can + " meso " + before + " -> " + after
+                        + " fee=" + (before - after) + " bottle " + bottles + " -> "
+                        + countItem(gm, 4031509));
+            }
+            case "perfume" -> {
+                server.quest.Quest q = server.quest.Quest.getInstance(6003);
+                if (gm.getQuestStatus(6003) != 1) {
+                    q.start(gm, 2060005);
+                }
+                int before = countItem(gm, 2270000);
+                boolean can = q.canComplete(gm, 2060005);
+                q.complete(gm, 2060005);
+                out.add("VB MOUNT perfume canComplete=" + can + " perfume " + before + " -> "
+                        + countItem(gm, 2270000)
+                        + " bottleLeft=" + countItem(gm, 4031509));
+            }
+            case "hog" -> hog(gm, out);
+            default -> out.add("VB MOUNT no step " + step);
+        }
+        return out;
+    }
+
+    /**
+     * The last link of the mount chain: the client's phenomone perfume (2270000) on a tamable hog below 40% HP.
+     * The real path is the USE_CATCH_ITEM packet — {@code net.server.channel.handlers.UseCatchItemHandler} reads the
+     * item and the mob oid, checks the mob's HP and swaps the perfume for a hog saddle (1902000). Nothing on the
+     * server checks level or a worn saddle at catch time, so the preconditions are the item in USE and the HP.
+     */
+    private void hog(Character gm, List<String> out) {
+        MapleMap map = gm.getClient().getChannelServer().getMapFactory().getMap(922200000);
+        if (map == null) {
+            out.add("VB MOUNT hog map=922200000 missing");
+            return;
+        }
+        gm.changeMap(map, map.getRandomPlayerSpawnpoint());
+        if (gm.getMapId() != 922200000) {
+            out.add("VB MOUNT hog could not warp to 922200000, still on " + gm.getMapId());
+            return;
+        }
+        boolean spawned = false;
+        server.life.Monster hog = map.getMonsterById(constants.id.MobId.TAMABLE_HOG);
+        if (hog == null) {
+            // the map spawns the hog for 1200s every 3600s; outside that window QA brings its own
+            map.spawnMonsterOnGroundBelow(constants.id.MobId.TAMABLE_HOG, gm.getPosition().x, gm.getPosition().y);
+            spawned = true;
+            hog = map.getMonsterById(constants.id.MobId.TAMABLE_HOG);
+        }
+        if (hog == null) {
+            out.add("VB MOUNT hog map=922200000 no mob " + constants.id.MobId.TAMABLE_HOG);
+            return;
+        }
+        int oid = hog.getObjectId();
+        long maxHp = hog.getMaxHp();
+        long target = maxHp / 10 * 3;
+        if (hog.getHp() > target) {
+            hog.applyAndGetHpDamage(hog.getHp() - target, false);
+        }
+        long hp = hog.getHp();
+        int perfume = constants.id.ItemId.PHEROMONE_PERFUME;
+        if (countItem(gm, perfume) <= 0) {
+            InventoryManipulator.addById(gm.getClient(), perfume, (short) 1, "qa", -1);
+        }
+        int perfumeBefore = countItem(gm, perfume);
+        int mountBefore = countItem(gm, constants.id.ItemId.HOG);
+        boolean handled = body(gm, net.opcodes.RecvOpcode.USE_CATCH_ITEM, b -> {
+            b.writeInt(0);
+            b.writeShort(0);
+            b.writeInt(perfume);
+            b.writeInt(oid);
+        });
+        int perfumeAfter = countItem(gm, perfume);
+        int mountAfter = countItem(gm, constants.id.ItemId.HOG);
+        out.add("VB MOUNT hog map=" + gm.getMapId() + " spawnedByQa=" + spawned + " hp=" + hp + "/" + maxHp
+                + " handler=" + handled + " perfume " + perfumeBefore + " -> " + perfumeAfter
+                + " perfumeUsed=" + (perfumeBefore - perfumeAfter)
+                + " mountGained=" + (mountAfter - mountBefore)
+                + " mobGone=" + (map.getMonsterByOid(oid) == null));
+    }
+
+    // ── vb-5: NPC shop buy/sell and the Cash Shop EXP card ──
+
+    private List<String> shopStep(Character gm, String step) {
+        List<String> out = new ArrayList<>();
+        if ("stage".equals(step)) {
+            resetPretendPlayer(gm, 100, 30, 1_000_000);
+            warp(gm, 100000100);
+            server.life.NPC npc = gm.getMap().getNPCById(1012004);
+            if (npc == null) {
+                out.add("VB SHOP no shop NPC 1012004 on the market map");
+                return out;
+            }
+            npc.sendShop(gm.getClient());
+            out.add("VB SHOP opened NPC 1012004 on map " + gm.getMapId());
+            return out;
+        }
+        server.Shop shop = server.ShopFactory.getInstance().getShopForNPC(1012004);
+        if (shop == null) {
+            return List.of("VB SHOP no shop 1012004");
+        }
+        if ("buy".equals(step)) {
+            server.ShopItem chosen = null;
+            short index = 0;
+            for (short i = 0; i < shop.getItems().size(); i++) {
+                server.ShopItem si = shop.getItems().get(i);
+                if (si.getPrice() > 0 && si.getPrice() <= gm.getMeso()) {
+                    chosen = si;
+                    index = i;
+                    break;
+                }
+            }
+            if (chosen == null) {
+                return List.of("VB SHOP nothing affordable in shop 1012004");
+            }
+            int mesoBefore = gm.getMeso();
+            int before = countItem(gm, chosen.getItemId());
+            long since = System.currentTimeMillis();
+            shop.buy(gm.getClient(), index, chosen.getItemId(), (short) 1);
+            int after = countItem(gm, chosen.getItemId());
+            int spent = mesoBefore - gm.getMeso();
+            out.add("VB SHOP buy item=" + chosen.getItemId() + " price=" + chosen.getPrice()
+                    + " meso " + mesoBefore + " -> " + gm.getMeso() + " spent=" + spent + " owned " + before + " -> " + after);
+            out.add("VB SHOP answer=" + lastHeard(gm, since, "SHOP_TRANSACTION"));
+        } else if ("sell".equals(step)) {
+            server.ShopItem chosen = shop.getItems().get(0);
+            int itemId = chosen.getItemId();
+            client.inventory.Inventory inv = gm.getInventory(InventoryType.USE);
+            client.inventory.Item item = inv.findById(itemId);
+            if (item == null) {
+                for (InventoryType t : BAGS) {
+                    item = gm.getInventory(t).findById(itemId);
+                    if (item != null) {
+                        inv = gm.getInventory(t);
+                        break;
+                    }
+                }
+            }
+            if (item == null) {
+                return List.of("VB SHOP sell item=" + itemId + " not in the bag (buy first)");
+            }
+            int mesoBefore = gm.getMeso();
+            int before = inv.countById(itemId);
+            long since = System.currentTimeMillis();
+            shop.sell(gm.getClient(), item.getInventoryType(), item.getPosition(), (short) 1);
+            int gained = gm.getMeso() - mesoBefore;
+            out.add("VB SHOP sell item=" + itemId + " meso " + mesoBefore + " -> " + gm.getMeso()
+                    + " gained=" + gained + " owned " + before + " -> " + inv.countById(itemId)
+                    + " answer=" + lastHeard(gm, since, "SHOP_TRANSACTION"));
+        } else if ("expcard".equals(step)) {
+            expCard(gm, out);
+        }
+        return out;
+    }
+
+    private void expCard(Character gm, List<String> out) {
+        final int coupon = 5211048; // 2x EXP Card 7 days
+        int before = gm.getCouponExpRate();
+        boolean cardGiven = InventoryManipulator.addById(gm.getClient(), coupon, (short) 1, "qa", -1);
+        gm.updateCouponRates();
+        int after = gm.getCouponExpRate();
+        out.add("VB CASH card=" + coupon + " given=" + cardGiven + " rate " + before + " -> " + after);
+        if (cardGiven) {
+            for (InventoryType t : BAGS) {
+                client.inventory.Item it = gm.getInventory(t).findById(coupon);
+                if (it != null) {
+                    InventoryManipulator.removeFromSlot(gm.getClient(), t, it.getPosition(), (short) 1, false);
+                }
+            }
+            gm.updateCouponRates();
+        }
+    }
+
+    // ── vb-6: job advancement and a skill point ──
+
+    private List<String> jobStep(Character gm, String step) {
+        List<String> out = new ArrayList<>();
+        if ("stage".equals(step)) {
+            resetPretendPlayer(gm, 100, 30, 1_000_000);
+            warp(gm, 102000000);
+            InventoryManipulator.addById(gm.getClient(), 4031012, (short) 1, "qa", -1);
+            out.add("VB JOB job=" + gm.getJob().getId() + " sp=" + gm.getRemainingSps()[0]);
+            return out;
+        }
+        if ("advance".equals(step)) {
+            int before = gm.getJob().getId();
+            long since = System.currentTimeMillis();
+            boolean opened = npcScript(gm, 1022000, out, 3, 0, 1);
+            out.add("VB JOB advance " + before + " -> " + gm.getJob().getId()
+                    + (opened ? "" : " (script did not start)"));
+            refuseCheck(out, npcDialogs(gm, since));
+        } else if ("spend".equals(step)) {
+            int job = gm.getJob().getId();
+            int skillId = job >= 110 && job < 200 ? 1100000 : 1000000;
+            gm.gainSp(1, constants.game.GameConstants.getSkillBook(skillId / 10000), false);
+            int spBefore = gm.getRemainingSps()[constants.game.GameConstants.getSkillBook(skillId / 10000)];
+            int lvlBefore = gm.getSkillLevel(skillId);
+            body(gm, net.opcodes.RecvOpcode.DISTRIBUTE_SP, b -> {
+                b.writeInt(0);
+                b.writeInt(skillId);
+            });
+            out.add("VB JOB sp spend skill=" + skillId + " level " + lvlBefore + " -> " + gm.getSkillLevel(skillId)
+                    + " sp " + spBefore + " -> " + gm.getRemainingSps()[constants.game.GameConstants.getSkillBook(skillId / 10000)]);
+        }
+        return out;
+    }
+
+    private boolean body(Character gm, net.opcodes.RecvOpcode op,
+                         java.util.function.Consumer<net.packet.ByteBufOutPacket> writer) {
+        net.packet.ByteBufOutPacket b = new net.packet.ByteBufOutPacket();
+        writer.accept(b);
+        net.PacketHandler h = net.PacketProcessor.getChannelServerProcessor(gm.getWorld(), gm.getClient().getChannel())
+                .getHandler((short) op.getValue());
+        if (h == null || !h.validateState(gm.getClient())) {
+            return false;
+        }
+        h.handlePacket(new net.packet.ByteBufInPacket(io.netty.buffer.Unpooled.wrappedBuffer(b.getBytes())),
+                gm.getClient());
+        return true;
+    }
+
+    // ── vb-7: storage, Duey and a trade between two pretend players ──
+
+    private List<String> basicsStep(Character gm, String step) {
+        List<String> out = new ArrayList<>();
+        if ("stage".equals(step)) {
+            resetPretendPlayer(gm, 100, 30, 1_000_000);
+            warp(gm, 100000000);
+            InventoryManipulator.addById(gm.getClient(), 4000000, (short) 5, "qa", -1);
+            InventoryManipulator.addById(gm.getClient(), 4000001, (short) 3, "qa", -1);
+            soloMapling.autoqa.SyntheticPlayer p2 = soloMapling.autoqa.SyntheticPlayers.login(2);
+            resetPretendPlayer(p2.character(), 100, 30, 1_000_000);
+            warp(p2.character(), 100000000);
+            try (java.sql.Connection con = tools.DatabaseConnection.getConnection();
+                 java.sql.PreparedStatement ps = con.prepareStatement(
+                         "DELETE FROM dueypackages WHERE ReceiverId IN (?, ?) OR SenderId IN (?, ?)")) {
+                ps.setInt(1, gm.getId());
+                ps.setInt(2, p2.id());
+                ps.setInt(3, gm.getId());
+                ps.setInt(4, p2.id());
+                ps.executeUpdate();
+            } catch (java.sql.SQLException | RuntimeException ignored) {}
+            for (client.inventory.Item it : new ArrayList<>(gm.getStorage().getItems())) {
+                gm.getStorage().takeOut(it);
+            }
+            out.add("VB BASICS staged on " + gm.getMapId() + " with " + p2.name());
+            return out;
+        }
+        if ("storage".equals(step)) {
+            storage(gm, out);
+        } else if ("duey".equals(step)) {
+            duey(gm, out);
+        } else if ("trade".equals(step)) {
+            trade(gm, out);
+        }
+        return out;
+    }
+
+    private void storage(Character gm, List<String> out) {
+        int itemId = 4000000;
+        client.inventory.Item item = gm.getInventory(InventoryType.ETC).findById(itemId);
+        if (item == null) {
+            out.add("VB STORAGE no item " + itemId + " to store");
+            return;
+        }
+        gm.getStorage().sendStorage(gm.getClient(), 1012009);
+        int invBefore = gm.getInventory(InventoryType.ETC).countById(itemId);
+        int storeBefore = gm.getStorage().getItems().size();
+        net.packet.ByteBufOutPacket b = new net.packet.ByteBufOutPacket();
+        b.writeByte(5);
+        b.writeShort(item.getPosition());
+        b.writeInt(itemId);
+        b.writeShort((short) 1);
+        client.processor.npc.StorageProcessor.storageAction(
+                new net.packet.ByteBufInPacket(io.netty.buffer.Unpooled.wrappedBuffer(b.getBytes())), gm.getClient());
+        int storeMid = gm.getStorage().getItems().size();
+        out.add("VB STORAGE stored " + itemId + " bag " + invBefore + " -> "
+                + gm.getInventory(InventoryType.ETC).countById(itemId) + " store " + storeBefore + " -> " + storeMid);
+        List<client.inventory.Item> etcItems = new ArrayList<>();
+        for (client.inventory.Item it : gm.getStorage().getItems()) {
+            if (it.getInventoryType() == InventoryType.ETC) {
+                etcItems.add(it);
+            }
+        }
+        byte storedSlot = 0;
+        for (byte i = 0; i < etcItems.size(); i++) {
+            if (etcItems.get(i).getItemId() == itemId) {
+                storedSlot = i;
+                break;
+            }
+        }
+        net.packet.ByteBufOutPacket t = new net.packet.ByteBufOutPacket();
+        t.writeByte(4);
+        t.writeByte((byte) InventoryType.ETC.getType());
+        t.writeByte(storedSlot);
+        client.processor.npc.StorageProcessor.storageAction(
+                new net.packet.ByteBufInPacket(io.netty.buffer.Unpooled.wrappedBuffer(t.getBytes())), gm.getClient());
+        out.add("VB STORAGE tookOut bagDelta="
+                + (gm.getInventory(InventoryType.ETC).countById(itemId) - invBefore)
+                + " storeSize=" + gm.getStorage().getItems().size());
+    }
+
+    private void duey(Character gm, List<String> out) {
+        int itemId = 4000001;
+        client.inventory.Item item = gm.getInventory(InventoryType.ETC).findById(itemId);
+        soloMapling.autoqa.SyntheticPlayer p2 = soloMapling.autoqa.SyntheticPlayers.login(2);
+        if (item == null) {
+            out.add("VB DUEY no item " + itemId + " to send");
+            return;
+        }
+        int before = p2.character().getInventory(InventoryType.ETC).countById(itemId);
+        boolean handled = body(gm, net.opcodes.RecvOpcode.DUEY_ACTION, b -> {
+            b.writeByte(client.processor.npc.DueyProcessor.Actions.TOSERVER_SEND_ITEM.getCode());
+            b.writeByte((byte) 4); // ETC
+            b.writeShort(item.getPosition());
+            b.writeShort((short) 1);
+            b.writeInt(0);
+            b.writeString(p2.name());
+            b.writeByte(0);
+        });
+        if (!handled) {
+            out.add("VB DUEY send handler missing or rejected");
+            return;
+        }
+        int packageId = -1;
+        try (java.sql.Connection con = tools.DatabaseConnection.getConnection();
+             java.sql.PreparedStatement ps = con.prepareStatement(
+                     "SELECT PackageId FROM dueypackages WHERE ReceiverId = ? ORDER BY PackageId DESC LIMIT 1")) {
+            ps.setInt(1, p2.id());
+            try (java.sql.ResultSet rs = ps.executeQuery()) {
+                if (rs.next()) {
+                    packageId = rs.getInt(1);
+                }
+            }
+        } catch (java.sql.SQLException e) {
+            out.add("VB DUEY package lookup failed: " + e.getMessage());
+            return;
+        }
+        out.add("VB DUEY sent " + itemId + " to " + p2.name() + " package=" + packageId);
+        if (packageId > 0) {
+            final int pkg = packageId;
+            body(p2.character(), net.opcodes.RecvOpcode.DUEY_ACTION, b -> {
+                b.writeByte(client.processor.npc.DueyProcessor.Actions.TOSERVER_CLAIM_PACKAGE.getCode());
+                b.writeInt(pkg);
+            });
+        }
+        int after = p2.character().getInventory(InventoryType.ETC).countById(itemId);
+        out.add("VB DUEY claimed recipientDelta=" + (after - before));
+    }
+
+    private void trade(Character gm, List<String> out) {
+        soloMapling.autoqa.SyntheticPlayer p2 = soloMapling.autoqa.SyntheticPlayers.login(2);
+        warp(p2.character(), gm.getMapId());
+        int itemId = 4000000;
+        client.inventory.Item item = gm.getInventory(InventoryType.ETC).findById(itemId);
+        if (item == null) {
+            out.add("VB TRADE no item " + itemId + " to offer");
+            return;
+        }
+        int gmLevel = gm.gmLevel();
+        gm.setGMLevel(0); // ticket 43 blocks GM<->player windows; the feature under test is the window itself
+        try {
+            server.Trade.startTrade(gm);
+            server.Trade.inviteTrade(gm, p2.character());
+            server.Trade.visitTrade(p2.character(), gm);
+            client.inventory.Item offer = item.copy();
+            offer.setQuantity((short) 1);
+            offer.setPosition((short) 0);
+            boolean added = gm.getTrade() != null && gm.getTrade().addItem(offer);
+            if (added) {
+                InventoryManipulator.removeFromSlot(gm.getClient(), InventoryType.ETC, item.getPosition(), (short) 1, true);
+            }
+            int p2Before = p2.character().getInventory(InventoryType.ETC).countById(itemId);
+            int p2Meso = p2.character().getMeso();
+            gm.getTrade().setMeso(5000);
+            server.Trade.completeTrade(gm);
+            server.Trade.completeTrade(p2.character());
+            int p2After = p2.character().getInventory(InventoryType.ETC).countById(itemId);
+            out.add("VB TRADE offered=" + added + " itemDelta=" + (p2After - p2Before)
+                    + " mesoDelta=" + (p2.character().getMeso() - p2Meso));
+        } finally {
+            gm.setGMLevel(gmLevel);
+        }
+    }
 }
