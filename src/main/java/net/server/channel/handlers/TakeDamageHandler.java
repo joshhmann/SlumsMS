@@ -54,6 +54,11 @@ import java.util.Optional;
 public final class TakeDamageHandler extends AbstractPacketHandler {
     private static final Logger log = LoggerFactory.getLogger(TakeDamageHandler.class);
 
+    /** Meso Guard cost (stock Cosmic): the halved damage times the buff's percentage. */
+    static int mesoGuardLoss(int damage, Integer mesoguardPercent) {
+        return (int) (damage * (mesoguardPercent.doubleValue() / 100.0));
+    }
+
     @Override
     public void handlePacket(InPacket p, Client c) {
         List<Character> banishPlayers = new ArrayList<>();
@@ -255,13 +260,13 @@ public final class TakeDamageHandler extends AbstractPacketHandler {
                 chr.addMPHP(-hploss, -mploss);
             } else if (mesoguard != null) {
                 damage = Math.round((float) damage / 2);
-                // int mesoloss = (int) (damage * (mesoguard.doubleValue() / 100.0)); // Comment out or remove this line
-                // if (chr.getMeso() < mesoloss) {
-                //     chr.gainMeso(-chr.getMeso(), false);
-                //     chr.cancelBuffStats(BuffStat.MESOGUARD);
-                // } else {
-                //     chr.gainMeso(-mesoloss, false);
-                // }
+                int mesoloss = mesoGuardLoss(damage, mesoguard);
+                if (chr.getMeso() < mesoloss) {
+                    chr.gainMeso(-chr.getMeso(), false);
+                    chr.cancelBuffStats(BuffStat.MESOGUARD);
+                } else {
+                    chr.gainMeso(-mesoloss, false);
+                }
                 chr.addMPHP(-damage, -mpattack);
             } else {
 //                if (chr.isRidingBattleship()) {
