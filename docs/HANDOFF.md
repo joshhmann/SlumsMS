@@ -6,7 +6,7 @@ something.
 
 Times: give the owner Pacific next to UTC (PDT = UTC-7).
 
-**Owner's work split (2026-10-24):** this bug-fix pass is finished. The owner will hand continuing **1.5.1 bug
+**Historical work split (superseded by the current direction below):** this bug-fix pass is finished. The owner will hand continuing **1.5.1 bug
 squashing to DeepSeek**; use `release-1.5.1`, the current TEST receipt below and section 3's remaining leads.
 **Codex is moving to 1.6.0 feature work**, starting with Ticket 60's implementation plan on `160-bot-brain`
 (`5ca02907f`, `/root/work/SlumsMS-bot-brain-160`). Runtime implementation has not started. The roadmap puts the bot
@@ -14,6 +14,31 @@ brain first. Fishing, medals, the daily dungeon and chaos bosses still need more
 owner decisions. Ticket 61's "spec/to be built" header is stale: the client MCP already exists per section 5.
 Keep the shared `slums-persistence-test` build for the bug pass; feature work must coordinate any test checkpoint
 or use a separately isolated test instance within the host caps. Do not merge 1.6.0 features into `release-1.5.1`.
+
+**Current owner direction:** 1.6.0 is paused. **DeepSeek owns tickets 68 and 69 and remains active.**
+Codex keeps the wedding QA correction, extra salon coverage and bank-question fix on separate branches.
+The owner authorized finishing this pass and merging its verified changes, then waiting for DeepSeek and Gemini.
+Their worktrees and tickets 68/69 remain unchanged.
+
+Codex candidate: `151-salon-restoration`, `/root/work/SlumsMS-151-salons`, source `fbc368f97`, contains
+upstream `5b628dda9`, the wedding QA correction and extra salon coverage, and bank-question fix `4a244a37e`.
+Full offline `mvn -q -o test`: **4,592 tests, 0 failures, 0 errors, 38 skipped**, 417 classes; package passes.
+The core salon fix was already merged by Claude as `1fe365733`; our additional name/filter tests extend its
+coverage. Seven corresponding styles also exist in the RC client's Face/Hair data. Read-only QA `sl-1` does
+not change appearance or spend coupons and does not replace ticket 69's vb-1.
+
+Wedding QA fix `f73bb543d` is on `151-qa-wedding-completion` and included in this candidate. The previous rm-2
+log recorded a random runaway before its marriage/divorce assertions; the staged wedding now skips only that
+random roll. A regression fails before and passes after; ordinary/forced runaway coverage remains green.
+
+The earlier `3a6fa1abe` selected TEST run had **7 PASS / 1 FAIL**: cv-7 answered “what u doing” with “oh nice”.
+Bank-question fix `4a244a37e` gives a factual “chatting with u rn” in that script fallback. Its conversation-flow
+regression fails before and passes after. Final deployment and selected results are recorded below.
+
+At task start TEST was `9d5a16def`, already including clearPQ and endmeso despite older notes below. Its prior
+63-check rerun had 58 PASS / 5 FAIL. Actual mount and stock PQ completion remain unverified. The gu-8 failure
+log says “nobody to kick”; its fixture stages a RIVAL leader while the one-leader kick rule requires NEMESIS.
+That is a triage lead, not a fix. Footing/overlap and other health flags remain open.
 
 ## 1. What is live
 
@@ -30,12 +55,13 @@ Deploy receipt and backups: `/opt/mapleroot-deployments/v1.5.0/` on 164. Rollbac
 /opt/mapleroot-deployments/v1.5.0/rollback.sh` (server, ~30 s) and `tools/release/publish-client --restore-manifest
 /srv/slums-staging/manifest-before-1.5.0.json` (client). **Live actions always need the owner's go** (AGENTS.md).
 
-The test server now runs **1.5.1 integration commit `1c1e5dd9c`** (the conversation hold, the KS-rally walk-in,
-couple-chair walks, the GM boss-run preemption and the mob-body step-out), deployed on 2026-10-24 under stamp
-`20261024T205847Z` with **0 boot errors**. That build also carries the earlier `c2b1a7974` NPC spacing, synthetic
-login and reply-routing fixes (checkpoint at **5:57 AM PT / 12:57 UTC**). Its version banner still says 1.5.0;
-this is a test integration build, not a live release. Source: `release-1.5.1` in `/root/work/SlumsMS-npc-space`.
-The same test settings and QA flags remain. Live was not changed.
+The last Codex deployment put **1.5.1 integration candidate `fbc368f97`** on TEST, under stamp
+`20261025T031331Z` (**8:13 PM PT Oct 24 / 03:13 UTC Oct 25, 2026**), with **0 boot errors**.
+Shared TEST login stays 8489, world 1; no config, migrations or runtime data changed. The banner still says
+1.5.0: this is an integration build, not a Live release. Jar SHA-256
+`da49afb685d5eb204af0803a2c1321a1eb8ed9749b9a1e89820e8f9467a2f620`.
+Earlier receipts `20261025T022451Z` (`ad21d0e20`, five selected PASS) and `20261025T024019Z`
+(`3a6fa1abe`, seven selected PASS / one FAIL) remain available. Live was not changed.
 
 ## 2. In flight right now
 
@@ -232,7 +258,7 @@ Owner-reported or found, roughly by priority:
   line (commit `402851969`); backup `/root/slumsms-monitor.before-director-fix`. The repo copy also has the newer
   `maintenance end --client` feature, not installed yet; install the whole file with the 1.5.1 release.
 
-- **PQ/event clears crash (fixed on `151-clearpq-expedition`, merged into release-1.5.1, NOT on TEST or live yet):**
+- **PQ/event clears crash (fixed on `151-clearpq-expedition`, merged into release-1.5.1 and present on TEST; no Live deploy by this pass):**
   `EventInstanceManager.clearPQ` wrote the boss log assuming an expedition, so every non-expedition instance that
   finishes through `clearPQ` (the Kenta mount room, KPQ/LPQ/other PQs, Cathedral/Chapel weddings: 57 scripts) threw a
   NullPointerException and the player was never sent out or rewarded. Seen on live 2026-10-24 (npc 9060000, a player
@@ -283,3 +309,55 @@ Owner-reported or found, roughly by priority:
 
 Anything on live, any publish to the Live launcher/client feed, nginx changes, Discord posts, economy changes,
 or anything this file or AGENTS.md doesn't cover.
+
+## Codex coordination note
+
+Owner clarified that DeepSeek is actively working tickets 68 and 69. Changes drafted for those tickets and the
+Cosmic classifier/inventory were removed from the tracked diff and preserved only under ignored
+`dist/audit-68/` in `/root/work/SlumsMS-151-salons`. They are not a separate competing implementation and are
+not published as completed audit work. DeepSeek's files/worktrees were never changed.
+
+The earlier `3a6fa1abe` TEST run completed **7 PASS / 1 FAIL / 0 SKIP** of eight selected checks:
+bg-1, rm-2, cv-4, cv-5, sl-1, vg-1 and ch-1 passed; cv-7 failed reply quality. Its log
+`cv-7-20261025T024552Z.log` shows “what u doing” answered by “oh nice”. The invitation reply itself passed;
+this is a remaining activity-question fallback bug, not evidence that all cv-7 behavior is fixed.
+Receipt `/opt/mapleroot-dev/persistence-test/deploys/20261025T024019Z` holds the saved result, status and failing log.
+Zero ERROR/Exception lines since this boot; overall health remains FAIL (footing, overlap and an invalid-map flag).
+Those health leads were not fixed here. No real client, mount capture or full stock PQ completion was tested.
+
+The narrow fix is `4a244a37e` on pushed branch `151-bank-question`, own worktree
+`/root/work/SlumsMS-151-bank-question`: in script fallback only, direct activity questions get “chatting with u rn”.
+No guessing from a roster role, new model call, action, rate or reward. The real conversation-flow regression
+fails before and passes after; focused tests pass. Its standalone full run was superseded by the combined
+candidate's full verification below. This fix is included in deployed source `fbc368f97`.
+
+## Final combined bank-question candidate
+
+Source `fbc368f97` contains the bank fix `4a244a37e` as well as the previously checked
+wedding/salon coverage and upstream `5b628dda9`. Final full `mvn -q -o test`:
+**4,592 tests, 0 failures, 0 errors, 38 skipped**, 417 classes. Log `/tmp/151-takeover-bank-combined-full.log`.
+The bank-enabled conversation-flow regression failed before (expected an activity answer, got “oh nice”) and
+passes after for three direct question forms. Additional positive/negative wording tests pass. Stories, past
+tense, refusals and compound requests keep their previous paths. The fallback describes only the conversation
+currently happening; it does not guess the bot's physical activity from a saved role. No model or rate changes.
+Owner instruction is to finish and merge this pass, then wait for DeepSeek and Gemini. No further ticket work
+is being started.
+
+Final TEST receipt: `/opt/mapleroot-dev/persistence-test/deploys/20261025T031331Z`, deployed source `fbc368f97`.
+Normal-timing run **8:15:25–8:17:53 PM PT Oct 24 (03:15:25–03:17:53 UTC Oct 25, 2026)**:
+**6 PASS / 0 FAIL / 0 SKIP** — bg-1, rm-2, cv-7, sl-1, vg-1, ch-1. The saved `autoqa-result.json` records
+this run's exact source and six results; `test-status.txt` and the three changed-area QA logs are beside it.
+`cv-7-20261025T031633Z.log` records “what u doing” answered by “chatting with u rn”; its judge, script-only,
+no-repeat and say-do assertions all pass. `rm-2-20261025T031527Z.log` passes marriage/divorce;
+`sl-1-20261025T031742Z.log` passes seven real-data style lookups.
+Zero ERROR/Exception lines since the 8:14 PM PT / 03:14 UTC boot. Health still FAIL: footing and overlap;
+invalid maps and clumps are OK at this checkpoint. The saved daily mixed report has 63 PASS / 3 FAIL / 11 SKIP,
+with older af-1, gu-8 and cb-2 leads, **not a fresh full-catalogue run on this build**.
+No real-client salon preview/coupon use, mount capture or full stock PQ clear was performed.
+
+Release integration uses this tested tree: upstream `5b628dda9` was merged cleanly before the full suite,
+then the separately tested bank fix was merged as `fbc368f97` and the full suite rerun. Only documentation
+changed after that verification. Push `151-salon-restoration` and fast-forward `origin/release-1.5.1` to the
+same final documentation commit, preserving the tested source. The separate wedding and bank branches are
+also pushed. Leave shared TEST running; wait for DeepSeek and Gemini before further work. No Live, Discord,
+private 1.6.0 server or client changes were made in this finishing pass. No owner decision is needed to wait.
