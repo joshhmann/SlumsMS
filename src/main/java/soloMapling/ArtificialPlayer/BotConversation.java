@@ -438,7 +438,7 @@ public final class BotConversation {
                     return;
                 }
                 case THANKS, BYE -> {
-                    deliver(session, bank(session, soloMapling.ArtificialPlayer.BotConvo.ConvoLines.key(triage.kind(), line),
+                    deliver(session, bank(session, soloMapling.ArtificialPlayer.BotConvo.ConvoLines.key(triage.kind(), triage.intent(), line),
                                     read, ScriptedReplies.forKind(triage.kind())), asked, ChatStats.Tier.SCRIPTED,
                             triage.kind().name().toLowerCase(), cue);
                     return;
@@ -529,7 +529,7 @@ public final class BotConversation {
                         && triage.kind() == ChatTriage.Kind.GREETING
                         ? bank(session, "recognise", read, BotRecognition.scriptedHello(player.getName(),
                         ThreadLocalRandom.current()))
-                        : bank(session, soloMapling.ArtificialPlayer.BotConvo.ConvoLines.key(triage.kind(), line), read,
+                        : bank(session, soloMapling.ArtificialPlayer.BotConvo.ConvoLines.key(triage.kind(), triage.intent(), line), read,
                         ScriptedReplies.forKind(triage.kind()));
                 deliver(session, scripted, asked, ChatStats.Tier.SCRIPTED, detail + ", llm fell back", cue);
             }
