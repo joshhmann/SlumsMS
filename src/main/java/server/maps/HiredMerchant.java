@@ -34,6 +34,7 @@ import client.processor.npc.FredrickProcessor;
 import config.YamlConfig;
 import net.packet.Packet;
 import net.server.Server;
+import net.server.world.World;
 import server.ItemInformationProvider;
 import server.Trade;
 import soloMapling.ArtificialPlayer.BotHoldings;
@@ -119,6 +120,17 @@ public class HiredMerchant extends AbstractMapObject {
         }
     }
 
+    /**
+     * 1.5.2: a merchant can outlive its map (the channel disposed it at shutdown, or a close already ran and nulled it).
+     * There is nobody on that map to tell, and the throw used to abort the caller halfway through a close.
+     */
+    private void broadcastIfOnMap(Packet packet) {
+        MapleMap map = this.map;
+        if (map != null) {
+            map.broadcastMessage(packet);
+        }
+    }
+
     private void broadcastToVisitors(Packet packet) {
         for (Visitor visitor : visitors) {
             if (visitor != null) {
@@ -154,7 +166,7 @@ public class HiredMerchant extends AbstractMapObject {
             if (i > -1) {
                 visitors[i] = new Visitor(visitor, Instant.now());
                 broadcastToVisitors(PacketCreator.hiredMerchantVisitorAdd(visitor, i + 1));
-                this.getMap().broadcastMessage(PacketCreator.updateHiredMerchantBox(this));
+                broadcastIfOnMap(PacketCreator.updateHiredMerchantBox(this));
 
                 return true;
             }
@@ -178,7 +190,7 @@ public class HiredMerchant extends AbstractMapObject {
                 visitors[slot] = null;
                 addVisitorToHistory(visitor);
                 broadcastToVisitors(PacketCreator.hiredMerchantVisitorLeave(slot + 1));
-                this.getMap().broadcastMessage(PacketCreator.updateHiredMerchantBox(this));
+                broadcastIfOnMap(PacketCreator.updateHiredMerchantBox(this));
             }
         } finally {
             visitorLock.unlock();
@@ -227,7 +239,7 @@ public class HiredMerchant extends AbstractMapObject {
                 }
             }
 
-            this.getMap().broadcastMessage(PacketCreator.updateHiredMerchantBox(this));
+            broadcastIfOnMap(PacketCreator.updateHiredMerchantBox(this));
         } finally {
             visitorLock.unlock();
         }
@@ -407,10 +419,14 @@ public class HiredMerchant extends AbstractMapObject {
                     + " force-closed with " + items.size() + " item line(s), map " + (map == null ? "?" : map.getId()));
         }
         //Server.getInstance().getChannel(world, channel).removeHiredMerchant(ownerId);
-        map.broadcastMessage(PacketCreator.removeHiredMerchantBox(getOwnerId()));
-        map.removeMapObject(this);
+        MapleMap map = this.map;    // 1.5.2: already off the map (channel shutdown, or a close that ran before this one)
+        if (map != null) {
+            map.broadcastMessage(PacketCreator.removeHiredMerchantBox(getOwnerId()));
+            map.removeMapObject(this);
+        }
 
-        Character owner = Server.getInstance().getWorld(world).getPlayerStorage().getCharacterById(ownerId);
+        World wserv = Server.getInstance().getWorld(world);
+        Character owner = (wserv == null) ? null : wserv.getPlayerStorage().getCharacterById(ownerId);
 
         visitorLock.lock();
         try {
@@ -424,7 +440,9 @@ public class HiredMerchant extends AbstractMapObject {
             visitorLock.unlock();
         }
 
-        Server.getInstance().getWorld(world).unregisterHiredMerchant(this);
+        if (wserv != null) {
+            wserv.unregisterHiredMerchant(this);
+        }
 
         try {
             saveItems();
@@ -435,7 +453,7 @@ public class HiredMerchant extends AbstractMapObject {
             ex.printStackTrace();
         }
 
-        Character player = Server.getInstance().getWorld(world).getPlayerStorage().getCharacterById(ownerId);
+        Character player = (wserv == null) ? null : wserv.getPlayerStorage().getCharacterById(ownerId);
         if (player != null) {
             player.setHasMerchant(false);
         } else if (isPersistent()) {
@@ -448,7 +466,7 @@ public class HiredMerchant extends AbstractMapObject {
             }
         }
 
-        map = null;
+        this.map = null;
     }
 
     public void closeOwnerMerchant(Character chr) {
