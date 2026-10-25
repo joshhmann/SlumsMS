@@ -107,7 +107,7 @@ public final class OPQConstants {
 
     // ---- Tuning -------------------------------------------------------------
     public static final long STAGE_WAIT_TIMEOUT_MS        = 120_000; // 2 min per stage wait
-    public static final long RECRUIT_MESSAGE_INTERVAL_MS  =  12_000; // chat every ~12s in lobby
+    public static final long RECRUIT_IDLE_RECHECK_MS      =   5_000; // retry the lobby budget / listener check
     public static final long NAVIGATE_SETTLE_MS           =   1_500; // pause after arriving at platform
     public static final long ASSIGNMENT_POLL_MS           =     500; // how often the bot re-checks a null assignment
     public static final int  MAX_REACTOR_HITS             =       4; // OPQ cloud reactors break after 4 hits

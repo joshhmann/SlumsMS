@@ -7,6 +7,7 @@ import server.maps.Reactor;
 import soloMapling.ArtificialPlayer.BotCommandsPack.BotAttack;
 import soloMapling.ArtificialPlayer.BotCommandsPack.DropCommands;
 import soloMapling.ArtificialPlayer.BotCommandsPack.SocialCommands;
+import soloMapling.ArtificialPlayer.BotHelpers;
 import soloMapling.ArtificialPlayer.BotLogic;
 import soloMapling.ArtificialPlayer.BotMessagingSystem.ChatMessage;
 import soloMapling.ArtificialPlayer.BotMessagingSystem.MessageQueue;
@@ -61,6 +62,7 @@ public class OPQBot extends BotSM {
     // Per-state timers / scratch fields
     private long stageWaitStartTime;
     private long lastRecruitMessageAt;
+    private long nextRecruitMessageAt;
     private volatile int reactorHitsThisTarget;
 
     private int cloudPiecesLooted;
@@ -147,6 +149,7 @@ public class OPQBot extends BotSM {
         hint = Collections.singletonList(getChr().getName());
         stageWaitStartTime = 0;
         lastRecruitMessageAt = 0;
+        nextRecruitMessageAt = 0;
         reactorHitsThisTarget = 0;
         cloudPiecesLooted = 0;
         lootedRecordItemId = -1;
@@ -291,10 +294,21 @@ public class OPQBot extends BotSM {
             return;
         }
         long now = System.currentTimeMillis();
-        if (now - lastRecruitMessageAt >= OPQConstants.RECRUIT_MESSAGE_INTERVAL_MS) {
+        if (now >= nextRecruitMessageAt) {
+            if (!anyPlayerListening()) {
+                // Nobody in the lobby to invite us: an empty map does not need advertising.
+                nextRecruitMessageAt = now + OPQConstants.RECRUIT_IDLE_RECHECK_MS;
+                return;
+            }
+            if (!OPQLobbyChat.allowRecruit(now, getChr().getClient().getChannel(), getChr().getMapId())) {
+                // The lobby as a whole has said enough this minute - try again shortly.
+                nextRecruitMessageAt = now + OPQConstants.RECRUIT_IDLE_RECHECK_MS;
+                return;
+            }
             String msg = OPQRecruitMessages.generateRecruitMessage(getChr());
             SocialCommands.BotSpeak(getChr(), msg);
             lastRecruitMessageAt = now;
+            nextRecruitMessageAt = now + OPQLobbyChat.nextIntervalMs();
             debugLogf("Recruit chat sent: \"" + msg + "\"");
             // Ticket 47: a lobby bot that can really be invited is a PQ actually forming - worth a megaphone
             // (WorldEventMegaphones rate-limits it to one call per PQ per cooldown).
@@ -947,6 +961,23 @@ public class OPQBot extends BotSM {
 
     private boolean isInParty() {
         return getChr().getParty() != null;
+    }
+
+    /**
+     * True when a real player is on this map to read (and act on) a recruit line. Lobby advertising only makes
+     * sense for someone who can invite the bot; a lobby full of other bots does not need it.
+     */
+    private boolean anyPlayerListening() {
+        MapleMap map = getChr().getMap();
+        if (map == null) {
+            return false;
+        }
+        for (Character player : map.getAllPlayers()) {
+            if (player != null && !BotHelpers.isBot(player)) {
+                return true;
+            }
+        }
+        return false;
     }
 
     private Character getPartyLeader() {
