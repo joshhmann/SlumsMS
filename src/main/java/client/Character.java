@@ -1969,6 +1969,15 @@ public class Character extends AbstractCharacterObject {
             map = to;
             setPosition(pos);
             map.addPlayer(this);
+            if (client.getChannelServer().getPlayerStorage().getCharacterById(getId()) == null) {
+                // 1.5.2 (nutnnut/Cosmic ae5753df0): a logout landed between the check above and addPlayer, and its own
+                // map removal saw the old map. Unwind, or the logged-out character stays in this map's lists as a
+                // ghost (and once disposed, breaks broadcasts here). BotGeneration.removeBotFromServer covers the
+                // other order for bots.
+                log.warn("Chr {} logged out mid-warp to map {}: unwinding its map entry", getName(), to.getId());
+                map.removePlayer(this);
+                return;
+            }
             soloMapling.qa.MapEntryMeter.placed(this);
             visitMap(map);
 
