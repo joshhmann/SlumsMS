@@ -60,7 +60,7 @@ Success lines are the ones in `docs/qa/QA.md` (the `VB ...` column). Without `wz
 - `vb-2`,`vb-3`,`vb-5`,`vb-6`,`vb-7`: the unit test feeds each check the outcome a broken feature would produce and
   asserts FAIL (no delete response, uncleared PQ, no reward, rate 1 -> 1, job 100 -> 100, empty transfer). The live
   end-to-end break was not run because it needs the TEST server, which the owner asked us not to touch.
-- `vb-3`'s `039d13164` revert and the hog catch are **not** proven here: no headless seam.
+- `vb-3`'s `039d13164` revert is **not** proven here: no headless seam without TEST.
 
 ## Suite
 
@@ -68,6 +68,5 @@ Success lines are the ones in `docs/qa/QA.md` (the `VB ...` column). Without `wz
 
 ## Not done
 
-- The hog catch in `vb-4` is only logged; WZ item effect, no server hook.
 - `vb-2` and `vb-4`'s 6002 room need WZ; `WzTestData.assumePresent` gating is only in the test suite, not the staging.
 - No run against TEST was made; `mvn -q -o test` is the evidence available.

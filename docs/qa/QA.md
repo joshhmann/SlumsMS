@@ -84,11 +84,11 @@ dialog that refuses a step the check expects to succeed fails it (`Expects.noRef
 | `t-vb-1` | hair, hair colour, face, lenses and skin at the Henesys salons, each with its coupon | `VB STYLE <step> <id> -> <id> changed` and `VB COUPON <id> 1 -> 0` |
 | `t-vb-2` | creates a scratch character and deletes it through the login handler with PIC | `VB DELETE state=<cid> state 0 gone=true` (wrong PIC: `state 20 stillThere=true`) |
 | `t-vb-3` | starts a Kerning PQ instance, clears it, takes the reward, exits | `VB KPQ cleared=true` then `VB KPQ reward given=true ... map=103000805` |
-| `t-vb-4` | 3rd-job mount chain: the 6002 room and hand-in, Tatamo's 20m bottle (fee and refusal), the 6003 perfume | `VB MOUNT bottle canComplete=true ... fee=20000000`, `VB MOUNT perfume ...` |
+| `t-vb-4` | 3rd-job mount chain: the 6002 room and hand-in, Tatamo's 20m bottle (fee and refusal), the 6003 perfume, and catching the hog | `VB MOUNT bottle canComplete=true ... fee=20000000`, `VB MOUNT perfume ...` |
 | `t-vb-5` | buys and sells at Henesys NPC 1012004, then makes the Cash Shop EXP coupon take effect | `VB SHOP buy ... owned 0 -> 1`, `VB CASH card=5211048 given=true rate 1 -> 2` |
 | `t-vb-6` | Dances with Balrog promotes 100 -> 110, then a real skill point is spent | `VB JOB advance 100 -> 110`, `VB JOB sp spend ... level 0 -> 1` |
 | `t-vb-7` | storage round trip, Duey to the other pretend player, and a trade between the two | `VB STORAGE tookOut bagDelta=0`, `VB DUEY claimed recipientDelta=1`, `VB TRADE offered=true itemDelta=1 mesoDelta=5000` |
 
-`t-vb-4`'s hog catch is only logged: the catch is a WZ item effect on a mob under 40% HP and there is no server-side
-hook to drive it headlessly. `t-vb-5` stages the coupon by toggling it in the server's active set and always puts the
+`t-vb-4` also drives the catch: it spawns the tamable hog if the hourly spawn is not up, drops it to 30% HP and sends
+the real `USE_CATCH_ITEM` packet with the perfume, so `VB MOUNT hog ... handler=true ... perfumeUsed=1` is the catch. `t-vb-5` stages the coupon by toggling it in the server's active set and always puts the
 toggle back.
