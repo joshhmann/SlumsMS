@@ -21,6 +21,7 @@ import static soloMapling.server.SoloMaplingUtilities.random;
 // OPQ's unconditional accept path (BotPartyLogic.checkPartyQueue) is deliberately untouched.
 public class BotRecruitManager {
 
+    // Legacy cap while OWNED_ALTS_ENABLED is off. With companions enabled, capacity is per owner.
     // Cap on simultaneous followers world-wide. Deliberately above the 6-man party cap - future
     // raid/PQ recruiting may follow without partying; today the invite flow is the practical limit.
     public static final int FOLLOWER_CAP = 30;
@@ -77,7 +78,10 @@ public class BotRecruitManager {
             debugprint("rollPartyAsk: " + botChr.getName() + " DECLINED " + player.getName() + " (rival or nemesis)");
             return RecruitAnswer.DECLINED;
         }
-        if (willBecomeFollower && activeFollowerCount() >= FOLLOWER_CAP) {
+        boolean companionsEnabled = config.YamlConfig.config.server.OWNED_ALTS_ENABLED;
+        if (willBecomeFollower && (companionsEnabled
+                ? !soloMapling.companions.OwnedAltService.getInstance().hasCompanionRoom(player.getId())
+                : activeFollowerCount() >= FOLLOWER_CAP)) {
             debugprint("rollPartyAsk: follower cap reached (" + FOLLOWER_CAP + "), declining");
             return RecruitAnswer.FOLLOWERS_FULL;
         }
@@ -276,7 +280,8 @@ public class BotRecruitManager {
     // release). Callers MUST release once the bot is a follower or provably never will be.
     public static boolean tryReserveFollower(int botCharId) {
         Armed armed = ARMED.get(botCharId);
-        if (config.YamlConfig.config.server.OWNED_ALTS_ENABLED && armed != null
+        boolean sharedCap = config.YamlConfig.config.server.OWNED_ALTS_ENABLED && armed != null;
+        if (sharedCap
                 && !soloMapling.companions.OwnedAltService.getInstance().reserveCompanion(armed.inviterId(), botCharId)) {
             return false;
         }
@@ -285,7 +290,7 @@ public class BotRecruitManager {
         }
         while (true) {
             int held = RESERVED_FOLLOWERS.get();
-            if (liveFollowerCount() + held >= FOLLOWER_CAP) {
+            if (!sharedCap && liveFollowerCount() + held >= FOLLOWER_CAP) {
                 RESERVED_FOLLOWER_IDS.remove(botCharId);
                 soloMapling.companions.OwnedAltService.getInstance().releaseCompanion(botCharId);
                 return false;

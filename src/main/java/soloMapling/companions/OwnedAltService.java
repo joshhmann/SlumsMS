@@ -70,7 +70,10 @@ public final class OwnedAltService {
         return ids;
     }
     /** Shared with friend recruitment, including accepts not yet converted into followers. */
+    public synchronized boolean hasCompanionRoom(int ownerId) { return occupied(ownerId).size() < CAP; }
     public synchronized boolean reserveCompanion(int ownerId, int companionId) {
+        Integer reservedFor = friendReservations.get(companionId);
+        if (reservedFor != null && reservedFor != ownerId) return false;
         Set<Integer> ids = occupied(ownerId);
         if (!ids.contains(companionId) && ids.size() >= CAP) return false;
         friendReservations.put(companionId, ownerId);

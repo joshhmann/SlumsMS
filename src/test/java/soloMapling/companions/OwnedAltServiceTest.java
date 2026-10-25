@@ -67,6 +67,7 @@ class OwnedAltServiceTest {
         assertThrows(IllegalStateException.class, () -> s.summon(owner, "Alt3"));
         assertFalse(s.reserveCompanion(1, 104));
         assertTrue(s.reserveCompanion(9, 105));
+        assertFalse(s.reserveCompanion(20, 105), "one friend reservation cannot belong to two owners");
     }
     @Test void loginSavesAndRemovesBeforeAllowingReloadAndReservesUntilRegistration() {
         Memory db = new Memory(); db.add(2);

@@ -34,4 +34,32 @@ class OwnedAltExclusionTest {
         }
     }
 
+    @Test void enabledFriendCapacityBelongsToOwnerRatherThanWholeWorld() {
+        boolean enabled = config.YamlConfig.config.server.OWNED_ALTS_ENABLED;
+        var manager = OwnedAltService.getInstance();
+        int base = 1_000_410_000, botId = base + 100, ownerId = 410_001;
+        try (var affinity = mockStatic(soloMapling.ArtificialPlayer.BotAffinitySystem.BotAffinity.class)) {
+            config.YamlConfig.config.server.OWNED_ALTS_ENABLED = true;
+            for (int n = 0; n < 30; n++) {
+                BotSM bot = mock(BotSM.class); when(bot.getBotType()).thenReturn("FollowerBot");
+                CharacterStorage.addActiveBot(base+n,bot);
+            }
+            Character bot = mock(Character.class); when(bot.getLevel()).thenReturn(10); when(bot.getId()).thenReturn(botId);
+            Character owner = OwnedAltServiceTest.owner(ownerId);
+            assertEquals(soloMapling.ArtificialPlayer.BotPartySystem.BotRecruitManager.RecruitAnswer.ACCEPTED,
+                    soloMapling.ArtificialPlayer.BotPartySystem.BotRecruitManager.rollPartyAsk(bot,owner,1.0,true));
+            assertTrue(soloMapling.ArtificialPlayer.BotPartySystem.BotRecruitManager.tryReserveFollower(botId));
+            soloMapling.ArtificialPlayer.BotPartySystem.BotRecruitManager.releaseFollowerReservation(botId);
+            for (int n = 0; n < 5; n++) assertTrue(manager.reserveCompanion(ownerId,base+200+n));
+            assertEquals(soloMapling.ArtificialPlayer.BotPartySystem.BotRecruitManager.RecruitAnswer.FOLLOWERS_FULL,
+                    soloMapling.ArtificialPlayer.BotPartySystem.BotRecruitManager.rollPartyAsk(bot,owner,1.0,true));
+        } finally {
+            for (int n = 0; n < 30; n++) CharacterStorage.removeActiveBot(base+n);
+            for (int n = 0; n < 5; n++) manager.releaseCompanion(base+200+n);
+            soloMapling.ArtificialPlayer.BotPartySystem.BotRecruitManager.releaseFollowerReservation(botId);
+            soloMapling.ArtificialPlayer.BotPartySystem.BotRecruitManager.clearArmed(botId);
+            config.YamlConfig.config.server.OWNED_ALTS_ENABLED = enabled;
+        }
+    }
+
 }
