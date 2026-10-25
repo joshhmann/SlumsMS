@@ -78,9 +78,10 @@ class Labels(unittest.TestCase):
 
     def test_duration(self):
         self.assertEqual(C.duration_label(5211004, 30), "30d")
-        self.assertEqual(C.duration_label(5211048, 1), "4hrs")
-        self.assertEqual(C.duration_label(5211060, 1), "2hrs")
-        self.assertEqual(C.duration_label(5360042, 1), "4hrs")
+        # 1.5.1: every coupon is sold by the day; the stock "1 means 4h/2h" cases are gone.
+        self.assertEqual(C.duration_label(5211048, 7), "7d")
+        self.assertEqual(C.duration_label(5211060, 1), "1d")
+        self.assertEqual(C.duration_label(5360042, 1), "1d")
         self.assertEqual(C.duration_label(5360000, 1), "1d")
         self.assertEqual(C.duration_label(5211004, 0), "")
 
@@ -91,7 +92,7 @@ class ShopName(unittest.TestCase):
         (5211010, 2, WZ_5211010, 30, "2x EXP Sa-Su 10am-2pm 30d"),
         (5211016, 2, WZ_5211016, 10, "2x EXP 1-5pm 10d"),
         (5211037, 2, WZ_5211037, 30, "2x EXP M-F 12-4am 30d"),
-        (5211060, 3, WZ_5211060, 1, "3x EXP anytime 2hrs"),
+        (5211060, 3, WZ_5211060, 1, "3x EXP anytime 1d"),
         (5360000, 2, WZ_5360000, 1, "2x Drop anytime 1d"),
         (5360005, 2, WZ_5360005, 10, "2x Drop 7-11pm 10d"),
     ]
@@ -127,13 +128,23 @@ class AgainstServerWz(unittest.TestCase):
         with open(R.DEFAULT_CATALOG, encoding="utf-8") as fh:
             rows = [line.split("\t") for line in fh if line[:1].isdigit()]
         coupons = [r for r in rows if int(r[0]) // 1000 in R.RATE_COUPON_TYPES]
-        self.assertGreater(len(coupons), 30)
+        lookup = R.item_overrides(R.load_overrides(R.DEFAULT_OVERRIDES))
+        self.assertEqual(2, len(coupons))
         for r in coupons:
             i, period, name = int(r[0]), int(r[5]), r[7].strip()
             info = w.items[i]
             with self.subTest(item_id=i):
-                self.assertEqual(C.shop_name(i, info["rate"], info["time"], period), name)
+                if not lookup(i).get("name"):     # an overrides.yaml name wins (the two EXP cards)
+                    self.assertEqual(C.shop_name(i, info["rate"], info["time"], period), name)
                 self.assertTrue(all(len(x) <= 12 for x in cell_lines(name)), cell_lines(name))
+
+    def test_only_the_two_all_day_exp_cards_are_sold(self):
+        import catalog_rules as R
+        with open(R.DEFAULT_CATALOG, encoding="utf-8") as fh:
+            rows = {int(f[0]): f for f in (line.rstrip("\n").split("\t") for line in fh if line[:1].isdigit())}
+        exp = {i: (int(f[1]), int(f[5]), f[7]) for i, f in rows.items() if i // 1000 == 5211}
+        self.assertEqual({5211048: (6000, 7, "2x EXP Card 7 days"), 5211060: (3000, 1, "3x EXP Card 1 day")}, exp)
+        self.assertEqual([], [i for i in rows if i // 1000 == 5360], "no drop card is sold (owner 1.5.1)")
 
 
 if __name__ == "__main__":

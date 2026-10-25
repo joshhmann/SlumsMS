@@ -23,16 +23,18 @@ import java.util.function.IntFunction;
 import java.util.function.IntPredicate;
 
 /**
- * 1.5.1 {@code @coupons}: when your EXP and drop coupons work, on the server's clock and on Pacific time.
+ * 1.5.1 {@code @coupons}: when your EXP cards (and any drop cards you still own) work, on the server's clock and on
+ * Pacific time.
  *
  * <p>Coupon hours are checked on the SERVER's clock (config TIMEZONE, GMT-6 on live), which is not the players'
  * Pacific clock and moves against it with daylight saving. The Cash Shop window can only show an item's name, so the
- * shop names carry the server hours ("2x EXP M-F 7-11am 30d") and this command says which zone that is, translates it,
- * and tells you whether each coupon you hold is working right now. Read-only.
+ * The shop sells only two EXP cards, both working all day (owner 1.5.1: "2x EXP Card 7 days", "3x EXP Card 1 day");
+ * older timed cards that players still own keep their hours. This command says which zone those hours are in,
+ * translates them, and tells you whether each coupon you hold is working right now. Read-only.
  */
 public class CouponsCommand extends Command {
     {
-        setDescription("When your EXP/drop coupons work (server time and Pacific time).");
+        setDescription("When your EXP cards work (server time and Pacific time).");
     }
 
     /** One rate coupon a player holds. {@code expiration} is epoch millis, -1 for none. */
@@ -112,13 +114,13 @@ public class CouponsCommand extends Command {
             out.add(sb.toString());
         }
         if (held.isEmpty()) {
-            out.add("You have no EXP or drop coupons.");
+            out.add("You have no EXP cards.");
         }
         if (!stackRates && (activeExp > 1 || activeDrop > 1)) {
             out.add("Coupons do not stack: only your best working EXP coupon (and best drop coupon) counts.");
         }
-        out.add("Cash Shop coupon names use server hours: \"2x EXP M-F 7-11am 30d\" = 2x EXP, Mon-Fri, 7-11 AM server"
-                + " time, lasts 30 days. Sa-Su = weekend, no day = every day.");
+        out.add("The Cash Shop's EXP cards work all day, every day: 2x EXP Card 7 days and 3x EXP Card 1 day."
+                + " Older timed cards keep their hours.");
         return out;
     }
 

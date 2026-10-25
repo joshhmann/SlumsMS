@@ -89,11 +89,19 @@ class CashShopCatalogFixesTest {
             coupons++;
             final int period = Integer.parseInt(f[5]);
             assertTrue(period > 0, "permanent rate coupon " + id);
-            if (id == 5211048 || id == 5211060 || id == 5360042) {
-                assertEquals(1, period, "hour coupon " + id);
+        }
+        assertEquals(2, coupons);
+    }
+
+    /** Owner 1.5.1: two all-day EXP cards, 2x for 7 days and 3x for 1 day. No other EXP card, no drop card. */
+    @Test void shippedRateCouponsAreTheTwoAllDayExpCards() throws Exception {
+        final Map<Integer, String> sold = new java.util.TreeMap<>();
+        for (String[] f : shippedRows().values()) {
+            if (CashShopServices.isRateCoupon(Integer.parseInt(f[0]))) {
+                sold.put(Integer.parseInt(f[0]), f[1] + "/" + f[5] + "/" + f[7]);
             }
         }
-        assertTrue(coupons > 30);
+        assertEquals(Map.of(5211048, "6000/7/2x EXP Card 7 days", 5211060, "3000/1/3x EXP Card 1 day"), sold);
     }
 
     @Test void shippedCatalogSellsPartnerRingsOnlyThroughThePartnerFlowAndDropsInertAreaEffects() throws Exception {

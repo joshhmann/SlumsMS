@@ -359,13 +359,18 @@ class CashShopPurchaseTest {
             ii.when(ItemInformationProvider::getInstance).thenReturn(info);
             catalog.when(() -> CashShopCatalog.byItemId(5211060)).thenReturn(row(5211060, 100, 1));
             catalog.when(() -> CashShopCatalog.byItemId(5211004)).thenReturn(row(5211004, 100, 30));
+            catalog.when(() -> CashShopCatalog.byItemId(5211048)).thenReturn(row(5211048, 100, 7));
+            catalog.when(() -> CashShopCatalog.byItemId(5360042)).thenReturn(row(5360042, 100, 1));
             check.when(() -> Inventory.checkSpots(eq(player), anyList())).thenReturn(true);
             List<Item> got = new ArrayList<>();
             delivery.when(() -> InventoryManipulator.addFromDrop(eq(client), any(Item.class), eq(false)))
                     .thenAnswer(call -> got.add(call.getArgument(1)));
-            assertTrue(CashShopWindowPurchase.buy(client, player, new int[]{5211060, 5211004}).ok());
-            assertEquals(now + java.util.concurrent.TimeUnit.HOURS.toMillis(2), got.get(0).getExpiration());
+            assertTrue(CashShopWindowPurchase.buy(client, player, new int[]{5211060, 5211004, 5211048, 5360042}).ok());
+            // 1.5.1 (owner): 3x EXP exactly 1 day, 2x EXP exactly 7, the 2x drop 1-day card 1 day. No hours cases.
+            assertEquals(now + java.util.concurrent.TimeUnit.DAYS.toMillis(1), got.get(0).getExpiration());
             assertEquals(now + java.util.concurrent.TimeUnit.DAYS.toMillis(30), got.get(1).getExpiration());
+            assertEquals(now + java.util.concurrent.TimeUnit.DAYS.toMillis(7), got.get(2).getExpiration());
+            assertEquals(now + java.util.concurrent.TimeUnit.DAYS.toMillis(1), got.get(3).getExpiration());
         } finally {
             server.USE_SUPPLY_RATE_COUPONS = was;
         }

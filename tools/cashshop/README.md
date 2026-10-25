@@ -51,8 +51,11 @@ on disk is stale.
 - **Names**: the String.wz name, cut to 40 characters. **Rate coupons** (5211xxx/5360xxx) are named
   from their WZ `info/time` schedule instead (`coupon_schedule.py`), because the window shows nothing
   but the name: `2x EXP M-F 7-11am 30d` is Mon-Fri 07:00-11:00 server time for 30 days, `Sa-Su` is
-  the weekend, no day means every day, `anytime 4hrs` lasts 4 hours from purchase. The pieces are
-  ordered so the grid's two ~12-character lines break between them. An `items` name still wins.
+  the weekend, no day means every day, `anytime 7d` works all day for 7 days. The period is always
+  days. The pieces are ordered so the grid's two ~12-character lines break between them. An `items`
+  name still wins: since 1.5.1 (owner) only two EXP cards are sold, both working all day and named in
+  `overrides.yaml` ("2x EXP Card 7 days", "3x EXP Card 1 day"). Every other 5211xxx and every drop card
+  (5360xxx) is hidden; cards players already own keep working.
   In game, `@coupons` names the server's zone, translates each held coupon's hours to Pacific time and
   says whether it is working now; buying a coupon in the window prints the same hours in chat.
   These names are rejected: blank,

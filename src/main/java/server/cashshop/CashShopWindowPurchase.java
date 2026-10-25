@@ -7,7 +7,6 @@ import client.inventory.InventoryType;
 import client.inventory.Item;
 import client.inventory.Pet;
 import client.inventory.manipulator.InventoryManipulator;
-import constants.id.ItemId;
 import constants.inventory.ItemConstants;
 import net.server.Server;
 import server.CashShop;
@@ -26,7 +25,6 @@ import java.util.List;
 import java.util.Set;
 
 import static java.util.concurrent.TimeUnit.DAYS;
-import static java.util.concurrent.TimeUnit.HOURS;
 
 /**
  * The purchase path for the standalone Cash Shop window.
@@ -112,21 +110,20 @@ public final class CashShopWindowPurchase {
 
         if (ItemConstants.EXPIRING_ITEMS && r.period() > 0) {
             final long now = Server.getInstance().getCurrentTime();
-            if (r.period() == 1) {
-                // The stock special-cases: a "1" on these coupons means hours, not a day.
-                switch (itemId) {
-                    case ItemId.DROP_COUPON_2X_4H, ItemId.EXP_COUPON_2X_4H ->
-                            item.setExpiration(now + HOURS.toMillis(4));
-                    case ItemId.EXP_COUPON_3X_2H ->
-                            item.setExpiration(now + HOURS.toMillis(2));
-                    default -> item.setExpiration(now + DAYS.toMillis(1));
-                }
-            } else {
-                item.setExpiration(now + DAYS.toMillis(r.period()));
-            }
+            item.setExpiration(now + periodMillis(r.period()));
         }
         item.setSN(r.itemId());
         return item;
+    }
+
+    /**
+     * How long a bought item lasts: the catalogue period, in DAYS, for every item. Stock read a "1" on three
+     * coupons as hours (5211048 and 5360042 4h, 5211060 2h); since 1.5.1 (owner) the two EXP cards are sold by the
+     * day (2x 7 days, 3x 1 day) and no drop card is sold, so the window path has no hours case. The stock Cash Shop path
+     * ({@code CashShop.CashItem.toItem}) keeps its own rules.
+     */
+    static long periodMillis(int periodDays) {
+        return DAYS.toMillis(periodDays);
     }
 
     /**
