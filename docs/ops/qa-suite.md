@@ -230,6 +230,16 @@ The friend's report, "PQ bots are not great", covered four things this run is me
 - **Leaving mid-run.** Stage 2 used to wait for every registered bot - the lobby's recruiters included - and gave up
   after two minutes. It now finishes when the bots in your instance are done.
 
+## lk-1: player likeness (1.6.0)
+
+| Test | What it stages | What to look for |
+|---|---|---|
+| `lk-1` | Nothing. Logs a status every 30 s for 20 minutes. `!qa do camp` runs the AFK-camper pass now; `!qa do sample` styles five fixed lines for four bots | `LIKENESS afkCampers=on campers=N last pass ...: ch1 6/8 (bots 320, free in town 41) ...` (campers per channel against the target), `LIKENESS CAMP START/END <bot> ...` (who parks where, for how long, on a chair, and why it ended), `LIKENESS WATCHED WALK <bot> <site>` (a snap or warp turned into a walk because a player was on the map), `LIKENESS WATCHED SNAP` (one that still snapped: should not appear), `LIKENESS MESSY <bot>: "before" -> "after"` (one sample per bot per 20 s) |
+
+Switches, all on by default: `-Dsolomapling.afkCampers=false`, `-Dsolomapling.walkWhenWatched=false`,
+`-Dsolomapling.messyChat=false`. Auto-QA `t-lk-1` (HALF) runs `lk-1`, `camp` and `sample` and checks the status
+lines and that item names and prices survive the chat pass; how it looks still needs a client.
+
 ## mv-1: attack slide
 
 Owner report: holding left/right while attacking on the ground keeps the character sliding. In stock v83 an attack

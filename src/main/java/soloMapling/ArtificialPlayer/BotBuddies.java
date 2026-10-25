@@ -771,7 +771,8 @@ public final class BotBuddies {
         lastBuddyChat.put(player.getId(), now);
         String botName = to.name();
         BotConversation.talk(brain, player, line,
-                reply -> player.sendPacket(PacketCreator.multiChat(botName, reply, 0)));
+                reply -> player.sendPacket(PacketCreator.multiChat(botName,
+                        soloMapling.ArtificialPlayer.BotConvo.MessyChat.forWhisper(brain.getChr(), botName, player, reply), 0)));
     }
 
     // ── GM read-out ──

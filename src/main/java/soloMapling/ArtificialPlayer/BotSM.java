@@ -77,6 +77,9 @@ public abstract class BotSM implements EventSubscriber {
             if (isWaiting()) {
                 return; // FSM-requested pause (waitFor) - skip the tick entirely
             }
+            if (soloMapling.ArtificialPlayer.BotTownSystem.AfkCampers.holds(this)) {
+                return; // 1.6.0: AFK camper - standing still in town; ends itself on a commitment or at time up
+            }
             soloMapling.server.BotPerfStats.MACRO_TICKS.increment();
             long startedAt = System.nanoTime();
             try {

@@ -253,6 +253,21 @@ class QaScenarioStagingTest {
     }
 
     @Test
+    void lk1LogsCampersTheWatchGateAndMessySamples() throws Exception {
+        start("lk-1", 100000000);
+        assertEquals(1, scheduler.repeating.size());
+        List<String> out = suite.action(world.online, "sample", new String[0]);
+        assertTrue(out.stream().anyMatch(l -> l.contains("Brown Work Gloves for 50k")), String.join("\n", out));
+        suite.action(world.online, "camp", new String[0]);
+        Path log = suite.runOf(1).logPath();
+        suite.stop(1, "!qa stop");
+        String text = Files.readString(log);
+        assertTrue(text.contains("LIKENESS afkCampers="), text);
+        assertTrue(text.contains("LIKENESS walkWhenWatched="), text);
+        assertTrue(text.contains("LIKENESS MESSY sample slot"), text);
+    }
+
+    @Test
     void cs2LeavesASummonedPet() {
         start("cs-2", 100000000);
         world.petOut = true;

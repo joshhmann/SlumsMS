@@ -116,6 +116,7 @@ final class GCTravel {
         boolean sellerVisited;  // walked past the ticket seller on this map already
         volatile boolean awaitingBoarding; // standing at a boarding NPC until the event opens entry
         volatile boolean aboard;           // on a waiting room / deck / ride map
+        long watchedHoldSinceMs;           // 1.6.0: a fallback warp held because a player watches (0 = not held)
         // Loop guard: how often each transit hop (from << 32 | to) was taken on this trip. A trip that keeps
         // taking the same boat or ferry is going round in circles (the Ellinia <-> Ereve ferry loop).
         final Map<Long, Integer> transitHops = new java.util.HashMap<>();
@@ -260,6 +261,7 @@ final class GCTravel {
                 return;
             }
             trip.lastMapId = cur;
+            trip.watchedHoldSinceMs = 0L;
             trip.settledAtMs = 0L;
             trip.hopBestDist = Integer.MAX_VALUE;
             trip.lastPosX = Integer.MIN_VALUE;
@@ -296,7 +298,7 @@ final class GCTravel {
                 return;
             }
             // Nothing connects the two maps at all - warp the remainder to the destination.
-            warp(bot, trip.destMapId, "no portal or transit route to " + trip.destMapId);
+            warpOrHold(trip, bot, trip.destMapId, "no portal or transit route to " + trip.destMapId);
             return;
         }
         if (route.isEmpty()) {
@@ -329,7 +331,7 @@ final class GCTravel {
                     giveUpNoWarp(trip, "scripted portal '" + sw.portalName() + "' not on map " + cur);
                     return;
                 }
-                warp(bot, nextHop, "scripted portal '" + sw.portalName() + "' not on map " + cur);
+                warpOrHold(trip, bot, nextHop, "scripted portal '" + sw.portalName() + "' not on map " + cur);
                 return;
             }
             approachAndAct(trip, bot, trigger, nextHop,
@@ -342,7 +344,7 @@ final class GCTravel {
             giveUpNoWarp(trip, "no walkable portal on map " + cur + " to " + nextHop);
             return;
         }
-        warp(bot, nextHop, "no walkable portal/transit/scripted-warp on map " + cur + " to " + nextHop);
+        warpOrHold(trip, bot, nextHop, "no walkable portal/transit/scripted-warp on map " + cur + " to " + nextHop);
     }
 
     // ── Transit (ticket 03) ─────────────────────────────────────────────────
@@ -377,7 +379,8 @@ final class GCTravel {
             return;
         }
         approachAndAct(trip, bot, at, e.toMapId(), intent, () -> tryBoard(trip, bot, e), () -> {
-            GCMovement.teleportTo(bot, at.x, at.y); // set down beside the NPC; boarding happens next poll
+            // set down beside the NPC; boarding happens next poll. 1.6.0: while watched it walks on instead
+            GCMovement.teleportTo(bot, at.x, at.y, "board-setdown");
             restartHop(trip);
         });
     }
@@ -678,11 +681,38 @@ final class GCTravel {
             return;
         }
         if (giveUp == null) {
-            warp(bot, nextHop, reason);
+            warpOrHold(trip, bot, nextHop, reason);
             return;
         }
         BotLogger.log("[GCTravel] " + bot.getName() + " gave up walking - " + reason);
         giveUp.run();
+    }
+
+    // 1.6.0 player likeness (WatchGate): a trip that would vanish off a map a real player is on waits for the walk
+    // instead - the hop clock restarts, so the bot keeps trying to walk to its portal - for at most this long. Then the
+    // trip fails (the caller picks something else to do) rather than blinking out in front of the player.
+    static final long WATCHED_HOLD_MS = 45_000;
+
+    /* The fallback warp of a hop, unless a player is watching: then hold (walk again) up to WATCHED_HOLD_MS, then fail. */
+    static void warpOrHold(Trip trip, Character bot, int mapId, String reason) {
+        if (WatchGate.mayReposition(bot, "travel-warp")) {
+            trip.watchedHoldSinceMs = 0L;
+            warp(bot, mapId, reason);
+            return;
+        }
+        long now = nowMs();
+        if (trip.watchedHoldSinceMs == 0L) {
+            trip.watchedHoldSinceMs = now;
+            BotLogger.log("[GCTravel] " + bot.getName() + " would warp to map " + mapId + " but a player is on map "
+                    + bot.getMapId() + " - walking on instead (" + reason + ")");
+        }
+        if (now - trip.watchedHoldSinceMs >= WATCHED_HOLD_MS) {
+            BotLogger.log("[GCTravel] " + bot.getName() + " still watched on map " + bot.getMapId() + " after "
+                    + (WATCHED_HOLD_MS / 1000) + "s - trip given up instead of a visible warp");
+            finish(trip, false);
+            return;
+        }
+        restartHop(trip);
     }
 
     private static void warp(Character bot, int mapId, String reason) {

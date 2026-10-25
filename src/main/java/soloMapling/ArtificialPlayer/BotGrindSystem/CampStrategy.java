@@ -707,12 +707,13 @@ class CampStrategy implements GrindStrategy {
             hardReturnAt = t;
         }
         if (t - hardReturnAt >= OFF_ANCHOR_TELEPORT_MS) {
-            GCMovement.teleportTo(chr, s.anchor().x, s.anchor().y); // snaps to the anchor's ground point
-            lastReturnedMs = t;     // arm the re-anchor window
+            // snaps to the anchor's ground point; 1.6.0 WatchGate: with a player on the map it walks home instead
+            boolean snapped = GCMovement.teleportTo(chr, s.anchor().x, s.anchor().y, "camp-hard-return");
+            lastReturnedMs = t;     // arm the re-anchor window (a walk that fails again relocates, as a snap would)
             offAnchorSinceMs = 0L;  // let the teleport land before re-judging
             hardReturnAt = 0L;
             b.targetOid = -1;
-            b.narrate("off anchor -> hard teleport home");
+            b.narrate(snapped ? "off anchor -> hard teleport home" : "off anchor -> watched, walking home");
             return true;
         }
         GCMovement.move(chr, s.anchor().x, s.anchor().y);

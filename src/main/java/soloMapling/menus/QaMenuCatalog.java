@@ -94,6 +94,8 @@ public final class QaMenuCatalog {
         add("fh-1", v(), steps());
         add("fh-2", v(), steps("stop"));
         add("cv-11", v(), steps(), "say <line>");
+        section("Player likeness (1.6.0)");
+        add("lk-1", v(), steps("camp", "sample"));
 
         // ── Evening 2: economy ──
         eveningNo = 2;

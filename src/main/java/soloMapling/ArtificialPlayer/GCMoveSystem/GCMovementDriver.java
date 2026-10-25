@@ -234,7 +234,8 @@ final class GCMovementDriver {
 
         // Player reaction (ported pathAware): on an observed map, occasionally emote/chat at or stop-and-
         // turn toward a nearby real player while roaming. Grounded bots only; no-op when unobserved.
-        if (active && runAiTick && !entry.inAir && !entry.climbing) {
+        if (active && runAiTick && !entry.inAir && !entry.climbing
+                && !soloMapling.ArtificialPlayer.BotTownSystem.AfkCampers.isCamping(bot.getId())) { // 1.6.0: AFK = no reaction
             BotPlayerReaction.maybeReact(entry, bot);
         }
         // While a stop-reaction is in progress, hold position (don't walk off mid-greeting) and keep the
@@ -771,6 +772,11 @@ final class GCMovementDriver {
         MapleMap map = entry.bot.getMap();
         NavStuckLog.record(NavStuckLog.Kind.AIR_FROZEN, map, pos, entry.navGraph, entry.navEdge);
         Point goal = entry.moveTarget != null ? entry.moveTarget : entry.navTargetPos;
+        // 1.6.0 WatchGate: in front of a player, drop straight down onto the ground below instead of snapping
+        // across the map to the ground under the goal; the bot then walks to its goal like anyone would.
+        if (goal != null && !WatchGate.mayReposition(entry.bot, "air-frozen-recover")) {
+            goal = null;
+        }
         Point ground = recoveryGround(map, pos, goal);
         BotPhysicsEngine.teleportTo(entry, entry.bot, ground != null ? ground : pos);
         BotMovementManager.resetEntryStateAfterTeleport(entry);
@@ -802,6 +808,9 @@ final class GCMovementDriver {
             return;
         }
         NavStuckLog.record(NavStuckLog.Kind.FELL_OFF_MAP, map, pos, entry.navGraph, entry.navEdge);
+        if (WatchGate.enabled() && WatchGate.watched(bot)) {
+            WatchGate.noteSnappedWhileWatched(bot, "fell-off-map"); // out of bounds: there is nothing to walk on
+        }
         Point goal = entry.moveTarget != null ? entry.moveTarget : entry.navTargetPos;
         Point ground = recoveryGround(map, pos, goal);
         BotPhysicsEngine.teleportTo(entry, bot, ground != null ? ground

@@ -114,7 +114,8 @@ public class SocialBot extends BotSM {
         // multi-bot cluster convos (ConversationManager); folding it in here stops BotChatter (which
         // gates only on availability) from grabbing a bot mid cluster-conversation -> double bubbles.
         return !hasActiveRespondant() && !relocating && !BotChatter.isEngaged(getChr())
-                && !ConversationManager.getInstance().isInConversation(getChr().getId());
+                && !ConversationManager.getInstance().isInConversation(getChr().getId())
+                && !soloMapling.ArtificialPlayer.BotTownSystem.AfkCampers.isCamping(getChr().getId()); // 1.6.0: AFK
     }
 
     public boolean hasActiveRespondant() {

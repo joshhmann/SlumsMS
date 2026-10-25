@@ -1341,8 +1341,9 @@ public class TrainingBot extends BotSM {
             BotWanderSystem.stop(chr);
             GCMovement.cancelTravel(chr);
             GCMovement.stop(chr);
-            if (homeMapId >= 0 && chr.getMapId() != homeMapId) {
-                chr.changeMap(homeMapId);
+            if (homeMapId >= 0 && chr.getMapId() != homeMapId
+                    && soloMapling.ArtificialPlayer.GCMoveSystem.WatchGate.mayReposition(chr, "sauna-abort-warp")) {
+                chr.changeMap(homeMapId); // 1.6.0: with a player watching it stays and walks out with its next errand
             }
         }
         saunaTripDone = true;
@@ -1877,7 +1878,7 @@ public class TrainingBot extends BotSM {
         }
         if (best != null) {
             GCMovement.stop(chr); // drop the in-flight move so the driver re-acquires cleanly from the new spot
-            GCMovement.teleportTo(chr, best.x, best.y);
+            GCMovement.teleportTo(chr, best.x, best.y, "no-hit-portal"); // 1.6.0: walks there while watched
         }
     }
 

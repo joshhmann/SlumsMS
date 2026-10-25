@@ -89,6 +89,7 @@ public final class QaScenarios {
         all.addAll(PqScenarios.all());            // ticket 75: Amoria PQ for two players (pq-1); OPQ bots in the lobby (pq-2)
         all.addAll(FishingScenarios.all()); // 1.6.0 Life in town: timed fishing (fh-1, fh-2)
         all.addAll(BotLifeScenarios.all()); // 1.6.0 shadow policy and refusal safeguards (bl-1)
+        all.addAll(LikenessScenarios.all()); // 1.6.0 player likeness: AFK campers, walk when watched, messy chat (lk-1)
         return List.copyOf(all);
     }
 

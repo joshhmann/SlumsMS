@@ -60,7 +60,8 @@ public class TownWandererBot extends BotSM {
     // mid ambient chatter with another bot.
     @Override
     public boolean isAvailableForAmbientActions() {
-        return !traveling && !BotChatter.isEngaged(getChr());
+        return !traveling && !BotChatter.isEngaged(getChr())
+                && !soloMapling.ArtificialPlayer.BotTownSystem.AfkCampers.isCamping(getChr().getId()); // 1.6.0: AFK
     }
 
     @Override
