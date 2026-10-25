@@ -195,4 +195,16 @@ class BotRivalryTest {
         BotRivalry.onDramaOff(PLAYER);
         assertTrue(BotRivalry.describe(PLAYER).contains("no KS war"));
     }
+
+    @Test
+    void ksWarHelpersOnAnotherLedgeOrOutOfReachAreStraysTheRallyWalksBack() {
+        java.awt.Point player = new java.awt.Point(958, -85);
+        java.util.Map<Integer, java.awt.Point> spots = new java.util.LinkedHashMap<>();
+        spots.put(1, new java.awt.Point(1000, -85));     // beside the player
+        spots.put(2, new java.awt.Point(900, -450));     // ledge 365 px above (auto-QA t-rv-2 on 104040000)
+        spots.put(3, new java.awt.Point(1500, -85));     // same ledge, out of the take reach
+        spots.put(4, null);                              // no position yet: left alone
+        assertEquals(List.of(2, 3), BotRivalry.strays(spots, player));
+        assertEquals(List.of(), BotRivalry.strays(spots, null));
+    }
 }
