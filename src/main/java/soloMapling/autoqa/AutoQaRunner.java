@@ -68,6 +68,21 @@ public final class AutoQaRunner {
     }
 
     /**
+     * Says on the result itself which QA clock it ran on: a 0.4x pass must never be mistaken for a normal one when
+     * someone reads the evidence weeks later.
+     */
+    private static CheckResult label(CheckResult r) {
+        if (!soloMapling.qa.QaTiming.fast()) {
+            return r;
+        }
+        List<String> ev = new ArrayList<>();
+        ev.add("fast lane: QA staging ran at " + soloMapling.qa.QaTiming.label()
+                + " - staged windows are shorter than a normal run's");
+        ev.addAll(r.evidence());
+        return new CheckResult(r.id(), r.title(), r.kind(), r.status(), r.reason(), ev, r.startedMs(), r.finishedMs());
+    }
+
+    /**
      * Runs the checks; {@code nightly} skips the ones that leave a lasting change. Each result also goes to
      * {@code onResult} as soon as it is known (the report is written as the run goes).
      */
@@ -89,6 +104,7 @@ public final class AutoQaRunner {
                 } else {
                     r = runOne(c, nightly);
                 }
+                r = label(r);
                 out.add(r);
                 if (onResult != null) {
                     onResult.accept(r);

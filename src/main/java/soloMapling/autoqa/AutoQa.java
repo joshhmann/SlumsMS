@@ -47,6 +47,24 @@ public final class AutoQa {
         return Path.of(System.getProperty("slums.autoqa.dir", "data/autoqa"));
     }
 
+    /**
+     * The commit the running server was deployed from: {@code DEPLOYED_COMMIT} beside {@code data/} (written by
+     * tools/ops/deploy-test). The build banner cannot be used for this - every build of a release reports the same
+     * version string. Null when the file is missing or unreadable, which makes a {@code --failed} rerun carry nothing.
+     */
+    public static String deployCommit() {
+        Path file = dataDir().resolve("..").resolve("..").resolve("DEPLOYED_COMMIT").normalize();
+        try {
+            if (!Files.isRegularFile(file)) {
+                return null;
+            }
+            String commit = Files.readString(file, StandardCharsets.UTF_8).trim();
+            return commit.isEmpty() ? null : commit;
+        } catch (IOException e) {
+            return null;
+        }
+    }
+
     /** Boots the health sweeps and the nightly run when auto-QA is on. Safe to call more than once. */
     public static synchronized void boot() {
         if (!isEnabled()) {

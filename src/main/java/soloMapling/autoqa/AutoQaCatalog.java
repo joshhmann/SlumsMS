@@ -29,7 +29,10 @@ import static soloMapling.autoqa.Steps.partyInvite;
 import static soloMapling.autoqa.Steps.qaDo;
 import static soloMapling.autoqa.Steps.run;
 import static soloMapling.autoqa.Steps.say;
+import static soloMapling.autoqa.Steps.settle;
 import static soloMapling.autoqa.Steps.stop;
+import static soloMapling.autoqa.Steps.until;
+import static soloMapling.autoqa.Steps.untilProbe;
 import static soloMapling.autoqa.Steps.waitFor;
 import static soloMapling.autoqa.Steps.waitSeconds;
 
@@ -151,13 +154,13 @@ public final class AutoQaCatalog {
                 // handshake is what it tests; the accept roll is made certain for the run.
                 .step(say("!warp 100000000"), waitSeconds(5), fixture("nearbyBot"), say("hi {near}"), waitSeconds(20),
                         say("{near} whats up"), waitSeconds(40), fixture("certainBuddies", "5"), buddyAdd("{near}"),
-                        waitSeconds(200))
+                        untilProbe("buddy", 200, "{near}", "accepted"))
                 .expect(probe("buddy", "{near}", "accepted"))
                 .build());
         c.add(Check.auto("t-bb-2", "Buddy chat with a bot").minutes(10)
                 // rc6 triage: this checks buddy CHAT, so the accept is made certain for the run as well
                 .step(say("!warp 100000000"), waitSeconds(5), fixture("nearbyBot"), say("hi {near}"), waitSeconds(20),
-                        fixture("certainBuddies", "5"), buddyAdd("{near}"), waitSeconds(200),
+                        fixture("certainBuddies", "5"), buddyAdd("{near}"), untilProbe("buddy", 200, "{near}", "accepted"),
                         fixture("buddy", "{near}", "accepted"),
                         Steps.of("buddy chat 'where r u'", r -> {
                             SyntheticPlayer p = (SyntheticPlayer) r.actor(1);
@@ -381,10 +384,10 @@ public final class AutoQaCatalog {
 
         // ── Natural conversations (ticket 59) ────────────────────────────────────────────────────────────────
         c.add(Check.auto("t-cv-1", "Ask a bot to do things in plain words").minutes(8)
-                .step(run("cv-1"), say("{bot} wanna party?"), waitSeconds(12), say("{bot} come to henesys"), waitSeconds(12),
-                        say("{bot} meet me at the fm"), waitSeconds(12), say("{bot} show me the way to perion"),
-                        waitSeconds(12), stop(), run("cv-1", "training"), say("{bot2} help me kill these"), waitSeconds(12),
-                        say("{bot2} can u buff me"), waitSeconds(12))
+                .step(run("cv-1"), say("{bot} wanna party?"), until(SAID, 1, 12), say("{bot} come to henesys"), until(SAID, 1, 12),
+                        say("{bot} meet me at the fm"), until(SAID, 1, 12), say("{bot} show me the way to perion"),
+                        until(SAID, 1, 12), stop(), run("cv-1", "training"), say("{bot2} help me kill these"), until(SAID, 1, 12),
+                        say("{bot2} can u buff me"), until(SAID, 1, 12))
                 .expect(atLeast(4, "CONVO .*INTENT "), has(SAID),
                         rule("a refusal never says yes", AutoQaCatalog::refusalNeverSaysYes),
                         lacks("CONVO .*INTENT .*teleport"),
@@ -394,7 +397,7 @@ public final class AutoQaCatalog {
                 .build());
         c.add(Check.auto("t-cv-2", "Haggle by chat").minutes(4)
                 .step(run("cv-2"), say("{bot} how much for the work gloves"), waitFor("TRADE QUOTE ", 20),
-                        say("{bot} would u do 300k"), waitSeconds(12), say("{bot} thats too much"), waitSeconds(12))
+                        say("{bot} would u do 300k"), until(SAID, 1, 12), say("{bot} thats too much"), until(SAID, 1, 12))
                 .expect(has("TRADE QUOTE \\S+ offers {me} "),
                         rule("the quoted price sits inside its band", AutoQaCatalog::quoteInsideBand),
                         judged(SAID, "a bot haggles over the price of work gloves with a player", 4), noEmoji(),
@@ -436,8 +439,8 @@ public final class AutoQaCatalog {
                 .expect(has("CONVO SAID {bot} "), lacks("CONVO RATE .*thread-"), has("CONVO RATE bad"), has("YELLOW (Bank line #\\d+ (weighs|is blacklisted)|Kept as a (good|bad) example|A scripted line)"))
                 .build());
         c.add(Check.auto("t-cv-7", "Line bank only (model off)").minutes(5)
-                .step(run("cv-7"), say("{bot} hey"), waitSeconds(12), say("{bot} what u doing"), waitSeconds(12),
-                        say("{bot} wanna grind together"), waitSeconds(12), say("{bot} lol ok"), waitSeconds(12))
+                .step(run("cv-7"), say("{bot} hey"), until(SAID, 1, 12), say("{bot} what u doing"), until(SAID, 1, 12),
+                        say("{bot} wanna grind together"), until(SAID, 1, 12), say("{bot} lol ok"), until(SAID, 1, 12))
                 .expect(atLeast(2, "CONVO SAID .*\\[[^]]*(bank#|script)"), lacks("CONVO SAID .*\\[[^]]*llm"),
                         rule("bank replies do not repeat", AutoQaCatalog::noRepeats),
                         judged(SAID, "a bot chats with a player in its own voice", 4), Expects.sayDo(130))
@@ -479,7 +482,7 @@ public final class AutoQaCatalog {
         c.add(Check.manual("t-ga-4", "Bots' show rolls vanish",
                 "needs a show bot at the machine and a real client's pick-up attempt; the vanish timer is client-visible"));
         c.add(Check.auto("t-wc-1", "A rich bot spends down").minutes(11)
-                .step(run("ga-2"), waitSeconds(60), qaDo("step"), waitSeconds(5), qaDo("step"), waitSeconds(5), qaDo("step"),
+                .step(run("ga-2"), until("WEALTH ", 2, 60), qaDo("step"), waitSeconds(5), qaDo("step"), waitSeconds(5), qaDo("step"),
                         waitFor("DONE ", 480))
                 .expect(atLeast(2, "WEALTH "), has("(GACHA .*bought|STEP .*ticket)"), has("DONE "))
                 .build());
@@ -545,12 +548,12 @@ public final class AutoQaCatalog {
 
         // ── Combat ───────────────────────────────────────────────────────────────────────────────────────────
         c.add(Check.auto("t-cb-1", "Skill choice and buffs").minutes(6)
-                .step(run("cb-1"), waitSeconds(180), partyInvite("{bot}"), waitSeconds(60))
+                .step(run("cb-1"), until("COMBAT (CHOICE|BUFF) ", 40, 180), partyInvite("{bot}"), settle(60))
                 .expect(has("COMBAT CHOICE .* -> AOE "), has("COMBAT CHOICE .* -> SINGLE "), has("COMBAT BUFF "),
                         rule("a pack of BOT_COMBAT_AOE_MIN_MOBS+ (not a boss) gets the AoE unless the pick says sloppy or no AoE", AutoQaCatalog::choicesSensible))
                 .build());
         c.add(Check.half("t-cb-2", "Facing and spacing", "the swings and steps on screen").minutes(5)
-                .step(run("cb-2"), waitSeconds(200))
+                .step(run("cb-2"), until("POSITION ", 40, 200))
                 .expect(has("COMBAT (FACE|TOUCH|KNOCKBACK|KITE|PACE) "), atLeast(4, "POSITION "),
                         rule("at most 10% of positions inside a mob or facing away", AutoQaCatalog::positionsMostlyGood))
                 .build());
@@ -558,7 +561,7 @@ public final class AutoQaCatalog {
                 // rc6 triage: give the grinders time to start grinding (they note their pots then), and wait for a
                 // staged bot's POT line - another bot's satisfied the wait at once and lowpots ran too early
                 .step(run("cb-3"), waitSeconds(30), qaDo("hurt"), waitFor("HABITS POT ({staged}) ", 40), qaDo("lowpots"), waitFor("HABITS RESTOCK ", 90),
-                        qaDo("die"), waitFor("HABITS RESPAWN ", 60), waitSeconds(60))
+                        qaDo("die"), waitFor("HABITS RESPAWN ", 60), settle(60))
                 .expect(has("HABITS "), has("HABITS POT ({staged}) "), has("HABITS RESTOCK ({staged}) "),
                         has("HABITS DEATH ({staged}) "), has("HABITS RESPAWN ({staged}) "))
                 .build());
@@ -567,12 +570,12 @@ public final class AutoQaCatalog {
                 // next to a pretend player that stands still and never attacks nothing ever needed yielding. The
                 // player now steps onto a bot's spot once they have settled, then fights the mobs around it.
                 .step(run("cb-4"), waitSeconds(30), mark("step"), qaDo("stepon"), waitFor("MANNERS (YIELD|CROWDED) ", 20),
-                        qaDo("fight"), waitSeconds(120))
+                        qaDo("fight"), until("MANNERS ", 4, 120))
                 .expect(anyOf("MANNERS YIELD ", "MANNERS MOVE ON ", "MANNERS LEAVE "),
                         hasAfter("step", "MANNERS (YIELD|CROWDED) "))
                 .build());
         c.add(Check.auto("t-sp-1", "Bots spread out").minutes(5)
-                .step(run("sp-1"), waitSeconds(150))
+                .step(run("sp-1"), until("TALLY SPREAD map ", 3, 150))
                 .expect(has("(START|TALLY) SPREAD map "), has("SPREAD (SPACE|ROPE) "),
                         rule("fewer pairs closer than 34 px at the end than at the start", AutoQaCatalog::spreadImproves),
                         probe("clumpsOnMyMap", "34", "4"))
@@ -584,23 +587,23 @@ public final class AutoQaCatalog {
                         has("NPC CLEARANCE bot \\d+ dx=\\d+ clear=true"))
                 .build());
         c.add(Check.half("t-pt-1", "Bots walk with pets that loot", "the pets following and the loot animation").minutes(5)
-                .step(run("pt-1"), waitSeconds(60), mark("drop"), qaDo("drop"), waitSeconds(20))
+                .step(run("pt-1"), until("PET ", 3, 60), mark("drop"), qaDo("drop"), until("PET(S)? PET LOOT|PET LOOT", 1, 20))
                 .expect(atLeast(1, "PET "), hasAfter("drop", "PETS PET LOOT|PET LOOT"))
                 .build());
         c.add(Check.half("t-bk-1", "Attack pacing: exact swing timing, held Hurricane and Rapid Fire",
                 "the swings on screen and attackdiag.log next to the client").minutes(6)
-                .step(run("bk-1", "pacing"), waitSeconds(240))
+                .step(run("bk-1", "pacing"), until("ATTACK .* busy \\d+ms", 60, 240))
                 .expect(atLeast(20, "ATTACK .* busy \\d+ms"),
                         rule("no machine-gun swings (gap under 60% of busy) and no hitch (gap over busy + 3 s at a live mob)",
                                 AutoQaCatalog::pacingSteady))
                 .build());
         c.add(Check.half("t-at-1", "Bots attack at a player's pace", "the swings next to your own character").minutes(14)
-                .step(run("bk-1"), waitSeconds(600))
+                .step(run("bk-1"), until("ATTACK .* busy \\d+ms", 120, 600))
                 .expect(atLeast(40, "ATTACK .* busy \\d+ms"),
                         rule("no machine-gun swings (gap under 60% of busy)", AutoQaCatalog::pacingNotFast))
                 .build());
         c.add(Check.auto("t-id-1", "Idle bots step out of mob packs").minutes(5)
-                .step(run("id-1"), waitSeconds(150))
+                .step(run("id-1"), until("TALLY ", 2, 150))
                 .expect(has("IDLE .* -> (LEDGE|ROPE_TOP|PORTAL) "), atLeast(1, "TALLY "))
                 .build());
         c.add(Check.manual("t-mv-1", "Attacking stops you",

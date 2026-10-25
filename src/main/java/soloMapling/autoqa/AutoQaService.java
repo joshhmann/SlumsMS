@@ -1,6 +1,7 @@
 package soloMapling.autoqa;
 
 import config.YamlConfig;
+import soloMapling.qa.QaTiming;
 import constants.net.ServerConstants;
 
 import java.io.IOException;
@@ -77,43 +78,119 @@ public final class AutoQaService {
     }
 
     /**
-     * Starts a run in the background. Returns the lines to show (what started, or why not). {@code progress} gets a
-     * line per finished check (the GM who asked, if still online).
+     * Starts a run in the background. {@code selector} is a plain selector ({@code all}, {@code smoke}, an id or a
+     * family) and may also carry the fast-lane flags ({@code "all --fast"}). Returns the lines to show (what started,
+     * or why not). {@code progress} gets a line per finished check (the GM who asked, if still online).
      */
     public synchronized List<String> start(String selector, String by, boolean nightly, Consumer<String> progress) {
+        return start(parseRequest(selector), by, nightly, progress);
+    }
+
+    /**
+     * A run request: the selector, plus {@code --fast} (the QA clock at {@link QaTiming#FAST_SCALE}) and
+     * {@code --failed} (rerun what did not pass, carrying the rest forward).
+     */
+    record Request(String selector, boolean fast, boolean failed) {
+    }
+
+    /** Reads a request line: {@code <selector|all> [--fast] [--failed]}, any order. */
+    static Request parseRequest(String raw) {
+        String selector = null;
+        boolean fast = false;
+        boolean failed = false;
+        for (String token : raw.trim().split("\\s+")) {
+            switch (token) {
+                case "--fast" -> fast = true;
+                case "--failed" -> failed = true;
+                case "" -> {
+                    // extra spaces
+                }
+                default -> {
+                    if (selector == null) {
+                        selector = token;
+                    }
+                }
+            }
+        }
+        return new Request(selector == null ? "all" : selector, fast, failed);
+    }
+
+    /** How a run runs: its QA clock, the deployed commit, and the earlier passes it carries instead of rerunning. */
+    private record Mode(double timeScale, String commit, Map<String, Map<String, Object>> carried, String carriedRun) {
+    }
+
+    /** {@link #start(String, String, boolean, Consumer)} with the flags parsed. */
+    public synchronized List<String> start(Request req, String by, boolean nightly, Consumer<String> progress) {
         if (thread != null && thread.isAlive()) {
             return List.of("Auto-QA is already running (" + trigger + "): " + status().get(0));
         }
-        List<Check> checks = select(AutoQaCatalog.all(), selector);
-        if (checks.isEmpty()) {
-            return List.of("No check '" + selector + "'. !autoqa list shows them.");
+        double timeScale = req.fast() ? QaTiming.FAST_SCALE : 1.0;
+        String commit = AutoQa.deployCommit();
+        List<Check> catalogue = AutoQaCatalog.all();
+        List<Check> checks = select(catalogue, req.selector());
+        if (checks.isEmpty() && !req.failed()) {
+            return List.of("No check '" + req.selector() + "'. !autoqa list shows them.");
         }
+        Map<String, Map<String, Object>> carried = Map.of();
+        String carriedRun = null;
+        String note = "";
+        if (req.failed()) {
+            Map<String, Object> report = AutoQaReport.read(AutoQa.dataDir().resolve("latest.json"));
+            AutoQaRerun.Plan plan = AutoQaRerun.plan(catalogue, report, timeScale, commit);
+            checks = select(plan.checks(), req.selector());
+            if (checks.isEmpty()) {
+                return List.of("Auto-QA rerun skipped: " + plan.refused());
+            }
+            carried = narrow(plan.carried(), checks);
+            carriedRun = plan.sourceRun();
+            if (plan.refused() != null) {
+                note = " --failed: " + plan.refused();
+            }
+        }
+        Mode mode = new Mode(timeScale, commit, carried, carriedRun);
         String why = world.unavailableReason();
         if (why != null) {
             return List.of("Auto-QA cannot run here: " + why);
         }
-        trigger = (nightly ? "nightly" : "!autoqa run " + selector) + " by " + by;
+        trigger = (nightly ? "nightly" : "!autoqa run " + req.selector() + (req.fast() ? " --fast" : "")
+                + (req.failed() ? " --failed" : "")) + " by " + by;
         String runTrigger = trigger;
         long budget = 0;
         for (Check c : checks) {
             budget += c.kind() == Check.Kind.MANUAL ? 0 : c.minutes();
         }
-        Thread t = new Thread(() -> runNow(checks, nightly, runTrigger, progress), "autoqa-runner");
+        List<Check> toRun = List.copyOf(checks);
+        Thread t = new Thread(() -> runNow(toRun, nightly, runTrigger, progress, mode), "autoqa-runner");
         t.setDaemon(true);
         thread = t;
         t.start();
-        return List.of("Auto-QA started: " + checks.size() + " check(s), up to ~" + budget + " min. Synthetic players "
-                + String.join(" and ", SyntheticPlayers.NAMES) + " log in on channel 1. !autoqa status / stop / report.");
+        return List.of("Auto-QA started: " + checks.size() + " check(s), up to ~" + budget + " min"
+                + (req.fast() ? ", fast lane " + AutoQaReport.scaleLabel(timeScale) + " (QA staging only)" : "")
+                + (carried.isEmpty() ? "" : ", " + carried.size() + " passed last time carried forward, not rerun")
+                + note + ". Synthetic players " + String.join(" and ", SyntheticPlayers.NAMES)
+                + " log in on channel 1. !autoqa status / stop / report.");
     }
 
-    private void runNow(List<Check> checks, boolean nightly, String runTrigger, Consumer<String> progress) {
+    /** The carried entries for the checks this run actually covers (a selector narrows a rerun too). */
+    private static Map<String, Map<String, Object>> narrow(Map<String, Map<String, Object>> carried, List<Check> checks) {
+        Map<String, Map<String, Object>> out = new java.util.LinkedHashMap<>();
+        for (Check c : checks) {
+            if (carried.containsKey(c.id())) {
+                out.put(c.id(), carried.get(c.id()));
+            }
+        }
+        return out;
+    }
+
+    private void runNow(List<Check> checks, boolean nightly, String runTrigger, Consumer<String> progress, Mode mode) {
+        QaTiming.beginRun(mode.timeScale());
         world.open();
         long t0 = System.currentTimeMillis();
         List<AutoQaRunner.CheckResult> done = new ArrayList<>();
         try {
             runner.run(checks, nightly, r -> {
                 done.add(r);
-                write(runTrigger, t0, List.of(r), false);
+                write(runTrigger, t0, List.of(r), false, mode);
                 String line = r.status() + " " + r.id() + " " + r.title() + (r.reason() == null ? "" : ": " + r.reason());
                 AutoQa.log.info("Auto-QA {}", line);
                 if (progress != null) {
@@ -132,8 +209,9 @@ public final class AutoQaService {
             } catch (RuntimeException e) {
                 AutoQa.log.warn("Auto-QA chat quality failed", e);
             }
-            write(runTrigger, t0, done, true);
+            write(runTrigger, t0, done, true, mode);
             world.close();
+            QaTiming.endRun();
             if (progress != null) {
                 try {
                     progress.accept("Auto-QA done: " + String.join(" | ", summary()));
@@ -144,8 +222,9 @@ public final class AutoQaService {
         }
     }
 
-    /** Merges results into today's report; {@code finalLine} adds the run's own line to "runs". */
-    private synchronized void write(String runTrigger, long t0, List<AutoQaRunner.CheckResult> results, boolean finalLine) {
+    /** Merges results into today's report; {@code finalLine} adds the run's own line (and its carried passes). */
+    private synchronized void write(String runTrigger, long t0, List<AutoQaRunner.CheckResult> results, boolean finalLine,
+                                    Mode mode) {
         Path dir = AutoQa.dataDir();
         String day = HealthSweeper.DAY.format(Instant.now());
         Map<String, Object> report = AutoQaReport.read(dir.resolve("report-" + day + ".json"));
@@ -154,11 +233,13 @@ public final class AutoQaService {
         }
         AutoQaReport.putInference(report, ChatQuality.brief(ChatQuality.last()),
                 soloMapling.ArtificialPlayer.BotConvo.SayDo.stats());
+        Map<String, Object> health = HealthSweeper.get().last();
         if (finalLine) {
-            AutoQaReport.mergeChecks(report, ServerConstants.SLUMSMS_VERSION, List.of(), HealthSweeper.get().last());
-            AutoQaReport.addRun(report, runTrigger, t0, System.currentTimeMillis(), results);
+            AutoQaReport.merge(report, ServerConstants.SLUMSMS_VERSION, new AutoQaReport.Run(runTrigger, t0,
+                    System.currentTimeMillis(), mode.timeScale(), mode.commit(), results, mode.carried(),
+                    mode.carriedRun()), health);
         } else {
-            AutoQaReport.mergeChecks(report, ServerConstants.SLUMSMS_VERSION, results, HealthSweeper.get().last());
+            AutoQaReport.mergeChecks(report, ServerConstants.SLUMSMS_VERSION, mode.timeScale(), results, health);
         }
         try {
             AutoQaReport.write(dir, day, report);
@@ -215,9 +296,9 @@ public final class AutoQaService {
     private boolean requestWatch;
 
     /**
-     * Polls {@code <dataDir>/run-request.txt} every 30 s: its first line is a selector ({@code all}, {@code smoke},
-     * a check id or family, or a comma list), the file is deleted and the run starts as if a GM had typed
-     * {@code !autoqa run <selector>}. A run already in progress keeps going and the request is reported and dropped.
+     * Polls {@code <dataDir>/run-request.txt} every 30 s: its first line is a request ({@code <selector> [--fast]
+     * [--failed]}), the file is deleted and the run starts as if a GM had typed it. A run already in progress keeps
+     * going and the request is reported and dropped.
      */
     synchronized void watchRunRequests() {
         if (requestWatch) {
@@ -226,9 +307,10 @@ public final class AutoQaService {
         requestWatch = true;
         soloMapling.server.ExecutorServiceManager.getScheduledExecutorService().scheduleWithFixedDelay(() -> {
             try {
-                String selector = takeRequest(AutoQa.dataDir().resolve(REQUEST_FILE));
-                if (selector != null && AutoQa.isEnabled()) {
-                    AutoQa.log.info("Auto-QA run request '{}': {}", selector, start(selector, "a run request", false, null));
+                String request = takeRequest(AutoQa.dataDir().resolve(REQUEST_FILE));
+                if (request != null && AutoQa.isEnabled()) {
+                    AutoQa.log.info("Auto-QA run request '{}': {}", request,
+                            start(parseRequest(request), "a run request", false, null));
                 }
             } catch (RuntimeException e) {
                 AutoQa.log.warn("Auto-QA run request failed", e);
@@ -236,7 +318,7 @@ public final class AutoQaService {
         }, 30, 30, TimeUnit.SECONDS);
     }
 
-    /** The selector in a request file (first non-blank line, trimmed), deleting the file; null when there is none. */
+    /** The request in a request file (first non-blank line, trimmed), deleting the file; null when there is none. */
     static String takeRequest(java.nio.file.Path file) {
         try {
             if (!java.nio.file.Files.isRegularFile(file)) {

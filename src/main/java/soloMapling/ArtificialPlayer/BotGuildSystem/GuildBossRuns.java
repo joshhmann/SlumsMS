@@ -266,8 +266,10 @@ public final class GuildBossRuns {
         List<Character> crew = able.subList(0, Math.min(6, able.size()));
         int channel = onChannel > 0 ? onChannel : runChannel(g.guildId(), crew);
         long now = System.currentTimeMillis();
-        long gather = fast ? TimeUnit.SECONDS.toMillis(60) : GuildRules.minutes("gatherMinutes", 4);
-        long inside = fast ? TimeUnit.MINUTES.toMillis(2) : GuildRules.minutes("runMinutes", 25);
+        // {fast} is the QA staging (soloMapling.qa.GameQaWorld's "bossrun" step), never a real player's run: the
+        // windows a check then waits out are the QA clock's, and the QA lines below print the seconds it used.
+        long gather = fast ? soloMapling.qa.QaTiming.ms(TimeUnit.SECONDS.toMillis(60)) : GuildRules.minutes("gatherMinutes", 4);
+        long inside = fast ? soloMapling.qa.QaTiming.ms(TimeUnit.MINUTES.toMillis(2)) : GuildRules.minutes("runMinutes", 25);
         List<Integer> ids = new ArrayList<>();
         for (Character c : crew) {
             ids.add(c.getId());

@@ -146,6 +146,101 @@ public final class Steps {
         });
     }
 
+    /**
+     * Waits until the pattern has been seen {@code want} times since the previous step, at most {@code capSeconds}.
+     *
+     * <p>A wait that exists only because an assertion needs a positive outcome ends as soon as it has it: the
+     * sample count is what the check asserts, so reaching it early is the same evidence. The cap is the real
+     * budget and is never scaled - shortening it could turn a slow-but-passing check into a failure. Not reaching
+     * {@code want} does not end the check either: the expectations decide, and the note says how far it got.
+     */
+    public static Step until(String regex, int want, int capSeconds) {
+        return of("wait up to " + capSeconds + " s for " + want + " x /" + regex + "/", r -> {
+            long start = r.world().now();
+            long from = r.previousStepStart();
+            long deadline = start + capSeconds * 1000L;
+            Pattern p = r.compile(regex);
+            if (p == null) {
+                return StepResult.OK; // noted; the expectations will fail on the same unknown
+            }
+            while (true) {
+                int seen = 0;
+                for (AutoQaLine l : r.lines()) {
+                    if (l.timeMs() >= from && p.matcher(l.text()).find()) {
+                        seen++;
+                    }
+                }
+                long waited = (r.world().now() - start) / 1000;
+                if (seen >= want) {
+                    if (waited > 0) {
+                        r.note("reached " + want + " x /" + regex + "/ after " + waited + " s of the " + capSeconds + " s cap");
+                    }
+                    return StepResult.OK;
+                }
+                if (r.world().now() >= deadline) {
+                    r.note("waited the " + capSeconds + " s cap for " + want + " x /" + regex + "/: saw " + seen);
+                    return StepResult.OK;
+                }
+                r.world().sleep(1000);
+            }
+        });
+    }
+
+    /**
+     * Polls a fixture (see {@link AutoQaWorld#probe}) until its first line is PASS, at most {@code capSeconds}: a
+     * window that waits for something to become true (a bot accepting a buddy request) ends when it is true. The
+     * note prints how long that took, or the last verdict when the cap ran out.
+     */
+    public static Step untilProbe(String what, int capSeconds, String... args) {
+        return of("wait up to " + capSeconds + " s for " + what + " to pass", r -> {
+            long start = r.world().now();
+            long deadline = start + capSeconds * 1000L;
+            while (true) {
+                String[] filled = new String[args.length];
+                for (int i = 0; i < args.length; i++) {
+                    filled[i] = r.fill(args[i]);
+                }
+                List<String> out = r.world().probe(what, r.actor(1), filled);
+                String verdict = out.isEmpty() ? "no answer" : out.get(0);
+                long waited = (r.world().now() - start) / 1000;
+                if (verdict.startsWith("PASS")) {
+                    r.note(what + " after " + waited + " s: " + verdict);
+                    return StepResult.OK;
+                }
+                if (r.world().now() >= deadline) {
+                    r.note("waited " + capSeconds + " s for " + what + ": " + verdict);
+                    return StepResult.OK;
+                }
+                r.world().sleep(2000);
+            }
+        });
+    }
+
+    /**
+     * A staging wait - "let the bots settle" - scaled by {@link soloMapling.qa.QaTiming}. This is only for waits
+     * whose length is not what the check asserts; a cooldown, delay or expiry the check observes stays
+     * {@link #waitSeconds(int)} or {@link #waitFor}. The description and the note print the seconds actually
+     * waited, so a shortened settle never reads as the real one.
+     */
+    public static Step settle(int seconds) {
+        return new Step() {
+            @Override
+            public StepResult run(CheckRun run) throws InterruptedException {
+                int actual = soloMapling.qa.QaTiming.seconds(seconds);
+                run.world().sleep(actual * 1000L);
+                if (actual != seconds) {
+                    run.note("settled " + actual + " s of " + seconds + " s" + soloMapling.qa.QaTiming.note());
+                }
+                return StepResult.OK;
+            }
+
+            @Override
+            public String describe() {
+                return "settle " + soloMapling.qa.QaTiming.seconds(seconds) + " s" + soloMapling.qa.QaTiming.note();
+            }
+        };
+    }
+
     /** Sets a mark (expectations can look only before or after it). */
     public static Step mark(String name) {
         return of("mark " + name, r -> {

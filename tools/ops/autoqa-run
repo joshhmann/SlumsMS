@@ -1,12 +1,29 @@
 #!/bin/bash
 # Start an auto-QA run on the TEST server without logging in to the game.
 #
-#   tools/ops/autoqa-run [all|smoke|<check id or family>|<id,id,...>]     (default: smoke)
+#   tools/ops/autoqa-run [all|smoke|<check id or family>|<id,id,...>] [--fast] [--failed]
 #
-# Writes the selector to Server/data/autoqa/run-request.txt; the server picks it up within 30 s (logged as
+#   --fast    run the suite with the QA clock at 0.4x: the staged waits (guild boss-run gathering and inside time,
+#             buddy/pending accept windows, settle windows) are 40% as long. Checks that assert a real timer, a
+#             cooldown or an expiry are not scaled, and every result says it ran in the fast lane.
+#   --failed  rerun only the checks whose last result was not a PASS and carry the rest forward, labelled not-rerun.
+#             Refused (so everything runs) when the server was redeployed since that run, when the fast/normal mode
+#             changed, or when the earlier run recorded no results. For iterating; evidence comes from a full run.
+#
+# Writes the request to Server/data/autoqa/run-request.txt; the server picks it up within 30 s (logged as
 # "Auto-QA run request"). A run already in progress is not interrupted. Results: tools/ops/test-status.
 set -euo pipefail
-SEL="${1:-smoke}"
+SEL=""
+FLAGS=""
+for arg in "$@"; do
+    case "$arg" in
+        --fast|--failed) FLAGS="$FLAGS $arg" ;;
+        -*) echo "bad option: $arg" >&2; exit 2 ;;
+        *) [[ -z "$SEL" ]] || { echo "one selector only: $SEL $arg" >&2; exit 2; }; SEL="$arg" ;;
+    esac
+done
+SEL="${SEL:-smoke}"
 [[ "$SEL" =~ ^[A-Za-z0-9,_-]+$ ]] || { echo "bad selector: $SEL" >&2; exit 2; }
-ssh root@192.168.0.164 "echo '$SEL' > /opt/mapleroot-dev/persistence-test/Server/data/autoqa/run-request.txt"
-echo "requested auto-QA '$SEL'; the test server starts it within 30 s"
+REQ="$SEL$FLAGS"
+ssh root@192.168.0.164 "echo '$REQ' > /opt/mapleroot-dev/persistence-test/Server/data/autoqa/run-request.txt"
+echo "requested auto-QA '$REQ'; the test server starts it within 30 s"
