@@ -30,6 +30,8 @@ final class BotNavigationManager {
     // position (6-10 ticks = 300-500ms, jittered per park spot).
     private static final int BLOCKED_POS_GIVE_UP_MIN_TICKS = 6;
     private static final int BLOCKED_POS_GIVE_UP_JITTER_TICKS = 4;
+    // Drift radius for the blocked-position watchdog: a bounce across a launch point spans up to ~2 walk steps.
+    private static final int BLOCKED_POS_DRIFT_PX = 16;
     // Steering anchor inside a launch window: aim a few px inside the nearest window edge
     // (window center when narrower than two insets) instead of the exact boundary pixel.
     // The executable region is the WHOLE window; steering at the boundary pixel parks bots
@@ -296,9 +298,11 @@ final class BotNavigationManager {
             entry.navBlockedPosTicks = 0;
             return;
         }
+        // nutnnut/Cosmic 8a7e7b3a5 (credit NutNNut): progress means leaving a small drift radius, not any 1 px
+        // move - a bot bouncing +-walkStep across an unhittable launch point restarted the count every tick.
         if (entry.navBlockedPosTicks == 0
-                || botPos.x != entry.navBlockedPosX
-                || botPos.y != entry.navBlockedPosY) {
+                || Math.abs(botPos.x - entry.navBlockedPosX) > BLOCKED_POS_DRIFT_PX
+                || Math.abs(botPos.y - entry.navBlockedPosY) > BLOCKED_POS_DRIFT_PX) {
             entry.navBlockedPosTicks = 0;
             entry.navBlockedPosGiveUpTicks = BLOCKED_POS_GIVE_UP_MIN_TICKS
                     + ThreadLocalRandom.current().nextInt(BLOCKED_POS_GIVE_UP_JITTER_TICKS + 1);
@@ -961,17 +965,19 @@ final class BotNavigationManager {
             return fromRegion.pointAt(targetX);
         }
 
-        if (hasReachedDirectionalDropRunway(botPos, edge)) {
-            return new Point(edge.endPoint);
-        }
-
         BotNavigationGraph.Region fromRegion = graph.getRegion(edge.fromRegionId);
         if (fromRegion == null || fromRegion.isRopeRegion) {
             return new Point(edge.endPoint);
         }
 
+        // Graph v69 (nutnnut/Cosmic f5787ab0c + 26b372e7c, credit NutNNut): the live walk-off sim is the ONLY gate
+        // for feeding the landing point. The old "x past the runway anchor" shortcut also matched a bot on a
+        // different same-height foothold beyond the gap, which then walked in place against the edge. The sim starts
+        // on the foothold the MOTOR stands on (standingGroundFoothold), not a coordinate lookup that can pick a shelf
+        // overhead; the two disagreeing made this a position-dependent switch between two opposite targets.
         BotPhysicsEngine.WalkOffLanding liveOutcome = BotPhysicsEngine.simulateWalkOffLanding(
                 entry.bot.getMap(), botPos, Integer.signum(edge.launchStepX),
+                BotPhysicsEngine.standingGroundFoothold(entry, entry.bot.getMap(), botPos),
                 new BotPhysicsEngine.GroundTravelState(entry.physX, entry.hspeed, entry.groundPhysicsCarryMs),
                 entry.movementProfile);
         if (matchesDirectionalDrop(edge, graph, liveOutcome)) {
@@ -983,34 +989,33 @@ final class BotNavigationManager {
         return new Point(edge.startPoint);
     }
 
-    private static boolean hasReachedDirectionalDropRunway(Point botPos, BotNavigationGraph.Edge edge) {
-        if (botPos == null || edge == null || edge.launchStepX == 0) {
-            return false;
-        }
-
-        int direction = Integer.signum(edge.launchStepX);
-        return direction > 0
-                ? botPos.x >= edge.startPoint.x
-                : botPos.x <= edge.startPoint.x;
-    }
-
+    /* Walking the authored direction from here must (a) dismount BEFORE the steering point - point steering stops at
+     * endPoint.x, so a lip beyond it is never reached (the wrong-ledge walk-in-place park) - and (b) really DESCEND
+     * off this region. The exact landing platform is deliberately not matched: a walk-off landing is knife-edge
+     * sensitive to the sub-tick launch x, and requiring the authored landing parked bots at the runway anchor
+     * forever; the route replans from wherever it touches down. (nutnnut/Cosmic f5787ab0c + 8a7e7b3a5, credit
+     * NutNNut.) */
     private static boolean matchesDirectionalDrop(BotNavigationGraph.Edge edge,
                                                   BotNavigationGraph graph,
                                                   BotPhysicsEngine.WalkOffLanding outcome) {
-        if (outcome == null || outcome.landing() == null) {
+        if (outcome == null || outcome.landing() == null || outcome.launchPoint() == null) {
             return false;
         }
         Foothold landingFoothold = outcome.landing().foothold();
         if (landingFoothold == null) {
             return false;
         }
-        if (graph.regionIdByFootholdId.getOrDefault(landingFoothold.getId(), -1) != edge.toRegionId) {
-            return false;
+        int landingRegionId = graph.regionIdByFootholdId.getOrDefault(landingFoothold.getId(), -1);
+        if (landingRegionId < 0 || landingRegionId == edge.fromRegionId) {
+            return false; // no region change (or off-graph ground): the dismount achieves nothing
         }
-        int xTolerance = Math.max(6, Math.abs(edge.launchStepX) + 2);
-        int yTolerance = BotMovementManager.cfg.JUMP_Y_THRESH * 2;
-        return Math.abs(outcome.landing().point().x - edge.endPoint.x) <= xTolerance
-                && Math.abs(outcome.landing().point().y - edge.endPoint.y) <= yTolerance;
+        if (outcome.landing().point().y <= outcome.launchPoint().y + 4) {
+            return false; // not a descent (same guard as the builder)
+        }
+        int slack = Math.max(6, Math.abs(edge.launchStepX) + 2);
+        return edge.launchStepX < 0
+                ? outcome.launchPoint().x >= edge.endPoint.x - slack
+                : outcome.launchPoint().x <= edge.endPoint.x + slack;
     }
 
     private static BotNavigationGraph.Edge findNextEdge(BotNavigationGraph graph,

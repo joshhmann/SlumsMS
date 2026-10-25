@@ -368,11 +368,57 @@ final class BotPhysicsEngine {
      */
     static Foothold syncAndDetectGround(BotMovementState entry, Character bot) {
         syncGroundPosition(entry, bot.getPosition().x);
-        Foothold fh = findGroundFoothold(bot.getMap(), bot.getPosition());
+        Foothold fh = standingGroundFoothold(entry, bot.getMap(), bot.getPosition());
         if (fh == null) {
             beginFall(entry, bot, 0);
         }
         return fh;
+    }
+
+    /*
+     * SSOT for "which foothold is this bot standing on" (nutnnut/Cosmic 26b372e7c, AGPL-3.0. Credit: NutNNut): the
+     * chain of the region the bot walked in on where it passes through the bot's position, else the raw lookup.
+     * Anything that owns a live bot and simulates its ground motion (the motor, the walk-off drop gate) must use
+     * this, or the two disagree about the ground under the same bot.
+     */
+    static Foothold standingGroundFoothold(BotMovementState entry, MapleMap map, Point position) {
+        Foothold raw = findGroundFoothold(map, position);
+        Foothold continuity = findContinuityGroundFoothold(entry, map, position, raw);
+        return continuity != null ? continuity : raw;
+    }
+
+    /*
+     * Ground continuity across overlapping chains (ported from nutnnut/Cosmic 235b6aefa, AGPL-3.0. Credit:
+     * NutNNut). Where two foothold chains share the exact same pixels, nav keeps the region the bot walked in on
+     * (v67, BotNavigationManager.resolveCurrentRegionId), but the raw tree lookup can return the OTHER chain. The
+     * motor then previewed its step on the foreign chain - which may end in a wall or a ledge one pixel away - so
+     * the step was refused, the walk edge cleared, and the bot parked on that pixel for good. Like the client,
+     * stay on the chain the bot is on.
+     *
+     * Ours is stricter than theirs: the nav region must pass through the bot's exact position (+-1px for slope
+     * rounding), not just within the walk snap band, because lastRegionId is only refreshed on grounded AI ticks
+     * and can still name the pre-jump platform right after a landing. Cheap: one map lookup unless the raw
+     * foothold is in a different region from the remembered one.
+     */
+    private static Foothold findContinuityGroundFoothold(BotMovementState entry, MapleMap map, Point position,
+                                                         Foothold raw) {
+        if (entry == null || entry.lastRegionId < 0 || map == null || position == null) {
+            return null;
+        }
+        BotNavigationGraph graph = entry.navGraph;
+        if (graph == null || graph.mapId != map.getId()) {
+            return null;
+        }
+        if (raw != null && graph.regionIdByFootholdId.getOrDefault(raw.getId(), -1) == entry.lastRegionId) {
+            return null; // the raw lookup already agrees with nav
+        }
+        WalkRegionLookup lookup = new WalkRegionLookup(map.getId(), graph.regionsById, graph.regionIdByFootholdId,
+                footholdsById(map));
+        GroundRegionSample sample = findWalkRegionGroundSample(lookup, entry.lastRegionId, null, position.x, position.y);
+        if (sample == null || Math.abs(sample.point().y - position.y) > 1) {
+            return null;
+        }
+        return sample.foothold();
     }
 
     static Foothold findGroundFoothold(MapleMap map, Point position) {
@@ -538,11 +584,37 @@ final class BotPhysicsEngine {
         return sample == null ? null : sample.point();
     }
 
+    /*
+     * The foothold of walk region regionId under x near referenceY (26b372e7c, credit NutNNut): a region's own
+     * ground, never a foreign chain. graph null = the map's lookup (the graph being built, inside a build).
+     */
+    static Foothold findWalkRegionGroundFoothold(MapleMap map, BotNavigationGraph graph, int regionId, int x,
+                                                 int referenceY) {
+        if (map == null) {
+            return null;
+        }
+        WalkRegionLookup lookup = graph != null
+                ? new WalkRegionLookup(map.getId(), graph.regionsById, graph.regionIdByFootholdId, footholdsById(map))
+                : resolveWalkRegionLookup(map);
+        if (lookup == null) {
+            return null;
+        }
+        GroundRegionSample sample = findWalkRegionGroundSample(lookup, regionId, null, x, referenceY);
+        return sample == null ? null : sample.foothold();
+    }
+
     static boolean canWalkGroundStep(MapleMap map, Point currentPos, int stepX) {
         if (map == null || currentPos == null) {
             return false;
         }
-        Foothold foothold = findGroundFoothold(map, currentPos);
+        return canWalkGroundStep(map, currentPos, findGroundFoothold(map, currentPos), stepX);
+    }
+
+    /* Step preview on the foothold the bot is actually standing on this tick (235b6aefa, credit NutNNut). */
+    static boolean canWalkGroundStep(MapleMap map, Point currentPos, Foothold foothold, int stepX) {
+        if (map == null || currentPos == null) {
+            return false;
+        }
         GroundStepPreview preview = previewGroundStep(map, currentPos, foothold, currentPos.x + stepX);
         return preview != null && !preview.lostGround() && !preview.blocked();
     }
@@ -551,7 +623,13 @@ final class BotPhysicsEngine {
         if (map == null || currentPos == null || stepX == 0) {
             return false;
         }
-        Foothold foothold = findGroundFoothold(map, currentPos);
+        return isGroundStepBlockedByWall(map, currentPos, findGroundFoothold(map, currentPos), stepX);
+    }
+
+    static boolean isGroundStepBlockedByWall(MapleMap map, Point currentPos, Foothold foothold, int stepX) {
+        if (map == null || currentPos == null || stepX == 0) {
+            return false;
+        }
         GroundStepPreview preview = previewGroundStep(map, currentPos, foothold, currentPos.x + stepX);
         return preview != null && preview.blocked();
     }
@@ -598,6 +676,12 @@ final class BotPhysicsEngine {
             return null;
         }
         int regionId = lookup.regionIdByFootholdId().getOrDefault(foothold.getId(), -1);
+        return findWalkRegionGroundSample(lookup, regionId, foothold, x, referenceY);
+    }
+
+    /* foothold == null: no standing chain to prefer (a region-only lookup); every segment counts as a chain step. */
+    private static GroundRegionSample findWalkRegionGroundSample(WalkRegionLookup lookup, int regionId,
+                                                                 Foothold foothold, int x, int referenceY) {
         BotNavigationGraph.Region region = lookup.regionsById().get(regionId);
         if (region == null || region.isRopeRegion) {
             return null;
@@ -635,7 +719,7 @@ final class BotPhysicsEngine {
             // or its prev/next) always beats a non-chain segment; the dx/dy score only breaks ties
             // within the same chain class. Crossing footholds that share no chain link keep the old
             // behaviour, so a ramp crossing flat ground can still be walked down.
-            boolean chainStep = isChainStep(foothold, segment.footholdId);
+            boolean chainStep = foothold == null || isChainStep(foothold, segment.footholdId);
             int score = dx * 1000 + Math.abs(dy);
             boolean better = bestSegment == null
                     || (chainStep && !bestChainStep)
@@ -1210,11 +1294,51 @@ final class BotPhysicsEngine {
                                                  int desiredDir,
                                                  GroundTravelState initialState,
                                                  BotMovementProfile profile) {
+        return simulateWalkOffLanding(map, from, desiredDir, null, initialState, profile);
+    }
+
+    /*
+     * The live launch state at a walk-off lip is not unique (nutnnut/Cosmic 362926fdf, AGPL-3.0. Credit: NutNNut):
+     * the bot arrives with any sub-pixel physX phase, sub-step carry and speed (standing start at the runway anchor,
+     * or walking through at full speed), which moves the dismount pixel and the seeded air drift by a rounding step.
+     * The outcome for a spread of those states, the historical single sim (phase 0, standing start) first, so graph
+     * building can check the landing is stable before authoring an edge from one of them. Entries may be null.
+     */
+    static java.util.List<WalkOffLanding> walkOffLandingVariants(MapleMap map, Point from, int desiredDir,
+                                                       Foothold standingFoothold, BotMovementProfile profile) {
+        java.util.List<WalkOffLanding> outcomes = new java.util.ArrayList<>(12);
+        double terminalHSpeed = maxHSpeedPerClientStep(profile) * desiredDir;
+        double[] physXPhases = {0.0, -0.4, 0.4};
+        double[] carryPhases = {0.0, CLIENT_GROUND_STEP_MS / 2.0};
+        double[] launchHSpeeds = {0.0, terminalHSpeed};
+        for (double phase : physXPhases) {
+            for (double carryMs : carryPhases) {
+                for (double hspeed : launchHSpeeds) {
+                    outcomes.add(simulateWalkOffLanding(map, from, desiredDir, standingFoothold,
+                            new GroundTravelState(from.x + phase, hspeed, carryMs), profile));
+                }
+            }
+        }
+        return outcomes;
+    }
+
+    /*
+     * standingFoothold: the ground the walker is really on (standingGroundFoothold for a live bot, the source
+     * region's own foothold when building). Resolving it from `from` alone re-runs the ambiguous coordinate lookup,
+     * which can start the walk on a foreign chain (an overhead shelf within MAX_SLOPE_UP) and walk off THAT lip
+     * (26b372e7c, credit NutNNut). Null falls back to the coordinate lookup.
+     */
+    static WalkOffLanding simulateWalkOffLanding(MapleMap map,
+                                                 Point from,
+                                                 int desiredDir,
+                                                 Foothold standingFoothold,
+                                                 GroundTravelState initialState,
+                                                 BotMovementProfile profile) {
         if (map == null || from == null || desiredDir == 0 || initialState == null) {
             return null;
         }
 
-        Foothold foothold = findGroundFoothold(map, from);
+        Foothold foothold = standingFoothold != null ? standingFoothold : findGroundFoothold(map, from);
         if (foothold == null) {
             return null;
         }
@@ -1439,6 +1563,10 @@ final class BotPhysicsEngine {
             } else if (collision.type() == AirCollisionType.WALL) {
                 nextX = collision.point().x;
                 vx = 0.0;
+                // Wall hit while steering: the next computeSwimIntents rises to clear it (f424904a8).
+                entry.swimWallBlocked = entry.swimMoveDir != 0;
+            } else {
+                entry.swimWallBlocked = false;
             }
         }
 
