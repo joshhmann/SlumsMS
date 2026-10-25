@@ -347,6 +347,7 @@ public class Dispatcher implements Runnable {
         String said = BotChatRouting.withoutName(line, bot.getChr().getName());
         BotChatRouting.attend(player.getId(), bot.getChr().getId(), System.currentTimeMillis());
         BotNoiseFilter.noteEngaged(player.getId(), bot.getChr().getId()); // ticket 47: @quiet bots keeps this one
+        BotConversation.engaged(bot.getChr(), player); // 1.5.1: a natural action is an exchange too: it stays put
         if (bot.naturalAction(player, said)) {
             return;
         }
@@ -375,6 +376,7 @@ public class Dispatcher implements Runnable {
     }
 
     private void openMenu(Character player, BotSM bot) {
+        BotConversation.engaged(bot.getChr(), player); // 1.5.1: no walking off while its window is up
         BotMenus.requestWindow(player, bot);
         if (bot instanceof SocialBot socialBot) {
             socialBot.openMenuFor(player);
@@ -394,6 +396,7 @@ public class Dispatcher implements Runnable {
             return;
         }
         BotNoiseFilter.noteEngaged(message.getSender().getId(), botId);
+        BotConversation.engaged(bot.getChr(), message.getSender()); // 1.5.1: it waits for the answer where it is
         soloMapling.ArtificialPlayer.BotCommandsPack.SocialCommands.BotSpeak(bot.getChr(),
                 BotChatRouting.askFirst(botId, message, now));
     }
@@ -426,6 +429,9 @@ public class Dispatcher implements Runnable {
             if (BotMenus.natural() && bot.getRunning() && talksNaturally(bot)) {
                 talkNaturally(bot, message.getSender(), message.getContent()); // ticket 37: a reply, not a menu
                 return;
+            }
+            if (bot.getChr() != null) {
+                BotConversation.engaged(bot.getChr(), message.getSender()); // 1.5.1: named, it stays to answer
             }
 
             if (!bot.getRunning()) {
