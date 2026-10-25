@@ -281,7 +281,7 @@ public class CommandsExecutor {
         addCommand(new String[]{"wdf", "whatdropsfrom"}, WhatDropsFromCommand.class);
         addCommand(new String[]{"wd", "whodrops"}, WhoDropsCommand.class);
         //addCommand("orebag", OreBagCommand.class);
-        addCommand("autologin", SetAutoLoginCommand.class);
+        // 1.5.1 security: @autologin removed (it let anyone on the same IP log into any account without a password)
         addCommand("weekly", BossLogCommand.class);
         commandsNameDesc.add(levelCommandsCursor);
     }

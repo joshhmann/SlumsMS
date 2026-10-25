@@ -168,9 +168,8 @@ public final class LoginPasswordHandler implements PacketHandler {
             }
         }
 
-        if (c.autolog > 0) {
-            loginok = 0;
-        }
+        // 1.5.1 security: MapleRoot's "autologin" set loginok = 0 here whenever the account last used from this IP had
+        // autologin on, so any account name with any password (even a banned one) logged in. Removed with @autologin.
 
         if (YamlConfig.config.server.BCRYPT_MIGRATION && (loginok <= -10)) { // -10 means migration to bcrypt, -23 means TOS wasn't accepted
             try (Connection con = DatabaseConnection.getConnection();
@@ -201,10 +200,6 @@ public final class LoginPasswordHandler implements PacketHandler {
             return;
         } else if (loginok != 0) {
             c.sendPacket(PacketCreator.getLoginFailed(loginok));
-            SessionCoordinator.getInstance().closeLoginSession(c);
-            return;
-        }
-        if (c.autolog > 0 && ClientVersionGate.refuseIfOutdated(c, login)) { // autologin skips the password check above
             SessionCoordinator.getInstance().closeLoginSession(c);
             return;
         }

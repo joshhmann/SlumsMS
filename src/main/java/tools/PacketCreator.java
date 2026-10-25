@@ -878,11 +878,8 @@ public class PacketCreator {
         for (Character chr : chars) {
             addCharEntry(p, chr, false);
         }
-        if (c.autolog > 0) {
-            p.writeByte(2);
-        } else {
-            p.writeByte(YamlConfig.config.server.ENABLE_PIC && !c.canBypassPic() ? (c.getPic() == null || c.getPic().equals("") ? 0 : 1) : 2);
-        }
+        // 1.5.1 security: no PIC skip for MapleRoot's removed autologin
+        p.writeByte(YamlConfig.config.server.ENABLE_PIC && !c.canBypassPic() ? (c.getPic() == null || c.getPic().equals("") ? 0 : 1) : 2);
         p.writeInt(YamlConfig.config.server.COLLECTIVE_CHARSLOT ? chars.size() + c.getAvailableCharacterSlots() : c.getCharacterSlots());
         return p;
     }

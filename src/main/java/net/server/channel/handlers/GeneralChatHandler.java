@@ -19,10 +19,9 @@ public final class GeneralChatHandler extends AbstractPacketHandler {
     static final long CHAT_SPAM_MS = 200;
 
     /**
-     * Whether a chat line is dropped as spam. The stamps are compared against the server's tick clock, which only
-     * moves every {@code UPDATE_INTERVAL} (777 ms on the servers), so back-to-back lines can fall inside the same
-     * tick and be dropped silently. A GM's lines are never dropped: the owner's and the auto-QA accounts' commands
-     * must not vanish because two of them were typed within one tick.
+     * Whether a chat line is dropped as spam: another line less than {@link #CHAT_SPAM_MS} after the last one, on the
+     * real clock (1.5.1: the old tick-clock stamps dropped any second line typed within one 777 ms tick). A GM's
+     * lines are never dropped, so the owner's and the auto-QA accounts' commands never vanish.
      */
     static boolean spamBlocked(boolean gm, long lastSpam, long now) {
         return !gm && lastSpam + CHAT_SPAM_MS > now;
@@ -32,7 +31,7 @@ public final class GeneralChatHandler extends AbstractPacketHandler {
     public void handlePacket(InPacket p, Client c) {
         String s = p.readString();
         Character chr = c.getPlayer();
-        if (spamBlocked(chr.isGM(), chr.getAutobanManager().getLastSpam(7), currentServerTime())) {
+        if (spamBlocked(chr.isGM(), chr.getAutobanManager().getLastChatAt(), System.currentTimeMillis())) {
             c.sendPacket(PacketCreator.enableActions());
             return;
         }
@@ -85,6 +84,7 @@ public final class GeneralChatHandler extends AbstractPacketHandler {
             }
 
             chr.getAutobanManager().spam(7);
+        chr.getAutobanManager().chatted();
         }
     }
 }
