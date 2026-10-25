@@ -37,7 +37,8 @@ controller window in front, the PC idle for 10 minutes, and the real monitor as 
    line in it at start; keep the file, the worker fails if it's missing).
 2. Admin PowerShell: `Start-Process pythonw.exe -ArgumentList '-B','Z:\MSv83\SlumsMS-dev\client-mcp\scripts\focus-controller.py'`
    and leave the "SlumsMS client-driver controller" window in front.
-3. Admin PowerShell: `python -B Z:\MSv83\SlumsMS-dev\client-mcp\scripts\elevated-worker.py` (lasts one hour).
+3. Admin PowerShell: `python -B Z:\MSv83\SlumsMS-dev\client-mcp\scripts\elevated-worker.py` (stops after one hour
+   without requests, so a QA session keeps it alive; 12 hours at most).
 
 **Driving it from 187** (`tools/ops/client-mcp`, which writes to the worker's queue over ssh):
 ```
@@ -60,8 +61,8 @@ them. A Codex agent started on Silvia in `client-mcp\` can call the MCP server d
 
 Coordinates are the 800x600 client space of screenshots. The input tools work only on the verified field screen
 (like `command`): a window over the status bar hides it and they refuse; Escape is still allowed after the field was
-seen, since a menu it opens hides the bar. No modifier keys except the one whitelisted combo `CTRL+F10` (the SlumsMS
-settings window), so no Alt+F4. Login waits 2 s after the field before `!unhide` (it used to lose the `!`). Each event re-checks the idle guard and a held button is always released if the owner takes over.
+seen, since a menu it opens hides the bar. No modifier keys except the whitelisted combos `CTRL+F10` (the SlumsMS
+settings window) and `CTRL+F11` (freeze/unfreeze the HUD), so no Alt+F4. Login waits 2 s after the field before `!unhide` (it used to lose the `!`). Each event re-checks the idle guard and a held button is always released if the owner takes over.
 Added 2026-10-25 for the inventory-resize checks; a worker started before then does not have them.
 
 **A typical pass:** pair a server scene with screenshots. Start the scene from 187 (`tools/ops/client-mcp command
