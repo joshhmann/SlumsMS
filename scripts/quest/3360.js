@@ -68,3 +68,32 @@ function generateString() {
     }
     return thestring;
 }
+
+/*
+    SlumsMS 1.5.2: the server's Quest.wz flags this quest as script-ended (endscript q3360e), where stock Cosmic's
+    data checks the quest progress instead (infoex "1", set by MagatiaPassword.js when the code is entered at the
+    secret passage door). This file had no end function, so the quest could never be handed in. Same check as Cosmic;
+    Act.img gives no reward.
+*/
+var endStatus = -1;
+
+function end(mode, type, selection) {
+    endStatus++;
+    if (mode != 1) {
+        qm.dispose();
+        return;
+    }
+
+    if (qm.getQuestProgress(3360) != "1") {   // checked on every step, not only the first
+        qm.sendOk("Have you tried the code on the door of the #bSecret Passage#k yet? Go and enter it, then come back.");
+        qm.dispose();
+        return;
+    }
+
+    if (endStatus == 0) {
+        qm.sendNext("The door opened? Hahaha! Didn't I tell you my master code is amazing? The Secret Passage is yours to use now.");
+    } else {
+        qm.forceCompleteQuest();
+        qm.dispose();
+    }
+}
