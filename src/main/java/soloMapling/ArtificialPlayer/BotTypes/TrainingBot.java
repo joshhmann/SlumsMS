@@ -492,6 +492,13 @@ public class TrainingBot extends BotSM {
             answerEventCall(chr);
         }
 
+        if (pausedForChat(chr)) {
+            pollRecruitInvite();
+            soloMenu.poll();
+            partyMenu.poll();
+            return; // 1.5.1: a player is talking to it: no trip out of here until the chat hold ends
+        }
+
         switch (phase) {
             case INIT -> doInit();
             case IN_TOWN -> doInTown();
@@ -511,6 +518,64 @@ public class TrainingBot extends BotSM {
         pollRecruitInvite(); // gated party-invite drain (the "wanna party up?" flow)
         soloMenu.poll();
         partyMenu.poll();    // kept last: a "Follow me!" selection converts this bot away
+    }
+
+    // ── Conversation hold (1.5.1) ────────────────────────────────────────────
+
+    /** True while a trip phase is paused because a player is talking to this bot; the trip restarts after. */
+    private boolean chatPaused = false;
+
+    /**
+     * Phases that take the bot off the spot a player is talking to it at: a trip to a store, back home, out to
+     * train or to town, and the decision that sets one off. A grind (and its rest break) stays on its map, and a
+     * town stop already waits for the chat ({@link #doInTown}).
+     */
+    static boolean tripPhase(Phase p) {
+        return p == Phase.SHOP_TRAVEL || p == Phase.SHOP_RETURN || p == Phase.DECIDE || p == Phase.GO_TRAIN
+                || p == Phase.GO_TOWN;
+    }
+
+    /**
+     * 1.5.1 (owner QA: a player talked to LilZakum in Henesys, and 3 s later it set off for Orbis - the hold was only
+     * read by the town stop, not by the shop return or the decision after it). While the chat holds, a trip phase
+     * waits where the bot stands: the trip in progress is stopped once, and restarts from here when the hold ends.
+     * A world event's call, a ride it is queued for or aboard, and a party trip are not stopped. Cheap: a map read.
+     */
+    private boolean pausedForChat(Character chr) {
+        boolean held = tripPhase(phase) && soloMapling.ArtificialPlayer.BotConversation.isHoldingChat(chr)
+                && soloMapling.worldevents.WorldEventSteer.mapFor(chr.getId()) < 0 && partyTargetMapId() == null
+                && !GCMovement.isInTransit(chr);
+        if (!held) {
+            if (chatPaused) {
+                chatPaused = false;
+                phaseEntered = false; // the stopped trip starts again from where the bot stands
+                moveDone = false;
+                moveOk = false;
+                debugChat("chat hold over: " + phase + " resumes");
+            }
+            return false;
+        }
+        if (!chatPaused) {
+            chatPaused = true;
+            GCMovement.stop(chr); // cancels the trip (no callback) and the walk to its portal
+            debugChat("chat hold: " + phase + " waits");
+        }
+        return true;
+    }
+
+    /** Tests: whether a trip phase is waiting for a chat. */
+    boolean chatPausedForTest() {
+        return chatPaused;
+    }
+
+    /** Tests: puts the bot in a phase as if it had just entered it. */
+    void enterPhaseForTest(Phase next) {
+        enterPhase(next);
+    }
+
+    /** Tests: runs only the chat-hold check of a tick. */
+    boolean pausedForChatForTest() {
+        return pausedForChat(getChr());
     }
 
     // ── Deaths (1.5.0 rc3, owner decision 5) ─────────────────────────────────
