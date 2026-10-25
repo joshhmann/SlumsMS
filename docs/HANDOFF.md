@@ -67,7 +67,17 @@ schedule: when a batch is fixed and QA'd, release (live steps on the owner's go)
   quest-row bloat, migration `023-character-lookup-indexes`, shutdown autosave, Warrior ids. Needs a 4 h+ 3,000-bot
   soak on TEST first (plan in the ticket 80 hand-back: jstack every 15 min, no deadlock/CME/new ERRORs, queststatus).
   Add 023 to `docs/release/1.5.2.conf` (LEDGER_BEFORE = 1.5.1's list).
-- Ticket 75 Amoria PQ for 2-6 players (owner OK'd), ticket 78 Hidden Street site (also the data sweep).
+- Ticket 75 Amoria PQ for 2-6 players: **implemented on `152-sweep-maps-pqs`** (`53bea0bc7`) — eligibility 2-6 with
+  no marriage and no gender rule, bots never count; stages 2/3 scale the platform count to the party (capped at 5),
+  stage 4 pools the 50 trial items over the party and scales the count (`max(1, ceil(50 * party / 6))`), both stage 1
+  doors accept anyone; rewards unchanged; `AmoriaPqRulesTest` (14 cases, 6 of them fail on Cosmic's scripts). Left to
+  confirm: a 2-player same-gender run on TEST with a real client (QA scenario `pq-1` stages it). Ticket 78 Hidden
+  Street site still open.
+- Map/PQ sweep on `152-sweep-maps-pqs`: new `tools/ops/map-integrity` (portals, placed mobs/NPCs/reactors, return
+  maps, map names) and `tools/ops/pq-audit` (every PQ's maps and scripts diffed against Cosmic). Result: no v83 map
+  is broken relative to Cosmic, but the server's `wz/` is 9,528 NPCs and 3,456 mobs short of what the client's patch
+  layers ship (all of it Big-Bang-era maps, i.e. where the rebirth warp sends players) — needs a re-extraction and a
+  test deploy, owner's call.
 - Ticket 69 vb-* checks (Gemini) need the 9 reworks from the review before merging.
 - Leftovers: Ninja Ambush DoT, Cygnus AP, free-teleport HyperTP item, GM "za warudo" skill, Pink Bean double clear,
   Papulatus exit NPC, MapleTV scroll generator, items with no slotMax stacking to 32000, Von Leon map potions, Duey
