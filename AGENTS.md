@@ -72,7 +72,7 @@ Both servers run world id **1**, never 0. Code that assumes world 0 is a bug (se
   `test-1.5.0-rc6` is the history of 1.5.0; don't build on it.
 - Previous releases: `hotfix-1.4.2-haggle` (1.4.2), `release-1.4.1`.
 - Client: `client-1.5.0-fixes3` is the current client line (live DLL FFFFE143, build 10500). Launcher:
-  `launcher-ui-compact` (Tauri; 1.5.1 on Live, 1.5.2 in progress), `launcher-handover` (Electron hand-over, must include
+  `main` (Tauri; 1.5.2 on Live), `launcher-handover` (Electron hand-over, must include
   `7f385b0`; on Live as 1.5.0).
 - **Current state, open work and decisions: `docs/HANDOFF.md`.** Read it after this file.
 
