@@ -34,6 +34,13 @@ ENDPOINT (slumsms.asslorde.com:8485) and HASH-DIFF.
 
 ## 2. Live, in MMO order (owner runs these; they need a real terminal or `!` in Claude)
 
+**One command (1.5.2+):** stage `tools/release/release-live.sh` into the release folder, then
+`bash /opt/mapleroot-deployments/v<v>/release-live.sh --check` (pre-flight only) and
+`bash /opt/mapleroot-deployments/v<v>/release-live.sh --go`. It runs the server steps below in order (stop-backup,
+`extra/extra-steps.sh` if present, apply-start, smoke, maintenance end), checks before each one and stops at the first
+problem with the next action. Client publishes (step 2) and the patch notes stay separate.
+
+
 1. **GO** `ssh root@192.168.0.164 bash /opt/mapleroot-deployments/v<v>/deploy.sh --phase stop-backup`
    (maintenance on, Cody's "going down" post, stop, DB + runtime backup)
 2. **GO** `LAUNCHER_REPO=/root/work/launcher-publisher tools/release/publish-client <v> --source /srv/slums-staging/client-<v> --release <v> --no-packs --news /srv/slums-staging/news-<v>.json --no-announce`
