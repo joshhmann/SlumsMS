@@ -309,6 +309,13 @@ public class NPCConversationManager extends AbstractPlayerInteraction {
         getPlayer().getMap().broadcastMessage(PacketCreator.environmentChange(effect, 3));
     }
 
+    /** Gives the master levels the Leafre instructors give for a 4th job (nothing for other jobs). */
+    public void teachFourthJobMasteries(int jobId) {
+        for (int skillId : constants.game.FourthJobMasteries.forJob(jobId)) {
+            teachSkill(skillId, (byte) 0, (byte) 10, -1);
+        }
+    }
+
     /**
      * Quest record that counts the rebirth SP grants a character has taken from the rebirth helper (9977778). It is no
      * quest in Quest.wz; the progress string lives in questprogress like any other, so it survives relog.

@@ -100,6 +100,7 @@ function action(m, t, s) {
 function jobAdvance() {
     if (job !== 700) {
         cm.changeJobById(job);
+        cm.teachFourthJobMasteries(job); // the master levels the Leafre instructors give (4th jobs only)
     }
     giveRewards();
 }
