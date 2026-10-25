@@ -75,6 +75,11 @@ public class HenesysBot extends BotSM {
         this.henesysBotState = state;
     }
 
+    /** Tests: the state the next tick runs. */
+    String stateForTest() {
+        return henesysBotState.name();
+    }
+
     private enum HenesysBotState {
         RESET,
         IDLE,
@@ -129,12 +134,17 @@ public class HenesysBot extends BotSM {
                 setHenesysBotState(HenesysBotState.IDLE);
                 break;
             case CHANGE_MAP:
-                doRandomChat("MapTransition");
-                changeMap();
-                lastMapChangeTime = System.currentTimeMillis();
-                doRandomEmote();
-                wanderToMainPlatform();
-                PersonalSpace.keepNow(getChr()); // rc6: arrived through a portal and walked to a recorded endpoint
+                // 1.5.1 (owner QA: bots "just zoomed away"): a held bot neither announces a hop nor, when the hop is
+                // refused, walks off to a main platform anyway (the walk after the hop ran even when it never left)
+                if (!soloMapling.ArtificialPlayer.BotConversation.isHoldingChat(getChr())) {
+                    doRandomChat("MapTransition");
+                    if (changeMap()) {
+                        lastMapChangeTime = System.currentTimeMillis();
+                        doRandomEmote();
+                        wanderToMainPlatform();
+                        PersonalSpace.keepNow(getChr()); // rc6: arrived through a portal, walked to a recorded endpoint
+                    }
+                }
                 setHenesysBotState(HenesysBotState.IDLE);
                 break;
             default:
@@ -149,7 +159,14 @@ public class HenesysBot extends BotSM {
      * Decides what action the bot takes this tick.
      * Weighted rolls determine whether it wanders, changes maps, or just idles.
      */
-    private void decideNextAction() {
+    void decideNextAction() {
+        if (soloMapling.ArtificialPlayer.BotConversation.isHoldingChat(getChr())) {
+            // 1.5.1: a player is talking to it: no wander, no map hop, no turning into a jump quest bot - an emote
+            if (rollChanceInverse(5)) {
+                setHenesysBotState(HenesysBotState.EMOTE);
+            }
+            return;
+        }
         if (getChr().getMapId() == PET_PARK
                 && (System.currentTimeMillis() - lastJQConversionTime) > JQ_CONVERSION_COOLDOWN_MS
                 && rollChanceInverse(4)) {
@@ -234,21 +251,23 @@ public class HenesysBot extends BotSM {
         }
     }
 
-    private void changeMap() {
+    /** Hops to a connected Henesys map; false when it stays (held by a chat, nowhere to go, no route). */
+    private boolean changeMap() {
         if (soloMapling.ArtificialPlayer.BotConversation.isHoldingChat(getChr())) {
-            return; // owner report 2026-10-24: no map hop away from the player it is talking to
+            return false; // owner report 2026-10-24: no map hop away from the player it is talking to
         }
         Set<Integer> connected = portalConnection.getConnectedMaps(getChr().getMapId());
-        if (connected.isEmpty()) return;
+        if (connected.isEmpty()) return false;
 
         List<Integer> options = new ArrayList<>(connected);
         options.removeIf(m -> !soloMapling.ArtificialPlayer.BotMapCap.admit(getChr(), m)); // 1.5.0: per-map bot cap
-        if (options.isEmpty()) return;
+        if (options.isEmpty()) return false;
         int chosen = pickLeastCrowdedMap(options);
 
         PortalConnection.PortalRoute route = portalConnection.getRoute(getChr().getMapId(), chosen);
-        if (route == null) return;
+        if (route == null) return false;
         warpToMap(route.destMapId(), route.sourcePortalId());
+        return true;
     }
 
     private int pickLeastCrowdedMap(List<Integer> mapIds) {
