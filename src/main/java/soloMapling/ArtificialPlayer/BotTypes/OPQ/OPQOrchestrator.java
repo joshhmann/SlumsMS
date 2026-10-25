@@ -11,11 +11,13 @@ import java.awt.Point;
 import java.util.ArrayDeque;
 import java.util.ArrayList;
 import java.util.Collection;
+import java.util.Collections;
 import java.util.Comparator;
 import java.util.Deque;
 import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
+import java.util.WeakHashMap;
 import java.util.concurrent.CopyOnWriteArrayList;
 import java.util.concurrent.ScheduledFuture;
 import java.util.concurrent.TimeUnit;
@@ -55,8 +57,9 @@ public class OPQOrchestrator {
 
     // Stage 2: sorted box reactor index per map instance (oid -> sorted position 0-6, right-to-left).
     // Per instance, not per map id: two parties run two copies of 920010400 with different oids. Built lazily on
-    // first Stage 2 assignment, cleared on reset.
-    private final Map<MapleMap, Map<Integer, Integer>> boxIndexes = new java.util.concurrent.ConcurrentHashMap<>();
+    // first Stage 2 assignment, cleared on reset. Weak keys: every OPQ instance makes its own stage 2 map, and a strong
+    // map kept each one (and everything on it) alive after the instance was disposed until the next reset.
+    private final Map<MapleMap, Map<Integer, Integer>> boxIndexes = Collections.synchronizedMap(new WeakHashMap<>());
 
     private ScheduledFuture<?> tickHandle;
 

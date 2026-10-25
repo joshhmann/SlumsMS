@@ -952,6 +952,7 @@ public class OPQBot extends BotSM {
         stageWaitStartTime = 0;
         lootedRecordItemId = -1;
         cloudPiecesLooted = 0;
+        announcedBoxReactorOid = -1;    // a second run's box may get the same oid: say the line again
 
         if (isInParty()) {
             transitionTo(OPQBotState.IN_PARTY_IDLE,
