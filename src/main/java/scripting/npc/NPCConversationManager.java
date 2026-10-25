@@ -309,6 +309,23 @@ public class NPCConversationManager extends AbstractPlayerInteraction {
         getPlayer().getMap().broadcastMessage(PacketCreator.environmentChange(effect, 3));
     }
 
+    /**
+     * Gold Compass (2084000): true when the skill belongs to the character's own job line or to the line of a job from
+     * a previous rebirth. The old script sold every class's skills.
+     */
+    public boolean isSkillOnOwnLine(int skillId) {
+        java.util.Set<Integer> lines = new java.util.HashSet<>(constants.game.SkillLines.jobsOnLine(getPlayer().getJob().getId()));
+        try {
+            com.fasterxml.jackson.databind.JsonNode reborn = new com.fasterxml.jackson.databind.ObjectMapper()
+                    .readTree(getPlayer().getAllRebornDataCerezeth());
+            for (com.fasterxml.jackson.databind.JsonNode row : reborn) {
+                lines.addAll(constants.game.SkillLines.jobsOnLine(row.path("job").asInt(-1)));
+            }
+        } catch (Exception e) { // rebirth system off or unreadable data: the own line still applies
+        }
+        return constants.game.SkillLines.isOnLine(skillId, lines);
+    }
+
     /** Gives the master levels the Leafre instructors give for a 4th job (nothing for other jobs). */
     public void teachFourthJobMasteries(int jobId) {
         for (int skillId : constants.game.FourthJobMasteries.forJob(jobId)) {

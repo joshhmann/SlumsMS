@@ -1,6 +1,13 @@
 var status = 0;
 var cost = 10000000;
 
+// Only skills of the player's own job line (and of the jobs from previous rebirths) are sold.
+function teach(skillId, level, masterLevel, expiration) {
+    if (cm.isSkillOnOwnLine(skillId)) {
+        cm.teachSkill(skillId, level, masterLevel, expiration);
+    }
+}
+
 function start() {
     cm.sendNext("#eHi i am the NPC in charge of exchanging all 4th job skills for a mere sum of 10m mesos.");
 }
@@ -19,7 +26,7 @@ function action(mode, type, selection) {
             cm.dispose();
             return;
         }
-        cm.sendYesNo("This will add all the 4th job skills that require either Questing or Skillbooks, are you sure you want them?");
+        cm.sendYesNo("This will add all the 4th job skills that require either Questing or Skillbooks, are you sure you want them? Only the skills of your own job line (and of your previous rebirth jobs) are taught.");
         cost *= cm.getJobId() == 0 ? 10 : 1;
     } else if (status == 2) {
         if (cm.getMeso() < cost) {
@@ -68,74 +75,74 @@ for (var i = 0; i < skillTeachingArray.length; i++) {
     for (var j = 0; j < skills.length; j++) {
         var skillId = skills[j];
         var skillLevel = (skillId === 1320008 || skillId === 1320009) ? 25 : 10;
-        cm.teachSkill(skillId, 0, skillLevel, -1);
-        cm.teachSkill(1005, 1, 1, -1);
-        cm.teachSkill(10001005, 1, 1, -1);
-        cm.teachSkill(20001005, 1, 1, -1);
-        cm.teachSkill(1121011, 1, 5, -1);
-        cm.teachSkill(1321010, 1, 5, -1);
-        cm.teachSkill(2121008, 1, 5, -1);
-        cm.teachSkill(2221008, 1, 5, -1);
-        cm.teachSkill(2321009, 1, 5, -1);
-        cm.teachSkill(3121009, 1, 5, -1);
-        cm.teachSkill(4111002, 30, 30, -1);
-        cm.teachSkill(4121009, 1, 5, -1);
-        cm.teachSkill(4221008, 1, 5, -1);
-        cm.teachSkill(5111013, 1, 10, -1);
-        cm.teachSkill(5121008, 1, 5, -1);
-        cm.teachSkill(5221010, 1, 5, -1);
-        cm.teachSkill(14111000, 30, 30, -1);
-        cm.teachSkill(11121204, 1, 30, -1);
-        cm.teachSkill(1121012, 1, 5, -1);
-        cm.teachSkill(1221017, 1, 5, -1);
-        cm.teachSkill(1321011, 1, 5, -1);
-        cm.teachSkill(1321012, 1, 5, -1);
-        cm.teachSkill(1321013, 1, 5, -1);
-        cm.teachSkill(1321016, 1, 5, -1);
-        cm.teachSkill(2121052, 1, 5, -1);
-        cm.teachSkill(2121054, 1, 5, -1);
-        cm.teachSkill(2221009, 1, 5, -1);
-        cm.teachSkill(2221011, 1, 5, -1);
-        cm.teachSkill(3121015, 1, 5, -1);
-        cm.teachSkill(3221009, 1, 5, -1);
-        cm.teachSkill(3221010, 1, 5, -1);
-        cm.teachSkill(4121010, 1, 5, -1);
-        cm.teachSkill(4221009, 1, 5, -1);
-        cm.teachSkill(4221010, 1, 5, -1);
-        cm.teachSkill(5121011, 1, 5, -1);
-        cm.teachSkill(5121012, 1, 5, -1);
-        cm.teachSkill(5121013, 1, 5, -1);
-        cm.teachSkill(5221016, 1, 5, -1);
-        cm.teachSkill(5221017, 1, 5, -1);
-        cm.teachSkill(5221018, 1, 5, -1);
-        cm.teachSkill(7001000, 1, 5, -1);
-        cm.teachSkill(7001001, 1, 5, -1);
-        cm.teachSkill(7001002, 1, 5, -1);
-        cm.teachSkill(7001003, 1, 5, -1);
-        cm.teachSkill(7001004, 1, 5, -1);
-        cm.teachSkill(7001006, 1, 5, -1);
-        cm.teachSkill(11121004, 1, 5, -1);
-        cm.teachSkill(11121014, 1, 5, -1);
-        cm.teachSkill(11121101, 1, 5, -1);
-        cm.teachSkill(11121102, 1, 5, -1);
-        cm.teachSkill(11121203, 1, 5, -1);
-        cm.teachSkill(12121002, 1, 5, -1);
-        cm.teachSkill(12121012, 1, 5, -1);
-        cm.teachSkill(12121054, 1, 5, -1);
-        cm.teachSkill(12121055, 1, 5, -1);
-        cm.teachSkill(13121001, 1, 5, -1);
-        cm.teachSkill(13121002, 1, 5, -1);
-        cm.teachSkill(13121008, 1, 5, -1);
-        cm.teachSkill(13121052, 1, 5, -1);
-        cm.teachSkill(13121054, 1, 5, -1);
-        cm.teachSkill(14121001, 1, 5, -1);
-        cm.teachSkill(14121003, 1, 5, -1);
-        cm.teachSkill(14121006, 1, 5, -1);
-        cm.teachSkill(14121007, 1, 5, -1);
-        cm.teachSkill(15121001, 1, 5, -1);
-        cm.teachSkill(15121002, 1, 5, -1);
-        cm.teachSkill(15121003, 1, 5, -1);
-        cm.teachSkill(15121052, 1, 5, -1);
+        teach(skillId, 0, skillLevel, -1);
+        teach(1005, 1, 1, -1);
+        teach(10001005, 1, 1, -1);
+        teach(20001005, 1, 1, -1);
+        teach(1121011, 1, 5, -1);
+        teach(1321010, 1, 5, -1);
+        teach(2121008, 1, 5, -1);
+        teach(2221008, 1, 5, -1);
+        teach(2321009, 1, 5, -1);
+        teach(3121009, 1, 5, -1);
+        teach(4111002, 30, 30, -1);
+        teach(4121009, 1, 5, -1);
+        teach(4221008, 1, 5, -1);
+        teach(5111013, 1, 10, -1);
+        teach(5121008, 1, 5, -1);
+        teach(5221010, 1, 5, -1);
+        teach(14111000, 30, 30, -1);
+        teach(11121204, 1, 30, -1);
+        teach(1121012, 1, 5, -1);
+        teach(1221017, 1, 5, -1);
+        teach(1321011, 1, 5, -1);
+        teach(1321012, 1, 5, -1);
+        teach(1321013, 1, 5, -1);
+        teach(1321016, 1, 5, -1);
+        teach(2121052, 1, 5, -1);
+        teach(2121054, 1, 5, -1);
+        teach(2221009, 1, 5, -1);
+        teach(2221011, 1, 5, -1);
+        teach(3121015, 1, 5, -1);
+        teach(3221009, 1, 5, -1);
+        teach(3221010, 1, 5, -1);
+        teach(4121010, 1, 5, -1);
+        teach(4221009, 1, 5, -1);
+        teach(4221010, 1, 5, -1);
+        teach(5121011, 1, 5, -1);
+        teach(5121012, 1, 5, -1);
+        teach(5121013, 1, 5, -1);
+        teach(5221016, 1, 5, -1);
+        teach(5221017, 1, 5, -1);
+        teach(5221018, 1, 5, -1);
+        teach(7001000, 1, 5, -1);
+        teach(7001001, 1, 5, -1);
+        teach(7001002, 1, 5, -1);
+        teach(7001003, 1, 5, -1);
+        teach(7001004, 1, 5, -1);
+        teach(7001006, 1, 5, -1);
+        teach(11121004, 1, 5, -1);
+        teach(11121014, 1, 5, -1);
+        teach(11121101, 1, 5, -1);
+        teach(11121102, 1, 5, -1);
+        teach(11121203, 1, 5, -1);
+        teach(12121002, 1, 5, -1);
+        teach(12121012, 1, 5, -1);
+        teach(12121054, 1, 5, -1);
+        teach(12121055, 1, 5, -1);
+        teach(13121001, 1, 5, -1);
+        teach(13121002, 1, 5, -1);
+        teach(13121008, 1, 5, -1);
+        teach(13121052, 1, 5, -1);
+        teach(13121054, 1, 5, -1);
+        teach(14121001, 1, 5, -1);
+        teach(14121003, 1, 5, -1);
+        teach(14121006, 1, 5, -1);
+        teach(14121007, 1, 5, -1);
+        teach(15121001, 1, 5, -1);
+        teach(15121002, 1, 5, -1);
+        teach(15121003, 1, 5, -1);
+        teach(15121052, 1, 5, -1);
 
 
 
