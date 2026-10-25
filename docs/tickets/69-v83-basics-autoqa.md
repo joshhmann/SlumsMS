@@ -64,7 +64,7 @@ Success lines are the ones in `docs/qa/QA.md` (the `VB ...` column). Without `wz
 
 ## Suite
 
-`mvn -o clean test` on 2026-10-24: `Tests run: 4595, Failures: 0, Errors: 0, Skipped: 38`.
+`mvn -o clean test` on 2026-10-24, after rebasing onto `625308df5`: `Tests run: 4599, Failures: 0, Errors: 0, Skipped: 38`.
 
 ## Not done
 
