@@ -31,42 +31,69 @@ import server.maps.MapleMap;
 import server.maps.MiniDungeonInfo;
 
 public class WarpCommand extends Command {
+    private static final int MAX_LISTED = 10;
+
     {
-        setDescription("Warp to a map.");
+        setDescription("Warp to a map by id or name.");
     }
 
     @Override
     public void execute(Client c, String[] params) {
         Character player = c.getPlayer();
         if (params.length < 1) {
-            player.yellowMessage("Syntax: !warp <mapid>");
+            player.yellowMessage("Syntax: !warp <mapid|map name>");
             return;
         }
 
+        MapleMap target = null;
+        String query = joinStringFrom(params, 0);
         try {
-            MapleMap target = c.getChannelServer().getMapFactory().getMap(Integer.parseInt(params[0]));
+            target = c.getChannelServer().getMapFactory().getMap(Integer.parseInt(params[0]));
             if (target == null) {
                 player.yellowMessage("Map ID " + params[0] + " is invalid.");
                 return;
             }
-
-            if (!player.isAlive()) {
-                player.dropMessage(1, "This command cannot be used when you're dead.");
+        } catch (NumberFormatException notAnId) {
+            java.util.List<MapSearchHelper.MapMatch> found = MapSearchHelper.resolve(MapSearchHelper.findMaps(query), query);
+            if (found.isEmpty()) {
+                player.yellowMessage("No map matches '" + query + "'.");
                 return;
             }
-
-            if (!player.isGM()) {
-                if (player.getEventInstance() != null || MiniDungeonInfo.isDungeonMap(player.getMapId()) || FieldLimit.CANNOTMIGRATE.check(player.getMap().getFieldLimit())) {
-                    player.dropMessage(1, "This command cannot be used in this map.");
-                    return;
+            if (found.size() > 1) {
+                player.yellowMessage(found.size() + " maps match '" + query + "', use the id (!warp <mapid>):");
+                for (int i = 0; i < Math.min(found.size(), MAX_LISTED); i++) {
+                    MapSearchHelper.MapMatch m = found.get(i);
+                    player.yellowMessage(m.mapId() + " - " + m.streetName() + " - " + m.mapName());
                 }
+                if (found.size() > MAX_LISTED) {
+                    player.yellowMessage("... and " + (found.size() - MAX_LISTED) + " more.");
+                }
+                return;
             }
-
-            // expedition issue with this command detected thanks to Masterrulax
-            player.saveLocationOnWarp();
-            player.changeMap(target, target.getRandomPlayerSpawnpoint());
+            target = c.getChannelServer().getMapFactory().getMap(found.get(0).mapId());
+            if (target == null) {
+                player.yellowMessage("Map ID " + found.get(0).mapId() + " is invalid.");
+                return;
+            }
         } catch (Exception ex) {
             player.yellowMessage("Map ID " + params[0] + " is invalid.");
+            return;
         }
+
+        if (!player.isAlive()) {
+            player.dropMessage(1, "This command cannot be used when you're dead.");
+            return;
+        }
+
+        if (!player.isGM()) {
+            if (player.getEventInstance() != null || MiniDungeonInfo.isDungeonMap(player.getMapId()) || FieldLimit.CANNOTMIGRATE.check(player.getMap().getFieldLimit())) {
+                player.dropMessage(1, "This command cannot be used in this map.");
+                return;
+            }
+        }
+
+        // expedition issue with this command detected thanks to Masterrulax
+        player.saveLocationOnWarp();
+        player.changeMap(target, target.getRandomPlayerSpawnpoint());
     }
 }

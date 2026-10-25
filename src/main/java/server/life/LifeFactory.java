@@ -42,7 +42,7 @@ public class LifeFactory {
     private final static DataProvider stringDataWZ = DataProviderFactory.getDataProvider(WZFiles.STRING);
     private static final Data mobStringData = stringDataWZ.getData("Mob.img");
     private static final Data npcStringData = stringDataWZ.getData("Npc.img");
-    private static final Map<Integer, MonsterStats> monsterStats = new HashMap<>();
+    private static final Map<Integer, MonsterStats> monsterStats = new java.util.concurrent.ConcurrentHashMap<>();
     private static final Set<Integer> hpbarBosses = getHpBarBosses();
 
     private static Set<Integer> getHpBarBosses() {

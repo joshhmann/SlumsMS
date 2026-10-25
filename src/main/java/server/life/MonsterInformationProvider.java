@@ -50,21 +50,21 @@ public class MonsterInformationProvider {
         return instance;
     }
 
-    private final Map<Integer, List<MonsterDropEntry>> drops = new HashMap<>();
+    private final Map<Integer, List<MonsterDropEntry>> drops = new java.util.concurrent.ConcurrentHashMap<>();
     private final List<MonsterGlobalDropEntry> globaldrops = new ArrayList<>();
-    private final Map<Integer, List<MonsterGlobalDropEntry>> continentDrops = new HashMap<>();
+    private final Map<Integer, List<MonsterGlobalDropEntry>> continentDrops = new java.util.concurrent.ConcurrentHashMap<>();
 
-    private final Map<Integer, List<Integer>> dropsChancePool = new HashMap<>();    // thanks to ronan
+    private final Map<Integer, List<Integer>> dropsChancePool = new java.util.concurrent.ConcurrentHashMap<>();    // thanks to ronan
     private final Set<Integer> hasNoMultiEquipDrops = new HashSet<>();
-    private final Map<Integer, List<MonsterDropEntry>> extraMultiEquipDrops = new HashMap<>();
+    private final Map<Integer, List<MonsterDropEntry>> extraMultiEquipDrops = new java.util.concurrent.ConcurrentHashMap<>();
 
-    private final Map<Pair<Integer, Integer>, Integer> mobAttackAnimationTime = new HashMap<>();
-    private final Map<MobSkill, Integer> mobSkillAnimationTime = new HashMap<>();
+    private final Map<Pair<Integer, Integer>, Integer> mobAttackAnimationTime = new java.util.concurrent.ConcurrentHashMap<>();
+    private final Map<MobSkill, Integer> mobSkillAnimationTime = new java.util.concurrent.ConcurrentHashMap<>();
 
-    private final Map<Integer, Pair<Integer, Integer>> mobAttackInfo = new HashMap<>();
+    private final Map<Integer, Pair<Integer, Integer>> mobAttackInfo = new java.util.concurrent.ConcurrentHashMap<>();
 
-    private final Map<Integer, Boolean> mobBossCache = new HashMap<>();
-    private final Map<Integer, String> mobNameCache = new HashMap<>();
+    private final Map<Integer, Boolean> mobBossCache = new java.util.concurrent.ConcurrentHashMap<>();
+    private final Map<Integer, String> mobNameCache = new java.util.concurrent.ConcurrentHashMap<>();
 
     protected MonsterInformationProvider() {
         retrieveGlobal();

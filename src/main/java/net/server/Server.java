@@ -1493,7 +1493,7 @@ public class Server {
         lgnRLock.lock();
         try {
             Set<Integer> accChars = accountChars.get(accountid);
-            return accChars.contains(chrid);
+            return accChars != null && accChars.contains(chrid);
         } finally {
             lgnRLock.unlock();
         }
@@ -1502,7 +1502,8 @@ public class Server {
     public short getAccountCharacterCount(Integer accountid) {
         lgnRLock.lock();
         try {
-            return accountCharacterCount.get(accountid);
+            Short count = accountCharacterCount.get(accountid);
+            return count == null ? 0 : count;
         } finally {
             lgnRLock.unlock();
         }
