@@ -534,12 +534,14 @@ public final class ItemConstants {
         return itemId >= 1140000 && itemId < 1145000;
     }
 
+    /** Faces: 2xxxx (stock v83) and 5xxxx (MapleRoot's added faces). Hair and faces never share a block. */
     public static boolean isFace(int itemId) {
-        return itemId >= 20000 && itemId < 22000;
+        return (itemId >= 20000 && itemId < 30000) || (itemId >= 50000 && itemId < 60000);
     }
 
+    /** Hair: 3xxxx (stock v83), 4xxxx and 6xxxx (MapleRoot's added styles). */
     public static boolean isHair(int itemId) {
-        return itemId >= 30000 && itemId < 35000;
+        return (itemId >= 30000 && itemId < 50000) || (itemId >= 60000 && itemId < 70000);
     }
 
     // Additive SoloMapling APIs; MapleRoot player paths remain in place.
