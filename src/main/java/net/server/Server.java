@@ -496,7 +496,7 @@ public class Server {
      * Adds a started world to the running set under its id, if it is the {@code slot}-th world and its id is free.
      * Package-private for tests.
      */
-    boolean registerWorld(World world, int slot, Map<Integer, String> channelInfo, String whyAmIRecommended) {
+    public boolean registerWorld(World world, int slot, Map<Integer, String> channelInfo, String whyAmIRecommended) {
         int id = world.getId();
         wldWLock.lock();    // thanks Ashen for noticing a deadlock issue when trying to deploy a channel
         try {
@@ -580,7 +580,7 @@ public class Server {
         return true;
     }
 
-    void resetServerWorlds() {   // package-private for tests  // thanks maple006 for noticing proprietary lists assigned to null
+    public void resetServerWorlds() {   // public for tests  // thanks maple006 for noticing proprietary lists assigned to null
         wldWLock.lock();
         try {
             worlds.clear();

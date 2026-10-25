@@ -13,6 +13,7 @@ import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertFalse;
 import static org.junit.jupiter.api.Assertions.assertTrue;
 import static org.mockito.Mockito.mock;
+import static org.mockito.Mockito.doReturn;
 
 class BotWealthTest {
 
@@ -102,6 +103,30 @@ class BotWealthTest {
     @Test
     void noScrollBonusWithoutAWorld() {
         assertEquals(0, BotWealth.scrollBonus(70, 50_000_000));
+    }
+
+    @Test
+    void scrollBonusUsesBeraRateWhenOnlyWorldOneIsRegistered() {
+        net.server.world.World bera = mock(net.server.world.World.class);
+        doReturn(1).when(bera).getId();
+        doReturn(10).when(bera).getMesoRate();
+        net.server.Server.getInstance().registerWorld(bera, 0, java.util.Map.of(), "Welcome to Bera");
+        try {
+            // At level 70, meso rate 10, ceiling is 5,880,000.
+            // With 50,000,000 held, excess is 44,120,000, so bonus is 22,060,000.
+            assertEquals(22_060_000, BotWealth.scrollBonus(70, 50_000_000));
+            // A bot under its ceiling receives 0 bonus
+            assertEquals(0, BotWealth.scrollBonus(70, 5_000_000));
+
+            // Verify ScrollBudget.maxPrice() consumes the corrected bonus:
+            // Daily cap without bonus is 1,050,000. With bonus, cap is 23,110,000,
+            // allowing maxPrice to reach 25% of spare (12,387,500).
+            long maxPrice = soloMapling.ArtificialPlayer.BotScrollSystem.ScrollBudget.maxPrice(999, 70, 50_000_000, false);
+            assertEquals(12_387_500, maxPrice, "maxPrice consumes the wealth bonus");
+        } finally {
+            net.server.Server.getInstance().resetServerWorlds();
+            BotWealth.resetForTest(null);
+        }
     }
 
     @Test

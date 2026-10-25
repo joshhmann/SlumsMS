@@ -120,6 +120,18 @@ public final class BotWealth {
         return chr != null && enabled() && BotHelpers.isBot(chr);
     }
 
+    /** Extra scroll budget for a bot over its ceiling (half of the excess). */
+    public static long scrollBonus(Character bot) {
+        if (!applies(bot)) {
+            return 0;
+        }
+        int rate = mesoRate(bot);
+        if (rate <= 0) {
+            return 0;
+        }
+        return Math.max(0, (bot.getMeso() - ceiling(bot.getLevel(), rate)) / 2);
+    }
+
     /**
      * Extra scroll budget for a bot over its ceiling (half of the excess), with no character at hand; 0 when the
      * world's meso rate is not known (no server).
@@ -283,14 +295,26 @@ public final class BotWealth {
 
     private static volatile int cachedWorldRate;
 
-    /** World 0's meso rate, or 0 when there is no running server. */
+    /** The active/home world's meso rate, or 0 when there is no running server. */
     static int worldMesoRate() {
         int r = cachedWorldRate;
         if (r > 0) {
             return r;
         }
         try {
-            var world = net.server.Server.getInstance().getWorld(0);
+            var world = soloMapling.server.SoloMaplingUtilities.world();
+            if (world == null) {
+                var s = net.server.Server.getInstance();
+                if (s != null) {
+                    world = s.getWorld(1);
+                    if (world == null) {
+                        var worlds = s.getWorlds();
+                        if (!worlds.isEmpty()) {
+                            world = worlds.get(0);
+                        }
+                    }
+                }
+            }
             if (world != null) {
                 r = Math.max(1, world.getMesoRate());
                 cachedWorldRate = r;
