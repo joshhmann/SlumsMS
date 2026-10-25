@@ -6843,7 +6843,7 @@ public class Character extends AbstractCharacterObject {
         }
         if (summons.get(Sniper.GOLDEN_EAGLE) != null) {
             sendPacket(PacketCreator.removeSummon(summons.get(Sniper.GOLDEN_EAGLE), true));
-            getMap().removeMapObject(summons.get(Ranger.SILVER_HAWK));
+            getMap().removeMapObject(summons.get(Sniper.GOLDEN_EAGLE));
         }
         if (summons.get(Marksman.FROST_PREY) != null) {
             sendPacket(PacketCreator.removeSummon(summons.get(Marksman.FROST_PREY), true));

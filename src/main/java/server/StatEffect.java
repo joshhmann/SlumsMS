@@ -1711,6 +1711,7 @@ public class StatEffect {
             case Outlaw.OCTOPUS:
             case Corsair.WRATH_OF_THE_OCTOPI:
                 return SummonMovementType.STATIONARY;
+            case Ranger.SILVER_HAWK:
             case Sniper.GOLDEN_EAGLE:
             case Priest.SUMMON_DRAGON:
             case Marksman.FROST_PREY:
