@@ -30,9 +30,9 @@ class GuideMenuTest {
     /** The v83 NPC window fits about this many characters on a line before it wraps. */
     static final int LINE_CHARS = 46;
     /** Lines of page text (wrapped) before the reader has to scroll far. */
-    static final int TEXT_LINES = 11;
+    static final int TEXT_LINES = 7;
     /** All lines on a page, text plus clickable lines. */
-    static final int ALL_LINES = 17;
+    static final int ALL_LINES = 13;
 
     @AfterEach
     void real() {
