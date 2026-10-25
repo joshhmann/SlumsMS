@@ -871,6 +871,10 @@ public class FMBot extends BotSM {
         }
         getDebugger().debugLoggingFull(String.format("%s TutorialBotState: %s", this.getChr().getName(), fmBotState), String.format("%s", fmBotState));
 
+        if (pausedForChat()) {
+            return; // 1.5.1: a player is talking to it: no walk to a door or a shop, no room hop, until the hold ends
+        }
+
         switch (fmBotState) {
             case RESET:
                 resetFMBotState();
@@ -928,6 +932,27 @@ public class FMBot extends BotSM {
                 resetFMBotState();
                 throw new IllegalStateException("Unexpected state: " + state);
         }
+    }
+
+    /** True while the browse waits for a chat; the walk in progress was stopped once. */
+    private boolean chatPaused = false;
+
+    /**
+     * 1.5.1 (owner QA: bots "just zoomed away"): an FM shopper a player names or talks to (its hint is up) stops
+     * where it is for the conversation hold, then picks up its browse: the door and shop walks re-issue themselves
+     * when the bot is not moving.
+     */
+    boolean pausedForChat() {
+        Character chr = getChr();
+        if (chr == null || !soloMapling.ArtificialPlayer.BotConversation.isHoldingChat(chr)) {
+            chatPaused = false;
+            return false;
+        }
+        if (!chatPaused) {
+            chatPaused = true;
+            GCMovement.stop(chr);
+        }
+        return true;
     }
 
     @Override

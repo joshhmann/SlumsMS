@@ -342,8 +342,8 @@ public final class DramaKit {
     }
 
     /**
-     * Brings a bot to the player for a scene: the player's channel, then their map next to them (as a player would
-     * with a return scroll and a walk). {@code grind}: it fights there (training, held on the map); else it stands and
+     * Brings a bot to the player for a scene: the player's channel, then their map, entering at a portal away from
+     * the player and walking up to them ({@link #arrive}; as a player would with a return scroll and a walk). {@code grind}: it fights there (training, held on the map); else it stands and
      * talks (social). True when it arrived.
      */
     static boolean bringTo(Character bot, Character player, int offsetX, boolean grind) {
@@ -369,8 +369,27 @@ public final class DramaKit {
                     at = staged;
                 }
             }
-            if (bot.getMapId() != map.getId()) {
-                bot.changeMap(map, at);
+            int mapId = map.getId();
+            Point entry = null;
+            if (bot.getMapId() != mapId) {
+                // 1.5.1 (owner QA: "KS-war bots still appear out of thin air"): a bot coming from another map enters
+                // like a player would, at one of the map's portals away from the player, and walks up from there.
+                // changeMap straight to the spot beside the player made it materialise next to them.
+                entry = enter(bot, map, player.getPosition());
+                if (entry == null) {
+                    return false;
+                }
+            }
+            // The type change comes before any walk: convertBotType stops the old FSM, and a training bot's stop
+            // disables its movement, which ended a walk begun before it (a grinding helper stood where it entered).
+            if (grind) {
+                soloMapling.worldevents.WorldEventSteer.hold(bot.getId(), mapId);
+                BotTypeManager.convertBotType(bot, BotTypeManager.BotType.TRAINING_BOT);
+            } else if (CharacterStorage.getBotById(bot.getId()) instanceof TrainingBot) {
+                BotTypeManager.convertBotType(bot, BotTypeManager.BotType.SOCIAL_BOT);
+            }
+            if (entry != null) {
+                walkIn(bot, entry, at, mapId, null);
             } else if (grind && (bot.getPosition() == null
                     || Math.abs(bot.getPosition().x - at.x) > 120 || Math.abs(bot.getPosition().y - at.y) > 120)) {
                 // A bot already on the player's map keeps its own spot, so a guildmate training on another ledge of
@@ -379,17 +398,10 @@ public final class DramaKit {
                 // watching made the bot vanish and reappear beside them (owner review of the KS rally).
                 Point from = bot.getPosition() == null ? null : new Point(bot.getPosition());
                 Point dest = at;
-                int mapId = map.getId();
                 walkTo(bot, dest, mapId, () -> qa(QaLog.Topic.RIVALRY, mapId, "RALLY WALK " + bot.getName()
                         + " from " + from + " to " + bot.getPosition() + (bot.getPosition() != null
                         && Math.abs(bot.getPosition().x - dest.x) <= 40 && Math.abs(bot.getPosition().y - dest.y) <= 40
                         ? " arrived" : " stopped short of " + dest)));
-            }
-            if (grind) {
-                soloMapling.worldevents.WorldEventSteer.hold(bot.getId(), map.getId());
-                BotTypeManager.convertBotType(bot, BotTypeManager.BotType.TRAINING_BOT);
-            } else if (CharacterStorage.getBotById(bot.getId()) instanceof TrainingBot) {
-                BotTypeManager.convertBotType(bot, BotTypeManager.BotType.SOCIAL_BOT);
             }
             return bot.getMapId() == map.getId();
         } catch (RuntimeException e) {
@@ -400,6 +412,121 @@ public final class DramaKit {
 
     /** How long a same-map approach walks before it stops and lets the bot fight from where it is. */
     private static final long WALK_TO_MS = 4_500L;
+
+    /** How long a bot that just entered the map walks toward the player before it stays where it got to. */
+    static final long ARRIVE_WALK_MS = 15_000L;
+
+    /** The closest (px) to the player a bot coming from another map may enter it, when the map has such a portal. */
+    static final int ARRIVAL_MIN_GAP = 200;
+
+    /**
+     * A bot on another map comes to {@code at} on {@code map} as a player would: it enters at a portal of the map
+     * ({@link #entryPoint}) and walks the rest ({@value #ARRIVE_WALK_MS} ms at most, then it stays where it got to;
+     * it never warps the last bit). {@code done} runs once when the walk ends. False when the map has no entry point
+     * (nothing grounded to enter at): the bot does not come rather than appear beside the player.
+     */
+    static boolean arrive(Character bot, MapleMap map, Point at, Point player, Runnable done) {
+        Point entry = enter(bot, map, player == null ? at : player);
+        if (entry == null) {
+            return false;
+        }
+        walkIn(bot, entry, at, map.getId(), done);
+        return true;
+    }
+
+    /** The warp half of {@link #arrive}: onto {@code map} at its entry point for a player at {@code player}. */
+    static Point enter(Character bot, MapleMap map, Point player) {
+        Point entry = entryPoint(map, player);
+        if (entry == null) {
+            return null;
+        }
+        bot.changeMap(map, entry);
+        return bot.getMapId() == map.getId() ? entry : null;
+    }
+
+    /** The walk half of {@link #arrive}: from where it entered toward {@code at}, bounded by the arrival cap. */
+    private static void walkIn(Character bot, Point entry, Point at, int mapId, Runnable done) {
+        walkTo(bot, at, mapId, ARRIVE_WALK_MS, () -> {
+            qa(QaLog.Topic.RIVALRY, mapId, "ARRIVE WALK " + bot.getName() + " entered at " + entry + ", walked to "
+                    + bot.getPosition() + (bot.getPosition() != null && Math.abs(bot.getPosition().x - at.x) <= 40
+                    && Math.abs(bot.getPosition().y - at.y) <= 40 ? " (arrived)" : " (stopped short of " + at + ")"));
+            if (done != null) {
+                done.run();
+            }
+        });
+    }
+
+    /**
+     * Where a bot coming from another map enters {@code map}: the grounded visible portal or spawn point
+     * ({@link #entryCandidates}) closest to the player that is at least {@link #ARRIVAL_MIN_GAP} px from them, else
+     * the farthest one; null when the map has none.
+     */
+    static Point entryPoint(MapleMap map, Point player) {
+        if (map == null) {
+            return null;
+        }
+        return chooseEntry(entryCandidates(map), player, ARRIVAL_MIN_GAP);
+    }
+
+    /** Portal types a player is seen entering at: spawn points (0), visible portals (2), visible scripted ones (7). */
+    static boolean entryType(int type) {
+        return type == 0 || type == 2 || type == 7;
+    }
+
+    /** The ground under every entry portal of the map (any portal when none of them is an entry type). */
+    static List<Point> entryCandidates(MapleMap map) {
+        List<Point> out = new ArrayList<>();
+        List<Point> any = new ArrayList<>();
+        try {
+            for (server.maps.Portal portal : map.getPortals()) {
+                Point p = portal == null ? null : portal.getPosition();
+                Point ground = p == null ? null
+                        : soloMapling.ArtificialPlayer.BotMovementSystem.BotGround.landing(map, p);
+                if (ground == null) {
+                    continue;
+                }
+                (entryType(portal.getType()) ? out : any).add(ground);
+            }
+        } catch (RuntimeException e) {
+            log.debug("No portals on {}", map.getId(), e);
+        }
+        return out.isEmpty() ? any : out;
+    }
+
+    /**
+     * The entry spot for a player at {@code player}: of the spots at least {@code minGap} px away, the one the
+     * shortest walk from them (height counts triple: a portal on the player's own floor beats one on a ledge above);
+     * when every spot is closer than that, the farthest one. Null when there are none.
+     */
+    static Point chooseEntry(List<Point> spots, Point player, int minGap) {
+        if (spots == null || spots.isEmpty()) {
+            return null;
+        }
+        if (player == null) {
+            return new Point(spots.get(0));
+        }
+        Point best = null;
+        int bestWalk = Integer.MAX_VALUE;
+        Point farthest = null;
+        double farthestDist = -1;
+        for (Point s : spots) {
+            if (s == null) {
+                continue;
+            }
+            double d = s.distance(player);
+            if (d > farthestDist) {
+                farthestDist = d;
+                farthest = s;
+            }
+            int walk = Math.abs(s.x - player.x) + 3 * Math.abs(s.y - player.y);
+            if (d >= minGap && walk < bestWalk) {
+                bestWalk = walk;
+                best = s;
+            }
+        }
+        Point pick = best != null ? best : farthest;
+        return pick == null ? null : new Point(pick);
+    }
 
     /**
      * A bot already on the scene's map walks to {@code at} on its feet; it never warps, because the player it is
@@ -414,6 +541,11 @@ public final class DramaKit {
 
     /** As {@link #walkTo(Character, Point, int)}; {@code done} runs once, on arrival or when the walk is stopped. */
     static void walkTo(Character bot, Point at, int mapId, Runnable done) {
+        walkTo(bot, at, mapId, WALK_TO_MS, done);
+    }
+
+    /** As {@link #walkTo(Character, Point, int, Runnable)}, stopped after {@code capMs}. */
+    static void walkTo(Character bot, Point at, int mapId, long capMs, Runnable done) {
         AtomicBoolean finished = new AtomicBoolean();
         Runnable finish = () -> {
             if (done != null && finished.compareAndSet(false, true)) {
@@ -438,7 +570,7 @@ public final class DramaKit {
             } catch (RuntimeException e) {
                 log.debug("Could not finish {}'s walk", bot.getName(), e);
             }
-        }), WALK_TO_MS, TimeUnit.MILLISECONDS);
+        }), capMs, TimeUnit.MILLISECONDS);
     }
 
     /** Says exactly this line in map chat. */

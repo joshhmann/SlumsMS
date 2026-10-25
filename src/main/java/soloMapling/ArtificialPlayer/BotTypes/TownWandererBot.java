@@ -77,6 +77,7 @@ public class TownWandererBot extends BotSM {
                 String.format("%s TownWandererBot: %s", chr.getName(), wanderState), String.format("%s", wanderState));
 
         processQueuedEvents(); // drain any LEVEL_UP congrats events buffered since the last tick
+        stopHopForChat();
 
         switch (wanderState) {
             case RESET -> doReset();
@@ -149,6 +150,23 @@ public class TownWandererBot extends BotSM {
         if (chr != null && !traveling && !BotWanderSystem.isWandering(chr)) {
             BotWanderSystem.start(chr);
         }
+    }
+
+    /**
+     * 1.5.1 (owner QA: bots "just zoomed away"): a hop to another town room that was already under way when a player
+     * started talking to the bot kept going - doChangeMap asks the hold, the trip in progress never did. It stops
+     * where it is (not while queued for or aboard a ride); the next tick's roam is held by the chat too. True when
+     * it stopped one.
+     */
+    boolean stopHopForChat() {
+        Character chr = getChr();
+        if (!traveling || chr == null || !soloMapling.ArtificialPlayer.BotConversation.isHoldingChat(chr)
+                || GCMovement.isInTransit(chr)) {
+            return false;
+        }
+        GCMovement.stop(chr); // cancels the trip; its callback never fires, so the flag is cleared here
+        traveling = false;
+        return true;
     }
 
     private void doChangeMap() {

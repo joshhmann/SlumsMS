@@ -240,13 +240,29 @@ public final class BotConversation {
 
     /** Opens a chat without a line yet (the player named the bot): their next lines go to it. */
     public static void open(BotSM bot, Character player) {
-        if (bot == null || bot.getChr() == null || player == null || !BotBrains.get().isLive()) {
+        if (bot == null || bot.getChr() == null || player == null) {
+            return;
+        }
+        // 1.5.1 (owner QA: bots "just zoomed away"): with no LLM there is no chat session, but the player is still
+        // talking to this bot (its hint or menu is up), so it keeps its spot like any other exchange.
+        holdNear(bot.getChr(), player, System.currentTimeMillis());
+        if (!BotBrains.get().isLive()) {
             return;
         }
         startSweeper();
         long now = System.currentTimeMillis();
         sessions.computeIfAbsent(new Key(bot.getChr().getId(), player.getId()), k -> new Session(bot, player, now)).state.lastAt = now;
         holdNear(bot.getChr(), player, now); // a player who just named the bot is having a conversation with it
+    }
+
+    /**
+     * 1.5.1 (owner QA: "other bots I tried to talk to just zoomed away"): the player addressed this bot through a
+     * route that answers without a chat line - a natural action ("party", "trade", "follow"), the "u talking to me?"
+     * check, a named menu bot's menu, the double-click window. That is an exchange too: the bot keeps its spot for
+     * {@link #HOLD_MS}, on the player's map only (as every hold).
+     */
+    public static void engaged(Character bot, Character player) {
+        holdNear(bot, player, System.currentTimeMillis());
     }
 
     /** Ticket 59: whether this bot is mid-chat with any player (a bot thread leaves it alone). */
@@ -312,7 +328,9 @@ public final class BotConversation {
             return null;
         }
         try {
-            if (bot.getEventInstance() != null || BotLogout.isLeaving(bot.getId())
+            // 1.5.1: a bot only waiting to log out (the director's logout waits for this chat) is still held; one
+            // that said its goodbye and is about to disappear is not
+            if (bot.getEventInstance() != null || BotLogout.isDeparting(bot.getId())
                     || soloMapling.ArtificialPlayer.BotDramaSystem.DramaKit.inScene(bot.getId())) {
                 return null;
             }
@@ -320,6 +338,23 @@ public final class BotConversation {
             return null;
         }
         return bot;
+    }
+
+    /**
+     * 1.5.1: whether a player talking to this bot keeps it here - logged in, on this channel: the hold is on and
+     * nothing outranks it - not a shutdown, an event or a drama scene. Unlike {@link #heldByChat(Character)} it
+     * ignores a queued logout (that is what it decides for the logout). Cheap: one map read for a bot nobody talks to.
+     */
+    public static boolean keptByChat(Character bot) {
+        if (bot == null || !isHoldingChat(bot.getId()) || BotShutdown.isQuiesced()) {
+            return false;
+        }
+        try {
+            return bot.getEventInstance() == null
+                    && !soloMapling.ArtificialPlayer.BotDramaSystem.DramaKit.inScene(bot.getId());
+        } catch (RuntimeException | LinkageError e) {
+            return false;
+        }
     }
 
     /** As {@link #heldByChat(Character)}: whether this bot keeps its spot for the chat right now. */

@@ -212,7 +212,8 @@ class BotConversationHoldTest {
                 "BotTypes/TownWandererBot.java",
                 "BotTypes/SocialBot.java",
                 "BotTypes/HenesysBot.java",
-                "BotTypes/TrainingBot.java");
+                "BotTypes/TrainingBot.java",
+                "BotTypes/FMBot.java");
         Path root = Path.of("src/main/java/soloMapling/ArtificialPlayer");
         for (String mover : movers) {
             String src = Files.readString(root.resolve(mover));
