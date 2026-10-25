@@ -698,6 +698,16 @@ public final class AutoQaCatalog {
                 .step(run("fh-2"), waitFor("FISHING REAL catches=1 active=true", 130), qaDo("stop"))
                 .expect(has("FISHING REAL catches=1 active=true"), has("FISHING STOPPED active=false"))
                 .build());
+        // 1.6.0 ticket 86: a bot with the item answers a player's buy megaphone; nothing is offered without stock
+        c.add(Check.auto("t-mb-1", "A bot answers a megaphone buy request").minutes(4)
+                .step(run("tr-8"), qaDo("smega", "S> glove att 60% 3m"), waitSeconds(1),
+                        qaDo("smega", "B> zakum helmet 1m"), waitSeconds(1),
+                        qaDo("smega", "B> glove att 60% 1k"), waitSeconds(1), mark("ask"),
+                        qaDo("smega", "B> glove att 60% 3m"), waitFor("TRADE MEGABUY OFFER ", 30))
+                .expect(has("TRADE MEGABUY IGNORE "), has("TRADE MEGABUY NOSTOCK "), has("TRADE MEGABUY FAR "),
+                        hasAfter("ask", "TRADE MEGABUY CLAIM "), hasAfter("ask", "TRADE MEGABUY OFFER \\S+ -> {me}: "),
+                        lacksBefore("ask", "TRADE MEGABUY OFFER "))
+                .build());
 
         c.add(Check.auto("t-bl-1", "Bot life shadow policy and rejected-action safeguards").minutes(1)
                 .step(run("bl-1"), waitFor("LIFE REFUSAL accepted=false actionFact=false", 10))

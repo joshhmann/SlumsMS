@@ -155,6 +155,25 @@ class AutoQaCatalogPatternTest {
     }
 
     @Test
+    void mb1WantsOneOfferToTheBuyerAndNoneBeforeTheRealRequest() throws Exception {
+        Check c = AutoQaCatalog.find("t-mb-1");
+        AutoQaRunnerTest.FakeWorld w = new AutoQaRunnerTest.FakeWorld();
+        w.actor(1);
+        w.qa("TRADE", "MEGABUY IGNORE AutoQaOne is selling (glove att 60%): bots do not buy from megaphones");
+        w.qa("TRADE", "MEGABUY NOSTOCK AutoQaOne wants \"zakum helmet\"");
+        w.qa("TRADE", "MEGABUY FAR AutoQaOne offered 1000 for Scroll for Gloves for ATT 60%: too low for any bot");
+        w.now += 1000;
+        CheckRun r = runAt(c, w);
+        r.mark("ask");
+        w.qa("TRADE", "MEGABUY CLAIM Bot7 answers AutoQaOne for Scroll for Gloves for ATT 60% in 2s (BAG, 3000000)");
+        w.qa("TRADE", "MEGABUY OFFER Bot7 -> AutoQaOne: \"hey i got a scroll for gloves for att 60%, 3m\"");
+        w.now += 1000;
+        for (Check.Verdict v : evalAll(c, r)) {
+            assertEquals(Check.Status.PASS, v.status(), v.toString());
+        }
+    }
+
+    @Test
     void ga1WantsTheJackpotNoticeNotAnyNotice() throws Exception {
         Check c = AutoQaCatalog.find("t-ga-1");
         AutoQaRunnerTest.FakeWorld w = new AutoQaRunnerTest.FakeWorld();

@@ -106,7 +106,7 @@ public final class BotDirectTrade {
      * shoppers, hosts, games) stay on their job. Grinding, social, wandering and following bots trade, and so does an
      * idle staged bot (no state machine: a GM's or QA's).
      */
-    static boolean handlesOwnTrades(BotSM sm) {
+    public static boolean handlesOwnTrades(BotSM sm) {
         if (sm == null) {
             return false;
         }
@@ -230,6 +230,25 @@ public final class BotDirectTrade {
         }
         qa(bot, "OPEN " + bot.getName() + " <-> " + player.getName() + " (" + session.mode() + ")");
         BotTiming.after(POLL_MS, () -> poll(l));
+    }
+
+    /** True while {@code item} is still in the bot's bag (the very object, not a copy). */
+    public static boolean carries(Character bot, Item item) {
+        return bot != null && item != null && holds(bot, item);
+    }
+
+    /**
+     * 1.6.0 ticket 86: the bot named {@code price} for {@code item} in a whisper (it answered a megaphone buy request),
+     * so a player who whispers back to haggle, or opens a trade within {@link #QUOTE_MS}, gets the same quote flow as
+     * if they had asked in chat. The price must already be inside the bot's sell band; nothing here changes it.
+     */
+    public static void rememberQuote(Character bot, Character player, Item item, long price, int rounds) {
+        if (bot == null || player == null || item == null || price <= 0) {
+            return;
+        }
+        quotes.put(key(bot.getId(), player.getId()), new Quote(item, price, System.currentTimeMillis() + QUOTE_MS,
+                Math.max(0, rounds)));
+        pruneQuotes();
     }
 
     private static boolean holds(Character bot, Item item) {

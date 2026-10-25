@@ -33,7 +33,7 @@ final class QaTradeScenarios {
 
     static List<QaScenario> all() {
         return List.of(new Tr1BotShop(), new Tr2SellToBot(), new Tr3BuyFromBot(), new Tr4Gift(), new Tr5PriceTax(),
-                new Tr6Haggle(), new Tr7Sinks());
+                new Tr6Haggle(), new Tr7Sinks(), new Tr8MegaBuy());
     }
 
     private static Set<QaLog.Topic> trade() {
@@ -372,6 +372,69 @@ final class QaTradeScenarios {
                 throw new QaRefusal("tr-7 steps: meters");
             }
             return note(ctx, List.of(trade.meters()));
+        }
+    }
+
+    // ---- tr-8: a bot answers a megaphone buy request ----
+
+    /**
+     * tr-8 (1.6.0 ticket 86): a bot next to the GM holding Gloves ATT 60% and a sword. {@code !qa do smega <text>}
+     * sends the text through the megaphone buy desk as if the GM had shouted it (delay cut to 1-3 s, limits off for the
+     * run): "B> glove att 60% 3m" gets one whisper from the bot priced inside its sell band; "B> zakum helmet 1m"
+     * (no bot has one), "S> ..." (a sell) and "B> glove att 60% 1k" (far below) get none. The log shows each decision as
+     * {@code MEGABUY CLAIM/OFFER/NOSTOCK/IGNORE/FAR}. {@code !qa do react <text>} runs the real hook once (default
+     * delays and limits) to see a chat reaction.
+     */
+    static final class Tr8MegaBuy implements QaScenario {
+        private volatile int botId;
+        private volatile soloMapling.Economy.MegaBuyDesk desk;
+
+        public String id() { return "tr-8"; }
+        public String title() { return "Megaphone buy request: a bot with the item whispers one offer; none without stock"; }
+        public String usage() { return "then !qa do smega <text>"; }
+        public Set<QaLog.Topic> topics() { return EnumSet.of(QaLog.Topic.TRADE, QaLog.Topic.BOT_CHAT); }
+        public int minutes(String[] args) { return 10; }
+
+        public List<String> stage(QaContext ctx) {
+            botId = spawnOne(ctx, "megaphone seller");
+            giveBot(ctx, botId, GLOVE_60, 1);
+            giveBot(ctx, botId, SWORD, 1);
+            soloMapling.Economy.MegaBuyGame.qaAddBot(botId);
+            String[] keys = {"solomapling.megaBuyDelayMinMs", "solomapling.megaBuyDelayMaxMs"};
+            String[] was = {System.getProperty(keys[0]), System.getProperty(keys[1])};
+            System.setProperty(keys[0], "1000");
+            System.setProperty(keys[1], "3000");
+            desk = new soloMapling.Economy.MegaBuyDesk(new soloMapling.Economy.MegaBuyGame(),
+                    new soloMapling.Economy.MegaBuyDesk.Limits(0, 1000, 1000, 1000, 0));
+            int id = botId;
+            ctx.onStop("restore the megaphone desk delays", () -> {
+                soloMapling.Economy.MegaBuyGame.qaRemoveBot(id);
+                for (int i = 0; i < keys.length; i++) {
+                    if (was[i] == null) {
+                        System.clearProperty(keys[i]);
+                    } else {
+                        System.setProperty(keys[i], was[i]);
+                    }
+                }
+            });
+            return List.of("A bot next to you holds Gloves ATT 60% and a sword.",
+                    "!qa do smega B> glove att 60% 3m : one whisper from the bot in 1-3 s, priced inside its band.",
+                    "!qa do smega B> zakum helmet 1m / S> glove att 60% 3m / B> glove att 60% 1k : no offer (log says why).");
+        }
+
+        public List<String> action(QaContext ctx, String name, String[] args) {
+            if (args.length == 0 || !("smega".equals(name) || "react".equals(name))) {
+                throw new QaRefusal("tr-8 steps: smega <text>, react <text>");
+            }
+            Character gm = gmNow(ctx);
+            String text = String.join(" ", args);
+            if ("react".equals(name)) {
+                soloMapling.ArtificialPlayer.BotMegaphoneSystem.PlayerMegaphones.onUse(gm, text);
+                return note(ctx, List.of("sent through the real hook: " + text));
+            }
+            soloMapling.Economy.MegaBuyDesk.Outcome o = desk.hear(new soloMapling.Economy.MegaBuyDesk.Asker(gm.getId(),
+                    gm.getName(), soloMapling.Economy.MegaBuyGame.channelOfPlayer(gm), gm), text);
+            return note(ctx, List.of("desk: " + o));
         }
     }
 }
