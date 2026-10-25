@@ -24,3 +24,6 @@ __pycache__/
 # graphify knowledge-graph cache (derived; rebuilt by `graphify update .`)
 /graphify-out
 /data/convo/
+/data/hiddenstreet/
+/REPORT-gemini.md
+
