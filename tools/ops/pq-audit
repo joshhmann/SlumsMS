@@ -130,18 +130,36 @@ def diff_against(cosmic, rel):
     return ("differs", added, removed)
 
 
+ITEM_ID = re.compile(r"\b[12]\d{6}\b")
+
+
 def classify(diff_text):
     """Which MapleRoot deltas are deliberate, from the change content alone."""
-    notes = []
     lines = [line for line in diff_text.splitlines() if line[:1] in "+-" and not line.startswith(("+++", "---"))]
-    only_level = all(re.search(r"maxLevel\s*=\s*\d+", line) for line in lines)
-    if lines and only_level:
-        notes.append("deliberate: level cap raised to 255")
-    elif lines and all(re.search(r"\b204\d{4}\b|\b20490\d{2}\b", line) for line in lines):
-        notes.append("deliberate: scrolls removed from the reward pool")
-    elif lines:
-        notes.append("review: mixed change")
-    return notes
+    if not lines:
+        return []
+    removed = [line[1:] for line in lines if line.startswith("-")]
+    added = [line[1:] for line in lines if line.startswith("+")]
+    level = [line for line in lines if re.search(r"maxLevel\s*=", line)]
+    reward = [line for line in lines if re.search(r"item(Set|Qty)[\w]*\s*=", line)]
+    if level or reward:
+        rest = len(lines) - len(level) - len(reward)
+        if rest == 0:   # only the level cap and/or the reward tables changed
+            notes = []
+            if level:
+                notes.append("deliberate: level cap raised to 255")
+            if reward:
+                lost = {int(x) for line in removed for x in ITEM_ID.findall(line)}
+                kept = {int(x) for line in added for x in ITEM_ID.findall(line)}
+                gone = lost - kept
+                if gone and all(2040000 <= i < 2050000 for i in gone):
+                    notes.append("deliberate: scrolls removed from the reward pool")
+                elif not gone:
+                    notes.append("deliberate: reward quantities or order only")
+                else:
+                    notes.append("review: reward table changed")
+            return notes
+    return ["review: mixed change"]
 
 
 def main():
@@ -207,8 +225,10 @@ def main():
         targets += ["scripts/portal/%s.js" % s for s in sorted(portal_scripts)]
         for rel in targets:
             status, added, removed = diff_against(args.cosmic, rel)
-            if status in ("missing", "only-ours"):
+            if status == "missing":     # Cosmic has it and we lost it: a placed NPC/reactor does nothing now
                 problems += 1
+                entry.setdefault("scriptGaps", []).append({"file": rel, "status": status})
+            elif status == "only-ours":  # a MapleRoot addition (Lotus, Will, the rebirth warp NPC): not a gap
                 entry.setdefault("scriptGaps", []).append({"file": rel, "status": status})
             elif status == "differs":
                 text = subprocess.run(["diff", "-u", os.path.join(args.cosmic, rel), os.path.join(REPO, rel)],
@@ -216,6 +236,8 @@ def main():
                 diffs[rel] = text
                 entry["differs"].append({"file": rel, "added": added, "removed": removed,
                                          "because": classify(text)})
+        if missing_maps:
+            problems += 1           # the event script warps to a map the client does not have
         entry["scriptsChecked"] = len(targets)
         report.append(entry)
 
