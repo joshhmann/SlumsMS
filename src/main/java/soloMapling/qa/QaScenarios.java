@@ -75,6 +75,7 @@ public final class QaScenarios {
 
     public static List<QaScenario> all() {
         List<QaScenario> all = new ArrayList<>(core());
+        all.addAll(CosmeticScenarios.all()); // 1.5.1 salon data/name lookup
         all.addAll(GuildScenarios.all());     // 1.5.0 bot guilds: gu-1 .. gu-8
         all.addAll(CombatScenarios.all());    // 1.5.0 rc3: bots fight like people (cb-1 .. cb-4), spread out (sp-1)
         all.addAll(QaTradeScenarios.all());   // 1.5.0 rc3 economy lane: tr-1..tr-7

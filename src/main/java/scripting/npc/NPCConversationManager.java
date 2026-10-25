@@ -620,7 +620,7 @@ public class NPCConversationManager extends AbstractPlayerInteraction {
         }
 
         int baseid;
-        if (itemid < 30000) {
+        if (ItemConstants.isFace(itemid)) {
             baseid = (itemid / 1000) * 1000 + (itemid % 100);
         } else {
             baseid = (itemid / 10) * 10;
@@ -630,7 +630,7 @@ public class NPCConversationManager extends AbstractPlayerInteraction {
     }
 
     private int getEquippedCosmeticid(int itemid) {
-        if (itemid < 30000) {
+        if (ItemConstants.isFace(itemid)) {
             return getPlayer().getFace();
         } else {
             return getPlayer().getHair();

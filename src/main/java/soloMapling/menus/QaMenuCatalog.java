@@ -131,6 +131,7 @@ public final class QaMenuCatalog {
         section("Idle bots, slide, bounces");
         add("id-1", v("off"), steps());
         add("ps-1", v(), steps());
+        add("sl-1", v(), steps());
         add("ps-2", v(), steps());
         add("mv-1", v(), steps());
         add("jq-1", v(), steps("push"));
