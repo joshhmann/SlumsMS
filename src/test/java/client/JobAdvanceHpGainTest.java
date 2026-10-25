@@ -41,4 +41,17 @@ class JobAdvanceHpGainTest {
             }
         }
     }
+
+    /**
+     * 1.5.2: MapleRoot's Super Beginner branch (job 700, reached at level 120 from Job Master 9010003) sat after
+     * "1st others" (700 % 100 == 0), so it never ran and a Super Beginner got a 1st-job 100-150 HP / 25-50 MP.
+     */
+    @Test
+    void superBeginnerGetsItsOwnGain() {
+        for (int i = 0; i < ROLLS; i++) {
+            Pair<Integer, Integer> gain = Character.jobAdvanceHpMpGain(Job.SUPER_BEGINNER);
+            assertTrue(gain.getLeft() >= 300 && gain.getLeft() <= 350, "Super Beginner gained " + gain.getLeft() + " HP");
+            assertTrue(gain.getRight() >= 150 && gain.getRight() <= 200, "Super Beginner gained " + gain.getRight() + " MP");
+        }
+    }
 }
