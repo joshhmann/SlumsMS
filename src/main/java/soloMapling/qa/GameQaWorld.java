@@ -1490,6 +1490,9 @@ final class GameQaWorld implements QaWorld {
         warp(gm, map);
         int before = "hair".equals(kind) || "haircolor".equals(kind) ? gm.getHair()
                 : "skin".equals(kind) ? gm.getSkinColor().getId() : gm.getFace();
+        if ("skin".equals(kind) && before == style) {
+            style = (style + 1) % 5; // the skin salon's ids are its menu indexes 0-4: pick one the player does not have
+        }
         int couponBefore = countItem(gm, coupon);
         long since = System.currentTimeMillis();
         List<String> out = new ArrayList<>();
@@ -1648,6 +1651,8 @@ final class GameQaWorld implements QaWorld {
             if (em == null) {
                 return out;
             }
+            // Cloto (9020000.js) asks for the eligible members first; registerParty reads them (null otherwise: NPE).
+            em.getEligibleParty(gm.getParty());
             boolean started = em.startInstance(-1, gm.getParty(), gm.getMap(), KPQ_LEVEL, gm);
             scripting.event.EventInstanceManager eim = gm.getEventInstance();
             out.add("VB KPQ instance " + (started && eim != null ? "started " + eim.getName() : "DID NOT START"));
