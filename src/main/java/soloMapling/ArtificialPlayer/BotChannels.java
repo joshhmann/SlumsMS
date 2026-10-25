@@ -44,6 +44,8 @@ public final class BotChannels {
 
     /** Wave tasks of the boot plan whose bots are spread over the channels (and scaled): wave * 1024 + task. */
     private static final Set<Integer> SPREAD_TASKS = ConcurrentHashMap.newKeySet();
+    /** The spread tasks that dress the FM entrance (FM bots, merchants): scaled by BOT_FM_ENVIRONMENT_SCALE instead. */
+    private static final Set<Integer> MARKET_TASKS = ConcurrentHashMap.newKeySet();
 
     /** Bots chosen for a channel but not yet in its player storage, so parallel logins do not all pick one channel. */
     private static final int[] inFlight = new int[64];
@@ -155,7 +157,26 @@ public final class BotChannels {
 
     /** Marks one boot-wave task as town dressing: its bots are scaled and spread over the channels. */
     public static void spreadTask(int wave, int task) {
+        spreadTask(wave, task, false);
+    }
+
+    /**
+     * 1.5.2 hotfix: marks one boot-wave task as town dressing; {@code market} tasks (the FM entrance's FM bots and
+     * merchants) are scaled by {@code BOT_FM_ENVIRONMENT_SCALE} rather than {@code BOT_ENVIRONMENT_SCALE}.
+     */
+    public static void spreadTask(int wave, int task, boolean market) {
         SPREAD_TASKS.add(taskKey(wave, task));
+        if (market) {
+            MARKET_TASKS.add(taskKey(wave, task));
+        } else {
+            MARKET_TASKS.remove(taskKey(wave, task));
+        }
+    }
+
+    /** Whether a bot of this slot dresses the FM entrance (a market spread task). */
+    static boolean isMarketSlot(int slot) {
+        int wave = BotStore.waveOf(slot);
+        return wave > 0 && MARKET_TASKS.contains(taskKey(wave, BotStore.taskOf(slot)));
     }
 
     /** Whether a bot of this slot belongs to a spread environment task. */
@@ -169,12 +190,23 @@ public final class BotChannels {
         if (!isSpreadSlot(slotBase)) {
             return n;
         }
-        return scaledCount(n, environmentScale(), ThreadLocalRandom.current().nextDouble());
+        return scaledCount(n, environmentScale(slotBase), ThreadLocalRandom.current().nextDouble());
     }
 
     /** The environment scale; a bot-shop chance or similar odds scale by it too. */
     public static double environmentScale(int slot) {
-        return isSpreadSlot(slot) ? environmentScale() : 1.0;
+        if (!isSpreadSlot(slot)) {
+            return 1.0;
+        }
+        return isMarketSlot(slot) ? marketScale() : environmentScale();
+    }
+
+    /*
+     * 1.5.2 hotfix: the FM entrance spawned BOT_ENVIRONMENT_SCALE (0.5) of its 90 FM bots and merchants and split
+     * them over five channels, so channel 1's entrance held about ten merchants where 1.4.x had all 90 on channel 1.
+     */
+    private static double marketScale() {
+        return YamlConfig.config.server == null ? 1.0 : YamlConfig.config.server.BOT_FM_ENVIRONMENT_SCALE;
     }
 
     private static double environmentScale() {

@@ -144,6 +144,43 @@ class BotChannelsTest {
         assertEquals(17, BotChannels.envCount(BotStore.planSlot(3, 1, 0), 17), "set pieces spawn whole");
     }
 
+    /* 1.5.2 hotfix: the FM entrance's FM bots and merchants spawn at BOT_FM_ENVIRONMENT_SCALE (shipped 1.0, all of
+     * them), the rest of the town dressing at BOT_ENVIRONMENT_SCALE; both stay split over the channels. */
+    @Test
+    void theFmEntranceDressingHasItsOwnScale() {
+        config.ServerConfig server = config.YamlConfig.config.server;
+        double savedEnv = server.BOT_ENVIRONMENT_SCALE;
+        double savedFm = server.BOT_FM_ENVIRONMENT_SCALE;
+        try {
+            assertEquals(1.0, new config.ServerConfig().BOT_FM_ENVIRONMENT_SCALE, "shipped: the whole FM entrance");
+            server.BOT_ENVIRONMENT_SCALE = 0.5;
+            server.BOT_FM_ENVIRONMENT_SCALE = 1.0;
+            BotChannels.spreadTask(2, 1, true);    // wave 2's FM entrance bots
+            BotChannels.spreadTask(2, 0);          // wave 2's FM room dressing
+            int fm = BotStore.planSlot(2, 1, 0);
+            int rooms = BotStore.planSlot(2, 0, 0);
+            assertTrue(BotChannels.isSpreadSlot(fm), "still spread over the channels");
+            assertEquals(15, BotChannels.envCount(fm, 15), "every FM entrance bot spawns");
+            assertEquals(15, BotChannels.envCount(fm + 2 * BotStore.SLOTS_PER_GROUP, 15), "any cohort of the task");
+            assertEquals(1.0, BotChannels.environmentScale(fm), 1e-12);
+            assertEquals(0.5, BotChannels.environmentScale(rooms), 1e-12, "other dressing keeps its scale");
+            for (int i = 0; i < 50; i++) {
+                int n = BotChannels.envCount(rooms, 15);
+                assertTrue(n == 7 || n == 8, "other dressing is halved: " + n);
+            }
+            server.BOT_FM_ENVIRONMENT_SCALE = 0.5;
+            for (int i = 0; i < 50; i++) {
+                int n = BotChannels.envCount(fm, 15);
+                assertTrue(n == 7 || n == 8, "the FM scale is a knob too: " + n);
+            }
+            BotChannels.spreadTask(2, 1);
+            assertEquals(0.5, BotChannels.environmentScale(fm), 1e-12, "re-marking a task plain drops the FM scale");
+        } finally {
+            server.BOT_ENVIRONMENT_SCALE = savedEnv;
+            server.BOT_FM_ENVIRONMENT_SCALE = savedFm;
+        }
+    }
+
     @Test
     void aZeroWeightChannelIsNeverPickedEvenWhenEveryChannelIsEmpty() {
         double[] shares = BotChannels.shares("0,40,28,20,12", 5);
