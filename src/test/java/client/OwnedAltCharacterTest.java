@@ -129,4 +129,40 @@ class OwnedAltCharacterTest {
             assertThrows(IllegalStateException.class, alt::saveOwnedAltToDB);
         }
     }
+    @Test void ordinaryAutosaveFailureOfAnAltDoesNotAbortTheCallersLoop() throws Exception {
+        // CharacterAutosaverTask and !saveall loop over every character: an alt's failed autosave must only log,
+        // or every player after it in that world goes unsaved for the hour.
+        Character alt = alt(owner()); field(alt, "loggedIn", true);
+        Server server = mock(Server.class);
+        try (MockedStatic<Server> servers = mockStatic(Server.class);
+             MockedStatic<DatabaseConnection> db = mockStatic(DatabaseConnection.class)) {
+            servers.when(Server::getInstance).thenReturn(server);
+            db.when(DatabaseConnection::getConnection).thenThrow(new SQLException("unavailable"));
+            assertDoesNotThrow(() -> alt.saveCharToDB(false));
+            assertThrows(IllegalStateException.class, alt::saveOwnedAltToDB);
+        }
+    }
+    @Test void noOrdinarySaveRunsAfterTheFinalSaveCommitted() throws Exception {
+        // An autosave that snapshotted the alt before removal must not write it again while a takeover login loads
+        // and starts playing that character.
+        Character alt = alt(owner()); field(alt, "loggedIn", true);
+        Connection con = mock(Connection.class); PreparedStatement ps = mock(PreparedStatement.class);
+        ResultSet rs = mock(ResultSet.class);
+        when(con.prepareStatement(anyString())).thenReturn(ps);
+        when(con.prepareStatement(anyString(), anyInt())).thenReturn(ps);
+        when(ps.executeUpdate()).thenReturn(1); when(ps.executeQuery()).thenReturn(rs);
+        when(ps.getGeneratedKeys()).thenReturn(rs);
+        Server server = mock(Server.class);
+        try (MockedStatic<Server> servers = mockStatic(Server.class);
+             MockedStatic<DatabaseConnection> db = mockStatic(DatabaseConnection.class)) {
+            servers.when(Server::getInstance).thenReturn(server);
+            db.when(DatabaseConnection::getConnection).thenReturn(con);
+            alt.saveOwnedAltToDB();
+            db.clearInvocations();
+            alt.saveCharToDB(false);
+            alt.saveCharToDB(true);
+            db.verify(DatabaseConnection::getConnection, never());
+        }
+        verify(con, times(1)).commit();
+    }
 }

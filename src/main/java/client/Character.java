@@ -702,6 +702,7 @@ public class Character extends AbstractCharacterObject {
 
     private volatile Character ownedAltOwner;
     private boolean ownedAltSaveCommitted;
+    private boolean ownedAltFinalSave; // guarded by this monitor, like saveCharToDB
     private volatile boolean ownedAltClosing;
     public boolean isOwnedAltClosing() { return ownedAltClosing; }
 
@@ -721,7 +722,12 @@ public class Character extends AbstractCharacterObject {
         if (!isOwnedAlt() || !loggedIn) throw new IllegalStateException("Alt is not active");
         ownedAltClosing = true;
         ownedAltSaveCommitted = false;
-        saveCharToDB(true);
+        ownedAltFinalSave = true;
+        try {
+            saveCharToDB(true);
+        } finally {
+            ownedAltFinalSave = false;
+        }
         if (!ownedAltSaveCommitted) throw new IllegalStateException("Alt save did not commit");
     }
 
@@ -9700,6 +9706,8 @@ public class Character extends AbstractCharacterObject {
         if (!loggedIn) {
             return;
         }
+        // Once an alt is closing, only its one final save may write: a late autosave must not race a takeover login.
+        if (ownedAltClosing && !ownedAltFinalSave) return;
 
         Calendar c = Calendar.getInstance();
         log.debug("Attempting to {} chr {}", notAutosave ? "save" : "autosave", name);
@@ -10123,7 +10131,8 @@ public class Character extends AbstractCharacterObject {
             }
         } catch (Exception e) {
             log.error("Error saving chr {}, level: {}, job: {}", name, level, job.getId(), e);
-            if (isOwnedAlt()) throw new IllegalStateException("Alt save failed", e);
+            // Never throw here: autosave and !saveall loop over every character. saveOwnedAltToDB fails closed
+            // on its own when the commit did not happen.
         }
     }
 
