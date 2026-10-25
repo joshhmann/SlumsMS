@@ -21,8 +21,6 @@ import java.util.concurrent.ScheduledFuture;
 import java.util.concurrent.TimeUnit;
 
 import static soloMapling.ArtificialPlayer.BotGeneration.warpBotToLocation;
-import static soloMapling.ArtificialPlayer.BotLogic.isNpcPresent;
-import static soloMapling.ArtificialPlayer.BotTypes.OPQ.OPQConstants.CHAMBERLAIN_EAK;
 import static soloMapling.ArtificialPlayer.BotTypes.OPQ.OPQConstants.STAGE_1_COMPLETE_TP;
 import static soloMapling.BotLogger.log;
 
@@ -368,8 +366,8 @@ public class OPQOrchestrator {
         OPQPhase phase = context.getCurrentPhase();
         switch (phase) {
             case STAGE_1 -> {
-                if (!context.isStage1Complete() && isChamberlainSpawned()) {
-                    opqLog("Stage 1 complete — Chamberlain Spawned");
+                if (!context.isStage1Complete() && isLeaderAtStageOneExit()) {
+                    opqLog("Stage 1 complete — leader reached the Chamberlain Eak top platform");
                     context.setStage1Complete(true);
                     clearCompletionFlagsForRegistered();
                 }
@@ -399,9 +397,41 @@ public class OPQOrchestrator {
         return null;
     }
 
-    public boolean isChamberlainSpawned() {
+    /**
+     * Stage 1 is cleared when the leader has been teleported up to the top platform by Chamberlain Eak: that
+     * platform is only reachable through the NPC handin. The old check asked whether the NPC was on the leader's
+     * map - it always is - so "stage 1 complete" was true from the first second and bots abandoned the cloud work
+     * the leader still needed.
+     */
+    public boolean isLeaderAtStageOneExit() {
         Character leader = runLeader();
-        return leader != null && isNpcPresent(leader.getMap(), CHAMBERLAIN_EAK);
+        return leader != null && isAtStageOneExit(leader.getMapId(), leader.getPosition());
+    }
+
+    static boolean isAtStageOneExit(int mapId, Point pos) {
+        if (mapId != OPQConstants.OPQ_STAGE_1 || pos == null) return false;
+        return Math.abs(pos.x - OPQConstants.STAGE_1_TOP_PLATFORM_X) <= OPQConstants.STAGE_1_TOP_PLATFORM_TOL_X_PX
+                && Math.abs(pos.y - OPQConstants.STAGE_1_TOP_PLATFORM_Y) <= OPQConstants.STAGE_1_TOP_PLATFORM_TOL_Y_PX;
+    }
+
+    /**
+     * Called by a bot that is about to warp into stage 1. The first bot of a run clears the previous run's stage
+     * flags; later bots of the same run leave them alone.
+     */
+    public synchronized void noteEnteringStageOne(OPQBot bot) {
+        if (anyBotInsidePq()) return;
+        context.setStage1Complete(false);
+        context.setStage2Complete(false);
+        clearCompletionFlagsForRegistered();
+        opqLog("New run: stage flags cleared for " + bot.getChr().getName());
+    }
+
+    private boolean anyBotInsidePq() {
+        for (OPQBot bot : registeredBots) {
+            Character member = bot.getChr();
+            if (member.getMap() != null && OPQConstants.OPQ_INSIDE_MAPS.contains(member.getMapId())) return true;
+        }
+        return false;
     }
 
 

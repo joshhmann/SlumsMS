@@ -348,6 +348,7 @@ public class OPQBot extends BotSM {
         if (leaderMapId() == OPQConstants.OPQ_STAGE_1) {
             cloudPiecesLooted = 0;
             lootedRecordItemId = -1;
+            orchestrator.noteEnteringStageOne(this);
             // deliberate synchronous warp: warpBotToLocation blocks through the
             // arrival choreography (up to ~7s) and nothing may overlap it
             blockingSleep(3000);
@@ -538,13 +539,35 @@ public class OPQBot extends BotSM {
     }
 
     private void handleStage1Wait() {
-        if (sharedContext.isStage1Complete() && orchestrator.isChamberlainSpawned()) {
+        // The party moved on without us (leader cleared stage 1, or left altogether): follow instead of standing
+        // in stage 1 for ever. Old code had no exit at all unless the orchestrator's flag flipped.
+        switch (leaderMapId()) {
+            case OPQConstants.OPQ_TOWER -> {
+                transitionTo(OPQBotState.STAGE_1_TRANSITION, "leader already in the tower");
+                return;
+            }
+            case OPQConstants.OPQ_STAGE_2 -> {
+                transitionTo(OPQBotState.STAGE_1_TRANSITION_PT_2, "leader already in stage 2");
+                return;
+            }
+            case OPQConstants.OPQ_EXIT_LOBBY, OPQConstants.OPQ_LOBBY -> {
+                followLeaderOut();
+                return;
+            }
+            default -> { /* leader is still in stage 1 with us */ }
+        }
+
+        if (sharedContext.isStage1Complete()) {
             OPQOrchestrator.getInstance().followLeaderWarp(getChr(), STAGE_1_COMPLETE_TP);
             // Walk to Portal
             MovementCommands.moveToPortal(getChr(), 4);
             transitionTo(OPQBotState.STAGE_1_TRANSITION, "stage1Complete flag flipped by orchestrator");
             return;
         }
+
+        // Nothing left for us to break, but the leader is still collecting: keep watching rather than time out.
+        // The old 2-minute style cap is what made bots walk out of a run that was still going.
+        debugLogf("handleStage1Wait: waiting for the leader to hand in the clouds");
     }
 
     private void handleStage1Transition() {
