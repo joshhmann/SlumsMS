@@ -27,10 +27,19 @@
     
                     if(status == 0) {
                         expedition = cm.getExpedition(exped);
+                        if (!isLeader()) {   // 1.5.2: no expedition threw here, and a non-leader was left in an open talk
+                            cm.sendOk("Only the leader of the expedition can do this.");
+                            cm.dispose();
+                            return;
+                        }
                         if (expedition.isLeader(cm.getPlayer())) {
                             cm.sendYesNo("Dark energy emanates from her, are you sure you want to disturb her sleep?");
                         }
                     } else if (status == 1) {
+                        if (!isLeader()) {   // a forged "next" from a non-leader must not spawn the boss
+                            cm.dispose();
+                            return;
+                        }
                             cm.getMap().spawnMonsterOnGroundBelow(8850011, -104, 115);
                             cm.getMap().destroyNPC(3003903);
                             cm.getMap().killMonster(8840010);
@@ -39,3 +48,8 @@
     
             }
     }
+
+function isLeader() {
+    var expedition = cm.getExpedition(exped);
+    return expedition != null && expedition.isLeader(cm.getPlayer());
+}

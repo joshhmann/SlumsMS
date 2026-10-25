@@ -99,6 +99,26 @@ class NpcScriptIntegrityTest {
         assertEquals(List.of(), broken, "em.getInstance used without a null check:\n" + String.join("\n", broken));
     }
 
+    /** {@code expedition = cm.getExpedition(...);} followed straight by {@code if (expedition.is...}. */
+    private static final Pattern UNCHECKED_EXPEDITION =
+            Pattern.compile("(\\w+) = cm\\.getExpedition\\([^;]*\\);\\s*\\n\\s*if \\(\\1\\.is");
+
+    /** 1.5.2: MapleRoot's boss spawners (Lucid, Will, Verus Hilla, Darknell, Cygnus, Von Leon) threw for a player
+     * with no expedition and left a non-leader in an open talk that a forged "next" turned into a boss spawn. */
+    @Test
+    void everyExpeditionLookupIsNullCheckedBeforeUse() throws IOException {
+        List<String> broken = new ArrayList<>();
+        for (Path script : npcScripts()) {
+            String text = Files.readString(script, StandardCharsets.UTF_8);
+            Matcher m = UNCHECKED_EXPEDITION.matcher(text);
+            while (m.find()) {
+                int line = (int) text.substring(0, m.start()).chars().filter(c -> c == '\n').count() + 1;
+                broken.add(script.getFileName() + ":" + line);
+            }
+        }
+        assertEquals(List.of(), broken, "cm.getExpedition used without a null check:\n" + String.join("\n", broken));
+    }
+
     /** The body of the block whose opening brace ends just before {@code from}. */
     private static String block(String text, int from) {
         int depth = 1;
