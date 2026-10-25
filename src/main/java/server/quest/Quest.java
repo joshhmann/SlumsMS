@@ -245,7 +245,15 @@ public class Quest {
         return true;
     }
 
+    /** True when SlumsMS refuses to let {@code chr} start this quest (see {@link HiddenQuests}). */
+    public boolean isHiddenFor(Character chr) {
+        return HiddenQuests.isHidden(id, chr.getJob().getId());
+    }
+
     public boolean canStart(Character chr, int npcid) {
+        if (isHiddenFor(chr)) {
+            return false;
+        }
         if (!canStartQuestByStatus(chr)) {
             return false;
         }
@@ -330,6 +338,11 @@ public class Quest {
     }
 
     public boolean forceStart(Character chr, int npc) {
+        if (isHiddenFor(chr)) {
+            // a script, event or auto-start must not open a quest that can never be finished (HiddenQuests)
+            log.debug("Refused to start hidden quest {} for {}", id, chr.getName());
+            return false;
+        }
         QuestStatus newStatus = new QuestStatus(this, QuestStatus.Status.STARTED, npc);
 
         QuestStatus oldStatus = chr.getQuest(this.getId());
