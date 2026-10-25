@@ -675,6 +675,16 @@ public final class AutoQaCatalog {
                         has("VB STORAGE tookOut bagDelta=0"), has("VB DUEY claimed recipientDelta=1"),
                         has("VB TRADE offered=true itemDelta=1 mesoDelta=5000"), noRefusal())
                 .build());
+        // 1.6.0 ticket 86: a bot with the item answers a player's buy megaphone; nothing is offered without stock
+        c.add(Check.auto("t-mb-1", "A bot answers a megaphone buy request").minutes(4)
+                .step(run("tr-8"), qaDo("smega", "S> glove att 60% 3m"), waitSeconds(1),
+                        qaDo("smega", "B> zakum helmet 1m"), waitSeconds(1),
+                        qaDo("smega", "B> glove att 60% 1k"), waitSeconds(1), mark("ask"),
+                        qaDo("smega", "B> glove att 60% 3m"), waitFor("TRADE MEGABUY OFFER ", 30))
+                .expect(has("TRADE MEGABUY IGNORE "), has("TRADE MEGABUY NOSTOCK "), has("TRADE MEGABUY FAR "),
+                        hasAfter("ask", "TRADE MEGABUY CLAIM "), hasAfter("ask", "TRADE MEGABUY OFFER \\S+ -> {me}: "),
+                        lacksBefore("ask", "TRADE MEGABUY OFFER "))
+                .build());
 
         return List.copyOf(c);
     }

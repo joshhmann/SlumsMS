@@ -104,6 +104,7 @@ public final class QaMenuCatalog {
         add("tr-2", v(), steps(), "sim <player line>");
         add("tr-3", v(), steps(), "quote <item words>");
         add("tr-6", v(), steps(), "line <text>");
+        add("tr-8", v(), steps(), "smega <text>", "react <text>");
         section("Gifts and prices");
         add("tr-4", v(), steps("gift", "gift potions", "gift scroll", "gift mesos"));
         add("tr-5", v(), steps("price", "tax"), "price <item id>", "tax <price>");

@@ -51,7 +51,7 @@ class QaTradeScenarioTest {
         for (QaScenario s : QaScenarios.all()) {
             ids.add(s.id());
         }
-        for (String id : List.of("tr-1", "tr-2", "tr-3", "tr-4", "tr-5", "tr-6", "tr-7")) {
+        for (String id : List.of("tr-1", "tr-2", "tr-3", "tr-4", "tr-5", "tr-6", "tr-7", "tr-8")) {
             assertTrue(ids.contains(id), id);
         }
     }

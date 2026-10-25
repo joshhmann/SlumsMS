@@ -648,6 +648,30 @@ public final class BotShops {
         return out;
     }
 
+    /** One item for sale in an open bot shop (1.6.0 ticket 86: what a megaphone buy request can be pointed at). */
+    public record ShopStock(int botId, String botName, int channel, int mapId, Item item, int price) {
+    }
+
+    /** Everything open bot shops list right now, one row per item still on the shelf. */
+    public static List<ShopStock> stockSnapshot() {
+        List<ShopStock> out = new ArrayList<>();
+        for (Shop shop : shops.values()) {
+            List<PlayerShopItem> items;
+            try {
+                items = new ArrayList<>(shop.items);
+            } catch (RuntimeException e) {
+                continue;   // the shop list changed under us: skip it this time
+            }
+            for (PlayerShopItem p : items) {
+                if (p.getItem() != null && p.getBundles() > 0 && p.isExist() && p.getPrice() > 0) {
+                    out.add(new ShopStock(shop.botId, shop.botName, shop.channel, shop.merchant.getMapId(), p.getItem(),
+                            p.getPrice()));
+                }
+            }
+        }
+        return out;
+    }
+
     public static boolean hasShop(int botId) {
         return shops.containsKey(botId);
     }

@@ -22,6 +22,7 @@
 package net.server.channel.handlers;
 
 import client.Character;
+import soloMapling.ArtificialPlayer.BotMegaphoneSystem.PlayerMegaphones;
 import client.*;
 import client.creator.veteran.*;
 import client.inventory.*;
@@ -279,14 +280,18 @@ public final class UseCashItemHandler extends AbstractPacketHandler {
             switch ((itemId / 1000) % 10) {
                 case 1: // Megaphone
                     if (player.getLevel() > 9) {
-                        player.getClient().getChannelServer().broadcastPacket(PacketCreator.serverNotice(2, medal + player.getName() + " : " + p.readString()));
+                        String smega = p.readString();
+                        player.getClient().getChannelServer().broadcastPacket(PacketCreator.serverNotice(2, medal + player.getName() + " : " + smega));
+                        PlayerMegaphones.onUse(player, smega);   // 1.6.0 ticket 86: bots may answer or react (async)
                     } else {
                         player.dropMessage(1, "You may not use this until you're level 10.");
                         return;
                     }
                     break;
                 case 2: // Super megaphone
-                    Server.getInstance().broadcastMessage(c.getWorld(), PacketCreator.serverNotice(3, c.getChannel(), medal + player.getName() + " : " + p.readString(), (p.readByte() != 0)));
+                    String superText = p.readString();
+                    Server.getInstance().broadcastMessage(c.getWorld(), PacketCreator.serverNotice(3, c.getChannel(), medal + player.getName() + " : " + superText, (p.readByte() != 0)));
+                    PlayerMegaphones.onUse(player, superText);
                     break;
                 case 5: // Maple TV
                     int tvType = itemId % 10;
@@ -325,11 +330,13 @@ public final class UseCashItemHandler extends AbstractPacketHandler {
 
                     if (megassenger) {
                         Server.getInstance().broadcastMessage(c.getWorld(), PacketCreator.serverNotice(3, c.getChannel(), medal + player.getName() + " : " + builder, ear));
+                        PlayerMegaphones.onUse(player, builder.toString().strip());
                     }
 
                     break;
                 case 6: //item megaphone
-                    String msg = medal + player.getName() + " : " + p.readString();
+                    String itemText = p.readString();
+                    String msg = medal + player.getName() + " : " + itemText;
                     whisper = p.readByte() == 1;
                     Item item = null;
                     if (p.readByte() == 1) { //item
@@ -342,6 +349,7 @@ public final class UseCashItemHandler extends AbstractPacketHandler {
                         // thanks Conrad for noticing that untradeable items should be allowed in megas
                     }
                     Server.getInstance().broadcastMessage(c.getWorld(), PacketCreator.itemMegaphone(msg, whisper, c.getChannel(), item));
+                    PlayerMegaphones.onUse(player, itemText);
                     break;
                 case 7: //triple megaphone
                     int lines = p.readByte();
@@ -355,6 +363,7 @@ public final class UseCashItemHandler extends AbstractPacketHandler {
                     }
                     whisper = p.readByte() == 1;
                     Server.getInstance().broadcastMessage(c.getWorld(), PacketCreator.getMultiMegaphone(msg2, c.getChannel(), whisper));
+                    PlayerMegaphones.onUse(player, String.join(" ", msg2).replace(medal + player.getName() + " : ", ""));
                     break;
             }
             remove(c, position, itemId);
@@ -465,6 +474,7 @@ public final class UseCashItemHandler extends AbstractPacketHandler {
 
             final int world = c.getWorld();
             Server.getInstance().broadcastMessage(world, PacketCreator.getAvatarMega(player, medal, c.getChannel(), itemId, strLines, (p.readByte() != 0)));
+            PlayerMegaphones.onUse(player, String.join(" ", strLines).strip());
             TimerManager.getInstance().schedule(() -> Server.getInstance().broadcastMessage(world, PacketCreator.byeAvatarMega()), SECONDS.toMillis(10));
             remove(c, position, itemId);
         } else if (itemType == 540) {
