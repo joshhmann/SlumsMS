@@ -148,6 +148,15 @@ public class StatEffect {
         return loadFromData(source, skillid, true, overtime);
     }
 
+    /** The skill level a Skill.wz "level/N" node stands for, or 0 when its name is not a number. */
+    private static int levelOf(Data source) {
+        try {
+            return Integer.parseInt(source.getName());
+        } catch (RuntimeException e) {
+            return 0;
+        }
+    }
+
     public static StatEffect loadItemEffectFromData(Data source, int itemid) {
         return loadFromData(source, itemid, false, false);
     }
@@ -203,6 +212,13 @@ public class StatEffect {
 
         ret.mobCount = DataTool.getInt("mobCount", source, 1);
         ret.cooldown = DataTool.getInt("cooltime", source, 0);
+        if (skill) { // 1.5.1: summons take stock v83 time/cooltime over MapleRoot's 20 s / 60 s (stock-summon-skills.yaml)
+            int[] stock = StockSummonSkills.lookup(sourceid, levelOf(source));
+            if (stock != null) {
+                ret.duration = stock[0];
+                ret.cooldown = stock[1];
+            }
+        }
         ret.morphId = DataTool.getInt("morph", source, 0);
         ret.ghost = DataTool.getInt("ghost", source, 0);
         ret.fatigue = DataTool.getInt("incFatigue", source, 0);

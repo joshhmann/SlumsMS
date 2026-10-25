@@ -39,7 +39,8 @@ import static org.mockito.Mockito.when;
  * spawns the summon, the buff's end (expiry, or a map change first) takes it off the map and out of the owner's
  * summon list, and the next cast spawns a fresh one. What stopped the second cast was MapleRoot's skill data: every
  * level of Silver Hawk and Golden Eagle lasts 20 s with a 60 s cooldown (stock: 103-180 s, no cooldown), so the client
- * refuses the skill for 40 s after the hawk leaves. The level XML below is MapleRoot's 3111005 level 30.
+ * refuses the skill for 40 s after the hawk leaves. The level XML below is MapleRoot's 3111005 level 30; since the
+ * stock-summon override (stock-summon-skills.yaml) StatEffect loads it with stock level 30 values: 180 s, no cooldown.
  */
 class SummonRecastTest {
 
@@ -85,15 +86,15 @@ class SummonRecastTest {
         MapleMap map = new MapleMap(910000996, 0, 1, 910000996, 1f);
         Character chr = ranger(map);
         StatEffect effect = summonEffect(skillId);
-        assertEquals(20_000, effect.getDuration());
-        assertEquals(60, effect.getCooldown(), "MapleRoot data: the client keeps the skill greyed out for 60 s");
+        assertEquals(180_000, effect.getDuration(), "stock level 30, not MapleRoot's 20 s");
+        assertEquals(0, effect.getCooldown(), "stock has no cooldown, MapleRoot's data had 60 s");
 
         assertTrue(effect.applyTo(chr, new Point(0, 0)));
         Summon first = chr.getSummonByKey(skillId);
         assertNotNull(first);
         assertEquals(1, summonsOn(map));
 
-        chr.cancelEffect(effect, false, -1); // what the buff expiry task does after 20 s
+        chr.cancelEffect(effect, false, -1); // what the buff expiry task does when the summon's time runs out
         assertNull(chr.getSummonByKey(skillId));
         assertNull(chr.getBuffEffect(BuffStat.SUMMON));
         assertEquals(0, summonsOn(map));
