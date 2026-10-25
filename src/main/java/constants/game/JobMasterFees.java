@@ -3,12 +3,12 @@ package constants.game;
 /**
  * What MapleRoot's Job Master (scripts/npc/9010003.js) charges for skipping a job advancement's quest or test
  * (owner, 2026-10-25; ticket 88). The stock routes (instructors, quests, the Leafre tests) stay free.
- * 1st job and beginner switches are free, 2nd 200k, 3rd 10m, 4th 100m; MapleRoot's 5th tier keeps its own
+ * 1st job and beginner switches are free, 2nd 800k, 3rd 15m, 4th 100m; MapleRoot's 5th tier keeps its own
  * rebirth-3 + item rule, and Super Beginner / Synth Master stay free.
  */
 public final class JobMasterFees {
-    public static final int SECOND = 200_000;
-    public static final int THIRD = 10_000_000;
+    public static final int SECOND = 800_000;
+    public static final int THIRD = 15_000_000;
     public static final int FOURTH = 100_000_000;
 
     private JobMasterFees() {

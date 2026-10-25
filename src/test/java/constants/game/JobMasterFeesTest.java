@@ -11,15 +11,15 @@ import static org.junit.jupiter.api.Assertions.assertTrue;
 class JobMasterFeesTest {
 
     @Test
-    void ownersTableFreeThen200kThen10mThen100m() {
+    void ownersTableFreeThen800kThen15mThen100m() {
         for (int free : new int[]{0, 1000, 2000, 100, 200, 300, 400, 500, 1100, 1500, 2100, 700, 710}) {
             assertEquals(0, JobMasterFees.forTarget(free), "job " + free);
         }
         for (int second : new int[]{110, 120, 130, 210, 310, 420, 520, 1110, 1510, 2110}) {
-            assertEquals(200_000, JobMasterFees.forTarget(second), "job " + second);
+            assertEquals(800_000, JobMasterFees.forTarget(second), "job " + second);
         }
         for (int third : new int[]{111, 121, 211, 321, 411, 521, 1111, 2111}) {
-            assertEquals(10_000_000, JobMasterFees.forTarget(third), "job " + third);
+            assertEquals(15_000_000, JobMasterFees.forTarget(third), "job " + third);
         }
         for (int fourth : new int[]{112, 122, 132, 212, 232, 312, 412, 422, 512, 522, 1112, 1512, 2112}) {
             assertEquals(100_000_000, JobMasterFees.forTarget(fourth), "job " + fourth);

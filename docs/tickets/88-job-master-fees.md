@@ -1,13 +1,13 @@
 # 88: Job Master advancement fees (1.5.2)
 
-Owner, 2026-10-25. Moved into 1.5.2 at the owner's call (before the first live player reaches 4th job). MapleRoot's Job Master (scripts/npc/9010003.js; Base of Roots 993910000 and Ellinia) gives
+Owner, 2026-10-25; in 1.5.2 at the owner's call. Fees set from live players' mesos (about half of what the poorer player carries at 30 and 70; 4th kept high). Moved into 1.5.2 at the owner's call (before the first live player reaches 4th job). MapleRoot's Job Master (scripts/npc/9010003.js; Base of Roots 993910000 and Ellinia) gives
 every advancement instantly with no test, which makes the stock job quests pointless. Charge for the skip:
 
 | Advancement | Fee |
 |---|---|
 | 1st | free |
-| 2nd | 200,000 mesos |
-| 3rd | 10,000,000 mesos |
+| 2nd | 800,000 mesos |
+| 3rd | 15,000,000 mesos |
 | 4th | 100,000,000 mesos |
 | 5th | unchanged (MapleRoot: 3 rebirths + item 4036541) |
 
