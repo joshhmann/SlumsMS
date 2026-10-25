@@ -1,0 +1,96 @@
+{"id": "fresh3-001", "set": "refusal", "line": "sorry cant do kpq tonite, gotta sleep", "intent": "talk", "tone": "neutral", "con": "normal"}
+{"id": "fresh3-002", "set": "refusal", "line": "nope i aint giving u my shield", "intent": "talk", "tone": "neutral", "con": "normal"}
+{"id": "fresh3-003", "set": "refusal", "line": "im not gonna go to zakum with u, last time was a mess", "intent": "talk", "tone": "neutral", "con": "normal"}
+{"id": "fresh3-004", "set": "refusal", "line": "nah im not paying 5m for a used cape", "intent": "talk", "tone": "neutral", "con": "normal"}
+{"id": "fresh3-005", "set": "refusal", "line": "dont wanna buff rn, mp is low", "intent": "talk", "tone": "neutral", "con": "normal"}
+{"id": "fresh3-006", "set": "refusal", "line": "i refuse to sell to u after what u did", "intent": "talk", "tone": "neutral", "con": "normal"}
+{"id": "fresh3-007", "set": "refusal", "line": "not interested in ur guild thx", "intent": "talk", "tone": "neutral", "con": "normal"}
+{"id": "fresh3-008", "set": "refusal", "line": "cant help u kill it, im afk", "intent": "talk", "tone": "neutral", "con": "normal"}
+{"id": "fresh3-009", "set": "refusal", "line": "dont leave without buffing me first lol", "intent": "buff", "tone": "neutral", "con": "normal"}
+{"id": "fresh3-010", "set": "refusal", "line": "cant u just come to ellinia for 2 min? i need u there", "intent": "come", "tone": "neutral", "con": "normal"}
+{"id": "fresh3-011", "set": "refusal", "line": "why wont u party with me? i just wanna do lpq", "intent": "party", "tone": "neutral", "con": "normal"}
+{"id": "fresh3-012", "set": "refusal", "line": "dont ignore me, pls show me the way to sleepywood", "intent": "guide", "tone": "neutral", "con": "normal"}
+{"id": "fresh3-013", "set": "quoted", "line": "he was like 'gimme ur gear' and i was like no lol", "intent": "talk", "tone": "neutral", "con": "normal"}
+{"id": "fresh3-014", "set": "quoted", "line": "this dude goes 'trade me first' every single time", "intent": "talk", "tone": "neutral", "con": "normal"}
+{"id": "fresh3-015", "set": "quoted", "line": "she kept saying u r my best friend lol", "intent": "talk", "tone": "neutral", "con": "normal"}
+{"id": "fresh3-016", "set": "quoted", "line": "my friend told me to come to orbis but im lazy", "intent": "talk", "tone": "neutral", "con": "normal"}
+{"id": "fresh3-017", "set": "quoted", "line": "in all chat someone typed free mesos at fm, so dumb", "intent": "talk", "tone": "neutral", "con": "normal"}
+{"id": "fresh3-018", "set": "quoted", "line": "the gm said servers go down at 3am", "intent": "talk", "tone": "neutral", "con": "normal"}
+{"id": "fresh3-019", "set": "quoted", "line": "my sister goes 'ur addicted to maple' lmao", "intent": "talk", "tone": "neutral", "con": "normal"}
+{"id": "fresh3-020", "set": "quoted", "line": "some guy whispered me 'b> everything pls', ignored him", "intent": "talk", "tone": "neutral", "con": "normal"}
+{"id": "fresh3-021", "set": "quoted", "line": "he kept saying come to henesys but i was stuck in a quest", "intent": "talk", "tone": "neutral", "con": "normal"}
+{"id": "fresh3-022", "set": "quoted", "line": "mom told me to log off, brb jk", "intent": "talk", "tone": "neutral", "con": "normal"}
+{"id": "fresh3-023", "set": "quoted", "line": "my guildie says zakum drops r nuts now", "intent": "talk", "tone": "neutral", "con": "normal"}
+{"id": "fresh3-024", "set": "quoted", "line": "she was like 'wanna party' and i said ok lol", "intent": "talk", "tone": "neutral", "con": "normal"}
+{"id": "fresh3-025", "set": "past", "line": "spent all night at the sleepywood dungeon, got nothing", "intent": "talk", "tone": "neutral", "con": "normal"}
+{"id": "fresh3-026", "set": "past", "line": "died 3 times to jr balrog yesterday lol", "intent": "talk", "tone": "neutral", "con": "normal"}
+{"id": "fresh3-027", "set": "past", "line": "got my first pet today at ludi, so happy", "intent": "talk", "tone": "neutral", "con": "normal"}
+{"id": "fresh3-028", "set": "past", "line": "finished kpq with randoms last night, was fun", "intent": "talk", "tone": "neutral", "con": "normal"}
+{"id": "fresh3-029", "set": "past", "line": "took 2 hrs to hit lvl 30 on the ant tunnel", "intent": "talk", "tone": "neutral", "con": "normal"}
+{"id": "fresh3-030", "set": "past", "line": "dc'd right before the last stage of lpq", "intent": "talk", "tone": "neutral", "con": "normal"}
+{"id": "fresh3-031", "set": "past", "line": "we cleared horntail yesterday after 6 tries", "intent": "talk", "tone": "neutral", "con": "normal"}
+{"id": "fresh3-032", "set": "past", "line": "lost 200k on a scroll fail, ouch", "intent": "talk", "tone": "neutral", "con": "normal"}
+{"id": "fresh3-033", "set": "past", "line": "yesterday the whole party left mid boss", "intent": "talk", "tone": "neutral", "con": "normal"}
+{"id": "fresh3-034", "set": "past", "line": "went to kerning to sell junk and got ksd", "intent": "talk", "tone": "neutral", "con": "normal"}
+{"id": "fresh3-035", "set": "past", "line": "got ninja'd the drop at ellinia, rip", "intent": "talk", "tone": "neutral", "con": "normal"}
+{"id": "fresh3-036", "set": "past", "line": "bought a glove for 3m last week and regret it", "intent": "talk", "tone": "neutral", "con": "normal"}
+{"id": "fresh3-037", "set": "bargain", "line": "s> brown work glove 45k, can u do 35k?", "intent": "haggle", "tone": "neutral", "con": "normal"}
+{"id": "fresh3-038", "set": "bargain", "line": "would u take 1.8m for the maple staff? thats all i got", "intent": "haggle", "tone": "neutral", "con": "normal"}
+{"id": "fresh3-039", "set": "bargain", "line": "b> ssd 12m ea, ill pay 10m if u have 3", "intent": "haggle", "tone": "neutral", "con": "normal"}
+{"id": "fresh3-040", "set": "bargain", "line": "meh 8m is steep, 6.5m and ill buy now", "intent": "haggle", "tone": "neutral", "con": "normal"}
+{"id": "fresh3-041", "set": "bargain", "line": "what if i give u 400k + 20 pots for it", "intent": "haggle", "tone": "neutral", "con": "normal"}
+{"id": "fresh3-042", "set": "bargain", "line": "any1 sell wizard hat cheaper? 2m max for me", "intent": "haggle", "tone": "neutral", "con": "normal"}
+{"id": "fresh3-043", "set": "bargain", "line": "u go first on the trade then ill pay u back double, trust", "intent": "trade", "tone": "neutral", "con": "scam"}
+{"id": "fresh3-044", "set": "bargain", "line": "im a gm, drop ur items so i can check for hacks", "intent": "trade", "tone": "neutral", "con": "scam"}
+{"id": "fresh3-045", "set": "bargain", "line": "whats ur password? need to verify ur account for event prize", "intent": "talk", "tone": "neutral", "con": "scam"}
+{"id": "fresh3-046", "set": "bargain", "line": "pls give ur pw i will lvl u to 100 for free", "intent": "talk", "tone": "neutral", "con": "scam"}
+{"id": "fresh3-047", "set": "bargain", "line": "send me 5m first n ill send 10m back in 5 min", "intent": "trade", "tone": "neutral", "con": "scam"}
+{"id": "fresh3-048", "set": "bargain", "line": "gm here, trade me ur best equip for a bug fix", "intent": "trade", "tone": "neutral", "con": "scam"}
+{"id": "fresh3-049", "set": "scam-warning", "line": "beware of anyone who says he is a gm and wants ur password", "intent": "talk", "tone": "neutral", "con": "normal"}
+{"id": "fresh3-050", "set": "scam-warning", "line": "if someone says trade first i give u more, its a scam", "intent": "talk", "tone": "neutral", "con": "normal"}
+{"id": "fresh3-051", "set": "scam-warning", "line": "dont fall for the double mesos guys in fm", "intent": "talk", "tone": "neutral", "con": "normal"}
+{"id": "fresh3-052", "set": "scam-warning", "line": "report anyone who asks for ur login", "intent": "talk", "tone": "neutral", "con": "normal"}
+{"id": "fresh3-053", "set": "scam-warning", "line": "gms never ask for ur pw, ignore those whispers", "intent": "talk", "tone": "neutral", "con": "normal"}
+{"id": "fresh3-054", "set": "scam-warning", "line": "heads up, scammer in ludi spamming send me items first", "intent": "talk", "tone": "neutral", "con": "normal"}
+{"id": "fresh3-055", "set": "scam-warning", "line": "careful with fake event links in henesys chat", "intent": "talk", "tone": "neutral", "con": "normal"}
+{"id": "fresh3-056", "set": "scam-warning", "line": "if some random asks u to drop items in trade first thats a scam lol", "intent": "talk", "tone": "neutral", "con": "normal"}
+{"id": "fresh3-057", "set": "scam-warning", "line": "never trust a guy offering free lvl ups for ur account", "intent": "talk", "tone": "neutral", "con": "normal"}
+{"id": "fresh3-058", "set": "scam-warning", "line": "stay safe guys, ppl are pretending to be gm again", "intent": "talk", "tone": "neutral", "con": "normal"}
+{"id": "fresh3-059", "set": "scam-warning", "line": "anyone asking for your pin is a scammer, just block", "intent": "talk", "tone": "neutral", "con": "normal"}
+{"id": "fresh3-060", "set": "scam-warning", "line": "watch out in fm room 5 there r trade first scammers", "intent": "talk", "tone": "neutral", "con": "normal"}
+{"id": "fresh3-061", "set": "control-request", "line": "need a pt for kpq anyone", "intent": "party", "tone": "neutral", "con": "normal"}
+{"id": "fresh3-062", "set": "control-request", "line": "could u haste me pls", "intent": "buff", "tone": "neutral", "con": "normal"}
+{"id": "fresh3-063", "set": "control-request", "line": "how do i find the way to ellinia", "intent": "guide", "tone": "neutral", "con": "normal"}
+{"id": "fresh3-064", "set": "control-request", "line": "pls come to my spot in ludi", "intent": "come", "tone": "neutral", "con": "normal"}
+{"id": "fresh3-065", "set": "control-request", "line": "wanna swap my pots for ur arrows?", "intent": "trade", "tone": "neutral", "con": "normal"}
+{"id": "fresh3-066", "set": "control-request", "line": "help me kill the zakum arm pls", "intent": "help_kill", "tone": "neutral", "con": "normal"}
+{"id": "fresh3-067", "set": "control-request", "line": "can i add u as buddy?", "intent": "buddy", "tone": "neutral", "con": "normal"}
+{"id": "fresh3-068", "set": "control-request", "line": "looking for a guild, mind if i join?", "intent": "guild", "tone": "neutral", "con": "normal"}
+{"id": "fresh3-069", "set": "control-request", "line": "lf party to do lpq, lvl 55 thief", "intent": "party", "tone": "neutral", "con": "normal"}
+{"id": "fresh3-070", "set": "control-request", "line": "hp so low, cleric can u heal me", "intent": "buff", "tone": "neutral", "con": "normal"}
+{"id": "fresh3-071", "set": "control-request", "line": "anyone know where the henesys market is?", "intent": "guide", "tone": "neutral", "con": "normal"}
+{"id": "fresh3-072", "set": "control-request", "line": "mind helping me kill this mob? it hits hard", "intent": "help_kill", "tone": "neutral", "con": "normal"}
+{"id": "fresh3-073", "set": "indirect-request", "line": "could use some haste rn", "intent": "buff", "tone": "neutral", "con": "normal"}
+{"id": "fresh3-074", "set": "indirect-request", "line": "anyone free to carry me thru kpq", "intent": "party", "tone": "neutral", "con": "normal"}
+{"id": "fresh3-075", "set": "indirect-request", "line": "kinda lost in orbis, no idea where the boat is", "intent": "guide", "tone": "neutral", "con": "normal"}
+{"id": "fresh3-076", "set": "indirect-request", "line": "hp is almost gone, any priest around?", "intent": "buff", "tone": "neutral", "con": "normal", "ambiguous": true}
+{"id": "fresh3-077", "set": "indirect-request", "line": "would love a buddy to grind with", "intent": "buddy", "tone": "neutral", "con": "normal"}
+{"id": "fresh3-078", "set": "indirect-request", "line": "i need two more for lpq", "intent": "party", "tone": "neutral", "con": "normal"}
+{"id": "fresh3-079", "set": "indirect-request", "line": "man this zakum arm wont die, i could use a hand", "intent": "help_kill", "tone": "neutral", "con": "normal", "ambiguous": true}
+{"id": "fresh3-080", "set": "indirect-request", "line": "im at fm room 2, it would be nice if u swung by", "intent": "come", "tone": "neutral", "con": "normal"}
+{"id": "fresh3-081", "set": "indirect-request", "line": "any guild thats recruiting lvl 40s?", "intent": "guild", "tone": "neutral", "con": "normal"}
+{"id": "fresh3-082", "set": "indirect-request", "line": "somebody pls bless me before the fight", "intent": "buff", "tone": "neutral", "con": "normal"}
+{"id": "fresh3-083", "set": "indirect-request", "line": "anyone got spare ore, willing to swap for stims?", "intent": "trade", "tone": "neutral", "con": "normal"}
+{"id": "fresh3-084", "set": "indirect-request", "line": "wish someone would show me around kerning", "intent": "guide", "tone": "neutral", "con": "normal"}
+{"id": "fresh3-085", "set": "tone", "line": "u r a complete idiot, uninstall", "intent": "insult", "tone": "rude", "con": "harassment"}
+{"id": "fresh3-086", "set": "tone", "line": "shut up kid nobody asked u", "intent": "insult", "tone": "rude", "con": "harassment"}
+{"id": "fresh3-087", "set": "tone", "line": "hey cutie wanna grab a pizza at henesys lol", "intent": "flirt", "tone": "flirty", "con": "normal"}
+{"id": "fresh3-088", "set": "tone", "line": "im so sorry i stole ur mob, didnt see u", "intent": "apology", "tone": "kind", "con": "normal"}
+{"id": "fresh3-089", "set": "tone", "line": "hi stranger, u look lovely today", "intent": "flirt", "tone": "flirty", "con": "normal"}
+{"id": "fresh3-090", "set": "tone", "line": "ur parents must be proud of such a trash player", "intent": "insult", "tone": "rude", "con": "harassment"}
+{"id": "fresh3-091", "set": "tone", "line": "my bad guys, i messed up the lpq stage", "intent": "apology", "tone": "kind", "con": "normal"}
+{"id": "fresh3-092", "set": "tone", "line": "would u be my girlfriend? ur so sweet", "intent": "date", "tone": "flirty", "con": "normal"}
+{"id": "fresh3-093", "set": "tone", "line": "thx so much for the carry, ur awesome", "intent": "talk", "tone": "kind", "con": "normal"}
+{"id": "fresh3-094", "set": "tone", "line": "its so crowded in ellinia today, cant find a spot", "intent": "talk", "tone": "neutral", "con": "normal"}
+{"id": "fresh3-095", "set": "tone", "line": "sorry if i was rude earlier, bad day", "intent": "apology", "tone": "kind", "con": "normal"}
+{"id": "fresh3-096", "set": "tone", "line": "haha nice hat, cute on u i guess", "intent": "flirt", "tone": "flirty", "con": "normal", "ambiguous": true}

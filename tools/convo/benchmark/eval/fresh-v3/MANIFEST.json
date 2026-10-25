@@ -1,0 +1,38 @@
+{
+  "dataset": "heldback-fresh-v3/cases.jsonl",
+  "sha256": "674ed53d563c788daf07929820e7242d327036ed1ca44f472aeb97cb03257f53",
+  "n": 96,
+  "per_set": {
+    "refusal": 12,
+    "quoted": 12,
+    "past": 12,
+    "bargain": 12,
+    "scam-warning": 12,
+    "control-request": 12,
+    "indirect-request": 12,
+    "tone": 12
+  },
+  "composition": "12 each: refusal (8 talk + 4 regression guards that stay requests), quoted, past, bargain (6 fair haggle + 6 scams con=scam), scam-warning (mentions only), control-request, indirect-request, tone",
+  "author": "Claude (Sonnet 5.5) subagent",
+  "date": "2026-10-25",
+  "label_rules": "same as eval/fresh-v1/MANIFEST.json label_rules; scam bargain lines labelled intent trade (or talk for pure password asks), con scam; insults con harassment (as v1 correction)",
+  "ambiguous_count": 3,
+  "intent_dist": {
+    "talk": 48,
+    "buff": 6,
+    "come": 3,
+    "party": 5,
+    "guide": 5,
+    "haggle": 6,
+    "trade": 6,
+    "help_kill": 3,
+    "buddy": 2,
+    "guild": 2,
+    "insult": 3,
+    "flirt": 3,
+    "apology": 3,
+    "date": 1
+  },
+  "duplicate_check": "programmatic: no normalized-exact duplicates and no token-Jaccard >=0.6 near-paraphrases vs fresh-v1, fresh-v2, dev cases.jsonl",
+  "frozen_before_model_calls": true
+}
