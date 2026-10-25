@@ -8,6 +8,14 @@ let rebornData;
 let rebornChoice = 0;
 // let remainingSkillPoints = ""
 
+// 1.6.0: the key item for the player's next rebirth (4033446 / 4033442 / 4033450), -1 when none.
+function keyItemFor(reborns) {
+    if (reborns === 0) return 4033446;
+    if (reborns === 1) return 4033442;
+    if (reborns === 2) return 4033450;
+    return -1;
+}
+
 function start() {
     status = -1;
     jobChangeChecker = 0;
@@ -116,6 +124,14 @@ function action(mode, type, selection) {
         }
     }
     else if (status === 4 && type === 1) {
+        // 1.6.0: the key item is spent here, once, after every check passes (it used to be checked but never taken).
+        const keyItem = keyItemFor(cm.getChar().getReborns());
+        if (keyItem === -1 || !cm.hasItem(keyItem, 1) || cm.getChar().getLevel() !== 200) {
+            cm.sendOk("I'm sorry but you no longer have what the rebirth process needs.");
+            cm.dispose();
+            return;
+        }
+        cm.gainItem(keyItem, -1);
         cm.getChar().executeRebornAsId(jobId);
         cm.resetStats();
         if (cm.getChar().getReborns() > 0) {
