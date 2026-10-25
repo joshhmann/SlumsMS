@@ -8,10 +8,12 @@ import java.nio.file.Path;
 import java.nio.file.Paths;
 import java.util.ArrayList;
 import java.util.Comparator;
-import java.util.HashMap;
 import java.util.List;
-import java.util.Map;
 import java.util.stream.Collectors;
+
+import server.maps.FootholdTree;
+import server.maps.MapleMap;
+import soloMapling.server.SoloMaplingUtilities;
 
 /**
  * Parses movement packet CSV files and constructs Platform objects.
@@ -78,7 +80,7 @@ public class PlatformParser {
      */
     public static Platform parsePlatform(int mapId, String fileName) {
         List<Point> rawCoordinates = parseCoordinates(mapId, fileName);
-        return organizePlatform(rawCoordinates);
+        return organizePlatform(mapId, rawCoordinates);
     }
 
     /**
@@ -92,31 +94,45 @@ public class PlatformParser {
      */
     public static Platform parsePlatform(int mapId, String fileName, Platform.Type type) {
         List<Point> rawCoordinates = parseCoordinates(mapId, fileName);
-        return organizePlatform(rawCoordinates, type);
+        return organizePlatform(mapId, rawCoordinates, type);
     }
 
     /**
      * Organizes a raw list of coordinates into a Platform.
      * Automatically detects if platform is FLAT or SLOPED.
      *
+     * @param mapId       The map ID, for its footholds (the ground the platform's heights settle on)
      * @param coordinates Raw list of recorded coordinates
      * @return Platform object
      */
-    public static Platform organizePlatform(List<Point> coordinates) {
+    public static Platform organizePlatform(int mapId, List<Point> coordinates) {
         Platform.Type detectedType = detectPlatformType(coordinates);
-        return organizePlatform(coordinates, detectedType);
+        return organizePlatform(mapId, coordinates, detectedType);
+    }
+
+    /**
+     * The map's footholds, or null when no map is loaded under that id (a unit test, or before the channel is up).
+     */
+    public static FootholdTree mapGround(int mapId) {
+        try {
+            MapleMap map = SoloMaplingUtilities.getMapleMapById(mapId);
+            return map == null ? null : map.getFootholds();
+        } catch (RuntimeException noChannel) {
+            return null;
+        }
     }
 
     /**
      * Organizes a raw list of coordinates into a Platform with explicit type.
      *
+     * @param mapId       The map ID, for its footholds (the ground the platform's heights settle on)
      * @param coordinates Raw list of recorded coordinates
      * @param type        Platform type (FLAT or SLOPED)
      * @return Platform object
      */
-    public static Platform organizePlatform(List<Point> coordinates, Platform.Type type) {
+    public static Platform organizePlatform(int mapId, List<Point> coordinates, Platform.Type type) {
         if (coordinates == null || coordinates.isEmpty()) {
-            return new Platform(0, 0, 0, new ArrayList<>(), type);
+            return new Platform(0, 0, new ArrayList<>(), type, mapGround(mapId));
         }
 
         // Deduplicate and sort by X
@@ -129,17 +145,7 @@ public class PlatformParser {
         int minX = sortedPoints.get(0).x;
         int maxX = sortedPoints.get(sortedPoints.size() - 1).x;
 
-        // Calculate base Y
-        int baseY;
-        if (type == Platform.Type.FLAT) {
-            // For flat platforms, use the mode (most common Y)
-            baseY = calculateModeY(coordinates);
-        } else {
-            // For sloped platforms, use average Y (informational only)
-            baseY = (int) coordinates.stream().mapToInt(p -> p.y).average().orElse(0);
-        }
-
-        return new Platform(minX, maxX, baseY, sortedPoints, type);
+        return new Platform(minX, maxX, sortedPoints, type, mapGround(mapId));
     }
 
     /**
@@ -203,19 +209,4 @@ public class PlatformParser {
         }
     }
 
-    /**
-     * Calculates the mode (most frequent value) of Y coordinates.
-     */
-    private static int calculateModeY(List<Point> coordinates) {
-        Map<Integer, Integer> frequencyMap = new HashMap<>();
-
-        for (Point p : coordinates) {
-            frequencyMap.merge(p.y, 1, Integer::sum);
-        }
-
-        return frequencyMap.entrySet().stream()
-                .max(Map.Entry.comparingByValue())
-                .map(Map.Entry::getKey)
-                .orElse(0);
-    }
 }
