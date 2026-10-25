@@ -38,10 +38,15 @@ public class MaxSkillCommand extends Command {
     @Override
     public void execute(Client c, String[] params) {
         Character player = c.getPlayer();
-        String job = params[0];
-        if (params.length > 0)
-        {
-            for (Data skill_ : DataProviderFactory.getDataProvider(WZFiles.SKILL).getData(job + ".img").getChildByPath("skill").getChildren()) {
+        if (params.length > 0) { // "!maxskill 311": that job's skills; plain "!maxskill": every skill (it read params[0] first)
+            String job = params[0];
+            Data jobImage = DataProviderFactory.getDataProvider(WZFiles.SKILL).getData(job + ".img");
+            Data jobSkills = jobImage == null ? null : jobImage.getChildByPath("skill");
+            if (jobSkills == null) {
+                player.yellowMessage("No skills found for job " + job + ". Syntax: !maxskill [job id, e.g. 311]");
+                return;
+            }
+            for (Data skill_ : jobSkills.getChildren()) {
                 try {
                     Skill skill = SkillFactory.getSkill(Integer.parseInt(skill_.getName()));
                     player.changeSkillLevel(skill, (byte) skill.getMaxLevel(), skill.getMaxLevel(), -1);

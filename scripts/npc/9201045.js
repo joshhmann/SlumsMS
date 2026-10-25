@@ -74,6 +74,11 @@ function action(mode, type, selection) {
         }
 
         var eim = cm.getPlayer().getEventInstance();
+        if (eim == null) {  // outside a running Amorian Challenge (a GM warp, or the instance just ended)
+            cm.sendOk("I only host the Amorian Challenge. Come back with your party when it has started.");
+            cm.dispose();
+            return;
+        }
         if (eim.getProperty(stage.toString() + "stageclear") != null) {
             if (stage < 5) {
                 cm.sendNext("The portal is already open, advance for the trials that awaits you there.");
