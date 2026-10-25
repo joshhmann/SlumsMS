@@ -1320,6 +1320,15 @@ final class GameQaWorld implements QaWorld {
         }
     }
 
+    /**
+     * How much of an item to remove to empty its slot: exactly what is there. An equip's quantity must stay 0..1, so
+     * asking for "everything" with a big number (the rework used 32767) throws on the first equip and leaves the
+     * reset half done, which silently broke vb-1, vb-3, vb-6 and vb-7 (no coupons, no party, no job, no items).
+     */
+    static short wipeQuantity(Item item) {
+        return (short) Math.max(1, item.getQuantity());
+    }
+
     private void resetPretendPlayer(Character gm, int job, int level, int meso) {
         // Wipes job, skills, items, mesos and quest rows: only ever for auto-QA's pretend players, never a real
         // character, even if a future caller forgets V83Scenarios' own SyntheticClient check.
@@ -1357,8 +1366,8 @@ final class GameQaWorld implements QaWorld {
         }
         for (InventoryType t : BAGS) {
             Inventory inv = gm.getInventory(t);
-            for (short slot : new ArrayList<>(inv.list().stream().map(Item::getPosition).toList())) {
-                InventoryManipulator.removeFromSlot(gm.getClient(), t, slot, (short) 32767, false);
+            for (Item it : new ArrayList<>(inv.list())) {
+                InventoryManipulator.removeFromSlot(gm.getClient(), t, it.getPosition(), wipeQuantity(it), false);
             }
         }
     }
