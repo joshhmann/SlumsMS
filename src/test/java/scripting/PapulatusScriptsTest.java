@@ -35,7 +35,7 @@ class PapulatusScriptsTest {
         public boolean cleared;
         public final List<FakePlayer> players = new ArrayList<>();
 
-        FakeEim(String name) {
+        public FakeEim(String name) {
             this.name = name;
         }
 
@@ -69,6 +69,10 @@ class PapulatusScriptsTest {
 
         public List<FakePlayer> getPlayers() {
             return players;
+        }
+
+        public String sendDmgDealt(int world) {
+            return "";
         }
     }
 
