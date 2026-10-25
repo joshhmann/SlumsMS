@@ -842,7 +842,7 @@ final class GameQaWorld implements QaWorld {
     record GuildCandidate(String name, int members, boolean leaderHostile, boolean full) {
     }
 
-    /** The biggest guild whose leader would say yes (not hostile, not full); else the biggest; null when none. */
+    /** The biggest guild whose leader would say yes (not hostile, room for the scene); else the biggest; null when none. */
     static String chooseForApplicant(List<GuildCandidate> all) {
         GuildCandidate best = null;
         GuildCandidate biggest = null;
@@ -1957,13 +1957,29 @@ final class GameQaWorld implements QaWorld {
             return out;
         }
         if ("storage".equals(step)) {
-            storage(gm, out);
+            asPlainPlayer(gm, () -> storage(gm, out));
         } else if ("duey".equals(step)) {
-            duey(gm, out);
+            asPlainPlayer(gm, () -> duey(gm, out));
         } else if ("trade".equals(step)) {
             trade(gm, out);
         }
         return out;
+    }
+
+    /**
+     * Runs a vb-7 step with the pretend player at GM level 0, as the player the feature is for. AutoQaOne is a GM (level
+     * 3), and since 1.5.2 MINIMUM_GM_LEVEL_TO_USE_STORAGE / _TO_USE_DUEY / _TO_TRADE are Cosmic's 4: storage refuses
+     * GM levels 2-3 ("You cannot use the storage as a GM of this level") and so does Duey, so vb-7 stored and sent
+     * nothing. The trade step already did this for the ticket 43 GM-giving rule.
+     */
+    static void asPlainPlayer(Character chr, Runnable step) {
+        int gmLevel = chr.gmLevel();
+        chr.setGMLevel(0);
+        try {
+            step.run();
+        } finally {
+            chr.setGMLevel(gmLevel);
+        }
     }
 
     private void storage(Character gm, List<String> out) {
@@ -2067,9 +2083,8 @@ final class GameQaWorld implements QaWorld {
             out.add("VB TRADE no item " + itemId + " to offer");
             return;
         }
-        int gmLevel = gm.gmLevel();
-        gm.setGMLevel(0); // ticket 43 blocks GM<->player windows; the feature under test is the window itself
-        try {
+        // ticket 43 blocks GM<->player windows (and GM levels under 4 cannot trade); the feature under test is the window
+        asPlainPlayer(gm, () -> {
             server.Trade.startTrade(gm);
             server.Trade.inviteTrade(gm, p2.character());
             server.Trade.visitTrade(p2.character(), gm);
@@ -2088,8 +2103,6 @@ final class GameQaWorld implements QaWorld {
             int p2After = p2.character().getInventory(InventoryType.ETC).countById(itemId);
             out.add("VB TRADE offered=" + added + " itemDelta=" + (p2After - p2Before)
                     + " mesoDelta=" + (p2.character().getMeso() - p2Meso));
-        } finally {
-            gm.setGMLevel(gmLevel);
-        }
+        });
     }
 }
