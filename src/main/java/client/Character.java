@@ -1270,7 +1270,10 @@ public class Character extends AbstractCharacterObject {
     static Pair<Integer, Integer> jobAdvanceHpMpGain(Job job) {
         int addhp = 0, addmp = 0;
         int job_ = job.getId() % 1000; // lame temp "fix"
-        if (job_ == 100) {                      // 1st warrior
+        if (job_ == 700) {                      // Super Beginner (MapleRoot; checked first: 700 % 100 == 0 is "1st others")
+            addhp += Randomizer.rand(300, 350);
+            addmp += Randomizer.rand(150, 200);
+        } else if (job_ == 100) {               // 1st warrior
             addhp += Randomizer.rand(200, 250);
         } else if (job_ == 200) {               // 1st mage
             addmp += Randomizer.rand(100, 150);
@@ -1282,9 +1285,6 @@ public class Character extends AbstractCharacterObject {
         } else if (job_ < 300) {                // 2nd~4th mage
             addmp += Randomizer.rand(450, 500);
         } else if (job_ > 0) {                  // 2nd~4th others
-            addhp += Randomizer.rand(300, 350);
-            addmp += Randomizer.rand(150, 200);
-        } else if (job_ == 700) {                  // Super Beginner
             addhp += Randomizer.rand(300, 350);
             addmp += Randomizer.rand(150, 200);
         }
@@ -2038,6 +2038,13 @@ public class Character extends AbstractCharacterObject {
     }
 
     public void changeSkillLevel(Skill skill, byte newLevel, int newMasterlevel, long expiration) {
+        if (skill == null) {
+            // 1.5.2: MapleRoot's Skill.wz dropped 64 stock skills (Big Bang, Barrage, Ninja Ambush, Polearm Booster,
+            // ...) that stock scripts still teach. A null key used to land in the skills map before the NPE, and
+            // every later saveToDB then failed on it and rolled the whole character save back.
+            log.warn("Chr {} was given a skill that is not in Skill.wz; ignored", getName(), new Throwable("unknown skill"));
+            return;
+        }
         if (newLevel > -1) {
             skills.put(skill, new SkillEntry(newLevel, newMasterlevel, expiration));
             if (!GameConstants.isHiddenSkills(skill.getId())) {
