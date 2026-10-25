@@ -57,6 +57,7 @@ public class BotWealthCommand extends Command {
                                 + " Lv %d: %,d", BANDS[b], BANDS[b + 1] - 1, n[b], held[b] / n[b], over[b], excess[b],
                         BANDS[b], BotWealth.ceiling(BANDS[b], player.getWorldServer().getMesoRate())));
             }
+            player.yellowMessage(soloMapling.ArtificialPlayer.PlayerWealthIndex.line());
             player.yellowMessage(BotWealth.ledgerLine());
             player.yellowMessage(GachaStats.line());
             return;
