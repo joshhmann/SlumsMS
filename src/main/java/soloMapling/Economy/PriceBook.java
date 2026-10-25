@@ -12,6 +12,7 @@ import constants.inventory.ItemConstants;
 
 import java.util.ArrayDeque;
 import java.util.ArrayList;
+import java.util.Collections;
 import java.util.Deque;
 import java.util.HashSet;
 import java.util.List;
@@ -558,6 +559,24 @@ public final class PriceBook {
     /** Number of items with samples in memory (for !economy). */
     public static int itemsTracked() {
         return byItem.size();
+    }
+
+    /** Item ids currently tracked in memory. */
+    public static Set<Integer> trackedItemIds() {
+        ensureLoaded();
+        return Collections.unmodifiableSet(byItem.keySet());
+    }
+
+    /** Recent price samples for an item id in memory. */
+    public static List<Sample> recentSamples(int itemId) {
+        ensureLoaded();
+        Deque<Sample> d = byItem.get(itemId);
+        if (d == null) {
+            return Collections.emptyList();
+        }
+        synchronized (d) {
+            return new ArrayList<>(d);
+        }
     }
 
     static String mesos(long v) {
