@@ -288,7 +288,7 @@ public class OPQBot extends BotSM {
         }
 
         if (isInParty()) {
-            orchestrator.noteLeaderFromBot(this);
+            orchestrator.notePartyJoined(this);
             sharedContext_trySetPhase(OPQPhase.IN_PARTY_IDLE);
             transitionTo(OPQBotState.IN_PARTY_IDLE, "joined a party");
             return;
@@ -340,12 +340,12 @@ public class OPQBot extends BotSM {
         }
 
         // Refresh leader id every tick — covers leader change / re-invite.
-//        orchestrator.noteLeaderFromBot(this);
+//        orchestrator.notePartyJoined(this);
         // The orchestrator's tick polls leader.getMapId() and warps us into
         // Stage 1 server-side once the leader enters. detectPhaseFromMap() at
         // the top of updateState() then flips us into STAGE_1_NAVIGATE.
 
-        if (getPartyLeader().getMapId() == OPQConstants.OPQ_STAGE_1) {
+        if (leaderMapId() == OPQConstants.OPQ_STAGE_1) {
             cloudPiecesLooted = 0;
             lootedRecordItemId = -1;
             // deliberate synchronous warp: warpBotToLocation blocks through the
@@ -553,7 +553,7 @@ public class OPQBot extends BotSM {
 
         // I'm not sure how to have the bots enter the proper portal which is to get them to the map of OPQ_TOWER
         // Because technically its a PQ instance, so it's gotta be the correct MapleMap, not just generic map.
-        if (getPartyLeader().getMapId() == OPQConstants.OPQ_TOWER) {
+        if (leaderMapId() == OPQConstants.OPQ_TOWER) {
             // deliberate synchronous warp sequence (blocking arrival choreography)
             blockingSleep(1000);
             OPQOrchestrator.getInstance().followLeaderWarp(getChr(), new Point(-260,-32)); // Spawn point for OPQ tower [x=-260,y=-32]
@@ -565,7 +565,7 @@ public class OPQBot extends BotSM {
 
     private void handleStage1TransitionPart2() {
         // Teleport from Tower to Stage 2
-        if (getPartyLeader().getMapId() == OPQConstants.OPQ_STAGE_2) {
+        if (leaderMapId() == OPQConstants.OPQ_STAGE_2) {
             OPQOrchestrator.getInstance().followLeaderWarp(getChr(), new Point(-113,-321)); // Spawn point for stage 2 [x=-113,y=-321]
             waitFor(1000); // settle after the warp before NAVIGATE ticks
             transitionTo(OPQBotState.STAGE_2_NAVIGATE, "arrived in stage-2 map");
@@ -628,7 +628,7 @@ public class OPQBot extends BotSM {
         }
 
         // Chat which box we're going for (ordinal based on sorted position right-to-left)
-        String ordinal = orchestrator.getBoxOrdinal(reactorOid);
+        String ordinal = orchestrator.getBoxOrdinal(getChr().getMap(), reactorOid);
         SocialCommands.BotSpeak(getChr(), "I'll get the " + ordinal + " box!");
 
         Point reactorPos = reactor.getPosition();
@@ -697,7 +697,7 @@ public class OPQBot extends BotSM {
 
         byte stateAfter = reactor.getState();
         if (stateAfter >= 4) {
-            int recordItem = orchestrator.getBoxItemId(reactorOid);
+            int recordItem = orchestrator.getBoxItemId(getChr().getMap(), reactorOid);
             CustomReactor.dropItemAtReactor(getChr().getMap(), reactorOid,
                     recordItem, getChr());
             lootedRecordItemId = recordItem;
@@ -784,7 +784,7 @@ public class OPQBot extends BotSM {
                 + " stage2Complete=" + sharedContext.isStage2Complete());
 
         // Detect leader leaving Stage 2 (via NPC exit or fast-exit through lobby)
-        int leaderMap = getPartyLeader().getMapId();
+        int leaderMap = leaderMapId();
         if (leaderMap == OPQConstants.OPQ_EXIT_LOBBY) {
             blockingSleep(1000); // deliberate: blocking follow-warp below
             OPQOrchestrator.getInstance().followLeaderWarp(getChr(), new Point(-161, 323));
@@ -817,7 +817,7 @@ public class OPQBot extends BotSM {
 
     private void handleExitDetect() {
         debugLogf("handleExitDetect: mapId=" + getChr().getMapId()
-                + " leaderMap=" + getPartyLeader().getMapId());
+                + " leaderMap=" + leaderMapId());
         sharedContext_trySetPhase(OPQPhase.EXIT);
 
         if (getChr().getMapId() == OPQConstants.OPQ_EXIT_LOBBY) {
@@ -826,7 +826,7 @@ public class OPQBot extends BotSM {
         }
 
         // Actively follow leader to exit lobby or recruitment lobby
-        int leaderMap = getPartyLeader().getMapId();
+        int leaderMap = leaderMapId();
         if (leaderMap == OPQConstants.OPQ_EXIT_LOBBY) {
             blockingSleep(1000); // deliberate: blocking follow-warp below
             OPQOrchestrator.getInstance().followLeaderWarp(getChr(), new Point(-161, 323));
@@ -840,11 +840,11 @@ public class OPQBot extends BotSM {
 
     private void handleExitLobby() {
         debugLogf("handleExitLobby: mapId=" + getChr().getMapId()
-                + " leaderMap=" + getPartyLeader().getMapId());
+                + " leaderMap=" + leaderMapId());
 
         // If leader has already moved to recruitment lobby, follow them
         // (deliberate synchronous warps: arrival choreography blocks and must not overlap)
-        int leaderMap = getPartyLeader().getMapId();
+        int leaderMap = leaderMapId();
         if (leaderMap == OPQConstants.OPQ_LOBBY) {
             blockingSleep(300);
             MapleMap lobbyMap = getChr().getClient().getChannelServer().getMapFactory().getMap(OPQConstants.OPQ_LOBBY);
@@ -980,17 +980,28 @@ public class OPQBot extends BotSM {
         return false;
     }
 
-    private Character getPartyLeader() {
-        return getChr().getParty().getLeader().getPlayer();
+    /**
+     * The party leader as a live Character, or null when there is no party, no leader object, or the leader's
+     * PartyCharacter has gone offline (setOnline(false) nulls its Character - the old code called getMapId() on
+     * that null and threw on every tick).
+     */
+    private Character partyLeader() {
+        return OPQOrchestrator.partyLeaderOf(getChr());
+    }
+
+    /** Leader's map, or -1 when the leader is unknown/offline. Never null. */
+    private int leaderMapId() {
+        Character leader = partyLeader();
+        return leader == null ? -1 : leader.getMapId();
     }
 
     private boolean leaderLeftStage2() {
-        int leaderMap = getPartyLeader().getMapId();
+        int leaderMap = leaderMapId();
         return leaderMap == OPQConstants.OPQ_EXIT_LOBBY || leaderMap == OPQConstants.OPQ_LOBBY;
     }
 
     private void followLeaderOut() {
-        int leaderMap = getPartyLeader().getMapId();
+        int leaderMap = leaderMapId();
         blockingSleep(1000); // deliberate: blocking follow-warps below
         if (leaderMap == OPQConstants.OPQ_EXIT_LOBBY) {
             OPQOrchestrator.getInstance().followLeaderWarp(getChr(), new Point(-161, 323));

@@ -55,12 +55,10 @@ public class OPQOrchestrator {
     private final OPQSharedContext context = new OPQSharedContext();
     private final List<OPQBot> registeredBots = new CopyOnWriteArrayList<>();
 
-    // Leader tracking: cached on first observation by any bot, refreshed each tick.
-    private volatile int leaderId = -1;
-
-    // Stage 2: sorted box reactor index (oid -> sorted position 0-6, right-to-left).
-    // Built lazily on first Stage 2 assignment. Cleared on reset.
-    private final Map<Integer, Integer> boxSortedIndex = new HashMap<>();
+    // Stage 2: sorted box reactor index per map instance (oid -> sorted position 0-6, right-to-left).
+    // Per instance, not per map id: two parties run two copies of 920010400 with different oids. Built lazily on
+    // first Stage 2 assignment, cleared on reset.
+    private final Map<MapleMap, Map<Integer, Integer>> boxIndexes = new java.util.concurrent.ConcurrentHashMap<>();
 
     private ScheduledFuture<?> tickHandle;
 
@@ -103,23 +101,30 @@ public class OPQOrchestrator {
     }
 
     /**
-     * Bots call this whenever they observe themselves in a party so the
-     * orchestrator can lock onto the leader id. Cheap; safe to call every tick.
+     * Bots call this when they find themselves in a party. Cheap; safe to call every tick.
+     * <p>
+     * There is deliberately no global leader id here any more: two parties can be running two OPQ instances at the
+     * same time, and a single locked id warped the second party's bots into the first party's map.
      */
-    public void noteLeaderFromBot(OPQBot bot) {
+    public void notePartyJoined(OPQBot bot) {
         if (bot.getChr().getParty() == null) return;
-        int observedLeader = bot.getChr().getParty().getLeaderId();
-        if (observedLeader > 0 && observedLeader != leaderId) {
-            leaderId = observedLeader;
-            opqLog("Leader id locked: " + leaderId);
-        }
         // Auto-activate the run once any bot is partied. Without this the
-        // tick would no-op (pqActive=false) and followLeaderWarp would never
-        // fire. Calling !opq start manually still works and is idempotent.
+        // tick would no-op (pqActive=false). Calling !opq start manually still works and is idempotent.
         if (!context.isPqActive()) {
             context.setPqActive(true);
-            opqLog("Auto-activated run on first leader observation.");
+            Character leader = partyLeaderOf(bot.getChr());
+            opqLog("Auto-activated run; party leader " + (leader == null ? "unknown" : leader.getName()));
         }
+    }
+
+    /**
+     * The live leader of the given party member, or null when the member is not in a party or the leader's
+     * PartyCharacter is offline (its Character is null then).
+     */
+    public static Character partyLeaderOf(Character member) {
+        if (member == null || member.getParty() == null) return null;
+        net.server.world.PartyCharacter leader = member.getParty().getLeader();
+        return leader == null ? null : leader.getPlayer();
     }
 
     /**
@@ -237,7 +242,7 @@ public class OPQOrchestrator {
         }
         int pickedOid = best.getObjectId();
         context.putBoxAssignment(id, pickedOid);
-        String ordinal = getBoxOrdinal(best.getId());
+        String ordinal = getBoxOrdinal(map, best.getId());
 //        opqLog("Assigned box reactor oid=" + pickedOid + " (" + ordinal
 //                + " box, id=" + best.getId() + " pos=" + best.getPosition()
 //                + ") -> " + bot.getChr().getName());
@@ -291,8 +296,7 @@ public class OPQOrchestrator {
         context.reset();
         context.setPqActive(true);
         context.setCurrentPhase(OPQPhase.RECRUITMENT);
-        leaderId = -1;
-        boxSortedIndex.clear();
+        boxIndexes.clear();
     }
 
     public void mirrorPhase(OPQPhase phase) {
@@ -309,8 +313,7 @@ public class OPQOrchestrator {
     public synchronized void shutdownRun() {
         opqLog("Shutting down current run.");
         context.reset();
-        leaderId = -1;
-        boxSortedIndex.clear();
+        boxIndexes.clear();
     }
 
     // =========================================================================
@@ -383,19 +386,22 @@ public class OPQOrchestrator {
     }
 
     /**
-     * Resolve the live leader Character from any registered bot's channel
-     * server. Returns null if there's no leader yet, no bots registered, or
-     * the leader has logged out / changed channels.
+     * The leader of the run in progress: the party leader of the first registered bot standing in an OPQ map.
+     * Returns null when no bot of any party is inside the PQ yet.
      */
-    private Character resolveLeader() {
-        if (leaderId <= 0 || registeredBots.isEmpty()) return null;
-        OPQBot anchor = registeredBots.get(0);
-        return anchor.getChr().getClient().getChannelServer()
-                .getPlayerStorage().getCharacterById(leaderId);
+    Character runLeader() {
+        for (OPQBot bot : registeredBots) {
+            Character member = bot.getChr();
+            if (member.getMap() == null || !OPQConstants.OPQ_INSIDE_MAPS.contains(member.getMapId())) continue;
+            Character leader = partyLeaderOf(member);
+            if (leader != null) return leader;
+        }
+        return null;
     }
 
     public boolean isChamberlainSpawned() {
-        return isNpcPresent(resolveLeader().getMap(), CHAMBERLAIN_EAK);
+        Character leader = runLeader();
+        return leader != null && isNpcPresent(leader.getMap(), CHAMBERLAIN_EAK);
     }
 
 
@@ -405,15 +411,27 @@ public class OPQOrchestrator {
      * 2. Leader completes stage 1 by talking to NPC, who teleports him to the tower
      */
     public void followLeaderWarp(Character fakechar, Point pt) {
-        Character leader = resolveLeader();
-        if (leader == null) return;
-
+        MapleMap target = leaderMapFor(fakechar);
+        if (target == null) {
+            opqLog("No live party leader for " + fakechar.getName() + " - warp to " + pt + " skipped");
+            return;
+        }
         try {
-            warpBotToLocation(fakechar, pt, leader.getMap());
+            warpBotToLocation(fakechar, pt, target);
         } catch (Exception e) {
             opqLog("Warp failed for " + fakechar.getName() + ": " + e.getMessage());
             e.printStackTrace();
         }
+    }
+
+    /**
+     * The map a follow-warp for this bot goes to: its own party leader's map. Never a global leader - two parties
+     * can run two OPQ instances at once, and the old single locked leader id warped one party's bots into the other
+     * party's instance. Null when the bot has no live leader (no party, or the leader went offline).
+     */
+    MapleMap leaderMapFor(Character member) {
+        Character leader = partyLeaderOf(member);
+        return leader == null ? null : leader.getMap();
     }
 
     // =========================================================================
@@ -474,27 +492,30 @@ public class OPQOrchestrator {
      * Sorts by x-position descending (rightmost = index 0 = "1st").
      * Called lazily on first Stage 2 assignment.
      */
-    private void buildBoxSortedIndex(MapleMap map) {
-        if (!boxSortedIndex.isEmpty()) return;
-        List<Reactor> boxes = new ArrayList<>();
-        for (Reactor r : map.getAllReactors()) {
-            if (isBoxReactor(r)) boxes.add(r);
-        }
-        boxes.sort(Comparator.comparingInt((Reactor r) -> r.getPosition().x).reversed());
-        for (int i = 0; i < boxes.size(); i++) {
-            boxSortedIndex.put(boxes.get(i).getObjectId(), i);
-            opqLog("Box sorted index: pos=" + i + " (" + OPQConstants.STAGE_2_BOX_ORDINALS[i]
-                    + ") oid=" + boxes.get(i).getObjectId()
-                    + " dataId=" + boxes.get(i).getId()
-                    + " x=" + boxes.get(i).getPosition().x);
-        }
+    private Map<Integer, Integer> buildBoxSortedIndex(MapleMap map) {
+        return boxIndexes.computeIfAbsent(map, m -> {
+            Map<Integer, Integer> index = new HashMap<>();
+            List<Reactor> boxes = new ArrayList<>();
+            for (Reactor r : m.getAllReactors()) {
+                if (isBoxReactor(r)) boxes.add(r);
+            }
+            boxes.sort(Comparator.comparingInt((Reactor r) -> r.getPosition().x).reversed());
+            for (int i = 0; i < boxes.size(); i++) {
+                index.put(boxes.get(i).getObjectId(), i);
+                opqLog("Box sorted index: pos=" + i + " (" + OPQConstants.STAGE_2_BOX_ORDINALS[i]
+                        + ") oid=" + boxes.get(i).getObjectId()
+                        + " dataId=" + boxes.get(i).getId()
+                        + " x=" + boxes.get(i).getPosition().x);
+            }
+            return index;
+        });
     }
 
     /**
      * Get the ordinal label for a box reactor based on its sorted position (right-to-left).
      */
-    public String getBoxOrdinal(int reactorOid) {
-        Integer idx = boxSortedIndex.get(reactorOid);
+    public String getBoxOrdinal(MapleMap map, int reactorOid) {
+        Integer idx = map == null ? null : buildBoxSortedIndex(map).get(reactorOid);
         if (idx != null && idx >= 0 && idx < OPQConstants.STAGE_2_BOX_ORDINALS.length) {
             return OPQConstants.STAGE_2_BOX_ORDINALS[idx];
         }
@@ -505,8 +526,8 @@ public class OPQOrchestrator {
      * Get the deterministic item ID that a box reactor should drop, based on sorted position.
      * Box at sorted index 0 (rightmost/"1st") drops STAGE_2_ITEMS[0] = 4001056, etc.
      */
-    public int getBoxItemId(int reactorOid) {
-        Integer idx = boxSortedIndex.get(reactorOid);
+    public int getBoxItemId(MapleMap map, int reactorOid) {
+        Integer idx = map == null ? null : buildBoxSortedIndex(map).get(reactorOid);
         if (idx != null && idx >= 0 && idx < OPQConstants.STAGE_2_ITEMS.size()) {
             return OPQConstants.STAGE_2_ITEMS.get(idx);
         }
