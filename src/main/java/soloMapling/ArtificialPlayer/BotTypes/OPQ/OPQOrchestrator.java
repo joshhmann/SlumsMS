@@ -373,8 +373,10 @@ public class OPQOrchestrator {
                 }
             }
             case STAGE_2 -> {
-                if (!context.isStage2Complete() && allRegisteredBotsComplete()) {
-                    opqLog("Stage 2 complete — all registered bots reported done.");
+                Character leader = runLeader();
+                if (!context.isStage2Complete()
+                        && allCompleteIn(leader == null ? null : leader.getMap(), botCharacters(), context::isMyTaskComplete)) {
+                    opqLog("Stage 2 complete — every bot in the instance reported done.");
                     context.setStage2Complete(true);
                     clearCompletionFlagsForRegistered();
                 }
@@ -493,12 +495,28 @@ public class OPQOrchestrator {
         return assigned > 0 && assigned == done;
     }
 
-    private boolean allRegisteredBotsComplete() {
-        if (registeredBots.isEmpty()) return false;
-        for (OPQBot bot : registeredBots) {
-            if (!context.isMyTaskComplete(bot.getChr().getId())) return false;
+    /**
+     * Stage 2 is done when every bot that is in this instance has reported its box. The old test wanted every
+     * registered bot - the lobby's 10-15 idle recruiters included - so the flag never flipped, STAGE_2_WAIT ran
+     * into its two-minute cap and bots walked out of a run that was still going.
+     */
+    static boolean allCompleteIn(MapleMap runMap, Collection<Character> members, java.util.function.IntPredicate done) {
+        if (runMap == null) return false;
+        int inInstance = 0;
+        for (Character member : members) {
+            if (member.getMap() != runMap) continue;
+            inInstance++;
+            if (!done.test(member.getId())) return false;
         }
-        return true;
+        return inInstance > 0;
+    }
+
+    private List<Character> botCharacters() {
+        List<Character> members = new ArrayList<>(registeredBots.size());
+        for (OPQBot bot : registeredBots) {
+            members.add(bot.getChr());
+        }
+        return members;
     }
 
     private void clearCompletionFlagsForRegistered() {
