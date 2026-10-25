@@ -231,6 +231,7 @@ public class CommandsExecutor {
         addCommand("droplimit", DropLimitCommand.class);
        // addCommand("craft", CraftCommand.class);
         addCommand("time", TimeCommand.class);
+        addCommand("coupons", CouponsCommand.class);   // 1.5.1: when your EXP/drop coupons work (server and Pacific time)
         addCommand("credits", StaffCommand.class);
         addCommand("minesweeper", MineSweeperCommand.class);
         addCommand("memory", MemoryCommand.class);

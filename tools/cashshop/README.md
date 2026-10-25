@@ -53,6 +53,8 @@ on disk is stale.
   but the name: `2x EXP M-F 7-11am 30d` is Mon-Fri 07:00-11:00 server time for 30 days, `Sa-Su` is
   the weekend, no day means every day, `anytime 4hrs` lasts 4 hours from purchase. The pieces are
   ordered so the grid's two ~12-character lines break between them. An `items` name still wins.
+  In game, `@coupons` names the server's zone, translates each held coupon's hours to Pacific time and
+  says whether it is working now; buying a coupon in the window prints the same hours in chat.
   These names are rejected: blank,
   placeholder, Korean or other non-Latin; for non-stock rows also `GM ...`, `Test` and names
   with underscores.

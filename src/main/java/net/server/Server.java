@@ -56,6 +56,7 @@ import scripting.portal.PortalPlayerInteraction;
 import server.CashShop.CashItemFactory;
 import server.SkillbookInformationProvider;
 import server.ThreadManager;
+import server.cashshop.CouponSchedule;
 import server.TimerManager;
 import server.expeditions.ExpeditionBossLog;
 import server.life.PlayerNPCFactory;
@@ -108,6 +109,7 @@ public class Server {
 
     private static final Set<Integer> activeFly = new HashSet<>();
     private static final Map<Integer, Integer> couponRates = new HashMap<>(30);
+    private static final Map<Integer, CouponSchedule> couponSchedules = new HashMap<>(30);
     private static final List<Integer> activeCoupons = new LinkedList<>();
     private static ChannelDependencies channelDependencies;
 
@@ -663,7 +665,7 @@ public class Server {
     }
 
     private void loadCouponRates(Connection c) throws SQLException {
-        try (PreparedStatement ps = c.prepareStatement("SELECT couponid, rate FROM nxcoupons");
+        try (PreparedStatement ps = c.prepareStatement("SELECT couponid, rate, activeday, starthour, endhour FROM nxcoupons");
              ResultSet rs = ps.executeQuery()) {
 
             while (rs.next()) {
@@ -671,8 +673,15 @@ public class Server {
                 int rate = rs.getInt("rate");
 
                 couponRates.put(cid, rate);
+                couponSchedules.put(cid, CouponSchedule.fromDb(
+                        rs.getInt("activeday"), rs.getInt("starthour"), rs.getInt("endhour")));
             }
         }
+    }
+
+    /** When a rate coupon works (the nxcoupons row updateActiveCoupons checks), or null if it has none. */
+    public CouponSchedule getCouponSchedule(int couponId) {
+        return couponSchedules.get(couponId);
     }
 
     public List<Integer> getActiveCoupons() {
