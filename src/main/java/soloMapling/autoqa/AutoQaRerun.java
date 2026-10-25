@@ -58,6 +58,11 @@ final class AutoQaRerun {
         if (!(last.get("results") instanceof Map<?, ?> results)) {
             return everything(catalogue, "the last run did not record its results: rerun all");
         }
+        List<?> carriedIds = last.get("carriedIds") instanceof List<?> ids ? ids : null;
+        if (carriedIds == null && last.get("carried") instanceof Number n && n.intValue() > 0) {
+            return everything(catalogue, "the last run records carried passes without their ids ("
+                    + n + "): rerun all");
+        }
         Map<String, Map<String, Object>> entries = entries(report);
         Map<String, Map<String, Object>> carried = new LinkedHashMap<>();
         List<Check> rerun = new ArrayList<>();
@@ -66,7 +71,9 @@ final class AutoQaRerun {
                 continue; // client-only: never run headless, so never rerun and never carried either
             }
             Map<String, Object> entry = entries.get(c.id());
-            if ("PASS".equals(results.get(c.id())) && "PASS".equals(entry == null ? null : entry.get("status"))) {
+            boolean passed = "PASS".equals(results.get(c.id()))
+                    || (carriedIds != null && carriedIds.contains(c.id()));
+            if (passed && "PASS".equals(entry == null ? null : entry.get("status"))) {
                 carried.put(c.id(), entry);
             } else {
                 rerun.add(c);
@@ -76,7 +83,10 @@ final class AutoQaRerun {
             return new Plan(List.of(), carried, String.valueOf(last.get("started")), "nothing to rerun: every check "
                     + "passed in the last run at " + last.get("timeScale") + " (" + mode + ")");
         }
-        return new Plan(List.copyOf(rerun), carried, String.valueOf(last.get("started")), null);
+        // a chained rerun's source is still the run that actually ran these checks, not the run that passed them on
+        String source = last.get("carriedFrom") instanceof Map<?, ?> from && from.get("run") != null
+                ? String.valueOf(from.get("run")) : String.valueOf(last.get("started"));
+        return new Plan(List.copyOf(rerun), carried, source, null);
     }
 
     private static Plan everything(List<Check> catalogue, String why) {

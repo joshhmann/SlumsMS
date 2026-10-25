@@ -161,6 +161,12 @@ public final class AutoQaReport {
         for (Map.Entry<String, Map<String, Object>> e : carried.entrySet()) {
             Map<String, Object> entry = new LinkedHashMap<>(e.getValue());
             String wasMode = String.valueOf(entry.getOrDefault("mode", mode));
+            if (entry.get("carriedFrom") instanceof Map<?, ?> already) {
+                // carried twice: the entry still points at the run that actually ran it, and already says so once
+                entry.put("carriedFrom", new LinkedHashMap<>(cast(already)));
+                checks.put(e.getKey(), entry);
+                continue;
+            }
             List<String> ev = new ArrayList<>();
             ev.add("not rerun - passed on " + entry.get("build") + " " + entry.get("finished") + " " + wasMode);
             if (entry.get("evidence") instanceof List<?> old) {
@@ -177,6 +183,11 @@ public final class AutoQaReport {
             checks.put(e.getKey(), entry);
         }
         summarise(report);
+    }
+
+    @SuppressWarnings("unchecked")
+    private static Map<String, Object> cast(Map<?, ?> m) {
+        return (Map<String, Object>) m;
     }
 
     /** Adds the run's line to "runs": who started it, when, how it ran, its counts, and its results. */
@@ -206,7 +217,9 @@ public final class AutoQaReport {
         line.put("FAIL", fail);
         line.put("SKIP", skip);
         if (!run.carried().isEmpty()) {
+            // the ids, not just the count: a second --failed run must know these passed without being rerun
             line.put("carried", run.carried().size());
+            line.put("carriedIds", new ArrayList<>(run.carried().keySet()));
             Map<String, Object> from = new LinkedHashMap<>();
             from.put("run", run.carriedRun());
             line.put("carriedFrom", from);
