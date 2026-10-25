@@ -434,7 +434,8 @@ public final class AutoQaCatalog {
                         Expects.sayDo(130))
                 .build());
         c.add(Check.auto("t-cv-6", "Rate a reply").notNightly().minutes(3)
-                .step(run("cv-6"), say("{bot} hey hows it going"), waitFor("CONVO SAID ", 25),
+                // 1.5.2 triage: ~3% of replies are "late" (human timing, up to ~55 s); wait for this bot's own line, not 25 s for any
+                .step(run("cv-6"), say("{bot} hey hows it going"), waitFor("CONVO SAID {bot} ", 75),
                         say("!rate bad too formal \"certainly\""), waitFor("CONVO RATE ", 10), say("!rate last"), waitSeconds(3))
                 // rc6 triage: it passed by rating a leftover cv-5 thread line when the staged bot never answered
                 .expect(has("CONVO SAID {bot} "), lacks("CONVO RATE .*thread-"), has("CONVO RATE bad"), has("YELLOW (Bank line #\\d+ (weighs|is blacklisted)|Kept as a (good|bad) example|A scripted line)"))
