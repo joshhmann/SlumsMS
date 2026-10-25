@@ -307,8 +307,6 @@ public class Character extends AbstractCharacterObject {
     private long loginTime;
     private boolean chasing = false;
 
-    public int potionCount = 0;
-    public boolean inExpedition = false;
     private int reborns;
     private int getLinkedStats;
 

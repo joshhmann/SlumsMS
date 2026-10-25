@@ -2784,8 +2784,6 @@ interface Character extends AbstractCharacterObject {
 	ArrowPlatterSchedule1: java.util.concurrent.ScheduledFuture;
 	ArrowPlatterSchedule2: java.util.concurrent.ScheduledFuture;
 	ArrowPlatterSchedule3: java.util.concurrent.ScheduledFuture;
-	potionCount: number;
-	inExpedition: boolean;
 	activeArrowPlates: number;
 	arrowplatterrunning: boolean;
 	arrowplatterrunning1: boolean;
