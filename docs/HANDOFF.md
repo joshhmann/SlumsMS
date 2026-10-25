@@ -42,26 +42,38 @@ That is a triage lead, not a fix. Footing/overlap and other health flags remain 
 
 ## 1. What is live
 
-| Thing | Version | Where it came from |
-|---|---|---|
-| Server | **1.5.0**, online since 2026-10-24 08:01 UTC (1:01 AM PDT) | branch `release-1.5.0`, commit `06a724dfc`, jar `824b250e…` |
-| Client (Live feed) | **1.5.0**, build 10500, slums.dll `FFFFE143…` | `client-1.5.0-fixes3` @ `19d0d72` |
-| Tauri launcher (Live `tauri/launcher.json`) | **1.5.1**, exe `4ff35e76…` | `launcher-ui-compact` @ `cbad0ea` |
-| Electron hand-over (Live `launcher.json`) | **1.5.0** (friends key built in), zip `84929C86…` | `launcher-handover` @ `fa1cabe` |
+**SlumsMS 1.5.1, live since 2026-10-25 07:38 UTC (12:38 AM PDT).** Branch `release-1.5.1` @ `6443043f9`, jar
+`76fa91f3…`, downtime 31.7 s, smoke PASS, 0 errors (1.5.0 had ~34 silent NullPointerExceptions a minute; 1.5.1 has 0).
+Receipt and backups: `/opt/mapleroot-deployments/v1.5.1/` on 164. Rollback: `bash
+/opt/mapleroot-deployments/v1.5.1/rollback.sh` (~30 s, back to 1.5.0; rehearsed). Client 1.5.0 (build 10500),
+Tauri launcher 1.5.2 and the Electron hand-over are unchanged. Patch notes: https://theslumsms.asslorde.com/patch-notes/1.5.1/
+(site branch), Cody posted. Owner QA page: https://claude.ai/artifact/F3UNsKnpg1cmndLop3dVhZ.
 
-Live settings now: 5 channels, CHANNEL_LOAD 125, MIN_CLIENT_BUILD 10500, 3,000 bots at peak (BOT_POPULATION_PEAK 3500),
-BOT_MAP_CAP 50, `-Xms4G -Xmx6G`, temporary roster growth (BOT_ROSTER_VETERAN_FILL_BELOW 1.0, VETERANS_PER_DAY 7200).
-Deploy receipt and backups: `/opt/mapleroot-deployments/v1.5.0/` on 164. Rollback: `bash
-/opt/mapleroot-deployments/v1.5.0/rollback.sh` (server, ~30 s) and `tools/release/publish-client --restore-manifest
-/srv/slums-staging/manifest-before-1.5.0.json` (client). **Live actions always need the owner's go** (AGENTS.md).
+Live config now: ENABLE_PIC true, USE_SUPPLY_RATE_COUPONS true (Cash Shop sells only 2x EXP 7 days / 3x EXP 1 day),
+roster growth back to 0.5 / 300, 5 channels, 3,000 bots at peak, map cap 50, -Xms4G -Xmx6G.
 
-The last Codex deployment put **1.5.1 integration candidate `fbc368f97`** on TEST, under stamp
-`20261025T031331Z` (**8:13 PM PT Oct 24 / 03:13 UTC Oct 25, 2026**), with **0 boot errors**.
-Shared TEST login stays 8489, world 1; no config, migrations or runtime data changed. The banner still says
-1.5.0: this is an integration build, not a Live release. Jar SHA-256
-`da49afb685d5eb204af0803a2c1321a1eb8ed9749b9a1e89820e8f9467a2f620`.
-Earlier receipts `20261025T022451Z` (`ad21d0e20`, five selected PASS) and `20261025T024019Z`
-(`3a6fa1abe`, seven selected PASS / one FAIL) remain available. Live was not changed.
+What 1.5.1 fixed (details in the patch notes and tickets 68/75-80): autologin password bypass removed; salons and
+face/eye coupons; PQ/event clears (clearPQ); 179 maps loading (mob exp default); quest meso prices; PIC/delete; venom,
+1st-job HP, Silver Hawk, stock summon durations (`stock-summon-skills.yaml`); Spiegelmann, Mr. Do, Maple Administrator;
+PQ reward amounts; chat gate on the real clock; chat hold for every bot; KS-war bots arrive by portal; coupons survive
+death (re-applied on respawn); tiger banners clear after 10 s; @coupons; !maxskill; Amos guard; mount room 3 minutes.
+
+## 1b. Next: 1.5.2 (bug-squash arc, ship when ready; owner 2026-10-25)
+
+1.5.x is "make v83 work": jobs/skills, quests, NPCs, shops, maps, PQs/bosses, swept systematically. No release
+schedule: when a batch is fixed and QA'd, release (live steps on the owner's go). 1.6.0 (bot brain) waits.
+1.5.2 so far:
+- `152-nutnnut-stability` (pushed, ticket 80): lock-order deadlocks, thread safety, disposed characters, warp latch,
+  quest-row bloat, migration `023-character-lookup-indexes`, shutdown autosave, Warrior ids. Needs a 4 h+ 3,000-bot
+  soak on TEST first (plan in the ticket 80 hand-back: jstack every 15 min, no deadlock/CME/new ERRORs, queststatus).
+  Add 023 to `docs/release/1.5.2.conf` (LEDGER_BEFORE = 1.5.1's list).
+- Ticket 75 Amoria PQ for 2-6 players (owner OK'd), ticket 78 Hidden Street site (also the data sweep).
+- Ticket 69 vb-* checks (Gemini) need the 9 reworks from the review before merging.
+- Leftovers: Ninja Ambush DoT, Cygnus AP, free-teleport HyperTP item, GM "za warudo" skill, Pink Bean double clear,
+  Papulatus exit NPC, MapleTV scroll generator, items with no slotMax stacking to 32000, Von Leon map potions, Duey
+  (recommend on), GM-1 trade/drop (recommend back to 4), MapleRoot's summon damage buffs (owner leans to longer
+  summon durations later: edit `stock-summon-skills.yaml`), Flame Thrower venom flag.
+- Parked: ticket 76 Nett's Pyramid (Cosmic PR #221), ticket 77 Omok bots (part 1 in 1.5.x), ticket 79 Basil Market (1.6.x).
 
 ## 2. In flight right now
 
