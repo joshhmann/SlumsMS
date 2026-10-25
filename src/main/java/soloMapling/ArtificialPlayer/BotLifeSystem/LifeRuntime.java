@@ -203,6 +203,7 @@ public final class LifeRuntime {
             case MOVE_MAP -> "gonna try another training spot";
             case HELP_FRIEND -> "omw to help";
             case BREAK -> "taking a quick break";
+            case FISH -> "gonna try fishing for a bit";
             case PARTY_QUEST -> "ready when you are";
             default -> null;
         };
@@ -215,6 +216,10 @@ public final class LifeRuntime {
             lastAnnouncement = now;
             soloMapling.ArtificialPlayer.BotCommandsPack.SocialCommands.BotFullChat(bot.getChr(), line);
         }
+    }
+
+    public synchronized void fishingStarted() {
+        fact = "seated on a fishing chair at the water; no catch or reward is confirmed by seating";
     }
 
     public synchronized String prompt() {

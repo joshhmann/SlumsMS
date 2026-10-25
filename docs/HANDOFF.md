@@ -6,6 +6,16 @@ something.
 
 Times: give the owner Pacific next to UTC (PDT = UTC-7).
 
+**1.6.0 base branch (2026-10-25): `release-1.6.0`** (worktree `/root/work/SlumsMS-160-release`), cut from
+`152-integration` (live 1.5.2) with `160-bot-brain`, `160-convo-scope` and `160-life-in-town` merged in, in that order.
+`SLUMSMS_VERSION` is `1.6.0` on this branch. The branch tickets 68-74 from `160-life-in-town` are now **92-98**
+(fishing, medals, daily dungeon, Chaos bosses, chat routing, settings window, Evan trial). The two chat guards are
+stacked: `PlayerChatMeaning` (life-in-town: refusals, reports, warnings dropped first) then `ChatScope`
+(convo-scope); a relay addressed to the bot ("he said you should buff me") stays a request (owner, fresh-v2 review).
+The brain (`-Dslums.botlife.enabled=true -Dslums.botlife.execute=true`, plus `.preview` for `!botwhy`) has no
+config.yaml key; it is a JVM flag in TEST's `start-test.sh`. Fishing flags stay off on shared TEST. New 1.6.0 work
+branches from `origin/release-1.6.0`.
+
 **Historical work split (superseded by the current direction below):** this bug-fix pass is finished. The owner will hand continuing **1.5.1 bug
 squashing to DeepSeek**; use `release-1.5.1`, the current TEST receipt below and section 3's remaining leads.
 **Codex is moving to 1.6.0 feature work**, starting with Ticket 60's implementation plan on `160-bot-brain`

@@ -79,6 +79,7 @@ class PersonalSpaceChatTest {
         BotMemory.useConnectionSourceForTest(fake);
         BotRoster.useConnectionSourceForTest(fake);
         BotConversation.holdMsForTest(BotConversation.HOLD_MS);
+        BotConversation.clockForTest(null);
     }
 
     private PreparedStatement statement() throws Exception {

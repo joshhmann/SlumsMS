@@ -7369,7 +7369,7 @@ public class Character extends AbstractCharacterObject {
     }
 
     public boolean attemptCatchFish(int baitLevel) {
-        return YamlConfig.config.server.USE_FISHING_SYSTEM && MapId.isFishingArea(mapid) &&
+        return !soloMapling.fishing.FishingPolicy.enabled() && YamlConfig.config.server.USE_FISHING_SYSTEM && MapId.isFishingArea(mapid) &&
                 this.getPosition().getY() > 0 &&
                 ItemConstants.isFishingChair(chair.get()) &&
                 this.getWorldServer().registerFisherPlayer(this, baitLevel);
@@ -8866,6 +8866,7 @@ public class Character extends AbstractCharacterObject {
                 if (chair.get() < 0) {
                     setChair(itemId);
                     getMap().broadcastMessage(this, PacketCreator.showChair(this.getId(), itemId), false);
+                    if (itemId == constants.id.ItemId.FISHING_CHAIR) soloMapling.fishing.GameFishing.start(this);
                 }
                 sendPacket(PacketCreator.enableActions());
             } else if (itemId >= 0) {    // sit on map chair
@@ -8921,6 +8922,7 @@ public class Character extends AbstractCharacterObject {
 //    }
 
     public void setChair(int chair) {
+        if (chair != constants.id.ItemId.FISHING_CHAIR) soloMapling.fishing.GameFishing.cancel(this);
         this.chair.set(chair);
     }
 

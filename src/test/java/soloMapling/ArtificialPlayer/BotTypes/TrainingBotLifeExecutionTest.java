@@ -149,6 +149,96 @@ class TrainingBotLifeExecutionTest {
         });
     }
 
+    @Test
+    void townArrivalKeepsBothTheProfileDurationAndTheConversationHold() throws Exception {
+        String enabled = System.getProperty("slums.botlife.enabled");
+        try {
+            System.setProperty("slums.botlife.enabled", "true");
+            for (boolean longHold : List.of(false, true)) {
+                withBot((bot, chr) -> {
+                    long townMs = bot.lifeRuntime().memory().profile().townDurationMs();
+                    long holdMs = longHold ? townMs + 60_000 : 45_000;
+                    field("phase").set(bot, TrainingBot.Phase.IN_TOWN);
+                    field("phaseEntered").setBoolean(bot, false);
+                    try (var chat = mockStatic(BotConversation.class);
+                         var supplies = mockStatic(soloMapling.ArtificialPlayer.BotSupplySystem.BotSupplies.class);
+                         var loiter = mockStatic(soloMapling.ArtificialPlayer.BotTownSystem.TownLoiter.class);
+                         var speech = mockStatic(soloMapling.ArtificialPlayer.BotCommandsPack.SocialCommands.class);
+                         var space = mockStatic(soloMapling.ArtificialPlayer.BotTownSystem.PersonalSpace.class);
+                         var scrolling = mockStatic(soloMapling.ArtificialPlayer.BotScrollSystem.BotScrolling.class);
+                         var wealth = mockStatic(soloMapling.ArtificialPlayer.BotWealth.class);
+                         var shops = mockStatic(soloMapling.Economy.BotShops.class)) {
+                        chat.when(() -> BotConversation.isHoldingChat(chr)).thenReturn(true);
+                        chat.when(() -> BotConversation.holdMs(chr.getId())).thenReturn(holdMs);
+                        Method arrive = TrainingBot.class.getDeclaredMethod("doInTown");
+                        arrive.setAccessible(true);
+                        long before = System.currentTimeMillis();
+                        arrive.invoke(bot);
+                        long after = System.currentTimeMillis();
+                        long deadline = field("phaseDeadlineMs").getLong(bot);
+                        long expected = Math.max(townMs, holdMs);
+                        assertTrue(deadline >= before + expected, "keep both profile dwell and chat hold");
+                        assertTrue(deadline <= after + expected);
+                        long secondTick = System.currentTimeMillis();
+                        arrive.invoke(bot);
+                        assertTrue(field("phaseDeadlineMs").getLong(bot) >= deadline,
+                                "a short chat hold must not shorten the profile's planned stay");
+                        assertTrue(field("phaseDeadlineMs").getLong(bot) >= secondTick + holdMs);
+                        loiter.verifyNoInteractions();
+                    }
+                });
+            }
+        } finally {
+            if (enabled == null) System.clearProperty("slums.botlife.enabled");
+            else System.setProperty("slums.botlife.enabled", enabled);
+        }
+    }
+
+    @Test
+    void fishingStartsOnlyThroughTheOwnerQueueAndNeverRestartsACancelledSession() throws Exception {
+        String old = System.getProperty("slums.botlife.enabled");
+        System.setProperty("slums.botlife.enabled", "true");
+        try {
+            withBot((bot, chr) -> {
+                var active = new java.util.concurrent.atomic.AtomicBoolean();
+                doReturn(true).when(bot).freeForAutomaticLifeActivity(anyLong());
+                doReturn(true).when(bot).canStartLifeActivity(eq(LifeDecision.Activity.FISH), anyLong());
+                try (var movement = mockStatic(GCMovement.class);
+                     var chairs = mockStatic(soloMapling.ArtificialPlayer.BotMovementSystem.MovementCommands.class);
+                     var loiter = mockStatic(soloMapling.ArtificialPlayer.BotTownSystem.TownLoiter.class);
+                     var game = mockStatic(soloMapling.fishing.GameFishing.class);
+                     var policy = mockStatic(soloMapling.fishing.FishingPolicy.class)) {
+                    policy.when(soloMapling.fishing.FishingPolicy::rewardsEnabled).thenReturn(true);
+                    game.when(() -> soloMapling.fishing.GameFishing.destination(chr)).thenReturn(0);
+                    game.when(() -> soloMapling.fishing.GameFishing.active(chr)).thenAnswer(i -> active.get());
+                    game.when(() -> soloMapling.fishing.GameFishing.start(chr)).thenAnswer(i -> { active.set(true); return true; });
+                    chairs.when(() -> soloMapling.ArtificialPlayer.BotMovementSystem.MovementCommands.botSitChair(chr, 3011000))
+                            .thenAnswer(i -> { chr.setChair(3011000); return null; });
+                    chairs.when(() -> soloMapling.ArtificialPlayer.BotMovementSystem.MovementCommands.botCancelChair(chr))
+                            .thenAnswer(i -> { chr.setChair(-1); return null; });
+                    assertFalse(bot.startLifeActivity(LifeDecision.Activity.FISH), "outside the actor drain cannot execute");
+                    var decision = new LifeDecision.Result(List.of(), Optional.of(LifeDecision.Activity.FISH), LifeDecision.Outcome.CHOOSE);
+                    var request = bot.prepareLifeActivity(decision);
+                    bot.submitLifeActivity(request); drain(bot);
+                    assertEquals("LIFE_DWELL", phase(bot));
+                    assertEquals(LifeDecision.Activity.FISH, bot.currentLifeVisit());
+                    var dwell = TrainingBot.class.getDeclaredMethod("doLifeDwell"); dwell.setAccessible(true);
+                    dwell.invoke(bot); dwell.invoke(bot);
+                    assertTrue(bot.lifeRuntime().prompt().contains("seated on a fishing chair"));
+                    game.verify(() -> soloMapling.fishing.GameFishing.start(chr), times(1));
+                    active.set(false); // movement/standing cancelled the live session
+                    dwell.invoke(bot);
+                    assertEquals("DECIDE", phase(bot)); assertEquals(-1, chr.getChair());
+                    assertEquals(0, bot.lifeActivityState().active());
+                    assertEquals(LifeActivityQueue.End.CANCELLED, bot.lifeActivityState().end());
+                    game.verify(() -> soloMapling.fishing.GameFishing.start(chr), times(1));
+                }
+            });
+        } finally {
+            if (old == null) System.clearProperty("slums.botlife.enabled"); else System.setProperty("slums.botlife.enabled", old);
+        }
+    }
+
     private interface Body { void run(TrainingBot bot, Character chr) throws Exception; }
 
     private static void withBot(Body body) throws Exception {

@@ -17,7 +17,7 @@ public final class LifeDecision {
 
     public enum Need { SUPPLIES, BAG_SPACE, BOREDOM, SOCIAL, FATIGUE, PROGRESS }
     public enum Activity { GRIND, MOVE_MAP, RESTOCK, SELL, HANG_OUT, HELP_FRIEND, SHOW_OFF, PARTY_QUEST, FREE_MARKET,
-        BREAK, LOG_OUT }
+        BREAK, LOG_OUT, FISH }
     public enum Outcome { CHOOSE, KEEP_CURRENT, HOLD_COMMITMENT, NO_AVAILABLE_OPTION }
 
     public record Needs(Map<Need, Double> values) {

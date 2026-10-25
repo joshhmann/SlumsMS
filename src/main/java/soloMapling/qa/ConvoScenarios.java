@@ -30,7 +30,43 @@ final class ConvoScenarios {
 
     static List<QaScenario> all() {
         return List.of(new Cv1Actions(), new Cv2Haggle(), new Cv3Mood(), new Cv4Voices(), new Cv5Thread(), new Cv6Rate(),
-                new Cv7Bank(), new Cv8FollowUp(), new Cv9Hold());
+                new Cv7Bank(), new Cv8FollowUp(), new Cv9Hold(), new Cv10Meaning());
+    }
+
+    /** Replays the real classifier with confident wrong model answers; no player holdings or bot actors change. */
+    static final class Cv10Meaning implements QaScenario {
+        public String id() { return "cv-10"; }
+        public String title() { return "Refusals and stories do not become bot requests"; }
+        public Set<QaLog.Topic> topics() { return Set.of(CONVO); }
+        public int minutes(String[] args) { return 1; }
+        public List<String> stage(QaContext ctx) {
+            var answers = Map.of("convo_intent", new soloMapling.ArtificialPlayer.BotBrainSystem.ChatDecide.Answer("follow", .99),
+                    "con", new soloMapling.ArtificialPlayer.BotBrainSystem.ChatDecide.Answer("scam", .99));
+            int requests = 0;
+            for (String line : List.of("dont follow me, im logging off", "not looking for a party today",
+                    "i helped kill balrog yesterday", "someone said add me but i didnt")) {
+                var read = soloMapling.ArtificialPlayer.BotConvo.ConvoSense.combine(line,
+                        soloMapling.ArtificialPlayer.BotBrainSystem.ChatTriage.rules(line), answers, .4, .8, .4);
+                if (read.intent() != soloMapling.ArtificialPlayer.BotConvo.ConvoIntent.TALK
+                        || read.triage().intent() != soloMapling.ArtificialPlayer.BotBrainSystem.ChatTriage.Intent.NONE)
+                    throw new QaRefusal("Refusal/story became an action request: " + line);
+                requests++;
+            }
+            int warnings = 0;
+            for (String line : List.of("watch out for people offering to double mesos", "dont share ur password with anyone",
+                    "i hate when people ask if ur a bot")) {
+                var read = soloMapling.ArtificialPlayer.BotConvo.ConvoSense.combine(line,
+                        soloMapling.ArtificialPlayer.BotBrainSystem.ChatTriage.rules(line), answers, .4, .8, .4);
+                if (read.triage().flagged()) throw new QaRefusal("Warning became an abuse accusation: " + line);
+                warnings++;
+            }
+            if (soloMapling.ArtificialPlayer.BotConvo.ConvoSense.rules("follow me").intent()
+                    != soloMapling.ArtificialPlayer.BotConvo.ConvoIntent.FOLLOW)
+                throw new QaRefusal("Positive follow request was lost");
+            ctx.run().note("MEANING", "PASS refusals-stories=" + requests + " warnings=" + warnings + " positive-follow=true");
+            return List.of("Refusals, stories, scam warnings and a positive request passed in this jar.",
+                    "This checks interpretation, not actual bot movement or a model endpoint.");
+        }
     }
 
     /** Shared: staged bots per GM, undone at stop. */

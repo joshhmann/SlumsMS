@@ -57,7 +57,7 @@ public record LifeProfile(Map<Archetype, Double> blend, long grindDurationMs, lo
             case HELP_FRIEND -> blend.get(Archetype.HELPER);
             case SHOW_OFF -> blend.get(Archetype.SHOW_OFF);
             case PARTY_QUEST -> .5 * (blend.get(Archetype.GRINDER) + blend.get(Archetype.SOCIALITE));
-            case BREAK, LOG_OUT -> blend.get(Archetype.SLACKER);
+            case BREAK, LOG_OUT, FISH -> blend.get(Archetype.SLACKER);
         };
     }
 }

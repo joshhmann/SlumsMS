@@ -187,7 +187,8 @@ public final class ChatTriage {
      * request back.
      */
     public static Optional<Intent> intentRule(String line) {
-        String text = normal(line);
+        PlayerChatMeaning.View meaning = PlayerChatMeaning.requests(line);
+        String text = normal(meaning.text());
         if (WHERE_TRAIN.matcher(text).find()) {
             return Optional.of(Intent.WHERE_TRAIN);
         }
@@ -216,7 +217,8 @@ public final class ChatTriage {
             return Optional.of(Intent.TRADE);
         }
         outOfScope |= f != null;
-        return outOfScope ? Optional.of(Intent.NONE) : Optional.empty();
+        // out of scope (ChatScope) or a refused/reported clause dropped (PlayerChatMeaning): no request by rule
+        return outOfScope || meaning.filtered() ? Optional.of(Intent.NONE) : Optional.empty();
     }
 
     /** Whether the line declines one of these requests ("not looking to trade", "dont need a party invite"). */
@@ -232,7 +234,8 @@ public final class ChatTriage {
 
     /** The con flag by rule alone, or empty. */
     public static Optional<Con> conRule(String line) {
-        String text = normal(line);
+        PlayerChatMeaning.View meaning = PlayerChatMeaning.safety(line);
+        String text = normal(meaning.text());
         if (MANIPULATION.matcher(text).find()) {
             return Optional.of(Con.MANIPULATION);
         }
@@ -247,7 +250,7 @@ public final class ChatTriage {
         if (HARASSMENT.matcher(text).find()) {
             return Optional.of(Con.HARASSMENT);
         }
-        return Optional.empty();
+        return meaning.filtered() && text.isBlank() || ChatPriceTalk.fair(text) ? Optional.of(Con.NORMAL) : Optional.empty();
     }
 
     /** Rules only: what a bot does when the model is off, slow or down. */

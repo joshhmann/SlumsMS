@@ -5,6 +5,7 @@ import soloMapling.ArtificialPlayer.BotBrainSystem.ChatDecide;
 import soloMapling.ArtificialPlayer.BotBrainSystem.ChatScope;
 import soloMapling.ArtificialPlayer.BotBrainSystem.ChatTriage;
 import soloMapling.ArtificialPlayer.BotBrainSystem.ContentGuard;
+import soloMapling.ArtificialPlayer.BotBrainSystem.PlayerChatMeaning;
 
 import java.util.LinkedHashMap;
 import java.util.List;
@@ -140,9 +141,10 @@ public final class ConvoSense {
      * that matched is out of scope the line is talk by rule.
      */
     public static Optional<ConvoIntent> intentRule(String line) {
-        String text = normal(line);
+        PlayerChatMeaning.View meaning = PlayerChatMeaning.requests(line);
+        String text = normal(meaning.text());
         if (text.isEmpty()) {
-            return Optional.empty();
+            return meaning.filtered() ? Optional.of(ConvoIntent.TALK) : Optional.empty();
         }
         if (ChatTriage.conRule(line).filter(c -> c == ChatTriage.Con.HARASSMENT).isPresent()
                 || ChatTone.rule(text, null).filter(t -> t == ChatTone.Tone.RUDE).isPresent()) {
@@ -174,7 +176,7 @@ public final class ConvoSense {
                 && !text.matches(".*\\b(wts|wtb|selling|buying|s>|b>)\\b.*") && s.live(PRICE_AT))) {
             return Optional.of(ConvoIntent.HAGGLE);
         }
-        Optional<ChatTriage.Intent> legacy = ChatTriage.intentRule(line);
+        Optional<ChatTriage.Intent> legacy = ChatTriage.intentRule(text);
         if (legacy.isPresent()) {
             switch (legacy.get()) {
                 case PARTY -> {
@@ -208,7 +210,7 @@ public final class ConvoSense {
         if (ContentGuard.flirty(text) || FLIRT_EXTRA.matcher(text).find()) {
             return Optional.of(ConvoIntent.FLIRT);
         }
-        return s.outOfScope ? Optional.of(ConvoIntent.TALK) : Optional.empty();
+        return s.outOfScope || meaning.filtered() ? Optional.of(ConvoIntent.TALK) : Optional.empty();
     }
 
     /** The request cues this class owns, for {@link #declines}. */

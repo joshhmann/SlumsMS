@@ -1,7 +1,13 @@
 # Ticket 61: a client-driver MCP server on the owner's PC (for visual QA)
 
-Status: spec 2026-10-23, to be built by Codex on Silvia (owner's Windows PC). Target 1.6.0, alongside the dgVoodoo2
-display fix. Read AGENTS.md (server repo root) first; its hard rules apply.
+Status: **built and previously accepted**, source on Silvia under
+`Z:\MSv83\SlumsMS-dev\client-mcp`. Saved receipt `logs/acceptance.json` verifies three consecutive successful
+start/login/warp/screenshot/stop cycles at 5:42:58–5:44:02 PM PT on Oct 23 (00:42:58–00:44:02 UTC on Oct 24,
+2026). README/NOTES record 24 safety/protocol tests passing and screenshots reviewed. This sprint verified those
+saved outcomes, not new in-game cycles. Current worker did not answer status; no restart or workaround was used.
+Current usage and owner-start instructions: [docs/qa/CLIENT-MCP.md](../qa/CLIENT-MCP.md).
+The original specification below remains for design/reference. It accepts only TEST 8489, not feature 8491.
+Read AGENTS.md first; its hard rules still apply.
 
 ## Goal
 

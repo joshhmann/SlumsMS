@@ -24,12 +24,12 @@ Plus 7 tickets that exist only on `origin/160-life-in-town` (second table): B 5,
 Also 6 roadmap items have no ticket at all (see "Missing tickets").
 
 Key findings:
-- **The 1.6.0 headline is already built but unmerged.** The bot brain (60), fishing (68*), chat semantic guard (72) are on
+- **The 1.6.0 headline is already built but unmerged.** The bot brain (60), fishing (92, was 68*), chat semantic guard (96, was 72) are on
   `160-bot-brain` / `160-life-in-town` / `160-convo-scope` (tag `v1.6.0-rc1`). They branch from 1.5.1, so they need a merge-forward
   onto 152-integration (183 commits ahead of release-1.5.1) before rc1 is cut. Companions, party chat (85), megaphone buy
   requests (86) and owned alts (13) are NOT built.
 - **Number collision:** `160-life-in-town` adds tickets 68-74, but 152-integration already uses 68 (Cosmic audit) and 69 (vb-*
-  auto-QA). Renumber the branch tickets (suggest 92-98) when merging; the table marks them `68*`, `69*`.
+  auto-QA). Branch tickets renumbered 92-98 in the release-1.6.0 merge.
 - **A lot of A-class is just stale headers:** 11, 12, 49, 52, 55, 56, 57, 59, 62, 65, 67, 69, 75, 80 say open or "not deployed"
   but are done and live.
 - **Genuinely unfixed bugs found:** 63 (bot debits dropped at shutdown deadline), 64 (wealth scroll bonus reads world 0, Bera is
@@ -149,17 +149,17 @@ Key findings:
 | 90 | Client patches for 1.6.0 | (none) | partly started (client repo only) | `/root/work/client/src-160-invresize`, `src-160-settings`; settings window built `client-160-settings` @ `360b2e7` | B | Items: inventory resize, D3D9 wrapper/ImGui (dup 39), UI polish, 4-byte HP/MP (owner said yes, cap 30,000 -> 99,999). |
 | 91 | Movable bottom bar / HP and MP gauges | (none) | not started | origin vector exists in `resolution.cpp` | B | Low; after 90. Could slip to 1.7.0 'Client quality-of-life' if rc2 is tight. |
 
-## Tickets that exist only on origin/160-life-in-town
+## Tickets from origin/160-life-in-town (renumbered 92-98 when merged into `release-1.6.0`)
 
 | # | Title | Stated status | Real status | Evidence | Class | Note |
 |---|---|---|---|---|---|---|
-| 68* | Fishing for players and bots | branch: implemented, isolated TEST verified | done on unmerged branch | `160-life-in-town` `a572d4361`, `3f8250967`; ticket file `68-fishing.md` | B | rc1 follow-on. Owner approved exact 90 s common table; real-client review pending. NUMBER CLASHES with 68. |
-| 69* | Achievements and medals | branch: 30-goal proposal ready | partly done | `docs/achievements/1.6.0-proposal.md`; no progress/claim service | B | Hobby kept. Owner picks the ~30 medals (cosmetic only so far). NUMBER CLASHES with 69. |
-| 70 | Daily dungeon | branch: planned | not started | ticket only | C | On the owner's cut list. |
-| 71 | Chaos Zakum and Horntail | branch: planned (compat audit first) | not started | ticket only; chaos mob data present on TEST | C | On the owner's cut list. |
-| 72 | Chat requests and routing (59 follow-up) | branch: semantic guard implemented | done on unmerged branch (guard); routing eval open | `160-life-in-town` `d1664e81c`, `c2215a4f2`; `160-convo-scope` 10 commits, fresh-v2 70.2% -> 85.7%, fresh-v3 `23d236b4b` | B | rc1 'chat rules fix'; Jev shadow on TEST next. Covers the 'Chat rules scope fix' and 'Smarter chat routing' roadmap rows. |
-| 73 | In-game settings window | branch: built, 20 native tests | done on unmerged branch (client repo) | client `client-160-settings` @ `360b2e7`; real-game visuals pending | B | Client line; ships with the client release. |
-| 74 | GM-only Evan compatibility trial | branch: planned research | not started | ticket only | B | Alongside (own branch, never in 1.6.0 release). |
+| 92 (was 68*) | Fishing for players and bots | branch: implemented, isolated TEST verified | done on unmerged branch | `160-life-in-town` `a572d4361`, `3f8250967`; ticket file `92-fishing.md` | B | rc1 follow-on. Owner approved exact 90 s common table; real-client review pending. |
+| 93 (was 69*) | Achievements and medals | branch: 30-goal proposal ready | partly done | `docs/achievements/1.6.0-proposal.md`; no progress/claim service | B | Hobby kept. Owner picks the ~30 medals (cosmetic only so far). |
+| 94 (was 70) | Daily dungeon | branch: planned | not started | ticket only | C | On the owner's cut list. |
+| 95 (was 71) | Chaos Zakum and Horntail | branch: planned (compat audit first) | not started | ticket only; chaos mob data present on TEST | C | On the owner's cut list. |
+| 96 (was 72) | Chat requests and routing (59 follow-up) | branch: semantic guard implemented | done on unmerged branch (guard); routing eval open | `160-life-in-town` `d1664e81c`, `c2215a4f2`; `160-convo-scope` 10 commits, fresh-v2 70.2% -> 85.7%, fresh-v3 `23d236b4b` | B | rc1 'chat rules fix'; Jev shadow on TEST next. Covers the 'Chat rules scope fix' and 'Smarter chat routing' roadmap rows. |
+| 97 (was 73) | In-game settings window | branch: built, 20 native tests | done on unmerged branch (client repo) | client `client-160-settings` @ `360b2e7`; real-game visuals pending | B | Client line; ships with the client release. |
+| 98 (was 74) | GM-only Evan compatibility trial | branch: planned research | not started | ticket only | B | Alongside (own branch, never in 1.6.0 release). |
 
 ## Roadmap items with no ticket
 
@@ -195,4 +195,5 @@ Owner decisions applied on `152-integration` (docs only):
 3. **New tickets:** 99 Companions, 100 Busy FM, 101 v83 quest pass, 102 Quick NPC fixes (from 89), 103 1.6.0 bug intake.
 4. **Owner calls on class D (all set to 1.6.0):** 30 earned rebirth path for all bots; 35 dashboard on live, read-only, behind basic-auth nginx; 53 family system on with the six entitlements; 29 opt-in Maple Island tutorial; 20 first-install chunks before more remote friends; 24 clean old addon clients under `Z:\MSv83\Integration\Addons` (archive first, list before deleting, listing reviewed by Claude/owner, desktop not touched); 77 bots play omok/match cards and accept player challenges. Note: the question-6/7 wording above is superseded by these answers.
 5. **Renumbering plan for branch `160-life-in-town` (branch NOT edited):** 68->92, 69->93, 70->94, 71->95, 72->96, 73->97, 74->98 (fishing, medals, daily dungeon, Chaos Zakum/Horntail, chat routing, settings window, Evan trial). New tickets here start at 99. Cross-references inside the branch (e.g. "72", "73") must be renumbered at merge.
-6. Not done here: README.md index and stale headers of the B/C-class tickets (60, 61, etc.) are unchanged.
+6. Renumbering applied in the `release-1.6.0` merge of `160-life-in-town`: files, headers, README index, the sprint board and the medal proposal now use 92-98.
+7. Not done here: README.md index and stale headers of the B/C-class tickets (60, 61, etc.) are unchanged.

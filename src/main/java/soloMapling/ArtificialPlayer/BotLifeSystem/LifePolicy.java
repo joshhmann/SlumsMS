@@ -59,6 +59,7 @@ public final class LifePolicy {
             case FREE_MARKET -> Map.of(Need.BAG_SPACE, .6, Need.BOREDOM, .3);
             case BREAK -> Map.of(Need.FATIGUE, 1.7, Need.BOREDOM, .3);
             case LOG_OUT -> Map.of(Need.FATIGUE, 2.0);
+            case FISH -> Map.of(Need.BOREDOM, .6, Need.SOCIAL, .3, Need.FATIGUE, .2, Need.SUPPLIES, -.5);
         };
     }
 }

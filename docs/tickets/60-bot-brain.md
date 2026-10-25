@@ -1,10 +1,31 @@
 # Ticket 60: the bot brain (weighted daily-life decisions)
 
-Status: implemented as an opt-in first-test version on `160-bot-brain`, forward-merged with 1.5.1 and verified
-on the isolated TEST copy. The owner approved provisional blends/goals and keeping one shared actor; review the
-Henesys mix in game before tuning it. The isolated unit is stopped after validation. This is not a live release.
-Fishing, medals and the daily dungeon remain separate options to add when their own systems/rewards exist.
-Historical local checkpoints below are superseded by the implementation and verification here.
+Status: **1.6.0-rc1 TEST candidate prepared**, branch `test-1.6.0-rc1`, tag `v1.6.0-rc1` at exact built code
+`93cfe9b33`. Current 1.5.1 snapshot `ddddd2b83` merged as `cd6232f84`; town timing preserves both the profile
+stay and refreshed chat holds. The regression fails before and passes after. Full clean/package build: 4,599 tests,
+0 failures/errors, 38 skipped; 35 release-tool tests pass. Eight isolated server checks pass, including the
+conversation-hold scenario. Receipt: `/opt/mapleroot-dev/bot-life-160/deploys/20261024T215211Z`.
+The isolated copy is stopped; 1.5.1 TEST is separate and can release first. The shared actor and provisional
+weights/goals remain approved and unchanged. Overall footing/overlap health is still FAIL; real-client movement,
+purchases, pacing, mix and model voice remain open for rc1 review. Checklist: `docs/release/1.6.0-rc1-qa.md`.
+This is not a Live release. Fishing, medals and the dungeon remain separate work. Earlier records below describe
+implementation on `160-bot-brain` and superseded local checkpoints, not the current backlog.
+
+## Decision-model comparison tooling
+
+Separate branch `160-decide-benchmark` (tool commit `647e1d5f1`) benchmarks the five owner-supplied endpoints on
+17 against 172 player-chat cases and the real RC1 request/parser/rules. See
+[`docs/convo/decide-model-benchmark.md`](../convo/decide-model-benchmark.md) for results and existing rule-bug leads;
+[`tools/convo/benchmark/README.md`](../../tools/convo/benchmark/README.md) has commands and the model-host agent brief.
+The owner approved gentle benchmarking of all five and is open to more than one decision model if useful.
+All five completed 172-case serial runs with zero transport/schema failures. Combined intent: current GLiNER
+81.4%, gliclass 86.0%, OneJev 84.9%, Laya 79.1%, Amber 77.9% (all Amber answers late). Gliclass is the first shadow
+candidate, with 129 ms p95 and fewer added mistakes than current GLiNER; fresh unseen and in-game checks remain.
+The benchmark also exposes seven existing false request intents from negation/quoting and three false abuse flags;
+these are separate server-rule bug leads, not fixes included here.
+That is authorization to evaluate, not a decision to ship a multi-model router. No endpoint, confidence threshold,
+daily-life scoring, economy, runtime flag or server deployment changes. This still reads players only; the brain
+itself makes no model calls. Full offline suite: 4,603 tests, zero failures/errors, 38 skipped; 8 Python tool tests pass.
 
 ## Complete first-test implementation
 

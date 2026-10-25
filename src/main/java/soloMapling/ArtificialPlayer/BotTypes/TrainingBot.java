@@ -302,6 +302,7 @@ public class TrainingBot extends BotSM {
     private final LifeRuntime dailyLife;
     private int lifeDestination = -1;
     private LifeDecision.Activity lifeVisit = LifeDecision.Activity.HANG_OUT;
+    private boolean lifeFishingStarted;
     public LifeRuntime lifeRuntime() { return dailyLife; }
 
     public LifePhase lifePhase() { return lifePhase; }
@@ -470,6 +471,13 @@ public class TrainingBot extends BotSM {
         }
         if (phase == Phase.IN_TOWN || phase == Phase.LIFE_DWELL) {
             TownLoiter.stop(getChr()); // leaving town: end the loiter (stop fidget, free the ledge claim)
+            if (lifeVisit == LifeDecision.Activity.FISH) {
+                var activity = lifeActivities.state();
+                if (activity.active() != 0) lifeActivities.finish(activity.active(), now() >= phaseDeadlineMs
+                        ? LifeActivityQueue.End.COMPLETED : LifeActivityQueue.End.CANCELLED);
+                soloMapling.fishing.GameFishing.cancel(getChr());
+                if (getChr().getChair() == soloMapling.fishing.FishingPolicy.CHAIR) botCancelChair(getChr());
+            }
         }
         phase = next;
         if (getChr() != null && next != Phase.LIFE_TRAVEL && next != Phase.GO_TRAIN) {
@@ -785,6 +793,9 @@ public class TrainingBot extends BotSM {
             case GRIND -> true;
             case RESTOCK -> phase == Phase.GRIND && dailyLife.restockReady(at);
             case MOVE_MAP, BREAK -> phase == Phase.GRIND;
+            case FISH -> soloMapling.fishing.FishingPolicy.rewardsEnabled()
+                    && soloMapling.fishing.GameFishing.hasChair(getChr())
+                    && lifeDestinationAvailable(soloMapling.fishing.GameFishing.destination(getChr()));
             case HANG_OUT, SHOW_OFF -> (activity != LifeDecision.Activity.SHOW_OFF || getChr().getLevel() >= 70)
                     && lifeDestinationAvailable(dailyLife.townDestination());
             case FREE_MARKET, SELL -> (activity == LifeDecision.Activity.FREE_MARKET
@@ -834,11 +845,13 @@ public class TrainingBot extends BotSM {
         }
         Character requestedFriend = activity == LifeDecision.Activity.HELP_FRIEND ? dailyLife.friend(at) : null;
         if (activity == LifeDecision.Activity.HELP_FRIEND && requestedFriend == null) return false;
-        int destination = activity == LifeDecision.Activity.HELP_FRIEND ? requestedFriend.getMapId()
+        int destination = activity == LifeDecision.Activity.FISH ? soloMapling.fishing.GameFishing.destination(getChr())
+                : activity == LifeDecision.Activity.HELP_FRIEND ? requestedFriend.getMapId()
                 : activity == LifeDecision.Activity.SELL || activity == LifeDecision.Activity.FREE_MARKET
                 ? 910000000 : dailyLife.townDestination();
         if (java.util.Set.of(LifeDecision.Activity.HELP_FRIEND, LifeDecision.Activity.HANG_OUT,
-                LifeDecision.Activity.SHOW_OFF, LifeDecision.Activity.SELL, LifeDecision.Activity.FREE_MARKET).contains(activity)
+                LifeDecision.Activity.SHOW_OFF, LifeDecision.Activity.SELL, LifeDecision.Activity.FREE_MARKET,
+                LifeDecision.Activity.FISH).contains(activity)
                 && destination != getChr().getMapId()) {
             var target = soloMapling.server.SoloMaplingUtilities.world().getChannel(getChr().getMap().getChannelId())
                     .getMapFactory().getMap(destination);
@@ -853,8 +866,7 @@ public class TrainingBot extends BotSM {
             setTrainTarget(player.getMapId(), Math.max(1, MapMobIndex.level(player.getMapId())));
             enterPhase(getChr().getMapId() == player.getMapId() ? Phase.GRIND : Phase.GO_TRAIN);
         } else {
-            lifeDestination = activity == LifeDecision.Activity.FREE_MARKET || activity == LifeDecision.Activity.SELL
-                    ? 910000000 : dailyLife.townDestination();
+            lifeDestination = destination;
             lifeVisit = activity;
             enterPhase(getChr().getMapId() == lifeDestination ? Phase.LIFE_DWELL : Phase.LIFE_TRAVEL);
         }
@@ -872,11 +884,17 @@ public class TrainingBot extends BotSM {
         else phaseDeadlineMs = until;
     }
 
+    public LifeDecision.Activity currentLifeVisit() { return lifeVisit; }
+
     private void doLifeDwell() {
         if (!phaseEntered) {
             phaseEntered = true;
             phaseDeadlineMs = now() + dailyLife.memory().profile().townDurationMs();
-            TownLoiter.settle(getChr());
+            if (lifeVisit == LifeDecision.Activity.FISH) {
+                lifeFishingStarted = false;
+                var point = getChr().getPosition();
+                TownLoiter.settle(getChr(), point.x, point.y, 200, false);
+            } else TownLoiter.settle(getChr());
             if (lifeVisit == LifeDecision.Activity.SELL || lifeVisit == LifeDecision.Activity.FREE_MARKET) {
                 if (soloMapling.Economy.BotShops.enabled() && soloMapling.Economy.BotShops.merchantMinded(getChr().getId())) {
                     soloMapling.Economy.BotShops.open(getChr(), getChr().getMap().getChannelId(), 0, null, false);
@@ -884,7 +902,23 @@ public class TrainingBot extends BotSM {
             }
             lifeNote("ARRIVED activity=" + lifeVisit);
         }
-        soloMapling.ArtificialPlayer.BotTownSystem.PersonalSpace.maybeKeep(getChr());
+        if (lifeVisit == LifeDecision.Activity.FISH) {
+            if (!soloMapling.fishing.FishingPolicy.rewardsEnabled()) { enterPhase(Phase.DECIDE); return; }
+            if (!soloMapling.fishing.GameFishing.active(getChr())) {
+                if (lifeFishingStarted) {
+                    enterPhase(Phase.DECIDE); return; // a cancelled session does not silently restart
+                }
+                if (GCMovement.isMoving(getChr())) return;
+                soloMapling.ArtificialPlayer.BotMovementSystem.MovementCommands.botSitChair(getChr(),
+                        soloMapling.fishing.FishingPolicy.CHAIR);
+                if (!soloMapling.fishing.GameFishing.start(getChr())) {
+                    botCancelChair(getChr()); enterPhase(Phase.DECIDE); return;
+                }
+                lifeFishingStarted = true;
+                dailyLife.fishingStarted();
+                lifeNote("FISHING_SEATED");
+            }
+        } else soloMapling.ArtificialPlayer.BotTownSystem.PersonalSpace.maybeKeep(getChr());
         if (now() >= phaseDeadlineMs && freeForAutomaticLifeActivity(now())) enterPhase(Phase.DECIDE);
     }
 
@@ -1029,10 +1063,11 @@ public class TrainingBot extends BotSM {
                 // A hub errand already walks the bot to its vendor, so it doesn't need this.
                 TownLoiter.settle(getChr());
             }
+            long townDwell = errand ? shopDwellMs() : LifeRuntime.enabled()
+                    ? dailyLife.memory().profile().townDurationMs() : dwellMs();
             phaseDeadlineMs = now() + (chatting
-                    ? Math.max(dwellMs(), soloMapling.ArtificialPlayer.BotConversation.holdMs(getChr().getId()))
-                    : errand ? shopDwellMs() : LifeRuntime.enabled()
-                    ? dailyLife.memory().profile().townDurationMs() : dwellMs());
+                    ? Math.max(townDwell, soloMapling.ArtificialPlayer.BotConversation.holdMs(getChr().getId()))
+                    : townDwell);
             if (rng.nextInt(3) == 0) {
                 BotEmote(getChr(), 1 + rng.nextInt(7)); // a little life in town
             }
@@ -1046,7 +1081,7 @@ public class TrainingBot extends BotSM {
         long holdMs = soloMapling.ArtificialPlayer.BotConversation.isHoldingChat(getChr())
                 ? soloMapling.ArtificialPlayer.BotConversation.holdMs(getChr().getId()) : 0;
         if (holdMs > 0) {
-            phaseDeadlineMs = now() + holdMs; // still talking: wait for the chat to end before leaving town
+            phaseDeadlineMs = Math.max(phaseDeadlineMs, now() + holdMs); // extend the hold without shortening a planned stay
             return;
         }
         if (now() < phaseDeadlineMs) {
@@ -2322,6 +2357,7 @@ public class TrainingBot extends BotSM {
     @Override
     public synchronized void stopScheduledTask() {
         soloMapling.ArtificialPlayer.BotLifeSystem.LifeTownSlots.release(getChr().getId());
+        soloMapling.fishing.GameFishing.cancel(getChr());
         lifeActivities.close();
         ACTIVE_GRINDERS.remove(this);
         swingClock.disarm();

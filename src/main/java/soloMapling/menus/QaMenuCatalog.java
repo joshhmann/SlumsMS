@@ -90,6 +90,9 @@ public final class QaMenuCatalog {
         add("cv-7", v(), steps("llm", "bank"));
         add("cv-8", v(), steps("ask"), "ask <question>");
         add("cv-9", v(), steps("hold", "sample"), "hold [line]");
+        add("cv-10", v(), steps());
+        add("fh-1", v(), steps());
+        add("fh-2", v(), steps("stop"));
 
         // ── Evening 2: economy ──
         eveningNo = 2;

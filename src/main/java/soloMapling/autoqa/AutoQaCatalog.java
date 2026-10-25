@@ -458,6 +458,11 @@ public final class AutoQaCatalog {
                         lacks("CONVO HOLD .*WANDERED OFF"))
                 .build());
 
+        c.add(Check.auto("t-cv-9", "Refusals, stories and warnings stay plain chat").minutes(1)
+                .step(run("cv-10"), waitFor("MEANING PASS refusals-stories=4 warnings=3 positive-follow=true", 10))
+                .expect(has("MEANING PASS refusals-stories=4 warnings=3 positive-follow=true"))
+                .build());
+
         // rc6 inference: the last 24 h of bot chat, scored (ChatQuality): relevance, stiffness, repeats, say-do
         c.add(Check.auto("t-cq-1", "Daily chat quality (relevance, stiffness, say-do)").minutes(3)
                 .expect(ChatQuality.expectation())
@@ -674,6 +679,14 @@ public final class AutoQaCatalog {
                 .expect(has("VB STORAGE stored 4000000 bag 5 -> 4 store \\d+ -> \\d+"),
                         has("VB STORAGE tookOut bagDelta=0"), has("VB DUEY claimed recipientDelta=1"),
                         has("VB TRADE offered=true itemDelta=1 mesoDelta=5000"), noRefusal())
+                .build());
+        c.add(Check.auto("t-fh-1", "Fishing timer and cancellation").minutes(1)
+                .step(run("fh-1"), waitFor("FISHING POLICY PASS grants=1 duplicate=blocked movement=cancelled", 10))
+                .expect(has("FISHING POLICY PASS grants=1 duplicate=blocked movement=cancelled"))
+                .build());
+        c.add(Check.half("t-fh-2", "Actual fishing chair and item grant", "watch the chair and catch effects in a real client").minutes(3)
+                .step(run("fh-2"), waitFor("FISHING REAL catches=1 active=true", 130), qaDo("stop"))
+                .expect(has("FISHING REAL catches=1 active=true"), has("FISHING STOPPED active=false"))
                 .build());
 
         c.add(Check.auto("t-bl-1", "Bot life shadow policy and rejected-action safeguards").minutes(1)
