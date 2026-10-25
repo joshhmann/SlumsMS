@@ -67,6 +67,9 @@ public class OPQBot extends BotSM {
 
     private int cloudPiecesLooted;
     private volatile int lootedRecordItemId = -1;
+    // Stage 2: the box we last told the party about (-1 = none). handleStage2Navigate runs every ~1.5 s while
+    // walking, so an ungated BotSpeak repeated "I'll get the 4th box!" until the bot arrived.
+    private volatile int announcedBoxReactorOid = -1;
 
     public OPQBot(Character character) {
         super(character);
@@ -153,6 +156,7 @@ public class OPQBot extends BotSM {
         reactorHitsThisTarget = 0;
         cloudPiecesLooted = 0;
         lootedRecordItemId = -1;
+        announcedBoxReactorOid = -1;
     }
 
     // =========================================================================
@@ -650,9 +654,13 @@ public class OPQBot extends BotSM {
             return;
         }
 
-        // Chat which box we're going for (ordinal based on sorted position right-to-left)
+        // Chat which box we're going for (ordinal based on sorted position right-to-left), once per box.
+        if (shouldAnnounceBox(announcedBoxReactorOid, reactorOid)) {
+            announcedBoxReactorOid = reactorOid;
+            SocialCommands.BotSpeak(getChr(), "I'll get the " + orchestrator.getBoxOrdinal(getChr().getMap(), reactorOid)
+                    + " box!");
+        }
         String ordinal = orchestrator.getBoxOrdinal(getChr().getMap(), reactorOid);
-        SocialCommands.BotSpeak(getChr(), "I'll get the " + ordinal + " box!");
 
         Point reactorPos = reactor.getPosition();
         double dx = Math.abs(getChr().getPosition().getX() - reactorPos.getX());
@@ -984,6 +992,11 @@ public class OPQBot extends BotSM {
 
     private boolean isInParty() {
         return getChr().getParty() != null;
+    }
+
+    /** Say which box we are taking once per assignment, not once per navigate tick. */
+    static boolean shouldAnnounceBox(int announcedOid, int assignedOid) {
+        return assignedOid > 0 && assignedOid != announcedOid;
     }
 
     /**
