@@ -13,7 +13,7 @@ import static org.mockito.Mockito.mock;
 import static org.mockito.Mockito.verify;
 import static org.mockito.Mockito.when;
 
-/** co-1 gives two coupons with different hours, takes them back at stop, and refuses when they do not fit. */
+/** co-1 gives an all-day and an old timed EXP card, takes them back at stop, and refuses when they do not fit. */
 class CouponScenariosTest {
     @TempDir Path directory;
 
@@ -27,10 +27,10 @@ class CouponScenariosTest {
         var suite = QaTestSupport.suite(CouponScenarios.all(), world, directory, new QaTestSupport.ManualScheduler());
         suite.start(gm, "co-1", new String[0]);
         verify(world).giveItem(gm, CouponScenarios.EXP_WEEKDAYS_7_11, 1);
-        verify(world).giveItem(gm, CouponScenarios.EXP_DAILY_1_5, 1);
+        verify(world).giveItem(gm, CouponScenarios.EXP_2X_ALL_DAY, 1);
         suite.stop(1, "done");
         verify(world).takeItem(any(), eq(CouponScenarios.EXP_WEEKDAYS_7_11), eq(1));
-        verify(world).takeItem(any(), eq(CouponScenarios.EXP_DAILY_1_5), eq(1));
+        verify(world).takeItem(any(), eq(CouponScenarios.EXP_2X_ALL_DAY), eq(1));
     }
 
     @Test void refusesWhenTheCashInventoryIsFull() {

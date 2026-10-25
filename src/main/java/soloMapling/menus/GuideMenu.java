@@ -99,7 +99,7 @@ public final class GuideMenu {
                     + "#eHandy commands#n (type in chat):\r\n"
                     + "#b@settings#k bot options  | #b@daily#k daily gift\r\n"
                     + "#b@goto <town>#k hop to town | #b@commands#k list\r\n"
-                    + "#b@price <item>#k FM price | #b@coupons#k card hours\r\n"
+                    + "#b@price <item>#k FM price | #b@coupons#k EXP cards\r\n"
                     + "#b@gacha <town>#k prizes | #b@guildwar#k war score\r\n"
                     + "#b@dispose#k unfreezes stuck NPC chat", List.of()),
             new GuidePage("Trading and shops", ""

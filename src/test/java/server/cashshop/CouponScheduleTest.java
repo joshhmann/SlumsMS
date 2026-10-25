@@ -98,8 +98,8 @@ class CouponScheduleTest {
         assertEquals("2x EXP M-F 12-4am 30d works Mon-Fri 12-4 AM server time (Sun-Thu 10 PM-2 AM Pacific)."
                         + " @coupons shows your coupons.",
                 CouponSchedule.fromWz(WZ_5211037).purchaseNote("2x EXP M-F 12-4am 30d", winter));
-        assertEquals("3x EXP anytime 2hrs works any time. @coupons shows your coupons.",
-                CouponSchedule.fromWz(WZ_5211060).purchaseNote("3x EXP anytime 2hrs", summer));
+        assertEquals("3x EXP Card 1 day works any time. @coupons shows your coupons.",
+                CouponSchedule.fromWz(WZ_5211060).purchaseNote("3x EXP Card 1 day", summer));
     }
 
     @Test
@@ -107,25 +107,29 @@ class CouponScheduleTest {
         ZonedDateTime now = ZonedDateTime.of(2026, 10, 24, 15, 12, 0, 0, SERVER);   // Sat 3:12 PM server
         long in30d = now.toInstant().toEpochMilli() + 30L * 24 * 3600 * 1000 - 1000;
         List<CouponsCommand.Held> held = List.of(
-                new CouponsCommand.Held(5211004, "2x EXP M-F 7-11am 30d", in30d),
-                new CouponsCommand.Held(5211016, "2x EXP 1-5pm 10d", -1),
-                new CouponsCommand.Held(5211060, "3x EXP anytime 2hrs", now.toInstant().toEpochMilli() + 90 * 60_000));
+                new CouponsCommand.Held(5211004, "2x EXP Card Type 1 - Weekdays", in30d),   // owned, off sale
+                new CouponsCommand.Held(5211016, "2x EXP Card Type 3 - Everyday", -1),
+                new CouponsCommand.Held(5360001, "2x Drop Card Type 1 - Everyday", -1),         // owned drop card
+                new CouponsCommand.Held(5211060, "3x EXP Card 1 day", now.toInstant().toEpochMilli() + 90 * 60_000));
         var schedules = java.util.Map.of(5211004, CouponSchedule.fromDb(124, 7, 11),
-                5211016, CouponSchedule.fromDb(254, 13, 17), 5211060, CouponSchedule.fromDb(255, 0, 24));
+                5211016, CouponSchedule.fromDb(254, 13, 17), 5211060, CouponSchedule.fromDb(255, 0, 24),
+                5360001, CouponSchedule.fromDb(254, 7, 11));
         Set<Integer> active = Set.of(5211016, 5211060);
 
         List<String> lines = CouponsCommand.report(held, now, schedules::get, active::contains, false);
         assertEquals("Coupon hours are server time (UTC-6). Now: server Sat 3:12 PM, Pacific Sat 2:12 PM"
                 + " (server is 1 hour ahead).", lines.get(0));
-        assertEquals("2x EXP M-F 7-11am 30d: Mon-Fri 7-11 AM server = Mon-Fri 6-10 AM Pacific. Not working now."
+        assertEquals("2x EXP Card Type 1 - Weekdays: Mon-Fri 7-11 AM server = Mon-Fri 6-10 AM Pacific. Not working now."
                 + " Expires in 29 days.", lines.get(1));
-        assertEquals("2x EXP 1-5pm 10d: every day 1-5 PM server = every day 12-4 PM Pacific. Working now.", lines.get(2));
-        assertEquals("3x EXP anytime 2hrs: any time. Working now. Expires in 90 minutes.", lines.get(3));
-        assertTrue(lines.get(4).startsWith("Coupons do not stack"), lines.get(4));
-        assertTrue(lines.get(5).startsWith("Cash Shop coupon names use server hours"), lines.get(5));
+        assertEquals("2x EXP Card Type 3 - Everyday: every day 1-5 PM server = every day 12-4 PM Pacific. Working now.", lines.get(2));
+        assertEquals("3x EXP Card 1 day: any time. Working now. Expires in 90 minutes.", lines.get(4));
+        assertEquals("2x Drop Card Type 1 - Everyday: every day 7-11 AM server = every day 6-10 AM Pacific."
+                + " Not working now.", lines.get(3));
+        assertTrue(lines.get(5).startsWith("Coupons do not stack"), lines.get(5));
+        assertTrue(lines.get(6).startsWith("The Cash Shop's EXP cards work all day"), lines.get(6));
 
         List<String> none = CouponsCommand.report(List.of(), now, schedules::get, active::contains, false);
         assertEquals(3, none.size());
-        assertEquals("You have no EXP or drop coupons.", none.get(1));
+        assertEquals("You have no EXP cards.", none.get(1));
     }
 }
