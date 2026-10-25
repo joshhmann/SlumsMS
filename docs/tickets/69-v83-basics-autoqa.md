@@ -62,6 +62,10 @@ Success lines are the ones in `docs/qa/QA.md` (the `VB ...` column). Without `wz
   end-to-end break was not run because it needs the TEST server, which the owner asked us not to touch.
 - `vb-3`'s `039d13164` revert and the hog catch are **not** proven here: no headless seam.
 
+## Suite
+
+`mvn -o clean test` on 2026-10-24: `Tests run: 4595, Failures: 0, Errors: 0, Skipped: 38`.
+
 ## Not done
 
 - The hog catch in `vb-4` is only logged; WZ item effect, no server hook.
