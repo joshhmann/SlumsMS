@@ -36,7 +36,8 @@ import static org.mockito.Mockito.when;
  *       hardcoded to 5, and the generated combination always matches that number (the stock base-3 generator could not
  *       be matched in ~79% of the draws);</li>
  *   <li>stage 4: the 50-item collection is pooled over the party and scaled down for small parties;</li>
- *   <li>stage 5: gate doors and the gathering area do not depend on the party size.</li>
+ *   <li>stage 5: read, not pinned by a test — the seven gate reactors and the "every alive member inside
+ *       area 2" check take no party size.</li>
  * </ul>
  */
 class AmoriaPqRulesTest {
