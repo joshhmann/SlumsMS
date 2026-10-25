@@ -341,11 +341,11 @@ public final class BotConversation {
     }
 
     /**
-     * 1.5.1: whether a player talking to this bot keeps it logged in: the hold is on and nothing outranks it - not a
-     * shutdown, an event or a drama scene. Unlike {@link #heldByChat(Character)} it ignores the logout itself (that
-     * is what it decides). Cheap: one map read for a bot nobody talks to.
+     * 1.5.1: whether a player talking to this bot keeps it here - logged in, on this channel: the hold is on and
+     * nothing outranks it - not a shutdown, an event or a drama scene. Unlike {@link #heldByChat(Character)} it
+     * ignores a queued logout (that is what it decides for the logout). Cheap: one map read for a bot nobody talks to.
      */
-    public static boolean holdsAgainstLogout(Character bot) {
+    public static boolean keptByChat(Character bot) {
         if (bot == null || !isHoldingChat(bot.getId()) || BotShutdown.isQuiesced()) {
             return false;
         }

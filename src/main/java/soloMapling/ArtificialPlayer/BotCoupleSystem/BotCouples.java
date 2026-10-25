@@ -871,7 +871,8 @@ public final class BotCouples {
     /** Not busy with something a hop or a party change would break. */
     private static boolean free(Character bot) {
         BotSM sm = CharacterStorage.getBotById(bot.getId());
-        return sm != null && BotPopulationDirector.mayLogOut(sm) && bot.getEventInstance() == null;
+        return sm != null && BotPopulationDirector.mayLogOut(sm) && bot.getEventInstance() == null
+                && !soloMapling.ArtificialPlayer.BotConversation.keptByChat(bot); // 1.5.1: no hop off mid-chat
     }
 
     private static boolean withRealPlayer(Character bot) {
