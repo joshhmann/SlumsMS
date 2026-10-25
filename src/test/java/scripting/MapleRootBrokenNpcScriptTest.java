@@ -175,4 +175,46 @@ class MapleRootBrokenNpcScriptTest {
         assertEquals(45, cm.count(MAPLE_COIN));
         assertTrue(cm.ok.contains("USE inventory"), cm.ok);
     }
+
+    // --- Mr. Do, Mu Lung "Make a scroll" --------------------------------------------------------------------------
+
+    public static final class MrDoCm extends FakeCm {
+        public boolean isQuestActive(int quest) {
+            return false;
+        }
+
+        public boolean isQuestCompleted(int quest) {
+            return false;
+        }
+    }
+
+    private static final int MARBLE = 4001124;
+    private static final int MITHRIL_ORE_PLATE = 4010001;
+
+    /** Cosmic's 16 scrolls, in the order the menu lists them (One-Handed Sword ... Gun). */
+    private static final int[] SCROLLS = {2043000, 2043100, 2043200, 2043300, 2043700, 2043800, 2044000, 2044100,
+            2044200, 2044300, 2044400, 2044500, 2044600, 2044700, 2044800, 2044900};
+
+    @ParameterizedTest
+    @ValueSource(ints = {0, 1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12, 13, 14, 15})
+    void mrDoMakesTheScrollTheMenuOffers(int choice) throws Exception {
+        MrDoCm cm = new MrDoCm();
+        cm.inventory.put(MARBLE, 100);
+        cm.inventory.put(MITHRIL_ORE_PLATE, 10);
+        Invocable mrDo = load("npc/2090004.js", cm);
+
+        mrDo.invokeFunction("start");
+        mrDo.invokeFunction("action", 1, 0, 1);   // Make a scroll
+        assertTrue(cm.simple.contains("Scroll for"), cm.simple);
+        mrDo.invokeFunction("action", 1, 0, choice);
+        assertTrue(cm.yesNo.contains("#t" + SCROLLS[choice] + "#"), "confirms the listed scroll: " + cm.yesNo);
+        mrDo.invokeFunction("action", 1, 0, 0);   // yes
+
+        int made = cm.count(SCROLLS[choice]) + cm.count(SCROLLS[choice] + 1);   // +1 is the lucky 60% version
+        assertEquals(1, made, "one scroll of the chosen kind");
+        assertEquals(0, cm.count(MARBLE), "100 marbles used");
+        assertEquals(0, cm.count(MITHRIL_ORE_PLATE), "10 plates used");
+        assertNull(cm.ok, "no 'lacking ingredients' message");
+        assertTrue(cm.disposed);
+    }
 }
