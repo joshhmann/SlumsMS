@@ -452,12 +452,16 @@ public final class BotBuddies {
         }
         if (live != null) {
             scheduleDecision(live, player.getId(), player.getName());
+        } else {
+            // 1.5.2 auto-QA t-bb-2: a request that was never answered left no trace of why
+            log.info("Bot {} is not live: {}'s buddy request waits for its next login", bot.name(), player.getName());
         }
     }
 
     private static void scheduleDecision(Character bot, int playerId, String playerName) {
         long pair = pairKey(bot.getId(), playerId);
         if (!deciding.add(pair)) {
+            log.info("Bot {} is already deciding {}'s buddy request", bot.getName(), playerName);
             return;
         }
         long min = (long) setting("acceptDelayMinSec", 10);
@@ -478,16 +482,21 @@ public final class BotBuddies {
     static void decide(int botCharId, int playerId, String playerName) {
         Character bot = liveBot(botCharId);
         if (bot == null) {
+            log.info("Bot {} logged out before answering {}'s buddy request (answered at its next login)", botCharId,
+                    playerName);
             return; // logged out meanwhile: the pending row is answered at its next login
         }
         Row existing = rows().pair(botCharId, playerId);
         if (existing == null || existing.link() != Link.REQUESTED) {
+            log.info("Bot {} skips {}'s buddy request: the pair is {} now", bot.getName(), playerName,
+                    existing == null ? "gone" : existing.link());
             return;
         }
         Character player = onlinePlayer(playerId);
         boolean stillWanted = player != null ? player.getBuddylist().contains(botCharId)
                 : rows().playerHas(playerId, botCharId);
         if (!stillWanted) {
+            log.info("Bot {} drops {}'s buddy request: the player no longer has it", bot.getName(), playerName);
             rows().remove(botCharId, playerId);
             return;
         }
