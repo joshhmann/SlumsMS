@@ -16,7 +16,7 @@ python3 tools/hiddenstreet/build_data.py \
 ```
 
 Options:
-- `--wz <dir>`: Path to server WZ XML dump (defaults to `./wz`, `/root/work/SlumsMS-152-maps/wz`, or `/opt/mapleroot-dev/persistence-test/Server/wz`).
+- `--wz <dir>`: Path to server WZ XML dump (defaults to `./wz`, then `/opt/mapleroot-dev/persistence-test/Server/wz`).
 - `--db-dir <dir>`: Path to directory containing exported TSV or JSON tables (`drop_data`, `reactordrops`, `shops`, `shopitems`).
 - `--out-dir <dir>`: Target directory for normalized JSON datasets (defaults to `data/hiddenstreet/`).
 - `--report <path>`: Output Markdown path for the reference sweep report (defaults to `tools/hiddenstreet/report.md`).

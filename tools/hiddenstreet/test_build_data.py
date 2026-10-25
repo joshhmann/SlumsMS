@@ -520,6 +520,56 @@ class TestHiddenStreetBuildData(unittest.TestCase):
         self.assertIn("Portals leading to missing maps", content)
         self.assertIn("999999900", content)
 
+    def test_string_wz_name_without_wz_file_is_missing(self):
+        # String.wz still names mob 9999999, NPC 8888888 and map 999999900, but Mob.wz / Npc.wz / Map.wz have no file
+        # for them. A name alone must not make them exist: the placements and the portal stay broken references.
+        self._write_file("String.wz/Mob.img.xml", """
+<imgdir name="Mob.img">
+    <imgdir name="100100"><string name="name" value="Snail"/></imgdir>
+    <imgdir name="100101"><string name="name" value="Blue Snail"/></imgdir>
+    <imgdir name="9999999"><string name="name" value="Removed Mob"/></imgdir>
+</imgdir>
+""")
+        self._write_file("String.wz/Npc.img.xml", """
+<imgdir name="Npc.img">
+    <imgdir name="1012000"><string name="name" value="Regular Cab"/></imgdir>
+    <imgdir name="1012001"><string name="name" value="Athena Pierce"/></imgdir>
+    <imgdir name="8888888"><string name="name" value="Removed NPC"/></imgdir>
+</imgdir>
+""")
+        self._write_file("String.wz/Map.img.xml", """
+<imgdir name="Map.img">
+    <imgdir name="victoria">
+        <imgdir name="100000000">
+            <string name="mapName" value="Henesys"/>
+            <string name="streetName" value="Victoria Road"/>
+        </imgdir>
+        <imgdir name="100000001">
+            <string name="mapName" value="Maya's House"/>
+            <string name="streetName" value="Victoria Road"/>
+        </imgdir>
+        <imgdir name="999999900">
+            <string name="mapName" value="Removed Map"/>
+            <string name="streetName" value="Nowhere"/>
+        </imgdir>
+    </imgdir>
+</imgdir>
+""")
+        dataset, audit = run_build(
+            wz_dir=self.wz_dir,
+            db_dir=self.db_dir,
+            out_dir=self.out_dir,
+            report_path=self.report_path,
+            workers=1,
+        )
+        details = audit["details"]
+        life_refs = {(l["map_id"], l["life_type"], l["life_id"]) for l in details["missing_life_placed"]}
+        self.assertEqual(life_refs, {(100000000, "mob", 9999999), (100000000, "npc", 8888888)})
+        self.assertEqual([p["target_map_id"] for p in details["portals_missing_maps"]], [999999900])
+        self.assertNotIn("9999999", dataset["mobs"])
+        self.assertNotIn("8888888", dataset["npcs"])
+        self.assertNotIn("999999900", dataset["maps"])
+
     def test_exported_json_files(self):
         run_build(
             wz_dir=self.wz_dir,

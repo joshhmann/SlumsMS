@@ -28,9 +28,7 @@ from typing import Any, Dict, List, Optional, Set, Tuple
 # Common WZ search paths when --wz is omitted
 DEFAULT_WZ_PATHS = [
     "wz",
-    "/root/work/SlumsMS-152-maps/wz",
     "/opt/mapleroot-dev/persistence-test/Server/wz",
-    "/root/workspace/cosmicms/wz",
 ]
 
 
@@ -654,9 +652,11 @@ def build_normalized_data(wz: WzDataset, db: DbDataset) -> Tuple[Dict[str, Any],
 
     # 1. Gather all known master IDs
     all_item_ids: Set[int] = set(wz.wz_item_defs.keys()) | set(wz.item_strings.keys())
-    all_mob_ids: Set[int] = set(wz.wz_mob_defs.keys()) | set(wz.mob_strings.keys())
-    all_npc_ids: Set[int] = set(wz.wz_npc_ids) | set(wz.npc_strings.keys())
-    all_map_ids: Set[int] = set(wz.wz_map_defs.keys()) | set(wz.map_strings.keys())
+    # Mobs, NPCs and maps exist only if Mob.wz / Npc.wz / Map.wz has a file for them. String.wz only supplies names:
+    # a name left behind in String.wz for a removed mob/NPC/map must still be reported as missing.
+    all_mob_ids: Set[int] = set(wz.wz_mob_defs.keys())
+    all_npc_ids: Set[int] = set(wz.wz_npc_ids)
+    all_map_ids: Set[int] = set(wz.wz_map_defs.keys())
     all_quest_ids: Set[int] = set(wz.wz_quest_defs.keys())
 
     # 2. Master Entities Storage
