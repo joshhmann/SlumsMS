@@ -194,11 +194,55 @@ class BotThreadsTest {
         long now = 9_000_000;
         twoLiveThreads(now);
         String line = "Kerning PQ? i can come too";
-        BotThreads.View thread = BotThreads.liveView(2, 100000000, now, new BotThreads.Ask(line, 0, 0));
+        BotThreads.View thread = BotThreads.liveView(2, 100000000, now, new BotThreads.Ask(line, 0, 0), id -> true);
         assertNotNull(thread, "a live thread answers this line");
         assertTrue(thread.topic().contains("Kerning PQ"), thread.topic());
         assertEquals(10_001, BotThreads.jumpIn(2, 100000000, thread.id(), "Josh", line, now),
                 "the thread's own last speaker answers");
+    }
+
+    /**
+     * The cv-5 shadowing, one ranking step further: a thread 5000 px away whose subject shares more words must not
+     * beat the thread beside the player, because the router then drops the far one for being unheard and the line
+     * never reaches the thread the player is standing in.
+     */
+    @Test
+    void anInaudibleThreadIsNoCandidateEvenWhenItFitsTheLineBetter() {
+        long now = 9_000_000;
+        BotThreads.putLiveForTest(2, 100000000, 10_001, "KimchiPika", 10_004, "Sair6", BotThreads.Topic.LFG,
+                "Ludi PQ", now + 30_000);
+        BotThreads.putLiveForTest(2, 100000000, 10_002, "ownagetauro", 10_005, "picklemaple", BotThreads.Topic.LFG,
+                "Ludi PQ party come", now + 29_000);
+        String line = "Ludi PQ? i can come too, anyone party?";
+        BotThreads.View unfiltered = BotThreads.liveView(2, 100000000, now, new BotThreads.Ask(line, 0, 0), id -> true);
+        assertEquals(10_002, unfiltered.botIds().get(0), "the far thread is the better keyword fit, so it used to win");
+
+        BotThreads.View heard = BotThreads.liveView(2, 100000000, now, new BotThreads.Ask(line, 0, 0),
+                List.of(10_001, 10_004)::contains);
+        assertNotNull(heard);
+        assertEquals(List.of(10_001, 10_004), heard.botIds(), "only the thread the player can hear is a candidate");
+    }
+
+    @Test
+    void twoLiveThreadsNoOneCanHearAreNotCreditedWithTheLine() {
+        long now = 9_000_000;
+        twoLiveThreads(now);
+        assertNull(BotThreads.liveView(2, 100000000, now, new BotThreads.Ask("Kerning PQ? i can come too", 0, 0),
+                id -> false), "an unheard thread is no candidate");
+
+        String line = "Kerning PQ? i can come too";
+        java.util.Map<Integer, ChatRoute.Bot> bots = new java.util.LinkedHashMap<>();
+        bots.put(10_001, new ChatRoute.Bot(10_001, "KimchiPika", 100, 0, true));
+        bots.put(10_002, new ChatRoute.Bot(10_002, "ownagetauro", 5_000, 0, true));
+        List<MapChatLog.Line> lines = List.of(
+                new MapChatLog.Line(10_001, "KimchiPika", "yeah join plz, our leader dcd lolz!!!", now - 6_000, true),
+                new MapChatLog.Line(7, "Josh", line, now, false));
+        ChatRoute.Decision d = ChatRoute.decide(lines, new ChatRoute.Player(7, "Josh", line, 0, 0, null, -1, 0), bots,
+                BotThreads.liveView(2, 100000000, now, new BotThreads.Ask(line, 0, 0), id -> false),
+                BotAddressee.resolve(line, List.of(new BotAddressee.Candidate(10_001, "KimchiPika"))),
+                null, now);
+        assertNull(d.thread(), "no thread is credited");
+        assertEquals(ChatRoute.Step.CLOSEST, d.step(), "the line routes as it would with no thread at all");
     }
 
     @Test
@@ -218,7 +262,8 @@ class BotThreadsTest {
                         true),
                 new MapChatLog.Line(7, "Josh", line, now, false));
         ChatRoute.Decision d = ChatRoute.decide(lines, new ChatRoute.Player(7, "Josh", line, 0, 0, null, -1, 0), bots,
-                BotThreads.liveView(2, 100000000, now, new BotThreads.Ask(line, 0, 0)),
+                BotThreads.liveView(2, 100000000, now, new BotThreads.Ask(line, 0, 0),
+                        id -> ChatRoute.inBubble(bots.get(id), 0, 0)),
                 BotAddressee.resolve(line, List.of(new BotAddressee.Candidate(10_001, "KimchiPika"),
                         new BotAddressee.Candidate(10_004, "Sair6"), new BotAddressee.Candidate(10_002, "ownagetauro"),
                         new BotAddressee.Candidate(10_005, "picklemaple"))),

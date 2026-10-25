@@ -595,8 +595,14 @@ public final class BotThreads {
      * The live thread on this map that the player's line is about - the one at their feet when two fit it equally
      * (TEST cv-5-20261024T222812Z: a thread 4964 px away held the map's only slot, so the Kerning PQ thread 129 px
      * away never got the line). A map used to hold one thread; the newest thread still wins when nothing fits.
+     *
+     * <p>{@code near} is the caller's hearing rule ({@link
+     * soloMapling.ArtificialPlayer.BotMessagingSystem.ChatRoute#inBubble}): a thread none of whose speakers is within
+     * earshot is no candidate at all, whatever its fit - otherwise a far thread that matches a word more would shadow
+     * the one the player is standing next to, and the router would then drop it for being unheard.
      */
-    public static View liveView(int channel, int mapId, long now, Ask ask) {
+    public static View liveView(int channel, int mapId, long now, Ask ask,
+                                java.util.function.IntPredicate near) {
         if (!ConvoSwitches.on("threads")) {
             return null;
         }
@@ -604,6 +610,9 @@ public final class BotThreads {
         int bestFit = -1;
         int bestDistance = Integer.MAX_VALUE;
         for (Live l : liveOn(channel, mapId, now)) {
+            if (near != null && !anyNear(l, near)) {
+                continue;
+            }
             int fit = ask == null ? 0 : fit(l, ask.line());
             int distance = ask == null ? 0 : nearest(l, ask.x(), ask.y());
             if (best == null || fit > bestFit
@@ -615,6 +624,16 @@ public final class BotThreads {
             }
         }
         return best == null ? null : view(best);
+    }
+
+    /** Whether either of the thread's two speakers stands where the player would be heard (the caller's rule). */
+    private static boolean anyNear(Live l, java.util.function.IntPredicate near) {
+        for (int id : l.botIds) {
+            if (near.test(id)) {
+                return true;
+            }
+        }
+        return false;
     }
 
     /** How much of the player's line is about this thread: the words of its subject ("looking for a party (Kerning PQ)"). */
