@@ -56,12 +56,19 @@ public class StorageProcessor {
     }
 
     private static void defaultStorageAction(InPacket p, Client c) {
-        ItemInformationProvider ii = ItemInformationProvider.getInstance();
         Character chr = c.getPlayer();
         Storage storage = chr.getStorage();
         String gmBlockedStorageMessage = "You cannot use the storage as a GM of this level.";
 
         byte mode = p.readByte();
+        // 1.5.2 handler sweep: only a storage an NPC opened (Storage.sendStorage) can be used. Stock Cosmic took
+        // store, take-out and meso packets at any time, so a packet edit reached the storage from anywhere - a boss
+        // fight, a party quest, jail - without walking to a storage keeper (and paid no keeper's fee).
+        if (mode != 8 && !storage.isOpen()) {
+            log.warn("Chr {} sent storage action {} with no storage open", chr.getName(), mode);
+            c.sendPacket(PacketCreator.enableActions());
+            return;
+        }
         if (chr.getLevel() < 15) {
             chr.dropMessage(1, "You may only use the storage once you have reached level 15.");
             c.sendPacket(PacketCreator.enableActions());
@@ -92,7 +99,7 @@ public class StorageProcessor {
                         }
 
                         if (item != null) {
-                            if (ii.isPickupRestricted(item.getItemId()) && chr.haveItemWithId(item.getItemId(), true)) {
+                            if (ItemInformationProvider.getInstance().isPickupRestricted(item.getItemId()) && chr.haveItemWithId(item.getItemId(), true)) {
                                 c.sendPacket(PacketCreator.getStorageError((byte) 0x0C));
                                 return;
                             }
@@ -112,7 +119,7 @@ public class StorageProcessor {
                                     KarmaManipulator.toggleKarmaFlagToUntradeable(item);
                                     InventoryManipulator.addFromDrop(c, item, false);
 
-                                    String itemName = ii.getName(item.getItemId());
+                                    String itemName = ItemInformationProvider.getInstance().getName(item.getItemId());
                                     log.debug("Chr {} took out {}x {} ({})", c.getPlayer().getName(), item.getQuantity(), itemName, item.getItemId());
                                     storage.sendTakenOut(c, item.getInventoryType());
                                 } else {
@@ -193,7 +200,7 @@ public class StorageProcessor {
                             storage.store(item); // inside a critical section, "!(storage.isFull())" is still in effect...
                             chr.setUsedStorage();
 
-                            String itemName = ii.getName(item.getItemId());
+                            String itemName = ItemInformationProvider.getInstance().getName(item.getItemId());
                             log.debug("Chr {} stored {}x {} ({})", c.getPlayer().getName(), item.getQuantity(), itemName, item.getItemId());
                             storage.sendStored(c, ItemConstants.getInventoryType(itemId));
                         }
