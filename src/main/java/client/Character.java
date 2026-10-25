@@ -5471,6 +5471,21 @@ public class Character extends AbstractCharacterObject {
         return client.getAbstractPlayerInteraction();
     }
 
+    /**
+     * 1.5.2 (nutnnut/Cosmic 87fe36eda): getQuest() adds a NOT_STARTED status to the quest map on any lookup (an NPC
+     * checking a quest, a quest list shown) and never removes it, and every save wrote all of them to queststatus, so
+     * the table grew with rows that hold nothing. Such a row is skipped on save; getQuest() recreates it on demand.
+     * Anything with state is still written: a forfeit or completion count, an expiry, progress, medal maps.
+     */
+    static boolean isEmptyQuestPlaceholder(QuestStatus qs) {
+        return qs.getStatus() == QuestStatus.Status.NOT_STARTED
+                && qs.getForfeited() == 0
+                && qs.getCompleted() == 0
+                && qs.getExpirationTime() <= 0
+                && qs.getProgress().isEmpty()
+                && qs.getMedalMaps().isEmpty();
+    }
+
     private List<QuestStatus> getQuests() {
         synchronized (quests) {
             return new ArrayList<>(quests.values());
@@ -9922,6 +9937,9 @@ public class Character extends AbstractCharacterObject {
                     psStatus.setInt(1, id);
 
                     for (QuestStatus qs : getQuests()) {
+                        if (isEmptyQuestPlaceholder(qs)) {
+                            continue;
+                        }
                         psStatus.setInt(2, qs.getQuest().getId());
                         psStatus.setInt(3, qs.getStatus().getId());
                         psStatus.setInt(4, (int) (qs.getCompletionTime() / 1000));
