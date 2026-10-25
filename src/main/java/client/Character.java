@@ -1597,18 +1597,16 @@ public class Character extends AbstractCharacterObject {
         final boolean locked = lockWarp();
         try {
             canWarpCounter++;
-
-            eventChangedMap(target.getId());    // player can be dropped from an event here, hence the new warping target.
-            MapleMap to = getWarpMap(target.getId());
-            if (pto == null) {
-                pto = to.getPortal(0);
-            }
-            changeMapInternal(to, pto.getPosition(), PacketCreator.getWarpToMap(to, pto.getId(), this));
-            canWarpMap = false;
-
-            canWarpCounter--;
-            if (canWarpCounter == 0) {
-                canWarpMap = true;
+            try {
+                eventChangedMap(target.getId());    // player can be dropped from an event here, hence the new warping target.
+                MapleMap to = getWarpMap(target.getId());
+                if (pto == null) {
+                    pto = to.getPortal(0);
+                }
+                changeMapInternal(to, pto.getPosition(), PacketCreator.getWarpToMap(to, pto.getId(), this));
+                canWarpMap = false;
+            } finally {
+                releaseWarpLatch();
             }
 
             eventAfterChangedMap(this.getMapId());
@@ -1623,15 +1621,13 @@ public class Character extends AbstractCharacterObject {
         final boolean locked = lockWarp();
         try {
             canWarpCounter++;
-
-            eventChangedMap(target.getId());
-            MapleMap to = getWarpMap(target.getId());
-            changeMapInternal(to, pos, PacketCreator.getWarpToMap(to, 0x80, pos, this));
-            canWarpMap = false;
-
-            canWarpCounter--;
-            if (canWarpCounter == 0) {
-                canWarpMap = true;
+            try {
+                eventChangedMap(target.getId());
+                MapleMap to = getWarpMap(target.getId());
+                changeMapInternal(to, pos, PacketCreator.getWarpToMap(to, 0x80, pos, this));
+                canWarpMap = false;
+            } finally {
+                releaseWarpLatch();
             }
 
             eventAfterChangedMap(this.getMapId());
@@ -1653,6 +1649,17 @@ public class Character extends AbstractCharacterObject {
         return warpLock;
     }
 
+    /**
+     * 1.5.2 (nutnnut/Cosmic ae5753df0): the end of a warp, in a finally. A warp that threw used to skip this, so the
+     * counter never got back to 0 and every later warp of the character silently did nothing.
+     */
+    private void releaseWarpLatch() {
+        canWarpCounter--;
+        if (canWarpCounter == 0) {
+            canWarpMap = true;
+        }
+    }
+
     private boolean lockWarp() {
         if (client instanceof BotClient) {
             warpLock.lock();
@@ -1665,32 +1672,31 @@ public class Character extends AbstractCharacterObject {
         // will actually enter the map given as parameter, regardless of being an eventmap or whatnot
 
         canWarpCounter++;
-        eventChangedMap(MapId.NONE);
+        try {
+            eventChangedMap(MapId.NONE);
 
-        EventInstanceManager mapEim = target.getEventInstance();
-        if (mapEim != null) {
-            EventInstanceManager playerEim = this.getEventInstance();
-            if (playerEim != null) {
-                playerEim.exitPlayer(this);
-                if (playerEim.getPlayerCount() == 0) {
-                    playerEim.dispose();
+            EventInstanceManager mapEim = target.getEventInstance();
+            if (mapEim != null) {
+                EventInstanceManager playerEim = this.getEventInstance();
+                if (playerEim != null) {
+                    playerEim.exitPlayer(this);
+                    if (playerEim.getPlayerCount() == 0) {
+                        playerEim.dispose();
+                    }
                 }
+
+                // thanks Thora for finding an issue with players not being actually warped into the target event map (rather sent to the event starting map)
+                mapEim.registerPlayer(this, false);
             }
 
-            // thanks Thora for finding an issue with players not being actually warped into the target event map (rather sent to the event starting map)
-            mapEim.registerPlayer(this, false);
-        }
-
-        MapleMap to = target; // warps directly to the target intead of the target's map id, this allows GMs to patrol players inside instances.
-        if (pto == null) {
-            pto = to.getPortal(0);
-        }
-        changeMapInternal(to, pto.getPosition(), PacketCreator.getWarpToMap(to, pto.getId(), this));
-        canWarpMap = false;
-
-        canWarpCounter--;
-        if (canWarpCounter == 0) {
-            canWarpMap = true;
+            MapleMap to = target; // warps directly to the target intead of the target's map id, this allows GMs to patrol players inside instances.
+            if (pto == null) {
+                pto = to.getPortal(0);
+            }
+            changeMapInternal(to, pto.getPosition(), PacketCreator.getWarpToMap(to, pto.getId(), this));
+            canWarpMap = false;
+        } finally {
+            releaseWarpLatch();
         }
 
         eventAfterChangedMap(this.getMapId());
