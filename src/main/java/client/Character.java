@@ -1966,6 +1966,16 @@ public class Character extends AbstractCharacterObject {
             soloMapling.qa.MapEntryMeter.placed(this);
             visitMap(map);
 
+            if (to.getId() == 211070100 || to.getId() == 211070101) {
+                if (!this.inExpedition) {
+                    this.potionCount = 100;
+                }
+                this.inExpedition = true;
+            } else {
+                this.inExpedition = false;
+                this.potionCount = 0;
+            }
+
             prtLock.lock();
             try {
                 if (party != null) {

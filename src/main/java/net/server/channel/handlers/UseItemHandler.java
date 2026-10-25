@@ -52,65 +52,85 @@ public final class UseItemHandler extends AbstractPacketHandler {
         short slot = p.readShort();
         int itemId = p.readInt();
         Item toUse = chr.getInventory(InventoryType.USE).getItem(slot);
-        if (toUse != null && toUse.getQuantity() > 0 && toUse.getItemId() == itemId && !chr.inExpedition) {
-            if (itemId == ItemId.ALL_CURE_POTION) {
-                chr.dispelDebuffs();
-                remove(c, slot);
-                return;
-            } else if (itemId == ItemId.EYEDROP) {
-                chr.dispelDebuff(Disease.DARKNESS);
-                remove(c, slot);
-                return;
-            } else if (itemId == ItemId.TONIC) {
-                chr.dispelDebuff(Disease.WEAKEN);
-                chr.dispelDebuff(Disease.SLOW);
-                remove(c, slot);
-                return;
-            } else if (itemId == ItemId.HOLY_WATER) {
-                chr.dispelDebuff(Disease.SEAL);
-                chr.dispelDebuff(Disease.CURSE);
-                remove(c, slot);
-                return;
-            } else if (ItemConstants.isTownScroll(itemId)) {
-                int banMap = chr.getMapId();
-                int banSp = chr.getMap().findClosestPlayerSpawnpoint(chr.getPosition()).getId();
-                long banTime = currentServerTime();
+        if (toUse == null || toUse.getQuantity() < 1 || toUse.getItemId() != itemId) {
+            c.sendPacket(PacketCreator.enableActions());
+            return;
+        }
 
-                if (ii.getItemEffect(toUse.getItemId()).applyTo(chr)) {
-                    if (YamlConfig.config.server.USE_BANISHABLE_TOWN_SCROLL) {
-                        chr.setBanishPlayerData(banMap, banSp, banTime);
-                    }
+        if (itemId == ItemId.ALL_CURE_POTION) {
+            chr.dispelDebuffs();
+            remove(c, slot);
+            return;
+        } else if (itemId == ItemId.EYEDROP) {
+            chr.dispelDebuff(Disease.DARKNESS);
+            remove(c, slot);
+            return;
+        } else if (itemId == ItemId.TONIC) {
+            chr.dispelDebuff(Disease.WEAKEN);
+            chr.dispelDebuff(Disease.SLOW);
+            remove(c, slot);
+            return;
+        } else if (itemId == ItemId.HOLY_WATER) {
+            chr.dispelDebuff(Disease.SEAL);
+            chr.dispelDebuff(Disease.CURSE);
+            remove(c, slot);
+            return;
+        } else if (ItemConstants.isTownScroll(itemId)) {
+            int banMap = chr.getMapId();
+            int banSp = chr.getMap().findClosestPlayerSpawnpoint(chr.getPosition()).getId();
+            long banTime = currentServerTime();
 
-                    remove(c, slot);
+            StatEffect effect = ii.getItemEffect(toUse.getItemId());
+            if (effect != null && effect.applyTo(chr)) {
+                if (YamlConfig.config.server.USE_BANISHABLE_TOWN_SCROLL) {
+                    chr.setBanishPlayerData(banMap, banSp, banTime);
                 }
-                return;
-            } else if (ItemConstants.isAntibanishScroll(itemId)) {
-                if (ii.getItemEffect(toUse.getItemId()).applyTo(chr)) {
-                    remove(c, slot);
-                } else {
-                    chr.dropMessage(5, "You cannot recover from a banish state at the moment.");
-                }
+                remove(c, slot);
+            } else {
+                c.sendPacket(PacketCreator.enableActions());
+            }
+            return;
+        } else if (ItemConstants.isAntibanishScroll(itemId)) {
+            StatEffect effect = ii.getItemEffect(toUse.getItemId());
+            if (effect != null && effect.applyTo(chr)) {
+                remove(c, slot);
+            } else {
+                chr.dropMessage(5, "You cannot recover from a banish state at the moment.");
+                c.sendPacket(PacketCreator.enableActions());
+            }
+            return;
+        }
+
+        if (chr.inExpedition) {
+            if (chr.potionCount <= 0) {
+                chr.dropMessage(5, "You have no remaining potion uses in this expedition.");
+                c.sendPacket(PacketCreator.enableActions());
                 return;
             }
-
+            chr.potionCount--;
             remove(c, slot);
-
-            if (toUse.getItemId() != ItemId.HAPPY_BIRTHDAY) {
-                ii.getItemEffect(toUse.getItemId()).applyTo(chr);
-            } else {
-                StatEffect mse = ii.getItemEffect(toUse.getItemId());
+            StatEffect mse = ii.getItemEffect(toUse.getItemId());
+            if (mse != null) {
                 for (Character player : chr.getMap().getCharacters()) {
                     mse.applyTo(player);
                 }
             }
-        }  else if(toUse != null && toUse.getQuantity() > 0 && toUse.getItemId() == itemId && chr.potionCount > 0) {
-            chr.potionCount--;
-            StatEffect mse = ii.getItemEffect(toUse.getItemId());
-            for (Character player : chr.getMap().getCharacters()) {
-                mse.applyTo(player);
-            }
-            remove(c, slot);
             chr.dropMessage(5, "Remaining Potion Count: " + chr.potionCount);
+        } else {
+            remove(c, slot);
+            if (toUse.getItemId() != ItemId.HAPPY_BIRTHDAY) {
+                StatEffect mse = ii.getItemEffect(toUse.getItemId());
+                if (mse != null) {
+                    mse.applyTo(chr);
+                }
+            } else {
+                StatEffect mse = ii.getItemEffect(toUse.getItemId());
+                if (mse != null) {
+                    for (Character player : chr.getMap().getCharacters()) {
+                        mse.applyTo(player);
+                    }
+                }
+            }
         }
     }
 
