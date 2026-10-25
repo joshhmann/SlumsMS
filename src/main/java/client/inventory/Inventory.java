@@ -99,7 +99,10 @@ public class Inventory implements Iterable<Item> {
     public Collection<Item> list() {
         lock.lock();
         try {
-            return Collections.unmodifiableCollection(inventory.values());
+            // 1.5.2 (nutnnut/Cosmic 6050d1d9d): a copy, not a live view. The lock is gone by the time the caller walks
+            // it, and a bot tick or a handler on another thread changing the inventory mid-walk threw
+            // ConcurrentModificationException.
+            return Collections.unmodifiableList(new ArrayList<>(inventory.values()));
         } finally {
             lock.unlock();
         }

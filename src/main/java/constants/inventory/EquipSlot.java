@@ -60,7 +60,8 @@ public enum EquipSlot {
     }
 
     public static EquipSlot getFromTextSlot(String slot) {
-        if (!slot.isEmpty()) {
+        // 1.5.2 (nutnnut/Cosmic 56a43dcea): getEquipmentSlot returns null for an item with no WZ data
+        if (slot != null && !slot.isEmpty()) {
             for (EquipSlot c : values()) {
                 if (c.getName() != null) {
                     if (c.getName().equals(slot)) {

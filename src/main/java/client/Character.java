@@ -226,7 +226,7 @@ public class Character extends AbstractCharacterObject {
     private final Map<Integer, Map<BuffStat, BuffStatValueHolder>> buffEffects = new LinkedHashMap<>(); // non-overriding buffs thanks to Ronan
     private final Map<Integer, Long> buffExpires = new LinkedHashMap<>();
     private final Map<Integer, KeyBinding> keymap = new LinkedHashMap<>();
-    private final Map<Integer, Summon> summons = new LinkedHashMap<>();
+    private final Map<Integer, Summon> summons = new ConcurrentHashMap<>(); // 1.5.2 (nutnnut/Cosmic ab7253d97): changed from timer and handler threads
     private final Map<Integer, CooldownValueHolder> coolDowns = new LinkedHashMap<>();
     private long bankMesos;
 
@@ -1597,18 +1597,16 @@ public class Character extends AbstractCharacterObject {
         final boolean locked = lockWarp();
         try {
             canWarpCounter++;
-
-            eventChangedMap(target.getId());    // player can be dropped from an event here, hence the new warping target.
-            MapleMap to = getWarpMap(target.getId());
-            if (pto == null) {
-                pto = to.getPortal(0);
-            }
-            changeMapInternal(to, pto.getPosition(), PacketCreator.getWarpToMap(to, pto.getId(), this));
-            canWarpMap = false;
-
-            canWarpCounter--;
-            if (canWarpCounter == 0) {
-                canWarpMap = true;
+            try {
+                eventChangedMap(target.getId());    // player can be dropped from an event here, hence the new warping target.
+                MapleMap to = getWarpMap(target.getId());
+                if (pto == null) {
+                    pto = to.getPortal(0);
+                }
+                changeMapInternal(to, pto.getPosition(), PacketCreator.getWarpToMap(to, pto.getId(), this));
+                canWarpMap = false;
+            } finally {
+                releaseWarpLatch();
             }
 
             eventAfterChangedMap(this.getMapId());
@@ -1623,15 +1621,13 @@ public class Character extends AbstractCharacterObject {
         final boolean locked = lockWarp();
         try {
             canWarpCounter++;
-
-            eventChangedMap(target.getId());
-            MapleMap to = getWarpMap(target.getId());
-            changeMapInternal(to, pos, PacketCreator.getWarpToMap(to, 0x80, pos, this));
-            canWarpMap = false;
-
-            canWarpCounter--;
-            if (canWarpCounter == 0) {
-                canWarpMap = true;
+            try {
+                eventChangedMap(target.getId());
+                MapleMap to = getWarpMap(target.getId());
+                changeMapInternal(to, pos, PacketCreator.getWarpToMap(to, 0x80, pos, this));
+                canWarpMap = false;
+            } finally {
+                releaseWarpLatch();
             }
 
             eventAfterChangedMap(this.getMapId());
@@ -1653,6 +1649,17 @@ public class Character extends AbstractCharacterObject {
         return warpLock;
     }
 
+    /**
+     * 1.5.2 (nutnnut/Cosmic ae5753df0): the end of a warp, in a finally. A warp that threw used to skip this, so the
+     * counter never got back to 0 and every later warp of the character silently did nothing.
+     */
+    private void releaseWarpLatch() {
+        canWarpCounter--;
+        if (canWarpCounter == 0) {
+            canWarpMap = true;
+        }
+    }
+
     private boolean lockWarp() {
         if (client instanceof BotClient) {
             warpLock.lock();
@@ -1665,32 +1672,31 @@ public class Character extends AbstractCharacterObject {
         // will actually enter the map given as parameter, regardless of being an eventmap or whatnot
 
         canWarpCounter++;
-        eventChangedMap(MapId.NONE);
+        try {
+            eventChangedMap(MapId.NONE);
 
-        EventInstanceManager mapEim = target.getEventInstance();
-        if (mapEim != null) {
-            EventInstanceManager playerEim = this.getEventInstance();
-            if (playerEim != null) {
-                playerEim.exitPlayer(this);
-                if (playerEim.getPlayerCount() == 0) {
-                    playerEim.dispose();
+            EventInstanceManager mapEim = target.getEventInstance();
+            if (mapEim != null) {
+                EventInstanceManager playerEim = this.getEventInstance();
+                if (playerEim != null) {
+                    playerEim.exitPlayer(this);
+                    if (playerEim.getPlayerCount() == 0) {
+                        playerEim.dispose();
+                    }
                 }
+
+                // thanks Thora for finding an issue with players not being actually warped into the target event map (rather sent to the event starting map)
+                mapEim.registerPlayer(this, false);
             }
 
-            // thanks Thora for finding an issue with players not being actually warped into the target event map (rather sent to the event starting map)
-            mapEim.registerPlayer(this, false);
-        }
-
-        MapleMap to = target; // warps directly to the target intead of the target's map id, this allows GMs to patrol players inside instances.
-        if (pto == null) {
-            pto = to.getPortal(0);
-        }
-        changeMapInternal(to, pto.getPosition(), PacketCreator.getWarpToMap(to, pto.getId(), this));
-        canWarpMap = false;
-
-        canWarpCounter--;
-        if (canWarpCounter == 0) {
-            canWarpMap = true;
+            MapleMap to = target; // warps directly to the target intead of the target's map id, this allows GMs to patrol players inside instances.
+            if (pto == null) {
+                pto = to.getPortal(0);
+            }
+            changeMapInternal(to, pto.getPosition(), PacketCreator.getWarpToMap(to, pto.getId(), this));
+            canWarpMap = false;
+        } finally {
+            releaseWarpLatch();
         }
 
         eventAfterChangedMap(this.getMapId());
@@ -1963,6 +1969,15 @@ public class Character extends AbstractCharacterObject {
             map = to;
             setPosition(pos);
             map.addPlayer(this);
+            if (client.getChannelServer().getPlayerStorage().getCharacterById(getId()) == null) {
+                // 1.5.2 (nutnnut/Cosmic ae5753df0): a logout landed between the check above and addPlayer, and its own
+                // map removal saw the old map. Unwind, or the logged-out character stays in this map's lists as a
+                // ghost (and once disposed, breaks broadcasts here). BotGeneration.removeBotFromServer covers the
+                // other order for bots.
+                log.warn("Chr {} logged out mid-warp to map {}: unwinding its map entry", getName(), to.getId());
+                map.removePlayer(this);
+                return;
+            }
             soloMapling.qa.MapEntryMeter.placed(this);
             visitMap(map);
 
@@ -4422,6 +4437,10 @@ public class Character extends AbstractCharacterObject {
 
     public void cancelAllBuffs(boolean softcancel) {
         if (softcancel) {
+            // 1.5.2 (nutnnut/Cosmic 8a2d4adaf): prtLock before effLock. cancelEffectFromBuffStat below reaches the
+            // public cancelEffect (prtLock) while this frame holds effLock+chrLock: the reverse of registerEffect's
+            // prt -> eff -> chr, so a party member buffing this character at that moment hung both threads.
+            prtLock.lock();
             effLock.lock();
             chrLock.lock();
             try {
@@ -4437,6 +4456,7 @@ public class Character extends AbstractCharacterObject {
             } finally {
                 chrLock.unlock();
                 effLock.unlock();
+                prtLock.unlock();
             }
         } else {
             Map<StatEffect, Long> mseBuffs = new LinkedHashMap<>();
@@ -4639,6 +4659,11 @@ public class Character extends AbstractCharacterObject {
     }
 
     public void updateActiveEffects() {
+        // 1.5.2 (nutnnut/Cosmic c9ba4f4da): prtLock before effLock. isUpdatingEffect -> StatEffect.isActive ->
+        // getPartyMembersOnSameMap takes prtLock while effLock is held; registerEffect takes them the other way round,
+        // so a party member's buff landing while this character entered a map (MapleMap.addPlayer) hung both threads.
+        // Callers hold neither lock; the inner prtLock is a same-thread re-entry.
+        prtLock.lock();
         effLock.lock();     // thanks davidlafriniere, maple006, RedHat for pointing a deadlock occurring here
         try {
             Set<BuffStat> updatedBuffs = new LinkedHashSet<>();
@@ -4664,6 +4689,7 @@ public class Character extends AbstractCharacterObject {
             updateEffects(updatedBuffs);
         } finally {
             effLock.unlock();
+            prtLock.unlock();
         }
     }
 
@@ -4750,6 +4776,10 @@ public class Character extends AbstractCharacterObject {
     }
 
     public void cancelBuffStats(BuffStat stat) {
+        // 1.5.2 (nutnnut/Cosmic 8a2d4adaf): prtLock before effLock. dropBuffStats -> fetchBestEffectFromItemEffectHolder
+        // -> StatEffect.isActive -> getPartyMembersOnSameMap takes prtLock under effLock+chrLock, the reverse of
+        // registerEffect. Reached from attack handlers (dark sight), unequip (booster) and summons.
+        prtLock.lock();
         effLock.lock();
         try {
             List<Pair<Integer, BuffStatValueHolder>> cancelList = new LinkedList<>();
@@ -4774,6 +4804,7 @@ public class Character extends AbstractCharacterObject {
             }
         } finally {
             effLock.unlock();
+            prtLock.unlock();
         }
 
         cancelPlayerBuffs(Arrays.asList(stat));
@@ -5438,6 +5469,21 @@ public class Character extends AbstractCharacterObject {
 
     public AbstractPlayerInteraction getAbstractPlayerInteraction() {
         return client.getAbstractPlayerInteraction();
+    }
+
+    /**
+     * 1.5.2 (nutnnut/Cosmic 87fe36eda): getQuest() adds a NOT_STARTED status to the quest map on any lookup (an NPC
+     * checking a quest, a quest list shown) and never removes it, and every save wrote all of them to queststatus, so
+     * the table grew with rows that hold nothing. Such a row is skipped on save; getQuest() recreates it on demand.
+     * Anything with state is still written: a forfeit or completion count, an expiry, progress, medal maps.
+     */
+    static boolean isEmptyQuestPlaceholder(QuestStatus qs) {
+        return qs.getStatus() == QuestStatus.Status.NOT_STARTED
+                && qs.getForfeited() == 0
+                && qs.getCompleted() == 0
+                && qs.getExpirationTime() <= 0
+                && qs.getProgress().isEmpty()
+                && qs.getMedalMaps().isEmpty();
     }
 
     private List<QuestStatus> getQuests() {
@@ -6856,7 +6902,9 @@ public class Character extends AbstractCharacterObject {
     }
 
     public Collection<Summon> getSummonsValues() {
-        return summons.values();
+        // 1.5.2 (nutnnut/Cosmic ab7253d97): a copy. The live view threw ConcurrentModificationException in a
+        // handler's walk when a summon expired or was recast on another thread.
+        return new ArrayList<>(summons.values());
     }
 
     public void clearSummons() {
@@ -9892,6 +9940,9 @@ public class Character extends AbstractCharacterObject {
                     psStatus.setInt(1, id);
 
                     for (QuestStatus qs : getQuests()) {
+                        if (isEmptyQuestPlaceholder(qs)) {
+                            continue;
+                        }
                         psStatus.setInt(2, qs.getQuest().getId());
                         psStatus.setInt(3, qs.getStatus().getId());
                         psStatus.setInt(4, (int) (qs.getCompletionTime() / 1000));
@@ -11339,7 +11390,13 @@ public class Character extends AbstractCharacterObject {
 
 
     public void sendPacket(Packet packet) {
-        client.sendPacket(packet);
+        // 1.5.2 (nutnnut/Cosmic b1707d11b): empty(true) nulls client five minutes after logout while stale references
+        // to this character can still sit in a map's list. Drop the packet: throwing here aborted the whole map
+        // broadcast (entry and removal included) for every character after this one.
+        Client c = client;
+        if (c != null) {
+            c.sendPacket(packet);
+        }
     }
 
     @Override

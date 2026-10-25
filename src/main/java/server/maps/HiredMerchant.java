@@ -120,9 +120,24 @@ public class HiredMerchant extends AbstractMapObject {
     }
 
     private void broadcastToVisitors(Packet packet) {
+        purgeDefunctVisitors();
         for (Visitor visitor : visitors) {
             if (visitor != null) {
                 visitor.chr.sendPacket(packet);
+            }
+        }
+    }
+
+    /**
+     * 1.5.2 (nutnnut/Cosmic 0a9f08bf3): a visitor whose client is gone logged out mid-visit and was disposed without
+     * leaving the shop. Free its slot: broadcasting to it crashed every later join/leave, and the slot stayed taken
+     * for good. Called under visitorLock.
+     */
+    private void purgeDefunctVisitors() {
+        for (int i = 0; i < visitors.length; i++) {
+            Visitor visitor = visitors[i];
+            if (visitor != null && visitor.chr.getClient() == null) {
+                visitors[i] = null;
             }
         }
     }
@@ -150,6 +165,7 @@ public class HiredMerchant extends AbstractMapObject {
     public boolean addVisitor(Character visitor) {
         visitorLock.lock();
         try {
+            purgeDefunctVisitors();     // 1.5.2: or three ghosts keep the shop full for good
             int i = this.getFreeSlot();
             if (i > -1) {
                 visitors[i] = new Visitor(visitor, Instant.now());

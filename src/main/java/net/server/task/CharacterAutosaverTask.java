@@ -43,10 +43,19 @@ public class CharacterAutosaverTask extends BaseTask implements Runnable {  // t
         if (!YamlConfig.config.server.USE_AUTOSAVE) {
             return;
         }
+        // 1.5.2 (nutnnut/Cosmic e61767a42): the shutdown saves everyone itself; an autosave alongside it would write
+        // the same characters twice at once. Checked again per character and before the bots' save, since the
+        // shutdown can begin while this runs.
+        if (wserv.isShuttingDown()) {
+            return;
+        }
 
         PlayerStorage ps = wserv.getPlayerStorage();
         List<Character> bots = new ArrayList<>();
         for (Character chr : ps.getAllCharacters()) {
+            if (wserv.isShuttingDown()) {
+                return;
+            }
             if (chr == null) {
                 continue;
             }
@@ -61,6 +70,9 @@ public class CharacterAutosaverTask extends BaseTask implements Runnable {  // t
         }
         if (!bots.isEmpty()) {
             runAsync(() -> {
+                if (wserv.isShuttingDown()) {
+                    return;
+                }
                 BotStore.saveAll(bots);
                 BotRoster.recordSessions(bots, System.currentTimeMillis(), false);
                 BotYieldCaps.flush();   // ticket 15: bots' daily meso counts
