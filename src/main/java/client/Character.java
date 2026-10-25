@@ -10927,9 +10927,21 @@ public class Character extends AbstractCharacterObject {
     }
 
     private void silentPartyUpdateInternal(Party chrParty) {
-        if (chrParty != null) {
-            getWorldServer().updateParty(chrParty.getId(), PartyOperation.SILENT_UPDATE, getMPC());
+        if (chrParty == null) {
+            return;
         }
+
+        // 1.5.2: World.updateParty throws "no party with the specified partyid exists" for a party it no longer holds,
+        // and this runs in the middle of a map change (changeMapInternal), a door push and a logout. A party that was
+        // disbanded, or a world that went away under a shutdown, used to abort the warp after the client had already
+        // been sent the warp packet: the character stayed behind as a ghost, and one vanished party flooded the log
+        // with that exception. There is nothing to announce when nobody holds the party.
+        World world = getWorldServer();
+        if (world == null || world.getParty(chrParty.getId()) == null) {
+            return;
+        }
+
+        world.updateParty(chrParty.getId(), PartyOperation.SILENT_UPDATE, getMPC());
     }
 
     public static class SkillEntry {
