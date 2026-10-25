@@ -355,9 +355,11 @@ invalid maps and clumps are OK at this checkpoint. The saved daily mixed report 
 with older af-1, gu-8 and cb-2 leads, **not a fresh full-catalogue run on this build**.
 No real-client salon preview/coupon use, mount capture or full stock PQ clear was performed.
 
-Release integration uses this tested tree: upstream `5b628dda9` was merged cleanly before the full suite,
-then the separately tested bank fix was merged as `fbc368f97` and the full suite rerun. Only documentation
-changed after that verification. Push `151-salon-restoration` and fast-forward `origin/release-1.5.1` to the
-same final documentation commit, preserving the tested source. The separate wedding and bank branches are
-also pushed. Leave shared TEST running; wait for DeepSeek and Gemini before further work. No Live, Discord,
-private 1.6.0 server or client changes were made in this finishing pass. No owner decision is needed to wait.
+Release integration: `origin/release-1.5.1` advanced to `625308df5` while the final selected TEST run completed.
+Merged it cleanly as `466f82a18`, retaining the other agent's ticket-68 fixes and our wedding, salon coverage
+and bank reply changes. The full suite is rerun on that combined source; the result is recorded below.
+Shared TEST remains at the separately verified `fbc368f97`; the later ticket-68 merge was not redeployed by
+Codex, so its new script/mount/map changes still need their own TEST verification.
+After the full-suite result, push `151-salon-restoration` and fast-forward `origin/release-1.5.1` to the same
+documentation commit. Leave shared TEST running; wait for DeepSeek and Gemini before further work.
+No Live, Discord, private 1.6.0 server or client changes were made in this finishing pass.
