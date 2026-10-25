@@ -73,6 +73,9 @@ public final class BotSupplies {
         return main != null && outOfAmmo(bot, main, BotAttackDriver.packetLevel(bot, main));
     }
 
+    /** Memory-only: a failed ammo trip already chose the existing melee fallback, so do not create a trip loop. */
+    public static boolean shouldRetryAmmoTrip(int botId) { return !meleeWithoutAmmo.contains(botId); }
+
     private static boolean outOfAmmo(Character bot, BotAttackProfile main, int level) {
         if (main.route != BotAttackProfile.Route.RANGED) {
             return false;

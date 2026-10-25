@@ -270,6 +270,8 @@ public final class BotScrolling {
                 : ((Equip) result).getLevel() > levelBefore ? Outcome.SUCCESS : Outcome.FAIL;
         if (outcome == Outcome.CURSE) {
             BotHoldings.destroyHeldItem(bot, equip);
+            soloMapling.ArtificialPlayer.BotLifeSystem.LifeRuntime.event(bot,
+                    soloMapling.ArtificialPlayer.BotLifeSystem.LifeMemory.Event.BOOM);
         }
         if (worn && outcome != Outcome.FAIL && bot.getMap() != null) {
             bot.equipChanged();   // the boomed piece off the look, or the new stats into the totals

@@ -276,6 +276,13 @@ public final class BotConversation {
         return false;
     }
 
+    /** An explicit friend request may keep its own conversation open; other partners still hold the bot. */
+    public static boolean hasOtherChat(int botCharId, int exceptPlayerId) {
+        long now = System.currentTimeMillis();
+        return sessions.entrySet().stream().anyMatch(e -> e.getKey().botId() == botCharId
+                && e.getKey().playerId() != exceptPlayerId && now - e.getValue().state.lastAt <= IDLE_MS);
+    }
+
     /** Whether this player is mid-chat with this bot. */
     public static boolean isTalking(int botCharId, int playerId) {
         Session session = sessions.get(new Key(botCharId, playerId));
@@ -435,6 +442,8 @@ public final class BotConversation {
                             Heard heard) {
         Character bot = session.bot.getChr();
         Character player = session.player;
+        if (session.bot instanceof soloMapling.ArtificialPlayer.BotTypes.TrainingBot training
+                && soloMapling.ArtificialPlayer.BotLifeSystem.LifeRuntime.enabled()) training.lifeRuntime().memory().talked(asked);
         int slot = bot.getId() - BotStore.BOT_ID_BASE;
         boolean whisper = session.deliver != null;
         // Ticket 59: one fast read - rules, then one Decide call for intent, tone and con together
@@ -465,11 +474,22 @@ public final class BotConversation {
                     new Cue(triage, BotChatActions.Outcome.NONE, line));
             return;
         }
-        BotChatActions.Result action = triage.intent() != ChatTriage.Intent.NONE
+        boolean deferredParty = soloMapling.ArtificialPlayer.BotLifeSystem.LifeRuntime.enabled()
+                && triage.intent() == ChatTriage.Intent.PARTY
+                && java.util.Set.of(103000800, 221023200, 200080101, 930000000, 261000021).contains(player.getMapId())
+                && session.bot instanceof soloMapling.ArtificialPlayer.BotTypes.TrainingBot training
+                && training.lifeRuntime().friendAsk(player, true, System.currentTimeMillis());
+        BotChatActions.Result action = deferredParty ? new BotChatActions.Result(BotChatActions.Outcome.PARTY_DECLINED,
+                "PENDING_LIFE: no invite or join has happened yet.",
+                "lemme check a sec", null) : triage.intent() != ChatTriage.Intent.NONE
                 ? BotChatActions.act(session.bot, player, triage.intent(), line)
                 // ticket 59: come, help, guide, buff, buddy and the moods - the server decides and does it
                 : soloMapling.ArtificialPlayer.BotConvo.ConvoActions.onIntent(session.bot, player, read, line);
         Cue cue = new Cue(triage, action.outcome(), line, action.mustMention());
+        if (action.awaitingLife()) {
+            deliver(session, action.scripted(), asked, ChatStats.Tier.SCRIPTED, "life request pending", cue);
+            return;
+        }
         BotRoster.Activity doing = session.bot.activitySnapshot();
         String activity = BotChatPrompt.activityPhrase(doing == null ? null : doing.name());
         if (action.outcome() == BotChatActions.Outcome.NONE) {
@@ -544,6 +564,11 @@ public final class BotConversation {
                         soloMapling.ArtificialPlayer.BotConvo.ConvoActions.onProposal(session.bot, player, contract.get(),
                                 read, line);
                 if (p.result().outcome() != BotChatActions.Outcome.NONE) {
+                    if (p.result().awaitingLife()) {
+                        deliver(session, p.result().scripted(), asked, ChatStats.Tier.SCRIPTED,
+                                "life request pending", new Cue(triage, p.result().outcome(), line));
+                        return;
+                    }
                     String said = contract.get().text();
                     boolean fits = p.result().fits(said);
                     deliver(session, fits ? new soloMapling.ArtificialPlayer.BotConvo.ConvoLines.Line(said, -1, "llm")
@@ -635,7 +660,10 @@ public final class BotConversation {
                 + soloMapling.ArtificialPlayer.BotCoupleSystem.BotCouples.promptLine(bot.getId()) // ticket 58: a partner
                 + soloMapling.ArtificialPlayer.BotGuildSystem.BotGuilds.promptLine(bot.getId()) // 1.5.0: its guild
                 + soloMapling.ArtificialPlayer.BotDramaSystem.BotDrama.promptLine(bot.getId(), player) // 1.5.0: romance, beef
-                + soloMapling.ArtificialPlayer.BotConvo.LevelTalk.promptLine(session.bot, now); // rc6: level, grind, news
+                + soloMapling.ArtificialPlayer.BotConvo.LevelTalk.promptLine(session.bot, now)
+                + (soloMapling.ArtificialPlayer.BotLifeSystem.LifeRuntime.enabled()
+                    && session.bot instanceof soloMapling.ArtificialPlayer.BotTypes.TrainingBot training
+                    ? training.lifeRuntime().prompt() : "");
     }
 
     /**

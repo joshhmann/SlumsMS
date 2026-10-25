@@ -1157,6 +1157,55 @@ final class GameQaWorld implements QaWorld {
     }
 
     @Override
+    public boolean botLifeExecutionEnabled() {
+        return soloMapling.ArtificialPlayer.BotTypes.TrainingBot.lifeExecutionEnabled();
+    }
+    @Override public boolean botLifeAutomaticEnabled() {
+        return botLifeExecutionEnabled() && soloMapling.ArtificialPlayer.BotLifeSystem.LifeRuntime.enabled();
+    }
+    @Override public boolean triggerLifeNeed(int botId) {
+        if (!botLifeAutomaticEnabled()) return false;
+        if (CharacterStorage.getBotById(botId) instanceof soloMapling.ArtificialPlayer.BotTypes.TrainingBot bot
+                && bot.isGrinding()) {
+            soloMapling.ArtificialPlayer.BotSupplySystem.BotVitals.drainHpPotionsTo(bot.getChr(), 0);
+            bot.lifeRuntime().changed();
+            bot.nudgeSoon(300);
+            return true;
+        }
+        return false;
+    }
+
+    @Override
+    public soloMapling.ArtificialPlayer.BotLifeSystem.LifeActivityQueue.Request prepareLifeRestock(int botId) {
+        if (CharacterStorage.getBotById(botId) instanceof soloMapling.ArtificialPlayer.BotTypes.TrainingBot bot
+                && bot.isGrinding()) {
+            var choice = new soloMapling.ArtificialPlayer.BotLifeSystem.LifeDecision.Result(List.of(),
+                    java.util.Optional.of(soloMapling.ArtificialPlayer.BotLifeSystem.LifeDecision.Activity.RESTOCK),
+                    soloMapling.ArtificialPlayer.BotLifeSystem.LifeDecision.Outcome.CHOOSE);
+            return bot.prepareLifeActivity(choice);
+        }
+        return null;
+    }
+
+    @Override
+    public String submitLifeRestock(int botId,
+            soloMapling.ArtificialPlayer.BotLifeSystem.LifeActivityQueue.Request request) {
+        return CharacterStorage.getBotById(botId) instanceof soloMapling.ArtificialPlayer.BotTypes.TrainingBot bot
+                ? bot.submitLifeActivity(request).name() : "CLOSED";
+    }
+
+    @Override
+    public List<String> botLifeReport(int botId) {
+        if (!(CharacterStorage.getBotById(botId) instanceof soloMapling.ArtificialPlayer.BotTypes.TrainingBot bot)) {
+            return List.of("STATE bot=" + botId + " stopped=true");
+        }
+        var state = bot.lifeActivityState();
+        return List.of((bot.isGrinding() ? "READY" : "STATE") + " bot=" + botId + " phase="
+                + bot.lifePhase().name() + " waiting=" + state.waiting() + " active=" + state.active()
+                + " lastEnded=" + state.lastEnded() + " end=" + state.end());
+    }
+
+    @Override
     public List<String> grinderReport(List<Integer> ids, String what) {
         return soloMapling.ArtificialPlayer.BotCombatSystem.CombatStaging.report(ids, what);
     }

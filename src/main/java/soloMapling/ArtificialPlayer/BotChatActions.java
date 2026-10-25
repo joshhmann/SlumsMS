@@ -56,6 +56,7 @@ public final class BotChatActions {
      */
     public record Result(Outcome outcome, String fact, String scripted, String mustMention) {
         public static final Result NONE = new Result(Outcome.NONE, null, null, null);
+        public boolean awaitingLife() { return fact != null && fact.startsWith("PENDING_LIFE:"); }
 
         Result(Outcome outcome, String fact, String scripted) {
             this(outcome, fact, scripted, null);
@@ -67,6 +68,7 @@ public final class BotChatActions {
          * so words and actions always match.
          */
         public boolean fits(String reply) {
+            if (awaitingLife()) return scripted != null && scripted.equals(reply);
             String text = " " + reply.toLowerCase(Locale.ROOT).replaceAll("[^a-z0-9' ]", " ") + " ";
             boolean yes = YES.matcher(text).find();
             boolean no = NO.matcher(text).find();
@@ -115,6 +117,13 @@ public final class BotChatActions {
         Character chr = bot.getChr();
         if (chr == null || player == null) {
             return Result.NONE;
+        }
+        if (soloMapling.ArtificialPlayer.BotLifeSystem.LifeRuntime.enabled() && intent == ChatTriage.Intent.PARTY
+                && Set.of(103000800, 221023200, 200080101, 930000000, 261000021).contains(player.getMapId())
+                && bot instanceof TrainingBot training && !training.isStartingLifeActivity()
+                && training.lifeRuntime().friendAsk(player, true, System.currentTimeMillis())) {
+            return new Result(Outcome.PARTY_DECLINED, "PENDING_LIFE: no invite or join has happened yet.",
+                    "lemme check a sec");
         }
         Result result = switch (intent) {
             case PARTY -> party(bot, chr, player, false);

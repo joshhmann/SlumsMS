@@ -1,13 +1,22 @@
 #!/bin/bash
 # One-screen status of the TEST server: version, uptime, errors, bots, auto-QA and health. Read-only.
 #
-#   tools/ops/test-status [--since "30 min ago"]
+#   tools/ops/test-status [--feature] [--since "30 min ago"]
 set -euo pipefail
 SINCE="1 hour ago"
-[ "${1:-}" = "--since" ] && SINCE="${2:?--since needs a value}"
+FEATURE=0
+while [ $# -gt 0 ]; do
+ case "$1" in
+  --feature) FEATURE=1 ;;
+  --since) SINCE="${2:?--since needs a value}"; shift ;;
+  *) echo 'unknown status option' >&2; exit 2 ;;
+ esac
+ shift
+done
 # ssh joins its arguments into one string, so quote the value for the remote shell
-ssh root@192.168.0.164 "bash -s -- $(printf %q "$SINCE")" <<'REMOTE'
+ssh root@192.168.0.164 "bash -s -- $(printf %q "$SINCE") $FEATURE" <<'REMOTE'
 SINCE=$1; U=slums-persistence-test; S=/opt/mapleroot-dev/persistence-test/Server
+if [ "$2" = 1 ]; then U=slums-life160; S=/opt/mapleroot-dev/bot-life-160/Server; fi
 echo "unit: $(systemctl is-active $U) since $(systemctl show $U -p ActiveEnterTimestamp --value)"
 echo "commit: $(cat $S/DEPLOYED_COMMIT 2>/dev/null || echo unknown)"
 journalctl -u $U --since "$(systemctl show $U -p ActiveEnterTimestamp --value)" | grep -m1 -oE "SlumsMS v[^ ]+"
@@ -22,6 +31,10 @@ def load(p):
 h = load('data/autoqa/health-latest.json')
 if h: print('health:', h.get('status'), {k: v.get('status') for k, v in h.get('checks', {}).items()})
 r = load('data/autoqa/latest.json')
+b = load('data/autoqa/bot-life.json')
+if b:
+    print('bot life:', {k: b.get(k) for k in ('onlineBots', 'decisions', 'accepted', 'cpuNanos')})
+    print('  activities:', b.get('activities'), 'Henesys levels:', b.get('henesysLevels'))
 if h:
     for k in ('foothold', 'foothold (sent)'):
         c = (h.get('checks') or {}).get(k)

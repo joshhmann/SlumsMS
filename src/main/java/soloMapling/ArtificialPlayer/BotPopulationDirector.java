@@ -557,7 +557,9 @@ public final class BotPopulationDirector {
         BotPersonality.Activity fresh = traits == null ? BotPersonality.Activity.GRIND
                 : BotPersonality.choose(traits, ThreadLocalRandom.current());
         // A resumed session keeps its activity (setAndStartBots prefers it); a fresh one is drawn from the personality.
-        BotTypeManager.setAndStartBots(List.of(charId), fresh.type);
+        BotTypeManager.setAndStartBots(List.of(charId),
+                soloMapling.ArtificialPlayer.BotLifeSystem.LifeRuntime.enabled()
+                        ? BotTypeManager.BotType.TRAINING_BOT : fresh.type);
         return true;
     }
 

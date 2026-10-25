@@ -4,6 +4,11 @@ import soloMapling.ArtificialPlayer.BotChatTuning;
 import soloMapling.ArtificialPlayer.BotRoster;
 
 import client.Character;
+import soloMapling.ArtificialPlayer.BotLifeSystem.LifeActivityQueue;
+import soloMapling.ArtificialPlayer.BotLifeSystem.LifeDecision;
+import soloMapling.ArtificialPlayer.BotLifeSystem.RestockTripExecutor;
+import soloMapling.ArtificialPlayer.BotLifeSystem.LifeRuntime;
+import soloMapling.ArtificialPlayer.BotLifeSystem.LifeExecutor;
 import client.inventory.InventoryType;
 import client.inventory.Item;
 import constants.id.MapId;
@@ -287,9 +292,19 @@ public class TrainingBot extends BotSM {
 
     // ── Macro brain state ────────────────────────────────────────────────────
     enum Phase { INIT, IN_TOWN, SHOP_TRAVEL, SHOP_DWELL, SHOP_RETURN, DECIDE, GO_TRAIN, GRIND, GO_TOWN,
-        BREAK_TRAVEL, BREAK_REST }
+        BREAK_TRAVEL, BREAK_REST, LIFE_TRAVEL, LIFE_DWELL }
 
     private volatile Phase phase = Phase.INIT;
+    /** Read-only telemetry for the daily-life shadow inspector; not another owner of the FSM. */
+    public record LifePhase(String name, long sinceMs) {}
+    private volatile LifePhase lifePhase = new LifePhase("INIT", 0);
+    private final LifeActivityQueue lifeActivities = new LifeActivityQueue();
+    private final LifeRuntime dailyLife;
+    private int lifeDestination = -1;
+    private LifeDecision.Activity lifeVisit = LifeDecision.Activity.HANG_OUT;
+    public LifeRuntime lifeRuntime() { return dailyLife; }
+
+    public LifePhase lifePhase() { return lifePhase; }
     // Ticket 21: a world event called this bot (WorldEventReactions); the macro tick answers it.
     private volatile boolean eventCall = false;
     private volatile boolean restockCall = false; // rc6 say-do: it said "brb pots": go and buy them
@@ -371,6 +386,7 @@ public class TrainingBot extends BotSM {
 
     public TrainingBot(Character character) {
         super(character);
+        dailyLife = new LifeRuntime(this);
         botType = "TrainingBot";
         dialoguePath = "TrainingBotDialogue.yaml";
     }
@@ -430,7 +446,8 @@ public class TrainingBot extends BotSM {
     // Grind self-repair (teleport/bail), crowd-bail, and the session-end walk-off all hold during
     // this - a bot that says yes and then blinks across the map breaks the exchange.
     boolean recruitingNow() { // package-visible: GrindBreakRoutine defers its stand-up on a live recruit
-        return menuActive() || BotRecruitManager.isArmed(getChr().getId());
+        return menuActive() || BotRecruitManager.isArmed(getChr().getId())
+                || LifeRuntime.enabled() && soloMapling.ArtificialPlayer.BotConversation.hasAnyChat(getChr().getId());
     }
 
     // Conversing players expect snappy replies; and once the bot has said "invite me" it must keep
@@ -451,10 +468,23 @@ public class TrainingBot extends BotSM {
         if (phase == Phase.SHOP_DWELL) {
             BotWanderSystem.stop(getChr()); // leaving a shop: end the flavor wander before travelling out
         }
-        if (phase == Phase.IN_TOWN) {
+        if (phase == Phase.IN_TOWN || phase == Phase.LIFE_DWELL) {
             TownLoiter.stop(getChr()); // leaving town: end the loiter (stop fidget, free the ledge claim)
         }
         phase = next;
+        if (getChr() != null && next != Phase.LIFE_TRAVEL && next != Phase.GO_TRAIN) {
+            soloMapling.ArtificialPlayer.BotLifeSystem.LifeTownSlots.release(getChr().getId());
+        }
+        lifePhase = new LifePhase(next.name(), now());
+        if (dailyLife != null) dailyLife.phase(next.name(), now());
+        lifeActivities.invalidateWaiting();
+        if (next == Phase.GRIND) {
+            var active = lifeActivities.state();
+            if (active.active() != 0) {
+                lifeActivities.finish(active.active(), LifeActivityQueue.End.COMPLETED);
+                lifeNote("RETURNED request=" + active.active()); // returned to grinding, not proof of a purchase
+            }
+        }
         phaseEntered = false;
         moveDone = false;
         moveOk = false;
@@ -475,6 +505,7 @@ public class TrainingBot extends BotSM {
                 String.format("%s TrainingBot phase: %s", chr.getName(), phase), String.format("%s", phase));
 
         if (handleDeath(chr)) {
+            cancelLifeActivity();
             return; // 1.5.0 rc3: lying dead, or just respawned in town
         }
 
@@ -489,6 +520,7 @@ public class TrainingBot extends BotSM {
         }
         if (eventCall) {
             eventCall = false;
+            cancelLifeActivity();
             answerEventCall(chr);
         }
 
@@ -499,6 +531,10 @@ public class TrainingBot extends BotSM {
             return; // 1.5.1: a player is talking to it: no trip out of here until the chat hold ends
         }
 
+        // Existing urgent work wins before a new life choice is accepted or announced.
+        if (LifeRuntime.enabled()) dailyLife.tick(now());
+        runLifeActivities();
+
         switch (phase) {
             case INIT -> doInit();
             case IN_TOWN -> doInTown();
@@ -508,6 +544,8 @@ public class TrainingBot extends BotSM {
                     Phase.DECIDE, Phase.DECIDE);
             case DECIDE -> doDecide();
             case GO_TRAIN -> doTravel(currentTrainMapId, Phase.GRIND, Phase.DECIDE);
+            case LIFE_TRAVEL -> doTravel(lifeDestination, Phase.LIFE_DWELL, Phase.DECIDE);
+            case LIFE_DWELL -> doLifeDwell();
             case GRIND -> doGrind();
             case GO_TOWN -> doTravel(homeMapId >= 0 ? homeMapId : MapId.HENESYS,
                     Phase.IN_TOWN, Phase.IN_TOWN);
@@ -621,6 +659,7 @@ public class TrainingBot extends BotSM {
      * grind break is left cleanly first (no stale spot claim, train slot, break sign or remainder); it re-decides.
      */
     public void leaveForChannelMove() {
+        cancelLifeActivity();
         Phase p = phase;
         if (p != Phase.GRIND && !isBreak(p)) {
             return;
@@ -653,6 +692,209 @@ public class TrainingBot extends BotSM {
         return true;
     }
 
+    /** Prepare once, then retry with the same request object. A newer plan makes older waiting plans stale. */
+    public LifeActivityQueue.Request prepareLifeActivity(LifeDecision.Result decision) {
+        return lifeActivities.prepare(decision, now(), LifeActivityQueue.MAX_WAIT_MS);
+    }
+
+    /** Safe to call from a command/worker: it queues work and never changes phase on the calling thread. */
+    public LifeActivityQueue.Offer submitLifeActivity(LifeActivityQueue.Request request) {
+        if (!lifeExecutionEnabled()) return LifeActivityQueue.Offer.DISABLED;
+        var offered = lifeActivities.offer(request, now());
+        if (offered == LifeActivityQueue.Offer.QUEUED || offered == LifeActivityQueue.Offer.REPLACED) {
+            nudgeSoon(300); // outside the queue lock; the existing wheel still owns the actual update
+        }
+        return offered;
+    }
+
+    public LifeActivityQueue.State lifeActivityState() { return lifeActivities.state(); }
+    public boolean isStartingLifeActivity() { return lifeActivities.isStartingHere(); }
+
+    public boolean cancelLifeRequest(LifeActivityQueue.Request request) {
+        return lifeActivities.cancelWaiting(request);
+    }
+
+    public static boolean lifeExecutionEnabled() {
+        return (LifeRuntime.enabled() || soloMapling.qa.QaSuite.isEnabled())
+                && Boolean.getBoolean("slums.botlife.execute");
+    }
+
+    private boolean freeForLifeActivity() {
+        if (LifeRuntime.enabled()) return freeForAutomaticLifeActivity(now());
+        return getRunning() && phase == Phase.GRIND && !recruitingNow()
+                && getChr() != null && getChr().getMap() != null
+                && !soloMapling.ArtificialPlayer.BotCommitments.inFlight(this)
+                && !soloMapling.ArtificialPlayer.BotConversation.hasAnyChat(getChr().getId())
+                && soloMapling.ArtificialPlayer.BotPopulationDirector.mayLogOut(this);
+    }
+
+    private void runLifeActivities() {
+        if (!lifeActivities.hasWaiting()) return;
+        var result = lifeActivities.drain(now(), lifeExecutionEnabled(), this::freeForLifeActivity,
+                LifeRuntime.enabled() ? new LifeExecutor(this) : new RestockTripExecutor(this));
+        if (result.attempt().isPresent()) {
+            lifeNote("REQUEST request=" + result.number() + " outcome=" + result.attempt().get().status());
+            if (LifeRuntime.enabled() && result.attempt().get().accepted().isPresent()) {
+                dailyLife.accepted(result.attempt().get().accepted().get().activity(), now());
+                var action = result.attempt().get().accepted().get().activity();
+                if (action == LifeDecision.Activity.PARTY_QUEST
+                        || action == LifeDecision.Activity.HELP_FRIEND && phase == Phase.GRIND) {
+                    lifeActivities.finish(result.number(), LifeActivityQueue.End.COMPLETED);
+                }
+            }
+        } else if (result.status() == LifeActivityQueue.RunStatus.STALE) {
+            lifeNote("STALE request=" + result.number());
+        }
+    }
+
+    /** Concrete start: only this bot's update may call it through the queue's executor callback. */
+    public boolean startLifeRestockTrip() {
+        if (!lifeActivities.isStartingHere() || !lifeExecutionEnabled() || !freeForLifeActivity()) return false;
+        leaveGrind();
+        enterPhase(Phase.GO_TOWN);
+        soloMapling.ArtificialPlayer.BotConvo.SayDo.event(getChr(),
+                soloMapling.ArtificialPlayer.BotConvo.SayDo.Ev.RESUPPLY, homeMapId);
+        lifeNote("START activity=RESTOCK");
+        return true;
+    }
+
+    private void cancelLifeActivity() {
+        lifeActivities.invalidateWaiting();
+        var active = lifeActivities.state();
+        if (active.active() != 0) {
+            lifeActivities.finish(active.active(), LifeActivityQueue.End.CANCELLED);
+            lifeNote("CANCELLED request=" + active.active());
+        }
+    }
+
+    public boolean freeForAutomaticLifeActivity(long at) {
+        int requester = dailyLife == null ? -1 : dailyLife.requester(at);
+        return getRunning() && getChr() != null && getChr().getMap() != null
+                && (phase == Phase.GRIND || phase == Phase.IN_TOWN || phase == Phase.LIFE_DWELL)
+                && !soloMapling.ArtificialPlayer.BotCommitments.inFlight(this)
+                && !soloMapling.ArtificialPlayer.BotConversation.hasOtherChat(getChr().getId(), requester)
+                && soloMapling.ArtificialPlayer.BotPopulationDirector.mayLogOut(this, requester)
+                && (!recruitingNow() || requester >= 0);
+    }
+
+    public boolean canStartLifeActivity(LifeDecision.Activity activity, long at) {
+        if (!LifeRuntime.enabled() || getChr() == null || getChr().getMap() == null) return false;
+        boolean safePhase = phase == Phase.GRIND || phase == Phase.IN_TOWN || phase == Phase.LIFE_DWELL;
+        if (!safePhase) return false;
+        return switch (activity) {
+            case GRIND -> true;
+            case RESTOCK -> phase == Phase.GRIND && dailyLife.restockReady(at);
+            case MOVE_MAP, BREAK -> phase == Phase.GRIND;
+            case HANG_OUT, SHOW_OFF -> (activity != LifeDecision.Activity.SHOW_OFF || getChr().getLevel() >= 70)
+                    && lifeDestinationAvailable(dailyLife.townDestination());
+            case FREE_MARKET, SELL -> (activity == LifeDecision.Activity.FREE_MARKET
+                    || soloMapling.Economy.BotShops.enabled() && soloMapling.Economy.BotShops.merchantMinded(getChr().getId()))
+                    && lifeDestinationAvailable(910000000);
+            case HELP_FRIEND -> dailyLife.friend(at) != null && !dailyLife.partyAsked()
+                    && lifeDestinationAvailable(dailyLife.friend(at).getMapId());
+            case PARTY_QUEST -> dailyLife.friend(at) != null && dailyLife.partyAsked();
+            case LOG_OUT -> {
+                var member = BotRoster.loadedMember(getChr().getId() - soloMapling.ArtificialPlayer.BotStore.BOT_ID_BASE);
+                if (member == null || member.lastLoginAt() <= 0 || member.sessionMinutes() <= 0
+                        || at - member.lastLoginAt() < member.sessionMinutes() * 60_000L) yield false;
+                // Guild departures stay with the existing director's batch plan. Two independent actors must
+                // never both see "two online" and each remove the guild's last member.
+                boolean enoughGuild = getChr().getGuildId() == 0;
+                yield member != null && enoughGuild;
+            }
+        };
+    }
+
+    private boolean lifeDestinationAvailable(int mapId) {
+        var factory = soloMapling.server.SoloMaplingUtilities.world()
+                .getChannel(getChr().getMap().getChannelId()).getMapFactory();
+        if (!factory.isMapLoaded(mapId)) return false;
+        var map = factory.getMap(mapId);
+        return mapId == getChr().getMapId() || soloMapling.ArtificialPlayer.BotMapCap.hasRoom(map);
+    }
+
+    public boolean startLifeActivity(LifeDecision.Activity activity) {
+        long at = now();
+        if (!lifeActivities.isStartingHere() || !lifeExecutionEnabled() || !freeForAutomaticLifeActivity(at)
+                || !canStartLifeActivity(activity, at)) return false;
+        if (activity == LifeDecision.Activity.RESTOCK) return startLifeRestockTrip();
+        if (activity == LifeDecision.Activity.BREAK) {
+            return breaks.begin(getChr(), grind, Math.max(MID_SESSION_FLOOR_MS, grindUntilMs - at));
+        }
+        if (activity == LifeDecision.Activity.LOG_OUT) {
+            return soloMapling.ArtificialPlayer.BotPopulationDirector.logOut(getChr().getId()
+                    - soloMapling.ArtificialPlayer.BotStore.BOT_ID_BASE);
+        }
+        if (activity == LifeDecision.Activity.PARTY_QUEST) {
+            Character player = dailyLife.friend(at);
+            var result = soloMapling.ArtificialPlayer.BotChatActions.act(this, player,
+                    soloMapling.ArtificialPlayer.BotBrainSystem.ChatTriage.Intent.PARTY);
+            return result.outcome() == soloMapling.ArtificialPlayer.BotChatActions.Outcome.PARTY_ACCEPTED
+                    || result.outcome() == soloMapling.ArtificialPlayer.BotChatActions.Outcome.PARTY_ALREADY;
+        }
+        Character requestedFriend = activity == LifeDecision.Activity.HELP_FRIEND ? dailyLife.friend(at) : null;
+        if (activity == LifeDecision.Activity.HELP_FRIEND && requestedFriend == null) return false;
+        int destination = activity == LifeDecision.Activity.HELP_FRIEND ? requestedFriend.getMapId()
+                : activity == LifeDecision.Activity.SELL || activity == LifeDecision.Activity.FREE_MARKET
+                ? 910000000 : dailyLife.townDestination();
+        if (java.util.Set.of(LifeDecision.Activity.HELP_FRIEND, LifeDecision.Activity.HANG_OUT,
+                LifeDecision.Activity.SHOW_OFF, LifeDecision.Activity.SELL, LifeDecision.Activity.FREE_MARKET).contains(activity)
+                && destination != getChr().getMapId()) {
+            var target = soloMapling.server.SoloMaplingUtilities.world().getChannel(getChr().getMap().getChannelId())
+                    .getMapFactory().getMap(destination);
+            if (!soloMapling.ArtificialPlayer.BotLifeSystem.LifeTownSlots.reserve(getChr().getId(), target)) return false;
+        }
+        if (phase == Phase.GRIND) leaveGrind();
+        if (activity == LifeDecision.Activity.GRIND || activity == LifeDecision.Activity.MOVE_MAP) {
+            if (activity == LifeDecision.Activity.MOVE_MAP) mapCrowdCooldown.put(getChr().getMapId(), at + MAP_EXCLUDE_MS);
+            enterPhase(Phase.DECIDE);
+        } else if (activity == LifeDecision.Activity.HELP_FRIEND) {
+            Character player = requestedFriend;
+            setTrainTarget(player.getMapId(), Math.max(1, MapMobIndex.level(player.getMapId())));
+            enterPhase(getChr().getMapId() == player.getMapId() ? Phase.GRIND : Phase.GO_TRAIN);
+        } else {
+            lifeDestination = activity == LifeDecision.Activity.FREE_MARKET || activity == LifeDecision.Activity.SELL
+                    ? 910000000 : dailyLife.townDestination();
+            lifeVisit = activity;
+            enterPhase(getChr().getMapId() == lifeDestination ? Phase.LIFE_DWELL : Phase.LIFE_TRAVEL);
+        }
+        lifeNote("START activity=" + activity);
+        return true;
+    }
+
+    /** A chosen friend interrupt ends the exact old dwell before another request can start. */
+    public boolean interruptLifeDwell(long requestNumber) {
+        return phase == Phase.LIFE_DWELL && lifeActivities.finish(requestNumber, LifeActivityQueue.End.CANCELLED);
+    }
+
+    public void keepLifeActivity(LifeDecision.Activity activity, long until) {
+        if (activity == LifeDecision.Activity.GRIND) grindUntilMs = until;
+        else phaseDeadlineMs = until;
+    }
+
+    private void doLifeDwell() {
+        if (!phaseEntered) {
+            phaseEntered = true;
+            phaseDeadlineMs = now() + dailyLife.memory().profile().townDurationMs();
+            TownLoiter.settle(getChr());
+            if (lifeVisit == LifeDecision.Activity.SELL || lifeVisit == LifeDecision.Activity.FREE_MARKET) {
+                if (soloMapling.Economy.BotShops.enabled() && soloMapling.Economy.BotShops.merchantMinded(getChr().getId())) {
+                    soloMapling.Economy.BotShops.open(getChr(), getChr().getMap().getChannelId(), 0, null, false);
+                }
+            }
+            lifeNote("ARRIVED activity=" + lifeVisit);
+        }
+        soloMapling.ArtificialPlayer.BotTownSystem.PersonalSpace.maybeKeep(getChr());
+        if (now() >= phaseDeadlineMs && freeForAutomaticLifeActivity(now())) enterPhase(Phase.DECIDE);
+    }
+
+    private void lifeNote(String text) {
+        if (soloMapling.qa.QaLog.on(soloMapling.qa.QaLog.Topic.HABITS)) {
+            soloMapling.qa.QaLog.any(soloMapling.qa.QaLog.Topic.HABITS,
+                    "LIFE " + text + " bot=" + getChr().getName());
+        }
+    }
+
     /** rc6 say-do: grinding now (a "brb" line would be a lie: it keeps fighting). */
     public boolean isGrinding() {
         return phase == Phase.GRIND;
@@ -661,7 +903,7 @@ public class TrainingBot extends BotSM {
     /** rc6 say-do: resting (a grind break, in town, or at a shop): a "brb"/"afk" line is true as it is. */
     public boolean isIdleNow() {
         Phase p = phase;
-        return isBreak(p) || p == Phase.IN_TOWN || p == Phase.SHOP_DWELL;
+        return isBreak(p) || p == Phase.IN_TOWN || p == Phase.SHOP_DWELL || p == Phase.LIFE_DWELL;
     }
 
     /** A world event wants this bot: it drops what it is doing at its next tick (see answerEventCall). */
@@ -685,10 +927,14 @@ public class TrainingBot extends BotSM {
                 leaveGrind();
                 enterPhase(Phase.DECIDE);
             }
-            case IN_TOWN -> {
+            case IN_TOWN, LIFE_DWELL -> {
                 if (!saunaTripActive) {
                     enterPhase(Phase.DECIDE);
                 }
+            }
+            case LIFE_TRAVEL -> {
+                GCMovement.stop(chr);
+                enterPhase(Phase.DECIDE);
             }
             default -> {
             }
@@ -742,6 +988,7 @@ public class TrainingBot extends BotSM {
         if (currentTrainMapId >= 0) {
             state.put(BotRoster.TRAIN_STATE, currentTrainMapId);
         }
+        if (LifeRuntime.enabled() || dailyLife.restored()) state.put("life", dailyLife.memory().save());
         return new BotRoster.Activity(GRIND_ACTIVITY, Math.max(0, homeMapId), state);
     }
 
@@ -784,7 +1031,8 @@ public class TrainingBot extends BotSM {
             }
             phaseDeadlineMs = now() + (chatting
                     ? Math.max(dwellMs(), soloMapling.ArtificialPlayer.BotConversation.holdMs(getChr().getId()))
-                    : errand ? shopDwellMs() : dwellMs());
+                    : errand ? shopDwellMs() : LifeRuntime.enabled()
+                    ? dailyLife.memory().profile().townDurationMs() : dwellMs());
             if (rng.nextInt(3) == 0) {
                 BotEmote(getChr(), 1 + rng.nextInt(7)); // a little life in town
             }
@@ -1971,7 +2219,8 @@ public class TrainingBot extends BotSM {
     // been grinding a while: caught at a random point inside a normal session, floored so a just-arrived bot
     // doesn't instantly turn around. One-time — the flag is consumed here, so every later session is full.
     private long grindSessionMs() {
-        long full = GRIND_MIN_MS + (long) (rng.nextDouble() * (GRIND_MAX_MS - GRIND_MIN_MS));
+        long full = LifeRuntime.enabled() ? dailyLife.memory().profile().grindDurationMs()
+                : GRIND_MIN_MS + (long) (rng.nextDouble() * (GRIND_MAX_MS - GRIND_MIN_MS));
         if (midSessionGrind) {
             midSessionGrind = false;
             return Math.max(MID_SESSION_FLOOR_MS, (long) (rng.nextDouble() * full));
@@ -2072,6 +2321,8 @@ public class TrainingBot extends BotSM {
     // Release combat + movement when the bot stops (FINISHED / converted / manually stopped).
     @Override
     public synchronized void stopScheduledTask() {
+        soloMapling.ArtificialPlayer.BotLifeSystem.LifeTownSlots.release(getChr().getId());
+        lifeActivities.close();
         ACTIVE_GRINDERS.remove(this);
         swingClock.disarm();
         // Disarm the Sleepywood sauna errand: its door-walk cap and the dwell that walks the bot out of the sauna are

@@ -295,6 +295,21 @@ public interface QaWorld {
     default void unstageGrinders(List<Integer> ids) {
     }
 
+    default boolean botLifeExecutionEnabled() { return false; }
+    default boolean botLifeAutomaticEnabled() { return false; }
+    default boolean triggerLifeNeed(int botId) { return false; }
+
+    default soloMapling.ArtificialPlayer.BotLifeSystem.LifeActivityQueue.Request prepareLifeRestock(int botId) {
+        return null;
+    }
+
+    default String submitLifeRestock(int botId,
+            soloMapling.ArtificialPlayer.BotLifeSystem.LifeActivityQueue.Request request) {
+        return "CLOSED";
+    }
+
+    default List<String> botLifeReport(int botId) { return List.of(); }
+
     /** One line per staged bot: {@code buffs | position | habits}. */
     default List<String> grinderReport(List<Integer> ids, String what) {
         return List.of();

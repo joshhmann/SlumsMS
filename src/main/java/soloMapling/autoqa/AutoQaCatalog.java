@@ -676,6 +676,32 @@ public final class AutoQaCatalog {
                         has("VB TRADE offered=true itemDelta=1 mesoDelta=5000"), noRefusal())
                 .build());
 
+        c.add(Check.auto("t-bl-1", "Bot life shadow policy and rejected-action safeguards").minutes(1)
+                .step(run("bl-1"), waitFor("LIFE REFUSAL accepted=false actionFact=false", 10))
+                .expect(has("LIFE SHADOW case=socialite selected=HANG_OUT"),
+                        has("LIFE SHADOW case=empty-potions selected=RESTOCK"),
+                        has("LIFE SHADOW case=helper selected=HELP_FRIEND"),
+                        has("LIFE REFUSAL accepted=false actionFact=false"))
+                .build());
+        c.add(Check.half("t-bl-2", "One request starts one bot restock trip",
+                        "watch the staged bot reach town and return; a started trip does not prove a purchase").minutes(3)
+                .step(say("!warp 104040000"), waitSeconds(3), run("bl-2"), waitFor("LIFE READY bot=", 60),
+                        qaDo("restock"), waitFor("HABITS LIFE START activity=RESTOCK bot={bot}(?:\\s|$)", 30),
+                        qaDo("repeat"), waitSeconds(5))
+                .expect(has("LIFE QUEUED request=\\d+ result=QUEUED"),
+                        has("LIFE REPLAY request=\\d+ result=(DUPLICATE|STALE)"),
+                        atLeast(1, "HABITS LIFE START activity=RESTOCK bot={bot}(?:\\s|$)"),
+                        atMost(1, "HABITS LIFE START activity=RESTOCK bot={bot}(?:\\s|$)", null, null))
+                .build());
+        c.add(Check.half("t-bl-3", "Bot chooses restocking from a real supply need",
+                        "watch the trip and supplies after the shop visit").minutes(3)
+                .step(say("!warp 104040000"), waitSeconds(3), run("bl-3"), waitFor("LIFE READY bot=", 60),
+                        qaDo("need"), waitFor("HABITS LIFE DECISION bot={bot} selected=RESTOCK", 40),
+                        waitFor("HABITS LIFE START activity=RESTOCK bot={bot}(?:\\s|$)", 30))
+                .expect(has("LIFE NEED bot=\\d+ HP-potions=0; no trip was directly requested"),
+                        has("HABITS LIFE DECISION bot={bot} selected=RESTOCK"),
+                        has("HABITS LIFE START activity=RESTOCK bot={bot}(?:\\s|$)"))
+                .build());
         return List.copyOf(c);
     }
 

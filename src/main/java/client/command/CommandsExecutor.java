@@ -351,6 +351,9 @@ public class CommandsExecutor {
             addCommand("botcombat", 3, client.command.commands.gm3.BotCombatCommand.class); // 1.5.0 rc3 bot combat staging
             addCommand("godlydrop", 3, client.command.commands.gm3.GodlyDropCommand.class); // 1.5.2 godly drop staging
         }
+        if (client.command.commands.gm3.BotWhyCommand.isEnabled()) {
+            addCommand("botwhy", 3, client.command.commands.gm3.BotWhyCommand.class);
+        }
         if (soloMapling.autoqa.AutoQa.isEnabled()) {
             addCommand("autoqa", 3, client.command.commands.gm3.AutoQaCommand.class); // health sweeps + check runner (docs/ops/qa-suite.md)
         }
