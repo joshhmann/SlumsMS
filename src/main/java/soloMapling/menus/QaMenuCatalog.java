@@ -126,6 +126,9 @@ public final class QaMenuCatalog {
         add("cb-4", v(), steps("stepon", "fight"));
         add("sp-1", v(), steps("rope"));
         add("pt-1", v("noloot"), steps("drop"));
+        section("Ordinary v83 features (ticket 69)");
+        add("vb-5", v(), steps("buy", "sell", "expcard"));
+        add("vb-7", v(), steps("storage", "duey", "trade"));
         section("Bot attack timing");
         add("bk-1", v("4th", "pirates", "pacing"), steps());
         section("Idle bots, slide, bounces");
@@ -137,6 +140,12 @@ public final class QaMenuCatalog {
         section("Client and channels");
         add("cs-2", v(), steps());
         add("wd-1", v(), steps());
+        section("Ordinary v83 features (ticket 69)");
+        add("vb-1", v(), steps("hair", "haircolor", "face", "lens", "skin"));
+        add("vb-2", v(), steps("delete", "wrongpic"));
+        add("vb-3", v(), steps("clear", "reward"));
+        add("vb-4", v(), steps("room", "bottle-broke", "bottle", "perfume", "hog"));
+        add("vb-6", v(), steps("advance", "spend"));
         section("Older checks (1.4.x)");
         add("gh-1", v(), steps());
         add("ld-1", List.of(new Variant("perion", "102000000"), new Variant("kerning", "103000000")), steps());

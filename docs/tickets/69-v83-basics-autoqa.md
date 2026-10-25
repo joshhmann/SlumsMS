@@ -26,3 +26,44 @@ Also: log every NPC dialog line the pretend player gets, and fail any check whos
 
 The `vb-*` checks pass nightly on TEST, each has failed at least once against a deliberately broken build (or the
 pre-fix commit for vb-1/vb-3), and `docs/qa/QA.md` lists them.
+
+## What was built (branch `151-v83-basics`)
+
+- `src/main/java/soloMapling/qa/V83Scenarios.java` - scenarios `vb-1`..`vb-7`, registered in `QaScenarios.all()`.
+- `src/main/java/soloMapling/qa/GameQaWorld.java` - `v83Step(Character, feature, step)`: the real paths (NPC scripts,
+  shop `buy/sell`, `StorageProcessor`, `Trade`, `DueyProcessor`, `Quest`, `EventManager`/`EventInstanceManager`).
+- `src/main/java/soloMapling/autoqa/AutoQaCatalog.java` - checks `t-vb-1`..`t-vb-7` (`shortId()` = `vb-N`).
+- `src/main/java/soloMapling/autoqa/Expects.java` - `noRefusal()`: fails on any `NPC_REFUSAL` line. The scenario emits
+  that token only for a refusal it did not expect, so the wrong-PIC and broke-Tatamo steps stay green.
+- `src/main/java/client/SyntheticClient.java` - every NPC dialog is mirrored to `QaLog.Topic.NPC` as one line
+  `NPC <npc id>: <text>`; shop and delete responses are decoded so the checks can assert the server's answer.
+- `src/test/java/soloMapling/autoqa/V83ChecksTest.java` - each check passes on its scenario's outcome lines and fails
+  on the broken outcome (no change, refusal, wrong response, no reward, no fee, empty transfer); it also asserts every
+  `!qa do <step>` a check types is one the scenario's `usage()` offers, so a rename on either side cannot go quiet.
+- `src/test/java/soloMapling/qa/QaScenarioStagingTest.java` - `everyVbScenarioStagesItsOwnFeatureId`: each scenario
+  stages through `QaWorld.v83Step` with its own id, `!qa do bottle` reaches the world as `vb-4 bottle`, arguments are
+  appended (`hog 1`), and the family registers nothing to undo so `!qa stop` is clean.
+- `docs/release/1.5.1-qa.md` - the seven `t-vb-*` rows (what to type, what to look at, what auto-QA already asserts).
+
+## Commands for TEST (not run: the deploy lane is paused)
+
+```
+tools/ops/autoqa-run vb-1,vb-2,vb-3,vb-4,vb-5,vb-6,vb-7
+```
+or in game: `!qa run vb-7`, `!qa do storage`, ...; per check `!qa run vb-N`, `!qa do <step>`.
+Success lines are the ones in `docs/qa/QA.md` (the `VB ...` column). Without `wz/` the delete/mount steps cannot run.
+
+## Failure proofs
+
+- `vb-1`: reverting `1fe365733` and running `V83ChecksTest#salonStyleIdsAreRecognisedAsCosmetics` fails with
+  `a cash face coupon (51520) is a face item ==> expected: <true> but was: <false>` (throwaway revert dropped).
+- `vb-2`,`vb-3`,`vb-5`,`vb-6`,`vb-7`: the unit test feeds each check the outcome a broken feature would produce and
+  asserts FAIL (no delete response, uncleared PQ, no reward, rate 1 -> 1, job 100 -> 100, empty transfer). The live
+  end-to-end break was not run because it needs the TEST server, which the owner asked us not to touch.
+- `vb-3`'s `039d13164` revert and the hog catch are **not** proven here: no headless seam.
+
+## Not done
+
+- The hog catch in `vb-4` is only logged; WZ item effect, no server hook.
+- `vb-2` and `vb-4`'s 6002 room need WZ; `WzTestData.assumePresent` gating is only in the test suite, not the staging.
+- No run against TEST was made; `mvn -q -o test` is the evidence available.

@@ -77,6 +77,31 @@ class V83ChecksTest {
         }
     }
 
+    /**
+     * Every {@code !qa do <step>} the check types is a step the scenario says it takes. A rename on either side would
+     * otherwise cost a nightly run that stages nothing and asserts nothing.
+     */
+    @Test
+    void everyQaDoStepIsOneTheScenarioOffers() {
+        for (String id : List.of("t-vb-1", "t-vb-2", "t-vb-3", "t-vb-4", "t-vb-5", "t-vb-6", "t-vb-7")) {
+            Check check = AutoQaCatalog.find(id);
+            String scenarioId = id.substring(2);
+            soloMapling.qa.QaScenario scenario = QaScenarios.all().stream()
+                    .filter(s -> s.id().equals(scenarioId)).findFirst().orElseThrow();
+            String usage = scenario.usage();
+            List<String> offered = List.of(usage.substring(usage.lastIndexOf("do ") + 3).split("\\|"));
+            for (Check.Step step : check.steps()) {
+                String typed = step.describe();
+                if (!typed.startsWith("!qa do ")) {
+                    continue;
+                }
+                String name = typed.substring("!qa do ".length()).split(" ")[0];
+                assertTrue(offered.contains(name),
+                        id + " types '!qa do " + name + "' but " + scenarioId + " offers " + offered);
+            }
+        }
+    }
+
     @Test
     void salonPassesOnChangedStylesAndFailsOnUnchangedOrRefused() throws Exception {
         Check c = AutoQaCatalog.find("t-vb-1");

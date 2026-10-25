@@ -7,6 +7,7 @@ import org.junit.jupiter.api.io.TempDir;
 
 import java.nio.file.Files;
 import java.nio.file.Path;
+import java.util.ArrayList;
 import java.util.List;
 
 import static org.junit.jupiter.api.Assertions.assertEquals;
@@ -416,5 +417,38 @@ class QaScenarioStagingTest {
         assertTrue(world.calls.stream().anyMatch(c -> c.startsWith("couple ") && c.endsWith("friends")));
         suite.stop(1, "!qa stop");
         assertEquals(1, world.couplesUnstaged.size());
+    }
+
+    /**
+     * Ticket 69: the vb-* scenarios reach the real paths through {@code QaWorld.v83Step}, so the feature id and the
+     * step name are what tells the world which feature to stage. A wrong id or a step the scenario renames would make
+     * a nightly run assert nothing.
+     */
+    @Test
+    void everyVbScenarioStagesItsOwnFeatureId() {
+        List<String> asked = new ArrayList<>();
+        FakeQaWorld v83 = new FakeQaWorld() {
+            @Override
+            public List<String> v83Step(Character gm, String feature, String step) {
+                asked.add(feature + " " + step);
+                return List.of("VB " + feature + " " + step + " ok");
+            }
+        };
+        v83.online = QaTestSupport.gm(1, "Admin", 100000000);
+        QaSuite s = QaTestSupport.suite(QaScenarios.all(), v83, dir, new QaTestSupport.ManualScheduler());
+        for (String id : List.of("vb-1", "vb-2", "vb-3", "vb-4", "vb-5", "vb-6", "vb-7")) {
+            asked.clear();
+            s.start(v83.online, id, new String[0]);
+            assertEquals(List.of(id + " stage"), asked, id + " stages the wrong feature");
+            assertEquals(id, s.runOf(1).scenarioId());
+            s.stop(1, "!qa stop");
+        }
+        asked.clear();
+        s.start(v83.online, "vb-4", new String[0]);
+        s.action(v83.online, "bottle", new String[0]);
+        assertEquals(List.of("vb-4 stage", "vb-4 bottle"), asked);
+        s.action(v83.online, "hog", new String[]{"1"});
+        assertEquals(List.of("vb-4 stage", "vb-4 bottle", "vb-4 hog 1"), asked);
+        assertTrue(s.stop(1, "!qa stop").get(0).startsWith("QA vb-4 stopped"), "the vb scenarios undo nothing, so they stop cleanly");
     }
 }
