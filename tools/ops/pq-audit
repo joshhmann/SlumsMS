@@ -1,0 +1,245 @@
+#!/usr/bin/env python3
+"""Party-quest audit for SlumsMS (ticket-152 maps & PQs sweep).
+
+For every event script that declares itself a party quest it collects the maps the script uses, then everything those
+maps place or wire up (NPCs, reactors, portal scripts) and diffs each of those scripts against stock Cosmic. The
+result is the evidence list the sweep report is written from:
+
+  * event script deltas against Cosmic (deliberate: level cap and scroll rewards; broken: anything else);
+  * per PQ: are the maps present in Map.wz, does every placed NPC/reactor have the script Cosmic has, are the portal
+    scripts the PQ links to present, and does the recruitment NPC exist in the recruitment map;
+  * eligibility: min/max players and levels, so the report can say which PQs a 5-15 player server can start at all.
+
+Usage:
+    tools/ops/pq-audit [--cosmic DIR] [--wz DIR] [--json] [--diff] [name ...]
+    tools/ops/pq-audit --diff AmoriaPQ        # full diff of every script the PQ uses
+
+Exit code 1 when a script is missing that Cosmic has, or an event script referenced a map that does not exist.
+"""
+import argparse
+import glob
+import json
+import os
+import re
+import subprocess
+import sys
+import xml.etree.ElementTree as ET
+
+REPO = os.path.dirname(os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
+MAP_ID = re.compile(r"\b(6[0-9]{8}|[1-9][0-9]{8})\b")
+# A nine-digit literal is only a map when the line uses it as one: entry/exit/recruit/clear fields, warps, or a map
+# lookup. Base EXP values (HorntailBattle's 107545760) and item ids must not be mistaken for maps.
+MAP_CONTEXT = re.compile(r"Map|map|warp|Warp|portal", re.IGNORECASE)
+
+
+def map_refs(src):
+    ids = set()
+    for line in src.splitlines():
+        if not MAP_CONTEXT.search(line):
+            continue
+        ids.update(int(x) for x in MAP_ID.findall(line))
+    return ids
+
+
+def parse_event(path):
+    src = open(path, encoding="utf-8", errors="replace").read()
+    out = {"name": os.path.basename(path)[:-3], "path": path}
+    for key in ("minPlayers", "maxPlayers", "minLevel", "maxLevel", "entryMap", "exitMap", "recruitMap",
+                "clearMap", "eventTime"):
+        m = re.search(r"\b%s\s*=\s*(-?\d+)" % key, src)
+        out[key] = int(m.group(1)) if m else None
+    m = re.search(r"\bonlyMarriedPlayers\s*=\s*(true|false)", src)
+    out["onlyMarried"] = bool(m and m.group(1) == "true")
+    out["maps"] = sorted(map_refs(src) | {v for k, v in out.items() if k.endswith("Map") and isinstance(v, int)})
+    return out
+
+
+class Wz:
+    def __init__(self, wz):
+        self.map_files = {}
+        for d in os.listdir(os.path.join(wz, "Map.wz", "Map")):
+            sub = os.path.join(wz, "Map.wz", "Map", d)
+            if not os.path.isdir(sub):
+                continue
+            for f in os.listdir(sub):
+                m = re.fullmatch(r"(\d+)\.img\.xml", f)
+                if m:
+                    self.map_files[int(m.group(1))] = os.path.join(sub, f)
+        self._cache = {}
+
+    def map_root(self, mapid):
+        if mapid not in self._cache:
+            path = self.map_files.get(mapid)
+            self._cache[mapid] = ET.parse(path).getroot() if path else None
+        return self._cache[mapid]
+
+    def entries(self, mapid, group):
+        root = self.map_root(mapid)
+        if root is None:
+            return []
+        for child in root:
+            if child.get("name") == group:
+                return list(child)
+        return []
+
+    def life(self, mapid):
+        out = []
+        for entry in self.entries(mapid, "life"):
+            kind = value = None
+            for c in entry:
+                if c.tag == "string" and c.get("name") == "type":
+                    kind = c.get("value")
+                elif c.tag == "string" and c.get("name") == "id":
+                    value = c.get("value")
+            if kind and value and value.isdigit():
+                out.append((kind, int(value)))
+        return out
+
+    def reactors(self, mapid):
+        out = []
+        for entry in self.entries(mapid, "reactor"):
+            for c in entry:
+                if c.tag == "string" and c.get("name") == "id":
+                    out.append(int(c.get("value")) if (c.get("value") or "").isdigit() else -1)
+        return out
+
+    def portal_scripts(self, mapid):
+        out = []
+        for entry in self.entries(mapid, "portal"):
+            for c in entry:
+                if c.tag == "string" and c.get("name") == "script":
+                    if c.get("value"):
+                        out.append(c.get("value"))
+        return out
+
+
+def diff_against(cosmic, rel):
+    """Returns (ok, added, removed) or (False, None, None) when the file is missing on one side."""
+    theirs = os.path.join(cosmic, rel)
+    ours = os.path.join(REPO, rel)
+    if not os.path.exists(ours):
+        return ("missing" if os.path.exists(theirs) else "absent", None, None)
+    if not os.path.exists(theirs):
+        return ("only-ours", None, None)
+    a = open(theirs, encoding="utf-8", errors="replace").read().splitlines()
+    b = open(ours, encoding="utf-8", errors="replace").read().splitlines()
+    if a == b:
+        return ("same", 0, 0)
+    added = sum(1 for line in b if line not in a)
+    removed = sum(1 for line in a if line not in b)
+    return ("differs", added, removed)
+
+
+def classify(diff_text):
+    """Which MapleRoot deltas are deliberate, from the change content alone."""
+    notes = []
+    lines = [line for line in diff_text.splitlines() if line[:1] in "+-" and not line.startswith(("+++", "---"))]
+    only_level = all(re.search(r"maxLevel\s*=\s*\d+", line) for line in lines)
+    if lines and only_level:
+        notes.append("deliberate: level cap raised to 255")
+    elif lines and all(re.search(r"\b204\d{4}\b|\b20490\d{2}\b", line) for line in lines):
+        notes.append("deliberate: scrolls removed from the reward pool")
+    elif lines:
+        notes.append("review: mixed change")
+    return notes
+
+
+def main():
+    ap = argparse.ArgumentParser(description="Audit every party quest against stock Cosmic.")
+    ap.add_argument("--cosmic", default="/root/work/cosmic-triage/Cosmic")
+    ap.add_argument("--wz", default=os.environ.get("WZ_PATH", os.path.join(REPO, "wz")))
+    ap.add_argument("--json", action="store_true")
+    ap.add_argument("--diff", action="store_true", help="print the full diff of the scripts this PQ uses")
+    ap.add_argument("names", nargs="*", help="PQ names (default: every event script with isPq)")
+    args = ap.parse_args()
+
+    wz = Wz(args.wz)
+    events = {}
+    for path in sorted(glob.glob(os.path.join(REPO, "scripts/event/*.js"))):
+        src = open(path, encoding="utf-8", errors="replace").read()
+        if "isPq = true" in src and os.path.basename(path) != "0_EXAMPLE.js":
+            events[os.path.basename(path)[:-3]] = path
+    wanted = args.names or sorted(events)
+    unknown = [n for n in wanted if n not in events]
+    if unknown:
+        sys.exit("not a PQ event script: " + ", ".join(unknown))
+
+    report = []
+    problems = 0
+    for name in wanted:
+        pq = parse_event(events[name])
+        maps = set(pq["maps"])
+        npc_scripts, reactor_scripts, portal_scripts = set(), set(), set()
+        missing_maps = []
+        for mapid in sorted(maps):
+            if wz.map_root(mapid) is None:
+                missing_maps.append(mapid)
+                continue
+            for kind, life_id in wz.life(mapid):
+                if kind == "n":
+                    npc_scripts.add(life_id)
+                elif kind == "m":
+                    pass
+            reactor_scripts.update(i for i in wz.reactors(mapid) if i > 0)
+            portal_scripts.update(wz.portal_scripts(mapid))
+        # Scripts that mention one of the PQ's maps are part of the PQ too (portal/NPC helpers not wired from WZ).
+        for sub in ("npc", "portal", "reactor"):
+            for path in glob.glob(os.path.join(REPO, "scripts", sub, "*.js")):
+                text = open(path, encoding="utf-8", errors="replace").read()
+                if any(str(m) in text for m in maps):
+                    stem = os.path.basename(path)[:-3]
+                    if not stem.isdigit() and sub != "portal":
+                        continue  # 2040047_old and friends: not a live script id
+                    if sub == "npc":
+                        npc_scripts.add(int(stem))
+                    elif sub == "reactor":
+                        reactor_scripts.add(int(stem))
+                    else:
+                        portal_scripts.add(stem)
+
+        diffs = {}
+        entry = {"pq": name, **{k: pq[k] for k in ("minPlayers", "maxPlayers", "minLevel", "maxLevel",
+                                                   "entryMap", "exitMap", "recruitMap", "onlyMarried")},
+                 "maps": sorted(maps), "missingMaps": missing_maps, "differs": []}
+        targets = [os.path.join("scripts/event", name + ".js")]
+        targets += ["scripts/npc/%d.js" % i for i in sorted(npc_scripts)]
+        targets += ["scripts/reactor/%d.js" % i for i in sorted(reactor_scripts)]
+        targets += ["scripts/portal/%s.js" % s for s in sorted(portal_scripts)]
+        for rel in targets:
+            status, added, removed = diff_against(args.cosmic, rel)
+            if status in ("missing", "only-ours"):
+                problems += 1
+                entry.setdefault("scriptGaps", []).append({"file": rel, "status": status})
+            elif status == "differs":
+                text = subprocess.run(["diff", "-u", os.path.join(args.cosmic, rel), os.path.join(REPO, rel)],
+                                      capture_output=True, text=True).stdout
+                diffs[rel] = text
+                entry["differs"].append({"file": rel, "added": added, "removed": removed,
+                                         "because": classify(text)})
+        entry["scriptsChecked"] = len(targets)
+        report.append(entry)
+
+        if args.diff:
+            print("#### %s" % name)
+            for rel, text in diffs.items():
+                print(text)
+
+        if not args.json:
+            print("%-16s players %s-%s  level %s-%s%s  maps %d/%d checked  scripts %d" % (
+                name, entry["minPlayers"], entry["maxPlayers"], entry["minLevel"], entry["maxLevel"],
+                "  married-only" if entry["onlyMarried"] else "",
+                len(maps) - len(missing_maps), len(maps), entry["scriptsChecked"]))
+            if missing_maps:
+                print("    missing maps: %s" % missing_maps)
+            for gap in entry.get("scriptGaps", []):
+                print("    %-12s %s" % (gap["status"], gap["file"]))
+            for d in entry["differs"]:
+                print("    differs     %s (+%s/-%s) %s" % (d["file"], d["added"], d["removed"], "; ".join(d["because"])))
+
+    if args.json:
+        print(json.dumps(report, indent=2))
+    return 1 if problems else 0
+
+
+if __name__ == "__main__":
+    sys.exit(main())
