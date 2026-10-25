@@ -245,13 +245,22 @@ public class DueyProcessor {
         return packages;
     }
 
+    /**
+     * A package's send time, cut to the whole second. The column is a TIMESTAMP without fractions and MySQL rounds, so
+     * a package sent at .5 s or later was stored up to half a second in the future, and {@link
+     * server.DueyPackage#isDeliveringTime} refused a claim made within that half second (auto-QA vb-7 claims at once).
+     */
+    static Timestamp sentStamp(long nowMillis) {
+        return new Timestamp(Math.floorDiv(nowMillis, 1000L) * 1000L);
+    }
+
     private static int createPackage(int mesos, String message, String sender, int toCid, boolean quick) {
         try (Connection con = DatabaseConnection.getConnection();
              PreparedStatement ps = con.prepareStatement("INSERT INTO `dueypackages` (ReceiverId, SenderName, Mesos, TimeStamp, Message, Type, Checked) VALUES (?, ?, ?, ?, ?, ?, 1)", Statement.RETURN_GENERATED_KEYS)) {
             ps.setInt(1, toCid);
             ps.setString(2, sender);
             ps.setInt(3, mesos);
-            ps.setTimestamp(4, new Timestamp(System.currentTimeMillis()));
+            ps.setTimestamp(4, sentStamp(System.currentTimeMillis()));
             ps.setString(5, message);
             ps.setInt(6, quick ? 1 : 0);
 

@@ -161,4 +161,15 @@ class DueyProcessorTest {
             db.verify(DatabaseConnection::getConnection, never());
         }
     }
+
+    @Test
+    void aPackageIsStampedAtTheWholeSecondSoItIsNeverInTheFuture() {
+        // the TIMESTAMP column rounds fractions: 12:00:00.700 was stored as 12:00:01 and a claim at once was refused
+        assertEquals(1_792_936_096_000L, DueyProcessor.sentStamp(1_792_936_096_846L).getTime());
+        assertEquals(1_792_936_096_000L, DueyProcessor.sentStamp(1_792_936_096_000L).getTime());
+        assertEquals(1_792_936_096_000L, DueyProcessor.sentStamp(1_792_936_096_999L).getTime());
+        server.DueyPackage sent = new server.DueyPackage(1);
+        sent.setSentTime(DueyProcessor.sentStamp(System.currentTimeMillis()), false);
+        assertFalse(sent.isDeliveringTime(), "a normal package can be claimed straight away");
+    }
 }
