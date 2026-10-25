@@ -169,15 +169,51 @@ Owner-reported or found, roughly by priority:
   mobs they hit - a real bot behaviour wart, not a metric artefact, so the ratio stays; **FIXED in `1204367b7`**,
   `t-cb-2` PASS at 5 of 52, 9.6% under the 10% bar) and rv-2 half the time (ticket 66).
 - **Remaining auto-QA leads:** af-1/af-2 (flaky - both passed several runs on this build, fail when the staged bot
-  greets through `CONVO SAID` instead of `AFFINITY ACT`), cv-2/cv-5/cv-7 (chat-content judgements and thread
-  fixture isolation; cv-5's routing snapshot picked the staged speaker by reply words while its thread candidate was
-  a different PQ thread). Original baseline was 54 PASS / 9 FAIL / 11 SKIP; the mixed report after the first pass
+  greets through `CONVO SAID` instead of `AFFINITY ACT`), cv-2 (chat-content judgements); cv-5 and cv-7 are
+  fixed below (cv-5's routing snapshot picked the staged speaker by reply words while the thread beside the player,
+  a different PQ thread, was never scored). Original baseline was 54 PASS / 9 FAIL / 11 SKIP; the mixed report after the first pass
   was 55/9, then 57/7, then 60/4.
 - **On the 2026-10-24 evening build (`1c1e5dd9c`) only five checks ran, all PASS:** `t-cv-8` (113-115 px over five
   samples, 33 s), `t-rv-2` (3 of 3 helpers on mobs), `t-cb-2` (9.6% inside a mob), `t-gw-4` and `t-gu-5` (198 s,
-  run cleared). **No full auto-QA run of all 75 checks was made on this build.** Still open: gw-1 (the enemy guild
-  killed nothing), cv-5 (thread routing picks the staged speaker), cv-7 (judge BAD on a bank line), rv-2's
-  flakiness (ticket 66) and the overlap/foothold health flags.
+  run cleared). **No full auto-QA run of all 75 checks was made on this build.** Still open at that point: gw-1
+  (the enemy guild killed nothing), cv-5 (thread routing picks the staged speaker), cv-7 (judge BAD on a bank line),
+  rv-2's flakiness (ticket 66) and the overlap/foothold health flags. cv-5, cv-7 and cv-4 are fixed since; see the
+  fixes bullet below.
+- **The auto-QA failures from the 2026-10-24 evening run are fixed and merged into `release-1.5.1`; the TEST receipt
+  for a build carrying all of them is still pending.** Branch and commit for each:
+  - **cv-5, several threads per map (branch `151-thread-routing`, `6752cd72b` + `8372f9024`).** `6752cd72b` credits a
+    live thread when the player names its subject instead of losing the line to reply-word matching. `8372f9024` is
+    the shadowing itself: `BotThreads` kept one thread per channel:map, so on TEST a thread 4,964 px away held the
+    slot while the Kerning PQ thread 129 px from the player was never scored. It keeps up to three live threads per
+    map now (`MAX_LIVE_PER_MAP`, oldest gives way, spacing kept), ranks them by subject fit, then distance, then last
+    line, and drops a thread with no speaker inside the hearing bubble (400 px either side, 150 px up or down) before
+    ranking. `ChatRoute.inBubble` is the one place that rule lives. Both `ChatRouteTest`/`BotThreadsTest` cases failed
+    before (`expected [10001, 10004]`, and an unheard thread returned where null was expected).
+  - **cv-7, bank content (branch `151-thread-routing`, `4091383db`).** An invitation to grind or hunt is triaged as an
+    invitation, so it answers `come_yes`/`come_no` instead of small talk, and the generic `talk`/`talk_q` key only
+    accepts acknowledgements (`ConvoLines.ACK`, at most four words), never a claim about an unrelated topic.
+  - **Scripted conversation honesty (branch `151-script-saydo`, `bdc1320c5`).** A script whose claim line the speaker
+    cannot back is refused whole rather than cut, and logged as `SCRIPT SKIP <script>: <bot> would not back "<line>"
+    (<claims>)` on the CONVO topic. Of the pack's 267 scripts (1,752 lines) only 14 lines carry a claim and only
+    `item_price_haggle_2` names an item, so this refuses rare cases only.
+  - **cv-4 say-do scope (branch `151-qa-harness`, `e80f71cb1`).** The check judges only the staged bots' claims, so a
+    stray line from another bot no longer fails it.
+  - **Mount quest price (branch `151-endmeso`, `9fa7d63f2`).** Quest 6007 declares its completion price as `endmeso`,
+    which had no requirement mapping, so the price was never checked: a player holding 3M walked up to Tatamo, paid
+    3M and still got the Dragon's Perfume Bottle. `endmeso` now maps to a requirement and completion is refused with
+    "You don't have enough mesos to complete this quest." without it.
+  - **QA fast lane (branch `151-qa-speed`, `8c5ad3554`, `440c966d4`, `c3ea6c1a8`, `6593ee722`).** A run-only time scale
+    (`-Dslums.qa.timeScale`), rerun-only-what-failed, passed ids carried across reruns, and staged waits that end on
+    the event they assert.
+  - **Nav warm-up quiesce (branch `151-nav-quiesce`, `3652a3910`).** Shutdown stops the nav-graph warm-up, so the
+    "footholds is null" noise while maps unload is gone.
+  Each fix branch ran the full offline Maven suite green (0 failures, 0 errors, 38 skipped). **TEST receipt for the
+  merged build is pending:** the marker sits at the end of `docs/release/1.5.1-qa.md`
+  (`<!-- RECEIPT-PENDING: fill build hash, deploy stamp and check verdicts -->`). Player-facing wording is on
+  `docs/site/releases/1.5.1.md` (still a draft).
+- **Two QA leads still open, one branch each in flight (not pushed as of these notes).** `151-overlap`: bots placed on
+  the exact same pixel, the health overlap flag counting 502 pairs at dx=dy=0. `151-flat-platforms`: filler spawns at
+  `baseY` on sloped WZ ground, foothold health at 21 floating / 1 no-ground / 2 sunk of 2,502.
 - **Partial-nightly lead:** af-2 also failed on the old build during the interrupted 3:00 AM PT (10:00 UTC) nightly (missing
   taunt/KS action). It needs reproduction on the latest build; it was not changed as part of these fixes.
   The account-cache exception found in the older logs is fixed (section 2 item 6).
