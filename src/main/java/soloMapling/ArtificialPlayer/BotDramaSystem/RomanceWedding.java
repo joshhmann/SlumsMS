@@ -372,6 +372,7 @@ public final class RomanceWedding {
         ops.bond(r, player, bot, ringItem, rings, now);
         qa("MARRIED " + player.getName() + " & " + bot.getName() + ": rings " + rings.getLeft() + "/" + rings.getRight()
                 + " (" + ringItem + "), marriage #" + player.getRelationshipId());
+        soloMapling.ArtificialPlayer.BotWorldGossip.onWedding(player, bot); // ticket 85: the town talks about it
         return null;
     }
 

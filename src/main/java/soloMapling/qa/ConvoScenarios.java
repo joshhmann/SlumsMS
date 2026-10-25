@@ -30,7 +30,7 @@ final class ConvoScenarios {
 
     static List<QaScenario> all() {
         return List.of(new Cv1Actions(), new Cv2Haggle(), new Cv3Mood(), new Cv4Voices(), new Cv5Thread(), new Cv6Rate(),
-                new Cv7Bank(), new Cv8FollowUp(), new Cv9Hold());
+                new Cv7Bank(), new Cv8FollowUp(), new Cv9Hold(), new Cv10PartyChat());
     }
 
     /** Shared: staged bots per GM, undone at stop. */
@@ -299,6 +299,32 @@ final class ConvoScenarios {
                 case "sample" -> world(ctx, "sample", args);
                 default -> throw new QaRefusal("cv-9 steps: hold [line], sample");
             };
+        }
+    }
+
+    /** cv-10 (ticket 85): party chat reaches the bots in the party and the answer comes back on the party channel. */
+    static final class Cv10PartyChat extends ConvoScenario {
+        public String id() { return "cv-10"; }
+        public String title() { return "Party chat: the bot in your party answers on the party channel (ticket 85)"; }
+        public String usage() { return "; then !qa do say <line>"; }
+
+        public int minutes(String[] args) { return 4; }
+
+        public List<String> stage(QaContext ctx) {
+            int id = stage(ctx, "friend", false, null);
+            List<String> out = new ArrayList<>(world(ctx, "party", new String[0]));
+            out.add(QaScenarios.who(ctx, id) + " is in your party. Type in PARTY chat (not map chat), or !qa do say <line> to send one for you.");
+            out.add("Log: PARTY CHAT <you>: \"<line>\" -> <bot> answers [route] and PARTY SAY <bot>: <reply>. A line naming the bot, or a");
+            out.add("question, must always get an answer; plain chatter only sometimes (one bot answers, at most 8 lines a minute).");
+            out.add("Auto-QA runs it as t-cv-10.");
+            return out;
+        }
+
+        public List<String> action(QaContext ctx, String name, String[] args) {
+            if ("say".equals(name)) {
+                return world(ctx, "partysay", args);
+            }
+            throw new QaRefusal("cv-10 steps: say <line>");
         }
     }
 

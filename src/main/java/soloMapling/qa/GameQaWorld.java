@@ -334,6 +334,31 @@ final class GameQaWorld implements QaWorld {
                     out.add("VAR thread=" + about);
                 }
             }
+            case "party" -> {
+                // !qa cv-10 (ticket 85): the GM and the staged bot share a party
+                Character a = bots.isEmpty() ? null : BotHelpers.getCharFromChannelStorage(bots.get(0));
+                if (a == null || a.getMap() == null) {
+                    out.add("needs a staged bot on your map");
+                    break;
+                }
+                if (gm.getParty() == null) {
+                    net.server.world.Party.createParty(gm, false);
+                }
+                if (gm.getParty() != null && a.getParty() == null) {
+                    net.server.world.Party.joinParty(a, gm.getParty().getId(), true);
+                }
+                out.add(gm.getParty() != null && a.getParty() != null ? "party formed with " + a.getName()
+                        : "the party could not be formed");
+            }
+            case "partysay" -> {
+                String line = args.length == 0 ? "ready?" : String.join(" ", args);
+                if (gm.getParty() == null) {
+                    out.add("you are not in a party (stage cv-10 first)");
+                    break;
+                }
+                soloMapling.ArtificialPlayer.BotPartySystem.BotPartyChat.onPartyChat(gm, line);
+                out.add("you said in party chat: \"" + line + "\"");
+            }
             case "last" -> out.addAll(soloMapling.ArtificialPlayer.BotConvo.ConvoQuality.describeLast(gm));
             case "hold" -> {
                 // !qa cv-9 (owner report 2026-10-24): the player's line, then the walk-away, so every run stages it

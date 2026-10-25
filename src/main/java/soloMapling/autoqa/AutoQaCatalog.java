@@ -458,6 +458,16 @@ public final class AutoQaCatalog {
                         lacks("CONVO HOLD .*WANDERED OFF"))
                 .build());
 
+        // ticket 85: party chat. The line names the bot, so route 1 (name) must pick it and it must answer on the party
+        // channel; the second line goes to the whole party and is answered or not by the dice, so it is not asserted
+        c.add(Check.auto("t-cv-10", "Party chat reaches the bot in your party").minutes(4)
+                .step(run("cv-10"), qaDo("say", "{bot} ready?"), waitFor("CONVO PARTY SAY {bot}: ", 45),
+                        qaDo("say", "{bot} go left"), waitFor("CONVO PARTY SAY {bot}: ", 45), waitSeconds(3))
+                .expect(has("CONVO PARTY CHAT {me}: \"\\{bot} ready\\?\" -> {bot} answers \\[1-name\\]"),
+                        atLeast(2, "CONVO PARTY SAY {bot}: "),
+                        lacks("CONVO PARTY SAY .*\\b([Aa][Ii]|language model|chatbot|a bot)\\b"))
+                .build());
+
         // rc6 inference: the last 24 h of bot chat, scored (ChatQuality): relevance, stiffness, repeats, say-do
         c.add(Check.auto("t-cq-1", "Daily chat quality (relevance, stiffness, say-do)").minutes(3)
                 .expect(ChatQuality.expectation())
