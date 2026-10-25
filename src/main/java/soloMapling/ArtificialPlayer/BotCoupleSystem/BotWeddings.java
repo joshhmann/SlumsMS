@@ -270,6 +270,7 @@ public final class BotWeddings {
             bless(c, bride);
             c.nextCheer = now + 4_000;
             BotCouples.qa("MARRIED couple #" + c.couple.id() + ": " + names.get("GROOM") + " & " + names.get("BRIDE"));
+            soloMapling.ArtificialPlayer.BotWorldGossip.onWedding(groom, bride); // ticket 85: the town talks about it
         }
         if (!c.married && now >= c.nextMurmur && c.guests.size() > 1) { // rc6 (QA t-we-1): the guests talk wedding
             Character guest = live(c.guests.get(1 + ThreadLocalRandom.current().nextInt(c.guests.size() - 1)));

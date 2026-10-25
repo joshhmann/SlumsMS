@@ -108,6 +108,8 @@ public class SocialHotPotatoManager {
         if (running) return;
         running = true;
         WorldEventMegaphones.getInstance().register();
+        soloMapling.ArtificialPlayer.BotWorldGossip.register(); // ticket 85: world news for the gossip feed
+        soloMapling.ArtificialPlayer.BotFlavorSystem.LevelUpGz.register(); // ticket 85: gz on hunting maps
         DialoguePackCheck.logOnce();
         refreshMapScope();
         scheduleNextTick();

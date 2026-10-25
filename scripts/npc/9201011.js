@@ -228,6 +228,7 @@ function action(mode, type, selection) {
                                         cm.sendOk("You have already confirmed your vows. All that is left is for your partner to confirm now.");
                                     } else {
                                         eim.setIntProperty("weddingStage", 3);
+                                        Java.type("soloMapling.ArtificialPlayer.BotWorldGossip").onWedding(player, partner); // ticket 85: bots talk about it
                                         var cmPartner = partner.getAbstractPlayerInteraction();
 
                                         var playerItemId = detectPlayerItemid(player);

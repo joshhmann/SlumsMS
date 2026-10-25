@@ -64,6 +64,7 @@ public final class MultiChatHandler extends AbstractPacketHandler {
         } else if (type == 1 && player.getParty() != null) {
             world.partyChat(player.getParty(), chattext, player.getName());
             ChatLogger.log(c, "Party", chattext);
+            soloMapling.ArtificialPlayer.BotPartySystem.BotPartyChat.onPartyChat(player, chattext); // ticket 85: bots in the party answer
         } else if (type == 2 && player.getGuildId() > 0) {
             Server.getInstance().guildChat(player.getGuildId(), player.getName(), player.getId(), chattext);
             ChatLogger.log(c, "Guild", chattext);
