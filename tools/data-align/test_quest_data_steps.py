@@ -1,11 +1,11 @@
 #!/usr/bin/env python3
-"""The 1.5.2 Zipangu deploy step (zipangu-quest-dates.tsv) against the server's real Quest.wz.
+"""The 1.5.2 quest deploy steps (zipangu-quest-dates.tsv, quest-start-npc.tsv) against the server's real Quest.wz.
 
     python3 -m unittest discover -s tools/data-align -p 'test_*.py'
 
-Needs the server WZ (./wz or $WZ); skips without it, like the Java WzTestData tests. It applies the TSV to a temp
-copy of Check.img.xml and checks that every Mushroom Shrine quest 4300-4309 can start and complete today, and that
-nothing else in the file changed.
+Needs the server WZ (./wz or $WZ); skips without it, like the Java WzTestData tests. Each test applies a TSV to a
+temp copy of Check.img.xml: every Mushroom Shrine quest 4300-4309 can start and complete today, quest 1205 starts at
+an NPC that exists, and nothing else in the file changed.
 """
 import datetime
 import os
@@ -88,6 +88,33 @@ class ZipanguQuestDates(unittest.TestCase):
         r = self.run_tool()
         self.assertEqual(0, r.returncode, r.stdout + r.stderr)
         self.assertIn('dry run: 0 value(s) in 0 file(s), 0 skipped', r.stdout)
+
+
+@unittest.skipUnless(os.path.isfile(CHECK), 'needs the server wz/Quest.wz, not in this checkout')
+class RomeoAndJulietStartNpc(unittest.TestCase):
+    NPC_TSV = os.path.join(HERE, 'quest-start-npc.tsv')
+
+    def start_npc(self, path):
+        node = ET.parse(path).getroot().find("imgdir[@name='1205']/imgdir[@name='0']/int[@name='npc']")
+        return node.get('value')
+
+    def test_1205_starts_at_cosmics_npc_which_exists(self):
+        tmp = tempfile.mkdtemp()
+        try:
+            os.makedirs(os.path.join(tmp, 'Quest.wz'))
+            copy = os.path.join(tmp, 'Quest.wz', 'Check.img.xml')
+            shutil.copy2(CHECK, copy)
+            before = self.start_npc(copy)
+            self.assertIn(before, ('9212000', '2112018'), 'the WZ moved on: re-check quest-start-npc.tsv')
+            self.assertFalse(os.path.exists(os.path.join(WZ, 'Npc.wz', '9212000.img.xml')), 'MapleRoot\'s NPC is missing')
+            r = subprocess.run([sys.executable, os.path.join(HERE, 'wz_set_values.py'), '--wz', tmp, '--tsv',
+                                self.NPC_TSV, '--column', 'new_value', '--apply'], capture_output=True, text=True)
+            self.assertEqual(0, r.returncode, r.stdout + r.stderr)
+            self.assertEqual('2112018', self.start_npc(copy))
+            self.assertTrue(os.path.isfile(os.path.join(WZ, 'Npc.wz', '2112018.img.xml')))
+            self.assertEqual(len(read(CHECK)), len(read(copy)), 'same-length id swap only')
+        finally:
+            shutil.rmtree(tmp, ignore_errors=True)
 
 
 if __name__ == '__main__':
