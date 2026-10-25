@@ -224,7 +224,7 @@ Their stack is written for an *owner* who knows the bots are bots. These parts m
    whispering.
 5. The whisper names a price inside the HaggleBrain band and ticket 56's caps. Then it is a meet and trade, or "my
    shop is in FM 6". A player's whisper back must reach that bot (today strangers' whispers do reach our bots, through
-   `BotWhispers`).
+   `WhisperHandler.whisperBot` → `BotConversation.say`).
 6. No answers to sell megaphones, no answer for an item no bot holds, and a per-player limit (for example 3 answered
    requests an hour) against spam.
 
