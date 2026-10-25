@@ -8853,6 +8853,9 @@ public class Character extends AbstractCharacterObject {
         }
 
         setStance(0);
+        // 1.5.1 (owner QA): the client drops every buff icon on death by itself, so the EXP card kept on the server
+        // (cancelAllBuffsOnDeath) vanished from the screen. Re-apply the active cards once the player is back up.
+        updateCouponRates();
     }
 
     private void prepareDragonBlood(final StatEffect bloodEffect) {
