@@ -29,6 +29,7 @@ import net.AbstractPacketHandler;
 import net.packet.InPacket;
 import server.ItemInformationProvider;
 import server.life.LifeFactory;
+import server.life.Monster;
 import tools.PacketCreator;
 import tools.Randomizer;
 
@@ -49,11 +50,16 @@ public final class UseSummonBagHandler extends AbstractPacketHandler {
         int itemId = p.readInt();
         Item toUse = c.getPlayer().getInventory(InventoryType.USE).getItem(slot);
         if (toUse != null && toUse.getQuantity() > 0 && toUse.getItemId() == itemId) {
-            InventoryManipulator.removeFromSlot(c, InventoryType.USE, slot, (short) 1, false);
             int[][] toSpawn = ItemInformationProvider.getInstance().getSummonMobs(itemId);
-            for (int[] toSpawnChild : toSpawn) {
-                if (Randomizer.nextInt(100) < toSpawnChild[1]) {
-                    c.getPlayer().getMap().spawnMonsterOnGroundBelow(LifeFactory.getMonster(toSpawnChild[0]), c.getPlayer().getPosition());
+            if (toSpawn != null) {
+                InventoryManipulator.removeFromSlot(c, InventoryType.USE, slot, (short) 1, false);
+                for (int[] toSpawnChild : toSpawn) {
+                    if (Randomizer.nextInt(100) < toSpawnChild[1]) {
+                        Monster mob = LifeFactory.getMonster(toSpawnChild[0]);
+                        if (mob != null) {
+                            c.getPlayer().getMap().spawnMonsterOnGroundBelow(mob, c.getPlayer().getPosition());
+                        }
+                    }
                 }
             }
         }
