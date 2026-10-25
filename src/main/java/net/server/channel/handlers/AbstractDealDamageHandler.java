@@ -444,6 +444,8 @@ public abstract class AbstractDealDamageHandler extends AbstractPacketHandler {
                             }
                         }
                     }
+                    // 1.5.4: the mount quest hog only ever takes misses from the client; after the fix-damage check
+                    totDamageToOneMonster = server.life.HogTaming.totalDamage(monster.getId(), totDamageToOneMonster, onedList, monster.getHp());
                     if (totDamageToOneMonster > 0 && attackEffect != null) {
                         Map<MonsterStatus, Integer> attackEffectStati = attackEffect.getMonsterStati();
                         if (!attackEffectStati.isEmpty()) {
