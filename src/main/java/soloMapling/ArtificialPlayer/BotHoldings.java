@@ -681,6 +681,30 @@ public final class BotHoldings {
         }
     }
 
+    /** Item ids this bot holds less of than its stored row claims (empty when none); see {@link BotDebitJournal}. */
+    static List<Integer> debitedItemIds(Character bot) {
+        synchronized (ledgers) {
+            Ledger ledger = ledgers.get(bot);
+            List<Integer> ids = new ArrayList<>();
+            if (ledger != null) {
+                for (Map.Entry<Integer, Integer> e : ledger.items().entrySet()) {
+                    if (e.getValue() < 0) {
+                        ids.add(e.getKey());
+                    }
+                }
+            }
+            return ids;
+        }
+    }
+
+    /** True when the bot's meso, not only items, is below what its stored row claims. */
+    static boolean hasUnpersistedMesoDebit(Character bot) {
+        synchronized (ledgers) {
+            Ledger ledger = ledgers.get(bot);
+            return ledger != null && ledger.meso() < 0;
+        }
+    }
+
     /**
      * True when what the bot holds less of is items, not mesos: only the stored item rows are stale then, so
      * only they have to be taken down by a write that cannot be completed. A meso-only debit is recorded by the

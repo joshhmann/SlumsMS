@@ -1054,6 +1054,104 @@ class BotStoreTest {
         }
     }
 
+    // ---- ticket 63: payments a bot made must survive a shutdown whose save budget ran out ----
+
+    private static java.nio.file.Path useJournal() throws java.io.IOException {
+        java.nio.file.Path dir = java.nio.file.Files.createTempDirectory("debitjournal");
+        java.nio.file.Path file = dir.resolve("journal.tsv");
+        BotDebitJournal.useFileForTest(file);
+        return file;
+    }
+
+    /** A bot that held 10,000,000 mesos and 10 potions in its stored row, then paid 1,000,000 and used 4. */
+    private static Character botThatPaid(int id) {
+        Character bot = newBot(id, "Payer" + id);
+        bot.gainMeso(10_000_000, false, false, false);
+        bot.getInventory(InventoryType.USE).addItem(new Item(2_000_000, (short) 0, (short) 10, -1));
+        assertTrue(BotHoldings.spendMeso(bot, 1_000_000));
+        Item pots = bot.getInventory(InventoryType.USE).findById(2_000_000);
+        assertEquals(4, BotHoldings.consumeHeld(bot, pots, 4));
+        return bot;
+    }
+
+    /** The same bot as its stored row restores it: before the payment. */
+    private static Character botFromItsOldRow(int id) {
+        Character bot = newBot(id, "Payer" + id);
+        bot.gainMeso(10_000_000, false, false, false);
+        bot.getInventory(InventoryType.USE).addItem(new Item(2_000_000, (short) 0, (short) 10, -1));
+        return bot;
+    }
+
+    @Test
+    void aDebitBotTheBudgetNeverReachedIsJournaledAndTakenBackOnTheNextBoot() throws Exception {
+        java.nio.file.Path file = useJournal();
+        try {
+            Character payer = botThatPaid(BotStore.BOT_ID_BASE + 9001);
+            Connection con = mockPool(accepting());
+            BotStore.useConnectionSourceForTest(() -> con);
+            BotStore.SweepReport report = BotStore.settleAndSaveAll(List.of(payer), 0, 1);   // budget already spent
+
+            assertAll(
+                    () -> assertEquals(1, report.journaled(), "its payment is noted: " + report),
+                    () -> assertTrue(java.nio.file.Files.isRegularFile(file), "in a durable file"));
+
+            // Next boot: the old row restores the bot with the value it already paid away.
+            BotDebitJournal.useFileForTest(file);   // a new process reads the file
+            Character restored = botFromItsOldRow(payer.getId());
+            BotDebitJournal.applyTo(restored);
+            assertAll(
+                    () -> assertEquals(9_000_000, restored.getMeso(), "the paid million is not restored"),
+                    () -> assertEquals(6, restored.getInventory(InventoryType.USE).countById(2_000_000)),
+                    () -> assertTrue(BotHoldings.hasUnpersistedDebit(restored), "and it will be written"));
+
+            // Applying again (or a row that did land after all) changes nothing: the caps are absolute.
+            BotDebitJournal.applyTo(restored);
+            Character landed = newBot(payer.getId(), "Landed");
+            landed.gainMeso(9_000_000, false, false, false);
+            BotDebitJournal.applyTo(landed);
+            assertAll(
+                    () -> assertEquals(9_000_000, restored.getMeso()),
+                    () -> assertEquals(9_000_000, landed.getMeso(), "no second debit when the write had landed"));
+        } finally {
+            BotStore.useConnectionSourceForTest(null);
+            BotDebitJournal.useFileForTest(null);
+        }
+    }
+
+    @Test
+    void aDebitBotWhoseWriteFailsIsJournaledToo() throws Exception {
+        useJournal();
+        try {
+            Character payer = botThatPaid(BotStore.BOT_ID_BASE + 9002);
+            BotStore.useConnectionSourceForTest(() -> {
+                throw new IllegalStateException("db down");
+            });
+            BotStore.SweepReport report = BotStore.settleAndSaveAll(List.of(payer), 5_000, 1);
+            assertTrue(report.journaled() > 0, "DB unavailable: the payment still reaches the journal: " + report);
+        } finally {
+            BotStore.useConnectionSourceForTest(null);
+            BotDebitJournal.useFileForTest(null);
+        }
+    }
+
+    @Test
+    void aBotThatSavedInTimeNeedsNoJournalAndDebitBotsAreWrittenFirst() throws Exception {
+        java.nio.file.Path file = useJournal();
+        try {
+            Connection con = mockPool(accepting());
+            BotStore.useConnectionSourceForTest(() -> con);
+            Character payer = botThatPaid(BotStore.BOT_ID_BASE + 9003);
+            BotStore.SweepReport report = BotStore.settleAndSaveAll(List.of(payer), 30_000, 1);
+            assertAll(
+                    () -> assertEquals(1, report.saved()),
+                    () -> assertEquals(0, report.journaled()),
+                    () -> assertFalse(java.nio.file.Files.exists(file)));
+        } finally {
+            BotStore.useConnectionSourceForTest(null);
+            BotDebitJournal.useFileForTest(null);
+        }
+    }
+
     @Test
     void anOpenWindowIsClosedThroughTheTradesOwnPath() {
         Character bot = newBot(BOT_ID, "Trader");

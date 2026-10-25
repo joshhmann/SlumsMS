@@ -2079,9 +2079,13 @@ public class Server {
                     ShutdownSaves.BOT_WRITERS);
             log.info("Shutdown: {} bots written, {} failed, {} not written in the budget, in {} ms",
                     report.saved(), report.failed(), report.unsaved().size(), report.elapsedMs());
+            if (report.journaled() != 0) {
+                log.warn("Shutdown: {} bots with unsaved payments were noted in the debit journal for the next boot",
+                        report.journaled());
+            }
             if (!report.unsaved().isEmpty()) {
                 log.warn("Shutdown: the bot save ran out of its {} ms budget; these {} bots resume from their last"
-                        + " save: {}", budgetMs, report.unsaved().size(), String.join(", ", report.unsaved()));
+                        + " save (payments they made are in the debit journal): {}", budgetMs, report.unsaved().size(), String.join(", ", report.unsaved()));
             }
             if (deadline - System.nanoTime() > 0) {
                 BotDbGate.unmetered((Runnable) () -> BotRoster.recordSessions(everyone, System.currentTimeMillis(), true));

@@ -27,6 +27,7 @@ import soloMapling.qa.QaLog;
 import soloMapling.server.BotTiming;
 import soloMapling.server.ExecutorServiceManager;
 
+import java.awt.Point;
 import java.util.ArrayList;
 import java.util.HashMap;
 import java.util.LinkedHashMap;
@@ -320,11 +321,69 @@ public final class BotRivalry {
             i++;
         }
         BotTiming.after(ms, () -> endKsWar(war, "time"));
+        BotTiming.after(RALLY_CHECK_MS, () -> rallyStrays(war, 1));
         qa(player.getMapId(), "KS WAR " + rival.getName() + " calls " + war.helpers.size() + " bot(s) on "
                 + player.getName() + " (" + names(war.helpers.keySet()) + ") for " + TimeUnit.MILLISECONDS.toSeconds(ms)
                 + " s" + (force ? " [forced: caps skipped]" : ""));
         return rival.getName() + " called " + war.helpers.size() + " bot(s) to KS " + player.getName() + " for "
                 + TimeUnit.MILLISECONDS.toSeconds(ms) + " s: " + names(war.helpers.keySet());
+    }
+
+    /** Ticket 66: how often a war looks for helpers that wandered off the player's platform, and how many times. */
+    static final long RALLY_CHECK_MS = 6_000L;
+    static final int RALLY_ROUNDS = 8;
+    /** A helper this far above/below the player is on another ledge; this far along x, out of the take reach. */
+    static final int STRAY_DY = 60, STRAY_DX = 400;
+
+    /** Helpers (by id) whose spot is on another ledge than the player's or too far along it to take their mobs. */
+    static List<Integer> strays(Map<Integer, Point> helperSpots, Point player) {
+        List<Integer> out = new ArrayList<>();
+        if (player == null) {
+            return out;
+        }
+        for (Map.Entry<Integer, Point> e : helperSpots.entrySet()) {
+            Point p = e.getValue();
+            if (p != null && (Math.abs(p.y - player.y) > STRAY_DY || Math.abs(p.x - player.x) > STRAY_DX)) {
+                out.add(e.getKey());
+            }
+        }
+        return out;
+    }
+
+    /**
+     * Ticket 66: after landing, the training brain picks its own grind spot and can walk off to another ledge, where
+     * nothing it fights is the player's mob. While the war lasts, a helper found off the player's platform is walked
+     * back (a bounded walk, then it fights from where it stands; never a warp, never a held follow, which made helpers
+     * stop fighting). Checked every {@value #RALLY_CHECK_MS} ms, at most {@value #RALLY_ROUNDS} rounds.
+     */
+    static void rallyStrays(KsWar war, int round) {
+        if (war.over || round > RALLY_ROUNDS || now() >= war.until) {
+            return;
+        }
+        try {
+            Character player = DramaKit.onlinePlayer(war.playerId);
+            if (player != null && player.getMapId() == war.mapId && player.getPosition() != null) {
+                Map<Integer, Point> spots = new LinkedHashMap<>();
+                for (Integer id : war.helpers.keySet()) {
+                    Character h = DramaKit.liveBot(id);
+                    if (h != null && h.getMapId() == war.mapId) {
+                        spots.put(id, h.getPosition());
+                    }
+                }
+                int i = 0;
+                for (int id : strays(spots, player.getPosition())) {
+                    Character h = DramaKit.liveBot(id);
+                    Point at = new Point(player.getPosition());
+                    at.translate((i++ % 2 == 0 ? 1 : -1) * 60, 0);
+                    qa(war.mapId, "RALLY STRAY " + h.getName() + " at " + h.getPosition() + " walks back to "
+                            + player.getPosition() + " (round " + round + ")");
+                    DramaKit.walkTo(h, at, war.mapId, null);
+                }
+            }
+        } catch (RuntimeException e) {
+            log.debug("Could not rally the strays of the KS war on {}", war.playerId, e);
+        }
+        BotTiming.after(RALLY_CHECK_MS, () -> rallyStrays(war, round + 1));
     }
 
     /** Guildmates of the rival first, then its partner, then any free training bot on the player's channel. */
