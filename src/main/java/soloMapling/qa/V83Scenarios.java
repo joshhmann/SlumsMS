@@ -64,6 +64,13 @@ final class V83Scenarios {
             if (!(gm.getClient() instanceof client.SyntheticClient)) {
                 throw new QaRefusal(id + " only runs on synthetic pretend players (AutoQaOne/AutoQaTwo).");
             }
+            // the stage resets the pretend players (job, level, mesos, skills); later checks need them as they were
+            ctx.onStop("put the pretend players back as they were", () -> {
+                Character now = ctx.gmNow() != null ? ctx.gmNow() : gm;
+                for (String line : ctx.world().v83Step(now, id, "restore")) {
+                    ctx.run().note("CLEANUP", line);
+                }
+            });
             return say(ctx, "stage");
         }
 

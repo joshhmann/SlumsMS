@@ -35,6 +35,7 @@ import tools.PacketCreator;
 import java.awt.Point;
 import java.util.ArrayList;
 import java.util.List;
+import java.util.Map;
 
 /** {@link QaWorld} on the running server. */
 final class GameQaWorld implements QaWorld {
@@ -1341,12 +1342,66 @@ final class GameQaWorld implements QaWorld {
         return (short) Math.max(1, item.getQuantity());
     }
 
+    /**
+     * What a vb reset takes from a pretend player that other checks rely on: its job, level, mesos and skills. Auto-QA
+     * 1.5.2: the resets left AutoQaOne at level 25-30 for good (it was 70), so t-mr-1 failed the next run ("You can
+     * only propose being level 50 or higher") and gu-1 applied as a level 25.
+     */
+    record PretendSnapshot(int job, int level, int meso, Map<client.Skill, Character.SkillEntry> skills) {
+    }
+
+    /** The state before the first reset of a vb run, per pretend player; put back at the run's stop. */
+    private static final Map<Integer, PretendSnapshot> beforeReset = new java.util.concurrent.ConcurrentHashMap<>();
+
+    static PretendSnapshot snapshot(Character chr) {
+        Map<client.Skill, Character.SkillEntry> skills = new java.util.HashMap<>();
+        for (Map.Entry<client.Skill, Character.SkillEntry> e : chr.getSkills().entrySet()) {
+            Character.SkillEntry v = e.getValue();
+            skills.put(e.getKey(), new Character.SkillEntry(v.skillevel, v.masterlevel, v.expiration));
+        }
+        return new PretendSnapshot(chr.getJob().getId(), chr.getLevel(), chr.getMeso(), skills);
+    }
+
+    static void restore(Character chr, PretendSnapshot s) {
+        if (chr.getJob().getId() != s.job()) {
+            chr.changeJob(client.Job.getById(s.job()));
+        }
+        chr.setLevel(s.level());
+        chr.gainMeso(s.meso() - chr.getMeso(), false);
+        for (client.Skill skill : new ArrayList<>(chr.getSkills().keySet())) {
+            if (!s.skills().containsKey(skill)) {
+                chr.changeSkillLevel(skill, (byte) -1, 0, -1);
+            }
+        }
+        for (Map.Entry<client.Skill, Character.SkillEntry> e : s.skills().entrySet()) {
+            Character.SkillEntry v = e.getValue();
+            chr.changeSkillLevel(e.getKey(), v.skillevel, v.masterlevel, v.expiration);
+        }
+    }
+
+    /** Puts every pretend player a vb reset changed back as it was before (the vb-* stop). */
+    private List<String> restorePretendPlayers(Character gm) {
+        List<String> out = new ArrayList<>();
+        for (Map.Entry<Integer, PretendSnapshot> e : new ArrayList<>(beforeReset.entrySet())) {
+            World w = Server.getInstance().getWorld(gm.getWorld());
+            Character chr = w == null ? null : w.getPlayerStorage().getCharacterById(e.getKey());
+            if (chr == null || !(chr.getClient() instanceof client.SyntheticClient)) {
+                continue; // logged out: restored at the next stop it is online for
+            }
+            restore(chr, e.getValue());
+            beforeReset.remove(e.getKey());
+            out.add("VB RESTORED " + chr.getName() + " job " + e.getValue().job() + " level " + e.getValue().level());
+        }
+        return out;
+    }
+
     private void resetPretendPlayer(Character gm, int job, int level, int meso) {
         // Wipes job, skills, items, mesos and quest rows: only ever for auto-QA's pretend players, never a real
         // character, even if a future caller forgets V83Scenarios' own SyntheticClient check.
         if (gm == null || !(gm.getClient() instanceof client.SyntheticClient)) {
             return;
         }
+        beforeReset.putIfAbsent(gm.getId(), snapshot(gm));
         gm.changeJob(client.Job.getById(job));
         gm.setLevel(level);
         for (int i = 0; i < gm.getRemainingSps().length; i++) {
@@ -1387,6 +1442,9 @@ final class GameQaWorld implements QaWorld {
     @Override
     public List<String> v83Step(Character gm, String feature, String step) {
         try {
+            if ("restore".equals(step)) {
+                return restorePretendPlayers(gm);
+            }
             return switch (feature) {
                 case "vb-1" -> salonStep(gm, step);
                 case "vb-2" -> deleteStep(gm, step);
@@ -1570,6 +1628,14 @@ final class GameQaWorld implements QaWorld {
 
     // ── vb-3: Kerning PQ clear, reward, exit ──
 
+    /**
+     * The level Cloto (9020000.js) starts Kerning PQ with: {@code em.startInstance(party, map, 1)}. KerningPQ.js's
+     * setup(level, lobbyid) stores it with eim.setProperty("level", level); the startInstance overload without a level
+     * passes null, which GraalJS cannot pick a setProperty overload for, so vb-3's instance never started (and the
+     * lobby stayed locked until a restart).
+     */
+    static final int KPQ_LEVEL = 1;
+
     private List<String> kpqStep(Character gm, String step) {
         if ("stage".equals(step)) {
             resetPretendPlayer(gm, 100, 25, 1_000_000);
@@ -1582,7 +1648,7 @@ final class GameQaWorld implements QaWorld {
             if (em == null) {
                 return out;
             }
-            boolean started = em.startInstance(-1, gm.getParty(), gm.getMap(), gm);
+            boolean started = em.startInstance(-1, gm.getParty(), gm.getMap(), KPQ_LEVEL, gm);
             scripting.event.EventInstanceManager eim = gm.getEventInstance();
             out.add("VB KPQ instance " + (started && eim != null ? "started " + eim.getName() : "DID NOT START"));
             if (eim != null) {
