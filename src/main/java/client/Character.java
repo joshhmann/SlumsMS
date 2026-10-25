@@ -4722,7 +4722,7 @@ public class Character extends AbstractCharacterObject {
 
         List<Pair<BuffStat, BuffStatValueHolder>> toCancel = deregisterBuffStats(buffstats);
         if (effect.isMonsterRiding()) {
-            this.getClient().getWorldServer().unregisterMountHunger(this);
+            unregisterMountHunger();        // 1.5.2: was this.getClient().getWorldServer().unregisterMountHunger(this)
             this.getMount().setActive(false);
         }
 
@@ -6976,6 +6976,20 @@ public class Character extends AbstractCharacterObject {
 
     public int getWorld() {
         return world;
+    }
+
+    /**
+     * 1.5.2: mount hunger is tracked per world. Both callers used `getClient().getWorldServer().unregisterMountHunger`
+     * — a buff cancel here and Mount.empty on logout — and at logout the client or its world is already gone: the NPE
+     * aborted Character.empty halfway (the live "Client.getWorldServer() is null" NPE through Client.clear) and left the
+     * mount registered in the world. Nothing to unregister when no world is left.
+     */
+    void unregisterMountHunger() {
+        Client c = getClient();
+        World world = (c == null) ? null : c.getWorldServer();
+        if (world != null) {
+            world.unregisterMountHunger(this);
+        }
     }
 
     public World getWorldServer() {
