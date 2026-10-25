@@ -23,3 +23,12 @@ Open for the owner, then build in 1.6.0:
 10. ~2,500 inert NPCs on post-Big-Bang maps: with tickets 81/82.
 Also: Glowing Treasure (starforce, 2616.js:75-79) leaves the dialog open after a success; Dalair is two NPCs
 (9000066 medals, placed in 1.5.2; 9000040 merger), the owner noted the medal one usually has its donation box nearby.
+
+## Track: put progression back (owner, 2026-10-25)
+
+Owner: MapleRoot's NPC shortcuts aren't abuse; they were the quickest way to hand players content without building
+the requirements in between. Goal: give each shortcut NPC the real quest/progression requirement it skips, instead of
+removing it. Needs digging per NPC: what stock v83 (Cosmic, MapleLegends/Royals guides) requires for the same thing
+(job tests, skill-book quests, Maker levels, boss prequests, travel/quest gates for warps), then a gate or a cost
+that matches. Start with the catalogue's "shortcut" flags (Cotton Warper boss warps, 4th job skills NPC, Jump Quests
+warp, Hallowed Ground warp, Ellin Forest leaf trades, CPQ entry) and the Job Master (fees done in 1.5.2).
