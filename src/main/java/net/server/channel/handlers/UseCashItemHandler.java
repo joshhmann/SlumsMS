@@ -54,6 +54,7 @@ import tools.Pair;
 import java.util.ArrayList;
 import java.util.LinkedList;
 import java.util.List;
+import java.util.Map;
 
 import static java.util.concurrent.TimeUnit.DAYS;
 import static java.util.concurrent.TimeUnit.SECONDS;
@@ -563,9 +564,11 @@ public final class UseCashItemHandler extends AbstractPacketHandler {
                 return;
             }
 
-            //should have a check here against PE hacks
-            if (itemId / 1000000 != 5) {
-                itemId = 0;
+            final Map<String, Integer> scrollStats = ii.getEquipStats(uitem.getItemId());
+            final Integer scrollSuccess = scrollStats == null ? null : scrollStats.get("success");
+            if (!vegaAccepts(itemId, uitem.getItemId(), scrollSuccess)) {
+                c.sendPacket(PacketCreator.enableActions());
+                return;
             }
 
             player.toggleBlockCashShop();
@@ -573,7 +576,11 @@ public final class UseCashItemHandler extends AbstractPacketHandler {
             final int curlevel = toScroll.getLevel();
             c.sendPacket(PacketCreator.sendVegaScroll(0x40));
 
-            final Equip scrolled = (Equip) ii.scrollEquipWithId(toScroll);
+            // MapleRoot's level-based enhancement; null is a "boom" on a superior item. It used to throw here,
+            // leaving the cash shop blocked and nothing used up, so a boom was a free retry. Until the owner
+            // decides whether a boom should destroy the item, it counts as a failure that keeps the item.
+            final Equip enhanced = (Equip) ii.scrollEquipWithId(toScroll);
+            final Equip scrolled = enhanced != null ? enhanced : toScroll;
             c.sendPacket(PacketCreator.sendVegaScroll(scrolled.getLevel() > curlevel ? 0x41 : 0x43));
             //opcodes 0x42, 0x44: "this item cannot be used"; 0x39, 0x45: crashes
 
@@ -605,6 +612,22 @@ public final class UseCashItemHandler extends AbstractPacketHandler {
             log.warn("NEW CASH ITEM TYPE: {}, packet: {}", itemType, p);
             c.sendPacket(PacketCreator.enableActions());
         }
+    }
+
+    /**
+     * Whether a Vega's Spell may be cast with this USE item. The handler used to consume whatever USE item the
+     * packet named (a potion would do) and enhance the equip anyway. The stock client only offers scrolls whose
+     * success rate matches the spell: 10% scrolls for Vega's Spell(10%), 60% scrolls for Vega's Spell(60%).
+     */
+    static boolean vegaAccepts(int spellId, int useItemId, Integer scrollSuccess) {
+        if (useItemId / 10000 != 204 || scrollSuccess == null) {
+            return false;
+        }
+        return switch (spellId) {
+            case ItemId.VEGAS_SPELL_10 -> scrollSuccess == 10;
+            case ItemId.VEGAS_SPELL_60 -> scrollSuccess == 60;
+            default -> false;
+        };
     }
 
     /** {@link #createWithMapleLife} result: Maple Life B with no character slot left to add. */

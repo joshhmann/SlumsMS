@@ -12459,7 +12459,20 @@ public class Character extends AbstractCharacterObject {
     }
 
 
+    /**
+     * The slots quick-sell may look at: from {@code pos} to {@code lpos}, kept inside 1..the inventory's slot limit.
+     * 1.5.2: the loop counted with a short, so {@code @qs 1 32767} (or the Donation Box with a last slot of 32767)
+     * wrapped to -32768 and never ended, holding the inventory lock and growing a list until the server ran out of
+     * memory. Negative slots also reached the equipped items.
+     */
+    static int[] quickSellRange(int pos, int lpos, int slotLimit) {
+        return new int[]{Math.max(1, pos), Math.min(lpos, slotLimit)};
+    }
+
     public int sellAllPosLast(InventoryType type, short pos, short lpos) {
+        if (type == null || type == InventoryType.EQUIPPED || type == InventoryType.UNDEFINED) {
+            return 0;   // worn gear is never quick-sold (the Donation Box passed the client's inventory number on)
+        }
         int mesoGain = 0;
         ItemInformationProvider ii = ItemInformationProvider.getInstance();
         Inventory inv = getInventory(type);
@@ -12467,8 +12480,9 @@ public class Character extends AbstractCharacterObject {
         inv.lockInventory();
 
         try {
-            for (short i = pos; i <= lpos; i++) {
-                Item item = inv.getItem(i);
+            int[] range = quickSellRange(pos, lpos, inv.getSlotLimit());
+            for (int slot = range[0]; slot <= range[1]; slot++) {
+                Item item = inv.getItem((short) slot);
                 if (item == null) {
                     continue;
                 }

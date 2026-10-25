@@ -68,7 +68,7 @@ function action(mode, type, selection) {
             } else if (expedition.isInProgress()) { //Only if the expedition is in progress
                 if (expedition.contains(player)) { //If you're registered, warp you in
                     var eim = em.getInstance(expedName + player.getClient().getChannel());
-                    if (eim.getIntProperty("canJoin") == 1) {
+                    if (eim != null && eim.getIntProperty("canJoin") == 1) {
                         eim.registerPlayer(player);
                     } else {
                         cm.sendOk("Your expedition already started the battle against " + expedBoss + ". Lets pray for those brave souls.");

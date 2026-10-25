@@ -10,8 +10,8 @@ import server.maps.MapleMap;
 import client.Character;
 import client.inventory.Item;
 
-import java.util.HashMap;
 import java.util.Map;
+import java.util.concurrent.ConcurrentHashMap;
 
 /**
  * @author Shahar
@@ -21,7 +21,7 @@ public class HyperTPHandler extends AbstractPacketHandler {
     private static final long COOLDOWN_TIME = 300000; // 5 minute in milliseconds
 
     // Store the last teleport time for each player
-    private static final Map<Integer, Long> lastTeleportTime = new HashMap<>();
+    private static final Map<Integer, Long> lastTeleportTime = new ConcurrentHashMap<>();
 
     @Override
     public void handlePacket(InPacket p, Client c) {
@@ -49,28 +49,10 @@ public class HyperTPHandler extends AbstractPacketHandler {
                     return;
                 }
 
-                if (isRestrictedMap(map_id)) {
-                    player.dropMessage(1, "You are not allowed to teleport to this map.");
-                    return;
-                }
-
-                if (player.getReborns() < 1 && isLionKingMap(map_id)) {
-                    player.dropMessage(1, "You need to be Rebirth level 1 or higher.");
-                    return;
-                }
-
-                if (player.getReborns() < 2 && isTwilightPerion(map_id)) {
-                    player.dropMessage(1, "You need to be Rebirth level 2 or higher.");
-                    return;
-                }
-
-                if (player.getReborns() < 3 && isGrandisandArcane(map_id)) {
-                    player.dropMessage(1, "You need to be Rebirth level 3 or higher.");
-                    return;
-                }
-
-                if (FieldLimit.CANNOTVIPROCK.check(target.getFieldLimit())) {
-                    player.dropMessage(1, "Unable to approach due to the force of the ground.");
+                String refusal = refusal(player.getMapId(), player.getEventInstance() != null, player.isAlive(),
+                        map_id, target.getFieldLimit(), target.getForcedReturnId(), player.getReborns());
+                if (refusal != null) {
+                    player.dropMessage(1, refusal);
                     return;
                 }
 
@@ -87,6 +69,42 @@ public class HyperTPHandler extends AbstractPacketHandler {
         }
     }
 
+
+    /**
+     * Why this teleport is refused, or null when it may go ahead. MapleRoot's world-map teleport is free every
+     * five minutes, so it used to be a way out of the jail and of a running party quest or boss fight, and a way
+     * into instance maps (party quest stages, the GM map) that are only meant to be entered through their NPC.
+     * A map whose forced return points somewhere else is an instance or a stage; a town returns to itself.
+     */
+    static String refusal(int fromMapId, boolean inEvent, boolean alive, int toMapId, int toFieldLimit,
+                          int toForcedReturn, int reborns) {
+        if (!alive) {
+            return "You can't teleport while dead.";
+        }
+        if (fromMapId == MapId.JAIL || toMapId == MapId.JAIL) {
+            return "You can't teleport out of or into the jail.";
+        }
+        if (inEvent) {
+            return "Leave your party quest or expedition first.";
+        }
+        if (isRestrictedMap(toMapId)) {
+            return "You are not allowed to teleport to this map.";
+        }
+        if (reborns < 1 && isLionKingMap(toMapId)) {
+            return "You need to be Rebirth level 1 or higher.";
+        }
+        if (reborns < 2 && isTwilightPerion(toMapId)) {
+            return "You need to be Rebirth level 2 or higher.";
+        }
+        if (reborns < 3 && isGrandisandArcane(toMapId)) {
+            return "You need to be Rebirth level 3 or higher.";
+        }
+        if (FieldLimit.CANNOTVIPROCK.check(toFieldLimit)
+                || (toForcedReturn != MapId.NONE && toForcedReturn != toMapId)) {
+            return "Unable to approach due to the force of the ground.";
+        }
+        return null;
+    }
 
     // Helper method to check if the player has the required item in their inventory
     private boolean hasRequiredItem(Character player) {

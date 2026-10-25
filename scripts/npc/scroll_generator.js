@@ -27,12 +27,12 @@
 
 var status;
 
-var jobWeaponRestricted =  [[ [4001006]]];
+var jobWeaponRestricted = [[[2043000, 2043100, 2044000, 2044100, 2043200, 2044200]], [[2043000, 2043100, 2044000, 2044100], [2043000, 2043200, 2044000, 2044200], [2044300, 2044400]], [[2043700, 2043800], [2043700, 2043800], [2043700, 2043800]], [[2044500], [2044600]], [[2044700], [2043300]], [[2044800], [2044900]]];
 var aranWeaponRestricted = [jobWeaponRestricted[1][2][1]];
 
 var tier1Scrolls = [];
-var tier2Scrolls = [ 4001006];
-var tier3Scrolls = [ 4001006];
+var tier2Scrolls = [2040000, 2040400, 2040500, 2040600, 2040700, 2040800, 2040900];
+var tier3Scrolls = [2048000, 2049200, 2041000, 2041100, 2041300, 2040100, 2040200, 2040300];
 
 var typeTierScrolls = [["PAD", "MAD"], ["STR", "DEX", "INT", "LUK", "ACC", "EVA", "Speed", "Jump"], ["PDD", "MDD", "MHP", "MMP"]];
 

@@ -1561,6 +1561,16 @@ function getOptionsList(itemIds) {
     return options;
 }
 
+/* Whether itemId is one of the items of the category on offer (currentIDs). */
+function isOffered(itemId) {
+    for (var i = 0; i < currentIDs.length; i++) {
+        if (currentIDs[i] == itemId) {
+            return true;
+        }
+    }
+    return false;
+}
+
 function confirmPurchase(selection) {
     if(selection === 0) {
         pageNumber++;
@@ -1573,7 +1583,9 @@ function confirmPurchase(selection) {
         cm.sendSimple("\t\t\t\t\t\t\t\t\t\t\t\t#bPage " + pageNumber + "#k\r\nPlease select the item you want to purchase:\r\n" + options);
         status--;
     } else {
-        if (cm.getItemQuantity(currencyItemId) >= price) {
+        if (!isOffered(selection)) {   // 1.5.2: the client sends any number; only an item on the page may be bought
+            cm.dispose();
+        } else if (cm.getItemQuantity(currencyItemId) >= price) {
             var options = ""
             selectedItem = selection;
             options += "#L0#Yes\r\n"
@@ -1608,8 +1620,14 @@ function completePurchase(mode, selection) {
 //    } else if (mode == 0) {
 //        cm.sendOk("Transaction canceled.");
 //    }
+    if (!isOffered(selectedItem)) {
+        cm.dispose();
+        return;
+    }
     if(selection === 0) {
-        if (cm.canHold(selectedItem, 1)) {
+        if (cm.getItemQuantity(currencyItemId) < price) {
+            cm.sendOk("You do not have enough " + "#i" + currencyItemId + "#.");
+        } else if (cm.canHold(selectedItem, 1)) {
             if (selectedItem >= 5000000 && selectedItem <= 5000999) {
                 cm.gainItem(currencyItemId, -price); // Remove the currency
                 cm.gainItem(selectedItem, 1, false, true, (time * 1000 * 60 * 60 * 24));
@@ -1620,7 +1638,7 @@ function completePurchase(mode, selection) {
         } else {
             cm.sendOk("You do not have enough space to hold this item. Please try again after making some space.");
         }
-    } else if(selection == 1) {
+    } else if(selection == 1 && cosmetic) {   // the free one-minute try is for cosmetics only, as the menu shows
         cm.gainItem(selectedItem, 1, false, true, 1000*60*1)
     } else {
         cm.sendOk("Transaction cancelled.")

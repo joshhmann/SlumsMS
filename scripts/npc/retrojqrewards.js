@@ -32,7 +32,11 @@ function action(mode, type, selection) {
             cm.sendYesNo("Are you sure you want to exchange " + CURRENCY_NEEDED + " #v" + currencyIcon + "# for #v" + selectedItem + "#?");
         } else if (status == 3) {
             let currencyId = (currencyType == 0) ? DK_CURRENCY_ID : YOSHI_CURRENCY_ID;
-            if (cm.haveItem(currencyId, CURRENCY_NEEDED)) {
+            if (selectedItem == null) {   // a selection that was not on the menu
+                cm.sendOk("That reward is not on offer.");
+            } else if (!cm.canHold(selectedItem, 1)) {
+                cm.sendOk("Please make room in your inventory first.");
+            } else if (cm.haveItem(currencyId, CURRENCY_NEEDED)) {
                 cm.gainItem(currencyId, -CURRENCY_NEEDED); // Deduct currency
                 
                 // Correct expiration based on the example you provided

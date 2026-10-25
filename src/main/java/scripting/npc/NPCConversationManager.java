@@ -218,7 +218,19 @@ public class NPCConversationManager extends AbstractPlayerInteraction {
     }
 
     public void sendGetNumber(String text, int def, int min, int max) {
+        numberMin = Math.min(min, max);
+        numberMax = Math.max(min, max);
         getClient().sendPacket(PacketCreator.getNPCTalkNum(npc, text, def, min, max));
+    }
+
+    // The bounds of the last number box. The client enforces them, but its reply is just an int: NPCMoreTalkHandler
+    // keeps a forged answer inside them (1.5.2: memory.js built a board of 2^31 cards from one).
+    private int numberMin = Integer.MIN_VALUE;
+    private int numberMax = Integer.MAX_VALUE;
+
+    /** The answer to the last number box, kept inside the bounds the script asked for. */
+    public int boundNumber(int answer) {
+        return Math.max(numberMin, Math.min(numberMax, answer));
     }
 
     public void sendGetText(String text) {
