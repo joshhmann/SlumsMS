@@ -162,7 +162,8 @@ public class Dispatcher implements Runnable {
         ChatRoute.Decision d = ChatRoute.decide(lines,
                 new ChatRoute.Player(sender.getId(), sender.getName(), content, me.x, me.y, facingLeft(sender), listening,
                         attention == null ? 0 : attention.lastAt()),
-                bots, soloMapling.ArtificialPlayer.BotConvo.BotThreads.liveView(channel, sender.getMapId(), now), named,
+                bots, soloMapling.ArtificialPlayer.BotConvo.BotThreads.liveView(channel, sender.getMapId(), now,
+                        new soloMapling.ArtificialPlayer.BotConvo.BotThreads.Ask(content, me.x, me.y)), named,
                 RouteLog.wanted() ? bot -> tierOf(bot, sender.getId()) : null, now);
         java.util.function.BiConsumer<Integer, String> logAs = (bot, step) -> {
             BotSM b = bot < 0 ? null : getBotById(bot);
@@ -208,8 +209,8 @@ public class Dispatcher implements Runnable {
         }
         if (d.step().thread()) {
             // ticket 59: the player joins the thread; its last speaker answers with the thread in mind (JOIN)
-            soloMapling.ArtificialPlayer.BotConvo.BotThreads.jumpIn(channel, sender.getMapId(), sender.getName(), content,
-                    now);
+            soloMapling.ArtificialPlayer.BotConvo.BotThreads.jumpIn(channel, sender.getMapId(), d.thread().id(),
+                    sender.getName(), content, now);
         }
         if (d.step() == ChatRoute.Step.CLOSEST && BotChatRouting.decideConfigured()) {
             // a request for a kind of player ("which one of u is the thief") still asks the decision model first -
