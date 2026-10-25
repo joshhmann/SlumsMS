@@ -7,6 +7,12 @@ let depression;
 let jobs = [];
 let level = 0;
 let job;
+let fee = 0;
+const JobMasterFees = Java.type('constants.game.JobMasterFees');
+
+function mesos(n) {
+    return String(n).replace(/\B(?=(\d{3})+(?!\d))/g, ",");
+}
 
 function start() {
     level = cm.getPlayer().getLevel();
@@ -86,11 +92,22 @@ function action(m, t, s) {
 
     if (depression === 1) {
         job = jobs[s];
-        cm.sendYesNo(`Are you sure you want job advance to a (#r${cm.getJobName(jobs[s])}#k)?`);
+        fee = JobMasterFees.forTarget(job);
+        // 1.5.2 (owner, ticket 88): skipping the quest costs mesos; the stock instructors and tests stay free
+        const price = fee > 0 ? `\r\nSkipping the job test costs #b${mesos(fee)} mesos#k.` : "";
+        cm.sendYesNo(`Are you sure you want job advance to a (#r${cm.getJobName(jobs[s])}#k)?${price}`);
     } else if (depression === 2) {
         if (m === 0) { // no
             start();
         } else { // yes
+            if (fee > 0 && cm.getMeso() < fee) {
+                cm.sendOk(`You need #b${mesos(fee)} mesos#k to skip the test. You can still take your job instructor's test for free.`);
+                cm.dispose();
+                return;
+            }
+            if (fee > 0) {
+                cm.gainMeso(-fee);
+            }
             jobAdvance();
             cm.dispose();
         }
