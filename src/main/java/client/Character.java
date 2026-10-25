@@ -4455,9 +4455,32 @@ public class Character extends AbstractCharacterObject {
             }
 
             for (Entry<StatEffect, Long> mse : mseBuffs.entrySet()) {
+                if (keepingCoupons && keptOnDeath(mse.getKey().getSourceId())) {
+                    continue;
+                }
                 cancelEffect(mse.getKey(), false, mse.getValue());
             }
         }
+    }
+
+    /**
+     * 1.5.1 (owner): dying clears every buff except EXP/drop coupons. Stock v83 dropped the coupon's effect on death
+     * until it was re-applied, which players read as losing the coupon ("very Nexon").
+     */
+    public void cancelAllBuffsOnDeath() {
+        keepingCoupons = true;
+        try {
+            cancelAllBuffs(false);
+        } finally {
+            keepingCoupons = false;
+        }
+    }
+
+    private boolean keepingCoupons = false;
+
+    /** What a death leaves running: rate coupons only. */
+    static boolean keptOnDeath(int sourceId) {
+        return ItemId.isRateCoupon(sourceId);
     }
 
     private void dropBuffStats(List<Pair<BuffStat, BuffStatValueHolder>> effectsToCancel) {
@@ -8660,7 +8683,7 @@ public class Character extends AbstractCharacterObject {
             return;
         }
 
-        cancelAllBuffs(false);
+        cancelAllBuffsOnDeath();
         dispelDebuffs();
         lastDeathtime = Server.getInstance().getCurrentTime();
         soloMapling.server.MapleRootSolo.runHook("drama death", () ->   // 1.5.0: rivals roast today's deaths
@@ -8821,7 +8844,7 @@ public class Character extends AbstractCharacterObject {
 
         changeMap(returnMap);
 
-        cancelAllBuffs(false);  // thanks Oblivium91 for finding out players still could revive in area and take damage before returning to town
+        cancelAllBuffsOnDeath();  // thanks Oblivium91 for finding out players still could revive in area and take damage before returning to town
 
         if (usedSafetyCharm) {  // thanks kvmba for noticing safety charm not providing 30% HP/MP
             addMPHP((int) Math.ceil(this.getClientMaxHp() * 0.3), (int) Math.ceil(this.getClientMaxMp() * 0.3));
