@@ -340,10 +340,17 @@ public static boolean monsterIsBoss(int mid) {
     return info != null && DataTool.getIntConvert("boss", info, 0) > 0;
 }
 
+// 1.5.2 (nutnnut/Cosmic 3c094c453): mob ids whose load already failed (a stale drop_data dropper with no Mob.wz entry,
+// an entry with no info). Without it every caller re-parsed and re-logged the same SEVERE error with a stack trace.
+private static final Set<Integer> failedMonsterLoads = java.util.concurrent.ConcurrentHashMap.newKeySet();
+
 public static Monster getMonster(int mid) {
     try {
         MonsterStats stats = monsterStats.get(mid);
         if (stats == null) {
+            if (failedMonsterLoads.contains(mid)) {
+                return null;
+            }
             Pair<MonsterStats, List<MobAttackInfoHolder>> mobStats = getMonsterStats(mid);
             stats = mobStats.getLeft();
             setMonsterAttackInfo(mid, mobStats.getRight());
@@ -352,7 +359,9 @@ public static Monster getMonster(int mid) {
         }
         return new Monster(mid, stats);
     } catch (NullPointerException npe) {
-        log.error("[SEVERE] MOB {} failed to load.", mid, npe);
+        if (failedMonsterLoads.add(mid)) {
+            log.error("[SEVERE] MOB {} failed to load.", mid, npe);
+        }
         return null;
     }
 }
