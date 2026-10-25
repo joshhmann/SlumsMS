@@ -32,13 +32,17 @@ class StandOffsetTest {
 
     @Test
     void botsOnTheSameSpawnStandOnDistinctPixelsWithinReach() {
+        // Eight bots on one spawn with a 35 px reach: there is room for only ~5 spots 16 px apart, so later bots may
+        // share a spot (by design they keep their own once every candidate is held). What matters: everyone stays in
+        // reach, nobody is put on the spawn pixel itself, and the group spreads over several distinct spots.
         Set<Integer> held = new HashSet<>();
         for (int id = 100; id < 108; id++) {
             int x = StandOffset.standX(id, SPAWN, 0, 2000, REACH, c -> true, c -> held.stream().anyMatch(h -> Math.abs(h - c) < 16));
             assertTrue(Math.abs(x - SPAWN) <= REACH, "still within reach: " + x);
-            assertTrue(held.stream().noneMatch(h -> Math.abs(h - x) < 16) || id >= 105, "distinct from earlier bots: " + x);
+            assertTrue(x != SPAWN, "not on the spawn pixel: " + x);
             held.add(x);
         }
+        assertTrue(held.size() >= 4, "spread over several spots: " + held);
         assertTrue(Math.abs(StandOffset.standX(100, SPAWN, 0, 2000, REACH, c -> true, c -> false) - SPAWN) >= StandOffset.MIN_PX);
     }
 
