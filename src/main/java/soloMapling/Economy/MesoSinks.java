@@ -73,6 +73,10 @@ public final class MesoSinks {
         try {
             if (fee > 0) {
                 EconomyMeters.add(EconomyMeters.TAX, fee);
+                soloMapling.Economy.stats.EconomyCounters.recordFmTax(fee);
+            }
+            if (totalPrice > 0) {
+                soloMapling.Economy.stats.EconomyCounters.recordFmSale(totalPrice);
             }
             int units = sold == null ? 0 : PriceBook.units(sold);
             PriceBook.Source src = botShop ? (realBuyer ? PriceBook.Source.BOT_SHOP : PriceBook.Source.BOT_SEED)

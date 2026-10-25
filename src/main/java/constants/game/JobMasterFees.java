@@ -30,4 +30,11 @@ public final class JobMasterFees {
             default -> 0;      // MapleRoot's 5th tier (113 ...): rebirth 3 + item 4036541
         };
     }
+
+    /** Records a paid fee to the economy telemetry counters. */
+    public static void recordFee(int fee) {
+        if (fee > 0) {
+            soloMapling.Economy.stats.EconomyCounters.recordJobMasterFee(fee);
+        }
+    }
 }

@@ -682,6 +682,13 @@ public class AbstractPlayerInteraction {
         } else {
             InventoryManipulator.removeById(c, ItemConstants.getInventoryType(id), id, -quantity, true, false);
         }
+        if (id == 4001126) {
+            if (quantity > 0) {
+                soloMapling.Economy.stats.EconomyCounters.recordMapleLeafGained(quantity);
+            } else if (quantity < 0) {
+                soloMapling.Economy.stats.EconomyCounters.recordMapleLeafSpent(-quantity);
+            }
+        }
         if (showMessage) {
             c.sendPacket(PacketCreator.getShowItemGain(id, quantity, true));
         }

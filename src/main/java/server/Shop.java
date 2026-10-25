@@ -116,6 +116,7 @@ public class Shop {
                     if (!ItemConstants.isRechargeable(itemId)) { //Pets can't be bought from shops
                         InventoryManipulator.addById(c, itemId, quantity, "", -1);
                         c.getPlayer().gainMeso(-amount, false);
+                        soloMapling.Economy.stats.EconomyCounters.recordNpcBuy(amount);
                         if (soloMapling.Economy.MesoSinks.isCosmeticNpc(npcId)) {   // 1.5.0 rc3: a meso sink
                             soloMapling.Economy.MesoSinks.onSinkPurchase(c.getPlayer(), itemId, quantity, amount);
                         }
@@ -124,6 +125,7 @@ public class Shop {
                         quantity = slotMax;
                         InventoryManipulator.addById(c, itemId, quantity, "", -1);
                         c.getPlayer().gainMeso(-item.getPrice(), false);
+                        soloMapling.Economy.stats.EconomyCounters.recordNpcBuy(item.getPrice());
                     }
                     c.sendPacket(PacketCreator.shopTransaction((byte) 0));
                 } else {
@@ -234,6 +236,7 @@ public class Shop {
             int recvMesos = ii.getPrice(item.getItemId(), quantity);
             if (recvMesos > 0) {
                 c.getPlayer().gainMeso(recvMesos, false);
+                soloMapling.Economy.stats.EconomyCounters.recordNpcSell(recvMesos);
             }
             c.sendPacket(PacketCreator.shopTransaction((byte) 0x8));
         } else {
@@ -257,6 +260,7 @@ public class Shop {
                 item.setQuantity(slotMax);
                 c.getPlayer().forceUpdateItem(item);
                 c.getPlayer().gainMeso(-price, false, true, false);
+                soloMapling.Economy.stats.EconomyCounters.recordNpcBuy(price);
                 c.sendPacket(PacketCreator.shopTransaction((byte) 0x8));
             } else {
                 c.sendPacket(PacketCreator.shopTransaction((byte) 0x2));

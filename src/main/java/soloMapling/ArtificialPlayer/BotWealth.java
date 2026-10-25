@@ -225,6 +225,7 @@ public final class BotWealth {
         if (burn > 0 && burn <= Integer.MAX_VALUE && BotHoldings.spendMeso(bot, (int) burn)) {
             decayed.addAndGet(burn);
             decayEvents.incrementAndGet();
+            soloMapling.Economy.stats.EconomyCounters.recordUpkeep(burn);
             String line = String.format("%s paid %,d upkeep (%.0f%% of %,d over its ceiling %,d); holds %,d",
                     bot.getName(), burn, share * 100, excess, ceiling(bot), bot.getMeso());
             out.add(line);

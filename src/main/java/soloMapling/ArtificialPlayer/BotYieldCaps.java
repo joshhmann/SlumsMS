@@ -225,7 +225,11 @@ public final class BotYieldCaps {
         if (drop.getMeso() > 0 && !BotWealth.takeDropMesos(bot, java.util.concurrent.ThreadLocalRandom.current())) {
             return false;   // 56B: over its wealth ceiling, intake slowed (stopped at the hard line)
         }
-        return reserve(bot, bot.getMap(), Math.max(0, drop.getMeso()), dropUnits(drop), false, true) >= 0;
+        boolean ok = reserve(bot, bot.getMap(), Math.max(0, drop.getMeso()), dropUnits(drop), false, true) >= 0;
+        if (ok && drop.getMeso() > 0) {
+            soloMapling.Economy.stats.EconomyCounters.recordMobMesoDrop(true, drop.getMeso());
+        }
+        return ok;
     }
 
     /** Gives back a {@link #takeDrop} whose credit failed. */
@@ -250,7 +254,11 @@ public final class BotYieldCaps {
         if (mesos <= 0) {
             return 0;
         }
-        return Math.max(0, reserve(bot, bot.getMap(), mesos, 0, true, true));
+        long taken = Math.max(0, reserve(bot, bot.getMap(), mesos, 0, true, true));
+        if (taken > 0) {
+            soloMapling.Economy.stats.EconomyCounters.recordMobMesoDrop(true, taken);
+        }
+        return taken;
     }
 
     public static void returnMesos(Character bot, long mesos) {

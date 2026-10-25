@@ -116,6 +116,7 @@ function action(m, t, s) {
             }
             if (fee > 0) {
                 cm.gainMeso(-fee);
+                JobMasterFees.recordFee(fee);
             }
             jobAdvance();
             cm.dispose();
