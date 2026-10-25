@@ -451,4 +451,21 @@ class QaScenarioStagingTest {
         assertEquals(List.of("vb-4 stage", "vb-4 bottle", "vb-4 hog 1"), asked);
         assertTrue(s.stop(1, "!qa stop").get(0).startsWith("QA vb-4 stopped"), "the vb scenarios undo nothing, so they stop cleanly");
     }
+
+    @Test
+    void vbScenariosRefuseNonSyntheticPlayer() {
+        Character realGm = org.mockito.Mockito.mock(Character.class);
+        client.Client realClient = org.mockito.Mockito.mock(client.Client.class);
+        org.mockito.Mockito.when(realGm.getClient()).thenReturn(realClient);
+        org.mockito.Mockito.when(realGm.getId()).thenReturn(99);
+        org.mockito.Mockito.when(realGm.getName()).thenReturn("RealGm");
+        org.mockito.Mockito.when(realGm.getMapId()).thenReturn(100000000);
+        org.mockito.Mockito.when(realGm.getPosition()).thenReturn(new java.awt.Point(0, 0));
+        org.mockito.Mockito.when(realGm.gmLevel()).thenReturn(6);
+        QaSuite s = QaTestSupport.suite(QaScenarios.all(), world, dir, new QaTestSupport.ManualScheduler());
+        for (String id : List.of("vb-1", "vb-2", "vb-3", "vb-4", "vb-5", "vb-6", "vb-7")) {
+            QaRefusal r = assertThrows(QaRefusal.class, () -> s.start(realGm, id, new String[0]));
+            assertTrue(r.getMessage().contains("only runs on synthetic pretend players"), r.getMessage());
+        }
+    }
 }

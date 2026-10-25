@@ -60,11 +60,19 @@ final class V83Scenarios {
 
         @Override
         public List<String> stage(QaContext ctx) {
+            Character gm = ctx.gm();
+            if (!(gm.getClient() instanceof client.SyntheticClient)) {
+                throw new QaRefusal(id + " only runs on synthetic pretend players (AutoQaOne/AutoQaTwo).");
+            }
             return say(ctx, "stage");
         }
 
         @Override
         public List<String> action(QaContext ctx, String name, String[] args) {
+            Character gm = ctx.gm();
+            if (!(gm.getClient() instanceof client.SyntheticClient)) {
+                throw new QaRefusal(id + " only runs on synthetic pretend players (AutoQaOne/AutoQaTwo).");
+            }
             String step = args.length == 0 ? name : name + " " + String.join(" ", args);
             return say(ctx, step);
         }

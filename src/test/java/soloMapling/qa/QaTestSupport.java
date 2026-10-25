@@ -19,6 +19,8 @@ final class QaTestSupport {
 
     static Character gm(int id, String name, int mapId) {
         Character chr = mock(Character.class);
+        client.SyntheticClient sc = mock(client.SyntheticClient.class);
+        when(chr.getClient()).thenReturn(sc);
         when(chr.getId()).thenReturn(id);
         when(chr.getName()).thenReturn(name);
         when(chr.getMapId()).thenReturn(mapId);

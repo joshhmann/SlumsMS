@@ -651,7 +651,7 @@ public final class AutoQaCatalog {
                 .step(run("vb-4"), qaDo("room"), qaDo("bottle-broke"), qaDo("bottle"), qaDo("perfume"),
                         qaDo("hog"))
                 .expect(has("VB MOUNT room started=true map=923010000"),
-                        has("VB MOUNT quest6002 canComplete=true state=2 .*item1912000=1"),
+                        has("VB MOUNT quest6002 canComplete=true state=2 .*item1912000=1 skill1004=[1-9]\\d*"),
                         has("VB MOUNT bottleRefused canComplete=false"),
                         has("VB MOUNT bottle canComplete=true .* fee=20000000"),
                         has("VB MOUNT perfume canComplete=true perfume \\d+ -> \\d+"),
@@ -660,8 +660,8 @@ public final class AutoQaCatalog {
                 .build());
         c.add(Check.auto("t-vb-5", "Buy and sell at a shop and use a Cash Shop EXP card").minutes(5)
                 .step(run("vb-5"), qaDo("buy"), qaDo("sell"), qaDo("expcard"))
-                .expect(has("VB SHOP buy item=\\d+ price=\\d+ meso \\d+ -> \\d+ owned 0 -> 1"),
-                        has("VB SHOP sell item=\\d+ meso \\d+ -> \\d+ owned 1 -> 0"),
+                .expect(has("VB SHOP buy item=\\d+ price=\\d+ meso \\d+ -> \\d+ spent=[1-9]\\d* owned 0 -> 1"),
+                        has("VB SHOP sell item=\\d+ meso \\d+ -> \\d+ gained=[1-9]\\d* owned 1 -> 0"),
                         has("VB CASH card=5211048 given=true rate 1 -> [2-9]"), noRefusal())
                 .build());
         c.add(Check.auto("t-vb-6", "Advance your job and spend a skill point").minutes(4)

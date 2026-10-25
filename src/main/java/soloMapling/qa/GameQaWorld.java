@@ -1264,8 +1264,58 @@ final class GameQaWorld implements QaWorld {
 
     // ---- ticket 69: v83 basics (vb-1..vb-7) ----
 
-    private static final java.util.concurrent.locks.ReentrantLock V83_COUPON_LOCK =
-            new java.util.concurrent.locks.ReentrantLock();
+    private void pickupMapItems(Character gm) {
+        if (gm.getMap() == null) {
+            return;
+        }
+        for (server.maps.MapObject obj : gm.getMap().getMapObjectsInRange(gm.getPosition(), Double.POSITIVE_INFINITY, List.of(server.maps.MapObjectType.ITEM))) {
+            if (obj instanceof server.maps.MapItem mi) {
+                mi.setDropTime(System.currentTimeMillis() - 1000);
+                gm.pickupItem(mi);
+            }
+        }
+    }
+
+    private void resetPretendPlayer(Character gm, int job, int level, int meso) {
+        if (gm == null) {
+            return;
+        }
+        gm.changeJob(client.Job.getById(job));
+        gm.setLevel(level);
+        for (int i = 0; i < gm.getRemainingSps().length; i++) {
+            int cur = gm.getRemainingSps()[i];
+            if (cur > 0) {
+                gm.gainSp(-cur, i, false);
+            }
+        }
+        gm.gainMeso(meso - gm.getMeso(), false);
+        for (client.Skill s : new ArrayList<>(gm.getSkills().keySet())) {
+            gm.changeSkillLevel(s, (byte) -1, 0, -1);
+        }
+        for (int qid : new int[]{6002, 6003, 6007, 100003, 100005}) {
+            server.quest.Quest q = server.quest.Quest.getInstance(qid);
+            if (q != null) {
+                gm.getQuestRemove(q);
+            }
+        }
+        try (java.sql.Connection con = tools.DatabaseConnection.getConnection()) {
+            try (java.sql.PreparedStatement ps = con.prepareStatement("DELETE FROM queststatus WHERE characterid = ?")) {
+                ps.setInt(1, gm.getId());
+                ps.executeUpdate();
+            }
+            try (java.sql.PreparedStatement ps = con.prepareStatement("DELETE FROM questprogress WHERE characterid = ?")) {
+                ps.setInt(1, gm.getId());
+                ps.executeUpdate();
+            }
+        } catch (java.sql.SQLException | RuntimeException ignored) {
+        }
+        for (InventoryType t : BAGS) {
+            Inventory inv = gm.getInventory(t);
+            for (short slot : new ArrayList<>(inv.list().stream().map(Item::getPosition).toList())) {
+                InventoryManipulator.removeFromSlot(gm.getClient(), t, slot, (short) 32767, false);
+            }
+        }
+    }
 
     @Override
     public List<String> v83Step(Character gm, String feature, String step) {
@@ -1289,6 +1339,7 @@ final class GameQaWorld implements QaWorld {
 
     private List<String> salonStep(Character gm, String step) {
         if ("stage".equals(step)) {
+            resetPretendPlayer(gm, 0, 10, 1_000_000);
             List<String> out = new ArrayList<>();
             for (int coupon : new int[]{5150001, 5151001, 5152001, 5152013, 5153000}) {
                 InventoryManipulator.addById(gm.getClient(), coupon, (short) 1, "qa", -1);
@@ -1314,7 +1365,7 @@ final class GameQaWorld implements QaWorld {
         warp(gm, map);
         int before = "hair".equals(kind) || "haircolor".equals(kind) ? gm.getHair()
                 : "skin".equals(kind) ? gm.getSkinColor().getId() : gm.getFace();
-        int couponBefore = gm.getInventory(InventoryType.USE).countById(coupon);
+        int couponBefore = countItem(gm, coupon);
         long since = System.currentTimeMillis();
         List<String> out = new ArrayList<>();
         boolean opened = npcScript(gm, npc, out, menu, style);
@@ -1324,7 +1375,7 @@ final class GameQaWorld implements QaWorld {
         }
         int after = "hair".equals(kind) || "haircolor".equals(kind) ? gm.getHair()
                 : "skin".equals(kind) ? gm.getSkinColor().getId() : gm.getFace();
-        int couponAfter = gm.getInventory(InventoryType.USE).countById(coupon);
+        int couponAfter = countItem(gm, coupon);
         out.add("VB STYLE " + step + " " + before + " -> " + after + (after != before ? " changed" : " UNCHANGED"));
         out.add("VB COUPON " + coupon + " " + couponBefore + " -> " + couponAfter);
         refuseCheck(out, npcDialogs(gm, since));
@@ -1347,7 +1398,7 @@ final class GameQaWorld implements QaWorld {
 
     private static final java.util.regex.Pattern REFUSAL = java.util.regex.Pattern.compile(
             "(?i)(no options|cannot|can not|can't|is closed|closed for now|not available|error|"
-                    + "i'm sorry|i am sorry|don't have|do not have|not enough|you need|must have|unavailable)");
+                    + "i'm sorry|i am sorry|don't have|do not have|not enough|you need(?! to choose)|must have|unavailable)");
 
     /** Turns a dialog that refuses into an NPC_REFUSAL line; a step that expects a refusal does not call this. */
     private void refuseCheck(List<String> out, List<String> dialogs) {
@@ -1378,6 +1429,16 @@ final class GameQaWorld implements QaWorld {
         if ("stage".equals(step)) {
             List<String> out = new ArrayList<>();
             gm.getClient().setPic("1234");
+            try (java.sql.Connection con = tools.DatabaseConnection.getConnection();
+                 java.sql.PreparedStatement ps = con.prepareStatement(
+                         "SELECT id FROM characters WHERE accountid = ? AND name LIKE 'VbDel%'")) {
+                ps.setInt(1, gm.getClient().getAccID());
+                try (java.sql.ResultSet rs = ps.executeQuery()) {
+                    while (rs.next()) {
+                        gm.getClient().deleteCharacter(rs.getInt(1), gm.getClient().getAccID());
+                    }
+                }
+            } catch (java.sql.SQLException | RuntimeException ignored) {}
             out.add("VB DELETE pic set on account " + gm.getClient().getAccID());
             return out;
         }
@@ -1393,7 +1454,6 @@ final class GameQaWorld implements QaWorld {
             return out;
         }
         int cid = Character.getIdByName(name);
-        int accId = gm.getClient().getAccID();
         out.add("VB DELETE made " + name + " (" + cid + ")");
         String pic = "wrongpic".equals(step) ? "9999" : "1234";
         long since = System.currentTimeMillis();
@@ -1407,6 +1467,7 @@ final class GameQaWorld implements QaWorld {
             out.add("VB DELETE the delete packet found no login handler");
         } else if ("wrongpic".equals(step)) {
             out.add("VB DELETE wrongpic answer=" + answer + " stillThere=" + !gone);
+            gm.getClient().deleteCharacter(cid, gm.getClient().getAccID());
         } else {
             out.add("VB DELETE state=" + answer + " gone=" + gone);
             refuseCheck(out, List.of()); // no NPC involved; the response code is the assertion
@@ -1444,6 +1505,7 @@ final class GameQaWorld implements QaWorld {
 
     private List<String> kpqStep(Character gm, String step) {
         if ("stage".equals(step)) {
+            resetPretendPlayer(gm, 100, 25, 1_000_000);
             List<String> out = new ArrayList<>();
             if (gm.getParty() == null) {
                 net.server.world.Party.createParty(gm, false);
@@ -1456,6 +1518,13 @@ final class GameQaWorld implements QaWorld {
             boolean started = em.startInstance(-1, gm.getParty(), gm.getMap(), gm);
             scripting.event.EventInstanceManager eim = gm.getEventInstance();
             out.add("VB KPQ instance " + (started && eim != null ? "started " + eim.getName() : "DID NOT START"));
+            if (eim != null) {
+                MapleMap stg5 = eim.getMapInstance(103000804);
+                if (stg5 != null) {
+                    gm.changeMap(stg5, stg5.getPortal(0));
+                }
+                InventoryManipulator.addById(gm.getClient(), 4001008, (short) 10, "qa", -1);
+            }
             return out;
         }
         scripting.event.EventInstanceManager eim = gm.getEventInstance();
@@ -1464,18 +1533,14 @@ final class GameQaWorld implements QaWorld {
         }
         List<String> out = new ArrayList<>();
         if ("clear".equals(step)) {
-            eim.clearPQ();
+            npcScript(gm, 9020001, out, 0);
             out.add("VB KPQ cleared=" + eim.isEventCleared());
         } else if ("reward".equals(step)) {
-            int before = inventoryCount(gm);
-            boolean given = eim.giveEventReward(gm);
-            int after = inventoryCount(gm);
-            MapleMap exit = gm.getClient().getChannelServer().getMapFactory().getMap(103000805);
-            Portal portal = exit == null ? null : exit.getPortal("st00");
-            boolean warped = exit != null;
-            if (warped) {
-                gm.changeMap(exit, portal == null ? exit.getRandomPlayerSpawnpoint() : portal);
-            }
+            int before = totalItems(gm);
+            npcScript(gm, 9020001, out, 0);
+            int after = totalItems(gm);
+            boolean given = after > before;
+            boolean warped = gm.getMapId() == 103000805;
             out.add("VB KPQ reward given=" + given + " items " + before + " -> " + after
                     + " warped=" + warped + " map=" + gm.getMapId());
         }
@@ -1503,12 +1568,16 @@ final class GameQaWorld implements QaWorld {
         List<String> out = new ArrayList<>();
         switch (step) {
             case "stage" -> {
-                gm.changeJob(client.Job.getById(111)); // 6002's check lists the 3rd jobs only; the mount is the point, not the class
+                resetPretendPlayer(gm, 111, 70, 25_000_000);
                 warp(gm, 923010000);
                 out.add("VB MOUNT staged as job " + gm.getJob().getId() + " on " + gm.getMapId()
                         + " meso=" + gm.getMeso());
             }
             case "room" -> {
+                server.quest.Quest q = server.quest.Quest.getInstance(6002);
+                if (gm.getQuestStatus(6002) != 1) {
+                    q.start(gm, 2060005);
+                }
                 scripting.event.EventManager em = gm.getClient().getEventManager("3rdJob_mount");
                 out.add("VB MOUNT room manager=" + (em == null ? "MISSING" : "found"));
                 if (em == null) {
@@ -1517,56 +1586,78 @@ final class GameQaWorld implements QaWorld {
                 boolean started = em.startInstance(gm);
                 out.add("VB MOUNT room started=" + started + " map=" + gm.getMapId()
                         + " instance=" + (gm.getEventInstance() != null));
+                MapleMap roomMap = gm.getMap();
+                server.life.Monster hog = roomMap.getMonsterById(constants.id.MobId.WATCH_HOG);
+                List<server.maps.Reactor> chests = roomMap.getAllReactors();
+                for (int i = 0; i < 5; i++) {
+                    for (server.maps.Reactor r : chests) {
+                        if (countItem(gm, 4031508) < 5) {
+                            scripting.reactor.ReactorScriptManager.getInstance().act(gm.getClient(), r);
+                            pickupMapItems(gm);
+                        }
+                    }
+                    if (hog != null && countItem(gm, 4031507) < 5) {
+                        roomMap.dropFromFriendlyMonster(gm, hog);
+                        pickupMapItems(gm);
+                    }
+                }
                 if (gm.getEventInstance() != null) {
-                    gm.getEventInstance().clearPQ();
+                    npcScript(gm, 9060000, out, 0, 0);
+                    if (gm.getEventInstance() != null) {
+                        gm.getEventInstance().clearPQ();
+                    }
                     out.add("VB MOUNT room exit map=" + gm.getMapId());
                 }
-                for (int id : new int[]{4031507, 4031508}) {
-                    InventoryManipulator.addById(gm.getClient(), id, (short) 5, "qa", -1);
-                }
-                server.quest.Quest q = server.quest.Quest.getInstance(6002);
-                q.start(gm, 2060005);
                 boolean can = q.canComplete(gm, 2060005);
                 q.complete(gm, 2060005);
-                int rider = gm.getInventory(InventoryType.USE).countById(1912000)
-                        + gm.getInventory(InventoryType.ETC).countById(1912000)
-                        + gm.getInventory(InventoryType.CASH).countById(1912000)
-                        + gm.getInventory(InventoryType.SETUP).countById(1912000);
+                int rider = countItem(gm, 1912000);
                 out.add("VB MOUNT quest6002 canComplete=" + can + " state=" + gm.getQuestStatus(6002)
-                        + " item1912000=" + rider + " skill1004=" + gm.getSkillLevel(100));
+                        + " item1912000=" + rider + " skill1004=" + gm.getSkillLevel(1004));
                 gm.changeJob(client.Job.getById(100)); // the rest of the chain does not need the 3rd job
             }
             case "bottle-broke" -> {
+                server.quest.Quest q = server.quest.Quest.getInstance(6007);
+                if (gm.getQuestStatus(6007) != 1) {
+                    q.start(gm, 2081000);
+                }
                 int meso = gm.getMeso();
                 if (meso >= 20_000_000) {
                     gm.gainMeso(-(meso - 1_000_000), false);
                 }
-                server.quest.Quest q = server.quest.Quest.getInstance(6007);
+                int mesoBefore = gm.getMeso();
+                int held = countItem(gm, 4031509);
                 boolean can = q.canComplete(gm, 2081000);
-                int held = gm.getInventory(InventoryType.ETC).countById(4031509);
                 q.complete(gm, 2081000);
-                out.add("VB MOUNT bottleRefused canComplete=" + can + " meso " + gm.getMeso() + " -> " + gm.getMeso()
-                        + " stillBottle=" + (gm.getInventory(InventoryType.ETC).countById(4031509) == held));
+                int mesoAfter = gm.getMeso();
+                out.add("VB MOUNT bottleRefused canComplete=" + can + " meso " + mesoBefore + " -> " + mesoAfter
+                        + " stillBottle=" + (countItem(gm, 4031509) == held));
                 gm.gainMeso(20_000_000 - gm.getMeso() + 1_000_000, false);
             }
             case "bottle" -> {
-                int before = gm.getMeso();
-                int bottles = gm.getInventory(InventoryType.ETC).countById(4031509);
                 server.quest.Quest q = server.quest.Quest.getInstance(6007);
+                if (gm.getQuestStatus(6007) != 1) {
+                    q.start(gm, 2081000);
+                }
+                int before = gm.getMeso();
+                int bottles = countItem(gm, 4031509);
                 boolean can = q.canComplete(gm, 2081000);
                 q.complete(gm, 2081000);
-                out.add("VB MOUNT bottle canComplete=" + can + " meso " + before + " -> " + gm.getMeso()
-                        + " fee=" + (before - gm.getMeso()) + " bottle " + bottles + " -> "
-                        + gm.getInventory(InventoryType.ETC).countById(4031509));
+                int after = gm.getMeso();
+                out.add("VB MOUNT bottle canComplete=" + can + " meso " + before + " -> " + after
+                        + " fee=" + (before - after) + " bottle " + bottles + " -> "
+                        + countItem(gm, 4031509));
             }
             case "perfume" -> {
-                int before = gm.getInventory(InventoryType.USE).countById(2270000);
                 server.quest.Quest q = server.quest.Quest.getInstance(6003);
+                if (gm.getQuestStatus(6003) != 1) {
+                    q.start(gm, 2060005);
+                }
+                int before = countItem(gm, 2270000);
                 boolean can = q.canComplete(gm, 2060005);
                 q.complete(gm, 2060005);
                 out.add("VB MOUNT perfume canComplete=" + can + " perfume " + before + " -> "
-                        + gm.getInventory(InventoryType.USE).countById(2270000)
-                        + " bottleLeft=" + gm.getInventory(InventoryType.ETC).countById(4031509));
+                        + countItem(gm, 2270000)
+                        + " bottleLeft=" + countItem(gm, 4031509));
             }
             case "hog" -> hog(gm, out);
             default -> out.add("VB MOUNT no step " + step);
@@ -1611,19 +1702,19 @@ final class GameQaWorld implements QaWorld {
         }
         long hp = hog.getHp();
         int perfume = constants.id.ItemId.PHEROMONE_PERFUME;
-        if (gm.getInventory(InventoryType.USE).countById(perfume) <= 0) {
+        if (countItem(gm, perfume) <= 0) {
             InventoryManipulator.addById(gm.getClient(), perfume, (short) 1, "qa", -1);
         }
-        int perfumeBefore = gm.getInventory(InventoryType.USE).countById(perfume);
-        int mountBefore = gm.getInventory(InventoryType.EQUIP).countById(constants.id.ItemId.HOG);
+        int perfumeBefore = countItem(gm, perfume);
+        int mountBefore = countItem(gm, constants.id.ItemId.HOG);
         boolean handled = body(gm, net.opcodes.RecvOpcode.USE_CATCH_ITEM, b -> {
             b.writeInt(0);
             b.writeShort(0);
             b.writeInt(perfume);
             b.writeInt(oid);
         });
-        int perfumeAfter = gm.getInventory(InventoryType.USE).countById(perfume);
-        int mountAfter = gm.getInventory(InventoryType.EQUIP).countById(constants.id.ItemId.HOG);
+        int perfumeAfter = countItem(gm, perfume);
+        int mountAfter = countItem(gm, constants.id.ItemId.HOG);
         out.add("VB MOUNT hog map=" + gm.getMapId() + " spawnedByQa=" + spawned + " hp=" + hp + "/" + maxHp
                 + " handler=" + handled + " perfume " + perfumeBefore + " -> " + perfumeAfter
                 + " perfumeUsed=" + (perfumeBefore - perfumeAfter)
@@ -1636,6 +1727,7 @@ final class GameQaWorld implements QaWorld {
     private List<String> shopStep(Character gm, String step) {
         List<String> out = new ArrayList<>();
         if ("stage".equals(step)) {
+            resetPretendPlayer(gm, 100, 30, 1_000_000);
             warp(gm, 100000100);
             server.life.NPC npc = gm.getMap().getNPCById(1012004);
             if (npc == null) {
@@ -1665,18 +1757,13 @@ final class GameQaWorld implements QaWorld {
                 return List.of("VB SHOP nothing affordable in shop 1012004");
             }
             int mesoBefore = gm.getMeso();
-            int before = gm.getInventory(InventoryType.USE).countById(chosen.getItemId())
-                    + gm.getInventory(InventoryType.ETC).countById(chosen.getItemId())
-                    + gm.getInventory(InventoryType.SETUP).countById(chosen.getItemId())
-                    + gm.getInventory(InventoryType.EQUIP).countById(chosen.getItemId());
+            int before = countItem(gm, chosen.getItemId());
             long since = System.currentTimeMillis();
             shop.buy(gm.getClient(), index, chosen.getItemId(), (short) 1);
-            int after = gm.getInventory(InventoryType.USE).countById(chosen.getItemId())
-                    + gm.getInventory(InventoryType.ETC).countById(chosen.getItemId())
-                    + gm.getInventory(InventoryType.SETUP).countById(chosen.getItemId())
-                    + gm.getInventory(InventoryType.EQUIP).countById(chosen.getItemId());
+            int after = countItem(gm, chosen.getItemId());
+            int spent = mesoBefore - gm.getMeso();
             out.add("VB SHOP buy item=" + chosen.getItemId() + " price=" + chosen.getPrice()
-                    + " meso " + mesoBefore + " -> " + gm.getMeso() + " owned " + before + " -> " + after);
+                    + " meso " + mesoBefore + " -> " + gm.getMeso() + " spent=" + spent + " owned " + before + " -> " + after);
             out.add("VB SHOP answer=" + lastHeard(gm, since, "SHOP_TRANSACTION"));
         } else if ("sell".equals(step)) {
             server.ShopItem chosen = shop.getItems().get(0);
@@ -1699,8 +1786,9 @@ final class GameQaWorld implements QaWorld {
             int before = inv.countById(itemId);
             long since = System.currentTimeMillis();
             shop.sell(gm.getClient(), item.getInventoryType(), item.getPosition(), (short) 1);
+            int gained = gm.getMeso() - mesoBefore;
             out.add("VB SHOP sell item=" + itemId + " meso " + mesoBefore + " -> " + gm.getMeso()
-                    + " owned " + before + " -> " + inv.countById(itemId)
+                    + " gained=" + gained + " owned " + before + " -> " + inv.countById(itemId)
                     + " answer=" + lastHeard(gm, since, "SHOP_TRANSACTION"));
         } else if ("expcard".equals(step)) {
             expCard(gm, out);
@@ -1708,46 +1796,21 @@ final class GameQaWorld implements QaWorld {
         return out;
     }
 
-    /**
-     * Fixture for the Cash Shop EXP card: the coupon only takes effect when the server's active coupon set contains
-     * it, so the check switches it on for the length of the step and puts it back. A concurrent nightly run must not
-     * see the staged coupon, so the toggle is serialised.
-     */
     private void expCard(Character gm, List<String> out) {
-        final int coupon = constants.id.ItemId.EXP_COUPON_2X_4H;
-        net.server.Server server = net.server.Server.getInstance();
-        V83_COUPON_LOCK.lock();
-        boolean wasActive = server.getActiveCoupons().contains(coupon);
-        boolean cardGiven = false;
-        try {
-            if (!wasActive) {
-                server.toggleCoupon(coupon);
-            }
-            gm.updateCouponRates();
-            out.add("VB CASH coupon=" + coupon + " activeBefore=" + wasActive
-                    + " activeNow=" + server.getActiveCoupons().contains(coupon));
-            int before = gm.getCouponExpRate();
-            cardGiven = InventoryManipulator.addById(gm.getClient(), coupon, (short) 1, "qa", -1);
-            gm.updateCouponRates();
-            int after = gm.getCouponExpRate();
-            out.add("VB CASH card=" + coupon + " given=" + cardGiven + " rate " + before + " -> " + after);
-            if (!server.getActiveCoupons().contains(coupon)) {
-                out.add("VB CASH the server dropped the staged coupon");
-            }
-        } finally {
-            if (cardGiven) {
-                for (InventoryType t : BAGS) {
-                    client.inventory.Item it = gm.getInventory(t).findById(coupon);
-                    if (it != null) {
-                        InventoryManipulator.removeFromSlot(gm.getClient(), t, it.getPosition(), (short) 1, false);
-                    }
+        final int coupon = 5211048; // 2x EXP Card 7 days
+        int before = gm.getCouponExpRate();
+        boolean cardGiven = InventoryManipulator.addById(gm.getClient(), coupon, (short) 1, "qa", -1);
+        gm.updateCouponRates();
+        int after = gm.getCouponExpRate();
+        out.add("VB CASH card=" + coupon + " given=" + cardGiven + " rate " + before + " -> " + after);
+        if (cardGiven) {
+            for (InventoryType t : BAGS) {
+                client.inventory.Item it = gm.getInventory(t).findById(coupon);
+                if (it != null) {
+                    InventoryManipulator.removeFromSlot(gm.getClient(), t, it.getPosition(), (short) 1, false);
                 }
             }
-            if (!wasActive) {
-                server.toggleCoupon(coupon);
-            }
             gm.updateCouponRates();
-            V83_COUPON_LOCK.unlock();
         }
     }
 
@@ -1756,6 +1819,7 @@ final class GameQaWorld implements QaWorld {
     private List<String> jobStep(Character gm, String step) {
         List<String> out = new ArrayList<>();
         if ("stage".equals(step)) {
+            resetPretendPlayer(gm, 100, 30, 1_000_000);
             warp(gm, 102000000);
             InventoryManipulator.addById(gm.getClient(), 4031012, (short) 1, "qa", -1);
             out.add("VB JOB job=" + gm.getJob().getId() + " sp=" + gm.getRemainingSps()[0]);
@@ -1803,11 +1867,25 @@ final class GameQaWorld implements QaWorld {
     private List<String> basicsStep(Character gm, String step) {
         List<String> out = new ArrayList<>();
         if ("stage".equals(step)) {
+            resetPretendPlayer(gm, 100, 30, 1_000_000);
             warp(gm, 100000000);
             InventoryManipulator.addById(gm.getClient(), 4000000, (short) 5, "qa", -1);
             InventoryManipulator.addById(gm.getClient(), 4000001, (short) 3, "qa", -1);
             soloMapling.autoqa.SyntheticPlayer p2 = soloMapling.autoqa.SyntheticPlayers.login(2);
+            resetPretendPlayer(p2.character(), 100, 30, 1_000_000);
             warp(p2.character(), 100000000);
+            try (java.sql.Connection con = tools.DatabaseConnection.getConnection();
+                 java.sql.PreparedStatement ps = con.prepareStatement(
+                         "DELETE FROM dueypackages WHERE ReceiverId IN (?, ?) OR SenderId IN (?, ?)")) {
+                ps.setInt(1, gm.getId());
+                ps.setInt(2, p2.id());
+                ps.setInt(3, gm.getId());
+                ps.setInt(4, p2.id());
+                ps.executeUpdate();
+            } catch (java.sql.SQLException | RuntimeException ignored) {}
+            for (client.inventory.Item it : new ArrayList<>(gm.getStorage().getItems())) {
+                gm.getStorage().takeOut(it);
+            }
             out.add("VB BASICS staged on " + gm.getMapId() + " with " + p2.name());
             return out;
         }
@@ -1841,10 +1919,23 @@ final class GameQaWorld implements QaWorld {
         int storeMid = gm.getStorage().getItems().size();
         out.add("VB STORAGE stored " + itemId + " bag " + invBefore + " -> "
                 + gm.getInventory(InventoryType.ETC).countById(itemId) + " store " + storeBefore + " -> " + storeMid);
+        List<client.inventory.Item> etcItems = new ArrayList<>();
+        for (client.inventory.Item it : gm.getStorage().getItems()) {
+            if (it.getInventoryType() == InventoryType.ETC) {
+                etcItems.add(it);
+            }
+        }
+        byte storedSlot = 0;
+        for (byte i = 0; i < etcItems.size(); i++) {
+            if (etcItems.get(i).getItemId() == itemId) {
+                storedSlot = i;
+                break;
+            }
+        }
         net.packet.ByteBufOutPacket t = new net.packet.ByteBufOutPacket();
         t.writeByte(4);
-        t.writeByte((byte) 4); // ETC
-        t.writeByte((byte) 0);
+        t.writeByte((byte) InventoryType.ETC.getType());
+        t.writeByte(storedSlot);
         client.processor.npc.StorageProcessor.storageAction(
                 new net.packet.ByteBufInPacket(io.netty.buffer.Unpooled.wrappedBuffer(t.getBytes())), gm.getClient());
         out.add("VB STORAGE tookOut bagDelta="
@@ -1861,8 +1952,19 @@ final class GameQaWorld implements QaWorld {
             return;
         }
         int before = p2.character().getInventory(InventoryType.ETC).countById(itemId);
-        client.processor.npc.DueyProcessor.dueySendItem(gm.getClient(), (byte) 4, item.getPosition(), (short) 1, 0,
-                null, p2.name(), false);
+        boolean handled = body(gm, net.opcodes.RecvOpcode.DUEY_ACTION, b -> {
+            b.writeByte(client.processor.npc.DueyProcessor.Actions.TOSERVER_SEND_ITEM.getCode());
+            b.writeByte((byte) 4); // ETC
+            b.writeShort(item.getPosition());
+            b.writeShort((short) 1);
+            b.writeInt(0);
+            b.writeString(p2.name());
+            b.writeByte(0);
+        });
+        if (!handled) {
+            out.add("VB DUEY send handler missing or rejected");
+            return;
+        }
         int packageId = -1;
         try (java.sql.Connection con = tools.DatabaseConnection.getConnection();
              java.sql.PreparedStatement ps = con.prepareStatement(
@@ -1879,7 +1981,11 @@ final class GameQaWorld implements QaWorld {
         }
         out.add("VB DUEY sent " + itemId + " to " + p2.name() + " package=" + packageId);
         if (packageId > 0) {
-            client.processor.npc.DueyProcessor.dueyClaimPackage(p2.client(), packageId);
+            final int pkg = packageId;
+            body(p2.character(), net.opcodes.RecvOpcode.DUEY_ACTION, b -> {
+                b.writeByte(client.processor.npc.DueyProcessor.Actions.TOSERVER_CLAIM_PACKAGE.getCode());
+                b.writeInt(pkg);
+            });
         }
         int after = p2.character().getInventory(InventoryType.ETC).countById(itemId);
         out.add("VB DUEY claimed recipientDelta=" + (after - before));

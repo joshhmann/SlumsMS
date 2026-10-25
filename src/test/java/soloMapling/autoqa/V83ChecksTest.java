@@ -69,6 +69,36 @@ class V83ChecksTest {
     }
 
     @Test
+    void itemConstantsInventoryTabs() {
+        assertEquals(client.inventory.InventoryType.CASH, constants.inventory.ItemConstants.getInventoryType(5150001),
+                "5150001 hair coupon is CASH");
+        assertEquals(client.inventory.InventoryType.CASH, constants.inventory.ItemConstants.getInventoryType(5152001),
+                "5152001 face coupon is CASH");
+        assertEquals(client.inventory.InventoryType.EQUIP, constants.inventory.ItemConstants.getInventoryType(1912000),
+                "1912000 saddle is EQUIP");
+        assertEquals(client.inventory.InventoryType.EQUIP, constants.inventory.ItemConstants.getInventoryType(1902000),
+                "1902000 hog is EQUIP");
+        assertEquals(client.inventory.InventoryType.USE, constants.inventory.ItemConstants.getInventoryType(2270000),
+                "2270000 perfume is USE");
+        assertEquals(client.inventory.InventoryType.ETC, constants.inventory.ItemConstants.getInventoryType(4031509),
+                "4031509 dragon elixir is ETC");
+    }
+
+    @Test
+    void refusalPatternExcludesChooseDialog() {
+        java.util.regex.Pattern p = java.util.regex.Pattern.compile(
+                "(?i)(no options|cannot|can not|can't|is closed|closed for now|not available|error|"
+                        + "i'm sorry|i am sorry|don't have|do not have|not enough|you need(?! to choose)|must have|unavailable)");
+        org.junit.jupiter.api.Assertions.assertFalse(
+                p.matcher("But before that, you need to choose one of the three paths that you'll be given.").find(),
+                "'you need to choose' should not be flagged as refusal");
+        assertTrue(p.matcher("You need to be level 10 to advance.").find(),
+                "'you need to be' must be flagged as refusal");
+        assertTrue(p.matcher("You need 10 mesos.").find(),
+                "'you need 10 mesos' must be flagged as refusal");
+    }
+
+    @Test
     void everyCheckHasAScenarioOfItsOwn() {
         for (String id : List.of("t-vb-1", "t-vb-2", "t-vb-3", "t-vb-4", "t-vb-5", "t-vb-6", "t-vb-7")) {
             assertNotNull(AutoQaCatalog.find(id), id + " is not in the catalogue");
@@ -135,7 +165,9 @@ class V83ChecksTest {
                 "VB DELETE wrongpic answer=77 state 20 stillThere=true");
         allPass(c, good);
         assertTrue(anyFails(c, List.of("VB DELETE state=77 state 9 gone=false",
-                "VB DELETE wrongpic answer=77 state 20 stillThere=true")), "a failed delete must fail the check");
+                "VB DELETE wrongpic answer=77 state 20 stillThere=true")), "a failed delete (not gone) must fail the check");
+        assertTrue(anyFails(c, List.of("VB DELETE state=77 state 0 gone=false",
+                "VB DELETE wrongpic answer=77 state 20 stillThere=true")), "character not deleted must fail the check");
         assertTrue(anyFails(c, List.of("VB DELETE state=77 state 0 gone=true",
                 "VB DELETE wrongpic answer=77 state 0 stillThere=false")), "a wrong PIC that deleted the character must fail");
     }
@@ -151,24 +183,34 @@ class V83ChecksTest {
         assertTrue(anyFails(c, List.of("VB KPQ instance started Kerning0", "VB KPQ cleared=true",
                 "VB KPQ reward given=false items 10 -> 10 warped=true map=103000805")), "no reward must fail");
         assertTrue(anyFails(c, List.of("VB KPQ instance started Kerning0", "VB KPQ cleared=true",
-                "VB KPQ reward given=true items 10 -> 11 warped=true map=103000800")), "no exit warp must fail");
+                "VB KPQ reward given=true items 10 -> 11 warped=false map=103000800")), "no exit warp must fail");
     }
 
     @Test
     void shopPassesOnMovedMesoAndACouponRateAndFailsWhenNothingMoved() throws Exception {
         Check c = AutoQaCatalog.find("t-vb-5");
-        List<String> good = List.of("VB SHOP buy item=2000000 price=25 meso 1000000 -> 999975 owned 0 -> 1",
-                "VB SHOP sell item=2000000 meso 999975 -> 1000000 owned 1 -> 0",
-                "VB CASH coupon=5211048 activeBefore=false activeNow=true",
+        List<String> good = List.of(
+                "VB SHOP buy item=2000000 price=25 meso 1000000 -> 999975 spent=25 owned 0 -> 1",
+                "VB SHOP sell item=2000000 meso 999975 -> 1000000 gained=25 owned 1 -> 0",
                 "VB CASH card=5211048 given=true rate 1 -> 2");
         allPass(c, good);
-        assertTrue(anyFails(c, List.of("VB SHOP buy item=2000000 price=25 meso 1000000 -> 1000000 owned 0 -> 0",
-                good.get(1), good.get(2), good.get(3))), "a purchase that moved nothing must fail");
-        assertTrue(anyFails(c, List.of(good.get(0), "VB SHOP sell item=2000000 meso 999975 -> 999975 owned 1 -> 1",
-                good.get(2), good.get(3))), "a sale that moved nothing must fail");
-        assertTrue(anyFails(c, List.of(good.get(0), good.get(1), good.get(2),
+        assertTrue(anyFails(c, List.of(
+                "VB SHOP buy item=2000000 price=25 meso 1000000 -> 1000000 spent=0 owned 0 -> 1",
+                good.get(1), good.get(2))), "a purchase that spent 0 meso must fail");
+        assertTrue(anyFails(c, List.of(
+                "VB SHOP buy item=2000000 price=25 meso 1000000 -> 1000000 spent=25 owned 0 -> 0",
+                good.get(1), good.get(2))), "a purchase that gave no item must fail");
+        assertTrue(anyFails(c, List.of(
+                good.get(0),
+                "VB SHOP sell item=2000000 meso 999975 -> 999975 gained=0 owned 1 -> 0",
+                good.get(2))), "a sale that gained 0 meso must fail");
+        assertTrue(anyFails(c, List.of(
+                good.get(0),
+                "VB SHOP sell item=2000000 meso 999975 -> 1000000 gained=25 owned 1 -> 1",
+                good.get(2))), "a sale that did not remove the item must fail");
+        assertTrue(anyFails(c, List.of(good.get(0), good.get(1),
                 "VB CASH card=5211048 given=true rate 1 -> 1")), "a coupon that does not raise the rate must fail");
-        assertTrue(anyFails(c, List.of(good.get(0), good.get(1), good.get(2), good.get(3),
+        assertTrue(anyFails(c, List.of(good.get(0), good.get(1), good.get(2),
                 "NPC_REFUSAL NPC 1012004: the shop is closed for now.")), "a refused shop must fail");
     }
 
@@ -180,6 +222,8 @@ class V83ChecksTest {
         assertTrue(anyFails(c, List.of("VB JOB advance 100 -> 100", good.get(1))), "no job change must fail");
         assertTrue(anyFails(c, List.of(good.get(0), "VB JOB sp spend skill=1100000 level 0 -> 0 sp 1 -> 1")),
                 "an unspent skill point must fail");
+        assertTrue(anyFails(c, List.of(good.get(0), good.get(1), "NPC_REFUSAL Dances with Balrog: You need to be level 10")),
+                "a refusal dialog must fail");
     }
 
     @Test
@@ -193,6 +237,8 @@ class V83ChecksTest {
         allPass(c, good);
         assertTrue(anyFails(c, List.of("VB STORAGE stored 4000000 bag 5 -> 5 store 0 -> 0",
                 good.get(1), good.get(2), good.get(3), good.get(4))), "a storage store that moved nothing must fail");
+        assertTrue(anyFails(c, List.of(good.get(0), "VB STORAGE tookOut bagDelta=-1 storeSize=1",
+                good.get(2), good.get(3), good.get(4))), "a storage takeOut that failed must fail");
         assertTrue(anyFails(c, List.of(good.get(0), good.get(1), good.get(2),
                 "VB DUEY claimed recipientDelta=0", good.get(4))), "a Duey claim that delivered nothing must fail");
         assertTrue(anyFails(c, List.of(good.get(0), good.get(1), good.get(2), good.get(3),
@@ -210,10 +256,16 @@ class V83ChecksTest {
                 "VB MOUNT bottle canComplete=true meso 21000000 -> 1000000 fee=20000000 bottle 0 -> 1",
                 "VB MOUNT perfume canComplete=true perfume 0 -> 1 bottleLeft=0", hog);
         allPass(c, good);
+        assertTrue(anyFails(c, List.of("VB MOUNT room started=true map=923010000 instance=true",
+                "VB MOUNT quest6002 canComplete=true state=2 item1912000=1 skill1004=0",
+                good.get(2), good.get(3), good.get(4), hog)), "missing skill 1004 must fail");
+        assertTrue(anyFails(c, List.of("VB MOUNT room started=true map=923010000 instance=true",
+                "VB MOUNT quest6002 canComplete=true state=2 item1912000=0 skill1004=1",
+                good.get(2), good.get(3), good.get(4), hog)), "missing saddle item 1912000 must fail");
         assertTrue(anyFails(c, List.of(good.get(0), good.get(1), good.get(2),
                 "VB MOUNT bottle canComplete=true meso 21000000 -> 21000000 fee=0 bottle 0 -> 1",
                 good.get(4), hog)), "a bottle that charged no fee must fail");
-        assertTrue(anyFails(c, List.of(good.get(0), "VB MOUNT quest6002 canComplete=false state=1 item1912000=0",
+        assertTrue(anyFails(c, List.of(good.get(0), "VB MOUNT quest6002 canComplete=false state=1 item1912000=0 skill1004=0",
                 good.get(2), good.get(3), good.get(4), hog)), "an unfinished 6002 must fail");
         assertTrue(anyFails(c, List.of(good.get(0), good.get(1), good.get(2), good.get(3),
                 "VB MOUNT perfume canComplete=false perfume 0 -> 0 bottleLeft=0", hog)), "no perfume must fail");
