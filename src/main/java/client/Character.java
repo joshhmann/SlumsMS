@@ -2023,6 +2023,13 @@ public class Character extends AbstractCharacterObject {
     }
 
     public void changeSkillLevel(Skill skill, byte newLevel, int newMasterlevel, long expiration) {
+        if (skill == null) {
+            // 1.5.2: MapleRoot's Skill.wz dropped 64 stock skills (Big Bang, Barrage, Ninja Ambush, Polearm Booster,
+            // ...) that stock scripts still teach. A null key used to land in the skills map before the NPE, and
+            // every later saveToDB then failed on it and rolled the whole character save back.
+            log.warn("Chr {} was given a skill that is not in Skill.wz; ignored", getName(), new Throwable("unknown skill"));
+            return;
+        }
         if (newLevel > -1) {
             skills.put(skill, new SkillEntry(newLevel, newMasterlevel, expiration));
             if (!GameConstants.isHiddenSkills(skill.getId())) {

@@ -974,6 +974,9 @@ public class AbstractPlayerInteraction {
 
     public void teachSkill(int skillid, byte level, byte masterLevel, long expiration, boolean force) {
         Skill skill = SkillFactory.getSkill(skillid);
+        if (skill == null) { // not in our Skill.wz (MapleRoot removed it); skip it and let the script carry on
+            return;
+        }
         Character.SkillEntry skillEntry = getPlayer().getSkills().get(skill);
         if (skillEntry != null) {
             if (!force && level > -1) {
