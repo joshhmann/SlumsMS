@@ -100,3 +100,4 @@ extra MapleStory.exe
 extra SlumsMS.exe
 extra Start SlumsMS.cmd
 extra slums.dll
+extra slums-build.txt
