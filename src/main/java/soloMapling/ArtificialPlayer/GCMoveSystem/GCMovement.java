@@ -197,20 +197,31 @@ public final class GCMovement {
     }
 
     /* Hard-teleport the bot to solid ground at/under (x,y) on its current map, resetting nav state so the
-     * driver resumes cleanly from the new spot. For recovery when a bot is wedged and can't path out. */
-    public static void teleportTo(Character bot, int x, int y) {
+     * driver resumes cleanly from the new spot. For recovery when a bot is wedged and can't path out.
+     * 1.6.0 (WatchGate): while a real player is on the bot's map it walks there instead and this returns false. */
+    public static boolean teleportTo(Character bot, int x, int y) {
+        return teleportTo(bot, x, y, "teleport");
+    }
+
+    /* As teleportTo(Character, int, int); site names the caller in the !qa lk-1 log. */
+    public static boolean teleportTo(Character bot, int x, int y, String site) {
         if (bot == null) {
-            return;
+            return false;
+        }
+        if (!WatchGate.mayReposition(bot, site)) {
+            move(bot, x, y); // a player could see the snap: walk/jump/climb there like a player would
+            return false;
         }
         enable(bot);
         BotMovementState st = STATES.get(bot.getId());
         if (st == null) {
-            return;
+            return false;
         }
         Point ground = BotPhysicsEngine.findGroundPoint(bot.getMap(), new Point(x, y));
         BotPhysicsEngine.teleportTo(st, bot, ground != null ? ground : new Point(x, y));
         BotMovementManager.resetEntryStateAfterTeleport(st);
         BotMovementManager.broadcastMovement(st);
+        return true;
     }
 
     /* Flag the bot as combat-alerted so it renders the 5s ALERT pose. The observing client already starts

@@ -735,6 +735,16 @@ public final class AutoQaCatalog {
                         has("HABITS LIFE DECISION bot={bot} selected=RESTOCK"),
                         has("HABITS LIFE START activity=RESTOCK bot={bot}(?:\\s|$)"))
                 .build());
+        // 1.6.0 player likeness: AFK campers, bots walk when a player watches, messy chat (lk-1)
+        c.add(Check.half("t-lk-1", "Bots camp AFK in town, walk when watched and type like 2009 players",
+                        "look at the campers, the walking and the chat in a real client").minutes(2)
+                .step(run("lk-1"), qaDo("camp"), qaDo("sample"), waitSeconds(3), stop())
+                .expect(has("LIKENESS afkCampers=on campers=\\d+"),
+                        has("LIKENESS walkWhenWatched=on .* messyChat=on"),
+                        has("LIKENESS MESSY sample slot \\d+ \\((messy|sloppy)\\): \"Hey, are you going to Henesys right now\\?\" -> \"[a-z ,?]*Henesys[a-z ,?]*\""),
+                        has("LIKENESS MESSY sample slot \\d+ \\(\\w+\\): \"I'm selling Brown Work Gloves for 50k, anyone\\?\" -> \"[^\"]*Brown Work Gloves for 50k[^\"]*\""),
+                        lacks("LIKENESS WATCHED SNAP"))
+                .build());
         return List.copyOf(c);
     }
 

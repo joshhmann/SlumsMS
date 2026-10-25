@@ -19,6 +19,21 @@ relative to `src/main/java/soloMapling/ArtificialPlayer/` (written `AP/`) unless
 - `{player}` in the transcripts and in chat-quality is privacy anonymisation (`AP/BotConvo/ConvoQuality.java:231-242`), not a template leak. Players saw real names.
 - The `korean`/`spanish` voice tics and the insult rate below come from bot-bot threads plus replies, both TEST and live.
 
+## Built since the audit (branch `160-likeness`, 2026-10-25)
+
+Three owner-approved items, each with a switch (on by default), unit tests and `!qa run lk-1` (auto-QA `t-lk-1`):
+
+| Item | What it does | Code | Switch |
+|---|---|---|---|
+| AFK campers (#3, part) | Once a minute, each channel is topped up to `clamp(round(online bots / 40), 5, 15)` campers, at most 4 per map. Picked from free roster town bots (training bots between grinds, town wanderers, social bots) standing still in Henesys, Kerning, Ellinia, Perion, Lith, the FM entrance, Sleepywood, Orbis, El Nath or Ludi. Never a bot in a party, a trade, an invite window, a follow (companions, owned alts), a talk with a player, or one the director's `mayLogOut` holds. A camper skips its macro tick, does not fidget, bark or react, and sits on a chair 60% of the time if it owns one. It stays 12-45 min, then sometimes says "back"/"sry was afk" or emotes (only when a player is on its map), and is not picked again for 3 h. A trade, party or invite ends the camp on its next tick. Cost: one pass over the online bots a minute, no DB. | `AP/BotTownSystem/AfkCampers.java`, hook in `AP/BotSM.java` tick | `-Dsolomapling.afkCampers=false` |
+| Walk when watched (#9, part) | While a real player is on a bot's map instance, `GCMovement.teleportTo` walks instead of snapping. That covers the CampStrategy hard return, TrainingBot's no-hit teleport to a portal and GCTravel's set-down beside a boarding NPC. A frozen-in-air recovery drops straight down instead of snapping to the goal. GCTravel's fallback warps (no walkable portal, a stuck hop) keep the walk going for up to 45 s, then fail the trip instead of blinking out. The sauna watchdog no longer warps a watched bot. Still instant, and counted as `WATCHED SNAP`: a bot that fell out of the map. Not changed: boat/ride fallbacks, channel changes, scripted scenes (drama, weddings, boss runs), and the existing unobserved-only first-trip and crowd-bail warps. | `AP/GCMoveSystem/WatchGate.java`, `GCMovement`, `GCTravel`, `GCMovementDriver`, `CampStrategy`, `TrainingBot` | `-Dsolomapling.walkWhenWatched=false` |
+| Messy chat (#8, part) | The last pass over every bot line in map chat, chat bubbles, whispers and buddy chat. Each bot has a style for life: TIDY (PROPER voice plus about 8% more, roughly a quarter of bots), MESSY (most) or SLOPPY. Messy bots lowercase common sentence starts and "I"; abbreviate (u, ur, r, ty, np, brb, idk, rn, k, pls, thx, lvl, wat, im/dont); say "gonna"/"wanna" only before a verb; drop full stops, often commas and some question marks; drop a leading "well/oh/um"; make one typo in 4-10% of lines; and put a word in caps for emphasis in 2-5%. It only lowercases, shortens and drops, never adds words. It never touches numbers, prices, `S>`, capitalised words inside a sentence (item, map and player names), all-caps words, quoted text or the names of players on the map. Deterministic per bot and line. Say-do still reads the original line. | `AP/BotConvo/MessyChat.java`, hooks in `SocialCommands`, `BotWhispers`, `BotBuddies` | `-Dsolomapling.messyChat=false` |
+
+Not done from these rows: lasting AFK chalkboards, waking on a whisper or a name (a camper still answers a whisper
+through the conversation layer, which runs outside the tick), the FM floor (ticket 100), long-line shortening of LLM
+replies, and megaphones (left alone: item names and prices in `S>` lines). Checked in unit tests only, not yet in a
+real client.
+
 ## Summary: the top 15 gaps, ranked by impact for effort
 
 Impact means how much it makes the world "feel like players" for a friend logged in at peak. Effort is S (days),
@@ -67,11 +82,11 @@ column is 1.5.2 on TEST (10-24/25), or live where marked.
 |---|---|---|---|---|
 | Movement | Overlap pairs per 1k bots (median sweep) | health/*.jsonl `overlap` | ~80-100 (188-237 at 1.9-2.9k) | < 20 |
 | Movement | Off-foothold bots per sweep (median) | health `foothold.bad` | 10-13 | ≤ 3 |
-| Movement | Teleports/snaps while a player watches, per player-hour | *new* counter in `GCMovement.teleportTo` + `changeMap` when observed | not measured | < 1 |
+| Movement | Teleports/snaps while a player watches, per player-hour | `WatchGate` counters (`!qa run lk-1`: walked-instead / snapped-while-watched) | not measured | < 1 |
 | Movement | Town clusters at crowd points (3+ within 40 px at NPC/portal) | health `clumps` variant | 0 by design | some (> 0 per busy town) |
 | Rhythm | Median session length / share of bots in a 5-20 min break | botroster SessionMinutes, `bot-life.json` | 120 min planned; breaks ≤ 100 s | spread 20-360 min; ≥ 5% on break at peak |
 | Rhythm | Share of logins on the home channel | *new* login log | ~channel weights (random) | ≥ 75% |
-| Rhythm | AFK campers in towns+FM at peak, per channel | *new* health check | ~0 | 5-15 |
+| Rhythm | AFK campers in towns+FM at peak, per channel | `!qa run lk-1` CAMPERS line (`AfkCampers`) | ~0 | 5-15 |
 | Hangouts | Bots in FM main 910000000 per channel at peak | ticket 100 health check | "bare" (owner) | ≥ floor (config) |
 | Hangouts | Henesys level mix 1-30 / 31-70 / 71+ | `bot-life.json` (brain) | n/a on TEST (brain run: 59/120/60) | about 50/35/15 |
 | Population | Share of roster under Lv30 / pirates+Aran / male | botstore | 16% / 0.5% / 50% | ≥ 40% / ≥ 15% / about 65% |

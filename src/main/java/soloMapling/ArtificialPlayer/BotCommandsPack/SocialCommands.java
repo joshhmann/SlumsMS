@@ -19,8 +19,13 @@ public class SocialCommands {
     static boolean debugSkipDialog = false;
 
     public static void BotFullChat(Character fakechar, String message) {
-        soloMapling.ArtificialPlayer.BotConvo.SayDo.said(fakechar, message); // rc6 say-do: claims in what bots say
-        BotNoiseFilter.broadcastBotChat(fakechar, PacketCreator.getChatText(fakechar.getId(), message, fakechar.isGM(), (byte) 0), message);
+        fullChat(fakechar, message, soloMapling.ArtificialPlayer.BotConvo.MessyChat.forChat(fakechar, message));
+    }
+
+    // 1.6.0 messy chat: say-do reads what the bot meant; the map sees how this bot types it
+    private static void fullChat(Character fakechar, String meant, String typed) {
+        soloMapling.ArtificialPlayer.BotConvo.SayDo.said(fakechar, meant); // rc6 say-do: claims in what bots say
+        BotNoiseFilter.broadcastBotChat(fakechar, PacketCreator.getChatText(fakechar.getId(), typed, fakechar.isGM(), (byte) 0), typed);
     }
 
     /** Idle/ambient speech shares the per-map and world budgets; dropped lines are never queued. */
@@ -54,7 +59,8 @@ public class SocialCommands {
 
     public static void BotChatbubble(Character fakechar, String message) {
         soloMapling.ArtificialPlayer.BotConvo.SayDo.said(fakechar, message);
-        BotNoiseFilter.broadcastBotChat(fakechar, PacketCreator.getChatText(fakechar.getId(), message, false, 1), message); // Send message just bubble, no chat box
+        String typed = soloMapling.ArtificialPlayer.BotConvo.MessyChat.forChat(fakechar, message); // 1.6.0 messy chat
+        BotNoiseFilter.broadcastBotChat(fakechar, PacketCreator.getChatText(fakechar.getId(), typed, false, 1), typed); // Send message just bubble, no chat box
     }
 
     public static void BotChatbubbleTyping(Character fakechar, String message, int delayMillis) {
@@ -64,6 +70,8 @@ public class SocialCommands {
     // Deliberate blocking leaf primitive: the typing rhythm IS the effect and the
     // duration is data-driven (message length). Callers pick the thread.
     public static void BotChatbubbleTyping(Character fakechar, String message, int delayMillis, boolean showInChat) {
+        String meant = message;
+        message = soloMapling.ArtificialPlayer.BotConvo.MessyChat.forChat(fakechar, message); // 1.6.0 messy chat
         StringBuilder displayedMessage = new StringBuilder();
         for (int i = 0; i < message.length(); i++) {
             displayedMessage.append(message.charAt(i)); // Add the next character
@@ -82,7 +90,7 @@ public class SocialCommands {
         }
 
         if (showInChat) {
-            BotFullChat(fakechar, message);
+            fullChat(fakechar, meant, message);
         }
 
     }

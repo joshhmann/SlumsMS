@@ -60,8 +60,9 @@ public final class QaLog {
         CONVO,          // ticket 59: chat sense, gates, actions, personas, timing, bank, router, threads, ratings (cv-1..cv-7)
         NPC,            // ticket 69: every dialog line a pretend player receives from an NPC (vb-1..vb-7)
         AUTOQA,         // auto-QA: health sweep results and the runner's check verdicts (docs/ops/qa-suite.md "Auto-QA")
-        PQ;             // party quests: entry and stage map data, who is in the instance and OPQ bots' lobby
+        PQ,             // party quests: entry and stage map data, who is in the instance and OPQ bots' lobby
                         //   lines, joins/leaves and stage transitions (pq-1, pq-2) - appended, bits are stable
+        LIKENESS;       // 1.6.0 player likeness: AFK campers, walks instead of snaps while watched, messy chat (lk-1)
 
         final long bit = 1L << ordinal(); // a long: 33 topics no longer fit an int
     }

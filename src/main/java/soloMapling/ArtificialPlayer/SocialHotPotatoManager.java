@@ -114,6 +114,7 @@ public class SocialHotPotatoManager {
         refreshMapScope();
         scheduleNextTick();
         scheduleNextMegaTick();
+        soloMapling.ArtificialPlayer.BotTownSystem.AfkCampers.start(); // 1.6.0 player likeness: AFK campers in towns
         log("[SocialHotPotato] Started.");
     }
 
@@ -147,6 +148,7 @@ public class SocialHotPotatoManager {
         if (megaScheduledTask != null) {
             megaScheduledTask.cancel(false);
         }
+        soloMapling.ArtificialPlayer.BotTownSystem.AfkCampers.stop();
         log("[SocialHotPotato] Stopped.");
     }
 
