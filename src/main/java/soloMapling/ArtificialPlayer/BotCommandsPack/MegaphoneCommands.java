@@ -3,6 +3,7 @@ package soloMapling.ArtificialPlayer.BotCommandsPack;
 import client.Character;
 import client.inventory.Item;
 import soloMapling.ArtificialPlayer.BotMegaphoneSystem.BotNoiseFilter;
+import server.TimerManager;
 import server.maps.MapleTVEffect;
 import tools.PacketCreator;
 
@@ -44,9 +45,16 @@ public class MegaphoneCommands {
         LinkedList list = stringTo4LineLinkedList(message);
         String medal = "";
         boolean ear = true;
-        BotNoiseFilter.broadcastBotMegaphone(world().getId(), PacketCreator.getAvatarMega(fakechar, medal, fakechar.getClient().getChannel(), itemId, list, ear));
-//      //  TimerManager.getInstance().schedule(() -> Server.getInstance().broadcastMessage(world.getId(), PacketCreator.byeAvatarMega()), SECONDS.toMillis(10));
+        int worldId = world().getId();
+        BotNoiseFilter.broadcastBotMegaphone(worldId, PacketCreator.getAvatarMega(fakechar, medal, fakechar.getClient().getChannel(), itemId, list, ear));
+        // 1.5.1 (owner QA): the avatar banner (the tiger) stayed on screen for good, because a bot never sent the
+        // clear that a player's avatar megaphone sends 10 s later (UseCashItemHandler). Same packet, same delay.
+        TimerManager.getInstance().schedule(() -> BotNoiseFilter.broadcastBotMegaphone(worldId, PacketCreator.byeAvatarMega()),
+                AVATAR_MEGA_MS);
     }
+
+    /** How long an avatar megaphone banner stays up, as for a player's (UseCashItemHandler). */
+    static final long AVATAR_MEGA_MS = java.util.concurrent.TimeUnit.SECONDS.toMillis(10);
 
 
     public static void BotAvatarMegaphone(Character fakechar, String msg) {
