@@ -1,0 +1,84 @@
+{"id": "fresh2-001", "set": "refusal", "line": "nvm i dont wanna do pq today", "intent": "talk", "tone": "neutral", "con": "normal"}
+{"id": "fresh2-002", "set": "refusal", "line": "sry cant join ur pt, gotta go eat", "intent": "talk", "tone": "neutral", "con": "normal"}
+{"id": "fresh2-003", "set": "refusal", "line": "no way im paying 8m for that lol", "intent": "talk", "tone": "neutral", "con": "normal"}
+{"id": "fresh2-004", "set": "refusal", "line": "im not gonna trade u my eqp, ask someone else", "intent": "talk", "tone": "neutral", "con": "normal"}
+{"id": "fresh2-005", "set": "refusal", "line": "i dont need a buff rn ty", "intent": "talk", "tone": "neutral", "con": "normal"}
+{"id": "fresh2-006", "set": "refusal", "line": "dont wanna go to ludi, too laggy", "intent": "talk", "tone": "neutral", "con": "normal"}
+{"id": "fresh2-007", "set": "refusal", "line": "never said i would come to orbis", "intent": "talk", "tone": "neutral", "con": "normal"}
+{"id": "fresh2-008", "set": "refusal", "line": "cant help u kill zakum, my lvl is too low", "intent": "talk", "tone": "neutral", "con": "normal"}
+{"id": "fresh2-009", "set": "refusal", "line": "dont forget to buff me when we get to the boss", "intent": "buff", "tone": "neutral", "con": "normal"}
+{"id": "fresh2-010", "set": "refusal", "line": "dont forget to party me after ur done w the quest", "intent": "party", "tone": "neutral", "con": "normal"}
+{"id": "fresh2-011", "set": "refusal", "line": "dont forget to come to kerning at 8pm pls", "intent": "come", "tone": "neutral", "con": "normal"}
+{"id": "fresh2-012", "set": "refusal", "line": "dont leave without trading me the scroll ok", "intent": "trade", "tone": "neutral", "con": "normal", "ambiguous": true}
+{"id": "fresh2-013", "set": "quoted", "line": "my bro told me wanna party? and then went afk", "intent": "talk", "tone": "neutral", "con": "normal"}
+{"id": "fresh2-014", "set": "quoted", "line": "she asked can u buff me in ellinia and i was like ok", "intent": "talk", "tone": "neutral", "con": "normal"}
+{"id": "fresh2-015", "set": "quoted", "line": "he literally yelled s> maple glove 5m all day in fm", "intent": "talk", "tone": "neutral", "con": "normal", "ambiguous": true}
+{"id": "fresh2-016", "set": "quoted", "line": "gm said no scamming in the notice yesterday", "intent": "talk", "tone": "neutral", "con": "normal"}
+{"id": "fresh2-017", "set": "quoted", "line": "the sign in henesys says come back later", "intent": "talk", "tone": "neutral", "con": "normal"}
+{"id": "fresh2-018", "set": "quoted", "line": "guy in pm wrote add me pls lol", "intent": "talk", "tone": "neutral", "con": "normal"}
+{"id": "fresh2-019", "set": "quoted", "line": "he goes u wanna trade and i said no", "intent": "talk", "tone": "neutral", "con": "normal"}
+{"id": "fresh2-020", "set": "quoted", "line": "my guildmate was like follow me to zakum and i was already dead", "intent": "talk", "tone": "neutral", "con": "normal"}
+{"id": "fresh2-021", "set": "quoted", "line": "the npc said bring me 10 items and u get a reward", "intent": "talk", "tone": "neutral", "con": "normal"}
+{"id": "fresh2-022", "set": "quoted", "line": "someone spammed party pls in all chat for an hour", "intent": "talk", "tone": "neutral", "con": "normal"}
+{"id": "fresh2-023", "set": "quoted", "line": "she said sorry for killing ur mob", "intent": "talk", "tone": "neutral", "con": "normal"}
+{"id": "fresh2-024", "set": "quoted", "line": "a dude in kerning kept saying marry me over megaphone", "intent": "talk", "tone": "neutral", "con": "normal"}
+{"id": "fresh2-025", "set": "past", "line": "i partied with a nice bishop at ludi yesterday", "intent": "talk", "tone": "neutral", "con": "normal"}
+{"id": "fresh2-026", "set": "past", "line": "we did pq for like 3 hours and got nothing", "intent": "talk", "tone": "neutral", "con": "normal"}
+{"id": "fresh2-027", "set": "past", "line": "he followed me around henesys all night lol", "intent": "talk", "tone": "neutral", "con": "normal"}
+{"id": "fresh2-028", "set": "past", "line": "i traded my old sword to a guy in fm last week", "intent": "talk", "tone": "neutral", "con": "normal"}
+{"id": "fresh2-029", "set": "past", "line": "yesterday i got buffed by a stranger and he left", "intent": "talk", "tone": "neutral", "con": "normal"}
+{"id": "fresh2-030", "set": "past", "line": "we killed zakum twice before dc", "intent": "talk", "tone": "neutral", "con": "normal"}
+{"id": "fresh2-031", "set": "past", "line": "i came to kerning but nobody was there", "intent": "talk", "tone": "neutral", "con": "normal"}
+{"id": "fresh2-032", "set": "past", "line": "i was gonna join a guild but they were inactive", "intent": "talk", "tone": "neutral", "con": "normal"}
+{"id": "fresh2-033", "set": "past", "line": "got scammed once in 2019 and never again", "intent": "talk", "tone": "neutral", "con": "normal"}
+{"id": "fresh2-034", "set": "past", "line": "my friend helped me kill the mobs and left", "intent": "talk", "tone": "neutral", "con": "normal"}
+{"id": "fresh2-035", "set": "past", "line": "i guided a new player through ellinia earlier", "intent": "talk", "tone": "neutral", "con": "normal"}
+{"id": "fresh2-036", "set": "past", "line": "i apologized to him and he forgave me", "intent": "talk", "tone": "neutral", "con": "normal"}
+{"id": "fresh2-037", "set": "bargain", "line": "b> 100 power elixir 3m ea, can u do 2.5m?", "intent": "haggle", "tone": "neutral", "con": "normal"}
+{"id": "fresh2-038", "set": "bargain", "line": "how about 12m for the whole set?", "intent": "haggle", "tone": "neutral", "con": "normal"}
+{"id": "fresh2-039", "set": "bargain", "line": "thats too high, 4m and its a deal", "intent": "haggle", "tone": "neutral", "con": "normal"}
+{"id": "fresh2-040", "set": "bargain", "line": "ill take it for 900k if u throw in the pots", "intent": "haggle", "tone": "neutral", "con": "normal"}
+{"id": "fresh2-041", "set": "bargain", "line": "lowest u can go on the helm? i got 7m", "intent": "haggle", "tone": "neutral", "con": "normal"}
+{"id": "fresh2-042", "set": "bargain", "line": "s> overall 15m obo", "intent": "haggle", "tone": "neutral", "con": "normal"}
+{"id": "fresh2-043", "set": "bargain", "line": "ok 6m final offer, take it or leave it", "intent": "haggle", "tone": "neutral", "con": "normal"}
+{"id": "fresh2-044", "set": "bargain", "line": "cheaper if i buy 5? say 20m for all", "intent": "haggle", "tone": "neutral", "con": "normal"}
+{"id": "fresh2-045", "set": "bargain", "line": "trade me the 30m first and ill give u the item after, trust me", "intent": "trade", "tone": "neutral", "con": "scam"}
+{"id": "fresh2-046", "set": "bargain", "line": "send ur items first im a gm i'll fix them 2x", "intent": "trade", "tone": "neutral", "con": "scam"}
+{"id": "fresh2-047", "set": "bargain", "line": "drop ur scroll in the trade window then ill add my mesos, promise bro", "intent": "trade", "tone": "neutral", "con": "scam"}
+{"id": "fresh2-048", "set": "bargain", "line": "give me ur pass and i'll lvl ur char to 120 for free", "intent": "trade", "tone": "neutral", "con": "scam"}
+{"id": "fresh2-049", "set": "scam-warning", "line": "watch out for the guy in fm, he scams ppl w fake trades", "intent": "talk", "tone": "neutral", "con": "normal"}
+{"id": "fresh2-050", "set": "scam-warning", "line": "beware of ppl asking u to trade first", "intent": "talk", "tone": "neutral", "con": "normal"}
+{"id": "fresh2-051", "set": "scam-warning", "line": "dont trust anyone who says send me ur pass", "intent": "talk", "tone": "neutral", "con": "normal"}
+{"id": "fresh2-052", "set": "scam-warning", "line": "there are scammers in ludi spamming free mesos, ignore", "intent": "talk", "tone": "neutral", "con": "normal"}
+{"id": "fresh2-053", "set": "scam-warning", "line": "remember never give ur pw to a fake gm", "intent": "talk", "tone": "neutral", "con": "normal"}
+{"id": "fresh2-054", "set": "scam-warning", "line": "got scammed last night so be careful w trade first guys", "intent": "talk", "tone": "neutral", "con": "normal"}
+{"id": "fresh2-055", "set": "scam-warning", "line": "mods warned about ppl who offer 2x mesos back", "intent": "talk", "tone": "neutral", "con": "normal"}
+{"id": "fresh2-056", "set": "scam-warning", "line": "dont fall for the free nx links in all chat", "intent": "talk", "tone": "neutral", "con": "normal"}
+{"id": "fresh2-057", "set": "scam-warning", "line": "if some1 asks u to trade first its a scam, report him", "intent": "talk", "tone": "neutral", "con": "normal"}
+{"id": "fresh2-058", "set": "scam-warning", "line": "careful, the guy named xKingx is a known scammer", "intent": "talk", "tone": "neutral", "con": "normal"}
+{"id": "fresh2-059", "set": "scam-warning", "line": "fake gms keep whispering ppl in henesys, dont reply", "intent": "talk", "tone": "neutral", "con": "normal"}
+{"id": "fresh2-060", "set": "scam-warning", "line": "scammers love the fm, always check the item before u accept", "intent": "talk", "tone": "neutral", "con": "normal"}
+{"id": "fresh2-061", "set": "control-request", "line": "lf pt for zakum, anyone?", "intent": "party", "tone": "neutral", "con": "normal"}
+{"id": "fresh2-062", "set": "control-request", "line": "can u party me for pq pls", "intent": "party", "tone": "neutral", "con": "normal"}
+{"id": "fresh2-063", "set": "control-request", "line": "need a buff pls, cleric?", "intent": "buff", "tone": "neutral", "con": "normal"}
+{"id": "fresh2-064", "set": "control-request", "line": "priest pls bless me before the boss", "intent": "buff", "tone": "neutral", "con": "normal"}
+{"id": "fresh2-065", "set": "control-request", "line": "can someone show me how to get to orbis?", "intent": "guide", "tone": "neutral", "con": "normal"}
+{"id": "fresh2-066", "set": "control-request", "line": "how do i get to ludi from kerning, new here", "intent": "guide", "tone": "neutral", "con": "normal"}
+{"id": "fresh2-067", "set": "control-request", "line": "come to henesys pls im waiting at the market", "intent": "come", "tone": "neutral", "con": "normal"}
+{"id": "fresh2-068", "set": "control-request", "line": "pls come to fm room 3", "intent": "come", "tone": "neutral", "con": "normal"}
+{"id": "fresh2-069", "set": "control-request", "line": "wanna trade ur pots for my scrolls?", "intent": "trade", "tone": "neutral", "con": "normal"}
+{"id": "fresh2-070", "set": "control-request", "line": "b> mana elixir lf trade at fm 1", "intent": "trade", "tone": "neutral", "con": "normal"}
+{"id": "fresh2-071", "set": "control-request", "line": "help me kill the boss at ellinia pls", "intent": "help_kill", "tone": "neutral", "con": "normal"}
+{"id": "fresh2-072", "set": "control-request", "line": "can u help kill these stumps, they r too strong for me", "intent": "help_kill", "tone": "neutral", "con": "normal"}
+{"id": "fresh2-073", "set": "tone", "line": "lol ur so slow, noob", "intent": "insult", "tone": "rude", "con": "harassment"}
+{"id": "fresh2-074", "set": "tone", "line": "omg ty so much u r the best!!", "intent": "talk", "tone": "kind", "con": "normal"}
+{"id": "fresh2-075", "set": "tone", "line": "hey cutie u single? lets hang in henesys", "intent": "flirt", "tone": "flirty", "con": "normal"}
+{"id": "fresh2-076", "set": "tone", "line": "sry bout that, my bad i did it by accident", "intent": "apology", "tone": "kind", "con": "normal"}
+{"id": "fresh2-077", "set": "tone", "line": "wanna go on a date at the ellinia tree? ;)", "intent": "date", "tone": "flirty", "con": "normal"}
+{"id": "fresh2-078", "set": "tone", "line": "add me to ur buddy list so we can chat later", "intent": "buddy", "tone": "neutral", "con": "normal"}
+{"id": "fresh2-079", "set": "tone", "line": "join our guild, we r friendly and active", "intent": "guild", "tone": "neutral", "con": "normal"}
+{"id": "fresh2-080", "set": "tone", "line": "lmao that dc was so funny", "intent": "talk", "tone": "neutral", "con": "normal"}
+{"id": "fresh2-081", "set": "tone", "line": "gg guys, great run today", "intent": "talk", "tone": "kind", "con": "normal"}
+{"id": "fresh2-082", "set": "tone", "line": "u r so ugly and stupid, quit the game", "intent": "insult", "tone": "rude", "con": "harassment"}
+{"id": "fresh2-083", "set": "tone", "line": "anyone else's ping bad in ludi today?", "intent": "talk", "tone": "neutral", "con": "normal"}
+{"id": "fresh2-084", "set": "tone", "line": "hows ur day going, grinding all night huh?", "intent": "talk", "tone": "kind", "con": "normal", "ambiguous": true}

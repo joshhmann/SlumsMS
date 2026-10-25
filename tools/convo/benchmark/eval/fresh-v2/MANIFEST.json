@@ -1,0 +1,21 @@
+{
+  "dataset": "eval/fresh-v2/cases.jsonl",
+  "sha256": "9b15d675c9b5091ece314b6b66c4ea0b41777909db4f61b434ea20b755b2f33d",
+  "n": 84,
+  "per_set": {
+    "refusal": 12,
+    "quoted": 12,
+    "past": 12,
+    "bargain": 12,
+    "scam-warning": 12,
+    "control-request": 12,
+    "tone": 12
+  },
+  "author": "Claude (Sonnet 5.5) subagent",
+  "date": "2026-10-25",
+  "frozen_before_model_calls": true,
+  "label_rules": "same as eval/fresh-v1/MANIFEST.json label_rules; scam bargain lines (trade-first/pass requests) labelled intent trade (or talk), con scam",
+  "ambiguous_count": 3,
+  "duplicate_check": "exact and normalized (lowercase, punctuation stripped) vs dev cases.jsonl and fresh-v1: 0 duplicates",
+  "notes": "per_set 'refusal' includes 4 regression guards that remain requests (dont forget to ...); 'bargain' = 8 fair haggle + 4 scam"
+}

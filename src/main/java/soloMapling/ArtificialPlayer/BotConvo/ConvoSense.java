@@ -2,6 +2,7 @@ package soloMapling.ArtificialPlayer.BotConvo;
 
 import soloMapling.ArtificialPlayer.BotAffinitySystem.ChatTone;
 import soloMapling.ArtificialPlayer.BotBrainSystem.ChatDecide;
+import soloMapling.ArtificialPlayer.BotBrainSystem.ChatScope;
 import soloMapling.ArtificialPlayer.BotBrainSystem.ChatTriage;
 import soloMapling.ArtificialPlayer.BotBrainSystem.ContentGuard;
 
@@ -98,7 +99,7 @@ public final class ConvoSense {
             + "|\\bcome\\??$)");
     private static final Pattern HAGGLE = Pattern.compile("\\b(go lower|any lower|lower\\?|cheaper|discount|too (much|expensive"
             + "|pricey|high)|(would|will|could) (u|you) (do|take|go)|how about \\d|ill (give|pay|do)|i'?ll (give|pay|do)"
-            + "|best price|last price|meet (me )?(in the )?middle|negotiable|neg\\b)");
+            + "|best price|last price|lowest price|ur lowest|meet (me )?(in the )?middle|negotiable|neg\\b)");
     private static final Pattern BUFF = Pattern.compile("\\b(buff|buffs|bless|haste|hs|heal|heals|hb|hyper body|sharp eyes"
             + "|se|mw|maple warrior|booster|meditation|holy symbol|dispel|res|resurrect)\\b.*\\b(me|pls|plz|please|us|\\?)|"
             + "\\b(can|could) (u|you|i (get|have)) (a |some )?(buff|bless|haste|hs|heal|hb|se)\\b|^(buff|heal|hs|bless|haste)"
@@ -109,6 +110,8 @@ public final class ConvoSense {
     private static final Pattern GUIDE = Pattern.compile("(\\bhow (do|can|would) (i|u|you|we) (get|go) to\\b|\\bhow to get to\\b"
             + "|\\bshow me (the way|where|how)\\b|\\bwhich way (to|is)\\b|\\bwhere('?s| is) (the )?(\\w+ ){0,3}(npc|portal|station|shop"
             + "|entrance|ship|boat|taxi|cab)\\b|\\bway to (get to )?\\w+\\?|\\btake me to\\b(?!.*\\b(date|amoria)\\b)|\\blead the way\\b)");
+    /** "where is kerning city": the way to a place (only when what follows names a map). */
+    private static final Pattern WHERE_IS = Pattern.compile("\\bwhere('?s| is) (.+)$");
     private static final Pattern DATE_EXTRA = Pattern.compile("\\b(take me (to|on) (amoria|a date)|go to amoria (with me|together)"
             + "|amoria date)\\b");
     private static final Pattern MEET_AT = Pattern.compile("\\bmeet (me |u |you |up )?(at|in) \\w+");
@@ -119,6 +122,8 @@ public final class ConvoSense {
             + "|didn'?t see (u|you)|forgive me|wont happen again|won'?t happen again)\\b");
     private static final Pattern FLIRT_EXTRA = Pattern.compile("\\b(ur cute|you'?re cute|so cute|ur hot|miss me|missed (u|you)"
             + "|ur pretty|you'?re pretty|kinda pretty|<3)\\b");
+    /** Where a price sits in the line, so the price rule can be scoped like the others. */
+    private static final Pattern PRICE_AT = Pattern.compile("\\d[\\d,.]*");
     private static final Pattern KIND_EXTRA = Pattern.compile("\\b(sorry|sry|my bad|thanks|thank (u|you)|ty|gg|fun|nice|grats"
             + "|congrats|finally)\\b");
 
@@ -129,7 +134,11 @@ public final class ConvoSense {
         return line == null ? "" : line.toLowerCase(Locale.ROOT).replaceAll("[!.,~]+$", "").replaceAll("\\s+", " ").trim();
     }
 
-    /** The intent by rule alone, or empty. Precise rules only: a rule that matches wins over the model. */
+    /**
+     * The intent by rule alone, or empty. Precise rules only: a rule that matches wins over the model. A request cue
+     * out of scope ({@link ChatScope}: "dont follow me", "he said party pls") is no request; when every request cue
+     * that matched is out of scope the line is talk by rule.
+     */
     public static Optional<ConvoIntent> intentRule(String line) {
         String text = normal(line);
         if (text.isEmpty()) {
@@ -142,48 +151,104 @@ public final class ConvoSense {
         if (soloMapling.ArtificialPlayer.BotDramaSystem.BotRomance.asksOutLine(text) || DATE_EXTRA.matcher(text).find()) {
             return Optional.of(ConvoIntent.DATE);
         }
-        if (APOLOGY.matcher(text).find()) {
+        // a sorry that comes with a refusal is part of the refusal ("not looking to trade right now sorry")
+        if (APOLOGY.matcher(text).find() && !declines(line, text)) {
             return Optional.of(ConvoIntent.APOLOGY);
         }
-        if (GUIDE.matcher(text).find()) {
+        Scope s = new Scope(text);
+        if (s.liveQuestion(GUIDE)) {
             return Optional.of(ConvoIntent.GUIDE);
         }
-        if (MEET_AT.matcher(text).find() && !ConvoEntities.find(text).isEmpty()) {
+        java.util.regex.Matcher whereIs = WHERE_IS.matcher(text);
+        if (whereIs.find() && ConvoEntities.find(whereIs.group(2)).first(ConvoEntities.Kind.MAP) != null
+                && s.liveQuestion(WHERE_IS)) {
+            return Optional.of(ConvoIntent.GUIDE);
+        }
+        if (s.live(MEET_AT) && !ConvoEntities.find(text).isEmpty()) {
             return Optional.of(ConvoIntent.COME); // "meet me at henesys": a place, not "where are you"
         }
-        if (BUFF.matcher(text).find()) {
+        if (s.live(BUFF)) {
             return Optional.of(ConvoIntent.BUFF);
         }
-        if (HAGGLE.matcher(text).find() || (soloMapling.Economy.HaggleBrain.price(text) > 0
-                && !text.matches(".*\\b(wts|wtb|selling|buying|s>|b>)\\b.*"))) {
+        if (s.live(HAGGLE) || (soloMapling.Economy.HaggleBrain.price(text) > 0
+                && !text.matches(".*\\b(wts|wtb|selling|buying|s>|b>)\\b.*") && s.live(PRICE_AT))) {
             return Optional.of(ConvoIntent.HAGGLE);
         }
         Optional<ChatTriage.Intent> legacy = ChatTriage.intentRule(line);
         if (legacy.isPresent()) {
-            return switch (legacy.get()) {
-                case PARTY -> Optional.of(ConvoIntent.PARTY);
-                case FOLLOW, COME_WITH_ME -> Optional.of(ConvoIntent.FOLLOW);
-                case TRADE -> Optional.of(ConvoIntent.TRADE);
+            switch (legacy.get()) {
+                case PARTY -> {
+                    return Optional.of(ConvoIntent.PARTY);
+                }
+                case FOLLOW, COME_WITH_ME -> {
+                    return Optional.of(ConvoIntent.FOLLOW);
+                }
+                case TRADE -> {
+                    return Optional.of(ConvoIntent.TRADE);
+                }
                 // where-do-you-train / where-are-you stay ticket 37's own actions (talk with an outcome)
-                case WHERE_TRAIN, WHERE_AT, NONE -> Optional.of(ConvoIntent.TALK);
-            };
+                case WHERE_TRAIN, WHERE_AT -> {
+                    return Optional.of(ConvoIntent.TALK);
+                }
+                case NONE -> s.outOfScope = true; // its cues matched out of scope; the rules below may still match
+            }
         }
-        if (HELP_KILL.matcher(text).find()) {
+        if (s.live(HELP_KILL)) {
             return Optional.of(ConvoIntent.HELP_KILL);
         }
-        if (COME.matcher(text).find()) {
+        if (s.live(COME)) {
             return Optional.of(ConvoIntent.COME);
         }
-        if (BUDDY.matcher(text).find()) {
+        if (s.live(BUDDY)) {
             return Optional.of(ConvoIntent.BUDDY);
         }
-        if (GUILD.matcher(text).find()) {
+        if (s.live(GUILD)) {
             return Optional.of(ConvoIntent.GUILD);
         }
         if (ContentGuard.flirty(text) || FLIRT_EXTRA.matcher(text).find()) {
             return Optional.of(ConvoIntent.FLIRT);
         }
-        return Optional.empty();
+        return s.outOfScope ? Optional.of(ConvoIntent.TALK) : Optional.empty();
+    }
+
+    /** The request cues this class owns, for {@link #declines}. */
+    private static final List<Pattern> CUES = List.of(MEET_AT, BUFF, HAGGLE, HELP_KILL, COME, BUDDY, GUILD);
+
+    private static boolean declines(String line, String text) {
+        if (ChatTriage.declines(line)) {
+            return true;
+        }
+        for (Pattern cue : CUES) {
+            if (ChatScope.negated(cue, text)) {
+                return true;
+            }
+        }
+        return false;
+    }
+
+    /** Request cues read through {@link ChatScope}; remembers whether any matched out of scope. */
+    private static final class Scope {
+        final String text;
+        boolean outOfScope;
+
+        Scope(String text) {
+            this.text = text;
+        }
+
+        boolean live(Pattern cue) {
+            return live(cue, true);
+        }
+
+        /** A cue that asks the way: a negator does not scope it ("i dont know how to get to ellinia"). */
+        boolean liveQuestion(Pattern cue) {
+            return live(cue, false);
+        }
+
+        private boolean live(Pattern cue, boolean negation) {
+            ChatScope.Frame f = ChatScope.scan(cue, text, negation);
+            outOfScope |= f != null && f != ChatScope.Frame.NONE;
+            return f == ChatScope.Frame.NONE;
+        }
     }
 
     /** The tone by rule alone, or empty. Rude wins, then flirty, then kind. */
