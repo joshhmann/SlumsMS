@@ -208,7 +208,8 @@ public class PlatformPlacement {
         int minX = Math.min(p1.x, p2.x);
         int maxX = Math.max(p1.x, p2.x);
         int baseY = p1.y;
-        Platform adHocPlatform = new Platform(minX, maxX, baseY, List.of(p1, p2), Platform.Type.FLAT);
+        Platform adHocPlatform = new Platform(minX, maxX, List.of(p1, p2), Platform.Type.FLAT,
+                PlatformParser.mapGround(mapId));
 
         List<Point> occupied = Collections.synchronizedList(new ArrayList<>());
         ConcurrentLinkedQueue<Integer> characterIds = new ConcurrentLinkedQueue<>();
@@ -285,7 +286,8 @@ public class PlatformPlacement {
         int minX = Math.min(p1.x, p2.x);
         int maxX = Math.max(p1.x, p2.x);
         int baseY = p1.y;
-        Platform adHocPlatform = new Platform(minX, maxX, baseY, List.of(p1, p2), Platform.Type.FLAT);
+        Platform adHocPlatform = new Platform(minX, maxX, List.of(p1, p2), Platform.Type.FLAT,
+                PlatformParser.mapGround(mapId));
 
         List<Point> occupied = Collections.synchronizedList(new ArrayList<>());
         ConcurrentLinkedQueue<Integer> characterIds = new ConcurrentLinkedQueue<>();

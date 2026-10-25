@@ -91,7 +91,7 @@ public class PlatformSpawner {
         Gap selectedGap = selectGapWeighted(gaps);
         int spawnX = pickPositionInGap(selectedGap);
 
-        return new Point(spawnX, platform.getBaseY());
+        return groundPoint(platform, spawnX);
     }
 
     /**
@@ -99,7 +99,12 @@ public class PlatformSpawner {
      */
     private static Point randomPointOnFlatPlatform(Platform platform) {
         int x = platform.getMinX() + random.nextInt(Math.max(1, platform.getWidth()));
-        return new Point(x, platform.getBaseY());
+        return groundPoint(platform, x);
+    }
+
+    /** The point at {@code x} on the platform's real ground (1.5.1: a FLAT range's single Y stood bots off it). */
+    private static Point groundPoint(Platform platform, int x) {
+        return new Point(x, platform.getYAtX(x));
     }
 
     /**
@@ -149,12 +154,12 @@ public class PlatformSpawner {
 
         if (referencePoints.isEmpty()) {
             // Fallback if no reference points
-            return new Point(platform.getMinX(), platform.getBaseY());
+            return groundPoint(platform, platform.getMinX());
         }
 
         if (occupiedPositions == null || occupiedPositions.isEmpty()) {
             // Pick a random reference point
-            return copyPoint(referencePoints.get(random.nextInt(referencePoints.size())));
+            return groundPoint(platform, referencePoints.get(random.nextInt(referencePoints.size())).x);
         }
 
         // Find reference points that are not too close to occupied positions
@@ -162,11 +167,11 @@ public class PlatformSpawner {
 
         if (availablePoints.isEmpty()) {
             // Everything is crowded - just pick a random reference point
-            return copyPoint(referencePoints.get(random.nextInt(referencePoints.size())));
+            return groundPoint(platform, referencePoints.get(random.nextInt(referencePoints.size())).x);
         }
 
         // Weight selection by distance from nearest occupied (prefer more isolated spots)
-        return selectPointByIsolation(availablePoints, occupiedPositions);
+        return groundPoint(platform, selectPointByIsolation(availablePoints, occupiedPositions).x);
     }
 
     /**
