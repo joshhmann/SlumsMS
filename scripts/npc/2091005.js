@@ -75,7 +75,7 @@ function action(mode, type, selection) {
                     text += "#L2#I want to record my score up to this point#l";
                 }
                 cm.sendSimple(text);
-            } else if (cm.getChar().getReborns() >= 0) {
+            } else if (cm.getPlayer().getLevel() >= 25) {
                 if (cm.getPlayer().getMap().getId() == 925020001) {
                     cm.sendSimple("My master is the strongest person in Mu Lung, and you want to challenge him? Fine, but you'll regret it later.\r\n\r\n#b#L0#I want to challenge him alone.#l\r\n#L1#I want to challenge him with a party.#l\r\n\r\n#L2#I want to receive a belt.#l\r\n#L3#I want to reset my training points.#l\r\n#L4#I want to receive a medal.#l\r\n#L5#What is a Mu Lung Dojo?#l");
                 } else {
