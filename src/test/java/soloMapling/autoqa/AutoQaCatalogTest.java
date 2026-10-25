@@ -84,6 +84,22 @@ class AutoQaCatalogTest {
     }
 
     @Test
+    void thePartyChatCheckMatchesTheLineTestLogged() {
+        // 1.6.0 TEST run: "\\{bot}" filled to "\GolemMega", read as the \G anchor, and the player's line is lowercased
+        Check cv10 = AutoQaService.select(AutoQaCatalog.all(), "t-cv-10").get(0);
+        String logged = "21:58:53.874 CONVO PARTY CHAT AutoQaOne: \"golemmega ready?\" -> GolemMega answers [1-name]";
+        boolean matched = false;
+        for (Check.Expect e : cv10.expects()) {
+            Matcher m = Pattern.compile("/(.*)/").matcher(e.describe());
+            if (m.find() && m.group(1).startsWith("CONVO PARTY CHAT")) {
+                String filled = m.group(1).replace("{me}", "AutoQaOne").replace("{bot}", "GolemMega");
+                matched = Pattern.compile(filled).matcher(logged).find();
+            }
+        }
+        assertTrue(matched);
+    }
+
+    @Test
     void selectorsPickByPageIdShortIdOrGroup() {
         List<Check> all = AutoQaCatalog.all();
         assertEquals(1, AutoQaService.select(all, "t-af-1").size());

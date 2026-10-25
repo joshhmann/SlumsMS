@@ -468,7 +468,8 @@ public final class AutoQaCatalog {
         c.add(Check.auto("t-cv-10", "Party chat reaches the bot in your party").minutes(4)
                 .step(run("cv-11"), qaDo("say", "{bot} ready?"), waitFor("CONVO PARTY SAY {bot}: ", 45),
                         qaDo("say", "{bot} go left"), waitFor("CONVO PARTY SAY {bot}: ", 45), waitSeconds(3))
-                .expect(has("CONVO PARTY CHAT {me}: \"\\{bot} ready\\?\" -> {bot} answers \\[1-name\\]"),
+                // the player's line reaches the log lowercased; "\\{bot}" filled to "\GolemMega" read as the \G anchor
+                .expect(has("CONVO PARTY CHAT {me}: \"(?i:{bot}) ready\\?\" -> {bot} answers \\[1-name\\]"),
                         atLeast(2, "CONVO PARTY SAY {bot}: "),
                         lacks("CONVO PARTY SAY .*\\b([Aa][Ii]|language model|chatbot|a bot)\\b"))
                 .build());
