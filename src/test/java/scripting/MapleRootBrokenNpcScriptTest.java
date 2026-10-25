@@ -1,5 +1,6 @@
 package scripting;
 
+import org.junit.jupiter.api.Test;
 import org.junit.jupiter.params.ParameterizedTest;
 import org.junit.jupiter.params.provider.ValueSource;
 
@@ -215,6 +216,49 @@ class MapleRootBrokenNpcScriptTest {
         assertEquals(0, cm.count(MARBLE), "100 marbles used");
         assertEquals(0, cm.count(MITHRIL_ORE_PLATE), "10 plates used");
         assertNull(cm.ok, "no 'lacking ingredients' message");
+        assertTrue(cm.disposed);
+    }
+
+    // --- Maple Administrator (2007), Maple Island skip-tutorial ---------------------------------------------------
+
+    private static final int HUB = 993910000;   // MapId.MAPLEROOT_HUB, where every new character starts
+
+    @Test
+    void mapleAdministratorSendsSkippersToTheHub() throws Exception {
+        FakeCm cm = new FakeCm();
+        Invocable admin = load("npc/2007.js", cm);
+
+        admin.invokeFunction("start");
+        assertNotNull(cm.yesNo, "asks before warping");
+        assertTrue(cm.yesNo.contains("#m" + HUB + "#"), cm.yesNo);
+        assertTrue(!cm.disposed);
+
+        admin.invokeFunction("action", 1, 1, 0);
+        assertEquals(HUB, cm.warpedTo);
+        assertTrue(cm.disposed);
+    }
+
+    @Test
+    void mapleAdministratorClosesTheDialogOnNo() throws Exception {
+        FakeCm cm = new FakeCm();
+        Invocable admin = load("npc/2007.js", cm);
+
+        admin.invokeFunction("start");
+        admin.invokeFunction("action", 0, 1, 0);
+
+        assertNull(cm.warpedTo);
+        assertTrue(cm.disposed);
+    }
+
+    @Test
+    void mapleAdministratorClosesTheDialogOnEscape() throws Exception {
+        FakeCm cm = new FakeCm();
+        Invocable admin = load("npc/2007.js", cm);
+
+        admin.invokeFunction("start");
+        admin.invokeFunction("action", -1, 0, 0);
+
+        assertNull(cm.warpedTo);
         assertTrue(cm.disposed);
     }
 }

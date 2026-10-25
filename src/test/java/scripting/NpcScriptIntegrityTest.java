@@ -44,6 +44,20 @@ class NpcScriptIntegrityTest {
     }
 
     @Test
+    void everyNpcScriptHasAConversationEntryPoint() throws IOException {
+        List<String> broken = new ArrayList<>();
+        for (Path script : npcScripts()) {
+            String text = Files.readString(script, StandardCharsets.UTF_8);
+            if (text.isBlank()) {
+                broken.add(script.getFileName() + ": empty file");
+            } else if (!ENTRY_POINT.matcher(text).find()) {
+                broken.add(script.getFileName() + ": no start() or action()");
+            }
+        }
+        assertEquals(List.of(), broken, "NPC scripts that throw when clicked:\n" + String.join("\n", broken));
+    }
+
+    @Test
     void everyCanHoldGuardedTradeThatTakesSomethingAlsoGivesSomething() throws IOException {
         List<String> broken = new ArrayList<>();
         int guards = 0;

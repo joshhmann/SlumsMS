@@ -152,7 +152,7 @@ Found by an earlier run and restored from Cosmic; the detector no longer reports
 
 | Class | File | Detail | Why | Provenance |
 |---|---|---|---|---|
-| DELIBERATE | `scripts/npc/2007.js` | 0 code lines here vs 26 in Cosmic | Maple Island 'skip tutorial' NPC; new characters start at MAPLEROOT_HUB (993910000), never on Maple Island. | repack-shipped (unchanged since baseline) |
+| FIXED 1.5.1 | `scripts/npc/2007.js` | was 0 bytes (26 lines in Cosmic) | Maple Island 'skip tutorial' NPC. The empty file threw on click and left the dialog open; 1.5.1 gives it a script that warps to MAPLEROOT_HUB (993910000), where new characters start, instead of Cosmic's Lith Harbor. | repack-shipped, fixed in 1.5.1 |
 | DELIBERATE | `scripts/npc/9900000.js` | 28 code lines here vs 95 in Cosmic | Cosmic's GM-NPC KIN is MapleRoot's hub stylist/saloon menu (placed in the hub map). | repack-shipped (unchanged since baseline) |
 
 ### script-shrunk (2)
