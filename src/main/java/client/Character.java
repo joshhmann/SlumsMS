@@ -694,6 +694,14 @@ public class Character extends AbstractCharacterObject {
         return marriageRing != null && partnerId > 0;
     }
 
+    /**
+     * True for AI players (thousands of bots share a single headless BotClient). Event scripts use it to keep bots
+     * out of the party-size maths: a bot cannot climb a PQ platform or hold a conversation.
+     */
+    public boolean isBot() {
+        return client instanceof BotClient;
+    }
+
     public boolean hasJustMarried() {
         EventInstanceManager eim = getEventInstance();
         if (eim != null) {

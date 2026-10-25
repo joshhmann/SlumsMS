@@ -24,8 +24,8 @@
  */
 
 var isPq = true;
-var onlyMarriedPlayers = true;
-var minPlayers = 6, maxPlayers = 6;
+var onlyMarriedPlayers = false;    // ticket 75: married couples are no longer needed to start, they only unlock the couple bonus
+var minPlayers = 2, maxPlayers = 6;
 var minLevel = 40, maxLevel = 255;
 var entryMap = 670010200;
 var exitMap = 670011000;
@@ -64,7 +64,6 @@ function setEventRequirements() {
         reqStr += minLevel;
     }
 
-    reqStr += "\r\n    At least 1 of both genders";
     if (onlyMarriedPlayers) {
         reqStr += "\r\n    All married";
     }
@@ -95,29 +94,30 @@ function setEventRewards(eim) {
 function getEligibleParty(party) {      //selects, from the given party, the team that is allowed to attempt this event
     var eligible = [];
     var hasLeader = false, hasNotMarried = false;
-    var mask = 0;
 
     if (party.size() > 0) {
         var partyList = party.toArray();
 
         for (var i = 0; i < party.size(); i++) {
             var ch = partyList[i];
+            var chr = ch.getPlayer();
 
+            if (chr == null || chr.isBot()) {   // bots cannot climb the puzzle platforms nor hold the stage items, so they never count as party members
+                continue;
+            }
             if (ch.getMapId() == recruitMap && ch.getLevel() >= minLevel && ch.getLevel() <= maxLevel) {
                 if (ch.isLeader()) {
                     hasLeader = true;
                 }
-                if (!ch.getPlayer().isMarried()) {
+                if (!chr.isMarried()) {
                     hasNotMarried = true;
                 }
                 eligible.push(ch);
-
-                mask |= (1 << ch.getPlayer().getGender());
             }
         }
     }
 
-    if (!(hasLeader && eligible.length >= minPlayers && eligible.length <= maxPlayers && mask == 3)) {
+    if (!(hasLeader && eligible.length >= minPlayers && eligible.length <= maxPlayers)) {
         eligible = [];
     }
     if (onlyMarriedPlayers && hasNotMarried) {

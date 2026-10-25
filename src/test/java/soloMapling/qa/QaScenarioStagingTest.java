@@ -417,4 +417,33 @@ class QaScenarioStagingTest {
         suite.stop(1, "!qa stop");
         assertEquals(1, world.couplesUnstaged.size());
     }
+
+    @Test
+    void apq1StagesTheRecruitMapChecksStageOneAndTakesTheTicketBack() throws Exception {
+        world.mobs = 12;
+        start("pq-1", 100000000);
+        assertTrue(world.calls.contains("warp 670010100"), world.calls.toString());
+        assertTrue(world.calls.contains("give 4031592 x1"));
+        assertTrue(world.calls.contains("warp 670010200"), "stage 1 is checked during staging");
+        for (String portal : new String[]{"male00", "female00", "go00", "go01", "go02"}) {
+            assertTrue(world.calls.contains("warp 670010200 " + portal), world.calls.toString());
+        }
+        assertTrue(suite.runOf(1).maps().containsAll(List.of(670010100, 670010200)));
+        String text = Files.readString(suite.runOf(1).logPath());
+        assertTrue(text.contains("stage 1 has 12 live mobs"), text);
+
+        List<String> out = suite.action(world.online, "where", new String[0]);
+        assertEquals(1, out.size());
+        assertThrows(QaRefusal.class, () -> suite.action(world.online, "start", new String[0]));
+
+        suite.stop(1, "!qa stop");
+        assertTrue(world.calls.contains("take 4031592 x1"), "the ticket goes back");
+        assertEquals(0, world.inventory.getOrDefault(4031592, 0));
+    }
+
+    @Test
+    void apq1RefusesWhenTheHostNpcIsNotOnTheRecruitMap() {
+        world.npcPos = null;
+        assertThrows(QaRefusal.class, () -> start("pq-1", 100000000));
+    }
 }
