@@ -325,6 +325,7 @@ public final class BotPopulationDirector {
             ServerConfig server = YamlConfig.config.server;
             ZonedDateTime local = localNow();
             long now = System.currentTimeMillis();
+            PlayerWealthIndex.maybeUpdate();   // 1.6.0: hourly, off-thread, returns at once otherwise
             List<Candidate> roster = candidates();
             int target = curve().target(directorPeak(), local);
             Plan plan = plan(roster, guildOfRoster(), target, local.getHour() * 60 + local.getMinute(), now, maxLogins,

@@ -39,6 +39,9 @@ import java.util.function.LongSupplier;
  * Potions and ammo ({@code BotShopping}) are not limited by a rich bot's mesos already (its kit size is), so they
  * are unchanged. FM shopper bots hold nothing between purchases ({@code FMBotWallet}) and are never over.
  * <p>
+ * 1.6.0: the whole ceiling is multiplied by {@link PlayerWealthIndex#multiplier()} (1 to 10) so bots track how rich
+ * real players are.
+ * <p>
  * Tuned with {@code -Dsolomapling.*} properties (the server's YAML is strict): {@code botWealthCeiling=false}
  * switches it off; {@code botWealthPerLevelSq} (120), {@code botWealthFloor} (100000), both per 1x meso rate;
  * {@code botWealthHardFactor} (2.0); {@code botWealthDecayShare} (0.10); {@code botWealthDecayMinutes} (10).
@@ -78,8 +81,15 @@ public final class BotWealth {
 
     // ---- the ceiling ----
 
-    /** The ceiling at a level and meso rate. */
+    /** The ceiling at a level and meso rate, scaled by the player wealth index's multiplier (1.6.0, never under 1). */
     public static long ceiling(int level, int mesoRate) {
+        double mult = PlayerWealthIndex.multiplier();
+        long base = baseCeiling(level, mesoRate);
+        return mult <= 1.0 ? base : (long) Math.min(Long.MAX_VALUE / 4.0, base * mult);
+    }
+
+    /** The formula alone, without the player wealth multiplier: the yardstick the index measures players by. */
+    static long baseCeiling(int level, int mesoRate) {
         long perSq = Math.max(0, Long.getLong("solomapling.botWealthPerLevelSq", DEFAULT_PER_LEVEL_SQ));
         long floor = Math.max(0, Long.getLong("solomapling.botWealthFloor", DEFAULT_FLOOR));
         long lv = Math.max(1, level);
