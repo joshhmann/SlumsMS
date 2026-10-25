@@ -4,6 +4,9 @@ import client.BotClient;
 import client.Character;
 import org.junit.jupiter.api.AfterEach;
 import org.junit.jupiter.api.Test;
+import soloMapling.ArtificialPlayer.BotMessagingSystem.BotAddressee;
+import soloMapling.ArtificialPlayer.BotMessagingSystem.ChatRoute;
+import soloMapling.ArtificialPlayer.BotMessagingSystem.MapChatLog;
 import soloMapling.ArtificialPlayer.BotStore;
 
 import java.io.ByteArrayInputStream;
@@ -12,6 +15,7 @@ import java.util.List;
 import java.util.Random;
 
 import static org.junit.jupiter.api.Assertions.assertEquals;
+import static org.junit.jupiter.api.Assertions.assertNotNull;
 import static org.junit.jupiter.api.Assertions.assertNull;
 import static org.junit.jupiter.api.Assertions.assertTrue;
 
@@ -144,9 +148,10 @@ class BotThreadsTest {
     void aPlayerJumpsInAndTheLastSpeakerAnswersWithTheThreadInItsCard() {
         long now = System.currentTimeMillis();
         BotThreads.putLiveForTest(2, 100000000, 10_001, "Kimchi", 10_002, "Bob", BotThreads.Topic.LFG, now + 30_000);
-        assertEquals(10_002, BotThreads.jumpIn(2, 100000000, "Josh", "i can come too", now));
-        assertNull(BotThreads.jumpIn(1, 100000000, "Josh", "i can come too", now), "another channel");
-        assertNull(BotThreads.jumpIn(2, 100000000, "Josh", "i can come too", now + 60_000), "the thread is over");
+        int id = BotThreads.liveView(2, 100000000, now).id();
+        assertEquals(10_002, BotThreads.jumpIn(2, 100000000, id, "Josh", "i can come too", now));
+        assertNull(BotThreads.jumpIn(1, 100000000, id, "Josh", "i can come too", now), "another channel");
+        assertNull(BotThreads.jumpIn(2, 100000000, id, "Josh", "i can come too", now + 60_000), "the thread is over");
         String card = BotThreads.contextFor(10_002, 5);
         assertTrue(card.contains("talking with Kimchi about looking for a party"), card);
         assertTrue(BotThreads.busy(10_001));
@@ -170,5 +175,57 @@ class BotThreadsTest {
         assertEquals(BotThreads.Topic.LFG, BotThreads.Topic.parse("lfg"));
         assertEquals(BotThreads.Topic.TRADE, BotThreads.Topic.parse("TRADE"));
         assertNull(BotThreads.Topic.parse("nope"));
+    }
+
+    /**
+     * TEST log cv-5-20261024T222812Z: two bot-to-bot LFG threads were live on one map - KimchiPika and Sair6 about
+     * Kerning PQ, 129 px from the player, and ownagetauro and picklemaple about Orbis PQ, 4964 px away. Only the far
+     * one was held, so "Kerning PQ? i can come too" never reached the thread it named.
+     */
+    private void twoLiveThreads(long now) {
+        BotThreads.putLiveForTest(2, 100000000, 10_004, "Sair6", 10_001, "KimchiPika", BotThreads.Topic.LFG,
+                "Kerning PQ", now + 30_000);
+        BotThreads.putLiveForTest(2, 100000000, 10_002, "ownagetauro", 10_005, "picklemaple", BotThreads.Topic.LFG,
+                "Orbis PQ", now + 29_000);
+    }
+
+    @Test
+    void twoLiveThreadsOnOneMapTheLineJoinsTheOneItNames() {
+        long now = 9_000_000;
+        twoLiveThreads(now);
+        String line = "Kerning PQ? i can come too";
+        BotThreads.View thread = BotThreads.liveView(2, 100000000, now, new BotThreads.Ask(line, 0, 0));
+        assertNotNull(thread, "a live thread answers this line");
+        assertTrue(thread.topic().contains("Kerning PQ"), thread.topic());
+        assertEquals(10_001, BotThreads.jumpIn(2, 100000000, thread.id(), "Josh", line, now),
+                "the thread's own last speaker answers");
+    }
+
+    @Test
+    void theRouteCreditsTheThreadTheLineIsAboutNotItsQuestion() {
+        long now = 9_000_000;
+        twoLiveThreads(now);
+        String line = "Kerning PQ? i can come too";
+        java.util.Map<Integer, ChatRoute.Bot> bots = new java.util.LinkedHashMap<>();
+        bots.put(10_001, new ChatRoute.Bot(10_001, "KimchiPika", 100, 0, true));
+        bots.put(10_004, new ChatRoute.Bot(10_004, "Sair6", 130, 0, true));
+        bots.put(10_002, new ChatRoute.Bot(10_002, "ownagetauro", 5000, 0, true));
+        bots.put(10_005, new ChatRoute.Bot(10_005, "picklemaple", 5100, 0, true));
+        List<MapChatLog.Line> lines = List.of(
+                new MapChatLog.Line(10_001, "KimchiPika", "yeah join plz, our leader dcd lolz!!!", now - 6_000, true),
+                new MapChatLog.Line(10_004, "Sair6", "lvl 31 cleric here, got room?", now - 4_000, true),
+                new MapChatLog.Line(10_002, "ownagetauro", "jaja amigo u lvl 51? q party orbis pq porfa", now - 3_000,
+                        true),
+                new MapChatLog.Line(7, "Josh", line, now, false));
+        ChatRoute.Decision d = ChatRoute.decide(lines, new ChatRoute.Player(7, "Josh", line, 0, 0, null, -1, 0), bots,
+                BotThreads.liveView(2, 100000000, now, new BotThreads.Ask(line, 0, 0)),
+                BotAddressee.resolve(line, List.of(new BotAddressee.Candidate(10_001, "KimchiPika"),
+                        new BotAddressee.Candidate(10_004, "Sair6"), new BotAddressee.Candidate(10_002, "ownagetauro"),
+                        new BotAddressee.Candidate(10_005, "picklemaple"))),
+                null, now);
+        assertEquals(ChatRoute.Step.THREAD_WORDS, d.step());
+        assertEquals(10_001, d.botId(), "the last speaker of the thread the line is about");
+        assertNotNull(d.thread());
+        assertTrue(d.thread().topic().contains("Kerning PQ"), d.thread().topic());
     }
 }
