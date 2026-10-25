@@ -1534,29 +1534,44 @@ public class Character extends AbstractCharacterObject {
     }
 
     public void changeMap(int map) {
-        MapleMap warpMap;
-        EventInstanceManager eim = getEventInstance();
-
-        if (eim != null) {
-            warpMap = eim.getMapInstance(map);
-        } else {
-            warpMap = client.getChannelServer().getMapFactory().getMap(map);
+        MapleMap warpMap = mapInstanceFor(map);
+        if (warpMap == null) {
+            return;
         }
 
         changeMap(warpMap, warpMap.getRandomPlayerSpawnpoint());
     }
 
     public void changeMap(int map, int portal) {
-        MapleMap warpMap;
-        EventInstanceManager eim = getEventInstance();
-
-        if (eim != null) {
-            warpMap = eim.getMapInstance(map);
-        } else {
-            warpMap = client.getChannelServer().getMapFactory().getMap(map);
+        MapleMap warpMap = mapInstanceFor(map);
+        if (warpMap == null) {
+            return;
         }
 
         changeMap(warpMap, warpMap.getPortal(portal));
+    }
+
+    /**
+     * 1.5.2: the map a warp to an id lands on, or null when there is nowhere to land. A channel that has shut down has
+     * no map factory and no map with that id may exist, and the delayed warps (ship, subway, elevator: a TimerManager
+     * task that fires minutes later) used to throw "Cannot invoke MapManager.getMap(int) because the return value of
+     * Channel.getMapFactory() is null" instead of settling.
+     */
+    private MapleMap mapInstanceFor(int map) {
+        EventInstanceManager eim = getEventInstance();
+        if (eim != null) {
+            return eim.getMapInstance(map);
+        }
+
+        Client client = getClient();
+        Channel channel = (client == null) ? null : client.getChannelServer();
+        MapManager mapManager = (channel == null) ? null : channel.getMapFactory();
+        if (mapManager == null) {
+            log.debug("Chr {} cannot warp to map {}: its channel has no maps left", name, map);
+            return null;
+        }
+
+        return mapManager.getMap(map);
     }
 
     public void changeMap(int map, String portal) {
