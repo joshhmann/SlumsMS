@@ -249,7 +249,8 @@ public class CommandsExecutor {
         addCommand("rates", RatesCommand.class);
         addCommand("online", OnlineCommand.class);
         addCommand("gm", GmCommand.class);
-        addCommand("reportbug", ReportBugCommand.class);
+        addCommand(new String[]{"bug", "reportbug"}, ReportBugCommand.class);
+        addCommand("idea", ReportBugCommand.Idea.class);
         addCommand("points", ReadPointsCommand.class);
         addCommand("joinevent", JoinEventCommand.class);
         addCommand("leaveevent", LeaveEventCommand.class);
