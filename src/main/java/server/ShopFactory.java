@@ -34,14 +34,44 @@ public class ShopFactory {
         return instance;
     }
 
+    /** Loads a shop row by shop id (true) or by NPC id (false); swapped out in tests. */
+    interface Loader {
+        Shop load(int id, boolean isShopId);
+    }
+
     private final Map<Integer, Shop> shops = new HashMap<>();
     private final Map<Integer, Shop> npcShops = new HashMap<>();
+    private final Loader loader;
+
+    private ShopFactory() {
+        this(Shop::createFromDB);
+    }
+
+    ShopFactory(Loader loader) {
+        this.loader = loader;
+    }
+
+    /**
+     * Shops only GMs may open: !gmshop's 1337 and the stock 9999992-9999999 GM shops (pets, cash items, chairs,
+     * rings and GM gear at 1 meso). Their shop rows still name an NPC: 1337 names Maple Island's NPC 11000 (whose
+     * own shop is 11000) and 9999992-9999999 name Polar Bear Poch (9001002), who stands in Coke Town (219000000)
+     * with no script. Looking a shop up by NPC never returns one of these, so a player talking to Poch, and a bot
+     * reading Maple Island's shops, no longer get the GM stock.
+     */
+    public static boolean isGmShop(int shopId) {
+        return shopId == 1337 || (shopId >= 9999992 && shopId <= 9999999);
+    }
 
     private Shop loadShop(int id, boolean isShopId) {
-        Shop ret = Shop.createFromDB(id, isShopId);
+        Shop ret = loader.load(id, isShopId);
+        if (ret != null && !isShopId && isGmShop(ret.getId())) {
+            ret = null; // the DB query already skips them; this keeps a stray row from ever coming back by NPC
+        }
         if (ret != null) {
             shops.put(ret.getId(), ret);
-            npcShops.put(ret.getNpcId(), ret);
+            if (!isGmShop(ret.getId())) {
+                npcShops.put(ret.getNpcId(), ret); // opening a GM shop by id must not become its NPC's shop
+            }
         } else if (isShopId) {
             shops.put(id, null);
         } else {

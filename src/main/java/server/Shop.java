@@ -268,6 +268,14 @@ public class Shop {
         return items.get(slot);
     }
 
+    /** An NPC's own shop: never a GM shop (ShopFactory.isGmShop), and the one numbered after the NPC first. */
+    static final String NPC_SHOP_QUERY = "SELECT * FROM shops WHERE npcid = ? AND shopid <> 1337"
+            + " AND shopid NOT BETWEEN 9999992 AND 9999999 ORDER BY shopid = npcid DESC, shopid";
+
+    static Shop forTest(int id, int npcId) {
+        return new Shop(id, npcId);
+    }
+
     public static Shop createFromDB(int id, boolean isShopId) {
         Shop ret = null;
         int shopId;
@@ -276,7 +284,7 @@ public class Shop {
             if (isShopId) {
                 query = "SELECT * FROM shops WHERE shopid = ?";
             } else {
-                query = "SELECT * FROM shops WHERE npcid = ?";
+                query = NPC_SHOP_QUERY;
             }
 
             try (PreparedStatement ps = con.prepareStatement(query)) {
