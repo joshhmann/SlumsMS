@@ -288,7 +288,7 @@ public final class BotRoster {
     public static int recordSessions(Collection<client.Character> bots, long now, boolean loggingOut) {
         List<Member> updated = new ArrayList<>();
         for (client.Character bot : bots) {
-            if (bot == null) {
+            if (bot == null || bot.isOwnedAlt() || bot.getId() < BotStore.BOT_ID_BASE) {
                 continue;
             }
             Member member = member(bot.getId() - BotStore.BOT_ID_BASE);

@@ -2113,17 +2113,27 @@ public class TrainingBot extends BotSM {
             partyMenu.close(player);
             return;
         }
-        if (BotRecruitManager.activeFollowerCount() >= BotRecruitManager.FOLLOWER_CAP) {
+        if (!config.YamlConfig.config.server.OWNED_ALTS_ENABLED
+                && BotRecruitManager.activeFollowerCount() >= BotRecruitManager.FOLLOWER_CAP) {
             sayRecruit("PartyDecline", player);
             partyMenu.close(player);
             return;
         }
-        sayRecruit("FollowAccept", player);
-        partyMenu.close(player);
-        BotRecruitManager.setPendingLeader(chr.getId(), player.getId());
-        // stopScheduledTask (via convert) releases the grind: spot claim, occupancy slot,
-        // combat/buff drivers, GC movement lock.
-        BotTypeManager.convertBotType(chr, BotTypeManager.BotType.FOLLOWER_BOT);
+        boolean altCap = config.YamlConfig.config.server.OWNED_ALTS_ENABLED;
+        if (altCap && !soloMapling.companions.OwnedAltService.getInstance().reserveCompanion(player.getId(), chr.getId())) {
+            sayRecruit("PartyDecline", player);
+            partyMenu.close(player);
+            return;
+        }
+        try {
+            sayRecruit("FollowAccept", player);
+            partyMenu.close(player);
+            BotRecruitManager.setPendingLeader(chr.getId(), player.getId());
+            // stopScheduledTask (via convert) releases grind occupancy, combat and movement.
+            BotTypeManager.convertBotType(chr, BotTypeManager.BotType.FOLLOWER_BOT);
+        } finally {
+            if (altCap) soloMapling.companions.OwnedAltService.getInstance().releaseCompanion(chr.getId());
+        }
     }
 
     private boolean inSameParty(Character player) {

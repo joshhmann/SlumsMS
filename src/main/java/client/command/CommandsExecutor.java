@@ -266,6 +266,8 @@ public class CommandsExecutor {
         addCommand("mobhp", MobHpCommand.class);
         addCommand("roll", RollCommand.class);
         addCommand("quiet", QuietCommand.class);
+        addCommand("botme", BotMeCommand.class);
+        addCommand("dismiss", DismissCommand.class);
         addCommand("botdrama", client.command.commands.gm0.BotDramaCommand.class);   // ticket 58
         addCommand("romance", client.command.commands.gm0.RomanceCommand.class);   // 1.5.0 bot drama: romance opt-in
         addCommand("guildwar", client.command.commands.gm0.GuildWarCommand.class);   // 1.5.0 bot drama: guild wars

@@ -76,6 +76,7 @@ public final class QaScenarios {
     public static List<QaScenario> all() {
         List<QaScenario> all = new ArrayList<>(core());
         all.addAll(CosmeticScenarios.all()); // 1.5.1 salon data/name lookup
+        all.addAll(OwnedAltScenarios.all()); // ticket 13 lifecycle foundation
         all.addAll(CouponScenarios.all());   // 1.5.1 coupon hours readable: co-1
         all.addAll(GodlyDropScenarios.all()); // 1.5.2 godly drops: gl-1
         all.addAll(GuildScenarios.all());     // 1.5.0 bot guilds: gu-1 .. gu-8

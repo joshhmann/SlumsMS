@@ -79,6 +79,8 @@ public class ServerConfig {
 
     //SoloMapling: the population director (bot-persistence ticket 08) - roster bots log in and out on a daily curve.
     public boolean BOT_DIRECTOR_ENABLED = true;
+    // Ticket 13: real same-account characters as companions (foundation; opt in).
+    public boolean OWNED_ALTS_ENABLED = false;
     //1.4.2 (perf): a player entering a map gets what is in view first; bots and drops outside the view follow
     //over the next ~1.5 s (server.maps.MapEntryPlacement). false = everything in one burst, as before.
     public boolean MAP_ENTRY_TRICKLE = true;

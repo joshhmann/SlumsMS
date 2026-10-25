@@ -56,6 +56,10 @@ public class FollowerBot extends BotSM {
 
     public FollowerBot(Character character) {
         super(character);
+        if (config.YamlConfig.config.server.OWNED_ALTS_ENABLED) {
+            int pending = BotRecruitManager.consumePendingLeader(character.getId());
+            leaderId = pending > 0 ? pending : leaderIdFromParty();
+        }
         botType = "FollowerBot";
         dialoguePath = "FollowerBotDialogue.yaml";
     }
@@ -139,7 +143,7 @@ public class FollowerBot extends BotSM {
     private void doInit() {
         Character chr = getChr();
         int pending = BotRecruitManager.consumePendingLeader(chr.getId());
-        leaderId = pending > 0 ? pending : leaderIdFromParty();
+        if (leaderId <= 0) leaderId = pending > 0 ? pending : leaderIdFromParty();
         if (leaderId <= 0) {
             fallbackConvert();
             return;
