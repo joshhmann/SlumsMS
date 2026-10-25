@@ -36,7 +36,7 @@ public final class HiddenQuests {
         hide(ALL_JOBS, 6340);                       // Presence of Mind: Snatch 5121005
         hide(ALL_JOBS, 6350);                       // Body of Steel: Demolition 5121004
         hide(ALL_JOBS, 6410);                       // Free the Monsters: Hypnotize 5221009
-        hide(ALL_JOBS, 6029, 6030, 6031, 6032, 6033, 6034); // Meren's Maker chain: the Maker skill 1007 is gone
+        hide(ALL_JOBS, 6029, 6030, 6031, 6032, 6033, 6034, 6035, 6036); // Meren's Maker chain: no Maker skill 1007
 
         // --- MapleRoot's Von Leon chain (3163 and 3172 work on their own and stay) ---
         hide(ALL_JOBS, 3164, 3165, 3166, 3167, 3168, 3169, 3170, 3171);

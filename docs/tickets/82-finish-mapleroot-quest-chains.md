@@ -35,7 +35,7 @@ skill).
 | 6340 Presence of Mind | Marauder | Snatch 5121005 (and it needs Super Transformation to start) | hidden |
 | 6350 Body of Steel | Marauder | Demolition 5121004 (same) | hidden |
 | 6410 Mission: Free the Monsters | Corsair | Hypnotize 5221009 | hidden |
-| 6029-6034 Meren's Maker chain | everyone, lv 45+ | the Maker skill 1007 / 10001007 / 20001007 (MapleRoot crafts at NPCs instead, `NpcMakerCraftingService`) | hidden (6030-6033 are 6029's steps and follow-up) |
+| 6029-6036 Meren's Maker chain | everyone, lv 45+ | the Maker skill 1007 / 10001007 / 20001007 (MapleRoot crafts at NPCs instead, `NpcMakerCraftingService`); 6033 and 6036 teach Maker levels 2 and 3 | hidden (6030-6032 are 6029's steps, 6033-6036 its follow-ups) |
 
 Not hidden, checked:
 - **6280 The Holy Knight's Sword / 6281 Whereabouts of the Grail** (Paladin) still work: the grail comes from 6281,

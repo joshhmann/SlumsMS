@@ -65,7 +65,7 @@ class HiddenQuestsTest {
 
     @Test
     void theOwnersListIsHidden() {
-        for (int id : new int[]{6141, 6150, 6153, 6200, 6202, 6330, 6340, 6350, 6410, 6029, 6034,
+        for (int id : new int[]{6141, 6150, 6153, 6200, 6202, 6330, 6340, 6350, 6410, 6029, 6034, 6036,
                 3164, 3182, 31110, 31160}) {
             assertTrue(HiddenQuests.ids().contains(id), id + " must be hidden");
         }
