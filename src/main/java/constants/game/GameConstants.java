@@ -24,6 +24,15 @@ public class GameConstants {
     public static final String[] stats = {"tuc", "reqLevel", "reqJob", "reqSTR", "reqDEX", "reqINT", "reqLUK", "reqPOP", "cash", "cursed", "success", "setItemID", "equipTradeBlock", "durability", "randOption", "randStat", "masterLevel", "reqSkillLevel", "elemDefault", "incRMAS", "incRMAF", "incRMAI", "incRMAL", "canLevel", "skill", "charmEXP"};
     public static final int[] CASH_DATA = new int[]{50200004, 50200069, 50200117, 50100008, 50000047};
 
+    /**
+     * SlumsMS 1.6.0: the highest HP, MaxHP, MP and MaxMP a character can have, base or with buffs and gear. Stock v83
+     * stops at 30,000 because the client reads these four as 2-byte values. From 1.6.0 the server writes them as 4
+     * bytes (GW_CharacterStat, SET_FIELD HP, STAT_CHANGED 0x400-0x2000) and slums.dll build 10600+ reads them that way;
+     * older clients are refused at login by MIN_CLIENT_BUILD. Compile-time constant, so using it never runs this
+     * class's static setup.
+     */
+    public static final int MAX_HPMP = 99_999;
+
     // Ronan's rates upgrade system
     private static final int[] DROP_RATE_GAIN = {1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12, 13, 14};
     private static final int[] MESO_RATE_GAIN = {1, 3, 6, 10, 15, 21, 28, 36, 45, 55, 66, 78, 91, 105};
