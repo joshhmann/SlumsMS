@@ -47,6 +47,23 @@ import java.util.Map;
 import static java.util.concurrent.TimeUnit.SECONDS;
 
 public final class SpecialMoveHandler extends AbstractPacketHandler {
+    /** MapleRoot's Dark Knight 4th-job "Dark Tidings" (Skill.wz 1321016, "za warudo"): freezes the map's mobs 8 s. */
+    static final int DARK_TIDINGS = 1321016;
+
+    /**
+     * 1.5.2: this ran before the skill-level and cooldown checks, so any packet naming 1321016 froze every mob on the
+     * map - from a character without the skill, or with the skill still cooling down. It now runs only for a cast
+     * that passed both.
+     */
+    static void freezeMapForDarkTidings(Character chr) {
+        MapleMap map = chr.getMap();
+        map.getAllMonsters().forEach(mob -> {
+            Map<MonsterStatus, Integer> zw = new HashMap<>();
+            zw.put(MonsterStatus.FREEZE, 1);
+            MonsterStatusEffect mse = new MonsterStatusEffect(zw, SkillFactory.getSkill(DARK_TIDINGS), null, false);
+            mob.applyStatus(chr, mse, false, 8000L, false, true);
+        });
+    }
 
     @Override
     public void handlePacket(InPacket p, Client c) {
@@ -55,16 +72,6 @@ public final class SpecialMoveHandler extends AbstractPacketHandler {
         chr.getAutobanManager().setTimestamp(4, Server.getInstance().getCurrentTimestamp(), 28);
         int skillid = p.readInt();
 
-        if (skillid == 1321016) { // za warudo
-            System.out.println("hello?");
-            MapleMap map = chr.getMap();
-            map.getAllMonsters().forEach(mob -> {
-                Map<MonsterStatus, Integer> zw = new HashMap<>();
-                zw.put(MonsterStatus.FREEZE, 1);
-                MonsterStatusEffect mse = new MonsterStatusEffect(zw, SkillFactory.getSkill(1321016), null, false);
-                mob.applyStatus(c.getPlayer(), mse, false, 8000L, false, true);
-            });
-        }
         Point pos = null;
         int __skillLevel = p.readByte();
         AttackCapture.cast(chr, skillid, __skillLevel, p);
@@ -100,6 +107,9 @@ public final class SpecialMoveHandler extends AbstractPacketHandler {
                 c.sendPacket(PacketCreator.skillCooldown(skillid, cooldownTime));
                 chr.addCooldown(skillid, currentServerTime(), SECONDS.toMillis(cooldownTime));
             }
+        }
+        if (skillid == DARK_TIDINGS) {
+            freezeMapForDarkTidings(chr);
         }
         if (skillid == Hero.MONSTER_MAGNET || skillid == Paladin.MONSTER_MAGNET || skillid == DarkKnight.MONSTER_MAGNET) { // Monster Magnet
             int num = p.readInt();
