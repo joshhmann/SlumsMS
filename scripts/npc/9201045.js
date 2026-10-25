@@ -60,16 +60,14 @@ function countPartyItems(eim, itemid) {
 function takePartyItems(eim, itemid, amount) {  // picks the items from whoever of the party is holding them
     var human = humanParty(eim);
     const InventoryType = Java.type('client.inventory.InventoryType');
+    const InventoryManipulator = Java.type('client.inventory.manipulator.InventoryManipulator');
 
     for (var i = 0; i < human.length && amount > 0; i++) {
-        var inv = human[i].getInventory(InventoryType.ETC);
-        var items = inv.listById(itemid);
-
-        for (var j = 0; j < items.size() && amount > 0; j++) {
-            var item = items.get(j);
-            var take = Math.min(item.getQuantity(), amount);
-
-            inv.removeItem(item.getPosition(), take, false);
+        var take = Math.min(human[i].countItem(itemid), amount);
+        if (take > 0) {
+            // through the manipulator so the holder's client is told: a bare Inventory.removeItem left the items
+            // showing in the ETC tab until relog
+            InventoryManipulator.removeById(human[i].getClient(), InventoryType.ETC, itemid, take, true, false);
             amount -= take;
         }
     }

@@ -1,9 +1,10 @@
 package server.maps;
 
 import client.Character;
-import client.inventory.Inventory;
+import client.Client;
 import client.inventory.InventoryType;
-import client.inventory.Item;
+import client.inventory.manipulator.InventoryManipulator;
+import org.mockito.MockedStatic;
 import org.junit.jupiter.api.Test;
 import scripting.AbstractScriptManager;
 
@@ -22,7 +23,7 @@ import static org.junit.jupiter.api.Assertions.assertNotNull;
 import static org.junit.jupiter.api.Assertions.assertTrue;
 import static org.mockito.ArgumentMatchers.anyInt;
 import static org.mockito.Mockito.mock;
-import static org.mockito.Mockito.never;
+import static org.mockito.Mockito.mockStatic;
 import static org.mockito.Mockito.verify;
 import static org.mockito.Mockito.when;
 
@@ -333,24 +334,18 @@ class AmoriaPqRulesTest {
 
         assertEquals(17, number(script.invokeFunction("countPartyItems", eim, 4031597)), "the party pools its items");
 
-        Inventory firstInv = mock(Inventory.class);
-        Inventory secondInv = mock(Inventory.class);
-        when(first.getInventory(InventoryType.ETC)).thenReturn(firstInv);
-        when(second.getInventory(InventoryType.ETC)).thenReturn(secondInv);
+        Client firstClient = mock(Client.class);
+        Client secondClient = mock(Client.class);
+        when(first.getClient()).thenReturn(firstClient);
+        when(second.getClient()).thenReturn(secondClient);
 
-        Item firstStack = mock(Item.class);
-        when(firstStack.getPosition()).thenReturn((short) 3);
-        when(firstStack.getQuantity()).thenReturn((short) 12);
-        Item secondStack = mock(Item.class);
-        when(secondStack.getPosition()).thenReturn((short) 7);
-        when(secondStack.getQuantity()).thenReturn((short) 5);
-        when(firstInv.listById(4031597)).thenReturn(List.of(firstStack));
-        when(secondInv.listById(4031597)).thenReturn(List.of(secondStack));
+        try (MockedStatic<InventoryManipulator> im = mockStatic(InventoryManipulator.class)) {
+            script.invokeFunction("takePartyItems", eim, 4031597, 17);
 
-        script.invokeFunction("takePartyItems", eim, 4031597, 17);
-
-        verify(firstInv).removeItem((short) 3, (short) 12, false);
-        verify(secondInv).removeItem((short) 7, (short) 5, false);
+            // through the manipulator, so each holder's client sees the items leave
+            im.verify(() -> InventoryManipulator.removeById(firstClient, InventoryType.ETC, 4031597, 12, true, false));
+            im.verify(() -> InventoryManipulator.removeById(secondClient, InventoryType.ETC, 4031597, 5, true, false));
+        }
     }
 
     @Test
@@ -362,20 +357,16 @@ class AmoriaPqRulesTest {
         FakeEim eim = new FakeEim();
         eim.getPlayers().add(holder);
 
-        Inventory inv = mock(Inventory.class);
-        when(holder.getInventory(InventoryType.ETC)).thenReturn(inv);
-        Item stack = mock(Item.class);
-        when(stack.getPosition()).thenReturn((short) 2);
-        when(stack.getQuantity()).thenReturn((short) 40);
-        Item untouched = mock(Item.class);
-        when(untouched.getPosition()).thenReturn((short) 5);
-        when(untouched.getQuantity()).thenReturn((short) 9);
-        when(inv.listById(4031597)).thenReturn(List.of(stack, untouched));
+        when(holder.countItem(4031597)).thenReturn(49);
+        Client holderClient = mock(Client.class);
+        when(holder.getClient()).thenReturn(holderClient);
 
-        script.invokeFunction("takePartyItems", eim, 4031597, 9);   // one player: the whole chore is 9
+        try (MockedStatic<InventoryManipulator> im = mockStatic(InventoryManipulator.class)) {
+            script.invokeFunction("takePartyItems", eim, 4031597, 9);   // one player: the whole chore is 9
 
-        verify(inv).removeItem((short) 2, (short) 9, false);
-        verify(inv, never()).removeItem((short) 5, (short) 9, false);
+            im.verify(() -> InventoryManipulator.removeById(holderClient, InventoryType.ETC, 4031597, 9, true, false));
+            im.verifyNoMoreInteractions();
+        }
     }
 
     @Test
