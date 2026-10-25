@@ -6,6 +6,7 @@ import net.server.Server;
 import server.maps.MapleMap;
 import soloMapling.ArtificialPlayer.BotMessagingSystem.CharacterStorage;
 import soloMapling.ArtificialPlayer.BotSM;
+import soloMapling.ArtificialPlayer.BotConvo.ConversationLines;
 import soloMapling.ArtificialPlayer.BotTownSystem.TownPresenceConfig;
 import soloMapling.ArtificialPlayer.BotTypes.SocialBot;
 import soloMapling.server.BotShutdown;
@@ -253,7 +254,7 @@ public class ConversationManager {
 
     private void startConversation(List<Character> cluster, Character debugPlayer) {
         int clusterSize = cluster.size();
-        ConversationScript script = pickScript(clusterSize);
+        ConversationScript script = pickScript(cluster);
         if (script == null) {
             if (debugPlayer != null) debugPlayer.yellowMessage("[ConversationManager] No matching script found for cluster of " + clusterSize);
             return;
@@ -297,25 +298,65 @@ public class ConversationManager {
         });
     }
 
-    private ConversationScript pickScript(int maxParticipants) {
-        List<ConversationScript> eligible = new ArrayList<>();
+    private ConversationScript pickScript(List<Character> cluster) {
+        List<ConversationScript> fresh = new ArrayList<>();
+        List<ConversationScript> all = new ArrayList<>();
         for (ConversationScript script : allScripts) {
-            if (script.getParticipantCount() <= maxParticipants
-                    && !recentScriptIds.contains(script.getId())) {
-                eligible.add(script);
+            if (script.getParticipantCount() > cluster.size()) {
+                continue;
+            }
+            all.add(script);
+            if (!recentScriptIds.contains(script.getId())) {
+                fresh.add(script);
             }
         }
 
-        if (eligible.isEmpty()) {
-            for (ConversationScript script : allScripts) {
-                if (script.getParticipantCount() <= maxParticipants) {
-                    eligible.add(script);
-                }
+        List<ConversationLines.Refusal> refused = new ArrayList<>();
+        ConversationScript pick = playable(cluster, fresh, refused);
+        if (pick == null) {
+            // recent ones too, rather than no conversation at all
+            pick = playable(cluster, all, refused);
+        }
+        ConversationLines.logRefusals(refused);
+        return pick;
+    }
+
+    /**
+     * The first candidate the cluster can play: a script one of whose lines a participant could not back (an
+     * {@code S>} ad for an item it does not hold, "omw" from a bot that cannot go, ...) is dropped whole. Dropped
+     * candidates land in {@code refused} for the QA log.
+     */
+    static ConversationScript playable(List<Character> cluster, List<ConversationScript> candidates,
+                                       List<ConversationLines.Refusal> refused) {
+        for (ConversationScript candidate : candidates) {
+            ConversationLines.Refusal refusal = ConversationLines.unbackable(view(candidate),
+                    role -> roleSpeaker(cluster, candidate, role));
+            if (refusal == null) {
+                return candidate;
+            }
+            if (refused != null && refused.stream().noneMatch(r -> r.script().equals(candidate.getId()))) {
+                refused.add(refusal);
             }
         }
+        return null;
+    }
 
-        if (eligible.isEmpty()) return null;
-        return eligible.get(random.nextInt(eligible.size()));
+    /** The manager's script seen as a {@link ConversationLines.Script}, so the shared backing check can read it. */
+    private static ConversationLines.Script view(ConversationScript script) {
+        List<String[]> lines = new ArrayList<>();
+        for (ConversationScript.ConversationLine line : script.getLines()) {
+            lines.add(new String[]{line.getSpeaker(), line.getText()});
+        }
+        return new ConversationLines.Script(script.getId(), lines);
+    }
+
+    /** The cluster member that would speak {@code role}, or null when the script casts more roles than it has. */
+    private static Character roleSpeaker(List<Character> cluster, ConversationScript script, String role) {
+        int i = role == null || role.isEmpty() ? -1 : role.charAt(0) - 'A';
+        if (i < 0 || i >= cluster.size() || i >= script.getParticipantCount()) {
+            return null;
+        }
+        return cluster.get(i);
     }
 
     // Deliberate synchronous choreography: runs on its own virtual thread (runAsync

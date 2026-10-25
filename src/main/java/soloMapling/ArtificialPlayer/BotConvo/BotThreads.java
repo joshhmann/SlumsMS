@@ -445,11 +445,26 @@ public final class BotThreads {
             out.add(new String[]{b.getName(), react.text()});
             return out;
         }
-        List<ConversationLines.Script> scripts = ConversationLines.scripts();
-        if (scripts.isEmpty()) {
-            return out;
+        List<ConversationLines.Script> candidates = new ArrayList<>(ConversationLines.scripts());
+        return scripted(a, b, candidates, rng);
+    }
+
+    /**
+     * A cut of one script both bots can back, picked at random among those, or empty when no script of
+     * {@code candidates} is one they can back (the caller then leaves the thread unscripted). A script whose
+     * {@code S>} ad the speaker does not hold is skipped whole, never edited.
+     */
+    static List<String[]> scripted(Character a, Character b, List<ConversationLines.Script> candidates, Random rng) {
+        List<String[]> out = new ArrayList<>();
+        List<ConversationLines.Script> shuffled = new ArrayList<>(candidates);
+        Collections.shuffle(shuffled, rng);
+        List<ConversationLines.Refusal> refused = new ArrayList<>();
+        ConversationLines.Script s = ConversationLines.firstPlayable(shuffled,
+                role -> "A".equals(role) ? a : b, refused::add);
+        ConversationLines.logRefusals(refused);
+        if (s == null) {
+            return out; // no script these two can back: the thread stays unscripted
         }
-        ConversationLines.Script s = scripts.get(rng.nextInt(scripts.size()));
         int n = Math.min(s.lines().size(), 2 + rng.nextInt(3));
         for (int i = 0; i < n; i++) {
             String[] l = s.lines().get(i);
