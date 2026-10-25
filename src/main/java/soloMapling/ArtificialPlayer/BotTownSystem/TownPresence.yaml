@@ -6,7 +6,9 @@
 # they cluster near NPCs/shops and on the main ground band, with a thin tail of stragglers on high
 # ledges — no per-map coordinates needed.
 #
-# Level band sets the decorator tier/gear/job spread for that town's ambient crowd.
+# Level band sets the level band of that town's ambient crowd: keep it to what the town and its neighbours
+# actually are (1.6.0 population: a Kerning crowd rolling up to Lv70 is what made the population look like a
+# demo). Bots inside the band come from the population's level curve, BotPopulationMix.LEVEL_WEIGHTS.
 #
 # `count` (per map) = STATIONED SocialBots that stand at anchor-weighted spots being social.
 # `wanderers` (per town) = ROAMING TownWandererBots that stroll the town's map family, emote, and drift
@@ -30,7 +32,7 @@
 towns:
   - name: Kerning City
     level_lo: 15
-    level_hi: 70
+    level_hi: 40
     wanderers: 6
     maps:
       - {map: 103000000, count: 14}   # Kerning City (wide — spreads horizontally)
@@ -42,42 +44,42 @@ towns:
 
   - name: Ellinia
     level_lo: 10
-    level_hi: 60
+    level_hi: 35
     wanderers: 5
     maps:
       - {map: 101000000, count: 10}   # Ellinia (tall/skinny — concentrates low)
 
   - name: Perion
     level_lo: 10
-    level_hi: 65
+    level_hi: 40
     wanderers: 5
     maps:
       - {map: 102000000, count: 10}   # Perion
 
   - name: Sleepywood
     level_lo: 25
-    level_hi: 80
+    level_hi: 45
     wanderers: 5
     maps:
       - {map: 105040300, count: 10}   # Sleepywood
 
   - name: Orbis
     level_lo: 30
-    level_hi: 86
+    level_hi: 55
     wanderers: 6
     maps:
       - {map: 200000000, count: 12}   # Orbis
 
   - name: Ludibrium
-    level_lo: 25
-    level_hi: 90
+    level_lo: 30
+    level_hi: 60
     wanderers: 6
     maps:
       - {map: 220000000, count: 14}   # Ludibrium (large)
 
   - name: El Nath
-    level_lo: 50
-    level_hi: 85
+    level_lo: 45
+    level_hi: 70
     wanderers: 5
     maps:
       - {map: 211000000, count: 10}   # El Nath

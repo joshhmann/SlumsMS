@@ -82,7 +82,11 @@ public class BotGeneration {
         return consoleBot;
     }
 
-    /** How a brand new bot is decorated: any class at 10-80, any class in the asked level range, or the asked class. */
+    /**
+     * How a brand new bot is decorated: any class at 10-80 (ad-hoc spawns: drama staging, GM commands), any class in
+     * the asked level range (staging that names a level), or the asked class at a level in its range (the roster:
+     * the class mix and the level curve both come from {@code BotPopulationMix}).
+     */
     enum Decoration { RANDOM, LEVEL_RANGE, CLASS }
 
     /**

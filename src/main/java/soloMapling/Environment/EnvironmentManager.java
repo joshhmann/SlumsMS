@@ -13,6 +13,7 @@ import soloMapling.ArtificialPlayer.BotStore;
 import soloMapling.ArtificialPlayer.BotDecoratorSystem.BotDecorate;
 import soloMapling.ArtificialPlayer.BotDecoratorSystem.BotDecorationQueue;
 import soloMapling.ArtificialPlayer.BotDecoratorSystem.BotEquipChecker;
+import soloMapling.ArtificialPlayer.BotDecoratorSystem.BotPopulationMix;
 import soloMapling.ArtificialPlayer.BotHelpers;
 import soloMapling.ArtificialPlayer.BotMapEntryResponder;
 import soloMapling.ArtificialPlayer.BotSM;
@@ -216,23 +217,30 @@ public class EnvironmentManager {
      * The training cohorts of boot wave 8, in task order (task 0 is the portal-graph prewarm, so cohort i is task
      * i + 1 - the order fixes every stored bot's slot and must not change). Also the level bands the roster's
      * veterans are drawn from (bot-persistence ticket 10).
+     *
+     * <p>The bands are the maps' own levels, not a spread over the whole game (1.6.0 population: the old bands ran
+     * a Victoria cohort to 65 and every deep hub from 25-40, which put the population's mass at 50-80 - audit gap 6).
+     * Each bot inside a band is drawn from the population's curve ({@link BotPopulationMix#LEVEL_WEIGHTS}), so
+     * Victoria reads as the Lv10-30 island most of a 2009 server lived on, and the level only climbs as the maps do.
+     * Cohort counts are unchanged on purpose: re-cutting them would retire working bots, and the level mix is what
+     * the audit is about.
      */
     public record TrainingCohort(int townMapId, int count, int loLevel, int hiLevel) {
     }
 
     public static final List<TrainingCohort> TRAINING_COHORTS = List.of(
             new TrainingCohort(MapId.LITH_HARBOUR, 20, 1, 15),
-            new TrainingCohort(MapId.HENESYS, 225, 10, 95),
-            new TrainingCohort(MapId.KERNING_CITY, 225, 10, 65),
-            new TrainingCohort(MapId.PERION, 225, 10, 65),
-            new TrainingCohort(MapId.ELLINIA, 225, 10, 65),
-            new TrainingCohort(MapId.SLEEPYWOOD, 225, 25, 95),   // town: Sleepy Dungeon + Ant Tunnel I-IV + Forest of Golem
-            new TrainingCohort(MapId.ANT_TUNNEL_PARK, 180, 40, 95),   // deep hub (~9 hops in): Cave of Evil Eye / Grave of Mushmom
-            new TrainingCohort(MapId.ORBIS, 220, 30, 86),
-            new TrainingCohort(MapId.LUDIBRIUM, 200, 25, 95),
-            new TrainingCohort(MapId.PATH_OF_TIME_HUB, 160, 70, 95),   // deep hub: Forgotten Path of Time / Clocktower (Platoon Chronos, Papa Pixie → Papulatus)
-            new TrainingCohort(MapId.EL_NATH, 200, 50, 80),   // town: shops at El Nath Market (potion / equip); grinds Ice Valley + cloud maps
-            new TrainingCohort(MapId.SHARP_CLIFF_I, 200, 60, 90),   // deep hub (Jeff one-way from Ice Valley II): Sharp Cliff II / Wolf Territory / Forest of Dead Trees / Dead Mine
+            new TrainingCohort(MapId.HENESYS, 225, 10, 30),           // HHG I-IV, Tree That Grew, Pig Beach (7-30)
+            new TrainingCohort(MapId.KERNING_CITY, 225, 10, 30),      // construction site, Subway I-III, Jr. Wraiths
+            new TrainingCohort(MapId.PERION, 225, 10, 30),            // Excavation Site, stumps and boars
+            new TrainingCohort(MapId.ELLINIA, 225, 10, 30),           // Slime Tree, Evil Eye, stump fields
+            new TrainingCohort(MapId.SLEEPYWOOD, 225, 20, 50),        // Ant Tunnel I-IV, Sleepy Dungeon, Evil/Curse Eye
+            new TrainingCohort(MapId.ANT_TUNNEL_PARK, 180, 35, 65),   // deep hub (~9 hops in): Cave of Evil Eye / Grave of Mushmom
+            new TrainingCohort(MapId.ORBIS, 220, 30, 60),             // Cloud Park I-VI, Garden of Green
+            new TrainingCohort(MapId.LUDIBRIUM, 200, 40, 80),         // Eos/Helios Tower, Path of Time
+            new TrainingCohort(MapId.PATH_OF_TIME_HUB, 160, 70, 200), // deep hub: Forgotten Path of Time / Clocktower, and the thin Lv120+ tail
+            new TrainingCohort(MapId.EL_NATH, 200, 50, 85),           // town: shops at El Nath Market (potion / equip); grinds Ice Valley + cloud maps
+            new TrainingCohort(MapId.SHARP_CLIFF_I, 200, 60, 95),     // deep hub (Jeff one-way from Ice Valley II): Sharp Cliff II / Wolf Territory / Forest of Dead Trees / Dead Mine
             new TrainingCohort(MapId.HENESYS, 25, 1, 9),   // beginner sword grinders
             new TrainingCohort(MapId.KERNING_CITY, 20, 1, 9),   // beginner sword grinders
             new TrainingCohort(MapId.PERION, 20, 1, 9),   // beginner sword grinders
@@ -323,7 +331,7 @@ public class EnvironmentManager {
         List<Integer> ids = new ArrayList<>();
         for (int i = 0; i < n; i++) {
             Point spawnAt = i < spots.size() ? spots.get(i) : anchor;
-            int baseClass = BotDecorate.rollBaseClass(); // weighted 1..4 (Thief-heavy, Bowman-rare; Pirate excluded)
+            int baseClass = BotDecorate.rollBaseClass(); // the population's class mix (BotPopulationMix)
             try {
                 int botId = BotGeneration.createBot(slotBase + i, spawnAt, map, baseClass, loLevel, hiLevel);
                 if (botId > 0) {
@@ -414,7 +422,7 @@ public class EnvironmentManager {
         List<Integer> ids = new ArrayList<>();
         for (int i = 0; i < n; i++) {
             Point spawnAt = spots.get(i);
-            int baseClass = BotDecorate.rollBaseClass(); // weighted 1..4 (Pirate excluded), gear/job set together
+            int baseClass = BotDecorate.rollBaseClass(); // the population's class mix; gear/job set together
             try {
                 int botId = BotGeneration.createBot(slotBase + i, spawnAt, map, baseClass, loLevel, hiLevel);
                 if (botId > 0) {
