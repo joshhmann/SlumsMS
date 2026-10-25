@@ -32,3 +32,12 @@ removing it. Needs digging per NPC: what stock v83 (Cosmic, MapleLegends/Royals 
 (job tests, skill-book quests, Maker levels, boss prequests, travel/quest gates for warps), then a gate or a cost
 that matches. Start with the catalogue's "shortcut" flags (Cotton Warper boss warps, 4th job skills NPC, Jump Quests
 warp, Hallowed Ground warp, Ellin Forest leaf trades, CPQ entry) and the Job Master (fees done in 1.5.2).
+
+## Sources by era
+
+`docs/design/content-eras-and-sources.md` tags every catalogue NPC and the ticket 81/82 quest chains with the MapleStory era
+it comes from (stock v83, Big Bang and after, modern 2016+, or MapleRoot custom), when it was introduced, what the official
+requirement was where a source states it, and the best guide links. Use it as the lookup for the "put progression back" track.
+
+That progression track is planned for 1.7.0. Quick decisions 1-8 above stay in 1.6.0. Many requirements in the doc are marked
+`[mem]` (from memory, unverified): confirm them against the guides before building a gate.
