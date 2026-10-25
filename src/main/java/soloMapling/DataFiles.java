@@ -77,7 +77,8 @@ public final class DataFiles {
             "soloMapling/itemPool/itemConfig/gachaFiller.yaml",
             "soloMapling/itemPool/itemConfig/itemQuantities.yaml",
             "soloMapling/server/npc_versions.yaml",
-            "soloMapling/server/portal_versions.yaml");
+            "soloMapling/server/portal_versions.yaml",
+            "soloMapling/server/stock-summon-skills.yaml");
 
     public enum Origin { OVERRIDE, SOURCE, CLASSPATH, MISSING, PASSTHROUGH }
 
