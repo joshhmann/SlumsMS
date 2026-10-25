@@ -9116,8 +9116,8 @@ public class Character extends AbstractCharacterObject {
                 localmaxmp += (hbmp.doubleValue() / 100) * localmaxmp;
             }
 
-            localmaxhp = Math.min(30000, localmaxhp);
-            localmaxmp = Math.min(30000, localmaxmp);
+            localmaxhp = Math.min(GameConstants.MAX_HPMP, localmaxhp);
+            localmaxmp = Math.min(GameConstants.MAX_HPMP, localmaxmp);
 
             StatEffect combo = getBuffEffect(BuffStat.ARAN_COMBO);
             if (combo != null) {
@@ -10461,9 +10461,10 @@ public class Character extends AbstractCharacterObject {
 
     private int calcHpRatioUpdate(int curpoint, int maxpoint, int diffpoint) {
         int curMax = maxpoint;
-        int nextMax = Math.min(30000, maxpoint + diffpoint);
+        int nextMax = Math.min(GameConstants.MAX_HPMP, maxpoint + diffpoint);
 
-        float temp = curpoint * nextMax;
+        // widen before the multiply: 99,999 x 99,999 is past Integer.MAX_VALUE (30,000 x 30,000 was not)
+        double temp = (double) curpoint * nextMax;
         int ret = (int) Math.ceil(temp / curMax);
 
         transienthp = (maxpoint > nextMax) ? ((float) curpoint) / maxpoint : ((float) ret) / nextMax;
@@ -10472,9 +10473,10 @@ public class Character extends AbstractCharacterObject {
 
     private int calcMpRatioUpdate(int curpoint, int maxpoint, int diffpoint) {
         int curMax = maxpoint;
-        int nextMax = Math.min(30000, maxpoint + diffpoint);
+        int nextMax = Math.min(GameConstants.MAX_HPMP, maxpoint + diffpoint);
 
-        float temp = curpoint * nextMax;
+        // widen before the multiply: 99,999 x 99,999 is past Integer.MAX_VALUE (30,000 x 30,000 was not)
+        double temp = (double) curpoint * nextMax;
         int ret = (int) Math.ceil(temp / curMax);
 
         transientmp = (maxpoint > nextMax) ? ((float) curpoint) / maxpoint : ((float) ret) / nextMax;

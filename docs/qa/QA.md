@@ -20,7 +20,8 @@ ssh root@192.168.0.164 'ls -t /opt/mapleroot-dev/persistence-test/Server/logs/qa
 - Triage every failure before fixing: staging problem (the `!qa` setup), real bug, working as designed but hard to
   see, or needs the owner. Read that check's log and the journal around it first
   (`.claude/skills/qa-triage/SKILL.md`). Known flakes are listed in `docs/HANDOFF.md` section 3.
-- In game (GM on the test server): `!qa list`, `!qa run <id>`, `!qa stop`, `!botwhy`, `!botground`, `!botshowcase`.
+- In game (GM on the test server): `!qa list`, `!qa run <id>`, `!qa stop`, `!botwhy`, `!botground`, `!botshowcase`,
+  `!setmaxhp <hp> [<mp>]` (1.6.0: MaxHP/MaxMP past 32,767 for the 4-byte client, see `docs/release/1.6.0-hpmp-4byte.md`).
 
 ## 2. Client visual QA ("does it look right"), the client MCP on Silvia
 

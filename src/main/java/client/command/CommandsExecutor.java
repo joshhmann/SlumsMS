@@ -414,6 +414,7 @@ public class CommandsExecutor {
         addCommand("reloadcashshop", 3, ReloadCashShopCommand.class);
         addCommand("hpmp", 3, HpMpCommand.class);
         addCommand("maxhpmp", 3, MaxHpMpCommand.class);
+        addCommand("setmaxhp", 3, SetMaxHpCommand.class); // 1.6.0: stage MaxHP/MaxMP past 32,767 for the 4-byte client
         addCommand("music", 3, MusicCommand.class);
         addCommand("monitor", 3, MonitorCommand.class);
         addCommand("monitors", 3, MonitorsCommand.class);
