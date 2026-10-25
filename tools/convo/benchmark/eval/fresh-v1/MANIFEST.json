@@ -1,0 +1,40 @@
+{
+  "dataset": "eval/fresh-v1/cases.jsonl",
+  "sha256": "c473651dc07aedbe272a9ebd1f07e3940315e15ec31d4ad8e2decbc1240374ea",
+  "n": 70,
+  "per_set": {
+    "refusal": 12,
+    "quoted": 10,
+    "past": 10,
+    "bargain": 12,
+    "scam-warning": 10,
+    "control-request": 12,
+    "tone": 4
+  },
+  "frozen_before_model_calls": true,
+  "label_rules": {
+    "refusal": "declining an offer/request -> intent talk, con normal",
+    "quoted": "reporting someone else's words -> intent talk, con normal",
+    "past": "past-tense narrative, no request -> intent talk, con normal",
+    "bargain": "price proposal/counter -> intent haggle, con normal (a fair offer is not a scam)",
+    "scam-warning": "warning about scammers -> intent talk, con normal (warning is not scam)",
+    "control-request": "ordinary request must keep its intent"
+  },
+  "tone_dist": {
+    "neutral": 65,
+    "kind": 3,
+    "rude": 1,
+    "flirty": 1
+  },
+  "duplicate_check": "none",
+  "label_corrections": [
+    {
+      "id": "fresh-067",
+      "field": "con",
+      "from": "normal",
+      "to": "harassment",
+      "why": "'noob' mockery matches the con definition 'insults ... or harassment'; intent insult was already gold",
+      "applied_before_any_scoring": "false - corrected after first pass, all candidates rescored from raw on this hash"
+    }
+  ]
+}
