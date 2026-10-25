@@ -2854,8 +2854,7 @@ public class PacketCreator {
      */
     public static Packet showMonsterRiding(int cid, Mount mount) { //Gtfo with this, this is just giveForeignBuff
         final OutPacket p = OutPacket.create(SendOpcode.GIVE_FOREIGN_BUFF);
-        if (mount.getItemId() == 1932000)
-            p.writeInt(cid);
+        p.writeInt(cid);
         p.writeLong(BuffStat.MONSTER_RIDING.getValue());
         p.writeLong(0);
         p.writeShort(0);
