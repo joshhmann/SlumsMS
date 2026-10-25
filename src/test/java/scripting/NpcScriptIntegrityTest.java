@@ -77,6 +77,28 @@ class NpcScriptIntegrityTest {
         assertEquals(List.of(), broken, "paid NPC options with no reward:\n" + String.join("\n", broken));
     }
 
+    /** {@code var eim = em.getInstance(...);} followed by a use of eim that is not a null check. */
+    private static final Pattern LATE_JOIN = Pattern.compile("var (\\w+) = em\\.getInstance\\([^;]*\\);\\s*\\n\\s*if \\((?!\\1 != null)");
+
+    /**
+     * 1.5.2: the expedition recruiters let a registered member who arrives late join the running fight by looking it
+     * up by name. When the run has just ended, or (most MapleRoot bosses) the event names its run by lobby rather
+     * than by channel, the lookup is null and the recruiter threw.
+     */
+    @Test
+    void everyLateJoinLookupIsNullChecked() throws IOException {
+        List<String> broken = new ArrayList<>();
+        for (Path script : npcScripts()) {
+            String text = Files.readString(script, StandardCharsets.UTF_8);
+            Matcher m = LATE_JOIN.matcher(text);
+            while (m.find()) {
+                int line = (int) text.substring(0, m.start()).chars().filter(c -> c == '\n').count() + 1;
+                broken.add(script.getFileName() + ":" + line);
+            }
+        }
+        assertEquals(List.of(), broken, "em.getInstance used without a null check:\n" + String.join("\n", broken));
+    }
+
     /** The body of the block whose opening brace ends just before {@code from}. */
     private static String block(String text, int from) {
         int depth = 1;
