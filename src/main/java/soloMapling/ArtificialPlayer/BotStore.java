@@ -441,6 +441,7 @@ public final class BotStore {
                 stored.loadHoldings(bot);
                 return null;
             });
+            BotDebitJournal.applyTo(bot);   // ticket 63: debits the last shutdown could not write
         } catch (Exception e) {
             // The row is still readable, but this bot's items are not. Let it run this boot with empty
             // tabs, but never write them: the item tables are rewritten tab by tab, so a save now would
@@ -790,7 +791,7 @@ public final class BotStore {
     public static void saveThenSettle(Character bot) {
         try {
             int captured = save(bot);
-            if (captured == NO_STAMP || BotHoldings.discardIfUnchanged(bot, captured)) {
+            if (rowHoldsLedger(bot, captured)) {
                 // The ledger exists to hand value back to the world if a bot dies holding it. Now that the
                 // value is durable, keeping the deltas would let a later settle hand out the same value twice.
                 // The comparison and the removal are one step, so a delta that arrived after the capture is kept
@@ -827,7 +828,7 @@ public final class BotStore {
             log.warn("Bot {} ({}) could not be saved and holds value its stored row still claims; retrying the"
                     + " write rather than settling the debit onto the map", bot.getId(), bot.getName());
             int captured = save(bot);
-            if (captured == NO_STAMP || BotHoldings.discardIfUnchanged(bot, captured)) {
+            if (rowHoldsLedger(bot, captured)) {
                 return true;   // the debit is durable now
             }
             log.warn("The debit of bot {} ({}) changed while its retry was writing it, so that row does not"
@@ -838,7 +839,7 @@ public final class BotStore {
         }
         try {
             int destroyed = destroyStoredHoldings(bot);
-            if (destroyed == NO_STAMP || BotHoldings.discardIfUnchanged(bot, destroyed)) {
+            if (rowHoldsLedger(bot, destroyed)) {
                 log.warn("The debit of bot {} ({}) could not be written, so its stored claim was taken down"
                         + " instead: what its row claimed and the bot no longer holds is destroyed rather than"
                         + " restored", bot.getId(), bot.getName());
@@ -935,7 +936,7 @@ public final class BotStore {
     private static boolean saveOne(Character chr, boolean lastWrite) {
         try {
             int captured = save(chr);
-            if (captured == NO_STAMP || BotHoldings.discardIfUnchanged(chr, captured)) {
+            if (rowHoldsLedger(chr, captured)) {
                 // Same rule as saveThenSettle: once the value is durable, the ledger must not hand it to
                 // the world a second time. The comparison and the removal are one step, so a delta that
                 // arrived after the capture stays and takes the changed route below.
@@ -989,7 +990,10 @@ public final class BotStore {
      * What the budgeted shutdown sweep did: bots whose row was written, bots whose write failed, and the bots it
      * ran out of time for (not written this time: they come back from their last save).
      */
-    public record SweepReport(int saved, int failed, List<String> unsaved, long elapsedMs) {
+    public record SweepReport(int saved, int failed, List<String> unsaved, long elapsedMs, int journaled) {
+        public SweepReport(int saved, int failed, List<String> unsaved, long elapsedMs) {
+            this(saved, failed, unsaved, elapsedMs, 0);
+        }
     }
 
     /**
@@ -1009,7 +1013,11 @@ public final class BotStore {
                 bots.add(chr);
             }
         }
-        java.util.concurrent.ConcurrentLinkedQueue<Character> queue = new java.util.concurrent.ConcurrentLinkedQueue<>(bots);
+        // Ticket 63: bots that owe a debit go first, so the ones the budget may cut off are the ones with nothing to lose.
+        List<Character> ordered = new ArrayList<>(bots);
+        ordered.sort(java.util.Comparator.comparing((Character c) -> !BotHoldings.hasUnpersistedDebit(c)));
+        java.util.concurrent.ConcurrentLinkedQueue<Character> queue = new java.util.concurrent.ConcurrentLinkedQueue<>(ordered);
+        Set<Integer> durable = ConcurrentHashMap.newKeySet();
         Set<Integer> written = ConcurrentHashMap.newKeySet();
         AtomicInteger saved = new AtomicInteger();
         AtomicInteger failed = new AtomicInteger();
@@ -1021,6 +1029,9 @@ public final class BotStore {
                         Character chr;
                         while (System.nanoTime() - deadline < 0 && (chr = queue.poll()) != null) {
                             boolean ok = saveOne(chr, true);
+                            if (ok) {
+                                durable.add(chr.getId());
+                            }
                             synchronized (written) {
                                 (ok ? saved : failed).incrementAndGet();
                                 written.add(chr.getId());
@@ -1040,6 +1051,18 @@ public final class BotStore {
         } catch (InterruptedException e) {
             Thread.currentThread().interrupt();
         }
+        // Ticket 63: a bot not durably written (never dequeued, write still in flight, or failed) that has paid value
+        // away is noted in a local journal, applied when it next loads. Cheap, so it runs even when the budget is spent.
+        int journaled = 0;
+        List<Character> unfinished = new ArrayList<>();
+        for (Character chr : bots) {
+            if (!durable.contains(chr.getId()) && BotHoldings.hasUnpersistedDebit(chr)) {
+                unfinished.add(chr);
+            }
+        }
+        if (!unfinished.isEmpty()) {
+            journaled = BotDebitJournal.record(unfinished);
+        }
         int savedNow;
         int failedNow;
         List<String> unsaved = new ArrayList<>();
@@ -1053,7 +1076,7 @@ public final class BotStore {
             }
         }
         long elapsedMs = TimeUnit.NANOSECONDS.toMillis(System.nanoTime() - started);
-        return new SweepReport(savedNow, failedNow, unsaved, elapsedMs);
+        return new SweepReport(savedNow, failedNow, unsaved, elapsedMs, journaled);
     }
 
     /** Closes a bot's trade window through the trade's own cancel path, which refunds both sides. */
@@ -1131,7 +1154,19 @@ public final class BotStore {
         roster.put(botId, of(bot));
     }
 
-    private static int botId(Character bot) {
+    /**
+     * Whether the row just written holds everything the bot's ledger records (true also when there was no row to
+     * compare to), dropping the ledger and the shutdown debit journal's note for the bot when it does.
+     */
+    private static boolean rowHoldsLedger(Character bot, int captured) {
+        if (captured == NO_STAMP || BotHoldings.discardIfUnchanged(bot, captured)) {
+            BotDebitJournal.committed(botId(bot));   // ticket 63
+            return true;
+        }
+        return false;
+    }
+
+    static int botId(Character bot) {
         return bot.getId() - BOT_ID_BASE;
     }
 
