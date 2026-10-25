@@ -8,7 +8,7 @@ which hours a coupon works, so the build replaces them with a compact schedule:
     2x EXP M-F 7-11am 30d       Mon-Fri, 07:00-11:00 server time, lasts 30 days
     2x EXP Sa-Su 1-5pm 30d      Sat and Sun, 13:00-17:00
     2x Drop 10am-2pm 10d        every day
-    3x EXP anytime 2hrs         all day, expires 2 hours after purchase
+    2x EXP anytime 7d           all day, every day, lasts 7 days
 
 Hours are SERVER time, exactly as WZ Item.wz/Cash/0521.img and 0536.img `info/time` give them
 ("MON:07-11") and as Server.updateActiveCoupons checks them (the nxcoupons table, filled from the
@@ -25,8 +25,6 @@ WEEKDAYS = frozenset(range(5))
 WEEKEND = frozenset({5, 6})
 SHORT_DAY = ("Mo", "Tu", "We", "Th", "Fr", "Sa", "Su")
 
-# A period of 1 on these means HOURS, not a day (CashShopWindowPurchase.toItem / CashShop).
-COUPON_HOURS = {5211048: 4, 5360042: 4, 5211060: 2}
 
 # Two lines of the 86px cell (74px of text each) hold about 24 characters.
 SOFT_MAX = 24
@@ -89,8 +87,7 @@ def hours_label(start, end):
 
 
 def duration_label(item_id, period):
-    if period == 1 and item_id in COUPON_HOURS:
-        return f"{COUPON_HOURS[item_id]}hrs"
+    """The period is DAYS for every coupon (CashShopWindowPurchase.periodMillis, 1.5.1)."""
     return f"{period}d" if period > 0 else ""
 
 

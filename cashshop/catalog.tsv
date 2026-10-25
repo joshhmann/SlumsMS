@@ -11,8 +11,9 @@
 # slots, ids per Item.wz/Special/0911.img) are not delivered as items; buying one grants the
 # slot directly (see CashShopServices). Storage +8 (9110000) is not sold: storage is already capped.
 #
-# Rate coupons (5211xxx EXP, 5360xxx drop) carry the stock Commodity.img periods; a period of 1
-# on 5211048/5211060/5360042 means 4h/2h/4h. They are hidden while USE_SUPPLY_RATE_COUPONS is off.
+# Rate coupons (5211xxx EXP, 5360xxx drop): the period is DAYS. They are hidden while
+# USE_SUPPLY_RATE_COUPONS is off. Owner 1.5.1: only two EXP cards are sold, both working all day:
+# 5211048 2x EXP for 7 days and 5211060 3x EXP for 1 day. No drop card (5360xxx) is sold.
 # Their names are built from the WZ info/time schedule (coupon_schedule.py): "2x EXP M-F 7-11am 30d"
 # = Mon-Fri 07:00-11:00 SERVER time (config TIMEZONE), lasts 30 days. No day = every day.
 #
@@ -28,9 +29,11 @@
 #   Passed Gas / Floral Scent: no use handler (528): 5281000 5281001
 #   Pet Snack: no use handler (546): 5460000
 #   WZ cash flag is a string, not an int (treated as not cash): 1002950 1002951 1002952 1022037 1042141 1112916
+#   hidden in overrides.yaml: drop cards off sale: drops are already high (owner 1.5.1): 5360000 5360001 5360002 5360003 5360004 5360005 5360006 5360007 5360008 5360042
+#   hidden in overrides.yaml: timed EXP cards off sale: only the two all-day cards are sold (owner 1.5.1): 5211004 5211005 5211006 5211007 5211008 5211009 5211010 5211011 5211012 5211013 5211014 5211015 ... (+12)
 #   package / special (no inventory type; nothing unpacks it): 9101182 9101183 9101199 9101225 9101233 9101256 9101302 9101313 9101362 9101376 9101385 9101418 ... (+17)
 #
-# 10731 rows. itemId	price	count	tab	category	period	gender	name
+# 10697 rows. itemId	price	count	tab	category	period	gender	name
 1002711	3100	1	2	0	0	2	White Kitty Ears
 1002712	3100	1	2	0	0	2	Black Kitty Ears
 1002842	3100	1	2	0	0	2	Golden Fox Ears
@@ -8907,46 +8910,12 @@
 5061002	2900	1	5	2	0	2	Item Guard : 90 days
 5061003	3100	1	5	2	0	2	Item Guard : 365 Days
 5130000	3200	5	5	2	0	2	Safety Charm
-5211004	15000	1	5	2	30	2	2x EXP M-F 7-11am 30d
-5211005	15000	1	5	2	30	2	2x EXP M-F 10am-2pm 30d
-5211006	15000	1	5	2	30	2	2x EXP M-F 1-5pm 30d
-5211007	15000	1	5	2	30	2	2x EXP M-F 4-8pm 30d
-5211008	15000	1	5	2	30	2	2x EXP M-F 7-11pm 30d
-5211009	9000	1	5	2	30	2	2x EXP Sa-Su 7-11am 30d
-5211010	9000	1	5	2	30	2	2x EXP Sa-Su 10am-2pm 30d
-5211011	9000	1	5	2	30	2	2x EXP Sa-Su 1-5pm 30d
-5211012	9000	1	5	2	30	2	2x EXP Sa-Su 4-8pm 30d
-5211013	9000	1	5	2	30	2	2x EXP Sa-Su 7-11pm 30d
-5211014	8500	1	5	2	10	2	2x EXP 7-11am 10d
-5211015	8500	1	5	2	10	2	2x EXP 10am-2pm 10d
-5211016	8500	1	5	2	10	2	2x EXP 1-5pm 10d
-5211017	8500	1	5	2	10	2	2x EXP 4-8pm 10d
-5211018	8500	1	5	2	10	2	2x EXP 7-11pm 10d
-5211037	15000	1	5	2	30	2	2x EXP M-F 12-4am 30d
-5211038	9000	1	5	2	30	2	2x EXP Sa-Su 12-4am 30d
-5211039	8500	1	5	2	10	2	2x EXP 12-4am 10d
-5211040	15000	1	5	2	30	2	2x EXP M-F 3-7am 30d
-5211041	9000	1	5	2	30	2	2x EXP Sa-Su 3-7am 30d
-5211042	8500	1	5	2	10	2	2x EXP 3-7am 10d
-5211043	15000	1	5	2	30	2	2x EXP M-F 6-10am 30d
-5211044	9000	1	5	2	30	2	2x EXP Sa-Su 6-10am 30d
-5211045	8500	1	5	2	10	2	2x EXP 6-10am 10d
-5211048	2000	1	5	2	1	2	2x EXP anytime 4hrs
-5211060	4000	1	5	2	1	2	3x EXP anytime 2hrs
+5211048	6000	1	5	2	7	2	2x EXP Card 7 days
+5211060	3000	1	5	2	1	2	3x EXP Card 1 day
 5220000	8000	11	5	2	0	2	Gachapon Ticket
 5300000	2000	5	5	2	0	2	Fungus Scroll
 5300001	2000	5	5	2	0	2	Oinker Delight
 5300002	2000	5	5	2	0	2	Zeta Nightmare
-5360000	4000	1	5	2	1	2	2x Drop anytime 1d
-5360001	6000	1	5	2	10	2	2x Drop 7-11am 10d
-5360002	6000	1	5	2	10	2	2x Drop 10am-2pm 10d
-5360003	6000	1	5	2	10	2	2x Drop 1-5pm 10d
-5360004	6000	1	5	2	10	2	2x Drop 4-8pm 10d
-5360005	6000	1	5	2	10	2	2x Drop 7-11pm 10d
-5360006	6000	1	5	2	10	2	2x Drop 12-4am 10d
-5360007	6000	1	5	2	10	2	2x Drop 3-7am 10d
-5360008	6000	1	5	2	10	2	2x Drop 6-10am 10d
-5360042	1500	1	5	2	1	2	2x Drop anytime 4hrs
 5510000	500	1	5	2	0	2	Wheel of Destiny
 5520000	10500	4	5	2	0	2	Scissors of Karma
 5570000	8500	2	5	2	0	2	Vicious' Hammer
