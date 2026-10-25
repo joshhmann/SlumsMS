@@ -128,6 +128,16 @@ public final class ScriptedReplies {
         return lines.get(ThreadLocalRandom.current().nextInt(lines.size()));
     }
 
+    private static final java.util.regex.Pattern ACTIVITY_QUESTION = java.util.regex.Pattern.compile(
+            "(?i)^(?:what\\s+(?:(?:are|r)\\s+)?(?:you|u)\\s+(?:doing|up\\s+to)|whatcha\\s+doing|wyd)"
+                    + "(?:\\s+(?:right\\s+now|rn|atm))?[?!.]*$");
+
+    /** A factual answer to a direct activity question: replying proves only that we are chatting. */
+    static String activityQuestion(String playerLine) {
+        return playerLine != null && ACTIVITY_QUESTION.matcher(playerLine.trim()).matches()
+                ? "chatting with u rn" : null;
+    }
+
     /** Small talk the model is not needed for, or a generic line when it failed. */
     public static String forKind(ChatTriage.Kind kind) {
         return pick(switch (kind) {

@@ -525,6 +525,14 @@ public final class BotConversation {
                 ChatStats.reply(ChatStats.Tier.SCRIPTED, System.currentTimeMillis() - asked, bot.getName(),
                         detail + ", llm fell back to the caller's script");
             } else {
+                String activityAnswer = ScriptedReplies.activityQuestion(line);
+                if (activityAnswer != null) {
+                    // A generic acknowledgement cannot answer "what u doing". This is true while replying;
+                    // the saved roster activity is a role, not proof of current combat, travel or shopping.
+                    deliver(session, activityAnswer, asked, ChatStats.Tier.SCRIPTED,
+                            detail + ", factual activity reply", cue);
+                    return;
+                }
                 soloMapling.ArtificialPlayer.BotConvo.ConvoLines.Line scripted = recognise
                         && triage.kind() == ChatTriage.Kind.GREETING
                         ? bank(session, "recognise", read, BotRecognition.scriptedHello(player.getName(),
