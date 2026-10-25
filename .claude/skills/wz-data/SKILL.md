@@ -74,7 +74,7 @@ Siblings of `level` whose mere presence matters (see `SkillFactory`): `info`, `c
 
 | Key | Meaning |
 |---|---|
-| `time` | duration in SECONDS; `StatEffect` stores milliseconds. A missing `time` means duration -1 (then x1000 = -1000), the "infinite rebuff" trap: check the key exists before trusting a duration. |
+| `time` | duration in SECONDS for skills (item effects store it in ms); `StatEffect` stores milliseconds. A missing `time` means duration -1 (then x1000 = -1000), the "infinite rebuff" trap: check the key exists before trusting a duration. |
 | `mpCon` / `hpCon` | MP / HP cost |
 | `mad` / `pad` | magic / physical attack |
 | `damage` | percent damage multiplier |
