@@ -408,7 +408,11 @@ From `git log --since=2026-10-24` on `152-integration`:
 | Scroll generator | Scroll tables restored from HeavenMS | a1d5fc8ec |
 | Gachapon machines | Six town machines placed by plife; remote ticket and Singapore pool fixed | 1.5.0 rc3 |
 
-## 12. Owner decisions
+- **809c5a3b0** (owner, after the catalogue): Jump Quest chests 1063000-1063002 and 2032003 pay the custom meso/EXP reward once per character per day (quest record 32002), then their stock prize; the Cotton Stylist accepts only the menu's catalogs (the hidden 40/50/80/91/92 are refused).
+
+## 12. Owner decisions (ticket 89)
+
+Decisions 2 (Jump Quest chests) and the stylist's hidden catalogs were settled on 2026-10-25 (fixed in 1.5.2, above).
 
 1. **USE_ENABLE_CUSTOM_NPC_SCRIPT**: turn it on (restores Coco, Agent E, Dalair merge, Asia, T-1337, ore refining, scroll generator in ~20 towns) or accept that these NPCs only greet. It restores MapleRoot content the owner may have switched off on purpose; the ore refining option overlaps Nimble.
 2. **Jump Quest chests**: keep 100k mesos + 10k exp x rate per run with no cooldown, or add a cap or lower the number (economy; your call).
