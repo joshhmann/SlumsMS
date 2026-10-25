@@ -12,6 +12,7 @@ import soloMapling.ArtificialPlayer.BotLogic;
 import soloMapling.ArtificialPlayer.BotMessagingSystem.ChatMessage;
 import soloMapling.ArtificialPlayer.BotMessagingSystem.MessageQueue;
 import soloMapling.ArtificialPlayer.BotMovementSystem.MovementCommands;
+import soloMapling.ArtificialPlayer.BotPartySystem.BotPartyCommands;
 import soloMapling.ArtificialPlayer.BotPartySystem.BotPartyLogic;
 import soloMapling.ArtificialPlayer.BotSM;
 import soloMapling.ArtificialPlayer.BotTypes.OPQ.OPQSharedContext.OPQPhase;
@@ -70,6 +71,10 @@ public class OPQBot extends BotSM {
     // Stage 2: the box we last told the party about (-1 = none). handleStage2Navigate runs every ~1.5 s while
     // walking, so an ungated BotSpeak repeated "I'll get the 4th box!" until the bot arrived.
     private volatile int announcedBoxReactorOid = -1;
+    // When we last entered IN_PARTY_IDLE, and whether this party has already run OPQ with us. Together they decide
+    // when an OPQPartyDuty.LEAVE is due (see handleInPartyIdle).
+    private volatile long inPartySince = 0;
+    private volatile boolean runStarted = false;
 
     public OPQBot(Character character) {
         super(character);
@@ -118,6 +123,12 @@ public class OPQBot extends BotSM {
             return;
         }
         this.opqBotState = next;
+        if (next == OPQBotState.IN_PARTY_IDLE && prev != OPQBotState.IN_PARTY_IDLE) {
+            inPartySince = System.currentTimeMillis();
+        }
+        if (next == OPQBotState.STAGE_1_NAVIGATE) {
+            runStarted = true;
+        }
         log(String.format("[OPQBot %s] %s -> %s | %s | map=%d pos=%s",
                 getChr().getName(), prev, next, reason,
                 getChr().getMapId(), getChr().getPosition()));
@@ -157,6 +168,8 @@ public class OPQBot extends BotSM {
         cloudPiecesLooted = 0;
         lootedRecordItemId = -1;
         announcedBoxReactorOid = -1;
+        inPartySince = 0;
+        runStarted = false;
     }
 
     // =========================================================================
@@ -349,15 +362,31 @@ public class OPQBot extends BotSM {
         // Stage 1 server-side once the leader enters. detectPhaseFromMap() at
         // the top of updateState() then flips us into STAGE_1_NAVIGATE.
 
-        if (leaderMapId() == OPQConstants.OPQ_STAGE_1) {
-            cloudPiecesLooted = 0;
-            lootedRecordItemId = -1;
-            orchestrator.noteEnteringStageOne(this);
-            // deliberate synchronous warp: warpBotToLocation blocks through the
-            // arrival choreography (up to ~7s) and nothing may overlap it
-            blockingSleep(3000);
-            OPQOrchestrator.getInstance().followLeaderWarp(getChr(), STAGE_1_ENTRY_TP);
-            transitionTo(OPQBotState.STAGE_1_NAVIGATE, "Warp to Stage 1 with Leader");
+        // A player can invite a lobby bot and then do anything at all. Sitting in that party for ever costs the
+        // player a party slot, so the bot decides whether this invitation is going to become an OPQ run.
+        long waitedMs = System.currentTimeMillis() - inPartySince;
+        switch (OPQPartyDuty.decide(leaderMapId(), runStarted, waitedMs)) {
+            case FOLLOW -> {
+                cloudPiecesLooted = 0;
+                lootedRecordItemId = -1;
+                orchestrator.noteEnteringStageOne(this);
+                // deliberate synchronous warp: warpBotToLocation blocks through the
+                // arrival choreography (up to ~7s) and nothing may overlap it
+                blockingSleep(3000);
+                OPQOrchestrator.getInstance().followLeaderWarp(getChr(), STAGE_1_ENTRY_TP);
+                transitionTo(OPQBotState.STAGE_1_NAVIGATE, "Warp to Stage 1 with Leader");
+            }
+            case LEAVE -> {
+                log(String.format("[OPQBot %s] leaving party after %ds - leader map=%d runStarted=%s",
+                        getChr().getName(), waitedMs / 1000, leaderMapId(), runStarted));
+                SocialCommands.BotSpeak(getChr(), runStarted ? "gg, back to the lobby!" : "not OPQ? back to the lobby!");
+                BotPartyCommands.botLeaveParty(getChr());
+                resetOPQBotState();
+                transitionTo(OPQBotState.RECRUITMENT, "party was not running OPQ");
+            }
+            case WAIT -> {
+                // keep standing by; the recruit line stays quiet while we are in a party
+            }
         }
     }
 
