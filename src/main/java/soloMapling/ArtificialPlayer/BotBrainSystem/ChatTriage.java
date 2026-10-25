@@ -181,7 +181,11 @@ public final class ChatTriage {
         return Kind.TALK;
     }
 
-    /** The intent by rule alone, or empty. */
+    /**
+     * The intent by rule alone, or empty. A request cue out of scope ({@link ChatScope}: "dont follow me") is no request;
+     * when every cue that matched is out of scope the answer is {@link Intent#NONE} by rule, so the model cannot put the
+     * request back.
+     */
     public static Optional<Intent> intentRule(String line) {
         String text = normal(line);
         if (WHERE_TRAIN.matcher(text).find()) {
@@ -190,19 +194,40 @@ public final class ChatTriage {
         if (WHERE_AT.matcher(text).find()) {
             return Optional.of(Intent.WHERE_AT);
         }
-        if (FOLLOW.matcher(text).find()) {
+        boolean outOfScope = false;
+        ChatScope.Frame f = ChatScope.scan(FOLLOW, text);
+        if (f == ChatScope.Frame.NONE) {
             return Optional.of(Intent.FOLLOW);
         }
-        if (INVITE.matcher(text).find() || COME.matcher(text).find()) {
+        outOfScope |= f != null;
+        f = ChatScope.scan(INVITE, text);
+        ChatScope.Frame g = ChatScope.scan(COME, text);
+        if (f == ChatScope.Frame.NONE || g == ChatScope.Frame.NONE) {
             return Optional.of(Intent.COME_WITH_ME);
         }
-        if (PARTY.matcher(text).find()) {
+        outOfScope |= f != null || g != null;
+        f = ChatScope.scan(PARTY, text);
+        if (f == ChatScope.Frame.NONE) {
             return Optional.of(Intent.PARTY);
         }
-        if (TRADE.matcher(text).find()) {
+        outOfScope |= f != null;
+        f = ChatScope.scan(TRADE, text);
+        if (f == ChatScope.Frame.NONE) {
             return Optional.of(Intent.TRADE);
         }
-        return Optional.empty();
+        outOfScope |= f != null;
+        return outOfScope ? Optional.of(Intent.NONE) : Optional.empty();
+    }
+
+    /** Whether the line declines one of these requests ("not looking to trade", "dont need a party invite"). */
+    public static boolean declines(String line) {
+        String text = normal(line);
+        for (Pattern cue : List.of(FOLLOW, INVITE, COME, PARTY, TRADE)) {
+            if (ChatScope.negated(cue, text)) {
+                return true;
+            }
+        }
+        return false;
     }
 
     /** The con flag by rule alone, or empty. */
