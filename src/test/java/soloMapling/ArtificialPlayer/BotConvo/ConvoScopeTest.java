@@ -145,6 +145,8 @@ class ConvoScopeTest {
         assertEquals(ConvoIntent.GUIDE, intent("where is kerning city")); // fresh-059
         assertEquals(ConvoIntent.GUIDE, intent("wheres ellinia"));
         assertEquals(ConvoIntent.GUIDE, intent("how do i get to orbis"));
+        // asking the way is a question, not something one can decline: a negator does not scope it
+        assertEquals(ConvoIntent.GUIDE, intent("i dont know how to get to ellinia"));
         assertNotEquals(ConvoIntent.GUIDE, intent("where is ur guild master"), "not a place");
         assertEquals(ChatTriage.Intent.WHERE_AT, ConvoSense.rules("where r u").triage().intent());
     }
@@ -168,6 +170,9 @@ class ConvoScopeTest {
         assertEquals(ConvoIntent.TRADE, intent("i was selling claws earlier u want one?"));
         assertEquals(ConvoIntent.PARTY, intent("we partied yesterday, wanna party again"));
         assertEquals(ConvoIntent.HAGGLE, intent("would u do 500k"));
+        // "need" is not a past tense
+        assertEquals(ConvoIntent.PARTY, intent("i need a party for kpq"));
+        assertEquals(ConvoIntent.PARTY, intent("we need 1 more for kpq"));
     }
 
     @Test

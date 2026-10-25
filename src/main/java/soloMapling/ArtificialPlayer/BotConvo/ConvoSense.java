@@ -156,12 +156,12 @@ public final class ConvoSense {
             return Optional.of(ConvoIntent.APOLOGY);
         }
         Scope s = new Scope(text);
-        if (s.live(GUIDE)) {
+        if (s.liveQuestion(GUIDE)) {
             return Optional.of(ConvoIntent.GUIDE);
         }
         java.util.regex.Matcher whereIs = WHERE_IS.matcher(text);
         if (whereIs.find() && ConvoEntities.find(whereIs.group(2)).first(ConvoEntities.Kind.MAP) != null
-                && s.live(WHERE_IS)) {
+                && s.liveQuestion(WHERE_IS)) {
             return Optional.of(ConvoIntent.GUIDE);
         }
         if (s.live(MEET_AT) && !ConvoEntities.find(text).isEmpty()) {
@@ -236,7 +236,16 @@ public final class ConvoSense {
         }
 
         boolean live(Pattern cue) {
-            ChatScope.Frame f = ChatScope.scan(cue, text);
+            return live(cue, true);
+        }
+
+        /** A cue that asks the way: a negator does not scope it ("i dont know how to get to ellinia"). */
+        boolean liveQuestion(Pattern cue) {
+            return live(cue, false);
+        }
+
+        private boolean live(Pattern cue, boolean negation) {
+            ChatScope.Frame f = ChatScope.scan(cue, text, negation);
             outOfScope |= f != null && f != ChatScope.Frame.NONE;
             return f == ChatScope.Frame.NONE;
         }

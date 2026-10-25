@@ -36,9 +36,12 @@ public final class ChatScope {
     private static final Pattern WARNING = Pattern.compile("\\b(watch out|be careful|don'?t trust|never share"
             + "|it'?s a scam)\\b");
 
-    /** "i helped", "we partied", "i bargained down to 300k": the player tells what already happened. */
+    /**
+     * "i helped", "we partied", "i bargained down to 300k": the player tells what already happened. An -ed after an e
+     * is not a past tense here ("i need", "we need 1 more").
+     */
     private static final Pattern NARRATIVE = Pattern.compile("^((lol|omg|so|and|but|yeah|ya|well|ok) )*(i|we)"
-            + "( (just|already|also|finally|even|once))? (\\w+ed|got|came|went|sold|bought|did|made|had|took|gave|paid"
+            + "( (just|already|also|finally|even|once))? (\\w*[a-df-z]ed|got|came|went|sold|bought|did|made|had|took|gave|paid"
             + "|ran|saw|was|were)\\b");
     /** A question or a please turns a story back into a request ("i was selling claws earlier u want one?"). */
     private static final Pattern ASKS = Pattern.compile("\\?|\\b(pls|plz|please)\\b");
@@ -51,11 +54,19 @@ public final class ChatScope {
      * least one match is a request, else the frame of the first match.
      */
     public static Frame scan(Pattern cue, String text) {
+        return scan(cue, text, true);
+    }
+
+    /**
+     * As {@link #scan(Pattern, String)}; with {@code negation} false a negator does not scope the cue (a question about
+     * the way: "i dont know how to get to ellinia" still asks it).
+     */
+    public static Frame scan(Pattern cue, String text, boolean negation) {
         Matcher m = cue.matcher(text);
         Frame first = null;
         while (m.find()) {
             Frame f = frame(text, m.start());
-            if (f == Frame.NONE) {
+            if (f == Frame.NONE || (!negation && f == Frame.NEGATED)) {
                 return Frame.NONE;
             }
             if (first == null) {
