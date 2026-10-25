@@ -309,6 +309,32 @@ public class NPCConversationManager extends AbstractPlayerInteraction {
         getPlayer().getMap().broadcastMessage(PacketCreator.environmentChange(effect, 3));
     }
 
+    /**
+     * Quest record that counts the rebirth SP grants a character has taken from the rebirth helper (9977778). It is no
+     * quest in Quest.wz; the progress string lives in questprogress like any other, so it survives relog.
+     */
+    public static final int REBIRTH_SP_CLAIM_QUEST = 32001;
+    public static final int REBIRTH_SP_GRANT = 100;
+
+    /**
+     * 1.5.2: the rebirth helper's "Get 100 SP" option granted 100 SP every time. A character may take it once for each
+     * rebirth. Returns the SP granted, 0 when every rebirth is already claimed, -1 when the character has not rebirthed.
+     */
+    public int claimRebirthSp() {
+        Character chr = getPlayer();
+        int rebirths = chr.getReborns();
+        if (rebirths <= 0) {
+            return -1;
+        }
+        int claimed = getQuestProgressInt(REBIRTH_SP_CLAIM_QUEST);
+        if (claimed >= rebirths) {
+            return 0;
+        }
+        setQuestProgress(REBIRTH_SP_CLAIM_QUEST, claimed + 1);
+        chr.gainSp(REBIRTH_SP_GRANT, GameConstants.getSkillBook(chr.getJob().getId()), false);
+        return REBIRTH_SP_GRANT;
+    }
+
     public void setHair(int hair) {
         getPlayer().setHair(hair);
         getPlayer().updateSingleStat(Stat.HAIR, hair);
