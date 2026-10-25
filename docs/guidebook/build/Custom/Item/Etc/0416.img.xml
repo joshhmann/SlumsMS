@@ -199,7 +199,7 @@
 <string name="text" value="#e12. Getting help#n"/>
 </imgdir>
 <imgdir name="1">
-<string name="text" value="#b@gm &lt;message&gt;#k - message the GMs.\n#b@reportbug &lt;text&gt;#k - report a bug.\n#b@dispose#k - if an NPC window is stuck.\n\nGame won't start? Make your real monitor the #bmain display#k (Parsec and other virtual screens stop it)."/>
+<string name="text" value="#b@gm &lt;message&gt;#k - message the GMs.\n#b@bug &lt;text&gt;#k - report a bug.\n#b@idea &lt;text&gt;#k - suggest something.\n#b@dispose#k - if an NPC window is stuck.\n\nGame won't start? Make your real monitor the #bmain display#k (Parsec and other virtual screens stop it)."/>
 </imgdir>
 </imgdir>
 <imgdir name="25">

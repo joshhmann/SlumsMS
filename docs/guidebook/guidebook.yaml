@@ -119,7 +119,7 @@ pages:
 
   - id: help
     heading: "#e12. Getting help#n"
-    body: "#b@gm <message>#k - message the GMs.\n#b@reportbug <text>#k - report a bug.\n#b@dispose#k - if an NPC window is stuck.\n\nGame won't start? Make your real monitor the #bmain display#k (Parsec and other virtual screens stop it)."
+    body: "#b@gm <message>#k - message the GMs.\n#b@bug <text>#k - report a bug.\n#b@idea <text>#k - suggest something.\n#b@dispose#k - if an NPC window is stuck.\n\nGame won't start? Make your real monitor the #bmain display#k (Parsec and other virtual screens stop it)."
 
   - id: help2
     heading: ""
