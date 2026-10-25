@@ -28,6 +28,7 @@ class DramaScenariosTest {
     void reset() {
         QaLog.reset();
         MoveTrace.reset();
+        RomanceWedding.runawayBeat(false, 1.0); // consume any unused QA-only runaway suppression
     }
 
     private Character gm(int level, int mapId) {
@@ -81,6 +82,17 @@ class DramaScenariosTest {
         suite.stop(1, "!qa stop");
         assertEquals(0, world.inventory.get(2240000));
         assertEquals(1, world.dramaUnstaged);
+    }
+
+    @Test
+    void rm2CompletesTheWeddingInsteadOfRollingARandomRunaway() {
+        RomanceWedding.runawayBeat(false, 1.0);
+        start("rm-2", 60);
+        assertTrue(RomanceWedding.runawayBeat(true, 0.0), "staging alone leaves other weddings unchanged");
+        suite.action(world.online, "wedding", new String[0]);
+        assertFalse(RomanceWedding.runawayBeat(true, 0.0), "the marriage/divorce fixture must reach marriage");
+        assertTrue(RomanceWedding.runawayBeat(true, 0.0), "only that wedding skips the random runaway");
+        suite.stop(1, "done");
     }
 
     @Test
