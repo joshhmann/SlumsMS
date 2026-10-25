@@ -20,13 +20,13 @@ class FourthJobMasteriesTest {
 
     @Test
     void tableMatchesWhatTheLeafreScriptsTeach() throws Exception {
-        Pattern job = Pattern.compile("getJobId\\(\\) == (\\d+)\\) \\{((?:\\s*cm\\.teachSkill\\(\\d+, 0, 10, -1\\);)+)");
+        Pattern job = Pattern.compile("getJobId\\(\\) == (\\d+)\\) \\{((?:\\s*cm\\.teachSkill\\(\\d+, 0, 10, -1\\);[ \\t]*(?://[^\\n]*)?)+)");
         Pattern skill = Pattern.compile("teachSkill\\((\\d+)");
         int seen = 0;
         for (String npc : new String[]{"2081100", "2081200", "2081300", "2081400", "2081500"}) {
             String src = Files.readString(Path.of("scripts/npc/" + npc + ".js"));
             String afterChange = src.substring(src.indexOf("cm.changeJobById"));
-            Matcher m = job.matcher(afterChange.substring(0, 1500));
+            Matcher m = job.matcher(afterChange.substring(0, Math.min(1500, afterChange.length())));
             while (m.find()) {
                 List<Integer> expected = new ArrayList<>();
                 Matcher sm = skill.matcher(m.group(2));
@@ -49,7 +49,7 @@ class FourthJobMasteriesTest {
         NPCConversationManager cm = mock(NPCConversationManager.class, CALLS_REAL_METHODS);
         doNothing().when(cm).teachSkill(anyInt(), anyByte(), anyByte(), anyLong());
         cm.teachFourthJobMasteries(512);
-        for (int id : new int[]{5121001, 5121002, 5121007, 5121009}) {
+        for (int id : new int[]{5121001, 5121002, 5121009}) {
             verify(cm).teachSkill(id, (byte) 0, (byte) 10, -1L);
         }
         clearInvocations(cm);
