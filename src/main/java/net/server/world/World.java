@@ -460,7 +460,11 @@ public class World {
     public void registerAccountCharacterView(Integer accountId, Character chr) {
         accountCharsLock.lock();
         try {
-            accountChars.get(accountId).put(chr.getId(), chr);
+            // 1.5.2: an account whose view this world never loaded (a login that took the "already known" shortcut, an
+            // on-demand synthetic login, a character moved between worlds) has no entry here, and the put threw. The
+            // caller of that put is Server.updateCharacterEntry, which Character.saveCharToDB runs BEFORE it writes the
+            // character: the save died with the NPE and that character kept its old row. Open the view instead.
+            accountChars.computeIfAbsent(accountId, k -> new TreeMap<>()).put(chr.getId(), chr);
         } finally {
             accountCharsLock.unlock();
         }
@@ -469,7 +473,10 @@ public class World {
     public void unregisterAccountCharacterView(Integer accountId, Integer chrId) {
         accountCharsLock.lock();
         try {
-            accountChars.get(accountId).remove(chrId);
+            SortedMap<Integer, Character> accChars = accountChars.get(accountId);
+            if (accChars != null) {     // 1.5.2: no view, nothing to remove (this used to throw at logout)
+                accChars.remove(chrId);
+            }
         } finally {
             accountCharsLock.unlock();
         }
@@ -1007,7 +1014,12 @@ public class World {
     public boolean updateParty(int partyid, PartyOperation operation, PartyCharacter target) {
         Party party = getParty(partyid);
         if (party == null) {
-            throw new IllegalArgumentException("no party with the specified partyid exists");
+            // 1.5.2: the party is gone - disbanded by its leader, or it never reached this world - before the update
+            // arrived. There is nothing to change, which is what false already means for this method. Throwing made
+            // every caller deal with an expected race: a bot held a party its leader had disbanded and threw
+            // "no party with the specified partyid exists" on every single logout attempt (the biggest line in the
+            // test server's log), and a mass warp inside an event script aborted the script with a ScriptException.
+            return false;
         }
         boolean changed = true;
         switch (operation) {

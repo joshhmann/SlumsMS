@@ -1532,29 +1532,44 @@ public class Character extends AbstractCharacterObject {
     }
 
     public void changeMap(int map) {
-        MapleMap warpMap;
-        EventInstanceManager eim = getEventInstance();
-
-        if (eim != null) {
-            warpMap = eim.getMapInstance(map);
-        } else {
-            warpMap = client.getChannelServer().getMapFactory().getMap(map);
+        MapleMap warpMap = mapInstanceFor(map);
+        if (warpMap == null) {
+            return;
         }
 
         changeMap(warpMap, warpMap.getRandomPlayerSpawnpoint());
     }
 
     public void changeMap(int map, int portal) {
-        MapleMap warpMap;
-        EventInstanceManager eim = getEventInstance();
-
-        if (eim != null) {
-            warpMap = eim.getMapInstance(map);
-        } else {
-            warpMap = client.getChannelServer().getMapFactory().getMap(map);
+        MapleMap warpMap = mapInstanceFor(map);
+        if (warpMap == null) {
+            return;
         }
 
         changeMap(warpMap, warpMap.getPortal(portal));
+    }
+
+    /**
+     * 1.5.2: the map a warp to an id lands on, or null when there is nowhere to land. A channel that has shut down has
+     * no map factory and no map with that id may exist, and the delayed warps (ship, subway, elevator: a TimerManager
+     * task that fires minutes later) used to throw "Cannot invoke MapManager.getMap(int) because the return value of
+     * Channel.getMapFactory() is null" instead of settling.
+     */
+    private MapleMap mapInstanceFor(int map) {
+        EventInstanceManager eim = getEventInstance();
+        if (eim != null) {
+            return eim.getMapInstance(map);
+        }
+
+        Client client = getClient();
+        Channel channel = (client == null) ? null : client.getChannelServer();
+        MapManager mapManager = (channel == null) ? null : channel.getMapFactory();
+        if (mapManager == null) {
+            log.debug("Chr {} cannot warp to map {}: its channel has no maps left", name, map);
+            return null;
+        }
+
+        return mapManager.getMap(map);
     }
 
     public void changeMap(int map, String portal) {
@@ -4754,7 +4769,7 @@ public class Character extends AbstractCharacterObject {
 
         List<Pair<BuffStat, BuffStatValueHolder>> toCancel = deregisterBuffStats(buffstats);
         if (effect.isMonsterRiding()) {
-            this.getClient().getWorldServer().unregisterMountHunger(this);
+            unregisterMountHunger();        // 1.5.2: was this.getClient().getWorldServer().unregisterMountHunger(this)
             this.getMount().setActive(false);
         }
 
@@ -7030,6 +7045,20 @@ public class Character extends AbstractCharacterObject {
 
     public int getWorld() {
         return world;
+    }
+
+    /**
+     * 1.5.2: mount hunger is tracked per world. Both callers used `getClient().getWorldServer().unregisterMountHunger`
+     * — a buff cancel here and Mount.empty on logout — and at logout the client or its world is already gone: the NPE
+     * aborted Character.empty halfway (the live "Client.getWorldServer() is null" NPE through Client.clear) and left the
+     * mount registered in the world. Nothing to unregister when no world is left.
+     */
+    void unregisterMountHunger() {
+        Client c = getClient();
+        World world = (c == null) ? null : c.getWorldServer();
+        if (world != null) {
+            world.unregisterMountHunger(this);
+        }
     }
 
     public World getWorldServer() {
@@ -10984,9 +11013,21 @@ public class Character extends AbstractCharacterObject {
     }
 
     private void silentPartyUpdateInternal(Party chrParty) {
-        if (chrParty != null) {
-            getWorldServer().updateParty(chrParty.getId(), PartyOperation.SILENT_UPDATE, getMPC());
+        if (chrParty == null) {
+            return;
         }
+
+        // 1.5.2: World.updateParty throws "no party with the specified partyid exists" for a party it no longer holds,
+        // and this runs in the middle of a map change (changeMapInternal), a door push and a logout. A party that was
+        // disbanded, or a world that went away under a shutdown, used to abort the warp after the client had already
+        // been sent the warp packet: the character stayed behind as a ghost, and one vanished party flooded the log
+        // with that exception. There is nothing to announce when nobody holds the party.
+        World world = getWorldServer();
+        if (world == null || world.getParty(chrParty.getId()) == null) {
+            return;
+        }
+
+        world.updateParty(chrParty.getId(), PartyOperation.SILENT_UPDATE, getMPC());
     }
 
     public static class SkillEntry {
@@ -11896,7 +11937,7 @@ public class Character extends AbstractCharacterObject {
                 setFamilyEntry(null);
             }
 
-            getWorldServer().registerTimedMapObject(new Runnable() {
+            Runnable releaseInventories = new Runnable() {
                 @Override
                 public void run() {
                     client = null;  // clients still triggers handlers a few times after disconnecting
@@ -11909,7 +11950,16 @@ public class Character extends AbstractCharacterObject {
                     }
                     inventory = null;
                 }
-            }, MINUTES.toMillis(5));
+            };
+            // 1.5.2: the world is gone when a logout happens during a shutdown, and nothing would ever run the
+            // delayed cleanup then - the old unguarded getWorldServer() threw right here and left the whole remove
+            // block (party, family, inventories) half done. Release the inventories immediately instead.
+            World wserv = getWorldServer();
+            if (wserv == null) {
+                releaseInventories.run();
+            } else {
+                wserv.registerTimedMapObject(releaseInventories, MINUTES.toMillis(5));
+            }
         }
     }
 

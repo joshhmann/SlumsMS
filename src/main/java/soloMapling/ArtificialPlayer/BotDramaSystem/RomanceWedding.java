@@ -378,7 +378,7 @@ public final class RomanceWedding {
     /** The steps of {@link #makeItReal} that touch the DB, the item data and the inventory; tests replace them. */
     static class Ops {
         boolean hasRoom(Character player, int ringItem) {
-            return InventoryManipulator.checkSpace(player.getClient(), ringItem, 1, "");
+            return InventoryManipulator.checkSpace(player, ringItem, 1, "");
         }
 
         Equip newRing(int ringItem) {
@@ -390,7 +390,7 @@ public final class RomanceWedding {
         }
 
         boolean deliver(Character player, Equip ring) {
-            return InventoryManipulator.addFromDrop(player.getClient(), ring, false, -1);
+            return InventoryManipulator.addFromDrop(player, ring, false, -1);
         }
 
         void deleteRings(int playerRingId, int botRingId, Character bot, int ringItem) {

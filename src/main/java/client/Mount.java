@@ -122,9 +122,10 @@ public class Mount {
     }
 
     public void empty() {
-        if (owner != null) {
-            owner.getClient().getWorldServer().unregisterMountHunger(owner);
-        }
+        Character owner = this.owner;
         this.owner = null;
+        if (owner != null) {
+            owner.unregisterMountHunger();
+        }
     }
 }

@@ -182,32 +182,39 @@ public final class Channel {
     }
 
     public synchronized void shutdown() {
-        try {
-            if (finishedShutdown) {
-                return;
-            }
+        if (finishedShutdown) {
+            return;
+        }
 
-            log.info("Shutting down channel {} in world {}", channel, world);
+        log.info("Shutting down channel {} in world {}", channel, world);
 
-            closeAllMerchants();
-            disconnectAwayPlayers();
-            players.disconnectAll();
-
+        // 1.5.2: one failing step used to abort the rest of the shutdown - a single character whose save threw left
+        // every other character of this channel connected and unsaved, the maps undisposed and the channel marked as
+        // still running. Each step now stands on its own and the shutdown always reaches its end.
+        shutdownStep("close its hired merchants", this::closeAllMerchants);
+        shutdownStep("disconnect the players who walked away", this::disconnectAwayPlayers);
+        shutdownStep("disconnect its players", players::disconnectAll);
+        shutdownStep("dispose its event scripts", () -> {
             eventSM.dispose();
             eventSM = null;
-
+        });
+        shutdownStep("dispose its maps", () -> {
             mapManager.dispose();
             mapManager = null;
+        });
+        shutdownStep("cancel its schedules", this::closeChannelSchedules);
+        shutdownStep("stop its network service", channelServer::stop);
+        players = null;
 
-            closeChannelSchedules();
-            players = null;
+        finishedShutdown = true;
+        log.info("Successfully shut down channel {} in world {}", channel, world);
+    }
 
-            channelServer.stop();
-
-            finishedShutdown = true;
-            log.info("Successfully shut down channel {} in world {}", channel, world);
-        } catch (Exception e) {
-            log.error("Error while shutting down channel {} in world {}", channel, world, e);
+    private void shutdownStep(String what, Runnable step) {
+        try {
+            step.run();
+        } catch (RuntimeException e) {
+            log.error("Channel {} in world {}: could not {} while shutting down", channel, world, what, e);
         }
     }
 
@@ -353,6 +360,10 @@ public final class Channel {
     }
 
     public void broadcastGMPacket(Packet packet) {
+        PlayerStorage players = this.players;   // 1.5.2: a channel that has shut down has nobody left to tell
+        if (players == null) {
+            return;
+        }
         for (Character chr : players.getAllCharacters()) {
             if (chr.isGM()) {
                 chr.sendPacket(packet);

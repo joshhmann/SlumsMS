@@ -771,7 +771,7 @@ public final class BotRomance {
         bot.setPartnerId(player.getId());
         player.setMarriageItemId(playerToken);
         bot.setMarriageItemId(botToken);
-        InventoryManipulator.addById(player.getClient(), playerToken, (short) 1);
+        InventoryManipulator.addById(player, playerToken, (short) 1);
         player.sendPacket(WeddingPackets.OnMarriageResult(marriageId, player, false));
         player.sendPacket(WeddingPackets.OnNotifyWeddingPartnerTransfer(bot.getId(), bot.getMapId()));
         long now = now();
