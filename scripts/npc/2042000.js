@@ -17,8 +17,8 @@ var n5 = 20; //50
 
 var cpqMap = 980000000;
 var cpqMinLvl = 30;
-var cpqMaxLvl = 200;
-var cpqMinAmt = 1;
+var cpqMaxLvl = 50;
+var cpqMinAmt = 2;
 var cpqMaxAmt = 6;
 
 // Ronan's custom ore refiner NPC
@@ -197,7 +197,7 @@ function action(mode, type, selection) {
                         }
                     }
 
-                    if (party >= 1) {
+                    if (party.size() < cpqMinAmt) {
                         status = 10;
                         cm.sendOk("You do not have enough people in your party. You need a party with #b" + cpqMinAmt + "#k - #r" + cpqMaxAmt + "#k members and they should be on the map with you.");
                     } else if (lvlOk != inMap) {
@@ -224,9 +224,9 @@ function action(mode, type, selection) {
                     }
                 } else {
                     var party = cm.getParty().getMembers();
-                    if ((selection >= 0 && selection <= 3) && party.size() < (YamlConfig.config.server.USE_ENABLE_SOLO_EXPEDITIONS ? 1 : 2)) {
+                    if ((selection >= 0 && selection <= 3) && party.size() < 2) {
                         cm.sendOk("You need at least 2 players to participate in the battle!");
-                    } else if ((selection >= 4 && selection <= 5) && party.size() < (YamlConfig.config.server.USE_ENABLE_SOLO_EXPEDITIONS ? 1 : 3)) {
+                    } else if ((selection >= 4 && selection <= 5) && party.size() < 3) {
                         cm.sendOk("You need at least 3 players to participate in the battle!");
                     } else {
                         cm.cpqLobby(selection);
@@ -245,7 +245,7 @@ function action(mode, type, selection) {
                 cm.sendSimple(talk);
             } else if (status == 1) {
                 if (selection == 0) {
-                    if ((cm.getLevel() > 29 && cm.getLevel() < 201) || cm.getPlayer().isGM()) {
+                    if ((cm.getLevel() > 29 && cm.getLevel() < 51) || cm.getPlayer().isGM()) {
                         cm.getChar().saveLocation("MONSTER_CARNIVAL");
                         cm.warp(980000000, 0);
                         cm.dispose();
