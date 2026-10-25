@@ -49,8 +49,7 @@ function start(mode, type, selection) {
 
             const YamlConfig = Java.type('config.YamlConfig');
             if (YamlConfig.config.server.USE_FULL_ARAN_SKILLSET) {
-                qm.teachSkill(21000000, 0, 10, -1);   //combo ability
-                qm.teachSkill(21001003, 0, 20, -1);   //polearm booster
+                qm.teachSkill(21000000, 0, 10, -1);   //combo ability (SlumsMS 1.5.2: no Polearm Booster 21001003 here)
             }
 
             qm.completeQuest();

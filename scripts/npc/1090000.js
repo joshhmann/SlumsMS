@@ -46,10 +46,11 @@ function start() {
             cm.sendNext("You're ready, right? Now try to withstand my attacks for 2 minutes. I won't go easy on you. Good luck, because you will need it.");
         } else {
             advQuest = 3;
-            cm.teachSkill(5121003, 0, 10, -1);
+            // SlumsMS 1.5.2: Super Transformation (5121003) is not in MapleRoot's skill set, so there is nothing to
+            // teach here and the text no longer promises it (quest 6330 is hidden for new players, HiddenQuests).
             cm.forceCompleteQuest(6330);
 
-            cm.sendNext("Congratulations. You have managed to pass my test. I'll teach you a new skill called \"Super Transformation\".\r\n\r\n  #s5121003#    #b#q5121003##k");
+            cm.sendNext("Congratulations. You have managed to pass my test. You held your ground against everything I threw at you.");
         }
     } else if (cm.isQuestStarted(6370)) {
         if (cm.getEventInstance() != null) {
@@ -122,7 +123,7 @@ function action(mode, type, selection) {
                 }
             } else if (advQuest < 5) {
                 if (advQuest == 3) {
-                    cm.sendOk("It is similar to that of 'Transformation', but it's much more powerful than that. Keep training, and hope to see you around.");
+                    cm.sendOk("Strength like that is earned, not taught. Keep training, and hope to see you around.");
                 } else {
                     cm.sendOk("Unlike most of the other skills you used as a Pirate, this one definitely is different. You can actually ride the 'Battleship' and attack enemies with it. Your DEF level will increase for the time you're on board, so that'll help you tremendously in combat situations. May you become the best Gunslinger out there...");
                 }

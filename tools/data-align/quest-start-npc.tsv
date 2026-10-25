@@ -1,0 +1,8 @@
+# Quest start NPCs MapleRoot's server Quest.wz points at an NPC that does not exist; back to stock Cosmic's NPC.
+# 1205 Romeo and Juliet (Magatia PQ): MapleRoot says 9212000, which has no Npc.wz entry (Npc.wz/2112018.img.xml is
+# even named "9212000.img" inside). Cosmic says 2112018 "Romeo & Juliet", the NPC MagatiaPQ_Z/_A spawn at the end of
+# the PQ. Owner approved 2026-10-25 (decisions #5), a 1.5.2 deploy step (docs/release/1.5.2-deploy-steps.md).
+# Server side only: the client starts the quest at the NPC its own Quest.wz names, so check in a real client on TEST.
+#   python3 tools/data-align/wz_set_values.py --wz <server wz dir> --tsv tools/data-align/quest-start-npc.tsv --column new_value [--apply]
+file	node	server_value	new_value	note
+Quest.wz/Check.img.xml	1205/0/npc	9212000	2112018	quest 1205 start NPC back to Cosmic's Romeo & Juliet

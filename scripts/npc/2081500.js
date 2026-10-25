@@ -66,8 +66,7 @@ function action(mode, type, selection) {
                     if (cm.getJobId() == 512) {
                         cm.teachSkill(5121001, 0, 10, -1);
                         cm.teachSkill(5121002, 0, 10, -1);
-                        cm.teachSkill(5121007, 0, 10, -1);
-                        cm.teachSkill(5121009, 0, 10, -1);
+                        cm.teachSkill(5121009, 0, 10, -1);   // SlumsMS 1.5.2: no Barrage (5121007) in MapleRoot's set
                     } else if (cm.getJobId() == 522) {
                         cm.teachSkill(5220001, 0, 10, -1);
                         cm.teachSkill(5220002, 0, 10, -1);
@@ -80,15 +79,7 @@ function action(mode, type, selection) {
                 }
             } else if (mode >= 1 && cm.getJobId() % 100 % 10 == 2) {
                 if (cm.getJobId() == 512) {
-                    if (cm.getPlayer().getSkillLevel(5121003) == 0) {
-                        cm.teachSkill(5121003, 0, 10, -1);
-                    }
-                    if (cm.getPlayer().getSkillLevel(5121004) == 0) {
-                        cm.teachSkill(5121004, 0, 10, -1);
-                    }
-                    if (cm.getPlayer().getSkillLevel(5121005) == 0) {
-                        cm.teachSkill(5121005, 0, 10, -1);
-                    }
+                    // SlumsMS 1.5.2: Super Transformation, Demolition and Snatch (5121003-5121005) are gone
                     if (cm.getPlayer().getSkillLevel(5121010) == 0) {
                         cm.teachSkill(5121010, 0, 10, -1);
                     }
@@ -101,9 +92,6 @@ function action(mode, type, selection) {
                     }
                     if (cm.getPlayer().getSkillLevel(5221008) == 0) {
                         cm.teachSkill(5221008, 0, 10, -1);
-                    }
-                    if (cm.getPlayer().getSkillLevel(5221009) == 0) {
-                        cm.teachSkill(5221009, 0, 10, -1);
                     }
                     if (cm.getPlayer().getSkillLevel(5221003) == 0) {
                         cm.teachSkill(5221003, 0, 10, -1);

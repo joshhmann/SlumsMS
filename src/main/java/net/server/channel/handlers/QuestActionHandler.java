@@ -28,6 +28,7 @@ import net.packet.InPacket;
 import scripting.quest.QuestScriptManager;
 import server.life.NPC;
 import server.quest.Quest;
+import tools.PacketCreator;
 
 import java.awt.*;
 
@@ -66,6 +67,16 @@ public final class QuestActionHandler extends AbstractPacketHandler {
         return true;
     }
 
+    /** Quests that can never be finished here are refused with a word to the player (see HiddenQuests). */
+    static boolean refuseHidden(Character player, Quest quest) {
+        if (!quest.isHiddenFor(player)) {
+            return false;
+        }
+        player.dropMessage(5, "This quest can't be finished on SlumsMS yet, so it can't be started.");
+        player.sendPacket(PacketCreator.enableActions());
+        return true;
+    }
+
     @Override
     public final void handlePacket(InPacket p, Client c) {
         byte action = p.readByte();
@@ -82,6 +93,9 @@ public final class QuestActionHandler extends AbstractPacketHandler {
         case 1: { // Start Quest
             int npc = p.readInt();
             if (!isNpcNearby(p, player, quest, npc)) {
+                return;
+            }
+            if (refuseHidden(player, quest)) {
                 return;
             }
             if (quest.canStart(player, npc)) {
@@ -110,6 +124,9 @@ public final class QuestActionHandler extends AbstractPacketHandler {
         case 4: { // scripted start quest
             int npc = p.readInt();
             if (!isNpcNearby(p, player, quest, npc)) {
+                return;
+            }
+            if (refuseHidden(player, quest)) {
                 return;
             }
             if (quest.canStart(player, npc)) {

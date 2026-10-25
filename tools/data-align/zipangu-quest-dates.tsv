@@ -1,7 +1,8 @@
 # Zipangu (Mushroom Shrine) quests 4300-4309: the server's Quest.wz (MapleRoot data) gives them an end date of
 # 2000-01-02, so the server refuses to start them (4309: to complete them). Stock Cosmic and the MapleLegends library
-# have no date on them. NOT applied: owner decision (1.5.2 quest sweep). Moving the date only fixes the server side;
-# if the client's own Quest.wz has the same date the client will still hide them, so check in a real client first.
+# have no date on them. Owner approved 2026-10-25: applied as a 1.5.2 deploy step (docs/release/1.5.2-deploy-steps.md).
+# Moving the date only fixes the server side; if the client's own Quest.wz has the same date the client will still
+# hide them, so check in a real client on TEST.
 #   python3 tools/data-align/wz_set_values.py --wz <server wz dir> --tsv tools/data-align/zipangu-quest-dates.tsv --column new_value [--apply]
 file	node	server_value	new_value	note
 Quest.wz/Check.img.xml	4300/0/end	2000010200	2099123100	quest 4300 start window closed in 2000

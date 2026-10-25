@@ -59,8 +59,11 @@ class QuestScriptHandInTest {
             allText.append(text).append('\n');
         }
 
+        /** Items the fake player is missing (default: holds everything asked for). */
+        public final java.util.Set<Integer> lacks = new java.util.HashSet<>();
+
         public boolean haveItem(int itemId, int quantity) {
-            return true;
+            return !lacks.contains(itemId);
         }
 
         public boolean canHold(int itemId, int quantity) {
@@ -149,18 +152,31 @@ class QuestScriptHandInTest {
         assertFalse(qm.completed);
     }
 
-    /** 3714: the repack removed the Dragon Stone reward; the dialogue must no longer promise it. */
+    /** 3714: owner decision 1.5.2, the Horntail egg quest gives stock Cosmic's Dragon Stone (2041200) again. */
     @Test
-    void horntailEggQuestNoLongerPromisesTheDragonStone() throws Exception {
+    void horntailEggQuestGivesTheDragonStoneAgain() throws Exception {
         FakeQm qm = new FakeQm();
+        qm.lacks.add(2041200);
         Invocable quest = load(3714, qm);
         quest.invokeFunction("start", 1, 0, 0);
         quest.invokeFunction("start", 1, 0, 0);
 
-        assertFalse(qm.allText.toString().contains("2041200"), "no Dragon Stone in the text: " + qm.allText);
-        assertEquals(null, qm.gained.get(2041200), "and none given, as the repack has it");
+        assertTrue(qm.allText.toString().contains("#t2041200#"), "the text promises the Dragon Stone: " + qm.allText);
+        assertEquals(1, qm.gained.get(2041200), "and the quest gives it");
         assertEquals(-1, qm.gained.get(4001094), "the egg goes back to the nest");
         assertEquals(42000, qm.exp);
         assertTrue(qm.completed);
+    }
+
+    /** Cosmic's guard: a player still carrying a Dragon Stone gets no second one (3714 is repeatable). */
+    @Test
+    void horntailEggQuestRefusesWhileAStoneIsCarried() throws Exception {
+        FakeQm qm = new FakeQm();
+        Invocable quest = load(3714, qm);
+        quest.invokeFunction("start", 1, 0, 0);
+
+        assertEquals(null, qm.gained.get(2041200));
+        assertFalse(qm.completed);
+        assertTrue(qm.disposed);
     }
 }
