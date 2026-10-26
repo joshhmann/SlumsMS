@@ -246,12 +246,34 @@ public final class SiteLeaderboards {
         return b < BRANCHES.size() ? BRANCHES.get(b) : "other";
     }
 
+    /**
+     * The job as players say it ("Arch Mage (F/P)", "Night Lord", "Dawn Warrior"): the site contract asks for display
+     * names, and the enum names TEST sent ("Fp_archmage", "Darkknight") were not (site session, 2026-10-26).
+     */
     static String jobName(int job) {
-        try {
-            String n = constants.game.GameConstants.getJobName(job);
-            return n == null ? "" : n;
-        } catch (RuntimeException | LinkageError e) {
-            return "";
+        String n = DISPLAY.get(job);
+        if (n != null) {
+            return n;
         }
+        int cygnus = job / 100 * 100; // Cygnus and Aran keep one name across their advancements (1110, 1111, 2112, ...)
+        n = (job >= 1000 && job < 3000) ? DISPLAY.get(cygnus) : null;
+        return n == null ? "" : n;
     }
+
+    private static final Map<Integer, String> DISPLAY = Map.ofEntries(
+            Map.entry(0, "Beginner"), Map.entry(100, "Warrior"), Map.entry(110, "Fighter"), Map.entry(111, "Crusader"),
+            Map.entry(112, "Hero"), Map.entry(120, "Page"), Map.entry(121, "White Knight"), Map.entry(122, "Paladin"),
+            Map.entry(130, "Spearman"), Map.entry(131, "Dragon Knight"), Map.entry(132, "Dark Knight"),
+            Map.entry(200, "Magician"), Map.entry(210, "Wizard (F/P)"), Map.entry(211, "Mage (F/P)"),
+            Map.entry(212, "Arch Mage (F/P)"), Map.entry(220, "Wizard (I/L)"), Map.entry(221, "Mage (I/L)"),
+            Map.entry(222, "Arch Mage (I/L)"), Map.entry(230, "Cleric"), Map.entry(231, "Priest"),
+            Map.entry(232, "Bishop"), Map.entry(300, "Bowman"), Map.entry(310, "Hunter"), Map.entry(311, "Ranger"),
+            Map.entry(312, "Bowmaster"), Map.entry(320, "Crossbowman"), Map.entry(321, "Sniper"),
+            Map.entry(322, "Marksman"), Map.entry(400, "Thief"), Map.entry(410, "Assassin"), Map.entry(411, "Hermit"),
+            Map.entry(412, "Night Lord"), Map.entry(420, "Bandit"), Map.entry(421, "Chief Bandit"),
+            Map.entry(422, "Shadower"), Map.entry(500, "Pirate"), Map.entry(510, "Brawler"), Map.entry(511, "Marauder"),
+            Map.entry(512, "Buccaneer"), Map.entry(520, "Gunslinger"), Map.entry(521, "Outlaw"),
+            Map.entry(522, "Corsair"), Map.entry(1000, "Noblesse"), Map.entry(1100, "Dawn Warrior"),
+            Map.entry(1200, "Blaze Wizard"), Map.entry(1300, "Wind Archer"), Map.entry(1400, "Night Walker"),
+            Map.entry(1500, "Thunder Breaker"), Map.entry(2000, "Legend"), Map.entry(2100, "Aran"));
 }
