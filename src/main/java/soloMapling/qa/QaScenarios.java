@@ -87,6 +87,7 @@ public final class QaScenarios {
         all.addAll(ConvoScenarios.all());     // ticket 59: natural conversations cv-1..cv-7
         all.addAll(PersonalSpaceScenarios.all()); // rc6: town bots never stand pixel to pixel (ps-1)
         all.addAll(V83Scenarios.all()); // ticket 69: ordinary v83 features a real player uses (vb-1..vb-7)
+        all.addAll(DojoScenarios.all());          // 1.5.5: party bots fight the Mu Lung Dojo floors (dj-1)
         all.addAll(PqScenarios.all());            // ticket 75: Amoria PQ for two players (pq-1); OPQ bots in the lobby (pq-2)
         all.addAll(FishingScenarios.all()); // 1.6.0 Life in town: timed fishing (fh-1, fh-2)
         all.addAll(BotLifeScenarios.all()); // 1.6.0 shadow policy, refusal safeguards, restock trips, profile round trip (bl-1..bl-4)
