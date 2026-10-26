@@ -7,7 +7,8 @@ No game password ever reaches the website, and this service never reads the game
 1. The login page calls POST /api/login/start. The service makes a short code (e.g. K7Q4ZP, 10 minutes) and sets a
    private "pending" cookie that only this browser has.
 2. The player types `@weblogin K7Q4ZP` in game. The game server writes an approval file to --approvals
-   (<CODE>.json: {"code", "account_id", "account", "character", "gm", "time"}).
+   (<CODE>.json: {"code", "account_id", "account", "character", "gm", "time"}, optionally "characters": the
+   account's characters on Bera, for the Buy/Sell board in market_service.py).
 3. The page polls GET /api/login/poll. When the approval for its code is there, the service deletes the file and sets
    a signed session cookie (30 days). The page then goes back to where the player was headed.
 4. nginx asks GET /api/auth/check (auth_request) before serving the friends-only sections: 204 when the session is
@@ -68,8 +69,15 @@ class Sessions:
 
     def issue(self, approval):
         t = int(self.now())
-        return self.sign({"a": int(approval["account_id"]), "n": str(approval.get("account", ""))[:32],
-                          "c": str(approval.get("character", ""))[:32], "iat": t, "exp": t + SESSION_TTL})
+        payload = {"a": int(approval["account_id"]), "n": str(approval.get("account", ""))[:32],
+                   "c": str(approval.get("character", ""))[:32], "iat": t, "exp": t + SESSION_TTL}
+        # the account's characters on Bera (the Buy/Sell board posts as one of them) and the GM flag, when sent
+        cs = approval.get("characters")
+        if isinstance(cs, list):
+            payload["cs"] = [str(c)[:13] for c in cs if isinstance(c, str) and c][:30]
+        if str(approval.get("gm", "0")).isdigit() and int(approval.get("gm", 0)) > 0:
+            payload["g"] = 1
+        return self.sign(payload)
 
     def revoked(self):
         if not self.revoked_file or not os.path.isfile(self.revoked_file):

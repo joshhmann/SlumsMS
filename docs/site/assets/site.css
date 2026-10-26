@@ -517,3 +517,39 @@ table.t { width: 100%; border-collapse: collapse; }
   .board.feed li { grid-template-columns: 82px minmax(0, 1fr); }
   .board.feed time { grid-column: 1 / -1; justify-self: start; }
 }
+
+/* ── Slums Market for signed-in players: board, watchlist, alerts (assets/market.js) ──────────── */
+.sb.b { color: var(--fix); background: var(--fix-bg); }
+.mkbadge[hidden] { display: none; }
+.mkbadge { display: inline-block; min-width: 1.4em; padding: 1px 6px; margin-left: 4px; border-radius: 999px; text-align: center;
+  font: 700 .7rem/1.4 var(--f-mono); color: var(--on-down); background: var(--down); }
+.mkrow { display: flex; flex-wrap: wrap; gap: 10px; margin-bottom: 12px; }
+.btn.small { padding: 4px 10px; font-size: .8rem; box-shadow: 2px 2px 0 var(--drop); }
+.mkform, .mkpost .in, .mkfilter { display: flex; flex-wrap: wrap; align-items: center; gap: 10px 14px; }
+.mkpost .in > .small, .mkpost .in > .status { flex-basis: 100%; margin: 0; }
+.mkform input, .mkform select, .mkpost input, .mkpost select, .mkfilter input, .mkfilter select {
+  font: inherit; font-size: .92rem; color: var(--ink); background: var(--bg); border: var(--border) solid var(--edge);
+  border-radius: 8px; padding: 6px 9px; min-width: 0; }
+.mkform input:focus, .mkpost input:focus, .mkpost select:focus, .mkfilter input:focus { outline: none; box-shadow: 3px 3px 0 var(--accent); }
+.mkpost label { display: grid; gap: 4px; font-size: .82rem; font-weight: 600; color: var(--muted); }
+.mkpost label.pick { position: relative; flex: 1 1 240px; }
+.mkpost input[name=qty] { width: 90px; } .mkpost input[name=price] { width: 150px; }
+.mkpost .seg { display: flex; gap: 12px; border: 0; padding: 0; margin: 0; }
+.mkpost .seg legend { font-size: .82rem; font-weight: 600; color: var(--muted); padding: 0; margin-bottom: 4px; }
+.mkpost .seg label { display: flex; gap: 6px; align-items: center; font-size: .92rem; color: var(--ink); }
+.mkpost .dbhits { position: absolute; top: 100%; left: 0; right: 0; z-index: 5; background: var(--surface);
+  border: var(--border) solid var(--edge); border-radius: 8px; box-shadow: 4px 4px 0 var(--drop); }
+.mkpost .dbhits:empty { display: none; }
+.mkpost .dbhits button { display: block; width: 100%; text-align: left; font: inherit; font-size: .9rem; color: var(--ink);
+  background: none; border: 0; border-bottom: 1px solid var(--hair); padding: 6px 10px; cursor: pointer; }
+.mkpost .dbhits button:hover { background: var(--surface-2); }
+.mkfilter { padding: 10px 16px; border-bottom: 1.5px solid var(--hair); }
+.mkfilter input { flex: 1 1 200px; }
+.mkmine { list-style: none; margin: 0; padding: 4px 0; }
+.mkmine li { display: flex; flex-wrap: wrap; align-items: center; gap: 6px 14px; padding: 8px 16px; border-top: 1.5px solid var(--hair); }
+.mkmine li:first-child { border-top: 0; }
+.mkmine li > a, .mkmine li > span:nth-child(2) { font-weight: 600; }
+.mkmine li .acts, .mkmine li > .btn { margin-left: auto; display: flex; gap: 6px; }
+.mkmine li.fired { background: var(--surface-2); box-shadow: inset 4px 0 0 var(--down); }
+.mkmine li.closed { opacity: .65; }
+.mkmine li.empty { color: var(--muted); }

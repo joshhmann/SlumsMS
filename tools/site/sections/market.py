@@ -296,9 +296,12 @@ class Market:
 
     def sidebar(self, root, here):
         links = [("index.html", "Market home", "index"), ("prices/index.html", "Price check", "prices"),
-                 ("listings.html", "FM now", "listings"), ("sales.html", "Recent sales", "sales"),
+                 ("listings.html", "FM now", "listings"), ("board.html", "Buy/Sell board", "board"),
+                 ("mine.html", "My market", "mine"), ("sales.html", "Recent sales", "sales"),
                  ("nx.html", "NX rate", "nx"), ("economy.html", "Economy", "economy")]
-        lis = "".join(f'<li><a href="{root}{MARKET}/{h}"{" aria-current=page" if k == here else ""}>{esc(t)}</a></li>'
+        # market.js fills the badge: alerts that fired since the player last looked
+        lis = "".join(f'<li><a href="{root}{MARKET}/{h}"{" aria-current=page" if k == here else ""}>{esc(t)}'
+                      + (' <span class="mkbadge" data-mk-badge hidden></span>' if k == "mine" else "") + '</a></li>'
                       for h, t, k in links)
         return (f'<nav class="panel dbside" aria-label="Market"><p class="bar">Slums Market</p><ul class="mk">{lis}</ul>'
                 f'<div class="in">{self.nx_card(root)}</div></nav>')
@@ -307,8 +310,8 @@ class Market:
         root = "../" * rel.count("/")
         banner = ('<p class="samplebar">Sample data: these prices, names and numbers are placeholders until the server '
                   'export is live.</p>') if self.m["sample"] else ""
-        html = (f'<div class="db market">{self.sidebar(root, here)}<div class="dbmain data">{banner}'
-                f'{body.replace("{root}", root)}</div></div>')
+        html = (f'<div class="db market" data-mk-root="{root}">{self.sidebar(root, here)}<div class="dbmain data">{banner}'
+                f'{body.replace("{root}", root)}</div></div><script src="{root}assets/market.js" defer></script>')
         write(self.out, rel, layout(title, html, root, "market", description))
 
 
@@ -360,6 +363,8 @@ def build_prices(mk):
                 f'<div><small>Low to high today</small><b>{rng}</b><span>what most paid</span></div>'
                 f'<div><small>{len(hist)}-day change</small><b>{change(st["first"], st["median"]) or "-"}</b><span>median vs {len(hist)} days ago</span></div>'
                 f'<div><small>Sold</small><b>{st["sold"]:,}</b><span>in {len(hist)} days</span></div></div>'
+                f'<section class="panel mkact" data-mk-item="{item_id}" hidden><h2 class="bar">Watch, alert, post</h2>'
+                f'<div class="in"></div></section>'
                 f'<section class="panel"><h2 class="bar">Price history <small>median per day; days under {MIN_SAMPLES} sales are left out</small></h2>'
                 f'<div class="in">{area_chart(pts, f"Median price of {name} per day")}</div></section>'
                 + (f'<section class="panel"><h2 class="bar">FM now <small>cheapest first; whisper or visit to buy</small></h2><div class="tbl"><table class="t">'
@@ -454,6 +459,58 @@ def build_home(mk, priced, econ):
     mk.page(f"{MARKET}/index.html", "Slums Market", body, "index", "Prices, FM shops and the NX rate on SlumsMS.")
 
 
+def build_board(mk):
+    """The Buy/Sell board and My market: static shells that market.js fills from the market service."""
+    signedout = ('<p class="samplebar" id="mk-signedout" hidden>The board, watchlist and alerts need the market service, '
+                 'which isn\'t answering. Try again in a bit.</p>'
+                 '<noscript><p class="small">The board, watchlist and alerts need JavaScript turned on.</p></noscript>')
+    body = ('<h1>Buy/Sell board</h1><p class="lede">Post what you want to buy or sell, as one of your characters. Posts '
+            'also show on the board NPC at the FM entrance, and bots that have the item (or the mesos) may answer with '
+            'an offer by whisper or note. Then trade in the FM as usual: nothing on this site moves items or mesos.</p>'
+            f'{signedout}'
+            '<form class="panel mkpost" id="post" hidden><h2 class="bar">New post <small id="mk-posts-n"></small></h2><div class="in">'
+            '<fieldset class="seg"><legend>I want to</legend><label><input type="radio" name="kind" value="WTB" checked> buy (WTB)</label>'
+            '<label><input type="radio" name="kind" value="WTS"> sell (WTS)</label></fieldset>'
+            '<label class="pick">Item <input name="item" type="search" autocomplete="off" placeholder="type a name" required></label>'
+            '<label>How many <input name="qty" type="number" min="1" step="1" value="1" required></label>'
+            '<label>Price each (mesos) <input name="price" type="number" min="1" step="1" required></label>'
+            '<label>Post as <select name="character"></select></label>'
+            '<button class="btn primary" type="submit">Post</button>'
+            '<p class="small">Up to 5 open posts per account. A post lasts 3 days; take it down any time below.</p>'
+            '<p class="status" id="mk-status" role="status" aria-live="polite"></p></div></form>'
+            '<section class="panel"><h2 class="bar">Your posts</h2><ul class="mkmine" id="mk-posts"></ul></section>'
+            '<section class="panel"><h2 class="bar">The board <small id="mk-board-n"></small></h2>'
+            '<form class="mkfilter" id="mk-filter" role="search"><select name="kind" aria-label="Kind"><option value="">All posts</option>'
+            '<option value="WTB">Buying (B&gt;)</option><option value="WTS">Selling (S&gt;)</option></select>'
+            '<input name="q" type="search" placeholder="Item or character" aria-label="Filter"></form>'
+            '<div class="tbl"><table class="t"><thead><tr><th></th><th>Item</th><th class="r">Price each</th>'
+            '<th class="r">Median</th><th class="r">Qty</th><th>Who</th><th>Ends</th></tr></thead>'
+            '<tbody id="mk-board"></tbody></table></div>'
+            '<p class="empty" id="mk-board-empty" style="padding:12px 16px">No posts yet.</p></section>')
+    mk.page(f"{MARKET}/board.html", "Buy/Sell board", body, "board", "WTB and WTS posts from players on SlumsMS.")
+    body = ('<h1>My market</h1><p class="id" id="mk-who"></p>'
+            f'{signedout}'
+            '<div id="mk-mine" hidden>'
+            '<p class="status" id="mk-status" role="status" aria-live="polite"></p>'
+            '<section class="panel"><h2 class="bar">Watchlist <small id="mk-watch-n"></small></h2><ul class="mkmine" id="mk-watch"></ul></section>'
+            '<section class="panel"><h2 class="bar">Price alerts <small id="mk-alerts-n"></small></h2>'
+            '<p class="small" style="padding:8px 16px 0;margin:0">An alert fires once, when a sale goes below or above your '
+            'price. You get an in-game note (a yellow line if you\'re online) and a badge here. Re-arm it to watch again.</p>'
+            '<ul class="mkmine" id="mk-alerts"></ul></section>'
+            '<section class="panel"><h2 class="bar">Your posts <a href="{root}market/board.html">Board &raquo;</a></h2>'
+            '<ul class="mkmine" id="mk-posts"></ul></section></div>')
+    mk.page(f"{MARKET}/mine.html", "My market", body, "mine", "Your watchlist, price alerts and posts.")
+
+
+def write_summary(mk, priced):
+    """market/summary.json for market.js: name, median and change of every priced item."""
+    data = {str(i): {"n": mk.name(i), "m": st["median"],
+                     "c": round((st["median"] - st["first"]) / st["first"] * 100, 1) if st["median"] and st["first"] else None}
+            for i, st in priced}
+    with open(os.path.join(mk.out, MARKET, "summary.json"), "w", encoding="utf-8") as f:
+        json.dump(data, f, separators=(",", ":"), sort_keys=True)
+
+
 def rail_lines(m, db, count=4):
     """A few megaphone-rail lines from the market: the NX rate and the latest sales."""
     out = []
@@ -480,4 +537,6 @@ def build(out, db, data_dir=None, site_root=None):
     priced = build_prices(mk)
     econ = build_lists(mk, priced)
     build_home(mk, priced, econ)
+    build_board(mk)
+    write_summary(mk, priced)
     return {"priced": len(priced), "listings": len(m["listings"]["listings"]), "sample": m["sample"]}

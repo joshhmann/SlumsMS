@@ -57,6 +57,12 @@ Follow `docs/site/LOGIN.md`, "Install on 164": user and group `slums-login`, `/v
 `slums-login.service`. Check: `curl -s http://127.0.0.1:8094/api/login/health` gives `{"ok": true}`.
 Undo: `systemctl disable --now slums-login`.
 
+### 2b. Install the market service (watchlist, alerts, Buy/Sell board; not reachable from outside yet)
+After step 2 and after `deploy-build-164.sh` (step 6) has put `tools/site` in `/opt/slums-site-build`: follow
+`docs/site/LOGIN.md`, "The market service". Check: `curl -s http://127.0.0.1:8095/api/market/health` gives
+`{"ok": true}`, and `/var/lib/slums-market/inbox/posts.json` appears (empty list).
+Undo: `systemctl disable --now slums-market`.
+
 ## 3. Turn on `@weblogin` on live (part of the 1.6.0 deploy)
 Live starts with `-Dslums.weblogin.dir=/var/lib/slums-login/approvals` (TEST never sets it, so TEST accounts can
 never sign anyone in). The game server's user joins group `slums-login`. Check: in game, `@weblogin ABCDEF` replies
@@ -79,7 +85,8 @@ rsync -a --delete --exclude market/ --exclude world/ dist/site-private/ root@192
 rsync -a dist/site-private/market/ root@192.168.0.164:/srv/slums-site/market/    # the first time only
 ```
 `--exclude market/ --exclude world/` because step 6 keeps those two fresh on 164.
-Check: signed out, `/database/` and `/market/` redirect to `/login/`; signed in through `@weblogin`, they open.
+Check: signed out, `/database/` and `/market/` redirect to `/login/`; signed in through `@weblogin`, they open, and
+on a price page "Watch" works; a test post on the Buy/Sell board shows on the board NPC at the FM entrance.
 **From now on every publish from 187 uses `--private --world` and `--exclude market/ --exclude world/`** (DEPLOY.md
 says so too).
 

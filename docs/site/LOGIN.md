@@ -50,12 +50,38 @@ curl -s http://127.0.0.1:8094/api/login/health        # {"ok": true}
 Add the game server's user to the `slums-login` group. Then add `tools/site/slums-login.nginx.conf` inside the site's
 nginx server block, `nginx -t && systemctl reload nginx`, and publish the private build (`dist/site-private`).
 
+## The market service (watchlist, alerts, Buy/Sell board)
+
+`tools/site/market_service.py` (127.0.0.1:8095) checks the same session cookie with the same key (read only) and
+keeps its own store in `/var/lib/slums-market/market.db`. It talks to the game server only through files: it writes
+`/var/lib/slums-market/inbox/{posts,alerts}.json` and reads `Server/data/site-outbox/` (board, fired alerts, rejected
+and removed posts). Nothing on the site moves items or mesos. Limits per account: 20 watched items, 10 alerts, 5 open
+posts (3 days each), 30 changes a minute. Writes need a JSON body and the header `X-Slums: 1`, and a browser Origin
+must match the Host, so another website can't post for a signed-in player.
+
+For the board, the sign-in approval may carry `"characters": [...]` (the account's characters on Bera) so a post can
+be made as any of them; without it, a post is made as the character that typed `@weblogin`. `"gm" > 0` lets that
+session take down any post.
+
+```
+useradd --system --no-create-home --shell /usr/sbin/nologin -G slums-login slums-market
+install -d -o slums-market -g slums-market -m 2750 /var/lib/slums-market /var/lib/slums-market/inbox
+install -m 0644 tools/site/slums-market.service /etc/systemd/system/ && systemctl daemon-reload
+systemctl enable --now slums-market
+curl -s http://127.0.0.1:8095/api/market/health       # {"ok": true}
+```
+The game server's user joins group `slums-market` (to read the inbox) and starts with the inbox and outbox paths
+(the server side's flags are in the "Site board contract", docs/design/track-d-plan.md). The nginx snippet already
+routes `/api/market/`.
+
 ## Safety notes
 - The key never leaves 164. Never print it, copy it or commit it. Changing it signs everyone out.
 - Codes are 6 characters from a 32-letter set (about 1 billion codes) and live for 10 minutes; the game command is
   rate-limited. Brute force is not a practical risk.
 - Code phishing: if someone gets a friend to type *their* code, that person's browser is signed in as the friend.
-  The sign-in only opens read-only pages (database, market), so the harm is small. The page says to only type a
-  code you got yourself.
+  Since 1.6.0 that is more than reading pages: they could post on the Buy/Sell board under the friend's IGN, or
+  change the friend's watchlist and alerts. Nothing can move items or mesos, the game checks every post, and the
+  friend can take a post down, or a GM can; banning or listing the account in `revoked.txt` signs the browser out.
+  The page says to only type a code you got yourself.
 - The service listens on 127.0.0.1 only, logs only the method and path (no addresses or cookies), and answers
   nothing but the endpoints above.
