@@ -416,3 +416,164 @@ Drama:
     text:
       - "{RIVAL} were holding us back anyway"
       - "alliance with {RIVAL} is done. dont ask"
+  # ---- 1.6.0 S7 "Beef": friendly teasing (open to everyone, keyed to closeness) ----
+  # Mild = a stranger or someone the bot barely knows: ribbing at most. Friend = a friend of the bot: more.
+  TeaseDeathMild:
+    text:
+      - "rip"
+      - "f in chat"
+      - "oof that looked like it hurt"
+      - "rip lol, pots exist"
+      - "gg go next"
+  TeaseDeathFriend:
+    text:
+      - "{PLAYER} died AGAIN lmao"
+      - "{PLAYER} how do u die here lol"
+      - "rip {PLAYER}, ill tell ur story"
+      - "{PLAYER} pots are like 50 mesos bro"
+      - "{PLAYER} thats ur {COUNT} death today lol"
+      - "lol {PLAYER} the mobs said no"
+  TeaseBoomMild:
+    text:
+      - "rip ur item"
+      - "ouch, that scroll"
+      - "f for the item"
+      - "boom lol. rip"
+  TeaseBoomFriend:
+    text:
+      - "{PLAYER} LOL it went boom"
+      - "{PLAYER} rip {ITEM}, gone forever"
+      - "{PLAYER} told u 30%s hate u"
+      - "{PLAYER} f for ur {ITEM} lmao"
+      - "{PLAYER} the scroll gods said no"
+  TeaseSlowLevel:
+    text:
+      - "{PLAYER} still {LEVEL}? lol"
+      - "{PLAYER} u were {LEVEL} last time i saw u too"
+      - "{PLAYER} lv {LEVEL} forever huh"
+      - "{PLAYER} grind harder lol still {LEVEL}"
+  TeaseWeaponMild:
+    text:
+      - "nice {WEAPON} lol, classic"
+      - "{WEAPON} still? respect"
+      - "vintage {WEAPON} i see"
+  TeaseWeaponFriend:
+    text:
+      - "{PLAYER} {WEAPON} at lv {LEVEL}?? upgrade lol"
+      - "{PLAYER} that {WEAPON} is older than me"
+      - "{PLAYER} retire the {WEAPON} already"
+      - "{PLAYER} lv {LEVEL} with a {WEAPON} lmao"
+  TeaseBotBoom:
+    text:
+      - "{OTHER} LOL boom"
+      - "rip ur stuff {OTHER}"
+      - "{OTHER} f lmao"
+      - "{OTHER} shouldve used a white scroll"
+  # ---- 1.6.0 S7 "Beef": rivalry between two characters, trash talk about the game only ----
+  BeefOpenKs:
+    text:
+      - "{OTHER} ksed me {COUNT} times, still waiting on a sorry"
+      - "oh look its {OTHER}, the ks king"
+      - "{OTHER} u gonna ks me again today?"
+      - "watch ur mobs, {OTHER} is here"
+  BeefOpen:
+    text:
+      - "{OTHER} u again? ugh"
+      - "{OTHER} still mad about earlier lol"
+      - "not u {OTHER}. find ur own map"
+      - "{OTHER} my damage is double urs btw"
+  BeefOpenNemesis:
+    text:
+      - "{OTHER}. we are NOT cool"
+      - "dont even talk to me {OTHER}"
+      - "{OTHER} worst player on this channel fr"
+  BeefReply:
+    text:
+      - "lol cry about it {OTHER}"
+      - "{OTHER} its a free game, mobs r for everyone"
+      - "ok {OTHER}, nice gear btw (not)"
+      - "whatever {OTHER}, ill outlevel u anyway"
+      - "{OTHER} go back to henesys"
+      - "nobody asked {OTHER}"
+  KsSpatVictim:
+    text:
+      - "{OTHER} thats my mob"
+      - "ks much {OTHER}?"
+      - "{OTHER} wow, ks"
+      - "{OTHER} find ur own spawn"
+  KsSpatRival:
+    text:
+      - "lol cry {OTHER}"
+      - "first come first serve {OTHER}"
+      - "too slow {OTHER}"
+  KsSpatSorry:
+    text:
+      - "oh sry"
+      - "my bad"
+      - "oops sry {OTHER}"
+  # ---- 1.6.0 S7 "Beef": rage-quit and return after a boomed scroll ----
+  RageQuit:
+    text:
+      - "im done with this game"
+      - "f this"
+      - "{ITEM} boomed. im out"
+      - "nope. logging"
+      - "thats it, im quitting"
+      - "there goes my {ITEM}. bye"
+  RageReturn:
+    text:
+      - "im back lol"
+      - "ok im back, i cant quit"
+      - "back. dont say anything"
+      - "who missed me lol"
+      - "ok that was dramatic. im back"
+  # ---- 1.6.0 S7: what friends say about each other's drama (thread openers) ----
+  NewsRageQuit:
+    text:
+      - "{OTHER} rage quit after a boom lol"
+      - "did u see {OTHER} boom and log lmao"
+      - "{OTHER} said hes done with the game again lol"
+  NewsBack:
+    text:
+      - "{OTHER} came back already lol"
+      - "{OTHER} quit for like 3 hours lmao"
+  NewsTurned:
+    text:
+      - "{OTHER} changed man"
+      - "whats up with {OTHER} lately, always ksing"
+      - "{OTHER} used to be chill"
+  NewsRedeemed:
+    text:
+      - "{OTHER} is actually chill now"
+      - "{OTHER} said sorry to like everyone lol"
+      - "{OTHER} isnt ksing anymore, crazy"
+  NewsBreakup:
+    text:
+      - "{OTHER} got dumped lol"
+      - "did u hear {OTHER} broke up"
+  VillainNotice:
+    text:
+      - "{OTHER} u changed man"
+      - "{OTHER} whats gotten into u lately"
+      - "{OTHER} since when do u ks ppl"
+  RedeemedNotice:
+    text:
+      - "{OTHER} ur being nice today? lol"
+      - "good to have u back {OTHER}"
+  # ---- 1.6.0 S7: guild fights from a feud between two members (bot guild chat) ----
+  GuildFeudSpat:
+    text:
+      - "{OTHER} keeps ksing me in our own guild"
+      - "can someone tell {OTHER} to stop"
+      - "{OTHER} ur so annoying today"
+      - "me and {OTHER} r not ok rn"
+  GuildFeudReply:
+    text:
+      - "lol relax"
+      - "u started it"
+      - "whatever"
+  GuildFeudLeave:
+    text:
+      - "cant be in a guild with {OTHER}. bye"
+      - "im out. {OTHER} can have the guild"
+      - "leaving. {OTHER} knows why"

@@ -364,7 +364,9 @@ public final class BotBonds {
         if (victim == null || !victim.isAlive() || sameParty(bot, victim)) {
             return;
         }
-        record(victimId, bot.getId(), BondEvent.KS, now, false);
+        if (record(victimId, bot.getId(), BondEvent.KS, now, false)) {
+            soloMapling.ArtificialPlayer.BotDramaSystem.BotDrama.onBotKs(victim, bot); // 1.6.0 S7: a KS spat
+        }
     }
 
     private static boolean sameParty(Character a, Character b) {

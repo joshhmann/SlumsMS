@@ -45,6 +45,7 @@ public interface SocialGateStore {
         private static final Logger log = LoggerFactory.getLogger(Jdbc.class);
 
         static final String OPTS = "SELECT CharacterId, QuietMegaphones, QuietBots, RomanceOff FROM botsocialopt";
+        // the ledger's beef weight lives in the 031 columns Spice / SpiceAt (named before the owner's "Beef" rename)
         static final String LEDGER = "SELECT CharacterId, BotId, Spice, SpiceAt, Flirt, FlirtAt, LastKind FROM botstartedit";
         static final String PRUNE = "DELETE FROM botstartedit WHERE SpiceAt < ? AND FlirtAt < ?";
         static final String OPT_UPSERT = "INSERT INTO botsocialopt (CharacterId, QuietMegaphones, QuietBots, RomanceOff,"
@@ -122,8 +123,8 @@ public interface SocialGateStore {
             try (Connection con = BotDbGate.connection(); PreparedStatement ps = con.prepareStatement(LEDGER_UPSERT)) {
                 ps.setInt(1, row.playerId());
                 ps.setInt(2, row.botId());
-                ps.setFloat(3, (float) row.spice());
-                ps.setLong(4, row.spiceAt());
+                ps.setFloat(3, (float) row.beef());
+                ps.setLong(4, row.beefAt());
                 ps.setFloat(5, (float) row.flirt());
                 ps.setLong(6, row.flirtAt());
                 String kind = row.lastKind() == null ? "" : row.lastKind();
@@ -161,7 +162,7 @@ public interface SocialGateStore {
             if (failing) {
                 return null;
             }
-            ledger.values().removeIf(r -> r.spiceAt() < fadedBefore && r.flirtAt() < fadedBefore);
+            ledger.values().removeIf(r -> r.beefAt() < fadedBefore && r.flirtAt() < fadedBefore);
             return new Snapshot(List.copyOf(opts.values()), List.copyOf(ledger.values()), false);
         }
 

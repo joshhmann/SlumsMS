@@ -16,7 +16,7 @@ import static org.mockito.Mockito.mock;
 import static org.mockito.Mockito.when;
 
 /**
- * 1.6.0 S5 through the affinity reactions: a rival only spices back at a player who started it with it; the player's
+ * 1.6.0 S5 through the affinity reactions: a rival only starts beef with a player who started it with it; the player's
  * own KS or rude line starts it; a staged grudge counts; a flirty line records the flirt-first unlock.
  */
 class SocialGateAffinityTest {
@@ -52,7 +52,7 @@ class SocialGateAffinityTest {
         SocialGate.forget(BOT, PLAYER); // a rival from somewhere else (gossip, an old tie): the player started nothing
         long now = System.currentTimeMillis();
         assertNull(AffinityReactions.pickHostile(mock(BotSM.class), bot, player, AffinityState.RIVAL, now),
-                "no spice until the player started it");
+                "no beef until the player started it");
 
         assertTrue(BotAffinity.record(BOT, PLAYER, AffinityEvent.KS, AffinityEvent.KS.delta(), "p", "b", 0));
         assertTrue(SocialGate.startedIt(BOT, PLAYER), "the player's KS started it");

@@ -39,12 +39,16 @@ import static soloMapling.ArtificialPlayer.BotCommandsPack.SocialCommands.BotSpe
 import static soloMapling.ArtificialPlayer.BotMovementSystem.MovementCommands.botSitChair;
 
 /**
- * Ticket 58, 1.5.0: bot couples. Rare - at most {@code maxCouples} (4) pairs in the world - and only bot with bot:
- * bots never court players.
+ * Ticket 58, 1.5.0: bot couples. Rare - at most {@link #maxCouples} pairs in the world (1.6.0 S7: about one per 150
+ * roster bots, ~20 at 3,000; 1.5.x: 4) - and only bot with bot: bots never court players.
  *
- * <p><b>How a couple forms.</b> About twice a day the world rolls once: two roster bots (training or social, level 15+,
- * a man and a woman, within 20 levels) standing on the same map may get together. They stay together across restarts
- * ({@code botcouple}, migration 012).
+ * <p><b>How a couple forms.</b> 1.6.0 S7: a crush comes first ({@link BotCrushes}). Every
+ * {@code coupleEveryHours} (3) the world rolls once ({@code formChance} 0.5): a ripe crush (12 h old, returned as
+ * friendship) becomes a couple; with none ripe, two roster bots (training or social, level 15+, within 20 levels)
+ * standing on the same map start a crush instead. Couples stay together across restarts ({@code botcouple}, migration
+ * 012). <b>Drama:</b> a partner gets jealous of a bot with a crush on its partner standing close (a line, a spat on their
+ * bond), sometimes the two fight over it, and a dating couple whose bond turned rival breaks up (a line and a
+ * megaphone through the gate, at most {@link #BREAKUPS_PER_DAY} a day world-wide).
  *
  * <p><b>What a couple does</b> while both are online, checked once a minute (only couples, so a handful of bots): the
  * second one hops to the first one's channel; they party (bots only - never pulling a bot out of a real player's
@@ -111,7 +115,7 @@ public final class BotCouples {
     }
 
     /** A bot that could start dating: what the pairing rule needs to know. */
-    record Candidate(int charId, int gender, int level, int channel, int mapId) {
+    record Candidate(int charId, int gender, int level, int channel, int mapId) { // BotCrushes builds them too
     }
 
     /** Couple chairs a v83 client knows (BotCustomization's chair list): Amorian Loveseat and the two cake chairs. */
@@ -158,8 +162,35 @@ public final class BotCouples {
         return !"false".equalsIgnoreCase(System.getProperty("solomapling.couples.enabled", "true"));
     }
 
+    /** Bots per couple slot (owner, 1.6.0 audit follow-up): about 1 couple per 150 bots, ~20 at 3,000. */
+    static final int BOTS_PER_COUPLE = 150;
+
+    /**
+     * The world's couple cap: {@code solomapling.couples.maxCouples} when set, else one per {@link #BOTS_PER_COUPLE}
+     * roster bots, never under the old 4 (1.6.0 S7; 1.5.x: 4).
+     */
     static int maxCouples() {
-        return (int) prop("maxCouples", 4);
+        String set = System.getProperty("solomapling.couples.maxCouples");
+        if (set != null) {
+            return (int) prop("maxCouples", 4);
+        }
+        return capFor(rosterSize.getAsInt());
+    }
+
+    /** The couple cap now (GM / QA). */
+    public static int coupleCap() {
+        return maxCouples();
+    }
+
+    /** The default cap for a roster of {@code bots}: max(4, round(bots / 150)). */
+    static int capFor(int bots) {
+        return Math.max(4, Math.round(bots / (float) BOTS_PER_COUPLE));
+    }
+
+    private static volatile java.util.function.IntSupplier rosterSize = BotCouples::loadedRosterSize;
+
+    private static int loadedRosterSize() {
+        return BotRoster.loadedCount(); // memory only: 0 (the old cap of 4) until the roster is read
     }
 
     static long hours(String key, double fallback) {
@@ -402,8 +433,12 @@ public final class BotCouples {
         if (!loaded) {
             return;
         }
+        BotCrushes.step(now, rng); // 1.6.0 S7: crushes come before couples
         maybeForm(now, rng);
         for (Couple c : all()) {
+            if (soured(c) && breakupDrama(c, now) != null) {
+                continue; // 1.6.0 S7: a soured dating couple broke up
+            }
             Character a = online.apply(c.charA());
             Character b = online.apply(c.charB());
             if (a != null && b != null) {
@@ -483,7 +518,7 @@ public final class BotCouples {
     private static void maybeForm(long now, Random rng) {
         long couplesNow = couples.values().stream().filter(c -> !c.staged() && c.stage().couple()).count();
         long friendsNow = couples.values().stream().filter(c -> !c.staged() && !c.stage().couple()).count();
-        boolean coupleRoll = couplesNow < maxCouples() && now - lastFormRollAt >= hours("formEveryHours", 12);
+        boolean coupleRoll = couplesNow < maxCouples() && now - lastFormRollAt >= hours("coupleEveryHours", 3);
         boolean friendRoll = friendsNow < maxFriendships() && now - lastFriendRollAt >= hours("formEveryHours", 12);
         if (coupleRoll) {
             lastFormRollAt = now;
@@ -494,7 +529,7 @@ public final class BotCouples {
             friendRoll = rng.nextDouble() < prop("formChance", 0.5);
         }
         if (coupleRoll) {
-            formFromOnline(Stage.DATING, now, rng);
+            formFromCrush(now, rng);
         }
         if (friendRoll) {
             formFromOnline(Stage.FRIENDS, now, rng);
@@ -533,6 +568,155 @@ public final class BotCouples {
         }
     }
 
+    /**
+     * 1.6.0 S7: a ripe crush becomes a couple; with none ripe, two single bots standing together start a crush (every
+     * couple passes through one).
+     */
+    private static void formFromCrush(long now, Random rng) {
+        BotCrushes.Crush ripe = BotCrushes.ripeOnline(now);
+        if (ripe != null) {
+            formCrush(ripe, now);
+            return;
+        }
+        if (!BotCrushes.enabled()) {
+            formFromOnline(Stage.DATING, now, rng);
+            return;
+        }
+        Candidate[] pair = pickPair(onlineCandidates(), taken(), rng);
+        if (pair != null) {
+            BotCrushes.start(pair[0].charId(), pair[1].charId(), false, now);
+        }
+    }
+
+    /** A crush becomes a couple now (both online): the admirer says so. Null when it could not form. */
+    static Couple formCrush(BotCrushes.Crush crush, long now) {
+        Couple c = form(crush.admirer(), crush.target(), Stage.DATING, crush.staged(), now);
+        if (c == null) {
+            return null;
+        }
+        BotCrushes.end(crush.admirer(), "together");
+        BotCrushes.end(crush.target(), "together");
+        Character a = online.apply(crush.admirer());
+        Character b = online.apply(crush.target());
+        if (a != null && b != null) {
+            say(a, "Formed", b.getName());
+        }
+        qa("CRUSH TO COUPLE #" + c.id() + ": " + BotCrushes.name(crush.admirer()) + " + " + BotCrushes.name(crush.target()));
+        return c;
+    }
+
+    private static Set<Integer> taken() {
+        Set<Integer> taken = new HashSet<>();
+        for (Couple c : couples.values()) {
+            taken.add(c.charA());
+            taken.add(c.charB());
+        }
+        for (BotCrushes.Crush c : BotCrushes.all()) {
+            taken.add(c.admirer());
+        }
+        return taken;
+    }
+
+    private static List<Candidate> onlineCandidates() {
+        List<Candidate> candidates = new ArrayList<>();
+        for (BotSM sm : CharacterStorage.getAllBots().values()) {
+            Character chr = sm.getChr();
+            if (chr == null || chr.getMap() == null || !(sm instanceof TrainingBot || sm instanceof SocialBot)
+                    || BotRoster.loadedMember(chr.getId() - BotStore.BOT_ID_BASE) == null || withRealPlayer(chr)
+                    || soloMapling.ArtificialPlayer.BotDramaSystem.BotRomance.ofBot(chr.getId()) != null) {
+                continue;
+            }
+            candidates.add(new Candidate(chr.getId(), chr.getGender(), chr.getLevel(), channelOf(chr), chr.getMapId()));
+        }
+        return candidates;
+    }
+
+    // ── 1.6.0 S7: jealousy and breakups ──
+
+    static final int BREAKUPS_PER_DAY = 1;
+    static final long JEALOUS_GAP_MS = TimeUnit.MINUTES.toMillis(20);
+    static final double FIGHT_CHANCE = 0.15;
+    private static final Map<Long, Integer> breakupsByDay = new ConcurrentHashMap<>();
+    /** The breakup megaphone through the shared gate (a seam for tests). */
+    private static volatile java.util.function.BiPredicate<Character, String> breakupMegaphone = (speaker, other) ->
+            WorldEventMegaphones.getInstance().offerEvent(speaker, "DramaCoupleBreakup", Map.of("OTHER", other),
+                    "couple:breakup:" + speaker.getId() + ":" + other);
+
+    /**
+     * A partner sees a bot with a crush on its partner standing close: a jealous line at it and a spat on their bond;
+     * now and then the couple fights about it (a spat both ways). What happened, or null.
+     */
+    static String jealousy(Couple c, Character a, Character b, long now, Random rng, boolean qaPair) {
+        if (!c.stage().couple()) {
+            return null;
+        }
+        for (Character[] pr : new Character[][]{{a, b}, {b, a}}) {
+            Character partner = pr[0];
+            Character loved = pr[1];
+            for (int admirer : BotCrushes.admirersOf(loved.getId())) {
+                Character other = online.apply(admirer);
+                if (other == null || other.getMap() != loved.getMap() || other.getPosition() == null
+                        || loved.getPosition() == null || other.getPosition().distance(loved.getPosition()) > 150
+                        || !take("jealous:" + c.id(), now, qaPair ? 30_000 : JEALOUS_GAP_MS)) {
+                    continue;
+                }
+                String line = BotCrushes.say(partner, "CoupleJealous", loved.getName(), other.getName());
+                soloMapling.ArtificialPlayer.BotAffinitySystem.BotBonds.record(partner.getId(), admirer,
+                        soloMapling.ArtificialPlayer.BotAffinitySystem.BondEvent.SPAT, now, false);
+                String out = "COUPLE JEALOUS " + partner.getName() + " at " + other.getName() + " (likes "
+                        + loved.getName() + "): " + line;
+                if (rng.nextDouble() < FIGHT_CHANCE) {
+                    String fight = BotCrushes.say(partner, "CoupleFight", loved.getName(), other.getName());
+                    soloMapling.ArtificialPlayer.BotAffinitySystem.BotBonds.together(partner.getId(), loved.getId(),
+                            soloMapling.ArtificialPlayer.BotAffinitySystem.BondEvent.SPAT);
+                    out += "; FIGHT " + partner.getName() + " -> " + loved.getName() + ": " + fight;
+                }
+                qa(out);
+                return out;
+            }
+        }
+        return null;
+    }
+
+    /** Whether a dating couple's bond has turned rival (either way): it breaks up. */
+    static boolean soured(Couple c) {
+        return c.stage() == Stage.DATING
+                && (soloMapling.ArtificialPlayer.BotAffinitySystem.BotBonds.state(c.charA(), c.charB()).hostile()
+                || soloMapling.ArtificialPlayer.BotAffinitySystem.BotBonds.state(c.charB(), c.charA()).hostile());
+    }
+
+    /**
+     * A soured dating couple breaks up (one of them online says it, and a megaphone through the gate), at most
+     * {@link #BREAKUPS_PER_DAY} a day world-wide unless staged. What happened, or null.
+     */
+    static String breakupDrama(Couple c, long now) {
+        Character a = online.apply(c.charA());
+        Character b = online.apply(c.charB());
+        Character speaker = a != null ? a : b;
+        if (speaker == null) {
+            return null;
+        }
+        long day = Math.floorDiv(now, TimeUnit.DAYS.toMillis(1));
+        if (!c.staged() && breakupsByDay.getOrDefault(day, 0) >= BREAKUPS_PER_DAY) {
+            return null;
+        }
+        breakupsByDay.merge(day, 1, Integer::sum);
+        breakupsByDay.keySet().removeIf(d -> d < day - 1);
+        int otherId = speaker == a ? c.charB() : c.charA();
+        String otherName = BotCrushes.name(otherId);
+        String line = BotCrushes.say(speaker, "CoupleBreakup", otherName, null);
+        boolean mega = breakupMegaphone.test(speaker, otherName);
+        breakUp(c.id());
+        soloMapling.ArtificialPlayer.BotDramaSystem.DramaNews.add(
+                soloMapling.ArtificialPlayer.BotDramaSystem.DramaNews.Kind.BREAKUP, otherId, otherName,
+                speaker.getName(), now);
+        String out = "COUPLE BREAKUP " + speaker.getName() + " + " + otherName + ": " + line + " (megaphone "
+                + (mega ? "queued" : "gated") + ")";
+        qa(out);
+        log.info("Bot couple #{} broke up: {}", c.id(), out);
+        return out;
+    }
+
     /** What a couple does this minute; both are online. */
     static void behave(Couple c, Character a, Character b, long now, Random rng) {
         if (c.stage() != Stage.DATING) { // married couples wear wedding rings, best friends friendship rings
@@ -566,6 +750,7 @@ public final class BotCouples {
             }
             if (c.stage().couple()) {
                 maybeSit(c, a, b, now, rng, qaPair);
+                jealousy(c, a, b, now, rng, qaPair); // 1.6.0 S7
             }
         }
         if (c.stage().couple() && noteDue(c, now) && rng.nextDouble() < 0.05) {
@@ -969,6 +1154,11 @@ public final class BotCouples {
         weddingFree = test != null ? test : BotCouples::freeForWedding;
     }
 
+    /** Tests: the roster size the default couple cap is computed from (null: the real roster). */
+    static void useRosterSizeForTest(java.util.function.IntSupplier test) {
+        rosterSize = test != null ? test : BotCouples::loadedRosterSize;
+    }
+
     /** Tests: a store and an online lookup (nulls restore the real ones); forgets every couple and timer. */
     static void useForTest(CoupleStore testStore, IntFunction<Character> testOnline) {
         store = testStore != null ? testStore : new CoupleStore.Jdbc();
@@ -983,5 +1173,9 @@ public final class BotCouples {
         lastFormRollAt = 0;
         lastFriendRollAt = 0;
         lastWeddingAt = 0;
+        breakupsByDay.clear();
+        breakupMegaphone = testOnline != null ? (speaker, other) -> true : (speaker, other) ->
+                WorldEventMegaphones.getInstance().offerEvent(speaker, "DramaCoupleBreakup", Map.of("OTHER", other),
+                        "couple:breakup:" + speaker.getId() + ":" + other);
     }
 }

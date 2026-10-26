@@ -31,7 +31,7 @@ import java.util.function.Predicate;
  *
  * <h2>The owner's rules (1.6.0 social grill and audit follow-up)</h2>
  * <ol>
- *   <li><b>Started it.</b> Spice ({@link Tier#SPICE}: rivalry, trash talk, roasts, KS sprees and wars, call-outs,
+ *   <li><b>Started it.</b> Beef ({@link Tier#BEEF}: rivalry, trash talk, roasts, KS sprees and wars, call-outs,
  *   defames, revenge) toward a real player only after that player started it with that very bot: KS'd it, stole its
  *   drop, scammed it, roasted or insulted it, defamed it ({@link #playerStarted}). The ledger ({@link SocialLedger})
  *   halves every {@code solomapling.social.startedItHalfLifeDays} (14) days. Friendly teasing and banter
@@ -68,7 +68,7 @@ public final class SocialGate {
         /** Side-eye, gossip and light teasing about a wrong: the wronged bot, or its crew. */
         CREW,
         /** Rivalry and trash talk, KS, call-outs, defames, revenge: only the bot the player started it with. */
-        SPICE,
+        BEEF,
         /** Flirting: {@code @romance on}, or the player flirted with this bot first; never with {@code @romance off}. */
         ROMANCE
     }
@@ -91,13 +91,13 @@ public final class SocialGate {
         TEASE(Tier.TEASE, Channel.CHAT),
         SIDE_EYE(Tier.CREW, Channel.CHAT),
         GOSSIP(Tier.CREW, Channel.CHAT),
-        TAUNT(Tier.SPICE, Channel.CHAT),
-        ROAST(Tier.SPICE, Channel.CHAT),
-        KS_SPREE(Tier.SPICE, Channel.ACTION),
-        KS_WAR(Tier.SPICE, Channel.ACTION),
-        CALL_OUT(Tier.SPICE, Channel.MEGAPHONE),
-        DEFAME(Tier.SPICE, Channel.ACTION),
-        REVENGE(Tier.SPICE, Channel.ACTION),
+        TAUNT(Tier.BEEF, Channel.CHAT),
+        ROAST(Tier.BEEF, Channel.CHAT),
+        KS_SPREE(Tier.BEEF, Channel.ACTION),
+        KS_WAR(Tier.BEEF, Channel.ACTION),
+        CALL_OUT(Tier.BEEF, Channel.MEGAPHONE),
+        DEFAME(Tier.BEEF, Channel.ACTION),
+        REVENGE(Tier.BEEF, Channel.ACTION),
         FLIRT(Tier.ROMANCE, Channel.CHAT);
 
         public final Tier tier;
@@ -251,7 +251,7 @@ public final class SocialGate {
                 yield mate != 0 ? Verdict.yes("crew side-eye: they wronged crew mate " + mate)
                         : Verdict.no("they did not start it with this bot or its crew");
             }
-            case SPICE -> {
+            case BEEF -> {
                 if (!enabled()) {
                     yield Verdict.yes("gate rules off");
                 }
@@ -319,7 +319,7 @@ public final class SocialGate {
 
     // ── the started-it ledger ──
 
-    /** A real player provoked a bot (KS, stolen drop, scam, roast, defame, or a staged grudge): spice is allowed back. */
+    /** A real player provoked a bot (KS, stolen drop, scam, roast, defame, or a staged grudge): beef is allowed back. */
     public static void playerStarted(int botId, int playerId, Provocation what) {
         if (!BotHelpers.isArtificial(botId) || BotHelpers.isArtificial(playerId) || what == null) {
             return;
@@ -328,7 +328,7 @@ public final class SocialGate {
         persist(row);
         if (QaLog.on(QaLog.Topic.SOCIAL_GATE)) {
             QaLog.any(QaLog.Topic.SOCIAL_GATE, "STARTED " + what.key() + " player " + playerId + " -> bot " + botId
-                    + ": weight " + String.format(Locale.ROOT, "%.2f", row.spice()));
+                    + ": weight " + String.format(Locale.ROOT, "%.2f", row.beef()));
         }
     }
 
@@ -364,7 +364,7 @@ public final class SocialGate {
     }
 
     static boolean startedIt(int botId, int playerId, long now) {
-        return ledger.spice(botId, playerId, now, halfLifeMs()) >= SocialLedger.ACTIVE;
+        return ledger.beef(botId, playerId, now, halfLifeMs()) >= SocialLedger.ACTIVE;
     }
 
     public static boolean flirtedFirst(int botId, int playerId) {
@@ -545,6 +545,7 @@ public final class SocialGate {
      *   unsolicited whisper per player (all bots): one per 10 min -> one per 200 s
      *   bot buddy requests (BotBuddies): 1 a day -> 3 a day per player, 6 -> 18 an hour world-wide
      *   unprompted LLM lines (greet openers, model roasts): new, 30 an hour world-wide; over it they use the bank
+     *   friendly teases (S7): new, 30 min per pair, 40 an hour world-wide
      */
 
     /** Per-pair cooldown, in minutes. */
@@ -558,6 +559,7 @@ public final class SocialGate {
             case KS_SPREE -> 10; // owner: 10, not 3x
             case DEFAME -> 1440;
             case SIDE_EYE -> 60;
+            case TEASE -> 30; // 1.6.0 S7: one friendly tease per bot and player per half hour
             default -> 0;
         };
         return Long.getLong("solomapling.affinity." + legacyKey(a) + "Min", min);
@@ -570,6 +572,7 @@ public final class SocialGate {
             case KS_SPREE -> 30;
             case PARTY_INVITE -> 18;
             case SIDE_EYE -> 30;
+            case TEASE -> 40; // 1.6.0 S7
             default -> 1000;
         };
         return Integer.getInteger("solomapling.affinity." + legacyKey(a) + "PerHour", cap);
@@ -789,8 +792,8 @@ public final class SocialGate {
     public static String describe(int botId, int playerId) {
         long now = now();
         long h = halfLifeMs();
-        return String.format(Locale.ROOT, "started-it %.2f (%s), flirted-first %.2f; spice %s, flirt %s",
-                ledger.spice(botId, playerId, now, h), ledger.lastKind(botId, playerId).isEmpty() ? "-"
+        return String.format(Locale.ROOT, "started-it %.2f (%s), flirted-first %.2f; beef %s, flirt %s",
+                ledger.beef(botId, playerId, now, h), ledger.lastKind(botId, playerId).isEmpty() ? "-"
                         : ledger.lastKind(botId, playerId), ledger.flirt(botId, playerId, now, h),
                 rules(botId, playerId, Act.TAUNT).ok() ? "yes" : "no", rules(botId, playerId, Act.FLIRT).ok() ? "yes" : "no");
     }

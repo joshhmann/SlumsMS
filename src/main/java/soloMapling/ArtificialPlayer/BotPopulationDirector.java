@@ -398,6 +398,7 @@ public final class BotPopulationDirector {
 
     private static List<Candidate> candidates() {
         List<Candidate> roster = new ArrayList<>();
+        long now = System.currentTimeMillis();
         for (BotRoster.Member m : BotRoster.members()) {
             BotSM live = CharacterStorage.getBotById(m.charId());
             BotPersonality.Traits traits = m.traits();
@@ -407,7 +408,10 @@ public final class BotPopulationDirector {
             BotRoster.Activity last = m.lastActivity();
             boolean ended = last != null && last.intState(BotRoster.ENDED_STATE, 0) == 1;
             boolean online = live != null && !scheduledLogouts.contains(m.botId());
-            roster.add(new Candidate(m.botId(), online, m.status() == BotRoster.Status.ACTIVE, m.lastLoginAt(),
+            // 1.6.0 S7: a bot that rage quit stays away for its hours (RageQuit logs it back in itself)
+            boolean active = m.status() == BotRoster.Status.ACTIVE && (online
+                    || !soloMapling.ArtificialPlayer.BotDramaSystem.BotDrama.awayAfterRageQuit(m.charId(), now));
+            roster.add(new Candidate(m.botId(), online, active, m.lastLoginAt(),
                     m.lastLogoutAt(), windowStart, windowLen, session, online && mayLogOut(live), ended));
         }
         return roster;

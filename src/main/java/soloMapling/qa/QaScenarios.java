@@ -98,6 +98,7 @@ public final class QaScenarios {
         all.addAll(GossipScenarios.all()); // 1.6.0 S4 grounded gossip: a KS on a bot told by its crew mate (gs-1)
         all.addAll(InitiativeScenarios.all()); // 1.6.0 S6 initiative: login greet (in-1), follow-up (in-2), PQ invite (in-3)
         all.addAll(LearningScenarios.all()); // 1.6.0 S9 learning: KS turn a plastic Socializer toward Killer (lr-1)
+        all.addAll(BeefScenarios.all()); // 1.6.0 S7 Beef: bot rivalry thread (rv-5), rage quit (dr-6), crush (cr-1)
         return List.copyOf(all);
     }
 

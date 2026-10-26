@@ -25,7 +25,7 @@ import static soloMapling.qa.QaLog.Topic.SOCIAL_GATE;
 
 /**
  * 1.6.0 slice S5, the social gate: sg-1 ({@code @quiet bots} stops a friend bot's whispers, invites and buddy requests)
- * and sg-2 (a fresh player gets no spice from a rival until they KS or roast it). The gate logs every unprompted act
+ * and sg-2 (a fresh player gets no beef from a rival until they KS or roast it). The gate logs every unprompted act
  * as {@code SOCIAL_GATE YES|NO <act> <bot> -> <player>: <why>}.
  */
 final class SocialGateScenarios {
@@ -62,7 +62,7 @@ final class SocialGateScenarios {
                 BotNoiseFilter.set(now != null ? now.getId() : gm.getId(), was);
             });
             int id = stageBot(ctx, "friend", false);
-            // owner (S5 follow-up): quiet holds map-chat spice too - the friend may tease, so the hold is quiet's alone
+            // owner (S5 follow-up): quiet holds map-chat beef too - the friend may tease, so the hold is quiet's alone
             SocialGate.playerStarted(id, gm.getId(), SocialGate.Provocation.STAGED);
             tries.put(ctx.run().gmId(), new AtomicInteger());
             ctx.onStop("forget tries", () -> tries.remove(ctx.run().gmId()));
@@ -122,10 +122,10 @@ final class SocialGateScenarios {
         }
     }
 
-    /** sg-2: a rival bot and a GM who never provoked it: no spice until the GM KSes or roasts it. */
+    /** sg-2: a rival bot and a GM who never provoked it: no beef until the GM KSes or roasts it. */
     static final class Sg2StartedIt extends QaScenarios.AffinityScenario {
         public String id() { return "sg-2"; }
-        public String title() { return "Started it: a rival spices only after you KS or roast it (1.6.0)"; }
+        public String title() { return "Started it: a rival starts beef only after you KS or roast it (1.6.0)"; }
         public String usage() { return "; then !qa do check | taunt | ks | roast | fresh"; }
         @Override public Set<QaLog.Topic> topics() { return EnumSet.of(SOCIAL_GATE, AFFINITY, BOT_CHAT); }
 

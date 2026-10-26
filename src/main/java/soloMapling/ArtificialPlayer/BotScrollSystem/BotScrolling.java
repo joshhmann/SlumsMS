@@ -272,6 +272,9 @@ public final class BotScrolling {
             BotHoldings.destroyHeldItem(bot, equip);
             soloMapling.ArtificialPlayer.BotLifeSystem.LifeRuntime.event(bot,
                     soloMapling.ArtificialPlayer.BotLifeSystem.LifeMemory.Event.BOOM);
+            int boomed = equip.getItemId();
+            soloMapling.server.MapleRootSolo.runHook("beef boom", () -> // 1.6.0 S7: friends tease, maybe a rage quit
+                    soloMapling.ArtificialPlayer.BotDramaSystem.BotDrama.onBotBoom(bot, boomed, valueBefore));
         }
         if (worn && outcome != Outcome.FAIL && bot.getMap() != null) {
             bot.equipChanged();   // the boomed piece off the look, or the new stats into the totals

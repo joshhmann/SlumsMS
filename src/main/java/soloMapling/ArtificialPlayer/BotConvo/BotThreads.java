@@ -55,7 +55,11 @@ public final class BotThreads {
     public enum Topic {
         GUILD_BEEF("guild beef", "thread_guild_beef"), GOSSIP("gossip", "thread_gossip"),
         LFG("looking for a party", "thread_lfg"), TRADE("trade talk", "thread_trade"),
-        TRAINING("training", "thread_training");
+        TRAINING("training", "thread_training"),
+        /** 1.6.0 S7 Beef: two rival bots trash-talk, grounded in their bond ({@code BotBotRivalry}). */
+        RIVALRY("rival beef", "thread_gossip"),
+        /** 1.6.0 S7: a friend's drama - a rage quit, a villain turn, a breakup ({@code DramaNews}). */
+        FRIEND_DRAMA("drama", "thread_gossip");
 
         public final String words;
         public final String bankKey;
@@ -81,6 +85,8 @@ public final class BotThreads {
                 case "trade", "fm" -> TRADE;
                 case "gossip", "drama" -> GOSSIP;
                 case "train" -> TRAINING;
+                case "rival", "rivals", "bot_beef" -> RIVALRY;
+                case "news", "friend" -> FRIEND_DRAMA;
                 default -> null;
             };
         }
@@ -347,6 +353,11 @@ public final class BotThreads {
             return null;
         }
         Collections.shuffle(idle, rng);
+        // 1.6.0 S7 Beef: two rivals standing here pick a fight first (a Killer more often), else any two
+        List<Character> rivals = soloMapling.ArtificialPlayer.BotDramaSystem.BotBotRivalry.rivalPair(idle, rng);
+        if (rivals != null) {
+            return rivals;
+        }
         return List.of(idle.get(0), idle.get(1));
     }
 
@@ -395,11 +406,18 @@ public final class BotThreads {
      */
     public static List<String> run(MapleMap map, int channel, List<Character> pair, Topic forced,
                                    soloMapling.ArtificialPlayer.BotGossip.Fact given, boolean bankOnly, long now) {
+        Random rng = ThreadLocalRandom.current();
+        Topic topic = forced != null ? forced : beefOrDrama(pair.get(0), pair.get(1), now, rng);
+        if (topic == Topic.RIVALRY) {
+            pair = soloMapling.ArtificialPlayer.BotDramaSystem.BotBotRivalry.grudgeFirst(pair); // the grudge opens
+        }
         Character a = pair.get(0);
         Character b = pair.get(1);
-        Random rng = ThreadLocalRandom.current();
-        Topic topic = forced != null ? forced : topicFor(a.getGuildId(), b.getGuildId(), a.getLevel(), b.getLevel(),
-                map.getId(), (social(a) + social(b)) / 2, rng);
+        if (topic == null) {
+            topic = topicFor(a.getGuildId(), b.getGuildId(), a.getLevel(), b.getLevel(), map.getId(),
+                    (social(a) + social(b)) / 2, rng);
+        }
+        Topic chosen = topic;
         soloMapling.ArtificialPlayer.BotGossip.Fact fact = given != null ? given
                 : ground(topic, a, b, map.getAllPlayers(), now, rng);
         String about = fact != null ? fact.about() : about(topic, a, b);
@@ -409,9 +427,9 @@ public final class BotThreads {
         hold(l);
         lastThreadOf.put(a.getId(), l);
         lastThreadOf.put(b.getId(), l);
-        soloMapling.server.MapleRootSolo.runHook("bond thread", () -> // 1.6.0 S2 (S4 owns this file later)
+        soloMapling.server.MapleRootSolo.runHook("bond thread", () -> // 1.6.0 S2; S7: beef sours a bond too
                 soloMapling.ArtificialPlayer.BotAffinitySystem.BotBonds.onThread(a.getId(), b.getId(),
-                        topic == Topic.GUILD_BEEF));
+                        chosen == Topic.GUILD_BEEF || chosen == Topic.RIVALRY));
         qa(map.getId(), "THREAD " + a.getName() + " + " + b.getName() + " on " + map.getId() + ": " + topic.words
                 + (about == null ? "" : " (" + about + ")"));
         if (fact != null) {
@@ -426,7 +444,7 @@ public final class BotThreads {
                 List<String[]> lines = guard(r.map(x -> parse(x.text(), a.getName(), b.getName())).orElse(List.of()),
                         allowed, l.mapId);
                 if (lines.size() < 2) {
-                    play(l, a, b, guard(fallback(topic, a, b, fact, rng), allowed, l.mapId), "bank");
+                    play(l, a, b, guard(fallback(chosen, a, b, fact, rng), allowed, l.mapId), "bank");
                 } else {
                     play(l, a, b, lines, "llm");
                 }
@@ -435,6 +453,26 @@ public final class BotThreads {
             play(l, a, b, guard(fallback(topic, a, b, fact, rng), allowed, l.mapId), "bank");
         }
         return List.of(topic.words);
+    }
+
+    /**
+     * 1.6.0 S7: before the usual topics, two rivals may have beef ({@code BotBotRivalry.beefFirst}: rivals, and the
+     * grudge-holder's roll, a Killer more likely), and a bot with a friend's fresh drama may bring it up (half the time
+     * it has some). Null: the usual topics.
+     */
+    static Topic beefOrDrama(Character a, Character b, long now, Random rng) {
+        try {
+            if (soloMapling.ArtificialPlayer.BotDramaSystem.BotBotRivalry.beefFirst(a, b, rng)) {
+                return Topic.RIVALRY;
+            }
+            if (rng.nextDouble() < 0.5
+                    && soloMapling.ArtificialPlayer.BotDramaSystem.DramaNews.factFor(a, b, now, rng) != null) {
+                return Topic.FRIEND_DRAMA;
+            }
+        } catch (RuntimeException | LinkageError e) {
+            log.debug("No beef or drama topic for {} and {}", a.getName(), b.getName(), e);
+        }
+        return null;
     }
 
     /** A bot's Socializer share (Bartle, S1), 0.25 when unknown. */
@@ -468,6 +506,8 @@ public final class BotThreads {
             return switch (topic) {
                 case GOSSIP -> soloMapling.ArtificialPlayer.BotGossip.factFor(a, b, present, now, rng);
                 case TRAINING -> soloMapling.ArtificialPlayer.BotGossip.trainingFor(a, b, rng);
+                case RIVALRY -> soloMapling.ArtificialPlayer.BotDramaSystem.BotBotRivalry.beefFact(a, b); // S7
+                case FRIEND_DRAMA -> soloMapling.ArtificialPlayer.BotDramaSystem.DramaNews.factFor(a, b, now, rng); // S7
                 default -> null;
             };
         } catch (RuntimeException | LinkageError e) {
@@ -503,7 +543,7 @@ public final class BotThreads {
     static String about(Topic topic, Character a, Character b) {
         try {
             return switch (topic) {
-                case GOSSIP, TRAINING -> {
+                case GOSSIP, TRAINING, RIVALRY, FRIEND_DRAMA -> {
                     soloMapling.ArtificialPlayer.BotGossip.Fact fact = ground(topic, a, b,
                             a.getMap() == null ? List.of() : a.getMap().getAllPlayers(), System.currentTimeMillis(),
                             ThreadLocalRandom.current());
@@ -539,7 +579,11 @@ public final class BotThreads {
         ConvoPersona pa = ConvoPersona.of(a.getId() - BotStore.BOT_ID_BASE);
         ConvoPersona pb = ConvoPersona.of(b.getId() - BotStore.BOT_ID_BASE);
         String subject;
-        if (fact != null && fact.person()) {
+        if (topic == Topic.RIVALRY) { // 1.6.0 S7: the two speakers have beef with each other
+            subject = ". They are rivals in the game" + (fact == null ? "" : "; what really happened: " + fact.about())
+                    + ". " + a.getName() + " starts it. Trash talk about the game only (KS, gear, level, damage),"
+                    + " petty not cruel; name no other player";
+        } else if (fact != null && fact.person()) {
             subject = ". Topic: " + topic.words + ". What really happened: " + fact.about() + ". " + a.getName()
                     + " brings it up first. The only other players you may name: " + String.join(", ", fact.names())
                     + "; never make up any other player name";
@@ -606,7 +650,9 @@ public final class BotThreads {
                                    Random rng) {
         if (fact != null && fact.opener() != null) {
             int slotB = b.getId() - BotStore.BOT_ID_BASE;
-            String react = VoiceStyler.catchphraseLine(ConvoPersona.of(slotB), slotB, fact.about().hashCode(), 0.15);
+            String react = topic == Topic.RIVALRY // 1.6.0 S7: a rival answers back
+                    ? soloMapling.ArtificialPlayer.BotDramaSystem.BotBotRivalry.beefReply(b, a)
+                    : VoiceStyler.catchphraseLine(ConvoPersona.of(slotB), slotB, fact.about().hashCode(), 0.15);
             if (react == null) {
                 ConvoLines.Line bank = ConvoLines.line("talk", b, a, null, null, null, false);
                 react = bank == null ? null : bank.text();
