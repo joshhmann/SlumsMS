@@ -102,7 +102,7 @@ public final class BotChatActions {
 
     /** Memory notes that make a bot wary of a player: its own flag notes, or gossip that carries them. */
     static final List<String> WARY_MARKERS = List.of("tried to scam me", "tried to mess with my head", "was rude to me",
-            "tried to buy or sell for real money");
+            "tried to buy or sell for real money", "scammed me on a trade"); // the last: 1.6.0 S3 SCAM episodes
 
     private BotChatActions() {
     }

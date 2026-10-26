@@ -74,6 +74,11 @@ public final class BotMemory {
             return ordinal() >= PQ.ordinal() && ordinal() <= SCAM.ordinal();
         }
 
+        /** Whether gossip may pass it on: what makes a reputation (S4 reads the same rule). */
+        public boolean passable() {
+            return this == NOTE || this == FEELING || this == GIFT || this == FAVOR || this == SCAM;
+        }
+
         /** One per pair, replaced rather than added; never shown as a fact or passed on as gossip. */
         public boolean slot() {
             return this == TOPIC || this == JOKE;
@@ -384,8 +389,9 @@ public final class BotMemory {
     }
 
     /**
-     * The newest notes a bot holds about anyone, that can still be passed on (ticket 15). Slots and goals are the
-     * bot's own business and never passed on.
+     * The newest notes a bot holds about anyone, that can still be passed on (ticket 15). Only what makes a
+     * reputation travels ({@link Kind#passable}): chat notes, feelings, gifts, favors and scams; slots, goals and the
+     * small episodes ("partied together") are the bot's own business.
      */
     public static List<Note> recentPassable(int botId, int limit) {
         List<Note> notes = new ArrayList<>();
@@ -397,7 +403,7 @@ public final class BotMemory {
             try (ResultSet rs = ps.executeQuery()) {
                 while (rs.next()) {
                     Note n = read(rs, extended);
-                    if (!n.kind().slot() && n.kind() != Kind.GOAL) {
+                    if (n.kind().passable()) {
                         notes.add(n);
                     }
                 }
@@ -749,13 +755,17 @@ public final class BotMemory {
 
     /**
      * 1.5.0 {@code @botdrama off}: every bot forgets the gossip about this player - each note it heard second hand,
-     * and each of the given notes (the bots' grudges, which are what gossip passes on) - so none of it is told again.
+     * and each of the given notes (the bots' grudges, which are what gossip passes on) and every scam it remembers
+     * (1.6.0) - so none of it is told again.
      * Notes from the bot's own conversations stay. How many notes went.
      */
     public static int forgetGossipAbout(int charId, List<String> passableNotes) {
         StringBuilder sql = new StringBuilder("DELETE FROM botmemory WHERE AboutCharacterId = ? AND (Source = 'HEARSAY'");
         if (!passableNotes.isEmpty()) {
             sql.append(" OR Note IN (").append("?, ".repeat(passableNotes.size() - 1)).append("?)");
+        }
+        if (hasKinds()) {
+            sql.append(" OR Kind = 'SCAM'"); // 1.6.0 S3: a scam is a grudge too
         }
         sql.append(')');
         int removed = 0;

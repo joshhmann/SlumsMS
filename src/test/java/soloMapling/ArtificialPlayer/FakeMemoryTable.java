@@ -117,7 +117,9 @@ final class FakeMemoryTable {
                 }
                 if (sql.startsWith("DELETE FROM botmemory WHERE AboutCharacterId = ?")) {
                     int before = rows.size();
+                    boolean scams = sql.contains("Kind = 'SCAM'");
                     rows.removeIf(r -> r.get("AboutCharacterId").equals(bound.get(1)) && ("HEARSAY".equals(r.get("Source"))
+                            || (scams && "SCAM".equals(r.get("Kind")))
                             || bound.entrySet().stream().anyMatch(e -> e.getKey() > 1 && e.getValue().equals(r.get("Note")))));
                     return before - rows.size();
                 }

@@ -288,13 +288,24 @@ class BotMemoryKindsTest {
     }
 
     @Test
-    void slotsAndGoalsAreNeverPassedOnAsGossip() {
+    void onlyReputationIsPassedOnAsGossip() {
         long now = clock.get();
         BotMemory.setSlot(SLOT, PLAYER, BotMemory.Kind.JOKE, "my pet ate my return scroll", now);
         BotMemory.episode(SLOT, PLAYER, BotMemory.Kind.GOAL, "wants zhelm", 4, "item:zhelm", now);
-        BotMemory.episode(SLOT, PLAYER, BotMemory.Kind.SCAM, "scammed me on a trade", 9, "", now);
+        BotMemory.episode(SLOT, PLAYER, BotMemory.Kind.PARTY, "partied together", 3, "", now);
+        BotMemory.episode(SLOT, PLAYER, BotMemory.Kind.SCAM, "scammed me on a trade", 9, "", now + 1);
         assertEquals(List.of("scammed me on a trade"),
-                BotMemory.recentPassable(SLOT, 10).stream().map(BotMemory.Note::text).toList());
+                BotMemory.recentPassable(SLOT, 10).stream().map(BotMemory.Note::text).toList(),
+                "a reputation travels; a joke, a goal and a party do not");
+    }
+
+    @Test
+    void anOptOutForgetsScamsToo() {
+        long now = clock.get();
+        BotMemory.episode(SLOT, PLAYER, BotMemory.Kind.SCAM, "scammed me on a trade", 9, "", now);
+        BotMemory.episode(SLOT, PLAYER, BotMemory.Kind.PQ, "did KPQ together", 6, "", now);
+        assertEquals(1, BotMemory.forgetGossipAbout(PLAYER, List.of()));
+        assertEquals(List.of("did KPQ together"), notes().stream().map(BotMemory.Note::text).toList());
     }
 
     @Test

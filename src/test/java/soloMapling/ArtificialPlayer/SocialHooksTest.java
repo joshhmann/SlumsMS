@@ -119,6 +119,7 @@ class SocialHooksTest {
                 notes.get(0).text());
         assertEquals(9, notes.get(0).weight());
         assertEquals(List.of(SocialProfile.Push.SCAMMED), pushes, "a small push toward Killer");
+        assertTrue(BotChatActions.wary(SLOT, PLAYER), "a scammed bot is wary: no parties, buddies or trades");
     }
 
     @Test
