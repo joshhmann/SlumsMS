@@ -75,7 +75,8 @@ final class BondScenarios {
                     "Joining gave them a PARTY bond; every 5 minutes together adds PARTY_TIME (FRIEND after 30-35 minutes,"
                             + " right at the end of this 31-minute run: use !qa do fast to see it now).",
                     "Expect: AFFINITY BONDS ... -> FRIEND lines for both, then BB3 PASS (mutual friends, crew yes).",
-                    "!qa do fast [minutes] applies that party time now (default 45, not counting the join); !qa do check reads them out.",
+                    "!qa do fast applies party time until both are friends (slow bonders take longer); fast <minutes>"
+                            + " applies exactly that; !qa do check reads them out.",
                     "!botwhy <name> on either shows the bond and the crew.");
         }
 
@@ -92,16 +93,22 @@ final class BondScenarios {
             return switch (name) {
                 case "check" -> check(ctx, "CHECK");
                 case "fast" -> {
-                    int minutes = 45; // party time alone, without the join's bond (about 30 min with it)
-                    if (args.length > 0) {
+                    // no minutes: party time until both are friends (a slow bonder, Socializer scale x0.6, needs up
+                    // to ~70 min), so the check is deterministic; with minutes: exactly that much party time
+                    String line;
+                    if (args.length == 0) {
+                        int took = BotBonds.accelerateUntilFriends(pair[0], pair[1], 240);
+                        line = "BB3 FAST until friends: " + (took < 0 ? "not friends after 240 min" : took + " min of party time");
+                    } else {
+                        int minutes;
                         try {
                             minutes = Math.max(5, Math.min(240, Integer.parseInt(args[0])));
                         } catch (NumberFormatException e) {
-                            throw new QaRefusal("bb-3: fast takes minutes, e.g. !qa do fast 45");
+                            throw new QaRefusal("bb-3: fast takes minutes, e.g. !qa do fast 45 (none: until friends)");
                         }
+                        int counted = BotBonds.accelerateParty(pair[0], pair[1], minutes);
+                        line = "BB3 FAST " + minutes + " min of party time (" + counted + " ticks)";
                     }
-                    int counted = BotBonds.accelerateParty(pair[0], pair[1], minutes);
-                    String line = "BB3 FAST " + minutes + " min of party time (" + counted + " ticks)";
                     ctx.run().note("STEP", line);
                     List<String> out = new ArrayList<>(List.of(line));
                     out.addAll(check(ctx, "CHECK"));

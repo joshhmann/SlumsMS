@@ -313,6 +313,36 @@ class BotBondsTest {
         assertEquals(List.of(A, B), BotBonds.crewOf(A));
     }
 
+    @Test
+    void aSlowBonderNeedsMorePartyTimeAndFastUntilFriendsWaitsForIt() {
+        // TEST, t-bb-3 (2026-10-26): one bot at the x0.6 scale was still neutral after 45 fast minutes
+        shares.put(A, new double[]{.0, .0});   // the slowest bonder
+        shares.put(B, new double[]{.9, .0});   // the fastest
+        BotBonds.together(A, B, BondEvent.PARTY);
+        BotBonds.accelerateParty(A, B, 45);
+        assertTrue(BotBonds.friend(B, A));
+        assertFalse(BotBonds.friend(A, B), "one-sided after 45 min: slow bonders exist");
+        int took = BotBonds.accelerateUntilFriends(A, B, 240);
+        assertTrue(took > 0 && took <= 60, "took " + took);
+        assertTrue(BotBonds.mutualFriends(A, B));
+        assertEquals(List.of(A, B), BotBonds.crewOf(A));
+
+        shares.put(C, new double[]{.0, .0});
+        shares.put(D, new double[]{.0, .0});
+        int worst = BotBonds.accelerateUntilFriends(C, D, 240); // no join bond either
+        assertTrue(worst > 0 && worst <= 75, "the slowest pair from nothing took " + worst);
+    }
+
+    @Test
+    void theShutdownSweepWritesWhatChangedSinceTheLastFlush() {
+        friends(A, B);
+        assertEquals(0, store.size(), "nothing written until a flush");
+        assertEquals(2, BotBonds.flushAtShutdown());
+        assertNotNull(store.row(A, B));
+        assertNotNull(store.row(B, A));
+        assertEquals(0, BotBonds.flushAtShutdown());
+    }
+
     // ── hooks ──
 
     @Test
