@@ -289,8 +289,22 @@ public final class BotWatch {
         }
     }
 
+    /**
+     * Whether a real player stands on this bot's own map instance (its channel), as the likeness rule
+     * ({@link soloMapling.ArtificialPlayer.GCMoveSystem.WatchGate}) counts one: only then may the bot not snap.
+     * TEST 2026-10-26 (knucklegolem, TELEPORTY on Kerning City): the watch asked GCMovement.isMapObserved, which is true
+     * for a map id when a player stands on it on ANY channel. The observer was on channel 2, the bot on channel 1 where
+     * nobody could see it, so an allowed off-screen snap was reported as one in front of a player. The id check stays
+     * first as the cheap filter; the per-instance look runs only when it says yes.
+     */
+    static boolean watchedHere(Character chr) {
+        return chr != null && chr.getMap() != null
+                && soloMapling.ArtificialPlayer.GCMoveSystem.GCMovement.isMapObserved(chr.getMapId())
+                && soloMapling.ArtificialPlayer.GCMoveSystem.WatchGate.watched(chr);
+    }
+
     /** Every 2 s: the largest same-map jump past a walk since the last sample (TELEPORTY's evidence). */
-    private void positionTick(Tracked t, long now) {
+    void positionTick(Tracked t, long now) {
         try {
             BotSM bot = CharacterStorage.getBotById(t.id);
             Character chr = bot == null ? null : bot.getChr();
@@ -307,7 +321,7 @@ public final class BotWatch {
                 int over = BotWatchJudge.excessJump(t.lastX, t.lastY, p.x, p.y, now - t.lastPosAt);
                 if (over > t.jumpPx) {
                     t.jumpPx = over;
-                    t.jumpWatched = soloMapling.ArtificialPlayer.GCMoveSystem.GCMovement.isMapObserved(map.getId());
+                    t.jumpWatched = watchedHere(chr);
                 }
             }
             t.lastMap = map.getId();
@@ -339,7 +353,7 @@ public final class BotWatch {
                     d.target(), d.phase(), chr.getLevel(), chr.getExp(), chr.getMeso(), t.kills.get(), potions(chr),
                     used(chr, InventoryType.ETC), used(chr, InventoryType.EQUIP), t.chat, t.chatAt,
                     chr.getParty() != null, chr.getChair() > 0, map.isTown(), mobMap(map.getId()),
-                    soloMapling.ArtificialPlayer.GCMoveSystem.GCMovement.isMapObserved(map.getId()), jump,
+                    watchedHere(chr), jump,
                     jumpWatched, soloMapling.Economy.BotShops.hasShop(chr.getId()));
         } catch (RuntimeException | LinkageError e) {
             AutoQa.log.debug("Bot watch could not sample {}: {}", t.name, e.toString());
