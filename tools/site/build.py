@@ -9,7 +9,7 @@
     python3 -m http.server -d dist/site 8000    # preview
 
 Code: common.py (paths, layout, megaphone rail, inline markdown) and one module per section in sections/:
-notes (News), guide (Guides), pages (home, 404, report); database and market join in later steps.
+notes (News), guide (Guides), pages (home, 404, report), and the private database and market.
 
 Sources (docs/site/):
     home.html                 the home page body; {{latest_*}} is filled from the newest release
@@ -46,7 +46,7 @@ sys.path.insert(0, HERE)
 import check  # noqa: E402
 import common  # noqa: E402
 from common import REPO, SRC, esc  # noqa: E402
-from sections import database, guide, notes, pages  # noqa: E402
+from sections import database, dbdata, guide, market, notes, pages  # noqa: E402
 
 # kept here so older callers and the tests can keep using build.<name>
 from common import inline, layout, meta_comment, slug  # noqa: E402,F401
@@ -54,8 +54,9 @@ from sections.guide import clean_wiki, wiki_body, wiki_nav  # noqa: E402,F401
 from sections.notes import TAGS, parse_release, render_release  # noqa: E402,F401
 
 PUBLIC = ["notes", "guide", "pages"]
-PRIVATE = ["database"]  # and "market" (plan step 7): private until 1.6.0 is live
+PRIVATE = ["database", "market"]  # private until 1.6.0 is live
 HS_DATA = None  # --hs-data: the build_data.py output for the database (default: sections/dbdata.py DEFAULT_DIR)
+MARKET_DATA = None  # --market-data: the server's market export (default: sections/market.py DEFAULT_DIR, the samples)
 
 
 def copy_assets(out):
@@ -68,6 +69,8 @@ def set_context(rels, sections):
     common.BUILT.update(s for s in sections if s in common.OPTIONAL)
     common.RAIL[:] = [(f'<em>{esc(r["version"])}</em> {esc(r["title"])}', f'patch-notes/{r["version"]}/')
                       for r in rels[:3]]
+    if "market" in sections:  # the NX rate and the latest sales lead the rail
+        common.RAIL[:0] = market.rail_lines(market.load(MARKET_DATA), dbdata.load(HS_DATA))
     common.RAIL.extend((t, None) for t in common.RAIL_EXTRA)
 
 
@@ -78,6 +81,8 @@ def build_section(name, out, rels):
         return guide.build(out, HS_DATA)
     if name == "database":
         return database.build(out, HS_DATA)
+    if name == "market":
+        return market.build(out, dbdata.load(HS_DATA), MARKET_DATA)
     if name == "pages":
         pages.build_home(out, rels)
         pages.build_report(out)
@@ -144,9 +149,10 @@ def main():
     ap.add_argument("--private", action="store_true", help="include the private sections (Database, Market)")
     ap.add_argument("--section", help="rebuild only this section inside an existing --out")
     ap.add_argument("--hs-data", help="Hidden Street dataset folder for the database section")
+    ap.add_argument("--market-data", help="market export folder (default: the samples from tools/site/market_sample.py)")
     args = ap.parse_args()
-    global HS_DATA
-    HS_DATA = args.hs_data
+    global HS_DATA, MARKET_DATA
+    HS_DATA, MARKET_DATA = args.hs_data, args.market_data
     out = args.out or os.path.join(REPO, "dist", "site-private" if args.private else "site")
     if args.section:
         rebuild_section(args.section, out, args.private)

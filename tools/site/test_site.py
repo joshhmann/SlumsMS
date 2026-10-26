@@ -228,6 +228,40 @@ class GuideLinksTest(unittest.TestCase):
         self.assertIn("<td>Nowhere: Lost</td><td>2-7</td>", body)
 
 
+class MarketTest(unittest.TestCase):
+    def test_item_stats_follow_the_public_rules(self):
+        from sections import market
+        hist = [("2026-10-01", {"median": 100, "low": 90, "high": 110, "count": 5, "player_share": 0}),
+                ("2026-10-02", None),
+                ("2026-10-03", {"median": 999, "low": 1, "high": 2000, "count": 2, "player_share": 1}),
+                ("2026-10-04", {"median": 120, "low": 100, "high": 130, "count": 4, "player_share": 0.5})]
+        st = market.item_stats(hist)
+        self.assertEqual(st["median"], 120)           # the 2-sale day is too thin to show
+        self.assertEqual(st["first"], 100)
+        self.assertEqual(st["sold"], 11)
+        self.assertLess(st["player_share"], 0.5)      # -> "mostly bot-made"
+        self.assertIsNone(market.item_stats([("2026-10-01", None)]))
+
+    def test_chart_breaks_at_missing_days_and_scales(self):
+        from sections import market
+        svg = market.area_chart([("2026-10-01", 100, 90, 110), ("2026-10-02", None, None, None),
+                                 ("2026-10-03", 140, 130, 150), ("2026-10-04", 150, 140, 160)], "x")
+        self.assertEqual(svg.count("<polyline"), 2)   # two runs, no line across the gap
+        self.assertIn("Oct 1", svg)
+        self.assertIn("not enough", market.area_chart([("2026-10-01", None, None, None)] * 3, "x").lower())
+
+    def test_times_show_pacific_and_utc(self):
+        from sections import market
+        self.assertEqual(market.when("2026-10-26T07:00:00+00:00"), "12:00 AM PT (07:00 UTC), Oct 26")
+        self.assertEqual(market.when("2026-11-02T08:00:00+00:00"), "12:00 AM PT (08:00 UTC), Nov 2")
+
+    def test_change_has_sign_and_shape(self):
+        from sections import market
+        self.assertIn("+10.0%", market.change(100, 110))
+        self.assertIn("down", market.change(100, 90))
+        self.assertEqual(market.change(None, 90), "")
+
+
 class DbDataTest(unittest.TestCase):
     def raw(self):
         return {
