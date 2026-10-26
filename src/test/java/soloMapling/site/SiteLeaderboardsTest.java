@@ -163,4 +163,15 @@ class SiteLeaderboardsTest {
     private static List<String> names(Object rows) {
         return ((List<?>) rows).stream().map(r -> String.valueOf(((Map<?, ?>) r).get("name"))).toList();
     }
+
+    @Test
+    void jobsUseTheNamesPlayersSay() {
+        // site contract: display names, not the enum's "Fp_archmage" / "Darkknight" (2026-10-26)
+        assertEquals("Arch Mage (F/P)", SiteLeaderboards.jobName(212));
+        assertEquals("Dark Knight", SiteLeaderboards.jobName(132));
+        assertEquals("Night Lord", SiteLeaderboards.jobName(412));
+        assertEquals("Dawn Warrior", SiteLeaderboards.jobName(1111), "Cygnus keep one name per class");
+        assertEquals("Aran", SiteLeaderboards.jobName(2112));
+        assertEquals("", SiteLeaderboards.jobName(910), "GM jobs never reach the boards; no name");
+    }
 }
