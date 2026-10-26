@@ -47,7 +47,7 @@ class BotWhyCommandTest {
             assertFalse(lines.stream().anyMatch(s->s.contains("No activity is executed")));
             // 1.6.0 S1: the Bartle blend and its leading type, from the slot's seed.
             var leading = soloMapling.ArtificialPlayer.BotLifeSystem.SocialProfile.forCharacter(1000005001).leading();
-            assertTrue(lines.stream().anyMatch(s->s.startsWith("Bartle "+leading+"-led: A ")&&s.contains("rival pull")),lines.toString());
+            assertTrue(lines.stream().anyMatch(s->s.startsWith("Bartle "+leading+" (")&&s.contains(", plastic ")&&s.contains(" from seed (")&&s.contains("rival pull")),lines.toString());
             assertTrue(lines.stream().anyMatch(s->s.startsWith("Life channels grinder ")),lines.toString());
             assertTrue(lines.stream().anyMatch(s->s.startsWith("Persona ")&&s.contains("voice ")),lines.toString());
             observation.verify(()->soloMapling.ArtificialPlayer.BotLifeSystem.LifeObservation.capture(bot,5000),never());

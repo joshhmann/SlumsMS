@@ -257,7 +257,7 @@ class LifeProfilePersistenceTest {
         assertNotEquals(self.lifeSeed(), self.life(), "the sprint drift sits on top of the seed");
         assertSame(LifeMemoryStore.of(CHAR_ID).profile(), self.life(), "the same memory the brain uses");
         List<String> lines = self.describe();
-        assertTrue(lines.get(0).startsWith("Bartle " + self.leading() + "-led"), lines.toString());
+        assertTrue(lines.get(0).startsWith("Bartle " + self.leading() + " (") && lines.get(0).contains(", plastic "), lines.toString());
         assertTrue(lines.get(1).contains("; seed "), "learned and seed shown apart: " + lines);
         assertTrue(lines.get(2).contains("a chill player") && lines.get(2).contains("social 0.50"), lines.toString());
     }

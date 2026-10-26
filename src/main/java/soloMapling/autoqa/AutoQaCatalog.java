@@ -739,7 +739,7 @@ public final class AutoQaCatalog {
         // 1.6.0 S1: a bot's learned life profile survives a non-training session and a database reload (bl-4)
         c.add(Check.auto("t-bl-4", "A bot's learned profile survives a social session and a reload").minutes(1)
                 .step(run("bl-4"), waitFor("LIFE PROFILE PASS bot=", 20))
-                .expect(has("LIFE PROFILE bot=\\S+ slot=\\d+ (ACHIEVER|EXPLORER|SOCIALIZER|KILLER)-led"),
+                .expect(has("LIFE PROFILE bot=\\S+ slot=\\d+ (ACHIEVER|EXPLORER|SOCIALIZER|KILLER) \\([-+]\\d"),
                         has("LIFE PROFILE SESSION recorded=\\S+ .* rosterCarriesLife=false"),
                         has("LIFE PROFILE RELOAD version=2 deltaEqual=true profileEqual=true bartleEqual=true"),
                         has("LIFE PROFILE PASS bot=\\d+"))
