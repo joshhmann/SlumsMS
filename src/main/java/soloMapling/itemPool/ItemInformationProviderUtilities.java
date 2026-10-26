@@ -158,6 +158,11 @@ public class ItemInformationProviderUtilities {
         if (jobStyle == Job.CROSSBOWMAN) {
             jobStyle = Job.BOWMAN;
         }
+        // 1.6.0: getJobStyle() also resolves pirates to BRAWLER or GUNSLINGER; without this they got reqJob 0, and as no
+        // classless knuckle or gun exists, pirate bots fought bare-handed (a viewer's client drops every such attack)
+        if (jobStyle == Job.BRAWLER || jobStyle == Job.GUNSLINGER) {
+            jobStyle = Job.PIRATE;
+        }
         return JOB_TO_REQ_MAP.getOrDefault(jobStyle, 0);
     }
 
