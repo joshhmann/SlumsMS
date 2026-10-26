@@ -244,6 +244,9 @@ public class EnvironmentManager {
     public static final int COHORT_ELLINIA = 4;
     public static final int COHORT_SLEEPYWOOD = 5;
     public static final int COHORT_ANT_TUNNEL_PARK = 6;
+    public static final int COHORT_LUDIBRIUM = 8;
+    public static final int COHORT_PATH_OF_TIME = 9;
+    public static final int COHORT_EL_NATH = 10;
     public static final int COHORT_HENESYS_UPPER = 16;
     public static final int COHORT_KERNING_UPPER = 17;
     public static final int COHORT_PERION_UPPER = 18;
@@ -258,9 +261,9 @@ public class EnvironmentManager {
             new TrainingCohort(MapId.SLEEPYWOOD, 225, 15, 30),        // Ant Tunnel I-IV, Deep Ant Tunnel, Cave of Evil Eye (20-27)
             new TrainingCohort(MapId.ANT_TUNNEL_PARK, 180, 35, 65),   // deep hub, Sleepywood's upper zones: Drake caves, Sanctuary, Sleepy Dungeon (35-70)
             new TrainingCohort(MapId.ORBIS, 220, 30, 60),             // Cloud Park I-VI, Garden of Green
-            new TrainingCohort(MapId.LUDIBRIUM, 200, 40, 80),         // Eos/Helios Tower, Path of Time
+            new TrainingCohort(MapId.LUDIBRIUM, 200, 25, 50),         // Eos/Helios Tower, Toy Factory, Ludibrium fields (23-46); Path of Time (63+) is the hub cohort below
             new TrainingCohort(MapId.PATH_OF_TIME_HUB, 160, 70, 200), // deep hub: Forgotten Path of Time / Clocktower, and the thin Lv120+ tail
-            new TrainingCohort(MapId.EL_NATH, 200, 50, 85),           // town: shops at El Nath Market (potion / equip); grinds Ice Valley + cloud maps
+            new TrainingCohort(MapId.EL_NATH, 200, 30, 70),           // town: shops at El Nath Market (potion / equip); Ice Valley, Sharp Cliff approaches, cloud maps (32-65; p10-p90 +-5)
             new TrainingCohort(MapId.SHARP_CLIFF_I, 200, 60, 95),     // deep hub (Jeff one-way from Ice Valley II): Sharp Cliff II / Wolf Territory / Forest of Dead Trees / Dead Mine
             new TrainingCohort(MapId.HENESYS, 25, 1, 9),   // beginner sword grinders
             new TrainingCohort(MapId.KERNING_CITY, 20, 1, 9),   // beginner sword grinders
