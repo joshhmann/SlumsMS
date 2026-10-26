@@ -265,8 +265,8 @@ public final class SocialHooks {
 
     /** The note a trade leaves for the bot, or null for a bot's own gift (nothing happened to it). */
     static BotEpisodes.Episode episodeOf(Read r) {
-        String got = what(r.player());
-        String gave = what(r.bot());
+        String got = what(r.player(), true);
+        String gave = what(r.bot(), false);
         return switch (r.outcome()) {
             case GIFT -> new BotEpisodes.Episode(BotMemory.Kind.GIFT, "gave me " + got, 6);
             case FAVOR -> new BotEpisodes.Episode(BotMemory.Kind.FAVOR, "gave me a good deal: " + got + " for "
@@ -280,8 +280,11 @@ public final class SocialHooks {
         };
     }
 
-    /** One side's offer in words: "a Red Craven", "200 Ilbi Throwing-Stars", "50k mesos", "a claw and 1m mesos". */
-    static String what(Side side) {
+    /**
+     * One side's offer in words: "a Red Craven" ("Red Craven" without the article, after "my"), "200 Steely
+     * Throwing-Knives", "50k mesos", "a Red Craven and 1m mesos".
+     */
+    static String what(Side side, boolean article) {
         List<String> parts = new ArrayList<>();
         if (!side.items().isEmpty()) {
             Item first = side.items().get(0);
@@ -290,7 +293,7 @@ public final class SocialHooks {
                 name = "an item";
             } else if (first.getQuantity() > 1 && !constants.inventory.ItemConstants.isRechargeable(first.getItemId())) {
                 name = first.getQuantity() + " " + name;
-            } else {
+            } else if (article) {
                 name = ("aeiou".indexOf(java.lang.Character.toLowerCase(name.charAt(0))) >= 0 ? "an " : "a ") + name;
             }
             parts.add(side.items().size() > 1 ? name + " and more" : name);

@@ -56,7 +56,7 @@ class BotMemoryTest {
         doAnswer(c -> bound.put(c.getArgument(0), c.getArgument(1))).when(ps).setString(anyInt(), anyString());
         long[] lastId = {0};
         when(ps.executeUpdate()).thenAnswer(c -> {
-            if (sql.equals(BotMemory.INSERT)) {
+            if (sql.equals(BotMemory.INSERT) || sql.equals(BotMemory.INSERT_KINDS)) {
                 Map<String, Object> row = new HashMap<>();
                 row.put("Id", lastId[0] = nextId.getAndIncrement());
                 row.put("BotId", bound.get(1));
@@ -67,6 +67,11 @@ class BotMemoryTest {
                 row.put("Hops", bound.get(6));
                 row.put("CreatedAt", bound.get(7));
                 row.put("LastUsedAt", bound.get(8));
+                boolean kinds = sql.equals(BotMemory.INSERT_KINDS);
+                row.put("Kind", kinds ? bound.get(9) : "NOTE");
+                row.put("Weight", kinds ? bound.get(10) : 1);
+                row.put("Tag", kinds ? bound.get(11) : "");
+                row.put("FollowedUpAt", kinds ? bound.get(12) : 0L);
                 table.add(row);
             } else if (sql.equals(BotMemory.DELETE)) {
                 table.removeIf(r -> r.get("Id").equals(bound.get(1)));
