@@ -72,12 +72,12 @@ class SocialGateTest {
     // ── rule 1: started it ──
 
     @Test
-    void spiceNeedsThePlayerToHaveStartedItWithThatBotAndFadesInAboutTwoWeeks() {
-        assertFalse(SocialGate.rules(BOT_A, PLAYER, Act.TAUNT).ok(), "a fresh player gets no spice");
+    void beefNeedsThePlayerToHaveStartedItWithThatBotAndFadesInAboutTwoWeeks() {
+        assertFalse(SocialGate.rules(BOT_A, PLAYER, Act.TAUNT).ok(), "a fresh player gets no beef");
         assertFalse(SocialGate.rules(BOT_A, PLAYER, Act.KS_SPREE).ok());
         SocialGate.playerStarted(BOT_A, PLAYER, Provocation.KS);
-        for (Act spice : new Act[]{Act.TAUNT, Act.ROAST, Act.KS_SPREE, Act.KS_WAR, Act.CALL_OUT, Act.DEFAME, Act.REVENGE}) {
-            assertTrue(SocialGate.rules(BOT_A, PLAYER, spice).ok(), spice + " after the player KS'd this bot");
+        for (Act beef : new Act[]{Act.TAUNT, Act.ROAST, Act.KS_SPREE, Act.KS_WAR, Act.CALL_OUT, Act.DEFAME, Act.REVENGE}) {
+            assertTrue(SocialGate.rules(BOT_A, PLAYER, beef).ok(), beef + " after the player KS'd this bot");
         }
         assertFalse(SocialGate.rules(BOT_B, PLAYER, Act.TAUNT).ok(), "only the bot they started it with");
         assertFalse(SocialGate.rules(BOT_A, OTHER_PLAYER, Act.TAUNT).ok(), "only toward the player who started it");

@@ -325,7 +325,7 @@ public final class BotGossip {
             if (m.negative && !BotHelpers.isArtificial(s)) {
                 Character there = presentChr(present, s);
                 if (there != null && !gossipInFront.test(teller, there)) {
-                    continue; // saying it to their face is spice: only when they started it with this bot or its crew
+                    continue; // saying it to their face is beef: only when they started it with this bot or its crew
                 }
             }
             int victimId = k.victim(m);

@@ -479,7 +479,7 @@ class BotBondsTest {
         BotBonds.maybeStep(clock.get()); // registers the source (and loads, and steps)
         assertTrue(SocialGate.rules(B, player, SocialGate.Act.SIDE_EYE).ok(),
                 "B side-eyes the player who KS'd its crew mate A");
-        assertFalse(SocialGate.rules(B, player, SocialGate.Act.TAUNT).ok(), "but spice stays with A");
+        assertFalse(SocialGate.rules(B, player, SocialGate.Act.TAUNT).ok(), "but beef stays with A");
         assertFalse(SocialGate.rules(C, player, SocialGate.Act.SIDE_EYE).ok(), "a stranger bot does not");
     }
 

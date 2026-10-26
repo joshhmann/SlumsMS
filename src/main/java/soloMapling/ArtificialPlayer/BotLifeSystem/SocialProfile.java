@@ -159,7 +159,7 @@ public record SocialProfile(double x, double y) {
     }
 
     /**
-     * The Killer disposition, 0..1: the pull toward rivalry, KS spats and trash talk. A hook for the spice slices (S7)
+     * The Killer disposition, 0..1: the pull toward rivalry, KS spats and trash talk. A hook for the Beef slice (S7)
      * and the utility bias (S8); nothing in S1 acts on it.
      */
     public double rivalPull() {

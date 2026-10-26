@@ -8,9 +8,9 @@ import java.util.concurrent.ConcurrentHashMap;
 
 /**
  * 1.6.0 (S5): the "started it" ledger behind {@link SocialGate}. Per real player, the bots they started something with:
- * a {@code spice} weight (a KS, a stolen drop, a scam, a roast, a defame: +1 each, at most {@link #MAX_WEIGHT}) and a
+ * a {@code beef} weight (a KS, a stolen drop, a scam, a roast, a defame: +1 each, at most {@link #MAX_WEIGHT}) and a
  * {@code flirt} weight (+1 per flirt), each halving every {@link SocialGate#halfLifeMs()} from when it last grew. A bot
- * may spice back while its spice is at least {@link #ACTIVE}; it may flirt back while its flirt is.
+ * may beef back while its beef is at least {@link #ACTIVE}; it may flirt back while its flirt is.
  *
  * <p>Bounded: at most {@link #MAX_PER_PLAYER} bots per player (the weakest is dropped), and only real players who
  * started something have an entry at all. Memory only here; {@link SocialGate} persists rows through its store.
@@ -24,8 +24,8 @@ final class SocialLedger {
     /** One bot and player. Times are epoch ms. Guarded by the player's map. */
     static final class Entry {
         final int botId;
-        double spice;
-        long spiceAt;
+        double beef;
+        long beefAt;
         double flirt;
         long flirtAt;
         String last = "";
@@ -35,12 +35,12 @@ final class SocialLedger {
         }
 
         Row row(int playerId) {
-            return new Row(playerId, botId, spice, spiceAt, flirt, flirtAt, last);
+            return new Row(playerId, botId, beef, beefAt, flirt, flirtAt, last);
         }
     }
 
     /** What the store keeps, one per bot and player (character ids, not slots). */
-    record Row(int playerId, int botId, double spice, long spiceAt, double flirt, long flirtAt, String lastKind) {
+    record Row(int playerId, int botId, double beef, long beefAt, double flirt, long flirtAt, String lastKind) {
     }
 
     private final Map<Integer, Map<Integer, Entry>> byPlayer = new ConcurrentHashMap<>();
@@ -56,13 +56,13 @@ final class SocialLedger {
         return weight * Math.pow(0.5, (double) age / halfLifeMs);
     }
 
-    /** The player provoked the bot ({@code kind} for the log): its spice grows by one. The row to store. */
+    /** The player provoked the bot ({@code kind} for the log): its beef grows by one. The row to store. */
     Row provoked(int botId, int playerId, String kind, long now, long halfLifeMs) {
         Map<Integer, Entry> m = byPlayer.computeIfAbsent(playerId, k -> new HashMap<>());
         synchronized (m) {
             Entry e = m.computeIfAbsent(botId, Entry::new);
-            e.spice = Math.min(MAX_WEIGHT, decayed(e.spice, e.spiceAt, now, halfLifeMs) + 1);
-            e.spiceAt = now;
+            e.beef = Math.min(MAX_WEIGHT, decayed(e.beef, e.beefAt, now, halfLifeMs) + 1);
+            e.beefAt = now;
             e.last = kind == null ? "" : kind;
             Row row = e.row(playerId);
             bound(m, botId, now, halfLifeMs);
@@ -83,14 +83,14 @@ final class SocialLedger {
         }
     }
 
-    double spice(int botId, int playerId, long now, long halfLifeMs) {
+    double beef(int botId, int playerId, long now, long halfLifeMs) {
         Map<Integer, Entry> m = byPlayer.get(playerId);
         if (m == null) {
             return 0;
         }
         synchronized (m) {
             Entry e = m.get(botId);
-            return e == null ? 0 : decayed(e.spice, e.spiceAt, now, halfLifeMs);
+            return e == null ? 0 : decayed(e.beef, e.beefAt, now, halfLifeMs);
         }
     }
 
@@ -116,7 +116,7 @@ final class SocialLedger {
         }
     }
 
-    /** The bots this player started something with that may still spice back (cheap: one map read when none). */
+    /** The bots this player started something with that may still beef back (cheap: one map read when none). */
     List<Integer> wronged(int playerId, long now, long halfLifeMs) {
         Map<Integer, Entry> m = byPlayer.get(playerId);
         if (m == null) {
@@ -125,7 +125,7 @@ final class SocialLedger {
         List<Integer> out = new ArrayList<>();
         synchronized (m) {
             for (Entry e : m.values()) {
-                if (decayed(e.spice, e.spiceAt, now, halfLifeMs) >= ACTIVE) {
+                if (decayed(e.beef, e.beefAt, now, halfLifeMs) >= ACTIVE) {
                     out.add(e.botId);
                 }
             }
@@ -141,8 +141,8 @@ final class SocialLedger {
                 return;
             }
             Entry e = new Entry(r.botId());
-            e.spice = r.spice();
-            e.spiceAt = r.spiceAt();
+            e.beef = r.beef();
+            e.beefAt = r.beefAt();
             e.flirt = r.flirt();
             e.flirtAt = r.flirtAt();
             e.last = r.lastKind() == null ? "" : r.lastKind();
@@ -198,7 +198,7 @@ final class SocialLedger {
                 if (e.botId == keep) {
                     continue;
                 }
-                double w = Math.max(decayed(e.spice, e.spiceAt, now, halfLifeMs), decayed(e.flirt, e.flirtAt, now,
+                double w = Math.max(decayed(e.beef, e.beefAt, now, halfLifeMs), decayed(e.flirt, e.flirtAt, now,
                         halfLifeMs));
                 if (w < low) {
                     low = w;

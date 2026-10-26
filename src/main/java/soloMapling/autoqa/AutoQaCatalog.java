@@ -755,7 +755,7 @@ public final class AutoQaCatalog {
                         lacks("LIKENESS WATCHED SNAP"))
                 .build());
         // 1.6.0 S5, the social gate: @quiet bots holds a friend's unasked whispers, invites and buddy requests (sg-1),
-        // and a rival spices only at a player who started it with it (sg-2)
+        // and a rival starts beef only with a player who started it with it (sg-2)
         c.add(Check.auto("t-sg-1", "@quiet bots stops everything unasked a friend bot aims at you").minutes(4)
                 .step(run("sg-1"), waitSeconds(5), qaDo("try"), waitSeconds(25), qaDo("try"), mark("loud"),
                         qaDo("loud"), qaDo("try"), waitSeconds(5))
@@ -766,7 +766,7 @@ public final class AutoQaCatalog {
                         lacksBefore("loud", "SG1 try \\d+ \\(quiet\\): whisper SENT"),
                         hasAfter("loud", "SG1 try \\d+ \\(loud\\): whisper SENT.*map-chat taunt SAID"))
                 .build());
-        c.add(Check.auto("t-sg-2", "A rival spices only after you KS or roast it").minutes(5)
+        c.add(Check.auto("t-sg-2", "A rival starts beef only after you KS or roast it").minutes(5)
                 .step(run("sg-2"), waitSeconds(5), qaDo("taunt"), waitSeconds(60), mark("ks"), qaDo("ks"),
                         qaDo("taunt"), waitFor("AFFINITY ACT (taunt|ks) ", 120))
                 .expect(has("SOCIAL_GATE NO (taunt|ks_spree) \\S+ -> {me}: they did not start it"),

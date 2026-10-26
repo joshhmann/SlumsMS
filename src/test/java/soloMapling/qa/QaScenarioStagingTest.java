@@ -463,13 +463,13 @@ class QaScenarioStagingTest {
                 .map(c -> 1).orElse(0);
         assertEquals(1, bot, world.calls.toString());
         List<String> out = suite.action(world.online, "check", new String[0]);
-        assertTrue(out.get(0).contains("spice no"), out.toString());
+        assertTrue(out.get(0).contains("beef no"), out.toString());
         suite.action(world.online, "ks", new String[0]);
         out = suite.action(world.online, "check", new String[0]);
-        assertTrue(out.get(0).contains("spice yes"), out.toString());
+        assertTrue(out.get(0).contains("beef yes"), out.toString());
         suite.action(world.online, "fresh", new String[0]);
         out = suite.action(world.online, "check", new String[0]);
-        assertTrue(out.get(0).contains("spice no"), out.toString());
+        assertTrue(out.get(0).contains("beef no"), out.toString());
         suite.stop(1, "!qa stop");
         assertTrue(world.calls.contains("hold ks wars false"));
         soloMapling.ArtificialPlayer.SocialGate.resetForTest();
