@@ -75,7 +75,16 @@ for the market) and swaps back if the check fails. The command the timer runs:
 python3 tools/site/build.py --private --section market --out /srv/slums-site \
     --market-data "/opt/mapleroot/MapleRoot Full Repack/Server/data/market" --hs-data /opt/slums-site-build/hiddenstreet
 ```
+Units: `tools/site/slums-site-market.service` and `.timer` (oneshot, nice 19, idle I/O, writes only under
+`/srv/slums-site`, reads the export and `/opt/slums-site-build` read-only). The build folder needs `tools/site/`,
+`docs/site/` and `docs/wiki/` from this branch plus the dataset copied to `/opt/slums-site-build/hiddenstreet`, and
+`cache/site-icons` is not needed (the market reuses the database's icons already published).
+```
+systemctl daemon-reload && systemctl enable --now slums-site-market.timer
+systemctl start slums-site-market.service && journalctl -u slums-site-market -n 5
+```
 Check: `market/index.html` changes within 15 minutes, and the "as of" time matches the export.
+Undo: `systemctl disable --now slums-site-market.timer`.
 
 ## 7. Afterwards
 - The megaphone rail's "sold" lines on non-market pages only change on a full publish (steps 1/5); the market pages

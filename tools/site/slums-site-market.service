@@ -1,0 +1,27 @@
+[Unit]
+Description=SlumsMS website: rebuild the market pages from the game server's export
+# One run takes a few seconds. A failed check leaves the previous market pages in place.
+
+[Service]
+Type=oneshot
+Nice=19
+IOSchedulingClass=idle
+WorkingDirectory=/opt/slums-site-build
+ExecStart=/usr/bin/python3 tools/site/build.py --private --section market --out /srv/slums-site \
+    --market-data "/opt/mapleroot/MapleRoot Full Repack/Server/data/market" \
+    --hs-data /opt/slums-site-build/hiddenstreet
+NoNewPrivileges=true
+PrivateTmp=true
+PrivateDevices=true
+ProtectSystem=strict
+ProtectHome=true
+ReadWritePaths=/srv/slums-site
+ReadOnlyPaths=/opt/slums-site-build
+ProtectKernelTunables=true
+ProtectKernelModules=true
+ProtectControlGroups=true
+RestrictAddressFamilies=AF_UNIX
+RestrictNamespaces=true
+LockPersonality=true
+MemoryMax=512M
+UMask=0022

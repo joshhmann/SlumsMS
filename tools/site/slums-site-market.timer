@@ -1,0 +1,11 @@
+[Unit]
+Description=Rebuild the SlumsMS website market pages every 15 minutes
+
+[Timer]
+# the export writes at :00/:15/:30/:45 plus 90 s after boot; run a little after it
+OnCalendar=*:02,17,32,47
+RandomizedDelaySec=30
+Persistent=false
+
+[Install]
+WantedBy=timers.target
