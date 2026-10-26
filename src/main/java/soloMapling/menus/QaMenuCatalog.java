@@ -77,7 +77,7 @@ public final class QaMenuCatalog {
         add("we-1", v("same", "mixed"), steps());
         section("Romance (opt-in)");
         add("rm-1", v(), steps("ask", "date", "whisper", "follow", "jealous", "step", "off"));
-        add("rm-2", v(), steps("propose", "wedding", "divorce"));
+        add("rm-2", v("same", "mixed"), steps("propose", "wedding", "divorce"));
         add("rm-3", v(), steps("neglect", "breakup", "second", "confront", "flame", "gossip"));
         add("rm-4", v(), steps("propose", "wedding", "runaway"));
         section("Natural conversations");

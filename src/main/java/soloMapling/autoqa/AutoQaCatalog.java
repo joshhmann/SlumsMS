@@ -617,12 +617,24 @@ public final class AutoQaCatalog {
                 .step(run("bk-1", "pacing"), until("ATTACK .* busy \\d+ms", 60, 240))
                 .expect(atLeast(20, "ATTACK .* busy \\d+ms"),
                         rule("no machine-gun swings (gap under 60% of busy) and no hitch (gap over busy + 3 s at a live mob)",
-                                AutoQaCatalog::pacingSteady))
+                                AutoQaCatalog::pacingSteady),
+                        lacks("ATTACK GUARD melee without a range"))
                 .build());
         c.add(Check.half("t-at-1", "Bots attack at a player's pace", "the swings next to your own character").minutes(14)
                 .step(run("bk-1"), until("ATTACK .* busy \\d+ms", 120, 600))
                 .expect(atLeast(40, "ATTACK .* busy \\d+ms"),
-                        rule("no machine-gun swings (gap under 60% of busy)", AutoQaCatalog::pacingNotFast))
+                        rule("no machine-gun swings (gap under 60% of busy)", AutoQaCatalog::pacingNotFast),
+                        lacks("ATTACK GUARD melee without a range"))
+                .build());
+        // 1.6.0: a gunslinger bot's Double Shot went out as a melee attack in its doublefire pose; a gun's afterimage has
+        // no range for it and the viewer's client closed (TEST, twice). Gun and knuckle bots fight; every melee packet
+        // must be one the client has a range for, and the packet guard must never have had to step in.
+        c.add(Check.auto("t-bk-3", "Pirate bots never send a melee attack that closes a viewer's client").minutes(5)
+                .step(run("bk-1", "pirates", "3"), until("ATTACK .* weapon 149\\d{4} ", 20, 240))
+                .expect(atLeast(10, "ATTACK .* route RANGED .* weapon 149\\d{4} "),
+                        lacks("ATTACK GUARD melee without a range"),
+                        rule("every melee packet has a range in the client's tables (BotMeleeRange)",
+                                AutoQaCatalog::meleeInRange))
                 .build());
         c.add(Check.auto("t-id-1", "Idle bots step out of mob packs").minutes(5)
                 .step(run("id-1"), until("TALLY ", 2, 150))
@@ -1093,6 +1105,25 @@ public final class AutoQaCatalog {
 
     static String pacingSteady(CheckRun r) {
         return pacing(r.matching("ATTACK ", null, null), true);
+    }
+
+    private static final java.util.regex.Pattern MELEE = java.util.regex.Pattern.compile(
+            "skill (\\d+) lv (\\d+) route CLOSE action (\\d+) .*weapon (\\d+)");
+
+    /* t-bk-3: a bot melee packet in a pose the client has no range for (it would have closed the viewer's client). */
+    static String meleeInRange(CheckRun r) {
+        int bad = 0;
+        String example = null;
+        for (AutoQaLine l : r.matching("ATTACK ", null, null)) {
+            java.util.regex.Matcher m = MELEE.matcher(l.message());
+            if (m.find() && !soloMapling.ArtificialPlayer.BotAttackSystem.BotMeleeRange.hasRange(
+                    Integer.parseInt(m.group(1)), Integer.parseInt(m.group(2)), Integer.parseInt(m.group(4)),
+                    Integer.parseInt(m.group(3)))) {
+                bad++;
+                example = l.message();
+            }
+        }
+        return bad == 0 ? null : bad + " melee packets in a pose without a range, e.g. " + example;
     }
 
     static String pacingNotFast(CheckRun r) {

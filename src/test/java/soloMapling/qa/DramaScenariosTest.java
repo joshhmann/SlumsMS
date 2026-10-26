@@ -85,6 +85,18 @@ class DramaScenariosTest {
     }
 
     @Test
+    void rm2StagesAPartnerOfTheGenderAskedFor() {
+        // ticket 58: same-sex marriage needs a same-gender partner on demand
+        start("rm-2", 60, "same");
+        assertTrue(world.drama.contains("romance stage dating 60 same"), world.drama.toString());
+        suite.stop(1, "done");
+        start("rm-2", 60, "mixed");
+        assertTrue(world.drama.contains("romance stage dating 60 mixed"), world.drama.toString());
+        suite.stop(1, "done");
+        assertThrows(QaRefusal.class, () -> start("rm-2", 60, "both"));
+    }
+
+    @Test
     void rm2CompletesTheWeddingInsteadOfRollingARandomRunaway() {
         RomanceWedding.runawayBeat(false, 1.0);
         start("rm-2", 60);

@@ -38,7 +38,9 @@ public class BotShowcaseCommand extends Command {
     static final List<Job> FOURTH = List.of(Job.HERO, Job.PALADIN, Job.DARKKNIGHT, Job.FP_ARCHMAGE, Job.IL_ARCHMAGE,
             Job.BISHOP, Job.BOWMASTER, Job.MARKSMAN, Job.NIGHTLORD, Job.SHADOWER, Job.BUCCANEER, Job.CORSAIR,
             Job.DAWNWARRIOR4, Job.BLAZEWIZARD4, Job.WINDARCHER4, Job.NIGHTWALKER4, Job.THUNDERBREAKER4, Job.ARAN4);
-    static final List<Job> PIRATES = List.of(Job.BUCCANEER, Job.CORSAIR, Job.THUNDERBREAKER4, Job.ARAN4);
+    // 1.6.0: the 2nd-job gun and knuckle lines too, whose basics (Double Shot, Double Uppercut) a 4th job no longer swings
+    static final List<Job> PIRATES = List.of(Job.BUCCANEER, Job.CORSAIR, Job.THUNDERBREAKER4, Job.ARAN4, Job.GUNSLINGER,
+            Job.BRAWLER);
     static final List<Job> PACING = List.of(Job.BOWMASTER, Job.CORSAIR, Job.FP_ARCHMAGE, Job.BLAZEWIZARD4, Job.BISHOP,
             Job.HERO, Job.ARAN4, Job.THUNDERBREAKER4);
     private static final int DEFAULT_MINUTES = 5, MAX_MINUTES = 30;
