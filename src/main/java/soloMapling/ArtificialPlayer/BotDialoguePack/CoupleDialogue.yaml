@@ -85,3 +85,36 @@ Wedding:
       - "{GROOM} {BRIDE} forever <3"
       - "after party at the fm lol"
       - "kiss!! kiss!!"
+# 1.6.0 S7: a crush before a couple, and a couple's jealousy and breakups (bot with bot only). {PARTNER} the crush, {OTHER} a third character.
+Crush:
+  Line:
+    text:
+      - "hi {PARTNER} :)"
+      - "{PARTNER} wanna train together sometime"
+      - "{PARTNER} ur so good at this game"
+      - "{PARTNER} nice outfit lol"
+      - "{PARTNER} i saved u a spot"
+      - "{PARTNER} :$"
+  Jealous:
+    text:
+      - "why is {PARTNER} talking to {OTHER}"
+      - "{OTHER} go away lol"
+      - "{OTHER} ur in the way"
+  Over:
+    text:
+      - "nvm"
+      - "whatever, didnt want to anyway"
+  CoupleJealous:
+    text:
+      - "{OTHER} back off, {PARTNER} is taken"
+      - "{OTHER} stop following {PARTNER} around"
+  CoupleFight:
+    text:
+      - "{PARTNER} u never wait for me"
+      - "{PARTNER} why were u with {OTHER} earlier"
+      - "{PARTNER} we need to talk"
+  CoupleBreakup:
+    text:
+      - "{PARTNER} its over"
+      - "were done {PARTNER}"
+      - "bye {PARTNER}. for real this time"

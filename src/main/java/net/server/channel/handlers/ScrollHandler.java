@@ -182,6 +182,11 @@ public final class ScrollHandler extends AbstractPacketHandler {
                             : ", watk " + scrolled.getWatk() + ", matk " + scrolled.getMatk() + ", slots left "
                             + scrolled.getUpgradeSlots() + ", level " + scrolled.getLevel()));
                 }
+                if (scrollSuccess == Equip.ScrollResult.CURSE) {
+                    int boomed = toScroll.getItemId();
+                    soloMapling.server.MapleRootSolo.runHook("beef boom", () -> // 1.6.0 S7: a bot nearby may tease
+                            soloMapling.ArtificialPlayer.BotDramaSystem.BotDrama.onPlayerBoom(chr, boomed));
+                }
                 if (equipSlot < 0 && (scrollSuccess == Equip.ScrollResult.SUCCESS || scrollSuccess == Equip.ScrollResult.CURSE)) {
                     chr.equipChanged();
                 }

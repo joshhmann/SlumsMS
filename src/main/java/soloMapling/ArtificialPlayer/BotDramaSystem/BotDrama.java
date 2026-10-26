@@ -7,7 +7,7 @@ import soloMapling.ArtificialPlayer.BotSM;
 /**
  * The 1.5.0 bot drama package's one door for the game code: every hook calls in here, and here it fans out to the
  * romance ({@link BotRomance}, {@link RomanceWedding}), rivalry ({@link BotRivalry}) and guild war ({@link GuildWars})
- * parts. Each hook returns at once when the package is off ({@code -Dsolomapling.drama=false}) or the character is a
+ * parts, and since 1.6.0 S7 to the Beef layer (see {@link BeefKit}). Each hook returns at once when the package is off ({@code -Dsolomapling.drama=false}) or the character is a
  * bot, and does only memory work on the calling thread.
  */
 public final class BotDrama {
@@ -20,7 +20,8 @@ public final class BotDrama {
         if (!DramaKit.enabled() || sm == null || player == null) {
             return false;
         }
-        return BotRivalry.onSight(sm, player) || BotRomance.onSight(sm, player);
+        return BotRivalry.onSight(sm, player) || BotRomance.onSight(sm, player)
+                || Teasing.onSight(sm, player); // 1.6.0 S7: a friendly tease (slow level, outdated weapon)
     }
 
     /**
@@ -60,11 +61,44 @@ public final class BotDrama {
         BotRivalry.onMapChanged(player, from);
     }
 
-    /** A real player died (stock death, packet thread): rivals remember it for their roasts. */
+    /** A real player died (stock death, packet thread): rivals remember it for their roasts; a bot nearby may tease. */
     public static void onPlayerDeath(Character player) {
         if (DramaKit.enabled() && player != null && !BotHelpers.isBot(player)) {
             BotRivalry.onDeath(player);
+            Teasing.onPlayerDeath(player); // 1.6.0 S7
         }
+    }
+
+    /** 1.6.0 S7: a real player's scroll boomed their item (stock scroll handler): a bot nearby may tease. */
+    public static void onPlayerBoom(Character player, int itemId) {
+        if (DramaKit.enabled() && player != null && !BotHelpers.isBot(player)) {
+            Teasing.onPlayerBoom(player, itemId);
+        }
+    }
+
+    /**
+     * 1.6.0 S7: a bot's scroll boomed its item ({@code BotScrolling}): its friends may tease it, and it may rage quit
+     * ({@link RageQuit}).
+     */
+    public static void onBotBoom(Character bot, int itemId, Integer valueBefore) {
+        if (DramaKit.enabled() && bot != null && BotHelpers.isBot(bot)) {
+            RageQuit.onBotBoom(bot, itemId, valueBefore);
+        }
+    }
+
+    /**
+     * 1.6.0 S7: a bot took another bot's mob on an observed map ({@code BotBonds.beforeBotHit}, after the KS bond):
+     * a KS spat may follow.
+     */
+    public static void onBotKs(Character victim, Character ksr) {
+        if (DramaKit.enabled()) {
+            BotBotRivalry.onBotKs(victim, ksr);
+        }
+    }
+
+    /** 1.6.0 S7: whether a rage-quitter is away now (the population director leaves it offline). */
+    public static boolean awayAfterRageQuit(int charId, long now) {
+        return DramaKit.enabled() && RageQuit.away(charId, now);
     }
 
     /** The population director's tick. */
@@ -75,12 +109,16 @@ public final class BotDrama {
         BotRomance.maybeStep(now);
         BotRivalry.maybeStep(now);
         GuildWars.maybeStep(now);
+        BotBotRivalry.maybeStep(now); // 1.6.0 S7 Beef: bot call-outs
+        GuildFeuds.maybeStep(now);    // 1.6.0 S7 Beef: guild fights from member feuds
+        RageQuit.maybeStep(now);      // 1.6.0 S7 Beef: rage-quitters come back
     }
 
     /** A bot joined the world (before it shows on the map). */
     public static void onBotLogin(Character bot) {
         if (DramaKit.enabled()) {
             BotRomance.onBotLogin(bot);
+            RageQuit.onBotLogin(bot); // 1.6.0 S7: "im back lol"
         }
     }
 

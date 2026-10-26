@@ -545,6 +545,7 @@ public final class SocialGate {
      *   unsolicited whisper per player (all bots): one per 10 min -> one per 200 s
      *   bot buddy requests (BotBuddies): 1 a day -> 3 a day per player, 6 -> 18 an hour world-wide
      *   unprompted LLM lines (greet openers, model roasts): new, 30 an hour world-wide; over it they use the bank
+     *   friendly teases (S7): new, 30 min per pair, 40 an hour world-wide
      */
 
     /** Per-pair cooldown, in minutes. */
@@ -558,6 +559,7 @@ public final class SocialGate {
             case KS_SPREE -> 10; // owner: 10, not 3x
             case DEFAME -> 1440;
             case SIDE_EYE -> 60;
+            case TEASE -> 30; // 1.6.0 S7: one friendly tease per bot and player per half hour
             default -> 0;
         };
         return Long.getLong("solomapling.affinity." + legacyKey(a) + "Min", min);
@@ -570,6 +572,7 @@ public final class SocialGate {
             case KS_SPREE -> 30;
             case PARTY_INVITE -> 18;
             case SIDE_EYE -> 30;
+            case TEASE -> 40; // 1.6.0 S7
             default -> 1000;
         };
         return Integer.getInteger("solomapling.affinity." + legacyKey(a) + "PerHour", cap);
