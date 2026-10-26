@@ -867,6 +867,34 @@ public final class BotBonds {
         return counted;
     }
 
+    /**
+     * QA acceleration until both bots count each other as FRIEND: party time in 5-minute ticks (as
+     * {@link #accelerateParty}), at most {@code maxMinutes}. Slow bonders (a low Socializer share scales a tick down
+     * to x0.6) just need more ticks, so this is deterministic. The minutes of party time it took, or -1 when the cap
+     * came first.
+     */
+    public static int accelerateUntilFriends(int a, int b, int maxMinutes) {
+        long now = now();
+        for (int minutes = 0; minutes <= maxMinutes; minutes += 5) {
+            if (mutualFriends(a, b)) {
+                return minutes;
+            }
+            record(a, b, BondEvent.PARTY_TIME, now, true);
+            record(b, a, BondEvent.PARTY_TIME, now, true);
+        }
+        return mutualFriends(a, b) ? maxMinutes : -1;
+    }
+
+    /**
+     * The server's shutdown sweep: writes every changed bond now, on this thread (the 3-minute flush would lose up to
+     * that much at a restart). The rows written.
+     */
+    public static int flushAtShutdown() {
+        int written = flush();
+        log.info("Shutdown: {} bot bond rows written", written);
+        return written;
+    }
+
     /** Forgets every bond of and about a bot (a staged {@code !qa} bot that left). O(bots), GM use only. */
     public static void forgetBot(int botId) {
         BondSet own = sets.remove(botId);

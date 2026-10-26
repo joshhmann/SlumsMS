@@ -777,7 +777,7 @@ public final class AutoQaCatalog {
                 .build());
         // 1.6.0 S2, bot bonds: two bots partied together become friends and a crew (bb-3, party time accelerated)
         c.add(Check.auto("t-bb-3", "Two bots partied together become friends and a crew").minutes(2)
-                .step(run("bb-3"), waitFor("BB3 STAGED ", 20), qaDo("fast", "45"), waitFor("BB3 (PASS|FAIL) ", 30),
+                .step(run("bb-3"), waitFor("BB3 STAGED ", 20), qaDo("fast"), waitFor("BB3 (PASS|FAIL) ", 30),
                         stop())
                 .expect(has("BB3 STAGED .*: party \\d+: \\S+ \\+ \\S+"),
                         has("AFFINITY BONDS \\S+ -> \\S+ neutral -> FRIEND \\((party|party_time)"),

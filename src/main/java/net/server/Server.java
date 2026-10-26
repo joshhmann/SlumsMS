@@ -2094,6 +2094,8 @@ public class Server {
         }
         if (deadline - System.nanoTime() > 0) {
             BotDbGate.unmetered((Runnable) BotYieldCaps::flush);   // ticket 15: bots' daily meso counts survive the restart
+            // 1.6.0 S2: bond changes since the last 3-minute flush survive the restart
+            BotDbGate.unmetered((Runnable) soloMapling.ArtificialPlayer.BotAffinitySystem.BotBonds::flushAtShutdown);
         }
     }
 
