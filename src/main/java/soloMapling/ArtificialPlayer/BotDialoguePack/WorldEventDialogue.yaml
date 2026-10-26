@@ -91,3 +91,58 @@ WorldEvent:
       - "did u see the wedding in amoria"
       - "that wedding was so cute"
       - "{EVENT} was nice lol"
+  # 1.6.0: the giant cake (the friends' ask: everyone in town whacks a giant cake, like the old anniversary events)
+  CakeDuring:
+    text:
+      - "who has the cake"
+      - "omg giant cake in {MAP}"
+      - "everyone hit the cake lol"
+      - "this cake has so much hp @@"
+      - "happy bday maple ^^"
+      - "cake ch{CH} {MAP} come"
+      - "i just want a slice T_T"
+      - "the little cakes keep coming lol"
+      - "hit the big one not the candles"
+      - "brb getting pots, save me some cake"
+  CakeAfter:
+    text:
+      - "remember the cake lol"
+      - "that cake was huge"
+      - "gg {PLAYER} biggest slice"
+      - "{PLAYER} got the cake?? lucky"
+      - "i want more cake"
+      - "the cake party was fun ^^"
+      - "my hands hurt from hitting that cake lol"
+  # 1.6.0: a bot that died at an event, once it is back on its feet. {N} = its deaths there.
+  Died:
+    text:
+      - "ugh i died"
+      - "wtf they hit so hard"
+      - "rip me lol"
+      - "brb respawning"
+      - "too many mobs @@"
+      - "{BOSS} is no joke"
+      - "lost my exp T_T"
+  DiedAgain:
+    text:
+      - "died again lol"
+      - "thats {N} deaths for me"
+      - "{N} times now wtf"
+      - "i keep dying here T_T"
+      - "ok one more try"
+      - "my exp bar is crying"
+  # 1.6.0: afterwards, a bot that died more than once. {N} = its deaths there.
+  DeathsAfter:
+    text:
+      - "died {N} times at {MAP} lol"
+      - "i died like {N} times to {BOSS}"
+      - "{N} deaths at that invasion, worth it"
+      - "never again lol, died {N} times"
+  # 1.6.0: before the evening headline starts. {EVENT} {MAP} {MIN}.
+  Soon:
+    text:
+      - "{EVENT} in {MIN} min??"
+      - "anyone going to {MAP} for {EVENT}"
+      - "omg {EVENT} at {MAP} soon"
+      - "gonna head to {MAP} for {EVENT}"
+      - "{EVENT} in {MAP} in {MIN} min, who's coming"

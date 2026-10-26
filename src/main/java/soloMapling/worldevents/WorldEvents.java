@@ -43,8 +43,12 @@ import static soloMapling.BotLogger.log;
  * spot (bonus EXP on one map for real players), wandering NPC (a one-off fetch quest). Rates, drops and shops are never
  * touched; what an event gives is its own reward table, to real players only.
  * <p>
- * The automatic scheduler is <b>off</b> unless the server runs with {@code -Dsolomapling.worldEvents=true} (or a GM
- * says {@code !event auto on}); GM commands work either way. See {@link EventScheduler.Settings} for the rate knobs.
+ * 1.6.0: the {@link EventDirector} plans each day - a headline event at ~8 PM PT (10- and 1-minute warnings) and 1-3
+ * small ones at peak hours - and its plan is saved ({@code -Dsolomapling.events.stateFile}, default
+ * {@value #DEFAULT_STATE_FILE}) so a restart never fires one twice. It runs unless {@code -Dsolomapling.events=false}
+ * (or a GM says {@code !event auto off}); GM commands work either way. A giant cake (kind GIANT_CAKE) is a boss with
+ * an event HP for a whole town to whack; an invasion's map lets heavy hits kill bots ({@link #swarmed}), who respawn as
+ * usual. Bots with the brain on are offered the event (the EVENT activity) and go if their brain picks it.
  * {@code -Dsolomapling.worldEvents.rewards=false} turns every reward table off. {@code -Dslumsms.announceFile=PATH}
  * also writes the public moments to a feed file for Discord ({@link WorldEventFeed}).
  */
@@ -60,6 +64,21 @@ public final class WorldEvents {
 
     private static final WorldEvents INSTANCE = new WorldEvents();
     static final long RECRUIT_EVERY_MS = 2 * 60_000L;
+    public static final String DEFAULT_STATE_FILE = "data/worldevents/schedule.json";
+
+    /** Invasion maps (channel << 32 | map id) where a heavy hit may kill a bot. Read on every bot hit: kept flat. */
+    private final java.util.Set<Long> swarmMaps = ConcurrentHashMap.newKeySet();
+    /** When each bot last died to a swarm (per-bot cooldown {@link #SWARM_BOT_COOLDOWN_MS}). */
+    private final Map<Integer, Long> lastSwarmDeath = new ConcurrentHashMap<>();
+    /** A hit that leaves a bot under half its max HP on an invasion map may kill it (bots pot at 40-60%: a swarm
+     * gets them before the potion does). */
+    static final double SWARM_HP_SHARE = 0.5;
+    static final double SWARM_DEATH_CHANCE = 0.6;
+    static final long SWARM_BOT_COOLDOWN_MS = 45_000L;
+    static final int SWARM_DEATHS_PER_EVENT = 120;
+
+    private final EventDirector director = new EventDirector(EventDirector.Config.fromSystemProperties(zone()));
+    private volatile String savedDay = "";
 
     private final List<ActiveEvent> active = new CopyOnWriteArrayList<>();
     private final List<ActiveEvent> recent = new CopyOnWriteArrayList<>();
@@ -98,19 +117,28 @@ public final class WorldEvents {
         for (String err : r.errors()) {
             log("[WorldEvents] template problem: " + err);
         }
+        WorldEventBias.register(); // 1.6.0: the brain's EVENT activity leans by Bartle type
+        if (director.load(stateFile())) {
+            savedDay = director.state().day();
+            lastEndedAt.putAll(director.state().lastEndedAt());
+            log("[WorldEvents] schedule restored from " + stateFile() + " (day " + savedDay + ", headline "
+                    + director.state().headlineTemplate() + " " + director.state().headlineStatus() + ")");
+        }
         long period = settings.tickMs();
         ticker = ExecutorServiceManager.getScheduledExecutorService().scheduleAtFixedRate(this::tickSafely,
                 period, period, TimeUnit.MILLISECONDS);
         BotShutdown.onQuiesce(this::shutdown);
-        log("[WorldEvents] " + r.templates().size() + " templates, " + r.errors().size() + " problems; scheduler "
-                + (settings.auto() ? "on (one per ~" + (int) settings.meanGapMinutes() + " min at peak, max "
-                + settings.maxActive() + " at once)" : "off (-Dsolomapling.worldEvents=true or !event auto on)"));
+        log("[WorldEvents] " + r.templates().size() + " templates, " + r.errors().size() + " problems; director "
+                + (settings.auto() ? "on (headline at " + director.config().headlineAt() + " " + director.config().zone()
+                + ", 1-3 small at " + director.config().peaks() + ", max " + EventScheduler.MAX_ACTIVE_CAP
+                + " at once)" : "off (-Dsolomapling.events=false; !event auto on)"));
     }
 
     private synchronized void shutdown() {
         for (ActiveEvent e : active) {
             finish(e, "server stopping", false);
         }
+        saveState();
         if (ticker != null) {
             ticker.cancel(false);
             ticker = null;
@@ -146,13 +174,125 @@ public final class WorldEvents {
         for (ActiveEvent e : recent) {
             WorldEventReactions.chatter(e, now, rng, true);
         }
-        EventTemplate pick = EventScheduler.decide(settings, EventTemplates.get().templates(), running(), lastEndedAt,
-                lastStartAt, now, curveFraction(), rng);
-        if (pick != null) {
-            StartResult r = startEvent(pick, null, "scheduler", now, rng);
-            if (r.error() != null) {
-                log("[WorldEvents] scheduler could not start " + pick.id() + ": " + r.error());
+        if (settings.auto()) {
+            runDirector(now, rng);
+        }
+    }
+
+    /** 1.6.0: the day's plan - warnings, the headline, the small ones - then the plan is saved when it moved. */
+    void runDirector(long now, Random rng) {
+        List<EventTemplate> templates = EventTemplates.get().templates();
+        List<EventDirector.Action> actions = director.tick(now, templates, active.size(), lastEndedAt, rng);
+        for (EventDirector.Action a : actions) {
+            EventTemplate t = EventTemplates.byId(a.templateId());
+            if (t == null) {
+                if (a.kind() == EventDirector.Kind.START_HEADLINE) {
+                    director.headlineFailed();
+                } else if (a.kind() == EventDirector.Kind.START_SMALL) {
+                    director.smallStarted();
+                }
+                continue;
             }
+            switch (a.kind()) {
+                case WARN -> warn(t, a.mapId(), a.minutesLeft(), rng);
+                case START_HEADLINE -> {
+                    StartResult r = startEvent(t, spotOn(t, a.mapId()), "director (headline)", now, rng, true);
+                    if (r.error() == null) {
+                        director.headlineStarted(t.id());
+                    } else if (!BotShutdown.isQuiesced()) {
+                        log("[WorldEvents] headline " + t.id() + " could not start: " + r.error());
+                        director.headlineFailed();
+                    }
+                }
+                case START_SMALL -> {
+                    StartResult r = startEvent(t, null, "director", now, rng, false);
+                    if (r.error() != null) {
+                        log("[WorldEvents] small event " + t.id() + " could not start: " + r.error());
+                    }
+                    director.smallStarted();
+                }
+            }
+        }
+        if (!actions.isEmpty() || !director.state().day().equals(savedDay)) {
+            saveState();
+        }
+    }
+
+    /** The template's spot on this map (the planned headline map), or null for a random one. */
+    static EventTemplate.Spot spotOn(EventTemplate t, int mapId) {
+        for (EventTemplate.Spot s : t.spots()) {
+            if (s.mapId() == mapId) {
+                return s;
+            }
+        }
+        return null;
+    }
+
+    /** The headline's warning: a blue notice to the world, and maybe a bot's megaphone (through its gate). */
+    private void warn(EventTemplate t, int mapId, int minutesLeft, Random rng) {
+        String mapName = WorldEventReactions.mapName(mapId);
+        String text = WorldEventText.fill(WorldEventText.warning(t.kind(), minutesLeft), Map.of("EVENT", t.name(),
+                "MAP", mapName, "CH", String.valueOf(channel()), "MIN", String.valueOf(minutesLeft)));
+        announceText(text);
+        try {
+            WorldEventReactions.warned(t, mapId, mapName, minutesLeft, rng);
+        } catch (RuntimeException ex) {
+            log("[WorldEvents] warning chatter failed: " + ex);
+        }
+        qa("WEVENT WARN " + t.id() + " on " + mapId + " in " + minutesLeft + " min: " + text);
+    }
+
+    /** {@code !qa ev-1/ev-2}: the headline warning for this template and map, as the director sends it. */
+    public void qaWarn(String templateId, int mapId, int minutesLeft) {
+        EventTemplate t = EventTemplates.byId(templateId);
+        if (t != null) {
+            warn(t, mapId, minutesLeft, ThreadLocalRandom.current());
+        }
+    }
+
+    /** The server's zone (BOT_ROSTER_TIMEZONE), the same clock the population director runs on. */
+    static java.time.ZoneId zone() {
+        try {
+            return BotPopulationDirector.localNow().getZone();
+        } catch (RuntimeException | LinkageError e) {
+            return java.time.ZoneId.of("America/Los_Angeles");
+        }
+    }
+
+    public static java.nio.file.Path stateFile() {
+        return java.nio.file.Path.of(System.getProperty("solomapling.events.stateFile", DEFAULT_STATE_FILE));
+    }
+
+    void saveState() {
+        director.mergeEnded(lastEndedAt);
+        if (!director.save(stateFile())) {
+            log("[WorldEvents] could not save the schedule to " + stateFile());
+        }
+        savedDay = director.state().day();
+    }
+
+    public EventDirector director() {
+        return director;
+    }
+
+    /** {@code !event next}: the day's plan. */
+    public List<String> next(long now) {
+        List<String> out = new ArrayList<>();
+        out.add("Director " + (settings.auto() ? "ON" : "OFF (!event auto on, or -Dsolomapling.events=true)")
+                + "; headline daily at " + director.config().headlineAt() + " " + director.config().zone()
+                + ", small events in " + director.config().peaks() + ".");
+        if (director.state().day().isEmpty() || !director.state().day().equals(
+                EventDirector.localDate(now, director.config().zone()).toString())) {
+            out.add("(Today's plan is made at the next tick.)");
+        }
+        out.addAll(director.describe(now));
+        return out;
+    }
+
+    /** QA lines on the WORLD_EVENT topic (only while a run listens). */
+    static void qa(String line) {
+        if (soloMapling.qa.QaLog.on(soloMapling.qa.QaLog.Topic.WORLD_EVENT)) {
+            soloMapling.qa.QaLog.any(soloMapling.qa.QaLog.Topic.WORLD_EVENT, line);
         }
     }
 
@@ -213,7 +353,32 @@ public final class WorldEvents {
                 return new StartResult(null, t.id() + " cannot run on map " + mapId + "; its maps: " + mapsOf(t));
             }
         }
-        return startEvent(t, spot, by, System.currentTimeMillis(), ThreadLocalRandom.current());
+        StartResult r = startEvent(t, spot, by, System.currentTimeMillis(), ThreadLocalRandom.current(), false);
+        if (r.error() == null) {
+            director.noteManualStart(t);
+        }
+        return r;
+    }
+
+    /**
+     * {@code !qa ev-1 / ev-2}: a template started with a test-sized boss and length (the template file is untouched;
+     * the copy lives only for this event). {@code bossHp} 0 keeps the template's.
+     */
+    public StartResult startForQa(String templateId, int mapId, String by, long bossHp, int minutes) {
+        EventTemplate t = EventTemplates.byId(templateId);
+        if (t == null) {
+            return new StartResult(null, "no template '" + templateId + "'");
+        }
+        EventTemplate copy = new EventTemplate(t.id(), t.kind(), t.name(), t.weight(),
+                minutes > 0 ? Math.min(EventTemplates.MAX_MINUTES, minutes) : t.minutes(), t.cooldownMinutes(),
+                t.minLevel(), t.maxLevel(), t.botCap(), t.spots(), t.waves(), t.bossMobId(), t.npcId(), t.expBonus(),
+                t.rewards(), t.enabled(), t.slot(), bossHp > 0 ? bossHp : t.bossHp(), t.participation(),
+                t.participationExpPct());
+        EventTemplate.Spot spot = mapId > 0 ? spotOn(copy, mapId) : null;
+        if (mapId > 0 && spot == null) {
+            return new StartResult(null, t.id() + " cannot run on map " + mapId + "; its maps: " + mapsOf(t));
+        }
+        return startEvent(copy, spot, by, System.currentTimeMillis(), ThreadLocalRandom.current(), false);
     }
 
     static String mapsOf(EventTemplate t) {
@@ -225,6 +390,11 @@ public final class WorldEvents {
     }
 
     synchronized StartResult startEvent(EventTemplate t, EventTemplate.Spot chosen, String by, long now, Random rng) {
+        return startEvent(t, chosen, by, now, rng, false);
+    }
+
+    synchronized StartResult startEvent(EventTemplate t, EventTemplate.Spot chosen, String by, long now, Random rng,
+                                        boolean headline) {
         if (BotShutdown.isQuiesced()) {
             return new StartResult(null, "server is stopping");
         }
@@ -245,6 +415,7 @@ public final class WorldEvents {
         }
         int[] band = band(t, spot);
         ActiveEvent e = new ActiveEvent(ids.incrementAndGet(), t, spot, channel(), now, by, band[0], band[1]);
+        e.headline = headline;
         e.mapName = map.getMapName() == null ? String.valueOf(spot.mapId()) : map.getMapName();
         e.regionName = WorldEventReactions.regionName(spot.mapId());
         String problem = begin(e, map, rng);
@@ -254,7 +425,13 @@ public final class WorldEvents {
         }
         active.add(e);
         lastStartAt = now;
+        if (t.kind() == EventTemplate.Kind.INVASION) {
+            swarmMaps.add(mapKey(e.channel, e.mapId()));
+        }
         announce(e, WorldEventText.start(t.kind()));
+        qa("WEVENT START #" + e.id + " " + t.id() + " (" + t.kind().label() + ") on " + e.mapId() + " " + e.mapName
+                + " ch" + e.channel + ", bots lv " + e.minLevel + "-" + e.maxLevel + ", cap " + crowdCap(t)
+                + (e.bossOid >= 0 ? ", boss HP " + bossHpOf(e, map) : "") + ", by " + by);
         WorldEventFeed.started(e, now); // public Discord feed (-Dslumsms.announceFile), off the game thread
         log("[WorldEvents] started " + e.describe(now));
         if (t.kind() != EventTemplate.Kind.TREASURE_HUNT) {
@@ -307,6 +484,7 @@ public final class WorldEvents {
                 yield bandFor(t.kind(), low, mobLevel(t.bossMobId()));
             }
             case BOSS_SIGHTING -> bandFor(t.kind(), mobLevel(spot.mobId()), mobLevel(spot.mobId()));
+            case GIANT_CAKE -> new int[]{1, 255};
             default -> bandFor(t.kind(), MapMobIndex.level(spot.mapId()), 0);
         };
     }
@@ -316,7 +494,7 @@ public final class WorldEvents {
         return switch (kind) {
             case INVASION -> new int[]{Math.max(1, low - 5), Math.min(255, Math.max(low, high) + 10)};
             case BOSS_SIGHTING -> new int[]{Math.max(1, low - 15), Math.min(255, low + 25)};
-            case WANDERING_NPC -> new int[]{1, 255};
+            case WANDERING_NPC, GIANT_CAKE -> new int[]{1, 255};
             default -> low <= 0 ? new int[]{1, 255} : new int[]{Math.max(1, low - 8), Math.min(255, low + 15)};
         };
     }
@@ -345,7 +523,7 @@ public final class WorldEvents {
                 }
             }
             case BOSS_SIGHTING -> {
-                Monster boss = spawnMob(map, e.spot.mobId(), randomSpot(map, rng));
+                Monster boss = spawnMob(map, e.spot.mobId(), randomSpot(map, rng), t.bossHp());
                 if (boss == null) {
                     return "boss " + e.spot.mobId() + " could not be spawned";
                 }
@@ -361,6 +539,18 @@ public final class WorldEvents {
                 e.npcOid = npc.getObjectId();
                 e.npcId = t.npcId();
                 e.npcName = npc.getName();
+            }
+            case GIANT_CAKE -> {
+                Monster cake = spawnMob(map, t.bossMobId(), centerSpot(map, rng), t.bossHp());
+                if (cake == null) {
+                    return "cake " + t.bossMobId() + " could not be spawned";
+                }
+                e.subject = cake.getName();
+                e.bossOid = cake.getObjectId();
+                e.mobOids.add(cake.getObjectId());
+                if (!t.waves().isEmpty()) {
+                    spawnCakeWave(e, map, rng);
+                }
             }
             case HOT_SPOT -> hotSpots.put(e.mapId(), Math.min(EventTemplates.MAX_EXP_BONUS, t.expBonus()));
             case WEDDING -> {
@@ -404,7 +594,8 @@ public final class WorldEvents {
                     if (e.waveIndex + 1 < e.template.waves().size()) {
                         spawnWave(e, map, e.waveIndex + 1, rng);
                     } else {
-                        Monster boss = spawnMob(map, e.template.bossMobId(), randomSpot(map, rng));
+                        Monster boss = spawnMob(map, e.template.bossMobId(), centerSpot(map, rng),
+                                e.template.bossHp());
                         if (boss != null) {
                             e.bossOid = boss.getObjectId();
                             e.mobOids.add(boss.getObjectId());
@@ -420,6 +611,16 @@ public final class WorldEvents {
                 if (map.getMonsterByOid(e.bossOid) == null) {
                     finish(e, "boss gone", true);
                     return;
+                }
+            }
+            case GIANT_CAKE -> {
+                if (map.getMonsterByOid(e.bossOid) == null) {
+                    finish(e, "boss gone", true);
+                    return;
+                }
+                e.mobOids.removeIf(oid -> oid != e.bossOid && map.getMonsterByOid(oid) == null);
+                if (e.mobOids.size() <= 1 && !e.template.waves().isEmpty()) {
+                    spawnCakeWave(e, map, rng); // the little cakes keep coming while the big one stands
                 }
             }
             case TREASURE_HUNT -> {
@@ -442,6 +643,18 @@ public final class WorldEvents {
             WorldEventReactions.recruit(e, rng);
         }
         WorldEventReactions.chatter(e, now, rng, false);
+    }
+
+    /** The giant cake's little cakes: the template's waves in turn, over and over. */
+    private void spawnCakeWave(ActiveEvent e, MapleMap map, Random rng) {
+        EventTemplate.Wave wave = e.template.waves().get(e.cakeWave % e.template.waves().size());
+        e.cakeWave++;
+        for (int i = 0; i < wave.count(); i++) {
+            Monster mob = spawnMob(map, wave.mobId(), randomSpot(map, rng));
+            if (mob != null) {
+                e.mobOids.add(mob.getObjectId());
+            }
+        }
     }
 
     private void spawnWave(ActiveEvent e, MapleMap map, int index, Random rng) {
@@ -487,6 +700,10 @@ public final class WorldEvents {
         e.endedAt = System.currentTimeMillis();
         active.remove(e);
         lastEndedAt.put(e.template.id(), e.endedAt);
+        swarmMaps.remove(mapKey(e.channel, e.mapId()));
+        for (int botId : e.deaths.keySet()) {
+            lastSwarmDeath.remove(botId);
+        }
         MapleMap map = mapOf(e.mapId());
         cleanUp(e, map);
         WorldEventReactions.release(e);
@@ -503,8 +720,15 @@ public final class WorldEvents {
         }
         if (!BotShutdown.isQuiesced()) {
             recent.add(e);
+            WorldEventReactions.news(e, map); // 1.6.0 S4: "remember the cake lol" for hours after
         }
         log("[WorldEvents] ended " + e.describe(e.endedAt));
+        qa("WEVENT END #" + e.id + " " + e.template.id() + " (" + reason + "), " + e.joinedBots.size()
+                + " bots joined, " + e.botDeaths() + " bot deaths" + (e.winnerName != null ? ", winner "
+                + e.winnerName + " (" + e.winnerDamage + " dmg)" : ", no real winner"));
+        if (!BotShutdown.isQuiesced()) {
+            ExecutorServiceManager.runAsync(this::saveState); // lastEndedAt: a restart keeps the cooldowns
+        }
     }
 
     private void cleanUp(ActiveEvent e, MapleMap map) {
@@ -537,17 +761,98 @@ public final class WorldEvents {
             MapMobIndex.SpawnPos s = spawns.get(rng.nextInt(spawns.size()));
             return new Point(s.x(), s.y());
         }
+        Point ground = groundSpot(map, rng, false);
+        if (ground != null) {
+            return ground; // 1.6.0: a town has no mob spawns; spread the invaders over its walkable ground
+        }
         Portal p = map.getRandomPlayerSpawnpoint();
         return p != null ? new Point(p.getPosition()) : new Point(0, 0);
     }
 
+    /** Where a boss or the cake stands: on the town's widest ground near its middle, else a random spot. */
+    private static Point centerSpot(MapleMap map, Random rng) {
+        if (MapMobIndex.spawnPoints(map.getId()) == null || MapMobIndex.spawnPoints(map.getId()).isEmpty()) {
+            Point ground = groundSpot(map, rng, true);
+            if (ground != null) {
+                return ground;
+            }
+        }
+        return randomSpot(map, rng);
+    }
+
+    /**
+     * A point on the map's walkable ground (the bots' nav ledges), picked by width so wide ground gets most of the
+     * mobs; {@code widest} takes the middle third of the widest ledge. Null when the map has no nav graph yet.
+     */
+    private static Point groundSpot(MapleMap map, Random rng, boolean widest) {
+        List<soloMapling.ArtificialPlayer.GCMoveSystem.GCMovement.Ledge> ledges;
+        try {
+            ledges = soloMapling.ArtificialPlayer.GCMoveSystem.GCMovement.walkableLedges(map);
+        } catch (RuntimeException | LinkageError e) {
+            return null;
+        }
+        if (ledges.isEmpty()) {
+            return null;
+        }
+        soloMapling.ArtificialPlayer.GCMoveSystem.GCMovement.Ledge pick = null;
+        if (widest) {
+            for (var l : ledges) {
+                if (pick == null || l.maxX() - l.minX() > pick.maxX() - pick.minX()) {
+                    pick = l;
+                }
+            }
+            int third = Math.max(1, (pick.maxX() - pick.minX()) / 3);
+            return new Point(pick.minX() + third + rng.nextInt(third), pick.centerY() - 40);
+        }
+        long total = 0;
+        for (var l : ledges) {
+            total += Math.max(1, l.maxX() - l.minX());
+        }
+        long roll = (long) (rng.nextDouble() * total);
+        for (var l : ledges) {
+            roll -= Math.max(1, l.maxX() - l.minX());
+            if (roll < 0) {
+                pick = l;
+                break;
+            }
+        }
+        if (pick == null) {
+            pick = ledges.get(ledges.size() - 1);
+        }
+        int span = Math.max(1, pick.maxX() - pick.minX() - 40);
+        return new Point(pick.minX() + 20 + rng.nextInt(span), pick.centerY() - 40);
+    }
+
     private static Monster spawnMob(MapleMap map, int mobId, Point at) {
+        return spawnMob(map, mobId, at, 0);
+    }
+
+    /** {@code hp} above 0: the event's HP for this one mob (a crowd's giant cake); the WZ stats are untouched. */
+    private static Monster spawnMob(MapleMap map, int mobId, Point at, long hp) {
         Monster mob = LifeFactory.getMonster(mobId);
         if (mob == null) {
             return null;
         }
+        if (hp > 0) {
+            mob.setStartingHp(Math.min(Integer.MAX_VALUE, hp));
+        }
         map.spawnMonsterOnGroundBelow(mob, at);
         return mob;
+    }
+
+    static long mapKey(int channel, int mapId) {
+        return ((long) channel << 32) | (mapId & 0xffffffffL);
+    }
+
+    private static long bossHpOf(ActiveEvent e, MapleMap map) {
+        Monster boss = map == null || e.bossOid < 0 ? null : map.getMonsterByOid(e.bossOid);
+        return boss == null ? 0 : boss.getMaxHp();
+    }
+
+    /** The most bots one event calls: its own cap, the -D cap (default 50), never above the map cap's range. */
+    static int crowdCap(EventTemplate t) {
+        return Math.min(t.botCap(), Math.max(0, Math.min(EventTemplates.MAX_BOT_CAP,
+                Integer.getInteger("solomapling.worldEvents.botCap", EventTemplates.MAX_BOT_CAP))));
     }
 
     private static NPC spawnNpc(MapleMap map, int npcId, Point pos) {
@@ -591,7 +896,10 @@ public final class WorldEvents {
 
     /** A blue server notice to the whole world: a system message, never filtered by {@code @quiet}. */
     private void announce(ActiveEvent e, String template) {
-        String text = WorldEventText.fill(template, tokens(e));
+        announceText(WorldEventText.fill(template, tokens(e)));
+    }
+
+    private void announceText(String text) {
         try {
             Server.getInstance().broadcastMessage(SoloMaplingConstants.GameConstants.homeWorld(),
                     PacketCreator.serverNotice(6, text));
@@ -599,6 +907,7 @@ public final class WorldEvents {
             log("[WorldEvents] notice failed: " + ex);
         }
         log("[WorldEvents] notice: " + text);
+        qa("WEVENT NOTICE " + text);
     }
 
     // ── hooks from the game ──────────────────────────────────────────────────────────────────────
@@ -621,15 +930,247 @@ public final class WorldEvents {
                 continue;
             }
             if (oid == e.bossOid) {
-                if (killer != null && !BotHelpers.isBot(killer)) {
-                    e.winnerId = killer.getId();
-                    e.winnerName = killer.getName();
-                    giveRewards(killer, e);
-                }
+                bossDown(e, map, mob, killer);
                 finish(e, e.winnerName != null ? "won" : "boss killed", true);
             }
             return;
         }
+    }
+
+    /**
+     * 1.6.0: the boss fell. The winner is the real player who did the most damage to it (else the real player who
+     * got the kill); every real player who hit it or stood on the map takes part (participation table, once each).
+     */
+    private void bossDown(ActiveEvent e, MapleMap map, Monster boss, Character killer) {
+        Map<Integer, Long> damage = boss.damageSnapshot();
+        Map<Integer, Character> here = new HashMap<>();
+        for (Character chr : map.getAllPlayers()) {
+            here.put(chr.getId(), chr);
+        }
+        Winner w = topReal(damage, id -> here.containsKey(id) ? !BotHelpers.isBot(here.get(id))
+                : !BotHelpers.isArtificial(id));
+        Character winner = w == null ? null : here.get(w.charId());
+        if (winner == null && killer != null && !BotHelpers.isBot(killer)) {
+            winner = killer;
+        }
+        if (winner != null) {
+            e.winnerId = winner.getId();
+            e.winnerName = winner.getName();
+            e.winnerDamage = w != null && w.charId() == winner.getId() ? w.damage() : damage.getOrDefault(winner.getId(), 0L);
+            giveRewards(winner, e);
+        }
+        long total = 0;
+        for (long d : damage.values()) {
+            total += d;
+        }
+        long botDamage = 0;
+        for (Map.Entry<Integer, Long> d : damage.entrySet()) {
+            if (BotHelpers.isArtificial(d.getKey())) {
+                botDamage += d.getValue();
+            }
+        }
+        java.util.Set<Character> takers = new java.util.LinkedHashSet<>();
+        for (Character chr : here.values()) {
+            if (!BotHelpers.isBot(chr)) {
+                takers.add(chr);
+            }
+        }
+        for (int id : damage.keySet()) {
+            Character chr = here.get(id);
+            if (chr != null && !BotHelpers.isBot(chr)) {
+                takers.add(chr);
+            }
+        }
+        for (Character chr : takers) {
+            if (e.participants.add(chr.getId())) {
+                giveParticipation(chr, e);
+            }
+        }
+        qa("WEVENT BOSS DOWN #" + e.id + " " + boss.getName() + ": " + damage.size() + " attackers, "
+                + countBots(damage.keySet()) + " of them bots (" + botDamage + " of " + total + " dmg), winner "
+                + (e.winnerName == null ? "none (no real player hit it)" : e.winnerName + " " + e.winnerDamage + " dmg")
+                + ", " + takers.size() + " real player(s) take part");
+    }
+
+    /** The real attacker with the most damage. Pure. */
+    record Winner(int charId, long damage) {
+    }
+
+    static Winner topReal(Map<Integer, Long> damage, java.util.function.IntPredicate real) {
+        Winner best = null;
+        for (Map.Entry<Integer, Long> d : damage.entrySet()) {
+            if (!real.test(d.getKey())) {
+                continue;
+            }
+            if (best == null || d.getValue() > best.damage()
+                    || d.getValue() == best.damage() && d.getKey() < best.charId()) {
+                best = new Winner(d.getKey(), d.getValue());
+            }
+        }
+        return best;
+    }
+
+    private static int countBots(java.util.Set<Integer> ids) {
+        int n = 0;
+        for (int id : ids) {
+            if (BotHelpers.isArtificial(id)) {
+                n++;
+            }
+        }
+        return n;
+    }
+
+    // ── swarms: bots really die in invasions (1.6.0) ─────────────────────────────────────────────────
+
+    /**
+     * BotVitals.hurt: on an invasion map a hit that leaves a bot under {@link #SWARM_HP_SHARE} of its max HP counts
+     * as a killing hit (it still has to win {@link #swarmDeath}'s roll). One set lookup when no invasion runs.
+     */
+    public static boolean swarmed(Character bot, long hpAfter) {
+        WorldEvents w = INSTANCE;
+        if (w.swarmMaps.isEmpty() || bot == null || bot.getMap() == null) {
+            return false;
+        }
+        if (!w.swarmMaps.contains(mapKey(bot.getMap().getChannelId(), bot.getMapId()))) {
+            return false;
+        }
+        return lowAfterHit(hpAfter, bot.getCurrentMaxHp());
+    }
+
+    static boolean lowAfterHit(long hpAfter, long maxHp) {
+        return maxHp > 0 && hpAfter < maxHp * SWARM_HP_SHARE;
+    }
+
+    /**
+     * BotDeaths.rollsDeath: null when the bot is not on an invasion map (the normal rare-death rules apply);
+     * otherwise whether this hit kills it. Invasions skip the harder-map rule and the world's 10-minute cap (the point
+     * is a lot of bots dying) but keep a per-bot cooldown of {@link #SWARM_BOT_COOLDOWN_MS} and a per-event cap of
+     * {@link #SWARM_DEATHS_PER_EVENT}. No immunity either way: a bot in a party with a player or a GM hold is still
+     * protected by BotDeaths' own checks first.
+     */
+    public static Boolean swarmDeath(Character bot, long now, Random rng) {
+        WorldEvents w = INSTANCE;
+        if (w.swarmMaps.isEmpty() || bot == null || bot.getMap() == null
+                || !w.swarmMaps.contains(mapKey(bot.getMap().getChannelId(), bot.getMapId()))) {
+            return null;
+        }
+        ActiveEvent e = w.eventOn(bot.getMap().getChannelId(), bot.getMapId());
+        if (e == null) {
+            return null;
+        }
+        Long last = w.lastSwarmDeath.get(bot.getId());
+        return swarmRoll(last == null ? 0 : last, now, e.botDeaths(), rng.nextDouble());
+    }
+
+    /** Pure: cooldown, per-event cap, then the roll. */
+    static boolean swarmRoll(long lastDeathAt, long now, int eventDeaths, double roll) {
+        if (lastDeathAt > 0 && now - lastDeathAt < SWARM_BOT_COOLDOWN_MS) {
+            return false;
+        }
+        if (eventDeaths >= SWARM_DEATHS_PER_EVENT) {
+            return false;
+        }
+        return roll < SWARM_DEATH_CHANCE;
+    }
+
+    private ActiveEvent eventOn(int channel, int mapId) {
+        for (ActiveEvent e : active) {
+            if (e.mapId() == mapId && e.channel == channel) {
+                return e;
+            }
+        }
+        return null;
+    }
+
+    /** BotDeaths.die: a bot died; on an event map it is counted, and it may grumble after it respawns. */
+    public void onBotDied(Character bot) {
+        if (active.isEmpty() || bot == null || bot.getMap() == null) {
+            return;
+        }
+        ActiveEvent e = eventOn(bot.getMap().getChannelId(), bot.getMapId());
+        if (e == null) {
+            return;
+        }
+        long now = System.currentTimeMillis();
+        lastSwarmDeath.put(bot.getId(), now);
+        int n = e.deaths.merge(bot.getId(), 1, Integer::sum);
+        qa("WEVENT BOT DIED #" + e.id + " " + bot.getName() + " (lv " + bot.getLevel() + ") on " + e.mapId()
+                + ", death " + n + " for it, " + e.botDeaths() + " this event");
+        WorldEventReactions.grumble(e, bot, n, now, ThreadLocalRandom.current());
+    }
+
+    // ── who goes (1.6.0: the brain's EVENT activity) ──────────────────────────────────────────────────
+
+    /** TrainingBot.canStartLifeActivity(EVENT): the bot has a standing offer for an event that still has room. */
+    public boolean mayAccept(Character chr, long now) {
+        if (chr == null || active.isEmpty()) {
+            return false;
+        }
+        WorldEventSteer.Offer o = WorldEventSteer.offerFor(chr.getId(), now);
+        if (o == null) {
+            return false;
+        }
+        ActiveEvent e = byId(o.eventId());
+        return e != null && !e.finished && e.joinedBots.size() < crowdCap(e.template) && roomOnMap(chr, e);
+    }
+
+    /** The brain picked EVENT: the event takes the bot if there is still room (crowd cap, then the map cap). */
+    public boolean accept(Character chr, long now) {
+        if (chr == null) {
+            return false;
+        }
+        WorldEventSteer.Offer o = WorldEventSteer.takeOffer(chr.getId(), now);
+        ActiveEvent e = o == null ? null : byId(o.eventId());
+        if (e == null || e.finished) {
+            return false;
+        }
+        synchronized (e) {
+            if (e.joinedBots.size() >= crowdCap(e.template) || !roomOnMap(chr, e)) {
+                return false;
+            }
+            e.joinedBots.add(chr.getId());
+        }
+        WorldEventSteer.steer(chr.getId(), e.id, e.mapId());
+        qa("WEVENT JOIN #" + e.id + " " + chr.getName() + " (lv " + chr.getLevel() + ", "
+                + WorldEventReactions.typeOf(chr.getId()) + ") picks EVENT -> " + e.mapId() + " ("
+                + e.joinedBots.size() + "/" + crowdCap(e.template) + ")");
+        return true;
+    }
+
+    private static boolean roomOnMap(Character chr, ActiveEvent e) {
+        if (chr.getMapId() == e.mapId()) {
+            return true;
+        }
+        try {
+            MapleMap map = mapOf(e.mapId());
+            return map != null && soloMapling.ArtificialPlayer.BotMapCap.hasRoom(map);
+        } catch (RuntimeException | LinkageError ex) {
+            return true;
+        }
+    }
+
+    /**
+     * {@code !qa}: these staged bots answer the event at once (no offer, no roll), within the crowd cap; returns how
+     * many were taken.
+     */
+    public int qaJoin(ActiveEvent e, List<Integer> botIds) {
+        int n = 0;
+        for (int id : botIds) {
+            if (e.joinedBots.size() >= crowdCap(e.template)) {
+                break;
+            }
+            soloMapling.ArtificialPlayer.BotSM bot =
+                    soloMapling.ArtificialPlayer.BotMessagingSystem.CharacterStorage.getBotById(id);
+            if (!(bot instanceof soloMapling.ArtificialPlayer.BotTypes.TrainingBot tb)) {
+                continue;
+            }
+            e.joinedBots.add(id);
+            WorldEventSteer.steer(id, e.id, e.mapId());
+            tb.callToEvent();
+            n++;
+        }
+        qa("WEVENT QA JOIN #" + e.id + " " + n + " staged bots head to " + e.mapId());
+        return n;
     }
 
     /** Monster.giveExpToCharacter: the hot spot multiplier for a real player on a hot spot map, else 1. */
@@ -744,7 +1285,47 @@ public final class WorldEvents {
                     .append("#");
         }
         log("[WorldEvents] #" + e.id + " reward to " + chr.getName() + ": " + won);
+        qa("WEVENT REWARD #" + e.id + " " + chr.getName() + ": " + won.size() + " item line(s)");
         return got.length() == 0 ? "" : "\r\n" + got;
+    }
+
+    /** 1.6.0: the participation table and EXP for one real player who took part in a won boss fight. */
+    void giveParticipation(Character chr, ActiveEvent e) {
+        if (chr == null || BotHelpers.isBot(chr)
+                || "false".equalsIgnoreCase(System.getProperty("solomapling.worldEvents.rewards", "true"))) {
+            return;
+        }
+        Client c = chr.getClient();
+        List<EventTemplate.Reward> got = roll(e.template.participation(), ThreadLocalRandom.current());
+        for (EventTemplate.Reward r : got) {
+            if (c == null || !InventoryManipulator.checkSpace(c, r.itemId(), r.qty(), "")) {
+                chr.dropMessage(5, "[World Event] Your inventory is full, so a reward was lost.");
+                continue;
+            }
+            InventoryManipulator.addById(c, r.itemId(), (short) r.qty());
+            chr.sendPacket(PacketCreator.getShowItemGain(r.itemId(), (short) r.qty(), true));
+        }
+        int exp = participationExp(chr.getLevel(), e.template.participationExpPct());
+        if (exp > 0) {
+            chr.gainExp(exp, true, true);
+        }
+        log("[WorldEvents] #" + e.id + " participation to " + chr.getName() + ": " + got + ", " + exp + " EXP");
+        qa("WEVENT PARTICIPATION #" + e.id + " " + chr.getName() + ": " + got.size() + " item line(s), " + exp + " EXP");
+    }
+
+    /** Participation EXP: a percent of this level's EXP bar (fair at every level). Pure. */
+    static int participationExp(int level, double pct) {
+        if (pct <= 0 || level <= 0 || level >= 200) {
+            return 0;
+        }
+        long needed;
+        try {
+            needed = constants.game.ExpTable.getExpNeededForLevel(level);
+        } catch (RuntimeException | LinkageError e) {
+            return 0;
+        }
+        return (int) Math.min(Integer.MAX_VALUE, Math.max(1, Math.round(needed * Math.min(pct,
+                EventTemplates.MAX_PARTICIPATION_EXP_PCT) / 100.0)));
     }
 
     /** Pure: which lines of a reward table come out this time. */
@@ -812,12 +1393,19 @@ public final class WorldEvents {
         return out;
     }
 
+    /** Test seam: an event counted as running without spawning anything. */
+    void addActiveForTest(ActiveEvent e) {
+        active.add(e);
+    }
+
     /** Test seam: a clean slate. */
     synchronized void resetForTest() {
         active.clear();
         recent.clear();
         lastEndedAt.clear();
         hotSpots.clear();
+        swarmMaps.clear();
+        lastSwarmDeath.clear();
         lastStartAt = 0;
         settings = EventScheduler.Settings.fromSystemProperties();
     }

@@ -487,6 +487,26 @@ public class Monster extends AbstractLoadedLife {
     }
 
     /**
+     * SoloMapling 1.6.0 (world events): a copy of the damage each attacker (character id) has done so far. Read once
+     * the mob is dead (no more writers) or tolerating a concurrent hit (retried; worst case partial).
+     */
+    public Map<Integer, Long> damageSnapshot() {
+        Map<Integer, Long> out = new HashMap<>();
+        for (int tries = 0; tries < 3; tries++) {
+            try {
+                out.clear();
+                for (Entry<Integer, AtomicLong> e : takenDamage.entrySet()) {
+                    out.put(e.getKey(), e.getValue().get());
+                }
+                return out;
+            } catch (java.util.ConcurrentModificationException retry) {
+                // a hit landed while copying: try again
+            }
+        }
+        return out;
+    }
+
+    /**
      * SoloMapling (1.5.0): the attacker other than {@code exceptId}, with an id at or above {@code minId} (a bot), that
      * hit this mob most recently and no earlier than {@code since} (epoch ms); -1 when none did.
      */

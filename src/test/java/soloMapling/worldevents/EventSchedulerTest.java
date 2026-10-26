@@ -39,9 +39,23 @@ class EventSchedulerTest {
     }
 
     @Test
-    void offByDefault() {
+    void onByDefaultAndSwitchedOffByTheEventsProperty() {
+        // 1.6.0 (owner): events default ON (TEST); live passes -Dsolomapling.events=false if it says no at release
         System.clearProperty("solomapling.worldEvents");
-        assertFalse(EventScheduler.Settings.fromSystemProperties().auto());
+        System.clearProperty("solomapling.events");
+        assertTrue(EventScheduler.Settings.fromSystemProperties().auto());
+        try {
+            System.setProperty("solomapling.events", "false");
+            assertFalse(EventScheduler.Settings.fromSystemProperties().auto());
+            System.clearProperty("solomapling.events");
+            System.setProperty("solomapling.worldEvents", "false");
+            assertFalse(EventScheduler.Settings.fromSystemProperties().auto(), "the pre-1.6.0 switch still works");
+            System.setProperty("solomapling.events", "true");
+            assertTrue(EventScheduler.Settings.fromSystemProperties().auto(), "the new switch wins");
+        } finally {
+            System.clearProperty("solomapling.events");
+            System.clearProperty("solomapling.worldEvents");
+        }
         EventScheduler.Settings off = on().withAuto(false);
         assertNull(EventScheduler.decide(off, List.of(template("a", 1, 20, 0)), List.of(), Map.of(), 0, 0, 1.0,
                 fixed(0)), "nothing starts by itself while the scheduler is off");

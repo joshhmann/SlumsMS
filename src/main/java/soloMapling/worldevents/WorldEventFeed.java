@@ -32,6 +32,8 @@ import static soloMapling.BotLogger.log;
 public final class WorldEventFeed {
 
     public static final String PROPERTY = "slumsms.announceFile";
+    // TODO(1.6.0, owner's go): the evening headline (GIANT_CAKE, town INVASION) is not in the Discord feed yet;
+    // adding the kinds here is all it takes once the owner OKs Cody posting it (AGENTS.md rule 6).
     static final Set<EventTemplate.Kind> KINDS = Set.of(EventTemplate.Kind.BOSS_SIGHTING,
             EventTemplate.Kind.TREASURE_HUNT, EventTemplate.Kind.HOT_SPOT);
     private static final int QUEUE = 64;

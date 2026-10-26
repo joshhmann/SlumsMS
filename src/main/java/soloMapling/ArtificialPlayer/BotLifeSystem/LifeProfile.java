@@ -112,6 +112,8 @@ public record LifeProfile(Map<Archetype, Double> blend, long grindDurationMs, lo
             case BREAK, LOG_OUT, FISH -> blend.get(Archetype.SLACKER);
             case CHANGE_CHANNEL -> 0; // 1.6.0 S8: no channel bias; the Bartle term and the crowd decide (LifePolicy)
             case INVITE_PQ, INVITE_GUILD -> .5 * blend.get(Archetype.SOCIALITE); // 1.6.0 S6 (Bartle in SocialInitiative)
+            // 1.6.0 world events: grinders come for the fight, socialites for the crowd (Bartle in WorldEventBias)
+            case EVENT -> .5 * (blend.get(Archetype.GRINDER) + blend.get(Archetype.SOCIALITE));
         };
     }
 }

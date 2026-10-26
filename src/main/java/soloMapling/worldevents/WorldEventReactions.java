@@ -43,6 +43,13 @@ import static soloMapling.BotLogger.log;
  *   <li><b>Memory:</b> a real player who wins becomes a note for the bots that were there; {@code BotGossip} spreads it.</li>
  * </ul>
  * When the event ends the bots are released and carry on with their session.
+ * <p>
+ * 1.6.0: with the bot brain on, a fitting bot is <i>offered</i> the event (the brain's EVENT activity, leaned by its
+ * Bartle type through {@link WorldEventBias}: Killers and Achievers rush invasions and bosses, Socializers come to the
+ * cake, Explorers hunt treasure) and goes only if its brain picks it; without the brain it rolls the same lean once.
+ * The real player who wins (most damage on the boss) becomes an S3 memory episode for the bots that were there
+ * ({@code BotEpisodes}); the event itself becomes S4 world news ({@code BotWorldGossip}: "remember the cake lol");
+ * bots that died grumble after they respawn and brag about their death count afterwards.
  */
 public final class WorldEventReactions {
 
@@ -89,17 +96,18 @@ public final class WorldEventReactions {
         return r != null ? r.name() : "the world";
     }
 
-    /** Calls fitting bots to the event, up to its cap. Returns how many new bots answered. */
+    /** Calls fitting bots to the event, up to its cap. Returns how many new bots answered (or were offered it). */
     static int recruit(ActiveEvent e, Random rng) {
         if (!e.template.kind().botsGather() || e.finished) {
             return 0;
         }
-        int cap = Math.min(e.template.botCap(), Math.max(0, Integer.getInteger("solomapling.worldEvents.botCap", 10)));
+        int cap = WorldEvents.crowdCap(e.template);
         int room = cap - e.joinedBots.size();
         if (room <= 0) {
             return 0;
         }
         String region = regionKey(e.mapId());
+        long now = System.currentTimeMillis();
         List<TrainingBot> pool = new ArrayList<>();
         for (BotSM bot : CharacterStorage.getAllBots().values()) {
             if (!(bot instanceof TrainingBot tb)) {
@@ -107,7 +115,8 @@ public final class WorldEventReactions {
             }
             Character chr = bot.getChr();
             if (chr == null || chr.getMap() == null || e.joinedBots.contains(chr.getId())
-                    || WorldEventSteer.isSteered(chr.getId()) || CharacterStorage.checkIfInvisibleBot(chr.getId())
+                    || WorldEventSteer.isSteered(chr.getId()) || WorldEventSteer.offerFor(chr.getId(), now) != null
+                    || CharacterStorage.checkIfInvisibleBot(chr.getId())
                     || chr.getClient().getChannel() != e.channel) { // ticket 57: only bots on the event's channel
                 continue;
             }
@@ -122,13 +131,21 @@ public final class WorldEventReactions {
         }
         Collections.shuffle(pool, rng);
         int joined = 0;
+        int offered = 0;
         for (TrainingBot tb : pool) {
-            if (joined >= room) {
+            if (joined >= room || offered >= 2 * room) {
                 break;
             }
             Character chr = tb.getChr();
-            BotRoster.Member member = BotRoster.member(chr.getId() - BotStore.BOT_ID_BASE);
-            if (rng.nextDouble() >= joinChance(member == null ? null : member.traits())) {
+            if (brainDecides(tb)) {
+                // 1.6.0: the bot's brain weighs EVENT against what it is doing; it goes only if it picks it
+                WorldEventSteer.offer(chr.getId(), e.id, e.mapId(), e.template.kind(), now);
+                tb.lifeRuntime().changed();
+                tb.nudgeSoon(500 + rng.nextInt(4_000));
+                offered++;
+                continue;
+            }
+            if (rng.nextDouble() >= WorldEventBias.joinChance(e.template.kind(), socialOf(chr.getId()))) {
                 continue;
             }
             WorldEventSteer.steer(chr.getId(), e.id, e.mapId());
@@ -136,15 +153,88 @@ public final class WorldEventReactions {
             tb.callToEvent();
             joined++;
         }
-        if (joined > 0) {
-            log("[WorldEvents] #" + e.id + " " + joined + " bots head to " + e.mapName + " (" + e.joinedBots.size()
-                    + "/" + cap + ")");
+        if (joined > 0 || offered > 0) {
+            log("[WorldEvents] #" + e.id + " " + joined + " bots head to " + e.mapName + ", " + offered
+                    + " offered it (" + e.joinedBots.size() + "/" + cap + ")");
+            WorldEvents.qa("WEVENT RECRUIT #" + e.id + " " + joined + " bots head to " + e.mapId() + ", " + offered
+                    + " offered it (" + e.joinedBots.size() + "/" + cap + ")");
         }
-        return joined;
+        return joined + offered;
+    }
+
+    /** With the brain on, a training bot decides for itself (the EVENT activity). */
+    private static boolean brainDecides(TrainingBot tb) {
+        return soloMapling.ArtificialPlayer.BotLifeSystem.LifeRuntime.enabled() && tb.lifeRuntime() != null
+                && TrainingBot.lifeExecutionEnabled();
+    }
+
+    /** The bot's point on Bartle's chart: its brain's (drifted) one, else its seed. */
+    static soloMapling.ArtificialPlayer.BotLifeSystem.SocialProfile socialOf(int charId) {
+        try {
+            if (CharacterStorage.getBotById(charId) instanceof soloMapling.ArtificialPlayer.BotLifeSystem.LifeHost host
+                    && host.lifeRuntime() != null) {
+                return host.lifeRuntime().memory().social();
+            }
+            return soloMapling.ArtificialPlayer.BotLifeSystem.SocialProfile.forCharacter(charId);
+        } catch (RuntimeException | LinkageError e) {
+            return null;
+        }
+    }
+
+    /** "achiever" etc., for logs. */
+    static String typeOf(int charId) {
+        var social = socialOf(charId);
+        return social == null ? "?" : social.leading().name().toLowerCase(java.util.Locale.ROOT);
     }
 
     static void release(ActiveEvent e) {
         WorldEventSteer.release(e.id);
+        for (int id : e.joinedBots) {
+            if (CharacterStorage.getBotById(id) instanceof TrainingBot tb) {
+                tb.eventOver(e.mapId()); // a town with no mobs of its own: they settle in town and decide
+            }
+        }
+    }
+
+    /** What a bot says as it heads off to an event its brain picked ("omw to the cake!!"); null to stay quiet. */
+    public static String omwLine(Character chr) {
+        if (chr == null) {
+            return null;
+        }
+        int map = WorldEventSteer.mapFor(chr.getId());
+        ActiveEvent e = null;
+        for (ActiveEvent a : WorldEvents.getInstance().active()) {
+            if (a.mapId() == map) {
+                e = a;
+            }
+        }
+        if (e == null) {
+            return "omw";
+        }
+        String[] lines = switch (e.template.kind()) {
+            case GIANT_CAKE -> new String[]{"omw to the cake!!", "cake in " + e.mapName.toLowerCase() + "?? omw",
+                    "brb getting cake"};
+            case INVASION -> new String[]{"omw to " + e.mapName.toLowerCase() + ", invasion", "brb gotta defend "
+                    + e.mapName.toLowerCase(), "invasion?? omw"};
+            case BOSS_SIGHTING -> new String[]{"going for " + e.subject.toLowerCase(), "omw to " + e.subject.toLowerCase()};
+            case TREASURE_HUNT -> new String[]{"gonna look for the treasure", "brb treasure hunting"};
+            case HOT_SPOT -> new String[]{"bonus exp? omw", "omw to the hot spot"};
+            default -> new String[]{"omw"};
+        };
+        return lines[java.util.concurrent.ThreadLocalRandom.current().nextInt(lines.length)];
+    }
+
+    /** A map's name, or its id. */
+    static String mapName(int mapId) {
+        try {
+            String n = server.maps.MapFactory.loadPlaceName(mapId);
+            if (n == null || n.isBlank()) {
+                n = server.maps.MapFactory.loadStreetName(mapId);
+            }
+            return n == null || n.isBlank() ? String.valueOf(mapId) : n;
+        } catch (RuntimeException | LinkageError e) {
+            return String.valueOf(mapId);
+        }
     }
 
     // ── what they say ────────────────────────────────────────────────────────────────────────────
@@ -157,10 +247,11 @@ public final class WorldEventReactions {
             case HOT_SPOT -> "HotSpot";
             case WANDERING_NPC -> "Wanderer";
             case WEDDING -> "Wedding";
+            case GIANT_CAKE -> "Cake";
         };
     }
 
-    static Map<String, String> tokens(ActiveEvent e) {
+    static Map<String, String> tokens(ActiveEvent e) { // mutable: callers may add {N}
         Map<String, String> t = new HashMap<>();
         t.put("MAP", e.mapName);
         t.put("EVENT", e.template.name());
@@ -194,11 +285,123 @@ public final class WorldEventReactions {
             return;
         }
         String node = nodePrefix(e.template.kind()) + (aftermath ? "After" : "During");
-        String line = pickLine(node, tokens(e), rng);
+        Map<String, String> tokens = tokens(e);
+        Integer died = e.deaths.get(speaker.getId());
+        if (aftermath && died != null && died > 1 && rng.nextDouble() < 0.6) {
+            node = "DeathsAfter"; // 1.6.0: "died 6 times to that boss lol"
+            tokens.put("N", String.valueOf(died));
+        }
+        String line = pickLine(node, tokens, rng);
         if (line == null) {
             return;
         }
-        ExecutorServiceManager.runAsync(() -> SocialCommands.BotSpeak(speaker, line));
+        String said = line;
+        WorldEvents.qa("WEVENT CHATTER #" + e.id + " " + speaker.getName() + " (" + node + "): " + said);
+        ExecutorServiceManager.runAsync(() -> SocialCommands.BotSpeak(speaker, said));
+    }
+
+    /**
+     * 1.6.0: a bot that died at an event says something once it is back on its feet ("ugh died again"), now and then
+     * and at most once every 15 s per event, where a real player can hear it.
+     */
+    static void grumble(ActiveEvent e, Character bot, int deaths, long now, Random rng) {
+        if (now - e.lastGrumbleAt < 15_000L || rng.nextDouble() >= 0.55) {
+            return;
+        }
+        e.lastGrumbleAt = now;
+        Map<String, String> tokens = tokens(e);
+        tokens.put("N", String.valueOf(deaths));
+        String line = pickLine(deaths > 1 ? "DiedAgain" : "Died", tokens, rng);
+        if (line == null) {
+            return;
+        }
+        long delay = 12_000 + rng.nextInt(6_000);
+        WorldEvents.qa("WEVENT GRUMBLE #" + e.id + " " + bot.getName() + " (death " + deaths + "): " + line);
+        ExecutorServiceManager.getScheduledExecutorService().schedule(() -> {
+            if (bot.getMap() != null && GCMovement.isMapObserved(bot.getMapId())) {
+                SocialCommands.BotSpeak(bot, line);
+            }
+        }, delay, java.util.concurrent.TimeUnit.MILLISECONDS);
+    }
+
+    /**
+     * {@code !qa ev-1}: right now, a bot on the GM's map (one that was at the event when it can) says one after-line
+     * about it and one world-news line ("remember the cake lol"). Returns what was said.
+     */
+    public static List<String> qaAftermath(ActiveEvent e, Character near, Random rng) {
+        List<Character> here = new ArrayList<>();
+        List<Character> were = new ArrayList<>();
+        if (near == null || near.getMap() == null) {
+            return List.of();
+        }
+        for (Character chr : near.getMap().getAllPlayers()) {
+            if (BotHelpers.isBot(chr) && free(chr)) {
+                here.add(chr);
+                if (e.joinedBots.contains(chr.getId())) {
+                    were.add(chr);
+                }
+            }
+        }
+        List<Character> from = were.isEmpty() ? here : were;
+        if (from.isEmpty()) {
+            return List.of();
+        }
+        Character speaker = from.get(rng.nextInt(from.size()));
+        List<String> out = new ArrayList<>();
+        Map<String, String> tokens = tokens(e);
+        Integer died = e.deaths.get(speaker.getId());
+        String node = died != null && died > 1 ? "DeathsAfter" : nodePrefix(e.template.kind()) + "After";
+        if (died != null) {
+            tokens.put("N", String.valueOf(died));
+        }
+        String after = pickLine(node, tokens, rng);
+        if (after != null) {
+            out.add(speaker.getName() + " (" + node + "): " + after);
+            SocialCommands.BotSpeak(speaker, after);
+        }
+        long now = System.currentTimeMillis();
+        for (var n : soloMapling.ArtificialPlayer.BotWorldGossip.recent(now)) {
+            if (n.kind == soloMapling.ArtificialPlayer.BotWorldGossip.Kind.EVENT && n.what.equals(newsName(e))) {
+                String line = soloMapling.ArtificialPlayer.BotWorldGossip.line(n, n.witnessedBy(speaker.getId())
+                        || e.joinedBots.contains(speaker.getId()), "", rng);
+                if (line != null) {
+                    out.add(speaker.getName() + " (news): " + line);
+                    String said = line;
+                    ExecutorServiceManager.getScheduledExecutorService().schedule(
+                            () -> SocialCommands.BotSpeak(speaker, said), 3, java.util.concurrent.TimeUnit.SECONDS);
+                }
+                break;
+            }
+        }
+        return out;
+    }
+
+    /** 1.6.0: the headline's warning reaches the bots: a megaphone (through the gate) and a line where players are. */
+    static void warned(EventTemplate t, int mapId, String mapName, int minutesLeft, Random rng) {
+        Map<String, String> tokens = new HashMap<>();
+        tokens.put("EVENT", t.name());
+        tokens.put("MAP", mapName);
+        tokens.put("MIN", String.valueOf(minutesLeft));
+        tokens.put("CH", String.valueOf(soloMapling.server.SoloMaplingConstants.mainChannel().getId()));
+        List<Character> heard = new ArrayList<>();
+        for (BotSM bot : CharacterStorage.getAllBots().values()) {
+            Character chr = bot.getChr();
+            if (chr != null && chr.getMap() != null && free(chr) && GCMovement.isMapObserved(chr.getMapId())) {
+                heard.add(chr);
+            }
+        }
+        if (!heard.isEmpty()) {
+            Character speaker = heard.get(rng.nextInt(heard.size()));
+            String line = pickLine("Soon", tokens, rng);
+            if (line != null) {
+                WorldEvents.qa("WEVENT CHATTER warn " + speaker.getName() + ": " + line);
+                ExecutorServiceManager.runAsync(() -> SocialCommands.BotSpeak(speaker, line));
+            }
+            if (minutesLeft >= 5 && rng.nextDouble() < START_MEGAPHONE_CHANCE) {
+                WorldEventMegaphones.getInstance().offerEvent(heard.get(rng.nextInt(heard.size())), "WorldEventSoon",
+                        tokens, "wevent:soon:" + t.id() + ":" + mapId);
+            }
+        }
     }
 
     /** A free bot on a map a real player is on: on the event map first, else anywhere in the region. */
@@ -310,7 +513,10 @@ public final class WorldEventReactions {
 
     // ── memory ───────────────────────────────────────────────────────────────────────────────────
 
-    /** The bots that were there remember the real player who won; gossip carries it further. */
+    /**
+     * The bots that were there remember the real player who won; gossip carries it further. 1.6.0 S3: written as an
+     * episode ({@code BotEpisodes.worldEvent}, kind BOSS), so the memory card and follow-ups see it.
+     */
     static void rememberWinner(ActiveEvent e, server.maps.MapleMap map, long now) {
         if (e.winnerId <= 0 || e.winnerName == null) {
             return;
@@ -335,18 +541,42 @@ public final class WorldEventReactions {
         }
         String note = noteText(e);
         List<Integer> chosen = witnesses.subList(0, Math.min(MEMORY_WITNESSES, witnesses.size()));
-        List<Integer> copy = List.copyOf(chosen);
-        int winner = e.winnerId;
-        ExecutorServiceManager.runAsync(() -> {
-            for (int charId : copy) {
-                try {
-                    BotMemory.remember(charId - BotStore.BOT_ID_BASE, winner, List.of(note), BotMemory.Source.DIRECT,
-                            0, 0, now);
-                } catch (RuntimeException ex) {
-                    log("[WorldEvents] memory note failed: " + ex);
-                }
+        int weight = e.headline ? 7 : 5;
+        for (int charId : List.copyOf(chosen)) {
+            soloMapling.ArtificialPlayer.BotEpisodes.worldEvent(charId, e.winnerId, note, weight, now);
+        }
+        WorldEvents.qa("WEVENT MEMORY #" + e.id + " " + chosen.size() + " bots remember " + e.winnerName + ": \""
+                + note + "\"");
+    }
+
+    /** 1.6.0 S4: the event goes into the world news, so bots bring it up for hours ("remember the cake lol"). */
+    static void news(ActiveEvent e, server.maps.MapleMap map) {
+        if (!(e.template.bossFight() || e.headline) || e.template.kind() == EventTemplate.Kind.WEDDING) {
+            return;
+        }
+        List<Integer> witnesses = new ArrayList<>();
+        for (int id : e.joinedBots) {
+            if (witnesses.size() >= 6) {
+                break;
             }
-        });
+            witnesses.add(id);
+        }
+        String what = newsName(e);
+        soloMapling.ArtificialPlayer.BotWorldGossip.onWorldEvent(what, e.winnerName, e.winnerId, e.botDeaths(),
+                witnesses, e.endedAt);
+        WorldEvents.qa("WEVENT NEWS #" + e.id + " \"" + what + "\"" + (e.winnerName != null ? " won by " + e.winnerName
+                : "") + ", " + witnesses.size() + " witnesses");
+    }
+
+    /** "the giant cake in henesys", "the henesys invasion". */
+    static String newsName(ActiveEvent e) {
+        String map = e.mapName == null ? "" : e.mapName.toLowerCase(java.util.Locale.ROOT);
+        return switch (e.template.kind()) {
+            case GIANT_CAKE -> "the giant cake in " + map;
+            case INVASION -> "the invasion at " + map;
+            case BOSS_SIGHTING -> (e.subject == null || e.subject.isBlank() ? "the boss" : e.subject) + " at " + map;
+            default -> e.template.name().toLowerCase(java.util.Locale.ROOT) + " at " + map;
+        };
     }
 
     static String noteText(ActiveEvent e) {
@@ -357,6 +587,7 @@ public final class WorldEventReactions {
             case WANDERING_NPC -> "helped " + e.npcName + " in " + e.mapName + " first";
             case HOT_SPOT -> "trained at the hot spot on " + e.mapName;
             case WEDDING -> "came to the wedding of " + e.subject + " in " + e.mapName;
+            case GIANT_CAKE -> "got the biggest slice of the giant cake in " + e.mapName;
         };
     }
 }

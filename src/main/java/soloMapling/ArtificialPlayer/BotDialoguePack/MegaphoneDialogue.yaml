@@ -796,6 +796,17 @@ MegaphoneBroadcast:
     text:
       - "some explorer in {MAP} ch{CH} wants {ITEM}, free stuff"
       - "{NPC} is in {MAP} ch{CH} giving a quest, go check"
+  # 1.6.0: the giant cake, and the evening headline's warning ({EVENT} {MAP} {MIN}).
+  WorldEventCake:
+    text:
+      - "GIANT CAKE in {MAP} ch{CH}!! everyone come"
+      - "cake party at {MAP} ch{CH} ^^ bring friends"
+      - "{MAP} ch{CH} giant cake, free cake lol"
+  WorldEventSoon:
+    text:
+      - "{EVENT} at {MAP} in {MIN} min!! ch{CH}"
+      - "{EVENT} soon at {MAP} ch{CH}, who's coming"
+      - "dont miss {EVENT} at {MAP} ch{CH} in {MIN} min"
   WorldEventWedding:
     text:
       - "{EVENT} in amoria ch{CH}! everyone come ^^"

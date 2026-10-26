@@ -145,6 +145,23 @@ public final class BotEpisodes {
         });
     }
 
+    /**
+     * 1.6.0 world events: a bot that was there remembers the real player who won the event ("got the biggest slice
+     * of the giant cake in henesys"), as a BOSS episode, written in the background.
+     */
+    public static void worldEvent(int botCharId, int playerId, String text, int weight, long now) {
+        if (!bot(botCharId) || bot(playerId) || playerId <= 0 || text == null || text.isBlank()) {
+            return;
+        }
+        writer.execute(() -> {
+            try {
+                BotMemory.episode(slot(botCharId), playerId, BotMemory.Kind.BOSS, text, weight, "", now);
+            } catch (RuntimeException ex) {
+                log.debug("Could not write bot {}'s world event episode about {}", botCharId, playerId, ex);
+            }
+        });
+    }
+
     /** A small push on Bartle's chart, at most once per {@link #PUSH_GAP_MS} per bot and kind. True when it moved. */
     static boolean nudge(int botCharId, SocialProfile.Push push, long now) {
         long k = ((long) botCharId << 8) | push.ordinal();

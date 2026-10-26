@@ -99,6 +99,7 @@ public final class QaScenarios {
         all.addAll(InitiativeScenarios.all()); // 1.6.0 S6 initiative: login greet (in-1), follow-up (in-2), PQ invite (in-3)
         all.addAll(LearningScenarios.all()); // 1.6.0 S9 learning: KS turn a plastic Socializer toward Killer (lr-1)
         all.addAll(BeefScenarios.all()); // 1.6.0 S7 Beef: bot rivalry thread (rv-5), rage quit (dr-6), crush (cr-1)
+        all.addAll(WorldEventScenarios.all()); // 1.6.0 world events: giant cake (ev-1), invasion deaths (ev-2)
         return List.copyOf(all);
     }
 

@@ -25,6 +25,12 @@ public final class EventTemplates {
     /** A hot spot is a bonus, not a rate change: at most double EXP on its one map. */
     public static final double MAX_EXP_BONUS = 2.0;
     static final int MAX_WAVE_COUNT = 40;
+    /** The most bots one event may call (the map cap, BOT_MAP_CAP 50, applies on top). */
+    public static final int MAX_BOT_CAP = 50;
+    /** A boss HP override never goes above this (a giant cake for a crowd, not a raid boss). */
+    public static final long MAX_BOSS_HP = 50_000_000L;
+    /** Participation EXP is at most this percent of a level. */
+    public static final double MAX_PARTICIPATION_EXP_PCT = 10;
 
     public record Result(List<EventTemplate> templates, List<String> errors) {
     }
@@ -143,8 +149,8 @@ public final class EventTemplates {
             }
         }
         int botCap = (int) num(m.get("bot_cap"), 6);
-        if (botCap < 0 || botCap > 30) {
-            problems.add("bot_cap must be 0-30");
+        if (botCap < 0 || botCap > MAX_BOT_CAP) {
+            problems.add("bot_cap must be 0-" + MAX_BOT_CAP);
         }
 
         List<EventTemplate.Spot> spots = new ArrayList<>();
@@ -194,6 +200,21 @@ public final class EventTemplates {
         int boss = (int) num(m.get("boss"), 0);
         int npc = (int) num(m.get("npc"), 0);
         double expBonus = num(m.get("exp_bonus"), 1.0);
+        long bossHp = (long) num(m.get("boss_hp"), 0);
+        if (bossHp < 0 || bossHp > MAX_BOSS_HP) {
+            problems.add("boss_hp must be 0-" + MAX_BOSS_HP);
+        }
+        double participationExpPct = num(m.get("participation_exp_pct"), 0);
+        if (participationExpPct < 0 || participationExpPct > MAX_PARTICIPATION_EXP_PCT) {
+            problems.add("participation_exp_pct must be 0-" + (int) MAX_PARTICIPATION_EXP_PCT);
+        }
+        EventTemplate.Slot slot = null;
+        if (m.get("slot") != null) {
+            slot = EventTemplate.Slot.parse(str(m.get("slot")));
+            if (slot == null) {
+                problems.add("slot must be headline, small or manual");
+            }
+        }
 
         switch (kind) {
             case INVASION -> {
@@ -224,6 +245,11 @@ public final class EventTemplates {
             case WEDDING -> {
                 // a bot couple's ceremony (ticket 58): just the map
             }
+            case GIANT_CAKE -> {
+                if (boss <= 0) {
+                    problems.add("a giant cake needs a boss (the cake)");
+                }
+            }
             case WANDERING_NPC -> {
                 if (npc <= 0) {
                     problems.add("a wandering NPC needs an npc");
@@ -236,21 +262,11 @@ public final class EventTemplates {
             }
         }
 
-        List<EventTemplate.Reward> rewards = new ArrayList<>();
-        if (m.get("rewards") instanceof List<?> rl) {
-            for (Object ro : rl) {
-                if (!(ro instanceof Map<?, ?> r)) {
-                    continue;
-                }
-                int item = (int) num(r.get("item"), 0);
-                int qty = (int) num(r.get("qty"), 1);
-                double chance = num(r.get("chance"), 1.0);
-                if (item <= 0 || qty < 1 || qty > 1000 || chance <= 0 || chance > 1) {
-                    problems.add("a reward needs an item, qty 1-1000 and chance in (0, 1]");
-                } else {
-                    rewards.add(new EventTemplate.Reward(item, qty, chance));
-                }
-            }
+        List<EventTemplate.Reward> rewards = rewards(m.get("rewards"), problems);
+        List<EventTemplate.Reward> participation = rewards(m.get("participation"), problems);
+        if ((!participation.isEmpty() || participationExpPct > 0) && !(kind == EventTemplate.Kind.INVASION
+                || kind == EventTemplate.Kind.BOSS_SIGHTING || kind == EventTemplate.Kind.GIANT_CAKE)) {
+            problems.add("participation rewards only go with a boss fight (invasion, boss sighting, giant cake)");
         }
         if (kind == EventTemplate.Kind.HOT_SPOT && !rewards.isEmpty()) {
             problems.add("a hot spot has no winner, so no rewards");
@@ -259,8 +275,44 @@ public final class EventTemplates {
             problems.add("a wedding has no winner, so no rewards");
         }
         boolean enabled = !"false".equalsIgnoreCase(String.valueOf(m.get("enabled")));
+        if (slot == EventTemplate.Slot.HEADLINE && kind == EventTemplate.Kind.WEDDING) {
+            problems.add("a wedding is never a headline");
+        }
         return new EventTemplate(id, kind, name, weight, minutes, cooldown, minLevel, maxLevel, botCap, spots, waves,
-                boss, npc, expBonus, rewards, enabled);
+                boss, npc, expBonus, rewards, enabled, slot, bossHp, participation, participationExpPct);
+    }
+
+    /**
+     * A reward list: item, qty 1-1000, chance in (0, 1]. Owner rule (1.6.0): consumables only (item ids 200xxxx to
+     * 202xxxx: potions, food, cakes); no equipment, scrolls, mesos or cash items, so an event never becomes a faucet.
+     */
+    private static List<EventTemplate.Reward> rewards(Object raw, List<String> problems) {
+        List<EventTemplate.Reward> out = new ArrayList<>();
+        if (!(raw instanceof List<?> rl)) {
+            return out;
+        }
+        for (Object ro : rl) {
+            if (!(ro instanceof Map<?, ?> r)) {
+                continue;
+            }
+            int item = (int) num(r.get("item"), 0);
+            int qty = (int) num(r.get("qty"), 1);
+            double chance = num(r.get("chance"), 1.0);
+            if (item <= 0 || qty < 1 || qty > 1000 || chance <= 0 || chance > 1) {
+                problems.add("a reward needs an item, qty 1-1000 and chance in (0, 1]");
+            } else if (!consumable(item)) {
+                problems.add("reward " + item + " is not a plain consumable (200xxxx-202xxxx)");
+            } else {
+                out.add(new EventTemplate.Reward(item, qty, chance));
+            }
+        }
+        return out;
+    }
+
+    /** Potions, food and cakes: the only things an event hands out. */
+    public static boolean consumable(int itemId) {
+        int family = itemId / 10_000;
+        return family >= 200 && family <= 202;
     }
 
     private static String str(Object o) {

@@ -1,6 +1,7 @@
 # World events (SlumsMS ticket 21; spec: SoloMapling .pi-flow/world-events/spec.md).
 #
-# Scripted only: a scheduler picks these by weight, leaning on the population director's daily curve. No model
+# Scripted only: the EventDirector picks these by weight (1.6.0: one HEADLINE event every evening at ~8 PM PT, the
+# template rotating, plus 1-3 SMALL ones at random times inside the peak windows; never more than 2 at once). No model
 # ever picks, starts or runs an event. Rates, drops and shops are never touched; an event spawns its own mobs or NPC
 # on one map (channel 1, where the bots live) for a fixed time and hands out only the reward table below, to real
 # players only (bots never get event rewards).
@@ -9,27 +10,109 @@
 #
 # Fields:
 #   id                unique, letters/digits/_/-
-#   kind              invasion | boss_sighting | treasure_hunt | hot_spot | wandering_npc
+#   kind              invasion | boss_sighting | treasure_hunt | hot_spot | wandering_npc | giant_cake
+#   slot              headline (the evening event) | small (peak-hour extras) | manual (GM or another system only);
+#                     default small, or manual when weight is 0
 #   name              shown in bot chatter and megaphones
 #   weight            relative pick among eligible templates (0 = only by GM)
 #   minutes           how long it runs (1-120); every event ends at this time at the latest
 #   cooldown_minutes  rest after it ends before the scheduler may pick it again (GM starts ignore this)
 #   levels            [min, max] bot levels that react; leave out to derive it from the mobs/boss/map
-#   bot_cap           most bots that head there (also capped by -Dsolomapling.worldEvents.botCap, default 10)
+#   bot_cap           most bots that head there, 0-50 (also capped by -Dsolomapling.worldEvents.botCap, default 50,
+#                     and by the map's bot cap, BOT_MAP_CAP)
 #   maps / spots      where it can happen (one is picked at random). spots carry `mob` (boss_sighting) or
 #                     `item` + `count` (wandering_npc: what the traveler asks each player for)
 #   waves, boss       invasion: mob waves in order, then the boss; the next wave comes when a wave is cleared
 #   npc               treasure_hunt: the hidden chest NPC; wandering_npc: the traveler
 #   exp_bonus         hot_spot: EXP multiplier on that one map for real players (above 1.0, at most 2.0)
-#   rewards           [{item, qty, chance}] given to the winner (invasion/boss: the real player who lands the
-#                     killing blow; treasure: the first real player to open the chest; wandering_npc: every player
-#                     who turns the quest in, once each). chance defaults to 1.0.
+#   boss              invasion: the boss after the last wave; giant_cake: the cake itself
+#   boss_hp           the boss's HP for this event (0 = its normal HP; at most 50,000,000)
+#   rewards           [{item, qty, chance}] given to the winner (invasion/boss/cake: the real player who did the most
+#                     damage to the boss; treasure: the first real player to open the chest; wandering_npc: every
+#                     player who turns the quest in, once each). chance defaults to 1.0.
+#   participation     [{item, qty, chance}] for every real player who took part in a won boss fight (hit the boss, or
+#                     stood on the map when it fell), once each
+#   participation_exp_pct  participation EXP for those players, in percent of their current level (0-10)
 #   enabled           false keeps it out of the scheduler and !event start
 #
-# OWNER: the reward tables are a first suggestion (potions only, no mesos, no equipment, no scrolls). Change or empty
-# them as you like; -Dsolomapling.worldEvents.rewards=false switches every table off.
+# OWNER: the reward tables are a first suggestion (consumables only: potions and cakes, item ids 200xxxx-202xxxx; no
+# mesos, no equipment, no scrolls - the loader refuses anything else). Change or empty them as you like;
+# -Dsolomapling.worldEvents.rewards=false switches every table off. The events' own mobs drop what they always drop.
 
 templates:
+  # ── 1.6.0 headline events: one every evening at ~8 PM PT, rotating ─────────────────────────────────────────
+  # The friends' ask: everyone gathers in town to whack a giant cake, as at the old anniversary events. 9400606 is
+  # v83's own "Giant Cake" (the 2007 anniversary cake, the mob Cosmic's !cake spawns); boss_hp makes it last for a
+  # crowd. Little Cake Monsters and Birthday Candles come with it, so new characters have something to hit too.
+  - id: giant_cake
+    kind: giant_cake
+    slot: headline
+    name: Giant Cake
+    weight: 3
+    minutes: 30
+    cooldown_minutes: 600
+    bot_cap: 40
+    levels: [1, 200]
+    maps: [100000000, 101000000, 102000000, 103000000, 104000000]   # Henesys, Ellinia, Perion, Kerning City, Lith Harbor
+    boss: 9400606                                # Giant Cake (lv 70)
+    boss_hp: 4000000
+    waves:
+      - {mob: 9400607, count: 12}                # Cake Monster (lv 15)
+      - {mob: 9400601, count: 10}                # Birthday Candle (lv 20)
+    rewards:                                     # the real player with the most damage on the cake
+      - {item: 2020032, qty: 5}                  # Birthday Cake
+      - {item: 2020017, qty: 3}                  # Strawberry Cream Cake
+      - {item: 2020018, qty: 1, chance: 0.5}     # Chocolate Cream Cake
+    participation:
+      - {item: 2020032, qty: 2}                  # Birthday Cake
+    participation_exp_pct: 2
+
+  # "I just wanna see a bunch of bots die": a town invasion. Bots in the band swarm it, really fight, and on this map a
+  # heavy hit can kill them (no immunity); they respawn as usual and grumble about it.
+  - id: henesys_invasion
+    kind: invasion
+    slot: headline
+    name: Henesys Invasion
+    weight: 2
+    minutes: 30
+    cooldown_minutes: 600
+    bot_cap: 40
+    maps: [100000000]                            # Henesys
+    waves:
+      - {mob: 2110200, count: 20}                # Horny Mushroom (lv 22)
+      - {mob: 2230101, count: 20}                # Zombie Mushroom (lv 24)
+    boss: 6130101                                # Mushmom (lv 60)
+    boss_hp: 150000
+    rewards:
+      - {item: 2000004, qty: 5}                  # Elixir
+      - {item: 2000005, qty: 2, chance: 0.3}     # Power Elixir
+    participation:
+      - {item: 2000004, qty: 2}                  # Elixir
+    participation_exp_pct: 2
+
+  - id: perion_invasion
+    kind: invasion
+    slot: headline
+    name: Perion Invasion
+    weight: 2
+    minutes: 30
+    cooldown_minutes: 600
+    bot_cap: 40
+    maps: [102000000]                            # Perion
+    waves:
+      - {mob: 2230102, count: 18}                # Wild Boar (lv 25)
+      - {mob: 3210100, count: 16}                # Fire Boar (lv 32)
+      - {mob: 4230400, count: 10}                # Iron Boar (lv 45)
+    boss: 3220000                                # Stumpy (lv 35)
+    boss_hp: 120000
+    rewards:
+      - {item: 2000004, qty: 5}                  # Elixir
+      - {item: 2000005, qty: 2, chance: 0.3}     # Power Elixir
+    participation:
+      - {item: 2000004, qty: 2}                  # Elixir
+    participation_exp_pct: 2
+
+  # ── small events: 1-3 a day at random times inside the peak windows ────────────────────────────────────────
   - id: mushroom_invasion
     kind: invasion
     name: Mushroom Invasion

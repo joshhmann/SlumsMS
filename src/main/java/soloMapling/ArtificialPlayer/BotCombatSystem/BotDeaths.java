@@ -19,6 +19,9 @@ import java.util.concurrent.ThreadLocalRandom;
  *   <li>{@code BOT_COMBAT_DEATHS} is on, and a real player can see the map (offscreen bots never die);</li>
  *   <li>the bot is a grinder on its train map ({@link #setEligible}), not in an event, a party with a player, or a
  *       GM staging that says otherwise;</li>
+ *   <li>1.6.0: on a world event's invasion map the next two rules give way to the invasion's own
+ *       (soloMapling.worldevents.WorldEvents#swarmDeath): any map, a heavy hit, a per-bot cooldown and a per-event
+ *       cap instead of the world's;</li>
  *   <li>the map is harder than its level: the map's mobs are {@link #HARDER_BY} or more levels above the bot;</li>
  *   <li>its own roll: {@link #BASE_CHANCE} x its carelessness habit; at most once per {@link #BOT_COOLDOWN_MS} per
  *       bot and {@link #WORLD_PER_10_MIN} deaths every 10 minutes server-wide.</li>
@@ -99,6 +102,16 @@ public final class BotDeaths {
         }
         long now = System.currentTimeMillis();
         boolean forced = forceNext.contains(bot.getId());
+        // 1.6.0 world events: an invasion's own rules (no harder-map rule, no world cap; a per-bot cooldown and a
+        // per-event cap) - the owner wants to see bots die in droves there
+        Boolean swarm = forced ? null : soloMapling.worldevents.WorldEvents.swarmDeath(bot, now,
+                ThreadLocalRandom.current());
+        if (swarm != null) {
+            if (swarm) {
+                lastDeath.put(bot.getId(), now);
+            }
+            return swarm;
+        }
         if (!forced) {
             Long last = lastDeath.get(bot.getId());
             if (last != null && now - last < BOT_COOLDOWN_MS) {
@@ -146,6 +159,11 @@ public final class BotDeaths {
         }
         // One line per death so a soak can count them (the world cap is WORLD_PER_10_MIN).
         log.info("[BotDeaths] {} (lv {}) died on map {}", bot.getName(), bot.getLevel(), bot.getMapId());
+        try {
+            soloMapling.worldevents.WorldEvents.getInstance().onBotDied(bot); // 1.6.0: counted at a world event
+        } catch (RuntimeException ignored) {
+            // flavor only
+        }
         if (QaLog.on(QaLog.Topic.HABITS)) {
             QaLog.map(QaLog.Topic.HABITS, bot.getMapId(), "DEATH " + bot.getName() + " (lv " + bot.getLevel()
                     + ") dies on map " + bot.getMapId() + " (mobs lv " + MapMobIndex.level(bot.getMapId())

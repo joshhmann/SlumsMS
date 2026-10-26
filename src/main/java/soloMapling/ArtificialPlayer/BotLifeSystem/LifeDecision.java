@@ -21,9 +21,11 @@ public final class LifeDecision {
      * quieter channel). Slice S6 appends its initiative actions after it: INVITE_PQ (a bot in a PQ lobby invites a
      * real player of the PQ's level band, "lf kpq? u in") and INVITE_GUILD (a friend bot asks a guildless player into
      * its guild). Both report how the player answered through {@link LifeOutcomes} (SocialInitiative).
+     * 1.6.0 world events append EVENT: drop what it is doing and head to a running world event it was offered
+     * (soloMapling.worldevents: WorldEventBias leans it by Bartle type, the event's map is the destination).
      */
     public enum Activity { GRIND, MOVE_MAP, RESTOCK, SELL, HANG_OUT, HELP_FRIEND, SHOW_OFF, PARTY_QUEST, FREE_MARKET,
-        BREAK, LOG_OUT, FISH, CHANGE_CHANNEL, INVITE_PQ, INVITE_GUILD }
+        BREAK, LOG_OUT, FISH, CHANGE_CHANNEL, INVITE_PQ, INVITE_GUILD, EVENT }
     public enum Outcome { CHOOSE, KEEP_CURRENT, HOLD_COMMITMENT, NO_AVAILABLE_OPTION }
 
     public record Needs(Map<Need, Double> values) {

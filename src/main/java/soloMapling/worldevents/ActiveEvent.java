@@ -44,6 +44,18 @@ public final class ActiveEvent {
     /** Bots that answered the call. */
     final Set<Integer> joinedBots = ConcurrentHashMap.newKeySet();
 
+    /** 1.6.0: the evening headline (the director's), not a small or GM one. */
+    volatile boolean headline;
+    /** 1.6.0: bot deaths on the event map while it ran, per bot character id (invasions: "died 6 times lol"). */
+    final java.util.Map<Integer, Integer> deaths = new ConcurrentHashMap<>();
+    /** 1.6.0: real players who took part in a won boss fight (rewarded once each). */
+    final Set<Integer> participants = ConcurrentHashMap.newKeySet();
+    /** 1.6.0: the top real damage on the boss, for notices and memory. */
+    volatile long winnerDamage;
+    volatile long lastGrumbleAt;
+    /** 1.6.0: the next wave of a giant cake's little cakes (they keep coming while the cake stands). */
+    volatile int cakeWave;
+
     volatile boolean finished;
     volatile String endReason = "";
     volatile long endedAt;
@@ -90,14 +102,28 @@ public final class ActiveEvent {
         return joinedBots.size();
     }
 
+    public boolean headline() {
+        return headline;
+    }
+
+    /** Bot deaths on the event map so far. */
+    public int botDeaths() {
+        int n = 0;
+        for (int d : deaths.values()) {
+            n += d;
+        }
+        return n;
+    }
+
     EventScheduler.Running running() {
         return new EventScheduler.Running(id, template.id(), endsAt);
     }
 
     public String describe(long now) {
         String left = finished ? "ended (" + endReason + ")" : Math.max(0, (endsAt - now) / 60_000) + " min left";
-        return "#" + id + " " + template.id() + " (" + template.kind().label() + ") on " + mapName + " [" + mapId()
-                + "] ch" + channel + ", " + left + ", " + joinedBots.size() + " bots"
+        return "#" + id + " " + template.id() + " (" + template.kind().label() + (headline ? ", headline" : "")
+                + ") on " + mapName + " [" + mapId() + "] ch" + channel + ", " + left + ", " + joinedBots.size()
+                + " bots" + (deaths.isEmpty() ? "" : ", " + botDeaths() + " bot deaths")
                 + (winnerName != null ? ", won by " + winnerName : "") + ", by " + startedBy;
     }
 }

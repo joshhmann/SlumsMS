@@ -23,6 +23,24 @@ public final class WorldEventText {
             case WANDERING_NPC -> "[Traveler] {NPC} has wandered into {MAP} and is asking adventurers for help."
                     + " (Ch {CH}, {MIN} min)";
             case WEDDING -> "[Wedding] {BOSS} are getting married in {MAP}! Everyone is welcome. (Ch {CH})";
+            case GIANT_CAKE -> "[Giant Cake] A Giant Cake has appeared in {MAP}! Everyone come and take a slice."
+                    + " (Ch {CH}, {MIN} min)";
+        };
+    }
+
+    /**
+     * 1.6.0: the headline's warning, {MIN} minutes before it starts ({EVENT}, {MAP}, {CH}). One minute reads "in 1
+     * minute".
+     */
+    public static String warning(EventTemplate.Kind kind, int minutes) {
+        String when = minutes <= 1 ? "in 1 minute" : "in {MIN} minutes";
+        return switch (kind) {
+            case GIANT_CAKE -> "[World Event] A Giant Cake will appear in {MAP} " + when + "! (Ch {CH})";
+            case INVASION -> "[World Event] Monsters are marching on {MAP}! They arrive " + when + ". (Ch {CH})";
+            case BOSS_SIGHTING -> "[World Event] Something big is stirring near {MAP}... " + when + ". (Ch {CH})";
+            case TREASURE_HUNT -> "[World Event] A treasure hunt starts " + when + "! (Ch {CH})";
+            case HOT_SPOT -> "[World Event] Bonus EXP at {MAP} starts " + when + "! (Ch {CH})";
+            default -> "[World Event] {EVENT} at {MAP} starts " + when + ". (Ch {CH})";
         };
     }
 
@@ -34,6 +52,7 @@ public final class WorldEventText {
             case HOT_SPOT -> "[Hot Spot] The bonus at {MAP} has ended.";
             case WANDERING_NPC -> "[Traveler] {NPC} thanks everyone who helped, and moves on from {MAP}.";
             case WEDDING -> "[Wedding] {BOSS} are now married. Congratulations!";
+            case GIANT_CAKE -> "[Giant Cake] The Giant Cake in {MAP} is gone! {PLAYER} got the biggest slice.";
         };
     }
 
@@ -45,6 +64,7 @@ public final class WorldEventText {
             case HOT_SPOT -> "[Hot Spot] The bonus at {MAP} has ended.";
             case WANDERING_NPC -> "[Traveler] {NPC} has packed up and left {MAP}.";
             case WEDDING -> "[Wedding] The wedding of {BOSS} in {MAP} is over. Congratulations to the couple!";
+            case GIANT_CAKE -> "[Giant Cake] The party in {MAP} is over and the Giant Cake is gone. See you next time!";
         };
     }
 
