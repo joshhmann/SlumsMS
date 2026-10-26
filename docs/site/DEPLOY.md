@@ -127,3 +127,17 @@ ssh root@<lxc-address> 'rm -rf /srv/slums-site/* && tar -xzf /tmp/slums-site.tar
 The player guide is copied from the generated wiki in `docs/wiki/`. Refresh that first (`python3 docs/wiki/build.py`)
 when its sources change. Public-only text changes for it live in `docs/site/guide-fixes.json` and
 `docs/site/guide-overrides/`.
+
+## 5. The theme
+
+Style A "Megaphone", picked by the owner on 2026-10-26.
+- `assets/tokens.css` holds every colour, font and density, once. There are three theme states: the system setting
+  (`prefers-color-scheme`) by default, or `data-theme="light"` / `"dark"` from the header switch.
+- `assets/site.css` uses only those variables. The "read" density is for home, news, guides and the report form; the
+  "data" density (`.data`, `table.t`) is for the database and market pages.
+- `assets/theme.js` runs the switch and remembers the choice in the browser. Without JavaScript the switch stays
+  hidden and the system setting decides.
+- Fonts are self-hosted in `assets/fonts/` (Bricolage Grotesque, Instrument Sans, JetBrains Mono; Latin subset,
+  variable weight, from Fontsource 5.3.0) under the OFL, whose text is in `assets/fonts/OFL.txt`. The site still loads
+  nothing from other websites.
+- The megaphone rail under the header lists the three newest releases plus `RAIL_EXTRA` in `tools/site/build.py`.

@@ -29,6 +29,32 @@ class SiteBuildTest(unittest.TestCase):
             self.assertTrue(os.path.isfile(os.path.join(self.out, rel)), rel)
         self.assertFalse(os.path.exists(os.path.join(self.out, "guide", "changelog.html")))
 
+    def test_theme_and_fonts(self):
+        for rel in ["assets/tokens.css", "assets/theme.js", "assets/fonts/OFL.txt", "assets/fonts/bricolage-grotesque.woff2",
+                    "assets/fonts/instrument-sans.woff2", "assets/fonts/jetbrains-mono.woff2"]:
+            self.assertTrue(os.path.isfile(os.path.join(self.out, rel)), rel)
+        with open(os.path.join(self.out, "assets", "tokens.css"), encoding="utf-8") as f:
+            tokens = f.read()
+        # three theme states: system (media query, guarded), and both explicit choices
+        self.assertIn(':root:not([data-theme="light"])', tokens)
+        self.assertIn(':root[data-theme="dark"]', tokens)
+        for page in ["index.html", "patch-notes/index.html", "guide/leveling.html", "report/index.html", "404.html"]:
+            with open(os.path.join(self.out, page), encoding="utf-8") as f:
+                text = f.read()
+            # the switch only appears with JavaScript; the saved choice is applied before the page paints
+            self.assertIn("data-theme-switch hidden", text, page)
+            self.assertLess(text.index("slums-theme"), text.index("assets/site.css"), page)
+            self.assertIn('assets/tokens.css"', text, page)
+
+    def test_megaphone_rail(self):
+        with open(os.path.join(self.out, "guide", "rates.html"), encoding="utf-8") as f:
+            text = f.read()
+        rail = text[text.index('class="rail"'):text.index("<main")]
+        latest = self.rels[0]["version"]
+        self.assertIn(f'href="../patch-notes/{latest}/"', rail)
+        # the loop copy is hidden from screen readers and from the tab order
+        self.assertIn('aria-hidden="true" tabindex="-1"', rail)
+
     def test_output_is_clean(self):
         self.assertEqual(check.check_forbidden(self.out), [])
         self.assertEqual(check.check_links(self.out), [])

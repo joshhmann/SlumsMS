@@ -1,8 +1,8 @@
 <!-- title: SlumsMS | description: A small MapleStory v83 world for friends, where thousands of player bots remember you. -->
 <section class="hero">
-  <div class="hero-text">
-    <p class="eyebrow">A MapleStory v83 world for friends</p>
-    <h1>Bera is busy, and it remembers you.</h1>
+  <div>
+    <p class="eyebrow">MapleStory v83 &middot; World Bera &middot; friends only</p>
+    <h1>Bera is busy, and it <mark>remembers you.</mark></h1>
     <p class="lede">SlumsMS is a small, friends-only private server. The towns are full of thousands of player
     bots who train, trade, gossip, form guilds and fall in love. Party with them and they'll greet you next time.
     KS them and they'll hold a grudge.</p>
@@ -11,7 +11,7 @@
       <a class="btn" href="{{latest_url}}">What's new in {{latest_version}}</a>
     </div>
   </div>
-  <a class="patch-card" href="{{latest_url}}">
+  <a class="card patch-card" href="{{latest_url}}">
     <span class="pill">Latest patch</span>
     <span class="patch-ver">{{latest_version}}</span>
     <span class="patch-title">{{latest_title}}</span>
@@ -20,16 +20,24 @@
   </a>
 </section>
 
+<dl class="glance" aria-label="At a glance">
+  <div><dt>World</dt><dd>Bera, 5 channels</dd></div>
+  <div><dt>Rates</dt><dd>3x EXP &middot; 10x meso &middot; 4x drop</dd></div>
+  <div><dt>Bots at peak</dt><dd>about 3,000</dd></div>
+  <div><dt>Max level</dt><dd>200, up to 3 rebirths</dd></div>
+  <div><dt>Job advances</dt><dd>Job Master, no quests</dd></div>
+</dl>
+
 <section class="tiles" aria-label="Main sections">
-  <a class="tile" href="patch-notes/">
-    <h2>Patch notes</h2>
+  <a class="card tile" href="patch-notes/">
+    <h2>News</h2>
     <p>Every release, newest first: what changed for you and your characters.</p>
   </a>
-  <a class="tile" href="guide/">
-    <h2>Player guide</h2>
+  <a class="card tile" href="guide/">
+    <h2>Guides</h2>
     <p>Rates, jobs, rebirths, where to train, travel routes, commands and how to talk to the regulars.</p>
   </a>
-  <a class="tile" href="#play">
+  <a class="card tile" href="#play">
     <h2>Get the launcher</h2>
     <p>Ask an admin for the launcher. It comes ready to go, no setup needed.</p>
   </a>
@@ -43,29 +51,20 @@
       <li><b>They remember you.</b> Friends buff you and send party invites. Rivals roast your gear. <code>@botdrama off</code> keeps everyone friendly.</li>
       <li><b>Guilds, wars and weddings.</b> Ten bot guilds, guild wars over grind maps, and couples marrying in Amoria.</li>
       <li><b>MapleRoot content.</b> Custom jobs and skills, rebirths, Arcane River and Grandis maps, and a 5th tier for every class.</li>
+      <li><b>Friends only.</b> 5 to 15 real players. Everyone else in town is a regular.</li>
     </ul>
-  </div>
-  <div class="glance">
-    <h2>At a glance</h2>
-    <dl>
-      <div><dt>World</dt><dd>Bera, 5 channels</dd></div>
-      <div><dt>Rates</dt><dd>3x EXP, 10x meso, 4x drop</dd></div>
-      <div><dt>Job advances</dt><dd>Job Master, no quests</dd></div>
-      <div><dt>Max level</dt><dd>200, up to 3 rebirths</dd></div>
-      <div><dt>Players</dt><dd>5 to 15 friends</dd></div>
-    </dl>
     <p class="small"><a href="guide/rates.html">Rates in detail</a> &middot; <a href="guide/jobs.html">Jobs</a> &middot; <a href="guide/rebirths.html">Rebirths</a></p>
   </div>
+  <section class="card play" id="play">
+    <h2>How to play</h2>
+    <ol class="steps">
+      <li><div><b>Get the launcher.</b> SlumsMS is friends-only: ask an admin for the launcher. It's one small program with
+        everything built in, so there's nothing to set up. Please don't pass it on; ask an admin to invite your friends.</div></li>
+      <li><div><b>Install.</b> Press Install. The first download is about 23.6 GB and resumes if it gets interrupted. Updates only fetch what changed.</div></li>
+      <li><div><b>Make an account.</b> On the game's login screen, type a new username and a passphrase of at least 6 characters; the account is made for you.</div></li>
+      <li><div><b>Say hi.</b> A short tour opens at your first login. Type <code>@guide</code> to see it again.</div></li>
+    </ol>
+    <p class="small">More detail, including what to do if Windows or your antivirus warns you and the fix for the Parsec start-up error, is in <a href="guide/getting-started.html">Getting started</a>.</p>
+  </section>
 </section>
 
-<section class="play" id="play">
-  <h2>How to play</h2>
-  <ol class="steps">
-    <li><b>Get the launcher.</b> SlumsMS is friends-only: ask an admin for the launcher. It's one small program with
-      everything built in, so there's nothing to set up. Please don't pass it on; ask an admin to invite your friends.</li>
-    <li><b>Install.</b> Press Install. The first download is about 23.6 GB and resumes if it gets interrupted. Updates only fetch what changed.</li>
-    <li><b>Make an account.</b> On the game's login screen, type a new username and a passphrase of at least 6 characters; the account is made for you.</li>
-    <li><b>Say hi.</b> A short tour opens at your first login. Type <code>@guide</code> to see it again.</li>
-  </ol>
-  <p>More detail, including what to do if Windows or your antivirus warns you and the fix for the Parsec start-up error, is in <a href="guide/getting-started.html">Getting started</a>.</p>
-</section>

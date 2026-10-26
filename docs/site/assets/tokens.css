@@ -1,0 +1,67 @@
+/* SlumsMS design tokens: style A "Megaphone". Colours, fonts and densities are defined once here; site.css only
+   uses the variables. Three theme states: no data-theme follows the system setting, and data-theme="light" or
+   "dark" (set by the header toggle) overrides it. The dark palette is repeated in the two dark blocks on purpose. */
+
+@font-face { font-family: "Bricolage Grotesque"; src: url("fonts/bricolage-grotesque.woff2") format("woff2");
+  font-weight: 200 800; font-style: normal; font-display: swap; }
+@font-face { font-family: "Instrument Sans"; src: url("fonts/instrument-sans.woff2") format("woff2");
+  font-weight: 400 700; font-style: normal; font-display: swap; }
+@font-face { font-family: "JetBrains Mono"; src: url("fonts/jetbrains-mono.woff2") format("woff2");
+  font-weight: 100 800; font-style: normal; font-display: swap; }
+
+:root {
+  color-scheme: light;
+  /* surfaces and ink */
+  --bg: #f6f3ec; --surface: #fffdf8; --surface-2: #ede8dd;
+  --ink: #15120f; --muted: #5c554b; --edge: #15120f; --hair: #ddd5c6; --drop: #15120f;
+  /* brand */
+  --maple: #ff5a1f; --maple-ink: #c23d0b; --on-maple: #15120f;
+  --sky: #3d4bff; --sky-soft: #e2e4ff; --sun: #ffd23f; --on-sun: #15120f;
+  /* market direction: shape carries it too (hollow/filled, + and -) */
+  --up: #4f7a00; --up-fill: #9bd600; --down: #d93a40;
+  /* patch-note tags, the colours players already know */
+  --new: #2f7a12; --new-bg: #e4f3cf; --fix: #2f3dd6; --fix-bg: #e2e4ff;
+  --change: #7a3fc4; --change-bg: #ece2fb; --same: #5c554b; --same-bg: #ebe6dc;
+  /* guide boxes */
+  --note-bg: #e9ecff; --note-line: #3d4bff; --tip-bg: #eaf5d8; --tip-line: #4f7a00; --bad: #b3261e;
+  --code-bg: #ede8dd;
+  /* item slots and the megaphone rail */
+  --slot: #e7e1d3; --slot-edge: #b8ad97; --rail: #15120f; --on-rail: #f6f3ec;
+  /* charts */
+  --chart-line: var(--maple); --chart-grid: var(--hair); --chart-label: var(--muted);
+
+  --f-display: "Bricolage Grotesque", "Arial Narrow", system-ui, sans-serif;
+  --f-body: "Instrument Sans", system-ui, -apple-system, "Segoe UI", Roboto, sans-serif;
+  --f-mono: "JetBrains Mono", ui-monospace, "Cascadia Mono", Consolas, monospace;
+
+  /* densities: "read" for home, news, guides and the report form; "data" for the database and market */
+  --read-size: 16.5px; --read-line: 1.6;
+  --data-size: 14px; --data-line: 1.4; --row: 36px;
+  --radius: 12px; --radius-s: 8px; --border: 2px;
+}
+@media (prefers-color-scheme: dark) { :root:not([data-theme="light"]) {
+  color-scheme: dark;
+  --bg: #0d0e12; --surface: #16181e; --surface-2: #1f222a;
+  --ink: #f1ece3; --muted: #a39d92; --edge: #4b4e5a; --hair: #2a2d36; --drop: #000000;
+  --maple: #ff7a3d; --maple-ink: #ff9a6b; --on-maple: #0d0e12;
+  --sky: #8a93ff; --sky-soft: #23264a; --sun: #ffd23f; --on-sun: #15120f;
+  --up: #9bd600; --up-fill: #9bd600; --down: #ff6b6f;
+  --new: #9bd600; --new-bg: #22300d; --fix: #a3abff; --fix-bg: #23264a;
+  --change: #c9a5ff; --change-bg: #2a1f45; --same: #b5afa4; --same-bg: #25272e;
+  --note-bg: #1c1f3a; --note-line: #6b74e0; --tip-bg: #1c2711; --tip-line: #6f9a1c; --bad: #ff9b94;
+  --code-bg: #25272e;
+  --slot: #22252e; --slot-edge: #3d414d; --rail: #000000; --on-rail: #f1ece3;
+} }
+:root[data-theme="dark"] {
+  color-scheme: dark;
+  --bg: #0d0e12; --surface: #16181e; --surface-2: #1f222a;
+  --ink: #f1ece3; --muted: #a39d92; --edge: #4b4e5a; --hair: #2a2d36; --drop: #000000;
+  --maple: #ff7a3d; --maple-ink: #ff9a6b; --on-maple: #0d0e12;
+  --sky: #8a93ff; --sky-soft: #23264a; --sun: #ffd23f; --on-sun: #15120f;
+  --up: #9bd600; --up-fill: #9bd600; --down: #ff6b6f;
+  --new: #9bd600; --new-bg: #22300d; --fix: #a3abff; --fix-bg: #23264a;
+  --change: #c9a5ff; --change-bg: #2a1f45; --same: #b5afa4; --same-bg: #25272e;
+  --note-bg: #1c1f3a; --note-line: #6b74e0; --tip-bg: #1c2711; --tip-line: #6f9a1c; --bad: #ff9b94;
+  --code-bg: #25272e;
+  --slot: #22252e; --slot-edge: #3d414d; --rail: #000000; --on-rail: #f1ece3;
+}

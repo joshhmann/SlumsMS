@@ -8,7 +8,7 @@
 Sources (docs/site/):
     home.html                 the home page body; {{latest_*}} is filled from the newest release
     releases/<version>.md     one file per release: front matter, then simple markdown (see below)
-    assets/                   copied as-is (site.css, leaf.svg)
+    assets/                   copied as-is (tokens.css, site.css, theme.js, fonts/, leaf.svg)
     guide-overrides/<p>.html  replaces a wiki page's body on the public site
     guide-fixes.json          small text fixes for the wiki copy (each must still match, or the build stops)
 The guide is a copy of the generated player wiki (docs/wiki/*.html, built by docs/wiki/build.py), restyled, with
@@ -51,8 +51,36 @@ esc = html.escape
 
 # ── layout ───────────────────────────────────────────────────────────────────────────────────────
 
-NAV = [("index.html", "Home", "home"), ("patch-notes/", "Patch notes", "notes"), ("guide/", "Guide", "guide"),
+# Database and Market join the nav once their sections are built (plan step 5 and 7).
+NAV = [("index.html", "Home", "home"), ("patch-notes/", "News", "notes"), ("guide/", "Guides", "guide"),
        ("report/", "Report", "report"), ("index.html#play", "Play", "play")]
+
+# The megaphone rail under the header: the latest releases, then these lines. The market feed joins it later.
+RAIL_EXTRA = ["<i>Bera</i> 5 channels · 3x EXP · 10x meso · 4x drop",
+              "<i>New here?</i> type @guide in game for the quick tour"]
+RAIL = []  # filled by build(): list of (html, href or None) for the current build
+
+# Applies a saved light/dark choice before the page paints, so a reload never flashes the wrong theme.
+THEME_BOOT = ('<script>try{var t=localStorage.getItem("slums-theme");if(t==="light"||t==="dark")'
+              'document.documentElement.setAttribute("data-theme",t)}catch(e){}</script>')
+
+
+def rail_html(root):
+    def items(hidden):
+        out = []
+        for text, href in RAIL:
+            attrs = ' aria-hidden="true"' if hidden else ""
+            if href:
+                tab = ' tabindex="-1"' if hidden else ""
+                out.append(f'<a href="{root}{href}"{attrs}{tab}>{text}</a>')
+            else:
+                out.append(f"<span{attrs}>{text}</span>")
+        return "".join(out)
+    if not RAIL:
+        return ""
+    # the list is written twice so the scroll loops without a jump; the copy is hidden from screen readers
+    return (f'<div class="rail" aria-label="Megaphone"><b>Megaphone</b><div class="roll"><div>'
+            f'{items(False)}{items(True)}</div></div></div>')
 
 
 def layout(title, body, root, section, description="", base=""):
@@ -69,21 +97,27 @@ def layout(title, body, root, section, description="", base=""):
 <meta name="viewport" content="width=device-width,initial-scale=1">
 <title>{esc(full)}</title>{desc}
 <meta name="referrer" content="no-referrer">
+{THEME_BOOT}
 <link rel="icon" href="{root}assets/leaf.svg" type="image/svg+xml">
+<link rel="preload" href="{root}assets/fonts/bricolage-grotesque.woff2" as="font" type="font/woff2" crossorigin>
+<link rel="stylesheet" href="{root}assets/tokens.css">
 <link rel="stylesheet" href="{root}assets/site.css">
+<script src="{root}assets/theme.js" defer></script>
 </head>
 <body>
 <a class="skip" href="#main">Skip to content</a>
-<header class="site-head">
+<header class="site-head"><div class="wrap">
   <a class="brand" href="{root}index.html"><img src="{root}assets/leaf.svg" alt="" width="30" height="30"><b>Slums<span>MS</span></b></a>
   <nav class="site-nav" aria-label="Site">{links}</nav>
-</header>
+  <div class="theme" role="group" aria-label="Colour theme" data-theme-switch hidden><button type="button" data-theme-btn="system">Auto</button><button type="button" data-theme-btn="light">Light</button><button type="button" data-theme-btn="dark">Dark</button></div>
+</div></header>
+{rail_html(root)}
 <main id="main">
 {body}
 </main>
 <footer class="site-foot">
   <span>SlumsMS is a small private MapleStory v83 world for friends. A fan project, not affiliated with Nexon.</span>
-  <span><a href="{root}patch-notes/">Patch notes</a> &middot; <a href="{root}guide/">Player guide</a></span>
+  <span><a href="{root}patch-notes/">News</a> &middot; <a href="{root}guide/">Guides</a> &middot; <a href="{root}report/">Report a bug</a></span>
 </footer>
 </body>
 </html>
@@ -246,11 +280,13 @@ def render_release(rel):
         return "\n".join(out)
 
     toc = "".join(f'<li><a href="#{s["id"]}">{inline(s["title"])}</a></li>' for s in sections)
-    body = [f'<div class="notes-head"><p class="eyebrow">Patch notes</p>'
-            f'<h1>SlumsMS <span class="ver">{esc(rel["version"])}</span></h1>'
-            f'<p class="sub">{esc(rel["title"])}</p><p class="meta">{esc(rel["date"])}</p></div>',
-            f'<div class="notes">{blocks_html(intro)}',
-            f'<ul class="toc" aria-label="Sections">{toc}</ul>']
+    words = {"new": ("new thing", "new things"), "change": ("change", "changes"), "fix": ("fix", "fixes")}
+    counts = ", ".join(f"{rel['counts'][k]} {words[k][rel['counts'][k] != 1]}" for k in words if rel["counts"][k])
+    body = [f'<div class="notes-head"><h1 class="bigver"><span class="vh">SlumsMS </span>{esc(rel["version"])}</h1>'
+            f'<div><p class="eyebrow">Patch notes &middot; {esc(rel["date"])}</p><p class="sub">{esc(rel["title"])}</p>'
+            f'{f"<p class=meta>{esc(counts)}</p>" if counts else ""}</div></div>',
+            f'<div class="notes"><ul class="toc" aria-label="Sections">{toc}</ul>',
+            blocks_html(intro)]
     for s in sections:
         body.append(f'<section id="{esc(s["id"])}"><h2>{inline(s["title"])}</h2>'
                     f'{blocks_html(s["blocks"], s["cards"])}</section>')
@@ -268,12 +304,17 @@ def counts_text(rel):
     return "".join(f"<span>{p}</span>" for p in parts)
 
 
-def build_releases(out):
+def build_releases_meta():
     rdir = os.path.join(SRC, "releases")
     rels = [parse_release(os.path.join(rdir, n)) for n in os.listdir(rdir) if n.endswith(".md")]
     if not rels:
         raise SystemExit("no releases in docs/site/releases/")
     rels.sort(key=lambda r: r["key"], reverse=True)
+    return rels
+
+
+def build_releases(out):
+    rels = build_releases_meta()
     for i, rel in enumerate(rels):
         pager = ['<nav class="pager" aria-label="Releases">']
         pager.append(f'<a class="btn" href="../">&larr; All patch notes</a>')
@@ -291,8 +332,8 @@ def build_releases(out):
         f'<li><a class="rel" href="{esc(r["version"])}/"><span class="v">{esc(r["version"])}</span>'
         f'<span class="t">{esc(r["title"])}</span><span class="d">{esc(r["date"])} &middot; '
         f'{esc(r["summary"])}</span><span class="c">{counts_text(r)}</span></a></li>' for r in rels)
-    body = ('<div class="notes-head"><p class="eyebrow">SlumsMS</p><h1>Patch notes</h1>'
-            '<p class="sub">Every release, newest first.</p></div>'
+    body = ('<div class="notes-head plain"><p class="eyebrow">News</p><h1>Patch notes</h1>'
+            '<p class="meta">Every release, newest first.</p></div>'
             f'<ul class="rel-list">{items}</ul>')
     write(out, "patch-notes/index.html", layout("Patch notes", body, "../", "notes",
                                                 "Every SlumsMS release, newest first."))
@@ -374,7 +415,8 @@ def build_home(out, rels):
         raise SystemExit(f"home.html: unknown placeholders {left}")
     write(out, "index.html", layout(SITE, body, "", "home", meta.get("description", "")))
     # 404 page: the server sends it for a missing URL at any depth, so <base href="/"> anchors its relative links.
-    nf = ('<div class="notfound"><h1>Nothing here</h1><p>This page wandered off into the Sleepywood dungeon.</p>'
+    nf = ('<div class="notfound"><p class="eyebrow">404</p><h1>Nothing here</h1>'
+          '<p class="lede">This page wandered off into the Sleepywood dungeon.</p>'
           '<p><a class="btn primary" href="index.html">Back to the home page</a></p></div>')
     write(out, "404.html", layout("Not found", nf, "", "", base="/"))
 
@@ -411,6 +453,9 @@ def build(out, tar_path=None):
         shutil.rmtree(out)
     os.makedirs(out)
     copy_assets(out)
+    rels = build_releases_meta()
+    RAIL[:] = [(f'<em>{esc(r["version"])}</em> {esc(r["title"])}', f'patch-notes/{r["version"]}/') for r in rels[:3]]
+    RAIL.extend((t, None) for t in RAIL_EXTRA)
     rels = build_releases(out)
     guide = build_guide(out)
     build_home(out, rels)
