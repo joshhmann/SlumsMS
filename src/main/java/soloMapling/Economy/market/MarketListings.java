@@ -27,7 +27,7 @@ public final class MarketListings {
      * them left. A star or bullet stack ({@code rechargeable}) is one priced unit, as on the price board.
      */
     public record Row(int itemId, int perBundle, int bundles, long bundlePrice, boolean rechargeable) {
-        long unitPrice() {
+        public long unitPrice() {
             return rechargeable ? bundlePrice : bundlePrice / Math.max(1, perBundle);
         }
     }

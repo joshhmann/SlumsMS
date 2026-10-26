@@ -138,6 +138,7 @@ public final class QaMenuCatalog {
         add("tr-5", v(), steps("price", "tax"), "price <item id>", "tax <price>");
         add("mk-1", v(), steps());
         add("sf-1", v(), steps());
+        add("bd-1", v(), steps());
         section("Hanako and meso sinks");
         add("tr-7", v(), steps("meters"));
         section("Partner rings (2nd character)");

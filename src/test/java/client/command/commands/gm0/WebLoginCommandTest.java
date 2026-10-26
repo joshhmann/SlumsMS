@@ -37,7 +37,8 @@ class WebLoginCommandTest {
 
     @Test
     void validCodeWritesApprovalJson() throws Exception {
-        assertEquals("Website sign-in sent. Go back to your browser.", run(dir.toString(), 5, 123, " k7q4zp "));
+        assertEquals("Website sign-in sent. Go back to your browser.\n" + WebLoginCommand.PHISHING_LINE,
+                run(dir.toString(), 5, 123, " k7q4zp "));
         Path f = dir.resolve("approvals/K7Q4ZP.json");
         JsonNode j = new ObjectMapper().readTree(Files.readAllBytes(f));
         assertEquals("K7Q4ZP", j.get("code").asText());
@@ -45,11 +46,23 @@ class WebLoginCommandTest {
         assertEquals("login123", j.get("account").asText());
         assertEquals("Momo", j.get("character").asText());
         assertEquals(0, j.get("gm").asInt());
+        assertEquals(1, j.get("characters").size());
+        assertEquals("Momo", j.get("characters").get(0).asText());
         assertEquals(1_793_001_642L, j.get("time").asLong());
         assertEquals(1, fileCount(), "no leftover .tmp");
         if (Files.getFileStore(f).supportsFileAttributeView("posix")) {
             assertEquals("rw-r-----", java.nio.file.attribute.PosixFilePermissions.toString(Files.getPosixFilePermissions(f)));
         }
+    }
+
+    @Test
+    void theApprovalListsEveryCharacterOfTheAccountAndKeepsTheGmLevel() throws Exception {
+        String reply = WebLoginCommand.handle(dir.toString(), 5, "login7", 7, "MomoAlt", 3, "K7Q4ZP",
+                () -> java.util.List.of("Momo", "MomoAlt"));
+        assertTrue(reply.endsWith("It signs that browser in as you."), reply);
+        JsonNode j = new ObjectMapper().readTree(Files.readAllBytes(dir.resolve("approvals/K7Q4ZP.json")));
+        assertEquals("[\"Momo\",\"MomoAlt\"]", j.get("characters").toString());
+        assertEquals(3, j.get("gm").asInt());
     }
 
     @Test

@@ -173,6 +173,11 @@ public final class PublicMarketExport {
         return f;
     }
 
+    /** Every open FM shop now, as listings.json lists them (the site board's price alerts read the same shops). */
+    public static List<MarketListings.Shop> liveShops() {
+        return new ServerSources().shops();
+    }
+
     /** What a run wrote, under {@code dir}: paths relative to it, and what failed (path: reason). */
     public record Report(Path dir, List<String> written, List<String> failed) {
     }

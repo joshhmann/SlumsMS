@@ -42,8 +42,42 @@ public class WebLoginCommand extends Command {
     public void execute(Client c, String[] params) {
         Character player = c.getPlayer();
         String code = params.length > 0 ? params[0] : "";
-        player.yellowMessage(handle(System.getProperty("slums.weblogin.dir"), player.getId(), c.getAccountName(),
-                player.getAccountID(), player.getName(), player.gmLevel(), code));
+        String reply = handle(System.getProperty("slums.weblogin.dir"), player.getId(), c.getAccountName(),
+                player.getAccountID(), player.getName(), player.gmLevel(), code,
+                () -> characters(player.getAccountID(), player.getWorld(), player.getName()));
+        for (String line : reply.split("\n")) {
+            player.yellowMessage(line);
+        }
+    }
+
+    /** Shown under a sent sign-in (anti-phishing, 1.6.0 site board: a signed-in browser can post as you). */
+    static final String PHISHING_LINE = "Only type a code from a page you opened yourself. It signs that browser in as you.";
+
+    /**
+     * The account's characters in this world (not bots), oldest first, for the approval's {@code characters}: the
+     * site lets a signed-in player post on the board as any of them. On a database error, just the one playing.
+     */
+    static java.util.List<String> characters(int accountId, int world, String playing) {
+        java.util.List<String> out = new java.util.ArrayList<>();
+        try (java.sql.Connection con = tools.DatabaseConnection.getConnection();
+             java.sql.PreparedStatement ps = con.prepareStatement(
+                     "SELECT name FROM characters WHERE accountid = ? AND world = ? AND id < ? ORDER BY id")) {
+            ps.setInt(1, accountId);
+            ps.setInt(2, world);
+            ps.setInt(3, BotStore.BOT_ID_BASE);
+            try (java.sql.ResultSet rs = ps.executeQuery()) {
+                while (rs.next()) {
+                    out.add(rs.getString(1));
+                }
+            }
+        } catch (java.sql.SQLException | RuntimeException e) {
+            log.warn("@weblogin could not list the account's characters; sending only {}", playing, e);
+            out.clear();
+        }
+        if (!out.contains(playing)) {
+            out.add(playing);
+        }
+        return out;
     }
 
     static void resetForTest() {
@@ -53,6 +87,12 @@ public class WebLoginCommand extends Command {
 
     /** Returns the message to show the player. Never throws. */
     static String handle(String dirProp, int charId, String account, int accountId, String character, int gm, String rawCode) {
+        return handle(dirProp, charId, account, accountId, character, gm, rawCode, () -> java.util.List.of(character));
+    }
+
+    /** As above; {@code characters} lists the account's characters (read only when an approval is written). */
+    static String handle(String dirProp, int charId, String account, int accountId, String character, int gm, String rawCode,
+                         java.util.function.Supplier<java.util.List<String>> characters) {
         try {
             if (dirProp == null || dirProp.isBlank()) {
                 return "Website sign-in isn't available right now.";
@@ -71,8 +111,8 @@ public class WebLoginCommand extends Command {
             if (!allow(accountId)) {
                 return "Slow down, try again in a minute.";
             }
-            write(dir, code, accountId, account, character, gm);
-            return "Website sign-in sent. Go back to your browser.";
+            write(dir, code, accountId, account, character, characters.get(), gm);
+            return "Website sign-in sent. Go back to your browser.\n" + PHISHING_LINE;
         } catch (Throwable t) {
             log.warn("@weblogin failed for account {}", accountId, t);
             return "Couldn't send the website sign-in, please try again.";
@@ -128,7 +168,8 @@ public class WebLoginCommand extends Command {
         return false;
     }
 
-    private static void write(Path dir, String code, int accountId, String account, String character, int gm) throws IOException {
+    private static void write(Path dir, String code, int accountId, String account, String character,
+                              java.util.List<String> characters, int gm) throws IOException {
         Path approvals = dir.resolve("approvals");
         Files.createDirectories(approvals);
         Map<String, Object> body = new LinkedHashMap<>();
@@ -136,6 +177,7 @@ public class WebLoginCommand extends Command {
         body.put("account_id", accountId);
         body.put("account", account);
         body.put("character", character);
+        body.put("characters", characters);
         body.put("gm", gm);
         body.put("time", clock.getAsLong() / 1000L);
         Path tmp = approvals.resolve(code + ".json.tmp");

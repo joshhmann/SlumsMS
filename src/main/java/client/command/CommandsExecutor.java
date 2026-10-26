@@ -362,6 +362,7 @@ public class CommandsExecutor {
             addCommand("autoqa", 3, client.command.commands.gm3.AutoQaCommand.class); // health sweeps + check runner (docs/ops/qa-suite.md)
         }
         addCommand("editShop", 2,  EditShopCommand.class);
+        addCommand("board", 2, client.command.commands.gm2.BoardCommand.class); // 1.6.0 site Buy/Sell board: list, remove a post
 
         commandsNameDesc.add(levelCommandsCursor);
     }

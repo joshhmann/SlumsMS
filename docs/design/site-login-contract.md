@@ -26,7 +26,9 @@ write banned accounts there too.
 - `CODE` must be 6 characters from `ABCDEFGHJKLMNPQRSTUVWXYZ23456789` (upper-case it first). Anything else: reply
   "That isn't a website code." and write nothing.
 - Write `<approvals>/<CODE>.json` atomically (write `.tmp`, then rename) with mode 0640, group `slums-login`:
-  `{"code": "K7Q4ZP", "account_id": 123, "account": "loginname", "character": "Momo", "gm": 0, "time": 1793001642.5}`.
+  `{"code": "K7Q4ZP", "account_id": 123, "account": "loginname", "character": "Momo", "characters": ["Momo", "MomoAlt"], "gm": 0, "time": 1793001642.5}`.
+  `characters` (1.6.0 board): the account's IGNs in world Bera, so the site can let the player post as any of them;
+  `gm` is the GM level (the site gives GMs the board's take-down).
   `time` is Unix seconds and is **required**; the service refuses approvals older than 10 minutes or without it.
 - Reply "Website sign-in sent. Go back to your browser." Rate-limit it per account (say 5 a minute) so nobody can
   guess codes by spamming the command.

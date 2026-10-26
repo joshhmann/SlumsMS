@@ -969,6 +969,13 @@ public final class AutoQaCatalog {
                         has("SF1 FILE world\\.json ok \\d+ bytes online=\\d+ "),
                         has("SF1 PASS files=3"), lacks("SF1 FAIL "), lacks("SF1 STEP FAIL "), lacks("SF1 SHAPE "))
                 .build());
+        // 1.6.0 site board: a staged post on scratch folders gets a bot's offer and a price alert fires once
+        c.add(Check.auto("t-bd-1", "Site board: a staged post gets a bot's offer and an alert fires once").minutes(2)
+                .step(run("bd-1"), waitFor("BD1 (PASS|FAIL)", 60))
+                .expect(has("BD1 POSTS open=1 rejected=0"), has("BD1 CLAIM \\S+ answers "),
+                        has("BD1 OFFER \\S+ -> "), has("BD1 ALERT FIRED a[0-9a-f]{12} "),
+                        has("BD1 PASS "), lacks("BD1 FAIL"))
+                .build());
         return List.copyOf(c);
     }
 
