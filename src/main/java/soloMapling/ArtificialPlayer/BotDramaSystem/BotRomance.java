@@ -269,6 +269,8 @@ public final class BotRomance {
             botProposals.remove(id);
         }
         writes.submit(id, () -> store.setOptedIn(id, on, now));
+        // 1.6.0 S5: an explicit off also shuts the flirted-first unlock, and is kept across restarts
+        soloMapling.ArtificialPlayer.SocialGate.setRomanceOff(id, !on);
         qa(player.getMapId(), "@romance " + (on ? "on" : "off") + " " + player.getName());
         return out;
     }
@@ -280,9 +282,12 @@ public final class BotRomance {
         return RomanceRules.asksOut(line);
     }
 
-    /** Whether this bot may flirt with this player now: romance on, dating, or a crush the rules allow. */
+    /**
+     * Whether this bot may flirt with this player now: romance on (or, 1.6.0 S5, the player flirted with this bot first
+     * and never typed {@code @romance off}), then dating or a crush the rules allow.
+     */
     public static boolean mayFlirtWith(int botCharId, int playerId) {
-        if (!enabled() || !romanceOn(playerId)) {
+        if (!enabled() || !soloMapling.ArtificialPlayer.SocialGate.romanceAllowed(botCharId, playerId)) {
             return false;
         }
         Romance r = with(playerId, botCharId);
@@ -302,8 +307,12 @@ public final class BotRomance {
         }
         Romance r = with(player.getId(), botCharId);
         String name = player.getName();
-        if (!romanceOn(player.getId())) {
+        if (!soloMapling.ArtificialPlayer.SocialGate.romanceAllowed(botCharId, player.getId())) {
             return " Never flirt with or hit on " + name + ": keep it friendly.";
+        }
+        if (!romanceOn(player.getId())) { // 1.6.0 S5: they flirted with this bot first (no @romance on)
+            return " " + name + " flirted with you first: you may flirt back a little, cheesy and cute, PG-13, never"
+                    + " explicit. Never ask them out.";
         }
         if (r != null && r.stage().together()) {
             String what = switch (r.stage()) {
@@ -344,8 +353,11 @@ public final class BotRomance {
         if (!ContentGuard.flirty(reply)) {
             return true;
         }
-        if (!romanceOn(player.getId())) {
+        if (!soloMapling.ArtificialPlayer.SocialGate.romanceAllowed(bot.getId(), player.getId())) {
             return false;
+        }
+        if (!romanceOn(player.getId())) {
+            return true; // 1.6.0 S5: they flirted with this bot first, so a flirt back is fine
         }
         Romance r = with(player.getId(), bot.getId());
         if (r != null && r.stage().together()) {
@@ -453,7 +465,9 @@ public final class BotRomance {
             return false;
         }
         Character bot = sm.getChr();
-        if (bot.getMapId() != player.getMapId() || !romanceOn(player.getId())) {
+        boolean optedIn = romanceOn(player.getId());
+        if (bot.getMapId() != player.getMapId()
+                || !optedIn && !soloMapling.ArtificialPlayer.SocialGate.romanceAllowed(bot.getId(), player.getId())) {
             return false;
         }
         long now = now();
@@ -461,6 +475,10 @@ public final class BotRomance {
         long pair = key(pid, slot(bot.getId()));
         Romance r = rows.get(pair);
         Random rng = ThreadLocalRandom.current();
+        if (!optedIn) {
+            // 1.6.0 S5: no @romance on, but they flirted with this bot first: a flirt back now and then, nothing more
+            return flirtOnSight(bot, player, pair, now);
+        }
         if (r != null && r.stage().together()) {
             if (r.stage() == Romance.Stage.DATING && RomanceRules.readyToPropose(r, now) && rng.nextDouble() < 0.2
                     && DramaKit.take("rm:propose:" + pair, now, TimeUnit.DAYS.toMillis(1))) {
@@ -480,7 +498,9 @@ public final class BotRomance {
                 ExecutorServiceManager.runAsync(() -> oldFlame(bot, player));
                 return true;
             }
-            if (!BotAffinity.optedOut(pid) && rng.nextDouble() < 0.5
+            if (!BotAffinity.optedOut(pid) && rng.nextDouble() < 0.5 && DramaKit.free("rm:ex:" + pair, now)
+                    && soloMapling.ArtificialPlayer.SocialGate.allow(bot, player,
+                    soloMapling.ArtificialPlayer.SocialGate.Act.TAUNT) // 1.6.0 S5: a breakup they caused started it
                     && DramaKit.take("rm:ex:" + pair, now, TimeUnit.MINUTES.toMillis(30))) {
                 String rebound = rebounds.get(bot.getId());
                 ExecutorServiceManager.runAsync(() -> DramaKit.say(bot, rebound != null && rng.nextBoolean()
@@ -493,16 +513,27 @@ public final class BotRomance {
         double score = BotAffinity.score(bot.getId(), pid);
         boolean botTaken = taken(bot.getId());
         if (partners(pid).isEmpty() && RomanceRules.mayAskOut(true, state, score, botTaken, false)
-                && rng.nextDouble() < 0.3 && DramaKit.take("rm:ask:" + pair, now, TimeUnit.DAYS.toMillis(1))
+                && rng.nextDouble() < 0.3 && DramaKit.free("rm:ask:" + pair, now)
+                && soloMapling.ArtificialPlayer.SocialGate.allow(bot, player, soloMapling.ArtificialPlayer.SocialGate.Act.FLIRT)
+                && DramaKit.take("rm:ask:" + pair, now, TimeUnit.DAYS.toMillis(1))
                 && DramaKit.hourly("rm-ask", 6, now)) {
             ExecutorServiceManager.runAsync(() -> askOut(bot, player));
             return true;
         }
-        if (RomanceRules.mayFlirt(true, state, score, botTaken)
+        return flirtOnSight(bot, player, pair, now);
+    }
+
+    /** A bot with a crush the rules allow flirts on sight (capped per pair and world-wide, through the social gate). */
+    private static boolean flirtOnSight(Character bot, Character player, long pair, long now) {
+        int pid = player.getId();
+        if (RomanceRules.mayFlirt(true, BotAffinity.state(bot.getId(), pid), BotAffinity.score(bot.getId(), pid),
+                taken(bot.getId()))
+                && DramaKit.free("rm:flirt:" + pair, now)
+                && soloMapling.ArtificialPlayer.SocialGate.allow(bot, player, soloMapling.ArtificialPlayer.SocialGate.Act.FLIRT)
                 && DramaKit.take("rm:flirt:" + pair, now, TimeUnit.MINUTES.toMillis(20))
                 && DramaKit.hourly("rm-flirt", 30, now)) {
             ExecutorServiceManager.runAsync(() -> {
-                String line = DramaKit.say(bot, "RomanceFlirt", Map.of("PLAYER", player.getName()));
+                String line = DramaKit.sayTo(bot, player, "RomanceFlirt", Map.of("PLAYER", player.getName()));
                 qa(bot.getMapId(), "FLIRT " + bot.getName() + " -> " + player.getName() + ": " + line);
             });
             return true;

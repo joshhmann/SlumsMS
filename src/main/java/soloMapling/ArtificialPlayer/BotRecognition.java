@@ -124,6 +124,9 @@ public final class BotRecognition {
                 ThreadLocalRandom.current().nextDouble())) {
             return false;
         }
+        if (!SocialGate.allow(bot.getChr(), player, SocialGate.Act.GREET)) { // 1.6.0 S5: busy, logged
+            return false;
+        }
         lastGreetOnSight.put(pair, now);
         return BotConversation.greet(bot, player);
     }

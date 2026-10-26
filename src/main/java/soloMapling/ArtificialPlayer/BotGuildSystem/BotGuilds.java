@@ -13,6 +13,7 @@ import net.server.world.PartyCharacter;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import soloMapling.ArtificialPlayer.BotWhispers;
+import soloMapling.ArtificialPlayer.SocialGate;
 import soloMapling.ArtificialPlayer.PlayerBusy;
 import soloMapling.ArtificialPlayer.BotAffinitySystem.AffinityState;
 import soloMapling.ArtificialPlayer.BotAffinitySystem.BotAffinity;
@@ -594,7 +595,7 @@ public final class BotGuilds {
         }
         Character inviter = leader != null ? leader : officerOnline(g.getId(), bot);
         Character from = inviter;
-        ExecutorServiceManager.getScheduledExecutorService().schedule(() -> sendInvite(from, g, player),
+        ExecutorServiceManager.getScheduledExecutorService().schedule(() -> sendInvite(from, g, player, true),
                 3 + ThreadLocalRandom.current().nextInt(8), TimeUnit.SECONDS);
         return from == bot ? GuildLines.pick("AppYes", tokens)
                 : GuildLines.pick("AppYesLeader", Map.of("LEADER", from.getName(), "PLAYER", player.getName()));
@@ -614,10 +615,21 @@ public final class BotGuilds {
         return l == null ? "our leader" : l.getName();
     }
 
-    /** A real guild invite from a bot, through the stock invite flow (the player clicks accept as usual). */
+    /**
+     * A real guild invite from a bot, through the stock invite flow (the player clicks accept as usual). Unprompted
+     * (recruiting, poaching): through {@link SocialGate}, so {@code @quiet bots} holds it (1.6.0 S5).
+     */
     public static boolean sendInvite(Character fromBot, Guild g, Character player) {
+        return sendInvite(fromBot, g, player, false);
+    }
+
+    /** {@code asked}: the player asked to join (an application's yes), so {@code @quiet} does not hold it. */
+    public static boolean sendInvite(Character fromBot, Guild g, Character player, boolean asked) {
         try {
             if (PlayerBusy.isBusy(player) || player.getGuildId() > 0 || !player.isLoggedinWorld()) {
+                return false;
+            }
+            if (!asked && !SocialGate.allow(fromBot, player, SocialGate.Act.GUILD_INVITE)) {
                 return false;
             }
             if (InviteCoordinator.createInvite(InviteType.GUILD, fromBot, g.getId(), player.getId())) {

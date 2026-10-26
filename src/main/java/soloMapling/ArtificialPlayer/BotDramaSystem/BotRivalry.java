@@ -175,26 +175,31 @@ public final class BotRivalry {
         qa(player.getMapId(), "ROAST facts for " + player.getName() + ": " + facts.describe());
         RivalRoasts.Roast scripted = RivalRoasts.pick(facts, ThreadLocalRandom.current());
         BotBrain brain = BotBrains.get();
-        if (brain.isLive() && ThreadLocalRandom.current().nextDouble() < DramaKit.prop("rivals.llmRoastChance", 0.5)) {
+        // 1.6.0 S5: the line bank first - a model roast only while the gate's unprompted-LLM budget has room
+        if (brain.isLive() && ThreadLocalRandom.current().nextDouble() < DramaKit.prop("rivals.llmRoastChance", 0.5)
+                && soloMapling.ArtificialPlayer.SocialGate.llmOk()) {
             List<BotBrain.Turn> prompt = BotChatPrompt.conversation(RivalRoasts.prompt(bot.getName(), facts,
                     state == AffinityState.NEMESIS), List.of(BotBrain.Turn.user("(" + player.getName()
                     + " is standing near you)")));
             brain.complete(player.getId(), prompt).thenAccept(line -> {
-                String said = line.filter(ContentGuard::ok).orElse(null);
+                String said = line.filter(ContentGuard::ok)
+                        .filter(l -> soloMapling.ArtificialPlayer.SocialGate.fresh(bot.getId(), player.getId(), l))
+                        .orElse(null); // 1.6.0 S5: never the same model line to the same player twice
                 if (said != null) {
                     soloMapling.ArtificialPlayer.BotCommandsPack.SocialCommands.BotSpeak(bot, said);
                     qa(bot.getMapId(), "ROAST (model) " + bot.getName() + " -> " + player.getName() + ": " + said);
                 } else {
-                    String l = DramaKit.say(bot, scripted.node(), scripted.tokens());
+                    String l = DramaKit.sayTo(bot, player, scripted.node(), scripted.tokens());
                     qa(bot.getMapId(), "ROAST (scripted, model fell back) " + bot.getName() + " -> " + player.getName()
                             + ": " + l);
                 }
             });
             return "roast through the chat model (facts: " + facts.describe() + ")";
         }
-        String line = DramaKit.say(bot, scripted.node(), scripted.tokens());
+        String line = DramaKit.sayTo(bot, player, scripted.node(), scripted.tokens());
         if (line == null) {
-            line = DramaKit.say(bot, state == AffinityState.NEMESIS ? "RoastLevel" : "RoastJob", scripted.tokens());
+            line = DramaKit.sayTo(bot, player, state == AffinityState.NEMESIS ? "RoastLevel" : "RoastJob",
+                    scripted.tokens());
         }
         qa(bot.getMapId(), "ROAST " + scripted.node() + " " + bot.getName() + " -> " + player.getName() + ": " + line);
         return "said \"" + line + "\"";
@@ -221,13 +226,17 @@ public final class BotRivalry {
         if (sm instanceof TrainingBot && !wars.containsKey(player.getId()) && warRollDue(bot.getId(), player.getId(), now)
                 && rng.nextDouble() < DramaKit.prop(nemesis ? "rivals.ksWarNemesis" : "rivals.ksWarRival", nemesis ? 0.15 : 0.05)
                 && warAllowedToday(player.getId(), now) && MapMobIndex.level(player.getMapId()) >= 0
-                && player.getEventInstance() == null && DramaKit.hourly("rv-kswar",
-                (int) DramaKit.prop("rivals.ksWarsPerHour", 3), now)) {
+                && player.getEventInstance() == null
+                && soloMapling.ArtificialPlayer.SocialGate.allow(bot, player,
+                soloMapling.ArtificialPlayer.SocialGate.Act.KS_WAR) // 1.6.0 S5: only if they started it with this bot
+                && DramaKit.hourly("rv-kswar", (int) DramaKit.prop("rivals.ksWarsPerHour", 3), now)) {
             ExecutorServiceManager.runAsync(() -> startKsWar(bot, player, 2 + rng.nextInt(3), false));
             return true;
         }
         if ((nemesis || BotAffinity.hostileCount(bot.getId(), player.getId()) >= 4) && rng.nextDouble() < 0.1
-                && DramaKit.free("rv:callout:" + player.getId(), now)) {
+                && DramaKit.free("rv:callout:" + player.getId(), now)
+                && soloMapling.ArtificialPlayer.SocialGate.allow(bot, player,
+                soloMapling.ArtificialPlayer.SocialGate.Act.CALL_OUT)) { // 1.6.0 S5: never a crew mate's call-out
             ExecutorServiceManager.runAsync(() -> callout(bot, player, false));
             return true;
         }
@@ -517,6 +526,9 @@ public final class BotRivalry {
         if (bot == null || player.getMapId() != map || !BotAffinity.hostile(botId, player.getId())
                 || !DramaKit.freeForScene(bot)) {
             return "the rival could not follow (gone, busy, or no longer a rival)";
+        }
+        if (!soloMapling.ArtificialPlayer.SocialGate.allow(bot, player, soloMapling.ArtificialPlayer.SocialGate.Act.REVENGE)) {
+            return "the social gate holds the follow (busy, or they did not start it)"; // 1.6.0 S5
         }
         DramaKit.Home home = DramaKit.homeOf(bot);
         if (!DramaKit.bringTo(bot, player, 60, false)) {

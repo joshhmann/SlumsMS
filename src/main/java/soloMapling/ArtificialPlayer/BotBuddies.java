@@ -51,8 +51,9 @@ import java.util.function.IntFunction;
  * they are talking right now (3+ lines; half for fewer); {@code partyBonus} (0.3) same party; all times the bot's
  * social trait; {@code maxPlayerBuddies} (20) per bot; {@code acceptDelayMinSec}/{@code acceptDelayMaxSec} (10/180);
  * {@code refusalDays} (1) a turned-down player's re-asks are ignored this long; {@code offerChance} (0.15) after a good
- * chat with a player it knows; {@code offerMinLines} (3); {@code offersPerPlayerPerDay} (1, all bots together);
- * {@code offersPerHour} (6, the whole world); {@code offerRetryDays} (7) one retry when a request was ignored.
+ * chat with a player it knows; {@code offerMinLines} (3); {@code offersPerPlayerPerDay} (3, all bots together; 1.5.x 1);
+ * {@code offersPerHour} (18, the whole world; 1.5.x 6); {@code offerRetryDays} (7) one retry when a request was
+ * ignored. 1.6.0 (S5): a bot's request goes through {@link SocialGate} ({@code @quiet bots}, busy).
  */
 public final class BotBuddies {
 
@@ -160,7 +161,9 @@ public final class BotBuddies {
     /** Why a bot did or did not send a request (logged; the tests read it). */
     enum Gate {
         OK, NOT_VISIBLE, STRANGER, WARY, SHORT_CHAT, ALREADY, CLOSED, TOO_SOON, PLAYER_DAILY_CAP, WORLD_CAP, BOT_FULL,
-        PLAYER_FULL, ROLL
+        PLAYER_FULL, ROLL,
+        /** 1.6.0 S5: the player has {@code @quiet bots} on (no unsolicited buddy request). */
+        QUIET
     }
 
     /** What a bot-sent request is checked against. */
@@ -302,10 +305,11 @@ public final class BotBuddies {
                 }
             }
         }
-        if (c.sentToPlayerToday() >= (int) setting("offersPerPlayerPerDay", 1)) {
+        // 1.6.0 S5 busy-server budget (SocialGate): 3 a day per player (1.5.x: 1), 18 an hour world-wide (1.5.x: 6)
+        if (c.sentToPlayerToday() >= (int) setting("offersPerPlayerPerDay", SocialGate.BUDDY_OFFERS_PER_PLAYER_DAY)) {
             return Gate.PLAYER_DAILY_CAP;
         }
-        if (c.sentWorldLastHour() >= (int) setting("offersPerHour", 6)) {
+        if (c.sentWorldLastHour() >= (int) setting("offersPerHour", SocialGate.BUDDY_OFFERS_PER_HOUR)) {
             return Gate.WORLD_CAP;
         }
         if (c.botMutual() >= maxPlayerBuddies()) {
@@ -694,8 +698,11 @@ public final class BotBuddies {
     static Gate maybeOffer(int botCharId, int playerId, int playerLines) {
         Character bot = liveBot(botCharId);
         Character player = onlinePlayer(playerId);
-        if (bot == null || player == null || PlayerBusy.isBusy(player)) {
+        if (bot == null || player == null) {
             return Gate.NOT_VISIBLE;
+        }
+        if (!SocialGate.allow(bot, player, SocialGate.Act.BUDDY_REQUEST)) { // 1.6.0 S5: busy, @quiet bots
+            return SocialGate.quietBots(player.getId()) ? Gate.QUIET : Gate.NOT_VISIBLE;
         }
         long now = System.currentTimeMillis();
         long today = today(now);

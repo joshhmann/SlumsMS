@@ -71,3 +71,13 @@ Affinity:
       - "{OTHER} is cool, partied w them"
       - "if u see {OTHER} say hi, theyre nice"
       - "{OTHER} helped me out earlier ^^"
+  # 1.6.0 S5: a bot whose crew mate (guild mate or close friend) the player wronged: side-eye and light teasing only,
+  # never a KS or a call-out (those stay with the bot that was wronged). Game-only, no {OTHER} names.
+  CrewSideEye:
+    text:
+      - "oh ur {PLAYER}... heard about u lol"
+      - "{PLAYER} huh. word gets around"
+      - "so ur the famous {PLAYER}"
+      - "{PLAYER} play nice today ok"
+      - "eyes on u {PLAYER} lol"
+      - "hm {PLAYER}. we know u -_-"

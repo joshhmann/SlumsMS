@@ -283,7 +283,7 @@ public final class SocialGate {
     }
 
     /** Logs a decision (a NO at most once a minute per act and pair). */
-    static void note(Act act, int botId, String botName, Character player, Verdict v) {
+    public static void note(Act act, int botId, String botName, Character player, Verdict v) {
         boolean qa = QaLog.on(QaLog.Topic.SOCIAL_GATE);
         if (!qa && !log.isDebugEnabled()) {
             return;
@@ -544,7 +544,7 @@ public final class SocialGate {
      */
 
     /** Per-pair cooldown, in minutes. */
-    static long pairMinutes(Act a) {
+    public static long pairMinutes(Act a) {
         long min = switch (a) {
             case GREET -> 40;
             case PARTY_INVITE -> 60;
@@ -560,7 +560,7 @@ public final class SocialGate {
     }
 
     /** World-wide cap per hour. */
-    static int perHour(Act a) {
+    public static int perHour(Act a) {
         int cap = switch (a) {
             case TAUNT -> 60;
             case KS_SPREE -> 30;
@@ -633,7 +633,7 @@ public final class SocialGate {
         }
     }
 
-    private static void forgetBotBudget(int botCharId) {
+    public static void forgetBotBudget(int botCharId) {
         long slot = botCharId - BotStore.BOT_ID_BASE;
         nextAt.keySet().removeIf(k -> ((k >>> 30) & 0x0FFFFFFFL) == slot);
     }
@@ -696,6 +696,30 @@ public final class SocialGate {
             return bot.getId();
         }
         return name == null ? 0 : name.toLowerCase(Locale.ROOT).hashCode() | 0x40000000;
+    }
+
+    /** Whether this bot said this line to this player lately (nothing is remembered). */
+    public static boolean seen(int botKey, int playerId, String line) {
+        if (line == null || line.isBlank()) {
+            return false;
+        }
+        int h = lineHash(line);
+        long nowMin = now() / 60_000;
+        long maxAgeMin = LINE_MEMORY_MS / 60_000;
+        long k = ((long) botKey << 32) | (playerId & 0xffffffffL);
+        synchronized (recentLines) {
+            long[] ring = recentLines.get(k);
+            if (ring == null) {
+                return false;
+            }
+            for (int i = 1; i < ring.length; i++) {
+                long e = ring[i];
+                if (e != 0 && (int) (e >>> 32) == h && nowMin - (e & 0xffffffffL) < maxAgeMin) {
+                    return true;
+                }
+            }
+            return false;
+        }
     }
 
     /**
