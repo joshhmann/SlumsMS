@@ -830,6 +830,36 @@ public final class AutoQaCatalog {
                         has("(?i)THREAD LINE \\[bank\\] \\S+: .*{me}"),
                         has("GS1 PASS "), lacks("GS1 FAIL "), lacks("NAMEGUARD "))
                 .build());
+        // 1.6.0 S7 Beef: two rival bots trash-talk in a thread on the player's map, about their real bond (rv-5); a
+        // forced boom makes a bot rage quit, its friend knows, and it comes back (dr-6, seconds instead of hours); a
+        // crush between staged bots shows signs, gets jealous at a rival and becomes a couple (cr-1)
+        c.add(Check.auto("t-rv-5", "Two rival bots trash-talk, grounded in their bond").minutes(2)
+                .step(run("rv-5"), waitFor("RV5 (PASS|FAIL) ", 30), waitFor("THREAD LINE \\[bank\\] ", 30), stop())
+                .expect(has("RV5 STAGED A=.* B=.*rival"),
+                        has("THREAD \\S+ \\+ \\S+ on \\d+: rival beef"),
+                        has("RV5 FACT rivalry: \\S+ has beef with \\S+.*guard clean"),
+                        has("THREAD LINE \\[bank\\] \\S+: "),
+                        has("RV5 PASS "), lacks("RV5 FAIL "), lacks("NAMEGUARD "), noEmoji())
+                .build());
+        c.add(Check.auto("t-dr-6", "A bot booms, rage quits and comes back").minutes(3)
+                .step(run("dr-6"), waitFor("DR6 GOSSIP ", 20), waitFor("RAGEQUIT BACK ", 90), waitFor("DR6 PASS ", 30),
+                        stop())
+                .expect(has("RAGEQUIT \\S+ \\(.*\\): \".+\"; back in"),
+                        has("DR6 GONE \\S+ is away"),
+                        has("DR6 GOSSIP \\S+: \".+\""),
+                        has("RAGEQUIT BACK \\S+ after \\d+ min: \".+\""),
+                        has("DR6 PASS "), lacks("DR6 FAIL "), noEmoji())
+                .build());
+        c.add(Check.auto("t-cr-1", "A crush shows signs, gets jealous, then becomes a couple").minutes(3)
+                .step(run("cr-1"), waitFor("CRUSH (LINE|NEAR) ", 60), qaDo("jealous"), waitFor("CRUSH JEALOUS ", 60),
+                        qaDo("ripen"), waitFor("CR1 (COUPLE|FAIL) ", 20), stop())
+                .expect(has("CR1 STAGED .*crush on"),
+                        has("CRUSH START \\S+ -> \\S+ \\(staged\\)"),
+                        has("CRUSH (LINE|NEAR) \\S+ "),
+                        has("CRUSH JEALOUS \\S+ \\(likes \\S+\\) at \\S+"),
+                        has("CRUSH TO COUPLE #-?\\d+"),
+                        has("CR1 COUPLE couple #"), lacks("CR1 FAIL "), noEmoji())
+                .build());
         return List.copyOf(c);
     }
 

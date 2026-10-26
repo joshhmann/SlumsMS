@@ -107,6 +107,10 @@ public final class QaMenuCatalog {
         add("me-2", v(), steps("check", "scam", "fresh"));
         section("Grounded gossip (1.6.0)");
         add("gs-1", v(), steps("tell", "llm", "ks", "check"));
+        section("Beef (1.6.0)");
+        add("rv-5", v(), steps("beef", "llm", "check"));
+        add("dr-6", v(), steps("boom", "back", "gossip"));
+        add("cr-1", v(), steps("signs", "jealous", "ripen", "check"));
 
         // ── Evening 2: economy ──
         eveningNo = 2;
