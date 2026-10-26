@@ -164,9 +164,14 @@ class PlayerWealthIndexTest {
         Character botRange = mock(Character.class);
         when(botRange.getId()).thenReturn(1_000_000_005);
         Character bot = Character.getDefault(new BotClient(0, 0));
-        var m = PlayerWealthIndex.humans(List.of(human, gm, botRange, bot));
+        Character observer = mock(Character.class); // 1.6.0 social trace: an observer is no player of the economy
+        when(observer.getId()).thenReturn(1240);
+        when(observer.getName()).thenReturn("AutoQaThree");
+        when(observer.getLevel()).thenReturn(30);
+        var m = PlayerWealthIndex.humans(List.of(human, gm, botRange, bot, observer));
         assertEquals(1, m.size());
         assertEquals(new PlayerWealthIndex.Sample(72, 5_000_000), m.get(1234));
         assertFalse(m.containsKey(1));
+        assertFalse(m.containsKey(1240));
     }
 }

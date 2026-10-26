@@ -120,6 +120,8 @@ public final class QaMenuCatalog {
         add("ev-2", v(), steps("die", "status"));
         section("Bot watch (1.6.0)");
         add("bw-1", v(), steps()); // follows 20 bots for 10 min; !botwatch for longer looks
+        section("Social trace (1.6.0)");
+        add("st-1", v(), steps()); // 1.6.0 social trace: a short trace records a bot thread
 
         // ── Evening 2: economy ──
         eveningNo = 2;

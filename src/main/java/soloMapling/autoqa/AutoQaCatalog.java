@@ -986,6 +986,12 @@ public final class AutoQaCatalog {
                         has("BW1 SUMMARY \\d+/[1-9]\\d* bots OK"),
                         has("BW1 PASS "), lacks("BW1 FAIL "))
                 .build());
+        // 1.6.0 (owner 2026-10-26) social trace: a short trace with one observer leaves a thread entry
+        c.add(Check.auto("t-st-1", "Bot social life leaves a trace").minutes(12)
+                .step(run("st-1"), waitFor("ST1 THREAD \\S+ \\w+ TRIGGER ok COMPOSE ok DELIVER ok ", 600), stop())
+                .expect(has("ST1 START Social trace "),
+                        has("ST1 THREAD \\S+ \\w+ TRIGGER ok COMPOSE ok DELIVER ok lines=[2-9]"))
+                .build());
         return List.copyOf(c);
     }
 

@@ -531,7 +531,8 @@ public final class EconomySnapshotService {
         // 1. Database query
         try (Connection con = DatabaseConnection.getConnection();
              PreparedStatement ps = con.prepareStatement(
-                     "SELECT id, level, meso FROM characters WHERE world = ? AND gm < 2")) {
+                     "SELECT id, level, meso FROM characters WHERE world = ? AND gm < 2"
+                             + " AND name NOT LIKE 'autoqa%'")) { // 1.6.0: no pretend players or observers
             ps.setInt(1, DEFAULT_WORLD_ID);
             try (ResultSet rs = ps.executeQuery()) {
                 while (rs.next()) {
@@ -550,7 +551,7 @@ public final class EconomySnapshotService {
             World world = Server.getInstance().getWorld(DEFAULT_WORLD_ID);
             if (world != null) {
                 for (Character chr : world.getPlayerStorage().getAllCharacters()) {
-                    if (chr != null && !BotHelpers.isBot(chr)) {
+                    if (chr != null && !BotHelpers.isBot(chr) && !(chr.getClient() instanceof client.SyntheticClient)) {
                         map.put(chr.getId(), new CharacterRecord(chr.getId(), chr.getLevel(), chr.getMeso(), false));
                     }
                 }

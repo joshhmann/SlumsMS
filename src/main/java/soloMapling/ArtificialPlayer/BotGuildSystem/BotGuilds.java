@@ -1871,6 +1871,9 @@ public final class BotGuilds {
     }
 
     static void qa(int mapId, String line) {
+        if (soloMapling.autoqa.SocialTrace.on()) { // 1.6.0 (owner 2026-10-26): the social trace reads drama lines
+            soloMapling.autoqa.SocialTrace.dramaLine(mapId, line);
+        }
         if (QaLog.on(QaLog.Topic.BOT_GUILD)) { // !qa gu-1 .. gu-7
             QaLog.map(QaLog.Topic.BOT_GUILD, mapId, line);
         }

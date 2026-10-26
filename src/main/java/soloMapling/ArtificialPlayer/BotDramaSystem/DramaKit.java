@@ -661,6 +661,9 @@ public final class DramaKit {
     // ── QA ──
 
     static void qa(QaLog.Topic topic, int mapId, String line) {
+        if (soloMapling.autoqa.SocialTrace.on()) { // 1.6.0 (owner 2026-10-26): the social trace reads drama lines
+            soloMapling.autoqa.SocialTrace.dramaLine(mapId, line);
+        }
         if (QaLog.on(topic)) {
             QaLog.map(topic, mapId, line);
         }
