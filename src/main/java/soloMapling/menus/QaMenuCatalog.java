@@ -111,6 +111,9 @@ public final class QaMenuCatalog {
         add("in-1", v(), steps("login"));
         add("in-2", v(), steps("ask", "check"));
         add("in-3", v(), steps("invite"));
+        section("World events (1.6.0)");
+        add("ev-1", v(), steps("gossip"));
+        add("ev-2", v(), steps("die"));
 
         // ── Evening 2: economy ──
         eveningNo = 2;

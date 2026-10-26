@@ -859,6 +859,34 @@ public final class AutoQaCatalog {
                         has("IN3 INVITE invited"),
                         has("SOCIAL_GATE INIT OUTCOME invite_pq bot \\d+: (success|failure) \\((accepted|declined or no answer)\\)"))
                 .build());
+        // 1.6.0 world events: the friends' Giant Cake (ev-1: warnings, notice, bots whack it, it falls, participation,
+        // world news and gossip) and an invasion where bots really die and respawn (ev-2)
+        c.add(Check.auto("t-ev-1", "A Giant Cake in Henesys: bots whack it, it falls, gossip after").minutes(12)
+                .step(run("ev-1"), waitFor("WEVENT BOSS DOWN ", 480), waitFor("WEVENT NEWS ", 30), waitSeconds(3),
+                        qaDo("gossip"), waitFor("EV1 GOSSIP ", 20), waitSeconds(3), stop())
+                .expect(has("WEVENT NOTICE \\[World Event\\] A Giant Cake will appear in .* in 10 minutes"),
+                        has("WEVENT NOTICE \\[World Event\\] A Giant Cake will appear in .* in 1 minute"),
+                        has("WEVENT START #\\d+ giant_cake \\(giant cake\\) on 100000000 "),
+                        has("WEVENT NOTICE \\[Giant Cake\\] A Giant Cake has appeared in "),
+                        has("WEVENT QA JOIN #\\d+ [1-9]\\d* staged bots head to 100000000"),
+                        has("WEVENT BOSS DOWN #\\d+ Giant Cake: \\d+ attackers, [1-9]\\d* of them bots"),
+                        has("WEVENT PARTICIPATION #\\d+ {me}: "),
+                        has("WEVENT END #\\d+ giant_cake \\((won|boss killed)\\)"),
+                        has("WEVENT NEWS #\\d+ \"the giant cake in \\S+"),
+                        has("EV1 GOSSIP "),
+                        noEmoji())
+                .build());
+        c.add(Check.auto("t-ev-2", "A Henesys invasion: bots swarm it, some die and respawn").minutes(10)
+                .step(run("ev-2"), waitSeconds(20), qaDo("die"), waitFor("WEVENT BOT DIED ", 240),
+                        waitFor("RESPAWN .* died on 100000000", 60), waitSeconds(5), stop())
+                .expect(has("WEVENT START #\\d+ henesys_invasion \\(invasion\\) on 100000000 "),
+                        has("WEVENT NOTICE \\[Monster Invasion\\] Monsters are pouring into "),
+                        has("WEVENT QA JOIN #\\d+ [1-9]\\d* staged bots head to 100000000"),
+                        has("EV2 DIE next lethal hit certain for [1-3] staged bots"),
+                        atLeast(1, "WEVENT BOT DIED #\\d+ .* on 100000000, death \\d+ for it"),
+                        has("RESPAWN .* died on 100000000"),
+                        noEmoji())
+                .build());
         return List.copyOf(c);
     }
 
