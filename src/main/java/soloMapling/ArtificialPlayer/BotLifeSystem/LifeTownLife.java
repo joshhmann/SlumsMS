@@ -58,6 +58,8 @@ public final class LifeTownLife implements LifeHost {
     private volatile Activity stay = Activity.HANG_OUT;
     private volatile long stayStarted, stayUntil;
     private boolean started;
+    /** The time of the tick in progress: requests are dated with it, so a request never looks stale to its own drain. */
+    private volatile long tickAt;
 
     private LifeTownLife(BotSM bot, Kind kind, Moves moves) {
         this.bot = bot;
@@ -85,6 +87,7 @@ public final class LifeTownLife implements LifeHost {
     /** One brain step from the bot's own update: decide (30 s cadence, signature skip), then start what it chose. */
     public void tick(long now) {
         if (!LifeRuntime.enabled() || !bot.getRunning() || bot.getChr() == null || bot.getChr().getMap() == null) return;
+        tickAt = now;
         if (!started) {
             started = true;
             stayStarted = now;
@@ -150,11 +153,16 @@ public final class LifeTownLife implements LifeHost {
     @Override public void nudgeSoon(long delayMs) { bot.nudgeSoon(delayMs); }
     @Override public LifeActivityQueue.State lifeActivityState() { return queue.state(); }
     @Override public LifeActivityQueue.Request prepareLifeActivity(Result decision) {
-        return queue.prepare(decision, System.currentTimeMillis(), LifeActivityQueue.MAX_WAIT_MS);
+        return queue.prepare(decision, clock(), LifeActivityQueue.MAX_WAIT_MS);
     }
     @Override public LifeActivityQueue.Offer submitLifeActivity(LifeActivityQueue.Request request) {
         if (!TrainingBotGate.executionEnabled()) return LifeActivityQueue.Offer.DISABLED;
-        return queue.offer(request, System.currentTimeMillis());
+        return queue.offer(request, clock());
+    }
+
+    private long clock() {
+        long at = tickAt;
+        return at > 0 ? at : System.currentTimeMillis();
     }
     @Override public void keepLifeActivity(Activity activity, long until) { stayUntil = until; }
 
