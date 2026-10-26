@@ -818,6 +818,35 @@ public final class AutoQaCatalog {
                         has("MEMORY EPISODE SCAM bot \\d+ -> \\d+: \"scammed me on a trade: my "),
                         has("ME2 CHECK bot \\d+ -> \\S+: .*started it yes; scam memory yes"))
                 .build());
+        // 1.6.0 S6, initiative: a friend greets you at login (in-1), asks about your goal a day later (in-2), and a bot
+        // in a PQ lobby invites you at the right level (in-3); every act through the social gate, scripted lines
+        c.add(Check.auto("t-in-1", "A friend bot greets you within a minute of logging in").minutes(3)
+                .step(run("in-1"), waitFor("SOCIAL_GATE INIT GREET {bot} -> {me} at login", 75), waitSeconds(3), stop())
+                .expect(has("IN1 LOGIN replayed: \\[bot \\d+ greets at \\d+ s by (whisper|buddy chat)"),
+                        has("SOCIAL_GATE INIT LOGIN PLAN {me}: \\d+ friend/buddy bot\\(s\\) online, [1-3] greet at"),
+                        has("SOCIAL_GATE YES greet {bot} -> {me}"),
+                        has("SOCIAL_GATE INIT GREET {bot} -> {me} at login by (whisper|buddy chat)"),
+                        anyOf("WHISPER {bot}: ", "MULTICHAT buddy {bot}: "),
+                        noEmoji())
+                .build());
+        c.add(Check.auto("t-in-2", "A day later a friend bot asks about the goal you named").minutes(2)
+                .step(run("in-2"), waitFor("IN2 AFTER ", 30), waitSeconds(3), stop())
+                .expect(has("IN2 fresh pair \\(\\d+ old note\\(s\\)\\); goal note \"wants zhelm\" tag item:zhelm"),
+                        has("IN2 BEFORE due 0, followed up no"),
+                        has("IN2 SHIFTED due 1, followed up no"),
+                        has("SOCIAL_GATE INIT FOLLOW_UP {bot} -> {me} item:zhelm \\(note 2[0-9] h old, whisper\\)"),
+                        has("WHISPER {bot}: "),
+                        has("IN2 AFTER due 0, followed up yes"))
+                .build());
+        c.add(Check.auto("t-in-3", "A bot in a PQ lobby invites you when your level fits").minutes(3)
+                .step(run("in-3"), waitFor("SOCIAL_GATE INIT PQ_INVITE ANSWER ", 90), waitSeconds(2), stop())
+                .expect(has("IN3 BAND (kpq|lpq|opq) \\d+-\\d+: you lv \\d+ fits, lv \\d+ does not fit"),
+                        has("SOCIAL_GATE YES pq_invite {bot} -> {me}"),
+                        has("SOCIAL_GATE INIT PQ_INVITE {bot} \\(lv \\d+\\) -> {me} \\(lv \\d+\\) (kpq|lpq|opq) band \\d+-\\d+, same map"),
+                        has("PARTY_INVITE {bot}"),
+                        has("IN3 INVITE invited"),
+                        has("SOCIAL_GATE INIT OUTCOME invite_pq bot \\d+: (success|failure) \\((accepted|declined or no answer)\\)"))
+                .build());
         return List.copyOf(c);
     }
 
