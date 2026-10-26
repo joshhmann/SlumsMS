@@ -25,9 +25,10 @@ import java.util.concurrent.ThreadLocalRandom;
  * <p><b>Levels.</b> {@link #rollLevel} draws from {@link #LEVEL_WEIGHTS} restricted to the range it is given: a
  * training cohort keeps its band (a Victoria cohort stays in Victoria's level range) while the inside of the band is
  * shaped by the population's overall curve, so low levels are common everywhere they can happen. Cohorts that cannot
- * hold the whole curve bend the aggregate - Victoria stops at 30, the deep hubs start at 50 - which is intended: with
- * the bands in {@code EnvironmentManager.TRAINING_COHORTS} the population lands at 45% under 30, 39% at 31-70 and 16%
- * at 71+ ({@link soloMapling.ArtificialPlayer.BotDecoratorSystem.BotPopulationMixTest}).
+ * hold the whole curve bend the aggregate - Victoria's town fields stop at 25-30 and its dungeons (Golem's Temple,
+ * the Subway, the Remains, the Drake caves) carry their own Lv30+ cohorts, the deep hubs start at 50 - which is
+ * intended: with the bands in {@code EnvironmentManager.TRAINING_COHORTS} the population lands at 43% under 30, 43% at
+ * 30-70 and 14% at 71+ ({@link soloMapling.ArtificialPlayer.BotDecoratorSystem.BotPopulationMixTest}).
  *
  * <p>Only bots minted after this runs are affected; a bot adopted from the store keeps the level, job and gender it
  * was born with (the store restores them), so the existing roster drifts to the new mix as bots quit and new ones

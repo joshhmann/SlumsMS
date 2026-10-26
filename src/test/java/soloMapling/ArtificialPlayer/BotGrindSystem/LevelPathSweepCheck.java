@@ -26,7 +26,7 @@ public final class LevelPathSweepCheck {
 
     // Fills MapMobIndex's mob-level cache from Mob.wz info/level so it never asks LifeFactory.
     @SuppressWarnings("unchecked")
-    private static void preloadMobLevels() {
+    public static void preloadMobLevels() {
         try {
             java.lang.reflect.Field f = MapMobIndex.class.getDeclaredField("MOB_LEVEL");
             f.setAccessible(true);
