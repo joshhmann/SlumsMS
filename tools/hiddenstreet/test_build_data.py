@@ -569,10 +569,16 @@ class TestHiddenStreetBuildData(unittest.TestCase):
         )
         details = audit["details"]
         life_refs = {(l["map_id"], l["life_type"], l["life_id"]) for l in details["missing_life_placed"]}
-        self.assertEqual(life_refs, {(100000000, "mob", 9999999), (100000000, "npc", 8888888)})
+        # A placed NPC with a String.wz name but no Npc.wz file IS in the game: the server spawns NPCs by name alone
+        # (LifeFactory.getNPC) and the client has the sprite. Only the mob stays a broken reference.
+        self.assertEqual(life_refs, {(100000000, "mob", 9999999)})
+        self.assertEqual(details["npcs_without_wz_file"], [8888888])
         self.assertEqual([p["target_map_id"] for p in details["portals_missing_maps"]], [999999900])
         self.assertNotIn("9999999", dataset["mobs"])
-        self.assertNotIn("8888888", dataset["npcs"])
+        self.assertIn("8888888", dataset["npcs"])
+        self.assertFalse(dataset["npcs"]["8888888"]["server_wz_file"])
+        self.assertTrue(dataset["npcs"]["1012000"]["server_wz_file"])
+        self.assertEqual(dataset["npcs"]["8888888"]["maps"][0]["map_id"], 100000000)
         self.assertNotIn("999999900", dataset["maps"])
 
     def test_exported_json_files(self):
@@ -807,6 +813,16 @@ class TestHiddenStreetStock(TestHiddenStreetBuildData):
             report = f.read()
         self.assertIn("## 7. SlumsMS vs stock v83", report)
         self.assertIn("hp 15->8", report)
+
+    def test_plife_places_npcs_on_world_1(self):
+        with open(os.path.join(self.db_dir, "plife.tsv"), "w", encoding="utf-8") as f:
+            f.write("id\tworld\tmap\tlife\ttype\n1\t1\t100000001\t1012001\tn\n2\t0\t100000001\t1012001\tn\n"
+                    "3\t0\t100000001\t1012000\tn\n")
+        dataset, _ = run_build(wz_dir=self.wz_dir, db_dir=self.db_dir, out_dir=self.out_dir,
+                               report_path=self.report_path, workers=1)
+        placed = {n["npc_id"]: n["count"] for n in dataset["maps"]["100000001"]["npcs"]}
+        self.assertEqual(placed.get(1012001), 1, "the world 1 row once; the world 0 copy is not a second NPC")
+        self.assertNotIn(1012000, placed, "a world 0 row does not spawn on Bera")
 
     def test_without_stock_nothing_is_flagged(self):
         dataset, audit = run_build(wz_dir=self.wz_dir, db_dir=self.db_dir, out_dir=self.out_dir,

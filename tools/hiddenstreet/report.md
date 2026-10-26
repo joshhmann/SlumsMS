@@ -9,15 +9,16 @@ This sweep checks cross-references across WZ XML data and server database tables
 | --- | --- | --- |
 | **Items with no name** | 2264 | Items in Item.wz/Character.wz with missing or empty String.wz name |
 | **Drops / Rewards / Shop missing items** | 0 | DB drop_data, reactordrops, shopitems or quest rewards pointing to missing items |
-| **Quests with missing references** | 89 | Quests pointing to non-existent NPCs, maps, items, or mobs |
+| **Quests with missing references** | 85 | Quests pointing to non-existent NPCs, maps, items, or mobs |
 | **Portals leading to missing maps** | 50 | Map portals targeting non-existent map IDs |
-| **Mobs / NPCs placed that don't exist** | 4010 | Maps with life spawns (type 'm' or 'n') pointing to missing mob/NPC IDs |
+| **Mobs / NPCs placed that don't exist** | 474 | Maps with life spawns (type 'm' or 'n') pointing to missing mob/NPC IDs |
+| Placed NPCs with no Npc.wz file (kept: the server spawns them by name, the client has the sprite) | 1863 | Info, not a broken reference |
 
 ### Dataset Entity Counts
 - **Items:** 60,167
 - **Monsters:** 6,773
 - **Maps:** 11,338
-- **NPCs:** 8,340
+- **NPCs:** 10,201
 - **Quests:** 2,343
 
 ---
@@ -88,7 +89,7 @@ Database drops, reactor drops, NPC shop listings, or quest rewards referencing i
 
 ---
 
-## 3. Quests with Missing References (Total: 89)
+## 3. Quests with Missing References (Total: 85)
 Quests requiring or involving an NPC, map, item, or mob that does not exist.
 
 | # | Quest ID | Quest Name | Ref Type | Missing ID | State (0=Start, 1=Complete) |
@@ -143,7 +144,7 @@ Quests requiring or involving an NPC, map, item, or mob that does not exist.
 | 48 | `4208` | 아픈 뱀을 위한 영양식 I | `npc` | **`9250001`** | 0 |
 | 49 | `4208` | 아픈 뱀을 위한 영양식 I | `npc` | **`9250001`** | 1 |
 | 50 | `4209` | 아픈 뱀을 위한 영양식 I I | `npc` | **`9250001`** | 0 |
-*(Showing first 50 of 89 entries)*
+*(Showing first 50 of 85 entries)*
 
 ---
 
@@ -205,62 +206,62 @@ Map portals whose destination `tm` does not correspond to any valid map.
 
 ---
 
-## 5. Mobs and NPCs Placed on Maps That Do Not Exist (Total: 4010)
+## 5. Mobs and NPCs Placed on Maps That Do Not Exist (Total: 474)
 Life placements in map files referencing non-existent mob or NPC IDs.
 
 | # | Map ID | Map Name | Life Type | Life ID | Spawn Count |
 | --- | --- | --- | --- | --- | --- |
-| 1 | `200101400` | Inside the Coliseum | `npc` | **`2170006`** | 1 |
-| 2 | `200101508` | *(unnamed)* | `npc` | **`2170007`** | 1 |
-| 3 | `200101500` | Challenging Xerxes | `npc` | **`2170007`** | 1 |
-| 4 | `200101504` | *(unnamed)* | `npc` | **`2170007`** | 1 |
-| 5 | `211080000` | Gardener's Spot | `npc` | **`2162000`** | 1 |
-| 6 | `211080000` | Gardener's Spot | `npc` | **`2160000`** | 1 |
-| 7 | `200101501` | *(unnamed)* | `npc` | **`2170007`** | 1 |
-| 8 | `200101505` | *(unnamed)* | `npc` | **`2170007`** | 1 |
-| 9 | `200101509` | *(unnamed)* | `npc` | **`2170007`** | 1 |
-| 10 | `273000000` | Twilight Perion | `npc` | **`2142113`** | 1 |
-| 11 | `200101503` | *(unnamed)* | `npc` | **`2170007`** | 1 |
-| 12 | `200101507` | *(unnamed)* | `npc` | **`2170007`** | 1 |
-| 13 | `200100010` | Chryse Hideout | `npc` | **`2170000`** | 1 |
-| 14 | `200100010` | Chryse Hideout | `npc` | **`2170001`** | 1 |
-| 15 | `200100010` | Chryse Hideout | `npc` | **`2170003`** | 1 |
-| 16 | `200100010` | Chryse Hideout | `npc` | **`2170002`** | 1 |
-| 17 | `211060400` | Second Tower | `npc` | **`2160000`** | 1 |
-| 18 | `200101502` | *(unnamed)* | `npc` | **`2170007`** | 1 |
-| 19 | `200101506` | *(unnamed)* | `npc` | **`2170007`** | 1 |
-| 20 | `200100000` | Road to Chryse | `npc` | **`2170004`** | 1 |
-| 21 | `867123850` | Forest Depths Data Fragment | `npc` | **`9400527`** | 1 |
-| 22 | `865020300` | Canal 4 | `mob` | **`9390810`** | 15 |
-| 23 | `865020300` | Canal 4 | `npc` | **`9390250`** | 1 |
-| 24 | `867142018` | *(unnamed)* | `npc` | **`9400431`** | 1 |
-| 25 | `867142018` | *(unnamed)* | `npc` | **`9400447`** | 2 |
-| 26 | `867142018` | *(unnamed)* | `npc` | **`9400435`** | 1 |
-| 27 | `867142018` | *(unnamed)* | `npc` | **`9400436`** | 1 |
-| 28 | `867142018` | *(unnamed)* | `npc` | **`9400449`** | 1 |
-| 29 | `867142018` | *(unnamed)* | `npc` | **`9400450`** | 1 |
-| 30 | `867142018` | *(unnamed)* | `npc` | **`9400451`** | 1 |
-| 31 | `867113723` | The Afterlands | `npc` | **`9400321`** | 1 |
-| 32 | `867200110` | *(unnamed)* | `npc` | **`9400570`** | 1 |
-| 33 | `867136122` | HQ | `npc` | **`9400805`** | 1 |
-| 34 | `867136122` | HQ | `npc` | **`9400806`** | 1 |
-| 35 | `867202200` | *(unnamed)* | `npc` | **`9400570`** | 1 |
-| 36 | `865020061` | Canal Battleground 5 | `npc` | **`9390208`** | 1 |
-| 37 | `865020061` | Canal Battleground 5 | `npc` | **`9390232`** | 4 |
-| 38 | `865020061` | Canal Battleground 5 | `npc` | **`9390233`** | 4 |
-| 39 | `865020061` | Canal Battleground 5 | `npc` | **`9390234`** | 1 |
-| 40 | `867149660` | Stage 5 | `mob` | **`9601390`** | 19 |
-| 41 | `867149660` | Stage 5 | `npc` | **`9401145`** | 1 |
-| 42 | `867140300` | Beast Tamer Epilogue 1 | `npc` | **`9390300`** | 1 |
-| 43 | `867140300` | Beast Tamer Epilogue 1 | `npc` | **`9390301`** | 1 |
-| 44 | `867140300` | Beast Tamer Epilogue 1 | `npc` | **`9390302`** | 1 |
-| 45 | `867140300` | Beast Tamer Epilogue 1 | `npc` | **`9390315`** | 1 |
-| 46 | `867140300` | Beast Tamer Epilogue 1 | `npc` | **`9390304`** | 1 |
-| 47 | `867140300` | Beast Tamer Epilogue 1 | `npc` | **`9390305`** | 1 |
-| 48 | `867140300` | Beast Tamer Epilogue 1 | `npc` | **`9390307`** | 1 |
-| 49 | `867140300` | Beast Tamer Epilogue 1 | `npc` | **`9390308`** | 1 |
-| 50 | `867140300` | Beast Tamer Epilogue 1 | `npc` | **`9390309`** | 1 |
-*(Showing first 50 of 4010 placements)*
+| 1 | `865020300` | Canal 4 | `mob` | **`9390810`** | 15 |
+| 2 | `867149660` | Stage 5 | `mob` | **`9601390`** | 19 |
+| 3 | `867149800` | Stage 1 | `mob` | **`9601401`** | 17 |
+| 4 | `811000002` | Near Momiji Hills 2 | `mob` | **`9450025`** | 11 |
+| 5 | `811000002` | Near Momiji Hills 2 | `mob` | **`9450024`** | 13 |
+| 6 | `865020200` | Canal 3 | `mob` | **`9390809`** | 14 |
+| 7 | `867149175` | Final Stage | `mob` | **`9601353`** | 17 |
+| 8 | `867149175` | Final Stage | `mob` | **`9601426`** | 1 |
+| 9 | `867149175` | Final Stage | `mob` | **`9601427`** | 1 |
+| 10 | `867149760` | Stage 5 | `mob` | **`9601400`** | 19 |
+| 11 | `863010410` | Gollux: Upper Left Torso | `mob` | **`9390630`** | 6 |
+| 12 | `863010410` | Gollux: Upper Left Torso | `mob` | **`9390632`** | 4 |
+| 13 | `863010410` | Gollux: Upper Left Torso | `mob` | **`9390640`** | 4 |
+| 14 | `867136260` | Cliff Prison | `mob` | **`9601120`** | 9 |
+| 15 | `867136260` | Cliff Prison | `mob` | **`9601121`** | 6 |
+| 16 | `867136260` | Cliff Prison | `mob` | **`9601122`** | 7 |
+| 17 | `867136260` | Cliff Prison | `mob` | **`9601123`** | 5 |
+| 18 | `867149900` | Stage 1 | `mob` | **`9601409`** | 8 |
+| 19 | `867149900` | Stage 1 | `mob` | **`9601410`** | 5 |
+| 20 | `867149900` | Stage 1 | `mob` | **`9601411`** | 4 |
+| 21 | `865020100` | Canal 2 | `mob` | **`9390811`** | 16 |
+| 22 | `867125100` | Iron Hog's Prison | `mob` | **`9601127`** | 8 |
+| 23 | `811000097` | *(unnamed)* | `mob` | **`9450030`** | 10 |
+| 24 | `867149275` | Final Stage | `mob` | **`9601358`** | 11 |
+| 25 | `867149275` | Final Stage | `mob` | **`9601359`** | 5 |
+| 26 | `867149275` | Final Stage | `mob` | **`9601360`** | 1 |
+| 27 | `867149275` | Final Stage | `mob` | **`9601430`** | 1 |
+| 28 | `867149275` | Final Stage | `mob` | **`9601429`** | 1 |
+| 29 | `867149460` | Stage 5 | `mob` | **`9601377`** | 19 |
+| 30 | `865020000` | Canal 1 | `mob` | **`9390808`** | 12 |
+| 31 | `867125000` | Jr. Cerebes's Prison | `mob` | **`9601126`** | 6 |
+| 32 | `811000040` | *(unnamed)* | `mob` | **`9450062`** | 1 |
+| 33 | `867149560` | Stage 5 | `mob` | **`9601384`** | 19 |
+| 34 | `866000120` | Gloomy Forest Path | `mob` | **`9390941`** | 9 |
+| 35 | `867149375` | Final Stage | `mob` | **`9601368`** | 9 |
+| 36 | `867149375` | Final Stage | `mob` | **`9601369`** | 8 |
+| 37 | `867149375` | Final Stage | `mob` | **`9601361`** | 1 |
+| 38 | `867149375` | Final Stage | `mob` | **`9601396`** | 1 |
+| 39 | `867149260` | Stage 5 | `mob` | **`9601357`** | 17 |
+| 40 | `865999999` | *(unnamed)* | `mob` | **`9390827`** | 1 |
+| 41 | `867149475` | Final Stage | `mob` | **`9601378`** | 17 |
+| 42 | `867149475` | Final Stage | `mob` | **`9601433`** | 1 |
+| 43 | `867149475` | Final Stage | `mob` | **`9601434`** | 1 |
+| 44 | `867149575` | Final Stage | `mob` | **`9601385`** | 17 |
+| 45 | `867149575` | Final Stage | `mob` | **`9601435`** | 1 |
+| 46 | `867149575` | Final Stage | `mob` | **`9601436`** | 1 |
+| 47 | `867149360` | Stage 5 | `mob` | **`9601367`** | 19 |
+| 48 | `866000250` | Bitterstump Forest Path | `mob` | **`9390943`** | 18 |
+| 49 | `865020600` | *(unnamed)* | `mob` | **`9390812`** | 1 |
+| 50 | `867149675` | Final Stage | `mob` | **`9601390`** | 3 |
+*(Showing first 50 of 474 placements)*
 
 ---
 
@@ -272,6 +273,7 @@ Life placements in map files referencing non-existent mob or NPC IDs.
 | --- | --- |
 | DB `drop_data` (22,225 rows) | 0 |
 | DB `drop_data_global` (6 rows) | 0 |
+| DB `plife` (18 rows) | 0 |
 | DB `reactordrops` (1,106 rows) | 40 |
 | DB `shopitems` (3,879 rows) | 0 |
 | items.json `quests_require` | 2113 |
@@ -291,12 +293,12 @@ Rule: a name with Hangul and no Latin letter is Korean-only (untranslated KMS da
 | items | 231 | 48 |
 | mobs | 16 | 2 |
 | maps | 14 | 0 |
-| npcs | 13 | 0 |
+| npcs | 15 | 0 |
 | quests | 569 | 24 |
 - items: `23026` 크리스토프 성형1, `23027` 크리스토프 성형2, `23126` 크리스토프 성형1, `23127` 크리스토프 성형2, `23226` 크리스토프 성형1, `23227` 크리스토프 성형2, `23326` 크리스토프 성형1, `23327` 크리스토프 성형2, `23426` 크리스토프 성형1, `23427` 크리스토프 성형2, `23526` 크리스토프 성형1, `23527` 크리스토프 성형2, `23626` 크리스토프 성형1, `23627` 크리스토프 성형2, `23726` 크리스토프 성형1 ... (+216)
 - mobs: `6400005` 주니어 발록, `9010098` 황금돼지바 배달부, `9303162` 돼지바 돼지, `9303163` 돼지바 돼지, `9400303` 방벽전체크용, `9402056` 밤의 용사 버섯, `9402057` 밤의 용사 발록, `9700030` 해군 이등병 유령, `9700031` 해군 일등병 유령, `9700032` 해군 상병 유령, `9700033` 해군 병장 유령, `9700034` 해군 하사 유령, `9700035` 일등 항해사, `9700036` 나무 상자, `9700037` 유령선 함장 ... (+1)
 - maps: `229020000` 음산한 호박밭, `229020100` 어두운 호박밭, `229020200` 그늘진 호박밭, `229020300` 외딴 호박밭, `229020400` 조용한 호박밭, `229030000` 첫번째 방, `229030100` 두번째 방, `680000000` 웨딩빌리지, `680000200` 웨딩홀 로비, `680000210` 웨딩홀, `680000300` 웨딩케이크 스튜디오, `680000400` 웨딩파크, `680000401` 웨딩박스, `680000500` 나가는 곳
-- npcs: `1013000` 미르, `9330021` 니키, `9330022` 줄리, `9330023` 허치희, `9330024` 곽이랑, `9330025` 소부현, `9330026` 동네 총각, `9330027` 동네 아가씨, `9330028` 과일가게 할아버지, `9330029` 유유, `9330030` 불량 청소년, `9330031` 과일주스 아줌마, `9330032` 과일가게 할아버지
+- npcs: `1013000` 미르, `1013102` 불독, `1013104` 암탉, `9330021` 니키, `9330022` 줄리, `9330023` 허치희, `9330024` 곽이랑, `9330025` 소부현, `9330026` 동네 총각, `9330027` 동네 아가씨, `9330028` 과일가게 할아버지, `9330029` 유유, `9330030` 불량 청소년, `9330031` 과일주스 아줌마, `9330032` 과일가게 할아버지
 - quests: `1115` 마야의 사랑의 증표, `1116` 로웬의 사랑의 증표, `1117` 이얀의 사랑의 증표, `1118` 넬라의 사랑의 증표, `1119` 에릭손의 사랑의 증표, `1120` 티군의 사랑의 증표, `1121` 뮤즈의 사랑의 증표, `1122` 팜의 사랑의 증표, `1123` 한태수의 사랑의 증표, `1124` 지유르의 사랑의 증표, `2147` 스텀피의 묘목 기르기, `4000` 아종의 취미생활 1, `4001` 아종의 취미생활 2, `4002` 할머니가 아파요, `4003` 오씨의 버블티 사업 ... (+554)
 
 ### Duplicate names labelled
@@ -306,7 +308,7 @@ Rule: a name with Hangul and no Latin letter is Korean-only (untranslated KMS da
 | items | 15305 |
 | mobs | 3252 |
 | maps | 3840 |
-| npcs | 1070 |
+| npcs | 2113 |
 | quests | 211 |
 
 Entities of one kind that share a name get display_name = name + ' (qualifier)'; the first of the group keeps the plain name (mobs: a normal-range, placed mob first; items: a non-cash item that drops, sells or is a reward; maps and NPCs: one with life or a placement; then the lowest id). Qualifiers, first unused wins: mobs 'event' (ids 9400000-9599999), 'party quest' (9300000-9399999), 'special' (9000000-9299999), 'boss' (WZ boss flag), then 'Lv. N'; items 'cash', category, 'Lv. N'; maps street name; NPCs first map placed; quests start NPC, 'Lv. N'; last resort '#id'. 'name' stays the raw String.wz name.

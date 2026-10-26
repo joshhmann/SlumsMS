@@ -603,6 +603,7 @@ DB_ROW_IDS = {
     "drop_data_global": ("id",),
     "reactordrops": ("reactordropid",),
     "shopitems": ("shopitemid",),
+    "plife": ("id",),
 }
 
 
@@ -627,6 +628,8 @@ class DbDataset:
         self.shops: Dict[int, int] = {}  # shopid -> npcid
         self.shopitems: List[Dict[str, Any]] = []
         self.drop_data_global: List[Dict[str, Any]] = []
+        # custom life placements (table plife): (map_id, type "n"/"m", life_id), world 1 rows (Bera)
+        self.plife: List[Tuple[int, str, int]] = []
         # rows dropped as exact duplicates (ignoring the table's own auto-increment id), per table
         self.duplicates_removed: Dict[str, int] = {}
         self.row_counts: Dict[str, int] = {}
@@ -676,6 +679,16 @@ class DbDataset:
             if sid is not None and nid is not None:
                 self.shops[int(sid)] = int(nid)
         self.shopitems = self._load_deduped("shopitems")
+        rows = self._load_deduped("plife")
+        # the server spawns plife rows of its own world only; TEST and live are world 1. Rows that differ only by
+        # world are one placement here.
+        world_rows = [r for r in rows if safe_int(r.get("world"), 1) == 1] or rows
+        seen: Set[Tuple[int, str, int]] = set()
+        for r in world_rows:
+            key = (safe_int(r.get("map"), 0), str(r.get("type", "")).strip(), safe_int(r.get("life"), 0))
+            if key[0] and key[2] and key[1] in ("n", "m") and key not in seen:
+                seen.add(key)
+                self.plife.append(key)
 
 
 # ---------------------------------------------------------------------------------------------
@@ -690,7 +703,23 @@ def build_normalized_data(wz: WzDataset, db: DbDataset) -> Tuple[Dict[str, Any],
     # Mobs, NPCs and maps exist only if Mob.wz / Npc.wz / Map.wz has a file for them. String.wz only supplies names:
     # a name left behind in String.wz for a removed mob/NPC/map must still be reported as missing.
     all_mob_ids: Set[int] = set(wz.wz_mob_defs.keys())
-    all_npc_ids: Set[int] = set(wz.wz_npc_ids)
+    #
+    # NPCs are the exception: the server spawns a placed NPC from its String.wz name alone (LifeFactory.getNPC builds
+    # it from npcStringData; Npc.wz is never read), and the shipped client has the sprites (the server's Npc.wz is
+    # short of about 9,500 NPCs the client ships). So an NPC that a map's life or plife places AND that has a
+    # String.wz name exists in game; it is kept, with server_wz_file false. Only a placed NPC with neither a file
+    # nor a name is a broken reference.
+    plife_by_map: Dict[int, List[Tuple[str, int]]] = defaultdict(list)
+    for pmap, ptype, plid in getattr(db, "plife", []):
+        if pmap in wz.wz_map_defs:
+            plife_by_map[pmap].append((ptype, plid))
+    placed_npcs: Set[int] = set()
+    for mid_, mdef_ in wz.wz_map_defs.items():
+        for ltype, lid in list(mdef_.get("life", [])) + plife_by_map.get(mid_, []):
+            if ltype == "n":
+                placed_npcs.add(lid)
+    npcs_by_name_only: Set[int] = {n for n in placed_npcs if n not in wz.wz_npc_ids and wz.npc_strings.get(n)}
+    all_npc_ids: Set[int] = set(wz.wz_npc_ids) | npcs_by_name_only
     all_map_ids: Set[int] = set(wz.wz_map_defs.keys())
     all_quest_ids: Set[int] = set(wz.wz_quest_defs.keys())
 
@@ -747,6 +776,7 @@ def build_normalized_data(wz: WzDataset, db: DbDataset) -> Tuple[Dict[str, Any],
         npcs_out[str(nid)] = {
             "id": nid,
             "name": wz.npc_strings.get(nid, ""),
+            "server_wz_file": nid not in npcs_by_name_only,
             "maps": [],
             "shop_items": [],
             "quests_start": [],
@@ -794,6 +824,8 @@ def build_normalized_data(wz: WzDataset, db: DbDataset) -> Tuple[Dict[str, Any],
         "quests_missing_references": [],
         "portals_missing_maps": [],
         "missing_life_placed": [],
+        # info, not an error: placed NPCs the server spawns by String.wz name with no Npc.wz file
+        "npcs_without_wz_file": sorted(npcs_by_name_only),
     }
 
     # Audit Category 1: Items with no name
@@ -936,7 +968,7 @@ def build_normalized_data(wz: WzDataset, db: DbDataset) -> Tuple[Dict[str, Any],
         mob_counts: Dict[int, int] = defaultdict(int)
         npc_counts: Dict[int, int] = defaultdict(int)
 
-        for ltype, lid in mdef.get("life", []):
+        for ltype, lid in list(mdef.get("life", [])) + plife_by_map.get(mid, []):
             if ltype == "m":
                 mob_counts[lid] += 1
             elif ltype == "n":
@@ -1138,6 +1170,7 @@ def build_normalized_data(wz: WzDataset, db: DbDataset) -> Tuple[Dict[str, Any],
             "quests_missing_references": len(audit["quests_missing_references"]),
             "portals_missing_maps": len(audit["portals_missing_maps"]),
             "missing_life_placed": len(audit["missing_life_placed"]),
+            "npcs_without_wz_file": len(audit["npcs_without_wz_file"]),
         },
         "details": audit,
     }
@@ -1405,6 +1438,12 @@ def drop_rate_rule(rates: Dict[str, Any]) -> Dict[str, Any]:
     }
 
 
+NPC_NOTE = (
+    "An NPC exists when Npc.wz has its file, or when a map's life or the plife table places it and String.wz names "
+    "it: the server spawns NPCs from the String.wz name alone (LifeFactory.getNPC) and the client ships the sprites "
+    "the server's Npc.wz lacks. Such NPCs have server_wz_file false. plife placements (world 1) are merged into maps."
+)
+
 WEAPON_MAD_NOTE = (
     "Weapons: in SlumsMS's (MapleRoot) WZ every v83 weapon has incMAD equal to incPAD (e.g. Maple Kandayo 1472032: "
     "74/74; upstream Cosmic: 23 attack, no magic attack). The shipped client Data/Character/Weapon has the same values, "
@@ -1658,7 +1697,7 @@ def build_meta(dataset: Dict[str, Any], db: Optional["DbDataset"], list_dupes: D
             "labelled": labelled,
         },
         "drop_rates": drop_rate_rule(rates),
-        "notes": {"weapon_magic_attack": WEAPON_MAD_NOTE},
+        "notes": {"weapon_magic_attack": WEAPON_MAD_NOTE, "npcs": NPC_NOTE},
     }
 
 
@@ -1704,6 +1743,7 @@ def generate_report_markdown(audit: Dict[str, Any], dataset_summary: Dict[str, A
         f"| **Quests with missing references** | {counts['quests_missing_references']} | Quests pointing to non-existent NPCs, maps, items, or mobs |",
         f"| **Portals leading to missing maps** | {counts['portals_missing_maps']} | Map portals targeting non-existent map IDs |",
         f"| **Mobs / NPCs placed that don't exist** | {counts['missing_life_placed']} | Maps with life spawns (type 'm' or 'n') pointing to missing mob/NPC IDs |",
+        f"| Placed NPCs with no Npc.wz file (kept: the server spawns them by name, the client has the sprite) | {counts['npcs_without_wz_file']} | Info, not a broken reference |",
         "",
         "### Dataset Entity Counts",
         f"- **Items:** {dataset_summary.get('total_items', 0):,}",
