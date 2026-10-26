@@ -1725,6 +1725,7 @@ final class GameQaWorld implements QaWorld {
             if (chr == null || !(chr.getClient() instanceof client.SyntheticClient)) {
                 continue; // logged out: restored at the next stop it is online for
             }
+            closeWindows(chr);
             restore(chr, e.getValue());
             beforeReset.remove(e.getKey());
             out.add("VB RESTORED " + chr.getName() + " job " + e.getValue().job() + " level " + e.getValue().level());
@@ -2399,7 +2400,31 @@ final class GameQaWorld implements QaWorld {
         }
     }
 
+    /**
+     * Closes what a vb step opened on a pretend player: a real client closes its storage window (mode 8) and its trade,
+     * a SyntheticClient never does, so the storage stayed "open" after vb-7 and {@code PlayerBusy} held AutoQaOne as
+     * busy in trade/shop/storage for the rest of the run: t-mb-1's megaphone offer was dropped ("left before ...
+     * answered", TEST 2026-10-26 and 2026-10-25 23:07).
+     */
+    static void closeWindows(Character chr) {
+        server.Storage st = chr.getStorage();
+        if (st != null && st.isOpen()) {
+            st.close();
+        }
+        if (chr.getTrade() != null) {
+            server.Trade.cancelTrade(chr, server.Trade.TradeResult.PARTNER_CANCEL);
+        }
+    }
+
     private void storage(Character gm, List<String> out) {
+        try {
+            storageSteps(gm, out);
+        } finally {
+            closeWindows(gm);
+        }
+    }
+
+    private void storageSteps(Character gm, List<String> out) {
         int itemId = 4000000;
         client.inventory.Item item = gm.getInventory(InventoryType.ETC).findById(itemId);
         if (item == null) {
