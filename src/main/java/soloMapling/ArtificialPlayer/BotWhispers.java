@@ -77,6 +77,11 @@ public final class BotWhispers {
         return true;
     }
 
+    /** QA ({@code !qa in-1}): this player's unsolicited-whisper gap starts over. */
+    static synchronized void forgetPlayer(int playerId) {
+        lastSent.remove(playerId);
+    }
+
     static synchronized void resetForTest() {
         lastSent.clear();
     }

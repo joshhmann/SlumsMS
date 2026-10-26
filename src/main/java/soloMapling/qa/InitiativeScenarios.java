@@ -56,8 +56,9 @@ final class InitiativeScenarios {
 
         private List<String> login(QaContext ctx) {
             Integer id = bot(ctx);
-            if (id != null) {
-                SocialGate.forgetBotBudget(id);
+            Character bot = id == null ? null : SocialGateScenarios.botChr(id);
+            if (bot != null) {
+                SocialInitiative.qaQuietPair(bot, gmOf(ctx)); // no on-sight hello first, nothing eats the whisper
             }
             // only the staged friend is a candidate: the pretend player has many friend bots online, and the check is
             // about this one greeting within a minute (TEST run of t-in-1: 16 candidates, the staged one not in the 3)

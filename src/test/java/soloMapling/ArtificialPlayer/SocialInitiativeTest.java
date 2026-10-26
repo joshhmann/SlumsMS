@@ -500,4 +500,31 @@ class SocialInitiativeTest {
         assertFalse(SocialInitiative.invitePq(lobbyBot, free, clock.get(), (ok, why) -> { }), "refused: not invited");
         assertTrue(tasks.isEmpty(), "nothing to wait for");
     }
+
+    @Test
+    void aBotThatSaidHiOnSightSkipsItsLoginGreeting() {
+        Character josh = player(PLAYER, "Josh", 25);
+        online.put(PLAYER, josh);
+        online.put(BOT, bot(BOT, "Kimchi", 25));
+        SocialGate.startCooldown(SocialGate.Act.GREET, BOT, PLAYER, clock.get()); // what an on-sight hello leaves
+        assertFalse(SocialInitiative.greetAtLogin(BOT, PLAYER), "already said hi: skipped, not twice");
+        assertTrue(out.sent.isEmpty());
+    }
+
+    @Test
+    void theIn1StagingLeavesTheReplayedGreetingTheOnlyHello() {
+        Character josh = player(PLAYER, "Josh", 25);
+        Character kimchi = bot(BOT, "Kimchi", 25);
+        online.put(PLAYER, josh);
+        online.put(BOT, kimchi);
+        // TEST t-in-1: an on-sight hello and its line went first, then the login hello was "held"
+        assertTrue(BotWhispers.take(PLAYER, false, System.currentTimeMillis()), "another whisper used the gap");
+        SocialInitiative.qaQuietPair(kimchi, josh);
+        assertTrue(BotWhispers.take(PLAYER, false, System.currentTimeMillis()), "the whisper gap starts over");
+        BotWhispers.forgetPlayer(PLAYER);
+        assertFalse(SocialGate.take(SocialGate.Act.GREET, BOT, PLAYER, clock.get()), "on-sight greet held for the run");
+        assertFalse(SocialGate.take(SocialGate.Act.PARTY_INVITE, BOT, PLAYER, clock.get()));
+        assertTrue(SocialInitiative.greetAtLogin(BOT, PLAYER, true), "the replayed login hello still goes");
+        assertEquals(1, out.sent.size(), out.sent.toString());
+    }
 }

@@ -413,7 +413,8 @@ public final class SocialInitiative {
         if (force) {
             SocialGate.startCooldown(SocialGate.Act.GREET, botId, playerId, now);
         } else if (!SocialGate.take(SocialGate.Act.GREET, botId, playerId, now)) {
-            qa(player, "GREET held " + bot.getName() + " -> " + player.getName() + ": greeted lately (budget)");
+            // its greet budget is spent: it said hi on sight a moment ago (or greeted at login lately) - not twice
+            qa(player, "GREET skip " + bot.getName() + " -> " + player.getName() + ": greeted on sight lately");
             return false;
         }
         boolean buddy = buddies(bot, player);
@@ -1105,6 +1106,21 @@ public final class SocialInitiative {
             out.add("bot " + p.botId() + " greets at " + p.atMs() / 1000 + " s by " + (p.buddy() ? "buddy chat" : "whisper"));
         }
         return out;
+    }
+
+    /**
+     * {@code !qa in-1} staging: the staged bot starts clean with the player (no remembered lines or budget, the
+     * player's whisper gap reset) and its on-sight reactions (greet, invite, buddy request, buff) hold for the run, so
+     * the replayed login greeting is the only hello and nothing ate its whisper (TEST t-in-1: an on-sight greet first).
+     */
+    public static void qaQuietPair(Character bot, Character player) {
+        SocialGate.forgetBot(bot.getId());
+        BotWhispers.forgetPlayer(player.getId());
+        long now = SocialGate.now();
+        for (SocialGate.Act a : new SocialGate.Act[]{SocialGate.Act.GREET, SocialGate.Act.PARTY_INVITE,
+                SocialGate.Act.BUDDY_REQUEST, SocialGate.Act.HELP}) {
+            SocialGate.startCooldown(a, bot.getId(), player.getId(), now);
+        }
     }
 
     /** {@code !qa in-2}: the initiative's clock runs {@code ms} ahead (0 = real time). */
