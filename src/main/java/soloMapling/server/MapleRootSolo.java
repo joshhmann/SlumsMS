@@ -44,6 +44,10 @@ public final class MapleRootSolo {
         BotClientHandler.initHeadlessBotClient();
         BotShopping.install();   // real bots 09: town stops buy potions and ammo at NPC shops
         soloMapling.ArtificialPlayer.SocialGate.startAtBoot(); // 1.6.0 S5: @quiet, @romance off, started-it ledger
+        // 1.6.0 S9 -> S7: a bot crossing into another Bartle quadrant drives its villain/redemption arc (VillainArc)
+        soloMapling.ArtificialPlayer.BotLifeSystem.LifeLearning.onCrossing(e ->
+                soloMapling.ArtificialPlayer.BotDramaSystem.VillainArc.LISTENER.crossed(e.botId(), e.crossing().from(),
+                        e.crossing().to(), e.seed(), e.crossing().at()));
         log.info("SoloMapling initialized; automatic population: {}", Boolean.getBoolean("solomapling.autopopulate"));
         if (Boolean.getBoolean("solomapling.autopopulate")) {
             MethodScheduler.runAfterDelay(EnvironmentManager::environmentLoadStartup, 1000);
