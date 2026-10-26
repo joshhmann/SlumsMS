@@ -44,6 +44,26 @@ public final class LifeMemory {
     private int changesToday;
     private final EnumMap<Event, Long> eventAt = new EnumMap<>(Event.class);
     private boolean restored, migrated, dirty, touched;
+    // 1.6.0 S9 (LifeLearning): the confirmed quadrant (hysteresis), the day the pull-back last ran, the day's learning
+    // budget per kind, each channel's running success rate, and the last few quadrant crossings.
+    private SocialProfile.Type quadrant;
+    private long learnDay = -1, budgetDay = -1;
+    private final Map<String, Integer> budget = new TreeMap<>();
+    private final EnumMap<LifeProfile.Archetype, Double> successRate = new EnumMap<>(LifeProfile.Archetype.class);
+    private int crossings;
+    private final ArrayDeque<Crossing> crossed = new ArrayDeque<>();
+    /** How many crossings a memory keeps (the newest); the count of all of them is {@link #crossings()}. */
+    public static final int KEEP_CROSSINGS = 4;
+    /** Days of pull-back applied at most in one step (a bot away for months comes back to its seed, not past it). */
+    static final int MAX_PULL_DAYS = 60;
+
+    /** 1.6.0 S9: a QUADRANT_CROSSED life event: the bot's point settled in another quadrant ({@code at} epoch ms). */
+    public record Crossing(SocialProfile.Type from, SocialProfile.Type to, long at) {
+        public Crossing {
+            Objects.requireNonNull(from);
+            Objects.requireNonNull(to);
+        }
+    }
 
     public LifeMemory(int characterId, Object saved) {
         reset(characterId);
@@ -78,6 +98,8 @@ public final class LifeMemory {
         delta.clear();
         social = socialSeed;
         profile = seed;
+        quadrant = socialSeed.leading();
+        learnDay = -1; budgetDay = -1; budget.clear(); successRate.clear(); crossings = 0; crossed.clear();
     }
 
     private void readV1(int characterId, Map<?, ?> map) {
@@ -123,6 +145,35 @@ public final class LifeMemory {
         }
         savedAt = Math.max(0, number(map, "savedAt", 0).longValue());
         recompute();
+        quadrant = social.leading(); // a memory saved before S9 starts where it stands: no crossing burst at deploy
+        readLearning(map);
+    }
+
+    /** 1.6.0 S9: the learning block; anything unreadable is dropped (the drift itself is already read and capped). */
+    private void readLearning(Map<?, ?> map) {
+        if (!(map.get("learn") instanceof Map<?, ?> learn)) return;
+        try {
+            if (learn.get("quadrant") instanceof String q) quadrant = SocialProfile.Type.valueOf(q);
+            learnDay = number(learn, "day", -1).longValue();
+            budgetDay = number(learn, "budgetDay", -1).longValue();
+            if (learn.get("budget") instanceof Map<?, ?> used) used.forEach((k, v) -> {
+                if (v instanceof Number n && budget.size() < 64) budget.put(String.valueOf(k), Math.max(0, n.intValue()));
+            });
+            if (learn.get("rate") instanceof Map<?, ?> rates) for (var type : LifeProfile.Archetype.values()) {
+                if (rates.get(type.name()) instanceof Number n && n.doubleValue() >= 0 && n.doubleValue() <= 1) {
+                    successRate.put(type, n.doubleValue());
+                }
+            }
+            crossings = Math.max(0, number(learn, "crossings", 0).intValue());
+            if (learn.get("crossed") instanceof List<?> rows) for (Object row : rows) {
+                if (row instanceof Map<?, ?> c && crossed.size() < KEEP_CROSSINGS) crossed.addLast(new Crossing(
+                        SocialProfile.Type.valueOf((String) c.get("from")), SocialProfile.Type.valueOf((String) c.get("to")),
+                        ((Number) c.get("at")).longValue()));
+            }
+        } catch (RuntimeException unreadable) {
+            quadrant = social.leading();
+            learnDay = -1; budgetDay = -1; budget.clear(); successRate.clear(); crossings = 0; crossed.clear();
+        }
     }
 
     private void readCommon(Map<?, ?> map) {
@@ -364,6 +415,136 @@ public final class LifeMemory {
         return true;
     }
 
+    // ── 1.6.0 S9: outcome learning (the rules and rates live in LifeLearning; this is the bounded, saved state) ──
+
+    /**
+     * Takes one unit of today's learning budget for {@code kind} (at most {@code perKind} a day for it and
+     * {@code total} a day for the bot's kinds of the same group: {@code "ch:<channel>"} likes, or chart pushes). False when the day's budget is spent; the counters roll over at the UTC day.
+     */
+    public synchronized boolean takeBudget(String kind, int perKind, int total, long now) {
+        long day = Math.floorDiv(now, 86_400_000L);
+        if (day != budgetDay) { budgetDay = day; budget.clear(); }
+        int used = budget.getOrDefault(kind, 0);
+        // The total counts kinds of the same group: "ch:..." likes apart from chart pushes.
+        int colon = kind.indexOf(':');
+        String group = colon < 0 ? null : kind.substring(0, colon + 1);
+        int all = 0;
+        for (var e : budget.entrySet()) {
+            if (group == null ? e.getKey().indexOf(':') < 0 : e.getKey().startsWith(group)) all += e.getValue();
+        }
+        if (used >= perKind || all >= total) return false;
+        budget.put(kind, used + 1);
+        changed();
+        return true;
+    }
+
+    /** What today's budget has used so far, per kind (empty on a new day). */
+    public synchronized Map<String, Integer> budgetToday(long now) {
+        return Math.floorDiv(now, 86_400_000L) == budgetDay ? Map.copyOf(budget) : Map.of();
+    }
+
+    /** A channel's running success rate (0.7 before anything was seen). */
+    public synchronized double successRate(LifeProfile.Archetype channel) {
+        return successRate.getOrDefault(channel, .7);
+    }
+
+    /**
+     * One outcome on a channel: the like moves by {@code rate x weight x (outcome - running success rate)} (an outcome
+     * better than this bot is used to raises it, a worse one lowers it; one it always gets moves nothing), bounded at
+     * +-{@link #MAX_CHANNEL_DELTA} from the seed; the running rate then follows the outcome. The change, or 0.
+     */
+    public synchronized double learnChannel(LifeProfile.Archetype channel, boolean success, double rate, double weight) {
+        if (!Double.isFinite(rate) || !Double.isFinite(weight) || rate <= 0 || weight <= 0) return 0;
+        double outcome = success ? 1 : 0;
+        double expected = successRate.getOrDefault(channel, .7);
+        successRate.put(channel, expected + .1 * (outcome - expected));
+        double before = delta.getOrDefault(channel, 0.0);
+        double after = clampDelta(before + rate * weight * (outcome - expected));
+        if (Math.abs(after) > 1e-12) delta.put(channel, after); else delta.remove(channel);
+        profile = applyDelta(seed, delta);
+        changed();
+        return after - before;
+    }
+
+    /**
+     * The daily pull back toward the seed: for each whole day since the last step, the drift and every channel delta
+     * shrink by the bot's {@link #pullBack()} share (at most {@link #MAX_PULL_DAYS} days at once). The first step only
+     * starts the clock. True when something moved.
+     */
+    public synchronized boolean pullBackTo(long day) {
+        if (learnDay < 0 || day < learnDay) {
+            learnDay = day;
+            return false;
+        }
+        long days = Math.min(MAX_PULL_DAYS, day - learnDay);
+        if (days <= 0) return false;
+        learnDay = day;
+        double keep = Math.pow(Math.max(0, 1 - pullBack), days);
+        boolean moved = false;
+        if (driftX != 0 || driftY != 0) {
+            driftX = tiny(driftX * keep); driftY = tiny(driftY * keep);
+            moved = true;
+        }
+        for (var type : LifeProfile.Archetype.values()) {
+            Double v = delta.get(type);
+            if (v == null) continue;
+            double next = tiny(v * keep);
+            if (next == 0) delta.remove(type); else delta.put(type, next);
+            moved = true;
+        }
+        if (moved) { recompute(); changed(); }
+        return moved;
+    }
+
+    private static double tiny(double v) {
+        return Math.abs(v) < 1e-4 ? 0 : v;
+    }
+
+    /**
+     * Whether the point has settled in another quadrant. Hysteresis: each axis keeps its confirmed side until the point
+     * is at least {@code hysteresis} past it on the other side, so a point sitting on the border never flaps. A
+     * crossing is recorded (QUADRANT_CROSSED, the newest {@link #KEEP_CROSSINGS} kept) and returned once; else null.
+     */
+    public synchronized Crossing checkCrossing(double hysteresis, long now) {
+        int sx = Math.abs(social.x()) >= hysteresis ? (social.x() >= 0 ? 1 : -1) : quadrant.cornerX;
+        int sy = Math.abs(social.y()) >= hysteresis ? (social.y() >= 0 ? 1 : -1) : quadrant.cornerY;
+        SocialProfile.Type next = sx > 0 ? (sy > 0 ? SocialProfile.Type.ACHIEVER : SocialProfile.Type.EXPLORER)
+                : (sy > 0 ? SocialProfile.Type.KILLER : SocialProfile.Type.SOCIALIZER);
+        if (next == quadrant) return null;
+        Crossing crossing = new Crossing(quadrant, next, now);
+        quadrant = next;
+        crossings++;
+        crossed.addLast(crossing);
+        while (crossed.size() > KEEP_CROSSINGS) crossed.pollFirst();
+        changed();
+        return crossing;
+    }
+
+    /** The confirmed quadrant (the leading type with hysteresis; starts at the seed's). */
+    public synchronized SocialProfile.Type quadrant() { return quadrant; }
+
+    /** How many times this bot's point crossed into another quadrant, ever. */
+    public synchronized int crossings() { return crossings; }
+
+    /** The newest crossings, oldest first (at most {@link #KEEP_CROSSINGS}). */
+    public synchronized List<Crossing> recentCrossings() { return List.copyOf(crossed); }
+
+    /** The day the pull-back last ran (-1: never). */
+    public synchronized long learnDay() { return learnDay; }
+
+    /** {@code !qa lr-1}: a staged, run-only bot gets this seed point and plasticity (never a roster member's). */
+    public synchronized void stageSeed(SocialProfile point, double plasticity) {
+        if (!(plasticity >= 0 && plasticity <= 1)) throw new IllegalArgumentException("plasticity");
+        socialSeed = Objects.requireNonNull(point);
+        this.plasticity = plasticity;
+        pullBack = SocialProfile.pullBackOf(plasticity);
+        driftX = 0; driftY = 0;
+        quadrant = point.leading();
+        crossings = 0; crossed.clear(); budget.clear(); budgetDay = -1; learnDay = -1;
+        recompute();
+        changed();
+    }
+
     /** The v2 JSON shape, stamped with {@code now} as its save time. */
     public synchronized Map<String, Object> save(long now) {
         savedAt = Math.max(savedAt, now);
@@ -386,6 +567,16 @@ public final class LifeMemory {
         Map<String, Long> events = new LinkedHashMap<>();
         eventAt.forEach((event, at) -> events.put(event.name(), at));
         out.put("events", events);
+        Map<String, Object> learn = new LinkedHashMap<>();
+        learn.put("quadrant", quadrant.name());
+        learn.put("day", learnDay);
+        learn.put("budgetDay", budgetDay);
+        learn.put("budget", new LinkedHashMap<>(budget));
+        learn.put("rate", names(successRate));
+        learn.put("crossings", crossings);
+        learn.put("crossed", crossed.stream().map(c -> Map.of("from", c.from().name(), "to", c.to().name(),
+                "at", c.at())).toList());
+        out.put("learn", learn);
         return out;
     }
 

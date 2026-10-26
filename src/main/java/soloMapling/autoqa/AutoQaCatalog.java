@@ -818,6 +818,17 @@ public final class AutoQaCatalog {
                         has("MEMORY EPISODE SCAM bot \\d+ -> \\d+: \"scammed me on a trade: my "),
                         has("ME2 CHECK bot \\d+ -> \\S+: .*started it yes; scam memory yes"))
                 .build());
+        // 1.6.0 S9, learning: 30 staged KS events (over five days, through the daily caps and pull-back) turn a plastic
+        // Socializer toward Killer; it crosses into the Killer quadrant once and !botwhy shows the drift and crossing
+        c.add(Check.auto("t-lr-1", "A plastic Socializer KS'd 30 times drifts toward Killer and crosses once").minutes(2)
+                .step(say("!warp 104040000"), waitSeconds(3), run("lr-1"), waitFor("LR1 (PASS|FAIL) ", 45))
+                .expect(has("LR1 STAGED bot=\\S+ seed=SOCIALIZER "),
+                        has("HABITS LEARN PUSH bot=\\d+ kind=KS from=qa ks moved=true"),
+                        has("HABITS LEARN CROSSED bot=\\d+ SOCIALIZER->KILLER \\(turned\\) crossings=1"),
+                        has("LR1 CROSSED SOCIALIZER->KILLER after \\d+ KS, crossings=1"),
+                        has("LR1 WHY Learning: quadrant KILLER \\(seed SOCIALIZER\\), 1 crossing"),
+                        has("LR1 PASS bot=\\d+"), lacks("LR1 FAIL "))
+                .build());
         return List.copyOf(c);
     }
 

@@ -31,6 +31,8 @@ public class BotWhyCommand extends Command {
             lines.addAll(soloMapling.ArtificialPlayer.BotLifeSystem.SocialSelf.of(chr.getId()).describe());
             // 1.6.0 S2: its top bonds with other bots, and its crew (where they are)
             lines.addAll(soloMapling.ArtificialPlayer.BotAffinitySystem.BotBonds.describe(chr.getId()));
+            // 1.6.0 S9: what it learned (quadrant, crossings, today's budget), the fads it follows, its band's trends
+            lines.addAll(soloMapling.ArtificialPlayer.BotLifeSystem.LifeLearning.describe(chr.getId(), chr.getLevel(), now));
         }
         return java.util.List.copyOf(lines);
     }

@@ -265,6 +265,14 @@ public final class LifeMemoryStore {
         return source != null ? source : soloMapling.ArtificialPlayer.BotDbGate::connection;
     }
 
+    /**
+     * 1.6.0 S9: every memory this run holds, by character id (a live, read-only view; memory only, never the DB).
+     * For the learning sweep ({@link LifeLearning#maybeStep}), every few minutes, never per tick.
+     */
+    public static Map<Integer, LifeMemory> view() {
+        return java.util.Collections.unmodifiableMap(memories);
+    }
+
     /** How many memories this run holds (GM read-outs, tests). */
     public static int size() {
         return memories.size();

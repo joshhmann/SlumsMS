@@ -404,6 +404,7 @@ public final class BotAffinity {
             onStateChange(slot, playerId, after, event);
         }
         soloMapling.ArtificialPlayer.BotEpisodes.onAffinity(botCharId, playerId, event, mapId, now); // 1.6.0 S3
+        soloMapling.ArtificialPlayer.BotLifeSystem.LifeLearning.onAffinity(botCharId, event); // 1.6.0 S9
         if (delta > 0 && !event.hearsay()) {
             // 1.5.0 bot guilds: a guildmate who does things with the bot is not ignoring it
             soloMapling.ArtificialPlayer.BotGuildSystem.BotGuilds.noteAttention(botCharId, playerId);

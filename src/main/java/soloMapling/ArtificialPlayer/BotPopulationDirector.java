@@ -326,6 +326,7 @@ public final class BotPopulationDirector {
             ZonedDateTime local = localNow();
             long now = System.currentTimeMillis();
             PlayerWealthIndex.maybeUpdate();   // 1.6.0: hourly, off-thread, returns at once otherwise
+            soloMapling.ArtificialPlayer.BotLifeSystem.LifeLearning.maybeStep(now); // 1.6.0 S9: 5-min sweep, off-thread
             List<Candidate> roster = candidates();
             int target = curve().target(directorPeak(), local);
             Plan plan = plan(roster, guildOfRoster(), target, local.getHour() * 60 + local.getMinute(), now, maxLogins,
