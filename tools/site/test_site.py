@@ -396,7 +396,7 @@ class WorldTest(unittest.TestCase):
 
     def test_pages_and_nav(self):
         for rel in ["world/index.html", "world/feed/index.html", "world/feed/drama.html", "world/rankings/index.html",
-                    "world/rankings/richest.html", "world/rankings/level.html", "world/economy.html"]:
+                    "world/rankings/traders.html", "world/rankings/level.html", "world/economy.html"]:
             self.assertTrue(os.path.isfile(os.path.join(self.out, rel)), rel)
         home = self.read("index.html")
         self.assertIn('href="world/"', home)
@@ -407,10 +407,16 @@ class WorldTest(unittest.TestCase):
         self.assertEqual([p for p in check.check_all(self.out) if "private" in p], [])
         self.assertIn("login/index.html?next=/market/", self.read("world/economy.html"))
 
-    def test_richest_is_top_ten_with_exact_mesos(self):
-        page = self.read("world/rankings/richest.html")
-        self.assertEqual(page.count("<tr") - 1, 10)
-        self.assertRegex(page, r"\d,\d{3},\d{3},\d{3}")
+    def test_no_richest_board_and_traders_show_counts_and_percent(self):
+        self.assertFalse(os.path.exists(os.path.join(self.out, "world", "rankings", "richest.html")))
+        self.assertNotIn("richest", self.read("world/rankings/index.html").lower())
+        from sections import world
+        rows = world.board_rows({"traders": [{"name": "A", "completed": 9, "fellThrough": 1},
+                                             {"name": "B", "completed": 5}]}, "traders")
+        self.assertEqual([r["pct"] for r in rows], [90, 100])
+        page = self.read("world/rankings/traders.html")
+        self.assertIn("Fell through", page)
+        self.assertRegex(page, r">\d{1,3}%<")
 
     def test_no_bot_labels_anywhere(self):
         for rel in ["world/rankings/level.html", "world/rankings/index.html", "world/index.html"]:

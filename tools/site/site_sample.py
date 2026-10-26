@@ -8,7 +8,7 @@ contract" section of docs/design/track-d-plan.md):
     feed.json          {items: [{id, t, kind: event|milestone|megaphone|drama, text, names[], map?, channel?, top?}]}
     world.json         {channels: [{ch, online}], busiestMaps: [{map, name, count}], tonight: {name, startsAt, map?},
                         running: [{name, map?, channel?, endsAt?}]}
-    leaderboards.json  {level, levelByClass, fame, guilds, richest, dojo, bosses}
+    leaderboards.json  {level, levelByClass, fame, guilds, traders, dojo, bosses}
 Every file carries "sample": true and generated_at; the World pages show a banner while it does. Names are made up and
 seeded, so each run gives the same files. Bots and players are mixed with no label, as on the real boards.
 """
@@ -97,7 +97,7 @@ def main():
         cls = rnd.choice(list(JOBS))
         people.append({"name": n, "class": cls, "job": rnd.choice(JOBS[cls]), "level": rnd.randint(70, 200),
                        "rebirths": rnd.choice([0, 0, 0, 1, 1, 2, 3]), "guild": rnd.choice(GUILDS + [None]),
-                       "fame": rnd.randint(-5, 220), "mesos": rnd.randint(1, 4000) * 1_000_003})
+                       "fame": rnd.randint(-5, 220)})
     by_level = sorted(people, key=lambda p: (-p["rebirths"], -p["level"]))
     lv = [{k: p[k] for k in ("name", "level", "rebirths", "job", "guild") if p[k] is not None} for p in by_level]
     by_class = {c: [r for r, p in zip(lv, by_level) if p["class"] == c][:10] for c in JOBS}
@@ -106,7 +106,8 @@ def main():
         "fame": [{"name": p["name"], "fame": p["fame"], "job": p["job"]} for p in sorted(people, key=lambda p: -p["fame"])][:20],
         "guilds": sorted(({"name": g, "level": rnd.randint(1, 5), "members": rnd.randint(4, 120), "points": rnd.randint(500, 90000),
                            "leader": rnd.choice(NAMES)} for g in GUILDS), key=lambda r: -r["points"]),
-        "richest": [{"name": p["name"], "mesos": p["mesos"]} for p in sorted(people, key=lambda p: -p["mesos"])][:10],
+        "traders": sorted(({"name": n, "completed": rnd.randint(5, 240), "fellThrough": rnd.choice([0, 0, 1, 2, 3, 7, 15])}
+                           for n in rnd.sample(NAMES, 16)), key=lambda r: -r["completed"]),
         "dojo": sorted(({"name": n, "floor": rnd.randint(10, 38), "time_s": rnd.randint(600, 2400)} for n in rnd.sample(NAMES, 12)),
                        key=lambda r: (-r["floor"], r["time_s"])),
         "bosses": sorted(({"name": n, "clears": rnd.randint(1, 60), "boss": rnd.choice(["Zakum", "Horntail", "Papulatus", "Pianus"])}

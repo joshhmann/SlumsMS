@@ -8,7 +8,9 @@ Data:
 - the market export (sections/market.py) for the economy page: prices, the NX rate, economy-public.json.
 A file with "sample": true puts a "sample data" banner on every World page.
 
-Public rules (owner, 2026-10-26): bots and players are mixed on the boards with no label, like one server; the economy
+Public rules (owner, 2026-10-26): bots and players are mixed on the boards with no label, like one server; no
+richest board (a "richest" list in the export is ignored); traders show their two counts and a completion %, no grades;
+the economy
 page has no per-player data; drama items are about bots only (the server picks them; the site can't tell bots from
 players and never tries). Fields that would identify an account, or say who is a bot, stop the build (validate()).
 """
@@ -290,17 +292,17 @@ COLS = {
     "fame": [("name", "Character", "name"), ("fame", "Fame", "int"), ("job", "Job", "text")],
     "guilds": [("name", "Guild", "name"), ("level", "Level", "int"), ("members", "Members", "int"),
                ("points", "Points", "int"), ("leader", "Leader", "text")],
-    "richest": [("name", "Character", "name"), ("mesos", "Mesos", "exact")],
+    "traders": [("name", "Character", "name"), ("completed", "Trades done", "int"), ("fellThrough", "Fell through", "int"),
+                ("pct", "Completed", "pct")],
     "dojo": [("name", "Character", "name"), ("floor", "Floor", "int"), ("points", "Points", "int"), ("time_s", "Time", "time")],
     "bosses": [("name", "Character", "name"), ("clears", "Clears", "int"), ("boss", "Most cleared", "text")],
 }
 BOARDS = [("level", "Level", "Level and rebirths: rebirths first, then level."),
           ("fame", "Fame", "The most famous characters on Bera."),
           ("guilds", "Guilds", "Guild points, then members."),
-          ("richest", "Richest", "The ten richest characters, exact mesos (inventory, storage and shops)."),
+          ("traders", "Traders", "Finished trades and the ones that fell through, for everyone with at least 5 trades."),
           ("dojo", "Dojo", "Mu Lung Dojo: highest floor, then fastest time."),
           ("bosses", "Boss clears", "Boss runs finished: Zakum, Horntail, Papulatus, Pianus and more.")]
-RICHEST_MAX = 10
 
 
 def cell(v, how):
@@ -310,6 +312,8 @@ def cell(v, how):
         return f'<td class="r num">{count(v) if _is(v, int) else esc(str(v))}</td>'
     if how == "exact":
         return f'<td class="r num">{v:,}</td>' if _is(v, int) else f'<td class="r">{esc(str(v))}</td>'
+    if how == "pct":
+        return f'<td class="r num">{v}%</td>' if _is(v, int) else '<td class="muted r">-</td>'
     if how == "time":
         return f'<td class="r num">{v // 60}:{v % 60:02d}</td>' if _is(v, int) else f'<td>{esc(str(v))}</td>'
     if how == "name":
@@ -328,15 +332,31 @@ def table(kind, rows, limit=None):
     return f'<div class="tbl"><table class="t rank"><thead><tr>{head}</tr></thead><tbody>{body}</tbody></table></div>'
 
 
+def board_rows(lb, kind):
+    rows = lb.get(kind) or []
+    if kind == "bosses" and isinstance(rows, dict):  # per boss: {boss: [rows]}
+        rows = [dict(r, boss=b) for b, rs in rows.items() for r in rs if isinstance(r, dict)]
+        rows.sort(key=lambda r: -(r.get("clears") or 0))
+    if not isinstance(rows, list):
+        return []
+    if kind == "traders":  # the completion % is worked out here, from the two counts
+        out = []
+        for r in rows:
+            if not isinstance(r, dict):
+                continue
+            done, fell = r.get("completed"), r.get("fellThrough") or 0
+            if _is(done, int) and _is(fell, int) and done + fell > 0:
+                r = dict(r, pct=round(100 * done / (done + fell)))
+            out.append(r)
+        rows = out
+    return rows
+
+
 def build_rankings(wo):
     lb = wo.w["leaderboards"]
     tabs = "".join(f'<a href="{{root}}{WORLD}/rankings/{k}.html" class="chip">{esc(t)}</a>' for k, t, _ in BOARDS)
     for kind, title, intro in BOARDS:
-        rows = lb.get(kind) or []
-        if kind == "bosses" and isinstance(rows, dict):  # per boss: {boss: [rows]}
-            rows = [dict(r, boss=b) for b, rs in rows.items() for r in rs]
-            rows.sort(key=lambda r: -(r.get("clears") or 0))
-        limit = RICHEST_MAX if kind == "richest" else 100
+        rows, limit = board_rows(lb, kind), 100
         body = (f'<h1>{esc(title)}</h1><p class="id">{esc(intro)}</p><p class="chips">{tabs}</p>'
                 f'<section class="panel"><h2 class="bar">{esc(title)}</h2>{table(kind, rows, limit)}</section>')
         if kind == "level":
@@ -348,12 +368,12 @@ def build_rankings(wo):
                     f'<a href="#{common.slug(c)}">{esc(c)}</a> ' for c in by_class) + '</p><section class="panel">', 1)
         wo.page(f"{WORLD}/rankings/{kind}.html", f"{title} rankings", body, "rankings")
     # the overview: the top five of each
-    cards = "".join(f'<section class="panel"><h2 class="bar">{esc(t)} <a href="{{root}}{WORLD}/rankings/{k}.html">Top 100 &raquo;</a></h2>'
-                    f'{table(k, (lb.get(k) if not isinstance(lb.get(k), dict) else []) or [], 5)}</section>' for k, t, _ in BOARDS)
+    cards = "".join(f'<section class="panel"><h2 class="bar">{esc(t)} <a href="{{root}}{WORLD}/rankings/{k}.html">All &raquo;</a></h2>'
+                    f'{table(k, board_rows(lb, k), 5)}</section>' for k, t, _ in BOARDS)
     as_of = f' &middot; as of {esc(when(lb["generated_at"]))}' if lb.get("generated_at") else ""
     body = (f'<h1>Rankings</h1><p class="id">Everyone on Bera on one board, like it should be{as_of} &middot; '
             f'refreshes every 15 minutes</p><div class="rankgrid">{cards}</div>')
-    wo.page(f"{WORLD}/rankings/index.html", "Rankings", body, "rankings", "Level, fame, guild, richest, Dojo and boss rankings on Bera.")
+    wo.page(f"{WORLD}/rankings/index.html", "Rankings", body, "rankings", "Level, fame, guild, trader, Dojo and boss rankings on Bera.")
 
 
 def build_economy(wo):
