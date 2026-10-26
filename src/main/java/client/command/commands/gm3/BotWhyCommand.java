@@ -29,6 +29,8 @@ public class BotWhyCommand extends Command {
         Character chr = bot.getChr();
         if (chr != null) {
             lines.addAll(soloMapling.ArtificialPlayer.BotLifeSystem.SocialSelf.of(chr.getId()).describe());
+            // 1.6.0 S2: its top bonds with other bots, and its crew (where they are)
+            lines.addAll(soloMapling.ArtificialPlayer.BotAffinitySystem.BotBonds.describe(chr.getId()));
         }
         return java.util.List.copyOf(lines);
     }

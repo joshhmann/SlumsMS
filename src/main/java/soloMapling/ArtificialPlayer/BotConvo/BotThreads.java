@@ -385,6 +385,9 @@ public final class BotThreads {
         hold(l);
         lastThreadOf.put(a.getId(), l);
         lastThreadOf.put(b.getId(), l);
+        soloMapling.server.MapleRootSolo.runHook("bond thread", () -> // 1.6.0 S2 (S4 owns this file later)
+                soloMapling.ArtificialPlayer.BotAffinitySystem.BotBonds.onThread(a.getId(), b.getId(),
+                        topic == Topic.GUILD_BEEF));
         qa(map.getId(), "THREAD " + a.getName() + " + " + b.getName() + " on " + map.getId() + ": " + topic.words
                 + (about == null ? "" : " (" + about + ")"));
         if (BotBrains.get().isLive() && !ConvoSwitches.forceBank()) {
