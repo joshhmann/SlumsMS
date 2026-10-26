@@ -55,3 +55,12 @@ received one Snail Shell (4000000) at 23:59:50.445 UTC (~91.7 s), then stood at 
 reported `STOPPED active=false`. Cleanup removed the fixture chair and extra catch. Log:
 `fh-2-20261024T235818Z.log`, Oct 24, 2026 (4:58–4:59 PM PT). No real-client visuals or actual bot fishing
 trip were tested. The earlier refusal is resolved by the named waterside spawn, without changing eligibility.
+
+## Bot chairs (owner, 2026-10-26)
+
+About 1 in 20 hangout and explorer bots (seeded Bartle type Socializer or Explorer) own a Fishing Chair (3011000):
+`soloMapling.fishing.BotFishingChairs`. The draw is a hash of the roster slot, so nothing is stored; 104 of the first
+3,000 slots are chosen. `BotGeneration` hands the chair over as a bot enters the world: a new bot at creation, an
+existing one at its next login. It is saved with the bag and bots never sell it (`SaleRules`), so it is given once;
+no DB job. FISH stays choosable only with the chair, both fishing flags on and room on the fishing map
+(`GameFishing.choosable`). Real bot travel and seating on a client are still unverified.

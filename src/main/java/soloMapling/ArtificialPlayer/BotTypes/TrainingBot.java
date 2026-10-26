@@ -802,9 +802,7 @@ public class TrainingBot extends BotSM implements soloMapling.ArtificialPlayer.B
             case GRIND -> true;
             case RESTOCK -> phase == Phase.GRIND && dailyLife.restockReady(at);
             case MOVE_MAP, BREAK -> phase == Phase.GRIND;
-            case FISH -> soloMapling.fishing.FishingPolicy.rewardsEnabled()
-                    && soloMapling.fishing.GameFishing.hasChair(getChr())
-                    && lifeDestinationAvailable(soloMapling.fishing.GameFishing.destination(getChr()));
+            case FISH -> soloMapling.fishing.GameFishing.choosable(getChr(), this::lifeDestinationAvailable);
             case HANG_OUT, SHOW_OFF -> (activity != LifeDecision.Activity.SHOW_OFF || getChr().getLevel() >= 70)
                     && lifeDestinationAvailable(dailyLife.townDestination());
             case FREE_MARKET, SELL -> (activity == LifeDecision.Activity.FREE_MARKET
