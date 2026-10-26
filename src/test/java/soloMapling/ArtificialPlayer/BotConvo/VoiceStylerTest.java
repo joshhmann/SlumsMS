@@ -89,4 +89,54 @@ class VoiceStylerTest {
             System.clearProperty("solomapling.convo.styler");
         }
     }
+    /**
+     * 1.6.0 S4 (audit finding 3): the catchphrase tail is gone. TEST said "Left where? I'm just standing in Henesys Not
+     * bad." and "...ruin the whole server. Good game." - a catchphrase glued onto 6-14% of lines.
+     */
+    @Test
+    void noCatchphraseIsGluedOntoTheEnd() {
+        List<String> lines = List.of("Left where? I'm just standing in Henesys", "they will ruin the whole server",
+                "anyone selling pots", "i need two more levels", "wanna go kpq");
+        for (ConvoPersona.Voice v : ConvoPersona.Voice.values()) {
+            ConvoPersona p = new ConvoPersona(v, 0, 1, 0, 0, v.phrases);
+            for (int slot = 0; slot < 400; slot++) {
+                for (String line : lines) {
+                    String out = VoiceStyler.style(line, p, slot, List.of()).toLowerCase();
+                    for (String phrase : v.phrases) {
+                        String bare = phrase.toLowerCase().replaceAll("[.!]+$", "");
+                        // the Spanish voice's own "amigo"/"bro" address (VoiceStyler.spanish) is its way of talking
+                        if (bare.length() >= 3 && !bare.equals("amigo") && !line.toLowerCase().contains(bare)) {
+                            assertFalse(out.endsWith(bare) || out.endsWith(bare + ".") || out.endsWith(bare + "!"),
+                                    v + " slot " + slot + ": " + out);
+                        }
+                    }
+                }
+            }
+        }
+    }
+
+    @Test
+    void aCatchphraseOpensALineRarelyAndOnlyAReactionOne() {
+        ConvoPersona p = new ConvoPersona(ConvoPersona.Voice.PROPER, 0, 1, 0, 0, List.of("Fair enough.", "Good game."));
+        int opened = 0;
+        int n = 0;
+        for (int slot = 0; slot < 2000; slot++) {
+            String out = VoiceStyler.style("i need two more levels", p, slot, List.of());
+            n++;
+            if (out.startsWith("Fair enough. ")) {
+                opened++;
+            }
+            assertFalse(out.startsWith("Good game."), "not a reaction: never an opener");
+        }
+        assertTrue(opened > 0 && opened < n * 0.05, opened + " of " + n);
+    }
+
+    @Test
+    void aCatchphraseCanBeAWholeLine() {
+        ConvoPersona p = new ConvoPersona(ConvoPersona.Voice.LOWER, 0, 1, 0, 0, List.of("idk tbh"));
+        assertEquals("idk tbh", VoiceStyler.catchphraseLine(p, 3, 7, 1.0));
+        assertEquals(null, VoiceStyler.catchphraseLine(p, 3, 7, 0.0));
+        assertEquals(null, VoiceStyler.catchphraseLine(new ConvoPersona(ConvoPersona.Voice.LOWER, 0, 1, 0, 0, List.of()),
+                3, 7, 1.0));
+    }
 }
