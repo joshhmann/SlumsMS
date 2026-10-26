@@ -161,6 +161,20 @@ class ChatQualityTest {
     }
 
     @Test
+    void aCutOffAnswerStillYieldsItsCompleteRowsAndTheCapFitsABatch() {
+        // 1.6.0: the 120-token cap cut every 20-pair answer mid-array, so TEST judged 0 replies for days
+        List<LlmJudge.Relevance> r = LlmJudge.readRelevance("[{\"n\":1,\"relevant\":true,\"answers\":null},"
+                + "{\"n\":2,\"relevant\":false,\"answers\":false},{\"n\":3,\"relev", 3);
+        assertTrue(r.get(0).decided());
+        assertTrue(r.get(0).relevant());
+        assertTrue(r.get(1).decided());
+        assertFalse(r.get(1).relevant());
+        assertFalse(r.get(2).decided());
+        String row = "{\"n\":20,\"relevant\":false,\"answers\":false},";
+        assertTrue(LlmJudge.MAX_TOKENS >= LlmJudge.BATCH * (row.length() / 3), "a full batch's answer fits the cap");
+    }
+
+    @Test
     void theCloudFallsBackToTheLocalModel() throws Exception {
         LlmJudge.Transport spent = (s, u) -> null;
         LlmJudge.Transport local = (s, u) -> "local";

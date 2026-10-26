@@ -223,20 +223,16 @@ public final class LlmJudge {
         if (answer == null) {
             return out;
         }
-        Matcher m = Pattern.compile("\\[.*]", Pattern.DOTALL).matcher(answer);
-        if (!m.find()) {
-            return out;
-        }
-        Object parsed;
-        try {
-            parsed = Json.parse(m.group());
-        } catch (RuntimeException e) {
-            return out;
-        }
-        if (!(parsed instanceof List<?> list)) {
-            return out;
-        }
-        for (Object o : list) {
+        // row by row, not the whole array: an answer cut off at max_tokens still yields its complete rows (1.6.0: a
+        // 20-pair batch needs ~300 tokens, the old 120-token cap cut every answer and nothing was ever judged)
+        Matcher m = Pattern.compile("\\{[^{}]*}").matcher(answer.substring(Math.max(0, answer.indexOf('['))));
+        while (m.find()) {
+            Object o;
+            try {
+                o = Json.parse(m.group());
+            } catch (RuntimeException e) {
+                continue;
+            }
             if (!(o instanceof Map<?, ?> row) || !(row.get("n") instanceof Number num)) {
                 continue;
             }
@@ -251,7 +247,7 @@ public final class LlmJudge {
     }
 
     /** The judge's answer at most (its max_tokens): the worst case a cloud call reserves. */
-    static final int MAX_TOKENS = 120;
+    static final int MAX_TOKENS = BATCH * 16 + 32; // one ~15-token row per pair, plus slack
 
     /** One chat-completions POST: the 2xx response body, or null. */
     interface Wire {
