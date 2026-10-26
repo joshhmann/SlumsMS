@@ -130,6 +130,34 @@ public final class DramaGm {
 
     // ── romance ──
 
+    /* v83: gender 0 = male, 1 = female. */
+    static String genderWord(int gender) {
+        return gender == 1 ? "female" : "male";
+    }
+
+    /*
+     * A friend bot staged next to the GM, of this gender (null = any): up to 10 tries, the wrong ones taken away
+     * again (bots are generated with a random gender). Null when none could be staged.
+     */
+    static Character stageOfGender(Character gm, int level, int offset, Integer gender) {
+        for (int tries = 0; tries < (gender == null ? 1 : 10); tries++) {
+            int id = stage(gm, AffinityState.FRIEND, false, level, offset);
+            Character bot = id > 0 ? DramaKit.liveBot(id) : null;
+            if (bot == null) {
+                continue;
+            }
+            if (gender == null || bot.getGender() == gender) {
+                return bot;
+            }
+            List<Integer> mine = staged.get(gm.getId());
+            if (mine != null) {
+                mine.remove(Integer.valueOf(id));
+            }
+            DramaStaging.unstage(id);
+        }
+        return null;
+    }
+
     static List<String> romance(Character gm, String action, String[] args) {
         List<String> out = new ArrayList<>();
         switch (action) {
@@ -150,16 +178,20 @@ public final class DramaGm {
                     out.add("turned @romance on for you (staging needs it)");
                 }
                 int offset = 70 + 50 * stagedBy(gm.getId()).size();
-                int id = stage(gm, AffinityState.FRIEND, false, level, offset);
-                Character bot = id > 0 ? DramaKit.liveBot(id) : null;
+                // ticket 58 (!qa run rm-2 same|mixed): "same" = the GM's gender, "mixed" = the other one, else any
+                Integer gender = has(args, "same") ? Integer.valueOf(gm.getGender())
+                        : has(args, "mixed") ? Integer.valueOf(1 - gm.getGender()) : null;
+                Character bot = stageOfGender(gm, level, offset, gender);
                 if (bot == null) {
-                    out.add("no bot could be staged here");
+                    out.add("no " + (gender == null ? "" : genderWord(gender) + " ") + "bot could be staged here");
                     return out;
                 }
                 switch (kind) {
                     case "dating", "partner", "second" -> {
                         BotRomance.startDating(bot, gm, true);
-                        out.add(bot.getName() + " (lv " + bot.getLevel() + ") is dating you now (staged)");
+                        out.add(bot.getName() + " (lv " + bot.getLevel() + ", " + genderWord(bot.getGender())
+                                + ") is dating you now (staged; " + (bot.getGender() == gm.getGender()
+                                ? "same gender as you" : "mixed genders") + ")");
                     }
                     case "ex" -> {
                         BotRomance.startDating(bot, gm, true);

@@ -127,6 +127,18 @@ final class DramaScenarios {
         }
     }
 
+    /* "same" / "mixed" (rm-2), null for neither; anything else is refused. */
+    static String genderArg(String[] args) {
+        if (args == null || args.length == 0) {
+            return null;
+        }
+        String a = args[0].toLowerCase();
+        if (!a.equals("same") && !a.equals("mixed")) {
+            throw new QaRefusal("rm-2 takes same or mixed (the partner's gender against yours), or nothing.");
+        }
+        return a;
+    }
+
     /** rm-2: a partner and a ring box: the GM proposes (or the bot does), the Amoria wedding, divorce. */
     static final class Rm2Wedding extends DramaScenario {
         Rm2Wedding() {
@@ -135,14 +147,17 @@ final class DramaScenarios {
 
         public String id() { return "rm-2"; }
         public String title() { return "Marry a bot: ring-box proposal (or it proposes), Amoria wedding, divorce (1.5.0)"; }
-        public String usage() { return "; then !qa do propose | wedding | divorce"; }
+        public String usage() { return "[same|mixed]; then !qa do propose | wedding | divorce"; }
         public int minutes(String[] args) { return 20; }
 
         public List<String> stage(QaContext ctx) {
+            // ticket 58: same = a partner of your gender, mixed = the other one; none = whichever bot comes
+            String gender = genderArg(ctx.args());
             requireLevel50(ctx);
             romanceOnForRun(ctx);
             unstageAtStop(ctx);
-            List<String> out = new ArrayList<>(act(ctx, "stage", "dating", "60"));
+            List<String> out = new ArrayList<>(gender == null ? act(ctx, "stage", "dating", "60")
+                    : act(ctx, "stage", "dating", "60", gender));
             ctx.giveBack(2240000, 1);
             out.add("Your partner (lv 60) stands next to you and you hold a Moonstone engagement ring box.");
             out.add("Propose: use the box on it (the stock window) - a few seconds later it says yes (ENGAGED: a token in");

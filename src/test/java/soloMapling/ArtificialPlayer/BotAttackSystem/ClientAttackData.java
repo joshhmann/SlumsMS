@@ -48,6 +48,11 @@ final class ClientAttackData {
     final List<String> actions = new ArrayList<>();
     final Map<String, int[]> tables = new HashMap<>(); // "T1/3/norm" -> codes
     final Map<Integer, ExeSkill> exe = new HashMap<>();
+    /* Skill levels whose lt/rb give a melee range (R rows); the skill's own afterimage ranges (J rows: skill ->
+     * weapon afterImage -> actions); each Character/Afterimage image's actions with a range (I rows). */
+    final Map<Integer, Set<Integer>> rangeLevels = new HashMap<>();
+    final Map<Integer, Map<String, Set<String>>> skillAfterImages = new HashMap<>();
+    final Map<String, Set<String>> afterImages = new HashMap<>();
     final List<String> header = new ArrayList<>();
 
     static final ClientAttackData INSTANCE = new ClientAttackData();
@@ -79,6 +84,11 @@ final class ClientAttackData {
                     case "S" -> skill(f);
                     case "W" -> weapons.put(Integer.parseInt(f[1]), new Weapon(Integer.parseInt(f[1]),
                             Integer.parseInt(f[2]), Integer.parseInt(f[3]), f[4]));
+                    // a "common" lt/rb covers every level (MapleRoot's custom skills write out levels 1-10 only)
+                    case "R" -> rangeLevels.put(Integer.parseInt(f[1]), levels("1".equals(f[3]) ? "1-255" : f[2]));
+                    case "J" -> skillAfterImages.computeIfAbsent(Integer.parseInt(f[1]), k -> new HashMap<>())
+                            .put(f[2], names(f[3]));
+                    case "I" -> afterImages.put(f[1], names(f[2]));
                     case "A" -> actions.add(f[2]);
                     case "T" -> tables.put(f[1] + "/" + f[2] + "/" + f[3], f[4].isEmpty() ? new int[0]
                             : Arrays.stream(f[4].split(",")).mapToInt(Integer::parseInt).toArray());
@@ -114,6 +124,26 @@ final class ClientAttackData {
         skills.put(id, new Skill(id, Integer.parseInt(f[2]), Integer.parseInt(f[3]),
                 f[4].isEmpty() ? List.of() : List.of(f[4].split(",")), levelActions, Integer.parseInt(f[6]),
                 f[7].isEmpty() ? Set.of() : Set.of(f[7].split(",")), counts, f.length > 9 ? f[9] : ""));
+    }
+
+    private static Set<Integer> levels(String compact) {
+        Set<Integer> out = new HashSet<>();
+        if (compact.isEmpty()) {
+            return out;
+        }
+        for (String part : compact.split(",")) {
+            String[] r = part.split("-");
+            int from = Integer.parseInt(r[0]);
+            int to = r.length > 1 ? Integer.parseInt(r[1]) : from;
+            for (int n = from; n <= to; n++) {
+                out.add(n);
+            }
+        }
+        return out;
+    }
+
+    private static Set<String> names(String list) {
+        return list.isEmpty() ? Set.of() : Set.of(list.split(","));
     }
 
     /* A count as the client data has it; a formula ("5+d(x/16)") counts as its leading number. */

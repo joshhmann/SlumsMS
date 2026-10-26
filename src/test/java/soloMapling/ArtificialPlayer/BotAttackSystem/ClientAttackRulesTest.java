@@ -33,8 +33,9 @@ class ClientAttackRulesTest {
     }
 
     private List<String> close(int skill, int level, int pose, int weapon, int job) {
-        return RULES.check(BotAttackPackets.closeRangeAttack(bot, skill, level, 0, 0x11,
-                Map.of(1, new AttackTarget((short) 0, List.of(5))), 4, pose, 0).getBytes(),
+        // the raw packet (PacketCreator), without BotAttackPackets' range guard: this tests the model of the client
+        return RULES.check(PacketCreator.closeRangeAttack(bot, skill, level, 0, 0x11,
+                Map.of(1, List.of(5)), 4, pose, 0).getBytes(),
                 new ClientAttackRules.Attacker(weapon, job, 0), null);
     }
 
@@ -89,8 +90,7 @@ class ClientAttackRulesTest {
         assertTrue(drops(RULES.check(BotAttackPackets.magicAttack(bot, 0, 0, 0, 0x11,
                 Map.of(1, new AttackTarget((short) 0, List.of(5))), -1, 4, 28, 0).getBytes(),
                 new ClientAttackRules.Attacker(1372000, 200, 0), null)));
-        byte[] full = BotAttackPackets.closeRangeAttack(bot, 0, 0, 0, 0x12,
-                Map.of(1, new AttackTarget((short) 0, List.of(5, 6))), 4, 5, 0).getBytes();
+        byte[] full = PacketCreator.closeRangeAttack(bot, 0, 0, 0, 0x12, Map.of(1, List.of(5, 6)), 4, 5, 0).getBytes();
         byte[] cut = java.util.Arrays.copyOf(full, full.length - 2);
         assertTrue(RULES.check(cut, new ClientAttackRules.Attacker(SWORD, 100, 0), null).get(0).startsWith("crash:"));
     }
@@ -106,5 +106,19 @@ class ClientAttackRulesTest {
     @Test
     void aWeaponWithoutAnAfterimageDrawsNoMeleeHits() {
         assertTrue(drops(close(0, 0, 5, 1302083, 100)), "1302083 has no afterImage / attack type 0");
+    }
+
+    @Test
+    void aMeleePoseTheWeaponsAfterimageHasNoRangeForClosesTheViewer() {
+        // 1.6.0, seen twice on TEST: a gunslinger bot's Double Shot (doublefire, 86) sent as melee with a gun
+        List<String> p = close(5001003, 20, 86, GUN, 520);
+        assertTrue(p.stream().anyMatch(s -> s.startsWith("crash:") && s.contains("afterimage gun")), p.toString());
+        assertTrue(close(0, 0, 9, GUN, 520).isEmpty(), "a gun's plain swingT1 has a range");
+        // a skill with an lt/rb range never reads the afterimage: Somersault Kick with a gun
+        assertTrue(close(5001002, 20, BotSkillActions.codeOf("somersault"), GUN, 520).isEmpty());
+        // a skill with its own afterimage reads that: Double Uppercut with a knuckle has one for doubleupper
+        assertTrue(close(5101003, 20, BotSkillActions.codeOf("doubleupper"), KNUCKLE, 510).isEmpty());
+        // a bow's melee swings: swingT1 has a range, Arrow Blow's and Double Shot's poses do not
+        assertTrue(close(0, 0, 9, BOW, 300).isEmpty(), "a bow's swingT1");
     }
 }

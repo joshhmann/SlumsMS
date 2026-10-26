@@ -45,29 +45,11 @@ public final class BotAttackEffects {
 
     /*
      * Credits to NutNNut for Packet IDs
-     * Land a melee hit on one or more mobs: broadcast the swing carrying each mob's damage
-     * line(s), apply the summed damage per mob, and drop loot for any it kills. Returns
-     * true if at least one mob died. skillId 0 = a no-skill basic swing.
-     *
-     * @param bot          the attacking bot (passed explicitly - shared-client-safe)
-     * @param hits         each target mob -> its rolled damage line(s); all same line count
-     * @param skillId      the attack skill that renders, or 0 for a basic swing
-     * @param bodyActionId the per-weapon swing animation id (from BotAttackData)
-     * @param facingMask   the stance/facing byte (0x00 right / 0x80 left)
-     * @param speed        the attack-speed byte (2..9)
-     * @param hitDelay     ms before the damage numbers land (also the drop delay)
+     * Ranged hit (bow/crossbow/gun/claw): broadcast the shot carrying each mob's damage line(s) and the flying
+     * projectile, apply the summed damage per mob, and drop loot for any it kills. Returns true if a mob died.
+     * (The melee version is gone: every bot swing goes through strike / attackPacket, whose melee packet is checked
+     * against the client's ranges.)
      */
-    public static boolean meleeStrike(Character bot, Map<Monster, List<Integer>> hits, int skillId,
-                                      int skillLevel, int bodyActionId, int facingMask, int speed, short hitDelay) {
-        if (notReady(bot, hits)) {
-            return false;
-        }
-        Packet packet = BotAttackPackets.closeRangeAttack(bot, skillId, skillLevel, facingMask,
-                numAttackedAndDamage(hits), toTargets(hits, hitDelay), speed, bodyActionId, 0);
-        return broadcastAndApply(bot, packet, hits, hitDelay);
-    }
-
-    /* Ranged version (bow/crossbow/gun/claw): like melee, plus the flying projectile. */
     public static boolean rangedStrike(Character bot, Map<Monster, List<Integer>> hits, int skillId,
                                        int skillLevel, int projectile, int bodyActionId, int facingMask,
                                        int speed, short hitDelay) {
@@ -98,13 +80,14 @@ public final class BotAttackEffects {
     /*
      * The attack packet a swing plan sends (ticket 32): the plan's route, skill, level, pose, facing and attack speed,
      * the projectile for a shot from a shooting weapon (a pole-arm / knuckle shot carries none), and each mob's lines.
-     * Pure apart from the attacker's id, so BotAttackClientValidityTest checks the exact bytes a viewer gets.
+     * Pure apart from the attacker's id, so BotAttackClientValidityTest checks the exact bytes a viewer gets. Null
+     * only for a melee attack whose weapon has no pose a viewer finds a range for (BotAttackPackets).
      */
     public static Packet attackPacket(Character bot, BotSwingPlan plan, Map<Integer, AttackTarget> targets,
                                       int numAttackedAndDamage, int projectile) {
         return switch (plan.route()) {
-            case CLOSE -> BotAttackPackets.closeRangeAttack(bot, plan.skillId(), plan.skillLevel(), plan.facingMask(),
-                    numAttackedAndDamage, targets, plan.speed(), plan.action(), 0);
+            case CLOSE -> BotAttackPackets.closeRangeAttack(bot, plan.weaponItemId(), plan.skillId(), plan.skillLevel(),
+                    plan.facingMask(), numAttackedAndDamage, targets, plan.speed(), plan.action(), 0);
             case RANGED -> BotAttackPackets.rangedAttack(bot, plan.skillId(), plan.skillLevel(), plan.facingMask(),
                     numAttackedAndDamage, projectile, targets, plan.speed(), plan.action(), 0);
             case MAGIC -> BotAttackPackets.magicAttack(bot, plan.skillId(), plan.skillLevel(), plan.facingMask(),
@@ -211,7 +194,9 @@ public final class BotAttackEffects {
     /* Broadcast once, then apply each mob's summed damage + loot. True if any mob died. */
     private static boolean broadcastAndApply(Character bot, Packet packet,
                                              Map<Monster, List<Integer>> hits, short hitDelay) {
-        bot.getMap().broadcastMessage(bot, packet, /* repeatToSource */ false);
+        if (packet != null) {
+            bot.getMap().broadcastMessage(bot, packet, /* repeatToSource */ false);
+        }
         GCMovement.markAlerted(bot); // hold the 5s ALERT pose so the bot's own idle/move broadcasts don't cancel it
         boolean anyKilled = false;
         for (Map.Entry<Monster, List<Integer>> hit : hits.entrySet()) {

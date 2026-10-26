@@ -144,7 +144,7 @@ public final class BotFlavor {
         BotBuffEffects.showBuff(chr, skillId);
     }
 
-    // Swing one of the bot's job attack skills at the air (Brandish, an AoE, a spell cast). No targets,
+    // Swing one of the bot's job attack skills at the air (Brandish, an AoE, a shot, a spell cast). No targets,
     // no damage. markAlerted keeps the pose from being cancelled by the next idle-refresh packet.
     private static void doSkillSwing(Character chr) {
         WeaponType weapon = BotAttack.resolveEquippedWeaponType(chr);
@@ -156,14 +156,8 @@ public final class BotFlavor {
             BotAttack.basicSwing(chr);
             return;
         }
-        int skillId = profile.skillId;
-        if (profile.route == BotAttackProfile.Route.MAGIC) {
-            BotAttack.magicSwing(chr, skillId);
-        } else {
-            // CLOSE and RANGED both render through the close-range pose path; skillSwing falls back to
-            // a plain weapon swing when the skill id is 0.
-            BotAttack.skillSwing(chr, skillId);
-        }
+        // the attack goes out as the bot's real one would: its route (a shot, a spell, a swing), pose and speed
+        BotAttack.skillSwing(chr, profile);
     }
 
     private static BotAttackProfile pickProfile(BotAttackConfig.JobAttacks atk) {

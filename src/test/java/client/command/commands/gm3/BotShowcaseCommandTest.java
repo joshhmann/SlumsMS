@@ -23,7 +23,7 @@ class BotShowcaseCommandTest {
         assertEquals(List.of(Job.ARAN4, Job.BUCCANEER), r.jobs());
         assertEquals(10, r.minutes());
         assertEquals(30, BotShowcaseCommand.parse(new String[]{"pirates", "99"}).minutes());
-        assertEquals(4, BotShowcaseCommand.parse(new String[]{"pirates"}).jobs().size());
+        assertEquals(6, BotShowcaseCommand.parse(new String[]{"pirates"}).jobs().size());
     }
 
     @Test

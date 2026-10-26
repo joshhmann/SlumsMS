@@ -92,9 +92,21 @@ T<n>(t, wt, action, pSkill, slv):               // the same shape for all three 
 
 | route | function | drop |
 |---|---|---|
-| melee `0xBA` | `0x00980C90` | The weapon has no Character.wz `afterImage`: `0x00936F34` returns an empty path and no hit is drawn. The pose and skill effect were already shown. |
+| melee `0xBA` | `0x00980C90` | The weapon has no Character.wz `afterImage`: `0x00936F34` returns an empty path and no hit is drawn. The pose and skill effect were already shown. A pose with no range **closes the viewer's client** (below). |
 | shoot `0xBB` | `0x00981211` | A shot from a weapon that is not a bow, crossbow, claw or gun (`0x008C470D`), unless the skill is a pole-arm/knuckle/sword shot (`0x0076681D`: Taunts, Energy Orb, Soul Blade, Spark, Shark Wave, Combo Smash/Fenrir/Tempest). Nothing is drawn. |
 | magic `0xBC` | `0x0098250D` | No skill, or a skill the client does not have. Nothing is drawn. |
+
+#### Melee range: a missing one closes the client (1.6.0)
+
+`CUserRemote::OnMeleeAttack` needs the attack's range before it draws the hits:
+
+- the skill level's `lt`/`rb` when it has a non-empty one (`0x00980D3C`; a MapleRoot `common` lt/rb counts for every level);
+- otherwise `CActionMan::GetMeleeAttackRange` (`0x00414440`) for the pose. Savage (55) has a hard-coded range; Blast (1221009) looks up stabO2 (`0x00980DAB`). Every other pose is read from a table of 162 slots (`GetWeaponAfterImage` `0x0040AC78`), filled by name only for the poses whose node has an `lt`/`rb`:
+  - the skill's own `afterimage/<weapon afterImage>` when the skill has an `afterimage` node (Double Uppercut, Backspin, the Aran combo hits, ...; `0x00936F34` builds `<skill afterimage>/<weapon afterImage>`);
+  - else `Character/Afterimage/<weapon afterImage>.img/<level>`. A gun has swingT1-3 and proneStab, a bow swingT1/T3, a crossbow swingT1/stabT1, a knuckle stabO1/O2, a claw (afterImage swordOL) the one-handed swings and stabs.
+- A slot with no data fails ZtlSecure's checksum (`0x00416563`), the ZException leaves packet processing, and the session ends without a dialog. So does any pose when the image (or the skill's node for that afterimage) does not exist: the table is created empty. The repeated codes 24-26 and 28-30 are never filled.
+- Seen on TEST 2026-10-26: a gunslinger bot's idle show-off swing sent Double Shot (5001003, doublefire 86) as melee with a gun. The client's `meleerange.cpp` (client branch `client-160-meleerange`) now catches the throw; the server never sends it either (`BotMeleeRange`, guarded in `BotAttackPackets.closeRangeAttack`).
+- `client_attack_fixture.py` writes the data as `R` (skill levels with a range), `J` (a skill's own afterimage ranges) and `I` (each afterimage image's poses with a range) rows; `src/main/resources/soloMapling/bot-melee-ranges.tsv` is the same rows for the server.
 
 - For all routes, the attacker's current pose must have frames (`+0x4F0`). After `CheckAttackAction` it always does.
 - **Medium confidence:** counts are not checked. The shot drawing loops over the skill's `bulletCount` (×2 under Shadow Partner) and spreads the lines over the bullets. Extra lines are still drawn, so wrong counts change the look but are not dropped.

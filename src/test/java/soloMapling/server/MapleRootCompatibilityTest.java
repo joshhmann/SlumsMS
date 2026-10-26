@@ -21,8 +21,8 @@ class MapleRootCompatibilityTest {
         var lines = List.of(12, 34, 56);
         var legacy = Map.of(99, lines);
         var targets = Map.of(99, new BotAttackPackets.AttackTarget((short) 50, lines));
-        assertArrayEquals(PacketCreator.closeRangeAttack(chr, 1121008, 30, 0, 0x13, legacy, 4, 1, 0).getBytes(),
-                BotAttackPackets.closeRangeAttack(chr, 1121008, 30, 0, 0x13, targets, 4, 1, 0).getBytes());
+        assertArrayEquals(PacketCreator.closeRangeAttack(chr, 1121008, 30, 0, 0x13, legacy, 4, 63, 0).getBytes(),
+                BotAttackPackets.closeRangeAttack(chr, 1302000, 1121008, 30, 0, 0x13, targets, 4, 63, 0).getBytes());
         assertArrayEquals(PacketCreator.rangedAttack(chr, 4121007, 30, 0, 0x13, 2070000, legacy, 4, 1, 0).getBytes(),
                 BotAttackPackets.rangedAttack(chr, 4121007, 30, 0, 0x13, 2070000, targets, 4, 1, 0).getBytes());
         assertArrayEquals(PacketCreator.magicAttack(chr, 2121001, 30, 0, 0x13, legacy, -1, 4, 1, 0).getBytes(),
