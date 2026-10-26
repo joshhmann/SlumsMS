@@ -89,6 +89,7 @@ class FakeQaWorld implements QaWorld {
         return ids;
     }
 
+    @Override public String partyBots(List<Integer> botIds) { calls.add("party " + botIds); return "party 1: fake"; }
     @Override public void despawnBot(int botId) { despawned.add(botId); calls.add("despawn " + botId); }
 
     @Override public String openPlayerShop(Character gm, String description, List<int[]> stock) {

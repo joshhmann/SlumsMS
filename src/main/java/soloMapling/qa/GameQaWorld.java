@@ -526,6 +526,31 @@ final class GameQaWorld implements QaWorld {
     }
 
     @Override
+    public String partyBots(List<Integer> botIds) {
+        List<Character> bots = new ArrayList<>();
+        for (int id : botIds) {
+            Character c = BotHelpers.getCharFromChannelStorage(id);
+            if (c != null) {
+                bots.add(c);
+            }
+        }
+        if (bots.size() < 2) {
+            return "needs two bots in the world";
+        }
+        Character lead = bots.get(0);
+        if (lead.getParty() == null && !net.server.world.Party.createParty(lead, true) || lead.getParty() == null) {
+            return "the party could not be formed";
+        }
+        StringBuilder names = new StringBuilder(lead.getName());
+        for (Character c : bots.subList(1, bots.size())) {
+            if (c.getParty() == null && net.server.world.Party.joinParty(c, lead.getParty().getId(), true)) {
+                names.append(" + ").append(c.getName());
+            }
+        }
+        return "party " + lead.getParty().getId() + ": " + names;
+    }
+
+    @Override
     public void despawnBot(int botId) {
         Character bot = BotHelpers.getCharFromChannelStorage(botId);
         if (bot == null) {

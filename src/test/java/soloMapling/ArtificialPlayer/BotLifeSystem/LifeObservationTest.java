@@ -8,6 +8,8 @@ import org.mockito.MockedStatic;
 import server.maps.MapleMap;
 import soloMapling.ArtificialPlayer.BotAffinitySystem.AffinityState;
 import soloMapling.ArtificialPlayer.BotAffinitySystem.BotAffinity;
+import soloMapling.ArtificialPlayer.BotAffinitySystem.BotBonds;
+import soloMapling.ArtificialPlayer.BotAffinitySystem.BondStore;
 import soloMapling.ArtificialPlayer.BotPopulationDirector;
 import soloMapling.ArtificialPlayer.BotRoster;
 import soloMapling.ArtificialPlayer.BotStore;
@@ -64,6 +66,28 @@ class LifeObservationTest {
                 verify(fixture.bot, never()).requestRestockTrip();
             }
         });
+    }
+
+    @Test
+    void bondedBotsOnTheMapCountAsFriendsAndRivalsAndOtherBotsAreNotStrangers() {
+        // 1.6.0 S2 (audit finding 4): before, only real players counted, so a crew of bots never pulled HANG_OUT
+        int friend = BotStore.BOT_ID_BASE + 9001, rival = BotStore.BOT_ID_BASE + 9002, stranger = BotStore.BOT_ID_BASE + 9003;
+        BotBonds.useForTest(new BondStore.Memory(), Runnable::run, () -> NOW, id -> new double[]{.25, .25},
+                (id, p) -> { }, id -> null);
+        try {
+            BotBonds.stage(ID, friend, AffinityState.FRIEND);
+            BotBonds.stage(ID, rival, AffinityState.RIVAL);
+            withFixture(null, fixture -> {
+                List<Character> here = List.of(fixture.chr, person(friend), person(rival), person(stranger));
+                when(fixture.map.getAllPlayers()).thenReturn(here);
+                var report = LifeObservation.capture(fixture.bot, NOW);
+                assertEquals(1, report.context().friends());
+                assertEquals(1, report.context().rivals());
+                assertEquals(0, report.context().strangers());
+            });
+        } finally {
+            BotBonds.useForTest(null, null, null, null, null, null);
+        }
     }
 
     @Test

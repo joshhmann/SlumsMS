@@ -5,6 +5,7 @@ import client.inventory.InventoryType;
 import client.inventory.Item;
 import soloMapling.ArtificialPlayer.BotAffinitySystem.AffinityState;
 import soloMapling.ArtificialPlayer.BotAffinitySystem.BotAffinity;
+import soloMapling.ArtificialPlayer.BotAffinitySystem.BotBonds;
 import soloMapling.ArtificialPlayer.BotHelpers;
 import soloMapling.ArtificialPlayer.BotPopulationDirector;
 import soloMapling.ArtificialPlayer.BotRoster;
@@ -117,6 +118,13 @@ public final class LifeObservation {
             if (++sampled > LOCAL_SAMPLE_LIMIT) {
                 unknown.add("local sample truncated at " + LOCAL_SAMPLE_LIMIT);
                 break;
+            }
+            if (other != chr && other.getId() >= BotStore.BOT_ID_BASE) {
+                // 1.6.0 S2: bots this bot has bonded with count too (audit finding 4); other bots are not strangers
+                AffinityState bond = BotBonds.state(chr.getId(), other.getId());
+                if (bond == AffinityState.FRIEND) counts[0]++;
+                else if (bond.hostile()) counts[2]++;
+                continue;
             }
             if (!BotHelpers.isVisibleRealPlayer(other)) continue;
             if (!BotAffinity.loaded(other.getId())) {

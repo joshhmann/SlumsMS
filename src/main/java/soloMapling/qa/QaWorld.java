@@ -160,6 +160,14 @@ public interface QaWorld {
      */
     int stageAffinityBot(Character gm, String state, boolean training);
 
+    /**
+     * 1.6.0 S2 (bb-3): puts these bots in one new party (the first creates it, the rest join through the normal party
+     * join, so its hooks run). A line saying what happened.
+     */
+    default String partyBots(List<Integer> botIds) {
+        return "parties are not available here";
+    }
+
     /** Takes a staged affinity bot away and forgets its ties. */
     void unstageAffinityBot(int botId);
 

@@ -99,6 +99,8 @@ public final class QaMenuCatalog {
         section("Social gate (1.6.0)");
         add("sg-1", v(), steps("try", "loud", "quiet"));
         add("sg-2", v(), steps("check", "taunt", "ks", "roast", "fresh"));
+        section("Bot bonds (1.6.0)");
+        add("bb-3", v(), steps("fast", "check"), "fast <minutes>");
 
         // ── Evening 2: economy ──
         eveningNo = 2;

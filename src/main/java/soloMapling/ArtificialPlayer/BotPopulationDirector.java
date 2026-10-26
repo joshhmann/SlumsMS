@@ -366,6 +366,7 @@ public final class BotPopulationDirector {
             BotGossip.maybeStep(now);
             BotWorldGossip.maybeStep(now); // ticket 85: bots bring up boss kills, weddings and big drops
             soloMapling.ArtificialPlayer.BotPartySystem.BotPartyChat.maybeStep(now); // ticket 85: bot-only parties chat
+            soloMapling.ArtificialPlayer.BotAffinitySystem.BotBonds.maybeStep(now); // 1.6.0 S2: bot-to-bot bonds
             soloMapling.ArtificialPlayer.BotCoupleSystem.BotCouples.maybeStep(now); // ticket 58: a handful of couples
             soloMapling.ArtificialPlayer.BotGuildSystem.BotGuilds.maybeStep(now); // 1.5.0: bot guilds
             soloMapling.ArtificialPlayer.BotDramaSystem.BotDrama.maybeStep(now); // 1.5.0: bot drama (romance, rivals, wars)

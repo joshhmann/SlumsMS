@@ -74,6 +74,10 @@ public final class AffinityHooks {
             return;
         }
         for (Character other : members) {
+            if (other != null && other.getId() != joiner.getId() && bot(other) && bot(joiner)) {
+                BotBonds.onPartyJoin(joiner, other); // 1.6.0 S2: two bots in one party bond
+                continue;
+            }
             if (other == null || other.getId() == joiner.getId() || bot(other) == bot(joiner)) {
                 continue;
             }
@@ -89,6 +93,8 @@ public final class AffinityHooks {
     public static void onBuff(Character from, Character to, boolean heal) {
         if (bot(to) && realLoaded(from)) {
             BotAffinity.record(to, from, heal ? AffinityEvent.HEAL : AffinityEvent.BUFF);
+        } else if (bot(to) && bot(from) && from.getId() != to.getId()) {
+            BotBonds.onBuff(from, to); // 1.6.0 S2: a bot buffed another bot
         }
     }
 
@@ -233,6 +239,10 @@ public final class AffinityHooks {
 
     /** A trade went through. A side that gave something while the other gave nothing made a gift. */
     public static void onTrade(Character a, List<Item> aItems, int aMeso, Character b, List<Item> bItems, int bMeso) {
+        if (a != null && b != null && bot(a) && bot(b)) { // 1.6.0 S2: a trade (or a gift) between two bots
+            BotBonds.onTrade(a, !aItems.isEmpty() || aMeso > 0, b, !bItems.isEmpty() || bMeso > 0);
+            return;
+        }
         if (a == null || b == null || bot(a) == bot(b)) {
             return;
         }

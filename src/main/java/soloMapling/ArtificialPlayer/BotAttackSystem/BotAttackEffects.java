@@ -230,6 +230,8 @@ public final class BotAttackEffects {
     private static boolean applyDamageAndLoot(Character bot, Monster target, int damage, short hitDelay) {
         MapleMap map = bot.getMap();
 
+        soloMapling.server.MapleRootSolo.runHook("bond ks", () ->   // 1.6.0 S2: a bot took another bot's mob
+                soloMapling.ArtificialPlayer.BotAffinitySystem.BotBonds.beforeBotHit(bot, target));
         boolean killed = target.damage(bot, damage, false); // register damage; false = allow death
         if (killed) {
             // withDrops=false: keep the EXP distribution + death broadcast, skip the
