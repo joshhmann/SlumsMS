@@ -63,6 +63,37 @@ class StageSpotsTest {
         assertEquals(gm, StageSpots.pick(gm, List.of(), new Random(1), (x, y) -> null));
     }
 
+    /** HHG2 at the GM's (395, -1045): the platform 231-450 at -1045 and a ledge 51-219 at -985, 60 px lower. */
+    static Point hhg2(int x, int y) {
+        if (x >= 231 && x <= 450) {
+            return new Point(x, -1045);
+        }
+        return x >= 51 && x <= 219 ? new Point(x, -985) : null;
+    }
+
+    @Test
+    void theSecondOfACoupleLandsAtTheFirstsHeightNotOnTheLedgeBelow() {
+        // TEST t-cu-1: the second bot landed on the ledge 60 px below (MAX_DY 90 allows it), never reached the spot
+        // beside the first and the couple never sat
+        Point first = new Point(292, -1045);
+        for (int seed = 0; seed < 200; seed++) {
+            Point p = StageSpots.pickLevel(first, List.of(first), new Random(new Random(seed).nextLong()), StageSpotsTest::hhg2);
+            assertEquals(-1045, p.y, "seed " + seed + ": " + p);
+        }
+        boolean ledge = false;
+        for (int seed = 0; seed < 200 && !ledge; seed++) {
+            ledge = StageSpots.pick(first, List.of(first), new Random(new Random(seed).nextLong()), StageSpotsTest::hhg2).y == -985;
+        }
+        assertTrue(ledge, "the plain pick still may use the ledge (the case pickLevel avoids)");
+    }
+
+    @Test
+    void noLevelGroundFallsBackToThePlainPick() {
+        Point first = new Point(1000, 300);
+        Point p = StageSpots.pickLevel(first, List.of(first), new Random(3), (x, y) -> new Point(x, 360));
+        assertEquals(360, p.y, "a lower floor in reach is still better than the first bot's own spot");
+    }
+
     @Test
     void everyMultiBotStagingUsesIt() throws Exception {
         for (String f : List.of("BotAffinitySystem/AffinityStaging.java", "BotDramaSystem/DramaStaging.java",

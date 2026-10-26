@@ -39,7 +39,7 @@ public final class CoupleStaging {
             // rc6 (QA t-pb-1): spread near the GM on the ground (was a row 40 px apart); the second near the first
             Character firstBot = first == null ? null : BotHelpers.getCharFromChannelStorage(first);
             Point at = firstBot == null ? soloMapling.ArtificialPlayer.StageSpots.nearGm(gm)
-                    : soloMapling.ArtificialPlayer.StageSpots.near(gm.getMap(), firstBot.getPosition());
+                    : soloMapling.ArtificialPlayer.StageSpots.nearLevel(gm.getMap(), firstBot.getPosition()); // same height
             int id = BotGeneration.createBot(BotStore.nextDynamicSlots(1), at, gm.getMap());
             Character bot = id > 0 ? BotHelpers.getCharFromChannelStorage(id) : null;
             if (bot == null) {
