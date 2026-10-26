@@ -116,6 +116,7 @@ public final class BotEpisodes {
             return;
         }
         Episode e = ofClear(clear);
+        Reputation.witnessed(botCharId, playerId, Reputation.Mark.PQ, now); // 1.6.0 S4: "pqs with us a lot"
         writer.execute(() -> {
             try {
                 BotMemory.episode(slot(botCharId), playerId, e.kind(), e.text(), e.weight(), "", now);

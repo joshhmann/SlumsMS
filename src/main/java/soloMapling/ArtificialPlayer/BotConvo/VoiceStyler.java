@@ -9,8 +9,8 @@ import java.util.Set;
 
 /**
  * Ticket 59, owner decision 3: a light post-processor that makes every bot line (LLM, bank or scripted) read in the
- * bot's own voice ({@link ConvoPersona.Voice}): casing, abbreviations, the voice's laugh, a catchphrase now and then,
- * and typos at the persona's rate. It never touches a protected word (a price, a map key word, a name), never adds
+ * bot's own voice ({@link ConvoPersona.Voice}): casing, abbreviations, the voice's laugh, now and then a catchphrase
+ * that opens the line (never one glued onto its end, 1.6.0 S4), and typos at the persona's rate. It never touches a protected word (a price, a map key word, a name), never adds
  * length past the chat limit, and is deterministic per bot and line, so the same line always comes out the same.
  */
 public final class VoiceStyler {
@@ -70,14 +70,61 @@ public final class VoiceStyler {
             case TERSE -> terse(line);
         };
         out = typo(out, persona.typoRate(), keep, rng);
-        if (!persona.catchphrases().isEmpty() && rng.nextDouble() < 0.06 + persona.chattiness() * 0.08) {
-            String phrase = persona.catchphrases().get(rng.nextInt(persona.catchphrases().size()));
-            String joined = out + " " + (persona.voice() == ConvoPersona.Voice.PROPER ? phrase : phrase.toLowerCase(Locale.ROOT));
-            if (joined.length() <= MAX && !out.toLowerCase(Locale.ROOT).contains(phrase.toLowerCase(Locale.ROOT))) {
-                out = joined;
-            }
+        // 1.6.0 S4: no catchphrase glued onto the end ("...I'm just standing in Henesys Not bad." was a tell); a short
+        // reaction may open the line now and then, and catchphrases are otherwise whole lines (catchphraseLine)
+        String opener = opener(persona, out, rng);
+        if (opener != null) {
+            out = opener + " " + out;
         }
         return out.length() > MAX ? line : out;
+    }
+
+    /** The catchphrases that read naturally in front of a line ("lol ya ...", "Fair enough. ..."). */
+    static final Set<String> OPENERS = Set.of("lol ya", "lol", "lmao", "ya ya", "rip", "Fair enough.", "Indeed.",
+            "Haha, nice.", "xD", "lolz", "roflmao", "kekeke", "hehe ^^", "ok ok", "jaja", "jajaja", "k", "ya", "ok",
+            "sure", "nah");
+
+    /** How often a line opens with one of the persona's catchphrases: 1.5% plus up to 2% more for a chatty bot. */
+    static double openerRate(ConvoPersona persona) {
+        return 0.015 + 0.02 * Math.max(0, Math.min(1, persona.chattiness()));
+    }
+
+    /**
+     * A catchphrase to open this line with, or null (most lines): only one that reads as a reaction in front of a
+     * sentence, never one the line already has, and never past the chat limit.
+     */
+    static String opener(ConvoPersona persona, String styled, Random rng) {
+        if (persona.catchphrases().isEmpty() || rng.nextDouble() >= openerRate(persona)) {
+            return null;
+        }
+        String phrase = persona.catchphrases().get(rng.nextInt(persona.catchphrases().size()));
+        if (!OPENERS.contains(phrase)) {
+            return null;
+        }
+        String said = persona.voice() == ConvoPersona.Voice.PROPER ? phrase : phrase.toLowerCase(Locale.ROOT);
+        String lower = styled.toLowerCase(Locale.ROOT);
+        String bare = said.toLowerCase(Locale.ROOT).replaceAll("[.,!^ ]+$", "");
+        if (lower.startsWith(bare) || lower.contains(bare + " ") || lower.endsWith(bare)
+                || styled.length() + said.length() + 1 > MAX) {
+            return null;
+        }
+        return said;
+    }
+
+    /**
+     * A catchphrase as a whole line of its own (a reaction in a thread, "Fair enough." / "kekeke"), or null: at most
+     * {@code chance} of the time. Deterministic per bot and {@code seed}.
+     */
+    public static String catchphraseLine(ConvoPersona persona, int botSlot, long seed, double chance) {
+        if (persona == null || persona.catchphrases().isEmpty() || !ConvoSwitches.on("styler")) {
+            return null;
+        }
+        Random rng = new Random(botSlot * 1_000_003L + seed);
+        if (rng.nextDouble() >= chance) {
+            return null;
+        }
+        String phrase = persona.catchphrases().get(rng.nextInt(persona.catchphrases().size()));
+        return persona.voice() == ConvoPersona.Voice.PROPER ? phrase : phrase.toLowerCase(Locale.ROOT);
     }
 
     private static String words(String line, Map<String, String> table, Set<String> keep, Random rng, double chance) {

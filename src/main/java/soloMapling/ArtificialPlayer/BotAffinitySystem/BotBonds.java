@@ -211,10 +211,12 @@ public final class BotBonds {
             snapshot = bond.snapshot();
         }
         dirtyBots.add(botId);
+        soloMapling.ArtificialPlayer.Reputation.onBond(botId, otherId, event, now); // 1.6.0 S4: a KS, gift or PQ counts
         if (before != after) {
             crewCache.remove(botId);
             crewCache.remove(otherId);
             onStateChange(botId, otherId, before, after, event, snapshot);
+            soloMapling.ArtificialPlayer.Reputation.onBondState(botId, otherId, after, event, now); // S4 bond drama
         }
         return true;
     }

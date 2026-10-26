@@ -818,6 +818,18 @@ public final class AutoQaCatalog {
                         has("MEMORY EPISODE SCAM bot \\d+ -> \\d+: \"scammed me on a trade: my "),
                         has("ME2 CHECK bot \\d+ -> \\S+: .*started it yes; scam memory yes"))
                 .build());
+        // 1.6.0 S4, grounded gossip: a staged KS by the player on bot A is told by A's crew mate B to a stranger, with
+        // the real names (the player's and A's), allowed in front of the player because they wronged B's crew (gs-1)
+        c.add(Check.auto("t-gs-1", "A KS on a bot becomes true gossip from its crew mate").minutes(2)
+                .step(run("gs-1"), waitFor("GS1 (PASS|FAIL) ", 30), waitFor("THREAD LINE \\[bank\\] ", 30), stop())
+                .expect(has("GS1 STAGED A=.* B=.* C=.*crew yes"),
+                        has("GS1 KS {me} -> bot \\d+"),
+                        has("GS1 KNOWS B bot \\d+ about {me}: ks [1-9]"),
+                        has("GS1 FACT ks: {me} ksed \\S+; .*guard clean"),
+                        has("SOCIAL_GATE YES gossip \\S+ -> {me}: crew side-eye"),
+                        has("(?i)THREAD LINE \\[bank\\] \\S+: .*{me}"),
+                        has("GS1 PASS "), lacks("GS1 FAIL "), lacks("NAMEGUARD "))
+                .build());
         return List.copyOf(c);
     }
 

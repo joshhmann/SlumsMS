@@ -285,4 +285,20 @@ class AutoQaCatalogPatternTest {
         List<Check.Verdict> v = eval("t-cu-2", "COUPLE SIT Other1 + Other2 on chair 3010000");
         v.forEach(x -> assertEquals(Check.Status.FAIL, x.status(), x.toString()));
     }
+    @Test
+    void gs1PassesOnTheLinesTheScenarioAndTheThreadWrite() throws Exception {
+        String[] lines = {
+                "GS1 GS1 STAGED A=Nayrb (1000000001) B=Kimchi (1000000002) C=Bob (1000000003); Nayrb -> Kimchi: friend 30; Kimchi -> Nayrb: friend 30; crew yes",
+                "GS1 GS1 KS AutoQaOne -> bot 1000000001 (affinity event)",
+                "GS1 GS1 KNOWS B bot 1000000002 about AutoQaOne: ks 1.0, wary no, gossip in front yes",
+                "SOCIAL_GATE YES gossip Kimchi -> AutoQaOne: crew side-eye: they wronged crew mate 1000000001",
+                "GS1 GS1 FACT ks: AutoQaOne ksed Nayrb; opener \"did u hear AutoQaOne ksed Nayrb\"; names [AutoQaOne, Nayrb]; guard clean",
+                "GS1 GS1 PASS Kimchi tells Bob that AutoQaOne KS'd Nayrb (bank)",
+                "CONVO THREAD LINE [bank] Kimchi: did u hear autoqaone ksed nayrb"};
+        List<Check.Verdict> v = eval("t-gs-1", lines);
+        v.forEach(x -> assertEquals(Check.Status.PASS, x.status(), x.toString()));
+        String[] guarded = java.util.Arrays.copyOf(lines, lines.length + 1);
+        guarded[lines.length] = "CONVO NAMEGUARD REWRITE Bob: \"lol xxslayerxx did that too\" names [xxslayerxx] -> \"lol some guy did that too\"";
+        assertEquals(Check.Status.FAIL, eval("t-gs-1", guarded).getLast().status(), "a made-up name in the thread fails it");
+    }
 }
