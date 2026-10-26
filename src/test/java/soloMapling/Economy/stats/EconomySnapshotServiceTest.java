@@ -87,8 +87,10 @@ class EconomySnapshotServiceTest {
         String publicJson = Files.readString(publicFile);
 
         // Public JSON must NOT contain character IDs or any player names
-        assertFalse(publicJson.contains("101"), "Public JSON must not contain character ID 101");
-        assertFalse(publicJson.contains("102"), "Public JSON must not contain character ID 102");
+        assertFalse(java.util.regex.Pattern.compile("(?<![0-9])101(?![0-9])").matcher(publicJson).find(), // a whole number, not a timestamp digit run
+                 "Public JSON must not contain character ID 101");
+        assertFalse(java.util.regex.Pattern.compile("(?<![0-9])102(?![0-9])").matcher(publicJson).find(), // a whole number, not a timestamp digit run
+                 "Public JSON must not contain character ID 102");
         assertFalse(publicJson.contains("1000000001"), "Public JSON must not contain bot ID 1000000001");
         assertFalse(publicJson.contains("topHolders"), "Public JSON must not contain topHolders");
 
