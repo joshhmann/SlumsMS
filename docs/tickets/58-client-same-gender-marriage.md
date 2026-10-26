@@ -7,9 +7,13 @@ longer works out the partner's token from gender. Nothing below has been run on 
 ## What the server sends, and where gender still appears
 
 - `WeddingPackets.OnMarriageResult` (opcode MARRIAGE_RESULT, mode 11) writes "groom id, bride id, groom name, bride
-  name". It orders the pair as before: a male character first, else the partner first. For two men or two women the
-  order is still stable (both partners get the same packet built from the proposer), it just no longer means
-  "male, female".
+  name". It is built **per recipient**: `RingActionHandler` sends the proposer (source) a packet built from the source
+  and the accepter (target) one built from the target (`OnMarriageResult(marriageId, source, false)` /
+  `(marriageId, target, false)`; a bot partner's engagement in `BotRomance` sends the player one built from the
+  player). Each packet puts its own character first when that character is male, else the partner first. For a mixed
+  pair both packets come out the same (the man first). For two men each one receives itself first; for two women each
+  one receives its partner first. So the two clients do not get the same order, and neither order means "male,
+  female".
 - The wedding event scripts (`WeddingChapel.js`, `WeddingCathedral.js`, `sendWeddingAction`) send
   `Wedding.OnWeddingProgress(step, groomId, brideId)` with the reserving player as "groom". Server side this is only
   ids; any pair works.
