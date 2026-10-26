@@ -54,7 +54,7 @@ final class FollowerFight {
         Monster best = null;
         double bestSq = Double.MAX_VALUE;
         for (Monster m : map.getAllMonsters()) {
-            if (m == null || !m.isAlive() || m.getPosition() == null) {
+            if (m == null || !m.isAlive() || m.getPosition() == null || !BotAttackDriver.botMayTarget(m)) {
                 continue;
             }
             double d = at.distanceSq(m.getPosition());
