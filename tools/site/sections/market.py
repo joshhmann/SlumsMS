@@ -1,4 +1,5 @@
-"""Market (Basil Market): prices with history, FM listings now, recent sales, the NX rate and a few economy numbers.
+"""Market (the Slums Market, after the old Basil Market): prices with history, FM listings now, recent sales,
+the NX rate and a few economy numbers.
 Private until 1.6.0 is live: build.py only runs it with --private.
 
 Data: the server's PublicMarketExport files (docs/design/track-d-plan.md, "Market export contract"), or until those
@@ -258,7 +259,7 @@ class Market:
                  ("nx.html", "NX rate", "nx"), ("economy.html", "Economy", "economy")]
         lis = "".join(f'<li><a href="{root}{MARKET}/{h}"{" aria-current=page" if k == here else ""}>{esc(t)}</a></li>'
                       for h, t, k in links)
-        return (f'<nav class="panel dbside" aria-label="Market"><p class="bar">Basil Market</p><ul class="mk">{lis}</ul>'
+        return (f'<nav class="panel dbside" aria-label="Market"><p class="bar">Slums Market</p><ul class="mk">{lis}</ul>'
                 f'<div class="in">{self.nx_card(root)}</div></nav>')
 
     def page(self, rel, title, body, here, description=""):
@@ -397,14 +398,14 @@ def build_home(mk, priced, econ):
     sales = m["sales"]["sales"][:10]
     srows = "".join(f'<li>{mk.icon(x["item_id"], "{root}")}<span>{esc(mk.name(x["item_id"]))}</span><b class="num">{mesos(x["price"])}</b>'
                     f'<span class="muted">{esc(when(x["hour"]).split(" (")[0])}</span></li>' for x in sales)
-    body = ('<h1>Basil Market</h1><p class="lede">What things really sell for on Bera: prices from finished trades and FM shop '
+    body = ('<h1>Slums Market</h1><p class="lede">What things really sell for on Bera: prices from finished trades and FM shop '
             'sales, the shops open right now, and the NX rate. Deals happen in game; whisper the seller or visit their shop.</p>'
             f'{mk.nx_card("{root}", wide=True)}'
             f'<div class="mkhome"><section class="panel"><h2 class="bar">Most traded <a href="{{root}}{MARKET}/prices/index.html">All prices &raquo;</a></h2>'
             f'<ul class="mklist">{rows}</ul></section>'
             f'<section class="panel"><h2 class="bar">Just sold <a href="{{root}}{MARKET}/sales.html">More &raquo;</a></h2><ul class="mklist">{srows}</ul></section></div>'
             f'<section class="panel"><h2 class="bar">Bera economy <a href="{{root}}{MARKET}/economy.html">More &raquo;</a></h2><dl class="stats">{econ}</dl></section>')
-    mk.page(f"{MARKET}/index.html", "Basil Market", body, "index", "Prices, FM shops and the NX rate on SlumsMS.")
+    mk.page(f"{MARKET}/index.html", "Slums Market", body, "index", "Prices, FM shops and the NX rate on SlumsMS.")
 
 
 def rail_lines(m, db, count=4):

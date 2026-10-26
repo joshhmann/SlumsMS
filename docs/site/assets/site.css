@@ -383,7 +383,7 @@ table.t { width: 100%; border-collapse: collapse; }
   .t.icons td:nth-child(2), .t.icons th:nth-child(2) { left: 48px; }
 }
 
-/* ── market (Basil Market): price pages, NX rate card, build-time charts ─────────────────────── */
+/* ── market (the Slums Market): price pages, NX rate card, build-time charts ─────────────────────── */
 .samplebar { margin: 0; padding: 8px 14px; border: var(--border) dashed var(--down); border-radius: 8px; color: var(--down); font-weight: 600; font-size: .88rem; }
 .dbside ul.mk { padding: 6px 0; }
 .nxcard { display: grid; gap: 2px; padding: 12px 14px; border-radius: 10px; background: var(--rail); color: var(--on-rail); text-decoration: none; }
