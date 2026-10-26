@@ -94,6 +94,8 @@ public final class BotThreads {
         final List<String> names;
         final Topic topic;
         final String about;
+        /** 1.6.0 S4: the true story a GOSSIP or TRAINING thread is about (null for the other topics). */
+        final soloMapling.ArtificialPlayer.BotGossip.Fact fact;
         volatile long endsAt;
         volatile int lastSpeakerId;
         /** For the routing log ("thread:<id>"). */
@@ -102,14 +104,15 @@ public final class BotThreads {
         /** When its last line went out (0 before the first). */
         volatile long lastLineAt;
 
-        Live(int channel, int mapId, List<Integer> botIds, List<String> names, Topic topic, String about, long endsAt,
-             int lastSpeakerId) {
+        Live(int channel, int mapId, List<Integer> botIds, List<String> names, Topic topic, String about,
+             soloMapling.ArtificialPlayer.BotGossip.Fact fact, long endsAt, int lastSpeakerId) {
             this.channel = channel;
             this.mapId = mapId;
             this.botIds = botIds;
             this.names = names;
             this.topic = topic;
             this.about = about;
+            this.fact = fact;
             this.endsAt = endsAt;
             this.lastSpeakerId = lastSpeakerId;
         }
@@ -233,6 +236,7 @@ public final class BotThreads {
             }
             List<Character> pair = pickPair(map, rng);
             if (pair != null && claim(k, now, gap)) {
+                pair = gossipFirst(pair);
                 run(map, channel, pair, null, now);
             }
         }
@@ -348,22 +352,31 @@ public final class BotThreads {
 
     /** The topic that fits two bots and the map: their guilds' war first, trade in the FM, LFG for PQ levels. */
     static Topic topicFor(int guildA, int guildB, int levelA, int levelB, int mapId, Random rng) {
+        return topicFor(guildA, guildB, levelA, levelB, mapId, 0.25, rng);
+    }
+
+    /**
+     * As {@link #topicFor(int, int, int, int, int, Random)}, for a pair whose mean Socializer share is {@code social}
+     * (1.6.0 S4, Bartle): Socializers gossip more - the gossip share is 25% at 0.25 and grows to about 40% at 0.6.
+     */
+    static Topic topicFor(int guildA, int guildB, int levelA, int levelB, int mapId, double social, Random rng) {
+        double gossip = Math.max(0.15, Math.min(0.45, 0.25 + 0.45 * (social - 0.25)));
         if (guildA > 0 && guildB > 0 && guildA != guildB
                 && "war".equals(soloMapling.ArtificialPlayer.BotDramaSystem.GuildWars.relation(guildA, guildB))) {
             return Topic.GUILD_BEEF;
         }
         if (mapId >= 910000000 && mapId <= 910000022) {
-            return rng.nextDouble() < 0.7 ? Topic.TRADE : Topic.GOSSIP;
+            return rng.nextDouble() < 1 - gossip * 1.2 ? Topic.TRADE : Topic.GOSSIP;
         }
         double r = rng.nextDouble();
         int level = Math.min(levelA, levelB);
         if (r < 0.35 && level >= 21 && level <= 70) {
             return Topic.LFG;
         }
-        if (r < 0.6) {
+        if (r < 0.35 + gossip) {
             return Topic.GOSSIP;
         }
-        if (r < 0.75) {
+        if (r < 0.5 + gossip) {
             return Topic.TRADE;
         }
         return Topic.TRAINING;
@@ -373,14 +386,25 @@ public final class BotThreads {
      * Runs one thread now (also the {@code !qa cv-5} door). Returns the topic, or empty when it could not start.
      */
     public static List<String> run(MapleMap map, int channel, List<Character> pair, Topic forced, long now) {
+        return run(map, channel, pair, forced, null, false, now);
+    }
+
+    /**
+     * {@code !qa gs-1}: a thread about a given true story ({@code fact}; null: grounded as usual), from the line bank
+     * only when {@code bankOnly} (a deterministic opener), else as the tick would (the model when it is free).
+     */
+    public static List<String> run(MapleMap map, int channel, List<Character> pair, Topic forced,
+                                   soloMapling.ArtificialPlayer.BotGossip.Fact given, boolean bankOnly, long now) {
         Character a = pair.get(0);
         Character b = pair.get(1);
         Random rng = ThreadLocalRandom.current();
         Topic topic = forced != null ? forced : topicFor(a.getGuildId(), b.getGuildId(), a.getLevel(), b.getLevel(),
-                map.getId(), rng);
-        String about = about(topic, a, b);
+                map.getId(), (social(a) + social(b)) / 2, rng);
+        soloMapling.ArtificialPlayer.BotGossip.Fact fact = given != null ? given
+                : ground(topic, a, b, map.getAllPlayers(), now, rng);
+        String about = fact != null ? fact.about() : about(topic, a, b);
         Live l = new Live(channel, map.getId(), List.of(a.getId(), b.getId()), List.of(a.getName(), b.getName()), topic,
-                about, now + TimeUnit.MINUTES.toMillis(2), a.getId());
+                about, fact, now + TimeUnit.MINUTES.toMillis(2), a.getId());
         l.startedAt = now;
         hold(l);
         lastThreadOf.put(a.getId(), l);
@@ -390,26 +414,101 @@ public final class BotThreads {
                         topic == Topic.GUILD_BEEF));
         qa(map.getId(), "THREAD " + a.getName() + " + " + b.getName() + " on " + map.getId() + ": " + topic.words
                 + (about == null ? "" : " (" + about + ")"));
-        if (BotBrains.get().isLive() && !ConvoSwitches.forceBank()) {
-            List<BotBrain.Turn> prompt = List.of(BotBrain.Turn.system(threadPrompt(a, b, topic, about, map.getMapName())),
-                    BotBrain.Turn.user("Write the lines now."));
+        if (fact != null) {
+            qa(map.getId(), "THREAD FACT " + fact.kind() + ": " + fact.about() + (fact.person() ? " names "
+                    + fact.names() : " (no people)"));
+        }
+        java.util.Set<String> allowed = soloMapling.ArtificialPlayer.BotGossip.allowedNames(fact, a.getName(), b.getName());
+        if (!bankOnly && BotBrains.get().isLive() && !ConvoSwitches.forceBank()) {
+            List<BotBrain.Turn> prompt = List.of(BotBrain.Turn.system(threadPrompt(a, b, topic, about, map.getMapName(),
+                            fact)), BotBrain.Turn.user("Write the lines now."));
             BotBrains.get().reply(Priority.THREAD, 0, prompt).thenAccept(r -> {
-                List<String[]> lines = r.map(x -> parse(x.text(), a.getName(), b.getName())).orElse(List.of());
+                List<String[]> lines = guard(r.map(x -> parse(x.text(), a.getName(), b.getName())).orElse(List.of()),
+                        allowed, l.mapId);
                 if (lines.size() < 2) {
-                    play(l, a, b, fallback(topic, a, b, rng), "bank");
+                    play(l, a, b, guard(fallback(topic, a, b, fact, rng), allowed, l.mapId), "bank");
                 } else {
                     play(l, a, b, lines, "llm");
                 }
             });
         } else {
-            play(l, a, b, fallback(topic, a, b, rng), "bank");
+            play(l, a, b, guard(fallback(topic, a, b, fact, rng), allowed, l.mapId), "bank");
         }
         return List.of(topic.words);
     }
 
+    /** A bot's Socializer share (Bartle, S1), 0.25 when unknown. */
+    static double social(Character c) {
+        try {
+            return soloMapling.ArtificialPlayer.BotLifeSystem.SocialSelf.of(c.getId()).socialPull();
+        } catch (RuntimeException | LinkageError e) {
+            return 0.25;
+        }
+    }
+
+    /**
+     * The more talkative of the two opens a gossip thread: with a 50/50 tick pick, the Socializer of a pair speaks
+     * first a little more often (its share against the other's).
+     */
+    static List<Character> gossipFirst(List<Character> pair) {
+        double sa = social(pair.get(0));
+        double sb = social(pair.get(1));
+        return ThreadLocalRandom.current().nextDouble() * (sa + sb) < sa || sa + sb <= 0 ? pair
+                : List.of(pair.get(1), pair.get(0));
+    }
+
+    /**
+     * 1.6.0 S4: the real story a GOSSIP or TRAINING thread is about ({@link soloMapling.ArtificialPlayer.BotGossip}:
+     * reputation, bond drama, world news; else a topic without people), or null for the other topics. {@code a} tells.
+     */
+    static soloMapling.ArtificialPlayer.BotGossip.Fact ground(Topic topic, Character a, Character b,
+                                                             java.util.Collection<Character> present, long now,
+                                                             Random rng) {
+        try {
+            return switch (topic) {
+                case GOSSIP -> soloMapling.ArtificialPlayer.BotGossip.factFor(a, b, present, now, rng);
+                case TRAINING -> soloMapling.ArtificialPlayer.BotGossip.trainingFor(a, b, rng);
+                default -> null;
+            };
+        } catch (RuntimeException | LinkageError e) {
+            log.debug("No gossip fact for {} and {}", a.getName(), b.getName(), e);
+            return null;
+        }
+    }
+
+    /**
+     * 1.6.0 S4 name guard: every line that names someone who is not a real character (the two speakers, the fact's
+     * people, anyone online or in the name registry) is rewritten without the name or dropped ({@link NameGuard}).
+     */
+    static List<String[]> guard(List<String[]> lines, java.util.Collection<String> allowed, int mapId) {
+        List<String[]> out = new ArrayList<>(lines.size());
+        for (String[] line : lines) {
+            NameGuard.Verdict v = NameGuard.check(line[1], allowed);
+            if (!v.clean()) {
+                qa(mapId, "NAMEGUARD " + (v.dropped() ? "DROP" : "REWRITE") + " " + line[0] + ": \"" + line[1]
+                        + "\" names " + v.unknown() + (v.dropped() ? "" : " -> \"" + v.line() + "\""));
+            }
+            if (!v.dropped()) {
+                out.add(new String[]{line[0], v.line()});
+            }
+        }
+        return out;
+    }
+
+    /**
+     * What a thread is about in a few words. GOSSIP and TRAINING (1.6.0 S4) are grounded in real facts
+     * ({@link #ground}): a real KS, scam or gift, a bond's drama, a boss kill or drop in the news, a crew mate's spot -
+     * or a topic without people; never null for them.
+     */
     static String about(Topic topic, Character a, Character b) {
         try {
             return switch (topic) {
+                case GOSSIP, TRAINING -> {
+                    soloMapling.ArtificialPlayer.BotGossip.Fact fact = ground(topic, a, b,
+                            a.getMap() == null ? List.of() : a.getMap().getAllPlayers(), System.currentTimeMillis(),
+                            ThreadLocalRandom.current());
+                    yield fact == null ? null : fact.about();
+                }
                 case GUILD_BEEF -> {
                     String ga = soloMapling.ArtificialPlayer.BotGuildSystem.BotGuilds.guildName(a.getGuildId());
                     String gb = soloMapling.ArtificialPlayer.BotGuildSystem.BotGuilds.guildName(b.getGuildId());
@@ -428,15 +527,34 @@ public final class BotThreads {
 
     /** One call writes the whole exchange: both voices, the topic, the format. */
     static String threadPrompt(Character a, Character b, Topic topic, String about, String mapName) {
+        return threadPrompt(a, b, topic, about, mapName, null);
+    }
+
+    /**
+     * As above, grounded (1.6.0 S4): a GOSSIP or TRAINING thread gets its true story and the only players it may
+     * name; a thread without one is told to name no other player (the name guard still checks every line).
+     */
+    static String threadPrompt(Character a, Character b, Topic topic, String about, String mapName,
+                               soloMapling.ArtificialPlayer.BotGossip.Fact fact) {
         ConvoPersona pa = ConvoPersona.of(a.getId() - BotStore.BOT_ID_BASE);
         ConvoPersona pb = ConvoPersona.of(b.getId() - BotStore.BOT_ID_BASE);
+        String subject;
+        if (fact != null && fact.person()) {
+            subject = ". Topic: " + topic.words + ". What really happened: " + fact.about() + ". " + a.getName()
+                    + " brings it up first. The only other players you may name: " + String.join(", ", fact.names())
+                    + "; never make up any other player name";
+        } else if (fact != null) {
+            subject = ". Topic: " + topic.words + " (" + fact.about() + "), in general: name no other player";
+        } else {
+            subject = ". Topic: " + topic.words + (about == null ? "" : " (" + about + ")") + "; name no other player";
+        }
         return "Write a short public chat exchange between two MapleStory players in 2008, " + a.getName() + " (level "
                 + a.getLevel() + ") and " + b.getName() + " (level " + b.getLevel() + "), standing in "
-                + (mapName == null || mapName.isBlank() ? "town" : mapName) + ". Topic: " + topic.words
-                + (about == null ? "" : " (" + about + ")") + ". 2 to 4 lines in total, alternating, each under 60"
-                + " characters. " + a.getName() + " " + pa.voice().prompt + ". " + b.getName() + " " + pb.voice().prompt
-                + ". Format each line as Name: text. Game talk only, PG-13, insults only about the game. Never mention AI,"
-                + " bots, real places, real people or anything after 2008.";
+                + (mapName == null || mapName.isBlank() ? "town" : mapName) + subject + ". 2 to 4 lines in total,"
+                + " alternating, " + a.getName() + " first, each under 60 characters. " + a.getName() + " "
+                + pa.voice().prompt + ". " + b.getName() + " " + pb.voice().prompt + ". Format each line as Name: text."
+                + " Game talk only, PG-13, insults only about the game. Never mention AI, bots, real places, real people"
+                + " or anything after 2008.";
     }
 
     /** "Name: text" lines of these two speakers, cleaned and checked; at most 4. */
@@ -476,6 +594,30 @@ public final class BotThreads {
 
     /** No LLM: the bank's opener for the topic and a reaction, else a cut of a scripted conversation. */
     static List<String[]> fallback(Topic topic, Character a, Character b, Random rng) {
+        return fallback(topic, a, b, null, rng);
+    }
+
+    /**
+     * As above, grounded (1.6.0 S4): when the thread has a true story with an opener ("did u hear Gm ksed Nayrb"),
+     * {@code a} says it and {@code b} reacts with a bank line - or, now and then, one of its catchphrases as a whole
+     * line ("Fair enough.").
+     */
+    static List<String[]> fallback(Topic topic, Character a, Character b, soloMapling.ArtificialPlayer.BotGossip.Fact fact,
+                                   Random rng) {
+        if (fact != null && fact.opener() != null) {
+            int slotB = b.getId() - BotStore.BOT_ID_BASE;
+            String react = VoiceStyler.catchphraseLine(ConvoPersona.of(slotB), slotB, fact.about().hashCode(), 0.15);
+            if (react == null) {
+                ConvoLines.Line bank = ConvoLines.line("talk", b, a, null, null, null, false);
+                react = bank == null ? null : bank.text();
+            }
+            List<String[]> out = new ArrayList<>();
+            out.add(new String[]{a.getName(), fact.opener()});
+            if (react != null) {
+                out.add(new String[]{b.getName(), react});
+            }
+            return out;
+        }
         List<String[]> out = new ArrayList<>();
         Map<String, String> extra = new HashMap<>();
         if (topic == Topic.TRADE) {
@@ -532,8 +674,14 @@ public final class BotThreads {
             if (honest == null) {
                 continue;
             }
-            String styled = VoiceStyler.style(honest, ConvoPersona.of(slot), slot,
-                    List.of(a.getName().toLowerCase(Locale.ROOT), b.getName().toLowerCase(Locale.ROOT)));
+            List<String> protect = new ArrayList<>(List.of(a.getName().toLowerCase(Locale.ROOT),
+                    b.getName().toLowerCase(Locale.ROOT)));
+            if (l.fact != null) { // 1.6.0 S4: the people the story is about keep their names (no typo in a name)
+                for (String n : l.fact.names()) {
+                    protect.add(n.toLowerCase(Locale.ROOT));
+                }
+            }
+            String styled = VoiceStyler.style(honest, ConvoPersona.of(slot), slot, protect);
             long wait = HumanTiming.typingMs(styled, 0, rng) + 400 + rng.nextInt(1200);
             total += wait;
             chain = chain.pause(wait).run(() -> {
@@ -735,7 +883,7 @@ public final class BotThreads {
     /** Test seam: a live thread on a map, about one thing ("Kerning PQ"). */
     static void putLiveForTest(int channel, int mapId, int a, String nameA, int b, String nameB, Topic topic, String about,
                                long endsAt) {
-        Live l = new Live(channel, mapId, List.of(a, b), List.of(nameA, nameB), topic, about, endsAt, b);
+        Live l = new Live(channel, mapId, List.of(a, b), List.of(nameA, nameB), topic, about, null, endsAt, b);
         l.lastLineAt = Math.max(0, endsAt - JOIN_MS);
         hold(l);
         lastThreadOf.put(a, l);

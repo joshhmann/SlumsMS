@@ -105,6 +105,8 @@ public final class QaMenuCatalog {
         section("Memory kinds (1.6.0)");
         add("me-1", v(), steps("card", "clear"));
         add("me-2", v(), steps("check", "scam", "fresh"));
+        section("Grounded gossip (1.6.0)");
+        add("gs-1", v(), steps("tell", "llm", "ks", "check"));
 
         // ── Evening 2: economy ──
         eveningNo = 2;

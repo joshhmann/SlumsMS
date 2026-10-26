@@ -404,6 +404,7 @@ public final class BotAffinity {
             onStateChange(slot, playerId, after, event);
         }
         soloMapling.ArtificialPlayer.BotEpisodes.onAffinity(botCharId, playerId, event, mapId, now); // 1.6.0 S3
+        soloMapling.ArtificialPlayer.Reputation.onAffinity(botCharId, playerId, event, now); // 1.6.0 S4: KS/scam/gift/favor
         if (delta > 0 && !event.hearsay()) {
             // 1.5.0 bot guilds: a guildmate who does things with the bot is not ignoring it
             soloMapling.ArtificialPlayer.BotGuildSystem.BotGuilds.noteAttention(botCharId, playerId);
@@ -520,6 +521,7 @@ public final class BotAffinity {
             }
         });
         if (out) {
+            soloMapling.ArtificialPlayer.Reputation.forget(charId); // 1.6.0 S4: no circle remembers what they did
             writes.submit(charId, () -> purge.accept(charId));
             try {
                 // 1.5.0 rc6 (QA t-af-3): a KS war running on them ends too; its bots no longer hang around

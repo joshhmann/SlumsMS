@@ -571,6 +571,7 @@ public final class LifeRuntime {
                 }
                 data.put("henesysLevels", Map.of("1-30", bands[0], "31-70", bands[1], "71+", bands[2]));
                 data.put("sayDo", soloMapling.ArtificialPlayer.BotConvo.SayDo.stats());
+                data.put("nameGuard", soloMapling.ArtificialPlayer.BotConvo.NameGuard.counts()); // S4: made-up names caught
                 var file = java.nio.file.Path.of("data/autoqa/bot-life.json");
                 java.nio.file.Files.createDirectories(file.getParent());
                 var temporary = file.resolveSibling("bot-life.json.tmp");

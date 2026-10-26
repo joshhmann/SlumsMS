@@ -54,6 +54,11 @@ public final class BotWorldGossip implements EventSubscriber {
             mentions++;
         }
 
+        /** Whether this bot was on the map when it happened (1.6.0 S4: it says "did u see" rather than "heard"). */
+        public boolean witnessedBy(int botCharId) {
+            return witnesses.contains(botCharId);
+        }
+
         News(Kind kind, String who, int whoId, String what, String extra, long at) {
             this.kind = kind;
             this.who = who;
@@ -287,6 +292,34 @@ public final class BotWorldGossip implements EventSubscriber {
             return null;
         }
         return best;
+    }
+
+    /**
+     * 1.6.0 S4: the news still worth telling - fresh, told fewer than {@link #MAX_MENTIONS} times, and not about a
+     * player with {@code @botdrama off} - newest first, for bot threads ({@code BotGossip.factFor}). Memory only.
+     */
+    public static List<News> recent(long now) {
+        List<News> out = new ArrayList<>();
+        if (!enabled()) {
+            return out;
+        }
+        for (News n : feed) {
+            if (freshness(now - n.at) <= 0 || n.mentions >= MAX_MENTIONS
+                    || (!BotHelpers.isArtificial(n.whoId) && BotAffinity.optedOut(n.whoId))) {
+                continue;
+            }
+            out.add(0, n);
+        }
+        return out;
+    }
+
+    /** A piece of news in a few words, as a thread's subject ("Gm killed Zakum", "Gm got a Zakum Helmet"). */
+    public static String about(News n) {
+        return switch (n.kind) {
+            case BOSS -> n.who + " killed " + n.what;
+            case DROP -> n.who + " got " + n.what;
+            case WEDDING -> n.who + " and " + n.what + " got married";
+        };
     }
 
     static String ageText(long ageMs) {

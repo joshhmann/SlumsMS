@@ -24,6 +24,9 @@ class BotThreadsTest {
 
     @AfterEach
     void reset() {
+        soloMapling.ArtificialPlayer.Reputation.useForTest(null, null, null);
+        soloMapling.ArtificialPlayer.BotGossip.useForTest(null, null, null, null);
+        NameGuard.useForTest(null, null);
         BotThreads.resetForTest();
         ChatBank.useForTest(null);
         System.clearProperty("solomapling.convo.threadsPer10Min");
@@ -272,5 +275,88 @@ class BotThreadsTest {
         assertEquals(10_001, d.botId(), "the last speaker of the thread the line is about");
         assertNotNull(d.thread());
         assertTrue(d.thread().topic().contains("Kerning PQ"), d.thread().topic());
+    }
+
+    // ── 1.6.0 S4: grounded gossip ──
+
+    /** Kimchi (slot 1) and Nayrb (slot 2) are a crew; player 4242 (Joshh) KS'd Nayrb. */
+    private static void crewKnowsAKs() {
+        int b = BotStore.BOT_ID_BASE;
+        long crew = soloMapling.ArtificialPlayer.Reputation.CREW | (b + 1);
+        soloMapling.ArtificialPlayer.Reputation.useForTest(id -> id == b + 1 || id == b + 2 ? new long[]{crew}
+                : new long[]{id}, null, id -> false);
+        java.util.Map<Integer, String> names = java.util.Map.of(b + 1, "Kimchi", b + 2, "Nayrb", b + 3, "Bob", 4242, "Joshh");
+        soloMapling.ArtificialPlayer.BotGossip.useForTest(null, id -> List.of(), names::get, (bot, player) -> true);
+        soloMapling.ArtificialPlayer.Reputation.witnessed(b + 2, 4242, soloMapling.ArtificialPlayer.Reputation.Mark.KS,
+                System.currentTimeMillis());
+    }
+
+    @Test
+    void gossipIsAboutARealSubject() {
+        crewKnowsAKs();
+        assertEquals("Joshh ksed Nayrb", BotThreads.about(BotThreads.Topic.GOSSIP, chr(1, "Kimchi", 30), chr(3, "Bob", 30)));
+        String training = BotThreads.about(BotThreads.Topic.TRAINING, chr(3, "Bob", 30), chr(1, "Kimchi", 31));
+        assertNotNull(training, "training is grounded too");
+        assertTrue(training.contains("level"), training);
+        String nothing = BotThreads.about(BotThreads.Topic.GOSSIP, chr(3, "Bob", 30), chr(1, "Kimchi", 31));
+        assertNotNull(nothing);
+        assertTrue(!nothing.contains("Joshh"), "Bob's circle knows nothing about Joshh: " + nothing);
+    }
+
+    @Test
+    void theGroundedPromptNamesOnlyRealPeople() {
+        crewKnowsAKs();
+        Character a = chr(1, "Kimchi", 30);
+        Character b = chr(3, "Bob", 30);
+        soloMapling.ArtificialPlayer.BotGossip.Fact fact = BotThreads.ground(BotThreads.Topic.GOSSIP, a, b, List.of(),
+                System.currentTimeMillis(), new Random(1));
+        String prompt = BotThreads.threadPrompt(a, b, BotThreads.Topic.GOSSIP, fact.about(), "Henesys", fact);
+        assertTrue(prompt.contains("What really happened: Joshh ksed Nayrb"), prompt);
+        assertTrue(prompt.contains("The only other players you may name: Joshh, Nayrb; never make up any other player name"),
+                prompt);
+        assertTrue(prompt.contains("Kimchi first"), prompt);
+        String plain = BotThreads.threadPrompt(a, b, BotThreads.Topic.LFG, "Kerning PQ", "Henesys");
+        assertTrue(plain.contains("name no other player"), plain);
+    }
+
+    @Test
+    void withoutTheModelTheTellerOpensWithTheTrueStory() throws Exception {
+        crewKnowsAKs();
+        ChatBank.useForTest(ChatBank.read(new ByteArrayInputStream(String.join("\n",
+                "1\tthread_gossip\tany\tany\tany\t-\tsomeone got scammed again",
+                "2\ttalk\tany\tany\tany\t-\tya same").getBytes(StandardCharsets.UTF_8))));
+        Character a = chr(1, "Kimchi", 30);
+        Character b = chr(3, "Bob", 30);
+        soloMapling.ArtificialPlayer.BotGossip.Fact fact = BotThreads.ground(BotThreads.Topic.GOSSIP, a, b, List.of(),
+                System.currentTimeMillis(), new Random(1));
+        List<String[]> lines = BotThreads.fallback(BotThreads.Topic.GOSSIP, a, b, fact, new Random(1));
+        assertEquals("Kimchi", lines.get(0)[0]);
+        assertTrue(lines.get(0)[1].contains("Joshh") && lines.get(0)[1].contains("Nayrb"), lines.get(0)[1]);
+        assertEquals("Bob", lines.get(1)[0]);
+    }
+
+    @Test
+    void theGuardRewritesOrDropsLinesNamingStrangers() {
+        NameGuard.useForTest(name -> name.equalsIgnoreCase("Joshh"), null);
+        List<String[]> out = BotThreads.guard(List.of(
+                        new String[]{"Kimchi", "did u see xxslayerxx try to ks me"},
+                        new String[]{"Bob", "Did you see PartyKing married RibbonQueen in Amoria?"},
+                        new String[]{"Kimchi", "Joshh ksed Nayrb lol"},
+                        new String[]{"Bob", "lol rip"}),
+                java.util.Set.of("Kimchi", "Bob", "Nayrb"), 100000000);
+        assertEquals(3, out.size(), "two strangers: dropped");
+        assertEquals("did u see some guy try to ks me", out.get(0)[1]);
+        assertEquals("Joshh ksed Nayrb lol", out.get(1)[1]);
+        assertEquals("lol rip", out.get(2)[1]);
+    }
+
+    @Test
+    void socializersGossipMore() {
+        int low = 0, high = 0;
+        for (int i = 0; i < 2000; i++) {
+            low += BotThreads.topicFor(0, 0, 10, 10, 100000000, 0.05, new Random(i)) == BotThreads.Topic.GOSSIP ? 1 : 0;
+            high += BotThreads.topicFor(0, 0, 10, 10, 100000000, 0.6, new Random(i)) == BotThreads.Topic.GOSSIP ? 1 : 0;
+        }
+        assertTrue(high > low * 2, "socializers " + high + " vs others " + low);
     }
 }
