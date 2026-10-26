@@ -38,6 +38,11 @@ public interface LifeHost {
 
     void nudgeSoon(long delayMs);
 
+    /** A town or social bot: every activity it has keeps it in town, so a town plan step needs no extra pull. */
+    default boolean townOnly() {
+        return false;
+    }
+
     /** The brain this host runs, or null (brain off, or a type without one). */
     default LifeRuntime lifeRuntime() {
         return null;

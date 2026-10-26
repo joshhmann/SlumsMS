@@ -28,7 +28,14 @@ class LifeMixTest {
         }
     }
 
-    static Mix simulate(boolean s8) {
+    /**
+     * One decision per bot per round at a real choice point: when the activity is due (no stickiness, boredom full),
+     * the way the runtime decides on TEST (a mid-activity re-check almost always keeps the activity, so it measures
+     * time, not choices). Needs follow TEST (2026-10-26, 3,057 bots): progress is high (goal pressure is level over the
+     * next advance), bags and supplies are mostly light, fields have no real players, SOCIAL grows from the last town
+     * visit over three town stays. {@code grinding} picks the choice point: leaving a grind, or leaving a town stay.
+     */
+    static Mix simulate(boolean s8, boolean grinding) {
         Map<Activity, Integer> all = new EnumMap<>(Activity.class);
         Map<SocialProfile.Type, Map<Activity, Integer>> byType = new EnumMap<>(SocialProfile.Type.class);
         for (SocialProfile.Type t : SocialProfile.Type.values()) byType.put(t, new EnumMap<>(Activity.class));
@@ -37,21 +44,22 @@ class LifeMixTest {
             int id = soloMapling.ArtificialPlayer.BotStore.BOT_ID_BASE + slot;
             SocialProfile social = SocialProfile.forSlot(slot);
             LifeProfile profile = LifeProfile.fromSocial(social, id);
-            SplittableRandom r = new SplittableRandom(slot * 7919L + 17);
+            SplittableRandom r = new SplittableRandom(slot * 7919L + (grinding ? 17 : 29));
             int level = 10 + r.nextInt(130);
             for (int d = 0; d < DECISIONS; d++) {
-                boolean grinding = r.nextDouble() < .6;
                 long townMs = profile.townDurationMs();
-                double sinceSocialMs = r.nextDouble() * 4 * townMs;
+                // Leaving a grind: the last town visit was a grind ago; leaving town: it was just now.
+                double sinceSocialMs = grinding ? profile.grindDurationMs() * (.5 + r.nextDouble()) : 0;
                 Map<Need, Double> needs = new EnumMap<>(Need.class);
-                needs.put(Need.SUPPLIES, r.nextDouble() < .08 ? .6 + .4 * r.nextDouble() : .25 * r.nextDouble());
-                needs.put(Need.BAG_SPACE, .2 + .5 * r.nextDouble());
-                needs.put(Need.BOREDOM, r.nextDouble());
+                needs.put(Need.SUPPLIES, grinding && r.nextDouble() < .08 ? .6 + .4 * r.nextDouble() : .15 * r.nextDouble());
+                needs.put(Need.BAG_SPACE, .1 + .35 * r.nextDouble());
+                needs.put(Need.BOREDOM, 1.0);
                 // Pre-S8 the SOCIAL need filled over one town stay and only a friend's ask emptied it.
                 needs.put(Need.SOCIAL, Math.min(1, s8 ? sinceSocialMs / (LifeRuntime.SOCIAL_PERIOD_FACTOR * townMs)
                         : 1));
-                needs.put(Need.FATIGUE, Math.min(1, .9 * r.nextDouble()));
-                needs.put(Need.PROGRESS, .3 + .7 * r.nextDouble());
+                // Resumed sessions have no valid session timing on TEST: FATIGUE is unknown for about half.
+                if (r.nextBoolean()) needs.put(Need.FATIGUE, Math.min(1, .8 * r.nextDouble()));
+                needs.put(Need.PROGRESS, .75 + .25 * r.nextDouble());
                 Map<Activity, String> eligible = new EnumMap<>(Activity.class);
                 eligible.put(Activity.GRIND, "x");
                 eligible.put(Activity.HANG_OUT, "x");
@@ -62,27 +70,19 @@ class LifeMixTest {
                     eligible.put(Activity.BREAK, "x");
                 }
                 if (level >= 70) eligible.put(Activity.SHOW_OFF, "x");
-                if (needs.get(Need.FATIGUE) > .75) eligible.put(Activity.LOG_OUT, "x");
+                if (needs.getOrDefault(Need.FATIGUE, 0.0) > .75) eligible.put(Activity.LOG_OUT, "x");
                 boolean fishing = r.nextDouble() < .5;   // a chair and a pond in reach
                 if (fishing) eligible.put(Activity.FISH, "x");
-                boolean pq = s8 && LifePq.lobbyFor(level) != null && r.nextDouble() < .5; // PQ hours
+                boolean pq = s8 && LifePq.lobbyFor(level) != null; // PQ hours
                 if (pq) eligible.put(Activity.PARTY_QUEST, "x");
                 boolean help = s8 && r.nextDouble() < .2; // a friend or guild mate grinding a map that fits
                 if (help) eligible.put(Activity.HELP_FRIEND, "x");
                 double crowd = r.nextDouble() < .1 ? .8 + .3 * r.nextDouble() : .4 * r.nextDouble();
                 boolean ks = r.nextDouble() < .02;
                 if (s8 && (crowd >= LifePolicy.CROWDED || ks)) eligible.put(Activity.CHANGE_CHANNEL, "x");
-                int strangers = r.nextInt(8), friends = r.nextDouble() < .1 ? 1 : 0, rivals = r.nextDouble() < .05 ? 1 : 0;
-                Activity now = grinding ? Activity.GRIND : Activity.HANG_OUT;
-                long dur = grinding ? profile.grindDurationMs() : profile.townDurationMs();
-                long elapsed = (long) (needs.get(Need.BOREDOM) * dur);
-                // Half the decisions come when the activity is due (no stickiness: the runtime passes no current then),
-                // half mid-activity when a need changed.
-                boolean due = r.nextBoolean();
-                if (due) needs.put(Need.BOREDOM, Math.max(needs.get(Need.BOREDOM), .8));
-                var current = due ? null : new Current(now, 1_000_000_000L - elapsed, dur, LifePolicy.STICKINESS);
-                var context = new LifePolicy.Context(new Needs(needs), eligible, friends, strangers, rivals, false,
-                        false, false, current, List.of(), List.of());
+                int strangers = grinding ? 0 : r.nextInt(3);
+                var context = new LifePolicy.Context(new Needs(needs), eligible, 0, strangers, 0, false,
+                        false, false, null, List.of(), List.of());
                 var situation = s8 ? new LifePolicy.Situation(social, help, pq, crowd, ks, null, 0, id)
                         : LifePolicy.Situation.NONE;
                 double townBias = s8 ? LifeRuntime.townBias(level) : level <= 30 ? .4 : level <= 70 ? .25 : .05;
@@ -90,9 +90,8 @@ class LifeMixTest {
                         o.activity() == Activity.HANG_OUT || o.activity() == Activity.SHOW_OFF
                                 ? new Option(o.activity(), o.weights(), o.contextBonus() + townBias, o.personalityBonus(),
                                 o.available(), o.reason()) : o).toList();
-                long t = 1_000_000_000L;
                 int seed = slot * 31 + d;
-                var result = LifeDecision.evaluate(context.needs(), options, current, t, LifePolicy.INTERRUPT_MARGIN,
+                var result = LifeDecision.evaluate(context.needs(), options, null, 0, LifePolicy.INTERRUPT_MARGIN,
                         .02, a -> new SplittableRandom(seed * 101L + a.ordinal()).nextDouble(-1, 1), false);
                 Activity chosen = result.selected().orElseThrow();
                 all.merge(chosen, 1, Integer::sum);
@@ -103,25 +102,40 @@ class LifeMixTest {
         return new Mix(all, byType, total);
     }
 
+    static Mix simulate(boolean s8) {
+        Mix a = simulate(s8, true), b = simulate(s8, false);
+        Map<Activity, Integer> all = new EnumMap<>(a.all());
+        b.all().forEach((k, v) -> all.merge(k, v, Integer::sum));
+        Map<SocialProfile.Type, Map<Activity, Integer>> byType = new EnumMap<>(SocialProfile.Type.class);
+        for (SocialProfile.Type t : SocialProfile.Type.values()) {
+            Map<Activity, Integer> m = new EnumMap<>(a.byType().get(t));
+            b.byType().get(t).forEach((k, v) -> m.merge(k, v, Integer::sum));
+            byType.put(t, m);
+        }
+        return new Mix(all, byType, a.total() + b.total());
+    }
+
     @Test
     void theS8MixUsesEveryOptionAndNoActivityTakesTheWholeDay() {
-        Mix before = simulate(false), after = simulate(true);
-        System.out.println("LifeMixTest before " + before.all());
-        System.out.println("LifeMixTest after  " + after.all());
+        Mix grind = simulate(true, true), town = simulate(true, false), before = simulate(false, true);
+        System.out.println("LifeMixTest leaving a grind, before " + before.all());
+        System.out.println("LifeMixTest leaving a grind " + grind.all());
+        System.out.println("LifeMixTest leaving town    " + town.all());
         for (SocialProfile.Type t : SocialProfile.Type.values()) {
-            System.out.println("LifeMixTest " + t + " " + after.byType().get(t));
+            System.out.println("LifeMixTest " + t + " grind " + grind.byType().get(t) + " town " + town.byType().get(t));
         }
-        // The friend and party options fire without a player's ask; fishing fires where a bot can fish.
-        assertTrue(after.share(Activity.HELP_FRIEND) > .01, after.all().toString());
-        assertTrue(after.share(Activity.PARTY_QUEST) > .01, after.all().toString());
-        assertTrue(after.share(Activity.FISH) > .01, after.all().toString());
-        assertTrue(after.share(Activity.CHANGE_CHANNEL) > .002, after.all().toString());
-        assertTrue(after.share(Activity.MOVE_MAP) > .02, after.all().toString());
-        // Town no longer wins every idle moment, and grinding isn't everything either.
-        assertTrue(after.share(Activity.HANG_OUT) < before.share(Activity.HANG_OUT), before.all() + " -> " + after.all());
-        assertTrue(after.share(Activity.HANG_OUT) < .40, after.all().toString());
-        assertTrue(after.share(Activity.GRIND) < .55, after.all().toString());
-        assertTrue(after.share(Activity.GRIND) > .25, after.all().toString());
+        // A due grind is a real choice: about half the time the bot keeps at it, otherwise town, PQ, a new map, help.
+        assertTrue(grind.share(Activity.GRIND) > .35 && grind.share(Activity.GRIND) < .65, grind.all().toString());
+        assertTrue(grind.share(Activity.HANG_OUT) > .10, grind.all().toString());
+        assertTrue(grind.share(Activity.PARTY_QUEST) > .03, grind.all().toString());
+        assertTrue(grind.share(Activity.HELP_FRIEND) > .01, grind.all().toString());
+        assertTrue(grind.share(Activity.MOVE_MAP) > .03, grind.all().toString());
+        assertTrue(town.share(Activity.FISH) > .005, town.all().toString());
+        assertTrue(grind.share(Activity.CHANGE_CHANNEL) > .002, grind.all().toString());
+        // Pre-S8 town won every due grind (audit finding 4); S8 must not swing to the other extreme.
+        assertTrue(before.share(Activity.HANG_OUT) > .6, before.all().toString());
+        // After a town stay (SOCIAL just filled) most bots go back to grinding; some go to a PQ, fish or log off.
+        assertTrue(town.share(Activity.GRIND) > .45 && town.share(Activity.GRIND) < .9, town.all().toString());
     }
 
     @Test

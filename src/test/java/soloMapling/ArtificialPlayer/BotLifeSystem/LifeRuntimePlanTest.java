@@ -56,7 +56,11 @@ class LifeRuntimePlanTest {
             observation.when(() -> LifeObservation.capture(bot, now + 31_000)).thenReturn(report);
             var runtime = new LifeRuntime(bot);
             runtime.phase("GRIND", now);
+            long grindChosen = LifeRuntime.chosen().getOrDefault("GRIND", 0L);
+            long grindSelected = LifeRuntime.selected().getOrDefault("GRIND", 0L);
             runtime.tick(now);
+            assertEquals(grindChosen, LifeRuntime.chosen().getOrDefault("GRIND", 0L), "keeping a grind is not a choice");
+            assertEquals(grindSelected + 1, LifeRuntime.selected().getOrDefault("GRIND", 0L));
             var goals = runtime.memory().goals();
             assertEquals(LifeGoals.Kind.FOURTH_JOB, goals.getFirst().kind());
             assertEquals(List.of(LifePlanner.Step.GRIND_TO_LEVEL, LifePlanner.Step.TRAVEL_TO_INSTRUCTOR,

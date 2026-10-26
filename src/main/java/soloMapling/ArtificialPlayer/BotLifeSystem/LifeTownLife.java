@@ -150,6 +150,7 @@ public final class LifeTownLife implements LifeHost {
     @Override public Character getChr() { return bot.getChr(); }
     @Override public boolean getRunning() { return bot.getRunning(); }
     @Override public LifeRuntime lifeRuntime() { return runtime; }
+    @Override public boolean townOnly() { return true; }
     @Override public void nudgeSoon(long delayMs) { bot.nudgeSoon(delayMs); }
     @Override public LifeActivityQueue.State lifeActivityState() { return queue.state(); }
     @Override public LifeActivityQueue.Request prepareLifeActivity(Result decision) {
@@ -217,7 +218,7 @@ public final class LifeTownLife implements LifeHost {
             needs.put(Need.SOCIAL, needs.getOrDefault(Need.SOCIAL, 0.0) * .2);
             needs.computeIfPresent(Need.BOREDOM, (n, v) -> v * .7);
         } else {
-            needs.put(Need.SOCIAL, needs.getOrDefault(Need.SOCIAL, 0.0) * .6);
+            needs.put(Need.SOCIAL, needs.getOrDefault(Need.SOCIAL, 0.0) * .3); // it is in town among people too
             needs.computeIfPresent(Need.BOREDOM, (n, v) -> Math.min(1, v * 1.3));
         }
         needs.remove(Need.SUPPLIES); // no grinding: potions don't matter here
