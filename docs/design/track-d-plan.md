@@ -477,3 +477,152 @@ sale. On TEST there are no cash-item samples yet, so the rate is null until play
   `bots_online_peak`) when there is no nightly snapshot yet, the privacy floor applies, or the DB is busy; the site
   should show "-" rather than 0.
 - **`nx-rate.json` `bot_share` is 0 when `n_trades` is 0** (the agreed type is a number 0..1, never null).
+
+---
+
+## Site board contract (site ↔ server), schema 1
+
+Owner, 2026-10-26: the website gets a watchlist, price alerts and a Buy/Sell board. **Nothing on the site moves items
+or mesos**: a bot or player answers a post, and the two trade in the Free Market as usual. The site never touches the
+game database; the channel is files, like `@weblogin`. Server code: `soloMapling.Economy.board` (`SiteBoard` runs it;
+1.6.0, branch `160-board`). Shapes below are the ones the site session built against (coordinator, 2026-10-26).
+
+### Switches, folders, cadence
+- **Off by default.** `-Dslums.board=true` turns it on. JVM properties only, no config.yaml keys.
+- **Inbox** (the site writes, the server reads): `-Dslums.board.inbox`, default `/var/lib/slums-market/inbox`. The
+  game server's user reads it through group `slums-market`. The site writes each file atomically (temp + rename).
+- **Outbox** (the server writes, the site reads): `-Dslums.board.outbox`, default `/var/lib/slums-market/outbox`
+  (live's `Server/` folder is mode 700, so the site could not read anything under it). The install step makes the
+  folder `root:slums-market`, mode 2750 (setgid). The server creates the folder if it is missing (without setting its
+  group), writes each file as a temp file **inside the outbox folder** and renames it into place, sets mode **0640**
+  explicitly, and never chowns or chgrps, so files inherit group `slums-market` from the folder.
+- **Private state**: `-Dslums.board.state`, default `Server/data/site-board-state.json` (offers sent, alerts fired,
+  GM removals), so a restart does not repeat an offer or an alert. No database table, no migration for state.
+- **TEST must never use the live folders** (TEST and live share 164): point TEST at scratch folders, e.g.
+  `-Dslums.board.inbox=/tmp/board-test/inbox -Dslums.board.outbox=/tmp/board-test/outbox`.
+- **Cadence:** every 30 s the server checks the inbox files' modification times and re-reads a changed file (first
+  check 60 s after boot); a changed `posts.json` rewrites the outbox at once and new posts get a bot's offer. Every
+  15 min (first run 2 min after boot): expiry, bots' own posts, maybe a second offer, alerts, and every outbox file.
+  One minimum-priority daemon thread (`site-board`). Nothing throws into the game; failures are logged at most every
+  15 min. If `posts.json` cannot be parsed or the database is busy, the last good board stays up.
+- **Times** are UTC ISO-8601 (`2026-10-26T07:15:00Z`); the server also reads epoch milliseconds in the inbox. Prices
+  are mesos per unit (integers). Inbox and outbox fields are camelCase except `generated_at`.
+
+### `posts.json` (inbox)
+`{"schema":1, "generated_at":"...", "posts":[{id, account, character, kind, itemId, qty, price, createdAt, expiresAt}]}`
+
+| Field | Type | Meaning |
+|---|---|---|
+| `id` | string | `"p"` + 12 hex digits; at most 64 characters accepted |
+| `account` | int | the game account id, as the `@weblogin` approval gives it (`account_id`) |
+| `character` | string | the IGN posted as (any character of that account: the approval's `characters`) |
+| `kind` | `"WTB"` or `"WTS"` | WTB: the poster buys; WTS: the poster sells |
+| `itemId`, `qty`, `price` | int | price is mesos **per unit** |
+| `createdAt`, `expiresAt` | string | `expiresAt` may be left out |
+
+Only open posts are listed; a post the user takes down simply leaves the file.
+
+### `alerts.json` (inbox)
+`{"schema":1, "generated_at":"...", "accounts":{"<accountId>":{"watch":[itemId, ...], "alerts":[{id, itemId, dir, price, armed}]}}}`
+
+`dir` is `"below"` or `"above"`; `price` is mesos per unit; `armed` true or false. Optional `armedAt` (ISO): when the
+user last armed it. The watchlist (up to 20) is the site's own; the server reads it but does nothing with it. At most
+the first 10 alerts of an account are evaluated.
+
+### Server rules (rejected.json is the authority; the site's own checks are a convenience)
+A post is shown only if all hold, else it goes to `rejected.json` with the first reason that applies:
+
+| Reason | Rule |
+|---|---|
+| `malformed: <field>` | a field is missing or the wrong type (`id`, `account`, `character`, `kind`, `itemId`, `qty`, `price`, `createdAt`) |
+| `duplicate id` | a second post with the same id |
+| `removed by a GM` | a GM ran `!board remove <id>` |
+| `no such account` | no game account with that id |
+| `no such character` | no character with that name (or it is a bot) |
+| `character is not on this account` | |
+| `no such item` / `item can't be traded` | unknown item id; untradeable, account-bound or quest item |
+| `qty must be 1 to 32767` | |
+| `price must be above 0` / `price must be at most 2147483647` | |
+| `qty x price over 2147483647 mesos (one trade's limit)` | the whole post must fit one trade window |
+| `created in the future` | `createdAt` more than 5 min ahead |
+| `expired` | past `expiresAt`, or **3 days after `createdAt`** whatever `expiresAt` says |
+| `over 5 open posts` | an account keeps its 5 oldest open posts; newer ones are refused |
+
+GMs post like anyone (no exemption, no extra limit).
+
+### `board.json` (outbox)
+`{"schema":1, "generated_at":"...", "posts":[{id, character, kind, itemId, qty, price, createdAt, expiresAt}]}`
+
+Every open post that passed the rules, plus the bots' own posts, newest first. **Names only**: no account ids or
+account names. `expiresAt` is the effective expiry (at most 3 days). Bot posts use the same `"p"` + 12 hex ids and
+carry nothing that marks them as bots. The site drops expired rows, unknown kinds and non-integer `itemId`s.
+
+### `rejected.json` and `removed.json` (outbox)
+- `{"schema":1, "generated_at":"...", "rejected":[{id, reason}]}`: posts in `posts.json` the board does not show
+  (table above). The site closes or flags them.
+- `{"schema":1, "generated_at":"...", "removed":[{id, reason}]}`: posts a GM took down; `reason` is the GM's text or
+  `"removed by a GM"`. No GM names. The site closes them. Kept 4 days after the removal, and longer while the post
+  is still in `posts.json`.
+
+### `alerts-fired.json` (outbox)
+`{"<accountId>": [{"id":"a...", "t":"2026-10-26T07:15:00Z", "price":2400000}]}` (no `schema` key: the top level is the
+accounts).
+
+- `t`: when it fired (UTC ISO); `price`: the cheapest per-unit listing price that set it off.
+- **When an alert fires:** every 15 min each armed alert is held against the cheapest per-unit price among the items
+  on sale in open FM shops right now (the shops `listings.json` lists: hired merchants and player shops, bots'
+  included). `below` fires when that price is at or under the alert's price, `above` when it is at or over. No
+  listing, no firing.
+- **Once only:** a fired alert does not fire again until it is re-armed: the server sees it `armed:false` and then
+  `armed:true` again, or the site sends an `armedAt` later than the firing. The site is expected to disarm on seeing
+  the firing (badge) and re-arm when the user asks.
+- An entry stays in the file while the alert is still in `alerts.json` (up to 30 days); re-sending the same file is
+  harmless, the site ignores firings of alerts that are not armed or belong to another account.
+- **In game:** the account's character that is online gets a yellow line `[Market] Price alert: <item> is listed at
+  <price> each in the Free Market (your alert: at or below <price>). Re-arm it on the website.` If nobody on the
+  account is online, the same text waits as a note (memo, from "Slums Market") on the account's most recently played
+  character, shown at login.
+
+### Bots
+- **Offers on player posts:** for a new post, at most one merchant or greedy bot answers (bot shops, merchant bot
+  types, and bots whose life profile leans merchant, about a third). WTB: a bot that holds the item (bag, shop shelf
+  or merchant stand) at a price from the megaphone buy flow's model (`MegaBuyDesk.plan`: the bot's sell band, the
+  poster's price taken when the band allows, nothing when the poster is far below). WTS: a bot with the mesos offers
+  inside its buy band (bots buy no gear from posts, since only above-average gear is bought). After an hour a post
+  with fewer than 2 offers may get one more (25% each 15-min run). **At most 2 offers per post, one per bot**, and
+  limits: 10 offers per account per hour, 8 server-wide per 10 min, a bot rests 15 min between offers.
+- **Delivery** 20 to 120 s later: a whisper if any character of the poster's account is online (a held whisper falls
+  back to a note), else a note (memo) from the bot to the posting character, waiting at login. Then the two trade in
+  the FM as usual.
+- **Bot posts:** between 5 and 15 open server-wide (new target every 6 h, at most 3 new per 15 min, one per bot),
+  real WTS (an item the bot holds, priced at its sell band's opening) and WTB (scrolls and etc items the price board
+  tracks, priced at its buy band's opening, mesos on hand). Each lives 6 to 48 h and goes earlier when the bot logs
+  off or no longer has the item or mesos. Not saved across restarts.
+
+### In game
+- **Board NPC** 1092017 ("Anonymous Merchant", a nameless merchant's stall; migration `034-site-board-npc`) on the
+  FM Entrance ground floor at x -300, just right of where players arrive. Read-only: open posts newest first, 8 a
+  page, WTB/WTS, item, qty, price per unit, IGN; Next/Previous page. "The Buy/Sell board is closed" when off.
+- **`!board`** (GM level 2): the counts and the 8 newest posts with ids. **`!board remove <id> [reason]`** takes a
+  post down at once (in game and in `removed.json`) and keeps it off after restarts.
+- **QA:** `!qa run bd-1` (auto-QA `t-bd-1`) plays the site on scratch folders: a staged bot, the GM's WTB, an alert;
+  it checks the offer, the alert firing once, the files and that no account name is in any outbox file.
+
+### Example
+```json
+// inbox/posts.json
+{"schema":1,"generated_at":"2026-10-26T07:15:00Z","posts":[{"id":"p0a1b2c3d4e5f","account":123,"character":"Momo",
+ "kind":"WTB","itemId":2040804,"qty":1,"price":3000000,"createdAt":"2026-10-26T07:10:00Z","expiresAt":"2026-10-29T07:10:00Z"}]}
+// inbox/alerts.json
+{"schema":1,"generated_at":"2026-10-26T07:15:00Z","accounts":{"123":{"watch":[2040804],
+ "alerts":[{"id":"a1","itemId":2040804,"dir":"below","price":2500000,"armed":true}]}}}
+// outbox/board.json
+{"schema":1,"generated_at":"2026-10-26T07:15:30Z","posts":[{"id":"p0a1b2c3d4e5f","character":"Momo","kind":"WTB",
+ "itemId":2040804,"qty":1,"price":3000000,"createdAt":"2026-10-26T07:10:00Z","expiresAt":"2026-10-29T07:10:00Z"}]}
+// outbox/rejected.json
+{"schema":1,"generated_at":"2026-10-26T07:15:30Z","rejected":[{"id":"p99aa88bb77cc","reason":"over 5 open posts"}]}
+// outbox/removed.json
+{"schema":1,"generated_at":"2026-10-26T07:15:30Z","removed":[{"id":"p1234567890ab","reason":"spam"}]}
+// outbox/alerts-fired.json
+{"123":[{"id":"a1","t":"2026-10-26T07:30:00Z","price":2400000}]}
+```

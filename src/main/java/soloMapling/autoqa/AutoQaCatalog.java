@@ -960,6 +960,13 @@ public final class AutoQaCatalog {
                         has("MK1 FILE prices/index\\.json ok "),
                         has("MK1 PASS files=\\d+"), lacks("MK1 FAIL "), lacks("MK1 STEP FAIL "))
                 .build());
+        // 1.6.0 site board: a staged post on scratch folders gets a bot's offer and a price alert fires once
+        c.add(Check.auto("t-bd-1", "Site board: a staged post gets a bot's offer and an alert fires once").minutes(2)
+                .step(run("bd-1"), waitFor("BD1 (PASS|FAIL)", 60))
+                .expect(has("BD1 POSTS open=1 rejected=0"), has("BD1 CLAIM \\S+ answers "),
+                        has("BD1 OFFER \\S+ -> "), has("BD1 ALERT FIRED a[0-9a-f]{12} "),
+                        has("BD1 PASS "), lacks("BD1 FAIL"))
+                .build());
         return List.copyOf(c);
     }
 

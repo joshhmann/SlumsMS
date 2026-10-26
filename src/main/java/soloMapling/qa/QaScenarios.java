@@ -101,6 +101,7 @@ public final class QaScenarios {
         all.addAll(BeefScenarios.all()); // 1.6.0 S7 Beef: bot rivalry thread (rv-5), rage quit (dr-6), crush (cr-1)
         all.addAll(WorldEventScenarios.all()); // 1.6.0 world events: giant cake (ev-1), invasion deaths (ev-2)
         all.addAll(MarketScenarios.all()); // 1.6.0 Track D: the website Market's export files (mk-1)
+        all.addAll(BoardScenarios.all()); // 1.6.0 site board: a post gets a bot's offer, an alert fires once (bd-1)
         return List.copyOf(all);
     }
 
