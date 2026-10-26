@@ -118,6 +118,7 @@ public final class QaMenuCatalog {
         section("World events (1.6.0)");
         add("ev-1", v(), steps("gossip"));
         add("ev-2", v(), steps("die", "status"));
+        add("st-1", v(), steps()); // 1.6.0 social trace: a short trace records a bot thread
 
         // ── Evening 2: economy ──
         eveningNo = 2;
