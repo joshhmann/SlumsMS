@@ -443,6 +443,31 @@ class QaScenarioStagingTest {
     }
 
     @Test
+    void bb3PartiesTwoFreshBotsAndFastPartyTimeMakesThemFriendsAndACrew() throws Exception {
+        soloMapling.ArtificialPlayer.BotAffinitySystem.BotBonds.useForTest(
+                new soloMapling.ArtificialPlayer.BotAffinitySystem.BondStore.Memory(), Runnable::run, null,
+                id -> new double[]{.25, .25}, (id, p) -> { }, id -> null);
+        try {
+            start("bb-3", 100000000);
+            assertTrue(world.calls.stream().anyMatch(c -> c.startsWith("party [")), world.calls.toString());
+            List<String> out = suite.action(world.online, "check", new String[0]);
+            assertFalse(String.join("|", out).contains("BB3 PASS"), out.toString());
+            out = suite.action(world.online, "fast", new String[0]); // 45 min, no join (the fake world has no party)
+            assertTrue(String.join("|", out).contains("BB3 PASS"), out.toString());
+            assertTrue(out.get(1).contains("friend") && out.get(1).contains("crew yes"), out.toString());
+            Path log = suite.runOf(1).logPath();
+            suite.stop(1, "!qa stop");
+            assertEquals(2, world.despawned.size());
+            String text = Files.readString(log);
+            assertTrue(text.contains("BB3 STAGED"), text);
+            assertTrue(text.contains("AFFINITY BONDS") && text.contains("-> FRIEND"), text);
+            assertFalse(text.contains("BB3 FAIL"), text);
+        } finally {
+            soloMapling.ArtificialPlayer.BotAffinitySystem.BotBonds.useForTest(null, null, null, null, null, null);
+        }
+    }
+
+    @Test
     void cp1StagesACoupleStepsItAndUnstagesIt() {
         start("cp-1", 100000000, "married", "same");
         assertTrue(world.calls.stream().anyMatch(c -> c.startsWith("couple ") && c.endsWith("married same")));

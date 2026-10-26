@@ -274,8 +274,9 @@ public final class BotBonds {
                 log.debug("No chart push for bot {}", botId, e);
             }
         }
-        if (QaLog.on(QaLog.Topic.AFFINITY)) { // !qa bb-3
-            QaLog.any(QaLog.Topic.AFFINITY, "BONDS " + name(botId) + " -> " + name(otherId) + " "
+        if (QaLog.on(QaLog.Topic.AFFINITY)) { // !qa bb-3 (runs that watch the bot's map, or every map)
+            Character holder = lookup.online(botId);
+            QaLog.map(QaLog.Topic.AFFINITY, holder == null ? 0 : holder.getMapId(), "BONDS " + name(botId) + " -> " + name(otherId) + " "
                     + before.label() + " -> " + after.label().toUpperCase(Locale.ROOT) + " (" + cause.key()
                     + ", score " + Math.round(snapshot.score) + ", kind " + snapshot.kind + ", hostile "
                     + snapshot.hostile + ")");
