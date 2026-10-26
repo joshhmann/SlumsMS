@@ -316,6 +316,9 @@ public interface QaWorld {
      */
     default List<String> lifeProfileProof(Character gm, String botName) { return List.of(); }
 
+    /** Whether {@link #lifeProfileProof} can run here (bl-4 refuses at once otherwise). */
+    default boolean lifeProfileProofAvailable() { return false; }
+
     /** One line per staged bot: {@code buffs | position | habits}. */
     default List<String> grinderReport(List<Integer> ids, String what) {
         return List.of();
