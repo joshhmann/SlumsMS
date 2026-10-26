@@ -118,6 +118,8 @@ public final class QaMenuCatalog {
         section("World events (1.6.0)");
         add("ev-1", v(), steps("gossip"));
         add("ev-2", v(), steps("die", "status"));
+        section("Bot watch (1.6.0)");
+        add("bw-1", v(), steps()); // follows 20 bots for 10 min; !botwatch for longer looks
 
         // ── Evening 2: economy ──
         eveningNo = 2;

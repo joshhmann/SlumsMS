@@ -41,6 +41,9 @@ final class BotAttackStats {
     private BotAttackStats() {}
 
     static void record(Character bot, BotAttackDriver.AttackResult result) {
+        if (bot != null && result != null && result.hit() && result.killed()) {
+            soloMapling.autoqa.BotWatch.killed(bot.getId()); // 1.6.0 (owner 2026-10-26) bot watch; free when idle
+        }
         if (bot == null || result == null || !log.isDebugEnabled()) {
             return;
         }

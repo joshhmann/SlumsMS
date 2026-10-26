@@ -361,6 +361,9 @@ public class CommandsExecutor {
         if (soloMapling.autoqa.AutoQa.isEnabled()) {
             addCommand("autoqa", 3, client.command.commands.gm3.AutoQaCommand.class); // health sweeps + check runner (docs/ops/qa-suite.md)
         }
+        if (soloMapling.qa.QaSuite.isEnabled() || soloMapling.autoqa.AutoQa.isEnabled()) {
+            addCommand("botwatch", 3, client.command.commands.gm3.BotWatchCommand.class); // 1.6.0: bots do what they decided
+        }
         addCommand("editShop", 2,  EditShopCommand.class);
         addCommand("board", 2, client.command.commands.gm2.BoardCommand.class); // 1.6.0 site Buy/Sell board: list, remove a post
 

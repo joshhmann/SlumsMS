@@ -1008,6 +1008,21 @@ public class TrainingBot extends BotSM implements soloMapling.ArtificialPlayer.B
 
     public LifeDecision.Activity currentLifeVisit() { return lifeVisit; }
 
+    /**
+     * 1.6.0 (owner 2026-10-26) bot watch (soloMapling.autoqa.BotWatch): the map the current phase heads for, -1 when
+     * none. Read off the bot's thread without a lock: it is a sample, and a phase that changes mid-read is read again
+     * 30 s later.
+     */
+    public int watchTarget() {
+        return switch (phase) {
+            case LIFE_TRAVEL, LIFE_DWELL -> lifeDestination;
+            case GO_TRAIN, GRIND -> currentTrainMapId;
+            case SHOP_TRAVEL, SHOP_DWELL -> shopTargetMapId;
+            case GO_TOWN, SHOP_RETURN -> homeMapId >= 0 ? homeMapId : MapId.HENESYS;
+            default -> -1;
+        };
+    }
+
     private void doLifeDwell() {
         if (!phaseEntered) {
             phaseEntered = true;

@@ -447,6 +447,26 @@ Output:
 - An `AUTOQA HEALTH <status>: <summary>` line goes to any running `!qa` log that listens to the `AUTOQA` topic,
   and to the server log (info when OK, warn otherwise).
 
+### Bot watch: bots do what they decided (1.6.0)
+
+`data/autoqa/bot-life.json` counts what the bots decide; the bot watch follows a few of them to see a decision turn
+into action. `!botwatch start [bots] [minutes]` (GM 3, test server; default 40 bots for 30 min), `!botwatch status`,
+`!botwatch stop`. Auto-QA `t-bw-1` (`!qa run bw-1`) watches 20 bots for 10 min.
+
+- It picks online bots stratified by what they are doing now (the brain's active activity, else the one the
+  training bot's phase stands for), rarest activity first, so a lone PARTY_QUEST bot is not crowded out by 1,500
+  grinders. Bots without a brain (merchants, gacha, showcase) are not picked.
+- Every 30 s per bot, from memory only: channel, map, x/y, activity and its target map, level, EXP, mesos, kills
+  (counted from the attack driver while watched; off-screen grinders level by arithmetic, so EXP is the proxy),
+  potions, ETC/EQUIP slots used, its last chat line, party, chair, whether a player watches the map. A 2-second
+  position tick catches same-map jumps a walk cannot explain.
+- Verdicts (`BotWatchJudge`): OK, MISMATCH (it said X but nothing X-like happened), IDLE (nothing at all changed for
+  10 min, or 80% of a shorter watch, while not resting; a chair, a BREAK and a town stay off-screen are resting),
+  TELEPORTY (a jump on a watched map), LOGGED_OUT (logged out mid-trip, mid-party or mid-channel-move).
+- Output: `data/autoqa/botwatch-latest.json` and `data/autoqa/botwatch/botwatch-<UTC stamp>.json`: run meta,
+  `summary` (one line), `totals`, `byActivity`, `check` (t-bw-1's bar) and `bots` (worst first) with `verdict`,
+  `reason`, `segments` and the `track`. A `BOTWATCH` line goes to the server log and any `!qa` log on `AUTOQA`.
+
 ### Synthetic players
 
 There are two real characters on their own accounts. `AutoQaOne` (account `autoqa1`) is GM level 3 and runs
