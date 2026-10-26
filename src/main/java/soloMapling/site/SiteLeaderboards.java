@@ -20,7 +20,9 @@ public final class SiteLeaderboards {
     public static final int BRANCH_TOP = 20;
     public static final int FAME_TOP = 50;
     public static final int GUILD_TOP = 30;
-    public static final int RICH_TOP = 10;
+    public static final int TRADER_TOP = 50;
+    /** Trades (completed + fell through) a character needs to be on the traders board. */
+    public static final int TRADER_MIN = 5;
     public static final int BOSS_TOP = 20;
     public static final List<String> BRANCHES = List.of("beginner", "warrior", "magician", "bowman", "thief", "pirate");
     /** The expedition bosses on the board, as {@code bosslog_leaderboard_*.bosstype}. */
@@ -30,18 +32,18 @@ public final class SiteLeaderboards {
     }
 
     /** One character on the boards. {@code id}: only to join rows here; never written. */
-    public record Person(int id, String name, int level, long exp, int job, int rebirths, int fame, long mesos,
+    public record Person(int id, String name, int level, long exp, int job, int rebirths, int fame,
                          int guildId) {
     }
 
     /** A player character as the database has it. */
     public record PlayerRow(int id, int accountId, String name, int level, long exp, int job, int rebirths, int fame,
-                            long meso, long merchantMeso, long bank, int guildId, int gm, String accountName,
+                            int guildId, int gm, String accountName,
                             boolean banned) {
     }
 
     /** A bot as {@code botstore} has it (fame is derived from id and level, as in game). */
-    public record BotRow(int charId, String name, int level, long exp, int job, long meso, int fame, int guildId) {
+    public record BotRow(int charId, String name, int level, long exp, int job, int fame, int guildId) {
     }
 
     public record GuildRow(int id, String name, long points, int capacity, int leaderId) {
@@ -55,56 +57,31 @@ public final class SiteLeaderboards {
 
     /**
      * The players who may be ranked: no character of an account that has any GM character (gm > 0), no auto-QA
-     * account or character, no banned account, not the bot clone template. Each account's storage mesos (and nothing
-     * twice) go to that account's richest remaining character. Pure.
+     * account or character, no banned account, not the bot clone template. Pure.
      */
-    public static List<Person> players(List<PlayerRow> rows, Map<Integer, Long> storageByAccount, int templateId) {
+    public static List<Person> players(List<PlayerRow> rows, int templateId) {
         Set<Integer> staff = new HashSet<>();
         for (PlayerRow r : rows) {
             if (r.gm() > 0) {
                 staff.add(r.accountId());
             }
         }
-        List<PlayerRow> kept = new ArrayList<>();
+        List<Person> out = new ArrayList<>();
         for (PlayerRow r : rows) {
             if (staff.contains(r.accountId()) || r.banned() || r.id() == templateId || r.name() == null
                     || r.name().isBlank() || SiteFeed.isQaName(r.name()) || SiteFeed.isQaName(r.accountName())) {
                 continue;
             }
-            kept.add(r);
-        }
-        Map<Integer, Integer> richestOfAccount = new HashMap<>();
-        Map<Integer, Long> best = new HashMap<>();
-        for (PlayerRow r : kept) {
-            long own = own(r);
-            Long b = best.get(r.accountId());
-            if (b == null || own > b || (own == b && r.id() < richestOfAccount.get(r.accountId()))) {
-                best.put(r.accountId(), own);
-                richestOfAccount.put(r.accountId(), r.id());
-            }
-        }
-        List<Person> out = new ArrayList<>();
-        for (PlayerRow r : kept) {
-            long mesos = own(r);
-            if (richestOfAccount.get(r.accountId()) == r.id()) {
-                mesos += Math.max(0, storageByAccount.getOrDefault(r.accountId(), 0L));
-            }
-            out.add(new Person(r.id(), r.name(), r.level(), r.exp(), r.job(), r.rebirths(), r.fame(), mesos, r.guildId()));
+            out.add(new Person(r.id(), r.name(), r.level(), r.exp(), r.job(), r.rebirths(), r.fame(), r.guildId()));
         }
         return out;
-    }
-
-    /** A character's own mesos: carried, waiting at Fredrick (hired merchant) and in the bank. */
-    static long own(PlayerRow r) {
-        return Math.max(0, r.meso()) + Math.max(0, r.merchantMeso()) + Math.max(0, r.bank());
     }
 
     public static List<Person> bots(List<BotRow> rows) {
         List<Person> out = new ArrayList<>();
         for (BotRow r : rows) {
             if (r.name() != null && !r.name().isBlank()) {
-                out.add(new Person(r.charId(), r.name(), r.level(), r.exp(), r.job(), 0, r.fame(), Math.max(0, r.meso()),
-                        r.guildId()));
+                out.add(new Person(r.charId(), r.name(), r.level(), r.exp(), r.job(), 0, r.fame(), r.guildId()));
             }
         }
         return out;
@@ -112,13 +89,21 @@ public final class SiteLeaderboards {
 
     // ── the file ────────────────────────────────────────────────────────────────────────────────
 
+    /** The class names {@code levelByClass} is keyed by, in branch order (Cygnus, Aran and Evan by archetype). */
+    public static final List<String> CLASSES = List.of("Beginner", "Warrior", "Magician", "Bowman", "Thief", "Pirate");
+    /** The boss names {@code bosses} is keyed by, for {@link #BOSSES}. */
+    public static final List<String> BOSS_NAMES = List.of("Zakum", "Horntail", "Pink Bean");
+
     /**
-     * leaderboards.json. {@code everyone}: players (already filtered by {@link #players}) and bots.
-     * {@code excludedIds}: characters that must not lead a listed guild (staff, QA, template).
-     * {@code bosses} null: the boss tables could not be read.
+     * leaderboards.json, in the field names the site's pages read (site session, 2026-10-26).
+     * {@code everyone}: players (already filtered by {@link #players}) and bots. {@code excludedIds}: characters that
+     * must not lead a listed guild (staff, QA, template). {@code bosses} null: the boss tables could not be read
+     * (every boss list is empty then, as when nobody has cleared it). {@code trades}: the stored trade ratings (null:
+     * unreadable, e.g. no migration 035 yet; the list is empty then).
      */
     public static Map<String, Object> file(List<Person> everyone, List<GuildRow> guilds, Map<Integer, Integer> members,
-                                           Set<Integer> excludedIds, List<BossRow> bosses, long now) {
+                                           Set<Integer> excludedIds, List<BossRow> bosses,
+                                           List<TradeRatings.Row> trades, long now) {
         Map<Integer, Person> byId = new HashMap<>();
         for (Person p : everyone) {
             byId.put(p.id(), p);
@@ -139,15 +124,14 @@ public final class SiteLeaderboards {
 
         List<Person> byLevel = new ArrayList<>(everyone);
         byLevel.sort(LEVEL_ORDER);
-        Map<String, Object> level = new LinkedHashMap<>();
-        level.put("overall", levelRows(byLevel, LEVEL_TOP, guildNames));
-        Map<String, Object> branches = new LinkedHashMap<>();
-        for (String b : BRANCHES) {
-            branches.put(b, levelRows(byLevel.stream().filter(p -> b.equals(branch(p.job()))).toList(), BRANCH_TOP,
-                    guildNames));
+        m.put("level", levelRows(byLevel, LEVEL_TOP, guildNames));
+        Map<String, Object> classes = new LinkedHashMap<>();
+        for (int b = 0; b < BRANCHES.size(); b++) {
+            String branch = BRANCHES.get(b);
+            classes.put(CLASSES.get(b), levelRows(byLevel.stream().filter(p -> branch.equals(branch(p.job()))).toList(),
+                    BRANCH_TOP, guildNames));
         }
-        level.put("by_branch", branches);
-        m.put("level", level);
+        m.put("levelByClass", classes);
 
         List<Person> byFame = new ArrayList<>(everyone);
         byFame.sort(Comparator.comparingInt(Person::fame).reversed().thenComparing(LEVEL_ORDER));
@@ -155,44 +139,56 @@ public final class SiteLeaderboards {
         for (Person p : byFame.subList(0, Math.min(FAME_TOP, byFame.size()))) {
             Map<String, Object> r = row(fame.size() + 1, p);
             r.put("fame", p.fame());
-            r.put("level", p.level());
             r.put("job", jobName(p.job()));
             fame.add(r);
         }
         m.put("fame", fame);
 
-        Map<String, Object> g = new LinkedHashMap<>();
-        Comparator<GuildRow> byPoints = Comparator.comparingLong(GuildRow::points).reversed()
-                .thenComparing(x -> -members.getOrDefault(x.id(), 0)).thenComparing(GuildRow::name);
-        Comparator<GuildRow> byMembers = Comparator.<GuildRow>comparingInt(x -> -members.getOrDefault(x.id(), 0))
-                .thenComparing(Comparator.comparingLong(GuildRow::points).reversed()).thenComparing(GuildRow::name);
-        g.put("by_points", guildRows(listed, byPoints, members, byId));
-        g.put("by_members", guildRows(listed, byMembers, members, byId));
+        List<GuildRow> sorted = new ArrayList<>(listed);
+        sorted.sort(Comparator.comparingLong(GuildRow::points).reversed()
+                .thenComparing(x -> -members.getOrDefault(x.id(), 0)).thenComparing(GuildRow::name));
+        List<Object> g = new ArrayList<>();
+        for (GuildRow x : sorted.subList(0, Math.min(GUILD_TOP, sorted.size()))) {
+            Map<String, Object> r = new LinkedHashMap<>();
+            r.put("rank", g.size() + 1);
+            r.put("name", x.name());
+            r.put("level", null); // v83 guilds have no level; GP is their ranking (points)
+            r.put("members", members.getOrDefault(x.id(), 0));
+            r.put("points", x.points());
+            Person leader = byId.get(x.leaderId());
+            r.put("leader", leader == null ? null : leader.name());
+            g.add(r);
+        }
         m.put("guilds", g);
 
-        List<Person> byMesos = new ArrayList<>(everyone);
-        byMesos.sort(Comparator.comparingLong(Person::mesos).reversed().thenComparing(LEVEL_ORDER));
-        List<Object> rich = new ArrayList<>();
-        for (Person p : byMesos.subList(0, Math.min(RICH_TOP, byMesos.size()))) {
-            Map<String, Object> r = row(rich.size() + 1, p);
-            r.put("mesos", p.mesos());
-            r.put("level", p.level());
-            r.put("job", jobName(p.job()));
-            rich.add(r);
+        // Trade ratings (owner 2026-10-26, replacing "richest"): at least TRADER_MIN trades, most completed first,
+        // then fewer fell through, then name.
+        List<TradeRatings.Row> rated = new ArrayList<>();
+        if (trades != null) {
+            for (TradeRatings.Row t : trades) {
+                if (byId.containsKey(t.charId()) && t.completed() + t.fellThrough() >= TRADER_MIN) {
+                    rated.add(t);
+                }
+            }
         }
-        m.put("richest", rich);
-        m.put("richest_counts", "carried + storage (once per account) + hired merchant (Fredrick) + bank; bots: carried");
+        rated.sort(Comparator.comparingLong(TradeRatings.Row::completed).reversed()
+                .thenComparingLong(TradeRatings.Row::fellThrough).thenComparing(t -> byId.get(t.charId()).name()));
+        List<Object> traders = new ArrayList<>();
+        for (TradeRatings.Row t : rated.subList(0, Math.min(TRADER_TOP, rated.size()))) {
+            Map<String, Object> r = row(traders.size() + 1, byId.get(t.charId()));
+            r.put("completed", t.completed());
+            r.put("fellThrough", t.fellThrough());
+            traders.add(r);
+        }
+        m.put("traders", traders);
 
-        Map<String, Object> dojo = new LinkedHashMap<>();
-        dojo.put("recorded", false);
-        dojo.put("note", "The server keeps no Mu Lung Dojo best floor or time yet.");
-        dojo.put("entries", List.of());
-        m.put("dojo", dojo);
+        // The server keeps no Mu Lung Dojo best floor or time (lastDojoStage is a resume slot, dojoPoints a currency):
+        // rows {name, floor, points, time_s} once it does.
+        m.put("dojo", List.of());
 
         Map<String, Object> bossOut = new LinkedHashMap<>();
-        for (String boss : BOSSES) {
-            Map<String, Object> b = new LinkedHashMap<>();
-            b.put("recorded", bosses != null);
+        for (int k = 0; k < BOSSES.size(); k++) {
+            String boss = BOSSES.get(k);
             List<Object> entries = new ArrayList<>();
             if (bosses != null) {
                 List<BossRow> rows = new ArrayList<>();
@@ -209,12 +205,10 @@ public final class SiteLeaderboards {
                     e.put("rank", entries.size() + 1);
                     e.put("name", byId.get(r.charId()).name());
                     e.put("clears", r.clears());
-                    e.put("fastest_ms", r.fastestMs() > 0 ? r.fastestMs() : null);
                     entries.add(e);
                 }
             }
-            b.put("entries", entries);
-            bossOut.put(boss.toLowerCase(java.util.Locale.ROOT), b);
+            bossOut.put(BOSS_NAMES.get(k), entries);
         }
         m.put("bosses", bossOut);
         return m;
@@ -233,27 +227,7 @@ public final class SiteLeaderboards {
             r.put("level", p.level());
             r.put("rebirths", p.rebirths());
             r.put("job", jobName(p.job()));
-            r.put("branch", branch(p.job()));
             r.put("guild", guildNames.get(p.guildId()));
-            out.add(r);
-        }
-        return out;
-    }
-
-    private static List<Object> guildRows(List<GuildRow> guilds, Comparator<GuildRow> order, Map<Integer, Integer> members,
-                                          Map<Integer, Person> byId) {
-        List<GuildRow> sorted = new ArrayList<>(guilds);
-        sorted.sort(order);
-        List<Object> out = new ArrayList<>();
-        for (GuildRow g : sorted.subList(0, Math.min(GUILD_TOP, sorted.size()))) {
-            Map<String, Object> r = new LinkedHashMap<>();
-            r.put("rank", out.size() + 1);
-            r.put("name", g.name());
-            r.put("points", g.points());
-            r.put("members", members.getOrDefault(g.id(), 0));
-            r.put("capacity", g.capacity());
-            Person leader = byId.get(g.leaderId());
-            r.put("leader", leader == null ? null : leader.name());
             out.add(r);
         }
         return out;

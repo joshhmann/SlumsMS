@@ -45,8 +45,9 @@ class PublicSiteExportTest {
                 throw new IllegalStateException("db down");
             }
             return new PublicSiteExport.Boards(List.of(new SiteLeaderboards.Person(1_000_000_101, "Bobbins", 120, 0,
-                    111, 0, 12, 5_000_000, 1)), List.of(new SiteLeaderboards.GuildRow(1, "Legendz", 2290, 50,
-                    1_000_000_101)), Map.of(1, 1), Set.of(), List.of());
+                    111, 0, 12, 1)), List.of(new SiteLeaderboards.GuildRow(1, "Legendz", 2290, 50,
+                    1_000_000_101)), Map.of(1, 1), Set.of(), List.of(),
+                    List.of(new TradeRatings.Row(1_000_000_101, 7, 1)));
         }
     }
 
@@ -74,7 +75,7 @@ class PublicSiteExportTest {
             assertEquals(List.of(), SiteFileShape.shape(name, doc), name);
         }
         Map<?, ?> world = (Map<?, ?>) Json.parse(Files.readString(dir.resolve("world.json")));
-        assertNull(world.get("headline"), "a broken event system leaves the headline out, not the file");
+        assertNull(world.get("tonight"), "a broken event system leaves the headline out, not the file");
         assertEquals(8L, ((Number) world.get("online")).longValue());
         Map<?, ?> feed = (Map<?, ?>) Json.parse(Files.readString(dir.resolve("feed.json")));
         assertEquals(1L, ((Number) feed.get("count")).longValue());

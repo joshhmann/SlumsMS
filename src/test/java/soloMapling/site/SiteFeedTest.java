@@ -131,6 +131,21 @@ class SiteFeedTest {
     }
 
     @Test
+    void anEventCarriesItsTopThreeDamageDealers() {
+        SiteFeed.eventEnded("Giant Cake", "Henesys", 100000000, 1, "won", "A", List.of(new SiteFeed.Top("A", 900),
+                new SiteFeed.Top("B", 500), new SiteFeed.Top("C", 100), new SiteFeed.Top("D", 50)));
+        Map<?, ?> file = (Map<?, ?>) Json.parse(Json.write(SiteFeed.file(SiteFeed.snapshot(now.get()), now.get())));
+        Map<?, ?> item = (Map<?, ?>) ((List<?>) file.get("items")).getFirst();
+        List<?> top = (List<?>) item.get("top");
+        assertEquals(3, top.size());
+        assertEquals("A", ((Map<?, ?>) top.getFirst()).get("name"));
+        assertEquals(900L, ((Number) ((Map<?, ?>) top.getFirst()).get("damage")).longValue());
+        SiteFeed.resetForTest(now::get);
+        assertEquals(1, SiteFeed.seed(file));
+        assertEquals(3, SiteFeed.snapshot(now.get()).getFirst().top().size(), "a restart keeps the top damage");
+    }
+
+    @Test
     void textIsPlainCappedAndPg13() {
         assertEquals("hi there", SiteFeed.plain("hi\u0000 ❤️ 😀 there"));
         assertTrue(SiteFeed.plain("x".repeat(500)).length() <= 160);

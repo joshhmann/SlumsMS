@@ -1024,6 +1024,7 @@ public class Server {
         soloMapling.Economy.stats.EconomySnapshotService.startNightlyJob(); // 1.6.0 Track D: nightly economy snapshot
         soloMapling.Economy.market.PublicMarketExport.startIfEnabled(); // 1.6.0 Track D: website Market files, off unless -Dslums.market.export=true
         soloMapling.site.PublicSiteExport.startIfEnabled(); // 1.6.0 Track D: website feed/leaderboards/world, off unless -Dslums.site.export=true
+        soloMapling.site.TradeRatings.start(); // 1.6.0 Track D: trade ratings, batched to traderatings every minute
        // DamageSkin.loadDamageSkins();
     }
 
@@ -2182,6 +2183,7 @@ public class Server {
 
         // 1.6.0 Track D (owner 2026-10-26): the day's economy counters survive the restart
         soloMapling.Economy.stats.EconomySnapshotService.shutdown();
+        soloMapling.site.TradeRatings.shutdown(); // 1.6.0 Track D: the last minute of trade ratings
 
         resetServerWorlds();
 

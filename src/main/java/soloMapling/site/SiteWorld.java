@@ -23,8 +23,18 @@ public final class SiteWorld {
     public record Online(Map<Integer, Integer> perChannel, Map<Integer, Integer> perMap, Map<Integer, String> mapNames) {
     }
 
-    /** The next evening headline. {@code name} null when it is not picked yet; {@code status} as in the file. */
-    public record Headline(String name, long startAt, String status) {
+    /**
+     * The next evening headline. {@code name} null when it is not picked yet; {@code map} the planned map's name (null
+     * when unknown, or hidden: a treasure hunt); {@code status} as in the file.
+     */
+    public record Headline(String name, long startAt, String status, String map) {
+        public Headline(String name, long startAt, String status) {
+            this(name, startAt, status, null);
+        }
+
+        Headline withMap(String m) {
+            return new Headline(name, startAt, status, m);
+        }
     }
 
     /** A running world event. {@code mapId} 0 and {@code where} a region while a treasure hunt hides its map. */
@@ -86,13 +96,16 @@ public final class SiteWorld {
         m.put("busiest_maps", busiest);
 
         if (headline == null) {
-            m.put("headline", null);
+            m.put("tonight", null);
         } else {
             Map<String, Object> h = new LinkedHashMap<>();
             h.put("name", headline.name());
             h.put("start", Instant.ofEpochMilli(headline.startAt()).toString());
+            if (headline.map() != null && !headline.map().isBlank()) {
+                h.put("map", headline.map());
+            }
             h.put("status", headline.status());
-            m.put("headline", h);
+            m.put("tonight", h);
         }
 
         List<Running> sorted = new ArrayList<>(running);
@@ -101,16 +114,22 @@ public final class SiteWorld {
         for (Running r : sorted) {
             Map<String, Object> e = new LinkedHashMap<>();
             e.put("name", r.name());
+            if (r.where() != null && !r.where().isBlank()) {
+                e.put("map", r.where()); // the map's name; a treasure hunt shows its region only
+            }
+            if (r.mapId() > 0) {
+                e.put("map_id", r.mapId());
+            }
+            if (r.channel() > 0) {
+                e.put("channel", r.channel());
+            }
+            e.put("endsAt", Instant.ofEpochMilli(r.endsAt()).toString());
             e.put("kind", r.kind());
-            e.put("map", r.mapId() > 0 ? r.mapId() : null);
-            e.put("where", r.where() == null ? "" : r.where());
-            e.put("channel", r.channel());
-            e.put("started", Instant.ofEpochMilli(r.startedAt()).toString());
-            e.put("ends", Instant.ofEpochMilli(r.endsAt()).toString());
+            e.put("startedAt", Instant.ofEpochMilli(r.startedAt()).toString());
             e.put("headline", r.headline());
             events.add(e);
         }
-        m.put("running_events", events);
+        m.put("running", events);
         return m;
     }
 }

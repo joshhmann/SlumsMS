@@ -83,10 +83,6 @@ final class SiteScenarios {
             }
         }
 
-        private static List<?> list(Object o) {
-            return o instanceof List<?> l ? l : null;
-        }
-
         private static Map<?, ?> map(Object o) {
             return o instanceof Map<?, ?> m ? m : null;
         }
@@ -98,17 +94,14 @@ final class SiteScenarios {
             return switch (name) {
                 case "feed.json" -> " items=" + size(m.get("items"));
                 case "leaderboards.json" -> {
-                    Map<?, ?> level = map(m.get("level"));
-                    Map<?, ?> guilds = map(m.get("guilds"));
                     Map<?, ?> bosses = map(m.get("bosses"));
-                    Map<?, ?> zakum = bosses == null ? null : map(bosses.get("zakum"));
-                    yield " level=" + (level == null ? 0 : size(level.get("overall"))) + " fame=" + size(m.get("fame"))
-                            + " guilds=" + (guilds == null ? 0 : size(guilds.get("by_points"))) + " richest="
-                            + size(m.get("richest")) + " bossesRecorded=" + (zakum == null ? null : zakum.get("recorded"));
+                    yield " level=" + size(m.get("level")) + " fame=" + size(m.get("fame")) + " guilds="
+                            + size(m.get("guilds")) + " traders=" + size(m.get("traders")) + " zakum="
+                            + (bosses == null ? 0 : size(bosses.get("Zakum")));
                 }
                 case "world.json" -> " online=" + m.get("online") + " channels=" + size(m.get("channels"))
-                        + " maps=" + size(m.get("busiest_maps")) + " running=" + size(m.get("running_events"))
-                        + " headline=" + (map(m.get("headline")) == null ? "none" : map(m.get("headline")).get("start"));
+                        + " maps=" + size(m.get("busiest_maps")) + " running=" + size(m.get("running"))
+                        + " tonight=" + (map(m.get("tonight")) == null ? "none" : map(m.get("tonight")).get("start"));
                 default -> "";
             };
         }

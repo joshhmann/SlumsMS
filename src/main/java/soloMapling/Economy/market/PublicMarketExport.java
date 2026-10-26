@@ -196,6 +196,16 @@ public final class PublicMarketExport {
         /** Each nightly snapshot's total sinks ({@code flows.totalSinks}) by the day it covers. */
         Map<LocalDate, Long> dailySinks();
 
+        /** Stored economy counters (table economycounters, migration 032) per UTC day from {@code from}. */
+        default Map<LocalDate, Map<String, Long>> counterDays(LocalDate from) {
+            return Map.of();
+        }
+
+        /** All mesos held ({@code mesoSupply.totalMeso}) by the day each nightly snapshot covers. */
+        default Map<LocalDate, Long> dailyMesoTotals() {
+            return Map.of();
+        }
+
         /** Bots online now. */
         int botsOnline();
 
@@ -364,8 +374,21 @@ public final class PublicMarketExport {
                 }
                 PublicEconomy.Live live = new PublicEconomy.Live(trades, shopsOpen[0], sinks7d(today),
                         botsPeak(now));
+                Map<LocalDate, Map<String, Long>> counters;
+                try {
+                    counters = sources.counterDays(today.minusDays(PublicEconomy.DAYS - 1));
+                } catch (RuntimeException e) {
+                    counters = Map.of(); // no counters table (migration 032) or the database is busy
+                }
+                Map<LocalDate, Long> totals;
+                try {
+                    totals = sources.dailyMesoTotals();
+                } catch (RuntimeException e) {
+                    totals = Map.of();
+                }
+                List<Map<String, Object>> days = PublicEconomy.days(today, counters, totals);
                 AtomicFiles.writeJson(dir.resolve("economy-public.json"),
-                        PublicEconomy.file(sources.latestPublicEconomy(), live, now));
+                        PublicEconomy.file(sources.latestPublicEconomy(), live, days, now));
                 return true;
             });
             return new Report(dir, written, failed);
@@ -612,6 +635,67 @@ public final class PublicMarketExport {
 
         /** Each dated snapshot's sinks, read once per file (a nightly file never changes). */
         private final Map<String, Long> sinksByFile = new java.util.concurrent.ConcurrentHashMap<>();
+        private final Map<String, Long> totalByFile = new java.util.concurrent.ConcurrentHashMap<>();
+
+        static final String COUNTER_DAYS = "SELECT Day, CounterKey, Amount FROM economycounters WHERE Day >= ? ORDER BY Day";
+
+        @Override
+        public Map<LocalDate, Map<String, Long>> counterDays(LocalDate from) {
+            Map<LocalDate, Map<String, Long>> out = new TreeMap<>();
+            try (Connection con = DatabaseConnection.getConnection(); PreparedStatement ps = con.prepareStatement(COUNTER_DAYS)) {
+                ps.setObject(1, from);
+                try (ResultSet rs = ps.executeQuery()) {
+                    while (rs.next()) {
+                        out.computeIfAbsent(rs.getObject("Day", LocalDate.class), k -> new java.util.HashMap<>())
+                                .put(rs.getString("CounterKey"), rs.getLong("Amount"));
+                    }
+                }
+            } catch (SQLException e) {
+                throw new IllegalStateException("economycounters: " + e.getMessage(), e);
+            }
+            return out;
+        }
+
+        @Override
+        public Map<LocalDate, Long> dailyMesoTotals() {
+            Map<LocalDate, Long> out = new TreeMap<>();
+            Path econ = soloMapling.Economy.stats.EconomySnapshotService.getInstance().outputDir();
+            if (!Files.isDirectory(econ)) {
+                return out;
+            }
+            try (DirectoryStream<Path> ds = Files.newDirectoryStream(econ, "????-??-??-public.json")) {
+                for (Path p : ds) {
+                    String n = p.getFileName().toString();
+                    LocalDate d;
+                    try {
+                        d = LocalDate.parse(n.substring(0, 10));
+                    } catch (DateTimeParseException e) {
+                        continue;
+                    }
+                    if (d.isBefore(LocalDate.now(ZoneOffset.UTC).minusDays(PublicEconomy.DAYS + 1))) {
+                        continue;
+                    }
+                    Long v = totalByFile.computeIfAbsent(n, k -> {
+                        try {
+                            Object doc = Json.parse(Files.readString(p, StandardCharsets.UTF_8));
+                            if (doc instanceof Map<?, ?> m && m.get("mesoSupply") instanceof Map<?, ?> s
+                                    && s.get("totalMeso") instanceof Number t) {
+                                return t.longValue();
+                            }
+                        } catch (IOException | RuntimeException e) {
+                            log.debug("market export: unreadable snapshot {}", p, e);
+                        }
+                        return -1L;
+                    });
+                    if (v >= 0) {
+                        out.put(d, v);
+                    }
+                }
+            } catch (IOException e) {
+                throw new IllegalStateException(econ + ": " + e.getMessage(), e);
+            }
+            return out;
+        }
 
         @Override
         public Map<LocalDate, Long> dailySinks() {

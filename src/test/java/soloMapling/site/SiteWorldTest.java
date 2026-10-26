@@ -39,8 +39,9 @@ class SiteWorldTest {
         assertEquals(100000013L, ((Number) ((Map<?, ?>) maps.get(1)).get("map")).longValue());
         assertEquals(910000000L, ((Number) ((Map<?, ?>) maps.get(2)).get("map")).longValue());
         assertEquals("", ((Map<?, ?>) maps.get(2)).get("name"), "an unknown name is empty, not null");
-        assertTrue(f.containsKey("headline"));
-        assertNull(f.get("headline"));
+        assertTrue(f.containsKey("tonight"));
+        assertNull(f.get("tonight"));
+        assertTrue(((String) f.get("generated_at")).endsWith("Z"));
     }
 
     @Test
@@ -51,13 +52,18 @@ class SiteWorldTest {
                 NOW - 2 * HOUR, NOW + HOUR, true);
         Map<?, ?> f = (Map<?, ?>) Json.parse(Json.write(SiteWorld.file(
                 new SiteWorld.Online(Map.of(), Map.of(), Map.of()), new SiteWorld.Headline("Giant Cake", NOW - 2 * HOUR,
-                        "running"), List.of(hunt, cake), NOW)));
-        List<?> events = (List<?>) f.get("running_events");
-        assertEquals("Giant Cake", ((Map<?, ?>) events.get(0)).get("name"), "oldest first");
-        assertNull(((Map<?, ?>) events.get(1)).get("map"));
-        assertEquals("Victoria Island", ((Map<?, ?>) events.get(1)).get("where"));
-        Map<?, ?> h = (Map<?, ?>) f.get("headline");
+                        "running", "Henesys"), List.of(hunt, cake), NOW)));
+        List<?> events = (List<?>) f.get("running");
+        Map<?, ?> first = (Map<?, ?>) events.get(0);
+        assertEquals("Giant Cake", first.get("name"), "oldest first");
+        assertEquals("Henesys", first.get("map"));
+        assertEquals(1L, ((Number) first.get("channel")).longValue());
+        assertTrue(((String) first.get("endsAt")).endsWith("Z"));
+        assertFalse(((Map<?, ?>) events.get(1)).containsKey("map_id"), "a treasure hunt hides its map");
+        assertEquals("Victoria Island", ((Map<?, ?>) events.get(1)).get("map"));
+        Map<?, ?> h = (Map<?, ?>) f.get("tonight");
         assertEquals("running", h.get("status"));
+        assertEquals("Henesys", h.get("map"));
         assertTrue(((String) h.get("start")).endsWith("Z"));
     }
 

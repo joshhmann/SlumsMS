@@ -364,7 +364,7 @@ Seller IGNs are shown for bots and players alike (owner, 2026-10-26).
 | ` .room` | int or null | FM room 1..22 (maps 910000001..910000022); null outside the FM rooms |
 | ` .shop_title` | string | the shop's sign |
 | ` .seller_name` | string | the owner's IGN |
-| ` .seller_kind` | "bot" or "player" | |
+| ~~` .seller_kind`~~ | | removed 2026-10-26: the site's build refuses bot/player flags in published files |
 | ` .shop_type` | "merchant" or "player_shop" | (extra) |
 
 ### `sales.json` (every 15 min)
@@ -430,6 +430,7 @@ sale. On TEST there are no cash-item samples yet, so the rate is null until play
 |---|---|---|
 | `schema` | int | 1 |
 | `as_of` | string | when the file was made |
+| `generated_at` | string | the same time (every published file has `generated_at`; added 2026-10-26) |
 | `snapshot_date` | string or null | extra: the day of the nightly economy snapshot used |
 | `mesos_total` | int or null | all mesos held by characters and bots (nightly snapshot); null before the first snapshot |
 | `players_share` | number or null | real players' share of `mesos_total`; null when fewer than 5 players (privacy floor) or no snapshot |
@@ -437,6 +438,11 @@ sale. On TEST there are no cash-item samples yet, so the rate is null until play
 | `shops_open` | int | FM shops with at least one listing now |
 | `mesos_removed_7d` | int or null | sum of `flows.totalSinks` over the nightly snapshots of the 7 days before today; null when there are none |
 | `bots_online_peak` | int or null | most bots online at any 15-minute run in the last 24 h (since the server started) |
+| `days[]` | array | up to 30 UTC days, oldest first, ending today; a day with neither counters nor a snapshot is left out (added 2026-10-26) |
+| ` .date` | string | UTC `YYYY-MM-DD` |
+| ` .mesos_total` | int or null | all mesos held (`mesoSupply.totalMeso` of that day's nightly snapshot file); null when there is none (today, until 00:05 UTC tomorrow) |
+| ` .mesos_made` | int or null | sources that day from the stored economy counters (`economycounters`, migration 032): mob drops (players and bots), NPC sales, quest rewards; null when the day has no counter rows |
+| ` .mesos_spent` | int or null | sinks that day: NPC shop buys, job advance and NPC fees, upkeep, FM tax; null when no counter rows. Trades, FM sales (transfers) and NX/Maple Leaf are in neither |
 | `detail` | object or null | extra: `latest-public.json` with the human-bucket floor: any human bucket (level band, wealth stats, human total) covering fewer than 5 players has its numbers set to null and `"suppressed": true`; `topHolders` is always removed; `detail.privacy = {human_bucket_floor: 5, suppressed: [paths]}`. Its inner keys keep the snapshot's camelCase |
 
 ### Example (shortened)
@@ -444,7 +450,7 @@ sale. On TEST there are no cash-item samples yet, so the rate is null until play
 // listings.json
 {"schema":1,"generated_at":"2026-10-26T07:15:00.120Z","shops":212,"bot_shops":211,"player_shops":1,"count":2,
  "listings":[{"item_id":2000000,"name":"Red Potion","qty":100,"bundles":2,"price":50,"bundle_price":5000,
-   "channel":3,"map_id":910000007,"room":7,"shop_title":"cheap pots","seller_name":"Bobbins","seller_kind":"bot",
+   "channel":3,"map_id":910000007,"room":7,"shop_title":"cheap pots","seller_name":"Bobbins",
    "shop_type":"merchant"}]}
 // sales.json
 {"schema":1,"generated_at":"2026-10-26T07:15:00.200Z","count":1,"sales":[{"item_id":4010001,"name":"Steel Ore",
@@ -477,3 +483,138 @@ sale. On TEST there are no cash-item samples yet, so the rate is null until play
   `bots_online_peak`) when there is no nightly snapshot yet, the privacy floor applies, or the DB is busy; the site
   should show "-" rather than 0.
 - **`nx-rate.json` `bot_share` is 0 when `n_trades` is 0** (the agreed type is a number 0..1, never null).
+
+---
+
+## Site export contract (server → site), schema 1
+
+Written by `soloMapling.site.PublicSiteExport` (1.6.0, branch `160-sitefeeds`): the news feed, the leaderboards and the
+"live world" lite page. Field names follow what the site session built its pages against (2026-10-26).
+
+### Switches, place, cadence
+- **Off by default.** `-Dslums.site.export=true` turns it on (and only then are feed items recorded at all).
+- **Directory:** `-Dslums.site.dir`, default `Server/data/site` (or `data/site` when there is no `./Server`).
+- **Writes:** atomic rename, mode 644, one minimum-priority daemon thread (`site-export`). Nothing throws into the
+  game; a failed file is logged at most every 15 min and does not stop the other files.
+- **Cadence:** `world.json` every 60 s (first 30 s after boot), `feed.json` every 2 min (first at 45 s, after the last
+  `feed.json` is read back into memory so a restart keeps the week), `leaderboards.json` every 15 min (first at 2 min).
+- `!qa sf-1` forces all three and checks them (auto-QA `t-sf-1`).
+- **Every file** has `"schema": 1` and `generated_at` (UTC ISO-8601, e.g. `2026-10-26T07:15:00.123Z`; a time with zero
+  milliseconds is written without them, `2026-10-26T07:15:00Z`). **Names only:** no character, bot or account ids,
+  no account data, and no key that flags a bot or a player (`bot`, `is_bot`, `is_player`, `seller_kind`, `account*`,
+  `ip` ...). Bots and players are one server: same lists, no flag (owner, 2026-10-26).
+- **Who never appears:** GM/staff (any character on an account that has a character with gm > 0), the auto-QA
+  accounts and characters (`autoqa*` / `AutoQa*`), auto-QA pretend players, banned accounts, the bot clone template.
+- Rows may carry an optional `rank` (1-based).
+
+### `feed.json` (every 2 min)
+Newest first, at most 200 items from the last 7 days; megaphones only from the last 24 h and at most 80 of the 200.
+
+| Field | Type | Meaning |
+|---|---|---|
+| `schema`, `generated_at`, `count` | | |
+| `items[]` | array | newest first |
+| ` .id` | string | unique, stable across rewrites (`<kind letter><time base36>-<seq>`) |
+| ` .t` | string | UTC ISO time |
+| ` .kind` | string | `event`, `milestone`, `megaphone`, `drama` |
+| ` .tag` | string | extra: what it is. event: `start`, `won`, `lost`, `ended`; milestone: `job2`, `job3`, `job4`, `level`, `rebirth`, `guild`, `wedding`; megaphone: `megaphone`; drama: `rivalry`, `callout`, `couple`, `breakup`, `rage_quit`, `back`, `turned`, `redeemed`, `guild_feud`, `guild_war` |
+| ` .text` | string | plain, PG-13, no emoji, at most 160 characters |
+| ` .names` | string[] | the IGNs (guild names for `guild_war`) the item is about; may be empty |
+| ` .map` | int | optional: the map id (left out when hidden, e.g. a treasure hunt still running) |
+| ` .channel` | int | optional |
+| ` .top` | array | optional, events only: up to 3 `{name, damage}`, the top damage dealers on the event's boss (bots and players) |
+
+What feeds each kind (all from in-memory hooks on the game's own paths, no database):
+- **event**: world event start (`WorldEvents.startEvent`) and end (`finish`; not on shutdown). `won`: a boss/cake beaten
+  (by anyone, bots included), the treasure found, the quest done; `lost`: time ran out; `ended`: hot spot, wedding,
+  wandering NPC, or stopped by a GM. A treasure hunt names its region, not its map, until it is won.
+- **milestone**: 2nd/3rd/4th job (players: `Character.changeJob`; bots: `BotProgression` after a level gain), level 70,
+  120 and 200 (observed and offscreen level gains), rebirth, guild founded (players' guild creation and the bot guilds
+  the server founds), wedding (player weddings via the marriage rings, bot couples' weddings).
+- **megaphone**: megaphone, super, item, triple and MapleTV megaphones of players, and bots' item, super and avatar
+  megaphones. Text only (the IGN is in `names`); a line failing the PG-13 guard (`ContentGuard`) is dropped.
+- **drama**: bot-only. Every party must be a bot (checked by character id in `SiteFeed.drama`; anything else is
+  refused there): a new nemesis (bond turns NEMESIS), a nemesis call-out by megaphone, a couple formed or broken
+  up, rage quit and return, villain arc turned/redeemed, a guild feud leave, a bot guild declaring war on another bot
+  guild (never on a player guild).
+
+### `leaderboards.json` (every 15 min)
+
+| Field | Type | Meaning |
+|---|---|---|
+| `level` | array | top 100: `{rank, name, level, rebirths, job, guild}`; ordered by rebirths, then level, then EXP. `job` is the job's display name; `guild` null when none |
+| `levelByClass` | object | keys `Beginner`, `Warrior`, `Magician`, `Bowman`, `Thief`, `Pirate` (Cygnus, Aran and Evan by archetype); each the top 20 in the same row shape |
+| `fame` | array | top 50 `{rank, name, fame, job}` (bots' fame is the one they show in game, derived from id and level) |
+| `guilds` | array | top 30 `{rank, name, level, members, points, leader}` by points (GP), then members. `level` is always null: v83 guilds have no level. `members`: players + bots in it. A guild named AutoQa* or led by an excluded character is left out |
+| `traders` | array | trade ratings (owner 2026-10-26; replaces the removed "richest" board): top 50 `{rank, name, completed, fellThrough}` by `completed` (ties: fewer `fellThrough`, then name); listed only with at least 5 trades (`completed + fellThrough`). See "Trade ratings" below |
+| `dojo` | array | always empty for now: rows would be `{name, floor, points, time_s}`, but the server records no best floor or time (`lastDojoStage` is a resume slot, `dojoPoints` a spendable currency) |
+| `bosses` | object | keys `Zakum`, `Horntail`, `Pink Bean`; each the top 20 `{rank, name, clears}`, most clears first (ties: faster best time) |
+
+Boss clears are recorded already: every expedition clear (`EventInstanceManager.setEventCleared` with an expedition
+type) appends one row per party member to `bosslog_leaderboard_daily` (weekly for weekly bosses), and nothing prunes
+those tables (the `bosslog_daily/weekly` entry logs are pruned; these are not). So the counts cover every clear since
+the tables existed. Bots never run expeditions, so only players appear here.
+
+### Trade ratings
+Counted in the trade code (`server.Trade`), bots and players alike, by `soloMapling.site.TradeRatings`:
+- **completed**: the trade went through (both sides confirmed and the exchange ran); one for each side.
+- **fellThrough**: a trade window closed without completing after at least one side had put in items or mesos:
+  cancelled or closed, a map change, a disconnect or logout, a failed confirm (no room, the under-15 meso cap). One
+  for each side. An empty window opened and closed counts for nobody.
+
+The hooks only add to an in-memory map; one minimum-priority thread (`trade-ratings`) adds the pending counts to
+table `traderatings` (migration **035**, one row per character id: `Completed`, `FellThrough`, `UpdatedAt`) in one
+batch every minute and at shutdown (`INSERT ... ON DUPLICATE KEY UPDATE Completed = Completed + ...`). Without the
+table the counts stay pending in memory (at most 50,000 characters) and are retried; a crash loses at most the last
+minute. Counting starts with the 1.6.0 jar: there is no history before it.
+
+Database reads (on the exporter's thread, every 15 min; plans checked on TEST 2026-10-26):
+
+| Query | Plan on TEST | Rows |
+|---|---|---|
+| characters LEFT JOIN accounts (LIMIT 20000), filtered in Java | characters ALL + accounts eq_ref PRIMARY | 22 |
+| botstore LEFT JOIN botguildmember (LIMIT 50000) | botstore ALL + botguildmember eq_ref PRIMARY; about 20 ms | 9,641 |
+| traderatings with Completed + FellThrough >= 5, ORDER BY Completed DESC LIMIT 1000 | not on TEST yet (035 unapplied); on a throwaway MySQL 8.0: ALL + filesort over one row per trader | - |
+| guilds (LIMIT 5000) | ALL | 12 |
+| clears of ZAKUM/HORNTAIL/PINKBEAN in bosslog_leaderboard_daily UNION ALL weekly, GROUP BY character, boss | ALL each (append-only, a row per clear per member) | 0 |
+
+`botstore` is read whole on purpose: bots' fame is not stored (derived from id and level), and the top 20 of every
+class needs all of them; one read of six columns is cheaper than one query per board. No index was added.
+
+### `world.json` (every 60 s)
+
+| Field | Type | Meaning |
+|---|---|---|
+| `online` | int | everyone online (bots and players; not GMs, not auto-QA pretend players) |
+| `channels[]` | array | `{channel, online}` by channel number |
+| `busiest_maps[]` | array | top 10 `{map, name, count}` (map id, map name, characters on it over all channels) |
+| `tonight` | object or null | the next evening headline (8 PM PT): `{name, start, map?, status}`. `name` null until the day's plan picks it (just after midnight PT); `start` UTC ISO; `map` the planned map's name (left out for a treasure hunt); `status` `scheduled` or `running`. Null when the event director is off |
+| `running[]` | array | running world events, oldest first: `{name, map?, channel?, endsAt, kind, startedAt, headline, map_id?}`. `map` is the map's name (a treasure hunt's region instead, with no `map_id`) |
+
+### Example (shortened)
+```json
+// feed.json
+{"schema":1,"generated_at":"2026-10-26T07:16:00.010Z","count":2,"items":[
+ {"id":"ekmq3x0-4f","t":"2026-10-26T07:15:02.410Z","kind":"event","tag":"won","text":"Giant Cake in Henesys was won. Top damage: Bobbins.",
+  "names":["Bobbins"],"map":100000000,"channel":1,"top":[{"name":"Bobbins","damage":812345},{"name":"Josh","damage":402000}]},
+ {"id":"dkmq2a1-4e","t":"2026-10-26T07:10:40Z","kind":"drama","tag":"couple","text":"Kiwi and Mochi are a couple now.","names":["Kiwi","Mochi"]}]}
+// leaderboards.json
+{"schema":1,"generated_at":"2026-10-26T07:15:00.200Z",
+ "level":[{"rank":1,"name":"BowStorm","level":200,"rebirths":0,"job":"Bowmaster","guild":"Legendz"}],
+ "levelByClass":{"Beginner":[],"Warrior":[],"Magician":[],"Bowman":[{"rank":1,"name":"BowStorm","level":200,"rebirths":0,"job":"Bowmaster","guild":"Legendz"}],"Thief":[],"Pirate":[]},
+ "fame":[{"rank":1,"name":"BowStorm","fame":212,"job":"Bowmaster"}],
+ "guilds":[{"rank":1,"name":"Legendz","level":null,"members":50,"points":2290,"leader":"Kiwi"}],
+ "traders":[{"rank":1,"name":"Mochi","completed":41,"fellThrough":3}],
+ "dojo":[],
+ "bosses":{"Zakum":[{"rank":1,"name":"Josh","clears":3}],"Horntail":[],"Pink Bean":[]}}
+// world.json
+{"schema":1,"generated_at":"2026-10-26T07:15:30Z","online":2260,"channels":[{"channel":1,"online":800}],
+ "busiest_maps":[{"map":910000000,"name":"Free Market Entrance","count":143}],
+ "tonight":{"name":"Giant Cake","start":"2026-10-27T03:00:00Z","map":"Henesys","status":"scheduled"},
+ "running":[{"name":"Hot Spot","map":"Ant Tunnel I","channel":2,"endsAt":"2026-10-26T07:40:00Z","kind":"hot spot",
+   "startedAt":"2026-10-26T07:10:00Z","headline":false,"map_id":105050000}]}
+```
+
+### Live
+Live needs `-Dslums.site.export=true` on the unit (see the 1.6.0 release config's `UNIT_EDITS`). TEST's start script
+is not in the repo; it is edited by hand on 164.

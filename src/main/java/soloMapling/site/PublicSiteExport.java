@@ -38,7 +38,7 @@ import java.util.function.Supplier;
  * docs/design/track-d-plan.md, "Site export contract"):
  * <pre>
  *   feed.json          every 2 min   newest first, at most 200 items of the last 7 days (megaphones 24 h)
- *   leaderboards.json  every 15 min  level, fame, guilds, richest, Dojo, boss clears; bots and players together
+ *   leaderboards.json  every 15 min  level, fame, guilds, traders, Dojo, boss clears; bots and players together
  *   world.json         every 60 s    online per channel, the 10 busiest maps, tonight's headline, running events
  * </pre>
  * Off by default. JVM properties only (no config.yaml keys):
@@ -172,7 +172,8 @@ public final class PublicSiteExport {
      * out. {@code bosses} null: the boss tables could not be read.
      */
     record Boards(List<SiteLeaderboards.Person> everyone, List<SiteLeaderboards.GuildRow> guilds,
-                  Map<Integer, Integer> members, Set<Integer> excludedIds, List<SiteLeaderboards.BossRow> bosses) {
+                  Map<Integer, Integer> members, Set<Integer> excludedIds, List<SiteLeaderboards.BossRow> bosses,
+                  List<TradeRatings.Row> trades) {
     }
 
     // ── one exporter's runs ─────────────────────────────────────────────────────────────────────
@@ -294,7 +295,7 @@ public final class PublicSiteExport {
             long now = clock.getAsLong();
             Boards b = sources.boards();
             AtomicFiles.writeJson(dir.resolve("leaderboards.json"),
-                    SiteLeaderboards.file(b.everyone(), b.guilds(), b.members(), b.excludedIds(), b.bosses(), now));
+                    SiteLeaderboards.file(b.everyone(), b.guilds(), b.members(), b.excludedIds(), b.bosses(), b.trades(), now));
         }
     }
 
@@ -303,11 +304,13 @@ public final class PublicSiteExport {
     static final class ServerSources implements Sources {
         /** Every player character with what the boards need; filtered in Java (a friends server has few). */
         static final String PLAYERS = "SELECT c.id, c.accountid, c.name, c.level, c.exp, c.job, c.reborns, c.fame,"
-                + " c.meso, c.MerchantMesos, c.bank, c.guildid, c.gm, a.name AS account, a.banned"
+                + " c.guildid, c.gm, a.name AS account, a.banned"
                 + " FROM characters c LEFT JOIN accounts a ON a.id = c.accountid LIMIT 20000";
-        static final String STORAGE = "SELECT accountid, SUM(meso) AS meso FROM storages GROUP BY accountid LIMIT 20000";
+        /** Trade ratings with at least the minimum; over-fetched because excluded characters are dropped after. */
+        static final String TRADES = "SELECT CharId, Completed, FellThrough FROM traderatings"
+                + " WHERE Completed + FellThrough >= ? ORDER BY Completed DESC LIMIT 1000";
         /** Every bot (the roster and the older plan slots): one bounded read; fame is derived from id and level. */
-        static final String BOTS = "SELECT s.BotId, s.Name, s.Level, s.Exp, s.Job, s.Meso, m.GuildId"
+        static final String BOTS = "SELECT s.BotId, s.Name, s.Level, s.Exp, s.Job, m.GuildId"
                 + " FROM botstore s LEFT JOIN botguildmember m ON m.BotId = s.BotId LIMIT 50000";
         static final String GUILDS = "SELECT guildid, name, GP, capacity, leader FROM guilds LIMIT 5000";
         /** Expedition clears (append-only; the daily/weekly entry logs are pruned, these are not). */
@@ -364,10 +367,22 @@ public final class PublicSiteExport {
                 template = t == null ? state.headlineTemplate() : t.name();
             }
             boolean running = ev.active().stream().anyMatch(soloMapling.worldevents.ActiveEvent::headline);
-            return SiteWorld.nextHeadline(planned, template, state.headlineAt(), state.headlineStatus(), running,
-                    soloMapling.worldevents.EventDirector.at(today, cfg.headlineAt(), cfg.zone()),
+            SiteWorld.Headline h = SiteWorld.nextHeadline(planned, template, state.headlineAt(), state.headlineStatus(),
+                    running, soloMapling.worldevents.EventDirector.at(today, cfg.headlineAt(), cfg.zone()),
                     soloMapling.worldevents.EventDirector.at(today.plusDays(1), cfg.headlineAt(), cfg.zone()),
                     cfg.graceMs(), now);
+            if (h.name() != null && state.headlineMap() > 0) {
+                var t = soloMapling.worldevents.EventTemplates.byId(state.headlineTemplate());
+                boolean hidden = t != null && t.kind() == soloMapling.worldevents.EventTemplate.Kind.TREASURE_HUNT;
+                if (!hidden) {
+                    try {
+                        h = h.withMap(server.maps.MapFactory.loadPlaceName(state.headlineMap()));
+                    } catch (RuntimeException | LinkageError e) {
+                        // no name: the site shows the event without a map
+                    }
+                }
+            }
+            return h;
         }
 
         @Override
@@ -389,16 +404,23 @@ public final class PublicSiteExport {
                     while (rs.next()) {
                         players.add(new SiteLeaderboards.PlayerRow(rs.getInt("id"), rs.getInt("accountid"),
                                 rs.getString("name"), rs.getInt("level"), rs.getLong("exp"), rs.getInt("job"),
-                                rs.getInt("reborns"), rs.getInt("fame"), rs.getLong("meso"), rs.getLong("MerchantMesos"),
-                                rs.getLong("bank"), rs.getInt("guildid"), rs.getInt("gm"), rs.getString("account"),
+                                rs.getInt("reborns"), rs.getInt("fame"), rs.getInt("guildid"), rs.getInt("gm"),
+                                rs.getString("account"),
                                 rs.getInt("banned") != 0));
                     }
                 }
-                Map<Integer, Long> storage = new HashMap<>();
-                try (PreparedStatement ps = con.prepareStatement(STORAGE); ResultSet rs = ps.executeQuery()) {
-                    while (rs.next()) {
-                        storage.put(rs.getInt("accountid"), rs.getLong("meso"));
+                List<TradeRatings.Row> trades = new ArrayList<>();
+                try (PreparedStatement ps = con.prepareStatement(TRADES)) {
+                    ps.setInt(1, SiteLeaderboards.TRADER_MIN);
+                    try (ResultSet rs = ps.executeQuery()) {
+                        while (rs.next()) {
+                            trades.add(new TradeRatings.Row(rs.getInt("CharId"), rs.getLong("Completed"),
+                                    rs.getLong("FellThrough")));
+                        }
                     }
+                } catch (SQLException e) {
+                    trades = null; // no traderatings table yet (migration 035): the rest of the boards still go out
+                    log.debug("site export: trade ratings not readable", e);
                 }
                 List<SiteLeaderboards.BotRow> bots = new ArrayList<>();
                 try (PreparedStatement ps = con.prepareStatement(BOTS); ResultSet rs = ps.executeQuery()) {
@@ -406,7 +428,7 @@ public final class PublicSiteExport {
                         int charId = soloMapling.ArtificialPlayer.BotStore.BOT_ID_BASE + rs.getInt("BotId");
                         int level = rs.getInt("Level");
                         bots.add(new SiteLeaderboards.BotRow(charId, rs.getString("Name"), level, rs.getLong("Exp"),
-                                rs.getInt("Job"), rs.getLong("Meso"),
+                                rs.getInt("Job"),
                                 soloMapling.ArtificialPlayer.BotFame.forBot(charId, level), rs.getInt("GuildId")));
                     }
                 }
@@ -428,7 +450,7 @@ public final class PublicSiteExport {
                     log.debug("site export: boss clears not readable", e);
                 }
                 int template = templateId();
-                List<SiteLeaderboards.Person> people = new ArrayList<>(SiteLeaderboards.players(players, storage, template));
+                List<SiteLeaderboards.Person> people = new ArrayList<>(SiteLeaderboards.players(players, template));
                 Set<Integer> kept = new HashSet<>();
                 for (SiteLeaderboards.Person p : people) {
                     kept.add(p.id());
@@ -446,7 +468,7 @@ public final class PublicSiteExport {
                         members.merge(p.guildId(), 1, Integer::sum);
                     }
                 }
-                return new Boards(people, guilds, members, excluded, bosses);
+                return new Boards(people, guilds, members, excluded, bosses, trades);
             } catch (SQLException e) {
                 throw new IllegalStateException("leaderboards: " + e.getMessage(), e);
             }

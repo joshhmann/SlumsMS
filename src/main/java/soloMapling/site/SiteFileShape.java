@@ -15,7 +15,8 @@ public final class SiteFileShape {
 
     /** Keys that would leak ids or account data; none may appear anywhere in a site file. */
     public static final Set<String> FORBIDDEN_KEYS = Set.of("characterid", "character_id", "charid", "char_id", "botid",
-            "bot_id", "account", "accountid", "account_id", "accountname", "email", "ip", "hwid");
+            "bot_id", "bot", "is_bot", "isbot", "is_player", "isplayer", "player", "seller_kind", "kind_of_player",
+            "email", "ip", "ip_address", "hwid", "mac", "password");
 
     private SiteFileShape() {
     }
@@ -61,36 +62,40 @@ public final class SiteFileShape {
                 }
             }
             case "leaderboards.json" -> {
-                Map<?, ?> level = map(m.get("level"));
-                if (level == null || !within(level.get("overall"), SiteLeaderboards.LEVEL_TOP)) {
-                    out.add("level.overall missing or over " + SiteLeaderboards.LEVEL_TOP);
+                if (!within(m.get("level"), SiteLeaderboards.LEVEL_TOP)) {
+                    out.add("level missing or over " + SiteLeaderboards.LEVEL_TOP);
                 }
-                Map<?, ?> branches = level == null ? null : map(level.get("by_branch"));
-                for (String b : SiteLeaderboards.BRANCHES) {
-                    if (branches == null || !within(branches.get(b), SiteLeaderboards.BRANCH_TOP)) {
-                        out.add("level.by_branch." + b + " missing or over " + SiteLeaderboards.BRANCH_TOP);
+                Map<?, ?> classes = map(m.get("levelByClass"));
+                for (String c : SiteLeaderboards.CLASSES) {
+                    if (classes == null || !within(classes.get(c), SiteLeaderboards.BRANCH_TOP)) {
+                        out.add("levelByClass." + c + " missing or over " + SiteLeaderboards.BRANCH_TOP);
                     }
                 }
                 if (!within(m.get("fame"), SiteLeaderboards.FAME_TOP)) {
                     out.add("fame missing or over " + SiteLeaderboards.FAME_TOP);
                 }
-                Map<?, ?> guilds = map(m.get("guilds"));
-                if (guilds == null || !within(guilds.get("by_points"), SiteLeaderboards.GUILD_TOP)
-                        || !within(guilds.get("by_members"), SiteLeaderboards.GUILD_TOP)) {
+                if (!within(m.get("guilds"), SiteLeaderboards.GUILD_TOP)) {
                     out.add("guilds missing or over " + SiteLeaderboards.GUILD_TOP);
                 }
-                if (!within(m.get("richest"), SiteLeaderboards.RICH_TOP)) {
-                    out.add("richest missing or over " + SiteLeaderboards.RICH_TOP);
+                if (!within(m.get("traders"), SiteLeaderboards.TRADER_TOP)) {
+                    out.add("traders missing or over " + SiteLeaderboards.TRADER_TOP);
                 }
-                if (map(m.get("dojo")) == null || map(m.get("bosses")) == null) {
+                Map<?, ?> bosses = map(m.get("bosses"));
+                if (list(m.get("dojo")) == null || bosses == null) {
                     out.add("dojo or bosses missing");
+                } else {
+                    for (String bn : SiteLeaderboards.BOSS_NAMES) {
+                        if (!within(bosses.get(bn), SiteLeaderboards.BOSS_TOP)) {
+                            out.add("bosses." + bn + " missing or over " + SiteLeaderboards.BOSS_TOP);
+                        }
+                    }
                 }
             }
             case "world.json" -> {
                 if (!(m.get("online") instanceof Number) || list(m.get("channels")) == null
-                        || !within(m.get("busiest_maps"), SiteWorld.BUSIEST) || list(m.get("running_events")) == null
-                        || !m.containsKey("headline")) {
-                    out.add("online/channels/busiest_maps/headline/running_events missing or over limits");
+                        || !within(m.get("busiest_maps"), SiteWorld.BUSIEST) || list(m.get("running")) == null
+                        || !m.containsKey("tonight")) {
+                    out.add("online/channels/busiest_maps/tonight/running missing or over limits");
                 }
             }
             default -> {
@@ -99,11 +104,17 @@ public final class SiteFileShape {
         return out;
     }
 
+    /** A key the site's build refuses: an id, account data or a bot/player flag. */
+    public static boolean forbiddenKey(String key) {
+        String k = key.toLowerCase(Locale.ROOT);
+        return FORBIDDEN_KEYS.contains(k) || k.startsWith("account");
+    }
+
     private static void forbidden(Object doc, String path, List<String> out) {
         if (doc instanceof Map<?, ?> m) {
             for (Map.Entry<?, ?> e : m.entrySet()) {
                 String k = String.valueOf(e.getKey());
-                if (FORBIDDEN_KEYS.contains(k.toLowerCase(Locale.ROOT))) {
+                if (forbiddenKey(k)) {
                     out.add("forbidden key " + path + k);
                 }
                 forbidden(e.getValue(), path + k + ".", out);

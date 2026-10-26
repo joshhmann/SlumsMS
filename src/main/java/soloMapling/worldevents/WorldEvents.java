@@ -763,7 +763,7 @@ public final class WorldEvents {
             String top = e.topDamageName != null ? e.topDamageName : e.winnerName;
             boolean hidden = kind == EventTemplate.Kind.TREASURE_HUNT && !"won".equals(outcome);
             soloMapling.site.SiteFeed.eventEnded(e.template.name(), hidden ? e.regionName : e.mapName,
-                    hidden ? 0 : e.mapId(), e.channel, outcome, "won".equals(outcome) ? top : null);
+                    hidden ? 0 : e.mapId(), e.channel, outcome, "won".equals(outcome) ? top : null, e.topDamage);
         } catch (RuntimeException ex) {
             log("[WorldEvents] site feed: " + ex);
         }
@@ -1001,10 +1001,8 @@ public final class WorldEvents {
         Winner w = topReal(damage, id -> here.containsKey(id) ? !BotHelpers.isBot(here.get(id))
                 : !BotHelpers.isArtificial(id));
         Character winner = w == null ? null : here.get(w.charId());
-        Winner top = topReal(damage, id -> here.containsKey(id)); // 1.6.0 Track D: the top damage, bot or player
-        if (top != null && here.get(top.charId()) != null && soloMapling.site.SiteFeed.isPublic(here.get(top.charId()))) {
-            e.topDamageName = here.get(top.charId()).getName();
-        }
+        e.topDamage = siteTop(damage, here); // 1.6.0 Track D: the top 3 damage, bots and players, for the site's feed
+        e.topDamageName = e.topDamage.isEmpty() ? null : e.topDamage.getFirst().name();
         if (winner == null && killer != null && !BotHelpers.isBot(killer)) {
             winner = killer;
         }
@@ -1045,6 +1043,23 @@ public final class WorldEvents {
                 + countBots(damage.keySet()) + " of them bots (" + botDamage + " of " + total + " dmg), winner "
                 + (e.winnerName == null ? "none (no real player hit it)" : e.winnerName + " " + e.winnerDamage + " dmg")
                 + ", " + takers.size() + " real player(s) take part");
+    }
+
+    /** The top 3 damage dealers still on the map who may appear on the site, most damage first. */
+    static List<soloMapling.site.SiteFeed.Top> siteTop(Map<Integer, Long> damage, Map<Integer, Character> here) {
+        List<Map.Entry<Integer, Long>> rows = new ArrayList<>(damage.entrySet());
+        rows.sort(Map.Entry.<Integer, Long>comparingByValue().reversed().thenComparing(Map.Entry.comparingByKey()));
+        List<soloMapling.site.SiteFeed.Top> out = new ArrayList<>();
+        for (Map.Entry<Integer, Long> r : rows) {
+            Character chr = here.get(r.getKey());
+            if (chr != null && r.getValue() > 0 && soloMapling.site.SiteFeed.isPublic(chr)) {
+                out.add(new soloMapling.site.SiteFeed.Top(chr.getName(), r.getValue()));
+                if (out.size() == 3) {
+                    break;
+                }
+            }
+        }
+        return out;
     }
 
     /** The real attacker with the most damage. Pure. */

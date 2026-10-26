@@ -55,7 +55,12 @@ public final class SiteFeed {
 
     /** One feed item. {@code tag} says what kind of event, milestone or drama it is (an extra the site may use). */
     public record Item(String id, long t, Kind kind, String tag, String text, List<String> names, Integer map,
-                       Integer channel) {
+                       Integer channel, List<Top> top) {
+
+        public Item(String id, long t, Kind kind, String tag, String text, List<String> names, Integer map,
+                    Integer channel) {
+            this(id, t, kind, tag, text, names, map, channel, null);
+        }
 
         Map<String, Object> toJson() {
             Map<String, Object> m = new LinkedHashMap<>();
@@ -71,8 +76,22 @@ public final class SiteFeed {
             if (channel != null) {
                 m.put("channel", channel);
             }
+            if (top != null && !top.isEmpty()) {
+                List<Object> rows = new ArrayList<>();
+                for (Top x : top) {
+                    Map<String, Object> r = new LinkedHashMap<>();
+                    r.put("name", x.name());
+                    r.put("damage", x.damage());
+                    rows.add(r);
+                }
+                m.put("top", rows);
+            }
             return m;
         }
+    }
+
+    /** One of an event's top damage dealers (bot or player; never a GM or a pretend player). */
+    public record Top(String name, long damage) {
     }
 
     /** Items in feed.json. */
@@ -156,6 +175,12 @@ public final class SiteFeed {
      */
     public static void eventEnded(String eventName, String where, int mapId, int channel, String outcome,
                                   String topName) {
+        eventEnded(eventName, where, mapId, channel, outcome, topName, null);
+    }
+
+    /** As above, with the top damage dealers ({@code top}, at most 3 kept; null or empty: none). */
+    public static void eventEnded(String eventName, String where, int mapId, int channel, String outcome,
+                                  String topName, List<Top> top) {
         if (!recording) {
             return;
         }
@@ -167,7 +192,7 @@ public final class SiteFeed {
                 default -> eventName + at + " is over.";
             };
             add(Kind.EVENT, outcome, text, blank(topName) ? List.of() : List.of(topName), mapId > 0 ? mapId : null,
-                    channel);
+                    channel, top == null || top.isEmpty() ? null : List.copyOf(top.subList(0, Math.min(3, top.size()))));
         } catch (RuntimeException e) {
             // never into the game
         }
@@ -398,13 +423,17 @@ public final class SiteFeed {
     // ── the rings ───────────────────────────────────────────────────────────────────────────────
 
     static Item add(Kind kind, String tag, String text, List<String> names, Integer map, Integer channel) {
+        return add(kind, tag, text, names, map, channel, null);
+    }
+
+    static Item add(Kind kind, String tag, String text, List<String> names, Integer map, Integer channel, List<Top> top) {
         String clean = plain(text);
         if (clean.isEmpty()) {
             return null;
         }
         long t = clock.getAsLong();
         Item item = new Item(kind.label().charAt(0) + Long.toString(t, 36) + "-" + Long.toString(seq.incrementAndGet(), 36),
-                t, kind, tag, clean, List.copyOf(names), map, channel);
+                t, kind, tag, clean, List.copyOf(names), map, channel, top);
         ArrayDeque<Item> ring = rings.get(kind);
         synchronized (ring) {
             ring.addLast(item);
@@ -484,9 +513,18 @@ public final class SiteFeed {
                         names.add(String.valueOf(o));
                     }
                 }
+                List<Top> top = null;
+                if (r.get("top") instanceof List<?> tl) {
+                    top = new ArrayList<>();
+                    for (Object o : tl) {
+                        if (o instanceof Map<?, ?> tm && tm.get("name") instanceof String tn && tm.get("damage") instanceof Number d) {
+                            top.add(new Top(tn, d.longValue()));
+                        }
+                    }
+                }
                 items.add(new Item(id, t, kind, r.get("tag") instanceof String s ? s : "", text, List.copyOf(names),
                         r.get("map") instanceof Number x ? x.intValue() : null,
-                        r.get("channel") instanceof Number c ? c.intValue() : null));
+                        r.get("channel") instanceof Number c ? c.intValue() : null, top));
             } catch (RuntimeException e) {
                 // a broken row: skip it
             }

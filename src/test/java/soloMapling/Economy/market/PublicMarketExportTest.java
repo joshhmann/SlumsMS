@@ -190,8 +190,9 @@ class PublicMarketExportTest {
         clock.addAndGet(15 * 60_000L);
         runner.quarter();
         Map<String, Object> e = read(dir.resolve("economy-public.json"));
-        assertEquals(List.of("schema", "as_of", "snapshot_date", "mesos_total", "players_share", "trades_24h",
-                "shops_open", "mesos_removed_7d", "bots_online_peak", "detail"), new ArrayList<>(e.keySet()));
+        assertEquals(List.of("schema", "as_of", "generated_at", "snapshot_date", "mesos_total", "players_share",
+                "trades_24h", "shops_open", "mesos_removed_7d", "bots_online_peak", "days", "detail"),
+                new ArrayList<>(e.keySet()));
         assertEquals(1L, e.get("schema"));
         assertEquals("2026-10-26T01:15:00Z", e.get("as_of"));
         assertEquals("2026-10-25", e.get("snapshot_date"));
