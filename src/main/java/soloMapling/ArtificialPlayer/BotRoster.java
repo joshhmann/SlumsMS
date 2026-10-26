@@ -164,6 +164,11 @@ public final class BotRoster {
         return members.get(botId);
     }
 
+    /** 1.6.0 S7: how many members are loaded (memory only, never a database read; 0 before the boot load). */
+    public static int loadedCount() {
+        return members.size();
+    }
+
     /** Every member, active or dormant. */
     public static Collection<Member> members() {
         return all().values();

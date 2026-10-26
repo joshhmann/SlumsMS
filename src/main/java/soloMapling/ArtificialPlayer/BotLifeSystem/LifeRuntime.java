@@ -396,7 +396,8 @@ public final class LifeRuntime {
     static LifePlanner.World world(Character chr, LifeGoals.Facts facts, Set<LifePlanner.Fact> soft) {
         boolean friend = safe(() -> chr.getBuddylist() != null && !chr.getBuddylist().getBuddies().isEmpty(), false);
         var couple = safe(() -> soloMapling.ArtificialPlayer.BotCoupleSystem.BotCouples.coupleOf(chr.getId()), null);
-        boolean crush = couple != null && couple.stage().couple() || safe(() -> chr.getPartnerId() > 0, false);
+        boolean crush = couple != null && couple.stage().couple() || safe(() -> chr.getPartnerId() > 0, false)
+                || safe(() -> soloMapling.ArtificialPlayer.BotCoupleSystem.BotCrushes.hasCrush(chr.getId()), false); // S7
         boolean ring = couple != null && couple.stage()
                 == soloMapling.ArtificialPlayer.BotCoupleSystem.BotCouples.Stage.MARRIED
                 || safe(() -> chr.getMarriageRing() != null, false);
