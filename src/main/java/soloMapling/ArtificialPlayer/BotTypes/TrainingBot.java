@@ -478,7 +478,7 @@ public class TrainingBot extends BotSM implements soloMapling.ArtificialPlayer.B
                 if (activity.active() != 0) lifeActivities.finish(activity.active(), now() >= phaseDeadlineMs
                         ? LifeActivityQueue.End.COMPLETED : LifeActivityQueue.End.CANCELLED);
                 soloMapling.fishing.GameFishing.cancel(getChr());
-                if (getChr().getChair() == soloMapling.fishing.FishingPolicy.CHAIR) botCancelChair(getChr());
+                if (constants.inventory.ItemConstants.canFishFromChair(getChr().getChair())) botCancelChair(getChr());
             }
         }
         phase = next;
@@ -1039,7 +1039,7 @@ public class TrainingBot extends BotSM implements soloMapling.ArtificialPlayer.B
                 }
                 if (GCMovement.isMoving(getChr())) return;
                 soloMapling.ArtificialPlayer.BotMovementSystem.MovementCommands.botSitChair(getChr(),
-                        soloMapling.fishing.FishingPolicy.CHAIR);
+                        soloMapling.fishing.GameFishing.chairToUse(getChr()));
                 if (!soloMapling.fishing.GameFishing.start(getChr())) {
                     botCancelChair(getChr()); enterPhase(Phase.DECIDE); return;
                 }

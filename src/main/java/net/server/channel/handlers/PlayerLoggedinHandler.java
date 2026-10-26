@@ -236,6 +236,7 @@ public final class PlayerLoggedinHandler extends AbstractPacketHandler {
             }
             //DamageSkin.validateDamageSkin(player, false);
 
+            soloMapling.fishing.StarterChairs.onLogin(player); // 1.6.0: Relaxer + Fishing Chair, once
             c.sendPacket(PacketCreator.getCharInfo(player));
             if (!player.isHidden()) {
                 if (autoHides(player.isGM(), YamlConfig.config.server.USE_AUTOHIDE_GM, c)) {
@@ -414,6 +415,7 @@ public final class PlayerLoggedinHandler extends AbstractPacketHandler {
             showDueyNotification(c, player);
             DailyCheckin.onLogin(c);
             soloMapling.menus.GuideMenu.onLogin(player); // 1.5.0: the beginner's guide, once per character
+            soloMapling.fishing.StarterChairs.noticeIfWaiting(player);
             if (newcomer) soloMapling.ArtificialPlayer.SocialInitiative.onPlayerLogin(player); // 1.6.0 S6: friends say hi
 
             player.resetPlayerRates();

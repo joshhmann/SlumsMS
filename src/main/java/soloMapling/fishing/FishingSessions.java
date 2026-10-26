@@ -52,7 +52,7 @@ public final class FishingSessions {
         if (now < 0 || now > Long.MAX_VALUE - INTERVAL_MS) return Start.REFUSED;
         Position position = actor.position();
         if (actor.id() <= 0 || position == null || !position.eligible() || position.map() == null
-                || position.chair() != 3011000) return Start.REFUSED;
+                || !constants.inventory.ItemConstants.canFishFromChair(position.chair())) return Start.REFUSED;
         Session old = sessions.get(actor.id());
         if (old != null) {
             if (old.actor.identity() == actor.identity()) return Start.ALREADY_FISHING;
