@@ -91,6 +91,7 @@ public final class QaScenarios {
         all.addAll(FishingScenarios.all()); // 1.6.0 Life in town: timed fishing (fh-1, fh-2)
         all.addAll(BotLifeScenarios.all()); // 1.6.0 shadow policy and refusal safeguards (bl-1)
         all.addAll(LikenessScenarios.all()); // 1.6.0 player likeness: AFK campers, walk when watched, messy chat (lk-1)
+        all.addAll(SocialGateScenarios.all()); // 1.6.0 S5 social gate: @quiet stops unasked acts (sg-1), started it (sg-2)
         return List.copyOf(all);
     }
 

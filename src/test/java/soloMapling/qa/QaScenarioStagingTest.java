@@ -407,6 +407,42 @@ class QaScenarioStagingTest {
     }
 
     @Test
+    void sg1TurnsQuietBotsOnStagesAFriendAndPutsQuietBackAtStop() {
+        Character gm = start("sg-1", 100000000);
+        assertTrue(soloMapling.ArtificialPlayer.BotMegaphoneSystem.BotNoiseFilter.get(gm.getId()).bots());
+        assertTrue(world.calls.stream().anyMatch(c -> c.startsWith("stage friend social")), world.calls.toString());
+        suite.action(world.online, "loud", new String[0]);
+        assertFalse(soloMapling.ArtificialPlayer.BotMegaphoneSystem.BotNoiseFilter.get(gm.getId()).bots());
+        suite.action(world.online, "quiet", new String[0]);
+        assertTrue(soloMapling.ArtificialPlayer.BotMegaphoneSystem.BotNoiseFilter.get(gm.getId()).bots());
+        suite.stop(1, "!qa stop");
+        assertFalse(soloMapling.ArtificialPlayer.BotMegaphoneSystem.BotNoiseFilter.get(gm.getId()).bots(),
+                "restored to what it was");
+        assertEquals(1, world.unstaged.size());
+    }
+
+    @Test
+    void sg2StagesARivalTheGmNeverProvokedAndKsStartsIt() {
+        Character gm = start("sg-2", 104040000);
+        assertTrue(world.calls.contains("hold ks wars true"));
+        int bot = world.calls.stream().filter(c -> c.startsWith("stage rival training")).findFirst()
+                .map(c -> 1).orElse(0);
+        assertEquals(1, bot, world.calls.toString());
+        List<String> out = suite.action(world.online, "check", new String[0]);
+        assertTrue(out.get(0).contains("spice no"), out.toString());
+        suite.action(world.online, "ks", new String[0]);
+        out = suite.action(world.online, "check", new String[0]);
+        assertTrue(out.get(0).contains("spice yes"), out.toString());
+        suite.action(world.online, "fresh", new String[0]);
+        out = suite.action(world.online, "check", new String[0]);
+        assertTrue(out.get(0).contains("spice no"), out.toString());
+        suite.stop(1, "!qa stop");
+        assertTrue(world.calls.contains("hold ks wars false"));
+        soloMapling.ArtificialPlayer.SocialGate.resetForTest();
+        assertTrue(gm.getId() > 0);
+    }
+
+    @Test
     void cp1StagesACoupleStepsItAndUnstagesIt() {
         start("cp-1", 100000000, "married", "same");
         assertTrue(world.calls.stream().anyMatch(c -> c.startsWith("couple ") && c.endsWith("married same")));

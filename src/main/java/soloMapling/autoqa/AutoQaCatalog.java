@@ -746,6 +746,26 @@ public final class AutoQaCatalog {
                         has("LIKENESS MESSY sample slot \\d+ \\(\\w+\\): \"I'm selling Brown Work Gloves for 50k, anyone\\?\" -> \"[^\"]*Brown Work Gloves for 50k[^\"]*\""),
                         lacks("LIKENESS WATCHED SNAP"))
                 .build());
+        // 1.6.0 S5, the social gate: @quiet bots holds a friend's unasked whispers, invites and buddy requests (sg-1),
+        // and a rival spices only at a player who started it with it (sg-2)
+        c.add(Check.auto("t-sg-1", "@quiet bots stops a friend bot's whispers, invites and buddy requests").minutes(4)
+                .step(run("sg-1"), waitSeconds(5), qaDo("try"), waitSeconds(25), qaDo("try"), mark("loud"),
+                        qaDo("loud"), qaDo("try"), waitSeconds(5))
+                .expect(has("SG1 try \\d+ \\(quiet\\): whisper held, buddy offer: quiet, party invite held, guild invite held"),
+                        has("SOCIAL_GATE NO (whisper|party_invite|guild_invite|buddy_request) \\S+ -> {me}: @quiet bots"),
+                        lacksBefore("loud", "SOCIAL_GATE YES (whisper|party_invite|guild_invite|buddy_request) \\S+ -> {me}"),
+                        lacksBefore("loud", "SG1 try \\d+ \\(quiet\\): whisper SENT"),
+                        hasAfter("loud", "SG1 try \\d+ \\(loud\\): whisper SENT"))
+                .build());
+        c.add(Check.auto("t-sg-2", "A rival spices only after you KS or roast it").minutes(5)
+                .step(run("sg-2"), waitSeconds(5), qaDo("taunt"), waitSeconds(60), mark("ks"), qaDo("ks"),
+                        qaDo("taunt"), waitFor("AFFINITY ACT (taunt|ks) ", 120))
+                .expect(has("SOCIAL_GATE NO (taunt|ks_spree) \\S+ -> {me}: they did not start it"),
+                        lacksBefore("ks", "AFFINITY ACT (taunt|ks|defame) "),
+                        hasAfter("ks", "SOCIAL_GATE STARTED (ks|staged) "),
+                        hasAfter("ks", "AFFINITY ACT (taunt|ks) "),
+                        noEmoji())
+                .build());
         return List.copyOf(c);
     }
 
