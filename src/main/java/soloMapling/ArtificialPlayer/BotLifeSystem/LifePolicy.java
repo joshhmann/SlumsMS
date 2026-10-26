@@ -195,6 +195,10 @@ public final class LifePolicy {
             case LOG_OUT -> Map.of(Need.FATIGUE, 2.0);
             case FISH -> Map.of(Need.BOREDOM, .6, Need.SOCIAL, .3, Need.FATIGUE, .2, Need.SUPPLIES, -.5);
             case CHANGE_CHANNEL -> Map.of(Need.BOREDOM, .2);
+            // 1.6.0 S6: eligible only with a real player of the band at hand (SocialInitiative); the guild invite is
+            // event-driven (a login greeting) and never eligible for the scorer
+            case INVITE_PQ -> Map.of(Need.SOCIAL, .6, Need.PROGRESS, .4);
+            case INVITE_GUILD -> Map.of(Need.SOCIAL, .4);
         };
     }
 }

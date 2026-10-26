@@ -429,7 +429,24 @@ class BotBuddiesTest {
         verify(josh.getClient(), never()).sendPacket(any());
     }
 
-    /** The {@code buddies} table in memory. */
+    @Test
+    void playingTogetherIsEnoughForARequestAndWeighsMoreThanAChat() { // 1.6.0 S6
+        OfferCheck chatOnly = new OfferCheck(true, false, false, 0, null, TODAY, 0, 0, 0, false, false, 0.2, 0.3);
+        assertEquals(Gate.STRANGER, BotBuddies.offerGate(chatOnly), "no note, no chat: a stranger");
+        OfferCheck played = new OfferCheck(true, false, false, 0, null, TODAY, 0, 0, 0, false, false, 0.2, 0.3, 2, 1);
+        assertEquals(Gate.OK, BotBuddies.offerGate(played), "two episodes together: known, no chat needed (0.3 < 0.35)");
+        OfferCheck goodChat = new OfferCheck(true, true, false, 4, null, TODAY, 0, 0, 0, false, false, 0.2, 0.1);
+        assertEquals(Gate.ROLL, BotBuddies.offerGate(goodChat), "a good chat alone asks less often now (0.08)");
+        assertTrue(BotBuddies.afterPlayChance(4, 1) > BotBuddies.afterPlayChance(2, 1), "more play, more likely");
+        assertTrue(BotBuddies.afterPlayChance(2, 1.5) > BotBuddies.afterPlayChance(2, 0.6), "Socializers ask more");
+        assertTrue(BotBuddies.afterPlayChance(50, 2) <= 0.8, "never certain");
+        assertEquals(Gate.PLAYER_DAILY_CAP, BotBuddies.offerGate(new OfferCheck(true, false, false, 0, null, TODAY,
+                3, 0, 0, false, false, 0.2, 0.0, 3, 1)), "the caps still hold");
+        assertEquals(Gate.WARY, BotBuddies.offerGate(new OfferCheck(true, false, true, 0, null, TODAY, 0, 0, 0,
+                false, false, 0.2, 0.0, 3, 1)), "never a bot that is wary of them");
+    }
+
+        /** The {@code buddies} table in memory. */
     static final class MemoryRows implements BotBuddies.Rows {
         record Stored(int characterId, int buddyId, int pending, String group) {
         }

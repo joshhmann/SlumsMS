@@ -96,6 +96,7 @@ public final class QaScenarios {
         all.addAll(BondScenarios.all()); // 1.6.0 S2 bot bonds: partied bots become friends and a crew (bb-3)
         all.addAll(MemoryScenarios.all()); // 1.6.0 S3 memory kinds: a PQ clear remembered (me-1), a scam a grudge (me-2)
         all.addAll(GossipScenarios.all()); // 1.6.0 S4 grounded gossip: a KS on a bot told by its crew mate (gs-1)
+        all.addAll(InitiativeScenarios.all()); // 1.6.0 S6 initiative: login greet (in-1), follow-up (in-2), PQ invite (in-3)
         return List.copyOf(all);
     }
 

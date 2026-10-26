@@ -53,7 +53,9 @@ import java.util.function.IntFunction;
  * {@code refusalDays} (1) a turned-down player's re-asks are ignored this long; {@code offerChance} (0.15) after a good
  * chat with a player it knows; {@code offerMinLines} (3); {@code offersPerPlayerPerDay} (3, all bots together; 1.5.x 1);
  * {@code offersPerHour} (18, the whole world; 1.5.x 6); {@code offerRetryDays} (7) one retry when a request was
- * ignored. 1.6.0 (S5): a bot's request goes through {@link SocialGate} ({@code @quiet bots}, busy).
+ * ignored. 1.6.0 (S5): a bot's request goes through {@link SocialGate} ({@code @quiet bots}, busy). 1.6.0 (S6): the
+ * weight moved from chat to time played together - {@code offerChance} after a chat 0.15 -> 0.08, and a new path after
+ * play together ({@link #offerAfterPlay}, {@code afterPlayChance} 0.35).
  */
 public final class BotBuddies {
 
@@ -166,10 +168,20 @@ public final class BotBuddies {
         QUIET
     }
 
-    /** What a bot-sent request is checked against. */
+    /**
+     * What a bot-sent request is checked against. {@code together} (1.6.0 S6): how often they played together lately
+     * (PARTY / PQ / BOSS / HELP episodes, a long party counts as {@link SocialInitiative#TOGETHER_EPISODES}); 0 for the
+     * chat path. {@code bartle}: the bot's Bartle pull toward starting things (about 1; Socializers more).
+     */
     record OfferCheck(boolean visibleRealPlayer, boolean known, boolean wary, int playerLines, Row existing, long today,
                       int sentToPlayerToday, int sentWorldLastHour, int botMutual, boolean playerListFull,
-                      boolean playerHasBot, double social, double roll) {
+                      boolean playerHasBot, double social, double roll, int together, double bartle) {
+        OfferCheck(boolean visibleRealPlayer, boolean known, boolean wary, int playerLines, Row existing, long today,
+                   int sentToPlayerToday, int sentWorldLastHour, int botMutual, boolean playerListFull,
+                   boolean playerHasBot, double social, double roll) {
+            this(visibleRealPlayer, known, wary, playerLines, existing, today, sentToPlayerToday, sentWorldLastHour,
+                    botMutual, playerListFull, playerHasBot, social, roll, 0, 1);
+        }
     }
 
     /** How well a bot knows a player (memory, chat, party, personality). Swapped by tests. */
@@ -280,10 +292,11 @@ public final class BotBuddies {
         if (c.wary()) {
             return Gate.WARY;
         }
-        if (!c.known()) {
+        boolean played = c.together() > 0; // 1.6.0 S6: playing together is knowing them; no chat needed
+        if (!c.known() && !played) {
             return Gate.STRANGER;
         }
-        if (c.playerLines() < (int) setting("offerMinLines", 3)) {
+        if (!played && c.playerLines() < (int) setting("offerMinLines", 3)) {
             return Gate.SHORT_CHAT;
         }
         if (c.playerHasBot()) {
@@ -318,8 +331,20 @@ public final class BotBuddies {
         if (c.playerListFull()) {
             return Gate.PLAYER_FULL;
         }
-        double chance = setting("offerChance", 0.15) * (0.7 + 1.5 * Math.max(0, Math.min(0.4, c.social())));
+        double social = 0.7 + 1.5 * Math.max(0, Math.min(0.4, c.social()));
+        double chance = played ? afterPlayChance(c.together(), c.bartle()) * social
+                : setting("offerChance", 0.08) * social;
         return c.roll() < chance ? Gate.OK : Gate.ROLL;
+    }
+
+    /**
+     * 1.6.0 S6: the chance of a request after playing together, before the social trait: {@code afterPlayChance}
+     * (0.35) at two episodes, +0.1 per episode more, times the Bartle pull, at most 0.8. The chat path's chance went
+     * from 0.15 to 0.08 ({@code offerChance}): the weight moved to time played together (owner, 1.6.0 grill).
+     */
+    static double afterPlayChance(int together, double bartle) {
+        double base = setting("afterPlayChance", 0.35) + 0.1 * Math.max(0, together - 2);
+        return Math.max(0, Math.min(0.8, base * Math.max(0.2, Math.min(2, bartle))));
     }
 
     /**
@@ -695,7 +720,20 @@ public final class BotBuddies {
         return "buddy offer: " + gate.name().toLowerCase(Locale.ROOT);
     }
 
+    /**
+     * 1.6.0 S6: a buddy request after playing together ({@link SocialInitiative}): {@code together} episodes lately (or
+     * a long party), the bot's Bartle pull. Every cap, retry rule, full list and the gate as for the other paths.
+     */
+    public static String offerAfterPlay(int botCharId, int playerId, int together, double bartle) {
+        Gate gate = maybeOffer(botCharId, playerId, 0, Math.max(1, together), bartle);
+        return "buddy offer after play: " + gate.name().toLowerCase(Locale.ROOT);
+    }
+
     static Gate maybeOffer(int botCharId, int playerId, int playerLines) {
+        return maybeOffer(botCharId, playerId, playerLines, 0, 1);
+    }
+
+    static Gate maybeOffer(int botCharId, int playerId, int playerLines, int together, double bartle) {
         Character bot = liveBot(botCharId);
         Character player = onlinePlayer(playerId);
         if (bot == null || player == null) {
@@ -710,7 +748,7 @@ public final class BotBuddies {
         OfferCheck check = new OfferCheck(BotHelpers.isVisibleRealPlayer(player), f.known(), f.wary(), playerLines,
                 rows().pair(botCharId, playerId), today, rows().sentOn(playerId, today), worldOffersLastHour(now),
                 rows().mutualCount(botCharId), player.getBuddylist().isFull(),
-                player.getBuddylist().contains(botCharId), f.social(), rolls.getAsDouble());
+                player.getBuddylist().contains(botCharId), f.social(), rolls.getAsDouble(), together, bartle);
         Gate gate = offerGate(check);
         if (gate != Gate.OK) {
             return gate;
@@ -723,7 +761,8 @@ public final class BotBuddies {
         bot.getBuddylist().put(new BuddylistEntry(player.getName(), GROUP, playerId, player.getClient().getChannel(), true));
         // The stock request a player receives: the client shows the accept / deny box.
         player.getBuddylist().addBuddyRequest(player.getClient(), botCharId, bot.getName(), botChannel);
-        log.info("Bot {} sent {} a buddy request", bot.getName(), player.getName());
+        log.info("Bot {} sent {} a buddy request{}", bot.getName(), player.getName(),
+                together > 0 ? " after playing together (" + together + ")" : "");
         return gate;
     }
 
