@@ -7,8 +7,8 @@ see or the site's web server, so each needs the owner's "go" for that step.** St
 Where things are today (read on 2026-10-26):
 - 164 serves the site with nginx, `server { listen 8092; root /srv/slums-site; }` in
   `/etc/nginx/sites-available/slums-site`, plus `/api/report` to `slums-report` on 127.0.0.1:8093.
-- HTTPS for `theslumsms.asslorde.com` ends on a proxy in front of 164 (not on 164 itself). **Confirm which machine
-  that is** before step 4; the sign-in cookies need the visitor to arrive over HTTPS.
+- HTTPS for `theslumsms.asslorde.com` ends at the **owner's Caddy**, on the owner's side of the network, which
+  reverse-proxies to 164's nginx on 8092. Nobody but the owner has its host or config.
 - Live shows the old look from branch `site` (`788cb52ad`), with no robots rules, and it says MapleStory.
 
 ## Before the sitting (agent, no go needed)
@@ -76,8 +76,8 @@ python3 tools/site/build.py --private --section market --out /srv/slums-site \
     --market-data "/opt/mapleroot/MapleRoot Full Repack/Server/data/market" --hs-data /opt/slums-site-build/hiddenstreet
 ```
 Units: `tools/site/slums-site-market.service` and `.timer` (oneshot, nice 19, idle I/O, writes only under
-`/srv/slums-site`, reads the export and `/opt/slums-site-build` read-only). The build folder needs `tools/site/`,
-`docs/site/` and `docs/wiki/` from this branch plus the dataset copied to `/opt/slums-site-build/hiddenstreet`, and
+`/srv/slums-site`, reads the export and `/opt/slums-site-build` read-only). `tools/site/deploy-build-164.sh` (try
+`--dry-run` first) copies `tools/site/`, `docs/site/`, `docs/wiki/` and the dataset to `/opt/slums-site-build`;
 `cache/site-icons` is not needed (the market reuses the database's icons already published).
 ```
 systemctl daemon-reload && systemctl enable --now slums-site-market.timer
@@ -91,6 +91,12 @@ Undo: `systemctl disable --now slums-site-market.timer`.
   themselves refresh every 15 minutes.
 - Banned accounts: write their account ids to `/var/lib/slums-login/revoked.txt` to sign them out of the website.
 - Rotating the key (`/etc/slums-login/key`) signs everyone out.
+
+## Owner items
+- **Caddy:** confirm the host, and that it passes `Host` and `X-Forwarded-For` (and `X-Forwarded-Proto: https`) to
+  164:8092. The sign-in cookies are always marked Secure, so they only work when visitors arrive over HTTPS, which
+  they do through Caddy. The login redirect is relative (`absolute_redirect off`), so Caddy needs no rewrite for it.
+  The report form's rate limits and the sign-in's per-address limit read `X-Forwarded-For`.
 
 ## Owner decisions still open
 1. Before 1.6.0 is live, should the (signed-in) market show TEST data, clearly marked, or stay off?
