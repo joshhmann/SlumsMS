@@ -293,17 +293,25 @@ public class NPCConversationManager extends AbstractPlayerInteraction {
     }
 
     public void gainMeso(int gain) {
-        getPlayer().gainMeso(gain);
-        if (gain > 0) {
-            soloMapling.Economy.stats.EconomyCounters.recordQuestReward(gain);
-        }
+        Character chr = getPlayer();
+        int before = chr.getMeso();
+        chr.gainMeso(gain);
+        recordScriptMeso(chr, before);
     }
 
     public void gainMeso(int gain, boolean show) {
-        getPlayer().gainMeso(gain, show);
-        if (gain > 0) {
-            soloMapling.Economy.stats.EconomyCounters.recordQuestReward(gain);
-        }
+        Character chr = getPlayer();
+        int before = chr.getMeso();
+        chr.gainMeso(gain, show);
+        recordScriptMeso(chr, before);
+    }
+
+    /**
+     * 1.6.0 Track D (owner 2026-10-26): a script's meso gain is a reward (a source) and a loss is an NPC fee (taxis,
+     * Spinel, job-advance fees: a sink, key npc_fee). Counts what actually moved (a fee is capped at the purse).
+     */
+    private static void recordScriptMeso(Character chr, int before) {
+        soloMapling.Economy.stats.EconomyCounters.recordScriptMeso((long) chr.getMeso() - before);
     }
 
     public void gainExp(int gain) {

@@ -1,48 +1,76 @@
 package soloMapling.Economy.stats;
 
+import java.util.EnumMap;
+import java.util.Map;
 import java.util.concurrent.atomic.LongAdder;
 
 /**
  * Lightweight in-memory counters for economy flows (sources, sinks, transfers, special currencies).
  * Updates are O(1) thread-safe atomic operations (using {@link LongAdder}) with zero lock contention
- * and zero DB writes on event paths.
+ * and zero DB writes on event paths. {@link EconomyCounterPersistence} copies them to the database every few minutes
+ * (off the game thread) and back at boot, so a restart keeps the day's totals.
  */
 public final class EconomyCounters {
 
-    // Faucets / Sources
-    private static final LongAdder mobMesoDropsHuman = new LongAdder();
-    private static final LongAdder mobMesoDropsBot = new LongAdder();
-    private static final LongAdder npcSellMesos = new LongAdder();
-    private static final LongAdder questRewardMesos = new LongAdder();
+    /** One counter. {@link #dbKey} is its row key in {@code economycounters} (migration 032): never rename one. */
+    public enum Key {
+        // Faucets / Sources
+        MOB_DROPS_HUMAN("mob_drops_human"),
+        MOB_DROPS_BOT("mob_drops_bot"),
+        NPC_SELL("npc_sell"),
+        QUEST_REWARD("quest_reward"),
+        // Sinks / Drains
+        NPC_BUY("npc_buy"),
+        JOB_MASTER_FEE("job_master_fee"),
+        NPC_FEE("npc_fee"),
+        UPKEEP("upkeep"),
+        FM_TAX("fm_tax"),
+        // Transfers
+        TRADE("trade"),
+        FM_SALE("fm_sale"),
+        // Special Currencies
+        MAPLE_LEAF_GAINED("maple_leaf_gained"),
+        MAPLE_LEAF_SPENT("maple_leaf_spent"),
+        NX_EARNED("nx_earned"),
+        NX_SPENT("nx_spent");
 
-    // Sinks / Drains
-    private static final LongAdder npcBuyMesos = new LongAdder();
-    private static final LongAdder jobMasterFees = new LongAdder();
-    private static final LongAdder upkeepMesos = new LongAdder();
-    private static final LongAdder fmTaxMesos = new LongAdder();
+        public final String dbKey;
 
-    // Transfers
-    private static final LongAdder tradeMesos = new LongAdder();
-    private static final LongAdder fmSaleMesos = new LongAdder();
+        Key(String dbKey) {
+            this.dbKey = dbKey;
+        }
 
-    // Special Currencies
-    private static final LongAdder mapleLeafGained = new LongAdder();
-    private static final LongAdder mapleLeafSpent = new LongAdder();
-    private static final LongAdder nxEarned = new LongAdder();
-    private static final LongAdder nxSpent = new LongAdder();
+        public static Key byDbKey(String dbKey) {
+            for (Key k : values()) {
+                if (k.dbKey.equals(dbKey)) {
+                    return k;
+                }
+            }
+            return null;
+        }
+    }
+
+    private static final LongAdder[] ADDERS = new LongAdder[Key.values().length];
+
+    static {
+        for (int i = 0; i < ADDERS.length; i++) {
+            ADDERS[i] = new LongAdder();
+        }
+    }
 
     private EconomyCounters() {
+    }
+
+    private static void add(Key key, long amount) {
+        if (amount > 0) {
+            ADDERS[key.ordinal()].add(amount);
+        }
     }
 
     // ---- Event Recording Hooks (O(1)) ----
 
     public static void recordMobMesoDrop(boolean isBot, long amount) {
-        if (amount <= 0) return;
-        if (isBot) {
-            mobMesoDropsBot.add(amount);
-        } else {
-            mobMesoDropsHuman.add(amount);
-        }
+        add(isBot ? Key.MOB_DROPS_BOT : Key.MOB_DROPS_HUMAN, amount);
     }
 
     /**
@@ -56,75 +84,67 @@ public final class EconomyCounters {
     }
 
     public static void recordNpcSell(long amount) {
-        if (amount > 0) {
-            npcSellMesos.add(amount);
-        }
+        add(Key.NPC_SELL, amount);
     }
 
     public static void recordQuestReward(long amount) {
-        if (amount > 0) {
-            questRewardMesos.add(amount);
+        add(Key.QUEST_REWARD, amount);
+    }
+
+    /**
+     * A meso change made by an NPC, quest or item script: a gain is a reward (a source), a loss is a fee (taxis,
+     * Spinel, job-advance fees: mesos leaving the game, a sink).
+     */
+    public static void recordScriptMeso(long delta) {
+        if (delta > 0) {
+            add(Key.QUEST_REWARD, delta);
+        } else if (delta < 0) {
+            add(Key.NPC_FEE, -delta);
         }
+    }
+
+    public static void recordNpcFee(long amount) {
+        add(Key.NPC_FEE, amount);
     }
 
     public static void recordNpcBuy(long amount) {
-        if (amount > 0) {
-            npcBuyMesos.add(amount);
-        }
+        add(Key.NPC_BUY, amount);
     }
 
     public static void recordJobMasterFee(long amount) {
-        if (amount > 0) {
-            jobMasterFees.add(amount);
-        }
+        add(Key.JOB_MASTER_FEE, amount);
     }
 
     public static void recordUpkeep(long amount) {
-        if (amount > 0) {
-            upkeepMesos.add(amount);
-        }
+        add(Key.UPKEEP, amount);
     }
 
     public static void recordFmTax(long amount) {
-        if (amount > 0) {
-            fmTaxMesos.add(amount);
-        }
+        add(Key.FM_TAX, amount);
     }
 
     public static void recordTrade(long amount) {
-        if (amount > 0) {
-            tradeMesos.add(amount);
-        }
+        add(Key.TRADE, amount);
     }
 
     public static void recordFmSale(long amount) {
-        if (amount > 0) {
-            fmSaleMesos.add(amount);
-        }
+        add(Key.FM_SALE, amount);
     }
 
     public static void recordMapleLeafGained(long amount) {
-        if (amount > 0) {
-            mapleLeafGained.add(amount);
-        }
+        add(Key.MAPLE_LEAF_GAINED, amount);
     }
 
     public static void recordMapleLeafSpent(long amount) {
-        if (amount > 0) {
-            mapleLeafSpent.add(amount);
-        }
+        add(Key.MAPLE_LEAF_SPENT, amount);
     }
 
     public static void recordNxEarned(long amount) {
-        if (amount > 0) {
-            nxEarned.add(amount);
-        }
+        add(Key.NX_EARNED, amount);
     }
 
     public static void recordNxSpent(long amount) {
-        if (amount > 0) {
-            nxSpent.add(amount);
-        }
+        add(Key.NX_SPENT, amount);
     }
 
     // ---- Snapshot & Reset ----
@@ -136,6 +156,7 @@ public final class EconomyCounters {
             long questRewardMesos,
             long npcBuyMesos,
             long jobMasterFees,
+            long npcFeeMesos,
             long upkeepMesos,
             long fmTaxMesos,
             long tradeMesos,
@@ -145,6 +166,23 @@ public final class EconomyCounters {
             long nxEarned,
             long nxSpent
     ) {
+        static Snapshot of(long[] v) {
+            return new Snapshot(v[0], v[1], v[2], v[3], v[4], v[5], v[6], v[7], v[8], v[9], v[10], v[11], v[12],
+                    v[13], v[14]);
+        }
+
+        /** Every counter by key, in {@link Key} order (what the persistence writes). */
+        public Map<Key, Long> byKey() {
+            long[] v = {mobMesoDropsHuman, mobMesoDropsBot, npcSellMesos, questRewardMesos, npcBuyMesos,
+                    jobMasterFees, npcFeeMesos, upkeepMesos, fmTaxMesos, tradeMesos, fmSaleMesos, mapleLeafGained,
+                    mapleLeafSpent, nxEarned, nxSpent};
+            Map<Key, Long> out = new EnumMap<>(Key.class);
+            for (Key k : Key.values()) {
+                out.put(k, v[k.ordinal()]);
+            }
+            return out;
+        }
+
         public long totalMobMesoDrops() {
             return mobMesoDropsHuman + mobMesoDropsBot;
         }
@@ -154,7 +192,7 @@ public final class EconomyCounters {
         }
 
         public long totalSinks() {
-            return npcBuyMesos + jobMasterFees + upkeepMesos + fmTaxMesos;
+            return npcBuyMesos + jobMasterFees + npcFeeMesos + upkeepMesos + fmTaxMesos;
         }
 
         public long netMesoDelta() {
@@ -172,56 +210,41 @@ public final class EconomyCounters {
 
     /** Reads the current counts without resetting them (on-demand views must not eat the nightly window). */
     public static Snapshot peek() {
-        return new Snapshot(
-                mobMesoDropsHuman.sum(), mobMesoDropsBot.sum(), npcSellMesos.sum(), questRewardMesos.sum(),
-                npcBuyMesos.sum(), jobMasterFees.sum(), upkeepMesos.sum(), fmTaxMesos.sum(),
-                tradeMesos.sum(), fmSaleMesos.sum(),
-                mapleLeafGained.sum(), mapleLeafSpent.sum(), nxEarned.sum(), nxSpent.sum()
-        );
+        long[] v = new long[ADDERS.length];
+        for (int i = 0; i < v.length; i++) {
+            v[i] = ADDERS[i].sum();
+        }
+        return Snapshot.of(v);
     }
 
     /**
      * Atomically reads the current counts and resets them to zero.
      */
     public static synchronized Snapshot snapshotAndReset() {
-        long dropsHuman = mobMesoDropsHuman.sumThenReset();
-        long dropsBot = mobMesoDropsBot.sumThenReset();
-        long sells = npcSellMesos.sumThenReset();
-        long quests = questRewardMesos.sumThenReset();
-        long buys = npcBuyMesos.sumThenReset();
-        long jobFees = jobMasterFees.sumThenReset();
-        long upkeep = upkeepMesos.sumThenReset();
-        long tax = fmTaxMesos.sumThenReset();
-        long trades = tradeMesos.sumThenReset();
-        long fmSales = fmSaleMesos.sumThenReset();
-        long leafGain = mapleLeafGained.sumThenReset();
-        long leafSpend = mapleLeafSpent.sumThenReset();
-        long nxGain = nxEarned.sumThenReset();
-        long nxSpend = nxSpent.sumThenReset();
+        long[] v = new long[ADDERS.length];
+        for (int i = 0; i < v.length; i++) {
+            v[i] = ADDERS[i].sumThenReset();
+        }
+        return Snapshot.of(v);
+    }
 
-        return new Snapshot(
-                dropsHuman, dropsBot, sells, quests,
-                buys, jobFees, upkeep, tax,
-                trades, fmSales,
-                leafGain, leafSpend, nxGain, nxSpend
-        );
+    /**
+     * Adds stored totals back (at boot, from {@code economycounters}): the day's counts so far before the restart.
+     * Unknown keys and non-positive values are skipped.
+     */
+    public static synchronized void restore(Map<String, Long> stored) {
+        for (var e : stored.entrySet()) {
+            Key k = Key.byDbKey(e.getKey());
+            if (k != null && e.getValue() != null) {
+                add(k, e.getValue());
+            }
+        }
     }
 
     /** Test seam: resets all counters to 0. */
     public static synchronized void resetForTest() {
-        mobMesoDropsHuman.reset();
-        mobMesoDropsBot.reset();
-        npcSellMesos.reset();
-        questRewardMesos.reset();
-        npcBuyMesos.reset();
-        jobMasterFees.reset();
-        upkeepMesos.reset();
-        fmTaxMesos.reset();
-        tradeMesos.reset();
-        fmSaleMesos.reset();
-        mapleLeafGained.reset();
-        mapleLeafSpent.reset();
-        nxEarned.reset();
-        nxSpent.reset();
+        for (LongAdder a : ADDERS) {
+            a.reset();
+        }
     }
 }

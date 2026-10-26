@@ -2179,6 +2179,9 @@ public class Server {
             }
         }
 
+        // 1.6.0 Track D (owner 2026-10-26): the day's economy counters survive the restart
+        soloMapling.Economy.stats.EconomySnapshotService.shutdown();
+
         resetServerWorlds();
 
         ThreadManager.getInstance().stop();

@@ -115,7 +115,8 @@ function action(m, t, s) {
                 return;
             }
             if (fee > 0) {
-                cm.gainMeso(-fee);
+                // straight on the character, not cm.gainMeso: cm would count it as an npc_fee too (1.6.0 Track D)
+                cm.getPlayer().gainMeso(-fee);
                 JobMasterFees.recordFee(fee);
             }
             jobAdvance();
