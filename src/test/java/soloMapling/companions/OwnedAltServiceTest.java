@@ -69,6 +69,21 @@ class OwnedAltServiceTest {
         assertTrue(s.reserveCompanion(9, 105));
         assertFalse(s.reserveCompanion(20, 105), "one friend reservation cannot belong to two owners");
     }
+    // Owner 2026-10-26: five companions in all, owned alts and bot friends together.
+    @Test void fiveAltsFillTheCompanionCap() {
+        Memory db = new Memory();
+        for (int id = 2; id <= 7; id++) db.add(id);
+        Character owner = owner(1);
+        OwnedAltService s = new OwnedAltService(db, () -> true);
+        for (int id = 2; id <= 6; id++) s.summon(owner, "Alt" + id);
+        assertFalse(s.hasCompanionRoom(1));
+        assertThrows(IllegalStateException.class, () -> s.summon(owner, "Alt7"), "a sixth alt");
+        assertFalse(s.reserveCompanion(1, 200), "a bot friend on top of five alts");
+        s.dismiss(owner, "Alt2");
+        assertTrue(s.hasCompanionRoom(1));
+        assertTrue(s.reserveCompanion(1, 200), "a dismissed alt frees its place for a friend");
+        assertThrows(IllegalStateException.class, () -> s.summon(owner, "Alt7"), "and the friend fills it again");
+    }
     @Test void loginSavesAndRemovesBeforeAllowingReloadAndReservesUntilRegistration() {
         Memory db = new Memory(); db.add(2);
         OwnedAltService s = new OwnedAltService(db, () -> true);

@@ -31,9 +31,12 @@ class JobMasterFeesTest {
     void jobMasterChecksAndTakesTheFeeBeforeAdvancing() throws Exception {
         String js = Files.readString(Path.of("scripts/npc/9010003.js"));
         int check = js.indexOf("cm.getMeso() < fee");
-        int take = js.indexOf("cm.gainMeso(-fee)");
+        int take = js.indexOf("cm.getPlayer().gainMeso(-fee)");
         int advance = js.indexOf("jobAdvance();", take);
         assertTrue(js.contains("JobMasterFees.forTarget(job)"), "the fee comes from the table");
         assertTrue(check > 0 && take > check && advance > take, "refuse when short, then take the fee, then advance");
+        // 1.6.0 Track D: cm.gainMeso(-n) counts an npc_fee; the Job Master fee has its own key, so count it once
+        assertTrue(!js.contains("cm.gainMeso(-fee)") && js.contains("JobMasterFees.recordFee(fee)"),
+                "the fee is counted once, as a Job Master fee");
     }
 }

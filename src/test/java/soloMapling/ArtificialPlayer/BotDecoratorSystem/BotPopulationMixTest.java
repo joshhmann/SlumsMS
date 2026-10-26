@@ -111,6 +111,91 @@ class BotPopulationMixTest {
         assertTrue(highPct >= 12 && highPct <= 20, "Lv71+: " + highPct + "%");
     }
 
+    /**
+     * 1.6.0 area levels (owner 2026-10-26): with Victoria's dungeons given their own Lv30+ cohorts, the population new
+     * veterans are drawn from (every cohort weighted by its count, each level by the curve inside its band - the
+     * exact expectation, no sampling) is still bottom-heavy: 40%+ under Lv30 overall.
+     */
+    @Test
+    void theAreaBandsKeepThePopulationBottomHeavy() {
+        double[] shares = expectedShares(EnvironmentManager.TRAINING_COHORTS);
+        assertTrue(shares[0] >= 40, "under Lv30: " + shares[0] + "%");
+        assertTrue(shares[2] >= 12 && shares[2] <= 20, "Lv71+: " + shares[2] + "%");
+    }
+
+    /** Each Victoria town is home to its fields' low bots and, but for Lith Harbour, to bots for its Lv30+ zones. */
+    @Test
+    void everyVictoriaTownHasItsHigherZonesToo() {
+        for (int town : List.of(constants.id.MapId.HENESYS, constants.id.MapId.KERNING_CITY, constants.id.MapId.PERION,
+                constants.id.MapId.ELLINIA)) {
+            boolean low = false;
+            boolean high = false;
+            for (EnvironmentManager.TrainingCohort cohort : EnvironmentManager.TRAINING_COHORTS) {
+                if (cohort.townMapId() == town) {
+                    low |= cohort.loLevel() >= 10 && cohort.hiLevel() <= 30;
+                    high |= cohort.loLevel() >= 30;
+                }
+            }
+            assertTrue(low && high, "town " + town + " low " + low + " high " + high);
+        }
+        // the town cohorts themselves stay "30ish": no Victoria town field cohort runs past Lv30
+        for (int index : new int[]{EnvironmentManager.COHORT_HENESYS, EnvironmentManager.COHORT_KERNING,
+                EnvironmentManager.COHORT_PERION, EnvironmentManager.COHORT_ELLINIA, EnvironmentManager.COHORT_SLEEPYWOOD}) {
+            assertTrue(EnvironmentManager.TRAINING_COHORTS.get(index).hiLevel() <= 30, "cohort " + index);
+        }
+    }
+
+    /**
+     * A cohort's position is its stored bots' slots (wave 8 task index): the rows that existed before the area bands
+     * keep their town and headcount, so no stored bot changes cohort or is retired. New rows only ever go on the end.
+     */
+    @Test
+    void theExistingCohortsKeepTheirSlots() {
+        int[][] before = {
+                {constants.id.MapId.LITH_HARBOUR, 20}, {constants.id.MapId.HENESYS, 225},
+                {constants.id.MapId.KERNING_CITY, 225}, {constants.id.MapId.PERION, 225},
+                {constants.id.MapId.ELLINIA, 225}, {constants.id.MapId.SLEEPYWOOD, 225},
+                {constants.id.MapId.ANT_TUNNEL_PARK, 180}, {constants.id.MapId.ORBIS, 220},
+                {constants.id.MapId.LUDIBRIUM, 200}, {constants.id.MapId.PATH_OF_TIME_HUB, 160},
+                {constants.id.MapId.EL_NATH, 200}, {constants.id.MapId.SHARP_CLIFF_I, 200},
+                {constants.id.MapId.HENESYS, 25}, {constants.id.MapId.KERNING_CITY, 20},
+                {constants.id.MapId.PERION, 20}, {constants.id.MapId.ELLINIA, 20}};
+        for (int i = 0; i < before.length; i++) {
+            EnvironmentManager.TrainingCohort cohort = EnvironmentManager.TRAINING_COHORTS.get(i);
+            assertEquals(before[i][0], cohort.townMapId(), "cohort " + i + " town");
+            assertEquals(before[i][1], cohort.count(), "cohort " + i + " count");
+        }
+        for (EnvironmentManager.TrainingCohort cohort : EnvironmentManager.TRAINING_COHORTS) {
+            assertTrue(cohort.count() <= soloMapling.ArtificialPlayer.BotStore.SLOTS_PER_TASK, "fits its task: " + cohort);
+        }
+    }
+
+    /** Expected shares (percent) under Lv30, Lv30-70 and Lv71+ of a population drawn from these cohorts. */
+    private static double[] expectedShares(List<EnvironmentManager.TrainingCohort> cohorts) {
+        double total = 0;
+        double under = 0;
+        double mid = 0;
+        double high = 0;
+        for (EnvironmentManager.TrainingCohort cohort : cohorts) {
+            double bandWeight = 0;
+            for (int lv = cohort.loLevel(); lv <= cohort.hiLevel(); lv++) {
+                bandWeight += BotPopulationMix.weightOf(lv);
+            }
+            for (int lv = cohort.loLevel(); lv <= cohort.hiLevel(); lv++) {
+                double bots = cohort.count() * BotPopulationMix.weightOf(lv) / bandWeight;
+                total += bots;
+                if (lv < 30) {
+                    under += bots;
+                } else if (lv <= 70) {
+                    mid += bots;
+                } else {
+                    high += bots;
+                }
+            }
+        }
+        return new double[]{100 * under / total, 100 * mid / total, 100 * high / total};
+    }
+
     /** Every class is present at a believable share; pirates, Cygnus Knights and Aran are no longer curiosities. */
     @Test
     void classSharesMatchTheAuditTargets() {

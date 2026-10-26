@@ -72,7 +72,8 @@ The app already has no write actions.
   - transfers: trades, FM sales;
   - Maple Leaf gained/spent, NX earned/spent.
   - Hooks are in `Character`, `Shop`, `Trade`, `MesoAction`, `JobMasterFees`, `CashShop`, `NPCConversationManager`, `AbstractPlayerInteraction`, `MesoSinks`, `BotWealth`, `BotHoldings`, `BotBagRoom` and `TrainingBot`.
-  - **Not persisted:** a restart mid-day loses that day's flows. Persistence is on the owner's pending list.
+  - **Persisted (owner 2026-10-26):** migration 032 `economycounters`, one row per (UTC day, counter key). Today's rows are added back at boot, the totals are written every 5 min (`-Dslums.econ.counterSaveSeconds`) on the economy-snapshot thread and at shutdown, and the nightly snapshot writes the closed day's final totals. Rows older than 90 days are deleted.
+  - Script meso changes (`cm`/`qm`/`im.gainMeso`, quest meso actions): a gain is a quest reward (source), a loss is `npc_fee` (sink, `flows.sinks.npcFees`). The Job Master skip fee stays in `jobMasterFees` only.
   - I found no hook in `BotShopping` (bot NPC pot buys). Worth verifying.
 - **`EconomySnapshotService`.**
   - Runs nightly at UTC midnight and labels the file with the day just ended. `!econstats` (GM 4) writes `ondemand-*` files without resetting the counters.
@@ -80,7 +81,7 @@ The app already has no write actions.
     - `<date>-public.json` and `latest-public.json` (about 116 KB): meso supply by level band (humans vs bots), wealth stats (mean, median, p25/p75, top 1% / 10% share, Gini), flows, and `itemPrices` (count, median, p25/p75, min, max per item).
     - `<date>-private.json` adds `topHolders` (25 rows: id, level, meso, isBot).
     - Files are mode 600.
-  - **There is no retention or pruning**, but files are small: about 21 MB for 90 days.
+  - Dated `<date>-public/private.json` files are kept 90 days (owner 2026-10-26), pruned at each nightly. The website's 365-day price history (`PublicMarketExport` `prices/<day>.json`) is separate.
   - Data comes from `characters` (world 1, gm<2), `botstore`, the active hired merchants and player shops (bot shops are `HiredMerchantArtificial`, so they are included), and PriceBook's recent samples.
 - **`PlayerWealthIndex`.** The median of the ratio "player mesos ÷ bot meso ceiling for that level" across players. It scales the bot ceiling between 1x and 10x, is kept in `bot-wealth-index.properties`, and logs `[Wealth]`.
 

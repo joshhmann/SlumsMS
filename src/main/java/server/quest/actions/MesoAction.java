@@ -53,7 +53,10 @@ public class MesoAction extends AbstractQuestAction {
 
     public static void runAction(Character chr, int gain) {
         if (gain < 0) {
+            // 1.6.0 Track D (owner 2026-10-26): mesos a quest takes leave the game: an NPC fee (sink), not a reward
+            int before = chr.getMeso();
             chr.gainMeso(gain, true, false, true);
+            soloMapling.Economy.stats.EconomyCounters.recordNpcFee((long) before - chr.getMeso());
         } else {
             int actualGain = !YamlConfig.config.server.USE_QUEST_RATE
                     ? gain * chr.getMesoRate()

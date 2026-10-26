@@ -41,7 +41,10 @@ class OwnedAltCharacterTest {
         assertThrows(IllegalArgumentException.class, () -> roster.markOwnedAlt(owner));
         assertFalse(new ServerConfig().OWNED_ALTS_ENABLED);
     }
-    @Test void gainsOnlyMonsterPartyPlayExpWithOwnerOnSameMapAndParty() throws Exception {
+    // Owner 2026-10-26: an alt in your party gets the normal party EXP split with the usual level-gap rules and no
+    // special leech handling either way. Monster's split already decides who shares a kill; the alt itself only stops
+    // gaining once its owner's session is gone (the alt is about to be saved and removed).
+    @Test void gainsNormalPartyExpWhileItsOwnerIsOnlineWhereverTheOwnerIs() throws Exception {
         boolean rebirth = config.YamlConfig.config.server.USE_REBIRTH_SYSTEM;
         config.YamlConfig.config.server.USE_REBIRTH_SYSTEM = true;
         try {
@@ -51,12 +54,32 @@ class OwnedAltCharacterTest {
         Party party = mock(Party.class); MapleMap map = mock(MapleMap.class);
         field(alt, "party", party); alt.setMap(map);
         when(owner.getParty()).thenReturn(party); when(owner.getMap()).thenReturn(map);
-        alt.gainExp(10); assertEquals(0, alt.getExp());
-        alt.gainPartyPlayExp(10, 4, false, false, true); assertEquals(14, alt.getExp());
+        alt.gainPartyPlayExp(3, 1, false, false, true); assertEquals(4, alt.getExp());
+        // the owner on another map, or dead: no special case, the alt is a party member like any other
         when(owner.getMap()).thenReturn(mock(MapleMap.class));
-        alt.gainPartyPlayExp(10, 4, false, false, true); assertEquals(14, alt.getExp());
-        when(owner.getMap()).thenReturn(map); when(owner.isLoggedin()).thenReturn(false); when(owner.isLoggedinWorld()).thenReturn(false);
-        alt.gainPartyPlayExp(10, 4, false, false, true); assertEquals(14, alt.getExp());
+        alt.gainPartyPlayExp(3, 1, false, false, true); assertEquals(8, alt.getExp());
+        when(owner.isAlive()).thenReturn(false);
+        alt.gainPartyPlayExp(3, 1, false, false, true); assertEquals(12, alt.getExp());
+        // the owner's session is gone: the alt is on its way out and gains nothing more
+        when(owner.isLoggedin()).thenReturn(false); when(owner.isLoggedinWorld()).thenReturn(false);
+        alt.gainPartyPlayExp(3, 1, false, false, true); assertEquals(12, alt.getExp());
+        } finally { config.YamlConfig.config.server.USE_REBIRTH_SYSTEM = rebirth; }
+    }
+    // Owner 2026-10-26: in a PQ an alt is a full member and gets the PQ's EXP (stage clears and rewards are script EXP).
+    // Outside an instance, script and quest EXP stays the owner's: quests are per character.
+    @Test void getsPqExpInsideAnInstanceButNoScriptExpOutsideOne() throws Exception {
+        boolean rebirth = config.YamlConfig.config.server.USE_REBIRTH_SYSTEM;
+        config.YamlConfig.config.server.USE_REBIRTH_SYSTEM = true;
+        try {
+            Character owner = owner(); Character alt = alt(owner);
+            Client c = mock(Client.class); when(c.getPlayer()).thenReturn(owner); when(owner.getClient()).thenReturn(c);
+            when(owner.isLoggedin()).thenReturn(true); when(owner.isLoggedinWorld()).thenReturn(true);
+            alt.gainExp(5); assertEquals(0, alt.getExp(), "an NPC quest's or script's EXP outside a PQ");
+            alt.setEventInstance(mock(scripting.event.EventInstanceManager.class));
+            alt.gainExp(5); assertEquals(5, alt.getExp(), "a PQ stage clear");
+            alt.gainExp(4, true, true); assertEquals(9, alt.getExp(), "givePartyExp / giveEventPlayersExp");
+            when(owner.isLoggedinWorld()).thenReturn(false);
+            alt.gainExp(4); assertEquals(9, alt.getExp(), "not once its owner has gone");
         } finally { config.YamlConfig.config.server.USE_REBIRTH_SYSTEM = rebirth; }
     }
     @Test void savesRealCharacterTransactionAndInventoryWithoutAccountCashSnapshot() throws Exception {
