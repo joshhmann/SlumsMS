@@ -151,7 +151,8 @@ public final class LifeObservation {
         lines.add("Bot life " + (actualDecision ? "DECISION v" : "SHADOW v") + LifeProfile.VERSION + ": " + observed.name() + " lv " + observed.level()
                 + " map " + observed.mapId() + " " + observed.role() + "/" + observed.state());
         lines.add("Provisional personality " + report.profile().primary() + ": " + report.profile().blend());
-        lines.add("Goals: " + context.goals().stream().map(LifeGoals.Goal::description).toList());
+        lines.add("Goals: " + context.goals().stream().map(g -> String.format(java.util.Locale.ROOT, "%s (%s %.2f)",
+                g.description(), g.kind(), g.pressure())).toList());
         lines.add("Measured needs: " + context.needs().values() + "; local friends/strangers/rivals "
                 + context.friends() + "/" + context.strangers() + "/" + context.rivals());
         lines.add("Unknown: " + String.join(", ", context.unknown()));

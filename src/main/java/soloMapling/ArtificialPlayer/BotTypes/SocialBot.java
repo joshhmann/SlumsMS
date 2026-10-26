@@ -102,6 +102,31 @@ public class SocialBot extends BotSM {
         botType = "SocialBot";
         this.variant = java.util.Objects.requireNonNull(variant);
         EventBus.getInstance().subscribe(EventType.LEVEL_UP, this); // congratulate nearby levelers
+        // 1.6.0 S8 (brain reach): a roster social bot decides with the same brain (null: brain off or not a member).
+        life = soloMapling.ArtificialPlayer.BotLifeSystem.LifeTownLife.forBot(this,
+                soloMapling.ArtificialPlayer.BotLifeSystem.LifeTownLife.Kind.SOCIAL,
+                new soloMapling.ArtificialPlayer.BotLifeSystem.LifeTownLife.Moves() {
+                    public boolean canSit() {
+                        Character chr = getChr();
+                        return chr != null && chr.getChair() <= 0 && isAvailableForAmbientActions();
+                    }
+                    public boolean sit() {
+                        if (!canSit()) return false;
+                        botSitChair(getChr(), getRandomChairId());
+                        nextChairActionMs = System.currentTimeMillis() + IDLE_CHAIR_COOLDOWN_MAX_MS;
+                        return true;
+                    }
+                    public boolean available() {
+                        return isAvailableForAmbientActions();
+                    }
+                });
+    }
+
+    private final soloMapling.ArtificialPlayer.BotLifeSystem.LifeTownLife life;
+
+    /** 1.6.0 S8: this bot's brain (null when it has none). */
+    public soloMapling.ArtificialPlayer.BotLifeSystem.LifeTownLife life() {
+        return life;
     }
 
     public SocialBotVariant getVariant() {
@@ -178,6 +203,9 @@ public class SocialBot extends BotSM {
             PersonalSpace.maybeKeep(getChr());
         }
         pollRecruitInvite(); // last: a JOINED poll converts this bot to a FollowerBot
+        if (life != null && getRunning()) {
+            life.tick(System.currentTimeMillis()); // 1.6.0 S8: the brain (30 s cadence, skips unchanged ticks)
+        }
     }
 
     /** How often a stationed bot looks for a player it feels something about (the roaming bots scan every 1.5 s). */

@@ -16,7 +16,118 @@ import static soloMapling.ArtificialPlayer.BotLifeSystem.LifeDecision.*;
 final class BotLifeScenarios {
     private BotLifeScenarios() {}
     static List<QaScenario> all() {
-        return List.of(new GoldenPolicy(), new OneRestockTrip(false), new OneRestockTrip(true), new ProfileSurvives());
+        return List.of(new GoldenPolicy(), new OneRestockTrip(false), new OneRestockTrip(true), new ProfileSurvives(),
+                new PlanShown(), new ChannelChange());
+    }
+
+    /**
+     * bl-11 (1.6.0 S8): a staged goal turns into plan steps that {@code !botwhy} shows. One training bot is staged on a
+     * map with mobs; once it grinds it gets a life goal (get married; join a guild if it is married) and the planner's
+     * steps appear in its {@code !botwhy} lines, logged as LIFE WHY.
+     */
+    static final class PlanShown implements QaScenario {
+        private final Map<Integer, Integer> bots = new java.util.concurrent.ConcurrentHashMap<>();
+        private final Set<Integer> done = java.util.concurrent.ConcurrentHashMap.newKeySet();
+
+        public String id() { return "bl-11"; }
+        public String title() { return "Bot brain: a staged goal shows its plan steps in !botwhy"; }
+        public Set<QaLog.Topic> topics() { return Set.of(QaLog.Topic.HABITS); }
+        public int minutes(String[] args) { return 3; }
+        public int tickSeconds() { return 3; }
+
+        public List<String> stage(QaContext ctx) {
+            if (!ctx.world().botLifeAutomaticEnabled()) throw new QaRefusal("Needs the bot brain on (botlife enabled+execute).");
+            if (ctx.world().mobLevel(ctx.gm()) < 0) throw new QaRefusal("Needs a map with live mobs, such as HHG1.");
+            List<Integer> ids = ctx.world().stageGrinders(ctx.gm(), List.of("WARRIOR:40"), 1, 0, true, true);
+            if (ids.isEmpty()) throw new QaRefusal("No bot could be staged here.");
+            int gm = ctx.run().gmId();
+            bots.put(gm, ids.getFirst());
+            done.remove(gm);
+            ctx.onStop("remove the plan fixture", () -> { ctx.world().unstageGrinders(ids); bots.remove(gm); });
+            ctx.run().note("LIFE", "PLAN START bot=" + ids.getFirst());
+            return List.of("One training bot appears and starts grinding; it then gets a life goal (get married).",
+                    "The log shows LIFE PLAN steps and the bot's !botwhy lines (LIFE WHY Plan ...), then PASS.",
+                    "!botwhy <name> in game shows the same goal and steps. Nothing is granted: the plan only leans the bot.");
+        }
+
+        public void tick(QaContext ctx) {
+            int gm = ctx.run().gmId();
+            Integer bot = bots.get(gm);
+            if (bot == null || done.contains(gm)) return;
+            List<String> lines = ctx.world().lifePlanStage(bot);
+            if (lines.isEmpty()) return; // not grinding yet
+            done.add(gm);
+            lines.forEach(line -> ctx.run().note("LIFE", line));
+        }
+    }
+
+    /**
+     * bc-1, also {@code !qa cc-1} (1.6.0 S8, the owner's idea): a staged crowded map makes a bot say "cc" (or "too many
+     * ppl") and appear on the same map on a quieter channel. One training bot is staged; its map instance is made to read
+     * 120% full; the brain sees CHANGE_CHANNEL eligible with a target, and {@code !qa do cc} (the auto-QA step) queues
+     * the request through the bot's own queue, as the brain would. The log shows LIFE CC with the two channels.
+     */
+    static final class ChannelChange implements QaScenario {
+        private final Map<Integer, Integer> bots = new java.util.concurrent.ConcurrentHashMap<>();
+        private final Map<Integer, String> where = new java.util.concurrent.ConcurrentHashMap<>();
+
+        public String id() { return "bc-1"; }
+        public List<String> aliases() { return List.of("cc-1"); }
+        public String title() { return "Bot brain: a crowded map makes a bot say cc and change channel"; }
+        public Set<QaLog.Topic> topics() { return Set.of(QaLog.Topic.HABITS); }
+        public int minutes(String[] args) { return 3; }
+        public int tickSeconds() { return 3; }
+
+        public List<String> stage(QaContext ctx) {
+            if (!ctx.world().botLifeAutomaticEnabled()) throw new QaRefusal("Needs the bot brain on (botlife enabled+execute).");
+            if (ctx.world().mobLevel(ctx.gm()) < 0) throw new QaRefusal("Needs a map with live mobs, such as HHG1.");
+            List<Integer> ids = ctx.world().stageGrinders(ctx.gm(), List.of("WARRIOR:30"), 1, 0, true, true);
+            if (ids.isEmpty()) throw new QaRefusal("No bot could be staged here.");
+            int gm = ctx.run().gmId();
+            int bot = ids.getFirst();
+            bots.put(gm, bot);
+            where.put(gm, ctx.world().botChannelAndMap(bot));
+            ctx.onStop("clear the staged crowd and remove the bot", () -> {
+                ctx.world().lifeCrowdStage(bot, null);
+                ctx.world().unstageGrinders(ids);
+                bots.remove(gm);
+                where.remove(gm);
+            });
+            ctx.world().lifeCrowdStage(bot, 1.2).forEach(line -> ctx.run().note("LIFE", line));
+            ctx.run().note("LIFE", "CC START bot=" + bot + " at=" + where.get(gm));
+            return List.of("One training bot appears; its map now reads as 120% full (staged, no extra bots).",
+                    "Wait for LIFE READY, then !qa do cc: the bot says \"cc\" or \"too many ppl\" and leaves for a quieter "
+                            + "channel, same map (LIFE CC chA->chB). Change channel yourself to see it there.",
+                    "It never goes mid-trade, in a party or inside a PQ; the target channel must be under its map cap.");
+        }
+
+        public List<String> action(QaContext ctx, String name, String[] args) {
+            Integer bot = bots.get(ctx.run().gmId());
+            if (bot == null) throw new QaRefusal("No staged bot remains.");
+            if (!name.equals("cc")) throw new QaRefusal("Use cc.");
+            ctx.world().lifeCrowdStage(bot, 1.2).forEach(line -> ctx.run().note("LIFE", line));
+            String offered = ctx.world().forceLifeChannel(bot);
+            ctx.run().note("LIFE", "CC QUEUED bot=" + bot + " result=" + offered);
+            if (!offered.equals("QUEUED") && !offered.equals("REPLACED")) {
+                throw new QaRefusal("The channel change was refused: " + offered);
+            }
+            return List.of("Queued. The bot changes channel on its next step.");
+        }
+
+        public void tick(QaContext ctx) {
+            int gm = ctx.run().gmId();
+            Integer bot = bots.get(gm);
+            if (bot == null) return;
+            ctx.world().botLifeReport(bot).forEach(line -> ctx.run().note("LIFE", line));
+            String now = ctx.world().botChannelAndMap(bot);
+            String before = where.get(gm);
+            if (before != null && !now.isEmpty() && !now.equals(before)) {
+                String[] a = before.split(" "), b = now.split(" ");
+                ctx.run().note("LIFE", "CC MOVED bot=" + bot + " from ch" + a[0] + " to ch" + b[0]
+                        + " sameMap=" + a[1].equals(b[1]));
+                where.put(gm, now);
+            }
+        }
     }
 
     /**

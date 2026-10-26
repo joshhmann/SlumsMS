@@ -1260,6 +1260,89 @@ final class GameQaWorld implements QaWorld {
         return true;
     }
 
+    // ---- 1.6.0 S8 (bl-11 plans, bc-1 alias cc-1 channel change) ----
+
+    @Override
+    public List<String> lifePlanStage(int botId) {
+        if (!soloMapling.ArtificialPlayer.BotLifeSystem.LifeRuntime.enabled()) {
+            throw new QaRefusal("Needs the bot brain on (-Dslums.botlife.enabled=true and execute=true).");
+        }
+        if (!(CharacterStorage.getBotById(botId) instanceof soloMapling.ArtificialPlayer.BotTypes.TrainingBot bot)
+                || bot.lifeRuntime() == null || !bot.isGrinding()) {
+            return List.of();
+        }
+        Character chr = bot.getChr();
+        var runtime = bot.lifeRuntime();
+        boolean married = chr.isMarried();
+        var goal = married
+                ? new soloMapling.ArtificialPlayer.BotLifeSystem.LifeGoals.Goal(
+                        soloMapling.ArtificialPlayer.BotLifeSystem.LifeGoals.Kind.GUILD, chr.getLevel(), "join a guild", .8)
+                : new soloMapling.ArtificialPlayer.BotLifeSystem.LifeGoals.Goal(
+                        soloMapling.ArtificialPlayer.BotLifeSystem.LifeGoals.Kind.MARRIAGE, chr.getLevel(), "get married", .8);
+        long now = System.currentTimeMillis();
+        runtime.memory().stageGoal(goal);
+        runtime.planNow(now);
+        List<String> out = new ArrayList<>();
+        out.add("PLAN STAGED bot=" + chr.getName() + " goal=" + goal.kind());
+        for (var plan : runtime.memory().plans()) {
+            out.add("PLAN " + plan.goal() + " steps=" + plan.steps());
+        }
+        for (String line : client.command.commands.gm3.BotWhyCommand.inspectionLines(bot, now)) {
+            out.add("WHY " + line);
+        }
+        boolean shown = out.stream().anyMatch(l -> l.startsWith("WHY Plan " + goal.description()));
+        out.add("PLAN " + (shown ? "PASS" : "FAIL") + " bot=" + botId);
+        return out;
+    }
+
+    @Override
+    public List<String> lifeCrowdStage(int botId, Double crowd) {
+        Character chr = BotHelpers.getCharFromChannelStorage(botId);
+        if (chr == null || chr.getMap() == null) {
+            return List.of("CC STATE bot=" + botId + " gone=true");
+        }
+        soloMapling.ArtificialPlayer.BotLifeSystem.LifeChannelMove.stageCrowd(chr.getMap().getChannelId(),
+                chr.getMapId(), crowd);
+        if (crowd != null) {
+            soloMapling.ArtificialPlayer.BotLifeSystem.LifeChannelMove.forgetCooldown(botId);
+        }
+        long now = System.currentTimeMillis();
+        int target = soloMapling.ArtificialPlayer.BotLifeSystem.LifeChannelMove.target(chr);
+        String why = soloMapling.ArtificialPlayer.BotLifeSystem.LifeChannelMove.why(chr, false, now);
+        if (CharacterStorage.getBotById(botId) instanceof soloMapling.ArtificialPlayer.BotTypes.TrainingBot bot
+                && bot.lifeRuntime() != null) {
+            bot.lifeRuntime().changed();
+            bot.nudgeSoon(300);
+        }
+        return List.of(String.format(java.util.Locale.ROOT, "CC STAGE bot=%s map=%d ch=%d crowd=%.2f target=%d may=%s",
+                chr.getName(), chr.getMapId(), chr.getMap().getChannelId(),
+                soloMapling.ArtificialPlayer.BotLifeSystem.LifeChannelMove.crowdOf(chr), target,
+                why == null ? "yes" : "no (" + why + ")"));
+    }
+
+    @Override
+    public String forceLifeChannel(int botId) {
+        if (!(CharacterStorage.getBotById(botId) instanceof soloMapling.ArtificialPlayer.BotTypes.TrainingBot bot)
+                || bot.lifeRuntime() == null || bot.getChr() == null) {
+            return "CLOSED";
+        }
+        int target = soloMapling.ArtificialPlayer.BotLifeSystem.LifeChannelMove.target(bot.getChr());
+        if (target <= 0) {
+            return "NO_TARGET";
+        }
+        bot.lifeRuntime().channelTarget(target);
+        var choice = new soloMapling.ArtificialPlayer.BotLifeSystem.LifeDecision.Result(List.of(),
+                java.util.Optional.of(soloMapling.ArtificialPlayer.BotLifeSystem.LifeDecision.Activity.CHANGE_CHANNEL),
+                soloMapling.ArtificialPlayer.BotLifeSystem.LifeDecision.Outcome.CHOOSE);
+        return bot.submitLifeActivity(bot.prepareLifeActivity(choice)).name();
+    }
+
+    @Override
+    public String botChannelAndMap(int botId) {
+        Character chr = BotHelpers.getCharFromChannelStorage(botId);
+        return chr == null || chr.getMap() == null ? "" : chr.getMap().getChannelId() + " " + chr.getMapId();
+    }
+
     @Override
     public List<String> lifeProfileProof(Character gm, String botName) {
         Character bot = null;

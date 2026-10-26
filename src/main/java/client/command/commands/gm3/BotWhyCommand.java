@@ -23,7 +23,7 @@ public class BotWhyCommand extends Command {
                 || QaSuite.isEnabled() && Boolean.getBoolean("slums.botlife.preview");
     }
 
-    static java.util.List<String> inspectionLines(BotSM bot, long now) {
+    public static java.util.List<String> inspectionLines(BotSM bot, long now) {
         var lines = new java.util.ArrayList<>(decisionLines(bot, now));
         // 1.6.0 S1: the Bartle blend and leading type, with the persona layers it joins.
         Character chr = bot.getChr();
@@ -36,24 +36,42 @@ public class BotWhyCommand extends Command {
     }
 
     private static java.util.List<String> decisionLines(BotSM bot, long now) {
-        if (bot instanceof soloMapling.ArtificialPlayer.BotTypes.TrainingBot training
-                && soloMapling.ArtificialPlayer.BotLifeSystem.LifeRuntime.enabled()) {
-            var latest = training.lifeRuntime().lastDecision();
+        // 1.6.0 S8: any bot type that runs the brain (training, social, town), with its goals and plan steps.
+        var runtime = soloMapling.ArtificialPlayer.BotLifeSystem.LifeRuntime.enabled() ? runtimeOf(bot) : null;
+        if (runtime != null) {
+            var latest = runtime.lastDecision();
+            var lines = new java.util.ArrayList<String>();
             if (latest != null) {
                 var saved = latest.report();
                 // Scores/needs are exactly those evaluated then; request state and phase are read now.
                 var report = new LifeObservation.Report(saved.observed(), saved.profile(), saved.context(),
-                        saved.result(), training.lifeActivityState());
-                var lines = new java.util.ArrayList<String>();
-                var phase = training.lifePhase();
+                        saved.result(), bot instanceof soloMapling.ArtificialPlayer.BotLifeSystem.LifeHost host
+                        ? host.lifeActivityState() : runtime.host() == null ? null : runtime.host().lifeActivityState());
+                String phase = bot instanceof soloMapling.ArtificialPlayer.BotTypes.TrainingBot training
+                        && training.lifePhase() != null ? training.lifePhase().name() : bot.getBotType();
                 lines.add("Last actual decision " + Math.max(0, now - latest.at()) / 1000
-                        + " s ago; phase now " + (phase == null ? "unknown" : phase.name())
-                        + ". Request state below is current.");
+                        + " s ago; phase now " + phase + ". Request state below is current.");
                 lines.addAll(LifeObservation.describe(report, true));
-                return java.util.List.copyOf(lines);
+            } else {
+                lines.addAll(LifeObservation.describe(LifeObservation.capture(bot, now)));
             }
+            var plan = runtime.describePlan();
+            if (plan != null) lines.addAll(plan);
+            return java.util.List.copyOf(lines);
         }
         return LifeObservation.describe(LifeObservation.capture(bot, now));
+    }
+
+    /** The brain this bot runs: a training bot's own, or a social/town bot's light host's (1.6.0 S8). */
+    static soloMapling.ArtificialPlayer.BotLifeSystem.LifeRuntime runtimeOf(BotSM bot) {
+        if (bot instanceof soloMapling.ArtificialPlayer.BotLifeSystem.LifeHost host) return host.lifeRuntime();
+        if (bot instanceof soloMapling.ArtificialPlayer.BotTypes.SocialBot social && social.life() != null) {
+            return social.life().lifeRuntime();
+        }
+        if (bot instanceof soloMapling.ArtificialPlayer.BotTypes.TownWandererBot wanderer && wanderer.life() != null) {
+            return wanderer.life().lifeRuntime();
+        }
+        return null;
     }
 
     @Override

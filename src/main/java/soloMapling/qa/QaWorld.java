@@ -327,6 +327,25 @@ public interface QaWorld {
     /** Whether {@link #lifeProfileProof} can run here (bl-4 refuses at once otherwise). */
     default boolean lifeProfileProofAvailable() { return false; }
 
+    /**
+     * {@code !qa bl-11} (1.6.0 S8): gives a staged bot a goal ({@code MARRIAGE}, or {@code GUILD} when married), plans
+     * it now and returns the log lines: the plan and every {@code !botwhy} line. Empty when the bot isn't ready
+     * (not grinding yet, or no brain); QaRefusal when it can't run here.
+     */
+    default List<String> lifePlanStage(int botId) { return List.of(); }
+
+    /**
+     * {@code !qa cc-1} (1.6.0 S8): makes the bot's map instance read as {@code crowd} full (null clears it) and returns
+     * what the bot's brain sees: the load, the quieter channel, whether it may change channel and why not.
+     */
+    default List<String> lifeCrowdStage(int botId, Double crowd) { return List.of(); }
+
+    /** {@code !qa cc-1}: queues a CHANGE_CHANNEL request for the bot, as the brain would; the queue's answer. */
+    default String forceLifeChannel(int botId) { return "CLOSED"; }
+
+    /** {@code !qa cc-1}: where the bot is now: {@code channel map}, or empty when it is gone. */
+    default String botChannelAndMap(int botId) { return ""; }
+
     /** One line per staged bot: {@code buffs | position | habits}. */
     default List<String> grinderReport(List<Integer> ids, String what) {
         return List.of();
