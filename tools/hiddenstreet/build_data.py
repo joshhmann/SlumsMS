@@ -596,6 +596,28 @@ class WzDataset:
 # DB Loader
 # ---------------------------------------------------------------------------------------------
 
+# A table's own row id: two rows that differ only in it are one row entered twice.
+DB_ROW_IDS = {
+    "drop_data": ("id",),
+    "drop_data_global": ("id",),
+    "reactordrops": ("reactordropid",),
+    "shopitems": ("shopitemid",),
+}
+
+
+def dedupe_db_rows(rows: List[Dict[str, Any]], ignore: Tuple[str, ...] = ()) -> Tuple[List[Dict[str, Any]], int]:
+    """Drops rows identical to an earlier one (ignoring the row-id columns). Keeps the first; returns (rows, removed)."""
+    seen: Set[str] = set()
+    kept: List[Dict[str, Any]] = []
+    for r in rows:
+        key = json.dumps({k: v for k, v in r.items() if k not in ignore}, sort_keys=True, default=str)
+        if key in seen:
+            continue
+        seen.add(key)
+        kept.append(r)
+    return kept, len(rows) - len(kept)
+
+
 class DbDataset:
     def __init__(self, db_dir: str):
         self.db_dir = db_dir
@@ -603,6 +625,10 @@ class DbDataset:
         self.reactordrops: List[Dict[str, Any]] = []
         self.shops: Dict[int, int] = {}  # shopid -> npcid
         self.shopitems: List[Dict[str, Any]] = []
+        self.drop_data_global: List[Dict[str, Any]] = []
+        # rows dropped as exact duplicates (ignoring the table's own auto-increment id), per table
+        self.duplicates_removed: Dict[str, int] = {}
+        self.row_counts: Dict[str, int] = {}
 
     def _read_tsv_or_json(self, name: str) -> List[Dict[str, Any]]:
         json_path = os.path.join(self.db_dir, f"{name}.json")
@@ -631,16 +657,24 @@ class DbDataset:
 
         return []
 
+    def _load_deduped(self, name: str) -> List[Dict[str, Any]]:
+        rows = self._read_tsv_or_json(name)
+        kept, removed = dedupe_db_rows(rows, DB_ROW_IDS.get(name, ()))
+        self.row_counts[name] = len(rows)
+        self.duplicates_removed[name] = removed
+        return kept
+
     def load(self) -> None:
-        self.drop_data = self._read_tsv_or_json("drop_data")
-        self.reactordrops = self._read_tsv_or_json("reactordrops")
+        self.drop_data = self._load_deduped("drop_data")
+        self.reactordrops = self._load_deduped("reactordrops")
+        self.drop_data_global = self._load_deduped("drop_data_global")
         shops_rows = self._read_tsv_or_json("shops")
         for s in shops_rows:
             sid = s.get("shopid")
             nid = s.get("npcid")
             if sid is not None and nid is not None:
                 self.shops[int(sid)] = int(nid)
-        self.shopitems = self._read_tsv_or_json("shopitems")
+        self.shopitems = self._load_deduped("shopitems")
 
 
 # ---------------------------------------------------------------------------------------------
@@ -687,6 +721,7 @@ def build_normalized_data(wz: WzDataset, db: DbDataset) -> Tuple[Dict[str, Any],
             "shops": [],
             "quests_reward": [],
             "quests_require": [],
+            "global_drops": [],
         }
 
     # Initialize Mobs
@@ -699,6 +734,8 @@ def build_normalized_data(wz: WzDataset, db: DbDataset) -> Tuple[Dict[str, Any],
             "hp": mdef.get("hp", 0),
             "mp": mdef.get("mp", 0),
             "exp": mdef.get("exp", 0),
+            # bosses roll drops at the world's boss_drop_rate, everything else at drop_rate (see meta.json)
+            "boss": bool(safe_int(mdef.get("stats", {}).get("boss"), 0)),
             "stats": mdef.get("stats", {}),
             "maps": [],
             "drops": [],
@@ -826,6 +863,27 @@ def build_normalized_data(wz: WzDataset, db: DbDataset) -> Tuple[Dict[str, Any],
                 "source_id": reactorid,
                 "item_id": itemid,
                 "notes": f"reactorid={reactorid}, chance={chance}",
+            })
+
+    # Global drops (drop_data_global): any mob on the continent, at a flat chance (no drop rate)
+    for g in db.drop_data_global:
+        itemid = g.get("itemid")
+        if itemid is None:
+            continue
+        if itemid != 0 and itemid not in all_item_ids:
+            audit["drops_missing_items"].append({
+                "source": "drop_data_global",
+                "source_id": g.get("continent"),
+                "item_id": itemid,
+                "notes": f"continent={g.get('continent')}, chance={g.get('chance')}",
+            })
+        elif str(itemid) in items_out:
+            items_out[str(itemid)]["global_drops"].append({
+                "continent": g.get("continent", -1),
+                "chance": g.get("chance", 0),
+                "min_qty": g.get("minimum_quantity", 1),
+                "max_qty": g.get("maximum_quantity", 1),
+                "quest_id": g.get("questid", 0),
             })
 
     # Shop Items Cross-reference
@@ -1087,6 +1145,315 @@ def build_normalized_data(wz: WzDataset, db: DbDataset) -> Tuple[Dict[str, Any],
 
 
 # ---------------------------------------------------------------------------------------------
+# Cleaning: duplicate rows, Korean-only names, duplicate names (1.6.0 Track D step 3)
+# ---------------------------------------------------------------------------------------------
+
+ENTITY_KINDS = ("items", "mobs", "maps", "npcs", "quests")
+
+# Shop rows: the same item at the same price listed twice in one shop is one offer (the second row only moves it
+# down the shop window), so position is left out of the duplicate key.
+_LIST_KEY_IGNORE = {
+    "shops": ("position",),
+    "shop_items": ("position",),
+}
+
+
+def dedupe_entity_lists(dataset: Dict[str, Any]) -> Dict[str, Dict[str, int]]:
+    """Removes repeated rows from every entity's lists (drops, shops, portals, quest links ...). Keeps the first.
+
+    Returns {kind: {field: rows removed}}."""
+    removed: Dict[str, Dict[str, int]] = {}
+    for kind in ENTITY_KINDS:
+        per_field: Dict[str, int] = defaultdict(int)
+        for ent in dataset.get(kind, {}).values():
+            for field, val in ent.items():
+                if not (isinstance(val, list) and val and isinstance(val[0], dict)):
+                    continue
+                ignore = _LIST_KEY_IGNORE.get(field, ())
+                seen: Set[str] = set()
+                kept = []
+                for row in val:
+                    key = json.dumps({k: v for k, v in row.items() if k not in ignore}, sort_keys=True, default=str)
+                    if key in seen:
+                        continue
+                    seen.add(key)
+                    kept.append(row)
+                if len(kept) != len(val):
+                    per_field[field] += len(val) - len(kept)
+                    ent[field] = kept
+        removed[kind] = dict(per_field)
+    return removed
+
+
+HANGUL_RE = re.compile(r"[ᄀ-ᇿ㄰-㆏가-힣]")
+LATIN_RE = re.compile(r"[A-Za-z]")
+
+
+def has_hangul(text: str) -> bool:
+    return bool(text) and bool(HANGUL_RE.search(text))
+
+
+def is_korean_only(text: str) -> bool:
+    """A name with Hangul and no Latin letter: an untranslated KMS leftover the English client shows as boxes."""
+    return has_hangul(text) and not LATIN_RE.search(text)
+
+
+def filter_korean_names(dataset: Dict[str, Any], include: bool = False) -> Dict[str, Any]:
+    """Finds Korean-only names (and mixed Korean/English ones). Unless {@code include}, drops the Korean-only
+    entities from the dataset. Returns {kind: {"korean_only": [{id, name}], "mixed": [{id, name}], "excluded": n}}."""
+    out: Dict[str, Any] = {}
+    for kind in ENTITY_KINDS:
+        ents = dataset.get(kind, {})
+        only, mixed = [], []
+        for key, ent in ents.items():
+            name = ent.get("name", "") or ""
+            if is_korean_only(name):
+                only.append({"id": ent.get("id"), "name": name})
+            elif has_hangul(name):
+                mixed.append({"id": ent.get("id"), "name": name})
+        if not include:
+            for row in only:
+                ents.pop(str(row["id"]), None)
+        out[kind] = {"korean_only": only, "mixed": mixed, "excluded": 0 if include else len(only)}
+    summary = dataset.get("summary")
+    if isinstance(summary, dict):
+        for kind in ENTITY_KINDS:
+            summary[f"total_{kind}"] = len(dataset.get(kind, {}))
+    return out
+
+
+def mob_tag(mob: Dict[str, Any]) -> Optional[str]:
+    """What kind of copy a mob is, from its id range and WZ flags (v83 / Cosmic numbering)."""
+    mid = int(mob.get("id", 0))
+    if 9400000 <= mid < 9600000:
+        return "event"            # 94xxxxx-95xxxxx: event and regional-event copies (e.g. the event Stirge 9400503)
+    if 9300000 <= mid < 9400000:
+        return "party quest"      # 93xxxxx: party quest, quest and instance copies
+    if 9000000 <= mid < 9300000:
+        return "special"          # 90xxxxx-92xxxxx: scripted, tutorial and special mobs
+    if mob.get("boss") or safe_int((mob.get("stats") or {}).get("boss"), 0):
+        return "boss"
+    return None
+
+
+def _level_tag(level: Any) -> Optional[str]:
+    lv = safe_int(level, 0) or 0
+    return f"Lv. {lv}" if lv > 0 else None
+
+
+def _qualifiers(kind: str, ent: Dict[str, Any]) -> List[Optional[str]]:
+    """Candidate disambiguators for one entity, in order of preference."""
+    if kind == "mobs":
+        tag, lv = mob_tag(ent), _level_tag(ent.get("level"))
+        return [tag, lv, f"{tag}, {lv}" if tag and lv else None]
+    if kind == "items":
+        stats = ent.get("stats") or {}
+        cash = "cash" if safe_int(stats.get("cash"), 0) else None
+        typ = ent.get("type") or None
+        lv = _level_tag(ent.get("req_level"))
+        return [cash, typ, lv, f"{typ}, {lv}" if typ and lv else None]
+    if kind == "maps":
+        return [ent.get("street") or None]
+    if kind == "npcs":
+        maps = ent.get("maps") or []
+        return [maps[0].get("name") or None] if maps else []
+    if kind == "quests":
+        start = (ent.get("start_npc") or {}).get("name") if ent.get("start_npc") else None
+        lv = _level_tag((ent.get("requirements") or {}).get("min_level"))
+        return [start or None, lv]
+    return []
+
+
+def _canonical_order(kind: str, ent: Dict[str, Any]) -> Tuple:
+    """Sort key: the first entity of a same-name group keeps the plain name (the one players mean)."""
+    eid = int(ent.get("id", 0))
+    if kind == "mobs":
+        return (mob_tag(ent) is not None, not ent.get("maps"), eid)
+    if kind == "items":
+        stats = ent.get("stats") or {}
+        used = ent.get("drops") or ent.get("shops") or ent.get("quests_reward") or ent.get("global_drops")
+        return (bool(safe_int(stats.get("cash"), 0)), not used, eid)
+    if kind == "maps":
+        return (not (ent.get("mobs") or ent.get("npcs")), eid)
+    if kind == "npcs":
+        return (not ent.get("maps"), eid)
+    return (eid,)
+
+
+DUPLICATE_NAME_RULE = (
+    "Entities of one kind that share a name get display_name = name + ' (qualifier)'; the first of the group keeps "
+    "the plain name (mobs: a normal-range, placed mob first; items: a non-cash item that drops, sells or is a reward; "
+    "maps and NPCs: one with life or a placement; then the lowest id). Qualifiers, first unused wins: mobs 'event' "
+    "(ids 9400000-9599999), 'party quest' (9300000-9399999), 'special' (9000000-9299999), 'boss' (WZ boss flag), then "
+    "'Lv. N'; items 'cash', category, 'Lv. N'; maps street name; NPCs first map placed; quests start NPC, 'Lv. N'; "
+    "last resort '#id'. 'name' stays the raw String.wz name.")
+
+
+def disambiguate_names(dataset: Dict[str, Any]) -> Dict[str, int]:
+    """Gives every entity a {@code display_name}: its name, or for the second and later entities that share a name
+    (within one kind), the name plus a short qualifier: "Stirge (event)". The first entity (see _canonical_order)
+    keeps the plain name. Qualifiers are tried in order (mobs: event / party quest / special / boss from the id range
+    and boss flag, then level; items: cash, category, required level; maps: street; NPCs: first map; quests: start
+    NPC, level) and the first one not already used in the group wins; "#<id>" is the last resort, so names are unique.
+    Sets {@code name_qualifier} (null when none). Returns {kind: entities labelled}."""
+    counts: Dict[str, int] = {}
+    for kind in ENTITY_KINDS:
+        groups: Dict[str, List[Dict[str, Any]]] = defaultdict(list)
+        for ent in dataset.get(kind, {}).values():
+            ent["display_name"] = ent.get("name", "") or ""
+            ent["name_qualifier"] = None
+            name = (ent.get("name") or "").strip()
+            if name:
+                groups[name.casefold()].append(ent)
+        labelled = 0
+        for ents in groups.values():
+            if len(ents) < 2:
+                continue
+            ents.sort(key=lambda e: _canonical_order(kind, e))
+            used = {ents[0]["display_name"].casefold()}
+            for ent in ents[1:]:
+                base = ent["name"].strip()
+                choice = None
+                for q in _qualifiers(kind, ent) + [f"#{ent['id']}"]:
+                    q = (q or "").strip()
+                    if not q or q == "Unknown":
+                        continue
+                    cand = f"{base} ({q})"
+                    if cand.casefold() not in used:
+                        choice = q
+                        break
+                ent["name_qualifier"] = choice
+                ent["display_name"] = f"{base} ({choice})"
+                used.add(ent["display_name"].casefold())
+                labelled += 1
+        counts[kind] = labelled
+    return counts
+
+
+# ---------------------------------------------------------------------------------------------
+# Drop-rate rule and stat notes for meta.json
+# ---------------------------------------------------------------------------------------------
+
+# World 1 (Bera) rates from the TEST server's config.yaml (2026-10-26). Live was not read; pass --server-config to
+# take them from a config file instead.
+DEFAULT_WORLD_RATES = {"world": 1, "drop_rate": 4, "boss_drop_rate": 3, "meso_rate": 10,
+                       "source": "TEST config.yaml worlds[id=1] (2026-10-26); live not read"}
+
+
+def read_world_rates(config_path: Optional[str], world_id: int = 1) -> Dict[str, Any]:
+    """The drop/boss/meso rates of one world from a server config.yaml (only the worlds: list is read)."""
+    if not config_path:
+        return dict(DEFAULT_WORLD_RATES)
+    try:
+        import yaml  # type: ignore
+        with open(config_path, "r", encoding="utf-8") as f:
+            cfg = yaml.safe_load(f) or {}
+        for w in cfg.get("worlds") or []:
+            if int(w.get("id", -1)) == world_id:
+                return {"world": world_id, "drop_rate": int(w.get("drop_rate", 1)),
+                        "boss_drop_rate": int(w.get("boss_drop_rate", 1)), "meso_rate": int(w.get("meso_rate", 1)),
+                        "source": f"{os.path.basename(config_path)} worlds[id={world_id}]"}
+    except Exception as e:  # pragma: no cover - a bad config falls back with a note
+        out = dict(DEFAULT_WORLD_RATES)
+        out["source"] += f" (could not read {config_path}: {e})"
+        return out
+    return dict(DEFAULT_WORLD_RATES)
+
+
+def drop_rate_rule(rates: Dict[str, Any]) -> Dict[str, Any]:
+    """How the server turns the dataset's base chances into real chances (read from the 1.6.0 server code)."""
+    d, b, m = rates["drop_rate"], rates["boss_drop_rate"], rates["meso_rate"]
+    return {
+        "rates": rates,
+        "summary": (f"Chances in this dataset are BASE chances. Bera multiplies mob drops by {d} (bosses by {b}), "
+                    f"quest items included, and reactor drops by {d}. Global drops (NX cards, Maple Leaves, "
+                    f"Chaos/White Scrolls, Flaming Feather) are NOT multiplied. Meso drops: the chance x{d} "
+                    f"(boss x{b}) and the amount x{m}."),
+        "mob_drops": {
+            "table": "drop_data (chance per 1,000,000)",
+            "formula": "P = min(1, chance x rate x card / 999,999); rate = drop_rate, or boss_drop_rate when the mob "
+                       "has the boss flag (mobs.json 'boss')",
+            "quest_items": f"multiplied too (x{d}); a quest item only drops when a player who hit the mob needs it "
+                           "for that quest, and only that player sees it",
+            "mesos": f"item 0 rows: chance x rate as above, amount x meso_rate ({m}), x Meso Up when buffed",
+            "equips": "may roll a rare godly version (GodlyDrops)",
+            "bots": "bots roll the same table at the same world rates",
+            "evidence": [
+                "server/maps/MapleMap.java dropFromMonster: chRate = boss ? chr.getBossDropRate() : chr.getDropRate()",
+                "server/maps/MapleMap.java dropItemsFromMonsterOnMap: dropChance = chance * chRate * cardRate; "
+                "Randomizer.nextInt(999999) < dropChance",
+                "server/maps/MapleMap.java MobLootEntry.run: quest entries use the same chRate",
+                "client/Character.java setWorldRates / getBossDropRate",
+                "server/loot/LootManager.java isRelevantDrop (USE_SPAWN_RELEVANT_LOOT: quest items need a player who needs them)",
+                "soloMapling/ArtificialPlayer/BotAttackSystem/BotAttackEffects.java dropMobLoot (bots: world rates)",
+            ],
+        },
+        "global_drops": {
+            "table": "drop_data_global (chance per 1,000,000; items.json 'global_drops')",
+            "formula": "P = chance / 999,999, no drop rate, no boss rate; quantity scales with the mob's max HP",
+            "evidence": ["server/maps/MapleMap.java dropGlobalItemsFromMonsterOnMap: Randomizer.nextInt(999999) < de.chance"],
+        },
+        "reactor_drops": {
+            "table": "reactordrops (chance = 1 in N)",
+            "formula": "P = min(1, drop_rate / N) using the player's drop rate (no boss rate)",
+            "evidence": ["scripting/reactor/ReactorActionManager.java generateDropList: Math.random() < dropRate / chance"],
+        },
+        "other_multipliers": "item drop cards (ITEM_UP_BY_ITEM buffs), the Showdown debuff, and drop coupons (none "
+                             "sold in 1.5.1+) multiply mob drops; friendly mobs (escort events) use x1; "
+                             "USE_ADD_RATES_BY_LEVEL is off",
+    }
+
+
+WEAPON_MAD_NOTE = (
+    "Weapons: in SlumsMS's (MapleRoot) WZ every v83 weapon has incMAD equal to incPAD (e.g. Maple Kandayo 1472032: "
+    "74/74; upstream Cosmic: 23 attack, no magic attack). The shipped client Data/Character/Weapon has the same values, "
+    "and the server adds equip incMAD to total magic attack (Character.recalcLocalStats), so the in-game tooltip and "
+    "stats show it. The dataset keeps the values as the game uses them. It only matters to magic attacks: a claw's "
+    "magic attack does nothing for a thief, but a magician can hold a no-job-requirement weapon for magic attack.")
+
+
+def build_meta(dataset: Dict[str, Any], db: Optional["DbDataset"], list_dupes: Dict[str, Dict[str, int]],
+               korean: Dict[str, Any], labelled: Dict[str, int], rates: Dict[str, Any], wz_dir: str,
+               include_korean: bool) -> Dict[str, Any]:
+    return {
+        "generated_at": time.strftime("%Y-%m-%dT%H:%M:%SZ", time.gmtime()),
+        "sources": {
+            "wz": wz_dir,
+            "db_tables": dict(db.row_counts) if db else {},
+        },
+        "counts": {kind: len(dataset.get(kind, {})) for kind in ENTITY_KINDS},
+        "dedupe": {
+            "db_rows_removed": dict(db.duplicates_removed) if db else {},
+            "list_rows_removed": list_dupes,
+            "rule": "DB rows identical except their row id are one row; repeated rows inside an entity's lists are "
+                    "dropped; a shop listing the same item at the same price twice is one offer",
+        },
+        "korean_names": {
+            "rule": "a name with Hangul and no Latin letter is Korean-only (untranslated KMS data); names with both "
+                    "are only reported",
+            "excluded": not include_korean,
+            "korean_only": {k: len(v["korean_only"]) for k, v in korean.items()},
+            "mixed": {k: len(v["mixed"]) for k, v in korean.items()},
+            "korean_only_ids": {k: [r["id"] for r in v["korean_only"]] for k, v in korean.items()},
+        },
+        "duplicate_names": {
+            "rule": DUPLICATE_NAME_RULE,
+            "labelled": labelled,
+        },
+        "drop_rates": drop_rate_rule(rates),
+        "notes": {"weapon_magic_attack": WEAPON_MAD_NOTE},
+    }
+
+
+def clean_dataset(dataset: Dict[str, Any], include_korean: bool = False) -> Tuple[Dict[str, Any], Dict[str, Any], Dict[str, int]]:
+    """Dedupes lists, drops (or keeps) Korean-only names and labels duplicate names, in that order."""
+    list_dupes = dedupe_entity_lists(dataset)
+    korean = filter_korean_names(dataset, include=include_korean)
+    labelled = disambiguate_names(dataset)
+    return list_dupes, korean, labelled
+
+
+# ---------------------------------------------------------------------------------------------
 # Report Generator
 # ---------------------------------------------------------------------------------------------
 
@@ -1199,6 +1566,57 @@ def generate_report_markdown(audit: Dict[str, Any], dataset_summary: Dict[str, A
     return "\n".join(lines)
 
 
+def generate_cleaning_markdown(meta: Dict[str, Any], korean: Dict[str, Any]) -> str:
+    lines = ["---", "", "## 6. Cleaning (1.6.0)", ""]
+    dd = meta["dedupe"]
+    lines.append("### Duplicate rows removed")
+    lines.append("")
+    lines.append("| Where | Rows removed |")
+    lines.append("| --- | --- |")
+    for t, n in sorted(dd["db_rows_removed"].items()):
+        lines.append(f"| DB `{t}` ({meta['sources']['db_tables'].get(t, 0):,} rows) | {n} |")
+    for kind, fields in dd["list_rows_removed"].items():
+        for field, n in sorted(fields.items()):
+            lines.append(f"| {kind}.json `{field}` | {n} |")
+    lines.append("")
+    lines.append(f"Rule: {dd['rule']}.")
+    lines.append("")
+    kn = meta["korean_names"]
+    lines.append(f"### Korean-only names ({'excluded' if kn['excluded'] else 'kept: --include-korean'})")
+    lines.append("")
+    lines.append(f"Rule: {kn['rule']}.")
+    lines.append("")
+    lines.append("| Kind | Korean-only | Mixed Korean/English (kept) |")
+    lines.append("| --- | --- | --- |")
+    for kind in ENTITY_KINDS:
+        lines.append(f"| {kind} | {kn['korean_only'].get(kind, 0)} | {kn['mixed'].get(kind, 0)} |")
+    for kind in ENTITY_KINDS:
+        rows = korean.get(kind, {}).get("korean_only", [])
+        if rows:
+            shown = ", ".join(f"`{r['id']}` {r['name']}" for r in rows[:15])
+            more = f" ... (+{len(rows) - 15})" if len(rows) > 15 else ""
+            lines.append(f"- {kind}: {shown}{more}")
+    lines.append("")
+    lines.append("### Duplicate names labelled")
+    lines.append("")
+    lines.append("| Kind | Entities given a qualifier |")
+    lines.append("| --- | --- |")
+    for kind, n in meta["duplicate_names"]["labelled"].items():
+        lines.append(f"| {kind} | {n} |")
+    lines.append("")
+    lines.append(meta["duplicate_names"]["rule"])
+    lines.append("")
+    lines.append("### Drop rates")
+    lines.append("")
+    lines.append(meta["drop_rates"]["summary"])
+    lines.append("")
+    lines.append("### Weapon magic attack")
+    lines.append("")
+    lines.append(meta["notes"]["weapon_magic_attack"])
+    lines.append("")
+    return "\n".join(lines)
+
+
 # ---------------------------------------------------------------------------------------------
 # Main Execution Pipeline
 # ---------------------------------------------------------------------------------------------
@@ -1209,6 +1627,9 @@ def run_build(
     out_dir: Optional[str] = None,
     report_path: Optional[str] = None,
     workers: Optional[int] = None,
+    include_korean: bool = False,
+    server_config: Optional[str] = None,
+    meta_path: Optional[str] = None,
 ) -> Tuple[Dict[str, Any], Dict[str, Any]]:
     t0 = time.time()
     wz_path = resolve_wz_dir(wz_dir)
@@ -1260,6 +1681,16 @@ def run_build(
     print("Cross-referencing entities and sweeping for broken references...")
     dataset, audit = build_normalized_data(wz, db)
 
+    print("Cleaning: duplicate rows, Korean-only names, duplicate names...")
+    list_dupes, korean, labelled = clean_dataset(dataset, include_korean=include_korean)
+    meta = build_meta(dataset, db, list_dupes, korean, labelled, read_world_rates(server_config), wz_path,
+                      include_korean)
+    audit["meta"] = meta
+    audit["korean"] = korean
+    print(f"  Korean-only names {'kept' if include_korean else 'excluded'}: "
+          + ", ".join(f"{k} {len(v['korean_only'])}" for k, v in korean.items()))
+    print("  Duplicate names labelled: " + ", ".join(f"{k} {v}" for k, v in labelled.items()))
+
     # Output normalized dataset
     if out_dir:
         os.makedirs(out_dir, exist_ok=True)
@@ -1267,10 +1698,16 @@ def run_build(
         for name in ("items", "mobs", "maps", "npcs", "quests", "summary"):
             out_file = os.path.join(out_dir, f"{name}.json")
             with open(out_file, "w", encoding="utf-8") as f:
-                json.dump(dataset[name], f, indent=2)
+                json.dump(dataset[name], f, indent=2, ensure_ascii=False)
+        with open(os.path.join(out_dir, "meta.json"), "w", encoding="utf-8") as f:
+            json.dump(meta, f, indent=2, ensure_ascii=False)
+    if meta_path:
+        os.makedirs(os.path.dirname(os.path.abspath(meta_path)), exist_ok=True)
+        with open(meta_path, "w", encoding="utf-8") as f:
+            json.dump(meta, f, indent=2, ensure_ascii=False)
 
     # Output report
-    rep_md = generate_report_markdown(audit, dataset["summary"])
+    rep_md = generate_report_markdown(audit, dataset["summary"]) + generate_cleaning_markdown(meta, korean)
     if report_path:
         os.makedirs(os.path.dirname(os.path.abspath(report_path)), exist_ok=True)
         with open(report_path, "w", encoding="utf-8") as f:
@@ -1289,6 +1726,11 @@ def main() -> int:
     parser.add_argument("--out-dir", type=str, default="data/hiddenstreet", help="Directory for normalized JSON dataset")
     parser.add_argument("--report", type=str, default="tools/hiddenstreet/report.md", help="Output Markdown report path")
     parser.add_argument("--workers", type=int, default=None, help="Number of worker processes")
+    parser.add_argument("--include-korean", action="store_true",
+                        help="Keep entities whose name is Korean-only (excluded by default; always reported)")
+    parser.add_argument("--server-config", type=str, default=None,
+                        help="Server config.yaml to read world 1's drop/boss/meso rates from (default: TEST's values)")
+    parser.add_argument("--meta", type=str, default=None, help="Also write meta.json here (e.g. tools/hiddenstreet/meta.json)")
     args = parser.parse_args()
 
     run_build(
@@ -1297,6 +1739,9 @@ def main() -> int:
         out_dir=args.out_dir,
         report_path=args.report,
         workers=args.workers,
+        include_korean=args.include_korean,
+        server_config=args.server_config,
+        meta_path=args.meta,
     )
     return 0
 

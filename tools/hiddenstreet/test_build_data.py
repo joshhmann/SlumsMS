@@ -12,6 +12,10 @@ from tools.hiddenstreet.build_data import (
     build_normalized_data,
     generate_report_markdown,
     run_build,
+    dedupe_db_rows,
+    is_korean_only,
+    read_world_rates,
+    drop_rate_rule,
 )
 
 
@@ -606,6 +610,148 @@ class TestHiddenStreetBuildData(unittest.TestCase):
         res = subprocess.run(cmd, capture_output=True, text=True)
         self.assertEqual(res.returncode, 0, f"CLI error: {res.stderr}")
         self.assertTrue(os.path.isfile(self.report_path))
+
+
+class TestHiddenStreetCleaning(TestHiddenStreetBuildData):
+    """1.6.0 Track D: duplicate rows, Korean-only names, duplicate-name labels and the drop-rate rule in meta.json."""
+
+    def _add_stirges(self):
+        self._write_file("String.wz/Mob.img.xml", """
+<imgdir name="Mob.img">
+    <imgdir name="100100"><string name="name" value="Snail"/></imgdir>
+    <imgdir name="100101"><string name="name" value="Blue Snail"/></imgdir>
+    <imgdir name="2300100"><string name="name" value="Stirge"/></imgdir>
+    <imgdir name="9400503"><string name="name" value="Stirge"/></imgdir>
+    <imgdir name="9300999"><string name="name" value="Stirge"/></imgdir>
+</imgdir>
+""")
+        self._write_file("Mob.wz/2300100.img.xml", """
+<imgdir name="2300100.img"><imgdir name="info"><int name="level" value="20"/><int name="maxHP" value="300"/></imgdir></imgdir>
+""")
+        self._write_file("Mob.wz/9400503.img.xml", """
+<imgdir name="9400503.img"><imgdir name="info"><int name="level" value="5"/><int name="boss" value="1"/></imgdir></imgdir>
+""")
+        self._write_file("Mob.wz/9300999.img.xml", """
+<imgdir name="9300999.img"><imgdir name="info"><int name="level" value="20"/></imgdir></imgdir>
+""")
+
+    def _build(self, **kw):
+        return run_build(wz_dir=self.wz_dir, db_dir=self.db_dir, out_dir=self.out_dir,
+                         report_path=self.report_path, workers=1, **kw)
+
+    def test_dedupe_db_rows_ignores_row_id(self):
+        rows = [{"id": 1, "a": 1}, {"id": 2, "a": 1}, {"id": 3, "a": 2}]
+        kept, removed = dedupe_db_rows(rows, ("id",))
+        self.assertEqual(removed, 1)
+        self.assertEqual([r["id"] for r in kept], [1, 3])
+
+    def test_duplicate_db_rows_and_shop_rows_are_removed(self):
+        with open(os.path.join(self.db_dir, "reactordrops.tsv"), "w", encoding="utf-8") as f:
+            f.write("reactordropid\treactorid\titemid\tchance\tquestid\n"
+                    "1\t100\t2000000\t100\t-1\n2\t100\t2000000\t100\t-1\n")
+        with open(os.path.join(self.db_dir, "shopitems.tsv"), "w", encoding="utf-8") as f:
+            # the same potion twice in one shop at one price, at two positions: one offer
+            f.write("shopitemid\tshopid\titemid\tprice\tpitch\tposition\n"
+                    "1\t1\t2000000\t25\t0\t1\n2\t1\t2000000\t25\t0\t7\n")
+        dataset, audit = self._build()
+        meta = audit["meta"]
+        self.assertEqual(meta["dedupe"]["db_rows_removed"]["reactordrops"], 1)
+        self.assertEqual(len(dataset["items"]["2000000"]["shops"]), 1)
+        self.assertEqual(dataset["items"]["2000000"]["shops"][0]["position"], 1)
+        self.assertEqual(len(dataset["npcs"]["1012000"]["shop_items"]), 1)
+        self.assertEqual(meta["dedupe"]["list_rows_removed"]["items"].get("shops"), 1)
+
+    def test_duplicate_names_get_a_qualifier(self):
+        self._add_stirges()
+        dataset, audit = self._build()
+        mobs = dataset["mobs"]
+        self.assertEqual(mobs["2300100"]["display_name"], "Stirge")
+        self.assertIsNone(mobs["2300100"]["name_qualifier"])
+        self.assertEqual(mobs["9400503"]["display_name"], "Stirge (event)")
+        self.assertTrue(mobs["9400503"]["boss"])
+        self.assertEqual(mobs["9300999"]["display_name"], "Stirge (party quest)")
+        self.assertEqual(mobs["2300100"]["name"], "Stirge")  # the raw name is kept
+        self.assertEqual(audit["meta"]["duplicate_names"]["labelled"]["mobs"], 2)
+        names = [m["display_name"] for m in mobs.values() if m["name"] == "Stirge"]
+        self.assertEqual(len(names), len(set(names)))
+
+    def test_same_qualifier_falls_back_until_unique(self):
+        self._add_stirges()
+        self._write_file("Mob.wz/9400504.img.xml", """
+<imgdir name="9400504.img"><imgdir name="info"><int name="level" value="7"/></imgdir></imgdir>
+""")
+        self._write_file("Mob.wz/9400505.img.xml", """
+<imgdir name="9400505.img"><imgdir name="info"><int name="level" value="7"/></imgdir></imgdir>
+""")
+        with open(os.path.join(self.wz_dir, "String.wz/Mob.img.xml"), "r", encoding="utf-8") as f:
+            xml = f.read()
+        xml = xml.replace("</imgdir>\n</imgdir>", "</imgdir>\n"
+                          "    <imgdir name=\"9400504\"><string name=\"name\" value=\"Stirge\"/></imgdir>\n"
+                          "    <imgdir name=\"9400505\"><string name=\"name\" value=\"Stirge\"/></imgdir>\n</imgdir>")
+        with open(os.path.join(self.wz_dir, "String.wz/Mob.img.xml"), "w", encoding="utf-8") as f:
+            f.write(xml)
+        dataset, _ = self._build()
+        got = {k: dataset["mobs"][k]["display_name"] for k in ("9400503", "9400504", "9400505")}
+        self.assertEqual(got["9400503"], "Stirge (event)")
+        self.assertEqual(got["9400504"], "Stirge (Lv. 7)")
+        self.assertEqual(got["9400505"], "Stirge (event, Lv. 7)")
+
+    def test_korean_only_names_are_excluded_by_default(self):
+        self.assertTrue(is_korean_only("\uc2a4\ud1a4 \ud034\uc2a4\ud2b8"))
+        self.assertFalse(is_korean_only("Maple \uc2a4\ud1a4"))
+        self.assertFalse(is_korean_only("Snail"))
+        self._write_file("Quest.wz/QuestInfo.img.xml", """
+<imgdir name="QuestInfo.img">
+    <imgdir name="1000"><string name="name" value="Valid Quest"/></imgdir>
+    <imgdir name="1006"><string name="name" value="\uc2a4\ud1a4 \ud034\uc2a4\ud2b8"/></imgdir>
+    <imgdir name="1007"><string name="name" value="Maple \uc2a4\ud1a4 1"/></imgdir>
+</imgdir>
+""")
+        dataset, audit = self._build()
+        self.assertNotIn("1006", dataset["quests"])
+        self.assertIn("1007", dataset["quests"])            # mixed names are only reported
+        meta = audit["meta"]["korean_names"]
+        self.assertTrue(meta["excluded"])
+        self.assertEqual(meta["korean_only"]["quests"], 1)
+        self.assertEqual(meta["korean_only_ids"]["quests"], [1006])
+        self.assertEqual(meta["mixed"]["quests"], 1)
+        self.assertEqual(dataset["summary"]["total_quests"], len(dataset["quests"]))
+        with open(self.report_path, "r", encoding="utf-8") as f:
+            self.assertIn("Korean-only names", f.read())
+
+        dataset, audit = self._build(include_korean=True)
+        self.assertIn("1006", dataset["quests"])
+        self.assertFalse(audit["meta"]["korean_names"]["excluded"])
+
+    def test_meta_json_records_the_drop_rate_rule(self):
+        with open(os.path.join(self.db_dir, "drop_data_global.tsv"), "w", encoding="utf-8") as f:
+            f.write("id\tcontinent\titemid\tminimum_quantity\tmaximum_quantity\tquestid\tchance\tcomments\n"
+                    "1\t-1\t2000000\t1\t1\t0\t35000\tsome card\n")
+        dataset, _ = self._build()
+        import json
+        with open(os.path.join(self.out_dir, "meta.json"), "r", encoding="utf-8") as f:
+            meta = json.load(f)
+        rule = meta["drop_rates"]
+        self.assertEqual(rule["rates"]["drop_rate"], 4)
+        self.assertEqual(rule["rates"]["boss_drop_rate"], 3)
+        self.assertIn("quest items included", rule["summary"])
+        self.assertIn("NOT multiplied", rule["summary"])
+        self.assertIn("multiplied too", rule["mob_drops"]["quest_items"])
+        self.assertIn("no drop rate", rule["global_drops"]["formula"])
+        self.assertIn("weapon_magic_attack", meta["notes"])
+        self.assertEqual(meta["counts"]["items"], len(dataset["items"]))
+        self.assertEqual(dataset["items"]["2000000"]["global_drops"][0]["chance"], 35000)
+        self.assertFalse(dataset["mobs"]["100100"]["boss"])
+
+    def test_world_rates_from_a_server_config(self):
+        cfg = os.path.join(self.test_dir, "config.yaml")
+        with open(cfg, "w", encoding="utf-8") as f:
+            f.write("worlds:\n- id: 0\n  drop_rate: 9\n- id: 1\n  drop_rate: 2\n  boss_drop_rate: 5\n  meso_rate: 7\n"
+                    "server:\n  WORLDS: 1\n")
+        rates = read_world_rates(cfg)
+        self.assertEqual((rates["drop_rate"], rates["boss_drop_rate"], rates["meso_rate"]), (2, 5, 7))
+        self.assertIn("x2", drop_rate_rule(rates)["summary"])
+        self.assertEqual(read_world_rates(None)["drop_rate"], 4)
 
 
 if __name__ == "__main__":
