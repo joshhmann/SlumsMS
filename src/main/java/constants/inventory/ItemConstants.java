@@ -45,6 +45,28 @@ public final class ItemConstants {
     public final static short PET_COME = 0x80;
     public final static short ACCOUNT_SHARING = 0x100;
     public final static short MERGE_UNTRADEABLE = 0x200;
+    /**
+     * Server-only: how many times Dalair's equipment merge (9000040) has upgraded this item, 0-3, in bits 0x400-0x800
+     * of the flag (owner 2026-10-26: at most 3 merges into any one item). Persisted with the flag; never sent to the
+     * client (see {@link #clientFlag(short)}).
+     */
+    public final static short MERGE_COUNT_MASK = 0x0C00;
+    public final static int MERGE_COUNT_SHIFT = 10;
+    public final static int MAX_MERGES_PER_ITEM = 3;
+
+    /** The flag as the client sees it: server-only bits removed. */
+    public static short clientFlag(short flag) {
+        return (short) (flag & ~MERGE_COUNT_MASK);
+    }
+
+    public static int getMergeCount(short flag) {
+        return (flag & MERGE_COUNT_MASK) >> MERGE_COUNT_SHIFT;
+    }
+
+    public static short withMergeCount(short flag, int count) {
+        int c = Math.max(0, Math.min(MAX_MERGES_PER_ITEM, count));
+        return (short) ((flag & ~MERGE_COUNT_MASK) | (c << MERGE_COUNT_SHIFT));
+    }
 
     public final static int STORAGE_MAX_SLOT_SIZE = 255;
 

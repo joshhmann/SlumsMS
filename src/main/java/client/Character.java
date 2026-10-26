@@ -22,6 +22,7 @@
  */
 package client;
 import soloMapling.ArtificialPlayer.BotTier;
+import client.inventory.MakerService;
 import client.inventory.Item;
 import client.inventory.InventoryType;
 import client.inventory.Equip;
@@ -10869,7 +10870,79 @@ public class Character extends AbstractCharacterObject {
         return equippedWithStat;
     }
 
+    /** Results of {@link #mergeItemsFromName(String)}. */
+    public static final int MERGE_OK = 0;
+    public static final int MERGE_NOT_FOUND = 1;
+    public static final int MERGE_REQUIREMENTS = 2;
+    public static final int MERGE_NO_SOURCES = 3;
+    public static final int MERGE_ALL_CAPPED = 4;
+
+    /**
+     * Dalair's equipment merge (9000040) gate, owner 2026-10-26: level 160 (110 for Cygnus Knights, whose cap is 120)
+     * and Maker level 3, always. Deliberately not tied to USE_STARTER_MERGE so that flag cannot open the merge.
+     */
+    public boolean meetsEquipmentMergeRequirements() {
+        int levelLimit = isCygnus() ? 110 : 160;
+        return getLevel() >= levelLimit && MakerService.getMakerSkillLevel(this) >= 3;
+    }
+
+    public static int getMergeCount(Item item) {
+        return ItemConstants.getMergeCount(item.getFlag());
+    }
+
+    private static boolean canBeMergeSource(Item item) {
+        ItemInformationProvider ii = ItemInformationProvider.getInstance();
+        return item != null && item.getQuantity() >= 1 && !ii.isCash(item.getItemId()) && ii.isUpgradeable(item.getItemId())
+                && !hasMergeFlag(item) && (item.getFlag() & ItemConstants.LOCK) == 0;
+    }
+
+    /**
+     * What a merge from the item called {@code name} would destroy: one line per item ("slot: name"), in slot order.
+     * Null when there is no such item in the EQUIP inventory. Nothing is changed.
+     */
+    public List<String> previewMergeFromName(String name) {
+        Inventory inv = getInventory(InventoryType.EQUIP);
+        inv.lockInventory();
+        try {
+            Item it = inv.findByName(name);
+            if (it == null) {
+                return null;
+            }
+            ItemInformationProvider ii = ItemInformationProvider.getInstance();
+            List<String> out = new ArrayList<>();
+            for (short i = it.getPosition(); i <= inv.getSlotLimit(); i++) {
+                Item src = inv.getItem(i);
+                if (canBeMergeSource(src)) {
+                    out.add(i + ": " + ii.getName(src.getItemId()));
+                }
+            }
+            return out;
+        } finally {
+            inv.unlockInventory();
+        }
+    }
+
+    /** Equipped items a merge can still upgrade (fewer than {@link ItemConstants#MAX_MERGES_PER_ITEM} merges). */
+    public List<Equip> getMergeableEquipped() {
+        List<Equip> list = new LinkedList<>();
+        for (Equip eq : getUpgradeableEquipped()) {
+            if (getMergeCount(eq) < ItemConstants.MAX_MERGES_PER_ITEM) {
+                list.add(eq);
+            }
+        }
+        return list;
+    }
+
+    /** Kept for old callers: true when the merge ran. */
     public boolean mergeAllItemsFromName(String name) {
+        return mergeItemsFromName(name) == MERGE_OK;
+    }
+
+    public int mergeItemsFromName(String name) {
+        if (!meetsEquipmentMergeRequirements()) {
+            return MERGE_REQUIREMENTS;
+        }
+
         InventoryType type = InventoryType.EQUIP;
 
         Inventory inv = getInventory(type);
@@ -10877,7 +10950,17 @@ public class Character extends AbstractCharacterObject {
         try {
             Item it = inv.findByName(name);
             if (it == null) {
-                return false;
+                return MERGE_NOT_FOUND;
+            }
+
+            List<String> sources = previewMergeFromName(name);
+            if (sources == null || sources.isEmpty()) {
+                return MERGE_NO_SOURCES;
+            }
+
+            List<Equip> targets = getMergeableEquipped();
+            if (targets.isEmpty()) {
+                return MERGE_ALL_CAPPED;
             }
 
             Map<StatUpgrade, Float> statups = new LinkedHashMap<>();
@@ -10885,7 +10968,7 @@ public class Character extends AbstractCharacterObject {
 
             List<Pair<Equip, Map<StatUpgrade, Short>>> upgradeableEquipped = new LinkedList<>();
             Map<Equip, List<Pair<StatUpgrade, Integer>>> equipUpgrades = new LinkedHashMap<>();
-            for (Equip eq : getUpgradeableEquipped()) {
+            for (Equip eq : targets) {
                 upgradeableEquipped.add(new Pair<>(eq, eq.getStats()));
                 equipUpgrades.put(eq, new LinkedList<Pair<StatUpgrade, Integer>>());
             }
@@ -10929,18 +11012,19 @@ public class Character extends AbstractCharacterObject {
                 if (!eqpStatups.isEmpty()) {
                     Equip eqp = eqpUpg.getKey();
                     setMergeFlag(eqp);
+                    eqp.setFlag(ItemConstants.withMergeCount(eqp.getFlag(), getMergeCount(eqp) + 1));
 
                     String showStr = " '" + ItemInformationProvider.getInstance().getName(eqp.getItemId()) + "': ";
                     String upgdStr = eqp.gainStats(eqpStatups).getLeft();
 
                     this.forceUpdateItem(eqp);
 
-                    showStr += upgdStr;
+                    showStr += upgdStr + " (merge " + getMergeCount(eqp) + "/" + ItemConstants.MAX_MERGES_PER_ITEM + ")";
                     dropMessage(6, showStr);
                 }
             }
 
-            return true;
+            return MERGE_OK;
         } finally {
             inv.unlockInventory();
         }
@@ -10961,9 +11045,10 @@ public class Character extends AbstractCharacterObject {
     private void standaloneMerge(Map<StatUpgrade, Float> statups, Client c, InventoryType type, short slot, Item item) {
         short quantity;
         ItemInformationProvider ii = ItemInformationProvider.getInstance();
-        if (item == null || (quantity = item.getQuantity()) < 1 || ii.isCash(item.getItemId()) || !ii.isUpgradeable(item.getItemId()) || hasMergeFlag(item)) {
+        if (!canBeMergeSource(item)) {
             return;
         }
+        quantity = item.getQuantity();
 
         Equip e = (Equip) item;
         for (Entry<StatUpgrade, Short> s : e.getStats().entrySet()) {

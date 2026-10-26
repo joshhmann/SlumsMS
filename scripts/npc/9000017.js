@@ -34,6 +34,7 @@ var cost;
 var qty;
 var equip;
 var last_use; //last item is a use item
+var MAX_PER_TALK = 5; // owner 2026-10-26: at most 5 Chaos Scrolls per talk
 
 function start() {
     cm.getPlayer().setCS(true);
@@ -77,9 +78,14 @@ function action(mode, type, selection) {
         cost = costSet[selectedItem];
 
         var prompt = "So, you want us to make some #t" + item + "#? In that case, how many do you want us to make?";
-        cm.sendGetNumber(prompt, 1, 1, 100)
+        cm.sendGetNumber(prompt, 1, 1, MAX_PER_TALK);
     } else if (status == 3) {
         qty = (selection > 0) ? selection : (selection < 0 ? -selection : 1);
+        if (qty > MAX_PER_TALK) {
+            cm.sendOk("Whoa, slow down! We can only make up to " + MAX_PER_TALK + " at a time.");
+            cm.dispose();
+            return;
+        }
         last_use = false;
 
         var prompt = "You want us to make ";
@@ -105,6 +111,10 @@ function action(mode, type, selection) {
         cm.sendYesNo(prompt);
     } else if (status == 4) {
         var complete = true;
+        if (!(qty >= 1 && qty <= MAX_PER_TALK)) {
+            cm.dispose();
+            return;
+        }
 
         if (cm.getMeso() < cost * qty) {
             cm.sendOk("Come on! We're not here doing you a favor! We all need money to live properly, so bring the cash so we make deal and start the synthesis.");

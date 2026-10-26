@@ -48,7 +48,7 @@ function start() {
 
     cm.getPlayer().setCS(true);
     var selStr = "Hello, I am the #bAccessory NPC Crafter#k! My works are widely recognized to be too fine, up to the point at which all my items mimic not only the appearance but too the attributes of them! Everything I charge is some 'ingredients' to make them and, of course, a fee for my services. On what kind of equipment are you interessed?#b";
-    var options = ["Pendants", "Face accessories", "Eye accessories", "Belts & medals", "Rings"/*,"#t4032496#"*/];
+    var options = ["Pendants", "Face accessories", "Eye accessories", "Belts", "Rings"/*,"#t4032496#"*/];
     for (var i = 0; i < options.length; i++) {
         selStr += "\r\n#L" + i + "# " + options[i] + "#l";
     }
@@ -62,6 +62,10 @@ function action(mode, type, selection) {
         return;
     }
     if (status == 0) {
+        if (selection < 0 || selection > 4) {
+            cm.dispose();
+            return;
+        }
         if (selection == 0) { //pendants
             var selStr = "Well, I've got these pendants on my repertoire:#b";
             items = [1122018, 1122007, 1122001, 1122003, 1122004, 1122006, 1122002, 1122005, 1122058];
@@ -81,26 +85,15 @@ function action(mode, type, selection) {
                 selStr += "\r\n#L" + i + "##t" + items[i] + "##b";
             }
         } else if (selection == 3) { //belt & medal
-            var selStr = "Hmm... For these, things get a little tricky. Since these items are too short and too similar one another, I don't really know what item will emerge when I finish the synthesis. Still wanna try for something?";
+            // Owner 2026-10-26: the random roll gives belts only (1132005-1132016); no medals.
+            var selStr = "Hmm... For these, things get a little tricky. Since these belts are too short and too similar one another, I don't really know which one will emerge when I finish the synthesis. Still wanna try for something?";
             items = [];
             maxEqp = 0;
 
-            for (var x = 1132005; x < 1132017; maxEqp++, x++) {
+            for (var x = 1132005; x <= 1132016; maxEqp++, x++) {
                 items[maxEqp] = x;
             }
-
-            for (var x = 1142000; x < 1142102; maxEqp++, x++) {
-                items[maxEqp] = x;
-            }
-
-            for (var x = 1142107; x < 1142121; maxEqp++, x++) {
-                items[maxEqp] = x;
-            }
-
-            for (var x = 1142122; x < 1142143; maxEqp++, x++) {
-                items[maxEqp] = x;
-            }
-            selStr += "\r\n#L" + i + "##bTry it!#b";
+            selStr += "\r\n#L0##bTry it!#l";
 
         } else if (selection == 4) { //ring refine
             var selStr = "Rings, huh? These are my specialty, go check it yourself!#b";
@@ -121,6 +114,10 @@ function action(mode, type, selection) {
     } else if (status == 1) {
         if (selectedType != 3) {
             selectedItem = selection;
+            if (!items || selectedItem < 0 || selectedItem >= items.length) {
+                cm.dispose();
+                return;
+            }
         }
 
         if (selectedType == 0) { //pendant refine
@@ -130,7 +127,7 @@ function action(mode, type, selection) {
         } else if (selectedType == 1) { //face accessory refine
             var matSet = [[4006000, 4003004], [4006000, 4003004, 4000026], [4006000, 4003004, 4000026, 4000082, 4003002], [4006000, 4003005], [4006000, 4003005, 4000026], [4006000, 4003005, 4000026, 4000082, 4003002], [4001006, 4011008], [4001006, 4011008], [4001006, 4011008], [4001006, 4011008]];
             var matQtySet = [[5, 5], [5, 5, 5], [5, 5, 5, 5, 1], [5, 5], [5, 5, 5], [5, 5, 5, 5, 1], [1, 1], [1, 1], [1, 1], [1, 1]];
-            var costSet = [100000, 200000, 300000, 125000, 250000, 375000, 500000, 500000, 500000, 500000, 25000, 25000, 25000, 25000];
+            var costSet = [100000, 200000, 300000, 125000, 250000, 375000, 500000, 500000, 500000, 500000];
         } else if (selectedType == 2) { //eye accessory refine
             var matSet = [[4001006, 4003002, 4000082, 4031203], [4001005, 4011008], [4001005, 4011008], [4001005, 4011008, 4000082], [4001006, 4003002, 4003000, 4003001]];
             var matQtySet = [[2, 2, 5, 10], [3, 2], [4, 3], [5, 3, 10], [2, 2, 10, 5]];
@@ -142,7 +139,10 @@ function action(mode, type, selection) {
         } else if (selectedType == 4) { //ring refine
             var matSet = [[4003001, 4001344, 4006000], [4003001, 4001344, 4006000], [4021004, 4011008], [4011008, 4001006], [1112413, 2022039], [1112414, 4000176], [4011007, 4021009]];
             var matQtySet = [[2, 2, 2], [2, 2, 2], [1, 1], [1, 1], [1, 1], [1, 1], [1, 1]];
-            var costSet = [10000, 10000, 10000, 20000, 15000, 15000, 10000];
+            // Owner 2026-10-26: stat rings cost 1,000,000-2,000,000 mesos by strength (plus the same materials).
+            // Circle of Ancient Thought / Strength (lv20), Spiegelmann's Ring +1 att (lv51), Lilin's lv10 / lv35 / lv90,
+            // Spiegelmann's Ring +1 m.att (lv51, needs a Moon Rock and a Star Rock).
+            var costSet = [1000000, 1000000, 1250000, 1000000, 1500000, 2000000, 1250000];
         }/*else if (selectedType == 5) { //necklace refine
             var matSet = [[4011007, 4011008, 4021009]];
             var matQtySet = [[1, 1, 1]];
@@ -170,7 +170,7 @@ function action(mode, type, selection) {
                 prompt += "#b" + qty + " #t" + item + "##k?";
             }
         } else {
-            prompt += "a #bbelt#k or a #bmedal#k?";
+            prompt += "a #bbelt#k?";
         }
 
         prompt += " Right! I will need some items to make that item. Make sure you have a #bfree slot#k in your inventory!#b";

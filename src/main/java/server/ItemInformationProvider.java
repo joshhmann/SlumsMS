@@ -1072,11 +1072,11 @@ public class ItemInformationProvider {
                     switch (scrollId) {
                         case ItemId.SPIKES_SCROLL:
                             flag |= ItemConstants.SPIKES;
-                            nEquip.setFlag((byte) flag);
+                            nEquip.setFlag(flag);
                             break;
                         case ItemId.COLD_PROTECTION_SCROLl:
                             flag |= ItemConstants.COLD;
-                            nEquip.setFlag((byte) flag);
+                            nEquip.setFlag(flag);
                             break;
                         case ItemId.CLEAN_SLATE_1:
                         case ItemId.CLEAN_SLATE_3:
