@@ -1,7 +1,8 @@
 /* SlumsMS design tokens: style A "Megaphone". Colours, fonts and densities are defined once here; site.css only
    uses the variables. Three theme states: no data-theme follows the system setting, and data-theme="light" or
    "dark" (set by the header toggle) overrides it. The dark palette is repeated in the two dark blocks on purpose.
-   Accent: Henesys green unless the player picks data-accent="blue" or "orange" in the header (owner, 2026-10-26).
+   Accent: Henesys green unless the player picks data-accent="blue" or "orange" in the header (owner, 2026-10-26;
+   confirmed again after the orange-and-navy Slums-chan art arrived: green stays the default).
    Each accent block comes after the theme blocks; its dark selectors are more specific, so they win in dark mode. */
 
 @font-face { font-family: "Bricolage Grotesque"; src: url("fonts/bricolage-grotesque.woff2") format("woff2");

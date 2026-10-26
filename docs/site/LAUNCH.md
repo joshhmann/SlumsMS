@@ -8,7 +8,8 @@ Where things are today (read on 2026-10-26):
 - 164 serves the site with nginx, `server { listen 8092; root /srv/slums-site; }` in
   `/etc/nginx/sites-available/slums-site`, plus `/api/report` to `slums-report` on 127.0.0.1:8093.
 - HTTPS for `theslumsms.asslorde.com` ends at the **owner's Caddy**, on the owner's side of the network, which
-  reverse-proxies to 164's nginx on 8092. Nobody but the owner has its host or config.
+  reverse-proxies to 164's nginx on 8092. The owner confirmed on 2026-10-26 that Caddy serves the site for now, so
+  step 1 needs no change on the Caddy side. Nobody but the owner has its config.
 - Live shows the old look from branch `site` (`788cb52ad`), with no robots rules, and it says MapleStory.
 
 ## Before the sitting (agent, no go needed)
@@ -92,11 +93,14 @@ Undo: `systemctl disable --now slums-site-market.timer`.
 - Banned accounts: write their account ids to `/var/lib/slums-login/revoked.txt` to sign them out of the website.
 - Rotating the key (`/etc/slums-login/key`) signs everyone out.
 
-## Owner items
-- **Caddy:** confirm the host, and that it passes `Host` and `X-Forwarded-For` (and `X-Forwarded-Proto: https`) to
-  164:8092. The sign-in cookies are always marked Secure, so they only work when visitors arrive over HTTPS, which
-  they do through Caddy. The login redirect is relative (`absolute_redirect off`), so Caddy needs no rewrite for it.
-  The report form's rate limits and the sign-in's per-address limit read `X-Forwarded-For`.
+## Settled (owner, 2026-10-26)
+- **Caddy serves `theslumsms.asslorde.com` for now.** Caddy's `reverse_proxy` passes `Host`, `X-Forwarded-For` and
+  `X-Forwarded-Proto` by default, which is all the site needs: the sign-in cookies are always marked Secure (visitors
+  arrive over HTTPS through Caddy), the login redirect is relative (`absolute_redirect off`), and the report form's and
+  sign-in's per-address limits read `X-Forwarded-For`. Only if the owner's Caddy config strips those headers would
+  anything need changing; the step 4 check (sign in through `@weblogin`, then open `/database/`) would show it.
+- **Henesys green stays the default accent**, also with the orange-and-navy Slums-chan art; blue and orange stay
+  player choices in the header.
 
 ## Owner decisions still open
 1. Before 1.6.0 is live, should the (signed-in) market show TEST data, clearly marked, or stay off?
