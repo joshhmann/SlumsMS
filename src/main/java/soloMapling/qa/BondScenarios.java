@@ -37,7 +37,7 @@ final class BondScenarios {
         public String usage() { return "; then !qa do fast [minutes] | check"; }
         @Override public Set<QaLog.Topic> topics() { return EnumSet.of(AFFINITY); }
         @Override public int tickSeconds() { return 30; }
-        @Override public int minutes(String[] args) { return 45; }
+        @Override public int minutes(String[] args) { return 31; } // real party time: FRIEND at about 30 min
 
         public List<String> stage(QaContext ctx) {
             QaWorld w = ctx.world();
@@ -72,7 +72,8 @@ final class BondScenarios {
             check(ctx, "START");
             return List.of(QaScenarios.who(ctx, a) + " and " + QaScenarios.who(ctx, b) + " are fresh bots in one party ("
                             + party + ").",
-                    "Joining gave them a PARTY bond; every 5 minutes together adds PARTY_TIME (about 30 minutes to FRIEND).",
+                    "Joining gave them a PARTY bond; every 5 minutes together adds PARTY_TIME (FRIEND after 30-35 minutes,"
+                            + " right at the end of this 31-minute run: use !qa do fast to see it now).",
                     "Expect: AFFINITY BONDS ... -> FRIEND lines for both, then BB3 PASS (mutual friends, crew yes).",
                     "!qa do fast [minutes] applies that party time now (default 45, not counting the join); !qa do check reads them out.",
                     "!botwhy <name> on either shows the bond and the crew.");
