@@ -174,6 +174,16 @@ public final class LifeMemoryStore {
      * run keeps its sprint drift). Called by the roster sweep, never per tick.
      */
     public static Pending prepare(int characterId, BotRoster.Member member, long now) {
+        try {
+            return prepareOrThrow(characterId, member, now);
+        } catch (RuntimeException e) {
+            // Never let a life profile stop the roster sweep (the bot's holdings and session matter more).
+            log.warn("Skipping the life profile of bot {} this sweep", characterId, e);
+            return null;
+        }
+    }
+
+    private static Pending prepareOrThrow(int characterId, BotRoster.Member member, long now) {
         LifeMemory memory = peek(characterId);
         if (memory == null) {
             BotRoster.Activity last = member == null ? null : member.lastActivity();
