@@ -1036,6 +1036,12 @@ public class TrainingBot extends BotSM implements soloMapling.ArtificialPlayer.B
                 if (soloMapling.Economy.BotShops.enabled() && soloMapling.Economy.BotShops.merchantMinded(getChr().getId())) {
                     soloMapling.Economy.BotShops.open(getChr(), getChr().getMap().getChannelId(), 0, null, false);
                 }
+                // TEST 2026-10-26 (bot watch): SELL is picked for a full bag, but only merchant-minded bots (1 in 10)
+                // open a shop; the rest stood in the FM and their bag stayed full. Without a shop, sell the junk.
+                if (lifeVisit == LifeDecision.Activity.SELL
+                        && !soloMapling.Economy.BotShops.hasShop(getChr().getId())) {
+                    soloMapling.ArtificialPlayer.BotSupplySystem.BotBagRoom.sellJunk(getChr());
+                }
             }
             lifeNote("ARRIVED activity=" + lifeVisit);
             if (lifeVisit == LifeDecision.Activity.PARTY_QUEST && GCMovement.isMapObserved(getChr().getMapId())) {

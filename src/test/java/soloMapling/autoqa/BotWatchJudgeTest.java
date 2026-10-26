@@ -28,12 +28,12 @@ class BotWatchJudgeTest {
         int ch = 1, map = FIELD, x = 0, y = 0, target = -1, level = 30, kills, pots = 100, etc = 5, equip = 5;
         String act = "GRIND", chat;
         long exp = 1000, meso = 50_000, chatAt;
-        boolean party, sit, town, mob = true, watched, jumpWatched;
+        boolean party, sit, town, mob = true, watched, jumpWatched, shop;
         int jump;
 
         Sample build() {
             return online ? new Sample(t, true, ch, map, x, y, act, target, null, level, exp, meso, kills, pots, etc,
-                    equip, chat, chatAt, party, sit, town, mob, watched, jump, jumpWatched) : Sample.offline(t);
+                    equip, chat, chatAt, party, sit, town, mob, watched, jump, jumpWatched, shop) : Sample.offline(t);
         }
     }
 
@@ -206,6 +206,14 @@ class BotWatchJudgeTest {
         var j = judge(track(10, (k, s) -> { s.map = FM; s.mob = false; s.act = "SELL"; s.x = k * 30; }));
         assertEquals(Verdict.MISMATCH, j.verdict(), j.reason());
         assertTrue(j.reason().contains("Free Market"), j.reason());
+    }
+
+    @Test
+    void sellWithItsShopOpenIsOkWithoutABuyer() {
+        // TEST 2026-10-26 (t-bw-1): a merchant bot's shop sat 10 min with no buyer and was called a mismatch
+        var j = judge(track(10, (k, s) -> { s.map = FM; s.mob = false; s.act = "SELL"; s.x = k * 30; s.shop = true; }));
+        assertEquals(Verdict.OK, j.verdict(), j.reason());
+        assertTrue(j.reason().contains("shop open"), j.reason());
     }
 
     @Test

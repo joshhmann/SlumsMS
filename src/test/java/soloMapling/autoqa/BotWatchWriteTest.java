@@ -32,7 +32,7 @@ class BotWatchWriteTest {
     void anOfflineSampleSaysOnlyThatAndAnOnlineOneLeavesOutDefaults() {
         assertEquals(Map.of("t", 5L, "on", false), BotWatchJudge.Sample.offline(5).toJson());
         var s = new BotWatchJudge.Sample(1, true, 2, 100000000, 10, 20, "HANG_OUT", -1, "LIFE_DWELL", 30, 5, 6, 0, 7,
-                1, 2, null, 0, false, true, true, false, false, 0, false);
+                1, 2, null, 0, false, true, true, false, false, 0, false, false);
         Map<String, Object> j = s.toJson();
         assertFalse(j.containsKey("target"));
         assertFalse(j.containsKey("chat"));

@@ -104,11 +104,11 @@ public final class BotWatchJudge {
     public record Sample(long t, boolean online, int channel, int map, int x, int y, String activity, int target,
                          String phase, int level, long exp, long meso, int kills, int pots, int etcSlots,
                          int equipSlots, String chat, long chatAt, boolean party, boolean sitting, boolean town,
-                         boolean mobMap, boolean watched, int jumpPx, boolean jumpWatched) {
+                         boolean mobMap, boolean watched, int jumpPx, boolean jumpWatched, boolean shop) {
 
         public static Sample offline(long t) {
             return new Sample(t, false, 0, 0, 0, 0, "OFFLINE", -1, null, 0, 0, 0, 0, 0, 0, 0, null, 0, false, false,
-                    false, false, false, 0, false);
+                    false, false, false, 0, false, false);
         }
 
         boolean fm() {
@@ -150,6 +150,9 @@ public final class BotWatchJudge {
             m.put("town", town);
             m.put("mobs", mobMap);
             m.put("watched", watched);
+            if (shop) {
+                m.put("shop", true);
+            }
             if (jumpPx > 0) {
                 m.put("jumpPx", jumpPx);
                 m.put("jumpWatched", jumpWatched);
@@ -363,6 +366,9 @@ public final class BotWatchJudge {
                             + (f.mesoUp && f.itemsDown ? ", " : "")
                             + (f.itemsDown ? "items " + (first.etcSlots() + first.equipSlots()) + " -> "
                             + (last.etcSlots() + last.equipSlots()) + " slots" : "");
+                } else if (f.shop) {
+                    // TEST 2026-10-26 (t-bw-1): a merchant bot's shop can sit 10 min without a buyer; it is selling
+                    ok = "has its shop open" + (f.inFm ? " in the Free Market (map " + f.fmMap + ")" : "");
                 } else if (shortSeg || onTheWay) {
                     ok = "on its way to sell (" + sec(dur) + ")";
                 } else {
@@ -446,7 +452,7 @@ public final class BotWatchJudge {
     private record Facts(boolean moved, boolean mapChanged, boolean channelChanged, boolean expUp, boolean killsUp,
                          boolean chatted, boolean sat, boolean party, boolean inTown, boolean inTownOrShop,
                          boolean inFm, int fmMap, boolean mostlyMob, boolean reached, boolean potsUp, int maxPots,
-                         boolean mesoDown, boolean mesoUp, boolean itemsDown, boolean anyWatched) {
+                         boolean mesoDown, boolean mesoUp, boolean itemsDown, boolean anyWatched, boolean shop) {
     }
 
     /** The stretch's destination: the latest one it named (a MOVE_MAP picks its map a tick after it starts). */
@@ -464,6 +470,7 @@ public final class BotWatchJudge {
         Sample a = v.get(0), z = v.get(v.size() - 1);
         boolean moved = false, mapChanged = false, ch = false, chatted = false, sat = false, party = false;
         boolean town = false, townOrShop = false, fm = false, reached = false, mesoDown = false, watched = false;
+        boolean shop = false;
         int fmMap = -1, mob = 0, maxPots = a.pots();
         for (int k = 0; k < v.size(); k++) {
             Sample s = v.get(k);
@@ -494,11 +501,12 @@ public final class BotWatchJudge {
             maxPots = Math.max(maxPots, s.pots());
             mesoDown |= s.meso() < a.meso();
             watched |= s.watched();
+            shop |= s.shop();
         }
         boolean expUp = z.level() > a.level() || z.level() == a.level() && z.exp() > a.exp();
         return new Facts(moved, mapChanged, ch, expUp, z.kills() > a.kills(), chatted, sat, party, town, townOrShop,
                 fm, fmMap, mob * 2 >= v.size(), reached, maxPots > a.pots(), maxPots, mesoDown, z.meso() > a.meso(),
-                z.etcSlots() + z.equipSlots() < a.etcSlots() + a.equipSlots(), watched);
+                z.etcSlots() + z.equipSlots() < a.etcSlots() + a.equipSlots(), watched, shop);
     }
 
     /** Two samples in a row with nothing different: same place, map and channel, EXP, kills, chat, mesos and bags. */
