@@ -251,8 +251,10 @@ def build_live(wo):
                       + '</li>' for r in wd.get("running") or [] if isinstance(r, dict))
     feed = wo.feed_rows((wo.w["feed"].get("items") or [])[:12], "{root}")
     as_of = wd.get("generated_at")
-    body = (f'<h1>Live world</h1><p class="id">Bera right now{" &middot; as of " + esc(when(as_of)) if as_of else ""}'
-            f' &middot; refreshes every couple of minutes</p>'
+    body = (f'<div class="headfig"><div><h1>Live world</h1><p class="id">Bera right now{" &middot; as of " + esc(when(as_of)) if as_of else ""}'
+            f' &middot; refreshes every couple of minutes</p></div>'
+            f'<img class="sidekick" src="{{root}}assets/brand/full-crossed-360.webp" srcset="{{root}}assets/brand/full-crossed-360.webp 360w, '
+            f'{{root}}assets/brand/full-crossed-560.webp 560w" sizes="140px" alt="Slums-chan stands with her arms crossed and a smug grin" width="360" height="554"></div>'
             f'<div class="mkstats"><div class="hot"><small>Online now</small><b>{total:,}</b><span>across {len(chans)} channels</span></div>'
             + (f'<div><small>Busiest map</small><b class="sm">{wo.map_name(busiest[0].get("map"), busiest[0].get("name"), "{root}")}</b>'
                f'<span>{count(busiest[0].get("count"))} here</span></div>' if busiest else "")
@@ -265,8 +267,8 @@ def build_live(wo):
             f'<section class="panel"><h2 class="bar">Busiest maps</h2><div class="tbl"><table class="t"><thead><tr><th class="r">#</th>'
             f'<th>Map</th><th class="r">Here</th></tr></thead><tbody>{maps}</tbody></table></div></section></div>'
             f'<section class="panel"><h2 class="bar">What\'s happening <a href="{{root}}{WORLD}/feed/index.html">All &raquo;</a></h2>'
-            + (f'<ul class="board feed">{feed}</ul>' if feed else '<p class="empty" style="padding:12px 16px">Quiet so far. '
-               'Events, milestones and megaphones show up here as they happen.</p>') + '</section>')
+            + (f'<ul class="board feed">{feed}</ul>' if feed else '<p class="empty nap"><img src="{root}assets/brand/sleepy-nap-240.webp" alt="" width="120" height="86" loading="lazy">'
+               '<span>Quiet so far. Events, milestones and megaphones show up here as they happen.</span></p>') + '</section>')
     wo.page(f"{WORLD}/index.html", "Live world", body, "index", "Who's online on Bera, the busiest maps and tonight's event.")
     return total
 

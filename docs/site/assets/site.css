@@ -126,18 +126,26 @@ main { padding-block: 8px 48px; }
 .hero .lede { margin: 22px 0 26px; }
 .actions { display: flex; flex-wrap: wrap; gap: 14px; }
 .hero-art { display: grid; justify-items: center; }
-/* the hero art takes turns (theme.js); without JavaScript only the cut-out mascot shows */
+/* the hero art takes turns (theme.js); without JavaScript only the first cut-out (the heart) shows */
 .hero-rotor { display: grid; align-items: end; justify-items: center; width: min(360px, 90%); margin-bottom: -46px;
   position: relative; z-index: 0; }
 .hero-rotor > img { grid-area: 1 / 1; opacity: 0; visibility: hidden; transition: opacity .9s, visibility .9s; }
 .hero-rotor > .is-on { opacity: 1; visibility: visible; }
 .mascot { width: min(320px, 100%); height: auto; filter: drop-shadow(4px 4px 0 var(--drop)); }
-.hero-scene { width: 100%; height: auto; margin-bottom: 20px; transform: rotate(1.5deg); border: var(--border) solid var(--edge);
-  border-radius: var(--radius); box-shadow: 5px 5px 0 var(--drop); }
 @media (prefers-reduced-motion: reduce) { .hero-rotor > img { transition: none; } }
-.guide-scene img { width: 100%; height: auto; display: block; }
-.guide-scene { margin: 0 0 22px; max-width: 520px; line-height: 0; border: var(--border) solid var(--edge); border-radius: var(--radius);
-  overflow: hidden; box-shadow: 4px 4px 0 var(--drop); }
+/* Slums-chan beside a page's heading: floats right, the text wraps around her */
+.sidekick { float: right; width: clamp(110px, 26vw, 220px); height: auto; margin: 0 0 12px 18px;
+  filter: drop-shadow(4px 4px 0 var(--drop)); }
+/* headings next to her stop short of her instead of underlining behind her */
+.sidekick ~ h2 { display: flow-root; }
+/* an empty list: a sleepy sticker next to the message */
+/* a heading with Slums-chan beside it, for pages laid out as a grid (floats don't work there) */
+.headfig { display: flex; align-items: flex-end; justify-content: space-between; gap: 16px; }
+.headfig > div { min-width: 0; }
+.headfig .sidekick { float: none; margin: 0; width: auto; height: clamp(140px, 22vw, 230px); }
+.empty.nap { display: flex; align-items: center; gap: 14px; padding: 12px 16px; }
+.empty.nap img { width: 120px; height: auto; flex: none; }
+.empty.nap[hidden] { display: none; }
 .hero-art .patch-card { position: relative; z-index: 1; width: 100%; }
 .patch-card { display: grid; gap: 6px; padding: 22px; text-decoration: none; color: var(--ink); transform: rotate(-1.5deg);
   transition: transform .15s; }
@@ -320,7 +328,6 @@ table.t { width: 100%; border-collapse: collapse; }
   .brand img { height: 40px; }
   .hero-rotor { width: min(300px, 100%); margin-bottom: -30px; }
   .mascot { width: 220px; }
-  .hero-scene { transform: none; }
   .accents { margin-left: auto; gap: 4px; }
   .accents button { width: 18px; height: 18px; }
   .theme button { padding: 4px 7px; font-size: .72rem; }
