@@ -317,3 +317,162 @@ mesos per 1,000 NX, today plus a 30-day sparkline plus daily history.
 - Server export: in the nightly rollup, `nxRate` = the median over that day's sales of (unit meso price ÷ the item's
   Cash Shop NX price, from cashshop/catalog.tsv), using cash items with a fixed NX price plus NX-code items. Sample
   count included; published only with at least 5 samples. Bot-made share flagged, as for prices.
+
+---
+
+## Market export contract (server → site), schema 1
+
+Written by `soloMapling.Economy.market.PublicMarketExport` (1.6.0, branch `160-market`). It matches the shape the
+site session built the Market pages against; the deviations are listed at the end.
+
+### Switches, place, cadence
+- **Off by default.** `-Dslums.market.export=true` turns it on (TEST will; live only after 1.6.0 and the owner's go).
+- **Directory:** `-Dslums.market.dir`, default `Server/data/market` (or `data/market` when there is no `./Server`).
+- **Writes:** atomic rename, mode 644, one minimum-priority daemon thread (`market-export`). Nothing throws into the
+  game. A failed file is logged at most every 15 min and does not stop the other files.
+- **Cadence:**
+  - every 15 min (first run 90 s after boot): `listings.json`, `sales.json`, `nx-rate.json`, `economy-public.json`;
+    it also back-fills any missing `prices/<day>.json` for the last 13 days that had sales, and rewrites
+    `prices/index.json` when it did;
+  - nightly at 00:05 UTC: `prices/<yesterday>.json` (always written, even with no sales), pruning of day files older
+    than 365 days, `prices/index.json`, `nx-rate.json`.
+- `!qa mk-1` forces a full export and checks every file (auto-QA `t-mk-1`).
+- **Every file** has `"schema": 1` and never has a `"sample"` key. Times are UTC ISO-8601 (`2026-10-26T07:15:00.123Z`);
+  dates are UTC `YYYY-MM-DD`. Prices are mesos (integers). Shares are 0..1, rounded to 3 decimals (`players_share`: 6, since bots hold almost everything).
+- **Item names** come from the server's WZ strings; `""` when the item has none.
+
+### `listings.json` (every 15 min)
+Every item on sale in an open Free Market shop right now: hired merchants and player shops, bot shops included.
+Seller IGNs are shown for bots and players alike (owner, 2026-10-26).
+
+| Field | Type | Meaning |
+|---|---|---|
+| `schema` | int | 1 |
+| `generated_at` | string | when the file was made |
+| `shops`, `bot_shops`, `player_shops` | int | shops with at least one listing |
+| `count` | int | rows in `listings` |
+| `listings[]` | array | sorted by `item_id`, then `price` |
+| ` .item_id` | int | |
+| ` .name` | string | extra |
+| ` .qty` | int | units per bundle |
+| ` .bundles` | int | bundles left (extra) |
+| ` .price` | int | mesos per unit: `bundle_price / qty`, floored. A star or bullet stack is one unit (as on the price board), so its `price` is the stack's price |
+| ` .bundle_price` | int | mesos per bundle (extra) |
+| ` .channel` | int | |
+| ` .map_id` | int | (extra) |
+| ` .room` | int or null | FM room 1..22 (maps 910000001..910000022); null outside the FM rooms |
+| ` .shop_title` | string | the shop's sign |
+| ` .seller_name` | string | the owner's IGN |
+| ` .seller_kind` | "bot" or "player" | |
+| ` .shop_type` | "merchant" or "player_shop" | (extra) |
+
+### `sales.json` (every 15 min)
+The newest 500 price-board samples (table `pricesamples`), newest first.
+
+| Field | Type | Meaning |
+|---|---|---|
+| `schema`, `generated_at`, `count` | int / string / int | |
+| `sales[].item_id` | int | |
+| `sales[].name` | string | extra |
+| `sales[].price` | int | mesos per unit as paid |
+| `sales[].qty` | int | units in the sale |
+| `sales[].source` | string | `shop`, `merchant`, `trade`, `bot_shop`, `bot_trade`, `bot_seed` (a bot buying from a bot shop) |
+| `sales[].player_side` | bool | a real player was one side |
+| `sales[].hour` | string | the start of the UTC hour of the sale (`2026-10-26T07:00:00Z`) |
+
+No party names: `pricesamples` has never stored them (only in-memory account ids, for the anti-pumping rules), and
+no new capture was added.
+
+### `prices/<YYYY-MM-DD>.json` (nightly, kept 365 days) and `prices/index.json`
+One UTC day of samples rolled up per item. `pricesamples` keeps 14 days; these files are the 365-day history.
+
+| Field | Type | Meaning |
+|---|---|---|
+| `schema`, `date`, `generated_at` | | |
+| `samples`, `item_count` | int | samples that day, items with samples |
+| `items` | object | keyed by item id as a string |
+| ` .item_id`, ` .name` | int, string | (extras) |
+| ` .open`, ` .close` | int | the day's first and last sale (mesos per unit) |
+| ` .high`, ` .low` | int | |
+| ` .median` | int | median per-unit price; with an even count, the mean of the middle two, floored |
+| ` .norm_median` | int | extra: median of the clean-equivalent price (differs from `median` for equips only) |
+| ` .count` | int | samples |
+| ` .units` | int | extra: units sold in all |
+| ` .player_share` | number | share of samples with a real player on one side |
+| `nx_rate` | object | that day's NX rate row (same fields as `nx-rate.json` `days[]`); the history is rebuilt from it |
+
+`prices/index.json`: `{schema, generated_at, keep_days: 365, dates: ["2026-10-22", ...]}`, oldest first. A day
+missing from `dates` had no file (no sales before the exporter ran).
+
+### `nx-rate.json` (every 15 min; history updated nightly)
+Mesos per 1,000 NX, like meowdb's NX:Meso indicator.
+
+| Field | Type | Meaning |
+|---|---|---|
+| `schema`, `generated_at` | | |
+| `min_trades` | int | 5 (extra) |
+| `days[]` | array | up to 365 rows, oldest first, ending yesterday |
+| ` .date` | string | UTC day |
+| ` .mesos_per_1000nx` | int or null | median over the day's readings of (unit price ÷ NX per unit) × 1000, rounded; **null when `n_trades` < 5** |
+| ` .n_trades` | int | readings = `n_cash_resales + n_code_trades` |
+| ` .n_cash_resales` | int | sales of a Cash Shop item with a fixed price in `cashshop/catalog.tsv` (NX per unit = price ÷ count; rows priced 0 are left out) |
+| ` .n_code_trades` | int | sales of NX code items: Nexon Game Card 100 (4031865, 100 NX) and 250 (4031866, 250 NX), from `ItemId.nxCardValue` |
+| ` .bot_share` | number | share of readings with no real player on either side; **0 when `n_trades` is 0** |
+| `today` | object | the same fields for today so far, plus `as_of` (UTC ISO), recomputed every 15 min |
+
+Caveats: NX cards drop from every mob (`drop_data_global`) but are credited on pickup, so they almost never reach a
+sale. On TEST there are no cash-item samples yet, so the rate is null until players (or bot shops) sell cash items.
+
+### `economy-public.json` (every 15 min)
+
+| Field | Type | Meaning |
+|---|---|---|
+| `schema` | int | 1 |
+| `as_of` | string | when the file was made |
+| `snapshot_date` | string or null | extra: the day of the nightly economy snapshot used |
+| `mesos_total` | int or null | all mesos held by characters and bots (nightly snapshot); null before the first snapshot |
+| `players_share` | number or null | real players' share of `mesos_total`; null when fewer than 5 players (privacy floor) or no snapshot |
+| `trades_24h` | int or null | price-board samples in the last 24 h (all sources, bot seeds included); null if the DB could not be read |
+| `shops_open` | int | FM shops with at least one listing now |
+| `mesos_removed_7d` | int or null | sum of `flows.totalSinks` over the nightly snapshots of the 7 days before today; null when there are none |
+| `bots_online_peak` | int or null | most bots online at any 15-minute run in the last 24 h (since the server started) |
+| `detail` | object or null | extra: `latest-public.json` with the human-bucket floor: any human bucket (level band, wealth stats, human total) covering fewer than 5 players has its numbers set to null and `"suppressed": true`; `topHolders` is always removed; `detail.privacy = {human_bucket_floor: 5, suppressed: [paths]}`. Its inner keys keep the snapshot's camelCase |
+
+### Example (shortened)
+```json
+// listings.json
+{"schema":1,"generated_at":"2026-10-26T07:15:00.120Z","shops":212,"bot_shops":211,"player_shops":1,"count":2,
+ "listings":[{"item_id":2000000,"name":"Red Potion","qty":100,"bundles":2,"price":50,"bundle_price":5000,
+   "channel":3,"map_id":910000007,"room":7,"shop_title":"cheap pots","seller_name":"Bobbins","seller_kind":"bot",
+   "shop_type":"merchant"}]}
+// sales.json
+{"schema":1,"generated_at":"2026-10-26T07:15:00.200Z","count":1,"sales":[{"item_id":4010001,"name":"Steel Ore",
+ "price":2015,"qty":3,"source":"bot_seed","player_side":false,"hour":"2026-10-26T07:00:00Z"}]}
+// prices/2026-10-25.json
+{"schema":1,"date":"2026-10-25","generated_at":"2026-10-26T00:05:00.010Z","samples":4,"item_count":1,
+ "items":{"2000000":{"item_id":2000000,"name":"Red Potion","open":40,"close":50,"high":90,"low":40,"median":55,
+   "norm_median":55,"count":4,"units":4,"player_share":0.5}},
+ "nx_rate":{"date":"2026-10-25","mesos_per_1000nx":null,"n_trades":0,"n_cash_resales":0,"n_code_trades":0,"bot_share":0.0}}
+// nx-rate.json
+{"schema":1,"generated_at":"2026-10-26T07:15:00.300Z","min_trades":5,
+ "days":[{"date":"2026-10-25","mesos_per_1000nx":1900000,"n_trades":5,"n_cash_resales":4,"n_code_trades":1,"bot_share":0.4}],
+ "today":{"date":"2026-10-26","mesos_per_1000nx":null,"n_trades":2,"n_cash_resales":2,"n_code_trades":0,
+   "bot_share":0.5,"as_of":"2026-10-26T07:15:00.300Z"}}
+// economy-public.json
+{"schema":1,"as_of":"2026-10-26T07:15:00.400Z","snapshot_date":"2026-10-25","mesos_total":73509278408,
+ "players_share":0.000014,"trades_24h":3610,"shops_open":212,"mesos_removed_7d":455507387,"bots_online_peak":2259,
+ "detail":{"date":"2026-10-25","mesoSupply":{"totalMeso":73509278408,"humans":{"count":19,"totalMeso":1008320,
+   "levelBands":{"31-70":{"count":null,"totalMeso":null,"suppressed":true}}}},
+   "privacy":{"human_bucket_floor":5,"suppressed":["mesoSupply.humans.levelBands.31-70"]}}}
+```
+
+### Deviations from the site's draft, and why
+- **Extra fields** (`name`, `bundles`, `bundle_price`, `map_id`, `shop_type`, `count`, the shop counts, `norm_median`,
+  `units`, `item_id` inside price rows, `nx_rate` inside day files, `min_trades`, `snapshot_date`, `detail`): the
+  site can ignore them.
+- **`listings[].price` is per unit.** A bundle's price is `bundle_price`.
+- **No `seller_name`-like parties in `sales.json`:** `pricesamples` stores none (see above).
+- **`economy-public.json` fields can be null** (`mesos_total`, `players_share`, `trades_24h`, `mesos_removed_7d`,
+  `bots_online_peak`) when there is no nightly snapshot yet, the privacy floor applies, or the DB is busy; the site
+  should show "-" rather than 0.
+- **`nx-rate.json` `bot_share` is 0 when `n_trades` is 0** (the agreed type is a number 0..1, never null).

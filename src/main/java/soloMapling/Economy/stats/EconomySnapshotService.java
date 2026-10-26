@@ -90,6 +90,11 @@ public final class EconomySnapshotService {
         this.outputDir = outputDir;
     }
 
+    /** Where the snapshots go ({@code -Dslums.econ.dir}); the market export reads latest-public.json from here. */
+    public Path outputDir() {
+        return outputDir;
+    }
+
     private static Path resolveDir() {
         String prop = System.getProperty(DIR_PROPERTY);
         if (prop != null && !prop.isBlank()) {
