@@ -530,6 +530,11 @@ public final class ItemConstants {
         return itemId == ItemId.FISHING_CHAIR;
     }
 
+    /** 1.6.0 (owner): any item chair (the 301xxxx setup range) can be fished from on a fishing map. */
+    public static boolean canFishFromChair(int itemId) {
+        return itemId >= 3010000 && itemId < 3020000;
+    }
+
     public static boolean isMedal(int itemId) {
         return itemId >= 1140000 && itemId < 1145000;
     }

@@ -123,6 +123,9 @@ public abstract class CharacterFactory {
             equipped.addItemFromDB(eq_weapon.copy());
         }
 
+        // 1.6.0: every character starts with a Relaxer and a Fishing Chair (the login grant then only marks them)
+        soloMapling.fishing.StarterChairs.addToRecipe(recipe);
+
         if (!newchar.insertNewChar(recipe)) {
             return -2;
         }

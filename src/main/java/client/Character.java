@@ -7439,7 +7439,7 @@ public class Character extends AbstractCharacterObject {
     public boolean attemptCatchFish(int baitLevel) {
         return !soloMapling.fishing.FishingPolicy.enabled() && YamlConfig.config.server.USE_FISHING_SYSTEM && MapId.isFishingArea(mapid) &&
                 this.getPosition().getY() > 0 &&
-                ItemConstants.isFishingChair(chair.get()) &&
+                ItemConstants.canFishFromChair(chair.get()) &&
                 this.getWorldServer().registerFisherPlayer(this, baitLevel);
     }
 
@@ -8913,7 +8913,7 @@ public class Character extends AbstractCharacterObject {
     private void unsitChairInternal() {
         int chairid = chair.get();
         if (chairid >= 0) {
-            if (ItemConstants.isFishingChair(chairid)) {
+            if (ItemConstants.canFishFromChair(chairid)) {
                 this.getWorldServer().unregisterFisherPlayer(this);
             }
 
@@ -8934,7 +8934,7 @@ public class Character extends AbstractCharacterObject {
                 if (chair.get() < 0) {
                     setChair(itemId);
                     getMap().broadcastMessage(this, PacketCreator.showChair(this.getId(), itemId), false);
-                    if (itemId == constants.id.ItemId.FISHING_CHAIR) soloMapling.fishing.GameFishing.start(this);
+                    if (ItemConstants.canFishFromChair(itemId)) soloMapling.fishing.GameFishing.start(this);
                 }
                 sendPacket(PacketCreator.enableActions());
             } else if (itemId >= 0) {    // sit on map chair
@@ -8990,7 +8990,7 @@ public class Character extends AbstractCharacterObject {
 //    }
 
     public void setChair(int chair) {
-        if (chair != constants.id.ItemId.FISHING_CHAIR) soloMapling.fishing.GameFishing.cancel(this);
+        if (!ItemConstants.canFishFromChair(chair)) soloMapling.fishing.GameFishing.cancel(this);
         this.chair.set(chair);
     }
 
