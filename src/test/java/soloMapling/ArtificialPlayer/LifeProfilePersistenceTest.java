@@ -240,6 +240,49 @@ class LifeProfilePersistenceTest {
     }
 
     @Test
+    void theReadModelJoinsTheLayersAndShowsSeedAndLearnedApart() {
+        FakeDb db = trainedBot();
+        db.roster.get(SLOT).put("Personality", "{\"seed\":1,\"grind\":0.2,\"town\":0.3,\"social\":0.5,\"chattiness\":0.8}");
+        db.roster.get(SLOT).put("Persona", new BotPersona.Persona(true, true, "lol", "a chill player",
+                List.of("fishing", "zakum someday")).toJson());
+        db.boot();
+        var self = soloMapling.ArtificialPlayer.BotLifeSystem.SocialSelf.of(CHAR_ID);
+        assertEquals(SLOT, self.slot());
+        assertEquals(soloMapling.ArtificialPlayer.BotLifeSystem.SocialProfile.forSlot(SLOT), self.socialSeed());
+        assertEquals(self.socialSeed().leading(), self.leading());
+        assertFalse(self.leadingFlipped());
+        assertEquals(self.social().rivalPull(), self.rivalPull());
+        assertEquals(.8, self.chattiness(), 1e-12, "the stored trait, not the voice's draw");
+        assertEquals(.8, self.voice().chattiness(), 1e-12, "the voice gets the stored chattiness too");
+        assertNotEquals(self.lifeSeed(), self.life(), "the sprint drift sits on top of the seed");
+        assertSame(LifeMemoryStore.of(CHAR_ID).profile(), self.life(), "the same memory the brain uses");
+        List<String> lines = self.describe();
+        assertTrue(lines.get(0).startsWith("Bartle " + self.leading() + "-led"), lines.toString());
+        assertTrue(lines.get(1).contains("; seed "), "learned and seed shown apart: " + lines);
+        assertTrue(lines.get(2).contains("a chill player") && lines.get(2).contains("social 0.50"), lines.toString());
+    }
+
+    @Test
+    void theQaRoundTripPassesOnASocialBotAndRefusesWithoutTheTable() {
+        FakeDb db = trainedBot();
+        db.boot();
+        client.Character chr = socialSession();
+        List<String> lines = soloMapling.ArtificialPlayer.BotLifeSystem.LifeProfileProof.run(chr, 3 * 86_400_000L);
+        assertTrue(lines.getLast().startsWith("LIFE PROFILE PASS bot=" + CHAR_ID), lines.toString());
+        assertTrue(lines.stream().anyMatch(l -> l.contains("NUDGE event=JOB_ADVANCE")), lines.toString());
+        assertTrue(lines.stream().anyMatch(l -> l.contains("recorded=social") && l.contains("rosterCarriesLife=false")),
+                lines.toString());
+        assertTrue(db.life.containsKey(SLOT));
+
+        FakeDb missing = trainedBot();
+        missing.lifeTable = false;
+        missing.boot();
+        var refused = assertThrows(IllegalStateException.class,
+                () -> soloMapling.ArtificialPlayer.BotLifeSystem.LifeProfileProof.run(chr, 3 * 86_400_000L));
+        assertTrue(refused.getMessage().contains("migration 028"), refused.getMessage());
+    }
+
+    @Test
     void migration028IsGuardedLedgeredAndHasARollback() throws Exception {
         Path dir = Path.of("database/migrations");
         String sql = Files.readString(dir.resolve("028-bot-life-profile.sql"));
