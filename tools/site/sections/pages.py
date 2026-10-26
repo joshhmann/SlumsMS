@@ -5,6 +5,17 @@ import re
 from common import SITE, SRC, esc, layout, meta_comment, read, write
 
 
+def notice_board(rels, count=5):
+    """The newest releases as an old-style notice board: a tag (UPDATE for x.y.0, PATCH otherwise), title, date."""
+    rows = []
+    for r in rels[:count]:
+        big = r["version"].endswith(".0")
+        rows.append(f'<li><span class="ntag{" update" if big else ""}">{"Update" if big else "Patch"}</span>'
+                    f'<a href="patch-notes/{esc(r["version"])}/">{esc(r["version"])}: {esc(r["title"])}</a>'
+                    f'<time>{esc(r["date"])}</time></li>')
+    return '<ul class="board">' + "".join(rows) + "</ul>"
+
+
 def build_home(out, rels):
     meta, body = meta_comment(read(os.path.join(SRC, "home.html")))
     latest = rels[0]
@@ -12,6 +23,7 @@ def build_home(out, rels):
                  "latest_summary": latest["summary"], "latest_date": latest["date"],
                  "latest_url": f"patch-notes/{latest['version']}/"}.items():
         body = body.replace("{{" + k + "}}", esc(v))
+    body = body.replace("{{notice_board}}", notice_board(rels))
     left = re.findall(r"\{\{\w+\}\}", body)
     if left:
         raise SystemExit(f"home.html: unknown placeholders {left}")

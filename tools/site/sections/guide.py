@@ -8,6 +8,18 @@ import re
 from common import SRC, WIKI, esc, layout, meta_comment, read, write
 
 
+# An item icon in front of each guide link, like the old fan-site menus (icons: docs/site/assets/icons, icons.py --chrome).
+GUIDE_ICONS = {"index.html": 4001126, "getting-started.html": 4031180, "rates.html": 9000000, "hubs.html": 5030000,
+               "getting-around.html": 2030000, "jobs.html": 1302000, "leveling.html": 4000000, "travel.html": 4031045,
+               "rebirths.html": 2340000, "regulars.html": 5072000, "shops.html": 5220000, "commands.html": 5390000,
+               "money.html": 9000003, "faq.html": 2000005, "guidebook.html": 4161001, "patch-notes": 5071000}
+
+
+def icon(page, root):
+    i = GUIDE_ICONS.get(page)
+    return f'<span class="ico"><img src="{root}assets/icons/{i}.png" alt=""></span>' if i else '<span class="ico"></span>'
+
+
 def wiki_body(text, name):
     m = re.search(r'<div class="box-b">\n(.*)\n</div></div>\n</main>', text, re.S)
     t = re.search(r"<h1>(.*?)</h1>", text)
@@ -54,11 +66,11 @@ def build(out):
         for s in skip:  # links to skipped pages: the changelog is the patch notes now
             body = body.replace(f'href="{s}"', 'href="../patch-notes/"')
         body = clean_wiki(body)
-        links = "".join(f'<li><a href="{f}"{" aria-current=page" if f == name else ""}>{esc(html.unescape(t))}'
-                        f'</a></li>' for f, t in nav)
-        links += '<li><a href="../patch-notes/">Patch notes</a></li>'
-        page = (f'<div class="guide"><nav class="guide-nav" aria-label="Guide pages"><p>Player guide</p>'
-                f'<ul>{links}</ul></nav><article class="doc"><h1>{esc(title)}</h1>\n{body}</article></div>')
+        links = "".join(f'<li><a href="{f}"{" aria-current=page" if f == name else ""}>{icon(f, "../")}'
+                        f'{esc(html.unescape(t))}</a></li>' for f, t in nav)
+        links += f'<li><a href="../patch-notes/">{icon("patch-notes", "../")}Patch notes</a></li>'
+        page = (f'<div class="guide"><nav class="guide-nav panel" aria-label="Guide pages"><p class="bar">Player guide</p>'
+                f'<ul class="iconnav">{links}</ul></nav><article class="doc"><h1>{esc(title)}</h1>\n{body}</article></div>')
         label = "Player guide" if name == "index.html" else title
         write(out, f"guide/{name}", layout(label, page, "../", "guide"))
     unused = [fixes[i]["page"] for i in range(len(fixes)) if i not in used]

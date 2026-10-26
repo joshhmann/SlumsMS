@@ -3,6 +3,7 @@
 
     python3 tools/site/icons.py --kinds items             # fetch what's missing, decode, write the manifest
     python3 tools/site/icons.py --kinds items,mobs,npcs --no-fetch
+    python3 tools/site/icons.py --chrome                  # the few icons the site's own pages use (committed)
 
 Only icons for reachable entities (sections/dbdata.py) are made. Steps:
 1. Work out which .img files hold them (equips: Character/<Slot>/0<id>.img; other items: Item/<Tab>/<prefix>.img;
@@ -166,6 +167,36 @@ class Decoder:
             return None
 
 
+# Icons the site's own pages use (guide menu, home tiles), copied into docs/site/assets/icons/ by --chrome so the
+# public build never needs the cache. Keys are item ids; Special/0900 (mesos) keeps its icon under iconRaw.
+CHROME = {4001126: "Maple Leaf", 4031180: "Beginner's Shopping Guide", 9000000: "Mesos", 5030000: "Mushroom House Elf",
+          2030000: "Return Scroll", 1302000: "Sword", 4000000: "Blue Snail Shell", 4031045: "Ticket to Orbis",
+          2340000: "White Scroll", 5072000: "Super Megaphone", 5220000: "Gachapon Ticket", 5390000: "Diablo Messenger",
+          9000003: "Bag of mesos", 2000005: "Power Elixir", 4161001: "MapleRoot Guide", 5071000: "Megaphone",
+          2000000: "Red Potion"}
+CHROME_DIR = os.path.join(REPO, "docs", "site", "assets", "icons")
+
+
+def chrome_source(item_id):
+    if item_id // 1000000 == 9:
+        return f"Item/Special/{item_id // 10000:04d}.img", f"{item_id:08d}/iconRaw/0"
+    return item_source(item_id)
+
+
+def make_chrome(dec, layer, host, fetch_ok):
+    srcs = {i: chrome_source(i) for i in CHROME}
+    if fetch_ok:
+        fetch([s[0] for s in srcs.values()], layer, host)
+    os.makedirs(CHROME_DIR, exist_ok=True)
+    for i, (img, node_path) in sorted(srcs.items()):
+        root = dec.root(img)
+        node = root and dec.find(root, node_path)
+        if node is None:
+            raise SystemExit(f"chrome icon {i} ({CHROME[i]}) not found in {img}")
+        dec.image(node).save(os.path.join(CHROME_DIR, f"{i}.png"), optimize=True)
+    print(f"chrome: {len(srcs)} icons in {CHROME_DIR}")
+
+
 def plan(data, kinds):
     jobs = []  # (kind, id, img path, node path or None for life)
     if "items" in kinds:
@@ -188,7 +219,11 @@ def main():
     ap.add_argument("--native-wz", default=NATIVE_WZ)
     ap.add_argument("--no-fetch", action="store_true", help="only use files already in the cache")
     ap.add_argument("--out", default=CACHE_ICONS)
+    ap.add_argument("--chrome", action="store_true", help="only (re)make the site's own icons in docs/site/assets/icons")
     args = ap.parse_args()
+    if args.chrome:
+        make_chrome(Decoder(args.layer, args.native_wz), args.layer, args.host, not args.no_fetch)
+        return
     kinds = set(args.kinds.split(","))
     data = dbdata.load(args.hs_data)
     jobs = plan(data, kinds)
