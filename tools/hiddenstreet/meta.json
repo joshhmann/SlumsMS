@@ -1,19 +1,20 @@
 {
-  "generated_at": "2026-10-26T08:26:08Z",
+  "generated_at": "2026-10-26T08:29:37Z",
   "sources": {
     "wz": "/root/work/SlumsMS-160-market/wz",
     "db_tables": {
       "drop_data": 22225,
       "reactordrops": 1106,
       "drop_data_global": 6,
-      "shopitems": 3879
+      "shopitems": 3879,
+      "plife": 18
     }
   },
   "counts": {
     "items": 60167,
     "mobs": 6773,
     "maps": 11338,
-    "npcs": 8340,
+    "npcs": 10201,
     "quests": 2343
   },
   "dedupe": {
@@ -21,7 +22,8 @@
       "drop_data": 0,
       "reactordrops": 40,
       "drop_data_global": 0,
-      "shopitems": 0
+      "shopitems": 0,
+      "plife": 0
     },
     "list_rows_removed": {
       "items": {
@@ -47,7 +49,7 @@
       "items": 231,
       "mobs": 16,
       "maps": 14,
-      "npcs": 13,
+      "npcs": 15,
       "quests": 569
     },
     "mixed": {
@@ -327,6 +329,8 @@
       ],
       "npcs": [
         1013000,
+        1013102,
+        1013104,
         9330021,
         9330022,
         9330023,
@@ -919,7 +923,7 @@
       "items": 15305,
       "mobs": 3252,
       "maps": 3840,
-      "npcs": 1070,
+      "npcs": 2113,
       "quests": 211
     }
   },
@@ -965,7 +969,8 @@
     "other_multipliers": "item drop cards (ITEM_UP_BY_ITEM buffs), the Showdown debuff, and drop coupons (none sold in 1.5.1+) multiply mob drops; friendly mobs (escort events) use x1; USE_ADD_RATES_BY_LEVEL is off"
   },
   "notes": {
-    "weapon_magic_attack": "Weapons: in SlumsMS's (MapleRoot) WZ every v83 weapon has incMAD equal to incPAD (e.g. Maple Kandayo 1472032: 74/74; upstream Cosmic: 23 attack, no magic attack). The shipped client Data/Character/Weapon has the same values, and the server adds equip incMAD to total magic attack (Character.recalcLocalStats), so the in-game tooltip and stats show it. The dataset keeps the values as the game uses them. It only matters to magic attacks: a claw's magic attack does nothing for a thief, but a magician can hold a no-job-requirement weapon for magic attack."
+    "weapon_magic_attack": "Weapons: in SlumsMS's (MapleRoot) WZ every v83 weapon has incMAD equal to incPAD (e.g. Maple Kandayo 1472032: 74/74; upstream Cosmic: 23 attack, no magic attack). The shipped client Data/Character/Weapon has the same values, and the server adds equip incMAD to total magic attack (Character.recalcLocalStats), so the in-game tooltip and stats show it. The dataset keeps the values as the game uses them. It only matters to magic attacks: a claw's magic attack does nothing for a thief, but a magician can hold a no-job-requirement weapon for magic attack.",
+    "npcs": "An NPC exists when Npc.wz has its file, or when a map's life or the plife table places it and String.wz names it: the server spawns NPCs from the String.wz name alone (LifeFactory.getNPC) and the client ships the sprites the server's Npc.wz lacks. Such NPCs have server_wz_file false. plife placements (world 1) are merged into maps."
   },
   "stock_v83": {
     "source": {
