@@ -41,7 +41,8 @@ import java.util.function.IntPredicate;
  * for half an hour - gone to dinner, watching TV, waiting for a friend - some on a chair. Here 5 to 15 bots per
  * channel (one per 40 of that channel's online bots, clamped) park where they already stand in a town or the FM
  * entrance and do nothing: no walking, no fidget, no barks, no reaction to a passer-by. On their own map a player sees
- * someone AFK; when the stretch ends (12-45 min) the bot sometimes types "back" or emotes, and goes on with its day.
+ * someone AFK; when the stretch ends (12-45 min on a chair, 3-8 min standing) the bot sometimes types "back" or
+ * emotes, and goes on with its day.
  *
  * <p>Who camps rotates: a bot that camped is not picked again for {@link #COOLDOWN_MS}. Only roster bots of the town
  * types (training bots between grinds, town wanderers, social bots) that hold no commitment are picked: not in any
@@ -66,6 +67,14 @@ public final class AfkCampers {
     static final long PASS_MS = 60_000;
     static final long MIN_CAMP_MS = TimeUnit.MINUTES.toMillis(12);
     static final long MAX_CAMP_MS = TimeUnit.MINUTES.toMillis(45);
+    /**
+     * TEST bot watch 2026-10-26 (ItsBucc, Henesys ch1, a player there): a camper with no chair stood frozen on one pixel
+     * for 24 min. People do go AFK standing, but a statue that long in front of a player reads as a bot; the owner
+     * wants standing still and not sitting for 10 min to be rare. A camper on a chair keeps the long stretch; one that
+     * stands is "brb" length: 3 to 8 min.
+     */
+    static final long STAND_MIN_CAMP_MS = TimeUnit.MINUTES.toMillis(3);
+    static final long STAND_MAX_CAMP_MS = TimeUnit.MINUTES.toMillis(8);
     static final long COOLDOWN_MS = TimeUnit.HOURS.toMillis(3);
     static final double CHAIR_CHANCE = 0.6;    // of the campers that own a chair
     static final double RETURN_LINE_CHANCE = 0.35;
@@ -283,13 +292,19 @@ public final class AfkCampers {
         return free.test(bot);
     }
 
+    /** How long an AFK stretch lasts: 12-45 min on a chair, 3-8 min standing. */
+    static long campLength(boolean sit, Random rng) {
+        long min = sit ? MIN_CAMP_MS : STAND_MIN_CAMP_MS, max = sit ? MAX_CAMP_MS : STAND_MAX_CAMP_MS;
+        return min + (long) (rng.nextDouble() * (max - min));
+    }
+
     private static boolean camp(BotSM bot, int ch, long now, Random rng) {
         Character chr = bot.getChr();
-        long len = MIN_CAMP_MS + (long) (rng.nextDouble() * (MAX_CAMP_MS - MIN_CAMP_MS));
-        GCMovement.stop(chr);
-        GCMovement.setFidget(chr, false);
         int chair = ownedChair(chr);
         boolean sit = chair > 0 && rng.nextDouble() < CHAIR_CHANCE;
+        long len = campLength(sit, rng);
+        GCMovement.stop(chr);
+        GCMovement.setFidget(chr, false); // AFK: no fidget; the town idle beat (TownIdle) turns it back on after
         Camp c = new Camp(chr.getId(), ch, chr.getMapId(), now, now + len, sit);
         CAMPS.put(chr.getId(), c);
         COOLING.put(chr.getId(), now + len + COOLDOWN_MS);
@@ -407,6 +422,10 @@ public final class AfkCampers {
         lastPass = "no pass yet";
         rosterMember = BotRoster::isMember;
         free = BotPopulationDirector::mayLogOut;
+    }
+
+    static Camp campOf(int botId) {
+        return CAMPS.get(botId);
     }
 
     static void putForTest(Camp c) {

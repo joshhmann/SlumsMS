@@ -302,6 +302,9 @@ public class TrainingBot extends BotSM implements soloMapling.ArtificialPlayer.B
     private final LifeRuntime dailyLife;
     private int lifeDestination = -1;
     private LifeDecision.Activity lifeVisit = LifeDecision.Activity.HANG_OUT;
+    // 1.6.0 likeness: the idle beat of a town stop (fidget back on, a stroll or an emote every few minutes, watched only)
+    private final soloMapling.ArtificialPlayer.BotTownSystem.TownIdle.Beat townBeat =
+            new soloMapling.ArtificialPlayer.BotTownSystem.TownIdle.Beat();
     private boolean lifeFishingStarted;
     private boolean lifePqTrip; // 1.6.0 S8: the PARTY_QUEST just started is a trip to a lobby (not a friend's invite)
     public LifeRuntime lifeRuntime() { return dailyLife; }
@@ -482,6 +485,7 @@ public class TrainingBot extends BotSM implements soloMapling.ArtificialPlayer.B
             }
         }
         phase = next;
+        if (townBeat != null) townBeat.reset(); // null only in a test-built bot that skipped the constructor
         if (getChr() != null && next != Phase.LIFE_TRAVEL && next != Phase.GO_TRAIN) {
             soloMapling.ArtificialPlayer.BotLifeSystem.LifeTownSlots.release(getChr().getId());
         }
@@ -1068,7 +1072,10 @@ public class TrainingBot extends BotSM implements soloMapling.ArtificialPlayer.B
                 dailyLife.fishingStarted();
                 lifeNote("FISHING_SEATED");
             }
-        } else soloMapling.ArtificialPlayer.BotTownSystem.PersonalSpace.maybeKeep(getChr());
+        } else {
+            soloMapling.ArtificialPlayer.BotTownSystem.PersonalSpace.maybeKeep(getChr());
+            soloMapling.ArtificialPlayer.BotTownSystem.TownIdle.tick(getChr(), townBeat, now()); // 1.6.0 likeness
+        }
         if (lifeVisit == LifeDecision.Activity.PARTY_QUEST) {
             soloMapling.ArtificialPlayer.SocialInitiative.lobbyTick(this, now()); // 1.6.0 S6: "lf kpq? u in"
         }
@@ -1243,6 +1250,9 @@ public class TrainingBot extends BotSM implements soloMapling.ArtificialPlayer.B
             phaseDeadlineMs = Math.max(phaseDeadlineMs, now() + holdMs); // extend the hold without shortening a planned stay
             return;
         }
+        // TEST bot watch 2026-10-26 (ItsBucc): fidget was only switched on by the settle on arrival, so a stop that
+        // skipped it (an errand, a chat) or lost it (an AFK camp) stood frozen for the rest of the stay.
+        soloMapling.ArtificialPlayer.BotTownSystem.TownIdle.tick(getChr(), townBeat, now());
         if (now() < phaseDeadlineMs) {
             return;
         }

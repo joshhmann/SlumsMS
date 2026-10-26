@@ -164,6 +164,30 @@ class AfkCampersTest {
                 new AfkCampers.Camp(id, 17, MapId.HENESYS, now, now + 60_000, false), now));
     }
 
+    /**
+     * TEST bot watch 2026-10-26 (ItsBucc, Henesys ch1, a player there): a camper with no chair stood frozen for 24 min.
+     * Standing AFK is now "brb" length; a camper on a chair keeps the long stretch.
+     */
+    @Test
+    void aStandingCamperIsBackWithinEightMinutesAChairCamperMayStayLong() throws Exception {
+        TownWandererBot bot = wanderer(1, 17, MapId.HENESYS); // owns no chair: it can only stand
+        long now = System.currentTimeMillis();
+        AfkCampers.pass(now);
+        AfkCampers.Camp c = AfkCampers.campOf(bot.getChr().getId());
+        assertTrue(c != null && !c.sat());
+        long len = c.untilMs() - c.startedMs();
+        assertTrue(len >= AfkCampers.STAND_MIN_CAMP_MS && len <= AfkCampers.STAND_MAX_CAMP_MS, "standing " + len);
+        assertTrue(len < 10 * 60_000L, "never 10 min frozen standing");
+
+        java.util.Random rng = new java.util.Random(7);
+        for (int i = 0; i < 200; i++) {
+            long sit = AfkCampers.campLength(true, rng);
+            assertTrue(sit >= AfkCampers.MIN_CAMP_MS && sit <= AfkCampers.MAX_CAMP_MS);
+            long stand = AfkCampers.campLength(false, rng);
+            assertTrue(stand >= AfkCampers.STAND_MIN_CAMP_MS && stand <= AfkCampers.STAND_MAX_CAMP_MS);
+        }
+    }
+
     @Test
     void theSwitchReleasesEveryCamper() throws Exception {
         wanderer(1, 17, MapId.HENESYS);
