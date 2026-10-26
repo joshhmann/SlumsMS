@@ -251,4 +251,41 @@ class WorldEventBotReactionTest {
         assertEquals(WorldEvents.participationExp(50, EventTemplates.MAX_PARTICIPATION_EXP_PCT),
                 WorldEvents.participationExp(50, 99), "never more than the cap");
     }
+
+    static server.life.Monster mob(int oid, int x, int y) {
+        server.life.Monster m = mock(server.life.Monster.class);
+        when(m.getObjectId()).thenReturn(oid);
+        when(m.isAlive()).thenReturn(true);
+        when(m.getPosition()).thenReturn(new java.awt.Point(x, y));
+        return m;
+    }
+
+    @Test
+    void atAnEventABotHuntsTheNearestInvaderAnywhereOnTheMap() {
+        // TEST ev-2: the roam seek box (900 x 140 px) missed every invader on the other street tiers, so the bots
+        // stood still ~750 px away; at an event they now chase the nearest one wherever it is
+        WorldEvents w = WorldEvents.getInstance();
+        ActiveEvent e = event(43, 40);
+        w.addActiveForTest(e);
+        server.maps.MapleMap map = mock(server.maps.MapleMap.class);
+        when(map.getChannelId()).thenReturn(1);
+        var far = mob(501, 1500, 0);
+        var high = mob(502, 300, -400);   // 300 px along, 400 px up: costs (300, 800)
+        var near = mob(503, 700, 0);      // 700 px along the same street
+        var players = mob(504, 120, 0);   // nearest, but a real player's (KS manners)
+        for (var m : List.of(far, high, near, players)) {
+            e.mobOids.add(m.getObjectId());
+            when(map.getMonsterByOid(m.getObjectId())).thenReturn(m);
+        }
+        Character chr = bot(BOT);
+        when(chr.getMap()).thenReturn(map);
+        when(chr.getPosition()).thenReturn(new java.awt.Point(0, 0));
+        assertEquals(near, WorldEvents.nearestEventMob(chr, m -> m != players));
+        assertEquals(players, WorldEvents.nearestEventMob(chr, m -> true));
+        assertNull(WorldEvents.nearestEventMob(chr, m -> false));
+        assertTrue(WorldEvents.isEventMob(chr, far));
+        assertFalse(WorldEvents.isEventMob(chr, mob(999, 0, 0)), "a map's own mob is not the event's");
+        assertTrue(WorldEvents.chaseCost(new java.awt.Point(0, 0), new java.awt.Point(0, 100))
+                > WorldEvents.chaseCost(new java.awt.Point(0, 0), new java.awt.Point(100, 0)), "a climb costs more");
+    }
 }
