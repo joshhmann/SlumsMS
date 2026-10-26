@@ -83,8 +83,10 @@ public final class BotNoiseFilter {
     }
 
     /**
-     * Whether a bot's map-chat line is hidden from this viewer: the viewer turned bot chatter off and the line is not
-     * aimed at them.
+     * Whether a bot's map-chat line is hidden from this viewer: the viewer turned bot chatter off, the bot is not in
+     * their party and they have not talked to it lately. 1.6.0 (owner, S5 follow-up): a line that names the quiet
+     * player is hidden too - {@code @quiet bots} means nothing unasked aimed at them (greetings, taunts, roasts); a bot
+     * they talk to still answers (the engaged window).
      */
     static boolean hidesBotChat(int viewerId, String viewerName, int botId, String line, boolean sameParty, long now) {
         if (!get(viewerId).bots()) {
@@ -97,7 +99,7 @@ public final class BotNoiseFilter {
         if (until != null && until >= now) {
             return false;
         }
-        return !namesViewer(line, viewerName);
+        return true;
     }
 
     static boolean namesViewer(String line, String viewerName) {

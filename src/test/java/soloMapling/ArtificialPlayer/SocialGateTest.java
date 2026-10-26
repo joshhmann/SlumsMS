@@ -215,6 +215,12 @@ class SocialGateTest {
             assertFalse(SocialGate.check(bot(BOT_A), p, held).ok(), held + " with @quiet bots");
         }
         assertTrue(SocialGate.check(bot(BOT_A), p, Act.TRADE_OFFER).ok(), "an answer to their own ask still goes");
+        // owner (S5 follow-up): everything unasked aimed at them, map chat included, even when they started it
+        SocialGate.playerStarted(BOT_A, PLAYER, Provocation.KS);
+        for (Act held : new Act[]{Act.GREET, Act.TEASE, Act.TAUNT, Act.ROAST, Act.SIDE_EYE, Act.GIFT, Act.CALL_OUT,
+                Act.KS_SPREE, Act.KS_WAR, Act.FLIRT, Act.HELP}) {
+            assertFalse(SocialGate.check(bot(BOT_A), p, held).ok(), held + " with @quiet bots");
+        }
         assertFalse(BotWhispers.send(p, "b1", 0, "hey", false));
         verify(p, never()).sendPacket(any());
         assertTrue(BotWhispers.send(p, "b1", 0, "hey", true), "a reply to their whisper still goes");
@@ -259,7 +265,7 @@ class SocialGateTest {
         assertEquals(60, SocialGate.pairMinutes(Act.PARTY_INVITE));
         assertEquals(480, SocialGate.pairMinutes(Act.BUDDY_REQUEST));
         assertEquals(7, SocialGate.pairMinutes(Act.TAUNT));
-        assertEquals(5, SocialGate.pairMinutes(Act.KS_SPREE));
+        assertEquals(10, SocialGate.pairMinutes(Act.KS_SPREE), "owner: 10 minutes, not 5");
         assertEquals(1440, SocialGate.pairMinutes(Act.DEFAME), "a defame changes fame: still once a day");
         assertEquals(60, SocialGate.perHour(Act.TAUNT));
         assertEquals(30, SocialGate.perHour(Act.KS_SPREE));

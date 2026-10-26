@@ -63,7 +63,9 @@ final class BotPlayerReaction {
 
         List<Character> players = BotLogic.getRealPlayersInRange(bot, DETECT_WIDTH, DETECT_HEIGHT);
         for (Character player : players) {
-            if (player == null || PlayerBusy.isBusy(player)) {
+            // 1.6.0 S5 (owner): @quiet bots - no bot notices them unasked (drama, affinity, gifts, reaction lines)
+            if (player == null || PlayerBusy.isBusy(player)
+                    || soloMapling.ArtificialPlayer.SocialGate.quietBots(player.getId())) {
                 continue;
             }
             // 1.5.0 bot drama (a partner, an ex, a crush, a rival with a score to settle), ticket 58 (a friend, rival or

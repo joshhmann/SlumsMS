@@ -44,10 +44,15 @@ class BotNoiseFilterTest {
     }
 
     @Test
-    void linesAimedAtTheQuietPlayerStillShow() {
+    void unaskedLinesNamingTheQuietPlayerAreHiddenButPartyStillShows() {
         BotNoiseFilter.set(PLAYER, new BotNoiseFilter.Setting(false, true));
-        assertFalse(BotNoiseFilter.hidesBotChat(PLAYER, "Josh", BOT, "hey josh whats up", false, 0),
-                "a line naming the player is for them");
+        // 1.6.0 (owner, S5 follow-up): @quiet bots hides unasked lines aimed at them too (greetings, taunts, roasts)
+        assertTrue(BotNoiseFilter.hidesBotChat(PLAYER, "Josh", BOT, "hey josh whats up", false, 0),
+                "a line naming the quiet player is hidden unless they talked to the bot");
+        assertTrue(BotNoiseFilter.hidesBotChat(PLAYER, "Josh", BOT, "lol josh nice gear noob", false, 0));
+        BotNoiseFilter.noteEngaged(PLAYER, BOT, 0);
+        assertFalse(BotNoiseFilter.hidesBotChat(PLAYER, "Josh", BOT, "hey josh whats up", false, 1_000),
+                "a bot they talk to still answers");
         assertFalse(BotNoiseFilter.hidesBotChat(PLAYER, "Josh", BOT, "lets go to ludi", true, 0),
                 "party members are never muted");
     }

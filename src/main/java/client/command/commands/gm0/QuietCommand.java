@@ -7,9 +7,9 @@ import soloMapling.ArtificialPlayer.BotMegaphoneSystem.BotNoiseFilter;
 
 /**
  * Ticket 47: per-player bot noise. Hides bot megaphones and/or ambient bot chatter for this character only. Real
- * players' chat and megaphones and GM notices are never hidden. 1.6.0 (S5): {@code @quiet bots} also stops unsolicited
- * bot whispers, party/guild invites and buddy requests (SocialGate), and the choice is kept across restarts
- * (migration 031).
+ * players' chat and megaphones and GM notices are never hidden. 1.6.0 (S5): {@code @quiet bots} also stops every
+ * unasked bot act aimed at the player - whispers, invites, buddy requests, greetings, taunts, side-eye, gifts, call-outs
+ * (SocialGate) - while bots they talk to still answer; the choice is kept across restarts (migration 031).
  */
 public class QuietCommand extends Command {
     {
@@ -41,14 +41,14 @@ public class QuietCommand extends Command {
 
     static String describe(BotNoiseFilter.Setting s) {
         if (s.megaphones() && s.bots()) {
-            return "bot megaphones and bot chatter hidden, and no unasked bot whispers, invites or buddy requests";
+            return "bot megaphones and bot chatter hidden, and nothing unasked from bots aimed at you";
         }
         if (s.megaphones()) {
             return "bot megaphones hidden";
         }
         if (s.bots()) {
-            return "bot chatter hidden (bots you talk to or party with still show), and no unasked bot whispers, invites"
-                    + " or buddy requests";
+            return "bot chatter hidden and nothing unasked from bots aimed at you (bots you talk to or party with still"
+                    + " show)";
         }
         return "everything shown";
     }
