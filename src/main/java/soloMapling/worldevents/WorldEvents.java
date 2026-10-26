@@ -1059,6 +1059,53 @@ public final class WorldEvents {
                 && w.swarmMaps.contains(mapKey(bot.getMap().getChannelId(), bot.getMapId()));
     }
 
+    /** RoamStrategy: this mob is one of the running event's on the bot's map. */
+    public static boolean isEventMob(Character chr, Monster m) {
+        WorldEvents w = INSTANCE;
+        if (w.active.isEmpty() || chr == null || chr.getMap() == null || m == null) {
+            return false;
+        }
+        ActiveEvent e = w.eventOn(chr.getMap().getChannelId(), chr.getMapId());
+        return e != null && e.mobOids.contains(m.getObjectId());
+    }
+
+    /**
+     * RoamStrategy at an event: the nearest live event mob on the bot's map that {@code ok} accepts (not a player's),
+     * wherever it stands; null when there is none. Height counts double (a climb costs more than a walk).
+     */
+    public static Monster nearestEventMob(Character chr, java.util.function.Predicate<Monster> ok) {
+        WorldEvents w = INSTANCE;
+        if (w.active.isEmpty() || chr == null || chr.getMap() == null || chr.getPosition() == null) {
+            return null;
+        }
+        ActiveEvent e = w.eventOn(chr.getMap().getChannelId(), chr.getMapId());
+        if (e == null) {
+            return null;
+        }
+        Point from = chr.getPosition();
+        Monster best = null;
+        long bestCost = Long.MAX_VALUE;
+        for (int oid : e.mobOids) {
+            Monster m = chr.getMap().getMonsterByOid(oid);
+            if (m == null || !m.isAlive() || m.getPosition() == null) {
+                continue;
+            }
+            long cost = chaseCost(from, m.getPosition());
+            if (cost < bestCost && ok.test(m)) {
+                best = m;
+                bestCost = cost;
+            }
+        }
+        return best;
+    }
+
+    /** Pure: how far a bot has to go for a mob; height counts double. */
+    static long chaseCost(Point from, Point to) {
+        long dx = Math.abs((long) from.x - to.x);
+        long dy = 2L * Math.abs((long) from.y - to.y);
+        return dx * dx + dy * dy;
+    }
+
     static boolean lowAfterHit(long hpAfter, long maxHp) {
         return maxHp > 0 && hpAfter < maxHp * SWARM_HP_SHARE;
     }

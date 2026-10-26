@@ -146,17 +146,25 @@ final class RoamStrategy implements GrindStrategy {
             return null;
         }
         MapGrindProfile p = SpotFinder.profileIfBuilt(chr.getMapId());
+        boolean atEvent = soloMapling.worldevents.WorldEventSteer.atEvent(chr.getId(), chr.getMapId());
         if (b.targetOid >= 0) {
             MapObject mo = chr.getMap().getMapObject(b.targetOid);
             if (mo instanceof Monster m && SpotFinder.isHostile(m)) {
                 Point mp = m.getPosition();
-                if (mp != null && Math.abs(mp.x - pos.x) <= ROAM_RANGE_X && withinSeekY(chr, p, pos, mp)) {
-                    return m; // keep chasing the same mob
+                if (mp != null && (Math.abs(mp.x - pos.x) <= ROAM_RANGE_X && withinSeekY(chr, p, pos, mp)
+                        || atEvent && soloMapling.worldevents.WorldEvents.isEventMob(chr, m))) {
+                    return m; // keep chasing the same mob (an event's invader across the town too)
                 }
             }
         }
         Monster t = soloMapling.ArtificialPlayer.BotAffinitySystem.AffinityReactions.ksPick(chr, b.mannerly(chr, SpotFinder.nearestHostileCrossLedge(chr.getMap(), pos, ROAM_RANGE_X,
                 ROAM_RANGE_Y, p, ROAM_STACK_RANGE_Y))); // ticket 58; 1.5.0 rc3 manners
+        if (t == null && atEvent) {
+            // 1.6.0 world events (TEST ev-2: bots held still ~750 px from the invaders, every one out of the seek
+            // box on another street tier or left to a player): at an event the bot hunts the nearest live invader
+            // anywhere on the map that is not a player's, and walks to it (the nav layer climbs as needed)
+            t = soloMapling.worldevents.WorldEvents.nearestEventMob(chr, m -> b.mannerly(chr, m) != null);
+        }
         b.targetOid = (t != null) ? t.getObjectId() : -1;
         b.resetApproachProgress(chr);
         return t;
