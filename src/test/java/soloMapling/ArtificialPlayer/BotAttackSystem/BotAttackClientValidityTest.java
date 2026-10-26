@@ -9,6 +9,7 @@ import net.packet.Packet;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
 import soloMapling.ArtificialPlayer.BotDecoratorSystem.BotWeapons;
+import soloMapling.server.BotAttackPackets;
 import soloMapling.server.BotAttackPackets.AttackTarget;
 
 import java.util.ArrayList;
@@ -48,6 +49,7 @@ class BotAttackClientValidityTest {
         Character bot = mock(Character.class);
         when(bot.getId()).thenReturn(424242);
         Set<String> failures = new TreeSet<>();
+        long rewritesBefore = BotAttackPackets.rewrites();
         int packets = 0;
         for (Job job : Job.values()) {
             List<EquipType> kinds = BotWeapons.weaponsFor(job);
@@ -66,6 +68,78 @@ class BotAttackClientValidityTest {
         System.out.println("BotAttackClientValidityTest: checked " + packets + " packets");
         assertTrue(packets > 10_000, "checked " + packets + " packets");
         assertTrue(failures.isEmpty(), failures.size() + " problems:\n" + String.join("\n", failures));
+        assertEquals(rewritesBefore, BotAttackPackets.rewrites(),
+                "the melee range guard had to rewrite a combat attack: its plan picks a pose without a range");
+    }
+
+    /*
+     * 1.6.0: the idle show-off attack (BotFlavor -> BotAttack.skillSwing) of every job with every weapon kind it is
+     * handed, for every attack it resolves, at every level, both facings. It used to send every non-spell skill as a
+     * melee swing in the skill's own pose; with a gun, Double Shot's doublefire (86) closed the viewer's client.
+     */
+    @Test
+    void everyShowOffAttackIsDrawnAndPlayerLike() {
+        Character bot = mock(Character.class);
+        when(bot.getId()).thenReturn(424243);
+        Set<String> failures = new TreeSet<>();
+        long rewritesBefore = BotAttackPackets.rewrites();
+        int packets = 0;
+        for (Job job : Job.values()) {
+            List<EquipType> kinds = BotWeapons.weaponsFor(job);
+            if (kinds.isEmpty()) {
+                kinds = List.of(EquipType.SWORD);
+            }
+            for (EquipType kind : kinds) {
+                for (int weaponId : representativeWeapons(kind)) {
+                    WeaponType weaponType = weaponType(weaponId);
+                    BotAttackConfig.JobAttacks a = BotAttackConfig.resolve(job, weaponType);
+                    List<BotAttackProfile> shown = new ArrayList<>();
+                    for (BotAttackProfile p : new BotAttackProfile[]{a.single(), a.aoe(), a.ultimate()}) {
+                        if (p != null) {
+                            shown.add(p);
+                        }
+                    }
+                    for (BotAttackProfile p : shown) {
+                        ClientAttackData.Skill skill = DATA.skills.get(p.skillId);
+                        int maxLevel = skill != null ? Math.max(1, skill.maxLevel()) : 1;
+                        for (int level = 1; level <= maxLevel; level++) {
+                            for (boolean left : new boolean[]{false, true}) {
+                                long r0 = BotAttackPackets.rewrites();
+                                Packet packet = soloMapling.ArtificialPlayer.BotCommandsPack.BotAttack.showOffPacket(
+                                        bot, p, level, weaponId, weaponType, left);
+                                String who = "show-off " + job + " " + weaponId + " " + p.skillId + " lv" + level
+                                        + (left ? " L" : " R") + ": ";
+                                if (BotAttackPackets.rewrites() != r0) {
+                                    failures.add(who + "a melee pose without a range (the packet guard rewrote it)");
+                                }
+                                if (packet == null) {
+                                    continue; // nothing a viewer would draw: nothing is sent
+                                }
+                                packets++;
+                                ClientAttackRules.Attacker attacker = new ClientAttackRules.Attacker(weaponId,
+                                        job.getId(), 0);
+                                ClientAttackRules.Decoded[] decoded = new ClientAttackRules.Decoded[1];
+                                for (String f : RULES.check(packet.getBytes(), attacker, decoded)) {
+                                    failures.add(who + f);
+                                }
+                                if (decoded[0] != null) {
+                                    for (String f : RULES.playerLike(decoded[0], attacker)) {
+                                        if (!f.startsWith("unlike: 0 lines a mob")) { // at the air: no mobs, no lines
+                                            failures.add(who + f);
+                                        }
+                                    }
+                                }
+                            }
+                        }
+                    }
+                }
+            }
+        }
+        System.out.println("BotAttackClientValidityTest: checked " + packets + " show-off packets");
+        assertTrue(packets > 1_000, "checked " + packets + " packets");
+        assertTrue(failures.isEmpty(), failures.size() + " problems:\n" + String.join("\n", failures));
+        assertEquals(rewritesBefore, BotAttackPackets.rewrites(),
+                "the melee range guard had to rewrite a show-off attack: its path picks a pose without a range");
     }
 
     @Test
@@ -76,7 +150,9 @@ class BotAttackClientValidityTest {
             if (kind == null || !botKinds().contains(kind)) {
                 continue;
             }
-            if (w.afterImage().isEmpty() || w.attackType() != BotClientPoses.defaultAttackType(w.id())) {
+            if (w.afterImage().isEmpty() || w.attackType() != BotClientPoses.defaultAttackType(w.id())
+                    || !DATA.afterImages.containsKey(w.afterImage()) // no range table: every melee hit closes viewers
+                    || (kind == EquipType.POLEARM && !w.afterImage().equals("poleArm"))) { // Aran's combo afterimages
                 undrawable.add(w.id());
             }
         }
@@ -129,7 +205,7 @@ class BotAttackClientValidityTest {
         return kinds;
     }
 
-    /* One weapon of the kind per (attack type, afterimage or not, attack speed): the fields a viewer reads. */
+    /* One weapon of the kind per (attack type, afterimage, attack speed): the fields a viewer reads. */
     private static List<Integer> representativeWeapons(EquipType kind) {
         Map<String, Integer> reps = new LinkedHashMap<>();
         List<Integer> ids = new ArrayList<>();
@@ -141,7 +217,7 @@ class BotAttackClientValidityTest {
         Collections.sort(ids);
         for (int id : ids) {
             ClientAttackData.Weapon w = DATA.weapons.get(id);
-            reps.putIfAbsent(w.attackType() + "/" + w.afterImage().isEmpty() + "/" + w.attackSpeed(), id);
+            reps.putIfAbsent(w.attackType() + "/" + w.afterImage() + "/" + w.attackSpeed(), id);
         }
         return new ArrayList<>(reps.values());
     }
@@ -202,6 +278,11 @@ class BotAttackClientValidityTest {
                 }
                 for (int pose : poses) {
                     BotSwingPlan sent = plan.withAction(pose);
+                    // the plan itself, before BotAttackPackets' guard would rewrite it
+                    String range = meleeRangeOfPlan(sent, weaponId);
+                    if (range != null) {
+                        failures.add(who + range);
+                    }
                     if (BotAttackTiming.poseMs(pose, sent.speed()) <= 0) {
                         failures.add(who + "pose " + pose + " has no length in bot-action-delays.tsv");
                     }
@@ -232,6 +313,30 @@ class BotAttackClientValidityTest {
             }
         }
         return packets;
+    }
+
+    /*
+     * 1.6.0: a melee plan whose pose the viewer's client finds no range for (it would close the viewer's client; the
+     * packet guard sends a plain swing instead, so the packet alone no longer shows it). Null when it has one.
+     */
+    static String meleeRangeOfPlan(BotSwingPlan plan, int weaponId) {
+        if (plan.route() != BotAttackProfile.Route.CLOSE) {
+            return null;
+        }
+        ClientAttackData.Weapon weapon = DATA.weapons.get(weaponId);
+        if (weapon == null || weapon.afterImage().isEmpty()) {
+            return null;
+        }
+        ClientAttackData.Skill skill = plan.skillId() != 0 ? DATA.skills.get(plan.skillId()) : null;
+        int slv = skill == null ? 0 : Math.max(1, Math.min(plan.skillLevel(), skill.maxLevel()));
+        ClientAttackRules.Decoded d = new ClientAttackRules.Decoded(ClientAttackRules.CLOSE, 1, 1, plan.skillId(),
+                plan.skillLevel(), 0, plan.action(), plan.facingLeft(), plan.speed(), 0);
+        String model = RULES.meleeRange(d, skill, slv, weapon);
+        boolean guard = BotMeleeRange.hasRange(plan.skillId(), plan.skillLevel(), weaponId, plan.action());
+        if ((model == null) != guard) {
+            return "BotMeleeRange says " + guard + " but the client model says " + (model == null ? "range" : model);
+        }
+        return model;
     }
 
     private static Map<Integer, AttackTarget> targets(BotSwingPlan plan) {

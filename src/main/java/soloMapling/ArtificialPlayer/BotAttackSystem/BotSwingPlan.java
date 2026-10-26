@@ -11,13 +11,16 @@ package soloMapling.ArtificialPlayer.BotAttackSystem;
  * - the attack speed: MapleRoot's degree for the weapon class, Speed Infusion added (BotClientPoses.actionSpeed);
  * - for a keydown skill: the prepare packet (its keydown pose, 0x7fff when the client knows none) before the shots,
  *   and for Hurricane / Rapid Fire a held stream of shots at the client's keydown cadence and a release packet;
- * - the mob and line counts the skill's level allows (mobCount, attackCount or bulletCount).
+ * - the mob and line counts the skill's level allows (mobCount, attackCount or bulletCount);
+ * - the weapon it was planned for (weaponItemId): the melee packet checks the pose has a range with it
+ *   (BotAttackPackets.closeRangeAttack, BotMeleeRange).
  *
  * A skill the weapon cannot use, or one with no pose a viewer accepts, is sent as the weapon's plain attack instead:
  * the viewer would drop it (and, for the weapon, say so in chat).
  */
 public record BotSwingPlan(BotAttackProfile.Route route, int skillId, int skillLevel, int action, boolean facingLeft,
-                           int speed, boolean prepare, int prepareAction, int shots, int maxMobs, int lines) {
+                           int speed, boolean prepare, int prepareAction, int shots, int maxMobs, int lines,
+                           int weaponItemId) {
 
     /*
      * A held keydown skill (Hurricane, WA Hurricane, Rapid Fire): a shot every KEYDOWN_SHOT_MS - the client's own keydown
@@ -32,7 +35,7 @@ public record BotSwingPlan(BotAttackProfile.Route route, int skillId, int skillL
     /* This plan with another pose (tests walk every pose a plan may pick). */
     public BotSwingPlan withAction(int pose) {
         return new BotSwingPlan(route, skillId, skillLevel, pose, facingLeft, speed, prepare, prepareAction, shots,
-                maxMobs, lines);
+                maxMobs, lines, weaponItemId);
     }
 
     public int facingMask() {
@@ -122,6 +125,6 @@ public record BotSwingPlan(BotAttackProfile.Route route, int skillId, int skillL
         }
         return new BotSwingPlan(route, skillId, level, action, facingLeft, speed, prepare,
                 prepare ? BotSkillActions.prepareCode(skillId) : BotSkillActions.NO_ACTION, shots,
-                Math.max(1, maxMobs), Math.max(1, lines));
+                Math.max(1, maxMobs), Math.max(1, lines), weaponItemId);
     }
 }

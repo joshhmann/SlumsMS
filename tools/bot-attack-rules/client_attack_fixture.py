@@ -14,6 +14,15 @@ Rows (tab separated):
     S <skill> <skillType> <weapon> <actions,...> <lvl=action;...> <maxLevel> <flags> <lvl:mob/attack/bullet;...>
       <prepare action>
     W <item> <attack> <attackSpeed> <afterImage>
+    R <skill> <levels> <common>  the skill levels whose lt/rb make a non-empty attack range (a remote melee attack
+                                 takes its range from them; CUserRemote::OnMeleeAttack 0x980d3c), compact as
+                                 "1-20" or "1,3"; common = 1 when a MapleRoot "common" node carries lt/rb
+    J <skill> <afterImage> <actions,...>  a skill's own afterimage (Skill.wz afterimage/<weapon afterImage>): a melee
+                                 attack with the skill reads its range there instead (0x936f34 builds the path)
+    I <afterImage> <actions,...> the actions Character/Afterimage/<afterImage>.img has an lt/rb range for in every
+                                 numbered level: the only poses CActionMan::GetMeleeAttackRange (0x414440) can read a
+                                 range for. A remote melee attack whose skill has no range, in any other pose, throws
+                                 and closes the viewer's client (docs/real-bots/client-remote-attack-rules.md).
 flags: comma list of prepare, keydown, keydownend, ball, finish, special, afterimage (the skill nodes present).
 """
 import argparse
@@ -83,6 +92,68 @@ def skill_rows(tree):
                          str(max_level), ",".join(flags), ";".join(kept), prepare_action])
 
 
+def has_range(node):
+    if node is None:
+        return False
+    lt, rb = child(node, "lt"), child(node, "rb")
+    if lt is None or rb is None or lt[1] != "V" or rb[1] != "V":
+        return False
+    return rb[2][0] > lt[2][0] and rb[2][1] > lt[2][1]
+
+
+def compact(levels):
+    out, run = [], []
+    for n in sorted(levels):
+        if run and n == run[-1] + 1:
+            run.append(n)
+            continue
+        if run:
+            out.append(f"{run[0]}-{run[-1]}" if len(run) > 1 else str(run[0]))
+        run = [n]
+    if run:
+        out.append(f"{run[0]}-{run[-1]}" if len(run) > 1 else str(run[0]))
+    return ",".join(out)
+
+
+def range_rows(tree):
+    skills = child(tree, "skill")
+    if skills is None:
+        return
+    for s in skills[3]:
+        try:
+            sid = int(s[0])
+        except ValueError:
+            continue
+        levels = child(s, "level")
+        ranged = []
+        if levels is not None:
+            for lv in levels[3]:
+                try:
+                    n = int(lv[0])
+                except ValueError:
+                    continue
+                if has_range(lv):
+                    ranged.append(n)
+        common = 1 if has_range(child(s, "common")) else 0
+        if ranged or common:
+            yield "\t".join(["R", str(sid), compact(ranged), str(common)])
+        afterimage = child(s, "afterimage")
+        if afterimage is not None:
+            for weapon in afterimage[3]:
+                acts = sorted(a[0] for a in weapon[3] if has_range(a))
+                yield "\t".join(["J", str(sid), weapon[0], ",".join(acts)])
+
+
+def afterimage_row(name, tree):
+    sets = None
+    for lv in tree[3]:
+        if not lv[0].isdigit():
+            continue  # "charge": the elemental-charge afterimages
+        acts = {a[0] for a in lv[3] if has_range(a)}
+        sets = acts if sets is None else sets & acts
+    return "\t".join(["I", name, ",".join(sorted(sets or ()))])
+
+
 def weapon_row(item, tree):
     info = child(tree, "info")
     if info is None:
@@ -99,7 +170,8 @@ def main():
     with open(a.keystream, "rb") as f:
         masks = wzscan.Masks(f.read())
     rows, digests = [], {}
-    for sub, kind in (("Skill", "S"), (os.path.join("Character", "Weapon"), "W")):
+    for sub, kind in (("Skill", "S"), (os.path.join("Character", "Weapon"), "W"),
+                      (os.path.join("Character", "Afterimage"), "I")):
         h = hashlib.sha256()
         folder = os.path.join(a.data, sub)
         for name in sorted(os.listdir(folder)):
@@ -117,6 +189,9 @@ def main():
                 continue
             if kind == "S":
                 rows.extend(skill_rows(tree))
+                rows.extend(range_rows(tree))
+            elif kind == "I":
+                rows.append(afterimage_row(name[:-4], tree))
             else:
                 r = weapon_row(int(name[:-4]), tree)
                 if r:
@@ -129,7 +204,11 @@ def main():
     out.write("# S skill skillType weapon actions levelActions maxLevel flags counts(level:mob/attack/bullet) "
               "prepareAction\n")
     out.write("# W item attack attackSpeed afterImage\n")
-    rows.sort(key=lambda r: (r[0], int(r.split("\t")[1])))
+    out.write("# R skill rangeLevels common\n")
+    out.write("# J skill afterImage actionsWithRange\n")
+    out.write("# I afterImage actionsWithRange\n")
+    order = {"S": 0, "W": 1, "R": 2, "J": 3, "I": 4}
+    rows.sort(key=lambda r: (order[r[0]], int(r.split("\t")[1]) if r[0] != "I" else 0))
     out.write("\n".join(rows) + "\n")
 
 

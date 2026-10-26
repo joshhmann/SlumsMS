@@ -4,6 +4,7 @@ import java.nio.ByteBuffer;
 import java.nio.ByteOrder;
 import java.util.ArrayList;
 import java.util.List;
+import java.util.Map;
 import java.util.Set;
 
 /*
@@ -137,13 +138,17 @@ final class ClientAttackRules {
             wt = 0; // get_weapon_type (0x460aa0)
         }
         boolean checksAction = d.type() != BODY && (exe == null || !exe.flags().contains("noActionCheck"));
-        if (checksAction) {
-            bad.addAll(checkAttackAction(d, skill, exe, slv, wt, weapon, attacker));
-        }
+        List<String> actionBad = checksAction ? checkAttackAction(d, skill, exe, slv, wt, weapon, attacker) : List.of();
+        bad.addAll(actionBad);
         switch (d.type()) {
             case CLOSE -> {
                 if (weapon == null || weapon.afterImage().isEmpty()) {
                     bad.add("drop: melee with a weapon that has no afterImage draws no hits (0x936f34)");
+                } else if (actionBad.isEmpty()) { // a dropped attack never reaches the melee route
+                    String range = meleeRange(d, skill, slv, weapon);
+                    if (range != null) {
+                        bad.add(range);
+                    }
                 }
             }
             case RANGED -> {
@@ -164,6 +169,33 @@ final class ClientAttackRules {
                     + " (OnAttack 0x980452 skips the pose)");
         }
         return bad;
+    }
+
+    /*
+     * CUserRemote::OnMeleeAttack (0x980c90): the range comes from the skill level's lt/rb (0x980d3c), else
+     * CActionMan::GetMeleeAttackRange (0x414440) reads the pose's slot in the afterimage's range table - the skill's
+     * own afterimage/<weapon afterImage> when it has one, else Character/Afterimage/<afterImage>.img (0x936f34). Savage
+     * (55) has a hard-coded range; Blast looks up stabO2 (0x980dab). A slot without data throws and the viewer's
+     * client closes. Returns that failure, or null.
+     */
+    String meleeRange(Decoded d, ClientAttackData.Skill skill, int slv, ClientAttackData.Weapon weapon) {
+        if (skill != null && data.rangeLevels.getOrDefault(skill.id(), Set.of()).contains(slv)) {
+            return null;
+        }
+        int pose = skill != null && skill.id() == 1221009 ? 17 : d.action();
+        if (pose == 55) {
+            return null;
+        }
+        String name = data.actions.get(pose);
+        Map<String, Set<String>> own = skill != null ? data.skillAfterImages.get(skill.id()) : null;
+        Set<String> poses = own != null ? own.get(weapon.afterImage()) : data.afterImages.get(weapon.afterImage());
+        if (data.actions.indexOf(name) == pose && poses != null && poses.contains(name)) {
+            return null;
+        }
+        return "crash: melee in pose " + d.action() + " (" + name + ") with afterimage " + weapon.afterImage()
+                + (own != null ? " (skill " + skill.id() + "'s own)" : "")
+                + (skill != null ? ", skill " + skill.id() + " lv" + slv + " has no range" : "")
+                + ": GetMeleeAttackRange 0x414440 throws, the viewer's client closes";
     }
 
     /* CUser::CheckAttackAction (0x92edb2) -> 0x7665b1 (T1, T2) / 0x766525 (T3) and the weapon message (0x92ee56). */

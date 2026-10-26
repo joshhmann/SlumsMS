@@ -96,9 +96,13 @@ public final class BotWeapons {
      * Character.wz info has no "afterImage" (every melee hit is dropped) or an "attack" type that is not their class's
      * (0 draws nothing; 1302261's 7 is a claw's poses). Found in the client's Character/Weapon by
      * tools/bot-attack-rules/client_attack_fixture.py; BotAttackClientValidityTest keeps this list complete.
+     * 1.6.0: also a weapon whose afterImage the client has no Character/Afterimage image for, and the two pole-arms
+     * drawn with the spear's afterimage (1442119, 1442120): Aran's Full Swing / Overswing combo hits have their own
+     * afterimage for a pole-arm only, so with these a viewer's client finds no range for them and closes
+     * (BotMeleeRange).
      */
     public static final java.util.Set<Integer> UNDRAWABLE = java.util.Set.of(1302083, 1302261, 1302284, 1302335,
-            1372086, 1382058, 1382107, 1402250, 1402256, 1452058, 1492024);
+            1372086, 1382058, 1382107, 1402250, 1402256, 1442119, 1442120, 1452058, 1492024);
 
     /* Whether the weapon (item id, 0 = none) is one this job fights with. */
     public static boolean fits(Job job, int weaponItemId) {

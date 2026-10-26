@@ -9,9 +9,12 @@ import client.inventory.WeaponType;
 import soloMapling.server.BotAttackPackets;
 import soloMapling.server.BotAttackPackets.AttackTarget;
 import server.ItemInformationProvider;
+import net.packet.Packet;
 import soloMapling.ArtificialPlayer.BotAttackSystem.BotAttackData;
+import soloMapling.ArtificialPlayer.BotAttackSystem.BotAttackEffects;
 import soloMapling.ArtificialPlayer.BotAttackSystem.BotAttackProfile;
 import soloMapling.ArtificialPlayer.BotAttackSystem.BotClientPoses;
+import soloMapling.ArtificialPlayer.BotAttackSystem.BotSwingPlan;
 import tools.PacketCreator;
 
 import java.util.Collections;
@@ -62,10 +65,9 @@ public final class BotAttack {
         }
 
         Map<Integer, AttackTarget> emptyTargets = Collections.emptyMap();
-        chr.getMap().broadcastMessage(
-                chr,
-                BotAttackPackets.closeRangeAttack(
+        Packet packet = BotAttackPackets.closeRangeAttack(
                         chr,
+                        /* weapon       */ weaponId,
                         /* skill        */ 0,
                         /* skilllevel   */ 0,
                         /* stance       */ facingMask,
@@ -74,82 +76,61 @@ public final class BotAttack {
                         /* speed        */ BotClientPoses.actionSpeed(weaponId),
                         /* direction    */ bodyActionId,
                         /* display      */ 0
-                ),
-                /* repeatToSource */ false
-        );
+                );
+        if (packet != null) {
+            chr.getMap().broadcastMessage(chr, packet, /* repeatToSource */ false);
+        }
     }
 
-    /**
-     * Broadcast a cosmetic SKILL swing at the air - the character plays the skill's attack pose
-     * (Brandish, Savage Blow, etc.) with no targets and no damage. Same packet the real melee path
-     * builds (BotAttackEffects.meleeStrike) but with an empty target map, so nothing is hit. The
-     * body-action id comes from the skill's own keyframe (BotAttackData.actionFor), falling back to
-     * the weapon default. Pure visual. For magic-class skills use {@link #magicSwing} instead.
+    /*
+     * Broadcast a show-off attack at the air (BotFlavor's idle swing): the character plays one of its attacks - a
+     * Brandish, an AoE, a shot, a spell - with no targets and no damage. Pure visual.
+     *
+     * 1.6.0: it goes out exactly as the bot's real attack would (BotSwingPlan: the route a player's client sends the
+     * skill on, its pose, its speed; the weapon's plain attack when the skill does not fit the weapon). It used to send
+     * every non-spell skill as a melee swing in the skill's own pose. Once 1.6.0 gave gunslinger bots guns, that sent
+     * Double Shot (doublefire, 86) as a melee attack with a gun, a pose a gun's afterimage has no range for, and the
+     * viewer's client closed (CActionMan::GetMeleeAttackRange 0x414440; QA rm-2's partner and the Mu Lung Dojo
+     * entrance, twice on TEST).
      */
-    public static void skillSwing(Character chr, int skillId) {
-        if (chr == null || chr.getMap() == null) return;
-        if (skillId <= 0) { basicSwing(chr); return; }
-
-        int facingMask = facingLeft(chr) ? BotAttackData.FACING_LEFT_MASK : BotAttackData.FACING_RIGHT_MASK;
-        int weaponId = equippedWeaponId(chr);
-        if (!drawable(skillId, weaponId)) {
-            basicSwing(chr);
+    public static void skillSwing(Character chr, BotAttackProfile profile) {
+        if (chr == null || chr.getMap() == null || profile == null) {
             return;
         }
-        int level = resolveSkillLevel(skillId);
-        int bodyActionId = BotAttackData.actionFor(skillId, level, weaponId, BotAttackProfile.Route.CLOSE);
-        if (bodyActionId < 0) {
-            return; // the weapon has no pose a viewer would draw
-        }
-
-        Map<Integer, AttackTarget> emptyTargets = Collections.emptyMap();
-        chr.getMap().broadcastMessage(
-                chr,
-                BotAttackPackets.closeRangeAttack(chr, skillId, level, facingMask,
-                        /* numAttackedAndDamage */ 0, emptyTargets, BotClientPoses.actionSpeed(weaponId),
-                        bodyActionId, /* display */ 0),
-                false
-        );
-    }
-
-    /**
-     * Broadcast a cosmetic MAGIC skill cast at the air - the character plays the spell cast with no
-     * targets and no damage. Carries the charge int (BotAttackData.magicChargeFor); omitting it on a
-     * keydown CHARGE skill (Big Bang) over-reads the packet and CRASHES viewers, so it must be sent.
-     * Pure visual.
-     */
-    public static void magicSwing(Character chr, int skillId) {
-        if (chr == null || chr.getMap() == null || skillId <= 0) return;
-
-        int facingMask = facingLeft(chr) ? BotAttackData.FACING_LEFT_MASK : BotAttackData.FACING_RIGHT_MASK;
         int weaponId = equippedWeaponId(chr);
-        if (!drawable(skillId, weaponId)) {
-            return; // a mage with no wand or staff: nothing a viewer could draw
+        Packet packet = showOffPacket(chr, profile, resolveSkillLevel(chr, profile.skillId), weaponId,
+                resolveEquippedWeaponType(chr), facingLeft(chr));
+        if (packet != null) {
+            chr.getMap().broadcastMessage(chr, packet, false);
+            if (soloMapling.qa.QaLog.on(soloMapling.qa.QaLog.Topic.ATTACK)) { // !qa bk-1
+                soloMapling.qa.QaLog.map(soloMapling.qa.QaLog.Topic.ATTACK, chr.getMapId(), "SHOWOFF " + chr.getName()
+                        + " " + chr.getJob() + " skill " + profile.skillId + " route " + profile.route + " weapon "
+                        + weaponId);
+            }
         }
-        int level = resolveSkillLevel(skillId);
-        int bodyActionId = BotAttackData.actionFor(skillId, level, weaponId, BotAttackProfile.Route.MAGIC);
-        if (bodyActionId < 0) {
-            return;
-        }
-
-        Map<Integer, AttackTarget> emptyTargets = Collections.emptyMap();
-        chr.getMap().broadcastMessage(
-                chr,
-                BotAttackPackets.magicAttack(chr, skillId, level, facingMask,
-                        /* numAttackedAndDamage */ 0, emptyTargets, BotAttackData.magicChargeFor(skillId),
-                        BotClientPoses.actionSpeed(weaponId), bodyActionId, /* display */ 0),
-                false
-        );
     }
 
-    /**
-     * 1.5.0 rc6 (QA t-rv-4: "saw a skill cannot be used with equipped item"): whether a viewer's client accepts this
-     * skill from a character holding this weapon. The idle show-off swings (BotFlavor) sent the job's skill whatever
-     * the bot held; a remote attack whose skill does not fit the weapon is dropped and the viewer's chat reads "This
-     * skill cannot be used with the equipped item." Every combat swing already checked this (BotSwingPlan).
+    /*
+     * The packet of a show-off attack at the air, or null when the weapon has nothing a viewer would draw. A keydown
+     * or prepared skill (Hurricane, Rapid Fire, Explosion) needs its keydown packet first, so it shows the weapon's
+     * plain attack instead. A skill the weapon cannot use shows the weapon's plain attack too (1.5.0 rc6, QA t-rv-4:
+     * a viewer's chat read "This skill cannot be used with the equipped item.").
      */
-    static boolean drawable(int skillId, int weaponId) {
-        return soloMapling.ArtificialPlayer.BotAttackSystem.BotSkillActions.weaponFits(skillId, weaponId);
+    public static Packet showOffPacket(Character chr, BotAttackProfile profile, int skillLevel, int weaponId,
+                                WeaponType weaponType, boolean left) {
+        BotSwingPlan plan = BotSwingPlan.of(profile, skillLevel, weaponId, left, profile.numDamage);
+        if (plan.prepare() || plan.shots() > 1) {
+            BotAttackProfile plain = profile.route == BotAttackProfile.Route.RANGED
+                    ? BotAttackProfile.ranged(0, 1) : BotAttackProfile.basicSwing();
+            plan = BotSwingPlan.of(plain, 0, weaponId, left, 1);
+        }
+        if (plan.action() < 0 || (plan.route() == BotAttackProfile.Route.MAGIC && plan.skillId() == 0)) {
+            return null; // no pose a viewer would draw (a mage with no wand or staff: no spell)
+        }
+        int projectile = plan.route() == BotAttackProfile.Route.RANGED && BotClientPoses.isShootingWeapon(weaponId)
+                ? BotAttackData.projectileFor(weaponType, chr) : 0;
+        Map<Integer, AttackTarget> emptyTargets = Collections.emptyMap();
+        return BotAttackEffects.attackPacket(chr, plan, emptyTargets, 0, projectile);
     }
 
     private static int equippedWeaponId(Character chr) {
@@ -157,9 +138,16 @@ public final class BotAttack {
         return weapon != null ? weapon.getItemId() : 0;
     }
 
-    // The skill's max level, so the fanciest form of the effect renders. Bots don't learn skills, so
-    // there's no real level to read; 1 is a safe fallback if the skill can't be resolved.
-    private static int resolveSkillLevel(int skillId) {
+    // The bot's own level of the skill (what its real attack sends), else the skill's max level; 1 when the skill
+    // can't be resolved.
+    private static int resolveSkillLevel(Character chr, int skillId) {
+        if (skillId <= 0) {
+            return 0;
+        }
+        int own = chr.getSkillLevel(skillId);
+        if (own > 0) {
+            return own;
+        }
         Skill skill = SkillFactory.getSkill(skillId);
         return skill != null ? skill.getMaxLevel() : 1;
     }
