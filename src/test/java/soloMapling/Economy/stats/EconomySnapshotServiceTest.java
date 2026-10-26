@@ -180,4 +180,52 @@ class EconomySnapshotServiceTest {
         assertEquals(LocalDate.of(2026, 10, 25),
                 EconomySnapshotService.nightlyLabel(java.time.LocalDateTime.of(2026, 10, 25, 23, 59, 59)));
     }
+
+    @Test
+    void nightlyKeepsNinetyDaysOfDatedSnapshots() throws IOException {
+        EconomySnapshotService service = new EconomySnapshotService(tempDir);
+        LocalDate today = LocalDate.of(2026, 10, 25);
+        for (int i = 1; i < 120; i++) {
+            String d = today.minusDays(i).toString();
+            Files.writeString(tempDir.resolve(d + "-public.json"), "{}");
+            Files.writeString(tempDir.resolve(d + "-private.json"), "{}");
+        }
+        Files.writeString(tempDir.resolve("ondemand-public.json"), "{}");
+
+        service.executeSnapshot(today, List::of, List::of, Map::of, true);
+
+        try (var files = Files.list(tempDir)) {
+            assertEquals(90, files.filter(f -> f.getFileName().toString().matches("\\d{4}-\\d{2}-\\d{2}-public\\.json"))
+                    .count(), "the day just written and the 89 before it");
+        }
+        assertTrue(Files.exists(tempDir.resolve(today.minusDays(89) + "-private.json")));
+        assertFalse(Files.exists(tempDir.resolve(today.minusDays(90) + "-public.json")));
+        assertFalse(Files.exists(tempDir.resolve(today.minusDays(90) + "-private.json")));
+        assertTrue(Files.exists(tempDir.resolve("latest-public.json")));
+        assertTrue(Files.exists(tempDir.resolve("ondemand-public.json")));
+    }
+
+    @Test
+    void npcFeesAreASinkInTheirOwnKeyAndTheNightlyClosesTheStoredDay() throws IOException {
+        EconomyCounterPersistenceTest.MemoryStore db = new EconomyCounterPersistenceTest.MemoryStore();
+        EconomyCounterPersistence counters = new EconomyCounterPersistence(db);
+        LocalDate day = LocalDate.of(2026, 10, 25);
+        counters.boot(day);
+        EconomySnapshotService service = new EconomySnapshotService(tempDir, counters);
+        EconomyCounters.recordNpcFee(4_000);
+        EconomyCounters.recordNpcBuy(1_000);
+
+        service.executeSnapshot(day, List::of, List::of, Map::of, true);
+
+        @SuppressWarnings("unchecked")
+        Map<String, Object> doc = (Map<String, Object>) Json.parse(Files.readString(tempDir.resolve("latest-public.json")));
+        @SuppressWarnings("unchecked")
+        Map<String, Object> flows = (Map<String, Object>) doc.get("flows");
+        @SuppressWarnings("unchecked")
+        Map<String, Object> sinks = (Map<String, Object>) flows.get("sinks");
+        assertEquals(4_000L, ((Number) sinks.get("npcFees")).longValue());
+        assertEquals(5_000L, ((Number) flows.get("totalSinks")).longValue());
+        assertEquals(4_000L, db.rows.get(day).get("npc_fee"));
+        assertEquals(day.plusDays(1), counters.windowDay());
+    }
 }

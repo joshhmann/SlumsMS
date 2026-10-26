@@ -56,7 +56,7 @@ function action(mode, type, selection) {
             return;
         }
 
-        player.gainMeso(-mesoCost, false);
+        im.gainMeso(-mesoCost, false); // through im so the cost counts as an NPC fee (1.6.0 Track D)
         im.removeOne(itemId);
 
         im.spawnNpc(npcId);

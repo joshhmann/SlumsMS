@@ -65,7 +65,11 @@ public final class EconomySnapshotService {
     private static final EconomySnapshotService INSTANCE = new EconomySnapshotService(resolveDir());
     private static ScheduledExecutorService scheduler;
 
+    /** How often the day's counters are copied to the database ({@code -Dslums.econ.counterSaveSeconds}). */
+    static final long COUNTER_SAVE_SECONDS = Math.max(30, Long.getLong("slums.econ.counterSaveSeconds", 300));
+
     private final Path outputDir;
+    private volatile EconomyCounterPersistence persistence;
 
     public record CharacterRecord(int id, int level, long meso, boolean isBot) {
     }
@@ -88,6 +92,11 @@ public final class EconomySnapshotService {
 
     public EconomySnapshotService(Path outputDir) {
         this.outputDir = outputDir;
+    }
+
+    public EconomySnapshotService(Path outputDir, EconomyCounterPersistence persistence) {
+        this.outputDir = outputDir;
+        this.persistence = persistence;
     }
 
     /** Where the snapshots go ({@code -Dslums.econ.dir}); the market export reads latest-public.json from here. */
@@ -126,6 +135,25 @@ public final class EconomySnapshotService {
         LocalDateTime nextMidnight = now.toLocalDate().plusDays(1).atStartOfDay();
         long initialDelaySeconds = Duration.between(now, nextMidnight).getSeconds();
 
+        // The day's counters survive a restart (owner 2026-10-26): today's stored totals are added back first, then
+        // copied to the database every few minutes, all on this thread (never the game thread).
+        EconomyCounterPersistence counters = new EconomyCounterPersistence(new EconomyCounterPersistence.Jdbc());
+        getInstance().persistence = counters;
+        scheduler.execute(() -> {
+            try {
+                counters.boot(LocalDate.now(ZoneOffset.UTC));
+            } catch (RuntimeException e) {
+                log.error("Economy counters: restore at boot failed", e);
+            }
+        });
+        scheduler.scheduleWithFixedDelay(() -> {
+            try {
+                counters.save(System.currentTimeMillis());
+            } catch (RuntimeException e) {
+                log.warn("Economy counters: periodic save failed", e);
+            }
+        }, COUNTER_SAVE_SECONDS, COUNTER_SAVE_SECONDS, TimeUnit.SECONDS);
+
         scheduler.scheduleAtFixedRate(() -> {
             try {
                 getInstance().takeNightlySnapshot(LocalDateTime.now(ZoneOffset.UTC));
@@ -142,6 +170,35 @@ public final class EconomySnapshotService {
         if (scheduler != null) {
             scheduler.shutdownNow();
             scheduler = null;
+        }
+    }
+
+    /**
+     * At server shutdown: stops the jobs, waits briefly for a running one, then writes the day's counters one last
+     * time so a restart picks them up.
+     */
+    public static void shutdown() {
+        ScheduledExecutorService s;
+        synchronized (EconomySnapshotService.class) {
+            s = scheduler;
+            scheduler = null;
+        }
+        if (s != null) {
+            s.shutdown();
+            try {
+                s.awaitTermination(10, TimeUnit.SECONDS);
+            } catch (InterruptedException e) {
+                Thread.currentThread().interrupt();
+            }
+        }
+        EconomyCounterPersistence p = getInstance().persistence;
+        if (p != null) {
+            try {
+                p.save(System.currentTimeMillis());
+                log.info("Economy counters saved for {}", p.windowDay());
+            } catch (RuntimeException e) {
+                log.warn("Economy counters: shutdown save failed", e);
+            }
         }
     }
 
@@ -220,6 +277,10 @@ public final class EconomySnapshotService {
 
         // 3. Sources, sinks & transfers (from EconomyCounters)
         EconomyCounters.Snapshot counterSnap = nightly ? EconomyCounters.snapshotAndReset() : EconomyCounters.peek();
+        EconomyCounterPersistence counters = persistence;
+        if (nightly && counters != null) {
+            counters.closeDay(date, counterSnap, System.currentTimeMillis());
+        }
         Map<String, Object> flowsMap = formatFlows(counterSnap);
 
         // 4. Item prices
@@ -257,6 +318,7 @@ public final class EconomySnapshotService {
         if (nightly) {
             writeJsonAtomic(outputDir.resolve("latest-private.json"), privateDoc);
             writeJsonAtomic(outputDir.resolve("latest-public.json"), publicDoc);
+            pruneOldSnapshots(date);
         }
 
         log.info("Economy snapshot complete: {} (Humans: {}, Bots: {}, Gini: H={} B={})",
@@ -272,6 +334,36 @@ public final class EconomySnapshotService {
                 privateFile,
                 publicFile
         );
+    }
+
+    /**
+     * Keeps {@link EconomyCounterPersistence#KEEP_DAYS} days of dated snapshot files (owner 2026-10-26: 90 days), the
+     * day just written included. Only {@code yyyy-mm-dd-public.json} / {@code -private.json} go; the latest and
+     * on-demand files stay, and the website's 365-day price history lives elsewhere (PublicMarketExport).
+     */
+    int pruneOldSnapshots(LocalDate newest) {
+        LocalDate oldestKept = newest.minusDays(EconomyCounterPersistence.KEEP_DAYS - 1);
+        int deleted = 0;
+        try (var ds = Files.newDirectoryStream(outputDir, "????-??-??-*.json")) {
+            for (Path p : ds) {
+                String n = p.getFileName().toString();
+                if (!n.endsWith("-public.json") && !n.endsWith("-private.json")) {
+                    continue;
+                }
+                LocalDate d;
+                try {
+                    d = LocalDate.parse(n.substring(0, 10));
+                } catch (java.time.format.DateTimeParseException e) {
+                    continue;
+                }
+                if (d.isBefore(oldestKept) && Files.deleteIfExists(p)) {
+                    deleted++;
+                }
+            }
+        } catch (IOException e) {
+            log.warn("Economy snapshot prune failed in {}", outputDir, e);
+        }
+        return deleted;
     }
 
     private Map<String, Object> computeMesoSupply(List<CharacterRecord> list) {
@@ -382,6 +474,7 @@ public final class EconomySnapshotService {
         Map<String, Object> sinks = new LinkedHashMap<>();
         sinks.put("npcBuys", snap.npcBuyMesos());
         sinks.put("jobMasterFees", snap.jobMasterFees());
+        sinks.put("npcFees", snap.npcFeeMesos());
         sinks.put("upkeep", snap.upkeepMesos());
         sinks.put("fmTax", snap.fmTaxMesos());
         out.put("sinks", sinks);
