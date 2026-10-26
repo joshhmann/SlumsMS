@@ -22,11 +22,15 @@ public enum AffinityEvent {
     // 1.5.0 bot drama: time together as a couple, and an apology a bot demanded and got (a revenge arc ends)
     ROMANCE(4, 10 * 60),
     APOLOGY(30, 0),
+    // 1.6.0 S3: a trade where the player gave the bot clearly more than it gave (SocialHooks.classify)
+    FAVOR(7, 10 * 60),
     // Lowered by
     KS(-6, 2 * 60),
     DROP_STEAL(-5, 2 * 60),
     DEFAME(-18, 0),
     RUDE_CHAT(-7, 3 * 60),
+    // 1.6.0 S3: a trade where the bot was clearly short-changed against the price index (SocialHooks.classify)
+    SCAM(-20, 10 * 60),
     // Second-hand (gossip): small, and never enough on its own to make a friend or a rival
     HEARSAY_GOOD(3, 60 * 60),
     HEARSAY_BAD(-4, 60 * 60);

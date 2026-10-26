@@ -35,6 +35,26 @@ class RelationshipCardTest {
     }
 
     @Test
+    void episodesTheLastTopicAndAnInsideJokeHaveTheirOwnLines() {
+        // 1.6.0 S3: the best 1-3 things the two did together, what they last talked about, an inside joke
+        String card = RelationshipCard.build(new RelationshipCard.Data("Pinky", AffinityState.NEUTRAL, 0,
+                List.of(new RelationshipCard.Fact("likes pink capes", null, NOW - DAY)), null, null, "Henesys",
+                List.of(), null, null, null, null,
+                List.of(new RelationshipCard.Fact("did KPQ together", null, NOW - 2 * DAY),
+                        new RelationshipCard.Fact("traded me a Red Craven", null, NOW - DAY),
+                        new RelationshipCard.Fact("healed me at ellinia", null, NOW - 3 * DAY),
+                        new RelationshipCard.Fact("buffed me", null, NOW)),
+                new RelationshipCard.Fact("zhelm", null, NOW - DAY), "my pet ate my return scroll"), NOW, ZONE);
+        assertTrue(card.startsWith("About Pinky: you've met before. Between you two: did KPQ together (on Tuesday); "
+                + "traded me a Red Craven (yesterday); healed me at ellinia (on Monday). "), card);
+        assertFalse(card.contains("buffed me"), "at most three: " + card);
+        assertTrue(card.contains("Last time you talked about zhelm (yesterday). "), card);
+        assertTrue(card.contains("Inside joke: \"my pet ate my return scroll\". "), card);
+        assertTrue(card.contains("You remember: likes pink capes (yesterday)."), card);
+        assertTrue(card.length() <= RelationshipCard.MAX_CHARS);
+    }
+
+    @Test
     void feelingsInWords() {
         assertEquals("you don't really know them", RelationshipCard.feeling(AffinityState.NEUTRAL, 0, false));
         assertEquals("you've met before", RelationshipCard.feeling(AffinityState.NEUTRAL, 0, true));

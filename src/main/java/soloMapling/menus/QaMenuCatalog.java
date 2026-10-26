@@ -101,6 +101,9 @@ public final class QaMenuCatalog {
         add("sg-2", v(), steps("check", "taunt", "ks", "roast", "fresh"));
         section("Bot bonds (1.6.0)");
         add("bb-3", v(), steps("fast", "check"), "fast <minutes>");
+        section("Memory kinds (1.6.0)");
+        add("me-1", v(), steps("card", "clear"));
+        add("me-2", v(), steps("check", "scam", "fresh"));
 
         // ── Evening 2: economy ──
         eveningNo = 2;

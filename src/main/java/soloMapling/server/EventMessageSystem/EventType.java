@@ -13,7 +13,10 @@ public enum EventType {
     // Ticket 47: world events a bot megaphone can react to (WorldEventMegaphones).
     BOSS_KILL("Boss Killed"),
     RARE_DROP("Rare Drop"),
-    PQ_FORMING("Party Quest Forming");
+    PQ_FORMING("Party Quest Forming"),
+    // 1.6.0 S3: fired from SocialHooks (EventInstanceManager.clearPQ, Trade.completeTrade).
+    PQ_CLEAR("Party Quest Cleared"),
+    TRADE_DONE("Trade Completed");
 
     private final String description;
 

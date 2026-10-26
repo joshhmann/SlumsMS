@@ -63,7 +63,8 @@ public final class QaLog {
         PQ,             // party quests: entry and stage map data, who is in the instance and OPQ bots' lobby
                         //   lines, joins/leaves and stage transitions (pq-1, pq-2) - appended, bits are stable
         LIKENESS,       // 1.6.0 player likeness: AFK campers, walks instead of snaps while watched, messy chat (lk-1)
-        SOCIAL_GATE;    // 1.6.0 S5: every unprompted bot->player act's yes/no and why, the started-it ledger (sg-1, sg-2)
+        SOCIAL_GATE,    // 1.6.0 S5: every unprompted bot->player act's yes/no and why, the started-it ledger (sg-1, sg-2)
+    MEMORY;         // 1.6.0 S3: episodes, slots and scams bots remember about players, PQ clears and trades (me-1, me-2)
 
         final long bit = 1L << ordinal(); // a long: 33 topics no longer fit an int
     }

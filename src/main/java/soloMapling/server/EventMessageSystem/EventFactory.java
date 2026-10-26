@@ -48,4 +48,18 @@ public class EventFactory {
         return new GameEvent(recruiter, EventType.PQ_FORMING, pqName, null, null);
     }
 
+    /**
+     * 1.6.0 S3: a PQ or boss instance was cleared. {@code member} is one of the people in it (a real player when
+     * there is one); message = the PQ's short name ("KPQ", "zakum"), detail = how many were in the instance. While
+     * subscribers run, {@code member.getEventInstance()} still holds everyone who cleared it.
+     */
+    public static GameEvent createPqClearEvent(Character member, String pqName, int memberCount) {
+        return new GameEvent(member, EventType.PQ_CLEAR, pqName, null, null, memberCount);
+    }
+
+    /** 1.6.0 S3: a trade window went through between {@code a} and {@code b}; message = b's name, detail = b's id. */
+    public static GameEvent createTradeDoneEvent(Character a, Character b) {
+        return new GameEvent(a, EventType.TRADE_DONE, b.getName(), null, null, b.getId());
+    }
+
 }

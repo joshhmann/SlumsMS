@@ -437,8 +437,8 @@ public class Trade {
             if (partner.getItems().isEmpty() && partner.getExchangeMesos() == 0) {
                 soloMapling.ArtificialPlayer.BotConvo.SayDo.event(local.getChr(), soloMapling.ArtificialPlayer.BotConvo.SayDo.Ev.GIFT, 0);
             }
-            soloMapling.server.MapleRootSolo.runHook("affinity trade", () ->   // ticket 58: trades and gifts
-                    soloMapling.ArtificialPlayer.BotAffinitySystem.AffinityHooks.onTrade(local.getChr(), local.getItems(), local.getExchangeMesos(),
+            soloMapling.server.MapleRootSolo.runHook("social trade", () ->   // ticket 58 + 1.6.0 S3: gifts, favors, scams, episodes
+                    soloMapling.ArtificialPlayer.SocialHooks.onTradeDone(local.getChr(), local.getItems(), local.getExchangeMesos(),
                             partner.getChr(), partner.getItems(), partner.getExchangeMesos()));
             soloMapling.server.MapleRootSolo.runHook("price board trade", () ->   // 1.5.0 rc3: @price samples
                     soloMapling.Economy.PriceBook.onWindowTrade(local.getChr(), local.getItems(), local.getExchangeMesos(),

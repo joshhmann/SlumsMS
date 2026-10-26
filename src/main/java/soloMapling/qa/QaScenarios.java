@@ -93,6 +93,7 @@ public final class QaScenarios {
         all.addAll(LikenessScenarios.all()); // 1.6.0 player likeness: AFK campers, walk when watched, messy chat (lk-1)
         all.addAll(SocialGateScenarios.all()); // 1.6.0 S5 social gate: @quiet stops unasked acts (sg-1), started it (sg-2)
         all.addAll(BondScenarios.all()); // 1.6.0 S2 bot bonds: partied bots become friends and a crew (bb-3)
+        all.addAll(MemoryScenarios.all()); // 1.6.0 S3 memory kinds: a PQ clear remembered (me-1), a scam a grudge (me-2)
         return List.copyOf(all);
     }
 

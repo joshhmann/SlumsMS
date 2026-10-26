@@ -112,23 +112,28 @@ class BotAffinityTest {
     }
 
     @Test
-    void grudgesFadeOverDaysFriendshipsOverWeeks() {
+    void grudgesAndFriendshipsFadeOverWeeks() {
+        // 1.6.0 (owner: "fading over weeks"): a grudge halves every two weeks, a friendship every six
+        assertEquals(-20, AffinityRules.faded(-40, 14 * DAY), 1e-9);
+        assertEquals(30, AffinityRules.faded(60, 42 * DAY), 1e-9);
         Tie grudge = new Tie(1, PLAYER, -40, 0, 3, 0);
         assertEquals(AffinityState.RIVAL, AffinityRules.state(grudge, 0, false));
-        assertEquals(AffinityState.RIVAL, AffinityRules.state(grudge, 12 * HOUR, false));
-        assertEquals(AffinityState.NEUTRAL, AffinityRules.state(grudge, 3 * DAY, false));
+        assertEquals(AffinityState.RIVAL, AffinityRules.state(grudge, 7 * DAY, false), "a rival still a week later");
+        assertEquals(AffinityState.NEUTRAL, AffinityRules.state(grudge, 21 * DAY, false), "cooled off in three weeks");
         Tie nemesis = new Tie(1, PLAYER, -85, 0, 8, 0);
         assertEquals(AffinityState.NEMESIS, AffinityRules.state(nemesis, 0, false));
-        assertEquals(AffinityState.NEUTRAL, AffinityRules.state(nemesis, 7 * DAY, false), "even a nemesis fades in a week");
+        assertEquals(AffinityState.NEMESIS, AffinityRules.state(nemesis, 3 * DAY, false), "a nemesis lasts days");
+        assertEquals(AffinityState.NEUTRAL, AffinityRules.state(nemesis, 42 * DAY, false), "and fades in six");
         Tie friend = new Tie(1, PLAYER, 60, 5, 0, 0);
-        assertEquals(AffinityState.FRIEND, AffinityRules.state(friend, 7 * DAY, false));
-        assertEquals(AffinityState.NEUTRAL, AffinityRules.state(friend, 21 * DAY, false));
+        assertEquals(AffinityState.FRIEND, AffinityRules.state(friend, 21 * DAY, false));
+        assertEquals(AffinityState.FRIEND, AffinityRules.state(friend, 42 * DAY, false), "still friends after six weeks");
+        assertEquals(AffinityState.NEUTRAL, AffinityRules.state(friend, 70 * DAY, false));
     }
 
     @Test
     void aFadedHistoryStartsOver() {
         Tie t = new Tie(1, PLAYER, -30, 0, 9, 0);
-        AffinityRules.apply(t, AffinityEvent.KS, 30 * DAY, false);
+        AffinityRules.apply(t, AffinityEvent.KS, 120 * DAY, false);
         assertEquals(1, t.hostile(), "old hostile count forgotten once the score faded");
     }
 

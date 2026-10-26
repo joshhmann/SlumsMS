@@ -6,9 +6,9 @@ import java.util.concurrent.TimeUnit;
  * The arithmetic of ticket 58, pure and tested: how an event moves a tie, how a tie fades, and which state a tie is in.
  *
  * <ul>
- *   <li>Scores run -100..100 and fade toward 0 with time: a grudge halves every {@code grudgeHalfLifeHours} (72), so a
- *   rival cools off within a couple of days and even a nemesis within about a week; a friendship halves every
- *   {@code friendHalfLifeDays} (14).</li>
+ *   <li>Scores run -100..100 and fade toward 0 with time, over weeks unless renewed (owner, 1.6.0): a grudge halves
+ *   every {@code grudgeHalfLifeHours} (336, two weeks), so a rival cools off within about three weeks and a nemesis
+ *   within about six; a friendship halves every {@code friendHalfLifeDays} (42, six weeks).</li>
  *   <li>A state needs history: a friend needs {@code friendAt} (25) and 3 kind things; a rival {@code rivalAt} (-25)
  *   and 2 hostile things; a nemesis {@code nemesisAt} (-65) and 5 hostile things. One bad moment never makes a
  *   nemesis, one buff never makes a friend.</li>
@@ -50,11 +50,11 @@ public final class AffinityRules {
     }
 
     static long grudgeHalfLifeMs() {
-        return (long) (prop("grudgeHalfLifeHours", 72) * TimeUnit.HOURS.toMillis(1));
+        return (long) (prop("grudgeHalfLifeHours", 14 * 24) * TimeUnit.HOURS.toMillis(1));
     }
 
     static long friendHalfLifeMs() {
-        return (long) (prop("friendHalfLifeDays", 14) * TimeUnit.DAYS.toMillis(1));
+        return (long) (prop("friendHalfLifeDays", 42) * TimeUnit.DAYS.toMillis(1));
     }
 
     /** The score {@code dtMs} after it was {@code score}: halves every half-life (grudges faster than friendships). */
