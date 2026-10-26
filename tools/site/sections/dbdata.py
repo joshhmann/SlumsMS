@@ -2,7 +2,8 @@
 quests .json), cut down to what a player can actually reach. Shared by the database section and tools/site/icons.py.
 
 Reachable, for v1:
-    map    has a name and something on it (monsters or NPCs)
+    map    has a name and something on it (monsters or NPCs); "a name" never means a Korean-only one, which is
+           untranslated, unreleased content in this data
     mob    has a name and spawns on a reachable map
     npc    has a name and stands on a reachable map
     quest  has a name and starts at a reachable NPC
@@ -11,6 +12,7 @@ Cross-links to anything outside the reachable set are dropped, so every link on 
 """
 import json
 import os
+import re
 
 KINDS = ["items", "mobs", "maps", "npcs", "quests"]
 DEFAULT_DIR = os.environ.get("SLUMS_HS_DATA", "/root/work/SlumsMS-152-site/data/hiddenstreet")
@@ -19,6 +21,25 @@ DEFAULT_DIR = os.environ.get("SLUMS_HS_DATA", "/root/work/SlumsMS-152-site/data/
 def _load(path):
     with open(path, encoding="utf-8") as f:
         return json.load(f)
+
+
+HANGUL = re.compile(r"[\uac00-\ud7af\u1100-\u11ff\u3130-\u318f]")
+
+
+def named(v):
+    """Has a name a player would see. Korean-only names are untranslated, unreleased content in this data."""
+    name = (v.get("name") or "").strip()
+    return bool(name) and not HANGUL.search(name)
+
+
+def _by(rows, key):
+    """One row per key (the first, which build_data.py writes for the main spawn or listing)."""
+    seen, out = set(), []
+    for r in rows:
+        if r.get(key) not in seen:
+            seen.add(r.get(key))
+            out.append(r)
+    return out
 
 
 def _dedupe(rows):
@@ -33,16 +54,16 @@ def _dedupe(rows):
 
 def reachable(raw):
     """raw: {kind: {id: record}} as build_data.py writes it -> the same shape, filtered, with ids as ints."""
-    maps = {int(k): v for k, v in raw["maps"].items() if v.get("name") and (v.get("mobs") or v.get("npcs"))}
+    maps = {int(k): v for k, v in raw["maps"].items() if named(v) and (v.get("mobs") or v.get("npcs"))}
     mobs = {int(k): v for k, v in raw["mobs"].items()
-            if v.get("name") and any(m.get("map_id") in maps for m in v.get("maps") or [])}
+            if named(v) and any(m.get("map_id") in maps for m in v.get("maps") or [])}
     npcs = {int(k): v for k, v in raw["npcs"].items()
-            if v.get("name") and any(m.get("map_id") in maps for m in v.get("maps") or [])}
+            if named(v) and any(m.get("map_id") in maps for m in v.get("maps") or [])}
     quests = {int(k): v for k, v in raw["quests"].items()
-              if v.get("name") and (v.get("start_npc") or {}).get("id") in npcs}
+              if named(v) and (v.get("start_npc") or {}).get("id") in npcs}
     items = {}
     for k, v in raw["items"].items():
-        if not v.get("name"):
+        if not named(v):
             continue
         drops = [d for d in _dedupe(v.get("drops")) if d.get("mob_id") in mobs]
         shops = [s for s in _dedupe(v.get("shops")) if s.get("npc_id") in npcs]
@@ -52,14 +73,17 @@ def reachable(raw):
             items[int(k)] = dict(v, drops=drops, shops=shops, quests_reward=rewards, quests_require=needs)
     # trim every other cross-link to the reachable set
     for v in mobs.values():
-        v["maps"] = [m for m in _dedupe(v.get("maps")) if m.get("map_id") in maps]
+        v["maps"] = _by([m for m in _dedupe(v.get("maps")) if m.get("map_id") in maps], "map_id")
         v["drops"] = [d for d in _dedupe(v.get("drops")) if d.get("item_id") == 0 or d.get("item_id") in items]
     for v in maps.values():
         v["mobs"] = [m for m in _dedupe(v.get("mobs")) if m.get("mob_id") in mobs]
         v["npcs"] = [n for n in _dedupe(v.get("npcs")) if n.get("npc_id") in npcs]
         v["portals"] = [p for p in _dedupe(v.get("portals")) if p.get("target_map_id") in maps]
     for v in npcs.values():
-        v["maps"] = [m for m in _dedupe(v.get("maps")) if m.get("map_id") in maps]
+        # several copies of one town (same name and street, different ids): list it once, as the lowest id
+        here = sorted((m for m in _dedupe(v.get("maps")) if m.get("map_id") in maps), key=lambda m: m["map_id"])
+        v["maps"] = _by([dict(m, place=(maps[m["map_id"]].get("street"), maps[m["map_id"]]["name"])) for m in here],
+                        "place")
         v["shop_items"] = [s for s in _dedupe(v.get("shop_items")) if s.get("item_id") in items]
         v["quests_start"] = [q for q in _dedupe(v.get("quests_start")) if q.get("quest_id") in quests]
         v["quests_end"] = [q for q in _dedupe(v.get("quests_end")) if q.get("quest_id") in quests]

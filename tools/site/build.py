@@ -46,7 +46,7 @@ sys.path.insert(0, HERE)
 import check  # noqa: E402
 import common  # noqa: E402
 from common import REPO, SRC, esc  # noqa: E402
-from sections import guide, notes, pages  # noqa: E402
+from sections import database, guide, notes, pages  # noqa: E402
 
 # kept here so older callers and the tests can keep using build.<name>
 from common import inline, layout, meta_comment, slug  # noqa: E402,F401
@@ -54,7 +54,8 @@ from sections.guide import clean_wiki, wiki_body, wiki_nav  # noqa: E402,F401
 from sections.notes import TAGS, parse_release, render_release  # noqa: E402,F401
 
 PUBLIC = ["notes", "guide", "pages"]
-PRIVATE = []  # "database", "market": private until 1.6.0 is live (plan steps 5 and 7)
+PRIVATE = ["database"]  # and "market" (plan step 7): private until 1.6.0 is live
+HS_DATA = None  # --hs-data: the build_data.py output for the database (default: sections/dbdata.py DEFAULT_DIR)
 
 
 def copy_assets(out):
@@ -75,6 +76,8 @@ def build_section(name, out, rels):
         return notes.build(out)
     if name == "guide":
         return guide.build(out)
+    if name == "database":
+        return database.build(out, HS_DATA)
     if name == "pages":
         pages.build_home(out, rels)
         pages.build_report(out)
@@ -140,7 +143,10 @@ def main():
     ap.add_argument("--no-tar", action="store_true")
     ap.add_argument("--private", action="store_true", help="include the private sections (Database, Market)")
     ap.add_argument("--section", help="rebuild only this section inside an existing --out")
+    ap.add_argument("--hs-data", help="Hidden Street dataset folder for the database section")
     args = ap.parse_args()
+    global HS_DATA
+    HS_DATA = args.hs_data
     out = args.out or os.path.join(REPO, "dist", "site-private" if args.private else "site")
     if args.section:
         rebuild_section(args.section, out, args.private)

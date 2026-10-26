@@ -113,6 +113,12 @@ class CheckTest(unittest.TestCase):
         self.page("guide/leveling.html", "<td>164</td><p>192.168.0.164</p>")
         self.assertTrue(check.check_forbidden(self.root))
 
+    def test_game_names_with_forbidden_words(self):
+        self.page("database/quests/3360.html", "<h1>Verifying the Password</h1><p>The Cave&#x27;s Password</p>")
+        self.assertEqual(check.check_forbidden(self.root), [])
+        self.page("database/quests/3360.html", "<h1>Verifying the Password</h1><p>my password is</p>")
+        self.assertTrue(check.check_forbidden(self.root))
+
     def test_allowlist_is_exact(self):
         old = check.ALLOW
         check.ALLOW = [("guide/a.html", "<td>slums-patch</td>")]
@@ -205,6 +211,40 @@ class MarkdownTest(unittest.TestCase):
             self.assertEqual(rel["counts"]["fix"], 1)
         finally:
             shutil.rmtree(tmp)
+
+
+class DbDataTest(unittest.TestCase):
+    def raw(self):
+        return {
+            "maps": {"1": {"name": "Henesys", "street": "Henesys", "npcs": [{"npc_id": 10}], "mobs": [{"mob_id": 20}],
+                           "portals": [{"target_map_id": 2}, {"target_map_id": 99}]},
+                     "2": {"name": "Henesys", "street": "Henesys", "npcs": [{"npc_id": 10}]},
+                     "3": {"name": "", "mobs": [{"mob_id": 21}]},
+                     "4": {"name": "\uc7a5\ub85c", "npcs": [{"npc_id": 11}]}},
+            "mobs": {"20": {"name": "Snail", "maps": [{"map_id": 1}, {"map_id": 1}],
+                            "drops": [{"item_id": 0}, {"item_id": 30}, {"item_id": 31}]},
+                     "21": {"name": "Ghost", "maps": [{"map_id": 3}]}},
+            "npcs": {"10": {"name": "Rina", "maps": [{"map_id": 2}, {"map_id": 1}]},
+                     "11": {"name": "Hidden", "maps": [{"map_id": 4}]}},
+            "quests": {"40": {"name": "Hi", "start_npc": {"id": 10}}, "41": {"name": "Nope", "start_npc": {"id": 11}}},
+            "items": {"30": {"name": "Shell", "drops": [{"mob_id": 20}, {"mob_id": 20}]},
+                      "31": {"name": "Orphan", "drops": [{"mob_id": 21}]}},
+        }
+
+    def test_reachable(self):
+        from sections import dbdata
+        d = dbdata.reachable(self.raw())
+        self.assertEqual(sorted(d["maps"]), [1, 2])          # unnamed and Korean-only maps are out
+        self.assertEqual(sorted(d["mobs"]), [20])             # Ghost only spawns on an unreachable map
+        self.assertEqual(sorted(d["npcs"]), [10])
+        self.assertEqual(sorted(d["quests"]), [40])           # starts at an unreachable NPC
+        self.assertEqual(sorted(d["items"]), [30])            # dropped only by an unreachable mob
+        self.assertEqual(len(d["items"][30]["drops"]), 1)     # duplicate rows collapse
+        self.assertEqual([x["item_id"] for x in d["mobs"][20]["drops"]], [0, 30])
+        self.assertEqual(len(d["mobs"][20]["maps"]), 1)
+        self.assertEqual([p["target_map_id"] for p in d["maps"][1]["portals"]], [2])
+        # two copies of one town are listed once, as the lowest id
+        self.assertEqual([m["map_id"] for m in d["npcs"][10]["maps"]], [1])
 
 
 if __name__ == "__main__":

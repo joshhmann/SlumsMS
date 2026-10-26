@@ -35,6 +35,13 @@ FORBIDDEN_PATTERNS = [
 # Places where a forbidden string is harmless data, matched exactly. Keep this list short and explain each entry.
 ALLOW = []
 
+# Game text that contains a forbidden word, allowed on any page because it is the game's own name for something
+# (the database lists every quest). Matched exactly, with the HTML-escaped spellings, so the word alone still fails.
+GAME_TEXT = [
+    "The Cave's Password", "The Cave&#x27;s Password",  # quest 21730
+    "Verifying the Password",                            # quest 3360
+]
+
 TEXT_EXT = {".html", ".css", ".svg", ".txt", ".xml", ".json", ".js", ".md"}
 
 
@@ -55,6 +62,8 @@ def check_forbidden(root):
         for page, literal in ALLOW:
             if page == rel:
                 text = text.replace(literal, "")
+        for literal in GAME_TEXT:
+            text = text.replace(literal, "")
         low = text.lower()
         for bad in FORBIDDEN:
             i = low.find(bad.lower())
