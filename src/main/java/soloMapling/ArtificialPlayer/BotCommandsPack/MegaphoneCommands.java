@@ -22,6 +22,7 @@ public class MegaphoneCommands {
 
     public static void BotItemMegaphone(Character fakechar, String message, Item item) {
         soloMapling.ArtificialPlayer.BotConvo.SayDo.said(fakechar, null, message, "megaphone");
+        soloMapling.site.SiteFeed.megaphone(fakechar, message); // 1.6.0 Track D: the website's feed (memory only)
         String msg = fakechar.getName() + " : " + message; // medal + // optional medal
         boolean whisper = true;
         BotNoiseFilter.broadcastBotMegaphone(world().getId(), PacketCreator.itemMegaphone(msg, whisper, fakechar.getClient().getChannel(), item));
@@ -38,10 +39,12 @@ public class MegaphoneCommands {
 
     public static void BotSuperMegaphone(Character fakechar, String msg) {
         soloMapling.ArtificialPlayer.BotConvo.SayDo.said(fakechar, null, msg, "megaphone");
+        soloMapling.site.SiteFeed.megaphone(fakechar, msg); // 1.6.0 Track D: the website's feed (memory only)
         BotSuperMegaphone(fakechar, msg, true);
     }
 
     private static void BotAvatarMegaphone(Character fakechar, String message, int itemId) {
+        soloMapling.site.SiteFeed.megaphone(fakechar, message); // 1.6.0 Track D: the website's feed (memory only)
         LinkedList list = stringTo4LineLinkedList(message);
         String medal = "";
         boolean ear = true;

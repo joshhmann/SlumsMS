@@ -165,6 +165,13 @@ public class Trade {
         chr.sendPacket(PacketCreator.getTradeResult(number, result));
     }
 
+    /** Whether this side has put anything in the window (items or mesos). */
+    boolean hasOffer() {
+        synchronized (items) {
+            return meso > 0 || !items.isEmpty();
+        }
+    }
+
     private void cancel(byte result) {
         boolean show = YamlConfig.config.server.USE_DEBUG;
 
@@ -444,6 +451,7 @@ public class Trade {
                     soloMapling.Economy.PriceBook.onWindowTrade(local.getChr(), local.getItems(), local.getExchangeMesos(),
                             partner.getChr(), partner.getItems(), partner.getExchangeMesos()));
             logTrade(local, partner);
+            soloMapling.site.TradeRatings.completed(local.getChr(), partner.getChr()); // 1.6.0 Track D: trade ratings
             local.completeTrade();
             partner.completeTrade();
             local.setCallbackSuccessfulTrade();
@@ -461,6 +469,10 @@ public class Trade {
             return;
         }
 
+        if (trade.getPartner() != null) { // 1.6.0 Track D: a window with an offer in it that closes fell through
+            soloMapling.site.TradeRatings.fellThrough(trade.getChr(), trade.getPartner().getChr(),
+                    trade.hasOffer() || trade.getPartner().hasOffer());
+        }
         trade.cancel(selfResult);
         if (trade.getPartner() != null) {
             trade.getPartner().cancel(partnerResult);
@@ -661,6 +673,9 @@ public class Trade {
     }
 
     private static String getFormattedItemLogMessage(List<Item> items) {
+        if (items.isEmpty()) {
+            return "[]"; // no item names to look up (and no item data needed, e.g. a mesos-only trade in a test)
+        }
         StringJoiner sj = new StringJoiner(", ", "[", "]");
         ItemInformationProvider ii = ItemInformationProvider.getInstance();
         for (Item item : items) {

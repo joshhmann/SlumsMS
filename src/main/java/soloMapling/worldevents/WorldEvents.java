@@ -433,6 +433,9 @@ public final class WorldEvents {
                 + " ch" + e.channel + ", bots lv " + e.minLevel + "-" + e.maxLevel + ", cap " + crowdCap(t)
                 + (e.bossOid >= 0 ? ", boss HP " + bossHpOf(e, map) : "") + ", by " + by);
         WorldEventFeed.started(e, now); // public Discord feed (-Dslumsms.announceFile), off the game thread
+        boolean hidden = t.kind() == EventTemplate.Kind.TREASURE_HUNT; // the site names the region, as the notice does
+        soloMapling.site.SiteFeed.eventStarted(t.name(), hidden ? e.regionName : e.mapName, hidden ? 0 : e.mapId(),
+                e.channel); // 1.6.0 Track D: the website's feed (memory only)
         log("[WorldEvents] started " + e.describe(now));
         if (t.kind() != EventTemplate.Kind.TREASURE_HUNT) {
             WorldEventReactions.recruit(e, rng); // treasure: bots only go once the last hint names the map
@@ -725,11 +728,44 @@ public final class WorldEvents {
             WorldEventReactions.news(e, map); // 1.6.0 S4: "remember the cake lol" for hours after
         }
         log("[WorldEvents] ended " + e.describe(e.endedAt));
+        if (!"server stopping".equals(reason)) {
+            siteFeedEnded(e, reason); // 1.6.0 Track D: the website's feed (memory only)
+        }
         qa("WEVENT END #" + e.id + " " + e.template.id() + " (" + reason + "), " + e.joinedBots.size()
                 + " bots joined, " + e.botDeaths() + " bot deaths" + (e.winnerName != null ? ", winner "
                 + e.winnerName + " (" + e.winnerDamage + " dmg)" : ", no real winner"));
         if (!BotShutdown.isQuiesced()) {
             ExecutorServiceManager.runAsync(this::saveState); // lastEndedAt: a restart keeps the cooldowns
+        }
+    }
+
+    /**
+     * 1.6.0 Track D: an ended event for the website's feed. Won: a boss or cake beaten (by anyone, bots included), the
+     * treasure found or the quest done; lost: time ran out on something that could be won; ended: a hot spot, a
+     * wedding or a visit is over. The name is the top damage (bot or player), else the real winner.
+     */
+    static String siteOutcome(EventTemplate.Kind kind, String reason, String winnerName, String topDamageName) {
+        if (kind == EventTemplate.Kind.HOT_SPOT || kind == EventTemplate.Kind.WEDDING
+                || (kind == EventTemplate.Kind.WANDERING_NPC && winnerName == null)) {
+            return "ended";
+        }
+        if (winnerName != null || topDamageName != null || "boss killed".equals(reason) || "boss gone".equals(reason)
+                || "won".equals(reason)) {
+            return "won";
+        }
+        return reason != null && reason.startsWith("stopped by") ? "ended" : "lost";
+    }
+
+    private static void siteFeedEnded(ActiveEvent e, String reason) {
+        try {
+            EventTemplate.Kind kind = e.template.kind();
+            String outcome = siteOutcome(kind, reason, e.winnerName, e.topDamageName);
+            String top = e.topDamageName != null ? e.topDamageName : e.winnerName;
+            boolean hidden = kind == EventTemplate.Kind.TREASURE_HUNT && !"won".equals(outcome);
+            soloMapling.site.SiteFeed.eventEnded(e.template.name(), hidden ? e.regionName : e.mapName,
+                    hidden ? 0 : e.mapId(), e.channel, outcome, "won".equals(outcome) ? top : null, e.topDamage);
+        } catch (RuntimeException ex) {
+            log("[WorldEvents] site feed: " + ex);
         }
     }
 
@@ -965,6 +1001,8 @@ public final class WorldEvents {
         Winner w = topReal(damage, id -> here.containsKey(id) ? !BotHelpers.isBot(here.get(id))
                 : !BotHelpers.isArtificial(id));
         Character winner = w == null ? null : here.get(w.charId());
+        e.topDamage = siteTop(damage, here); // 1.6.0 Track D: the top 3 damage, bots and players, for the site's feed
+        e.topDamageName = e.topDamage.isEmpty() ? null : e.topDamage.getFirst().name();
         if (winner == null && killer != null && !BotHelpers.isBot(killer)) {
             winner = killer;
         }
@@ -1005,6 +1043,23 @@ public final class WorldEvents {
                 + countBots(damage.keySet()) + " of them bots (" + botDamage + " of " + total + " dmg), winner "
                 + (e.winnerName == null ? "none (no real player hit it)" : e.winnerName + " " + e.winnerDamage + " dmg")
                 + ", " + takers.size() + " real player(s) take part");
+    }
+
+    /** The top 3 damage dealers still on the map who may appear on the site, most damage first. */
+    static List<soloMapling.site.SiteFeed.Top> siteTop(Map<Integer, Long> damage, Map<Integer, Character> here) {
+        List<Map.Entry<Integer, Long>> rows = new ArrayList<>(damage.entrySet());
+        rows.sort(Map.Entry.<Integer, Long>comparingByValue().reversed().thenComparing(Map.Entry.comparingByKey()));
+        List<soloMapling.site.SiteFeed.Top> out = new ArrayList<>();
+        for (Map.Entry<Integer, Long> r : rows) {
+            Character chr = here.get(r.getKey());
+            if (chr != null && r.getValue() > 0 && soloMapling.site.SiteFeed.isPublic(chr)) {
+                out.add(new soloMapling.site.SiteFeed.Top(chr.getName(), r.getValue()));
+                if (out.size() == 3) {
+                    break;
+                }
+            }
+        }
+        return out;
     }
 
     /** The real attacker with the most damage. Pure. */

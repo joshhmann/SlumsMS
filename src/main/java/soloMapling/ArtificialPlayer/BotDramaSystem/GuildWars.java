@@ -219,6 +219,10 @@ public final class GuildWars {
         if (theirs != null) {
             BotGuilds.sayInGuild(theirs, DramaKit.pick("WarDeclaredTheirs", Map.of("GUILD", b.name(), "RIVAL", a.name())));
         }
+        if (!w.staged()) { // 1.6.0 Track D: the website's feed; bot guilds on both sides only
+            soloMapling.site.SiteFeed.guildDrama("guild_war", a.name() + " declared war on " + b.name() + ".",
+                    new String[]{a.name(), b.name()}, BotGuilds.isBotGuild(a.guildId()) && BotGuilds.isBotGuild(b.guildId()));
+        }
         qa(0, "WAR DECLARED " + a.name() + " vs " + b.name() + " (#" + w.id() + ", " + by + ") for "
                 + TimeUnit.MILLISECONDS.toDays(GuildWarRules.warMs()) + " days; " + mega);
         return w;

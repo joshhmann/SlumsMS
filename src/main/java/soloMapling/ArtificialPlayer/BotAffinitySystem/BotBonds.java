@@ -277,6 +277,14 @@ public final class BotBonds {
                 log.debug("No chart push for bot {}", botId, e);
             }
         }
+        if (after == AffinityState.NEMESIS && before != AffinityState.NEMESIS) { // 1.6.0 Track D: website feed
+            Character holder = lookup.online(botId);
+            Character other = lookup.online(otherId);
+            if (holder != null && other != null) {
+                soloMapling.site.SiteFeed.drama("rivalry", holder.getName() + " has a new nemesis: " + other.getName() + ".",
+                        new int[]{botId, otherId}, new String[]{holder.getName(), other.getName()});
+            }
+        }
         if (QaLog.on(QaLog.Topic.AFFINITY)) { // !qa bb-3 (runs that watch the bot's map, or every map)
             Character holder = lookup.online(botId);
             QaLog.map(QaLog.Topic.AFFINITY, holder == null ? 0 : holder.getMapId(), "BONDS " + name(botId) + " -> " + name(otherId) + " "

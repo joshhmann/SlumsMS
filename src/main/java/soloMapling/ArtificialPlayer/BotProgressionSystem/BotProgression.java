@@ -150,13 +150,17 @@ public final class BotProgression {
      * points, so those are only spent (and the job advanced) here.
      */
     public static void afterLevelUp(Character bot, int levelBefore) {
+        int jobBefore = bot.getJob().getId();
         progress(bot, levelBefore);
+        soloMapling.site.SiteFeed.jobChanged(bot, jobBefore, bot.getJob().getId()); // 1.6.0 Track D: website feed
         BotGear.afterProgress(bot);   // real bots 10: gear it can wear now
     }
 
     /** The offscreen gain path: the levels above {@code levelBefore} came without any points; grant and spend them. */
     public static void afterOffscreenLevels(Character bot, int levelBefore) {
+        int jobBefore = bot.getJob().getId();
         progress(bot, bot.getLevel());
+        soloMapling.site.SiteFeed.jobChanged(bot, jobBefore, bot.getJob().getId()); // 1.6.0 Track D: website feed
         BotGear.afterProgress(bot);
     }
 

@@ -44,6 +44,7 @@ public final class PlayerMegaphones {
 
     /** A real player used a megaphone with this text (several lines joined by a space). Returns at once. */
     public static void onUse(Character player, String text) {
+        soloMapling.site.SiteFeed.megaphone(player, text); // 1.6.0 Track D: the website's feed (memory only, never throws)
         try {
             if (player == null || text == null || BotHelpers.isBot(player)
                     || "false".equalsIgnoreCase(System.getProperty("solomapling.playerMegaphones", "true"))) {

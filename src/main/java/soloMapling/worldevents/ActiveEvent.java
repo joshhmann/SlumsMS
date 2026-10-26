@@ -52,6 +52,10 @@ public final class ActiveEvent {
     final Set<Integer> participants = ConcurrentHashMap.newKeySet();
     /** 1.6.0: the top real damage on the boss, for notices and memory. */
     volatile long winnerDamage;
+    /** 1.6.0 Track D: whoever did the most damage to the boss, bot or player (the site's feed); null when none. */
+    volatile String topDamageName;
+    /** 1.6.0 Track D: the top 3 damage dealers on the boss (public characters only), for the site's feed. */
+    volatile java.util.List<soloMapling.site.SiteFeed.Top> topDamage = java.util.List.of();
     volatile long lastGrumbleAt;
     /** 1.6.0: the next wave of a giant cake's little cakes (they keep coming while the cake stands). */
     volatile int cakeWave;
@@ -88,6 +92,16 @@ public final class ActiveEvent {
 
     public String winnerName() {
         return winnerName;
+    }
+
+    /** The region a treasure hunt names instead of its map. */
+    public String regionName() {
+        return regionName;
+    }
+
+    /** 1.6.0 Track D: the top damage on the event's boss, bot or player; null when there was no boss fight. */
+    public String topDamageName() {
+        return topDamageName;
     }
 
     public boolean finished() {

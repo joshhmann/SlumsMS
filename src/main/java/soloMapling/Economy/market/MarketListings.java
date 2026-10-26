@@ -67,7 +67,7 @@ public final class MarketListings {
                 m.put("room", room(shop.mapId()));
                 m.put("shop_title", shop.title() == null ? "" : shop.title());
                 m.put("seller_name", shop.seller() == null ? "" : shop.seller());
-                m.put("seller_kind", shop.bot() ? "bot" : "player");
+                // no seller_kind: the site's build refuses bot/player flags (one server; site session 2026-10-26)
                 m.put("shop_type", shop.merchant() ? "merchant" : "player_shop");
                 rows.add(m);
                 listed++;

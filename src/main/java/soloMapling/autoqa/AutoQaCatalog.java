@@ -960,6 +960,15 @@ public final class AutoQaCatalog {
                         has("MK1 FILE prices/index\\.json ok "),
                         has("MK1 PASS files=\\d+"), lacks("MK1 FAIL "), lacks("MK1 STEP FAIL "))
                 .build());
+        // 1.6.0 Track D: the website's feed, leaderboards and live-world files. A forced export writes all three, each
+        // parses and has its shape (schema 1, the lists within their limits, no character ids)
+        c.add(Check.auto("t-sf-1", "A forced site export writes feed, leaderboards and world files with the agreed shape").minutes(2)
+                .step(run("sf-1"), waitFor("SF1 (PASS|FAIL) ", 90))
+                .expect(has("SF1 FILE feed\\.json ok \\d+ bytes items=\\d+"),
+                        has("SF1 FILE leaderboards\\.json ok \\d+ bytes level=\\d+ "),
+                        has("SF1 FILE world\\.json ok \\d+ bytes online=\\d+ "),
+                        has("SF1 PASS files=3"), lacks("SF1 FAIL "), lacks("SF1 STEP FAIL "), lacks("SF1 SHAPE "))
+                .build());
         return List.copyOf(c);
     }
 

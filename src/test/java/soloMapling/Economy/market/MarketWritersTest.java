@@ -60,7 +60,7 @@ class MarketWritersTest {
         assertEquals(1, cheapest.get("bundles"));
         assertEquals(2000L, cheapest.get("bundle_price"));
         assertEquals("Josh", cheapest.get("seller_name"));
-        assertEquals("player", cheapest.get("seller_kind"));
+        assertFalse(cheapest.containsKey("seller_kind"), "no bot/player flag in a published file");
         assertEquals("player_shop", cheapest.get("shop_type"));
         assertNull(cheapest.get("room"));
         assertEquals(1, cheapest.get("channel"));
@@ -68,7 +68,6 @@ class MarketWritersTest {
         Map<String, Object> bot = rows.get(1);
         assertEquals(50L, bot.get("price"));
         assertEquals("BotBob", bot.get("seller_name"));
-        assertEquals("bot", bot.get("seller_kind"));
         assertEquals("merchant", bot.get("shop_type"));
         assertEquals(7, bot.get("room"));
         assertEquals(910000007, bot.get("map_id"));
@@ -76,7 +75,7 @@ class MarketWritersTest {
         assertEquals("", rows.get(2).get("name"), "an item with no WZ name gets an empty name, never null");
         assertEquals(30000L, rows.get(2).get("price"), "a star set is priced per set");
         assertEquals(List.of("item_id", "name", "qty", "bundles", "price", "bundle_price", "channel", "map_id", "room",
-                "shop_title", "seller_name", "seller_kind", "shop_type"), new ArrayList<>(cheapest.keySet()));
+                "shop_title", "seller_name", "shop_type"), new ArrayList<>(cheapest.keySet()));
     }
 
     @Test

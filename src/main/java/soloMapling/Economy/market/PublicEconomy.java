@@ -30,8 +30,55 @@ public final class PublicEconomy {
     }
 
     /** The headline plus the floored snapshot; {@code latestPublic} may be null (no nightly snapshot yet). */
-    @SuppressWarnings("unchecked")
     public static Map<String, Object> file(Map<String, Object> latestPublic, Live live, long now) {
+        return file(latestPublic, live, List.of(), now);
+    }
+
+    /** Days kept in {@code days} (owner/site 2026-10-26). */
+    public static final int DAYS = 30;
+
+    /**
+     * {@code days}: up to {@link #DAYS} UTC days, oldest first, ending today: {@code date}, {@code mesos_total} (all
+     * mesos held, from that day's nightly snapshot; null when there is none), {@code mesos_made} (sources: mob drops,
+     * NPC sales, quest rewards) and {@code mesos_spent} (sinks: NPC shops, job advance and NPC fees, upkeep, FM tax),
+     * from the stored economy counters (migration 032); null when the day has no counters. A day with neither is left
+     * out. Pure.
+     */
+    public static List<Map<String, Object>> days(java.time.LocalDate today,
+                                                 Map<java.time.LocalDate, Map<String, Long>> counters,
+                                                 Map<java.time.LocalDate, Long> totals) {
+        List<Map<String, Object>> out = new ArrayList<>();
+        for (int back = DAYS - 1; back >= 0; back--) {
+            java.time.LocalDate d = today.minusDays(back);
+            Map<String, Long> c = counters.get(d);
+            Long total = totals.get(d);
+            if ((c == null || c.isEmpty()) && total == null) {
+                continue;
+            }
+            Map<String, Object> row = new LinkedHashMap<>();
+            row.put("date", d.toString());
+            row.put("mesos_total", total);
+            row.put("mesos_made", c == null || c.isEmpty() ? null : sum(c, MADE));
+            row.put("mesos_spent", c == null || c.isEmpty() ? null : sum(c, SPENT));
+            out.add(row);
+        }
+        return out;
+    }
+
+    static final List<String> MADE = List.of("mob_drops_human", "mob_drops_bot", "npc_sell", "quest_reward");
+    static final List<String> SPENT = List.of("npc_buy", "job_master_fee", "npc_fee", "upkeep", "fm_tax");
+
+    private static long sum(Map<String, Long> c, List<String> keys) {
+        long s = 0;
+        for (String k : keys) {
+            s += Math.max(0, c.getOrDefault(k, 0L));
+        }
+        return s;
+    }
+
+    @SuppressWarnings("unchecked")
+    public static Map<String, Object> file(Map<String, Object> latestPublic, Live live, List<Map<String, Object>> days,
+                                           long now) {
         Map<String, Object> detail = latestPublic == null ? null : derive(latestPublic, now);
         Long total = null;
         Double share = null;
@@ -47,6 +94,7 @@ public final class PublicEconomy {
         Map<String, Object> out = new LinkedHashMap<>();
         out.put("schema", PublicMarketExport.SCHEMA);
         out.put("as_of", java.time.Instant.ofEpochMilli(now).toString());
+        out.put("generated_at", java.time.Instant.ofEpochMilli(now).toString()); // every site file has it (2026-10-26)
         out.put("snapshot_date", detail == null ? null : detail.get("date"));
         out.put("mesos_total", total);
         out.put("players_share", share);
@@ -54,6 +102,7 @@ public final class PublicEconomy {
         out.put("shops_open", live.shopsOpen());
         out.put("mesos_removed_7d", live.mesosRemoved7d());
         out.put("bots_online_peak", live.botsOnlinePeak());
+        out.put("days", days);
         out.put("detail", detail);
         return out;
     }

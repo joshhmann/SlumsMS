@@ -1620,6 +1620,8 @@ public final class BotGuilds {
             }
             log.info("Founded bot guild {} ({}, {} members)", f.spec().name(), f.spec().vibe().label(), f.members().size());
             qa(0, "FOUNDED " + f.spec().name() + " #" + gid + " (" + f.spec().vibe().label() + ", " + f.members().size() + " members)");
+            MemberRow leaderRow = members.get(leaderChar);
+            soloMapling.site.SiteFeed.guildFounded(f.spec().name(), leaderRow == null ? null : leaderRow.name()); // Track D
         }
         for (GuildPlan.Founding f : plan) {
             Integer gid = idByName.get(f.spec().name());

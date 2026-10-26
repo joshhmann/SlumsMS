@@ -342,6 +342,9 @@ public final class RingActionHandler extends AbstractPacketHandler {
         partner.addMarriageRing(Ring.loadFromDb(rings.getRight()));
         InventoryManipulator.addFromDrop(partner, ringEqp, false, -1);
         partner.broadcastMarriageMessage();
+        if (soloMapling.site.SiteFeed.isPublic(player) && soloMapling.site.SiteFeed.isPublic(partner)) {
+            soloMapling.site.SiteFeed.wedding(player.getName(), partner.getName()); // 1.6.0 Track D: the website's feed
+        }
     }
 
     @Override
