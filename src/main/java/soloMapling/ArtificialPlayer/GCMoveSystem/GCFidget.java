@@ -15,7 +15,7 @@ import java.util.concurrent.TimeUnit;
 /*
  * Idle auto-fidget: gives an otherwise-stationary bot some life. While the bot is idle (no
  * move / follow / travel), this coarse poller periodically does one small random action —
- * turn around, duck, hop in place, or a small wander — anchored to its rest spot, returning home
+ * turn around, duck, a small wander or (rarely) a hop in place — anchored to its rest spot, returning home
  * if it drifts. It stands down the instant a real command takes over (so it never fights movement).
  */
 // Ported from GreenCatMS. Credit: NutNNut.
@@ -69,6 +69,25 @@ final class GCFidget {
             return null;
         }
         return ground;
+    }
+
+    enum Action { TURN, DUCK, HOP, WANDER }
+
+    /**
+     * 1.6.0 (owner, FM on TEST): hops now come in bursts right after a bot's chat line ({@link AttentionHops}). A lone
+     * idle hop was one action in four, which read as random pogoing with no link to chat; now it is rare.
+     */
+    static final double LONE_HOP_CHANCE = 0.04;
+
+    static Action pickAction(java.util.Random rng) {
+        if (rng.nextDouble() < LONE_HOP_CHANCE) {
+            return Action.HOP;
+        }
+        return switch (rng.nextInt(3)) {
+            case 0 -> Action.TURN;
+            case 1 -> Action.DUCK;
+            default -> Action.WANDER;
+        };
     }
 
     static void start(Character bot) {
@@ -148,11 +167,11 @@ final class GCFidget {
             return;
         }
 
-        switch (ThreadLocalRandom.current().nextInt(4)) {
-            case 0 -> GCMovement.turnAround(bot);
-            case 1 -> GCMovement.duck(bot, ThreadLocalRandom.current().nextInt(DUCK_MIN_MS, DUCK_MAX_MS));
-            case 2 -> GCMovement.jumpInPlace(bot);
-            default -> {
+        switch (pickAction(ThreadLocalRandom.current())) {
+            case TURN -> GCMovement.turnAround(bot);
+            case DUCK -> GCMovement.duck(bot, ThreadLocalRandom.current().nextInt(DUCK_MIN_MS, DUCK_MAX_MS));
+            case HOP -> GCMovement.jumpInPlace(bot);
+            case WANDER -> {
                 int dx = ThreadLocalRandom.current().nextInt(-WANDER_PX, WANDER_PX + 1);
                 Point to = wanderTarget(bot.getMap(), s.base, dx);
                 if (to == null) {

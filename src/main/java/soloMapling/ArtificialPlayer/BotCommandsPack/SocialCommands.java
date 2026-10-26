@@ -26,6 +26,8 @@ public class SocialCommands {
     private static void fullChat(Character fakechar, String meant, String typed) {
         soloMapling.ArtificialPlayer.BotConvo.SayDo.said(fakechar, meant); // rc6 say-do: claims in what bots say
         BotNoiseFilter.broadcastBotChat(fakechar, PacketCreator.getChatText(fakechar.getId(), typed, fakechar.isGM(), (byte) 0), typed);
+        // 1.6.0 (owner, FM on TEST): an idle bot in town hops 3-4 times while its bubble is up, to catch the eye
+        soloMapling.ArtificialPlayer.GCMoveSystem.AttentionHops.onPublicLine(fakechar);
     }
 
     /** Idle/ambient speech shares the per-map and world budgets; dropped lines are never queued. */
