@@ -88,6 +88,7 @@ def build_section(name, out, rels):
     if name == "pages":
         pages.build_home(out, rels)
         pages.build_report(out)
+        pages.build_login(out)
         return None
     raise SystemExit(f"unknown section {name!r}")
 

@@ -444,3 +444,14 @@ table.t { width: 100%; border-collapse: collapse; }
   .nxcard.wide .u, .nxcard.wide .spark, .nxcard.wide .k:last-child { grid-column: auto; grid-row: auto; }
   .nxcard.wide .spark { width: 100%; grid-column: 1 / -1; }
 }
+
+/* ── sign in ───────────────────────────────────────────────────────────────────────────────── */
+.login .panel { margin-top: 22px; }
+.loginbox { display: grid; gap: 14px; justify-items: start; margin-top: 18px; }
+.loginbox[hidden], .codecard[hidden], .btn[hidden], .signout[hidden] { display: none; }
+.codecard { display: flex; flex-wrap: wrap; align-items: center; gap: 10px 18px; padding: 14px 18px; border-radius: 10px;
+  background: var(--rail); color: var(--on-rail); border: var(--border) solid var(--edge); box-shadow: 5px 5px 0 var(--drop); }
+.codecard .k { font: 600 .7rem var(--f-mono); letter-spacing: .1em; text-transform: uppercase; color: var(--sun); }
+.codecard b { font: 700 1.6rem var(--f-mono); letter-spacing: .06em; }
+.codecard b span:first-child { color: var(--sun); font-size: 1.1rem; letter-spacing: 0; }
+.linkbtn { background: none; border: 0; padding: 0; color: var(--sky); text-decoration: underline; cursor: pointer; font: inherit; }
