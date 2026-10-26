@@ -202,7 +202,8 @@ public final class BotBonds {
                 return false;
             }
             set.bonds.put(otherId, bond);
-            boolean kept = bound(set, now, otherId, fresh);
+            // a shared event always earns its place (the weakest other bond goes); a sampled nod only beats the weakest
+            boolean kept = bound(set, now, otherId, event != BondEvent.NEAR, fresh);
             if (!kept) {
                 return false; // the newcomer was the weakest: it never made the list
             }
@@ -223,17 +224,24 @@ public final class BotBonds {
      * of {@code touched} was itself dropped. Caller holds the set's lock.
      */
     static boolean bound(BondSet set, long now, int touched) {
-        return bound(set, now, touched, false);
+        return bound(set, now, touched, true, false);
     }
 
-    /** As {@link #bound(BondSet, long, int)}; a {@code touchedFresh} newcomer that loses was never stored. */
-    static boolean bound(BondSet set, long now, int touched, boolean touchedFresh) {
+    /**
+     * As {@link #bound(BondSet, long, int)}. {@code keepTouched}: the touched bond is never the one dropped (the
+     * weakest other goes, as {@link BotAffinity#bound} does); otherwise it competes and loses ties. A
+     * {@code touchedFresh} newcomer that loses was never stored, so nothing is deleted for it.
+     */
+    static boolean bound(BondSet set, long now, int touched, boolean keepTouched, boolean touchedFresh) {
         int max = maxBonds();
         boolean kept = true;
         while (set.bonds.size() > max) {
             Bond weakest = null;
             double weakestAbs = Double.MAX_VALUE;
             for (Bond b : set.bonds.values()) {
+                if (keepTouched && b.otherId == touched) {
+                    continue;
+                }
                 double abs = Math.abs(BondRules.scoreAt(b, now));
                 // ties: the newcomer loses to an established bond (no churn on equal scores)
                 if (abs < weakestAbs || abs == weakestAbs && b.otherId == touched) {
@@ -340,8 +348,7 @@ public final class BotBonds {
         if (!enabled() || bot == null || mob == null || !isBot(bot.getId()) || bot.getMap() == null) {
             return;
         }
-        if (!soloMapling.ArtificialPlayer.GCMoveSystem.GCMovement.isMapObserved(bot.getMapId())
-                || mob.isAttackedBy(bot)) {
+        if (!observed(bot.getMapId()) || mob.isAttackedBy(bot)) {
             return;
         }
         long now = now();
