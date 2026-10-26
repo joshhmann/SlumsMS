@@ -15,7 +15,32 @@ import static soloMapling.ArtificialPlayer.BotLifeSystem.LifeDecision.*;
 /** Deterministic policy/acceptance smoke inside a running feature jar. Does not stage players or alter holdings. */
 final class BotLifeScenarios {
     private BotLifeScenarios() {}
-    static List<QaScenario> all() { return List.of(new GoldenPolicy(), new OneRestockTrip(false), new OneRestockTrip(true)); }
+    static List<QaScenario> all() {
+        return List.of(new GoldenPolicy(), new OneRestockTrip(false), new OneRestockTrip(true), new ProfileSurvives());
+    }
+
+    /**
+     * bl-4 (1.6.0 S1): a bot's learned life profile survives a non-training session and a reload from the database.
+     * One real roster bot gets one ordinary life nudge (0.5%, within its daily cap); the change stays.
+     */
+    static final class ProfileSurvives implements QaScenario {
+        public String id() { return "bl-4"; }
+        public String title() { return "Bot life: learned profile survives a social session and a reload"; }
+        public String usage() { return "[bot name]"; }
+        public Set<QaLog.Topic> topics() { return Set.of(); }
+        public int minutes(String[] args) { return 1; }
+
+        public List<String> stage(QaContext ctx) {
+            String name = ctx.args().length > 0 ? ctx.args()[0] : null;
+            List<String> lines = ctx.world().lifeProfileProof(ctx.gm(), name);
+            if (lines.isEmpty()) throw new QaRefusal("This world can't run the life profile round trip.");
+            lines.forEach(line -> ctx.run().note("LIFE", line.startsWith("LIFE ") ? line.substring(5) : line));
+            return List.of("Round trip done: " + lines.getLast(),
+                    "The bot got one ordinary life nudge (0.5%); it keeps it. !botwhy <name> shows the Bartle blend.",
+                    "This proves the database round trip on this server, not a full restart; restart TEST and"
+                            + " !botwhy the same bot to see the same blend.");
+        }
+    }
 
     static final class OneRestockTrip implements QaScenario {
         private final boolean automatic;

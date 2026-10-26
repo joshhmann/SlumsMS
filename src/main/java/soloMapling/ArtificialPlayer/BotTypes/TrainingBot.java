@@ -1022,7 +1022,7 @@ public class TrainingBot extends BotSM {
         if (currentTrainMapId >= 0) {
             state.put(BotRoster.TRAIN_STATE, currentTrainMapId);
         }
-        if (LifeRuntime.enabled() || dailyLife.restored()) state.put("life", dailyLife.memory().save());
+        // 1.6.0 S1: the life profile is no longer part of this snapshot; BotRoster saves it for every bot type.
         return new BotRoster.Activity(GRIND_ACTIVITY, Math.max(0, homeMapId), state);
     }
 

@@ -286,7 +286,22 @@ public final class BotRoster {
      * @return how many member rows were written
      */
     public static int recordSessions(Collection<client.Character> bots, long now, boolean loggingOut) {
-        List<Member> updated = new ArrayList<>();
+        return record(bots, now, loggingOut, BotRoster::activityOf);
+    }
+
+    /**
+     * {@code !qa bl-4}: records one member's session as if it had played {@code activity} (e.g. a SOCIAL session's
+     * empty snapshot) through the same path as {@link #recordSessions}, life profile included.
+     */
+    public static int recordSessionAs(client.Character bot, Activity activity, long now) {
+        return record(java.util.List.of(bot), now, false, ignored -> activity);
+    }
+
+    private static int record(Collection<client.Character> bots, long now, boolean loggingOut,
+                              java.util.function.Function<client.Character, Activity> activities) {
+        List<Member> members = new ArrayList<>();
+        List<Activity> sessions = new ArrayList<>();
+        List<soloMapling.ArtificialPlayer.BotLifeSystem.LifeMemoryStore.Pending> lives = new ArrayList<>();
         for (client.Character bot : bots) {
             if (bot == null || bot.isOwnedAlt() || bot.getId() < BotStore.BOT_ID_BASE) {
                 continue;
@@ -295,16 +310,34 @@ public final class BotRoster {
             if (member == null) {
                 continue;
             }
-            Activity activity = activityOf(bot);
+            Activity activity = activities.apply(bot);
             if (endedSessions.remove(bot.getId())) {
                 Map<String, Object> state = new java.util.LinkedHashMap<>(activity.state());
                 state.put(ENDED_STATE, 1);
                 activity = new Activity(activity.name(), activity.homeMapId(), state);
             }
-            updated.add(member.withSession(activity, loggingOut ? now : 0));
+            members.add(member);
+            sessions.add(activity);
+            // 1.6.0 S1: the bot's life profile is saved for every bot type, not only by TrainingBot's snapshot.
+            lives.add(soloMapling.ArtificialPlayer.BotLifeSystem.LifeMemoryStore.prepare(bot.getId(), member, now));
         }
-        if (updated.isEmpty()) {
+        if (members.isEmpty()) {
             return 0;
+        }
+        // Life profiles first: once they are durable the roster row may stop carrying the v1 copy.
+        List<soloMapling.ArtificialPlayer.BotLifeSystem.LifeMemoryStore.Pending> toWrite = new ArrayList<>();
+        for (var life : lives) {
+            if (life != null) {
+                toWrite.add(life);
+            }
+        }
+        boolean lifeStored = toWrite.isEmpty()
+                || soloMapling.ArtificialPlayer.BotLifeSystem.LifeMemoryStore.write(toWrite, now);
+        List<Member> updated = new ArrayList<>();
+        for (int i = 0; i < members.size(); i++) {
+            Activity activity = soloMapling.ArtificialPlayer.BotLifeSystem.LifeMemoryStore.attach(sessions.get(i),
+                    lives.get(i), lifeStored, now);
+            updated.add(members.get(i).withSession(activity, loggingOut ? now : 0));
         }
         try (Connection con = connections().get(); PreparedStatement ps = con.prepareStatement(UPSERT)) {
             for (Member member : updated) {

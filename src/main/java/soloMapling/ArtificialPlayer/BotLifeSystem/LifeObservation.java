@@ -33,7 +33,7 @@ public final class LifeObservation {
         LifeInspection.Snapshot observed = LifeInspection.capture(bot);
         Character chr = bot.getChr();
         LifeMemory memory = bot instanceof TrainingBot training && training.lifeRuntime() != null
-                ? training.lifeRuntime().memory() : null;
+                ? training.lifeRuntime().memory() : LifeMemoryStore.peek(chr.getId());
         LifeProfile profile = memory == null ? LifeProfile.forBot(chr.getId()) : memory.profile();
         List<String> unknown = new ArrayList<>(List.of("MP/ammo pressure", "time since social activity",
                 "other-map friends/destinations", "PQ/events", "sellable contents and shop route"));

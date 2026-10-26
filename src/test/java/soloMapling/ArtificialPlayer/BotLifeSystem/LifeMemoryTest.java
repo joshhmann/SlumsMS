@@ -52,4 +52,77 @@ class LifeMemoryTest {
         memory.refresh(8, 200, OptionalInt.empty(), 200);
         assertEquals(30, memory.goals().getFirst().targetLevel());
     }
+
+    @Test void aSprintV1BlendIsReadOnceAsSeedPlusBoundedDelta() {
+        int id = 1000005001;
+        var v1Seed = LifeProfile.forBotV1(id).blend();
+        Map<String, Object> blend = new LinkedHashMap<>();
+        v1Seed.forEach((type, value) -> blend.put(type.name(),
+                value * .99 + (type == LifeProfile.Archetype.HELPER ? .01 : 0)));
+        var v1 = Map.of("version", 1, "blend", blend, "goals", List.of(), "lastJob", 110,
+                "lastSocial", 7L, "driftDay", 3L, "changesToday", 2, "events", Map.of("GUILD_WAR", 99L));
+        var memory = new LifeMemory(id, soloMapling.server.Json.parse(soloMapling.server.Json.write(v1)));
+        assertTrue(memory.restored());
+        assertTrue(memory.migrated(), "needs its first v2 write");
+        assertTrue(memory.dirty());
+        assertEquals(LifeProfile.forBot(id), memory.seed(), "the seed is the v2 Bartle seed");
+        assertEquals(SocialProfile.forCharacter(id), memory.socialSeed());
+        for (var type : LifeProfile.Archetype.values()) {
+            double drift = v1Seed.get(type) * .99 + (type == LifeProfile.Archetype.HELPER ? .01 : 0) - v1Seed.get(type);
+            assertEquals(drift, memory.delta().getOrDefault(type, 0.0), 1e-12, type.name());
+        }
+        assertTrue(memory.profile().blend().get(LifeProfile.Archetype.HELPER)
+                > memory.seed().blend().get(LifeProfile.Archetype.HELPER));
+        assertEquals(7L, memory.lastSocial());
+        assertFalse(memory.event(LifeMemory.Event.GUILD_WAR, 100), "v1 event times are kept");
+
+        var save = memory.takeDirty(1_000);
+        assertEquals(2, save.get("version"));
+        assertFalse(memory.dirty());
+        assertFalse(memory.migrated());
+        assertNull(memory.takeDirty(2_000), "nothing changed since");
+        var v2 = new LifeMemory(id, soloMapling.server.Json.parse(soloMapling.server.Json.write(save)));
+        assertFalse(v2.migrated());
+        assertEquals(memory.profile(), v2.profile());
+        assertEquals(memory.delta(), v2.delta());
+        assertEquals(1_000, v2.savedAt());
+    }
+
+    @Test void seedAndDeltaAreStoredApartAndTheDeltaStaysBounded() {
+        int id = 1000005002;
+        var memory = new LifeMemory(id, null);
+        assertFalse(memory.restored());
+        assertTrue(memory.delta().isEmpty());
+        long now = 0;
+        for (int day = 0; day < 400; day++) for (int hour = 0; hour < 4; hour++) {
+            memory.event(LifeMemory.Event.BOOM, now = day * 86_400_000L + hour * 3_600_000L);
+        }
+        assertEquals(SocialProfile.MAX_DELTA, memory.delta().get(LifeProfile.Archetype.SLACKER), 1e-12,
+                "1,600 nudges stop at the bound");
+        memory.delta().values().forEach(d -> assertTrue(Math.abs(d) <= SocialProfile.MAX_DELTA + 1e-12));
+        assertEquals(LifeProfile.forBot(id), memory.seed(), "the seed never moves");
+        @SuppressWarnings("unchecked")
+        var seed = (Map<String, Map<String, Double>>) memory.save(now).get("seed");
+        @SuppressWarnings("unchecked")
+        var delta = (Map<String, Map<String, Double>>) memory.save(now).get("delta");
+        assertEquals(LifeProfile.forBot(id).blend().get(LifeProfile.Archetype.SLACKER), seed.get("blend").get("SLACKER"));
+        assertEquals(SocialProfile.MAX_DELTA, delta.get("blend").get("SLACKER"), 1e-12);
+        assertTrue(delta.get("bartle").isEmpty(), "S1 learns nothing on the Bartle axes yet");
+    }
+
+    @Test void aStoredSeedWinsOverTodaysFormulaAndAWildDeltaIsClamped() {
+        int id = 1000005003;
+        var save = new LifeMemory(id, null).save(5);
+        Map<String, Object> edited = new LinkedHashMap<>(save);
+        Map<String, Double> bartle = new LinkedHashMap<>();
+        bartle.put("ACHIEVER", .1); bartle.put("EXPLORER", .1); bartle.put("SOCIALIZER", .1); bartle.put("KILLER", .7);
+        @SuppressWarnings("unchecked")
+        var seed = (Map<String, Object>) save.get("seed");
+        edited.put("seed", Map.of("bartle", bartle, "blend", seed.get("blend")));
+        edited.put("delta", Map.of("bartle", Map.of("KILLER", 9.0), "blend", Map.of("GRINDER", -9.0)));
+        var memory = new LifeMemory(id, soloMapling.server.Json.parse(soloMapling.server.Json.write(edited)));
+        assertEquals(SocialProfile.Type.KILLER, memory.socialSeed().leading());
+        assertEquals(SocialProfile.MAX_DELTA, memory.socialDelta().get(SocialProfile.Type.KILLER), 1e-12);
+        assertEquals(-SocialProfile.MAX_DELTA, memory.delta().get(LifeProfile.Archetype.GRINDER), 1e-12);
+    }
 }
