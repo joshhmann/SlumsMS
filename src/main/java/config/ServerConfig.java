@@ -33,9 +33,10 @@ public class ServerConfig {
 
     public boolean AUTOMATIC_REGISTER;
     //Limits on automatic registration (LAN addresses are exempt from the per-IP ones). 0 = no account cap.
+    //Owner 2026-10-26: any number of accounts per IP (friends share houses, alts); a short cooldown stops a burst.
     public int AUTO_REGISTER_MIN_PASSWORD_LENGTH = 6;
-    public int AUTO_REGISTER_MAX_ACCOUNTS_PER_IP = 3;
-    public int AUTO_REGISTER_IP_COOLDOWN_MINUTES = 10;
+    public int AUTO_REGISTER_MAX_ACCOUNTS_PER_IP = 0;
+    public int AUTO_REGISTER_IP_COOLDOWN_MINUTES = 1;
     //Daily Check-In window (needs migration 004 and a client with the window). Off until both are deployed.
     public boolean DAILY_CHECKIN_ENABLED = false;
     public int DAILY_CHECKIN_MIN_LEVEL = 10;
