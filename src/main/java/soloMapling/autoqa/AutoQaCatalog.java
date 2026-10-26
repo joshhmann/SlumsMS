@@ -155,7 +155,7 @@ public final class AutoQaCatalog {
                 // handshake is what it tests; the accept roll is made certain for the run.
                 .step(say("!warp 100000000"), waitSeconds(5), fixture("nearbyBot"), say("hi {near}"), waitSeconds(20),
                         say("{near} whats up"), waitSeconds(40), fixture("certainBuddies", "5"), fixture("buddyRoom", "2"),
-                        buddyAdd("{near}"),
+                        fixture("buddyFresh", "{near}"), buddyAdd("{near}"),
                         untilProbe("buddy", 200, "{near}", "accepted"))
                 .expect(probe("buddy", "{near}", "accepted"))
                 .build());
@@ -163,7 +163,8 @@ public final class AutoQaCatalog {
                 // rc6 triage: this checks buddy CHAT, so the accept is made certain for the run as well
                 .step(say("!warp 100000000"), waitSeconds(5), fixture("nearbyBot"), say("hi {near}"), waitSeconds(20),
                         // TEST 2026-10-26: a full buddy list (25/25) refused the add; room is made first
-                        fixture("certainBuddies", "5"), fixture("buddyRoom", "2"), buddyAdd("{near}"),
+                        fixture("certainBuddies", "5"), fixture("buddyRoom", "2"), fixture("buddyFresh", "{near}"),
+                        buddyAdd("{near}"),
                         untilProbe("buddy", 200, "{near}", "accepted"),
                         fixture("buddy", "{near}", "accepted"),
                         Steps.of("buddy chat 'where r u'", r -> {
@@ -938,7 +939,7 @@ public final class AutoQaCatalog {
                         noEmoji())
                 .build());
         c.add(Check.auto("t-ev-2", "A Henesys invasion: bots swarm it, some die and respawn").minutes(10)
-                .step(run("ev-2"), waitSeconds(40), qaDo("die"), waitFor("WEVENT BOT DIED ", 180),
+                .step(run("ev-2"), waitSeconds(8), qaDo("die"), waitFor("WEVENT BOT DIED ", 180),
                         waitFor("RESPAWN .* died on 100000000", 60), waitSeconds(5), stop())
                 .expect(has("WEVENT START #\\d+ henesys_invasion \\(invasion\\) on 100000000 "),
                         has("WEVENT NOTICE \\[Monster Invasion\\] Monsters are pouring into "),

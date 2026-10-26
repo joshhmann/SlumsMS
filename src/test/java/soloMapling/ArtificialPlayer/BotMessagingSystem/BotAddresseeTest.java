@@ -34,6 +34,17 @@ class BotAddresseeTest {
     }
 
     @Test
+    void aTownInTheLineIsNotABotNamedAfterIt() {
+        // TEST 2026-10-26 (t-cv-5): "Kerning PQ? i can come too" went to Kerning952 by name, not to the PQ thread
+        List<BotAddressee.Candidate> town = List.of(new BotAddressee.Candidate(7, "Kerning952"),
+                new BotAddressee.Candidate(8, "Ludi653"), new BotAddressee.Candidate(9, "HenesysBot"));
+        assertNull(BotAddressee.resolve("Kerning PQ? i can come too", town).best());
+        assertNull(BotAddressee.resolve("anyone for ludi pq", town).best());
+        assertNull(BotAddressee.resolve("meet me in henesys", town).best());
+        assertTrue(BotAddressee.resolve("kerning952 u there", town).sure(), "the whole name still works");
+    }
+
+    @Test
     void howSureItIsDecidesWhetherTheBotAsksFirst() {
         assertTrue(resolve("kimchiz u there").sure());
         BotAddressee.Result fuzzy = resolve("hey resme");

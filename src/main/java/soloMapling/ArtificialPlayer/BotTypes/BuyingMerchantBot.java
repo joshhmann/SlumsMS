@@ -139,8 +139,8 @@ public class BuyingMerchantBot extends BotSM {
     static String buildBuyingMessage(String itemName, int offerPrice) {
         List<String> prefixes = List.of("Buying", "B>", "B>>", "BUY>", "Buying>");
         List<String> suffixes = List.of("Trade Me", "PM me", "just trade me!", "hmu", "whisp me",
-                "no lowball", "no noobs", "no scammers", "Pros only", "hotties only", "no nx h0es",
-                "baddies only", "no weebs", "English Only", "No Spanish",
+                "no lowball", "no noobs", "no scammers", "Pros only", "hotties only",
+                "baddies only", "no weebs", "English Only",
                 "serious offers only", "dont waste my time", "legit only", "fair price only");
 
         String msg = getRandomElement(prefixes) + " " + itemName + " " + formatPriceToShorthand(offerPrice) + " " + getRandomElement(suffixes);

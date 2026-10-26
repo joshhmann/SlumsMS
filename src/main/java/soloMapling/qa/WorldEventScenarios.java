@@ -209,7 +209,13 @@ final class WorldEventScenarios {
                 lastStatusAt = now;
                 ctx.run().note("EV2", "EV2 STATUS " + WorldEvents.getInstance().qaStatus(e, List.copyOf(staged)));
             }
+            if (dieArmed && e != null && !e.finished()) {
+                dropNearest(ctx, e);
+            }
         }
+
+        /** Set by !qa do die when no invader was up: retried every tick until the next wave brings one. */
+        private volatile boolean dieArmed;
 
         public List<String> action(QaContext ctx, String name, String[] args) {
             ActiveEvent e = event;
@@ -224,7 +230,20 @@ final class WorldEventScenarios {
             if (!"die".equals(name)) {
                 throw new QaRefusal("ev-2 steps: die | status");
             }
-            // the three staged bots nearest a live invader: their next hit kills (HP down to 1, the death certain)
+            dieArmed = true;
+            String line = dropNearest(ctx, e);
+            if (line == null) {
+                line = "EV2 DIE armed: no invader is up, the 3 staged bots nearest the next one get it";
+                ctx.run().note("EV2", line);
+            }
+            List<Integer> ids = List.copyOf(staged);
+            ctx.onStop("clear the forced deaths", () -> ids.forEach(id -> BotDeaths.forceNextDeath(id, false)));
+            return List.of(line);
+        }
+
+        /** The three staged bots nearest a live invader: their next hit kills (HP 1, the death certain). Null when
+         *  no invader is up yet (a strong crowd can clear a wave in seconds); the caller keeps it armed. */
+        private String dropNearest(QaContext ctx, ActiveEvent e) {
             java.util.Map<Integer, Integer> dist = WorldEvents.getInstance().qaMobDistances(e, List.copyOf(staged));
             List<Integer> pick = dist.entrySet().stream().filter(d -> d.getValue() >= 0)
                     .sorted(java.util.Map.Entry.comparingByValue()).limit(3).map(java.util.Map.Entry::getKey).toList();
@@ -238,12 +257,14 @@ final class WorldEventScenarios {
                 bot.updateHp(1);
                 who.add(bot.getName() + " " + dist.get(id) + " px");
             }
+            if (who.isEmpty()) {
+                return null;
+            }
+            dieArmed = false;
             String line = "EV2 DIE next lethal hit certain for " + who.size() + " staged bots (HP 1, nearest a mob: "
                     + who + ")";
             ctx.run().note("EV2", line);
-            List<Integer> ids = List.copyOf(staged);
-            ctx.onStop("clear the forced deaths", () -> ids.forEach(id -> BotDeaths.forceNextDeath(id, false)));
-            return List.of(line);
+            return line;
         }
     }
 }

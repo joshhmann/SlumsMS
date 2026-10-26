@@ -79,7 +79,7 @@ final class BoardScenarios {
             t.start();
             return List.of("A bot next to you holds Gloves ATT 60%. A WTB for them goes on a scratch board as your post,",
                     "with a price alert on the cheapest FM item. Expect a whisper (or note) from the bot in 1-3 s, then a",
-                    "yellow [Market] price alert. The log ends with BD1 PASS or BD1 FAIL.");
+                    "yellow [Market] price alert. The QA log ends with a pass or fail line.");
         }
 
         static void play(QaRun run, BoardWorld world, int account, String accountName, String gmName) {

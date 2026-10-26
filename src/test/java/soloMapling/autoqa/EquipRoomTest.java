@@ -5,6 +5,8 @@ import org.junit.jupiter.api.Test;
 import java.util.List;
 
 import static org.junit.jupiter.api.Assertions.assertEquals;
+import static org.junit.jupiter.api.Assertions.assertFalse;
+import static org.junit.jupiter.api.Assertions.assertTrue;
 
 /** rc6 auto-QA triage (t-rm-4): the equipRoom fixture empties the highest slots, never a live ring. */
 class EquipRoomTest {
@@ -29,6 +31,9 @@ class EquipRoomTest {
         assertEquals("pending", GameAutoQaWorld.buddyState(true, true, true, false), "refused: the player's entry alone");
         assertEquals("pending", GameAutoQaWorld.buddyState(true, true, false, false));
         assertEquals("accepted", GameAutoQaWorld.buddyState(true, true, true, true));
+        assertTrue(GameAutoQaWorld.dropBeforeAdd("pending"), "an unanswered entry blocks the stock add: dropped");
+        assertFalse(GameAutoQaWorld.dropBeforeAdd("accepted"), "a real buddy stays");
+        assertFalse(GameAutoQaWorld.dropBeforeAdd("none"));
     }
 
     @Test

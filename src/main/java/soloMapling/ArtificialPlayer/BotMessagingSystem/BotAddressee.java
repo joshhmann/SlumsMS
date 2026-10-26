@@ -28,6 +28,16 @@ public final class BotAddressee {
             "selling", "buy", "buying", "party", "need", "want", "wanna", "come", "here", "there", "good", "bad", "omg",
             "brb", "idk", "ok", "okay", "sure", "just", "like", "help", "guys", "all", "some", "one", "get", "got");
 
+    /**
+     * Towns, places and game words that bot names are built from (Kerning952, Ludi653, Ellinia204, HenesysBot). They
+     * are what a line is ABOUT far more often than who it is for: TEST 2026-10-26 (t-cv-5) "Kerning PQ? i can come too"
+     * scored Kerning952 0.95 and went to it by name instead of to the Kerning PQ thread. Only the whole name counts.
+     */
+    private static final Set<String> PLACES = Set.of("henesys", "ellinia", "perion", "kerning", "nautilus", "lith",
+            "sleepywood", "orbis", "elnath", "ludi", "ludibrium", "leafre", "aqua", "mulung", "herb", "omega", "korean",
+            "amoria", "ariant", "magatia", "nlc", "showa", "zipangu", "kft", "victoria", "maple", "mushroom", "slime",
+            "zakum", "horntail", "pianus", "papulatus", "gacha", "gachapon", "market", "fm");
+
     /** A bot nearby; its job lets layer 3 find "the cleric" or "u with the bow". The name matcher ignores it. */
     public record Candidate(int id, String name, int jobId) {
 
@@ -91,7 +101,7 @@ public final class BotAddressee {
         if (word.equals(full)) {
             return 1.0;
         }
-        if (COMMON.contains(word) || word.length() < 3) {
+        if (COMMON.contains(word) || PLACES.contains(word) || word.length() < 3) {
             return 0;
         }
         if (!core.isEmpty() && word.equals(core)) {

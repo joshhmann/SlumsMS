@@ -178,6 +178,7 @@ final class GameAutoQaWorld implements AutoQaWorld {
                 case "nearbyBot" -> nearbyBot(me);
                 case "buddy" -> buddy(me, a[0], a[1]);
                 case "buddyRoom" -> buddyRoom(me, Integer.parseInt(a[0]));
+                case "buddyFresh" -> buddyFresh(me, a[0]);
                 case "engaged" -> engaged(actor(Integer.parseInt(a[0])));
                 case "notEngaged" -> notEngaged();
                 case "equipRoom" -> equipRoom(me, Integer.parseInt(a[0]));
@@ -577,6 +578,28 @@ final class GameAutoQaWorld implements AutoQaWorld {
         int open = bl.getCapacity() - bl.getBuddyIds().length;
         return List.of((open >= free ? "PASS " : "FAIL ") + open + " of " + bl.getCapacity() + " buddy slot(s) free"
                 + (drop.isEmpty() ? "" : " (dropped " + drop.size() + " bot buddy/ies)"));
+    }
+
+    /**
+     * t-bb-1/2: drops a pending entry for {@code name} from my list before the add. TEST 2026-10-26 (t-bb-2): iiSugars
+     * was still on AutoQaOne's list from an earlier run, unanswered; the stock add skips a name already listed, so the
+     * bot was never asked and the check sat on "pending" for 200 s. An accepted buddy is kept.
+     */
+    private static List<String> buddyFresh(Character me, String name) {
+        var e = me.getBuddylist().get(name);
+        Character bot = e == null ? null : me.getWorldServer().getPlayerStorage().getCharacterById(e.getCharacterId());
+        String state = buddyState(e != null, e != null && e.isVisible(), bot != null,
+                bot != null && bot.getBuddylist().containsVisible(me.getId()));
+        if (!dropBeforeAdd(state)) {
+            return List.of("PASS " + name + " is " + state + " on " + me.getName() + "'s buddy list");
+        }
+        me.deleteBuddy(e.getCharacterId());
+        return List.of("PASS dropped " + name + "'s unanswered entry so the add asks the bot again");
+    }
+
+    /** Only an unanswered entry goes: an accepted buddy stays, and "none" has nothing to drop. */
+    static boolean dropBeforeAdd(String state) {
+        return "pending".equals(state);
     }
 
     /** The bot buddies to drop so {@code free} slots open, first listed first; players are never dropped. */
