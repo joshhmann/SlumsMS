@@ -560,3 +560,14 @@ table.t { width: 100%; border-collapse: collapse; }
 .mkmine li.fired { background: var(--surface-2); box-shadow: inset 4px 0 0 var(--down); }
 .mkmine li.closed { opacity: .65; }
 .mkmine li.empty { color: var(--muted); }
+
+/* Secrets (theme.js): a sticker that slides up in the bottom-right corner. */
+.secret { position: fixed; right: max(12px, env(safe-area-inset-right, 0px)); bottom: max(12px, env(safe-area-inset-bottom, 0px));
+  z-index: 50; width: min(300px, calc(100vw - 24px)); padding: 34px 12px 12px; background: var(--surface); color: var(--ink);
+  border: 2px solid var(--edge); border-radius: 12px; box-shadow: 4px 4px 0 var(--drop); animation: secret-up .35s ease-out; }
+.secret img { display: block; width: 100%; height: auto; max-height: 60vh; object-fit: contain; }
+.secret-note { margin: 8px 0 0; font-size: .9rem; }
+.secret-x { position: absolute; top: 4px; right: 6px; border: 0; background: none; color: inherit; font-size: 1.5rem;
+  line-height: 1; cursor: pointer; padding: 4px 8px; }
+@keyframes secret-up { from { transform: translateY(110%); opacity: 0; } to { transform: none; opacity: 1; } }
+@media (prefers-reduced-motion: reduce) { .secret { animation: none; } }

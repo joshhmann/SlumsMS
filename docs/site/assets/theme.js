@@ -66,3 +66,62 @@
   tick();
   setInterval(tick, 30000);
 })();
+
+/* Secrets: three hidden Slums-chan stickers that only show when someone goes looking. Nothing loads until one is found.
+   The Konami code, typing "slums" outside a text box, or clicking the hero picture 7 times in a row. Found ones are
+   counted in localStorage, so the note can say how many are left. */
+(function () {
+  var SECRETS = {
+    konami: { src: "secret-peace.webp", w: 726, alt: "Slums-chan looks back over her shoulder with a peace sign" },
+    slums: { src: "secret-shoulder.webp", w: 568, alt: "Slums-chan peeks back over her shoulder with a grin" },
+    clicks: { src: "secret-look.webp", w: 650, alt: "Slums-chan looks back at you: “Bustin’ chat since 2006!”" }
+  };
+  var me = document.querySelector('script[src$="assets/theme.js"]');
+  var base = me ? me.getAttribute("src").replace(/theme\.js$/, "brand/") : "assets/brand/";
+  var box = null;
+
+  function found() {
+    try { return JSON.parse(localStorage.getItem("slums-secrets") || "[]"); } catch (err) { return []; }
+  }
+  function close() { if (box) { box.remove(); box = null; } }
+  function reveal(id) {
+    var s = SECRETS[id], got = found();
+    if (got.indexOf(id) < 0) got.push(id);
+    try { localStorage.setItem("slums-secrets", JSON.stringify(got)); } catch (err) {}
+    close();
+    box = document.createElement("div");
+    box.className = "secret";
+    box.setAttribute("role", "dialog");
+    box.setAttribute("aria-label", "A secret");
+    var left = Object.keys(SECRETS).length - got.length;
+    box.innerHTML = '<button type="button" class="secret-x" aria-label="Close">&times;</button>' +
+      '<img src="' + base + s.src + '" alt="" width="' + s.w + '" height="820">' +
+      '<p class="secret-note"><b>You found a secret.</b> ' +
+      (left > 0 ? left + (left === 1 ? " more is" : " more are") + " hiding somewhere." : "That's all of them. Nice.") + "</p>";
+    box.querySelector("img").alt = s.alt;
+    box.querySelector(".secret-x").addEventListener("click", close);
+    document.body.appendChild(box);
+    box.querySelector(".secret-x").focus();
+  }
+
+  var KONAMI = ["ArrowUp", "ArrowUp", "ArrowDown", "ArrowDown", "ArrowLeft", "ArrowRight", "ArrowLeft", "ArrowRight", "b", "a"];
+  var keys = [], typed = "";
+  document.addEventListener("keydown", function (e) {
+    if (e.key === "Escape") { close(); return; }
+    var t = e.target;
+    if (t && (t.isContentEditable || /^(INPUT|TEXTAREA|SELECT)$/.test(t.tagName))) return;
+    var k = e.key.length === 1 ? e.key.toLowerCase() : e.key;
+    keys = keys.concat(k).slice(-KONAMI.length);
+    if (keys.join() === KONAMI.join()) { keys = []; reveal("konami"); return; }
+    typed = (typed + (k.length === 1 ? k : " ")).slice(-5);
+    if (typed === "slums") { typed = ""; reveal("slums"); }
+  });
+
+  var rotor = document.querySelector("[data-rotor]"), n = 0, last = 0;
+  if (rotor) rotor.addEventListener("click", function () {
+    var now = Date.now();
+    n = now - last < 800 ? n + 1 : 1;
+    last = now;
+    if (n >= 7) { n = 0; reveal("clicks"); }
+  });
+})();
