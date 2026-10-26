@@ -42,7 +42,7 @@
 # -Dsolomapling.worldEvents.rewards=false switches every table off. The events' own mobs drop what they always drop.
 
 templates:
-  # ── 1.6.0 headline events: one every evening at ~8 PM PT, rotating ─────────────────────────────────────────
+  # ── 1.6.0 headline events: every evening at ~8 PM PT in Henesys, Giant Cake and Henesys Invasion taking turns ─────────────────────────────────────────
   # The friends' ask: everyone gathers in town to whack a giant cake, as at the old anniversary events. 9400606 is
   # v83's own "Giant Cake" (the 2007 anniversary cake, the mob Cosmic's !cake spawns); boss_hp makes it last for a
   # crowd. Little Cake Monsters and Birthday Candles come with it, so new characters have something to hit too.
@@ -55,7 +55,7 @@ templates:
     cooldown_minutes: 600
     bot_cap: 40
     levels: [1, 200]
-    maps: [100000000, 101000000, 102000000, 103000000, 104000000]   # Henesys, Ellinia, Perion, Kerning City, Lith Harbor
+    maps: [100000000]                            # Henesys (owner 2026-10-26: the nightly event is always in Henesys)
     boss: 9400606                                # Giant Cake (lv 70)
     boss_hp: 4000000
     waves:
@@ -90,11 +90,12 @@ templates:
     participation:
       - {item: 2000004, qty: 2}                  # Elixir
 
+  # Owner 2026-10-26: GM only (the nightly slot alternates Giant Cake and Henesys Invasion); !event start perion_invasion
   - id: perion_invasion
     kind: invasion
-    slot: headline
+    slot: manual
     name: Perion Invasion
-    weight: 2
+    weight: 0
     minutes: 30
     cooldown_minutes: 600
     bot_cap: 40

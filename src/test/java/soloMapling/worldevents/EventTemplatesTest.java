@@ -29,8 +29,9 @@ class EventTemplatesTest {
         for (EventTemplate t : r.templates()) {
             kinds.add(t.kind());
             assertTrue(t.minutes() >= 1 && t.minutes() <= EventTemplates.MAX_MINUTES, t.id());
-            // 1.6.0: a headline gathers a crowd (the map cap, BOT_MAP_CAP 50, still applies); the small ones stay small
-            assertTrue(t.botCap() <= (t.slot() == EventTemplate.Slot.HEADLINE ? EventTemplates.MAX_BOT_CAP : 10),
+            // 1.6.0: a headline gathers a crowd (the map cap, BOT_MAP_CAP 50, still applies), and so may a GM-only town
+            // event (perion_invasion, owner 2026-10-26); the scheduler's small ones stay small
+            assertTrue(t.botCap() <= (t.slot() == EventTemplate.Slot.SMALL ? 10 : EventTemplates.MAX_BOT_CAP),
                     t.id() + " keeps the crowd believable");
             List<EventTemplate.Reward> all = new ArrayList<>(t.rewards());
             all.addAll(t.participation());
