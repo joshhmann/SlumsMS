@@ -28,4 +28,26 @@ class BotLifeScenarioTest {
         verifyNoInteractions(world);
         suite.stop(1, "done");
     }
+
+    @Test
+    void bl4LogsTheRoundTripTheWorldRanAndRefusesWhereItCannot() throws Exception {
+        QaWorld world = mock(QaWorld.class);
+        Character gm = QaTestSupport.gm(1, "Admin", 100000000);
+        when(world.lifeProfileProof(gm, "Fixture")).thenReturn(java.util.List.of(
+                "LIFE PROFILE bot=Fixture slot=5001 SOCIALIZER (-0.62,-0.41): A 10% E 20% S 57% K 13% restored=true",
+                "LIFE PROFILE PASS bot=1000005001 drift survived a social session and a reload"));
+        QaSuite suite = QaTestSupport.suite(BotLifeScenarios.all(), world, directory,
+                new QaTestSupport.ManualScheduler());
+        suite.start(gm, "bl-4", new String[]{"Fixture"});
+        String log = Files.readString(suite.runOf(1).logPath());
+        assertTrue(log.contains("LIFE PROFILE bot=Fixture slot=5001 SOCIALIZER (-0.62,-0.41)"), log);
+        assertTrue(log.contains("LIFE PROFILE PASS bot=1000005001"), log);
+        assertFalse(log.contains("LIFE LIFE"), log);
+        suite.stop(1, "done");
+
+        Character other = QaTestSupport.gm(2, "Other", 100000000);
+        when(world.lifeProfileProof(other, null)).thenReturn(java.util.List.of());
+        assertThrows(QaRefusal.class, () -> suite.start(other, "bl-4", new String[0]));
+        assertNull(suite.runOf(2), "refused: nothing to prove in this world");
+    }
 }

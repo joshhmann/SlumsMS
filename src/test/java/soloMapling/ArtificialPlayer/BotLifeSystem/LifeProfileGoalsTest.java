@@ -17,14 +17,52 @@ class LifeProfileGoalsTest {
             assertEquals(profile, LifeProfile.forBot(id));
             assertEquals(1, profile.blend().values().stream().mapToDouble(Double::doubleValue).sum(), 1e-9);
             double primary = profile.blend().get(profile.primary());
-            assertTrue(primary >= .55 && primary <= .70);
+            assertTrue(primary >= .20 && primary <= .80, "v2 primary " + primary);
+            profile.blend().values().forEach(v -> assertTrue(v >= LifeProfile.CHANNEL_FLOOR - 1e-12));
             assertTrue(profile.grindDurationMs() >= 20 * 60_000L && profile.grindDurationMs() <= 60 * 60_000L);
             assertTrue(profile.townDurationMs() >= 5 * 60_000L && profile.townDurationMs() <= 20 * 60_000L);
+            // Durations are the v1 ones: the seed change does not move a bot's grind/town rhythm.
+            assertEquals(LifeProfile.forBotV1(id).grindDurationMs(), profile.grindDurationMs());
             primaries.add(profile.primary());
             profiles.add(profile);
         }
-        assertEquals(7, primaries.size());
+        // v2 (1.6.0 S1): Bartle drives the five core channels; merchant and slacker are flavour, never the lead.
+        assertTrue(primaries.containsAll(java.util.Set.of(LifeProfile.Archetype.SOCIALITE,
+                LifeProfile.Archetype.GRINDER, LifeProfile.Archetype.EXPLORER)), primaries.toString());
+        assertFalse(primaries.contains(LifeProfile.Archetype.MERCHANT));
+        assertFalse(primaries.contains(LifeProfile.Archetype.SLACKER));
         assertEquals(3000, profiles.size());
+    }
+
+    @Test
+    void theBartleLeadPicksTheMatchingChannel() {
+        int checked = 0;
+        for (int id = 1_000_005_000; id < 1_000_006_000; id++) {
+            var social = SocialProfile.forCharacter(id);
+            var primary = LifeProfile.forBot(id).primary();
+            // Only bots that lean clearly into their corner; a mixed bot near the centre may lead with grinding.
+            if (social.share(social.leading()) < .60) { checked++; continue; }
+            switch (social.leading()) {
+                case SOCIALIZER -> assertEquals(LifeProfile.Archetype.SOCIALITE, primary);
+                case EXPLORER -> assertEquals(LifeProfile.Archetype.EXPLORER, primary);
+                case ACHIEVER, KILLER -> assertTrue(primary == LifeProfile.Archetype.GRINDER
+                        || primary == LifeProfile.Archetype.SHOW_OFF, primary.name());
+            }
+            checked++;
+        }
+        assertEquals(1000, checked);
+    }
+
+    @Test
+    void theV1SeedIsKeptForCarryingSprintDriftOver() {
+        var primaries = new HashSet<LifeProfile.Archetype>();
+        for (int id = 1_000_005_000; id < 1_000_008_000; id++) {
+            LifeProfile v1 = LifeProfile.forBotV1(id);
+            double primary = v1.blend().get(v1.primary());
+            assertTrue(primary >= .55 && primary <= .70);
+            primaries.add(v1.primary());
+        }
+        assertEquals(7, primaries.size());
     }
 
     @Test

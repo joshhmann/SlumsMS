@@ -310,6 +310,12 @@ public interface QaWorld {
 
     default List<String> botLifeReport(int botId) { return List.of(); }
 
+    /**
+     * {@code !qa bl-4} (1.6.0 S1): runs the life-profile round trip on one online roster bot (by name, else one on the
+     * GM's map, else any; a non-training bot first). Log lines, empty when this world can't, QaRefusal on a failure.
+     */
+    default List<String> lifeProfileProof(Character gm, String botName) { return List.of(); }
+
     /** One line per staged bot: {@code buffs | position | habits}. */
     default List<String> grinderReport(List<Integer> ids, String what) {
         return List.of();

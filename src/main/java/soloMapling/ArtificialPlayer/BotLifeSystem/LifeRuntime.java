@@ -39,11 +39,9 @@ public final class LifeRuntime {
     public LifeRuntime(TrainingBot bot) {
         this.bot = bot;
         bornAt = System.currentTimeMillis();
-        var member = BotRoster.loadedMember(bot.getChr().getId() - BotStore.BOT_ID_BASE);
-        var previous = member == null ? null : member.lastActivity();
-        Object saved = previous == null ? null : previous.state().get("life");
-        restored = saved instanceof Map<?, ?>;
-        memory = new LifeMemory(bot.getChr().getId(), saved);
+        // 1.6.0 S1: one memory per bot for the whole run, whatever bot type it plays; saved by the roster sweep.
+        memory = LifeMemoryStore.of(bot.getChr().getId());
+        restored = memory.restored();
     }
 
     public static boolean enabled() {
@@ -56,9 +54,12 @@ public final class LifeRuntime {
         return friend != null && friend.getMap().isTown() ? friend.getMapId() : townDestination;
     }
     public static void event(Character chr, LifeMemory.Event event) {
-        if (enabled() && chr != null && soloMapling.ArtificialPlayer.BotMessagingSystem.CharacterStorage
-                .getBotById(chr.getId()) instanceof TrainingBot training) {
-            if (training.lifeRuntime().memory().event(event, System.currentTimeMillis())) training.lifeRuntime().changed();
+        if (!enabled() || chr == null || !BotHelpers.isBot(chr)) return;
+        // Any bot type drifts now (a social bot's wedding counts too); the memory is the same one TrainingBot uses.
+        if (LifeMemoryStore.of(chr.getId()).event(event, System.currentTimeMillis())
+                && soloMapling.ArtificialPlayer.BotMessagingSystem.CharacterStorage
+                .getBotById(chr.getId()) instanceof TrainingBot training && training.lifeRuntime() != null) {
+            training.lifeRuntime().changed();
         }
     }
     public void changed() { dirty = true; }

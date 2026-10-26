@@ -29,6 +29,9 @@ class BotWhyCommandTest {
                 new soloMapling.ArtificialPlayer.BotLifeSystem.LifeDecision.Result(java.util.List.of(),
                         java.util.Optional.of(soloMapling.ArtificialPlayer.BotLifeSystem.LifeDecision.Activity.HANG_OUT),
                         soloMapling.ArtificialPlayer.BotLifeSystem.LifeDecision.Outcome.CHOOSE),null);
+        var chr = mock(Character.class);
+        when(chr.getId()).thenReturn(1000005001);
+        when(bot.getChr()).thenReturn(chr);
         when(bot.lifeRuntime()).thenReturn(runtime);
         when(runtime.lastDecision()).thenReturn(new soloMapling.ArtificialPlayer.BotLifeSystem.LifeRuntime.DecisionSnapshot(1000,report));
         when(bot.lifeActivityState()).thenReturn(state);
@@ -42,6 +45,11 @@ class BotWhyCommandTest {
             assertTrue(lines.stream().anyMatch(s->s.contains("running=12")));
             assertTrue(lines.stream().anyMatch(s->s.contains("GO_TOWN")&&s.contains("4 s")));
             assertFalse(lines.stream().anyMatch(s->s.contains("No activity is executed")));
+            // 1.6.0 S1: the Bartle blend and its leading type, from the slot's seed.
+            var leading = soloMapling.ArtificialPlayer.BotLifeSystem.SocialProfile.forCharacter(1000005001).leading();
+            assertTrue(lines.stream().anyMatch(s->s.startsWith("Bartle "+leading+" (")&&s.contains(", plastic ")&&s.contains(" from seed (")&&s.contains("rival pull")),lines.toString());
+            assertTrue(lines.stream().anyMatch(s->s.startsWith("Life channels grinder ")),lines.toString());
+            assertTrue(lines.stream().anyMatch(s->s.startsWith("Persona ")&&s.contains("voice ")),lines.toString());
             observation.verify(()->soloMapling.ArtificialPlayer.BotLifeSystem.LifeObservation.capture(bot,5000),never());
             verify(bot,never()).submitLifeActivity(any());
         }

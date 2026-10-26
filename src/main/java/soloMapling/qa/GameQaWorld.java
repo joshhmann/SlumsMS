@@ -1231,6 +1231,42 @@ final class GameQaWorld implements QaWorld {
     }
 
     @Override
+    public List<String> lifeProfileProof(Character gm, String botName) {
+        Character bot = null;
+        if (botName != null) {
+            bot = gm.getClient().getWorldServer().getPlayerStorage().getCharacterByName(botName);
+            if (bot == null || CharacterStorage.getBotById(bot.getId()) == null) {
+                throw new QaRefusal("No online bot named " + botName + ".");
+            }
+        } else {
+            List<Character> candidates = new ArrayList<>();
+            for (Character chr : gm.getMap().getAllPlayers()) {
+                if (CharacterStorage.getBotById(chr.getId()) != null) candidates.add(chr);
+            }
+            for (var brain : CharacterStorage.getAllBots().values()) {
+                if (brain.getChr() != null) candidates.add(brain.getChr());
+            }
+            for (int pass = 0; pass < 2 && bot == null; pass++) {
+                for (Character chr : candidates) {
+                    boolean training = CharacterStorage.getBotById(chr.getId())
+                            instanceof soloMapling.ArtificialPlayer.BotTypes.TrainingBot;
+                    if ((pass == 1 || !training) && !chr.isOwnedAlt() && chr.getId() >= BotStore.BOT_ID_BASE
+                            && soloMapling.ArtificialPlayer.BotRoster.loadedMember(chr.getId() - BotStore.BOT_ID_BASE) != null) {
+                        bot = chr;
+                        break;
+                    }
+                }
+            }
+            if (bot == null) throw new QaRefusal("No online roster bot to test.");
+        }
+        try {
+            return soloMapling.ArtificialPlayer.BotLifeSystem.LifeProfileProof.run(bot, System.currentTimeMillis());
+        } catch (IllegalStateException failed) {
+            throw new QaRefusal("Life profile round trip failed: " + failed.getMessage());
+        }
+    }
+
+    @Override
     public List<String> grinderReport(List<Integer> ids, String what) {
         return soloMapling.ArtificialPlayer.BotCombatSystem.CombatStaging.report(ids, what);
     }
