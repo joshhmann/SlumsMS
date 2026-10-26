@@ -255,6 +255,26 @@ class MarketTest(unittest.TestCase):
         self.assertEqual(market.when("2026-10-26T07:00:00+00:00"), "12:00 AM PT (07:00 UTC), Oct 26")
         self.assertEqual(market.when("2026-11-02T08:00:00+00:00"), "12:00 AM PT (08:00 UTC), Nov 2")
 
+    def good_market(self):
+        return {"listings": {"schema": 1, "listings": [{"item_id": 1, "qty": 1, "price": 5, "channel": 1, "room": 2,
+                                                        "seller_kind": "bot", "seller_name": "Momo"}]},
+                "sales": {"schema": 1, "sales": [{"item_id": 1, "price": 5, "qty": 1, "source": "shop", "hour": "x"}]},
+                "nx-rate": {"schema": 1, "days": [{"date": "2026-10-01", "n_trades": 3, "mesos_per_1000nx": None}]},
+                "economy-public": {"schema": 1, "as_of": "x"}, "prices": [{"date": "2026-10-01", "items": {}}]}
+
+    def test_export_shape_and_privacy_lint(self):
+        from sections import market
+        m = self.good_market()
+        self.assertEqual(market.validate(m), [])
+        m["sales"]["sales"][0]["price"] = "5"
+        self.assertTrue(any("'price'" in p for p in market.validate(m)))
+        m = self.good_market()
+        m["listings"]["listings"][0]["account_id"] = 77
+        self.assertTrue(any("private field" in p for p in market.validate(m)))
+        m = self.good_market()
+        m["economy-public"]["schema"] = 2
+        self.assertTrue(any("schema 2" in p for p in market.validate(m)))
+
     def test_change_has_sign_and_shape(self):
         from sections import market
         self.assertIn("+10.0%", market.change(100, 110))

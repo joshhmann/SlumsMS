@@ -50,6 +50,57 @@ def load(data_dir=None):
     return m
 
 
+SCHEMA = 1
+# (file, list key or None, required fields per row or per file)
+SHAPES = [("listings", "listings", {"item_id": int, "qty": int, "price": int, "channel": int, "room": int,
+                                    "seller_kind": str}),
+          ("sales", "sales", {"item_id": int, "price": int, "qty": int, "source": str, "hour": str}),
+          ("nx-rate", "days", {"date": str, "n_trades": int}),
+          ("economy-public", None, {"as_of": str})]
+# Never public (plan §5 privacy rules): a field with one of these names anywhere in an export file stops the build.
+PRIVATE_FIELDS = {"account", "account_id", "accountid", "ip", "ip_address", "email", "password", "hwid", "mac",
+                  "character_id", "char_id", "session"}
+
+
+def _walk_keys(obj, path=""):
+    if isinstance(obj, dict):
+        for k, v in obj.items():
+            yield f"{path}.{k}" if path else k, k
+            yield from _walk_keys(v, f"{path}.{k}" if path else k)
+    elif isinstance(obj, list):
+        for i, v in enumerate(obj[:2000]):
+            yield from _walk_keys(v, f"{path}[{i}]")
+
+
+def validate(m):
+    """Problems with the export files, as readable lines; empty when the data is safe to build from."""
+    problems = []
+    for name in ["listings", "sales", "nx-rate", "economy-public"]:
+        v = m[name].get("schema")
+        if v not in (None, SCHEMA) and not m[name].get("sample"):
+            problems.append(f"{name}.json: schema {v}, this site reads schema {SCHEMA}")
+    for name, key, fields in SHAPES:
+        rows = m[name].get(key) if key else [m[name]]
+        if not isinstance(rows, list):
+            problems.append(f"{name}.json: '{key}' should be a list")
+            continue
+        for i, r in enumerate(rows):
+            for f, t in fields.items():
+                if not isinstance(r.get(f), t) or isinstance(r.get(f), bool):
+                    problems.append(f"{name}.json: row {i} needs '{f}' as {t.__name__}, has {r.get(f)!r}")
+                    break
+            if len(problems) > 20:
+                return problems
+    for p in m["prices"]:
+        if not isinstance(p.get("items"), dict):
+            problems.append(f"prices/{p.get('date')}.json: 'items' should be an object")
+    for name in ["listings", "sales", "nx-rate", "economy-public"]:
+        for path, k in _walk_keys(m[name]):
+            if k.lower() in PRIVATE_FIELDS:
+                problems.append(f"{name}.json: private field '{path}' must not be published")
+    return problems
+
+
 def item_history(m, item_id):
     key = str(item_id)
     return [(p["date"], p["items"].get(key)) for p in m["prices"]]
@@ -371,6 +422,9 @@ def rail_lines(m, db, count=4):
 
 def build(out, db, data_dir=None):
     m = load(data_dir)
+    problems = validate(m)
+    if problems:
+        raise SystemExit("market data refused:\n  " + "\n  ".join(problems))
     shutil.rmtree(os.path.join(out, MARKET), ignore_errors=True)
     mk = Market(m, db, out)
     priced = build_prices(mk)
