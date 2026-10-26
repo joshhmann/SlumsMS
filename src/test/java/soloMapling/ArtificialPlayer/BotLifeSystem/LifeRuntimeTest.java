@@ -48,7 +48,9 @@ class LifeRuntimeTest {
             observation.when(() -> LifeObservation.capture(bot,now)).thenReturn(report);
             var runtime = new LifeRuntime(bot);
             runtime.phase("GRIND",now);
+            long chosenBefore = LifeRuntime.chosen().getOrDefault("RESTOCK", 0L);
             runtime.tick(now);
+            assertEquals(chosenBefore + 1, LifeRuntime.chosen().getOrDefault("RESTOCK", 0L), "a transition is a choice");
             var decision = org.mockito.ArgumentCaptor.forClass(Result.class);
             verify(bot).prepareLifeActivity(decision.capture());
             assertEquals(Activity.RESTOCK,decision.getValue().selected().orElseThrow());

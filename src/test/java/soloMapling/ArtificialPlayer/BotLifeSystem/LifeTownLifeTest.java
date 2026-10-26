@@ -30,7 +30,8 @@ class LifeTownLifeTest {
     void aRestlessWandererChoosesItsOwnMapHopThroughTheBrain() {
         var moves = new CountingMoves(true);
         var outcome = run(mock(TownWandererBot.class), LifeTownLife.Kind.TOWN, moves, Map.of(Need.BOREDOM, 1.0));
-        assertEquals(1, moves.hops.get(), "the brain chose MOVE_MAP and the wanderer's own hop started");
+        assertEquals(1, moves.hops.get(), "the brain chose MOVE_MAP and the wanderer's own hop started: "
+                + outcome.decision().report().result().ranking());
         assertEquals(Activity.MOVE_MAP, outcome.decision().report().result().selected().orElseThrow());
         assertEquals(0, outcome.life().lifeActivityState().active(), "a switch, not a trip: the request ended");
         assertEquals(LifeActivityQueue.End.COMPLETED, outcome.life().lifeActivityState().end());

@@ -125,7 +125,7 @@ public final class LifePolicy {
     }
 
     /** The pull of an unasked friend to help, and of a PQ lobby that fits (both S8). */
-    static final double HELP_PULL = .55, PQ_PULL = .35;
+    static final double HELP_PULL = .55, PQ_PULL = .2;
     /** Most of a 2009 day was grinding: a standing pull toward it, so a full need list isn't needed to keep at it. */
     static final double GRIND_HABIT = .3;
 
@@ -138,7 +138,9 @@ public final class LifePolicy {
     private static Map<Need, Double> tuned(Activity activity) {
         return switch (activity) {
             case GRIND -> Map.of(Need.PROGRESS, 1.4, Need.SUPPLIES, -1.6, Need.BAG_SPACE, -.4, Need.FATIGUE, -.5);
-            case HANG_OUT -> Map.of(Need.SOCIAL, .7, Need.BOREDOM, .2);
+            case HANG_OUT -> Map.of(Need.SOCIAL, 1.0, Need.BOREDOM, .3);
+            case SHOW_OFF -> Map.of(Need.SOCIAL, .8, Need.BOREDOM, .3);
+            case MOVE_MAP -> Map.of(Need.BOREDOM, 1.0);
             case HELP_FRIEND -> Map.of(Need.SOCIAL, .6, Need.PROGRESS, .3);
             case FISH -> Map.of(Need.BOREDOM, .7, Need.SOCIAL, .3, Need.FATIGUE, .5, Need.SUPPLIES, -.5);
             case FREE_MARKET -> Map.of(Need.BAG_SPACE, .8, Need.BOREDOM, .3);

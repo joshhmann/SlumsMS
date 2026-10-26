@@ -29,6 +29,11 @@ public final class LifeRuntime {
     private static final java.util.concurrent.ConcurrentHashMap<Activity, LongAdder> activityCounts = new java.util.concurrent.ConcurrentHashMap<>();
     /** What decisions selected (kept or newly chosen), the audit's mix; accepted starts are {@link #activityCounts}. */
     private static final java.util.concurrent.ConcurrentHashMap<Activity, LongAdder> selectedCounts = new java.util.concurrent.ConcurrentHashMap<>();
+    /**
+     * Choices only: a decision that picks something other than what the bot is doing (a transition). "selected" also
+     * counts every re-check that keeps the current activity, so it measures time spent, not choices (S8 follow-up).
+     */
+    private static final java.util.concurrent.ConcurrentHashMap<Activity, LongAdder> chosenCounts = new java.util.concurrent.ConcurrentHashMap<>();
     /** Audit finding 5: one decision in this many is logged at INFO (with the running mix); the rest at DEBUG. */
     static final int LOG_SAMPLE = Math.max(1, Integer.getInteger("slums.botlife.logEvery", 500));
     /** The SOCIAL need fills over this many town stays since the bot last spent time with people. */
@@ -248,7 +253,7 @@ public final class LifeRuntime {
             var situation = new LifePolicy.Situation(memory.social(),
                     friend == null && eligible.containsKey(Activity.HELP_FRIEND),
                     friend == null && eligible.containsKey(Activity.PARTY_QUEST), crowd, ksWar,
-                    next == null ? null : next.step().activity, next == null ? 0 : next.bonus(), chr.getId());
+                    planStep(next), next == null ? 0 : next.bonus(), chr.getId());
             long signature = Objects.hash(phase, free, eligible.keySet(), original.friends(), original.rivals(),
                     friend == null ? 0 : friend.getId(), helpId, next == null ? null : next.step(),
                     (int) (crowd * 4), ksWar, needs.entrySet().stream()
@@ -269,6 +274,11 @@ public final class LifeRuntime {
                     memory.profile(), context, result, bot.lifeActivityState()));
             decisions.increment();
             result.selected().ifPresent(a -> selectedCounts.computeIfAbsent(a, k -> new LongAdder()).increment());
+            Activity doing = current != null ? current.activity() : phase.equals("GRIND") ? Activity.GRIND
+                    : phase.equals("IN_TOWN") || phase.equals("LIFE_DWELL") ? Activity.HANG_OUT : null;
+            if (result.outcome() == Outcome.CHOOSE && result.selected().isPresent() && result.selected().get() != doing) {
+                chosenCounts.computeIfAbsent(result.selected().get(), k -> new LongAdder()).increment();
+            }
             if (soloMapling.qa.QaLog.on(soloMapling.qa.QaLog.Topic.HABITS)) {
                 soloMapling.qa.QaLog.any(soloMapling.qa.QaLog.Topic.HABITS,
                         "LIFE DECISION bot=" + chr.getName() + " selected=" + result.selected().map(Enum::name).orElse("NONE"));
@@ -290,6 +300,12 @@ public final class LifeRuntime {
         } finally { cpuNanos.add(System.nanoTime() - began); reportIfDue(now); }
     }
 
+    /** The activity the plan's next step leans toward; none for a town plan step on a town-only host (it is there). */
+    private Activity planStep(LifePlanner.Next next) {
+        if (next == null) return null;
+        return bot.townOnly() && next.step().activity == Activity.HANG_OUT ? null : next.step().activity;
+    }
+
     /** Low levels hang around town more (2009 Henesys); 1.6.0 S8 halved the pull (audit finding 4). */
     static double townBias(int level) {
         return level <= 30 ? .25 : level <= 70 ? .15 : .05;
@@ -304,8 +320,8 @@ public final class LifeRuntime {
         if (decisions.sum() % LOG_SAMPLE == 0 && log.isInfoEnabled()) {
             Map<String, Long> mix = new TreeMap<>();
             selectedCounts.forEach((activity, count) -> mix.put(activity.name(), count.sum()));
-            log.info("[BotLife] DECISION sample 1/{} bot={} phase={} selected={} outcome={} top={} mix={}", LOG_SAMPLE,
-                    chr.getId(), phase, result.selected(), result.outcome(), top(result), mix);
+            log.info("[BotLife] DECISION sample 1/{} bot={} phase={} selected={} outcome={} top={} mix={} chosen={}",
+                    LOG_SAMPLE, chr.getId(), phase, result.selected(), result.outcome(), top(result), mix, chosen());
         }
     }
 
@@ -524,6 +540,13 @@ public final class LifeRuntime {
         return out;
     }
 
+    /** Transitions per activity this run (see {@link #chosenCounts}). */
+    public static Map<String, Long> chosen() {
+        Map<String, Long> out = new TreeMap<>();
+        chosenCounts.forEach((activity, count) -> out.put(activity.name(), count.sum()));
+        return out;
+    }
+
     private static void reportIfDue(long now) {
         if ("false".equalsIgnoreCase(System.getProperty("slums.botlife.metrics", "true"))) return;
         long due = nextReport.get();
@@ -537,6 +560,7 @@ public final class LifeRuntime {
                 activityCounts.forEach((activity, count) -> activities.put(activity.name(), count.sum()));
                 data.put("activities", activities);
                 data.put("selected", selected());
+                data.put("chosen", chosen());
                 int[] bands = new int[3];
                 for (var channel : soloMapling.server.SoloMaplingUtilities.world().getChannels()) {
                     var factory = channel.getMapFactory();
