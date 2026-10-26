@@ -263,11 +263,14 @@ public final class TrainingMapChooser {
         ThreadLocalRandom rng = ThreadLocalRandom.current();
         double[] weights = new double[maps.size()];
         double total = 0;
+        long now = System.currentTimeMillis();
         for (int i = 0; i < maps.size(); i++) {
             TrainingMap m = maps.get(i);
             int cap = mapCapacity(m.mapId());
             int n = botsOnMap(m.mapId());
-            double base = levelFitWeight(level, m.mobLevel()) * distanceWeight(level, m.hops(), reach);
+            // 1.6.0 S9: where real players of this band hunt at this time of day weighs up to x1.5 (capacity still rules)
+            double base = levelFitWeight(level, m.mobLevel()) * distanceWeight(level, m.hops(), reach)
+                    * soloMapling.ArtificialPlayer.TrendIndex.mapWeight(level, m.mapId(), now);
             double w = (n >= cap) ? 0.0 : base * ((cap - n) / (double) cap); // hard cap + headroom weight
             weights[i] = w;
             total += w;

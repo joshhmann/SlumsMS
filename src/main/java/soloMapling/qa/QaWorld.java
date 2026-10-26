@@ -358,6 +358,13 @@ public interface QaWorld {
      */
     default List<String> lifeCrowdStage(int botId, Double crowd) { return List.of(); }
 
+    /**
+     * {@code !qa lr-1} (1.6.0 S9): makes a staged, run-only bot a plastic Socializer, stages 30 KS events over the last
+     * five days through the learning path and returns the log lines (each push, the crossing, the !botwhy lines, PASS
+     * or FAIL). Empty when this world can't; QaRefusal when the bot is a roster member.
+     */
+    default List<String> learningStage(int botId) { return List.of(); }
+
     /** {@code !qa cc-1}: queues a CHANGE_CHANNEL request for the bot, as the brain would; the queue's answer. */
     default String forceLifeChannel(int botId) { return "CLOSED"; }
 

@@ -218,6 +218,7 @@ public final class BotBonds {
             onStateChange(botId, otherId, before, after, event, snapshot);
             soloMapling.ArtificialPlayer.Reputation.onBondState(botId, otherId, after, event, now); // S4 bond drama
         }
+        soloMapling.ArtificialPlayer.BotLifeSystem.LifeLearning.onBond(botId, otherId, event, before, after); // S9
         return true;
     }
 
@@ -942,7 +943,8 @@ public final class BotBonds {
     /** The real push: the bot's life memory (may read the profile table once; runs on the writer). */
     private static void pushChart(int botId, SocialProfile.Push push) {
         try {
-            LifeMemoryStore.of(botId).push(push);
+            // 1.6.0 S9: through the learning budget (daily caps, pull-back, crossing check)
+            soloMapling.ArtificialPlayer.BotLifeSystem.LifeLearning.push(botId, push, now());
         } catch (RuntimeException e) {
             log.debug("Could not push bot {}'s chart", botId, e);
         }

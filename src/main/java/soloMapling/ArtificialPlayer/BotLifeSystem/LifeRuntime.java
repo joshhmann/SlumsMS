@@ -100,6 +100,11 @@ public final class LifeRuntime {
         if (friend != null && friend.getMap() != null && friend.getMap().isTown()) return friend.getMapId();
         var next = planNext;
         if (next != null && next.step().activity == Activity.HANG_OUT && planDestination > 0) return planDestination;
+        // 1.6.0 S9: a hangout fad this bot follows on its channel (friends first, then the plan, then the fad)
+        if (townDestination == HOME_TOWN && bot.getChr() != null && bot.getChr().getMap() != null) {
+            int spot = soloMapling.ArtificialPlayer.Fads.spotFor(bot.getChr().getId(), bot.getChr().getMap().getChannelId());
+            if (spot > 0) return spot;
+        }
         return townDestination;
     }
 
@@ -115,6 +120,7 @@ public final class LifeRuntime {
     public boolean mayLoad(int mapId) {
         if (mapId <= 0) return false;
         if (mapId == planDestination) return true;
+        if (soloMapling.ArtificialPlayer.Fads.isSpot(mapId)) return true; // 1.6.0 S9: a hangout fad's spot
         for (LifePq.Lobby lobby : LifePq.LOBBIES) if (lobby.mapId() == mapId) return true;
         return false;
     }
@@ -572,6 +578,7 @@ public final class LifeRuntime {
                 data.put("henesysLevels", Map.of("1-30", bands[0], "31-70", bands[1], "71+", bands[2]));
                 data.put("sayDo", soloMapling.ArtificialPlayer.BotConvo.SayDo.stats());
                 data.put("nameGuard", soloMapling.ArtificialPlayer.BotConvo.NameGuard.counts()); // S4: made-up names caught
+                data.put("learning", LifeLearning.report(now)); // 1.6.0 S9: drift, crossings, fads, trends
                 var file = java.nio.file.Path.of("data/autoqa/bot-life.json");
                 java.nio.file.Files.createDirectories(file.getParent());
                 var temporary = file.resolveSibling("bot-life.json.tmp");

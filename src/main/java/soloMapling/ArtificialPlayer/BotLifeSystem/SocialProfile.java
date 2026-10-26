@@ -47,11 +47,28 @@ public record SocialProfile(double x, double y) {
         GUILD_WAR(Type.KILLER, 1),
         /** A boomed scroll: a small push toward Killer, mostly up the acting axis (frustration). */
         BOOM(-.5, 1, .5),
-        // Outcome hooks for S9 (not wired in S1).
+        // Outcome hooks (wired by S9, LifeLearning).
         PARTY(Type.SOCIALIZER, 1), CHAT(Type.SOCIALIZER, .5), KS(Type.KILLER, 1), ROAST(Type.KILLER, .5),
         GRIND(Type.ACHIEVER, .5), BOSS(Type.ACHIEVER, 1), NEW_MAP(Type.EXPLORER, 1), QUEST(Type.EXPLORER, .5),
         // S3 memory: a PQ cleared with a real player (small, Socializer); a scam by one (small, Killer).
-        PQ_TOGETHER(Type.SOCIALIZER, .5), SCAMMED(Type.KILLER, .5);
+        PQ_TOGETHER(Type.SOCIALIZER, .5), SCAMMED(Type.KILLER, .5),
+        // S9 outcome learning (LifeLearning): what happened to the bot, and what it chose to do.
+        /** Someone took this bot's mobs or drops (a player, or a bot on an observed map): a little harder. */
+        KSED(Type.KILLER, .5),
+        /** A tie or bond turned rival or nemesis. */
+        RIVALRY(Type.KILLER, .5),
+        /** A gift or a favour from a player. */
+        GIFTED(Type.SOCIALIZER, .5),
+        /** Buffed, healed or rescued by a player. */
+        HELPED(Type.SOCIALIZER, .25),
+        /** Famed by a player: recognition for what it has done. */
+        FAMED(Type.ACHIEVER, .5),
+        /** Went and helped a friend (HELP_FRIEND finished). */
+        HELP_GIVEN(Type.SOCIALIZER, .5),
+        /** Showed off in town (SHOW_OFF finished): straight up the acting axis, toward Killer and Achiever alike. */
+        FLEX(0, 1, .5),
+        /** A fishing session finished: a quiet, world-facing pastime. */
+        FISHED(Type.EXPLORER, .5);
 
         /** Unit direction on the chart. */
         public final double dx, dy;

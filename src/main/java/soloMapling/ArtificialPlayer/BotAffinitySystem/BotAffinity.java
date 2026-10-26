@@ -405,6 +405,7 @@ public final class BotAffinity {
         }
         soloMapling.ArtificialPlayer.BotEpisodes.onAffinity(botCharId, playerId, event, mapId, now); // 1.6.0 S3
         soloMapling.ArtificialPlayer.Reputation.onAffinity(botCharId, playerId, event, now); // 1.6.0 S4: KS/scam/gift/favor
+        soloMapling.ArtificialPlayer.BotLifeSystem.LifeLearning.onAffinity(botCharId, event); // 1.6.0 S9
         if (delta > 0 && !event.hearsay()) {
             // 1.5.0 bot guilds: a guildmate who does things with the bot is not ignoring it
             soloMapling.ArtificialPlayer.BotGuildSystem.BotGuilds.noteAttention(botCharId, playerId);

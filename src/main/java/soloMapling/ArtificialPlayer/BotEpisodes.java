@@ -3,7 +3,6 @@ package soloMapling.ArtificialPlayer;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import soloMapling.ArtificialPlayer.BotAffinitySystem.AffinityEvent;
-import soloMapling.ArtificialPlayer.BotLifeSystem.LifeMemoryStore;
 import soloMapling.ArtificialPlayer.BotLifeSystem.SocialProfile;
 
 import java.util.Locale;
@@ -49,7 +48,9 @@ public final class BotEpisodes {
         void push(int botCharId, SocialProfile.Push push);
     }
 
-    private static final Pusher LIFE = (botCharId, push) -> LifeMemoryStore.of(botCharId).push(push);
+    /** 1.6.0 S9: through the learning budget (daily caps, pull-back, crossing check). */
+    private static final Pusher LIFE = (botCharId, push) ->
+            soloMapling.ArtificialPlayer.BotLifeSystem.LifeLearning.push(botCharId, push, System.currentTimeMillis());
     private static volatile Pusher pusher = LIFE;
 
     private BotEpisodes() {

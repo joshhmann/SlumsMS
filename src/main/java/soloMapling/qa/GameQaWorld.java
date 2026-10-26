@@ -1348,6 +1348,63 @@ final class GameQaWorld implements QaWorld {
     }
 
     @Override
+    public List<String> learningStage(int botId) {
+        var sm = CharacterStorage.getBotById(botId);
+        if (sm == null || sm.getChr() == null) {
+            return List.of("FAIL no staged bot " + botId);
+        }
+        if (botId < BotStore.BOT_ID_BASE
+                || soloMapling.ArtificialPlayer.BotRoster.loadedMember(botId - BotStore.BOT_ID_BASE) != null) {
+            throw new QaRefusal("The staged bot is a roster member; lr-1 only changes run-only bots.");
+        }
+        var K = soloMapling.ArtificialPlayer.BotLifeSystem.SocialProfile.Type.KILLER;
+        var memory = soloMapling.ArtificialPlayer.BotLifeSystem.LifeMemoryStore.of(botId);
+        memory.stageSeed(new soloMapling.ArtificialPlayer.BotLifeSystem.SocialProfile(-.30, -.20), .60);
+        double radius = soloMapling.ArtificialPlayer.BotLifeSystem.SocialProfile.RADIUS_PER_PLASTICITY * memory.plasticity();
+        double before = memory.social().share(K);
+        List<String> out = new ArrayList<>();
+        out.add(String.format(java.util.Locale.ROOT, "STAGED bot=%s seed=%s plastic=%.2f cap=%.2f killer=%.0f%%",
+                sm.getChr().getName(), memory.social().describe(), memory.plasticity(), radius, 100 * before));
+        long now = System.currentTimeMillis();
+        int crossedAfter = -1, moved = 0;
+        for (int i = 0; i < 30; i++) {
+            long at = now - (29 - i) * 4 * 3_600_000L; // six a day over five days, oldest first
+            double[] was = memory.drift();
+            soloMapling.ArtificialPlayer.BotLifeSystem.LifeLearning.stageKs(botId, at);
+            double[] is = memory.drift();
+            boolean step = was[0] != is[0] || was[1] != is[1];
+            if (step) moved++;
+            if (crossedAfter < 0 && memory.crossings() > 0) crossedAfter = i + 1;
+            out.add(String.format(java.util.Locale.ROOT, "KS %d/30 %s point=(%+.3f,%+.3f)", i + 1,
+                    step ? "pushed" : "no move", memory.social().x(), memory.social().y()));
+        }
+        double[] d = memory.drift();
+        double drift = Math.hypot(d[0], d[1]);
+        double after = memory.social().share(K);
+        out.add(String.format(java.util.Locale.ROOT, "POINT %s drift=%.3f cap=%.3f killer %.0f%% -> %.0f%% moved=%d",
+                memory.social().describe(), drift, radius, 100 * before, 100 * after, moved));
+        out.add(crossedAfter > 0 ? "CROSSED " + memory.recentCrossings().getFirst().from() + "->"
+                + memory.recentCrossings().getFirst().to() + " after " + crossedAfter + " KS, crossings="
+                + memory.crossings() : "NO CROSSING");
+        List<String> why = new ArrayList<>();
+        for (String line : client.command.commands.gm3.BotWhyCommand.inspectionLines(sm, now)) {
+            if (line.startsWith("Bartle ") || line.startsWith("Learning: ")) {
+                why.add(line);
+                out.add("WHY " + line);
+            }
+        }
+        boolean whyShows = why.stream().anyMatch(l -> l.startsWith("Learning: quadrant KILLER") && l.contains("1 crossing"))
+                && why.stream().anyMatch(l -> l.startsWith("Bartle KILLER") && l.contains("drift"));
+        boolean pass = after > before && drift <= radius + 1e-9 && memory.crossings() == 1 && memory.quadrant() == K
+                && whyShows;
+        out.add((pass ? "PASS" : "FAIL") + " bot=" + botId + String.format(java.util.Locale.ROOT,
+                ": toward Killer %s, within cap %s, one crossing %s, !botwhy %s", after > before ? "yes" : "no",
+                drift <= radius + 1e-9 ? "yes" : "no", memory.crossings() == 1 ? "yes" : "no (" + memory.crossings() + ")",
+                whyShows ? "yes" : "no"));
+        return out;
+    }
+
+    @Override
     public List<String> lifeCrowdStage(int botId, Double crowd) {
         Character chr = BotHelpers.getCharFromChannelStorage(botId);
         if (chr == null || chr.getMap() == null) {
