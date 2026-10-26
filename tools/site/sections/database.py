@@ -117,7 +117,8 @@ class Site:
             li(f"mobs/lv-{lo}-{hi}.html", f"Level {lo}-{hi}", f"mobs/lv-{lo}-{hi}") for lo, hi in self.bands()) + "</ul>")
         parts.append("<h3>World</h3><ul>" + li("maps/index.html", "Maps", "maps") + li("npcs/index.html", "NPCs", "npcs")
                      + li("quests/index.html", "Quests", "quests") + "</ul>")
-        parts.append("<h3>SlumsMS</h3><ul>" + li("changes.html", "SlumsMS changes", "changes") + "</ul>")
+        parts.append("<h3>SlumsMS</h3><ul>" + li("changes.html", "SlumsMS changes", "changes")
+                     + li("whacky-mages.html", "Whacky weapons for mages", "whacky") + "</ul>")
         return f'<nav class="panel dbside" aria-label="Database">{"".join(parts)}</nav>'
 
     def bands(self):
@@ -493,6 +494,54 @@ def build_changes(s):
            "Items and monsters SlumsMS changes from the original game.")
 
 
+MAGE_BANDS = [(0, 29), (30, 49), (50, 69), (70, 99), (100, 200)]
+MAGE_TOOLS = {137, 138}  # wands and staves
+
+
+def mage_can_equip(it):
+    job = it.get("req_job") or 0
+    return job == 0 or (job > 0 and job & 2)  # -1 is beginners only
+
+
+def build_whacky(s):
+    """Owner's idea: MapleRoot gives weapons Magic ATT equal to their Weapon ATT, and the server adds it to a
+    magician's magic attack. So: the best non-wand weapons a magician can hold, next to the best wand or staff."""
+    d = s.d
+    mad = lambda i: (d["items"][i].get("stats") or {}).get("incMAD") or 0  # noqa: E731
+    lvl = lambda i: d["items"][i].get("req_level") or 0  # noqa: E731
+    weapons = [i for i, it in d["items"].items() if it["type"] == "Weapon"]
+    parts = ['<h1>Whacky weapons for mages</h1><p class="lede">On SlumsMS most weapons carry as much Magic ATT as '
+             'Weapon ATT, and a magician gets all of it. So a magician can leave the wand at home and cast spells with a '
+             'snowboard, a surfboard or a lunch box. Here are the best ones you can equip at each level, next to the best '
+             'wand or staff.</p>']
+    for lo, hi in MAGE_BANDS:
+        band = [i for i in weapons if lo <= lvl(i) <= hi]
+        tools = [i for i in band if i // 10000 in MAGE_TOOLS]
+        best_tool = max(tools, key=mad, default=None)
+        odd = sorted((i for i in band if i // 10000 not in MAGE_TOOLS and mage_can_equip(d["items"][i]) and mad(i)),
+                     key=lambda i: (-mad(i), lvl(i)))[:6]
+        if not odd:
+            continue
+        bar = mad(best_tool) if best_tool else 0
+        rows = []
+        for i in odd:
+            delta = mad(i) - bar
+            verdict = (f'<span class="chg up">+{delta} over the best wand</span>' if delta > 0 else
+                       '<span class="muted">ties the best wand</span>' if delta == 0 else
+                       f'<span class="muted">{delta} vs the best wand</span>')
+            rows.append([td(s.icon("items", i, "{root}")), td(s.link("items", i, "{root}")),
+                         td(esc(item_kind(d["items"][i], i))), td(num(lvl(i)), True),
+                         td(f"+{mad(i)}" + was(d["items"][i], "incMAD", lambda x: f"+{x:,}"), True), td(verdict)])
+        extra = (f'best wand or staff: {esc(d["items"][best_tool]["name"])} +{bar}' if best_tool else "no wand or staff here")
+        parts.append(box(f"Level {lo}-{hi}", table(["", "Weapon", "Kind", "Req. level>", "Magic ATT>", ""], rows, "icons"),
+                         extra))
+    parts.append('<p class="small">Only weapons a magician can equip are listed (no job requirement, or magician '
+                 'allowed). Upgrade slots and scrolls are not counted. Magic ATT is what the weapon gives; the badge is '
+                 "the original game's value.</p>")
+    s.page(f"{DB}/whacky-mages.html", "Whacky weapons for mages", [("Whacky weapons for mages", None)], "".join(parts),
+           "whacky", "The best non-wand weapons for magicians on SlumsMS.")
+
+
 def build_search(s):
     d = s.d
     rows = [["i", i, v["name"]] for i, v in d["items"].items()] + [["m", i, v["name"]] for i, v in d["mobs"].items()] + \
@@ -526,5 +575,6 @@ def build(out, data_dir=None):
     build_npcs(s)
     build_quests(s)
     build_changes(s)
+    build_whacky(s)
     build_search(s)
     return {k: len(v) for k, v in s.d.items()} | {"icons": n_icons}
