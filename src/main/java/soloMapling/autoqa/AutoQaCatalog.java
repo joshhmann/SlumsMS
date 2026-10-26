@@ -783,6 +783,7 @@ public final class AutoQaCatalog {
                         has("AFFINITY BONDS \\S+ -> \\S+ neutral -> FRIEND \\((party|party_time)"),
                         has("BB3 PASS bots \\d+ and \\d+ are mutual friends after \\d+ min, crew yes"),
                         lacks("BB3 FAIL "))
+                .build());
         // 1.6.0 S8: a staged goal shows its GOAP plan steps in !botwhy (bl-11)
         c.add(Check.auto("t-bl-11", "A bot's goal turns into plan steps that !botwhy shows").minutes(3)
                 .step(say("!warp 104040000"), waitSeconds(3), run("bl-11"), waitFor("LIFE PLAN (PASS|FAIL) ", 90))
