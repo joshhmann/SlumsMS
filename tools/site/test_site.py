@@ -69,16 +69,27 @@ class CheckTest(unittest.TestCase):
             f.write(f"<!doctype html><html><body>{body}</body></html>")
 
     def test_each_forbidden_string_is_caught(self):
-        for bad in ["192.168.0.5", "port 164", "host:8489", "x:7585", "Access Key", ".htpasswd", "SlumsPatch",
+        for bad in ["192.168.0.5", "port 164", "10.0.0.164", "ssh root@164", "on 164", "the 164 box", "host:8489", "x:7585", "Access Key", ".htpasswd", "SlumsPatch",
                     "Password", "autoqa", "type !qa"]:
             self.page("index.html", f"<p>{bad}</p>")
             self.assertTrue(check.check_forbidden(self.root), bad)
 
-    def test_allowlist_is_exact(self):
-        self.page("guide/leveling.html", "<td>164</td>")
+    def test_164_as_game_data_is_fine(self):
+        self.page("guide/leveling.html", "<td>164</td><p>Lv. 164, 1,164 HP, item 1640001, 16400 mesos</p>")
         self.assertEqual(check.check_forbidden(self.root), [])
         self.page("guide/leveling.html", "<td>164</td><p>192.168.0.164</p>")
         self.assertTrue(check.check_forbidden(self.root))
+
+    def test_allowlist_is_exact(self):
+        old = check.ALLOW
+        check.ALLOW = [("guide/a.html", "<td>slums-patch</td>")]
+        try:
+            self.page("guide/a.html", "<td>slums-patch</td>")
+            self.assertEqual(check.check_forbidden(self.root), [])
+            self.page("guide/a.html", "<td>slums-patch</td><p>slums-patch</p>")
+            self.assertTrue(check.check_forbidden(self.root))
+        finally:
+            check.ALLOW = old
 
     def test_links(self):
         self.page("index.html", '<a href="guide/">g</a><a href="#top">t</a><a href="a.html#x">a</a>'

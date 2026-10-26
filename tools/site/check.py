@@ -4,7 +4,8 @@
     python3 tools/site/check.py [dist/site]
 
 1. Forbidden strings: nothing private may reach the public site (LAN addresses, test-server ports, the patch
-   site's name and credentials, QA tooling). Matching ignores case.
+   site's name and credentials, QA tooling). Matching ignores case. The host "164" is a pattern rather than a
+   string, because 164 is also an ordinary number in game data (monster levels, item and map ids).
 2. Links: every relative href/src must point at a file in the output, and every #fragment at an id on that page.
 3. No external requests: no http(s) URLs at all, so there are no trackers, CDNs or remote fonts.
 Exit status 1 if anything is found.
@@ -17,17 +18,21 @@ from urllib.parse import unquote, urlsplit
 
 # The list the owner asked for, then a few more of the same kind.
 FORBIDDEN = [
-    "192.168.", "164", ":8489", ":7585", "access key", "htpasswd", "slumspatch", "password", "AutoQa", "!qa",
+    "192.168.", ":8489", ":7585", "access key", "htpasswd", "slumspatch", "password", "AutoQa", "!qa",
     # extras: other private addresses, paths and leftovers from the internal wiki
     "slums-patch", "slumsms.asslorde.com", ":8485", ":3309", "/opt/", "/srv/", "/root/", "/etc/", "cloud-llm",
     "claude.ai/artifact", "owner check", 'class="owner"', "test server", "test-server",
 ]
 
-# Places where a forbidden string is harmless data, matched exactly. Keep this list short and explain each entry.
-ALLOW = [
-    # "Where to train": a map whose monsters are level 164 (Creepy Humming Forest Trail). Not an address.
-    ("guide/leveling.html", "<td>164</td>"),
+# The server host "164": as the last part of an address (.164) or named as a machine ("on 164", "164 box").
+FORBIDDEN_PATTERNS = [
+    re.compile(r"\.164\b"),
+    re.compile(r"\b(?:on|port|host|box|server|machine|lxc|ssh|root@)\s*164\b", re.I),
+    re.compile(r"\b164\s+(?:box|host|server|machine|lxc)\b", re.I),
 ]
+
+# Places where a forbidden string is harmless data, matched exactly. Keep this list short and explain each entry.
+ALLOW = []
 
 TEXT_EXT = {".html", ".css", ".svg", ".txt", ".xml", ".json", ".js", ".md"}
 
@@ -57,6 +62,11 @@ def check_forbidden(root):
                 snippet = text[max(0, i - 30):i + len(bad) + 30].replace("\n", " ")
                 problems.append(f"{rel}:{line}: forbidden {bad!r}: ...{snippet}...")
                 i = low.find(bad.lower(), i + 1)
+        for pat in FORBIDDEN_PATTERNS:
+            for m in pat.finditer(text):
+                line = text.count("\n", 0, m.start()) + 1
+                snippet = text[max(0, m.start() - 30):m.end() + 30].replace("\n", " ")
+                problems.append(f"{rel}:{line}: forbidden host {m.group(0)!r}: ...{snippet}...")
     return problems
 
 
