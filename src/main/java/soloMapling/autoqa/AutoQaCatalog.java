@@ -977,6 +977,15 @@ public final class AutoQaCatalog {
                         has("BD1 OFFER \\S+ -> "), has("BD1 ALERT FIRED a[0-9a-f]{12} "),
                         has("BD1 PASS "), lacks("BD1 FAIL"))
                 .build());
+        // 1.6.0 (owner 2026-10-26) bot watch: follow 20 bots, stratified by activity, for 10 minutes and judge whether
+        // each decision turned into action (BotWatchJudge). The bar is in the PASS/FAIL line: >= 80% OK, idle <= 10%,
+        // no teleport where a player watches. The scenario's hint names none of these words (a waitFor matched a hint)
+        c.add(Check.auto("t-bw-1", "Bots do what they decided").minutes(13)
+                .step(run("bw-1"), waitFor("BW1 (PASS|FAIL) ", 12 * 60))
+                .expect(has("BW1 START Watching [1-9]\\d* bots"),
+                        has("BW1 SUMMARY \\d+/[1-9]\\d* bots OK"),
+                        has("BW1 PASS "), lacks("BW1 FAIL "))
+                .build());
         return List.copyOf(c);
     }
 

@@ -240,6 +240,7 @@ public final class SayDo {
      * both the chat send and the transcript) only gains its source and addressee.
      */
     public static void said(Character bot, Character target, String line, String source) {
+        soloMapling.autoqa.BotWatch.said(bot, line); // 1.6.0 (owner 2026-10-26) bot watch: its last line; free when idle
         if (bot == null || line == null || !enabled()) {
             return;
         }
