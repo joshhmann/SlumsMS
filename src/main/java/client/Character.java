@@ -3856,18 +3856,26 @@ public class Character extends AbstractCharacterObject {
     }
 
     public void gainExp(int gain, int party, boolean show, boolean inChat, boolean white) {
-        if (isOwnedAlt()) return; // quest, script and solo EXP are not companion progression
+        // Owner 2026-10-26: in a PQ an alt is a full member and gets the PQ's EXP (stage clears, givePartyExp,
+        // giveEventPlayersExp, giveEventReward all come through here). Outside an event instance script and quest
+        // EXP stays the owner's: quests are per character, and an alt never talks to an NPC itself.
+        if (isOwnedAlt() && getEventInstance() == null) return;
         gainExpAllowed(gain, party, show, inChat, white);
     }
 
+    /**
+     * Whether an alt may gain EXP at all: its owner's session is still the live one and the alt is not being saved.
+     * Owner 2026-10-26: an alt in your party gets the normal party EXP split with the usual level-gap rules and no
+     * special leech handling either way - so no "owner alive / on the same map" test here. Monster's party split
+     * already decides who shares a kill (members on the map, inside the level-gap interval), as for anyone.
+     */
     public boolean canGainOwnedAltPartyExp() {
         Character owner = ownedAltOwner;
         return !ownedAltClosing && owner != null && owner.isLoggedinWorld() && owner.getClient() != null
-                && owner.getClient().getPlayer() == owner && owner.isAlive()
-                && owner.getMap() == getMap() && getParty() != null && owner.getParty() == getParty();
+                && owner.getClient().getPlayer() == owner;
     }
 
-    /** Only the ordinary monster party-share path may award an alt EXP. */
+    /** The monster EXP path (solo or party share): an alt gains it like any member while its owner is online. */
     public void gainPartyPlayExp(int gain, int party, boolean show, boolean inChat, boolean white) {
         if (isOwnedAlt() && !canGainOwnedAltPartyExp()) return;
         gainExpAllowed(gain, party, show, inChat, white);
