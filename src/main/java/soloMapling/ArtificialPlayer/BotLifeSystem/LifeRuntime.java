@@ -256,7 +256,7 @@ public final class LifeRuntime {
             if (!dirty && now < dueAt && signature == lastNeedSignature) return;
             dirty = false; lastNeedSignature = signature;
             var kept = now >= dueAt ? null : current;
-            double townBias = chr.getLevel() <= 30 ? .4 : chr.getLevel() <= 70 ? .25 : .05;
+            double townBias = townBias(chr.getLevel());
             var options = LifePolicy.options(context, memory.profile(), situation).stream().map(o ->
                     o.activity() == Activity.HANG_OUT || o.activity() == Activity.SHOW_OFF
                     ? new Option(o.activity(), o.weights(), o.contextBonus() + townBias
@@ -288,6 +288,11 @@ public final class LifeRuntime {
                 bot.submitLifeActivity(bot.prepareLifeActivity(result));
             }
         } finally { cpuNanos.add(System.nanoTime() - began); reportIfDue(now); }
+    }
+
+    /** Low levels hang around town more (2009 Henesys); 1.6.0 S8 halved the pull (audit finding 4). */
+    static double townBias(int level) {
+        return level <= 30 ? .25 : level <= 70 ? .15 : .05;
     }
 
     /** Audit finding 5: DEBUG for every decision, INFO for one in {@link #LOG_SAMPLE} with the running mix. */

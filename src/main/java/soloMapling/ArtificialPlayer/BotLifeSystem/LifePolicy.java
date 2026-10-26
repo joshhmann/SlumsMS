@@ -94,6 +94,7 @@ public final class LifePolicy {
     public static List<Option> options(Context context, LifeProfile profile, Situation situation) {
         List<Option> options = new ArrayList<>();
         double killer = situation.social() == null ? 0 : situation.social().rivalPull();
+        boolean s8 = situation != Situation.NONE;
         for (Activity activity : Activity.values()) {
             // Rivals push most bots out of town; a Killer-leaning bot is drawn to them instead (flex, trash talk).
             double rivalFactor = situation.social() == null ? 1 : Math.max(-.6, Math.min(1, 1 - 3 * killer));
@@ -102,11 +103,11 @@ public final class LifePolicy {
                         + Math.min(.2, .04 * context.strangers())
                         - (context.dramaOff() ? 0 : Math.min(.8, .4 * context.rivals()) * rivalFactor)
                         + (activity == Activity.SHOW_OFF ? Math.min(.3, .05 * context.strangers() * killer) : 0);
-                case HELP_FRIEND -> context.friendAsked() ? 1.5 : situation.helpOffered() ? .35 : 0;
-                case PARTY_QUEST -> situation.pqOpen() ? .30 : 0;
+                case HELP_FRIEND -> context.friendAsked() ? 1.5 : situation.helpOffered() ? HELP_PULL : 0;
+                case PARTY_QUEST -> situation.pqOpen() ? PQ_PULL : 0;
                 case CHANGE_CHANNEL -> channelPull(situation, killer);
                 // A Killer in a KS war stays and fights for the mobs.
-                case GRIND -> situation.ksWar() ? .5 * killer : 0;
+                case GRIND -> (s8 ? GRIND_HABIT : 0) + (situation.ksWar() ? .5 * killer : 0);
                 default -> 0;
             };
             if (activity == situation.planStep()) pull += situation.planBonus();
@@ -115,10 +116,32 @@ public final class LifePolicy {
             boolean eligible = context.eligible().containsKey(activity)
                     && (activity != Activity.HELP_FRIEND || context.friendAsked() || situation.helpOffered())
                     && (activity != Activity.CHANGE_CHANNEL || situation.crowd() >= CROWDED || situation.ksWar());
-            options.add(new Option(activity, weights(activity), pull, personality, eligible,
+            options.add(new Option(activity, s8 ? tuned(activity) : weights(activity), pull, personality, eligible,
                     context.eligible().getOrDefault(activity, "destination, activity or adapter not verified")));
         }
         return List.copyOf(options);
+    }
+
+    /** The pull of an unasked friend to help, and of a PQ lobby that fits (both S8). */
+    static final double HELP_PULL = .55, PQ_PULL = .35;
+    /** Most of a 2009 day was grinding: a standing pull toward it, so a full need list isn't needed to keep at it. */
+    static final double GRIND_HABIT = .3;
+
+    /**
+     * 1.6.0 S8 retune of the need weights (audit finding 4: town won every idle moment). Time in town now fills the
+     * SOCIAL need ({@link LifeRuntime#accepted}), so a town stay answers less of it; bags weigh less on grinding (bots
+     * sell on their errands); helping and fishing answer more of a bot's needs. The pre-S8 table stays for the
+     * two-argument policy.
+     */
+    private static Map<Need, Double> tuned(Activity activity) {
+        return switch (activity) {
+            case GRIND -> Map.of(Need.PROGRESS, 1.4, Need.SUPPLIES, -1.6, Need.BAG_SPACE, -.4, Need.FATIGUE, -.5);
+            case HANG_OUT -> Map.of(Need.SOCIAL, .7, Need.BOREDOM, .2);
+            case HELP_FRIEND -> Map.of(Need.SOCIAL, .6, Need.PROGRESS, .3);
+            case FISH -> Map.of(Need.BOREDOM, .7, Need.SOCIAL, .3, Need.FATIGUE, .5, Need.SUPPLIES, -.5);
+            case FREE_MARKET -> Map.of(Need.BAG_SPACE, .8, Need.BOREDOM, .3);
+            default -> weights(activity);
+        };
     }
 
     /** A map this full (bots against its cap) counts as crowded. */
@@ -126,7 +149,7 @@ public final class LifePolicy {
 
     /** "too many ppl": grows from the crowded mark to the cap; a KS war adds to it, less for a Killer who enjoys it. */
     static double channelPull(Situation situation, double killer) {
-        double crowd = situation.crowd() < CROWDED ? 0 : Math.min(.9, .3 + 2 * (situation.crowd() - CROWDED));
+        double crowd = situation.crowd() < CROWDED ? 0 : Math.min(1.2, .5 + 2.5 * (situation.crowd() - CROWDED));
         double ks = situation.ksWar() ? Math.max(0, .7 * (1 - 2.5 * killer)) : 0;
         return crowd + ks;
     }
