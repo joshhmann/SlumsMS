@@ -90,7 +90,9 @@ class WorldEventBotReactionTest {
         if (offered) {
             eligible.put(Activity.EVENT, "offered");
         }
-        LifeDecision.Current current = new LifeDecision.Current(Activity.GRIND, 0, 600_000, LifePolicy.STICKINESS);
+        // a grind a third of the way through: its stickiness still counts (as on TEST, where GRIND scores 1.6-2.5)
+        LifeDecision.Current current = new LifeDecision.Current(Activity.GRIND, 10_000_000 - 200_000, 600_000,
+                LifePolicy.STICKINESS);
         var context = new LifePolicy.Context(new LifeDecision.Needs(needs), eligible, 0, 0, 0, false, false,
                 commitment, current, List.of(), List.of());
         var situation = new LifePolicy.Situation(social, false, false, 0, false, null, 0, BOT);
@@ -126,15 +128,15 @@ class WorldEventBotReactionTest {
         double killerInvasion = share(killer, EventTemplate.Kind.INVASION);
         double achieverInvasion = share(achiever, EventTemplate.Kind.INVASION);
         double explorerInvasion = share(explorer, EventTemplate.Kind.INVASION);
-        assertTrue(killerInvasion > explorerInvasion, killerInvasion + " vs " + explorerInvasion);
-        assertTrue(achieverInvasion > 3 * explorerInvasion, achieverInvasion + " vs " + explorerInvasion);
-        assertTrue(killerInvasion > 0.2, "a Killer rushes an invasion in a good share of moods: " + killerInvasion);
+        assertTrue(killerInvasion > explorerInvasion + 0.1, killerInvasion + " vs " + explorerInvasion);
+        assertTrue(achieverInvasion > explorerInvasion + 0.05, achieverInvasion + " vs " + explorerInvasion);
+        assertTrue(killerInvasion > 0.5, "a Killer rushes an invasion in most moods: " + killerInvasion);
         double socializerCake = share(socializer, EventTemplate.Kind.GIANT_CAKE);
         double explorerCake = share(explorer, EventTemplate.Kind.GIANT_CAKE);
-        assertTrue(socializerCake > 3 * explorerCake, socializerCake + " vs " + explorerCake);
+        assertTrue(socializerCake > explorerCake + 0.2, socializerCake + " vs " + explorerCake);
         double explorerTreasure = share(explorer, EventTemplate.Kind.TREASURE_HUNT);
         double killerTreasure = share(killer, EventTemplate.Kind.TREASURE_HUNT);
-        assertTrue(explorerTreasure > killerTreasure, explorerTreasure + " vs " + killerTreasure);
+        assertTrue(explorerTreasure > killerTreasure + 0.2, explorerTreasure + " vs " + killerTreasure);
         // nobody always goes, nobody never goes: it is a pull, not an order
         for (double s : new double[]{killerInvasion, explorerInvasion, socializerCake, explorerTreasure}) {
             assertTrue(s > 0 && s < 0.98, String.valueOf(s));

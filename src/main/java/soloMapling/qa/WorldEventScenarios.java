@@ -179,7 +179,7 @@ final class WorldEventScenarios {
     static final class Ev2Invasion extends EventScenario {
         public String id() { return "ev-2"; }
         public String title() { return "A Henesys invasion: bots swarm it, some die, respawn and grumble (1.6.0)"; }
-        public String usage() { return "; then !qa do die"; }
+        public String usage() { return "; then !qa do die | status"; }
         public int minutes(String[] args) { return 12; }
         String template() { return "henesys_invasion"; }
         long bossHp() { return 20_000; }
@@ -192,23 +192,54 @@ final class WorldEventScenarios {
             out.add("Expect: the [Monster Invasion] notice, mushrooms all over Henesys, the staged lv 15 bots (and"
                     + " any nearby) fighting them. On an invasion map a heavy hit can kill a bot: WEVENT BOT DIED,");
             out.add("then RESPAWN (HABITS) and now and then a grumble (WEVENT GRUMBLE). Then the waves, Mushmom,"
-                    + " the end notice. !qa do die makes the next lethal hit on 3 staged bots certain.");
+                    + " the end notice. !qa do die drops the 3 staged bots nearest a mob to 1 HP with a certain"
+                    + " death; EV2 STATUS every 30 s (or !qa do status) says where everyone is.");
             return out;
         }
 
-        public List<String> action(QaContext ctx, String name, String[] args) {
-            if (!"die".equals(name)) {
-                throw new QaRefusal("ev-2 steps: die");
+        private long lastStatusAt;
+
+        /** Every 30 s while it runs: where the staged bots and the invaders are (a failed run says why). */
+        @Override
+        public void tick(QaContext ctx) {
+            super.tick(ctx);
+            ActiveEvent e = event;
+            long now = System.currentTimeMillis();
+            if (e != null && !e.finished() && now - lastStatusAt >= 30_000) {
+                lastStatusAt = now;
+                ctx.run().note("EV2", "EV2 STATUS " + WorldEvents.getInstance().qaStatus(e, List.copyOf(staged)));
             }
-            int n = 0;
-            for (int id : staged) {
-                if (n >= 3) {
-                    break;
+        }
+
+        public List<String> action(QaContext ctx, String name, String[] args) {
+            ActiveEvent e = event;
+            if (e == null) {
+                return List.of("no event staged");
+            }
+            if ("status".equals(name)) {
+                String line = "EV2 STATUS " + WorldEvents.getInstance().qaStatus(e, List.copyOf(staged));
+                ctx.run().note("EV2", line);
+                return List.of(line);
+            }
+            if (!"die".equals(name)) {
+                throw new QaRefusal("ev-2 steps: die | status");
+            }
+            // the three staged bots nearest a live invader: their next hit kills (HP down to 1, the death certain)
+            java.util.Map<Integer, Integer> dist = WorldEvents.getInstance().qaMobDistances(e, List.copyOf(staged));
+            List<Integer> pick = dist.entrySet().stream().filter(d -> d.getValue() >= 0)
+                    .sorted(java.util.Map.Entry.comparingByValue()).limit(3).map(java.util.Map.Entry::getKey).toList();
+            List<String> who = new ArrayList<>();
+            for (int id : pick) {
+                Character bot = soloMapling.ArtificialPlayer.BotHelpers.getCharFromChannelStorage(id);
+                if (bot == null) {
+                    continue;
                 }
                 BotDeaths.forceNextDeath(id, true);
-                n++;
+                bot.updateHp(1);
+                who.add(bot.getName() + " " + dist.get(id) + " px");
             }
-            String line = "EV2 DIE next lethal hit certain for " + n + " staged bots";
+            String line = "EV2 DIE next lethal hit certain for " + who.size() + " staged bots (HP 1, nearest a mob: "
+                    + who + ")";
             ctx.run().note("EV2", line);
             List<Integer> ids = List.copyOf(staged);
             ctx.onStop("clear the forced deaths", () -> ids.forEach(id -> BotDeaths.forceNextDeath(id, false)));

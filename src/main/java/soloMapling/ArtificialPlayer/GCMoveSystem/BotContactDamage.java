@@ -85,12 +85,15 @@ final class BotContactDamage {
             }
             Rectangle query = new Rectangle(getBotTouchBounds(entry, bot));
             query.grow(MOB_QUERY_MARGIN, MOB_QUERY_MARGIN);
+            // 1.6.0 world events: on an invasion map the mobs swarm - any mob within reach lands its hit, not only
+            // one whose lower body overlaps the bot (town invaders often stand still: nobody controls them)
+            boolean swarm = soloMapling.worldevents.WorldEvents.swarmMap(bot);
             for (MapObject obj : bot.getMap().getMapObjectsInRect(query, List.of(MapObjectType.MONSTER))) {
                 Monster mob = (Monster) obj;
                 if (!isHostileLivingMonster(mob)) {
                     continue;
                 }
-                if (isMobTouchingBot(entry, bot, mob)) {
+                if (isMobTouchingBot(entry, bot, mob) || swarm && withinSwarmReach(botPos, mob.getPosition())) {
                     applyMobHit(entry, bot, mob);
                     return;
                 }
@@ -219,6 +222,14 @@ final class BotContactDamage {
     }
 
     // Swept-AABB touch detection (anti-tunnel; lower-half mob box only).
+    /** 1.6.0: an invasion mob this close (feet to feet) hits the bot. */
+    static final int SWARM_REACH_X = 110, SWARM_REACH_Y = 80;
+
+    static boolean withinSwarmReach(Point bot, Point mob) {
+        return bot != null && mob != null && Math.abs(bot.x - mob.x) <= SWARM_REACH_X
+                && Math.abs(bot.y - mob.y) <= SWARM_REACH_Y;
+    }
+
     private static boolean isMobTouchingBot(BotMovementState entry, Character bot, Monster mob) {
         Rectangle botBounds = getBotTouchBounds(entry, bot);
         Rectangle mobBounds = BotMobHitboxProvider.getMobBounds(mob);

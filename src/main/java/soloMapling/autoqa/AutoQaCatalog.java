@@ -935,12 +935,13 @@ public final class AutoQaCatalog {
                         noEmoji())
                 .build());
         c.add(Check.auto("t-ev-2", "A Henesys invasion: bots swarm it, some die and respawn").minutes(10)
-                .step(run("ev-2"), waitSeconds(20), qaDo("die"), waitFor("WEVENT BOT DIED ", 240),
+                .step(run("ev-2"), waitSeconds(40), qaDo("die"), waitFor("WEVENT BOT DIED ", 180),
                         waitFor("RESPAWN .* died on 100000000", 60), waitSeconds(5), stop())
                 .expect(has("WEVENT START #\\d+ henesys_invasion \\(invasion\\) on 100000000 "),
                         has("WEVENT NOTICE \\[Monster Invasion\\] Monsters are pouring into "),
                         has("WEVENT QA JOIN #\\d+ [1-9]\\d* staged bots head to 100000000"),
                         has("EV2 DIE next lethal hit certain for [1-3] staged bots"),
+                        has("EV2 STATUS wave \\d/\\d.*, staged on map [1-9]"),
                         atLeast(1, "WEVENT BOT DIED #\\d+ .* on 100000000, death \\d+ for it"),
                         has("RESPAWN .* died on 100000000"),
                         noEmoji())

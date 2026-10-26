@@ -20,20 +20,23 @@ import java.util.Map;
  */
 public final class WorldEventBias implements LifePolicy.Bias {
 
-    /** What any offer is worth before the bot's type: "something is happening" pulls everyone a little. */
-    static final double BASE = .2;
+    /**
+     * What any offer is worth before the bot's type. 0: the "something is happening" pull everyone feels is the
+     * scorer's own (LifePolicy.EVENT_PULL); this plug-in carries only the type's lean, up to the plug-in cap.
+     */
+    static final double BASE = 0;
 
     private static final Map<EventTemplate.Kind, Map<SocialProfile.Type, Double>> LEAN = new EnumMap<>(
             EventTemplate.Kind.class);
 
     static {
-        LEAN.put(EventTemplate.Kind.INVASION, row(.26, .06, .06, .30));
-        LEAN.put(EventTemplate.Kind.BOSS_SIGHTING, row(.27, .06, .04, .28));
-        LEAN.put(EventTemplate.Kind.GIANT_CAKE, row(.12, .06, .28, .10));
-        LEAN.put(EventTemplate.Kind.TREASURE_HUNT, row(.06, .30, .04, .04));
-        LEAN.put(EventTemplate.Kind.HOT_SPOT, row(.30, .04, .06, .12));
-        LEAN.put(EventTemplate.Kind.WANDERING_NPC, row(.04, .20, .10, .0));
-        LEAN.put(EventTemplate.Kind.WEDDING, row(.0, .04, .25, .0));
+        LEAN.put(EventTemplate.Kind.INVASION, row(.42, .05, .08, .50));
+        LEAN.put(EventTemplate.Kind.BOSS_SIGHTING, row(.45, .08, .05, .48));
+        LEAN.put(EventTemplate.Kind.GIANT_CAKE, row(.20, .08, .48, .15));
+        LEAN.put(EventTemplate.Kind.TREASURE_HUNT, row(.10, .50, .06, .05));
+        LEAN.put(EventTemplate.Kind.HOT_SPOT, row(.50, .06, .10, .20));
+        LEAN.put(EventTemplate.Kind.WANDERING_NPC, row(.06, .35, .15, .0));
+        LEAN.put(EventTemplate.Kind.WEDDING, row(.0, .06, .40, .0));
     }
 
     /** One kind's pull per type: achiever, explorer, socializer, killer. */
@@ -82,8 +85,8 @@ public final class WorldEventBias implements LifePolicy.Bias {
      * scaled into [0.1, 0.9]. Pure.
      */
     public static double joinChance(EventTemplate.Kind kind, SocialProfile social) {
-        double lean = lean(kind, social); // BASE .. BASE + .30
-        return Math.max(0.1, Math.min(0.9, (lean - BASE) / .30 * 0.8 + 0.1));
+        double lean = lean(kind, social); // BASE .. BASE + .50
+        return Math.max(0.1, Math.min(0.9, (lean - BASE) / .50 * 0.8 + 0.1));
     }
 
     @Override

@@ -669,6 +669,8 @@ public final class WorldEvents {
         if (index > 0) {
             announce(e, WorldEventText.wave(index, e.template.waves().size()));
         }
+        qa("WEVENT WAVE #" + e.id + " " + (index + 1) + "/" + e.template.waves().size() + ": " + e.mobOids.size()
+                + " mobs up");
     }
 
     /** GM stop. */
@@ -804,6 +806,19 @@ public final class WorldEvents {
             int third = Math.max(1, (pick.maxX() - pick.minX()) / 3);
             return new Point(pick.minX() + third + rng.nextInt(third), pick.centerY() - 40);
         }
+        // the main ground only (ledges at least 40% as wide as the widest: the street, not rooftops and small
+        // platforms), so invaders stand where the bots and players are and can reach them
+        int widestSpan = 0;
+        for (var l : ledges) {
+            widestSpan = Math.max(widestSpan, l.maxX() - l.minX());
+        }
+        List<soloMapling.ArtificialPlayer.GCMoveSystem.GCMovement.Ledge> main = new ArrayList<>();
+        for (var l : ledges) {
+            if (l.maxX() - l.minX() >= widestSpan * 0.4) {
+                main.add(l);
+            }
+        }
+        ledges = main;
         long total = 0;
         for (var l : ledges) {
             total += Math.max(1, l.maxX() - l.minX());
@@ -1035,6 +1050,13 @@ public final class WorldEvents {
             return false;
         }
         return lowAfterHit(hpAfter, bot.getCurrentMaxHp());
+    }
+
+    /** BotContactDamage: the bot stands on a running invasion's map (its mobs swarm: a near mob is a hit). */
+    public static boolean swarmMap(Character bot) {
+        WorldEvents w = INSTANCE;
+        return !w.swarmMaps.isEmpty() && bot != null && bot.getMap() != null
+                && w.swarmMaps.contains(mapKey(bot.getMap().getChannelId(), bot.getMapId()));
     }
 
     static boolean lowAfterHit(long hpAfter, long maxHp) {
@@ -1391,6 +1413,66 @@ public final class WorldEvents {
             out.add("  rewards: " + t.rewards());
         }
         return out;
+    }
+
+    /** {@code !qa ev-2}: how far each of these bots stands from the nearest live event mob (px, -1 = off the map). */
+    public Map<Integer, Integer> qaMobDistances(ActiveEvent e, List<Integer> botIds) {
+        Map<Integer, Integer> out = new HashMap<>();
+        MapleMap map = mapOf(e.mapId());
+        List<Point> mobs = new ArrayList<>();
+        if (map != null) {
+            for (int oid : e.mobOids) {
+                Monster m = map.getMonsterByOid(oid);
+                if (m != null && m.isAlive() && m.getPosition() != null) {
+                    mobs.add(m.getPosition());
+                }
+            }
+        }
+        for (int id : botIds) {
+            soloMapling.ArtificialPlayer.BotSM bot = soloMapling.ArtificialPlayer.BotMessagingSystem.CharacterStorage
+                    .getBotById(id);
+            Character chr = bot == null ? null : bot.getChr();
+            if (chr == null || chr.getMapId() != e.mapId() || chr.getPosition() == null || mobs.isEmpty()) {
+                out.put(id, -1);
+                continue;
+            }
+            int best = Integer.MAX_VALUE;
+            for (Point p : mobs) {
+                best = Math.min(best, (int) chr.getPosition().distance(p));
+            }
+            out.put(id, best);
+        }
+        return out;
+    }
+
+    /** {@code !qa ev-2}: one status line - the wave, the mobs up, where the staged bots are, their HP, deaths. */
+    public String qaStatus(ActiveEvent e, List<Integer> botIds) {
+        Map<Integer, Integer> dist = qaMobDistances(e, botIds);
+        int onMap = 0, near = 0, hpSum = 0, grinding = 0;
+        for (int id : botIds) {
+            soloMapling.ArtificialPlayer.BotSM bot = soloMapling.ArtificialPlayer.BotMessagingSystem.CharacterStorage
+                    .getBotById(id);
+            Character chr = bot == null ? null : bot.getChr();
+            if (chr == null || chr.getMapId() != e.mapId()) {
+                continue;
+            }
+            onMap++;
+            hpSum += (int) (100L * chr.getHp() / Math.max(1, chr.getCurrentMaxHp()));
+            if (bot instanceof soloMapling.ArtificialPlayer.BotTypes.TrainingBot tb && tb.isGrinding()) {
+                grinding++;
+            }
+            int d = dist.getOrDefault(id, -1);
+            if (d >= 0 && d <= 150) {
+                near++;
+            }
+        }
+        List<Integer> ds = new ArrayList<>();
+        dist.values().stream().filter(d -> d >= 0).sorted().forEach(ds::add);
+        return "wave " + (e.waveIndex + 1) + "/" + e.template.waves().size() + (e.bossOid >= 0 ? " (boss up)" : "")
+                + ", " + e.mobOids.size() + " event mobs up, staged on map " + onMap + "/" + botIds.size()
+                + ", grinding " + grinding + ", near a mob " + near + ", median mob distance "
+                + (ds.isEmpty() ? "-" : ds.get(ds.size() / 2) + " px") + ", HP avg "
+                + (onMap == 0 ? "-" : hpSum / onMap + "%") + ", " + e.botDeaths() + " bot deaths";
     }
 
     /** Test seam: an event counted as running without spawning anything. */
