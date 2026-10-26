@@ -27,7 +27,7 @@ public final class BeefKit {
     private static volatile LongSupplier clock = System::currentTimeMillis;
     private static volatile IntToDoubleFunction rivalPull = BeefKit::seededRivalPull;
     private static volatile IntToDoubleFunction socialPull = BeefKit::seededSocialPull;
-    private static volatile IntFunction<Character> online = DramaKit::liveBot;
+    private static volatile IntFunction<Character> online = BeefKit::anyBot;
 
     private BeefKit() {
     }
@@ -60,6 +60,22 @@ public final class BeefKit {
 
     static Character online(int charId) {
         return online.apply(charId);
+    }
+
+    /**
+     * Any bot in the world by id: a typed bot ({@code CharacterStorage}) or one only in the world's storage - a
+     * {@code !qa} idle bot has no bot type, so {@link DramaKit#liveBot} never finds it (TEST dr-6 / cr-1, 1.6.0 S7).
+     */
+    public static Character anyBot(int charId) {
+        Character c = DramaKit.liveBot(charId);
+        if (c != null) {
+            return c;
+        }
+        try {
+            return soloMapling.ArtificialPlayer.BotHelpers.getCharFromChannelStorage(charId);
+        } catch (RuntimeException e) {
+            return null;
+        }
     }
 
     static String name(int charId) {
@@ -98,7 +114,7 @@ public final class BeefKit {
         clock = testClock != null ? testClock : System::currentTimeMillis;
         rivalPull = testRival != null ? testRival : BeefKit::seededRivalPull;
         socialPull = testSocial != null ? testSocial : BeefKit::seededSocialPull;
-        online = testOnline != null ? testOnline : DramaKit::liveBot;
+        online = testOnline != null ? testOnline : BeefKit::anyBot;
     }
 
     /** Public seam for tests in other packages (BotThreads, couples): the clock and the pulls. */

@@ -80,7 +80,7 @@ class BotCrushesTest {
 
     @Test
     void aboutOneCouplePer150BotsNeverUnderTheOldFour() {
-        assertEquals(20, BotCouples.capFor(3_000), "the owner's ~20 at 3,000");
+        assertEquals(20, BotCouples.capFor(3_000), "the owner's ~20 at 3,000 (the population, not a 9,000 roster)");
         assertEquals(4, BotCouples.capFor(0), "before the roster is read");
         assertEquals(4, BotCouples.capFor(600));
         assertEquals(6, BotCouples.capFor(900));
@@ -171,6 +171,21 @@ class BotCrushesTest {
         assertTrue(BotBonds.score(A, C) < before, "the jealousy is a spat on their bond");
         assertNotEquals("jealous", BotCrushes.signs(c, a, b, now + 21 * 60_000, new Random(1)),
                 "jealousy is a quarter hour apart");
+    }
+
+    @Test
+    void aRivalWalkingUpToTheCrushIsSeenAtOnceWhenForced() {
+        bot(A, "Amy", 0);
+        bot(B, "Bob", 0);
+        long now = clock.get();
+        BotCrushes.start(A, B, true, now);
+        Character c = bot(C, "Cid", 900);
+        BotBonds.stage(A, C, AffinityState.RIVAL);
+        assertTrue(BotCrushes.jealousNow(A, now).startsWith("no rival"), "still far away");
+        when(c.getPosition()).thenReturn(new Point(30, 0));
+        assertEquals("jealous", BotCrushes.jealousNow(A, now + 1_000), "right after it walked up, no gap");
+        assertEquals("jealous", BotCrushes.signs(BotCrushes.crushOf(A), online.get(A), online.get(B),
+                now + BotCrushes.JEALOUS_GAP_MS + 2_000, new Random(1)), "a rival by the crush beats every other sign");
     }
 
     @Test

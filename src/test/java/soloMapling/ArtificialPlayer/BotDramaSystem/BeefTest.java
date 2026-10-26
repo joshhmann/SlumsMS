@@ -370,6 +370,38 @@ class BeefTest {
     }
 
     @Test
+    void aStagedBotHopsAwayAndBackThroughTheRealExit() {
+        // only in the online lookup, as a !qa idle bot is only in the world's storage (never in CharacterStorage)
+        java.util.concurrent.atomic.AtomicInteger channel = new java.util.concurrent.atomic.AtomicInteger(1);
+        client.Client cl = mock(client.Client.class);
+        when(cl.getChannel()).thenAnswer(x -> channel.get());
+        Character a = mock(Character.class);
+        when(a.getId()).thenReturn(A);
+        when(a.getName()).thenReturn("Amy");
+        when(a.getClient()).thenReturn(cl);
+        online.put(A, a);
+        java.util.List<Integer> hops = new java.util.ArrayList<>();
+        RageQuit.useForTest(new RageQuit.RealExit()); // the real exit: a staged bot hops channels
+        RageQuit.useHopForTest((bot, ch) -> {
+            hops.add(ch);
+            channel.set(ch);
+            return true;
+        });
+        try {
+            long now = clock.get();
+            assertNotNull(RageQuit.forced(a, 1302020, 25_000));
+            assertEquals(List.of(2), hops, "left for another channel");
+            assertTrue(RageQuit.step(now + 10_000).isEmpty(), "not yet");
+            assertEquals(List.of("Amy"), RageQuit.step(now + 30_000), "back");
+            assertEquals(List.of(2, 1), hops, "and hopped back to its own channel");
+            assertNotNull(DramaNews.latest(A, DramaNews.Kind.BACK, now + 30_000), "it said it is back");
+            assertTrue(RageQuit.describe(now + 30_000).isEmpty(), "no longer away");
+        } finally {
+            RageQuit.useHopForTest(null);
+        }
+    }
+
+    @Test
     void aReturnThatNeverLogsInIsForgottenAfterSixHours() {
         Character a = bot(A, "Amy");
         RageQuit.useForTest(new RageQuit.Exit() {

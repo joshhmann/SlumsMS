@@ -894,7 +894,9 @@ public final class AutoQaCatalog {
                         has("THREAD \\S+ \\+ \\S+ on \\d+: rival beef"),
                         has("RV5 FACT rivalry: \\S+ has beef with \\S+.*guard clean"),
                         has("THREAD LINE \\[bank\\] \\S+: "),
-                        has("RV5 PASS "), lacks("RV5 FAIL "), lacks("NAMEGUARD "), noEmoji())
+                        has("RV5 PASS "), lacks("RV5 FAIL "),
+                        // only the staged pair's lines: another thread on the map may be guarded (TEST 497dd7d5a)
+                        lacks("NAMEGUARD (REWRITE|DROP) ({rvbots}): "), noEmoji())
                 .build());
         c.add(Check.auto("t-dr-6", "A bot booms, rage quits and comes back").minutes(3)
                 .step(run("dr-6"), waitFor("DR6 GOSSIP ", 20), waitFor("RAGEQUIT BACK ", 90), waitFor("DR6 PASS ", 30),
@@ -906,7 +908,7 @@ public final class AutoQaCatalog {
                         has("DR6 PASS "), lacks("DR6 FAIL "), noEmoji())
                 .build());
         c.add(Check.auto("t-cr-1", "A crush shows signs, gets jealous, then becomes a couple").minutes(3)
-                .step(run("cr-1"), waitFor("CRUSH (LINE|NEAR) ", 60), qaDo("jealous"), waitFor("CRUSH JEALOUS ", 60),
+                .step(run("cr-1"), waitFor("CRUSH (LINE|NEAR) ", 60), qaDo("jealous"), waitFor("CRUSH JEALOUS ", 30),
                         qaDo("ripen"), waitFor("CR1 (COUPLE|FAIL) ", 20), stop())
                 .expect(has("CR1 STAGED .*crush on"),
                         has("CRUSH START \\S+ -> \\S+ \\(staged\\)"),
