@@ -60,6 +60,23 @@ class FollowerFightTest {
     }
 
     @Test
+    void theDojoClearMarkerIsNeverATarget() {
+        // TEST 2026-10-26: the bots killed Mano, then the transparent item it revives into, and the up portal
+        // (dojang_up.js: open only while 9300216 is alive) said "There are still some monsters remaining" for good
+        Monster marker = mob(-200, true);
+        when(marker.getId()).thenReturn(constants.id.MobId.TRANSPARENT_ITEM);
+        MapleMap floor = map(PARTY_FLOOR_1, List.of(marker));
+        Character bot = on(floor, -230);
+        assertNull(FollowerFight.target(bot, on(floor, 0)), "a cleared floor: nothing left to hit");
+        Monster boss = mob(160, true);
+        MapleMap fighting = map(PARTY_FLOOR_1, List.of(marker, boss));
+        Character bot2 = on(fighting, -230);
+        assertSame(boss, FollowerFight.target(bot2, on(fighting, 0)), "the boss even though the marker is nearer");
+        assertFalse(soloMapling.ArtificialPlayer.BotAttackSystem.BotAttackDriver.botMayTarget(marker));
+        assertTrue(soloMapling.ArtificialPlayer.BotAttackSystem.BotAttackDriver.botMayTarget(boss));
+    }
+
+    @Test
     void theNearestLiveMonsterIsTheTarget() {
         Monster dead = mob(-220, false);
         Monster near = mob(-100, true);

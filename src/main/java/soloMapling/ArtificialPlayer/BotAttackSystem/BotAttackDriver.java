@@ -575,7 +575,7 @@ public final class BotAttackDriver {
         List<Monster> found = new ArrayList<>();
         for (MapObject mo : bot.getMap().getMapObjectsInRange(botPos, SEEK_RANGE_SQ, List.of(MapObjectType.MONSTER))) {
             Monster m = (Monster) mo;
-            if (!m.isAlive()) {
+            if (!m.isAlive() || !botMayTarget(m)) {
                 continue;
             }
             Point mp = m.getPosition();
@@ -737,6 +737,15 @@ public final class BotAttackDriver {
     }
 
     /* The closest live mob within the seek radius (any direction), or null. */
+    /**
+     * 1.5.5: mobs a bot must never attack. The Mu Lung Dojo's "A transparent item for checking elimination" (9300216)
+     * is what a floor's boss revives into; the floor's up portal (dojang_up.js) only opens while it is alive, so a bot
+     * killing it locked the party on the floor ("There are still some monsters remaining").
+     */
+    public static boolean botMayTarget(Monster m) {
+        return m != null && m.getId() != constants.id.MobId.TRANSPARENT_ITEM;
+    }
+
     private static Monster nearestMob(Character bot) {
         Point botPos = bot.getPosition();
         if (botPos == null) {
@@ -746,7 +755,7 @@ public final class BotAttackDriver {
         double bestSq = Double.MAX_VALUE;
         for (MapObject mo : bot.getMap().getMapObjectsInRange(botPos, SEEK_RANGE_SQ, List.of(MapObjectType.MONSTER))) {
             Monster m = (Monster) mo;
-            if (!m.isAlive() || m.getPosition() == null) {
+            if (!m.isAlive() || m.getPosition() == null || !botMayTarget(m)) {
                 continue;
             }
             // Skip mobs on a separate ledge so the bot faces (and later swings at) a mob it can
