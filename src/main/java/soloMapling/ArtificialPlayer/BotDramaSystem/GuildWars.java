@@ -789,7 +789,9 @@ public final class GuildWars {
                 }
                 String line = DramaKit.pick("PoachWhisper", Map.of("PLAYER", p.getName(), "GUILD", g.name(), "OLD",
                         BotGuilds.guildName(p.getGuildId())));
-                DramaKit.whisper(bot, p, line);
+                if (!DramaKit.whisper(bot, p, line)) { // 1.6.0 S5: @quiet bots, busy or a repeat holds it
+                    return "poach whisper to " + p.getName() + " held by the social gate";
+                }
                 BotRomance.onBotWhispered(bot.getId(), p);
                 poachOffers.put(p.getId(), new long[]{g.guildId(), bot.getId(), now + TimeUnit.MINUTES.toMillis(15)});
                 qa(p.getMapId(), "POACH WHISPER " + bot.getName() + " [" + g.name() + "] -> " + p.getName() + ": " + line);

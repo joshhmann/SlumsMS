@@ -193,6 +193,14 @@ public final class DramaKit {
         return line;
     }
 
+    /** A line of the node this bot has not said to this player lately (1.6.0 S5), or null. Nothing is remembered. */
+    static String pickFresh(Character bot, Character player, String node, Map<String, String> tokens) {
+        if (bot == null || player == null) {
+            return pick(node, tokens);
+        }
+        return pick(node, tokens, l -> !soloMapling.ArtificialPlayer.SocialGate.seen(bot.getId(), player.getId(), l));
+    }
+
     /** The bot says a line of the node aimed at this player: never one it said to them lately (1.6.0 S5). */
     static String sayTo(Character bot, Character player, String node, Map<String, String> tokens) {
         if (player == null || bot == null) {

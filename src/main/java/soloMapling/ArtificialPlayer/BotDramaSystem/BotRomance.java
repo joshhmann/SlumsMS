@@ -1101,7 +1101,7 @@ public final class BotRomance {
                 t.put("OTHER", other);
             }
             soloMapling.server.BotTiming.after(8_000, () -> DramaKit.whisper(partner, player,
-                    DramaKit.pick("RomanceJealousWhisper", t)));
+                    DramaKit.pickFresh(partner, player, "RomanceJealousWhisper", t)));
             qa(player.getMapId(), "JEALOUS " + partner.getName() + ": " + other + " whispered " + player.getName());
             return;
         }
@@ -1212,7 +1212,8 @@ public final class BotRomance {
         if (warned == null) {
             if (bot != null) {
                 neglectWarnedAt.put(pair, now);
-                DramaKit.whisper(bot, player, DramaKit.pick("RomanceNeglectWarning", Map.of("PLAYER", player.getName())));
+                DramaKit.whisper(bot, player, DramaKit.pickFresh(bot, player, "RomanceNeglectWarning",
+                        Map.of("PLAYER", player.getName())));
                 qa(player.getMapId(), "NEGLECT warning " + bot.getName() + " -> " + player.getName());
             }
             return;
@@ -1330,10 +1331,11 @@ public final class BotRomance {
             }
             today[1]++;
         }
-        String line = DramaKit.pick("RomanceCuteWhisper", Map.of("PLAYER", player.getName(), "MAP",
+        String line = DramaKit.pickFresh(bot, player, "RomanceCuteWhisper", Map.of("PLAYER", player.getName(), "MAP",
                 DramaKit.mapName(bot)));
-        DramaKit.whisper(bot, player, line);
-        qa(player.getMapId(), "WHISPER " + bot.getName() + " -> " + player.getName() + ": " + line);
+        if (DramaKit.whisper(bot, player, line)) {
+            qa(player.getMapId(), "WHISPER " + bot.getName() + " -> " + player.getName() + ": " + line);
+        }
     }
 
     /** The busy hold-off: no cute whisper in an event or PQ, a trade, a shop or game room, or an NPC chat. */
@@ -1503,9 +1505,11 @@ public final class BotRomance {
                     // rc6 (QA t-rm-1): chatting with this partner itself is no reason to hold its whisper
                     return "held: you are busy (event, trade, shop, NPC chat or mid-chat with another bot)";
                 }
-                String line = DramaKit.pick("RomanceCuteWhisper", Map.of("PLAYER", player.getName(), "MAP",
-                        DramaKit.mapName(bot)));
-                DramaKit.whisper(bot, player, line);
+                String line = DramaKit.pickFresh(bot, player, "RomanceCuteWhisper", Map.of("PLAYER", player.getName(),
+                        "MAP", DramaKit.mapName(bot)));
+                if (!DramaKit.whisper(bot, player, line)) {
+                    return "held by the social gate (@quiet bots, busy, or no line it has not said to you lately)";
+                }
                 return bot.getName() + " whispers: " + line;
             }
         }
