@@ -352,6 +352,7 @@ class WzDataset:
     def load_mobs(self) -> None:
         mob_files = glob.glob(os.path.join(self.wz_dir, "Mob.wz", "*.img.xml"))
         raw_mob_stats: Dict[int, Dict[str, Any]] = {}
+        self.raw_mob_stats = raw_mob_stats
 
         if self.workers > 1 and len(mob_files) > 100:
             with ProcessPoolExecutor(max_workers=self.workers) as ex:
@@ -1412,6 +1413,222 @@ WEAPON_MAD_NOTE = (
     "magic attack does nothing for a thief, but a magician can hold a no-job-requirement weapon for magic attack.")
 
 
+# ---------------------------------------------------------------------------------------------
+# SlumsMS vs stock v83 (upstream Cosmic WZ)
+# ---------------------------------------------------------------------------------------------
+
+DEFAULT_STOCK_WZ = "/root/work/cosmic-triage/Cosmic/wz"
+
+# Gameplay stats compared per item (equip info, consumable spec, and the shared info keys). A stat missing on one
+# side counts as 0 there (the game reads a missing inc* / spec value as 0).
+ITEM_STOCK_KEYS = (
+    # equips
+    "incSTR", "incDEX", "incINT", "incLUK", "incPAD", "incMAD", "incPDD", "incMDD", "incACC", "incEVA",
+    "incSpeed", "incJump", "incMHP", "incMMP", "tuc", "attackSpeed",
+    "reqLevel", "reqJob", "reqSTR", "reqDEX", "reqINT", "reqLUK",
+    # consumables / scrolls (spec) and shared info
+    "hp", "mp", "hpR", "mpR", "pad", "mad", "pdd", "mdd", "acc", "eva", "speed", "jump", "time",
+    "success", "cursed", "price", "slotMax",
+)
+
+# Mob stats compared, as (output key, WZ key); link chains are followed on both sides.
+MOB_STOCK_KEYS = (
+    ("level", "level"), ("hp", "maxHP"), ("mp", "maxMP"), ("exp", "exp"),
+    ("PADamage", "PADamage"), ("MADamage", "MADamage"), ("PDDamage", "PDDamage"), ("MDDamage", "MDDamage"),
+    ("acc", "acc"), ("eva", "eva"), ("speed", "speed"),
+)
+
+STOCK_RULE = (
+    "Values are SlumsMS's own WZ (what the game uses). 'stock' holds the upstream Cosmic v83 value for every compared "
+    "stat that differs (a stat missing on one side counts as 0), with slums_changed true; slums_new true means the "
+    "entity does not exist in stock v83 (MapleRoot/SlumsMS custom or later-version content). Entities with a name "
+    "but no WZ data of their own get neither flag."
+)
+
+
+def _num(v: Any) -> Any:
+    if isinstance(v, bool):
+        return int(v)
+    if isinstance(v, (int, float)):
+        return v
+    iv = safe_int(v)
+    if iv is not None:
+        return iv
+    try:
+        return float(v)
+    except (TypeError, ValueError):
+        return 0
+
+
+def _resolve_mob(raw: Dict[int, Dict[str, Any]], mid: int, key: str, depth: int = 0) -> Any:
+    if depth > 5 or mid not in raw:
+        return None
+    st = raw[mid]
+    if key in st:
+        return st[key]
+    link = st.get("link")
+    if isinstance(link, int):
+        return _resolve_mob(raw, link, key, depth + 1)
+    return None
+
+
+def mob_category(ent: Dict[str, Any]) -> str:
+    if ent.get("boss"):
+        return "boss"
+    lvl = safe_int(ent.get("level"), 0) or 0
+    for hi, label in ((30, "Lv 1-30"), (70, "Lv 31-70"), (120, "Lv 71-120")):
+        if lvl <= hi:
+            return label
+    return "Lv 121+"
+
+
+def item_stock_diff(slums_stats: Dict[str, Any], stock_stats: Dict[str, Any]) -> Dict[str, Any]:
+    """{stat: stock value} for every compared item stat whose value differs."""
+    out: Dict[str, Any] = {}
+    for k in ITEM_STOCK_KEYS:
+        if k not in slums_stats and k not in stock_stats:
+            continue
+        a, b = _num(slums_stats.get(k, 0)), _num(stock_stats.get(k, 0))
+        if a != b:
+            out[k] = b
+    return out
+
+
+def mob_stock_diff(slums_raw: Dict[int, Dict[str, Any]], stock_raw: Dict[int, Dict[str, Any]], mid: int) -> Dict[str, Any]:
+    """{stat: stock value} for every compared mob stat whose (link-resolved) value differs."""
+    out: Dict[str, Any] = {}
+    for name, key in MOB_STOCK_KEYS:
+        a, b = _resolve_mob(slums_raw, mid, key), _resolve_mob(stock_raw, mid, key)
+        if a is None and b is None:
+            continue
+        a, b = _num(a if a is not None else 0), _num(b if b is not None else 0)
+        if a != b:
+            out[name] = b
+    return out
+
+
+def _slums_value(kind: str, ent: Dict[str, Any], key: str) -> Any:
+    if kind == "mobs" and key in ("level", "hp", "mp", "exp"):
+        return ent.get(key, 0)
+    return _num(ent.get("stats", {}).get(key, 0))
+
+
+def apply_stock_comparison(dataset: Dict[str, Any], wz: "WzDataset", stock: Optional["WzDataset"]) -> Dict[str, Any]:
+    """Marks every item and mob with slums_changed / stock (and slums_new); returns the summary for meta/report."""
+    summary: Dict[str, Any] = {"compared": stock is not None}
+    if stock is None:
+        return summary
+    by_cat: Dict[str, Dict[str, int]] = {"items": defaultdict(int), "mobs": defaultdict(int)}
+    new_cat: Dict[str, Dict[str, int]] = {"items": defaultdict(int), "mobs": defaultdict(int)}
+    by_stat: Dict[str, Dict[str, int]] = {"items": defaultdict(int), "mobs": defaultdict(int)}
+    changed = {"items": 0, "mobs": 0}
+    new = {"items": 0, "mobs": 0}
+    stock_mob_raw = getattr(stock, "raw_mob_stats", {})
+    slums_mob_raw = getattr(wz, "raw_mob_stats", {})
+    for kind in ("items", "mobs"):
+        for key, ent in dataset.get(kind, {}).items():
+            eid = ent["id"]
+            cat = ent.get("type", "Unknown") if kind == "items" else mob_category(ent)
+            if (kind == "items" and eid not in wz.wz_item_defs) or (kind == "mobs" and eid not in slums_mob_raw):
+                continue  # a name with no WZ data on our side: nothing to compare
+            if kind == "items":
+                sdef = stock.wz_item_defs.get(eid)
+                diff = item_stock_diff(ent.get("stats", {}), sdef.get("stats", {})) if sdef is not None else None
+            else:
+                diff = mob_stock_diff(slums_mob_raw, stock_mob_raw, eid) if eid in stock_mob_raw else None
+            if diff is None:
+                ent["slums_new"] = True
+                ent["slums_changed"] = False
+                new[kind] += 1
+                new_cat[kind][cat] += 1
+                continue
+            ent["slums_changed"] = bool(diff)
+            if diff:
+                ent["stock"] = diff
+                changed[kind] += 1
+                by_cat[kind][cat] += 1
+                for k in diff:
+                    by_stat[kind][k] += 1
+    summary.update({
+        "changed": changed,
+        "new": new,
+        "changed_by_category": {k: dict(sorted(v.items(), key=lambda x: -x[1])) for k, v in by_cat.items()},
+        "new_by_category": {k: dict(sorted(v.items(), key=lambda x: -x[1])) for k, v in new_cat.items()},
+        "changed_by_stat": {k: dict(sorted(v.items(), key=lambda x: -x[1])) for k, v in by_stat.items()},
+        "top_changes": {kind: top_stock_changes(dataset, kind) for kind in ("items", "mobs")},
+    })
+    return summary
+
+
+# The stats a "top change" is ranked on: the ones a player compares (not price or slot counts).
+TOP_ITEM_KEYS = ("incSTR", "incDEX", "incINT", "incLUK", "incPAD", "incMAD", "incPDD", "incMDD", "incACC", "incEVA",
+                 "incSpeed", "incJump", "incMHP", "incMMP", "tuc", "hp", "mp", "pad", "mad", "success")
+TOP_MOB_KEYS = ("level", "hp", "exp", "PADamage", "MADamage", "PDDamage", "MDDamage")
+
+
+def top_stock_changes(dataset: Dict[str, Any], kind: str, limit: int = 25) -> List[Dict[str, Any]]:
+    """The biggest changes: ranked by the largest relative change of one headline stat."""
+    keys = TOP_ITEM_KEYS if kind == "items" else TOP_MOB_KEYS
+    rows = []
+    for ent in dataset.get(kind, {}).values():
+        stock = ent.get("stock")
+        if not stock or not ent.get("name"):
+            continue
+        best, parts = 0.0, []
+        for k, old in stock.items():
+            new = _slums_value(kind, ent, k)
+            parts.append(f"{k} {old}->{new}")
+            if k in keys:
+                rel = abs(_num(new) - _num(old)) / max(1.0, abs(_num(old)))
+                best = max(best, rel)
+        if best > 0:
+            rows.append({"id": ent["id"], "name": ent.get("display_name") or ent.get("name"), "score": round(best, 2),
+                         "changes": ", ".join(parts)})
+    rows.sort(key=lambda r: (-r["score"], r["id"]))
+    return rows[:limit]
+
+
+def generate_stock_markdown(stock: Dict[str, Any], source: Dict[str, Any]) -> str:
+    if not stock.get("compared"):
+        return "\n## 7. SlumsMS vs stock v83\nNot compared (no stock WZ found; pass --stock-wz).\n"
+    out = ["", "## 7. SlumsMS vs stock v83", "",
+           f"Stock source: `{source.get('path')}` ({source.get('repo')} @ {source.get('commit')}). " + STOCK_RULE, "",
+           "| | Changed from stock | Not in stock |", "| --- | --- | --- |"]
+    for kind in ("items", "mobs"):
+        out.append(f"| {kind.capitalize()} | {stock['changed'][kind]:,} | {stock['new'][kind]:,} |")
+    for kind in ("items", "mobs"):
+        out += ["", f"### {kind.capitalize()} changed, by category", "", "| Category | Changed | Not in stock |",
+                "| --- | --- | --- |"]
+        cats = list(stock["changed_by_category"][kind].keys())
+        cats += [c for c in stock["new_by_category"][kind] if c not in cats]
+        for c in cats:
+            out.append(f"| {c} | {stock['changed_by_category'][kind].get(c, 0):,} | "
+                       f"{stock['new_by_category'][kind].get(c, 0):,} |")
+        out += ["", f"Stats changed most often ({kind}): " + ", ".join(
+            f"{k} {v:,}" for k, v in list(stock["changed_by_stat"][kind].items())[:15]), ""]
+        out += [f"### Top {kind} changes (largest relative change of a headline stat)", "",
+                "| # | ID | Name | Changes (stock->Slums) |", "| --- | --- | --- | --- |"]
+        for i, r in enumerate(stock["top_changes"][kind], 1):
+            out.append(f"| {i} | `{r['id']}` | {r['name']} | {r['changes']} |")
+    return "\n".join(out) + "\n"
+
+
+def stock_source(path: Optional[str]) -> Dict[str, Any]:
+    if not path:
+        return {"path": None}
+    repo_dir = os.path.dirname(os.path.abspath(path))
+    commit = repo = None
+    try:
+        import subprocess
+        commit = subprocess.run(["git", "-C", repo_dir, "log", "-1", "--format=%h %cs %s"], capture_output=True,
+                                text=True, timeout=10).stdout.strip() or None
+        repo = subprocess.run(["git", "-C", repo_dir, "remote", "get-url", "origin"], capture_output=True,
+                              text=True, timeout=10).stdout.strip() or None
+    except Exception:
+        pass
+    return {"path": os.path.abspath(path), "repo": repo, "commit": commit, "version": "v83 (Cosmic)"}
+
+
 def build_meta(dataset: Dict[str, Any], db: Optional["DbDataset"], list_dupes: Dict[str, Dict[str, int]],
                korean: Dict[str, Any], labelled: Dict[str, int], rates: Dict[str, Any], wz_dir: str,
                include_korean: bool) -> Dict[str, Any]:
@@ -1443,6 +1660,17 @@ def build_meta(dataset: Dict[str, Any], db: Optional["DbDataset"], list_dupes: D
         "drop_rates": drop_rate_rule(rates),
         "notes": {"weapon_magic_attack": WEAPON_MAD_NOTE},
     }
+
+
+def add_stock_meta(meta: Dict[str, Any], stock: Dict[str, Any], source: Dict[str, Any]) -> Dict[str, Any]:
+    meta["stock_v83"] = {
+        "source": source,
+        "rule": STOCK_RULE,
+        "item_stats_compared": list(ITEM_STOCK_KEYS),
+        "mob_stats_compared": [k for k, _ in MOB_STOCK_KEYS],
+        **{k: v for k, v in stock.items() if k != "top_changes"},
+    }
+    return meta
 
 
 def clean_dataset(dataset: Dict[str, Any], include_korean: bool = False) -> Tuple[Dict[str, Any], Dict[str, Any], Dict[str, int]]:
@@ -1630,6 +1858,7 @@ def run_build(
     include_korean: bool = False,
     server_config: Optional[str] = None,
     meta_path: Optional[str] = None,
+    stock_wz: Optional[str] = None,
 ) -> Tuple[Dict[str, Any], Dict[str, Any]]:
     t0 = time.time()
     wz_path = resolve_wz_dir(wz_dir)
@@ -1677,6 +1906,18 @@ def run_build(
         db.load()
         print(f"  DB drop_data: {len(db.drop_data)}, reactordrops: {len(db.reactordrops)}, shops: {len(db.shops)}, shopitems: {len(db.shopitems)}")
 
+    # Stock v83 for the "changed from stock" flags ("" = the default path when present, None = skip;
+    # the CLI passes "" unless --stock-wz none)
+    if stock_wz == "":
+        stock_wz = DEFAULT_STOCK_WZ if os.path.isdir(DEFAULT_STOCK_WZ) else None
+    stock = None
+    if stock_wz:
+        print(f"Loading stock v83 items and mobs from: {stock_wz}")
+        stock = WzDataset(stock_wz, workers=workers)
+        stock.load_items()
+        stock.load_mobs()
+        print(f"  Stock items: {len(stock.wz_item_defs)}, mobs: {len(stock.wz_mob_defs)}")
+
     # Build & cross-reference
     print("Cross-referencing entities and sweeping for broken references...")
     dataset, audit = build_normalized_data(wz, db)
@@ -1685,6 +1926,10 @@ def run_build(
     list_dupes, korean, labelled = clean_dataset(dataset, include_korean=include_korean)
     meta = build_meta(dataset, db, list_dupes, korean, labelled, read_world_rates(server_config), wz_path,
                       include_korean)
+    source = stock_source(stock_wz)
+    # after cleaning, so the counts match the published dataset and the labels are final
+    stock_summary = apply_stock_comparison(dataset, wz, stock)
+    add_stock_meta(meta, stock_summary, source)
     audit["meta"] = meta
     audit["korean"] = korean
     print(f"  Korean-only names {'kept' if include_korean else 'excluded'}: "
@@ -1707,7 +1952,8 @@ def run_build(
             json.dump(meta, f, indent=2, ensure_ascii=False)
 
     # Output report
-    rep_md = generate_report_markdown(audit, dataset["summary"]) + generate_cleaning_markdown(meta, korean)
+    rep_md = (generate_report_markdown(audit, dataset["summary"]) + generate_cleaning_markdown(meta, korean)
+              + generate_stock_markdown(stock_summary, source))
     if report_path:
         os.makedirs(os.path.dirname(os.path.abspath(report_path)), exist_ok=True)
         with open(report_path, "w", encoding="utf-8") as f:
@@ -1730,6 +1976,9 @@ def main() -> int:
                         help="Keep entities whose name is Korean-only (excluded by default; always reported)")
     parser.add_argument("--server-config", type=str, default=None,
                         help="Server config.yaml to read world 1's drop/boss/meso rates from (default: TEST's values)")
+    parser.add_argument("--stock-wz", type=str, default="",
+                        help=f"Upstream stock v83 WZ to flag SlumsMS changes against (default {DEFAULT_STOCK_WZ} if present; "
+                             "'none' to skip)")
     parser.add_argument("--meta", type=str, default=None, help="Also write meta.json here (e.g. tools/hiddenstreet/meta.json)")
     args = parser.parse_args()
 
@@ -1742,6 +1991,7 @@ def main() -> int:
         include_korean=args.include_korean,
         server_config=args.server_config,
         meta_path=args.meta,
+        stock_wz=None if args.stock_wz == "none" else args.stock_wz,
     )
     return 0
 

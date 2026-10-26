@@ -82,3 +82,15 @@ The generator analyzes cross-references across WZ files and database tables and 
 3. **Quests with missing references**: Quests whose start/end NPC, prerequisite map (`fieldEnter`), required item, or required mob does not exist.
 4. **Portals leading to missing maps**: Map portals whose destination target map ID (`tm != 999999999` and `tm > 0`) does not exist in `Map.wz`.
 5. **Mobs / NPCs placed that don't exist**: Map `life` spawns (type `m` or `n`) referencing mob or NPC IDs that do not exist.
+
+## SlumsMS stats vs stock v83
+
+Every stat in the dataset is SlumsMS's own (what the game uses). The build also loads the upstream Cosmic v83 WZ
+(`--stock-wz`, default `/root/work/cosmic-triage/Cosmic/wz`; `--stock-wz none` skips it) and marks items and mobs:
+- `slums_changed: true` plus `stock: {stat: stock value}` for every compared stat that differs (a stat missing on one
+  side counts as 0). Items compare equip stats (incSTR..incMMP, tuc, attackSpeed, req*), consumable/scroll spec
+  values (hp, mp, pad, success, time ...), price and slotMax; mobs compare level, HP, MP, EXP, PAD/MAD/PDD/MDD, acc,
+  eva and speed, following `link` on both sides.
+- `slums_new: true` when stock v83 has no such item or mob (MapleRoot/SlumsMS custom or later-version content).
+The source (path, repo, commit) is in meta.json `stock_v83`; report.md section 7 has the counts by category and the
+top changes.

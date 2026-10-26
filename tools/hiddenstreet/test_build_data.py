@@ -16,6 +16,7 @@ from tools.hiddenstreet.build_data import (
     is_korean_only,
     read_world_rates,
     drop_rate_rule,
+    item_stock_diff,
 )
 
 
@@ -752,6 +753,71 @@ class TestHiddenStreetCleaning(TestHiddenStreetBuildData):
         self.assertEqual((rates["drop_rate"], rates["boss_drop_rate"], rates["meso_rate"]), (2, 5, 7))
         self.assertIn("x2", drop_rate_rule(rates)["summary"])
         self.assertEqual(read_world_rates(None)["drop_rate"], 4)
+
+
+
+class TestHiddenStreetStock(TestHiddenStreetBuildData):
+    """The owner's "Slums stats": values are SlumsMS's, with the stock v83 value wherever it differs."""
+
+    def _stock(self):
+        stock = os.path.join(self.test_dir, "stock")
+        def w(rel, content):
+            full = os.path.join(stock, rel)
+            os.makedirs(os.path.dirname(full), exist_ok=True)
+            with open(full, "w", encoding="utf-8") as f:
+                f.write(content)
+        # stock sword: 17 attack (same), 7 slots (same) but no reqLevel change; Slums adds nothing -> unchanged
+        w("Character.wz/Weapon/01302000.img.xml", """
+<imgdir name="01302000.img"><imgdir name="info"><int name="reqJob" value="0"/><int name="reqLevel" value="0"/>
+<int name="reqSTR" value="0"/><int name="incPAD" value="17"/><int name="price" value="1"/><int name="tuc" value="7"/>
+</imgdir></imgdir>""")
+        # stock cap: 3 defence (Slums 5) -> changed
+        w("Character.wz/Cap/01000000.img.xml", """
+<imgdir name="01000000.img"><imgdir name="info"><int name="reqJob" value="0"/><int name="reqLevel" value="10"/>
+<int name="incPDD" value="3"/></imgdir></imgdir>""")
+        # stock snail: 15 HP, 2 exp (Slums 8 HP, 3 exp); the linked Blue Snail follows the link on both sides
+        w("Mob.wz/0100100.img.xml", """
+<imgdir name="0100100.img"><imgdir name="info"><int name="level" value="1"/><int name="maxHP" value="15"/>
+<int name="maxMP" value="0"/><int name="exp" value="2"/></imgdir></imgdir>""")
+        w("Mob.wz/0100101.img.xml", """
+<imgdir name="0100101.img"><imgdir name="info"><string name="link" value="0100100"/></imgdir></imgdir>""")
+        return stock
+
+    def test_changed_stats_carry_the_stock_value(self):
+        dataset, audit = run_build(wz_dir=self.wz_dir, db_dir=self.db_dir, out_dir=self.out_dir,
+                                   report_path=self.report_path, workers=1, stock_wz=self._stock())
+        items, mobs = dataset["items"], dataset["mobs"]
+        self.assertFalse(items["1302000"]["slums_changed"])
+        self.assertNotIn("stock", items["1302000"])
+        self.assertTrue(items["1000000"]["slums_changed"])
+        self.assertEqual(items["1000000"]["stock"], {"incPDD": 3})
+        self.assertEqual(items["1000000"]["stats"]["incPDD"], 5, "the value shown is SlumsMS's")
+        self.assertEqual(mobs["100100"]["stock"], {"hp": 15, "exp": 2})
+        self.assertEqual(mobs["100101"]["stock"], {"hp": 15, "exp": 2}, "links resolved on both sides")
+        self.assertTrue(mobs["100100"]["slums_changed"])
+        # an item that stock v83 does not have
+        new = [i for i in items.values() if i.get("slums_new")]
+        self.assertTrue(new)
+        meta = audit["meta"]["stock_v83"]
+        self.assertEqual(meta["changed"]["mobs"], 2)
+        self.assertEqual(meta["changed"]["items"], 1)
+        self.assertIn("Cap", meta["changed_by_category"]["items"])
+        self.assertTrue(meta["source"]["path"].endswith("stock"))
+        with open(self.report_path, encoding="utf-8") as f:
+            report = f.read()
+        self.assertIn("## 7. SlumsMS vs stock v83", report)
+        self.assertIn("hp 15->8", report)
+
+    def test_without_stock_nothing_is_flagged(self):
+        dataset, audit = run_build(wz_dir=self.wz_dir, db_dir=self.db_dir, out_dir=self.out_dir,
+                                   report_path=self.report_path, workers=1)
+        self.assertNotIn("slums_changed", dataset["items"]["1302000"])
+        self.assertFalse(audit["meta"]["stock_v83"]["compared"])
+
+    def test_missing_stat_counts_as_zero(self):
+        self.assertEqual(item_stock_diff({"incPAD": 74, "incMAD": 74}, {"incPAD": 23}), {"incPAD": 23, "incMAD": 0})
+        self.assertEqual(item_stock_diff({"incPAD": 0}, {}), {})
+        self.assertEqual(item_stock_diff({"name": "x", "icon": "y"}, {}), {}, "only gameplay stats are compared")
 
 
 if __name__ == "__main__":
