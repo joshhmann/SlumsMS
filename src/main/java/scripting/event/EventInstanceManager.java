@@ -865,6 +865,8 @@ public class EventInstanceManager {
     public void clearPQ() {
         try {
             logBossClear(this.expedition);
+            soloMapling.server.MapleRootSolo.runHook("social pq clear", () ->   // 1.6.0 S3: "did KPQ together"
+                    soloMapling.ArtificialPlayer.SocialHooks.onPqClear(getName(), getPlayers()));
             invokeScriptFunction("clearPQ", EventInstanceManager.this);
         } catch (ScriptException | NoSuchMethodException ex) {
             ex.printStackTrace();

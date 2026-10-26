@@ -49,7 +49,9 @@ public record SocialProfile(double x, double y) {
         BOOM(-.5, 1, .5),
         // Outcome hooks for S9 (not wired in S1).
         PARTY(Type.SOCIALIZER, 1), CHAT(Type.SOCIALIZER, .5), KS(Type.KILLER, 1), ROAST(Type.KILLER, .5),
-        GRIND(Type.ACHIEVER, .5), BOSS(Type.ACHIEVER, 1), NEW_MAP(Type.EXPLORER, 1), QUEST(Type.EXPLORER, .5);
+        GRIND(Type.ACHIEVER, .5), BOSS(Type.ACHIEVER, 1), NEW_MAP(Type.EXPLORER, 1), QUEST(Type.EXPLORER, .5),
+        // S3 memory: a PQ cleared with a real player (small, Socializer); a scam by one (small, Killer).
+        PQ_TOGETHER(Type.SOCIALIZER, .5), SCAMMED(Type.KILLER, .5);
 
         /** Unit direction on the chart. */
         public final double dx, dy;

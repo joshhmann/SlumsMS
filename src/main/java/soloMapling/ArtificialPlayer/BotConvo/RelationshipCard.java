@@ -22,7 +22,8 @@ import java.util.Set;
 
 /**
  * Ticket 59, owner decision 2: the relationship memory card in every chat prompt. In words only, never a number:
- * how the bot feels about the player, 2-4 things it remembers (with when: "yesterday", "on Tuesday"), the romance
+ * how the bot feels about the player, the best 1-3 things the two did together and what they last talked about (1.6.0
+ * S3), 2-4 things it remembers (with when: "yesterday", "on Tuesday"), an inside joke, the romance
  * stage and the guild relation, and the situation (map, mobs around, time of day, a world event, what it is doing).
  * Compact: at most {@link #MAX_CHARS} characters. {@link #build} is pure; {@link #of} reads the game.
  */
@@ -30,15 +31,28 @@ public final class RelationshipCard {
 
     static final int MAX_CHARS = 520;
     static final int FACTS = 4;
+    /** 1.6.0 S3: the best 1-3 things the two did together get their own line. */
+    static final int EPISODES = 3;
 
     /** One remembered thing: the note, whether the bot only heard it (and from whom), and when. */
     public record Fact(String text, String heardFrom, long at) {
     }
 
-    /** Everything the card is built from. Strings may be null (left out). */
+    /**
+     * Everything the card is built from. Strings may be null (left out). {@code episodes} are the best things the two
+     * did together (1.6.0 S3, at most {@link #EPISODES}); {@code lastTopic} and {@code insideJoke} the pair's slots.
+     */
     public record Data(String playerName, AffinityState feeling, double score, List<Fact> facts, String romance,
                        String guild, String map, List<String> mobs, String timeOfDay, String worldEvent,
-                       String activity, String thread) {
+                       String activity, String thread, List<Fact> episodes, Fact lastTopic, String insideJoke) {
+
+        /** The card as before 1.6.0: no episodes, topic or joke. */
+        public Data(String playerName, AffinityState feeling, double score, List<Fact> facts, String romance,
+                    String guild, String map, List<String> mobs, String timeOfDay, String worldEvent,
+                    String activity, String thread) {
+            this(playerName, feeling, score, facts, romance, guild, map, mobs, timeOfDay, worldEvent, activity, thread,
+                    List.of(), null, null);
+        }
     }
 
     private RelationshipCard() {
@@ -89,8 +103,28 @@ public final class RelationshipCard {
     public static String build(Data d, long now, ZoneId zone) {
         StringBuilder s = new StringBuilder();
         List<Fact> facts = d.facts() == null ? List.of() : d.facts();
-        s.append("About ").append(d.playerName()).append(": ").append(feeling(d.feeling(), d.score(), !facts.isEmpty()))
-                .append(". ");
+        List<Fact> episodes = d.episodes() == null ? List.of() : d.episodes();
+        s.append("About ").append(d.playerName()).append(": ").append(feeling(d.feeling(), d.score(),
+                !facts.isEmpty() || !episodes.isEmpty())).append(". ");
+        if (!episodes.isEmpty()) {
+            List<String> parts = new ArrayList<>();
+            for (Fact f : episodes) {
+                if (parts.size() == EPISODES) {
+                    break;
+                }
+                String w = when(f.at(), now, zone);
+                parts.add(w == null ? f.text() : f.text() + " (" + w + ")");
+            }
+            s.append("Between you two: ").append(String.join("; ", parts)).append(". ");
+        }
+        if (d.lastTopic() != null) {
+            String w = when(d.lastTopic().at(), now, zone);
+            s.append("Last time you talked about ").append(d.lastTopic().text()).append(w == null ? "" : " (" + w + ")")
+                    .append(". ");
+        }
+        if (d.insideJoke() != null) {
+            s.append("Inside joke: \"").append(d.insideJoke()).append("\". ");
+        }
         if (!facts.isEmpty()) {
             List<String> parts = new ArrayList<>();
             Set<String> seen = new LinkedHashSet<>();
@@ -140,11 +174,21 @@ public final class RelationshipCard {
     public static String of(Character bot, Character player, String activity, String thread, long now) {
         int slot = bot.getId() - BotStore.BOT_ID_BASE;
         List<Fact> facts = new ArrayList<>();
+        List<Fact> episodes = new ArrayList<>();
+        Fact topic = null;
+        String joke = null;
         try {
-            for (BotMemory.Note n : BotMemory.recallNotes(slot, player.getId(), now, FACTS)) {
+            for (BotMemory.Note n : BotMemory.bestEpisodes(slot, player.getId(), now, EPISODES)) {
+                episodes.add(new Fact(n.text(), null, n.createdAt()));
+            }
+            for (BotMemory.Note n : BotMemory.recallFacts(slot, player.getId(), now,
+                    FACTS - Math.min(2, episodes.size()))) {
                 facts.add(new Fact(n.text(), n.source() == BotMemory.Source.HEARSAY ? BotMemory.tellerName(n.fromBotId())
                         : null, n.createdAt()));
             }
+            topic = BotMemory.lastTopic(slot, player.getId()).map(n -> new Fact(n.text(), null, n.createdAt()))
+                    .orElse(null);
+            joke = BotMemory.insideJoke(slot, player.getId()).map(BotMemory.Note::text).orElse(null);
         } catch (RuntimeException e) {
             // memory unreadable: no facts
         }
@@ -157,7 +201,8 @@ public final class RelationshipCard {
             // no feelings loaded
         }
         return build(new Data(player.getName(), state, score, facts, romance(bot, player), guild(bot, player),
-                mapName(bot), mobs(bot), null, worldEvent(bot), activity, thread), now, ZoneId.systemDefault());
+                mapName(bot), mobs(bot), null, worldEvent(bot), activity, thread, episodes, topic, joke), now,
+                ZoneId.systemDefault());
     }
 
     static String romance(Character bot, Character player) {
