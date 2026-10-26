@@ -35,7 +35,9 @@
 #   participation_exp_pct  participation EXP for those players, in percent of their current level (0-10)
 #   enabled           false keeps it out of the scheduler and !event start
 #
-# OWNER: the reward tables are a first suggestion (consumables only: potions and cakes, item ids 200xxxx-202xxxx; no
+# Owner 2026-10-26: events stay on live; rewards vanilla-style at our normal rates: the consumable tables below, the
+# event mobs' own EXP and drops at the server rates, no participation EXP and no Hot Spot EXP bonus.
+# Reward rules: the reward tables are a first suggestion (consumables only: potions and cakes, item ids 200xxxx-202xxxx; no
 # mesos, no equipment, no scrolls - the loader refuses anything else). Change or empty them as you like;
 # -Dsolomapling.worldEvents.rewards=false switches every table off. The events' own mobs drop what they always drop.
 
@@ -65,7 +67,6 @@ templates:
       - {item: 2020018, qty: 1, chance: 0.5}     # Chocolate Cream Cake
     participation:
       - {item: 2020032, qty: 2}                  # Birthday Cake
-    participation_exp_pct: 2
 
   # "I just wanna see a bunch of bots die": a town invasion. Bots in the band swarm it, really fight, and on this map a
   # heavy hit can kill them (no immunity); they respawn as usual and grumble about it.
@@ -88,7 +89,6 @@ templates:
       - {item: 2000005, qty: 2, chance: 0.3}     # Power Elixir
     participation:
       - {item: 2000004, qty: 2}                  # Elixir
-    participation_exp_pct: 2
 
   - id: perion_invasion
     kind: invasion
@@ -110,7 +110,6 @@ templates:
       - {item: 2000005, qty: 2, chance: 0.3}     # Power Elixir
     participation:
       - {item: 2000004, qty: 2}                  # Elixir
-    participation_exp_pct: 2
 
   # ── small events: 1-3 a day at random times inside the peak windows ────────────────────────────────────────
   - id: mushroom_invasion
@@ -168,6 +167,7 @@ templates:
     cooldown_minutes: 120
     bot_cap: 6
     exp_bonus: 1.5
+    enabled: false                               # owner 2026-10-26: our rates only, no EXP bonus maps
     maps: [104040001, 101040001, 105050100, 105040301, 100040101, 106000002]
     # Henesys Hunting Ground II, Land of Wild Boar, Ant Tunnel II, Sleepy Dungeon I, Monkey Forest I,
     # Dangerous Valley II
