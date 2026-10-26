@@ -30,11 +30,6 @@ THEME_BOOT = ('<script>try{var d=document.documentElement,t=localStorage.getItem
               'a=localStorage.getItem("slums-accent");if(t==="light"||t==="dark")d.setAttribute("data-theme",t);'
               'if(a==="blue"||a==="orange")d.setAttribute("data-accent",a)}catch(e){}</script>')
 
-# The leaf drawn inline so it takes the accent colour (assets/leaf.svg, the favicon, is the same shape in green).
-LEAF = ('<svg class="leaf" viewBox="0 0 100 100" width="30" height="30" aria-hidden="true"><path class="leaf-body" '
-        'd="M50 3 58 21 70 15 66 39 84 29 80 42 97 44 84 55 90 61 61 63 63 75 53 70 52 97 48 97 47 70 37 75 39 63 '
-        '10 61 16 55 3 44 20 42 16 29 34 39 30 15 42 21Z"/><path class="leaf-vein" fill="none" stroke-width="2.5" '
-        'stroke-linecap="round" d="M50 92V30M50 62 30 44M50 62 70 44M50 48 40 30M50 48 60 30"/></svg>')
 ACCENTS = [("green", "Henesys green"), ("blue", "Ultramarine"), ("orange", "Maple orange")]
 
 
@@ -71,7 +66,9 @@ def layout(title, body, root, section, description="", base=""):
 <title>{esc(full)}</title>{desc}
 <meta name="referrer" content="no-referrer">
 {THEME_BOOT}
-<link rel="icon" href="{root}assets/leaf.svg" type="image/svg+xml">
+<link rel="icon" href="{root}assets/brand/badge-32.png" sizes="32x32" type="image/png">
+<link rel="icon" href="{root}assets/brand/badge-64.png" sizes="64x64" type="image/png">
+<link rel="apple-touch-icon" href="{root}assets/brand/badge-180.png">
 <link rel="preload" href="{root}assets/fonts/bricolage-grotesque.woff2" as="font" type="font/woff2" crossorigin>
 <link rel="stylesheet" href="{root}assets/tokens.css">
 <link rel="stylesheet" href="{root}assets/site.css">
@@ -80,7 +77,7 @@ def layout(title, body, root, section, description="", base=""):
 <body>
 <a class="skip" href="#main">Skip to content</a>
 <header class="site-head"><div class="wrap">
-  <a class="brand" href="{root}index.html">{LEAF}<b>Slums<span>MS</span></b></a>
+  <a class="brand" href="{root}index.html"><img src="{root}assets/brand/wordmark.webp" alt="SlumsMS" width="169" height="56"></a>
   <nav class="site-nav" aria-label="Site">{links}</nav>
   <div class="theme" role="group" aria-label="Colour theme" data-theme-switch hidden><button type="button" data-theme-btn="system">Auto</button><button type="button" data-theme-btn="light">Light</button><button type="button" data-theme-btn="dark">Dark</button></div>
   <div class="accents" role="group" aria-label="Accent colour" data-accent-switch hidden>{"".join(

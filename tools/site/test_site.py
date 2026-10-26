@@ -51,7 +51,7 @@ class SiteBuildTest(unittest.TestCase):
             self.assertLess(text.index("slums-theme"), text.index("assets/site.css"), page)
             self.assertIn('assets/tokens.css"', text, page)
             self.assertIn("data-accent-switch hidden", text, page)
-            self.assertIn('class="leaf"', text, page)
+            self.assertIn('assets/brand/wordmark.webp', text, page)
 
     def test_megaphone_rail(self):
         with open(os.path.join(self.out, "guide", "rates.html"), encoding="utf-8") as f:
