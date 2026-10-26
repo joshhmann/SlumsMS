@@ -560,8 +560,11 @@ public final class BotPopulationDirector {
         BotPersonality.Activity fresh = traits == null ? BotPersonality.Activity.GRIND
                 : BotPersonality.choose(traits, ThreadLocalRandom.current());
         // A resumed session keeps its activity (setAndStartBots prefers it); a fresh one is drawn from the personality.
+        // 1.6.0 S8 (brain reach): town and social sessions run the brain too, so the session type is the personality's
+        // again; -Dslums.botlife.reach=training keeps the sprint rule (every brain session a training one).
         BotTypeManager.setAndStartBots(List.of(charId),
                 soloMapling.ArtificialPlayer.BotLifeSystem.LifeRuntime.enabled()
+                        && !soloMapling.ArtificialPlayer.BotLifeSystem.LifeRuntime.reachesAllBots()
                         ? BotTypeManager.BotType.TRAINING_BOT : fresh.type);
         return true;
     }

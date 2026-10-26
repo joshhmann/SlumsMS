@@ -54,6 +54,30 @@ public class TownWandererBot extends BotSM {
         dialoguePath = "TownWandererDialogue.yaml";
         botType = "TownWandererBot";
         EventBus.getInstance().subscribe(EventType.LEVEL_UP, this); // congratulate nearby levelers
+        // 1.6.0 S8 (brain reach): a roster wanderer decides with the same brain; the brain owns its map hops.
+        life = soloMapling.ArtificialPlayer.BotLifeSystem.LifeTownLife.forBot(this,
+                soloMapling.ArtificialPlayer.BotLifeSystem.LifeTownLife.Kind.TOWN,
+                new soloMapling.ArtificialPlayer.BotLifeSystem.LifeTownLife.Moves() {
+                    public boolean canMoveMap() {
+                        return !traveling && townFamily.size() > 1
+                                && System.currentTimeMillis() - lastMapChangeMs > MAP_CHANGE_COOLDOWN_MS;
+                    }
+                    public boolean moveMap() {
+                        if (!canMoveMap()) return false;
+                        wanderState = WanderState.CHANGE_MAP; // the wanderer's own hop, on its next step
+                        return true;
+                    }
+                    public boolean available() {
+                        return isAvailableForAmbientActions();
+                    }
+                });
+    }
+
+    private final soloMapling.ArtificialPlayer.BotLifeSystem.LifeTownLife life;
+
+    /** 1.6.0 S8: this bot's brain (null when it has none). */
+    public soloMapling.ArtificialPlayer.BotLifeSystem.LifeTownLife life() {
+        return life;
     }
 
     // A wanderer is always free to emote/congratulate except while a map-hop owns its movement or it's
@@ -130,7 +154,10 @@ public class TownWandererBot extends BotSM {
         BotChatter.maybeStartChatter(this); // occasional short back-and-forth with a nearby town bot (self-gated)
         ensureRoaming(); // keep the bot drifting whenever it's idle (also restarts the roam after a map hop)
         boolean cooled = (System.currentTimeMillis() - lastMapChangeMs) > MAP_CHANGE_COOLDOWN_MS;
-        if (cooled && townFamily.size() > 1 && rollChanceInverse(12)) {
+        if (life != null) {
+            life.tick(System.currentTimeMillis()); // 1.6.0 S8: the brain decides when to hop (MOVE_MAP)
+            if (wanderState == WanderState.CHANGE_MAP) return;
+        } else if (cooled && townFamily.size() > 1 && rollChanceInverse(12)) {
             wanderState = WanderState.CHANGE_MAP;
             return;
         }

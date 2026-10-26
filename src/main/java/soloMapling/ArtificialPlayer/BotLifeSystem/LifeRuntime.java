@@ -60,8 +60,13 @@ public final class LifeRuntime {
     private volatile boolean channelForKs;
 
     public <B extends BotSM & LifeHost> LifeRuntime(B bot) {
-        this.botSm = bot;
-        this.bot = bot;
+        this(bot, bot);
+    }
+
+    /** 1.6.0 S8: a brain for {@code sm} acting through {@code host} (a light host is a helper the bot owns). */
+    public LifeRuntime(BotSM sm, LifeHost host) {
+        this.botSm = sm;
+        this.bot = host;
         bornAt = System.currentTimeMillis();
         // 1.6.0 S1: one memory per bot for the whole run, whatever bot type it plays; saved by the roster sweep.
         memory = LifeMemoryStore.of(bot.getChr().getId());
@@ -81,6 +86,9 @@ public final class LifeRuntime {
         return enabled() && !"training".equalsIgnoreCase(System.getProperty("slums.botlife.reach", "all"));
     }
     public LifeMemory memory() { return memory; }
+
+    /** The host the brain acts through (the bot itself, or its light host). */
+    public LifeHost host() { return bot; }
     public boolean restored() { return restored; }
     public int townDestination() {
         Character friend = friend(System.currentTimeMillis());
@@ -438,7 +446,12 @@ public final class LifeRuntime {
     /** QA seam: the channel a staged CHANGE_CHANNEL goes to. */
     public void channelTarget(int channel) { channelTarget = channel; }
 
-    public synchronized void accepted(Activity activity, long now) {
+    public void accepted(Activity activity, long now) {
+        accepted(activity, now, true);
+    }
+
+    /** As {@link #accepted(Activity, long)}; {@code announce} false keeps the bot quiet (a light host's switches). */
+    public synchronized void accepted(Activity activity, long now, boolean announce) {
         Character requestPlayer = activity == Activity.HELP_FRIEND || activity == Activity.PARTY_QUEST ? friend(now) : null;
         accepted.increment();
         if (activity == Activity.RESTOCK) lastRestock = now;
@@ -458,6 +471,7 @@ public final class LifeRuntime {
             case PARTY_QUEST -> requestPlayer != null ? "ready when you are" : "gonna go find a pq";
             default -> null; // CHANGE_CHANNEL says its own "cc" (LifeChannelMove)
         };
+        if (!announce) return;
         if (requestPlayer != null && line != null) {
             BotWhispers.send(requestPlayer, bot.getChr().getName(), bot.getChr().getMap().getChannelId() - 1, line, true);
             return;
