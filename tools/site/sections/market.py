@@ -14,6 +14,7 @@ import datetime as dt
 import glob
 import json
 import os
+import re
 import shutil
 
 from common import REPO, esc, layout, write
@@ -42,11 +43,12 @@ def load(data_dir=None):
     data_dir = data_dir or DEFAULT_DIR
     need = ["listings.json", "sales.json", "nx-rate.json", "economy-public.json"]
     missing = [n for n in need if not os.path.isfile(os.path.join(data_dir, n))]
-    if missing or not glob.glob(os.path.join(data_dir, "prices", "*.json")):
+    if missing or not glob.glob(os.path.join(data_dir, "prices", "????-??-??.json")):
         raise SystemExit(f"{data_dir}: market data missing ({', '.join(missing) or 'prices/'}); "
                          "run tools/site/market_sample.py or point --market-data at the export")
     m = {n[:-5]: _read(os.path.join(data_dir, n)) for n in need}
-    days = sorted(glob.glob(os.path.join(data_dir, "prices", "*.json")))[-HISTORY_DAYS:]
+    days = sorted(p for p in glob.glob(os.path.join(data_dir, "prices", "*.json"))
+                  if re.fullmatch(r"\d{4}-\d\d-\d\d\.json", os.path.basename(p)))[-HISTORY_DAYS:]  # not index.json
     m["prices"] = [_read(p) for p in days]
     m["sample"] = any(isinstance(v, dict) and v.get("sample") for v in m.values()) or any(p.get("sample") for p in m["prices"])
     return m
@@ -54,8 +56,7 @@ def load(data_dir=None):
 
 SCHEMA = 1
 # (file, list key or None, required fields per row or per file)
-SHAPES = [("listings", "listings", {"item_id": int, "qty": int, "price": int, "channel": int, "room": int,
-                                    "seller_kind": str}),
+SHAPES = [("listings", "listings", {"item_id": int, "qty": int, "price": int, "channel": int, "seller_kind": str}),
           ("sales", "sales", {"item_id": int, "price": int, "qty": int, "source": str, "hour": str}),
           ("nx-rate", "days", {"date": str, "n_trades": int}),
           ("economy-public", None, {"as_of": str})]
@@ -126,6 +127,18 @@ def when(iso):
     else:
         pt = utc - dt.timedelta(hours=7 if utc < dt.datetime(2026, 11, 1, 9, tzinfo=dt.timezone.utc) else 8)
     return f"{pt.strftime('%-I:%M %p')} PT ({utc.strftime('%H:%M')} UTC), {pt.strftime('%b %-d')}"
+
+
+SOURCES = {"shop": "player shop", "merchant": "hired merchant", "trade": "trade", "bot": "bot",
+           "bot_shop": "bot shop", "bot_trade": "bot trade", "bot_seed": "bot to bot shop"}
+
+
+def where(l):
+    return f'ch{l["channel"]} &middot; room {l["room"]}' if l.get("room") else f'ch{l["channel"]}'
+
+
+def count(v):
+    return f"{v:,}" if isinstance(v, int) else "-"
 
 
 def mesos(v):
@@ -246,13 +259,18 @@ class Market:
         days = nx.get("days") or []
         vals = [d.get("mesos_per_1000nx") for d in days]
         today = nx.get("today") or (days[-1] if days else {})
-        rate = today.get("mesos_per_1000nx")
+        row, when_ = today, "today"
+        if not today.get("mesos_per_1000nx"):  # too few trades today so far: the newest day that had a rate
+            last = next((d for d in reversed(days) if d.get("mesos_per_1000nx")), None)
+            if last:
+                row, when_ = last, dt.date.fromisoformat(last["date"]).strftime("%b %-d")
+        rate = row.get("mesos_per_1000nx")
         first = next((v for v in vals if v), None)
-        bots = today.get("bot_share")
-        note = " &middot; mostly bot-made" if bots is not None and bots >= 0.5 else ""
+        bots = row.get("bot_share")
+        note = " &middot; mostly bot-made" if rate and bots is not None and bots >= 0.5 else ""
         value = mesos(rate) if rate else "not enough trades"
         return (f'<a class="nxcard{" wide" if wide else ""}" href="{root}{MARKET}/nx.html"><span class="k">NX rate</span>'
-                f'<b>{value}</b><span class="u">mesos per 1,000 NX today{note}</span>'
+                f'<b>{value}</b><span class="u">mesos per 1,000 NX {when_}{note}</span>'
                 f'{sparkline(vals, "NX rate over 30 days")}<span class="k">30 days {change(first, rate)}</span></a>')
 
     def sidebar(self, root, here):
@@ -302,10 +320,10 @@ def build_prices(mk):
         listings = sorted((l for l in m["listings"]["listings"] if l["item_id"] == item_id), key=lambda l: l["price"])
         lrows = "".join(f'<tr><td><span class="sb s">S&gt;</span></td><td class="r num">{l["price"]:,}</td><td class="r num">{l["qty"]}</td>'
                         f'<td>{esc(l.get("seller_name") or ("a player" if l["seller_kind"] == "player" else "a bot"))}'
-                        f' <span class="muted">{esc(l["seller_kind"])}</span></td><td>ch{l["channel"]} &middot; room {l["room"]}</td></tr>'
+                        f' <span class="muted">{esc(l["seller_kind"])}</span></td><td>{where(l)}</td></tr>'
                         for l in listings)
         sales = [x for x in m["sales"]["sales"] if x["item_id"] == item_id][:15]
-        srows = "".join(f'<tr><td class="r num">{x["price"]:,}</td><td class="r num">{x["qty"]}</td><td>{esc(x["source"])}</td>'
+        srows = "".join(f'<tr><td class="r num">{x["price"]:,}</td><td class="r num">{x["qty"]}</td><td>{esc(SOURCES.get(x["source"], x["source"]))}</td>'
                         f'<td class="muted">{esc(when(x["hour"]))}</td></tr>' for x in sales)
         median = f'{st["median"]:,}' if st["median"] else "not enough sales"
         rng = f'{mesos(st["low"])} to {mesos(st["high"])}' if st["median"] else "-"
@@ -348,7 +366,7 @@ def build_lists(mk, priced):
                    f'<td>{mk.price_link(l["item_id"], "{root}") if l["item_id"] in priced_ids else esc(mk.name(l["item_id"]))}</td>'
                    f'<td class="r num">{l["price"]:,}</td><td class="r num">{l["qty"]}</td>'
                    f'<td>{esc(l.get("seller_name") or "")} <span class="muted">{esc(l["seller_kind"])}</span></td>'
-                   f'<td>ch{l["channel"]} &middot; {l["room"]}</td><td class="muted">{esc(l.get("shop_title") or "")}</td></tr>' for l in lst)
+                   f'<td>{where(l)}</td><td class="muted">{esc(l.get("shop_title") or "")}</td></tr>' for l in lst)
     body = (f'<h1>FM now</h1><p class="id">{len(lst)} items for sale &middot; as of {esc(when(m["listings"]["generated_at"]))}</p>'
             f'<section class="panel"><h2 class="bar">Trading board <small>S&gt; selling</small></h2><div class="tbl"><table class="t">'
             f'<thead><tr><th></th><th></th><th>Item</th><th class="r">Price</th><th class="r">Qty</th><th>Seller</th><th>Where</th><th>Shop</th></tr></thead>'
@@ -357,7 +375,7 @@ def build_lists(mk, priced):
 
     sales = m["sales"]["sales"][:200]
     rows = "".join(f'<tr><td>{mk.icon(x["item_id"], "{root}")}</td><td>{mk.price_link(x["item_id"], "{root}") if x["item_id"] in priced_ids else esc(mk.name(x["item_id"]))}</td>'
-                   f'<td class="r num">{x["price"]:,}</td><td class="r num">{x["qty"]}</td><td>{esc(x["source"])}</td>'
+                   f'<td class="r num">{x["price"]:,}</td><td class="r num">{x["qty"]}</td><td>{esc(SOURCES.get(x["source"], x["source"]))}</td>'
                    f'<td class="muted">{esc(when(x["hour"]))}</td></tr>' for x in sales)
     body = (f'<h1>Recent sales</h1><p class="id">The last {len(sales)} sales, newest first, rounded to the hour</p>'
             f'<section class="panel"><h2 class="bar">Sales</h2><div class="tbl"><table class="t icons"><thead><tr><th></th><th>Item</th>'
@@ -381,10 +399,10 @@ def build_lists(mk, priced):
 
     e = m["economy-public"]
     facts = [("Mesos held, players and bots", mesos(e.get("mesos_total"))),
-             ("Share held by players", f'{round((e.get("players_share") or 0) * 100)}%'),
-             ("Trades, last 24 hours", f'{e.get("trades_24h", 0):,}'), ("FM shops open now", f'{e.get("shops_open", 0):,}'),
+             ("Share held by players", f'{e["players_share"] * 100:.2g}%' if e.get("players_share") is not None else "-"),
+             ("Trades, last 24 hours", count(e.get("trades_24h"))), ("FM shops open now", count(e.get("shops_open"))),
              ("Mesos removed, last 7 days (tax, fees)", mesos(e.get("mesos_removed_7d"))),
-             ("Bots online at the evening peak", f'{e.get("bots_online_peak", 0):,}')]
+             ("Most bots online, last 24 hours", count(e.get("bots_online_peak")))]
     econ = "".join(f"<div><dt>{esc(k)}</dt><dd>{v}</dd></div>" for k, v in facts)
     body = (f'<h1>Bera economy</h1><p class="id">As of {esc(when(e["as_of"]))}</p>'
             f'<section class="panel"><h2 class="bar">Numbers</h2><dl class="stats">{econ}</dl></section>')
@@ -416,10 +434,12 @@ def rail_lines(m, db, count=4):
     today = (m["nx-rate"].get("today") or {}).get("mesos_per_1000nx")
     if today:
         out.append((f"<em>NX RATE</em> 1,000 NX = {mesos(today)} mesos", f"{MARKET}/nx.html"))
+    priced = traded_items(m)
     for x in m["sales"]["sales"][:count]:
         it = db["items"].get(x["item_id"])
-        if it:
-            out.append((f'<em>SOLD</em> {esc(it["name"])} for {mesos(x["price"])}', f'{MARKET}/prices/{x["item_id"]}.html'))
+        if it:  # link only when the item has a price page (a sale from today has no daily rollup yet)
+            out.append((f'<em>SOLD</em> {esc(it["name"])} for {mesos(x["price"])}',
+                        f'{MARKET}/prices/{x["item_id"]}.html' if x["item_id"] in priced else None))
     return out
 
 

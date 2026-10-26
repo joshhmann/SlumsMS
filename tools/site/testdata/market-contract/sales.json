@@ -1,0 +1,2 @@
+{"schema":1,"generated_at":"2026-10-26T07:15:00.200Z","count":2,"sales":[{"item_id":4010001,"name":"Steel Ore","price":2015,"qty":3,"source":"bot_seed","player_side":false,"hour":"2026-10-26T07:00:00Z"},
+ {"item_id":2000000,"name":"Red Potion","price":50,"qty":100,"source":"merchant","player_side":true,"hour":"2026-10-26T06:00:00Z"}]}

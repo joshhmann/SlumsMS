@@ -1,0 +1,3 @@
+{"schema":1,"date":"2026-10-23","generated_at":"2026-10-26T00:05:00.010Z","samples":4,"item_count":1,
+ "items":{"2000000":{"item_id":2000000,"name":"Red Potion","open":40,"close":523,"high":90,"low":40,"median":523,"norm_median":55,"count":4,"units":4,"player_share":0.5}},
+ "nx_rate":{"date":"2026-10-23","mesos_per_1000nx":null,"n_trades":0,"n_cash_resales":0,"n_code_trades":0,"bot_share":0.0}}

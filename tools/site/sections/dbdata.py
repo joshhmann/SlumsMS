@@ -15,7 +15,8 @@ import os
 import re
 
 KINDS = ["items", "mobs", "maps", "npcs", "quests"]
-DEFAULT_DIR = os.environ.get("SLUMS_HS_DATA", "/root/work/SlumsMS-152-site/data/hiddenstreet")
+# the cleaned 1.6.0 dataset (dedupe, event-variant names, Korean names left out, drop-rate rules in meta.json)
+DEFAULT_DIR = os.environ.get("SLUMS_HS_DATA", "/root/work/SlumsMS-160-market/data/hiddenstreet")
 
 
 def _load(path):
@@ -90,7 +91,13 @@ def reachable(raw):
         v["shop_items"] = [s for s in _dedupe(v.get("shop_items")) if s.get("item_id") in items]
         v["quests_start"] = [q for q in _dedupe(v.get("quests_start")) if q.get("quest_id") in quests]
         v["quests_end"] = [q for q in _dedupe(v.get("quests_end")) if q.get("quest_id") in quests]
-    return {"items": items, "mobs": mobs, "maps": maps, "npcs": npcs, "quests": quests}
+    out = {"items": items, "mobs": mobs, "maps": maps, "npcs": npcs, "quests": quests}
+    # show the generator's display name ("Stirge (event)") where it has one; filters above used the plain name
+    for kind in out.values():
+        for v in kind.values():
+            if v.get("display_name"):
+                v["name"] = v["display_name"]
+    return out
 
 
 _CACHE = {}

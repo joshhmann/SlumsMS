@@ -290,6 +290,18 @@ class MarketTest(unittest.TestCase):
         m["economy-public"]["schema"] = 2
         self.assertTrue(any("schema 2" in p for p in market.validate(m)))
 
+    def test_contract_example_loads_clean(self):
+        """testdata/market-contract: the examples from track-d-plan.md "Market export contract", schema 1."""
+        from sections import market
+        m = market.load(os.path.join(os.path.dirname(os.path.abspath(__file__)), "testdata", "market-contract"))
+        self.assertEqual(market.validate(m), [])
+        self.assertFalse(m["sample"])                       # no banner on real data
+        self.assertEqual(len(m["prices"]), 4)               # prices/index.json is not a day
+        self.assertEqual(market.where({"channel": 1, "room": None}), "ch1")
+        card = market.Market(m, {"items": {}}, "/nonexistent").nx_card("")
+        self.assertIn("1.90m", card)                        # today too thin: falls back to Oct 25
+        self.assertIn("Oct 25", card)
+
     def test_change_has_sign_and_shape(self):
         from sections import market
         self.assertIn("+10.0%", market.change(100, 110))

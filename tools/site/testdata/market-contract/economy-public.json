@@ -1,0 +1,2 @@
+{"schema":1,"as_of":"2026-10-26T07:15:00.400Z","snapshot_date":"2026-10-25","mesos_total":73509278408,"players_share":0.000014,"trades_24h":3610,"shops_open":212,"mesos_removed_7d":455507387,"bots_online_peak":null,
+ "detail":{"date":"2026-10-25","mesoSupply":{"totalMeso":73509278408,"humans":{"count":19,"totalMeso":1008320,"levelBands":{"31-70":{"count":null,"totalMeso":null,"suppressed":true}}}},"privacy":{"human_bucket_floor":5,"suppressed":["mesoSupply.humans.levelBands.31-70"]}}}

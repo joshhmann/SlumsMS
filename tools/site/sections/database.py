@@ -33,7 +33,6 @@ TYPE_PAGE = {t: (slug, label) for _, rows in ITEM_GROUPS for t, slug, label in r
 WEAPON_KINDS = {130: "One-handed Sword", 131: "One-handed Axe", 132: "One-handed Blunt Weapon", 133: "Dagger",
                 137: "Wand", 138: "Staff", 140: "Two-handed Sword", 141: "Two-handed Axe", 142: "Two-handed Blunt Weapon",
                 143: "Spear", 144: "Polearm", 145: "Bow", 146: "Crossbow", 147: "Claw", 148: "Knuckle", 149: "Gun"}
-MAGIC_WEAPONS = {137, 138}
 JOB_BITS = [(1, "Warrior"), (2, "Magician"), (4, "Bowman"), (8, "Thief"), (16, "Pirate")]
 ATTACK_SPEED = {2: "Faster (2)", 3: "Faster (3)", 4: "Fast (4)", 5: "Fast (5)", 6: "Normal (6)", 7: "Slow (7)",
                 8: "Slow (8)", 9: "Slower (9)"}
@@ -52,6 +51,9 @@ MOB_BANDS = [(1, 10), (11, 20), (21, 30), (31, 40), (41, 50), (51, 60), (61, 70)
 REGIONS = {0: "Maple Island", 1: "Victoria Island", 2: "Ossyria and beyond", 3: "Edelstein and Masteria",
            5: "World Tour", 6: "Masteria", 7: "Zipangu", 8: "Zipangu and Malaysia", 9: "Events and hidden maps"}
 EXP_RATE = 3  # Bera's EXP rate, shown next to the base EXP (guide: rates.html)
+# the lead's wording for the drop rules (dataset meta.json drop_rates, TEST config.yaml)
+DROP_NOTE = ("Base chances. Bera &times;4 (bosses &times;3), quest items included; reactors &times;4; "
+             "global drops (NX cards, Maple Leaves) not multiplied; meso amount &times;10.")
 
 
 def slug(s):
@@ -192,9 +194,7 @@ def item_stats(it, ident):
                 rows.append((f"Req. {k[3:]}", num(st[k])))
         for k, label in EQUIP_STATS:
             v = st.get(k)
-            # the server data gives most physical weapons a Magic ATT equal to their Weapon ATT; hidden until checked
-            if k == "incMAD" and it["type"] == "Weapon" and ident // 10000 not in MAGIC_WEAPONS:
-                continue
+            # MapleRoot gives most weapons a Magic ATT equal to their Weapon ATT and the server uses it, so both show
             if v:
                 rows.append((label, f"+{num(v)}"))
         if st.get("attackSpeed"):
@@ -243,7 +243,7 @@ def build_items(s):
                        for q in it["quests_require"]])
         body = (head + intro + box("Stats", kv_table(item_stats(it, ident))) +
                 box("Dropped by", table(["", "Monster", "Level>", "Qty>", "Chance>"], drop_rows, "icons"),
-                    "base chance; Bera drops at 4x") +
+                    DROP_NOTE) +
                 box("Sold by", table(["", "NPC", "Price>"], shop_rows, "icons")) +
                 box("Quests", table(["Quest", "Role", "Count>"], quest_rows)))
         s.page(rel, it["name"], [("Items", None), (label, f"items/{slug_}.html"), (it["name"], None)], body,
@@ -279,8 +279,8 @@ def build_mobs(s):
                  ("Accuracy", num(st.get("acc") or 0)), ("Avoidability", num(st.get("eva") or 0)),
                  ("Touch damage", "Yes" if st.get("bodyAttack") else "No"),
                  ("Knockback", "Yes" if st.get("pushed") else "No")]
-        if st.get("boss"):
-            stats.append(("Boss", "Yes"))
+        if st.get("boss") or m.get("boss"):
+            stats.append(("Boss", "Yes (drops &times;3)"))
         if st.get("undead"):
             stats.append(("Undead", "Yes (heal hurts it)"))
         groups = {}
@@ -304,7 +304,7 @@ def build_mobs(s):
                 f'<p class="id">Monster {ident} &middot; Level {m.get("level") or 0}</p></div></div>' +
                 box("Stats", kv_table(stats)) +
                 box("Found at", f'<ul class="found">{found}</ul>' if found else "", "spawns per map") +
-                box("Drops", f'<div class="in">{drops}</div>' if drops else "", "base chance; Bera drops at 4x"))
+                box("Drops", f'<div class="in">{drops}</div>' if drops else "", DROP_NOTE))
         s.page(f"{DB}/mobs/{ident}.html", m["name"], [("Monsters", None), (f"Level {lo}-{hi}", f"mobs/lv-{lo}-{hi}.html"),
                (m["name"], None)], body, f"mobs/lv-{lo}-{hi}", f"{m['name']}: level {m.get('level')}, drops and maps on SlumsMS.")
     for lo, hi in s.bands():
@@ -428,7 +428,7 @@ def build_index(s):
     tiles = "".join(f'<a class="dbtile" href="{{root}}{DB}/{href}"><b>{n:,}</b><span>{esc(label)}</span></a>'
                     for label, n, href, _ in counts)
     body = ('<h1>Database</h1><p class="lede">Every item, monster, map, NPC and quest you can reach on Bera, from the '
-            "server's own data. Drop chances are base rates; Bera drops at 4x.</p>"
+            "server's own data. Drop chances are base rates: Bera drops at &times;4 (bosses &times;3).</p>"
             f'<div class="dbtiles">{tiles}</div>')
     s.page(f"{DB}/index.html", "Database", [], body, "", "The SlumsMS item, monster, map, NPC and quest database.")
 
