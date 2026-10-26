@@ -18,6 +18,7 @@ import re
 import shutil
 
 from common import REPO, esc, layout, write
+from sections.database import scrub
 
 MARKET = "market"
 DEFAULT_DIR = os.environ.get("SLUMS_MARKET_DATA", os.path.join(REPO, "cache", "market-sample"))
@@ -229,7 +230,9 @@ def change(first, last):
     if not first or not last:
         return ""
     c = (last - first) / first * 100
-    cls, sign = ("up", "+") if c >= 0 else ("down", "−")
+    if abs(c) < 0.05:
+        return '<span class="chg">&plusmn;0%</span>'
+    cls, sign = ("up", "+") if c > 0 else ("down", "−")
     return f'<span class="chg {cls}">{sign}{abs(c):.1f}%</span>'
 
 
@@ -238,11 +241,22 @@ def change(first, last):
 class Market:
     def __init__(self, m, db, out):
         self.m, self.db, self.out = m, db, out
+        # the export carries the server's name for every item (contract: `name`); used when the database has none
+        self.names = {}
+        for row in m["listings"]["listings"] + m["sales"]["sales"]:
+            if row.get("name"):
+                self.names[row["item_id"]] = row["name"]
+        for p in m["prices"]:
+            for k, r in p["items"].items():
+                if r.get("name"):
+                    self.names[int(k)] = r["name"]
 
     def name(self, item_id):
         it = self.db["items"].get(item_id)
         # NX cards are left out of the database (their official name); the market still prices them
-        return it["name"] if it else NX_CARDS.get(item_id, f"Item {item_id}")
+        if it:
+            return it["name"]
+        return NX_CARDS.get(item_id) or scrub(self.names.get(item_id) or f"Item {item_id}")
 
     def icon(self, item_id, root, big=False):
         p = os.path.join(REPO, "cache", "site-icons", "items", f"{item_id}.png")
@@ -270,8 +284,10 @@ class Market:
         note = " &middot; mostly bot-made" if rate and bots is not None and bots >= 0.5 else ""
         value = mesos(rate) if rate else "not enough trades"
         return (f'<a class="nxcard{" wide" if wide else ""}" href="{root}{MARKET}/nx.html"><span class="k">NX rate</span>'
-                f'<b>{value}</b><span class="u">mesos per 1,000 NX {when_}{note}</span>'
-                f'{sparkline(vals, "NX rate over 30 days")}<span class="k">30 days {change(first, rate)}</span></a>')
+                f'<b{"" if rate else " class=none"}>{value}</b><span class="u">mesos per 1,000 NX {when_}{note}</span>'
+                f'{sparkline(vals, "NX rate over recent days")}'
+                + (f'<span class="k">{len(days)} days {change(first, rate)}</span>' if first and rate else '<span class="k"></span>')
+                + '</a>')
 
     def sidebar(self, root, here):
         links = [("index.html", "Market home", "index"), ("prices/index.html", "Price check", "prices"),
@@ -318,6 +334,8 @@ def build_prices(mk):
         name = mk.name(item_id)
         bot = '<span class="pill">mostly bot-made</span>' if st["player_share"] < 0.5 else ""
         listings = sorted((l for l in m["listings"]["listings"] if l["item_id"] == item_id), key=lambda l: l["price"])
+        more = len(listings) - 15
+        listings = listings[:15]
         lrows = "".join(f'<tr><td><span class="sb s">S&gt;</span></td><td class="r num">{l["price"]:,}</td><td class="r num">{l["qty"]}</td>'
                         f'<td>{esc(l.get("seller_name") or ("a player" if l["seller_kind"] == "player" else "a bot"))}'
                         f' <span class="muted">{esc(l["seller_kind"])}</span></td><td>{where(l)}</td></tr>'
@@ -335,13 +353,16 @@ def build_prices(mk):
                 + f' {bot}</p></div></div>'
                 f'<div class="mkstats"><div class="hot"><small>Median today</small><b>{median}</b><span>mesos</span></div>'
                 f'<div><small>Low to high today</small><b>{rng}</b><span>what most paid</span></div>'
-                f'<div><small>30-day change</small><b>{change(st["first"], st["median"]) or "-"}</b><span>median vs 30 days ago</span></div>'
+                f'<div><small>{len(hist)}-day change</small><b>{change(st["first"], st["median"]) or "-"}</b><span>median vs {len(hist)} days ago</span></div>'
                 f'<div><small>Sold</small><b>{st["sold"]:,}</b><span>in {len(hist)} days</span></div></div>'
                 f'<section class="panel"><h2 class="bar">Price history <small>median per day; days under {MIN_SAMPLES} sales are left out</small></h2>'
                 f'<div class="in">{area_chart(pts, f"Median price of {name} per day")}</div></section>'
-                + (f'<section class="panel"><h2 class="bar">FM now <small>whisper or visit to buy</small></h2><div class="tbl"><table class="t">'
+                + (f'<section class="panel"><h2 class="bar">FM now <small>cheapest first; whisper or visit to buy</small></h2><div class="tbl"><table class="t">'
                    f'<thead><tr><th></th><th class="r">Price</th><th class="r">Qty</th><th>Seller</th><th>Where</th></tr></thead>'
-                   f'<tbody>{lrows}</tbody></table></div></section>' if lrows else "")
+                   f'<tbody>{lrows}</tbody></table></div>'
+                   + (f'<p class="small" style="padding:6px 16px 10px;margin:0">and {more} more in the '
+                      f'<a href="{{root}}{MARKET}/listings.html">FM now</a> list</p>' if more > 0 else "")
+                   + '</section>' if lrows else "")
                 + (f'<section class="panel"><h2 class="bar">Recent sales <small>rounded to the hour</small></h2><div class="tbl"><table class="t">'
                    f'<thead><tr><th class="r">Price</th><th class="r">Qty</th><th>How</th><th>When</th></tr></thead>'
                    f'<tbody>{srows}</tbody></table></div></section>' if srows else ""))
