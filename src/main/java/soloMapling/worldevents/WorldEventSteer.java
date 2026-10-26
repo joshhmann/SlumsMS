@@ -100,6 +100,12 @@ public final class WorldEventSteer {
         offers.values().removeIf(o -> o.eventId() == eventId);
     }
 
+    /** 1.6.0: the bot answered a running world event and stands on its map (not a GM hold). */
+    public static boolean atEvent(int charId, int mapId) {
+        Call c = calls.get(charId);
+        return c != null && c.eventId() != STAGING && c.mapId() == mapId;
+    }
+
     /** The event a bot is steered to (not a GM hold), or 0. */
     static int eventOf(int charId) {
         Call c = calls.get(charId);

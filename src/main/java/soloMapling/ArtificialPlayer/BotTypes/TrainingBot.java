@@ -793,6 +793,11 @@ public class TrainingBot extends BotSM implements soloMapling.ArtificialPlayer.B
         if (!LifeRuntime.enabled() || getChr() == null || getChr().getMap() == null) return false;
         boolean safePhase = phase == Phase.GRIND || phase == Phase.IN_TOWN || phase == Phase.LIFE_DWELL;
         if (!safePhase) return false;
+        // 1.6.0 world events: a bot that answered an event fights it out (no cc, no wandering off to town or a new
+        // map while it runs); it may still restock or log off
+        if (soloMapling.worldevents.WorldEventSteer.atEvent(getChr().getId(), getChr().getMapId())
+                && activity != LifeDecision.Activity.GRIND && activity != LifeDecision.Activity.RESTOCK
+                && activity != LifeDecision.Activity.LOG_OUT) return false;
         return switch (activity) {
             case GRIND -> true;
             case RESTOCK -> phase == Phase.GRIND && dailyLife.restockReady(at);

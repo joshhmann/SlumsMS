@@ -69,13 +69,13 @@ public final class LifePolicy {
      */
     static final Map<SocialProfile.Type, Map<Activity, Double>> BARTLE = Map.of(
             SocialProfile.Type.ACHIEVER, Map.of(Activity.GRIND, .30, Activity.PARTY_QUEST, .22,
-                    Activity.SHOW_OFF, .08, Activity.MOVE_MAP, .05),
+                    Activity.SHOW_OFF, .08, Activity.MOVE_MAP, .05, Activity.EVENT, .28),
             SocialProfile.Type.EXPLORER, Map.of(Activity.MOVE_MAP, .32, Activity.FISH, .30,
                     Activity.FREE_MARKET, .10, Activity.CHANGE_CHANNEL, .06, Activity.HANG_OUT, .04),
             SocialProfile.Type.SOCIALIZER, Map.of(Activity.HANG_OUT, .14, Activity.HELP_FRIEND, .36,
-                    Activity.PARTY_QUEST, .26, Activity.FISH, .10, Activity.FREE_MARKET, .05),
+                    Activity.PARTY_QUEST, .26, Activity.FISH, .10, Activity.FREE_MARKET, .05, Activity.EVENT, .12),
             SocialProfile.Type.KILLER, Map.of(Activity.SHOW_OFF, .32, Activity.GRIND, .16,
-                    Activity.PARTY_QUEST, .06));
+                    Activity.PARTY_QUEST, .06, Activity.EVENT, .22));
 
     /** The Bartle term of one activity for this point (0 without a point). */
     public static double bartle(SocialProfile social, Activity activity) {
@@ -106,6 +106,8 @@ public final class LifePolicy {
                 case HELP_FRIEND -> context.friendAsked() ? 1.5 : situation.helpOffered() ? HELP_PULL : 0;
                 case PARTY_QUEST -> situation.pqOpen() ? PQ_PULL : 0;
                 case CHANGE_CHANNEL -> channelPull(situation, killer);
+                // 1.6.0 world events: eligible only with a standing offer; "something is happening" pulls hard
+                case EVENT -> EVENT_PULL;
                 // A Killer in a KS war stays and fights for the mobs.
                 // A packed map is a bad grind (every mob contested), a KS war a worse one, except for a Killer.
                 case GRIND -> (s8 ? GRIND_HABIT - Math.min(.8, Math.max(0, 2 * (situation.crowd() - CROWDED))) : 0)
@@ -126,6 +128,8 @@ public final class LifePolicy {
 
     /** The pull of an unasked friend to help, and of a PQ lobby that fits (both S8). */
     static final double HELP_PULL = .55, PQ_PULL = .2;
+    /** The pull of a world event a bot was offered (1.6.0; its Bartle lean comes on top, WorldEventBias). */
+    static final double EVENT_PULL = 0.8;
     /** Most of a 2009 day was grinding: a standing pull toward it, so a full need list isn't needed to keep at it. */
     static final double GRIND_HABIT = .3;
 
