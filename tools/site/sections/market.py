@@ -239,8 +239,9 @@ def change(first, last):
 # ── pages ───────────────────────────────────────────────────────────────────────────────────────
 
 class Market:
-    def __init__(self, m, db, out):
+    def __init__(self, m, db, out, site_root=None):
         self.m, self.db, self.out = m, db, out
+        self.site_root = site_root or out
         # the export carries the server's name for every item (contract: `name`); used when the database has none
         self.names = {}
         for row in m["listings"]["listings"] + m["sales"]["sales"]:
@@ -259,8 +260,9 @@ class Market:
         return NX_CARDS.get(item_id) or scrub(self.names.get(item_id) or f"Item {item_id}")
 
     def icon(self, item_id, root, big=False):
-        p = os.path.join(REPO, "cache", "site-icons", "items", f"{item_id}.png")
-        if item_id in self.db["items"] and os.path.isfile(p):  # the database section copies icons of its own items
+        # the database section publishes icons of its own items; on 164 the market timer finds them already there
+        p = os.path.join(self.site_root, "database", "icons", "items", f"{item_id}.png")
+        if item_id in self.db["items"] and os.path.isfile(p):
             return (f'<span class="slotc{" big" if big else ""}"><img class="px" src="{root}database/icons/items/{item_id}.png" '
                     f'alt="" loading="lazy"></span>')
         return f'<span class="slotc{" big" if big else ""}"></span>'
@@ -464,13 +466,14 @@ def rail_lines(m, db, count=4):
     return out
 
 
-def build(out, db, data_dir=None):
+def build(out, db, data_dir=None, site_root=None):
+    """out: where market/ is written (a staging folder on a one-section rebuild); site_root: the published site."""
     m = load(data_dir)
     problems = validate(m)
     if problems:
         raise SystemExit("market data refused:\n  " + "\n  ".join(problems))
     shutil.rmtree(os.path.join(out, MARKET), ignore_errors=True)
-    mk = Market(m, db, out)
+    mk = Market(m, db, out, site_root)
     priced = build_prices(mk)
     econ = build_lists(mk, priced)
     build_home(mk, priced, econ)

@@ -76,7 +76,7 @@ def set_context(rels, sections):
     common.RAIL.extend((t, None) for t in common.RAIL_EXTRA)
 
 
-def build_section(name, out, rels):
+def build_section(name, out, rels, site_root=None):
     if name == "notes":
         return notes.build(out)
     if name == "guide":
@@ -84,7 +84,7 @@ def build_section(name, out, rels):
     if name == "database":
         return database.build(out, HS_DATA)
     if name == "market":
-        return market.build(out, dbdata.load(HS_DATA), MARKET_DATA)
+        return market.build(out, dbdata.load(HS_DATA), MARKET_DATA, site_root)
     if name == "pages":
         pages.build_home(out, rels)
         pages.build_report(out)
@@ -133,7 +133,7 @@ def rebuild_section(name, out, private=False):
     stage = os.path.join(out, f".stage-{folder}")
     shutil.rmtree(stage, ignore_errors=True)
     os.makedirs(stage)
-    build_section(name, stage, rels)
+    build_section(name, stage, rels, site_root=out)
     live, old = os.path.join(out, folder), os.path.join(out, f".old-{folder}")
     shutil.rmtree(old, ignore_errors=True)
     if os.path.isdir(live):
