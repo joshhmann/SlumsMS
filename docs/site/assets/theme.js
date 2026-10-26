@@ -29,3 +29,23 @@
   wire(document.querySelector("[data-theme-switch]"), "data-theme", "slums-theme", ["light", "dark"], "system");
   wire(document.querySelector("[data-accent-switch]"), "data-accent", "slums-accent", ["blue", "orange"], "green");
 })();
+
+/* Hero art takes turns: a new picture every 7 seconds, paused while the tab is hidden. With reduced motion asked for,
+   one picture is picked per visit and stays. */
+(function () {
+  var box = document.querySelector("[data-rotor]");
+  if (!box) return;
+  var pics = Array.prototype.slice.call(box.children), at = 0;
+  function show(i) {
+    pics[at].classList.remove("is-on");
+    pics[at].setAttribute("aria-hidden", "true");
+    at = i % pics.length;
+    pics[at].classList.add("is-on");
+    pics[at].removeAttribute("aria-hidden");
+  }
+  if (window.matchMedia && window.matchMedia("(prefers-reduced-motion: reduce)").matches) {
+    show(Math.floor(Math.random() * pics.length));
+    return;
+  }
+  setInterval(function () { if (!document.hidden) show(at + 1); }, 7000);
+})();
