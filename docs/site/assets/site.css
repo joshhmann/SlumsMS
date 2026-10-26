@@ -455,3 +455,7 @@ table.t { width: 100%; border-collapse: collapse; }
 .codecard b { font: 700 1.6rem var(--f-mono); letter-spacing: .06em; }
 .codecard b span:first-child { color: var(--sun); font-size: 1.1rem; letter-spacing: 0; }
 .linkbtn { background: none; border: 0; padding: 0; color: var(--sky); text-decoration: underline; cursor: pointer; font: inherit; }
+.was { display: inline-block; font: 600 .68rem var(--f-mono); color: var(--muted); border: 1px solid var(--hair); border-radius: 5px;
+  padding: 0 5px; margin-left: 4px; vertical-align: 1px; white-space: nowrap; }
+.chg-pill { background: var(--sky-soft); color: var(--ink); }
+.new-pill { background: var(--surface-2); color: var(--ink); }

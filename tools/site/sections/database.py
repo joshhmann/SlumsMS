@@ -117,6 +117,7 @@ class Site:
             li(f"mobs/lv-{lo}-{hi}.html", f"Level {lo}-{hi}", f"mobs/lv-{lo}-{hi}") for lo, hi in self.bands()) + "</ul>")
         parts.append("<h3>World</h3><ul>" + li("maps/index.html", "Maps", "maps") + li("npcs/index.html", "NPCs", "npcs")
                      + li("quests/index.html", "Quests", "quests") + "</ul>")
+        parts.append("<h3>SlumsMS</h3><ul>" + li("changes.html", "SlumsMS changes", "changes") + "</ul>")
         return f'<nav class="panel dbside" aria-label="Database">{"".join(parts)}</nav>'
 
     def bands(self):
@@ -140,6 +141,25 @@ def scrub(text):
                      ("Nexon", "the game"), ("Wizet", "GM")):
         text = text.replace(old, new).replace(old.lower(), new).replace(old.upper(), new)
     return text
+
+
+def was(rec, key, fmt=None):
+    """A small badge with the original game's value when SlumsMS (MapleRoot) changed this stat; "" otherwise."""
+    stock = rec.get("stock") or {}
+    if key not in stock:
+        return ""
+    v = stock[key]
+    shown = fmt(v) if fmt else num(v)
+    return f' <span class="was" title="The original game\'s value">stock {shown}</span>'
+
+
+def chips(rec):
+    out = []
+    if rec.get("slums_changed"):
+        out.append('<span class="pill chg-pill">SlumsMS change</span>')
+    if rec.get("slums_new"):
+        out.append('<span class="pill new-pill">SlumsMS / later version</span>')
+    return " ".join(out)
 
 
 def kv_table(rows):
@@ -187,32 +207,32 @@ def item_stats(it, ident):
     st = it.get("stats") or {}
     rows = []
     if ident < 2000000:
-        rows.append(("Req. level", num(it.get("req_level") or 0)))
+        rows.append(("Req. level", num(it.get("req_level") or 0) + was(it, "reqLevel")))
         rows.append(("Job", esc(jobs_text(it.get("req_job") or 0))))
         for k in ("reqSTR", "reqDEX", "reqINT", "reqLUK"):
-            if st.get(k):
-                rows.append((f"Req. {k[3:]}", num(st[k])))
+            if st.get(k) or k in (it.get("stock") or {}):
+                rows.append((f"Req. {k[3:]}", num(st.get(k) or 0) + was(it, k)))
         for k, label in EQUIP_STATS:
             v = st.get(k)
             # MapleRoot gives most weapons a Magic ATT equal to their Weapon ATT and the server uses it, so both show
-            if v:
-                rows.append((label, f"+{num(v)}"))
+            if v or k in (it.get("stock") or {}):
+                rows.append((label, f"+{num(v or 0)}" + was(it, k, lambda x: f"+{x:,}")))
         if st.get("attackSpeed"):
             rows.append(("Attack speed", esc(ATTACK_SPEED.get(st["attackSpeed"], str(st["attackSpeed"])))))
         if st.get("tuc") is not None:
-            rows.append(("Upgrade slots", num(st.get("tuc") or 0)))
+            rows.append(("Upgrade slots", num(st.get("tuc") or 0) + was(it, "tuc")))
     else:
         seen = set()
         for k, label in USE_STATS:
-            if st.get(k) and label not in seen:
+            if (st.get(k) or k in (it.get("stock") or {})) and label not in seen:
                 seen.add(label)
-                rows.append((label, num(st[k])))
+                rows.append((label, num(st.get(k) or 0) + was(it, k)))
         if st.get("time"):
             rows.append(("Lasts", f"{st['time'] // 1000:,} s" if st["time"] > 1000 else f"{st['time']:,} s"))
         if st.get("slotMax"):
-            rows.append(("Stacks to", num(st["slotMax"])))
+            rows.append(("Stacks to", num(st["slotMax"]) + was(it, "slotMax")))
     if st.get("price"):
-        rows.append(("Shop value", f"{num(st['price'])} mesos"))
+        rows.append(("Shop value", f"{num(st['price'])} mesos" + was(it, "price")))
     flags = [label for k, label in (("only", "One of a kind"), ("tradeBlock", "Untradeable"), ("quest", "Quest item"),
                                     ("cash", "Cash item")) if st.get(k)]
     if flags:
@@ -227,7 +247,7 @@ def build_items(s):
         root = "../../"
         slug_, label = TYPE_PAGE.get(it["type"], ("etc", it["type"]))
         head = (f'<div class="ent">{s.icon("items", ident, "{root}", big=True)}<div><h1>{esc(it["name"])}</h1>'
-                f'<p class="id">Item {ident} &middot; {esc(item_kind(it, ident))}</p></div></div>')
+                f'<p class="id">Item {ident} &middot; {esc(item_kind(it, ident))} {chips(it)}</p></div></div>')
         desc = scrub((it.get("desc") or "").replace("\\n", " ").strip())
         intro = f'<p class="desc">{esc(desc)}</p>' if desc else ""
         drops = sorted(it["drops"], key=lambda x: -x.get("chance", 0))
@@ -272,11 +292,16 @@ def build_mobs(s):
         st = m.get("stats") or {}
         lo, hi = band(m.get("level"))
         exp = m.get("exp") or 0
-        stats = [("Level", num(m.get("level") or 0)), ("HP", num(m.get("hp") or 0)), ("MP", num(m.get("mp") or 0)),
-                 ("EXP", f"{num(exp * EXP_RATE)} <span class=muted>({num(exp)} base)</span>" if exp else "0"),
-                 ("Weapon ATT", num(st.get("PADamage") or 0)), ("Magic ATT", num(st.get("MADamage") or 0)),
-                 ("Weapon DEF", num(st.get("PDDamage") or 0)), ("Magic DEF", num(st.get("MDDamage") or 0)),
-                 ("Accuracy", num(st.get("acc") or 0)), ("Avoidability", num(st.get("eva") or 0)),
+        stats = [("Level", num(m.get("level") or 0) + was(m, "level")), ("HP", num(m.get("hp") or 0) + was(m, "hp")),
+                 ("MP", num(m.get("mp") or 0) + was(m, "mp")),
+                 ("EXP", (f"{num(exp * EXP_RATE)} <span class=muted>({num(exp)} base)</span>" if exp else "0")
+                  + was(m, "exp", lambda x: f"{x:,} base")),
+                 ("Weapon ATT", num(st.get("PADamage") or 0) + was(m, "PADamage")),
+                 ("Magic ATT", num(st.get("MADamage") or 0) + was(m, "MADamage")),
+                 ("Weapon DEF", num(st.get("PDDamage") or 0) + was(m, "PDDamage")),
+                 ("Magic DEF", num(st.get("MDDamage") or 0) + was(m, "MDDamage")),
+                 ("Accuracy", num(st.get("acc") or 0) + was(m, "acc")),
+                 ("Avoidability", num(st.get("eva") or 0) + was(m, "eva")),
                  ("Touch damage", "Yes" if st.get("bodyAttack") else "No"),
                  ("Knockback", "Yes" if st.get("pushed") else "No")]
         if st.get("boss") or m.get("boss"):
@@ -301,7 +326,7 @@ def build_mobs(s):
         found = "".join(f'<li>{esc(d["maps"][x["map_id"]].get("street") or "")}: {s.link("maps", x["map_id"], "{root}")} '
                         f'<span class="muted">({x.get("count", 0)})</span></li>' for x in maps)
         body = (f'<div class="ent">{s.icon("mobs", ident, "{root}", big=True, cls="slotc mob")}<div><h1>{esc(m["name"])}</h1>'
-                f'<p class="id">Monster {ident} &middot; Level {m.get("level") or 0}</p></div></div>' +
+                f'<p class="id">Monster {ident} &middot; Level {m.get("level") or 0} {chips(m)}</p></div></div>' +
                 box("Stats", kv_table(stats)) +
                 box("Found at", f'<ul class="found">{found}</ul>' if found else "", "spawns per map") +
                 box("Drops", f'<div class="in">{drops}</div>' if drops else "", DROP_NOTE))
@@ -433,6 +458,41 @@ def build_index(s):
     s.page(f"{DB}/index.html", "Database", [], body, "", "The SlumsMS item, monster, map, NPC and quest database.")
 
 
+STAT_NAMES = dict(EQUIP_STATS + USE_STATS + [("tuc", "Upgrade slots"), ("slotMax", "Stacks to"), ("price", "Shop value"),
+                  ("reqLevel", "Req. level"), ("reqSTR", "Req. STR"), ("reqDEX", "Req. DEX"), ("reqINT", "Req. INT"),
+                  ("reqLUK", "Req. LUK"), ("level", "Level"), ("hp", "HP"), ("mp", "MP"), ("exp", "EXP (base)"),
+                  ("PADamage", "Weapon ATT"), ("MADamage", "Magic ATT"), ("PDDamage", "Weapon DEF"),
+                  ("MDDamage", "Magic DEF"), ("eva", "Avoidability")])
+
+
+def diff_text(rec):
+    st = rec.get("stats") or {}
+    out = []
+    for k, old in sorted((rec.get("stock") or {}).items(), key=lambda kv: STAT_NAMES.get(kv[0], kv[0])):
+        new = rec.get(k) if k in ("hp", "mp", "exp", "level") and k in rec else st.get(k, 0)
+        out.append(f'{esc(STAT_NAMES.get(k, k))} {num(new or 0)} <span class="was">stock {num(old)}</span>')
+    return "; ".join(out)
+
+
+def build_changes(s):
+    """Items and monsters whose stats SlumsMS (MapleRoot) changed from the original game."""
+    d = s.d
+    mobs = sorted((i for i, m in d["mobs"].items() if m.get("slums_changed")), key=lambda i: d["mobs"][i].get("level") or 0)
+    items = sorted((i for i, it in d["items"].items() if it.get("slums_changed")),
+                   key=lambda i: (d["items"][i]["type"], d["items"][i].get("req_level") or 0, d["items"][i]["name"]))
+    mrows = [[td(s.icon("mobs", i, "{root}")), td(s.link("mobs", i, "{root}")), td(num(d["mobs"][i].get("level") or 0), True),
+              td(diff_text(d["mobs"][i]))] for i in mobs]
+    irows = [[td(s.icon("items", i, "{root}")), td(s.link("items", i, "{root}")), td(esc(item_kind(d["items"][i], i))),
+              td(diff_text(d["items"][i]))] for i in items]
+    body = ('<h1>SlumsMS changes</h1><p class="lede">Monsters and items whose numbers SlumsMS changes from the original '
+            'game. The value you get in game comes first; the small badge is the original value. Most item changes are '
+            'more upgrade slots and lower stat requirements.</p>' +
+            box("Monsters", table(["", "Monster", "Level>", "What changed"], mrows, "icons"), f"{len(mobs)} changed") +
+            box("Items", table(["", "Item", "Kind", "What changed"], irows, "icons"), f"{len(items):,} changed"))
+    s.page(f"{DB}/changes.html", "SlumsMS changes", [("SlumsMS changes", None)], body, "changes",
+           "Items and monsters SlumsMS changes from the original game.")
+
+
 def build_search(s):
     d = s.d
     rows = [["i", i, v["name"]] for i, v in d["items"].items()] + [["m", i, v["name"]] for i, v in d["mobs"].items()] + \
@@ -465,5 +525,6 @@ def build(out, data_dir=None):
     build_maps(s)
     build_npcs(s)
     build_quests(s)
+    build_changes(s)
     build_search(s)
     return {k: len(v) for k, v in s.d.items()} | {"icons": n_icons}
