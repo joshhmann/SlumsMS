@@ -112,7 +112,10 @@ python3 tools/site/build.py
 rsync -av --delete dist/site/ root@<lxc-address>:/srv/slums-site/
 ```
 
-No reload is needed: the web server serves the new files right away. Without rsync, copy the tarball instead:
+No reload is needed: the web server serves the new files right away.
+
+**Once the market is live** (docs/site/LAUNCH.md step 5), a timer on 164 owns `/srv/slums-site/market/`. Every
+publish from 187 must then keep its hands off it: `rsync -a --delete --exclude market/ ...`. Without rsync, copy the tarball instead:
 
 ```
 scp dist/slums-site.tar.gz root@<lxc-address>:/tmp/
