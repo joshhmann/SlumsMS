@@ -28,14 +28,21 @@ for event/PQ script counting; `BotHelpers.isBot()` continues to mean headless fo
 enter `CharacterStorage` or roster session writes. They have private `BotClient`s whose player is the real alt.
 
 The five-companion limit includes active and pending owned alts, recruited friends and pending friend accepts.
-When enabled this replaces the old world-wide follower limit for player recruitment. EXP comes only from normal
-monster party shares while the owner is alive, in the world, and in the same map object and party. General script
-EXP, offscreen EXP and population AP/SP/job advancement are blocked. Monster kills do not advance alt quests.
+When enabled this replaces the old world-wide follower limit for player recruitment.
+
+EXP (owner, 2026-10-26): an alt in your party gets the normal party EXP split with the usual level-gap rules and no
+special leech handling either way - Monster's split decides who shares a kill, as for anyone, whether or not the owner
+is alive or on that map. It stops only when the owner's session is gone. In a PQ an alt is a full member: it gets
+the PQ's EXP (stage clears, `givePartyExp`, `giveEventPlayersExp`) and, because it cannot talk to the reward NPC or
+use the reward portal, its reward from `giveEventReward` when its owner claims theirs. Outside an event instance
+script and quest EXP stays blocked: quests are per character and an owner turning in a quest never completes it for
+an alt. Offscreen EXP and population AP/SP/job advancement are blocked. Monster kills do not advance alt quests
+(unchanged; not covered by the owner's rules).
 
 Following, formations, combat/loot drivers, chat orders, automatic trade acceptance/offers, supplies and PQ worker
 roles are deferred. The normal trade inventory path is ready for those later drivers; this foundation does not
 automatically accept a trade or transfer anything between inventories. An owner channel transition retains the
-session's alts, but cross-channel following is not provided yet and EXP stops when the map/owner checks fail.
+session's alts, but cross-channel following is not provided yet: an alt left on the old channel only shares kills made on its own map.
 
 ## TEST checklist (not run during implementation)
 
@@ -46,7 +53,7 @@ with at least two characters in world 1. Stop with `!qa stop` after dismissing e
 1. Log into the alt normally and record EXP, level, mesos, item IDs/quantities, skills and quest state. Log out.
 2. On the main, use `@botme`, then `@botme <alt>`. Verify one character appears in the same channel/map and party.
    Repeat the summon: it must refuse. Characters from other accounts/worlds and online characters must refuse.
-3. Earn a party kill near the alt. Verify normal party EXP; move the owner away or out of the world and verify no
+3. Earn a party kill near the alt. Verify normal party EXP, also with the owner dead or on another map; log the owner out and verify no
    additional EXP. Check a level-up leaves AP/SP unspent and does not advance jobs or quests.
 4. Check the five-companion cap using both alts and friend followers, including simultaneous friend accepts.
 5. Dismiss the alt. The QA log must show one `save committed`, then `removed`. Log into it normally and compare

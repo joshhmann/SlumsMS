@@ -1111,8 +1111,37 @@ public class EventInstanceManager {
         return giveEventReward(player, 1);
     }
 
-    //gives out EXP & a random item in a similar fashion of when clearing KPQ, LPQ, etc.
+    /**
+     * Gives out EXP & a random item in a similar fashion of when clearing KPQ, LPQ, etc. - and, when a player claims
+     * theirs, the same reward to each of their owned alts in this instance (owner 2026-10-26: in a PQ an alt is a
+     * full member and gets the PQ's rewards). An alt has no client to talk to the reward NPC or walk into the reward
+     * portal, so it receives its share when its owner does; an alt with no free slot simply misses that item.
+     */
     public final boolean giveEventReward(Character player, int eventLevel) {
+        boolean given = giveOwnEventReward(player, eventLevel);
+        if (given && !player.isOwnedAlt()) {
+            for (Character alt : ownedAltsOf(player, getPlayers())) {
+                if (!giveOwnEventReward(alt, eventLevel)) {
+                    log.info("Event {}: owned alt {} had no room for its reward", name, alt.getId());
+                }
+            }
+        }
+        return given;
+    }
+
+    /** The owner's alts among an instance's players (by id: the alt holds its owner's Character). */
+    static List<Character> ownedAltsOf(Character owner, List<Character> players) {
+        List<Character> alts = new ArrayList<>();
+        for (Character chr : players) {
+            Character altOwner = chr.isOwnedAlt() ? chr.getOwnedAltOwner() : null;
+            if (altOwner != null && altOwner.getId() == owner.getId() && chr.getId() != owner.getId()) {
+                alts.add(chr);
+            }
+        }
+        return alts;
+    }
+
+    boolean giveOwnEventReward(Character player, int eventLevel) {
         List<Integer> rewardsSet, rewardsQty;
         Integer rewardExp;
 
