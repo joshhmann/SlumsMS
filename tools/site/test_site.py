@@ -131,6 +131,48 @@ class CheckTest(unittest.TestCase):
         self.assertEqual(len(problems), 5)
 
 
+class SectionsTest(unittest.TestCase):
+    def setUp(self):
+        self.tmp = tempfile.mkdtemp(prefix="slums-sections-test-")
+        self.out = os.path.join(self.tmp, "site")
+
+    def tearDown(self):
+        shutil.rmtree(self.tmp)
+        build.common.BUILT.clear()
+
+    def test_public_nav_hides_private_sections(self):
+        build.build(self.out)
+        with open(os.path.join(self.out, "index.html"), encoding="utf-8") as f:
+            home = f.read()
+        self.assertNotIn('href="database/"', home)
+        self.assertNotIn('href="market/"', home)
+        self.assertIn('href="guide/"', home)
+
+    def test_public_build_refuses_private_pages(self):
+        build.build(self.out)
+        os.makedirs(os.path.join(self.out, "market"))
+        self.assertTrue(any("private section" in p for p in check.check_all(self.out)))
+        self.assertFalse(any("private section" in p for p in check.check_all(self.out, private=True)))
+
+    def test_private_nav_lists_built_sections(self):
+        build.common.BUILT.update({"market"})
+        page = build.layout("T", "<p>x</p>", "", "home")
+        self.assertIn('href="market/"', page)
+        self.assertNotIn('href="database/"', page)
+
+    def test_rebuild_one_section(self):
+        build.build(self.out)
+        path = os.path.join(self.out, "patch-notes", "index.html")
+        with open(path, encoding="utf-8") as f:
+            before = f.read()
+        os.remove(path)
+        build.rebuild_section("notes", self.out)
+        with open(path, encoding="utf-8") as f:
+            self.assertEqual(f.read(), before)
+        with self.assertRaises(SystemExit):
+            build.rebuild_section("notes", os.path.join(self.tmp, "empty"))
+
+
 class CleanWikiTest(unittest.TestCase):
     def test_only_empty_sections_are_dropped(self):
         body = ('<h2>Questions</h2>\n<p>Q</p>\n<h2>Rules</h2>\n<p class="owner">x</p>\n'

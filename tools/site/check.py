@@ -8,6 +8,7 @@
    string, because 164 is also an ordinary number in game data (monster levels, item and map ids).
 2. Links: every relative href/src must point at a file in the output, and every #fragment at an id on that page.
 3. No external requests: no http(s) URLs at all, so there are no trackers, CDNs or remote fonts.
+4. Private sections: a public build has no database/ or market/ pages and no links to them (until 1.6.0 is live).
 Exit status 1 if anything is found.
 """
 import os
@@ -138,8 +139,27 @@ def check_links(root):
     return problems
 
 
-def check_all(root):
-    return check_forbidden(root) + check_links(root)
+# Sections that stay private until 1.6.0 is live. A public build must not contain them or link to them.
+PRIVATE_SECTIONS = ["database", "market"]
+
+
+def check_private(root):
+    problems = []
+    for name in PRIVATE_SECTIONS:
+        if os.path.exists(os.path.join(root, name)):
+            problems.append(f"{name}/: private section in a public build (build it with --private instead)")
+    for rel, path in iter_files(root):
+        if rel.endswith(".html"):
+            with open(path, encoding="utf-8") as f:
+                text = f.read()
+            for name in PRIVATE_SECTIONS:
+                if re.search(rf'href="(?:\.\./)*{name}/', text):
+                    problems.append(f"{rel}: links to the private section {name}/")
+    return problems
+
+
+def check_all(root, private=False):
+    return check_forbidden(root) + check_links(root) + ([] if private else check_private(root))
 
 
 def main(argv):

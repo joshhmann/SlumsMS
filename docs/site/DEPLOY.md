@@ -11,7 +11,10 @@ On the build machine, from the repo root (Python 3, standard library only):
 python3 tools/site/build.py
 ```
 
-This writes `dist/site/` and `dist/slums-site.tar.gz`. It also checks the output and stops (and packs nothing) if a
+This writes the **public** site to `dist/site/` and `dist/slums-site.tar.gz`. The Database and Market sections are
+private until 1.6.0 is live: `python3 tools/site/build.py --private` builds them into `dist/site-private/` instead, and
+the public build's check fails if one of them, or a link to one, ever ends up in `dist/site/`. Only ever rsync
+`dist/site/` to the public folder. `--section <name> --out <dir>` rebuilds one section inside an existing build. It also checks the output and stops (and packs nothing) if a
 page has a broken link, loads anything from another website, or contains something private (LAN addresses,
 test-server ports, the patch site's name, QA tooling; the list is in `tools/site/check.py`).
 
