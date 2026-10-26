@@ -288,6 +288,8 @@ class AutoQaCatalogPatternTest {
     @Test
     void gs1PassesOnTheLinesTheScenarioAndTheThreadWrite() throws Exception {
         String[] lines = {
+                "STAGE told GM: VAR gsbots=Nayrb|Kimchi|Bob",
+                "CONVO NAMEGUARD REWRITE Tofu: \"did u see xxninja lol\" names [xxninja] -> \"did u see some guy lol\"",
                 "GS1 GS1 STAGED A=Nayrb (1000000001) B=Kimchi (1000000002) C=Bob (1000000003); Nayrb -> Kimchi: friend 30; Kimchi -> Nayrb: friend 30; crew yes",
                 "GS1 GS1 KS AutoQaOne -> bot 1000000001 (affinity event)",
                 "GS1 GS1 KNOWS B bot 1000000002 about AutoQaOne: ks 1.0, wary no, gossip in front yes",
@@ -300,5 +302,7 @@ class AutoQaCatalogPatternTest {
         String[] guarded = java.util.Arrays.copyOf(lines, lines.length + 1);
         guarded[lines.length] = "CONVO NAMEGUARD REWRITE Bob: \"lol xxslayerxx did that too\" names [xxslayerxx] -> \"lol some guy did that too\"";
         assertEquals(Check.Status.FAIL, eval("t-gs-1", guarded).getLast().status(), "a made-up name in the thread fails it");
+        String[] noVar = java.util.Arrays.copyOfRange(lines, 1, lines.length);
+        assertEquals(Check.Status.FAIL, eval("t-gs-1", noVar).getLast().status(), "no staged names: never a vacuous pass");
     }
 }

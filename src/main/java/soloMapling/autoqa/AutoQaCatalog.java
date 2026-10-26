@@ -828,7 +828,9 @@ public final class AutoQaCatalog {
                         has("GS1 FACT ks: {me} ksed \\S+; .*guard clean"),
                         has("SOCIAL_GATE YES gossip \\S+ -> {me}: crew side-eye"),
                         has("(?i)THREAD LINE \\[bank\\] \\S+: .*{me}"),
-                        has("GS1 PASS "), lacks("GS1 FAIL "), lacks("NAMEGUARD "))
+                        has("GS1 PASS "), lacks("GS1 FAIL "),
+                        // only the staged thread's speakers: another thread on the map may be guarded (TEST 08a5eb170)
+                        lacks("NAMEGUARD (REWRITE|DROP) ({gsbots}): "))
                 .build());
         // 1.6.0 S6, initiative: a friend greets you at login (in-1), asks about your goal a day later (in-2), and a bot
         // in a PQ lobby invites you at the right level (in-3); every act through the social gate, scripted lines
