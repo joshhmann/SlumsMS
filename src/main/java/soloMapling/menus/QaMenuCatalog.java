@@ -129,6 +129,7 @@ public final class QaMenuCatalog {
         section("Gifts and prices");
         add("tr-4", v(), steps("gift", "gift potions", "gift scroll", "gift mesos"));
         add("tr-5", v(), steps("price", "tax"), "price <item id>", "tax <price>");
+        add("mk-1", v(), steps());
         section("Hanako and meso sinks");
         add("tr-7", v(), steps("meters"));
         section("Partner rings (2nd character)");

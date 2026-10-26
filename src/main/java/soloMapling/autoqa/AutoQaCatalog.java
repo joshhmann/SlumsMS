@@ -870,6 +870,17 @@ public final class AutoQaCatalog {
                         has("LR1 WHY Learning: quadrant KILLER \\(seed SOCIALIZER\\), 1 crossing"),
                         has("LR1 PASS bot=\\d+"), lacks("LR1 FAIL "))
                 .build());
+        // 1.6.0 Track D: the website Market's server side. A forced export writes every file (listings, sales, the
+        // NX rate, the public economy, yesterday's price rollup and the index) and each one parses as JSON
+        c.add(Check.auto("t-mk-1", "A forced market export writes every Market file and each is valid JSON").minutes(2)
+                .step(run("mk-1"), waitFor("MK1 (PASS|FAIL) ", 90))
+                .expect(has("MK1 FILE listings\\.json ok \\d+ bytes listings=\\d+ "),
+                        has("MK1 FILE sales\\.json ok \\d+ bytes sales=\\d+"),
+                        has("MK1 FILE nx-rate\\.json ok "),
+                        has("MK1 FILE economy-public\\.json ok "),
+                        has("MK1 FILE prices/index\\.json ok "),
+                        has("MK1 PASS files=\\d+"), lacks("MK1 FAIL "), lacks("MK1 STEP FAIL "))
+                .build());
         return List.copyOf(c);
     }
 

@@ -9,17 +9,20 @@ import java.nio.file.Files;
 import java.nio.file.Path;
 import java.nio.file.StandardCopyOption;
 
-/** Writes a file so a reader (nginx serving the dashboard) sees the old content or the new, never half of it. */
-final class AtomicFiles {
+/**
+ * Writes a file so a reader (nginx serving the dashboard, or the site build reading the market export) sees the old
+ * content or the new, never half of it. Files end up mode 644.
+ */
+public final class AtomicFiles {
 
     private AtomicFiles() {
     }
 
-    static void writeJson(Path file, Object json) throws IOException {
+    public static void writeJson(Path file, Object json) throws IOException {
         write(file, Json.write(json));
     }
 
-    static void write(Path file, String content) throws IOException {
+    public static void write(Path file, String content) throws IOException {
         Path dir = file.toAbsolutePath().getParent();
         Files.createDirectories(dir);
         Path tmp = Files.createTempFile(dir, "." + file.getFileName(), ".tmp");
