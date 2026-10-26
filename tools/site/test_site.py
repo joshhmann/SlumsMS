@@ -193,6 +193,27 @@ class SectionsTest(unittest.TestCase):
         with self.assertRaises(SystemExit):
             build.rebuild_section("notes", os.path.join(self.tmp, "empty"))
 
+    def test_section_swap_leaves_no_staging_and_rolls_back(self):
+        build.build(self.out)
+        build.rebuild_section("notes", self.out)
+        self.assertEqual([n for n in os.listdir(self.out) if n.startswith(".")], [])
+        self.assertTrue(os.path.isfile(os.path.join(self.out, "patch-notes", "index.html")))
+        # a section that fails the check is swapped back out: the old pages stay
+        orig = build.notes.build
+        try:
+            def broken(out):
+                orig(out)
+                with open(os.path.join(out, "patch-notes", "index.html"), "a") as f:
+                    f.write('<a href="nowhere.html">x</a>')
+            build.notes.build = broken
+            with self.assertRaises(SystemExit):
+                build.rebuild_section("notes", self.out)
+        finally:
+            build.notes.build = orig
+        with open(os.path.join(self.out, "patch-notes", "index.html"), encoding="utf-8") as f:
+            self.assertNotIn("nowhere.html", f.read())
+        self.assertEqual([n for n in os.listdir(self.out) if n.startswith(".")], [])
+
 
 class CleanWikiTest(unittest.TestCase):
     def test_only_empty_sections_are_dropped(self):

@@ -48,8 +48,19 @@ GAME_TEXT = [
 TEXT_EXT = {".html", ".css", ".svg", ".txt", ".xml", ".json", ".js", ".md"}
 
 
+ONLY = None  # a folder name: check only the files under it (a one-section rebuild); links still resolve site-wide
+
+
 def iter_files(root):
-    for dirpath, _, files in os.walk(root):
+    for dirpath, dirs, files in os.walk(root):
+        dirs[:] = [d for d in dirs if not d.startswith(".")]  # .stage-*/.old-* folders of a section swap
+        rel_dir = os.path.relpath(dirpath, root).replace(os.sep, "/")
+        if ONLY and rel_dir != "." and not (rel_dir + "/").startswith(ONLY + "/"):
+            dirs[:] = []
+            continue
+        if ONLY and rel_dir == ".":
+            dirs[:] = [d for d in dirs if d == ONLY]
+            continue
         for name in sorted(files):
             path = os.path.join(dirpath, name)
             yield os.path.relpath(path, root).replace(os.sep, "/"), path
@@ -177,7 +188,8 @@ def check_noindex(root):
     """The site is friends only: robots.txt turns crawlers away and every page says noindex."""
     problems = []
     robots = os.path.join(root, "robots.txt")
-    if not os.path.isfile(robots) or "Disallow: /" not in open(robots, encoding="utf-8").read().splitlines():
+    if not ONLY and (not os.path.isfile(robots) or
+                     "Disallow: /" not in open(robots, encoding="utf-8").read().splitlines()):
         problems.append("robots.txt: missing, or doesn't say 'Disallow: /'")
     for rel, path in iter_files(root):
         if rel.endswith(".html"):
@@ -187,9 +199,14 @@ def check_noindex(root):
     return problems
 
 
-def check_all(root, private=False):
-    return (check_forbidden(root) + check_links(root) + check_noindex(root) +
-            ([] if private else check_private(root)))
+def check_all(root, private=False, only=None):
+    global ONLY
+    ONLY = only
+    try:
+        return (check_forbidden(root) + check_links(root) + check_noindex(root) +
+                ([] if private or only else check_private(root)))
+    finally:
+        ONLY = None
 
 
 def main(argv):

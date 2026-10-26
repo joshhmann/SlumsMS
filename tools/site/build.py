@@ -93,8 +93,8 @@ def build_section(name, out, rels):
     raise SystemExit(f"unknown section {name!r}")
 
 
-def finish(out, tar_path, private=False):
-    problems = check.check_all(out, private)
+def finish(out, tar_path, private=False, only=None):
+    problems = check.check_all(out, private, only)
     if problems:
         for p in problems:
             print("FAIL", p, file=sys.stderr)
@@ -123,8 +123,31 @@ def rebuild_section(name, out, private=False):
     rels = notes.releases()
     set_context(rels, PUBLIC + (PRIVATE if private else []))
     copy_assets(out)
-    build_section(name, out, rels)
-    finish(out, None, private)
+    folder = {"notes": "patch-notes", "guide": "guide", "database": "database", "market": "market"}.get(name)
+    if not folder:  # pages: a few single files, written in place
+        build_section(name, out, rels)
+        finish(out, None, private)
+        return
+    # build beside the live folder, swap it in with two renames, check, and swap back if the check fails,
+    # so a visitor never sees a half-written section (the market timer on 164 does this every 15 minutes)
+    stage = os.path.join(out, f".stage-{folder}")
+    shutil.rmtree(stage, ignore_errors=True)
+    os.makedirs(stage)
+    build_section(name, stage, rels)
+    live, old = os.path.join(out, folder), os.path.join(out, f".old-{folder}")
+    shutil.rmtree(old, ignore_errors=True)
+    if os.path.isdir(live):
+        os.rename(live, old)
+    os.rename(os.path.join(stage, folder), live)
+    shutil.rmtree(stage, ignore_errors=True)
+    try:
+        finish(out, None, private, only=folder)
+    except SystemExit:
+        shutil.rmtree(live, ignore_errors=True)
+        if os.path.isdir(old):
+            os.rename(old, live)
+        raise
+    shutil.rmtree(old, ignore_errors=True)
 
 
 def make_tar(out, tar_path):

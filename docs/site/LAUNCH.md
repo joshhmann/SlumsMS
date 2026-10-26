@@ -68,8 +68,9 @@ Check: signed out, `/database/` and `/market/` redirect to `/login/`; signed in 
 ## 6. Keep the market fresh every 15 minutes (timer on 164)
 Live writes `Server/data/market` every 15 min once `-Dslums.market.export=true` is on (1.6.0). A timer rebuilds only
 the market pages from it. **Still to build before launch:** a small deploy of `tools/site` and the dataset to 164
-(`/opt/slums-site-build`), a `slums-site-market.timer` (every 15 min, `nice -n 19`), and a build into a staging folder
-then a rename, so visitors never see a half-written market. The command it runs:
+(`/opt/slums-site-build`) and a `slums-site-market.timer` (every 15 min, `nice -n 19`). The swap is built: a
+one-section rebuild writes beside the live folder, swaps it in with two renames, checks the new section (about 2 s
+for the market) and swaps back if the check fails. The command the timer runs:
 ```
 python3 tools/site/build.py --private --section market --out /srv/slums-site \
     --market-data "/opt/mapleroot/MapleRoot Full Repack/Server/data/market" --hs-data /opt/slums-site-build/hiddenstreet
