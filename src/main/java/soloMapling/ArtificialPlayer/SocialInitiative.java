@@ -326,12 +326,20 @@ public final class SocialInitiative {
 
     /** Makes the login plan and schedules each greeting. QA: {@code force} picks every candidate. What was planned. */
     static List<Planned> planLogin(int playerId, boolean force) {
+        return planLogin(playerId, force, 0);
+    }
+
+    /** As {@link #planLogin(int, boolean)}; {@code onlyBot} > 0 (QA): that bot alone is a candidate. */
+    static List<Planned> planLogin(int playerId, boolean force, int onlyBot) {
         Character player = online.apply(playerId);
         if (player == null || !BotHelpers.isVisibleRealPlayer(player)) {
             return List.of();
         }
         long now = now();
         List<Candidate> candidates = candidates(player, now, force);
+        if (onlyBot > 0) {
+            candidates.removeIf(c -> c.botId() != onlyBot);
+        }
         List<Planned> plan = planGreetings(candidates, rolls, force);
         qa(player, "LOGIN PLAN " + player.getName() + ": " + candidates.size() + " friend/buddy bot(s) online, "
                 + plan.size() + " greet" + (plan.isEmpty() ? "" : " at " + plan.stream()
@@ -645,7 +653,7 @@ public final class SocialInitiative {
     static LifePq.Lobby lobbyOf(Character bot) {
         LifePq.Lobby staged = qaLobby.get(bot.getId());
         if (staged != null) {
-            return staged;
+            return inBand(staged, bot.getLevel()) ? staged : null; // the inviter fits the PQ too, staged or not
         }
         LifePq.Lobby lobby = LifePq.lobbyFor(bot.getLevel());
         return lobby != null && bot.getMapId() == lobby.mapId() ? lobby : null;
@@ -781,7 +789,7 @@ public final class SocialInitiative {
         soloMapling.server.BoundedMaps.prune(pqPlayer, 2_000, 4_000, at -> now - at >= PQ_PLAYER_GAP_MS);
         if (!out.partyInvite(bot, player)) {
             qa(player, "PQ_INVITE " + bot.getName() + " -> " + player.getName() + " " + lobby.name()
-                    + ": the party system refused the invite");
+                    + ": the party system refused the invite (" + partyRefusal(bot, player) + ")");
             return false;
         }
         qa(player, "PQ_INVITE " + bot.getName() + " (lv " + bot.getLevel() + ") -> " + player.getName() + " (lv "
@@ -800,6 +808,36 @@ public final class SocialInitiative {
         String name = rng.getAsDouble() < .6 ? playerName.toLowerCase(Locale.ROOT) : playerName;
         String line = pick(sameMap ? PQ_HERE : PQ_FRIEND, rng);
         return line.replace("{pq}", pq).replace("{name}", name).replace("{lvl}", Integer.toString(level));
+    }
+
+    /** Why BotPartyCommands.botInvitePlayer said no, as far as can be told after the fact (its own checks, in order). */
+    static String partyRefusal(Character bot, Character player) {
+        try {
+            String busy = PlayerBusy.reason(player, System.currentTimeMillis());
+            if (busy != null) {
+                return "the player is busy: " + busy;
+            }
+            if (player.getParty() != null) {
+                return "the player is in a party";
+            }
+            Party p = bot.getParty();
+            if (p != null && p.getLeaderId() != bot.getId()) {
+                return "the bot is in a party it does not lead";
+            }
+            if (p != null && p.getMembers().size() >= 6) {
+                return "the bot's party is full";
+            }
+            if (p == null && bot.getLevel() < 10) {
+                return "the bot is under level 10 and cannot make a party";
+            }
+            if (net.server.coordinator.world.InviteCoordinator.hasInvite(
+                    net.server.coordinator.world.InviteCoordinator.InviteType.PARTY, player.getId())) {
+                return "the player already has a pending party invite";
+            }
+        } catch (RuntimeException | LinkageError e) {
+            return "unknown (" + e.getClass().getSimpleName() + ")";
+        }
+        return "unknown";
     }
 
     /** Polls the party every {@link #ANSWER_POLL_MS}: the player joined (accepted), or not by {@link #ANSWER_MS}. */
@@ -1054,9 +1092,14 @@ public final class SocialInitiative {
 
     /** {@code !qa in-1}: plans the player's login greetings now, every friend/buddy bot rolling yes. */
     public static List<String> qaLogin(Character player) {
+        return qaLogin(player, 0);
+    }
+
+    /** As {@link #qaLogin(Character)}; {@code onlyBot} > 0: only that (staged) bot is a candidate, so it greets first. */
+    public static List<String> qaLogin(Character player, int onlyBot) {
         loginGreeted.keySet().removeIf(k -> (int) (long) k == player.getId());
         lastLogin.remove(player.getId());
-        List<Planned> plan = planLogin(player.getId(), true);
+        List<Planned> plan = planLogin(player.getId(), true, onlyBot);
         List<String> out = new ArrayList<>();
         for (Planned p : plan) {
             out.add("bot " + p.botId() + " greets at " + p.atMs() / 1000 + " s by " + (p.buddy() ? "buddy chat" : "whisper"));
@@ -1097,9 +1140,11 @@ public final class SocialInitiative {
 
     /** {@code !qa in-3}: the staged lobby bot invites now if the target fits (no roll). What happened. */
     public static String qaInvite(Character bot, Character player) {
-        LifePq.Lobby lobby = lobbyOf(bot);
-        if (lobby == null || !canLead(bot) || !pqOk(bot, player, lobby, now())) {
-            return "no invite: " + (lobby == null ? "the bot is in no lobby" : !canLead(bot) ? "the bot cannot lead a party"
+        LifePq.Lobby lobby = qaLobby.getOrDefault(bot.getId(), lobbyOf(bot));
+        if (lobby == null || !inBand(lobby, bot.getLevel()) || !canLead(bot) || !pqOk(bot, player, lobby, now())) {
+            return "no invite: " + (lobby == null ? "the bot is in no lobby"
+                    : !inBand(lobby, bot.getLevel()) ? "the bot's level " + bot.getLevel() + " is outside the band"
+                    : !canLead(bot) ? "the bot cannot lead a party"
                     : "you do not fit (band, party, quiet, busy, cooldown)");
         }
         int botId = bot.getId();

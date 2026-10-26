@@ -834,8 +834,8 @@ public final class AutoQaCatalog {
         // in a PQ lobby invites you at the right level (in-3); every act through the social gate, scripted lines
         c.add(Check.auto("t-in-1", "A friend bot greets you within a minute of logging in").minutes(3)
                 .step(run("in-1"), waitFor("SOCIAL_GATE INIT GREET {bot} -> {me} at login", 75), waitSeconds(3), stop())
-                .expect(has("IN1 LOGIN replayed: \\[bot \\d+ greets at \\d+ s by (whisper|buddy chat)"),
-                        has("SOCIAL_GATE INIT LOGIN PLAN {me}: \\d+ friend/buddy bot\\(s\\) online, [1-3] greet at"),
+                .expect(has("IN1 LOGIN replayed: \\[bot \\d+ greets at \\d+ s by (whisper|buddy chat)\\]"),
+                        has("SOCIAL_GATE INIT LOGIN PLAN {me}: 1 friend/buddy bot\\(s\\) online, 1 greet at"),
                         has("SOCIAL_GATE YES greet {bot} -> {me}"),
                         has("SOCIAL_GATE INIT GREET {bot} -> {me} at login by (whisper|buddy chat)"),
                         anyOf("WHISPER {bot}: ", "MULTICHAT buddy {bot}: "),
@@ -852,7 +852,7 @@ public final class AutoQaCatalog {
                 .build());
         c.add(Check.auto("t-in-3", "A bot in a PQ lobby invites you when your level fits").minutes(3)
                 .step(run("in-3"), waitFor("SOCIAL_GATE INIT PQ_INVITE ANSWER ", 90), waitSeconds(2), stop())
-                .expect(has("IN3 BAND (kpq|lpq|opq) \\d+-\\d+: you lv \\d+ fits, lv \\d+ does not fit"),
+                .expect(has("IN3 BAND (kpq|lpq|opq) \\d+-\\d+: bot lv \\d+, you lv \\d+ fits, lv \\d+ does not fit"),
                         has("SOCIAL_GATE YES pq_invite {bot} -> {me}"),
                         has("SOCIAL_GATE INIT PQ_INVITE {bot} \\(lv \\d+\\) -> {me} \\(lv \\d+\\) (kpq|lpq|opq) band \\d+-\\d+, same map"),
                         has("PARTY_INVITE {bot}"),

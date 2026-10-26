@@ -446,4 +446,58 @@ class SocialInitiativeTest {
         SocialInitiative.partyStep(clock.get());
         assertTrue(SocialInitiative.partyMinutesForTest().isEmpty(), "the party ended: forgotten");
     }
+
+    // ── coordinator follow-ups after the first TEST run ──
+
+    @Test
+    void theQaLoginReplayCanPlanTheStagedBotAlone() {
+        Character josh = player(PLAYER, "Josh", 25);
+        online.put(PLAYER, josh);
+        online.put(BOT, bot(BOT, "Kimchi", 25));
+        online.put(BOT2, bot(BOT2, "Mochi", 25));
+        assertTrue(BotAffinity.stage(BOT, PLAYER, AffinityState.FRIEND));
+        assertTrue(BotAffinity.stage(BOT2, PLAYER, AffinityState.FRIEND));
+        assertEquals(2, SocialInitiative.planLogin(PLAYER, true).size(), "both friends greet a forced replay");
+        tasks.clear();
+        List<Planned> plan = SocialInitiative.planLogin(PLAYER, true, BOT2);
+        assertEquals(1, plan.size());
+        assertEquals(BOT2, plan.get(0).botId(), "only the staged bot, so it is the first greeter");
+    }
+
+    @Test
+    void theInviterMustFitTheBandToo() {
+        Character lowBot = bot(BOT, "Kimchi", 26);
+        Character josh = player(PLAYER, "Josh", 55);
+        MapleMap map = lobbyMap(josh);
+        when(lowBot.getMap()).thenReturn(map);
+        LifePq.Lobby opq = LifePq.lobbyFor(55);
+        SocialInitiative.qaLobby(lowBot, opq, josh);
+        assertNull(SocialInitiative.pqTarget(lowBot, clock.get()), "a lv 26 bot does not stand in the OPQ lobby");
+        assertTrue(SocialInitiative.qaInvite(lowBot, josh).contains("the bot's level 26 is outside the band"));
+        assertTrue(out.sent.isEmpty());
+        when(lowBot.getLevel()).thenReturn(60);
+        assertEquals(PLAYER, SocialInitiative.pqTarget(lowBot, clock.get()).getId(), "a lv 60 bot invites a lv 55 player");
+    }
+
+    @Test
+    void aRefusedInviteSaysWhy() {
+        Character lobbyBot = bot(BOT, "Kimchi", 25);
+        Character josh = player(PLAYER, "Josh", 27);
+        Party someoneElses = mock(Party.class);
+        when(someoneElses.getLeaderId()).thenReturn(BOT2);
+        when(lobbyBot.getParty()).thenReturn(someoneElses);
+        assertEquals("the bot is in a party it does not lead", SocialInitiative.partyRefusal(lobbyBot, josh));
+        when(josh.getParty()).thenReturn(mock(Party.class));
+        assertEquals("the player is in a party", SocialInitiative.partyRefusal(lobbyBot, josh));
+        Character tiny = bot(BOT2, "Tiny", 8);
+        Character free = player(PLAYER + 1, "Free", 27);
+        assertEquals("the bot is under level 10 and cannot make a party", SocialInitiative.partyRefusal(tiny, free));
+
+        when(lobbyBot.getParty()).thenReturn(null);
+        MapleMap map = lobbyMap(free);
+        when(lobbyBot.getMap()).thenReturn(map);
+        out.partyOk = false;
+        assertFalse(SocialInitiative.invitePq(lobbyBot, free, clock.get(), (ok, why) -> { }), "refused: not invited");
+        assertTrue(tasks.isEmpty(), "nothing to wait for");
+    }
 }

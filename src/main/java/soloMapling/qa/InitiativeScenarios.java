@@ -59,7 +59,9 @@ final class InitiativeScenarios {
             if (id != null) {
                 SocialGate.forgetBotBudget(id);
             }
-            List<String> plan = SocialInitiative.qaLogin(gmOf(ctx));
+            // only the staged friend is a candidate: the pretend player has many friend bots online, and the check is
+            // about this one greeting within a minute (TEST run of t-in-1: 16 candidates, the staged one not in the 3)
+            List<String> plan = SocialInitiative.qaLogin(gmOf(ctx), id == null ? 0 : id);
             String line = "IN1 LOGIN replayed: " + (plan.isEmpty() ? "no friend or buddy bot online to greet" : plan);
             ctx.run().note("IN", line);
             return List.of(line);
@@ -157,33 +159,63 @@ final class InitiativeScenarios {
         public String usage() { return "; then !qa do invite"; }
         @Override public Set<QaLog.Topic> topics() { return EnumSet.of(SOCIAL_GATE, BOT_CHAT, AFFINITY); }
 
+        private final java.util.Map<Integer, LifePq.Lobby> lobbies = new java.util.concurrent.ConcurrentHashMap<>();
+
         public List<String> stage(QaContext ctx) {
             Character gm = gmOf(ctx);
+            boolean pretend = gm.getClient() instanceof client.SyntheticClient;
             if (gm.getParty() != null) {
-                throw new QaRefusal("Leave your party first: a bot only invites players without one.");
+                if (!pretend) {
+                    throw new QaRefusal("Leave your party first: a bot only invites players without one.");
+                }
+                // TEST run of t-in-3: the pretend player still sat in a party from an earlier check
+                net.server.world.Party.leaveParty(gm.getParty(), gm);
+                ctx.log("pretend player left its party from an earlier check");
             }
-            LifePq.Lobby lobby = LifePq.lobbyFor(gm.getLevel());
-            if (lobby == null && gm.getClient() instanceof client.SyntheticClient) {
+            net.server.coordinator.world.InviteCoordinator.removeInvite(
+                    net.server.coordinator.world.InviteCoordinator.InviteType.PARTY, gm.getId());
+            int id = stageBot(ctx, "neutral", false);
+            Character bot = SocialGateScenarios.botChr(id);
+            if (bot == null) {
+                throw new QaRefusal("The staged bot is not in the world.");
+            }
+            if (bot.getParty() != null) {
+                soloMapling.ArtificialPlayer.BotPartySystem.BotPartyCommands.botLeaveParty(bot);
+                ctx.log("staged bot left its party");
+            }
+            // The inviter's level fits the PQ too (as in play, where a bot goes to its own level's lobby).
+            LifePq.Lobby lobby = LifePq.lobbyFor(bot.getLevel());
+            if (lobby == null) {
+                int was = bot.getLevel();
+                bot.setLevel(25);
+                ctx.log("staged bot level " + was + " -> 25 (KPQ band)");
+                ctx.onStop("staged bot level back to " + was, () -> {
+                    Character b = SocialGateScenarios.botChr(id);
+                    if (b != null) {
+                        b.setLevel(was);
+                    }
+                });
+                lobby = LifePq.lobbyFor(25);
+            }
+            if (!SocialInitiative.inBand(lobby, gm.getLevel())) {
+                if (!pretend) {
+                    throw new QaRefusal("The staged bot is lv " + bot.getLevel() + " (" + lobby.name() + " " + lobby.minLevel()
+                            + "-" + lobby.maxLevel() + "); your lv " + gm.getLevel() + " does not fit. Use a character"
+                            + " in that band or run it again.");
+                }
                 int was = gm.getLevel();
-                gm.setLevel(25); // auto-QA's pretend player: into KPQ's band for the run, put back at the stop
-                ctx.log("pretend player level " + was + " -> 25 (KPQ band)");
+                int to = (lobby.minLevel() + lobby.maxLevel()) / 2;
+                gm.setLevel(to); // auto-QA's pretend player only: into the bot's band for the run, put back at the stop
+                ctx.log("pretend player level " + was + " -> " + to + " (" + lobby.name() + " band)");
                 ctx.onStop("pretend player level back to " + was, () -> {
                     Character now = ctx.gmNow();
                     if (now != null) {
                         now.setLevel(was);
                     }
                 });
-                lobby = LifePq.lobbyFor(gm.getLevel());
             }
-            if (lobby == null) {
-                throw new QaRefusal("Your level " + gm.getLevel() + " fits no PQ lobby (KPQ 21-30, LPQ 35-50,"
-                        + " OPQ 51-70): use a character in one of those bands.");
-            }
-            int id = stageBot(ctx, "neutral", false);
-            Character bot = SocialGateScenarios.botChr(id);
-            if (bot == null) {
-                throw new QaRefusal("The staged bot is not in the world.");
-            }
+            lobbies.put(ctx.run().gmId(), lobby);
+            ctx.onStop("forget the staged lobby", () -> lobbies.remove(ctx.run().gmId()));
             SocialInitiative.qaLobby(bot, lobby, gm);
             ctx.onStop("the bot leaves the staged lobby", () -> {
                 Character b = SocialGateScenarios.botChr(id);
@@ -192,11 +224,13 @@ final class InitiativeScenarios {
                 }
             });
             int outOfBand = lobby.maxLevel() + 10;
-            ctx.run().note("IN", "IN3 BAND " + lobby.name() + " " + lobby.minLevel() + "-" + lobby.maxLevel() + ": you lv "
-                    + gm.getLevel() + " " + (SocialInitiative.inBand(lobby, gm.getLevel()) ? "fits" : "does not fit")
+            ctx.run().note("IN", "IN3 BAND " + lobby.name() + " " + lobby.minLevel() + "-" + lobby.maxLevel() + ": bot lv "
+                    + bot.getLevel() + ", you lv " + gm.getLevel() + " "
+                    + (SocialInitiative.inBand(lobby, gm.getLevel()) ? "fits" : "does not fit")
                     + ", lv " + outOfBand + " " + (SocialInitiative.inBand(lobby, outOfBand) ? "fits" : "does not fit"));
-            List<String> out = new ArrayList<>(List.of(QaScenarios.who(ctx, id) + " now stands \"in the " + lobby.name()
-                            + " lobby\" (staged: it counts as there wherever it is) and you are lv " + gm.getLevel() + ".",
+            List<String> out = new ArrayList<>(List.of(QaScenarios.who(ctx, id) + " (lv " + bot.getLevel()
+                            + ") now stands \"in the " + lobby.name() + " lobby\" (staged: it counts as there wherever it is)"
+                            + " and you are lv " + gm.getLevel() + ".",
                     "Expect: a line like \"lf " + lobby.name() + "? u in\" in map chat, a party invite from it (INIT PQ_INVITE"
                             + " ... band ...), and a minute later INIT PQ_INVITE ANSWER (accept it to see \"accepted\"",
                     "and the bot hand you the lead). !qa do invite asks again (cooldowns forgotten)."));
@@ -208,13 +242,11 @@ final class InitiativeScenarios {
             Integer id = bot(ctx);
             Character gm = ctx.gmNow();
             Character bot = id == null ? null : SocialGateScenarios.botChr(id);
-            if (bot == null || gm == null) {
+            LifePq.Lobby lobby = lobbies.get(ctx.run().gmId());
+            if (bot == null || gm == null || lobby == null) {
                 return List.of("the staged bot is not in the world");
             }
-            LifePq.Lobby lobby = LifePq.lobbyFor(gm.getLevel());
-            if (lobby != null) {
-                SocialInitiative.qaLobby(bot, lobby, gm);
-            }
+            SocialInitiative.qaLobby(bot, lobby, gm);
             String line = "IN3 INVITE " + SocialInitiative.qaInvite(bot, gm);
             ctx.run().note("IN", line);
             return List.of(line);
