@@ -309,11 +309,7 @@ public final class BotCrushes {
             return null;
         }
         boolean qa = c.staged() && QaLog.on(QaLog.Topic.COUPLE);
-        Character rival = rivalNear(a, t);
-        if (rival != null && take("jealous:" + c.admirer(), now, qa ? 30_000 : JEALOUS_GAP_MS)) {
-            String line = say(a, "Jealous", t.getName(), rival.getName());
-            BotBonds.record(a.getId(), rival.getId(), BondEvent.SPAT, now, false);
-            BotCouples.qa("CRUSH JEALOUS " + a.getName() + " (likes " + t.getName() + ") at " + rival.getName() + ": " + line);
+        if (jealous(c, a, t, now, qa ? 30_000 : JEALOUS_GAP_MS)) {
             return "jealous";
         }
         if (!take("sign:" + c.admirer(), now, qa ? 20_000 : SIGN_GAP_MS)) {
@@ -333,6 +329,38 @@ public final class BotCrushes {
             return "line";
         }
         return null;
+    }
+
+    /**
+     * The jealousy sign alone: one of the admirer's rivals stands by its crush (a line at it, a spat on their bond),
+     * at most every {@code gapMs}. Checked before any other sign, so a rival standing there always gets its turn.
+     */
+    static boolean jealous(Crush c, Character a, Character t, long now, long gapMs) {
+        Character rival = rivalNear(a, t);
+        if (rival == null || !take("jealous:" + c.admirer(), now, gapMs)) {
+            return false;
+        }
+        String line = say(a, "Jealous", t.getName(), rival.getName());
+        BotBonds.record(a.getId(), rival.getId(), BondEvent.SPAT, now, false);
+        BotCouples.qa("CRUSH JEALOUS " + a.getName() + " (likes " + t.getName() + ") at " + rival.getName() + ": " + line);
+        return true;
+    }
+
+    /**
+     * {@code !qa cr-1 do jealous}: the jealousy check now, without its gap (the rival just walked up). What happened.
+     */
+    public static String jealousNow(int admirer, long now) {
+        Crush c = byAdmirer.get(admirer);
+        Character a = c == null ? null : online.apply(c.admirer());
+        Character t = c == null ? null : online.apply(c.target());
+        if (a == null || t == null) {
+            return "no crush with both bots in the world";
+        }
+        if (a.getMap() == null || a.getMap() != t.getMap()) {
+            return "not on one map";
+        }
+        return jealous(c, a, t, now, 0) ? "jealous" : "no rival of " + a.getName() + " within " + NEAR_PX + " px of "
+                + t.getName();
     }
 
     /** One of the admirer's rivals standing within {@link #NEAR_PX} of its crush, or null. */
@@ -395,9 +423,9 @@ public final class BotCrushes {
         return n == null ? "#" + charId : n;
     }
 
+    /** Any bot by id, a {@code !qa} idle bot included (it has no bot type, so it is not in CharacterStorage). */
     private static Character liveBot(int charId) {
-        BotSM sm = CharacterStorage.getBotById(charId);
-        return sm == null ? null : sm.getChr();
+        return soloMapling.ArtificialPlayer.BotDramaSystem.BeefKit.anyBot(charId);
     }
 
     private static double seededSocialPull(int charId) {

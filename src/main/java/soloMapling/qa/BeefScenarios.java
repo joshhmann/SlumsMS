@@ -66,6 +66,11 @@ final class BeefScenarios {
         return BotHelpers.getCharFromChannelStorage(id);
     }
 
+    static String name(int id) {
+        Character c = bot(id);
+        return c == null ? Integer.toString(id) : c.getName();
+    }
+
     // ── rv-5 ──
 
     /** rv-5: two rival bots trade trash talk in a bot thread on the GM's map, about their real bond. */
@@ -91,6 +96,8 @@ final class BeefScenarios {
             out.add(0, QaScenarios.who(ctx, a) + " and " + QaScenarios.who(ctx, b) + " are rivals (staged bond).");
             out.add("Expect: a THREAD on your map about rival beef, its FACT (rivalry, no other people), THREAD LINE"
                     + " [bank] lines of trash talk about the game, RV5 PASS, and no NAMEGUARD line.");
+            // auto-QA t-rv-5 judges the name guard on this thread's speakers only (other threads on the map are not ours)
+            out.add("VAR rvbots=" + name(a) + "|" + name(b));
             out.add("!qa do beef runs it again from the bank; !qa do llm lets the model write it (the guard checks"
                     + " every line); !qa do check prints the bond.");
             return out;
@@ -245,6 +252,7 @@ final class BeefScenarios {
     /** cr-1: a crush between two staged bots - signs, jealousy at a rival standing close, then a couple. */
     static final class Cr1Crush implements QaScenario {
         private final Map<Integer, int[]> botsByGm = new ConcurrentHashMap<>();
+        private final Set<Integer> jealousSeen = ConcurrentHashMap.newKeySet();
 
         public String id() { return "cr-1"; }
         public String title() { return "A bot's crush on a bot friend: signs, jealousy, then a couple (1.6.0 S7)"; }
@@ -266,12 +274,13 @@ final class BeefScenarios {
                     BotCouples.breakUp(k.id());
                 }
                 BotCrushes.forgetBot(a);
+                jealousSeen.remove(a);
                 botsByGm.remove(gmId);
             });
             BotCrushes.Crush crush = BotCrushes.start(a, b, true, System.currentTimeMillis());
             String line = "CR1 STAGED A=" + QaScenarios.who(ctx, a) + " likes B=" + QaScenarios.who(ctx, b) + ", C="
                     + QaScenarios.who(ctx, c) + " is A's rival; crush " + (crush != null ? "on" : "FAILED")
-                    + "; couple cap " + BotCouples.coupleCap() + " for this roster";
+                    + "; couple cap " + BotCouples.coupleCap() + " for this population";
             ctx.run().note("CR1", line);
             List<String> out = new ArrayList<>(List.of(line));
             out.add("Expect: CRUSH START, then CRUSH NEAR / CRUSH LINE signs. !qa do jealous walks C up to B: CRUSH"
@@ -301,8 +310,23 @@ final class BeefScenarios {
                     }
                     soloMapling.ArtificialPlayer.GCMoveSystem.GCMovement.move(c, b.getPosition().x + 30, b.getPosition().y);
                     ctx.run().note("CR1", "CR1 RIVAL " + c.getName() + " walks up to " + b.getName());
+                    // the jealousy check once the walk is over, without the sign gap (TEST: the 30 s gap and the walk
+                    // made the next sign tick miss it); a second look in case the walk was slow
+                    int admirer = ids[0];
+                    for (long wait : new long[]{4_000, 10_000}) {
+                        soloMapling.server.BotTiming.after(wait, () -> {
+                            if (BotCouples.coupleOf(admirer) == null && BotCrushes.crushOf(admirer) != null
+                                    && !jealousSeen.contains(admirer)) {
+                                String r = BotCrushes.jealousNow(admirer, System.currentTimeMillis());
+                                if ("jealous".equals(r)) {
+                                    jealousSeen.add(admirer);
+                                }
+                                ctx.run().note("CR1", "CR1 JEALOUS CHECK " + r);
+                            }
+                        });
+                    }
                     yield List.of("CR1 RIVAL " + c.getName() + " walks up to " + b.getName()
-                            + " (the next sign tick looks for jealousy)");
+                            + " (jealousy is checked in 4 s and 10 s)");
                 }
                 case "ripen" -> {
                     BotCrushes.ripenNow(ids[0]);

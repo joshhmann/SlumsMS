@@ -24,6 +24,8 @@ class AutoQaBeefPatternTest {
     }
 
     static final String[] RV5 = {
+            "STAGE told GM: VAR rvbots=Amy|Bob",
+            "CONVO NAMEGUARD REWRITE Tofu: \"did u see xxninja lol\" names [xxninja] -> \"did u see some guy lol\"",
             "RV5 RV5 STAGED A=Amy (1000000001) B=Bob (1000000002); Amy -> Bob: rival -40; Bob -> Amy: rival -40; crew no",
             "RV5 RV5 FACT rivalry: Amy has beef with Bob (3 run-ins); opener \"Bob u again? ugh\"; guard clean",
             "CONVO THREAD Amy + Bob on 100000000: rival beef (Amy has beef with Bob (3 run-ins))",
@@ -33,8 +35,12 @@ class AutoQaBeefPatternTest {
 
     @Test
     void rv5() throws Exception {
-        allPass("t-rv-5", RV5);
+        allPass("t-rv-5", RV5); // another thread on the map was guarded: not ours
         lastFails("t-rv-5", RV5, "CONVO NAMEGUARD REWRITE Bob: \"xxslayerxx did it\" names [xxslayerxx] -> \"some guy did it\"");
+        String[] noVar = Arrays.copyOfRange(RV5, 1, RV5.length);
+        assertEquals(Check.Status.FAIL, AutoQaCatalogPatternTest.eval("t-rv-5", noVar).stream()
+                .filter(x -> x.status() == Check.Status.FAIL).findFirst().map(Check.Verdict::status)
+                .orElse(Check.Status.PASS), "without the staged names it cannot judge: fail, never a vacuous pass");
     }
 
     static final String[] DR6 = {
@@ -59,6 +65,7 @@ class AutoQaBeefPatternTest {
             "COUPLE CRUSH LINE Amy -> Bob: hi Bob :)",
             "CR1 CR1 RIVAL Cid walks up to Bob",
             "COUPLE CRUSH JEALOUS Amy (likes Bob) at Cid: Cid go away lol",
+            "CR1 CR1 JEALOUS CHECK jealous",
             "COUPLE FORMED couple #-3: 1000000001 + 1000000002 (staged)",
             "COUPLE CRUSH TO COUPLE #-3: Amy + Bob",
             "CR1 CR1 COUPLE couple #-3"};

@@ -167,7 +167,7 @@ public final class BotCouples {
 
     /**
      * The world's couple cap: {@code solomapling.couples.maxCouples} when set, else one per {@link #BOTS_PER_COUPLE}
-     * roster bots, never under the old 4 (1.6.0 S7; 1.5.x: 4).
+     * bots of the peak population, never under the old 4 (1.6.0 S7; 1.5.x: 4).
      */
     static int maxCouples() {
         String set = System.getProperty("solomapling.couples.maxCouples");
@@ -187,10 +187,18 @@ public final class BotCouples {
         return Math.max(4, Math.round(bots / (float) BOTS_PER_COUPLE));
     }
 
-    private static volatile java.util.function.IntSupplier rosterSize = BotCouples::loadedRosterSize;
+    private static volatile java.util.function.IntSupplier rosterSize = BotCouples::populationPeak;
 
-    private static int loadedRosterSize() {
-        return BotRoster.loadedCount(); // memory only: 0 (the old cap of 4) until the roster is read
+    /**
+     * The bots the world holds at its peak (the population director's target), not the whole roster: TEST's roster
+     * of ~9,000 members (most dormant) made a cap of 60 (cr-1, 1.6.0 S7). 0 (the old cap of 4) when unknown.
+     */
+    private static int populationPeak() {
+        try {
+            return Math.max(0, BotPopulationDirector.directorPeak());
+        } catch (RuntimeException | LinkageError e) {
+            return 0;
+        }
     }
 
     static long hours(String key, double fallback) {
@@ -1156,7 +1164,7 @@ public final class BotCouples {
 
     /** Tests: the roster size the default couple cap is computed from (null: the real roster). */
     static void useRosterSizeForTest(java.util.function.IntSupplier test) {
-        rosterSize = test != null ? test : BotCouples::loadedRosterSize;
+        rosterSize = test != null ? test : BotCouples::populationPeak;
     }
 
     /** Tests: a store and an online lookup (nulls restore the real ones); forgets every couple and timer. */

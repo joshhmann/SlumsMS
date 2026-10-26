@@ -78,6 +78,8 @@ public final class RageQuit {
     private static final Map<Long, Integer> perDay = new ConcurrentHashMap<>();
     private static volatile long lastStepAt;
     private static volatile Exit exit = new RealExit();
+    /** A staged bot's channel hop (a seam for tests). */
+    private static volatile java.util.function.BiPredicate<Character, Integer> hop = BotChannels::moveToChannel;
     /** Runs something a little later (a seam for tests: at once). */
     private static volatile java.util.function.BiConsumer<Long, Runnable> later = BotTiming::after;
 
@@ -291,7 +293,7 @@ public final class RageQuit {
             Away a = away.get(bot.getId());
             if (a != null && a.staged()) {
                 int other = otherChannel(a.channel());
-                BotChannels.moveToChannel(bot, other);
+                hop.test(bot, other);
                 return;
             }
             BotLogout.requestOwn(bot.getId(), System.currentTimeMillis());
@@ -300,12 +302,12 @@ public final class RageQuit {
         @Override
         public boolean comeBack(Away a) {
             if (a.staged()) {
-                Character bot = DramaKit.liveBot(a.charId());
+                Character bot = BeefKit.online(a.charId()); // a staged idle bot is only in the world's storage
                 if (bot == null) {
                     return false;
                 }
                 // a channel hop keeps the bot's map and spot, so it reappears where it stood (never a warp)
-                boolean moved = DramaKit.channelOf(bot) == a.channel() || BotChannels.moveToChannel(bot, a.channel());
+                boolean moved = DramaKit.channelOf(bot) == a.channel() || hop.test(bot, a.channel());
                 if (moved) {
                     onBotLogin(bot);
                 }
@@ -333,6 +335,10 @@ public final class RageQuit {
         returning.clear();
         perDay.clear();
         lastStepAt = 0;
+    }
+
+    static void useHopForTest(java.util.function.BiPredicate<Character, Integer> testHop) {
+        hop = testHop != null ? testHop : BotChannels::moveToChannel;
     }
 
     static boolean returningNow(int charId) {
