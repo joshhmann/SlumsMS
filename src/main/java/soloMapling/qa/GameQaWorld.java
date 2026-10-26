@@ -1231,6 +1231,11 @@ final class GameQaWorld implements QaWorld {
     }
 
     @Override
+    public boolean lifeProfileProofAvailable() {
+        return true;
+    }
+
+    @Override
     public List<String> lifeProfileProof(Character gm, String botName) {
         Character bot = null;
         if (botName != null) {
@@ -1259,8 +1264,13 @@ final class GameQaWorld implements QaWorld {
             }
             if (bot == null) throw new QaRefusal("No online roster bot to test.");
         }
+        Character chosen = bot;
         try {
-            return soloMapling.ArtificialPlayer.BotLifeSystem.LifeProfileProof.run(bot, System.currentTimeMillis());
+            // One QA writer: straight to the pool rather than queueing behind a boot fill's bot logins.
+            List<List<String>> out = new ArrayList<>();
+            soloMapling.ArtificialPlayer.BotDbGate.unmetered((Runnable) () -> out.add(
+                    soloMapling.ArtificialPlayer.BotLifeSystem.LifeProfileProof.run(chosen, System.currentTimeMillis())));
+            return out.getFirst();
         } catch (IllegalStateException failed) {
             throw new QaRefusal("Life profile round trip failed: " + failed.getMessage());
         }

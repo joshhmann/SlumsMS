@@ -28,17 +28,39 @@ final class BotLifeScenarios {
         public String title() { return "Bot life: learned profile survives a social session and a reload"; }
         public String usage() { return "[bot name]"; }
         public Set<QaLog.Topic> topics() { return Set.of(); }
-        public int minutes(String[] args) { return 1; }
+        public int minutes(String[] args) { return 2; }
+
+        /**
+         * Where the round trip runs: never on the thread that typed {@code !qa run}. It writes and reads the database
+         * through the bots' share of the pool, which a boot fill can hold for 15 s or more (TEST, 2026-10-26: the
+         * answer came after 23 s and auto-QA had already given up). Tests run it inline.
+         */
+        static volatile java.util.concurrent.Executor proofs = soloMapling.server.ExecutorServiceManager::runAsync;
 
         public List<String> stage(QaContext ctx) {
+            if (!ctx.world().lifeProfileProofAvailable()) {
+                throw new QaRefusal("This world can't run the life profile round trip.");
+            }
             String name = ctx.args().length > 0 ? ctx.args()[0] : null;
-            List<String> lines = ctx.world().lifeProfileProof(ctx.gm(), name);
-            if (lines.isEmpty()) throw new QaRefusal("This world can't run the life profile round trip.");
-            lines.forEach(line -> ctx.run().note("LIFE", line.startsWith("LIFE ") ? line.substring(5) : line));
-            return List.of("Round trip done: " + lines.getLast(),
-                    "The bot got one ordinary life nudge (0.5%); it keeps it. !botwhy <name> shows the Bartle blend.",
+            var gm = ctx.gm();
+            var run = ctx.run();
+            run.note("LIFE", "PROFILE START bot=" + (name == null ? "(any online roster bot)" : name));
+            proofs.execute(() -> {
+                try {
+                    List<String> lines = ctx.world().lifeProfileProof(gm, name);
+                    if (lines.isEmpty()) run.note("LIFE", "PROFILE FAIL the world returned nothing");
+                    lines.forEach(line -> run.note("LIFE", line.startsWith("LIFE ") ? line.substring(5) : line));
+                } catch (QaRefusal refused) {
+                    run.note("LIFE", "PROFILE FAIL " + refused.getMessage());
+                } catch (RuntimeException failed) {
+                    run.note("LIFE", "PROFILE FAIL " + failed);
+                }
+            });
+            return List.of("The round trip runs in the background; the log shows LIFE PROFILE PASS (or FAIL) in a few"
+                            + " seconds, longer while bots are logging in.",
+                    "The bot gets one ordinary life nudge (0.5%) and keeps it. !botwhy <name> shows its Bartle point.",
                     "This proves the database round trip on this server, not a full restart; restart TEST and"
-                            + " !botwhy the same bot to see the same blend.");
+                            + " !botwhy the same bot to see the same point.");
         }
     }
 
