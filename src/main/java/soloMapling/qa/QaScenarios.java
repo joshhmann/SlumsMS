@@ -103,6 +103,7 @@ public final class QaScenarios {
         all.addAll(MarketScenarios.all()); // 1.6.0 Track D: the website Market's export files (mk-1)
         all.addAll(SiteScenarios.all()); // 1.6.0 Track D: the website's feed, leaderboards and world files (sf-1)
         all.addAll(BoardScenarios.all()); // 1.6.0 site board: a post gets a bot's offer, an alert fires once (bd-1)
+        all.addAll(SocialTraceScenarios.all()); // 1.6.0 social trace: a short trace records a bot thread (st-1)
         return List.copyOf(all);
     }
 

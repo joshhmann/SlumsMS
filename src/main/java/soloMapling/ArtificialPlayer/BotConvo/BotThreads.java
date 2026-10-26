@@ -408,6 +408,7 @@ public final class BotThreads {
                                    soloMapling.ArtificialPlayer.BotGossip.Fact given, boolean bankOnly, long now) {
         Random rng = ThreadLocalRandom.current();
         Topic topic = forced != null ? forced : beefOrDrama(pair.get(0), pair.get(1), now, rng);
+        boolean beefOrDrama = forced == null && topic != null; // 1.6.0 social trace: why the topic came up
         if (topic == Topic.RIVALRY) {
             pair = soloMapling.ArtificialPlayer.BotDramaSystem.BotBotRivalry.grudgeFirst(pair); // the grudge opens
         }
@@ -427,9 +428,16 @@ public final class BotThreads {
         hold(l);
         lastThreadOf.put(a.getId(), l);
         lastThreadOf.put(b.getId(), l);
+        if (soloMapling.autoqa.SocialTrace.on()) { // 1.6.0 (owner 2026-10-26): the social trace, observe only
+            soloMapling.autoqa.SocialTrace.threadStart(l.id, map, channel, a, b, topic.name(), forced != null,
+                    beefOrDrama, about, fact, now);
+        }
         soloMapling.server.MapleRootSolo.runHook("bond thread", () -> // 1.6.0 S2; S7: beef sours a bond too
                 soloMapling.ArtificialPlayer.BotAffinitySystem.BotBonds.onThread(a.getId(), b.getId(),
                         chosen == Topic.GUILD_BEEF || chosen == Topic.RIVALRY));
+        if (soloMapling.autoqa.SocialTrace.on()) {
+            soloMapling.autoqa.SocialTrace.threadBonded(l.id);
+        }
         qa(map.getId(), "THREAD " + a.getName() + " + " + b.getName() + " on " + map.getId() + ": " + topic.words
                 + (about == null ? "" : " (" + about + ")"));
         if (fact != null) {
@@ -442,15 +450,29 @@ public final class BotThreads {
                             fact)), BotBrain.Turn.user("Write the lines now."));
             BotBrains.get().reply(Priority.THREAD, 0, prompt).thenAccept(r -> {
                 List<String[]> lines = guard(r.map(x -> parse(x.text(), a.getName(), b.getName())).orElse(List.of()),
-                        allowed, l.mapId);
+                        allowed, l.mapId, l.id);
                 if (lines.size() < 2) {
-                    play(l, a, b, guard(fallback(chosen, a, b, fact, rng), allowed, l.mapId), "bank");
+                    List<String[]> bank = guard(fallback(chosen, a, b, fact, rng), allowed, l.mapId, l.id);
+                    if (soloMapling.autoqa.SocialTrace.on()) {
+                        soloMapling.autoqa.SocialTrace.threadComposed(l.id, FALLBACK_KIND.get(), r.isEmpty()
+                                ? "the model gave no reply (busy or timed out)" : "the model's reply was unusable",
+                                r.isEmpty() ? -1 : lines.size());
+                    }
+                    play(l, a, b, bank, "bank");
                 } else {
+                    if (soloMapling.autoqa.SocialTrace.on()) {
+                        soloMapling.autoqa.SocialTrace.threadComposed(l.id, "llm", null, -1);
+                    }
                     play(l, a, b, lines, "llm");
                 }
             });
         } else {
-            play(l, a, b, guard(fallback(topic, a, b, fact, rng), allowed, l.mapId), "bank");
+            List<String[]> bank = guard(fallback(topic, a, b, fact, rng), allowed, l.mapId, l.id);
+            if (soloMapling.autoqa.SocialTrace.on()) {
+                soloMapling.autoqa.SocialTrace.threadComposed(l.id, FALLBACK_KIND.get(), bankOnly ? "bank only (!qa)"
+                        : !BotBrains.get().isLive() ? "the model is not live" : "line bank forced", -1);
+            }
+            play(l, a, b, bank, "bank");
         }
         return List.of(topic.words);
     }
@@ -521,12 +543,21 @@ public final class BotThreads {
      * people, anyone online or in the name registry) is rewritten without the name or dropped ({@link NameGuard}).
      */
     static List<String[]> guard(List<String[]> lines, java.util.Collection<String> allowed, int mapId) {
+        return guard(lines, allowed, mapId, 0);
+    }
+
+    /** As above, for thread {@code threadId} (the social trace notes each rewrite or drop). */
+    static List<String[]> guard(List<String[]> lines, java.util.Collection<String> allowed, int mapId, int threadId) {
         List<String[]> out = new ArrayList<>(lines.size());
         for (String[] line : lines) {
             NameGuard.Verdict v = NameGuard.check(line[1], allowed);
             if (!v.clean()) {
                 qa(mapId, "NAMEGUARD " + (v.dropped() ? "DROP" : "REWRITE") + " " + line[0] + ": \"" + line[1]
                         + "\" names " + v.unknown() + (v.dropped() ? "" : " -> \"" + v.line() + "\""));
+                if (soloMapling.autoqa.SocialTrace.on()) {
+                    soloMapling.autoqa.SocialTrace.nameGuard(threadId, (v.dropped() ? "DROP " : "REWRITE ") + line[0]
+                            + ": \"" + line[1] + "\" names " + v.unknown());
+                }
             }
             if (!v.dropped()) {
                 out.add(new String[]{line[0], v.line()});
@@ -636,6 +667,9 @@ public final class BotThreads {
         return REPEATS.matcher(line.replace(" ", "")).find();
     }
 
+    /** 1.6.0 social trace: which fallback the last {@link #fallback} call on this thread used (bank, script). */
+    static final ThreadLocal<String> FALLBACK_KIND = ThreadLocal.withInitial(() -> "bank");
+
     /** No LLM: the bank's opener for the topic and a reaction, else a cut of a scripted conversation. */
     static List<String[]> fallback(Topic topic, Character a, Character b, Random rng) {
         return fallback(topic, a, b, null, rng);
@@ -648,7 +682,9 @@ public final class BotThreads {
      */
     static List<String[]> fallback(Topic topic, Character a, Character b, soloMapling.ArtificialPlayer.BotGossip.Fact fact,
                                    Random rng) {
+        FALLBACK_KIND.set("bank");
         if (fact != null && fact.opener() != null) {
+            FALLBACK_KIND.set("bank (story opener)");
             int slotB = b.getId() - BotStore.BOT_ID_BASE;
             String react = topic == Topic.RIVALRY // 1.6.0 S7: a rival answers back
                     ? soloMapling.ArtificialPlayer.BotDramaSystem.BotBotRivalry.beefReply(b, a)
@@ -678,6 +714,7 @@ public final class BotThreads {
             return out;
         }
         List<ConversationLines.Script> candidates = new ArrayList<>(ConversationLines.scripts());
+        FALLBACK_KIND.set("script");
         return scripted(a, b, candidates, rng);
     }
 
@@ -706,6 +743,10 @@ public final class BotThreads {
     }
 
     private static void play(Live l, Character a, Character b, List<String[]> lines, String source) {
+        boolean traced = soloMapling.autoqa.SocialTrace.on();
+        if (traced) {
+            soloMapling.autoqa.SocialTrace.threadPlanned(l.id, lines.size());
+        }
         if (lines.isEmpty()) {
             return;
         }
@@ -718,6 +759,9 @@ public final class BotThreads {
             // rc6 say-do: a thread line never promises what nobody will do ("brb", "omw to fm"); an LFG ask may stay
             String honest = ClaimActions.guardReply(line[1], java.util.EnumSet.of(ClaimRules.Kind.PARTY_ASK));
             if (honest == null) {
+                if (traced) {
+                    soloMapling.autoqa.SocialTrace.threadDropped(l.id, line[0], line[1], "say-do guard: a promise nobody keeps");
+                }
                 continue;
             }
             List<String> protect = new ArrayList<>(List.of(a.getName().toLowerCase(Locale.ROOT),
@@ -732,9 +776,15 @@ public final class BotThreads {
             total += wait;
             chain = chain.pause(wait).run(() -> {
                 if (who.getMap() == null || who.getMapId() != l.mapId) {
+                    if (traced) {
+                        soloMapling.autoqa.SocialTrace.threadDropped(l.id, who.getName(), styled, "the speaker left the map");
+                    }
                     return;
                 }
                 SayDo.withSource("thread-" + source, () -> BotSpeak(who, styled));
+                if (traced) {
+                    soloMapling.autoqa.SocialTrace.threadLine(l.id, who, styled);
+                }
                 l.lastSpeakerId = who.getId();
                 l.lastLineAt = System.currentTimeMillis();
                 l.endsAt = l.lastLineAt + JOIN_MS;

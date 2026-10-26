@@ -291,6 +291,10 @@ public final class LifeRuntime {
                 soloMapling.qa.QaLog.any(soloMapling.qa.QaLog.Topic.HABITS,
                         "LIFE DECISION bot=" + chr.getName() + " selected=" + result.selected().map(Enum::name).orElse("NONE"));
             }
+            if (soloMapling.autoqa.SocialTrace.on()) { // 1.6.0 social trace: what a traced bot decides next
+                soloMapling.autoqa.SocialTrace.life(chr.getId(), "DECISION selected="
+                        + result.selected().map(Enum::name).orElse("NONE") + " (" + result.outcome() + ")");
+            }
             logDecision(chr, result);
             if (result.selected().isPresent() && now >= dueAt
                     && (phase.equals("GRIND") && result.selected().get() == Activity.GRIND

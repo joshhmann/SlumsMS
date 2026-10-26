@@ -1055,6 +1055,9 @@ public class TrainingBot extends BotSM implements soloMapling.ArtificialPlayer.B
     }
 
     private void lifeNote(String text) {
+        if (soloMapling.autoqa.SocialTrace.on() && (text.startsWith("START") || text.startsWith("ARRIVED"))) {
+            soloMapling.autoqa.SocialTrace.life(getChr().getId(), text); // 1.6.0 social trace
+        }
         if (soloMapling.qa.QaLog.on(soloMapling.qa.QaLog.Topic.HABITS)) {
             soloMapling.qa.QaLog.any(soloMapling.qa.QaLog.Topic.HABITS,
                     "LIFE " + text + " bot=" + getChr().getName());

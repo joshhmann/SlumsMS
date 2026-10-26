@@ -42,8 +42,16 @@ import java.util.concurrent.ConcurrentHashMap;
 public final class SyntheticPlayers {
 
     public static final String[] NAMES = {"AutoQaOne", "AutoQaTwo"};
+    /**
+     * 1.6.0 (owner 2026-10-26): the social trace's observers, slots 3-6 on accounts {@code autoqa3..autoqa6}: plain
+     * level-30 players that only stand in town so bot threads have a real player to happen in front of. They never
+     * chat, trade or accept anything, and auto-QA's own logout leaves them alone ({@link #logoutAll}).
+     */
+    public static final String[] OBSERVER_NAMES = {"AutoQaThree", "AutoQaFour", "AutoQaFive", "AutoQaSix"};
+    public static final int FIRST_OBSERVER_SLOT = NAMES.length + 1;
     public static final int GM_LEVEL = 3;
     static final int LEVEL = 70;
+    static final int OBSERVER_LEVEL = 30;
     static final int CHANNEL = 1;
     static final int HENESYS = 100000000;
 
@@ -54,18 +62,46 @@ public final class SyntheticPlayers {
 
     /** The synthetic player of this slot (1 or 2), logged in now if it is not. */
     public static synchronized SyntheticPlayer login(int slot) {
+        return login(slot, CHANNEL);
+    }
+
+    /** The default name of a slot: 1-2 auto-QA's players, 3-6 the social trace's observers. */
+    public static String nameOf(int slot) {
+        if (slot >= 1 && slot <= NAMES.length) {
+            return NAMES[slot - 1];
+        }
+        int o = slot - FIRST_OBSERVER_SLOT;
+        if (o >= 0 && o < OBSERVER_NAMES.length) {
+            return OBSERVER_NAMES[o];
+        }
+        throw new IllegalStateException("no synthetic player slot " + slot);
+    }
+
+    /** True for a social-trace observer slot (3-6). */
+    public static boolean isObserverSlot(int slot) {
+        return slot >= FIRST_OBSERVER_SLOT && slot < FIRST_OBSERVER_SLOT + OBSERVER_NAMES.length;
+    }
+
+    /** True for a character that is one of the social trace's observers (while online). */
+    public static boolean isObserver(Character chr) {
+        return chr != null && chr.getClient() instanceof SyntheticClient sc && isObserverSlot(sc.slot());
+    }
+
+    /**
+     * The synthetic player of this slot, logged in on {@code channel} now if it is not (an online one stays on its
+     * channel). 1.6.0: the observers spread over channels 1-3.
+     */
+    public static synchronized SyntheticPlayer login(int slot, int channel) {
         SyntheticPlayer p = online.get(slot);
         if (p != null && p.isOnline()) {
             return p;
         }
-        if (slot < 1 || slot > NAMES.length) {
-            throw new IllegalStateException("no synthetic player slot " + slot);
-        }
+        nameOf(slot); // refuses an unknown slot
         int world = Server.getInstance().getHomeWorldId();
         try {
             int accountId = ensureAccount("autoqa" + slot);
             int charId = ensureCharacter(accountId, world, slot);
-            SyntheticClient c = new SyntheticClient(slot, world, CHANNEL);
+            SyntheticClient c = new SyntheticClient(slot, world, channel);
             c.setAccID(accountId);
             c.setAccountName("autoqa" + slot);
             // Normal login loads these views when sending the character list. Channel login skips that
@@ -80,26 +116,41 @@ public final class SyntheticPlayers {
             handle(c, RecvOpcode.PLAYER_LOGGEDIN, in.getBytes());
             Character chr = c.getPlayer();
             if (chr == null || !c.isLoggedIn()) {
-                throw new IllegalStateException("the login handler did not log " + NAMES[slot - 1] + " in");
+                throw new IllegalStateException("the login handler did not log " + nameOf(slot) + " in");
             }
             if (chr.getWorldChatOnOff()) {
                 chr.toggleWorldChat(); // its map chat must stay map chat
             }
             p = new SyntheticPlayer(slot, c);
             online.put(slot, p);
-            AutoQa.log.info("Auto-QA: synthetic player {} ({}) logged in on channel {}", chr.getName(), chr.getId(), CHANNEL);
+            AutoQa.log.info("Auto-QA: synthetic player {} ({}) logged in on channel {}", chr.getName(), chr.getId(), channel);
             return p;
         } catch (SQLException e) {
             throw new IllegalStateException("database: " + e.getMessage());
         }
     }
 
-    /** Logs every synthetic player out the way a closed client does. */
+    /**
+     * Logs auto-QA's synthetic players out the way a closed client does. 1.6.0: the social trace's observers stay (an
+     * auto-QA run ending mid-trace must not end the trace's watching); {@link #logoutObservers} logs those out.
+     */
     public static synchronized void logoutAll() {
-        for (SyntheticPlayer p : online.values()) {
-            p.logout();
+        for (var e : List.copyOf(online.entrySet())) {
+            if (!isObserverSlot(e.getKey())) {
+                e.getValue().logout();
+                online.remove(e.getKey());
+            }
         }
-        online.clear();
+    }
+
+    /** Logs the social trace's observers out. */
+    public static synchronized void logoutObservers() {
+        for (var e : List.copyOf(online.entrySet())) {
+            if (isObserverSlot(e.getKey())) {
+                e.getValue().logout();
+                online.remove(e.getKey());
+            }
+        }
     }
 
     public static SyntheticPlayer get(int slot) {
@@ -167,6 +218,7 @@ public final class SyntheticPlayers {
 
     private static int ensureCharacter(int accountId, int world, int slot) throws SQLException {
         int gm = slot == 1 ? GM_LEVEL : 0;
+        int level = isObserverSlot(slot) ? OBSERVER_LEVEL : LEVEL;
         try (Connection con = DatabaseConnection.getConnection()) {
             try (PreparedStatement ps = con.prepareStatement("SELECT id FROM characters WHERE accountid = ? AND world = ? ORDER BY id LIMIT 1")) {
                 ps.setInt(1, accountId);
@@ -184,9 +236,9 @@ public final class SyntheticPlayers {
                 }
             }
         }
-        String name = NAMES[slot - 1];
+        String name = nameOf(slot);
         for (int i = 0; Character.getIdByName(name) >= 0 || !BotNames.reserveForPlayer(name); i++) {
-            name = NAMES[slot - 1].substring(0, 7) + (slot * 10 + i); // AutoQaO11, ... if a bot or someone holds it
+            name = nameOf(slot).substring(0, 7) + (slot * 10 + i); // AutoQaO11, ... if a bot or someone holds it
         }
         SyntheticClient tmp = new SyntheticClient(slot, world, CHANNEL);
         tmp.setAccID(accountId);
@@ -197,23 +249,23 @@ public final class SyntheticPlayers {
         c.setSkinColor(SkinColor.NORMAL);
         c.setHair(30000);
         c.setFace(20000);
-        c.setLevel(LEVEL);
+        c.setLevel(level);
         c.setJob(Job.WARRIOR);
         c.setMapId(HENESYS);
         c.setGMLevel(gm);
-        CharacterFactoryRecipe recipe = new CharacterFactoryRecipe(Job.WARRIOR, LEVEL, HENESYS, 0, 0, 0, 0);
-        recipe.setStr(250);
-        recipe.setDex(60);
-        recipe.setMaxHp(4000);
-        recipe.setMaxMp(500);
-        recipe.setMeso(1_000_000);
+        CharacterFactoryRecipe recipe = new CharacterFactoryRecipe(Job.WARRIOR, level, HENESYS, 0, 0, 0, 0);
+        recipe.setStr(level == LEVEL ? 250 : 120);
+        recipe.setDex(level == LEVEL ? 60 : 35);
+        recipe.setMaxHp(level == LEVEL ? 4000 : 1500);
+        recipe.setMaxMp(level == LEVEL ? 500 : 200);
+        recipe.setMeso(level == LEVEL ? 1_000_000 : 50_000);
         if (!c.insertNewChar(recipe)) {
             throw new SQLException("could not insert the character " + name);
         }
         try (Connection con = DatabaseConnection.getConnection();
              PreparedStatement up = con.prepareStatement("UPDATE characters SET gm = ?, level = ? WHERE id = ?")) {
             up.setInt(1, gm);
-            up.setInt(2, LEVEL);
+            up.setInt(2, level);
             up.setInt(3, c.getId());
             up.executeUpdate();
         }

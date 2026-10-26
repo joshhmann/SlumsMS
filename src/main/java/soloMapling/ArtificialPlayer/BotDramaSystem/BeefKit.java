@@ -101,6 +101,9 @@ public final class BeefKit {
     }
 
     static void qaAny(String line) {
+        if (soloMapling.autoqa.SocialTrace.on()) { // 1.6.0 (owner 2026-10-26): the social trace reads drama lines
+            soloMapling.autoqa.SocialTrace.dramaLine(0, line);
+        }
         if (QaLog.on(QaLog.Topic.RIVALRY)) {
             QaLog.any(QaLog.Topic.RIVALRY, line);
         }

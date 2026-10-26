@@ -1155,6 +1155,9 @@ public final class BotCouples {
     }
 
     static void qa(String line) {
+        if (soloMapling.autoqa.SocialTrace.on()) { // 1.6.0 (owner 2026-10-26): the social trace reads drama lines
+            soloMapling.autoqa.SocialTrace.dramaLine(0, line);
+        }
         if (QaLog.on(QaLog.Topic.COUPLE)) { // !qa cp-1, we-1
             QaLog.any(QaLog.Topic.COUPLE, line);
         }

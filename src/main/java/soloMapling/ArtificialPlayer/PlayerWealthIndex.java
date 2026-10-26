@@ -228,7 +228,8 @@ public final class PlayerWealthIndex {
         Map<Integer, Sample> out = new LinkedHashMap<>();
         try (Connection con = DatabaseConnection.getConnection();
              PreparedStatement ps = con.prepareStatement(
-                     "SELECT id, level, meso FROM characters WHERE id < ? AND gm = 0 AND level >= ?")) {
+                     "SELECT id, level, meso FROM characters WHERE id < ? AND gm = 0 AND level >= ?"
+                             + " AND name NOT LIKE 'autoqa%'")) { // 1.6.0: no pretend players or observers
             ps.setInt(1, SoloMaplingConstants.GameConstants.BOT_BASE_ID);
             ps.setInt(2, minLevel);
             try (ResultSet rs = ps.executeQuery()) {
@@ -254,12 +255,16 @@ public final class PlayerWealthIndex {
         return humans(all);
     }
 
-    /** The real, non-GM characters among these, by id. Bots, GMs and bot-range ids never count. */
+    /**
+     * The real, non-GM characters among these, by id. Bots, GMs and bot-range ids never count; 1.6.0 (owner
+     * 2026-10-26): nor do auto-QA's pretend players and the social trace's observers (as on the site's boards).
+     */
     static Map<Integer, Sample> humans(Collection<Character> chars) {
         Map<Integer, Sample> out = new LinkedHashMap<>();
         for (Character c : chars) {
             if (c == null || BotHelpers.isBot(c) || c.gmLevel() > 0
-                    || c.getId() >= SoloMaplingConstants.GameConstants.BOT_BASE_ID) {
+                    || c.getId() >= SoloMaplingConstants.GameConstants.BOT_BASE_ID
+                    || c.getClient() instanceof client.SyntheticClient || soloMapling.site.SiteFeed.isQaName(c.getName())) {
                 continue;
             }
             out.put(c.getId(), new Sample(c.getLevel(), c.getMeso()));

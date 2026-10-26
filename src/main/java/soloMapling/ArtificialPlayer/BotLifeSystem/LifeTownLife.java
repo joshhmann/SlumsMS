@@ -226,6 +226,9 @@ public final class LifeTownLife implements LifeHost {
     }
 
     private void note(String text) {
+        if (soloMapling.autoqa.SocialTrace.on() && text.startsWith("START")) { // 1.6.0 social trace
+            soloMapling.autoqa.SocialTrace.life(bot.getChr().getId(), text);
+        }
         if (soloMapling.qa.QaLog.on(soloMapling.qa.QaLog.Topic.HABITS)) {
             soloMapling.qa.QaLog.any(soloMapling.qa.QaLog.Topic.HABITS, "LIFE " + text + " bot=" + bot.getChr().getName()
                     + " type=" + kind);

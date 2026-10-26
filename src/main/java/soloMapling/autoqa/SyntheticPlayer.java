@@ -39,7 +39,7 @@ public final class SyntheticPlayer implements AutoQaWorld.Actor {
     @Override
     public String name() {
         Character c = character();
-        return c == null ? SyntheticPlayers.NAMES[slot - 1] : c.getName();
+        return c == null ? SyntheticPlayers.nameOf(slot) : c.getName();
     }
 
     @Override

@@ -302,6 +302,9 @@ public final class BotBonds {
             return;
         }
         together(joiner.getId(), other.getId(), BondEvent.PARTY);
+        if (soloMapling.autoqa.SocialTrace.on()) { // 1.6.0 social trace: an LFG thread's pair in one party
+            soloMapling.autoqa.SocialTrace.partyJoin(joiner, other);
+        }
         if (sameGuild(joiner, other)) {
             together(joiner.getId(), other.getId(), BondEvent.GUILD);
         }
