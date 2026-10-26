@@ -25,9 +25,17 @@ RAIL_EXTRA = ["<i>Bera</i> 5 channels · 3x EXP · 10x meso · 4x drop",
               "<i>New here?</i> type @guide in game for the quick tour"]
 RAIL = []  # filled by build(): list of (html, href or None) for the current build
 
-# Applies a saved light/dark choice before the page paints, so a reload never flashes the wrong theme.
-THEME_BOOT = ('<script>try{var t=localStorage.getItem("slums-theme");if(t==="light"||t==="dark")'
-              'document.documentElement.setAttribute("data-theme",t)}catch(e){}</script>')
+# Applies a saved light/dark and accent choice before the page paints, so a reload never flashes the wrong look.
+THEME_BOOT = ('<script>try{var d=document.documentElement,t=localStorage.getItem("slums-theme"),'
+              'a=localStorage.getItem("slums-accent");if(t==="light"||t==="dark")d.setAttribute("data-theme",t);'
+              'if(a==="blue"||a==="orange")d.setAttribute("data-accent",a)}catch(e){}</script>')
+
+# The leaf drawn inline so it takes the accent colour (assets/leaf.svg, the favicon, is the same shape in green).
+LEAF = ('<svg class="leaf" viewBox="0 0 100 100" width="30" height="30" aria-hidden="true"><path class="leaf-body" '
+        'd="M50 3 58 21 70 15 66 39 84 29 80 42 97 44 84 55 90 61 61 63 63 75 53 70 52 97 48 97 47 70 37 75 39 63 '
+        '10 61 16 55 3 44 20 42 16 29 34 39 30 15 42 21Z"/><path class="leaf-vein" fill="none" stroke-width="2.5" '
+        'stroke-linecap="round" d="M50 92V30M50 62 30 44M50 62 70 44M50 48 40 30M50 48 60 30"/></svg>')
+ACCENTS = [("green", "Henesys green"), ("blue", "Ultramarine"), ("orange", "Maple orange")]
 
 
 def rail_html(root):
@@ -72,9 +80,11 @@ def layout(title, body, root, section, description="", base=""):
 <body>
 <a class="skip" href="#main">Skip to content</a>
 <header class="site-head"><div class="wrap">
-  <a class="brand" href="{root}index.html"><img src="{root}assets/leaf.svg" alt="" width="30" height="30"><b>Slums<span>MS</span></b></a>
+  <a class="brand" href="{root}index.html">{LEAF}<b>Slums<span>MS</span></b></a>
   <nav class="site-nav" aria-label="Site">{links}</nav>
   <div class="theme" role="group" aria-label="Colour theme" data-theme-switch hidden><button type="button" data-theme-btn="system">Auto</button><button type="button" data-theme-btn="light">Light</button><button type="button" data-theme-btn="dark">Dark</button></div>
+  <div class="accents" role="group" aria-label="Accent colour" data-accent-switch hidden>{"".join(
+      f'<button type="button" class="sw {k}" data-accent-btn="{k}" aria-label="{n}" title="{n}"></button>' for k, n in ACCENTS)}</div>
 </div></header>
 {rail_html(root)}
 <main id="main">

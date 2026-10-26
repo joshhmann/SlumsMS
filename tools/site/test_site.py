@@ -38,6 +38,11 @@ class SiteBuildTest(unittest.TestCase):
         # three theme states: system (media query, guarded), and both explicit choices
         self.assertIn(':root:not([data-theme="light"])', tokens)
         self.assertIn(':root[data-theme="dark"]', tokens)
+        # Henesys green is the default accent; blue and orange are picked, each designed for dark mode too
+        self.assertIn("--accent: #3cbf4a", tokens.split("@media")[0])
+        for accent in ("blue", "orange"):
+            self.assertIn(f':root[data-accent="{accent}"][data-theme="dark"]', tokens)
+            self.assertIn(f':root[data-accent="{accent}"]:not([data-theme="light"])', tokens)
         for page in ["index.html", "patch-notes/index.html", "guide/leveling.html", "report/index.html", "404.html"]:
             with open(os.path.join(self.out, page), encoding="utf-8") as f:
                 text = f.read()
@@ -45,6 +50,8 @@ class SiteBuildTest(unittest.TestCase):
             self.assertIn("data-theme-switch hidden", text, page)
             self.assertLess(text.index("slums-theme"), text.index("assets/site.css"), page)
             self.assertIn('assets/tokens.css"', text, page)
+            self.assertIn("data-accent-switch hidden", text, page)
+            self.assertIn('class="leaf"', text, page)
 
     def test_megaphone_rail(self):
         with open(os.path.join(self.out, "guide", "rates.html"), encoding="utf-8") as f:

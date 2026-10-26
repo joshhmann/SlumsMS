@@ -138,8 +138,11 @@ Style A "Megaphone", picked by the owner on 2026-10-26.
   (`prefers-color-scheme`) by default, or `data-theme="light"` / `"dark"` from the header switch.
 - `assets/site.css` uses only those variables. The "read" density is for home, news, guides and the report form; the
   "data" density (`.data`, `table.t`) is for the database and market pages.
-- `assets/theme.js` runs the switch and remembers the choice in the browser. Without JavaScript the switch stays
-  hidden and the system setting decides.
+- Accent: **Henesys green** by default (owner, 2026-10-26). Players can pick Ultramarine or Maple orange with the
+  three swatches in the header (`data-accent="blue"` / `"orange"`); each accent is designed for light and dark. The
+  header leaf is inline SVG and takes the accent; the favicon `assets/leaf.svg` is green.
+- `assets/theme.js` runs both switches and remembers the choices in the browser. Without JavaScript they stay
+  hidden: the system setting decides light or dark, and the accent is green.
 - Fonts are self-hosted in `assets/fonts/` (Bricolage Grotesque, Instrument Sans, JetBrains Mono; Latin subset,
   variable weight, from Fontsource 5.3.0) under the OFL, whose text is in `assets/fonts/OFL.txt`. The site still loads
   nothing from other websites.

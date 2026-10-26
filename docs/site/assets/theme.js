@@ -1,26 +1,31 @@
-/* Light/dark switch. Without JavaScript the switch stays hidden and the system setting decides (tokens.css).
-   The choice is kept in localStorage; a small inline script in <head> applies it before the page paints. */
+/* Light/dark and accent switches. Without JavaScript both stay hidden: the system setting decides light or dark and
+   the accent is Henesys green (tokens.css). Choices are kept in localStorage; a small inline script in <head>
+   applies them before the page paints. */
 (function () {
-  var KEY = "slums-theme", root = document.documentElement, box = document.querySelector("[data-theme-switch]");
-  if (!box) return;
-  function current() {
-    var t = root.getAttribute("data-theme");
-    return t === "light" || t === "dark" ? t : "system";
-  }
-  function show() {
-    var t = current();
-    box.querySelectorAll("button").forEach(function (b) {
-      b.setAttribute("aria-pressed", String(b.getAttribute("data-theme-btn") === t));
+  var root = document.documentElement;
+  function wire(box, attr, key, values, fallback) {
+    if (!box) return;
+    function current() {
+      var v = root.getAttribute(attr);
+      return values.indexOf(v) >= 0 ? v : fallback;
+    }
+    function show() {
+      var v = current();
+      box.querySelectorAll("button").forEach(function (b) {
+        b.setAttribute("aria-pressed", String(b.getAttribute(attr + "-btn") === v));
+      });
+    }
+    box.addEventListener("click", function (e) {
+      var b = e.target.closest("button[" + attr + "-btn]");
+      if (!b) return;
+      var v = b.getAttribute(attr + "-btn");
+      if (v === fallback) root.removeAttribute(attr); else root.setAttribute(attr, v);
+      try { if (v === fallback) localStorage.removeItem(key); else localStorage.setItem(key, v); } catch (err) {}
+      show();
     });
-  }
-  box.addEventListener("click", function (e) {
-    var b = e.target.closest("button[data-theme-btn]");
-    if (!b) return;
-    var t = b.getAttribute("data-theme-btn");
-    if (t === "system") root.removeAttribute("data-theme"); else root.setAttribute("data-theme", t);
-    try { if (t === "system") localStorage.removeItem(KEY); else localStorage.setItem(KEY, t); } catch (err) {}
+    box.hidden = false;
     show();
-  });
-  box.hidden = false;
-  show();
+  }
+  wire(document.querySelector("[data-theme-switch]"), "data-theme", "slums-theme", ["light", "dark"], "system");
+  wire(document.querySelector("[data-accent-switch]"), "data-accent", "slums-accent", ["blue", "orange"], "green");
 })();
