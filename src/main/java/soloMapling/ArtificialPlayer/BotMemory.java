@@ -143,6 +143,7 @@ public final class BotMemory {
             + "CreatedAt, LastUsedAt, Kind, Weight, Tag, FollowedUpAt) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)";
     static final String PROBE_KINDS = "SELECT Kind, Weight, Tag, FollowedUpAt FROM botmemory WHERE 1 = 0";
     static final String DELETE = "DELETE FROM botmemory WHERE Id = ?";
+    static final String DELETE_PAIR = "DELETE FROM botmemory WHERE BotId = ? AND AboutCharacterId = ?";
     static final String TOUCH = "UPDATE botmemory SET LastUsedAt = ? WHERE Id = ?";
     static final String FOLLOWED_UP = "UPDATE botmemory SET FollowedUpAt = ? WHERE Id = ?";
     static final String RECENT_OF_BOT = "SELECT * FROM botmemory WHERE BotId = ? AND Hops < ? ORDER BY CreatedAt DESC LIMIT ?";
@@ -773,6 +774,25 @@ public final class BotMemory {
         return removed;
     }
 
+    /** GM and {@code !qa} staging: the bot forgets everything about this player (a fresh pair). How many notes went. */
+    public static int forgetPair(int botId, int charId) {
+        long k = key(botId, charId);
+        int removed = 0;
+        synchronized (lock(k)) {
+            try (Connection con = connections().get(); PreparedStatement ps = con.prepareStatement(DELETE_PAIR)) {
+                ps.setInt(1, botId);
+                ps.setInt(2, charId);
+                removed = ps.executeUpdate();
+            } catch (SQLException | RuntimeException e) {
+                log.warn("Could not clear what bot {} remembers about {}", botId, charId, e);
+            }
+            synchronized (cache) {
+                cache.remove(k);
+            }
+        }
+        return removed;
+    }
+
     // ── storage ─────────────────────────────────────────────────────────────────────────────────
 
     /**
@@ -795,6 +815,8 @@ public final class BotMemory {
                 log.info("botmemory has no Kind column (migration 030 not applied): notes are stored as plain notes");
             }
             return false;
+        } catch (RuntimeException e) {
+            return false; // no pool yet: ask again next time
         }
     }
 

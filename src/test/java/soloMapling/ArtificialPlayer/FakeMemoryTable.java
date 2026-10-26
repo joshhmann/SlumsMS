@@ -90,6 +90,11 @@ final class FakeMemoryTable {
                     rows.removeIf(r -> r.get("Id").equals(bound.get(1)));
                     return 1;
                 }
+                if (sql.equals(BotMemory.DELETE_PAIR)) {
+                    int before = rows.size();
+                    rows.removeIf(r -> r.get("BotId").equals(bound.get(1)) && r.get("AboutCharacterId").equals(bound.get(2)));
+                    return before - rows.size();
+                }
                 if (sql.equals(BotMemory.TOUCH) || sql.equals(BotMemory.FOLLOWED_UP)) {
                     String col = sql.equals(BotMemory.TOUCH) ? "LastUsedAt" : "FollowedUpAt";
                     rows.stream().filter(r -> r.get("Id").equals(bound.get(2))).forEach(r -> r.put(col, bound.get(1)));

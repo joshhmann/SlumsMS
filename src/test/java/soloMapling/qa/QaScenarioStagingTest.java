@@ -443,6 +443,34 @@ class QaScenarioStagingTest {
     }
 
     @Test
+    void me1StagesAFriendAndAKpqClearAndPrintsTheCard() {
+        start("me-1", 100000000);
+        assertTrue(world.calls.stream().anyMatch(c -> c.startsWith("stage friend social")), world.calls.toString());
+        List<String> out = suite.action(world.online, "card", new String[0]);
+        assertTrue(out.get(0).startsWith("ME1 CARD bot ") && out.get(0).contains("About Admin: "), out.toString());
+        out = suite.action(world.online, "clear", new String[0]);
+        assertTrue(out.get(0).contains("ME1 staged clear: KPQ"), out.toString());
+        suite.stop(1, "!qa stop");
+        assertEquals(1, world.unstaged.size());
+    }
+
+    @Test
+    void me2StagesAScamTradeThatStartsIt() {
+        Character gm = start("me-2", 100000000);
+        assertTrue(world.calls.stream().anyMatch(c -> c.startsWith("stage neutral social")), world.calls.toString());
+        List<String> out = suite.action(world.online, "check", new String[0]);
+        assertTrue(out.get(0).contains("started it yes"), out.toString());
+        out = suite.action(world.online, "fresh", new String[0]);
+        assertTrue(out.get(0).contains("started it no"), out.toString());
+        out = suite.action(world.online, "scam", new String[0]);
+        assertTrue(out.get(0).startsWith("ME2 staged trade: scam"), out.toString());
+        assertTrue(out.get(1).contains("started it yes"), out.toString());
+        suite.stop(1, "!qa stop");
+        soloMapling.ArtificialPlayer.SocialGate.resetForTest();
+        assertTrue(gm.getId() > 0);
+    }
+
+    @Test
     void cp1StagesACoupleStepsItAndUnstagesIt() {
         start("cp-1", 100000000, "married", "same");
         assertTrue(world.calls.stream().anyMatch(c -> c.startsWith("couple ") && c.endsWith("married same")));

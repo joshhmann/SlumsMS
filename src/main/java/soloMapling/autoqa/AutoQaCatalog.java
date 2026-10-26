@@ -775,6 +775,22 @@ public final class AutoQaCatalog {
                         hasAfter("ks", "AFFINITY ACT (taunt|ks) "),
                         noEmoji())
                 .build());
+        // 1.6.0 S3, memory kinds: a PQ cleared together is an episode on the bot's card (me-1), a scam trade a grudge
+        // that starts it (me-2); both scripted, no LLM
+        c.add(Check.auto("t-me-1", "A KPQ clear together is remembered on the bot's card").minutes(2)
+                .step(run("me-1"), waitFor("ME1 CARD bot \\d+: .*Between you two: did KPQ together", 45))
+                .expect(has("MEMORY PQ_CLEAR KPQ: 1 bot\\(s\\) with 1 player\\(s\\)"),
+                        has("MEMORY EPISODE PQ bot \\d+ -> \\d+: \"did KPQ together\" \\(weight 6\\)"),
+                        has("ME1 CARD bot \\d+: About \\S+: .*Between you two: did KPQ together \\((just now|earlier today)\\)"))
+                .build());
+        c.add(Check.auto("t-me-2", "A scam trade is a grudge, a SCAM memory and started it").minutes(2)
+                .step(run("me-2"), waitFor("ME2 CHECK bot \\d+ -> \\S+: .*started it yes; scam memory yes", 45))
+                .expect(has("MEMORY TRADE SCAM bot "),
+                        has("AFFINITY EVENT scam -20 "),
+                        has("SOCIAL_GATE STARTED scam player \\d+ -> bot \\d+"),
+                        has("MEMORY EPISODE SCAM bot \\d+ -> \\d+: \"scammed me on a trade: my "),
+                        has("ME2 CHECK bot \\d+ -> \\S+: .*started it yes; scam memory yes"))
+                .build());
         return List.copyOf(c);
     }
 

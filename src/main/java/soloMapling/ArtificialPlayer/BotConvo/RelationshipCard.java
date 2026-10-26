@@ -172,37 +172,51 @@ public final class RelationshipCard {
 
     /** The card for a live bot and player. Never throws: a part it cannot read is left out. */
     public static String of(Character bot, Character player, String activity, String thread, long now) {
-        int slot = bot.getId() - BotStore.BOT_ID_BASE;
+        Data memory = memory(bot.getId(), player.getId(), player.getName(), now);
+        return build(new Data(player.getName(), memory.feeling(), memory.score(), memory.facts(), romance(bot, player),
+                guild(bot, player), mapName(bot), mobs(bot), null, worldEvent(bot), activity, thread, memory.episodes(),
+                memory.lastTopic(), memory.insideJoke()), now, ZoneId.systemDefault());
+    }
+
+    /**
+     * The memory half of the card (feeling, episodes, last topic, joke, facts), without the live situation: for
+     * {@code !qa me-1} and anything that has only ids. Never throws.
+     */
+    public static String memoryCard(int botCharId, int playerId, String playerName, long now) {
+        return build(memory(botCharId, playerId, playerName, now), now, ZoneId.systemDefault());
+    }
+
+    static Data memory(int botCharId, int playerId, String playerName, long now) {
+        int slot = botCharId - BotStore.BOT_ID_BASE;
         List<Fact> facts = new ArrayList<>();
         List<Fact> episodes = new ArrayList<>();
         Fact topic = null;
         String joke = null;
         try {
-            for (BotMemory.Note n : BotMemory.bestEpisodes(slot, player.getId(), now, EPISODES)) {
+            for (BotMemory.Note n : BotMemory.bestEpisodes(slot, playerId, now, EPISODES)) {
                 episodes.add(new Fact(n.text(), null, n.createdAt()));
             }
-            for (BotMemory.Note n : BotMemory.recallFacts(slot, player.getId(), now,
+            for (BotMemory.Note n : BotMemory.recallFacts(slot, playerId, now,
                     FACTS - Math.min(2, episodes.size()))) {
                 facts.add(new Fact(n.text(), n.source() == BotMemory.Source.HEARSAY ? BotMemory.tellerName(n.fromBotId())
                         : null, n.createdAt()));
             }
-            topic = BotMemory.lastTopic(slot, player.getId()).map(n -> new Fact(n.text(), null, n.createdAt()))
+            topic = BotMemory.lastTopic(slot, playerId).map(n -> new Fact(n.text(), null, n.createdAt()))
                     .orElse(null);
-            joke = BotMemory.insideJoke(slot, player.getId()).map(BotMemory.Note::text).orElse(null);
+            joke = BotMemory.insideJoke(slot, playerId).map(BotMemory.Note::text).orElse(null);
         } catch (RuntimeException e) {
             // memory unreadable: no facts
         }
         AffinityState state = AffinityState.NEUTRAL;
         double score = 0;
         try {
-            state = BotAffinity.state(bot.getId(), player.getId());
-            score = BotAffinity.score(bot.getId(), player.getId());
+            state = BotAffinity.state(botCharId, playerId);
+            score = BotAffinity.score(botCharId, playerId);
         } catch (RuntimeException e) {
             // no feelings loaded
         }
-        return build(new Data(player.getName(), state, score, facts, romance(bot, player), guild(bot, player),
-                mapName(bot), mobs(bot), null, worldEvent(bot), activity, thread, episodes, topic, joke), now,
-                ZoneId.systemDefault());
+        return new Data(playerName, state, score, facts, null, null, null, List.of(), null, null, null, null, episodes,
+                topic, joke);
     }
 
     static String romance(Character bot, Character player) {

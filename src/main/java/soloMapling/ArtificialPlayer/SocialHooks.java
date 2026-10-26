@@ -97,20 +97,43 @@ public final class SocialHooks {
         if (clear == null || members == null || members.isEmpty()) {
             return;
         }
-        long now = clock.getAsLong();
-        List<Character> bots = new ArrayList<>();
-        List<Character> players = new ArrayList<>();
+        List<Integer> bots = new ArrayList<>();
+        List<Integer> players = new ArrayList<>();
+        Character any = null;
         for (Character c : members) {
             if (c == null) {
                 continue;
             }
-            (BotHelpers.isArtificial(c.getId()) ? bots : players).add(c);
+            boolean bot = BotHelpers.isArtificial(c.getId());
+            (bot ? bots : players).add(c.getId());
+            if (any == null || (!bot && BotHelpers.isArtificial(any.getId()))) {
+                any = c; // a real player when there is one
+            }
         }
-        publish(() -> EventFactory.createPqClearEvent(players.isEmpty() ? bots.get(0) : players.get(0), clear.name(),
-                members.size()));
-        for (Character bot : bots) {
-            for (Character player : players) {
-                BotEpisodes.together(bot.getId(), player.getId(), clear, now);
+        if (any != null) {
+            clearedTogether(clear, bots, players, any, members.size());
+        }
+    }
+
+    /**
+     * {@code !qa me-1}: a staged clear of {@code eventName} by one bot and the GM, through the same path as a real
+     * one. The clear, or null when the name is not a PQ or boss.
+     */
+    public static Clear stagedClear(String eventName, int botCharId, Character gm) {
+        Clear clear = clearOf(eventName);
+        if (clear != null && gm != null) {
+            clearedTogether(clear, List.of(botCharId), List.of(gm.getId()), gm, 2);
+        }
+        return clear;
+    }
+
+    private static void clearedTogether(Clear clear, List<Integer> bots, List<Integer> players, Character any,
+                                        int memberCount) {
+        long now = clock.getAsLong();
+        publish(() -> EventFactory.createPqClearEvent(any, clear.name(), memberCount));
+        for (int bot : bots) {
+            for (int player : players) {
+                BotEpisodes.together(bot, player, clear, now);
             }
         }
         if (QaLog.on(QaLog.Topic.MEMORY) && !bots.isEmpty() && !players.isEmpty()) { // !qa me-1
@@ -236,31 +259,52 @@ public final class SocialHooks {
         tradeDone(bot, player, botSide, playerSide);
     }
 
-    /** The bot-player part of a finished trade (also {@code !qa me-2}'s staged trade). Returns the read. */
+    /** The bot-player part of a finished trade. Returns the read. */
     public static Read tradeDone(Character bot, Character player, Side botSide, Side playerSide) {
         Read r = read(botSide, playerSide);
+        apply(bot.getId(), bot.getName(), player, r);
+        return r;
+    }
+
+    /**
+     * {@code !qa me-2}: the bot gives {@code itemId} to the GM for 1 meso through the same path as a real trade. On a
+     * server whose price index cannot price that item the read is staged as a scam of {@code scamMin() * 2} so the
+     * rest of the path still runs (the log says so).
+     */
+    public static Read stagedScam(int botCharId, String botName, Character gm, int itemId) {
+        Item item = new Item(itemId, (short) 0, (short) 1);
+        Read r = read(new Side(List.of(item), 0), new Side(List.of(), 1));
+        if (r.outcome() != Outcome.SCAM) {
+            r = new Read(r.bot(), r.player(), scamMin() * 2, 1, false, Outcome.SCAM);
+        }
+        apply(botCharId, botName, gm, r);
+        return r;
+    }
+
+    /** What a read trade does: one affinity event, the started-it ledger for a scam, and one episode. */
+    static void apply(int botCharId, String botName, Character player, Read r) {
         AffinityEvent event = switch (r.outcome()) {
             case GIFT -> AffinityEvent.GIFT;
             case FAVOR -> AffinityEvent.FAVOR;
             case SCAM -> AffinityEvent.SCAM;
             case TRADE, BOT_GAVE -> AffinityEvent.TRADE;
         };
-        boolean counted = BotAffinity.record(bot, player, event);
-        if (r.outcome() == Outcome.SCAM && !BotAffinity.optedOut(player.getId())) {
+        boolean counted = BotAffinity.record(botCharId, player.getId(), event, event.delta(), player.getName(),
+                botName, player.getMapId());
+        boolean optedOut = BotAffinity.optedOut(player.getId());
+        if (r.outcome() == Outcome.SCAM && !optedOut) {
             // 1.6.0 S5 ledger: a scam starts it with this bot even when the affinity event was cooling down
-            SocialGate.playerStarted(bot.getId(), player.getId(), SocialGate.Provocation.SCAM);
+            SocialGate.playerStarted(botCharId, player.getId(), SocialGate.Provocation.SCAM);
         }
         BotEpisodes.Episode episode = episodeOf(r);
-        long now = clock.getAsLong();
-        if (episode != null && !(r.outcome() == Outcome.SCAM && BotAffinity.optedOut(player.getId()))) {
-            BotEpisodes.trade(bot.getId(), player.getId(), episode, now);
+        if (episode != null && !(r.outcome() == Outcome.SCAM && optedOut)) {
+            BotEpisodes.trade(botCharId, player.getId(), episode, clock.getAsLong());
         }
         if (QaLog.on(QaLog.Topic.MEMORY)) { // !qa me-2
-            QaLog.any(QaLog.Topic.MEMORY, "TRADE " + r.outcome().name() + " bot " + bot.getName() + " <- "
+            QaLog.any(QaLog.Topic.MEMORY, "TRADE " + r.outcome().name() + " bot " + botName + " <- "
                     + player.getName() + ": gave " + r.gave() + ", got " + r.got() + (r.priced() ? "" : " (unpriced)")
                     + ", affinity " + event.key() + (counted ? "" : " (not counted)"));
         }
-        return r;
     }
 
     /** The note a trade leaves for the bot, or null for a bot's own gift (nothing happened to it). */
