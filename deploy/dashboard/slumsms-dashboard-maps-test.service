@@ -1,0 +1,17 @@
+# Admin dashboard map export for the TEST dashboard (ticket 35): same as slumsms-dashboard-maps.service but reads the
+# TEST server's WZ and nav cache and writes the TEST dashboard's data. Installed 2026-10-26.
+[Unit]
+Description=SlumsMS admin dashboard map export (TEST)
+
+[Service]
+Type=oneshot
+WorkingDirectory=/opt/mapleroot-dev/persistence-test/Server
+ExecStart=/usr/bin/java -Xms64m -Xmx1g -XX:ActiveProcessorCount=1 -Dwz-path=wz -Dbot.nav.cacheDir=cache/bot-nav -cp target/Cosmic.jar soloMapling.dashboard.DashboardMapExport --out=/srv/slums-dashboard-test/data --nav-reports=reports/nav --budget-minutes=40
+Nice=19
+CPUSchedulingPolicy=idle
+IOSchedulingClass=idle
+CPUQuota=100%
+MemoryMax=1500M
+OOMScoreAdjust=800
+TimeoutStartSec=1h
+UMask=0022
