@@ -24,6 +24,7 @@
   --sky: #3d4bff; --sky-soft: #e2e4ff; --sun: #ffd23f; --on-sun: #15120f;
   /* market direction: shape carries it too (hollow/filled, + and -) */
   --up: #4f7a00; --up-fill: #9bd600; --down: #d93a40;
+  --on-sky: #ffffff; --on-down: #ffffff;
   /* patch-note tags, the colours players already know */
   --new: #2f7a12; --new-bg: #e4f3cf; --fix: #2f3dd6; --fix-bg: #e2e4ff;
   --change: #7a3fc4; --change-bg: #ece2fb; --same: #5c554b; --same-bg: #ebe6dc;
@@ -52,6 +53,7 @@
   --bar-a: #2f7d3a; --bar-b: #215a29; --on-bar: #eafbe9; --bar-shade: #10301a;
   --sky: #8a93ff; --sky-soft: #23264a; --sun: #ffd23f; --on-sun: #15120f;
   --up: #9bd600; --up-fill: #9bd600; --down: #ff6b6f;
+  --on-sky: #0d0e12; --on-down: #0d0e12;
   --new: #9bd600; --new-bg: #22300d; --fix: #a3abff; --fix-bg: #23264a;
   --change: #c9a5ff; --change-bg: #2a1f45; --same: #b5afa4; --same-bg: #25272e;
   --note-bg: #1c1f3a; --note-line: #6b74e0; --tip-bg: #1c2711; --tip-line: #6f9a1c; --bad: #ff9b94;
@@ -66,6 +68,7 @@
   --bar-a: #2f7d3a; --bar-b: #215a29; --on-bar: #eafbe9; --bar-shade: #10301a;
   --sky: #8a93ff; --sky-soft: #23264a; --sun: #ffd23f; --on-sun: #15120f;
   --up: #9bd600; --up-fill: #9bd600; --down: #ff6b6f;
+  --on-sky: #0d0e12; --on-down: #0d0e12;
   --new: #9bd600; --new-bg: #22300d; --fix: #a3abff; --fix-bg: #23264a;
   --change: #c9a5ff; --change-bg: #2a1f45; --same: #b5afa4; --same-bg: #25272e;
   --note-bg: #1c1f3a; --note-line: #6b74e0; --tip-bg: #1c2711; --tip-line: #6f9a1c; --bad: #ff9b94;

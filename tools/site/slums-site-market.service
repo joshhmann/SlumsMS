@@ -7,15 +7,18 @@ Type=oneshot
 Nice=19
 IOSchedulingClass=idle
 WorkingDirectory=/opt/slums-site-build
-ExecStart=/usr/bin/python3 tools/site/build.py --private --section market --out /srv/slums-site \
+# --world keeps World in the nav of the rebuilt pages; it reads the site export only for that
+# flock: the market and World rebuilds take turns, so neither checks links while the other swaps a folder
+ExecStart=/usr/bin/flock -w 90 /run/lock/slums-site-build.lock /usr/bin/python3 tools/site/build.py --private --world --section market --out /srv/slums-site \
     --market-data "/opt/mapleroot/MapleRoot Full Repack/Server/data/market" \
+    --site-data "/opt/mapleroot/MapleRoot Full Repack/Server/data/site" \
     --hs-data /opt/slums-site-build/hiddenstreet
 NoNewPrivileges=true
 PrivateTmp=true
 PrivateDevices=true
 ProtectSystem=strict
 ProtectHome=true
-ReadWritePaths=/srv/slums-site
+ReadWritePaths=/srv/slums-site /run/lock
 ReadOnlyPaths=/opt/slums-site-build
 ProtectKernelTunables=true
 ProtectKernelModules=true

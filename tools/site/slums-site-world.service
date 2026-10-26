@@ -1,0 +1,30 @@
+[Unit]
+Description=SlumsMS website: rebuild the World pages (live world, feed, rankings, economy) from the game server's export
+# One run takes about a second. A failed check leaves the previous World pages in place.
+
+[Service]
+Type=oneshot
+Nice=19
+IOSchedulingClass=idle
+WorkingDirectory=/opt/slums-site-build
+# --private keeps Slums Street and Slums Market in the nav, and lets map names link to Slums Street
+# flock: the market and World rebuilds take turns, so neither checks links while the other swaps a folder
+ExecStart=/usr/bin/flock -w 90 /run/lock/slums-site-build.lock /usr/bin/python3 tools/site/build.py --private --world --section world --out /srv/slums-site \
+    --market-data "/opt/mapleroot/MapleRoot Full Repack/Server/data/market" \
+    --site-data "/opt/mapleroot/MapleRoot Full Repack/Server/data/site" \
+    --hs-data /opt/slums-site-build/hiddenstreet
+NoNewPrivileges=true
+PrivateTmp=true
+PrivateDevices=true
+ProtectSystem=strict
+ProtectHome=true
+ReadWritePaths=/srv/slums-site /run/lock
+ReadOnlyPaths=/opt/slums-site-build
+ProtectKernelTunables=true
+ProtectKernelModules=true
+ProtectControlGroups=true
+RestrictAddressFamilies=AF_UNIX
+RestrictNamespaces=true
+LockPersonality=true
+MemoryMax=512M
+UMask=0022

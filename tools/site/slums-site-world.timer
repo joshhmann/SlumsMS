@@ -1,0 +1,12 @@
+[Unit]
+Description=Rebuild the SlumsMS website World pages every 2 minutes
+
+[Timer]
+# the site export writes feed.json every 2 min, world.json every 60 s and leaderboards.json every 15 min
+OnBootSec=3min
+OnUnitActiveSec=2min
+AccuracySec=10s
+Persistent=false
+
+[Install]
+WantedBy=timers.target

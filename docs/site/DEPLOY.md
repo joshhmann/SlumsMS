@@ -11,10 +11,11 @@ On the build machine, from the repo root (Python 3, standard library only):
 python3 tools/site/build.py
 ```
 
-This writes the **public** site to `dist/site/` and `dist/slums-site.tar.gz`. The Database and Market sections are
-private until 1.6.0 is live: `python3 tools/site/build.py --private` builds them into `dist/site-private/` instead, and
-the public build's check fails if one of them, or a link to one, ever ends up in `dist/site/`. Only ever rsync
-`dist/site/` to the public folder. `--section <name> --out <dir>` rebuilds one section inside an existing build. It also checks the output and stops (and packs nothing) if a
+This writes the **public** site to `dist/site/` and `dist/slums-site.tar.gz`. `--world` adds World (live world, feed,
+rankings, economy; public) from the server's site export, `--site-data` (samples from `tools/site/site_sample.py` by
+default). Slums Street (the database) and the Slums Market are for signed-in players: `--private` builds them into
+`dist/site-private/`, which only goes to 164 once nginx guards `/database/` and `/market/` (LAUNCH.md step 4), and
+the public build's check fails if one of them, or a link to one, ever ends up in `dist/site/`. `--section <name> --out <dir>` rebuilds one section inside an existing build. It also checks the output and stops (and packs nothing) if a
 page has a broken link, loads anything from another website, or contains something private (LAN addresses,
 test-server ports, the patch site's name, QA tooling; the list is in `tools/site/check.py`).
 
@@ -114,8 +115,9 @@ rsync -av --delete dist/site/ root@<lxc-address>:/srv/slums-site/
 
 No reload is needed: the web server serves the new files right away.
 
-**Once the market is live** (docs/site/LAUNCH.md step 5), a timer on 164 owns `/srv/slums-site/market/`. Every
-publish from 187 must then keep its hands off it: `rsync -a --delete --exclude market/ ...`. Without rsync, copy the tarball instead:
+**Once the market and World are live** (docs/site/LAUNCH.md steps 5 and 6), timers on 164 own
+`/srv/slums-site/market/` and `/srv/slums-site/world/`. Every publish from 187 must then be a `--private --world` build
+and keep its hands off both: `rsync -a --delete --exclude market/ --exclude world/ ...`. Without rsync, copy the tarball instead:
 
 ```
 scp dist/slums-site.tar.gz root@<lxc-address>:/tmp/

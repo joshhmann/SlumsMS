@@ -146,7 +146,7 @@ def check_links(root):
                 continue
             if parts.path:
                 target = os.path.normpath(os.path.join(os.path.dirname(path), unquote(parts.path)))
-                if ref.endswith("/") or os.path.isdir(target):
+                if parts.path.endswith("/") or os.path.isdir(target):
                     target = os.path.join(target, "index.html")
             else:
                 target = path

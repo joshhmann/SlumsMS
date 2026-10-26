@@ -1,4 +1,4 @@
-"""Database (Hidden Street): one page per reachable item, monster, map, NPC and quest, list pages, and a search index.
+"""Slums Street, the database (our Hidden Street): one page per reachable item, monster, map, NPC and quest, list pages, and a search index.
 Private until 1.6.0 is live: build.py only runs it with --private.
 
 Data: sections/dbdata.py (the build_data.py dataset, cut to what a player can reach). Icons: cache/site-icons from
@@ -107,9 +107,9 @@ class Site:
         def li(href, label, key):
             cur = ' aria-current="page"' if key == here else ""
             return f'<li><a href="{root}{DB}/{href}"{cur}>{esc(label)}</a></li>'
-        parts = [f'<p class="bar">Database</p>',
+        parts = [f'<p class="bar">Slums Street</p>',
                  f'<form class="dbsearch" role="search" data-root="{root}" hidden><input type="search" '
-                 f'placeholder="Search..." aria-label="Search the database" autocomplete="off"><ul class="dbhits"></ul></form>']
+                 f'placeholder="Search..." aria-label="Search Slums Street" autocomplete="off"><ul class="dbhits"></ul></form>']
         for head, rows in ITEM_GROUPS:
             parts.append(f'<h3>{esc(head)}</h3><ul>' + "".join(
                 li(f"items/{slug_}.html", lab, f"items/{slug_}") for _, slug_, lab in rows) + "</ul>")
@@ -119,7 +119,7 @@ class Site:
                      + li("quests/index.html", "Quests", "quests") + "</ul>")
         parts.append("<h3>SlumsMS</h3><ul>" + li("changes.html", "SlumsMS changes", "changes")
                      + li("whacky-mages.html", "Whacky weapons for mages", "whacky") + "</ul>")
-        return f'<nav class="panel dbside" aria-label="Database">{"".join(parts)}</nav>'
+        return f'<nav class="panel dbside" aria-label="Slums Street">{"".join(parts)}</nav>'
 
     def bands(self):
         used = {band(m.get("level")) for m in self.d["mobs"].values()}
@@ -128,7 +128,7 @@ class Site:
     def page(self, rel, title, crumbs, body, here, description=""):
         depth = rel.count("/")
         root = "../" * depth
-        trail = " &raquo; ".join([f'<a href="{root}{DB}/index.html">Database</a>'] +
+        trail = " &raquo; ".join([f'<a href="{root}{DB}/index.html">Slums Street</a>'] +
                                  [f'<a href="{root}{DB}/{h}">{esc(t)}</a>' if h else esc(t) for t, h in crumbs])
         html = (f'<div class="db">{self.sidebar(root, here)}<div class="dbmain data">'
                 f'<p class="crumbs">{trail}</p>{body.replace("{root}", root)}</div></div>'
@@ -453,10 +453,10 @@ def build_index(s):
               ("Quests", len(d["quests"]), "quests/index.html", None)]
     tiles = "".join(f'<a class="dbtile" href="{{root}}{DB}/{href}"><b>{n:,}</b><span>{esc(label)}</span></a>'
                     for label, n, href, _ in counts)
-    body = ('<h1>Database</h1><p class="lede">Every item, monster, map, NPC and quest you can reach on Bera, from the '
+    body = ('<h1>Slums Street</h1><p class="lede">Every item, monster, map, NPC and quest you can reach on Bera, from the '
             "server's own data. Drop chances are base rates: Bera drops at &times;4 (bosses &times;3).</p>"
             f'<div class="dbtiles">{tiles}</div>')
-    s.page(f"{DB}/index.html", "Database", [], body, "", "The SlumsMS item, monster, map, NPC and quest database.")
+    s.page(f"{DB}/index.html", "Slums Street", [], body, "", "Slums Street: every SlumsMS item, monster, map, NPC and quest.")
 
 
 STAT_NAMES = dict(EQUIP_STATS + USE_STATS + [("tuc", "Upgrade slots"), ("slotMax", "Stacks to"), ("price", "Shop value"),

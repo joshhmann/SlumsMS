@@ -172,8 +172,9 @@ def _ticks(lo, hi, n=4):
     return out
 
 
-def area_chart(points, label):
-    """points: [(date 'YYYY-MM-DD', median or None, low, high)]. Gaps (None) break the line."""
+def area_chart(points, label, line_label="Median sale"):
+    """points: [(date 'YYYY-MM-DD', median or None, low, high)]. Gaps (None) break the line. A series with no
+    low/high band (low == high every day) gets a one-entry legend: line_label."""
     W, H, L, R, T, B = 680, 240, 54, 60, 14, 30
     vals = [v for _, v, lo, hi in points if v is not None] + [x for _, v, lo, hi in points if v is not None for x in (lo, hi)]
     if len(points) < 2 or not vals:
@@ -207,8 +208,10 @@ def area_chart(points, label):
     if last:
         s.append(f'<circle class="ch-dot" cx="{X(last[0]):.1f}" cy="{Y(last[1]):.1f}" r="4.5"/>'
                  f'<text class="ch-end" x="{X(last[0]) + 9:.1f}" y="{Y(last[1]) + 4:.1f}">{mesos(last[1])}</text>')
+    band = any(lo != hi for _, v, lo, hi in points if v is not None)
     return (f'<svg class="chart" viewBox="0 0 {W} {H}" role="img" aria-label="{esc(label)}">{"".join(s)}</svg>'
-            '<p class="legend"><span><i></i>Median sale</span><span><i class="band"></i>Low to high that day</span></p>')
+            f'<p class="legend"><span><i></i>{esc(line_label)}</span>'
+            + ('<span><i class="band"></i>Low to high that day</span>' if band else "") + '</p>')
 
 
 def sparkline(values, label):
@@ -351,7 +354,7 @@ def build_prices(mk):
                 f'<a href="{{root}}{MARKET}/prices/index.html">Price check</a> &raquo; {esc(name)}</p>'
                 f'<div class="ent">{mk.icon(item_id, "{root}", big=True)}<div><h1>{esc(name)}</h1>'
                 f'<p class="id">Price check &middot; last {len(hist)} days'
-                + (f' &middot; <a href="{{root}}database/items/{item_id}.html">Database page</a>' if item_id in mk.db["items"] else "")
+                + (f' &middot; <a href="{{root}}database/items/{item_id}.html">Slums Street page</a>' if item_id in mk.db["items"] else "")
                 + f' {bot}</p></div></div>'
                 f'<div class="mkstats"><div class="hot"><small>Median today</small><b>{median}</b><span>mesos</span></div>'
                 f'<div><small>Low to high today</small><b>{rng}</b><span>what most paid</span></div>'
@@ -414,7 +417,7 @@ def build_lists(mk, priced):
                    for d in reversed(days))
     body = (f'<h1>NX rate</h1><p class="id">Mesos per 1,000 NX, from resales of cash-shop items and NX code trades. '
             f'A day with under 5 trades shows no rate.</p>{mk.nx_card("{root}", wide=True)}'
-            f'<section class="panel"><h2 class="bar">History</h2><div class="in">{area_chart(pts, "NX rate per day")}</div></section>'
+            f'<section class="panel"><h2 class="bar">History</h2><div class="in">{area_chart(pts, "NX rate per day", "Mesos per 1,000 NX")}</div></section>'
             f'<section class="panel"><h2 class="bar">By day</h2><div class="tbl"><table class="t"><thead><tr><th>Day (UTC)</th>'
             f'<th class="r">Mesos per 1,000 NX</th><th class="r">Trades</th><th class="r">Cash resales</th><th class="r">NX codes</th>'
             f'<th class="r">Bots</th></tr></thead><tbody>{rows}</tbody></table></div></section>')

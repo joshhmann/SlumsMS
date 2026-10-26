@@ -39,7 +39,7 @@ def build_home(out, rels):
 def build_login(out):
     body = read(os.path.join(SRC, "login.html"))
     write(out, "login/index.html", layout("Sign in", body, "../", "login",
-                                          "Sign in to the SlumsMS database and market with your game account."))
+                                          "Sign in to Slums Street and the Slums Market with your game account."))
 
 
 def build_report(out):

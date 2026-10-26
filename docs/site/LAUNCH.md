@@ -1,8 +1,12 @@
 # Website launch checklist (one sitting with the owner)
 
 Everything here is built and tested on branch `site-160-theme`. **Each numbered step changes something people can
-see or the site's web server, so each needs the owner's "go" for that step.** Steps 1 and 2 can happen any time;
-3 to 7 need 1.6.0 (the `@weblogin` command and the market export) on live.
+see or the site's web server, so each needs the owner's "go" for that step.** The site launches **the same night as
+1.6.0** (owner, 2026-10-26): World needs the site export, the market needs the market export, and the sign-in needs
+`@weblogin`, all three in 1.6.0. Step 2 can happen earlier.
+
+What players get: **World** (public: live world, "what's happening" feed, rankings, Bera economy), and for signed-in
+players **Slums Street** (the database, at `/database/`) and the **Slums Market** (`/market/`).
 
 Where things are today (read on 2026-10-26):
 - 164 serves the site with nginx, `server { listen 8092; root /srv/slums-site; }` in
@@ -17,14 +21,24 @@ Where things are today (read on 2026-10-26):
 git -C /root/work/SlumsMS-site pull
 python3 -m unittest discover -s tools/site -p 'test_*.py'      # all green
 python3 tools/site/build.py                                    # public: dist/site
-python3 tools/site/build.py --private                          # with database + market: dist/site-private
+python3 tools/site/build.py --world                            # public + World (sample data): dist/site
+python3 tools/site/build.py --private --world                  # with Slums Street + Slums Market: dist/site-private
 ```
-Show the owner: home, a patch note, a guide page, report, 404 (light and dark, phone), the database and the market.
+Show the owner: home, a patch note, a guide page, report, 404 (light and dark, phone), World, Slums Street and the
+market.
+
+Real data for the publish, copied read-only from live once 1.6.0 has run for a few minutes (reading live files is fine):
+```
+mkdir -p cache/live-export && rsync -a "root@192.168.0.164:/opt/mapleroot/MapleRoot Full Repack/Server/data/site" \
+    "root@192.168.0.164:/opt/mapleroot/MapleRoot Full Repack/Server/data/market" cache/live-export/
+```
 
 ## 1. Publish the new public site
 What it changes: the new look and brand art, the "Slums Story" wording, search engines turned away (robots.txt plus
-noindex on every page), and the `/login/` page. The database and market are not in it.
+noindex on every page), the `/login/` page and World. Slums Street and the market are not in it.
 ```
+python3 tools/site/build.py --world --site-data cache/live-export/site --market-data cache/live-export/market
+grep -rl samplebar dist/site | wc -l                              # 0: no sample data goes out
 ssh root@192.168.0.164 'cp -a /srv/slums-site /srv/slums-site.bak-$(date -u +%Y%m%dT%H%M%SZ)'
 rsync -a --delete dist/site/ root@192.168.0.164:/srv/slums-site/
 ```
@@ -33,6 +47,7 @@ Check:
 curl -s https://theslumsms.asslorde.com/robots.txt               # User-agent: * / Disallow: /
 curl -s https://theslumsms.asslorde.com/ | grep -c 'noindex'     # 1
 curl -s https://theslumsms.asslorde.com/ | grep -ci 'maplestory' # 0
+curl -s https://theslumsms.asslorde.com/world/ | grep -c 'Online now'   # 1
 ```
 Undo: `rsync -a --delete /srv/slums-site.bak-<stamp>/ /srv/slums-site/` on 164.
 
@@ -58,38 +73,48 @@ Undo: remove the snippet, `nginx -t && systemctl reload nginx`.
 ## 5. Publish the database and market (behind the sign-in)
 Only after step 4 is checked, so the pages are never open to everyone.
 ```
-python3 tools/site/build.py --private --market-data <copy of live's data/market>
-rsync -a --delete --exclude market/ dist/site-private/ root@192.168.0.164:/srv/slums-site/
+python3 tools/site/build.py --private --world --site-data cache/live-export/site --market-data cache/live-export/market
+grep -rl samplebar dist/site-private | wc -l                      # 0
+rsync -a --delete --exclude market/ --exclude world/ dist/site-private/ root@192.168.0.164:/srv/slums-site/
+rsync -a dist/site-private/market/ root@192.168.0.164:/srv/slums-site/market/    # the first time only
 ```
-`--exclude market/` because step 6 keeps `market/` fresh on 164. The first time, copy `market/` once too
-(`rsync -a dist/site-private/market/ root@192.168.0.164:/srv/slums-site/market/`).
+`--exclude market/ --exclude world/` because step 6 keeps those two fresh on 164.
 Check: signed out, `/database/` and `/market/` redirect to `/login/`; signed in through `@weblogin`, they open.
-**From now on every publish from 187 uses `--exclude market/`** (DEPLOY.md says so too).
+**From now on every publish from 187 uses `--private --world` and `--exclude market/ --exclude world/`** (DEPLOY.md
+says so too).
 
-## 6. Keep the market fresh every 15 minutes (timer on 164)
-Live writes `Server/data/market` every 15 min once `-Dslums.market.export=true` is on (1.6.0). A timer rebuilds only
-the market pages from it. **Still to build before launch:** a small deploy of `tools/site` and the dataset to 164
-(`/opt/slums-site-build`) and a `slums-site-market.timer` (every 15 min, `nice -n 19`). The swap is built: a
-one-section rebuild writes beside the live folder, swaps it in with two renames, checks the new section (about 2 s
-for the market) and swaps back if the check fails. The command the timer runs:
+## 6. Keep the market (15 min) and World (2 min) fresh (timers on 164)
+Live writes `Server/data/market` every 15 min once `-Dslums.market.export=true` is on, and `Server/data/site`
+(feed every 2 min, world every 60 s, leaderboards every 15 min) from `PublicSiteExport`, both in 1.6.0. Two timers
+rebuild only their own section from them: a one-section rebuild writes beside the live folder, swaps it in with two
+renames, checks the new section and swaps back if the check fails. The commands the timers run (the units add
+`flock`):
 ```
-python3 tools/site/build.py --private --section market --out /srv/slums-site \
-    --market-data "/opt/mapleroot/MapleRoot Full Repack/Server/data/market" --hs-data /opt/slums-site-build/hiddenstreet
+python3 tools/site/build.py --private --world --section market --out /srv/slums-site \
+    --market-data "/opt/mapleroot/MapleRoot Full Repack/Server/data/market" \
+    --site-data "/opt/mapleroot/MapleRoot Full Repack/Server/data/site" --hs-data /opt/slums-site-build/hiddenstreet
+python3 tools/site/build.py --private --world --section world ...   # same arguments
 ```
 Units: `tools/site/slums-site-market.service` and `.timer` (oneshot, nice 19, idle I/O, writes only under
-`/srv/slums-site`, reads the export and `/opt/slums-site-build` read-only). `tools/site/deploy-build-164.sh` (try
+`/srv/slums-site`, reads the export and `/opt/slums-site-build` read-only). World works the same way:
+`tools/site/slums-site-world.service` and `.timer`, every 2 minutes (`--section world`, reading `Server/data/site`;
+about 1.6 s and 220 MB per run here). Both take turns through one `flock`, so neither checks links while the other
+swaps its folder in. `tools/site/deploy-build-164.sh` (try
 `--dry-run` first) copies `tools/site/`, `docs/site/`, `docs/wiki/` and the dataset to `/opt/slums-site-build`;
 `cache/site-icons` is not needed (the market reuses the database's icons already published).
 ```
-systemctl daemon-reload && systemctl enable --now slums-site-market.timer
-systemctl start slums-site-market.service && journalctl -u slums-site-market -n 5
+cp tools/site/slums-site-{market,world}.{service,timer} /etc/systemd/system/    # from /opt/slums-site-build
+systemctl daemon-reload && systemctl enable --now slums-site-market.timer slums-site-world.timer
+systemctl start slums-site-market.service slums-site-world.service
+journalctl -u slums-site-market -u slums-site-world -n 10
 ```
-Check: `market/index.html` changes within 15 minutes, and the "as of" time matches the export.
-Undo: `systemctl disable --now slums-site-market.timer`.
+Check: `market/index.html` changes within 15 minutes and `world/index.html` within 2, and the "as of" times match
+the exports.
+Undo: `systemctl disable --now slums-site-market.timer slums-site-world.timer`.
 
 ## 7. Afterwards
 - The megaphone rail's "sold" lines on non-market pages only change on a full publish (steps 1/5); the market pages
-  themselves refresh every 15 minutes.
+  refresh every 15 minutes and World every 2.
 - Banned accounts: write their account ids to `/var/lib/slums-login/revoked.txt` to sign them out of the website.
 - Rotating the key (`/etc/slums-login/key`) signs everyone out.
 

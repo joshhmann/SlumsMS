@@ -13,11 +13,12 @@ esc = html.escape
 
 # ── layout ───────────────────────────────────────────────────────────────────────────────────────
 
-NAV = [("index.html", "Home", "home"), ("patch-notes/", "News", "notes"), ("guide/", "Guides", "guide"),
-       ("database/", "Database", "database"), ("market/", "Market", "market"),
-       ("report/", "Report", "report"), ("index.html#play", "Play", "play")]
-# Database and Market are private until 1.6.0 is live: they show in the nav only in a build that includes them.
-OPTIONAL = {"database", "market"}
+NAV = [("index.html", "Home", "home"), ("patch-notes/", "News", "notes"), ("world/", "World", "world"),
+       ("guide/", "Guides", "guide"), ("database/", "Slums Street", "database"), ("market/", "Slums Market", "market"),
+       ("report/", "Report", "report")]  # "How to play" is the home page's first button
+# World needs the server's site export, and Slums Street (the database) and Slums Market are for signed-in players:
+# each shows in the nav only in a build that includes it.
+OPTIONAL = {"world", "database", "market"}
 BUILT = set()  # optional sections in the current build, set by build.py
 
 # The megaphone rail under the header: the latest releases, then these lines. The market feed joins it later.
@@ -90,7 +91,7 @@ def layout(title, body, root, section, description="", base=""):
 </main>
 <footer class="site-foot">
   <span>SlumsMS is Slums Story: a small private world for friends. A fan project; not affiliated with any game company.</span>
-  <span><a href="{root}patch-notes/">News</a> &middot; <a href="{root}guide/">Guides</a> &middot; <a href="{root}report/">Report a bug</a></span>
+  <span><a href="{root}patch-notes/">News</a> &middot; {f'<a href="{root}world/">World</a> &middot; ' if "world" in BUILT else ""}<a href="{root}guide/">Guides</a> &middot; <a href="{root}report/">Report a bug</a></span>
 </footer>
 </body>
 </html>

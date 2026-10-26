@@ -365,5 +365,104 @@ class DbDataTest(unittest.TestCase):
         self.assertEqual([m["map_id"] for m in d["npcs"][10]["maps"]], [1])
 
 
+
+class WorldTest(unittest.TestCase):
+    """World: the public live world, feed, rankings and economy pages, from the site export (here: its samples)."""
+    HERE = os.path.dirname(os.path.abspath(__file__))
+
+    @classmethod
+    def setUpClass(cls):
+        import subprocess
+        cls.tmp = tempfile.mkdtemp(prefix="slums-world-test-")
+        cls.data = os.path.join(cls.tmp, "site-data")
+        subprocess.run([sys.executable, os.path.join(cls.HERE, "site_sample.py"), "--out", cls.data],
+                       check=True, capture_output=True)
+        cls.market = os.path.join(cls.HERE, "testdata", "market-contract")
+        cls.out = os.path.join(cls.tmp, "site")
+        build.SITE_DATA, build.MARKET_DATA = cls.data, cls.market
+        try:
+            build.build(cls.out, live=True)
+        finally:
+            build.SITE_DATA = build.MARKET_DATA = None
+            build.common.BUILT.clear()
+
+    @classmethod
+    def tearDownClass(cls):
+        shutil.rmtree(cls.tmp)
+
+    def read(self, rel):
+        with open(os.path.join(self.out, rel), encoding="utf-8") as f:
+            return f.read()
+
+    def test_pages_and_nav(self):
+        for rel in ["world/index.html", "world/feed/index.html", "world/feed/drama.html", "world/rankings/index.html",
+                    "world/rankings/richest.html", "world/rankings/level.html", "world/economy.html"]:
+            self.assertTrue(os.path.isfile(os.path.join(self.out, rel)), rel)
+        home = self.read("index.html")
+        self.assertIn('href="world/"', home)
+        self.assertNotIn('href="database/"', home)  # still a public build
+        self.assertIn("Sample data", self.read("world/index.html"))
+
+    def test_public_world_never_links_the_signed_in_sections(self):
+        self.assertEqual([p for p in check.check_all(self.out) if "private" in p], [])
+        self.assertIn("login/index.html?next=/market/", self.read("world/economy.html"))
+
+    def test_richest_is_top_ten_with_exact_mesos(self):
+        page = self.read("world/rankings/richest.html")
+        self.assertEqual(page.count("<tr") - 1, 10)
+        self.assertRegex(page, r"\d,\d{3},\d{3},\d{3}")
+
+    def test_no_bot_labels_anywhere(self):
+        for rel in ["world/rankings/level.html", "world/rankings/index.html", "world/index.html"]:
+            text = self.read(rel).lower()
+            self.assertNotIn("is_bot", text)
+            self.assertNotRegex(text, r">\s*(bot|player)\s*<", rel)
+
+    def test_validate_refuses_private_or_bad_data(self):
+        from sections import world
+        w = world.load(self.data)
+        self.assertEqual(world.validate(w), [])
+        w["leaderboards"]["fame"][0]["is_bot"] = True
+        self.assertTrue(any("private field" in p for p in world.validate(w)))
+        w = world.load(self.data)
+        w["feed"]["items"][0]["account_id"] = 5
+        self.assertTrue(any("private field" in p for p in world.validate(w)))
+        w = world.load(self.data)
+        w["feed"]["items"][0]["kind"] = "gm_log"
+        self.assertTrue(any("kind" in p for p in world.validate(w)))
+        w = world.load(self.data)
+        w["world"]["schema"] = 2
+        self.assertTrue(any("schema 2" in p for p in world.validate(w)))
+
+    def test_feed_text_is_escaped_and_names_bold(self):
+        from sections import world
+        wo = world.World(world.load(self.data), {"sample": False}, self.out)
+        html = wo.text({"text": "<script>x</script> Momo met Momoko", "names": ["Momo", "<script>"]})
+        self.assertNotIn("<script>", html)
+        self.assertIn("<b>Momo</b> met Momoko", html)
+
+    def test_rebuild_world_only(self):
+        build.SITE_DATA, build.MARKET_DATA = self.data, self.market
+        try:
+            build.rebuild_section("world", self.out)
+        finally:
+            build.SITE_DATA = build.MARKET_DATA = None
+            build.common.BUILT.clear()
+        self.assertTrue(os.path.isfile(os.path.join(self.out, "world", "index.html")))
+        self.assertEqual([n for n in os.listdir(self.out) if n.startswith(".")], [])
+
+    def test_link_check_ignores_query_strings(self):
+        page = os.path.join(self.out, "world", "q.html")
+        with open(page, "w", encoding="utf-8") as f:
+            f.write('<meta name="robots" content="noindex"><a href="../login/index.html?next=/x/">a</a>'
+                    '<a href="../login/nope.html?next=/x/">b</a>')
+        try:
+            probs = [p for p in check.check_links(self.out) if p.startswith("world/q.html")]
+        finally:
+            os.remove(page)
+        self.assertEqual(len(probs), 1)
+        self.assertIn("nope.html", probs[0])
+
+
 if __name__ == "__main__":
     unittest.main()

@@ -49,3 +49,20 @@
   }
   setInterval(function () { if (!document.hidden) show(at + 1); }, 7000);
 })();
+
+/* World: "in 2 h 14 min" next to an event's start time. The time itself (PT and UTC) is already in the page. */
+(function () {
+  var els = document.querySelectorAll("time[data-countdown]");
+  if (!els.length) return;
+  function tick() {
+    els.forEach(function (el) {
+      var mins = Math.round((Date.parse(el.getAttribute("datetime")) - Date.now()) / 60000);
+      var s = el.nextElementSibling && el.nextElementSibling.classList.contains("soon") ? el.nextElementSibling : null;
+      if (!s) { s = document.createElement("span"); s.className = "soon"; el.after(s); }
+      s.textContent = mins > 60 ? " · in " + Math.floor(mins / 60) + " h " + (mins % 60) + " min"
+        : mins > 0 ? " · in " + mins + " min" : mins > -60 ? " · on now" : "";
+    });
+  }
+  tick();
+  setInterval(tick, 30000);
+})();

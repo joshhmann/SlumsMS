@@ -3,13 +3,15 @@
 
     python3 tools/site/build.py                 # the PUBLIC site: dist/site/ and dist/slums-site.tar.gz, checked
     python3 tools/site/build.py --out DIR --no-tar
-    python3 tools/site/build.py --private       # also Database and Market, into dist/site-private/ (never rsync it
-                                                # to the public folder before 1.6.0 is live)
+    python3 tools/site/build.py --world         # also World (live world, feed, rankings, economy) from the site export
+    python3 tools/site/build.py --private       # also Slums Street (database) and Slums Market, into dist/site-private/
+                                                # (on 164 those two sit behind the sign-in, LOGIN.md)
     python3 tools/site/build.py --section notes --out DIR   # rebuild one section inside an existing build
     python3 -m http.server -d dist/site 8000    # preview
 
 Code: common.py (paths, layout, megaphone rail, inline markdown) and one module per section in sections/:
-notes (News), guide (Guides), pages (home, 404, report), and the private database and market.
+notes (News), guide (Guides), pages (home, 404, report, login), world (public, needs the server's site export), and
+the signed-in database (Slums Street) and market (Slums Market).
 
 Sources (docs/site/):
     home.html                 the home page body; {{latest_*}} is filled from the newest release
@@ -46,7 +48,7 @@ sys.path.insert(0, HERE)
 import check  # noqa: E402
 import common  # noqa: E402
 from common import REPO, SRC, esc  # noqa: E402
-from sections import database, dbdata, guide, market, notes, pages  # noqa: E402
+from sections import database, dbdata, guide, market, notes, pages, world  # noqa: E402
 
 # kept here so older callers and the tests can keep using build.<name>
 from common import inline, layout, meta_comment, slug  # noqa: E402,F401
@@ -54,9 +56,11 @@ from sections.guide import clean_wiki, wiki_body, wiki_nav  # noqa: E402,F401
 from sections.notes import TAGS, parse_release, render_release  # noqa: E402,F401
 
 PUBLIC = ["notes", "guide", "pages"]
-PRIVATE = ["database", "market"]  # private until 1.6.0 is live
+PRIVATE = ["database", "market"]  # behind the sign-in (LOGIN.md)
+LIVE = ["world"]  # public, but only with --world: it needs the server's site export (or its samples)
 HS_DATA = None  # --hs-data: the build_data.py output for the database (default: sections/dbdata.py DEFAULT_DIR)
 MARKET_DATA = None  # --market-data: the server's market export (default: sections/market.py DEFAULT_DIR, the samples)
+SITE_DATA = None  # --site-data: the server's site export, Server/data/site (default: sections/world.py DEFAULT_DIR)
 
 
 def copy_assets(out):
@@ -85,6 +89,8 @@ def build_section(name, out, rels, site_root=None):
         return database.build(out, HS_DATA)
     if name == "market":
         return market.build(out, dbdata.load(HS_DATA), MARKET_DATA, site_root)
+    if name == "world":
+        return world.build(out, SITE_DATA, MARKET_DATA, dbdata.load(HS_DATA) if "database" in common.BUILT else None)
     if name == "pages":
         pages.build_home(out, rels)
         pages.build_report(out)
@@ -103,8 +109,12 @@ def finish(out, tar_path, private=False, only=None):
         make_tar(out, tar_path)
 
 
-def build(out, tar_path=None, private=False):
-    sections = PUBLIC + (PRIVATE if private else [])
+def sections_for(private, live):
+    return PUBLIC + (LIVE if live else []) + (PRIVATE if private else [])
+
+
+def build(out, tar_path=None, private=False, live=False):
+    sections = sections_for(private, live)
     if os.path.isdir(out):
         shutil.rmtree(out)
     os.makedirs(out)
@@ -116,14 +126,15 @@ def build(out, tar_path=None, private=False):
     return results["notes"], results["guide"]
 
 
-def rebuild_section(name, out, private=False):
-    """Rebuild one section in place, e.g. the market every 15 minutes, then check the whole output again."""
+def rebuild_section(name, out, private=False, live=False):
+    """Rebuild one section in place (the market every 15 minutes, World every 2), then check that section."""
     if not os.path.isfile(os.path.join(out, "index.html")):
         raise SystemExit(f"{out} has no full build yet; run a full build first")
     rels = notes.releases()
-    set_context(rels, PUBLIC + (PRIVATE if private else []))
+    set_context(rels, sections_for(private, live or name == "world"))
     copy_assets(out)
-    folder = {"notes": "patch-notes", "guide": "guide", "database": "database", "market": "market"}.get(name)
+    folder = {"notes": "patch-notes", "guide": "guide", "database": "database", "market": "market",
+              "world": "world"}.get(name)
     if not folder:  # pages: a few single files, written in place
         build_section(name, out, rels)
         finish(out, None, private)
@@ -176,17 +187,19 @@ def main():
     ap.add_argument("--section", help="rebuild only this section inside an existing --out")
     ap.add_argument("--hs-data", help="Hidden Street dataset folder for the database section")
     ap.add_argument("--market-data", help="market export folder (default: the samples from tools/site/market_sample.py)")
+    ap.add_argument("--world", action="store_true", help="include World (live world, feed, rankings, economy)")
+    ap.add_argument("--site-data", help="site export folder, Server/data/site (default: tools/site/site_sample.py's)")
     args = ap.parse_args()
-    global HS_DATA, MARKET_DATA
-    HS_DATA, MARKET_DATA = args.hs_data, args.market_data
+    global HS_DATA, MARKET_DATA, SITE_DATA
+    HS_DATA, MARKET_DATA, SITE_DATA = args.hs_data, args.market_data, args.site_data
     out = args.out or os.path.join(REPO, "dist", "site-private" if args.private else "site")
     if args.section:
-        rebuild_section(args.section, out, args.private)
+        rebuild_section(args.section, out, args.private, args.world)
         print(f"rebuilt section {args.section} in {out}; check passed")
         return
     tar = None if args.no_tar else (args.tar or os.path.join(
         REPO, "dist", "slums-site-private.tar.gz" if args.private else "slums-site.tar.gz"))
-    rels, guide_pages = build(out, tar, args.private)
+    rels, guide_pages = build(out, tar, args.private, args.world)
     n = sum(len(fs) for _, _, fs in os.walk(out))
     print(f"built {out}{' (private)' if args.private else ''}: home, {len(rels)} release(s) "
           f"({', '.join(r['version'] for r in rels)}), {len(guide_pages)} guide pages, {n} files; check passed")

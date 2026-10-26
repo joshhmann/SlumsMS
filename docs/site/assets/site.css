@@ -473,3 +473,47 @@ table.t { width: 100%; border-collapse: collapse; }
   padding: 0 5px; margin-left: 4px; vertical-align: 1px; white-space: nowrap; }
 .chg-pill { background: var(--sky-soft); color: var(--ink); }
 .new-pill { background: var(--surface-2); color: var(--ink); }
+
+/* ── World: live world, feed, rankings, public economy ───────────────────────────────────────── */
+.chips { display: flex; flex-wrap: wrap; gap: 8px; margin: 0; }
+.chip { padding: 4px 12px; border: 1.5px solid var(--edge); border-radius: 999px; font-weight: 600; font-size: .88rem;
+  color: var(--ink); text-decoration: none; background: var(--surface); }
+.chip:hover { background: var(--surface-2); color: var(--ink); }
+.chip[aria-current] { background: var(--accent); color: var(--on-accent); border-color: var(--edge); }
+.chips.small { font-size: .85rem; color: var(--muted); }
+.board.feed li { grid-template-columns: 90px minmax(0, 1fr) auto; align-items: start; }
+.board.feed p { margin: 0; }
+.board.feed time { padding-top: 3px; }
+.ntag.event { color: var(--on-sun); background: var(--sun); }
+.ntag.milestone { color: var(--on-accent); background: var(--accent); }
+.ntag.megaphone { color: var(--on-sky); background: var(--sky); }
+.ntag.drama { color: var(--on-down); background: var(--down); }
+.board.feed .topdmg { margin: 3px 0 2px; font-size: .85rem; color: var(--muted); }
+.topdmg b { color: var(--ink); }
+.mkstats b.sm { font-size: 1.15rem; line-height: 1.3; }
+.mkstats b.sm a { color: inherit; }
+.eventcard { display: flex; flex-wrap: wrap; align-items: baseline; gap: 4px 16px; padding: 14px 20px; border-radius: var(--radius);
+  background: var(--rail); color: var(--on-rail); border: var(--border) solid var(--edge); box-shadow: 5px 5px 0 var(--drop); }
+.eventcard .k { font: 600 .7rem var(--f-mono); letter-spacing: .1em; text-transform: uppercase; color: var(--sun); }
+.eventcard b { font: 800 1.6rem/1.1 var(--f-display); }
+.eventcard a { color: inherit; }
+.eventcard .soon { color: var(--sun); font-weight: 700; }
+.running { list-style: none; margin: 0; padding: 6px 0; }
+.running li { padding: 6px 16px; }
+.chans { list-style: none; margin: 0; padding: 8px 0; }
+.chans li { display: grid; grid-template-columns: 52px minmax(0, 1fr) 60px; gap: 12px; align-items: center; padding: 6px 16px; }
+.chans .k { font: 600 .78rem var(--f-mono); color: var(--muted); }
+.chans b { text-align: right; }
+.meter { height: 12px; border-radius: 6px; background: var(--surface-2); border: 1.5px solid var(--hair); overflow: hidden; }
+.meter i { display: block; height: 100%; background: var(--accent); }
+.rankgrid { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 18px; }
+.t.rank tr.podium td:first-child { font-weight: 800; color: var(--accent-ink); }
+.bar-a { fill: var(--chart-line); }
+.bar-b { fill: var(--sky); }
+.legend i.a { background: var(--chart-line); }
+.legend i.b { background: var(--sky); }
+@media (max-width: 900px) {
+  .rankgrid { grid-template-columns: minmax(0, 1fr); }
+  .board.feed li { grid-template-columns: 82px minmax(0, 1fr); }
+  .board.feed time { grid-column: 1 / -1; justify-self: start; }
+}

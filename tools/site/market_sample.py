@@ -8,7 +8,7 @@ Writes, like the export will (docs/design/track-d-plan.md §5 and the nx-rate co
     sales.json                recent sales, newest first: item, unit price, qty, source, player side, hour (UTC)
     prices/<YYYY-MM-DD>.json  one file per UTC day: per item open/high/low/close/median, sample count, player share
     nx-rate.json              days: mesos per 1,000 NX (null under 5 trades) plus counts and bot share; today
-    economy-public.json       a few public economy numbers
+    economy-public.json       a few public economy numbers, plus days: total mesos, made and spent per UTC day
 Every file carries "sample": true, and the market pages show a banner while it does. Item ids are real reachable items
 (sections/dbdata.py); prices, names and counts are made up and seeded, so each run gives the same files.
 """
@@ -119,7 +119,15 @@ def main():
     dump("nx-rate.json", {"sample": True, "days": days,
                           "today": dict(days[-1], as_of=now.isoformat())})
 
-    dump("economy-public.json", {"sample": True, "as_of": now.isoformat(), "mesos_total": 412_600_000_000,
+    # daily totals for the public economy page (proposed: economy-public.json "days")
+    eco_days, total = [], 380_000_000_000
+    for back in range(args.days - 1, -1, -1):
+        day = today - dt.timedelta(days=back)
+        made = int(rnd.uniform(6e9, 9e9))
+        spent = int(made * rnd.uniform(0.7, 1.05))
+        total += made - spent
+        eco_days.append({"date": day.isoformat(), "mesos_total": total, "mesos_made": made, "mesos_spent": spent})
+    dump("economy-public.json", {"sample": True, "as_of": now.isoformat(), "mesos_total": total, "days": eco_days,
                                  "players_share": 0.07, "trades_24h": 1284, "shops_open": len({(l["channel"], l["room"]) for l in listings}),
                                  "mesos_removed_7d": 2_100_000_000, "bots_online_peak": 2947})
     print(f"sample market data for {len(items)} items, {args.days} days -> {args.out}")

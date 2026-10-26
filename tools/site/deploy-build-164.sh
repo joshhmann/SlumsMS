@@ -1,5 +1,5 @@
 #!/usr/bin/env bash
-# Copy what the 15-minute market rebuild needs to 164 (/opt/slums-site-build). Run on 187 from the repo root.
+# Copy what the market (15 min) and World (2 min) rebuilds need to 164 (/opt/slums-site-build). Run on 187 from the repo root.
 #   tools/site/deploy-build-164.sh [--dry-run]
 # Copies tools/site, docs/site, docs/wiki and the Hidden Street dataset. Nothing else on 164 changes; the timer
 # itself is installed by hand (docs/site/LAUNCH.md step 6). Needs the owner's go the first time.
