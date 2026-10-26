@@ -1,5 +1,5 @@
 {
-  "generated_at": "2026-10-26T07:31:02Z",
+  "generated_at": "2026-10-26T08:26:08Z",
   "sources": {
     "wz": "/root/work/SlumsMS-160-market/wz",
     "db_tables": {
@@ -966,5 +966,168 @@
   },
   "notes": {
     "weapon_magic_attack": "Weapons: in SlumsMS's (MapleRoot) WZ every v83 weapon has incMAD equal to incPAD (e.g. Maple Kandayo 1472032: 74/74; upstream Cosmic: 23 attack, no magic attack). The shipped client Data/Character/Weapon has the same values, and the server adds equip incMAD to total magic attack (Character.recalcLocalStats), so the in-game tooltip and stats show it. The dataset keeps the values as the game uses them. It only matters to magic attacks: a claw's magic attack does nothing for a thief, but a magician can hold a no-job-requirement weapon for magic attack."
+  },
+  "stock_v83": {
+    "source": {
+      "path": "/root/work/cosmic-triage/Cosmic/wz",
+      "repo": "https://github.com/P0nk/Cosmic.git",
+      "commit": "fec53bc77 2026-02-03 Merge pull request #334 from anliting/fix-quest-21010-reward #patch",
+      "version": "v83 (Cosmic)"
+    },
+    "rule": "Values are SlumsMS's own WZ (what the game uses). 'stock' holds the upstream Cosmic v83 value for every compared stat that differs (a stat missing on one side counts as 0), with slums_changed true; slums_new true means the entity does not exist in stock v83 (MapleRoot/SlumsMS custom or later-version content). Entities with a name but no WZ data of their own get neither flag.",
+    "item_stats_compared": [
+      "incSTR",
+      "incDEX",
+      "incINT",
+      "incLUK",
+      "incPAD",
+      "incMAD",
+      "incPDD",
+      "incMDD",
+      "incACC",
+      "incEVA",
+      "incSpeed",
+      "incJump",
+      "incMHP",
+      "incMMP",
+      "tuc",
+      "attackSpeed",
+      "reqLevel",
+      "reqJob",
+      "reqSTR",
+      "reqDEX",
+      "reqINT",
+      "reqLUK",
+      "hp",
+      "mp",
+      "hpR",
+      "mpR",
+      "pad",
+      "mad",
+      "pdd",
+      "mdd",
+      "acc",
+      "eva",
+      "speed",
+      "jump",
+      "time",
+      "success",
+      "cursed",
+      "price",
+      "slotMax"
+    ],
+    "mob_stats_compared": [
+      "level",
+      "hp",
+      "mp",
+      "exp",
+      "PADamage",
+      "MADamage",
+      "PDDamage",
+      "MDDamage",
+      "acc",
+      "eva",
+      "speed"
+    ],
+    "compared": true,
+    "changed": {
+      "items": 4632,
+      "mobs": 49
+    },
+    "new": {
+      "items": 42108,
+      "mobs": 5219
+    },
+    "changed_by_category": {
+      "items": {
+        "Etc": 1091,
+        "Weapon": 996,
+        "Consume": 656,
+        "Cap": 402,
+        "Accessory": 282,
+        "Shoes": 226,
+        "Pants": 222,
+        "Coat": 219,
+        "Longcoat": 208,
+        "Glove": 184,
+        "Cape": 78,
+        "Shield": 48,
+        "Ring": 20
+      },
+      "mobs": {
+        "boss": 40,
+        "Lv 1-30": 7,
+        "Lv 121+": 1,
+        "Lv 31-70": 1
+      }
+    },
+    "new_by_category": {
+      "items": {
+        "Hair": 7669,
+        "Consume": 7128,
+        "Weapon": 4660,
+        "Etc": 4304,
+        "Face": 4276,
+        "Accessory": 2515,
+        "Cap": 1926,
+        "Install": 1843,
+        "Longcoat": 1486,
+        "TamingMob": 1421,
+        "Shoes": 874,
+        "Ring": 853,
+        "Pet": 788,
+        "Cape": 754,
+        "Glove": 399,
+        "Cash": 389,
+        "PetEquip": 362,
+        "Coat": 257,
+        "Pants": 202,
+        "Shield": 2
+      },
+      "mobs": {
+        "boss": 2428,
+        "Lv 121+": 1297,
+        "Lv 1-30": 746,
+        "Lv 71-120": 444,
+        "Lv 31-70": 304
+      }
+    },
+    "changed_by_stat": {
+      "items": {
+        "tuc": 2711,
+        "slotMax": 1745,
+        "incMAD": 1001,
+        "incPAD": 994,
+        "reqDEX": 949,
+        "reqSTR": 923,
+        "reqLUK": 768,
+        "reqINT": 343,
+        "reqLevel": 10,
+        "reqJob": 3,
+        "incDEX": 3,
+        "time": 3,
+        "incSTR": 2,
+        "cursed": 2,
+        "price": 2,
+        "incSpeed": 1,
+        "incACC": 1,
+        "incINT": 1,
+        "incLUK": 1,
+        "incEVA": 1
+      },
+      "mobs": {
+        "exp": 36,
+        "hp": 25,
+        "eva": 17,
+        "level": 14,
+        "acc": 14,
+        "PDDamage": 13,
+        "mp": 12,
+        "MDDamage": 12,
+        "PADamage": 11,
+        "MADamage": 8,
+        "speed": 1
+      }
+    }
   }
 }

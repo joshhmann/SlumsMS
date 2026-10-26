@@ -318,3 +318,111 @@ Chances in this dataset are BASE chances. Bera multiplies mob drops by 4 (bosses
 ### Weapon magic attack
 
 Weapons: in SlumsMS's (MapleRoot) WZ every v83 weapon has incMAD equal to incPAD (e.g. Maple Kandayo 1472032: 74/74; upstream Cosmic: 23 attack, no magic attack). The shipped client Data/Character/Weapon has the same values, and the server adds equip incMAD to total magic attack (Character.recalcLocalStats), so the in-game tooltip and stats show it. The dataset keeps the values as the game uses them. It only matters to magic attacks: a claw's magic attack does nothing for a thief, but a magician can hold a no-job-requirement weapon for magic attack.
+
+## 7. SlumsMS vs stock v83
+
+Stock source: `/root/work/cosmic-triage/Cosmic/wz` (https://github.com/P0nk/Cosmic.git @ fec53bc77 2026-02-03 Merge pull request #334 from anliting/fix-quest-21010-reward #patch). Values are SlumsMS's own WZ (what the game uses). 'stock' holds the upstream Cosmic v83 value for every compared stat that differs (a stat missing on one side counts as 0), with slums_changed true; slums_new true means the entity does not exist in stock v83 (MapleRoot/SlumsMS custom or later-version content). Entities with a name but no WZ data of their own get neither flag.
+
+| | Changed from stock | Not in stock |
+| --- | --- | --- |
+| Items | 4,632 | 42,108 |
+| Mobs | 49 | 5,219 |
+
+### Items changed, by category
+
+| Category | Changed | Not in stock |
+| --- | --- | --- |
+| Etc | 1,091 | 4,304 |
+| Weapon | 996 | 4,660 |
+| Consume | 656 | 7,128 |
+| Cap | 402 | 1,926 |
+| Accessory | 282 | 2,515 |
+| Shoes | 226 | 874 |
+| Pants | 222 | 202 |
+| Coat | 219 | 257 |
+| Longcoat | 208 | 1,486 |
+| Glove | 184 | 399 |
+| Cape | 78 | 754 |
+| Shield | 48 | 2 |
+| Ring | 20 | 853 |
+| Hair | 0 | 7,669 |
+| Face | 0 | 4,276 |
+| Install | 0 | 1,843 |
+| TamingMob | 0 | 1,421 |
+| Pet | 0 | 788 |
+| Cash | 0 | 389 |
+| PetEquip | 0 | 362 |
+
+Stats changed most often (items): tuc 2,711, slotMax 1,745, incMAD 1,001, incPAD 994, reqDEX 949, reqSTR 923, reqLUK 768, reqINT 343, reqLevel 10, reqJob 3, incDEX 3, time 3, incSTR 2, cursed 2, price 2
+
+### Top items changes (largest relative change of a headline stat)
+
+| # | ID | Name | Changes (stock->Slums) |
+| --- | --- | --- | --- |
+| 1 | `1402046` | Timeless Nibleheim | incPAD 112->186, incMAD 0->186, tuc 7->12, reqSTR 370->0 |
+| 2 | `1402047` | Reverse Nibleheim | incPAD 110->186, incMAD 0->186, tuc 7->12, reqSTR 370->0 |
+| 3 | `1402061` | GMS Claymore | incPAD 110->186, incMAD 0->186, tuc 7->12, reqSTR 370->0 |
+| 4 | `1412033` | Timeless Tabarzin | incPAD 114->186, incMAD 0->186, tuc 7->12, reqSTR 370->0 |
+| 5 | `1412034` | Reverse Tabarzin | incPAD 112->186, incMAD 0->186, tuc 7->12, reqSTR 370->0 |
+| 6 | `1412041` | GMS Battle Axe | incPAD 112->186, incMAD 0->186, tuc 7->12, reqSTR 370->0 |
+| 7 | `1422037` | Timeless Bellocce | incPAD 114->186, incMAD 0->186, tuc 7->12, reqSTR 370->0 |
+| 8 | `1422038` | Reverse Bellocce | incPAD 112->186, incMAD 0->186, tuc 7->12, reqSTR 370->0 |
+| 9 | `1422044` | GMS Maul | incPAD 112->186, incMAD 0->186, tuc 7->12, reqSTR 370->0 |
+| 10 | `1432047` | Timeless Alchupiz | incPAD 114->186, incMAD 0->186, tuc 7->12, reqSTR 370->0 |
+| 11 | `1432049` | Reverse Alchupiz | incPAD 112->186, incMAD 0->186, tuc 7->12, reqSTR 370->0 |
+| 12 | `1442002` | Eviscerator | incPAD 102->186, incMAD 0->186, tuc 7->12, reqSTR 310->0 |
+| 13 | `1442063` | Timeless Diesra | incPAD 114->186, incMAD 0->186, tuc 7->12, reqSTR 370->0 |
+| 14 | `1442067` | Reverse Diesra | incPAD 112->186, incMAD 0->186, tuc 7->12, reqSTR 370->0 |
+| 15 | `1452057` | Timeless Engaw | incPAD 107->186, incMAD 0->186, tuc 7->12, reqSTR 125->0, reqDEX 305->0 |
+| 16 | `1452059` | Reverse Engaw | incPAD 105->186, incMAD 0->186, tuc 7->12, reqSTR 125->0, reqDEX 305->0 |
+| 17 | `1462050` | Timeless Black Beauty | incPAD 110->186, incMAD 0->186, tuc 7->12, reqSTR 120->0, reqDEX 330->0 |
+| 18 | `1462051` | Reverse Black Beauty | incPAD 108->186, incMAD 0->186, tuc 7->12, reqSTR 120->0, reqDEX 330->0 |
+| 19 | `1472068` | Timeless Lampion | incPAD 56->186, incMAD 0->186, tuc 7->12, reqDEX 160->0, reqLUK 350->0 |
+| 20 | `1472071` | Reverse Lampion | incPAD 54->186, incMAD 0->186, tuc 7->12, reqDEX 160->0, reqLUK 350->0 |
+| 21 | `1482023` | Timeless Equinox | incPAD 84->186, incMAD 0->186, tuc 7->12, reqSTR 330->0, reqDEX 120->0 |
+| 22 | `1482024` | Reverse Equinox | incPAD 82->186, incMAD 0->186, tuc 7->12, reqSTR 330->0, reqDEX 120->0 |
+| 23 | `1482034` | GMS Knuckle | incPAD 82->186, incMAD 0->186, tuc 7->12, reqSTR 330->0, reqDEX 120->0 |
+| 24 | `1492023` | Timeless Blindness | incPAD 84->186, incMAD 0->186, tuc 7->12, reqSTR 120->0, reqDEX 335->0 |
+| 25 | `1492025` | Reverse Blindness | incPAD 82->186, incMAD 0->186, tuc 7->12, reqSTR 120->0, reqDEX 335->0 |
+
+### Mobs changed, by category
+
+| Category | Changed | Not in stock |
+| --- | --- | --- |
+| boss | 40 | 2,428 |
+| Lv 1-30 | 7 | 746 |
+| Lv 121+ | 1 | 1,297 |
+| Lv 31-70 | 1 | 304 |
+| Lv 71-120 | 0 | 444 |
+
+Stats changed most often (mobs): exp 36, hp 25, eva 17, level 14, acc 14, PDDamage 13, mp 12, MDDamage 12, PADamage 11, MADamage 8, speed 1
+
+### Top mobs changes (largest relative change of a headline stat)
+
+| # | ID | Name | Changes (stock->Slums) |
+| --- | --- | --- | --- |
+| 1 | `8810018` | Horntail | exp 0->107545760 |
+| 2 | `9001007` | Scarecrow for Training | level 35->1, hp 800->2000000000, PDDamage 50->0, MDDamage 20->0, acc 10->1, eva 15->0 |
+| 3 | `9501018` | Stat Change Test | hp 300000->999999999, mp 1000->0, PDDamage 30->0, MDDamage 30->0, acc 200->0, speed -30->-999999999 |
+| 4 | `8800002` | Zakum3 | exp 7000000->15780800 |
+| 5 | `5090001` | Master Dummy (boss) | level 128->59, hp 15375000->5600, mp 120000->200, exp 114200->220, eva 64->0 |
+| 6 | `6090004` | Rurumo | hp 7600000->7600, eva 100->999 |
+| 7 | `8800003` | Zakum's Arm 1 | exp 1344000->0 |
+| 8 | `8800004` | Zakum's Arm 2 | exp 1344000->0 |
+| 9 | `8800005` | Zakum's Arm 3 | exp 896000->0 |
+| 10 | `8800006` | Zakum's Arm 4 | exp 896000->0 |
+| 11 | `8800007` | Zakum's Arm 5 | exp 1120000->0 |
+| 12 | `8800008` | Zakum's Arm 6 | exp 1120000->0 |
+| 13 | `8800009` | Zakum's Arm 7 | exp 1030400->0 |
+| 14 | `8800010` | Zakum's Arm 8 | exp 1030400->0 |
+| 15 | `8810000` | Horntail's Left Head | exp 9732030->0 |
+| 16 | `8810001` | Horntail's Right Head | exp 9732030->0 |
+| 17 | `8810002` | Horntail's Head A | exp 13902900->0 |
+| 18 | `8810003` | Horntail's Head B | exp 20673700->0 |
+| 19 | `8810004` | Horntail's Head C | exp 13902900->0 |
+| 20 | `8810005` | Horntail's Left Hand | exp 9689900->0 |
+| 21 | `8810006` | Horntail's Right Hand | exp 9689900->0 |
+| 22 | `8810007` | Horntail's Wings | exp 11375100->0 |
+| 23 | `8810008` | Horntail's Legs | exp 5476900->0 |
+| 24 | `8810009` | Horntail's Tails | exp 3370400->0 |
+| 25 | `6090000` | Riche | level 74->65, exp 25000->255 |
