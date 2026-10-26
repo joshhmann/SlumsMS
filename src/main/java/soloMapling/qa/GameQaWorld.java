@@ -501,6 +501,58 @@ final class GameQaWorld implements QaWorld {
     }
 
     @Override
+    public List<Integer> stageDojoFollowers(Character gm, int count) {
+        if (gm.getParty() == null && !net.server.world.Party.createParty(gm, true) || gm.getParty() == null) {
+            return List.of();
+        }
+        int room = 6 - gm.getParty().getMembers().size();
+        List<Integer> spawned = spawnIdleBots(gm, gm.getPosition(), Math.max(0, Math.min(count, room)), gm.getLevel());
+        List<Integer> ids = new ArrayList<>();
+        for (int id : spawned) {
+            Character bot = BotHelpers.getCharFromChannelStorage(id);
+            if (bot == null || !net.server.world.Party.joinParty(bot, gm.getParty().getId(), true)) {
+                despawnBot(id);
+                continue;
+            }
+            soloMapling.ArtificialPlayer.BotPartySystem.BotRecruitManager.setPendingLeader(id, gm.getId());
+            BotTypeManager.convertBotType(bot, BotTypeManager.BotType.FOLLOWER_BOT);
+            ids.add(id);
+        }
+        return ids;
+    }
+
+    @Override
+    public void unstageDojoFollowers(List<Integer> botIds) {
+        for (int id : botIds) {
+            Character bot = BotHelpers.getCharFromChannelStorage(id);
+            if (bot != null && bot.getParty() != null) {
+                net.server.world.Party.leaveParty(bot.getParty(), bot);
+            }
+            despawnBot(id);
+        }
+    }
+
+    @Override
+    public List<String> dojoFollowerStatus(Character gm, List<Integer> botIds) {
+        List<String> out = new ArrayList<>();
+        MapleMap map = gm.getMap();
+        out.add("you: map " + gm.getMapId() + ", " + (map == null ? 0 : map.getAllMonsters().size())
+                + " live monster(s) here");
+        for (int id : botIds) {
+            Character bot = BotHelpers.getCharFromChannelStorage(id);
+            if (bot == null) {
+                out.add("bot " + id + ": gone");
+                continue;
+            }
+            BotSM sm = CharacterStorage.getBotById(id);
+            String doing = sm instanceof soloMapling.ArtificialPlayer.BotTypes.FollowerBot f
+                    ? (f.isFighting() ? "fighting" : "following") : "not a follower (" + (sm == null ? "no brain" : sm.getBotType()) + ")";
+            out.add(botLabel(gm, id) + ": " + doing + (bot.getMapId() == gm.getMapId() ? "" : ", on map " + bot.getMapId()));
+        }
+        return out;
+    }
+
+    @Override
     public void despawnBot(int botId) {
         Character bot = BotHelpers.getCharFromChannelStorage(botId);
         if (bot == null) {

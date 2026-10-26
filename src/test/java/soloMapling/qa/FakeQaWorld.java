@@ -89,6 +89,14 @@ class FakeQaWorld implements QaWorld {
         return ids;
     }
 
+    @Override public List<Integer> stageDojoFollowers(Character gm, int count) {
+        calls.add("dojo followers " + count);
+        return bots("dojo", count);
+    }
+    @Override public void unstageDojoFollowers(List<Integer> ids) {
+        calls.add("unstage dojo " + ids.size());
+        ids.forEach(this::despawnBot);
+    }
     @Override public void despawnBot(int botId) { despawned.add(botId); calls.add("despawn " + botId); }
 
     @Override public String openPlayerShop(Character gm, String description, List<int[]> stock) {

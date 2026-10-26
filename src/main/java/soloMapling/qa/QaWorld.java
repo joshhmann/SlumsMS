@@ -69,6 +69,24 @@ public interface QaWorld {
         return "bot " + botId;
     }
 
+    /**
+     * dj-1 (1.5.5): up to {@code count} follower bots at the GM's level next to the GM, in the GM's party (made, with
+     * the GM leading, when it has none): the bots a player brings into the Mu Lung Dojo. Their ids.
+     */
+    default List<Integer> stageDojoFollowers(Character gm, int count) {
+        return List.of();
+    }
+
+    /** dj-1: takes the staged followers out of their party and the world. */
+    default void unstageDojoFollowers(List<Integer> botIds) {
+        botIds.forEach(this::despawnBot);
+    }
+
+    /** dj-1: one line per staged follower (map, following or fighting) and the live monsters on the GM's map. */
+    default List<String> dojoFollowerStatus(Character gm, List<Integer> botIds) {
+        return new java.util.ArrayList<>(List.of("not available here"));
+    }
+
     /** Spawns FM shopper bots in the GM's FM room that stay in that room; their character ids. */
     List<Integer> spawnFmShoppers(Character gm, int count);
 

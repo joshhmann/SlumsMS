@@ -207,6 +207,18 @@ run alongside.
 on your map: 2 min), `!rate last`, `!rate reload` (re-reads `data/convo/tune.json`), `!rate score [yyyy-mm-dd]` writes
 `data/convo/quality/<day>.json` and `latest.json` now.
 
+## dj-1: party bots in the Mu Lung Dojo (1.5.5)
+
+| Test | What it stages | What to look for |
+|---|---|---|
+| `dj-1 [bots]` | Warps you (level 25+, no party or leading one) to the dojo hall (925020001) and puts 1-5 follower bots (default 2) of your level in your party, following you. They leave the party and the world at stop. Runs 30 minutes. `!qa do check`: each bot's map and whether it is following or fighting | `FOLLOWER FIGHT <bot> walks to <mob>` / `hits <mob> for <n>` on each floor |
+
+The report: "Mu Lung Dojo - bots don't register enemies on party climb so they just watch". A follower only follows;
+on other maps "train here" makes it a grinder, but a dojo floor has no Map.wz mobs (its monster comes from the map
+script), so the grinding code calls it mobless. Since 1.5.5 a follower on a dojo floor with its leader fights the
+floor's monster itself (`FollowerFight`) and follows again when the floor is clear or the leader goes up. Talk to So
+Gong, pick the party challenge, and watch the bots swing on floor 1, then on the next floor after the portal.
+
 ## pq-2: OPQ bots (1.5.2)
 
 | Test | What it stages | What to look for |

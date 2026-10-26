@@ -261,6 +261,11 @@ public class FollowerBot extends BotSM {
         return false;
     }
 
+    /** True while it fights a dojo floor's monster (FollowerFight; !qa dj-1 reads it). */
+    public boolean isFighting() {
+        return fighting;
+    }
+
     /** The leader this follower walks with (-1 before its first tick). */
     public int leaderId() {
         return leaderId;

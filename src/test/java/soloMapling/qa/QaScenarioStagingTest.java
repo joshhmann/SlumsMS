@@ -322,6 +322,40 @@ class QaScenarioStagingTest {
         assertTrue(Files.readString(log).contains("recruit lines a minute"));
     }
 
+    // ---- 1.5.5: Mu Lung Dojo party climb ----
+
+    private Character startDojo(int level, String... args) {
+        suite = QaTestSupport.suite(QaScenarios.all(), world, dir, scheduler);
+        Character gm = QaTestSupport.gm(1, "Admin", 250000000);
+        org.mockito.Mockito.when(gm.getLevel()).thenReturn(level);
+        world.online = gm;
+        suite.start(gm, "dj-1", args);
+        return gm;
+    }
+
+    @Test
+    void dj1PutsTheGmInTheDojoHallWithPartyFollowersAndTakesThemAway() throws Exception {
+        startDojo(60, "3");
+        assertTrue(world.calls.contains("warp " + DojoScenarios.DOJO_HALL), world.calls.toString());
+        assertTrue(world.calls.contains("dojo followers 3"), world.calls.toString());
+        assertTrue(suite.runOf(1).maps().contains(925030100), "the run watches the party floors");
+        assertTrue(suite.runOf(1).maps().contains(925033804), "up to the last floor and slot");
+        Path log = suite.runOf(1).logPath();
+        suite.stop(1, "!qa stop");
+        assertTrue(world.calls.contains("unstage dojo 3"), world.calls.toString());
+        assertEquals(3, world.despawned.size());
+        assertTrue(Files.readString(log).contains("challenge him with a party"));
+    }
+
+    @Test
+    void dj1RefusesAGmTheDojoWouldTurnAwayAndClampsTheBotCount() {
+        assertThrows(QaRefusal.class, () -> startDojo(10));
+        assertFalse(world.calls.contains("warp " + DojoScenarios.DOJO_HALL));
+        assertEquals(5, DojoScenarios.Dj1PartyFollowersFight.count(new String[]{"9"}));
+        assertEquals(1, DojoScenarios.Dj1PartyFollowersFight.count(new String[]{"0"}));
+        assertEquals(2, DojoScenarios.Dj1PartyFollowersFight.count(new String[0]));
+    }
+
     // ---- ticket 58 ----
 
     @Test
