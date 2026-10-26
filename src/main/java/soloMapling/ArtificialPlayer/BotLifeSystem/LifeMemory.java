@@ -36,6 +36,9 @@ public final class LifeMemory {
     private SocialProfile social;
     private LifeProfile profile;
     private List<LifeGoals.Goal> goals = List.of();
+    /** 1.6.0 S8: one plan per goal (same order), and the soft facts the bot made true by finishing steps. */
+    private List<LifePlanner.Plan> plans = List.of();
+    private final EnumSet<LifePlanner.Fact> soft = EnumSet.noneOf(LifePlanner.Fact.class);
     private int lastJob = -1;
     private long driftDay = -1, lastSocial, savedAt;
     private int changesToday;
@@ -60,7 +63,8 @@ public final class LifeMemory {
             restored = true;
         } catch (RuntimeException invalid) {
             reset(characterId);
-            goals = List.of(); lastJob = -1; lastSocial = 0; driftDay = -1; changesToday = 0; eventAt.clear();
+            goals = List.of(); plans = List.of(); soft.clear();
+            lastJob = -1; lastSocial = 0; driftDay = -1; changesToday = 0; eventAt.clear();
             savedAt = 0; restored = false; migrated = false; dirty = false;
         }
     }
@@ -132,12 +136,35 @@ public final class LifeMemory {
             }
             goals = List.copyOf(loaded);
         }
+        readPlans(map);
         lastJob = number(map, "lastJob", -1).intValue();
         lastSocial = Math.max(0, number(map, "lastSocial", 0).longValue());
         driftDay = number(map, "driftDay", -1).longValue();
         changesToday = Math.max(0, Math.min(4, number(map, "changesToday", 0).intValue()));
         if (map.get("events") instanceof Map<?, ?> events) for (Event event : Event.values()) {
             if (events.get(event.name()) instanceof Number n) eventAt.put(event, n.longValue());
+        }
+    }
+
+    /** 1.6.0 S8: the saved plans (one per goal, dropped if they no longer line up) and soft facts; never fatal. */
+    private void readPlans(Map<?, ?> map) {
+        try {
+            List<LifePlanner.Plan> loaded = new ArrayList<>();
+            if (map.get("plans") instanceof List<?> rows) for (Object row : rows) {
+                if (loaded.size() == 2) break;
+                if (row instanceof Map<?, ?> p) loaded.add(LifePlanner.read(p));
+            }
+            boolean aligned = loaded.size() == goals.size();
+            for (int i = 0; aligned && i < loaded.size(); i++) aligned = loaded.get(i).goal() == goals.get(i).kind();
+            plans = aligned ? List.copyOf(loaded) : List.of();
+            soft.clear();
+            if (map.get("soft") instanceof List<?> names) for (Object name : names) {
+                LifePlanner.Fact fact = LifePlanner.Fact.valueOf((String) name);
+                if (LifePlanner.SOFT.contains(fact)) soft.add(fact);
+            }
+        } catch (RuntimeException unreadable) {
+            plans = List.of(); // a plan is cheap to make again; the rest of the profile stays
+            soft.clear();
         }
     }
 
@@ -224,17 +251,29 @@ public final class LifeMemory {
     }
 
     public synchronized void refresh(int level, int job, OptionalInt weaponLevel, long now) {
+        refresh(LifeGoals.Facts.basic(level, job, weaponLevel), now);
+    }
+
+    /**
+     * Brings the goals up to date with the game: finished goals drop out, new ones are seeded into the free slots
+     * (1.6.0 S8: a Bartle aspiration when {@code facts.social()} is known). A finished or new goal clears the soft
+     * plan facts; the plans themselves are refreshed by {@link #plan}.
+     */
+    public synchronized void refresh(LifeGoals.Facts facts, long now) {
+        int level = facts.level(), job = facts.jobId();
+        OptionalInt weaponLevel = facts.weaponRequiredLevel();
         if (lastJob >= 0 && lastJob != job) event(Event.JOB_ADVANCE, now);
         if (lastJob != job) changed();
         lastJob = job;
-        var seeded = LifeGoals.seed(level, job, weaponLevel);
+        var seeded = facts.social() == null ? LifeGoals.seed(level, job, weaponLevel) : LifeGoals.seed(facts);
         List<LifeGoals.Goal> pending = new ArrayList<>();
         for (var goal : goals) {
             boolean complete = switch (goal.kind()) {
-                case JOB_ADVANCE -> seeded.stream().noneMatch(next -> next.kind() == LifeGoals.Kind.JOB_ADVANCE
-                        && next.targetLevel() == goal.targetLevel());
+                case JOB_ADVANCE, FOURTH_JOB -> LifeGoals.nextAdvance(job) != goal.targetLevel();
                 case WEAPON_UPGRADE -> weaponLevel.isPresent() && weaponLevel.getAsInt() >= goal.targetLevel();
                 case LEVEL -> level >= goal.targetLevel();
+                // Aspirations are only judged when the facts are known (the S8 runtime passes them).
+                case MARRIAGE, GUILD, ZHELM, WEALTH -> facts.social() != null && LifeGoals.met(goal, facts);
             };
             if (!complete) pending.add(goal);
         }
@@ -242,11 +281,45 @@ public final class LifeMemory {
             pending.add(goal);
         }
         var next = pending.stream().map(g -> new LifeGoals.Goal(g.kind(), g.targetLevel(), g.description(),
-                g.kind() == LifeGoals.Kind.JOB_ADVANCE ? Math.min(1, level / (double) g.targetLevel())
+                g.kind() == LifeGoals.Kind.JOB_ADVANCE || g.kind() == LifeGoals.Kind.FOURTH_JOB
+                ? Math.min(1, level / (double) g.targetLevel())
                 : g.kind() == LifeGoals.Kind.WEAPON_UPGRADE && weaponLevel.isPresent()
                 ? Math.max(0, Math.min(1, (g.targetLevel() - weaponLevel.getAsInt()) / 30.0)) : g.pressure())).toList();
-        if (!next.equals(goals)) changed();
+        if (!next.equals(goals)) {
+            changed();
+            if (!next.stream().map(LifeGoals.Goal::kind).toList().equals(goals.stream().map(LifeGoals.Goal::kind).toList())) {
+                soft.clear(); // a new goal starts from what the game can tell
+            }
+        }
         goals = next;
+    }
+
+    /** 1.6.0 S8: the plan per goal (same order as {@link #goals}); empty before the first plan. */
+    public synchronized List<LifePlanner.Plan> plans() { return plans; }
+
+    /** The soft plan facts this bot made true by finishing steps. */
+    public synchronized Set<LifePlanner.Fact> softFacts() {
+        return soft.isEmpty() ? Set.of() : Set.copyOf(soft);
+    }
+
+    /**
+     * Re-plans against this world when a goal or a fact changed (else keeps the stored plans, no search). True when
+     * the plans changed (and the memory is dirty, so they are saved).
+     */
+    public synchronized boolean plan(LifePlanner.World world) {
+        var next = LifePlanner.update(goals, world, plans);
+        if (next == plans) return false;
+        boolean differs = !next.equals(plans);
+        plans = next;
+        if (differs) changed();
+        return differs;
+    }
+
+    /** A finished step made a soft fact true (the outcome callback); true when it was new. */
+    public synchronized boolean soften(LifePlanner.Fact fact) {
+        if (!LifePlanner.SOFT.contains(fact) || !soft.add(fact)) return false;
+        changed();
+        return true;
     }
 
     /** At most four tiny nudges per day and one per event type per hour; no repeated tick-driven drift. */
@@ -292,6 +365,8 @@ public final class LifeMemory {
         out.put("delta", Map.of("bartle", drift, "blend", names(delta)));
         out.put("goals", goals.stream().map(g -> Map.of("kind", g.kind().name(), "level", g.targetLevel(),
                 "description", g.description(), "pressure", g.pressure())).toList());
+        out.put("plans", plans.stream().map(LifePlanner::save).toList());
+        out.put("soft", soft.stream().map(Enum::name).toList());
         out.put("lastJob", lastJob); out.put("lastSocial", lastSocial);
         out.put("driftDay", driftDay); out.put("changesToday", changesToday);
         Map<String, Long> events = new LinkedHashMap<>();

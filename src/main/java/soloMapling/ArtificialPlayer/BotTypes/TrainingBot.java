@@ -101,7 +101,7 @@ import static soloMapling.BotLogger.log;
 // Map discovery is deterministic from WZ: the bot finds level-appropriate field maps near its spawn
 // town by BFS over the portal graph (TrainingMapFinder + MapMobIndex), reading mob levels straight from
 // Map.wz/Mob.wz. No hand-authored region table; town-locality emerges from hop distance.
-public class TrainingBot extends BotSM {
+public class TrainingBot extends BotSM implements soloMapling.ArtificialPlayer.BotLifeSystem.LifeHost {
 
     // ── Tunables (decoration, not balance — rough is fine) ───────────────────
     // REAL-tier swing/decision cadence (shared ticker). Only OBSERVED grinders do real work here — combatTick
@@ -303,6 +303,7 @@ public class TrainingBot extends BotSM {
     private int lifeDestination = -1;
     private LifeDecision.Activity lifeVisit = LifeDecision.Activity.HANG_OUT;
     private boolean lifeFishingStarted;
+    private boolean lifePqTrip; // 1.6.0 S8: the PARTY_QUEST just started is a trip to a lobby (not a friend's invite)
     public LifeRuntime lifeRuntime() { return dailyLife; }
 
     public LifePhase lifePhase() { return lifePhase; }
@@ -388,6 +389,7 @@ public class TrainingBot extends BotSM {
     public TrainingBot(Character character) {
         super(character);
         dailyLife = new LifeRuntime(this);
+        lifeActivities.onEnd(dailyLife::ended); // 1.6.0 S8: outcomes for the plan and for learning (LifeOutcomes)
         botType = "TrainingBot";
         dialoguePath = "TrainingBotDialogue.yaml";
     }
@@ -745,7 +747,8 @@ public class TrainingBot extends BotSM {
             if (LifeRuntime.enabled() && result.attempt().get().accepted().isPresent()) {
                 dailyLife.accepted(result.attempt().get().accepted().get().activity(), now());
                 var action = result.attempt().get().accepted().get().activity();
-                if (action == LifeDecision.Activity.PARTY_QUEST
+                if (action == LifeDecision.Activity.PARTY_QUEST && !lifePqTrip
+                        || action == LifeDecision.Activity.CHANGE_CHANNEL
                         || action == LifeDecision.Activity.HELP_FRIEND && phase == Phase.GRIND) {
                     lifeActivities.finish(result.number(), LifeActivityQueue.End.COMPLETED);
                 }
@@ -801,9 +804,23 @@ public class TrainingBot extends BotSM {
             case FREE_MARKET, SELL -> (activity == LifeDecision.Activity.FREE_MARKET
                     || soloMapling.Economy.BotShops.enabled() && soloMapling.Economy.BotShops.merchantMinded(getChr().getId()))
                     && lifeDestinationAvailable(910000000);
-            case HELP_FRIEND -> dailyLife.friend(at) != null && !dailyLife.partyAsked()
-                    && lifeDestinationAvailable(dailyLife.friend(at).getMapId());
-            case PARTY_QUEST -> dailyLife.friend(at) != null && dailyLife.partyAsked();
+            case HELP_FRIEND -> {
+                // 1.6.0 S8: the friend who asked, or an unasked friend/guild mate grinding a map that fits.
+                Character target = dailyLife.helpTarget(at);
+                yield target != null && !(dailyLife.friend(at) != null && dailyLife.partyAsked())
+                        && lifeDestinationAvailable(target.getMapId());
+            }
+            case PARTY_QUEST -> {
+                if (dailyLife.friend(at) != null) yield dailyLife.partyAsked();
+                // 1.6.0 S8: by itself, to the lobby of a PQ that fits its level in PQ hours (or the plan's boss town).
+                int dest = dailyLife.pqDestination(getChr().getLevel());
+                boolean planned = dest > 0 && dest == dailyLife.planDestination();
+                yield dest > 0 && getChr().getParty() == null && getChr().getMapId() != dest
+                        && (planned || soloMapling.ArtificialPlayer.BotLifeSystem.LifePq.pqHoursNow())
+                        && lifeDestinationAvailable(dest);
+            }
+            case CHANGE_CHANNEL -> dailyLife.channelTarget() > 0
+                    && soloMapling.ArtificialPlayer.BotLifeSystem.LifeChannelMove.why(getChr(), false, at) == null;
             case LOG_OUT -> {
                 var member = BotRoster.loadedMember(getChr().getId() - soloMapling.ArtificialPlayer.BotStore.BOT_ID_BASE);
                 if (member == null || member.lastLoginAt() <= 0 || member.sessionMinutes() <= 0
@@ -819,7 +836,8 @@ public class TrainingBot extends BotSM {
     private boolean lifeDestinationAvailable(int mapId) {
         var factory = soloMapling.server.SoloMaplingUtilities.world()
                 .getChannel(getChr().getMap().getChannelId()).getMapFactory();
-        if (!factory.isMapLoaded(mapId)) return false;
+        // 1.6.0 S8: a PQ lobby or the plan's town may be unloaded; it holds no bots and loads on arrival.
+        if (!factory.isMapLoaded(mapId)) return dailyLife != null && dailyLife.mayLoad(mapId);
         var map = factory.getMap(mapId);
         return mapId == getChr().getMapId() || soloMapling.ArtificialPlayer.BotMapCap.hasRoom(map);
     }
@@ -836,22 +854,26 @@ public class TrainingBot extends BotSM {
             return soloMapling.ArtificialPlayer.BotPopulationDirector.logOut(getChr().getId()
                     - soloMapling.ArtificialPlayer.BotStore.BOT_ID_BASE);
         }
-        if (activity == LifeDecision.Activity.PARTY_QUEST) {
+        lifePqTrip = false;
+        if (activity == LifeDecision.Activity.CHANGE_CHANNEL) return changeChannelNow(at);
+        if (activity == LifeDecision.Activity.PARTY_QUEST && dailyLife.friend(at) != null) {
             Character player = dailyLife.friend(at);
             var result = soloMapling.ArtificialPlayer.BotChatActions.act(this, player,
                     soloMapling.ArtificialPlayer.BotBrainSystem.ChatTriage.Intent.PARTY);
             return result.outcome() == soloMapling.ArtificialPlayer.BotChatActions.Outcome.PARTY_ACCEPTED
                     || result.outcome() == soloMapling.ArtificialPlayer.BotChatActions.Outcome.PARTY_ALREADY;
         }
-        Character requestedFriend = activity == LifeDecision.Activity.HELP_FRIEND ? dailyLife.friend(at) : null;
+        Character requestedFriend = activity == LifeDecision.Activity.HELP_FRIEND ? dailyLife.helpTarget(at) : null;
         if (activity == LifeDecision.Activity.HELP_FRIEND && requestedFriend == null) return false;
         int destination = activity == LifeDecision.Activity.FISH ? soloMapling.fishing.GameFishing.destination(getChr())
                 : activity == LifeDecision.Activity.HELP_FRIEND ? requestedFriend.getMapId()
+                : activity == LifeDecision.Activity.PARTY_QUEST ? dailyLife.pqDestination(getChr().getLevel())
                 : activity == LifeDecision.Activity.SELL || activity == LifeDecision.Activity.FREE_MARKET
                 ? 910000000 : dailyLife.townDestination();
+        if (activity == LifeDecision.Activity.PARTY_QUEST && destination <= 0) return false;
         if (java.util.Set.of(LifeDecision.Activity.HELP_FRIEND, LifeDecision.Activity.HANG_OUT,
                 LifeDecision.Activity.SHOW_OFF, LifeDecision.Activity.SELL, LifeDecision.Activity.FREE_MARKET,
-                LifeDecision.Activity.FISH).contains(activity)
+                LifeDecision.Activity.FISH, LifeDecision.Activity.PARTY_QUEST).contains(activity)
                 && destination != getChr().getMapId()) {
             var target = soloMapling.server.SoloMaplingUtilities.world().getChannel(getChr().getMap().getChannelId())
                     .getMapFactory().getMap(destination);
@@ -866,11 +888,43 @@ public class TrainingBot extends BotSM {
             setTrainTarget(player.getMapId(), Math.max(1, MapMobIndex.level(player.getMapId())));
             enterPhase(getChr().getMapId() == player.getMapId() ? Phase.GRIND : Phase.GO_TRAIN);
         } else {
+            lifePqTrip = activity == LifeDecision.Activity.PARTY_QUEST;
             lifeDestination = destination;
             lifeVisit = activity;
             enterPhase(getChr().getMapId() == lifeDestination ? Phase.LIFE_DWELL : Phase.LIFE_TRAVEL);
         }
         lifeNote("START activity=" + activity);
+        return true;
+    }
+
+    /**
+     * 1.6.0 S8: CHANGE_CHANNEL. Says "cc" (where a player sees it) and moves to the quieter channel's instance of this
+     * map. A grinder keeps grinding the same map there; a bot in town settles on the new channel's town.
+     */
+    private boolean changeChannelNow(long at) {
+        Character chr = getChr();
+        int target = dailyLife.channelTarget();
+        if (target <= 0 || soloMapling.ArtificialPlayer.BotLifeSystem.LifeChannelMove.why(chr, false, at) != null) {
+            return false;
+        }
+        boolean grinding = phase == Phase.GRIND;
+        boolean inTown = phase == Phase.IN_TOWN || phase == Phase.LIFE_DWELL;
+        int map = chr.getMapId(), mob = currentMobLevel;
+        if (inTown) TownLoiter.stop(chr);
+        soloMapling.ArtificialPlayer.BotLifeSystem.LifeTownSlots.release(chr.getId());
+        if (!soloMapling.ArtificialPlayer.BotLifeSystem.LifeChannelMove.move(chr, target, dailyLife.channelForKs(), at)) {
+            if (inTown) TownLoiter.settle(chr);
+            return false;
+        }
+        if (chr.getMapId() == map) {
+            if (grinding && mob > 0) {
+                setTrainTarget(map, mob); // the channel move left the grind (leaveForChannelMove); same map, new channel
+                enterPhase(Phase.GO_TRAIN);
+            } else if (inTown) {
+                TownLoiter.settle(chr);
+            }
+        }
+        lifeNote("START activity=CHANGE_CHANNEL ch=" + target);
         return true;
     }
 
@@ -901,6 +955,13 @@ public class TrainingBot extends BotSM {
                 }
             }
             lifeNote("ARRIVED activity=" + lifeVisit);
+            if (lifeVisit == LifeDecision.Activity.PARTY_QUEST && GCMovement.isMapObserved(getChr().getMapId())) {
+                // 1.6.0 S8: standing in the lobby looking for a party, as 2009 players did.
+                var lobby = soloMapling.ArtificialPlayer.BotLifeSystem.LifePq.lobbyFor(getChr().getLevel());
+                String pq = getChr().getMapId() == 211042300 || getChr().getMapId() == 211000000 ? "zak"
+                        : lobby == null ? "pq" : lobby.name();
+                BotFullChat(getChr(), "lf " + pq);
+            }
         }
         if (lifeVisit == LifeDecision.Activity.FISH) {
             if (!soloMapling.fishing.FishingPolicy.rewardsEnabled()) { enterPhase(Phase.DECIDE); return; }

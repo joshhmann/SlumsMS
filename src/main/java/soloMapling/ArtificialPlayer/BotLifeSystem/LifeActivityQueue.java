@@ -43,6 +43,27 @@ public final class LifeActivityQueue {
     private boolean closed;
     private End end = End.NONE;
     private Thread startingThread;
+    /** 1.6.0 S8: told once when an active activity ends (outside the lock); see {@link LifeOutcomes}. */
+    private volatile java.util.function.BiConsumer<Activity, End> onEnd;
+    private Activity endedActivity;
+    private End endedHow;
+
+    /** Who hears an activity end (one listener, the bot's brain). */
+    public void onEnd(java.util.function.BiConsumer<Activity, End> listener) { onEnd = listener; }
+
+    private void notifyEnded() {
+        Activity activity;
+        End how;
+        lock.lock();
+        try {
+            activity = endedActivity; how = endedHow;
+            endedActivity = null; endedHow = null;
+        } finally { lock.unlock(); }
+        var listener = onEnd;
+        if (activity != null && listener != null && !lock.isHeldByCurrentThread()) {
+            try { listener.accept(activity, how); } catch (RuntimeException ignored) { /* never break the bot */ }
+        }
+    }
 
     public Request prepare(Result decision, long nowMs, long waitMs) {
         lock.lock();
@@ -120,16 +141,23 @@ public final class LifeActivityQueue {
 
     /** Old completion/cancellation callbacks cannot release a newer activity. */
     public boolean finish(long number, End outcome) {
+        boolean finished = false;
         lock.lock();
         try {
             if (outcome == null || outcome == End.NONE) throw new IllegalArgumentException("missing activity outcome");
             if (number == 0 || number != active) return false;
             ended = active;
             end = outcome;
+            endedActivity = activeActivity;
+            endedHow = outcome;
             active = 0;
             activeActivity = null;
+            finished = true;
             return true;
-        } finally { lock.unlock(); }
+        } finally {
+            lock.unlock();
+            if (finished && !lock.isHeldByCurrentThread()) notifyEnded();
+        }
     }
 
     public boolean cancelWaiting(Request request) {
@@ -163,6 +191,7 @@ public final class LifeActivityQueue {
             waiting = null;
             if (active != 0) finish(active, End.CANCELLED);
         } finally { lock.unlock(); }
+        if (!lock.isHeldByCurrentThread()) notifyEnded();
     }
 
     public State state() {

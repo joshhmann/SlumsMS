@@ -283,6 +283,22 @@ public final class BotRivalry {
      * for {@code ksWarMinutes}, then they all go back. {@code force} (GM / !qa) skips the daily and hourly caps, never
      * {@code @botdrama off}. What happened.
      */
+    /**
+     * 1.6.0 S8: whether a KS war is on this map instance (its player stands on it): bystander bots may change channel
+     * ("cc") to get away from it. Memory-only, a handful of wars at most.
+     */
+    public static boolean ksWarOn(server.maps.MapleMap map) {
+        if (map == null || wars.isEmpty()) {
+            return false;
+        }
+        for (KsWar w : wars.values()) {
+            if (!w.over && w.mapId == map.getId() && map.getCharacterById(w.playerId) != null) {
+                return true;
+            }
+        }
+        return false;
+    }
+
     public static String startKsWar(Character rival, Character player, int n, boolean force) {
         long now = now();
         if (!allowed(player.getId())) {

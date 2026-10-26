@@ -16,8 +16,12 @@ public final class LifeDecision {
     private LifeDecision() {}
 
     public enum Need { SUPPLIES, BAG_SPACE, BOREDOM, SOCIAL, FATIGUE, PROGRESS }
+    /**
+     * The action catalogue. 1.6.0 S8 adds CHANGE_CHANNEL (a crowded map or a KS war: "cc", then the same map on a
+     * quieter channel). Slice S6 appends its initiative actions (INVITE_PQ, greet) after it.
+     */
     public enum Activity { GRIND, MOVE_MAP, RESTOCK, SELL, HANG_OUT, HELP_FRIEND, SHOW_OFF, PARTY_QUEST, FREE_MARKET,
-        BREAK, LOG_OUT, FISH }
+        BREAK, LOG_OUT, FISH, CHANGE_CHANNEL }
     public enum Outcome { CHOOSE, KEEP_CURRENT, HOLD_COMMITMENT, NO_AVAILABLE_OPTION }
 
     public record Needs(Map<Need, Double> values) {
