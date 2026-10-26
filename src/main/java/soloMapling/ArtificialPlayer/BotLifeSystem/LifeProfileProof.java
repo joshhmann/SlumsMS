@@ -50,8 +50,11 @@ public final class LifeProfileProof {
         if (nudged == null && memory.delta().isEmpty()) {
             throw new IllegalStateException(chr.getName() + " has no drift and its daily nudges are used up; pick another bot");
         }
+        double[] drift = memory.drift();
         lines.add("LIFE PROFILE NUDGE event=" + (nudged == null ? "none (daily cap; existing drift)" : nudged.name())
-                + " delta=" + format(memory.delta()));
+                + " delta=" + format(memory.delta()) + String.format(Locale.ROOT,
+                " point=%s plastic=%.2f drift=%+.3f,%+.3f", memory.social().describe(), memory.plasticity(),
+                drift[0], drift[1]));
 
         BotSM brain = CharacterStorage.getBotById(chr.getId());
         boolean realSocial = brain != null && !(brain instanceof TrainingBot);
@@ -87,7 +90,9 @@ public final class LifeProfileProof {
         LifeMemory reloaded = new LifeMemory(chr.getId(), Json.parse(row));
         boolean delta = reloaded.delta().equals(memory.delta());
         boolean profile = reloaded.profile().equals(memory.profile());
-        boolean social = reloaded.social().equals(memory.social()) && reloaded.socialSeed().equals(memory.socialSeed());
+        boolean social = reloaded.social().equals(memory.social()) && reloaded.socialSeed().equals(memory.socialSeed())
+                && reloaded.plasticity() == memory.plasticity()
+                && java.util.Arrays.equals(reloaded.drift(), memory.drift());
         lines.add("LIFE PROFILE RELOAD version=" + LifeMemory.VERSION + " deltaEqual=" + delta + " profileEqual="
                 + profile + " bartleEqual=" + social + " delta=" + format(reloaded.delta()));
         if (!delta || !profile || !social || !reloaded.restored()) {

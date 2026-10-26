@@ -14,7 +14,8 @@ import java.util.Map;
  * 1.6.0 S1: one read model of who a bot is socially. It joins the four personality layers that grew up separately,
  * without changing any of them:
  * <ul>
- *   <li>{@link SocialProfile}: the Bartle blend and leading type (seed plus learned delta, from {@link LifeMemory});</li>
+ *   <li>{@link SocialProfile}: the point on Bartle's chart, its quadrant (leading type) and blend, with the bot's
+ *   plasticity and drift from its seed point (from {@link LifeMemory});</li>
  *   <li>{@link LifeProfile}: the seven daily-life bias channels the brain scores with;</li>
  *   <li>{@link BotPersonality.Traits}: session mix, chattiness and play window (roster row; null before first login);</li>
  *   <li>{@link BotPersona.Persona}: vibe and interests for the chat prompt (roster row; null before first login);</li>
@@ -27,7 +28,7 @@ import java.util.Map;
  * over every bot.
  */
 public record SocialSelf(int characterId, int slot, SocialProfile social, SocialProfile socialSeed,
-                         LifeProfile life, LifeProfile lifeSeed, BotPersonality.Traits traits,
+                         double plasticity, double driftX, double driftY, LifeProfile life, LifeProfile lifeSeed, BotPersonality.Traits traits,
                          BotPersona.Persona persona, ConvoPersona voice) {
 
     /** Who this character is. Works for any character id; non-roster ids get their seeded profile. */
@@ -39,7 +40,9 @@ public record SocialSelf(int characterId, int slot, SocialProfile social, Social
         BotPersonality.Traits traits = member == null ? null : member.traits();
         BotPersona.Persona persona = member == null ? null : member.personaOrNull();
         ConvoPersona voice = ConvoPersona.of(slot, traits == null ? -1 : traits.chattiness());
-        return new SocialSelf(characterId, slot, memory.social(), memory.socialSeed(), memory.profile(),
+        double[] drift = memory.drift();
+        return new SocialSelf(characterId, slot, memory.social(), memory.socialSeed(), memory.plasticity(),
+                drift[0], drift[1], memory.profile(),
                 memory.seed(), traits, persona, voice);
     }
 
@@ -47,7 +50,7 @@ public record SocialSelf(int characterId, int slot, SocialProfile social, Social
         return of(chr.getId());
     }
 
-    /** The leading Bartle type (of the effective blend). */
+    /** The leading Bartle type: the quadrant of the effective point. */
     public SocialProfile.Type leading() {
         return social.leading();
     }
@@ -81,8 +84,9 @@ public record SocialSelf(int characterId, int slot, SocialProfile social, Social
     public List<String> describe() {
         List<String> lines = new ArrayList<>();
         boolean learned = !social.equals(socialSeed) || !life.equals(lifeSeed);
-        lines.add("Bartle " + social.describe() + String.format(Locale.ROOT, "; rival pull %.2f, social pull %.2f",
-                rivalPull(), socialPull()) + (learned ? "; seed " + socialSeed.describe() : "; seed (nothing learned)"));
+        lines.add(String.format(Locale.ROOT, "Bartle %s, plastic %.2f, drift %+.2f,%+.2f from seed (%+.2f,%+.2f)"
+                        + "; rival pull %.2f, social pull %.2f", social.describe(), plasticity, driftX, driftY,
+                socialSeed.x(), socialSeed.y(), rivalPull(), socialPull()));
         lines.add("Life channels " + percent(life.blend()) + (learned ? "; seed " + percent(lifeSeed.blend()) : ""));
         lines.add("Persona " + (persona == null ? "none yet" : persona.vibe() + " / " + persona.interests())
                 + "; voice " + voice.describe()

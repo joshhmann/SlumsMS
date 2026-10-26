@@ -6,10 +6,11 @@ import java.util.*;
  * The small saved part of a bot's daily life: its seeded profile, the bounded drift learned on top of it, its goals
  * and its life events.
  *
- * <p>v2 (1.6.0 S1) keeps the seed and the delta apart: {@code seed} holds the Bartle blend and the seven-channel
- * blend it was seeded with, {@code delta} holds how far life moved each of them (each value within
- * +-{@link SocialProfile#MAX_DELTA}). The effective profile is seed + delta, renormalised, so slice S9's learning
- * can decay back toward the seed. v2 lives in its own table ({@link LifeMemoryStore}, migration 028), not in the
+ * <p>v2 (1.6.0 S1) keeps the seed and the learned change apart. {@code seed.bartle} is the bot's seeded point on
+ * Bartle's chart, its plasticity and its pull-back rate; {@code delta.bartle} is the drift vector (dx, dy) from that
+ * point, never longer than {@code plasticity x 1.2}. {@code seed.blend} / {@code delta.blend} are the seven activity
+ * channels and their own small delta (each within +-{@link #MAX_CHANNEL_DELTA}), for specific likes. The effective
+ * profile is seed + delta, so slice S9's learning can decay back toward the seed. v2 lives in its own table ({@link LifeMemoryStore}, migration 028), not in the
  * roster's {@code ActivityState}, where any non-training session used to overwrite it.
  *
  * <p>v1 (the 1.6.0 sprint shape, a drifted seven-channel blend inside {@code ActivityState.life}) is read once: its
@@ -17,10 +18,20 @@ import java.util.*;
  */
 public final class LifeMemory {
     public static final int VERSION = 2;
-    public enum Event { JOB_ADVANCE, MARRIAGE, GUILD_WAR, BIG_DROP, BOOM }
+    /** How far the seven-channel activity delta may move one channel from its seed. */
+    public static final double MAX_CHANNEL_DELTA = .15;
+    public enum Event {
+        JOB_ADVANCE(SocialProfile.Push.JOB_ADVANCE), MARRIAGE(SocialProfile.Push.MARRIAGE),
+        GUILD_WAR(SocialProfile.Push.GUILD_WAR), BIG_DROP(SocialProfile.Push.BIG_DROP), BOOM(SocialProfile.Push.BOOM);
+
+        /** Which way this event moves the bot on Bartle's chart (the direction table is {@link SocialProfile.Push}). */
+        public final SocialProfile.Push push;
+
+        Event(SocialProfile.Push push) { this.push = push; }
+    }
     private SocialProfile socialSeed;
+    private double plasticity, pullBack, driftX, driftY;
     private LifeProfile seed;
-    private final EnumMap<SocialProfile.Type, Double> socialDelta = new EnumMap<>(SocialProfile.Type.class);
     private final EnumMap<LifeProfile.Archetype, Double> delta = new EnumMap<>(LifeProfile.Archetype.class);
     private SocialProfile social;
     private LifeProfile profile;
@@ -56,8 +67,10 @@ public final class LifeMemory {
 
     private void reset(int characterId) {
         socialSeed = SocialProfile.forCharacter(characterId);
+        plasticity = SocialProfile.plasticityOf(SocialProfile.slotOf(characterId));
+        pullBack = SocialProfile.pullBackOf(plasticity);
+        driftX = 0; driftY = 0;
         seed = LifeProfile.fromSocial(socialSeed, characterId);
-        socialDelta.clear();
         delta.clear();
         social = socialSeed;
         profile = seed;
@@ -71,7 +84,7 @@ public final class LifeMemory {
         new LifeProfile(v1Blend, seed.grindDurationMs(), seed.townDurationMs()); // validates
         for (var type : LifeProfile.Archetype.values()) {
             double moved = v1Blend.get(type) - v1Seed.get(type);
-            if (Math.abs(moved) > 1e-12) delta.put(type, SocialProfile.clampDelta(moved));
+            if (Math.abs(moved) > 1e-12) delta.put(type, clampDelta(moved));
         }
         recompute();
     }
@@ -79,17 +92,29 @@ public final class LifeMemory {
     private void readV2(Map<?, ?> map) {
         if (map.get("seed") instanceof Map<?, ?> seeds) {
             // A stored seed wins over today's formula, so a bot keeps who it is if the seeding ever changes.
-            if (seeds.get("bartle") instanceof Map<?, ?> bartle) socialSeed = new SocialProfile(types(bartle));
+            if (seeds.get("bartle") instanceof Map<?, ?> bartle) {
+                socialSeed = new SocialProfile(((Number) bartle.get("x")).doubleValue(),
+                        ((Number) bartle.get("y")).doubleValue());
+                double p = ((Number) bartle.get("plasticity")).doubleValue();
+                if (!(p >= 0 && p <= 1)) throw new IllegalArgumentException("plasticity");
+                plasticity = p;
+                pullBack = bartle.get("pullBack") instanceof Number n && n.doubleValue() >= 0
+                        ? n.doubleValue() : SocialProfile.pullBackOf(plasticity);
+            }
             if (seeds.get("blend") instanceof Map<?, ?> blend) {
                 seed = new LifeProfile(archetypes(blend), seed.grindDurationMs(), seed.townDurationMs());
             }
         }
         if (map.get("delta") instanceof Map<?, ?> deltas) {
-            if (deltas.get("bartle") instanceof Map<?, ?> bartle) for (var type : SocialProfile.Type.values()) {
-                if (bartle.get(type.name()) instanceof Number n) socialDelta.put(type, SocialProfile.clampDelta(n.doubleValue()));
+            if (deltas.get("bartle") instanceof Map<?, ?> bartle) {
+                driftX = bartle.get("dx") instanceof Number n ? n.doubleValue() : 0;
+                driftY = bartle.get("dy") instanceof Number n ? n.doubleValue() : 0;
+                // Re-cap on load: the stored drift can never take the point past the plasticity radius or the chart.
+                SocialProfile at = socialSeed.drifted(driftX, driftY, plasticity);
+                driftX = at.x() - socialSeed.x(); driftY = at.y() - socialSeed.y();
             }
             if (deltas.get("blend") instanceof Map<?, ?> blend) for (var type : LifeProfile.Archetype.values()) {
-                if (blend.get(type.name()) instanceof Number n) delta.put(type, SocialProfile.clampDelta(n.doubleValue()));
+                if (blend.get(type.name()) instanceof Number n) delta.put(type, clampDelta(n.doubleValue()));
             }
         }
         savedAt = Math.max(0, number(map, "savedAt", 0).longValue());
@@ -122,14 +147,13 @@ public final class LifeMemory {
         return out;
     }
 
-    private static EnumMap<SocialProfile.Type, Double> types(Map<?, ?> weights) {
-        var out = new EnumMap<SocialProfile.Type, Double>(SocialProfile.Type.class);
-        for (var type : SocialProfile.Type.values()) out.put(type, ((Number) weights.get(type.name())).doubleValue());
-        return out;
+    static double clampDelta(Double value) {
+        if (value == null || !Double.isFinite(value)) return 0;
+        return Math.max(-MAX_CHANNEL_DELTA, Math.min(MAX_CHANNEL_DELTA, value));
     }
 
     private void recompute() {
-        social = socialSeed.withDelta(socialDelta);
+        social = socialSeed.drifted(driftX, driftY, plasticity);
         profile = applyDelta(seed, delta);
     }
 
@@ -162,14 +186,28 @@ public final class LifeMemory {
     public synchronized LifeProfile profile() { return profile; }
     /** The seven-channel seed, never changed by drift or learning. */
     public synchronized LifeProfile seed() { return seed; }
-    /** The effective Bartle blend (seed + delta). */
+    /** The effective point on Bartle's chart (seed + drift). */
     public synchronized SocialProfile social() { return social; }
-    /** The Bartle seed, never changed by drift or learning. */
+    /** The seeded point, never changed by drift or learning. */
     public synchronized SocialProfile socialSeed() { return socialSeed; }
-    /** The learned seven-channel delta (each within +-MAX_DELTA); empty when nothing moved. */
+    /** How impressionable this bot is, 0..1: scales every push and the drift radius (plasticity x 1.2). */
+    public synchronized double plasticity() { return plasticity; }
+    /** The pull back toward the seed point per day, for S9 to apply (S1 stores it and does nothing with it). */
+    public synchronized double pullBack() { return pullBack; }
+    /** The drift vector {dx, dy} from the seed point. */
+    public synchronized double[] drift() { return new double[]{driftX, driftY}; }
+    /** The learned seven-channel delta (each within +-MAX_CHANNEL_DELTA); empty when nothing moved. */
     public synchronized Map<LifeProfile.Archetype, Double> delta() { return Map.copyOf(delta); }
-    /** The learned Bartle delta (each within +-MAX_DELTA); S1 never fills it, S9 will. */
-    public synchronized Map<SocialProfile.Type, Double> socialDelta() { return Map.copyOf(socialDelta); }
+
+    /** Moves the point one push along {@code push} (S9's outcome learning calls this too); true when it moved. */
+    public synchronized boolean push(SocialProfile.Push push) {
+        double[] next = socialSeed.push(driftX, driftY, push, plasticity);
+        if (next[0] == driftX && next[1] == driftY) return false;
+        driftX = next[0]; driftY = next[1];
+        social = socialSeed.drifted(driftX, driftY, plasticity);
+        changed();
+        return true;
+    }
     public synchronized List<LifeGoals.Goal> goals() { return goals; }
     public synchronized long lastSocial() { return lastSocial; }
     /** When this memory was last saved (epoch ms, 0 = never or v1); the newer of two copies wins on load. */
@@ -229,10 +267,11 @@ public final class LifeMemory {
         profile.blend().forEach((type, value) -> nudged.put(type, value * .995));
         nudged.merge(target, .005, Double::sum);
         for (var type : LifeProfile.Archetype.values()) {
-            double moved = SocialProfile.clampDelta(nudged.get(type) - seed.blend().get(type));
+            double moved = clampDelta(nudged.get(type) - seed.blend().get(type));
             if (Math.abs(moved) > 1e-12) delta.put(type, moved); else delta.remove(type);
         }
         profile = applyDelta(seed, delta);
+        push(event.push); // and the point on Bartle's chart, scaled by plasticity
         eventAt.put(event, now); changesToday++;
         changed();
         return true;
@@ -244,8 +283,13 @@ public final class LifeMemory {
         Map<String, Object> out = new LinkedHashMap<>();
         out.put("version", VERSION);
         out.put("savedAt", savedAt);
-        out.put("seed", Map.of("bartle", names(socialSeed.blend()), "blend", names(seed.blend())));
-        out.put("delta", Map.of("bartle", names(socialDelta), "blend", names(delta)));
+        Map<String, Double> point = new LinkedHashMap<>();
+        point.put("x", socialSeed.x()); point.put("y", socialSeed.y());
+        point.put("plasticity", plasticity); point.put("pullBack", pullBack);
+        out.put("seed", Map.of("bartle", point, "blend", names(seed.blend())));
+        Map<String, Double> drift = new LinkedHashMap<>();
+        drift.put("dx", driftX); drift.put("dy", driftY);
+        out.put("delta", Map.of("bartle", drift, "blend", names(delta)));
         out.put("goals", goals.stream().map(g -> Map.of("kind", g.kind().name(), "level", g.targetLevel(),
                 "description", g.description(), "pressure", g.pressure())).toList());
         out.put("lastJob", lastJob); out.put("lastSocial", lastSocial);
