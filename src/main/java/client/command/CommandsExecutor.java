@@ -248,6 +248,7 @@ public class CommandsExecutor {
         addCommand("showrates", ShowRatesCommand.class);
         addCommand("rates", RatesCommand.class);
         addCommand("online", OnlineCommand.class);
+        addCommand("weblogin", client.command.commands.gm0.WebLoginCommand.class);   // 1.6.0 website sign-in (off unless -Dslums.weblogin.dir)
         addCommand("gm", GmCommand.class);
         addCommand(new String[]{"bug", "reportbug"}, ReportBugCommand.class);
         addCommand("idea", ReportBugCommand.Idea.class);
