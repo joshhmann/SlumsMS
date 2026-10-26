@@ -40,6 +40,12 @@ public final class AreaLevelBands {
     /** How far under the area's easy maps and over its hard maps a band reaches. */
     public static final int MARGIN = 5;
 
+    /**
+     * Ludibrium's Path of Time maps (Lv63+, they return to Ludi too) have their own deep-hub cohort; the Ludi town
+     * band is built from the maps under this line.
+     */
+    public static final int PATH_OF_TIME_LINE = 60;
+
     private AreaLevelBands() {
     }
 
@@ -76,6 +82,11 @@ public final class AreaLevelBands {
     /** The upper band of an area (its maps at Lv30+), or {@code null} when it has none. */
     public static Band upper(List<GrindMap> areaMaps) {
         return derive(grindLevels(areaMaps, SECOND_JOB, DUMMY_LEVEL - 1), SECOND_JOB, DUMMY_LEVEL);
+    }
+
+    /** The band of an area whose maps all sit above the 2nd-job line but whose deepest zones have their own hub (Ludibrium). */
+    public static Band belowLine(List<GrindMap> areaMaps, int line) {
+        return derive(grindLevels(areaMaps, 1, line - 1), CORE_FLOOR, line);
     }
 
     /**

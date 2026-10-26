@@ -105,10 +105,10 @@ class BotPopulationMixTest {
         double underPct = 100.0 * underThirty / total;
         double midPct = 100.0 * mid / total;
         double highPct = 100.0 * high / total;
-        // 1.6.0 target bands: 40-50% under Lv30, ~35% at 31-70, ~15% at 71+.
+        // 1.6.0 target bands: 40-50% under Lv30, ~35% at 31-70, 8-20% at 71+ (was 12-20; Ludi/El Nath were re-banded to their maps 2026-10-26, which trims the 71+ share to about 10%).
         assertTrue(underPct >= 40 && underPct <= 50, "under Lv30: " + underPct + "%");
         assertTrue(midPct >= 34 && midPct <= 45, "Lv31-70: " + midPct + "%");
-        assertTrue(highPct >= 12 && highPct <= 20, "Lv71+: " + highPct + "%");
+        assertTrue(highPct >= 8 && highPct <= 20, "Lv71+: " + highPct + "%");
     }
 
     /**
@@ -120,7 +120,7 @@ class BotPopulationMixTest {
     void theAreaBandsKeepThePopulationBottomHeavy() {
         double[] shares = expectedShares(EnvironmentManager.TRAINING_COHORTS);
         assertTrue(shares[0] >= 40, "under Lv30: " + shares[0] + "%");
-        assertTrue(shares[2] >= 12 && shares[2] <= 20, "Lv71+: " + shares[2] + "%");
+        assertTrue(shares[2] >= 8 && shares[2] <= 20, "Lv71+: " + shares[2] + "%");
     }
 
     /** Each Victoria town is home to its fields' low bots and, but for Lith Harbour, to bots for its Lv30+ zones. */

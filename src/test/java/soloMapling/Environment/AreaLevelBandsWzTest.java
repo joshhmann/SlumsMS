@@ -43,7 +43,8 @@ class AreaLevelBandsWzTest {
         soloMapling.ArtificialPlayer.BotGrindSystem.LevelPathSweepCheck.preloadMobLevels();
         Set<Integer> named = namedMaps();
         byTown = new HashMap<>();
-        try (Stream<Path> files = Files.list(WzTestData.dir().resolve("Map.wz/Map/Map1"))) {
+        for (String dir : List.of("Map1", "Map2")) {
+        try (Stream<Path> files = Files.list(WzTestData.dir().resolve("Map.wz/Map/" + dir))) {
             for (Path file : (Iterable<Path>) files::iterator) {
                 String name = file.getFileName().toString();
                 if (!name.endsWith(".img.xml")) {
@@ -57,6 +58,7 @@ class AreaLevelBandsWzTest {
                 byTown.computeIfAbsent(MapMobIndex.returnMapId(mapId), k -> new ArrayList<>())
                         .add(new AreaLevelBands.GrindMap(mapId, info.medianLevel(), info.mobCount(), named.contains(mapId)));
             }
+        }
         }
     }
 
@@ -132,13 +134,30 @@ class AreaLevelBandsWzTest {
         assertBand(AreaLevelBands.upper(area(MapId.SLEEPYWOOD)), cohort(EnvironmentManager.COHORT_ANT_TUNNEL_PARK));
     }
 
+    /** Ludibrium: its maps under the Path of Time line (the Lv63+ maps are the deep-hub cohort's). */
+    @Test
+    void ludibrium() {
+        assertBand(AreaLevelBands.belowLine(area(MapId.LUDIBRIUM), AreaLevelBands.PATH_OF_TIME_LINE),
+                cohort(EnvironmentManager.COHORT_LUDIBRIUM));
+        assertEquals(EnvironmentManager.TRAINING_COHORTS.get(EnvironmentManager.COHORT_PATH_OF_TIME).loLevel() >= AreaLevelBands.PATH_OF_TIME_LINE, true);
+    }
+
+    /** El Nath: every grind map that returns to it (Ice Valley, the Sharp Cliff approaches, the cloud maps). */
+    @Test
+    void elNath() {
+        assertBand(AreaLevelBands.upper(area(MapId.EL_NATH)), cohort(EnvironmentManager.COHORT_EL_NATH));
+    }
+
     /** Prints every Victoria area's grind maps and bands: the worksheet behind the constants. */
     @Test
     void printTheWorksheet() {
         area(MapId.HENESYS);
         for (int town : List.of(MapId.LITH_HARBOUR, MapId.HENESYS, MapId.KERNING_CITY, MapId.PERION, MapId.ELLINIA,
-                MapId.SLEEPYWOOD)) {
+                MapId.SLEEPYWOOD, MapId.LUDIBRIUM, MapId.EL_NATH, MapId.ORBIS, MapId.PATH_OF_TIME_HUB)) {
             List<AreaLevelBands.GrindMap> maps = byTown.get(town);
+            if (maps == null) {
+                continue;
+            }
             System.out.println("[AreaLevelBands] " + town + " core " + AreaLevelBands.core(maps) + " upper "
                     + AreaLevelBands.upper(maps) + " levels " + AreaLevelBands.grindLevels(maps, 1, 199).stream().sorted().toList());
         }
