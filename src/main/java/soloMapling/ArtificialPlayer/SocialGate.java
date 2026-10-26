@@ -806,6 +806,7 @@ public final class SocialGate {
     static void reloadForTest() {
         ledger.clear();
         romanceOff.clear();
+        touchedBeforeLoad.clear();
         BotNoiseFilter.forgetAllForTest();
         loaded = false;
         loadTriedAt = 0;

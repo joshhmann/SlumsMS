@@ -14,22 +14,24 @@ import static org.mockito.Mockito.*;
 class BotWhispersTest {
     @AfterEach void cleanup() {
         BotWhispers.resetForTest();
+        SocialGate.resetForTest();
         System.clearProperty("solomapling.chat.whisperPlayerGapMs");
     }
 
+    // 1.6.0 S5 busy-server budget: one unsolicited whisper per player per 200 s (1.5.x: 600 s)
     @Test void allBotsShareOneRecipientBudgetAndBoundary() {
         assertTrue(BotWhispers.take(1, false, 1000));
-        assertFalse(BotWhispers.take(1, false, 600_999));
-        assertTrue(BotWhispers.take(2, false, 600_999));
-        assertTrue(BotWhispers.take(1, false, 601_000));
+        assertFalse(BotWhispers.take(1, false, 200_999));
+        assertTrue(BotWhispers.take(2, false, 200_999));
+        assertTrue(BotWhispers.take(1, false, 201_000));
     }
 
     @Test void repliesDoNotConsumeOrResetUnsolicitedBudget() {
         assertTrue(BotWhispers.take(1, true, 1000));
         assertTrue(BotWhispers.take(1, false, 1000));
-        assertTrue(BotWhispers.take(1, true, 600_999));
-        assertFalse(BotWhispers.take(1, false, 600_999));
-        assertTrue(BotWhispers.take(1, false, 601_000));
+        assertTrue(BotWhispers.take(1, true, 200_999));
+        assertFalse(BotWhispers.take(1, false, 200_999));
+        assertTrue(BotWhispers.take(1, false, 201_000));
     }
 
     @Test void concurrentBotsCannotRacePastTheCap() throws Exception {
