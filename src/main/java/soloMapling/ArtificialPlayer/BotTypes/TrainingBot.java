@@ -1108,6 +1108,9 @@ public class TrainingBot extends BotSM implements soloMapling.ArtificialPlayer.B
             crowdHopsThisEpisode = 0; // back home -> fresh outing, reset the crowd-migration budget
             yieldHopsThisEpisode = 0;
             SupplyNeeds needs = BotSupplies.arriveInTown(getChr()); // real bots 08: rest to full, see what it needs
+            // 1.6.0 owner report (CapeLover): sell the junk out of a filling bag at the town's store, as a player
+            // would, so the next grind has room for its drops.
+            soloMapling.ArtificialPlayer.BotSupplySystem.BotBagRoom.sellJunk(getChr());
             buildShopPlan();
             // Ticket 09: a bot short of potions or ammo walks to a shop in town that sells them and buys there -
             // on this map right away, or as the first store of the itinerary.
@@ -1636,6 +1639,9 @@ public class TrainingBot extends BotSM implements soloMapling.ArtificialPlayer.B
         if (supplyRetreat(chr)) {
             return; // out of supplies: headed to town (real bots 08)
         }
+        if (bagRetreat(chr)) {
+            return; // 1.6.0: equip/etc tab nearly full: town to sell junk, instead of leaving its drops on the floor
+        }
 
         // Announce a level-up the moment it becomes visible (real kills on an observed map).
         int lvl = chr.getLevel();
@@ -1967,6 +1973,36 @@ public class TrainingBot extends BotSM implements soloMapling.ArtificialPlayer.B
         enterPhase(Phase.GO_TOWN);
         soloMapling.ArtificialPlayer.BotConvo.SayDo.event(chr, soloMapling.ArtificialPlayer.BotConvo.SayDo.Ev.RESUPPLY,
                 homeMapId);
+        return true;
+    }
+
+    // 1.6.0 owner report 2026-10-26: a bot whose equip or etc tab is nearly full can no longer take those drops, so
+    // they pile up under it. Like a player with a full bag it heads to town, where the town stop sells its junk
+    // (BotBagRoom.sellJunk). At most once per BAG_RETREAT_COOLDOWN_MS, so a bag of keepers cannot loop it.
+    static final long BAG_RETREAT_COOLDOWN_MS = 15 * 60_000L;
+    private long lastBagRetreatMs = Long.MIN_VALUE;
+
+    static boolean bagRetreatDue(boolean nearlyFull, boolean recruiting, long nowMs, long lastRetreatMs) {
+        return nearlyFull && !recruiting
+                && (lastRetreatMs == Long.MIN_VALUE || nowMs - lastRetreatMs >= BAG_RETREAT_COOLDOWN_MS);
+    }
+
+    private boolean bagRetreat(Character chr) {
+        long nowMs = now();
+        if (!soloMapling.ArtificialPlayer.BotSupplySystem.BotBagRoom.saleEnabled()
+                || !bagRetreatDue(soloMapling.ArtificialPlayer.BotSupplySystem.BotBagRoom.nearlyFull(chr),
+                recruitingNow(), nowMs, lastBagRetreatMs)) {
+            return false;
+        }
+        lastBagRetreatMs = nowMs;
+        debugChat("bag nearly full -> town to sell junk");
+        if (soloMapling.qa.QaLog.on(soloMapling.qa.QaLog.Topic.HABITS)) {
+            soloMapling.qa.QaLog.map(soloMapling.qa.QaLog.Topic.HABITS, chr.getMapId(), "BAG " + chr.getName()
+                    + " has a nearly full bag -> heads to town to sell junk");
+        }
+        sayContext("MapTransition", chr, null);
+        leaveGrind();
+        enterPhase(Phase.GO_TOWN);
         return true;
     }
 

@@ -180,6 +180,8 @@ public class BotGeneration {
             }
             BotRoster.recordLogin(botId, System.currentTimeMillis(), map.getId(), placeMap.getId(), placePos);
         }
+        // 1.6.0: a population bot carries a bigger bag than a player's 24 slots (no client to desync): see BotBagRoom.
+        soloMapling.ArtificialPlayer.BotSupplySystem.BotBagRoom.widen(bot);
         addBotToServer(bot, client);
         BotBuddies.onBotLogin(bot); // ticket 49: its player buddies see it online; requests made while away are answered
         soloMapling.ArtificialPlayer.BotGuildSystem.BotGuilds.onBotLogin(bot); // 1.5.0: its guild, before it shows on the map
