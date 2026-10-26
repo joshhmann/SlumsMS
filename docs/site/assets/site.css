@@ -49,6 +49,8 @@ img.px { image-rendering: pixelated; }
 .accents button { width: 22px; height: 22px; border-radius: 50%; border: var(--border) solid var(--edge); cursor: pointer; padding: 0; }
 .accents button[aria-pressed="true"] { box-shadow: 0 0 0 2px var(--surface), 0 0 0 4px var(--ink); }
 .sw.green { background: #3cbf4a; } .sw.blue { background: #3d4bff; } .sw.orange { background: #ff5a1f; }
+.sw.slumschan { background: linear-gradient(135deg, #2a2f6e 50%, #f07a1e 50%); }
+.accents button[hidden] { display: none; }
 
 /* signature: the megaphone rail, a slow scroll of the latest news like an in-game megaphone */
 .rail { background: var(--rail); color: var(--on-rail); display: flex; overflow: hidden; border-bottom: var(--border) solid var(--edge); }
@@ -131,6 +133,7 @@ main { padding-block: 8px 48px; }
   position: relative; z-index: 0; }
 .hero-rotor > img { grid-area: 1 / 1; opacity: 0; visibility: hidden; transition: opacity .9s, visibility .9s; }
 .hero-rotor > .is-on { opacity: 1; visibility: visible; }
+.hero-rotor > img.secret-pic { width: auto; height: 320px; }  /* the theme's taller secrets keep the hero height */
 .mascot { width: min(320px, 100%); height: auto; filter: drop-shadow(4px 4px 0 var(--drop)); }
 @media (prefers-reduced-motion: reduce) { .hero-rotor > img { transition: none; } }
 /* Slums-chan beside a page's heading: floats right, the text wraps around her */
@@ -327,7 +330,7 @@ table.t { width: 100%; border-collapse: collapse; }
   .brand { font-size: 1.15rem; gap: 6px; }
   .brand img { height: 40px; }
   .hero-rotor { width: min(300px, 100%); margin-bottom: -30px; }
-  .mascot { width: 220px; }
+  .mascot { width: 220px; } .hero-rotor > img.secret-pic { width: auto; height: 220px; }
   .accents { margin-left: auto; gap: 4px; }
   .accents button { width: 18px; height: 18px; }
   .theme button { padding: 4px 7px; font-size: .72rem; }

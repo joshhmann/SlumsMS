@@ -14,7 +14,8 @@ code **in game**.
 4. The page polls `GET /api/login/poll` every 3 s. When the approval is there, the service deletes it (a code works
    once) and sets a signed session cookie for 30 days, HttpOnly, SameSite=Lax, Secure.
 5. nginx asks `GET /api/auth/check` before serving `/database/` and `/market/`; anyone not signed in is sent to
-   `/login/?next=...`.
+   `/login/?next=...`. `/secret/` (the hidden Slums-chan stickers, theme.js) is checked the same way and simply
+   answers 401 when not signed in.
 
 Sessions are HMAC-SHA256 signed with `/etc/slums-login/key` and nothing about them is stored on the server. Signing
 someone out early: put their account id in `/var/lib/slums-login/revoked.txt` (one per line). The game server can

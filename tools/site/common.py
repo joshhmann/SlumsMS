@@ -29,9 +29,11 @@ RAIL = []  # filled by build(): list of (html, href or None) for the current bui
 # Applies a saved light/dark and accent choice before the page paints, so a reload never flashes the wrong look.
 THEME_BOOT = ('<script>try{var d=document.documentElement,t=localStorage.getItem("slums-theme"),'
               'a=localStorage.getItem("slums-accent");if(t==="light"||t==="dark")d.setAttribute("data-theme",t);'
-              'if(a==="blue"||a==="orange")d.setAttribute("data-accent",a)}catch(e){}</script>')
+              'if(a==="blue"||a==="orange"||a==="slumschan")d.setAttribute("data-accent",a)}catch(e){}</script>')
 
 ACCENTS = [("green", "Henesys green"), ("blue", "Ultramarine"), ("orange", "Maple orange")]
+# Unlocked by finding all three secrets (theme.js); its button stays hidden until then.
+SECRET_ACCENT = ("slumschan", "Slums-chan")
 
 
 def rail_html(root):
@@ -83,7 +85,7 @@ def layout(title, body, root, section, description="", base=""):
   <nav class="site-nav" aria-label="Site">{links}</nav>
   <div class="theme" role="group" aria-label="Colour theme" data-theme-switch hidden><button type="button" data-theme-btn="system">Auto</button><button type="button" data-theme-btn="light">Light</button><button type="button" data-theme-btn="dark">Dark</button></div>
   <div class="accents" role="group" aria-label="Accent colour" data-accent-switch hidden>{"".join(
-      f'<button type="button" class="sw {k}" data-accent-btn="{k}" aria-label="{n}" title="{n}"></button>' for k, n in ACCENTS)}</div>
+      f'<button type="button" class="sw {k}" data-accent-btn="{k}" aria-label="{n}" title="{n}"></button>' for k, n in ACCENTS)}<button type="button" class="sw {SECRET_ACCENT[0]}" data-accent-btn="{SECRET_ACCENT[0]}" aria-label="{SECRET_ACCENT[1]}" title="{SECRET_ACCENT[1]}" hidden></button></div>
 </div></header>
 {rail_html(root)}
 <main id="main">

@@ -8,7 +8,7 @@
    string, because 164 is also an ordinary number in game data (monster levels, item and map ids).
 2. Links: every relative href/src must point at a file in the output, and every #fragment at an id on that page.
 3. No external requests: no http(s) URLs at all, so there are no trackers, CDNs or remote fonts.
-4. Private sections: a public build has no database/ or market/ pages and no links to them.
+4. Private sections: a public build has no database/, market/ or secret/ files and no links to them.
 5. Friends only: robots.txt disallows everything and every page carries a noindex robots tag.
 Exit status 1 if anything is found.
 """
@@ -163,7 +163,7 @@ def check_links(root):
 
 
 # Sections that stay private until 1.6.0 is live. A public build must not contain them or link to them.
-PRIVATE_SECTIONS = ["database", "market"]
+PRIVATE_SECTIONS = ["database", "market", "secret"]
 
 
 def check_private(root):

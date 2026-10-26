@@ -17,6 +17,7 @@ Sources (docs/site/):
     home.html                 the home page body; {{latest_*}} is filled from the newest release
     releases/<version>.md     one file per release: front matter, then simple markdown (see below)
     assets/                   copied as-is (tokens.css, site.css, theme.js, fonts/, leaf.svg)
+    secret/                   the hidden Slums-chan stickers; private builds only (signed in, theme.js)
     guide-overrides/<p>.html  replaces a wiki page's body on the public site
     guide-fixes.json          small text fixes for the wiki copy (each must still match, or the build stops)
 The guide is a copy of the generated player wiki (docs/wiki/*.html, built by docs/wiki/build.py), restyled, with
@@ -63,8 +64,10 @@ MARKET_DATA = None  # --market-data: the server's market export (default: sectio
 SITE_DATA = None  # --site-data: the server's site export, Server/data/site (default: sections/world.py DEFAULT_DIR)
 
 
-def copy_assets(out):
+def copy_assets(out, private=False):
     shutil.copytree(os.path.join(SRC, "assets"), os.path.join(out, "assets"), dirs_exist_ok=True)
+    if private:  # the secret stickers: signed-in players only (nginx asks the login service, like database/)
+        shutil.copytree(os.path.join(SRC, "secret"), os.path.join(out, "secret"), dirs_exist_ok=True)
     # friends only: search engines are asked to stay out (owner, 2026-10-26); every page also says noindex
     shutil.copyfile(os.path.join(SRC, "robots.txt"), os.path.join(out, "robots.txt"))
 
@@ -118,7 +121,7 @@ def build(out, tar_path=None, private=False, live=False):
     if os.path.isdir(out):
         shutil.rmtree(out)
     os.makedirs(out)
-    copy_assets(out)
+    copy_assets(out, private)
     rels = notes.releases()
     set_context(rels, sections)
     results = {name: build_section(name, out, rels) for name in sections}
@@ -132,7 +135,7 @@ def rebuild_section(name, out, private=False, live=False):
         raise SystemExit(f"{out} has no full build yet; run a full build first")
     rels = notes.releases()
     set_context(rels, sections_for(private, live or name == "world"))
-    copy_assets(out)
+    copy_assets(out, private)
     folder = {"notes": "patch-notes", "guide": "guide", "database": "database", "market": "market",
               "world": "world"}.get(name)
     if not folder:  # pages: a few single files, written in place

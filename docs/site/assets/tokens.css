@@ -2,7 +2,8 @@
    uses the variables. Three theme states: no data-theme follows the system setting, and data-theme="light" or
    "dark" (set by the header toggle) overrides it. The dark palette is repeated in the two dark blocks on purpose.
    Accent: Henesys green unless the player picks data-accent="blue" or "orange" in the header (owner, 2026-10-26;
-   confirmed again after the orange-and-navy Slums-chan art arrived: green stays the default).
+   confirmed again after the orange-and-navy Slums-chan art arrived: green stays the default). data-accent="slumschan"
+   (her navy and orange) unlocks once a player has found all three secrets (theme.js).
    Each accent block comes after the theme blocks; its dark selectors are more specific, so they win in dark mode. */
 
 @font-face { font-family: "Bricolage Grotesque"; src: url("fonts/bricolage-grotesque.woff2") format("woff2");
@@ -100,4 +101,17 @@
 :root[data-accent="orange"][data-theme="dark"] {
   --accent: #ff7a3d; --accent-ink: #ff9a6b; --on-accent: #0d0e12; --leaf: #ff7a3d; --leaf-vein: #9a3412;
   --bar-a: #b35420; --bar-b: #843a12; --on-bar: #fff1e6; --bar-shade: #3a1806;
+}
+/* Slums-chan: navy bars and her hair's orange. Unlocked by the secrets. */
+:root[data-accent="slumschan"] {
+  --accent: #f07a1e; --accent-ink: #b5520c; --on-accent: #15120f; --leaf: #f07a1e; --leaf-vein: #2a2f6e;
+  --bar-a: #3a4290; --bar-b: #252a66; --on-bar: #fff3e6; --bar-shade: #14173d;
+}
+@media (prefers-color-scheme: dark) { :root[data-accent="slumschan"]:not([data-theme="light"]) {
+  --accent: #ff8f3d; --accent-ink: #ffab70; --on-accent: #0d0e12; --leaf: #ff8f3d; --leaf-vein: #2a2f6e;
+  --bar-a: #2e3580; --bar-b: #1d2158; --on-bar: #fff1e6; --bar-shade: #0c0e2a;
+} }
+:root[data-accent="slumschan"][data-theme="dark"] {
+  --accent: #ff8f3d; --accent-ink: #ffab70; --on-accent: #0d0e12; --leaf: #ff8f3d; --leaf-vein: #2a2f6e;
+  --bar-a: #2e3580; --bar-b: #1d2158; --on-bar: #fff1e6; --bar-shade: #0c0e2a;
 }
