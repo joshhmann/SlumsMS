@@ -120,6 +120,9 @@ public final class BotRecognition {
             return false;
         }
         boolean talking = BotConversation.isTalking(bot.getChr().getId(), player.getId());
+        if (!talking && SocialInitiative.followUpOnSight(bot, player)) {
+            return true; // 1.6.0 S6: a day later it asks about what they were after ("did u ever get that zhelm?")
+        }
         if (!shouldGreetOnSight(notes, wary, talking, lastGreetOnSight.getOrDefault(pair, 0L), now,
                 ThreadLocalRandom.current().nextDouble())) {
             return false;

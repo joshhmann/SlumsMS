@@ -414,6 +414,7 @@ public final class PlayerLoggedinHandler extends AbstractPacketHandler {
             showDueyNotification(c, player);
             DailyCheckin.onLogin(c);
             soloMapling.menus.GuideMenu.onLogin(player); // 1.5.0: the beginner's guide, once per character
+            if (newcomer) soloMapling.ArtificialPlayer.SocialInitiative.onPlayerLogin(player); // 1.6.0 S6: friends say hi
 
             player.resetPlayerRates();
             if (YamlConfig.config.server.USE_ADD_RATES_BY_LEVEL) {

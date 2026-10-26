@@ -821,6 +821,10 @@ public class TrainingBot extends BotSM implements soloMapling.ArtificialPlayer.B
             }
             case CHANGE_CHANNEL -> dailyLife.channelTarget() > 0
                     && soloMapling.ArtificialPlayer.BotLifeSystem.LifeChannelMove.why(getChr(), false, at) == null;
+            // 1.6.0 S6: standing in a PQ lobby with a real player of the band at hand (SocialInitiative.pqTarget)
+            case INVITE_PQ -> phase == Phase.LIFE_DWELL && lifeVisit == LifeDecision.Activity.PARTY_QUEST
+                    && soloMapling.ArtificialPlayer.SocialInitiative.pqTarget(getChr(), at) != null;
+            case INVITE_GUILD -> false; // 1.6.0 S6: event-driven (after a login hello), never the scorer's pick
             case LOG_OUT -> {
                 var member = BotRoster.loadedMember(getChr().getId() - soloMapling.ArtificialPlayer.BotStore.BOT_ID_BASE);
                 if (member == null || member.lastLoginAt() <= 0 || member.sessionMinutes() <= 0
@@ -854,6 +858,7 @@ public class TrainingBot extends BotSM implements soloMapling.ArtificialPlayer.B
             return soloMapling.ArtificialPlayer.BotPopulationDirector.logOut(getChr().getId()
                     - soloMapling.ArtificialPlayer.BotStore.BOT_ID_BASE);
         }
+        if (activity == LifeDecision.Activity.INVITE_PQ) return invitePqNow(at);
         lifePqTrip = false;
         if (activity == LifeDecision.Activity.CHANGE_CHANNEL) return changeChannelNow(at);
         if (activity == LifeDecision.Activity.PARTY_QUEST && dailyLife.friend(at) != null) {
@@ -928,6 +933,24 @@ public class TrainingBot extends BotSM implements soloMapling.ArtificialPlayer.B
         return true;
     }
 
+    /**
+     * 1.6.0 S6: INVITE_PQ chosen by the brain: the invite goes out now, and the activity ends when the player answers
+     * (COMPLETED when they joined, CANCELLED otherwise), so its one outcome is the real answer. The lobby stay keeps
+     * its trip; the usual path is {@link soloMapling.ArtificialPlayer.SocialInitiative#lobbyTick} from the dwell.
+     */
+    private boolean invitePqNow(long at) {
+        Character target = soloMapling.ArtificialPlayer.SocialInitiative.pqTarget(getChr(), at);
+        if (target == null) return false;
+        boolean sent = soloMapling.ArtificialPlayer.SocialInitiative.invitePq(getChr(), target, at, (ok, why) -> {
+            var state = lifeActivities.state();
+            if (state.active() != 0 && state.activity() == LifeDecision.Activity.INVITE_PQ) {
+                lifeActivities.finish(state.active(), ok ? LifeActivityQueue.End.COMPLETED : LifeActivityQueue.End.CANCELLED);
+            }
+        });
+        if (sent) lifeNote("START activity=INVITE_PQ player=" + target.getName());
+        return sent;
+    }
+
     /** A chosen friend interrupt ends the exact old dwell before another request can start. */
     public boolean interruptLifeDwell(long requestNumber) {
         return phase == Phase.LIFE_DWELL && lifeActivities.finish(requestNumber, LifeActivityQueue.End.CANCELLED);
@@ -980,6 +1003,9 @@ public class TrainingBot extends BotSM implements soloMapling.ArtificialPlayer.B
                 lifeNote("FISHING_SEATED");
             }
         } else soloMapling.ArtificialPlayer.BotTownSystem.PersonalSpace.maybeKeep(getChr());
+        if (lifeVisit == LifeDecision.Activity.PARTY_QUEST) {
+            soloMapling.ArtificialPlayer.SocialInitiative.lobbyTick(this, now()); // 1.6.0 S6: "lf kpq? u in"
+        }
         if (now() >= phaseDeadlineMs && freeForAutomaticLifeActivity(now())) enterPhase(Phase.DECIDE);
     }
 
