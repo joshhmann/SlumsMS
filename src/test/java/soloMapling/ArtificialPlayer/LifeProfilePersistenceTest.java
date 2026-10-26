@@ -283,6 +283,22 @@ class LifeProfilePersistenceTest {
     }
 
     @Test
+    void aBotThatLearnedNothingWritesNoProfileAnywhereAsOnLiveWithTheBrainOff() {
+        for (boolean table : new boolean[]{true, false}) {
+            FakeDb db = trainedBot();
+            db.roster.get(SLOT).put("ActivityState", Json.write(Map.of(BotRoster.TRAIN_STATE, 104040000)));
+            db.lifeTable = table;
+            db.boot();
+            assertTrue(LifeMemoryStore.of(CHAR_ID).pristine(), "TrainingBot asks for its memory at spawn");
+            client.Character chr = socialSession();
+            assertEquals(1, BotRoster.recordSessions(List.of(chr), 10_000L, true));
+            assertEquals(0, db.lifeWrites);
+            assertTrue(db.life.isEmpty());
+            assertNull(db.roster.get(SLOT).get("ActivityState"), "the social snapshot as before, nothing added");
+        }
+    }
+
+    @Test
     void migration028IsGuardedLedgeredAndHasARollback() throws Exception {
         Path dir = Path.of("database/migrations");
         String sql = Files.readString(dir.resolve("028-bot-life-profile.sql"));

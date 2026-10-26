@@ -29,7 +29,7 @@ public final class LifeMemory {
     private long driftDay = -1, lastSocial, savedAt;
     private int changesToday;
     private final EnumMap<Event, Long> eventAt = new EnumMap<>(Event.class);
-    private boolean restored, migrated, dirty;
+    private boolean restored, migrated, dirty, touched;
 
     public LifeMemory(int characterId, Object saved) {
         reset(characterId);
@@ -182,12 +182,12 @@ public final class LifeMemory {
     public synchronized boolean dirty() { return dirty; }
 
     public synchronized void talked(long now) {
-        if (now > lastSocial) { lastSocial = now; dirty = true; }
+        if (now > lastSocial) { lastSocial = now; changed(); }
     }
 
     public synchronized void refresh(int level, int job, OptionalInt weaponLevel, long now) {
         if (lastJob >= 0 && lastJob != job) event(Event.JOB_ADVANCE, now);
-        if (lastJob != job) dirty = true;
+        if (lastJob != job) changed();
         lastJob = job;
         var seeded = LifeGoals.seed(level, job, weaponLevel);
         List<LifeGoals.Goal> pending = new ArrayList<>();
@@ -207,7 +207,7 @@ public final class LifeMemory {
                 g.kind() == LifeGoals.Kind.JOB_ADVANCE ? Math.min(1, level / (double) g.targetLevel())
                 : g.kind() == LifeGoals.Kind.WEAPON_UPGRADE && weaponLevel.isPresent()
                 ? Math.max(0, Math.min(1, (g.targetLevel() - weaponLevel.getAsInt()) / 30.0)) : g.pressure())).toList();
-        if (!next.equals(goals)) dirty = true;
+        if (!next.equals(goals)) changed();
         goals = next;
     }
 
@@ -234,7 +234,7 @@ public final class LifeMemory {
         }
         profile = applyDelta(seed, delta);
         eventAt.put(event, now); changesToday++;
-        dirty = true;
+        changed();
         return true;
     }
 
@@ -268,7 +268,12 @@ public final class LifeMemory {
         return save(now);
     }
 
-    public synchronized void markDirty() { dirty = true; }
+    public synchronized void markDirty() { changed(); }
+
+    private void changed() { dirty = true; touched = true; }
+
+    /** Nothing saved and nothing changed this run: the plain seed, which needs no row anywhere. */
+    public synchronized boolean pristine() { return !restored && !touched; }
 
     private static <E extends Enum<E>> Map<String, Double> names(Map<E, Double> values) {
         Map<String, Double> out = new LinkedHashMap<>();

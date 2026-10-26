@@ -182,6 +182,9 @@ public final class LifeMemoryStore {
             }
             memory = of(characterId);
         }
+        if (memory.pristine()) {
+            return null; // the plain seed: no row, no ActivityState copy (live runs with the brain off)
+        }
         return new Pending(characterId - BotStore.BOT_ID_BASE, memory, memory.takeDirty(now));
     }
 
