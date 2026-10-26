@@ -90,15 +90,15 @@ class Site:
         return f"{root}{DB}/{kind}/{ident}.html"
 
     def icon(self, kind, ident, root, big=False, cls="slotc"):
-        if str(ident) in self.icons.get(kind, ()):
+        if ident in self.d[kind] and str(ident) in self.icons.get(kind, ()):  # icons are copied for kept entities only
             return (f'<span class="{cls}{" big" if big else ""}"><img class="px" src="{root}{DB}/icons/{kind}/{ident}.png" '
                     f'alt="" loading="lazy"></span>')
         return f'<span class="{cls}{" big" if big else ""}"></span>'
 
     def link(self, kind, ident, root, name=None):
         rec = self.d[kind].get(ident)
-        if rec is None:
-            return esc(name or str(ident))
+        if rec is None:  # not in the database (unreachable or left out): the plain name, in the site's own words
+            return esc(scrub(name or str(ident)))
         return f'<a href="{self.url(kind, ident, root)}">{esc(rec["name"])}</a>'
 
     def sidebar(self, root, here):
@@ -130,6 +130,14 @@ class Site:
                 f'<p class="crumbs">{trail}</p>{body.replace("{root}", root)}</div></div>'
                 f'<script src="{root}assets/dbsearch.js" defer></script>')
         write(self.out, rel, layout(title, html, root, "database", description))
+
+
+def scrub(text):
+    """Item text in the site's own words: the game is Slums Story, and the official names never appear."""
+    for old, new in (("Nexon Game Card", "NX Card"), ("MapleStory", "Slums Story"), ("Maple Story", "Slums Story"),
+                     ("Nexon", "the game"), ("Wizet", "GM")):
+        text = text.replace(old, new).replace(old.lower(), new).replace(old.upper(), new)
+    return text
 
 
 def kv_table(rows):
@@ -220,7 +228,7 @@ def build_items(s):
         slug_, label = TYPE_PAGE.get(it["type"], ("etc", it["type"]))
         head = (f'<div class="ent">{s.icon("items", ident, "{root}", big=True)}<div><h1>{esc(it["name"])}</h1>'
                 f'<p class="id">Item {ident} &middot; {esc(item_kind(it, ident))}</p></div></div>')
-        desc = (it.get("desc") or "").replace("\\n", " ").strip()
+        desc = scrub((it.get("desc") or "").replace("\\n", " ").strip())
         intro = f'<p class="desc">{esc(desc)}</p>' if desc else ""
         drops = sorted(it["drops"], key=lambda x: -x.get("chance", 0))
         drop_rows = [[td(s.icon("mobs", x["mob_id"], "{root}")), td(s.link("mobs", x["mob_id"], "{root}")),

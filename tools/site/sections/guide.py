@@ -54,6 +54,25 @@ def wiki_body(text, name):
     return html.unescape(t.group(1)), m.group(1)
 
 
+# The public site names the game "Slums Story" and never MapleStory, Nexon or the client version (owner, 2026-10-26;
+# check.py enforces it). Applied to the guide copy in order, after guide-fixes.json; the wiki keeps its own wording.
+PUBLIC_WORDING = [
+    ("small, friends-only MapleStory v83 world", "small, friends-only Slums Story world"),
+    ("The old v83 Free Market", "The old Free Market"),
+    ("MapleStory v83", "Slums Story"), ("GMS v83", "the original game"), ("post-v83", "newer"),
+    ("from GMS", "from the original game"), ("than GMS", "than the original game"), ("in GMS", "in the original game"),
+    ("GMS", "the original game"),
+    ("as they did in v83", "as they did in the original game"), ("than in v83", "than in the original game"),
+    ("The client is v83", "The client is the classic one"), ("v83", "classic"), ("MapleStory", "Slums Story"),
+]
+
+
+def public_wording(body):
+    for old, new in PUBLIC_WORDING:
+        body = body.replace(old, new)
+    return body
+
+
 def wiki_nav(text):
     nav = re.search(r'<nav class="side">(.*?)</nav>', text, re.S)
     return re.findall(r'<a href="([\w.-]+\.html)"[^>]*>(.*?)</a>', nav.group(1)) if nav else []
@@ -96,7 +115,7 @@ def build(out, data_dir=None):
             body = meta_comment(read(ov))[1]
         for s in skip:  # links to skipped pages: the changelog is the patch notes now
             body = body.replace(f'href="{s}"', 'href="../patch-notes/"')
-        body = clean_wiki(body)
+        body = public_wording(clean_wiki(body))
         if cross:
             body = link_cells(body, cross)
         links = "".join(f'<li><a href="{f}"{" aria-current=page" if f == name else ""}>{icon(f, "../")}'

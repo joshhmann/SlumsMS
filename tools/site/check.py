@@ -8,7 +8,8 @@
    string, because 164 is also an ordinary number in game data (monster levels, item and map ids).
 2. Links: every relative href/src must point at a file in the output, and every #fragment at an id on that page.
 3. No external requests: no http(s) URLs at all, so there are no trackers, CDNs or remote fonts.
-4. Private sections: a public build has no database/ or market/ pages and no links to them (until 1.6.0 is live).
+4. Private sections: a public build has no database/ or market/ pages and no links to them.
+5. Friends only: robots.txt disallows everything and every page carries a noindex robots tag.
 Exit status 1 if anything is found.
 """
 import os
@@ -23,6 +24,8 @@ FORBIDDEN = [
     # extras: other private addresses, paths and leftovers from the internal wiki
     "slums-patch", "slumsms.asslorde.com", ":8485", ":3309", "/opt/", "/srv/", "/root/", "/etc/", "cloud-llm",
     "claude.ai/artifact", "owner check", 'class="owner"', "test server", "test-server",
+    # the public site calls the game Slums Story (owner, 2026-10-26)
+    "maplestory", "maple story", "nexon", "v83", "wizet",
 ]
 
 # The server host "164": as the last part of an address (.164) or named as a machine ("on 164", "164 box").
@@ -167,8 +170,26 @@ def check_private(root):
     return problems
 
 
+NOINDEX = '<meta name="robots" content="noindex'
+
+
+def check_noindex(root):
+    """The site is friends only: robots.txt turns crawlers away and every page says noindex."""
+    problems = []
+    robots = os.path.join(root, "robots.txt")
+    if not os.path.isfile(robots) or "Disallow: /" not in open(robots, encoding="utf-8").read().splitlines():
+        problems.append("robots.txt: missing, or doesn't say 'Disallow: /'")
+    for rel, path in iter_files(root):
+        if rel.endswith(".html"):
+            with open(path, encoding="utf-8") as f:
+                if NOINDEX not in f.read(4096):
+                    problems.append(f"{rel}: no noindex robots tag in <head>")
+    return problems
+
+
 def check_all(root, private=False):
-    return check_forbidden(root) + check_links(root) + ([] if private else check_private(root))
+    return (check_forbidden(root) + check_links(root) + check_noindex(root) +
+            ([] if private else check_private(root)))
 
 
 def main(argv):

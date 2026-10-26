@@ -53,6 +53,13 @@ class SiteBuildTest(unittest.TestCase):
             self.assertIn("data-accent-switch hidden", text, page)
             self.assertIn('assets/brand/wordmark.webp', text, page)
 
+    def test_search_engines_are_turned_away(self):
+        with open(os.path.join(self.out, "robots.txt"), encoding="utf-8") as f:
+            self.assertIn("Disallow: /", f.read().splitlines())
+        self.assertEqual(check.check_noindex(self.out), [])
+        with open(os.path.join(self.out, "index.html"), encoding="utf-8") as f:
+            self.assertIn('content="noindex, nofollow', f.read())
+
     def test_megaphone_rail(self):
         with open(os.path.join(self.out, "guide", "rates.html"), encoding="utf-8") as f:
             text = f.read()
@@ -102,7 +109,8 @@ class CheckTest(unittest.TestCase):
             f.write(f"<!doctype html><html><body>{body}</body></html>")
 
     def test_each_forbidden_string_is_caught(self):
-        for bad in ["192.168.0.5", "port 164", "10.0.0.164", "ssh root@164", "on 164", "the 164 box", "host:8489", "x:7585", "Access Key", ".htpasswd", "SlumsPatch",
+        for bad in ["MapleStory", "Maple Story", "Nexon", "GMS v83", "Wizet",
+                    "192.168.0.5", "port 164", "10.0.0.164", "ssh root@164", "on 164", "the 164 box", "host:8489", "x:7585", "Access Key", ".htpasswd", "SlumsPatch",
                     "Password", "autoqa", "type !qa"]:
             self.page("index.html", f"<p>{bad}</p>")
             self.assertTrue(check.check_forbidden(self.root), bad)
@@ -214,6 +222,13 @@ class MarkdownTest(unittest.TestCase):
 
 
 class GuideLinksTest(unittest.TestCase):
+    def test_public_wording(self):
+        from sections import guide, database
+        self.assertEqual(guide.public_wording("A small, friends-only MapleStory v83 world. Faster than GMS v83."),
+                         "A small, friends-only Slums Story world. Faster than the original game.")
+        self.assertEqual(database.scrub("Nexon Game Card - 100 points"), "NX Card - 100 points")
+        self.assertEqual(database.scrub("Wizet Plain Suit"), "GM Plain Suit")
+
     def test_cells_link_into_the_database(self):
         from sections import guide
         data = {"maps": {1: {"name": "Henesys", "street": "Henesys"}, 2: {"name": "Henesys", "street": "Henesys"},
@@ -289,7 +304,8 @@ class DbDataTest(unittest.TestCase):
                            "portals": [{"target_map_id": 2}, {"target_map_id": 99}]},
                      "2": {"name": "Henesys", "street": "Henesys", "npcs": [{"npc_id": 10}]},
                      "3": {"name": "", "mobs": [{"mob_id": 21}]},
-                     "4": {"name": "\uc7a5\ub85c", "npcs": [{"npc_id": 11}]}},
+                     "4": {"name": "\uc7a5\ub85c", "npcs": [{"npc_id": 11}]},
+                     "5": {"name": "MapleStory Physical Fitness Challenge", "npcs": [{"npc_id": 11}]}},
             "mobs": {"20": {"name": "Snail", "maps": [{"map_id": 1}, {"map_id": 1}],
                             "drops": [{"item_id": 0}, {"item_id": 30}, {"item_id": 31}]},
                      "21": {"name": "Ghost", "maps": [{"map_id": 3}]}},
@@ -303,7 +319,7 @@ class DbDataTest(unittest.TestCase):
     def test_reachable(self):
         from sections import dbdata
         d = dbdata.reachable(self.raw())
-        self.assertEqual(sorted(d["maps"]), [1, 2])          # unnamed and Korean-only maps are out
+        self.assertEqual(sorted(d["maps"]), [1, 2])          # unnamed, Korean-only and officially named maps are out
         self.assertEqual(sorted(d["mobs"]), [20])             # Ghost only spawns on an unreachable map
         self.assertEqual(sorted(d["npcs"]), [10])
         self.assertEqual(sorted(d["quests"]), [40])           # starts at an unreachable NPC

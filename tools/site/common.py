@@ -65,6 +65,7 @@ def layout(title, body, root, section, description="", base=""):
 <meta name="viewport" content="width=device-width,initial-scale=1">
 <title>{esc(full)}</title>{desc}
 <meta name="referrer" content="no-referrer">
+<meta name="robots" content="noindex, nofollow, noarchive, noimageindex">
 {THEME_BOOT}
 <link rel="icon" href="{root}assets/brand/badge-32.png" sizes="32x32" type="image/png">
 <link rel="icon" href="{root}assets/brand/badge-64.png" sizes="64x64" type="image/png">
@@ -88,7 +89,7 @@ def layout(title, body, root, section, description="", base=""):
 {body}
 </main>
 <footer class="site-foot">
-  <span>SlumsMS is a small private MapleStory v83 world for friends. A fan project, not affiliated with Nexon.</span>
+  <span>SlumsMS is Slums Story: a small private world for friends. A fan project; not affiliated with any game company.</span>
   <span><a href="{root}patch-notes/">News</a> &middot; <a href="{root}guide/">Guides</a> &middot; <a href="{root}report/">Report a bug</a></span>
 </footer>
 </body>

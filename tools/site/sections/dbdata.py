@@ -24,12 +24,15 @@ def _load(path):
 
 
 HANGUL = re.compile(r"[\uac00-\ud7af\u1100-\u11ff\u3130-\u318f]")
+# Official names the public site never shows (owner, 2026-10-26): GM gear, game cards and official event content.
+BRAND = re.compile(r"maple\s?story|nexon|wizet", re.I)
 
 
 def named(v):
-    """Has a name a player would see. Korean-only names are untranslated, unreleased content in this data."""
+    """Has a name a player would see. Korean-only names are untranslated, unreleased content in this data; names
+    with the official brand in them are GM, game-card or official event content."""
     name = (v.get("name") or "").strip()
-    return bool(name) and not HANGUL.search(name)
+    return bool(name) and not HANGUL.search(name) and not BRAND.search(name)
 
 
 def _by(rows, key):

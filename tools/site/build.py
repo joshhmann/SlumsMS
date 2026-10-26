@@ -61,6 +61,8 @@ MARKET_DATA = None  # --market-data: the server's market export (default: sectio
 
 def copy_assets(out):
     shutil.copytree(os.path.join(SRC, "assets"), os.path.join(out, "assets"), dirs_exist_ok=True)
+    # friends only: search engines are asked to stay out (owner, 2026-10-26); every page also says noindex
+    shutil.copyfile(os.path.join(SRC, "robots.txt"), os.path.join(out, "robots.txt"))
 
 
 def set_context(rels, sections):

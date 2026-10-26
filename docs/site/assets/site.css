@@ -86,7 +86,7 @@ main { padding-block: 8px 48px; }
 
 /* ── 2009 fan-site pieces (owner, 2026-10-26: "blend") ──────────────────────────────────────
    Header bars like Basil Market and Hidden Street, item icons in front of menu links, a tag column like the old
-   Nexon notice board, and item slots. They sit inside the Megaphone frame (ink borders, offset shadows). */
+   official notice board, and item slots. They sit inside the Megaphone frame (ink borders, offset shadows). */
 .panel { background: var(--surface); border: var(--border) solid var(--edge); border-radius: var(--radius);
   box-shadow: 6px 6px 0 var(--drop); overflow: hidden; min-width: 0; }
 .panel > .bar, .bar { display: flex; align-items: center; justify-content: space-between; gap: 12px; margin: 0;

@@ -21,6 +21,7 @@ from common import REPO, esc, layout, write
 MARKET = "market"
 DEFAULT_DIR = os.environ.get("SLUMS_MARKET_DATA", os.path.join(REPO, "cache", "market-sample"))
 MIN_SAMPLES = 3
+NX_CARDS = {4031865: "NX Card (100 NX)", 4031866: "NX Card (250 NX)"}
 HISTORY_DAYS = 30
 
 try:
@@ -227,7 +228,8 @@ class Market:
 
     def name(self, item_id):
         it = self.db["items"].get(item_id)
-        return it["name"] if it else f"Item {item_id}"
+        # NX cards are left out of the database (their official name); the market still prices them
+        return it["name"] if it else NX_CARDS.get(item_id, f"Item {item_id}")
 
     def icon(self, item_id, root, big=False):
         p = os.path.join(REPO, "cache", "site-icons", "items", f"{item_id}.png")
