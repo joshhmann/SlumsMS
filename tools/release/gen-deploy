@@ -45,17 +45,19 @@ fi
 EXPECT_LOG=("SlumsMS v$JAR_VERSION" "is now online" "${EXPECT_LOG[@]}")
 [ -z "$CONFIG_HEAD" ] || [ -n "$CONFIG_HEAD_BEFORE" ] || die "CONFIG_HEAD needs CONFIG_HEAD_BEFORE"
 for f in "$CONFIG_HEAD" "$CONFIG_APPEND" "$CASHSHOP_CATALOG"; do [ -z "$f" ] || [ -f "$REPO/$f" ] || die "no $REPO/$f"; done
-# SERVER_SET: numeric server: keys edited in place (or added) by set-release-config --set. The config loader is
+# SERVER_SET: numeric or boolean server: keys edited in place (or added) by set-release-config --set. The config loader is
 # strict (an unknown key aborts the boot), so every key must be a numeric field of this build's ServerConfig.java.
 SC=$REPO/src/main/java/config/ServerConfig.java
 declare -A set_seen=()
 for kv in "${SERVER_SET[@]}"; do
-  [[ $kv =~ ^([A-Z][A-Z0-9_]*)=([0-9]{1,9}(\.[0-9]{1,6})?)$ ]] || die "SERVER_SET entry '$kv' is not KEY=NUMBER"
+  [[ $kv =~ ^([A-Z][A-Z0-9_]*)=([0-9]{1,9}(\.[0-9]{1,6})?|true|false)$ ]] || die "SERVER_SET entry '$kv' is not KEY=NUMBER or KEY=true|false"
   k=${BASH_REMATCH[1]} v=${BASH_REMATCH[2]}
   [ -z "${set_seen[$k]:-}" ] || die "SERVER_SET sets $k twice"; set_seen[$k]=1
   case $k in CHANNEL_LOAD|MIN_CLIENT_BUILD|CHANNELS) die "SERVER_SET $k: use CHANNEL_LOAD/MIN_CLIENT_BUILD/CHANNELS";; esac
-  t=$(sed -nE "s/^[[:space:]]*public[[:space:]]+(int|long|double|float)[[:space:]]+$k[[:space:]]*(=|;).*/\1/p" "$SC" | head -1)
-  [ -n "$t" ] || die "SERVER_SET $k is not a numeric field of ServerConfig.java (the strict config would refuse it)"
+  t=$(sed -nE "s/^[[:space:]]*public[[:space:]]+(int|long|double|float|boolean)[[:space:]]+$k[[:space:]]*(=|;).*/\1/p" "$SC" | head -1)
+  [ -n "$t" ] || die "SERVER_SET $k is not a numeric or boolean field of ServerConfig.java (the strict config would refuse it)"
+  case $t:$v in boolean:true|boolean:false) ;; boolean:*) die "SERVER_SET $k is a boolean; $v is not true/false";;
+    *:true|*:false) die "SERVER_SET $k is an $t; $v is not a number";; esac
   case $t in int|long) [[ $v != *.* ]] || die "SERVER_SET $k is an $t; $v is not a whole number";; esac
   if [ -n "$CONFIG_APPEND" ] && grep -qE "^[[:space:]]+$k:" "$REPO/$CONFIG_APPEND"; then die "SERVER_SET $k is also in $CONFIG_APPEND"; fi
 done

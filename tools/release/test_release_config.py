@@ -141,6 +141,20 @@ class ReleaseConfigTest(unittest.TestCase):
         self.config.write_bytes(FIXTURE + b'    BOT_X: 1\n    BOT_X: 2\n')
         self.run_helper('set-release-config', '--set', 'BOT_X=3', ok=False)
 
+    def test_set_flips_a_boolean_and_never_mixes_kinds(self):
+        # 1.6.0: USE_ENABLE_CUSTOM_NPC_SCRIPT goes false -> true in the deploy, not by hand
+        self.config.write_bytes(FIXTURE + b'    USE_ENABLE_CUSTOM_NPC_SCRIPT: false  # custom NPCs\n    BOT_MAP_CAP: 40\n')
+        result = self.run_helper('set-release-config', '--set', 'USE_ENABLE_CUSTOM_NPC_SCRIPT=true')
+        self.assertIn('    USE_ENABLE_CUSTOM_NPC_SCRIPT: true  # custom NPCs\n', self.config.read_text())
+        self.assertIn('server.USE_ENABLE_CUSTOM_NPC_SCRIPT: false -> true', result.stdout)
+        data = self.config.read_bytes()
+        self.run_helper('set-release-config', '--set', 'USE_ENABLE_CUSTOM_NPC_SCRIPT=1', ok=False)
+        self.run_helper('set-release-config', '--set', 'BOT_MAP_CAP=true', ok=False)
+        self.run_helper('set-release-config', '--set', 'USE_ENABLE_CUSTOM_NPC_SCRIPT=yes', ok=False)
+        self.assertEqual(self.config.read_bytes(), data)
+        self.run_helper('set-release-config', '--set', 'USE_EXTRA_FLAG=false')
+        self.assertTrue(self.config.read_text().endswith('    USE_EXTRA_FLAG: false\n'))
+
     def test_set_dry_run_does_not_write(self):
         result = self.run_helper('set-release-config', '--set', 'BOT_MAP_CAP=50', '--dry-run')
         self.assertIn('server.BOT_MAP_CAP: unset -> 50', result.stdout)
@@ -156,8 +170,13 @@ class ReleaseConfigTest(unittest.TestCase):
         return result.stderr
 
     def test_server_set_keys_must_be_numeric_server_config_fields(self):
-        self.assertIn('not a numeric field', self.generate_fails('LEDGER_BEFORE=""\nSERVER_SET=(BOT_NOT_A_KEY=1)\n'))
-        self.assertIn('not a numeric field', self.generate_fails('LEDGER_BEFORE=""\nSERVER_SET=(BOT_ROSTER_CURVE=1)\n'))
+        self.assertIn('not a numeric or boolean field', self.generate_fails('LEDGER_BEFORE=""\nSERVER_SET=(BOT_NOT_A_KEY=1)\n'))
+        self.assertIn('not a numeric or boolean field', self.generate_fails('LEDGER_BEFORE=""\nSERVER_SET=(BOT_ROSTER_CURVE=1)\n'))
+        # 1.6.0: booleans go only into boolean fields, numbers only into numeric ones
+        self.assertIn('not true/false', self.generate_fails('LEDGER_BEFORE=""\nSERVER_SET=(USE_ENABLE_CUSTOM_NPC_SCRIPT=1)\n'))
+        self.assertIn('not a number', self.generate_fails('LEDGER_BEFORE=""\nSERVER_SET=(BOT_MAP_CAP=true)\n'))
+        deploy, _ = self.generate('LEDGER_BEFORE=""\nSERVER_SET=(USE_ENABLE_CUSTOM_NPC_SCRIPT=true)\n')
+        self.assertIn('USE_ENABLE_CUSTOM_NPC_SCRIPT=true', deploy)
         self.assertIn('not a whole number', self.generate_fails('LEDGER_BEFORE=""\nSERVER_SET=(BOT_MAP_CAP=1.5)\n'))
         self.assertIn('twice', self.generate_fails('LEDGER_BEFORE=""\nSERVER_SET=(BOT_MAP_CAP=1 BOT_MAP_CAP=2)\n'))
         self.assertIn('use CHANNEL_LOAD', self.generate_fails('LEDGER_BEFORE=""\nSERVER_SET=(CHANNEL_LOAD=1)\n'))

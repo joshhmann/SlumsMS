@@ -5,8 +5,9 @@ set-release-config config.yaml [--channels N] [--channel-load N] [--set KEY=VALU
 Only decimal scalar values are replaced; unexpected/ambiguous structure fails closed.
 Missing known keys are inserted in their owning mapping. No third-party dependencies.
 
---set KEY=VALUE (repeatable; release conf SERVER_SET): a numeric server: key (an integer or a decimal like 1.0).
-An existing key is edited in place (it must hold a plain number); a missing one is added at the end of server:.
+--set KEY=VALUE (repeatable; release conf SERVER_SET): a numeric server: key (an integer or a decimal like 1.0), or
+a boolean one (true/false; 1.6.0: USE_ENABLE_CUSTOM_NPC_SCRIPT). An existing key is edited in place (it must hold a
+plain value of the same kind); a missing one is added at the end of server:.
 The strict config loader aborts on unknown keys, so gen-deploy checks every KEY against ServerConfig.java.
 """
 import argparse
@@ -16,13 +17,14 @@ import sys
 
 
 NUMBER = r"[0-9]{1,9}(?:\.[0-9]{1,6})?"
+BOOLEAN = r"true|false"
 RESERVED = {"CHANNEL_LOAD", "MIN_CLIENT_BUILD", "CHANNELS"}
 
 
 def parse_set(item):
-    match = re.fullmatch(rf"([A-Z][A-Z0-9_]*)=({NUMBER})", item)
+    match = re.fullmatch(rf"([A-Z][A-Z0-9_]*)=({NUMBER}|{BOOLEAN})", item)
     if not match:
-        raise ValueError(f"--set wants KEY=NUMBER, got {item!r}")
+        raise ValueError(f"--set wants KEY=NUMBER or KEY=true|false, got {item!r}")
     if match[1] in RESERVED:
         raise ValueError(f"--set {match[1]}: use --channels/--channel-load/set-min-client-build")
     return match[1], match[2]
@@ -53,7 +55,7 @@ def edit(text, channels, load, sets=()):
             i = keys[0]
             match = pattern.fullmatch(lines[i])
             if not match:
-                raise ValueError(f"{label} must be a decimal scalar")
+                raise ValueError(f"{label} must be a plain {'true/false' if number == BOOLEAN else 'decimal'} scalar")
             before = match[2]
             lines[i] = match[1] + value + match[3] + (match[4] or "")
         else:
@@ -78,7 +80,8 @@ def edit(text, channels, load, sets=()):
         seen.add(key)
         # Re-find the block each time: an inserted key moves its end.
         start, end = block("server")
-        scalar(start + 1, end, key, value, server_indent(start, end), f"server.{key}", NUMBER)
+        kind = BOOLEAN if re.fullmatch(BOOLEAN, value) else NUMBER  # a boolean only replaces a boolean
+        scalar(start + 1, end, key, value, server_indent(start, end), f"server.{key}", kind)
     if channels:
         start, end = block("worlds")
         entries = [(i, re.match(r"^([ ]*)- +([A-Za-z_]+):", lines[i]))
