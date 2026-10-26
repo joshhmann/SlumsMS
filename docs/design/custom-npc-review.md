@@ -122,3 +122,27 @@ the flag. The flag itself is a config change on a server restart, which is the o
 - Item prices on the open market were not looked at, so "high-value" is judged from the item, not the Bera prices.
 - I did not check whether a merged item can be merged again in game; it follows from the code (`getUpgradeableEquipped`
   does not look at the merge flag) but is untested.
+
+## Decisions (owner 2026-10-26) and what branch `160-customnpc` did
+
+The flag goes ON for 1.6.0 (manual config line, `docs/release/1.6.0-deploy-steps.md`).
+
+- Coco 9000017: at most 5 per talk; the number box max is 5 and the script refuses a larger (forged) amount.
+- Agent E 9000036: the belt menu is `#L0#` (was `#Lundefined#`); the roll is belts 1132005-1132016 only (no medals); the
+  stat rings cost 1,000,000 (Circle of Ancient Thought/Strength, Lilin's lv10), 1,250,000 (both Spiegelmann's Rings),
+  1,500,000 (Lilin's lv35) and 2,000,000 (Lilin's lv90) mesos plus their old materials; the face accessory cost array
+  has 10 entries; menu selections out of range close the dialog.
+- Dalair 9000040: `Character.meetsEquipmentMergeRequirements()` (level 160, 110 for Cygnus whose cap is 120, and Maker
+  level 3) is checked by the script and again inside `Character.mergeItemsFromName`, and does not look at
+  USE_STARTER_MERGE. Each item stores its merge count in flag bits 0x400/0x800 (`ItemConstants.MERGE_COUNT_MASK`,
+  persisted with the flag, stripped from item packets so the client never sees them); worn items with 3 merges get
+  nothing and when all are capped nothing is destroyed. The NPC lists every item that will be destroyed (slot and
+  name) and asks yes/no; if the inventory changed in between it stops. Locked items are never used as a source. The
+  old script called `MakerProcessor.getMakerSkillLevel`, which does not exist (it would have thrown with
+  USE_STARTER_MERGE off). Also fixed: Spikes / Cold Protection scrolls set the flag through a `(byte)` cast, which
+  wiped the high bits (merge flag, merge count, account-sharing).
+- Maple TV scroll generator: at most 5 prizes per character per day, quest record 32010 ("yyyy-mm-dd:count", server
+  local date, like the Jump Quest record 32002). Also fixed: an exchange with any supply left at 0 (or no mesos)
+  passed -0 to `gainItem`/`gainMeso`, which Graal refuses, so it threw after the mesos were taken.
+- Asia 2082014 and T-1337 9201101: no flag test; always stock.
+- Spiegelmann ore refining: unchanged.

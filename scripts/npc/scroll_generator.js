@@ -67,6 +67,12 @@ function action(mode, type, selection) {
         }
 
         if (status == 0) {
+            // Owner 2026-10-26: at most 5 prizes per character per day (kept in a quest record, survives restarts).
+            if (cm.getScrollGeneratorPrizesLeftToday() <= 0) {
+                cm.sendOk("This is the MapleTV Scroll Generator broadcast. You have already claimed #r5 prizes#k today. Tune in again tomorrow!");
+                cm.dispose();
+                return;
+            }
             cm.sendNext("This is the MapleTV Scroll Generator broadcast. Place your supplies or mesos earned throughout your adventure to redeem a prize! You can place #bany amount of supplies#k, however take note that placing #rdifferent supplies#k with #rbigger shots of any of them#k will improve the reward possibilities!");
         } else if (status == 1) {
             var sendStr;
@@ -421,12 +427,20 @@ function performExchange(sgItemid, sgCount) {
         }
     }
 
-    cm.gainMeso(-sgAppliedMeso);
+    if (!cm.claimScrollGeneratorPrize()) {
+        return false;
+    }
+
+    if (sgAppliedMeso > 0) {
+        cm.gainMeso(-sgAppliedMeso);
+    }
 
     for (var i = 0; i < sgItems.length; i++) {
         var itemid = sgItems[i];
         var count = sgAppliedItems[i];
-        cm.gainItem(itemid, -count);
+        if (count > 0) {    // -0 does not convert to a Java short: it threw after the mesos were taken
+            cm.gainItem(itemid, -count);
+        }
     }
 
     cm.gainItem(sgItemid, sgCount);
@@ -438,7 +452,9 @@ function generateRandomScroll() {
     if (cm.getPlayer().getInventory(InventoryType.USE).getNumFreeSlot() >= 1) {
         var itemid = getRandomScroll(calculateScrollTiers());
         if (itemid != -1) {
-            if (performExchange(itemid, 1)) {
+            if (cm.getScrollGeneratorPrizesLeftToday() <= 0) {
+                cm.sendOk("You have already claimed #r5 prizes#k today. Tune in again tomorrow!");
+            } else if (performExchange(itemid, 1)) {
                 cm.sendNext("Transaction accepted! You have received a #r#t" + itemid + "##k.");
             } else {
                 cm.sendOk("Oh, it looks like some items are missing... Please double-check provided items in your inventory before trying to exchange.");

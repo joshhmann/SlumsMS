@@ -395,6 +395,53 @@ public class NPCConversationManager extends AbstractPlayerInteraction {
         return today + ":" + String.join(",", paid);
     }
 
+    /** Quest record (no Quest.wz quest) holding the day and how many Maple TV scroll generator prizes were taken. */
+    public static final int SCROLL_GENERATOR_DAILY_QUEST = 32010;
+    /** Owner 2026-10-26: at most 5 scroll generator prizes per character per day. */
+    public static final int SCROLL_GENERATOR_DAILY_LIMIT = 5;
+
+    /** Prizes the scroll generator (scroll_generator.js) may still hand this character today. */
+    public int getScrollGeneratorPrizesLeftToday() {
+        String today = java.time.LocalDate.now().toString();
+        return Math.max(0, SCROLL_GENERATOR_DAILY_LIMIT - dailyCountUsed(getQuestProgress(SCROLL_GENERATOR_DAILY_QUEST), today));
+    }
+
+    /** Records one scroll generator prize for today; false (nothing recorded) when today's limit is already reached. */
+    public boolean claimScrollGeneratorPrize() {
+        String today = java.time.LocalDate.now().toString();
+        String next = dailyCountClaim(getQuestProgress(SCROLL_GENERATOR_DAILY_QUEST), today, SCROLL_GENERATOR_DAILY_LIMIT);
+        if (next == null) {
+            return false;
+        }
+        setQuestProgress(SCROLL_GENERATOR_DAILY_QUEST, next);
+        return true;
+    }
+
+    /** How many were used on {@code today} according to a "yyyy-mm-dd:count" record (0 for another day or junk). */
+    static int dailyCountUsed(String progress, String today) {
+        if (progress == null) {
+            return 0;
+        }
+        String[] parts = progress.split(":", 2);
+        if (parts.length != 2 || !parts[0].equals(today)) {
+            return 0;
+        }
+        try {
+            return Math.max(0, Integer.parseInt(parts[1].trim()));
+        } catch (NumberFormatException e) {
+            return 0;
+        }
+    }
+
+    /** The record after one more use on {@code today}, or null when {@code limit} is already reached. */
+    static String dailyCountClaim(String progress, String today, int limit) {
+        int used = dailyCountUsed(progress, today);
+        if (used >= limit) {
+            return null;
+        }
+        return today + ":" + (used + 1);
+    }
+
     /**
      * 1.5.2: the Cotton Stylist (STYLIST.js) is open to everyone and passes the chosen id straight to these setters, so
      * they check it against the real catalog (a named hair/face in String.wz, colour variants through their base style)
