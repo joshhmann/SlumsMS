@@ -7,8 +7,9 @@ exist the placeholders from tools/site/market_sample.py (cache/market-sample). A
 "sample data" banner on every market page. Charts are SVG drawn at build time and coloured by CSS variables, so they
 follow light and dark mode with no script.
 
-Public rules (plan §5): a day's median shows only with at least MIN_SAMPLES sales; a price is "mostly bot-made" when
-players were on fewer than half of its sales; the NX rate is null (shown as "not enough trades") under 5 trades.
+Public rules (plan §5): a day's median shows only with at least MIN_SAMPLES sales; the NX rate is null (shown as "not
+enough trades") under 5 trades. Bots and players are one server (owner, 2026-10-26): no page says who is a bot, so the
+export's bot/player fields (seller_kind, player_share, bot_share, bots_online_peak ...) are never shown.
 """
 import datetime as dt
 import glob
@@ -57,7 +58,7 @@ def load(data_dir=None):
 
 SCHEMA = 1
 # (file, list key or None, required fields per row or per file)
-SHAPES = [("listings", "listings", {"item_id": int, "qty": int, "price": int, "channel": int, "seller_kind": str}),
+SHAPES = [("listings", "listings", {"item_id": int, "qty": int, "price": int, "channel": int}),
           ("sales", "sales", {"item_id": int, "price": int, "qty": int, "source": str, "hour": str}),
           ("nx-rate", "days", {"date": str, "n_trades": int}),
           ("economy-public", None, {"as_of": str})]
@@ -130,8 +131,9 @@ def when(iso):
     return f"{pt.strftime('%-I:%M %p')} PT ({utc.strftime('%H:%M')} UTC), {pt.strftime('%b %-d')}"
 
 
-SOURCES = {"shop": "player shop", "merchant": "hired merchant", "trade": "trade", "bot": "bot",
-           "bot_shop": "bot shop", "bot_trade": "bot trade", "bot_seed": "bot to bot shop"}
+# how a sale happened, in the same words for bots and players
+SOURCES = {"shop": "shop", "merchant": "hired merchant", "trade": "trade", "bot": "trade",
+           "bot_shop": "shop", "bot_trade": "trade", "bot_seed": "shop"}
 
 
 def where(l):
@@ -177,7 +179,7 @@ def area_chart(points, label, line_label="Median sale"):
     low/high band (low == high every day) gets a one-entry legend: line_label."""
     W, H, L, R, T, B = 680, 240, 54, 60, 14, 30
     vals = [v for _, v, lo, hi in points if v is not None] + [x for _, v, lo, hi in points if v is not None for x in (lo, hi)]
-    if len(points) < 2 or not vals:
+    if len(points) < 2 or sum(1 for _, v, _, _ in points if v is not None) < 2:  # one dot is not a chart
         return '<p class="empty">Not enough sales yet for a chart.</p>'
     ticks = _ticks(min(vals), max(vals))
     y0, y1 = ticks[0], ticks[-1]
@@ -285,8 +287,7 @@ class Market:
                 row, when_ = last, dt.date.fromisoformat(last["date"]).strftime("%b %-d")
         rate = row.get("mesos_per_1000nx")
         first = next((v for v in vals if v), None)
-        bots = row.get("bot_share")
-        note = " &middot; mostly bot-made" if rate and bots is not None and bots >= 0.5 else ""
+        note = ""
         value = mesos(rate) if rate else "not enough trades"
         return (f'<a class="nxcard{" wide" if wide else ""}" href="{root}{MARKET}/nx.html"><span class="k">NX rate</span>'
                 f'<b{"" if rate else " class=none"}>{value}</b><span class="u">mesos per 1,000 NX {when_}{note}</span>'
@@ -340,13 +341,11 @@ def build_prices(mk):
         pts = [(d, r["median"] if r and r.get("count", 0) >= MIN_SAMPLES else None,
                 (r or {}).get("low"), (r or {}).get("high")) for d, r in hist]
         name = mk.name(item_id)
-        bot = '<span class="pill">mostly bot-made</span>' if st["player_share"] < 0.5 else ""
         listings = sorted((l for l in m["listings"]["listings"] if l["item_id"] == item_id), key=lambda l: l["price"])
         more = len(listings) - 15
         listings = listings[:15]
         lrows = "".join(f'<tr><td><span class="sb s">S&gt;</span></td><td class="r num">{l["price"]:,}</td><td class="r num">{l["qty"]}</td>'
-                        f'<td>{esc(l.get("seller_name") or ("a player" if l["seller_kind"] == "player" else "a bot"))}'
-                        f' <span class="muted">{esc(l["seller_kind"])}</span></td><td>{where(l)}</td></tr>'
+                        f'<td>{esc(l.get("seller_name") or "-")}</td><td>{where(l)}</td></tr>'
                         for l in listings)
         sales = [x for x in m["sales"]["sales"] if x["item_id"] == item_id][:15]
         srows = "".join(f'<tr><td class="r num">{x["price"]:,}</td><td class="r num">{x["qty"]}</td><td>{esc(SOURCES.get(x["source"], x["source"]))}</td>'
@@ -358,7 +357,7 @@ def build_prices(mk):
                 f'<div class="ent">{mk.icon(item_id, "{root}", big=True)}<div><h1>{esc(name)}</h1>'
                 f'<p class="id">Price check &middot; last {len(hist)} days'
                 + (f' &middot; <a href="{{root}}database/items/{item_id}.html">Slums Street page</a>' if item_id in mk.db["items"] else "")
-                + f' {bot}</p></div></div>'
+                + '</p></div></div>'
                 f'<div class="mkstats"><div class="hot"><small>Median today</small><b>{median}</b><span>mesos</span></div>'
                 f'<div><small>Low to high today</small><b>{rng}</b><span>what most paid</span></div>'
                 f'<div><small>{len(hist)}-day change</small><b>{change(st["first"], st["median"]) or "-"}</b><span>median vs {len(hist)} days ago</span></div>'
@@ -396,7 +395,7 @@ def build_lists(mk, priced):
     rows = "".join(f'<tr><td><span class="sb s">S&gt;</span></td><td>{mk.icon(l["item_id"], "{root}")}</td>'
                    f'<td>{mk.price_link(l["item_id"], "{root}") if l["item_id"] in priced_ids else esc(mk.name(l["item_id"]))}</td>'
                    f'<td class="r num">{l["price"]:,}</td><td class="r num">{l["qty"]}</td>'
-                   f'<td>{esc(l.get("seller_name") or "")} <span class="muted">{esc(l["seller_kind"])}</span></td>'
+                   f'<td>{esc(l.get("seller_name") or "")}</td>'
                    f'<td>{where(l)}</td><td class="muted">{esc(l.get("shop_title") or "")}</td></tr>' for l in lst)
     body = (f'<h1>FM now</h1><p class="id">{len(lst)} items for sale &middot; as of {esc(when(m["listings"]["generated_at"]))}</p>'
             f'<section class="panel"><h2 class="bar">Trading board <small>S&gt; selling</small></h2><div class="tbl"><table class="t">'
@@ -418,22 +417,21 @@ def build_lists(mk, priced):
     pts = [(d["date"], d.get("mesos_per_1000nx"), d.get("mesos_per_1000nx"), d.get("mesos_per_1000nx")) for d in days]
     rows = "".join(f'<tr><td class="num">{esc(d["date"])}</td><td class="r num">{mesos(d["mesos_per_1000nx"]) if d.get("mesos_per_1000nx") else "not enough trades"}</td>'
                    f'<td class="r num">{d.get("n_trades", 0)}</td><td class="r num">{d.get("n_cash_resales", 0)}</td>'
-                   f'<td class="r num">{d.get("n_code_trades", 0)}</td><td class="r num">{round((d.get("bot_share") or 0) * 100)}%</td></tr>'
+                   f'<td class="r num">{d.get("n_code_trades", 0)}</td></tr>'
                    for d in reversed(days))
     body = (f'<h1>NX rate</h1><p class="id">Mesos per 1,000 NX, from resales of cash-shop items and NX code trades. '
             f'A day with under 5 trades shows no rate.</p>{mk.nx_card("{root}", wide=True)}'
             f'<section class="panel"><h2 class="bar">History</h2><div class="in">{area_chart(pts, "NX rate per day", "Mesos per 1,000 NX")}</div></section>'
             f'<section class="panel"><h2 class="bar">By day</h2><div class="tbl"><table class="t"><thead><tr><th>Day (UTC)</th>'
             f'<th class="r">Mesos per 1,000 NX</th><th class="r">Trades</th><th class="r">Cash resales</th><th class="r">NX codes</th>'
-            f'<th class="r">Bots</th></tr></thead><tbody>{rows}</tbody></table></div></section>')
+            f'</tr></thead><tbody>{rows}</tbody></table></div></section>')
     mk.page(f"{MARKET}/nx.html", "NX rate", body, "nx")
 
     e = m["economy-public"]
-    facts = [("Mesos held, players and bots", mesos(e.get("mesos_total"))),
-             ("Share held by players", f'{e["players_share"] * 100:.2g}%' if e.get("players_share") is not None else "-"),
+    facts = [("Mesos in the game", mesos(e.get("mesos_total"))),
              ("Trades, last 24 hours", count(e.get("trades_24h"))), ("FM shops open now", count(e.get("shops_open"))),
              ("Mesos removed, last 7 days (tax, fees)", mesos(e.get("mesos_removed_7d"))),
-             ("Most bots online, last 24 hours", count(e.get("bots_online_peak")))]
+             ]
     econ = "".join(f"<div><dt>{esc(k)}</dt><dd>{v}</dd></div>" for k, v in facts)
     body = (f'<h1>Bera economy</h1><p class="id">As of {esc(when(e["as_of"]))}</p>'
             f'<section class="panel"><h2 class="bar">Numbers</h2><dl class="stats">{econ}</dl></section>')
@@ -502,6 +500,15 @@ def build_board(mk):
     mk.page(f"{MARKET}/mine.html", "My market", body, "mine", "Your watchlist, price alerts and posts.")
 
 
+def write_untradeable(mk):
+    """market/untradeable.json: items the game refuses on the board (untradeable, account-bound or quest items; Site
+    board contract). The board's item picker leaves them out and market_service.py refuses them up front."""
+    flags = ("tradeBlock", "quest", "accountSharable")
+    ids = sorted(i for i, it in mk.db["items"].items() if any((it.get("stats") or {}).get(f) for f in flags))
+    with open(os.path.join(mk.out, MARKET, "untradeable.json"), "w", encoding="utf-8") as f:
+        json.dump(ids, f, separators=(",", ":"))
+
+
 def write_summary(mk, priced):
     """market/summary.json for market.js: name, median and change of every priced item."""
     data = {str(i): {"n": mk.name(i), "m": st["median"],
@@ -539,4 +546,5 @@ def build(out, db, data_dir=None, site_root=None):
     build_home(mk, priced, econ)
     build_board(mk)
     write_summary(mk, priced)
+    write_untradeable(mk)
     return {"priced": len(priced), "listings": len(m["listings"]["listings"]), "sample": m["sample"]}

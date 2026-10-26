@@ -92,11 +92,14 @@ def validate(w):
                 problems.append(f"feed.json: item {i} needs text, t, names[] and kind in {sorted(FEED_KINDS)}")
                 break
     wd = w["world"]
-    if not isinstance(wd.get("channels"), list) or not all(_is(c.get("ch"), int) and _is(c.get("online"), int)
-                                                           for c in wd["channels"]):
-        problems.append("world.json: 'channels' should be a list of {ch, online}")
-    if not isinstance(wd.get("busiestMaps", []), list):
-        problems.append("world.json: 'busiestMaps' should be a list")
+    if not isinstance(wd.get("channels"), list) or not all(
+            isinstance(c, dict) and _is(c.get("channel", c.get("ch")), int) and _is(c.get("online"), int)
+            for c in wd["channels"]):
+        problems.append("world.json: 'channels' should be a list of {channel, online}")
+    if not isinstance(wd.get("busiest_maps", wd.get("busiestMaps", [])), list):
+        problems.append("world.json: 'busiest_maps' should be a list")
+    if wd.get("tonight") is not None and not isinstance(wd["tonight"], dict):
+        problems.append("world.json: 'tonight' should be an object or null")
     for key, rows in w["leaderboards"].items():
         if key in ("schema", "sample", "generated_at"):
             continue
@@ -130,7 +133,9 @@ class World:
 
     def map_name(self, map_id, fallback, root):
         """A map's name, linked to its Slums Street page when this build has the database."""
-        name = fallback
+        name = fallback if isinstance(fallback, str) else None
+        if not _is(map_id, int):
+            return esc(name or "somewhere")
         if self.db and map_id in self.db.get("maps", {}):
             name = name or self.db["maps"][map_id].get("name")
             if self.links_db:
@@ -219,20 +224,28 @@ def countdown(iso):
 
 def build_live(wo):
     wd = wo.w["world"]
-    chans = sorted(wd["channels"], key=lambda c: c["ch"])
-    total = sum(c["online"] for c in chans)
+    chans = sorted(({"ch": c.get("channel", c.get("ch")), "online": c["online"]} for c in wd["channels"]),
+                   key=lambda c: c["ch"])
+    total = wd["online"] if _is(wd.get("online"), int) else sum(c["online"] for c in chans)
+    busiest = wd.get("busiest_maps", wd.get("busiestMaps")) or []
     peak = max([c["online"] for c in chans] + [1])
     crow = "".join(f'<li><span class="k">Ch {c["ch"]}</span><span class="meter"><i style="width:{c["online"] * 100 / peak:.0f}%"></i></span>'
                    f'<b class="num">{c["online"]:,}</b></li>' for c in chans)
     maps = "".join(f'<tr><td class="r num">{i}</td><td>{wo.map_name(r.get("map"), r.get("name"), "{root}")}</td>'
-                   f'<td class="r num">{count(r.get("count"))}</td></tr>' for i, r in enumerate(wd.get("busiestMaps") or [], 1))
+                   f'<td class="r num">{count(r.get("count"))}</td></tr>' for i, r in enumerate(busiest, 1))
     tn = wd.get("tonight") or {}
-    tonight = (f'<div class="eventcard"><span class="k">Tonight</span><b>{esc(tn["name"])}</b>'
-               f'<span>{countdown(tn["startsAt"])}'
-               + (f' &middot; {wo.map_name(tn["map"], None, "{root}")}' if tn.get("map") else "")
-               + '</span></div>') if tn.get("name") and tn.get("startsAt") else ""
-    running = "".join(f'<li><b>{esc(r.get("name", "An event"))}</b>'
-                      + (f' in {wo.map_name(r["map"], None, "{root}")}' if r.get("map") else "")
+    start = tn.get("start") or tn.get("startsAt")
+    # contract: map is the planned map's NAME, map_id its id (absent for a treasure hunt); name null until midnight PT
+    where_ = (f' &middot; {wo.map_name(tn.get("map_id"), tn.get("map"), "{root}")}' if tn.get("map") or tn.get("map_id") else "")
+    if start:
+        label = "On now" if tn.get("status") == "running" else "Tonight"
+        tonight = (f'<div class="eventcard"><span class="k">{label}</span>'
+                   f'<b>{esc(tn["name"]) if tn.get("name") else "Picked at midnight PT"}</b>'
+                   f'<span>{countdown(start)}{where_}</span></div>')
+    else:
+        tonight = ""
+    running = "".join(f'<li><b>{esc(r.get("name") or "An event")}</b>'
+                      + (f' in {wo.map_name(r.get("map_id"), r.get("map"), "{root}")}' if r.get("map") or r.get("map_id") else "")
                       + (f' &middot; ch{int(r["channel"])}' if r.get("channel") else "")
                       + (f' <span class="muted">until {esc(clock(r["endsAt"]))}</span>' if r.get("endsAt") else "")
                       + '</li>' for r in wd.get("running") or [] if isinstance(r, dict))
@@ -241,8 +254,8 @@ def build_live(wo):
     body = (f'<h1>Live world</h1><p class="id">Bera right now{" &middot; as of " + esc(when(as_of)) if as_of else ""}'
             f' &middot; refreshes every couple of minutes</p>'
             f'<div class="mkstats"><div class="hot"><small>Online now</small><b>{total:,}</b><span>across {len(chans)} channels</span></div>'
-            + (f'<div><small>Busiest map</small><b class="sm">{wo.map_name(wd["busiestMaps"][0].get("map"), wd["busiestMaps"][0].get("name"), "{root}")}</b>'
-               f'<span>{count(wd["busiestMaps"][0].get("count"))} here</span></div>' if wd.get("busiestMaps") else "")
+            + (f'<div><small>Busiest map</small><b class="sm">{wo.map_name(busiest[0].get("map"), busiest[0].get("name"), "{root}")}</b>'
+               f'<span>{count(busiest[0].get("count"))} here</span></div>' if busiest else "")
             + (f'<div><small>Busiest channel</small><b>Ch {max(chans, key=lambda c: c["online"])["ch"]}</b>'
                f'<span>{max(c["online"] for c in chans):,} online</span></div>' if chans else "")
             + '</div>'
@@ -252,7 +265,8 @@ def build_live(wo):
             f'<section class="panel"><h2 class="bar">Busiest maps</h2><div class="tbl"><table class="t"><thead><tr><th class="r">#</th>'
             f'<th>Map</th><th class="r">Here</th></tr></thead><tbody>{maps}</tbody></table></div></section></div>'
             f'<section class="panel"><h2 class="bar">What\'s happening <a href="{{root}}{WORLD}/feed/index.html">All &raquo;</a></h2>'
-            f'<ul class="board feed">{feed}</ul></section>')
+            + (f'<ul class="board feed">{feed}</ul>' if feed else '<p class="empty" style="padding:12px 16px">Quiet so far. '
+               'Events, milestones and megaphones show up here as they happen.</p>') + '</section>')
     wo.page(f"{WORLD}/index.html", "Live world", body, "index", "Who's online on Bera, the busiest maps and tonight's event.")
     return total
 
@@ -288,21 +302,36 @@ def build_feed(wo):
 # (field, heading, how to show it); a column shows only when some row has the field
 COLS = {
     "level": [("name", "Character", "name"), ("level", "Level", "int"), ("rebirths", "Rebirths", "int"),
-              ("job", "Job", "text"), ("guild", "Guild", "text")],
-    "fame": [("name", "Character", "name"), ("fame", "Fame", "int"), ("job", "Job", "text")],
+              ("job", "Job", "job"), ("guild", "Guild", "text")],
+    "fame": [("name", "Character", "name"), ("fame", "Fame", "int"), ("job", "Job", "job")],
     "guilds": [("name", "Guild", "name"), ("level", "Level", "int"), ("members", "Members", "int"),
                ("points", "Points", "int"), ("leader", "Leader", "text")],
     "traders": [("name", "Character", "name"), ("completed", "Trades done", "int"), ("fellThrough", "Fell through", "int"),
                 ("pct", "Completed", "pct")],
     "dojo": [("name", "Character", "name"), ("floor", "Floor", "int"), ("points", "Points", "int"), ("time_s", "Time", "time")],
-    "bosses": [("name", "Character", "name"), ("clears", "Clears", "int"), ("boss", "Most cleared", "text")],
+    "bosses": [("name", "Character", "name"), ("clears", "Clears", "int"), ("boss", "Boss", "text")],
 }
 BOARDS = [("level", "Level", "Level and rebirths: rebirths first, then level."),
           ("fame", "Fame", "The most famous characters on Bera."),
           ("guilds", "Guilds", "Guild points, then members."),
           ("traders", "Traders", "Finished trades and the ones that fell through, for everyone with at least 5 trades."),
-          ("dojo", "Dojo", "Mu Lung Dojo: highest floor, then fastest time."),
-          ("bosses", "Boss clears", "Boss runs finished: Zakum, Horntail, Papulatus, Pianus and more.")]
+          ("bosses", "Boss clears", "Expedition clears of Zakum, Horntail and Pink Bean.")]
+# Dojo (COLS["dojo"]) waits: the server records no best floor or time yet, so 1.6.0 has no Dojo board.
+
+
+# The export's job names are the server's enum names title-cased ("Fp_archmage"); these read as the game says them.
+# Cygnus jobs keep their tier number out ("Blazewizard" covers all four). Anything else is shown as sent.
+JOB_NAMES = {"fp_wizard": "Wizard (F/P)", "fp_mage": "Mage (F/P)", "fp_archmage": "Arch Mage (F/P)",
+             "il_wizard": "Wizard (I/L)", "il_mage": "Mage (I/L)", "il_archmage": "Arch Mage (I/L)",
+             "darkknight": "Dark Knight", "dragonknight": "Dragon Knight", "whiteknight": "White Knight",
+             "chiefbandit": "Chief Bandit", "nightlord": "Night Lord", "dawnwarrior": "Dawn Warrior",
+             "blazewizard": "Blaze Wizard", "windarcher": "Wind Archer", "nightwalker": "Night Walker",
+             "thunderbreaker": "Thunder Breaker", "crossbowman": "Crossbowman", "gm": "GM", "supergm": "GM"}
+
+
+def job_name(v):
+    key = v.lower().rstrip("1234")
+    return JOB_NAMES.get(key, v.replace("_", " "))
 
 
 def cell(v, how):
@@ -318,6 +347,8 @@ def cell(v, how):
         return f'<td class="r num">{v // 60}:{v % 60:02d}</td>' if _is(v, int) else f'<td>{esc(str(v))}</td>'
     if how == "name":
         return f'<td><b>{esc(str(v))}</b></td>'
+    if how == "job":
+        return f'<td>{esc(job_name(str(v)))}</td>'
     return f'<td>{esc(str(v))}</td>'
 
 
@@ -359,6 +390,10 @@ def build_rankings(wo):
         rows, limit = board_rows(lb, kind), 100
         body = (f'<h1>{esc(title)}</h1><p class="id">{esc(intro)}</p><p class="chips">{tabs}</p>'
                 f'<section class="panel"><h2 class="bar">{esc(title)}</h2>{table(kind, rows, limit)}</section>')
+        if kind == "bosses" and isinstance(lb.get("bosses"), dict):  # one table per boss under the overall one
+            body += "".join(f'<section class="panel" id="{common.slug(b)}"><h2 class="bar">{esc(b)}</h2>'
+                            f'{table("bosses", [{k: v for k, v in r.items() if k != "boss"} for r in rs if isinstance(r, dict)], 20)}</section>'
+                            for b, rs in lb["bosses"].items() if isinstance(rs, list))
         if kind == "level":
             by_class = lb.get("levelByClass") or {}
             body += "".join(f'<section class="panel" id="{common.slug(c)}"><h2 class="bar">{esc(c)}</h2>{table("level", rs, 10)}</section>'
@@ -381,14 +416,15 @@ def build_economy(wo):
     m = wo.m
     e = m["economy-public"]
     days = [d for d in e.get("days") or [] if isinstance(d, dict) and d.get("date")][-market.HISTORY_DAYS:]
-    first = next((d.get("mesos_total") for d in days if d.get("mesos_total")), None)
-    last = days[-1] if days else {}
+    totals = [d["mesos_total"] for d in days if _is(d.get("mesos_total"), int)]
+    first = totals[0] if len(totals) >= 2 else None  # a trend needs two days
+    last = next((d for d in reversed(days) if d.get("mesos_made") is not None), days[-1] if days else {})
     tiles = (f'<div class="mkstats"><div class="hot"><small>Mesos in the game</small><b>{mesos(e.get("mesos_total"))}</b>'
              f'<span>players and bots</span></div>'
              f'<div><small>{len(days)}-day trend</small><b>{change(first, e.get("mesos_total")) or "-"}</b><span>total mesos</span></div>'
              f'<div><small>Made {esc(last.get("date", ""))}</small><b>{mesos(last.get("mesos_made"))}</b><span>drops, quests, NPC sales</span></div>'
              f'<div><small>Spent {esc(last.get("date", ""))}</small><b>{mesos(last.get("mesos_spent"))}</b><span>shops, fees, taxes</span></div></div>')
-    if days:
+    if len(totals) >= 2:
         trend = area_chart([(d["date"], d.get("mesos_total"), d.get("mesos_total"), d.get("mesos_total")) for d in days],
                            "Total mesos per day", "Mesos held, players and bots")
         flow = bars([(d["date"], d.get("mesos_made"), d.get("mesos_spent")) for d in days], "Mesos made and spent per day",

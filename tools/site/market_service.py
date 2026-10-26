@@ -17,8 +17,9 @@ The site keeps its own store (SQLite, --db) and talks to the game server only th
     alerts-fired.json   fired alert ids per account with the time and the price: the site shows a badge and disarms
     rejected.json       posts the server refused, with a reason
     removed.json        posts a GM took down in game
-The exact shapes are the "Site board contract" in docs/design/track-d-plan.md; until it is pushed this follows the
-release lead's working shapes (2026-10-26) and reads the outbox leniently.
+The shapes are the "Site board contract" in docs/design/track-d-plan.md (release-1.6.0); the outbox is read leniently.
+The game's rejected.json is the authority; the checks here (limits, the per-trade meso cap, untradeable items) only
+save a round trip.
 
 Who is asking: the signed session cookie from login_service.py (same key file, read only). A session carries the
 account id, the character that typed `@weblogin`, and (when the game sends them) the account's other characters and
@@ -38,6 +39,7 @@ Endpoints (127.0.0.1 only; nginx passes /api/market/ through):
     GET  /api/market/health
 """
 import argparse
+import datetime
 import json
 import os
 import secrets
@@ -55,6 +57,7 @@ from login_service import SESSION_COOKIE, Sessions, cookies  # noqa: E402
 MAX_WATCH, MAX_ALERTS, MAX_OPEN_POSTS = 20, 10, 5
 POST_TTL = 3 * 86400
 MAX_QTY, MAX_PRICE = 32767, 2_147_483_647  # a v83 stack, and the game's meso cap
+MAX_TOTAL = 2_147_483_647  # qty x price must fit one trade window (Site board contract)
 WRITES_PER_MIN = 30
 MAX_BODY = 2048
 KINDS = ("WTB", "WTS")
@@ -63,7 +66,7 @@ DIRS = ("below", "above")
 SCHEMA = """
 CREATE TABLE IF NOT EXISTS watch (account INTEGER, item INTEGER, created INTEGER, PRIMARY KEY (account, item));
 CREATE TABLE IF NOT EXISTS alerts (id TEXT PRIMARY KEY, account INTEGER, item INTEGER, dir TEXT, price INTEGER,
-    armed INTEGER, created INTEGER, fired_at TEXT, fired_price INTEGER, seen INTEGER DEFAULT 1);
+    armed INTEGER, created INTEGER, fired_at TEXT, fired_price INTEGER, seen INTEGER DEFAULT 1, armed_at INTEGER);
 CREATE TABLE IF NOT EXISTS posts (id TEXT PRIMARY KEY, account INTEGER, character TEXT, kind TEXT, item INTEGER,
     qty INTEGER, price INTEGER, created INTEGER, expires INTEGER, status TEXT, reason TEXT);
 CREATE TABLE IF NOT EXISTS seen_files (name TEXT PRIMARY KEY, mtime REAL);
@@ -80,6 +83,14 @@ class Refused(Exception):
 
 def iso(t):
     return time.strftime("%Y-%m-%dT%H:%M:%SZ", time.gmtime(t))
+
+
+def epoch(value, default):
+    """A contract time ('2026-10-26T07:15:00Z', with or without milliseconds) as epoch seconds."""
+    try:
+        return datetime.datetime.fromisoformat(str(value).replace("Z", "+00:00")).timestamp()
+    except ValueError:
+        return default
 
 
 def write_atomic(path, obj):
@@ -103,10 +114,27 @@ def rows_of(data, *keys):
 
 
 class Items:
-    """Item ids players may post or watch, with names: the site's own search index (database/search-index.json)."""
+    """Item ids players may post or watch, with names: the site's own search index (database/search-index.json), and the
+    ones the game won't allow on the board (market/untradeable.json beside it, written by the market build)."""
 
-    def __init__(self, path):
+    def __init__(self, path, untradeable=None):
         self.path, self.mtime, self.names = path, None, {}
+        self.untradeable_path, self.u_mtime, self.blocked = untradeable, None, set()
+
+    def untradeable(self):
+        p = self.untradeable_path
+        try:
+            m = os.path.getmtime(p) if p else None
+        except OSError:
+            return self.blocked
+        if m is not None and m != self.u_mtime:
+            try:
+                with open(p, encoding="utf-8") as f:
+                    self.blocked = {int(i) for i in json.load(f)}
+                self.u_mtime = m
+            except (OSError, ValueError, TypeError):
+                pass
+        return self.blocked
 
     def get(self):
         try:
@@ -128,6 +156,8 @@ class Store:
         self.db = sqlite3.connect(db_path, check_same_thread=False, isolation_level=None)
         self.db.execute("PRAGMA journal_mode=WAL")
         self.db.executescript(SCHEMA)
+        if "armed_at" not in {r[1] for r in self.q("PRAGMA table_info(alerts)")}:  # stores from before armedAt
+            self.db.execute("ALTER TABLE alerts ADD COLUMN armed_at INTEGER")
         self.writes = {}
         os.makedirs(inbox, exist_ok=True)
 
@@ -142,6 +172,11 @@ class Store:
             raise Refused("Pick an item from the list.")
         if item not in self.items.get():
             raise Refused("That item isn't on Slums Street, so it can't be watched or posted.")
+        return item
+
+    def tradeable(self, item):
+        if item in self.items.untradeable():
+            raise Refused("That item can't be traded (untradeable, account-bound or a quest item), so it can't be posted.")
         return item
 
     @staticmethod
@@ -226,9 +261,11 @@ class Store:
         accounts = {}
         for a, it in self.q("SELECT account, item FROM watch ORDER BY created"):
             accounts.setdefault(str(a), {"watch": [], "alerts": []})["watch"].append(it)
-        for i, a, it, d, p, armed in self.q("SELECT id, account, item, dir, price, armed FROM alerts ORDER BY created"):
+        # armedAt tells the game a re-armed alert may fire again even if it never saw it disarmed (contract)
+        for i, a, it, d, p, armed, at in self.q(
+                "SELECT id, account, item, dir, price, armed, COALESCE(armed_at, created) FROM alerts ORDER BY created"):
             accounts.setdefault(str(a), {"watch": [], "alerts": []})["alerts"].append(
-                {"id": i, "itemId": it, "dir": d, "price": p, "armed": bool(armed)})
+                {"id": i, "itemId": it, "dir": d, "price": p, "armed": bool(armed), "armedAt": iso(at)})
         stamp = iso(self.now())
         write_atomic(os.path.join(self.inbox, "posts.json"), {"schema": 1, "generated_at": stamp, "posts": posts})
         write_atomic(os.path.join(self.inbox, "alerts.json"), {"schema": 1, "generated_at": stamp, "accounts": accounts})
@@ -260,12 +297,12 @@ class Store:
                 data = json.load(f)
         except (OSError, json.JSONDecodeError):
             return {"posts": [], "generated_at": None}
-        names, now = self.items.get(), iso(self.now())
+        names, now = self.items.get(), self.now()
         out = []
         for r in rows_of(data, "posts"):
             if not isinstance(r, dict) or r.get("kind") not in KINDS or not isinstance(r.get("itemId"), int):
                 continue
-            if r.get("expiresAt") and str(r["expiresAt"]) < now:
+            if epoch(r.get("expiresAt"), now + 1) < now:
                 continue
             out.append({"id": str(r.get("id", "")), "character": str(r.get("character", ""))[:13], "kind": r["kind"],
                         "itemId": r["itemId"], "name": names.get(r["itemId"], f"Item {r['itemId']}"),
@@ -292,8 +329,9 @@ class Store:
         if self.q("SELECT COUNT(*) FROM alerts WHERE account=?", a)[0][0] >= MAX_ALERTS:
             raise Refused(f"You have {MAX_ALERTS} alerts already. Delete one first.", 409)
         aid = "a" + secrets.token_hex(6)
-        self.db.execute("INSERT INTO alerts (id, account, item, dir, price, armed, created) VALUES (?, ?, ?, ?, ?, 1, ?)",
-                        (aid, a, item, body["dir"], price, int(self.now())))
+        t = int(self.now())
+        self.db.execute("INSERT INTO alerts (id, account, item, dir, price, armed, created, armed_at) "
+                        "VALUES (?, ?, ?, ?, ?, 1, ?, ?)", (aid, a, item, body["dir"], price, t, t))
         return aid
 
     def alert(self, s, body, action):
@@ -301,7 +339,8 @@ class Store:
         if not self.q("SELECT 1 FROM alerts WHERE id=? AND account=?", aid, s["a"]):
             raise Refused("That alert isn't yours, or it's gone.", 404)
         if action == "rearm":
-            self.db.execute("UPDATE alerts SET armed=1, seen=1, fired_at=NULL, fired_price=NULL WHERE id=?", (aid,))
+            self.db.execute("UPDATE alerts SET armed=1, seen=1, fired_at=NULL, fired_price=NULL, armed_at=? WHERE id=?",
+                            (int(self.now()), aid))
         else:
             self.db.execute("DELETE FROM alerts WHERE id=?", (aid,))
 
@@ -312,9 +351,12 @@ class Store:
         a = s["a"]
         if body.get("kind") not in KINDS:
             raise Refused("Choose WTB (buying) or WTS (selling).")
-        item = self.item(body.get("itemId"))
+        item = self.tradeable(self.item(body.get("itemId")))
         qty = self.amount(body.get("qty"), "The amount", MAX_QTY)
         price = self.amount(body.get("price"), "The price", MAX_PRICE)
+        if qty * price > MAX_TOTAL:
+            raise Refused(f"{qty:,} × {price:,} is over {MAX_TOTAL:,} mesos, the most one trade can hold. "
+                          "Post a smaller amount.")
         who = body.get("character") or s.get("c")
         if who not in characters(s):
             raise Refused("Post as one of your own characters.")
@@ -439,7 +481,7 @@ def setting(args, name, env, default):
 
 def main():
     ap = argparse.ArgumentParser(description=__doc__, formatter_class=argparse.RawDescriptionHelpFormatter)
-    for a in ("--key-file", "--revoked", "--db", "--inbox", "--outbox", "--items"):
+    for a in ("--key-file", "--revoked", "--db", "--inbox", "--outbox", "--items", "--untradeable"):
         ap.add_argument(a)
     ap.add_argument("--port", type=int)
     args = ap.parse_args()
@@ -456,8 +498,9 @@ def main():
     inbox = setting(args, "inbox", "SLUMS_MARKET_INBOX", "/var/lib/slums-market/inbox")
     outbox = setting(args, "outbox", "SLUMS_MARKET_OUTBOX", "/var/lib/slums-market/outbox")
     items = setting(args, "items", "SLUMS_MARKET_ITEMS", "/srv/slums-site/database/search-index.json")
+    untradeable = setting(args, "untradeable", "SLUMS_MARKET_UNTRADEABLE", "/srv/slums-site/market/untradeable.json")
     port = int(setting(args, "port", "SLUMS_MARKET_PORT", 8095))
-    store = Store(db, inbox, outbox, Items(items))
+    store = Store(db, inbox, outbox, Items(items, untradeable))
     with store.lock:
         store.sync()
         store.export()

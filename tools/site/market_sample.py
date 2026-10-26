@@ -94,7 +94,7 @@ def main():
             bot = rnd.random() < 0.85
             listings.append({"item_id": i, "qty": rnd.choice([1, 1, 1, 5, 50, 100]),
                              "price": int(level[i] * rnd.uniform(0.9, 1.25)), "channel": rnd.randint(1, 5),
-                             "room": rnd.randint(1, 22), "seller_kind": "bot" if bot else "player",
+                             "room": rnd.randint(1, 22),
                              "seller_name": rnd.choice(SELLERS), "shop_title": rnd.choice(SHOP_TITLES)})
     dump("listings.json", {"sample": True, "generated_at": now.isoformat(), "listings": listings})
 

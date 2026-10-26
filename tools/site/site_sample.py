@@ -3,12 +3,12 @@
 
     python3 tools/site/site_sample.py [--out cache/site-sample]
 
-Writes, like the export will (working shapes from the release lead, 2026-10-26; the contract will be the "Site export
-contract" section of docs/design/track-d-plan.md):
-    feed.json          {items: [{id, t, kind: event|milestone|megaphone|drama, text, names[], map?, channel?, top?}]}
-    world.json         {channels: [{ch, online}], busiestMaps: [{map, name, count}], tonight: {name, startsAt, map?},
-                        running: [{name, map?, channel?, endsAt?}]}
-    leaderboards.json  {level, levelByClass, fame, guilds, traders, dojo, bosses}
+Writes the shapes of the "Site export contract" (docs/design/track-d-plan.md on release-1.6.0, schema 1):
+    feed.json          {count, items: [{id, t, kind: event|milestone|megaphone|drama, tag, text, names[], map?, channel?, top?}]}
+    world.json         {online, channels: [{channel, online}], busiest_maps: [{map, name, count}],
+                        tonight: {name, start, map (a name), status}, running: [{name, map (a name), map_id?, channel?, endsAt}]}
+    leaderboards.json  {level, levelByClass, fame, guilds (level null), traders, dojo (empty), bosses: {boss: [rows]}}
+For the real thing on TEST: /opt/mapleroot-dev/persistence-test/Server/data/site.
 Every file carries "sample": true and generated_at; the World pages show a banner while it does. Names are made up and
 seeded, so each run gives the same files. Bots and players are mixed with no label, as on the real boards.
 """
@@ -52,7 +52,8 @@ def main():
         t -= dt.timedelta(minutes=rnd.choice([3, 7, 12, 25, 40, 66]))
         a, b = rnd.sample(NAMES, 2)
         kind = rnd.choice(["event", "milestone", "milestone", "megaphone", "megaphone", "megaphone", "drama"])
-        row = {"id": f"s{k:04d}", "t": t.replace(microsecond=0).isoformat(), "kind": kind, "names": [a]}
+        row = {"id": f"s{k:04d}", "t": t.replace(microsecond=0).isoformat(), "kind": kind, "names": [a],
+               "tag": {"event": "won", "milestone": "level", "megaphone": "megaphone", "drama": "rivalry"}[kind]}
         if kind == "event":
             name = rnd.choice(["Giant Cake", "Henesys Invasion", "Mushroom Invasion", "Boar Stampede", "Field Boss"])
             top = rnd.sample(NAMES, 3)
@@ -77,18 +78,20 @@ def main():
                                                         "made up after a week of not talking."])
             row["names"] = [a, b]
         items.append(row)
-    dump("feed.json", {"items": items})
+    dump("feed.json", {"count": len(items), "items": items})
 
     # ── world now ──
     eight_pm_pt = dt.datetime.combine(now.date(), dt.time(3, 0), dt.timezone.utc)  # 8 PM PDT the evening before (UTC)
     while eight_pm_pt < now:
         eight_pm_pt += dt.timedelta(days=1)
-    channels = [{"ch": c, "online": rnd.randint(380, 720)} for c in range(1, 6)]
+    channels = [{"channel": c, "online": rnd.randint(380, 720)} for c in range(1, 6)]
     busiest = sorted(({"map": m, "name": n, "count": rnd.randint(20, 260)} for m, n in MAPS),
                      key=lambda r: -r["count"])[:8]
-    dump("world.json", {"channels": channels, "busiestMaps": busiest,
-                        "tonight": {"name": "Giant Cake", "startsAt": eight_pm_pt.isoformat(), "map": 100000000},
-                        "running": [{"name": "Boar Stampede", "map": 102000000, "channel": 3,
+    dump("world.json", {"online": sum(c["online"] for c in channels), "channels": channels, "busiest_maps": busiest,
+                        "tonight": {"name": "Giant Cake", "start": eight_pm_pt.isoformat(), "map": "Henesys",
+                                    "status": "scheduled"},
+                        "running": [{"name": "Boar Stampede", "map": "Perion", "map_id": 102000000, "channel": 3,
+                                     "kind": "field", "headline": False, "startedAt": (now - dt.timedelta(minutes=8)).isoformat(),
                                      "endsAt": (now + dt.timedelta(minutes=12)).isoformat()}]})
 
     # ── leaderboards ──
@@ -104,14 +107,13 @@ def main():
     dump("leaderboards.json", {
         "level": lv[:50], "levelByClass": by_class,
         "fame": [{"name": p["name"], "fame": p["fame"], "job": p["job"]} for p in sorted(people, key=lambda p: -p["fame"])][:20],
-        "guilds": sorted(({"name": g, "level": rnd.randint(1, 5), "members": rnd.randint(4, 120), "points": rnd.randint(500, 90000),
+        "guilds": sorted(({"name": g, "level": None, "members": rnd.randint(4, 120), "points": rnd.randint(500, 90000),
                            "leader": rnd.choice(NAMES)} for g in GUILDS), key=lambda r: -r["points"]),
         "traders": sorted(({"name": n, "completed": rnd.randint(5, 240), "fellThrough": rnd.choice([0, 0, 1, 2, 3, 7, 15])}
                            for n in rnd.sample(NAMES, 16)), key=lambda r: -r["completed"]),
-        "dojo": sorted(({"name": n, "floor": rnd.randint(10, 38), "time_s": rnd.randint(600, 2400)} for n in rnd.sample(NAMES, 12)),
-                       key=lambda r: (-r["floor"], r["time_s"])),
-        "bosses": sorted(({"name": n, "clears": rnd.randint(1, 60), "boss": rnd.choice(["Zakum", "Horntail", "Papulatus", "Pianus"])}
-                          for n in rnd.sample(NAMES, 14)), key=lambda r: -r["clears"]),
+        "dojo": [],
+        "bosses": {b: sorted(({"name": n, "clears": rnd.randint(1, 30)} for n in rnd.sample(NAMES, k)), key=lambda r: -r["clears"])
+                   for b, k in (("Zakum", 8), ("Horntail", 3), ("Pink Bean", 0))},
     })
     print(f"sample World data ({len(items)} feed items) -> {args.out}")
 

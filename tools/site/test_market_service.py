@@ -76,7 +76,8 @@ class StoreTest(Base):
     def test_alert_fires_once_badge_and_rearm(self):
         aid = self.store.change(self.me, self.store.add_alert, {"itemId": 2000000, "dir": "below", "price": 40})
         self.assertEqual(self.inbox_file("alerts.json")["accounts"]["7"]["alerts"][0],
-                         {"id": aid, "itemId": 2000000, "dir": "below", "price": 40, "armed": True})
+                         {"id": aid, "itemId": 2000000, "dir": "below", "price": 40, "armed": True,
+                          "armedAt": ms.iso(self.clock.t)})
         # the game fires it; a stranger's account id in the file can't touch it
         self.outbox_file("alerts-fired.json", {"7": [{"id": aid, "t": "2027-01-15T08:00:00Z", "price": 35}],
                                                "8": [{"id": aid, "t": "x", "price": 1}]})
@@ -90,8 +91,11 @@ class StoreTest(Base):
         self.store.sync()
         self.store.change(self.me, lambda s: self.store.seen(s))
         self.assertEqual(self.store.me(self.me)["badge"], 0)
+        self.clock.t += 600
         self.store.change(self.me, self.store.alert, {"id": aid}, "rearm")
         self.assertTrue(self.store.me(self.me)["alerts"][0]["armed"])
+        # the game may never see armed:false; armedAt after the firing tells it the alert is live again
+        self.assertEqual(self.inbox_file("alerts.json")["accounts"]["7"]["alerts"][0]["armedAt"], ms.iso(self.clock.t))
         with self.assertRaises(ms.Refused):
             self.store.change(self.other, self.store.alert, {"id": aid}, "delete")
 
@@ -123,6 +127,18 @@ class StoreTest(Base):
         self.store.change(self.me, self.store.add_post, body)  # the old ones expired, so there's room
         self.assertEqual(len(self.inbox_file("posts.json")["posts"]), 1)
 
+    def test_post_must_fit_one_trade_and_be_tradeable(self):
+        with self.assertRaises(ms.Refused) as e:
+            self.store.change(self.me, self.store.add_post, {"kind": "WTB", "itemId": 2000000, "qty": 1000, "price": 3_000_000})
+        self.assertIn("one trade", str(e.exception))
+        with open(os.path.join(self.tmp, "untradeable.json"), "w") as f:
+            json.dump([4000000], f)
+        self.store.items.untradeable_path = os.path.join(self.tmp, "untradeable.json")
+        with self.assertRaises(ms.Refused) as e:
+            self.store.change(self.me, self.store.add_post, {"kind": "WTS", "itemId": 4000000, "qty": 1, "price": 5})
+        self.assertIn("can't be traded", str(e.exception))
+        self.store.change(self.me, self.store.watch, {"itemId": 4000000})  # watching it is still fine
+
     def test_take_down_rejected_and_removed(self):
         body = {"kind": "WTB", "itemId": 2000000, "qty": 100, "price": 30}
         a, b, c = (self.store.change(self.me, self.store.add_post, body) for _ in range(3))
@@ -141,7 +157,7 @@ class StoreTest(Base):
     def test_board_drops_expired_and_unknown_shapes(self):
         self.outbox_file("board.json", {"generated_at": "2027-01-15T08:00:00Z", "posts": [
             {"id": "b1", "character": "Wolf4life", "kind": "WTS", "itemId": 1302000, "qty": 1, "price": 9,
-             "expiresAt": "2099-01-01T00:00:00Z"},
+             "expiresAt": "2099-01-01T00:00:00.536Z"},
             {"id": "b2", "character": "Old", "kind": "WTB", "itemId": 1302000, "qty": 1, "price": 9,
              "expiresAt": "2000-01-01T00:00:00Z"},
             {"id": "b3", "character": "Odd", "kind": "TRADE", "itemId": 1302000}]})

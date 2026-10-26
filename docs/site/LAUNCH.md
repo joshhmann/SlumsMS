@@ -3,7 +3,20 @@
 Everything here is built and tested on branch `site-160-theme`. **Each numbered step changes something people can
 see or the site's web server, so each needs the owner's "go" for that step.** The site launches **the same night as
 1.6.0** (owner, 2026-10-26): World needs the site export, the market needs the market export, and the sign-in needs
-`@weblogin`, all three in 1.6.0. Step 2 can happen earlier.
+`@weblogin`, all three in 1.6.0.
+
+**Order on the night** (the step numbers below are what each does, not the order):
+1. `deploy-build-164.sh` (the copy-only part of step 6: puts `tools/site` in `/opt/slums-site-build`).
+2. Step 2 (sign-in service) and **step 2b (market service, its user and `/var/lib/slums-market/{inbox,outbox}`)**.
+   **Both must be done before the 1.6.0 deploy.** The 1.6.0 unit turns on `-Dslums.board=true`, and the game then
+   writes `/var/lib/slums-market/outbox`. If the folder isn't there yet, the game makes it without the
+   `slums-market` group and the site can't read the board.
+3. The 1.6.0 deploy (release tools, the owner runs `deploy.sh`). It brings `@weblogin` (step 3), the board, and the
+   market and site exports.
+4. A few minutes later, once the exports have written their first files: step 4 (nginx guard), then step 1 (public
+   site with World), then step 5 (Slums Street and the market), then step 6 (the two timers).
+Until step 5 publishes `database/search-index.json` and `market/untradeable.json`, the market service turns down
+every post and watch ("isn't on Slums Street"); nobody can reach it before step 4 anyway.
 
 What players get: **World** (public: live world, "what's happening" feed, rankings, Bera economy), and for signed-in
 players **Slums Street** (the database, at `/database/`) and the **Slums Market** (`/market/`).

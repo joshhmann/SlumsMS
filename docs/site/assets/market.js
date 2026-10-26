@@ -5,7 +5,7 @@
   var host = document.querySelector("[data-mk-root]");
   if (!host || !window.fetch) return;
   var root = host.getAttribute("data-mk-root");
-  var me = null, summary = null, items = null;
+  var me = null, summary = null, items = null, blocked = {};
 
   function api(path, body) {
     var opt = { credentials: "same-origin" };
@@ -70,7 +70,7 @@
       list.textContent = "";
       if (q.length < 2) return;
       (items ? Promise.resolve(items) : getJSON("database/search-index.json").then(function (rows) {
-        items = (rows || []).filter(function (r) { return r[0] === "i"; });
+        items = (rows || []).filter(function (r) { return r[0] === "i" && !blocked[r[1]]; });
         return items;
       })).then(function (rows) {
         var hits = rows.filter(function (r) { return r[2].toLowerCase().indexOf(q) >= 0; }).slice(0, 10);
@@ -243,6 +243,8 @@
       e.preventDefault();
       var id = parseInt(input.getAttribute("data-id"), 10);
       if (!id) { say(status, "Pick the item from the list under the box.", "bad"); return; }
+      var q = parseInt(form.querySelector("[name=qty]").value, 10), pr = parseInt(form.querySelector("[name=price]").value, 10);
+      if (q * pr > 2147483647) { say(status, "That's over 2,147,483,647 mesos in all, the most one trade can hold. Post a smaller amount.", "bad"); return; }
       act("posts", {
         kind: form.querySelector("[name=kind]:checked").value, itemId: id,
         qty: parseInt(form.querySelector("[name=qty]").value, 10), price: parseInt(form.querySelector("[name=price]").value, 10),
@@ -266,5 +268,9 @@
       badge(); itemPanel(); minePage(); boardPage();
     }).catch(function () {});
   }
-  getJSON("market/summary.json").then(function (s) { summary = s || {}; wireBoard(); load(); });
+  Promise.all([getJSON("market/summary.json"), getJSON("market/untradeable.json")]).then(function (r) {
+    summary = r[0] || {};
+    (r[1] || []).forEach(function (id) { blocked[id] = true; });
+    wireBoard(); load();
+  });
 })();
