@@ -427,7 +427,7 @@ public final class LifeRuntime {
     }
 
     /**
-     * {@code !qa bl-5}: refreshes the goals and the plan now (off the bot's tick: the memory is synchronized), so a
+     * {@code !qa bl-11}: refreshes the goals and the plan now (off the bot's tick: the memory is synchronized), so a
      * staged goal shows in {@code !botwhy} at once. The next decision uses it as any plan.
      */
     public void planNow(long now) {

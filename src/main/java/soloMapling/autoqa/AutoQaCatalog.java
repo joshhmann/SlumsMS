@@ -775,9 +775,9 @@ public final class AutoQaCatalog {
                         hasAfter("ks", "AFFINITY ACT (taunt|ks) "),
                         noEmoji())
                 .build());
-        // 1.6.0 S8: a staged goal shows its GOAP plan steps in !botwhy (bl-5)
-        c.add(Check.auto("t-bl-5", "A bot's goal turns into plan steps that !botwhy shows").minutes(3)
-                .step(say("!warp 104040000"), waitSeconds(3), run("bl-5"), waitFor("LIFE PLAN (PASS|FAIL) ", 90))
+        // 1.6.0 S8: a staged goal shows its GOAP plan steps in !botwhy (bl-11)
+        c.add(Check.auto("t-bl-11", "A bot's goal turns into plan steps that !botwhy shows").minutes(3)
+                .step(say("!warp 104040000"), waitSeconds(3), run("bl-11"), waitFor("LIFE PLAN (PASS|FAIL) ", 90))
                 .expect(has("LIFE PLAN STAGED bot=\\S+ goal=(MARRIAGE|GUILD)"),
                         has("LIFE PLAN (MARRIAGE|GUILD) steps=\\[(MAKE_FRIENDS|FIND_A_CRUSH|GET_A_RING|WEDDING|MEET_A_GUILD|JOIN_A_GUILD)"),
                         has("LIFE WHY Plan (get married|join a guild) \\(pressure"),

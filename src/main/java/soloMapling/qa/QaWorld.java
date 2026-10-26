@@ -320,7 +320,7 @@ public interface QaWorld {
     default boolean lifeProfileProofAvailable() { return false; }
 
     /**
-     * {@code !qa bl-5} (1.6.0 S8): gives a staged bot a goal ({@code MARRIAGE}, or {@code GUILD} when married), plans
+     * {@code !qa bl-11} (1.6.0 S8): gives a staged bot a goal ({@code MARRIAGE}, or {@code GUILD} when married), plans
      * it now and returns the log lines: the plan and every {@code !botwhy} line. Empty when the bot isn't ready
      * (not grinding yet, or no brain); QaRefusal when it can't run here.
      */

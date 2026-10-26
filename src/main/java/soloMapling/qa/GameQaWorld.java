@@ -1235,7 +1235,7 @@ final class GameQaWorld implements QaWorld {
         return true;
     }
 
-    // ---- 1.6.0 S8 (bl-5 plans, cc-1 channel change) ----
+    // ---- 1.6.0 S8 (bl-11 plans, bc-1 alias cc-1 channel change) ----
 
     @Override
     public List<String> lifePlanStage(int botId) {

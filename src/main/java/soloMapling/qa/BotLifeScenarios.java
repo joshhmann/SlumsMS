@@ -21,7 +21,7 @@ final class BotLifeScenarios {
     }
 
     /**
-     * bl-5 (1.6.0 S8): a staged goal turns into plan steps that {@code !botwhy} shows. One training bot is staged on a
+     * bl-11 (1.6.0 S8): a staged goal turns into plan steps that {@code !botwhy} shows. One training bot is staged on a
      * map with mobs; once it grinds it gets a life goal (get married; join a guild if it is married) and the planner's
      * steps appear in its {@code !botwhy} lines, logged as LIFE WHY.
      */
@@ -29,7 +29,7 @@ final class BotLifeScenarios {
         private final Map<Integer, Integer> bots = new java.util.concurrent.ConcurrentHashMap<>();
         private final Set<Integer> done = java.util.concurrent.ConcurrentHashMap.newKeySet();
 
-        public String id() { return "bl-5"; }
+        public String id() { return "bl-11"; }
         public String title() { return "Bot brain: a staged goal shows its plan steps in !botwhy"; }
         public Set<QaLog.Topic> topics() { return Set.of(QaLog.Topic.HABITS); }
         public int minutes(String[] args) { return 3; }

@@ -316,7 +316,7 @@ public final class LifeMemory {
     }
 
     /**
-     * {@code !qa bl-5}: puts a goal in the second slot (the aspiration's), as if the bot had chosen it. It stays until
+     * {@code !qa bl-11}: puts a goal in the second slot (the aspiration's), as if the bot had chosen it. It stays until
      * it is met, like any goal; the next plan includes it.
      */
     public synchronized void stageGoal(LifeGoals.Goal goal) {

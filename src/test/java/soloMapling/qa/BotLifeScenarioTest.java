@@ -76,7 +76,7 @@ class BotLifeScenarioTest {
     }
 
     @Test
-    void bl5LogsTheStagedGoalsPlanAndBotwhyLinesOnceTheBotGrinds() throws Exception {
+    void bl11LogsTheStagedGoalsPlanAndBotwhyLinesOnceTheBotGrinds() throws Exception {
         QaWorld world = mock(QaWorld.class);
         Character gm = QaTestSupport.gm(1, "Admin", 104040000);
         when(world.botLifeAutomaticEnabled()).thenReturn(true);
@@ -90,7 +90,7 @@ class BotLifeScenarioTest {
                 "PLAN PASS bot=77"));
         var scheduler = new QaTestSupport.ManualScheduler();
         QaSuite suite = QaTestSupport.suite(BotLifeScenarios.all(), world, directory, scheduler);
-        suite.start(gm, "bl-5", new String[0]);
+        suite.start(gm, "bl-11", new String[0]);
         for (int i = 0; i < 3; i++) scheduler.repeating.forEach(Runnable::run);
         String log = Files.readString(suite.runOf(1).logPath());
         assertTrue(log.contains("LIFE PLAN START bot=77"), log);
