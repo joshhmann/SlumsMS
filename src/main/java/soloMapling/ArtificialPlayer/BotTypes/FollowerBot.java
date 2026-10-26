@@ -47,6 +47,7 @@ public class FollowerBot extends BotSM {
     private volatile long leaderLostSinceMs = 0;
     private volatile boolean wasPartied = false;
     private volatile boolean pausedForTrade = false;
+    private volatile boolean fighting = false; // 1.5.5: swinging at a dojo floor's monster (FollowerFight)
 
     // NOTE: no "here" keyword - "there" contains "here", so a casual "hi there" would trigger it.
     private final BotOptionMenu menu = new BotOptionMenu(this,
@@ -67,7 +68,7 @@ public class FollowerBot extends BotSM {
     // Pinned cadence, observed or not: supervision (re-arm/relog/party checks) must never sleep 9-12s.
     @Override
     public void checkPrioritySpeed() {
-        updateScheduleDelay(FOLLOW_TICK_MS);
+        updateScheduleDelay(fighting ? FollowerFight.FIGHT_TICK_MS : FOLLOW_TICK_MS);
     }
 
     @Override
@@ -103,6 +104,9 @@ public class FollowerBot extends BotSM {
             return;
         }
         pausedForTrade = false;
+        if (followPhase != FollowPhase.FOLLOW) {
+            fighting = false; // only a following bot fights (doFollow sets it each tick)
+        }
 
         switch (followPhase) {
             case INIT -> doInit();
@@ -175,6 +179,11 @@ public class FollowerBot extends BotSM {
             // Kicked / disband: the ride is over.
             sayNode("PartyFarewell", leader);
             fallbackConvert();
+            return;
+        }
+        // 1.5.5: on a dojo floor with its leader the follower fights the floor's monster (it has no other way to)
+        fighting = FollowerFight.tick(chr, leader);
+        if (fighting) {
             return;
         }
         if (!GCMovement.isFollowing(chr)) {
