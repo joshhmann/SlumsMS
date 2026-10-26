@@ -86,6 +86,8 @@ final class GossipScenarios {
                     + QaScenarios.who(ctx, c) + " is a stranger. You just KS'd " + QaScenarios.who(ctx, a) + " (staged).");
             out.add("Expect: GS1 KNOWS (B's circle counts your KS), then a THREAD LINE where B tells C that you KS'd A,"
                     + " with both names right, and GS1 PASS. No NAMEGUARD lines for it.");
+            // auto-QA t-gs-1 judges the name guard on this thread's speakers only (other threads on the map are not ours)
+            out.add("VAR gsbots=" + botName(a) + "|" + botName(b) + "|" + botName(c));
             out.add("!qa do tell runs the thread again from the bank; !qa do llm lets the model write it (the guard"
                     + " checks every name); !qa do ks KSes A again; !qa do check prints what each bot knows.");
             return out;
@@ -104,6 +106,11 @@ final class GossipScenarios {
                 case "check" -> check(ctx);
                 default -> throw new QaRefusal("gs-1 steps: tell, llm, ks, check");
             };
+        }
+
+        private static String botName(int id) {
+            Character c = BotHelpers.getCharFromChannelStorage(id);
+            return c == null ? Integer.toString(id) : c.getName();
         }
 
         private int[] bots(QaContext ctx) {
