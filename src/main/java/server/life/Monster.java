@@ -810,7 +810,7 @@ public class Monster extends AbstractLoadedLife {
             if (attacker.isOwnedAlt() && !attacker.canGainOwnedAltPartyExp()) return;
             attacker.gainPartyPlayExp(_personalExp, _partyExp, true, false, white);
             attacker.increaseEquipExp(_personalExp);
-            if (!attacker.isOwnedAlt()) attacker.raiseQuestMobCount(getId());
+            attacker.raiseQuestMobCount(getId());   // owned alts too (owner 2026-10-26); turn-in stays manual
         }
     }
 

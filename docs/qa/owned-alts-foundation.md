@@ -36,8 +36,7 @@ is alive or on that map. It stops only when the owner's session is gone. In a PQ
 the PQ's EXP (stage clears, `givePartyExp`, `giveEventPlayersExp`) and, because it cannot talk to the reward NPC or
 use the reward portal, its reward from `giveEventReward` when its owner claims theirs. Outside an event instance
 script and quest EXP stays blocked: quests are per character and an owner turning in a quest never completes it for
-an alt. Offscreen EXP and population AP/SP/job advancement are blocked. Monster kills do not advance alt quests
-(unchanged; not covered by the owner's rules).
+an alt. Offscreen EXP and population AP/SP/job advancement are blocked. Monster kills an alt shares advance the alt's own kill quests (owner 2026-10-26); it never auto-completes, the owner turns it in on the alt.
 
 Following, formations, combat/loot drivers, chat orders, automatic trade acceptance/offers, supplies and PQ worker
 roles are deferred. The normal trade inventory path is ready for those later drivers; this foundation does not

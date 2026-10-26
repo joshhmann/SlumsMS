@@ -82,6 +82,21 @@ class OwnedAltCharacterTest {
             alt.gainExp(4); assertEquals(9, alt.getExp(), "not once its owner has gone");
         } finally { config.YamlConfig.config.server.USE_REBIRTH_SYSTEM = rebirth; }
     }
+    // Owner 2026-10-26: kills an alt shares count toward the alt's own kill quests; turning in stays manual.
+    @Test void killCreditAdvancesAnAltsKillQuestWithoutCompletingIt() throws Exception {
+        Character alt = alt(owner());
+        server.quest.Quest quest = mock(server.quest.Quest.class); when(quest.getId()).thenReturn((short) 2001);
+        when(quest.canComplete(alt, null)).thenReturn(false);
+        QuestStatus status = mock(QuestStatus.class);
+        when(status.getQuest()).thenReturn(quest); when(status.getStatus()).thenReturn(QuestStatus.Status.STARTED);
+        when(status.progress(100100)).thenReturn(true);
+        java.util.Map<Short, QuestStatus> quests = new java.util.LinkedHashMap<>(); quests.put((short) 2001, status);
+        field(alt, "quests", quests);
+        alt.raiseQuestMobCount(100100);
+        verify(status).progress(100100);
+        verify(status, never()).setStatus(any());
+        assertEquals(QuestStatus.Status.STARTED, status.getStatus());
+    }
     @Test void savesRealCharacterTransactionAndInventoryWithoutAccountCashSnapshot() throws Exception {
         Character alt = alt(owner()); field(alt, "loggedIn", true);
         field(alt, "exp", new java.util.concurrent.atomic.AtomicLong(45));
