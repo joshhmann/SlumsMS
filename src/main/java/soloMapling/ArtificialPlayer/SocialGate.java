@@ -44,7 +44,8 @@ import java.util.function.Predicate;
  *   <li><b>Guardrails.</b> Nothing unprompted while the player is busy ({@link PlayerBusy}: an event or PQ instance,
  *   a dungeon, a boss map, a trade, shop or storage, an NPC chat, AFK). No line repeated by one bot to the same player
  *   ({@link #fresh}, LLM lines included). {@code @quiet bots} also blocks unsolicited whispers, invites and buddy
- *   requests, and it persists (migration 031). One "busy server" budget ({@link #take}) holds the per-pair cooldowns
+ *   requests (since the owner's follow-up: everything unasked aimed at them, map chat included), and it persists
+ *   (migration 031). One "busy server" budget ({@link #take}) holds the per-pair cooldowns
  *   and world caps, about 3x the 1.5.x ones; unprompted LLM lines have their own hourly budget ({@link #llmOk}) so
  *   the extra volume comes from the line bank and scripts, not the shared chat model.</li>
  * </ol>
@@ -201,7 +202,7 @@ public final class SocialGate {
             return Verdict.yes("bot to bot: free");
         }
         if (!act.asked && quietBlocks(player.getId(), act)) {
-            return Verdict.no("@quiet bots (no unsolicited " + act.channel.name().toLowerCase(Locale.ROOT) + ")");
+            return Verdict.no("@quiet bots (nothing unasked: " + act.channel.name().toLowerCase(Locale.ROOT) + ")");
         }
         if (busy.test(player)) {
             return Verdict.no("player busy (PlayerBusy)");
@@ -216,10 +217,13 @@ public final class SocialGate {
         return v.ok();
     }
 
-    /** Whether {@code @quiet bots} blocks this act for this player (whispers, invites and buddy requests). */
+    /**
+     * Whether {@code @quiet bots} blocks this act for this player. Owner (S5 follow-up): everything unprompted aimed at
+     * them - whispers, invites, buddy requests, map-chat greetings, taunts and roasts, side-eye, KS, gifts, call-outs.
+     * Only an answer to their own ask ({@link Act#asked}) still goes.
+     */
     static boolean quietBlocks(int playerId, Act act) {
-        return (act.channel == Channel.WHISPER || act.channel == Channel.INVITE || act.channel == Channel.BUDDY)
-                && BotNoiseFilter.get(playerId).bots();
+        return !act.asked && BotNoiseFilter.get(playerId).bots();
     }
 
     /** Whether this player turned bot chatter off ({@code @quiet bots}). */
@@ -535,7 +539,7 @@ public final class SocialGate {
     /*
      * One table for the per-pair cooldowns and world-wide hourly caps (1.6.0, about 3x the 1.5.x ones; the old system
      * properties still tune them). Before -> after:
-     *   per pair (minutes): greet 120 -> 40, party invite 180 -> 60, buddy 1440 -> 480, taunt 20 -> 7, KS spree 15 -> 5,
+     *   per pair (minutes): greet 120 -> 40, party invite 180 -> 60, buddy 1440 -> 480, taunt 20 -> 7, KS spree 15 -> 10 (owner),
      *     help 15 (unchanged), defame 1440 (unchanged: it changes fame, and stays once a day per player world-wide)
      *   world per hour: taunts 20 -> 60, KS sprees 10 -> 30, party invites 6 -> 18
      *   unsolicited whisper per player (all bots): one per 10 min -> one per 200 s
@@ -551,7 +555,7 @@ public final class SocialGate {
             case BUDDY_REQUEST -> 480;
             case HELP -> 15;
             case TAUNT -> 7;
-            case KS_SPREE -> 5;
+            case KS_SPREE -> 10; // owner: 10, not 3x
             case DEFAME -> 1440;
             case SIDE_EYE -> 60;
             default -> 0;

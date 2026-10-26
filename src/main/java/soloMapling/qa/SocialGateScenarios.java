@@ -62,11 +62,13 @@ final class SocialGateScenarios {
                 BotNoiseFilter.set(now != null ? now.getId() : gm.getId(), was);
             });
             int id = stageBot(ctx, "friend", false);
+            // owner (S5 follow-up): quiet holds map-chat spice too - the friend may tease, so the hold is quiet's alone
+            SocialGate.playerStarted(id, gm.getId(), SocialGate.Provocation.STAGED);
             tries.put(ctx.run().gmId(), new AtomicInteger());
             ctx.onStop("forget tries", () -> tries.remove(ctx.run().gmId()));
             return List.of("@quiet bots is ON for you and " + QaScenarios.who(ctx, id) + " counts you as a friend.",
-                    "Every 20 s (or !qa do try) it tries to whisper you, party-invite, guild-invite and buddy-request you.",
-                    "Expect: no whisper, no invite window, no buddy request; SOCIAL_GATE NO ... @quiet bots lines.",
+                    "Every 20 s (or !qa do try) it tries to whisper you, party-invite, guild-invite, buddy-request you and",
+                    "taunt you in map chat. Expect: none of it; SOCIAL_GATE NO ... @quiet bots lines.",
                     "!qa do loud turns @quiet bots off to compare (then they go through); !qa do quiet turns it back on.");
         }
 
@@ -107,6 +109,12 @@ final class SocialGateScenarios {
             out.add(BotBuddies.offerAsFriend(bot.getId(), gm.getId()));
             out.add("party invite " + (SocialGate.allow(bot, gm, SocialGate.Act.PARTY_INVITE) ? "allowed" : "held"));
             out.add("guild invite " + (SocialGate.allow(bot, gm, SocialGate.Act.GUILD_INVITE) ? "allowed" : "held"));
+            boolean taunt = SocialGate.allow(bot, gm, SocialGate.Act.TAUNT);
+            if (taunt) {
+                soloMapling.ArtificialPlayer.BotCommandsPack.SocialCommands.BotSpeak(bot,
+                        "lol " + gm.getName() + " nice gear (sg-1 taunt " + n + ")");
+            }
+            out.add("map-chat taunt " + (taunt ? "SAID" : "held"));
             String line = "SG1 try " + n + " (" + (SocialGate.quietBots(gm.getId()) ? "quiet" : "loud") + "): "
                     + String.join(", ", out);
             ctx.run().note("SG", line);

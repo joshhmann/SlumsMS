@@ -44,6 +44,25 @@ class StationedNoticeTest {
     }
 
     @Test
+    void aQuietPlayerIsNeverNoticedUnasked() { // 1.6.0 S5 (owner): @quiet bots - no drama, affinity act or gift
+        BotSM sm = mock(BotSM.class);
+        Character bot = chr(BotStore.BOT_ID_BASE + 3);
+        Character quiet = chr(43), loud = chr(44);
+        soloMapling.ArtificialPlayer.BotMegaphoneSystem.BotNoiseFilter.set(43,
+                new soloMapling.ArtificialPlayer.BotMegaphoneSystem.BotNoiseFilter.Setting(false, true));
+        try {
+            List<Integer> asked = new ArrayList<>();
+            AffinityReactions.noticePlayers(sm, bot, List.of(quiet, loud), (s, x, p) -> {
+                asked.add(p.getId());
+                return false;
+            });
+            assertEquals(List.of(44), asked);
+        } finally {
+            soloMapling.ArtificialPlayer.BotMegaphoneSystem.BotNoiseFilter.forgetAllForTest();
+        }
+    }
+
+    @Test
     void socialBotsCallTheHooksFromTheirOwnTick() throws Exception {
         String src = Files.readString(Path.of("src/main/java/soloMapling/ArtificialPlayer/BotTypes/SocialBot.java"));
         assertTrue(src.contains("AffinityReactions.noticePlayers(") && src.contains("maybeNoticePlayers();"),

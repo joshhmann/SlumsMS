@@ -51,7 +51,7 @@ import static soloMapling.ArtificialPlayer.BotCommandsPack.SocialCommands.BotSpe
  * <p>1.6.0 (S5): every act goes through {@link SocialGate} - hostile ones only toward a player who started it with this
  * bot, quiet players get no buddy request or invite, a crew mate of a wronged bot only side-eyes - and its
  * cooldowns and caps are the gate's busy-server budget ({@code -Dsolomapling.affinity.<key>Min} / {@code PerHour}
- * still tune them): greet 40, invite 60, buddy 480, help 15, taunt 7, ks 5, defame 1440 minutes per pair (1.5.x: 120,
+ * still tune them): greet 40, invite 60, buddy 480, help 15, taunt 7, ks 10, defame 1440 minutes per pair (1.5.x: 120,
  * 180, 1440, 15, 20, 15, 1440); per hour world-wide taunts 60, KS sprees 30, invites 18 (1.5.x: 20, 10, 6).
  */
 public final class AffinityReactions {
@@ -213,7 +213,7 @@ public final class AffinityReactions {
             return false;
         }
         for (Character p : players) {
-            if (p == null || p.getId() == bot.getId() || PlayerBusy.isBusy(p)) {
+            if (p == null || p.getId() == bot.getId() || PlayerBusy.isBusy(p) || SocialGate.quietBots(p.getId())) {
                 continue;
             }
             if (hooks.noticed(botSM, bot, p)) {

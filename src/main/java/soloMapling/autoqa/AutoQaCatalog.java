@@ -756,14 +756,15 @@ public final class AutoQaCatalog {
                 .build());
         // 1.6.0 S5, the social gate: @quiet bots holds a friend's unasked whispers, invites and buddy requests (sg-1),
         // and a rival spices only at a player who started it with it (sg-2)
-        c.add(Check.auto("t-sg-1", "@quiet bots stops a friend bot's whispers, invites and buddy requests").minutes(4)
+        c.add(Check.auto("t-sg-1", "@quiet bots stops everything unasked a friend bot aims at you").minutes(4)
                 .step(run("sg-1"), waitSeconds(5), qaDo("try"), waitSeconds(25), qaDo("try"), mark("loud"),
                         qaDo("loud"), qaDo("try"), waitSeconds(5))
-                .expect(has("SG1 try \\d+ \\(quiet\\): whisper held, buddy offer: quiet, party invite held, guild invite held"),
-                        has("SOCIAL_GATE NO (whisper|party_invite|guild_invite|buddy_request) \\S+ -> {me}: @quiet bots"),
-                        lacksBefore("loud", "SOCIAL_GATE YES (whisper|party_invite|guild_invite|buddy_request) \\S+ -> {me}"),
+                .expect(has("SG1 try \\d+ \\(quiet\\): whisper held, buddy offer: quiet, party invite held, guild invite held, map-chat taunt held"),
+                        has("SOCIAL_GATE NO (whisper|party_invite|guild_invite|buddy_request|taunt) \\S+ -> {me}: @quiet bots"),
+                        lacksBefore("loud", "SOCIAL_GATE YES (whisper|party_invite|guild_invite|buddy_request|greet|taunt|side_eye|gift) \\S+ -> {me}"),
+                        lacksBefore("loud", "BOT_CHAT \\S+: .*sg-1 taunt"),
                         lacksBefore("loud", "SG1 try \\d+ \\(quiet\\): whisper SENT"),
-                        hasAfter("loud", "SG1 try \\d+ \\(loud\\): whisper SENT"))
+                        hasAfter("loud", "SG1 try \\d+ \\(loud\\): whisper SENT.*map-chat taunt SAID"))
                 .build());
         c.add(Check.auto("t-sg-2", "A rival spices only after you KS or roast it").minutes(5)
                 .step(run("sg-2"), waitSeconds(5), qaDo("taunt"), waitSeconds(60), mark("ks"), qaDo("ks"),
