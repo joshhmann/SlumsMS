@@ -716,10 +716,23 @@ public final class GCMovement {
 
     /* A standing hop in place. */
     public static void jumpInPlace(Character bot) {
+        tryJumpInPlace(bot);
+    }
+
+    /** As {@link #jumpInPlace}: true when the hop started, false when the bot is airborne, on a rope or not driven. */
+    public static boolean tryJumpInPlace(Character bot) {
         BotMovementState st = bot == null ? null : STATES.get(bot.getId());
         if (st != null && !st.inAir && !st.climbing) {
             BotMovementManager.initiateJump(st, bot, 0);
+            return true;
         }
+        return false;
+    }
+
+    /** True while the bot is in the air (mid-jump or falling); false on the ground, on a rope or when not driven. */
+    public static boolean isAirborne(Character bot) {
+        BotMovementState st = bot == null ? null : STATES.get(bot.getId());
+        return st != null && st.inAir && !st.climbing;
     }
 
     // ours: a directional (arced) engage hop toward dx (-1 left / +1 right; 0 = vertical). Unlike
