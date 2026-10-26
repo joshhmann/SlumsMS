@@ -24,6 +24,16 @@ public class BotWhyCommand extends Command {
     }
 
     static java.util.List<String> inspectionLines(BotSM bot, long now) {
+        var lines = new java.util.ArrayList<>(decisionLines(bot, now));
+        // 1.6.0 S1: the Bartle blend and leading type, with the persona layers it joins.
+        Character chr = bot.getChr();
+        if (chr != null) {
+            lines.addAll(soloMapling.ArtificialPlayer.BotLifeSystem.SocialSelf.of(chr.getId()).describe());
+        }
+        return java.util.List.copyOf(lines);
+    }
+
+    private static java.util.List<String> decisionLines(BotSM bot, long now) {
         if (bot instanceof soloMapling.ArtificialPlayer.BotTypes.TrainingBot training
                 && soloMapling.ArtificialPlayer.BotLifeSystem.LifeRuntime.enabled()) {
             var latest = training.lifeRuntime().lastDecision();
