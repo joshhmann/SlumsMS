@@ -78,7 +78,7 @@ def layout(title, body, root, section, description="", base=""):
 <body>
 <a class="skip" href="#main">Skip to content</a>
 <header class="site-head"><div class="wrap">
-  <a class="brand" href="{root}index.html"><img src="{root}assets/brand/wordmark.webp" alt="SlumsMS" width="169" height="56"></a>
+  <a class="brand" href="{root}index.html"><img src="{root}assets/brand/wordmark.webp" srcset="{root}assets/brand/wordmark.webp 1x, {root}assets/brand/wordmark-2x.webp 2x" alt="SlumsMS" width="173" height="56"></a>
   <nav class="site-nav" aria-label="Site">{links}</nav>
   <div class="theme" role="group" aria-label="Colour theme" data-theme-switch hidden><button type="button" data-theme-btn="system">Auto</button><button type="button" data-theme-btn="light">Light</button><button type="button" data-theme-btn="dark">Dark</button></div>
   <div class="accents" role="group" aria-label="Accent colour" data-accent-switch hidden>{"".join(

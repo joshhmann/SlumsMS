@@ -152,6 +152,8 @@ main { padding-block: 8px 48px; }
 .home-board { display: grid; grid-template-columns: minmax(0, 1.25fr) minmax(0, 1fr); gap: 24px; margin: 32px 0; align-items: start; }
 .split { display: grid; grid-template-columns: minmax(0, 1.4fr) minmax(0, 1fr); gap: 36px; margin-bottom: 36px; align-items: start; }
 .split .in { padding: 18px 20px; }
+.scene { margin: 0; border-bottom: var(--border) solid var(--edge); line-height: 0; }
+.scene img { width: 100%; height: auto; display: block; }
 .ticks { list-style: none; padding: 0; margin: 0; display: grid; gap: 14px; }
 .ticks li { padding-left: 18px; border-left: 4px solid var(--accent); }
 .facts { padding: 20px 22px; }
