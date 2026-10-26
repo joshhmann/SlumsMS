@@ -1335,6 +1335,9 @@ public class Character extends AbstractCharacterObject {
         if (newJob == null) {
             return;//the fuck you doing idiot!
         }
+        if (job != null) {
+            soloMapling.site.SiteFeed.jobChanged(this, job.getId(), newJob.getId()); // 1.6.0 Track D: the website's feed
+        }
 
         if (canRecvPartySearchInvite && getParty() == null) {
             this.updatePartySearchAvailability(false);
@@ -3936,6 +3939,7 @@ public class Character extends AbstractCharacterObject {
         this.level = progressed.level();
         this.exp.set(progressed.exp());
         if (progressed.levelsGained() > 0) {
+            soloMapling.site.SiteFeed.levelUps(this, levelBefore, level); // 1.6.0 Track D: the website's feed (memory only)
             recalcLocalStats();
             // These levels came without the AP/SP a level-up grants; the bot build grants and spends them.
             soloMapling.server.MapleRootSolo.runHook("bot progression", () ->
@@ -4001,6 +4005,7 @@ public class Character extends AbstractCharacterObject {
             }
 
             if (level > soloLevelBefore) {
+                soloMapling.site.SiteFeed.levelUps(this, soloLevelBefore, level); // 1.6.0 Track D: the website's feed
                 if (soloMapling.ArtificialPlayer.BotHelpers.isRosterBot(this)) {
                     // A bot spends the AP/SP these level-ups granted, and advances, by its build (real bots 06).
                     soloMapling.server.MapleRootSolo.runHook("bot progression", () ->
@@ -12672,6 +12677,7 @@ public class Character extends AbstractCharacterObject {
 
     public void addReborns() {
         setReborns(getReborns() + 1);
+        soloMapling.site.SiteFeed.rebirth(this, reborns); // 1.6.0 Track D: the website's feed (memory only)
     }
 
     // The field loadCharFromDB filled; setReborns keeps it in step. This runs on every EXP gain (through getMaxLevel),

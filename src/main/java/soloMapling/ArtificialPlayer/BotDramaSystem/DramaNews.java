@@ -68,6 +68,21 @@ public final class DramaNews {
             }
         }
         BeefKit.qaAny("NEWS " + kind.name().toLowerCase(Locale.ROOT) + " " + name + (detail == null ? "" : " (" + detail + ")"));
+        String site = siteText(kind, name); // 1.6.0 Track D: the website's feed, bots only (a breakup is fed by BotCouples)
+        if (site != null) {
+            soloMapling.site.SiteFeed.drama(kind.name().toLowerCase(Locale.ROOT), site, new int[]{botId}, new String[]{name});
+        }
+    }
+
+    /** The website feed's line for a piece of drama, or null when this kind goes in elsewhere (a breakup). */
+    static String siteText(Kind kind, String name) {
+        return switch (kind) {
+            case RAGE_QUIT -> name + " rage quit after a scroll boomed.";
+            case BACK -> name + " is back after rage quitting.";
+            case TURNED -> name + " has turned villain: always KSing lately.";
+            case REDEEMED -> name + " turned chill again.";
+            case BREAKUP -> null;
+        };
     }
 
     /** The items still told now, newest last. */

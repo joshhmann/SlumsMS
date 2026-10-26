@@ -433,6 +433,9 @@ public final class WorldEvents {
                 + " ch" + e.channel + ", bots lv " + e.minLevel + "-" + e.maxLevel + ", cap " + crowdCap(t)
                 + (e.bossOid >= 0 ? ", boss HP " + bossHpOf(e, map) : "") + ", by " + by);
         WorldEventFeed.started(e, now); // public Discord feed (-Dslumsms.announceFile), off the game thread
+        boolean hidden = t.kind() == EventTemplate.Kind.TREASURE_HUNT; // the site names the region, as the notice does
+        soloMapling.site.SiteFeed.eventStarted(t.name(), hidden ? e.regionName : e.mapName, hidden ? 0 : e.mapId(),
+                e.channel); // 1.6.0 Track D: the website's feed (memory only)
         log("[WorldEvents] started " + e.describe(now));
         if (t.kind() != EventTemplate.Kind.TREASURE_HUNT) {
             WorldEventReactions.recruit(e, rng); // treasure: bots only go once the last hint names the map
@@ -725,11 +728,44 @@ public final class WorldEvents {
             WorldEventReactions.news(e, map); // 1.6.0 S4: "remember the cake lol" for hours after
         }
         log("[WorldEvents] ended " + e.describe(e.endedAt));
+        if (!"server stopping".equals(reason)) {
+            siteFeedEnded(e, reason); // 1.6.0 Track D: the website's feed (memory only)
+        }
         qa("WEVENT END #" + e.id + " " + e.template.id() + " (" + reason + "), " + e.joinedBots.size()
                 + " bots joined, " + e.botDeaths() + " bot deaths" + (e.winnerName != null ? ", winner "
                 + e.winnerName + " (" + e.winnerDamage + " dmg)" : ", no real winner"));
         if (!BotShutdown.isQuiesced()) {
             ExecutorServiceManager.runAsync(this::saveState); // lastEndedAt: a restart keeps the cooldowns
+        }
+    }
+
+    /**
+     * 1.6.0 Track D: an ended event for the website's feed. Won: a boss or cake beaten (by anyone, bots included), the
+     * treasure found or the quest done; lost: time ran out on something that could be won; ended: a hot spot, a
+     * wedding or a visit is over. The name is the top damage (bot or player), else the real winner.
+     */
+    static String siteOutcome(EventTemplate.Kind kind, String reason, String winnerName, String topDamageName) {
+        if (kind == EventTemplate.Kind.HOT_SPOT || kind == EventTemplate.Kind.WEDDING
+                || (kind == EventTemplate.Kind.WANDERING_NPC && winnerName == null)) {
+            return "ended";
+        }
+        if (winnerName != null || topDamageName != null || "boss killed".equals(reason) || "boss gone".equals(reason)
+                || "won".equals(reason)) {
+            return "won";
+        }
+        return reason != null && reason.startsWith("stopped by") ? "ended" : "lost";
+    }
+
+    private static void siteFeedEnded(ActiveEvent e, String reason) {
+        try {
+            EventTemplate.Kind kind = e.template.kind();
+            String outcome = siteOutcome(kind, reason, e.winnerName, e.topDamageName);
+            String top = e.topDamageName != null ? e.topDamageName : e.winnerName;
+            boolean hidden = kind == EventTemplate.Kind.TREASURE_HUNT && !"won".equals(outcome);
+            soloMapling.site.SiteFeed.eventEnded(e.template.name(), hidden ? e.regionName : e.mapName,
+                    hidden ? 0 : e.mapId(), e.channel, outcome, "won".equals(outcome) ? top : null);
+        } catch (RuntimeException ex) {
+            log("[WorldEvents] site feed: " + ex);
         }
     }
 
@@ -965,6 +1001,10 @@ public final class WorldEvents {
         Winner w = topReal(damage, id -> here.containsKey(id) ? !BotHelpers.isBot(here.get(id))
                 : !BotHelpers.isArtificial(id));
         Character winner = w == null ? null : here.get(w.charId());
+        Winner top = topReal(damage, id -> here.containsKey(id)); // 1.6.0 Track D: the top damage, bot or player
+        if (top != null && here.get(top.charId()) != null && soloMapling.site.SiteFeed.isPublic(here.get(top.charId()))) {
+            e.topDamageName = here.get(top.charId()).getName();
+        }
         if (winner == null && killer != null && !BotHelpers.isBot(killer)) {
             winner = killer;
         }

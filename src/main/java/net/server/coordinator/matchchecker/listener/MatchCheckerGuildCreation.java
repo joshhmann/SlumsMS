@@ -125,6 +125,7 @@ public class MatchCheckerGuildCreation implements MatchCheckerListenerRecipe {
 
                 leader.sendPacket(GuildPackets.showGuildInfo(leader));
                 leader.dropMessage(1, "You have successfully created a Guild.");
+                soloMapling.site.SiteFeed.guildFounded(message, leader); // 1.6.0 Track D: the website's feed (memory only)
                 if (soloMapling.qa.QaLog.on(soloMapling.qa.QaLog.Topic.GUILD)) { // !qa gd-1
                     soloMapling.qa.QaLog.map(soloMapling.qa.QaLog.Topic.GUILD, leader.getMapId(), "guild " + gid + " '"
                             + message + "' created by " + leader.getName() + " with " + matchPlayers.size() + " cofounder(s)");

@@ -1023,6 +1023,7 @@ public class Server {
         soloMapling.dashboard.DashboardExporter.startIfEnabled(); // ticket 35: off unless -Dsolomapling.dashboard=true
         soloMapling.Economy.stats.EconomySnapshotService.startNightlyJob(); // 1.6.0 Track D: nightly economy snapshot
         soloMapling.Economy.market.PublicMarketExport.startIfEnabled(); // 1.6.0 Track D: website Market files, off unless -Dslums.market.export=true
+        soloMapling.site.PublicSiteExport.startIfEnabled(); // 1.6.0 Track D: website feed/leaderboards/world, off unless -Dslums.site.export=true
        // DamageSkin.loadDamageSkins();
     }
 

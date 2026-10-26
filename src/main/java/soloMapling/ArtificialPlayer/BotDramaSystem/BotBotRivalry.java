@@ -325,6 +325,10 @@ public final class BotBotRivalry {
         }
         boolean sent = megaphone.offer(bot, "DramaBotCallout",
                 Map.of("OTHER", target.getName()), "drama:botcallout:" + target.getId() + (force ? ":" + now : ""));
+        if (sent) { // 1.6.0 Track D: the website's feed, bots only
+            soloMapling.site.SiteFeed.drama("callout", bot.getName() + " called out " + target.getName() + " by megaphone.",
+                    new int[]{bot.getId(), target.getId()}, new String[]{bot.getName(), target.getName()});
+        }
         String line = "CALLOUT " + bot.getName() + " on " + target.getName() + " (nemesis): megaphone "
                 + (sent ? "sent" : "queued/gated");
         BeefKit.qaAny(line);

@@ -167,6 +167,8 @@ public final class GuildFeuds {
             }
             out += " and joined the rival " + rival.name();
         }
+        soloMapling.site.SiteFeed.drama("guild_feud", out + ".", new int[]{leaver.getId(), stayer.getId()},
+                new String[]{leaver.getName(), stayer.getName()}); // 1.6.0 Track D: the website's feed, bots only
         BeefKit.qaAny("GUILD FEUD LEAVE " + out);
         log.info("Guild feud: {}", out);
         return out;

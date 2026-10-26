@@ -374,6 +374,11 @@ public final class BotCouples {
         log.info("Bots {} and {} are {} now{}", aCharId, bCharId, stage == Stage.FRIENDS ? "best friends" : "a couple",
                 staged ? " (staged)" : "");
         qa("FORMED " + (stage == Stage.FRIENDS ? "best friends" : "couple") + " #" + id + ": " + aCharId + " + " + bCharId + (staged ? " (staged)" : ""));
+        if (!staged && stage != Stage.FRIENDS) { // 1.6.0 Track D: the website's feed, bots only (memory only)
+            String an = BotCrushes.name(aCharId), bn = BotCrushes.name(bCharId);
+            soloMapling.site.SiteFeed.drama("couple", an + " and " + bn + " are a couple now.",
+                    new int[]{aCharId, bCharId}, new String[]{an, bn});
+        }
         return c;
     }
 
@@ -411,6 +416,9 @@ public final class BotCouples {
             store.update(m);
         }
         lastWeddingAt = now;
+        if (!c.staged()) {
+            soloMapling.site.SiteFeed.wedding(BotCrushes.name(c.charA()), BotCrushes.name(c.charB())); // Track D feed
+        }
         return m;
     }
 
@@ -715,6 +723,8 @@ public final class BotCouples {
         String line = BotCrushes.say(speaker, "CoupleBreakup", otherName, null);
         boolean mega = breakupMegaphone.test(speaker, otherName);
         breakUp(c.id());
+        soloMapling.site.SiteFeed.drama("breakup", speaker.getName() + " and " + otherName + " broke up.",
+                new int[]{speaker.getId(), otherId}, new String[]{speaker.getName(), otherName}); // Track D feed
         soloMapling.ArtificialPlayer.BotDramaSystem.DramaNews.add(
                 soloMapling.ArtificialPlayer.BotDramaSystem.DramaNews.Kind.BREAKUP, otherId, otherName,
                 speaker.getName(), now);
