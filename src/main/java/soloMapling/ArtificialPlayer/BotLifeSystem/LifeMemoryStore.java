@@ -41,9 +41,9 @@ public final class LifeMemoryStore {
     /** The key under {@code botroster.ActivityState} that held v1 (and holds v2 when the table is missing). */
     public static final String STATE_KEY = "life";
 
-    static final String SELECT_ALL = "SELECT BotId, Profile FROM botlifeprofile";
-    static final String SELECT_ONE = "SELECT Profile FROM botlifeprofile WHERE BotId = ?";
-    static final String UPSERT = "INSERT INTO botlifeprofile (BotId, Version, Profile, UpdatedAt) VALUES (?, ?, ?, ?) "
+    public static final String SELECT_ALL = "SELECT BotId, Profile FROM botlifeprofile";
+    public static final String SELECT_ONE = "SELECT Profile FROM botlifeprofile WHERE BotId = ?";
+    public static final String UPSERT = "INSERT INTO botlifeprofile (BotId, Version, Profile, UpdatedAt) VALUES (?, ?, ?, ?) "
             + "ON DUPLICATE KEY UPDATE Version = VALUES(Version), Profile = VALUES(Profile), "
             + "UpdatedAt = VALUES(UpdatedAt)";
     /** After a failed read, how long the store runs on the ActivityState fallback before trying the table again. */

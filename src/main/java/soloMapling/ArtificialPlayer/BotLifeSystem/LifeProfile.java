@@ -53,6 +53,11 @@ public record LifeProfile(Map<Archetype, Double> blend, long grindDurationMs, lo
         for (Archetype type : Archetype.values()) mixed.put(type, 0.0);
         social.blend().forEach((bartle, share) -> BARTLE_MAP.get(bartle)
                 .forEach((channel, weight) -> mixed.merge(channel, share * weight, Double::sum)));
+        // Sharpen the mix (square, renormalise) so the leading channel keeps about the weight v1's primary had
+        // (.55-.70 there); a plain linear mix spreads a 55% Bartle lead too thin over two or three channels.
+        double squares = 0;
+        for (Archetype type : Archetype.values()) squares += mixed.get(type) * mixed.get(type);
+        for (Archetype type : Archetype.values()) mixed.put(type, mixed.get(type) * mixed.get(type) / squares);
         double core = 1 - merchant - slacker - CHANNEL_FLOOR * Archetype.values().length;
         Map<Archetype, Double> blend = new EnumMap<>(Archetype.class);
         double sum = 0;
