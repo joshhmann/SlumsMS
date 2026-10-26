@@ -125,7 +125,8 @@ public class ShopOfferResponse {
 
     private static void notifyPrice(Character player, String owner, int ownerId, String line) {
         if (soloMapling.ArtificialPlayer.BotHelpers.isArtificial(ownerId)) {
-            soloMapling.ArtificialPlayer.BotWhispers.send(player, owner, player.getClient().getChannel(), line, false);
+            soloMapling.ArtificialPlayer.BotWhispers.send(player, owner, player.getClient().getChannel(), line,
+                    soloMapling.ArtificialPlayer.SocialGate.Act.TRADE_OFFER); // their offer's answer: @quiet lets it by
         } else {
             player.sendPacket(PacketCreator.getWhisperReceive(owner, player.getClient().getChannel(), false, line));
         }

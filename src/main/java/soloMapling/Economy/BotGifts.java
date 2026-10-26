@@ -78,6 +78,9 @@ public final class BotGifts {
         if (rng.nextDouble() >= EconomyConfig.getDouble("gifts.chancePerSighting", 0.03)) {
             return false;
         }
+        if (!soloMapling.ArtificialPlayer.SocialGate.allow(bot, player, soloMapling.ArtificialPlayer.SocialGate.Act.GIFT)) {
+            return false; // 1.6.0 S5: every unprompted act goes through the social gate (logged)
+        }
         long k = key(bot.getId(), player.getId());
         Long last = lastGift.get(k);
         long now = clock.getAsLong();

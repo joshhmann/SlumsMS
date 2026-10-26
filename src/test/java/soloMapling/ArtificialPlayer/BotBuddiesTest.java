@@ -133,8 +133,11 @@ class BotBuddiesTest {
                 "one retry a week after an ignored request");
         assertEquals(Gate.CLOSED, BotBuddies.offerGate(offer(new Row(BOT, PLAYER, Link.RESENT, TODAY - 30), 0, 0, 0)),
                 "and only one");
-        assertEquals(Gate.PLAYER_DAILY_CAP, BotBuddies.offerGate(offer(null, 1, 0, 0)));
-        assertEquals(Gate.WORLD_CAP, BotBuddies.offerGate(offer(null, 0, 6, 0)));
+        // 1.6.0 S5 busy-server budget: 3 a day per player (1.5.x: 1), 18 an hour world-wide (1.5.x: 6)
+        assertEquals(Gate.OK, BotBuddies.offerGate(offer(null, 2, 0, 0)));
+        assertEquals(Gate.PLAYER_DAILY_CAP, BotBuddies.offerGate(offer(null, 3, 0, 0)));
+        assertEquals(Gate.OK, BotBuddies.offerGate(offer(null, 0, 17, 0)));
+        assertEquals(Gate.WORLD_CAP, BotBuddies.offerGate(offer(null, 0, 18, 0)));
         assertEquals(Gate.BOT_FULL, BotBuddies.offerGate(new OfferCheck(true, true, false, 4, null, TODAY, 0, 0,
                 BotBuddies.maxPlayerBuddies(), false, false, 0.2, 0)));
         assertEquals(Gate.PLAYER_FULL, BotBuddies.offerGate(new OfferCheck(true, true, false, 4, null, TODAY, 0, 0, 0,
@@ -362,7 +365,12 @@ class BotBuddiesTest {
         assertEquals(Gate.TOO_SOON, BotBuddies.maybeOffer(BOT, PLAYER, 4));
 
         liveBot(OTHER_BOT, "Kimchi", world);
-        assertEquals(Gate.PLAYER_DAILY_CAP, BotBuddies.maybeOffer(OTHER_BOT, PLAYER, 4));
+        System.setProperty("solomapling.buddy.offersPerPlayerPerDay", "1"); // the 1.5.x cap, to see it hold
+        try {
+            assertEquals(Gate.PLAYER_DAILY_CAP, BotBuddies.maybeOffer(OTHER_BOT, PLAYER, 4));
+        } finally {
+            System.clearProperty("solomapling.buddy.offersPerPlayerPerDay");
+        }
 
         BotBuddies.recordAccept(josh, BOT);
         assertEquals(Link.MUTUAL, table.pair(BOT, PLAYER).link());
@@ -377,6 +385,24 @@ class BotBuddiesTest {
         assertEquals(Gate.NOT_VISIBLE, BotBuddies.maybeOffer(BOT, PLAYER, 6));
         assertNull(table.pair(BOT, PLAYER));
         verify(busy.getClient(), never()).sendPacket(any());
+    }
+
+    @Test
+    void aQuietPlayerGetsNoBuddyRequest() { // 1.6.0 S5: @quiet bots also stops unsolicited buddy requests
+        liveBot(BOT, "Ressurectme", mock(World.class));
+        Character josh = player(PLAYER, "Josh", false);
+        online.put(PLAYER, josh);
+        roll = 0.0;
+        soloMapling.ArtificialPlayer.BotMegaphoneSystem.BotNoiseFilter.set(PLAYER,
+                new soloMapling.ArtificialPlayer.BotMegaphoneSystem.BotNoiseFilter.Setting(false, true));
+        try {
+            assertEquals(Gate.QUIET, BotBuddies.maybeOffer(BOT, PLAYER, 6));
+            assertNull(table.pair(BOT, PLAYER));
+            verify(josh.getClient(), never()).sendPacket(any());
+        } finally {
+            soloMapling.ArtificialPlayer.BotMegaphoneSystem.BotNoiseFilter.forgetAllForTest();
+        }
+        assertEquals(Gate.OK, BotBuddies.maybeOffer(BOT, PLAYER, 6), "quiet off: the same offer goes");
     }
 
     @Test

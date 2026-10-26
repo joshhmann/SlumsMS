@@ -695,9 +695,14 @@ public final class BotConversation {
         Cue cue = new Cue(hello, BotChatActions.Outcome.NONE, null);
         ExecutorServiceManager.runAsync(() -> {
             try {
-                if (!BotBrains.get().isLive()) {
-                    deliver(session, BotRecognition.scriptedHello(player.getName(), ThreadLocalRandom.current()), now,
-                            ChatStats.Tier.SCRIPTED, "recognised on sight", cue);
+                // 1.6.0 S5: the script first when the gate's unprompted-LLM budget is spent; never a repeated hello
+                if (!BotBrains.get().isLive() || !SocialGate.llmOk()) {
+                    String scripted = freshHello(chr, player);
+                    if (scripted == null) {
+                        end(chr.getId(), player.getId());
+                        return;
+                    }
+                    deliver(session, scripted, now, ChatStats.Tier.SCRIPTED, "recognised on sight", cue);
                     return;
                 }
                 BotRoster.Activity doing = bot.activitySnapshot();
@@ -715,13 +720,17 @@ public final class BotConversation {
                         .thenAccept(contract -> {
                     java.util.Optional<String> raw = contract.map(soloMapling.ArtificialPlayer.BotConvo.ConvoContract.Reply::text);
                     java.util.Optional<String> reply = raw.filter(l ->  // 1.5.0: no flirt without @romance on
-                            soloMapling.ArtificialPlayer.BotDramaSystem.BotDrama.replyAllowed(chr, player, l));
+                            soloMapling.ArtificialPlayer.BotDramaSystem.BotDrama.replyAllowed(chr, player, l))
+                            .filter(l -> SocialGate.fresh(chr.getId(), player.getId(), l)); // 1.6.0 S5: no repeats
                     if (sessions.get(key) != session) {
                         return; // the chat moved on or ended while the brain was thinking
                     }
-                    deliver(session, reply.orElseGet(() -> BotRecognition.scriptedHello(player.getName(),
-                                    ThreadLocalRandom.current())), now,
-                            reply.isPresent() ? ChatStats.Tier.LLM : ChatStats.Tier.SCRIPTED,
+                    String line = reply.orElseGet(() -> freshHello(chr, player));
+                    if (line == null) {
+                        end(chr.getId(), player.getId());
+                        return;
+                    }
+                    deliver(session, line, now, reply.isPresent() ? ChatStats.Tier.LLM : ChatStats.Tier.SCRIPTED,
                             "recognised on sight" + (reply.isPresent() ? "" : ", llm fell back"), cue);
                 });
             } catch (RuntimeException | LinkageError e) {
@@ -729,6 +738,17 @@ public final class BotConversation {
             }
         });
         return true;
+    }
+
+    /** A scripted hello this bot has not said to this player lately (1.6.0 S5), or null when all of them were. */
+    static String freshHello(Character bot, Character player) {
+        for (int i = 0; i < 8; i++) {
+            String line = BotRecognition.scriptedHello(player.getName(), ThreadLocalRandom.current());
+            if (SocialGate.fresh(bot.getId(), player.getId(), line)) {
+                return line;
+            }
+        }
+        return null;
     }
 
     /** !qa cv-8: the exact prompt a reply is asked with, one log line (newlines shown as \n). */

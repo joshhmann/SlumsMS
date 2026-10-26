@@ -149,6 +149,11 @@ public final class DramaKit {
 
     /** A random line of the node with every {TOKEN} filled and safe to say; null when none fits. */
     static String pick(String node, Map<String, String> tokens) {
+        return pick(node, tokens, l -> true);
+    }
+
+    /** {@link #pick}, only among the lines {@code ok} accepts. */
+    static String pick(String node, Map<String, String> tokens, java.util.function.Predicate<String> ok) {
         BotDialogueHandler.DialogueConstructor dialog;
         try {
             dialog = BotDialogueHandler.getDialogueCon(PACK, ROOT, node);
@@ -162,7 +167,7 @@ public final class DramaKit {
         Collections.shuffle(lines);
         for (String line : lines) {
             String out = fill(line, tokens);
-            if (out != null && ContentGuard.ok(out)) {
+            if (out != null && ContentGuard.ok(out) && ok.test(out)) {
                 return out;
             }
         }
@@ -188,15 +193,40 @@ public final class DramaKit {
         return line;
     }
 
+    /** A line of the node this bot has not said to this player lately (1.6.0 S5), or null. Nothing is remembered. */
+    static String pickFresh(Character bot, Character player, String node, Map<String, String> tokens) {
+        if (bot == null || player == null) {
+            return pick(node, tokens);
+        }
+        return pick(node, tokens, l -> !soloMapling.ArtificialPlayer.SocialGate.seen(bot.getId(), player.getId(), l));
+    }
+
+    /** The bot says a line of the node aimed at this player: never one it said to them lately (1.6.0 S5). */
+    static String sayTo(Character bot, Character player, String node, Map<String, String> tokens) {
+        if (player == null || bot == null) {
+            return say(bot, node, tokens);
+        }
+        String line = pick(node, tokens, l -> soloMapling.ArtificialPlayer.SocialGate.fresh(bot.getId(), player.getId(), l));
+        if (line != null && bot.getMap() != null) {
+            BotSpeak(bot, line);
+        }
+        return line;
+    }
+
     /**
-     * A whisper from a bot to a player (the stock whisper window). Held (dropped) while the player is busy - an event
-     * or boss map, a trade or shop, an NPC dialog, AFK - like every unsolicited bot whisper (rc3b PlayerBusy hold-off).
+     * A whisper from a bot to a player (the stock whisper window), unprompted. Held (dropped) while the player is busy -
+     * an event or boss map, a trade or shop, an NPC dialog, AFK - like every unsolicited bot whisper (rc3b PlayerBusy
+     * hold-off); 1.6.0 S5: through the social gate, so {@code @quiet bots} holds it too, and never the same line twice.
+     * True when it was sent.
      */
-    static void whisper(Character bot, Character player, String line) {
-        if (player != null && soloMapling.ArtificialPlayer.PlayerBusy.isBusy(player)) {
-            return;
+    static boolean whisper(Character bot, Character player, String line) {
+        if (player == null || line == null
+                || !soloMapling.ArtificialPlayer.SocialGate.allow(bot, player, soloMapling.ArtificialPlayer.SocialGate.Act.WHISPER)
+                || !soloMapling.ArtificialPlayer.SocialGate.freshLine(bot, player, line)) {
+            return false;
         }
         reply(bot, player, line);
+        return true;
     }
 
     /** A bot's whisper answering something the player just did (never held: the player is waiting for it). */

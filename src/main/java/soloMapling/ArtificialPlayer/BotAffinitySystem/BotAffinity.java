@@ -407,6 +407,11 @@ public final class BotAffinity {
             // 1.5.0 bot guilds: a guildmate who does things with the bot is not ignoring it
             soloMapling.ArtificialPlayer.BotGuildSystem.BotGuilds.noteAttention(botCharId, playerId);
         }
+        soloMapling.ArtificialPlayer.SocialGate.Provocation started =
+                delta < 0 ? soloMapling.ArtificialPlayer.SocialGate.provocationOf(event) : null;
+        if (started != null) { // 1.6.0 S5: the player started it with this bot (a KS, a stolen drop, a defame, a roast)
+            soloMapling.ArtificialPlayer.SocialGate.playerStarted(botCharId, playerId, started);
+        }
         return true;
     }
 
@@ -630,6 +635,10 @@ public final class BotAffinity {
         } else {
             writes.submit(playerId, () -> store.save(snapshot));
         }
+        if (state.hostile()) { // 1.6.0 S5: a staged grudge counts as started (GM, !qa, a breakup, a mocked apology)
+            soloMapling.ArtificialPlayer.SocialGate.playerStarted(botCharId, playerId,
+                    soloMapling.ArtificialPlayer.SocialGate.Provocation.STAGED);
+        }
         if (QaLog.on(QaLog.Topic.AFFINITY)) {
             QaLog.any(QaLog.Topic.AFFINITY, "STAGED bot " + botCharId + " -> " + playerId + " " + state.label());
         }
@@ -651,6 +660,8 @@ public final class BotAffinity {
         }
         writes.submit(playerId, () -> store.save(snapshot));
         onStateChange(snapshot.botId, playerId, AffinityState.RIVAL, AffinityEvent.KS);
+        soloMapling.ArtificialPlayer.SocialGate.playerStarted(botCharId, playerId,
+                soloMapling.ArtificialPlayer.SocialGate.Provocation.STAGED); // 1.6.0 S5
         return true;
     }
 
@@ -706,6 +717,7 @@ public final class BotAffinity {
 
     /** Drops every tie a bot has with online players and in the store (a staged !qa bot that left). */
     public static void forgetBot(int botCharId) {
+        soloMapling.ArtificialPlayer.SocialGate.forgetBot(botCharId); // 1.6.0 S5: its started-it rows and lines too
         int slot = slot(botCharId);
         for (PlayerTies pt : online.values()) {
             boolean had;

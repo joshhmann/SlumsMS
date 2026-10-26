@@ -22,15 +22,16 @@ import java.util.concurrent.TimeUnit;
  * bot in the last {@code -Dsolomapling.quietEngagedSeconds} (default 180), when the bot is in the player's party, or
  * when the line names the player.
  * <p>
- * Settings are kept per character in memory: they survive relogging and channel changes but reset when the server
- * restarts (a DB column would need a migration on live; not worth it for a toggle).
+ * Settings are kept per character in memory and, since 1.6.0 (S5), stored through {@code SocialGate} (migration 031,
+ * {@code botsocialopt}), so they survive a restart too. {@code @quiet bots} also stops unsolicited bot whispers,
+ * invites and buddy requests: {@code SocialGate} reads {@link #get} for that.
  */
 public final class BotNoiseFilter {
 
     static final long DEFAULT_ENGAGED_SECONDS = 180;
 
     public record Setting(boolean megaphones, boolean bots) {
-        static final Setting NONE = new Setting(false, false);
+        public static final Setting NONE = new Setting(false, false);
 
         boolean isNone() {
             return !megaphones && !bots;
@@ -48,6 +49,16 @@ public final class BotNoiseFilter {
     }
 
     public static void set(int charId, Setting setting) {
+        put(charId, setting);
+        soloMapling.ArtificialPlayer.SocialGate.quietChanged(charId); // 1.6.0 S5: kept across restarts
+    }
+
+    /** The stored setting read back at boot (no write). */
+    public static void restore(int charId, Setting setting) {
+        put(charId, setting);
+    }
+
+    private static void put(int charId, Setting setting) {
         if (setting == null || setting.isNone()) {
             settings.remove(charId);
         } else {
@@ -151,6 +162,12 @@ public final class BotNoiseFilter {
 
     private static long pair(int playerId, int botId) {
         return ((long) playerId << 32) | (botId & 0xffffffffL);
+    }
+
+    /** Test seam (a "restart" in SocialGate's tests). */
+    public static void forgetAllForTest() {
+        settings.clear();
+        engagedUntil.clear();
     }
 
     /** Test seam. */

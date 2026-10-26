@@ -6,21 +6,51 @@ import tools.PacketCreator;
 import java.util.HashMap;
 import java.util.Map;
 
-/** One unsolicited whisper budget per recipient across all bots/channels; replies spend no budget and ignore busy. */
+/**
+ * One unsolicited whisper budget per recipient across all bots/channels; replies spend no budget and ignore busy.
+ * 1.6.0 (S5): an unsolicited whisper goes through {@link SocialGate} first - {@code @quiet bots} and a busy player hold
+ * it, and a bot never whispers the same line to the same player twice - and the budget is the gate's
+ * ({@link SocialGate#whisperGapMs}: one per 200 s per player; 1.5.x: one per 10 min).
+ */
 public final class BotWhispers {
     private static final Map<Integer, Long> lastSent = new HashMap<>();
 
     private BotWhispers() { }
 
     public static boolean send(Character player, String sender, int channel, String line, boolean reply) {
-        if (line == null || !reply && PlayerBusy.isBusy(player)) { // a reply to the player's own whisper always goes through
+        return send(player, sender, channel, line, reply ? null : SocialGate.Act.WHISPER);
+    }
+
+    /**
+     * A whisper from a bot. {@code act} null = a reply to the player's own whisper (always goes through, no budget);
+     * otherwise the unprompted act it is ({@link SocialGate.Act#WHISPER}, or {@link SocialGate.Act#TRADE_OFFER} for an
+     * answer to the player's own ask, which {@code @quiet} does not hold).
+     */
+    public static boolean send(Character player, String sender, int channel, String line, SocialGate.Act act) {
+        if (line == null || player == null) {
             return false;
         }
-        if (!take(player.getId(), reply, System.currentTimeMillis())) {
+        boolean reply = act == null;
+        Character bot = senderOf(player, sender);
+        int botKey = SocialGate.botKey(bot, sender);
+        if (!reply) { // a reply to the player's own whisper always goes through
+            SocialGate.Verdict v = SocialGate.check(bot, player, act);
+            if (v.ok() && SocialGate.seen(botKey, player.getId(), line)) {
+                v = new SocialGate.Verdict(false, "repeat line");
+            }
+            SocialGate.note(act, bot == null ? 0 : bot.getId(), sender, player, v);
+            if (!v.ok()) {
+                return false;
+            }
+        }
+        if (!take(player.getId(), reply || act.asked, System.currentTimeMillis())) { // an answer to their ask: free
             return false;
+        }
+        if (!reply) {
+            SocialGate.fresh(botKey, player.getId(), line);
         }
         player.sendPacket(PacketCreator.getWhisperReceive(sender, channel, false,
-                soloMapling.ArtificialPlayer.BotConvo.MessyChat.forWhisper(senderOf(player, sender), sender, player, line)));
+                soloMapling.ArtificialPlayer.BotConvo.MessyChat.forWhisper(bot, sender, player, line)));
         return true;
     }
 
@@ -37,7 +67,7 @@ public final class BotWhispers {
         if (reply) {
             return true;
         }
-        long gap = Math.max(0, Long.getLong("solomapling.chat.whisperPlayerGapMs", 600_000));
+        long gap = SocialGate.whisperGapMs();
         lastSent.entrySet().removeIf(e -> now - e.getValue() >= gap);
         Long last = lastSent.get(playerId);
         if (last != null && now - last < gap) {

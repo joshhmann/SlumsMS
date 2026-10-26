@@ -4,6 +4,7 @@ import client.Character;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import soloMapling.ArtificialPlayer.PlayerBusy;
+import soloMapling.ArtificialPlayer.SocialGate;
 import soloMapling.ArtificialPlayer.BotBrainSystem.ChatDecide;
 import soloMapling.ArtificialPlayer.BotBrainSystem.ChatTriage;
 import soloMapling.ArtificialPlayer.BotBuddies;
@@ -47,8 +48,11 @@ import static soloMapling.ArtificialPlayer.BotCommandsPack.SocialCommands.BotSpe
  * {@code @botdrama off} removes every hostile action for that player, {@code -Dsolomapling.affinity.hostility=false}
  * for everyone.
  *
- * <p>Cooldowns ({@code -Dsolomapling.affinity.<key>Min}): greet 120, invite 180, buddy 1440, help 15, taunt 20,
- * ks 15, defame 1440 minutes. World caps per hour ({@code ...<key>PerHour}): taunts 20, KS sprees 10, invites 6.
+ * <p>1.6.0 (S5): every act goes through {@link SocialGate} - hostile ones only toward a player who started it with this
+ * bot, quiet players get no buddy request or invite, a crew mate of a wronged bot only side-eyes - and its
+ * cooldowns and caps are the gate's busy-server budget ({@code -Dsolomapling.affinity.<key>Min} / {@code PerHour}
+ * still tune them): greet 40, invite 60, buddy 480, help 15, taunt 7, ks 5, defame 1440 minutes per pair (1.5.x: 120,
+ * 180, 1440, 15, 20, 15, 1440); per hour world-wide taunts 60, KS sprees 30, invites 18 (1.5.x: 20, 10, 6).
  */
 public final class AffinityReactions {
 
@@ -66,10 +70,20 @@ public final class AffinityReactions {
     static final int[] HELP_BUFFS = {2301004 /* Bless */, 2311003 /* Holy Symbol */, 4101004, 4201003 /* Haste */,
             1301007 /* Hyper Body */, 2101001, 2201001 /* Meditation */, 3121002, 3221002 /* Sharp Eyes */};
 
-    enum Action { GREET, INVITE, BUDDY, HELP, TAUNT, KS, DEFAME }
+    enum Action {
+        GREET(SocialGate.Act.GREET), INVITE(SocialGate.Act.PARTY_INVITE), BUDDY(SocialGate.Act.BUDDY_REQUEST),
+        HELP(SocialGate.Act.HELP), TAUNT(SocialGate.Act.TAUNT), KS(SocialGate.Act.KS_SPREE),
+        DEFAME(SocialGate.Act.DEFAME),
+        /** 1.6.0 S5: a crew mate of a bot the player wronged gives them a look (a line, never a KS). */
+        SIDE_EYE(SocialGate.Act.SIDE_EYE);
 
-    private static final Map<Long, Long> nextAt = new ConcurrentHashMap<>();
-    private static final Map<Action, Deque<Long>> worldRecent = new ConcurrentHashMap<>();
+        final SocialGate.Act act;
+
+        Action(SocialGate.Act act) {
+            this.act = act;
+        }
+    }
+
     /** Per player: the day of the last bot defame they got. */
     private static final Map<Integer, Long> defamedDay = new ConcurrentHashMap<>();
     /** Per bot: the KS spree it is on. */
@@ -97,31 +111,14 @@ public final class AffinityReactions {
 
     // ── settings ──
 
+    /** The pair's cooldown (the social gate's busy-server budget). */
     static long cooldownMs(Action a) {
-        long min = switch (a) {
-            case GREET -> 120;
-            case INVITE -> 180;
-            case BUDDY -> 1440;
-            case HELP -> 15;
-            case TAUNT -> 20;
-            case KS -> 15;
-            case DEFAME -> 1440;
-        };
-        return TimeUnit.MINUTES.toMillis(Long.getLong("solomapling.affinity." + a.name().toLowerCase() + "Min", min));
+        return TimeUnit.MINUTES.toMillis(SocialGate.pairMinutes(a.act));
     }
 
+    /** The world-wide hourly cap (the social gate's busy-server budget). */
     static int perHour(Action a) {
-        int cap = switch (a) {
-            case TAUNT -> 20;
-            case KS -> 10;
-            case INVITE -> 6;
-            default -> 1000;
-        };
-        return Integer.getInteger("solomapling.affinity." + a.name().toLowerCase() + "PerHour", cap);
-    }
-
-    private static long key(Action a, int botCharId, int playerId) {
-        return ((long) a.ordinal() << 58) ^ ((long) (botCharId - BotStore.BOT_ID_BASE) << 30) ^ playerId;
+        return SocialGate.perHour(a.act);
     }
 
     /**
@@ -130,33 +127,26 @@ public final class AffinityReactions {
      * greet/invite/buddy cooldowns (2-24 h) from the last run kept it silent.
      */
     public static void forgetBot(int botCharId) {
-        long slot = botCharId - BotStore.BOT_ID_BASE;
-        nextAt.keySet().removeIf(k -> ((k >>> 30) & 0x0FFFFFFFL) == slot);
+        SocialGate.forgetBotBudget(botCharId);
         sprees.remove(botCharId);
     }
 
     /** True (and the cooldown starts) when this pair may do this now and the world cap has room. */
     static boolean take(Action a, int botCharId, int playerId, long now) {
-        long k = key(a, botCharId, playerId);
-        Long next = nextAt.get(k);
-        if (next != null && now < next) {
+        return SocialGate.take(a.act, botCharId, playerId, now);
+    }
+
+    /**
+     * 1.6.0 S5: the gate's rules for this act (quiet, busy, started it, crew) and then the budget. A rule's no is
+     * logged (at most once a minute per pair) and spends no budget.
+     */
+    static boolean may(Action a, Character bot, Character player, long now) {
+        SocialGate.Verdict v = SocialGate.check(bot, player, a.act);
+        if (!v.ok()) {
+            SocialGate.note(a.act, bot.getId(), bot.getName(), player, v);
             return false;
         }
-        Deque<Long> recent = worldRecent.computeIfAbsent(a, x -> new ArrayDeque<>());
-        synchronized (recent) {
-            while (!recent.isEmpty() && now - recent.peekFirst() > TimeUnit.HOURS.toMillis(1)) {
-                recent.pollFirst();
-            }
-            if (recent.size() >= perHour(a)) {
-                return false;
-            }
-            recent.addLast(now);
-        }
-        nextAt.put(k, now + cooldownMs(a));
-        if (nextAt.size() > 20_000) {
-            nextAt.values().removeIf(t -> t < now);
-        }
-        return true;
+        return take(a, bot.getId(), player.getId(), now);
     }
 
     // ── on sight ──
@@ -166,17 +156,19 @@ public final class AffinityReactions {
      * may do one thing about it, off the driver thread. True when it reacted (the caller skips its usual line).
      */
     public static boolean onSight(BotSM botSM, Character player) {
-        if (botSM == null || player == null || botSM.getChr() == null || !BotAffinity.hasTies(player.getId())
+        if (botSM == null || player == null || botSM.getChr() == null
+                || !BotAffinity.hasTies(player.getId()) && !SocialGate.wrongedAnyBot(player.getId())
                 || !BotHelpers.isVisibleRealPlayer(player)) {
             return false;
         }
         Character bot = botSM.getChr();
         AffinityState state = BotAffinity.state(bot.getId(), player.getId());
-        if (state == AffinityState.NEUTRAL || bot.getMapId() != player.getMapId()) {
+        if (bot.getMapId() != player.getMapId()) {
             return false;
         }
         long now = BotAffinity.now();
-        Action action = state == AffinityState.FRIEND ? pickFriendly(botSM, bot, player, now)
+        Action action = state == AffinityState.NEUTRAL ? pickSideEye(bot, player, now)
+                : state == AffinityState.FRIEND ? pickFriendly(botSM, bot, player, now)
                 : pickHostile(botSM, bot, player, state, now);
         if (action == null) {
             return false;
@@ -241,7 +233,7 @@ public final class AffinityReactions {
         if (!state.hostile() || !BotAffinity.hostilityEnabled() || BotAffinity.optedOut(player.getId())) {
             return false;
         }
-        nextAt.put(key(Action.TAUNT, bot.getId(), player.getId()), BotAffinity.now() + cooldownMs(Action.TAUNT));
+        SocialGate.startCooldown(SocialGate.Act.TAUNT, bot.getId(), player.getId(), BotAffinity.now());
         ExecutorServiceManager.runAsync(() -> {
             try {
                 act(Action.TAUNT, botSM, bot, player, state);
@@ -256,20 +248,41 @@ public final class AffinityReactions {
     static Action pickFriendly(BotSM botSM, Character bot, Character player, long now) {
         double roll = ThreadLocalRandom.current().nextDouble();
         boolean buddies = player.getBuddylist() != null && player.getBuddylist().contains(bot.getId());
-        if (!buddies && roll < 0.35 && take(Action.BUDDY, bot.getId(), player.getId(), now)) {
+        if (!buddies && roll < 0.35 && may(Action.BUDDY, bot, player, now)) {
             return Action.BUDDY;
         }
-        if (canInvite(botSM, bot, player) && roll < 0.5 && take(Action.INVITE, bot.getId(), player.getId(), now)) {
+        if (canInvite(botSM, bot, player) && roll < 0.5 && may(Action.INVITE, bot, player, now)) {
             return Action.INVITE;
         }
-        if (helpBuff(bot) != 0 && take(Action.HELP, bot.getId(), player.getId(), now)) {
+        if (helpBuff(bot) != 0 && may(Action.HELP, bot, player, now)) {
             return Action.HELP;
         }
-        if (!BotConversation.isTalking(bot.getId(), player.getId())
-                && take(Action.GREET, bot.getId(), player.getId(), now)) {
+        if (!BotConversation.isTalking(bot.getId(), player.getId()) && may(Action.GREET, bot, player, now)) {
             return Action.GREET;
         }
         return null;
+    }
+
+    /**
+     * 1.6.0 S5: a bot with no feelings of its own about the player, whose crew mate the player wronged lately: now and
+     * then a look and a line ({@code CrewSideEye}), never a KS or a call-out. Only when the gate says the crew rule
+     * holds; one map read when the player wronged nobody.
+     */
+    static Action pickSideEye(Character bot, Character player, long now) {
+        if (!SocialGate.enabled() || !SocialGate.wrongedAnyBot(player.getId())
+                || BotConversation.isTalking(bot.getId(), player.getId())
+                || ThreadLocalRandom.current().nextDouble() >= sideEyeChance()) {
+            return null;
+        }
+        return may(Action.SIDE_EYE, bot, player, now) ? Action.SIDE_EYE : null;
+    }
+
+    static double sideEyeChance() {
+        try {
+            return Double.parseDouble(System.getProperty("solomapling.social.sideEyeChance", "0.2"));
+        } catch (NumberFormatException e) {
+            return 0.2;
+        }
     }
 
     /** The one petty thing to do now, or null. */
@@ -279,13 +292,13 @@ public final class AffinityReactions {
         }
         double roll = ThreadLocalRandom.current().nextDouble();
         if (state == AffinityState.NEMESIS && roll < 0.25 && mayDefame(player.getId(), now)
-                && take(Action.DEFAME, bot.getId(), player.getId(), now)) {
+                && may(Action.DEFAME, bot, player, now)) {
             return Action.DEFAME;
         }
-        if (botSM instanceof TrainingBot && roll < 0.6 && take(Action.KS, bot.getId(), player.getId(), now)) {
+        if (botSM instanceof TrainingBot && roll < 0.6 && may(Action.KS, bot, player, now)) {
             return Action.KS;
         }
-        if (take(Action.TAUNT, bot.getId(), player.getId(), now)) {
+        if (may(Action.TAUNT, bot, player, now)) {
             return Action.TAUNT;
         }
         return null;
@@ -298,7 +311,7 @@ public final class AffinityReactions {
     }
 
     private static void act(Action action, BotSM botSM, Character bot, Character player, AffinityState state) {
-        if (PlayerBusy.isBusy(player)) {
+        if (!SocialGate.allow(bot, player, action.act)) { // 1.6.0 S5: busy, quiet and the target rules, at delivery
             return;
         }
         String detail = switch (action) {
@@ -309,11 +322,12 @@ public final class AffinityReactions {
             case TAUNT -> { // 1.5.0 bot drama: a roast from the player's real game facts (game only)
                 String roast = soloMapling.ArtificialPlayer.BotDramaSystem.BotRivalry.enabled()
                         ? soloMapling.ArtificialPlayer.BotDramaSystem.BotRivalry.roast(bot, player, state) : null;
-                yield roast != null ? roast : say(bot, state == AffinityState.NEMESIS ? "NemesisTaunt" : "RivalTaunt",
-                        player.getName());
+                yield roast != null ? roast : sayTo(bot, player,
+                        state == AffinityState.NEMESIS ? "NemesisTaunt" : "RivalTaunt");
             }
             case KS -> startSpree(bot, player);
             case DEFAME -> defame(bot, player);
+            case SIDE_EYE -> sayTo(bot, player, "CrewSideEye");
         };
         if (QaLog.on(QaLog.Topic.AFFINITY)) { // !qa af-1, af-2
             QaLog.map(QaLog.Topic.AFFINITY, bot.getMapId(), "ACT " + action.name().toLowerCase() + " " + bot.getName()
@@ -325,7 +339,7 @@ public final class AffinityReactions {
         if (BotConversation.greet(botSM, player)) { // through the chat brain: the player's answer reaches the bot
             return "greeted (chat opened)";
         }
-        return say(bot, "FriendHello", player.getName());
+        return sayTo(bot, player, "FriendHello");
     }
 
     private static String invite(Character bot, Character player) {
@@ -333,7 +347,7 @@ public final class AffinityReactions {
         if (!BotPartyCommands.botInvitePlayer(bot, player)) {
             return "invite refused by the party system";
         }
-        say(bot, "FriendInvite", player.getName());
+        sayTo(bot, player, "FriendInvite");
         if (!hadParty) {
             // The bot made a party just to invite them: if they never join, it leaves it again.
             BotTiming.after(TimeUnit.SECONDS.toMillis(75), () -> {
@@ -366,7 +380,7 @@ public final class AffinityReactions {
         }
         BotBuffEffects.givePartyBuff(bot, skill, List.of(player));
         if (ThreadLocalRandom.current().nextBoolean()) {
-            say(bot, "FriendHelp", player.getName());
+            sayTo(bot, player, "FriendHelp");
         }
         return "buffed with skill " + skill;
     }
@@ -378,7 +392,7 @@ public final class AffinityReactions {
                 new int[]{KS_SPREE_MOBS}));
         soloMapling.ArtificialPlayer.BotDramaSystem.BotRivalry.arm(bot, player); // 1.5.0: it may follow once for revenge
         if (ThreadLocalRandom.current().nextDouble() < 0.5) {
-            say(bot, "RivalTaunt", player.getName());
+            sayTo(bot, player, "RivalTaunt");
         }
         return "ks spree for " + TimeUnit.MILLISECONDS.toSeconds(KS_SPREE_MS) + " s, up to " + KS_SPREE_MOBS + " mobs";
     }
@@ -457,8 +471,8 @@ public final class AffinityReactions {
                     + (alreadyPicked ? " (its pick already)" : "") + ", " + spree.left()[0] + " left");
         }
         if (spree.left()[0] == 0 && ThreadLocalRandom.current().nextDouble() < 0.4) {
-            String name = rival.getName();
-            ExecutorServiceManager.runAsync(() -> say(bot, "KsAnnounce", name));
+            Character target = rival;
+            ExecutorServiceManager.runAsync(() -> sayTo(bot, target, "KsAnnounce"));
         }
         return best;
     }
@@ -557,7 +571,7 @@ public final class AffinityReactions {
             return "fame already at its floor";
         }
         if (ThreadLocalRandom.current().nextBoolean()) {
-            say(bot, "Defame", player.getName());
+            sayTo(bot, player, "Defame");
         }
         return "defamed (-1)";
     }
@@ -618,6 +632,8 @@ public final class AffinityReactions {
             return;
         }
         if (flirty) {
+            // 1.6.0 S5: the player flirted first - this one bot may flirt back (unless @romance off)
+            SocialGate.playerFlirted(bot.getId(), player.getId());
             if (soloMapling.ArtificialPlayer.BotDramaSystem.BotRomance.mayFlirtWith(bot.getId(), player.getId())) {
                 BotAffinity.record(bot, player, AffinityEvent.KIND_CHAT);
             }
@@ -708,7 +724,26 @@ public final class AffinityReactions {
         return "said \"" + line + "\"";
     }
 
+    /** A line of the node aimed at the player: never one this bot already said to them lately (1.6.0 S5). */
+    static String sayTo(Character bot, Character player, String node) {
+        if (bot == null || player == null) {
+            return "no line";
+        }
+        String line = pick(node, Map.of("PLAYER", player.getName() == null ? "" : player.getName()),
+                l -> SocialGate.fresh(bot.getId(), player.getId(), l));
+        if (line == null) {
+            return "no fresh line";
+        }
+        BotSpeak(bot, line);
+        return "said \"" + line + "\"";
+    }
+
     static String pick(String node, Map<String, String> tokens) {
+        return pick(node, tokens, l -> true);
+    }
+
+    /** A random line of the node with every token filled that {@code ok} accepts (tried in a shuffled order). */
+    static String pick(String node, Map<String, String> tokens, java.util.function.Predicate<String> ok) {
         BotDialogueHandler.DialogueConstructor dialog = BotDialogueHandler.getDialogueCon(PACK, ROOT, node);
         if (dialog == null || dialog.getDialogue() == null || dialog.getDialogue().isEmpty()) {
             return null;
@@ -722,7 +757,7 @@ public final class AffinityReactions {
                     out = out.replace("{" + t.getKey() + "}", t.getValue());
                 }
             }
-            if (!out.matches(".*\\{[A-Z_]+}.*")) {
+            if (!out.matches(".*\\{[A-Z_]+}.*") && ok.test(out)) {
                 return out;
             }
         }
@@ -771,8 +806,7 @@ public final class AffinityReactions {
 
     /** Tests: forget every cooldown, cap and spree. */
     static void resetForTest() {
-        nextAt.clear();
-        worldRecent.clear();
+        SocialGate.resetBudgetForTest();
         defamedDay.clear();
         sprees.clear();
         lastRefuseLine.clear();

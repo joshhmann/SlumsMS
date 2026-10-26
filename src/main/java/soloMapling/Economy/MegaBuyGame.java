@@ -218,7 +218,10 @@ public final class MegaBuyGame implements MegaBuyDesk.World {
     @Override
     public boolean whisper(MegaBuyDesk.Stock stock, MegaBuyDesk.Asker asker, String line) {
         Character p = player(asker);
-        return p != null && BotWhispers.send(p, stock.botName(), Math.max(0, stock.channel() - 1), line, true);
+        // 1.6.0 S5: an answer to the player's buy megaphone - through the social gate (busy, no repeated line), but
+        // asked for, so @quiet bots does not hold it and it spends no whisper budget
+        return p != null && BotWhispers.send(p, stock.botName(), Math.max(0, stock.channel() - 1), line,
+                soloMapling.ArtificialPlayer.SocialGate.Act.TRADE_OFFER);
     }
 
     @Override

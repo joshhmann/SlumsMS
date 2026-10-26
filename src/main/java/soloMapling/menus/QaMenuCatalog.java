@@ -96,6 +96,9 @@ public final class QaMenuCatalog {
         add("cv-11", v(), steps(), "say <line>");
         section("Player likeness (1.6.0)");
         add("lk-1", v(), steps("camp", "sample"));
+        section("Social gate (1.6.0)");
+        add("sg-1", v(), steps("try", "loud", "quiet"));
+        add("sg-2", v(), steps("check", "taunt", "ks", "roast", "fresh"));
 
         // ── Evening 2: economy ──
         eveningNo = 2;
