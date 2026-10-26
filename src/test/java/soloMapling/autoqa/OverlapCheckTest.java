@@ -34,7 +34,11 @@ class OverlapCheckTest {
     }
 
     static HealthSweep.BotSample player(int id, int x, int y) {
-        return new HealthSweep.BotSample(id, "Player" + id, 1, HENESYS, x, y, GROUNDED, false, false, null, false, true,
+        return player(id, HENESYS, x, y);
+    }
+
+    static HealthSweep.BotSample player(int id, int map, int x, int y) {
+        return new HealthSweep.BotSample(id, "Player" + id, 1, map, x, y, GROUNDED, false, false, null, false, true,
                 null, true, true);
     }
 
@@ -93,7 +97,9 @@ class OverlapCheckTest {
         List<HealthSweep.BotSample> bots = new ArrayList<>();
         bots.add(town(1, HENESYS, 100, 274, GROUNDED, true, null));
         bots.add(town(2, HENESYS, 100, 274, GROUNDED, true, null));
-        Map<String, Object> warn = check(run(bots, List.of()), "overlap");
+        // 1.6.0: a real player on each map, far from the pairs, so they count
+        List<HealthSweep.BotSample> watchers = List.of(player(40, -2000, 274), player(41, 100000100, -2000, 154));
+        Map<String, Object> warn = check(run(bots, watchers), "overlap");
         assertEquals("WARN", warn.get("status"), String.valueOf(warn.get("summary")));
         assertEquals(1, warn.get("pairs"));
 
@@ -101,7 +107,7 @@ class OverlapCheckTest {
             bots.add(town(10 + 2 * i, 100000100, 500 + 200 * i, 154, GROUNDED, true, null));
             bots.add(town(11 + 2 * i, 100000100, 503 + 200 * i, 154, GROUNDED, true, null));
         }
-        Map<String, Object> r = run(bots, List.of());
+        Map<String, Object> r = run(bots, watchers);
         Map<String, Object> fail = check(r, "overlap");
         assertEquals("FAIL", fail.get("status"));
         assertEquals(5, fail.get("pairs"));
@@ -112,6 +118,44 @@ class OverlapCheckTest {
         assertEquals(HENESYS, worst.get(1).get("map"));
         assertTrue(String.valueOf(r.get("summary")).contains("overlap FAIL"));
         assertTrue(Json.isValid(Json.write(r)));
+    }
+
+    @Test
+    void onlyMapsWithARealPlayerCountAndTheRestIsInfo() {
+        // 1.6.0 (owner, 2026-10-26): six pairs on a map nobody is watching, one on Henesys where a player stands
+        List<HealthSweep.BotSample> bots = new ArrayList<>();
+        bots.add(town(1, HENESYS, 100, 274, GROUNDED, true, null));
+        bots.add(town(2, HENESYS, 100, 274, GROUNDED, true, null));
+        for (int i = 0; i < 6; i++) {
+            bots.add(town(10 + 2 * i, 100000100, 500 + 200 * i, 154, GROUNDED, true, null));
+            bots.add(town(11 + 2 * i, 100000100, 503 + 200 * i, 154, GROUNDED, true, null));
+        }
+        Map<String, Object> c = check(run(bots, List.of(player(40, -2000, 274))), "overlap");
+        assertEquals("WARN", c.get("status"), String.valueOf(c.get("summary")));
+        assertEquals(1, c.get("pairs"));
+        assertEquals(7, c.get("allMapsPairs"));
+        assertEquals(5, c.get("failAt"));
+        assertTrue(String.valueOf(c.get("summary")).contains("7 pair(s) on all maps, info only"), String.valueOf(c));
+        @SuppressWarnings("unchecked")
+        List<Map<String, Object>> worst = (List<Map<String, Object>>) c.get("worstMaps");
+        assertEquals(1, worst.size());
+        assertEquals(HENESYS, worst.get(0).get("map"));
+
+        Map<String, Object> nobody = check(run(bots, List.of()), "overlap");
+        assertEquals("OK", nobody.get("status"), "no real player anywhere: nothing counts");
+        assertTrue(String.valueOf(nobody.get("summary")).contains("7 pair(s) on all maps"));
+
+        // the same map on another channel is another instance: a player on channel 2 does not watch channel 1
+        HealthSweep.BotSample elsewhere = new HealthSweep.BotSample(40, "Player40", 2, HENESYS, -2000, 274, GROUNDED,
+                false, false, null, false, true, null, true, true);
+        assertEquals("OK", check(run(bots, List.of(elsewhere)), "overlap").get("status"));
+
+        // a hidden GM (sampled as not idle) still marks the map as watched, and is never part of a pair
+        HealthSweep.BotSample hidden = new HealthSweep.BotSample(41, "Gm41", 1, 100000100, 500, 154, GROUNDED,
+                false, false, null, false, false, null, true, true);
+        Map<String, Object> gm = check(run(bots, List.of(hidden)), "overlap");
+        assertEquals("FAIL", gm.get("status"), String.valueOf(gm.get("summary")));
+        assertEquals(6, gm.get("pairs"));
     }
 
     @Test
