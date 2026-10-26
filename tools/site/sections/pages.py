@@ -29,7 +29,7 @@ def build_home(out, rels):
         raise SystemExit(f"home.html: unknown placeholders {left}")
     write(out, "index.html", layout(SITE, body, "", "home", meta.get("description", "")))
     # 404 page: the server sends it for a missing URL at any depth, so <base href="/"> anchors its relative links.
-    nf = ('<div class="notfound"><img src="assets/brand/sleepy-lying-480.webp" alt="Slums-chan dozing on her arms" width="480" height="306">'
+    nf = ('<div class="notfound"><img src="assets/brand/sleepy-zz-480.webp" alt="Slums-chan fast asleep on her arms, Zz" width="480" height="234">'
           '<p class="eyebrow">404</p><h1>Nothing here</h1>'
           '<p class="lede">Slums-chan dozed off looking for this page.</p>'
           '<p><a class="btn primary" href="index.html">Back to the home page</a></p></div>')

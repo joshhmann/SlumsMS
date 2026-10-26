@@ -144,7 +144,7 @@ main { padding-block: 8px 48px; }
 .headfig > div { min-width: 0; }
 .headfig .sidekick { float: none; margin: 0; width: auto; height: clamp(140px, 22vw, 230px); }
 .empty.nap { display: flex; align-items: center; gap: 14px; padding: 12px 16px; }
-.empty.nap img { width: 120px; height: auto; flex: none; }
+.empty.nap img { width: 160px; height: auto; flex: none; }
 .empty.nap[hidden] { display: none; }
 .hero-art .patch-card { position: relative; z-index: 1; width: 100%; }
 .patch-card { display: grid; gap: 6px; padding: 22px; text-decoration: none; color: var(--ink); transform: rotate(-1.5deg);

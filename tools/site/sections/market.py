@@ -484,7 +484,7 @@ def build_board(mk):
             '<div class="tbl"><table class="t"><thead><tr><th></th><th>Item</th><th class="r">Price each</th>'
             '<th class="r">Median</th><th class="r">Qty</th><th>Who</th><th>Ends</th></tr></thead>'
             '<tbody id="mk-board"></tbody></table></div>'
-            '<p class="empty nap" id="mk-board-empty"><img src="{root}assets/brand/sleepy-nap-240.webp" alt="" width="120" height="86" loading="lazy">'
+            '<p class="empty nap" id="mk-board-empty"><img src="{root}assets/brand/bubble-chin-nap-320.webp" alt="" width="160" height="143" loading="lazy">'
             '<span>No posts yet.</span></p></section>')
     mk.page(f"{MARKET}/board.html", "Buy/Sell board", body, "board", "WTB and WTS posts from players on SlumsMS.")
     body = ('<h1>My market</h1><p class="id" id="mk-who"></p>'

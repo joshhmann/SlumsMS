@@ -267,7 +267,7 @@ def build_live(wo):
             f'<section class="panel"><h2 class="bar">Busiest maps</h2><div class="tbl"><table class="t"><thead><tr><th class="r">#</th>'
             f'<th>Map</th><th class="r">Here</th></tr></thead><tbody>{maps}</tbody></table></div></section></div>'
             f'<section class="panel"><h2 class="bar">What\'s happening <a href="{{root}}{WORLD}/feed/index.html">All &raquo;</a></h2>'
-            + (f'<ul class="board feed">{feed}</ul>' if feed else '<p class="empty nap"><img src="{root}assets/brand/sleepy-nap-240.webp" alt="" width="120" height="86" loading="lazy">'
+            + (f'<ul class="board feed">{feed}</ul>' if feed else '<p class="empty nap"><img src="{root}assets/brand/bubble-chin-nap-320.webp" alt="" width="160" height="143" loading="lazy">'
                '<span>Quiet so far. Events, milestones and megaphones show up here as they happen.</span></p>') + '</section>')
     wo.page(f"{WORLD}/index.html", "Live world", body, "index", "Who's online on Bera, the busiest maps and tonight's event.")
     return total
