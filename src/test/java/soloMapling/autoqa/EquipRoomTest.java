@@ -30,4 +30,36 @@ class EquipRoomTest {
         assertEquals("pending", GameAutoQaWorld.buddyState(true, true, false, false));
         assertEquals("accepted", GameAutoQaWorld.buddyState(true, true, true, true));
     }
+
+    @Test
+    void buddyRoomDropsOnlyBotsAndOnlyAsManyAsNeeded() {
+        // TEST 2026-10-26 t-bb-2: AutoQaOne's list was 25 of 25 and the add was refused as full
+        java.util.function.IntPredicate bot = id -> id >= 1_000_000_000;
+        List<Integer> full = new java.util.ArrayList<>();
+        full.add(7); // a real player stays
+        for (int i = 0; i < 24; i++) {
+            full.add(1_000_000_000 + i);
+        }
+        assertEquals(List.of(1_000_000_000, 1_000_000_001), GameAutoQaWorld.buddiesToDrop(full, 25, 2, bot));
+        assertEquals(List.of(), GameAutoQaWorld.buddiesToDrop(full.subList(0, 20), 25, 2, bot), "room already");
+        assertEquals(List.of(), GameAutoQaWorld.buddiesToDrop(List.of(1, 2, 3), 3, 2, bot), "players only: none dropped");
+    }
+
+    @Test
+    void bothBuddyChecksMakeRoomBeforeTheAdd() {
+        for (String id : List.of("t-bb-1", "t-bb-2")) {
+            Check c = AutoQaCatalog.all().stream().filter(x -> x.id().equals(id)).findFirst().orElseThrow();
+            int room = -1;
+            int add = -1;
+            for (int i = 0; i < c.steps().size(); i++) {
+                String d = c.steps().get(i).describe();
+                if (d.startsWith("fixture buddyRoom")) {
+                    room = i;
+                } else if (add < 0 && d.toLowerCase(java.util.Locale.ROOT).contains("buddy add")) {
+                    add = i;
+                }
+            }
+            org.junit.jupiter.api.Assertions.assertTrue(room >= 0 && add > room, id + ": room " + room + ", add " + add);
+        }
+    }
 }

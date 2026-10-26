@@ -1132,9 +1132,14 @@ public final class SocialInitiative {
         return qaShiftMs;
     }
 
-    /** {@code !qa in-2}: the bot asks its due follow-up now (no roll, no gap): whispered. True when it asked. */
+    /**
+     * {@code !qa in-2}: the bot asks its due follow-up now (no roll, no gap): whispered. True when it asked. The
+     * player's unsolicited-whisper gap starts over too: in the auto-QA run t-in-1's login greeting whispers the same
+     * player seconds before, and the 200 s gap ate this whisper silently (TEST 2026-10-26 t-in-2).
+     */
     public static boolean qaFollowUp(Character bot, Character player) {
         lastFollowUp.remove(player.getId());
+        BotWhispers.forgetPlayer(player.getId());
         return followUp(bot, player, true, false, null);
     }
 

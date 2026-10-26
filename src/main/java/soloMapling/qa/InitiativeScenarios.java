@@ -102,7 +102,7 @@ final class InitiativeScenarios {
             List<String> out = new ArrayList<>(List.of(QaScenarios.who(ctx, id) + " remembers you want a zhelm (a goal"
                             + " note, as a chat leaves one). The initiative's clock now runs a day ahead.",
                     "Expect: IN2 BEFORE due 0, IN2 SHIFTED due 1, then a whisper like \"did u ever get that zhelm?\""
-                            + " (INIT FOLLOW_UP ... item:zhelm) and IN2 AFTER due 0, followed up yes.",
+                            + " (INIT FOLLOW_UP ... item:zhelm), then the AFTER line with nothing due and the note followed up.",
                     "!qa do ask asks again (nothing due: no second question); !qa do check prints the state."));
             out.addAll(ask(ctx));
             return out;

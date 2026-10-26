@@ -61,4 +61,27 @@ class PretendPlayerRestoreTest {
         verify(chr).changeSkillLevel(fromTheReset, (byte) -1, 0, -1);
         verify(chr).changeSkillLevel(rage, (byte) 20, 20, -1);
     }
+
+    @Test
+    void closeWindowsShutsTheStorageASyntheticClientLeftOpen() {
+        // TEST 2026-10-26: vb-7 left AutoQaOne's storage open, PlayerBusy held it busy and t-mb-1 lost its offer
+        server.Storage storage = mock(server.Storage.class);
+        when(storage.isOpen()).thenReturn(true);
+        Character chr = mock(Character.class);
+        when(chr.getStorage()).thenReturn(storage);
+
+        GameQaWorld.closeWindows(chr);
+
+        verify(storage).close();
+    }
+
+    @Test
+    void closeWindowsLeavesAClosedOrMissingStorageAlone() {
+        server.Storage storage = mock(server.Storage.class);
+        Character chr = mock(Character.class);
+        when(chr.getStorage()).thenReturn(storage);
+        GameQaWorld.closeWindows(chr);
+        verify(storage, org.mockito.Mockito.never()).close();
+        GameQaWorld.closeWindows(mock(Character.class));
+    }
 }

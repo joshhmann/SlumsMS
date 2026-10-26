@@ -285,6 +285,20 @@ class SocialInitiativeTest {
     }
 
     @Test
+    void theQaFollowUpIsNotEatenByAnEarlierWhispersGap() {
+        // TEST 2026-10-26 t-in-2: t-in-1's login greeting whispered the GM seconds before; the real sender's 200 s
+        // per-player whisper gap then dropped in-2's follow-up without a word
+        Character josh = player(PLAYER, "Josh", 25);
+        Character friend = bot(BOT, "Kimchi", 25);
+        long t0 = clock.get();
+        BotMemory.episode(SLOT, PLAYER, BotMemory.Kind.GOAL, "wants zhelm", 4, "item:zhelm", t0);
+        clock.set(t0 + 24 * HOUR);
+        assertTrue(BotWhispers.take(PLAYER, false, System.currentTimeMillis()), "an earlier whisper to the player");
+        assertTrue(SocialInitiative.qaFollowUp(friend, josh));
+        assertTrue(BotWhispers.take(PLAYER, false, System.currentTimeMillis()), "the QA ask cleared the whisper gap");
+    }
+
+    @Test
     void theLoginHelloFoldsInADueFollowUp() {
         Character josh = player(PLAYER, "Josh", 25);
         online.put(PLAYER, josh);

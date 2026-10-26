@@ -177,6 +177,7 @@ final class GameAutoQaWorld implements AutoQaWorld {
                 case "clumpsOnMyMap" -> clumpsOnMyMap(me, Integer.parseInt(a[0]), Integer.parseInt(a[1]));
                 case "nearbyBot" -> nearbyBot(me);
                 case "buddy" -> buddy(me, a[0], a[1]);
+                case "buddyRoom" -> buddyRoom(me, Integer.parseInt(a[0]));
                 case "engaged" -> engaged(actor(Integer.parseInt(a[0])));
                 case "notEngaged" -> notEngaged();
                 case "equipRoom" -> equipRoom(me, Integer.parseInt(a[0]));
@@ -556,6 +557,41 @@ final class GameAutoQaWorld implements AutoQaWorld {
             return List.of("SKIP no bot on map " + me.getMapId());
         }
         return List.of("PASS " + best.getName() + " at " + Math.round(bestD) + " px", "VAR near=" + best.getName());
+    }
+
+    /**
+     * t-bb-1/2: at least {@code free} open slots on my buddy list, made by dropping bot buddies (never a player). Every
+     * run adds one bot in t-bb-1 and the initiative's bot buddy requests add more, so on TEST 2026-10-26 AutoQaOne's
+     * list sat at 25 of 25 after t-bb-1 and t-bb-2's add was refused as full: the bot never showed up.
+     */
+    private static List<String> buddyRoom(Character me, int free) {
+        var bl = me.getBuddylist();
+        List<Integer> ids = new ArrayList<>();
+        for (int id : bl.getBuddyIds()) {
+            ids.add(id);
+        }
+        List<Integer> drop = buddiesToDrop(ids, bl.getCapacity(), free, BotHelpers::isArtificial);
+        for (int id : drop) {
+            me.deleteBuddy(id);
+        }
+        int open = bl.getCapacity() - bl.getBuddyIds().length;
+        return List.of((open >= free ? "PASS " : "FAIL ") + open + " of " + bl.getCapacity() + " buddy slot(s) free"
+                + (drop.isEmpty() ? "" : " (dropped " + drop.size() + " bot buddy/ies)"));
+    }
+
+    /** The bot buddies to drop so {@code free} slots open, first listed first; players are never dropped. */
+    static List<Integer> buddiesToDrop(List<Integer> ids, int capacity, int free, java.util.function.IntPredicate bot) {
+        int need = ids.size() + free - capacity;
+        List<Integer> out = new ArrayList<>();
+        for (int id : ids) {
+            if (out.size() >= need) {
+                break;
+            }
+            if (bot.test(id)) {
+                out.add(id);
+            }
+        }
+        return out;
     }
 
     /** t-bb-1: my buddy entry for a name: want "accepted", "pending" or "none". */

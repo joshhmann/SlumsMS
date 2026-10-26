@@ -51,12 +51,19 @@ public final class StageSpots {
      * {@link #MIN_GAP} from every {@code taken} point. Falls back to the nearest grounded try, then the centre.
      */
     static Point pick(Point center, List<Point> taken, Random rng, BiFunction<Integer, Integer, Point> ground) {
+        Point p = pickWithin(center, taken, rng, ground, MAX_DY);
+        return p != null ? p : new Point(center);
+    }
+
+    /** As {@link #pick} with the ground at most {@code maxDy} from the centre's height; null when no try found any. */
+    static Point pickWithin(Point center, List<Point> taken, Random rng, BiFunction<Integer, Integer, Point> ground,
+                            int maxDy) {
         Point fallback = null;
         for (int i = 0; i < TRIES; i++) {
             int side = rng.nextBoolean() ? 1 : -1;
             int dx = side * (70 + 12 * i + rng.nextInt(60)); // a short walk: 70-290 px
             Point g = ground.apply(center.x + dx, center.y - 40);
-            if (g == null || Math.abs(g.y - center.y) > MAX_DY) {
+            if (g == null || Math.abs(g.y - center.y) > maxDy) {
                 continue;
             }
             if (fallback == null) {
@@ -66,7 +73,33 @@ public final class StageSpots {
                 return g;
             }
         }
-        return fallback != null ? fallback : new Point(center);
+        return fallback;
+    }
+
+    /** How far a "level" spot may sit above or below its centre: BotCouples' side-by-side height (a step, not a ledge). */
+    static final int LEVEL_DY = 40;
+
+    /**
+     * Where the second of a pair goes ({@code !qa cp-1}): near the first bot and at its height when any such ground is
+     * in reach, else as {@link #pick}. TEST t-cu-1 (2026-10-25 and 10-26, GM at 104040001 (395, -1045)): the second
+     * landed on the ledge 60 px below the first, could not climb to the spot beside it and "walked over" all run, so
+     * the couple never sat. Null-safe like {@link #pick}.
+     */
+    static Point pickLevel(Point center, List<Point> taken, Random rng, BiFunction<Integer, Integer, Point> ground) {
+        Point p = pickWithin(center, taken, rng, ground, LEVEL_DY);
+        if (p != null) {
+            return p;
+        }
+        int side = rng.nextBoolean() ? 1 : -1; // the random tries missed it: sweep both sides out from the centre
+        for (int d = 60; d <= 290; d += 10) {
+            for (int s : new int[]{side, -side}) {
+                Point g = ground.apply(center.x + s * d, center.y - 40);
+                if (g != null && Math.abs(g.y - center.y) <= LEVEL_DY && clear(g, taken)) {
+                    return g;
+                }
+            }
+        }
+        return pick(center, taken, rng, ground);
     }
 
     static boolean clear(Point p, List<Point> taken) {
@@ -94,6 +127,24 @@ public final class StageSpots {
             // nobody known: any grounded spot will do
         }
         return pick(center, taken, ThreadLocalRandom.current(), (x, y) -> groundBelow(map, x, y));
+    }
+
+    /** A spot on {@code map} near {@code center} and at its height when possible ({@link #pickLevel}). */
+    public static Point nearLevel(MapleMap map, Point center) {
+        if (map == null || center == null) {
+            return near(map, center);
+        }
+        List<Point> taken = new ArrayList<>();
+        try {
+            for (Character c : map.getAllPlayers()) {
+                if (c != null && c.getPosition() != null) {
+                    taken.add(c.getPosition());
+                }
+            }
+        } catch (RuntimeException e) {
+            // nobody known: any grounded spot will do
+        }
+        return pickLevel(center, taken, ThreadLocalRandom.current(), (x, y) -> groundBelow(map, x, y));
     }
 
     /** A spot near the GM on the GM's map. */
