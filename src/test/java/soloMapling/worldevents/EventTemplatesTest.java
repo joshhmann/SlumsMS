@@ -4,7 +4,9 @@ import org.junit.jupiter.api.Test;
 
 import java.io.FileReader;
 import java.io.StringReader;
+import java.util.ArrayList;
 import java.util.EnumSet;
+import java.util.List;
 import java.util.Set;
 
 import static org.junit.jupiter.api.Assertions.assertEquals;
@@ -27,11 +29,17 @@ class EventTemplatesTest {
         for (EventTemplate t : r.templates()) {
             kinds.add(t.kind());
             assertTrue(t.minutes() >= 1 && t.minutes() <= EventTemplates.MAX_MINUTES, t.id());
-            assertTrue(t.botCap() <= 10, t.id() + " keeps the crowd believable");
-            for (EventTemplate.Reward reward : t.rewards()) {
-                // Owner rule for the first set: consumables only (potions), no mesos, equips or scrolls.
-                assertEquals(200, reward.itemId() / 10_000, t.id() + " reward " + reward.itemId());
+            // 1.6.0: a headline gathers a crowd (the map cap, BOT_MAP_CAP 50, still applies); the small ones stay small
+            assertTrue(t.botCap() <= (t.slot() == EventTemplate.Slot.HEADLINE ? EventTemplates.MAX_BOT_CAP : 10),
+                    t.id() + " keeps the crowd believable");
+            List<EventTemplate.Reward> all = new ArrayList<>(t.rewards());
+            all.addAll(t.participation());
+            for (EventTemplate.Reward reward : all) {
+                // Owner rule: consumables only (potions, food, cakes), no mesos, equips or scrolls; small amounts.
+                assertTrue(EventTemplates.consumable(reward.itemId()), t.id() + " reward " + reward.itemId());
+                assertTrue(reward.qty() <= 5, t.id() + " reward " + reward.itemId() + " stays small");
             }
+            assertTrue(t.participationExpPct() <= 3, t.id() + " participation EXP stays small");
         }
         assertEquals(EnumSet.allOf(EventTemplate.Kind.class), kinds);
     }
@@ -91,6 +99,71 @@ class EventTemplatesTest {
         String all = String.join("\n", r.errors());
         for (String bad : new String[]{"weird", "noboss", "rates", "long", "ok: duplicate", "paid", "nomob",
                 "noitem", "nomap", "chest"}) {
+            assertTrue(all.contains(bad), "reported " + bad + " in\n" + all);
+        }
+    }
+
+    @Test
+    void readsAHeadlineCakeWithItsRewardTables() throws Exception {
+        EventTemplates.Result r = parse("""
+                templates:
+                  - id: cake
+                    kind: giant_cake
+                    slot: headline
+                    weight: 3
+                    minutes: 30
+                    bot_cap: 40
+                    maps: [100000000]
+                    boss: 9400606
+                    boss_hp: 4000000
+                    waves:
+                      - {mob: 9400607, count: 12}
+                    rewards:
+                      - {item: 2020032, qty: 5}
+                    participation:
+                      - {item: 2020032, qty: 2, chance: 0.5}
+                    participation_exp_pct: 2
+                """);
+        assertTrue(r.errors().isEmpty(), r.errors().toString());
+        EventTemplate t = r.templates().get(0);
+        assertEquals(EventTemplate.Kind.GIANT_CAKE, t.kind());
+        assertEquals(EventTemplate.Slot.HEADLINE, t.slot());
+        assertEquals(4_000_000L, t.bossHp());
+        assertEquals(40, t.botCap());
+        assertEquals(List.of(new EventTemplate.Reward(2020032, 5, 1.0)), t.rewards());
+        assertEquals(List.of(new EventTemplate.Reward(2020032, 2, 0.5)), t.participation());
+        assertEquals(2.0, t.participationExpPct());
+        assertTrue(t.bossFight());
+    }
+
+    @Test
+    void slotDefaultsSmallOrManualByWeight() throws Exception {
+        EventTemplates.Result r = parse("""
+                templates:
+                  - {id: a, kind: hot_spot, maps: [1], exp_bonus: 1.5, weight: 2}
+                  - {id: b, kind: hot_spot, maps: [1], exp_bonus: 1.5, weight: 0}
+                """);
+        assertEquals(EventTemplate.Slot.SMALL, r.templates().get(0).slot());
+        assertEquals(EventTemplate.Slot.MANUAL, r.templates().get(1).slot());
+    }
+
+    @Test
+    void rewardTablesRefuseAnythingButSmallConsumables() throws Exception {
+        EventTemplates.Result r = parse("""
+                templates:
+                  - {id: sword, kind: invasion, maps: [1], waves: [{mob: 1, count: 2}], boss: 3, rewards: [{item: 1302000, qty: 1}]}
+                  - {id: scroll, kind: invasion, maps: [1], waves: [{mob: 1, count: 2}], boss: 3, rewards: [{item: 2040001, qty: 1}]}
+                  - {id: hotpart, kind: hot_spot, maps: [1], exp_bonus: 1.5, participation: [{item: 2000004, qty: 1}]}
+                  - {id: bigexp, kind: giant_cake, maps: [1], boss: 3, participation_exp_pct: 50}
+                  - {id: bighp, kind: giant_cake, maps: [1], boss: 3, boss_hp: 999999999}
+                  - {id: noboss, kind: giant_cake, maps: [1]}
+                  - {id: slotty, kind: giant_cake, maps: [1], boss: 3, slot: evening}
+                  - {id: crowd, kind: giant_cake, maps: [1], boss: 3, bot_cap: 80}
+                  - {id: fine, kind: giant_cake, maps: [1], boss: 3, participation: [{item: 2022161, qty: 1}]}
+                """);
+        assertEquals(List.of("fine"), r.templates().stream().map(EventTemplate::id).toList(), r.errors().toString());
+        String all = String.join("\n", r.errors());
+        for (String bad : new String[]{"sword", "scroll", "hotpart", "bigexp", "bighp", "noboss", "slotty", "crowd"}) {
             assertTrue(all.contains(bad), "reported " + bad + " in\n" + all);
         }
     }

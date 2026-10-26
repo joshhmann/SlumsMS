@@ -533,6 +533,7 @@ public class TrainingBot extends BotSM implements soloMapling.ArtificialPlayer.B
             cancelLifeActivity();
             answerEventCall(chr);
         }
+        leaveEventMapIfOver(chr); // 1.6.0 world events
 
         if (pausedForChat(chr)) {
             pollRecruitInvite();
@@ -825,6 +826,11 @@ public class TrainingBot extends BotSM implements soloMapling.ArtificialPlayer.B
             case INVITE_PQ -> phase == Phase.LIFE_DWELL && lifeVisit == LifeDecision.Activity.PARTY_QUEST
                     && soloMapling.ArtificialPlayer.SocialInitiative.pqTarget(getChr(), at) != null;
             case INVITE_GUILD -> false; // 1.6.0 S6: event-driven (after a login hello), never the scorer's pick
+            // 1.6.0 world events: offered a running event that still has room (crowd cap and map cap), not already
+            // headed to one, and not tied to a player (party, recruit)
+            case EVENT -> soloMapling.worldevents.WorldEventSteer.mapFor(getChr().getId()) < 0
+                    && partyTargetMapId() == null && !recruitingNow()
+                    && soloMapling.worldevents.WorldEvents.getInstance().mayAccept(getChr(), at);
             case LOG_OUT -> {
                 var member = BotRoster.loadedMember(getChr().getId() - soloMapling.ArtificialPlayer.BotStore.BOT_ID_BASE);
                 if (member == null || member.lastLoginAt() <= 0 || member.sessionMinutes() <= 0
@@ -859,6 +865,7 @@ public class TrainingBot extends BotSM implements soloMapling.ArtificialPlayer.B
                     - soloMapling.ArtificialPlayer.BotStore.BOT_ID_BASE);
         }
         if (activity == LifeDecision.Activity.INVITE_PQ) return invitePqNow(at);
+        if (activity == LifeDecision.Activity.EVENT) return joinEventNow(at);
         lifePqTrip = false;
         if (activity == LifeDecision.Activity.CHANGE_CHANNEL) return changeChannelNow(at);
         if (activity == LifeDecision.Activity.PARTY_QUEST && dailyLife.friend(at) != null) {
@@ -900,6 +907,41 @@ public class TrainingBot extends BotSM implements soloMapling.ArtificialPlayer.B
         }
         lifeNote("START activity=" + activity);
         return true;
+    }
+
+    /**
+     * 1.6.0 world events: EVENT chosen by the brain. The event takes the bot (crowd cap permitting); it drops what it
+     * is doing and its next DECIDE goes to the event map (WorldEventSteer), where the activity completes on arrival.
+     */
+    private boolean joinEventNow(long at) {
+        if (!soloMapling.worldevents.WorldEvents.getInstance().accept(getChr(), at)) return false;
+        if (phase == Phase.GRIND) leaveGrind();
+        lifePqTrip = false;
+        enterPhase(Phase.DECIDE);
+        lifeNote("START activity=EVENT map=" + soloMapling.worldevents.WorldEventSteer.mapFor(getChr().getId()));
+        return true;
+    }
+
+    /**
+     * 1.6.0 world events: the event this bot was fighting at is over. On a map without its own mobs (a town that was
+     * invaded or had the cake) there is nothing left to grind: it settles in town and decides from there. Read at
+     * its next tick.
+     */
+    public void eventOver(int mapId) {
+        eventOverMap = mapId;
+    }
+
+    private volatile int eventOverMap = -1;
+
+    private void leaveEventMapIfOver(Character chr) {
+        int m = eventOverMap;
+        if (m <= 0) return;
+        eventOverMap = -1;
+        if (phase == Phase.GRIND && chr.getMapId() == m && MapMobIndex.level(m) < 0 && !recruitingNow()
+                && partyTargetMapId() == null) {
+            leaveGrind();
+            enterPhase(Phase.IN_TOWN);
+        }
     }
 
     /**

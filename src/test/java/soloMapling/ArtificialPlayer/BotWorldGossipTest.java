@@ -122,7 +122,8 @@ class BotWorldGossipTest {
             for (int i = 0; i < 60; i++) {
                 String line = BotWorldGossip.line(n, i % 2 == 0, BotWorldGossip.ageText(i * 1_000_000L), rng);
                 assertNotNull(line);
-                assertTrue(line.contains("Josh"), line);
+                // 1.6.0: an EVENT item names the event; its winner only in some lines ("remember the cake lol")
+                assertTrue(line.contains(kind == Kind.EVENT ? "Zakum" : "Josh"), line);
                 assertFalse(line.contains("{"), line);
                 assertFalse(disclosure.matcher(line).find(), line);
             }

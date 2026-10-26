@@ -37,7 +37,8 @@ import static soloMapling.ArtificialPlayer.BotCommandsPack.SocialCommands.BotSpe
  */
 public final class BotWorldGossip implements EventSubscriber {
 
-    public enum Kind { BOSS, DROP, WEDDING }
+    /** EVENT (1.6.0): a world event (the giant cake, an invasion); {@code who} is its winner or "". */
+    public enum Kind { BOSS, DROP, WEDDING, EVENT }
 
     /** One thing that happened. {@code who} is the actor's name; {@code other} the monster, item or spouse. */
     public static final class News {
@@ -153,6 +154,33 @@ public final class BotWorldGossip implements EventSubscriber {
         }
     }
 
+    /**
+     * 1.6.0 world events: an event that just ended joins the news ("the giant cake in henesys"), with its real
+     * winner if there was one and the bots that were there as witnesses (they say "remember the cake lol"; others
+     * "did u hear about..."). {@code botDeaths} goes in as the extra ("6 bots died").
+     */
+    public static void onWorldEvent(String what, String winner, int winnerId, int botDeaths, List<Integer> witnesses,
+                                    long now) {
+        try {
+            if (!enabled() || what == null || what.isBlank()) {
+                return;
+            }
+            News news = new News(Kind.EVENT, winner == null ? "" : winner, winner == null ? 0 : winnerId, what,
+                    botDeaths > 0 ? String.valueOf(botDeaths) : null, now);
+            for (int id : witnesses) {
+                if (news.witnesses.size() < WITNESSES) {
+                    news.witnesses.add(id);
+                }
+            }
+            feed.add(news);
+            while (feed.size() > FEED_CAP) {
+                feed.remove(0);
+            }
+        } catch (RuntimeException e) {
+            // flavor only
+        }
+    }
+
     static News record(Kind kind, Character who, String what, String extra, long now) {
         if (!enabled()) {
             return null;
@@ -189,6 +217,7 @@ public final class BotWorldGossip implements EventSubscriber {
             case BOSS -> "was there when they killed " + n.what;
             case DROP -> "saw them get " + n.what + (n.extra == null ? "" : " from " + n.extra);
             case WEDDING -> "was at their wedding to " + n.what;
+            case EVENT -> "was there when they won " + n.what;
         };
     }
 
@@ -278,8 +307,8 @@ public final class BotWorldGossip implements EventSubscriber {
         News best = null;
         double bestWeight = 0;
         for (News n : items) {
-            if (n.mentions >= MAX_MENTIONS || (n.kind != Kind.WEDDING && !BotHelpers.isArtificial(n.whoId)
-                    && BotAffinity.optedOut(n.whoId))) {
+            if (n.mentions >= MAX_MENTIONS || (n.kind != Kind.WEDDING && n.whoId > 0
+                    && !BotHelpers.isArtificial(n.whoId) && BotAffinity.optedOut(n.whoId))) {
                 continue;
             }
             double w = freshness(now - n.at) * (1.0 - 0.25 * n.mentions) * (0.5 + rng.nextDouble());
@@ -305,7 +334,7 @@ public final class BotWorldGossip implements EventSubscriber {
         }
         for (News n : feed) {
             if (freshness(now - n.at) <= 0 || n.mentions >= MAX_MENTIONS
-                    || (!BotHelpers.isArtificial(n.whoId) && BotAffinity.optedOut(n.whoId))) {
+                    || (n.whoId > 0 && !BotHelpers.isArtificial(n.whoId) && BotAffinity.optedOut(n.whoId))) {
                 continue;
             }
             out.add(0, n);
@@ -319,6 +348,7 @@ public final class BotWorldGossip implements EventSubscriber {
             case BOSS -> n.who + " killed " + n.what;
             case DROP -> n.who + " got " + n.what;
             case WEDDING -> n.who + " and " + n.what + " got married";
+            case EVENT -> n.who.isEmpty() ? n.what : n.who + " won " + n.what;
         };
     }
 
@@ -340,8 +370,23 @@ public final class BotWorldGossip implements EventSubscriber {
             case WEDDING -> witness
                     ? new String[]{"{W} and {X} got married!!", "did u see {W} and {X}'s wedding", "{W} and {X} had a cute wedding {T}"}
                     : new String[]{"did u hear {W} and {X} got married", "heard {W} and {X} tied the knot", "{W} and {X} got married?? gz"};
+            // 1.6.0 world events: {X} "the giant cake in henesys"; {W} its winner (lines with {W} need one); {M}
+            // how many bots died there
+            case EVENT -> witness
+                    ? (n.who.isEmpty()
+                    ? new String[]{"remember {X} lol", "{X} was crazy {T}", "i was at {X}, so many ppl",
+                            "{X} {T} was so fun"}
+                    : new String[]{"remember {X} lol", "{W} got the last of {X}, i was there", "{X} was crazy {T}",
+                            "gg {W} on {X}"})
+                    : (n.who.isEmpty()
+                    ? new String[]{"did u go to {X}?", "missed {X} {T} :(", "heard {X} was packed"}
+                    : new String[]{"did u go to {X}?", "heard {W} won {X}", "missed {X} {T} :(", "{W} won {X}?? nice"});
         };
-        String line = pool[rng.nextInt(pool.length)]
+        String line = pool[rng.nextInt(pool.length)];
+        if (n.kind == Kind.EVENT && n.extra != null && witness && rng.nextDouble() < 0.4) {
+            line = rng.nextBoolean() ? "{M} ppl died at {X} lol" : "so many ppl died at {X} lmao";
+        }
+        line = line
                 .replace("{W}", n.who).replace("{X}", n.what)
                 .replace("{M}", n.extra == null ? "a monster" : n.extra)
                 .replace("{T}", when == null ? "" : when);

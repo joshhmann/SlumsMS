@@ -6,7 +6,10 @@ import java.util.Map;
 import java.util.Random;
 
 /**
- * Picks world events (ticket 21). A scheduler with weights, never a model: each tick has a small chance to start one,
+ * Picks world events (ticket 21). 1.6.0: the daily plan is the {@link EventDirector}'s (a headline at ~8 PM PT plus
+ * small ones at peak hours); this class keeps the shared pure parts it uses ({@link #eligible}, {@link #pick}, the
+ * hard cap) and the original curve-weighted roll ({@link #decide}, no longer called by the live tick). A scheduler
+ * with weights, never a model: each tick has a small chance to start one,
  * scaled by the population director's daily curve so events lean toward peak hours, and none start while the world
  * is quiet. At most {@code maxActive} run at once, the same template never runs twice at once, a template rests for
  * its own cooldown after it ends, and two starts are at least {@code minGap} apart. Every event has an end time and
@@ -22,8 +25,11 @@ public final class EventScheduler {
     /**
      * The tunables ({@code -D} properties; config.yaml is strict).
      *
-     * @param auto          whether the scheduler starts events by itself ({@code solomapling.worldEvents}, default
-     *                      off; GM commands work either way)
+     * @param auto          whether events start by themselves (1.6.0: the {@link EventDirector}'s daily plan).
+     *                      {@code -Dsolomapling.events}, default ON (TEST); live decides at release and passes
+     *                      {@code -Dsolomapling.events=false} to keep it off. The pre-1.6.0 switch
+     *                      {@code solomapling.worldEvents} is still read when the new one is not set. GM commands
+     *                      work either way.
      * @param tickMs        how often the scheduler looks ({@code solomapling.worldEvents.tickSeconds}, 30)
      * @param meanGapMinutes average minutes between events at peak hours
      *                      ({@code solomapling.worldEvents.meanGapMinutes}, 120)
@@ -37,12 +43,25 @@ public final class EventScheduler {
 
         public static Settings fromSystemProperties() {
             return new Settings(
-                    "true".equalsIgnoreCase(System.getProperty("solomapling.worldEvents", "false").trim()),
+                    autoFromProperties(),
                     Math.max(5, Long.getLong("solomapling.worldEvents.tickSeconds", 30)) * 1000L,
                     Math.max(5.0, dbl("solomapling.worldEvents.meanGapMinutes", 120)),
                     Math.max(1, Math.min(MAX_ACTIVE_CAP, Integer.getInteger("solomapling.worldEvents.maxActive", 1))),
                     Math.max(0, Long.getLong("solomapling.worldEvents.minGapMinutes", 30)) * 60_000L,
                     Math.max(0, Math.min(1, dbl("solomapling.worldEvents.quietBelow", 0.2))));
+        }
+
+        /** {@code solomapling.events} (default on), else the old {@code solomapling.worldEvents}. */
+        public static boolean autoFromProperties() {
+            String events = System.getProperty("solomapling.events");
+            if (events != null && !events.isBlank()) {
+                return !"false".equalsIgnoreCase(events.trim());
+            }
+            String legacy = System.getProperty("solomapling.worldEvents");
+            if (legacy != null && !legacy.isBlank()) {
+                return "true".equalsIgnoreCase(legacy.trim());
+            }
+            return true;
         }
 
         public Settings withAuto(boolean value) {

@@ -387,6 +387,7 @@ public final class BotGossip {
                 case BOSS -> 0.6 + 2 * achiever;
                 case DROP -> 0.6 + 1.5 * achiever + 1.5 * explorer;
                 case WEDDING -> 0.6 + 2 * social;
+                case EVENT -> 0.8 + social + achiever; // 1.6.0 world events: "remember the cake lol"
             };
             String line = BotWorldGossip.line(n, n.witnessedBy(teller.getId()), BotWorldGossip.ageText(now - n.at), rng);
             List<String> named = n.kind == BotWorldGossip.Kind.WEDDING ? List.of(n.who, n.what) : List.of(n.who);

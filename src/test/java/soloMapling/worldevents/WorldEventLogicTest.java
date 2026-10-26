@@ -133,4 +133,55 @@ class WorldEventLogicTest {
         assertNotNull(BotDialogueHandler.getDialogueCon("MegaphoneDialogue.yaml", "MegaphoneBroadcast",
                 "WorldEventWon"));
     }
+
+    @Test
+    void deathGrumblesWarningsAndAfterLinesFill() {
+        Map<String, String> tokens = Map.of("MAP", "Henesys", "CH", "1", "EVENT", "Giant Cake", "BOSS", "Mushmom",
+                "N", "6", "MIN", "10", "REGION", "Victoria Island");
+        Random rng = new Random(2);
+        for (String node : new String[]{"Died", "DiedAgain", "DeathsAfter", "Soon", "CakeDuring"}) {
+            for (int i = 0; i < 10; i++) {
+                String line = WorldEventReactions.pickLine(node, tokens, rng);
+                assertNotNull(line, node);
+                assertFalse(line.contains("{"), line);
+                assertFalse(line.toLowerCase().contains(" bot"), "bots never call anyone a bot: " + line);
+            }
+        }
+        assertNotNull(BotDialogueHandler.getDialogueCon("MegaphoneDialogue.yaml", "MegaphoneBroadcast",
+                "WorldEventSoon"));
+        assertEquals("[World Event] A Giant Cake will appear in Henesys in 10 minutes! (Ch 1)",
+                WorldEventText.fill(WorldEventText.warning(EventTemplate.Kind.GIANT_CAKE, 10), tokens));
+        assertEquals("[World Event] A Giant Cake will appear in Henesys in 1 minute! (Ch 1)",
+                WorldEventText.fill(WorldEventText.warning(EventTemplate.Kind.GIANT_CAKE, 1), tokens));
+        for (EventTemplate.Kind k : EventTemplate.Kind.values()) {
+            assertFalse(WorldEventText.fill(WorldEventText.warning(k, 5), tokens).contains("{"), k.toString());
+        }
+    }
+
+    @Test
+    void anEventBecomesWorldNewsBotsBringUp() {
+        long now = System.currentTimeMillis();
+        soloMapling.ArtificialPlayer.BotWorldGossip.onWorldEvent("the giant cake in henesys", "Bob", 5, 3,
+                List.of(1_000_000_001), now);
+        var news = soloMapling.ArtificialPlayer.BotWorldGossip.recent(now).stream()
+                .filter(n -> n.kind == soloMapling.ArtificialPlayer.BotWorldGossip.Kind.EVENT).findFirst().orElseThrow();
+        assertTrue(news.witnessedBy(1_000_000_001));
+        assertEquals("Bob won the giant cake in henesys", soloMapling.ArtificialPlayer.BotWorldGossip.about(news));
+        Random rng = new Random(1);
+        for (int i = 0; i < 20; i++) {
+            for (boolean witness : new boolean[]{true, false}) {
+                String line = soloMapling.ArtificialPlayer.BotWorldGossip.line(news, witness, "", rng);
+                assertNotNull(line);
+                assertFalse(line.contains("{"), line);
+                assertFalse(line.contains(" bots "), line);
+            }
+        }
+        soloMapling.ArtificialPlayer.BotWorldGossip.onWorldEvent("the invasion at henesys", null, 0, 0, List.of(), now);
+        var noWinner = soloMapling.ArtificialPlayer.BotWorldGossip.recent(now).get(0);
+        assertEquals("the invasion at henesys", soloMapling.ArtificialPlayer.BotWorldGossip.about(noWinner));
+        for (int i = 0; i < 20; i++) {
+            String line = soloMapling.ArtificialPlayer.BotWorldGossip.line(noWinner, i % 2 == 0, "", rng);
+            assertFalse(line.contains("{W}") || line.contains("  "), line);
+        }
+    }
 }

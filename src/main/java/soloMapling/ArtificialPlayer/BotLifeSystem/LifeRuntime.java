@@ -192,8 +192,10 @@ public final class LifeRuntime {
         if (!Set.of("GRIND", "IN_TOWN", "LIFE_DWELL").contains(phase)) { dirty = false; return; }
         var running = bot.lifeActivityState();
         if (running.waiting() != 0) return;
-        // A friend can interrupt a safe town stay. Trips and other active work retain their owner.
-        if (running.active() != 0 && !(phase.equals("LIFE_DWELL") && friend(now) != null)) return;
+        // A friend can interrupt a safe town stay, and so can a world event the bot was offered (1.6.0). Trips and
+        // other active work retain their owner.
+        boolean eventOffer = soloMapling.worldevents.WorldEventSteer.offerFor(bot.getChr().getId(), now) != null;
+        if (running.active() != 0 && !(phase.equals("LIFE_DWELL") && (friend(now) != null || eventOffer))) return;
         long began = System.nanoTime();
         try {
             Character chr = bot.getChr();
@@ -293,7 +295,7 @@ public final class LifeRuntime {
             if (result.outcome() == Outcome.CHOOSE && result.selected().isPresent()
                     && !(phase.equals("GRIND") && result.selected().get() == Activity.GRIND)
                     && !(phase.equals("LIFE_DWELL") && result.selected().get() == Activity.HANG_OUT)) {
-                if (running.active() != 0 && (!Set.of(Activity.HELP_FRIEND, Activity.PARTY_QUEST)
+                if (running.active() != 0 && (!Set.of(Activity.HELP_FRIEND, Activity.PARTY_QUEST, Activity.EVENT)
                         .contains(result.selected().get()) || !bot.interruptLifeDwell(running.active()))) return;
                 bot.submitLifeActivity(bot.prepareLifeActivity(result));
             }
@@ -505,6 +507,7 @@ public final class LifeRuntime {
             case BREAK -> "taking a quick break";
             case FISH -> "gonna try fishing for a bit";
             case PARTY_QUEST -> requestPlayer != null ? "ready when you are" : "gonna go find a pq";
+            case EVENT -> soloMapling.worldevents.WorldEventReactions.omwLine(bot.getChr()); // 1.6.0 world events
             default -> null; // CHANGE_CHANNEL says its own "cc" (LifeChannelMove)
         };
         if (!announce) return;

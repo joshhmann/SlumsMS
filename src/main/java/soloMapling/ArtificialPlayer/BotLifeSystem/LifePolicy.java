@@ -199,6 +199,9 @@ public final class LifePolicy {
             // event-driven (a login greeting) and never eligible for the scorer
             case INVITE_PQ -> Map.of(Need.SOCIAL, .6, Need.PROGRESS, .4);
             case INVITE_GUILD -> Map.of(Need.SOCIAL, .4);
+            // 1.6.0 world events: eligible only with a standing offer (WorldEventSteer); the Bartle lean of the
+            // event's kind comes from the WorldEventBias plug-in. A bored, lonely bot answers more readily.
+            case EVENT -> Map.of(Need.BOREDOM, .8, Need.SOCIAL, .4, Need.PROGRESS, .3, Need.SUPPLIES, -.8);
         };
     }
 }
