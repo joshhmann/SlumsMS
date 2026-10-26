@@ -90,8 +90,18 @@ def reachable(raw):
     return {"items": items, "mobs": mobs, "maps": maps, "npcs": npcs, "quests": quests}
 
 
+_CACHE = {}
+
+
 def load(data_dir=None):
+    """The reachable dataset; loaded once per build (the guide's cross-links and the database share it)."""
     data_dir = data_dir or DEFAULT_DIR
+    if data_dir not in _CACHE:
+        _CACHE[data_dir] = _load_dir(data_dir)
+    return _CACHE[data_dir]
+
+
+def _load_dir(data_dir):
     missing = [k for k in KINDS if not os.path.isfile(os.path.join(data_dir, k + ".json"))]
     if missing:
         raise SystemExit(f"{data_dir}: no {', '.join(m + '.json' for m in missing)} "

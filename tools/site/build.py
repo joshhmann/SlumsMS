@@ -75,7 +75,7 @@ def build_section(name, out, rels):
     if name == "notes":
         return notes.build(out)
     if name == "guide":
-        return guide.build(out)
+        return guide.build(out, HS_DATA)
     if name == "database":
         return database.build(out, HS_DATA)
     if name == "pages":

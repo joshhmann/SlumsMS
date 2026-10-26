@@ -213,6 +213,21 @@ class MarkdownTest(unittest.TestCase):
             shutil.rmtree(tmp)
 
 
+class GuideLinksTest(unittest.TestCase):
+    def test_cells_link_into_the_database(self):
+        from sections import guide
+        data = {"maps": {1: {"name": "Henesys", "street": "Henesys"}, 2: {"name": "Henesys", "street": "Henesys"},
+                         5: {"name": "Dragon Forest II", "street": "Minar Forest"}},
+                "mobs": {9: {"name": "Snail"}}}
+        links = guide.db_links(data)
+        body = guide.link_cells("<td>Henesys: Henesys</td><td>Leafre: Dragon Forest II</td><td>Snail</td>"
+                                "<td>Nowhere: Lost</td><td>2-7</td>", links)
+        self.assertIn('<a href="../database/maps/1.html">Henesys: Henesys</a>', body)
+        self.assertIn('<a href="../database/maps/5.html">Leafre: Dragon Forest II</a>', body)
+        self.assertIn('<a href="../database/mobs/9.html">Snail</a>', body)
+        self.assertIn("<td>Nowhere: Lost</td><td>2-7</td>", body)
+
+
 class DbDataTest(unittest.TestCase):
     def raw(self):
         return {

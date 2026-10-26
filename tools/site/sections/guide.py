@@ -5,6 +5,7 @@ import json
 import os
 import re
 
+import common
 from common import SRC, WIKI, esc, layout, meta_comment, read, write
 
 
@@ -13,6 +14,31 @@ GUIDE_ICONS = {"index.html": 4001126, "getting-started.html": 4031180, "rates.ht
                "getting-around.html": 2030000, "jobs.html": 1302000, "leveling.html": 4000000, "travel.html": 4031045,
                "rebirths.html": 2340000, "regulars.html": 5072000, "shops.html": 5220000, "commands.html": 5390000,
                "money.html": 9000003, "faq.html": 2000005, "guidebook.html": 4161001, "patch-notes": 5071000}
+
+
+def db_links(data):
+    """Table-cell text -> database page, for the guide's cross-links. "Street: Map" matches a map exactly (several
+    copies of a town: the lowest id); a bare name matches a monster or a map whose name is unique."""
+    links, names = {}, {}
+    for kind, folder in (("maps", "maps"), ("mobs", "mobs")):
+        for ident in sorted(data[kind]):
+            rec = data[kind][ident]
+            names.setdefault(rec["name"], set()).add((folder, ident))
+            if kind == "maps" and rec.get("street"):
+                links.setdefault(f'{rec["street"]}: {rec["name"]}', (folder, ident))
+    for name, hits in names.items():
+        if len(hits) == 1 and name not in links:
+            links[name] = next(iter(hits))
+    return links
+
+
+def link_cells(body, links):
+    def repl(m):
+        text = html.unescape(m.group(1))
+        # the guide sometimes names the region ("Leafre: ...") where the data has the street; then the name alone
+        hit = links.get(text) or (links.get(text.split(": ", 1)[1]) if ": " in text else None)
+        return f'<td><a href="../database/{hit[0]}/{hit[1]}.html">{m.group(1)}</a></td>' if hit else m.group(0)
+    return re.sub(r"<td>([^<]*[A-Za-z][^<]*)</td>", repl, body)
 
 
 def icon(page, root):
@@ -41,7 +67,7 @@ def clean_wiki(body):
     return body.strip() + "\n"
 
 
-def build(out):
+def build(out, data_dir=None):
     cfg = json.loads(read(os.path.join(SRC, "guide-fixes.json")))
     skip = set(cfg.get("skip", []))
     pages = sorted(n for n in os.listdir(WIKI) if n.endswith(".html") and n not in skip)
@@ -50,6 +76,11 @@ def build(out):
     nav = [(f, t) for f, t in wiki_nav(read(os.path.join(WIKI, "index.html"))) if f in pages]
     fixes = cfg.get("fixes", [])
     used = set()
+    # cross-links into the database only in a build that has it (private until 1.6.0 is live)
+    cross = {}
+    if "database" in common.BUILT:
+        from sections import dbdata
+        cross = db_links(dbdata.load(data_dir))
     overrides = os.path.join(SRC, "guide-overrides")
     for name in pages:
         title, body = wiki_body(read(os.path.join(WIKI, name)), name)
@@ -66,6 +97,8 @@ def build(out):
         for s in skip:  # links to skipped pages: the changelog is the patch notes now
             body = body.replace(f'href="{s}"', 'href="../patch-notes/"')
         body = clean_wiki(body)
+        if cross:
+            body = link_cells(body, cross)
         links = "".join(f'<li><a href="{f}"{" aria-current=page" if f == name else ""}>{icon(f, "../")}'
                         f'{esc(html.unescape(t))}</a></li>' for f, t in nav)
         links += f'<li><a href="../patch-notes/">{icon("patch-notes", "../")}Patch notes</a></li>'
