@@ -25,7 +25,7 @@ function action(mode, type, selection) {
             } else if (selection == 1) { 
                 cm.dispose();
                 cm.changeMusic("BgmUI/ShopBgm");
-                cm.openNpc(2616, "donorshop");
+                cm.openNpc(2616, "rooty");   // 1.6.0: the Donor Shop and Rooty share one catalog (rooty.js)
             } else if (selection == 2) { 
                 cm.dispose();
                 cm.openNpc(9400530, "retrojqrewards");
