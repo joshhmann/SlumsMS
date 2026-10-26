@@ -39,6 +39,7 @@ different Data/Map/Map/Map9/910000022.img
 different Data/String/Map.img
 different Data/UI/Basic.img
 different Data/UI/CashShop.img
+different Data/UI/MapleTV.img
 different Data/UI/StatusBar.img
 different Data/UI/UIWindow.img
 different config.ini
