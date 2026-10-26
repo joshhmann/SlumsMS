@@ -131,6 +131,8 @@ public final class BotRecognition {
             return false;
         }
         lastGreetOnSight.put(pair, now);
+        // 1.6.0 S6: an on-sight hello spends the pair's greet budget, so a login greeting right after it is skipped
+        SocialGate.startCooldown(SocialGate.Act.GREET, bot.getChr().getId(), player.getId(), now);
         return BotConversation.greet(bot, player);
     }
 

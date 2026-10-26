@@ -853,6 +853,7 @@ public final class AutoQaCatalog {
                         has("SOCIAL_GATE YES greet {bot} -> {me}"),
                         has("SOCIAL_GATE INIT GREET {bot} -> {me} at login by (whisper|buddy chat)"),
                         anyOf("WHISPER {bot}: ", "MULTICHAT buddy {bot}: "),
+                        lacks("SOCIAL_GATE INIT GREET (held|skip) {bot} -> {me}"),
                         noEmoji())
                 .build());
         c.add(Check.auto("t-in-2", "A day later a friend bot asks about the goal you named").minutes(2)
