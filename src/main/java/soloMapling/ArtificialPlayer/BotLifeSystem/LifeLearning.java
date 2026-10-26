@@ -240,6 +240,7 @@ public final class LifeLearning {
             case SHOW_OFF -> Push.FLEX;
             case PARTY_QUEST -> Push.PARTY;
             case FISH -> Push.FISHED;
+            case INVITE_PQ, INVITE_GUILD -> Push.CHAT; // S6: an invite that lands is a social win
             default -> null; // restock, sell, market, break, log out, cc: errands, not who the bot is
         };
     }
@@ -256,6 +257,7 @@ public final class LifeLearning {
             case SHOW_OFF -> Map.of(LifeProfile.Archetype.SHOW_OFF, 1.0);
             case PARTY_QUEST -> Map.of(LifeProfile.Archetype.GRINDER, .5, LifeProfile.Archetype.SOCIALITE, .5);
             case BREAK, FISH -> Map.of(LifeProfile.Archetype.SLACKER, 1.0);
+            case INVITE_PQ, INVITE_GUILD -> Map.of(LifeProfile.Archetype.SOCIALITE, 1.0); // S6: reaching out is social
             case LOG_OUT, CHANGE_CHANNEL -> Map.of();
         };
     }
