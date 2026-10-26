@@ -59,6 +59,9 @@ public final class SaleRules {
         if (ItemConstants.isChaosScroll(id) || id == ItemId.WHITE_SCROLL) {
             return "Chaos or White Scroll";
         }
+        if (id == ItemId.FISHING_CHAIR) {
+            return "fishing chair";   // 1.6.0: a fishing bot keeps the chair BotFishingChairs gave it
+        }
         if (ItemConstants.isPet(id) || ItemId.isWeddingRing(id) || id / 10000 == 111) {
             return "pet or ring";
         }

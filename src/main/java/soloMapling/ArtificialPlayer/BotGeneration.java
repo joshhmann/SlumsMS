@@ -211,6 +211,9 @@ public class BotGeneration {
                 e.printStackTrace();
             }
         }
+        // 1.6.0 (ticket 92): ~1 in 20 hangout/explorer bots own a Fishing Chair; new ones get it now, existing ones at
+        // this login (once: it is saved with the bag). After decoration and restore, so neither replaces the bag.
+        soloMapling.fishing.BotFishingChairs.ensure(bot);
         BotPets.attach(bot); // 1.5.0 rc4: its pet, now that its level is known (drawn from its id: nothing stored)
         // Choreography sleeps ~2.5-6s in total; play it on a virtual thread so
         // mass spawning isn't gated on each bot's arrival animation. Drop-down ->

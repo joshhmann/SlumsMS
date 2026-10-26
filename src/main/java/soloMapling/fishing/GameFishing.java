@@ -25,6 +25,13 @@ public final class GameFishing {
     public static boolean hasChair(Character chr) {
         return chr != null && chr.getInventory(InventoryType.SETUP).findById(FishingPolicy.CHAIR) != null;
     }
+    /**
+     * Whether a bot may pick FISH as a life activity: the fishing flags are on, it owns a Fishing Chair (1.6.0:
+     * {@link BotFishingChairs}) and its fishing map can take it.
+     */
+    public static boolean choosable(Character chr, java.util.function.IntPredicate reachable) {
+        return FishingPolicy.rewardsEnabled() && hasChair(chr) && reachable.test(destination(chr));
+    }
     public static boolean active(Character chr) { return chr != null && SESSIONS.active(chr.getId(), chr); }
     public static boolean start(Character chr) {
         if (!FishingPolicy.rewardsEnabled() || chr == null) return false;

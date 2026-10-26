@@ -365,7 +365,9 @@ public final class HealthSweep {
      * (h) rc6 personal space: two grounded, idle characters (bots, auto-QA's pretend players and real players) on one
      * map instance with |dx| < 12 px and |dy| < 5 px: their name tags overlap and the one below can't be clicked.
      * Ropes, ladders, jumps and coarse unwatched moves are left out (only GROUNDED idle samples count), and so are
-     * deliberate pairs (the same pair key). WARN at any overlap, FAIL at 5; the worst maps are listed.
+     * deliberate pairs (the same pair key). WARN at any overlap, FAIL at 5; the worst maps are listed. 1.6.0 (owner,
+     * 2026-10-26): only pairs on a map instance with a real (non-bot, non-synthetic) player count toward the status;
+     * the all-maps count stays in the summary and the report as information.
      */
     private Map<String, Object> overlapCheck(Snapshot s) {
         List<SweepMath.Body> bodies = new ArrayList<>();
@@ -382,11 +384,26 @@ public final class HealthSweep {
             bodies.add(new SweepMath.Body(b.id(), b.channel(), b.mapId(), b.x(), b.y(), b.pairKey()));
         }
         List<SweepMath.Overlap> overlaps = SweepMath.overlaps(bodies, limits.overlapDxPx(), limits.overlapDyPx());
+        // 1.6.0 (owner, 2026-10-26): only maps a real player is on count toward the status; the rest is info
+        Set<String> watched = new HashSet<>();
+        if (s.players() != null) {
+            for (BotSample p : s.players()) {
+                if (p.player()) {
+                    watched.add(p.channel() + ":" + p.mapId());
+                }
+            }
+        }
         Map<String, Integer> byMap = new HashMap<>();
+        Map<String, Integer> byWatchedMap = new HashMap<>();
         List<Map<String, Object>> pairs = new ArrayList<>();
         for (SweepMath.Overlap o : overlaps) {
             BotSample a = byId.get(o.a()), b = byId.get(o.b());
-            byMap.merge(a.channel() + ":" + a.mapId(), 1, Integer::sum);
+            String key = a.channel() + ":" + a.mapId();
+            byMap.merge(key, 1, Integer::sum);
+            if (!watched.contains(key)) {
+                continue;
+            }
+            byWatchedMap.merge(key, 1, Integer::sum);
             Map<String, Object> m = new LinkedHashMap<>();
             m.put("channel", a.channel());
             m.put("map", a.mapId());
@@ -401,6 +418,30 @@ public final class HealthSweep {
         }
         pairs.sort((p, q) -> Integer.compare((Integer) p.get("dx") + (Integer) p.get("dy"),
                 (Integer) q.get("dx") + (Integer) q.get("dy")));
+        List<Map<String, Object>> worstMaps = worstMaps(byWatchedMap);
+        int allPairs = overlaps.size();
+        int n = pairs.size();
+        Status st = n == 0 ? Status.OK : n >= limits.overlapFailAt() ? Status.FAIL : Status.WARN;
+        String allMaps = allPairs + " pair(s) on all maps, info only";
+        String summary = allPairs == 0 ? bodies.size() + " grounded idle characters, none on top of another"
+                : n == 0 ? "no overlap on a map with a real player (" + allMaps + ")"
+                : n + " overlapping pair(s) on maps with a real player (|dx| < " + limits.overlapDxPx() + ", |dy| < "
+                + limits.overlapDyPx() + " px), worst map " + worstMaps.get(0).get("map") + " ch"
+                + worstMaps.get(0).get("channel") + " (" + worstMaps.get(0).get("pairs") + "); " + allMaps;
+        Map<String, Object> c = check(st, summary);
+        c.put("checked", bodies.size());
+        c.put("pairs", n);
+        c.put("mapsWithPlayers", watched.size());
+        c.put("allMapsPairs", allPairs);
+        c.put("failAt", limits.overlapFailAt());
+        c.put("worstMaps", head(worstMaps));
+        c.put("allMapsWorst", head(worstMaps(byMap)));
+        c.put("overlaps", head(pairs));
+        return c;
+    }
+
+    /** Maps by overlapping pairs, most first (ties by key), from "channel:map" keys. */
+    private static List<Map<String, Object>> worstMaps(Map<String, Integer> byMap) {
         List<Map<String, Object>> worstMaps = new ArrayList<>();
         byMap.entrySet().stream()
                 .sorted((p, q) -> q.getValue() != p.getValue().intValue() ? Integer.compare(q.getValue(), p.getValue())
@@ -413,19 +454,7 @@ public final class HealthSweep {
                     m.put("pairs", e.getValue());
                     worstMaps.add(m);
                 });
-        int n = overlaps.size();
-        Status st = n == 0 ? Status.OK : n >= limits.overlapFailAt() ? Status.FAIL : Status.WARN;
-        String summary = n == 0 ? bodies.size() + " grounded idle characters, none on top of another"
-                : n + " overlapping pair(s) (|dx| < " + limits.overlapDxPx() + ", |dy| < " + limits.overlapDyPx()
-                + " px), worst map " + worstMaps.get(0).get("map") + " ch" + worstMaps.get(0).get("channel") + " ("
-                + worstMaps.get(0).get("pairs") + ")";
-        Map<String, Object> c = check(st, summary);
-        c.put("checked", bodies.size());
-        c.put("pairs", n);
-        c.put("failAt", limits.overlapFailAt());
-        c.put("worstMaps", head(worstMaps));
-        c.put("overlaps", head(pairs));
-        return c;
+        return worstMaps;
     }
 
     /* (d) the bots per channel against BOT_CHANNEL_WEIGHTS. */

@@ -1,17 +1,27 @@
 package scripting;
 
 import org.junit.jupiter.api.Test;
-import org.junit.jupiter.params.ParameterizedTest;
-import org.junit.jupiter.params.provider.ValueSource;
 
 import javax.script.Invocable;
 import javax.script.ScriptEngine;
+import java.nio.file.Files;
+import java.nio.file.Path;
+import java.util.ArrayList;
+import java.util.Arrays;
+import java.util.HashSet;
+import java.util.List;
+import java.util.Set;
 
 import static org.junit.jupiter.api.Assertions.*;
 
 /**
- * 1.5.2: Rooty (rooty.js) and the Donor Shop (donorshop.js) bought whatever item id the client sent as the menu
- * selection, and gave a free one-minute "try" of it in any category.
+ * Rooty's shop (rooty.js), opened from NPC 9010004's "Rooty" and "Donor Shop" entries.
+ * <ul>
+ *   <li>1.5.2: the shop bought whatever item id the client sent as the menu selection, and gave a free one-minute
+ *   "try" of it in any category.</li>
+ *   <li>1.6.0 (owner, 2026-10-26): MapleRoot's two near-duplicate shops (rooty.js and donorshop.js) are one catalog
+ *   that both menu entries open, with every item id listed once.</li>
+ * </ul>
  */
 class RootyShopSelectionTest {
 
@@ -22,62 +32,208 @@ class RootyShopSelectionTest {
     }
 
     public static final class ShopCm extends MapleRootBrokenNpcScriptTest.FakeCm {
+        public final List<String> opened = new ArrayList<>();
+        public int npc = 9010004;
+        public long lastExpiry = -1;
+
+        public int getNpc() {
+            return npc;
+        }
+
         public int getItemQuantity(int id) {
             return count(id);
         }
 
         public void gainItem(int id, int qty, boolean show, boolean random, long expiry) {
+            lastExpiry = expiry;
             gainItem(id, qty);
+        }
+
+        public void openNpc(int npcId, String script) {
+            opened.add(npcId + ":" + script);
+        }
+
+        public void changeMusic(String song) {
         }
     }
 
-    private static final int CURRENCY = 4310000, OFFERED = 1002000, FORGED = 2049100;
+    private static final int ROOT_COIN = 4310000, MAPLE_LEAF = 4001126, BILLION_COIN = 4001253;
+    private static final int FIRST_ROOTY_CAP = 1000000, FIRST_DONOR_CAP = 1003536;   // first of each old Cap list
+    private static final int MAPLE_SWORD_LV35 = 1302020, HIGH_FIVE_STAMP = 5590000, FORGED = 2049100;
+    // MENU indexes in rooty.js
+    private static final int NX_GOODIES = 0, MAPLE_WEAPONS = 2, DONOR_NX = 4, DONOR_SHOP = 5;
 
-    private static Invocable shop(String script, ShopCm cm, boolean cosmetic) throws Exception {
-        ScriptEngine engine = new Loader().load(script);
-        assertNotNull(engine, script + " evaluates");
+    private static Invocable shop(ShopCm cm) throws Exception {
+        ScriptEngine engine = new Loader().load("npc/rooty.js");
+        assertNotNull(engine, "rooty.js evaluates");
         engine.put("cm", cm);
-        engine.eval("currentIDs = [" + OFFERED + "]; price = 1; currencyItemId = " + CURRENCY + "; cosmetic = " + cosmetic
-                + "; time = 1;");
-        return (Invocable) engine;
+        Invocable npc = (Invocable) engine;
+        npc.invokeFunction("start");
+        return npc;
     }
 
-    @ParameterizedTest
-    @ValueSource(strings = {"npc/rooty.js", "npc/donorshop.js"})
-    void aForgedSelectionBuysNothing(String script) throws Exception {
-        ShopCm cm = new ShopCm();
-        cm.inventory.put(CURRENCY, 5);
-        Invocable npc = shop(script, cm, false);
-        npc.invokeFunction("confirmPurchase", FORGED);
-        assertNull(cm.simple);
-        assertTrue(cm.disposed);
-        ((ScriptEngine) npc).eval("selectedItem = " + FORGED + ";");
-        npc.invokeFunction("completePurchase", 1, 0);
-        npc.invokeFunction("completePurchase", 1, 1);
-        assertEquals(0, cm.count(FORGED));
-        assertEquals(5, cm.count(CURRENCY));
+    private static void pick(Invocable npc, int selection) throws Exception {
+        npc.invokeFunction("action", 1, 0, selection);
     }
 
-    @ParameterizedTest
-    @ValueSource(strings = {"npc/rooty.js", "npc/donorshop.js"})
-    void anOfferedItemIsStillSold(String script) throws Exception {
-        ShopCm cm = new ShopCm();
-        cm.inventory.put(CURRENCY, 5);
-        Invocable npc = shop(script, cm, false);
-        npc.invokeFunction("confirmPurchase", OFFERED);
-        assertNotNull(cm.simple);
-        npc.invokeFunction("completePurchase", 1, 0);
-        assertEquals(1, cm.count(OFFERED));
-        assertEquals(4, cm.count(CURRENCY));
+    private static List<Integer> catalogIds() throws Exception {
+        ScriptEngine engine = new Loader().load("npc/rooty.js");
+        String joined = (String) engine.eval("CATALOG.map(s => s.categories.map(c => c.items.join(',')).join(',')).join(',')");
+        List<Integer> ids = new ArrayList<>();
+        for (String s : joined.split(",")) {
+            ids.add(Integer.parseInt(s.trim()));
+        }
+        return ids;
     }
 
     @Test
-    void theFreeTryIsForCosmeticsOnly() throws Exception {
+    void theMergedCatalogListsEveryItemOnce() throws Exception {
+        List<Integer> ids = catalogIds();
+        Set<Integer> seen = new HashSet<>();
+        List<Integer> dups = new ArrayList<>();
+        for (int id : ids) {
+            if (!seen.add(id)) {
+                dups.add(id);
+            }
+        }
+        assertEquals(List.of(), dups, "item ids listed twice in rooty.js CATALOG");
+        // both old shops' stock is in it: 2,300 Nx Goodies, 6,381 Donor NX, 52 Maple weapons, 2 High-Five Stamps
+        assertTrue(seen.containsAll(Arrays.asList(FIRST_ROOTY_CAP, FIRST_DONOR_CAP, MAPLE_SWORD_LV35, HIGH_FIVE_STAMP)));
+        assertEquals(2300 + 6381 + 52 + 2, ids.size());
+    }
+
+    @Test
+    void bothMenuEntriesOpenTheOneShop() throws Exception {
+        assertFalse(Files.exists(Path.of("scripts/npc/donorshop.js")), "the second copy of the shop is gone");
+        for (int entry : new int[]{0, 1}) {
+            ShopCm cm = new ShopCm();
+            ScriptEngine engine = new Loader().load("npc/9010004.js");
+            engine.put("cm", cm);
+            Invocable npc = (Invocable) engine;
+            npc.invokeFunction("start");
+            npc.invokeFunction("action", 1, 0, entry);
+            assertEquals(1, cm.opened.size());
+            assertTrue(cm.opened.get(0).endsWith(":rooty"), "entry " + entry + " opened " + cm.opened);
+        }
+    }
+
+    @Test
+    void theDonorShopEntryShowsTheSameMenu() throws Exception {
+        ShopCm rooty = new ShopCm();
+        shop(rooty);
+        ShopCm donor = new ShopCm();
+        donor.npc = 2616;
+        shop(donor);
+        String rootyMenu = rooty.simple.substring(rooty.simple.indexOf("#L0#"));
+        assertEquals(rootyMenu, donor.simple.substring(donor.simple.indexOf("#L0#")));
+        assertTrue(rootyMenu.contains("Donor NX") && rootyMenu.contains("Maple Weapons"));
+    }
+
+    @Test
+    void aMapleWeaponSellsForLeaves() throws Exception {
+        // before 1.6.0 the Maple weapons never set the offered list, so 1.5.2's check refused every one of them
         ShopCm cm = new ShopCm();
-        cm.inventory.put(CURRENCY, 5);
-        Invocable npc = shop("npc/rooty.js", cm, false);
-        npc.invokeFunction("confirmPurchase", OFFERED);
-        npc.invokeFunction("completePurchase", 1, 1);
-        assertEquals(0, cm.count(OFFERED));
+        cm.inventory.put(MAPLE_LEAF, 7);
+        Invocable npc = shop(cm);
+        pick(npc, MAPLE_WEAPONS);
+        pick(npc, 0);                 // Level 35, one page
+        pick(npc, MAPLE_SWORD_LV35);
+        assertTrue(cm.simple.contains("5 #i" + MAPLE_LEAF), cm.simple);
+        pick(npc, 0);                 // Yes
+        assertEquals(1, cm.count(MAPLE_SWORD_LV35));
+        assertEquals(2, cm.count(MAPLE_LEAF));
+    }
+
+    @Test
+    void aForgedSelectionBuysNothing() throws Exception {
+        ShopCm cm = new ShopCm();
+        cm.inventory.put(MAPLE_LEAF, 50);
+        Invocable npc = shop(cm);
+        pick(npc, MAPLE_WEAPONS);
+        pick(npc, 0);
+        cm.simple = null;
+        pick(npc, FORGED);
+        assertNull(cm.simple);
+        assertTrue(cm.disposed);
+        assertEquals(0, cm.count(FORGED));
+        assertEquals(50, cm.count(MAPLE_LEAF));
+    }
+
+    @Test
+    void anItemFromAnotherCategoryIsNotSoldAtThisPrice() throws Exception {
+        ShopCm cm = new ShopCm();
+        cm.inventory.put(MAPLE_LEAF, 50);
+        Invocable npc = shop(cm);
+        pick(npc, MAPLE_WEAPONS);
+        pick(npc, 0);                 // Level 35 for 5 leaves
+        pick(npc, 1302142);           // a Level 77 weapon
+        pick(npc, 0);
+        assertEquals(0, cm.count(1302142));
+        assertEquals(50, cm.count(MAPLE_LEAF));
+    }
+
+    @Test
+    void cosmeticsAreTriedOnAndBoughtWithTheirSectionsCoin() throws Exception {
+        ShopCm cm = new ShopCm();
+        cm.inventory.put(ROOT_COIN, 1);
+        Invocable npc = shop(cm);
+        pick(npc, NX_GOODIES);
+        pick(npc, 0);                 // Cap: several pages
+        pick(npc, 0);                 // page 1
+        pick(npc, FIRST_ROOTY_CAP);
+        assertTrue(cm.simple.contains("Try this item first"));
+        pick(npc, 1);                 // try
+        assertEquals(1, cm.count(FIRST_ROOTY_CAP));
+        assertEquals(60_000, cm.lastExpiry);
+        assertEquals(1, cm.count(ROOT_COIN));
+
+        ShopCm buyer = new ShopCm();
+        buyer.inventory.put(ROOT_COIN, 1);
+        npc = shop(buyer);
+        pick(npc, NX_GOODIES);
+        pick(npc, 0);
+        pick(npc, 0);
+        pick(npc, FIRST_ROOTY_CAP);
+        pick(npc, 0);
+        assertEquals(1, buyer.count(FIRST_ROOTY_CAP));
+        assertEquals(0, buyer.count(ROOT_COIN));
+    }
+
+    @Test
+    void donorItemsNeedBillionCoins() throws Exception {
+        ShopCm cm = new ShopCm();
+        cm.inventory.put(ROOT_COIN, 100);
+        cm.inventory.put(BILLION_COIN, 10);
+        Invocable npc = shop(cm);
+        pick(npc, DONOR_SHOP);
+        pick(npc, 0);
+        pick(npc, HIGH_FIVE_STAMP);
+        assertFalse(cm.simple.contains("Try this item first"), "only cosmetics can be tried on");
+        pick(npc, 1);                 // a forged "try" on a non-cosmetic
+        assertEquals(0, cm.count(HIGH_FIVE_STAMP));
+
+        npc = shop(cm);
+        pick(npc, DONOR_NX);
+        pick(npc, 0);
+        pick(npc, 0);
+        pick(npc, FIRST_DONOR_CAP);
+        pick(npc, 0);
+        assertEquals(1, cm.count(FIRST_DONOR_CAP));
+        assertEquals(9, cm.count(BILLION_COIN));
+        assertEquals(100, cm.count(ROOT_COIN));
+    }
+
+    @Test
+    void pagesStepForwardAndBack() throws Exception {
+        ShopCm cm = new ShopCm();
+        Invocable npc = shop(cm);
+        pick(npc, NX_GOODIES);
+        pick(npc, 0);
+        pick(npc, 1);                 // page 2
+        assertTrue(cm.simple.contains("Page 2 of"));
+        pick(npc, 0);                 // next
+        assertTrue(cm.simple.contains("Page 3 of"));
+        pick(npc, 1);                 // previous
+        assertTrue(cm.simple.contains("Page 2 of"));
     }
 }

@@ -62,8 +62,9 @@ final class GameHealthSource {
                         if (SyntheticPlayers.isSynthetic(c)) { // rc6: auto-QA's pretend players are swept too
                             cacheMap(map);
                             synthetic.add(sample(ch.getId(), map, c, keys, town));
-                        } else if (!c.isHidden() && c.getPosition() != null) {
-                            players.add(player(ch.getId(), map, c, keys, town)); // rc6: for the overlap check
+                        } else if (c.getPosition() != null) {
+                            // rc6: for the overlap check; 1.6.0: a hidden GM marks the map as watched, never a body
+                            players.add(player(ch.getId(), map, c, keys, town));
                         }
                         continue;
                     }
@@ -139,7 +140,7 @@ final class GameHealthSource {
         Point p = c.getPosition();
         FootholdCheck.Pose pose = poseFromStance(c.getStance(), map.isSwim());
         return new HealthSweep.BotSample(c.getId(), c.getName(), channel, map.getId(), p.x, p.y, pose, false, false,
-                null, false, !walkingStance(c.getStance()), keys.get(c.getId()), town, true);
+                null, false, !c.isHidden() && !walkingStance(c.getStance()), keys.get(c.getId()), town, true);
     }
 
     /** v83 stance (pose << 1 | facing): pose 1 is walking. */
