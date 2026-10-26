@@ -34,6 +34,14 @@ public final class LifeChannelMove {
     static final List<String> KS_LINES = List.of("cc", "ks fest, cc", "not dealing with this ks, cc", "cc lol");
 
     private static final Map<Integer, Long> lastMove = new ConcurrentHashMap<>();
+    /** {@code !qa cc-1}: a staged load for one map instance (channel << 32 | map), instead of its bot count. */
+    private static final Map<Long, Double> stagedCrowd = new ConcurrentHashMap<>();
+
+    /** QA: makes one map instance read as this crowded (null clears it). */
+    public static void stageCrowd(int channel, int mapId, Double crowd) {
+        long key = ((long) channel << 32) | (mapId & 0xFFFFFFFFL);
+        if (crowd == null) stagedCrowd.remove(key); else stagedCrowd.put(key, crowd);
+    }
 
     // ── pure ──
 
@@ -76,6 +84,10 @@ public final class LifeChannelMove {
     public static double crowdOf(Character chr) {
         MapleMap map = chr == null ? null : chr.getMap();
         if (map == null) return 0;
+        if (!stagedCrowd.isEmpty()) {
+            Double staged = stagedCrowd.get(((long) map.getChannelId() << 32) | (map.getId() & 0xFFFFFFFFL));
+            if (staged != null) return staged;
+        }
         return crowd(map.getBotCount(), soloMapling.ArtificialPlayer.BotMapCap.cap(map.getId()));
     }
 
@@ -139,6 +151,7 @@ public final class LifeChannelMove {
     /** Test/QA seam: forget the cooldowns. */
     public static void resetForTest() {
         lastMove.clear();
+        stagedCrowd.clear();
     }
 
     /** QA: clear one bot's cooldown so a staged move can run. */

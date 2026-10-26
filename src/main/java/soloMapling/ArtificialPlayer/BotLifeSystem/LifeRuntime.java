@@ -426,6 +426,21 @@ public final class LifeRuntime {
         LifeOutcomes.report(chr == null ? 0 : chr.getId(), activity, success, now, end.name().toLowerCase(Locale.ROOT));
     }
 
+    /**
+     * {@code !qa bl-5}: refreshes the goals and the plan now (off the bot's tick: the memory is synchronized), so a
+     * staged goal shows in {@code !botwhy} at once. The next decision uses it as any plan.
+     */
+    public void planNow(long now) {
+        Character chr = bot.getChr();
+        LifeGoals.Facts facts = facts(chr, memory.social());
+        memory.refresh(facts, now);
+        memory.plan(world(chr, facts, memory.softFacts()));
+        var next = LifePlanner.next(memory.goals(), memory.plans());
+        planNext = next;
+        planDestination = next == null ? -1 : LifePlanner.destination(next.step(), facts, next.plan().target());
+        dirty = true;
+    }
+
     /** The plan's next step, or null (for {@code !botwhy} and the hosts). */
     public LifePlanner.Next planNext() { return planNext; }
     public int planDestination() { return planDestination; }

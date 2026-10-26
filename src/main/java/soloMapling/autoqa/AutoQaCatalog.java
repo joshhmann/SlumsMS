@@ -775,6 +775,24 @@ public final class AutoQaCatalog {
                         hasAfter("ks", "AFFINITY ACT (taunt|ks) "),
                         noEmoji())
                 .build());
+        // 1.6.0 S8: a staged goal shows its GOAP plan steps in !botwhy (bl-5)
+        c.add(Check.auto("t-bl-5", "A bot's goal turns into plan steps that !botwhy shows").minutes(3)
+                .step(say("!warp 104040000"), waitSeconds(3), run("bl-5"), waitFor("LIFE PLAN (PASS|FAIL) ", 90))
+                .expect(has("LIFE PLAN STAGED bot=\\S+ goal=(MARRIAGE|GUILD)"),
+                        has("LIFE PLAN (MARRIAGE|GUILD) steps=\\[(MAKE_FRIENDS|FIND_A_CRUSH|GET_A_RING|WEDDING|MEET_A_GUILD|JOIN_A_GUILD)"),
+                        has("LIFE WHY Plan (get married|join a guild) \\(pressure"),
+                        has("LIFE WHY Next step: "),
+                        has("LIFE PLAN PASS bot=\\d+"), lacks("LIFE PLAN FAIL "))
+                .build());
+        // 1.6.0 S8, owner idea: a crowded map makes a bot say cc and change channel, same map (bc-1, also !qa cc-1)
+        c.add(Check.half("t-bc-1", "A bot on a crowded map says cc and appears on a quieter channel",
+                        "change channel to see the bot on the same map; it should have said cc or too many ppl").minutes(3)
+                .step(say("!warp 104040000"), waitSeconds(3), run("bc-1"), waitFor("LIFE READY bot=", 60),
+                        qaDo("cc"), waitFor("LIFE CC MOVED ", 30))
+                .expect(has("LIFE CC STAGE bot=\\S+ map=\\d+ ch=\\d+ crowd=1\\.20 target=[1-9]\\d* may=yes"),
+                        has("HABITS LIFE CC bot=\\S+ map=\\d+ ch\\d+->ch\\d+ crowded"),
+                        has("LIFE CC MOVED bot=\\d+ from ch\\d+ to ch\\d+ sameMap=true"))
+                .build());
         return List.copyOf(c);
     }
 

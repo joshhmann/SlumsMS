@@ -23,7 +23,7 @@ public class BotWhyCommand extends Command {
                 || QaSuite.isEnabled() && Boolean.getBoolean("slums.botlife.preview");
     }
 
-    static java.util.List<String> inspectionLines(BotSM bot, long now) {
+    public static java.util.List<String> inspectionLines(BotSM bot, long now) {
         var lines = new java.util.ArrayList<>(decisionLines(bot, now));
         // 1.6.0 S1: the Bartle blend and leading type, with the persona layers it joins.
         Character chr = bot.getChr();

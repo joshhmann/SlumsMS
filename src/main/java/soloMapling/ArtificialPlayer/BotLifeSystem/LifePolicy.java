@@ -107,7 +107,9 @@ public final class LifePolicy {
                 case PARTY_QUEST -> situation.pqOpen() ? PQ_PULL : 0;
                 case CHANGE_CHANNEL -> channelPull(situation, killer);
                 // A Killer in a KS war stays and fights for the mobs.
-                case GRIND -> (s8 ? GRIND_HABIT : 0) + (situation.ksWar() ? .5 * killer : 0);
+                // A packed map is a bad grind (every mob contested), a KS war a worse one, except for a Killer.
+                case GRIND -> (s8 ? GRIND_HABIT - Math.min(.8, Math.max(0, 2 * (situation.crowd() - CROWDED))) : 0)
+                        + (situation.ksWar() ? .5 * killer : 0);
                 default -> 0;
             };
             if (activity == situation.planStep()) pull += situation.planBonus();

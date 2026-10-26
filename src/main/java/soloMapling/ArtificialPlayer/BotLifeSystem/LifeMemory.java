@@ -315,6 +315,20 @@ public final class LifeMemory {
         return differs;
     }
 
+    /**
+     * {@code !qa bl-5}: puts a goal in the second slot (the aspiration's), as if the bot had chosen it. It stays until
+     * it is met, like any goal; the next plan includes it.
+     */
+    public synchronized void stageGoal(LifeGoals.Goal goal) {
+        List<LifeGoals.Goal> next = new ArrayList<>();
+        if (!goals.isEmpty()) next.add(goals.getFirst());
+        next.add(goal);
+        goals = List.copyOf(next);
+        plans = List.of();
+        soft.clear();
+        changed();
+    }
+
     /** A finished step made a soft fact true (the outcome callback); true when it was new. */
     public synchronized boolean soften(LifePlanner.Fact fact) {
         if (!LifePlanner.SOFT.contains(fact) || !soft.add(fact)) return false;
