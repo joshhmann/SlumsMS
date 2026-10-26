@@ -58,14 +58,28 @@ Follow `docs/site/LOGIN.md`, "Install on 164": user and group `slums-login`, `/v
 Undo: `systemctl disable --now slums-login`.
 
 ### 2b. Install the market service (watchlist, alerts, Buy/Sell board; not reachable from outside yet)
-After step 2 and after `deploy-build-164.sh` (step 6) has put `tools/site` in `/opt/slums-site-build`: follow
-`docs/site/LOGIN.md`, "The market service". Check: `curl -s http://127.0.0.1:8095/api/market/health` gives
-`{"ok": true}`, and `/var/lib/slums-market/inbox/posts.json` appears (empty list).
-Undo: `systemctl disable --now slums-market`.
+Owner's go needed: it adds a system user, folders and a unit on 164. After step 2, and after `deploy-build-164.sh`
+(step 6) has put `tools/site` in `/opt/slums-site-build`. What the folders are for (`docs/site/LOGIN.md`, "The market
+service"): the site writes `inbox/`, the game server writes `outbox/`. They sit outside the live server folder because
+`Server/` is root-only (mode 700, read 2026-10-26), and live runs as root, so the game server needs no group change.
+```
+useradd --system --no-create-home --shell /usr/sbin/nologin -G slums-login slums-market   # reads the sign-in key
+install -d -o slums-market -g slums-market -m 2750 /var/lib/slums-market
+install -d -o slums-market -g slums-market -m 2750 /var/lib/slums-market/inbox    # the site writes, root reads
+install -d -o root -g slums-market -m 2750 /var/lib/slums-market/outbox           # root writes, the site reads
+install -m 0644 /opt/slums-site-build/tools/site/slums-market.service /etc/systemd/system/
+systemctl daemon-reload && systemctl enable --now slums-market
+```
+Check: `curl -s http://127.0.0.1:8095/api/market/health` gives `{"ok": true}`; `/var/lib/slums-market/inbox/posts.json`
+appears with an empty list; `sudo -u slums-market touch /var/lib/slums-market/outbox/x` fails (the site can't write
+the game's folder). Live's 1.6.0 start line points the board's inbox and outbox flags at these two folders (step 3).
+Undo: `systemctl disable --now slums-market`, then `userdel slums-market` and `rm -r /var/lib/slums-market` if wanted
+(that deletes every watchlist, alert and post).
 
 ## 3. Turn on `@weblogin` on live (part of the 1.6.0 deploy)
 Live starts with `-Dslums.weblogin.dir=/var/lib/slums-login/approvals` (TEST never sets it, so TEST accounts can
-never sign anyone in). The game server's user joins group `slums-login`. Check: in game, `@weblogin ABCDEF` replies
+never sign anyone in), and with the board's inbox and outbox flags set to `/var/lib/slums-market/inbox` and
+`/var/lib/slums-market/outbox` (names in the "Site board contract"). Live runs as root, so no group change is needed. Check: in game, `@weblogin ABCDEF` replies
 "Website sign-in sent", and a file `/var/lib/slums-login/approvals/ABCDEF.json` appears (it expires harmlessly).
 
 ## 4. Guard the database and market in nginx

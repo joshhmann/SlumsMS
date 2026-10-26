@@ -11,7 +11,8 @@ The site keeps its own store (SQLite, --db) and talks to the game server only th
 - it writes the inbox (--inbox), atomically, after every change:
     posts.json   every open post: {id, account, character, kind: WTB|WTS, itemId, qty, price, createdAt, expiresAt}
     alerts.json  per account: {watch: [itemIds], alerts: [{id, itemId, dir: below|above, price, armed}]}
-- it reads the outbox (--outbox) the game server writes, whenever a file there changes:
+- it reads the outbox (--outbox, /var/lib/slums-market/outbox: the live Server folder is root-only, so the game
+  writes here) whenever a file there changes:
     board.json          the validated player posts plus a few real bot posts, names only (shown as is, no labels)
     alerts-fired.json   fired alert ids per account with the time and the price: the site shows a badge and disarms
     rejected.json       posts the server refused, with a reason
@@ -453,7 +454,7 @@ def main():
     revoked = setting(args, "revoked", "SLUMS_LOGIN_REVOKED", "/var/lib/slums-login/revoked.txt")
     db = setting(args, "db", "SLUMS_MARKET_DB", "/var/lib/slums-market/market.db")
     inbox = setting(args, "inbox", "SLUMS_MARKET_INBOX", "/var/lib/slums-market/inbox")
-    outbox = setting(args, "outbox", "SLUMS_MARKET_OUTBOX", "/opt/mapleroot/MapleRoot Full Repack/Server/data/site-outbox")
+    outbox = setting(args, "outbox", "SLUMS_MARKET_OUTBOX", "/var/lib/slums-market/outbox")
     items = setting(args, "items", "SLUMS_MARKET_ITEMS", "/srv/slums-site/database/search-index.json")
     port = int(setting(args, "port", "SLUMS_MARKET_PORT", 8095))
     store = Store(db, inbox, outbox, Items(items))
