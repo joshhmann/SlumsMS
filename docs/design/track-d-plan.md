@@ -310,3 +310,10 @@ Both directions share:
 7. **Live dashboard:** which port and Caddy hostname? And may the bots-off `slums-dashboard-test` JVM be stopped, with TEST's dashboard pointed at the real test server?
 
 Files I made (scratchpad only, not in any repo): the icon probe `/tmp/claude-0/-root-SoloMapling/10510037-ad22-4e82-9350-105aa68cb653/scratchpad/scripts/icon_probe.py`, and its output `/tmp/claude-0/-root-SoloMapling/10510037-ad22-4e82-9350-105aa68cb653/scratchpad/out/item2000000.png` and `/tmp/claude-0/-root-SoloMapling/10510037-ad22-4e82-9350-105aa68cb653/scratchpad/out/mob100100.png`.
+
+## Addendum (owner, 2026-10-26): NX rate
+MapleStory Classic players watch the NX:meso rate (meowdb's NX:Meso Indicator). Market v1 gets an "NX rate" headline:
+mesos per 1,000 NX, today plus a 30-day sparkline plus daily history.
+- Server export: in the nightly rollup, `nxRate` = the median over that day's sales of (unit meso price ÷ the item's
+  Cash Shop NX price, from cashshop/catalog.tsv), using cash items with a fixed NX price plus NX-code items. Sample
+  count included; published only with at least 5 samples. Bot-made share flagged, as for prices.
