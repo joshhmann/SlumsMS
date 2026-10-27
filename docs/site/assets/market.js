@@ -192,16 +192,18 @@
   var boardRows = null;
   function myTrades(ul) {
     if (!ul) return;
-    getJSON("world/traders.json").then(function (t) {
+    // the account's own counts from /me (everyone with 1+ rated trades); without them, the public Traders board's rows
+    var own = me.trades && typeof me.trades === "object";
+    (own ? Promise.resolve(null) : getJSON("world/traders.json")).then(function (t) {
       ul.textContent = "";
-      if (!t) { ul.appendChild(el("li", "empty", "Trade counts aren't available right now.")); return; }
+      if (!own && !t) { ul.appendChild(el("li", "empty", "Trade counts aren't available right now.")); return; }
       (me.characters || []).forEach(function (c) {
-        var r = t[c], li = el("li");
+        var r = own ? (me.trades[c] && [me.trades[c].completed, me.trades[c].fellThrough]) : t[c], li = el("li");
         li.appendChild(el("span", null, c));
         if (r) {
           li.appendChild(el("b", "num", num(r[0]) + " done"));
           li.appendChild(el("span", "muted", num(r[1]) + " fell through · " + Math.round(100 * r[0] / ((r[0] + r[1]) || 1)) + "% completed"));
-        } else li.appendChild(el("span", "muted", "under 5 trades so far"));
+        } else li.appendChild(el("span", "muted", own ? "no rated trades yet" : "under 5 trades so far"));
         ul.appendChild(li);
       });
       if (!ul.firstChild) ul.appendChild(el("li", "empty", "No characters yet."));
@@ -238,7 +240,7 @@
       tr.appendChild(el("td", "r num", num(p.price)));
       tr.appendChild(el("td", "r num", s && s.m ? short(s.m) : "-"));
       tr.appendChild(el("td", "r num", num(p.qty)));
-      tr.appendChild(el("td", null, p.character));
+      tr.appendChild(el("td", p.character ? null : "muted", p.character || "someone"));  // GM or QA posts: no name
       tr.appendChild(el("td", "muted", p.expiresAt ? "until " + when(p.expiresAt) : ""));
       body.appendChild(tr);
     });

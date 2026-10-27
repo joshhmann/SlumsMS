@@ -289,6 +289,7 @@ class Store:
             "SELECT item FROM watch WHERE account=? ORDER BY created", a)]
         offers = self.offers(a, names)
         return {"character": s.get("c"), "characters": characters(s), "gm": bool(s.get("g")), "watch": watch,
+                "trades": self.trades(characters(s)),
                 "alerts": alerts, "posts": posts, "badge": sum(1 for x in alerts if x["new"]),
                 "offers": offers, "offers_new": sum(1 for x in offers if x["new"]),
                 "limits": {"watch": MAX_WATCH, "alerts": MAX_ALERTS, "posts": MAX_OPEN_POSTS}}
@@ -313,6 +314,25 @@ class Store:
                         "new": epoch(o.get("t"), 0) > seen_at})
         out.sort(key=lambda x: str(x.get("t") or ""), reverse=True)
         return out[:20]
+
+    def trades(self, chars):
+        """My trades: {IGN: {completed, fellThrough}} for this account's own characters only, from the outbox's
+        trade-ratings.json (everyone with 1+ rated trades, never public). A character without a row has none yet.
+        None when the file isn't there, so the page falls back to the public traders.json."""
+        try:
+            with open(os.path.join(self.outbox, "trade-ratings.json"), encoding="utf-8") as f:
+                data = json.load(f)
+        except (OSError, json.JSONDecodeError):
+            return None
+        ratings = data.get("ratings") if isinstance(data, dict) else None
+        if not isinstance(ratings, dict):
+            return None
+        out = {}
+        for c in chars:
+            r = ratings.get(c)
+            if isinstance(r, dict) and isinstance(r.get("completed"), int) and isinstance(r.get("fellThrough"), int):
+                out[c] = {"completed": r["completed"], "fellThrough": r["fellThrough"]}
+        return out
 
     def board(self):
         """The server's board.json, expired posts dropped. Bot and player posts look the same (names only)."""

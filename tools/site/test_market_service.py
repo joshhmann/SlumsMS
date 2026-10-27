@@ -88,6 +88,15 @@ class StoreTest(Base):
         self.assertEqual(self.store.me(self.me)["offers_new"], 0)
         self.assertEqual(self.store.me(self.other)["offers"][0]["from"], "Nobody")
 
+    def test_my_trades_are_the_accounts_own_characters_only(self):
+        self.assertIsNone(self.store.me(self.me)["trades"])      # no file yet: the page uses the public traders.json
+        mine = ms.characters(self.me)
+        self.outbox_file("trade-ratings.json", {"generated": ms.iso(self.clock.t), "ratings": {
+            mine[0]: {"completed": 3, "fellThrough": 1}, "Stranger": {"completed": 9, "fellThrough": 0},
+            "Broken": {"completed": "x"}}})
+        self.assertEqual(self.store.me(self.me)["trades"], {mine[0]: {"completed": 3, "fellThrough": 1}})
+        self.assertNotIn("Stranger", self.store.me(self.other)["trades"])
+
     def test_alert_fires_once_badge_and_rearm(self):
         aid = self.store.change(self.me, self.store.add_alert, {"itemId": 2000000, "dir": "below", "price": 40})
         self.assertEqual(self.inbox_file("alerts.json")["accounts"]["7"]["alerts"][0],
