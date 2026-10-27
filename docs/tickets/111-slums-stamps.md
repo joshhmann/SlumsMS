@@ -1,4 +1,4 @@
-# 111: Slums Stamps, a daily check-in currency replacing donor coins and vote points
+# 111: Slums Stamps, earned in the Daily Check-In, replacing donor coins and vote points
 
 **Area:** Server / economy / NPCs
 **Kind:** FEATURE, 1.6.1 (owner 2026-10-27)
@@ -32,6 +32,21 @@ reach; vote points (accounts.votepoints, @points, !givevp) have no voting site a
   website's account page; and one quiet yellow chat line when the day's stamp lands: "+1 Slums Stamp (streak 4/7)".
 - **Staff and GM accounts** never earn stamps (as with event winners); QA accounts neither.
 - Bots never earn or spend stamps (they may wear the cosmetics).
+
+## Revised 2026-10-27: stamps are part of the Daily Check-In (owner)
+This replaces the earn, day, played and streak rules above. The existing Daily Check-In (server/checkin, the 28-day
+window, `@daily`/`@checkin`, table `daily_checkin`, rewards in soloMapling/DailyCheckin/daily-checkin-rewards.yaml,
+switch DAILY_CHECKIN_ENABLED) hands them out, under its own rules: claim in the window once per account; the next claim
+opens 24 h after the last; more than 48 h lapses the cycle back to day 1 (one missed day is forgiven); 28-day cycle.
+- **Stamps per day:** 1 on every claimed day, +5 more on days 7, 14, 21 and 28: 48 per cycle (about 12 a week, so the
+  prices above hold). A new `stamps:` field on each day in the yaml; DailyCheckinRewardsTest keeps the yaml and the
+  built-in table identical.
+- **NX in the table:** cut. Normal days give no NX; days 7, 14, 21 and 28 give 1,000 NX each (4,000 a cycle), down from
+  the draft's ~60,000 a cycle, which would cap the NX rate (bots sell 10k NX for 50m) and let alt accounts farm NX.
+- The 10-minute timer, the midnight-PT day and the separate streak are dropped. The quiet yellow line is the claim
+  message ("+1 Slums Stamp, day 4/28"). @stamps, Rooty's header and the website still show the balance.
+- **Check before 1.6.1:** whether DAILY_CHECKIN_ENABLED is on in live's config (it is on TEST; no release conf sets it),
+  and whether the client's check-in window shows a stamps line or only the server message.
 
 ## Build sketch
 Migration: accounts.stamps, accounts.checkin_day, accounts.checkin_streak, accounts.checkin_minutes; convert
