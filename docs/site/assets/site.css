@@ -638,9 +638,9 @@ table.t { width: 100%; border-collapse: collapse; }
 .who-cell .ava { width: 96px; height: 96px; vertical-align: middle; margin: 0 10px 0 0; image-rendering: pixelated; }
 .who-cell .ava.none { display: inline-block; border-radius: 10px; background: var(--surface-2); }
 .t.rank tr.podium .who-cell .ava { width: 192px; height: 192px; }
-.rankgrid .who-cell .ava { width: 64px; height: 64px; margin: 0 8px 0 0; }
+.rankgrid .t.rank tr .who-cell .ava { width: 64px; height: 64px; margin: 0 8px 0 0; }
 @media (max-width: 620px) {
   .who-cell .ava { width: 72px; height: 72px; margin-right: 8px; }
   .t.rank tr.podium .who-cell .ava { width: 96px; height: 96px; }
-  .rankgrid .who-cell .ava { width: 48px; height: 48px; }
+  .rankgrid .t.rank tr .who-cell .ava { width: 48px; height: 48px; }
 }
