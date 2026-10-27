@@ -55,9 +55,13 @@ class ChatPairGenTest {
         assertEquals(ChatPairGen.ACTS.keySet(), ChatPairGen.ROWS.stream().map(ChatPairGen.Row::act).collect(Collectors.toSet()));
         assertEquals(ChatPairGen.VARIANTS.keySet(), ChatPairGen.ROWS.stream().map(ChatPairGen.Row::variant)
                 .filter(v -> !"-".equals(v)).collect(Collectors.toSet()), "every hard negative is planned");
-        // the hard negatives are talk (or a fair trade) with con normal
+        // the hard negatives are talk (or a fair trade) with con normal; the slow pair: scam and its honest twin
         for (ChatPairGen.Row r : ChatPairGen.ROWS) {
-            if (!"-".equals(r.variant())) {
+            if ("slow".equals(r.variant())) {
+                assertEquals("scam", r.con(), r.key());
+            } else if ("slow_ok".equals(r.variant())) {
+                assertEquals("normal", r.con(), r.key());
+            } else if (!"-".equals(r.variant())) {
                 assertEquals("normal", r.con(), r.key());
                 assertTrue(List.of("talk", "trade", "haggle").contains(r.intent()), r.key());
             }
@@ -84,6 +88,8 @@ class ChatPairGenTest {
         List<ChatPairGen.Cell> staged = ChatPairGen.only(cells, "story,denial");
         assertFalse(staged.isEmpty());
         assertTrue(staged.stream().allMatch(c -> List.of("story", "denial").contains(c.variant())));
+        assertTrue(ChatPairGen.only(cells, "|slow|").stream().allMatch(c -> "slow".equals(c.variant())));
+        assertFalse(ChatPairGen.only(cells, "|slow|").isEmpty());
     }
 
     /** Pairs of one row, written straight to the file (as resume reads them). */
@@ -205,6 +211,112 @@ class ChatPairGenTest {
     }
 
     @Test
+    void parsesConversationsWithEarlierLines() {
+        List<ChatPairGen.Item> got = ChatPairGen.parse("""
+                1.
+                CP: yo nice crit lol
+                CB: ty ^^
+                CO: anyone selling pots
+                P: can u hold my 50m for a sec
+                B: nah sry
+
+                CP: thx for the help earlier
+                P: wanna duo lpq again tmrw
+                B: sure
+
+                CP: orphan line
+                B: a reply with no P
+                P: no context left over
+                B: k
+                """, 8);
+        assertEquals(3, got.size());
+        assertEquals(List.of(new ChatPairGen.Line("P", "yo nice crit lol"), new ChatPairGen.Line("B", "ty ^^"),
+                new ChatPairGen.Line("O", "anyone selling pots")), got.get(0).context());
+        assertEquals("can u hold my 50m for a sec", got.get(0).player());
+        assertEquals(1, got.get(1).context().size());
+        assertTrue(got.get(2).context().isEmpty(), "a B line without its P line drops the earlier lines");
+        // the small model's habit: the whole exchange in earlier-line markers
+        List<ChatPairGen.Item> cOnly = ChatPairGen.parse("CP: yo ur pap kill too hard lol\nCB: lol yea\nCO: wtf\n"
+                + "CP: can i hold 50m for u ill pay u back +10m\nCB: nah\n\nCP: omg ur so nice\nCB: sure\n", 8);
+        assertEquals(2, cOnly.size());
+        assertEquals("can i hold 50m for u ill pay u back +10m", cOnly.get(0).player());
+        assertEquals("nah", cOnly.get(0).reply());
+        assertEquals(3, cOnly.get(0).context().size());
+        assertEquals(new ChatPairGen.Line("O", "wtf"), cOnly.get(0).context().get(2));
+        assertTrue(cOnly.get(1).context().isEmpty());
+        String v = ChatPairGen.verifyPrompt(List.of(cell("talk", "kind", "scam", "ask", "brush_scam")), got.subList(0, 1));
+        assertTrue(v.startsWith("1. earlier: P: yo nice crit lol / B: ty ^^ / O: anyone selling pots / now P: can u hold "
+                + "my 50m for a sec | B: nah sry"), v);
+        assertTrue(ChatPairGen.VERIFY_SYSTEM.contains("a scam can be friendly")
+                && ChatPairGen.VERIFY_SYSTEM.contains("Classify P's line given the earlier lines"));
+    }
+
+    @Test
+    void earlierLinesPassTheSameChecks(@TempDir Path dir) throws Exception {
+        ChatPairGen g = new ChatPairGen(dir, ROOT);
+        ChatPairGen.Cell slow = new ChatPairGen.Cell("talk", "kind", "scam", "ask", "slow", "brush_scam", "lower", "-");
+        java.util.function.Function<String, List<ChatPairGen.Line>> three = last -> List.of(
+                new ChatPairGen.Line("P", "yo nice crit lol"), new ChatPairGen.Line("B", "ty man"),
+                new ChatPairGen.Line("P", last));
+        int[] slowRange = {3, 5};
+        assertNull(g.contextProblem(slow, three.apply("u grinding here all night"), slowRange));
+        assertEquals("context count 1", g.contextProblem(slow, List.of(new ChatPairGen.Line("P", "hey")), slowRange));
+        assertEquals("context frozen holdout-70", g.contextProblem(slow, three.apply("can i tag along"), slowRange));
+        assertEquals("context frozen bench-96", g.contextProblem(slow,
+                three.apply("sorry cant do kpq tonite, gotta sleep"), slowRange));
+        assertEquals("context placeholder", g.contextProblem(slow, three.apply("meet at {map}"), slowRange));
+        assertEquals("context repeats the line", g.contextProblem(slow, three.apply("wanna duo lpq tmrw?"), slowRange,
+                "plz wanna duo lpq tmrw?"));
+        assertNull(g.contextProblem(slow, three.apply("u grinding here all night"), slowRange, "can u hold my 50m"));
+        assertEquals("context too long", g.contextProblem(slow, three.apply("so ".repeat(30)), slowRange));
+        assertEquals("context slur", g.contextProblem(slow, three.apply("retard"), slowRange));
+        assertEquals("context who X", g.contextProblem(slow, List.of(new ChatPairGen.Line("X", "hi there all"),
+                new ChatPairGen.Line("P", "sup"), new ChatPairGen.Line("B", "yo")), slowRange));
+        // written with the pair, in order
+        assertTrue(g.offer(slow, "friend", new ChatPairGen.Item(three.apply("u grinding here all night"),
+                "can u hold my 50m for a sec ill pay u back", "nah sry"), "gen", null));
+        @SuppressWarnings("unchecked")
+        Map<String, Object> p = (Map<String, Object>) Json.parse(Files.readAllLines(dir.resolve("pairs.jsonl")).get(0));
+        assertEquals(List.of(Map.of("who", "P", "text", "yo nice crit lol"), Map.of("who", "B", "text", "ty man"),
+                Map.of("who", "P", "text", "u grinding here all night")), p.get("context"));
+        assertEquals("slow", p.get("variant"));
+    }
+
+    @Test
+    void theSlowPairHasFloorsAndContextRanges(@TempDir Path dir) throws Exception {
+        ChatPairGen.Plan plan = new ChatPairGen.Plan(4000);
+        assertEquals(200, plan.goal("variant", "slow"));
+        assertEquals(200, plan.goal("variant", "slow_ok"));
+        assertEquals(0, plan.goal("variant", "lfg"), "other variants come from the hard-negative share");
+        Random rng = new Random(1);
+        assertTrue(java.util.Arrays.equals(new int[]{3, 5}, ChatPairGen.contextRange(
+                new ChatPairGen.Row("talk", "kind", "scam", "ask", "slow"), rng)));
+        assertTrue(java.util.Arrays.equals(new int[]{3, 5}, ChatPairGen.contextRange(
+                new ChatPairGen.Row("party", "kind", "normal", "ask", "slow_ok"), rng)));
+        int with = 0;
+        for (int i = 0; i < 1000; i++) {
+            int[] r = ChatPairGen.contextRange(new ChatPairGen.Row("party", "kind", "normal", "ask", "-"), rng);
+            with += r[1] > 0 ? 1 : 0;
+            assertTrue(r[1] == 0 || r[0] == 1 && r[1] == 3);
+        }
+        assertTrue(with > 250 && with < 350, "about 30% of normal calls get earlier lines: " + with);
+        assertTrue(java.util.Arrays.equals(new int[]{0, 0}, ChatPairGen.contextRange(
+                new ChatPairGen.Row("trade", "neutral", "rwt", "ask", "-"), rng)));
+        // the floors pull the planner to the slow pair; the report shows them
+        seed(dir, new ChatPairGen.Row("party", "kind", "normal", "ask", "-"), 50, 1);
+        ChatPairGen g = new ChatPairGen(dir, null);
+        List<String> report = g.planReport(plan);
+        assertTrue(report.stream().anyMatch(l -> l.startsWith("variant:slow ") && l.endsWith("short 200")), report.toString());
+        assertTrue(report.stream().anyMatch(l -> l.startsWith("variant:slow_ok") && l.endsWith("short 200")));
+        assertTrue(report.stream().anyMatch(l -> l.startsWith("normal pairs with earlier lines")), report.toString());
+        String prompt = g.prompt(new ChatPairGen.Cell("talk", "kind", "scam", "ask", "slow", "brush_scam", "lower", "-"),
+                6, "friend", rng, new int[]{3, 5});
+        assertTrue(prompt.contains("3 to 5 earlier lines") && prompt.contains("build trust")
+                && prompt.contains("the scam only comes in P's last line"), prompt);
+        assertTrue(ChatPairGen.SYSTEM.contains("CP: (said by P)"));
+    }
+
+    @Test
     void talkIsCapped(@TempDir Path dir) throws Exception {
         ChatPairGen.Plan plan = new ChatPairGen.Plan(100);
         assertEquals(20, plan.talkCap());
@@ -234,7 +346,7 @@ class ChatPairGenTest {
         assertTrue(q.contains("NOT begging") && q.contains("No scam"), q);
         List<ChatPairGen.Cell> cells = List.of(cell("trade", "neutral", "rwt", "ask", "brush_rwt"),
                 cell("talk", "kind", "normal", "greet", "greeting"));
-        String v = ChatPairGen.verifyPrompt(cells, List.of(new String[]{"a", "b"}, new String[]{"c", "d"}));
+        String v = ChatPairGen.verifyPrompt(cells, List.of(new ChatPairGen.Item("a", "b"), new ChatPairGen.Item("c", "d")));
         assertTrue(v.contains("2. P: c | B: d (B is meant to be you " + ChatBankGen.INTENTS.get("greeting")[0] + ")"), v);
         assertFalse(v.contains("rwt") || v.contains("tone") || v.contains("greet,"), "the lines go out without their labels: " + v);
         // the fixed legend: every Decide label with its words, the acts and the hard cases
@@ -302,6 +414,11 @@ class ChatPairGenTest {
         assertEquals("talk", actAsIntent.get(1).intent(), "an act in the intent field means it wants nothing: talk");
         assertEquals(List.of(), ChatPairGen.mismatches(refuse, actAsIntent.get(1)));
         assertEquals("lfg", actAsIntent.get(2).intent(), "any other unknown label stays a mismatch");
+        ChatPairGen.Verdict conAsIntent = new ChatPairGen.Verdict("scam", "kind", "scam", "ask", true, true);
+        assertEquals(List.of(), ChatPairGen.mismatches(cell("talk", "kind", "scam", "ask", "brush_scam"), conAsIntent),
+                "the con in the intent field gives no intent: not a mismatch");
+        assertEquals(List.of("label mismatch con want=normal got=scam"), ChatPairGen.mismatches(
+                cell("talk", "kind", "normal", "ask", "talk_q"), conAsIntent), "but the con still has to match");
         assertTrue(ChatPairGen.toneOk("kind", "neutral") && ChatPairGen.toneOk("rude", "rude"));
         assertFalse(ChatPairGen.toneOk("neutral", "rude") || ChatPairGen.toneOk("kind", "flirty"));
     }
@@ -340,11 +457,12 @@ class ChatPairGenTest {
 
     @Test
     void parsesExchangesAndBackfillAnswers() {
-        List<String[]> got = ChatPairGen.parse("1. P: r u a bot lol\nB: huh what\n\nP: \"selling mesos\"\n"
+        List<ChatPairGen.Item> got = ChatPairGen.parse("1. P: r u a bot lol\nB: huh what\n\nP: \"selling mesos\"\n"
                 + "**B:** no thx\nP: dangling\n", 6);
         assertEquals(2, got.size());
-        assertEquals("selling mesos", got.get(1)[0]);
-        assertEquals("no thx", got.get(1)[1]);
+        assertEquals("selling mesos", got.get(1).player());
+        assertEquals("no thx", got.get(1).reply());
+        assertTrue(got.get(0).context().isEmpty());
         Map<Integer, String[]> b = ChatPairGen.parseBackfill("1. party | lf1 kpq?\n2) trade | wts ilbis\nnoise\n3. hey u");
         assertEquals("party", b.get(1)[0]);
         assertEquals("wts ilbis", b.get(2)[1]);
@@ -382,7 +500,9 @@ class ChatPairGenTest {
         @SuppressWarnings("unchecked")
         Map<String, Object> first = (Map<String, Object>) Json.parse(rows.get(0));
         assertEquals(List.of("convo_id", "player_line", "player_intent", "player_tone", "player_con", "player_act",
-                "bot_reply", "bot_label", "voice", "place", "affinity", "variant", "source"), List.copyOf(first.keySet()));
+                "bot_reply", "bot_label", "voice", "place", "affinity", "variant", "source", "context"),
+                List.copyOf(first.keySet()));
+        assertEquals(List.of(), first.get("context"), "no earlier lines: an empty list, never missing");
         assertEquals("p000001", first.get("convo_id"));
         assertEquals("manipulation", first.get("player_con"));
         assertEquals("ask", first.get("player_act"));

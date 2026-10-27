@@ -68,6 +68,14 @@ negative it is, or `-`), `source` (`gen` or `backfill`) and, for backfill, `bank
   (`lfg` "lf2m kpq lv 25+", `omw`, `refusal` "sorry cant do kpq tonite", `hello`, `bye`, `story` "i helped kill balrog
   yesterday", `denial` "im saving for a weapon, not asking u for mesos") and near-misses that read like a con
   (`payback` between friends, `wts` "wts 10k nx code 50m", `priced` fair trades and haggles).
+- **Earlier lines** (round 5, owner 2026-10-27): every pair has `context`, a list of 0 to 5 earlier lines of the same
+  conversation (`{"who": "P"|"B"|"O", "text": ...}`; O = someone nearby); the labels describe `player_line` given
+  them. `slow` (con scam) is the ask at the end of 3 to 5 trust-building lines; `slow_ok` (con normal) is the same
+  build-up ending honestly, so build-up alone never reads as a scam. Both have a floor (target/20, 200 at 4000) and
+  count toward the hard-negative share; about 30% of calls for other normal rows ask for 1 to 3 ordinary earlier lines.
+  The model writes them as `CP:` / `CB:` / `CO:` before `P:` and `B:`. Every earlier line passes the player line's
+  realism, length, brace, hard-limit, money and frozen-set checks, may not repeat the player line, and their number must
+  be in the asked range. The label check sees them and labels the P line given them. Backfill pairs have none.
 - **Cells**: a row times the bot labels that fit it (`ChatPairGen.botLabels`: party → party_yes/no/already, any scam →
   brush_scam, talk greet → greeting or bye, talk ask → talk_q ...) times six voices and seven places.
 - **Coverage plan** (`--target`, default 4000): every intent, con, tone and act at least target/20 (200), talk at most

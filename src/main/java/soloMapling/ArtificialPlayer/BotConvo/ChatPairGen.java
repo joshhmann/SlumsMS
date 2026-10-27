@@ -60,6 +60,17 @@ public final class ChatPairGen {
         FROZEN.put("bench-96", List.of("tools/convo/benchmark/eval/fresh-v3/cases.jsonl"));
     }
 
+    /** One earlier line of the conversation: who said it (P the player, B the bot, O someone nearby) and what. */
+    record Line(String who, String text) {
+    }
+
+    /** One generated item: the earlier lines (0 to 5), the player's line and the bot's reply. */
+    record Item(List<Line> context, String player, String reply) {
+        Item(String player, String reply) {
+            this(List.of(), player, reply);
+        }
+    }
+
     /** What the player line is labelled with (all Decide labels but act and variant), as one plan row. */
     record Row(String intent, String tone, String con, String act, String variant) {
         String key() {
@@ -187,6 +198,13 @@ public final class ChatPairGen {
         VARIANTS.put("wts", List.of("a public buy or sell ad with a fair in-game price (mesos, not real money)",
                 "wts 10k nx code 50m", "wtb zhelm 30m"));
         VARIANTS.put("priced", List.of("a fair trade offer to B with a real in-game price", "ill buy ur ilbis for 4m"));
+        // round 5 (owner 2026-10-27): slow, trust-building scams need the conversation before them; slow_ok is the
+        // same friendly build-up ending in an honest line, so build-up alone never reads as a scam
+        VARIANTS.put("slow", List.of("the ask at the end of a slow, trust-building scam: after friendly chat, help or "
+                + "small favours, P asks B to hold, lend or give first, or for a password", "can u hold my 50m for a sec "
+                + "ill pay u back +10m"));
+        VARIANTS.put("slow_ok", List.of("the honest end of the same kind of friendly build-up: a fair ask or plain chat, "
+                + "no scam", "wanna duo lpq again tmrw"));
     }
 
     /** A few example player lines where the words alone were unclear; never accepted as lines themselves. */
@@ -236,6 +254,13 @@ public final class ChatPairGen {
         row("trade", "neutral", "normal", "announce", "wts");
         row("trade", "neutral", "normal", "ask", "priced");
         row("haggle", "neutral", "normal", "ask", "priced");
+        row("talk", "kind", "scam", "ask", "slow");
+        row("talk", "neutral", "scam", "ask", "slow");
+        row("trade", "kind", "scam", "ask", "slow");
+        row("talk", "kind", "normal", "chat", "slow_ok");
+        row("party", "kind", "normal", "ask", "slow_ok");
+        row("help_kill", "kind", "normal", "ask", "slow_ok");
+        row("trade", "kind", "normal", "ask", "slow_ok");
         // the cons, only with the intents where they are real (CON_INTENTS)
         row("talk", "neutral", "scam", "ask", "-");
         row("talk", "kind", "scam", "ask", "-");
@@ -349,6 +374,19 @@ public final class ChatPairGen {
         BACKFILL.put(label, new Backfill(intents, tone, con, act));
     }
 
+    /** Variants that come with a trust-building conversation of 3 to 5 earlier lines. */
+    static final Set<String> SLOW = Set.of("slow", "slow_ok");
+    /** The share of calls for other normal rows that ask for 1 to 3 ordinary earlier lines. */
+    static final double CONTEXT_SHARE = 0.3;
+
+    /** The earlier lines a call asks for: {min, max}. */
+    static int[] contextRange(Row r, Random rng) {
+        if (SLOW.contains(r.variant())) {
+            return new int[]{3, 5};
+        }
+        return "normal".equals(r.con()) && rng.nextDouble() < CONTEXT_SHARE ? new int[]{1, 3} : new int[]{0, 0};
+    }
+
     static final List<String> VOICES = List.of("lower", "proper", "leet", "korean", "spanish", "terse");
     static final List<String> PLACES = List.of("-", "town", "fm", "grind", "boss", "pq", "night");
 
@@ -378,7 +416,9 @@ public final class ChatPairGen {
     static final String SYSTEM = "You write short two-line in-game chat exchanges between two players of MapleStory "
             + "in 2008, as labelled examples for a chat filter that learns what players want and who is trying to "
             + "scam or harass. Output only the exchanges, nothing else, each exactly as\nP: <the first player's line>\n"
-            + "B: <the other player's reply>\nwith a blank line between exchanges. Rules for every line: under 55 "
+            + "B: <the other player's reply>\nwith a blank line between exchanges. When asked for earlier lines, each "
+            + "exchange starts with them, oldest first, each as CP: (said by P), CB: (said by B) or CO: (someone else "
+            + "nearby), and the same rules hold for them. Rules for every line: under 55 "
             + "characters; era slang; no emojis, no hashtags, no quotes, no numbering. The P line may be rude, a scam "
             + "or a question about bots when asked for, but never sexual, no slurs, no real-life threats, self-harm or "
             + "wishing death; it uses real names, never placeholders. The B reply never mentions being an AI, a bot or "
@@ -403,7 +443,9 @@ public final class ChatPairGen {
 
     private static String labelLegend() {
         StringBuilder s = new StringBuilder("You label MapleStory chat lines for a chat filter. Each numbered line is ")
-                .append("what a player P typed to you, then your reply B. Classify P on its own words.\nintent (what P ")
+                .append("what a player P typed to you, then your reply B; some come after earlier lines of the same ")
+                .append("conversation (P, B, or O = someone else nearby). Classify P's line given the earlier lines.")
+                .append("\nintent (what P ")
                 .append("wants from you):");
         ConvoSense.INTENT.labels().forEach((k, v) -> s.append(' ').append(k).append(" = ").append(v).append(';'));
         s.append("\ntone:");
@@ -420,7 +462,10 @@ public final class ChatPairGen {
                 .append("pay back\" is scam; begging for free stuff (\"got any spare elixirs plz\", \"spare 100k pls im broke\") ")
                 .append("is scam; asking for a password or login (\"whats ur pw ill lvl ur char\") is scam, never rwt; ")
                 .append("rwt is only real money, paypal, dollars or selling an account; a hello or a bye (\"gtg cya\", ")
-                .append("\"evening all\") is talk with act greet, not chat; light game trash talk (\"lv 40 and still in ant tunnel lol\") is insult with ")
+                .append("\"evening all\") is talk with act greet, not chat; a scam can be friendly: after built-up trust ")
+                .append("(chat, help, small favours) the deciding part is the ask in P's line (hold, lend, give first, ")
+                .append("password), and that ask is scam; the same friendly build-up ending in a fair ask or plain chat ")
+                .append("is normal; light game trash talk (\"lv 40 and still in ant tunnel lol\") is insult with ")
                 .append("con normal; a public wts or wtb ad is act announce; hostile lines that try to drive you off (\"u trash, quit the game\") are harassment. ")
                 .append("Use only the labels listed; \"chat\" is an act, never an intent.\nAlso: reply_ok = B answers P the way it is meant to (given after it); typed = a real ")
                 .append("player would type P like that (short, casual, not describing itself).\nAnswer one JSON object ")
@@ -430,7 +475,8 @@ public final class ChatPairGen {
 
     private static final Pattern MARKUP = Pattern.compile(".*[\\[\\]<>*#\"].*");
     private static final Pattern ROW_LINE = Pattern.compile(
-            "^\\s*(?:[-*•]|\\d+[.)])?\\s*\\**(p|b|player|bot|reply)\\**\\s*[:：]\\**\\s*(.*)$", Pattern.CASE_INSENSITIVE);
+            "^\\s*(?:[-*•]|\\d+[.)])?\\s*\\**(cp|cb|co|p|b|player|bot|reply)\\**\\s*[:：]\\**\\s*(.*)$",
+            Pattern.CASE_INSENSITIVE);
     private static final Pattern BACKFILL_LINE = Pattern.compile("^\\s*(\\d{1,2})\\s*[.):]\\s*(?:([a-z_]+)\\s*\\|\\s*)?(.+)$",
             Pattern.CASE_INSENSITIVE);
     /** A line that says what it is doing instead of doing it ("i am asking you for a party"). */
@@ -583,7 +629,9 @@ public final class ChatPairGen {
             return cells;
         }
         List<String> parts = List.of(rows.split(","));
-        return cells.stream().filter(c -> parts.stream().anyMatch(p -> c.row().key().contains(p.trim()))).toList();
+        // the key gets a closing bar, so "|slow|" names one variant and not slow_ok too
+        return cells.stream().filter(c -> parts.stream().anyMatch(p -> (c.row().key() + "|").contains(p.trim())))
+                .toList();
     }
 
     /** The coverage plan for {@code target} pairs (owner, round 2). */
@@ -598,6 +646,9 @@ public final class ChatPairGen {
 
         /** How many pairs of this value of this dimension the plan wants (talk is also capped, see {@link #talkOpen}). */
         int goal(String dim, String value) {
+            if ("variant".equals(dim)) {
+                return SLOW.contains(value) ? floor() : 0; // only the slow pair has a floor (round 5)
+            }
             return "tone".equals(dim) && "neutral".equals(value) ? (int) Math.round(target * NEUTRAL_SHARE) : floor();
         }
 
@@ -611,13 +662,14 @@ public final class ChatPairGen {
         }
     }
 
-    static final List<String> DIMS = List.of("intent", "con", "tone", "act");
+    static final List<String> DIMS = List.of("intent", "con", "tone", "act", "variant");
 
     private static String dim(Row r, String dim) {
         return switch (dim) {
             case "intent" -> r.intent();
             case "con" -> r.con();
             case "tone" -> r.tone();
+            case "variant" -> r.variant();
             default -> r.act();
         };
     }
@@ -630,6 +682,7 @@ public final class ChatPairGen {
             out.merge("con:" + str(p, "player_con"), 1, Integer::sum);
             out.merge("tone:" + str(p, "player_tone"), 1, Integer::sum);
             out.merge("act:" + str(p, "player_act"), 1, Integer::sum);
+            out.merge("variant:" + (str(p, "variant").isEmpty() ? "-" : str(p, "variant")), 1, Integer::sum);
         }
         return out;
     }
@@ -639,7 +692,9 @@ public final class ChatPairGen {
         double s = 0;
         for (String d : DIMS) {
             int goal = plan.goal(d, dim(r, d));
-            s += Math.max(0, goal - counts.getOrDefault(d + ":" + dim(r, d), 0)) / (double) goal;
+            if (goal > 0) {
+                s += Math.max(0, goal - counts.getOrDefault(d + ":" + dim(r, d), 0)) / (double) goal;
+            }
         }
         return s;
     }
@@ -672,6 +727,9 @@ public final class ChatPairGen {
             double discount = 1 + 0.5 * barren.getOrDefault(r.key(), 0);
             for (String d : DIMS) {
                 int goal = plan.goal(d, dim(r, d));
+                if (goal <= 0) {
+                    continue;
+                }
                 double short_ = Math.max(0, goal - counts.getOrDefault(d + ":" + dim(r, d), 0)) / (double) goal;
                 value.merge(d + ":" + dim(r, d), short_ / discount, Math::max);
             }
@@ -751,10 +809,34 @@ public final class ChatPairGen {
     }
 
     String prompt(Cell c, int n, String affinity, Random rng) {
+        return prompt(c, n, affinity, rng, new int[]{0, 0});
+    }
+
+    /** The generation prompt, asking for {@code context[0]} to {@code context[1]} earlier lines per exchange. */
+    String prompt(Cell c, int n, String affinity, Random rng, int[] context) {
         StringBuilder s = new StringBuilder();
         s.append("Write ").append(n).append(" different two-line exchanges. P is what a real player types to another ")
                 .append("player in MapleStory in 2008: P starts or carries the conversation and is not answering a ")
-                .append("request. ").append(playerSpec(c.row())).append(REAL)
+                .append("request. ").append(playerSpec(c.row())).append(REAL);
+        if (context[1] > 0) {
+            s.append("Each exchange starts with ").append(context[0]).append(" to ").append(context[1])
+                    .append(" earlier lines of the same conversation (CP: P, CB: B, CO: someone nearby), short and ")
+                    .append("casual like the rest. ");
+            if ("slow".equals(c.variant())) {
+                s.append("The earlier lines build trust: friendly chat about grinding, P helping B, small favours, ")
+                        .append("nothing suspicious yet; the scam only comes in P's last line. ");
+            } else if ("slow_ok".equals(c.variant())) {
+                s.append("The earlier lines build trust: friendly chat about grinding, helping each other, small ")
+                        .append("favours; P's last line stays honest, no scam. ");
+            } else {
+                s.append("The earlier lines are ordinary chat that leads to P's line. ");
+            }
+            s.append("The labels above are for P's last line, given the earlier lines. Write each exchange exactly in ")
+                    .append("this shape (here with 3 earlier lines), with a blank line between exchanges:\nCP: <an earlier ")
+                    .append("line by P>\nCB: <an earlier line by B>\nCP: <an earlier line by P>\nP: <P's last line>\n")
+                    .append("B: <B's reply to it>\n");
+        }
+        s
                 .append("P never writes placeholders; when a line names a map, mob, item or job, it is a real one, such as: ");
         for (Map.Entry<String, List<String>> e : new TreeMap<>(NAMES).entrySet()) {
             List<String> pool = new ArrayList<>(e.getValue());
@@ -781,14 +863,22 @@ public final class ChatPairGen {
     }
 
     /** The label check's question: the numbered lines WITHOUT their intended labels, each with what B is meant to do. */
-    static String verifyPrompt(List<Cell> cells, List<String[]> batch) {
+    static String verifyPrompt(List<Cell> cells, List<Item> batch) {
         StringBuilder p = new StringBuilder();
         for (int i = 0; i < batch.size(); i++) {
-            p.append(i + 1).append(". P: ").append(batch.get(i)[0]).append(" | B: ").append(batch.get(i)[1])
+            p.append(i + 1).append(". ");
+            if (!batch.get(i).context().isEmpty()) {
+                p.append("earlier: ");
+                for (Line l : batch.get(i).context()) {
+                    p.append(l.who()).append(": ").append(l.text()).append(" / ");
+                }
+                p.append("now ");
+            }
+            p.append("P: ").append(batch.get(i).player()).append(" | B: ").append(batch.get(i).reply())
                     .append(" (B is meant to be you ").append(ChatBankGen.INTENTS.get(cells.get(i).botLabel())[0])
                     .append(")\n");
         }
-        return p.append("Label every line, one JSON object per line.").toString();
+        return p.append("Label every P line (given its earlier lines, if any), one JSON object per line.").toString();
     }
 
     /** One line's labels from the label check. */
@@ -845,7 +935,9 @@ public final class ChatPairGen {
             return List.of("label check missing");
         }
         List<String> out = new ArrayList<>();
-        if (!c.intent().equals(v.intent())) {
+        // a small checker writes the con in the intent field ("scam") for a scam ask: no intent given, not a mismatch
+        boolean noIntent = !"normal".equals(v.intent()) && CON_LABELS.containsKey(v.intent());
+        if (!noIntent && !c.intent().equals(v.intent())) {
             out.add("label mismatch intent want=" + c.intent() + " got=" + v.intent());
         }
         if (!toneOk(c.tone(), v.tone())) {
@@ -866,25 +958,72 @@ public final class ChatPairGen {
         return out;
     }
 
-    /** The model's exchanges: each P line followed by its B line; anything else is skipped. */
-    static List<String[]> parse(String text, int max) {
-        List<String[]> out = new ArrayList<>();
-        String pending = null;
+    /**
+     * The model's exchanges: earlier lines (CP:, CB:, CO:), then a P line, then its B line; anything else is skipped.
+     * Exchanges are separated by blank lines; earlier lines belong to the next P line of their block. A block written
+     * all in earlier-line markers (the small model's habit) ends with its last CP: line as P and the CB: after it as B.
+     */
+    static List<Item> parse(String text, int max) {
+        List<List<Line>> blocks = new ArrayList<>();
+        List<Line> block = new ArrayList<>();
         for (String row : text.split("\\R")) {
             Matcher m = ROW_LINE.matcher(row);
-            if (!m.matches()) {
+            if (row.isBlank() || row.trim().matches("\\d+[.)]?")) {
+                if (!block.isEmpty()) {
+                    blocks.add(block);
+                    block = new ArrayList<>();
+                }
                 continue;
             }
-            String who = m.group(1).toLowerCase(Locale.ROOT);
-            String line = ChatBankGen.clean(m.group(2));
-            if (who.equals("p") || who.equals("player")) {
-                pending = line;
-            } else if (pending != null) {
-                out.add(new String[]{pending, line});
-                pending = null;
-                if (out.size() >= max) {
-                    break;
+            if (m.matches()) {
+                String who = m.group(1).toLowerCase(Locale.ROOT);
+                who = switch (who) {
+                    case "player" -> "p";
+                    case "bot", "reply" -> "b";
+                    default -> who;
+                };
+                block.add(new Line(who, ChatBankGen.clean(m.group(2))));
+            }
+        }
+        if (!block.isEmpty()) {
+            blocks.add(block);
+        }
+        List<Item> out = new ArrayList<>();
+        for (List<Line> b : blocks) {
+            boolean marked = b.stream().anyMatch(l -> l.who().equals("p"));
+            List<Line> context = new ArrayList<>();
+            String pending = null;
+            if (!marked) { // all earlier-line markers: the last CP followed by a CB is the exchange
+                for (int i = b.size() - 2; i >= 0; i--) {
+                    if (b.get(i).who().equals("cp") && b.get(i + 1).who().equals("cb")) {
+                        for (Line l : b.subList(0, i)) {
+                            context.add(new Line(l.who().substring(1).toUpperCase(Locale.ROOT), l.text()));
+                        }
+                        out.add(new Item(List.copyOf(context), b.get(i).text(), b.get(i + 1).text()));
+                        break;
+                    }
                 }
+            } else {
+                for (Line l : b) {
+                    if (l.who().length() == 2) {
+                        if (pending != null) { // a new conversation started without a B line
+                            pending = null;
+                            context = new ArrayList<>();
+                        }
+                        context.add(new Line(l.who().substring(1).toUpperCase(Locale.ROOT), l.text()));
+                    } else if (l.who().equals("p")) {
+                        pending = l.text();
+                    } else if (pending != null) {
+                        out.add(new Item(List.copyOf(context), pending, l.text()));
+                        pending = null;
+                        context = new ArrayList<>();
+                    } else {
+                        context = new ArrayList<>();
+                    }
+                }
+            }
+            if (out.size() >= max) {
+                return out.subList(0, max);
             }
         }
         return out;
@@ -929,13 +1068,9 @@ public final class ChatPairGen {
         }
         String n = ChatBankGen.norm(text);
         Set<String> g = ChatBankGen.grams(text);
-        for (Map.Entry<String, List<String>> set : frozen.entrySet()) {
-            List<Set<String>> sg = frozenGrams.get(set.getKey());
-            for (int i = 0; i < set.getValue().size(); i++) {
-                if (set.getValue().get(i).equals(n) || ChatBankGen.jaccard(g, sg.get(i)) >= ChatBankGen.NEAR) {
-                    return "frozen " + set.getKey();
-                }
-            }
+        String frozenSet = frozenMatch(text);
+        if (frozenSet != null) {
+            return "frozen " + frozenSet;
         }
         if (seen.contains(n)) {
             return "duplicate";
@@ -960,6 +1095,74 @@ public final class ChatPairGen {
         return null;
     }
 
+    /**
+     * Why the earlier lines cannot stand (round 5): their count outside {@code range}, or a line failing the same
+     * realism, length, brace, hard-limit and frozen-set checks as a player line. Null when fine.
+     */
+    String contextProblem(Cell c, List<Line> context, int[] range) {
+        return contextProblem(c, context, range, null);
+    }
+
+    /** As above, and no earlier line may be the player's line again (the small model repeats it just before). */
+    String contextProblem(Cell c, List<Line> context, int[] range, String player) {
+        if (context.size() < range[0] || context.size() > range[1]) {
+            return "context count " + context.size();
+        }
+        Set<String> playerGrams = player == null ? null : ChatBankGen.grams(player);
+        for (Line l : context) {
+            String t = l.text();
+            if (playerGrams != null && (ChatBankGen.norm(t).equals(ChatBankGen.norm(player))
+                    || ChatBankGen.jaccard(ChatBankGen.grams(t), playerGrams) >= ChatBankGen.NEAR)) {
+                return "context repeats the line";
+            }
+            if (!Set.of("P", "B", "O").contains(l.who())) {
+                return "context who " + l.who();
+            }
+            if (t.isBlank() || t.length() < 2) {
+                return "context empty";
+            }
+            if (t.indexOf('{') >= 0 || t.indexOf('}') >= 0) {
+                return "context placeholder";
+            }
+            if (MARKUP.matcher(t).matches()) {
+                return "context markup";
+            }
+            if (t.length() > VoiceStyler.MAX) {
+                return "context too long";
+            }
+            if (selfDescribing(t)) {
+                return "context self-describing";
+            }
+            String bad = ContentGuard.hardProblem(t);
+            if (bad != null) {
+                return "context " + bad;
+            }
+            if (moneyOutOfPlace(c.con(), t)) {
+                return "context rwt words";
+            }
+            String frozenSet = frozenMatch(t);
+            if (frozenSet != null) {
+                return "context frozen " + frozenSet;
+            }
+        }
+        return null;
+    }
+
+    /** The frozen set a line matches exactly or nearly, or null. */
+    String frozenMatch(String text) {
+        String n = ChatBankGen.norm(text);
+        Set<String> g = ChatBankGen.grams(text);
+        for (Map.Entry<String, List<String>> set : frozen.entrySet()) {
+            List<Set<String>> sg = frozenGrams.get(set.getKey());
+            for (int i = 0; i < set.getValue().size(); i++) {
+                if (set.getValue().get(i).equals(n) || ChatBankGen.jaccard(g, sg.get(i)) >= ChatBankGen.NEAR) {
+                    return set.getKey();
+                }
+            }
+        }
+        return null;
+    }
+
     /** Why the reply cannot be a bot line of the cell's bank intent (the bank's own checks), or null. */
     static String replyProblem(Cell c, String text) {
         String bad = ChatBankGen.lineProblem(c.botLabel(), text);
@@ -970,11 +1173,15 @@ public final class ChatPairGen {
         return offer(c, affinity, rawPlayer, rawReply, "gen", null);
     }
 
-    /** Adds a pair when both lines pass; true when added. Writes only {@code pairs.jsonl} or the rejects. */
     boolean offer(Cell c, String affinity, String rawPlayer, String rawReply, String source, String bankId)
             throws IOException {
-        String player = ChatBankGen.clean(rawPlayer);
-        String reply = ChatBankGen.clean(rawReply);
+        return offer(c, affinity, new Item(rawPlayer, rawReply), source, bankId);
+    }
+
+    /** Adds a pair when both lines pass; true when added. Writes only {@code pairs.jsonl} or the rejects. */
+    boolean offer(Cell c, String affinity, Item item, String source, String bankId) throws IOException {
+        String player = ChatBankGen.clean(item.player());
+        String reply = ChatBankGen.clean(item.reply());
         String why = playerProblem(c, player);
         if (why == null) {
             why = replyProblem(c, reply);
@@ -1001,6 +1208,14 @@ public final class ChatPairGen {
         p.put("affinity", affinity);
         p.put("variant", c.variant());
         p.put("source", source);
+        List<Map<String, Object>> context = new ArrayList<>();
+        for (Line l : item.context()) {
+            Map<String, Object> m = new LinkedHashMap<>();
+            m.put("who", l.who());
+            m.put("text", l.text());
+            context.add(m);
+        }
+        p.put("context", context);
         if (bankId != null) {
             p.put("bank_id", bankId);
         }
@@ -1099,16 +1314,24 @@ public final class ChatPairGen {
             }
             List<String> feelings = affinities(next.botLabel());
             String affinity = feelings.get(rng.nextInt(feelings.size()));
-            String prompt = prompt(next, batch, affinity, rng);
+            int[] context = contextRange(next.row(), rng);
+            String prompt = prompt(next, batch, affinity, rng, context);
             Object[] r = llm.complete(run.url(), run.model(), run.key(), SYSTEM, prompt);
             calls++;
             tried.merge(next.key(), 1, Integer::sum); // a cell the model cannot fill still counts, so it does not block
             int added = 0;
             if (r != null && r[0] instanceof String text) {
                 spent += run.cost(r, prompt, text);
-                List<String[]> got = parse(text, batch);
+                List<Item> got = parse(text, batch);
+                if (got.isEmpty()) { // nothing in the asked format: show the start, so a format drift is visible
+                    System.err.println("no exchange parsed from: " + text.substring(0, Math.min(300, text.length()))
+                            .replace('\n', '|'));
+                }
+                if (context[1] == 0) { // no earlier lines asked for: any the model wrote anyway are dropped
+                    got = got.stream().map(it -> new Item(it.player(), it.reply())).toList();
+                }
                 added = check(run, java.util.Collections.nCopies(got.size(), next), got,
-                        java.util.Collections.nCopies(got.size(), affinity), "gen", null);
+                        java.util.Collections.nCopies(got.size(), affinity), "gen", null, context);
             }
             if (added == 0) {
                 barren.merge(next.row().key(), 1, Integer::sum);
@@ -1265,7 +1488,7 @@ public final class ChatPairGen {
                 spent += run.cost(r, prompt, text);
                 Map<Integer, String[]> answers = parseBackfill(text);
                 List<Cell> cells = new ArrayList<>();
-                List<String[]> got = new ArrayList<>();
+                List<Item> got = new ArrayList<>();
                 List<BankRow> from = new ArrayList<>();
                 List<String> intents = BACKFILL.get(label).intents();
                 for (int i = 0; i < take.size(); i++) {
@@ -1281,11 +1504,11 @@ public final class ChatPairGen {
                         continue;
                     }
                     cells.add(c);
-                    got.add(new String[]{a[1], replies.get(i)});
+                    got.add(new Item(a[1], replies.get(i))); // a bank reply comes without earlier lines
                     from.add(take.get(i));
                 }
                 added = check(run, cells, got, from.stream().map(BankRow::affinity).toList(), "backfill",
-                        from.stream().map(BankRow::id).toList());
+                        from.stream().map(BankRow::id).toList(), new int[]{0, 0});
             }
             StringBuilder ids = new StringBuilder();
             for (BankRow b : take) {
@@ -1307,28 +1530,32 @@ public final class ChatPairGen {
      * The label check: runs the local checks first (no call for lines they drop), then asks the model to label the rest
      * blind and keeps those whose labels agree ({@link #mismatches}); offers them. Returns the pairs added.
      */
-    private int check(Run run, List<Cell> cells, List<String[]> got, List<String> affinities, String source,
-                      List<String> bankIds) throws IOException, InterruptedException {
+    private int check(Run run, List<Cell> cells, List<Item> got, List<String> affinities, String source,
+                      List<String> bankIds, int[] contextRange) throws IOException, InterruptedException {
         List<Integer> keep = new ArrayList<>();
         for (int i = 0; i < got.size(); i++) {
             Cell c = cells.get(i);
-            String player = ChatBankGen.clean(got.get(i)[0]);
+            Item it = got.get(i);
+            String player = ChatBankGen.clean(it.player());
             String why = playerProblem(c, player);
             if (why == null) {
-                why = replyProblem(c, ChatBankGen.clean(got.get(i)[1]));
+                why = replyProblem(c, ChatBankGen.clean(it.reply()));
                 if ("backfill".equals(source) && "reply prompt example".equals(why)) {
                     why = null;
                 }
             }
+            if (why == null) {
+                why = contextProblem(c, it.context(), contextRange, player);
+            }
             if (why != null) {
-                reject(c, why, player, got.get(i)[1]);
+                reject(c, why, player, it.reply());
             } else {
                 keep.add(i);
             }
         }
         Map<Integer, Verdict> verdicts = Map.of();
         List<Cell> askCells = new ArrayList<>();
-        List<String[]> ask = new ArrayList<>();
+        List<Item> ask = new ArrayList<>();
         for (int i : keep) {
             askCells.add(cells.get(i));
             ask.add(got.get(i));
@@ -1346,9 +1573,8 @@ public final class ChatPairGen {
             int i = keep.get(k);
             List<String> wrong = run.verify() ? mismatches(cells.get(i), verdicts.get(k + 1)) : List.of();
             if (!wrong.isEmpty()) {
-                reject(cells.get(i), String.join("; ", wrong), got.get(i)[0], got.get(i)[1]);
-            } else if (offer(cells.get(i), affinities.get(i), got.get(i)[0], got.get(i)[1], source,
-                    bankIds == null ? null : bankIds.get(i))) {
+                reject(cells.get(i), String.join("; ", wrong), got.get(i).player(), got.get(i).reply());
+            } else if (offer(cells.get(i), affinities.get(i), got.get(i), source, bankIds == null ? null : bankIds.get(i))) {
                 added++;
             }
         }
@@ -1423,6 +1649,7 @@ public final class ChatPairGen {
         values.put("con", ChatTriage.CON.labels().keySet());
         values.put("tone", ConvoSense.TONE.labels().keySet());
         values.put("act", ACTS.keySet());
+        values.put("variant", SLOW.stream().sorted().collect(java.util.stream.Collectors.toCollection(LinkedHashSet::new)));
         values.forEach((d, vs) -> {
             for (String v : vs) {
                 int have = counts.getOrDefault(d + ":" + v, 0);
@@ -1439,6 +1666,12 @@ public final class ChatPairGen {
         out.add(String.format(Locale.ROOT, "neutral share %.1f%% (aim %.0f%%)", 100.0 * neutral / total,
                 100 * Plan.NEUTRAL_SHARE));
         long hard = pairs.stream().filter(p -> !str(p, "variant").isEmpty() && !"-".equals(str(p, "variant"))).count();
+        long normal = pairs.stream().filter(p -> "normal".equals(str(p, "player_con"))
+                && !SLOW.contains(str(p, "variant"))).count();
+        long withContext = pairs.stream().filter(p -> "normal".equals(str(p, "player_con"))
+                && !SLOW.contains(str(p, "variant")) && p.get("context") instanceof List<?> l && !l.isEmpty()).count();
+        out.add(String.format(Locale.ROOT, "normal pairs with earlier lines %.1f%% (aim %.0f%%, %d of %d)",
+                normal == 0 ? 0.0 : 100.0 * withContext / normal, 100 * CONTEXT_SHARE, withContext, normal));
         out.add(String.format(Locale.ROOT, "hard-negative share %.1f%% (%d pairs; --hard-share of calls, default 25%%)",
                 100.0 * hard / total, hard));
         out.add("pairs " + pairs.size() + " of target " + plan.target());
