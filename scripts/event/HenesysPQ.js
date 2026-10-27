@@ -269,8 +269,10 @@ function friendlyDamaged(eim, mob) {
         var bunnyDamage = eim.getIntProperty("bunnyDamaged") + 1;
         if (bunnyDamage > 5) {
             const PacketCreator = Java.type('tools.PacketCreator');
-            broadcastMessage(PacketCreator.serverNotice(6, "The Moon Bunny is feeling sick. Please protect it so it can make delicious rice cakes."));
+            mob.getMap().broadcastMessage(PacketCreator.serverNotice(6, "The Moon Bunny is feeling sick. Please protect it so it can make delicious rice cakes."));
             eim.setIntProperty("bunnyDamaged", 0);
+        } else {
+            eim.setIntProperty("bunnyDamaged", bunnyDamage);
         }
     }
 }
