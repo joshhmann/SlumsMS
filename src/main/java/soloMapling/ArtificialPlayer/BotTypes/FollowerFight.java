@@ -23,6 +23,10 @@ import java.awt.Point;
  *
  * <p>1.6.0: the same holds inside a boss expedition its leader took it into ({@code ExpeditionBots.inRun}): the
  * altar's monsters are spawned by the event, so a follower there fights the nearest one next to its leader.
+ *
+ * <p>1.6.0: and in a party quest: a follower in its leader's party and in the same event instance (KPQ, HPQ, LPQ,
+ * ...) fights the stage's monsters with him. Friendly mobs (HPQ's Moon Bunny) are never targets
+ * ({@code BotAttackDriver.botMayTarget}).
  */
 final class FollowerFight {
 
@@ -42,8 +46,8 @@ final class FollowerFight {
     }
 
     /**
-     * The monster the follower fights: the nearest live one on its map when it stands on a dojo floor, or inside its
-     * expedition, with its leader, else null (it just follows).
+     * The monster the follower fights: the nearest live one on its map when it stands on a dojo floor, inside its
+     * expedition or inside its leader's party quest, with its leader, else null (it just follows).
      */
     static Monster target(Character bot, Character leader) {
         if (bot == null || leader == null) {
@@ -52,7 +56,8 @@ final class FollowerFight {
         MapleMap map = bot.getMap();
         Point at = bot.getPosition();
         if (map == null || at == null || leader.getMap() != map
-                || !fightsOn(map.getId()) && !soloMapling.ArtificialPlayer.BotPartySystem.ExpeditionHold.inRun(bot)) {
+                || !fightsOn(map.getId()) && !soloMapling.ArtificialPlayer.BotPartySystem.ExpeditionHold.inRun(bot)
+                && !inLeadersPq(bot, leader)) {
             return null;
         }
         Monster best = null;
@@ -68,6 +73,13 @@ final class FollowerFight {
             }
         }
         return best;
+    }
+
+    /** In its leader's party and in the same event instance as him (a party quest). */
+    static boolean inLeadersPq(Character bot, Character leader) {
+        scripting.event.EventInstanceManager eim = bot.getEventInstance();
+        int party = bot.getPartyId();
+        return eim != null && eim == leader.getEventInstance() && party != -1 && party == leader.getPartyId();
     }
 
     /**
