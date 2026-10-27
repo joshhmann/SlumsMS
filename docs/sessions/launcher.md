@@ -13,8 +13,8 @@ owner's desktop Silvia (crims@192.168.0.186, key ~/.ssh/id_rsprox_desktop; work 
 never the owner's installs, %APPDATA% or running games).
 
 **Not yours (message the owner of it with SendMessage):** server code and the release branch: session
-`solomapling-a7` (coordinator; only it merges into release-*); website: `slumsms-site-0b`; client slums.dll:
-`src-15`.
+`Server Dev SlumsMS` (coordinator; only it merges into release-*); website: `Website Slums`; client slums.dll:
+`Client Development SlumsMS`.
 
 **Rules:** live publishes (launcher to Live, feed changes on the live channel, Discord posts) need the owner's explicit
 go every time; Test/RC channels are free. Never read or print secrets: the Tauri signing key
@@ -27,6 +27,6 @@ the eight-picture banner rotation. It needs signing and the RC → Live publish 
 current live launcher is Tauri 1.5.2 (SlumsMS-Launcher.exe). **Your first tasks:** (1) confirm e69327e is the right
 1.6.0 build and that it shows three versions (launcher, client, server); (2) a release-night checklist for the
 launcher (sign, publish RC, owner test, publish Live, rollback); (3) Defender: status of the Microsoft submission and
-the site note text for slumsms-site-0b; (4) then 1.6.1: ticket 106 (download pass) and the "check other channels only
-at start-up" fix. Report to the owner and to solomapling-a7 when each lands; update the 1.6.0 notes for anything you
+the site note text for Website Slums; (4) then 1.6.1: ticket 106 (download pass) and the "check other channels only
+at start-up" fix. Report to the owner and to Server Dev SlumsMS when each lands; update the 1.6.0 notes for anything you
 change.

@@ -28,10 +28,10 @@ talk = insult/normal, targeted abuse = harassment. Context matters: wait for the
 The model is "the read", the bot's persona is "the gut" — it doesn't have to be perfect. Ship a model only if it beats
 gliclass zero-shot (61.4%) on holdout-70. Big cloud runs need the owner's go and a budget.
 
-**Not yours:** merging into release-* (session `solomapling-a7`), the website (`slumsms-site-0b`), the client
-(`src-15`). Server changes for the 1.6.1 classifier (ConvoSense reading context) go through solomapling-a7.
+**Not yours:** merging into release-* (session `Server Dev SlumsMS`), the website (`Website Slums`), the client
+(`Client Development SlumsMS`). Server changes for the 1.6.1 classifier (ConvoSense reading context) go through Server Dev SlumsMS.
 
 **Rules:** never touch live; never read/print secrets; never `git stash`; PT next to UTC; bots never say they're AI.
-**First tasks:** take over the 160-playerlines generator once rounds 4-5 land (ask solomapling-a7 for the hand-off),
+**First tasks:** take over the 160-playerlines generator once rounds 4-5 land (ask Server Dev SlumsMS for the hand-off),
 run the context sample on .17 with the DeepSeek agent, review ~100 pairs by hand (tone, con), then plan the 50k run
 and training for the owner's go.
