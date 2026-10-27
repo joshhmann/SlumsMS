@@ -1,0 +1,1 @@
+{"lifetime_hours":12,"idle_minutes":10,"queue_wait_minutes":120,"auto_recover":true,"max_recoveries_per_hour":3,"heartbeat_seconds":15,"health_seconds":20}
