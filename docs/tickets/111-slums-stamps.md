@@ -2,7 +2,7 @@
 
 **Area:** Server / economy / NPCs
 **Kind:** FEATURE, 1.6.1 (owner 2026-10-27)
-**Status:** decided, not started
+**Status:** grilled, ready to build in 1.6.1
 
 ## Why
 The donor and vote currencies are dead: the Billion Coin (4001253) has no source in game (GM-given only), so the
@@ -18,20 +18,24 @@ reach; vote points (accounts.votepoints, @points, !givevp) have no voting site a
   already held convert to stamps. Root Coin and Maple Leaf unchanged.
 - **Release:** 1.6.1.
 
-## To grill before building
-- Per account or per character (alts): which one checks in, and where stamps live (account column like votepoints,
-  or an ETC item that can be traded or not).
-- Tradeable? (An item would make stamps a market good on Slums Market; an account balance keeps them personal.)
-- Prices: Donor NX items cost 1 Billion Coin and Donor Shop items 10 today; at 12 stamps a week those need a reprice
-  (e.g. cosmetics 5-20, stamps/QoL 30-60). Conversion rate for held Billion Coins and vote points.
-- Where you see it: a check-in message at login, a line in @points (renamed), the website account page.
-- Streak details: the day boundary (UTC or PT), what counts as "played 10 minutes", whether the streak caps or the
-  bonus repeats every 7 days, a catch-up for one missed day.
-- Bots: regulars could show stamp cosmetics but never earn or spend stamps.
+## Owner decisions, grill 2026-10-27
+- **Holder:** one balance per account, shared by its characters; one check-in a day per account (alts don't multiply).
+- **Not tradeable:** stamps are personal. What they buy follows the item's own trade rules.
+- **Day:** rolls over at midnight Pacific.
+- **Played:** 10 minutes online that day, summed across the account's characters; AFK counts.
+- **Streak:** +5 on every 7th day (repeats weekly); one missed day a week is forgiven, two reset the streak (stamps
+  are never lost).
+- **Prices:** Donor NX cosmetics 6 stamps; Donor Shop (High-Five Stamps 5590000/5590001) 40 stamps. A full week is 12.
+- **Conversion:** each Billion Coin (4001253) held and each vote point converts to 6 stamps (what it bought before:
+  one cosmetic). Billion Coins in inventories and storage are removed in the migration.
+- **Shown:** `@stamps` (balance, streak, next bonus; replaces the vote line in @points), Rooty's menu header, the
+  website's account page; and one quiet yellow chat line when the day's stamp lands: "+1 Slums Stamp (streak 4/7)".
+- **Staff and GM accounts** never earn stamps (as with event winners); QA accounts neither.
+- Bots never earn or spend stamps (they may wear the cosmetics).
 
 ## Build sketch
-Migration: accounts.stamps, accounts.checkin_day, accounts.checkin_streak (or an item); conversion of votepoints and
-held 4001253. A login hook plus a 10-minute playtime check; @points shows stamps and the streak. rooty.js donor
+Migration: accounts.stamps, accounts.checkin_day, accounts.checkin_streak, accounts.checkin_minutes; convert
+votepoints and held 4001253 (inventories and storage) at 6 each. A login hook plus a 10-minute playtime check; @points shows stamps and the streak. rooty.js donor
 sections switch currency (a stamp balance check instead of an item count if it is an account balance). Remove
 !givevp / vote points (or alias !givestamps). Tests for the day boundary, streak reset, conversion and double-claim
 across channels. Patch notes + guide (shops, commands).
