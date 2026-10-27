@@ -24,7 +24,7 @@ fi
 [ -e "$DATA/items.json" ] || { echo "missing $DATA/items.json" >&2; exit 1; }
 before=$(ssh "$HOST" 'cat /run/nginx.pid; find /etc/nginx -type f -print0 | sort -z | xargs -0 md5sum | md5sum')
 
-ssh "$HOST" "mkdir -p $DEST/tools $DEST/docs $DEST/hiddenstreet /srv/slums-site-test /etc/slums-site-test \
+ssh "$HOST" "mkdir -p $DEST/tools $DEST/docs $DEST/hiddenstreet $DEST/cache /srv/slums-site-test /etc/slums-site-test \
   /var/lib/slums-login-test /var/lib/slums-market-test /var/log/slums-site-test \
   /var/lib/slums-site-test-web/{body,proxy,fastcgi,uwsgi,scgi}
   touch /var/lib/slums-login-test/revoked.txt
@@ -39,6 +39,9 @@ rsync -a --delete --exclude __pycache__ --exclude testdata tools/site/ "$HOST:$D
 rsync -a --delete docs/site/ "$HOST:$DEST/docs/site/"
 rsync -a --delete docs/wiki/ "$HOST:$DEST/docs/wiki/"
 rsync -a --delete --include '*.json' --exclude '*' "$DATA/" "$HOST:$DEST/hiddenstreet/"
+# the item, mob and NPC icons (cache/site-icons on 187, 63 MB, not in git): this copy builds Slums Street on 164
+[ -f cache/site-icons/manifest.json ] && rsync -a --delete cache/site-icons/ "$HOST:$DEST/cache/site-icons/" \
+  || echo "no cache/site-icons here: Slums Street on TEST will show empty icon slots" >&2
 ssh "$HOST" "echo $(git rev-parse --short HEAD) > $DEST/DEPLOYED_COMMIT
   cp $DEST/tools/site/test164/nginx.conf /etc/slums-site-test/nginx.conf
   cd $DEST/tools/site/test164 && cp $(echo $UNITS) /etc/systemd/system/ && systemctl daemon-reload
