@@ -1,0 +1,33 @@
+[Unit]
+Description=SlumsMS TEST website report form receiver, 127.0.0.1:8193
+After=network.target
+
+[Service]
+Type=simple
+ExecStart=/usr/bin/python3 /opt/slums-site-test/tools/site/report_service.py
+# TEST's own reports file and salt (made by install.sh), never live's /var/lib/slums-feedback or /etc/slums-report
+Environment=SLUMS_REPORT_FILE=/var/lib/slums-report-test/reports.jsonl
+Environment=SLUMS_REPORT_SALT_FILE=/etc/slums-report-test/salt
+Environment=SLUMS_REPORT_PORT=8193
+# no Caddy in front: the TEST nginx sets X-Forwarded-For to the visitor itself
+Environment=SLUMS_REPORT_PROXY_HOPS=0
+Restart=on-failure
+RestartSec=3
+NoNewPrivileges=true
+PrivateTmp=true
+PrivateDevices=true
+ProtectSystem=strict
+ProtectHome=true
+ReadWritePaths=/var/lib/slums-report-test
+ReadOnlyPaths=/etc/slums-report-test /opt/slums-site-test
+ProtectKernelTunables=true
+ProtectKernelModules=true
+ProtectControlGroups=true
+RestrictAddressFamilies=AF_INET AF_INET6
+RestrictNamespaces=true
+LockPersonality=true
+MemoryMax=128M
+UMask=0027
+
+[Install]
+WantedBy=multi-user.target

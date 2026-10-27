@@ -8,16 +8,16 @@ set -euo pipefail
 HOST=root@192.168.0.164
 DEST=/opt/slums-site-test
 DATA=${SLUMS_HS_DATA:-data/site/hiddenstreet}
-UNITS="slums-login-test.service slums-market-test.service slums-site-test-web.service slums-site-test-world.service
+UNITS="slums-login-test.service slums-market-test.service slums-report-test.service slums-site-test-web.service slums-site-test-world.service
 slums-site-test-world.timer slums-site-test-market.service slums-site-test-market.timer"
 cd "$(git rev-parse --show-toplevel)"
 
 if [ "${1:-}" = "--remove" ]; then
   ssh "$HOST" "systemctl disable --now slums-site-test-world.timer slums-site-test-market.timer slums-site-test-web \
-    slums-market-test slums-login-test 2>/dev/null || true
+    slums-market-test slums-login-test slums-report-test 2>/dev/null || true
     cd /etc/systemd/system && rm -f $(echo $UNITS) && systemctl daemon-reload
     rm -rf $DEST /srv/slums-site-test /etc/slums-site-test /var/lib/slums-site-test-web"
-  echo "removed (kept /etc/slums-login-test/key, /var/lib/slums-login-test, /var/lib/slums-market-test, /var/log/slums-site-test)"
+  echo "removed (kept /etc/slums-login-test/key, /etc/slums-report-test, /var/lib/slums-report-test, /var/lib/slums-login-test, /var/lib/slums-market-test, /var/log/slums-site-test)"
   exit 0
 fi
 
@@ -34,7 +34,11 @@ ssh "$HOST" "mkdir -p $DEST/tools $DEST/docs $DEST/hiddenstreet $DEST/cache /srv
   chmod 600 /etc/slums-login-test/key
   # the salt for hashing visitors' addresses before they go to the game server (ticket 105), TEST only
   [ -s /etc/slums-login-test/ip-salt ] || (umask 077; head -c 32 /dev/urandom > /etc/slums-login-test/ip-salt)
-  chmod 600 /etc/slums-login-test/ip-salt"
+  chmod 600 /etc/slums-login-test/ip-salt
+  # the report form's own TEST salt and reports file, never live's /etc/slums-report or /var/lib/slums-feedback
+  install -d -m 700 /etc/slums-report-test; install -d -m 750 /var/lib/slums-report-test
+  [ -s /etc/slums-report-test/salt ] || (umask 077; head -c 32 /dev/urandom > /etc/slums-report-test/salt)
+  chmod 600 /etc/slums-report-test/salt"
 rsync -a --delete --exclude __pycache__ --exclude testdata tools/site/ "$HOST:$DEST/tools/site/"
 rsync -a --delete docs/site/ "$HOST:$DEST/docs/site/"
 rsync -a --delete docs/wiki/ "$HOST:$DEST/docs/wiki/"
@@ -50,11 +54,11 @@ ssh "$HOST" "echo $(git rev-parse --short HEAD) > $DEST/DEPLOYED_COMMIT
     --out /srv/slums-site-test --no-tar --hs-data $DEST/hiddenstreet \
     --site-data /opt/mapleroot-dev/persistence-test/Server/data/site \
     --market-data /opt/mapleroot-dev/persistence-test/Server/data/market | tail -1
-  systemctl enable -q slums-login-test slums-market-test slums-site-test-web slums-site-test-world.timer slums-site-test-market.timer
-  systemctl restart slums-login-test slums-market-test slums-site-test-web
+  systemctl enable -q slums-login-test slums-market-test slums-report-test slums-site-test-web slums-site-test-world.timer slums-site-test-market.timer
+  systemctl restart slums-login-test slums-market-test slums-report-test slums-site-test-web
   systemctl restart slums-site-test-world.timer slums-site-test-market.timer
   systemctl start --no-block slums-site-test-world.service slums-site-test-market.service
-  sleep 2; systemctl is-active slums-login-test slums-market-test slums-site-test-web | tr '\n' ' '; echo"
+  sleep 2; systemctl is-active slums-login-test slums-market-test slums-report-test slums-site-test-web | tr '\n' ' '; echo"
 after=$(ssh "$HOST" 'cat /run/nginx.pid; find /etc/nginx -type f -print0 | sort -z | xargs -0 md5sum | md5sum')
 [ "$before" = "$after" ] && echo "shared nginx untouched (same pid and config)" || { echo "WARNING: shared nginx pid or config changed" >&2; exit 1; }
 echo "TEST site at http://192.168.0.164:8192/ ($(git rev-parse --short HEAD))"
