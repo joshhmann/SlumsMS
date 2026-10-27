@@ -89,6 +89,8 @@ class FakeGameAuth:
                 elif self.path == "/reset/status":
                     ans = ((200, {"ok": True, "status": fake.reset_state}) if (body["request_id"], body["secret"]) == ("r123", "s" * 32)
                            else (200, {"ok": True, "status": "expired"}))
+                elif self.path == "/reset/complete" and fake.reset_state in ("USED", "EXPIRED"):
+                    ans = (200, {"ok": False, "error": fake.reset_state})
                 elif self.path == "/reset/complete":
                     ans = ((200, {"ok": True, "account_id": 42, "account": "momo", "gm": False, "gm_level": 0,
                                   "characters": ["Momo"], "revoke_sessions": True})
@@ -259,6 +261,15 @@ class AccountSignInTest(unittest.TestCase):
         self.assertEqual(self.call("POST", "/api/login/reset/status", {})[1]["status"], "denied")
         self.assertNotIn("slums_reset", self.jar)
         self.assertEqual(self.call("POST", "/api/login/reset/status", {})[1]["status"], "none")
+
+    def test_a_used_or_expired_reset_says_so_and_is_forgotten(self):
+        for state, text in (("USED", "already used"), ("EXPIRED", "ran out")):
+            self.call("POST", "/api/login/reset/request", {"user": "momo", "contact": "momo#1234"})
+            self.game.reset_state = state
+            status, body = self.call("POST", "/api/login/reset/complete", {"pass": "newpass1"})
+            self.assertEqual(status, 410)
+            self.assertIn(text, body["error"])
+            self.assertNotIn("slums_reset", self.jar)
 
     def test_sign_out_ends_the_session_everywhere(self):
         self.call("POST", "/api/login/password", {"user": "momo", "pass": "hunter22"})

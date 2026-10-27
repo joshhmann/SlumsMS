@@ -190,6 +190,8 @@ RULES = {"user_length": "Usernames are 4 to 12 letters or numbers.",
 ERRORS = {"BAD_CODE": (403, "That invite code doesn't work."),
           "UNAVAILABLE": (503, "Sign-in is down right now. Try again in a bit."),
           "NOT_APPROVED": (409, "That reset isn't approved (yet). Check its status above."),
+          "USED": (410, "That reset was already used. Sign in with your new password."),
+          "EXPIRED": (410, "That request ran out. Ask again."),
           "NAME_TAKEN": (409, "That username is taken."),
           "WRONG_LOGIN": (401, "Wrong username or password."),
           "LOCKED": (423, "Too many wrong tries. Try again in 15 minutes."),
@@ -434,7 +436,8 @@ def make_handler(sessions, secure, auth=None, limiter=None):
             if not got.get("ok"):
                 if got.get("error") == "BAD_INPUT" and got.get("rule") in RULES:
                     return self.send(400, {"ok": False, "error": RULES[got["rule"]], "rule": got["rule"]})
-                return self.send(*self.err(ERRORS.get(got.get("error"), ERRORS["NOT_APPROVED"])))
+                done = [f"{RESET_COOKIE}=; Max-Age=0{flags}"] if got.get("error") in ("USED", "EXPIRED") else []
+                return self.send(*self.err(ERRORS.get(got.get("error"), ERRORS["NOT_APPROVED"])), done)
             if not str(got.get("account_id", "")).isdigit():
                 return self.send(*self.err(DOWN))
             mark = sessions.end_all(got["account_id"])   # every old session of the account, whatever revoke_sessions says
