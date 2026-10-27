@@ -32,6 +32,23 @@ class PriceBookTest {
     }
 
     @Test
+    void priceSamplesAreKeptForeverByDefaultAndPrunedOnlyWhenAskedTo() {
+        sale(1_000_000, PriceBook.Source.SHOP, true);
+        t.now.addAndGet(400 * EconomyTestSupport.DAY);
+        sale(1_100_000, PriceBook.Source.SHOP, true); // far past the old 14 days: the prune check runs here
+        assertEquals(2, t.store.samples.size(), "history is kept");
+
+        EconomyConfig.useForTest(java.util.Map.of("priceBook.keepDays", "30"));
+        try {
+            t.now.addAndGet(7 * EconomyTestSupport.DAY);
+            sale(1_200_000, PriceBook.Source.SHOP, true);
+            assertEquals(2, t.store.samples.size(), "a keepDays above 0 prunes again: the 400-day-old row went");
+        } finally {
+            EconomyConfig.useForTest(null);
+        }
+    }
+
+    @Test
     void tooFewSalesShowTheStaticValue() {
         sale(2_000_000, PriceBook.Source.SHOP, true);
         sale(2_000_000, PriceBook.Source.SHOP, true);

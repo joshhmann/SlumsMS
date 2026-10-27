@@ -205,7 +205,7 @@ class EconomySnapshotServiceTest {
     }
 
     @Test
-    void nightlyKeepsNinetyDaysOfDatedSnapshots() throws IOException {
+    void nightlyKeepsEveryDatedSnapshotAndGzipsTheOldOnes() throws IOException {
         EconomySnapshotService service = new EconomySnapshotService(tempDir);
         LocalDate today = LocalDate.of(2026, 10, 25);
         for (int i = 1; i < 120; i++) {
@@ -218,12 +218,12 @@ class EconomySnapshotServiceTest {
         service.executeSnapshot(today, List::of, List::of, Map::of, true);
 
         try (var files = Files.list(tempDir)) {
-            assertEquals(90, files.filter(f -> f.getFileName().toString().matches("\\d{4}-\\d{2}-\\d{2}-public\\.json"))
-                    .count(), "the day just written and the 89 before it");
+            assertEquals(120, files.filter(f -> f.getFileName().toString().matches("\\d{4}-\\d{2}-\\d{2}-public\\.json(\\.gz)?"))
+                    .count(), "nothing deleted by default");
         }
-        assertTrue(Files.exists(tempDir.resolve(today.minusDays(89) + "-private.json")));
-        assertFalse(Files.exists(tempDir.resolve(today.minusDays(90) + "-public.json")));
-        assertFalse(Files.exists(tempDir.resolve(today.minusDays(90) + "-private.json")));
+        assertTrue(Files.exists(tempDir.resolve(today.minusDays(29) + "-private.json")), "recent days stay plain");
+        assertTrue(Files.exists(tempDir.resolve(today.minusDays(119) + "-private.json.gz")), "old days are gzipped in place");
+        assertFalse(Files.exists(tempDir.resolve(today.minusDays(119) + "-private.json")));
         assertTrue(Files.exists(tempDir.resolve("latest-public.json")));
         assertTrue(Files.exists(tempDir.resolve("ondemand-public.json")));
     }

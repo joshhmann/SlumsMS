@@ -50,7 +50,7 @@ import java.util.function.ToLongFunction;
  *   equip, whose static value is {@code EquipValuation}'s).</li>
  * </ul>
  * Samples are kept in memory for the window and written to {@code pricesamples} (migration 020) off the game thread;
- * at the first read after a restart the window is read back. Older rows are pruned after {@code priceBook.keepDays}.
+ * at the first read after a restart the window is read back. Rows are kept forever unless {@code priceBook.keepDays} is above 0.
  */
 public final class PriceBook {
 
@@ -567,7 +567,11 @@ public final class PriceBook {
             return;
         }
         lastPruneAt = now;
-        long before = now - Math.max(windowDays(), EconomyConfig.getInt("priceBook.keepDays", 14)) * 86_400_000L;
+        int keep = EconomyConfig.getInt("priceBook.keepDays", 0); // 0 = keep every sample (history; owner 2026-10-27)
+        if (keep <= 0) {
+            return;
+        }
+        long before = now - Math.max(windowDays(), keep) * 86_400_000L;
         EconomyStore st = store;
         writer.execute(() -> st.pruneSamples(before));
     }

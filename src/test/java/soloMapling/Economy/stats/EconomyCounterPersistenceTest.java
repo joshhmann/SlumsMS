@@ -106,7 +106,7 @@ class EconomyCounterPersistenceTest {
     }
 
     @Test
-    void counterRowsAreKeptNinetyDays() {
+    void counterRowsAreKeptForeverByDefaultAndPrunedWithTheKnob() {
         MemoryStore db = new MemoryStore();
         for (int i = 0; i < 120; i++) {
             db.save(DAY.minusDays(i), Map.of("trade", 1L), 1L);
@@ -114,6 +114,14 @@ class EconomyCounterPersistenceTest {
         EconomyCounterPersistence p = new EconomyCounterPersistence(db);
         p.boot(DAY.plusDays(1));
         p.closeDay(DAY, EconomyCounters.snapshotAndReset(), 2L);
+        assertEquals(120, db.rows.size(), "history is kept: nothing pruned by default");
+
+        System.setProperty("slums.history.economyKeepDays", "90");
+        try {
+            p.closeDay(DAY, EconomyCounters.snapshotAndReset(), 3L);
+        } finally {
+            System.clearProperty("slums.history.economyKeepDays");
+        }
         assertEquals(90, db.rows.size());
         assertEquals(DAY.minusDays(89), db.rows.keySet().iterator().next());
     }

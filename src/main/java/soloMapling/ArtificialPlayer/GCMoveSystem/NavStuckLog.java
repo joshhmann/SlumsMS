@@ -4,6 +4,7 @@ import client.Character;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import server.maps.MapleMap;
+import soloMapling.server.History;
 import soloMapling.server.Json;
 
 import java.awt.Point;
@@ -261,10 +262,14 @@ public final class NavStuckLog {
     }
 
     private static void load(Day day) {
+        // a new day: gzip the stuck logs older than a month (history is kept; slums.history.stuckKeepDays deletes)
+        History.sweep(dir, DAY_FILE, History.gzipDays("stuck"), History.keepDays("stuck"));
         for (Spot s : read(fileFor(dir, day.date))) {
             day.spots.put(s.mapId + "|" + s.kind + "|" + s.x + "|" + s.y + "|" + s.edge, s);
         }
     }
+
+    private static final java.util.regex.Pattern DAY_FILE = java.util.regex.Pattern.compile("\\d{4}-\\d{2}-\\d{2}\\.json");
 
     static Path fileFor(Path dir, LocalDate date) {
         return dir.resolve(date + ".json");
@@ -273,11 +278,11 @@ public final class NavStuckLog {
     /** A day file's spots; empty when the file is missing or unreadable. */
     static List<Spot> read(Path file) {
         List<Spot> spots = new ArrayList<>();
-        if (!Files.isRegularFile(file)) {
+        if (!History.exists(file)) {
             return spots;
         }
         try {
-            if (Json.parse(Files.readString(file, StandardCharsets.UTF_8)) instanceof Map<?, ?> root
+            if (Json.parse(History.readString(file)) instanceof Map<?, ?> root
                     && root.get("spots") instanceof List<?> list) {
                 for (Object o : list) {
                     if (o instanceof Map<?, ?> m) {

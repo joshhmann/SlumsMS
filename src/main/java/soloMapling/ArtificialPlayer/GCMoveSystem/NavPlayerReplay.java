@@ -1,5 +1,6 @@
 package soloMapling.ArtificialPlayer.GCMoveSystem;
 
+import soloMapling.server.History;
 import server.maps.MapleMap;
 
 import java.io.IOException;
@@ -94,6 +95,12 @@ public final class NavPlayerReplay {
         System.out.print(format(report, moves.size()));
     }
 
+    /** A moves file's plain name: {@code moves-<day>.jsonl.gz} and {@code moves-<day>.jsonl} are the same day. */
+    private static Path plainOf(Path f) {
+        String n = f.getFileName().toString();
+        return n.endsWith(".gz") ? f.resolveSibling(n.substring(0, n.length() - 3)) : f;
+    }
+
     /** The stored moves of the last {@code days} UTC days (oldest first). */
     static List<NavObservedEdges.Transition> fromStoredMoves(Path dir, int days) throws IOException {
         List<NavObservedEdges.Transition> out = new ArrayList<>();
@@ -103,11 +110,12 @@ public final class NavPlayerReplay {
         String oldest = days == Integer.MAX_VALUE ? "" : LocalDate.now(ZoneOffset.UTC).minusDays(days - 1L).toString();
         List<Path> files;
         try (Stream<Path> list = Files.list(dir)) {
-            files = list.filter(f -> f.getFileName().toString().matches("moves-\\d{4}-\\d{2}-\\d{2}\\.jsonl"))
-                    .filter(f -> f.getFileName().toString().substring(6, 16).compareTo(oldest) >= 0).sorted().toList();
+            files = list.filter(f -> f.getFileName().toString().matches("moves-\\d{4}-\\d{2}-\\d{2}\\.jsonl(\\.gz)?"))
+                    .filter(f -> f.getFileName().toString().substring(6, 16).compareTo(oldest) >= 0)
+                    .map(NavPlayerReplay::plainOf).distinct().sorted().toList();
         }
         for (Path f : files) {
-            for (String line : Files.readAllLines(f, StandardCharsets.UTF_8)) {
+            for (String line : History.readLines(f)) {
                 NavObservedEdges.Transition t = NavPlayerLearning.parseLine(line);
                 if (t != null) {
                     out.add(t);

@@ -3,6 +3,8 @@ package soloMapling.autoqa;
 import config.YamlConfig;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
+import soloMapling.server.History;
+import soloMapling.server.History;
 
 import java.io.IOException;
 import java.nio.charset.StandardCharsets;
@@ -11,6 +13,8 @@ import java.nio.file.Path;
 import java.nio.file.StandardCopyOption;
 import java.nio.file.StandardOpenOption;
 import java.util.function.Function;
+import java.util.regex.Pattern;
+import java.util.regex.Pattern;
 
 /**
  * Auto-QA (test server only): periodic health sweeps ({@link HealthSweeper}) and the synthetic-player check runner
@@ -35,6 +39,23 @@ public final class AutoQa {
         } catch (RuntimeException | LinkageError e) {
             return false;
         }
+    }
+
+    /**
+     * Auto-QA history is kept, never deleted by default: day files in {@code dir} older than a month are gzipped
+     * ({@code .jsonl.gz} / {@code .json.gz}; {@code -Dslums.history.autoqaKeepDays=N} deletes after N days). The readers
+     * ({@code ChatQuality}, {@code AutoQaReport.read}) read the compressed ones too. Returns the files gzipped.
+     */
+    static int compressHistory(Path dir) {
+        int gz = History.gzipDays("autoqa"), keep = History.keepDays("autoqa");
+        String d = "\\d{4}-\\d{2}-\\d{2}";
+        int n = 0;
+        for (String[] sub : new String[][]{{"social-trace", d + "\\.jsonl"}, {"health", d + "\\.jsonl"},
+                {"saydo", d + "\\.jsonl"}, {"botwatch", "botwatch-" + d + "T\\d{4}Z\\.json"}, {"", "report-" + d + "\\.json"},
+                {"", "chat-quality-" + d + "\\.json"}}) {
+            n += History.sweep(sub[0].isEmpty() ? dir : dir.resolve(sub[0]), Pattern.compile(sub[1]), gz, keep).gzipped();
+        }
+        return n;
     }
 
     /** The same rule for a set of -D properties and the config value (tests). */

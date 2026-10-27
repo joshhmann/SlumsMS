@@ -95,7 +95,7 @@ class NavPlayerLearningTest {
     }
 
     @Test
-    void aMapsDayIsCappedAndOldDaysArePruned() throws Exception {
+    void aMapsDayIsCappedAndOldDaysAreGzippedNotDeleted() throws Exception {
         Files.createDirectories(players);
         Path old = players.resolve("moves-2020-01-01.jsonl");
         Files.writeString(old, "{}\n");
@@ -107,7 +107,10 @@ class NavPlayerLearningTest {
         String today = NavPlayerLearning.day(System.currentTimeMillis());
         assertEquals(NavPlayerLearning.MAP_DAY_CAP + 1,
                 Files.readAllLines(players.resolve("moves-" + today + ".jsonl")).size(), "capped per map, the other map still logged");
-        assertFalse(Files.exists(old), "older than " + NavPlayerLearning.KEEP_DAYS + " days");
+        assertFalse(Files.exists(old), "older than " + NavPlayerLearning.KEEP_DAYS + " days: compressed in place");
+        Path gz = players.resolve("moves-2020-01-01.jsonl.gz");
+        assertTrue(Files.exists(gz), "kept, not deleted");
+        assertEquals("{}", soloMapling.server.History.readString(old).trim(), "and still readable");
         Map<?, ?> stats = (Map<?, ?>) Json.parse(Files.readString(players.resolve("stats.json")));
         assertEquals(25, ((Number) stats.get("dropped")).intValue());
         assertEquals(NavPlayerLearning.MAP_DAY_CAP + 26, ((Number) stats.get("moves")).intValue(), "counted even when not logged");

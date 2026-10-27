@@ -28,8 +28,10 @@ public final class EconomyCounterPersistence {
 
     private static final Logger log = LoggerFactory.getLogger(EconomyCounterPersistence.class);
 
-    /** How many days of counter rows (and nightly snapshot files) to keep (owner 2026-10-26). */
-    public static final int KEEP_DAYS = 90;
+    /** Days the daily counters stay in {@code economycounters}: forever unless -Dslums.history.economyKeepDays=N. */
+    static int keepDays() {
+        return soloMapling.server.History.keepDays("economy");
+    }
 
     /** Where the rows go. */
     public interface Store {
@@ -78,12 +80,14 @@ public final class EconomyCounterPersistence {
 
     /**
      * The nightly snapshot just closed the window for {@code closedDay} with these final totals: stores them under
-     * that day, moves the window to the next day and drops rows older than {@link #KEEP_DAYS}.
+     * that day, moves the window to the next day and drops rows older than {@link #keepDays()} (none by default: history is kept).
      */
     public synchronized void closeDay(LocalDate closedDay, EconomyCounters.Snapshot finalTotals, long nowMs) {
         store.save(closedDay, totals(finalTotals), nowMs);
         windowDay = closedDay.plusDays(1);
-        store.pruneBefore(closedDay.minusDays(KEEP_DAYS - 1));
+        if (keepDays() > 0) {
+            store.pruneBefore(closedDay.minusDays(keepDays() - 1L));
+        }
     }
 
     static Map<String, Long> totals(EconomyCounters.Snapshot snap) {

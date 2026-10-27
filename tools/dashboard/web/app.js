@@ -16,7 +16,14 @@
 
   async function getJSON(path, fresh) {
     const r = await fetch(DATA + path + (fresh ? (path.includes('?') ? '&' : '?') + 't=' + Date.now() : ''), { cache: fresh ? 'no-store' : 'default' });
-    if (!r.ok) throw new Error(path + ': ' + r.status);
+    if (!r.ok) {
+      // days older than a month are gzipped on the server (<day>.json.gz): read those through the browser's gunzip
+      if (r.status === 404 && /\.json$/.test(path) && typeof DecompressionStream !== 'undefined') {
+        const z = await fetch(DATA + path + '.gz', { cache: 'default' });
+        if (z.ok) return new Response(z.body.pipeThrough(new DecompressionStream('gzip'))).json();
+      }
+      throw new Error(path + ': ' + r.status);
+    }
     return r.json();
   }
   async function getText(path) {

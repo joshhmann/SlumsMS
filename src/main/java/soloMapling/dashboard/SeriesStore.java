@@ -1,5 +1,6 @@
 package soloMapling.dashboard;
 
+import soloMapling.server.History;
 import soloMapling.server.Json;
 
 import java.io.IOException;
@@ -15,17 +16,21 @@ import java.util.List;
 import java.util.Map;
 import java.util.TreeMap;
 import java.util.TreeSet;
+import java.util.regex.Pattern;
 import java.util.stream.Stream;
 
 /**
  * The day's minute points ({@code series/<day>.json}) and one rollup per finished day ({@code daily/<day>.json}),
- * listed in {@code days.json}. A restart the same day carries on with the day's file. Bounded: at most
- * {@link #MAX_POINTS} points a day and {@link #KEEP_DAYS} days of files.
+ * listed in {@code days.json}. A restart the same day carries on with the day's file. At most {@link #MAX_POINTS}
+ * points a day. Nothing is deleted by default: days older than {@link History#gzipDays} days (30) are gzipped to
+ * {@code <day>.json.gz} (the dashboard page reads those too); {@code -Dslums.history.dashboardKeepDays=N} deletes
+ * after N days.
  */
 final class SeriesStore {
 
     static final int MAX_POINTS = 2_880;
-    static final int KEEP_DAYS = 90;
+    static final String HISTORY = "dashboard";
+    private static final Pattern DAY_FILE = Pattern.compile("\\d{4}-\\d{2}-\\d{2}\\.json");
 
     private final Path dir;
     private final ZoneId zone;
@@ -75,7 +80,7 @@ final class SeriesStore {
     /** Rolls up days the server was down at the turn of (their series exist, their rollup does not). */
     private void catchUp(LocalDate today) throws IOException {
         for (String d : list(dir.resolve("series"))) {
-            if (d.compareTo(today.toString()) < 0 && !Files.exists(dir.resolve("daily").resolve(d + ".json"))) {
+            if (d.compareTo(today.toString()) < 0 && !History.exists(dir.resolve("daily").resolve(d + ".json"))) {
                 AtomicFiles.writeJson(dir.resolve("daily").resolve(d + ".json"),
                         rollup(d, read(dir.resolve("series").resolve(d + ".json"))));
             }
@@ -144,12 +149,10 @@ final class SeriesStore {
         return LiveSnapshot.round1(best);
     }
 
-    private void prune() throws IOException {
+    /** Gzips the old day files (and deletes past the keep knob, forever by default). */
+    private void prune() {
         for (String sub : List.of("series", "daily")) {
-            List<String> days = list(dir.resolve(sub));
-            for (int i = 0; i < days.size() - KEEP_DAYS; i++) {
-                Files.deleteIfExists(dir.resolve(sub).resolve(days.get(i) + ".json"));
-            }
+            History.sweep(dir.resolve(sub), DAY_FILE, History.gzipDays(HISTORY), History.keepDays(HISTORY));
         }
     }
 
@@ -157,7 +160,7 @@ final class SeriesStore {
         TreeSet<String> days = new TreeSet<>();
         if (Files.isDirectory(sub)) {
             try (Stream<Path> files = Files.list(sub)) {
-                files.map(f -> f.getFileName().toString()).filter(n -> n.matches("\\d{4}-\\d{2}-\\d{2}\\.json"))
+                files.map(f -> f.getFileName().toString()).filter(n -> n.matches("\\d{4}-\\d{2}-\\d{2}\\.json(\\.gz)?"))
                         .forEach(n -> days.add(n.substring(0, 10)));
             }
         }
@@ -171,11 +174,11 @@ final class SeriesStore {
     @SuppressWarnings("unchecked")
     private static List<Map<String, Object>> read(Path file) {
         List<Map<String, Object>> out = new ArrayList<>();
-        if (!Files.isRegularFile(file)) {
+        if (!History.exists(file)) {
             return out;
         }
         try {
-            if (Json.parse(Files.readString(file, StandardCharsets.UTF_8)) instanceof Map<?, ?> m
+            if (Json.parse(History.readString(file)) instanceof Map<?, ?> m
                     && m.get("points") instanceof List<?> list) {
                 for (Object o : list) {
                     if (o instanceof Map<?, ?> p && out.size() < MAX_POINTS) {

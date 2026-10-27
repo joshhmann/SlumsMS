@@ -3,6 +3,7 @@ package soloMapling.ArtificialPlayer.GCMoveSystem;
 import client.Character;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
+import soloMapling.server.History;
 import soloMapling.server.Json;
 
 import java.io.IOException;
@@ -34,11 +35,13 @@ import java.util.stream.Stream;
  * <ul>
  *   <li>{@code moves-<day>.jsonl}: one line per captured move - time, map, kind, both ends (foothold, x, y), the
  *       outcome and graph version. Real players only and nothing that names them (no character id, no name).
- *       Capped at {@link #MAP_DAY_CAP} lines per map per day and {@link #DAY_FILE_CAP_BYTES} per day; days older
- *       than {@link #KEEP_DAYS} and the oldest days past {@link #TOTAL_CAP_BYTES} are deleted.</li>
+ *       Capped at {@link #MAP_DAY_CAP} lines per map per day and {@link #DAY_FILE_CAP_BYTES} per day. Nothing is
+ *       deleted (history is kept): days older than {@link #KEEP_DAYS} and, while the folder is over
+ *       {@link #TOTAL_CAP_BYTES}, the oldest days are gzipped to {@code .jsonl.gz}; {@code -Dslums.history.navKeepDays=N}
+ *       deletes after N days.</li>
  *   <li>{@code sightings.json}: the new moves still being counted towards adoption (at most {@link #SIGHTINGS_CAP},
  *       unseen for {@link #SIGHTING_TTL_DAYS} days dropped).</li>
- *   <li>{@code stats.json}: the counters (totals since the first start, the last {@link #KEEP_DAYS} days, the busiest
+ *   <li>{@code stats.json}: the counters (totals since the first start, every day, the busiest
  *       maps), read by the dashboard export.</li>
  *   <li>{@code portals.json}: which portal real players take from one map to another, counted.</li>
  * </ul>
@@ -50,7 +53,8 @@ public final class NavPlayerLearning {
     private static final Logger log = LoggerFactory.getLogger(NavPlayerLearning.class);
 
     static final Path DIR = Path.of(System.getProperty("bot.nav.cacheDir", "cache/bot-nav"), "players");
-    static final int KEEP_DAYS = 30;
+    /** Days a moves file stays plain text before it is gzipped (-Dslums.history.navGzipDays, default 30). */
+    static final int KEEP_DAYS = History.gzipDays("nav");
     static final long DAY_FILE_CAP_BYTES = 4L << 20;
     static final long TOTAL_CAP_BYTES = 64L << 20;
     static final int MAP_DAY_CAP = 2_000;
@@ -58,7 +62,7 @@ public final class NavPlayerLearning {
     static final int SIGHTINGS_CAP = 20_000;
     static final int SIGHTING_TTL_DAYS = 90;
     static final int TOP_MAPS = 50;
-    static final int PORTAL_ROUTES_CAP = 5_000;
+    static final int PORTAL_ROUTES_CAP = Integer.getInteger("bot.nav.portalRoutesCap", 50_000);
     static final long FLUSH_MINUTES = 5;
     static final long SUMMARY_MINUTES = 60;
 
@@ -385,8 +389,6 @@ public final class NavPlayerLearning {
         String today = day(now);
         synchronized (LOCK) {
             linesByMapDay.keySet().removeIf(k -> !k.startsWith(today));
-            String oldest = day(now - TimeUnit.DAYS.toMillis(KEEP_DAYS));
-            byDay.keySet().removeIf(d -> d.compareTo(oldest) < 0);
             if (statsDirty) {
                 statsDirty = false;
                 stats = statsJson(now);
@@ -454,9 +456,13 @@ public final class NavPlayerLearning {
         return out;
     }
 
-    /** Deletes move files older than KEEP_DAYS, then the oldest while the folder is over TOTAL_CAP_BYTES. */
+    /**
+     * History is kept: move files older than KEEP_DAYS are gzipped in place, then the oldest plain ones while the
+     * folder's plain files are over TOTAL_CAP_BYTES (never the newest). Deleted only with -Dslums.history.navKeepDays=N.
+     */
     private static void prune(long now) {
-        String oldest = day(now - TimeUnit.DAYS.toMillis(KEEP_DAYS));
+        LocalDate today = LocalDate.ofEpochDay(Math.floorDiv(now, 86_400_000L));
+        History.sweep(dir, MOVES_FILE, today, KEEP_DAYS, History.keepDays("nav"));
         List<Path> files;
         try (Stream<Path> list = Files.list(dir)) {
             files = list.filter(f -> f.getFileName().toString().matches("moves-\\d{4}-\\d{2}-\\d{2}\\.jsonl")).sorted().toList();
@@ -464,35 +470,26 @@ public final class NavPlayerLearning {
             return;
         }
         long total = 0;
-        List<Path> kept = new ArrayList<>();
         for (Path f : files) {
-            String d = f.getFileName().toString().substring(6, 16);
-            if (d.compareTo(oldest) < 0) {
-                delete(f);
-            } else {
-                kept.add(f);
-                total += size(f);
+            total += size(f);
+        }
+        for (int i = 0; i < files.size() - 1 && total > TOTAL_CAP_BYTES; i++) { // never the newest
+            total -= size(files.get(i));
+            try {
+                History.gzip(files.get(i));
+            } catch (IOException e) {
+                log.debug("Could not compress {}", files.get(i), e);
             }
         }
-        for (int i = 0; i < kept.size() - 1 && total > TOTAL_CAP_BYTES; i++) { // never the newest
-            total -= size(kept.get(i));
-            delete(kept.get(i));
-        }
     }
+
+    private static final java.util.regex.Pattern MOVES_FILE = java.util.regex.Pattern.compile("moves-\\d{4}-\\d{2}-\\d{2}\\.jsonl");
 
     private static long size(Path f) {
         try {
             return Files.size(f);
         } catch (IOException e) {
             return 0;
-        }
-    }
-
-    private static void delete(Path f) {
-        try {
-            Files.deleteIfExists(f);
-        } catch (IOException e) {
-            log.debug("Could not delete {}", f, e);
         }
     }
 
