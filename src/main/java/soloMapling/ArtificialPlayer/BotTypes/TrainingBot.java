@@ -1640,6 +1640,21 @@ public class TrainingBot extends BotSM implements soloMapling.ArtificialPlayer.B
             enterPhase(chr.getMapId() == eventMap ? Phase.GRIND : Phase.GO_TRAIN);
             return;
         }
+        // 1.6.0 tune: a tip from a TRAINING thread ("try ant tunnel tbh") - the spot is a real grind map for this
+        // level (BotThreads.decideTip checked it), taken through the normal trip
+        int tip = soloMapling.ArtificialPlayer.BotConvo.TrainingTips.take(chr.getId(), now());
+        if (tip > 0 && MapMobIndex.level(tip) >= 0 && BotMapGates.mayEnter(tip, BotMapGates.rebirthsOf(chr))
+                && soloMapling.ArtificialPlayer.BotMapCap.admit(chr, tip)) {
+            debugChat("DECIDE: a tip -> map " + tip);
+            if (soloMapling.qa.QaLog.on(soloMapling.qa.QaLog.Topic.CONVO)) {
+                soloMapling.qa.QaLog.any(soloMapling.qa.QaLog.Topic.CONVO, "TIP GO " + chr.getName() + " heads from "
+                        + chr.getMapId() + " to " + tip + " on a tip");
+            }
+            setTrainTarget(tip, Math.max(1, MapMobIndex.level(tip)));
+            firstTrip = false;
+            enterPhase(chr.getMapId() == tip ? Phase.GRIND : Phase.GO_TRAIN);
+            return;
+        }
         // 1.5.0 rc3: back from a death in town - walk back to the map it died on, as a player does
         int back = walkBackMapId;
         walkBackMapId = -1;

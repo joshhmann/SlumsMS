@@ -351,9 +351,16 @@ public final class PriceBook {
                 aSells ? b : a);
     }
 
-    /** Adds one sample (bot seeds over the day's cap are dropped). True when it was kept. */
+    /**
+     * Adds one sample (bot seeds over the day's cap are dropped). True when it was kept. A sale between two bots
+     * ({@link #botToBot}) is never kept (1.6.0, owner: bot-to-bot trades never move the Slums Market chart).
+     */
     public static boolean record(Sample s) {
         if (s == null || s.unitPrice() <= 0 || !EconomyConfig.getBool("priceBook.enabled", true)) {
+            return false;
+        }
+        if (botToBot(s)) {
+            qaSkip(s.itemId(), "both sides are bots (a bot-to-bot trade never prices the board)");
             return false;
         }
         ensureLoaded();
@@ -388,6 +395,15 @@ public final class PriceBook {
                 d.pollFirst();
             }
         }
+    }
+
+    /**
+     * A sample whose seller and buyer are both known bots (a bot side is minus its character id): a bot-to-bot trade
+     * ({@link BotBotTrade}). The board, and so sales.json, the daily prices, the NX rate and the economy snapshot's
+     * item prices, never take one.
+     */
+    static boolean botToBot(Sample s) {
+        return s.seller() < 0 && s.buyer() < 0;
     }
 
     // ---- reading ----

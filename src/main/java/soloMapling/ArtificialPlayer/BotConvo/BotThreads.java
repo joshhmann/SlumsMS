@@ -111,6 +111,10 @@ public final class BotThreads {
         volatile long lastLineAt;
         /** 1.6.0: an LFG thread's answer, decided before its lines (null for the other topics). */
         volatile LfgParty.Plan lfg;
+        /** 1.6.0 tune: a TRAINING thread's real spots for the asker's level (empty for the other topics). */
+        volatile List<TrainingTips.Spot> spots = List.of();
+        /** 1.6.0: a TRADE thread's real deal, decided before the talk ({@code BotBotTrade}); null for the rest. */
+        volatile soloMapling.Economy.BotBotTrade.Deal deal;
 
         Live(int channel, int mapId, List<Integer> botIds, List<String> names, Topic topic, String about,
              soloMapling.ArtificialPlayer.BotGossip.Fact fact, long endsAt, int lastSpeakerId) {
@@ -423,13 +427,19 @@ public final class BotThreads {
         Topic chosen = topic;
         soloMapling.ArtificialPlayer.BotGossip.Fact fact = given != null ? given
                 : ground(topic, a, b, map.getAllPlayers(), now, rng);
-        String about = fact != null ? fact.about() : about(topic, a, b);
+        // 1.6.0: a TRADE thread talks about a real deal - item, price, yes or no - decided here in code, never by the
+        // writer; agreed, the swap runs after the lines (closeDeal)
+        soloMapling.Economy.BotBotTrade.Deal deal = topic == Topic.TRADE
+                ? soloMapling.Economy.BotBotTrade.plan(a, b, rng) : null;
+        String about = deal != null ? deal.about() : fact != null ? fact.about() : about(topic, a, b);
         Live l = new Live(channel, map.getId(), List.of(a.getId(), b.getId()), List.of(a.getName(), b.getName()), topic,
                 about, fact, now + TimeUnit.MINUTES.toMillis(2), a.getId());
         l.startedAt = now;
         if (topic == Topic.LFG) { // 1.6.0: can the other come? decided now, so the lines say the real answer
             l.lfg = LfgParty.plan(a, b, now);
         }
+        l.spots = spotsFor(topic, a);
+        l.deal = deal;
         hold(l);
         lastThreadOf.put(a.getId(), l);
         lastThreadOf.put(b.getId(), l);
@@ -451,6 +461,13 @@ public final class BotThreads {
                         chosen == Topic.GUILD_BEEF || chosen == Topic.RIVALRY));
         if (soloMapling.autoqa.SocialTrace.on()) {
             soloMapling.autoqa.SocialTrace.threadBonded(l.id);
+            if (deal != null) {
+                soloMapling.autoqa.SocialTrace.threadDecided(l.id, deal.decision(), null);
+            }
+        }
+        if (deal != null) {
+            qa(map.getId(), "THREAD DEAL " + deal.about() + " -> " + (deal.agreed() ? deal.buyer().getName() + " agrees"
+                    : "no deal (" + deal.reason() + ")"));
         }
         qa(map.getId(), "THREAD " + a.getName() + " + " + b.getName() + " on " + map.getId() + ": " + topic.words
                 + (about == null ? "" : " (" + about + ")"));
@@ -473,14 +490,14 @@ public final class BotThreads {
         java.util.Set<String> allowed = soloMapling.ArtificialPlayer.BotGossip.allowedNames(fact, a.getName(), b.getName());
         if (!bankOnly && BotBrains.get().isLive() && !ConvoSwitches.forceBank()) {
             List<BotBrain.Turn> prompt = List.of(BotBrain.Turn.system(threadPrompt(a, b, topic, about, map.getMapName(),
-                            fact, l.lfg)), BotBrain.Turn.user("Write the lines now."));
+                            fact, l.lfg, l.spots, deal)), BotBrain.Turn.user("Write the lines now."));
             BotBrains.get().reply(Priority.THREAD, 0, prompt).thenAccept(r -> {
                 List<String[]> lines = guard(r.map(x -> parse(x.text(), a.getName(), b.getName())).orElse(List.of()),
                         allowed, l.mapId, l.id);
                 // 1.6.0: a model "sure" with no party after it (or a "no" before one) is a lie: the bank says it
                 boolean untrue = lines.size() >= 2 && l.lfg != null && !LfgParty.truthful(l.lfg, lines);
                 if (lines.size() < 2 || untrue) {
-                    List<String[]> bank = guard(fallback(l, chosen, a, b, fact, rng), allowed, l.mapId, l.id);
+                    List<String[]> bank = guard(fallback(l, chosen, a, b, fact, l.spots, rng), allowed, l.mapId, l.id);
                     if (soloMapling.autoqa.SocialTrace.on()) {
                         soloMapling.autoqa.SocialTrace.threadComposed(l.id, FALLBACK_KIND.get(), r.isEmpty()
                                 ? "the model gave no reply (busy or timed out)" : untrue
@@ -496,7 +513,7 @@ public final class BotThreads {
                 }
             });
         } else {
-            List<String[]> bank = guard(fallback(l, topic, a, b, fact, rng), allowed, l.mapId, l.id);
+            List<String[]> bank = guard(fallback(l, topic, a, b, fact, l.spots, rng), allowed, l.mapId, l.id);
             if (soloMapling.autoqa.SocialTrace.on()) {
                 soloMapling.autoqa.SocialTrace.threadComposed(l.id, FALLBACK_KIND.get(), bankOnly ? "bank only (!qa)"
                         : !BotBrains.get().isLive() ? "the model is not live" : "line bank forced", -1);
@@ -630,21 +647,53 @@ public final class BotThreads {
         return threadPrompt(a, b, topic, about, mapName, null);
     }
 
+    /** As below, with the real training spots of a TRAINING thread looked up for {@code a} (and no LFG answer). */
     static String threadPrompt(Character a, Character b, Topic topic, String about, String mapName,
                                soloMapling.ArtificialPlayer.BotGossip.Fact fact) {
-        return threadPrompt(a, b, topic, about, mapName, fact, null);
+        return threadPrompt(a, b, topic, about, mapName, fact, null, spotsFor(topic, a), null);
+    }
+
+    /** How many real spots a TRAINING thread's writer is given. */
+    static final int SPOTS = 3;
+
+    /**
+     * 1.6.0 tune: the real training spots for the asker ({@code a}) of a TRAINING thread, from the training bots'
+     * leveling path (empty for other topics, or when the path has none).
+     */
+    static List<TrainingTips.Spot> spotsFor(Topic topic, Character a) {
+        if (topic != Topic.TRAINING) {
+            return List.of();
+        }
+        try {
+            return TrainingTips.spotsFor(a.getLevel(), a.getJob() == null ? 0 : a.getJob().getId(), SPOTS);
+        } catch (RuntimeException | LinkageError e) {
+            log.debug("No training spots for {}", a.getName(), e);
+            return List.of();
+        }
     }
 
     /**
      * As above, grounded (1.6.0 S4): a GOSSIP or TRAINING thread gets its true story and the only players it may
-     * name; a thread without one is told to name no other player (the name guard still checks every line).
+     * name; a thread without one is told to name no other player (the name guard still checks every line). An LFG
+     * thread gets the game's answer ({@code lfg}, 1.6.0) and a TRAINING thread the real spots for the asker's level
+     * (1.6.0 tune), and may name no other place. A TRADE thread with a real deal (1.6.0) is told the item, the price
+     * and the outcome; the writer words them, it never decides them.
      */
     static String threadPrompt(Character a, Character b, Topic topic, String about, String mapName,
-                               soloMapling.ArtificialPlayer.BotGossip.Fact fact, LfgParty.Plan lfg) {
+                               soloMapling.ArtificialPlayer.BotGossip.Fact fact, LfgParty.Plan lfg,
+                               List<TrainingTips.Spot> spots, soloMapling.Economy.BotBotTrade.Deal deal) {
         ConvoPersona pa = ConvoPersona.of(a.getId() - BotStore.BOT_ID_BASE);
         ConvoPersona pb = ConvoPersona.of(b.getId() - BotStore.BOT_ID_BASE);
         String subject;
-        if (topic == Topic.RIVALRY) { // 1.6.0 S7: the two speakers have beef with each other
+        if (deal != null) {
+            String seller = deal.seller().getName();
+            String buyer = deal.buyer().getName();
+            subject = ". Topic: " + topic.words + ". " + seller + " offers " + buyer + " their "
+                    + deal.itemName().toLowerCase(Locale.ROOT) + (deal.quantity() > 1 ? " (x" + deal.quantity() + ")" : "")
+                    + " for " + deal.priceWords() + ". " + (deal.agreed() ? buyer + " agrees to buy it at that price"
+                    : buyer + " turns it down") + "; write the price exactly as " + deal.priceWords()
+                    + ", name no other item price and no other player";
+        } else if (topic == Topic.RIVALRY) { // 1.6.0 S7: the two speakers have beef with each other
             subject = ". They are rivals in the game" + (fact == null ? "" : "; what really happened: " + fact.about())
                     + ". " + a.getName() + " starts it. Trash talk about the game only (KS, gear, level, damage),"
                     + " petty not cruel; name no other player";
@@ -660,14 +709,31 @@ public final class BotThreads {
         if (lfg != null) { // 1.6.0: who can join is the game's call; the lines say it
             subject += "." + LfgParty.promptTurn(lfg);
         }
+        if (spots != null && !spots.isEmpty()) {
+            List<String> named = new ArrayList<>();
+            for (TrainingTips.Spot s : spots) {
+                named.add(s.described());
+            }
+            subject += ". Real training spots for level " + a.getLevel() + ": " + String.join(", ", named) + ". If "
+                    + b.getName() + " suggests a spot it is one of these, by that name; never make up a place, a"
+                    + " monster or a party quest";
+        }
+        // 1.6.0 tune: 12 of 59 model lines were over 60 characters, and some read like a letter
         return "Write a short public chat exchange between two MapleStory players in 2008, " + a.getName() + " (level "
                 + a.getLevel() + ") and " + b.getName() + " (level " + b.getLevel() + "), standing in "
                 + (mapName == null || mapName.isBlank() ? "town" : mapName) + subject + ". 2 to 4 lines in total,"
-                + " alternating, " + a.getName() + " first, each under 60 characters. " + a.getName() + " "
+                + " alternating, " + a.getName() + " first. Real 2009 game chat: short (under 45 characters), casual,"
+                + " slang is fine, never formal or polite speeches. " + a.getName() + " "
                 + pa.voice().prompt + ". " + b.getName() + " " + pb.voice().prompt + ". Format each line as Name: text."
                 + " Game talk only, PG-13, insults only about the game. Never mention AI, bots, real places, real people"
                 + " or anything after 2008.";
     }
+
+    /**
+     * 1.6.0 tune: the longest thread line kept (the trace's SENSE limit; 12 of 59 model lines were longer on TEST
+     * 2026-10-26). The prompt asks for much shorter.
+     */
+    static final int LINE_MAX = 60;
 
     /** "Name: text" lines of these two speakers, cleaned and checked; at most 4. */
     static List<String[]> parse(String text, String nameA, String nameB) {
@@ -685,8 +751,8 @@ public final class BotThreads {
             String said = line.substring(colon + 1).trim().replaceAll("^\"|\"$", "").trim();
             String speaker = who.equalsIgnoreCase(nameA) || who.equalsIgnoreCase("A") ? nameA
                     : who.equalsIgnoreCase(nameB) || who.equalsIgnoreCase("B") ? nameB : null;
-            if (speaker == null || said.isBlank() || said.length() > VoiceStyler.MAX || gibberish(said)
-                    || ContentGuard.chatProblem(said) != null) {
+            if (speaker == null || said.isBlank() || said.length() > LINE_MAX || gibberish(said)
+                    || VoiceStyler.spanishSentence(said) || ContentGuard.chatProblem(said) != null) {
                 continue;
             }
             out.add(new String[]{speaker, said});
@@ -707,14 +773,20 @@ public final class BotThreads {
     /** 1.6.0 social trace: which fallback the last {@link #fallback} call on this thread used (bank, script). */
     static final ThreadLocal<String> FALLBACK_KIND = ThreadLocal.withInitial(() -> "bank");
 
-    /** The bank's lines for a live thread: an LFG thread says its decided answer ({@link LfgParty#lines}). */
+    /** The bank's lines for a live thread: an LFG thread says its decided answer ({@link LfgParty#lines}), a TRADE
+     *  thread its deal ({@link #dealLines}), a TRAINING thread its real spots. */
     static List<String[]> fallback(Live l, Topic topic, Character a, Character b,
-                                   soloMapling.ArtificialPlayer.BotGossip.Fact fact, Random rng) {
+                                   soloMapling.ArtificialPlayer.BotGossip.Fact fact, List<TrainingTips.Spot> spots,
+                                   Random rng) {
         if (l.lfg != null) {
             FALLBACK_KIND.set("bank (lfg answer)");
             return LfgParty.lines(l.lfg, rng);
         }
-        return fallback(topic, a, b, fact, rng);
+        if (l.deal != null) {
+            FALLBACK_KIND.set("bank (deal)");
+            return dealLines(l.deal, rng);
+        }
+        return fallback(topic, a, b, fact, spots, rng);
     }
 
     /** No LLM: the bank's opener for the topic and a reaction, else a cut of a scripted conversation. */
@@ -729,7 +801,33 @@ public final class BotThreads {
      */
     static List<String[]> fallback(Topic topic, Character a, Character b, soloMapling.ArtificialPlayer.BotGossip.Fact fact,
                                    Random rng) {
+        return fallback(topic, a, b, fact, List.of(), rng);
+    }
+
+    /** What an asker says in a grounded TRAINING thread from the bank ({lv}: its level). */
+    static final List<String> TIP_ASKS = List.of("where u training at {lv}?", "any good spot for lvl {lv}?",
+            "im {lv} where should i grind", "where do ppl train at {lv} tbh", "lvl {lv} and bored of my map lol");
+    /** And what the other suggests ({spot}: a real spot for that level). */
+    static final List<String> TIP_SUGGESTS = List.of("try {spot} tbh", "{spot} is decent for u", "go {spot}, good exp",
+            "{spot} if its not packed", "i did {spot} at ur lvl");
+
+    /**
+     * As above; a TRAINING thread with real spots and no story to open with (1.6.0 tune) is an ask and a suggestion of
+     * one of the spots, so the bank never names a made-up place either.
+     */
+    static List<String[]> fallback(Topic topic, Character a, Character b, soloMapling.ArtificialPlayer.BotGossip.Fact fact,
+                                   List<TrainingTips.Spot> spots, Random rng) {
         FALLBACK_KIND.set("bank");
+        if (topic == Topic.TRAINING && spots != null && !spots.isEmpty() && (fact == null || fact.opener() == null)) {
+            FALLBACK_KIND.set("bank (real spots)");
+            TrainingTips.Spot spot = spots.get(rng.nextInt(spots.size()));
+            List<String[]> out = new ArrayList<>();
+            out.add(new String[]{a.getName(), TIP_ASKS.get(rng.nextInt(TIP_ASKS.size()))
+                    .replace("{lv}", String.valueOf(a.getLevel()))});
+            out.add(new String[]{b.getName(), TIP_SUGGESTS.get(rng.nextInt(TIP_SUGGESTS.size()))
+                    .replace("{spot}", spot.name().toLowerCase(Locale.ROOT))});
+            return out;
+        }
         if (fact != null && fact.opener() != null) {
             FALLBACK_KIND.set("bank (story opener)");
             int slotB = b.getId() - BotStore.BOT_ID_BASE;
@@ -763,6 +861,24 @@ public final class BotThreads {
         List<ConversationLines.Script> candidates = new ArrayList<>(ConversationLines.scripts());
         FALLBACK_KIND.set("script");
         return scripted(a, b, candidates, rng);
+    }
+
+    /**
+     * No LLM, a TRADE thread with a deal (1.6.0): the seller offers the real item at the real price, the buyer takes
+     * it or passes, as decided.
+     */
+    static List<String[]> dealLines(soloMapling.Economy.BotBotTrade.Deal d, Random rng) {
+        String item = d.itemName().toLowerCase(Locale.ROOT);
+        String p = d.priceWords();
+        String[] offers = {"anyone need " + item + "? " + p, "selling " + item + " " + p,
+                d.buyer().getName() + " u want my " + item + "? " + p};
+        String[] answers = d.agreed() ? new String[]{"ok ill take it", "deal", "sure " + p + " is fair"}
+                : "too pricey for them".equals(d.reason()) ? new String[]{"too much for me rn", "nah im broke lol"}
+                : new String[]{"nah im good", "pass, dont need it", "nty"};
+        List<String[]> out = new ArrayList<>();
+        out.add(new String[]{d.seller().getName(), offers[rng.nextInt(offers.length)]});
+        out.add(new String[]{d.buyer().getName(), answers[rng.nextInt(answers.length)]});
+        return out;
     }
 
     /**
@@ -801,8 +917,9 @@ public final class BotThreads {
             return;
         }
         // rc6 say-do: a thread line never promises what nobody will do ("brb", "omw to fm"); an LFG ask may stay,
-        // and (1.6.0) on an LFG yes the invite and the trip are real, so "inv me" / "omw" may stay too
-        java.util.Set<ClaimRules.Kind> mayClaim = LfgParty.allowed(l.lfg);
+        // and (1.6.0) on an LFG yes the invite and the trip are real, so "inv me" / "omw" may stay too, and so may
+        // "trade me" when the two really trade
+        java.util.Set<ClaimRules.Kind> mayClaim = allowedClaims(l);
         soloMapling.server.BotTiming.Chain chain = soloMapling.server.BotTiming.chain();
         long total = 0;
         Random rng = ThreadLocalRandom.current();
@@ -823,7 +940,9 @@ public final class BotThreads {
                     protect.add(n.toLowerCase(Locale.ROOT));
                 }
             }
-            String styled = VoiceStyler.style(honest, ConvoPersona.of(slot), slot, protect);
+            String voiced = VoiceStyler.style(honest, ConvoPersona.of(slot), slot, protect);
+            String styled = voiced.length() > LINE_MAX && honest.length() <= LINE_MAX
+                    ? VoiceStyler.oneAccentWord(honest) : voiced; // 1.6.0 tune: no longer than the line it got
             long wait = HumanTiming.typingMs(styled, 0, rng) + 400 + rng.nextInt(1200);
             total += wait;
             chain = chain.pause(wait).run(() -> {
@@ -844,9 +963,15 @@ public final class BotThreads {
                 qa(l.mapId, "THREAD LINE [" + source + "] " + who.getName() + ": " + styled);
             });
         }
+        if (l.deal != null && l.deal.agreed()) { // 1.6.0: an agreed deal is kept - the two really trade
+            chain = chain.pause(800 + rng.nextInt(1500)).run(() -> closeDeal(l));
+        }
         if (l.lfg != null && l.lfg.yes()) { // 1.6.0: the yes is kept - a party and a trip to the PQ's lobby
             LfgParty.Plan plan = l.lfg;
             chain = chain.pause(1_200 + rng.nextInt(1_500)).run(() -> LfgParty.form(plan, l.mapId, l.id));
+        }
+        if (l.topic == Topic.TRAINING) {
+            decideTip(l, a, b, lines, rng, System.currentTimeMillis());
         }
         l.endsAt = System.currentTimeMillis() + total + JOIN_MS;
         chain = chain.run(() -> finished(l, a, b, System.currentTimeMillis(), ThreadLocalRandom.current()));
@@ -968,6 +1093,69 @@ public final class BotThreads {
                 soloMapling.autoqa.SocialTrace.threadActed(threadId, aId, ok ? "escalate" : "escalate-drop", text);
             }
         }));
+    }
+
+    // ── a tip followed (1.6.0 tune) ──
+
+    /** About one asker in three follows a real tip. */
+    static final double TIP_FOLLOW = 1 / 3.0;
+
+    /** Who can follow a tip: training bots (they have a grind path to take it on). A test seam. */
+    static volatile java.util.function.IntPredicate followsTips = id -> CharacterStorage.getBotById(id) instanceof TrainingBot;
+
+    /**
+     * After a TRAINING thread: the spot the other suggested to {@code asker}, if it is one of the thread's real spots
+     * and a grind map for the asker's level, is the asker's next grind map about {@link #TIP_FOLLOW} of the time
+     * ({@link TrainingTips#offer}; a training bot takes it on its next decision). The spot when followed, else null.
+     */
+    static TrainingTips.Spot decideTip(Live l, Character asker, Character other, List<String[]> lines, Random rng,
+                                       long now) {
+        TrainingTips.Spot spot = TrainingTips.suggested(lines, asker.getName(), l.spots);
+        if (spot == null) {
+            return null;
+        }
+        int job = asker.getJob() == null ? 0 : asker.getJob().getId();
+        String skip = !TrainingTips.realSpot(spot.mapId(), asker.getLevel(), job) ? "not a grind map for its level"
+                : !followsTips.test(asker.getId()) ? "not a training bot"
+                : rng.nextDouble() >= ConvoSwitches.num("tipFollow", TIP_FOLLOW) ? "keeps its own plan" : null;
+        if (skip != null) {
+            qa(l.mapId, "TIP SKIP " + asker.getName() + " hears " + spot.name() + " (" + spot.mapId() + "): " + skip);
+            return null;
+        }
+        TrainingTips.offer(asker.getId(), spot.mapId(), now);
+        String decision = "go train at " + spot.name() + " (" + spot.mapId() + ")";
+        qa(l.mapId, "TIP " + asker.getName() + " takes " + other.getName() + "'s tip: " + decision);
+        if (soloMapling.autoqa.SocialTrace.on()) {
+            soloMapling.autoqa.SocialTrace.threadDecided(l.id, asker.getId(), decision, spot.mapId());
+        }
+        return spot;
+    }
+
+    /**
+     * The claims a thread line may make: an LFG ask, the invite and trip on an LFG yes ({@link LfgParty#allowed}), and
+     * a trade ask in a thread whose deal was agreed.
+     */
+    static java.util.Set<ClaimRules.Kind> allowedClaims(Live l) {
+        java.util.Set<ClaimRules.Kind> out = java.util.EnumSet.copyOf(LfgParty.allowed(l.lfg));
+        if (l.deal != null && l.deal.agreed()) {
+            out.add(ClaimRules.Kind.TRADE);
+            out.add(ClaimRules.Kind.TRADE_ASK);
+        }
+        return out;
+    }
+
+    /** 1.6.0: after an agreed TRADE thread's lines, the two bots really trade ({@code BotBotTrade.execute}). */
+    static void closeDeal(Live l) {
+        soloMapling.Economy.BotBotTrade.Deal d = l.deal;
+        if (d == null) {
+            return;
+        }
+        soloMapling.Economy.BotBotTrade.Result r = soloMapling.Economy.BotBotTrade.execute(d);
+        qa(l.mapId, "THREAD TRADE " + (r.ok() ? "done: " : "not done: ") + r.why());
+        if (soloMapling.autoqa.SocialTrace.on()) {
+            soloMapling.autoqa.SocialTrace.threadActed(l.id, d.seller().getId(), r.ok() ? "trade" : "trade_failed",
+                    r.why());
+        }
     }
 
     // ── a player jumps in ──

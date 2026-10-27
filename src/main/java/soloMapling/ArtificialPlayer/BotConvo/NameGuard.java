@@ -96,7 +96,17 @@ public final class NameGuard {
             + "friends crew reply abt tht wat dat dis leet maplestory maple wife husband couple ex "
             + "glove gloves shield helmet hat sword claw wand staff bow crossbow dagger spear polearm axe "
             + "mace knuckle gun cape shoes overall pie stars star throwing teddy teddies goby gobies skelegon "
-            + "skelegons stirge stirges timer timers grim lama wagner bamboo").split(" ")));
+            + "skelegons stirge stirges timer timers grim lama wagner bamboo "
+            // 1.6.0 tune (TEST trace 2026-10-26: "thx Nexon", "R1P0FF", "g0dly" became "some guy")
+            + "nexon wizet godly ripoff later beach boar boars").split(" ")));
+
+    /**
+     * Chat spellings that are words, not names, though they carry digits ("pig beach l8r" became "pig beach some guy"
+     * on TEST 2026-10-27).
+     */
+    static final Set<String> SLANG = Set.of("l8r", "l8", "gr8", "m8", "h8", "w8", "sk8", "b4", "2day", "2nite", "2moro",
+            "any1", "some1", "every1", "no1", "ne1", "sum1", "evry1", "n00b", "n00bs", "nub5", "pwn3d", "l33t", "1337",
+            "w00t", "4real", "4ever", "f2p", "p2p", "g2g", "gg2", "2v2", "1v1", "o0o", "h4x", "h4x0r", "pr0", "sp4m");
 
     private static volatile Known known = NameGuard::worldKnows;
     private static volatile Set<String> vocabulary;
@@ -232,7 +242,10 @@ public final class NameGuard {
         if (DIGITS.matcher(w).matches() && !word) {
             return true;
         }
-        if (LEET.matcher(w).matches() && !word(unleet(lower))) {
+        if (SLANG.contains(lower)) {
+            return false;
+        }
+        if (LEET.matcher(w).matches() && !word(unleet(lower)) && !game(unleet(lower))) {
             return true;
         }
         if (word || game(lower)) {
@@ -269,10 +282,13 @@ public final class NameGuard {
         return false;
     }
 
-    /** A map, mob or item name (String.wz, once {@link ConvoEntities} is warm), a place alias, or a typo of one. */
+    /**
+     * A map, mob or item name (String.wz, once {@link ConvoEntities} is warm), a word of one ("snowboard" of "Sky
+     * Snowboard", 1.6.0 tune), a place alias, or a typo of one.
+     */
     static boolean game(String lower) {
         try {
-            if (!ConvoEntities.find(lower).isEmpty()) {
+            if (!ConvoEntities.find(lower).isEmpty() || ConvoEntities.nameWord(lower)) {
                 return true;
             }
         } catch (RuntimeException | LinkageError e) {

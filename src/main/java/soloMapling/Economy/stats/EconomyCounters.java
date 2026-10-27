@@ -32,7 +32,9 @@ public final class EconomyCounters {
         MAPLE_LEAF_GAINED("maple_leaf_gained"),
         MAPLE_LEAF_SPENT("maple_leaf_spent"),
         NX_EARNED("nx_earned"),
-        NX_SPENT("nx_spent");
+        NX_SPENT("nx_spent"),
+        /** 1.6.0: mesos one bot paid another in a bot-to-bot trade ({@code BotBotTrade}): neither in nor out. */
+        BOT_TRANSFER("bot_transfer");
 
         public final String dbKey;
 
@@ -131,6 +133,14 @@ public final class EconomyCounters {
         add(Key.FM_SALE, amount);
     }
 
+    /**
+     * 1.6.0: a bot-to-bot trade ({@code BotBotTrade}) moved mesos between two bots. A transfer only: it is not in
+     * {@link Snapshot#totalSources()} or {@link Snapshot#totalSinks()}, and it is kept apart from player trades.
+     */
+    public static void recordBotTransfer(long amount) {
+        add(Key.BOT_TRANSFER, amount);
+    }
+
     public static void recordMapleLeafGained(long amount) {
         add(Key.MAPLE_LEAF_GAINED, amount);
     }
@@ -164,18 +174,19 @@ public final class EconomyCounters {
             long mapleLeafGained,
             long mapleLeafSpent,
             long nxEarned,
-            long nxSpent
+            long nxSpent,
+            long botTransferMesos
     ) {
         static Snapshot of(long[] v) {
             return new Snapshot(v[0], v[1], v[2], v[3], v[4], v[5], v[6], v[7], v[8], v[9], v[10], v[11], v[12],
-                    v[13], v[14]);
+                    v[13], v[14], v[15]);
         }
 
         /** Every counter by key, in {@link Key} order (what the persistence writes). */
         public Map<Key, Long> byKey() {
             long[] v = {mobMesoDropsHuman, mobMesoDropsBot, npcSellMesos, questRewardMesos, npcBuyMesos,
                     jobMasterFees, npcFeeMesos, upkeepMesos, fmTaxMesos, tradeMesos, fmSaleMesos, mapleLeafGained,
-                    mapleLeafSpent, nxEarned, nxSpent};
+                    mapleLeafSpent, nxEarned, nxSpent, botTransferMesos};
             Map<Key, Long> out = new EnumMap<>(Key.class);
             for (Key k : Key.values()) {
                 out.put(k, v[k.ordinal()]);

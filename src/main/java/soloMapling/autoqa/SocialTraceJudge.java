@@ -27,8 +27,10 @@ import java.util.regex.Pattern;
  * <p>The DECIDE table is what the code does today (read 2026-10-26): a bot thread changes the two bots' bond, and
  * since 1.6.0 a GOSSIP listener keeps the story ({@code BotGossip.keep}, act "kept"), a RIVALRY thread may escalate
  * ({@code BotBotRivalry.decideEscalation}, act "escalate") and an LFG thread whose other bot said yes leads to its
- * party's PQ trip ({@code LfgParty}, act "lfg"); the thread records that decision, or why there was none
- * ({@link #THREAD_ACTS}). No TRADE thread becomes a trade. When a link is built, it records its decision the same way
+ * party's PQ trip ({@code LfgParty}, act "lfg"), and a TRAINING tip may be followed ({@code TrainingTips}, act
+ * "arrive" once the bot reaches the spot), and a TRADE thread with a deal ({@code BotBotTrade}) decides in code
+ * before its talk ("sell X for P", act "trade"; "no deal" has nothing to carry out); the thread records that
+ * decision, or why there was none ({@link #THREAD_ACTS}). When a link is built, it records its decision the same way
  * and ACT starts judging it.
  */
 public final class SocialTraceJudge {
@@ -250,6 +252,15 @@ public final class SocialTraceJudge {
             if (e.lines.size() > 4) {
                 flags.add(e.lines.size() + " lines (the prompt asks for 2-4)");
             }
+            if ("TRAINING".equals(e.topic) && e.aLevel > 0) { // 1.6.0 tune: real places for these levels only
+                for (Line l : e.lines) {
+                    int own = l.botId() == e.aId ? e.aLevel : l.botId() == e.bId ? e.bLevel : 0;
+                    for (String w : soloMapling.ArtificialPlayer.BotConvo.TrainingTips.wrongPlaces(l.text(), e.aLevel,
+                            own)) {
+                        flags.add("wrong place (" + w + "): \"" + l.text() + "\"");
+                    }
+                }
+            }
         }
         int max = thread ? THREAD_MAX_CHARS : DRAMA_MAX_CHARS;
         for (Line l : e.lines) {
@@ -329,8 +340,10 @@ public final class SocialTraceJudge {
      */
     static final Map<String, String> THREAD_NO_PATH = Map.of(
             "LFG", "an LFG thread with no answer decided (no PQ fits, or an older build)",
-            "TRADE", "no code path turns a TRADE thread into a trade (there is no bot-to-bot trade at all)",
-            "TRAINING", "no code path moves either bot to the spot a TRAINING thread names",
+            "TRADE", "no deal was planned (no tradable item the other could buy, a bot that may not trade, or a cap"
+                    + " reached)",
+            "TRAINING", "no tip followed: no real spot was suggested, or the asker keeps its own plan (about 1 in 3"
+                    + " training bots follow a real tip)",
             "GOSSIP", "the listener kept no story (nothing was said, or the thread never finished)",
             "RIVALRY", "no escalation was rolled (nothing was said, or the thread never finished)",
             "GUILD_BEEF", "no code path feeds a GUILD_BEEF thread into the guild war (only the bond sours)",
@@ -358,17 +371,34 @@ public final class SocialTraceJudge {
     /** Thread topics whose decision is recorded by the code ({@code SocialTrace.threadDecided}), and its act kinds. */
     static final Map<String, Set<String>> THREAD_ACTS = Map.of(
             "GOSSIP", Set.of("kept"),
-            "RIVALRY", Set.of("escalate"));
+            "RIVALRY", Set.of("escalate"),
+            "TRAINING", Set.of("arrive"),
+            "TRADE", Set.of("trade"));
 
-    /** 1.6.0: an LFG thread whose other bot said yes leads to its party's PQ trip ({@code LfgParty}). */
+    /** What an episode decided: a thread's ({@link #threadDecision}) or a drama's ({@link #DRAMA_DECISIONS}). */
     static Decision decision(SocialTraceEntry e) {
-        if ("thread".equals(e.kind)) {
-            if ("LFG".equals(e.topic) && e.lfgDecision != null) {
-                return new Decision(e.lfgDecision, Set.of("lfg"));
-            }
-            return e.decided == null ? null : new Decision(e.decided, THREAD_ACTS.getOrDefault(e.topic, Set.of()));
+        return "thread".equals(e.kind) ? threadDecision(e) : DRAMA_DECISIONS.get(e.topic);
+    }
+
+    /** What {@code BotBotTrade} decided for a TRADE thread's talk (1.6.0); "no deal" has nothing to carry out. */
+    static final String NO_DEAL = "no deal";
+
+    /**
+     * A thread's decision: an LFG answer (act "lfg"), a TRADE deal made before the talk ("no deal": nothing to carry
+     * out), or what was decided after it (1.6.0 tune: a TRAINING tip followed is "go train at <map>", done on
+     * arrival) with its {@link #THREAD_ACTS}; null when nothing was decided.
+     */
+    static Decision threadDecision(SocialTraceEntry e) {
+        if ("LFG".equals(e.topic) && e.lfgDecision != null) {
+            return new Decision(e.lfgDecision, Set.of("lfg"));
         }
-        return DRAMA_DECISIONS.get(e.topic);
+        if (e.decided == null) {
+            return null;
+        }
+        if ("TRADE".equals(e.topic) && NO_DEAL.equals(e.decided)) {
+            return new Decision(NO_DEAL, Set.of());
+        }
+        return new Decision(e.decided, THREAD_ACTS.getOrDefault(e.topic, Set.of()));
     }
 
     static Verdict decide(SocialTraceEntry e, Decision d) {
@@ -455,6 +485,9 @@ public final class SocialTraceJudge {
         if (d == null) {
             return new Verdict(Status.NONE, "no decision to carry out" + (observed == null ? "" : "; seen anyway: "
                     + observed), data);
+        }
+        if (d.actKinds().isEmpty()) {
+            return new Verdict(Status.NA, "nothing to carry out (" + d.decision() + ")", data);
         }
         if (carried) {
             return new Verdict(Status.OK, done.kind() + " after " + Math.round((done.at() - e.startedAt) / 1000.0)

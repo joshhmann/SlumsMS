@@ -174,7 +174,7 @@ class LfgPartyTest {
         Character a = chr(80_001, "Kimchi", 25);
         Character b = chr(80_002, "Bob", 15);
         LfgParty.Plan low = plan(25, free(15), T0);
-        String prompt = BotThreads.threadPrompt(a, b, BotThreads.Topic.LFG, "Kerning PQ", "Henesys", null, low);
+        String prompt = BotThreads.threadPrompt(a, b, BotThreads.Topic.LFG, "Kerning PQ", "Henesys", null, low, List.of(), null);
         assertTrue(prompt.contains("Kimchi is looking for a party for Kerning PQ (levels 21-30)"), prompt);
         assertTrue(prompt.contains("Bob is too low for it (level 15, it needs 21) and says no"), prompt);
         LfgParty.Plan yes = plan(25, free(26), T0);

@@ -320,6 +320,41 @@ class BotThreadsTest {
     }
 
     @Test
+    void aTradeThreadIsToldTheRealDealAndItsOutcome() {
+        Character a = chr(1, "Kimchi", 30);
+        Character b = chr(3, "Bob", 30);
+        client.inventory.Item gloves = new client.inventory.Item(2040804, (short) 1, (short) 1);
+        soloMapling.Economy.BotBotTrade.Deal yes = new soloMapling.Economy.BotBotTrade.Deal(b, a, gloves, 2040804, 1,
+                95_000, true, null, "Scroll for Gloves for ATT 60%");
+        String prompt = BotThreads.threadPrompt(a, b, BotThreads.Topic.TRADE, yes.about(), "Free Market", null, null,
+                List.of(), yes);
+        assertTrue(prompt.contains("Bob offers Kimchi their scroll for gloves for att 60% for 95k"), prompt);
+        assertTrue(prompt.contains("Kimchi agrees to buy it at that price"), prompt);
+        assertTrue(prompt.contains("write the price exactly as 95k"), prompt);
+        List<String[]> lines = BotThreads.dealLines(yes, new Random(2));
+        assertEquals("Bob", lines.get(0)[0], "the seller offers, whoever opened");
+        assertTrue(lines.get(0)[1].contains("95k"), lines.get(0)[1]);
+        assertEquals("Kimchi", lines.get(1)[0]);
+
+        soloMapling.Economy.BotBotTrade.Deal no = new soloMapling.Economy.BotBotTrade.Deal(b, a, gloves, 2040804, 1,
+                95_000, false, "too pricey for them", "Scroll for Gloves for ATT 60%");
+        assertTrue(BotThreads.threadPrompt(a, b, BotThreads.Topic.TRADE, no.about(), "Free Market", null, null,
+                List.of(), no)
+                .contains("Kimchi turns it down"));
+        String answer = BotThreads.dealLines(no, new Random(2)).get(1)[1];
+        assertTrue(List.of("too much for me rn", "nah im broke lol").contains(answer), answer);
+
+        // "trade me" is honest only when they really trade
+        BotThreads.Live l = new BotThreads.Live(1, 910000000, List.of(a.getId(), b.getId()), List.of("Kimchi", "Bob"),
+                BotThreads.Topic.TRADE, yes.about(), null, Long.MAX_VALUE, a.getId());
+        assertEquals(java.util.EnumSet.of(ClaimRules.Kind.PARTY_ASK), BotThreads.allowedClaims(l));
+        l.deal = no;
+        assertEquals(java.util.EnumSet.of(ClaimRules.Kind.PARTY_ASK), BotThreads.allowedClaims(l));
+        l.deal = yes;
+        assertTrue(BotThreads.allowedClaims(l).contains(ClaimRules.Kind.TRADE_ASK));
+    }
+
+    @Test
     void withoutTheModelTheTellerOpensWithTheTrueStory() throws Exception {
         crewKnowsAKs();
         ChatBank.useForTest(ChatBank.read(new ByteArrayInputStream(String.join("\n",

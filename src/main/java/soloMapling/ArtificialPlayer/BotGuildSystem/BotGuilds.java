@@ -1241,23 +1241,35 @@ public final class BotGuilds {
 
     /** One jab where both guilds have someone on a map a real player sees; false when they never meet. */
     static boolean mapJab(GuildRow g, List<Character> mine, GuildRow r, List<Character> theirs, Random rng) {
+        long now = System.currentTimeMillis();
         for (Character a : mine) {
             for (Character b : theirs) {
                 if (a.getMapId() == b.getMapId() && channelOf(a) == channelOf(b) && realPlayerSees(a)) {
                     boolean flip = rng.nextBoolean();
+                    if (!jabCooled(flip ? b.getId() : a.getId(), now)) {
+                        flip = !flip; // 1.6.0 tune: that one jabbed lately, the other may
+                    }
                     Character speaker = flip ? b : a;
                     Character target = flip ? a : b;
+                    if (!jabCooled(speaker.getId(), now)) {
+                        continue;
+                    }
                     GuildRow sg = flip ? r : g;
                     GuildRow tg = flip ? g : r;
+                    int channel = channelOf(speaker);
+                    int mapId = speaker.getMapId();
                     String line = GuildLines.pickFor(sg.vibe(), "Jab", Map.of("RIVAL", tg.name(), "GUILD", sg.name(),
-                            "MEMBER", target.getName()));
+                            "MEMBER", target.getName()), text -> jabFresh(channel, mapId, text, now));
                     if (line == null) {
-                        return false;
+                        continue; // every jab line was said here lately
                     }
+                    noteJab(speaker.getId(), channel, mapId, line, now);
                     BotSpeak(speaker, line);
                     qa(speaker.getMapId(), "JAB " + speaker.getName() + " [" + sg.name() + "] -> [" + tg.name() + "]: " + line);
-                    String back = GuildLines.pick("JabBack", Map.of("RIVAL", sg.name(), "MEMBER", speaker.getName()));
+                    String back = !jabCooled(target.getId(), now) ? null : GuildLines.pick("JabBack",
+                            Map.of("RIVAL", sg.name(), "MEMBER", speaker.getName()), text -> jabFresh(channel, mapId, text, now));
                     if (back != null && rng.nextDouble() < 0.6) {
+                        noteJab(target.getId(), channel, mapId, back, now);
                         ExecutorServiceManager.getScheduledExecutorService().schedule(() -> BotSpeak(target, back),
                                 3 + rng.nextInt(4), TimeUnit.SECONDS);
                     }
@@ -1266,6 +1278,47 @@ public final class BotGuilds {
             }
         }
         return false;
+    }
+
+    // 1.6.0 tune (TEST trace 2026-10-26: "SlumLords needs to chill" 3 times in 25 min, twice by one bot 13 s apart)
+    /** No jab text twice on one map and channel within this long, whoever says it. */
+    static final long JAB_REPEAT_MS = TimeUnit.MINUTES.toMillis(30);
+    /** One bot jabs (or jabs back) at most once this long. */
+    static final long JAB_BOT_COOLDOWN_MS = TimeUnit.MINUTES.toMillis(10);
+    private static final Map<String, Long> saidJabs = new ConcurrentHashMap<>();
+    private static final Map<Integer, Long> jabbedAt = new ConcurrentHashMap<>();
+
+    private static String jabKey(int channel, int mapId, String text) {
+        return channel + ":" + mapId + ":" + text.toLowerCase(java.util.Locale.ROOT).trim();
+    }
+
+    /** Whether nobody said this jab on this map and channel in the last 30 minutes. */
+    static boolean jabFresh(int channel, int mapId, String text, long now) {
+        Long at = saidJabs.get(jabKey(channel, mapId, text));
+        return at == null || now - at >= JAB_REPEAT_MS;
+    }
+
+    /** Whether this bot's last jab is long enough ago. */
+    static boolean jabCooled(int botId, long now) {
+        Long at = jabbedAt.get(botId);
+        return at == null || now - at >= JAB_BOT_COOLDOWN_MS;
+    }
+
+    /** Remembers a jab said (both rules), dropping the expired ones now and then. */
+    static void noteJab(int botId, int channel, int mapId, String text, long now) {
+        saidJabs.put(jabKey(channel, mapId, text), now);
+        jabbedAt.put(botId, now);
+        if (saidJabs.size() > 512) {
+            saidJabs.values().removeIf(at -> now - at >= JAB_REPEAT_MS);
+        }
+        if (jabbedAt.size() > 512) {
+            jabbedAt.values().removeIf(at -> now - at >= JAB_BOT_COOLDOWN_MS);
+        }
+    }
+
+    static void clearJabsForTest() {
+        saidJabs.clear();
+        jabbedAt.clear();
     }
 
     /** A megaphone jab at the rival guild, from a member of {@code g}, through the megaphone gate. */
