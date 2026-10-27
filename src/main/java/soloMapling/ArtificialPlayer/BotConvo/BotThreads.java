@@ -109,6 +109,8 @@ public final class BotThreads {
         volatile long startedAt;
         /** When its last line went out (0 before the first). */
         volatile long lastLineAt;
+        /** 1.6.0: an LFG thread's answer, decided before its lines (null for the other topics). */
+        volatile LfgParty.Plan lfg;
 
         Live(int channel, int mapId, List<Integer> botIds, List<String> names, Topic topic, String about,
              soloMapling.ArtificialPlayer.BotGossip.Fact fact, long endsAt, int lastSpeakerId) {
@@ -380,8 +382,8 @@ public final class BotThreads {
             return rng.nextDouble() < 1 - gossip * 1.2 ? Topic.TRADE : Topic.GOSSIP;
         }
         double r = rng.nextDouble();
-        int level = Math.min(levelA, levelB);
-        if (r < 0.35 && level >= 21 && level <= 70) {
+        // 1.6.0: the recruiter (a) asks for its own level's PQ, in LifePq's bands (trace: a 32 asked for Ludi PQ)
+        if (r < 0.35 && LfgParty.lobbyFor(levelA) != null) {
             return Topic.LFG;
         }
         if (r < 0.35 + gossip) {
@@ -425,12 +427,24 @@ public final class BotThreads {
         Live l = new Live(channel, map.getId(), List.of(a.getId(), b.getId()), List.of(a.getName(), b.getName()), topic,
                 about, fact, now + TimeUnit.MINUTES.toMillis(2), a.getId());
         l.startedAt = now;
+        if (topic == Topic.LFG) { // 1.6.0: can the other come? decided now, so the lines say the real answer
+            l.lfg = LfgParty.plan(a, b, now);
+        }
         hold(l);
         lastThreadOf.put(a.getId(), l);
         lastThreadOf.put(b.getId(), l);
         if (soloMapling.autoqa.SocialTrace.on()) { // 1.6.0 (owner 2026-10-26): the social trace, observe only
             soloMapling.autoqa.SocialTrace.threadStart(l.id, map, channel, a, b, topic.name(), forced != null,
                     beefOrDrama, about, fact, now);
+            if (l.lfg != null) {
+                soloMapling.autoqa.SocialTrace.threadLfg(l.id, l.lfg.yes() ? l.lfg.decision() : null,
+                        l.lfg.yes() ? null : l.lfg.bName() + " " + l.lfg.why().words);
+            }
+        }
+        if (l.lfg != null) {
+            qa(map.getId(), "LFG ASK " + a.getName() + " (lv " + a.getLevel() + ") -> " + b.getName() + " (lv "
+                    + b.getLevel() + ") " + (l.lfg.lobby() == null ? "no PQ" : l.lfg.lobby().label()) + ": "
+                    + (l.lfg.yes() ? "yes" : "no, " + l.lfg.why().words));
         }
         soloMapling.server.MapleRootSolo.runHook("bond thread", () -> // 1.6.0 S2; S7: beef sours a bond too
                 soloMapling.ArtificialPlayer.BotAffinitySystem.BotBonds.onThread(a.getId(), b.getId(),
@@ -447,16 +461,19 @@ public final class BotThreads {
         java.util.Set<String> allowed = soloMapling.ArtificialPlayer.BotGossip.allowedNames(fact, a.getName(), b.getName());
         if (!bankOnly && BotBrains.get().isLive() && !ConvoSwitches.forceBank()) {
             List<BotBrain.Turn> prompt = List.of(BotBrain.Turn.system(threadPrompt(a, b, topic, about, map.getMapName(),
-                            fact)), BotBrain.Turn.user("Write the lines now."));
+                            fact, l.lfg)), BotBrain.Turn.user("Write the lines now."));
             BotBrains.get().reply(Priority.THREAD, 0, prompt).thenAccept(r -> {
                 List<String[]> lines = guard(r.map(x -> parse(x.text(), a.getName(), b.getName())).orElse(List.of()),
                         allowed, l.mapId, l.id);
-                if (lines.size() < 2) {
-                    List<String[]> bank = guard(fallback(chosen, a, b, fact, rng), allowed, l.mapId, l.id);
+                // 1.6.0: a model "sure" with no party after it (or a "no" before one) is a lie: the bank says it
+                boolean untrue = lines.size() >= 2 && l.lfg != null && !LfgParty.truthful(l.lfg, lines);
+                if (lines.size() < 2 || untrue) {
+                    List<String[]> bank = guard(fallback(l, chosen, a, b, fact, rng), allowed, l.mapId, l.id);
                     if (soloMapling.autoqa.SocialTrace.on()) {
                         soloMapling.autoqa.SocialTrace.threadComposed(l.id, FALLBACK_KIND.get(), r.isEmpty()
-                                ? "the model gave no reply (busy or timed out)" : "the model's reply was unusable",
-                                r.isEmpty() ? -1 : lines.size());
+                                ? "the model gave no reply (busy or timed out)" : untrue
+                                ? "the model's lines did not say the LFG answer the game decided"
+                                : "the model's reply was unusable", r.isEmpty() ? -1 : lines.size());
                     }
                     play(l, a, b, bank, "bank");
                 } else {
@@ -467,7 +484,7 @@ public final class BotThreads {
                 }
             });
         } else {
-            List<String[]> bank = guard(fallback(topic, a, b, fact, rng), allowed, l.mapId, l.id);
+            List<String[]> bank = guard(fallback(l, topic, a, b, fact, rng), allowed, l.mapId, l.id);
             if (soloMapling.autoqa.SocialTrace.on()) {
                 soloMapling.autoqa.SocialTrace.threadComposed(l.id, FALLBACK_KIND.get(), bankOnly ? "bank only (!qa)"
                         : !BotBrains.get().isLive() ? "the model is not live" : "line bank forced", -1);
@@ -585,9 +602,9 @@ public final class BotThreads {
                     String gb = soloMapling.ArtificialPlayer.BotGuildSystem.BotGuilds.guildName(b.getGuildId());
                     yield ga != null && gb != null ? ga + " vs " + gb : null;
                 }
-                case LFG -> {
-                    int level = Math.min(a.getLevel(), b.getLevel());
-                    yield level <= 30 ? "Kerning PQ" : level <= 50 ? "Ludi PQ" : "Orbis PQ";
+                case LFG -> { // 1.6.0: the recruiter's own level's lobby, as LifePq sends bots there
+                    soloMapling.ArtificialPlayer.BotLifeSystem.LifePq.Lobby lobby = LfgParty.lobbyFor(a.getLevel());
+                    yield lobby == null ? null : lobby.label();
                 }
                 default -> null;
             };
@@ -601,12 +618,17 @@ public final class BotThreads {
         return threadPrompt(a, b, topic, about, mapName, null);
     }
 
+    static String threadPrompt(Character a, Character b, Topic topic, String about, String mapName,
+                               soloMapling.ArtificialPlayer.BotGossip.Fact fact) {
+        return threadPrompt(a, b, topic, about, mapName, fact, null);
+    }
+
     /**
      * As above, grounded (1.6.0 S4): a GOSSIP or TRAINING thread gets its true story and the only players it may
      * name; a thread without one is told to name no other player (the name guard still checks every line).
      */
     static String threadPrompt(Character a, Character b, Topic topic, String about, String mapName,
-                               soloMapling.ArtificialPlayer.BotGossip.Fact fact) {
+                               soloMapling.ArtificialPlayer.BotGossip.Fact fact, LfgParty.Plan lfg) {
         ConvoPersona pa = ConvoPersona.of(a.getId() - BotStore.BOT_ID_BASE);
         ConvoPersona pb = ConvoPersona.of(b.getId() - BotStore.BOT_ID_BASE);
         String subject;
@@ -622,6 +644,9 @@ public final class BotThreads {
             subject = ". Topic: " + topic.words + " (" + fact.about() + "), in general: name no other player";
         } else {
             subject = ". Topic: " + topic.words + (about == null ? "" : " (" + about + ")") + "; name no other player";
+        }
+        if (lfg != null) { // 1.6.0: who can join is the game's call; the lines say it
+            subject += "." + LfgParty.promptTurn(lfg);
         }
         return "Write a short public chat exchange between two MapleStory players in 2008, " + a.getName() + " (level "
                 + a.getLevel() + ") and " + b.getName() + " (level " + b.getLevel() + "), standing in "
@@ -669,6 +694,16 @@ public final class BotThreads {
 
     /** 1.6.0 social trace: which fallback the last {@link #fallback} call on this thread used (bank, script). */
     static final ThreadLocal<String> FALLBACK_KIND = ThreadLocal.withInitial(() -> "bank");
+
+    /** The bank's lines for a live thread: an LFG thread says its decided answer ({@link LfgParty#lines}). */
+    static List<String[]> fallback(Live l, Topic topic, Character a, Character b,
+                                   soloMapling.ArtificialPlayer.BotGossip.Fact fact, Random rng) {
+        if (l.lfg != null) {
+            FALLBACK_KIND.set("bank (lfg answer)");
+            return LfgParty.lines(l.lfg, rng);
+        }
+        return fallback(topic, a, b, fact, rng);
+    }
 
     /** No LLM: the bank's opener for the topic and a reaction, else a cut of a scripted conversation. */
     static List<String[]> fallback(Topic topic, Character a, Character b, Random rng) {
@@ -748,16 +783,21 @@ public final class BotThreads {
             soloMapling.autoqa.SocialTrace.threadPlanned(l.id, lines.size());
         }
         if (lines.isEmpty()) {
+            if (l.lfg != null && l.lfg.yes()) {
+                LfgParty.fail(l.lfg, l.mapId, l.id, "no line was said");
+            }
             return;
         }
+        // rc6 say-do: a thread line never promises what nobody will do ("brb", "omw to fm"); an LFG ask may stay,
+        // and (1.6.0) on an LFG yes the invite and the trip are real, so "inv me" / "omw" may stay too
+        java.util.Set<ClaimRules.Kind> mayClaim = LfgParty.allowed(l.lfg);
         soloMapling.server.BotTiming.Chain chain = soloMapling.server.BotTiming.chain();
         long total = 0;
         Random rng = ThreadLocalRandom.current();
         for (String[] line : lines) {
             Character who = line[0].equals(a.getName()) ? a : b;
             int slot = who.getId() - BotStore.BOT_ID_BASE;
-            // rc6 say-do: a thread line never promises what nobody will do ("brb", "omw to fm"); an LFG ask may stay
-            String honest = ClaimActions.guardReply(line[1], java.util.EnumSet.of(ClaimRules.Kind.PARTY_ASK));
+            String honest = ClaimActions.guardReply(line[1], mayClaim);
             if (honest == null) {
                 if (traced) {
                     soloMapling.autoqa.SocialTrace.threadDropped(l.id, line[0], line[1], "say-do guard: a promise nobody keeps");
@@ -791,6 +831,10 @@ public final class BotThreads {
                 ConvoQuality.threadLine(who, l.mapId, styled, source, l.topic.words);
                 qa(l.mapId, "THREAD LINE [" + source + "] " + who.getName() + ": " + styled);
             });
+        }
+        if (l.lfg != null && l.lfg.yes()) { // 1.6.0: the yes is kept - a party and a trip to the PQ's lobby
+            LfgParty.Plan plan = l.lfg;
+            chain = chain.pause(1_200 + rng.nextInt(1_500)).run(() -> LfgParty.form(plan, l.mapId, l.id));
         }
         l.endsAt = System.currentTimeMillis() + total + JOIN_MS;
         chain.start();

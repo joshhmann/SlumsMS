@@ -25,7 +25,7 @@ import java.util.regex.Pattern;
  * entry's raw facts it says, per stage, ok / fail / none (no code does this step) / n/a, with a short reason.
  *
  * <p>The DECIDE table is what the code does today (read 2026-10-26): a bot thread changes the two bots' bond and
- * nothing else - no LFG thread becomes a party or PQ trip, no TRADE thread a trade, no GOSSIP thread a story the
+ * nothing else - no TRADE thread becomes a trade, no GOSSIP thread a story the
  * listener keeps. When one of those links is built, its row here changes from {@code null} to the act it should lead
  * to, and ACT starts judging it.
  */
@@ -266,14 +266,18 @@ public final class SocialTraceJudge {
         return new Verdict(Status.OK, thread ? "on topic, names fit, length and style ok" : "length and style ok", d);
     }
 
-    /** LifePq's lobby bands (21-30 Kerning, 35-50 Ludi, 51-70 Orbis); an LFG label outside them names a PQ nobody runs. */
+    /**
+     * LifePq's lobby bands (21-30 Kerning, 35-50 Ludi, 51-70 Orbis); an LFG label outside them names a PQ nobody runs.
+     * 1.6.0: judged on the recruiter's level (the PQ is its own), the lower of the two in older entries.
+     */
     static String lfgBand(SocialTraceEntry e) {
-        if (!"LFG".equals(e.topic) || e.about == null || e.minLevel <= 0) {
+        int lv = e.aLevel > 0 ? e.aLevel : e.minLevel;
+        if (!"LFG".equals(e.topic) || e.about == null || lv <= 0) {
             return null;
         }
-        int lv = e.minLevel;
-        String fits = lv >= 21 && lv <= 30 ? "Kerning PQ" : lv >= 35 && lv <= 50 ? "Ludi PQ"
-                : lv >= 51 && lv <= 70 ? "Orbis PQ" : null;
+        soloMapling.ArtificialPlayer.BotLifeSystem.LifePq.Lobby lobby =
+                soloMapling.ArtificialPlayer.BotLifeSystem.LifePq.lobbyFor(lv);
+        String fits = lobby == null ? null : lobby.label();
         if (fits == null) {
             return "LFG for " + e.about + " at level " + lv + ": no PQ lobby takes that level";
         }
@@ -322,7 +326,7 @@ public final class SocialTraceJudge {
      * nothing else, so none has a decision.
      */
     static final Map<String, String> THREAD_NO_PATH = Map.of(
-            "LFG", "no code path turns an LFG thread into a party or a PQ trip (bots never invite bots to a PQ)",
+            "LFG", "an LFG thread with no answer decided (no PQ fits, or an older build)",
             "TRADE", "no code path turns a TRADE thread into a trade (there is no bot-to-bot trade at all)",
             "TRAINING", "no code path moves either bot to the spot a TRAINING thread names",
             "GOSSIP", "no code path stores the story for the listener (it is spoken only)",
@@ -349,8 +353,12 @@ public final class SocialTraceJudge {
             "FLIRT", "a crush line is speech only",
             "JAB", "a guild jab is speech only (no bond or war effect)");
 
+    /** 1.6.0: an LFG thread whose other bot said yes leads to its party's PQ trip ({@code LfgParty}). */
     static Decision decision(SocialTraceEntry e) {
-        return "thread".equals(e.kind) ? null : DRAMA_DECISIONS.get(e.topic);
+        if ("thread".equals(e.kind)) {
+            return "LFG".equals(e.topic) && e.lfgDecision != null ? new Decision(e.lfgDecision, Set.of("lfg")) : null;
+        }
+        return DRAMA_DECISIONS.get(e.topic);
     }
 
     static Verdict decide(SocialTraceEntry e, Decision d) {
@@ -360,6 +368,9 @@ public final class SocialTraceJudge {
         data.put("decision", d == null ? null : d.decision());
         if (d != null) {
             return new Verdict(Status.OK, d.decision(), data);
+        }
+        if ("thread".equals(e.kind) && "LFG".equals(e.topic) && e.lfgDecline != null) {
+            return new Verdict(Status.NA, "no party: " + e.lfgDecline, data);
         }
         String why = "thread".equals(e.kind) ? THREAD_NO_PATH.get(e.topic) : DRAMA_NO_PATH.get(e.topic);
         return new Verdict(Status.NONE, why == null ? "no code path turns this into a decision" : why, data);
@@ -423,6 +434,9 @@ public final class SocialTraceJudge {
         if (observed != null) {
             data.put("observed", observed);
         }
+        if (d == null && "thread".equals(e.kind) && "LFG".equals(e.topic) && e.lfgDecline != null) {
+            return new Verdict(Status.NA, "nothing to carry out (" + e.lfgDecline + ")", data);
+        }
         if (d == null) {
             return new Verdict(Status.NONE, "no decision to carry out" + (observed == null ? "" : "; seen anyway: "
                     + observed), data);
@@ -432,7 +446,7 @@ public final class SocialTraceJudge {
                     + " s: " + done.text(), data);
         }
         return new Verdict(Status.FAIL, "not carried out within " + ACT_WINDOW_MS / 60_000 + " min (" + d.decision()
-                + ")", data);
+                + (e.lfgFail == null ? "" : ": " + e.lfgFail) + ")", data);
     }
 
     /** Something the two did together anyway (a shared party, the same PQ map), from the close-time read-out. */

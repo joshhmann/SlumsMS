@@ -89,6 +89,7 @@ public final class BotLogout {
      */
     static boolean mayLeaveNow(BotSM bot, boolean own) {
         return BotPopulationDirector.mayLogOut(bot)
+                && !soloMapling.ArtificialPlayer.BotConvo.LfgParty.holds(bot.getChr().getId()) // 1.6.0: LFG PQ trip
                 && (own || !BotConversation.keptByChat(bot.getChr()));
     }
 

@@ -64,8 +64,14 @@ public final class SocialTraceEntry {
     // TRIGGER
     String trigger;
     String about;
-    /** The lower of the two bots' levels (LFG's PQ band rule). */
+    /** The lower of the two bots' levels. */
     int minLevel;
+    /** The recruiter's (a's) level: LFG's PQ band rule (1.6.0: the PQ is the recruiter's own). */
+    int aLevel;
+    /** 1.6.0 LFG: the decision ("party up for Kerning PQ"), or why the other bot said no; and why a party failed. */
+    String lfgDecision;
+    String lfgDecline;
+    String lfgFail;
     String factKind;
     String factAbout;
     List<String> factNames = List.of();

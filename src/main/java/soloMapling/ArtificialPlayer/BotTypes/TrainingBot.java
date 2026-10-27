@@ -821,10 +821,12 @@ public class TrainingBot extends BotSM implements soloMapling.ArtificialPlayer.B
             case PARTY_QUEST -> {
                 if (dailyLife.friend(at) != null) yield dailyLife.partyAsked();
                 // 1.6.0 S8: by itself, to the lobby of a PQ that fits its level in PQ hours (or the plan's boss town).
-                int dest = dailyLife.pqDestination(getChr().getLevel());
+                // 1.6.0: an LFG thread's party goes to its lobby together, partied, at any hour
+                boolean lfg = soloMapling.ArtificialPlayer.BotConvo.LfgParty.lobbyMap(getChr().getId()) > 0;
+                int dest = pqDestination();
                 boolean planned = dest > 0 && dest == dailyLife.planDestination();
-                yield dest > 0 && getChr().getParty() == null && getChr().getMapId() != dest
-                        && (planned || soloMapling.ArtificialPlayer.BotLifeSystem.LifePq.pqHoursNow())
+                yield dest > 0 && (lfg || getChr().getParty() == null && getChr().getMapId() != dest)
+                        && (planned || lfg || soloMapling.ArtificialPlayer.BotLifeSystem.LifePq.pqHoursNow())
                         && lifeDestinationAvailable(dest);
             }
             case CHANGE_CHANNEL -> dailyLife.channelTarget() > 0
@@ -845,7 +847,8 @@ public class TrainingBot extends BotSM implements soloMapling.ArtificialPlayer.B
                 // Guild departures stay with the existing director's batch plan. Two independent actors must
                 // never both see "two online" and each remove the guild's last member.
                 boolean enoughGuild = getChr().getGuildId() == 0;
-                yield member != null && enoughGuild;
+                yield member != null && enoughGuild
+                        && !soloMapling.ArtificialPlayer.BotConvo.LfgParty.holds(getChr().getId()); // 1.6.0: LFG trip
             }
         };
     }
@@ -886,7 +889,7 @@ public class TrainingBot extends BotSM implements soloMapling.ArtificialPlayer.B
         if (activity == LifeDecision.Activity.HELP_FRIEND && requestedFriend == null) return false;
         int destination = activity == LifeDecision.Activity.FISH ? soloMapling.fishing.GameFishing.destination(getChr())
                 : activity == LifeDecision.Activity.HELP_FRIEND ? requestedFriend.getMapId()
-                : activity == LifeDecision.Activity.PARTY_QUEST ? dailyLife.pqDestination(getChr().getLevel())
+                : activity == LifeDecision.Activity.PARTY_QUEST ? pqDestination()
                 : activity == LifeDecision.Activity.SELL || activity == LifeDecision.Activity.FREE_MARKET
                 ? 910000000 : dailyLife.townDestination();
         if (activity == LifeDecision.Activity.PARTY_QUEST && destination <= 0) return false;
@@ -913,7 +916,16 @@ public class TrainingBot extends BotSM implements soloMapling.ArtificialPlayer.B
             enterPhase(getChr().getMapId() == lifeDestination ? Phase.LIFE_DWELL : Phase.LIFE_TRAVEL);
         }
         lifeNote("START activity=" + activity);
+        if (activity == LifeDecision.Activity.PARTY_QUEST) {
+            soloMapling.ArtificialPlayer.BotConvo.LfgParty.started(getChr().getId()); // 1.6.0: an LFG pair's trip
+        }
         return true;
+    }
+
+    /** Where PARTY_QUEST goes: an LFG party's lobby (1.6.0), else the plan's PQ town or the level's lobby. */
+    private int pqDestination() {
+        int lfg = soloMapling.ArtificialPlayer.BotConvo.LfgParty.lobbyMap(getChr().getId());
+        return lfg > 0 ? lfg : dailyLife.pqDestination(getChr().getLevel());
     }
 
     /**

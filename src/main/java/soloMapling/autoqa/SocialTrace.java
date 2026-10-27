@@ -223,6 +223,7 @@ public final class SocialTrace {
                     + (fact == null ? "" : "; grounded in " + fact.kind() + ": " + fact.about());
             e.about = about;
             e.minLevel = Math.min(a.getLevel(), b.getLevel());
+            e.aLevel = a.getLevel();
             if (fact != null) {
                 e.factKind = fact.kind();
                 e.factAbout = fact.about();
@@ -255,11 +256,46 @@ public final class SocialTrace {
             case "FRIEND_DRAMA" -> "a friend's drama news (50% roll)";
             case "GUILD_BEEF" -> "their guilds are at war";
             case "TRADE" -> fm ? "FM map: trade roll" : "topic roll: trade";
-            case "LFG" -> "topic roll: both in PQ levels (lv " + levelA + "/" + levelB + ")";
+            case "LFG" -> "topic roll: the recruiter's level fits a PQ (lv " + levelA + "/" + levelB + ")";
             case "GOSSIP" -> (fm ? "FM map: " : "") + "topic roll: gossip (share by Socializer pull)";
             case "TRAINING" -> "topic roll: training";
             default -> "topic roll";
         };
+    }
+
+    /** 1.6.0 LFG: the answer decided before the lines - the decision on a yes, else why the other said no. */
+    public static void threadLfg(int threadId, String decision, String decline) {
+        SocialTraceEntry e = on ? byThread.get(threadId) : null;
+        if (e != null) {
+            synchronized (e) {
+                e.lfgDecision = decision;
+                e.lfgDecline = decline;
+            }
+        }
+    }
+
+    /** 1.6.0 LFG: the party formed and both trips were handed to the bots' life queues. */
+    public static void lfgFormed(int threadId, int recruiterId, String other, String pq) {
+        if (on && byBot.containsKey(recruiterId)) {
+            event(recruiterId, "party", "LFG party with " + other + " for " + pq);
+        }
+    }
+
+    /** 1.6.0 LFG: the party or its trip did not happen, and why. */
+    public static void lfgFailed(int threadId, String why) {
+        SocialTraceEntry e = on ? byThread.get(threadId) : null;
+        if (e != null) {
+            synchronized (e) {
+                e.lfgFail = why;
+            }
+        }
+    }
+
+    /** 1.6.0 LFG: both bots of the party started the PQ trip, in one party (the ACT of an LFG yes). */
+    public static void lfgTrip(int recruiterId, String text) {
+        if (on && byBot.containsKey(recruiterId)) {
+            event(recruiterId, "lfg", text);
+        }
     }
 
     /** The bond after {@code BotBonds.onThread}. */

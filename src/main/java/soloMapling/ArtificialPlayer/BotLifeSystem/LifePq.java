@@ -12,7 +12,17 @@ import java.util.List;
 public final class LifePq {
     private LifePq() {}
 
-    public record Lobby(String name, int minLevel, int maxLevel, int mapId) {}
+    public record Lobby(String name, int minLevel, int maxLevel, int mapId) {
+        /** How players say it in full ("Kerning PQ"); the LFG thread's label (1.6.0: LFG and LifePq agree). */
+        public String label() {
+            return switch (name) {
+                case "kpq" -> "Kerning PQ";
+                case "lpq" -> "Ludi PQ";
+                case "opq" -> "Orbis PQ";
+                default -> name.toUpperCase(java.util.Locale.ROOT);
+            };
+        }
+    }
 
     /** v83 party quests with a town lobby (Kerning City, Eos Tower 101st floor, Orbis tower lobby). */
     public static final List<Lobby> LOBBIES = List.of(
@@ -24,6 +34,14 @@ public final class LifePq {
     public static Lobby lobbyFor(int level) {
         for (Lobby lobby : LOBBIES) {
             if (level >= lobby.minLevel() && level <= lobby.maxLevel()) return lobby;
+        }
+        return null;
+    }
+
+    /** The lobby an LFG label names ("Ludi PQ"), or null. */
+    public static Lobby byLabel(String label) {
+        for (Lobby lobby : LOBBIES) {
+            if (lobby.label().equalsIgnoreCase(label)) return lobby;
         }
         return null;
     }
