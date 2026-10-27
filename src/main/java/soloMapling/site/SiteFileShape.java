@@ -94,8 +94,9 @@ public final class SiteFileShape {
             case "world.json" -> {
                 if (!(m.get("online") instanceof Number) || list(m.get("channels")) == null
                         || !within(m.get("busiest_maps"), SiteWorld.BUSIEST) || list(m.get("running")) == null
-                        || !m.containsKey("tonight")) {
-                    out.add("online/channels/busiest_maps/tonight/running missing or over limits");
+                        || !m.containsKey("tonight") || !within(m.get("top_mobs"), SiteMobKills.TOP)
+                        || !within(m.get("top_mobs_7d"), SiteMobKills.TOP)) {
+                    out.add("online/channels/busiest_maps/top_mobs/top_mobs_7d/tonight/running missing or over limits");
                 }
             }
             default -> {

@@ -41,6 +41,17 @@ public final class BoardState {
         }
     }
 
+    /** An offer a bot made to a player's post (the site's notification bell): post, the bot's name, mesos, when. */
+    public record Made(String postId, String bot, long price, long at) {
+    }
+
+    /** Offers stay in offers.json this long; at most this many per post and in all (newest kept). */
+    public static final long KEEP_MADE_MS = TimeUnit.DAYS.toMillis(7);
+    public static final int MADE_PER_POST = 20;
+    public static final int MADE_TOTAL = 500;
+
+    private final List<Made> made = new ArrayList<>();
+
     public record Removed(String id, long at, String by, String reason) {
     }
 
@@ -96,6 +107,31 @@ public final class BoardState {
         }
         posts.values().removeIf(s -> now - s.lastSeen > FORGET_POST_MS);
         removed.values().removeIf(r -> now - r.at() > FORGET_POST_MS && !present.contains(r.id()));
+    }
+
+    /** Remembers an offer that went out (whisper or note). */
+    public synchronized void recordMade(String postId, String bot, long price, long now) {
+        made.add(new Made(postId, bot, price, now));
+        trimMade(now);
+    }
+
+    /** Offers of the last 7 days, oldest first, within the per-post and total caps (older ones dropped first). */
+    public synchronized List<Made> madeOffers(long now) {
+        trimMade(now);
+        return new ArrayList<>(made);
+    }
+
+    private void trimMade(long now) {
+        made.removeIf(x -> now - x.at() > KEEP_MADE_MS);
+        Map<String, Integer> seen = new java.util.HashMap<>();
+        for (int i = made.size() - 1; i >= 0; i--) { // newest first: keep the newest per post
+            if (seen.merge(made.get(i).postId(), 1, Integer::sum) > MADE_PER_POST) {
+                made.remove(i);
+            }
+        }
+        while (made.size() > MADE_TOTAL) {
+            made.remove(0);
+        }
     }
 
     // ---- alerts ----
@@ -174,6 +210,16 @@ public final class BoardState {
             rs.add(e);
         });
         m.put("removed", rs);
+        List<Object> ms = new ArrayList<>();
+        made.forEach(x -> {
+            Map<String, Object> e = new LinkedHashMap<>();
+            e.put("post", x.postId());
+            e.put("bot", x.bot());
+            e.put("price", x.price());
+            e.put("at", x.at());
+            ms.add(e);
+        });
+        m.put("made", ms);
         return Json.write(m);
     }
 
@@ -225,6 +271,17 @@ public final class BoardState {
                     if (id != null && at != null) {
                         st.removed.put(id, new Removed(id, at, String.valueOf(e.get("by")),
                                 e.get("reason") == null ? "" : String.valueOf(e.get("reason"))));
+                    }
+                }
+            }
+        }
+        if (m.get("made") instanceof List<?> ms) {
+            for (Object o : ms) {
+                if (o instanceof Map<?, ?> e) {
+                    String post = BoardInbox.str(e.get("post")), bot = BoardInbox.str(e.get("bot"));
+                    Long price = BoardInbox.num(e.get("price")), at = BoardInbox.num(e.get("at"));
+                    if (post != null && bot != null && price != null && at != null) {
+                        st.made.add(new Made(post, bot, price, at));
                     }
                 }
             }
