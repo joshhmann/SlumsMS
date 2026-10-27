@@ -804,6 +804,7 @@ final class Probes160 {
             Equip junk = new Equip(MERGE_SOURCE, (short) 1);
             junk.setStr((short) 50);
             junk.setDex((short) 50);
+            junk.setWdef((short) 50);   // a stat the hat has, so every merge lands; STR/DEX alone may all round to 0
             chr.getInventory(InventoryType.EQUIP).addItemFromDB(junk);
             int r = chr.mergeItemsFromName(junkName);
             runs.add(r + "/" + Character.getMergeCount(hat));

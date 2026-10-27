@@ -127,6 +127,8 @@ function action(mode, type, selection) {
                 cm.sendOk("Merging complete! Thanks for using the service and enjoy your new equipment stats.");
             } else if (result == Character.MERGE_ALL_CAPPED) {
                 cm.sendOk("Every piece of gear you are wearing has already been merged into #r3 times#k. Nothing was destroyed.");
+            } else if (result == Character.MERGE_NO_GAIN) {
+                cm.sendOk("Those items are too weak to add anything to the gear you are wearing. Nothing was destroyed and I charged you nothing.");
             } else if (result == Character.MERGE_REQUIREMENTS) {
                 cm.sendOk("You must be at least #rlevel 160#k (110 for Cygnus Knights) to use the service.");
             } else {
