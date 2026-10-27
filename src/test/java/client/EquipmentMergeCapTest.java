@@ -3,7 +3,6 @@ package client;
 import client.inventory.Equip;
 import client.inventory.InventoryType;
 import client.inventory.Item;
-import client.inventory.MakerService;
 import config.YamlConfig;
 import constants.inventory.ItemConstants;
 import org.junit.jupiter.api.AfterEach;
@@ -29,7 +28,7 @@ import static org.mockito.Mockito.mockStatic;
 import static org.mockito.Mockito.when;
 
 /**
- * Owner 2026-10-26: Dalair's equipment merge (9000040) needs level 160 (110 Cygnus) and Maker level 3 whatever
+ * Owner 2026-10-26: Dalair's equipment merge (9000040) needs level 160 (110 Cygnus) only, with no Maker requirement (owner 2026-10-27), whatever
  * USE_STARTER_MERGE says, and any one item takes at most 3 merges (count kept in server-only flag bits).
  */
 class EquipmentMergeCapTest {
@@ -39,10 +38,8 @@ class EquipmentMergeCapTest {
     private final boolean starterMergeWas = YamlConfig.config.server.USE_STARTER_MERGE;
     private final int maxStatWas = YamlConfig.config.server.MAX_EQUIPMNT_STAT;
     private MockedStatic<ItemInformationProvider> iiStatic;
-    private MockedStatic<MakerService> makerStatic;
     private Character chr;
     private Equip hat;
-    private int makerLevel = 3;
 
     @BeforeAll
     static void initItemProvider() throws Exception {
@@ -65,8 +62,6 @@ class EquipmentMergeCapTest {
         when(ii.getEquipLevel(anyInt(), anyBoolean())).thenReturn(1);
         iiStatic = mockStatic(ItemInformationProvider.class);
         iiStatic.when(ItemInformationProvider::getInstance).thenReturn(ii);
-        makerStatic = mockStatic(MakerService.class);
-        makerStatic.when(() -> MakerService.getMakerSkillLevel(any())).thenAnswer(inv -> makerLevel);
 
         Client client = mock(Client.class);
         chr = Character.getDefault(client);
@@ -83,7 +78,6 @@ class EquipmentMergeCapTest {
     @AfterEach
     void tearDown() {
         iiStatic.close();
-        makerStatic.close();
         YamlConfig.config.server.USE_STARTER_MERGE = starterMergeWas;
         YamlConfig.config.server.MAX_EQUIPMNT_STAT = maxStatWas;
     }
@@ -112,7 +106,7 @@ class EquipmentMergeCapTest {
     }
 
     @Test
-    void starterMergeFlagNoLongerSkipsTheLevelAndMakerGate() {
+    void starterMergeFlagNoLongerSkipsTheLevelGate() {
         YamlConfig.config.server.USE_STARTER_MERGE = true;
         junk((short) 1);
 
@@ -122,12 +116,7 @@ class EquipmentMergeCapTest {
         assertEquals(1, equipCount(), "nothing destroyed");
 
         chr.setLevel(160);
-        makerLevel = 2;
-        assertEquals(Character.MERGE_REQUIREMENTS, chr.mergeItemsFromName("Item" + JUNK));
-        assertEquals(1, equipCount());
-
-        makerLevel = 3;
-        assertTrue(chr.meetsEquipmentMergeRequirements());
+        assertTrue(chr.meetsEquipmentMergeRequirements(), "level 160 with no Maker skill at all passes");
     }
 
     @Test

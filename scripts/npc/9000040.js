@@ -29,7 +29,7 @@ var mergeFee = 50000;
 var name;
 var preview;
 
-// Owner 2026-10-26: the merge is on, but always needs level 160 (110 for Cygnus) and Maker level 3, whatever
+// Owner 2026-10-26: the merge is on, but always needs level 160 (110 for Cygnus) and no Maker skill (owner 2026-10-27), whatever
 // USE_STARTER_MERGE says, and any one item takes at most 3 merges. The checks live in Character
 // (meetsEquipmentMergeRequirements / mergeItemsFromName) so the script cannot skip them.
 
@@ -71,7 +71,7 @@ function action(mode, type, selection) {
             var selStr = "The medal ranking system is currently unavailable... Therefore, I am providing the #bEquipment Merge#k service! ";
 
             if (!cm.getPlayer().meetsEquipmentMergeRequirements()) {
-                selStr += "However, you must have #rMaker level 3#k and at least #rlevel 110#k (Cygnus Knight), #rlevel 160#k (other classes) and a fund of #r" + cm.numberWithCommas(mergeFee) + " mesos#k to use the service.";
+                selStr += "However, you must be at least #rlevel 110#k (Cygnus Knight) or #rlevel 160#k (other classes) and have a fund of #r" + cm.numberWithCommas(mergeFee) + " mesos#k to use the service.";
                 cm.sendOk(selStr);
                 cm.dispose();
             } else if (cm.getMeso() < mergeFee) {
@@ -128,7 +128,7 @@ function action(mode, type, selection) {
             } else if (result == Character.MERGE_ALL_CAPPED) {
                 cm.sendOk("Every piece of gear you are wearing has already been merged into #r3 times#k. Nothing was destroyed.");
             } else if (result == Character.MERGE_REQUIREMENTS) {
-                cm.sendOk("You must have #rMaker level 3#k and at least #rlevel 160#k (110 for Cygnus Knights) to use the service.");
+                cm.sendOk("You must be at least #rlevel 160#k (110 for Cygnus Knights) to use the service.");
             } else {
                 cm.sendOk("There is nothing to merge from #b'" + name + "'#k in your #bEQUIP#k inventory!");
             }

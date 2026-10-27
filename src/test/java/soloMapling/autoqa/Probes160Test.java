@@ -142,19 +142,14 @@ class Probes160Test {
     }
 
     /**
-     * TEST 2026-10-27 t-np-4: Skill.wz on the servers has no Maker skill, and the probe failed on that before it
-     * checked anything about Dalair. The gate and the 3-merge cap are now checked on the pure rule, and the missing
-     * skill is reported as a note (merge closed to everyone) instead of a failure.
+     * Owner 2026-10-27: Dalair's gate is level only (160, 110 for Cygnus), no Maker skill (the servers have none).
+     * The gate and the 3-merge cap are checked on the pure rule.
      */
     @Test
-    void dalairsGateAndCapAreCheckedWithoutTheMakerSkill() {
+    void dalairsGateAndCapAreLevelOnly() {
         assertTrue(Probes160.mergeGateProblems().isEmpty(), Probes160.mergeGateProblems().toString());
         assertTrue(Probes160.mergeCapProblems().isEmpty(), Probes160.mergeCapProblems().toString());
-        assertNull(Probes160.makerAbsentNote(true, true));
-        String note = Probes160.makerAbsentNote(false, false);
-        assertNotNull(note);
-        assertTrue(note.startsWith("NOTE ") && note.contains("closed to everyone"), note);
-        assertTrue(client.Character.meetsMergeGate(160, false, 3) && client.Character.meetsMergeGate(110, true, 3));
-        assertFalse(client.Character.meetsMergeGate(159, false, 3) || client.Character.meetsMergeGate(160, false, 2));
+        assertTrue(client.Character.meetsMergeGate(160, false) && client.Character.meetsMergeGate(110, true));
+        assertFalse(client.Character.meetsMergeGate(159, false) || client.Character.meetsMergeGate(109, true));
     }
 }

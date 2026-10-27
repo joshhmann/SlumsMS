@@ -22,7 +22,6 @@
  */
 package client;
 import soloMapling.ArtificialPlayer.BotTier;
-import client.inventory.MakerService;
 import client.inventory.Item;
 import client.inventory.InventoryType;
 import client.inventory.Equip;
@@ -10884,15 +10883,15 @@ public class Character extends AbstractCharacterObject {
 
     /**
      * Dalair's equipment merge (9000040) gate, owner 2026-10-26: level 160 (110 for Cygnus Knights, whose cap is 120)
-     * and Maker level 3, always. Deliberately not tied to USE_STARTER_MERGE so that flag cannot open the merge.
+     * only; no Maker requirement (owner 2026-10-27, the servers have no Maker skill; ticket 112). Deliberately not tied to USE_STARTER_MERGE so that flag cannot open the merge.
      */
     public boolean meetsEquipmentMergeRequirements() {
-        return meetsMergeGate(getLevel(), isCygnus(), MakerService.getMakerSkillLevel(this));
+        return meetsMergeGate(getLevel(), isCygnus());
     }
 
-    /** Dalair's merge gate (owner 2026-10-26): level 160 (110 for Cygnus) and Maker level 3. */
-    public static boolean meetsMergeGate(int level, boolean cygnus, int makerLevel) {
-        return level >= (cygnus ? 110 : 160) && makerLevel >= 3;
+    /** Dalair's merge gate (owner 2026-10-27): level 160, or 110 for Cygnus; no Maker requirement. */
+    public static boolean meetsMergeGate(int level, boolean cygnus) {
+        return level >= (cygnus ? 110 : 160);
     }
 
     public static int getMergeCount(Item item) {

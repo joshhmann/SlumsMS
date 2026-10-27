@@ -308,7 +308,7 @@ class CustomNpcScriptsTest {
         Invocable dalair = load("npc/9000040.js", cm);
         dalair.invokeFunction("start");
         assertNotNull(cm.ok);
-        assertTrue(cm.ok.contains("Maker level 3"), cm.ok);
+        assertTrue(cm.ok.contains("level 160") && !cm.ok.contains("Maker"), cm.ok);
         assertTrue(cm.disposed);
         assertEquals(0, cm.player.merges);
     }

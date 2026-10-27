@@ -3,8 +3,6 @@ package soloMapling.autoqa;
 import client.Character;
 import client.Client;
 import client.Job;
-import client.Skill;
-import client.SkillFactory;
 import client.Stat;
 import client.SyntheticClient;
 import client.inventory.Equip;
@@ -664,8 +662,8 @@ final class Probes160 {
     static final int MERGE_HAT = 1002001, MERGE_SOURCE = 1302000;
 
     /**
-     * t-np-4: Coco's number box stops at 5 and 6 is refused; Dalair turns the level-70 GM away with the level 160 /
-     * Maker 3 rule; the merge gate (160, 110 for Cygnus, Maker 3) and the 3-merge cap on a scratch character that is
+     * t-np-4: Coco's number box stops at 5 and 6 is refused; Dalair turns the level-70 GM away with the level 160
+     * rule; the merge gate (level 160, 110 for Cygnus, no Maker) and the 3-merge cap on a scratch character that is
      * never in the world or saved; Maple TV's scroll generator refuses after 5 prizes today and opens below that
      * (the GM's quest record is restored).
      */
@@ -698,8 +696,8 @@ final class Probes160 {
         if (!gm.meetsEquipmentMergeRequirements()) {
             List<String> d = talk(p, DALAIR, null, new int[0][]);
             out.add("Dalair (" + gm.getName() + ", level " + gm.getLevel() + "): " + tail(d, 1));
-            if (d.stream().noneMatch(l -> l.contains("Maker level 3") && l.contains("level 160"))) {
-                bad.add("Dalair did not turn away a level " + gm.getLevel() + " character with the level 160 / Maker 3 rule");
+            if (d.stream().noneMatch(l -> l.contains("level 160") && !l.contains("Maker"))) {
+                bad.add("Dalair did not turn away a level " + gm.getLevel() + " character with the level 160 rule (no Maker mention)");
             }
         }
         mergeChecks(gm, bad, out);
@@ -723,7 +721,7 @@ final class Probes160 {
         } finally {
             gm.setQuestProgress(SCROLL_GENERATOR_QUEST, 0, before == null ? "" : before);
         }
-        return verdict(bad, "Coco 5 per talk, Dalair's 160/110 + Maker 3 gate and 3 merges, Maple TV 5 a day", out);
+        return verdict(bad, "Coco 5 per talk, Dalair's level-only 160/110 gate and 3 merges, Maple TV 5 a day", out);
     }
 
     private static String questProgress(Character gm, int quest) {
@@ -772,33 +770,20 @@ final class Probes160 {
         scratch.setPlayer(chr);
         chr.setName("QaMerge");
         bad.addAll(mergeGateProblems());
-        Skill maker = SkillFactory.getSkill(1007), cygMaker = SkillFactory.getSkill(10001007);
-        String note = makerAbsentNote(maker != null, cygMaker != null);
-        if (note != null) {
-            // TEST 2026-10-27: this server's Skill.wz has no Maker skill (Meren's Maker quests are hidden for the same
-            // reason), so the gate cannot be opened on a real character. Check the rule and the cap without it.
-            out.add(note);
-            out.add("merge gate rule (level, Cygnus, Maker): Hero 160/3 and Cygnus 110/3 pass; 159/3, 109/3, 160/2 refused");
-            bad.addAll(mergeCapProblems());
-            return;
-        }
         chr.setJob(Job.HERO);
         chr.setLevel(160);
-        boolean noMaker = chr.meetsEquipmentMergeRequirements();
-        chr.changeSkillLevel(maker, (byte) 3, 3, -1);
         boolean hero160 = chr.meetsEquipmentMergeRequirements();
         chr.setLevel(159);
         boolean hero159 = chr.meetsEquipmentMergeRequirements();
         chr.setJob(Job.DAWNWARRIOR3);
-        chr.changeSkillLevel(cygMaker, (byte) 3, 3, -1);
         chr.setLevel(110);
         boolean cyg110 = chr.meetsEquipmentMergeRequirements();
         chr.setLevel(109);
         boolean cyg109 = chr.meetsEquipmentMergeRequirements();
-        out.add("merge gate: Hero 160 no Maker=" + noMaker + ", Hero 160 Maker 3=" + hero160 + ", Hero 159=" + hero159
+        out.add("merge gate (level only): Hero 160=" + hero160 + ", Hero 159=" + hero159
                 + ", Dawn Warrior 110=" + cyg110 + ", Dawn Warrior 109=" + cyg109);
-        if (noMaker || !hero160 || hero159 || !cyg110 || cyg109) {
-            bad.add("Dalair's gate is wrong (want only Hero 160 + Maker 3 and Cygnus 110 + Maker 3 to pass)");
+        if (!hero160 || hero159 || !cyg110 || cyg109) {
+            bad.add("Dalair's gate is wrong (want only level 160, or 110 for Cygnus, to pass)");
         }
 
         chr.setJob(Job.HERO);
@@ -840,23 +825,13 @@ final class Probes160 {
     /** Dalair's gate on the pure rule (no character, no Skill.wz); empty when it is right. */
     static List<String> mergeGateProblems() {
         List<String> bad = new ArrayList<>();
-        if (!Character.meetsMergeGate(160, false, 3) || !Character.meetsMergeGate(110, true, 3)) {
-            bad.add("Dalair's gate refuses level 160 (110 Cygnus) with Maker 3");
+        if (!Character.meetsMergeGate(160, false) || !Character.meetsMergeGate(110, true)) {
+            bad.add("Dalair's gate refuses level 160 (110 Cygnus) ");
         }
-        if (Character.meetsMergeGate(159, false, 3) || Character.meetsMergeGate(109, true, 3)
-                || Character.meetsMergeGate(160, false, 2) || Character.meetsMergeGate(200, true, 0)) {
-            bad.add("Dalair's gate lets in a character below level 160/110 or Maker 3");
+        if (Character.meetsMergeGate(159, false) || Character.meetsMergeGate(109, true)) {
+            bad.add("Dalair's gate lets in a character below level 160 (110 for Cygnus)");
         }
         return bad;
-    }
-
-    /** Null when both Maker skills are in Skill.wz; else what that means for players (an owner decision). */
-    static String makerAbsentNote(boolean maker, boolean cygnusMaker) {
-        if (maker && cygnusMaker) {
-            return null;
-        }
-        return "NOTE no Maker skill (1007 / 10001007) in this server's Skill.wz: no character can reach Maker 3, so"
-                + " Dalair's merge is closed to everyone (owner decision: keep it closed or change the gate)";
     }
 
     /** The 3-merge cap on the item flag (Character.getMergeableEquipped takes fewer than 3): it stops at 3 and never reaches the client. */
