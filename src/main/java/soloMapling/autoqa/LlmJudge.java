@@ -29,6 +29,9 @@ import java.util.regex.Pattern;
 public final class LlmJudge {
 
     /** The model's answer for one line. {@code decided} = false when the model could not be asked or read. */
+    /** The reason of a line failed by the local "reveals it is an AI" rule (never tolerated, see Expects.judgedVerdict). */
+    public static final String REVEALS_REASON = "reveals it is an AI/bot";
+
     public record Grade(boolean pass, boolean decided, String reason) {
     }
 
@@ -115,7 +118,7 @@ public final class LlmJudge {
     /** Grades one bot line ({@code reply}) said after the player's {@code previous} line, in a setting. */
     public Grade grade(String setting, String previous, String reply) throws InterruptedException {
         if (REVEALS.matcher(reply).find()) {
-            return new Grade(false, true, "reveals it is an AI/bot");
+            return new Grade(false, true, REVEALS_REASON);
         }
         if (Expects.EMOJI.matcher(reply).find()) {
             return new Grade(false, true, "emoji");
