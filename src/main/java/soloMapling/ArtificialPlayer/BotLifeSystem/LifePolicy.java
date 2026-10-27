@@ -108,6 +108,8 @@ public final class LifePolicy {
                 case CHANGE_CHANNEL -> channelPull(situation, killer);
                 // 1.6.0 world events: eligible only with a standing offer; "something is happening" pulls hard
                 case EVENT -> EVENT_PULL;
+                // 1.6.0 fishing: eligible only for a bot with a chair and a fishing map that can take it
+                case FISH -> FISH_PULL;
                 // A Killer in a KS war stays and fights for the mobs.
                 // A packed map is a bad grind (every mob contested), a KS war a worse one, except for a Killer.
                 case GRIND -> (s8 ? GRIND_HABIT - Math.min(.8, Math.max(0, 2 * (situation.crowd() - CROWDED))) : 0)
@@ -130,6 +132,12 @@ public final class LifePolicy {
     static final double HELP_PULL = .55, PQ_PULL = .2;
     /** The pull of a world event a bot was offered (1.6.0; its Bartle lean comes on top, WorldEventBias). */
     static final double EVENT_PULL = 0.8;
+    /**
+     * The pull of a fishing trip for a bot that owns a chair (1.6.0, owner: such bots "sometimes fish"). Without it
+     * FISH lost every decision to MOVE_MAP (boredom), BREAK (fatigue) or HANG_OUT (social) and no bot ever fished
+     * (TEST 2026-10-27). At .3 a chair owner fishes on a few percent of its decisions in a random-needs replay.
+     */
+    static final double FISH_PULL = .3;
     /** Most of a 2009 day was grinding: a standing pull toward it, so a full need list isn't needed to keep at it. */
     static final double GRIND_HABIT = .3;
 
