@@ -145,7 +145,7 @@ public final class DecideShadowReport {
                     continue;
                 }
                 if (e.getValue() instanceof Map<?, ?> s && Boolean.FALSE.equals(s.get("agree"))) {
-                    out.add(new Disagreement(model, String.valueOf(row.get("time")), String.valueOf(row.get("text")),
+                    out.add(new Disagreement(model, String.valueOf(row.get("time")), row.get("text") == null ? "(text not kept)" : String.valueOf(row.get("text")),
                             brief(c), brief(s)));
                 }
             }
