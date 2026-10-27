@@ -71,7 +71,7 @@ class SiteAuthApiTest {
         api = new SiteAuthApi(SECRET.getBytes(StandardCharsets.UTF_8),
                 new SiteAccounts(store, clock::get, n -> false, id -> false));
         capture.start();
-        for (Class<?> c : new Class<?>[]{SiteAuthApi.class, SiteAccounts.class, InviteCodes.class}) {
+        for (Class<?> c : new Class<?>[]{SiteAuthApi.class, SiteAccounts.class, InviteCodes.class, PasswordResets.class}) {
             Logger l = (Logger) LogManager.getLogger(c);
             loggers.add(l);
             levels.add(l.getLevel());
@@ -163,6 +163,103 @@ class SiteAuthApiTest {
             assertFalse(line.contains(PASSWORD), line);
             assertFalse(line.contains(SECRET), line);
         }
+    }
+
+    // ── ticket 107: /reset/* ────────────────────────────────────────────────────────────────────
+
+    final MemoryResetStore resetStore = new MemoryResetStore();
+
+    SiteAuthApi withResets() {
+        SiteAccounts site = new SiteAccounts(store, clock::get, n -> false, id -> false);
+        return new SiteAuthApi(SECRET.getBytes(StandardCharsets.UTF_8), site,
+                new PasswordResets(resetStore, store, site, clock::get, Runnable::run, m -> { }));
+    }
+
+    @Test
+    void resetRoutesNeedTheSecretAndExist() throws Exception {
+        SiteAuthApi r = withResets();
+        byte[] b = body(Map.of("user", "x", "contact", "bob", "ipHash", "h"));
+        assertEquals(401, r.handle("POST", "/reset/request", null, b).status());
+        assertEquals(404, r.handle("POST", "/reset/other", SECRET, b).status());
+        assertEquals(405, r.handle("GET", "/reset/status", SECRET, b).status());
+        assertEquals(Map.of("ok", false, "error", "UNAVAILABLE"), api.handle("POST", "/reset/request", SECRET, b).body(),
+                "an API built without resets says so");
+    }
+
+    @Test
+    void resetRequestAnswersTheSameShapeForEveryName() throws Exception {
+        store.put(new AuthStore.Account(7, "Forgetful", "x", false, 0));
+        store.put(new AuthStore.Account(8, "Banned", "x", true, 0));
+        SiteAuthApi r = withResets();
+        for (String name : List.of("Forgetful", "Nobodyhere", "Banned")) {
+            var res = r.handle("POST", "/reset/request", SECRET, body(Map.of("user", name, "contact", "bob#1", "ipHash", name)));
+            assertEquals(200, res.status());
+            assertEquals(List.of("ok", "request_id", "secret"), new ArrayList<>(res.body().keySet()), name);
+            assertEquals(true, res.body().get("ok"));
+        }
+        assertEquals(1, resetStore.rows.size());
+        var bad = r.handle("POST", "/reset/request", SECRET, body(Map.of("user", "Forgetful", "contact", "", "ipHash", "z")));
+        assertEquals(Map.of("ok", false, "error", "BAD_INPUT", "rule", "contact_length"), bad.body());
+    }
+
+    @Test
+    void resetFlowOverTheApi() throws Exception {
+        store.put(new AuthStore.Account(7, "Forgetful", "x", false, 0));
+        SiteAuthApi r = withResets();
+        var req = r.handle("POST", "/reset/request", SECRET, body(Map.of("user", "Forgetful", "contact", "bob#1", "ipHash", "h")));
+        String id = (String) req.body().get("request_id"), secret = (String) req.body().get("secret");
+        byte[] st = body(Map.of("request_id", id, "secret", secret));
+        assertEquals(Map.of("ok", true, "status", "pending"), r.handle("POST", "/reset/status", SECRET, st).body());
+        assertEquals(Map.of("ok", true, "status", "expired"), r.handle("POST", "/reset/status", SECRET,
+                body(Map.of("request_id", id, "secret", secret + "x"))).body(), "a wrong secret looks expired");
+        var early = r.handle("POST", "/reset/complete", SECRET, body(Map.of("request_id", id, "secret", secret, "pass", PASSWORD, "ipHash", "h")));
+        assertEquals(Map.of("ok", false, "error", "NOT_APPROVED"), early.body());
+
+        assertTrue(id.matches("[\\w-]+") && secret.matches("[\\w-]{8,128}"), "the site's format check");
+        PasswordResets.approve(resetStore, "Forgetful", "Gm", clock.get());
+        assertEquals(Map.of("ok", true, "status", "approved"), r.handle("POST", "/reset/status", SECRET, st).body());
+        var rule = r.handle("POST", "/reset/complete", SECRET, body(Map.of("request_id", id, "secret", secret, "pass", "x", "ipHash", "h")));
+        assertEquals(Map.of("ok", false, "error", "BAD_INPUT", "rule", "pass_length"), rule.body());
+        var done = r.handle("POST", "/reset/complete", SECRET, body(Map.of("request_id", id, "secret", secret, "pass", PASSWORD, "ipHash", "h")));
+        assertEquals(200, done.status());
+        assertEquals(List.of("ok", "account_id", "account", "gm", "gm_level", "characters", "revoke_sessions"),
+                new ArrayList<>(done.body().keySet()), "the /verify shape plus revoke_sessions");
+        assertEquals(7, done.body().get("account_id"));
+        assertEquals(true, done.body().get("revoke_sessions"));
+        var twice = r.handle("POST", "/reset/complete", SECRET, body(Map.of("request_id", id, "secret", secret, "pass", PASSWORD, "ipHash", "h")));
+        assertEquals(Map.of("ok", false, "error", "USED"), twice.body());
+        assertEquals(Map.of("ok", true, "status", "expired"), r.handle("POST", "/reset/status", SECRET, st).body());
+
+        for (String line : capture.lines) {
+            assertFalse(line.contains(PASSWORD), line);
+            assertFalse(line.contains(secret), line);
+            assertFalse(line.contains(PasswordResets.hash(secret)), line);
+            assertFalse(line.contains("bob#1"), "the contact stays out of the log: " + line);
+        }
+        assertTrue(capture.lines.stream().anyMatch(l -> l.contains("Password reset done for account 'Forgetful'")));
+    }
+
+    @Test
+    void unknownNamesAreNotLogged() throws Exception {
+        withResets().handle("POST", "/reset/request", SECRET, body(Map.of("user", "MyPassword99", "contact", "bob", "ipHash", "h")));
+        for (String line : capture.lines) {
+            assertFalse(line.contains("MyPassword99"), line);
+        }
+    }
+
+    @Test
+    void resetRateLimitsAnswer429() throws Exception {
+        SiteAuthApi r = withResets();
+        byte[] b = body(Map.of("user", "x", "contact", "bob", "ipHash", "flood"));
+        for (int i = 0; i < PasswordResets.REQUESTS_PER_IP_PER_HOUR; i++) {
+            assertEquals(200, r.handle("POST", "/reset/request", SECRET, b).status());
+        }
+        assertEquals(429, r.handle("POST", "/reset/request", SECRET, b).status());
+        byte[] st = body(Map.of("request_id", "x", "secret", "y", "ipHash", "poll"));
+        for (int i = 0; i < PasswordResets.STATUS_PER_IP_PER_MINUTE; i++) {
+            assertEquals(200, r.handle("POST", "/reset/status", SECRET, st).status());
+        }
+        assertEquals(Map.of("ok", false, "error", "RATE_LIMITED"), r.handle("POST", "/reset/status", SECRET, st).body());
     }
 
     @Test

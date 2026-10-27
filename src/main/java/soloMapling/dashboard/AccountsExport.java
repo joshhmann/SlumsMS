@@ -3,6 +3,7 @@ package soloMapling.dashboard;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import soloMapling.ArtificialPlayer.BotStore;
+import soloMapling.site.auth.PasswordResets;
 import soloMapling.site.auth.SiteAccounts;
 import tools.DatabaseConnection;
 
@@ -27,6 +28,9 @@ import java.util.concurrent.TimeUnit;
  * queries (the accounts table, and the tiny {@code invite_codes}). Exports names, times, the first 4 characters of an
  * invite code, who made it and its note, and counts. Never a password, hash, IP, email or full code: the queries select
  * only the columns below, and {@link #build} is the only thing that shapes the output.
+ * <p>
+ * Ticket 107 adds the password reset requests ({@code password_resets}, migration 037): counts by state and the latest
+ * 10 with account, time, state, the GM who decided and the contact the player left. Never the secret hash or ipHash.
  */
 final class AccountsExport {
 
@@ -52,6 +56,13 @@ final class AccountsExport {
             + " COALESCE(SUM(revoked_at = 0 AND used_at = 0 AND expires_at > 0 AND expires_at <= ?), 0),"
             + " COALESCE(SUM(revoked_at = 0 AND used_at = 0 AND (expires_at = 0 OR expires_at > ?)), 0) FROM invite_codes";
 
+    static final int LATEST_RESETS = 10;
+    static final String RESET_COUNTS = "SELECT COALESCE(SUM(state = 'pending' AND created_at > ?), 0),"
+            + " COALESCE(SUM(state IN ('approved', 'used')), 0), COALESCE(SUM(state = 'used'), 0),"
+            + " COALESCE(SUM(state = 'denied'), 0) FROM password_resets";
+    static final String RESET_LATEST = "SELECT account_name, created_at, state, decided_by, contact, decided_at"
+            + " FROM password_resets ORDER BY created_at DESC LIMIT " + LATEST_RESETS;
+
     private AccountsExport() {
     }
 
@@ -65,8 +76,19 @@ final class AccountsExport {
     record Signup(String name, long at, String code, String madeBy, String note) {
     }
 
+    /** Reset requests: pending (open, under 24 h), approved (ever, including used), used, denied. */
+    record ResetCounts(long pending, long approved, long used, long denied) {
+    }
+
+    /** One reset request; state is as stored (pending, approved, denied, used, replaced). */
+    record Reset(String account, long at, String state, String decidedBy, String contact, long decidedAt) {
+    }
+
     /** What the database said; a null part means that query failed or the table is not there. */
-    record Data(Totals totals, Invites invites, List<Signup> signups) {
+    record Data(Totals totals, Invites invites, List<Signup> signups, ResetCounts resetCounts, List<Reset> resets) {
+        Data(Totals totals, Invites invites, List<Signup> signups) {
+            this(totals, invites, signups, null, null);
+        }
     }
 
     /** The panel as JSON-ready maps. {@code lockouts} is the in-memory count of the last 24 hours. */
@@ -106,6 +128,28 @@ final class AccountsExport {
         }
         out.put("signups", rows);
         out.put("lockouts24h", lockouts);
+        ResetCounts rc = data.resetCounts();
+        if (rc != null) {
+            Map<String, Object> m = new LinkedHashMap<>();
+            m.put("pending", rc.pending());
+            m.put("approved", rc.approved());
+            m.put("used", rc.used());
+            m.put("denied", rc.denied());
+            List<Map<String, Object>> latest = new ArrayList<>();
+            for (Reset r : data.resets() == null ? List.<Reset>of() : data.resets()) {
+                Map<String, Object> row = new LinkedHashMap<>();
+                Instant at = Instant.ofEpochMilli(r.at());
+                row.put("utc", UTC.format(at));
+                row.put("pt", PT.format(at));
+                row.put("account", r.account());
+                row.put("state", PasswordResets.dashboardState(r.state(), r.at(), r.decidedAt(), now));
+                row.put("decidedBy", r.decidedBy() == null || r.decidedBy().isEmpty() ? null : r.decidedBy());
+                row.put("contact", r.contact());
+                latest.add(row);
+            }
+            m.put("latest", latest);
+            out.put("resets", m);
+        }
         return out;
     }
 
@@ -114,6 +158,8 @@ final class AccountsExport {
         Totals totals = null;
         Invites invites = null;
         List<Signup> signups = null;
+        ResetCounts resetCounts = null;
+        List<Reset> resets = null;
         try (Connection con = DatabaseConnection.getConnection()) {
             long dayStart = now - now % TimeUnit.DAYS.toMillis(1);
             try (PreparedStatement ps = con.prepareStatement(TOTALS)) {
@@ -145,10 +191,29 @@ final class AccountsExport {
                     log.debug("Sign-ups not read", e2);
                 }
             }
+            try (PreparedStatement ps = con.prepareStatement(RESET_COUNTS)) {
+                ps.setLong(1, now - TimeUnit.DAYS.toMillis(1));
+                try (ResultSet rs = ps.executeQuery()) {
+                    if (rs.next()) {
+                        resetCounts = new ResetCounts(rs.getLong(1), rs.getLong(2), rs.getLong(3), rs.getLong(4));
+                    }
+                }
+                resets = new ArrayList<>();
+                try (PreparedStatement latest = con.prepareStatement(RESET_LATEST);
+                     ResultSet rs = latest.executeQuery()) {
+                    while (rs.next()) {
+                        resets.add(new Reset(rs.getString(1), rs.getLong(2), rs.getString(3), rs.getString(4),
+                                rs.getString(5), rs.getLong(6)));
+                    }
+                }
+            } catch (SQLException e) {
+                log.debug("Password resets not read (migration 037 missing?)", e);
+                resetCounts = null;
+            }
         } catch (SQLException | RuntimeException e) {
             log.debug("Accounts panel not read", e);
         }
-        return build(now, new Data(totals, invites, signups), SiteAccounts.lockoutsSince(now - TimeUnit.DAYS.toMillis(1), now));
+        return build(now, new Data(totals, invites, signups, resetCounts, resets), SiteAccounts.lockoutsSince(now - TimeUnit.DAYS.toMillis(1), now));
     }
 
     private static void realArgs(PreparedStatement ps, int from) throws SQLException {

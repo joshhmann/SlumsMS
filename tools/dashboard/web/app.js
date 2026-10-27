@@ -478,7 +478,7 @@
     const a = state.live && state.live.accounts;
     if (!a) {
       $('acct-source').innerHTML = '<b>No accounts data.</b> The exporter has not written an accounts block yet (needs the database).';
-      tiles('acct-tiles', []); $('acct-invites').innerHTML = ''; $('acct-signups').innerHTML = '';
+      tiles('acct-tiles', []); $('acct-invites').innerHTML = ''; $('acct-signups').innerHTML = ''; $('acct-resets').innerHTML = '';
       return;
     }
     $('acct-source').innerHTML = 'Real accounts only (no bots, template or auto-QA) · read ' + ago(Date.now() / 1000 - a.at) + ' ago' +
@@ -499,6 +499,14 @@
         (r.autoRegister ? '<span class="muted">login screen</span>' : E(r.invite)) + '</td><td>' + E(r.madeBy || '') +
         '</td><td class="wrap">' + E(r.note || '') + '</td></tr>').join('') + '</table>'
       : '<div class="muted">No sign-ups.</div>';
+    const rs = a.resets;
+    $('acct-resets').innerHTML = !rs ? '<div class="muted">Password resets not available (migration 037).</div>' :
+      '<div class="muted">' + N(rs.pending) + ' pending · ' + N(rs.approved) + ' approved (' + N(rs.used) + ' used) · ' +
+      N(rs.denied) + ' denied</div>' + ((rs.latest || []).length ?
+      '<table class="t"><tr><th>When (UTC)</th><th>PT</th><th>Account</th><th>State</th><th>Decided by</th><th>Contact</th></tr>' +
+      rs.latest.map(r => '<tr><td>' + E(r.utc) + '</td><td>' + E(r.pt) + '</td><td>' + E(r.account) + '</td><td>' + E(r.state) +
+        '</td><td>' + E(r.decidedBy || '') + '</td><td class="wrap">' + E(r.contact || '') + '</td></tr>').join('') + '</table>'
+      : '<div class="muted">No reset requests.</div>');
   }
 
   ['gm-who', 'gm-cmd', 'gm-outcome'].forEach(id => $(id).addEventListener('input', () => renderGm()));

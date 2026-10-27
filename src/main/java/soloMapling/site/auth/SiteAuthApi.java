@@ -26,7 +26,8 @@ import java.util.concurrent.atomic.AtomicInteger;
  * "Server API"). Off unless {@code -Dslums.auth.port} is set; it then needs {@code -Dslums.auth.secretFile}, a file
  * holding the shared secret every request must send in {@code X-Slums-Auth}. Two small daemon threads serve it, so
  * nothing runs on a game thread; database work goes through the server's connection pool. Request bodies, passwords
- * and the secret are never logged.
+ * and the secret are never logged. Ticket 107 adds the GM-approved password reset routes {@code /reset/request},
+ * {@code /reset/status} and {@code /reset/complete} ({@link PasswordResets}).
  */
 public final class SiteAuthApi {
 
@@ -43,10 +44,17 @@ public final class SiteAuthApi {
 
     private final byte[] secret;
     private final SiteAccounts accounts;
+    private final PasswordResets resets;
 
     SiteAuthApi(byte[] secret, SiteAccounts accounts) {
+        this(secret, accounts, null);
+    }
+
+    /** {@code resets} null: the {@code /reset/*} routes answer UNAVAILABLE. */
+    SiteAuthApi(byte[] secret, SiteAccounts accounts, PasswordResets resets) {
         this.secret = secret.clone();
         this.accounts = accounts;
+        this.resets = resets;
     }
 
     /** Called once at server start. */
@@ -61,7 +69,8 @@ public final class SiteAuthApi {
                 log.warn("Site auth API not started: -Dslums.auth.secretFile is missing, unreadable or shorter than {} characters", MIN_SECRET);
                 return;
             }
-            running = start(Integer.parseInt(port.trim()), new SiteAuthApi(secret, SiteAccounts.forGame()));
+            SiteAccounts accounts = SiteAccounts.forGame();
+            running = start(Integer.parseInt(port.trim()), new SiteAuthApi(secret, accounts, PasswordResets.forGame(accounts)));
             log.info("Site auth API listening on 127.0.0.1:{}", running.getAddress().getPort());
         } catch (Exception e) {
             log.warn("Site auth API not started", e);
@@ -131,7 +140,7 @@ public final class SiteAuthApi {
         if (!authorized(auth)) {
             return error(401, "UNAUTHORIZED");
         }
-        if (!"/signup".equals(path) && !"/verify".equals(path)) {
+        if (!"/signup".equals(path) && !"/verify".equals(path) && !RESET_PATHS.contains(path)) {
             return error(404, "NOT_FOUND");
         }
         if (!"POST".equals(method)) {
@@ -146,10 +155,58 @@ public final class SiteAuthApi {
         } catch (IOException | RuntimeException e) {
             return error(400, "BAD_REQUEST");
         }
+        if (RESET_PATHS.contains(path)) {
+            return reset(path, json);
+        }
         SiteAccounts.Result result = "/signup".equals(path)
                 ? accounts.signup(text(json, "code"), text(json, "user"), text(json, "pass"), text(json, "ipHash"))
                 : accounts.verify(text(json, "user"), text(json, "pass"), text(json, "ipHash"));
         return new Response(result.ok() || !SiteAccounts.RATE_LIMITED.equals(result.error()) ? 200 : 429, body(result));
+    }
+
+    static final java.util.Set<String> RESET_PATHS = java.util.Set.of("/reset/request", "/reset/status", "/reset/complete");
+
+    /** Ticket 107: the {@code /reset/*} routes (docs/tickets/107-password-reset-requests.md). */
+    private Response reset(String path, Map<?, ?> json) {
+        if (resets == null) {
+            return error(200, SiteAccounts.UNAVAILABLE);
+        }
+        switch (path) {
+            case "/reset/request" -> {
+                PasswordResets.Ticket t = resets.request(text(json, "user"), text(json, "contact"), text(json, "ipHash"));
+                Map<String, Object> m = new LinkedHashMap<>();
+                m.put("ok", t.ok());
+                if (t.ok()) {
+                    m.put("request_id", t.requestId());
+                    m.put("secret", t.secret());
+                } else {
+                    m.put("error", t.error());
+                    if (t.rule() != null) {
+                        m.put("rule", t.rule());
+                    }
+                }
+                return new Response(SiteAccounts.RATE_LIMITED.equals(t.error()) ? 429 : 200, m);
+            }
+            case "/reset/status" -> {
+                PasswordResets.State s = resets.status(text(json, "request_id"), text(json, "secret"), text(json, "ipHash"));
+                if (s == null) {
+                    return error(429, SiteAccounts.RATE_LIMITED);
+                }
+                Map<String, Object> m = new LinkedHashMap<>();
+                m.put("ok", true);
+                m.put("status", s.wire());
+                return new Response(200, m);
+            }
+            default -> {
+                SiteAccounts.Result d = resets.complete(text(json, "request_id"), text(json, "secret"),
+                        text(json, "pass"), text(json, "ipHash"));
+                Map<String, Object> m = body(d);
+                if (d.ok()) {
+                    m.put("revoke_sessions", true);   // informational: the site revokes the sessions itself
+                }
+                return new Response(SiteAccounts.RATE_LIMITED.equals(d.error()) ? 429 : 200, m);
+            }
+        }
     }
 
     boolean authorized(String header) {
