@@ -27,6 +27,22 @@ That is authorization to evaluate, not a decision to ship a multi-model router. 
 daily-life scoring, economy, runtime flag or server deployment changes. This still reads players only; the brain
 itself makes no model calls. Full offline suite: 4,603 tests, zero failures/errors, 38 skipped; 8 Python tool tests pass.
 
+## Chat-model shadow run (1.6.0, TEST only, logged only)
+
+Owner 2026-10-27: gliclass and OneJev (and hosted Jev, OK'd) judge every player line the current GLiNER judges, in
+parallel, logged only. `DecideShadow` (BotConvo) hooks `ConvoSense.read` after the live decision: off by default, on
+with `-Dslums.decide.shadow=gliclass,onejev[,jev]`. Bounded queue (`.queue` 256, dropped when full), one worker,
+models asked in parallel per line (`.timeoutMs` 2000); a shadow answer past the live 400 ms deadline is logged but
+scored as rules only, as production would. Rows: `data/autoqa/decide-shadow/<UTC day>.jsonl` (time, speaker hash,
+text, current and each shadow's combined intent/tone/con, raw answers, latency, agree). Presets: gliclass
+`192.168.0.17:8911` (decide), onejev `:8910` (OneJev1.6-0.8B), jev `https://api.typesafe.ai` (jev-latest, key file
+`~/.config/slumsms/jev.key`, chmod 600, read by path at start, never logged), gliner `:8900`; override per model with
+`-Dslums.decide.shadow.<name>.url/.model/.keyFile`. Scorecard: `!decideshadow status [day|all]`,
+`!decideshadow disagree [model] [n]`, or `tools/convo/decide-shadow summary`. Replay of logged chat through the same
+path: `tools/convo/decide-shadow replay --shadow gliclass,onejev logs/convo/transcript-*.jsonl` (`--bot-lines` adds
+bot lines; one judged line at a time, 1 s apart). Agreement is with the current model, not with gold labels: a
+disagreement is a line to review, not a mistake by either side.
+
 ## Complete first-test implementation
 
 The daily-life runtime is now connected to the existing bot update. Both `-Dslums.botlife.enabled=true` and

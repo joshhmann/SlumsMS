@@ -191,6 +191,11 @@ public final class ChatDecide {
     }
 
     static Map<String, Object> request(String line, List<Question> questions) {
+        return request(line, questions, "decide");
+    }
+
+    /** The request body with another wire model id (OneJev and Jev need their own; the shadow run uses this). */
+    public static Map<String, Object> request(String line, List<Question> questions, String model) {
         Map<String, Object> qs = new LinkedHashMap<>();
         for (Question q : questions) {
             Map<String, Object> question = new LinkedHashMap<>();
@@ -200,13 +205,13 @@ public final class ChatDecide {
             qs.put(q.name(), question);
         }
         Map<String, Object> body = new LinkedHashMap<>();
-        body.put("model", "decide");
+        body.put("model", model);
         body.put("state", "A MapleStory player typed this to you in chat: " + clean(line));
         body.put("questions", qs);
         return body;
     }
 
-    static Optional<Map<String, Answer>> parse(String responseBody, List<Question> questions) {
+    public static Optional<Map<String, Answer>> parse(String responseBody, List<Question> questions) {
         Object parsed;
         try {
             parsed = responseBody == null ? null : Json.parse(responseBody);

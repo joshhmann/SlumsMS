@@ -282,6 +282,14 @@ public final class ConvoSense {
      * With {@code decide} null or {@code -Dsolomapling.convo.sense=false}, rules only.
      */
     public static Read read(String line, ChatDecide decide) {
+        return read(line, decide, null);
+    }
+
+    /**
+     * As {@link #read(String, ChatDecide)}; {@code speaker} (the player's name, may be null) only goes to the
+     * {@link DecideShadow} log as a hash. A line the model judged is offered to the shadow run after the decision.
+     */
+    public static Read read(String line, ChatDecide decide, String speaker) {
         ChatTriage.Result byRule = ChatTriage.rules(line);
         Optional<ConvoIntent> intent = intentRule(line);
         Optional<Tone> tone = toneRule(line, byRule);
@@ -289,9 +297,15 @@ public final class ConvoSense {
         if (decide == null || !ConvoSwitches.on("sense") || byRule.kind() != ChatTriage.Kind.TALK || !need) {
             return combine(line, byRule, Map.of(), 1, 1, 1);
         }
+        long started = System.nanoTime();
         Optional<Map<String, ChatDecide.Answer>> answers = decide.askNow(line, ASKED);
-        return combine(line, byRule, answers.orElse(Map.of()), ConvoSwitches.num("intentMin", 0.4),
-                ConvoSwitches.num("toneMin", 0.8), ConvoSwitches.prop("solomapling.chat.conMin", 0.4));
+        long ms = (System.nanoTime() - started) / 1_000_000;
+        double intentMin = ConvoSwitches.num("intentMin", 0.4), toneMin = ConvoSwitches.num("toneMin", 0.8);
+        double conMin = ConvoSwitches.prop("solomapling.chat.conMin", 0.4);
+        Read read = combine(line, byRule, answers.orElse(Map.of()), intentMin, toneMin, conMin);
+        // 1.6.0 shadow run (TEST, -Dslums.decide.shadow): logged only, never waits, never changes this read
+        DecideShadow.offer(line, speaker, byRule, answers.orElse(null), ms, read, intentMin, toneMin, conMin);
+        return read;
     }
 
     /** Rules first, the model's confident answers for the rest. Public for the offline evaluation. */

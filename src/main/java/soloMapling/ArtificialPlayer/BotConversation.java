@@ -448,7 +448,8 @@ public final class BotConversation {
         boolean whisper = session.deliver != null;
         // Ticket 59: one fast read - rules, then one Decide call for intent, tone and con together
         soloMapling.ArtificialPlayer.BotConvo.ConvoSense.Read read =
-                soloMapling.ArtificialPlayer.BotConvo.ConvoSense.read(line, ChatDecide.get());
+                soloMapling.ArtificialPlayer.BotConvo.ConvoSense.read(line, ChatDecide.get(),
+                        player == null ? null : player.getName());
         ChatTriage.Result triage = read.triage();
         // Ticket 58: a kind line warms the bot to the player, a rude one cools it (the tone read above, no extra call).
         soloMapling.ArtificialPlayer.BotAffinitySystem.AffinityReactions.judgeTone(bot, player, read.affinityTone(),

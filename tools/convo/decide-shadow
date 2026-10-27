@@ -1,0 +1,19 @@
+#!/bin/bash
+# 1.6.0 chat-model shadow run (DecideShadow): the scorecard, and a replay of logged chat through the same code path.
+# Run from the server folder (or pass paths). Needs target/Cosmic.jar (mvn -o -DskipTests package).
+#
+#   tools/convo/decide-shadow summary [--json] [--disagreements N] [data/autoqa/decide-shadow/<day>.jsonl | dir]...
+#   tools/convo/decide-shadow replay [--shadow gliclass,onejev] [--current URL] [--gap-ms 1000] [--bot-lines]
+#                                    [--keep-dupes] [--limit N] logs/convo/transcript-*.jsonl
+#
+# Replay calls the current model (default http://192.168.0.17:8900) and every shadow model once per judged line,
+# one line at a time with a pause; rows go to data/autoqa/decide-shadow/<UTC day>.jsonl tagged "src":"replay".
+# The jev model reads its key from ~/.config/slumsms/jev.key (chmod 600) or -Dslums.decide.shadow.jev.keyFile.
+set -euo pipefail
+JAR=${COSMIC_JAR:-target/Cosmic.jar}
+[ -f "$JAR" ] || JAR="$(dirname "$0")/../../target/Cosmic.jar"
+case "${1:-}" in
+ summary) shift; exec java -Xmx256m -cp "$JAR" soloMapling.ArtificialPlayer.BotConvo.DecideShadowReport "$@" ;;
+ replay) shift; exec java -Xmx512m ${SHADOW_JAVA_OPTS:-} -cp "$JAR" soloMapling.ArtificialPlayer.BotConvo.DecideShadowReplay "$@" ;;
+ *) sed -n '2,12p' "$0" >&2; exit 2 ;;
+esac
