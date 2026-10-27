@@ -472,3 +472,15 @@ class WorldTest(unittest.TestCase):
 
 if __name__ == "__main__":
     unittest.main()
+
+
+class ScrubTest(unittest.TestCase):
+    """Game-written text (names, megaphones) can't put forbidden words on the site or make a rebuild fail."""
+
+    def test_masks_words_emails_and_addresses_but_not_game_text(self):
+        import check
+        got = check.scrub({"items": [{"name": "NexonPl0x", "text": "mail bob@x.com from 10.0.0.5", "qty": 164},
+                                     {"name": "The Cave's Password", "text": "who remembers MapleStory?"}]})
+        self.assertEqual(got["items"][0], {"name": "N***nPl0x", "text": "mail [hidden] from [hidden]", "qty": 164})
+        self.assertEqual(got["items"][1]["name"], "The Cave's Password")
+        self.assertEqual(got["items"][1]["text"], "who remembers M********y?")

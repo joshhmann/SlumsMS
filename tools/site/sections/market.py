@@ -18,6 +18,7 @@ import os
 import re
 import shutil
 
+import check
 from common import REPO, esc, layout, write
 from sections.database import scrub
 
@@ -53,7 +54,7 @@ def load(data_dir=None):
                   if re.fullmatch(r"\d{4}-\d\d-\d\d\.json", os.path.basename(p)))[-HISTORY_DAYS:]  # not index.json
     m["prices"] = [_read(p) for p in days]
     m["sample"] = any(isinstance(v, dict) and v.get("sample") for v in m.values()) or any(p.get("sample") for p in m["prices"])
-    return m
+    return check.scrub(m)
 
 
 SCHEMA = 1

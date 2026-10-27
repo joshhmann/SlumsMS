@@ -376,11 +376,17 @@ def accounts(http):
 def reset_checks(http, rq):
     if not rq:
         return
-    cookie = {"Cookie": "slums_reset=" + list(rq.values())[0][2].group(1)} if list(rq.values())[0][2] else {}
-    st, _, _, js = http("POST", "/api/login/reset/status", {}, headers=dict(cookie, **{"X-Slums": "1", "Content-Type": "application/json"}))
-    ok((js or {}).get("status") == "pending", "forgot password: the request waits for an admin", f"{st} {js}")
+    hdr = {"X-Slums": "1", "Content-Type": "application/json"}
+    states = {}
+    for name, (_, _, m) in rq.items():
+        js = http("POST", "/api/login/reset/status", {}, headers=dict(hdr, Cookie="slums_reset=" + m.group(1)))[3] if m else None
+        states[name] = (js or {}).get("status")
+    ok(len(set(states.values())) == 1 and "pending" in states.values(),
+       "forgot password: a real and a made-up name both wait as pending (the status can't tell which accounts exist)",
+       str(states))
+    real = list(rq.values())[-1][2]
     st, _, _, js = http("POST", "/api/login/reset/complete", {"pass": "qanewpw1"},
-                        headers=dict(cookie, **{"X-Slums": "1", "Content-Type": "application/json"}))
+                        headers=dict(hdr, Cookie="slums_reset=" + real.group(1)) if real else hdr)
     ok(st == 409, "forgot password: a new password can't be set before approval", f"{st} {js}")
 
 

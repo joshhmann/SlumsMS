@@ -59,6 +59,31 @@ GAME_TEXT = [
     "Verifying the Password",                            # quest 3360
 ]
 
+def _mask(word):
+    return word[0] + "*" * (len(word) - 2) + word[-1] if len(word) > 2 else "*" * len(word)
+
+
+def scrub(obj):
+    """Text written in game (character and guild names, megaphones, drama) as the World and market exports carry it:
+    forbidden words are masked ("NexonPl0x" -> "N***nPl0x") and emails and IP addresses become "[hidden]", so a
+    player's name or megaphone can't put them on the site, nor make a rebuild fail and leave its pages stale. The site's
+    own wording still has to pass the check as it is. Numbers are left alone."""
+    if isinstance(obj, dict):
+        return {k: scrub(v) for k, v in obj.items()}
+    if isinstance(obj, list):
+        return [scrub(v) for v in obj]
+    if not isinstance(obj, str) or obj in GAME_TEXT:
+        return obj
+    for bad in FORBIDDEN:
+        if bad.lower() in obj.lower():
+            obj = re.sub(re.escape(bad), lambda m: _mask(m.group(0)), obj, flags=re.I)
+    for pat in FORBIDDEN_PATTERNS[-2:]:   # emails and IP addresses
+        obj = pat.sub("[hidden]", obj)
+    for pat in FORBIDDEN_PATTERNS[:-2]:   # the host "164" named as a machine
+        obj = pat.sub(lambda m: m.group(0).replace("164", "1*4"), obj)
+    return obj
+
+
 TEXT_EXT = {".html", ".css", ".svg", ".txt", ".xml", ".json", ".js", ".md"}
 
 

@@ -20,6 +20,7 @@ import os
 import re
 import shutil
 
+import check
 import common
 from common import REPO, esc, layout, write
 from sections import market
@@ -50,7 +51,7 @@ def load(data_dir=None):
             out[n[:-5]] = json.load(f)
     out["sample"] = any(v.get("sample") for v in out.values() if isinstance(v, dict))
     drop_qa(out)
-    return out
+    return check.scrub(out)
 
 
 # Auto-QA's pretend players (AutoQaOne, AutoQa53423) only exist on TEST, but bots gossip about them like anyone else.
