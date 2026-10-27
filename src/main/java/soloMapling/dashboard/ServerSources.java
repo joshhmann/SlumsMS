@@ -48,7 +48,9 @@ final class ServerSources implements DashboardExporter.Sources {
             }
             try {
                 out.add(new LiveSnapshot.BotSample(chr.getId(), chr.getName(), chr.getLevel(), jobName(chr),
-                        chr.getMapId(), typeOf(bot), activityOf(bot), chr.getMeso()));
+                        chr.getMapId(), typeOf(bot), activityOf(bot), chr.getMeso(),
+                        soloMapling.ArtificialPlayer.BotRoster.loadedMember(chr.getId()
+                                - soloMapling.ArtificialPlayer.BotStore.BOT_ID_BASE) != null));
             } catch (RuntimeException e) {
                 // a bot logging out mid-read: skip it this minute
             }

@@ -24,4 +24,8 @@ public final class LifeTownSlots {
         if (key != null) incoming.computeIfPresent(key, (k, count) -> count <= 1 ? null : count - 1);
     }
     public static synchronized int size() { return byBot.size(); }
+    /** 1.6.0 towns: bots on their way to this map instance (TownPulse counts them against a town's deficit). */
+    public static synchronized int incoming(int channel, int mapId) {
+        return incoming.getOrDefault(((long) channel << 32) | (mapId & 0xffffffffL), 0);
+    }
 }

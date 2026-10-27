@@ -46,6 +46,8 @@ public final class BotChannels {
     private static final Set<Integer> SPREAD_TASKS = ConcurrentHashMap.newKeySet();
     /** The spread tasks that dress the FM entrance (FM bots, merchants): scaled by BOT_FM_ENVIRONMENT_SCALE instead. */
     private static final Set<Integer> MARKET_TASKS = ConcurrentHashMap.newKeySet();
+    /** 1.6.0 towns: the spread tasks that dress Henesys (HenesysBots, fillers, the pet park): BOT_TOWN_DRESSING_SCALE. */
+    private static final Set<Integer> TOWN_TASKS = ConcurrentHashMap.newKeySet();
 
     /** Bots chosen for a channel but not yet in its player storage, so parallel logins do not all pick one channel. */
     private static final int[] inFlight = new int[64];
@@ -165,12 +167,31 @@ public final class BotChannels {
      * merchants) are scaled by {@code BOT_FM_ENVIRONMENT_SCALE} rather than {@code BOT_ENVIRONMENT_SCALE}.
      */
     public static void spreadTask(int wave, int task, boolean market) {
+        spreadTask(wave, task, market, false);
+    }
+
+    /**
+     * 1.6.0 towns: as {@link #spreadTask(int, int, boolean)}; {@code town} tasks (the Henesys town dressing) are scaled
+     * by {@code BOT_TOWN_DRESSING_SCALE} when it is set (0..1), else by {@code BOT_ENVIRONMENT_SCALE} as before.
+     */
+    public static void spreadTask(int wave, int task, boolean market, boolean town) {
         SPREAD_TASKS.add(taskKey(wave, task));
         if (market) {
             MARKET_TASKS.add(taskKey(wave, task));
         } else {
             MARKET_TASKS.remove(taskKey(wave, task));
         }
+        if (town && !market) {
+            TOWN_TASKS.add(taskKey(wave, task));
+        } else {
+            TOWN_TASKS.remove(taskKey(wave, task));
+        }
+    }
+
+    /** Whether a bot of this slot dresses Henesys (a town spread task). */
+    static boolean isTownSlot(int slot) {
+        int wave = BotStore.waveOf(slot);
+        return wave > 0 && TOWN_TASKS.contains(taskKey(wave, BotStore.taskOf(slot)));
     }
 
     /** Whether a bot of this slot dresses the FM entrance (a market spread task). */
@@ -198,7 +219,16 @@ public final class BotChannels {
         if (!isSpreadSlot(slot)) {
             return 1.0;
         }
-        return isMarketSlot(slot) ? marketScale() : environmentScale();
+        if (isMarketSlot(slot)) {
+            return marketScale();
+        }
+        return isTownSlot(slot) ? townDressingScale(environmentScale()) : environmentScale();
+    }
+
+    /** 1.6.0 towns: BOT_TOWN_DRESSING_SCALE clamped to 0..1; a negative (the shipped -1) follows {@code fallback}. */
+    static double townDressingScale(double fallback) {
+        double scale = YamlConfig.config.server == null ? -1 : YamlConfig.config.server.BOT_TOWN_DRESSING_SCALE;
+        return !Double.isFinite(scale) || scale < 0 ? fallback : Math.min(1.0, scale);
     }
 
     /*

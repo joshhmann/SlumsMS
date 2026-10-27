@@ -41,6 +41,35 @@ class BotMapCapTest {
         BotMapCap.resetForTest();
     }
 
+    /* 1.6.0 towns: while the town pull is on, a town map takes BOT_TOWN_MAP_MAX over BOT_MAP_CAP (an override of its
+     * own still wins); off (shipped), nothing changes; fields never change. */
+    @Test
+    void aTownMapTakesTheTownMaxOnlyWhileTheTownPullIsOn() {
+        var server = YamlConfig.config.server;
+        double savedPull = server.BOT_TOWN_PULL;
+        int savedMax = server.BOT_TOWN_MAP_MAX;
+        try {
+            server.BOT_MAP_CAP = 50;
+            server.BOT_MAP_CAP_OVERRIDES = "";
+            server.BOT_TOWN_MAP_MAX = 200;
+            server.BOT_TOWN_PULL = 0;
+            assertEquals(50, BotMapCap.cap(HENESYS), "off: BOT_MAP_CAP as before");
+            server.BOT_TOWN_PULL = .3;
+            assertEquals(200, BotMapCap.cap(HENESYS));
+            assertEquals(200, BotMapCap.cap(220000000));
+            assertEquals(50, BotMapCap.cap(FIELD), "a field keeps BOT_MAP_CAP");
+            assertEquals(200, BotMapCap.cap(FM1), "an FM room is in the Free Market family");
+            server.BOT_MAP_CAP_OVERRIDES = "100000000:70";
+            assertEquals(70, BotMapCap.cap(HENESYS), "a map's own override wins");
+            server.BOT_MAP_CAP_OVERRIDES = "";
+            server.BOT_MAP_CAP = 0;
+            assertEquals(0, BotMapCap.cap(HENESYS), "no cap stays no cap");
+        } finally {
+            server.BOT_TOWN_PULL = savedPull;
+            server.BOT_TOWN_MAP_MAX = savedMax;
+        }
+    }
+
     @Test
     void theShippedDefaultIs50WithNoOverrides() {
         assertEquals(50, new config.ServerConfig().BOT_MAP_CAP);

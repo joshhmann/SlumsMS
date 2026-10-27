@@ -333,6 +333,8 @@ public final class BotPopulationDirector {
                     server.BOT_DIRECTOR_MAX_LOGOUTS_PER_TICK, ThreadLocalRandom.current());
             lastPlan = plan;
             lastTickAt = now;
+            // 1.6.0 towns: the busyness index (off at BOT_TOWN_PULL=0: dropped, nothing read)
+            soloMapling.ArtificialPlayer.BotLifeSystem.TownPulse.refresh(plan.online(), directorPeak());
             if (maxLogins == Integer.MAX_VALUE) {
                 System.out.println("[Director] boot fill: target " + target + ", roster " + roster.size() + " ("
                         + plan.online() + " online), logging in " + plan.logins().size());
