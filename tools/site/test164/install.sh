@@ -31,7 +31,10 @@ ssh "$HOST" "mkdir -p $DEST/tools $DEST/docs $DEST/hiddenstreet /srv/slums-site-
   install -d -m 700 /etc/slums-login-test
   # a throwaway TEST-only key, never the live one; nobody prints or copies it
   [ -s /etc/slums-login-test/key ] || (umask 077; head -c 48 /dev/urandom > /etc/slums-login-test/key)
-  chmod 600 /etc/slums-login-test/key"
+  chmod 600 /etc/slums-login-test/key
+  # the salt for hashing visitors' addresses before they go to the game server (ticket 105), TEST only
+  [ -s /etc/slums-login-test/ip-salt ] || (umask 077; head -c 32 /dev/urandom > /etc/slums-login-test/ip-salt)
+  chmod 600 /etc/slums-login-test/ip-salt"
 rsync -a --delete --exclude __pycache__ --exclude testdata tools/site/ "$HOST:$DEST/tools/site/"
 rsync -a --delete docs/site/ "$HOST:$DEST/docs/site/"
 rsync -a --delete docs/wiki/ "$HOST:$DEST/docs/wiki/"

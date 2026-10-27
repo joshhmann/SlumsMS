@@ -12,6 +12,10 @@ Environment=SLUMS_LOGIN_REVOKED=/var/lib/slums-login-test/revoked.txt
 Environment=SLUMS_LOGIN_PORT=8194
 # plain http on the LAN: a Secure cookie would never be sent back
 Environment=SLUMS_LOGIN_SECURE=0
+# ticket 105: the TEST game server's auth API, its secret (made by the release lead) and our own address salt
+Environment=SLUMS_LOGIN_AUTH_URL=http://127.0.0.1:8196
+Environment=SLUMS_LOGIN_AUTH_SECRET_FILE=/etc/slums-auth-test/secret
+Environment=SLUMS_LOGIN_IP_SALT_FILE=/etc/slums-login-test/ip-salt
 Restart=on-failure
 RestartSec=3
 NoNewPrivileges=true
@@ -20,7 +24,7 @@ PrivateDevices=true
 ProtectSystem=strict
 ProtectHome=true
 ReadWritePaths=/var/lib/slums-login-test
-ReadOnlyPaths=/opt/slums-site-test /etc/slums-login-test
+ReadOnlyPaths=/opt/slums-site-test /etc/slums-login-test -/etc/slums-auth-test
 ProtectKernelTunables=true
 ProtectKernelModules=true
 ProtectControlGroups=true

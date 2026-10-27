@@ -42,6 +42,13 @@ FORBIDDEN_PATTERNS = [
 # Places where a forbidden string is harmless data, matched exactly. Keep this list short and explain each entry.
 ALLOW = []
 
+# Forbidden words a single file may use, whole word list for that file only. Keep it short and say why.
+WORD_OK = {
+    # ticket 105: the sign-in page asks for the game password (it goes to the login service, never into a page)
+    "login/index.html": {"password"},
+    "assets/login.js": {"password"},
+}
+
 # Game text that contains a forbidden word, allowed on any page because it is the game's own name for something
 # (the database lists every quest). Matched exactly, with the HTML-escaped spellings, so the word alone still fails.
 GAME_TEXT = [
@@ -84,6 +91,8 @@ def check_forbidden(root):
             text = text.replace(literal, "")
         low = text.lower()
         for bad in FORBIDDEN:
+            if bad in WORD_OK.get(rel, ()):
+                continue
             i = low.find(bad.lower())
             while i != -1:
                 line = low.count("\n", 0, i) + 1

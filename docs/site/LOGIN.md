@@ -43,12 +43,17 @@ useradd --system --no-create-home --shell /usr/sbin/nologin slums-login
 install -d -o slums-login -g slums-login -m 2770 /var/lib/slums-login/approvals
 install -d -m 0750 -g slums-login /etc/slums-login
 head -c 48 /dev/urandom > /etc/slums-login/key && chgrp slums-login /etc/slums-login/key && chmod 0640 /etc/slums-login/key
+# ticket 105 (password sign-in and invite sign-up): the address salt, and read access to the game's auth secret
+head -c 32 /dev/urandom > /etc/slums-login/ip-salt && chgrp slums-login /etc/slums-login/ip-salt && chmod 0640 /etc/slums-login/ip-salt
+chgrp slums-login /etc/slums-auth /etc/slums-auth/secret && chmod 0750 /etc/slums-auth && chmod 0640 /etc/slums-auth/secret
 install -d /opt/slums-login && install -m 0644 tools/site/login_service.py /opt/slums-login/
 install -m 0644 tools/site/slums-login.service /etc/systemd/system/ && systemctl daemon-reload
 systemctl enable --now slums-login
 curl -s http://127.0.0.1:8094/api/login/health        # {"ok": true}
 ```
-Live runs as root, so the game server needs no group change to write approvals. Then add `tools/site/slums-login.nginx.conf` inside the site's
+Live runs as root, so the game server needs no group change to write approvals. The game server's auth API
+(127.0.0.1:8186, ticket 105) and its secret `/etc/slums-auth/secret` come with 1.6.0; the owner makes the secret.
+Until both exist, password sign-in and sign-up answer "Sign-in is down right now" and `@weblogin` still works. Then add `tools/site/slums-login.nginx.conf` inside the site's
 nginx server block, `nginx -t && systemctl reload nginx`, and publish the private build (`dist/site-private`).
 
 ## The market service (watchlist, alerts, Buy/Sell board)

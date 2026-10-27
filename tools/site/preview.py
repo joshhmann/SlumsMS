@@ -7,12 +7,15 @@
 For looking at the site before launch, never for players. Nothing here talks to a game server:
 - The login page works: "Get a code" gives a code, and about 5 seconds later the browser counts as signed in as
   "Previewer", as if `@weblogin` had been typed. Sign out works too.
+- Password sign-in takes any username with the password "preview1"; sign-up takes the invite code "PREVIEW"
+  (any other code is refused, like a used one). The username and password rules are the real ones.
 - /database/, /market/ and /secret/ need that pretend sign-in, like nginx does on 164 (auth_request).
 - The market API (/api/market/) answers 503, so the market pages show their read-only view.
 World and market data are whatever the build used (the samples unless --site-data / --market-data were given).
 """
 import argparse
 import functools
+import sys
 import json
 import os
 import secrets
@@ -21,6 +24,8 @@ from http.server import SimpleHTTPRequestHandler, ThreadingHTTPServer
 from urllib.parse import quote, urlsplit
 
 HERE = os.path.dirname(os.path.abspath(__file__))
+sys.path.insert(0, HERE)
+import login_service as ls  # noqa: E402  (the real rules and messages)
 SESSION, PENDING = "slums_session", "slums_pending"
 GATED = ("/database/", "/market/", "/secret/")
 WAIT = 5  # seconds before a pretend code counts as typed in game
@@ -86,6 +91,22 @@ class Handler(SimpleHTTPRequestHandler):
             return self.reply(200, {"ok": True, "code": code, "expires_in": 600}, [f"{PENDING}={secret}; Max-Age=600"])
         if path == "/api/login/logout":
             return self.reply(200, {"ok": True}, [f"{SESSION}=; Max-Age=0"])
+        if path in ("/api/login/password", "/api/login/signup"):
+            try:
+                body = json.loads(self.rfile.read(int(self.headers.get("Content-Length") or 0)) or b"{}")
+            except ValueError:
+                body = {}
+            if self.headers.get("X-Slums") != "1" or not isinstance(body, dict):
+                return self.reply(403, {"ok": False, "error": "Refused."})
+            broken = ls.rule_broken(body.get("user"), body.get("pass"))
+            if broken:
+                return self.reply(400, {"ok": False, "error": ls.RULES[broken], "rule": broken})
+            if path.endswith("signup") and ls.clean_code(body.get("code")) != "PREVIEW":
+                return self.reply(403, {"ok": False, "error": ls.ERRORS["BAD_CODE"][1]})
+            if path.endswith("password") and body["pass"] != "preview1":
+                return self.reply(401, {"ok": False, "error": ls.ERRORS["WRONG_LOGIN"][1]})
+            return self.reply(200, {"ok": True, "account": body["user"], "character": None},
+                              [f"{SESSION}=preview; Max-Age=2592000"])
         return self.reply(503, {"ok": False, "error": "Not in the preview."})
 
 

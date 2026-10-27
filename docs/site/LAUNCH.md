@@ -66,8 +66,11 @@ Undo: `rsync -a --delete /srv/slums-site.bak-<stamp>/ /srv/slums-site/` on 164.
 
 ## 2. Install the sign-in service (not reachable from outside yet)
 Follow `docs/site/LOGIN.md`, "Install on 164": user and group `slums-login`, `/var/lib/slums-login/approvals`, the
-**owner** makes the key (`head -c 48 /dev/urandom > /etc/slums-login/key`; nobody prints or copies it), the unit
-`slums-login.service`. Check: `curl -s http://127.0.0.1:8094/api/login/health` gives `{"ok": true}`.
+**owner** makes the key (`head -c 48 /dev/urandom > /etc/slums-login/key`; nobody prints or copies it) and the
+address salt `/etc/slums-login/ip-salt` the same way, the unit `slums-login.service`. For password sign-in and invite
+sign-up (ticket 105) the **owner** also makes the game's auth secret `/etc/slums-auth/secret` (read by the game server
+and, through group `slums-login`, by the sign-in; LOGIN.md has the commands). Without it those two answer "Sign-in is
+down right now" and `@weblogin` still works. Check: `curl -s http://127.0.0.1:8094/api/login/health` gives `{"ok": true}`.
 Undo: `systemctl disable --now slums-login`.
 
 ### 2b. Install the market service (watchlist, alerts, Buy/Sell board; not reachable from outside yet)
