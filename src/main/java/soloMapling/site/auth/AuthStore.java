@@ -20,6 +20,12 @@ import java.util.List;
  */
 public interface AuthStore {
 
+    /** The world players are on: Bera is world id 1 on live and TEST, never 0 (AGENTS.md). */
+    int MAIN_WORLD = 1;
+    /** An account's characters on {@link #MAIN_WORLD}, bots left out, oldest first. */
+    String CHARACTERS_SQL = "SELECT name FROM characters WHERE accountid = ? AND world = ? AND id < ? ORDER BY id";
+
+
     /** {@link #createAccountWithInvite}: the code was used, revoked or expired before this sign-up got it. */
     int CODE_GONE = -1;
     /** {@link #createAccountWithInvite}: an account with this name already exists. */
@@ -258,10 +264,10 @@ public interface AuthStore {
                         }
                     }
                 }
-                try (PreparedStatement ps = con.prepareStatement(
-                        "SELECT name FROM characters WHERE accountid = ? AND world = 0 AND id < ? ORDER BY id")) {
+                try (PreparedStatement ps = con.prepareStatement(CHARACTERS_SQL)) {
                     ps.setInt(1, accountId);
-                    ps.setInt(2, BotStore.BOT_ID_BASE);
+                    ps.setInt(2, MAIN_WORLD);
+                    ps.setInt(3, BotStore.BOT_ID_BASE);
                     try (ResultSet rs = ps.executeQuery()) {
                         while (rs.next()) {
                             names.add(rs.getString(1));

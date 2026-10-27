@@ -1,15 +1,13 @@
 package client.command;
 
-import client.command.commands.gm0.WebLoginCommand;
 import org.junit.jupiter.api.Test;
 
-import static org.junit.jupiter.api.Assertions.assertEquals;
+import static org.junit.jupiter.api.Assertions.assertNull;
 
 class WebLoginRegisteredTest {
     @Test
-    void registeredAtRank0() {
+    void notRegisteredSinceTheOwnerDroppedIt() {
         CommandsExecutor ex = CommandsExecutor.freshForTest();
-        assertEquals(WebLoginCommand.class, ex.classForTest("weblogin"));
-        assertEquals(0, ex.rankForTest("weblogin"));
+        assertNull(ex.classForTest("weblogin"), "1.6.0 signs in with the game username and password (ticket 105)");
     }
 }

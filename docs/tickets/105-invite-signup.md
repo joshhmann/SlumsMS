@@ -20,8 +20,9 @@ The site goes public with 1.6.0, and today anyone can make accounts from the gam
    allowed characters, name not taken, not a bot's name). The game server creates the account. Neither the site nor
    the launcher writes the database.
 2. **Sign in** on the site or in the launcher with the game username and password, checked by the game server
-   (the same hash check as the login screen). The result is the same revocable site session `@weblogin` gives.
-   `@weblogin` stays as a fallback.
+   (the same hash check as the login screen). The result is the same revocable site session `@weblogin` gave.
+   `@weblogin` is dropped (owner 2026-10-26): one way in, the game username and password. The command is no longer
+   registered; its `revoked.txt` (in `-Dslums.weblogin.dir`) still revokes sessions.
 3. **Login screen auto-register off** once this is live (config flag). Existing accounts log in as before.
 4. **Invite codes:** single use, one account each. Only GM accounts make them, in game (owner 2026-10-26): the maker
    picks how long the code stays valid, `!invite <1d|7d|30d|forever> [note]` (7d when no duration is given) prints a
@@ -89,7 +90,7 @@ two sign-ups with one code make one account). Codes ignore case, dashes and spac
 **Success** (both): `200 {"ok":true,"account_id":123,"account":"Newfriend","gm":false,"gm_level":0,"characters":["Slum","Alt"]}`.
 `account` is the stored spelling; `gm` is `gm_level > 0`, where `gm_level` is the highest `characters.gm` on the
 account (what the version gate reads; `@weblogin` sends the same number as `gm`); `characters` are the account's
-characters on world 0 (not bots), oldest first, as `@weblogin` sends them. A new account has no characters.
+characters on the main world, Bera, world id 1 (not bots), oldest first, as `@weblogin` sends them. A new account has no characters.
 
 **Errors:** `{"ok":false,"error":"<CODE>"}`, HTTP 200 except `RATE_LIMITED` (429):
 

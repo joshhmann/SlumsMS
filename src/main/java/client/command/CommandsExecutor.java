@@ -248,7 +248,8 @@ public class CommandsExecutor {
         addCommand("showrates", ShowRatesCommand.class);
         addCommand("rates", RatesCommand.class);
         addCommand("online", OnlineCommand.class);
-        addCommand("weblogin", client.command.commands.gm0.WebLoginCommand.class);   // 1.6.0 website sign-in (off unless -Dslums.weblogin.dir)
+        // "weblogin" is not registered: the owner dropped it for 1.6.0 (2026-10-26); the site and launcher sign in with
+        // the game username and password (ticket 105). WebLoginCommand stays for its revoked.txt check.
         addCommand("gm", GmCommand.class);
         addCommand(new String[]{"bug", "reportbug"}, ReportBugCommand.class);
         addCommand("idea", ReportBugCommand.Idea.class);
