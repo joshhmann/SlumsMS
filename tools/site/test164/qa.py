@@ -363,32 +363,64 @@ def accounts(http):
     for name in ("qanobody1", cr.get("QA_USER") or "qanobody2"):
         st, hd, _, js = http("POST", "/api/login/reset/request", {"user": name, "contact": "qa run"})
         rq[name] = (st, (js or {}).get("status"), re.search(r"slums_reset=([^;]+)", hd.get("Set-Cookie") or ""))
-    ok(len({v[:2] for v in rq.values()}) == 1 and all(v[0] == 200 and v[2] for v in rq.values()),
-       "forgot password: a request answers the same for a real and a made-up name", str({k: v[:2] for k, v in rq.items()}))
+    if all(v[0] == 503 for v in rq.values()):
+        report("SKIP", "forgot password: request, wait, no early password", "the TEST game API has no /reset yet (ticket 107)")
+        rq = None
+    else:
+        ok(len({v[:2] for v in rq.values()}) == 1 and all(v[0] == 200 and v[2] for v in rq.values()),
+           "forgot password: a request answers the same for a real and a made-up name", str({k: v[:2] for k, v in rq.items()}))
+    reset_checks(http, rq)
+    accounts_rest(http, cr)
+
+
+def reset_checks(http, rq):
+    if not rq:
+        return
     cookie = {"Cookie": "slums_reset=" + list(rq.values())[0][2].group(1)} if list(rq.values())[0][2] else {}
     st, _, _, js = http("POST", "/api/login/reset/status", {}, headers=dict(cookie, **{"X-Slums": "1", "Content-Type": "application/json"}))
     ok((js or {}).get("status") == "pending", "forgot password: the request waits for an admin", f"{st} {js}")
     st, _, _, js = http("POST", "/api/login/reset/complete", {"pass": "qanewpw1"},
                         headers=dict(cookie, **{"X-Slums": "1", "Content-Type": "application/json"}))
     ok(st == 409, "forgot password: a new password can't be set before approval", f"{st} {js}")
+
+
+def login_call(http, path, body):
+    """Sign-in calls: the login service allows 10 a minute per address, and this run makes more than that from 187."""
+    got = http("POST", path, body)
+    if got[0] == 429:
+        time.sleep(61)
+        got = http("POST", path, body)
+    return got
+
+
+def accounts_rest(http, cr):
     user, pw = cr.get("QA_USER"), cr.get("QA_PASS")
     if user and pw:
-        st, hd, _, js = http("POST", "/api/login/password", {"user": user, "pass": pw})
+        st, hd, _, js = login_call(http, "/api/login/password", {"user": user, "pass": pw})
         tok = re.search(r"slums_session=([^;]+)", hd.get("Set-Cookie") or "")
         ok(st == 200 and tok and http("GET", "/market/", token=tok.group(1))[0] == 200,
            "password sign-in gives a session that opens the market", str(st))
         if tok:
+            me = http("GET", "/api/login/me", token=tok.group(1))[3] or {}
+            ok(me.get("account", "").lower() == user.lower(), "the session knows the account", str(me))
+            if not me.get("character"):   # a new account: no character yet, so nothing to post as
+                st2, _, _, js2 = http("POST", "/api/market/posts", {"kind": "WTB", "itemId": ITEMS[0], "qty": 1, "price": 10},
+                                      token=tok.group(1))
+                ok(st2 == 400, "an account with no character yet can't post on the board", f"{st2} {js2}")
             http("POST", "/api/login/logout", token=tok.group(1))
     else:
         report("SKIP", "password sign-in with a real TEST account", f"no QA_USER / QA_PASS in {QA_CREDS} or the environment")
     code = cr.get("QA_INVITE")
     if code:
         name = "qa" + time.strftime("%m%d%H%M")
-        st, _, _, js = http("POST", "/api/login/signup", {"code": code, "user": name, "pass": "qapass12"})
+        st, _, _, js = login_call(http, "/api/login/signup", {"code": code, "user": name, "pass": "qapass12"})
+        if st == 403:  # the code is single use: an earlier run spent it
+            report("SKIP", "invite sign-up", f"QA_INVITE was already used; put a fresh code from !invite in {QA_CREDS}")
+            return
         ok(st == 200 and js.get("account") == name, f"sign-up with an invite code makes {name}", f"{st} {js}")
-        st, _, _, js = http("POST", "/api/login/signup", {"code": code, "user": name + "x", "pass": "qapass12"})
+        st, _, _, js = login_call(http, "/api/login/signup", {"code": code, "user": name + "x", "pass": "qapass12"})
         ok(st == 403, "the same invite code can't be used twice", f"{st} {js}")
-        st, _, _, js = http("POST", "/api/login/password", {"user": name, "pass": "qapass12"})
+        st, _, _, js = login_call(http, "/api/login/password", {"user": name, "pass": "qapass12"})
         ok(st == 200, "the new account can sign in with its password", f"{st} {js}")
     else:
         report("SKIP", "invite sign-up", f"no fresh QA_INVITE in {QA_CREDS} or the environment")
