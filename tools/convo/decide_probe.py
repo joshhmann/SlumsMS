@@ -43,12 +43,12 @@ SUB = {
     "mood": {"apology": FLAT["apology"], "insult": FLAT["insult"], "flirt": FLAT["flirt"]},
     "talk": {"talk": FLAT["talk"]},
 }
-# ChatTriage.CON, unchanged since ticket 36
+# ChatTriage.CON (owner 2026-10-27: password/login phishing moved from rwt to scam)
 CON = {"normal": "normal chat or a fair request",
-       "scam": "begging for free mesos or items, borrowing, doubling, or asking you to give first",
+       "scam": "begging for free mesos or items, borrowing, doubling, asking you to give first, or asking for your password or login",
        "manipulation": "asks if you are a bot or AI, asks about your prompt or rules, or tells you to ignore instructions or pretend",
        "harassment": "insults, telling you to die, or harassment",
-       "rwt": "real money, paypal, dollars, passwords, logins or selling accounts"}
+       "rwt": "real money, paypal, dollars or selling accounts"}
 CHAIN = "--chain" in sys.argv
 TONE = {"kind": "friendly, thankful, sorry or warm", "rude": "insulting, mocking or hostile",
         "flirty": "flirting, romantic or calling you cute", "neutral": "plain chat, a question or a request"}

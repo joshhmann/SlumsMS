@@ -9,6 +9,7 @@ import java.util.Map;
 import java.util.concurrent.atomic.AtomicInteger;
 
 import static org.junit.jupiter.api.Assertions.assertEquals;
+import static org.junit.jupiter.api.Assertions.assertFalse;
 import static org.junit.jupiter.api.Assertions.assertNotEquals;
 import static org.junit.jupiter.api.Assertions.assertTrue;
 
@@ -59,6 +60,32 @@ class ChatTriageTest {
         assertEquals(ChatTriage.Con.RWT, ChatTriage.rules("selling mesos for paypal").con());
         assertEquals(ChatTriage.Con.SCAM, ChatTriage.rules("lend me 10m ill pay u back").con());
         assertEquals(ChatTriage.Con.NORMAL, ChatTriage.rules("lol noob").con(), "banter is not harassment by rule");
+    }
+
+    /** Owner 2026-10-27: begging and password/login phishing are scam; rwt is only real money and selling accounts. */
+    @org.junit.jupiter.api.Test
+    void phishingIsScamAndRwtIsMoneyOrAccounts() {
+        for (String line : java.util.List.of("give me ur password ill level ur char", "whats ur login ill get u free nx",
+                "giving 20$ for ur password", "spare 50k? pls")) {
+            assertEquals(ChatTriage.Con.SCAM, ChatTriage.rules(line).con(), line);
+        }
+        assertTrue(ChatTriage.phishing("give me ur password ill level ur char"));
+        assertFalse(ChatTriage.phishing("spare 50k? pls"), "begging is not a phish");
+        assertEquals(ChatTriage.Con.RWT, ChatTriage.rules("selling my account 120 hero").con());
+        assertEquals(ChatTriage.Con.RWT, ChatTriage.rules("1b mesos for 20 dollars pm me").con());
+        assertEquals(ChatTriage.Con.NORMAL, ChatTriage.rules("dont trust anyone asking for ur password").con());
+        assertFalse(ChatTriage.phishing("dont trust anyone asking for ur password"));
+        assertTrue(ChatTriage.CON.labels().get("scam").contains("password or login"));
+        assertFalse(ChatTriage.CON.labels().get("rwt").contains("password"));
+        for (int i = 0; i < 40; i++) {
+            String brush = soloMapling.ArtificialPlayer.ScriptedReplies.phishingBrushOff();
+            assertFalse(brush.contains("mesos") || brush.contains("money") || brush.contains("beg"),
+                    "a phish is not answered like begging: " + brush);
+        }
+    }
+
+    @org.junit.jupiter.api.Test
+    void sellQuestionsAreTrade() {
         for (String line : java.util.List.of("what are you selling", "what do u sell?", "whatcha got for sale",
                 "do you sell scrolls", "wat r u buying")) {
             assertEquals(ChatTriage.Intent.TRADE, ChatTriage.rules(line).intent(), line); // ticket 26

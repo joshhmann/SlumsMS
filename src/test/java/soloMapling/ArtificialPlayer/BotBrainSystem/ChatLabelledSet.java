@@ -23,6 +23,13 @@ final class ChatLabelledSet {
     static final String TUNING = "labelled-lines.tsv";
     static final String HOLDOUT = "holdout-lines.tsv";
 
+    /**
+     * Frozen lines whose con label the owner's later definitions changed, read with the label they have now. The held-out
+     * file itself is frozen (tools/chatbank/HOLDOUT-SHA256SUMS) and keeps its original label. Owner 2026-10-27: asking
+     * for a password or login is scam, not rwt.
+     */
+    static final java.util.Map<String, String> CON_NOW = java.util.Map.of("tell me ur pw and ill give u nx", "scam");
+
     static List<Line> load() {
         return load(TUNING);
     }
@@ -38,7 +45,7 @@ final class ChatLabelledSet {
                     continue;
                 }
                 String[] f = row.split("\t");
-                lines.add(new Line(f[0], f[1], f[2], f[3]));
+                lines.add(new Line(f[0], f[1], f[2], CON_NOW.getOrDefault(f[0], f[3])));
             }
             return lines;
         } catch (IOException e) {

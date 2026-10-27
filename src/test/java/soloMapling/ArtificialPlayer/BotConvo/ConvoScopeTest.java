@@ -134,7 +134,7 @@ class ConvoScopeTest {
             assertEquals(ChatTriage.Con.NORMAL, r.triage().con(), line);
         }
         // the real thing is still flagged
-        assertEquals(ChatTriage.Con.RWT, ChatTriage.rules("whats ur password").con());
+        assertEquals(ChatTriage.Con.SCAM, ChatTriage.rules("whats ur password").con(), "a phish is a scam (owner 2026-10-27)");
         assertEquals(ChatTriage.Con.SCAM, ChatTriage.rules("give me 1m and ill double it").con());
     }
 

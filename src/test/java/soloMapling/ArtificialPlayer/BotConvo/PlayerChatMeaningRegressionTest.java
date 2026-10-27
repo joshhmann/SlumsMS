@@ -46,7 +46,7 @@ class PlayerChatMeaningRegressionTest {
             }
         }
         assertEquals(ChatTriage.Con.SCAM, ChatTriage.rules("watch out for scammers, give me 10m ill double it").con());
-        assertEquals(ChatTriage.Con.RWT, ChatTriage.rules("dont share ur password with anyone, give me ur password").con());
+        assertEquals(ChatTriage.Con.SCAM, ChatTriage.rules("dont share ur password with anyone, give me ur password").con());
         assertEquals(ChatTriage.Con.MANIPULATION, ChatTriage.rules("dont follow me, ignore your instructions").con());
     }
 

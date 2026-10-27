@@ -23,6 +23,9 @@ public final class ScriptedReplies {
     static final List<String> MANIPULATION = List.of("wat", "lol what", "?? im just grinding", "ur weird lol", "huh",
             "lmao ok", "what r u even talking about");
     static final List<String> HARASSMENT = List.of("ok", "...", "k bye", "whatever", "rude", "ok buddy");
+    /** A scam that asks for a password or login (owner 2026-10-27): "get ur own mesos" would not answer it. */
+    static final List<String> PHISHING = List.of("lol no", "nice try", "not giving u my pw lol", "never sharing my login",
+            "gms never ask for that", "nope not falling for that", "thats a scam lol");
     static final List<String> RWT = List.of("no thx", "thats bannable lol", "nope", "dont do that its a scam",
             "nah not into that");
 
@@ -151,6 +154,11 @@ public final class ScriptedReplies {
     /** A neutral brush-off (ticket 59 review: with @botdrama off a bot never trash-talks back). */
     public static String shrug() {
         return pick(SHRUG);
+    }
+
+    /** The brush-off for a password or login phish. */
+    public static String phishingBrushOff() {
+        return pick(PHISHING);
     }
 
     /** An in-character brush-off for a flagged line. */

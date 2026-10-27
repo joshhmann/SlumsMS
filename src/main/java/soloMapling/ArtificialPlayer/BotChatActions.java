@@ -323,6 +323,9 @@ public final class BotChatActions {
     // ── cons ──
 
     /** The memory note a flag leaves, from the bot's point of view. */
+    /** The memory note for a password or login phish (flagged scam). */
+    static final String PHISH_NOTE = "tried to get my password";
+
     static String flagNote(ChatTriage.Con con) {
         return switch (con) {
             case SCAM -> "tried to scam me (begged for mesos or items)";
