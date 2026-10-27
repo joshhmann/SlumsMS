@@ -90,6 +90,12 @@ systemctl daemon-reload && systemctl enable --now slums-market
 Check: `curl -s http://127.0.0.1:8095/api/market/health` gives `{"ok": true}`; `/var/lib/slums-market/inbox/posts.json`
 appears with an empty list; `sudo -u slums-market touch /var/lib/slums-market/outbox/x` fails (the site can't write
 the game's folder). Live's 1.6.0 start line points the board's inbox and outbox flags at these two folders (step 3).
+The service makes its SQLite store `/var/lib/slums-market/market.db` on first start, with every table it needs,
+including `cards` (the Slums-chan cards each account has found, "My cards"; nothing to migrate or restart).
+Check it's there: `python3 -c "import sqlite3; print(sorted(r[0] for r in sqlite3.connect('/var/lib/slums-market/market.db').execute('select name from sqlite_master where type=\'table\'')))"`
+lists `alerts, cards, notes_seen, posts, seen_files, watch`. Signed out, `curl -s http://127.0.0.1:8095/api/market/cards`
+gives `{"ok": false, "error": "Sign in first."}` (status 401); that answer is the same for any path without a
+sign-in, so the signed-in check of the endpoint is in step 5.
 After live 1.6.0 is up and its first 15-minute board cycle has run: `ls -l /var/lib/slums-market/outbox/` shows group
 `slums-market` on `trade-ratings.json` and the board files (`board.json`, `offers.json`, ...). The game writes them 0640
 and never chowns, so the setgid folder gives them that group and the market service reads them through it; a file in
@@ -135,6 +141,9 @@ rsync -a dist/site-private/market/ root@192.168.0.164:/srv/slums-site/market/   
 `--exclude market/ --exclude world/` because step 6 keeps those two fresh on 164.
 Check: signed out, `/database/` and `/market/` redirect to `/login/`; signed in with a game username and password, they open, and
 on a price page "Watch" works; a test post on the Buy/Sell board shows on the board NPC at the FM entrance.
+Cards (`GET /api/market/cards`, signed in): `/market/cards.html` says "N of 15 found" with no "didn't load" bar (that
+bar means the GET failed). Type `slums` on any page (not in a text box): the card pops up, and after a reload My cards
+counts it. In the browser's network tab, `api/market/cards` answers 200 with `"found"` and `"total": 15`.
 **From now on every publish from 187 uses `--private --world` and `--exclude market/ --exclude world/`** (DEPLOY.md
 says so too).
 

@@ -361,6 +361,25 @@
   });
 })();
 
+/* Slums-chan's speech bubbles (sections/buddy.py) circle through their lines: the page's own, then a few for every
+   page. A fade, unless the visitor asked for less motion; nothing while the tab is hidden. */
+(function () {
+  document.querySelectorAll(".bubble[data-lines]").forEach(function (b) {
+    var lines;
+    try { lines = JSON.parse(b.getAttribute("data-lines")); } catch (err) { return; }
+    if (!lines || lines.length < 2) return;
+    var i = 0, calm = window.matchMedia && matchMedia("(prefers-reduced-motion: reduce)").matches;
+    b.setAttribute("aria-live", "off");
+    setInterval(function () {
+      if (document.hidden) return;
+      i = (i + 1) % lines.length;
+      if (calm) { b.textContent = lines[i]; return; }
+      b.classList.add("swap");
+      setTimeout(function () { b.textContent = lines[i]; b.classList.remove("swap"); }, 250);
+    }, 7000);
+  });
+})();
+
 /* Sign in: once the login service says who's signed in, the header button becomes "Signed in as X · Sign out"
    (character, or the account for a new one). Builds without sign-in have no button; without the service it stays. */
 (function () {

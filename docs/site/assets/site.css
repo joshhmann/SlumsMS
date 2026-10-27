@@ -164,6 +164,8 @@ main { padding-block: 8px 48px; }
 .bubble { position: relative; margin: 0; padding: 7px 11px; background: var(--surface); color: var(--ink);
   border: 2px solid var(--edge); border-radius: 14px; box-shadow: 3px 3px 0 var(--drop);
   font: 700 .82rem/1.25 var(--f-display); text-align: center; text-wrap: balance; }
+.bubble { transition: opacity .25s, transform .25s; }
+.bubble.swap { opacity: 0; transform: translateY(-3px); }
 .bubble::after { content: ""; position: absolute; left: 50%; bottom: -8px; width: 12px; height: 12px; margin-left: -6px;
   background: inherit; border: solid var(--edge); border-width: 0 2px 2px 0; transform: rotate(45deg); }
 @media (max-width: 620px) { .buddy, .dbmain .buddy, .doc .buddy { width: 108px; margin-left: 12px; }

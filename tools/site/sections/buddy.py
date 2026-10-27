@@ -8,6 +8,7 @@ to use a new one, add its two files and change the name in its slot. A slot with
 neighbouring pages don't all say the same thing. With the Slums-chan theme on, theme.js swaps the picture for one of
 the player's cards.
 """
+import json
 import re
 import zlib
 
@@ -94,14 +95,21 @@ SLOTS = {
 }
 
 
+# After a page's own lines, the bubble also cycles through these (theme.js, every few seconds)
+EVERYWHERE = ["Henesys is full again!", "Bustin' chat since 2006!", "See you in game!"]
+
+
 def figure(root, slot, page=""):
-    """The picture and its bubble. page picks between a slot's lines (the same line every build)."""
-    pic, line = SLOTS[slot]
-    if isinstance(line, list):
-        line = line[zlib.crc32(page.encode()) % len(line)]
+    """The picture and its bubble. The bubble starts on one of the slot's lines (page picks which, the same every
+    build), then theme.js circles through the slot's other lines and EVERYWHERE."""
+    pic, lines = SLOTS[slot]
+    lines = lines if isinstance(lines, list) else [lines]
+    k = zlib.crc32(page.encode()) % len(lines)
+    lines = lines[k:] + lines[:k] + EVERYWHERE
+    line = lines[0]
     w, h = PICTURES[pic]
     src = f"{root}assets/brand/{pic}"
-    return (f'<figure class="buddy"><p class="bubble">{esc(line)}</p>'
+    return (f'<figure class="buddy"><p class="bubble" data-lines="{esc(json.dumps(lines))}">{esc(line)}</p>'
             f'<img class="sidekick" src="{src}-360.webp" srcset="{src}-360.webp 360w, {src}-560.webp 560w" sizes="200px" '
             f'alt="{esc(ALT[pic])}" width="{w}" height="{h}" loading="lazy"></figure>')
 
