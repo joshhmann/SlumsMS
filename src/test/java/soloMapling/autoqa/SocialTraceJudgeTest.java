@@ -186,6 +186,32 @@ class SocialTraceJudgeTest {
     }
 
     @Test
+    void aTradeThreadWithADealDecidesInCodeAndActsWhenTheTradeWentThrough() {
+        SocialTraceEntry none = thread("TRADE", null);
+        assertEquals(Status.NONE, judge(none).get(Stage.DECIDE).status(), "no deal planned: nothing decided");
+
+        SocialTraceEntry deal = thread("TRADE", "Shroom93 sells Work Gloves for 95k");
+        deal.decided = "sell Work Gloves for 95,000";
+        EnumMap<Stage, Verdict> v = judge(deal);
+        assertEquals(Status.OK, v.get(Stage.DECIDE).status());
+        assertEquals("sell Work Gloves for 95,000", v.get(Stage.DECIDE).reason());
+        assertEquals(Status.FAIL, v.get(Stage.ACT).status(), "agreed but no trade happened");
+        deal.events.add(new Event(T0 + 20_000, A, "trade_failed", "the seller no longer has it"));
+        assertEquals(Status.FAIL, judge(deal).get(Stage.ACT).status(), "a failed swap is not the act");
+        deal.events.add(new Event(T0 + 30_000, A, "trade", "sold Work Gloves to LycanZelda for 95,000"));
+        Verdict act = judge(deal).get(Stage.ACT);
+        assertEquals(Status.OK, act.status());
+        assertTrue(act.reason().startsWith("trade after 30 s"), act.reason());
+
+        SocialTraceEntry no = thread("TRADE", "Shroom93 sells Work Gloves for 95k");
+        no.decided = "no deal";
+        v = judge(no);
+        assertEquals(Status.OK, v.get(Stage.DECIDE).status());
+        assertEquals("no deal", v.get(Stage.DECIDE).reason());
+        assertEquals(Status.NA, v.get(Stage.ACT).status(), "no deal: nothing to carry out");
+    }
+
+    @Test
     void actRecordsTheNextLifeDecisionsEvenWithNoDecision() {
         SocialTraceEntry e = goodLfg();
         e.events.add(new Event(T0 + 60_000, A, "life", "DECISION selected=GRIND (CHOOSE)"));

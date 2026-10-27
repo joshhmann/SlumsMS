@@ -109,6 +109,8 @@ public final class BotThreads {
         volatile long startedAt;
         /** When its last line went out (0 before the first). */
         volatile long lastLineAt;
+        /** 1.6.0: a TRADE thread's real deal, decided before the talk ({@code BotBotTrade}); null for the rest. */
+        volatile soloMapling.Economy.BotBotTrade.Deal deal;
 
         Live(int channel, int mapId, List<Integer> botIds, List<String> names, Topic topic, String about,
              soloMapling.ArtificialPlayer.BotGossip.Fact fact, long endsAt, int lastSpeakerId) {
@@ -421,10 +423,15 @@ public final class BotThreads {
         Topic chosen = topic;
         soloMapling.ArtificialPlayer.BotGossip.Fact fact = given != null ? given
                 : ground(topic, a, b, map.getAllPlayers(), now, rng);
-        String about = fact != null ? fact.about() : about(topic, a, b);
+        // 1.6.0: a TRADE thread talks about a real deal - item, price, yes or no - decided here in code, never by the
+        // writer; agreed, the swap runs after the lines (closeDeal)
+        soloMapling.Economy.BotBotTrade.Deal deal = topic == Topic.TRADE
+                ? soloMapling.Economy.BotBotTrade.plan(a, b, rng) : null;
+        String about = deal != null ? deal.about() : fact != null ? fact.about() : about(topic, a, b);
         Live l = new Live(channel, map.getId(), List.of(a.getId(), b.getId()), List.of(a.getName(), b.getName()), topic,
                 about, fact, now + TimeUnit.MINUTES.toMillis(2), a.getId());
         l.startedAt = now;
+        l.deal = deal;
         hold(l);
         lastThreadOf.put(a.getId(), l);
         lastThreadOf.put(b.getId(), l);
@@ -437,6 +444,13 @@ public final class BotThreads {
                         chosen == Topic.GUILD_BEEF || chosen == Topic.RIVALRY));
         if (soloMapling.autoqa.SocialTrace.on()) {
             soloMapling.autoqa.SocialTrace.threadBonded(l.id);
+            if (deal != null) {
+                soloMapling.autoqa.SocialTrace.threadDecided(l.id, deal.decision());
+            }
+        }
+        if (deal != null) {
+            qa(map.getId(), "THREAD DEAL " + deal.about() + " -> " + (deal.agreed() ? deal.buyer().getName() + " agrees"
+                    : "no deal (" + deal.reason() + ")"));
         }
         qa(map.getId(), "THREAD " + a.getName() + " + " + b.getName() + " on " + map.getId() + ": " + topic.words
                 + (about == null ? "" : " (" + about + ")"));
@@ -447,12 +461,13 @@ public final class BotThreads {
         java.util.Set<String> allowed = soloMapling.ArtificialPlayer.BotGossip.allowedNames(fact, a.getName(), b.getName());
         if (!bankOnly && BotBrains.get().isLive() && !ConvoSwitches.forceBank()) {
             List<BotBrain.Turn> prompt = List.of(BotBrain.Turn.system(threadPrompt(a, b, topic, about, map.getMapName(),
-                            fact)), BotBrain.Turn.user("Write the lines now."));
+                            fact, deal)), BotBrain.Turn.user("Write the lines now."));
             BotBrains.get().reply(Priority.THREAD, 0, prompt).thenAccept(r -> {
                 List<String[]> lines = guard(r.map(x -> parse(x.text(), a.getName(), b.getName())).orElse(List.of()),
                         allowed, l.mapId, l.id);
                 if (lines.size() < 2) {
-                    List<String[]> bank = guard(fallback(chosen, a, b, fact, rng), allowed, l.mapId, l.id);
+                    List<String[]> bank = guard(deal != null ? dealLines(deal, rng) : fallback(chosen, a, b, fact, rng),
+                            allowed, l.mapId, l.id);
                     if (soloMapling.autoqa.SocialTrace.on()) {
                         soloMapling.autoqa.SocialTrace.threadComposed(l.id, FALLBACK_KIND.get(), r.isEmpty()
                                 ? "the model gave no reply (busy or timed out)" : "the model's reply was unusable",
@@ -467,7 +482,8 @@ public final class BotThreads {
                 }
             });
         } else {
-            List<String[]> bank = guard(fallback(topic, a, b, fact, rng), allowed, l.mapId, l.id);
+            List<String[]> bank = guard(deal != null ? dealLines(deal, rng) : fallback(topic, a, b, fact, rng), allowed,
+                    l.mapId, l.id);
             if (soloMapling.autoqa.SocialTrace.on()) {
                 soloMapling.autoqa.SocialTrace.threadComposed(l.id, FALLBACK_KIND.get(), bankOnly ? "bank only (!qa)"
                         : !BotBrains.get().isLive() ? "the model is not live" : "line bank forced", -1);
@@ -607,10 +623,28 @@ public final class BotThreads {
      */
     static String threadPrompt(Character a, Character b, Topic topic, String about, String mapName,
                                soloMapling.ArtificialPlayer.BotGossip.Fact fact) {
+        return threadPrompt(a, b, topic, about, mapName, fact, null);
+    }
+
+    /**
+     * As above, for a TRADE thread with a real deal (1.6.0): the writer is told the item, the price and the outcome;
+     * it words them, it never decides them.
+     */
+    static String threadPrompt(Character a, Character b, Topic topic, String about, String mapName,
+                               soloMapling.ArtificialPlayer.BotGossip.Fact fact,
+                               soloMapling.Economy.BotBotTrade.Deal deal) {
         ConvoPersona pa = ConvoPersona.of(a.getId() - BotStore.BOT_ID_BASE);
         ConvoPersona pb = ConvoPersona.of(b.getId() - BotStore.BOT_ID_BASE);
         String subject;
-        if (topic == Topic.RIVALRY) { // 1.6.0 S7: the two speakers have beef with each other
+        if (deal != null) {
+            String seller = deal.seller().getName();
+            String buyer = deal.buyer().getName();
+            subject = ". Topic: " + topic.words + ". " + seller + " offers " + buyer + " their "
+                    + deal.itemName().toLowerCase(Locale.ROOT) + (deal.quantity() > 1 ? " (x" + deal.quantity() + ")" : "")
+                    + " for " + deal.priceWords() + ". " + (deal.agreed() ? buyer + " agrees to buy it at that price"
+                    : buyer + " turns it down") + "; write the price exactly as " + deal.priceWords()
+                    + ", name no other item price and no other player";
+        } else if (topic == Topic.RIVALRY) { // 1.6.0 S7: the two speakers have beef with each other
             subject = ". They are rivals in the game" + (fact == null ? "" : "; what really happened: " + fact.about())
                     + ". " + a.getName() + " starts it. Trash talk about the game only (KS, gear, level, damage),"
                     + " petty not cruel; name no other player";
@@ -719,6 +753,24 @@ public final class BotThreads {
     }
 
     /**
+     * No LLM, a TRADE thread with a deal (1.6.0): the seller offers the real item at the real price, the buyer takes
+     * it or passes, as decided.
+     */
+    static List<String[]> dealLines(soloMapling.Economy.BotBotTrade.Deal d, Random rng) {
+        String item = d.itemName().toLowerCase(Locale.ROOT);
+        String p = d.priceWords();
+        String[] offers = {"anyone need " + item + "? " + p, "selling " + item + " " + p,
+                d.buyer().getName() + " u want my " + item + "? " + p};
+        String[] answers = d.agreed() ? new String[]{"ok ill take it", "deal", "sure " + p + " is fair"}
+                : "too pricey for them".equals(d.reason()) ? new String[]{"too much for me rn", "nah im broke lol"}
+                : new String[]{"nah im good", "pass, dont need it", "nty"};
+        List<String[]> out = new ArrayList<>();
+        out.add(new String[]{d.seller().getName(), offers[rng.nextInt(offers.length)]});
+        out.add(new String[]{d.buyer().getName(), answers[rng.nextInt(answers.length)]});
+        return out;
+    }
+
+    /**
      * A cut of one script both bots can back, picked at random among those, or empty when no script of
      * {@code candidates} is one they can back (the caller then leaves the thread unscripted). A script whose
      * {@code S>} ad the speaker does not hold is skipped whole, never edited.
@@ -756,8 +808,9 @@ public final class BotThreads {
         for (String[] line : lines) {
             Character who = line[0].equals(a.getName()) ? a : b;
             int slot = who.getId() - BotStore.BOT_ID_BASE;
-            // rc6 say-do: a thread line never promises what nobody will do ("brb", "omw to fm"); an LFG ask may stay
-            String honest = ClaimActions.guardReply(line[1], java.util.EnumSet.of(ClaimRules.Kind.PARTY_ASK));
+            // rc6 say-do: a thread line never promises what nobody will do ("brb", "omw to fm"); an LFG ask may stay,
+            // and so may "trade me" when the two really trade (1.6.0)
+            String honest = ClaimActions.guardReply(line[1], allowedClaims(l));
             if (honest == null) {
                 if (traced) {
                     soloMapling.autoqa.SocialTrace.threadDropped(l.id, line[0], line[1], "say-do guard: a promise nobody keeps");
@@ -792,8 +845,32 @@ public final class BotThreads {
                 qa(l.mapId, "THREAD LINE [" + source + "] " + who.getName() + ": " + styled);
             });
         }
+        if (l.deal != null && l.deal.agreed()) {
+            chain = chain.pause(800 + rng.nextInt(1500)).run(() -> closeDeal(l));
+        }
         l.endsAt = System.currentTimeMillis() + total + JOIN_MS;
         chain.start();
+    }
+
+    /** The claims a thread line may make: an LFG ask; a trade ask too in a thread whose deal was agreed. */
+    static java.util.Set<ClaimRules.Kind> allowedClaims(Live l) {
+        return l.deal != null && l.deal.agreed()
+                ? java.util.EnumSet.of(ClaimRules.Kind.PARTY_ASK, ClaimRules.Kind.TRADE, ClaimRules.Kind.TRADE_ASK)
+                : java.util.EnumSet.of(ClaimRules.Kind.PARTY_ASK);
+    }
+
+    /** 1.6.0: after an agreed TRADE thread's lines, the two bots really trade ({@code BotBotTrade.execute}). */
+    static void closeDeal(Live l) {
+        soloMapling.Economy.BotBotTrade.Deal d = l.deal;
+        if (d == null) {
+            return;
+        }
+        soloMapling.Economy.BotBotTrade.Result r = soloMapling.Economy.BotBotTrade.execute(d);
+        qa(l.mapId, "THREAD TRADE " + (r.ok() ? "done: " : "not done: ") + r.why());
+        if (soloMapling.autoqa.SocialTrace.on()) {
+            soloMapling.autoqa.SocialTrace.threadActed(l.id, d.seller().getId(), r.ok() ? "trade" : "trade_failed",
+                    r.why());
+        }
     }
 
     // ── a player jumps in ──

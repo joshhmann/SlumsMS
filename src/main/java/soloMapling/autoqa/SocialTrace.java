@@ -334,6 +334,26 @@ public final class SocialTrace {
         }
     }
 
+    /** 1.6.0: what the code decided this thread leads to, before its talk (a TRADE thread's deal or "no deal"). */
+    public static void threadDecided(int threadId, String decision) {
+        SocialTraceEntry e = on ? byThread.get(threadId) : null;
+        if (e != null) {
+            synchronized (e) {
+                e.decided = decision;
+            }
+        }
+    }
+
+    /** 1.6.0: what this thread's decision did ({@code kind} "trade" when a bot-to-bot trade went through). */
+    public static void threadActed(int threadId, int botId, String kind, String text) {
+        SocialTraceEntry e = on ? byThread.get(threadId) : null;
+        if (e != null) {
+            synchronized (e) {
+                addEvent(e, new Event(System.currentTimeMillis(), botId, kind, text));
+            }
+        }
+    }
+
     /** A planned thread line was not said, and why. */
     public static void threadDropped(int threadId, String who, String text, String why) {
         SocialTraceEntry e = on ? byThread.get(threadId) : null;

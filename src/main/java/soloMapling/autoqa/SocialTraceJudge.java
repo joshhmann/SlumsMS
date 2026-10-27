@@ -27,7 +27,8 @@ import java.util.regex.Pattern;
  * <p>The DECIDE table is what the code does today (read 2026-10-26): a bot thread changes the two bots' bond and
  * nothing else - no LFG thread becomes a party or PQ trip, no TRADE thread a trade, no GOSSIP thread a story the
  * listener keeps. When one of those links is built, its row here changes from {@code null} to the act it should lead
- * to, and ACT starts judging it.
+ * to, and ACT starts judging it. 1.6.0: a TRADE thread with a deal ({@code BotBotTrade}) decides in code ("sell X
+ * for P" or "no deal", {@link #threadDecision}), and ACT is ok when the trade went through.
  */
 public final class SocialTraceJudge {
 
@@ -323,7 +324,8 @@ public final class SocialTraceJudge {
      */
     static final Map<String, String> THREAD_NO_PATH = Map.of(
             "LFG", "no code path turns an LFG thread into a party or a PQ trip (bots never invite bots to a PQ)",
-            "TRADE", "no code path turns a TRADE thread into a trade (there is no bot-to-bot trade at all)",
+            "TRADE", "no deal was planned (no tradable item the other could buy, a bot that may not trade, or a cap"
+                    + " reached)",
             "TRAINING", "no code path moves either bot to the spot a TRAINING thread names",
             "GOSSIP", "no code path stores the story for the listener (it is spoken only)",
             "RIVALRY", "no code path escalates from a RIVALRY thread (only the bond sours)",
@@ -350,7 +352,18 @@ public final class SocialTraceJudge {
             "JAB", "a guild jab is speech only (no bond or war effect)");
 
     static Decision decision(SocialTraceEntry e) {
-        return "thread".equals(e.kind) ? null : DRAMA_DECISIONS.get(e.topic);
+        return "thread".equals(e.kind) ? threadDecision(e) : DRAMA_DECISIONS.get(e.topic);
+    }
+
+    /** What {@code BotBotTrade} decided for a TRADE thread's talk (1.6.0); "no deal" has nothing to carry out. */
+    static final String NO_DEAL = "no deal";
+
+    /** A thread's decision made in code before its talk (TRADE: "sell X for 95,000" or "no deal"), or null. */
+    static Decision threadDecision(SocialTraceEntry e) {
+        if ("TRADE".equals(e.topic) && e.decided != null) {
+            return NO_DEAL.equals(e.decided) ? new Decision(NO_DEAL, Set.of()) : new Decision(e.decided, Set.of("trade"));
+        }
+        return null;
     }
 
     static Verdict decide(SocialTraceEntry e, Decision d) {
@@ -426,6 +439,9 @@ public final class SocialTraceJudge {
         if (d == null) {
             return new Verdict(Status.NONE, "no decision to carry out" + (observed == null ? "" : "; seen anyway: "
                     + observed), data);
+        }
+        if (d.actKinds().isEmpty()) {
+            return new Verdict(Status.NA, "nothing to carry out (" + d.decision() + ")", data);
         }
         if (carried) {
             return new Verdict(Status.OK, done.kind() + " after " + Math.round((done.at() - e.startedAt) / 1000.0)

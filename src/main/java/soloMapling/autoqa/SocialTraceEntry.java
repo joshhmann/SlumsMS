@@ -90,6 +90,10 @@ public final class SocialTraceEntry {
     Bond after;
     final List<String> remembered = new ArrayList<>();
 
+    // DECIDE
+    /** A decision code made for this episode before its talk (a TRADE thread's "sell X for 95,000" / "no deal"). */
+    String decided;
+
     // ACT
     final List<Event> events = new ArrayList<>();
     /** Read at close: where the two bots are and whether they share a party. */
