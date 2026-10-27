@@ -61,6 +61,11 @@ public final class BotCommitments {
         if (state == BotSM.BotState.TRADING) {
             return true;
         }
+        // 1.6.0: registered for its player's boss expedition, or inside it: it neither logs out nor drifts off on
+        // the slow wheel until the run ends (ExpeditionBots releases it when the expedition is disposed).
+        if (soloMapling.ArtificialPlayer.BotPartySystem.ExpeditionHold.committed(chr)) {
+            return true;
+        }
         // The bot said "invite me": the invite can land inside the armed window, so the bot keeps
         // draining the incoming invite promptly instead of on the slow wheel.
         return BotRecruitManager.isArmed(chr.getId());

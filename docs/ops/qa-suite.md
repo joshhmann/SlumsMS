@@ -221,6 +221,20 @@ script), so the grinding code calls it mobless. Since 1.5.5 a follower on a dojo
 floor's monster itself (`FollowerFight`) and follows again when the floor is clear or the leader goes up. Talk to So
 Gong, pick the party challenge, and watch the bots swing on floor 1, then on the next floor after the portal.
 
+## ex-1: party bots join your boss expedition (1.6.0)
+
+| Test | What it stages | What to look for |
+|---|---|---|
+| `ex-1 [bots]` | Makes you (level 50+, no party or leading one) the captain of a Zakum expedition on the map you stand on (no NPC, no warp), with 1-5 follower bots (default 5) in your party and one bot outside it. The expedition ends and the bots leave at stop. Runs 3 minutes | `PQ EXPED BOT JOIN <bot> -> ZAKUM` per party bot, `EX1 RESULT members=<n> min=<m> joined=<k>/<k> outsider=out again=0`, `EX1 PASS` |
+
+Owner 2026-10-26: party bots auto-join boss expeditions. `ExpeditionBots.autoJoin` runs when the captain makes the
+expedition (`cm.createExpedition`), on every recruiter step he takes (`cm.getExpedition`, so "Start the fight!" counts
+them against the minimum) and at the start. A bot joins when it is his (his companion, his `@botme` alt, or a party bot
+nobody leads while he is the party's one real player), stands on the recruiting map, fits the level band and the
+recruiter's member quest, and has a boss-log entry left; never past the maximum. Skips log `EXPED BOT SKIP <bot> ->
+<type>: owner|map|level|quest|quota|busy|full`. In game: party with your bots, talk to Adobis, make the expedition,
+and the yellow lines say `[Expedition] <bot> joined with you.`; inside, the followers fight next to you.
+
 ## pq-2: OPQ bots (1.5.2)
 
 | Test | What it stages | What to look for |
