@@ -276,6 +276,29 @@ class BotBotTradeTest {
     }
 
     @Test
+    void whyNoDealIsSaid() throws Exception {
+        // TEST trace 2026-10-27: two town bots with nothing in their bags; the trace said only "no deal was planned"
+        Character a = bot(100_000);
+        Character b = bot(400_000);
+        assertNull(BotBotTrade.plan(a, b, new Random(1)));
+        assertEquals("neither holds an ETC stack, potions or food worth 1k-300k to sell", BotBotTrade.whyNone(a, b));
+        Item pots = new Item(POTION, (short) 0, (short) 200); // a training bot's kit: it sells half
+        assertTrue(a.getInventory(pots.getInventoryType()).addItem(pots) > 0);
+        assertNotNull(BotBotTrade.plan(a, b, new Random(1)), "a training bot's potions make a deal");
+        Character alt = bot(400_000);
+        Field owner = Character.class.getDeclaredField("ownedAltOwner");
+        owner.setAccessible(true);
+        Character player = org.mockito.Mockito.mock(Character.class);
+        org.mockito.Mockito.when(player.getClient()).thenReturn(org.mockito.Mockito.mock(client.Client.class));
+        owner.set(alt, player);
+        assertTrue(BotBotTrade.whyNone(a, alt).startsWith(alt.getName() + " may not trade"), BotBotTrade.whyNone(a, alt));
+        set("botBotTrade.worldPerHour", "0");
+        assertTrue(BotBotTrade.whyNone(a, b).startsWith("a trade cap is reached"), BotBotTrade.whyNone(a, b));
+        set("botBotTrade.enabled", "false");
+        assertEquals("bot-to-bot trade is switched off", BotBotTrade.whyNone(a, b));
+    }
+
+    @Test
     void eachBotTradesThreeTimesADayAndTheWorldThirtyTimesAnHour() throws Exception {
         Character seller = bot(100_000);
         for (int i = 0; i < 3; i++) {

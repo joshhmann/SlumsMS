@@ -353,6 +353,19 @@ class SocialTraceJudgeTest {
     }
 
     @Test
+    void aSkippedTipOrDealSaysWhichCheck() {
+        // TEST 2026-10-27: 5 of 5 TRAINING and 1 of 1 TRADE gave the table's generic reason
+        SocialTraceEntry tip = thread("TRAINING", "good training spots around level 42");
+        assertEquals(SocialTraceJudge.THREAD_NO_PATH.get("TRAINING"), judge(tip).get(Stage.DECIDE).reason());
+        tip.decideWhy = "no tip followed: Shroomkid hears Path of Time: not a training bot";
+        assertEquals(Status.NONE, judge(tip).get(Stage.DECIDE).status());
+        assertEquals(tip.decideWhy, judge(tip).get(Stage.DECIDE).reason());
+        SocialTraceEntry trade = thread("TRADE", null);
+        trade.decideWhy = "no deal was planned: neither holds an ETC stack, potions or food worth 1k-300k to sell";
+        assertEquals(trade.decideWhy, judge(trade).get(Stage.DECIDE).reason());
+    }
+
+    @Test
     void aRivalryEscalationIsDecidedThenCarriedOutOrDroppedWithItsReason() {
         SocialTraceEntry no = thread("RIVALRY", "Shroom93 has beef with LycanZelda");
         no.decideWhy = "no escalation: the roll said no (chance 0.12)";

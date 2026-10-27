@@ -75,9 +75,19 @@ public final class LfgParty {
 
     /** The decision for one LFG thread. {@code reservedAt} > 0: a slot of the 10-minute cap is held for it. */
     public record Plan(int aId, String aName, int aLevel, int bId, String bName, int bLevel, LifePq.Lobby lobby, Why why,
-                       long reservedAt) {
+                       long reservedAt, Why recruiterWhy) {
         public boolean yes() {
             return why == Why.YES;
+        }
+
+        /**
+         * Why not, for the trace and QA: the recruiter's own reason when it is the one who cannot go (TEST trace
+         * 2026-10-27 read "MapleOG the recruiter is not free" - the other bot's name on the recruiter's reason, and not
+         * which reason), else the other's.
+         */
+        public String decline() {
+            return why == Why.RECRUITER_BUSY && recruiterWhy != null
+                    ? aName + " (the recruiter) " + recruiterWhy.words : bName + " " + why.words;
         }
 
         /** "party up for Kerning PQ" (the trace's DECIDE). */
@@ -142,7 +152,8 @@ public final class LfgParty {
     /** The answer, from the two bots' states: the recruiter's lobby; either side busy, or the cap used, is a no. */
     static Plan decide(int aId, String aName, State a, int bId, String bName, State b, long now) {
         LifePq.Lobby lobby = lobbyFor(a.level());
-        Why why = fit(lobby, a);
+        Why recruiter = fit(lobby, a);
+        Why why = recruiter;
         if (why != Why.YES) {
             why = lobby == null ? Why.NO_PQ : Why.RECRUITER_BUSY;
         } else {
@@ -156,7 +167,7 @@ public final class LfgParty {
                 why = Why.BUDGET;
             }
         }
-        return new Plan(aId, aName, a.level(), bId, bName, b.level(), lobby, why, reserved);
+        return new Plan(aId, aName, a.level(), bId, bName, b.level(), lobby, why, reserved, recruiter);
     }
 
     /** The plan for two live bots (memory reads only; the thread's compose step calls it once). */

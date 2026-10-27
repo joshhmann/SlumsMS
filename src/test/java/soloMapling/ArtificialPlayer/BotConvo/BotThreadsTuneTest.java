@@ -54,11 +54,12 @@ class BotThreadsTuneTest {
         Character b = chr(2, "picklemaple", 51);
         String prompt = BotThreads.threadPrompt(a, b, BotThreads.Topic.TRAINING, "Drake1 is level 25, aiming for 30",
                 "Henesys", null);
-        assertTrue(prompt.contains("Real training spots for level 25: Ant Tunnel"), prompt);
+        assertTrue(prompt.contains("real training spots for level 25: Ant Tunnel"), prompt);
+        assertTrue(prompt.contains("Drake1 asks where to train; picklemaple suggests one"), prompt);
         assertTrue(prompt.contains("never make up a place"), prompt);
         assertTrue(prompt.contains("under 45 characters") && prompt.contains("never formal"), prompt);
         String lfg = BotThreads.threadPrompt(a, b, BotThreads.Topic.LFG, "Kerning PQ", "Henesys", null);
-        assertFalse(lfg.contains("Real training spots"), lfg);
+        assertFalse(lfg.contains("training spots"), lfg);
     }
 
     @Test

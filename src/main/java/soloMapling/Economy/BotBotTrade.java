@@ -121,6 +121,33 @@ public final class BotBotTrade {
         }
     }
 
+    /**
+     * Why {@link #plan} found no deal for these two, for the social trace and QA (TEST 2026-10-27: a TRADE thread said
+     * only "no deal was planned"): switched off, which bot may not trade, a cap, or neither holds a common item at a
+     * bot-to-bot price. Memory reads only; called once after a null plan.
+     */
+    public static String whyNone(Character a, Character b) {
+        try {
+            if (!enabled()) {
+                return "bot-to-bot trade is switched off";
+            }
+            for (Character c : new Character[]{a, b}) {
+                if (c != null && !mayTrade(c)) {
+                    BotSM sm = CharacterStorage.getBotById(c.getId());
+                    return c.getName() + " may not trade (" + (sm == null ? "not a roster bot" : sm.getClass()
+                            .getSimpleName()) + ")";
+                }
+            }
+            if (a == null || b == null || !capsLeft(a.getId(), b.getId(), clock.getAsLong())) {
+                return "a trade cap is reached (" + EconomyConfig.getInt("botBotTrade.perBotPerDay", 3)
+                        + " a bot a day, " + EconomyConfig.getInt("botBotTrade.worldPerHour", 30) + " an hour)";
+            }
+            return "neither holds an ETC stack, potions or food worth 1k-300k to sell";
+        } catch (RuntimeException | LinkageError e) {
+            return "no deal (" + e.getClass().getSimpleName() + ")";
+        }
+    }
+
     /** The item {@code seller} would offer {@code buyer} and the buyer's answer, or null when it has nothing to offer. */
     static Deal offer(Character seller, Character buyer, Random rng) {
         List<Item> candidates = new ArrayList<>();

@@ -102,12 +102,37 @@ public final class TrainingTips {
         return out;
     }
 
-    /** Whether a line names this spot: its whole name, or (for 2+ key words) all but one of them. */
+    /**
+     * 1.6.0 (TEST trace 2026-10-27): what players type for a spot instead of its name ("subway", "golems", "mu lung"),
+     * by the spot's normalised name. A line with one of these names that spot.
+     */
+    static final Map<String, List<String>> SAID_AS = Map.ofEntries(
+            Map.entry("kerning subway", List.of("subway", "the subway", "kerning sub")),
+            Map.entry("land of wild boar", List.of("wild boar", "wild boars", "boars", "boar land")),
+            Map.entry("forest of golem", List.of("golem", "golems", "golem forest", "golem temple")),
+            Map.entry("forest of dead trees", List.of("dead trees", "dead tree", "dead forest")),
+            Map.entry("cave of evil eye", List.of("evil eye", "evil eyes")),
+            Map.entry("drake hunting ground", List.of("drake", "drakes")),
+            Map.entry("henesys hunting ground", List.of("hhg", "henesys hunting")),
+            Map.entry("practice field beginner", List.of("mu lung", "mulung", "practice field")),
+            Map.entry("eos tower 73rd floor", List.of("eos", "eos tower")),
+            Map.entry("lost time", List.of("clocktower", "clock tower")),
+            Map.entry("watch out for icy path", List.of("icy path")),
+            Map.entry("pig beach", List.of("pigs", "pig beach")),
+            Map.entry("ghost ship", List.of("ghost ship", "ghostship")),
+            Map.entry("ant tunnel", List.of("ants", "ant tunnels")));
+
+    /** Whether a line names this spot: its whole name, what players call it, or (for 2+ key words) all but one. */
     static boolean names(String line, Spot spot) {
         String text = " " + norm(line) + " ";
         String name = norm(spot.name());
         if (!name.isEmpty() && text.contains(" " + name + " ")) {
             return true;
+        }
+        for (String said : SAID_AS.getOrDefault(name, List.of())) {
+            if (text.contains(" " + said + " ")) {
+                return true;
+            }
         }
         List<String> keys = keyWords(spot.name());
         if (keys.size() < 2) {

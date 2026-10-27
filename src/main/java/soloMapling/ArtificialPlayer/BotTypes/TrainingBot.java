@@ -1190,6 +1190,25 @@ public class TrainingBot extends BotSM implements soloMapling.ArtificialPlayer.B
         return isBreak(p) || p == Phase.IN_TOWN || p == Phase.SHOP_DWELL || p == Phase.LIFE_DWELL;
     }
 
+    /**
+     * 1.6.0 (TEST social trace 2026-10-27: 15 of 15 threads were town bots, so no LFG, tip or trade could be carried
+     * out): free for a bot-to-bot thread - resting in town (a town stop past its shop errand, or a life hang-out), not
+     * starting a trip, not on a sauna trip, not answering an event, not recruiting a player. Bot threads read this;
+     * {@link #isAvailableForAmbientActions} stays false for a training bot (the other ambient systems are unchanged).
+     */
+    public boolean freeForThread() {
+        Character chr = getChr();
+        return getRunning() && chr != null && chr.getMap() != null
+                && freeForThread(phase, resupplySite != null, isStartingLifeActivity(), saunaTripActive || eventCall,
+                recruitingNow());
+    }
+
+    static boolean freeForThread(Phase p, boolean shopkeeperWalk, boolean startingTrip, boolean called,
+                                 boolean recruiting) {
+        return (p == Phase.LIFE_DWELL || p == Phase.IN_TOWN && !onErrand(p, shopkeeperWalk))
+                && !startingTrip && !called && !recruiting;
+    }
+
     /** A world event wants this bot: it drops what it is doing at its next tick (see answerEventCall). */
     public void callToEvent() {
         eventCall = true;

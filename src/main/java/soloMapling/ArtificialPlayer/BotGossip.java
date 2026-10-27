@@ -302,7 +302,7 @@ public final class BotGossip {
             return new Fact("level", teller.getName() + " is level " + level + ", aiming for " + next, null,
                     List.of(), 0, false);
         }
-        return new Fact("spot", "good training spots around level " + Math.min(teller.getLevel(), other.getLevel()),
+        return new Fact("spot", "good training spots around level " + teller.getLevel(), // the asker's (1.6.0)
                 null, List.of(), 0, false);
     }
 

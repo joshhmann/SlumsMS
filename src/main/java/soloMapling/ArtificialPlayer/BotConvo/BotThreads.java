@@ -344,10 +344,7 @@ public final class BotThreads {
                 continue;
             }
             BotSM sm = CharacterStorage.getBotById(chr.getId());
-            if (sm == null || !(sm instanceof SocialBot || sm instanceof TownWandererBot || sm instanceof TrainingBot)) {
-                continue;
-            }
-            if (!sm.isAvailableForAmbientActions() || busy(chr.getId())
+            if (!talker(sm) || busy(chr.getId())
                     || soloMapling.ArtificialPlayer.ConversationManager.getInstance().isInConversation(chr.getId())
                     || soloMapling.ArtificialPlayer.BotConversation.hasAnyChat(chr.getId())
                     || soloMapling.ArtificialPlayer.BotDramaSystem.BotDrama.inScene(chr.getId())) {
@@ -364,7 +361,94 @@ public final class BotThreads {
         if (rivals != null) {
             return rivals;
         }
-        return List.of(idle.get(0), idle.get(1));
+        return choosePair(idle, doer, rng);
+    }
+
+    /**
+     * Who may talk in a thread: a town bot free for ambient actions, or (1.6.0) a training bot resting in town
+     * ({@link TrainingBot#freeForThread}). A training bot's {@code isAvailableForAmbientActions} is always false, so
+     * before this every thread was two town bots (TEST trace 2026-10-27, 15 of 15): no party, tip or trade could follow.
+     */
+    static boolean talker(BotSM sm) {
+        if (sm instanceof TrainingBot tb) {
+            return tb.freeForThread();
+        }
+        return (sm instanceof SocialBot || sm instanceof TownWandererBot) && sm.isAvailableForAmbientActions();
+    }
+
+    /** Who can carry out what a thread decides - a PQ trip, a tip, a trade from its own bag: a training bot. A seam. */
+    static volatile java.util.function.IntPredicate doer = id -> CharacterStorage.getBotById(id) instanceof TrainingBot;
+
+    /** How often a map with a training bot among its idle talkers gives it the thread. */
+    static final double DOER_FIRST = 0.75;
+
+    /**
+     * 1.6.0: the two talkers from the idle ones (shuffled). Three times in four the bots who can act on the talk get
+     * it: two training bots - two in one PQ band first, so an LFG ask can end in a party - or a training bot and
+     * anyone. Else (and with no training bot here) any two: town bots still chat, they just decide nothing.
+     */
+    static List<Character> choosePair(List<Character> idle, java.util.function.IntPredicate doer, Random rng) {
+        List<Character> doers = new ArrayList<>();
+        for (Character c : idle) {
+            if (doer.test(c.getId())) {
+                doers.add(c);
+            }
+        }
+        if (doers.isEmpty() || rng.nextDouble() >= DOER_FIRST) {
+            return List.of(idle.get(0), idle.get(1));
+        }
+        if (doers.size() == 1) {
+            Character d = doers.get(0);
+            return List.of(d, idle.get(0) == d ? idle.get(1) : idle.get(0));
+        }
+        for (Character x : doers) {
+            soloMapling.ArtificialPlayer.BotLifeSystem.LifePq.Lobby lobby = LfgParty.lobbyFor(x.getLevel());
+            if (lobby == null) {
+                continue;
+            }
+            for (Character y : doers) {
+                if (y != x && lobby.equals(LfgParty.lobbyFor(y.getLevel()))) {
+                    return List.of(x, y);
+                }
+            }
+        }
+        return List.of(doers.get(0), doers.get(1));
+    }
+
+    /** Who tells (first of {@code pair}) and the story. */
+    record Told(List<Character> pair, soloMapling.ArtificialPlayer.BotGossip.Fact fact) {
+    }
+
+    /**
+     * 1.6.0 (TEST trace 2026-10-27: 3 of 3 GOSSIP threads were small talk, "prices in the FM"): a real story wins over
+     * small talk - when the opener knows none ({@code fact} names nobody), the other tells one if it knows one
+     * ({@code ground}: teller, listener). Small talk stays when neither does.
+     */
+    static Told storyFirst(List<Character> pair, soloMapling.ArtificialPlayer.BotGossip.Fact fact,
+                           java.util.function.BiFunction<Character, Character, soloMapling.ArtificialPlayer.BotGossip.Fact> ground) {
+        if (fact != null && fact.person()) {
+            return new Told(pair, fact);
+        }
+        soloMapling.ArtificialPlayer.BotGossip.Fact other = ground.apply(pair.get(1), pair.get(0));
+        return other != null && other.person() ? new Told(List.of(pair.get(1), pair.get(0)), other)
+                : new Told(pair, fact);
+    }
+
+    /**
+     * 1.6.0: an LFG ask comes from a bot that can go (a training bot whose level has a PQ), and a TRAINING thread's
+     * asker - the one who may follow the tip - is a training bot: when only the second of the pair is one, the two
+     * swap. Other topics keep the order.
+     */
+    static List<Character> doerFirst(Topic topic, List<Character> pair, java.util.function.IntPredicate doer) {
+        Character a = pair.get(0);
+        Character b = pair.get(1);
+        if (topic != Topic.LFG && topic != Topic.TRAINING || doer.test(a.getId()) || !doer.test(b.getId())) {
+            return pair;
+        }
+        if (topic == Topic.LFG && LfgParty.lobbyFor(b.getLevel()) == null) {
+            return pair;
+        }
+        return List.of(b, a);
     }
 
     /** The topic that fits two bots and the map: their guilds' war first, trade in the FM, LFG for PQ levels. */
@@ -418,15 +502,27 @@ public final class BotThreads {
         if (topic == Topic.RIVALRY) {
             pair = soloMapling.ArtificialPlayer.BotDramaSystem.BotBotRivalry.grudgeFirst(pair); // the grudge opens
         }
+        if (topic == null) {
+            topic = topicFor(pair.get(0).getGuildId(), pair.get(1).getGuildId(), pair.get(0).getLevel(),
+                    pair.get(1).getLevel(), map.getId(), (social(pair.get(0)) + social(pair.get(1))) / 2, rng);
+        }
+        soloMapling.ArtificialPlayer.BotGossip.Fact grounded = given;
+        if (forced == null && !beefOrDrama) { // 1.6.0 (TEST trace 2026-10-27): the one who can act on it opens
+            pair = doerFirst(topic, pair, doer);
+        }
+        if (grounded == null) {
+            grounded = ground(topic, pair.get(0), pair.get(1), map.getAllPlayers(), now, rng);
+            if (forced == null && topic == Topic.GOSSIP) {
+                Topic t = topic;
+                Told told = storyFirst(pair, grounded, (x, y) -> ground(t, x, y, map.getAllPlayers(), now, rng));
+                pair = told.pair();
+                grounded = told.fact();
+            }
+        }
         Character a = pair.get(0);
         Character b = pair.get(1);
-        if (topic == null) {
-            topic = topicFor(a.getGuildId(), b.getGuildId(), a.getLevel(), b.getLevel(), map.getId(),
-                    (social(a) + social(b)) / 2, rng);
-        }
+        soloMapling.ArtificialPlayer.BotGossip.Fact fact = grounded;
         Topic chosen = topic;
-        soloMapling.ArtificialPlayer.BotGossip.Fact fact = given != null ? given
-                : ground(topic, a, b, map.getAllPlayers(), now, rng);
         // 1.6.0: a TRADE thread talks about a real deal - item, price, yes or no - decided here in code, never by the
         // writer; agreed, the swap runs after the lines (closeDeal)
         soloMapling.Economy.BotBotTrade.Deal deal = topic == Topic.TRADE
@@ -448,13 +544,13 @@ public final class BotThreads {
                     beefOrDrama, about, fact, now);
             if (l.lfg != null) {
                 soloMapling.autoqa.SocialTrace.threadLfg(l.id, l.lfg.yes() ? l.lfg.decision() : null,
-                        l.lfg.yes() ? null : l.lfg.bName() + " " + l.lfg.why().words);
+                        l.lfg.yes() ? null : l.lfg.decline());
             }
         }
         if (l.lfg != null) {
             qa(map.getId(), "LFG ASK " + a.getName() + " (lv " + a.getLevel() + ") -> " + b.getName() + " (lv "
                     + b.getLevel() + ") " + (l.lfg.lobby() == null ? "no PQ" : l.lfg.lobby().label()) + ": "
-                    + (l.lfg.yes() ? "yes" : "no, " + l.lfg.why().words));
+                    + (l.lfg.yes() ? "yes" : "no, " + l.lfg.decline()));
         }
         soloMapling.server.MapleRootSolo.runHook("bond thread", () -> // 1.6.0 S2; S7: beef sours a bond too
                 soloMapling.ArtificialPlayer.BotAffinitySystem.BotBonds.onThread(a.getId(), b.getId(),
@@ -463,6 +559,13 @@ public final class BotThreads {
             soloMapling.autoqa.SocialTrace.threadBonded(l.id);
             if (deal != null) {
                 soloMapling.autoqa.SocialTrace.threadDecided(l.id, deal.decision(), null);
+            }
+        }
+        if (deal == null && topic == Topic.TRADE) { // 1.6.0: which check kept the deal from being planned
+            String none = soloMapling.Economy.BotBotTrade.whyNone(a, b);
+            qa(map.getId(), "THREAD DEAL none for " + a.getName() + " + " + b.getName() + ": " + none);
+            if (soloMapling.autoqa.SocialTrace.on()) {
+                soloMapling.autoqa.SocialTrace.threadDecided(l.id, null, "no deal was planned: " + none);
             }
         }
         if (deal != null) {
@@ -714,9 +817,11 @@ public final class BotThreads {
             for (TrainingTips.Spot s : spots) {
                 named.add(s.described());
             }
-            subject += ". Real training spots for level " + a.getLevel() + ": " + String.join(", ", named) + ". If "
-                    + b.getName() + " suggests a spot it is one of these, by that name; never make up a place, a"
-                    + " monster or a party quest";
+            // 1.6.0 (TEST trace 2026-10-27): who asks and who answers was left open, so the tip often went the
+            // wrong way (the asker named the spot and the other "would try it")
+            subject += ". " + a.getName() + " asks where to train; " + b.getName() + " suggests one of these real"
+                    + " training spots for level " + a.getLevel() + ": " + String.join(", ", named) + ", by that name;"
+                    + " never make up a place, a monster or a party quest";
         }
         // 1.6.0 tune: 12 of 59 model lines were over 60 characters, and some read like a letter
         return "Write a short public chat exchange between two MapleStory players in 2008, " + a.getName() + " (level "
@@ -1112,6 +1217,14 @@ public final class BotThreads {
                                        long now) {
         TrainingTips.Spot spot = TrainingTips.suggested(lines, asker.getName(), l.spots);
         if (spot == null) {
+            List<String> real = new ArrayList<>();
+            for (TrainingTips.Spot s : l.spots) {
+                real.add(s.name());
+            }
+            String why = l.spots.isEmpty() ? "no real spots for level " + asker.getLevel()
+                    : "no line named a real spot (" + String.join(", ", real) + ")";
+            qa(l.mapId, "TIP NONE " + asker.getName() + ": " + why);
+            tipSkipped(l, why);
             return null;
         }
         int job = asker.getJob() == null ? 0 : asker.getJob().getId();
@@ -1120,6 +1233,7 @@ public final class BotThreads {
                 : rng.nextDouble() >= ConvoSwitches.num("tipFollow", TIP_FOLLOW) ? "keeps its own plan" : null;
         if (skip != null) {
             qa(l.mapId, "TIP SKIP " + asker.getName() + " hears " + spot.name() + " (" + spot.mapId() + "): " + skip);
+            tipSkipped(l, asker.getName() + " hears " + spot.name() + ": " + skip);
             return null;
         }
         TrainingTips.offer(asker.getId(), spot.mapId(), now);
@@ -1129,6 +1243,13 @@ public final class BotThreads {
             soloMapling.autoqa.SocialTrace.threadDecided(l.id, asker.getId(), decision, spot.mapId());
         }
         return spot;
+    }
+
+    /** 1.6.0: the trace's DECIDE says which check kept the tip from being followed (TEST 2026-10-27: 5 of 5). */
+    private static void tipSkipped(Live l, String why) {
+        if (soloMapling.autoqa.SocialTrace.on()) {
+            soloMapling.autoqa.SocialTrace.threadDecided(l.id, null, "no tip followed: " + why);
+        }
     }
 
     /**

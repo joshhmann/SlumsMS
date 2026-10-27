@@ -31,7 +31,10 @@ import java.util.regex.Pattern;
  * "arrive" once the bot reaches the spot), and a TRADE thread with a deal ({@code BotBotTrade}) decides in code
  * before its talk ("sell X for P", act "trade"; "no deal" has nothing to carry out); the thread records that
  * decision, or why there was none ({@link #THREAD_ACTS}). When a link is built, it records its decision the same way
- * and ACT starts judging it.
+ * and ACT starts judging it. Since TEST 2026-10-27 (DECIDE 0 of 15, every reason the generic one) a TRAINING thread
+ * records the check that kept its tip ("no tip followed: X hears Y: not a training bot"), a TRADE thread the check that
+ * kept its deal ("no deal was planned: neither holds ..."), and an LFG no names whose reason it is; the table below
+ * is only the fallback for an older build.
  */
 public final class SocialTraceJudge {
 
