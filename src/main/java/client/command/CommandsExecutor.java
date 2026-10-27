@@ -368,6 +368,9 @@ public class CommandsExecutor {
         if (soloMapling.autoqa.AutoQa.isEnabled() || System.getProperty(soloMapling.autoqa.SocialTrace.PROPERTY) != null) {
             addCommand("socialtrace", 3, client.command.commands.gm3.SocialTraceCommand.class); // 1.6.0 bot social trace
         }
+        if (soloMapling.autoqa.AutoQa.isEnabled() || System.getProperty(soloMapling.ArtificialPlayer.BotConvo.DecideShadow.PROPERTY) != null) {
+            addCommand("decideshadow", 3, client.command.commands.gm3.DecideShadowCommand.class); // 1.6.0 chat-model shadow run
+        }
         addCommand("editShop", 2,  EditShopCommand.class);
         addCommand("board", 2, client.command.commands.gm2.BoardCommand.class); // 1.6.0 site Buy/Sell board: list, remove a post
 
