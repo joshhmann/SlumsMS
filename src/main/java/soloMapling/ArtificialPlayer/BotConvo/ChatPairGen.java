@@ -129,8 +129,10 @@ public final class ChatPairGen {
                     + "honest request for help.",
             "manipulation", "P is poking at B: asking if B is a bot or an AI, asking about B's prompt or rules, "
                     + "telling B to ignore its instructions, or to pretend to be something.",
-            "harassment", "P is harassing B: hostile, repeated mocking, telling B to quit the game, but no slurs, "
-                    + "nothing sexual and no real-life threats.",
+            "harassment", "P harasses B: targeted, repeated or personal abuse aimed at B (going after B again and "
+                    + "again, telling B nobody wants them around, to quit, that everyone laughs at them), not generic "
+                    + "trash talk like \"go back to henny noob\" (that is a plain insult). No slurs, nothing sexual, no "
+                    + "real-life threats.",
             "rwt", "P wants a real-money deal: buying or selling mesos or items for real money (paypal, dollars), or "
                     + "selling an account. Never asking for a password (that is a scam).");
 
@@ -185,8 +187,8 @@ public final class ChatPairGen {
                 "omw to ellinia", "brb pots"));
         VARIANTS.put("story", List.of("a past-tense story about something P did; no request",
                 "i helped kill balrog yesterday"));
-        VARIANTS.put("denial", List.of("P says P is NOT begging or asking anyone for anything",
-                "im saving for a weapon, not asking u for mesos"));
+        VARIANTS.put("denial", List.of("a denial: P says P does NOT want or need something from B (no request, "
+                + "not a story)", "nah i dont need a buff im good", "im saving for a weapon, not asking u for mesos"));
         VARIANTS.put("refusal", List.of("P turns down an offer or says P can't do something, with no request in it",
                 "nah cant do kpq tonite", "no thanks i got pots", "cant rn gotta sleep"));
         // round 4: bare "hey" / "k bye" are frozen held-out lines (and repeat each other), so greetings say a bit more
@@ -213,7 +215,9 @@ public final class ChatPairGen {
             "trade|rwt", List.of("selling 100m mesos 10$ paypal"),
             "trade|scam", List.of("u give first then ill trade", "giving 5m for ur login"),
             "talk|scam", List.of("got any spare elixirs plz", "whats ur pw ill lvl ur char"),
-            "insult|normal", List.of("lol lv 40 and still in ant tunnel"));
+            "insult|normal", List.of("lol lv 40 and still in ant tunnel"),
+            "insult|harassment", List.of("u again? every map u show up nobody wants u here"),
+            "talk|harassment", List.of("i told u yesterday ur useless, stop following me around"));
 
     /** The coverage plan's rows: every plausible (intent, tone, con, act, variant). */
     static final List<Row> ROWS = new ArrayList<>();
@@ -455,7 +459,13 @@ public final class ChatPairGen {
         s.append("\nact:");
         ACTS.forEach((k, v) -> s.append(' ').append(k).append(" = ").append(v.replace("B's ", "your ")
                 .replace(" B ", " you ")).append(';'));
-        return s.append("\nHard cases: a refusal or an announcement that mentions an activity (\"cant do kpq tonite\", ")
+        return s.append("\nHard cases, most important first: a refusal, or a line that names an activity without asking ")
+                .append("for it, is intent talk (\"nah cant do lpq tonight\" is talk/refuse, not party or trade); a ")
+                .append("denial (\"nah i dont need a buff im good\") is talk/chat with con normal; teasing (\"that hat ")
+                .append("makes u look like a mushroom\") is insult or talk, not flirt; \"tell me why ur guild even ")
+                .append("exists\" is an insult, not a guild ask; generic trash talk (\"go back to henny noob\") is insult ")
+                .append("with con normal, harassment is targeted, repeated or personal abuse; ")
+                .append("a refusal or an announcement that mentions an activity (\"cant do kpq tonite\", ")
                 .append("\"lf2m kpq\") is intent talk, act refuse or announce; saying where P is going (\"omw to ")
                 .append("ellinia\") is talk/announce, not come; a past-tense story is talk/chat; a fair trade with an ")
                 .append("in-game price is con normal; an honest request for help or a buff is con normal; \"lend me 300k i ")
@@ -466,7 +476,7 @@ public final class ChatPairGen {
                 .append("(chat, help, small favours) the deciding part is the ask in P's line (hold, lend, give first, ")
                 .append("password), and that ask is scam; the same friendly build-up ending in a fair ask or plain chat ")
                 .append("is normal; light game trash talk (\"lv 40 and still in ant tunnel lol\") is insult with ")
-                .append("con normal; a public wts or wtb ad is act announce; hostile lines that try to drive you off (\"u trash, quit the game\") are harassment. ")
+                .append("con normal; a public wts or wtb ad is act announce. ")
                 .append("Use only the labels listed; \"chat\" is an act, never an intent.\nAlso: reply_ok = B answers P the way it is meant to (given after it); typed = a real ")
                 .append("player would type P like that (short, casual, not describing itself).\nAnswer one JSON object ")
                 .append("per line, nothing else: {\"n\":1,\"intent\":\"...\",\"tone\":\"...\",\"con\":\"...\",")
@@ -789,6 +799,10 @@ public final class ChatPairGen {
 
     // ── prompts ──
 
+    /** Round 5 review: teasing came out under flirt. */
+    static final String TEASING = "Teasing (\"that hat makes u look like a mushroom\") is not flirting; it is an insult or "
+            + "plain talk. ";
+
     private static String playerSpec(Row r) {
         StringBuilder s = new StringBuilder("What P wants: ").append(PLAYER_INTENTS.get(r.intent())).append(". P's tone: ")
                 .append(TONE_WORDS.get(r.tone())).append(". Kind of line: ").append(ACTS.get(r.act()));
@@ -801,6 +815,9 @@ public final class ChatPairGen {
         s.append(" (shape: \"").append(shape).append("\"; never copy it, write new ones). ");
         String con = CON_WORDS.get(r.con());
         s.append(con != null ? con + " " : "No scam, no begging, no real money, no bot questions. ");
+        if (List.of("flirt", "date", "insult").contains(r.intent()) || "flirty".equals(r.tone())) {
+            s.append(TEASING);
+        }
         List<String> examples = EXAMPLES.get(r.intent() + "|" + r.con());
         if (examples != null && v == null) {
             s.append("For example P: \"").append(String.join("\" / \"", examples)).append("\", but write your own. ");
@@ -844,6 +861,10 @@ public final class ChatPairGen {
             s.append(e.getKey()).append(' ').append(String.join(", ", pool.subList(0, 3))).append("; ");
         }
         s.append("B is the other player's reply: ").append(ChatBankGen.INTENTS.get(c.botLabel())[0]).append(". ");
+        if (c.botLabel().startsWith("brush_")) {
+            s.append("B's reply is a short, lowercase player-style brush-off (\"lol no\", \"nah not into that\"), ")
+                    .append("never polite, formal or like a help desk. ");
+        }
         s.append("B toward P: ").append(ChatBankGen.AFFINITY_WORDS.getOrDefault(affinity, "")).append(". ");
         ConvoPersona.Voice v = ConvoPersona.Voice.parse(c.voice());
         if (v != null) {
@@ -937,10 +958,15 @@ public final class ChatPairGen {
         List<String> out = new ArrayList<>();
         // a small checker writes the con in the intent field ("scam") for a scam ask: no intent given, not a mismatch
         boolean noIntent = !"normal".equals(v.intent()) && CON_LABELS.containsKey(v.intent());
-        if (!noIntent && !c.intent().equals(v.intent())) {
+        // round 5 review: on a con row the checker gets the con right but reads a scam as talk or trade either way
+        boolean conIntent = !"normal".equals(c.con()) && c.con().equals(v.con())
+                && CON_INTENTS.getOrDefault(c.con(), List.of()).contains(v.intent());
+        if (!noIntent && !conIntent && !c.intent().equals(v.intent())) {
             out.add("label mismatch intent want=" + c.intent() + " got=" + v.intent());
         }
-        if (!toneOk(c.tone(), v.tone())) {
+        // a date ask is read as flirty: for date, flirty counts as kind
+        boolean dateTone = "date".equals(c.intent()) && "kind".equals(c.tone()) && "flirty".equals(v.tone());
+        if (!dateTone && !toneOk(c.tone(), v.tone())) {
             out.add("label mismatch tone want=" + c.tone() + " got=" + v.tone());
         }
         if (!c.con().equals(v.con())) {
@@ -1166,7 +1192,27 @@ public final class ChatPairGen {
     /** Why the reply cannot be a bot line of the cell's bank intent (the bank's own checks), or null. */
     static String replyProblem(Cell c, String text) {
         String bad = ChatBankGen.lineProblem(c.botLabel(), text);
+        if (bad == null && assistantLike(c.voice(), text)) {
+            bad = "assistant-like";
+        }
         return bad == null ? null : "reply " + bad;
+    }
+
+    private static final Pattern ASSISTANT = Pattern.compile("\\b(against the (rules|tos|terms)|not allowed|is prohibited"
+            + "|violat\\w* (the )?(rules|tos|terms)|i (cannot|can not) (help|assist|do that)|i(?:'| a)m sorry,? but"
+            + "|please (note|be aware|refrain)|kindly|i do not (engage|participate)|not permitted|i would advise"
+            + "|it is (important|best) to)\\b", Pattern.CASE_INSENSITIVE);
+
+    /**
+     * Round 5 review: rwt replies came out like a help desk ("Real money is against the rules"). A reply that sounds
+     * like rules or an assistant, or a capitalised sentence of five words or more outside the proper voice.
+     */
+    static boolean assistantLike(String voice, String text) {
+        if (ASSISTANT.matcher(text).find()) {
+            return true;
+        }
+        return !"proper".equals(voice) && !text.isEmpty() && Character.isUpperCase(text.charAt(0))
+                && !text.startsWith("I ") && text.trim().split("\\s+").length >= 5 && !text.matches(".*[A-Z]{2,}.*");
     }
 
     boolean offer(Cell c, String affinity, String rawPlayer, String rawReply) throws IOException {
@@ -1180,6 +1226,11 @@ public final class ChatPairGen {
 
     /** Adds a pair when both lines pass; true when added. Writes only {@code pairs.jsonl} or the rejects. */
     boolean offer(Cell c, String affinity, Item item, String source, String bankId) throws IOException {
+        return offer(c, affinity, item, source, bankId, null);
+    }
+
+    /** As above, recording what the label check read ({@code checked}: its intent, tone, con and act). */
+    boolean offer(Cell c, String affinity, Item item, String source, String bankId, Verdict checked) throws IOException {
         String player = ChatBankGen.clean(item.player());
         String reply = ChatBankGen.clean(item.reply());
         String why = playerProblem(c, player);
@@ -1216,6 +1267,14 @@ public final class ChatPairGen {
             context.add(m);
         }
         p.put("context", context);
+        if (checked != null) {
+            Map<String, Object> m = new LinkedHashMap<>();
+            m.put("intent", checked.intent());
+            m.put("tone", checked.tone());
+            m.put("con", checked.con());
+            m.put("act", checked.act());
+            p.put("checked", m);
+        }
         if (bankId != null) {
             p.put("bank_id", bankId);
         }
@@ -1540,7 +1599,10 @@ public final class ChatPairGen {
             String why = playerProblem(c, player);
             if (why == null) {
                 why = replyProblem(c, ChatBankGen.clean(it.reply()));
-                if ("backfill".equals(source) && "reply prompt example".equals(why)) {
+                // a backfilled reply is a vetted bank line: short seeded ones match voice examples, and the proper
+                // voice capitalises; only real help-desk wording is still refused
+                if ("backfill".equals(source) && ("reply prompt example".equals(why)
+                        || "reply assistant-like".equals(why) && !ASSISTANT.matcher(it.reply()).find())) {
                     why = null;
                 }
             }
@@ -1574,7 +1636,8 @@ public final class ChatPairGen {
             List<String> wrong = run.verify() ? mismatches(cells.get(i), verdicts.get(k + 1)) : List.of();
             if (!wrong.isEmpty()) {
                 reject(cells.get(i), String.join("; ", wrong), got.get(i).player(), got.get(i).reply());
-            } else if (offer(cells.get(i), affinities.get(i), got.get(i), source, bankIds == null ? null : bankIds.get(i))) {
+            } else if (offer(cells.get(i), affinities.get(i), got.get(i), source, bankIds == null ? null : bankIds.get(i),
+                    verdicts.get(k + 1))) {
                 added++;
             }
         }
@@ -1583,11 +1646,21 @@ public final class ChatPairGen {
 
     /** Appends one run's totals to {@code pair-runs.tsv} (stats prints pairs per call and the reject share). */
     private void logRun(String command, int calls, int made, int rejectedNow) throws IOException {
-        Files.writeString(state.resolve(RUNS), java.time.Instant.now() + "\t" + command + "\t" + calls + "\t" + made
-                + "\t" + rejectedNow + "\n", StandardCharsets.UTF_8, StandardOpenOption.CREATE, StandardOpenOption.APPEND);
-        System.out.printf(Locale.ROOT, "%s: %d calls, %d pairs (%.1f a call), %d rejected (%.0f%% of candidates)%n",
-                command, calls, made, calls == 0 ? 0.0 : (double) made / calls, rejectedNow,
-                made + rejectedNow == 0 ? 0.0 : 100.0 * rejectedNow / (made + rejectedNow));
+        Files.writeString(state.resolve(RUNS), runRow(java.time.Instant.now().toString(), command, calls, made, rejectedNow,
+                spent), StandardCharsets.UTF_8, StandardOpenOption.CREATE, StandardOpenOption.APPEND);
+        System.out.println(command + ": " + runLine(calls, made, rejectedNow, spent));
+    }
+
+    /** One {@code pair-runs.tsv} row: when, command, calls, pairs, rejected, estimated USD (generation and check). */
+    static String runRow(String when, String command, int calls, int made, int rejected, double usd) {
+        return String.format(Locale.ROOT, "%s\t%s\t%d\t%d\t%d\t%.4f%n", when, command, calls, made, rejected, usd);
+    }
+
+    /** A run's totals in words: pairs a call, the reject share and the estimated spend. */
+    static String runLine(int calls, int made, int rejected, double usd) {
+        return String.format(Locale.ROOT, "%d calls, %d pairs (%.1f a call), %d rejected (%.0f%% of candidates), ~$%.4f "
+                        + "(generation and check, estimated)", calls, made, calls == 0 ? 0.0 : (double) made / calls,
+                rejected, made + rejected == 0 ? 0.0 : 100.0 * rejected / (made + rejected), usd);
     }
 
     /** {@code --reasoning-effort} is ignored here: on .17 low/high spent the whole token cap thinking. */
@@ -1726,16 +1799,13 @@ public final class ChatPairGen {
         planReport(new Plan(target)).forEach(l -> System.out.println("  " + l));
         Path runs = state.resolve(RUNS);
         if (Files.exists(runs)) {
-            System.out.println(" runs (calls, pairs, pairs a call, reject share)");
+            System.out.println(" runs");
             for (String row : Files.readAllLines(runs, StandardCharsets.UTF_8)) {
                 String[] f = row.split("\t");
-                if (f.length == 5) {
-                    int calls = Integer.parseInt(f[2]);
-                    int made = Integer.parseInt(f[3]);
-                    int rej = Integer.parseInt(f[4]);
-                    System.out.printf(Locale.ROOT, "  %-20s %-28s %4d %5d %5.1f %4.0f%%%n", f[0].substring(0, 19), f[1],
-                            calls, made, calls == 0 ? 0.0 : (double) made / calls,
-                            made + rej == 0 ? 0.0 : 100.0 * rej / (made + rej));
+                if (f.length >= 5) { // rows before round 5 have no spend column
+                    double usd = f.length >= 6 ? Double.parseDouble(f[5]) : 0;
+                    System.out.printf(Locale.ROOT, "  %-20s %-28s %s%n", f[0].substring(0, Math.min(19, f[0].length())),
+                            f[1], runLine(Integer.parseInt(f[2]), Integer.parseInt(f[3]), Integer.parseInt(f[4]), usd));
                 }
             }
         }

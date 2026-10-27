@@ -316,6 +316,64 @@ class ChatPairGenTest {
         assertTrue(ChatPairGen.SYSTEM.contains("CP: (said by P)"));
     }
 
+    /** Round 5 review of DeepSeek's round-4 sample: whole rows were lost to the checker's reading. */
+    @Test
+    void conRowsAcceptTalkOrTradeAndDateAcceptsFlirty() {
+        ChatPairGen.Cell talkScam = cell("talk", "neutral", "scam", "ask", "brush_scam");
+        assertEquals(List.of(), ChatPairGen.mismatches(talkScam,
+                new ChatPairGen.Verdict("trade", "neutral", "scam", "ask", true, true)), "a scam read as trade still counts");
+        assertEquals(List.of("label mismatch intent want=talk got=buff", "label mismatch con want=scam got=normal"),
+                ChatPairGen.mismatches(talkScam, new ChatPairGen.Verdict("buff", "neutral", "normal", "ask", true, true)),
+                "\"can u buff me at jr wraiths\" is no scam");
+        assertEquals(List.of("label mismatch intent want=talk got=trade", "label mismatch con want=scam got=normal"),
+                ChatPairGen.mismatches(talkScam, new ChatPairGen.Verdict("trade", "neutral", "normal", "ask", true, true)),
+                "\"wtb work gloves\" is no scam: the trade reading only counts when the con matches");
+        assertEquals(List.of("label mismatch intent want=talk got=trade"), ChatPairGen.mismatches(
+                cell("talk", "neutral", "manipulation", "ask", "brush_manipulation"),
+                new ChatPairGen.Verdict("trade", "neutral", "manipulation", "ask", true, true)),
+                "manipulation only goes with talk");
+        assertEquals(List.of("label mismatch intent want=talk got=trade"), ChatPairGen.mismatches(
+                cell("talk", "neutral", "normal", "ask", "talk_q"),
+                new ChatPairGen.Verdict("trade", "neutral", "normal", "ask", true, true)), "normal rows stay strict");
+        ChatPairGen.Cell date = cell("date", "kind", "normal", "ask", "flirt_back");
+        assertEquals(List.of(), ChatPairGen.mismatches(date, new ChatPairGen.Verdict("date", "flirty", "normal", "ask",
+                true, true)), "a kind date ask reads as flirty");
+        assertEquals(List.of("label mismatch tone want=kind got=flirty"), ChatPairGen.mismatches(
+                cell("party", "kind", "normal", "ask", "party_yes"),
+                new ChatPairGen.Verdict("party", "flirty", "normal", "ask", true, true)), "only for date");
+    }
+
+    @Test
+    void refusalsComeFirstInTheHardCasesAndRepliesStayPlayerLike() {
+        String sys = ChatPairGen.VERIFY_SYSTEM;
+        int hard = sys.indexOf("Hard cases");
+        assertTrue(hard > 0);
+        assertTrue(sys.substring(hard, hard + 220).contains("a refusal, or a line that names an activity without asking "
+                + "for it, is intent talk"), sys.substring(hard));
+        assertTrue(sys.contains("teasing") && sys.contains("tell me why ur guild even exists")
+                && sys.contains("harassment is targeted, repeated or personal abuse"));
+        assertTrue(ChatPairGen.CON_WORDS.get("harassment").contains("not generic trash talk"));
+        assertTrue(ChatPairGen.ROWS.contains(new ChatPairGen.Row("insult", "rude", "normal", "chat", "-")),
+                "trash talk has its own insult/normal row");
+        assertEquals("nah i dont need a buff im good", ChatPairGen.VARIANTS.get("denial").get(1));
+        assertTrue(ChatPairGen.VARIANTS.get("denial").get(0).contains("does NOT want or need"));
+        assertTrue(ChatPairGen.assistantLike("lower", "Real money is against the rules"));
+        assertTrue(ChatPairGen.assistantLike("lower", "Sorry, I am not interested in that offer"));
+        assertTrue(ChatPairGen.assistantLike("proper", "That is not allowed here"));
+        assertFalse(ChatPairGen.assistantLike("proper", "No thanks, not into that"));
+        assertFalse(ChatPairGen.assistantLike("lower", "lol no thats bannable"));
+        assertTrue(ChatPairGen.replyProblem(cell("trade", "neutral", "rwt", "ask", "brush_rwt"),
+                "Real money is against the rules").startsWith("reply assistant-like"));
+    }
+
+    @Test
+    void runsRecordTheirEstimatedSpend() {
+        String row = ChatPairGen.runRow("2026-10-27T14:00:00Z", "player", 20, 70, 50, 0.01234);
+        assertEquals("2026-10-27T14:00:00Z\tplayer\t20\t70\t50\t0.0123\n", row);
+        String line = ChatPairGen.runLine(20, 70, 50, 0.01234);
+        assertTrue(line.contains("3.5 a call") && line.contains("42%") && line.contains("~$0.0123"), line);
+    }
+
     @Test
     void talkIsCapped(@TempDir Path dir) throws Exception {
         ChatPairGen.Plan plan = new ChatPairGen.Plan(100);
@@ -343,7 +401,7 @@ class ChatPairGenTest {
         assertTrue(p.contains("bot or an AI") && p.contains("5 to 40 characters") && p.contains("never describes"), p);
         String q = g.prompt(new ChatPairGen.Cell("talk", "neutral", "normal", "chat", "denial", "talk", "lower", "-"), 6,
                 "any", new Random(2));
-        assertTrue(q.contains("NOT begging") && q.contains("No scam"), q);
+        assertTrue(q.contains("does NOT want or need") && q.contains("No scam"), q);
         List<ChatPairGen.Cell> cells = List.of(cell("trade", "neutral", "rwt", "ask", "brush_rwt"),
                 cell("talk", "kind", "normal", "greet", "greeting"));
         String v = ChatPairGen.verifyPrompt(cells, List.of(new ChatPairGen.Item("a", "b"), new ChatPairGen.Item("c", "d")));

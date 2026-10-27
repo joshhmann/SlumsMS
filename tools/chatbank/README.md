@@ -97,10 +97,14 @@ negative it is, or `-`), `source` (`gen` or `backfill`) and, for backfill, `bank
   labels (only what B is meant to do) and labels each one blind, as JSON: intent, tone, con, act (the classifier's own
   label words, with the hard cases spelled out), `reply_ok` and `typed`. A pair is kept only when intent, con and act
   equal its cell's, the tone matches (or is neutral against kind), the reply is ok and the line is not untypeable. Every
-  disagreement goes to `pair-rejects.tsv` as `label mismatch <field> want=<x> got=<y>`.
+  disagreement goes to `pair-rejects.tsv` as `label mismatch <field> want=<x> got=<y>`. Round 5 review: on a con row the
+  intent may read talk or trade (any intent `CON_INTENTS` allows for that con) when the con itself matches; for date, a
+  flirty reading counts as kind. What the check read is kept on the pair as `checked` (intent, tone, con, act). Replies
+  that sound like a help desk ("Real money is against the rules") are refused (`reply assistant-like`).
 - `stats` prints pairs per intent, tone, con, act, bot label, source and variant, the player line length
   distribution, every plan floor with how far off it is, the talk, neutral and hard-negative shares, each run's pairs
-  per call and reject share (`pair-runs.tsv`), the label mismatches by field and want/got, and rejects per reason.
+  per call, reject share and estimated USD spend for generation plus check (`pair-runs.tsv`; from `--price-in` /
+  `--price-out`, so notional on the local model), the label mismatches by field and want/got, and rejects per reason.
 
 ## Frozen evaluation sets (never trained on)
 
