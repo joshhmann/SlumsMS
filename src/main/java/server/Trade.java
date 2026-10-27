@@ -418,7 +418,8 @@ public class Trade {
                 return;
             }
 
-            if (local.getChr().getLevel() < 15) {
+            // 1.6.0 release day: the under-15 meso cap is for players; a lv 11 NX merchant bot refused every 50m buyer
+            if (dailyMesoCapApplies(local.getChr())) {
                 if (local.getChr().getMesosTraded() + local.exchangeMeso > 1000000) {
                     cancelTrade(local.getChr(), TradeResult.NO_RESPONSE);
                     local.getChr().sendPacket(PacketCreator.serverNotice(1, "Characters under level 15 may not trade more than 1 million mesos per day."));
@@ -426,7 +427,7 @@ public class Trade {
                 } else {
                     local.getChr().addMesosTraded(local.exchangeMeso);
                 }
-            } else if (partner.getChr().getLevel() < 15) {
+            } else if (dailyMesoCapApplies(partner.getChr())) {
                 if (partner.getChr().getMesosTraded() + partner.exchangeMeso > 1000000) {
                     cancelTrade(partner.getChr(), TradeResult.NO_RESPONSE);
                     partner.getChr().sendPacket(PacketCreator.serverNotice(1, "Characters under level 15 may not trade more than 1 million mesos per day."));
@@ -461,6 +462,15 @@ public class Trade {
             chr.setTrade(null);
             if (soloMapling.ArtificialPlayer.BotHelpers.isRosterBot(chr)) soloMapling.ArtificialPlayer.BotTradeSystem.BotTradeQueue.getInstance().removeTradeRequest(chr);
         }
+    }
+
+    /** The "under level 15: 1m mesos a day" trade cap holds for players only, not for bots (TEST t-nx-1, 1.6.0). */
+    static boolean dailyMesoCapApplies(Character chr) {
+        return dailyMesoCapApplies(chr.getLevel(), soloMapling.ArtificialPlayer.BotHelpers.isRosterBot(chr));
+    }
+
+    static boolean dailyMesoCapApplies(int level, boolean rosterBot) {
+        return level < 15 && !rosterBot;
     }
 
     private static void cancelTradeInternal(Character chr, byte selfResult, byte partnerResult) {
