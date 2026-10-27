@@ -779,8 +779,11 @@ public final class BotConversation {
         Character player = session.player;
         String kind = triage.con().name().toLowerCase();
         ChatStats.flagged(kind);
+        // owner 2026-10-27: a password or login phish is a scam, but begging's brush-off ("get ur own mesos") and
+        // note do not fit it
+        boolean phish = triage.con() == ChatTriage.Con.SCAM && ChatTriage.phishing(line);
         if (triage.conConfidence() >= flagNoteMin()) {
-            String note = BotChatActions.flagNote(triage.con());
+            String note = phish ? BotChatActions.PHISH_NOTE : BotChatActions.flagNote(triage.con());
             boolean known = BotMemory.about(slot, player.getId()).stream().anyMatch(n -> n.text().equals(note));
             if (!known) {
                 BotMemory.remember(slot, player.getId(), List.of(note), BotMemory.Source.DIRECT, 0, 0, asked);
@@ -795,7 +798,8 @@ public final class BotConversation {
         boolean neutral = triage.con() == ChatTriage.Con.HARASSMENT
                 && soloMapling.ArtificialPlayer.BotAffinitySystem.BotAffinity.optedOut(player.getId());
         deliver(session, neutral ? new soloMapling.ArtificialPlayer.BotConvo.ConvoLines.Line(ScriptedReplies.shrug(), -1,
-                        "scripted") : bank(session, soloMapling.ArtificialPlayer.BotConvo.ConvoLines.key(triage.con()), null,
+                        "scripted") : phish ? new soloMapling.ArtificialPlayer.BotConvo.ConvoLines.Line(
+                        ScriptedReplies.phishingBrushOff(), -1, "scripted") : bank(session, soloMapling.ArtificialPlayer.BotConvo.ConvoLines.key(triage.con()), null,
                         ScriptedReplies.brushOff(triage.con())), asked, ChatStats.Tier.FLAGGED,
                 kind + "/" + triage.conSource().name().toLowerCase(), new Cue(triage, BotChatActions.Outcome.NONE, line));
     }
