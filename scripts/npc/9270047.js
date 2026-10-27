@@ -58,7 +58,7 @@ function action(mode, type, selection) {
 
         if (status == 0) {
             if (player.getLevel() < exped.getMinLevel() || player.getLevel() > exped.getMaxLevel()) { //Don't fit requirement, thanks Conrad
-                cm.sendOk("You do not meet the criteria to battle " + expedBoss + "!");
+                cm.sendOk(player.getLevel() < exped.getMinLevel() ? "You need to be at least level " + exped.getMinLevel() + " to battle " + expedBoss + "." : "You need to be level " + exped.getMaxLevel() + " or lower to battle " + expedBoss + ".");
                 cm.dispose();
             } else if (expedition == null) { //Start an expedition
                 cm.sendSimple("#e#b<Expedition: " + expedName + ">\r\n#k#n" + em.getProperty("party") + "\r\n\r\nWould you like to assemble a team to take on #r" + expedBoss + "#k?\r\n#b#L1#Lets get this going!#l\r\n\#L2#No, I think I'll wait a bit...#l");
@@ -147,6 +147,11 @@ function action(mode, type, selection) {
                 cm.sendSimple(text);
                 status = 6;
             } else if (selection == 2) {
+                if (expedition == null) { // a stale menu: the registration timer ran out
+                    cm.sendOk("The expedition is no longer registering. Talk to me again to start a new one.");
+                    cm.dispose();
+                    return;
+                }
                 var min = exped.getMinSize();
                 var size = expedition.getMemberList().size();
                 if (size < min) {
@@ -158,6 +163,11 @@ function action(mode, type, selection) {
                 cm.sendOk("The expedition will begin and you will now be escorted to the #b" + expedMap + "#k.");
                 status = 4;
             } else if (selection == 3) {
+                if (expedition == null) {
+                    cm.sendOk("The expedition is no longer registering. Talk to me again to start a new one.");
+                    cm.dispose();
+                    return;
+                }
                 const PacketCreator = Java.type('tools.PacketCreator');
                 player.getMap().broadcastMessage(PacketCreator.serverNotice(6, expedition.getLeader().getName() + " has ended the expedition."));
                 cm.endExpedition(expedition);
@@ -172,6 +182,11 @@ function action(mode, type, selection) {
                 return;
             }
 
+            if (expedition == null) { // the registration timer ran out while the start notice was open
+                cm.sendOk("The expedition is no longer registering. Talk to me again to start a new one.");
+                cm.dispose();
+                return;
+            }
             em.setProperty("leader", player.getName());
             em.setProperty("channel", player.getClient().getChannel());
             if (!em.startInstance(expedition)) {

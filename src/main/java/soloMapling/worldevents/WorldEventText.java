@@ -73,6 +73,11 @@ public final class WorldEventText {
                 : "[Monster Invasion] The last wave hits {MAP}!";
     }
 
+    /** 1.6.0 tuning: a wave's mini-boss leads it in. */
+    public static String miniBoss() {
+        return "[Monster Invasion] {MINIBOSS} leads the charge into {MAP}!";
+    }
+
     public static String bossArrives() {
         return "[Monster Invasion] {BOSS} has appeared at {MAP}!";
     }

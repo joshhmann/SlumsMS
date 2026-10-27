@@ -22,7 +22,9 @@
 #                     and by the map's bot cap, BOT_MAP_CAP)
 #   maps / spots      where it can happen (one is picked at random). spots carry `mob` (boss_sighting) or
 #                     `item` + `count` (wandering_npc: what the traveler asks each player for)
-#   waves, boss       invasion: mob waves in order, then the boss; the next wave comes when a wave is cleared
+#   waves, boss       invasion: mob waves in order, then the boss; the next wave comes when a wave is cleared. A wave
+#                     may bring a `mini_boss` (a mob id, spawned once at its own WZ stats with the wave; the wave is
+#                     cleared when it falls too)
 #   npc               treasure_hunt: the hidden chest NPC; wandering_npc: the traveler
 #   exp_bonus         hot_spot: EXP multiplier on that one map for real players (above 1.0, at most 2.0)
 #   boss              invasion: the boss after the last wave; giant_cake: the cake itself
@@ -70,6 +72,10 @@ templates:
 
   # "I just wanna see a bunch of bots die": a town invasion. Bots in the band swarm it, really fight, and on this map a
   # heavy hit can kill them (no immunity); they respawn as usual and grumble about it.
+  # Owner 2026-10-26 ("Just want bots dying lmao"): a TEST run drew bots up to lv 70 (the derived band 17-70) who
+  # cleared each mushroom wave in under a minute and never died. Now only lv 15-40 answer (a lv 70 would not bother),
+  # and the last wave and the boss hit hard: Evil Eyes from the Ant Tunnel led by Mushmom (~100 a touch), then Zombie
+  # Mushmom (~125). Every mob gives its own EXP and drops at the server rates; no bonus.
   - id: henesys_invasion
     kind: invasion
     slot: headline
@@ -78,11 +84,13 @@ templates:
     minutes: 30
     cooldown_minutes: 600
     bot_cap: 40
+    levels: [15, 40]
     maps: [100000000]                            # Henesys
     waves:
       - {mob: 2110200, count: 20}                # Horny Mushroom (lv 22)
       - {mob: 2230101, count: 20}                # Zombie Mushroom (lv 24)
-    boss: 6130101                                # Mushmom (lv 60)
+      - {mob: 2230100, count: 16, mini_boss: 6130101}  # Evil Eye (lv 27), led by Mushmom (lv 60, its own 20,000 HP)
+    boss: 6300005                                # Zombie Mushmom (lv 65)
     boss_hp: 150000
     rewards:
       - {item: 2000004, qty: 5}                  # Elixir
@@ -99,6 +107,7 @@ templates:
     minutes: 30
     cooldown_minutes: 600
     bot_cap: 40
+    levels: [20, 40]                             # owner 2026-10-26: the boars' own band (derived it was 20-45)
     maps: [102000000]                            # Perion
     waves:
       - {mob: 2230102, count: 18}                # Wild Boar (lv 25)
@@ -120,6 +129,7 @@ templates:
     minutes: 25
     cooldown_minutes: 240
     bot_cap: 8
+    levels: [15, 35]                             # owner 2026-10-26: the mushrooms' band (derived it was 17-70)
     maps: [105050000, 105050100, 105070001]      # Ant Tunnel I, Ant Tunnel II, Ant Tunnel Park
     waves:
       - {mob: 2110200, count: 14}                # Horny Mushroom
@@ -136,6 +146,7 @@ templates:
     minutes: 25
     cooldown_minutes: 240
     bot_cap: 8
+    levels: [20, 40]                             # owner 2026-10-26: the boars' band (derived it was 20-45)
     maps: [101040001, 101030001]                 # Land of Wild Boar, The Land of Wild Boar II
     waves:
       - {mob: 2230102, count: 14}                # Wild Boar

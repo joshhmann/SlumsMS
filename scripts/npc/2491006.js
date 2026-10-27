@@ -58,7 +58,7 @@ function action(mode, type, selection) {
 
         if (status == 0) {
             if (player.getLevel() < exped.getMinLevel() || player.getLevel() > exped.getMaxLevel()) { //Don't fit requirement, thanks Conrad
-                cm.sendOk("You do not meet the criteria to battle " + expedBoss + "!");
+                cm.sendOk(player.getLevel() < exped.getMinLevel() ? "You need to be at least level " + exped.getMinLevel() + " to battle " + expedBoss + "." : "You need to be level " + exped.getMaxLevel() + " or lower to battle " + expedBoss + ".");
                 cm.dispose();
             } else if (em == null) {
                 cm.sendOk("The trial could not be prepared, please report this on the discord.");

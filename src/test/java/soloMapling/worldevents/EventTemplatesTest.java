@@ -80,6 +80,63 @@ class EventTemplatesTest {
     }
 
     @Test
+    void shippedInvasionsCallOnlyTheirOwnBandAndHenesysEndsHard() throws Exception {
+        EventTemplates.Result r;
+        try (FileReader in = new FileReader(EventTemplates.DEFAULT_PATH)) {
+            r = EventTemplates.parse(in);
+        }
+        // Owner 2026-10-26: a lv 70 ignores a mushroom invasion; the derived band (henesys 17-70) drew bots that never died
+        for (EventTemplate t : r.templates()) {
+            if (t.kind() == EventTemplate.Kind.INVASION) {
+                assertTrue(t.minLevel() > 0 && t.maxLevel() <= 40, t.id() + " band " + t.minLevel() + "-" + t.maxLevel());
+            }
+        }
+        EventTemplate henesys = r.templates().stream().filter(t -> t.id().equals("henesys_invasion")).findFirst()
+                .orElseThrow();
+        assertEquals(15, henesys.minLevel());
+        assertEquals(40, henesys.maxLevel());
+        EventTemplate.Wave last = henesys.waves().get(henesys.waves().size() - 1);
+        assertEquals(6130101, last.miniBossId(), "the last wave is led by Mushmom");
+        assertEquals(6300005, henesys.bossMobId(), "then Zombie Mushmom");
+        for (EventTemplate.Wave w : henesys.waves().subList(0, henesys.waves().size() - 1)) {
+            assertEquals(0, w.miniBossId(), "only the last wave brings a mini-boss");
+        }
+    }
+
+    @Test
+    void aWaveMayBringAMiniBossOnlyInAnInvasion() throws Exception {
+        EventTemplates.Result r = parse("""
+                templates:
+                  - id: inv
+                    kind: invasion
+                    maps: [100]
+                    waves:
+                      - {mob: 1, count: 5}
+                      - {mob: 2, count: 6, mini_boss: 9}
+                    boss: 3
+                  - id: cake
+                    kind: giant_cake
+                    maps: [100]
+                    boss: 3
+                    waves:
+                      - {mob: 2, count: 6, mini_boss: 9}
+                  - id: neg
+                    kind: invasion
+                    maps: [100]
+                    waves:
+                      - {mob: 2, count: 6, mini_boss: -4}
+                    boss: 3
+                """);
+        assertEquals(List.of("inv"), r.templates().stream().map(EventTemplate::id).toList());
+        EventTemplate t = r.templates().get(0);
+        assertEquals(0, t.waves().get(0).miniBossId());
+        assertEquals(9, t.waves().get(1).miniBossId());
+        String all = String.join("\n", r.errors());
+        assertTrue(all.contains("cake") && all.contains("mini_boss only goes with an invasion wave"), all);
+        assertTrue(all.contains("neg") && all.contains("bad mini_boss"), all);
+    }
+
+    @Test
     void badTemplatesAreSkippedAndReportedTheRestLoad() throws Exception {
         EventTemplates.Result r = parse("""
                 templates:

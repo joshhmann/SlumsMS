@@ -189,12 +189,18 @@ final class WorldEventScenarios {
 
         public List<String> stage(QaContext ctx) {
             List<String> out = stageEvent(ctx, "EV2");
-            out.add("Expect: the [Monster Invasion] notice, mushrooms all over Henesys, the staged lv 15 bots (and"
-                    + " any nearby) fighting them. On an invasion map a heavy hit can kill a bot: WEVENT BOT DIED,");
-            out.add("then RESPAWN (HABITS) and now and then a grumble (WEVENT GRUMBLE). Then the waves, Mushmom,"
-                    + " the end notice. !qa do die drops the 3 staged bots nearest a mob to 1 HP with a certain"
-                    + " death; EV2 STATUS every 30 s (or !qa do status) says where everyone is.");
+            out.addAll(hints());
             return out;
+        }
+
+        /** The GM's hints after staging (a test keeps them clear of t-ev-2's own waits). */
+        static List<String> hints() {
+            return List.of("Expect: the [Monster Invasion] notice, mushrooms all over Henesys, the staged lv 15 bots (and"
+                    + " any nearby) fighting them. On an invasion map a heavy hit can kill a bot: WEVENT BOT DIED,",
+                    "then RESPAWN (HABITS) and now and then a grumble (WEVENT GRUMBLE). Then the waves (the last one"
+                    + " with Evil Eyes and Mushmom), Zombie Mushmom, the end notice. !qa do die drops the 3 staged bots"
+                    + " nearest a mob to 1 HP with a certain death, unless bots already died on their own;"
+                    + " EV2 STATUS every 30 s (or !qa do status) says where everyone is.");
         }
 
         private long lastStatusAt;
@@ -230,6 +236,11 @@ final class WorldEventScenarios {
             if (!"die".equals(name)) {
                 throw new QaRefusal("ev-2 steps: die | status");
             }
+            String natural = naturalDeaths(e.botDeaths());
+            if (natural != null) {
+                ctx.run().note("EV2", natural); // the fallback is for a run where nobody died by itself
+                return List.of(natural);
+            }
             dieArmed = true;
             String line = dropNearest(ctx, e);
             if (line == null) {
@@ -239,6 +250,12 @@ final class WorldEventScenarios {
             List<Integer> ids = List.copyOf(staged);
             ctx.onStop("clear the forced deaths", () -> ids.forEach(id -> BotDeaths.forceNextDeath(id, false)));
             return List.of(line);
+        }
+
+        /** The {@code !qa do die} answer when bots already died without help; null when the forced death is needed. */
+        static String naturalDeaths(int deaths) {
+            return deaths <= 0 ? null : "EV2 DIE not needed: " + deaths + " bot" + (deaths == 1 ? "" : "s")
+                    + " already died on their own";
         }
 
         /** The three staged bots nearest a live invader: their next hit kills (HP 1, the death certain). Null when
