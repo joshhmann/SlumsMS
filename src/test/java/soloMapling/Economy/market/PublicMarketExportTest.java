@@ -249,4 +249,16 @@ class PublicMarketExportTest {
         assertFalse(Boolean.getBoolean(PublicMarketExport.ENABLED));
         assertFalse(PublicMarketExport.enabled());
     }
+
+    @Test
+    void aListingsRunWritesOnlyListings() throws Exception {
+        Fake f = new Fake();
+        AtomicLong clock = new AtomicLong(PublicMarketExport.startOf(TODAY) + 2 * HOUR);
+        var r = runner(f, clock).listings();
+
+        assertTrue(r.failed().isEmpty(), r.failed().toString());
+        assertTrue(Files.isRegularFile(dir.resolve("listings.json")));
+        assertFalse(Files.exists(dir.resolve("sales.json")), "sales stay on the 15-minute run");
+        assertFalse(Files.exists(dir.resolve("nx-rate.json")));
+    }
 }

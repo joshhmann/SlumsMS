@@ -74,6 +74,8 @@ public final class PublicMarketExport {
     /** Days before yesterday that a run fills in when their file is missing (pricesamples keeps 14). */
     static final int BACKFILL_DAYS = 12;
     static final long PERIOD_MINUTES = 15;
+    /** Listings (what's in the FM shops now) go out more often than the rest: -Dslums.market.listingsSeconds, 0 = off. */
+    static final long LISTINGS_SECONDS = Long.getLong("slums.market.listingsSeconds", 120);
     static final int NIGHTLY_MINUTE = 5;   // 00:05 UTC
     private static final long WARN_EVERY_MS = TimeUnit.MINUTES.toMillis(15);
 
@@ -112,6 +114,9 @@ public final class PublicMarketExport {
             Runner r = new Runner(dir, new ServerSources(), System::currentTimeMillis);
             ScheduledExecutorService ex = newExecutor();
             ex.scheduleWithFixedDelay(r::quarterSafely, 90, PERIOD_MINUTES * 60, TimeUnit.SECONDS);
+            if (LISTINGS_SECONDS > 0) {
+                ex.scheduleWithFixedDelay(r::listingsSafely, 120, Math.max(30, LISTINGS_SECONDS), TimeUnit.SECONDS);
+            }
             ex.scheduleAtFixedRate(r::nightlySafely, secondsUntilNightly(LocalDateTime.now(ZoneOffset.UTC)),
                     TimeUnit.DAYS.toSeconds(1), TimeUnit.SECONDS);
             runner = r;
@@ -270,6 +275,10 @@ public final class PublicMarketExport {
             safely("15-minute", this::quarter);
         }
 
+        void listingsSafely() {
+            safely("listings", this::listings);
+        }
+
         void nightlySafely() {
             safely("nightly", this::nightly);
         }
@@ -321,6 +330,18 @@ public final class PublicMarketExport {
             step(written, failed, "prices (prune)", () -> prune(today));
             step(written, failed, "prices/index.json", () -> writeIndex(now));
             step(written, failed, "nx-rate.json", () -> writeNxRate(today, nx, now));
+            return new Report(dir, written, failed);
+        }
+
+        /** Between the quarter-hour runs: only listings.json, so the site's "FM now" stays fresh. */
+        synchronized Report listings() {
+            List<String> written = new ArrayList<>(), failed = new ArrayList<>();
+            long now = clock.getAsLong();
+            step(written, failed, "listings.json", () -> {
+                AtomicFiles.writeJson(dir.resolve("listings.json"),
+                        MarketListings.build(sources.shops(), sources.names(), now));
+                return true;
+            });
             return new Report(dir, written, failed);
         }
 
