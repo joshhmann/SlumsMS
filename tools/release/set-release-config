@@ -19,8 +19,8 @@ import sys
 
 NUMBER = r"[0-9]{1,9}(?:\.[0-9]{1,6})?"
 BOOLEAN = r"true|false"
-TEXT = r"[A-Za-z][A-Za-z0-9:,._-]{0,199}"  # starts with a letter, so -1 or 1e3 is never text
-QUOTED = r'"[A-Za-z0-9:,._ -]{0,200}"'
+TEXT = r"[A-Za-z][A-Za-z0-9:,._/-]{0,199}"  # starts with a letter, so -1 or 1e3 is never text
+QUOTED = r'"[A-Za-z0-9:,._/ -]{0,200}"'
 RESERVED = {"CHANNEL_LOAD", "MIN_CLIENT_BUILD", "CHANNELS"}
 
 

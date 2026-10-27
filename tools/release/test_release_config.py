@@ -195,6 +195,8 @@ class ReleaseConfigTest(unittest.TestCase):
         self.assertIn('not a number', self.generate_fails('LEDGER_BEFORE=""\nSERVER_SET=(BOT_MAP_CAP=abc)\n'))
         deploy, _ = self.generate('LEDGER_BEFORE=""\nSERVER_SET=(BOT_LIFE_TOWN_WEIGHTS=near:55,home:20,henesys:25)\n')
         self.assertIn('BOT_LIFE_TOWN_WEIGHTS=near:55,home:20,henesys:25', deploy)
+        self.assertIn('BOT_ROSTER_TIMEZONE=America/Los_Angeles', deploy)   # a zone id has a slash
+        self.assertIn("'s# -jar # -Dsolomapling.events=true -jar #'", deploy)
         self.assertIn('twice', self.generate_fails('LEDGER_BEFORE=""\nSERVER_SET=(BOT_MAP_CAP=1 BOT_MAP_CAP=2)\n'))
         self.assertIn('use CHANNEL_LOAD', self.generate_fails('LEDGER_BEFORE=""\nSERVER_SET=(CHANNEL_LOAD=1)\n'))
         deploy, _ = self.generate('LEDGER_BEFORE=""\n')
