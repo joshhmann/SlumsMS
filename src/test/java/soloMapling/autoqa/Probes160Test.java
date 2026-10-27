@@ -140,4 +140,21 @@ class Probes160Test {
         assertEquals(Check.Status.SKIP, res.status());
         assertEquals("nothing could be judged here: SKIP not here", res.reason());
     }
+
+    /**
+     * TEST 2026-10-27 t-np-4: Skill.wz on the servers has no Maker skill, and the probe failed on that before it
+     * checked anything about Dalair. The gate and the 3-merge cap are now checked on the pure rule, and the missing
+     * skill is reported as a note (merge closed to everyone) instead of a failure.
+     */
+    @Test
+    void dalairsGateAndCapAreCheckedWithoutTheMakerSkill() {
+        assertTrue(Probes160.mergeGateProblems().isEmpty(), Probes160.mergeGateProblems().toString());
+        assertTrue(Probes160.mergeCapProblems().isEmpty(), Probes160.mergeCapProblems().toString());
+        assertNull(Probes160.makerAbsentNote(true, true));
+        String note = Probes160.makerAbsentNote(false, false);
+        assertNotNull(note);
+        assertTrue(note.startsWith("NOTE ") && note.contains("closed to everyone"), note);
+        assertTrue(client.Character.meetsMergeGate(160, false, 3) && client.Character.meetsMergeGate(110, true, 3));
+        assertFalse(client.Character.meetsMergeGate(159, false, 3) || client.Character.meetsMergeGate(160, false, 2));
+    }
 }
