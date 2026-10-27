@@ -67,7 +67,7 @@ hundreds of times) are found late or not at all.
 - `docs/release/1.6.0.conf`: a second `UNIT_EDITS` entry adds `-Dsolomapling.dashboard=true
   -Dsolomapling.dashboard.dir=/srv/slums-dashboard/data -Dsolomapling.dashboard.periodSeconds=60` before `-jar`
   (the market/site/auth edit is unchanged and stays first; `test_release_160_turns_on_the_staff_dashboard`).
-- `deploy/dashboard/slums-dashboard-live.nginx.conf`: `listen 192.168.0.164:8096` (the LAN address, not 0.0.0.0),
+- `deploy/dashboard/slums-dashboard-live.nginx.conf`: `listen 8096` (all addresses; allow/deny keeps it LAN-only),
   `allow 192.168.0.0/24; deny all;`, and basic auth with TEST's file `/etc/nginx/slums-dashboard-test.htpasswd`
   (referenced by path; never read or copied). Both must pass.
   **Port 8096, not 8090:** the shared nginx already listens on `0.0.0.0:8090` for another site; an
@@ -79,9 +79,9 @@ hundreds of times) are found late or not at all.
 - Release-night steps: `docs/release/1.6.0-deploy-steps.md` item 2 (LAUNCH.md lives on the site branch
   `site-160-theme`, so the step is in the release notes instead).
 
-Known risk: 164's LAN address comes from DHCP. If it ever changed, nginx could not bind `192.168.0.164:8096` and would
-refuse to start at all (taking the patch feed and site with it) until the site is removed. Keep the DHCP reservation,
-or run `tools/ops/install-live-dashboard --remove` before readdressing the host.
+Listening on all addresses (not `192.168.0.164:8096`) on purpose: a fixed-address listen would stop the shared
+nginx starting if 164's DHCP address ever changed, taking the patch feed and site down. `allow 192.168.0.0/24;
+deny all;` plus basic auth keep it private.
 
 ## Part 2: 1.6.1, the live feed (design)
 

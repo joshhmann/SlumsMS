@@ -50,7 +50,7 @@ Plan for $HOST (nothing changes without --go):
   page:  tools/dashboard/web ($(git rev-parse --short HEAD)) -> $WEB (old copy kept as web.bak-<time>)
   data:  $DATA, owned by the live unit's user (the server's -Dsolomapling.dashboard.dir)
   nginx: $SITE_SRC -> $SITE, linked from $LINK
-         listen $LAN_IP:$PORT only, allow 192.168.0.0/24, deny all, basic auth from $HTPASSWD (TEST's, by path)
+         listen $PORT (all addresses), allow 192.168.0.0/24, deny all, basic auth from $HTPASSWD (TEST's, by path)
   then:  nginx -t, systemctl reload nginx, pid/config hash before and after into $LOG,
          curl http://$LAN_IP:$PORT/ must answer 401 (password asked)
 EOF
@@ -105,7 +105,7 @@ echo "nginx before: \$before"
 fail() { rm -rf $WEB.new $NEW_SITE; echo "STOPPED: \$1 (nothing changed)" >&2; exit 1; }
 test -s $HTPASSWD || fail "auth file $HTPASSWD is missing"
 ip -4 -o addr show | grep -q " $LAN_IP/" || fail "$LAN_IP is not on this host"
-if ss -Hltn "sport = :$PORT" | grep -q . && ! grep -qs "listen $LAN_IP:$PORT;" $SITE; then
+if ss -Hltn "sport = :$PORT" | grep -q . && ! grep -qs "listen $PORT;" $SITE; then
   fail "port $PORT is already in use by something else"
 fi
 user=\$(systemctl show -p User --value slumsms 2>/dev/null | grep . || echo root)
