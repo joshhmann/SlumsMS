@@ -2,10 +2,10 @@
 <p>Type these in normal chat. <code>@help</code> (or <code>@commands</code>) lists them in game, and
 <code>@guide</code> (or <code>@tutorial</code>) opens the beginner's tour.</p>
 
-<h2>New in 1.5.0</h2>
+<h2>Getting started</h2>
 <div class="scroll"><table>
 <tr><th>Command</th><th>Does</th></tr>
-<tr><td><code>@guide</code> / <code>@tutorial</code></td><td>The beginner's tour in a window: the buttons, where things are, the regulars, commands, trading. It opens by itself once, at each character's first login on 1.5.0.</td></tr>
+<tr><td><code>@guide</code> / <code>@tutorial</code></td><td>The beginner's tour in a window: the buttons, where things are, the regulars, commands, trading. It opens by itself once, at each character's first login.</td></tr>
 <tr><td><code>@goto &lt;town&gt;</code></td><td>Hop to a town; <code>@goto</code> lists them. Not from events, party quests or maps you can't leave (<a href="getting-around.html">more</a>).</td></tr>
 <tr><td><code>@price &lt;item&gt;</code></td><td>What an item sold for over the last 7 days: middle price, range, number of sales.</td></tr>
 <tr><td><code>@gacha &lt;town&gt;</code></td><td>A gachapon machine's prizes and odds.</td></tr>
@@ -18,6 +18,7 @@
 <div class="scroll"><table>
 <tr><th>Command</th><th>Does</th></tr>
 <tr><td><code>@rates</code></td><td>Your own rates.</td></tr>
+<tr><td><code>@coupons</code></td><td>Your EXP cards from the Cash Shop.</td></tr>
 <tr><td><code>@showrates</code></td><td>World and character rates.</td></tr>
 <tr><td><code>@check</code></td><td>World rates, server time, time to the daily and weekly reset.</td></tr>
 <tr><td><code>@time</code> / <code>@uptime</code></td><td>Server time / how long the server has been up.</td></tr>
@@ -67,21 +68,23 @@
 <tr><td><code>@botdrama off</code> / <code>on</code></td><td>Off: no regular ever holds a grudge against you (no rivals, trash talk or KS wars).</td></tr>
 <tr><td><code>@romance on</code> / <code>off</code></td><td>On: a regular who really likes you may flirt, ask you out and propose (off by default).</td></tr>
 <tr><td><code>@quiet megaphones</code></td><td>Hide the regulars' megaphones (<code>@quiet megaphones off</code> shows them again).</td></tr>
-<tr><td><code>@quiet bots</code></td><td>Hide the regulars' chatter (people you're talking to or partied with still show; <code>@quiet bots off</code> shows it again).</td></tr>
+<tr><td><code>@quiet bots</code></td><td>Hide the regulars' chatter, and stop whispers, invites and buddy requests you didn't ask for (people you're talking to or partied with still show; <code>@quiet bots off</code> undoes it).</td></tr>
 <tr><td><code>@quiet all</code> / <code>@quiet off</code></td><td>Hide both / show everything again.</td></tr>
+<tr><td><code>@botme [name]</code></td><td>List your other characters, or bring one along as a party member (up to 5 companions).</td></tr>
+<tr><td><code>@dismiss &lt;name&gt;|all</code></td><td>Send a companion home, or all of them.</td></tr>
 <tr><td><code>@worldchat</code></td><td>World chat on or off.</td></tr>
 <tr><td><code>@roll [n]</code></td><td>Roll 0 to n (default 100).</td></tr>
 </table></div>
-<p>Real players' chat and megaphones and GM notices are never hidden. <code>@quiet</code> lasts until the server restarts.</p>
+<p>Real players' chat and megaphones and GM notices are never hidden. Your <code>@quiet</code> choice is kept.</p>
 
 <h2>Help and fixes</h2>
 <div class="scroll"><table>
 <tr><th>Command</th><th>Does</th></tr>
 <tr><td><code>@gm &lt;message&gt;</code></td><td>Message the game masters.</td></tr>
-<tr><td><code>@reportbug &lt;text&gt;</code></td><td>Report a bug.</td></tr>
+<tr><td><code>@bug &lt;text&gt;</code></td><td>Report a bug (<code>@reportbug</code> works too). You get a number back, like #12.</td></tr>
+<tr><td><code>@idea &lt;text&gt;</code></td><td>Suggest a feature or change. Same: you get a number back.</td></tr>
 <tr><td><code>@dispose</code></td><td>Unstick an NPC chat.</td></tr>
 <tr><td><code>@enableauth</code></td><td>Reset the PIC cooldown.</td></tr>
-<tr><td><code>@autologin</code></td><td>Auto login to your current channel and character, on or off.</td></tr>
 <tr><td><code>@changel</code></td><td>Language setting.</td></tr>
 </table></div>
 
@@ -89,7 +92,7 @@
 <p><code>@minesweeper</code>, <code>@memory</code>, <code>@joinevent</code> / <code>@leaveevent</code> (when a GM
 runs an event), <code>@mylawn</code> (claim the current map).</p>
 
-<p class="owner">Several of these come from MapleRoot unchanged and weren't tried on SlumsMS (<code>@mylawn</code>,
+<p class="owner">Several of these come from the base server unchanged and weren't tried on SlumsMS (<code>@mylawn</code>,
 <code>@changel</code>, <code>@points</code>, <code>@elb</code>). Remove any you don't want players to see.</p>
 <p class="src">Source: <code>src/main/java/client/command/CommandsExecutor.java</code> (<code>registerLv0Commands</code>)
 and each command's <code>setDescription</code> in <code>client/command/commands/gm0/</code>.</p>
