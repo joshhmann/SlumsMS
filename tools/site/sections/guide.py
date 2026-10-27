@@ -65,11 +65,17 @@ PUBLIC_WORDING = [
     ("as they did in v83", "as they did in the original game"), ("than in v83", "than in the original game"),
     ("The client is v83", "The client is the classic one"), ("v83", "classic"), ("MapleStory", "Slums Story"),
 ]
+# The server's code base is never named either (owner, 2026-10-27): the guides say SlumsMS or no name. A backstop for
+# text that still has it; the guide sources are fixed by hand.
+CODEBASE = [(re.compile(r"\s*\bbuilt on maple ?root\b", re.I), ""),
+            (re.compile(r"\bmaple ?root\b", re.I), "SlumsMS")]
 
 
 def public_wording(body):
     for old, new in PUBLIC_WORDING:
         body = body.replace(old, new)
+    for pat, new in CODEBASE:
+        body = pat.sub(new, body)
     return body
 
 

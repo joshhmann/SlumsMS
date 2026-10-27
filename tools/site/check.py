@@ -26,6 +26,8 @@ FORBIDDEN = [
     "claude.ai/artifact", "owner check", 'class="owner"', "test server", "test-server",
     # the public site calls the game Slums Story (owner, 2026-10-26)
     "maplestory", "maple story", "nexon", "v83", "wizet",
+    # the server's code base is internal knowledge only (owner, 2026-10-27)
+    "mapleroot", "maple root",
 ]
 
 # The server host "164": as the last part of an address (.164) or named as a machine ("on 164", "164 box").

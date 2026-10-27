@@ -110,7 +110,7 @@ class CheckTest(unittest.TestCase):
             f.write(f"<!doctype html><html><body>{body}</body></html>")
 
     def test_each_forbidden_string_is_caught(self):
-        for bad in ["MapleStory", "Maple Story", "Nexon", "GMS v83", "Wizet",
+        for bad in ["MapleStory", "Maple Story", "Nexon", "GMS v83", "Wizet", "MapleRoot", "Maple Root", "MAPLEROOT's",
                     "192.168.0.5", "port 164", "10.0.0.164", "ssh root@164", "on 164", "the 164 box", "host:8489", "x:7585", "Access Key", ".htpasswd", "SlumsPatch",
                     "Password", "autoqa", "type !qa"]:
             self.page("index.html", f"<p>{bad}</p>")
@@ -249,6 +249,15 @@ class GuideLinksTest(unittest.TestCase):
         self.assertEqual(guide.public_wording("A small, friends-only MapleStory v83 world. Faster than GMS v83."),
                          "A small, friends-only Slums Story world. Faster than the original game.")
         self.assertEqual(database.scrub("Nexon Game Card - 100 points"), "NX Card - 100 points")
+        self.assertEqual(database.scrub("MapleRoot's custom currency!"), "A custom currency!")
+        self.assertNotIn("root", database.scrub("Made by Maple Root.").lower())
+        from sections import guide
+        self.assertEqual(guide.public_wording("SlumsMS is a classic world built on MapleRoot: custom jobs"),
+                         "SlumsMS is a classic world: custom jobs")
+        self.assertEqual(guide.public_wording("MapleRoot's skill changes"), "SlumsMS's skill changes")
+        for text in ["SlumsMS is a classic world built on MapleRoot: custom jobs", "MapleRoot's skill changes",
+                     "maple root's 5th tier"]:
+            self.assertNotRegex(guide.public_wording(text), r"(?i)maple ?root", text)
         self.assertEqual(database.scrub("Wizet Plain Suit"), "GM Plain Suit")
 
     def test_cells_link_into_the_database(self):

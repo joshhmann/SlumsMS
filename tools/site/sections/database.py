@@ -145,7 +145,9 @@ def scrub(text):
     for old, new in (("Nexon Game Card", "NX Card"), ("MapleStory", "Slums Story"), ("Maple Story", "Slums Story"),
                      ("Nexon", "the game"), ("Wizet", "GM")):
         text = text.replace(old, new).replace(old.lower(), new).replace(old.upper(), new)
-    return text
+    # nor the server's code base (owner, 2026-10-27): "MapleRoot's custom currency!" -> "A custom currency!"
+    text = re.sub(r"\bmaple ?root'?s? custom\b", "A custom", text, flags=re.I)
+    return re.sub(r"\bmaple ?root\b", "SlumsMS", text, flags=re.I)
 
 
 def was(rec, key, fmt=None):
