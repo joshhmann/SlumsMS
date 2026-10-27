@@ -12,6 +12,14 @@ quests 6029-6036. Needs a client release (Skill .img files), so it ships with 1.
 session needs an img writer (or a HaRepacker pass on Silvia). Grill the economy part (the Maker window's crafting
 next to MapleRoot's NPC crafting) before building. 1.6.0 ships option (c): Dalair's merge gate is level only.
 
+## What MapleRoot changed (checked 2026-10-27)
+MapleRoot is a 2023-24 private-server repack, so its changes are modern-server design choices rather than v83 data
+gaps. In each beginner skill file (Skill.wz 000/1000/2000.img) Maker (x001007) is the only stock skill removed, and
+the same files gained MapleRoot's own beginner skills: 0001050 Ninja Bounce, 0001051 Chain Attack, 0001052 Chain
+Attack 2, 0001054 Vertical Bounce (Cygnus/Aran: Ninja Bounce and Vertical Bounce). Cygnus 4th job lives in its own
+files and is unrelated. For option (a): check in a real client that the beginner skill tab shows Maker next to the
+four custom skills (tab capacity), and that bringing Maker back doesn't fight MapleRoot's NPC crafting design.
+
 ## The skill
 
 | Skill id | Who | Notes |
