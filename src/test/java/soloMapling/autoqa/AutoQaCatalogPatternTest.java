@@ -281,6 +281,28 @@ class AutoQaCatalogPatternTest {
     }
 
     @Test
+    void cb2ABotThatMovedBetweenSamplesIsNotStandingInAMob() {
+        // TEST 2026-10-27 11:47 (build 365301ef6): "3 of 40 positions still inside the mob 15 s later", two of them
+        // melee bots that had walked 15 and 66 px to the next small snail; one stood within 3 px.
+        Check c = AutoQaCatalog.find("t-cb-2");
+        AutoQaRunnerTest.FakeWorld w = new AutoQaRunnerTest.FakeWorld();
+        CheckRun r = runAt(c, w);
+        String[] lines = {
+                "kimchi39 WARRIOR lv 10 at (543,-85) facing right, nearest Blue Snail dx 4 INSIDE its body, facing it",
+                "BeanQueen THIEF lv 10 at (510,-325) facing left, nearest Red Snail dx -4 INSIDE its body, facing it",
+                "kimchi39 WARRIOR lv 10 at (528,-92) facing right, nearest Blue Snail dx 19 INSIDE its body, facing it",
+                "BeanQueen THIEF lv 10 at (576,-325) facing right, nearest Red Snail dx 9 INSIDE its body, facing it",
+                "BeanQueen THIEF lv 10 at (573,-325) facing right, nearest Red Snail dx 12 INSIDE its body, facing it"};
+        for (String l : lines) {
+            w.qa("POSITION", l);
+        }
+        for (int i = 0; i < 35; i++) {
+            w.qa("POSITION", "Bot" + (i % 4) + " WARRIOR lv 10 at (" + (100 + i) + ",-85) facing left, nearest Pig dx 80, facing it");
+        }
+        assertEquals(null, AutoQaCatalog.positionsMostlyGood(r), "only BeanQueen's last pair stood still: 1 of 40");
+    }
+
+    @Test
     void td2FloorIsTheBandsLowEndNotTheOpeningAsk() {
         Check c = AutoQaCatalog.find("t-td-2");
         AutoQaRunnerTest.FakeWorld w = new AutoQaRunnerTest.FakeWorld();

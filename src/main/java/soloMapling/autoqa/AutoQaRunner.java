@@ -21,6 +21,13 @@ import static soloMapling.autoqa.Check.Status;
  */
 public final class AutoQaRunner {
 
+    /**
+     * 1.6.0 triage: how many of the suite's answers to the GM (the YELLOW replies to !qa run / !qa do, e.g. "no free
+     * grinder of X fits map ...") a FAIL keeps as evidence. The fails of 2026-10-27 could not be told apart without them.
+     */
+    static final int GM_ANSWERS_ON_FAIL = 15;
+
+
     public enum State { IDLE, PREPARING, STEPPING, ASSERTING, CLEANING, FINISHED, ABORTED }
 
     /** One check's outcome, keyed by its page id in the report. */
@@ -214,6 +221,9 @@ public final class AutoQaRunner {
         }
         List<String> all = new ArrayList<>(run.notes());
         all.addAll(evidence);
+        if (status == Status.FAIL) {
+            all.addAll(run.gmAnswers(GM_ANSWERS_ON_FAIL));
+        }
         return new CheckResult(c.id(), c.title(), c.kind(), status, reason, all, t0, world.now());
     }
 

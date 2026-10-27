@@ -219,6 +219,26 @@ class AutoQaRunnerTest {
     }
 
     @Test
+    void aFailKeepsTheSuitesAnswersToTheGm() {
+        FakeWorld w = world();
+        w.onSay = (fw, line) -> {
+            suite(fw, line);
+            if (line.equals("!qa do taunt")) {
+                fw.actors.get(0).hear("YELLOW", "no free grinder of SlumLords fits map 104040000");
+            }
+        };
+        Check c = Check.auto("t-gw-1", "war").step(Steps.run("gw-1"), Steps.qaDo("taunt"))
+                .expect(Expects.has("GUILD_WAR TURF .* goes to contest map")).build();
+        AutoQaRunner.CheckResult res = new AutoQaRunner(w).run(List.of(c), false, null).get(0);
+        assertEquals(FAIL, res.status());
+        assertTrue(res.evidence().stream().anyMatch(e -> e.contains("no free grinder of SlumLords")), res.evidence().toString());
+        Check ok = Check.auto("t-af-1", "friend").step(Steps.run("af-1")).expect(Expects.has("STAGE staged")).build();
+        AutoQaRunner.CheckResult pass = new AutoQaRunner(w).run(List.of(ok), false, null).get(0);
+        assertEquals(PASS, pass.status(), pass.toString());
+        assertFalse(pass.evidence().stream().anyMatch(e -> e.startsWith("gm heard")), "only a FAIL carries them");
+    }
+
+    @Test
     void aPreconditionRefusalSkipsAndAnyOtherRefusalFails() {
         FakeWorld w = world();
         Check needsGuild = Check.auto("t-gu-2", "g").step(Steps.run("guild")).expect(Expects.has("NEVER_SEEN")).build();

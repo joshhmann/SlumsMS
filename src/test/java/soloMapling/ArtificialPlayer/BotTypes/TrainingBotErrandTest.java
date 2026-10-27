@@ -75,4 +75,14 @@ class TrainingBotErrandTest {
         assertEquals(planned, TrainingBot.sellStayMs(true, 0, planned), "an open shop keeps the stay");
         assertEquals(20_000L, TrainingBot.sellStayMs(false, 0, 20_000L), "never longer than planned");
     }
+
+    @Test
+    void aBotThatLogsInOnAFieldTakesTheFieldsTownAsHome() {
+        // auto-QA 2026-10-27 t-bl-2/t-bl-3: a grinder staged on 104040000 took the field as home and never restocked
+        java.util.function.IntUnaryOperator mobs = m -> m == 104040000 || m == 104040001 ? 10 : -1;
+        assertEquals(MapId.HENESYS, TrainingBot.homeTown(104040000, MapId.HENESYS, mobs));
+        assertEquals(MapId.HENESYS, TrainingBot.homeTown(104040000, 104040001, mobs), "a return map with mobs is no town");
+        assertEquals(MapId.HENESYS, TrainingBot.homeTown(104040000, MapId.NONE, mobs));
+        assertEquals(MapId.PERION, TrainingBot.homeTown(MapId.PERION, MapId.HENESYS, mobs), "a town is its own home");
+    }
 }
