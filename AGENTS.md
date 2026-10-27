@@ -209,3 +209,12 @@ artifact pages, their databases) are not required for any step; use the repo fil
 End every task with: what changed (files, branch, commit hashes), what you tested and how (suite counts, in-game or
 not), what you did NOT do or could not verify, what needs the owner's decision, and exact next steps. Push your
 branch; don't merge into the rc branch yourself unless you were asked to.
+
+### Done means switched on and noted (owner, 2026-10-27)
+
+A feature isn't done until, for its target version: it is **on on TEST** (start-test.sh flag or TEST config.yaml)
+and exercised by an auto-QA check; the **release conf** (`docs/release/<v>.conf` SERVER_SET / UNIT_EDITS) switches it
+on for live, or the notes record the owner's decision to ship it off; and the **version notes** (docs/roadmap/<v>.md
+and the patch-notes draft) say its status (planned / partial / done), its switches and its check id. Update them in
+the same task, partial or finished. Before staging a release, run `tools/release/hotfix-parity <live-branch>`.
+(1.6.0 nearly shipped with its headline brain, fishing and companions switched off, and without 1.5.3's fees.)
