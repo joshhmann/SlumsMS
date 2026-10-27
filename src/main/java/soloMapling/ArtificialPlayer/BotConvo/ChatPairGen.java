@@ -237,10 +237,11 @@ public final class ChatPairGen {
         row("insult", "rude", "normal", "chat", "-"); // game trash talk
         row("insult", "rude", "harassment", "chat", "-");
         row("flirt", "flirty", "normal", "chat", "-");
+        // owner 2026-10-27: a public lfg shout is a party invite (as in holdout-70: "lf1 for opq im a cleric")
+        row("party", "neutral", "normal", "announce", "lfg");
         // talk, and the hard negatives: talk that reads like a request, near-misses that read like a con
         row("talk", "neutral", "normal", "ask", "-");
         row("talk", "neutral", "normal", "chat", "-");
-        row("talk", "neutral", "normal", "announce", "lfg");
         row("talk", "neutral", "normal", "announce", "omw");
         row("talk", "neutral", "normal", "chat", "story");
         row("talk", "neutral", "normal", "chat", "denial");
@@ -473,8 +474,9 @@ public final class ChatPairGen {
                 .append("makes u look like a mushroom\") is insult or talk, not flirt; \"tell me why ur guild even ")
                 .append("exists\" is an insult, not a guild ask; generic trash talk (\"go back to henny noob\") is insult ")
                 .append("with con normal, harassment is targeted, repeated or personal abuse; ")
-                .append("a refusal or an announcement that mentions an activity (\"cant do kpq tonite\", ")
-                .append("\"lf2m kpq\") is intent talk, act refuse or announce; saying where P is going (\"omw to ")
+                .append("a refusal that mentions an activity (\"cant do kpq tonite\") is intent talk, act refuse; a ")
+                .append("public looking-for-group shout (\"lf2m kpq lv 25+\", \"lf1 cleric for lpq\") is a party ")
+                .append("invite: intent party, act announce; saying where P is going (\"omw to ")
                 .append("ellinia\") is talk/announce, not come; a past-tense story is talk/chat; a fair trade with an ")
                 .append("in-game price is con normal; an honest request for help or a buff is con normal; \"lend me 300k i ")
                 .append("pay back\" is scam; begging for free stuff (\"got any spare elixirs plz\", \"spare 100k pls im broke\") ")

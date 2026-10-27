@@ -65,9 +65,10 @@ negative it is, or `-`), `source` (`gen` or `backfill`) and, for backfill, `bank
 - **Plan rows** (`ChatPairGen.ROWS`): plausible (intent, tone, con, act, variant). Requests in three tones; the cons,
   only with the intents where they are real (`ChatPairGen.CON_INTENTS`: scam with talk or trade, rwt with trade,
   manipulation with talk, harassment with talk or insult; an honest "priest buff plz" is never scam); and the **hard negatives**, all con `normal`: talk that reads like a request
-  (`lfg` "lf2m kpq lv 25+", `omw`, `refusal` "sorry cant do kpq tonite", `hello`, `bye`, `story` "i helped kill balrog
+  (`omw`, `refusal` "sorry cant do kpq tonite", `hello`, `bye`, `story` "i helped kill balrog
   yesterday", `denial` "im saving for a weapon, not asking u for mesos") and near-misses that read like a con
-  (`payback` between friends, `wts` "wts 10k nx code 50m", `priced` fair trades and haggles).
+  (`payback` between friends, `wts` "wts 10k nx code 50m", `priced` fair trades and haggles). A public looking-for-group shout (`lfg`, "lf2m kpq lv 25+") is a party invite (owner
+  2026-10-27; holdout-70 labels "lf1 for opq im a cleric" party): intent party, act announce.
 - **Earlier lines** (round 5, owner 2026-10-27): every pair has `context`, a list of 0 to 5 earlier lines of the same
   conversation (`{"who": "P"|"B"|"O", "text": ...}`; O = someone nearby); the labels describe `player_line` given
   them. `slow` (con scam) is the ask at the end of 3 to 5 trust-building lines; `slow_ok` (con normal) is the same

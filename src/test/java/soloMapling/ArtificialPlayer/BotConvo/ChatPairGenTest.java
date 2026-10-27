@@ -63,7 +63,9 @@ class ChatPairGenTest {
                 assertEquals("normal", r.con(), r.key());
             } else if (!"-".equals(r.variant())) {
                 assertEquals("normal", r.con(), r.key());
-                assertTrue(List.of("talk", "trade", "haggle").contains(r.intent()), r.key());
+                // lfg is the one request among them: a public shout is a party invite (owner 2026-10-27)
+                assertTrue(List.of("talk", "trade", "haggle").contains(r.intent())
+                        || "lfg".equals(r.variant()) && "party".equals(r.intent()), r.key());
             }
         }
     }
@@ -371,6 +373,13 @@ class ChatPairGenTest {
     }
 
     @Test
+    void anLfgShoutIsAPartyInvite() {
+        assertTrue(ChatPairGen.ROWS.contains(new ChatPairGen.Row("party", "neutral", "normal", "announce", "lfg")));
+        assertTrue(ChatPairGen.ROWS.stream().noneMatch(r -> "lfg".equals(r.variant()) && !"party".equals(r.intent())));
+        assertTrue(ChatPairGen.VERIFY_SYSTEM.contains("is a party invite: intent party, act announce"));
+    }
+
+    @Test
     void aDenialMayReadAsARefusal() {
         ChatPairGen.Cell denial = new ChatPairGen.Cell("talk", "neutral", "normal", "chat", "denial", "talk", "lower", "-");
         ChatPairGen.Verdict refuse = new ChatPairGen.Verdict("talk", "neutral", "normal", "refuse", true, true);
@@ -404,7 +413,7 @@ class ChatPairGenTest {
     void talkIsCapped(@TempDir Path dir) throws Exception {
         ChatPairGen.Plan plan = new ChatPairGen.Plan(100);
         assertEquals(20, plan.talkCap());
-        seed(dir, new ChatPairGen.Row("talk", "neutral", "normal", "announce", "lfg"), 20, 1);
+        seed(dir, new ChatPairGen.Row("talk", "neutral", "normal", "announce", "omw"), 20, 1);
         seed(dir, new ChatPairGen.Row("party", "kind", "normal", "ask", "-"), 10, 21);
         ChatPairGen g = new ChatPairGen(dir, null);
         Random rng = new Random(4);
