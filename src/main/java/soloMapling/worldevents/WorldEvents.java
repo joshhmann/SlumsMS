@@ -672,8 +672,21 @@ public final class WorldEvents {
         if (index > 0) {
             announce(e, WorldEventText.wave(index, e.template.waves().size()));
         }
+        String mini = "";
+        if (wave.miniBossId() > 0) {
+            // 1.6.0 tuning: a later wave brings a mini-boss at its own WZ stats (its normal EXP and drops), so the
+            // band's bots really get hurt before the boss; the wave is cleared once it falls too
+            Monster boss = spawnMob(map, wave.miniBossId(), centerSpot(map, rng));
+            if (boss != null) {
+                e.mobOids.add(boss.getObjectId());
+                mini = ", mini-boss " + boss.getName();
+                Map<String, String> tokens = tokens(e);
+                tokens.put("MINIBOSS", boss.getName());
+                announceText(WorldEventText.fill(WorldEventText.miniBoss(), tokens));
+            }
+        }
         qa("WEVENT WAVE #" + e.id + " " + (index + 1) + "/" + e.template.waves().size() + ": " + e.mobOids.size()
-                + " mobs up");
+                + " mobs up" + mini);
     }
 
     /** GM stop. */

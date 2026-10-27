@@ -38,7 +38,7 @@ function action(mode, type, selection) {
 
         if (status == 0) {
             if (player.getLevel() < exped.getMinLevel() || player.getLevel() > exped.getMaxLevel()) { //Don't fit requirement, thanks Conrad
-                cm.sendOk("You do not meet the criteria to battle " + expedBoss + "!");
+                cm.sendOk(player.getLevel() < exped.getMinLevel() ? "You need to be at least level " + exped.getMinLevel() + " to battle " + expedBoss + "." : "You need to be level " + exped.getMaxLevel() + " or lower to battle " + expedBoss + ".");
                 cm.dispose();
             } else if (expedition == null) { //Start an expedition
                 cm.sendSimple("#e#b<Expedition: " + expedName + ">\r\n#k#n" + em.getProperty("party") + "\r\n\r\nWould you like to assemble a team to take on #r" + expedBoss + "#k?\r\n#b#L1#Lets get this going!#l\r\n\#L2#No, I think I'll wait a bit...#l");

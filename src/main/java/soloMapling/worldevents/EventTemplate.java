@@ -89,7 +89,14 @@ public record EventTemplate(String id, Kind kind, String name, double weight, in
         }
     }
 
-    public record Wave(int mobId, int count) {
+    /**
+     * One invasion wave: {@code count} of {@code mobId}, and (1.6.0 tuning) an optional mini-boss that comes with it
+     * at its own WZ stats ({@code miniBossId} 0 = none). The wave is cleared when all of them, mini-boss too, are down.
+     */
+    public record Wave(int mobId, int count, int miniBossId) {
+        public Wave(int mobId, int count) {
+            this(mobId, count, 0);
+        }
     }
 
     /** One line of the reward table: the item, how many, and the chance it is given (1.0 = always). */

@@ -189,10 +189,13 @@ public final class EventTemplates {
                 if (wo instanceof Map<?, ?> w) {
                     int mob = (int) num(w.get("mob"), 0);
                     int count = (int) num(w.get("count"), 0);
+                    int miniBoss = (int) num(w.get("mini_boss"), 0);
                     if (mob <= 0 || count < 1 || count > MAX_WAVE_COUNT) {
                         problems.add("a wave needs a mob and a count of 1-" + MAX_WAVE_COUNT);
+                    } else if (miniBoss < 0) {
+                        problems.add("bad mini_boss " + w.get("mini_boss"));
                     } else {
-                        waves.add(new EventTemplate.Wave(mob, count));
+                        waves.add(new EventTemplate.Wave(mob, count, miniBoss));
                     }
                 }
             }
@@ -248,6 +251,9 @@ public final class EventTemplates {
             case GIANT_CAKE -> {
                 if (boss <= 0) {
                     problems.add("a giant cake needs a boss (the cake)");
+                }
+                if (waves.stream().anyMatch(w -> w.miniBossId() > 0)) {
+                    problems.add("mini_boss only goes with an invasion wave");
                 }
             }
             case WANDERING_NPC -> {

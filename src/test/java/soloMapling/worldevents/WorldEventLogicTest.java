@@ -135,6 +135,12 @@ class WorldEventLogicTest {
     }
 
     @Test
+    void aMiniBossNoticeNamesItAndTheMap() {
+        assertEquals("[Monster Invasion] Mushmom leads the charge into Henesys!",
+                WorldEventText.fill(WorldEventText.miniBoss(), Map.of("MAP", "Henesys", "MINIBOSS", "Mushmom")));
+    }
+
+    @Test
     void deathGrumblesWarningsAndAfterLinesFill() {
         Map<String, String> tokens = Map.of("MAP", "Henesys", "CH", "1", "EVENT", "Giant Cake", "BOSS", "Mushmom",
                 "N", "6", "MIN", "10", "REGION", "Victoria Island");
