@@ -190,7 +190,10 @@ final class GameAutoQaWorld implements AutoQaWorld {
                             Long.parseLong(a[0])));
                     yield List.of("PASS bots accept every buddy request for " + a[0] + " min");
                 }
-                default -> List.of("FAIL no probe '" + what + "'");
+                default -> {
+                    List<String> more = Probes160.probe(what, actor instanceof SyntheticPlayer sp ? sp : null, a);
+                    yield more != null ? more : List.of("FAIL no probe '" + what + "'");
+                }
             };
         } catch (RuntimeException e) {
             return List.of("FAIL probe " + what + " threw " + e);
@@ -432,12 +435,27 @@ final class GameAutoQaWorld implements AutoQaWorld {
         return out;
     }
 
-    /** t-vg-1: the version gate refuses an old build and lets the current one in (no restart, scratch config). */
+    /**
+     * t-vg-1: the version gate refuses an old build and lets the current one in (no restart, scratch config). 1.6.0:
+     * against the server's own MIN_CLIENT_BUILD (10600 on TEST and in the 1.6.0 release), not a hardcoded 10500.
+     */
     private static List<String> clientGate() {
-        String current = net.server.handlers.login.ClientVersionGate.verdictFor(10500, 10500);
-        String old = net.server.handlers.login.ClientVersionGate.verdictFor(10410, 10500);
-        boolean ok = "ALLOWED".equals(current) && old.startsWith("REFUSED") && old.contains("out of date");
-        return List.of((ok ? "PASS" : "FAIL") + " build 10500 vs min 10500: " + current + "; build 10410: " + old);
+        return clientGateLines(YamlConfig.config.server.MIN_CLIENT_BUILD,
+                net.server.handlers.login.ClientVersionGate::verdictFor);
+    }
+
+    /** t-vg-1's verdict for a gate at {@code min}: the build at and above it is allowed, the one below refused. */
+    static List<String> clientGateLines(int min, java.util.function.BiFunction<Integer, Integer, String> gate) {
+        if (min <= 0) {
+            return List.of("FAIL the client gate is off (MIN_CLIENT_BUILD=" + min + "; 1.6.0 needs 10600 for 4-byte HP/MP)");
+        }
+        String at = gate.apply(min, min);
+        String above = gate.apply(min + 1, min);
+        String below = gate.apply(min - 1, min);
+        boolean ok = "ALLOWED".equals(at) && "ALLOWED".equals(above) && below != null && below.startsWith("REFUSED: ")
+                && below.length() > "REFUSED: ".length();
+        return List.of((ok ? "PASS" : "FAIL") + " MIN_CLIENT_BUILD " + min + ": build " + min + " " + at + "; build "
+                + (min + 1) + " " + above + "; build " + (min - 1) + " " + below);
     }
 
     /** t-ga-2: every town machine stands on a foothold and not on a portal. */

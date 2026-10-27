@@ -80,7 +80,10 @@ final class FishingScenarios {
             if (!world.warpToPortal(gm, 120010000, "sp")) throw new QaRefusal("Waterside fishing spawn unavailable.");
             gm.sitChair(FishingPolicy.CHAIR);
             if (!GameFishing.active(gm)) throw new QaRefusal("The actual fishing service refused the seated player.");
-            ctx.run().note("FISHING", "REAL STARTED; first catch waits 90 seconds plus the world tick");
+            ctx.run().note("FISHING", "REAL STARTED map=" + gm.getMapId() + " area=" + GameFishing.area(gm.getMapId())
+                    + " chair=" + gm.getChair() + "; first catch waits 90 seconds plus the world tick");
+            // 1.6.0 t-fh-2: bots fish too (brain FISH, their own chairs); counted now and again at stop
+            ctx.run().note("FISHING", GameFishing.botsLine());
             return List.of("Wait seated for the first catch (90–100 seconds), then !qa do stop.",
                     "The scenario removes its temporary chair and extra catches when stopped.");
         }
@@ -96,6 +99,7 @@ final class FishingScenarios {
             ctx.gm().sitChair(-1);
             if (GameFishing.active(ctx.gm())) throw new QaRefusal("Standing did not stop fishing.");
             ctx.run().note("FISHING", "STOPPED active=false");
+            ctx.run().note("FISHING", GameFishing.botsLine());
             return List.of("Standing stopped fishing. No further catch can be paid from this session.");
         }
     }

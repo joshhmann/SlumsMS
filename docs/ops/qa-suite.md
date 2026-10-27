@@ -551,16 +551,45 @@ Checks that leave a lasting change run only when asked by id, never nightly: t-g
 
 | Kind | Checks |
 |---|---|
-| Automated | af-1/2/3, rv-1..4, bb-1/2, bg-1, gu-1/2/3/4/5/6/8, gw-1..4, pb-1, cu-1/2, we-1, mr-1, rm-1..4, cv-1/2/3/5/6/7, ga-1/2, wc-1, bs-1, td-3, gf-1, pr-1, sk-1/2, sc-1/2, cb-1/3/4, sp-1, id-1, vg-1, ch-1 |
-| Half (logic here, look by eye) | cv-4 (the voices), cb-2 (swings on screen), pt-1 (pets following), bk-1 and at-1 (swing pacing on screen), td-1 and td-2 (the trade window: the haggle runs headless with `!qa do sim` / `quote`), ga-3 (the client's label for the last remote slot) |
+| Automated | af-1/2/3, rv-1..4, bb-1/2, bg-1, gu-1/2/3/4/5/6/8, gw-1..4, pb-1, cu-1/2, we-1, mr-1, rm-1..4, cv-1/2/3/5/6/7, ga-1/2, wc-1, bs-1, td-3, gf-1, pr-1, sk-1/2, sc-1/2, cb-1/3/4, sp-1, id-1, vg-1, ch-1; 1.6.0: oa-1, tw-1, hp-1, au-1, ds-1, np-4, ck-1, sc-3 (below) |
+| Half (logic here, look by eye) | fh-2 (the chair and catch effects), cv-4 (the voices), cb-2 (swings on screen), pt-1 (pets following), bk-1 and at-1 (swing pacing on screen), td-1 and td-2 (the trade window: the haggle runs headless with `!qa do sim` / `quote`), ga-3 (the client's label for the last remote slot) |
 | Manual | ga-4 (a real client's pick-up), rg-1/rg-2 (the Cash Shop purchase flow is not driven yet), mv-1 (needs the tester's own movement packets), jq-1, cl-1/2/3, cc-1, mr-2, la-1 |
 
 Notes on what some checks prove:
 
-- **vg-1** runs `ClientVersionGate.verdictFor` on a scratch config: build 10500 against a minimum of 10500 is
-  allowed, 10410 is refused with the update message. No restart, and the live gate is untouched.
+- **vg-1** runs `ClientVersionGate.verdictFor` on a scratch config against the server's own `MIN_CLIENT_BUILD`
+  (10600 on TEST and in 1.6.0): the build at the gate and one above are allowed, the gate minus one is refused with
+  the update message. A gate of 0 (off) is a FAIL: 1.6.0's 4-byte HP/MP needs it. No restart, and the live gate is
+  untouched. (Before 1.6.0 it hardcoded 10500.)
+- **fh-2** (fishing flags on): the GM sits on the Fishing Chair at the waterside spawn of 120010000 (`FISHING REAL
+  STARTED map=... area=true chair=3011000`), a catch lands in the bag (`REAL catches=1`), standing stops it, and bots
+  fish too: `FISHING BOTS active=<now> started=<since boot> caught=<since boot>` must show a bot fishing now or a bot
+  catch since boot. Half: the chair and catch effects need a real client.
 - **ga-2** checks each new machine NPC with the foothold rule and keeps it 40+ px from a portal.
 - **ch-1** reads `BotChannels.botsPerChannel()`: 5 channels, ch1-4 have bots, ch1 the busiest and ch5 the quietest, each within max(10, 25%) of its `BOT_CHANNEL_WEIGHTS` share.
+
+### 1.6.0 checks for features that shipped without one (owner 2026-10-27)
+
+Each is one probe in `soloMapling.autoqa.Probes160` (t-tw-1 two). A probe stages on the pretend players' own
+accounts, judges and undoes its staging in a `finally` (the runner's cleanup only sends `!qa stop`). Commands go
+through AutoQaOne's chat, so a FAIL carries the server's answers ("gm heard ..."). A SKIP's reason is the probe's own
+line (`nothing could be judged here: SKIP OWNED_ALTS_ENABLED is off ...`). All run nightly. Run one:
+`tools/ops/autoqa-run oa-1` (or `!autoqa run t-oa-1`); all eight: `tools/ops/autoqa-run oa-1,tw-1,hp-1,au-1,ds-1,np-4,ck-1,sc-3`.
+
+| Check | Stages | PASS when | SKIP when |
+|---|---|---|---|
+| t-oa-1 companions | Makes `AutoQaAlt` and `AutoQaAltB` on AutoQaOne's account once (kept). `@botme`, `@botme AutoQaAlt`, again, 4 companion places reserved with ids that are never characters (released in `finally`), `@botme AutoQaAltB`, a marker amount of mesos on the alt, `@dismiss AutoQaAlt`; `@dismiss all` and leaving a party it made in `finally` | the list names the alt; it joins on the GM's map and in the GM's party; the repeat is refused ("already online"); the 6th place and `@botme AutoQaAltB` are refused ("up to five"); after `@dismiss` it is out of the world and the party and the database holds the marker mesos | `OWNED_ALTS_ENABLED` off |
+| t-tw-1 busy towns | nothing; two samples 300 s apart of `TownPulse.index()` and every town map's bot count per channel | fill (bots/target, capped per map) reaches 90 %, rises 2 points, or holds at 60 %+ (down at most 5); no town map instance over `BOT_TOWN_MAP_MAX`; ch1 has the most town bots; the boot's Henesys dressing spawned the `BOT_TOWN_DRESSING_SCALE` share of what it asked for (within one bot per cohort) | the brain off (`slums.botlife.enabled/execute`) or `BOT_TOWN_PULL` 0; the dressing part when no dressing spawned |
+| t-hp-1 4-byte HP/MP | `!setmaxhp 50000 45000`, then `!setmaxhp 150000` on AutoQaOne; MaxHP/MaxMP/HP/MP restored in `finally` | a built STAT packet for 50,000/45,000 reads back as 4 bytes; the STAT packet AutoQaOne's client got carries MAXHP/MAXMP (with gear) over 32,767; 150,000 stops at 99,999 (base, shown and packet); values restored | never |
+| t-au-1 site auth API | `!invite 1d`, then in-process on the running API (after its secret check; the secret is never read): sign-up `qaau<6 digits>`, sign-in, reset request, status, complete before approval, `!resetpw approve`, status, complete, sign-in new and old password, complete again; account, reset rows and invite deleted in `finally` | HTTP to 127.0.0.1:`slums.auth.port` without the secret gets 401; every step answers as the contract says (pending, NOT_APPROVED, approved, ok, WRONG_LOGIN for the old password, USED) | the API not listening (`-Dslums.auth.port` unset or failed to start; TEST: 8196) |
+| t-ds-1 decide shadow | nothing on the server: a shadow with a fake model, in-process, writes to `data/autoqa/decide-shadow-selfcheck/` (removed after) | one row per line; with text a row has `text` and no `len`; with `text=false` it has `len` and neither `text` nor the words. Also reports the server's own shadow (on/off, counters, text) | never |
+| t-np-4 custom NPC caps | talks to Coco (9000017) twice, Dalair (9000040) once, Maple TV (`mapleTV` -> scroll generator) twice with AutoQaOne's quest 32010 set to today:5 and today:4 (restored); Dalair's gate and cap on a scratch character never in the world or saved | Coco's number box max is 5, 6 is refused, 5 is taken; Dalair turns a level-70 character away with the 160 / Maker 3 line; the gate passes only Hero 160 + Maker 3 and Cygnus 110 + Maker 3; an item takes merges 1-3 and the 4th is refused with the source kept and the count hidden from the client; Maple TV refuses at 5 today and opens at 4 | `USE_ENABLE_CUSTOM_NPC_SCRIPT` off |
+| t-ck-1 Daily Check-In | if AutoQaOne's account claimed within 24 h its last claim is moved back past the cooldown (day and mask kept); claims the claimable day with the window's packet, then that day and the next again; the day's items are taken back (NX, mesos and slots stay) | the claim is recorded and its items, NX (plus 500 per slot past 96), mesos and slots land; the second claims change nothing. Prints the loaded table (which days give NX); asserts against whatever table is loaded | `DAILY_CHECKIN_ENABLED` off, or AutoQaOne under the minimum level |
+| t-sc-3 starter chairs | makes a throwaway `QaChair<5 digits>` on AutoQaOne's account the normal way (BeginnerCreator), loads it from the database onto a plain client, runs the login grant on that copy, deletes it | it owns exactly one Relaxer (3010000) and one Fishing Chair (3011000); two logins add nothing and mark it; with both chairs and the mark taken away (a pre-1.6.0 character) the grant adds both once | never |
+
+Not automated: companions following the owner to another map (ticket 13 defers movement; t-oa-1 notes it),
+the real login handler's chair grant for a pretend player (pretend players are excluded from it like bots, so t-sc-3
+runs the grant on a database copy), and the claim window's look in a real client.
 
 ### The LLM judge
 
@@ -717,4 +746,5 @@ placeholder that never gets filled (a staged bot that did not show up) fails the
 Tests: `GroundingAsSentTest` (synthetic grounding, sent positions), `ChatQualityTest`, `SceneFocusTest`,
 `ClaimRulesTest`, `SayDoTest`, `BankClaimsTest`, `MerchantAdHonestyTest`, `FootholdCheckTest`, `SweepMathTest`, `HealthSweepTest`, `CoarseGroundTest`, `HenesysGroundWzTest` (needs wz/), `AutoQaRunnerTest`,
 `AutoQaReportTest`, `AutoQaCatalogTest`, `AutoQaCatalogPatternTest`, `LlmJudgeTest`, `SyntheticClientTest`,
+`Probes160Test`, `SyntheticClientStatTest`, `DecideShadowSelfCheckTest`, `DailyCheckinRewindTest`, `SiteAuthQaTest`,
 `PlayerStorageTest`.

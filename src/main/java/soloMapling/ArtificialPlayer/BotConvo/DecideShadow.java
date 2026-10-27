@@ -140,6 +140,85 @@ public final class DecideShadow {
         return active;
     }
 
+    /** Auto-QA t-ds-1: the server's running shadow, or null; never builds one. */
+    public static DecideShadow running() {
+        return built ? active : null;
+    }
+
+    /** Whether rows keep the line's text (false on live: only its length). */
+    public boolean keepsText() {
+        return keepText;
+    }
+
+    /**
+     * Auto-QA t-ds-1: runs the shadow in-process with a fake model (no network, the server's own shadow untouched),
+     * once keeping the text and once with {@code text=false}, writes each row under {@code dir} the way the live sink
+     * does, reads the file back and checks it: a row is written, with text it carries {@code text} and no {@code len},
+     * without text it carries {@code len} and neither the {@code text} key nor the words. The scratch files are
+     * removed. First line PASS or FAIL, then what was seen.
+     */
+    public static List<String> selfCheck(Path dir) {
+        String line = "anyone know when the event starts";
+        String answer = "{\"answers\":{\"convo_intent\":{\"choice\":\"talk\",\"confidence\":0.9},"
+                + "\"convo_tone\":{\"choice\":\"neutral\",\"confidence\":0.9},"
+                + "\"con\":{\"choice\":\"normal\",\"confidence\":0.9}}}";
+        List<String> out = new ArrayList<>();
+        List<String> bad = new ArrayList<>();
+        try {
+            Map<String, ChatDecide.Answer> current = ChatDecide.parse(answer, ConvoSense.ASKED).orElseThrow();
+            ChatTriage.Result byRule = ChatTriage.rules(line);
+            ConvoSense.Read read = ConvoSense.combine(line, byRule, current, 0.4, 0.8, 0.4);
+            for (boolean keep : new boolean[]{true, false}) {
+                Path sub = dir.resolve(keep ? "text" : "notext");
+                DecideShadow shadow = new DecideShadow(List.of(new Model("fake", "decide", (body, ms) -> answer)), 4,
+                        2000, 400, "autoqa", "gliner", row -> append(sub, row)).keepText(keep);
+                long at = System.currentTimeMillis();
+                Path file = sub.resolve(DAY.format(Instant.ofEpochMilli(at)) + ".jsonl");
+                Files.deleteIfExists(file);
+                append(sub, shadow.judge(new Job(at, line, "AutoQaOne", byRule, current, 1, read, 0.4, 0.8, 0.4)));
+                List<String> rows = Files.isRegularFile(file) ? Files.readAllLines(file, StandardCharsets.UTF_8) : List.of();
+                Files.deleteIfExists(file);
+                String tag = "text=" + keep;
+                if (rows.size() != 1) {
+                    bad.add(tag + ": " + rows.size() + " row(s) written, want 1");
+                    continue;
+                }
+                Object parsed = Json.parse(rows.get(0));
+                if (!(parsed instanceof Map<?, ?> row)) {
+                    bad.add(tag + ": the row is not a JSON object");
+                    continue;
+                }
+                Object shadows = row.get("shadows");
+                boolean modelOk = shadows instanceof Map<?, ?> m && m.get("fake") instanceof Map<?, ?> f
+                        && Boolean.TRUE.equals(f.get("ok"));
+                String fields = "keys " + row.keySet();
+                if (keep) {
+                    if (!line.equals(row.get("text")) || row.containsKey("len")) {
+                        bad.add(tag + ": want text and no len, got " + fields);
+                    }
+                } else {
+                    Object len = row.get("len");
+                    if (row.containsKey("text") || !(len instanceof Number n) || n.intValue() != line.length()
+                            || rows.get(0).contains("event starts")) {
+                        bad.add(tag + ": want len=" + line.length() + " and no text, got " + fields + " len=" + len);
+                    }
+                }
+                if (!modelOk) {
+                    bad.add(tag + ": the fake model's read is missing or not ok");
+                }
+                out.add(tag + ": 1 row, " + fields + (keep ? "" : ", len=" + row.get("len")));
+            }
+        } catch (IOException | RuntimeException e) {
+            bad.add("self-check threw " + e);
+        }
+        DecideShadow live = running();
+        out.add(live == null ? "the server's shadow is off (-D" + PROPERTY + " unset)"
+                : "the server's shadow: " + live.counters() + ", text=" + live.keepsText());
+        out.add(0, bad.isEmpty() ? "PASS decide shadow rows are written; text=false keeps len and no text"
+                : "FAIL " + String.join("; ", bad));
+        return out;
+    }
+
     /** Installs this shadow as the server's (the replay tool, tests); null switches it off. */
     public static void install(DecideShadow shadow) {
         active = shadow;

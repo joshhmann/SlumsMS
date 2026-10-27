@@ -49,6 +49,11 @@ public final class BotChannels {
     /** 1.6.0 towns: the spread tasks that dress Henesys (HenesysBots, fillers, the pet park): BOT_TOWN_DRESSING_SCALE. */
     private static final Set<Integer> TOWN_TASKS = ConcurrentHashMap.newKeySet();
 
+    /** 1.6.0 t-tw-1: the Henesys town dressing at boot: bots asked for, bots spawned, cohorts (see {@link #envCount}). */
+    private static final java.util.concurrent.atomic.AtomicInteger townAsked = new java.util.concurrent.atomic.AtomicInteger(),
+            townGiven = new java.util.concurrent.atomic.AtomicInteger(),
+            townCohorts = new java.util.concurrent.atomic.AtomicInteger();
+
     /** Bots chosen for a channel but not yet in its player storage, so parallel logins do not all pick one channel. */
     private static final int[] inFlight = new int[64];
     /** The same for the environment's town dressing, which is split among itself (see {@link #reserveDressing()}). */
@@ -211,7 +216,23 @@ public final class BotChannels {
         if (!isSpreadSlot(slotBase)) {
             return n;
         }
-        return scaledCount(n, environmentScale(slotBase), ThreadLocalRandom.current().nextDouble());
+        int given = scaledCount(n, environmentScale(slotBase), ThreadLocalRandom.current().nextDouble());
+        if (isTownSlot(slotBase)) {
+            townAsked.addAndGet(Math.max(0, n));
+            townGiven.addAndGet(given);
+            townCohorts.incrementAndGet();
+        }
+        return given;
+    }
+
+    /** 1.6.0 t-tw-1: the Henesys town dressing since boot: {bots asked for, bots spawned, cohorts}. */
+    public static int[] townDressingCounts() {
+        return new int[]{townAsked.get(), townGiven.get(), townCohorts.get()};
+    }
+
+    /** 1.6.0 t-tw-1: the share of the Henesys town dressing that spawns (BOT_TOWN_DRESSING_SCALE, else the environment's). */
+    public static double effectiveTownDressingScale() {
+        return townDressingScale(environmentScale());
     }
 
     /** The environment scale; a bot-shop chance or similar odds scale by it too. */

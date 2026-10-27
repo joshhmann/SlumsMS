@@ -198,6 +198,11 @@ public final class TownPulse {
         }
     }
 
+    /** Auto-QA t-tw-1: the index as of the last director tick (channel -> town map instances); empty when off. */
+    public static Map<Integer, List<Slot>> index() {
+        return byChannel;
+    }
+
     /** QA/test seam: the index as given. */
     static void index(Map<Integer, List<Slot>> index) {
         byChannel = Map.copyOf(index);

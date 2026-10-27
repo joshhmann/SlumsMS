@@ -71,6 +71,12 @@ public final class FishingSessions {
         Session s = sessions.get(id); return s != null && s.actor.identity() == identity;
     }
     public int size() { return sessions.size(); }
+    /** 1.6.0 t-fh-2: sessions whose actor id matches (bots: ids at or above the bot base). */
+    public int count(java.util.function.IntPredicate ids) {
+        int n = 0;
+        for (Integer id : sessions.keySet()) if (ids.test(id)) n++;
+        return n;
+    }
     public void cancel(int id) { cancel(id, null); }
     public void cancel(int id, Object identity) {
         Session session = sessions.get(id);

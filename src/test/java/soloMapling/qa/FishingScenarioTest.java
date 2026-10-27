@@ -31,13 +31,16 @@ class FishingScenarioTest {
             System.setProperty("slums.fishing.enabled", "true");
             System.setProperty("slums.fishing.rewards", "true");
             fishing.when(() -> soloMapling.fishing.GameFishing.active(gm)).thenAnswer(i -> active.get());
+            fishing.when(soloMapling.fishing.GameFishing::botsLine).thenReturn("BOTS active=2 started=5 caught=1 playerCaught=0");
             doAnswer(i -> { active.set(true); return null; }).when(gm).sitChair(3011000);
             var suite = QaTestSupport.suite(FishingScenarios.all(), world, directory, new QaTestSupport.ManualScheduler());
             suite.start(gm, "fh-2", new String[0]);
             try {
                 verify(world).warpToPortal(gm, 120010000, "sp");
                 verify(world, never()).warp(gm, 120010000);
-                assertTrue(Files.readString(suite.runOf(7).logPath()).contains("FISHING REAL STARTED"));
+                String log = Files.readString(suite.runOf(7).logPath());
+                assertTrue(log.contains("FISHING REAL STARTED map="), log);
+                assertTrue(log.contains("FISHING BOTS active=2 started=5 caught=1"), "1.6.0 t-fh-2: bots fishing is logged");
             } finally { suite.stop(7, "done"); }
         } finally {
             if (enabled == null) System.clearProperty("slums.fishing.enabled"); else System.setProperty("slums.fishing.enabled", enabled);
