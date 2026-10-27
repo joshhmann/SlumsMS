@@ -1,0 +1,9 @@
+# Live hotfix commits already in release-1.6.0 by hand (a port or a version-bump-only commit), so hotfix-parity skips
+# them. One per line: <sha> <how it got here>. Add a line only after checking the change is really present.
+f215b83ca 5804ad9f8 (Maple Leaf restore row)
+b50d96f74 5804ad9f8 (x5 job fees and Gold Compass; version bump left out)
+f5fd66c11 5804ad9f8 (melee close-case test)
+4920523d9 ported by hand (HogTaming.java, AbstractDealDamageHandler hook, HogTamingTest; 1.5.3/1.5.4 confs present)
+62eaa5ba6 ported by hand (DojoScenarios, !qa dj-1 in QaMenuCatalog)
+a651170b0 version bump only (1.5.5.conf added for history); the dojo fix itself is 481c613af, already in
+c7922a774 version bump only (1.5.6.conf added for history); the guard is 31a8911db, already in

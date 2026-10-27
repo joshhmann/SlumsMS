@@ -55,4 +55,11 @@ class GoldCompassLineTest {
         assertEquals(1, src.split("cm\\.teachSkill\\(", -1).length - 1, "only the filter itself may call cm.teachSkill");
         assertTrue(src.contains("cm.isSkillOnOwnLine(skillId)"));
     }
+
+    @Test
+    void costsFiftyMillionAfterTheX5() throws Exception {
+        String js = Files.readString(Path.of("scripts/npc/2084000.js"));
+        org.junit.jupiter.api.Assertions.assertTrue(js.contains("var cost = 50000000;"), "Gold Compass is 50m (x5, owner 2026-10-25)");
+        org.junit.jupiter.api.Assertions.assertFalse(js.contains("10m mesos"), "the refusal text names the real price");
+    }
 }

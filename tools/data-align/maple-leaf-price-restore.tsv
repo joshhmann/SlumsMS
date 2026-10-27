@@ -1,0 +1,5 @@
+# Owner 2026-10-25 (after 1.5.2): put the Maple Leaf (4001126) NPC sell price back to MapleRoot's 500000.
+# Reverses maple-leaf-price.tsv (500000 -> 1, shipped in 1.5.2). The client already shows 500000. Restart to take effect.
+#   python3 tools/data-align/wz_set_values.py --wz <server dir>/wz --tsv tools/data-align/maple-leaf-price-restore.tsv --column new_value [--apply]
+file	node	server_value	new_value	note
+Item.wz/Etc/0400.img.xml	04001126/info/price	1	500000	Maple Leaf back to MapleRoot's 500k (owner); stock is 1
