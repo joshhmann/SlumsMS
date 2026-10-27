@@ -195,6 +195,8 @@ def exports(quick):
         for f in files:
             path = os.path.join(dirpath, f)
             rel = os.path.relpath(path, tmp)
+            if os.path.splitext(f)[1].lower() not in check.TEXT_EXT:
+                continue  # the ranking pictures (PNG): random bytes can look like an email
             text = open(path, encoding="utf-8", errors="replace").read()
             for pat in check.FORBIDDEN_PATTERNS[-2:]:  # the email and IP address patterns
                 leaks += [f"{rel}: {m.group(0)}" for m in pat.finditer(text)][:2]
