@@ -586,7 +586,7 @@ def build_board(mk):
             '<ul class="mkmine" id="mk-posts"></ul></section>'
             '<section class="panel" id="trades"><h2 class="bar">My trades <a href="{root}world/rankings/traders.html">Traders &raquo;</a></h2>'
             '<p class="small" style="padding:8px 16px 0;margin:0">Trades your characters finished and the ones that fell '
-            'through, from the same counts as the Traders ranking (characters with at least 5 trades).</p>'
+            'through, the same counts the Traders ranking uses. The ranking lists characters with at least 5 trades.</p>'
             '<ul class="mkmine" id="mk-trades"></ul></section></div>')
     mk.page(f"{MARKET}/mine.html", "My market", body, "mine", "Your watchlist, price alerts, posts and trades.")
 
