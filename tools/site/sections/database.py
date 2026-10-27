@@ -59,8 +59,9 @@ REGIONS = [(0, 0, "Maple Island"), (10, 12, "Victoria Island"), (19, 19, "Victor
            (90, 99, "Events, party quests and hidden maps")]
 REGION_NAMES = list(dict.fromkeys(name for _, _, name in REGIONS))
 # maps whose id range says nothing about where players meet them: the Free Market Entrance (910000000, a 9xx
-# "hidden" map) is the market every town's portal leads to, so it is listed with the towns
-REGION_OF = {910000000: "Victoria Island"}
+# "hidden" map) is the market every town's portal leads to, and Base of Roots (993910000) is the server's main hub,
+# so both are listed with the towns
+REGION_OF = {910000000: "Victoria Island", 993910000: "Victoria Island"}
 EXP_RATE = 3  # Bera's EXP rate, shown next to the base EXP (guide: rates.html)
 # the lead's wording for the drop rules (dataset meta.json drop_rates, TEST config.yaml)
 DROP_NOTE = ("Base chances. Bera &times;4 (bosses &times;3), quest items included; reactors &times;4; "

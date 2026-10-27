@@ -194478,22 +194478,30 @@
     "name": "Tyrant's Throne",
     "street": "Tyrant's Castle",
     "mobs": [],
-    "npcs": [
-      {
-        "npc_id": 3004006,
-        "name": "Plunk",
-        "count": 1
-      }
-    ],
+    "npcs": [],
     "portals": [
       {
         "name": "sp",
         "type": 0,
         "target_map_id": 999999999,
         "target_portal": ""
+      },
+      {
+        "name": "pt_magnusDoor",
+        "type": 11,
+        "target_map_id": 999999999,
+        "target_portal": ""
+      },
+      {
+        "name": "ph00",
+        "type": 1,
+        "target_map_id": 401060100,
+        "target_portal": "ph00"
       }
     ],
-    "targets": [],
+    "targets": [
+      401060100
+    ],
     "display_name": "Tyrant's Throne",
     "name_qualifier": null
   },
@@ -194501,13 +194509,7 @@
     "id": 401060101,
     "name": "",
     "street": "",
-    "mobs": [
-      {
-        "mob_id": 8880002,
-        "name": "Magnus",
-        "count": 1
-      }
-    ],
+    "mobs": [],
     "npcs": [],
     "portals": [
       {
@@ -194737,13 +194739,7 @@
     "id": 401060200,
     "name": "Tyrant's Throne",
     "street": "Tyrant's Castle",
-    "mobs": [
-      {
-        "mob_id": 8880002,
-        "name": "Magnus",
-        "count": 1
-      }
-    ],
+    "mobs": [],
     "npcs": [],
     "portals": [
       {
@@ -194984,13 +194980,7 @@
     "id": 401060300,
     "name": "Tyrant's Throne",
     "street": "Tyrant's Castle",
-    "mobs": [
-      {
-        "mob_id": 8880002,
-        "name": "Magnus",
-        "count": 1
-      }
-    ],
+    "mobs": [],
     "npcs": [],
     "portals": [
       {
@@ -338146,6 +338136,11 @@
       {
         "npc_id": 9977779,
         "name": "Nimble",
+        "count": 1
+      },
+      {
+        "npc_id": 1092017,
+        "name": "Anonymous Merchant",
         "count": 1
       }
     ],

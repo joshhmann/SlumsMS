@@ -498,6 +498,9 @@ class DbDataTest(unittest.TestCase):
         self.assertEqual([m["map_id"] for m in d["npcs"][1092017]["maps"]], [910000000])
         self.assertIn(1092017, [n["npc_id"] for n in d["maps"][910000000]["npcs"]])
         self.assertEqual(d["maps"][910000000]["street"], "Free Market")
+        from sections import database
+        self.assertEqual(dbdata.STREETS[993910000], "Free Market")   # Base of Roots, the main hub, next to the FM
+        self.assertEqual(database.REGION_OF[993910000], database.REGION_OF[910000000])
         # a dataset that already has the placement is left as it is (no second row)
         raw = self.raw()
         raw["maps"]["910000000"] = {"name": "Free Market Entrance", "npcs": [{"npc_id": 1092017, "count": 1}]}

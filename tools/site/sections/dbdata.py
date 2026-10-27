@@ -56,8 +56,9 @@ EXCLUDE_MAP_RANGES = [
 ]
 
 
-# street names the data gets wrong for the site's grouping: the Free Market Entrance's data street is "Hidden Street"
-STREETS = {910000000: "Free Market"}
+# street names the data gets wrong for the site's grouping: the Free Market Entrance's and Base of Roots' data street
+# is "Hidden Street"; both go under "Free Market", next to each other
+STREETS = {910000000: "Free Market", 993910000: "Free Market"}
 
 
 def excluded_map(map_id):
