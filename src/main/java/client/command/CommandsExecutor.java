@@ -454,6 +454,7 @@ public class CommandsExecutor {
         addCommand("online2", 3, OnlineTwoCommand.class);
         addCommand("ban", 3, BanCommand.class);
         addCommand("unban", 3, UnBanCommand.class);
+        addCommand("invite", 3, client.command.commands.gm3.InviteCommand.class); // ticket 105: site sign-up codes
         addCommand("healmap", 3, HealMapCommand.class);
         addCommand("healperson", 3, HealPersonCommand.class);
         addCommand("hurt", 3, HurtCommand.class);

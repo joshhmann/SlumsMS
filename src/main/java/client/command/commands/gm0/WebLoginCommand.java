@@ -150,7 +150,8 @@ public class WebLoginCommand extends Command {
         }
     }
 
-    private static boolean isRevoked(Path dir, int accountId) {
+    /** True when the site sign-in for this account is revoked (revoked.txt); site password sign-in honours it too (ticket 105). */
+    public static boolean isRevoked(Path dir, int accountId) {
         Path f = dir.resolve("revoked.txt");
         try {
             if (!Files.isRegularFile(f)) {

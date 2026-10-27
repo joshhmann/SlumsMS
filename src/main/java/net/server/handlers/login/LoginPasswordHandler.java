@@ -21,6 +21,7 @@
  */
 package net.server.handlers.login;
 
+import client.AccountPasswords;
 import client.Client;
 import client.Character;
 import client.DefaultDates;
@@ -38,10 +39,6 @@ import tools.*;
 
 import java.awt.*;
 import java.io.IOException;
-import java.io.UnsupportedEncodingException;
-import java.nio.charset.StandardCharsets;
-import java.security.MessageDigest;
-import java.security.NoSuchAlgorithmException;
 import java.sql.*;
 import java.util.Calendar;
 
@@ -52,12 +49,6 @@ public final class LoginPasswordHandler implements PacketHandler {
     @Override
     public boolean validateState(Client c) {
         return !c.isLoggedIn();
-    }
-
-    private static String hashpwSHA512(String pwd) throws NoSuchAlgorithmException, UnsupportedEncodingException {
-        MessageDigest digester = MessageDigest.getInstance("SHA-512");
-        digester.update(pwd.getBytes(StandardCharsets.UTF_8), 0, pwd.length());
-        return HexTool.toHexString(digester.digest()).replace(" ", "").toLowerCase();
     }
 
     @Override
@@ -98,7 +89,7 @@ public final class LoginPasswordHandler implements PacketHandler {
             try (Connection con = DatabaseConnection.getConnection();
                  PreparedStatement ps = con.prepareStatement("INSERT INTO accounts (name, password, birthday, tempban) VALUES (?, ?, ?, ?);", Statement.RETURN_GENERATED_KEYS)) { //Jayd: Added birthday, tempban
                 ps.setString(1, login);
-                ps.setString(2, YamlConfig.config.server.BCRYPT_MIGRATION ? BCrypt.hashpw(pwd, BCrypt.gensalt(12)) : hashpwSHA512(pwd));
+                ps.setString(2, AccountPasswords.hashForNewAccount(pwd)); // ticket 105: the same rule as site sign-up
                 ps.setDate(3, Date.valueOf(DefaultDates.getBirthday()));
                 ps.setTimestamp(4, Timestamp.valueOf(DefaultDates.getTempban()));
                 ps.executeUpdate();
@@ -115,7 +106,7 @@ public final class LoginPasswordHandler implements PacketHandler {
                 } catch (IOException e) {
                     //log.error("Failed to notify discord via webhook for new registration.");
                 }
-            } catch (SQLException | NoSuchAlgorithmException | UnsupportedEncodingException e) {
+            } catch (SQLException e) {
                 c.setAccID(-1);
                 e.printStackTrace();
             } finally {
@@ -174,7 +165,7 @@ public final class LoginPasswordHandler implements PacketHandler {
         if (YamlConfig.config.server.BCRYPT_MIGRATION && (loginok <= -10)) { // -10 means migration to bcrypt, -23 means TOS wasn't accepted
             try (Connection con = DatabaseConnection.getConnection();
                  PreparedStatement ps = con.prepareStatement("UPDATE accounts SET password = ? WHERE name = ?;")) {
-                ps.setString(1, BCrypt.hashpw(pwd, BCrypt.gensalt(12)));
+                ps.setString(1, AccountPasswords.bcrypt(pwd));
                 ps.setString(2, login);
                 ps.executeUpdate();
             } catch (SQLException e) {

@@ -62,18 +62,13 @@ import server.life.Monster;
 import server.maps.FieldLimit;
 import server.maps.MapleMap;
 import server.maps.MiniDungeonInfo;
-import tools.BCrypt;
 import tools.DatabaseConnection;
-import tools.HexTool;
 import tools.PacketCreator;
 
 import javax.script.ScriptEngine;
 import java.io.IOException;
 import java.net.InetAddress;
 import java.net.InetSocketAddress;
-import java.nio.charset.StandardCharsets;
-import java.security.MessageDigest;
-import java.security.NoSuchAlgorithmException;
 import java.sql.*;
 import java.util.Date;
 import java.util.*;
@@ -729,10 +724,10 @@ public class Client extends ChannelInboundHandlerAdapter {
                         return 3;
                     }
 
-                    if (passhash.charAt(0) == '$' && passhash.charAt(1) == '2' && BCrypt.checkpw(pwd, passhash)) {
+                    AccountPasswords.Match match = AccountPasswords.check(pwd, passhash); // ticket 105: shared with the site
+                    if (match == AccountPasswords.Match.BCRYPT) {
                         loginok = (tos == 0) ? 23 : 0;
-                    } else if (pwd.equals(passhash) || checkHash(passhash, "SHA-1", pwd) || checkHash(passhash, "SHA-512", pwd)) {
-                        // thanks GabrielSin for detecting some no-bcrypt inconsistencies here
+                    } else if (match == AccountPasswords.Match.LEGACY) {
                         loginok = (tos == 0) ? (!YamlConfig.config.server.BCRYPT_MIGRATION ? 23 : -23) : (!YamlConfig.config.server.BCRYPT_MIGRATION ? 0 : -10); // migrate to bcrypt
                     } else {
                         loggedIn = false;
@@ -1461,16 +1456,6 @@ public class Client extends ChannelInboundHandlerAdapter {
             super();
             this.name = name;
             this.id = id;
-        }
-    }
-
-    private static boolean checkHash(String hash, String type, String password) {
-        try {
-            MessageDigest digester = MessageDigest.getInstance(type);
-            digester.update(password.getBytes(StandardCharsets.UTF_8), 0, password.length());
-            return HexTool.toHexString(digester.digest()).replace(" ", "").toLowerCase().equals(hash);
-        } catch (NoSuchAlgorithmException e) {
-            throw new RuntimeException("Encoding the string failed", e);
         }
     }
 

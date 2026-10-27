@@ -1025,6 +1025,7 @@ public class Server {
         soloMapling.Economy.market.PublicMarketExport.startIfEnabled(); // 1.6.0 Track D: website Market files, off unless -Dslums.market.export=true
         soloMapling.site.PublicSiteExport.startIfEnabled(); // 1.6.0 Track D: website feed/leaderboards/world, off unless -Dslums.site.export=true
         soloMapling.site.TradeRatings.start(); // 1.6.0 Track D: trade ratings, batched to traderatings every minute
+        soloMapling.site.auth.SiteAuthApi.startIfEnabled(); // ticket 105: sign-up/sign-in API on 127.0.0.1, off unless -Dslums.auth.port
         soloMapling.Economy.board.SiteBoard.startIfEnabled(); // 1.6.0 site board + price alerts (file channel), off unless -Dslums.board=true
        // DamageSkin.loadDamageSkins();
     }
