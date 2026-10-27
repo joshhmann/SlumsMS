@@ -1,8 +1,9 @@
 [Unit]
-Description=SlumsMS TEST site: market pages every 15 minutes
+Description=SlumsMS TEST site: market pages every 2 minutes (FM listings are exported every 2)
 
 [Timer]
-OnCalendar=*:05,20,35,50
+OnBootSec=3min
+OnUnitActiveSec=2min
 
 [Install]
 WantedBy=timers.target

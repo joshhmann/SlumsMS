@@ -1,11 +1,12 @@
 [Unit]
-Description=Rebuild the SlumsMS website market pages every 15 minutes
+Description=Rebuild the SlumsMS website market pages every 2 minutes
 
 [Timer]
-# the export writes at :00/:15/:30/:45 plus 90 s after boot; run a little after it
-OnCalendar=*:02,17,32,47
-RandomizedDelaySec=30
-Persistent=false
+# FM listings are exported every 2 min (-Dslums.market.listingsSeconds=120); sales and prices every 15. One market
+# rebuild takes about 5 s at nice 19, so the whole section is simply rebuilt every 2 min.
+OnBootSec=3min
+OnUnitActiveSec=2min
+RandomizedDelaySec=15
 
 [Install]
 WantedBy=timers.target

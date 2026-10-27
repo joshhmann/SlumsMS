@@ -134,8 +134,8 @@ on a price page "Watch" works; a test post on the Buy/Sell board shows on the bo
 **From now on every publish from 187 uses `--private --world` and `--exclude market/ --exclude world/`** (DEPLOY.md
 says so too).
 
-## 6. Keep the market (15 min) and World (2 min) fresh (timers on 164)
-Live writes `Server/data/market` every 15 min once `-Dslums.market.export=true` is on, and `Server/data/site`
+## 6. Keep the market and World fresh (timers on 164, both every 2 min)
+Live writes `Server/data/market` (FM listings every 2 min, sales and prices every 15) once `-Dslums.market.export=true` is on, and `Server/data/site`
 (feed every 2 min, world every 60 s, leaderboards every 15 min) from `PublicSiteExport`, both in 1.6.0. Two timers
 rebuild only their own section from them: a one-section rebuild writes beside the live folder, swaps it in with two
 renames, checks the new section and swaps back if the check fails. The commands the timers run (the units add
@@ -159,13 +159,13 @@ systemctl daemon-reload && systemctl enable --now slums-site-market.timer slums-
 systemctl start slums-site-market.service slums-site-world.service
 journalctl -u slums-site-market -u slums-site-world -n 10
 ```
-Check: `market/index.html` changes within 15 minutes and `world/index.html` within 2, and the "as of" times match
+Check: `market/listings.html` and `world/index.html` change within 2 minutes, and the "as of" times match
 the exports.
 Undo: `systemctl disable --now slums-site-market.timer slums-site-world.timer`.
 
 ## 7. Afterwards
 - The megaphone rail's "sold" lines on non-market pages only change on a full publish (steps 1/5); the market pages
-  refresh every 15 minutes and World every 2.
+  refresh every 2 minutes (FM listings; sales and prices change every 15) and World every 2.
 - Banned accounts: write their account ids to `/var/lib/slums-login/revoked.txt` to sign them out of the website.
 - Rotating the key (`/etc/slums-login/key`) signs everyone out.
 
