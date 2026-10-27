@@ -94,10 +94,13 @@ Undo: `systemctl disable --now slums-market`, then `userdel slums-market` and `r
 (that deletes every watchlist, alert and post).
 
 ## 3. The game's auth API and the board on live (part of the 1.6.0 deploy)
-Live 1.6.0 serves the auth API on 127.0.0.1:8186, checking `/etc/slums-auth/secret` (step 2), and starts with the
-board's inbox and outbox flags set to `/var/lib/slums-market/inbox` and `/var/lib/slums-market/outbox` (names in the
-"Site board contract"). Live runs as root, so no group change is needed. TEST has its own: API on 8196 with
-`/etc/slums-auth-test/secret`, the TEST sign-in on 8194 with its own key (`tools/site/test164/README.md`), so a TEST
+Live 1.6.0 serves the auth API on 127.0.0.1:8186, checking `/etc/slums-auth/secret` (step 2); the live unit's start
+line gets the auth port and secret properties (names in ticket 105) **and `-Dslums.auth.revoked=/var/lib/slums-login/revoked.txt`**.
+That's the same file the sign-in and market services read, so signing an account out (or a ban written there) stops it
+both on the site and at sign-in; without it the server would look inside the old `@weblogin` folder and the two would
+disagree. It also starts with the board's inbox and outbox flags set to `/var/lib/slums-market/inbox` and
+`/var/lib/slums-market/outbox` (names in the "Site board contract"). Live runs as root, so no group change is needed. TEST has its own: API on 8196 with
+`/etc/slums-auth-test/secret` and `-Dslums.auth.revoked=/var/lib/slums-login-test/revoked.txt`, the TEST sign-in on 8194 with its own key (`tools/site/test164/README.md`), so a TEST
 account can never sign anyone in to the real site. Check:
 `curl -s -X POST -H 'X-Slums: 1' -H 'Content-Type: application/json' -d '{"user":"nobody1","pass":"wrongpw"}' http://127.0.0.1:8094/api/login/password`
 gives 401 "Wrong username or password." (503 "down" means the API or its secret isn't there yet).
