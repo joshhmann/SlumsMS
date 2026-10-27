@@ -411,12 +411,17 @@ public final class AutoQaCatalog {
                 .build());
         c.add(Check.auto("t-cv-3", "Apologise, insult, flirt").minutes(6)
                 .step(say("@botdrama on"), run("cv-3"), say("{bot} sorry for ksing u"), waitFor("AFFINITY EVENT apology", 15),
+                        // 1.6.0 triage (2026-10-27): the answer to the apology landed after the insult and the judge
+                        // read it as the answer to the insult ("water under the bridge" to "ur trash noob")
+                        until(SAID, 1, 15),
                         say("{bot} ur trash noob"), waitFor("AFFINITY EVENT rude_chat", 15), waitSeconds(8),
                         mark("dramaoff"), say("@botdrama off"), say("{bot} ur trash noob"), waitSeconds(12),
                         mark("romance"), say("@botdrama on"), say("@romance on"), say("{bot} ur cute"), waitSeconds(12),
                         say("@romance off"))
                 .expect(has("CONVO .*INTENT .*apolog.*YES"), has("AFFINITY EVENT apology"), has("AFFINITY EVENT rude_chat"),
-                        judged(SAID, "a rival bot answers an apology, an insult (game-only trash talk back) and a flirt", 5),
+                        judged(SAID, "a rival bot answers an apology, an insult (game-only trash talk back while drama is on;"
+                                + " with drama off a short brush-off such as '...', 'ok' or 'whatever' is the right answer)"
+                                + " and a flirt", 5),
                         noEmoji(), Expects.sayDo(130))
                 .build());
         c.add(Check.half("t-cv-4", "Four voices, human timing", "the four voices' casing and slang side by side").minutes(5)

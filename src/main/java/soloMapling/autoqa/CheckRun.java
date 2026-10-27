@@ -173,6 +173,28 @@ public final class CheckRun {
         return Pattern.compile(filled);
     }
 
+    /** The last {@code max} YELLOW lines player 1 heard in this check (the suite's answers), as evidence lines. */
+    public List<String> gmAnswers(int max) {
+        AutoQaWorld.Actor gm = actors.get(1);
+        if (gm == null) {
+            return List.of();
+        }
+        List<String> said = new ArrayList<>();
+        for (AutoQaLine l : gm.heard(startMs)) {
+            if ("YELLOW".equals(l.kind())) {
+                String m = l.message();
+                said.add("  " + (m.length() > 200 ? m.substring(0, 200) + "..." : m));
+            }
+        }
+        if (said.isEmpty()) {
+            return List.of();
+        }
+        List<String> out = new ArrayList<>();
+        out.add("gm heard (last " + Math.min(max, said.size()) + " of " + said.size() + " answers):");
+        out.addAll(said.subList(Math.max(0, said.size() - max), said.size()));
+        return out;
+    }
+
     /** Every line of this check so far: the GM's qa lines and what each player heard, in time order. */
     public List<AutoQaLine> lines() {
         List<AutoQaLine> all = new ArrayList<>();
