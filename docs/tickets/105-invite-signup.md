@@ -3,7 +3,7 @@
 **Area:** Server / Site / Launcher
 **Kind:** FEATURE, 1.6.0 (owner 2026-10-26)
 **Status:** in progress
-**Related:** 104 (launcher login), docs/site/LOGIN.md in SlumsMS-site (`@weblogin`)
+**Related:** 104 (launcher login), docs/site/LOGIN.md in SlumsMS-site (`@weblogin`), 107 (password resets)
 
 Source: the owner, 2026-10-26: "So our main source for login creation is only in the client login screen. Is that
 enough? Or should we opt into making accounts so long as you have an invite code", then "Like creating one in the

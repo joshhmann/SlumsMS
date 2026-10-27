@@ -456,6 +456,7 @@ public class CommandsExecutor {
         addCommand("ban", 3, BanCommand.class);
         addCommand("unban", 3, UnBanCommand.class);
         addCommand("invite", 3, client.command.commands.gm3.InviteCommand.class); // ticket 105: site sign-up codes
+        addCommand("resetpw", 3, client.command.commands.gm3.ResetPwCommand.class); // ticket 107: GM-approved password resets
         addCommand("healmap", 3, HealMapCommand.class);
         addCommand("healperson", 3, HealPersonCommand.class);
         addCommand("hurt", 3, HurtCommand.class);

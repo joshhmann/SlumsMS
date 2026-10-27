@@ -136,18 +136,27 @@ public final class SiteAccounts {
         if (!USER_CHARS.matcher(user).matches()) {
             return "user_chars";
         }
-        int min = Math.max(1, YamlConfig.config.server.AUTO_REGISTER_MIN_PASSWORD_LENGTH);
-        if (pass == null || pass.length() < min || pass.length() > PASS_MAX) {
-            return "pass_length";
-        }
-        if (!PASS_CHARS.matcher(pass).matches()) {
-            return "pass_chars";
+        String passRule = passRule(pass);
+        if (passRule != null) {
+            return passRule;
         }
         if (ReservedNames.isReservedAccountName(user)) {
             return "reserved";
         }
         if (botName.test(user)) {
             return "bot_name";
+        }
+        return null;
+    }
+
+    /** The password rule a new password breaks (pass_length, pass_chars), or null; sign-up and reset (ticket 107) share it. */
+    static String passRule(String pass) {
+        int min = Math.max(1, YamlConfig.config.server.AUTO_REGISTER_MIN_PASSWORD_LENGTH);
+        if (pass == null || pass.length() < min || pass.length() > PASS_MAX) {
+            return "pass_length";
+        }
+        if (!PASS_CHARS.matcher(pass).matches()) {
+            return "pass_chars";
         }
         return null;
     }

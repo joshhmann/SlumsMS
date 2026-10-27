@@ -69,6 +69,35 @@ class AccountsExportTest {
     }
 
     @Test
+    void resetRequestsShowCountsAndTheLatestWithoutSecrets() {
+        AccountsExport.Data d = new AccountsExport.Data(null, null, List.of(), new AccountsExport.ResetCounts(2, 5, 3, 1),
+                List.of(new AccountsExport.Reset("Forgetful", NOW - 3_600_000, "approved", "Silvia", "bob#1234", NOW - 1_800_000),
+                        new AccountsExport.Reset("Other", NOW - 7_200_000, "pending", "", "discord pal", 0)));
+        Map<String, Object> m = AccountsExport.build(NOW, d, 0);
+        Map<?, ?> r = (Map<?, ?>) m.get("resets");
+        assertEquals(2L, r.get("pending"));
+        assertEquals(5L, r.get("approved"));
+        assertEquals(3L, r.get("used"));
+        assertEquals(1L, r.get("denied"));
+        List<?> latest = (List<?>) r.get("latest");
+        Map<?, ?> first = (Map<?, ?>) latest.get(0);
+        assertEquals("Forgetful", first.get("account"));
+        assertEquals("approved", first.get("state"));
+        assertEquals("Silvia", first.get("decidedBy"));
+        assertEquals("bob#1234", first.get("contact"));
+        assertEquals("Oct 26 04:00", first.get("pt"));
+        assertNull(((Map<?, ?>) latest.get(1)).get("decidedBy"));
+        String sql = (AccountsExport.RESET_COUNTS + AccountsExport.RESET_LATEST).toLowerCase();
+        for (String bad : List.of("secret", "ip_hash", "accounts")) {
+            assertFalse(sql.contains(bad), bad);
+        }
+        String json = Json.write(m).toLowerCase();
+        assertFalse(json.contains("secret") || json.contains("hash"), json);
+        assertFalse(AccountsExport.build(NOW, new AccountsExport.Data(null, null, null), 0).containsKey("resets"),
+                "left out when migration 037 is missing");
+    }
+
+    @Test
     void realAccountsExcludeBotsTemplateAndAutoQa() {
         assertTrue(AccountsExport.REAL.contains("SMBotBase") && AccountsExport.REAL.contains("autoqa"));
     }
