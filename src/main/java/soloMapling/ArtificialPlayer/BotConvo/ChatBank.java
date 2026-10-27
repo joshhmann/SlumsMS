@@ -393,6 +393,8 @@ public final class ChatBank {
         return null;
     }
 
+    private static final int SPANISH = ConvoPersona.Voice.SPANISH.ordinal();
+
     private Pick pickIn(int ii, int ai, boolean strict, Query q, RecentLines.Window recent, Weights weights, Random rng,
                         java.util.function.Predicate<String> textOk) {
         int[] cell = cells.get(cell(ii, ai));
@@ -414,6 +416,10 @@ public final class ChatBank {
             if (!strict && q.voice() != null && voice[row] >= 0 && voice[row] != q.voice().ordinal()
                     && rng.nextDouble() < 0.5) {
                 continue; // other voices' lines are fine (the styler re-voices them), just less often
+            }
+            if (voice[row] == SPANISH && (q.voice() != ConvoPersona.Voice.SPANISH
+                    || VoiceStyler.spanishSentence(row(row)))) {
+                continue; // 1.6.0 tune: the accent is the Spanish voice's own, and never a whole Spanish line
             }
             if (toneIndex > 0 && tone[row] > 0 && tone[row] != toneIndex) {
                 continue;

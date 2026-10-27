@@ -66,6 +66,9 @@ public final class SocialTraceEntry {
     String about;
     /** The lower of the two bots' levels (LFG's PQ band rule). */
     int minLevel;
+    /** Each bot's level (1.6.0 tune: a TRAINING line's places are checked against them). */
+    int aLevel;
+    int bLevel;
     String factKind;
     String factAbout;
     List<String> factNames = List.of();
@@ -89,6 +92,13 @@ public final class SocialTraceEntry {
     Bond before;
     Bond after;
     final List<String> remembered = new ArrayList<>();
+
+    // DECIDE (1.6.0 tune: a thread that led to a decision, e.g. a TRAINING tip followed)
+    String decided;
+    /** The bot that should reach {@link #goalMap} (an "arrive" event when it does), 0: none. */
+    int goalBot;
+    int goalMap;
+    boolean arrived;
 
     // ACT
     final List<Event> events = new ArrayList<>();

@@ -109,6 +109,8 @@ public final class BotThreads {
         volatile long startedAt;
         /** When its last line went out (0 before the first). */
         volatile long lastLineAt;
+        /** 1.6.0 tune: a TRAINING thread's real spots for the asker's level (empty for the other topics). */
+        volatile List<TrainingTips.Spot> spots = List.of();
 
         Live(int channel, int mapId, List<Integer> botIds, List<String> names, Topic topic, String about,
              soloMapling.ArtificialPlayer.BotGossip.Fact fact, long endsAt, int lastSpeakerId) {
@@ -425,6 +427,7 @@ public final class BotThreads {
         Live l = new Live(channel, map.getId(), List.of(a.getId(), b.getId()), List.of(a.getName(), b.getName()), topic,
                 about, fact, now + TimeUnit.MINUTES.toMillis(2), a.getId());
         l.startedAt = now;
+        l.spots = spotsFor(topic, a);
         hold(l);
         lastThreadOf.put(a.getId(), l);
         lastThreadOf.put(b.getId(), l);
@@ -447,12 +450,12 @@ public final class BotThreads {
         java.util.Set<String> allowed = soloMapling.ArtificialPlayer.BotGossip.allowedNames(fact, a.getName(), b.getName());
         if (!bankOnly && BotBrains.get().isLive() && !ConvoSwitches.forceBank()) {
             List<BotBrain.Turn> prompt = List.of(BotBrain.Turn.system(threadPrompt(a, b, topic, about, map.getMapName(),
-                            fact)), BotBrain.Turn.user("Write the lines now."));
+                            fact, l.spots)), BotBrain.Turn.user("Write the lines now."));
             BotBrains.get().reply(Priority.THREAD, 0, prompt).thenAccept(r -> {
                 List<String[]> lines = guard(r.map(x -> parse(x.text(), a.getName(), b.getName())).orElse(List.of()),
                         allowed, l.mapId, l.id);
                 if (lines.size() < 2) {
-                    List<String[]> bank = guard(fallback(chosen, a, b, fact, rng), allowed, l.mapId, l.id);
+                    List<String[]> bank = guard(fallback(chosen, a, b, fact, l.spots, rng), allowed, l.mapId, l.id);
                     if (soloMapling.autoqa.SocialTrace.on()) {
                         soloMapling.autoqa.SocialTrace.threadComposed(l.id, FALLBACK_KIND.get(), r.isEmpty()
                                 ? "the model gave no reply (busy or timed out)" : "the model's reply was unusable",
@@ -467,7 +470,7 @@ public final class BotThreads {
                 }
             });
         } else {
-            List<String[]> bank = guard(fallback(topic, a, b, fact, rng), allowed, l.mapId, l.id);
+            List<String[]> bank = guard(fallback(topic, a, b, fact, l.spots, rng), allowed, l.mapId, l.id);
             if (soloMapling.autoqa.SocialTrace.on()) {
                 soloMapling.autoqa.SocialTrace.threadComposed(l.id, FALLBACK_KIND.get(), bankOnly ? "bank only (!qa)"
                         : !BotBrains.get().isLive() ? "the model is not live" : "line bank forced", -1);
@@ -601,12 +604,38 @@ public final class BotThreads {
         return threadPrompt(a, b, topic, about, mapName, null);
     }
 
-    /**
-     * As above, grounded (1.6.0 S4): a GOSSIP or TRAINING thread gets its true story and the only players it may
-     * name; a thread without one is told to name no other player (the name guard still checks every line).
-     */
+    /** As below, with the real training spots of a TRAINING thread looked up for {@code a}. */
     static String threadPrompt(Character a, Character b, Topic topic, String about, String mapName,
                                soloMapling.ArtificialPlayer.BotGossip.Fact fact) {
+        return threadPrompt(a, b, topic, about, mapName, fact, spotsFor(topic, a));
+    }
+
+    /** How many real spots a TRAINING thread's writer is given. */
+    static final int SPOTS = 3;
+
+    /**
+     * 1.6.0 tune: the real training spots for the asker ({@code a}) of a TRAINING thread, from the training bots'
+     * leveling path (empty for other topics, or when the path has none).
+     */
+    static List<TrainingTips.Spot> spotsFor(Topic topic, Character a) {
+        if (topic != Topic.TRAINING) {
+            return List.of();
+        }
+        try {
+            return TrainingTips.spotsFor(a.getLevel(), a.getJob() == null ? 0 : a.getJob().getId(), SPOTS);
+        } catch (RuntimeException | LinkageError e) {
+            log.debug("No training spots for {}", a.getName(), e);
+            return List.of();
+        }
+    }
+
+    /**
+     * As above, grounded (1.6.0 S4): a GOSSIP or TRAINING thread gets its true story and the only players it may
+     * name; a thread without one is told to name no other player (the name guard still checks every line). A
+     * TRAINING thread also gets the real spots for the asker's level (1.6.0 tune) and may name no other place.
+     */
+    static String threadPrompt(Character a, Character b, Topic topic, String about, String mapName,
+                               soloMapling.ArtificialPlayer.BotGossip.Fact fact, List<TrainingTips.Spot> spots) {
         ConvoPersona pa = ConvoPersona.of(a.getId() - BotStore.BOT_ID_BASE);
         ConvoPersona pb = ConvoPersona.of(b.getId() - BotStore.BOT_ID_BASE);
         String subject;
@@ -623,14 +652,31 @@ public final class BotThreads {
         } else {
             subject = ". Topic: " + topic.words + (about == null ? "" : " (" + about + ")") + "; name no other player";
         }
+        if (spots != null && !spots.isEmpty()) {
+            List<String> named = new ArrayList<>();
+            for (TrainingTips.Spot s : spots) {
+                named.add(s.described());
+            }
+            subject += ". Real training spots for level " + a.getLevel() + ": " + String.join(", ", named) + ". If "
+                    + b.getName() + " suggests a spot it is one of these, by that name; never make up a place, a"
+                    + " monster or a party quest";
+        }
+        // 1.6.0 tune: 12 of 59 model lines were over 60 characters, and some read like a letter
         return "Write a short public chat exchange between two MapleStory players in 2008, " + a.getName() + " (level "
                 + a.getLevel() + ") and " + b.getName() + " (level " + b.getLevel() + "), standing in "
                 + (mapName == null || mapName.isBlank() ? "town" : mapName) + subject + ". 2 to 4 lines in total,"
-                + " alternating, " + a.getName() + " first, each under 60 characters. " + a.getName() + " "
+                + " alternating, " + a.getName() + " first. Real 2009 game chat: short (under 45 characters), casual,"
+                + " slang is fine, never formal or polite speeches. " + a.getName() + " "
                 + pa.voice().prompt + ". " + b.getName() + " " + pb.voice().prompt + ". Format each line as Name: text."
                 + " Game talk only, PG-13, insults only about the game. Never mention AI, bots, real places, real people"
                 + " or anything after 2008.";
     }
+
+    /**
+     * 1.6.0 tune: the longest thread line kept (the trace's SENSE limit; 12 of 59 model lines were longer on TEST
+     * 2026-10-26). The prompt asks for much shorter.
+     */
+    static final int LINE_MAX = 60;
 
     /** "Name: text" lines of these two speakers, cleaned and checked; at most 4. */
     static List<String[]> parse(String text, String nameA, String nameB) {
@@ -648,8 +694,8 @@ public final class BotThreads {
             String said = line.substring(colon + 1).trim().replaceAll("^\"|\"$", "").trim();
             String speaker = who.equalsIgnoreCase(nameA) || who.equalsIgnoreCase("A") ? nameA
                     : who.equalsIgnoreCase(nameB) || who.equalsIgnoreCase("B") ? nameB : null;
-            if (speaker == null || said.isBlank() || said.length() > VoiceStyler.MAX || gibberish(said)
-                    || ContentGuard.chatProblem(said) != null) {
+            if (speaker == null || said.isBlank() || said.length() > LINE_MAX || gibberish(said)
+                    || VoiceStyler.spanishSentence(said) || ContentGuard.chatProblem(said) != null) {
                 continue;
             }
             out.add(new String[]{speaker, said});
@@ -682,7 +728,33 @@ public final class BotThreads {
      */
     static List<String[]> fallback(Topic topic, Character a, Character b, soloMapling.ArtificialPlayer.BotGossip.Fact fact,
                                    Random rng) {
+        return fallback(topic, a, b, fact, List.of(), rng);
+    }
+
+    /** What an asker says in a grounded TRAINING thread from the bank ({lv}: its level). */
+    static final List<String> TIP_ASKS = List.of("where u training at {lv}?", "any good spot for lvl {lv}?",
+            "im {lv} where should i grind", "where do ppl train at {lv} tbh", "lvl {lv} and bored of my map lol");
+    /** And what the other suggests ({spot}: a real spot for that level). */
+    static final List<String> TIP_SUGGESTS = List.of("try {spot} tbh", "{spot} is decent for u", "go {spot}, good exp",
+            "{spot} if its not packed", "i did {spot} at ur lvl");
+
+    /**
+     * As above; a TRAINING thread with real spots and no story to open with (1.6.0 tune) is an ask and a suggestion of
+     * one of the spots, so the bank never names a made-up place either.
+     */
+    static List<String[]> fallback(Topic topic, Character a, Character b, soloMapling.ArtificialPlayer.BotGossip.Fact fact,
+                                   List<TrainingTips.Spot> spots, Random rng) {
         FALLBACK_KIND.set("bank");
+        if (topic == Topic.TRAINING && spots != null && !spots.isEmpty() && (fact == null || fact.opener() == null)) {
+            FALLBACK_KIND.set("bank (real spots)");
+            TrainingTips.Spot spot = spots.get(rng.nextInt(spots.size()));
+            List<String[]> out = new ArrayList<>();
+            out.add(new String[]{a.getName(), TIP_ASKS.get(rng.nextInt(TIP_ASKS.size()))
+                    .replace("{lv}", String.valueOf(a.getLevel()))});
+            out.add(new String[]{b.getName(), TIP_SUGGESTS.get(rng.nextInt(TIP_SUGGESTS.size()))
+                    .replace("{spot}", spot.name().toLowerCase(Locale.ROOT))});
+            return out;
+        }
         if (fact != null && fact.opener() != null) {
             FALLBACK_KIND.set("bank (story opener)");
             int slotB = b.getId() - BotStore.BOT_ID_BASE;
@@ -792,8 +864,47 @@ public final class BotThreads {
                 qa(l.mapId, "THREAD LINE [" + source + "] " + who.getName() + ": " + styled);
             });
         }
+        if (l.topic == Topic.TRAINING) {
+            decideTip(l, a, b, lines, rng, System.currentTimeMillis());
+        }
         l.endsAt = System.currentTimeMillis() + total + JOIN_MS;
         chain.start();
+    }
+
+    // ── a tip followed (1.6.0 tune) ──
+
+    /** About one asker in three follows a real tip. */
+    static final double TIP_FOLLOW = 1 / 3.0;
+
+    /** Who can follow a tip: training bots (they have a grind path to take it on). A test seam. */
+    static volatile java.util.function.IntPredicate followsTips = id -> CharacterStorage.getBotById(id) instanceof TrainingBot;
+
+    /**
+     * After a TRAINING thread: the spot the other suggested to {@code asker}, if it is one of the thread's real spots
+     * and a grind map for the asker's level, is the asker's next grind map about {@link #TIP_FOLLOW} of the time
+     * ({@link TrainingTips#offer}; a training bot takes it on its next decision). The spot when followed, else null.
+     */
+    static TrainingTips.Spot decideTip(Live l, Character asker, Character other, List<String[]> lines, Random rng,
+                                       long now) {
+        TrainingTips.Spot spot = TrainingTips.suggested(lines, asker.getName(), l.spots);
+        if (spot == null) {
+            return null;
+        }
+        int job = asker.getJob() == null ? 0 : asker.getJob().getId();
+        String skip = !TrainingTips.realSpot(spot.mapId(), asker.getLevel(), job) ? "not a grind map for its level"
+                : !followsTips.test(asker.getId()) ? "not a training bot"
+                : rng.nextDouble() >= ConvoSwitches.num("tipFollow", TIP_FOLLOW) ? "keeps its own plan" : null;
+        if (skip != null) {
+            qa(l.mapId, "TIP SKIP " + asker.getName() + " hears " + spot.name() + " (" + spot.mapId() + "): " + skip);
+            return null;
+        }
+        TrainingTips.offer(asker.getId(), spot.mapId(), now);
+        String decision = "go train at " + spot.name() + " (" + spot.mapId() + ")";
+        qa(l.mapId, "TIP " + asker.getName() + " takes " + other.getName() + "'s tip: " + decision);
+        if (soloMapling.autoqa.SocialTrace.on()) {
+            soloMapling.autoqa.SocialTrace.threadDecided(l.id, asker.getId(), decision, spot.mapId());
+        }
+        return spot;
     }
 
     // ── a player jumps in ──

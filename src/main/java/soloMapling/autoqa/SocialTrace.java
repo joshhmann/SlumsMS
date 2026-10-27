@@ -223,6 +223,8 @@ public final class SocialTrace {
                     + (fact == null ? "" : "; grounded in " + fact.kind() + ": " + fact.about());
             e.about = about;
             e.minLevel = Math.min(a.getLevel(), b.getLevel());
+            e.aLevel = a.getLevel();
+            e.bLevel = b.getLevel();
             if (fact != null) {
                 e.factKind = fact.kind();
                 e.factAbout = fact.about();
@@ -330,6 +332,48 @@ public final class SocialTrace {
             e.lines.add(new Line(now, who.getId(), who.getName(), text, voice(who.getId())));
             if (earlier != null && !earlier.equals(e.id) && key.length() > 3 && e.repeats.size() < 4) {
                 e.repeats.add(text);
+            }
+        }
+    }
+
+    /**
+     * 1.6.0 tune: the thread led to a decision ({@code BotThreads.decideTip}: "go train at Ant Tunnel"); ACT is ok
+     * once {@code botId} stands on {@code goalMap} (polled each tick).
+     */
+    public static void threadDecided(int threadId, int botId, String decision, int goalMap) {
+        SocialTraceEntry e = on ? byThread.get(threadId) : null;
+        if (e != null) {
+            synchronized (e) {
+                e.decided = decision;
+                e.goalBot = botId;
+                e.goalMap = goalMap;
+            }
+        }
+    }
+
+    /** Where a bot stands now (-1 offline); tests replace it. */
+    static volatile java.util.function.IntUnaryOperator mapOf = id -> {
+        Character c = online(id);
+        return c == null ? -1 : c.getMapId();
+    };
+
+    /** An "arrive" event for every open decision whose bot now stands on its goal map. */
+    static void watchGoals(long now) {
+        for (SocialTraceEntry e : List.copyOf(open.values())) {
+            int bot;
+            int goal;
+            synchronized (e) {
+                if (e.goalMap <= 0 || e.arrived) {
+                    continue;
+                }
+                bot = e.goalBot;
+                goal = e.goalMap;
+            }
+            if (mapOf.applyAsInt(bot) == goal) {
+                synchronized (e) {
+                    e.arrived = true;
+                    addEvent(e, new Event(now, bot, "arrive", "reached map " + goal));
+                }
             }
         }
     }
@@ -557,6 +601,7 @@ public final class SocialTrace {
             stop("time up");
             return;
         }
+        watchGoals(now);
         int n = closeDue(now);
         SocialObservers.tick(now);
         if (n > 0 || summaryDirty || now / 60_000 % 5 == 0) {

@@ -19,17 +19,21 @@ public record ConvoPersona(Voice voice, double typoRate, double chattiness, doub
         LOWER(55, "types all lowercase with u/ur/r/lol/brb/idk/tbh, no apostrophes, no full stops",
                 List.of("lol ya", "idk tbh", "brb pots"),
                 List.of("lol", "rip", "ez", "gg", "brb", "lmao", "ya ya", "tbh")),
-        PROPER(18, "types properly: capitals, full words, apostrophes, a full stop now and then",
-                List.of("Yeah, I'm almost there.", "I usually train at Ant Tunnel."),
-                List.of("Indeed.", "Fair enough.", "Good game.", "Not bad.", "Haha, nice.")),
+        // 1.6.0 tune: "I have 400k mesos. That is all, my friend." read like a butler; still 2009 game chat
+        PROPER(18, "spells words out with capitals and apostrophes, but keeps it short and casual like 2009 game"
+                + " chat (never formal, no \"my friend\", no speeches)",
+                List.of("Yeah, almost there", "I'm at 37, can I come?"),
+                List.of("Nice.", "Fair enough.", "Good game.", "Not bad.", "Haha, nice.")),
         LEET(8, "a hyper xX kid: random caps, xD, lolz, !!!, 1337 spelling now and then",
                 List.of("LOLZ ur so pro xD", "omg 1 more lvl!!!"),
                 List.of("xD", "lolz", "pwned", "1337", "roflmao", "noob lol", "!!!1")),
         KOREAN(7, "a Korean player typing English: short, ^^ and kekeke, -nim for people you respect",
                 List.of("hi ^^", "ok kekeke", "thx nim ^^"),
                 List.of("^^", "kekeke", "-_-", "ok ok", "hehe ^^", "fighting!")),
-        SPANISH(7, "a Spanish-speaking player typing English: jaja, q for que, porfa, amigo, bro",
-                List.of("jaja ya amigo", "porfa wait", "q pasa bro"),
+        // 1.6.0 tune (TEST trace 2026-10-26: 26 of 194 thread lines, some all Spanish): a light accent only
+        SPANISH(7, "types lowercase English with a light Spanish accent: at most one of jaja / porfa / amigo in a"
+                + " line, never a sentence in Spanish",
+                List.of("jaja ya", "wait porfa", "ty amigo"),
                 List.of("jaja", "jajaja", "porfa", "amigo", "q onda", "vamos")),
         TERSE(5, "types the fewest words possible, no punctuation, often one word",
                 List.of("ya", "nah", "omw"),
@@ -64,6 +68,12 @@ public record ConvoPersona(Voice voice, double typoRate, double chattiness, doub
         }
     }
 
+    /**
+     * 1.6.0 tune: of the SPANISH voice's slice of the roll only the first this many points keep the accent (3% of
+     * bots, was 7%); the rest type LOWER. Every other bot keeps the voice it had.
+     */
+    static final int SPANISH_KEPT = 3;
+
     /** The persona of the bot in this roster slot (any slot: staff and on-demand bots get one too). */
     public static ConvoPersona of(int botSlot) {
         return of(botSlot, -1);
@@ -79,7 +89,7 @@ public record ConvoPersona(Voice voice, double typoRate, double chattiness, doub
         Voice voice = Voice.LOWER;
         for (Voice v : Voice.values()) {
             if (roll < v.share) {
-                voice = v;
+                voice = v == Voice.SPANISH && roll >= SPANISH_KEPT ? Voice.LOWER : v;
                 break;
             }
             roll -= v.share;

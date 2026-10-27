@@ -248,6 +248,15 @@ public final class SocialTraceJudge {
             if (e.lines.size() > 4) {
                 flags.add(e.lines.size() + " lines (the prompt asks for 2-4)");
             }
+            if ("TRAINING".equals(e.topic) && e.aLevel > 0) { // 1.6.0 tune: real places for these levels only
+                for (Line l : e.lines) {
+                    int own = l.botId() == e.aId ? e.aLevel : l.botId() == e.bId ? e.bLevel : 0;
+                    for (String w : soloMapling.ArtificialPlayer.BotConvo.TrainingTips.wrongPlaces(l.text(), e.aLevel,
+                            own)) {
+                        flags.add("wrong place (" + w + "): \"" + l.text() + "\"");
+                    }
+                }
+            }
         }
         int max = thread ? THREAD_MAX_CHARS : DRAMA_MAX_CHARS;
         for (Line l : e.lines) {
@@ -324,7 +333,8 @@ public final class SocialTraceJudge {
     static final Map<String, String> THREAD_NO_PATH = Map.of(
             "LFG", "no code path turns an LFG thread into a party or a PQ trip (bots never invite bots to a PQ)",
             "TRADE", "no code path turns a TRADE thread into a trade (there is no bot-to-bot trade at all)",
-            "TRAINING", "no code path moves either bot to the spot a TRAINING thread names",
+            "TRAINING", "no tip followed: no real spot was suggested, or the asker keeps its own plan (about 1 in 3"
+                    + " training bots follow a real tip)",
             "GOSSIP", "no code path stores the story for the listener (it is spoken only)",
             "RIVALRY", "no code path escalates from a RIVALRY thread (only the bond sours)",
             "GUILD_BEEF", "no code path feeds a GUILD_BEEF thread into the guild war (only the bond sours)",
@@ -350,7 +360,10 @@ public final class SocialTraceJudge {
             "JAB", "a guild jab is speech only (no bond or war effect)");
 
     static Decision decision(SocialTraceEntry e) {
-        return "thread".equals(e.kind) ? null : DRAMA_DECISIONS.get(e.topic);
+        if ("thread".equals(e.kind)) { // 1.6.0 tune: a TRAINING tip followed is "go train at <map>", done on arrival
+            return e.decided == null ? null : new Decision(e.decided, Set.of("arrive"));
+        }
+        return DRAMA_DECISIONS.get(e.topic);
     }
 
     static Verdict decide(SocialTraceEntry e, Decision d) {
