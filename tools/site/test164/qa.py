@@ -43,7 +43,7 @@ OTHER_CHAR = "AutoQaOne"  # a real TEST character on another account: the server
 # limit test: the market allows 30 writes a minute per account.
 _RUN = 2_000_000_000 + (int(time.time()) // 60 % 100_000) * 10
 FAKE = {name: _RUN + i for i, name in enumerate(("limits", "revoke", "signout", "launcher", "alerts", "posts"))}
-PAGES = ["/", "/guide/", "/guide/getting-started.html", "/patch-notes/", "/report/", "/login/",
+PAGES = ["/", "/join/", "/forgot/", "/login/", "/guide/", "/guide/getting-started.html", "/patch-notes/", "/report/", "/login/",
          "/world/", "/world/feed/", "/world/feed/megaphone.html", "/world/feed/drama.html", "/world/rankings/level.html",
          "/world/economy.html", "/robots.txt"]
 GATED = ["/database/", "/market/", "/market/board.html"]
