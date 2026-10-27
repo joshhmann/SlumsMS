@@ -10887,8 +10887,12 @@ public class Character extends AbstractCharacterObject {
      * and Maker level 3, always. Deliberately not tied to USE_STARTER_MERGE so that flag cannot open the merge.
      */
     public boolean meetsEquipmentMergeRequirements() {
-        int levelLimit = isCygnus() ? 110 : 160;
-        return getLevel() >= levelLimit && MakerService.getMakerSkillLevel(this) >= 3;
+        return meetsMergeGate(getLevel(), isCygnus(), MakerService.getMakerSkillLevel(this));
+    }
+
+    /** Dalair's merge gate (owner 2026-10-26): level 160 (110 for Cygnus) and Maker level 3. */
+    public static boolean meetsMergeGate(int level, boolean cygnus, int makerLevel) {
+        return level >= (cygnus ? 110 : 160) && makerLevel >= 3;
     }
 
     public static int getMergeCount(Item item) {

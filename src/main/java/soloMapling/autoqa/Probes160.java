@@ -755,9 +755,15 @@ final class Probes160 {
         Character chr = Character.getDefault(scratch);
         scratch.setPlayer(chr);
         chr.setName("QaMerge");
+        bad.addAll(mergeGateProblems());
         Skill maker = SkillFactory.getSkill(1007), cygMaker = SkillFactory.getSkill(10001007);
-        if (maker == null || cygMaker == null) {
-            bad.add("the Maker skill (1007 / 10001007) is missing from Skill.wz");
+        String note = makerAbsentNote(maker != null, cygMaker != null);
+        if (note != null) {
+            // TEST 2026-10-27: this server's Skill.wz has no Maker skill (Meren's Maker quests are hidden for the same
+            // reason), so the gate cannot be opened on a real character. Check the rule and the cap without it.
+            out.add(note);
+            out.add("merge gate rule (level, Cygnus, Maker): Hero 160/3 and Cygnus 110/3 pass; 159/3, 109/3, 160/2 refused");
+            bad.addAll(mergeCapProblems());
             return;
         }
         chr.setJob(Job.HERO);
@@ -813,6 +819,43 @@ final class Probes160 {
         if (!threeOk || fourth != Character.MERGE_ALL_CAPPED || !kept || !flagHidden) {
             bad.add("an item did not stop at 3 merges (" + runs + ", 4th kept the source=" + kept + ")");
         }
+    }
+
+    /** Dalair's gate on the pure rule (no character, no Skill.wz); empty when it is right. */
+    static List<String> mergeGateProblems() {
+        List<String> bad = new ArrayList<>();
+        if (!Character.meetsMergeGate(160, false, 3) || !Character.meetsMergeGate(110, true, 3)) {
+            bad.add("Dalair's gate refuses level 160 (110 Cygnus) with Maker 3");
+        }
+        if (Character.meetsMergeGate(159, false, 3) || Character.meetsMergeGate(109, true, 3)
+                || Character.meetsMergeGate(160, false, 2) || Character.meetsMergeGate(200, true, 0)) {
+            bad.add("Dalair's gate lets in a character below level 160/110 or Maker 3");
+        }
+        return bad;
+    }
+
+    /** Null when both Maker skills are in Skill.wz; else what that means for players (an owner decision). */
+    static String makerAbsentNote(boolean maker, boolean cygnusMaker) {
+        if (maker && cygnusMaker) {
+            return null;
+        }
+        return "NOTE no Maker skill (1007 / 10001007) in this server's Skill.wz: no character can reach Maker 3, so"
+                + " Dalair's merge is closed to everyone (owner decision: keep it closed or change the gate)";
+    }
+
+    /** The 3-merge cap on the item flag (Character.getMergeableEquipped takes fewer than 3): it stops at 3 and never reaches the client. */
+    static List<String> mergeCapProblems() {
+        List<String> bad = new ArrayList<>();
+        short two = ItemConstants.withMergeCount((short) 0, 2), three = ItemConstants.withMergeCount((short) 0, 4);
+        if (ItemConstants.getMergeCount(two) != 2 || ItemConstants.getMergeCount(three) != ItemConstants.MAX_MERGES_PER_ITEM
+                || ItemConstants.MAX_MERGES_PER_ITEM != 3) {
+            bad.add("an item's merge count does not stop at 3 (2 -> " + ItemConstants.getMergeCount(two) + ", 4 -> "
+                    + ItemConstants.getMergeCount(three) + ")");
+        }
+        if (ItemConstants.getMergeCount(ItemConstants.clientFlag(three)) != 0) {
+            bad.add("the merge count reaches the client");
+        }
+        return bad;
     }
 
     // ── t-ck-1: Daily Check-In ───────────────────────────────────────────────────────────────────
