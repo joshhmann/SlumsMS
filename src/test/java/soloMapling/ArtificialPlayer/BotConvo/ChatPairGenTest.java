@@ -389,15 +389,11 @@ class ChatPairGenTest {
     }
 
     @Test
-    void repliesNeverSwearAtThePlayer() {
+    void repliesMaySwearLikePlayers() {
+        // owner 2026-10-27: regulars may swear at players; slurs, sexual content and real-life insults stay blocked
         ChatPairGen.Cell c = cell("talk", "rude", "harassment", "chat", "brush_harassment");
-        for (String bad : List.of("go fuk urself", "stfu noob", "f u lol", "fck off", "screw u", "ur such a prick",
-                "gtfo my map")) {
-            assertEquals("reply hostile", ChatPairGen.replyProblem(c, bad), bad);
-        }
-        for (String ok : List.of("oh crap my pots", "whatever noob", "fun run tho", "ur gear is trash lol",
-                "fuzzy hat lol")) {
-            assertFalse(ChatPairGen.HOSTILE.matcher(ok).find(), ok);
+        for (String line : List.of("stfu noob", "f u lol", "screw u, ks somewhere else")) {
+            assertNull(ChatPairGen.replyProblem(c, line), line);
         }
     }
 

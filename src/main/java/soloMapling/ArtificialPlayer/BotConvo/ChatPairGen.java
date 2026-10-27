@@ -1212,19 +1212,8 @@ public final class ChatPairGen {
         if (bad == null && assistantLike(c.voice(), text)) {
             bad = "assistant-like";
         }
-        if (bad == null && HOSTILE.matcher(text).find()) {
-            bad = "hostile";
-        }
         return bad == null ? null : "reply " + bad;
     }
-
-    /**
-     * Profanity aimed at the other player ("go fuk urself", "stfu"). ContentGuard has no profanity list (PG-13 by
-     * design), but a bot's brush-off should be curt, not abusive. Mild exclamations ("oh crap") stay.
-     */
-    static final Pattern HOSTILE = Pattern.compile("\\b(stfu|gtfo|f+\\s?u|f+[uv]+[ckq]+\\w*|f+c?k+\\w*|phuck\\w*"
-            + "|screw (u|you|urself|yourself|off)|bitch\\w*|ass\\s?hole\\w*|dick\\s?head|prick|douche\\w*"
-            + "|piece of (shit|crap)|shit\\s?head|cunt\\w*)\\b", Pattern.CASE_INSENSITIVE);
 
     private static final Pattern ASSISTANT = Pattern.compile("\\b(against the (rules|tos|terms)|not allowed|is prohibited"
             + "|violat\\w* (the )?(rules|tos|terms)|i (cannot|can not) (help|assist|do that)|i(?:'| a)m sorry,? but"

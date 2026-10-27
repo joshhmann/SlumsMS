@@ -103,8 +103,8 @@ negative it is, or `-`), `source` (`gen` or `backfill`) and, for backfill, `bank
   disagreement goes to `pair-rejects.tsv` as `label mismatch <field> want=<x> got=<y>`. Round 5 review: on a con row the
   intent may read talk or trade (any intent `CON_INTENTS` allows for that con) when the con itself matches; for date, a
   flirty reading counts as kind. A `denial` may read as act refuse (both are talk with con normal). What the check read is kept on the pair as `checked` (intent, tone, con, act). Replies
-  that sound like a help desk ("Real money is against the rules") are refused (`reply assistant-like`). Replies that swear at
-  the player ("stfu", "go fuk urself") are refused (`reply hostile`); ContentGuard has no profanity list by design.
+  that sound like a help desk ("Real money is against the rules") are refused (`reply assistant-like`). Replies may swear at the
+  player like real players do (owner 2026-10-27); ContentGuard still blocks slurs, sexual content and real-life insults.
 - `stats` prints pairs per intent, tone, con, act, bot label, source and variant, the player line length
   distribution, every plan floor with how far off it is, the talk, neutral and hard-negative shares, each run's pairs
   per call, reject share and estimated USD spend for generation plus check (`pair-runs.tsv`; from `--price-in` /
