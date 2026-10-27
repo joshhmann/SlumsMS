@@ -64,6 +64,8 @@ threads (never a game thread); database work goes through the server's connectio
 | TEST | `-Dslums.auth.port=8196` | `-Dslums.auth.secretFile=/etc/slums-auth-test/secret` |
 | live | `-Dslums.auth.port=8186` | `-Dslums.auth.secretFile=/etc/slums-auth/secret` |
 
+Revoked sign-ins: `-Dslums.auth.revoked=/var/lib/slums-login/revoked.txt` on live and `/var/lib/slums-login-test/revoked.txt` on TEST, the same file the login service reads (falls back to `<slums.weblogin.dir>/revoked.txt` when unset).
+
 The secret file holds one line, at least 16 characters, made on the host (never printed or committed; on live the
 owner makes it, group `slums-login`, mode 0640, because the login service runs as `slums-login`; on TEST the
 coordinator makes it). The server only reads it, never checks owner or mode, and strips surrounding whitespace and

@@ -108,9 +108,22 @@ public final class SiteAccounts {
                 name -> soloMapling.server.MapleRootSolo.isEnabled()
                         && soloMapling.ArtificialPlayer.BotNames.heldByBot(name),
                 accountId -> {
-                    String dir = System.getProperty("slums.weblogin.dir");
-                    return dir != null && !dir.isBlank() && WebLoginCommand.isRevoked(Path.of(dir), accountId);
+                    Path f = revokedFile(System.getProperty("slums.auth.revoked"), System.getProperty("slums.weblogin.dir"));
+                    return f != null && WebLoginCommand.isRevoked(f.getParent(), f.getFileName().toString(), accountId);
                 });
+    }
+
+    /**
+     * The site's revoked list: {@code -Dslums.auth.revoked} (the file the login service reads:
+     * /var/lib/slums-login/revoked.txt on live, /var/lib/slums-login-test/revoked.txt on TEST), else the old
+     * {@code <slums.weblogin.dir>/revoked.txt}; null when neither is set. Pure.
+     */
+    static Path revokedFile(String explicit, String webloginDir) {
+        if (explicit != null && !explicit.isBlank()) {
+            Path f = Path.of(explicit.trim());
+            return f.getParent() == null ? f.toAbsolutePath() : f;
+        }
+        return webloginDir == null || webloginDir.isBlank() ? null : Path.of(webloginDir).resolve("revoked.txt");
     }
 
     /** The sign-up rule a name/password pair breaks (user_length, user_chars, pass_length, pass_chars, reserved, bot_name), or null. */

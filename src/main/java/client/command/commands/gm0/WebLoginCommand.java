@@ -152,7 +152,12 @@ public class WebLoginCommand extends Command {
 
     /** True when the site sign-in for this account is revoked (revoked.txt); site password sign-in honours it too (ticket 105). */
     public static boolean isRevoked(Path dir, int accountId) {
-        Path f = dir.resolve("revoked.txt");
+        return isRevoked(dir, "revoked.txt", accountId);
+    }
+
+    /** As above, for a revoked list with another file name in {@code dir}. */
+    public static boolean isRevoked(Path dir, String fileName, int accountId) {
+        Path f = dir.resolve(fileName);
         try {
             if (!Files.isRegularFile(f)) {
                 return false;
