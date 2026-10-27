@@ -38,15 +38,26 @@ public final class GameFishing {
                 ? chr.getMapId() : 120010000;
     }
     public static boolean area(int map) { return MapId.isFishingArea(map); }
-    /** The chair a bot sits on to fish: the Fishing Chair if owned, else any other chair it owns; 0 if none. */
+    /**
+     * The chair a character fishes from: the Fishing Chair if owned; for a player, else any other chair it owns; 0 if
+     * none. 1.6.0 (owner, 2026-10-27): bots fish only from the Fishing Chair (3011000), so a bot without one never
+     * fishes; players still fish from any chair ("sit on any chair").
+     */
     public static int chairToUse(Character chr) {
         if (chr == null) return 0;
         var setup = chr.getInventory(InventoryType.SETUP);
+        if (setup == null) return 0;
         if (setup.findById(FishingPolicy.CHAIR) != null) return FishingPolicy.CHAIR;
+        if (BotHelpers.isBot(chr)) return 0;
         for (var item : setup.list()) if (constants.inventory.ItemConstants.canFishFromChair(item.getItemId())) return item.getItemId();
         return 0;
     }
     public static boolean hasChair(Character chr) { return chairToUse(chr) != 0; }
+    /** Whether the chair this character sits on fishes: any fishing chair for a player, only the Fishing Chair for a bot. */
+    static boolean seatFishes(Character chr) {
+        int chair = chr.getChair();
+        return BotHelpers.isBot(chr) ? chair == FishingPolicy.CHAIR : constants.inventory.ItemConstants.canFishFromChair(chair);
+    }
     /**
      * Whether a bot may pick FISH as a life activity: the fishing flags are on, it owns a Fishing Chair (1.6.0:
      * {@link BotFishingChairs}) and its fishing map can take it.
@@ -85,7 +96,7 @@ public final class GameFishing {
                 online = bot != null && bot.getChr() == chr && bot.getRunning();
             } else online = chr.isLoggedinWorld();
             boolean safe = FishingPolicy.rewardsEnabled() && online && chr.isAlive() && map != null && point != null
-                    && area(map.getId()) && point.y > 0 && constants.inventory.ItemConstants.canFishFromChair(chr.getChair()) && hasChair(chr)
+                    && area(map.getId()) && point.y > 0 && seatFishes(chr) && hasChair(chr)
                     && chr.getEventInstance() == null && chr.getTrade() == null && chr.getShop() == null
                     && chr.getPlayerShop() == null && chr.getHiredMerchant() == null;
             return new FishingSessions.Position(chr.getWorld(), map == null ? -1 : map.getChannelId(), map,
