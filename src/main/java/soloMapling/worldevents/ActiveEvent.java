@@ -37,6 +37,7 @@ public final class ActiveEvent {
     /** The first real player to win it (boss kill, treasure found, first quest turned in), or 0. */
     volatile int winnerId;
     volatile String winnerName;
+    volatile boolean winnerPublic; // the website may name the winner (not a GM or an auto-QA pretend player)
     /** Players who turned in the wandering NPC's quest (one turn-in each). */
     final Set<Integer> completed = ConcurrentHashMap.newKeySet();
     /** Players who accepted the wandering NPC's quest. */

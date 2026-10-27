@@ -93,19 +93,35 @@ class DailyCheckinRewardsTest {
     }
 
     @Test
-    void aClaimGrantsNxCreditAndTheItems() {
+    void aDayWithoutNxStillGrantsItsItemsAndNeverSays0Nx() {
         use(DailyCheckinRewards.DEFAULT_DAYS);
         Character chr = player(1, 24);
 
         assertEquals(DailyCheckin.ClaimResult.CLAIMED, DailyCheckin.claim(chr, ACCOUNT, DailyCheckinStreak.NEW, 1, T0));
 
         Reward day1 = DailyCheckinRewards.of(1);
-        verify(chr.getCashShop()).gainCash(1, day1.nxCredit());   // cash type 1 = NX Credit
+        assertEquals(0, day1.nxCredit());
+        verify(chr.getCashShop(), never()).gainCash(anyInt(), anyInt());
         assertEquals(day1.grants(), hands.given);
         assertEquals(List.of(-1L), hands.expirations, "permanent items get no expiration");
         verify(chr, never()).gainMeso(anyInt(), anyBoolean());
         verify(chr, never()).gainSlots(anyInt(), anyInt(), anyBoolean());
+        verify(chr).dropMessage(6, "Daily Check-In: day 1 claimed, today's items are in your inventory.");
+        verify(chr, never()).dropMessage(anyInt(), contains("NX"));
         verify(chr).saveCharToDB();
+    }
+
+    @Test
+    void aMilestoneClaimGrantsNxCreditAndTheItems() {
+        use(DailyCheckinRewards.DEFAULT_DAYS);
+        Character chr = player(1, 24);
+
+        DailyCheckinRewards.grant(chr, 14);
+
+        verify(chr.getCashShop()).gainCash(1, 1_000);   // cash type 1 = NX Credit
+        verify(chr).dropMessage(6, "Daily Check-In: you received 1,000 NX Credit.");
+        assertEquals(DailyCheckinRewards.of(14).grants(), hands.given);
+        verify(chr).gainSlots(DailyCheckinRewards.USE, 4, true);
     }
 
     @Test
@@ -129,7 +145,7 @@ class DailyCheckinRewardsTest {
         DailyCheckinRewards.grant(chr, 28);   // +8 Etc
 
         verify(chr).gainSlots(DailyCheckinRewards.ETC, 8, true);
-        verify(chr.getCashShop()).gainCash(1, 15_000);
+        verify(chr.getCashShop()).gainCash(1, 1_000);
     }
 
     @Test
@@ -140,7 +156,7 @@ class DailyCheckinRewardsTest {
         DailyCheckinRewards.grant(chr, 28);   // +8 Etc with room for 4
 
         verify(chr).gainSlots(DailyCheckinRewards.ETC, 4, true);
-        verify(chr.getCashShop()).gainCash(1, 15_000 + 4 * DailyCheckinRewards.NX_PER_MISSING_SLOT);
+        verify(chr.getCashShop()).gainCash(1, 1_000 + 4 * DailyCheckinRewards.NX_PER_MISSING_SLOT);
         verify(chr).dropMessage(eq(6), contains("96-slot maximum, so 4 slots became 2,000 NX"));
     }
 
@@ -152,7 +168,7 @@ class DailyCheckinRewardsTest {
         DailyCheckinRewards.grant(chr, 7);   // +4 Equip
 
         verify(chr, never()).gainSlots(anyInt(), anyInt(), anyBoolean());
-        verify(chr.getCashShop()).gainCash(1, 5_000 + 4 * DailyCheckinRewards.NX_PER_MISSING_SLOT);
+        verify(chr.getCashShop()).gainCash(1, 1_000 + 4 * DailyCheckinRewards.NX_PER_MISSING_SLOT);
     }
 
     @Test
@@ -210,7 +226,7 @@ class DailyCheckinRewardsTest {
 
         assertEquals(1, saved.get(0).day());
         assertEquals(0b1, saved.get(0).claimedMask(), "the old cycle's claims are gone");
-        verify(chr.getCashShop()).gainCash(1, DailyCheckinRewards.of(1).nxCredit());
+        assertEquals(DailyCheckinRewards.of(1).grants(), hands.given, "day one's items again");
     }
 
     @Test
@@ -234,28 +250,57 @@ class DailyCheckinRewardsTest {
         String tip = DailyCheckinRewards.tooltip(7, r, id -> id == DailyCheckinRewards.EXP_COUPON_2X
                 ? "1day 2x EXP Special Coupon " : null);
 
-        assertEquals("Day 7\n- 5,000 NX\n- 1day 2x EXP Special Coupon (1 day)\n- +4 Equip slots", tip);
-        assertEquals("Day 3\n- 2,000 NX\n- Item 2000004 x50",
-                DailyCheckinRewards.tooltip(3, DailyCheckinRewards.DEFAULT_DAYS.get(2), id -> null));
+        assertEquals("Day 7\n- 1,000 NX\n- 1day 2x EXP Special Coupon (1 day)\n- +4 Equip slots", tip);
     }
 
     @Test
-    void theDraftTableIsGenerousAndComplete() {
+    void aDayWithoutNxHasNoNxLineInItsTooltip() {
+        assertEquals("Day 3\n- Item 2000004 x50",
+                DailyCheckinRewards.tooltip(3, DailyCheckinRewards.DEFAULT_DAYS.get(2), id -> null));
+        for (int d = 1; d <= DailyCheckinRewards.DEFAULT_DAYS.size(); d++) {
+            String tip = DailyCheckinRewards.tooltip(d, DailyCheckinRewards.DEFAULT_DAYS.get(d - 1), id -> "Thing");
+            assertEquals(d % 7 == 0, tip.contains("NX"), "day " + d + ": " + tip);
+            assertFalse(tip.contains("- 0 NX"), "no \"0 NX\" line, day " + d);
+        }
+    }
+
+    @Test
+    void theTableHasItemsEveryDayAndNxOnlyOnTheWeekDays() {
         List<Reward> t = DailyCheckinRewards.DEFAULT_DAYS;
         assertEquals(DailyCheckinStreak.CYCLE_DAYS, t.size());
         int nx = 0;
         int slots = 0;
         for (int d = 1; d <= t.size(); d++) {
             Reward r = t.get(d - 1);
-            assertTrue(r.nxCredit() >= 1_500, "NX every day, day " + d);
-            assertFalse(r.grants().isEmpty(), "an item every day, day " + d);
             boolean milestone = d % 7 == 0;
+            assertEquals(milestone ? 1_000 : 0, r.nxCredit(), "1,000 NX on the week days only, day " + d);
+            assertFalse(r.grants().isEmpty(), "an item every day, day " + d);
             assertEquals(milestone, r.slotCount() > 0, "slots exactly on the weekly milestones, day " + d);
             nx += r.nxCredit();
             slots += r.slotCount();
         }
-        assertEquals(89_000, nx);
+        assertEquals(4_000, nx);
         assertEquals(20, slots);
+    }
+
+    @Test
+    void aFullCycleHandsOutExactly4000Nx() {
+        use(DailyCheckinRewards.DEFAULT_DAYS);
+        CashShop cash = mock(CashShop.class);
+        Character chr = player(1, 24);
+        when(chr.getCashShop()).thenReturn(cash);
+        int[] total = {0};
+        org.mockito.Mockito.doAnswer(inv -> {
+            total[0] += (Integer) inv.getArgument(1);
+            return null;
+        }).when(cash).gainCash(eq(1), anyInt());
+
+        for (int d = 1; d <= DailyCheckinStreak.CYCLE_DAYS; d++) {
+            DailyCheckinRewards.grant(chr, d);
+        }
+
+        assertEquals(4_000, total[0]);
+        verify(cash, org.mockito.Mockito.times(4)).gainCash(eq(1), anyInt());
     }
 
     @Test

@@ -451,7 +451,7 @@ public class MapFactory {
 
     public static String loadPlaceName(int mapid) {
         try {
-            return DataTool.getString("mapName", nameData.getChildByPath(getMapStringName(mapid)), "");
+            return DataTool.getString("mapName", nameNode(mapid), "");
         } catch (Exception e) {
             return "";
         }
@@ -459,10 +459,39 @@ public class MapFactory {
 
     public static String loadStreetName(int mapid) {
         try {
-            return DataTool.getString("streetName", nameData.getChildByPath(getMapStringName(mapid)), "");
+            return DataTool.getString("streetName", nameNode(mapid), "");
         } catch (Exception e) {
             return "";
         }
+    }
+
+    private static volatile Map<Integer, Data> nameIndex;
+
+    /**
+     * The map's String.wz entry: the v83 group first (maple/victoria/ossyria...), else any group. This server's data
+     * files many maps under other groups ("ourMaps" holds the Singapore Ghost Ship maps), so the v83 path alone
+     * left those maps nameless and bots said "we hold 541010010".
+     */
+    private static Data nameNode(int mapid) {
+        Data node = nameData.getChildByPath(getMapStringName(mapid));
+        if (node != null) {
+            return node;
+        }
+        Map<Integer, Data> index = nameIndex;
+        if (index == null) {
+            index = new HashMap<>();
+            for (Data group : nameData.getChildren()) {
+                for (Data map : group.getChildren()) {
+                    try {
+                        index.putIfAbsent(Integer.parseInt(map.getName()), map);
+                    } catch (NumberFormatException ignored) {
+                        // not a map entry
+                    }
+                }
+            }
+            nameIndex = index;
+        }
+        return index.get(mapid);
     }
 
     public static List<MapObjectProperties> getMapObjectProperties(int mapId, String l1, String l2) {

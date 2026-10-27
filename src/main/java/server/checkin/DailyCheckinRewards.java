@@ -98,41 +98,41 @@ public final class DailyCheckinRewards {
     }
 
     /*
-     * ======================== DRAFT FOR OWNER APPROVAL ========================
-     * "We could be pretty generous": NX every day (1,500-3,000), bigger NX plus an inventory expansion on the weekly
-     * milestones (7/14/21/28), useful v83 items in between. Per 28-day cycle: 89,000 NX and +20 slots
-     * (+4 Equip, +4 Use, +4 Set-up, +8 Etc). Once live, edit the yaml (same content) instead of this table.
-     * ==========================================================================
+     * Approved by the owner 2026-10-27 for 1.6.0: useful v83 items every day, NX Credit and an inventory expansion only
+     * on the weekly milestones (7/14/21/28). Per 28-day cycle: 4,000 NX (1,000 per milestone; the first draft gave
+     * 89,000, which capped the NX rate and let alt accounts farm NX) and +20 slots (+4 Equip, +4 Use, +4 Set-up,
+     * +8 Etc). Slums Stamps take over as the daily reward in 1.6.1. Once live, edit the yaml (same content) instead
+     * of this table.
      */
     static final List<Reward> DEFAULT_DAYS = List.of(
-            day(POWER_ELIXIR, 1_500, g(POWER_ELIXIR, 20)),                                       // 1
-            day(TELEPORT_ROCK, 1_500, g(TELEPORT_ROCK, 3)),                                      // 2
-            day(ELIXIR, 2_000, g(ELIXIR, 50)),                                                   // 3
-            day(SAFETY_CHARM, 2_000, g(SAFETY_CHARM, 1)),                                        // 4
-            day(GACHAPON_TICKET, 2_000, g(GACHAPON_TICKET, 2)),                                  // 5
-            day(ONYX_APPLE, 2_500, g(ONYX_APPLE, 5)),                                            // 6
-            milestone(EXP_COUPON_2X, 5_000, EQUIP, 4, expCoupon()),                              // 7
-            day(POWER_ELIXIR, 1_500, g(POWER_ELIXIR, 30)),                                       // 8
-            day(AP_RESET, 1_500, g(AP_RESET, 1)),                                                // 9
-            day(VIP_TELEPORT_ROCK, 2_000, g(VIP_TELEPORT_ROCK, 1)),                              // 10
-            day(SUPER_MEGAPHONE, 2_000, g(SUPER_MEGAPHONE, 3)),                                  // 11
-            day(ONYX_APPLE, 2_000, g(ONYX_APPLE, 5)),                                            // 12
-            day(SAFETY_CHARM, 2_500, g(SAFETY_CHARM, 2)),                                        // 13
-            milestone(GACHAPON_TICKET, 7_500, USE, 4, g(GACHAPON_TICKET, 5)),                    // 14
-            day(ELIXIR, 2_000, g(ELIXIR, 50)),                                                   // 15
-            day(TELEPORT_ROCK, 2_000, g(TELEPORT_ROCK, 5)),                                      // 16
-            day(AP_RESET, 2_000, g(AP_RESET, 2)),                                                // 17
-            day(EXP_COUPON_2X, 2_500, expCoupon()),                                              // 18
-            day(POWER_ELIXIR, 2_500, g(POWER_ELIXIR, 50)),                                       // 19
-            day(ONYX_APPLE, 2_500, g(ONYX_APPLE, 10)),                                           // 20
-            milestone(SAFETY_CHARM, 10_000, SETUP, 4, g(SAFETY_CHARM, 3), g(AP_RESET, 3)),       // 21
-            day(GACHAPON_TICKET, 2_000, g(GACHAPON_TICKET, 3)),                                  // 22
-            day(ITEM_MEGAPHONE, 2_000, g(ITEM_MEGAPHONE, 2)),                                    // 23
-            day(SAFETY_CHARM, 2_500, g(SAFETY_CHARM, 2)),                                        // 24
-            day(OWL_OF_MINERVA, 2_500, g(OWL_OF_MINERVA, 3)),                                    // 25
-            day(ONYX_APPLE, 3_000, g(POWER_ELIXIR, 50), g(ONYX_APPLE, 5)),                       // 26
-            day(EXP_COUPON_2X, 3_000, expCoupon()),                                              // 27
-            milestone(WHITE_SCROLL, 15_000, ETC, 8, g(WHITE_SCROLL, 1), g(GACHAPON_TICKET, 5))); // 28
+            day(POWER_ELIXIR, 0, g(POWER_ELIXIR, 20)),                                       // 1
+            day(TELEPORT_ROCK, 0, g(TELEPORT_ROCK, 3)),                                      // 2
+            day(ELIXIR, 0, g(ELIXIR, 50)),                                                   // 3
+            day(SAFETY_CHARM, 0, g(SAFETY_CHARM, 1)),                                        // 4
+            day(GACHAPON_TICKET, 0, g(GACHAPON_TICKET, 2)),                                  // 5
+            day(ONYX_APPLE, 0, g(ONYX_APPLE, 5)),                                            // 6
+            milestone(EXP_COUPON_2X, 1_000, EQUIP, 4, expCoupon()),                              // 7
+            day(POWER_ELIXIR, 0, g(POWER_ELIXIR, 30)),                                       // 8
+            day(AP_RESET, 0, g(AP_RESET, 1)),                                                // 9
+            day(VIP_TELEPORT_ROCK, 0, g(VIP_TELEPORT_ROCK, 1)),                              // 10
+            day(SUPER_MEGAPHONE, 0, g(SUPER_MEGAPHONE, 3)),                                  // 11
+            day(ONYX_APPLE, 0, g(ONYX_APPLE, 5)),                                            // 12
+            day(SAFETY_CHARM, 0, g(SAFETY_CHARM, 2)),                                        // 13
+            milestone(GACHAPON_TICKET, 1_000, USE, 4, g(GACHAPON_TICKET, 5)),                    // 14
+            day(ELIXIR, 0, g(ELIXIR, 50)),                                                   // 15
+            day(TELEPORT_ROCK, 0, g(TELEPORT_ROCK, 5)),                                      // 16
+            day(AP_RESET, 0, g(AP_RESET, 2)),                                                // 17
+            day(EXP_COUPON_2X, 0, expCoupon()),                                              // 18
+            day(POWER_ELIXIR, 0, g(POWER_ELIXIR, 50)),                                       // 19
+            day(ONYX_APPLE, 0, g(ONYX_APPLE, 10)),                                           // 20
+            milestone(SAFETY_CHARM, 1_000, SETUP, 4, g(SAFETY_CHARM, 3), g(AP_RESET, 3)),       // 21
+            day(GACHAPON_TICKET, 0, g(GACHAPON_TICKET, 3)),                                  // 22
+            day(ITEM_MEGAPHONE, 0, g(ITEM_MEGAPHONE, 2)),                                    // 23
+            day(SAFETY_CHARM, 0, g(SAFETY_CHARM, 2)),                                        // 24
+            day(OWL_OF_MINERVA, 0, g(OWL_OF_MINERVA, 3)),                                    // 25
+            day(ONYX_APPLE, 0, g(POWER_ELIXIR, 50), g(ONYX_APPLE, 5)),                       // 26
+            day(EXP_COUPON_2X, 0, expCoupon()),                                              // 27
+            milestone(WHITE_SCROLL, 1_000, ETC, 8, g(WHITE_SCROLL, 1), g(GACHAPON_TICKET, 5))); // 28
 
     /** Item room and delivery; a seam so the grant rules are testable without a live inventory. */
     interface Hands {
@@ -250,6 +250,10 @@ public final class DailyCheckinRewards {
         if (nx > 0) {
             chr.getCashShop().gainCash(NX_CREDIT, nx);
             chr.dropMessage(6, "Daily Check-In: you received " + String.format("%,d", nx) + " NX Credit.");
+        } else {
+            // Most days pay no NX: still confirm the claim, without a "0 NX" line.
+            chr.dropMessage(6, "Daily Check-In: day " + day + " claimed"
+                    + (r.grants().isEmpty() ? "." : ", today's items are in your inventory."));
         }
         if (r.mesos() > 0) {
             chr.gainMeso(r.mesos(), true);

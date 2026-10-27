@@ -181,6 +181,14 @@ public final class PublicMarketExport {
         return f;
     }
 
+    /**
+     * The seller name listings.json may show: a GM's (gm level above 0) or an auto-QA character's shop keeps its
+     * items but loses the name, as SiteFeed keeps those characters off the site. Pure.
+     */
+    static String sellerName(String name, int gmLevel) {
+        return soloMapling.site.SiteFeed.isPublic(name, gmLevel, false) ? name : "";
+    }
+
     /** Every open FM shop now, as listings.json lists them (the site board's price alerts read the same shops). */
     public static List<MarketListings.Shop> liveShops() {
         return new ServerSources().shops();
@@ -577,8 +585,8 @@ public final class PublicMarketExport {
             if (mapId <= 0 && hm.getMap() != null) {
                 mapId = hm.getMapId();
             }
-            return new MarketListings.Shop(hm.getChannel(), mapId, hm.getDescription(), hm.getOwner(), bot, true,
-                    rows(hm.getItems()));
+            return new MarketListings.Shop(hm.getChannel(), mapId, hm.getDescription(),
+                    bot ? hm.getOwner() : sellerName(hm.getOwner(), hm.getOwnerId()), bot, true, rows(hm.getItems()));
         }
 
         private static MarketListings.Shop playerShop(PlayerShop ps) {
@@ -591,8 +599,44 @@ public final class PublicMarketExport {
             } catch (RuntimeException e) {
                 // a bot's shared client may not know its channel
             }
+            String seller = owner == null ? "" : bot || soloMapling.site.SiteFeed.isPublic(owner) ? owner.getName() : "";
             return new MarketListings.Shop(channel, owner == null ? 0 : owner.getMapId(), ps.getDescription(),
-                    owner == null ? "" : owner.getName(), bot, false, rows(ps.getItems()));
+                    seller, bot, false, rows(ps.getItems()));
+        }
+
+        /** gm levels of hired-merchant owners who may be offline, cached a while (players only: a handful). */
+        private static final Map<Integer, long[]> gmLevels = new java.util.concurrent.ConcurrentHashMap<>();
+        private static final long GM_CACHE_MS = TimeUnit.MINUTES.toMillis(10);
+
+        /** A player merchant's owner as the site may show it: "" for a GM or an auto-QA character. */
+        private static String sellerName(String name, int ownerId) {
+            for (World w : Server.getInstance().getWorlds()) {
+                client.Character online = w.getPlayerStorage().getCharacterById(ownerId);
+                if (online != null) {
+                    return soloMapling.site.SiteFeed.isPublic(online) ? name : "";
+                }
+            }
+            return PublicMarketExport.sellerName(name, gmLevel(ownerId));
+        }
+
+        private static int gmLevel(int characterId) {
+            long now = System.currentTimeMillis();
+            long[] c = gmLevels.get(characterId);
+            if (c != null && now - c[1] < GM_CACHE_MS) {
+                return (int) c[0];
+            }
+            int gm = 1; // unknown: not named
+            try (Connection con = DatabaseConnection.getConnection();
+                 PreparedStatement ps = con.prepareStatement("SELECT gm FROM characters WHERE id = ?")) {
+                ps.setInt(1, characterId);
+                try (ResultSet rs = ps.executeQuery()) {
+                    gm = rs.next() ? rs.getInt("gm") : 1;
+                }
+            } catch (SQLException | RuntimeException e) {
+                return 1;
+            }
+            gmLevels.put(characterId, new long[]{gm, now});
+            return gm;
         }
 
         private static List<MarketListings.Row> rows(List<PlayerShopItem> items) {

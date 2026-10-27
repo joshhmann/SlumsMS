@@ -43,6 +43,13 @@ public final class MarketListings {
         return r >= 1 && r <= FM_ROOMS ? r : null;
     }
 
+    /** A bot stand's title ends in padding and its room tag ("Cheap pots          <17>"); the site has a room column. */
+    private static final java.util.regex.Pattern ROOM_TAG = java.util.regex.Pattern.compile("\\s*<\\d{1,2}>\\s*$");
+
+    static String title(String raw) {
+        return raw == null ? "" : ROOM_TAG.matcher(raw).replaceFirst("").strip();
+    }
+
     public static Map<String, Object> build(List<Shop> shops, IntFunction<String> names, long now) {
         List<Map<String, Object>> rows = new ArrayList<>();
         int botShops = 0, playerShops = 0;
@@ -55,9 +62,13 @@ public final class MarketListings {
                 if (r == null || r.bundles() <= 0 || r.bundlePrice() <= 0) {
                     continue;
                 }
+                String name = MarketNames.of(names, r.itemId()).trim();
+                if (name.isEmpty()) {
+                    continue; // an item the server's data cannot name ("Item 2290133" on the site): left out
+                }
                 Map<String, Object> m = new LinkedHashMap<>();
                 m.put("item_id", r.itemId());
-                m.put("name", MarketNames.of(names, r.itemId()));
+                m.put("name", name);
                 m.put("qty", Math.max(1, r.perBundle()));
                 m.put("bundles", r.bundles());
                 m.put("price", r.unitPrice());
@@ -65,7 +76,7 @@ public final class MarketListings {
                 m.put("channel", shop.channel());
                 m.put("map_id", shop.mapId());
                 m.put("room", room(shop.mapId()));
-                m.put("shop_title", shop.title() == null ? "" : shop.title());
+                m.put("shop_title", title(shop.title()));
                 m.put("seller_name", shop.seller() == null ? "" : shop.seller());
                 // no seller_kind: the site's build refuses bot/player flags (one server; site session 2026-10-26)
                 m.put("shop_type", shop.merchant() ? "merchant" : "player_shop");

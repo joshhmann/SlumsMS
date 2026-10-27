@@ -799,14 +799,33 @@ public final class WorldEvents {
         return reason != null && reason.startsWith("stopped by") ? "ended" : "lost";
     }
 
+    /** The name the feed shows: the top damage (already public-only), else the winner when it may be named. Pure. */
+    static String siteName(String topDamageName, String winnerName, boolean winnerPublic) {
+        return topDamageName != null ? topDamageName : winnerPublic ? winnerName : null;
+    }
+
+    /** The name an ended event shows on the site: only a win names anyone, and only a public character. */
+    static String siteEndName(ActiveEvent e, String outcome) {
+        return "won".equals(outcome) ? siteName(e.topDamageName, e.winnerName, e.winnerPublic) : null;
+    }
+
+    /**
+     * Records the event's winner. Every winner path (boss down, treasure found, wandering NPC turn-in) goes through
+     * here so the site's public-name check (no GM, no auto-QA character) is never skipped.
+     */
+    static void setWinner(ActiveEvent e, Character chr) {
+        e.winnerId = chr.getId();
+        e.winnerName = chr.getName();
+        e.winnerPublic = soloMapling.site.SiteFeed.isPublic(chr);
+    }
+
     private static void siteFeedEnded(ActiveEvent e, String reason) {
         try {
             EventTemplate.Kind kind = e.template.kind();
             String outcome = siteOutcome(kind, reason, e.winnerName, e.topDamageName);
-            String top = e.topDamageName != null ? e.topDamageName : e.winnerName;
             boolean hidden = kind == EventTemplate.Kind.TREASURE_HUNT && !"won".equals(outcome);
             soloMapling.site.SiteFeed.eventEnded(e.template.name(), hidden ? e.regionName : e.mapName,
-                    hidden ? 0 : e.mapId(), e.channel, outcome, "won".equals(outcome) ? top : null, e.topDamage);
+                    hidden ? 0 : e.mapId(), e.channel, outcome, siteEndName(e, outcome), e.topDamage);
         } catch (RuntimeException ex) {
             log("[WorldEvents] site feed: " + ex);
         }
@@ -1063,8 +1082,7 @@ public final class WorldEvents {
             winner = killer;
         }
         if (winner != null) {
-            e.winnerId = winner.getId();
-            e.winnerName = winner.getName();
+            setWinner(e, winner);
             e.winnerDamage = w != null && w.charId() == winner.getId() ? w.damage() : damage.getOrDefault(winner.getId(), 0L);
             giveRewards(winner, e);
         }
@@ -1407,8 +1425,7 @@ public final class WorldEvents {
                 if (e.winnerName != null) {
                     return new Reply("It's empty. Someone got here first.", false);
                 }
-                e.winnerId = chr.getId();
-                e.winnerName = chr.getName();
+                setWinner(e, chr);
                 String got = giveRewards(chr, e);
                 ExecutorServiceManager.runAsync(() -> finish(e, "won", true));
                 return new Reply("You found the hidden treasure chest!" + got, false);
@@ -1436,8 +1453,7 @@ public final class WorldEvents {
             InventoryManipulator.removeById(chr.getClient(), type, item, count, false, false);
             e.completed.add(chr.getId());
             if (e.winnerName == null) {
-                e.winnerId = chr.getId();
-                e.winnerName = chr.getName();
+                setWinner(e, chr);
             }
             String got = giveRewards(chr, e);
             return new Reply("You brought them all! Thank you, this is just what I needed." + got, false);

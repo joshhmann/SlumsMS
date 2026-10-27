@@ -77,6 +77,8 @@ public class GameBoardWorld implements BoardWorld {
     }
 
     private final Map<String, Cached<Board.Owner>> owners = new ConcurrentHashMap<>();
+    /** Posters the site may not name (GM or auto-QA characters), from the owner lookups. */
+    private final java.util.Set<Integer> hiddenPosters = ConcurrentHashMap.newKeySet();
     private final Map<Integer, Cached<Boolean>> accounts = new ConcurrentHashMap<>();
 
     @Override
@@ -114,11 +116,16 @@ public class GameBoardWorld implements BoardWorld {
         }
         Board.Owner o = null;
         try (Connection con = DatabaseConnection.getConnection();
-             PreparedStatement ps = con.prepareStatement("SELECT id, accountid, name FROM characters WHERE name = ?")) {
+             PreparedStatement ps = con.prepareStatement("SELECT id, accountid, name, gm FROM characters WHERE name = ?")) {
             ps.setString(1, character.trim());
             try (ResultSet rs = ps.executeQuery()) {
                 if (rs.next()) {
                     o = new Board.Owner(rs.getInt("id"), rs.getInt("accountid"), rs.getString("name"));
+                    if (soloMapling.site.SiteFeed.isPublic(o.name(), rs.getInt("gm"), false)) {
+                        hiddenPosters.remove(o.characterId());
+                    } else {
+                        hiddenPosters.add(o.characterId());
+                    }
                 }
             }
         } catch (SQLException e) {
@@ -126,6 +133,16 @@ public class GameBoardWorld implements BoardWorld {
         }
         owners.put(key, new Cached<>(o, now));
         return o;
+    }
+
+    @Override
+    public Map<String, Object> tradeRatings(long now) {
+        return soloMapling.site.PublicSiteExport.tradeRatingsFile(now);
+    }
+
+    @Override
+    public boolean publicCharacter(int characterId) {
+        return !hiddenPosters.contains(characterId);
     }
 
     @Override

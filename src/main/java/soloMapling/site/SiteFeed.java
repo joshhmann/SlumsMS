@@ -144,7 +144,7 @@ public final class SiteFeed {
         }
     }
 
-    static boolean isPublic(String name, int gmLevel, boolean synthetic) {
+    public static boolean isPublic(String name, int gmLevel, boolean synthetic) {
         return name != null && !name.isBlank() && gmLevel <= 0 && !synthetic && !isQaName(name);
     }
 
@@ -266,12 +266,9 @@ public final class SiteFeed {
         return 2 + jobId % 10;
     }
 
-    private static String jobName(int jobId) {
-        try {
-            return constants.game.GameConstants.getJobName(jobId);
-        } catch (RuntimeException | LinkageError e) {
-            return "";
-        }
+    /** The display name the leaderboards use ("Mage (F/P)", "Chief Bandit"), not the enum name ("Fp_mage"). */
+    static String jobName(int jobId) {
+        return SiteLeaderboards.jobName(jobId);
     }
 
     private static String ordinal(int n) {
