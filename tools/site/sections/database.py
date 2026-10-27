@@ -2,7 +2,7 @@
 Private until 1.6.0 is live: build.py only runs it with --private.
 
 Data: sections/dbdata.py (the build_data.py dataset, cut to what a player can reach). Icons: cache/site-icons from
-tools/site/icons.py; an entity without an icon gets an empty slot. Layout after the 2006 Hidden Street: a grouped
+tools/site/icons.py; an entity without an icon gets an empty slot (a medal gets a stand-in medal, FALLBACK_ICONS). Layout after the 2006 Hidden Street: a grouped
 sidebar on the left (items by kind, monsters by level, maps and NPCs by area), a bordered stat table, and
 "Dropped by" / "Found at" link lists, in the site's data density.
 """
@@ -48,8 +48,19 @@ USE_STATS = [("hp", "Recovers HP"), ("mp", "Recovers MP"), ("hpR", "Recovers HP 
              ("incMHP", "HP"), ("success", "Success rate %"), ("cursed", "Destroy rate %")]
 MOB_BANDS = [(1, 10), (11, 20), (21, 30), (31, 40), (41, 50), (51, 60), (61, 70), (71, 80), (81, 90), (91, 100),
              (101, 120), (121, 150), (151, 200), (201, 300)]
-REGIONS = {0: "Maple Island", 1: "Victoria Island", 2: "Ossyria and beyond", 3: "Edelstein and Masteria",
-           5: "World Tour", 6: "Masteria", 7: "Zipangu", 8: "Zipangu and Malaysia", 9: "Events and hidden maps"}
+# map areas by the first two digits of the map id (id // 10,000,000), in the order the maps page lists them; each
+# area is one group, so no two groups share a place (Masteria is 60-61 only, Zipangu 80-82, Malaysia sits with
+# Singapore in 54-55)
+REGIONS = [(0, 0, "Maple Island"), (10, 12, "Victoria Island"), (19, 19, "Victoria Island"),
+           (13, 14, "Ereve and Rien"), (20, 28, "Ossyria"), (50, 59, "Singapore and Malaysia"), (60, 61, "Masteria"),
+           (67, 68, "Amoria"), (70, 70, "Shanghai and Shaolin"), (80, 82, "Zipangu"),
+           (30, 39, "Edelstein and later areas"), (40, 45, "Grandis and Arcane River"),
+           (71, 79, "Other later areas"), (83, 89, "Other later areas"),
+           (90, 99, "Events, party quests and hidden maps")]
+REGION_NAMES = list(dict.fromkeys(name for _, _, name in REGIONS))
+# maps whose id range says nothing about where players meet them: the Free Market Entrance (910000000, a 9xx
+# "hidden" map) is the market every town's portal leads to, so it is listed with the towns
+REGION_OF = {910000000: "Victoria Island"}
 EXP_RATE = 3  # Bera's EXP rate, shown next to the base EXP (guide: rates.html)
 # the lead's wording for the drop rules (dataset meta.json drop_rates, TEST config.yaml)
 DROP_NOTE = ("Base chances. Bera &times;4 (bosses &times;3), quest items included; reactors &times;4; "
@@ -99,7 +110,7 @@ class Site:
             src = f"t/{ident}.webp" if thumb else f"{ident}.png"
             return (f'<span class="{cls}{" big" if big else ""}"><img{"" if thumb else " class=px"} src="{root}{DB}/icons/{kind}/{src}" '
                     f'alt="" loading="lazy" decoding="async"></span>')
-        return f'<span class="{cls}{" big" if big else ""}"></span>'
+        return fallback_icon(kind, ident, root, big, cls)
 
     def link(self, kind, ident, root, name=None):
         rec = self.d[kind].get(ident)
@@ -121,7 +132,7 @@ class Site:
             li(f"mobs/lv-{lo}-{hi}.html", f"Level {lo}-{hi}", f"mobs/lv-{lo}-{hi}") for lo, hi in self.bands()) + "</ul>")
         parts.append("<h3>World</h3><ul>" + li("maps/index.html", "Maps", "maps") + li("npcs/index.html", "NPCs", "npcs")
                      + li("quests/index.html", "Quests", "quests") + "</ul>")
-        parts.append("<h3>SlumsMS</h3><ul>" + li("changes.html", "SlumsMS changes", "changes")
+        parts.append("<h3>SlumsMS</h3><ul>" + li("changes.html", "Stat changes", "changes")
                      + li("whacky-mages.html", "Whacky weapons for mages", "whacky") + "</ul>")
         return f'<nav class="panel dbside" aria-label="Slums Street">{"".join(parts)}</nav>'
 
@@ -134,10 +145,25 @@ class Site:
         root = "../" * depth
         trail = " &raquo; ".join([f'<a href="{root}{DB}/index.html">Slums Street</a>'] +
                                  [f'<a href="{root}{DB}/{h}">{esc(t)}</a>' if h else esc(t) for t, h in crumbs])
-        html = (f'<div class="db">{self.sidebar(root, here)}<div class="dbmain data">'
+        html = (f'<div class="db street">{self.sidebar(root, here)}<div class="dbmain data">'
                 f'<p class="crumbs">{trail}</p>{body.replace("{root}", root)}</div></div>'
                 f'<script src="{root}assets/dbsearch.js" defer></script>')
         write(self.out, rel, layout(title, html, root, "database", description))
+
+
+# Kinds of item with a stand-in picture when their own icon is missing: medals (1142xxx) whose .img the client layer
+# does not have get a plain medal (docs/site/assets/icons, made by icons.py --chrome), marked so it is not taken
+# for the real one. Everything else gets the empty slot.
+FALLBACK_ICONS = {114: ("1142107", "Medal (stand-in picture)")}
+
+
+def fallback_icon(kind, ident, root, big=False, cls="slotc"):
+    size = " big" if big else ""
+    stand_in = FALLBACK_ICONS.get(ident // 10000) if kind == "items" and isinstance(ident, int) else None
+    if stand_in:
+        return (f'<span class="{cls}{size} stand-in" title="{esc(stand_in[1])}"><img class=px '
+                f'src="{root}assets/icons/{stand_in[0]}.png" alt="" loading="lazy" decoding="async"></span>')
+    return f'<span class="{cls}{size}"></span>'
 
 
 def scrub(text):
@@ -148,6 +174,26 @@ def scrub(text):
     # nor the server's code base (owner, 2026-10-27): "MapleRoot's custom currency!" -> "A custom currency!"
     text = re.sub(r"\bmaple ?root'?s? custom\b", "A custom", text, flags=re.I)
     return re.sub(r"\bmaple ?root\b", "SlumsMS", text, flags=re.I)
+
+
+NON_LATIN = re.compile(r"[ᄀ-ᇿ぀-ヿ㄰-㆏㐀-䶿一-鿿가-힯＀-￯]+")
+
+
+def clean_desc(text):
+    """An item description as lines of plain text. The game's text carries its own markup: colour codes (#c...#,
+    #b, #k, #e, #n, #r), line breaks written out as \\n and \\r, line breaks whose backslash was lost ("sauces.n
+    Improves", "at Eos TowernSpeed +1", "recharged.rnAttack + 12") and untranslated Hangul or CJK leftovers."""
+    s = (text or "").replace("\\r", "").replace("\r", "").replace("\\n", "\n")
+    s = NON_LATIN.sub("", s)
+    s = s.replace("#c", "")  # "#cIf hunting...#", "#cany weapon#"
+    s = re.sub(r"#[bkenrgd](?=[A-Z0-9\s.,!?:;)]|$)", "", s)  # "#bName#k." (but not "#black")
+    s = re.sub(r"#(?!\d)", "", s)  # closing marks and "#Yeti#"; "a red #1" keeps its number sign
+    # a lost \r\n or \n: "recharged.rnAttack", "sauces.n Improves", "Eos TowernSpeed" (not "KanKung")
+    s = re.sub(r"(?:(?<=[.!?:%)])|(?<=\s))rn(?=[A-Z])", "\n", s)
+    s = re.sub(r"(?<=[.!?:%)])n+(?=\s|[A-Z]|$)", "\n", s)
+    s = re.sub(r"(?<=[a-z])(?<!Ka)n(?=[A-Z][a-z])", "\n", s)
+    lines = [re.sub(r"\s+", " ", line).strip() for line in s.split("\n")]
+    return [line for line in lines if line]
 
 
 def was(rec, key, fmt=None):
@@ -255,8 +301,8 @@ def build_items(s):
         slug_, label = TYPE_PAGE.get(it["type"], ("etc", it["type"]))
         head = (f'<div class="ent">{s.icon("items", ident, "{root}", big=True)}<div><h1>{esc(it["name"])}</h1>'
                 f'<p class="id">Item {ident} &middot; {esc(item_kind(it, ident))} {chips(it)}</p></div></div>')
-        desc = scrub((it.get("desc") or "").replace("\\n", " ").strip())
-        intro = f'<p class="desc">{esc(desc)}</p>' if desc else ""
+        desc = clean_desc(scrub(it.get("desc") or ""))
+        intro = f'<p class="desc">{"<br>".join(esc(line) for line in desc)}</p>' if desc else ""
         drops = sorted(it["drops"], key=lambda x: -x.get("chance", 0))
         drop_rows = [[td(s.icon("mobs", x["mob_id"], "{root}")), td(s.link("mobs", x["mob_id"], "{root}")),
                       td(num(d["mobs"][x["mob_id"]].get("level") or 0), True),
@@ -353,7 +399,10 @@ def build_mobs(s):
 # ── maps, NPCs, quests ──────────────────────────────────────────────────────────────────────────
 
 def region(map_id):
-    return REGIONS.get(map_id // 100000000, "Other")
+    if map_id in REGION_OF:
+        return REGION_OF[map_id]
+    prefix = map_id // 10000000
+    return next((name for lo, hi, name in REGIONS if lo <= prefix <= hi), "Other")
 
 
 def build_maps(s):
@@ -379,7 +428,7 @@ def build_maps(s):
     for ident, mp in d["maps"].items():
         by_region.setdefault(region(ident), {}).setdefault(mp.get("street") or "Other", []).append(ident)
     parts = ["<h1>Maps</h1>", f"<p class=id>{len(d['maps']):,} maps with monsters or NPCs on them</p>"]
-    for reg in sorted(by_region, key=lambda r: list(REGIONS.values()).index(r) if r in REGIONS.values() else 99):
+    for reg in sorted(by_region, key=lambda r: REGION_NAMES.index(r) if r in REGION_NAMES else 99):
         streets = by_region[reg]
         inner = "".join(f'<details><summary>{esc(st)} <span class="muted">({len(ids)})</span></summary><ul class="found">' +
                         "".join(f"<li>{s.link('maps', i, '{root}')}</li>" for i in sorted(ids, key=lambda i: d["maps"][i]["name"])) +
@@ -414,12 +463,23 @@ def build_npcs(s):
            "npcs")
 
 
+NAMELESS_NPC = "an NPC with no name tag"
+
+
+def npc_name(ref):
+    """The name to show for a quest's NPC that has no page: its own when it has one a player would see, else (a "?"
+    placeholder, dbdata.placeholder) a plain description."""
+    name = (ref or {}).get("name") or ""
+    return name if dbdata.named({"name": name}) else NAMELESS_NPC
+
+
 def build_quests(s):
     d = s.d
     for ident, q in d["quests"].items():
         req, rew = q.get("requirements") or {}, q.get("rewards") or {}
-        info = [("Starts at", s.link("npcs", (q.get("start_npc") or {}).get("id"), "{root}")),
-                ("Ends at", s.link("npcs", (q.get("end_npc") or {}).get("id"), "{root}") if q.get("end_npc") else ""),
+        info = [("Starts at", s.link("npcs", (q.get("start_npc") or {}).get("id"), "{root}", npc_name(q.get("start_npc")))),
+                ("Ends at", s.link("npcs", (q.get("end_npc") or {}).get("id"), "{root}", npc_name(q.get("end_npc")))
+                 if q.get("end_npc") else ""),
                 ("Level", f'{req.get("min_level") or 1}' + (f'-{req["max_level"]}' if req.get("max_level") and req["max_level"] < 200 else "+")),
                 ("After", ", ".join(s.link("quests", p, "{root}") for p in req.get("quests") or [] if p in d["quests"]))]
         need = [[td(s.icon("items", x["item_id"], "{root}")), td(s.link("items", x["item_id"], "{root}", x.get("item_name"))),
@@ -459,13 +519,17 @@ def build_index(s):
               ("Quests", len(d["quests"]), "quests/index.html", None)]
     tiles = "".join(f'<a class="dbtile" href="{{root}}{DB}/{href}"><b>{n:,}</b><span>{esc(label)}</span></a>'
                     for label, n, href, _ in counts)
-    body = ('<h1>Slums Street</h1><p class="lede">Every item, monster, map, NPC and quest you can reach on Bera, from the '
-            "server's own data. Drop chances are base rates: Bera drops at &times;4 (bosses &times;3).</p>"
+    # not "every item": gachapon prizes and reactor drops are not in the data yet, so items you can only get that
+    # way have no page (release lead's audit, 2026-10-27)
+    body = ('<h1>Slums Street</h1><p class="lede">Items you can get in game from monsters, shops and quests, and the '
+            "monsters, maps, NPCs and quests of Bera, from the server's own data. Drop chances are base rates: Bera "
+            "drops at &times;4 (bosses &times;3).</p>"
             f'<div class="dbtiles">{tiles}</div>'
             # filled by theme.js from world/hot.json (rebuilt every couple of minutes); hidden until it loads
             '<section class="panel hot" data-hot="{root}world/hot.json" data-root="{root}" hidden><h2 class="bar">Hot right now</h2>'
             '<div class="hotgrid"></div></section>')
-    s.page(f"{DB}/index.html", "Slums Street", [], body, "", "Slums Street: every SlumsMS item, monster, map, NPC and quest.")
+    s.page(f"{DB}/index.html", "Slums Street", [], body, "",
+           "Slums Street: SlumsMS items, monsters, maps, NPCs and quests.")
 
 
 STAT_NAMES = dict(EQUIP_STATS + USE_STATS + [("tuc", "Upgrade slots"), ("slotMax", "Stacks to"), ("price", "Shop value"),
@@ -494,12 +558,13 @@ def build_changes(s):
               td(diff_text(d["mobs"][i]))] for i in mobs]
     irows = [[td(s.icon("items", i, "{root}")), td(s.link("items", i, "{root}")), td(esc(item_kind(d["items"][i], i))),
               td(diff_text(d["items"][i]))] for i in items]
-    body = ('<h1>SlumsMS changes</h1><p class="lede">Monsters and items whose numbers SlumsMS changes from the original '
-            'game. The value you get in game comes first; the small badge is the original value. Most item changes are '
-            'more upgrade slots and lower stat requirements.</p>' +
+    body = ('<h1>Stat changes from the original game</h1><p class="lede">Monsters and items whose numbers SlumsMS '
+            'changes from the original game. The value you get in game comes first; the small badge is the original '
+            'value. Most item changes are more upgrade slots and lower stat requirements. For what changed in each '
+            'SlumsMS release, see the <a href="{root}patch-notes/">patch notes</a>.</p>' +
             box("Monsters", table(["", "Monster", "Level>", "What changed"], mrows, "icons"), f"{len(mobs)} changed") +
             box("Items", table(["", "Item", "Kind", "What changed"], irows, "icons"), f"{len(items):,} changed"))
-    s.page(f"{DB}/changes.html", "SlumsMS changes", [("SlumsMS changes", None)], body, "changes",
+    s.page(f"{DB}/changes.html", "Stat changes from the original game", [("Stat changes", None)], body, "changes",
            "Items and monsters SlumsMS changes from the original game.")
 
 
@@ -565,7 +630,9 @@ def copy_icons(s):
         src = os.path.join(ICONS, kind)
         dst = os.path.join(s.out, DB, "icons", kind)
         os.makedirs(dst, exist_ok=True)
-        for ident in s.d[kind]:
+        # items with no page that the market still shows get their icon too (dbdata.extra_icon_items)
+        idents = set(s.d[kind]) | (dbdata.extra_icon_items() if kind == "items" else set())
+        for ident in sorted(idents):
             p = os.path.join(src, f"{ident}.png")
             if os.path.isfile(p):
                 shutil.copyfile(p, os.path.join(dst, f"{ident}.png"))

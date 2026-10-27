@@ -1,0 +1,6 @@
+# Items with no Slums Street page that still show up on the market (tools/site/sections/dbdata.py EXTRA_ICON_ITEMS).
+# tools/site/icons.py fetches and decodes their icons with the database's; the database build publishes them and the
+# market shows them. One id per line; add the rest from TEST's market export (the release lead's audit found 66).
+2040012  # Dark Scroll for Helmet for INT 70%
+1102034  # Blue Giles Cape
+1092050  # Khanjar

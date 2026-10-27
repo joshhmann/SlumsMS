@@ -20,7 +20,7 @@ import shutil
 
 import check
 from common import REPO, esc, layout, strf, write
-from sections.database import scrub
+from sections.database import fallback_icon, scrub
 
 MARKET = "market"
 DEFAULT_DIR = os.environ.get("SLUMS_MARKET_DATA", os.path.join(REPO, "cache", "market-sample"))
@@ -303,11 +303,12 @@ class Market:
 
     def icon(self, item_id, root, big=False):
         # the database section publishes icons of its own items; on 164 the market timer finds them already there
+        # (with the icons of items that have no page but turn up here: data/site/extra-icon-items.txt)
         p = os.path.join(self.site_root, "database", "icons", "items", f"{item_id}.png")
-        if item_id in self.db["items"] and os.path.isfile(p):
+        if os.path.isfile(p):
             return (f'<span class="slotc{" big" if big else ""}"><img class="px" src="{root}database/icons/items/{item_id}.png" '
                     f'alt="" loading="lazy"></span>')
-        return f'<span class="slotc{" big" if big else ""}"></span>'
+        return fallback_icon("items", item_id, root, big)
 
     def price_link(self, item_id, root):
         return f'<a href="{root}{MARKET}/prices/{item_id}.html">{esc(self.name(item_id))}</a>'

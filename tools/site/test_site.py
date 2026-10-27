@@ -374,6 +374,123 @@ class DbDataTest(unittest.TestCase):
         # two copies of one town are listed once, as the lowest id
         self.assertEqual([m["map_id"] for m in d["npcs"][10]["maps"]], [1])
 
+    def test_placeholder_names_are_unnamed(self):
+        from sections import dbdata
+        for name in ("?", "???", " - ", ".", "????", ""):
+            self.assertFalse(dbdata.named({"name": name}), name)
+        for name in ("Rina", "B-2", "Sign #1"):
+            self.assertTrue(dbdata.named({"name": name}), name)
+        raw = self.raw()
+        raw["npcs"]["12"] = {"name": "?", "maps": [{"map_id": 1}]}  # NPC 9102100 in the real data
+        raw["npcs"]["14"] = {"name": "????", "maps": [{"map_id": 1}]}  # 2032000, Orbis: gives real quests
+        raw["quests"]["42"] = {"name": "Hella is Found!", "start_npc": {"id": 14, "name": "????"}}
+        d = dbdata.reachable(raw)
+        self.assertNotIn(12, d["npcs"])
+        self.assertNotIn(14, d["npcs"])
+        self.assertIn(42, d["quests"])  # the quest stays; its page names no NPC
+        from sections.database import npc_name, NAMELESS_NPC
+        self.assertEqual(npc_name({"id": 14, "name": "????"}), NAMELESS_NPC)
+        self.assertEqual(npc_name({"id": 10, "name": "Rina"}), "Rina")
+
+    def test_gm_and_event_maps_are_left_out(self):
+        from sections import dbdata
+        raw = self.raw()
+        raw["maps"]["180000000"] = {"name": "Ellinia", "street": "Victoria Road", "npcs": [{"npc_id": 13}]}
+        raw["maps"]["109010000"] = {"name": "Find the Jewel", "street": "Hidden Street", "npcs": [{"npc_id": 13}]}
+        # the GM styling NPC also stands somewhere real: it keeps that place and loses the GM room
+        raw["npcs"]["13"] = {"name": "Cotton Stylist", "maps": [{"map_id": 180000000}, {"map_id": 2}]}
+        d = dbdata.reachable(raw)
+        self.assertNotIn(180000000, d["maps"])
+        self.assertNotIn(109010000, d["maps"])
+        self.assertEqual([m["map_id"] for m in d["npcs"][13]["maps"]], [2])
+        for i in (180000000, 109050000, 109090300, 820000000):
+            self.assertTrue(dbdata.excluded_map(i), i)
+        for i in (100000000, 910000000, 193000000, 108000500, 110000000):
+            self.assertFalse(dbdata.excluded_map(i), i)
+
+    def test_board_npc_from_migration_034_and_the_fm_street(self):
+        from sections import dbdata
+        raw = self.raw()
+        raw["maps"]["910000000"] = {"name": "Free Market Entrance", "street": "Hidden Street",
+                                    "npcs": [{"npc_id": 10}]}
+        raw["npcs"]["1092017"] = {"name": "Anonymous Merchant", "maps": []}
+        d = dbdata.reachable(raw)
+        self.assertEqual([m["map_id"] for m in d["npcs"][1092017]["maps"]], [910000000])
+        self.assertIn(1092017, [n["npc_id"] for n in d["maps"][910000000]["npcs"]])
+        self.assertEqual(d["maps"][910000000]["street"], "Free Market")
+        # a dataset that already has the placement is left as it is (no second row)
+        raw = self.raw()
+        raw["maps"]["910000000"] = {"name": "Free Market Entrance", "npcs": [{"npc_id": 1092017, "count": 1}]}
+        raw["npcs"]["1092017"] = {"name": "Anonymous Merchant", "maps": [{"map_id": 910000000}]}
+        d = dbdata.reachable(raw)
+        self.assertEqual(len(d["maps"][910000000]["npcs"]), 1)
+        self.assertEqual(len(d["npcs"][1092017]["maps"]), 1)
+
+    def test_extra_icon_items_file(self):
+        from sections import dbdata
+        import icons
+        with tempfile.TemporaryDirectory() as tmp:
+            p = os.path.join(tmp, "x.txt")
+            with open(p, "w") as f:
+                f.write("# header 123\n2040012  # Dark Scroll\n\n1102034\n")
+            self.assertEqual(dbdata.extra_icon_items(p), {2040012, 1102034})
+            self.assertEqual(dbdata.extra_icon_items(os.path.join(tmp, "none.txt")), set())
+        jobs = icons.plan({"items": {2000000: {}}, "mobs": {}, "npcs": {}}, {"items"}, {2040012})
+        self.assertEqual([j[1] for j in jobs], [2000000, 2040012])
+        self.assertIn(2040012, dbdata.extra_icon_items())  # the committed list
+
+
+class DatabaseTextTest(unittest.TestCase):
+    def test_descriptions_lose_the_game_markup(self):
+        from sections.database import clean_desc
+        cases = {
+            "You can learn #cMaple Warrior# with this book.\\r\\nJob: All 4th jobs":
+                ["You can learn Maple Warrior with this book.", "Job: All 4th jobs"],
+            "A card that features Chirppy.n#cIf hunting at Eos TowernSpeed +1#":
+                ["A card that features Chirppy.", "If hunting at Eos Tower", "Speed +1"],
+            "A card that features Jar.n#cIf hunting at Herb Townn소비Item drop rates are increased#":
+                ["A card that features Jar.", "If hunting at Herb Town", "Item drop rates are increased"],
+            "served with sugar & curry sauces.n Improves Magic Attack +8":
+                ["served with sugar & curry sauces.", "Improves Magic Attack +8"],
+            "Recovers HP 30.nn#cTo eat it, double-click on it#.": ["Recovers HP 30.", "To eat it, double-click on it."],
+            "used up. rnAttack + 30": ["used up.", "Attack + 30"],
+            "served with KanKung (water spinach)": ["served with KanKung (water spinach)"],
+            "A red #1 to decorate the tree.": ["A red #1 to decorate the tree."],
+            "equipped by a #Yeti#.": ["equipped by a Yeti."],
+            "Talk to #bShanks#k.": ["Talk to Shanks."],
+            "a #cblack pig# only": ["a black pig only"],
+            "": [],
+        }
+        for raw, want in cases.items():
+            self.assertEqual(clean_desc(raw), want, raw)
+
+    def test_regions_do_not_overlap_and_the_fm_is_with_the_towns(self):
+        from sections.database import REGIONS, region
+        prefixes = {}
+        for lo, hi, name in REGIONS:
+            for p in range(lo, hi + 1):
+                self.assertNotIn(p, prefixes, f"{p} is in {prefixes.get(p)} and {name}")
+                prefixes[p] = name
+        self.assertEqual(region(310000000), "Edelstein and later areas")
+        self.assertEqual(region(600000000), "Masteria")
+        self.assertEqual(region(610010000), "Masteria")
+        self.assertEqual(region(800000000), "Zipangu")
+        self.assertEqual(region(550000000), "Singapore and Malaysia")
+        self.assertEqual(region(910000000), "Victoria Island")
+        self.assertEqual(region(910000001), "Events, party quests and hidden maps")
+        self.assertEqual(region(40000), "Maple Island")
+
+    def test_medals_without_an_icon_get_a_stand_in(self):
+        from sections.database import Site
+        s = Site({"items": {1142004: {"name": "Veteran Hunter Medal"}, 2000000: {"name": "Red Potion"}},
+                  "mobs": {}, "maps": {}, "npcs": {}, "quests": {}}, "/nonexistent")
+        s.icons = {}
+        medal = s.icon("items", 1142004, "../../")
+        self.assertIn('src="../../assets/icons/1142107.png"', medal)
+        self.assertIn("stand-in", medal)
+        self.assertTrue(os.path.isfile(os.path.join(build.SRC, "assets", "icons", "1142107.png")))
+        self.assertEqual(s.icon("items", 2000000, "../../"), '<span class="slotc"></span>')
+
 
 
 class WorldTest(unittest.TestCase):
