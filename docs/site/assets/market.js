@@ -168,6 +168,7 @@
     });
     document.getElementById("mk-alerts-n").textContent = me.alerts.length + " of " + me.limits.alerts;
     myPosts(ps, status);
+    myTrades(document.getElementById("mk-trades"));
     if (me.badge) api("alerts/seen", {});  // seen now; the highlight stays until the next visit
   }
 
@@ -189,6 +190,24 @@
 
   // ── Buy/Sell board page ──
   var boardRows = null;
+  function myTrades(ul) {
+    if (!ul) return;
+    getJSON("world/traders.json").then(function (t) {
+      ul.textContent = "";
+      if (!t) { ul.appendChild(el("li", "empty", "Trade counts aren't available right now.")); return; }
+      (me.characters || []).forEach(function (c) {
+        var r = t[c], li = el("li");
+        li.appendChild(el("span", null, c));
+        if (r) {
+          li.appendChild(el("b", "num", num(r[0]) + " done"));
+          li.appendChild(el("span", "muted", num(r[1]) + " fell through · " + Math.round(100 * r[0] / ((r[0] + r[1]) || 1)) + "% completed"));
+        } else li.appendChild(el("span", "muted", "under 5 trades so far"));
+        ul.appendChild(li);
+      });
+      if (!ul.firstChild) ul.appendChild(el("li", "empty", "No characters yet."));
+    });
+  }
+
   function boardPage() {
     var form = document.getElementById("post");
     if (!form) return;

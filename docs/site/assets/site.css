@@ -491,7 +491,8 @@ table.t { width: 100%; border-collapse: collapse; }
   .mkstats { grid-template-columns: repeat(2, minmax(0, 1fr)); }
   .mkhome { grid-template-columns: minmax(0, 1fr); }
   .market .dbside .in { display: none; }
-  .market .dbside > ul.mk { display: flex; gap: 6px; overflow-x: auto; padding: 8px; }
+  .market .dbside > ul.mk { display: flex; gap: 6px; overflow-x: auto; padding: 4px 8px 8px; }
+  .market .dbside > h3 { display: block; margin: 4px 10px 0; }
   .market .dbside > ul.mk li { flex: none; }
   .market .dbside > ul.mk a { border: 1.5px solid var(--hair); border-radius: var(--radius-s); padding: 4px 10px; }
   .nxcard.wide { grid-template-columns: minmax(0, 1fr) auto; }

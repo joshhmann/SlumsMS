@@ -333,18 +333,21 @@ class Market:
                 + '</a>')
 
     def sidebar(self, root, here):
-        links = [("index.html", "Market home", "index"), ("prices/index.html", "Price check", "prices"),
-                 ("listings.html", "FM now", "listings"), ("board.html", "Buy/Sell board", "board"),
-                 ("mine.html", "My market", "mine"), ("sales.html", "Recent sales", "sales"),
-                 ("nx.html", "NX rate", "nx"), ("economy.html", "Economy", "economy")]
+        groups = [(None, [("index.html", "Market home", "index")]),
+                  ("My stuff", [("mine.html", "My market", "mine"), ("mine.html#trades", "My trades", "trades")]),
+                  ("Market", [("sales.html", "Recent sales", "sales"), ("listings.html", "FM now", "listings"),
+                              ("board.html", "Buy/Sell board", "board"), ("prices/index.html", "Price check", "prices"),
+                              ("nx.html", "NX rate", "nx"), ("economy.html", "Economy", "economy")])]
         # market.js fills the badge: alerts that fired since the player last looked
-        lis = "".join(f'<li><a href="{root}{MARKET}/{h}"{" aria-current=page" if k == here else ""}>{esc(t)}'
-                      + (' <span class="mkbadge" data-mk-badge hidden></span>' if k == "mine" else "") + '</a></li>'
-                      for h, t, k in links)
+        def lis(links):
+            return "".join(f'<li><a href="{root}{MARKET}/{h}"{" aria-current=page" if k == here else ""}>{esc(t)}'
+                           + (' <span class="mkbadge" data-mk-badge hidden></span>' if k == "mine" else "") + '</a></li>'
+                           for h, t, k in links)
+        nav = "".join((f'<h3>{esc(g)}</h3>' if g else "") + f'<ul class="mk">{lis(links)}</ul>' for g, links in groups)
         search = (f'<form class="dbsearch" role="search" data-root="{root}" data-index="{MARKET}/search-index.json" hidden>'
                   f'<input type="search" placeholder="Find an item..." aria-label="Find an item&rsquo;s price" autocomplete="off">'
                   f'<ul class="dbhits"></ul></form>')
-        return (f'<nav class="panel dbside" aria-label="Market"><p class="bar">Slums Market</p>{search}<ul class="mk">{lis}</ul>'
+        return (f'<nav class="panel dbside" aria-label="Market"><p class="bar">Slums Market</p>{search}{nav}'
                 f'<div class="in">{self.nx_card(root)}</div></nav>')
 
     def page(self, rel, title, body, here, description=""):
@@ -541,8 +544,12 @@ def build_board(mk):
             'price. You get an in-game note (a yellow line if you\'re online) and a badge here. Re-arm it to watch again.</p>'
             '<ul class="mkmine" id="mk-alerts"></ul></section>'
             '<section class="panel"><h2 class="bar">Your posts <a href="{root}market/board.html">Board &raquo;</a></h2>'
-            '<ul class="mkmine" id="mk-posts"></ul></section></div>')
-    mk.page(f"{MARKET}/mine.html", "My market", body, "mine", "Your watchlist, price alerts and posts.")
+            '<ul class="mkmine" id="mk-posts"></ul></section>'
+            '<section class="panel" id="trades"><h2 class="bar">My trades <a href="{root}world/rankings/traders.html">Traders &raquo;</a></h2>'
+            '<p class="small" style="padding:8px 16px 0;margin:0">Trades your characters finished and the ones that fell '
+            'through, from the same counts as the Traders ranking (characters with at least 5 trades).</p>'
+            '<ul class="mkmine" id="mk-trades"></ul></section></div>')
+    mk.page(f"{MARKET}/mine.html", "My market", body, "mine", "Your watchlist, price alerts, posts and trades.")
 
 
 def write_untradeable(mk):

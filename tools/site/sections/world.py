@@ -563,6 +563,14 @@ def build_hot(wo):
                                                      "items": items}))
 
 
+def build_traders(wo):
+    """world/traders.json for My market's "My trades" (filled by market.js): {name: [completed, fell through]}, the
+    same rows as the public Traders board, so only characters with at least 5 trades are in it."""
+    rows = {r["name"]: [r.get("completed") or 0, r.get("fellThrough") or 0] for r in board_rows(wo.w["leaderboards"], "traders")
+            if isinstance(r.get("name"), str) and _is(r.get("completed"), int)}
+    write(wo.out, f"{WORLD}/traders.json", json.dumps(rows))
+
+
 def build(out, data_dir=None, market_dir=None, db=None):
     w = load(data_dir)
     problems = validate(w)
@@ -579,4 +587,5 @@ def build(out, data_dir=None, market_dir=None, db=None):
     build_rankings(wo)
     build_economy(wo)
     build_hot(wo)
+    build_traders(wo)
     return {"online": online, "feed": n, "sample": w["sample"] or m["sample"]}

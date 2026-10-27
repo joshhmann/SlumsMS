@@ -1,4 +1,5 @@
 """Tests for the public site build: python3 -m unittest discover -s tools/site -p 'test_*.py'"""
+import json
 import os
 import shutil
 import sys
@@ -417,6 +418,23 @@ class WorldTest(unittest.TestCase):
         page = self.read("world/rankings/traders.html")
         self.assertIn("Fell through", page)
         self.assertRegex(page, r">\d{1,3}%<")
+
+    def test_market_sidebar_groups_and_my_trades(self):
+        from sections import market
+        mk = market.Market(market.load(self.market), {}, self.out)
+        side = mk.sidebar("../", "board")
+        side = side[:side.index('class="in"')]
+        self.assertRegex(side, r"Market home.*<h3>My stuff</h3>.*My market.*My trades.*<h3>Market</h3>.*Recent sales"
+                               r".*FM now.*Buy/Sell board.*Price check.*NX rate.*Economy")
+        self.assertIn('board.html" aria-current=page', side)
+        self.assertIn('href="../market/mine.html#trades"', side)
+        with open(os.path.join(self.out, "world", "traders.json"), encoding="utf-8") as f:
+            traders = json.load(f)
+        self.assertTrue(traders)
+        board = self.read("world/rankings/traders.html")
+        for name, (done, fell) in traders.items():  # the same rows as the public Traders board
+            self.assertIn(name, board)
+            self.assertIsInstance(done + fell, int)
 
     def test_no_bot_labels_anywhere(self):
         for rel in ["world/rankings/level.html", "world/rankings/index.html", "world/index.html"]:
