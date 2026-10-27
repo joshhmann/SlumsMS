@@ -1,5 +1,7 @@
 # 112: How players could get the Maker skill (Dalair's merge gate)
 
+Status: (c) done in 1.6.0 - Dalair's merge is level only (owner 2026-10-27), no Maker needed. (a)/(b) remain for 1.6.1.
+
 Owner, 2026-10-27: Dalair's equipment merge (NPC 9000040) needs level 160 (110 for Cygnus) **and Maker level 3**
 (`Character.meetsMergeGate`, owner decision 2026-10-26). Nobody can reach Maker 3 on this server, so the merge is
 closed to everyone as built (t-np-4 prints this as a NOTE). The owner wants a note on how players could get Maker,
