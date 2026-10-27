@@ -5,6 +5,13 @@ Owner, 2026-10-27: Dalair's equipment merge (NPC 9000040) needs level 160 (110 f
 closed to everyone as built (t-np-4 prints this as a NOTE). The owner wants a note on how players could get Maker,
 not a code change yet. Research only; no code changed for this ticket.
 
+## Owner direction (2026-10-27)
+**Option (a) for 1.6.1:** bring the real Maker back ("a is better"), using the stock data we have (the Cosmic dump on
+164 `/opt/cosmicms/wz/Skill.wz` for the server nodes; the original client files for the client layer). Unhide Moren's
+quests 6029-6036. Needs a client release (Skill .img files), so it ships with 1.6.1's client update; the client
+session needs an img writer (or a HaRepacker pass on Silvia). Grill the economy part (the Maker window's crafting
+next to MapleRoot's NPC crafting) before building. 1.6.0 ships option (c): Dalair's merge gate is level only.
+
 ## The skill
 
 | Skill id | Who | Notes |
