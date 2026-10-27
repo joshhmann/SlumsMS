@@ -487,6 +487,9 @@ table.t { width: 100%; border-collapse: collapse; }
 .mklist li:first-child { border-top: 0; }
 .mklist li span:nth-child(2) { min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
 .mklist a { color: var(--ink); font-weight: 600; }
+/* "Just sold": the time (PT and UTC) is long, so it gets its own line under the name and price */
+.mklist li > .muted:last-child { grid-column: 2 / -1; margin-top: -6px; font-size: .8rem; }
+.mknote { margin: 0 0 12px; }
 @media (max-width: 900px) {
   .mkstats { grid-template-columns: repeat(2, minmax(0, 1fr)); }
   .mkhome { grid-template-columns: minmax(0, 1fr); }

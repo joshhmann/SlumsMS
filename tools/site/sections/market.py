@@ -19,6 +19,7 @@ import re
 import shutil
 
 import check
+import common
 from common import REPO, esc, layout, strf, write
 from sections.database import scrub
 
@@ -137,6 +138,35 @@ def when(iso):
 # how a sale happened, in the same words for bots and players
 SOURCES = {"shop": "shop", "merchant": "hired merchant", "trade": "trade", "bot": "trade",
            "bot_shop": "shop", "bot_trade": "trade", "bot_seed": "shop"}
+# Early on most sales are the town's own shops (source bot_seed). No page says who is a bot (owner), so the sale
+# lists carry this neutral line instead while those are most of the sales.
+SEEDED_NOTE = "Most prices so far come from regulars&rsquo; shops and trades."
+
+
+def sales_note(sales, style=""):
+    """SEEDED_NOTE as a small paragraph when over half of these sales are the town's own; '' otherwise."""
+    seeded = sum(1 for x in sales if str(x.get("source", "")).startswith("bot"))
+    if not sales or seeded * 2 <= len(sales):
+        return ""
+    return f'<p class="small mknote"{style}>{SEEDED_NOTE}</p>'
+
+
+def span(m):
+    """How many days of price rollups the export really has (up to HISTORY_DAYS), e.g. '5 days'."""
+    n = len(m["prices"])
+    return f"{n} day" if n == 1 else f"{n} days"
+
+
+def day(iso_date):
+    """'2026-10-25' -> 'Oct 25'"""
+    return strf(dt.date.fromisoformat(iso_date[:10]), "%b %-d")
+
+
+def seller(l):
+    """A listing's seller cell: the name, or a muted "a shop" when the export sends none (GM and test shops come with
+    seller_name "")."""
+    name = l.get("seller_name")
+    return esc(name) if isinstance(name, str) and name.strip() else '<span class="muted">a shop</span>'
 
 
 def where(l):
@@ -221,7 +251,7 @@ def area_chart(points, label, line_label="Median sale", gap_text=f"under {MIN_SA
     step = (W - L - R) / (len(points) - 1)
     for i, (day, v, lo, hi) in enumerate(points):
         d = strf(dt.date.fromisoformat(day), "%b %-d")
-        tip = (f"{d}: {mesos(v)}" + (f" (low {mesos(lo)}, high {mesos(hi)})" if band and lo != hi else "")) if v is not None \
+        tip = (f"{d}: {mesos(v)}" + (f" (lowest sale {mesos(lo)}, highest {mesos(hi)})" if band and lo != hi else "")) if v is not None \
             else f"{d}: {gap_text}"
         x = max(L, X(i) - step / 2)
         s.append(f'<rect class="ch-hit" x="{x:.1f}" y="{T}" width="{min(X(i) + step / 2, W - R) - x:.1f}" height="{H - T - B}" '
@@ -229,10 +259,11 @@ def area_chart(points, label, line_label="Median sale", gap_text=f"under {MIN_SA
     return (f'<div class="chart-box"><svg class="chart" viewBox="0 0 {W} {H}" role="img" aria-label="{esc(label)}">{"".join(s)}'
             f'<line class="ch-guide" x1="0" x2="0" y1="{T}" y2="{H - B}" hidden/></svg><div class="ch-tip" hidden></div></div>'
             f'<p class="legend"><span><i></i>{esc(line_label)}</span>'
-            + ('<span><i class="band"></i>Low to high that day</span>' if band else "")
+            + ('<span><i class="band"></i>Lowest and highest sale that day</span>' if band else "")
             + ('<span><i class="gap"></i>No figure that day</span>' if len(runs) > 1 else "") + '</p>')
 
 
+PAD = ' style="padding:6px 16px 10px;margin:0"'  # a small note under a panel's table or list
 RANGES = [(7, "7 days"), (14, "14 days"), (30, "30 days")]
 
 
@@ -367,11 +398,12 @@ def item_stats(hist):
         return None
     shown = [(d, r) for d, r in rows if r.get("count", 0) >= MIN_SAMPLES]
     last = shown[-1][1] if shown else None
+    last_date = shown[-1][0] if shown else None  # the newest day with enough sales, not necessarily today
     sold = sum(r.get("count", 0) for _, r in rows)
     share = sum(r.get("player_share", 0) * r.get("count", 0) for _, r in rows) / (sold or 1)
     first = shown[0][1]["median"] if shown else None
     return {"median": last and last["median"], "low": last and last["low"], "high": last and last["high"],
-            "first": first, "sold": sold, "player_share": share, "days": len(rows)}
+            "first": first, "sold": sold, "player_share": share, "days": len(rows), "date": last_date}
 
 
 def build_prices(mk):
@@ -389,21 +421,22 @@ def build_prices(mk):
         more = len(listings) - 15
         listings = listings[:15]
         lrows = "".join(f'<tr><td><span class="sb s">S&gt;</span></td><td class="r num">{l["price"]:,}</td><td class="r num">{l["qty"]}</td>'
-                        f'<td>{esc(l.get("seller_name") or "-")}</td><td>{where(l)}</td></tr>'
+                        f'<td>{seller(l)}</td><td>{where(l)}</td></tr>'
                         for l in listings)
         sales = [x for x in m["sales"]["sales"] if x["item_id"] == item_id][:15]
         srows = "".join(f'<tr><td class="r num">{x["price"]:,}</td><td class="r num">{x["qty"]}</td><td>{esc(SOURCES.get(x["source"], x["source"]))}</td>'
                         f'<td class="muted">{esc(when(x["hour"]))}</td></tr>' for x in sales)
         median = f'{st["median"]:,}' if st["median"] else "not enough sales"
         rng = f'{mesos(st["low"])} to {mesos(st["high"])}' if st["median"] else "-"
+        on = f', {day(st["date"])}' if st["median"] else ""
         body = (f'<p class="crumbs"><a href="{{root}}{MARKET}/index.html">Market</a> &raquo; '
                 f'<a href="{{root}}{MARKET}/prices/index.html">Price check</a> &raquo; {esc(name)}</p>'
                 f'<div class="ent">{mk.icon(item_id, "{root}", big=True)}<div><h1>{esc(name)}</h1>'
                 f'<p class="id">Price check &middot; last {len(hist)} days'
                 + (f' &middot; <a href="{{root}}database/items/{item_id}.html">Slums Street page</a>' if item_id in mk.db["items"] else "")
                 + '</p></div></div>'
-                f'<div class="mkstats"><div class="hot"><small>Median today</small><b>{median}</b><span>mesos</span></div>'
-                f'<div><small>Low to high today</small><b>{rng}</b><span>what most paid</span></div>'
+                f'<div class="mkstats"><div class="hot"><small>Median{on}</small><b>{median}</b><span>mesos</span></div>'
+                f'<div><small>Lowest and highest sale{on}</small><b>{rng}</b><span>mesos</span></div>'
                 f'<div><small>{len(hist)}-day change</small><b>{change(st["first"], st["median"]) or "-"}</b><span>median vs {len(hist)} days ago</span></div>'
                 f'<div><small>Sold</small><b>{st["sold"]:,}</b><span>in {len(hist)} days</span></div></div>'
                 f'<section class="panel mkact" data-mk-item="{item_id}" hidden><h2 class="bar">Watch, alert, post</h2>'
@@ -418,7 +451,7 @@ def build_prices(mk):
                    + '</section>' if lrows else "")
                 + (f'<section class="panel"><h2 class="bar">Recent sales <small>rounded to the hour</small></h2><div class="tbl"><table class="t">'
                    f'<thead><tr><th class="r">Price</th><th class="r">Qty</th><th>How</th><th>When</th></tr></thead>'
-                   f'<tbody>{srows}</tbody></table></div></section>' if srows else ""))
+                   f'<tbody>{srows}</tbody></table></div>{sales_note(sales, PAD)}</section>' if srows else ""))
         mk.page(f"{MARKET}/prices/{item_id}.html", f"{name} price", body, "prices", f"{name}: price history and FM listings on SlumsMS.")
     # the list of every priced item
     out.sort(key=lambda x: -x[1]["sold"])
@@ -428,9 +461,9 @@ def build_prices(mk):
     rows = "".join(f'<tr><td>{mk.icon(i, "{root}")}</td><td>{mk.price_link(i, "{root}")}</td>'
                    f'<td class="r num">{mesos(st["median"]) if st["median"] else "-"}</td><td class="r">{change(st["first"], st["median"])}</td>'
                    f'<td class="r num">{st["sold"]:,}</td></tr>' for i, st in out)
-    body = (f'<h1>Price check</h1><p class="id">{len(out)} items sold in the last {HISTORY_DAYS} days, most traded first</p>'
+    body = (f'<h1>Price check</h1><p class="id">{len(out)} items sold in the last {span(m)}, most traded first</p>'
             f'<section class="panel"><h2 class="bar">All prices</h2><div class="tbl"><table class="t icons"><thead><tr><th></th><th>Item</th>'
-            f'<th class="r">Median</th><th class="r">30 days</th><th class="r">Sold</th></tr></thead><tbody>{rows}</tbody></table></div></section>')
+            f'<th class="r">Median</th><th class="r">{span(m)}</th><th class="r">Sold</th></tr></thead><tbody>{rows}</tbody></table></div></section>')
     mk.page(f"{MARKET}/prices/index.html", "Price check", body, "prices")
     return out
 
@@ -442,7 +475,7 @@ def build_lists(mk, priced):
     rows = "".join(f'<tr><td><span class="sb s">S&gt;</span></td><td>{mk.icon(l["item_id"], "{root}")}</td>'
                    f'<td>{mk.price_link(l["item_id"], "{root}") if l["item_id"] in priced_ids else esc(mk.name(l["item_id"]))}</td>'
                    f'<td class="r num">{l["price"]:,}</td><td class="r num">{l["qty"]}</td>'
-                   f'<td>{esc(l.get("seller_name") or "")}</td>'
+                   f'<td>{seller(l)}</td>'
                    f'<td>{where(l)}</td><td class="muted">{esc(l.get("shop_title") or "")}</td></tr>' for l in lst)
     body = (f'<h1>FM now</h1><p class="id">{len(lst)} items for sale &middot; as of {esc(when(m["listings"]["generated_at"]))}</p>'
             f'<section class="panel"><h2 class="bar">Trading board <small>S&gt; selling</small></h2><div class="tbl"><table class="t">'
@@ -455,7 +488,7 @@ def build_lists(mk, priced):
                    f'<td class="r num">{x["price"]:,}</td><td class="r num">{x["qty"]}</td><td>{esc(SOURCES.get(x["source"], x["source"]))}</td>'
                    f'<td class="muted">{esc(when(x["hour"]))}</td></tr>' for x in sales)
     body = (f'<h1>Recent sales</h1><p class="id">The last {len(sales)} sales, newest first, rounded to the hour</p>'
-            f'<section class="panel"><h2 class="bar">Sales</h2><div class="tbl"><table class="t icons"><thead><tr><th></th><th>Item</th>'
+            f'{sales_note(sales)}<section class="panel"><h2 class="bar">Sales</h2><div class="tbl"><table class="t icons"><thead><tr><th></th><th>Item</th>'
             f'<th class="r">Price</th><th class="r">Qty</th><th>How</th><th>When</th></tr></thead><tbody>{rows}</tbody></table></div></section>')
     mk.page(f"{MARKET}/sales.html", "Recent sales", body, "sales")
 
@@ -467,7 +500,9 @@ def build_lists(mk, priced):
                    f'<td class="r num">{d.get("n_code_trades", 0)}</td></tr>'
                    for d in reversed(days))
     body = (f'<h1>NX rate</h1><p class="id">Mesos per 1,000 NX, from resales of cash-shop items and NX code trades. '
-            f'A day with under 5 trades shows no rate.</p>{mk.nx_card("{root}", wide=True)}'
+            f'A day with under 5 trades shows no rate.</p>'
+            f'<p class="small mknote">For reference: some regulars sell a 10,000 NX code for 50m mesos.</p>'
+            f'{mk.nx_card("{root}", wide=True)}'
             f'<section class="panel"><h2 class="bar">History</h2><div class="in">{ranged_chart(pts, "NX rate per day", "Mesos per 1,000 NX", "not enough trades")}</div></section>'
             f'<section class="panel"><h2 class="bar">By day</h2><div class="tbl"><table class="t"><thead><tr><th>Day (UTC)</th>'
             f'<th class="r">Mesos per 1,000 NX</th><th class="r">Trades</th><th class="r">Cash resales</th><th class="r">NX codes</th>'
@@ -480,7 +515,9 @@ def build_lists(mk, priced):
              ("Mesos removed, last 7 days (tax, fees)", mesos(e.get("mesos_removed_7d"))),
              ]
     econ = "".join(f"<div><dt>{esc(k)}</dt><dd>{v}</dd></div>" for k, v in facts)
-    body = (f'<h1>Bera economy</h1><p class="id">As of {esc(when(e["as_of"]))}</p>'
+    other = (f'<p class="small mknote">Charts of the mesos in the game, mesos made and spent per day, and the NX rate over '
+             f'time are on the <a href="{{root}}world/economy.html">World economy page</a>.</p>' if "world" in common.BUILT else "")
+    body = (f'<h1>Bera economy</h1><p class="id">As of {esc(when(e["as_of"]))}</p>{other}'
             f'<section class="panel"><h2 class="bar">Numbers</h2><dl class="stats">{econ}</dl></section>')
     mk.page(f"{MARKET}/economy.html", "Bera economy", body, "economy")
     return econ
@@ -493,13 +530,14 @@ def build_home(mk, priced, econ):
                    f'<b class="num">{mesos(st["median"]) if st["median"] else "-"}</b>{change(st["first"], st["median"])}</li>' for i, st in top)
     sales = m["sales"]["sales"][:10]
     srows = "".join(f'<li>{mk.icon(x["item_id"], "{root}")}<span>{esc(mk.name(x["item_id"]))}</span><b class="num">{mesos(x["price"])}</b>'
-                    f'<span class="muted">{esc(when(x["hour"]).split(" (")[0])}</span></li>' for x in sales)
+                    f'<span class="muted">{esc(when(x["hour"]))}</span></li>' for x in sales)
     body = ('<h1>Slums Market</h1><p class="lede">What things really sell for on Bera: prices from finished trades and FM shop '
             'sales, the shops open right now, and the NX rate. Deals happen in game; whisper the seller or visit their shop.</p>'
             f'{mk.nx_card("{root}", wide=True)}'
             f'<div class="mkhome"><section class="panel"><h2 class="bar">Most traded <a href="{{root}}{MARKET}/prices/index.html">All prices &raquo;</a></h2>'
             f'<ul class="mklist">{rows}</ul></section>'
-            f'<section class="panel"><h2 class="bar">Just sold <a href="{{root}}{MARKET}/sales.html">More &raquo;</a></h2><ul class="mklist">{srows}</ul></section></div>'
+            f'<section class="panel"><h2 class="bar">Just sold <a href="{{root}}{MARKET}/sales.html">More &raquo;</a></h2><ul class="mklist">{srows}</ul>'
+            f'{sales_note(sales, PAD)}</section></div>'
             f'<section class="panel"><h2 class="bar">Bera economy <a href="{{root}}{MARKET}/economy.html">More &raquo;</a></h2><dl class="stats">{econ}</dl></section>')
     mk.page(f"{MARKET}/index.html", "Slums Market", body, "index", "Prices, FM shops and the NX rate on SlumsMS.")
 
