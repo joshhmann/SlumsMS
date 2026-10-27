@@ -67,18 +67,22 @@
   setInterval(tick, 30000);
 })();
 
-/* Secrets: three hidden Slums-chan stickers for signed-in players. The Konami code, typing "slums" outside a text
-   box, or clicking the hero picture 7 times in a row. The pictures live in secret/, which only the private build has
-   and nginx serves only with a sign-in, so nothing loads until a signed-in player finds one; a signed-out visitor
-   gets a hint to sign in instead. Found ones are counted in localStorage. All three unlock the Slums-chan accent,
-   which also puts the secrets into the home picture rotation. */
+/* Secrets: six hidden Slums-chan stickers for signed-in players. The Konami code, typing "slums" or "bustin" outside
+   a text box, clicking the hero picture 7 times in a row, clicking a page's Slums-chan 5 times, or waking the sleeping
+   one on the 404 page (3 clicks). The pictures live in secret/, which only the private build has and nginx serves only
+   with a sign-in, so nothing loads until a signed-in player finds one; a signed-out visitor gets a hint to sign in
+   instead. Found ones are counted in localStorage. The first three (the original ones) unlock the Slums-chan accent,
+   so nobody who had it loses it; with it picked, every secret found joins the home picture rotation. */
 (function () {
   var SECRETS = {
     konami: { src: "peace.webp", w: 726, alt: "Slums-chan looks back over her shoulder with a peace sign" },
     slums: { src: "shoulder.webp", w: 568, alt: "Slums-chan peeks back over her shoulder with a grin" },
-    clicks: { src: "look.webp", w: 650, alt: "Slums-chan looks back at you: “Bustin’ chat since 2006!”" }
+    clicks: { src: "look.webp", w: 650, alt: "Slums-chan looks back at you: “Bustin’ chat since 2006!”" },
+    bustin: { src: "lean.webp", w: 801, alt: "Slums-chan leans forward with a big smile" },
+    sidekick: { src: "kneel.webp", w: 623, alt: "Slums-chan kneels and looks back over her shoulder" },
+    wake: { src: "lying.webp", w: 668, alt: "Slums-chan, wide awake now, lies back with her arms behind her head" }
   };
-  var IDS = Object.keys(SECRETS);
+  var IDS = Object.keys(SECRETS), THEME = ["konami", "slums", "clicks"];
   var root = document.documentElement;
   var me = document.querySelector('script[src$="assets/theme.js"]');
   var base = me ? me.getAttribute("src").replace(/assets\/theme\.js$/, "") : "";
@@ -87,7 +91,7 @@
   function found() {
     try { return JSON.parse(localStorage.getItem("slums-secrets") || "[]"); } catch (err) { return []; }
   }
-  function unlocked() { var got = found(); return IDS.every(function (id) { return got.indexOf(id) >= 0; }); }
+  function unlocked() { var got = found(); return THEME.every(function (id) { return got.indexOf(id) >= 0; }); }
   function whoami() {  // asked once per page; no login service (or no network) counts as signed out
     if (!signedIn) signedIn = fetch(base + "api/login/me", { credentials: "same-origin" })
       .then(function (r) { return r.ok ? r.json() : {}; }).then(function (j) { return !!j.signed_in; })
@@ -124,7 +128,8 @@
       try { localStorage.setItem("slums-secrets", JSON.stringify(got)); } catch (err) {}
       var left = IDS.length - got.filter(function (g) { return IDS.indexOf(g) >= 0; }).length;
       var note = left > 0 ? left + (left === 1 ? " more is" : " more are") + " hiding somewhere."
-        : was ? "You&rsquo;ve found them all." : "That&rsquo;s all of them. <b>The Slums-chan theme is unlocked:</b> pick it next to the colour dots up top.";
+        : "That&rsquo;s all of them. Nice.";
+      if (!was && unlocked()) note += " <b>The Slums-chan theme is unlocked:</b> pick it next to the colour dots up top.";
       var c = card('<img src="' + base + "secret/" + s.src + '" alt="" width="' + s.w + '" height="820">' +
         '<p class="secret-note"><b>You found a secret.</b> ' + note + "</p>");
       c.querySelector("img").alt = s.alt;
@@ -143,22 +148,33 @@
     var k = e.key.length === 1 ? e.key.toLowerCase() : e.key;
     keys = keys.concat(k).slice(-KONAMI.length);
     if (keys.join() === KONAMI.join()) { keys = []; reveal("konami"); return; }
-    typed = (typed + (k.length === 1 ? k : " ")).slice(-5);
-    if (typed === "slums") { typed = ""; reveal("slums"); }
+    typed = (typed + (k.length === 1 ? k : " ")).slice(-6);
+    if (typed.slice(-5) === "slums") { typed = ""; reveal("slums"); }
+    if (typed === "bustin") { typed = ""; reveal("bustin"); }
   });
 
-  var rotor = document.querySelector("[data-rotor]"), n = 0, last = 0;
+  // a page's Slums-chan (the picture by the heading), clicked 5 times in a row
+  function clicks(el, need, id) {
+    var count = 0, at = 0;
+    el.addEventListener("click", function () {
+      var t = Date.now();
+      count = t - at < 800 ? count + 1 : 1;
+      at = t;
+      if (count >= need) { count = 0; reveal(id); }
+    });
+  }
+  document.querySelectorAll("img.sidekick").forEach(function (el) { clicks(el, 5, "sidekick"); });
+  var sleeper = document.querySelector(".notfound img");
+  if (sleeper) clicks(sleeper, 3, "wake");
+
+  var rotor = document.querySelector("[data-rotor]");
   if (!rotor) return;
-  rotor.addEventListener("click", function () {
-    var now = Date.now();
-    n = now - last < 800 ? n + 1 : 1;
-    last = now;
-    if (n >= 7) { n = 0; reveal("clicks"); }
-  });
+  clicks(rotor, 7, "clicks");
   // The Slums-chan theme: the secrets join the home rotation (signed in only, since the files need the sign-in).
   if (root.getAttribute("data-accent") === "slumschan" && unlocked()) whoami().then(function (ok) {
     if (!ok) return;
-    IDS.forEach(function (id) {
+    var got = found();
+    IDS.filter(function (id) { return got.indexOf(id) >= 0; }).forEach(function (id) {
       var img = new Image(SECRETS[id].w, 820);
       img.className = "mascot secret-pic";
       img.src = base + "secret/" + SECRETS[id].src;

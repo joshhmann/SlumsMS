@@ -434,8 +434,11 @@ def build_rankings(wo):
     cards = "".join(f'<section class="panel"><h2 class="bar">{esc(t)} <a href="{{root}}{WORLD}/rankings/{k}.html">All &raquo;</a></h2>'
                     f'{table(k, board_rows(lb, k), 5)}</section>' for k, t, _ in BOARDS)
     as_of = f' &middot; as of {esc(when(lb["generated_at"]))}' if lb.get("generated_at") else ""
-    body = (f'<h1>Rankings</h1><p class="id">Everyone on Bera on one board, like it should be{as_of} &middot; '
-            f'refreshes every 15 minutes</p><div class="rankgrid">{cards}</div>')
+    body = (f'<div class="headfig"><div><h1>Rankings</h1><p class="id">Everyone on Bera on one board, like it should be{as_of} &middot; '
+            f'refreshes every 15 minutes</p></div>'
+            f'<img class="sidekick" src="{{root}}assets/brand/full-cap-tip-360.webp" srcset="{{root}}assets/brand/full-cap-tip-360.webp 360w, '
+            f'{{root}}assets/brand/full-cap-tip-560.webp 560w" sizes="140px" alt="Slums-chan tips her cap with a big grin" width="360" height="559"></div>'
+            f'<div class="rankgrid">{cards}</div>')
     wo.page(f"{WORLD}/rankings/index.html", "Rankings", body, "rankings", "Level, fame, guild, trader, Dojo and boss rankings on Bera.")
 
 

@@ -26,9 +26,11 @@ TEST site, **http://192.168.0.164:8192/**, on the home network. Mark each Pass /
    shows on the website board, and at the **Anonymous Merchant** in the FM Entrance (just right of where you arrive).
    Within a few minutes a bot may whisper you an offer (or leave a note). Take the post down on the site: it leaves
    the NPC's list.
-9. **Secrets and the theme.** Signed in, find the three secrets: the Konami code (↑↑↓↓←→←→ B A), typing `slums`,
-   and clicking the home picture 7 times fast. After the third, a fourth colour dot (Slums-chan) appears; pick it and
-   the secrets join the home pictures. Signed out, a secret only says "Sign in to see it".
+9. **Secrets and the theme.** Signed in, find the six secrets: the Konami code (↑↑↓↓←→←→ B A), typing `slums`,
+   typing `bustin`, clicking the home picture 7 times fast, clicking Slums-chan next to a page's heading (sign-in page,
+   Rankings, Live world) 5 times fast, and clicking the sleeping Slums-chan on a missing page 3 times. After the first
+   three, a fourth colour dot (Slums-chan) appears; pick it and the secrets you've found join the home pictures.
+   Signed out, a secret only says "Sign in to see it".
 10. **Phone.** Open the TEST site on your phone: home, World, Slums Market and the sign-in page fit with no sideways
    scrolling, and dark mode looks right.
 11. **Launcher sign-in (optional in 1.6.0).** In the TEST launcher, sign in with your username and password, or sign
