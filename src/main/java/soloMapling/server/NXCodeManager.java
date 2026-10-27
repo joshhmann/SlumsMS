@@ -6,147 +6,141 @@ import java.sql.Connection;
 import java.sql.PreparedStatement;
 import java.sql.ResultSet;
 import java.sql.SQLException;
+import java.sql.Statement;
+import java.security.SecureRandom;
 
-import static soloMapling.server.SoloMaplingUtilities.random;
-
+/**
+ * Cash Shop coupon codes the bots hand out: the NX merchant's 10k code (sold for mesos), the tutorial bot's grants.
+ * A code is one {@code nxcode} row (no retriever yet, a far expiry) plus its {@code nxcode_items} rows, which
+ * {@link net.server.channel.handlers.CouponCodeHandler} credits when a player types the code into the Cash Shop's
+ * coupon box. Type 4 is NX credit there ({@code gainCash(1, ...)}): the same NX the Cash Shop spends first.
+ */
 public class NXCodeManager {
 
+    /** Far-future expiry (ms since epoch, year 2252): a sold code never runs out. */
+    static final long NO_EXPIRY = 8901234567890L;
+    /** The coupon item type CouponCodeHandler credits as NX credit (gainCash(1, ...)). */
+    static final int TYPE_NX_CREDIT = 4;
+    /** The code alphabet: no 0/O, 1/I/L, so a code read off a messenger window is typed back right. */
+    static final String ALPHABET = "23456789ABCDEFGHJKMNPQRSTUVWXYZ";
+    /** A code is worth real NX: not the shared java.util.Random, whose next values a player could work out. */
+    private static final SecureRandom CODE_RANDOM = new SecureRandom();
+
     /**
-     * Creates a new NX code with the specified code string
-     *
-     * @param code The code string to insert
-     * @return The generated ID of the new code entry
+     * 1.6.0 nx-1: what a typed code is looked up as: upper case, dashes and spaces dropped. Codes are stored without
+     * dashes; the bots show them as XXXXX-XXXXX-XXXXX, and a player who types the dashes (or a space) still redeems.
      */
-    public static int createNXCode(String code) {
-        int generatedId = -1;
-
-        try (Connection con = DatabaseConnection.getConnection()) {
-            // Get the next available ID
-            int nextId = getNextNXCodeId(con);
-
-            try (PreparedStatement ps = con.prepareStatement(
-                    "INSERT INTO nxcode (id, code, retriever, expiration) VALUES (?, ?, ?, ?)")) {
-
-                ps.setInt(1, nextId);
-                ps.setString(2, code);
-                ps.setNull(3, java.sql.Types.VARCHAR); // completely empty/null
-                ps.setLong(4, 8901234567890L); // big expiration time
-
-                ps.executeUpdate();
-                generatedId = nextId;
-            }
-        } catch (SQLException e) {
-            e.printStackTrace();
+    public static String normalize(String code) {
+        if (code == null) {
+            return "";
         }
-
-        return generatedId;
+        StringBuilder sb = new StringBuilder(code.length());
+        for (int i = 0; i < code.length(); i++) {
+            char ch = code.charAt(i);
+            if (ch != '-' && !Character.isWhitespace(ch)) {
+                sb.append(Character.toUpperCase(ch));
+            }
+        }
+        return sb.toString();
     }
 
     /**
-     * Creates a new NX code item entry linked to an existing code
+     * Stores a code worth {@code quantity} NX credit: the code row and its NX row in one transaction, so a code is
+     * never stored without its NX (a redeem that credits nothing) nor typed to a player when the store failed.
      *
-     * @param codeId   The ID of the nxcode entry to link to
-     * @param quantity The quantity of NX (default 10000 for 10k NX)
-     * @return The generated ID of the new code item entry
-     */
-    public static int createNXCodeItem(int codeId, int quantity) {
-        int generatedId = -1;
-
-        try (Connection con = DatabaseConnection.getConnection()) {
-            // Get the next available ID
-            int nextId = getNextNXCodeItemId(con);
-
-            try (PreparedStatement ps = con.prepareStatement(
-                    "INSERT INTO nxcode_items (id, codeid, type, item, quantity) VALUES (?, ?, ?, ?, ?)")) {
-
-                ps.setInt(1, nextId);
-                ps.setInt(2, codeId);
-                ps.setInt(3, 4); // type 4 for prepaid nx
-                ps.setInt(4, 0); // item id (not used for NX)
-                ps.setInt(5, quantity);
-
-                ps.executeUpdate();
-                generatedId = nextId;
-            }
-        } catch (SQLException e) {
-            e.printStackTrace();
-        }
-
-        return generatedId;
-    }
-
-    /**
-     * Convenience method to create both nxcode and nxcode_items entries in one call
-     *
-     * @param code     The code string
-     * @param quantity The quantity of NX (default 10000 for 10k NX)
-     * @return The ID used for both entries
+     * @param code     the code, dashes optional (stored without)
+     * @param quantity NX credit it is worth
+     * @return the code's row id, or -1 when it could not be stored (duplicate code, database down)
      */
     public static int createCompleteNXCode(String code, int quantity) {
-        code = code.replace("-", "");
-        int codeId = createNXCode(code);
-        if (codeId > 0) {
-            createNXCodeItem(codeId, quantity);
+        try (Connection con = DatabaseConnection.getConnection()) {
+            return createCompleteNXCode(con, code, quantity);
+        } catch (SQLException e) {
+            e.printStackTrace();
+            return -1;
         }
-        return codeId;
     }
 
-    /**
-     * Overloaded convenience method with default 10k NX quantity
-     *
-     * @param code The code string
-     * @return The ID used for both entries
-     */
+    /** Overload with the default 10k NX quantity. */
     public static int createCompleteNXCode(String code) {
         return createCompleteNXCode(code, 10000);
     }
 
     /**
-     * Helper method to get the next available ID for nxcode table
+     * The insert itself (package-private for the test). Ids come from AUTO_INCREMENT: the old SELECT MAX(id)+1 made
+     * two bots minting at once collide on the primary key, and the loser's code was typed to its buyer anyway.
      */
-    private static int getNextNXCodeId(Connection con) throws SQLException {
-        try (PreparedStatement ps = con.prepareStatement("SELECT MAX(id) FROM nxcode")) {
-            try (ResultSet rs = ps.executeQuery()) {
-                if (rs.next()) {
-                    return rs.getInt(1) + 1;
+    static int createCompleteNXCode(Connection con, String code, int quantity) throws SQLException {
+        String stored = normalize(code);
+        boolean auto = con.getAutoCommit();
+        con.setAutoCommit(false);
+        try {
+            int codeId;
+            try (PreparedStatement ps = con.prepareStatement(
+                    "INSERT INTO nxcode (code, retriever, expiration) VALUES (?, NULL, ?)", Statement.RETURN_GENERATED_KEYS)) {
+                ps.setString(1, stored);
+                ps.setLong(2, NO_EXPIRY);
+                ps.executeUpdate();
+                try (ResultSet keys = ps.getGeneratedKeys()) {
+                    if (!keys.next()) {
+                        throw new SQLException("no id for nxcode " + stored);
+                    }
+                    codeId = keys.getInt(1);
                 }
             }
+            try (PreparedStatement ps = con.prepareStatement(
+                    "INSERT INTO nxcode_items (codeid, type, item, quantity) VALUES (?, ?, ?, ?)")) {
+                ps.setInt(1, codeId);
+                ps.setInt(2, TYPE_NX_CREDIT);
+                ps.setInt(3, 0); // item id (not used for NX)
+                ps.setInt(4, quantity);
+                ps.executeUpdate();
+            }
+            con.commit();
+            return codeId;
+        } catch (SQLException e) {
+            try {
+                con.rollback();
+            } catch (SQLException ignored) {
+                // the connection is gone; nothing was committed
+            }
+            throw e;
+        } finally {
+            try {
+                con.setAutoCommit(auto);
+            } catch (SQLException ignored) {
+                // returned to the pool either way
+            }
         }
-        return 1; // Start from 1 if table is empty
     }
 
     /**
-     * Helper method to get the next available ID for nxcode_items table
+     * 1.6.0 nx-1: a fresh code worth {@code quantity} NX, stored, in its display form (XXXXX-XXXXX-XXXXX); a second
+     * try with a new code if the first one could not be stored (a duplicate). Null when none could be stored: the
+     * caller must then make the buyer whole another way, never type a code that does not exist.
      */
-    private static int getNextNXCodeItemId(Connection con) throws SQLException {
-        try (PreparedStatement ps = con.prepareStatement("SELECT MAX(id) FROM nxcode_items")) {
-            try (ResultSet rs = ps.executeQuery()) {
-                if (rs.next()) {
-                    return rs.getInt(1) + 1;
-                }
+    public static String mintCode(int quantity) {
+        for (int attempt = 0; attempt < 2; attempt++) {
+            String code = generateGiftCardCode();
+            if (createCompleteNXCode(code, quantity) > 0) {
+                return code;
             }
         }
-        return 1; // Start from 1 if table is empty
+        return null;
     }
 
     /**
-     * Generates a random gift card code in the format: XXXXXX-XXXXXX-XXXXXX
-     * Uses only unambiguous characters (excludes 0, O, I, 1, L etc.)
-     *
-     * @return String of 20 characters total (18 alphanumeric + 2 dashes)
+     * Generates a random gift card code in the format XXXXX-XXXXX-XXXXX: 15 code characters from {@link #ALPHABET}
+     * (no 0/O/1/I/L) in three groups. Stored and looked up without the dashes (15 characters; nxcode.code holds 17).
      */
     public static String generateGiftCardCode() {
-        String characters = "23456789ABCDEFGHJKMNPQRSTUVWXYZ";
         StringBuilder codeBuilder = new StringBuilder();
-
         for (int section = 0; section < 3; section++) {
             if (section > 0) {
                 codeBuilder.append("-");
             }
-
             for (int i = 0; i < 5; i++) {
-                int randomIndex = random.nextInt(characters.length());
-                codeBuilder.append(characters.charAt(randomIndex));
+                codeBuilder.append(ALPHABET.charAt(CODE_RANDOM.nextInt(ALPHABET.length())));
             }
         }
         return codeBuilder.toString();
