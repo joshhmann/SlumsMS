@@ -105,6 +105,7 @@ public final class QaScenarios {
         all.addAll(BoardScenarios.all()); // 1.6.0 site board: a post gets a bot's offer, an alert fires once (bd-1)
         all.addAll(BotWatchScenarios.all()); // 1.6.0 bot watch: bots do what they decided (bw-1)
         all.addAll(SocialTraceScenarios.all()); // 1.6.0 social trace: a short trace records a bot thread (st-1)
+        all.addAll(ExpeditionScenarios.all()); // 1.6.0: party bots join your boss expedition (ex-1)
         return List.copyOf(all);
     }
 

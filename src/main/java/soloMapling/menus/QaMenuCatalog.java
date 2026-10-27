@@ -72,6 +72,7 @@ public final class QaMenuCatalog {
         add("pq-1", v(), steps("check", "where"));
         add("pq-2", v(), steps());
         add("dj-1", v("1", "5"), steps("check"));
+        add("ex-1", v("1", "5"), steps()); // 1.6.0: party bots join your boss expedition
         section("Couples and weddings");
         add("cp-1", v("married", "friends", "married same", "married mixed"), steps("step"));
         add("we-1", v("same", "mixed"), steps());

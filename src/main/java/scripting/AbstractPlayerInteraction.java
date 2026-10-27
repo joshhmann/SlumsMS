@@ -1151,6 +1151,9 @@ public class AbstractPlayerInteraction {
         }
 
         if (exped.addChannelExpedition(player.getClient().getChannelServer())) {
+            // 1.6.0: the bots in his party join with him (they never talk to the recruiter themselves)
+            soloMapling.server.MapleRootSolo.runHook("expedition party bots",
+                    () -> soloMapling.ArtificialPlayer.BotPartySystem.ExpeditionBots.autoJoin(player, exped));
             return 0;
         } else {
             return -1;
@@ -1169,7 +1172,14 @@ public class AbstractPlayerInteraction {
     }
 
     public Expedition getExpedition(ExpeditionType type) {
-        return getPlayer().getClient().getChannelServer().getExpedition(type);
+        Expedition exped = getPlayer().getClient().getChannelServer().getExpedition(type);
+        if (exped != null && exped.isRegistering() && exped.isLeader(getPlayer())) {
+            // 1.6.0: every recruiter step reads this first, so party bots that caught up since the expedition was
+            // made are in before "Start the fight!" counts the members against the minimum size
+            soloMapling.server.MapleRootSolo.runHook("expedition party bots",
+                    () -> soloMapling.ArtificialPlayer.BotPartySystem.ExpeditionBots.autoJoin(getPlayer(), exped));
+        }
+        return exped;
     }
 
     public String getExpeditionMemberNames(ExpeditionType type) {

@@ -155,6 +155,7 @@ public class Expedition {
         if (log && !registering) {
             log();
         }
+        soloMapling.ArtificialPlayer.BotPartySystem.ExpeditionBots.release(this); // 1.6.0: its party bots are free again
     }
 
     private void log() {
@@ -188,6 +189,10 @@ public class Expedition {
     }
 
     public void start() {
+        if (registering) { // 1.6.0: party bots that reached the recruiter since the last NPC step go in too
+            soloMapling.server.MapleRootSolo.runHook("expedition party bots",
+                    () -> soloMapling.ArtificialPlayer.BotPartySystem.ExpeditionBots.autoJoin(leader, this));
+        }
         finishRegistration();
         registerExpeditionAttempt();
         broadcastExped(PacketCreator.removeClock());
@@ -434,6 +439,14 @@ public class Expedition {
 
     public boolean contains(Character player) {
         return members.containsKey(player.getId()) || isLeader(player);
+    }
+
+    public boolean hasMember(int playerid) {
+        return members.containsKey(playerid);
+    }
+
+    public boolean isBanned(int playerid) {
+        return banned.contains(playerid);
     }
 
     public boolean isLeader(Character player) {

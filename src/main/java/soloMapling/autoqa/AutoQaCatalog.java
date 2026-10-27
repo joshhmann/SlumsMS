@@ -997,6 +997,14 @@ public final class AutoQaCatalog {
                 .expect(has("ST1 START Social trace "),
                         has("ST1 THREAD \\S+ \\w+ TRIGGER ok COMPOSE ok DELIVER ok lines=[2-9]"))
                 .build());
+        // 1.6.0 (owner 2026-10-26): the bots in your party join your boss expedition with you; a bot outside the
+        // party stays out, and the next recruiter step adds nobody twice (ex-1)
+        c.add(Check.auto("t-ex-1", "Your party bots join your Zakum expedition with you").minutes(2)
+                .step(run("ex-1"), waitFor("EX1 (PASS|FAIL) ", 30), stop())
+                .expect(has("EXPED BOT JOIN \\S+ -> ZAKUM"), // a GM already partied gets fewer than five bots
+                        has("EX1 RESULT members=\\d+ min=\\d+ joined=([1-5])/\\1 outsider=out again=0"),
+                        has("EX1 PASS "), noRefusal())
+                .build());
         return List.copyOf(c);
     }
 

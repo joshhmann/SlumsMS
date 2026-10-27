@@ -20,6 +20,9 @@ import java.awt.Point;
  * and a partied TrainingBot does not count it as a training map. So on a dojo floor the follower swings at the live
  * monsters itself while its leader is on the same floor, and goes back to following when the floor is clear or the
  * leader moves on. Rest floors (every sixth) have no monster, so nothing changes there.
+ *
+ * <p>1.6.0: the same holds inside a boss expedition its leader took it into ({@code ExpeditionBots.inRun}): the
+ * altar's monsters are spawned by the event, so a follower there fights the nearest one next to its leader.
  */
 final class FollowerFight {
 
@@ -39,8 +42,8 @@ final class FollowerFight {
     }
 
     /**
-     * The monster the follower fights: the nearest live one on its map when it stands on a dojo floor with its
-     * leader, else null (it just follows).
+     * The monster the follower fights: the nearest live one on its map when it stands on a dojo floor, or inside its
+     * expedition, with its leader, else null (it just follows).
      */
     static Monster target(Character bot, Character leader) {
         if (bot == null || leader == null) {
@@ -48,7 +51,8 @@ final class FollowerFight {
         }
         MapleMap map = bot.getMap();
         Point at = bot.getPosition();
-        if (map == null || at == null || leader.getMap() != map || !fightsOn(map.getId())) {
+        if (map == null || at == null || leader.getMap() != map
+                || !fightsOn(map.getId()) && !soloMapling.ArtificialPlayer.BotPartySystem.ExpeditionHold.inRun(bot)) {
             return null;
         }
         Monster best = null;
