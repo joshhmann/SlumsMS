@@ -25,6 +25,17 @@ final class GCPortals {
         if (bot == null || portal == null || bot.getMap() == null) {
             return false;
         }
+        // 1.6.0: a scripted portal inside an event instance is a PQ stage gate: pass only when it is open (PqGates)
+        if (portal.getScriptName() != null && bot.getEventInstance() != null
+                && !PqGates.open(bot.getEventInstance(), portal.getScriptName())) {
+            if (soloMapling.qa.QaLog.on(soloMapling.qa.QaLog.Topic.PQ)
+                    && soloMapling.qa.QaLog.every("pq-gate:" + bot.getId(), 10_000)) {
+                soloMapling.qa.QaLog.map(soloMapling.qa.QaLog.Topic.PQ, bot.getMapId(),
+                        "PQ GATE CLOSED " + bot.getName() + " at portal " + portal.getName()
+                                + " (" + portal.getScriptName() + ")");
+            }
+            return false;
+        }
         int targetMapId = portal.getTargetMapId();
         try {
             MapleMap to = bot.getEventInstance() == null
