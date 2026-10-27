@@ -400,7 +400,7 @@ def cell(v, how):
         return f'<td><b>{esc(str(v))}</b></td>'
     if how == "char":  # a character: its ranking picture (cached forever, the name changes with the look) or a blank
         f = AVATARS.get(str(v))
-        pic = (f'<img class="ava" src="{{root}}world/avatars/{f}" alt="" width="48" height="48" loading="lazy" decoding="async">'
+        pic = (f'<img class="ava" src="{{root}}world/avatars/{f}" alt="" width="96" height="96" loading="lazy" decoding="async">'
                if f else '<span class="ava none" aria-hidden="true"></span>')
         return f'<td class="who-cell">{pic}<b>{esc(str(v))}</b></td>'
     if how == "job":

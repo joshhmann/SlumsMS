@@ -633,8 +633,14 @@ table.t { width: 100%; border-collapse: collapse; }
 .bell-card p { margin: 0; }
 .site-head .wrap { position: relative; }
 
-/* ranking pictures (world.py: avatars/ from the server, 96x96 shown at 48) */
-.who-cell { white-space: nowrap; }
-.who-cell .ava { width: 48px; height: 48px; vertical-align: middle; margin: -6px 8px -6px 0; image-rendering: auto; }
-.who-cell .ava.none { display: inline-block; border-radius: 8px; background: var(--surface-2); }
-.rankgrid .who-cell .ava { width: 32px; height: 32px; margin: -4px 6px -4px 0; }
+/* ranking pictures (world.py: avatars/ from the server, 96x96 pixel art): shown at 1x, the podium at 2x, the home
+   summary at 64; always pixelated so they stay crisp. The placeholder takes the same size. */
+.who-cell .ava { width: 96px; height: 96px; vertical-align: middle; margin: 0 10px 0 0; image-rendering: pixelated; }
+.who-cell .ava.none { display: inline-block; border-radius: 10px; background: var(--surface-2); }
+.t.rank tr.podium .who-cell .ava { width: 192px; height: 192px; }
+.rankgrid .who-cell .ava { width: 64px; height: 64px; margin: 0 8px 0 0; }
+@media (max-width: 620px) {
+  .who-cell .ava { width: 72px; height: 72px; margin-right: 8px; }
+  .t.rank tr.podium .who-cell .ava { width: 96px; height: 96px; }
+  .rankgrid .who-cell .ava { width: 48px; height: 48px; }
+}
