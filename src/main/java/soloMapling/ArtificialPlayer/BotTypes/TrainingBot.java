@@ -796,6 +796,22 @@ public class TrainingBot extends BotSM implements soloMapling.ArtificialPlayer.B
         return chr == null || restockPossible(homeMapId, () -> !ShopCatalog.town(chr, homeMapId).isEmpty());
     }
 
+    /**
+     * The home town of a bot that logs in on {@code mapId}: that map when it is a town (no mobs), else the field's
+     * return town, else Henesys. Auto-QA 2026-10-27 (t-bl-2, t-bl-3): a bot that logged in on a field took the field
+     * as its home, so {@link #restockTownSells()} found no store there and the bot never restocked (GO_TOWN and a
+     * death respawn also "went home" to the field).
+     */
+    static int homeTown(int mapId, int returnMapId, java.util.function.IntUnaryOperator mobLevel) {
+        if (mobLevel.applyAsInt(mapId) < 0) {
+            return mapId;
+        }
+        if (returnMapId > 0 && returnMapId != MapId.NONE && mobLevel.applyAsInt(returnMapId) < 0) {
+            return returnMapId;
+        }
+        return MapId.HENESYS;
+    }
+
     static boolean restockPossible(int townMapId, java.util.function.BooleanSupplier townHasStore) {
         if (townMapId <= 0 || townMapId == MapId.SLEEPYWOOD) {
             return true; // no home town known yet (the old behaviour), or the sauna trip
@@ -1262,12 +1278,14 @@ public class TrainingBot extends BotSM implements soloMapling.ArtificialPlayer.B
 
     private void doInit() {
         ensureCombatTicker();
-        homeMapId = getChr().getMapId();
+        int here = getChr().getMapId();
+        homeMapId = homeTown(here, getChr().getMap() != null ? getChr().getMap().getReturnMapId() : -1,
+                MapMobIndex::level);
         if (resumeGrind(BotRoster.takeResume(getChr().getId()))) {
             return;
         }
         // No mobs here → it's a town: do the town beat first. Has mobs → a field: decide immediately.
-        enterPhase(MapMobIndex.level(homeMapId) < 0 ? Phase.IN_TOWN : Phase.DECIDE);
+        enterPhase(MapMobIndex.level(here) < 0 ? Phase.IN_TOWN : Phase.DECIDE);
     }
 
     /**
@@ -1279,8 +1297,8 @@ public class TrainingBot extends BotSM implements soloMapling.ArtificialPlayer.B
         if (resume == null) {
             return false;
         }
-        if (resume.homeMapId() > 0) {
-            homeMapId = resume.homeMapId();
+        if (resume.homeMapId() > 0 && MapMobIndex.level(resume.homeMapId()) < 0) {
+            homeMapId = resume.homeMapId(); // a field saved as home before 1.6.0 (see homeTown) is not taken back
         }
         int here = getChr().getMapId();
         boolean grinding = resume.name().isEmpty() || resume.name().equals(GRIND_ACTIVITY);
