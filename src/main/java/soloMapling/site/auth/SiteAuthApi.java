@@ -37,6 +37,8 @@ public final class SiteAuthApi {
     static final int MIN_SECRET = 16;
     private static final ObjectMapper MAPPER = new ObjectMapper();
     private static volatile HttpServer running;
+    /** The API behind {@link #running} (auto-QA t-au-1 calls its routes in-process, {@link SiteAuthQa}). */
+    private static volatile SiteAuthApi runningApi;
 
     /** One answer: an HTTP status and a JSON body. */
     record Response(int status, Map<String, Object> body) {
@@ -70,7 +72,9 @@ public final class SiteAuthApi {
                 return;
             }
             SiteAccounts accounts = SiteAccounts.forGame();
-            running = start(Integer.parseInt(port.trim()), new SiteAuthApi(secret, accounts, PasswordResets.forGame(accounts, secret)));
+            SiteAuthApi api = new SiteAuthApi(secret, accounts, PasswordResets.forGame(accounts, secret));
+            running = start(Integer.parseInt(port.trim()), api);
+            runningApi = api;
             log.info("Site auth API listening on 127.0.0.1:{}", running.getAddress().getPort());
         } catch (Exception e) {
             log.warn("Site auth API not started", e);
@@ -83,6 +87,24 @@ public final class SiteAuthApi {
             s.stop(0);
             running = null;
         }
+        runningApi = null;
+    }
+
+    /** Test seam: listen on a free loopback port with {@code api}, as {@link #startIfEnabled} does. */
+    static void startForTest(SiteAuthApi api) throws IOException {
+        running = start(0, api);
+        runningApi = api;
+    }
+
+    /** The running API and its port, or null when it is not listening (auto-QA t-au-1). */
+    static SiteAuthApi runningApi() {
+        return running == null ? null : runningApi;
+    }
+
+    /** The loopback port the API listens on, or -1. */
+    static int runningPort() {
+        HttpServer s = running;
+        return s == null ? -1 : s.getAddress().getPort();
     }
 
     /** Binds the loopback address only; port 0 picks a free port (tests). */
@@ -140,6 +162,14 @@ public final class SiteAuthApi {
         if (!authorized(auth)) {
             return error(401, "UNAUTHORIZED");
         }
+        return route(method, path, body);
+    }
+
+    /**
+     * One request after the secret check: the route, then the JSON body. Only {@link #handle} (the HTTP side, after
+     * the secret) and auto-QA's in-process check ({@link SiteAuthQa}, which never sees the secret) call it.
+     */
+    Response route(String method, String path, byte[] body) {
         if (!"/signup".equals(path) && !"/verify".equals(path) && !RESET_PATHS.contains(path)) {
             return error(404, "NOT_FOUND");
         }

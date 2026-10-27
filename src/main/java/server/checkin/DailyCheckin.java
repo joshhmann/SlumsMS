@@ -194,6 +194,25 @@ public final class DailyCheckin {
         }
     }
 
+    /** Auto-QA t-ck-1: an account's streak as stored. */
+    public static DailyCheckinStreak streakForQa(int accountId) throws SQLException {
+        return store.load(accountId);
+    }
+
+    /**
+     * Auto-QA t-ck-1: moves the QA account's last claim back past the 24-hour cooldown (the day and mask kept, so the
+     * streak continues), so a nightly run can claim again. The caller only does this for its own pretend player.
+     */
+    public static DailyCheckinStreak rewindForQa(int accountId, long now) throws SQLException {
+        DailyCheckinStreak s = store.load(accountId);
+        if (s.lastClaim() > 0 && now - s.lastClaim() < DailyCheckinStreak.PERIOD_MS) {
+            s = new DailyCheckinStreak(s.day(), s.claimedMask(), now - DailyCheckinStreak.PERIOD_MS - 60_000);
+            store.save(accountId, s);
+        }
+        lastRequestByAccount.remove(accountId);
+        return s;
+    }
+
     /** Test seam: a fake store (null restores the database) and a clean throttle. */
     static void useForTest(Store testStore) {
         store = testStore == null ? new DatabaseStore() : testStore;

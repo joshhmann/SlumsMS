@@ -175,6 +175,7 @@ public final class AutoQaRunner {
                 to(State.ASSERTING, c.id());
                 stepNow = "expectations";
                 int pass = 0, skip = 0;
+                String firstSkip = null;
                 List<String> failed = new ArrayList<>();
                 for (Check.Expect e : c.expects()) {
                     Check.Verdict v;
@@ -190,7 +191,12 @@ public final class AutoQaRunner {
                     }
                     switch (v.status()) {
                         case PASS -> pass++;
-                        case SKIP -> skip++;
+                        case SKIP -> {
+                            skip++;
+                            if (firstSkip == null && !v.evidence().isEmpty()) {
+                                firstSkip = v.evidence().get(0);
+                            }
+                        }
                         case FAIL -> failed.add(e.describe());
                     }
                 }
@@ -199,7 +205,8 @@ public final class AutoQaRunner {
                     reason = failed.size() + " expectation(s) failed: " + String.join("; ", failed);
                 } else if (pass == 0 && skip > 0) {
                     status = Status.SKIP;
-                    reason = "nothing could be judged here";
+                    // 1.6.0: a probe's own SKIP line ("SKIP OWNED_ALTS_ENABLED is off ...") is the reason
+                    reason = "nothing could be judged here" + (firstSkip == null ? "" : ": " + firstSkip);
                 } else {
                     status = Status.PASS;
                     reason = c.kind() == Check.Kind.HALF ? "logic passes; still look: " + c.why()

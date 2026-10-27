@@ -15,7 +15,23 @@ import java.util.concurrent.ThreadLocalRandom;
 public final class GameFishing {
     private static final FishingSessions SESSIONS = new FishingSessions(256, FishingPolicy.REWARDS,
             bound -> ThreadLocalRandom.current().nextInt(bound));
+    /** 1.6.0 t-fh-2: since boot, fishing sessions bots started and catches paid to bots and to players. */
+    private static final java.util.concurrent.atomic.LongAdder BOT_STARTS = new java.util.concurrent.atomic.LongAdder(),
+            BOT_CATCHES = new java.util.concurrent.atomic.LongAdder(), PLAYER_CATCHES = new java.util.concurrent.atomic.LongAdder();
     private GameFishing() { }
+    /** 1.6.0 t-fh-2: bots fishing right now. */
+    public static int botsFishingNow() {
+        return SESSIONS.count(id -> id >= soloMapling.server.SoloMaplingConstants.GameConstants.BOT_BASE_ID);
+    }
+    /** 1.6.0 t-fh-2: {bot sessions started, bot catches, player catches} since boot. */
+    public static long[] counters() {
+        return new long[]{BOT_STARTS.sum(), BOT_CATCHES.sum(), PLAYER_CATCHES.sum()};
+    }
+    /** 1.6.0 t-fh-2: one line for the QA log: bots fishing now and since boot. */
+    public static String botsLine() {
+        long[] c = counters();
+        return "BOTS active=" + botsFishingNow() + " started=" + c[0] + " caught=" + c[1] + " playerCaught=" + c[2];
+    }
     private static long now() { return System.nanoTime() / 1_000_000; }
     public static int destination(Character chr) {
         return chr != null && area(chr.getMapId()) && chr.getPosition() != null && chr.getPosition().y > 0
@@ -43,6 +59,7 @@ public final class GameFishing {
         if (!FishingPolicy.rewardsEnabled() || chr == null) return false;
         var result = SESSIONS.start(new GameActor(chr), now());
         if (result == FishingSessions.Start.STARTED) {
+            if (BotHelpers.isBot(chr)) BOT_STARTS.increment();
             chr.dropMessage(5, "Fishing... stay seated for a bite.");
             note(chr, "START");
         }
@@ -81,6 +98,7 @@ public final class GameFishing {
         }
         public void fullBag() { chr.dropMessage(5, "Make room in your inventory to keep your next catch."); }
         public void caught(FishingSessions.Reward reward, long sequence) {
+            (BotHelpers.isBot(chr) ? BOT_CATCHES : PLAYER_CATCHES).increment();
             String effect = "Effect/BasicEff.img/Catch/Success";
             chr.sendPacket(PacketCreator.showInfo(effect));
             chr.getMap().broadcastMessage(chr, PacketCreator.showForeignInfo(chr.getId(), effect), false);

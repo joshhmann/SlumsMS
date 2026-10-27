@@ -42,6 +42,9 @@ public final class SyntheticClient extends Client {
     private static final int SHOP_TRANSACTION = SendOpcode.CONFIRM_SHOP_TRANSACTION.getValue();
     private static final int DELETE_CHAR_RESPONSE = SendOpcode.DELETE_CHAR_RESPONSE.getValue();
     private static final int MESSENGER = SendOpcode.MESSENGER.getValue();
+    private static final int STAT_CHANGED = SendOpcode.STAT_CHANGED.getValue();
+    /** 1.6.0 t-hp-1: the STAT_CHANGED bits of HP, MaxHP, MP and MaxMP (4 bytes each for slums.dll 10600+). */
+    static final int HP_BITS = 0x400 | 0x800 | 0x1000 | 0x2000;
 
     private final int slot;
     private final Deque<AutoQaLine> heard = new ArrayDeque<>();
@@ -82,7 +85,14 @@ public final class SyntheticClient extends Client {
         int op = (bytes[0] & 0xFF) | ((bytes[1] & 0xFF) << 8);
         if (op != CHATTEXT && op != WHISPER && op != SERVERMESSAGE && op != YELLOW && op != MULTICHAT && op != SPOUSE_CHAT
                 && op != PARTY && op != BUDDY && op != GUILD && op != INTERACTION && op != MARRIAGE_REQUEST && op != NPC_TALK
-                && op != SHOP_TRANSACTION && op != DELETE_CHAR_RESPONSE && op != MESSENGER) {
+                && op != SHOP_TRANSACTION && op != DELETE_CHAR_RESPONSE && op != MESSENGER && op != STAT_CHANGED) {
+            return;
+        }
+        if (op == STAT_CHANGED) {
+            String stat = decodeHpMpStats(bytes);
+            if (stat != null) {
+                add("STAT", stat);
+            }
             return;
         }
         InPacket p = new ByteBufInPacket(Unpooled.wrappedBuffer(bytes));
@@ -148,9 +158,14 @@ public final class SyntheticClient extends Client {
         } else if (op == NPC_TALK) {
             p.readByte();
             int npc = p.readInt();
+            int msgType = p.readByte();
             p.readByte();
-            p.readByte();
-            String talk = p.readString().replaceFirst("^#w", "").replaceAll("#[bkrdegnl]", "").replace("\r\n", " ")
+            String raw = p.readString();
+            if (msgType == 3 && p.available() >= 12) { // a number box (getNPCTalkNum): default, min, max
+                int def = p.readInt(), min = p.readInt(), max = p.readInt();
+                add("NPC_NUMBER", npc + ": default " + def + " min " + min + " max " + max);
+            }
+            String talk = raw.replaceFirst("^#w", "").replaceAll("#[bkrdegnl]", "").replace("\r\n", " ")
                     .replaceAll("\\s+", " ").trim();
             add("NPC_TALK", npc + ": " + talk);
             // ticket 69: one greppable QA line per dialog line, so a vb-* check can prove what the NPC answered
@@ -188,6 +203,63 @@ public final class SyntheticClient extends Client {
                 add("TRADE_INVITE", p.readString());
             }
         }
+    }
+
+    /**
+     * 1.6.0 t-hp-1: a STAT_CHANGED packet that sets MaxHP or MaxMP, as "MAXHP=50000 HP=50000 ..." in mask order, read
+     * the way {@code PacketCreator.updatePlayerStats} writes it (HP/MaxHP/MP/MaxMP as 4 bytes). Null for any other
+     * stat packet (HP/MP regen alone, or stats this does not decode). Public for the decoder test.
+     */
+    public static String decodeHpMpStats(byte[] bytes) {
+        if (bytes == null || bytes.length < 7) {
+            return null;
+        }
+        InPacket p = new ByteBufInPacket(Unpooled.wrappedBuffer(bytes));
+        p.readShort();
+        p.readByte(); // enable actions
+        int mask = p.readInt();
+        if ((mask & (0x800 | 0x2000)) == 0) {
+            return null; // no MaxHP/MaxMP: regen and the like are not kept
+        }
+        StringBuilder sb = new StringBuilder();
+        for (int bit = 1; bit != 0 && bit <= 0x200000; bit <<= 1) {
+            if ((mask & bit) == 0) {
+                continue;
+            }
+            int width;
+            if (bit == 0x1) {
+                width = 1;
+            } else if (bit <= 0x4) {
+                width = 4;
+            } else if (bit < 0x20) {
+                width = 1;
+            } else if (bit == 0x8000) {
+                return null; // SP: a job with an SP table writes a list; not needed here
+            } else if ((bit & HP_BITS) != 0) {
+                width = 4;
+            } else if (bit < 0xFFFF || bit == 0x20000) {
+                width = 2;
+            } else if (bit == 0x10000) {
+                width = 8;
+            } else {
+                width = 4;
+            }
+            if (p.available() < width) {
+                return null;
+            }
+            long v = width == 1 ? p.readByte() : width == 2 ? p.readShort() : width == 4 ? p.readInt() : p.readLong();
+            String name = switch (bit) {
+                case 0x400 -> "HP";
+                case 0x800 -> "MAXHP";
+                case 0x1000 -> "MP";
+                case 0x2000 -> "MAXMP";
+                default -> null;
+            };
+            if (name != null) {
+                sb.append(sb.length() == 0 ? "" : " ").append(name).append('=').append(v);
+            }
+        }
+        return sb.length() == 0 ? null : sb.toString();
     }
 
     private String nameOf(int cid) {

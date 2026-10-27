@@ -718,9 +718,13 @@ public final class AutoQaCatalog {
                 .step(run("fh-1"), waitFor("FISHING POLICY PASS grants=1 duplicate=blocked movement=cancelled", 10))
                 .expect(has("FISHING POLICY PASS grants=1 duplicate=blocked movement=cancelled"))
                 .build());
+        // 1.6.0 (fishing on TEST): the GM sits on the Fishing Chair on a fishing map, a catch lands in the bag,
+        // standing stops it, and bots fish too (fishing now, or caught since boot)
         c.add(Check.half("t-fh-2", "Actual fishing chair and item grant", "watch the chair and catch effects in a real client").minutes(3)
                 .step(run("fh-2"), waitFor("FISHING REAL catches=1 active=true", 130), qaDo("stop"))
-                .expect(has("FISHING REAL catches=1 active=true"), has("FISHING STOPPED active=false"))
+                .expect(has("FISHING REAL STARTED map=\\d+ area=true chair=" + soloMapling.fishing.FishingPolicy.CHAIR),
+                        has("FISHING REAL catches=1 active=true"), has("FISHING STOPPED active=false"),
+                        has("FISHING BOTS (active=[1-9]|.* caught=[1-9])"))
                 .build());
         // 1.6.0 ticket 86: a bot with the item answers a player's buy megaphone; nothing is offered without stock
         c.add(Check.auto("t-mb-1", "A bot answers a megaphone buy request").minutes(4)
@@ -1040,8 +1044,57 @@ public final class AutoQaCatalog {
                         has("TRADE NXCODE messenger not accepted by {p2}: note shown"),
                         lacks("TRADE NXCODE typed in messenger"), probe("walletDelta", "2", "-50000000", "10000"))
                 .build());
+        // ── 1.6.0 features that shipped without a check (owner 2026-10-27, "Done means switched on and noted") ──
+        // Each is one probe (Probes160) that stages on the pretend players' own accounts, judges, and undoes its
+        // staging itself; commands go through the GM, so a FAIL carries the server's answers. SKIP says which switch
+        // is off.
+        // companions: @botme lists and calls the QA account's alt into the GM's party on the GM's map, a repeat is
+        // refused, the cap of 5 holds (four reserved places + the alt; @botme of a second alt is refused), @dismiss
+        // saves a marker amount of mesos and takes the alt out of the world and the party
+        c.add(Check.auto("t-oa-1", "Call an alt as a companion: party, cap 5, saved on dismiss").minutes(3)
+                .expect(probe("ownedAlts"))
+                .build());
+        // busy towns (brain on): two samples TOWN_WINDOW_S apart; towns move toward their targets, no town map over
+        // BOT_TOWN_MAP_MAX, channel 1 the busiest, and the boot's Henesys dressing honours BOT_TOWN_DRESSING_SCALE
+        c.add(Check.auto("t-tw-1", "Towns fill toward their targets, ch1 busiest, no map over the max").minutes(8)
+                .step(fixture("townSample"), waitSeconds(TOWN_WINDOW_S))
+                .expect(probe("townVerdict"), probe("townDressing"))
+                .build());
+        // 4-byte HP/MP: !setmaxhp 50000 45000 on the GM, the STAT packet carries both past 32,767; 150000 stops at
+        // 99,999; the GM's own values are restored
+        c.add(Check.auto("t-hp-1", "MaxHP/MaxMP past 30,000 reach the client, capped at 99,999").minutes(2)
+                .expect(probe("hpMp4Byte"))
+                .build());
+        // site auth API (TEST port 8196, loopback): !invite -> sign-up -> sign-in -> reset request -> !resetpw
+        // approve -> new password; in-process routes after the secret check (the secret is never read); the
+        // throwaway account, its resets and the invite are removed
+        c.add(Check.auto("t-au-1", "Site invite, sign-up, sign-in and GM-approved password reset").minutes(2)
+                .expect(probe("authFlow"))
+                .build());
+        // decide shadow: a fake model, in-process; rows are written, and with text=false a row has len and no text
+        c.add(Check.auto("t-ds-1", "Decide shadow rows, and text=false keeps only the length").minutes(1)
+                .expect(probe("decideShadow"))
+                .build());
+        // custom NPCs (USE_ENABLE_CUSTOM_NPC_SCRIPT): Coco 5 per talk, Dalair 160 (110 Cygnus) + Maker 3 and 3 merges
+        // per item, Maple TV's scroll generator 5 prizes a day
+        c.add(Check.auto("t-np-4", "Custom NPC caps: Coco, Dalair, Maple TV").minutes(3)
+                .expect(probe("customNpcCaps"))
+                .build());
+        // Daily Check-In (DAILY_CHECKIN_ENABLED): one claim per 24 h on the GM's account, the reward lands; prints the
+        // loaded table (which days give NX)
+        c.add(Check.auto("t-ck-1", "Daily Check-In pays once per 24 h").minutes(2)
+                .expect(probe("dailyCheckin"))
+                .build());
+        // starter chairs: a new character owns one Relaxer and one Fishing Chair, logins add none, a pre-1.6.0
+        // character gets both once
+        c.add(Check.auto("t-sc-3", "New characters own a Relaxer and a Fishing Chair, once").minutes(2)
+                .expect(probe("starterChairs"))
+                .build());
         return List.copyOf(c);
     }
+
+    /** t-tw-1: seconds between the two town samples (the director ticks every 30 s; pulls are 3 a minute a map). */
+    static final int TOWN_WINDOW_S = 300;
 
     // ── t-nx-1 / t-nx-2: the plain player's side of buying an NX code ──────────────────────────────────
 
