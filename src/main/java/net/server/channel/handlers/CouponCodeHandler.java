@@ -146,14 +146,20 @@ public final class CouponCodeHandler extends AbstractPacketHandler {
                     }
                 }
 
-                try (PreparedStatement ps = con.prepareStatement("UPDATE nxcode SET retriever = ? WHERE code = ?")) {
+                // 1.6.0 nx-1: the claim is the check. Only the redeem that flips retriever from NULL credits the code:
+                // two redeems at once (two characters, two clients) both passed the SELECT above and both got the NX.
+                try (PreparedStatement ps = con.prepareStatement("UPDATE nxcode SET retriever = ? WHERE code = ? AND retriever IS NULL")) {
                     ps.setString(1, chr.getName());
                     ps.setString(2, code);
-                    ps.executeUpdate();
+                    if (ps.executeUpdate() != 1) {
+                        return new Pair<>(-2, null);
+                    }
                 }
             }
         } catch (SQLException ex) {
-            ex.printStackTrace();
+            // nothing is credited unless the claim above committed (it used to fall through and credit anyway)
+            log.error("Coupon code redeem failed for {}", chr.getName(), ex);
+            return new Pair<>(-1, null);
         }
 
         c.resetCsCoupon();
@@ -186,7 +192,7 @@ public final class CouponCodeHandler extends AbstractPacketHandler {
 
         if (c.tryacquireClient()) {
             try {
-                Pair<Integer, List<Pair<Integer, Pair<Integer, Integer>>>> codeRes = getNXCodeResult(c.getPlayer(), code.toUpperCase());
+                Pair<Integer, List<Pair<Integer, Pair<Integer, Integer>>>> codeRes = getNXCodeResult(c.getPlayer(), soloMapling.server.NXCodeManager.normalize(code)); // 1.6.0 nx-1: dashes/spaces ok
                 int type = codeRes.getLeft();
                 if (type < 0) {
                     c.sendPacket(PacketCreator.showCashShopMessage((byte) parseCouponResult(type)));

@@ -172,6 +172,74 @@ public final class SyntheticPlayer implements AutoQaWorld.Actor {
         send(RecvOpcode.SPOUSE_CHAT, p);
     }
 
+    // ── 1.6.0 nx-1: a trade window, Maple Messenger and the Cash Shop coupon box (t-nx-1) ──
+
+    /** Opens a trade window and invites the character (PlayerInteractionHandler CREATE type 3, then INVITE). */
+    public void tradeInvite(int characterId) {
+        ByteBufOutPacket open = new ByteBufOutPacket();
+        open.writeByte(0);  // CREATE
+        open.writeByte(3);  // a trade
+        send(RecvOpcode.PLAYER_INTERACTION, open);
+        ByteBufOutPacket invite = new ByteBufOutPacket();
+        invite.writeByte(2); // INVITE
+        invite.writeInt(characterId);
+        send(RecvOpcode.PLAYER_INTERACTION, invite);
+    }
+
+    /** Puts mesos into the open trade window (SET_MESO). */
+    public void tradeMeso(int meso) {
+        ByteBufOutPacket p = new ByteBufOutPacket();
+        p.writeByte(0x10);
+        p.writeInt(meso);
+        send(RecvOpcode.PLAYER_INTERACTION, p);
+    }
+
+    /** Presses Trade (CONFIRM). */
+    public void tradeConfirm() {
+        ByteBufOutPacket p = new ByteBufOutPacket();
+        p.writeByte(0x11);
+        send(RecvOpcode.PLAYER_INTERACTION, p);
+    }
+
+    /** Closes the trade window (EXIT). */
+    public void tradeExit() {
+        ByteBufOutPacket p = new ByteBufOutPacket();
+        p.writeByte(0x0A);
+        send(RecvOpcode.PLAYER_INTERACTION, p);
+    }
+
+    /** Accepts the last Maple Messenger invite (MessengerHandler mode 0 with its id); false when there was none. */
+    public boolean acceptMessenger() {
+        int id = client.lastMessengerInviteId();
+        if (id <= 0) {
+            return false;
+        }
+        ByteBufOutPacket p = new ByteBufOutPacket();
+        p.writeByte(0x00);
+        p.writeInt(id);
+        send(RecvOpcode.MESSENGER, p);
+        client.clearMessengerInvite();
+        return true;
+    }
+
+    /** Closes Maple Messenger (mode 2); nothing happens when none is open. */
+    public void leaveMessenger() {
+        if (character() == null || character().getMessenger() == null) {
+            return;
+        }
+        ByteBufOutPacket p = new ByteBufOutPacket();
+        p.writeByte(0x02);
+        send(RecvOpcode.MESSENGER, p);
+    }
+
+    /** Types a code into the Cash Shop coupon box (CouponCodeHandler: two bytes, then the string). */
+    public void redeemCoupon(String code) {
+        ByteBufOutPacket p = new ByteBufOutPacket();
+        p.writeShort(0);
+        p.writeString(code);
+        send(RecvOpcode.COUPON_CODE, p);
+    }
+
     @Override
     public List<AutoQaLine> heard(long sinceMs) {
         return client.heardSince(sinceMs);

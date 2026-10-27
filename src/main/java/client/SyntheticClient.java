@@ -41,6 +41,7 @@ public final class SyntheticClient extends Client {
     private static final int NPC_TALK = SendOpcode.NPC_TALK.getValue();
     private static final int SHOP_TRANSACTION = SendOpcode.CONFIRM_SHOP_TRANSACTION.getValue();
     private static final int DELETE_CHAR_RESPONSE = SendOpcode.DELETE_CHAR_RESPONSE.getValue();
+    private static final int MESSENGER = SendOpcode.MESSENGER.getValue();
 
     private final int slot;
     private final Deque<AutoQaLine> heard = new ArrayDeque<>();
@@ -50,6 +51,7 @@ public final class SyntheticClient extends Client {
     private volatile boolean closed;
     private volatile String lastProposer;
     private volatile int lastProposerId;
+    private volatile int lastMessengerInviteId = -1;
 
     public SyntheticClient(int slot, int world, int channel) {
         super(null, -2 - slot, "autoqa-" + slot, null, world, channel);
@@ -80,7 +82,7 @@ public final class SyntheticClient extends Client {
         int op = (bytes[0] & 0xFF) | ((bytes[1] & 0xFF) << 8);
         if (op != CHATTEXT && op != WHISPER && op != SERVERMESSAGE && op != YELLOW && op != MULTICHAT && op != SPOUSE_CHAT
                 && op != PARTY && op != BUDDY && op != GUILD && op != INTERACTION && op != MARRIAGE_REQUEST && op != NPC_TALK
-                && op != SHOP_TRANSACTION && op != DELETE_CHAR_RESPONSE) {
+                && op != SHOP_TRANSACTION && op != DELETE_CHAR_RESPONSE && op != MESSENGER) {
             return;
         }
         InPacket p = new ByteBufInPacket(Unpooled.wrappedBuffer(bytes));
@@ -169,6 +171,16 @@ public final class SyntheticClient extends Client {
             lastProposer = p.readString();
             lastProposerId = p.readInt();
             add("PROPOSAL", lastProposer);
+        } else if (op == MESSENGER) {
+            int mode = p.readByte() & 0xFF;
+            if (mode == 0x03) { // an invite: from, a byte, the messenger id
+                String from = p.readString();
+                p.readByte();
+                lastMessengerInviteId = p.readInt();
+                add("MESSENGER_INVITE", from);
+            } else if (mode == 0x06) { // a chat line, "Name : text"
+                add("MESSENGER", p.readString());
+            }
         } else if (op == INTERACTION) {
             int mode = p.readByte() & 0xFF;
             if (mode == 2) {
@@ -228,6 +240,14 @@ public final class SyntheticClient extends Client {
 
     public void clearGuildInvite() {
         lastGuildInviteId = -1;
+    }
+
+    public int lastMessengerInviteId() {
+        return lastMessengerInviteId;
+    }
+
+    public void clearMessengerInvite() {
+        lastMessengerInviteId = -1;
     }
 
     public String lastProposer() {

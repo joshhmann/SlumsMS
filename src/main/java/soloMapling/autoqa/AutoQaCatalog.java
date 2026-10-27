@@ -22,6 +22,7 @@ import static soloMapling.autoqa.Expects.probe;
 import static soloMapling.autoqa.Expects.rule;
 import static soloMapling.autoqa.Steps.acceptGuildInvite;
 import static soloMapling.autoqa.Steps.buddyAdd;
+import static soloMapling.autoqa.Steps.capture;
 import static soloMapling.autoqa.Steps.fixture;
 import static soloMapling.autoqa.Steps.guildInvite;
 import static soloMapling.autoqa.Steps.mark;
@@ -1005,7 +1006,123 @@ public final class AutoQaCatalog {
                         has("EX1 RESULT members=\\d+ min=\\d+ joined=([1-5])/\\1 outsider=out again=0"),
                         has("EX1 PASS "), noRefusal())
                 .build());
+        // 1.6.0 nx-1 (owner: "does the meso -> NX path actually work?"): the plain player buys a 10k NX code from
+        // an NX merchant bot for 50m, takes it by messenger and redeems it (twice: the second adds nothing); t-nx-2
+        // ignores the messenger and redeems the copy the bot left in its notes
+        c.add(Check.auto("t-nx-1", "Buy a 10k NX code for 50m and redeem it").players(2).notNightly().minutes(4)
+                .step(say("!warp " + QA_FM_ENTRANCE), waitSeconds(3), fixture("warpPlayer", "2", "" + QA_FM_ENTRANCE),
+                        waitSeconds(2), nxFresh(), run("nx-1", SyntheticPlayers.NAMES[1]), fixture("rememberWallet", "2"),
+                        nxBuy(), waitFor("TRADE NXCODE minted for {p2}", 60), waitFor("MESSENGER_INVITE {bot}", 20),
+                        Steps.of("p2 accepts the messenger invite", r -> {
+                            r.note(((SyntheticPlayer) r.actor(2)).acceptMessenger() ? "accepted" : "no invite to accept");
+                            return Check.StepResult.OK;
+                        }),
+                        waitFor("MESSENGER {bot} : " + NX_CODE, 40), capture("code", "MESSENGER {bot} : (" + NX_CODE + ")"),
+                        nxRedeem("{code}"), nxRedeem("{code}"))
+                .expect(has("TRADE NXCODE minted for {p2}, note saved"), has("TRADE NXCODE typed in messenger for {p2}"),
+                        has("MESSENGER {bot} : " + NX_CODE), probe("walletDelta", "2", "-50000000", "10000"))
+                .build());
+        c.add(Check.auto("t-nx-2", "An NX code buyer who ignores the messenger still gets the code").players(2)
+                .notNightly().minutes(4)
+                .step(say("!warp " + QA_FM_ENTRANCE), waitSeconds(3), fixture("warpPlayer", "2", "" + QA_FM_ENTRANCE),
+                        waitSeconds(2), nxFresh(), run("nx-1", SyntheticPlayers.NAMES[1]), fixture("rememberWallet", "2"),
+                        nxBuy(), waitFor("TRADE NXCODE minted for {p2}", 60),
+                        waitFor("TRADE NXCODE messenger not accepted by {p2}", 50), fixture("noteCode", "2", "{bot}"),
+                        nxRedeem("{code}"))
+                .expect(has("TRADE NXCODE minted for {p2}, note saved"),
+                        has("TRADE NXCODE messenger not accepted by {p2}: note shown"),
+                        lacks("TRADE NXCODE typed in messenger"), probe("walletDelta", "2", "-50000000", "10000"))
+                .build());
         return List.copyOf(c);
+    }
+
+    // ── t-nx-1 / t-nx-2: the plain player's side of buying an NX code ──────────────────────────────────
+
+    static final int QA_FM_ENTRANCE = 910000000;
+    /** A code as the NX merchant shows it: three groups of five from NXCodeManager's alphabet. */
+    static final String NX_CODE = "[2-9A-HJKMNP-Z]{5}-[2-9A-HJKMNP-Z]{5}-[2-9A-HJKMNP-Z]{5}";
+
+    /**
+     * Player 2 opens a trade with the staged NX merchant, puts 50m in once the bot has joined, waits for the bot to
+     * lock, then presses Trade; notes each stage (the expectations decide).
+     */
+    static Check.Step nxBuy() {
+        return Steps.of("p2 trades {bot} 50m for the code", r -> {
+            SyntheticPlayer p = (SyntheticPlayer) r.actor(2);
+            List<Integer> bots = r.stagedBots();
+            if (bots.isEmpty()) {
+                r.lines();
+                bots = r.stagedBots();
+            }
+            if (bots.isEmpty()) {
+                return Check.StepResult.fail("no staged NX merchant");
+            }
+            int bot = bots.get(0);
+            for (int attempt = 0; attempt < 3; attempt++) {
+                if (p.character().getTrade() == null) {
+                    p.tradeInvite(bot);
+                }
+                if (nxWait(r, () -> tradePartnerIn(p), 25)) {
+                    break;
+                }
+                p.tradeExit(); // the bot was mid-shuffle or busy: ask again
+                r.world().sleep(2000);
+            }
+            if (!tradePartnerIn(p)) {
+                return Check.StepResult.fail("the NX merchant never joined the trade");
+            }
+            r.world().sleep(1500);
+            p.tradeMeso(50_000_000);
+            boolean locked = nxWait(r, () -> p.character().getTrade() != null && p.character().getTrade().getPartner() != null
+                    && p.character().getTrade().getPartner().isLocked(), 25);
+            r.note(locked ? "the bot locked the trade" : "the bot did not lock within 25 s");
+            p.tradeConfirm();
+            boolean done = nxWait(r, () -> p.character().getTrade() == null, 15);
+            r.note(done ? "trade window closed" : "trade window still open");
+            return Check.StepResult.OK;
+        });
+    }
+
+    /** Player 2 starts with no messenger and no trade window open (a re-run must not find the last one's). */
+    static Check.Step nxFresh() {
+        return Steps.of("p2 closes any messenger and trade window", r -> {
+            SyntheticPlayer p = (SyntheticPlayer) r.actor(2);
+            p.leaveMessenger();
+            if (p.character().getTrade() != null) {
+                p.tradeExit();
+            }
+            r.world().sleep(500);
+            return Check.StepResult.OK;
+        });
+    }
+
+    private static boolean tradePartnerIn(SyntheticPlayer p) {
+        server.Trade t = p.character().getTrade();
+        return t != null && t.getPartner() != null && t.isFullTrade();
+    }
+
+    private static boolean nxWait(CheckRun r, java.util.function.BooleanSupplier ok, int seconds) throws InterruptedException {
+        long deadline = r.world().now() + seconds * 1000L;
+        while (r.world().now() < deadline) {
+            if (ok.getAsBoolean()) {
+                return true;
+            }
+            r.world().sleep(500);
+        }
+        return ok.getAsBoolean();
+    }
+
+    /** Player 2 types the code into the Cash Shop coupon box, without the dashes as the bot says. */
+    static Check.Step nxRedeem(String code) {
+        return Steps.of("p2 redeems " + code, r -> {
+            String c = r.fill(code);
+            if (c.contains("{")) {
+                return Check.StepResult.fail("no code to redeem");
+            }
+            ((SyntheticPlayer) r.actor(2)).redeemCoupon(c.replace("-", ""));
+            r.world().sleep(2000);
+            return Check.StepResult.OK;
+        });
     }
 
     // ── rules over the lines ─────────────────────────────────────────────────────────────────────────────
