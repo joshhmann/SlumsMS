@@ -90,6 +90,12 @@ public final class SocialTraceEntry {
     Bond after;
     final List<String> remembered = new ArrayList<>();
 
+    // DECIDE (1.6.0: a GOSSIP listener keeps the story, a RIVALRY thread may escalate)
+    /** What the code decided after the thread, or null. */
+    String decided;
+    /** Why nothing was decided (the roll said no, nothing to keep...), or null. */
+    String decideWhy;
+
     // ACT
     final List<Event> events = new ArrayList<>();
     /** Read at close: where the two bots are and whether they share a party. */
@@ -101,6 +107,8 @@ public final class SocialTraceEntry {
     /** The people the story is about (a later thread that names them all repeats it). */
     List<String> spreadNames = List.of();
     final List<String> spread = new ArrayList<>();
+    /** A third bot told the story because it heard it (a kept story retold), not an independent pull of the news. */
+    final List<String> retold = new ArrayList<>();
 
     long closesAt;
     EnumMap<Stage, Verdict> verdicts;

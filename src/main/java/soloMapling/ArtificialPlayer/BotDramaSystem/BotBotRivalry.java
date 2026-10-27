@@ -248,6 +248,144 @@ public final class BotBotRivalry {
         }
     }
 
+    // ── escalation after a beef thread (1.6.0 social trace: RIVALRY DECIDE / ACT) ──
+
+    /** One escalation per pair per this long. */
+    static final long ESCALATE_PAIR_GAP_MS = TimeUnit.HOURS.toMillis(6);
+    /** Escalations world-wide per hour at most. */
+    static final int ESCALATIONS_PER_HOUR = 3;
+    /** When the grudge-holder goes after its rival: this long after the thread, give or take. */
+    static final long ESCALATE_DELAY_MIN_MS = TimeUnit.MINUTES.toMillis(3);
+    static final long ESCALATE_DELAY_MAX_MS = TimeUnit.MINUTES.toMillis(8);
+    /** How long it stays on the rival's map before it goes back to its own day (where it stands, no warp). */
+    static final long ESCALATE_STAY_MS = TimeUnit.MINUTES.toMillis(2);
+
+    /** What the roll after a beef thread said: go (after {@code delayMs}) or not, and why. */
+    public record Escalation(boolean go, String why, long delayMs) {
+    }
+
+    /**
+     * The chance the grudge-holder takes a beef thread further: 0.08, plus a fifth of its Killer pull and villain
+     * boost, plus 0.05 for a nemesis; at most 0.35.
+     */
+    static double escalateChance(int starter, int other, long now) {
+        double c = 0.08 + 0.2 * (BeefKit.rivalPull(starter) + Math.max(0, VillainArc.boost(starter, now)))
+                + (nemesis(starter, other) ? 0.05 : 0);
+        return Math.max(0, Math.min(0.35, c));
+    }
+
+    /**
+     * A beef thread between {@code a} (holds the grudge) and {@code b} just ended: a small chance, once per pair per
+     * {@link #ESCALATE_PAIR_GAP_MS} and {@link #ESCALATIONS_PER_HOUR} an hour world-wide, that {@code a} goes after
+     * {@code b} a few minutes later ({@link #escalate}). Bots only; memory work, the caps are taken only on a yes.
+     */
+    public static Escalation decideEscalation(Character a, Character b, long now, Random rng) {
+        if (!BeefKit.enabled() || a == null || b == null || !BotHelpers.isBot(a) || !BotHelpers.isBot(b)) {
+            return new Escalation(false, "beef off, or not two bots", 0);
+        }
+        if (!rivals(a.getId(), b.getId())) {
+            return new Escalation(false, "no beef between them (any more)", 0);
+        }
+        String pair = "bb:escalate:" + Math.min(a.getId(), b.getId()) + ":" + Math.max(a.getId(), b.getId());
+        if (!DramaKit.free(pair, now)) {
+            return new Escalation(false, "pair cooldown (one escalation per " + ESCALATE_PAIR_GAP_MS / 3_600_000
+                    + " h)", 0);
+        }
+        double chance = escalateChance(a.getId(), b.getId(), now);
+        if (rng.nextDouble() >= chance) {
+            return new Escalation(false, String.format(java.util.Locale.ROOT, "the roll said no (chance %.2f)", chance), 0);
+        }
+        if (!DramaKit.hourly("bb-escalate", ESCALATIONS_PER_HOUR, now)) {
+            return new Escalation(false, "world cap (" + ESCALATIONS_PER_HOUR + " an hour)", 0);
+        }
+        DramaKit.take(pair, now, ESCALATE_PAIR_GAP_MS);
+        long delay = ESCALATE_DELAY_MIN_MS + (long) (rng.nextDouble() * (ESCALATE_DELAY_MAX_MS - ESCALATE_DELAY_MIN_MS));
+        return new Escalation(true, a.getName() + " goes after " + b.getName() + " in "
+                + TimeUnit.MILLISECONDS.toSeconds(delay) + " s", delay);
+    }
+
+    /**
+     * The escalation itself: {@code starterId} goes to its rival's map - only a map a real player can see, never a
+     * boss, event or dungeon map - and starts on it again: on a map with mobs a training bot grinds right beside it
+     * (taking its mobs starts a KS spat through the usual {@link #onBotKs} path), elsewhere it stands by it; either way
+     * it says a beef opener and the rival answers back. After {@link #ESCALATE_STAY_MS} it goes back to its own day
+     * where it stands. {@code done} hears true and what happened, or false and why not.
+     */
+    public static void escalate(int starterId, int targetId, java.util.function.BiConsumer<Boolean, String> done) {
+        Character a = DramaKit.liveBot(starterId);
+        Character b = DramaKit.liveBot(targetId);
+        String no = escalateBlocked(a, b);
+        if (no != null) {
+            BeefKit.qaAny("RIVAL ESCALATE DROP " + starterId + " -> " + targetId + ": " + no);
+            done.accept(false, no);
+            return;
+        }
+        DramaKit.Home home = DramaKit.homeOf(a);
+        boolean grind = home.training() && !b.getMap().isTown() && !b.getMap().getAllMonsters().isEmpty();
+        boolean held = grind && a.getMapId() != b.getMapId(); // bringTo holds a grinding bot on the map
+        if (a.getMapId() != b.getMapId() && !DramaKit.bringTo(a, b, 60, grind)) {
+            if (held) {
+                soloMapling.worldevents.WorldEventSteer.unhold(a.getId());
+            }
+            BeefKit.qaAny("RIVAL ESCALATE DROP " + a.getName() + " -> " + b.getName() + ": could not come to "
+                    + b.getMapId());
+            done.accept(false, "could not come to " + b.getMapId());
+            return;
+        }
+        DramaKit.busy(a.getId(), "rival escalation");
+        int map = b.getMapId();
+        BotTiming.after(1_500 + ThreadLocalRandom.current().nextInt(1_500), () -> {
+            if (a.getMapId() != map || b.getMapId() != map) {
+                done.accept(false, "the rival left before a word was said");
+                return;
+            }
+            String node = nemesis(a.getId(), b.getId()) ? "BeefOpenNemesis" : "BeefOpen";
+            String said = DramaKit.say(a, node, Map.of("OTHER", b.getName(), "COUNT", "2"));
+            String what = (grind ? "came to grind beside " : "came to smack-talk ") + b.getName() + " on " + map
+                    + ": " + said;
+            BeefKit.qa(map, "RIVAL ESCALATE " + a.getName() + " " + what);
+            done.accept(said != null, said != null ? what : "no beef line fit");
+            if (said != null) {
+                BotTiming.after(1_500 + ThreadLocalRandom.current().nextInt(1_500), () -> {
+                    if (b.getMapId() == map) {
+                        String back = DramaKit.say(b, "BeefReply", Map.of("OTHER", a.getName()));
+                        BeefKit.qa(map, "RIVAL ESCALATE BACK " + b.getName() + " -> " + a.getName() + ": " + back);
+                    }
+                });
+            }
+        });
+        BotTiming.after(ESCALATE_STAY_MS, () -> {
+            if (held) {
+                soloMapling.worldevents.WorldEventSteer.unhold(a.getId());
+            }
+            DramaKit.unbusy(a.getId());
+            DramaKit.settle(a, home);
+        });
+    }
+
+    /** Why the escalation cannot happen now (gone, beef over, busy, a map nobody watches or a bad map), or null. */
+    static String escalateBlocked(Character a, Character b) {
+        if (a == null || b == null || a.getMap() == null || b.getMap() == null) {
+            return "one of the two is gone";
+        }
+        if (!BeefKit.enabled() || !BotHelpers.isBot(a) || !BotHelpers.isBot(b) || !rivals(a.getId(), b.getId())) {
+            return "no beef between two bots any more";
+        }
+        if (!DramaKit.freeForScene(a) || DramaKit.inScene(b.getId())) {
+            return "busy";
+        }
+        server.maps.MapleMap m = b.getMap();
+        if (m.getEventInstance() != null || m.isEventMap()
+                || soloMapling.ArtificialPlayer.BotChatTuning.isBossMap(m.getId())
+                || server.maps.MiniDungeonInfo.isDungeonMap(m.getId())) {
+            return "the rival is on a boss, event or dungeon map";
+        }
+        if (!DramaKit.realPlayerOnMap(b)) {
+            return "no real player can see the rival's map";
+        }
+        return null;
+    }
+
     // ── call-outs ──
 
     /** From the drama tick: at most every {@link #STEP_MS}, one call-out roll. */

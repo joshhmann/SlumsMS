@@ -444,6 +444,18 @@ public final class BotThreads {
             qa(map.getId(), "THREAD FACT " + fact.kind() + ": " + fact.about() + (fact.person() ? " names "
                     + fact.names() : " (no people)"));
         }
+        if (topic == Topic.GOSSIP && fact != null) { // 1.6.0: a story the teller heard in an earlier thread
+            soloMapling.ArtificialPlayer.BotGossip.Heard heard =
+                    soloMapling.ArtificialPlayer.BotGossip.heardOf(a.getId(), fact.about(), now);
+            if (heard != null) {
+                qa(map.getId(), "GOSSIP RETOLD " + a.getName() + " -> " + b.getName() + ": " + fact.about()
+                        + " (heard from " + heard.fromName() + ", hop " + heard.hops() + ")");
+                if (soloMapling.autoqa.SocialTrace.on()) {
+                    soloMapling.autoqa.SocialTrace.storyRetold(a.getId(), a.getName(), b.getName(), fact.about(),
+                            heard.fromName());
+                }
+            }
+        }
         java.util.Set<String> allowed = soloMapling.ArtificialPlayer.BotGossip.allowedNames(fact, a.getName(), b.getName());
         if (!bankOnly && BotBrains.get().isLive() && !ConvoSwitches.forceBank()) {
             List<BotBrain.Turn> prompt = List.of(BotBrain.Turn.system(threadPrompt(a, b, topic, about, map.getMapName(),
@@ -793,7 +805,125 @@ public final class BotThreads {
             });
         }
         l.endsAt = System.currentTimeMillis() + total + JOIN_MS;
+        chain = chain.run(() -> finished(l, a, b, System.currentTimeMillis(), ThreadLocalRandom.current()));
         chain.start();
+    }
+
+    // ── after the thread (1.6.0: memory, gossip kept, beef escalates) ──
+
+    /** One "we talked" episode per pair per this long (the bond's own THREAD cooldown is separate). */
+    static final long TALK_PAIR_GAP_MS = TimeUnit.MINUTES.toMillis(10);
+    /** Pair -> when the two last had a "we talked" episode (memory only; pruned past a few thousand pairs). */
+    private static final Map<Long, Long> talkedAt = new ConcurrentHashMap<>();
+    /** How a bot's life memory hears that it talked (a seam for tests): true when the bot has one. */
+    static volatile java.util.function.BiPredicate<Integer, Long> lifeTalked = BotThreads::lifeTalked;
+    /** How an escalation is carried out (a seam for tests): starter, target, and who hears the outcome. */
+    static volatile Escalator escalator = soloMapling.ArtificialPlayer.BotDramaSystem.BotBotRivalry::escalate;
+
+    @FunctionalInterface
+    interface Escalator {
+        void escalate(int starterId, int targetId, java.util.function.BiConsumer<Boolean, String> done);
+    }
+
+    /**
+     * The thread's last line went out (or was dropped): when anything was said, both bots remember they talked
+     * ({@code LifeMemory.talked}, once per pair per {@link #TALK_PAIR_GAP_MS}), a GOSSIP listener keeps the story
+     * ({@code BotGossip.keep}) and a RIVALRY thread may escalate ({@code BotBotRivalry.decideEscalation}). Memory work
+     * only; the escalation itself runs minutes later.
+     */
+    static void finished(Live l, Character a, Character b, long now, Random rng) {
+        try {
+            if (l.lastLineAt <= 0) {
+                return; // nothing was said: nothing to remember or act on
+            }
+            talked(l, a, b, now);
+            if (l.topic == Topic.GOSSIP) {
+                keepStory(l, a, b, now);
+            } else if (l.topic == Topic.RIVALRY) {
+                escalation(l, a, b, now, rng);
+            }
+        } catch (RuntimeException | LinkageError e) {
+            log.debug("After thread {} failed", l.id, e);
+        }
+    }
+
+    static void talked(Live l, Character a, Character b, long now) {
+        long pair = ((long) Math.min(a.getId(), b.getId()) << 32) | (Math.max(a.getId(), b.getId()) & 0xffffffffL);
+        Long last = talkedAt.get(pair);
+        if (last != null && now - last < TALK_PAIR_GAP_MS) {
+            qa(l.mapId, "THREAD TALKED " + a.getName() + " + " + b.getName() + ": skipped (pair cooldown)");
+            return;
+        }
+        talkedAt.put(pair, now);
+        if (talkedAt.size() > 4096) {
+            talkedAt.values().removeIf(t -> now - t > TALK_PAIR_GAP_MS);
+        }
+        boolean la = lifeTalked.test(a.getId(), now);
+        boolean lb = lifeTalked.test(b.getId(), now);
+        String what = "talked: " + a.getName() + (la ? "" : " (no life memory)") + " + " + b.getName()
+                + (lb ? "" : " (no life memory)");
+        qa(l.mapId, "THREAD TALKED " + a.getName() + " + " + b.getName() + ": LifeMemory.talked " + (la ? "yes" : "no")
+                + "/" + (lb ? "yes" : "no"));
+        if (soloMapling.autoqa.SocialTrace.on()) {
+            soloMapling.autoqa.SocialTrace.threadRemembered(l.id, what);
+        }
+    }
+
+    /** A training bot's daily life notes the talk (its SOCIAL need); false for a bot without one. */
+    private static boolean lifeTalked(int botId, long now) {
+        BotSM sm = CharacterStorage.getBotById(botId);
+        if (sm instanceof TrainingBot training && soloMapling.ArtificialPlayer.BotLifeSystem.LifeRuntime.enabled()
+                && training.lifeRuntime() != null) {
+            training.lifeRuntime().memory().talked(now);
+            return true;
+        }
+        return false;
+    }
+
+    /** A GOSSIP thread's listener ({@code b}) keeps the teller's story, word for word. */
+    static void keepStory(Live l, Character a, Character b, long now) {
+        soloMapling.ArtificialPlayer.BotGossip.Heard kept = l.fact == null ? null
+                : soloMapling.ArtificialPlayer.BotGossip.keep(b.getId(), a.getId(), a.getName(), l.fact, now);
+        boolean traced = soloMapling.autoqa.SocialTrace.on();
+        if (kept == null) {
+            String why = l.fact == null ? "no story" : !l.fact.person() ? "small talk, nobody in it"
+                    : "not a story to keep (" + l.fact.kind() + ", already known, or too many hops)";
+            qa(l.mapId, "GOSSIP NOT KEPT " + b.getName() + ": " + why);
+            if (traced) {
+                soloMapling.autoqa.SocialTrace.threadDecided(l.id, null, "the listener keeps nothing: " + why);
+            }
+            return;
+        }
+        String text = b.getName() + " heard from " + a.getName() + ": " + kept.fact().about() + " (hop " + kept.hops() + ")";
+        qa(l.mapId, "GOSSIP KEPT " + text);
+        if (traced) {
+            soloMapling.autoqa.SocialTrace.threadDecided(l.id, "listener keeps the story", null);
+            soloMapling.autoqa.SocialTrace.threadActed(l.id, b.getId(), "kept", text);
+            soloMapling.autoqa.SocialTrace.threadRemembered(l.id, "story kept: " + text);
+        }
+    }
+
+    /** A RIVALRY thread may escalate: the grudge-holder ({@code a}) goes after {@code b} a few minutes later. */
+    static void escalation(Live l, Character a, Character b, long now, Random rng) {
+        soloMapling.ArtificialPlayer.BotDramaSystem.BotBotRivalry.Escalation e =
+                soloMapling.ArtificialPlayer.BotDramaSystem.BotBotRivalry.decideEscalation(a, b, now, rng);
+        boolean traced = soloMapling.autoqa.SocialTrace.on();
+        qa(l.mapId, "RIVAL DECIDE " + a.getName() + " -> " + b.getName() + ": " + (e.go() ? "escalate, " : "no, ")
+                + e.why());
+        if (traced) {
+            soloMapling.autoqa.SocialTrace.threadDecided(l.id, e.go() ? "escalate: " + e.why() : null,
+                    e.go() ? null : "no escalation: " + e.why());
+        }
+        if (!e.go()) {
+            return;
+        }
+        int threadId = l.id;
+        int aId = a.getId();
+        soloMapling.server.BotTiming.after(e.delayMs(), () -> escalator.escalate(aId, b.getId(), (ok, text) -> {
+            if (soloMapling.autoqa.SocialTrace.on()) {
+                soloMapling.autoqa.SocialTrace.threadActed(threadId, aId, ok ? "escalate" : "escalate-drop", text);
+            }
+        }));
     }
 
     // ── a player jumps in ──
@@ -966,6 +1096,9 @@ public final class BotThreads {
         live.clear();
         nextAt.clear();
         lastThreadOf.clear();
+        talkedAt.clear();
+        lifeTalked = BotThreads::lifeTalked;
+        escalator = soloMapling.ArtificialPlayer.BotDramaSystem.BotBotRivalry::escalate;
         synchronized (BotThreads.class) {
             started.clear();
         }

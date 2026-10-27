@@ -344,6 +344,63 @@ public final class SocialTrace {
         }
     }
 
+    /**
+     * 1.6.0: what the code decided after a thread ({@code decision}: "listener keeps the story", "escalate ..."), or
+     * why it decided nothing ({@code decision} null, {@code why} the reason).
+     */
+    public static void threadDecided(int threadId, String decision, String why) {
+        SocialTraceEntry e = on ? byThread.get(threadId) : null;
+        if (e != null) {
+            synchronized (e) {
+                e.decided = decision;
+                e.decideWhy = why;
+            }
+        }
+    }
+
+    /** 1.6.0: a thread's decision was carried out (or failed): {@code kind} "kept", "escalate", "escalate-drop". */
+    public static void threadActed(int threadId, int botId, String kind, String text) {
+        SocialTraceEntry e = on ? byThread.get(threadId) : null;
+        if (e != null) {
+            synchronized (e) {
+                addEvent(e, new Event(System.currentTimeMillis(), botId, kind, text == null ? "" : text));
+            }
+        }
+    }
+
+    /** 1.6.0: a thread wrote memory ("talked" for both bots, a kept story). */
+    public static void threadRemembered(int threadId, String what) {
+        SocialTraceEntry e = on ? byThread.get(threadId) : null;
+        if (e != null) {
+            synchronized (e) {
+                if (e.remembered.size() < 10) {
+                    e.remembered.add(what);
+                }
+            }
+        }
+    }
+
+    /**
+     * 1.6.0: {@code tellerId} retold a story it heard ({@code BotGossip.keep}) to {@code listener}: every open GOSSIP
+     * entry with that story, other than the teller's own telling, spread for real.
+     */
+    public static void storyRetold(int tellerId, String teller, String listener, String about, String heardFrom) {
+        if (!on || about == null) {
+            return;
+        }
+        for (SocialTraceEntry e : open.values()) {
+            if (!"GOSSIP".equals(e.topic) || e.spreadKey == null || e.aId == tellerId
+                    || !SocialTraceJudge.norm(about).equals(SocialTraceJudge.norm(e.spreadKey))) {
+                continue;
+            }
+            synchronized (e) {
+                if (e.retold.size() < 10) {
+                    e.retold.add(teller + " told " + listener + " (heard from " + heardFrom + "): " + about);
+                }
+            }
+        }
+    }
+
     // ── drama hooks (the drama systems' QA sinks) ──
 
     /** A drama system's QA line ({@code DramaKit.qa}, {@code BeefKit.qaAny}, {@code BotCouples.qa}, {@code BotGuilds.qa}). */
