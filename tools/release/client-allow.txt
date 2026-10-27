@@ -36,6 +36,7 @@ different Data/Map/Map/Map9/910000019.img
 different Data/Map/Map/Map9/910000020.img
 different Data/Map/Map/Map9/910000021.img
 different Data/Map/Map/Map9/910000022.img
+different Data/Map/Obj/login.img
 different Data/String/Map.img
 different Data/UI/Basic.img
 different Data/UI/CashShop.img
@@ -92,6 +93,7 @@ extra Data/Map/Obj/ClassicFM_houseSLR.img
 extra Data/Map/Obj/ClassicFM_signboard.img
 extra Data/Map/Obj/MapleMoonLamp.img
 extra Data/Map/Obj/MapleMoonLamp2.img
+extra Data/Map/Obj/SlumsFM_tv.img
 extra Data/Map/Tile/ClassicFM_dryRock.img
 extra Data/Map/Tile/ClassicFM_snowyLightrock.img
 extra Data/Map/Tile/ClassicFM_woodMarble.img
