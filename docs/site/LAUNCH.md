@@ -96,9 +96,9 @@ Live starts with `-Dslums.weblogin.dir=/var/lib/slums-login/approvals` (TEST set
 `/var/lib/slums-market/outbox` (names in the "Site board contract"). Live runs as root, so no group change is needed. Check: in game, `@weblogin ABCDEF` replies
 "Website sign-in sent", and a file `/var/lib/slums-login/approvals/ABCDEF.json` appears (it expires harmlessly).
 
+## 4. Guard the database and market in nginx
 Add `tools/site/slums-login.nginx.conf`: part 1 (the `slumsapi` rate zone) in the http block next to the report form's
 zone, part 2 inside the `listen 8092` server block. Then:
-Add `tools/site/slums-login.nginx.conf` inside the `listen 8092` server block. Then:
 ```
 nginx -t && systemctl reload nginx
 curl -sI http://127.0.0.1:8092/database/index.html | head -3   # 302 to /login/?next=...
