@@ -96,7 +96,52 @@ public final class WorldEventReactions {
         return r != null ? r.name() : "the world";
     }
 
-    /** Calls fitting bots to the event, up to its cap. Returns how many new bots answered (or were offered it). */
+    /**
+     * 1.6.0 (owner, TEST 2026-10-27: "there should be madness"): the share of the training bots an invasion calls that
+     * go at once instead of being offered it (the brain usually turned an invasion down: 0 of 76 at the start).
+     */
+    static final double INVASION_DIRECT_SHARE = 0.75;
+    /** Arrivals stop this many bots below the map's cap (an invasion's: WORLD_EVENT_MAP_MAX, 200), leaving room. */
+    static final int MAP_RESERVE = 5;
+    /** How far (portal hops) "close by" reaches: a bot on the event map goes first, then the next maps, then the rest. */
+    static final int NEAR_HOPS = 2;
+    static final int FAR_TIER = NEAR_HOPS + 1;
+
+    /** Test seam: whether this training bot's brain decides for itself (the brain on, the bot running it). */
+    static java.util.function.Predicate<TrainingBot> brain = WorldEventReactions::brainDecides;
+
+    /** Pure: whether a called bot goes at once (an invasion's share) rather than through its brain's offer. */
+    static boolean goesDirectly(EventTemplate.Kind kind, double roll) {
+        return kind == EventTemplate.Kind.INVASION && roll < INVASION_DIRECT_SHARE;
+    }
+
+    /** Pure: how close a bot is to the event: 0 on its map, 1..{@link #NEAR_HOPS} portal hops, else far. */
+    static int tier(int botMapId, int eventMapId, Map<Integer, Integer> hops) {
+        if (botMapId == eventMapId) {
+            return 0;
+        }
+        Integer h = hops == null ? null : hops.get(botMapId);
+        return h != null && h > 0 && h <= NEAR_HOPS ? h : FAR_TIER;
+    }
+
+    /**
+     * Pure: how many more bots may walk onto the event map: the map's cap less {@link #MAP_RESERVE}, less the bots
+     * on it and those already on their way. A cap of 0 or less is no cap.
+     */
+    static int mapRoom(int mapCap, int botsOnMap, int enRoute) {
+        if (mapCap <= 0) {
+            return Integer.MAX_VALUE;
+        }
+        return Math.max(0, mapCap - MAP_RESERVE - botsOnMap - enRoute);
+    }
+
+    /**
+     * Calls fitting bots to the event, up to its cap. Returns how many new bots answered (or were offered it).
+     * <p>
+     * 1.6.0 madness: an invasion calls the bots closest to it first (on the map, then the next maps), sends
+     * {@link #INVASION_DIRECT_SHARE} of them at once and offers the rest; arrivals stop {@link #MAP_RESERVE} under
+     * the map's bot cap. The town bots already standing on the map are {@link InvasionTownCrowd}'s.
+     */
     static int recruit(ActiveEvent e, Random rng) {
         if (!e.template.kind().botsGather() || e.finished) {
             return 0;
@@ -120,7 +165,10 @@ public final class WorldEventReactions {
                     || chr.getClient().getChannel() != e.channel) { // ticket 57: only bots on the event's channel
                 continue;
             }
-            if (!levelFits(chr.getLevel(), e.minLevel, e.maxLevel) || !region.equals(regionKey(chr.getMapId()))
+            // owner QA 2026-10-27 ("all bots should participate in the event in the town"): a grinder already
+            // standing on an invaded map joins whatever its level
+            boolean here = e.template.kind() == EventTemplate.Kind.INVASION && chr.getMapId() == e.mapId();
+            if (!here && !levelFits(chr.getLevel(), e.minLevel, e.maxLevel) || !region.equals(regionKey(chr.getMapId()))
                     || !BotMapGates.mayEnter(e.mapId(), BotMapGates.rebirthsOf(chr))) {
                 continue;
             }
@@ -129,7 +177,56 @@ public final class WorldEventReactions {
             }
             pool.add(tb);
         }
+        Map<Integer, Integer> hops = Map.of();
+        if (e.template.kind() == EventTemplate.Kind.INVASION) {
+            try {
+                hops = GCMovement.mapsWithinHopsByDepth(e.mapId(), NEAR_HOPS);
+            } catch (RuntimeException | LinkageError ex) {
+                hops = Map.of(); // no world graph (tests): everyone is far
+            }
+        }
+        int[] took = take(e, pool, rng, room, mapRoomNow(e), hops, now);
+        int joined = took[0];
+        int offered = took[1];
+        if (joined > 0 || offered > 0) {
+            log("[WorldEvents] #" + e.id + " " + joined + " bots head to " + e.mapName + ", " + offered
+                    + " offered it (" + e.joinedBots.size() + "/" + cap + ")");
+            WorldEvents.qa("WEVENT RECRUIT #" + e.id + " " + joined + " bots head to " + e.mapId() + ", " + offered
+                    + " offered it (" + e.joinedBots.size() + "/" + cap + ", lv " + e.minLevel + "-" + e.maxLevel
+                    + ")");
+        }
+        return joined + offered;
+    }
+
+    /** The event map's room for arrivals now ({@link #mapRoom}); unlimited when the map is not loaded. */
+    private static int mapRoomNow(ActiveEvent e) {
+        try {
+            server.maps.MapleMap map = WorldEvents.mapOf(e.mapId());
+            if (map == null) {
+                return Integer.MAX_VALUE;
+            }
+            int enRoute = 0;
+            for (int id : e.joinedBots) {
+                BotSM bot = CharacterStorage.getBotById(id);
+                if (bot != null && bot.getChr() != null && bot.getChr().getMapId() != e.mapId()) {
+                    enRoute++;
+                }
+            }
+            return mapRoom(soloMapling.ArtificialPlayer.BotMapCap.capOn(e.channel, e.mapId()), map.getBotCount(),
+                    enRoute);
+        } catch (RuntimeException | LinkageError ex) {
+            return Integer.MAX_VALUE;
+        }
+    }
+
+    /**
+     * The calling itself, over a pool of free fitting bots: closest first (shuffled within a tier), at most
+     * {@code room} joins and {@code mapRoom} walk-ons. Returns {joined, offered}.
+     */
+    static int[] take(ActiveEvent e, List<TrainingBot> pool, Random rng, int room, int mapRoom,
+                      Map<Integer, Integer> hops, long now) {
         Collections.shuffle(pool, rng);
+        pool.sort(java.util.Comparator.comparingInt(tb -> tier(tb.getChr().getMapId(), e.mapId(), hops)));
         int joined = 0;
         int offered = 0;
         for (TrainingBot tb : pool) {
@@ -137,7 +234,12 @@ public final class WorldEventReactions {
                 break;
             }
             Character chr = tb.getChr();
-            if (brainDecides(tb)) {
+            boolean walksOn = chr.getMapId() != e.mapId();
+            if (walksOn && mapRoom <= 0) {
+                continue; // the map is as full as it may get: only bots already there may still join
+            }
+            boolean direct = goesDirectly(e.template.kind(), rng.nextDouble());
+            if (!direct && brain.test(tb)) {
                 // 1.6.0: the bot's brain weighs EVENT against what it is doing; it goes only if it picks it
                 WorldEventSteer.offer(chr.getId(), e.id, e.mapId(), e.template.kind(), now);
                 tb.lifeRuntime().changed();
@@ -145,21 +247,20 @@ public final class WorldEventReactions {
                 offered++;
                 continue;
             }
-            if (rng.nextDouble() >= WorldEventBias.joinChance(e.template.kind(), socialOf(chr.getId()))) {
+            if (!direct && rng.nextDouble() >= WorldEventBias.joinChance(e.template.kind(), socialOf(chr.getId()))) {
                 continue;
             }
+            soloMapling.ArtificialPlayer.BotTownSystem.AfkCampers.endCamp(chr.getId(), "world event");
             WorldEventSteer.steer(chr.getId(), e.id, e.mapId());
             e.joinedBots.add(chr.getId());
             tb.callToEvent();
+            tb.nudgeSoon(300 + rng.nextInt(2_500)); // a grinder offscreen ticks every 60-120 s: answer now
             joined++;
+            if (walksOn) {
+                mapRoom--;
+            }
         }
-        if (joined > 0 || offered > 0) {
-            log("[WorldEvents] #" + e.id + " " + joined + " bots head to " + e.mapName + ", " + offered
-                    + " offered it (" + e.joinedBots.size() + "/" + cap + ")");
-            WorldEvents.qa("WEVENT RECRUIT #" + e.id + " " + joined + " bots head to " + e.mapId() + ", " + offered
-                    + " offered it (" + e.joinedBots.size() + "/" + cap + ")");
-        }
-        return joined + offered;
+        return new int[]{joined, offered};
     }
 
     /** With the brain on, a training bot decides for itself (the EVENT activity). */

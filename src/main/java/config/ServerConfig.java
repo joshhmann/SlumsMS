@@ -115,6 +115,10 @@ public class ServerConfig {
     public int BOT_MAP_CAP = 50;
     //Per-map caps over BOT_MAP_CAP, "mapId:cap,mapId:cap" (e.g. "910000000:60,100000000:70"); 0 = no cap there.
     public String BOT_MAP_CAP_OVERRIDES = "";
+    //1.6.0 (owner 2026-10-27): while an invasion runs, its map takes up to this many bots (the crowd plus the town's
+    //own) instead of BOT_MAP_CAP; back to the usual cap when it ends. A real client held 620 bots on one map and only
+    //lagged at ~1,000. Never lowers a map's own cap.
+    public int WORLD_EVENT_MAP_MAX = 200;
     //Auto-QA (docs/ops/qa-suite.md "Auto-QA"; test server only): health sweeps every AUTOQA_SWEEP_MINUTES and the
     //synthetic-player check runner. Off unless this is true or the JVM has -Dslums.autoqa=true. Results go to data/autoqa/.
     public boolean AUTOQA_ENABLED = false;

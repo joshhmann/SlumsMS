@@ -156,6 +156,43 @@ public final class BotMapCap {
         return capFor(mapId, p.defaultCap(), p.overrides());
     }
 
+    /**
+     * 1.6.0 madness (owner 2026-10-27, after a real-client density test: one map held 620 bots at ~1.5 GB and only
+     * got laggy at ~1,000): a running invasion's map takes up to {@code WORLD_EVENT_MAP_MAX} bots (default
+     * {@value #DEFAULT_WORLD_EVENT_MAP_MAX}) instead of its usual cap, only while the event runs (WorldEvents raises
+     * it at the start and lowers it at the end).
+     */
+    public static final int DEFAULT_WORLD_EVENT_MAP_MAX = 200;
+    private static final Map<Long, Integer> RAISED = new ConcurrentHashMap<>();
+
+    /** The configured ceiling for a running world event's map. */
+    public static int worldEventMapMax() {
+        ServerConfig server = YamlConfig.config == null ? null : YamlConfig.config.server;
+        return server == null ? DEFAULT_WORLD_EVENT_MAP_MAX : Math.max(0, server.WORLD_EVENT_MAP_MAX);
+    }
+
+    /** A world event runs on this map instance: its cap is {@link #worldEventMapMax()} until {@link #lower}. */
+    public static void raise(int channel, int mapId) {
+        RAISED.put(key(channel, mapId), raisedCap(cap(mapId), worldEventMapMax()));
+    }
+
+    public static void lower(int channel, int mapId) {
+        if (RAISED.remove(key(channel, mapId)) != null) {
+            FULL.add(key(channel, mapId)); // re-checked against its live count on the next pick (hasRoomOn)
+        }
+    }
+
+    /** This map instance's cap now: a running world event's ceiling, else {@link #cap(int)}. */
+    public static int capOn(int channel, int mapId) {
+        Integer raised = RAISED.isEmpty() ? null : RAISED.get(key(channel, mapId));
+        return raised != null ? raised : cap(mapId);
+    }
+
+    /** Pure (tested): an event's ceiling never lowers the map's own cap; 0 (no cap) stays no cap. */
+    static int raisedCap(int own, int eventMax) {
+        return own <= 0 ? 0 : Math.max(own, eventMax);
+    }
+
     /** The overrides in force, for the GM read-out. */
     public static Map<Integer, Integer> overrides() {
         return config().overrides();
@@ -167,7 +204,7 @@ public final class BotMapCap {
     public static void onBotCountChanged(MapleMap map) {
         try {
             long k = key(map.getChannelId(), map.getId());
-            if (hasRoom(map.getBotCount(), cap(map.getId()))) {
+            if (hasRoom(map.getBotCount(), capOn(map.getChannelId(), map.getId()))) {
                 FULL.remove(k);
             } else {
                 FULL.add(k);
@@ -179,7 +216,7 @@ public final class BotMapCap {
 
     /** Whether one more bot may be put on this map instance. */
     public static boolean hasRoom(MapleMap map) {
-        return map == null || hasRoom(map.getBotCount(), cap(map.getId()));
+        return map == null || hasRoom(map.getBotCount(), capOn(map.getChannelId(), map.getId()));
     }
 
     /** Whether one more bot may be put on this map of this channel. A map not loaded holds no bots. */
@@ -295,7 +332,7 @@ public final class BotMapCap {
             for (MapleMap map : ch.getMapFactory().getMaps().values()) {
                 int n = map.getBotCount();
                 if (n > 0) {
-                    out.add(new Load(ch.getId(), map.getId(), n, cap(map.getId())));
+                    out.add(new Load(ch.getId(), map.getId(), n, capOn(ch.getId(), map.getId())));
                 }
             }
         }

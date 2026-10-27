@@ -18,8 +18,9 @@
 #   minutes           how long it runs (1-120); every event ends at this time at the latest
 #   cooldown_minutes  rest after it ends before the scheduler may pick it again (GM starts ignore this)
 #   levels            [min, max] bot levels that react; leave out to derive it from the mobs/boss/map
-#   bot_cap           most bots that head there, 0-50 (also capped by -Dsolomapling.worldEvents.botCap, default 50,
-#                     and by the map's bot cap, BOT_MAP_CAP)
+#   bot_cap           most bots that head there, 0-200 (also capped by -Dsolomapling.worldEvents.botCap, default 200,
+#                     and by the map's bot cap: BOT_MAP_CAP, or WORLD_EVENT_MAP_MAX (200) on an invasion's map while it
+#                     runs; arrivals stop 5 under it)
 #   maps / spots      where it can happen (one is picked at random). spots carry `mob` (boss_sighting) or
 #                     `item` + `count` (wandering_npc: what the traveler asks each player for)
 #   waves, boss       invasion: mob waves in order, then the boss; the next wave comes when a wave is cleared. A wave
@@ -76,6 +77,8 @@ templates:
   # cleared each mushroom wave in under a minute and never died. Now only lv 15-40 answer (a lv 70 would not bother),
   # and the last wave and the boss hit hard: Evil Eyes from the Ant Tunnel led by Mushmom (~100 a touch), then Zombie
   # Mushmom (~125). Every mob gives its own EXP and drops at the server rates; no bonus.
+  # Owner 2026-10-27 ("there should be madness, even lower levels should get in"): lv 1-40, most called bots come at
+  # once (no brain offer), the closest first, and the town bots already in Henesys fight or run (InvasionTownCrowd).
   - id: henesys_invasion
     kind: invasion
     slot: headline
@@ -83,8 +86,8 @@ templates:
     weight: 2
     minutes: 30
     cooldown_minutes: 600
-    bot_cap: 40
-    levels: [15, 40]
+    bot_cap: 150                                 # owner 2026-10-27 "madness": the map takes 200 while it runs
+    levels: [1, 40]                              # owner 2026-10-27: "even lower levels should get in"
     maps: [100000000]                            # Henesys
     waves:
       - {mob: 2110200, count: 20}                # Horny Mushroom (lv 22)
@@ -106,8 +109,8 @@ templates:
     weight: 0
     minutes: 30
     cooldown_minutes: 600
-    bot_cap: 40
-    levels: [20, 40]                             # owner 2026-10-26: the boars' own band (derived it was 20-45)
+    bot_cap: 150
+    levels: [1, 40]                              # 2026-10-27: a town invasion like Henesys's: low levels join (and die)
     maps: [102000000]                            # Perion
     waves:
       - {mob: 2230102, count: 18}                # Wild Boar (lv 25)
@@ -128,8 +131,8 @@ templates:
     weight: 3
     minutes: 25
     cooldown_minutes: 240
-    bot_cap: 8
-    levels: [15, 35]                             # owner 2026-10-26: the mushrooms' band (derived it was 17-70)
+    bot_cap: 10                                  # 2026-10-27 "madness": a crowd, at the small-event ceiling
+    levels: [1, 40]                              # owner 2026-10-27: lower levels get in too (derived it was 17-70)
     maps: [105050000, 105050100, 105070001]      # Ant Tunnel I, Ant Tunnel II, Ant Tunnel Park
     waves:
       - {mob: 2110200, count: 14}                # Horny Mushroom
@@ -145,8 +148,8 @@ templates:
     weight: 3
     minutes: 25
     cooldown_minutes: 240
-    bot_cap: 8
-    levels: [20, 40]                             # owner 2026-10-26: the boars' band (derived it was 20-45)
+    bot_cap: 10                                  # 2026-10-27 "madness": a crowd, at the small-event ceiling
+    levels: [20, 40]                             # owner 2026-10-26: the boars' band (a field far from beginners)
     maps: [101040001, 101030001]                 # Land of Wild Boar, The Land of Wild Boar II
     waves:
       - {mob: 2230102, count: 14}                # Wild Boar

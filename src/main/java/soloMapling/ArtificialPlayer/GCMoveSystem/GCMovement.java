@@ -228,6 +228,11 @@ public final class GCMovement {
      * its own alert timer when it renders our attack packet; this keeps the bot's OWN movement broadcasts
      * carrying ALERT instead of STAND for the duration, so a following idle/move packet doesn't cancel the
      * pose. Called by the attack layer after each swing. No-op if the bot isn't under GC control. */
+    /* 1.6.0 world events: an invasion mob this close (feet to feet) reaches the bot (BotContactDamage's swarm reach). */
+    public static boolean withinSwarmReach(Point bot, Point mob) {
+        return BotContactDamage.withinSwarmReach(bot, mob);
+    }
+
     public static void markAlerted(Character bot) {
         if (bot == null) {
             return;

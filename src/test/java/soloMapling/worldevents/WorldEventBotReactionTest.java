@@ -212,17 +212,17 @@ class WorldEventBotReactionTest {
         assertFalse(w.accept(bot(BOT + 99), now), "no offer, no join");
         // the -D cap and the 50 ceiling apply on top of the template's
         assertEquals(3, WorldEvents.crowdCap(e.template));
-        assertEquals(EventTemplates.MAX_BOT_CAP, WorldEvents.crowdCap(event(42, 80).template));
+        assertEquals(EventTemplates.MAX_BOT_CAP, WorldEvents.crowdCap(event(42, 500).template));
     }
 
     @Test
     void invasionDeathsHaveACooldownAndACap() {
         long now = 10_000_000;
-        assertTrue(WorldEvents.swarmRoll(0, now, 0, 0.1), "a heavy hit under the roll kills");
-        assertFalse(WorldEvents.swarmRoll(0, now, 0, 0.9), "not every heavy hit kills");
-        assertFalse(WorldEvents.swarmRoll(now - 10_000, now, 0, 0.1), "per-bot cooldown");
-        assertTrue(WorldEvents.swarmRoll(now - WorldEvents.SWARM_BOT_COOLDOWN_MS, now, 0, 0.1));
-        assertFalse(WorldEvents.swarmRoll(0, now, WorldEvents.SWARM_DEATHS_PER_EVENT, 0.1), "per-event cap");
+        assertTrue(WorldEvents.swarmRoll(0, now, 0, 0, 0.1), "a heavy hit under the roll kills");
+        assertFalse(WorldEvents.swarmRoll(0, now, 0, 0, 0.9), "not every heavy hit kills");
+        assertFalse(WorldEvents.swarmRoll(now - 10_000, now, 0, 0, 0.1), "per-bot cooldown");
+        assertTrue(WorldEvents.swarmRoll(now - WorldEvents.SWARM_BOT_COOLDOWN_MS, now, 0, 0, 0.1));
+        assertFalse(WorldEvents.swarmRoll(0, now, WorldEvents.SWARM_DEATHS_PER_EVENT, 0, 0.1), "per-event cap");
         assertTrue(WorldEvents.lowAfterHit(400, 1000), "under half is a heavy hit");
         assertFalse(WorldEvents.lowAfterHit(600, 1000));
         assertFalse(WorldEvents.lowAfterHit(0, 0));

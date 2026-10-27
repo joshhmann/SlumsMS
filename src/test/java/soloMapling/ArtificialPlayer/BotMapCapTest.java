@@ -145,4 +145,12 @@ class BotMapCapTest {
         when(chr.getMapId()).thenReturn(mapId);
         return chr;
     }
+
+    @Test
+    void aWorldEventsCeilingNeverLowersAMapsOwnCap() {
+        assertEquals(200, new config.ServerConfig().WORLD_EVENT_MAP_MAX, "the shipped default");
+        assertEquals(200, BotMapCap.raisedCap(50, 200));
+        assertEquals(300, BotMapCap.raisedCap(300, 200), "an override above it stays");
+        assertEquals(0, BotMapCap.raisedCap(0, 200), "no cap stays no cap");
+    }
 }

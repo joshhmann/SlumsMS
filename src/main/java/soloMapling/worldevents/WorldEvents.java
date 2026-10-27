@@ -64,6 +64,8 @@ public final class WorldEvents {
 
     private static final WorldEvents INSTANCE = new WorldEvents();
     static final long RECRUIT_EVERY_MS = 2 * 60_000L;
+    /** 1.6.0 madness: an invasion keeps topping its crowd up every tick (30 s) and on every wave. */
+    static final long INVASION_RECRUIT_EVERY_MS = 25_000L;
     public static final String DEFAULT_STATE_FILE = "data/worldevents/schedule.json";
 
     /** Invasion maps (channel << 32 | map id) where a heavy hit may kill a bot. Read on every bot hit: kept flat. */
@@ -75,7 +77,13 @@ public final class WorldEvents {
     static final double SWARM_HP_SHARE = 0.5;
     static final double SWARM_DEATH_CHANCE = 0.6;
     static final long SWARM_BOT_COOLDOWN_MS = 45_000L;
-    static final int SWARM_DEATHS_PER_EVENT = 120;
+    /**
+     * 1.6.0 madness (owner 2026-10-27: "a handful of bot deaths", 2-6 or more if it reads as chaos, "not dozens"): with
+     * lv 1 bots and town bots in the fight a hit kills easily, so the event's deaths are paced (at most one every
+     * {@link #SWARM_EVENT_GAP_MS}) and capped.
+     */
+    static final int SWARM_DEATHS_PER_EVENT = 20;
+    static final long SWARM_EVENT_GAP_MS = 15_000L;
 
     private final EventDirector director = new EventDirector(EventDirector.Config.fromSystemProperties(zone()));
     private volatile String savedDay = "";
@@ -427,6 +435,11 @@ public final class WorldEvents {
         lastStartAt = now;
         if (t.kind() == EventTemplate.Kind.INVASION) {
             swarmMaps.add(mapKey(e.channel, e.mapId()));
+            soloMapling.ArtificialPlayer.BotMapCap.raise(e.channel, e.mapId()); // WORLD_EVENT_MAP_MAX while it runs
+            // 1.6.0 madness: its mobs hit every bot in them, whatever moves the bot (InvasionSwarmTouch)
+            e.touchTask = ExecutorServiceManager.getScheduledExecutorService().scheduleAtFixedRate(
+                    InvasionSwarmTouch.task(e), InvasionSwarmTouch.BEAT_MS, InvasionSwarmTouch.BEAT_MS,
+                    TimeUnit.MILLISECONDS);
         }
         announce(e, WorldEventText.start(t.kind()));
         qa("WEVENT START #" + e.id + " " + t.id() + " (" + t.kind().label() + ") on " + e.mapId() + " " + e.mapName
@@ -439,6 +452,9 @@ public final class WorldEvents {
         log("[WorldEvents] started " + e.describe(now));
         if (t.kind() != EventTemplate.Kind.TREASURE_HUNT) {
             WorldEventReactions.recruit(e, rng); // treasure: bots only go once the last hint names the map
+        }
+        if (t.kind() == EventTemplate.Kind.INVASION) {
+            InvasionTownCrowd.rally(e, map, now, rng); // the town bots already there fight or run, within seconds
         }
         e.lastRecruitAt = now;
         e.lastChatterAt = now - 30_000; // first line a minute in, not at once
@@ -465,7 +481,7 @@ public final class WorldEvents {
         }
     }
 
-    private static MapleMap mapOf(int mapId) {
+    static MapleMap mapOf(int mapId) {
         try {
             return SoloMaplingConstants.mainChannel().getMapFactory().getMap(mapId);
         } catch (RuntimeException e) {
@@ -605,10 +621,13 @@ public final class WorldEvents {
                             announce(e, WorldEventText.bossArrives());
                         }
                     }
+                    e.lastRecruitAt = now; // 1.6.0 madness: every new wave tops the crowd up
+                    WorldEventReactions.recruit(e, rng);
                 } else if (e.bossOid >= 0 && map.getMonsterByOid(e.bossOid) == null) {
                     finish(e, "boss gone", true); // killed without the hook seeing a real player (or by a bot)
                     return;
                 }
+                InvasionTownCrowd.rally(e, map, now, rng); // newcomers to the map (and the respawned) join in
             }
             case BOSS_SIGHTING -> {
                 if (map.getMonsterByOid(e.bossOid) == null) {
@@ -641,7 +660,8 @@ public final class WorldEvents {
             }
         }
         boolean gathers = e.template.kind() != EventTemplate.Kind.TREASURE_HUNT || e.hintsGiven >= 2;
-        if (gathers && now - e.lastRecruitAt >= RECRUIT_EVERY_MS) {
+        long every = e.template.kind() == EventTemplate.Kind.INVASION ? INVASION_RECRUIT_EVERY_MS : RECRUIT_EVERY_MS;
+        if (gathers && now - e.lastRecruitAt >= every) {
             e.lastRecruitAt = now;
             WorldEventReactions.recruit(e, rng);
         }
@@ -719,12 +739,22 @@ public final class WorldEvents {
         active.remove(e);
         lastEndedAt.put(e.template.id(), e.endedAt);
         swarmMaps.remove(mapKey(e.channel, e.mapId()));
+        if (e.template.kind() == EventTemplate.Kind.INVASION) {
+            soloMapling.ArtificialPlayer.BotMapCap.lower(e.channel, e.mapId()); // back to BOT_MAP_CAP
+        }
+        java.util.concurrent.ScheduledFuture<?> touch = e.touchTask;
+        if (touch != null) {
+            touch.cancel(false);
+            e.touchTask = null;
+        }
+        InvasionSwarmTouch.forget(e.endedAt);
         for (int botId : e.deaths.keySet()) {
             lastSwarmDeath.remove(botId);
         }
         MapleMap map = mapOf(e.mapId());
         cleanUp(e, map);
         WorldEventReactions.release(e);
+        InvasionTownCrowd.release(e.id); // the town bots go back to their day
         if (announce) {
             boolean won = e.winnerName != null && e.template.kind() != EventTemplate.Kind.WANDERING_NPC;
             announce(e, won ? WorldEventText.won(e.template.kind()) : WorldEventText.timedOut(e.template.kind()));
@@ -913,7 +943,7 @@ public final class WorldEvents {
         return boss == null ? 0 : boss.getMaxHp();
     }
 
-    /** The most bots one event calls: its own cap, the -D cap (default 50), never above the map cap's range. */
+    /** The most bots one event calls: its own cap, the -D cap (default and ceiling {@link EventTemplates#MAX_BOT_CAP}). */
     static int crowdCap(EventTemplate t) {
         return Math.min(t.botCap(), Math.max(0, Math.min(EventTemplates.MAX_BOT_CAP,
                 Integer.getInteger("solomapling.worldEvents.botCap", EventTemplates.MAX_BOT_CAP))));
@@ -1196,16 +1226,19 @@ public final class WorldEvents {
             return null;
         }
         Long last = w.lastSwarmDeath.get(bot.getId());
-        return swarmRoll(last == null ? 0 : last, now, e.botDeaths(), rng.nextDouble());
+        return swarmRoll(last == null ? 0 : last, now, e.botDeaths(), e.lastBotDeathAt, rng.nextDouble());
     }
 
-    /** Pure: cooldown, per-event cap, then the roll. */
-    static boolean swarmRoll(long lastDeathAt, long now, int eventDeaths, double roll) {
+    /** Pure: the bot's cooldown, the event's cap and pace, then the roll. */
+    static boolean swarmRoll(long lastDeathAt, long now, int eventDeaths, long eventLastDeathAt, double roll) {
         if (lastDeathAt > 0 && now - lastDeathAt < SWARM_BOT_COOLDOWN_MS) {
             return false;
         }
         if (eventDeaths >= SWARM_DEATHS_PER_EVENT) {
             return false;
+        }
+        if (eventLastDeathAt > 0 && now - eventLastDeathAt < SWARM_EVENT_GAP_MS) {
+            return false; // one at a time: deaths spread over the fight instead of a pile in the first wave
         }
         return roll < SWARM_DEATH_CHANCE;
     }
@@ -1230,6 +1263,7 @@ public final class WorldEvents {
         }
         long now = System.currentTimeMillis();
         lastSwarmDeath.put(bot.getId(), now);
+        e.lastBotDeathAt = now;
         int n = e.deaths.merge(bot.getId(), 1, Integer::sum);
         qa("WEVENT BOT DIED #" + e.id + " " + bot.getName() + " (lv " + bot.getLevel() + ") on " + e.mapId()
                 + ", death " + n + " for it, " + e.botDeaths() + " this event");
@@ -1287,15 +1321,12 @@ public final class WorldEvents {
     }
 
     /**
-     * {@code !qa}: these staged bots answer the event at once (no offer, no roll), within the crowd cap; returns how
-     * many were taken.
+     * {@code !qa}: these staged bots answer the event at once (no offer, no roll); returns how many were taken. Not
+     * held to the crowd cap (1.6.0 madness: the bots nearby may fill it first): staged bots already stand on the map.
      */
     public int qaJoin(ActiveEvent e, List<Integer> botIds) {
         int n = 0;
         for (int id : botIds) {
-            if (e.joinedBots.size() >= crowdCap(e.template)) {
-                break;
-            }
             soloMapling.ArtificialPlayer.BotSM bot =
                     soloMapling.ArtificialPlayer.BotMessagingSystem.CharacterStorage.getBotById(id);
             if (!(bot instanceof soloMapling.ArtificialPlayer.BotTypes.TrainingBot tb)) {
@@ -1603,6 +1634,8 @@ public final class WorldEvents {
         hotSpots.clear();
         swarmMaps.clear();
         lastSwarmDeath.clear();
+        InvasionTownCrowd.clearForTest();
+        InvasionSwarmTouch.clearForTest();
         lastStartAt = 0;
         settings = EventScheduler.Settings.fromSystemProperties();
     }

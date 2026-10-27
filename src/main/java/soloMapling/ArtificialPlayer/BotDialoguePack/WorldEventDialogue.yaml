@@ -138,6 +138,24 @@ WorldEvent:
       - "i died like {N} times to {BOSS}"
       - "{N} deaths at that invasion, worth it"
       - "never again lol, died {N} times"
+  # 1.6.0 madness: a town bot standing where invaders pour in. TownFight as it goes for them, TownFlee as it runs.
+  TownFight:
+    text:
+      - "get them!!"
+      - "not in my town lol"
+      - "everyone attack"
+      - "kill kill kill"
+      - "come on guys we can take them"
+      - "they r everywhere"
+  TownFlee:
+    text:
+      - "RUN"
+      - "omg run"
+      - "nope nope nope"
+      - "im outta here"
+      - "where did all these mobs come from @@"
+      - "somebody help!!"
+      - "i cant fight these im too weak"
   # 1.6.0: before the evening headline starts. {EVENT} {MAP} {MIN}.
   Soon:
     text:
