@@ -601,6 +601,10 @@ local model (`BOT_LLM_*`), else none.
   insults, and never says it is an AI or a bot.
 - **Answer:** the model returns JSON. An unreadable answer is undecided, never a FAIL.
 - **Model-free checks:** a line that says "as an AI" or carries an emoji fails without asking the model.
+- **Tolerance (owner, 2026-10-27):** a judged expectation passes with one bad grade when it judged 3 or more
+  replies; 2+ bad, or 1 bad of fewer than 3, FAIL. Undecided grades (outage, unreadable) don't count either way.
+  A tolerated line is the first evidence line ("tolerated 1 bad of N judged: ..."). An "as an AI" line is never
+  tolerated.
 - **Limits:** at most `AUTOQA_JUDGE_MAX_CALLS` calls per run, each with the provider's timeout. The key is never
   logged or put in evidence.
 
