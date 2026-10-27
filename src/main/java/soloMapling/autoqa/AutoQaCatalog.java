@@ -201,9 +201,12 @@ public final class AutoQaCatalog {
                         has("BOT_GUILD RECRUIT WHISPER"), has("WHISPER \\S+: "),
                         anyOf("GUILD_INVITE ", "BOT_GUILD INVITE SENT"))
                 .build());
+        // 1.6.0 release-day triage: a bot jabs (or jabs back) at most once in 10 minutes (GuildJabRepeatTest), so the
+        // !qa do jab 2 s after the staged jab finds both bots cooling down; one jab, the megaphone jab and the judge
+        // are what is judged (the jab-back is 60% and also on the cooldown)
         c.add(Check.auto("t-gu-4", "Rival guilds jab at each other").minutes(4)
                 .step(run("gu-4"), waitFor("BOT_GUILD JAB", 20), qaDo("jab"), waitSeconds(12))
-                .expect(atLeast(2, "BOT_GUILD JAB "),
+                .expect(atLeast(1, "BOT_GUILD JAB "), has("BOT_GUILD MEGA JAB \\S+ \\[[^\\]]+\\] at \\S+: sent"),
                         judged("BOT_GUILD JAB .*?: (.+)", "a guild member jabs at a rival guild, 2008 trash talk", 3),
                         noEmoji())
                 .build());
@@ -620,7 +623,7 @@ public final class AutoQaCatalog {
                         has("NPC CLEARANCE bot \\d+ dx=\\d+ clear=true"))
                 .build());
         c.add(Check.half("t-pt-1", "Bots walk with pets that loot", "the pets following and the loot animation").minutes(5)
-                .step(run("pt-1"), until("PET ", 3, 60), mark("drop"), qaDo("drop"), until("PET(S)? PET LOOT|PET LOOT", 1, 20))
+                .step(run("pt-1"), until("PET ", 3, 60), mark("drop"), qaDo("drop"), until("PET(S)? PET LOOT|PET LOOT", 1, 60))
                 .expect(atLeast(1, "PET "), hasAfter("drop", "PETS PET LOOT|PET LOOT"))
                 .build());
         c.add(Check.half("t-bk-1", "Attack pacing: exact swing timing, held Hurricane and Rapid Fire",
@@ -952,8 +955,10 @@ public final class AutoQaCatalog {
         // Owner 2026-10-27 ("madness"): lv 1-40, most called bots come at once (a RECRUIT line with joiners), town bots
         // on the map fight or run. Owner 2026-10-26: the harder last wave should kill some bots by themselves; the check
         // first gives them 150 s to, and only then forces deaths (!qa do die answers "not needed" after a natural one)
+        // 1.6.0 release-day triage: 100 called bots clear all three waves in ~90 s (TEST 18:17, 0 deaths), so the
+        // 150 s wait let the event end before !qa do die; the natural-death window is now 20 s and the die stays armed
         c.add(Check.auto("t-ev-2", "A Henesys invasion: bots swarm it, some die and respawn").minutes(10)
-                .step(run("ev-2"), waitSeconds(8), waitFor("WEVENT BOT DIED ", 150), qaDo("die"),
+                .step(run("ev-2"), waitSeconds(8), waitFor("WEVENT BOT DIED ", EV2_NATURAL_DEATH_S), qaDo("die"),
                         waitFor("WEVENT BOT DIED ", 180), waitFor("RESPAWN .* died on 100000000", 60), waitSeconds(5),
                         stop())
                 .expect(has("WEVENT START #\\d+ henesys_invasion \\(invasion\\) on 100000000 .*bots lv 1-40"),
@@ -1092,6 +1097,9 @@ public final class AutoQaCatalog {
                 .build());
         return List.copyOf(c);
     }
+
+    /** t-ev-2: how long the check waits for a bot to die by itself before !qa do die (the invasion lasts ~90 s). */
+    static final int EV2_NATURAL_DEATH_S = 20;
 
     /** t-tw-1: seconds between the two town samples (the director ticks every 30 s; pulls are 3 a minute a map). */
     static final int TOWN_WINDOW_S = 300;

@@ -106,20 +106,36 @@ final class Probes160 {
     /** Says a line (a command) and waits up to {@code maxMs} for a YELLOW answer matching {@code want}; null if none. */
     static String sayAndHear(SyntheticPlayer p, String line, String want, long maxMs) throws InterruptedException {
         long since = System.currentTimeMillis();
+        List<AutoQaLine> before = p.heard(since); // 1.6.0 release day: the last command's answer in this same ms
         p.say(line);
         Pattern pat = Pattern.compile(want);
         long end = since + maxMs;
         while (true) {
-            for (AutoQaLine l : p.heard(since)) {
-                if ("YELLOW".equals(l.kind()) && pat.matcher(l.message()).find()) {
-                    return l.message();
-                }
+            String got = firstNewAnswer(before, p.heard(since), pat);
+            if (got != null) {
+                return got;
             }
             if (System.currentTimeMillis() >= end) {
                 return null;
             }
             Thread.sleep(200);
         }
+    }
+
+    /**
+     * The first YELLOW answer matching {@code pat} among {@code heard} that was not already there before the command
+     * ({@code before}, by identity). TEST 2026-10-27 18:41: t-oa-1 ran in 30 ms, so "@botme AutoQaAlt again" read the
+     * first call's "has joined you" (same millisecond) instead of its own "already online".
+     */
+    static String firstNewAnswer(List<AutoQaLine> before, List<AutoQaLine> heard, Pattern pat) {
+        java.util.Set<AutoQaLine> old = java.util.Collections.newSetFromMap(new java.util.IdentityHashMap<>());
+        old.addAll(before);
+        for (AutoQaLine l : heard) {
+            if (!old.contains(l) && "YELLOW".equals(l.kind()) && pat.matcher(l.message()).find()) {
+                return l.message();
+            }
+        }
+        return null;
     }
 
     /** The first line: PASS with {@code passText} when nothing is wrong, else FAIL with every problem. */
