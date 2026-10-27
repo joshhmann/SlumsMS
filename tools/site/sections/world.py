@@ -23,6 +23,7 @@ import shutil
 import check
 import common
 from common import REPO, esc, layout, strf, write
+from sections import buddy
 from sections import market
 from sections.market import area_chart, change, count, mesos, when
 
@@ -259,6 +260,9 @@ class World:
         root = "../" * rel.count("/")
         banner = ('<p class="samplebar">Sample data: these names and numbers are placeholders until the server export '
                   'is live.</p>') if self.w["sample"] or self.m["sample"] else ""
+        slot = ("world" if rel == f"{WORLD}/index.html" else "world/economy" if rel.endswith("economy.html")
+                else f"world/{rel.split('/')[1]}")
+        body = buddy.head(body, buddy.figure(root, slot, rel))
         html = (f'<div class="db world">{self.sidebar(root, here)}<div class="dbmain data">{banner}'
                 f'{body.replace("{root}", root)}</div></div>')
         write(self.out, rel, layout(title, html, root, WORLD, description))
@@ -328,8 +332,7 @@ def build_live(wo):
     as_of = wd.get("generated_at")
     body = (f'<div class="headfig"><div><h1>Live world</h1><p class="id">Bera right now{" &middot; as of " + esc(when(as_of)) if as_of else ""}'
             f' &middot; refreshes every couple of minutes</p></div>'
-            f'<img class="sidekick" src="{{root}}assets/brand/full-crossed-360.webp" srcset="{{root}}assets/brand/full-crossed-360.webp 360w, '
-            f'{{root}}assets/brand/full-crossed-560.webp 560w" sizes="140px" alt="Slums-chan stands with her arms crossed and a smug grin" width="360" height="554"></div>'
+            f'</div>'
             f'<div class="mkstats"><div class="hot"><small>Online now</small><b>{total:,}</b><span>across {len(chans)} channels</span></div>'
             + (f'<div><small>Busiest map</small><b class="sm">{wo.map_name(busiest[0].get("map"), busiest[0].get("name"), "{root}")}</b>'
                f'<span>{count(busiest[0].get("count"))} here</span></div>' if busiest else "")
@@ -527,8 +530,7 @@ def build_rankings(wo):
     as_of = f' &middot; as of {esc(when(lb["generated_at"]))}' if lb.get("generated_at") else ""
     body = (f'<div class="headfig"><div><h1>Rankings</h1><p class="id">Everyone on Bera on one board, like it should be{as_of} &middot; '
             f'refreshes every 15 minutes</p></div>'
-            f'<img class="sidekick" src="{{root}}assets/brand/full-cap-tip-360.webp" srcset="{{root}}assets/brand/full-cap-tip-360.webp 360w, '
-            f'{{root}}assets/brand/full-cap-tip-560.webp 560w" sizes="140px" alt="Slums-chan tips her cap with a big grin" width="360" height="559"></div>'
+            f'</div>'
             f'<div class="rankgrid">{cards}</div>')
     wo.page(f"{WORLD}/rankings/index.html", "Rankings", body, "rankings", boards_description(shown))
 

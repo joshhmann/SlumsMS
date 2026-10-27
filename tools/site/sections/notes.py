@@ -3,6 +3,7 @@ import os
 import re
 
 from common import SRC, esc, inline, layout, read, slug, write
+from sections import buddy
 
 
 TAGS = {"new": "New", "fix": "Fix", "change": "Change", "same": "Same"}
@@ -160,7 +161,8 @@ def build(out):
             newer = rels[i - 1]["version"]
             pager.append(f'<a class="btn" href="../{esc(newer)}/">Newer: {esc(newer)}</a>')
         pager.append("</nav>")
-        body = '<a class="backlink" href="../">&larr; News</a>\n' + render_release(rel) + "\n" + "".join(pager)
+        body = ('<a class="backlink" href="../">&larr; News</a>\n'
+                + buddy.place(render_release(rel), buddy.figure("../../", "release", rel["version"])) + "\n" + "".join(pager))
         write(out, f"patch-notes/{rel['version']}/index.html",
               layout(f"{rel['version']} patch notes", body, "../../", "notes", rel["summary"]))
     # News holds every kind of post; each card says which. Releases are the only kind so far ("Update").
@@ -168,7 +170,7 @@ def build(out):
         f'<li><a class="rel" href="{esc(r["version"])}/"><span class="v">{esc(r["version"])}</span>'
         f'<span class="t"><span class="kind">Update</span>{esc(r["title"])}</span><span class="d">{esc(r["date"])} &middot; '
         f'{esc(r["summary"])}</span><span class="c">{counts_text(r)}</span></a></li>' for r in rels)
-    body = ('<div class="notes-head plain"><p class="eyebrow">Updates &middot; events &middot; announcements</p><h1>News</h1>'
+    body = (buddy.figure("../", "news") + '<div class="notes-head plain"><p class="eyebrow">Updates &middot; events &middot; announcements</p><h1>News</h1>'
             '<p class="meta">What&rsquo;s new on Bera, newest first.</p></div>'
             f'<ul class="rel-list">{items}</ul>')
     write(out, "patch-notes/index.html", layout("News", body, "../", "notes",

@@ -12,6 +12,7 @@ import re
 import shutil
 
 from common import REPO, esc, layout, write
+from sections import buddy
 from sections import dbdata
 
 ICONS = os.path.join(REPO, "cache", "site-icons")
@@ -146,10 +147,22 @@ class Site:
         root = "../" * depth
         trail = " &raquo; ".join([f'<a href="{root}{DB}/index.html">Slums Street</a>'] +
                                  [f'<a href="{root}{DB}/{h}">{esc(t)}</a>' if h else esc(t) for t, h in crumbs])
+        body = buddy.head(body, buddy.figure(root, street_slot(rel), rel))
         html = (f'<div class="db street">{self.sidebar(root, here)}<div class="dbmain data">'
                 f'<p class="crumbs">{trail}</p>{body.replace("{root}", root)}</div></div>'
                 f'<script src="{root}assets/dbsearch.js" defer></script>')
         write(self.out, rel, layout(title, html, root, "database", description))
+
+
+def street_slot(rel):
+    """Which Slums-chan line a Slums Street page gets (sections/buddy.py)."""
+    parts = rel.split("/")[1:]
+    if len(parts) == 1:
+        return {"changes.html": "changes", "whacky-mages.html": "whacky"}.get(parts[0], "street")
+    kind, page = parts[0], parts[1].removesuffix(".html")
+    if not page.isdigit():
+        return "street-list"
+    return {"items": "item", "mobs": "mob", "maps": "map", "npcs": "npc", "quests": "quest"}.get(kind, "street")
 
 
 # Kinds of item with a stand-in picture when their own icon is missing: medals (1142xxx) whose .img the client layer

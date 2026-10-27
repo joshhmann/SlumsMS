@@ -21,6 +21,7 @@ import shutil
 import check
 import common
 from common import REPO, esc, layout, strf, write
+from sections import buddy
 from sections.database import fallback_icon, scrub
 
 MARKET = "market"
@@ -387,6 +388,9 @@ class Market:
         root = "../" * rel.count("/")
         banner = ('<p class="samplebar">Sample data: these prices, names and numbers are placeholders until the server '
                   'export is live.</p>') if self.m["sample"] else ""
+        name = rel.split("/")[1].removesuffix(".html")
+        slot = "market" if name == "index" else f"market/{name}"
+        body = buddy.head(body, buddy.figure(root, slot, rel))
         html = (f'<div class="db market" data-mk-root="{root}">{self.sidebar(root, here)}<div class="dbmain data">{banner}'
                 f'{body.replace("{root}", root)}</div></div><script src="{root}assets/market.js" defer></script>'
                 f'<script src="{root}assets/dbsearch.js" defer></script>')

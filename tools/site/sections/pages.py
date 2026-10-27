@@ -5,6 +5,7 @@ import re
 import common
 
 from common import SITE, SRC, esc, layout, meta_comment, read, write
+from sections import buddy
 
 
 def notice_board(rels, count=5):
@@ -41,24 +42,24 @@ def build_home(out, rels):
 
 
 def build_login(out):
-    body = read(os.path.join(SRC, "login.html"))
+    body = buddy.place(read(os.path.join(SRC, "login.html")), buddy.figure("../", "login"))
     write(out, "login/index.html", layout("Sign in", body, "../", "login",
                                           "Sign in to Slums Street and the Slums Market with your game account."))
 
 
 def build_join(out):
-    body = read(os.path.join(SRC, "join.html"))
+    body = buddy.place(read(os.path.join(SRC, "join.html")), buddy.figure("../", "join"))
     write(out, "join/index.html", layout("How to join", body, "../", "login",
                                          "How to join SlumsMS: an invite code, an account, the launcher."))
 
 
 def build_forgot(out):
-    body = read(os.path.join(SRC, "forgot.html"))
+    body = buddy.place(read(os.path.join(SRC, "forgot.html")), buddy.figure("../", "forgot"))
     write(out, "forgot/index.html", layout("Forgot your password?", body, "../", "login",
                                            "Ask an admin to reset your SlumsMS password."))
 
 
 def build_report(out):
-    body = read(os.path.join(SRC, "report.html"))
+    body = buddy.place(read(os.path.join(SRC, "report.html")), buddy.figure("../", "report"))
     write(out, "report/index.html", layout("Report a bug or request a feature", body, "../", "report",
                                            "Tell the SlumsMS developers about a bug or an idea."))

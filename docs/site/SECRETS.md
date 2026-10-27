@@ -39,7 +39,9 @@ show face up with the date. The rest show a "?" and the hint in the last column 
 - Until it's unlocked, the 4th colour dot shows a "?". Clicking it tells the player how many secrets they've found and
   hints "try a classic code, and say where you are".
 - Once it's unlocked and picked, the home page pictures switch to the spicy set: every secret the player has found,
-  plus the Shy and Double peace pictures.
+  plus the Shy and Double peace pictures. Every other Slums-chan picture on the site (the one beside each page's
+  heading, the sleeping one on the 404 page, the empty-list naps) becomes one of the player's cards. Which card goes
+  where depends on the page, so they vary.
 
 ## Where it lives
 

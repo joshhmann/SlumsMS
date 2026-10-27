@@ -631,7 +631,8 @@ class WorldTest(unittest.TestCase):
 
     def test_cards_match_the_service_and_every_picture_exists(self):
         import market_service
-        js = open(os.path.join(build.SRC, "assets", "theme.js"), encoding="utf-8").read()
+        with open(os.path.join(build.SRC, "assets", "theme.js"), encoding="utf-8") as f:
+            js = f.read()
         block = js[js.index("var SECRETS = {"):js.index("var IDS = ")]
         ids = re.findall(r"^    (\w+): \{ src", block, re.M)
         self.assertEqual(tuple(ids), market_service.SECRET_CARDS)  # the same cards, in the same order

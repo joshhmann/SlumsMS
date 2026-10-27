@@ -152,6 +152,22 @@ main { padding-block: 8px 48px; }
   filter: drop-shadow(4px 4px 0 var(--drop)); }
 /* headings next to her stop short of her instead of underlining behind her */
 .sidekick ~ h2 { display: flow-root; }
+/* Slums-chan on every page (sections/buddy.py): floats right of the heading with a speech bubble about the page */
+.buddy { float: right; display: flex; flex-direction: column; align-items: center; gap: 10px;
+  width: clamp(120px, 22vw, 200px); margin: 0 0 12px 18px; }
+.buddy .sidekick { float: none; width: 100%; max-height: 300px; object-fit: contain; margin: 0; }
+.dbmain .buddy, .doc .buddy { width: clamp(110px, 15vw, 160px); }
+.headfig .buddy { float: none; margin: 0; flex: none; }
+.headfig .buddy .sidekick { width: 100%; height: auto; }
+.dbmain .buddy .sidekick, .doc .buddy .sidekick { max-height: 220px; }
+.buddy ~ h2, .buddy ~ .headfig, .buddy ~ .notes-head { display: flow-root; }
+.bubble { position: relative; margin: 0; padding: 7px 11px; background: var(--surface); color: var(--ink);
+  border: 2px solid var(--edge); border-radius: 14px; box-shadow: 3px 3px 0 var(--drop);
+  font: 700 .82rem/1.25 var(--f-display); text-align: center; text-wrap: balance; }
+.bubble::after { content: ""; position: absolute; left: 50%; bottom: -8px; width: 12px; height: 12px; margin-left: -6px;
+  background: inherit; border: solid var(--edge); border-width: 0 2px 2px 0; transform: rotate(45deg); }
+@media (max-width: 620px) { .buddy, .dbmain .buddy, .doc .buddy { width: 108px; margin-left: 12px; }
+  .buddy .sidekick { max-height: 160px; } .bubble { font-size: .74rem; padding: 6px 8px; } }
 /* an empty list: a sleepy sticker next to the message */
 /* a heading with Slums-chan beside it, for pages laid out as a grid (floats don't work there) */
 .headfig { display: flex; align-items: flex-end; justify-content: space-between; gap: 16px; }

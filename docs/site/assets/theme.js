@@ -308,6 +308,24 @@
     if (!j && document.getElementById("cards-off")) document.getElementById("cards-off").hidden = false;
   }
 
+  // The Slums-chan theme, signed in: every other Slums-chan picture (beside a page's heading, the sleeping one on the
+  // 404 page, the empty lists) becomes one of the player's cards. Which ones depends on the page, so it varies.
+  if (root.getAttribute("data-accent") === "slumschan" && unlocked()) whoami().then(function (ok) {
+    if (!ok) return;
+    var got = found();
+    var set = IDS.filter(function (id) { return got.indexOf(id) >= 0; }).map(function (id) { return SECRETS[id]; })
+      .concat(REWARDS.theme, IDS.every(function (id) { return got.indexOf(id) >= 0; }) ? [REWARDS.all] : []);
+    var start = 0;
+    for (var i = 0; i < location.pathname.length; i++) start = (start * 31 + location.pathname.charCodeAt(i)) % 9973;
+    document.querySelectorAll("img.sidekick, .notfound img, .empty.nap img").forEach(function (img, n) {
+      var s = set[(start + n) % set.length];
+      img.removeAttribute("srcset");
+      img.width = Math.round(s.w * 360 / 820); img.height = 360;
+      img.src = base + "secret/cards/" + s.src;
+      img.alt = s.alt;
+    });
+  });
+
   var rotor = document.querySelector("[data-rotor]");
   if (!rotor) return;
   clicks(rotor, 7, "clicks");

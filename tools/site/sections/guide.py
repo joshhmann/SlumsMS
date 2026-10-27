@@ -7,6 +7,7 @@ import re
 
 import common
 from common import SRC, WIKI, esc, layout, meta_comment, read, write
+from sections import buddy
 
 
 # An item icon in front of each guide link, like the old fan-site menus (icons: docs/site/assets/icons, icons.py --chrome).
@@ -128,7 +129,9 @@ def build(out, data_dir=None):
                         f'{esc(html.unescape(t))}</a></li>' for f, t in nav)
         links += f'<li><a href="../patch-notes/">{icon("patch-notes", "../")}Patch notes</a></li>'
         page = (f'<div class="guide"><nav class="guide-nav panel" aria-label="Guide pages"><p class="bar">Player guide</p>'
-                f'<ul class="iconnav">{links}</ul></nav><article class="doc"><h1>{esc(title)}</h1>\n{body}</article></div>')
+                f'<ul class="iconnav">{links}</ul></nav><article class="doc">'
+                f'{buddy.figure("../", f"guide/{name}" if f"guide/{name}" in buddy.SLOTS else "guide")}'
+                f'<h1>{esc(title)}</h1>\n{body}</article></div>')
         label = "Player guide" if name == "index.html" else title
         write(out, f"guide/{name}", layout(label, page, "../", "guide"))
     unused = [fixes[i]["page"] for i in range(len(fixes)) if i not in used]
