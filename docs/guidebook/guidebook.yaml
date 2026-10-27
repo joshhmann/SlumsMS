@@ -5,7 +5,7 @@
 #     python3 docs/guidebook/compile_guide.py
 # which checks page sizes and writes docs/guidebook/build/ (WZ XML for the client's Custom.wz, plus a preview).
 #
-# How the client's book works (read from MapleRoot's own 04161001 in Item.wz/Etc/0416.img):
+# How the client's book works (read from the stock 04161001 in Item.wz/Etc/0416.img):
 #   - book/<page>/<block>/text; pages are shown two at a time (a spread: page 0+1, 2+3, ...).
 #   - #L<n>#...#l is a clickable link that opens the spread holding page <n>.
 #   - Colour/format codes: #b blue, #r red, #k black, #e bold on, #n bold off. "\n" is a new line.
@@ -31,7 +31,7 @@ pages:
 
   - id: what
     heading: "#e1. What is SlumsMS?#n"
-    body: "SlumsMS is a v83 world built on #bMapleRoot#k: custom jobs and skills, rebirths, the Arcane River and Grandis maps, a 5th tier for every class.\n\nOn top of that the towns are alive. Hundreds of #bregulars#k train, trade, chat, run party quests and come and go through the day."
+    body: "SlumsMS has #bcustom jobs and skills#k, rebirths, the Arcane River and Grandis maps, and a 5th tier for every class.\n\nOn top of that the towns are alive. Thousands of #bregulars#k train, trade, chat, run party quests and come and go through the day."
 
   - id: what2
     heading: ""
@@ -39,7 +39,7 @@ pages:
 
   - id: rates
     heading: "#e2. Rates#n"
-    body: "#bEXP#k 3x    #bMeso#k 10x\n#bDrop#k 4x    #bBoss drop#k 3x\n\nQuest mesos follow the meso rate. NPC shop prices are normal, so potions and stars are cheap for you.\n\nParty play and party quests give bonus EXP.\n\nType #b@rates#k or #b@check#k to see your own rates in game."
+    body: "#bEXP#k 3x    #bMeso#k 10x\n#bDrop#k 4x    #bBoss drop#k 3x\n\nQuest mesos follow the meso rate. NPC shop prices are normal, so potions and stars are cheap for you.\n\nParty play and party quests give bonus EXP.\n\nType #b@rates#k to see your own rates."
 
   - id: rates2
     heading: ""
@@ -55,19 +55,19 @@ pages:
 
   - id: npcs
     heading: "#e4. Hub NPCs#n"
-    body: "#bJob Master#k - every job advancement.\n#bWyatt the Reborn#k - rebirths.\n#bKey Binder#k - put past-life skills on your keys.\n#bCotton Warper#k - boss maps, Grandis and Arcane towns.\n#b4th job skills#k - all quest/book 4th job skills for 10m mesos."
+    body: "#bJob Master#k - job advances; skips the test for a fee.\n#bWyatt the Reborn#k - rebirths.\n#bKey Binder#k - past-life skills on your keys, 100 SP per rebirth.\n#bCotton Warper#k - boss maps, Grandis and Arcane towns.\n#b4th job skills#k - quest/book 4th job skills of your lines, 50m mesos."
 
   - id: npcs2
     heading: ""
-    body: "#bNimble#k - forge equipment, refine ores.\n#bRooty#k - NX goodies and server info.\n#bCotton Stylist#k - hair, face, skin.\n#bGerrard#k - storage.\n#bLab Tech#k - your expedition (boss) attempts.\n\n#L{{page:toc}}##bBack to Contents#k#l"
+    body: "#bNimble#k - forge equipment, refine ores.\n#bRooty#k - NX goodies, donor items, mastery books.\n#bCotton Stylist#k - hair, face, skin.\n#bGerrard#k - storage.\n#bLab Tech#k - your expedition (boss) attempts.\n\n#L{{page:toc}}##bBack to Contents#k#l"
 
   - id: jobs
     heading: "#e5. Jobs and the Job Master#n"
-    body: "Talk to the #bJob Master#k to advance. No quests.\n\n1st job: level 10 (Magician 8)\n2nd job: level 30\n3rd job: level 70\n4th job: level 120\n\nCygnus Knights get a 4th job too. A Beginner can also become a #bSuper Beginner#k at level 10."
+    body: "The #bJob Master#k skips the job test for a fee. Your class instructor's test is free.\n\n1st job: level 10 (Magician 8), free\n2nd job: level 30, 4m\n3rd job: level 70, 75m\n4th job: level 120, 500m\n\nCygnus Knights get a 4th job too. A Beginner can choose #bSuper Beginner#k at level 10 from the Job Master."
 
   - id: jobs2
     heading: ""
-    body: "MapleRoot changed many skills: new 4th job attacks, more lines and targets, and some old skills removed (boosters, Steal, Big Bang and others).\n\nWarriors are sword or spear only.\n\n#L{{page:toc}}##bBack to Contents#k#l"
+    body: "SlumsMS changed many skills: new 4th job attacks, more lines and targets, and some old skills removed (boosters, Steal, Big Bang and others).\n\nWarriors are sword or spear only.\n\n#L{{page:toc}}##bBack to Contents#k#l"
 
   - id: rebirth
     heading: "#e6. Rebirths#n"
@@ -107,7 +107,7 @@ pages:
 
   - id: quiet2
     heading: ""
-    body: "People you are talking to or partied with still show when their chatter is hidden.\n\nThe setting lasts until the server restarts.\n\n#L{{page:toc}}##bBack to Contents#k#l"
+    body: "People you are talking to or partied with still show when their chatter is hidden.\n\nYour @quiet choice is kept.\n\n#L{{page:toc}}##bBack to Contents#k#l"
 
   - id: cmds
     heading: "#e11. Commands#n"
@@ -119,7 +119,7 @@ pages:
 
   - id: help
     heading: "#e12. Getting help#n"
-    body: "#b@gm <message>#k - message the GMs.\n#b@reportbug <text>#k - report a bug.\n#b@dispose#k - if an NPC window is stuck.\n\nGame won't start? Make your real monitor the #bmain display#k (Parsec and other virtual screens stop it)."
+    body: "#b@gm <message>#k - message the GMs.\n#b@bug <text>#k - report a bug.\n#b@idea <text>#k - suggest something.\n#b@dispose#k - if an NPC window is stuck.\n\nGame won't start? Make your real monitor the #bmain display#k (Parsec and other virtual screens stop it)."
 
   - id: help2
     heading: ""
@@ -127,7 +127,7 @@ pages:
 
   - id: bots
     heading: "#e13. Friends, rivals, romance#n"
-    body: "Every regular has a feeling about you. Party, buffs, heals, trades, gifts and fame make #bfriends#k: they greet you, invite you and may send a gift.\n\nKS, taking drops or rude chat make #brivals#k: trash talk and a few stolen mobs. Grudges fade in days."
+    body: "Every regular has a feeling about you. Party, buffs, heals, trades, gifts and fame make #bfriends#k: they greet you, invite you and may send a gift.\n\nKS, taking drops or rude chat make #brivals#k: trash talk and a few stolen mobs. Grudges fade over weeks."
 
   - id: bots2
     heading: ""
