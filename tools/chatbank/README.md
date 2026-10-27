@@ -72,7 +72,9 @@ negative it is, or `-`), `source` (`gen` or `backfill`) and, for backfill, `bank
   conversation (`{"who": "P"|"B"|"O", "text": ...}`; O = someone nearby); the labels describe `player_line` given
   them. `slow` (con scam) is the ask at the end of 3 to 5 trust-building lines; `slow_ok` (con normal) is the same
   build-up ending honestly, so build-up alone never reads as a scam. Both have a floor (target/20, 200 at 4000) and
-  count toward the hard-negative share; about 30% of calls for other normal rows ask for 1 to 3 ordinary earlier lines.
+  count toward the hard-negative share; about 30% of calls for other normal rows ask for 1 to 3 ordinary earlier lines. Harassment rows always come
+  with 2 to 4 earlier lines in which P is already going after B (a lone jab reads as trash talk), and haggles with 1 to 3
+  that name the item and its asking price (without them a haggle reads as a trade offer).
   The model writes them as `CP:` / `CB:` / `CO:` before `P:` and `B:`. Every earlier line passes the player line's
   realism, length, brace, hard-limit, money and frozen-set checks, may not repeat the player line, and their number must
   be in the asked range. The label check sees them and labels the P line given them. Backfill pairs have none.
@@ -99,8 +101,9 @@ negative it is, or `-`), `source` (`gen` or `backfill`) and, for backfill, `bank
   equal its cell's, the tone matches (or is neutral against kind), the reply is ok and the line is not untypeable. Every
   disagreement goes to `pair-rejects.tsv` as `label mismatch <field> want=<x> got=<y>`. Round 5 review: on a con row the
   intent may read talk or trade (any intent `CON_INTENTS` allows for that con) when the con itself matches; for date, a
-  flirty reading counts as kind. What the check read is kept on the pair as `checked` (intent, tone, con, act). Replies
-  that sound like a help desk ("Real money is against the rules") are refused (`reply assistant-like`).
+  flirty reading counts as kind. A `denial` may read as act refuse (both are talk with con normal). What the check read is kept on the pair as `checked` (intent, tone, con, act). Replies
+  that sound like a help desk ("Real money is against the rules") are refused (`reply assistant-like`). Replies that swear at
+  the player ("stfu", "go fuk urself") are refused (`reply hostile`); ContentGuard has no profanity list by design.
 - `stats` prints pairs per intent, tone, con, act, bot label, source and variant, the player line length
   distribution, every plan floor with how far off it is, the talk, neutral and hard-negative shares, each run's pairs
   per call, reject share and estimated USD spend for generation plus check (`pair-runs.tsv`; from `--price-in` /

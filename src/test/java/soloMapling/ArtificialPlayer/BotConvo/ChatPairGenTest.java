@@ -302,6 +302,10 @@ class ChatPairGenTest {
         assertTrue(with > 250 && with < 350, "about 30% of normal calls get earlier lines: " + with);
         assertTrue(java.util.Arrays.equals(new int[]{0, 0}, ChatPairGen.contextRange(
                 new ChatPairGen.Row("trade", "neutral", "rwt", "ask", "-"), rng)));
+        assertTrue(java.util.Arrays.equals(new int[]{2, 4}, ChatPairGen.contextRange(
+                new ChatPairGen.Row("insult", "rude", "harassment", "chat", "-"), rng)), "harassment keeps at it");
+        assertTrue(java.util.Arrays.equals(new int[]{1, 3}, ChatPairGen.contextRange(
+                new ChatPairGen.Row("haggle", "neutral", "normal", "ask", "priced"), rng)), "a haggle follows a price");
         // the floors pull the planner to the slow pair; the report shows them
         seed(dir, new ChatPairGen.Row("party", "kind", "normal", "ask", "-"), 50, 1);
         ChatPairGen g = new ChatPairGen(dir, null);
@@ -364,6 +368,28 @@ class ChatPairGenTest {
         assertFalse(ChatPairGen.assistantLike("lower", "lol no thats bannable"));
         assertTrue(ChatPairGen.replyProblem(cell("trade", "neutral", "rwt", "ask", "brush_rwt"),
                 "Real money is against the rules").startsWith("reply assistant-like"));
+    }
+
+    @Test
+    void aDenialMayReadAsARefusal() {
+        ChatPairGen.Cell denial = new ChatPairGen.Cell("talk", "neutral", "normal", "chat", "denial", "talk", "lower", "-");
+        ChatPairGen.Verdict refuse = new ChatPairGen.Verdict("talk", "neutral", "normal", "refuse", true, true);
+        assertEquals(List.of(), ChatPairGen.mismatches(denial, refuse));
+        ChatPairGen.Cell story = new ChatPairGen.Cell("talk", "neutral", "normal", "chat", "story", "talk", "lower", "-");
+        assertEquals(List.of("label mismatch act want=chat got=refuse"), ChatPairGen.mismatches(story, refuse));
+    }
+
+    @Test
+    void repliesNeverSwearAtThePlayer() {
+        ChatPairGen.Cell c = cell("talk", "rude", "harassment", "chat", "brush_harassment");
+        for (String bad : List.of("go fuk urself", "stfu noob", "f u lol", "fck off", "screw u", "ur such a prick",
+                "gtfo my map")) {
+            assertEquals("reply hostile", ChatPairGen.replyProblem(c, bad), bad);
+        }
+        for (String ok : List.of("oh crap my pots", "whatever noob", "fun run tho", "ur gear is trash lol",
+                "fuzzy hat lol")) {
+            assertFalse(ChatPairGen.HOSTILE.matcher(ok).find(), ok);
+        }
     }
 
     @Test

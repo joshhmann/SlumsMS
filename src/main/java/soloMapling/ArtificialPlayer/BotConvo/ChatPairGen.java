@@ -388,6 +388,14 @@ public final class ChatPairGen {
         if (SLOW.contains(r.variant())) {
             return new int[]{3, 5};
         }
+        // round 5 sample: a lone jab reads as trash talk; harassment is P keeping at it after the earlier lines
+        if ("harassment".equals(r.con())) {
+            return new int[]{2, 4};
+        }
+        // a haggle without the asking price before it reads as a trade offer
+        if ("haggle".equals(r.intent())) {
+            return new int[]{1, 3};
+        }
         return "normal".equals(r.con()) && rng.nextDouble() < CONTEXT_SHARE ? new int[]{1, 3} : new int[]{0, 0};
     }
 
@@ -845,6 +853,11 @@ public final class ChatPairGen {
             } else if ("slow_ok".equals(c.variant())) {
                 s.append("The earlier lines build trust: friendly chat about grinding, helping each other, small ")
                         .append("favours; P's last line stays honest, no scam. ");
+            } else if ("harassment".equals(c.con())) {
+                s.append("The earlier lines show P already going after B (mocking B, following B around, telling B to ")
+                        .append("quit) while B ignores it or asks P to stop; P's last line keeps at it. ");
+            } else if ("haggle".equals(c.intent())) {
+                s.append("The earlier lines name the item and its asking price; P's last line bargains it down. ");
             } else {
                 s.append("The earlier lines are ordinary chat that leads to P's line. ");
             }
@@ -972,7 +985,9 @@ public final class ChatPairGen {
         if (!c.con().equals(v.con())) {
             out.add("label mismatch con want=" + c.con() + " got=" + v.con());
         }
-        if (!c.act().equals(v.act())) {
+        // a denial ("nah i dont need ur pots") reads as a refusal just as well; both are talk with con normal
+        boolean denialAct = "denial".equals(c.variant()) && "refuse".equals(v.act());
+        if (!denialAct && !c.act().equals(v.act())) {
             out.add("label mismatch act want=" + c.act() + " got=" + v.act());
         }
         if (!Boolean.TRUE.equals(v.replyOk())) {
@@ -1195,8 +1210,19 @@ public final class ChatPairGen {
         if (bad == null && assistantLike(c.voice(), text)) {
             bad = "assistant-like";
         }
+        if (bad == null && HOSTILE.matcher(text).find()) {
+            bad = "hostile";
+        }
         return bad == null ? null : "reply " + bad;
     }
+
+    /**
+     * Profanity aimed at the other player ("go fuk urself", "stfu"). ContentGuard has no profanity list (PG-13 by
+     * design), but a bot's brush-off should be curt, not abusive. Mild exclamations ("oh crap") stay.
+     */
+    static final Pattern HOSTILE = Pattern.compile("\\b(stfu|gtfo|f+\\s?u|f+[uv]+[ckq]+\\w*|f+c?k+\\w*|phuck\\w*"
+            + "|screw (u|you|urself|yourself|off)|bitch\\w*|ass\\s?hole\\w*|dick\\s?head|prick|douche\\w*"
+            + "|piece of (shit|crap)|shit\\s?head|cunt\\w*)\\b", Pattern.CASE_INSENSITIVE);
 
     private static final Pattern ASSISTANT = Pattern.compile("\\b(against the (rules|tos|terms)|not allowed|is prohibited"
             + "|violat\\w* (the )?(rules|tos|terms)|i (cannot|can not) (help|assist|do that)|i(?:'| a)m sorry,? but"
