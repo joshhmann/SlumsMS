@@ -4,9 +4,12 @@
 **Kind:** FEATURE
 **Effort:** S (installable app) + M (push)
 **Depends on:** the site on its real HTTPS address (1.6.0 launch), the bell (site-160-theme b87cc6601)
-**Status:** open, after 1.6.0
+**Status:** PARKED (owner, 2026-10-27: "naww not a phone app, but just was proding if it benefited to just move to some framework or a stack"). Kept as a plan in case it comes back.
 
-Source: the owner, 2026-10-27: "ohh so if we want to go and do a pwa", then "yeahh notifications..".
+Source: the owner, 2026-10-27: "ohh so if we want to go and do a pwa", then "yeahh notifications..". Then the owner
+clarified that they were asking about the stack, not for an app, so this is parked. The stack answer: keep the static
+generator and the stdlib services for 1.6.0, add small pieces (htmx or Alpine) where a live feature needs them, and
+move the backend services onto a small Python framework when the NX-meso exchange lands (1.6.1).
 
 ## What
 
