@@ -67,7 +67,7 @@ KINDS = ("WTB", "WTS")
 # three that unlock the theme, "all" for every secret. Nothing here is worth anything; a player who posts every id by
 # hand just sees every card, which the secret/ pictures already allow anyone signed in.
 SECRET_CARDS = ("konami", "slums", "clicks", "bustin", "sidekick", "wake",
-                "henesys", "owl", "kerning", "colours", "afk", "footer", "slime")
+                "henesys", "owl", "kerning", "colours", "afk", "footer", "slime", "bubble")
 REWARD_CARDS = {"theme": ("konami", "slums", "clicks"), "all": SECRET_CARDS}
 DIRS = ("below", "above")
 

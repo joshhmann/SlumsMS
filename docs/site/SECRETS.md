@@ -14,7 +14,7 @@ show face up with the date. The rest show a "?" and the hint in the last column 
   case both work.
 - "Clicks in a row" means each click within 0.8 seconds of the last one.
 
-## The 15 cards
+## The 16 cards
 
 | # | Card | Id | How to unlock it | Picture | Hint shown on My cards |
 |---|---|---|---|---|---|
@@ -31,8 +31,9 @@ show face up with the date. The rest show a "?" and the hint in the last column 
 | 11 | AFK | `afk` | Leave a page open and visible for 5 minutes without touching it: no keys, mouse, scrolling or taps | `lounge.webp` | Sit still for a while. |
 | 12 | Small print | `footer` | Click the line of small print at the bottom of any page ("SlumsMS is Slums Story...") 3 times in a row | `glance.webp` | Read the small print at the bottom. Then poke it. |
 | 13 | Slime hug | `slime` | Type `slime` | `hug.webp` | Say her favourite pet. |
-| 14 | Shy | `theme` | **Reward:** find cards 1, 2 and 3. This also unlocks the Slums-chan colour theme (the 4th dot) | `shy.webp` | Unlock the Slums-chan theme. |
-| 15 | Double peace | `all` | **Reward:** find all 13 secrets (cards 1-13) | `dpeace.webp` | Find every secret. |
+| 14 | Caught you! | `bubble` | Click Slums-chan's speech bubble (beside any page's heading) 5 times in a row | `peek.webp` | Keep poking what she says. |
+| 15 | Shy | `theme` | **Reward:** find cards 1, 2 and 3. This also unlocks the Slums-chan colour theme (the 4th dot) | `shy.webp` | Unlock the Slums-chan theme. |
+| 16 | Double peace | `all` | **Reward:** find all 14 secrets (cards 1-14) | `dpeace.webp` | Find every secret. |
 
 ## The Slums-chan theme
 

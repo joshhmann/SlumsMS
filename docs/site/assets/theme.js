@@ -67,11 +67,11 @@
   setInterval(tick, 30000);
 })();
 
-/* Secrets: thirteen hidden Slums-chan stickers for signed-in players, each one a card in My cards (market/cards.html).
+/* Secrets: fourteen hidden Slums-chan stickers for signed-in players, each one a card in My cards (market/cards.html).
    The Konami code; typing "slums", "bustin", "henesys", "kerning" or "slime" outside a text box; clicking the hero
    picture 7 times in a row, a page's Slums-chan 5 times or the footer line 3 times; waking the sleeping one on the 404
-   page (3 clicks); trying all three colour dots within 10 seconds; a visit between 2 and 5 AM; or 5 minutes without
-   touching a page. The pictures live in secret/, which only the private build has and nginx serves only with a
+   page (3 clicks); clicking her speech bubble 5 times; trying all three colour dots within 10 seconds; a visit between
+   2 and 5 AM; or 5 minutes without touching a page. The pictures live in secret/, which only the private build has and nginx serves only with a
    sign-in, so nothing loads until a signed-in player finds one; a signed-out visitor gets a hint to sign in instead
    (not for the late-night and idle ones, which would pop up uninvited). Found ones are kept in localStorage and saved
    to the account (the market service, /api/market/cards), merged both ways once per visit, so they follow the player
@@ -105,7 +105,9 @@
     footer: { src: "glance.webp", w: 431, name: "Small print", hint: "Read the small print at the bottom. Then poke it.",
               alt: "Slums-chan glances back over her shoulder" },
     slime: { src: "hug.webp", w: 457, name: "Slime hug", hint: "Say her favourite pet.",
-             alt: "Slums-chan hugs a blue slime and winks" }
+             alt: "Slums-chan hugs a blue slime and winks" },
+    bubble: { src: "peek.webp", w: 750, name: "Caught you!", hint: "Keep poking what she says.",
+              alt: "Slums-chan, caught looking back over her shoulder" }
   };
   var IDS = Object.keys(SECRETS), THEME = ["konami", "slums", "clicks"];
   var THEME_ONLY = [{ src: "shy.webp", w: 582, alt: "Slums-chan kneels with a shy smile" },
@@ -204,7 +206,7 @@
         : "That&rsquo;s all of them. Nice.";
       if (!was && unlocked()) note += " <b>The Slums-chan theme is unlocked:</b> pick it next to the colour dots up top.";
       var c = card('<img src="' + base + "secret/" + s.src + '" alt="" width="' + s.w + '" height="820">' +
-        '<p class="secret-note"><b>You found a card: ' + s.name + ".</b> " + note +
+        '<p class="secret-note"><b>You found a card: ' + s.name + (/[!?.]$/.test(s.name) ? "" : ".") + "</b> " + note +
         ' <a href="' + base + 'market/cards.html">My cards</a></p>');
       c.querySelector("img").alt = s.alt;
       if (unlocked()) showUnlock();
@@ -243,6 +245,8 @@
   if (sleeper) clicks(sleeper, 3, "wake");
   var small = document.querySelector(".site-foot span");
   if (small) clicks(small, 3, "footer");
+  // her speech bubble (sections/buddy.py), clicked 5 times in a row: she turns around
+  document.querySelectorAll(".bubble").forEach(function (el) { clicks(el, 5, "bubble"); });
 
   // all three colour dots tried within 10 seconds
   var tried = {};

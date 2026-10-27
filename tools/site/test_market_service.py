@@ -208,7 +208,7 @@ class StoreTest(Base):
     def test_cards_are_per_account_and_rewards_follow_the_secrets(self):
         out = self.store.found(self.me, {"ids": ["konami", "slums", "made-up", 5]})
         self.assertEqual(set(out["found"]), {"konami", "slums"})
-        self.assertEqual(out["total"], 15)
+        self.assertEqual(out["total"], 16)
         self.clock.t += 60
         out = self.store.found(self.me, {"ids": ["clicks", "konami"]})
         self.assertIn("theme", out["found"])  # the first three unlock the theme card
@@ -217,7 +217,7 @@ class StoreTest(Base):
         self.assertNotIn("all", out["found"])
         self.assertEqual(self.store.cards(self.other)["found"], {})
         out = self.store.found(self.me, {"ids": list(ms.SECRET_CARDS)})
-        self.assertEqual(len(out["found"]), 15)
+        self.assertEqual(len(out["found"]), 16)
         for bad in ({"ids": "konami"}, {}, {"ids": ["x"] * 99}):
             with self.assertRaises(ms.Refused):
                 self.store.found(self.me, bad)
