@@ -3,6 +3,8 @@ Description=SlumsMS TEST site: World pages every 2 minutes
 
 [Timer]
 OnBootSec=2min
+# also from when the timer starts (an install or restart), so the chain never stalls without a first run
+OnActiveSec=1min
 OnUnitActiveSec=2min
 
 [Install]

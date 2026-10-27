@@ -52,7 +52,8 @@ ssh "$HOST" "echo $(git rev-parse --short HEAD) > $DEST/DEPLOYED_COMMIT
     --market-data /opt/mapleroot-dev/persistence-test/Server/data/market | tail -1
   systemctl enable -q slums-login-test slums-market-test slums-site-test-web slums-site-test-world.timer slums-site-test-market.timer
   systemctl restart slums-login-test slums-market-test slums-site-test-web
-  systemctl start slums-site-test-world.timer slums-site-test-market.timer
+  systemctl restart slums-site-test-world.timer slums-site-test-market.timer
+  systemctl start --no-block slums-site-test-world.service slums-site-test-market.service
   sleep 2; systemctl is-active slums-login-test slums-market-test slums-site-test-web | tr '\n' ' '; echo"
 after=$(ssh "$HOST" 'cat /run/nginx.pid; find /etc/nginx -type f -print0 | sort -z | xargs -0 md5sum | md5sum')
 [ "$before" = "$after" ] && echo "shared nginx untouched (same pid and config)" || { echo "WARNING: shared nginx pid or config changed" >&2; exit 1; }

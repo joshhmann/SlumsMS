@@ -5,6 +5,8 @@ Description=Rebuild the SlumsMS website market pages every 2 minutes
 # FM listings are exported every 2 min (-Dslums.market.listingsSeconds=120); sales and prices every 15. One market
 # rebuild takes about 5 s at nice 19, so the whole section is simply rebuilt every 2 min.
 OnBootSec=3min
+# also from when the timer starts (an install or restart), so the chain never stalls without a first run
+OnActiveSec=1min
 OnUnitActiveSec=2min
 RandomizedDelaySec=15
 

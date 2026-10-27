@@ -4,6 +4,8 @@ Description=Rebuild the SlumsMS website World pages every 2 minutes
 [Timer]
 # the site export writes feed.json every 2 min, world.json every 60 s and leaderboards.json every 15 min
 OnBootSec=3min
+# also from when the timer starts (an install or restart), so the chain never stalls without a first run
+OnActiveSec=1min
 OnUnitActiveSec=2min
 AccuracySec=10s
 Persistent=false
