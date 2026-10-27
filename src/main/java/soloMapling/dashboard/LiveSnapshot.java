@@ -18,8 +18,12 @@ import java.util.function.IntFunction;
  */
 final class LiveSnapshot {
 
-    /** One online bot. */
-    record BotSample(int id, String name, int level, String job, int mapId, String type, String activity, long meso) {
+    /** One online bot. {@code roster}: a director (roster) bot; false = a boot environment resident (1.6.0 towns). */
+    record BotSample(int id, String name, int level, String job, int mapId, String type, String activity, long meso,
+                     boolean roster) {
+        BotSample(int id, String name, int level, String job, int mapId, String type, String activity, long meso) {
+            this(id, name, level, job, mapId, type, activity, meso, true);
+        }
     }
 
     /** Population numbers. {@code lod} is full maps, halo maps, active maps, bots on dynamic movement. */
@@ -65,6 +69,7 @@ final class LiveSnapshot {
         point.put("tgt", pop.target());
         point.put("pl", pop.players());
         point.put("act", activities(bots));
+        point.put("towns", towns(bots));
         point.put("heap", h.get("heapUsedMb"));
         point.put("cpu", h.get("cpuPct"));
         point.put("tick", h.get("tickMsPerS"));
@@ -94,14 +99,15 @@ final class LiveSnapshot {
         Map<String, Integer> types = new TreeMap<>();
         Map<String, Integer> jobs = new TreeMap<>();
         Map<Integer, Integer> bands = new TreeMap<>();
-        Map<Integer, int[]> maps = new HashMap<>(); // count, level sum
+        Map<Integer, int[]> maps = new HashMap<>(); // count, level sum, residents, roster
         for (BotSample b : bots) {
             types.merge(b.type(), 1, Integer::sum);
             jobs.merge(b.job(), 1, Integer::sum);
             bands.merge(b.level() / 10 * 10, 1, Integer::sum);
-            int[] m = maps.computeIfAbsent(b.mapId(), k -> new int[2]);
+            int[] m = maps.computeIfAbsent(b.mapId(), k -> new int[4]);
             m[0]++;
             m[1] += b.level();
+            m[b.roster() ? 3 : 2]++;
         }
         out.put("types", types);
         out.put("jobs", jobs);
@@ -112,10 +118,28 @@ final class LiveSnapshot {
         top.sort(Comparator.comparingInt((Map.Entry<Integer, int[]> e) -> -e.getValue()[0]).thenComparing(Map.Entry::getKey));
         List<Object> mapRows = new ArrayList<>();
         for (Map.Entry<Integer, int[]> e : top.subList(0, Math.min(TOP_MAPS, top.size()))) {
-            mapRows.add(List.of(e.getKey(), name(mapName, e.getKey()), e.getValue()[0], e.getValue()[1] / e.getValue()[0]));
+            // 1.6.0 towns: [map, name, bots, avg level, residents (boot environment), roster (director)]
+            mapRows.add(List.of(e.getKey(), name(mapName, e.getKey()), e.getValue()[0], e.getValue()[1] / e.getValue()[0],
+                    e.getValue()[2], e.getValue()[3]));
         }
         out.put("maps", mapRows);
         out.put("mapsWithBots", maps.size());
+        return out;
+    }
+
+    /**
+     * 1.6.0 towns: per town (its whole map family, every channel; the Free Market with its rooms), residents (boot
+     * environment bots) and roster (director) bots: {@code {"Henesys": [residents, roster], ...}}.
+     */
+    static Map<String, List<Integer>> towns(List<BotSample> bots) {
+        Map<String, int[]> counts = new TreeMap<>();
+        for (BotSample b : bots) {
+            String town = java.util.Optional.ofNullable(soloMapling.ArtificialPlayer.BotLifeSystem.LifeTowns.townOf(b.mapId()))
+                    .map(soloMapling.ArtificialPlayer.BotLifeSystem.LifeTowns.Town::name).orElse(null);
+            if (town != null) counts.computeIfAbsent(town, k -> new int[2])[b.roster() ? 1 : 0]++;
+        }
+        Map<String, List<Integer>> out = new TreeMap<>();
+        counts.forEach((town, n) -> out.put(town, List.of(n[0], n[1])));
         return out;
     }
 

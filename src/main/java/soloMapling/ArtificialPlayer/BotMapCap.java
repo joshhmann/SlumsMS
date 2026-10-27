@@ -150,10 +150,18 @@ public final class BotMapCap {
         return p;
     }
 
-    /** This map's cap from config.yaml; 0 = no cap. */
+    /**
+     * This map's cap from config.yaml; 0 = no cap. 1.6.0 towns: while the town pull is on (BOT_TOWN_PULL > 0) a town
+     * map ({@link soloMapling.ArtificialPlayer.BotLifeSystem.LifeTowns}) without an override of its own takes
+     * BOT_TOWN_MAP_MAX when that is higher, so BOT_MAP_CAP never cuts a town's busyness target.
+     */
     public static int cap(int mapId) {
         Parsed p = config();
-        return capFor(mapId, p.defaultCap(), p.overrides());
+        int cap = capFor(mapId, p.defaultCap(), p.overrides());
+        if (cap <= 0 || p.overrides().containsKey(mapId)) return cap;
+        ServerConfig server = YamlConfig.config == null ? null : YamlConfig.config.server;
+        if (server == null || !(server.BOT_TOWN_PULL > 0) || server.BOT_TOWN_MAP_MAX <= cap) return cap;
+        return soloMapling.ArtificialPlayer.BotLifeSystem.LifeTowns.isTownMap(mapId) ? server.BOT_TOWN_MAP_MAX : cap;
     }
 
     /** The overrides in force, for the GM read-out. */

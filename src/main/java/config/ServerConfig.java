@@ -103,6 +103,33 @@ public class ServerConfig {
     //1.5.2 hotfix: the same share for the FM entrance's FM bots and merchants (still split over the channels like
     //the rest of the dressing). 1.0 = all 90, about 40 on channel 1; BOT_ENVIRONMENT_SCALE's 0.5 left about 20.
     public double BOT_FM_ENVIRONMENT_SCALE = 1.0;
+    //1.6.0 towns (owner 2026-10-27: "let playerbots naturally come and go"): the share of the Henesys town dressing
+    //(HenesysBots, the Henesys/Market/Park/Potion Shop/Game Zone fillers, the pet park's JQ and social bots) that
+    //spawns at boot. -1 = follow BOT_ENVIRONMENT_SCALE (as before). FM entrance, merchants, FM rooms, casino, gacha,
+    //hosts, drop game, OPQ and the tutorial are unaffected. Read at boot.
+    public double BOT_TOWN_DRESSING_SCALE = -1;
+    //1.6.0 towns: where a brain bot hangs out (HANG_OUT/SHOW_OFF) when no friend, plan or fad says otherwise, as
+    //weights: near (the town of the map it is on), home (its roster home town), henesys. "henesys:100" = as before.
+    public String BOT_LIFE_TOWN_WEIGHTS = "henesys:100";
+    //1.6.0 towns: how hard a town below its busyness target pulls a free bot (a HANG_OUT/SHOW_OFF bonus, x the
+    //town's deficit). 0 = off (no index, no pull). See TownPulse.
+    public double BOT_TOWN_PULL = 0;
+    //1.6.0 towns: per-town busyness targets on a weight-1.0 channel at the curve's peak, over a town's whole map
+    //family: "mapId:n,..." over the built-in table (TownPulse.DEFAULT_TARGETS); a bare number sets every town.
+    public String BOT_TOWN_BUSY_TARGET = "";
+    //1.6.0 towns: the targets' channel weights, "channel:weight" (players crowd ch1-2). A channel with a visible real
+    //player online counts as 1.0.
+    public String BOT_TOWN_CHANNEL_WEIGHTS = "1:1.0,2:0.7,3:0.5,4:0.4,5:0.4";
+    //1.6.0 towns: the target is this much higher where a visible real player stands in the town.
+    public double BOT_TOWN_PLAYER_BOOST = 1.5;
+    //1.6.0 towns: bots a town map instance is filled toward at most. While BOT_TOWN_PULL is on it is also the bot cap
+    //of a town map (LifeTowns) above BOT_MAP_CAP, unless BOT_MAP_CAP_OVERRIDES names that map (owner 2026-10-27: a
+    //real client held 620 bots on one map at ~1.5 GB and only lagged at ~1,000; default 200).
+    public int BOT_TOWN_MAP_MAX = 200;
+    //1.6.0 towns: pulls one town map instance hands out a minute.
+    public int BOT_TOWN_PULL_PER_MIN = 3;
+    //1.6.0 towns: all town targets together stay under this share of the director's bots online (fields keep grinders).
+    public double BOT_TOWN_SHARE_MAX = 0.45;
     //1.4.2 (ticket 57): how bots split over the channels, ch1 first. Any count of weights; channels past the list
     //get the last weight; they are normalised. Blank = every channel alike.
     //owner 2026-10-21: 5 channels, weights 100/85/50/30/20. Live config.yaml for 1.5.0: channels 5, CHANNEL_LOAD 125

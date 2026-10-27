@@ -63,6 +63,10 @@ public final class LifeRuntime {
     private volatile int planDestination = -1;
     private volatile int channelTarget = -1;
     private volatile boolean channelForKs;
+    /** 1.6.0 towns: the town map a free bot is pulled to at this decision ({@link TownPulse}); -1 = none. */
+    private volatile int pullTown = -1;
+    /** 1.6.0 towns: where the last {@link #townDestination()} came from (bot-life.json). */
+    private volatile LifeTowns.Source townSource = LifeTowns.Source.HENESYS;
 
     public <B extends BotSM & LifeHost> LifeRuntime(B bot) {
         this(bot, bot);
@@ -95,17 +99,57 @@ public final class LifeRuntime {
     /** The host the brain acts through (the bot itself, or its light host). */
     public LifeHost host() { return bot; }
     public boolean restored() { return restored; }
+    /**
+     * Where a HANG_OUT/SHOW_OFF goes: a friend's town, the plan's, a town short of bots ({@link TownPulse}, 1.6.0
+     * towns), a hangout fad, else the {@code BOT_LIFE_TOWN_WEIGHTS} pick (near, home, Henesys; shipped: Henesys).
+     */
     public int townDestination() {
-        Character friend = friend(System.currentTimeMillis());
-        if (friend != null && friend.getMap() != null && friend.getMap().isTown()) return friend.getMapId();
+        long now = System.currentTimeMillis();
+        Character friend = friend(now);
+        if (friend != null && friend.getMap() != null && friend.getMap().isTown()) return source(friend.getMapId(), LifeTowns.Source.FRIEND);
         var next = planNext;
-        if (next != null && next.step().activity == Activity.HANG_OUT && planDestination > 0) return planDestination;
+        if (next != null && next.step().activity == Activity.HANG_OUT && planDestination > 0) return source(planDestination, LifeTowns.Source.PLAN);
+        if (townDestination != HOME_TOWN) return source(townDestination, LifeTowns.Source.FRIEND);
+        if (pullTown > 0) return source(pullTown, LifeTowns.Source.PULL);
+        Character chr = bot.getChr();
         // 1.6.0 S9: a hangout fad this bot follows on its channel (friends first, then the plan, then the fad)
-        if (townDestination == HOME_TOWN && bot.getChr() != null && bot.getChr().getMap() != null) {
-            int spot = soloMapling.ArtificialPlayer.Fads.spotFor(bot.getChr().getId(), bot.getChr().getMap().getChannelId());
-            if (spot > 0) return spot;
+        if (chr != null && chr.getMap() != null) {
+            int spot = soloMapling.ArtificialPlayer.Fads.spotFor(chr.getId(), chr.getMap().getChannelId());
+            if (spot > 0) return source(spot, LifeTowns.Source.FAD);
         }
-        return townDestination;
+        LifeTowns.Pick pick = townPick(chr, now);
+        return source(pick.mapId(), pick.source());
+    }
+
+    private int source(int mapId, LifeTowns.Source source) {
+        townSource = source;
+        return mapId;
+    }
+
+    /** 1.6.0 towns: the {@code BOT_LIFE_TOWN_WEIGHTS} pick; shipped "henesys:100" is Henesys, as before. */
+    private static LifeTowns.Pick townPick(Character chr, long now) {
+        var server = config.YamlConfig.config == null ? null : config.YamlConfig.config.server;
+        double[] weights = weights(server == null ? null : server.BOT_LIFE_TOWN_WEIGHTS);
+        if (chr == null || weights[0] <= 0 && weights[1] <= 0) return new LifeTowns.Pick(HOME_TOWN, LifeTowns.Source.HENESYS);
+        int level = chr.getLevel();
+        int near = weights[0] <= 0 || chr.getMap() == null ? -1
+                : safe(() -> LifeTowns.near(chr.getMapId(), chr.getMap().getReturnMapId(), level), -1);
+        int home = weights[1] <= 0 ? -1 : safe(() -> {
+            var member = BotRoster.loadedMember(chr.getId() - BotStore.BOT_ID_BASE);
+            return member == null ? -1 : LifeTowns.home(member.homeMapId(), level);
+        }, -1);
+        return LifeTowns.pick(weights, near, home, chr.getId(), now);
+    }
+
+    private static volatile String weightSpec;
+    private static volatile double[] weightCache = {0, 0, 1};
+
+    private static double[] weights(String spec) {
+        if (!Objects.equals(spec, weightSpec)) {
+            weightCache = LifeTowns.weights(spec);
+            weightSpec = spec;
+        }
+        return weightCache;
     }
 
     /** Where a chosen PARTY_QUEST goes: the plan's boss/PQ town when that is the next step, else the PQ's lobby. */
@@ -121,6 +165,7 @@ public final class LifeRuntime {
         if (mapId <= 0) return false;
         if (mapId == planDestination) return true;
         if (soloMapling.ArtificialPlayer.Fads.isSpot(mapId)) return true; // 1.6.0 S9: a hangout fad's spot
+        if (LifeTowns.isTownMap(mapId)) return true; // 1.6.0 towns: a near/home town, or one short of bots
         for (LifePq.Lobby lobby : LifePq.LOBBIES) if (lobby.mapId() == mapId) return true;
         return false;
     }
@@ -249,6 +294,16 @@ public final class LifeRuntime {
             boolean ksWar = chr.getMap() != null && safe(() -> LifeChannelMove.ksWarHere(chr), false);
             channelForKs = ksWar;
             channelTarget = crowd >= LifePolicy.CROWDED || ksWar ? safe(() -> LifeChannelMove.target(chr), -1) : -1;
+            // 1.6.0 towns: at a normal decision point only (the current stay or grind has run its course, nothing in
+            // flight, nothing promised) a town short of bots may pull (TownPulse); decided before HANG_OUT's
+            // destination is checked for eligibility below.
+            TownPulse.Pull pulled = null;
+            if (now >= dueAt && running.active() == 0 && TownPulse.on() && chr.getMap() != null
+                    && bot.freeForAutomaticLifeActivity(now)) {
+                pulled = safe(() -> TownPulse.pullFor(chr.getId(), chr.getMap().getChannelId(), chr.getLevel(),
+                        chr.getMapId(), now), null);
+            }
+            pullTown = pulled == null ? -1 : pulled.mapId();
             Map<Activity, String> eligible = new EnumMap<>(Activity.class);
             for (Activity activity : Activity.values()) if (bot.canStartLifeActivity(activity, now)) {
                 eligible.put(activity, "existing " + activity.name().toLowerCase(Locale.ROOT) + " routine");
@@ -270,10 +325,16 @@ public final class LifeRuntime {
             dirty = false; lastNeedSignature = signature;
             var kept = now >= dueAt ? null : current;
             double townBias = townBias(chr.getLevel());
-            var options = LifePolicy.options(context, memory.profile(), situation).stream().map(o ->
-                    o.activity() == Activity.HANG_OUT || o.activity() == Activity.SHOW_OFF
-                    ? new Option(o.activity(), o.weights(), o.contextBonus() + townBias
-                            + (townDestination != HOME_TOWN ? .6 : 0), o.personalityBonus(), o.available(), o.reason()) : o).toList();
+            TownPulse.offer(chr.getId(), pulled); // read by TownPulse.BIAS in the scorer
+            List<Option> options;
+            try {
+                options = LifePolicy.options(context, memory.profile(), situation).stream().map(o ->
+                        o.activity() == Activity.HANG_OUT || o.activity() == Activity.SHOW_OFF
+                        ? new Option(o.activity(), o.weights(), o.contextBonus() + townBias
+                                + (townDestination != HOME_TOWN ? .6 : 0), o.personalityBonus(), o.available(), o.reason()) : o).toList();
+            } finally {
+                TownPulse.offer(chr.getId(), null);
+            }
             var result = LifeDecision.evaluate(context.needs(), options, kept,
                     now, LifePolicy.INTERRUPT_MARGIN, .02,
                     a -> new SplittableRandom(chr.getId() * 31L + a.ordinal() * 101L + now / 30_000).nextDouble(-1, 1),
@@ -509,6 +570,12 @@ public final class LifeRuntime {
         // 1.6.0 S8: time with people fills the SOCIAL need (before, only a friend's ask did, so HANG_OUT always won).
         if (Set.of(Activity.HANG_OUT, Activity.SHOW_OFF, Activity.HELP_FRIEND, Activity.PARTY_QUEST, Activity.FISH,
                 Activity.FREE_MARKET).contains(activity)) memory.talked(now);
+        if (activity == Activity.HANG_OUT || activity == Activity.SHOW_OFF) townAccepted(now);
+        if ((activity == Activity.FREE_MARKET || activity == Activity.SELL) && pullTown > 0 && bot.getChr() != null
+                && bot.getChr().getMap() != null && LifeTowns.townOf(pullTown) != null
+                && LifeTowns.townOf(pullTown).mapId() == LifeTowns.FREE_MARKET) { // a visitor the FM pulled
+            TownPulse.consume(bot.getChr().getMap().getChannelId(), LifeTowns.FREE_MARKET, now);
+        }
         String line = switch (activity) {
             case RESTOCK -> "brb, restocking";
             case HANG_OUT, SHOW_OFF -> "gonna hang around town for a bit";
@@ -532,6 +599,24 @@ public final class LifeRuntime {
             soloMapling.ArtificialPlayer.BotCommandsPack.SocialCommands.BotFullChat(bot.getChr(), line);
         }
     }
+
+    /** 1.6.0 towns: a hang-out started: where it came from, and a pulled one spends its town's budget. */
+    private void townAccepted(long now) {
+        int destination = townDestination();
+        LifeTowns.Source source = townSource;
+        TownPulse.hangOut(source);
+        Character chr = bot.getChr();
+        if (source == LifeTowns.Source.PULL && chr != null && chr.getMap() != null) {
+            TownPulse.consume(chr.getMap().getChannelId(), destination, now);
+            if (soloMapling.qa.QaLog.on(soloMapling.qa.QaLog.Topic.HABITS)) {
+                soloMapling.qa.QaLog.any(soloMapling.qa.QaLog.Topic.HABITS,
+                        "TOWN PULL bot=" + chr.getName() + " town=" + destination);
+            }
+        }
+    }
+
+    /** QA/test seam: the town a decision was pulled to. */
+    void pullTown(int mapId) { pullTown = mapId; }
 
     public synchronized void fishingStarted() {
         fact = "seated on a fishing chair at the water; no catch or reward is confirmed by seating";
@@ -587,6 +672,7 @@ public final class LifeRuntime {
                 data.put("sayDo", soloMapling.ArtificialPlayer.BotConvo.SayDo.stats());
                 data.put("nameGuard", soloMapling.ArtificialPlayer.BotConvo.NameGuard.counts()); // S4: made-up names caught
                 data.put("learning", LifeLearning.report(now)); // 1.6.0 S9: drift, crossings, fads, trends
+                data.put("towns", TownPulse.report()); // 1.6.0 towns: pull counters, bots vs targets
                 var file = java.nio.file.Path.of("data/autoqa/bot-life.json");
                 java.nio.file.Files.createDirectories(file.getParent());
                 var temporary = file.resolveSibling("bot-life.json.tmp");

@@ -111,7 +111,8 @@ class DashboardExporterTest {
         assertEquals(Map.of("grind", 2L, "travel", 1L), numbersAsLongs((Map<?, ?>) bots.get("activity")));
         assertEquals(List.of(List.of(30L, 2L), List.of(70L, 1L)), deepLongs(bots.get("levels")));
         List<?> topMap = (List<?>) ((List<?>) bots.get("maps")).get(0);
-        assertEquals(List.of(100000000L, "Henesys", 2L, 36L), deepLongs(topMap));
+        // 1.6.0 towns: residents (boot environment) vs roster (director) bots ride along on each map row
+        assertEquals(List.of(100000000L, "Henesys", 2L, 36L, 0L, 2L), deepLongs(topMap));
 
         Map<?, ?> health = (Map<?, ?>) live.get("health");
         assertEquals(100.0, ((Number) health.get("tickMsPerS")).doubleValue(), 0.01, "6 s over 60 s, the nested phase left out");
@@ -126,6 +127,8 @@ class DashboardExporterTest {
         assertEquals(1, ((List<?>) series.get("points")).size(), "the series is saved every few runs, the first one at once");
         Map<?, ?> first = (Map<?, ?>) ((List<?>) series.get("points")).get(0);
         assertEquals(5, ((List<?>) first.get("ch")).size(), "chat replies per tier ride along in each point");
+        assertEquals(Map.of("Henesys", List.of(0L, 2L)), deepLongMap((Map<?, ?>) first.get("towns")),
+                "1.6.0 towns: residents vs roster per town in the series");
         assertEquals(List.of("2026-10-19"), read("days.json").get("series"));
         try (var files = Files.list(dir)) {
             assertTrue(files.noneMatch(f -> f.getFileName().toString().endsWith(".tmp")), "no temp files left behind");
@@ -236,6 +239,12 @@ class DashboardExporterTest {
     private static Map<Object, Long> numbersAsLongs(Map<?, ?> m) {
         Map<Object, Long> out = new java.util.HashMap<>();
         m.forEach((k, v) -> out.put(k, ((Number) v).longValue()));
+        return out;
+    }
+
+    private static Map<Object, Object> deepLongMap(Map<?, ?> m) {
+        Map<Object, Object> out = new java.util.HashMap<>();
+        m.forEach((k, v) -> out.put(k, deepLongs(v)));
         return out;
     }
 

@@ -181,6 +181,50 @@ class BotChannelsTest {
         }
     }
 
+    /* 1.6.0 towns: BOT_TOWN_DRESSING_SCALE thins the Henesys town dressing only; -1 (shipped) follows
+     * BOT_ENVIRONMENT_SCALE; FM entrance and FM-room dressing keep their own scales. */
+    @Test
+    void theHenesysTownDressingHasItsOwnScale() {
+        config.ServerConfig server = config.YamlConfig.config.server;
+        double savedEnv = server.BOT_ENVIRONMENT_SCALE;
+        double savedFm = server.BOT_FM_ENVIRONMENT_SCALE;
+        double savedTown = server.BOT_TOWN_DRESSING_SCALE;
+        try {
+            assertEquals(-1.0, new config.ServerConfig().BOT_TOWN_DRESSING_SCALE, "shipped: follow the environment scale");
+            server.BOT_ENVIRONMENT_SCALE = 0.5;
+            server.BOT_FM_ENVIRONMENT_SCALE = 1.0;
+            BotChannels.spreadTask(5, 1, false, true);  // wave 5's HenesysBots
+            BotChannels.spreadTask(5, 0, false);        // wave 5's FM room dressing
+            BotChannels.spreadTask(4, 1, true, false);  // wave 4's FM entrance
+            int town = BotStore.planSlot(5, 1, 0);
+            int rooms = BotStore.planSlot(5, 0, 0);
+            int fm = BotStore.planSlot(4, 1, 0);
+            server.BOT_TOWN_DRESSING_SCALE = -1;
+            assertEquals(0.5, BotChannels.environmentScale(town), 1e-12, "-1 follows BOT_ENVIRONMENT_SCALE");
+            server.BOT_TOWN_DRESSING_SCALE = 0.25;
+            assertEquals(0.25, BotChannels.environmentScale(town), 1e-12);
+            assertEquals(0.5, BotChannels.environmentScale(rooms), 1e-12, "FM rooms keep BOT_ENVIRONMENT_SCALE");
+            assertEquals(1.0, BotChannels.environmentScale(fm), 1e-12, "the FM entrance keeps its own scale");
+            assertTrue(BotChannels.isSpreadSlot(town), "still spread over the channels");
+            for (int i = 0; i < 50; i++) {
+                int n = BotChannels.envCount(town, 20);
+                assertEquals(5, n, "a quarter of the town dressing");
+            }
+            server.BOT_TOWN_DRESSING_SCALE = 0;
+            assertEquals(0, BotChannels.envCount(town, 20), "0 = no Henesys dressing");
+            assertEquals(10, BotChannels.envCount(rooms, 20), "0 does not touch the FM rooms");
+            server.BOT_TOWN_DRESSING_SCALE = 3;
+            assertEquals(1.0, BotChannels.environmentScale(town), 1e-12, "clamped to 1");
+            BotChannels.spreadTask(5, 1, false);
+            server.BOT_TOWN_DRESSING_SCALE = 0.25;
+            assertEquals(0.5, BotChannels.environmentScale(town), 1e-12, "re-marking a task plain drops the town scale");
+        } finally {
+            server.BOT_ENVIRONMENT_SCALE = savedEnv;
+            server.BOT_FM_ENVIRONMENT_SCALE = savedFm;
+            server.BOT_TOWN_DRESSING_SCALE = savedTown;
+        }
+    }
+
     @Test
     void aZeroWeightChannelIsNeverPickedEvenWhenEveryChannelIsEmpty() {
         double[] shares = BotChannels.shares("0,40,28,20,12", 5);

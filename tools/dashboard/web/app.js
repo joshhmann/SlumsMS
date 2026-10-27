@@ -370,7 +370,7 @@
     Charts.bars($('bot-jobs'), { horizontal: true, rows: Object.entries(b.jobs).sort((x, y) => y[1] - x[1]).slice(0, 10)
       .map(([k, v]) => [k.toLowerCase().replace(/_/g, ' '), v]), valueName: 'bots' });
     Charts.bars($('bot-types'), { horizontal: true, rows: Object.entries(b.types).sort((x, y) => y[1] - x[1]).slice(0, 10), color: C('--s3'), valueName: 'bots' });
-    mapTable('bot-maps', ['Map', 'Name', 'bots', 'avg level'], b.maps.slice(0, 20).map(r => [r[0], E(r[1] || mapName(r[0])), r[2], r[3]]));
+    mapTable('bot-maps', ['Map', 'Name', 'bots', 'avg level', 'residents', 'roster'], b.maps.slice(0, 20).map(r => [r[0], E(r[1] || mapName(r[0])), r[2], r[3], r[4] ?? '–', r[5] ?? '–']));
   }
 
   // ── economy ────────────────────────────────────────────────────────────────

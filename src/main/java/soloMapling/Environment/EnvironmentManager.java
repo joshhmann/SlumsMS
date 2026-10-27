@@ -123,7 +123,7 @@ public class EnvironmentManager {
         runWave(1, "Essentials", List.of(
                 slotBase -> spawnCasinoNpcs(),
                 slotBase -> spawnTutorialBot(slotBase),
-                spread(slotBase -> spawnHenesysBotsBatch(slotBase, 10, 0, 0, 0)),
+                spreadTown(slotBase -> spawnHenesysBotsBatch(slotBase, 10, 0, 0, 0)),
                 spread(slotBase -> populateFreeMarketRegion(slotBase, "henesys")),
                 spreadMarket(slotBase -> spawnFMEntranceBotsBatch(slotBase, 5, 5, 5))
         ));
@@ -138,9 +138,9 @@ public class EnvironmentManager {
         ));
 
         runWave(3, "Henesys population", List.of(
-                spread(slotBase -> spawnJQBotsPetPark(slotBase)),
-                spread(slotBase -> spawnHenesysBotsBatch(slotBase, 10, 10, 0, 5)),
-                spread(slotBase -> spawnFillerBotsHenesys(slotBase))
+                spreadTown(slotBase -> spawnJQBotsPetPark(slotBase)),
+                spreadTown(slotBase -> spawnHenesysBotsBatch(slotBase, 10, 10, 0, 5)),
+                spreadTown(slotBase -> spawnFillerBotsHenesys(slotBase))
         ));
         SocialHotPotatoManager.getInstance().start();
         ConversationManager.getInstance().start();
@@ -157,15 +157,15 @@ public class EnvironmentManager {
                 spreadMarket(slotBase -> spawnMerchBotsBatch(slotBase, "m1", 3, 3, 0)),
                 spreadMarket(slotBase -> spawnMerchBotsBatch(slotBase, "m2", 2, 2, 1)),
                 spreadMarket(slotBase -> spawnMerchBotsBatch(slotBase, "m5", 3, 3, 1)),
-                spread(slotBase -> spawnFillerBotsHenesysMarket(slotBase))
+                spreadTown(slotBase -> spawnFillerBotsHenesysMarket(slotBase))
         ));
 
         runWave(5, "Henesys sub-areas", List.of(
                 spread(slotBase -> populateFreeMarketRegion(slotBase, "elnath")),
-                spread(slotBase -> spawnHenesysBotsBatch(slotBase, 10, 10, 10, 4)),
-                spread(slotBase -> spawnFillerBotsHenesysPark(slotBase)),
-                spread(slotBase -> spawnFillerBotsPotionShop(slotBase)),
-                spread(slotBase -> spawnFillerBotsGameZone(slotBase)),
+                spreadTown(slotBase -> spawnHenesysBotsBatch(slotBase, 10, 10, 10, 4)),
+                spreadTown(slotBase -> spawnFillerBotsHenesysPark(slotBase)),
+                spreadTown(slotBase -> spawnFillerBotsPotionShop(slotBase)),
+                spreadTown(slotBase -> spawnFillerBotsGameZone(slotBase)),
                 slotBase -> spawnGameZoneHostBots(slotBase)
         ));
 
@@ -173,7 +173,7 @@ public class EnvironmentManager {
                 slotBase -> spawnBlackjackTables(slotBase),
                 slotBase -> spawnDropGameBotPotionShop(slotBase),
                 slotBase -> spawnDropGameSpectatorsPotionShop(slotBase),
-                spread(slotBase -> spawnSocialBotsPetPark(slotBase)),
+                spreadTown(slotBase -> spawnSocialBotsPetPark(slotBase)),
                 slotBase -> convertRandomFillersToScrollBots()
         ));
 
@@ -476,7 +476,7 @@ public class EnvironmentManager {
     }
 
     /** Ticket 57: a wave task whose bots are town dressing - scaled and spread over the channels. */
-    private record SpreadTask(PlanTask task, boolean market) implements PlanTask {
+    private record SpreadTask(PlanTask task, boolean market, boolean town) implements PlanTask {
         @Override
         public void run(int slotBase) {
             task.run(slotBase);
@@ -484,12 +484,17 @@ public class EnvironmentManager {
     }
 
     private static PlanTask spread(PlanTask task) {
-        return new SpreadTask(task, false);
+        return new SpreadTask(task, false, false);
+    }
+
+    /** 1.6.0 towns: Henesys town dressing (HenesysBots, fillers, the pet park), scaled by BOT_TOWN_DRESSING_SCALE. */
+    private static PlanTask spreadTown(PlanTask task) {
+        return new SpreadTask(task, false, true);
     }
 
     /** 1.5.2 hotfix: FM entrance dressing (FM bots, merchants), scaled by BOT_FM_ENVIRONMENT_SCALE. */
     private static PlanTask spreadMarket(PlanTask task) {
-        return new SpreadTask(task, true);
+        return new SpreadTask(task, true, false);
     }
 
     /**
@@ -509,7 +514,7 @@ public class EnvironmentManager {
             PlanTask planTask = tasks.get(task);
             int slotBase = BotStore.planSlot(number, task, 0);
             if (planTask instanceof SpreadTask spreadTask) {
-                BotChannels.spreadTask(number, task, spreadTask.market());
+                BotChannels.spreadTask(number, task, spreadTask.market(), spreadTask.town());
             }
             jobs.add(() -> planTask.run(slotBase));
         }
