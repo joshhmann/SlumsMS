@@ -5,7 +5,8 @@ Status: **built and previously accepted**, source on Silvia under
 start/login/warp/screenshot/stop cycles at 5:42:58–5:44:02 PM PT on Oct 23 (00:42:58–00:44:02 UTC on Oct 24,
 2026). README/NOTES record 24 safety/protocol tests passing and screenshots reviewed. This sprint verified those
 saved outcomes, not new in-game cycles. Current worker did not answer status; no restart or workaround was used.
-Current usage and owner-start instructions: [docs/qa/CLIENT-MCP.md](../qa/CLIENT-MCP.md).
+Since 2026-10-27 the worker is long-running (12 h renewed by requests, queues while the owner is active, restarts
+and re-logs the client, heartbeat file). Current usage and owner-start instructions: [docs/qa/CLIENT-MCP.md](../qa/CLIENT-MCP.md).
 The original specification below remains for design/reference. It accepts only TEST 8489, not feature 8491.
 Read AGENTS.md first; its hard rules still apply.
 

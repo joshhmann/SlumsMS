@@ -1,34 +1,93 @@
 #!/bin/bash
 # Call one client-MCP tool on the owner's PC (Silvia) from 187, through the elevated worker's file queue.
 #
-#   tools/ops/client-mcp status
+#   tools/ops/client-mcp heartbeat                            # is the worker alive? (reads its heartbeat file only)
+#   tools/ops/client-mcp status                               # heartbeat + the worker's status tool
 #   tools/ops/client-mcp start_client
 #   tools/ops/client-mcp login '{"channel":1}'
 #   tools/ops/client-mcp command '{"line":"!qa run we-1"}'
 #   tools/ops/client-mcp go_to '{"map_id":100000000}'
 #   tools/ops/client-mcp screenshot '{"label":"henesys"}'     # PNG saved on Silvia under client-mcp\shots\
 #   tools/ops/client-mcp read_logs '{"lines":100}'
+#   tools/ops/client-mcp press_key '{"name":"F5"}'   |  mouse_click '{"x":400,"y":300}'  |  mouse_drag '{...}'
 #   tools/ops/client-mcp stop_client
+#   tools/ops/client-mcp exit_worker                          # stop the worker (refused while its client runs)
 #
-# Needs the owner to have started the worker and controller in their own desktop (docs/qa/CLIENT-MCP.md); the
-# worker lasts one hour. Every tool but status refuses while the owner used the PC in the last 10 minutes.
-# Prints the tool's text replies; exits 1 on an error or refusal, 3 if no worker answered.
+# Needs the owner to have started Start-QA.cmd once in their own desktop (docs/qa/CLIENT-MCP.md). The worker
+# then lives 12 h after the last request (worker-config.json; 0 = until stopped), restarts and logs the client
+# back in after a crash or disconnect, and writes logs\worker-heartbeat.json. While the owner has used the PC in
+# the last 10 minutes (idle_minutes) a request is QUEUED, not refused: this waits for it up to
+# CLIENT_MCP_QUEUE_WAIT seconds (default 3600), then CLIENT_MCP_WAIT seconds (default 120) once it has started.
+# Prints the tool's text replies; exits 1 on an error or refusal, 3 if no worker answered, 4 if it stayed queued.
 set -euo pipefail
 NAME="${1:?tool name}"; ARGS="${2:-{\}}"
-[[ "$NAME" =~ ^(status|start_client|login|command|go_to|screenshot|read_logs|stop_client)$ ]] || { echo "unknown tool $NAME" >&2; exit 2; }
-WAIT="${CLIENT_MCP_WAIT:-120}"
+[[ "$NAME" =~ ^(heartbeat|status|start_client|login|command|go_to|screenshot|read_logs|stop_client|press_key|mouse_click|mouse_drag|exit_worker)$ ]] \
+  || { echo "unknown tool $NAME" >&2; exit 2; }
+WAIT="${CLIENT_MCP_WAIT:-120}"; QUEUE_WAIT="${CLIENT_MCP_QUEUE_WAIT:-3600}"
+SSH=(ssh -o ConnectTimeout=10 -i ~/.ssh/id_rsprox_desktop crims@192.168.0.186)
 python3 -c 'import json,sys; json.loads(sys.argv[1])' "$ARGS" || { echo "arguments must be JSON" >&2; exit 2; }
-REQ=$(python3 -c 'import json,sys,uuid; print(json.dumps({"id":"cli-"+uuid.uuid4().hex,"action":"call","name":sys.argv[1],"arguments":json.loads(sys.argv[2])}))' "$NAME" "$ARGS")
-ssh -i ~/.ssh/id_rsprox_desktop crims@192.168.0.186 "python -B - $WAIT" <<PY
+
+heartbeat() {   # prints a summary; returns 0 when the heartbeat is fresh
+  local raw
+  raw=$("${SSH[@]}" "python -B -" <<'PY'
+import json, time, pathlib
+p = pathlib.Path(r'Z:\MSv83\SlumsMS-dev\client-mcp\logs\worker-heartbeat.json')
+beat = None
+try:
+    beat = json.loads(p.read_text(encoding='utf-8'))
+except (OSError, ValueError):
+    pass
+print(json.dumps({'now': time.time(), 'mtime': p.stat().st_mtime if p.exists() else None, 'beat': beat}))
+PY
+) || { echo "heartbeat: cannot reach Silvia"; return 3; }
+  python3 - "$raw" <<'PY'
+import json, sys
+from datetime import datetime, timezone
+from zoneinfo import ZoneInfo
+d = json.loads(sys.argv[1]); b = d['beat']
+def when(iso):
+    if not iso: return 'never'
+    t = datetime.fromisoformat(iso)
+    return t.astimezone(timezone.utc).strftime('%Y-%m-%d %H:%M UTC') + ' (' + t.astimezone(ZoneInfo('America/Los_Angeles')).strftime('%H:%M %Z') + ')'
+if not b:
+    print('heartbeat: none (worker older than 2026-10-27 or never started)'); sys.exit(3)
+age = d['now'] - d['mtime']
+fresh = not b.get('stopped') and age < 3 * b.get('heartbeat_seconds', 15) + 10
+h, m = divmod(int(b.get('uptime_seconds', 0)) // 60, 60)
+print('heartbeat: %s, last %ds ago, uptime %dh%02dm, started %s' % ('ALIVE' if fresh else 'STOPPED/STALE', age, h, m, when(b.get('started_utc'))))
+if b.get('stopped'): print('  stopped: ' + b['stopped'])
+print('  expires: ' + (when(b['expires_utc']) + ' unless renewed by a request' if b.get('expires_utc') else 'never (until stopped)'))
+print('  owner idle %ss (needs %ss)%s; queued %s; client pids %s; session %s' % (
+    b.get('owner_idle_seconds'), b.get('idle_required_seconds'), '' if b.get('owner_ready') else ' -> requests wait',
+    b.get('queued'), b.get('client_pids'), b.get('session')))
+if b.get('last_recovery') or b.get('recovery_paused'):
+    print('  recoveries last hour %s; last %s%s' % (b.get('recoveries_last_hour'), b.get('last_recovery'),
+          '; PAUSED: ' + b['recovery_paused'] if b.get('recovery_paused') else ''))
+sys.exit(0 if fresh else 3)
+PY
+}
+
+if [[ "$NAME" == heartbeat ]]; then heartbeat; exit $?; fi
+if [[ "$NAME" == status ]]; then
+  heartbeat || WAIT=$(( WAIT < 15 ? WAIT : 15 ))   # no live heartbeat: don't wait two minutes for nobody
+fi
+if [[ "$NAME" == exit_worker ]]; then
+  REQ=$(python3 -c 'import json,uuid; print(json.dumps({"id":"cli-"+uuid.uuid4().hex,"action":"exit"}))')
+else
+  REQ=$(python3 -c 'import json,sys,uuid; print(json.dumps({"id":"cli-"+uuid.uuid4().hex,"action":"call","name":sys.argv[1],"arguments":json.loads(sys.argv[2])}))' "$NAME" "$ARGS")
+fi
+"${SSH[@]}" "python -B - $WAIT $QUEUE_WAIT" <<PY
 import json, sys, time
 from pathlib import Path
 root = Path(r'Z:\MSv83\SlumsMS-dev\client-mcp\logs')
 inbox, outbox = root / 'worker-inbox.jsonl', root / 'worker-outbox.jsonl'
 req = json.loads(r'''$REQ''')
+wait, queue_wait = int(sys.argv[1]), int(sys.argv[2])
+req['wait_until'] = time.time() + queue_wait
 offset = outbox.stat().st_size if outbox.exists() else 0
 with inbox.open('a', encoding='utf-8') as f:
     f.write(json.dumps(req) + '\n')
-deadline = time.monotonic() + int(sys.argv[1])
+deadline, queued = time.monotonic() + wait, False
 while time.monotonic() < deadline:
     if outbox.exists():
         with outbox.open(encoding='utf-8') as f:
@@ -40,6 +99,18 @@ while time.monotonic() < deadline:
                 r = json.loads(line)
                 if r.get('id') != req['id']:
                     continue
+                if r.get('event') == 'queued':
+                    queued = True
+                    deadline = time.monotonic() + queue_wait
+                    print('queued: owner used the PC %ss ago; runs after %ss idle (waiting up to %ss)' % (
+                        r.get('owner_idle_seconds'), r.get('idle_required_seconds'), queue_wait), file=sys.stderr, flush=True)
+                    continue
+                if r.get('event') == 'started':
+                    queued = False
+                    deadline = time.monotonic() + wait
+                    continue
+                if r.get('exited'):
+                    print('worker exited'); sys.exit(0)
                 if r.get('error'):
                     print('ERROR:', r['error']); sys.exit(1)
                 res = r.get('result', {})
@@ -47,9 +118,11 @@ while time.monotonic() < deadline:
                     print(c['text'] if c.get('type') == 'text' else '[%s]' % c.get('type'))
                 sys.exit(1 if res.get('isError') else 0)
     time.sleep(0.5)
-# The worker reads its inbox from the start when it launches: take this request back out so it never replays.
-lines = inbox.read_text(encoding='utf-8').splitlines(keepends=True)
-inbox.write_text(''.join(l for l in lines if req['id'] not in l), encoding='utf-8')
+# Gave up: tell the worker to drop it if it is still queued (the inbox itself is never rewritten).
+with inbox.open('a', encoding='utf-8') as f:
+    f.write(json.dumps({'id': 'cancel-' + req['id'], 'action': 'cancel', 'target': req['id']}) + '\n')
+if queued:
+    print('still queued: the owner kept using the PC; request cancelled'); sys.exit(4)
 print('no answer from the client-MCP worker (not running or expired; the owner starts it, see docs/qa/CLIENT-MCP.md)')
 sys.exit(3)
 PY
