@@ -232,11 +232,6 @@ public final class ChatTriage {
         return false;
     }
 
-    /** Whether a line names real money, payment services, accounts or passwords (the {@code rwt} rule's words). */
-    public static boolean rwtWords(String line) {
-        return line != null && RWT.matcher(normal(line)).find();
-    }
-
     /** The con flag by rule alone, or empty. */
     public static Optional<Con> conRule(String line) {
         PlayerChatMeaning.View meaning = PlayerChatMeaning.safety(line);

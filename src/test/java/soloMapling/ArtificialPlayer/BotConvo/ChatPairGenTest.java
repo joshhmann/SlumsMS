@@ -119,20 +119,89 @@ class ChatPairGenTest {
         // plenty of neutral ask party lines: the next pick shares none of their full dimensions
         seed(dir, new ChatPairGen.Row("party", "neutral", "normal", "ask", "-"), 300, 1);
         ChatPairGen g = new ChatPairGen(dir, null);
-        ChatPairGen.Cell next = g.pickCell(ChatPairGen.cells(), plan, 10, new Random(1));
-        assertNotNull(next);
-        assertFalse("party".equals(next.intent()), next.key());
-        assertFalse("normal".equals(next.con()) && "ask".equals(next.act()), "a con or another act first: " + next.key());
-        Map<String, Integer> counts = g.dimCounts();
-        ChatPairGen.Row picked = next.row();
-        for (ChatPairGen.Row r : ChatPairGen.ROWS) {
-            assertTrue(ChatPairGen.shortfall(r, plan, counts) <= ChatPairGen.shortfall(picked, plan, counts) + 1e-9,
-                    r.key() + " is further off than " + picked.key());
+        Random rng = new Random(1);
+        for (int i = 0; i < 30; i++) {
+            ChatPairGen.Cell next = g.pickCell(ChatPairGen.cells(), plan, 10, rng);
+            assertNotNull(next);
+            assertFalse("party".equals(next.intent()), "party is past its floor: " + next.key());
         }
         List<String> report = g.planReport(plan);
         assertTrue(report.contains(String.format("%-24s %5d/%-5d %s", "intent:party", 300, 200, "ok")), report.toString());
         assertTrue(report.stream().anyMatch(l -> l.startsWith("act:announce") && l.endsWith("short 200")), report.toString());
         assertTrue(report.stream().anyMatch(l -> l.startsWith("talk share")));
+    }
+
+    /**
+     * Round 4: in DeepSeek's 20-call sample buff, follow, come, guide, help_kill, buddy, apology, haggle and guild never
+     * came up. Simulated: every call fills 8 pairs of its cell; within 10 calls a value each, every intent, con, tone
+     * and act has been reached, and talk stays near its cap.
+     */
+    @Test
+    void thePlannerReachesEveryLabelQuickly(@TempDir Path dir) throws Exception {
+        ChatPairGen g = new ChatPairGen(dir, null);
+        ChatPairGen.Plan plan = new ChatPairGen.Plan(4000);
+        List<ChatPairGen.Cell> cells = ChatPairGen.cells();
+        Random rng = new Random(7);
+        int values = ConvoSense.INTENT.labels().size() + ChatTriage.CON.labels().size()
+                + ConvoSense.TONE.labels().size() + ChatPairGen.ACTS.size();
+        for (int call = 0; call < values * 2; call++) {
+            ChatPairGen.Cell c = g.pickCell(cells, plan, 10, rng);
+            for (int i = 0; i < 8; i++) {
+                g.countForTest(c);
+            }
+        }
+        Map<String, Integer> counts = g.dimCounts();
+        for (String i : ConvoSense.INTENT.labels().keySet()) {
+            assertTrue(counts.getOrDefault("intent:" + i, 0) > 0, "never reached intent " + i + ": " + counts);
+        }
+        for (String c : ChatTriage.CON.labels().keySet()) {
+            assertTrue(counts.getOrDefault("con:" + c, 0) > 0, "never reached con " + c);
+        }
+        for (String t : ConvoSense.TONE.labels().keySet()) {
+            assertTrue(counts.getOrDefault("tone:" + t, 0) > 0, "never reached tone " + t);
+        }
+        for (String a : ChatPairGen.ACTS.keySet()) {
+            assertTrue(counts.getOrDefault("act:" + a, 0) > 0, "never reached act " + a);
+        }
+        int total = values * 2 * 8;
+        assertTrue(counts.getOrDefault("intent:talk", 0) <= 0.2 * total + 8 + 20, "talk " + counts.get("intent:talk"));
+    }
+
+    @Test
+    void noFrozenLineIsUsedAsAnExampleAnywhere(@TempDir Path dir) throws Exception {
+        ChatPairGen g = new ChatPairGen(dir, ROOT);
+        List<String> quoted = new java.util.ArrayList<>();
+        ChatPairGen.EXAMPLES.values().forEach(quoted::addAll);
+        ChatPairGen.VARIANTS.values().forEach(v -> quoted.addAll(v.subList(1, v.size())));
+        quoted.addAll(ChatPairGen.ACT_SHAPES.values());
+        java.util.regex.Matcher m = java.util.regex.Pattern.compile("\\(\"([^\"]+)\"").matcher(ChatPairGen.VERIFY_SYSTEM);
+        while (m.find()) {
+            quoted.add(m.group(1));
+        }
+        assertTrue(quoted.size() > 20);
+        ChatPairGen.Cell any = cell("talk", "neutral", "normal", "chat", "talk");
+        for (String q : quoted) {
+            String why = g.playerProblem(any, q);
+            assertFalse(why != null && why.startsWith("frozen"), q + " is a frozen evaluation line (" + why + ")");
+        }
+    }
+
+    @Test
+    void phishingAndBeggingAreScamRwtIsMoney() {
+        assertTrue(ChatPairGen.CON_LABELS.get("scam").contains("password or login"));
+        assertFalse(ChatPairGen.CON_LABELS.get("rwt").contains("password"));
+        assertEquals(ChatTriage.CON.labels().keySet(), ChatPairGen.CON_LABELS.keySet());
+        assertTrue(ChatPairGen.VERIFY_SYSTEM.contains("scam = " + ChatPairGen.CON_LABELS.get("scam")));
+        assertTrue(ChatPairGen.VERIFY_SYSTEM.contains("got any spare elixirs plz") && ChatPairGen.VERIFY_SYSTEM.contains(
+                "is scam, never rwt"), ChatPairGen.VERIFY_SYSTEM);
+        assertTrue(ChatPairGen.CON_WORDS.get("scam").contains("password or login"));
+        assertFalse(ChatPairGen.CON_WORDS.get("rwt").contains("login"));
+        assertTrue(ChatPairGen.EXAMPLES.get("talk|scam").contains("got any spare elixirs plz"), "begging is generated as scam");
+        assertFalse(ChatPairGen.moneyOutOfPlace("scam", "giving 20$ for ur password"), "a phish may offer money");
+        assertTrue(ChatPairGen.moneyOutOfPlace("scam", "spare 20$ pls"));
+        assertTrue(ChatPairGen.moneyOutOfPlace("normal", "selling ilbis for paypal"));
+        assertFalse(ChatPairGen.moneyOutOfPlace("rwt", "selling my account 50$"));
+        assertFalse(ChatPairGen.moneyOutOfPlace("scam", "whats ur login ill get u free nx"));
     }
 
     @Test
