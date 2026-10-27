@@ -7112,7 +7112,7 @@
 7379	thread_trade	any	any	proper	night	Looking for {item}, paying {price} if the stats are good
 7380	thread_trade	any	any	proper	night	Free market channel 3, near the entrance
 7381	thread_trade	any	any	proper	night	I'll take 5 million for it, no lower
-7382	thread_trade	any	any	proper	night	Somebody is selling {item} cheap in channel 7
+7382	thread_trade	any	any	proper	night	Somebody is selling {item} cheap in channel 3
 7383	thread_trade	any	any	proper	night	Just sold my last one for {price}, sorry
 7384	thread_trade	any	any	proper	night	Prices on {item} dropped a lot tonight
 7385	talk	rude	friend	terse	boss	nice one

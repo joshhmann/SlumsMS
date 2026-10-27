@@ -93,6 +93,7 @@ public final class MessyChat {
 
     /** The line as this bot types it in map chat: the names of the players on its map are left alone. */
     public static String forChat(Character bot, String line) {
+        line = ChannelMentions.forSpeaker(bot, line); // a channel the world does not have becomes one it does
         if (bot == null || line == null || !enabled()) {
             return line;
         }
@@ -114,6 +115,7 @@ public final class MessyChat {
 
     /** As {@link #forChat} for a whisper or buddy line from {@code senderName} (slot unknown: seeded by the name). */
     public static String forWhisper(Character sender, String senderName, Character to, String line) {
+        line = ChannelMentions.forSpeaker(sender, line);
         if (line == null || !enabled()) {
             return line;
         }

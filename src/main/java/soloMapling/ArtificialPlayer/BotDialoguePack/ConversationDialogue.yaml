@@ -2482,8 +2482,8 @@ conversations:
     participants: 2
     lines:
       - {speaker: A, text: "which ch do u usually grind on"}
-      - {speaker: B, text: "ch7. everyone forgets it exists"}
-      - {speaker: A, text: "ch7?? are u serious"}
+      - {speaker: B, text: "ch5. everyone forgets it exists"}
+      - {speaker: A, text: "ch5?? are u serious"}
       - {speaker: B, text: "dead serious. empty maps almost every single time"}
       - {speaker: A, text: "i feel like im learning a cheat code right now"}
       - {speaker: B, text: "dont tell anyone. i need it to stay empty", emote: 3}
