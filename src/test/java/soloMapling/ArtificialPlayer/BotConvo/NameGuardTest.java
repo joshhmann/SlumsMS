@@ -97,6 +97,44 @@ class NameGuardTest {
         }
     }
 
+    /**
+     * 1.6.0 tune, TEST social trace 2026-10-26/27: items, places, the company and chat slang became "some guy"
+     * ("add a some guy?", "1v1 me in the pig beach some guy", "thx SMOE guy"). Only people are people.
+     */
+    @Test
+    void itemsPlacesAndSlangAreNotPeople() {
+        ConvoEntities.useForTest(new ConvoEntities.Names() {
+            public java.util.Map<String, Integer> maps() {
+                return java.util.Map.of("pig beach", 104010001);
+            }
+
+            public java.util.Map<String, Integer> mobs() {
+                return java.util.Map.of("fire boar", 3210100);
+            }
+
+            public java.util.Map<String, Integer> items() {
+                return java.util.Map.of("sky snowboard", 1442013);
+            }
+        });
+        try {
+            for (String line : List.of("porfa amigo, add a Snowboard?",
+                    "pfft 1v1 me in the pig beach l8r, bet u cant even hit me xD",
+                    "LOLZ yEAh xD my dmg is SO bad now!!! thx Nexon >_<",
+                    "g0dly xp!!! juz watch teh fire boars lolz",
+                    "R1P0FF 4 REAL, gud thing i got no mesos lolz!!!",
+                    "selling a Snowboard and some Fire Boar drops")) {
+                NameGuard.Verdict v = check(line);
+                assertTrue(v.clean(), line + " -> " + v.unknown());
+                assertEquals(line, v.line());
+            }
+            // made-up people are still caught
+            assertEquals(List.of("Stabbyman"), check("I heard Stabbyman lost his Snowboard").unknown());
+            assertEquals(List.of("xxslayerxx"), check("did u see xxslayerxx at pig beach").unknown());
+        } finally {
+            ConvoEntities.useForTest(null);
+        }
+    }
+
     @Test
     void anEmptyLineIsLeftAlone() {
         assertNull(check(null).line());

@@ -17,6 +17,11 @@ final class GuildLines {
 
     /** A random line of the node with every {TOKEN} filled; null when none fits (or the node is missing). */
     static String pick(String node, Map<String, String> tokens) {
+        return pick(node, tokens, null);
+    }
+
+    /** As above, only a line {@code ok} accepts (null: any); null when none does. */
+    static String pick(String node, Map<String, String> tokens, java.util.function.Predicate<String> ok) {
         BotDialogueHandler.DialogueConstructor dialog;
         try {
             dialog = BotDialogueHandler.getDialogueCon(PACK, "Guild", node);
@@ -35,7 +40,7 @@ final class GuildLines {
                     out = out.replace("{" + t.getKey() + "}", t.getValue());
                 }
             }
-            if (!out.matches(".*\\{[A-Z_]+}.*")) {
+            if (!out.matches(".*\\{[A-Z_]+}.*") && (ok == null || ok.test(out))) {
                 return out;
             }
         }
@@ -44,7 +49,13 @@ final class GuildLines {
 
     /** The vibe's own node first ("HardcoreChatter"), else the shared one ("Chatter"). */
     static String pickFor(GuildRules.Vibe vibe, String node, Map<String, String> tokens) {
-        String own = vibe == null ? null : pick(vibe.key() + node, tokens);
-        return own != null ? own : pick(node, tokens);
+        return pickFor(vibe, node, tokens, null);
+    }
+
+    /** As above, only a line {@code ok} accepts (null: any). */
+    static String pickFor(GuildRules.Vibe vibe, String node, Map<String, String> tokens,
+                          java.util.function.Predicate<String> ok) {
+        String own = vibe == null ? null : pick(vibe.key() + node, tokens, ok);
+        return own != null ? own : pick(node, tokens, ok);
     }
 }

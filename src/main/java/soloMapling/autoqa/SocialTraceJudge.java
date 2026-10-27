@@ -27,7 +27,8 @@ import java.util.regex.Pattern;
  * <p>The DECIDE table is what the code does today (read 2026-10-26): a bot thread changes the two bots' bond, and
  * since 1.6.0 a GOSSIP listener keeps the story ({@code BotGossip.keep}, act "kept"), a RIVALRY thread may escalate
  * ({@code BotBotRivalry.decideEscalation}, act "escalate") and an LFG thread whose other bot said yes leads to its
- * party's PQ trip ({@code LfgParty}, act "lfg"); the thread records that decision, or why there was none
+ * party's PQ trip ({@code LfgParty}, act "lfg"), and a TRAINING tip may be followed ({@code TrainingTips}, act
+ * "arrive" once the bot reaches the spot); the thread records that decision, or why there was none
  * ({@link #THREAD_ACTS}). No TRADE thread becomes a trade. When a link is built, it records its decision the same way
  * and ACT starts judging it.
  */
@@ -250,6 +251,15 @@ public final class SocialTraceJudge {
             if (e.lines.size() > 4) {
                 flags.add(e.lines.size() + " lines (the prompt asks for 2-4)");
             }
+            if ("TRAINING".equals(e.topic) && e.aLevel > 0) { // 1.6.0 tune: real places for these levels only
+                for (Line l : e.lines) {
+                    int own = l.botId() == e.aId ? e.aLevel : l.botId() == e.bId ? e.bLevel : 0;
+                    for (String w : soloMapling.ArtificialPlayer.BotConvo.TrainingTips.wrongPlaces(l.text(), e.aLevel,
+                            own)) {
+                        flags.add("wrong place (" + w + "): \"" + l.text() + "\"");
+                    }
+                }
+            }
         }
         int max = thread ? THREAD_MAX_CHARS : DRAMA_MAX_CHARS;
         for (Line l : e.lines) {
@@ -330,7 +340,8 @@ public final class SocialTraceJudge {
     static final Map<String, String> THREAD_NO_PATH = Map.of(
             "LFG", "an LFG thread with no answer decided (no PQ fits, or an older build)",
             "TRADE", "no code path turns a TRADE thread into a trade (there is no bot-to-bot trade at all)",
-            "TRAINING", "no code path moves either bot to the spot a TRAINING thread names",
+            "TRAINING", "no tip followed: no real spot was suggested, or the asker keeps its own plan (about 1 in 3"
+                    + " training bots follow a real tip)",
             "GOSSIP", "the listener kept no story (nothing was said, or the thread never finished)",
             "RIVALRY", "no escalation was rolled (nothing was said, or the thread never finished)",
             "GUILD_BEEF", "no code path feeds a GUILD_BEEF thread into the guild war (only the bond sours)",
@@ -358,7 +369,8 @@ public final class SocialTraceJudge {
     /** Thread topics whose decision is recorded by the code ({@code SocialTrace.threadDecided}), and its act kinds. */
     static final Map<String, Set<String>> THREAD_ACTS = Map.of(
             "GOSSIP", Set.of("kept"),
-            "RIVALRY", Set.of("escalate"));
+            "RIVALRY", Set.of("escalate"),
+            "TRAINING", Set.of("arrive"));
 
     /** 1.6.0: an LFG thread whose other bot said yes leads to its party's PQ trip ({@code LfgParty}). */
     static Decision decision(SocialTraceEntry e) {
@@ -366,6 +378,7 @@ public final class SocialTraceJudge {
             if ("LFG".equals(e.topic) && e.lfgDecision != null) {
                 return new Decision(e.lfgDecision, Set.of("lfg"));
             }
+            // 1.6.0 tune: a TRAINING tip followed is "go train at <map>", done on arrival
             return e.decided == null ? null : new Decision(e.decided, THREAD_ACTS.getOrDefault(e.topic, Set.of()));
         }
         return DRAMA_DECISIONS.get(e.topic);

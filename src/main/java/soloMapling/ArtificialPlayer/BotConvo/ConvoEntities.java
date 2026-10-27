@@ -190,6 +190,41 @@ public final class ConvoEntities {
         return null;
     }
 
+    private record WordIndex(Names of, Set<String> words) {
+    }
+
+    private static volatile WordIndex nameWords;
+
+    /**
+     * 1.6.0 tune: whether this word (lower case, 4+ letters) is part of any map, mob or item name ("snowboard" of
+     * "Sky Snowboard", "beach" of "Pig Beach"), plural too: such a word is a thing, never a made-up person
+     * ({@link NameGuard}). False until the String.wz index is warm.
+     */
+    public static boolean nameWord(String lower) {
+        Names n = names;
+        if (n == null || lower == null || lower.length() < 4) {
+            return false;
+        }
+        WordIndex index = nameWords;
+        if (index == null || index.of() != n) {
+            Set<String> built = new java.util.HashSet<>();
+            for (Map<String, Integer> table : List.of(n.maps(), n.mobs(), n.items())) {
+                for (String name : table.keySet()) {
+                    for (String part : name.split(" ")) {
+                        if (part.length() >= 4 && !part.chars().allMatch(Character::isDigit)) {
+                            built.add(part);
+                        }
+                    }
+                }
+            }
+            index = new WordIndex(n, Set.copyOf(built));
+            nameWords = index;
+        }
+        Set<String> w = index.words();
+        return w.contains(lower) || lower.length() > 4 && lower.endsWith("s")
+                && w.contains(lower.substring(0, lower.length() - 1));
+    }
+
     private static boolean anyUsed(boolean[] used, int from, int len) {
         for (int k = from; k < from + len; k++) {
             if (used[k]) {

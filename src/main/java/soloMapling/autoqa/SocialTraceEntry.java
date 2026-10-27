@@ -66,8 +66,10 @@ public final class SocialTraceEntry {
     String about;
     /** The lower of the two bots' levels. */
     int minLevel;
-    /** The recruiter's (a's) level: LFG's PQ band rule (1.6.0: the PQ is the recruiter's own). */
+    /** Each bot's level: LFG's PQ band rule uses the recruiter's (a's, 1.6.0: the PQ is the recruiter's own);
+     *  a TRAINING line's places are checked against both (1.6.0 tune). */
     int aLevel;
+    int bLevel;
     /** 1.6.0 LFG: the decision ("party up for Kerning PQ"), or why the other bot said no; and why a party failed. */
     String lfgDecision;
     String lfgDecline;
@@ -96,11 +98,15 @@ public final class SocialTraceEntry {
     Bond after;
     final List<String> remembered = new ArrayList<>();
 
-    // DECIDE (1.6.0: a GOSSIP listener keeps the story, a RIVALRY thread may escalate)
+    // DECIDE (1.6.0: a GOSSIP listener keeps the story, a RIVALRY thread may escalate, a TRAINING tip is followed)
     /** What the code decided after the thread, or null. */
     String decided;
     /** Why nothing was decided (the roll said no, nothing to keep...), or null. */
     String decideWhy;
+    /** The bot that should reach {@link #goalMap} (an "arrive" event when it does), 0: none. */
+    int goalBot;
+    int goalMap;
+    boolean arrived;
 
     // ACT
     final List<Event> events = new ArrayList<>();

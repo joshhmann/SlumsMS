@@ -76,11 +76,81 @@ public final class VoiceStyler {
         if (opener != null) {
             out = opener + " " + out;
         }
-        return out.length() > MAX ? line : out;
+        out = oneAccentWord(out); // 1.6.0 tune: a light accent, whoever wrote the line
+        return out.length() > MAX ? oneAccentWord(line) : out;
+    }
+
+    /**
+     * Spanish words the accent uses (1.6.0 tune, TEST trace 2026-10-26: "jaja ty bro pero q drops? porfa, need mesos
+     * amigo", "bro q caro, 300 y trato hecho porfa"). "bro" is everyone's.
+     */
+    static final Set<String> SPANISH_WORDS = Set.of("jaja", "jajaja", "jajajaja", "porfa", "amigo", "amiga", "q", "que",
+            "si", "pero", "vamos", "verdad", "loco", "caro", "eres", "onda", "pasa", "hola", "gracias", "bueno",
+            "nada", "dale", "trato", "hecho", "puedo", "comprar", "alguien", "para", "precio", "tengo", "quiero",
+            "donde", "aqui", "mira", "oye", "cuanto", "eso", "esta", "estoy", "muy", "bien", "nadie", "contigo",
+            "vale", "espera", "grupo", "meti", "se", "hace", "mucho", "mas", "tambien", "ahora", "listo");
+
+    private static String bareWord(String token) {
+        return token.toLowerCase(Locale.ROOT).replaceAll("^[^a-z]+|[^a-z]+$", "");
+    }
+
+    /** How many Spanish words a line has. */
+    static int spanishWords(String line) {
+        int n = 0;
+        for (String t : line.split("\\s+")) {
+            if (SPANISH_WORDS.contains(bareWord(t))) {
+                n++;
+            }
+        }
+        return n;
+    }
+
+    /** A line in Spanish rather than English with an accent: three Spanish words or more. Never said. */
+    public static boolean spanishSentence(String line) {
+        return line != null && spanishWords(line) >= 3;
+    }
+
+    /**
+     * The line with at most one Spanish word (the first): "jaja q level r u? porfa" -> "jaja level r u?". A word's
+     * trailing ? or ! stays on the word before it.
+     */
+    static String oneAccentWord(String line) {
+        if (line == null || spanishWords(line) <= 1) {
+            return line;
+        }
+        String[] tokens = line.trim().split("\\s+");
+        StringBuilder out = new StringBuilder();
+        boolean seen = false;
+        for (String t : tokens) {
+            if (SPANISH_WORDS.contains(bareWord(t))) {
+                if (!seen) {
+                    seen = true;
+                } else {
+                    String end = t.replaceAll("^.*?([?!]*)$", "$1");
+                    if (!end.isEmpty() && out.length() > 0) {
+                        trimComma(out);
+                        out.append(end);
+                    }
+                    continue;
+                }
+            }
+            if (out.length() > 0) {
+                out.append(' ');
+            }
+            out.append(t);
+        }
+        String r = out.toString().replaceAll(",\\s*,", ",").replaceAll("\\s+,", ",").replaceAll("^[,\\s]+|[,\\s]+$", "");
+        return r.isBlank() ? line : r;
+    }
+
+    private static void trimComma(StringBuilder out) {
+        while (out.length() > 0 && (out.charAt(out.length() - 1) == ',' || out.charAt(out.length() - 1) == ' ')) {
+            out.setLength(out.length() - 1);
+        }
     }
 
     /** The catchphrases that read naturally in front of a line ("lol ya ...", "Fair enough. ..."). */
-    static final Set<String> OPENERS = Set.of("lol ya", "lol", "lmao", "ya ya", "rip", "Fair enough.", "Indeed.",
+    static final Set<String> OPENERS = Set.of("lol ya", "lol", "lmao", "ya ya", "rip", "Fair enough.", "Indeed.", "Nice.",
             "Haha, nice.", "xD", "lolz", "roflmao", "kekeke", "hehe ^^", "ok ok", "jaja", "jajaja", "k", "ya", "ok",
             "sure", "nah");
 
