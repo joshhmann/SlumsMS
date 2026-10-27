@@ -484,3 +484,41 @@ class ScrubTest(unittest.TestCase):
         self.assertEqual(got["items"][0], {"name": "N***nPl0x", "text": "mail [hidden] from [hidden]", "qty": 164})
         self.assertEqual(got["items"][1]["name"], "The Cave's Password")
         self.assertEqual(got["items"][1]["text"], "who remembers M********y?")
+
+
+class AvatarTest(unittest.TestCase):
+    """Ranking pictures: the server's avatars/index.json maps IGNs to 96x96 PNGs; ranked names get theirs."""
+
+    def test_ranked_names_get_their_picture_and_others_a_blank(self):
+        import json as _json, struct, zlib
+        import site_sample
+        from sections import world
+        tmp = tempfile.mkdtemp()
+        try:
+            data = os.path.join(tmp, "site")
+            argv, sys.argv = sys.argv, ["site_sample.py", "--out", data]
+            try:
+                site_sample.main()
+            finally:
+                sys.argv = argv
+            lb = _json.load(open(os.path.join(data, "leaderboards.json")))
+            first = lb["level"][0]["name"]
+            os.makedirs(os.path.join(data, "avatars"))
+            png = b"\x89PNG\r\n\x1a\n" + b"".join(struct.pack(">I", len(d)) + t + d + struct.pack(">I", zlib.crc32(t + d))
+                                                  for t, d in ((b"IHDR", struct.pack(">IIBBBBB", 1, 1, 8, 6, 0, 0, 0)),
+                                                               (b"IDAT", zlib.compress(b"\0\0\0\0\0")), (b"IEND", b"")))
+            open(os.path.join(data, "avatars", "0123456789abcdef.png"), "wb").write(png)
+            _json.dump({"schema": 1, "size": 96, "avatars": {first: "0123456789abcdef.png", "Nobody": "ffffffffffffffff.png",
+                                                             "Evil": "../../etc/passwd"}},
+                       open(os.path.join(data, "avatars", "index.json"), "w"))
+            w = world.load(data)
+            self.assertEqual(w["avatars"]["map"], {first: "0123456789abcdef.png"})   # missing file and bad names dropped
+            out = os.path.join(tmp, "out")
+            build.set_context(build.notes.releases(), ["notes", "guide", "world"])
+            world.build(out, data)
+            html = open(os.path.join(out, "world", "rankings", "level.html"), encoding="utf-8").read()
+            self.assertIn('src="../../world/avatars/0123456789abcdef.png"', html)
+            self.assertIn('class="ava none"', html)
+            self.assertTrue(os.path.isfile(os.path.join(out, "world", "avatars", "0123456789abcdef.png")))
+        finally:
+            shutil.rmtree(tmp)

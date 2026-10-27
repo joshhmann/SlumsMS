@@ -51,7 +51,28 @@ def load(data_dir=None):
             out[n[:-5]] = json.load(f)
     out["sample"] = any(v.get("sample") for v in out.values() if isinstance(v, dict))
     drop_qa(out)
-    return check.scrub(out)
+    out = check.scrub(out)
+    out["avatars"] = load_avatars(data_dir)
+    return out
+
+
+AVATAR_FILE = re.compile(r"^[0-9a-f]{16}\.png$")
+AVATARS = {}  # IGN (as the boards show it) -> file name, for the build in progress; cell() reads it
+
+
+def load_avatars(data_dir):
+    """The ranking pictures (avatars/index.json next to leaderboards.json): {IGN: "<16 hex>.png"}, 96x96. Names are
+    scrubbed like the boards' so the two match. A file that isn't there is left out (that row gets the placeholder)."""
+    folder = os.path.join(data_dir, "avatars")
+    try:
+        with open(os.path.join(folder, "index.json"), encoding="utf-8") as f:
+            idx = json.load(f)
+    except (OSError, ValueError):
+        return {"dir": folder, "map": {}}
+    got = idx.get("avatars") if isinstance(idx, dict) else None
+    m = {check.scrub(k): v for k, v in (got or {}).items()
+         if isinstance(k, str) and isinstance(v, str) and AVATAR_FILE.match(v) and os.path.isfile(os.path.join(folder, v))}
+    return {"dir": folder, "map": m}
 
 
 # Auto-QA's pretend players (AutoQaOne, AutoQa53423) only exist on TEST, but bots gossip about them like anyone else.
@@ -331,15 +352,15 @@ def build_feed(wo):
 
 # (field, heading, how to show it); a column shows only when some row has the field
 COLS = {
-    "level": [("name", "Character", "name"), ("level", "Level", "int"), ("rebirths", "Rebirths", "int"),
+    "level": [("name", "Character", "char"), ("level", "Level", "int"), ("rebirths", "Rebirths", "int"),
               ("job", "Job", "job"), ("guild", "Guild", "text")],
-    "fame": [("name", "Character", "name"), ("fame", "Fame", "int"), ("job", "Job", "job")],
+    "fame": [("name", "Character", "char"), ("fame", "Fame", "int"), ("job", "Job", "job")],
     "guilds": [("name", "Guild", "name"), ("level", "Level", "int"), ("members", "Members", "int"),
-               ("points", "Points", "int"), ("leader", "Leader", "text")],
-    "traders": [("name", "Character", "name"), ("completed", "Trades done", "int"), ("fellThrough", "Fell through", "int"),
+               ("points", "Points", "int"), ("leader", "Leader", "char")],
+    "traders": [("name", "Character", "char"), ("completed", "Trades done", "int"), ("fellThrough", "Fell through", "int"),
                 ("pct", "Completed", "pct")],
-    "dojo": [("name", "Character", "name"), ("floor", "Floor", "int"), ("points", "Points", "int"), ("time_s", "Time", "time")],
-    "bosses": [("name", "Character", "name"), ("clears", "Clears", "int"), ("boss", "Boss", "text")],
+    "dojo": [("name", "Character", "char"), ("floor", "Floor", "int"), ("points", "Points", "int"), ("time_s", "Time", "time")],
+    "bosses": [("name", "Character", "char"), ("clears", "Clears", "int"), ("boss", "Boss", "text")],
 }
 BOARDS = [("level", "Level", "Level and rebirths: rebirths first, then level."),
           ("fame", "Fame", "The most famous characters on Bera."),
@@ -377,6 +398,11 @@ def cell(v, how):
         return f'<td class="r num">{v // 60}:{v % 60:02d}</td>' if _is(v, int) else f'<td>{esc(str(v))}</td>'
     if how == "name":
         return f'<td><b>{esc(str(v))}</b></td>'
+    if how == "char":  # a character: its ranking picture (cached forever, the name changes with the look) or a blank
+        f = AVATARS.get(str(v))
+        pic = (f'<img class="ava" src="{{root}}world/avatars/{f}" alt="" width="48" height="48" loading="lazy" decoding="async">'
+               if f else '<span class="ava none" aria-hidden="true"></span>')
+        return f'<td class="who-cell">{pic}<b>{esc(str(v))}</b></td>'
     if how == "job":
         return f'<td>{esc(job_name(str(v)))}</td>'
     return f'<td>{esc(str(v))}</td>'
@@ -415,6 +441,26 @@ def board_rows(lb, kind):
 
 def build_rankings(wo):
     lb = wo.w["leaderboards"]
+    # ranking pictures: only the ranked names' files are copied in; cell() shows them
+    av = wo.w.get("avatars") or {"map": {}}
+    names = set()
+    def walk(v):
+        if isinstance(v, dict):
+            for k in ("name", "leader"):
+                if isinstance(v.get(k), str):
+                    names.add(v[k])
+            for x in v.values():
+                walk(x)
+        elif isinstance(v, list):
+            for x in v:
+                walk(x)
+    walk(lb)
+    AVATARS.clear()
+    AVATARS.update({n: f for n, f in av["map"].items() if n in names})
+    if AVATARS:
+        os.makedirs(os.path.join(wo.out, WORLD, "avatars"), exist_ok=True)
+        for f in set(AVATARS.values()):
+            shutil.copyfile(os.path.join(av["dir"], f), os.path.join(wo.out, WORLD, "avatars", f))
     tabs = "".join(f'<a href="{{root}}{WORLD}/rankings/{k}.html" class="chip">{esc(t)}</a>' for k, t, _ in BOARDS)
     for kind, title, intro in BOARDS:
         rows, limit = board_rows(lb, kind), 100

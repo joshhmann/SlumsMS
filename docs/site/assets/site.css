@@ -631,3 +631,9 @@ table.t { width: 100%; border-collapse: collapse; }
 .bell-card li.new a { font-weight: 700; }
 .bell-card p { margin: 0; }
 .site-head .wrap { position: relative; }
+
+/* ranking pictures (world.py: avatars/ from the server, 96x96 shown at 48) */
+.who-cell { white-space: nowrap; }
+.who-cell .ava { width: 48px; height: 48px; vertical-align: middle; margin: -6px 8px -6px 0; image-rendering: auto; }
+.who-cell .ava.none { display: inline-block; border-radius: 8px; background: var(--surface-2); }
+.rankgrid .who-cell .ava { width: 32px; height: 32px; margin: -4px 6px -4px 0; }
