@@ -63,8 +63,10 @@ SHAPES = [("listings", "listings", {"item_id": int, "qty": int, "price": int, "c
           ("nx-rate", "days", {"date": str, "n_trades": int}),
           ("economy-public", None, {"as_of": str})]
 # Never public (plan §5 privacy rules): a field with one of these names anywhere in an export file stops the build.
-PRIVATE_FIELDS = {"account", "account_id", "accountid", "ip", "ip_address", "email", "password", "hwid", "mac",
-                  "character_id", "char_id", "session"}
+# Real personal information never goes on the site (owner, 2026-10-26); character and guild names are fine.
+PRIVATE_FIELDS = {"account", "account_id", "accountid", "login", "username", "ip", "ip_address", "email", "password",
+                  "hwid", "mac", "macs", "birthday", "birthdate", "dob", "pic", "pin", "character_id", "char_id",
+                  "session", "whisper", "whispers", "buddy_chat", "party_chat"}
 
 
 def _walk_keys(obj, path=""):

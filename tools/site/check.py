@@ -4,7 +4,7 @@
     python3 tools/site/check.py [dist/site]
 
 1. Forbidden strings: nothing private may reach the public site (LAN addresses, test-server ports, the patch
-   site's name and credentials, QA tooling). Matching ignores case. The host "164" is a pattern rather than a
+   site's name and credentials, QA tooling) and no real personal information (emails, IP addresses). Matching ignores case. The host "164" is a pattern rather than a
    string, because 164 is also an ordinary number in game data (monster levels, item and map ids).
 2. Links: every relative href/src must point at a file in the output, and every #fragment at an id on that page.
 3. No external requests: no http(s) URLs at all, so there are no trackers, CDNs or remote fonts.
@@ -27,16 +27,16 @@ FORBIDDEN = [
     # the public site calls the game Slums Story (owner, 2026-10-26)
     "maplestory", "maple story", "nexon", "v83", "wizet",
 ]
-# The TEST copy of the site (tools/site/test164) builds from the TEST server, where auto-QA's pretend players
-# ("AutoQaOne") show up in the World feed. Only there, SLUMS_SITE_CHECK_ALLOW lets those words through (comma list).
-_allow = {w.strip().lower() for w in os.environ.get("SLUMS_SITE_CHECK_ALLOW", "").split(",") if w.strip()}
-FORBIDDEN = [w for w in FORBIDDEN if w.lower() not in _allow]
 
 # The server host "164": as the last part of an address (.164) or named as a machine ("on 164", "164 box").
 FORBIDDEN_PATTERNS = [
     re.compile(r"\.164\b"),
     re.compile(r"\b(?:on|port|host|box|server|machine|lxc|ssh|root@)\s*164\b", re.I),
     re.compile(r"\b164\s+(?:box|host|server|machine|lxc)\b", re.I),
+    # Real personal information never goes on the site (owner, 2026-10-26): character and guild names are fine,
+    # emails and IP addresses are not. Logins, birthdays, PICs and HWIDs are caught as export fields (market.py).
+    re.compile(r"[\w.+-]+@[\w-]+(?:\.[\w-]+)*\.[a-z]{2,}\b", re.I),
+    re.compile(r"(?<![\w.])(?:(?:25[0-5]|2[0-4]\d|1?\d?\d)\.){3}(?:25[0-5]|2[0-4]\d|1?\d?\d)(?![\w.])"),
 ]
 
 # Places where a forbidden string is harmless data, matched exactly. Keep this list short and explain each entry.

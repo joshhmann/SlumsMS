@@ -6,8 +6,6 @@ Type=oneshot
 Nice=19
 IOSchedulingClass=idle
 WorkingDirectory=/opt/slums-site-test
-# TEST only: auto-QA's pretend players (AutoQaOne) are in the TEST feed; live has no auto-QA
-Environment=SLUMS_SITE_CHECK_ALLOW=AutoQa
 ExecStart=/usr/bin/flock -w 90 /run/lock/slums-site-test-build.lock /usr/bin/python3 tools/site/build.py --private --world --section market --out /srv/slums-site-test \
     --market-data /opt/mapleroot-dev/persistence-test/Server/data/market \
     --site-data /opt/mapleroot-dev/persistence-test/Server/data/site \

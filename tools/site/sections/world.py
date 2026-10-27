@@ -49,7 +49,32 @@ def load(data_dir=None):
         with open(os.path.join(data_dir, n), encoding="utf-8") as f:
             out[n[:-5]] = json.load(f)
     out["sample"] = any(v.get("sample") for v in out.values() if isinstance(v, dict))
+    drop_qa(out)
     return out
+
+
+# Auto-QA's pretend players (AutoQaOne, AutoQa53423) only exist on TEST, but bots gossip about them like anyone else.
+# They never reach the site: feed items that name one are left out, and so are their board rows.
+QA_NAME = re.compile(r"\bautoqa\w*", re.I)
+
+
+def _names_qa(it):
+    return isinstance(it, dict) and (any(isinstance(n, str) and QA_NAME.search(n) for n in it.get("names") or [])
+                                     or QA_NAME.search(str(it.get("text", ""))) or QA_NAME.search(str(it.get("name", ""))))
+
+
+def drop_qa(w):
+    feed = w.get("feed")
+    if isinstance(feed, dict) and isinstance(feed.get("items"), list):
+        feed["items"] = [it for it in feed["items"] if not _names_qa(it)]
+    def clean(v):
+        if isinstance(v, list):
+            return [clean(x) for x in v if not _names_qa(x)]
+        if isinstance(v, dict):
+            return {k: clean(x) for k, x in v.items()}
+        return v
+    if isinstance(w.get("leaderboards"), dict):
+        w["leaderboards"] = clean(w["leaderboards"])
 
 
 def _keys(obj, path=""):
@@ -293,7 +318,7 @@ def build_feed(wo):
                  "event": "World events: the 8 PM PT Henesys event and the small ones around it, with the top damage.",
                  "milestone": "4th job, level 120 and 200, rebirths, new guilds and weddings.",
                  "megaphone": "What people shouted today.",
-                 "drama": "Who's feuding, who broke up, who made up. Only ever about the town's regulars."}[kind]
+                 "drama": "Who's feuding, who broke up, who made up."}[kind]
         body = (f'<h1>What\'s happening</h1><p class="id">{esc(intro)}</p><p class="chips">{nav}</p>'
                 + (sections or '<p class="empty">Nothing yet.</p>'))
         wo.page(f"{WORLD}/feed/{href}", "What's happening" if kind is None else f"{label}: what's happening", body, "feed",
