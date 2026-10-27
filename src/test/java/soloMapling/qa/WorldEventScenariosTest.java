@@ -93,7 +93,8 @@ class WorldEventScenariosTest {
         List<Pattern> expects = patterns(ev3, false);
         assertTrue(anyMatches(expects, "EV2 EVENT #7 henesys_invasion on 100000000, 12 staged bots called, full strength"
                 + " (boss HP 250000, 30 min)"));
-        assertTrue(anyMatches(expects, "WEVENT WAVE #7 4/4: 15 mobs up, mini-boss Zombie Mushmom"));
+        assertTrue(anyMatches(expects, "WEVENT WAVE #7 6/6: 40 mobs up"));
+        assertFalse(anyMatches(expects, "WEVENT WAVE #7 5/6: 40 mobs up"));
         assertTrue(anyMatches(expects, "WEVENT END #7 henesys_invasion (won), 140 bots joined, 22 bot deaths, winner X"));
         assertFalse(anyMatches(expects, "WEVENT END #7 henesys_invasion (time up), 140 bots joined, 22 bot deaths"));
         List<Pattern> waits = patterns(ev3, true);

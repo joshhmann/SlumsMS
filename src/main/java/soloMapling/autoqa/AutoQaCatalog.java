@@ -979,7 +979,7 @@ public final class AutoQaCatalog {
                 .notNightly()
                 .step(run("ev-2", "full"), waitFor("WEVENT END ", 31 * 60), waitSeconds(3), stop())
                 .expect(has("EV2 EVENT #\\d+ henesys_invasion .*full strength"),
-                        has("WEVENT WAVE #\\d+ 4/4"),
+                        has("WEVENT WAVE #\\d+ (\\d+)/\\1"),
                         atLeast(EV3_MIN_DEATHS, "WEVENT BOT DIED #\\d+ .* on 100000000, death \\d+ for it"),
                         has("WEVENT BOSS DOWN #\\d+ "),
                         has("WEVENT END #\\d+ henesys_invasion \\((won|boss killed)\\)"),

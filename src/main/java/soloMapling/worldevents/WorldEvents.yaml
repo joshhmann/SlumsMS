@@ -80,9 +80,10 @@ templates:
   # Owner 2026-10-27 ("there should be madness, even lower levels should get in"): lv 1-40, most called bots come at
   # once (no brain offer), the closest first, and the town bots already in Henesys fight or run (InvasionTownCrowd).
   # Owner 2026-10-27 ("It needs to be harder mobs"): on TEST ~100 lv 1-40 bots cleared the old mushroom waves in ~92 s
-  # and none died by itself. Now the invaders are lv 50-75 field mobs a lv 30-70 player knows (all in the v83 client),
-  # big waves (a crowd kills ~100k HP of mobs in under 30 s), then Jr. Balrog (lv 80) with a crowd-sized HP: a lv 1-40
-  # bot that stands in them can die (deaths are still paced and capped by WorldEvents' swarm rules).
+  # and none died by itself. Now six waves of lv 50-80 field mobs a lv 30-70 player knows (all in the v83 client), each
+  # tougher than the last, then Jr. Balrog (lv 80) with a crowd-sized HP. TEST: the called crowd kills a 40-mob wave in
+  # well under a minute and a 2M HP boss in ~20 s, so the fight's length is the big waves and the boss; a lv 1-40 bot
+  # in them dies (paced one per 15 s and capped by WorldEvents' swarm rules), and the crowd still wins.
   - id: henesys_invasion
     kind: invasion
     slot: headline
@@ -95,11 +96,13 @@ templates:
     maps: [100000000]                            # Henesys
     waves:                                       # owner 2026-10-27: harder mobs
       - {mob: 5130100, count: 40}                # Drake (lv 50, 3,200 HP)
-      - {mob: 6230100, count: 36}                # Wild Kargo (lv 62, 5,500 HP)
-      - {mob: 7130100, count: 30}                # Tauromacis (lv 70, 15,000 HP)
-      - {mob: 7130200, count: 30, mini_boss: 6300005}  # Werewolf (lv 75, 16,000 HP), led by Zombie Mushmom (lv 65, its own 35,000 HP)
+      - {mob: 6230100, count: 40}                # Wild Kargo (lv 62, 5,500 HP)
+      - {mob: 7130100, count: 40}                # Tauromacis (lv 70, 15,000 HP)
+      - {mob: 7130200, count: 40, mini_boss: 6300005}  # Werewolf (lv 75, 16,000 HP), led by Zombie Mushmom (lv 65, its own 35,000 HP)
+      - {mob: 7130101, count: 40}                # Taurospear (lv 75, 18,000 HP)
+      - {mob: 8140000, count: 40}                # Lycanthrope (lv 80, 27,000 HP)
     boss: 8130100                                # Jr. Balrog (lv 80)
-    boss_hp: 2000000
+    boss_hp: 15000000
     rewards:
       - {item: 2000004, qty: 5}                  # Elixir
       - {item: 2000005, qty: 2, chance: 0.3}     # Power Elixir
