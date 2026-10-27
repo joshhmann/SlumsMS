@@ -825,7 +825,17 @@ public class TrainingBot extends BotSM implements soloMapling.ArtificialPlayer.B
      * and the rest of the town stay are free to end the session, as a player logs off in town after shopping.
      */
     public boolean onErrand() {
-        return onErrand(phase, resupplySite != null);
+        return onErrand(phase, resupplySite != null, lifeVisit);
+    }
+
+    /**
+     * As {@link #onErrand(Phase, boolean)}, and a life trip: on its way to a stop it chose (TEST bot watch 2026-10-27,
+     * hermitorbis walked two minutes to the Door to Zakum and logged out 4 s after arriving), or standing in a PQ
+     * lobby looking for a party, which is what it went there for.
+     */
+    static boolean onErrand(Phase p, boolean shopkeeperWalk, LifeDecision.Activity visit) {
+        return onErrand(p, shopkeeperWalk) || p == Phase.LIFE_TRAVEL
+                || p == Phase.LIFE_DWELL && visit == LifeDecision.Activity.PARTY_QUEST;
     }
 
     static boolean onErrand(Phase p, boolean shopkeeperWalk) {
@@ -898,7 +908,7 @@ public class TrainingBot extends BotSM implements soloMapling.ArtificialPlayer.B
                 // Guild departures stay with the existing director's batch plan. Two independent actors must
                 // never both see "two online" and each remove the guild's last member.
                 boolean enoughGuild = getChr().getGuildId() == 0;
-                yield member != null && enoughGuild
+                yield member != null && enoughGuild && !onErrand() // 1.6.0: not out of a PQ lobby it just reached
                         && !soloMapling.ArtificialPlayer.BotConvo.LfgParty.holds(getChr().getId()); // 1.6.0: LFG trip
             }
         };

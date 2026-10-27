@@ -303,6 +303,26 @@ public final class BotWatch {
                 && soloMapling.ArtificialPlayer.GCMoveSystem.WatchGate.watched(chr);
     }
 
+    /** Map id -> its in-map portals as {inX, inY, outX, outY} (portal data never changes while the server runs). */
+    private static final Map<Integer, List<int[]>> IN_MAP_LINKS = new ConcurrentHashMap<>();
+
+    /** The map's portals that lead to another spot on the same map (Henesys' hp00/hp01, the Free Market's stairs). */
+    static List<int[]> inMapLinks(MapleMap map) {
+        return IN_MAP_LINKS.computeIfAbsent(map.getId(), id -> {
+            List<int[]> out = new ArrayList<>();
+            for (server.maps.Portal in : map.getPortals()) {
+                if (in.getTargetMapId() != id || in.getTarget() == null) {
+                    continue;
+                }
+                server.maps.Portal to = map.getPortal(in.getTarget());
+                if (to != null && to != in) {
+                    out.add(new int[] {in.getPosition().x, in.getPosition().y, to.getPosition().x, to.getPosition().y});
+                }
+            }
+            return List.copyOf(out);
+        });
+    }
+
     /** Every 2 s: the largest same-map jump past a walk since the last sample (TELEPORTY's evidence). */
     void positionTick(Tracked t, long now) {
         try {
@@ -319,6 +339,9 @@ public final class BotWatch {
             }
             if (t.lastMap == map.getId() && t.lastChannel == map.getChannelId()) {
                 int over = BotWatchJudge.excessJump(t.lastX, t.lastY, p.x, p.y, now - t.lastPosAt);
+                if (over > 0) { // rare: only then look up the map's in-map portals (a hidden town shortcut)
+                    over = BotWatchJudge.excessJump(t.lastX, t.lastY, p.x, p.y, now - t.lastPosAt, inMapLinks(map));
+                }
                 if (over > t.jumpPx) {
                     t.jumpPx = over;
                     t.jumpWatched = watchedHere(chr);

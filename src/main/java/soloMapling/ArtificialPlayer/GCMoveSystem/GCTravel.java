@@ -297,6 +297,14 @@ final class GCTravel {
                 giveUpNoWarp(trip, "no route to " + trip.destMapId);
                 return;
             }
+            // The Free Market's doors are scripted portals the world graph cannot see: walk through one like a player
+            Point door = marketDoor(bot.getMap(), trip.destMapId);
+            if (door != null) {
+                int dest = trip.destMapId;
+                approachAndAct(trip, bot, door, dest, "market portal on map " + cur + " -> map " + dest,
+                        () -> enterMarketDoor(bot, cur, dest));
+                return;
+            }
             // Nothing connects the two maps at all - warp the remainder to the destination.
             warpOrHold(trip, bot, trip.destMapId, "no portal or transit route to " + trip.destMapId);
             return;
@@ -686,6 +694,62 @@ final class GCTravel {
         }
         BotLogger.log("[GCTravel] " + bot.getName() + " gave up walking - " + reason);
         giveUp.run();
+    }
+
+    // ── The Free Market's doors ─────────────────────────────────────────────
+
+    static final int FREE_MARKET = 910000000;
+
+    /* The town portals into the Free Market: each runs a marketNN script (or the Arcane River one) that warps to its
+     * "out00"; the Free Market's own door (classicfm_exit) leads back out. */
+    static final java.util.Set<String> MARKET_ENTRY_SCRIPTS = java.util.Set.of("market01", "market02", "market03",
+            "market04", "market05", "market06", "market07", "market08", "market09", "market10", "market11", "market12",
+            "market13", "market14", "market15", "market16", "market17", "market18", "market19", "market20", "market21",
+            "market22", "market23", "market24", "market26", "market34", "market52", "market53", "market54", "market55",
+            "market56", "market110", "market201", "arc_to_classicfm");
+    static final String MARKET_EXIT_SCRIPT = "classicfm_exit";
+
+    /*
+     * TEST bot watch 2026-10-27 (Maple3, Ludibrium): a FREE_MARKET or SELL trip has no route the world graph knows - the
+     * doors are scripted - so it warped, and with a player in town WatchGate held the warp 45 s and the trip failed
+     * ("said FREE_MARKET but never entered it"). A bot in a town with a market door walks to it and steps through,
+     * as a player does; one in the Free Market walks out of its door, wherever it is headed. Either side: whether a
+     * portal with this script is a door for a trip from fromMapId to destMapId.
+     */
+    static boolean isMarketDoor(String script, int fromMapId, int destMapId) {
+        if (script == null) {
+            return false;
+        }
+        return fromMapId == FREE_MARKET ? destMapId != FREE_MARKET && MARKET_EXIT_SCRIPT.equals(script)
+                : destMapId == FREE_MARKET && MARKET_ENTRY_SCRIPTS.contains(script);
+    }
+
+    /* Where this map's market door stands for a trip to destMapId, or null (no door on this map, or not that trip). */
+    static Point marketDoor(MapleMap map, int destMapId) {
+        if (map == null || (map.getId() != FREE_MARKET && destMapId != FREE_MARKET)) {
+            return null;
+        }
+        for (Portal p : map.getPortals()) {
+            if (isMarketDoor(p.getScriptName(), map.getId(), destMapId)) {
+                return p.getPosition();
+            }
+        }
+        return null;
+    }
+
+    /* Through the door: into the Free Market at its "out00" (the scripts' landing), or out of it to the trip's end. */
+    private static void enterMarketDoor(Character bot, int fromMapId, int destMapId) {
+        if (fromMapId != FREE_MARKET) {
+            BotLogger.log("[GCTravel] " + bot.getName() + " walked into the Free Market from map " + fromMapId);
+            try {
+                bot.saveLocation("CLASSIC_FREE_MARKET"); // as the marketNN script does
+                bot.changeMap(FREE_MARKET, "out00");
+            } catch (Throwable ignored) {
+                // a lifecycle race shouldn't kill the trip; the next poll re-evaluates
+            }
+            return;
+        }
+        warp(bot, destMapId, "walked out of the Free Market's door");
     }
 
     // 1.6.0 player likeness (WatchGate): a trip that would vanish off a map a real player is on waits for the walk

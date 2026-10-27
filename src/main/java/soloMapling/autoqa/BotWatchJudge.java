@@ -187,8 +187,8 @@ public final class BotWatchJudge {
      * How far (px) a same-map move over {@code gapMs} goes past what a bot can cover, 0 when a move explains it.
      * A walk with Haste tops out near 175 px/s (v83 speed 140); Flash Jump and a mage's Teleport near 400 px/s, so
      * sideways and upward moves get 400 px/s plus 300 px of slack (a knock-back, a jump arc caught mid-air). Falls
-     * are fast (terminal speed ~670 px/s), so downward gets 800 px/s. An in-map portal (a "tp" portal on some
-     * maps) is a legal jump this cannot tell from a teleport; such maps show up by name in the evidence.
+     * are fast (terminal speed ~670 px/s), so downward gets 800 px/s. An in-map portal is a legal jump: see
+     * {@link #excessJump(int, int, int, int, long, List)}.
      */
     public static int excessJump(int x0, int y0, int x1, int y1, long gapMs) {
         long gap = Math.max(1, gapMs);
@@ -196,6 +196,30 @@ public final class BotWatchJudge {
         int dx = Math.abs(x1 - x0), dy = y1 - y0;
         double over = Math.max(dx - side, dy < 0 ? -dy - side : dy - down);
         return over > 0 ? (int) Math.round(over) : 0;
+    }
+
+    /**
+     * As {@link #excessJump(int, int, int, int, long)}, but a move a walk into one of the map's in-map portals, the
+     * portal ride and a walk on from its exit explains is no jump. TEST bot watch 2026-10-27 (JellyHyper 4844 px,
+     * datoy 5312 px on Henesys, Maple3 1964 px on Ludibrium, all "with a player there"): Henesys' hidden portals
+     * hp00 (1302,93 to 5169,92) and hp01 (-377,273 to 5801,454) and Ludibrium's ph01 (-2430,-18 to 544,-257) carry a
+     * player across the town in one step, and the bots' nav graph walks them like a player does. {@code links} holds
+     * each in-map portal as {inX, inY, outX, outY}; the walk allowance is the plain one, shared by both legs.
+     */
+    public static int excessJump(int x0, int y0, int x1, int y1, long gapMs, List<int[]> links) {
+        int best = excessJump(x0, y0, x1, y1, gapMs);
+        if (best == 0 || links == null) {
+            return best;
+        }
+        long gap = Math.max(1, gapMs);
+        double side = 300 + 0.4 * gap, down = 300 + 0.8 * gap;
+        for (int[] l : links) {
+            int dx = Math.abs(l[0] - x0) + Math.abs(x1 - l[2]);
+            int dy = Math.abs(l[1] - y0) + Math.abs(y1 - l[3]);
+            double over = Math.max(dx - side, dy - down);
+            best = Math.min(best, over > 0 ? (int) Math.round(over) : 0);
+        }
+        return best;
     }
 
     // ── Picking ───────────────────────────────────────────────────────────────────────────────────────────
@@ -287,13 +311,23 @@ public final class BotWatchJudge {
 
     /** "!" + why when the logout dropped a commitment, else a plain note. */
     static String logoutReason(Sample last) {
-        if (COMMITMENT.contains(last.activity()) && !restockDone(last)) {
+        if (COMMITMENT.contains(last.activity()) && !restockDone(last) && !pqStopDone(last)) {
             return "!logged out in the middle of " + last.activity() + " on map " + last.map();
         }
         if (last.party()) {
             return "!logged out while in a party (" + last.activity() + " on map " + last.map() + ")";
         }
         return "logged out after " + last.activity() + " (session over)";
+    }
+
+    /**
+     * TEST bot watch 2026-10-27 (hermitorbis): a PARTY_QUEST is the trip to the lobby and the stay there looking for a
+     * party (TrainingBot.onErrand holds the logout through both). Its label stays on while it walks back out to its
+     * grind; from there a logout ends the session like any other. A party with a player is judged on its own below.
+     */
+    static boolean pqStopDone(Sample last) {
+        return "PARTY_QUEST".equals(last.activity()) && last.phase() != null
+                && !"LIFE_TRAVEL".equals(last.phase()) && !"LIFE_DWELL".equals(last.phase());
     }
 
     /**
@@ -330,11 +364,15 @@ public final class BotWatchJudge {
         int target = targetOf(seg);
         Facts f = facts(view, lim, target);
 
-        long still = longestStill(view, lim);
-        if (still >= lim.idleMs() && !restingWhileStill(view, lim, act)) {
+        // TEST bot watch 2026-10-27 (NoodleDagger on a chair 22 min, CloudPet 13 min parked in El Nath off-screen): the
+        // excuses read the still stretch itself, not the samples around it (the walk in before it, the next
+        // activity's first sample after it), which are moving by definition and broke "all sat" / "all in town"
+        int[] run = longestStillRun(view, lim);
+        long still = view.get(run[1]).t() - view.get(run[0]).t();
+        if (still >= lim.idleMs() && !restingWhileStill(view.subList(run[0], run[1] + 1), lim, act)) {
             return with(base, Verdict.IDLE, "nothing changed for " + min(still) + " (no move, EXP, kill, chat, meso "
-                    + "or item change) during " + act + " on map " + lastSeg.map()
-                    + (lastSeg.watched() ? ", on screen" : ", off-screen"));
+                    + "or item change) during " + act + " on map " + view.get(run[0]).map() // where it stood still
+                    + (view.get(run[0]).watched() ? ", on screen" : ", off-screen"));
         }
 
         String ok = null, bad = null;
@@ -381,6 +419,10 @@ public final class BotWatchJudge {
                     ok = "has its shop open" + (f.inFm ? " in the Free Market (map " + f.fmMap + ")" : "");
                 } else if (shortSeg || onTheWay) {
                     ok = "on its way to sell (" + sec(dur) + ")";
+                } else if (firstOfTrack && f.inFm && "LIFE_DWELL".equals(first.phase())) {
+                    // TEST bot watch 2026-10-27 (aranmystic94): a SELL sells its junk the moment it arrives
+                    // (TrainingBot.doLifeDwell); this one sold 37 items at 07:45, four minutes before the watch began
+                    ok = "already in the Free Market when the watch began (it sells on arrival)";
                 } else {
                     bad = (f.inFm ? "in the Free Market " : "") + "no meso gain and no item gone in " + min(dur);
                 }
@@ -529,15 +571,25 @@ public final class BotWatchJudge {
 
     /** The longest stretch (ms) over which nothing changed. */
     static long longestStill(List<Sample> v, Limits lim) {
+        int[] run = longestStillRun(v, lim);
+        return v.isEmpty() ? 0 : v.get(run[1]).t() - v.get(run[0]).t();
+    }
+
+    /** First and last index (inclusive) of the longest stretch of {@code v} in which nothing changed. */
+    static int[] longestStillRun(List<Sample> v, Limits lim) {
         long best = 0;
         int start = 0;
+        int[] run = {0, 0};
         for (int k = 1; k < v.size(); k++) {
             if (!same(v.get(k - 1), v.get(k), lim.moveTolPx())) {
                 start = k;
             }
-            best = Math.max(best, v.get(k).t() - v.get(start).t());
+            if (v.get(k).t() - v.get(start).t() > best) {
+                best = v.get(k).t() - v.get(start).t();
+                run = new int[] {start, k};
+            }
         }
-        return best;
+        return run;
     }
 
     /**

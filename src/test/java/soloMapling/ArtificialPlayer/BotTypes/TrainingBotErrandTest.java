@@ -55,6 +55,19 @@ class TrainingBotErrandTest {
     }
 
     @Test
+    void aLifeTripAndAPqLobbyStayHoldTheLogout() {
+        // TEST bot watch 2026-10-27 (hermitorbis): logged out 4 s after reaching the Door to Zakum
+        var pq = soloMapling.ArtificialPlayer.BotLifeSystem.LifeDecision.Activity.PARTY_QUEST;
+        var hangOut = soloMapling.ArtificialPlayer.BotLifeSystem.LifeDecision.Activity.HANG_OUT;
+        assertTrue(TrainingBot.onErrand(TrainingBot.Phase.LIFE_DWELL, false, pq), "looking for a party in the lobby");
+        assertTrue(TrainingBot.onErrand(TrainingBot.Phase.LIFE_TRAVEL, false, pq), "on the way to the lobby");
+        assertTrue(TrainingBot.onErrand(TrainingBot.Phase.LIFE_TRAVEL, false, hangOut), "on the way to a stop");
+        assertFalse(TrainingBot.onErrand(TrainingBot.Phase.LIFE_DWELL, false, hangOut), "hanging out may end a session");
+        assertFalse(TrainingBot.onErrand(TrainingBot.Phase.GO_TRAIN, false, pq), "the lobby stay is over");
+        assertTrue(TrainingBot.onErrand(TrainingBot.Phase.SHOP_DWELL, false, hangOut), "the restock rule stands");
+    }
+
+    @Test
     void aSellStopWithNothingToSellIsCutShort() {
         long planned = 12 * 60_000L;
         assertEquals(TrainingBot.SELL_NOTHING_STAY_MS, TrainingBot.sellStayMs(false, 0, planned));
