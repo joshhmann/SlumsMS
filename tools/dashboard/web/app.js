@@ -11,7 +11,7 @@
 
   const state = { live: null, days: null, day: null, series: null, names: null, index: null, learning: null, tab: 'map',
     map: null, mapId: null, key: null, dailies: {}, ops: null, gm: null };
-  const TABS = ['map', 'learning', 'bots', 'economy', 'health', 'gm'];
+  const TABS = ['map', 'learning', 'bots', 'economy', 'health', 'accounts', 'gm'];
   const CHAT_TIERS = ['llm', 'scripted', 'emote', 'ignored', 'flagged'];
 
   async function getJSON(path, fresh) {
@@ -55,6 +55,7 @@
       else if (state.tab === 'bots') renderBots();
       else if (state.tab === 'economy') renderEconomy();
       else if (state.tab === 'health') renderHealth();
+      else if (state.tab === 'accounts') renderAccounts();
       else if (state.tab === 'gm') renderGm();
     } catch (e) { console.error(e); }
   }
@@ -473,6 +474,33 @@
   }
 
   // ── GM audit (ticket 43), exported by slums-dashboard-extras from slumsms-gm-audit --json ──
+  function renderAccounts() {
+    const a = state.live && state.live.accounts;
+    if (!a) {
+      $('acct-source').innerHTML = '<b>No accounts data.</b> The exporter has not written an accounts block yet (needs the database).';
+      tiles('acct-tiles', []); $('acct-invites').innerHTML = ''; $('acct-signups').innerHTML = '';
+      return;
+    }
+    $('acct-source').innerHTML = 'Real accounts only (no bots, template or auto-QA) · read ' + ago(Date.now() / 1000 - a.at) + ' ago' +
+      ' · "today" is since 00:00 UTC · lockouts are counted in memory, so a restart resets them';
+    const t = a.totals, i = a.invites;
+    tiles('acct-tiles', [
+      ['Accounts', t ? N(t.accounts) : '–', t ? N(t.week) + ' new this week · ' + N(t.today) + ' today' : 'not read'],
+      ['Active invite codes', i ? N(i.active) : '–', i ? 'unused, unexpired, not revoked' : 'no invite table'],
+      ['Sign-in lockouts, 24 h', N(a.lockouts24h), 'account names locked for 15 min'],
+    ]);
+    $('acct-invites').innerHTML = i ? '<table class="t"><tr><th>Status</th><th class="num">codes</th></tr>' +
+      [['Active', i.active], ['Used', i.used], ['Expired', i.expired], ['Revoked', i.revoked]].map(r =>
+        '<tr><td>' + r[0] + '</td><td class="num">' + N(r[1]) + '</td></tr>').join('') + '</table>'
+      : '<div class="muted">Invite codes not available (migration 036).</div>';
+    const rows = a.signups || [];
+    $('acct-signups').innerHTML = rows.length ? '<table class="t"><tr><th>When (UTC)</th><th>PT</th><th>Account</th><th>Invite</th><th>Made by</th><th>Note</th></tr>' +
+      rows.map(r => '<tr><td>' + E(r.utc) + '</td><td>' + E(r.pt) + '</td><td>' + E(r.name) + '</td><td>' +
+        (r.autoRegister ? '<span class="muted">login screen</span>' : E(r.invite)) + '</td><td>' + E(r.madeBy || '') +
+        '</td><td class="wrap">' + E(r.note || '') + '</td></tr>').join('') + '</table>'
+      : '<div class="muted">No sign-ups.</div>';
+  }
+
   ['gm-who', 'gm-cmd', 'gm-outcome'].forEach(id => $(id).addEventListener('input', () => renderGm()));
   function renderGm() {
     const g = state.gm;

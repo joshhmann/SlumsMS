@@ -93,6 +93,8 @@ public final class SiteAccounts {
     private final Map<String, Long> lockedUntil = new ConcurrentHashMap<>();
     private final ReentrantLock signupLock = new ReentrantLock();
     private final AtomicLong failedSignIns = new AtomicLong();
+    private final Window lockouts = new Window();
+    private static volatile SiteAccounts current;
     private volatile String dummyHash;
 
     public SiteAccounts(AuthStore store, LongSupplier clock, Predicate<String> botName, IntPredicate siteRevoked) {
@@ -104,7 +106,7 @@ public final class SiteAccounts {
 
     /** The game's: the database, the bot name pool (when bots run) and {@code @weblogin}'s revoked list. */
     public static SiteAccounts forGame() {
-        return new SiteAccounts(new AuthStore.Jdbc(), System::currentTimeMillis,
+        return current = new SiteAccounts(new AuthStore.Jdbc(), System::currentTimeMillis,
                 name -> soloMapling.server.MapleRootSolo.isEnabled()
                         && soloMapling.ArtificialPlayer.BotNames.heldByBot(name),
                 accountId -> {
@@ -260,6 +262,7 @@ public final class SiteAccounts {
         w.add(now);
         if (w.count(now, LOCK_WINDOW_MS) >= LOCK_FAILS) {
             lockedUntil.put(key, now + LOCK_MS);
+            lockouts.add(now);
             fails.remove(key);
             log.info("Site sign-in locked an account name for 15 min after {} failures ({} failed sign-ins since start)",
                     LOCK_FAILS, total);
@@ -269,6 +272,17 @@ public final class SiteAccounts {
             lockedUntil.entrySet().removeIf(e -> e.getValue() <= now);
         }
         return Result.fail(WRONG_LOGIN);
+    }
+
+    /** Lockouts in the last {@code windowMs} (the dashboard shows 24 h); in memory, so a restart starts it at 0. */
+    public int lockouts(long now, long windowMs) {
+        return lockouts.count(now, windowMs);
+    }
+
+    /** The running game's lockouts since {@code since}, 0 when site sign-in is off. */
+    public static long lockoutsSince(long since, long now) {
+        SiteAccounts s = current;
+        return s == null ? 0 : s.lockouts(now, now - since);
     }
 
     public long failedSignIns() {
