@@ -385,7 +385,7 @@ public final class BotPets {
             Point p = bot.getPosition();
             map.spawnMesoDrop(77, new Point(p.x + 25, p.y), bot, bot, false, (byte) 0, (short) 0, true);
             map.spawnMesoDrop(66, new Point(p.x - 25, p.y), gm, gm, false, (byte) 0, (short) 0, true);
-            out.add(bot.getName() + ": 77 mesos of its own (its pet takes them), 66 of yours (left for 15 s)");
+            out.add(bot.getName() + ": staged 77 mesos of its own and 66 of yours (the pet is not guaranteed to take the 77; real mob drops are what it loots)");
         }
         return out;
     }

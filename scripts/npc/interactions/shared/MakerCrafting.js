@@ -387,12 +387,6 @@ class MakerCraftingMenuSubInteraction {
 
                 message += `#fUI/UIWindow.img/Quest/icon0# #fUI/UIWindow.img/UserInfo/ReqLv#. #r${this.selectedRecipe.requiredLevel}#k`;
             }
-            if (this.NpcMakerCraftingService.getMakerSkillLevel(this.cm.getPlayer()) < this.selectedRecipe.requiredMakerLevel) {
-                if (message.length > 0) {
-                message += '\r\n\r\n';
-              }
-              message += `#fUI/UIWindow.img/Quest/icon0# #bMaker Skill#k must be at #rLv. ${this.selectedRecipe.requiredMakerLevel}#k too.`;
-            }
 
             message += '\r\n\r\n#fUI/UIWindow.img/Quest/icon0# #r#eMissing Materials:#n#k\r\n';
             for (let requirement of missingMaterialRequirements) {

@@ -378,8 +378,9 @@ final class CombatScenarios {
                     "Watch: the pet stands behind its bot and trots after it. PET LOOT lines: the pet picks up the"
                             + " bot's drops (the pet pickup animation, not the bot's), never a drop of yours before"
                             + " 15 s and never an item you dropped yourself.",
-                    "!qa do drop puts 77 mesos of each bot's own and 66 of yours next to it: the pet takes the 77 in"
-                            + " ~2 s and leaves the 66 for 15 s. Their pets every 30 s.");
+                    "!qa do drop puts 77 mesos of each bot's own and 66 of yours next to it (a marker for the check; the"
+                            + " staged 77 was never seen picked up in TEST runs). The check passes when a PET LOOT line follows"
+                            + " the drop within 60 s: pets loot real mob drops, usually 15-20 s after a kill.");
         }
 
         public List<String> action(QaContext ctx, String name, String[] args) {
