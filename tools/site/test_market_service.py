@@ -73,6 +73,21 @@ class StoreTest(Base):
             self.store.change(self.me, self.store.watch, {"itemId": "red potion"})
         self.assertEqual(len(self.inbox_file("alerts.json")["accounts"]["7"]["watch"]), ms.MAX_WATCH)
 
+    def test_board_offers_reach_the_bell_and_are_read_once(self):
+        pid = self.store.change(self.me, self.store.add_post, {"kind": "WTS", "itemId": 2000000, "qty": 1, "price": 50})
+        other = self.store.change(self.other, self.store.add_post, {"kind": "WTS", "itemId": 2000000, "qty": 1, "price": 60})
+        self.outbox_file("offers.json", {"schema": 1, "offers": [
+            {"postId": pid, "bot": "Shroomy", "price": 45, "t": ms.iso(self.clock.t)},
+            {"postId": other, "bot": "Nobody", "price": 55, "t": ms.iso(self.clock.t)}]})   # not Momo's post
+        me = self.store.me(self.me)
+        self.assertEqual([(o["from"], o["price"], o["new"]) for o in me["offers"]], [("Shroomy", 45, True)])
+        self.assertNotIn("bot", me["offers"][0])          # an IGN under "from", never a bot/player label
+        self.assertEqual(me["offers_new"], 1)
+        self.clock.t += 5
+        self.store.change(self.me, lambda s_: self.store.seen(s_))
+        self.assertEqual(self.store.me(self.me)["offers_new"], 0)
+        self.assertEqual(self.store.me(self.other)["offers"][0]["from"], "Nobody")
+
     def test_alert_fires_once_badge_and_rearm(self):
         aid = self.store.change(self.me, self.store.add_alert, {"itemId": 2000000, "dir": "below", "price": 40})
         self.assertEqual(self.inbox_file("alerts.json")["accounts"]["7"]["alerts"][0],

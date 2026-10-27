@@ -248,8 +248,8 @@
     bell(who);
   }).catch(function () {});
 
-  /* The bell: fired price alerts the player hasn't seen (the same "badge" count the launcher shows), in a small card.
-     Opening it marks them read. Board offers join once the server exports them (outbox offers.json). */
+  /* The bell: fired price alerts the player hasn't seen (the "badge" the launcher shows) plus new offers on their
+     Buy/Sell posts (offers_new, from the outbox's offers.json), newest first in a small card. Opening it marks them read. */
   function bell(after) {
     var mk = a.getAttribute("href") + "../api/market/";
     fetch(mk + "me", { credentials: "same-origin" }).then(function (r) { return r.ok ? r.json() : null; }).then(function (me) {
@@ -265,23 +265,29 @@
         btn.title = btn.getAttribute("aria-label");
       }
       btn.appendChild(n);
-      count(me.badge || 0);
+      var unread = (me.badge || 0) + (me.offers_new || 0);
+      count(unread);
       var card = null;
       btn.addEventListener("click", function (e) {
         e.stopPropagation();
         if (card) { card.remove(); card = null; return; }
         card = document.createElement("div");
         card.className = "bell-card";
-        var fired = (me.alerts || []).filter(function (x) { return x.firedAt; }).sort(function (x, y) {
-          return String(y.firedAt).localeCompare(String(x.firedAt)); }).slice(0, 8);
+        var fired = (me.alerts || []).filter(function (x) { return x.firedAt; }).map(function (x) {
+          return { t: x.firedAt, isNew: x.new, text: x.name + (x.dir === "below" ? " dropped to " : " rose to ") +
+            Number(x.firedPrice || x.price).toLocaleString("en-US") + " mesos" }; })
+          .concat((me.offers || []).map(function (o) {
+            return { t: o.t, isNew: o.new, text: o.from + " offered " + Number(o.price).toLocaleString("en-US") +
+              " mesos on your " + (o.kind === "WTB" ? "WTB" : "WTS") + " " + o.name }; }))
+          .sort(function (x, y) { return String(y.t).localeCompare(String(x.t)); }).slice(0, 8);
         var mine = a.getAttribute("href") + "../market/mine.html";
-        card.innerHTML = "<b>Notifications</b>" + (fired.length ? "" : '<p class="muted">Nothing yet. Price alerts you set in the Slums Market show up here when they go off.</p>');
+        card.innerHTML = "<b>Notifications</b>" + (fired.length ? "" : '<p class="muted">Nothing yet. Price alerts going off and offers on your Buy/Sell posts show up here.</p>');
         var ul = document.createElement("ul");
         fired.forEach(function (x) {
           var li = document.createElement("li"), link = document.createElement("a");
           link.href = mine;
-          link.textContent = x.name + (x.dir === "below" ? " dropped to " : " rose to ") + Number(x.firedPrice || x.price).toLocaleString("en-US") + " mesos";
-          if (x.new) li.className = "new";
+          link.textContent = x.text;
+          if (x.isNew) li.className = "new";
           li.appendChild(link);
           ul.appendChild(li);
         });
@@ -289,10 +295,10 @@
         var all = document.createElement("a"); all.href = mine; all.className = "small"; all.textContent = "My market \u00bb";
         card.appendChild(all);
         btn.after(card);
-        if (me.badge) {
+        if (unread) {
           fetch(mk + "alerts/seen", { method: "POST", credentials: "same-origin",
             headers: { "Content-Type": "application/json", "X-Slums": "1" }, body: "{}" })
-            .then(function (r) { if (r.ok) { me.badge = 0; count(0); } }).catch(function () {});
+            .then(function (r) { if (r.ok) { me.badge = 0; me.offers_new = 0; unread = 0; count(0); } }).catch(function () {});
         }
       });
       document.addEventListener("click", function (e) { if (card && !card.contains(e.target)) { card.remove(); card = null; } });

@@ -70,6 +70,7 @@ CREATE TABLE IF NOT EXISTS alerts (id TEXT PRIMARY KEY, account INTEGER, item IN
 CREATE TABLE IF NOT EXISTS posts (id TEXT PRIMARY KEY, account INTEGER, character TEXT, kind TEXT, item INTEGER,
     qty INTEGER, price INTEGER, created INTEGER, expires INTEGER, status TEXT, reason TEXT);
 CREATE TABLE IF NOT EXISTS seen_files (name TEXT PRIMARY KEY, mtime REAL);
+CREATE TABLE IF NOT EXISTS notes_seen (account INTEGER PRIMARY KEY, offers_at REAL);
 """
 
 
@@ -286,9 +287,32 @@ class Store:
                      "WHERE account=? AND (status='open' OR created>?) ORDER BY created DESC", a, int(self.now()) - 7 * 86400)]
         watch = [{"itemId": it, "name": names.get(it, f"Item {it}")} for (it,) in self.q(
             "SELECT item FROM watch WHERE account=? ORDER BY created", a)]
+        offers = self.offers(a, names)
         return {"character": s.get("c"), "characters": characters(s), "gm": bool(s.get("g")), "watch": watch,
                 "alerts": alerts, "posts": posts, "badge": sum(1 for x in alerts if x["new"]),
+                "offers": offers, "offers_new": sum(1 for x in offers if x["new"]),
                 "limits": {"watch": MAX_WATCH, "alerts": MAX_ALERTS, "posts": MAX_OPEN_POSTS}}
+
+    def offers(self, account, names):
+        """Offers on this account's posts, from the outbox's offers.json (newest first, 7 days; the game whispers them
+        too). "from" is the IGN that offered: never a bot/player label. "new" until the bell is opened."""
+        try:
+            with open(os.path.join(self.outbox, "offers.json"), encoding="utf-8") as f:
+                data = json.load(f)
+        except (OSError, json.JSONDecodeError):
+            return []
+        mine = {pid: (kind, item) for pid, kind, item in self.q("SELECT id, kind, item FROM posts WHERE account=?", account)}
+        seen_at = (self.q("SELECT offers_at FROM notes_seen WHERE account=?", account) or [(0,)])[0][0] or 0
+        out = []
+        for o in rows_of(data, "offers"):
+            if not isinstance(o, dict) or o.get("postId") not in mine or not isinstance(o.get("price"), int):
+                continue
+            kind, item = mine[o["postId"]]
+            out.append({"postId": o["postId"], "from": str(o.get("bot", ""))[:13], "price": o["price"], "t": o.get("t"),
+                        "kind": kind, "itemId": item, "name": names.get(item, f"Item {item}"),
+                        "new": epoch(o.get("t"), 0) > seen_at})
+        out.sort(key=lambda x: str(x.get("t") or ""), reverse=True)
+        return out[:20]
 
     def board(self):
         """The server's board.json, expired posts dropped. Bot and player posts look the same (names only)."""
@@ -345,7 +369,10 @@ class Store:
             self.db.execute("DELETE FROM alerts WHERE id=?", (aid,))
 
     def seen(self, s):
+        """The bell was opened: fired alerts and board offers so far count as read."""
         self.db.execute("UPDATE alerts SET seen=1 WHERE account=?", (s["a"],))
+        self.db.execute("INSERT INTO notes_seen VALUES (?, ?) ON CONFLICT(account) DO UPDATE SET offers_at=excluded.offers_at",
+                        (s["a"], self.now()))
 
     def add_post(self, s, body):
         a = s["a"]
