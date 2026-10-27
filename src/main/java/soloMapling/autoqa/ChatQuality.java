@@ -3,6 +3,7 @@ package soloMapling.autoqa;
 import config.YamlConfig;
 import soloMapling.ArtificialPlayer.BotConvo.ConvoQuality;
 import soloMapling.ArtificialPlayer.BotConvo.SayDo;
+import soloMapling.server.History;
 import soloMapling.server.Json;
 
 import java.io.IOException;
@@ -105,11 +106,11 @@ public final class ChatQuality {
     @SuppressWarnings("unchecked")
     static List<Map<String, Object>> jsonl(Path f) {
         List<Map<String, Object>> out = new ArrayList<>();
-        if (!Files.isRegularFile(f)) {
+        if (!History.exists(f)) {
             return out;
         }
         try {
-            for (String row : Files.readAllLines(f, StandardCharsets.UTF_8)) {
+            for (String row : History.readLines(f)) {
                 try {
                     if (Json.parse(row) instanceof Map<?, ?> m) {
                         out.add((Map<String, Object>) m);

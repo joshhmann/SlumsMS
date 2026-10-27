@@ -81,7 +81,7 @@ The app already has no write actions.
     - `<date>-public.json` and `latest-public.json` (about 116 KB): meso supply by level band (humans vs bots), wealth stats (mean, median, p25/p75, top 1% / 10% share, Gini), flows, and `itemPrices` (count, median, p25/p75, min, max per item).
     - `<date>-private.json` adds `topHolders` (25 rows: id, level, meso, isBot).
     - Files are mode 600.
-  - Dated `<date>-public/private.json` files are kept 90 days (owner 2026-10-26), pruned at each nightly. The website's 365-day price history (`PublicMarketExport` `prices/<day>.json`) is separate.
+  - Dated `<date>-public/private.json` files are kept forever (owner 2026-10-27, was 90 days); at each nightly those older than 30 days are gzipped to `.json.gz` (`-Dslums.history.economyKeepDays=N` deletes after N days). The website's 365-day price history (`PublicMarketExport` `prices/<day>.json`) is separate.
   - Data comes from `characters` (world 1, gm<2), `botstore`, the active hired merchants and player shops (bot shops are `HiredMerchantArtificial`, so they are included), and PriceBook's recent samples.
 - **`PlayerWealthIndex`.** The median of the ratio "player mesos ÷ bot meso ceiling for that level" across players. It scales the bot ceiling between 1x and 10x, is kept in `bot-wealth-index.properties`, and logs `[Wealth]`.
 

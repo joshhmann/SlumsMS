@@ -1,5 +1,6 @@
 package soloMapling.autoqa;
 
+import soloMapling.server.History;
 import soloMapling.server.Json;
 
 import java.io.IOException;
@@ -256,10 +257,10 @@ public final class AutoQaReport {
     @SuppressWarnings("unchecked")
     static Map<String, Object> read(Path file) {
         try {
-            if (!Files.isRegularFile(file)) {
+            if (!History.exists(file)) {
                 return null;
             }
-            Object o = Json.parse(Files.readString(file, StandardCharsets.UTF_8));
+            Object o = Json.parse(History.readString(file));
             return o instanceof Map ? new LinkedHashMap<>((Map<String, Object>) o) : null;
         } catch (IOException | RuntimeException e) {
             return null;

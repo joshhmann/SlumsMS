@@ -12,6 +12,7 @@ import soloMapling.ArtificialPlayer.BotHelpers;
 import soloMapling.ArtificialPlayer.BotMessagingSystem.CharacterStorage;
 import soloMapling.ArtificialPlayer.BotSM;
 import soloMapling.Economy.PriceBook;
+import soloMapling.server.History;
 import soloMapling.server.Json;
 import tools.DatabaseConnection;
 
@@ -340,34 +341,18 @@ public final class EconomySnapshotService {
     }
 
     /**
-     * Keeps {@link EconomyCounterPersistence#KEEP_DAYS} days of dated snapshot files (owner 2026-10-26: 90 days), the
-     * day just written included. Only {@code yyyy-mm-dd-public.json} / {@code -private.json} go; the latest and
-     * on-demand files stay, and the website's 365-day price history lives elsewhere (PublicMarketExport).
+     * History is kept (owner 2026-10-27): the dated {@code yyyy-mm-dd-public.json} / {@code -private.json} files are
+     * never deleted by default; those older than {@code slums.history.gzipDays} (30) are gzipped to {@code .json.gz}.
+     * {@code -Dslums.history.economyKeepDays=N} brings back deleting after N days. The latest and on-demand files are
+     * not history and stay as they are. Returns the files deleted.
      */
     int pruneOldSnapshots(LocalDate newest) {
-        LocalDate oldestKept = newest.minusDays(EconomyCounterPersistence.KEEP_DAYS - 1);
-        int deleted = 0;
-        try (var ds = Files.newDirectoryStream(outputDir, "????-??-??-*.json")) {
-            for (Path p : ds) {
-                String n = p.getFileName().toString();
-                if (!n.endsWith("-public.json") && !n.endsWith("-private.json")) {
-                    continue;
-                }
-                LocalDate d;
-                try {
-                    d = LocalDate.parse(n.substring(0, 10));
-                } catch (java.time.format.DateTimeParseException e) {
-                    continue;
-                }
-                if (d.isBefore(oldestKept) && Files.deleteIfExists(p)) {
-                    deleted++;
-                }
-            }
-        } catch (IOException e) {
-            log.warn("Economy snapshot prune failed in {}", outputDir, e);
-        }
-        return deleted;
+        return History.sweep(outputDir, DATED_SNAPSHOT, newest, History.gzipDays("economy"), History.keepDays("economy"))
+                .deleted();
     }
+
+    private static final java.util.regex.Pattern DATED_SNAPSHOT =
+            java.util.regex.Pattern.compile("\\d{4}-\\d{2}-\\d{2}-(public|private)\\.json");
 
     private Map<String, Object> computeMesoSupply(List<CharacterRecord> list) {
         long total = 0;

@@ -150,8 +150,8 @@ public final class NxRate {
         out.put("schema", PublicMarketExport.SCHEMA);
         out.put("generated_at", java.time.Instant.ofEpochMilli(now).toString());
         out.put("min_trades", MIN_TRADES);
-        List<Map<String, Object>> kept = days.size() > PublicMarketExport.KEEP_DAYS
-                ? days.subList(days.size() - PublicMarketExport.KEEP_DAYS, days.size()) : days;
+        List<Map<String, Object>> kept = days.size() > PublicMarketExport.WINDOW_DAYS
+                ? days.subList(days.size() - PublicMarketExport.WINDOW_DAYS, days.size()) : days;
         out.put("days", new ArrayList<>(kept));
         Map<String, Object> t = new LinkedHashMap<>(today);
         t.put("as_of", java.time.Instant.ofEpochMilli(now).toString());

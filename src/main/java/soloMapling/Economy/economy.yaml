@@ -11,7 +11,7 @@ priceBook:
   playerOnlyAt: 5           # with this many samples that involve a real player, bot samples stop counting
   minSamples: 3             # fewer samples: the board shows the static value (item pool / EquipValuation)
   botSeedPerItemPerDay: 6   # bot-only purchases that may seed one item's board per day
-  keepDays: 14              # rows older than this are pruned from pricesamples
+  keepDays: 0               # 0 = keep every pricesamples row (history); above 0, rows older than this many days are pruned
   # 1.5.0 rc3 review (pump and dump): trades between linked players (one account, address or machine) leave no
   # sample, one pair of accounts leaves at most one per item per day, and bots price within a band of static value
   distinctTraders: 3        # player samples replace bot seeds only once this many different sellers and buyers made them

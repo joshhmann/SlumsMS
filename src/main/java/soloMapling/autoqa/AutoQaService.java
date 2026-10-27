@@ -194,6 +194,11 @@ public final class AutoQaService {
 
     private void runNow(List<Check> checks, boolean nightly, String runTrigger, Consumer<String> progress, Mode mode) {
         QaTiming.beginRun(mode.timeScale());
+        try {
+            AutoQa.compressHistory(AutoQa.dataDir());
+        } catch (RuntimeException e) {
+            AutoQa.log.debug("Auto-QA history sweep failed", e);
+        }
         world.open();
         long t0 = System.currentTimeMillis();
         List<AutoQaRunner.CheckResult> done = new ArrayList<>();

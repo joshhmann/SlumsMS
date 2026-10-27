@@ -9,6 +9,7 @@ import server.maps.PlayerShop;
 import server.maps.PlayerShopItem;
 import soloMapling.Economy.PriceBook;
 import soloMapling.dashboard.AtomicFiles;
+import soloMapling.server.History;
 import soloMapling.server.Json;
 import tools.DatabaseConnection;
 
@@ -49,8 +50,8 @@ import java.util.function.LongSupplier;
  *   nx-rate.json            every 15 min  mesos per 1,000 NX: up to 365 daily rows plus today so far
  *   economy-public.json     every 15 min  the nightly economy snapshot with the human-bucket floor (>= 5)
  *   prices/YYYY-MM-DD.json  00:05 UTC     the UTC day's per-item OHLC, median, count, player share (+ that day's NX
- *                                         rate); kept 365 days, missing recent days are back-filled from
- *                                         pricesamples (which keeps 14)
+ *                                         rate); kept forever, missing recent days are back-filled from
+ *                                         pricesamples (history kept too)
  *   prices/index.json       with the days the dates available
  * </pre>
  * Off by default. JVM properties only (no config.yaml keys):
@@ -68,14 +69,16 @@ public final class PublicMarketExport {
 
     public static final String ENABLED = "slums.market.export";
     public static final String DIR = "slums.market.dir";
-    public static final int KEEP_DAYS = 365;
+    /** Days of NX-rate rows in the published nx-rate.json (a window onto the day files, which are all kept). */
+    public static final int WINDOW_DAYS = 365;
     /** Every file carries {@code "schema": 1}; bump it when a field changes meaning or goes away. */
     public static final int SCHEMA = 1;
-    /** Days before yesterday that a run fills in when their file is missing (pricesamples keeps 14). */
+    /** Days before yesterday that a run fills in when their file is missing (the 14-day pricesamples limit is gone, but this stays a cheap catch-up). */
     static final int BACKFILL_DAYS = 12;
     static final long PERIOD_MINUTES = 15;
     /** Listings (what's in the FM shops now) go out more often than the rest: -Dslums.market.listingsSeconds, 0 = off. */
     static final long LISTINGS_SECONDS = Long.getLong("slums.market.listingsSeconds", 120);
+    private static final java.util.regex.Pattern DAY_FILE = java.util.regex.Pattern.compile("\\d{4}-\\d{2}-\\d{2}\\.json");
     static final int NIGHTLY_MINUTE = 5;   // 00:05 UTC
     private static final long WARN_EVERY_MS = TimeUnit.MINUTES.toMillis(15);
 
@@ -372,7 +375,7 @@ public final class PublicMarketExport {
             boolean filled = false;
             for (int back = BACKFILL_DAYS + 1; back >= 1; back--) {
                 LocalDate d = today.minusDays(back);
-                if (Files.exists(dayFile(d)) || emptyDays.contains(d)) {
+                if (History.exists(dayFile(d)) || emptyDays.contains(d)) {
                     continue;
                 }
                 boolean[] wrote = {false};
@@ -452,14 +455,16 @@ public final class PublicMarketExport {
             return true;
         }
 
-        /** Deletes day files older than {@link #KEEP_DAYS}. True when it ran. */
+        /**
+         * History is kept: no day file is deleted unless {@code -Dslums.history.marketKeepDays=N}. They stay plain
+         * JSON because the site build reads them; {@code -Dslums.history.marketGzipDays=N} gzips the older ones
+         * ({@code .json.gz}, read here too). True when it ran.
+         */
         boolean prune(LocalDate today) throws IOException {
-            LocalDate oldest = today.minusDays(KEEP_DAYS);
-            for (LocalDate d : dayFiles()) {
-                if (d.isBefore(oldest)) {
-                    Files.deleteIfExists(dayFile(d));
-                    nxDays().remove(d);
-                }
+            int keep = History.keepDays("market");
+            History.sweep(prices(), DAY_FILE, today, Integer.getInteger("slums.history.marketGzipDays", 0), keep);
+            if (keep > 0) {
+                nxDays().keySet().removeIf(d -> d.isBefore(today.minusDays(keep)));
             }
             return true;
         }
@@ -470,25 +475,28 @@ public final class PublicMarketExport {
             if (!Files.isDirectory(prices())) {
                 return out;
             }
-            try (DirectoryStream<Path> ds = Files.newDirectoryStream(prices(), "????-??-??.json")) {
+            try (DirectoryStream<Path> ds = Files.newDirectoryStream(prices(), "????-??-??.json*")) {
                 for (Path p : ds) {
                     String n = p.getFileName().toString();
+                    if (!DAY_FILE.matcher(n.endsWith(".gz") ? n.substring(0, n.length() - 3) : n).matches()) {
+                        continue;
+                    }
                     try {
-                        out.add(LocalDate.parse(n.substring(0, n.length() - 5)));
+                        out.add(LocalDate.parse(n.substring(0, 10)));
                     } catch (DateTimeParseException e) {
                         // not a day file
                     }
                 }
             }
             out.sort(null);
-            return out;
+            return out.stream().distinct().toList();
         }
 
         boolean writeIndex(long now) throws IOException {
             Map<String, Object> m = new java.util.LinkedHashMap<>();
             m.put("schema", SCHEMA);
             m.put("generated_at", Instant.ofEpochMilli(now).toString());
-            m.put("keep_days", KEEP_DAYS);
+            m.put("keep_days", History.keepDays("market")); // 0 = forever
             m.put("dates", dayFiles().stream().map(LocalDate::toString).toList());
             AtomicFiles.writeJson(prices().resolve("index.json"), m);
             return true;
@@ -498,7 +506,7 @@ public final class PublicMarketExport {
             List<PriceBook.Sample> todays = sources.samplesBetween(startOf(today), now + 1);
             Map<String, Object> t = NxRate.entry(today, todays, nx);
             List<Map<String, Object>> days = new ArrayList<>();
-            LocalDate oldest = today.minusDays(KEEP_DAYS);
+            LocalDate oldest = today.minusDays(WINDOW_DAYS);
             nxDays().forEach((d, e) -> {
                 if (!d.isBefore(oldest) && d.isBefore(today)) {
                     days.add(e);
@@ -515,7 +523,7 @@ public final class PublicMarketExport {
                 TreeMap<LocalDate, Map<String, Object>> m = new TreeMap<>();
                 for (LocalDate d : dayFiles()) {
                     try {
-                        Object doc = Json.parse(Files.readString(dayFile(d), StandardCharsets.UTF_8));
+                        Object doc = Json.parse(History.readString(dayFile(d)));
                         if (doc instanceof Map<?, ?> map && map.get("nx_rate") instanceof Map<?, ?> e) {
                             m.put(d, (Map<String, Object>) e);
                         }

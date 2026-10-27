@@ -122,7 +122,27 @@ class PublicMarketExportTest {
 
     @Test
     @SuppressWarnings("unchecked")
-    void nightlyWritesYesterdayEvenWithoutSalesAndPrunesPast365Days() throws Exception {
+    void withMarketGzipDaysOldDayFilesAreCompressedAndStillFeedTheIndexAndNxRate() throws Exception {
+        Files.createDirectories(dir.resolve("prices"));
+        LocalDate old = TODAY.minusDays(100);
+        Files.writeString(dir.resolve("prices/" + old + ".json"), "{\"nx_rate\":{\"date\":\"" + old + "\"}}");
+        System.setProperty("slums.history.marketGzipDays", "30");
+        try {
+            var r = runner(new Fake(), new AtomicLong(PublicMarketExport.startOf(TODAY) + 5 * 60_000L)).nightly();
+            assertTrue(r.failed().isEmpty(), r.failed().toString());
+        } finally {
+            System.clearProperty("slums.history.marketGzipDays");
+        }
+        assertFalse(Files.exists(dir.resolve("prices/" + old + ".json")));
+        assertTrue(Files.exists(dir.resolve("prices/" + old + ".json.gz")), "compressed, not deleted");
+        assertEquals(List.of(old.toString(), TODAY.minusDays(1).toString()), read(dir.resolve("prices/index.json")).get("dates"));
+        List<Map<String, Object>> days = (List<Map<String, Object>>) read(dir.resolve("nx-rate.json")).get("days");
+        assertEquals(old.toString(), days.get(0).get("date"), "the NX history is read from the compressed day");
+    }
+
+    @Test
+    @SuppressWarnings("unchecked")
+    void nightlyWritesYesterdayEvenWithoutSalesAndKeepsEveryDayFileButWindowsNxRateTo365() throws Exception {
         Files.createDirectories(dir.resolve("prices"));
         LocalDate old = TODAY.minusDays(366), kept = TODAY.minusDays(365);
         Files.writeString(dir.resolve("prices/" + old + ".json"), "{\"nx_rate\":{\"date\":\"" + old + "\"}}");
@@ -136,10 +156,10 @@ class PublicMarketExportTest {
         Path y = dir.resolve("prices/" + TODAY.minusDays(1) + ".json");
         assertTrue(Files.exists(y), "yesterday is written even with no sales");
         assertEquals(0L, read(y).get("samples"));
-        assertFalse(Files.exists(dir.resolve("prices/" + old + ".json")), "older than 365 days: pruned");
+        assertTrue(Files.exists(dir.resolve("prices/" + old + ".json")), "history is kept: nothing is deleted by default");
         assertTrue(Files.exists(dir.resolve("prices/" + kept + ".json")));
-        assertTrue(Files.exists(dir.resolve("prices/notes.json")), "only day files are pruned");
-        assertEquals(List.of(kept.toString(), TODAY.minusDays(1).toString()),
+        assertTrue(Files.exists(dir.resolve("prices/notes.json")));
+        assertEquals(List.of(old.toString(), kept.toString(), TODAY.minusDays(1).toString()),
                 read(dir.resolve("prices/index.json")).get("dates"));
         List<Map<String, Object>> days = (List<Map<String, Object>>) read(dir.resolve("nx-rate.json")).get("days");
         assertEquals(List.of(kept.toString(), TODAY.minusDays(1).toString()),
