@@ -76,4 +76,29 @@ class WorldEventScenariosTest {
         assertFalse(anyMatches(waits, WorldEventScenarios.Ev2Invasion.naturalDeaths(2)));
         assertFalse(anyMatches(waits, "EV2 DIE next lethal hit certain for 3 staged bots (HP 1, nearest a mob: [])"));
     }
+
+    // Owner 2026-10-27 ("It needs to be harder mobs"): t-ev-3 runs the shipped invasion at full strength
+    @Test
+    void evTwoFullRunsTheTemplateAsShipped() {
+        assertTrue(WorldEventScenarios.EventScenario.fullStrength(new String[] {"full"}));
+        assertFalse(WorldEventScenarios.EventScenario.fullStrength(new String[0]));
+        assertFalse(WorldEventScenarios.EventScenario.fullStrength(null));
+        assertEquals(35, new WorldEventScenarios.Ev2Invasion().minutes(new String[] {"full"}));
+        assertEquals(12, new WorldEventScenarios.Ev2Invasion().minutes(new String[0]));
+    }
+
+    @Test
+    void tEv3WantsTheWholeFightWonWithDeaths() {
+        Check ev3 = AutoQaCatalog.find("t-ev-3");
+        List<Pattern> expects = patterns(ev3, false);
+        assertTrue(anyMatches(expects, "EV2 EVENT #7 henesys_invasion on 100000000, 12 staged bots called, full strength"
+                + " (boss HP 250000, 30 min)"));
+        assertTrue(anyMatches(expects, "WEVENT WAVE #7 4/4: 15 mobs up, mini-boss Zombie Mushmom"));
+        assertTrue(anyMatches(expects, "WEVENT END #7 henesys_invasion (won), 140 bots joined, 22 bot deaths, winner X"));
+        assertFalse(anyMatches(expects, "WEVENT END #7 henesys_invasion (time up), 140 bots joined, 22 bot deaths"));
+        List<Pattern> waits = patterns(ev3, true);
+        for (String hint : WorldEventScenarios.Ev2Invasion.hints()) {
+            assertFalse(anyMatches(waits, hint), hint);
+        }
+    }
 }

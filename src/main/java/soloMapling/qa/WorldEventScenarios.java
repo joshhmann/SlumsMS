@@ -67,6 +67,11 @@ final class WorldEventScenarios {
             return 10;
         }
 
+        /** {@code !qa run ev-2 full}: the template as shipped (its boss HP and minutes), for tuning and t-ev-3. */
+        static boolean fullStrength(String[] args) {
+            return args != null && args.length > 0 && "full".equalsIgnoreCase(args[0]);
+        }
+
         List<String> stageEvent(QaContext ctx, String code) {
             QaWorld w = ctx.world();
             Character gm = ctx.gm();
@@ -99,7 +104,9 @@ final class WorldEventScenarios {
             ctx.run().note(code, code + " STAGED " + ids.size() + " bots lv " + botLevel() + " in Henesys");
             events.qaWarn(template(), HENESYS, 10);
             events.qaWarn(template(), HENESYS, 1);
-            WorldEvents.StartResult r = events.startForQa(template(), HENESYS, "!qa " + id(), bossHp(), eventMinutes());
+            boolean full = fullStrength(ctx.args());
+            WorldEvents.StartResult r = events.startForQa(template(), HENESYS, "!qa " + id(), full ? 0 : bossHp(),
+                    full ? 0 : eventMinutes());
             if (r.error() != null) {
                 throw new QaRefusal("The event did not start: " + r.error());
             }
@@ -112,9 +119,10 @@ final class WorldEventScenarios {
             });
             int joined = events.qaJoin(e, ids);
             ctx.run().note(code, code + " EVENT #" + e.id + " " + template() + " on " + e.mapId() + ", " + joined
-                    + " staged bots called");
+                    + " staged bots called" + (full ? ", full strength (boss HP " + e.template.bossHp() + ", "
+                    + e.template.minutes() + " min)" : ""));
             return new ArrayList<>(List.of("Event #" + e.id + " (" + template() + ") runs in Henesys for "
-                    + eventMinutes() + " min; " + joined + " staged bots answered, bots nearby may come too."));
+                    + (full ? e.template.minutes() : eventMinutes()) + " min; " + joined + " staged bots answered, bots nearby may come too."));
         }
 
         /** Staged bots that missed the call (still settling in) are called again. */
@@ -179,8 +187,8 @@ final class WorldEventScenarios {
     static final class Ev2Invasion extends EventScenario {
         public String id() { return "ev-2"; }
         public String title() { return "A Henesys invasion: bots swarm it, some die, respawn and grumble (1.6.0)"; }
-        public String usage() { return "; then !qa do die | status"; }
-        public int minutes(String[] args) { return 12; }
+        public String usage() { return " [full]; then !qa do die | status"; }
+        public int minutes(String[] args) { return fullStrength(args) ? 35 : 12; }
         String template() { return "henesys_invasion"; }
         long bossHp() { return 20_000; }
         int eventMinutes() { return 10; }
@@ -197,8 +205,8 @@ final class WorldEventScenarios {
         static List<String> hints() {
             return List.of("Expect: the [Monster Invasion] notice, mushrooms all over Henesys, the staged lv 15 bots (and"
                     + " any nearby) fighting them. On an invasion map a heavy hit can kill a bot: WEVENT BOT DIED,",
-                    "then RESPAWN (HABITS) and now and then a grumble (WEVENT GRUMBLE). Then the waves (the last one"
-                    + " with Evil Eyes and Mushmom), Zombie Mushmom, the end notice. !qa do die drops the 3 staged bots"
+                    "then RESPAWN (HABITS) and now and then a grumble (WEVENT GRUMBLE). Then the waves (Zombie Lupins,"
+                    + " Drakes, Dark Stone Golems, Wild Kargos with Zombie Mushmom), Jr. Balrog, the end notice. !qa do die drops the 3 staged bots"
                     + " nearest a mob to 1 HP with a certain death, unless bots already died on their own;"
                     + " EV2 STATUS every 30 s (or !qa do status) says where everyone is.");
         }

@@ -972,6 +972,19 @@ public final class AutoQaCatalog {
                         has("RESPAWN .* died on 100000000"),
                         noEmoji())
                 .build());
+        // Owner 2026-10-27 ("It needs to be harder mobs"): the shipped Henesys invasion at full strength (its own boss HP
+        // and 30 minutes, no forced deaths): the crowd of lv 1-40 bots loses a good number to the lv 40-80 invaders and
+        // still beats the boss. Long (6-12 min of fight), so not nightly: run it by id after tuning the template
+        c.add(Check.auto("t-ev-3", "The full Henesys invasion: bots die in numbers, the crowd still wins").minutes(35)
+                .notNightly()
+                .step(run("ev-2", "full"), waitFor("WEVENT END ", 31 * 60), waitSeconds(3), stop())
+                .expect(has("EV2 EVENT #\\d+ henesys_invasion .*full strength"),
+                        has("WEVENT WAVE #\\d+ 4/4"),
+                        atLeast(EV3_MIN_DEATHS, "WEVENT BOT DIED #\\d+ .* on 100000000, death \\d+ for it"),
+                        has("WEVENT BOSS DOWN #\\d+ "),
+                        has("WEVENT END #\\d+ henesys_invasion \\((won|boss killed)\\)"),
+                        noEmoji())
+                .build());
         // 1.6.0 Track D: the website Market's server side. A forced export writes every file (listings, sales, the
         // NX rate, the public economy, yesterday's price rollup and the index) and each one parses as JSON
         c.add(Check.auto("t-mk-1", "A forced market export writes every Market file and each is valid JSON").minutes(2)
@@ -1100,6 +1113,8 @@ public final class AutoQaCatalog {
 
     /** t-ev-2: how long the check waits for a bot to die by itself before !qa do die (the invasion lasts ~90 s). */
     static final int EV2_NATURAL_DEATH_S = 20;
+    /** t-ev-3: the bot deaths a full-strength Henesys invasion must cost (owner 2026-10-27: harder mobs, bots die). */
+    static final int EV3_MIN_DEATHS = 10;
 
     /** t-tw-1: seconds between the two town samples (the director ticks every 30 s; pulls are 3 a minute a map). */
     static final int TOWN_WINDOW_S = 300;

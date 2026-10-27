@@ -80,9 +80,10 @@ public final class WorldEvents {
     /**
      * 1.6.0 madness (owner 2026-10-27: "a handful of bot deaths", 2-6 or more if it reads as chaos, "not dozens"): with
      * lv 1 bots and town bots in the fight a hit kills easily, so the event's deaths are paced (at most one every
-     * {@link #SWARM_EVENT_GAP_MS}) and capped.
+     * {@link #SWARM_EVENT_GAP_MS}) and capped. Owner 2026-10-27 ("It needs to be harder mobs"): the Henesys invasion
+     * now runs 6-12 minutes against lv 40-80 invaders, so the cap is two dozen (a long fight can reach it at this pace).
      */
-    static final int SWARM_DEATHS_PER_EVENT = 20;
+    static final int SWARM_DEATHS_PER_EVENT = 24;
     static final long SWARM_EVENT_GAP_MS = 15_000L;
 
     private final EventDirector director = new EventDirector(EventDirector.Config.fromSystemProperties(zone()));
