@@ -459,7 +459,10 @@ def build_index(s):
                     for label, n, href, _ in counts)
     body = ('<h1>Slums Street</h1><p class="lede">Every item, monster, map, NPC and quest you can reach on Bera, from the '
             "server's own data. Drop chances are base rates: Bera drops at &times;4 (bosses &times;3).</p>"
-            f'<div class="dbtiles">{tiles}</div>')
+            f'<div class="dbtiles">{tiles}</div>'
+            # filled by theme.js from world/hot.json (rebuilt every couple of minutes); hidden until it loads
+            '<section class="panel hot" data-hot="{root}world/hot.json" data-root="{root}" hidden><h2 class="bar">Hot right now</h2>'
+            '<div class="hotgrid"></div></section>')
     s.page(f"{DB}/index.html", "Slums Street", [], body, "", "Slums Street: every SlumsMS item, monster, map, NPC and quest.")
 
 

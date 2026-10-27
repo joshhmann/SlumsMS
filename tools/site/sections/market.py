@@ -233,6 +233,26 @@ def area_chart(points, label, line_label="Median sale", gap_text=f"under {MIN_SA
             + ('<span><i class="gap"></i>No figure that day</span>' if len(runs) > 1 else "") + '</p>')
 
 
+RANGES = [(7, "7 days"), (14, "14 days"), (30, "30 days")]
+
+
+def ranged_chart(points, label, *args):
+    """area_chart with 7 / 14 / 30 day buttons: one chart per range, the longest shown; theme.js switches between
+    them (without script only the longest shows). Ranges that would show the same days, or fewer than 2, are left out."""
+    views = []
+    for n, name in RANGES:
+        pts = points[-n:]
+        if len(pts) >= 2 and (not views or len(pts) > len(views[-1][1])):
+            views.append((name, pts))
+    if len(views) < 2:
+        return area_chart(points, label, *args)
+    chips = "".join(f'<button type="button" class="chip" data-range="{i}" aria-pressed="{str(i == len(views) - 1).lower()}">'
+                    f'{esc(name)}</button>' for i, (name, _) in enumerate(views))
+    boxes = "".join(f'<div class="range-view" data-view="{i}"{"" if i == len(views) - 1 else " hidden"}>'
+                    f'{area_chart(pts, f"{label}, last {name}", *args)}</div>' for i, (name, pts) in enumerate(views))
+    return f'<div class="ranged"><p class="chips range-chips" hidden>{chips}</p>{boxes}</div>'
+
+
 def sparkline(values, label):
     pts = [(i, v) for i, v in enumerate(values) if v is not None]
     if len(pts) < 2:
@@ -386,7 +406,7 @@ def build_prices(mk):
                 f'<section class="panel mkact" data-mk-item="{item_id}" hidden><h2 class="bar">Watch, alert, post</h2>'
                 f'<div class="in"></div></section>'
                 f'<section class="panel"><h2 class="bar">Price history <small>median per day; days under {MIN_SAMPLES} sales are left out</small></h2>'
-                f'<div class="in">{area_chart(pts, f"Median price of {name} per day")}</div></section>'
+                f'<div class="in">{ranged_chart(pts, f"Median price of {name} per day")}</div></section>'
                 + (f'<section class="panel"><h2 class="bar">FM now <small>cheapest first; whisper or visit to buy</small></h2><div class="tbl"><table class="t">'
                    f'<thead><tr><th></th><th class="r">Price</th><th class="r">Qty</th><th>Seller</th><th>Where</th></tr></thead>'
                    f'<tbody>{lrows}</tbody></table></div>'
@@ -445,7 +465,7 @@ def build_lists(mk, priced):
                    for d in reversed(days))
     body = (f'<h1>NX rate</h1><p class="id">Mesos per 1,000 NX, from resales of cash-shop items and NX code trades. '
             f'A day with under 5 trades shows no rate.</p>{mk.nx_card("{root}", wide=True)}'
-            f'<section class="panel"><h2 class="bar">History</h2><div class="in">{area_chart(pts, "NX rate per day", "Mesos per 1,000 NX", "not enough trades")}</div></section>'
+            f'<section class="panel"><h2 class="bar">History</h2><div class="in">{ranged_chart(pts, "NX rate per day", "Mesos per 1,000 NX", "not enough trades")}</div></section>'
             f'<section class="panel"><h2 class="bar">By day</h2><div class="tbl"><table class="t"><thead><tr><th>Day (UTC)</th>'
             f'<th class="r">Mesos per 1,000 NX</th><th class="r">Trades</th><th class="r">Cash resales</th><th class="r">NX codes</th>'
             f'</tr></thead><tbody>{rows}</tbody></table></div></section>')

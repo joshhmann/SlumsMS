@@ -46,6 +46,12 @@ def build_login(out):
                                           "Sign in to Slums Street and the Slums Market with your game account."))
 
 
+def build_join(out):
+    body = read(os.path.join(SRC, "join.html"))
+    write(out, "join/index.html", layout("How to join", body, "../", "login",
+                                         "How to join SlumsMS: an invite code, an account, the launcher."))
+
+
 def build_forgot(out):
     body = read(os.path.join(SRC, "forgot.html"))
     write(out, "forgot/index.html", layout("Forgot your password?", body, "../", "login",

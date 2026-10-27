@@ -58,6 +58,8 @@ img.px { image-rendering: pixelated; }
 .who b { color: var(--ink); display: inline-block; max-width: 9em; overflow: hidden; text-overflow: ellipsis; vertical-align: bottom; }
 .sw.green { background: #3cbf4a; } .sw.blue { background: #3d4bff; } .sw.orange { background: #ff5a1f; }
 .sw.slumschan { background: linear-gradient(135deg, #2a2f6e 50%, #f07a1e 50%); }
+.sw.slumschan.locked { background: var(--surface-2); color: var(--muted); font: 700 .72rem/1 var(--f-mono); }
+.sw.slumschan.locked::before { content: "?"; }
 .accents button[hidden] { display: none; }
 
 /* signature: the megaphone rail, a slow scroll of the latest news like an in-game megaphone */
@@ -602,3 +604,30 @@ table.t { width: 100%; border-collapse: collapse; }
   line-height: 1; cursor: pointer; padding: 4px 8px; }
 @keyframes secret-up { from { transform: translateY(110%); opacity: 0; } to { transform: none; opacity: 1; } }
 @media (prefers-reduced-motion: reduce) { .secret { animation: none; } }
+
+/* Slums Street "Hot right now" (theme.js, world/hot.json) */
+.hot { margin-top: 18px; }
+.hot[hidden] { display: none; }
+.hotgrid { display: grid; grid-template-columns: repeat(auto-fit, minmax(200px, 1fr)); gap: 4px 20px; padding: 12px 16px 14px; }
+.hotgrid h3 { margin: 4px 0 6px; font: 700 .72rem var(--f-mono); letter-spacing: .1em; text-transform: uppercase; color: var(--muted); }
+.hotgrid ol { margin: 0; padding-left: 1.3em; display: grid; gap: 4px; }
+.hotgrid small { color: var(--muted); }
+
+/* chart range buttons (market.py ranged_chart) */
+.range-chips { margin: 0 0 8px; }
+.range-chips[hidden], .range-view[hidden] { display: none; }
+.range-chips .chip { background: var(--surface); color: var(--ink); cursor: pointer; font: inherit; font-weight: 600; font-size: .85rem; }
+.range-chips .chip[aria-pressed="true"] { background: var(--accent); color: var(--on-accent); border-color: var(--edge); }
+
+/* the header bell (theme.js): fired price alerts for signed-in players */
+.bell { position: relative; background: none; border: 0; padding: 4px; color: var(--ink); cursor: pointer; line-height: 0; }
+.bell-n { position: absolute; top: -2px; right: -4px; min-width: 16px; height: 16px; padding: 0 4px; border-radius: 8px;
+  background: var(--accent); color: var(--on-accent); font: 700 .65rem/16px var(--f-mono); text-align: center; }
+.bell-n[hidden] { display: none; }
+.bell-card { position: absolute; top: 100%; right: max(12px, env(safe-area-inset-right, 0px)); z-index: 40; width: min(320px, calc(100vw - 24px));
+  display: grid; gap: 8px; padding: 12px 14px; background: var(--surface); color: var(--ink); border: 2px solid var(--edge);
+  border-radius: 12px; box-shadow: 4px 4px 0 var(--drop); font-size: .88rem; }
+.bell-card ul { margin: 0; padding: 0; list-style: none; display: grid; gap: 6px; }
+.bell-card li.new a { font-weight: 700; }
+.bell-card p { margin: 0; }
+.site-head .wrap { position: relative; }

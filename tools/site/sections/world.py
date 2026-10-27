@@ -493,6 +493,30 @@ def build_economy(wo):
     wo.page(f"{WORLD}/economy.html", "Bera economy", body, "economy", "Mesos in the game, made vs spent, the NX rate and prices on Bera.")
 
 
+def build_hot(wo):
+    """world/hot.json for Slums Street's "Hot right now" panel (filled by theme.js): the busiest maps, the most-sold
+    items over 7 days and, once the server exports them, the most-hunted monsters. Names, ids and counts only. It's
+    rebuilt with World every couple of minutes; Slums Street itself only rebuilds in a full build."""
+    wd, db = wo.w["world"], wo.db or {}
+    def name(kind, i, fallback=None):
+        rec = db.get(kind, {}).get(i) if _is(i, int) else None
+        return (fallback if isinstance(fallback, str) and fallback else None) or (rec or {}).get("name") or f"#{i}"
+    maps = [{"id": r.get("map"), "name": name("maps", r.get("map"), r.get("name")), "count": r.get("count"),
+             "page": r.get("map") in db.get("maps", {})}
+            for r in (wd.get("busiest_maps") or wd.get("busiestMaps") or [])[:5] if isinstance(r, dict)]
+    mobs = [{"id": r.get("mob"), "name": name("mobs", r.get("mob"), r.get("name")), "count": r.get("kills"),
+             "page": r.get("mob") in db.get("mobs", {})}
+            for r in (wd.get("top_mobs") or [])[:5] if isinstance(r, dict) and _is(r.get("kills"), int)]
+    sold = []
+    for i in market.traded_items(wo.m):
+        n = sum((r or {}).get("count", 0) for _, r in market.item_history(wo.m, i)[-7:])
+        if n:
+            sold.append((n, i))
+    items = [{"id": i, "name": name("items", i), "count": n} for n, i in sorted(sold, reverse=True)[:5]]
+    write(wo.out, f"{WORLD}/hot.json", json.dumps({"generated_at": wd.get("generated_at"), "maps": maps, "mobs": mobs,
+                                                     "items": items}))
+
+
 def build(out, data_dir=None, market_dir=None, db=None):
     w = load(data_dir)
     problems = validate(w)
@@ -508,4 +532,5 @@ def build(out, data_dir=None, market_dir=None, db=None):
     n = build_feed(wo)
     build_rankings(wo)
     build_economy(wo)
+    build_hot(wo)
     return {"online": online, "feed": n, "sample": w["sample"] or m["sample"]}

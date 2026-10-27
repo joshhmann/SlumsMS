@@ -50,6 +50,9 @@ WORD_OK = {
     # ticket 107: the forgot-password page sets a new game password the same way
     "forgot/index.html": {"password"},
     "assets/forgot.js": {"password"},
+    # ticket 105: how to join and the getting-started guide explain the sign-up rules
+    "join/index.html": {"password"},
+    "guide/getting-started.html": {"password"},
 }
 
 # Game text that contains a forbidden word, allowed on any page because it is the game's own name for something
