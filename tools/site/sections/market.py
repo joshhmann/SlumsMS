@@ -19,7 +19,7 @@ import re
 import shutil
 
 import check
-from common import REPO, esc, layout, write
+from common import REPO, esc, layout, strf, write
 from sections.database import scrub
 
 MARKET = "market"
@@ -131,7 +131,7 @@ def when(iso):
         pt = utc.astimezone(PT)
     else:
         pt = utc - dt.timedelta(hours=7 if utc < dt.datetime(2026, 11, 1, 9, tzinfo=dt.timezone.utc) else 8)
-    return f"{pt.strftime('%-I:%M %p')} PT ({utc.strftime('%H:%M')} UTC), {pt.strftime('%b %-d')}"
+    return f"{strf(pt, '%-I:%M %p')} PT ({utc.strftime('%H:%M')} UTC), {strf(pt, '%b %-d')}"
 
 
 # how a sale happened, in the same words for bots and players
@@ -208,7 +208,7 @@ def area_chart(points, label, line_label="Median sale"):
         s.append(f'<polyline class="ch-line" fill="none" points="{line}"/>')
     for i in sorted({0, len(points) // 2, len(points) - 1}):
         d = dt.date.fromisoformat(points[i][0])
-        s.append(f'<text class="ch-label" x="{X(i):.1f}" y="{H - 8}" text-anchor="middle">{d.strftime("%b %-d")}</text>')
+        s.append(f'<text class="ch-label" x="{X(i):.1f}" y="{H - 8}" text-anchor="middle">{strf(d, "%b %-d")}</text>')
     last = next(((i, v) for i, (_, v, _, _) in reversed(list(enumerate(points))) if v is not None), None)
     if last:
         s.append(f'<circle class="ch-dot" cx="{X(last[0]):.1f}" cy="{Y(last[1]):.1f}" r="4.5"/>'
@@ -287,7 +287,7 @@ class Market:
         if not today.get("mesos_per_1000nx"):  # too few trades today so far: the newest day that had a rate
             last = next((d for d in reversed(days) if d.get("mesos_per_1000nx")), None)
             if last:
-                row, when_ = last, dt.date.fromisoformat(last["date"]).strftime("%b %-d")
+                row, when_ = last, strf(dt.date.fromisoformat(last["date"]), "%b %-d")
         rate = row.get("mesos_per_1000nx")
         first = next((v for v in vals if v), None)
         note = ""

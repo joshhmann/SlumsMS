@@ -22,7 +22,7 @@ import shutil
 
 import check
 import common
-from common import REPO, esc, layout, write
+from common import REPO, esc, layout, strf, write
 from sections import market
 from sections.market import area_chart, change, count, mesos, when
 
@@ -236,7 +236,7 @@ def bars(points, label, a_label, b_label):
             s.append(f'<rect class="bar-b" x="{x + 0.5:.1f}" y="{Y(b):.1f}" width="{bw:.1f}" height="{Y(0) - Y(b):.1f}" rx="1.5"/>')
     for i in sorted({0, len(points) // 2, len(points) - 1}):
         d = dt.date.fromisoformat(points[i][0])
-        s.append(f'<text class="ch-label" x="{L + i * slot + slot / 2:.1f}" y="{H - 8}" text-anchor="middle">{d.strftime("%b %-d")}</text>')
+        s.append(f'<text class="ch-label" x="{L + i * slot + slot / 2:.1f}" y="{H - 8}" text-anchor="middle">{strf(d, "%b %-d")}</text>')
     return (f'<svg class="chart" viewBox="0 0 {W} {H}" role="img" aria-label="{esc(label)}">{"".join(s)}</svg>'
             f'<p class="legend"><span><i class="a"></i>{esc(a_label)}</span><span><i class="b"></i>{esc(b_label)}</span></p>')
 
@@ -313,7 +313,7 @@ def build_feed(wo):
                 days.append((d, []))
                 cur = d
             days[-1][1].append(it)
-        sections = "".join(f'<section class="panel"><h2 class="bar">{d.strftime("%A, %B %-d")} <small>Pacific</small></h2>'
+        sections = "".join(f'<section class="panel"><h2 class="bar">{strf(d, "%A, %B %-d")} <small>Pacific</small></h2>'
                            f'<ul class="board feed">{wo.feed_rows(its, "{root}")}</ul></section>' for d, its in days)
         intro = {None: "World events with the top damage, milestones, the day's megaphones and the town's drama.",
                  "event": "World events: the 8 PM PT Henesys event and the small ones around it, with the top damage.",

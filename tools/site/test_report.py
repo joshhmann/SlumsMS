@@ -169,7 +169,8 @@ class ServiceTest(unittest.TestCase):
         self.assertEqual(rec["ip_hash"], self.store.hash_ip("203.0.113.7"))
         self.assertEqual(len(rec["ip_hash"]), 64)
         self.assertNotEqual(rec["ip_hash"], rs.Store(self.path, b"other-salt-0123456789", clock=self.clock).hash_ip("203.0.113.7"))
-        self.assertEqual(oct(os.stat(self.path).st_mode & 0o777), oct(0o640))
+        if os.name == "posix":  # the report service runs on 164 (Linux); Windows has no such file modes
+            self.assertEqual(oct(os.stat(self.path).st_mode & 0o777), oct(0o640))
 
     def test_form_post_html_escaped(self):
         evil = '<script>alert("x")</script> & <b>'

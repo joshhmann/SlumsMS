@@ -11,6 +11,14 @@ SITE = "SlumsMS"
 esc = html.escape
 
 
+def strf(d, fmt):
+    """strftime with %-d and %-I (no leading zero) on every OS: Windows' strftime refuses the "-" flag."""
+    fmt = fmt.replace("%-d", str(d.day))
+    if "%-I" in fmt:
+        fmt = fmt.replace("%-I", str(int(d.strftime("%I"))))
+    return d.strftime(fmt)
+
+
 # ── layout ───────────────────────────────────────────────────────────────────────────────────────
 
 NAV = [("index.html", "Home", "home"), ("patch-notes/", "News", "notes"), ("world/", "World", "world"),

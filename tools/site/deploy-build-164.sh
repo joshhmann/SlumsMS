@@ -6,7 +6,7 @@
 set -euo pipefail
 HOST=root@192.168.0.164
 DEST=/opt/slums-site-build
-DATA=${SLUMS_HS_DATA:-/root/work/SlumsMS-160-market/data/hiddenstreet}
+DATA=${SLUMS_HS_DATA:-data/site/hiddenstreet}
 DRY=()
 [ "${1:-}" = "--dry-run" ] && DRY=(--dry-run --itemize-changes)
 cd "$(git rev-parse --show-toplevel)"

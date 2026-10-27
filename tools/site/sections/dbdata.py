@@ -15,8 +15,10 @@ import os
 import re
 
 KINDS = ["items", "mobs", "maps", "npcs", "quests"]
-# the cleaned 1.6.0 dataset (dedupe, event-variant names, Korean names left out, drop-rate rules in meta.json)
-DEFAULT_DIR = os.environ.get("SLUMS_HS_DATA", "/root/work/SlumsMS-160-market/data/hiddenstreet")
+# the cleaned 1.6.0 dataset (dedupe, event-variant names, Korean names left out, drop-rate rules in meta.json), kept in
+# the repo so the whole site builds on any machine; refresh it by copying a new build_data.py output over it
+DEFAULT_DIR = os.environ.get("SLUMS_HS_DATA", os.path.join(os.path.dirname(os.path.abspath(__file__)), "..", "..", "..",
+                                                           "data", "site", "hiddenstreet"))
 
 
 def _load(path):

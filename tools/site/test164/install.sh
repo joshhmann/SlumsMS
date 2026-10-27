@@ -7,7 +7,7 @@
 set -euo pipefail
 HOST=root@192.168.0.164
 DEST=/opt/slums-site-test
-DATA=${SLUMS_HS_DATA:-/root/work/SlumsMS-160-market/data/hiddenstreet}
+DATA=${SLUMS_HS_DATA:-data/site/hiddenstreet}
 UNITS="slums-login-test.service slums-market-test.service slums-site-test-web.service slums-site-test-world.service
 slums-site-test-world.timer slums-site-test-market.service slums-site-test-market.timer"
 cd "$(git rev-parse --show-toplevel)"
