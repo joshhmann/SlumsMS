@@ -67,6 +67,23 @@ class SiteBoardTest {
     }
 
     @Test
+    @SuppressWarnings("unchecked")
+    void gmAndAutoQaPostersAreNotNamedOnTheBoard() throws Exception {
+        w.account(9, "GmGuy").account(10, "AutoQaOne");
+        w.hidden.add(90);   // GmGuy's gm level is above 0
+        posts(post("p1", 7, "Momo", "WTB", GLOVE, 1, 3_000_000), post("p2", 9, "GmGuy", "WTB", GLOVE, 1, 3_000_000),
+                post("p3", 10, "AutoQaOne", "WTS", ORE, 5, 2000));
+        engine().poll();
+        Map<String, String> named = new java.util.TreeMap<>();
+        for (Map<String, Object> r : (List<Map<String, Object>>) out("board.json").get("posts")) {
+            named.put((String) r.get("id"), (String) r.get("character"));
+        }
+        assertEquals(Map.of("p1", "Momo", "p2", "", "p3", ""), named, "the posts stay, the names go");
+        String text = Files.readString(outbox.resolve("board.json"));
+        assertFalse(text.contains("GmGuy") || text.contains("AutoQa"), text);
+    }
+
+    @Test
     void aGoodPostIsOnTheBoardABadOneInRejectedAndNoAccountNameAnywhere() throws Exception {
         posts(post("p1", 7, "Momo", "WTB", GLOVE, 1, 3_000_000), post("p2", 7, "Pip", "WTS", ORE, 5, 2000));
         SiteBoard.Engine e = engine();

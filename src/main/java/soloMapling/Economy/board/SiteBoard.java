@@ -591,7 +591,7 @@ public final class SiteBoard {
 
         void writeBoard() {
             long now = world.now();
-            write("board.json", BoardOutbox.board(board(), now));
+            write("board.json", BoardOutbox.board(board(), now, world::publicCharacter));
             write("offers.json", BoardOutbox.offers(state.madeOffers(now), now));
             write("rejected.json", BoardOutbox.rejected(rejected, now));
             write("removed.json", BoardOutbox.removed(state.removals(), now));

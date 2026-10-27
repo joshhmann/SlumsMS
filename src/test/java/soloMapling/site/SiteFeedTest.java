@@ -182,6 +182,25 @@ class SiteFeedTest {
     }
 
     @Test
+    void jobMilestonesUseTheLeaderboardDisplayNames() {
+        assertEquals("Mage (F/P)", SiteFeed.jobName(211));
+        assertEquals("Wizard (I/L)", SiteFeed.jobName(220));
+        assertEquals("Chief Bandit", SiteFeed.jobName(421));
+        assertEquals("Dragon Knight", SiteFeed.jobName(131));
+        for (int[] adv : new int[][]{{210, 211}, {200, 220}, {420, 421}, {130, 131}}) {
+            client.Character chr = org.mockito.Mockito.mock(client.Character.class);
+            org.mockito.Mockito.when(chr.getName()).thenReturn("Bobbins");
+            SiteFeed.jobChanged(chr, adv[0], adv[1]);
+        }
+        List<String> lines = SiteFeed.snapshot(now.get()).stream().map(SiteFeed.Item::text).toList();
+        assertTrue(lines.contains("Bobbins advanced to 3rd job: Mage (F/P)."), lines.toString());
+        assertTrue(lines.contains("Bobbins advanced to 2nd job: Wizard (I/L)."), lines.toString());
+        assertTrue(lines.contains("Bobbins advanced to 3rd job: Chief Bandit."), lines.toString());
+        assertTrue(lines.contains("Bobbins advanced to 3rd job: Dragon Knight."), lines.toString());
+        assertTrue(lines.stream().noneMatch(l -> l.contains("_") || l.contains("Chiefbandit")), lines.toString());
+    }
+
+    @Test
     void aRestartGetsTheLastFileBack() {
         SiteFeed.add(SiteFeed.Kind.EVENT, "start", "Giant Cake began in Henesys (Ch 1).", List.of(), 100000000, 1);
         now.addAndGet(1000);

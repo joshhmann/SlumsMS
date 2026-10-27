@@ -29,13 +29,23 @@ public final class BoardOutbox {
 
     /** {@code board.json}: every open post, players' and bots' alike, newest first. Names only. */
     public static Map<String, Object> board(List<Board.Post> posts, long now) {
+        return board(posts, now, id -> true);
+    }
+
+    /**
+     * As above; a post by a character that may not be named on the site ({@code named} false: a GM or an auto-QA
+     * character, as {@link soloMapling.site.SiteFeed#isPublic}) keeps its row with {@code "character": ""}.
+     */
+    public static Map<String, Object> board(List<Board.Post> posts, long now, java.util.function.IntPredicate named) {
         List<Board.Post> sorted = new ArrayList<>(posts);
         sorted.sort(Comparator.comparingLong(Board.Post::createdAt).reversed().thenComparing(Board.Post::id));
         List<Map<String, Object>> rows = new ArrayList<>();
         for (Board.Post p : sorted) {
             Map<String, Object> r = new LinkedHashMap<>();
             r.put("id", p.id());
-            r.put("character", p.character());
+            boolean hidden = p.character() == null || soloMapling.site.SiteFeed.isQaName(p.character())
+                    || (!p.bot() && !named.test(p.characterId()));
+            r.put("character", hidden ? "" : p.character());
             r.put("kind", p.kind().name());
             r.put("itemId", p.itemId());
             r.put("qty", p.qty());

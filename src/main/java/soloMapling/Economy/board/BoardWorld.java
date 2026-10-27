@@ -50,6 +50,14 @@ public interface BoardWorld extends BoardRules.Lookup {
     /** A character of this account online now, {@code preferred} first; null when nobody on the account is on. */
     Recipient online(int account, String preferred);
 
+    /**
+     * Whether the site may name this character on the board: not a GM (gm level above 0) and not an auto-QA character.
+     * Known from the last {@link #owner} lookup; true when unknown.
+     */
+    default boolean publicCharacter(int characterId) {
+        return true;
+    }
+
     /** The account's most recently played character's name, or null. */
     String lastPlayed(int account);
 

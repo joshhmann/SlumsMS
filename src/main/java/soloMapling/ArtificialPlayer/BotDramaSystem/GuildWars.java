@@ -468,8 +468,10 @@ public final class GuildWars {
         if (h != null) {
             for (Map.Entry<Integer, Integer> e : h.entrySet()) {
                 if (e.getValue() == us) {
-                    map = mapName(e.getKey());
-                    break;
+                    map = mapName(e.getKey());   // null when unknown: the taunt then uses a line without {MAP}
+                    if (map != null) {
+                        break;
+                    }
                 }
             }
         }
@@ -985,21 +987,41 @@ public final class GuildWars {
         if (h != null) {
             h.forEach((map, holder) -> {
                 if (holder == guildId && maps.size() < 4) {
-                    maps.add(mapName(map));
+                    String n = mapName(map);
+                    maps.add(n != null ? n : "map " + map);
                 }
             });
         }
         return maps.isEmpty() ? "nothing" : String.join(", ", maps);
     }
 
+    /**
+     * The map's name as bots say it ("ghost ship 1"), from the loaded map on channel 1 or else the server's string
+     * data (String.wz, no map load needed); null when neither knows it, never the raw id ("we hold 541010010 lol").
+     */
     static String mapName(int mapId) {
-        try {
-            var map = soloMapling.ArtificialPlayer.BotChannels.map(1, mapId);
-            String n = map == null ? null : map.getMapName();
-            return n == null || n.isBlank() ? Integer.toString(mapId) : n.toLowerCase(java.util.Locale.ROOT);
-        } catch (RuntimeException e) {
-            return Integer.toString(mapId);
+        return mapName(mapId, id -> {
+            var map = soloMapling.ArtificialPlayer.BotChannels.map(1, id);
+            return map == null ? null : map.getMapName();
+        }, id -> {
+            String place = server.maps.MapFactory.loadPlaceName(id);
+            return place == null || place.isBlank() ? server.maps.MapFactory.loadStreetName(id) : place;
+        });
+    }
+
+    static String mapName(int mapId, java.util.function.IntFunction<String> loaded,
+                          java.util.function.IntFunction<String> fromStrings) {
+        for (java.util.function.IntFunction<String> source : List.of(loaded, fromStrings)) {
+            try {
+                String n = source.apply(mapId);
+                if (n != null && !n.isBlank()) {
+                    return n.trim().toLowerCase(java.util.Locale.ROOT);
+                }
+            } catch (RuntimeException | LinkageError e) {
+                // try the next source
+            }
         }
+        return null;
     }
 
     // ── GM ──

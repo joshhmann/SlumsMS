@@ -108,4 +108,23 @@ class GuildWarsTest {
         assertTrue(GuildWars.active().isEmpty());
         assertNull(GuildWars.warBetween(7, 9));
     }
+
+    @Test
+    void aMapThatIsNotLoadedIsNamedFromStringDataNeverByItsId() {
+        assertEquals("ghost ship 1", GuildWars.mapName(541010010, id -> null, id -> "Ghost Ship 1 "));
+        assertEquals("henesys", GuildWars.mapName(100000000, id -> "Henesys", id -> "ignored"), "a loaded map wins");
+        assertEquals("ghost ship 1", GuildWars.mapName(541010010, id -> {
+            throw new IllegalStateException("channel 1 is down");
+        }, id -> "Ghost Ship 1"));
+        assertNull(GuildWars.mapName(999999999, id -> null, id -> ""), "unknown: no name, so no {MAP} line");
+    }
+
+    @Test
+    void theRealStringDataNamesAMapNobodyLoaded() {
+        soloMapling.WzTestData.assumePresent("String.wz");
+        String n = GuildWars.mapName(541010010);
+        assertNotNull(n);
+        assertFalse(n.isBlank());
+        assertFalse(n.matches(".*\\d{6,}.*"), n);
+    }
 }

@@ -27,10 +27,38 @@ class MarketWritersTest {
     }
 
     static String name(int id) {
-        return id == 2000000 ? "Red Potion" : null;
+        return id == 2000000 ? "Red Potion" : id == 2070000 ? "Subi Throwing-Stars " : null;
     }
 
     // ── listings.json ──
+
+    @Test
+    @SuppressWarnings("unchecked")
+    void listingsLeaveOutNamelessItemsAndCleanBotShopTitles() {
+        var shop = new MarketListings.Shop(3, 910000017, "Cheap pots here   " + "          <17>", "BotBob", true, true,
+                List.of(new MarketListings.Row(2000000, 100, 2, 5000, false),
+                        new MarketListings.Row(2290133, 1, 1, 9000, false),     // no name in the server's data
+                        new MarketListings.Row(2000002, 1, 1, 9000, false)));   // name "  "
+        Map<String, Object> out = MarketListings.build(List.of(shop), id -> id == 2000000 ? "Red Potion"
+                : id == 2000002 ? "  " : "", T0);
+        List<Map<String, Object>> rows = (List<Map<String, Object>>) out.get("listings");
+        assertEquals(1, rows.size(), rows.toString());
+        assertEquals(1, out.get("count"));
+        assertEquals("Red Potion", rows.get(0).get("name"));
+        assertEquals("Cheap pots here", rows.get(0).get("shop_title"));
+        assertEquals(17, rows.get(0).get("room"));
+        assertEquals("selling <3 stuff", MarketListings.title("selling <3 stuff  "));
+        assertEquals("", MarketListings.title(null));
+        assertEquals("", MarketListings.title("     <5>"));
+    }
+
+    @Test
+    void gmAndAutoQaSellersAreNeverNamed() {
+        assertEquals("Josh", PublicMarketExport.sellerName("Josh", 0));
+        assertEquals("", PublicMarketExport.sellerName("Admin", 1), "a GM's shop keeps its items, not its name");
+        assertEquals("", PublicMarketExport.sellerName("AutoQaTwo", 0), "auto-QA characters never appear");
+        assertEquals("", PublicMarketExport.sellerName(null, 0));
+    }
 
     @Test
     @SuppressWarnings("unchecked")
@@ -72,7 +100,7 @@ class MarketWritersTest {
         assertEquals(7, bot.get("room"));
         assertEquals(910000007, bot.get("map_id"));
         assertEquals("cheap pots", bot.get("shop_title"));
-        assertEquals("", rows.get(2).get("name"), "an item with no WZ name gets an empty name, never null");
+        assertEquals("Subi Throwing-Stars", rows.get(2).get("name"), "names are trimmed");
         assertEquals(30000L, rows.get(2).get("price"), "a star set is priced per set");
         assertEquals(List.of("item_id", "name", "qty", "bundles", "price", "bundle_price", "channel", "map_id", "room",
                 "shop_title", "seller_name", "shop_type"), new ArrayList<>(cheapest.keySet()));

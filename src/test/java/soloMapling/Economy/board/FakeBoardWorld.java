@@ -30,6 +30,13 @@ public class FakeBoardWorld implements BoardWorld {
     public final List<String> yellows = new ArrayList<>();
     boolean whisperOk = true;
     int ownerLookups;
+    /** Characters the site may not name (GMs). */
+    final Set<Integer> hidden = new HashSet<>();
+
+    @Override
+    public boolean publicCharacter(int characterId) {
+        return !hidden.contains(characterId);
+    }
 
     public FakeBoardWorld account(int account, String... characters) {
         accounts.add(account);
