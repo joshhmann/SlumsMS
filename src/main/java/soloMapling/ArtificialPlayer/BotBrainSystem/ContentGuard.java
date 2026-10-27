@@ -32,6 +32,11 @@ public final class ContentGuard {
             + "|in real life|real life|touch grass|go outside|kys|kill (ur|your)self|kill yourself|hope (u|you) die"
             + "|go die|drop dead|cancer|retire from life|neckbeard|incel|poor (kid|loser)|homeless|stupid ?(irl|human)"
             + "|ur ip|your ip|dox\\w*|swat\\w*|i know where (u|you) live|rape\\w*|suicide)\\b");
+    /** Real-life threats, self-harm and wishing death: the part of {@link #REAL_LIFE} that is a hard limit anywhere. */
+    private static final Pattern HARM = Pattern.compile("\\b(kys|kill (ur|your)self|kill yourself|hope (u|you) die"
+            + "|go die|drop dead|suicide|self ?harm|cut (ur|your)self|rape\\w*|dox\\w*|swat\\w*|ur ip|your ip"
+            + "|i know where (u|you) live|find (u|you) irl|(hurt|stab|shoot|beat up) (u|you) irl"
+            + "|(ill|i'll|i will|gonna|im gonna) (find|hurt|stab|shoot|beat up) (u|you))\\b");
     private static final Pattern FLIRTY = Pattern.compile("\\b(babe|baby|cutie|cute|handsome|gorgeous|beautiful|pretty"
             + "|kiss(es|y)?|crush|date|dating|go out|marry|married|wifey|hubby|boyfriend|girlfriend|bf|gf|love (u|you|ya)"
             + "|ily|xoxo|darling|sweetheart|honey|hottie|flirt\\w*|my love|be mine|single\\?)\\b");
@@ -58,6 +63,26 @@ public final class ContentGuard {
             return "off-limits insult";
         }
         return null;
+    }
+
+    /**
+     * 1.6.0 player-side lines (the labelled examples {@code ChatBankGen player} makes for the chat classifier): only
+     * the hard PG-13 limits, {@code "explicit"}, {@code "slur"} or {@code "harm"} (real-life threats, self-harm,
+     * wishing death), or null. Rude, scamming and bot-asking lines are the point there, so unlike {@link #problem}
+     * looks or family insults pass, and unlike {@link #chatProblem} AI talk does.
+     */
+    public static String hardProblem(String line) {
+        if (line == null || line.isBlank()) {
+            return null;
+        }
+        String text = normalise(line);
+        if (EXPLICIT.matcher(text).find()) {
+            return "explicit";
+        }
+        if (SLUR.matcher(text).find()) {
+            return "slur";
+        }
+        return HARM.matcher(text).find() ? "harm" : null;
     }
 
     /**

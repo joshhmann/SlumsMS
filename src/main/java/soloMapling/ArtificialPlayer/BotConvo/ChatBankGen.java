@@ -35,6 +35,8 @@ import java.util.zip.GZIPOutputStream;
  * <pre>
  *   seed                       import the dialogue packs' lines (no LLM)
  *   gen [options]              generate with the local model, throttled, resumable
+ *   player [options]           labelled pairs (a player's opening line and a bot's reply) for the chat classifier:
+ *                              state/pairs.jsonl, never packed into the bank ({@link ChatPairGen})
  *   pack [--out file]          write the gzip bank (default: the shipped resource)
  *   stats                      lines per intent, voice and affinity
  * options: --state dir (tools/chatbank/state) --url http://192.168.0.17:8095/v1 --model qwen9b --target 100000
@@ -127,7 +129,9 @@ public final class ChatBankGen {
     private int accepted;
     private int rejected;
     /** Sent as {@code reasoning_effort} when set (a cloud thinking model); blank = the local {@code enable_thinking: false}. */
-    private String reasoningEffort = "";
+    String reasoningEffort = "";
+    /** The completion's token cap (the pair generator writes two lines per item and raises it). */
+    int maxTokens = 260;
     private final Map<String, Integer> rejectReasons = new LinkedHashMap<>();
 
     ChatBankGen(Path state) throws IOException {
@@ -188,10 +192,32 @@ public final class ChatBankGen {
 
     /** Why a generated line cannot go in the bank, or null. */
     String problem(Cell c, String text) {
+        String bad = lineProblem(c.intent(), text);
+        if (bad != null) {
+            return bad;
+        }
+        if (seen.contains(norm(text))) {
+            return "duplicate";
+        }
+        Set<String> g = grams(text);
+        for (Set<String> other : cellGrams.getOrDefault(c.intent() + "|" + c.affinity(), List.of())) {
+            if (jaccard(g, other) >= NEAR) {
+                return "near duplicate";
+            }
+        }
+        return null;
+    }
+
+    /**
+     * Why a bot line of this bank intent cannot be said, before any duplicate check (also the pair generator's reply
+     * check): its slots, markup, length with the longest slot values, the server's voice check and guard, and copied
+     * voice examples. Null when fine.
+     */
+    static String lineProblem(String intent, String text) {
         if (text.isBlank() || text.length() < 2) {
             return "empty";
         }
-        Set<String> allowed = new HashSet<>(List.of(INTENTS.getOrDefault(c.intent(), new String[]{"", ""})[1].split(",")));
+        Set<String> allowed = new HashSet<>(List.of(INTENTS.getOrDefault(intent, new String[]{"", ""})[1].split(",")));
         Matcher m = SLOT.matcher(text);
         Map<String, String> fill = new HashMap<>();
         while (m.find()) {
@@ -211,23 +237,19 @@ public final class ChatBankGen {
         if (bad != null) {
             return bad;
         }
-        if (seen.contains(norm(text))) {
-            return "duplicate";
-        }
+        return voiceExample(text) ? "prompt example" : null;
+    }
+
+    /** Whether a line is one of the voices' prompt examples, copied. */
+    static boolean voiceExample(String text) {
         for (ConvoPersona.Voice v : ConvoPersona.Voice.values()) {
             for (String example : v.examples) {
                 if (norm(example).equals(norm(text))) {
-                    return "prompt example";
+                    return true;
                 }
             }
         }
-        Set<String> g = grams(text);
-        for (Set<String> other : cellGrams.getOrDefault(c.intent() + "|" + c.affinity(), List.of())) {
-            if (jaccard(g, other) >= NEAR) {
-                return "near duplicate";
-            }
-        }
-        return null;
+        return false;
     }
 
     /** Adds a line when it passes; true when added. */
@@ -378,13 +400,18 @@ public final class ChatBankGen {
 
     /** One completion; returns [text, prompt tokens, completion tokens] or null. */
     Object[] complete(String url, String model, String key, String prompt) throws InterruptedException {
+        return complete(url, model, key, SYSTEM, prompt);
+    }
+
+    /** One completion with the given fixed system message (the pair generator's own). */
+    Object[] complete(String url, String model, String key, String system, String prompt) throws InterruptedException {
         Map<String, Object> body = new LinkedHashMap<>();
         if (model != null && !model.isBlank()) {
             body.put("model", model);
         }
-        body.put("messages", List.of(Map.of("role", "system", "content", SYSTEM),
+        body.put("messages", List.of(Map.of("role", "system", "content", system),
                 Map.of("role", "user", "content", prompt)));
-        body.put("max_tokens", 260);
+        body.put("max_tokens", maxTokens);
         body.put("temperature", 1.0);
         body.put("stream", false);
         if (reasoningEffort.isEmpty()) {
@@ -413,6 +440,27 @@ public final class ChatBankGen {
         }
     }
 
+    /** Whether the hour now is inside the {@code --hours} window (always, without one). */
+    static boolean inHours(int[] hours) {
+        if (hours == null) {
+            return true;
+        }
+        int h = LocalTime.now().getHour();
+        return hours[0] <= hours[1] ? h >= hours[0] && h < hours[1] : h >= hours[0] || h < hours[1];
+    }
+
+    /** Waits up to 5 minutes for every model slot to be idle; false when it stayed busy. */
+    boolean waitIdle(String url) throws InterruptedException {
+        int waited = 0;
+        while (!idle(url)) {
+            if (waited++ > 150) {
+                return false;
+            }
+            Thread.sleep(2000);
+        }
+        return true;
+    }
+
     void generate(Map<String, String> o) throws Exception {
         String url = o.getOrDefault("url", "http://192.168.0.17:8095/v1");
         String model = o.getOrDefault("model", "qwen9b");
@@ -439,13 +487,9 @@ public final class ChatBankGen {
                 System.out.println("target reached: " + total);
                 break;
             }
-            if (hours != null) {
-                int h = LocalTime.now().getHour();
-                boolean inside = hours[0] <= hours[1] ? h >= hours[0] && h < hours[1] : h >= hours[0] || h < hours[1];
-                if (!inside) {
-                    System.out.println("outside the hours window " + o.get("hours") + ": stopping");
-                    break;
-                }
+            if (!inHours(hours)) {
+                System.out.println("outside the hours window " + o.get("hours") + ": stopping");
+                break;
             }
             if (budget > 0 && spent >= budget) {
                 System.out.println("budget reached: $" + spent);
@@ -456,15 +500,9 @@ public final class ChatBankGen {
                 System.out.println("every cell has " + perCellTarget + " lines");
                 break;
             }
-            if (idleCheck) {
-                int waited = 0;
-                while (!idle(url)) {
-                    if (waited++ > 150) {
-                        System.out.println("the model stayed busy for 5 minutes: stopping");
-                        return;
-                    }
-                    Thread.sleep(2000);
-                }
+            if (idleCheck && !waitIdle(url)) {
+                System.out.println("the model stayed busy for 5 minutes: stopping");
+                return;
             }
             Object[] r = complete(url, model, key, prompt(next, batch));
             if (r != null && r[0] instanceof String text) {
@@ -623,7 +661,7 @@ public final class ChatBankGen {
 
     public static void main(String[] args) throws Exception {
         if (args.length == 0) {
-            System.out.println("usage: ChatBankGen seed|gen|pack|stats [--state dir] [options] (see the class comment)");
+            System.out.println("usage: ChatBankGen seed|gen|player|pack|stats [--state dir] [options] (see the class comment)");
             return;
         }
         Map<String, String> o = new HashMap<>();
@@ -634,13 +672,23 @@ public final class ChatBankGen {
                 o.put(k, v);
             }
         }
-        ChatBankGen gen = new ChatBankGen(Path.of(o.getOrDefault("state", "tools/chatbank/state")));
+        Path state = Path.of(o.getOrDefault("state", "tools/chatbank/state"));
+        if (args[0].equals("player")) {
+            new ChatPairGen(state, Path.of(o.getOrDefault("repo-root", "."))).generate(o);
+            return;
+        }
+        ChatBankGen gen = new ChatBankGen(state);
         switch (args[0]) {
             case "seed" -> System.out.println("seeded " + gen.seed() + " lines (rejected " + gen.rejected + " "
                     + gen.rejectReasons + ")");
             case "gen" -> gen.generate(o);
             case "pack" -> gen.pack(Path.of(o.getOrDefault("out", ChatBank.RESOURCE)));
-            case "stats" -> gen.stats();
+            case "stats" -> {
+                gen.stats();
+                if (Files.exists(state.resolve(ChatPairGen.PAIRS))) {
+                    new ChatPairGen(state, null).stats();
+                }
+            }
             default -> System.out.println("unknown command " + args[0]);
         }
     }

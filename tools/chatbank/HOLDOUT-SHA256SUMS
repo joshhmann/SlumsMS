@@ -1,0 +1,7 @@
+# Frozen evaluation sets: never used for training; ChatPairGen rejects any generated player line that matches one.
+# Check from the repo root: sha256sum -c tools/chatbank/HOLDOUT-SHA256SUMS (FrozenSetsTest holds them to this file).
+# holdout-70: the real-player test (30 + 40 held-out lines).
+6c5bff868b091d6fb5f15b3894e195813f9390e92fa9eb965f5578bcb4cf04a7  src/test/resources/chat/convo-holdout.tsv
+f9cf0da77d1ce1f5adbf08ee5ae44c7d68bf0b78d863f251583b345445c6c149  src/test/resources/chat/holdout-lines.tsv
+# bench-96: the model-comparison set (96 hand-labelled cases), kept separate from holdout-70.
+674ed53d563c788daf07929820e7242d327036ed1ca44f472aeb97cb03257f53  tools/convo/benchmark/eval/fresh-v3/cases.jsonl
