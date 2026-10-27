@@ -36,7 +36,8 @@ import java.util.zip.GZIPOutputStream;
  *   seed                       import the dialogue packs' lines (no LLM)
  *   gen [options]              generate with the local model, throttled, resumable
  *   player [options]           labelled pairs (a player's opening line and a bot's reply) for the chat classifier:
- *                              state/pairs.jsonl, never packed into the bank ({@link ChatPairGen})
+ *                              state/pairs.jsonl, never packed into the bank ({@link ChatPairGen}); --target 4000
+ *   backfill [options]         pairs from the bank's replies: the player line each answers (--bank lines.tsv)
  *   pack [--out file]          write the gzip bank (default: the shipped resource)
  *   stats                      lines per intent, voice and affinity
  * options: --state dir (tools/chatbank/state) --url http://192.168.0.17:8095/v1 --model qwen9b --target 100000
@@ -661,7 +662,7 @@ public final class ChatBankGen {
 
     public static void main(String[] args) throws Exception {
         if (args.length == 0) {
-            System.out.println("usage: ChatBankGen seed|gen|player|pack|stats [--state dir] [options] (see the class comment)");
+            System.out.println("usage: ChatBankGen seed|gen|player|backfill|pack|stats [--state dir] [options] (see the class comment)");
             return;
         }
         Map<String, String> o = new HashMap<>();
@@ -673,8 +674,13 @@ public final class ChatBankGen {
             }
         }
         Path state = Path.of(o.getOrDefault("state", "tools/chatbank/state"));
-        if (args[0].equals("player")) {
-            new ChatPairGen(state, Path.of(o.getOrDefault("repo-root", "."))).generate(o);
+        if (args[0].equals("player") || args[0].equals("backfill")) {
+            ChatPairGen pairs = new ChatPairGen(state, Path.of(o.getOrDefault("repo-root", ".")));
+            if (args[0].equals("player")) {
+                pairs.generate(o);
+            } else {
+                pairs.backfill(o);
+            }
             return;
         }
         ChatBankGen gen = new ChatBankGen(state);
@@ -686,7 +692,7 @@ public final class ChatBankGen {
             case "stats" -> {
                 gen.stats();
                 if (Files.exists(state.resolve(ChatPairGen.PAIRS))) {
-                    new ChatPairGen(state, null).stats();
+                    new ChatPairGen(state, null).stats(Integer.parseInt(o.getOrDefault("target", "4000")));
                 }
             }
             default -> System.out.println("unknown command " + args[0]);

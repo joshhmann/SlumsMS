@@ -47,27 +47,43 @@ About 6 MB of heap per 100k lines (`ChatBankTest` measures it); the gzip file is
 
 ## Player-side pairs (1.6.0, for the chat classifier)
 
-`generate.sh player [gen options] [--repo-root .]` writes labelled two-line exchanges to `state/pairs.jsonl`
-(rejects with the reason in `state/pair-rejects.tsv`). It never writes `lines.tsv` or `chatbank.bin`; `pack` stays
-bot replies only. One call writes `--batch` (6) exchanges for one cell; a second call verifies them. Default
-`--per-cell` is 10.
+`generate.sh player [gen options] [--target 4000] [--rows a,b] [--repo-root .]` and
+`generate.sh backfill [gen options] [--bank tools/chatbank/state/lines.tsv]` write labelled two-line exchanges to
+`state/pairs.jsonl` (rejects with the reason in `state/pair-rejects.tsv`). They never write `lines.tsv` or
+`chatbank.bin`; `pack` stays bot replies only. One call handles `--batch` (6) items; a second call verifies them.
 
 Each row: `convo_id` (p000123), `player_line` (literal text, real names, never a `{slot}`), `player_intent`,
 `player_tone`, `player_con` (exactly the Decide labels of `ConvoSense.INTENT`, `ConvoSense.TONE` and
-`ChatTriage.CON`), `bot_reply` (may keep the bank's slots), `bot_label` (a bank intent), `voice` (the reply's
-typing style), `place`, `affinity` (the bot's feelings).
+`ChatTriage.CON`; con is always a label string, `normal` included), `player_act` (`ask`, `announce`, `refuse`, `greet`,
+`chat`), `bot_reply` (gen: may keep the bank's slots; backfill: the bank line with real names filled in), `bot_label` (a
+bank intent), `voice` (the reply's typing style), `place`, `affinity` (the bot's feelings), `variant` (the hard
+negative it is, or `-`), `source` (`gen` or `backfill`) and, for backfill, `bank_id`.
 
-- **Cells:** a curated table of plausible (intent, tone, con) triples (`ChatPairGen.TRIPLES`) times the bot labels that
-  fit (`ChatPairGen.botLabels`: party → party_yes/no/already, any scam → brush_scam, rwt → brush_rwt, and so on) times
-  six voices and seven places; the intent with the fewest pairs first, then its least-filled cell.
-- **Player line checks:** only the hard PG-13 limits (`ContentGuard.hardProblem`: nothing sexual, no slurs, no
-  real-life threats, self-harm or wishing death); bot/AI questions, scams and harassment are the point. Real-money words
-  only on `rwt` lines. No placeholders, markup or over-long lines; no exact duplicate (file-wide) or near duplicate
-  (same intent and con); no copied prompt example.
+- **Plan rows** (`ChatPairGen.ROWS`): plausible (intent, tone, con, act, variant). Requests in three tones; the cons
+  (scam, manipulation, rwt, harassment); and the **hard negatives**, all con `normal`: talk that reads like a request
+  (`lfg` "lf2m kpq lv 25+", `omw`, `refusal` "sorry cant do kpq tonite", `hello`, `bye`, `story` "i helped kill balrog
+  yesterday", `denial` "im saving for a weapon, not asking u for mesos") and near-misses that read like a con
+  (`payback` between friends, `wts` "wts 10k nx code 50m", `priced` fair trades and haggles).
+- **Cells**: a row times the bot labels that fit it (`ChatPairGen.botLabels`: party → party_yes/no/already, any scam →
+  brush_scam, talk greet → greeting or bye, talk ask → talk_q ...) times six voices and seven places.
+- **Coverage plan** (`--target`, default 4000): every intent, con, tone and act at least target/20 (200), talk at most
+  20% of pairs, neutral tone aimed at 65%. The picker takes the row furthest below its floors (rows the model keeps
+  failing are discounted), then its least-filled cell. `--rows story,denial` stages only rows whose key contains one
+  of these (it skips the plan).
+- **Backfill**: for each bank row whose label implies an incoming line (`ChatPairGen.BACKFILL`: party_* → party, help_*
+  → help_kill, brush_scam → con scam with the intent chosen by the model, greeting → talk/greet, thanks → talk/chat ...;
+  the `thread_*` lines are skipped), the model writes the player line that reply answers. The training text is that
+  generated player line, never the bank line. Done bank ids go to `state/backfill-done.txt`, so a rerun goes on.
+- **Player line checks:** at most 70 characters, no braces or markup, not self-describing ("i am asking you for a
+  party"), only the hard PG-13 limits (`ContentGuard.hardProblem`: nothing sexual, no slurs, no real-life threats,
+  self-harm or wishing death; bot/AI questions, scams and harassment are the point), real-money words only on `rwt`
+  lines, no exact duplicate (file-wide) or near duplicate (same intent and con), no copied prompt or variant example,
+  no frozen-set line. The prompt asks for 5-40 characters, lowercase and 2008 shorthand.
 - **Reply checks:** the bank's own (`ChatBankGen.lineProblem`: voice check and guard, slots of its bot label, length).
-- **Verifier:** asks which exchanges do not match the cell's intent, tone and con (in the classifier's own label
-  words) or whose reply does not do what its bot label says.
-- `stats` prints pairs per player intent, tone, con and bot label, and rejects per reason.
+- **Verifier:** asks which exchanges do not match their intent, tone, con and act (in the classifier's own label words),
+  a real player would not type, or whose reply does not fit its bot label.
+- `stats` prints pairs per intent, tone, con, act, bot label, source and variant, the player line length
+  distribution, every plan floor with how far off it is, the talk and neutral shares, and rejects per reason.
 
 ## Frozen evaluation sets (never trained on)
 
