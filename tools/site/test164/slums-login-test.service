@@ -1,5 +1,5 @@
 [Unit]
-Description=SlumsMS TEST website sign-in (codes typed on the TEST server), 127.0.0.1:8194
+Description=SlumsMS TEST website sign-in (TEST game accounts, invite sign-up), 127.0.0.1:8194
 After=network.target
 
 [Service]
@@ -7,7 +7,6 @@ Type=simple
 # root only because the throwaway TEST key is root-only (mode 600); the sandbox below still applies
 ExecStart=/usr/bin/python3 /opt/slums-site-test/tools/site/login_service.py
 Environment=SLUMS_LOGIN_KEY_FILE=/etc/slums-login-test/key
-Environment=SLUMS_LOGIN_APPROVALS=/var/lib/slums-login-test/approvals
 Environment=SLUMS_LOGIN_REVOKED=/var/lib/slums-login-test/revoked.txt
 Environment=SLUMS_LOGIN_PORT=8194
 # plain http on the LAN: a Secure cookie would never be sent back

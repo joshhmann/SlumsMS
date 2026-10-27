@@ -57,98 +57,6 @@ class SessionsTest(unittest.TestCase):
         self.assertIsNone(self.s.check(tok))
 
 
-class PendingTest(unittest.TestCase):
-    def test_codes_and_rate_limit(self):
-        clock = Clock()
-        p = ls.Pending(clock)
-        code, secret = p.start("1.2.3.4")
-        self.assertRegex(code, r"^[A-HJ-NP-Z2-9]{6}$")
-        self.assertEqual(p.code_for(secret), code)
-        for _ in range(ls.START_PER_IP_MIN - 1):
-            self.assertIsNotNone(p.start("1.2.3.4"))
-        self.assertIsNone(p.start("1.2.3.4"))          # too many for one address
-        self.assertIsNotNone(p.start("5.6.7.8"))
-        clock.t += ls.CODE_TTL + 1
-        self.assertIsNone(p.code_for(secret))           # ran out
-
-
-class ApprovalTest(unittest.TestCase):
-    def setUp(self):
-        self.dir = tempfile.mkdtemp()
-
-    def tearDown(self):
-        shutil.rmtree(self.dir)
-
-    def put(self, name, data):
-        with open(os.path.join(self.dir, name), "w") as f:
-            json.dump(data, f)
-
-    def test_single_use_and_checked(self):
-        import time
-        self.put("ABCDEF.json", {"code": "ABCDEF", "account_id": 7, "character": "Momo", "time": time.time()})
-        self.assertEqual(ls.take_approval(self.dir, "ABCDEF")["account_id"], 7)
-        self.assertIsNone(ls.take_approval(self.dir, "ABCDEF"))        # used up
-        self.put("ABCDEG.json", {"code": "WRONG1", "account_id": 7})
-        self.assertIsNone(ls.take_approval(self.dir, "ABCDEG"))        # file must name its own code
-        self.assertIsNone(ls.take_approval(self.dir, "../etc"))        # never a path
-        self.put("ABCDEH.json", {"code": "ABCDEH", "account_id": 7, "time": 0})
-        self.assertIsNone(ls.take_approval(self.dir, "ABCDEH", now=lambda: 10 ** 7))  # stale approval
-        self.put("ABCDEJ.json", {"code": "ABCDEJ", "account_id": 7})
-        self.assertIsNone(ls.take_approval(self.dir, "ABCDEJ"))        # unstamped approval
-
-
-class EndToEndTest(unittest.TestCase):
-    def setUp(self):
-        self.dir = tempfile.mkdtemp()
-        handler = ls.make_handler(ls.Sessions(KEY), ls.Pending(), self.dir, secure=False)
-        self.srv = ThreadingHTTPServer(("127.0.0.1", 0), handler)
-        threading.Thread(target=self.srv.serve_forever, daemon=True).start()
-        self.base = f"http://127.0.0.1:{self.srv.server_address[1]}"
-        self.jar = {}
-
-    def tearDown(self):
-        self.srv.shutdown()
-        shutil.rmtree(self.dir)
-
-    def call(self, method, path):
-        req = urllib.request.Request(self.base + path, method=method, data=b"" if method == "POST" else None)
-        if self.jar:
-            req.add_header("Cookie", "; ".join(f"{k}={v}" for k, v in self.jar.items()))
-        try:
-            r = urllib.request.urlopen(req)
-        except urllib.error.HTTPError as e:
-            r = e
-        for c in r.headers.get_all("Set-Cookie") or []:
-            k, v = c.split(";")[0].split("=", 1)
-            if v:
-                self.jar[k] = v
-            else:
-                self.jar.pop(k, None)
-        body = r.read()
-        return r.status, (json.loads(body) if body else None)
-
-    def test_sign_in_with_a_code_typed_in_game(self):
-        self.assertEqual(self.call("GET", "/api/auth/check")[0], 401)
-        status, body = self.call("POST", "/api/login/start")
-        code = body["code"]
-        self.assertEqual(self.call("GET", "/api/login/poll")[1], {"ok": False, "waiting": True})
-        # the game server's side of `@weblogin CODE`
-        with open(os.path.join(self.dir, f"{code}.json"), "w") as f:
-            json.dump({"code": code, "account_id": 42, "account": "momo", "character": "Momo",
-                       "time": __import__("time").time()}, f)
-        status, body = self.call("GET", "/api/login/poll")
-        self.assertTrue(body["ok"])
-        self.assertEqual(body["character"], "Momo")
-        self.assertEqual(self.call("GET", "/api/auth/check")[0], 204)
-        self.assertEqual(self.call("GET", "/api/login/me")[1]["character"], "Momo")
-        self.call("POST", "/api/login/logout")
-        self.assertEqual(self.call("GET", "/api/auth/check")[0], 401)
-
-    def test_unknown_paths(self):
-        self.assertEqual(self.call("GET", "/etc/passwd")[0], 404)
-        self.assertEqual(self.call("POST", "/api/auth/check")[0], 404)
-
-
 class FakeGameAuth:
     """The game server's auth API (ticket 105) as the login service sees it: POST /verify and /signup."""
 
@@ -166,9 +74,14 @@ class FakeGameAuth:
                 if self.headers.get("X-Slums-Auth") != secret:
                     ans = (403, {"ok": False, "error": "FORBIDDEN"})
                 elif self.path == "/verify":
-                    ans = ((200, {"ok": True, "account_id": 42, "account": "momo", "gm": 0, "characters": ["Momo", "Momo2"]})
+                    ans = ((200, {"ok": True, "account_id": 42, "account": "momo", "gm": False, "gm_level": 0,
+                                  "characters": ["Momo", "Momo2"]})
                            if (body["user"], body["pass"]) == ("momo", "hunter22") else
+                           (200, {"ok": True, "account_id": 7, "account": "gm", "gm": True, "gm_level": 3, "characters": ["Boss"]})
+                           if (body["user"], body["pass"]) == ("gm", "pw") else   # an old account: breaks the sign-up rules
                            (200, {"ok": False, "error": "LOCKED"}) if body["user"] == "locked" else
+                           (200, {"ok": False, "error": "UNAVAILABLE"}) if body["user"] == "dbdown" else
+                           (429, {"ok": False, "error": "RATE_LIMITED"}) if body["user"] == "busy" else
                            (200, {"ok": False, "error": "WRONG_LOGIN"}))
                 elif self.path == "/signup":
                     ans = ((200, {"ok": False, "error": "BAD_INPUT", "rule": "bot_name"}) if body["user"] == "Wolf4life" else
@@ -200,7 +113,7 @@ class AccountSignInTest(unittest.TestCase):
         self.auth = ls.GameAuth(self.game.url, os.path.join(self.dir, "secret"), os.path.join(self.dir, "salt"))
         self.revoked = os.path.join(self.dir, "revoked.txt")
         self.sessions = ls.Sessions(KEY, self.revoked)
-        handler = ls.make_handler(self.sessions, ls.Pending(), self.dir, secure=False, auth=self.auth,
+        handler = ls.make_handler(self.sessions, secure=False, auth=self.auth,
                                   limiter=ls.Limiter(ls.AUTH_PER_IP_MIN))
         self.srv = ThreadingHTTPServer(("127.0.0.1", 0), handler)
         threading.Thread(target=self.srv.serve_forever, daemon=True).start()
@@ -245,6 +158,16 @@ class AccountSignInTest(unittest.TestCase):
         self.assertNotIn("127.0.0.1", json.dumps(sent))          # only the salted hash of the address
         self.assertRegex(sent["ipHash"], r"^[0-9a-f]{32}$")
 
+    def test_an_older_account_signs_in_even_if_it_breaks_the_sign_up_rules(self):
+        status, body = self.call("POST", "/api/login/password", {"user": "gm", "pass": "pw"})
+        self.assertEqual((status, body["character"]), (200, "Boss"))
+        self.assertEqual(self.sessions.check(self.jar["slums_session"]).get("g"), 1)   # gm_level 3: a GM session
+
+    def test_database_down_and_rate_limited(self):
+        self.assertEqual(self.call("POST", "/api/login/password", {"user": "dbdown", "pass": "hunter22"})[0], 503)
+        self.assertEqual(self.call("POST", "/api/login/password", {"user": "busy", "pass": "hunter22"}),
+                         (429, {"ok": False, "error": "Too many tries. Wait a minute and try again."}))
+
     def test_wrong_password_and_locked_are_generic(self):
         self.assertEqual(self.call("POST", "/api/login/password", {"user": "momo", "pass": "wrong12"}),
                          (401, {"ok": False, "error": "Wrong username or password."}))
@@ -261,13 +184,19 @@ class AccountSignInTest(unittest.TestCase):
         self.assertEqual(self.call("POST", "/api/login/signup", {"code": "GOODCODE", "user": "Wolf4life", "pass": "abc123"}),
                          (400, {"ok": False, "error": "That username is taken.", "rule": "bot_name"}))
 
-    def test_rules_are_checked_before_anything_is_sent(self):
+    def test_sign_up_rules_are_checked_before_anything_is_sent(self):
         for user, pw, rule in (("abc", "abc123", "user_length"), ("bad name", "abc123", "user_chars"),
                                ("goodname", "short", "pass_length"), ("goodname", "a" * 13, "pass_length"),
                                ("goodname", "has space", "pass_chars")):
-            status, body = self.call("POST", "/api/login/password", {"user": user, "pass": pw})
+            status, body = self.call("POST", "/api/login/signup", {"code": "GOODCODE", "user": user, "pass": pw})
             self.assertEqual((status, body["rule"]), (400, rule), user)
+        for user, pw in (("", "x"), ("a" * 65, "x"), ("momo", ""), ("has space", "x")):   # sign-in: only the impossible
+            self.assertEqual(self.call("POST", "/api/login/password", {"user": user, "pass": pw})[0], 400, user)
         self.assertEqual(self.game.calls, [])
+
+    def test_the_code_flow_is_gone(self):
+        self.assertEqual(self.call("POST", "/api/login/start", headers={})[0], 404)
+        self.assertEqual(self.call("GET", "/api/login/poll", headers={})[0], 404)
 
     def test_only_this_site_or_the_launcher_may_post(self):
         good = {"user": "momo", "pass": "hunter22"}

@@ -12,9 +12,9 @@
     <form class="panel form" id="login-pass" novalidate>
       <h2 class="bar">Sign in</h2>
       <div class="field"><label for="lp-user">Username</label>
-        <input id="lp-user" name="user" autocomplete="username" autocapitalize="off" spellcheck="false" maxlength="12" required></div>
+        <input id="lp-user" name="user" autocomplete="username" autocapitalize="off" spellcheck="false" maxlength="64" required></div>
       <div class="field"><label for="lp-pass">Password</label>
-        <input id="lp-pass" name="pass" type="password" autocomplete="current-password" maxlength="12" required></div>
+        <input id="lp-pass" name="pass" type="password" autocomplete="current-password" maxlength="64" required></div>
       <button class="btn primary" type="submit">Sign in</button>
       <p class="status" role="status" aria-live="polite"></p>
     </form>
@@ -36,25 +36,6 @@
     </form>
   </div>
 
-  <div class="panel">
-    <h2 class="bar">Or sign in from the game</h2>
-    <div class="in">
-      <ol class="steps">
-        <li><div><b>Get a code here.</b> It's six letters and works for 10 minutes.</div></li>
-        <li><div><b>Type it in game.</b> Log in to any character and type <code>@weblogin</code> and the code in the chat box.</div></li>
-        <li><div><b>Only type a code you got yourself.</b> Typing someone else's code signs <i>them</i> in as you.</div></li>
-        <li><div><b>That's it.</b> This page notices within a few seconds and takes you on.</div></li>
-      </ol>
-      <div id="login-box" class="loginbox" hidden>
-        <button id="login-start" class="btn" type="button">Get a code</button>
-        <div id="login-code" class="codecard" hidden>
-          <span class="k">In game, type</span>
-          <b><span>@weblogin </span><span id="login-code-text">------</span></b>
-          <button id="login-copy" class="btn" type="button">Copy</button>
-        </div>
-      </div>
-      <noscript><p class="small">Signing in needs JavaScript turned on in your browser.</p></noscript>
-    </div>
-  </div>
+  <noscript><p class="small">Signing in needs JavaScript turned on in your browser.</p></noscript>
 </section>
 <script src="../assets/login.js" defer></script>

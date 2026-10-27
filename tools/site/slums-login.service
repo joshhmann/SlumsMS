@@ -1,5 +1,5 @@
 [Unit]
-Description=SlumsMS website sign-in (codes typed in game)
+Description=SlumsMS website sign-in (game username and password, invite sign-up)
 After=network.target
 
 [Service]
@@ -8,7 +8,6 @@ User=slums-login
 Group=slums-login
 ExecStart=/usr/bin/python3 /opt/slums-login/login_service.py
 Environment=SLUMS_LOGIN_KEY_FILE=/etc/slums-login/key
-Environment=SLUMS_LOGIN_APPROVALS=/var/lib/slums-login/approvals
 Environment=SLUMS_LOGIN_REVOKED=/var/lib/slums-login/revoked.txt
 Environment=SLUMS_LOGIN_PORT=8094
 # ticket 105: the game server's auth API, its secret and the address salt (both made by the owner, LAUNCH step 2)

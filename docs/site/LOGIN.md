@@ -1,49 +1,42 @@
 # Signing in to the website with a game account
 
-Owner, 2026-10-26: the database and the Slums Market are for players, behind a sign-in linked to their game accounts.
-The website never sees a game password and never reads the game database: the player proves who they are by typing a
-code **in game**.
+Owner, 2026-10-26: the database and the Slums Market are for players, behind a sign-in with their game accounts.
+There is one way in, on the site and in the launcher: the **game username and password** (ticket 105). New friends
+sign up with an **invite code** that a GM makes in game (`!invite`). The earlier `@weblogin` code typed in game is gone.
+The website never checks or stores a password and never reads the game database: the game server checks it.
 
 ## How it works
 
-1. `/login/` (public page) asks `POST /api/login/start`. The login service (`tools/site/login_service.py`) makes a
-   six-letter code such as `K7Q4ZP` (no 0/O/1/I), good for 10 minutes, and gives this browser a private "pending"
-   cookie for it.
-2. The player types `@weblogin K7Q4ZP` in game.
-3. **The game server** checks the code's shape and writes an approval file (contract below).
-4. The page polls `GET /api/login/poll` every 3 s. When the approval is there, the service deletes it (a code works
-   once) and sets a signed session cookie for 30 days, HttpOnly, SameSite=Lax, Secure.
-5. nginx asks `GET /api/auth/check` before serving `/database/` and `/market/`; anyone not signed in is sent to
+1. `/login/` (public page) has two forms. **Sign in** sends `POST /api/login/password {"user", "pass"}`; **sign up**
+   sends `POST /api/login/signup {"code", "user", "pass"}`. Both need a JSON body and `X-Slums: 1`, and a browser
+   Origin must match the Host. The launcher sends the same calls with no Origin.
+2. The login service (`tools/site/login_service.py`, 127.0.0.1:8094) checks the sign-up rules (username 4-12 letters
+   or digits, password 6-12 printable characters with no spaces: the game's login box takes 12) and 10 tries a minute
+   per address. It then asks **the game server's auth API** on localhost (`POST /verify` or `/signup`, header
+   `X-Slums-Auth` from `/etc/slums-auth/secret`) and sends a salted hash of the address (`ipHash`, salt
+   `/etc/slums-login/ip-salt`), never the address. The API spec is in ticket 105 (`docs/tickets/105-invite-signup.md`
+   in the server repo). Sign-in sends any name the game might have: older accounts may break the sign-up rules.
+3. On success the service sets a signed session cookie for 30 days (HttpOnly, SameSite=Lax, Secure). The session
+   carries the account id and name, the account's characters on Bera (for the Buy/Sell board) and the GM flag.
+   Errors are generic: "Wrong username or password.", "That invite code doesn't work.", "That username is taken.",
+   "Too many wrong tries. Try again in 15 minutes." and so on.
+4. nginx asks `GET /api/auth/check` before serving `/database/` and `/market/`; anyone not signed in is sent to
    `/login/?next=...`. `/secret/` (the hidden Slums-chan stickers, theme.js) is checked the same way and simply
    answers 401 when not signed in.
 
-Sessions are HMAC-SHA256 signed with `/etc/slums-login/key` and nothing about them is stored on the server. Signing
-someone out early: put their account id in `/var/lib/slums-login/revoked.txt` (one per line). The game server can
-write banned accounts there too.
-
-## What the game server needs to do (server side, not in this repo)
-
-`@weblogin <CODE>` for any logged-in player:
-- `CODE` must be 6 characters from `ABCDEFGHJKLMNPQRSTUVWXYZ23456789` (upper-case it first). Anything else: reply
-  "That isn't a website code." and write nothing.
-- Write `<approvals>/<CODE>.json` atomically (write `.tmp`, then rename) with mode 0640, group `slums-login`:
-  `{"code": "K7Q4ZP", "account_id": 123, "account": "loginname", "character": "Momo", "gm": 0, "time": 1793001642.5}`.
-  `time` is Unix seconds and is **required**; the service refuses approvals older than 10 minutes or without it.
-- Reply "Website sign-in sent. Go back to your browser." Rate-limit it per account (say 5 a minute) so nobody can
-  guess codes by spamming the command.
-- The approvals folder is `/var/lib/slums-login/approvals` on 164. The game server's user needs write access to it
-  (group `slums-login`, mode 2770); nothing else is shared.
-- Bots must never run it (they have no account).
-- Optional: write banned account ids to `/var/lib/slums-login/revoked.txt`.
+Sessions are HMAC-SHA256 signed with `/etc/slums-login/key`. **Sign out** (`POST /api/login/logout`) ends that session
+on the server too: its id goes in `/var/lib/slums-login/revoked-sessions.txt` until it would have expired, and the
+market service reads the same file. Signing someone out everywhere: put their account id in
+`/var/lib/slums-login/revoked.txt` (one per line). The game server can write banned accounts there too.
 
 ## Install on 164 (owner's go: it changes the public site's web server)
 
 ```
 useradd --system --no-create-home --shell /usr/sbin/nologin slums-login
-install -d -o slums-login -g slums-login -m 2770 /var/lib/slums-login/approvals
+install -d -o slums-login -g slums-login -m 0750 /var/lib/slums-login
 install -d -m 0750 -g slums-login /etc/slums-login
 head -c 48 /dev/urandom > /etc/slums-login/key && chgrp slums-login /etc/slums-login/key && chmod 0640 /etc/slums-login/key
-# ticket 105 (password sign-in and invite sign-up): the address salt, and read access to the game's auth secret
+# the address salt, and read access to the game's auth secret (the owner makes /etc/slums-auth/secret with 1.6.0)
 head -c 32 /dev/urandom > /etc/slums-login/ip-salt && chgrp slums-login /etc/slums-login/ip-salt && chmod 0640 /etc/slums-login/ip-salt
 chgrp slums-login /etc/slums-auth /etc/slums-auth/secret && chmod 0750 /etc/slums-auth && chmod 0640 /etc/slums-auth/secret
 install -d /opt/slums-login && install -m 0644 tools/site/login_service.py /opt/slums-login/
@@ -51,9 +44,8 @@ install -m 0644 tools/site/slums-login.service /etc/systemd/system/ && systemctl
 systemctl enable --now slums-login
 curl -s http://127.0.0.1:8094/api/login/health        # {"ok": true}
 ```
-Live runs as root, so the game server needs no group change to write approvals. The game server's auth API
-(127.0.0.1:8186, ticket 105) and its secret `/etc/slums-auth/secret` come with 1.6.0; the owner makes the secret.
-Until both exist, password sign-in and sign-up answer "Sign-in is down right now" and `@weblogin` still works. Then add `tools/site/slums-login.nginx.conf` inside the site's
+The game server's auth API (127.0.0.1:8186, ticket 105) and its secret `/etc/slums-auth/secret` come with 1.6.0; the
+owner makes the secret. Until both exist, sign-in and sign-up answer "Sign-in is down right now". Then add `tools/site/slums-login.nginx.conf` inside the site's
 nginx server block, `nginx -t && systemctl reload nginx`, and publish the private build (`dist/site-private`).
 
 ## The market service (watchlist, alerts, Buy/Sell board)
@@ -66,9 +58,8 @@ rejected and removed posts), which the game server writes. Both folders sit outs
 posts (3 days each), 30 changes a minute. Writes need a JSON body and the header `X-Slums: 1`, and a browser Origin
 must match the Host, so another website can't post for a signed-in player.
 
-For the board, the sign-in approval may carry `"characters": [...]` (the account's characters on Bera) so a post can
-be made as any of them; without it, a post is made as the character that typed `@weblogin`. `"gm" > 0` lets that
-session take down any post.
+For the board, the session carries the account's characters on Bera, so a post can be made as any of them (a new
+account with no character yet can't post). A GM session can take down any post.
 
 ```
 The install commands are LAUNCH.md step 2b. Live runs as root, so it can read the inbox and write the outbox with no
@@ -77,12 +68,12 @@ docs/design/track-d-plan.md). The nginx snippet already routes `/api/market/`.
 
 ## Safety notes
 - The key never leaves 164. Never print it, copy it or commit it. Changing it signs everyone out.
-- Codes are 6 characters from a 32-letter set (about 1 billion codes) and live for 10 minutes; the game command is
-  rate-limited. Brute force is not a practical risk.
-- Code phishing: if someone gets a friend to type *their* code, that person's browser is signed in as the friend.
-  Since 1.6.0 that is more than reading pages: they could post on the Buy/Sell board under the friend's IGN, or
-  change the friend's watchlist and alerts. Nothing can move items or mesos, the game checks every post, and the
-  friend can take a post down, or a GM can; banning or listing the account in `revoked.txt` signs the browser out.
-  The page says to only type a code you got yourself.
+- Passwords pass through the login service only in memory, over HTTPS on live (Caddy), and are never logged or stored.
+  The launcher keeps only the session token.
+- Password guessing: 10 tries a minute per address here, and the game server locks a name for 15 minutes after 5
+  wrong tries (names that don't exist lock the same way, so a lock reveals nothing).
+- A stolen session cookie works until it expires, the player signs out, or the account goes in `revoked.txt`.
+  Nothing on the site can move items or mesos; the game checks every board post, and the player or a GM can take a
+  post down.
 - The service listens on 127.0.0.1 only, logs only the method and path (no addresses or cookies), and answers
   nothing but the endpoints above.

@@ -7,7 +7,7 @@ Owner, 2026-10-26: nothing on the site moves items or mesos. Per game account: 2
 once, then the player re-arms it by hand) and 5 open board posts (WTB or WTS, posted as one of the account's
 characters with the IGN shown, 3-day expiry, a take-down button; GMs can take down anything).
 
-The site keeps its own store (SQLite, --db) and talks to the game server only through files, like `@weblogin`:
+The site keeps its own store (SQLite, --db) and talks to the game server only through files:
 - it writes the inbox (--inbox), atomically, after every change:
     posts.json   every open post: {id, account, character, kind: WTB|WTS, itemId, qty, price, createdAt, expiresAt}
     alerts.json  per account: {watch: [itemIds], alerts: [{id, itemId, dir: below|above, price, armed}]}
@@ -22,7 +22,7 @@ The game's rejected.json is the authority; the checks here (limits, the per-trad
 save a round trip.
 
 Who is asking: the signed session cookie from login_service.py (same key file, read only). A session carries the
-account id, the character that typed `@weblogin`, and (when the game sends them) the account's other characters and
+account id, the character it signed in with, and (when the game sends them) the account's other characters and
 GM flag. Writes need a JSON body, the header "X-Slums: 1" (a cross-site form can't send it) and, when the browser sends
 an Origin, one that matches the Host.
 

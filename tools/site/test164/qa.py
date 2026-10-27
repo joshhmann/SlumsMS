@@ -4,11 +4,13 @@
     tools/site/test164/qa.sh [--quick] [--account ID --character NAME] [--no-browser]
 
 Run on 187 from the repo root. Prints one PASS / FAIL / SKIP line per check, then a count; exit status 1 on any FAIL.
+- @weblogin is gone (owner, 2026-10-26): one way in, the game username and password.
 - Signed-in checks use short-lived sessions minted on 164 with the TEST key (the key never leaves 164, the token is
   kept in memory and never printed), for made-up account ids >= 2,000,000,000 that no game account has, except the
   Buy/Sell round trip, which needs a real TEST account and character (--account, --character).
 - Password sign-in and invite sign-up need the TEST game auth API (ticket 105) and, for sign-up, a fresh invite code
-  from `!invite` on TEST (env QA_INVITE). The sign-in check uses env QA_USER / QA_PASS. Missing ones are SKIP.
+  from `!invite` on TEST (QA_INVITE). The sign-in check uses QA_USER / QA_PASS. They come from the environment or
+  from QA_CREDS on 164 (KEY=value lines, root 600, read over ssh into memory, never printed). Missing ones are SKIP.
 - API calls go through the TEST nginx about once a second, under its limit (60 a minute), so a full run takes a few
   minutes; the board round trip waits up to 2 minutes for the TEST server (it reads the inbox every 30 s).
 - Everything it writes is undone at the end: watchlist, alerts and posts of the made-up accounts, the revoke line.
@@ -35,8 +37,12 @@ BASE = "http://192.168.0.164:8192"
 TEST = "/opt/mapleroot-dev/persistence-test"
 SITE_DIR, BUILD = "/srv/slums-site-test", "/opt/slums-site-test"
 REVOKED = "/var/lib/slums-login-test/revoked.txt"
-FAKE = {"limits": 2_000_000_001, "revoke": 2_000_000_002, "signout": 2_000_000_003, "launcher": 2_000_000_004,
-        "alerts": 2_000_000_005, "posts": 2_000_000_006}  # one account per limit: the market allows 30 writes a minute each
+QA_CREDS = "/etc/slums-site-test/qa.env"
+OTHER_CHAR = "AutoQaOne"  # a real TEST character on another account: the server must say it isn't the poster's
+# Made-up account ids, new for every run (so one run's writes never count against the next run's rate limit), one per
+# limit test: the market allows 30 writes a minute per account.
+_RUN = 2_000_000_000 + (int(time.time()) // 60 % 100_000) * 10
+FAKE = {name: _RUN + i for i, name in enumerate(("limits", "revoke", "signout", "launcher", "alerts", "posts"))}
 PAGES = ["/", "/guide/", "/guide/getting-started.html", "/patch-notes/", "/report/", "/login/",
          "/world/", "/world/feed/", "/world/feed/megaphone.html", "/world/feed/drama.html", "/world/rankings/level.html",
          "/world/economy.html", "/robots.txt"]
@@ -67,8 +73,8 @@ class Http:
     def __init__(self):
         self.last = 0.0
 
-    def __call__(self, method, path, body=None, token=None, headers=None, follow=False):
-        if path.startswith("/api/"):
+    def __call__(self, method, path, body=None, token=None, headers=None, follow=False, fast=False):
+        if path.startswith("/api/") and not fast:  # fast: a few calls inside nginx's burst of 20
             wait = 1.05 - (time.time() - self.last)
             if wait > 0:
                 time.sleep(wait)
@@ -220,11 +226,13 @@ def market_limits(http):
         return []
     items = [it for it in (ITEMS or [])][:22]
     undo = []
-    for it in items[:20]:
-        http("POST", "/api/market/watch", {"itemId": it, "on": True}, token=t)
+    added = 0
+    for it in items[:21]:
         undo.append(("/api/market/watch", {"itemId": it, "on": False}))
+    for it in items[:20]:
+        added += http("POST", "/api/market/watch", {"itemId": it, "on": True}, token=t)[0] == 200
     st, _, _, js = http("POST", "/api/market/watch", {"itemId": items[20], "on": True}, token=t)
-    ok(st == 409, "the 21st watchlist item is refused (20 max)", f"{st} {js}")
+    ok(added == 20 and st == 409, "the 21st watchlist item is refused (20 max)", f"{added} added, then {st} {js}")
     ta, ids = TOKENS["alerts"], []
     for i in range(10):
         st, _, _, js = http("POST", "/api/market/alerts", {"itemId": items[i], "dir": "below", "price": 1000 + i}, token=ta)
@@ -233,16 +241,21 @@ def market_limits(http):
     undo += [("/api/market/alerts/delete", {"id": a}, ta) for a in ids]
     st, _, _, js = http("POST", "/api/market/alerts", {"itemId": items[11], "dir": "above", "price": 5}, token=ta)
     ok(len(ids) == 10 and st == 409, "the 11th alert is refused (10 max)", f"{len(ids)} made, then {st}")
+    # back to back: the TEST server rejects a made-up account's posts on its next inbox read (every 30 s), and a
+    # rejected post no longer counts as open, so a slow run would let a 6th one in
     tp, pids = TOKENS["posts"], []
+    time.sleep(1.1)
     for i in range(5):
         st, _, _, js = http("POST", "/api/market/posts", {"kind": "WTS", "itemId": items[i], "qty": 1, "price": 100,
-                                                          "character": "QaPosts"}, token=tp)
+                                                          "character": "QaPosts"}, token=tp, fast=True)
         if js and js.get("id"):
             pids.append(js["id"])
-    undo += [("/api/market/posts/close", {"id": p}, tp) for p in pids]
     st, _, _, js = http("POST", "/api/market/posts", {"kind": "WTS", "itemId": items[6], "qty": 1, "price": 100,
-                                                      "character": "QaPosts"}, token=tp)
-    ok(len(pids) == 5 and st == 409, "the 6th open post is refused (5 max)", f"{len(pids)} made, then {st}")
+                                                      "character": "QaPosts"}, token=tp, fast=True)
+    if js and js.get("id"):
+        pids.append(js["id"])
+    undo += [("/api/market/posts/close", {"id": p}, tp) for p in pids]
+    ok(len(pids) == 5 and st == 409, "the 6th open post is refused (5 max)", f"{len(pids)} made, the last {st}")
     st, _, _, js = http("POST", "/api/market/watch", {"itemId": items[0]}, token=t, headers={"Content-Type": "application/json"})
     ok(st == 403, "a write without the X-Slums header is refused", str(st))
     st, _, _, js = http("POST", "/api/market/watch", {"itemId": items[0]}, token=t,
@@ -255,12 +268,12 @@ def board_round_trip(http, account, character):
     if not account or not character:
         report("SKIP", "Buy/Sell board round trip through the TEST server", "needs --account and --character of a real TEST player")
         return []
-    t = mint(account, character, [character, "QaNotMine"])
+    t = mint(account, character, [character, OTHER_CHAR])
     good_item, undo = ITEMS[0], []
     st, _, _, good = http("POST", "/api/market/posts", {"kind": "WTB", "itemId": good_item, "qty": 1, "price": 1234,
                                                         "character": character}, token=t)
     st2, _, _, bad = http("POST", "/api/market/posts", {"kind": "WTB", "itemId": good_item, "qty": 1, "price": 1234,
-                                                        "character": "QaNotMine"}, token=t)
+                                                        "character": OTHER_CHAR}, token=t)
     gid, bid = (good or {}).get("id"), (bad or {}).get("id")
     undo += [("/api/market/posts/close", {"id": p}, t) for p in (gid, bid) if p]
     if not ok(gid and bid, "two posts accepted by the site", f"{st} {good} / {st2} {bad}"):
@@ -301,13 +314,13 @@ def sign_out_and_revoke(http):
 
 def launcher(http):
     ua = {"User-Agent": "SlumsMS-Launcher/1.6.0"}
-    st, hd, _, js = http("POST", "/api/login/start", headers=ua)
-    ok(st == 200 and js and re.match(r"^[A-Z2-9]{6}$", js.get("code", "")), "launcher: start gives a code (no Origin)", str(st))
-    cookie = (hd.get("Set-Cookie") or "").split(";")[0]
-    st, _, _, js = http("GET", "/api/login/poll", headers=dict(ua, Cookie=cookie))
-    ok(st == 200 and js == {"ok": False, "waiting": True}, "launcher: poll waits for @weblogin", f"{st} {js}")
-    polls = [http("GET", "/api/login/poll", headers=dict(ua, Cookie=cookie))[0] for _ in range(6)]
-    ok(429 not in polls, "launcher: polling every few seconds is never rate-limited", str(polls))
+    st, _, _, js = http("POST", "/api/login/password", {"user": "qanobody1", "pass": "wrongpw1"},
+                        headers=dict(ua, **{"X-Slums": "1", "Content-Type": "application/json"}))
+    ok(st in (401, 503) and (js or {}).get("error"), "launcher: sign-in with no Origin is accepted and answered",
+       f"{st} {js}")
+    st, _, _, _ = http("GET", "/api/login/start", headers=ua)
+    st2, _, _, _ = http("POST", "/api/login/start", headers=ua)
+    ok(st == 404 and st2 == 404, "the old @weblogin code flow is gone", f"{st} / {st2}")
     t = TOKENS["launcher"]
     st, _, _, js = http("GET", "/api/login/me", token=t, headers=ua)
     ok(js and js.get("signed_in") and js.get("character") == "QaLauncher", "launcher: a stored session says who is signed in", str(js))
@@ -317,8 +330,18 @@ def launcher(http):
     ok(http("GET", "/api/login/me", token=t, headers=ua)[3].get("signed_in") is False, "launcher: sign-out ends the stored session")
 
 
+def creds():
+    out = {k: os.environ[k] for k in ("QA_USER", "QA_PASS", "QA_INVITE") if os.environ.get(k)}
+    for line in ssh(f"cat {QA_CREDS} 2>/dev/null").splitlines():
+        k, _, v = line.partition("=")
+        if k.strip() in ("QA_USER", "QA_PASS", "QA_INVITE") and v.strip():
+            out.setdefault(k.strip(), v.strip())
+    return out
+
+
 def accounts(http):
     """Ticket 105: password sign-in and invite sign-up, through the TEST game auth API."""
+    cr = creds()
     st, _, _, js = http("POST", "/api/login/password", {"user": "ab", "pass": "abcdef"})
     ok(st == 400 and (js or {}).get("rule") == "user_length", "a too-short username is refused with the rule", f"{st} {js}")
     st, _, _, js = http("POST", "/api/login/password", {"user": "qaabcd", "pass": "a" * 13})
@@ -330,7 +353,7 @@ def accounts(http):
         report("SKIP", "password sign-in and invite sign-up", "the TEST game auth API (ticket 105) isn't up yet")
         return
     ok(st == 401 and js.get("error") == "Wrong username or password.", "a wrong login gets the generic message", f"{st} {js}")
-    user, pw = os.environ.get("QA_USER"), os.environ.get("QA_PASS")
+    user, pw = cr.get("QA_USER"), cr.get("QA_PASS")
     if user and pw:
         st, hd, _, js = http("POST", "/api/login/password", {"user": user, "pass": pw})
         tok = re.search(r"slums_session=([^;]+)", hd.get("Set-Cookie") or "")
@@ -339,8 +362,8 @@ def accounts(http):
         if tok:
             http("POST", "/api/login/logout", token=tok.group(1))
     else:
-        report("SKIP", "password sign-in with a real TEST account", "set QA_USER and QA_PASS")
-    code = os.environ.get("QA_INVITE")
+        report("SKIP", "password sign-in with a real TEST account", f"no QA_USER / QA_PASS in {QA_CREDS} or the environment")
+    code = cr.get("QA_INVITE")
     if code:
         name = "qa" + time.strftime("%m%d%H%M")
         st, _, _, js = http("POST", "/api/login/signup", {"code": code, "user": name, "pass": "qapass12"})
@@ -350,7 +373,7 @@ def accounts(http):
         st, _, _, js = http("POST", "/api/login/password", {"user": name, "pass": "qapass12"})
         ok(st == 200, "the new account can sign in with its password", f"{st} {js}")
     else:
-        report("SKIP", "invite sign-up", "set QA_INVITE to a fresh code from !invite on TEST")
+        report("SKIP", "invite sign-up", f"no fresh QA_INVITE in {QA_CREDS} or the environment")
 
 
 def browser(quick):

@@ -3,7 +3,8 @@
 Everything here is built and tested on branch `site-160-theme`. **Each numbered step changes something people can
 see or the site's web server, so each needs the owner's "go" for that step.** The site launches **the same night as
 1.6.0** (owner, 2026-10-26): World needs the site export, the market needs the market export, and the sign-in needs
-`@weblogin`, all three in 1.6.0.
+the game's auth API (ticket 105), all three in 1.6.0. There is one way in: the game username and password, and new
+friends sign up with an invite code (`!invite`); `@weblogin` is gone (owner, 2026-10-26).
 
 **Order on the night** (the step numbers below are what each does, not the order):
 1. `deploy-build-164.sh` (the copy-only part of step 6: puts `tools/site` in `/opt/slums-site-build`).
@@ -11,8 +12,8 @@ see or the site's web server, so each needs the owner's "go" for that step.** Th
    **Both must be done before the 1.6.0 deploy.** The 1.6.0 unit turns on `-Dslums.board=true`, and the game then
    writes `/var/lib/slums-market/outbox`. If the folder isn't there yet, the game makes it without the
    `slums-market` group and the site can't read the board.
-3. The 1.6.0 deploy (release tools, the owner runs `deploy.sh`). It brings `@weblogin` (step 3), the board, and the
-   market and site exports.
+3. The 1.6.0 deploy (release tools, the owner runs `deploy.sh`). It brings the auth API for sign-in (step 3), the board,
+   and the market and site exports.
 4. A few minutes later, once the exports have written their first files: step 4 (nginx guard), then step 1 (public
    site with World), then step 5 (Slums Street and the market), then step 6 (the two timers).
 Until step 5 publishes `database/search-index.json` and `market/untradeable.json`, the market service turns down
@@ -65,12 +66,12 @@ curl -s https://theslumsms.asslorde.com/world/ | grep -c 'Online now'   # 1
 Undo: `rsync -a --delete /srv/slums-site.bak-<stamp>/ /srv/slums-site/` on 164.
 
 ## 2. Install the sign-in service (not reachable from outside yet)
-Follow `docs/site/LOGIN.md`, "Install on 164": user and group `slums-login`, `/var/lib/slums-login/approvals`, the
+Follow `docs/site/LOGIN.md`, "Install on 164": user and group `slums-login`, `/var/lib/slums-login`, the
 **owner** makes the key (`head -c 48 /dev/urandom > /etc/slums-login/key`; nobody prints or copies it) and the
 address salt `/etc/slums-login/ip-salt` the same way, the unit `slums-login.service`. For password sign-in and invite
 sign-up (ticket 105) the **owner** also makes the game's auth secret `/etc/slums-auth/secret` (read by the game server
-and, through group `slums-login`, by the sign-in; LOGIN.md has the commands). Without it those two answer "Sign-in is
-down right now" and `@weblogin` still works. Check: `curl -s http://127.0.0.1:8094/api/login/health` gives `{"ok": true}`.
+and, through group `slums-login`, by the sign-in; LOGIN.md has the commands). Without it, sign-in and sign-up answer
+"Sign-in is down right now". Check: `curl -s http://127.0.0.1:8094/api/login/health` gives `{"ok": true}`.
 Undo: `systemctl disable --now slums-login`.
 
 ### 2b. Install the market service (watchlist, alerts, Buy/Sell board; not reachable from outside yet)
@@ -92,12 +93,14 @@ the game's folder). Live's 1.6.0 start line points the board's inbox and outbox 
 Undo: `systemctl disable --now slums-market`, then `userdel slums-market` and `rm -r /var/lib/slums-market` if wanted
 (that deletes every watchlist, alert and post).
 
-## 3. Turn on `@weblogin` on live (part of the 1.6.0 deploy)
-Live starts with `-Dslums.weblogin.dir=/var/lib/slums-login/approvals` (TEST sets its own,
-`/var/lib/slums-login-test/approvals`, read only by the TEST sign-in on 8194 with its own key: see
-`tools/site/test164/README.md`. A TEST code can never sign anyone in to the real site), and with the board's inbox and outbox flags set to `/var/lib/slums-market/inbox` and
-`/var/lib/slums-market/outbox` (names in the "Site board contract"). Live runs as root, so no group change is needed. Check: in game, `@weblogin ABCDEF` replies
-"Website sign-in sent", and a file `/var/lib/slums-login/approvals/ABCDEF.json` appears (it expires harmlessly).
+## 3. The game's auth API and the board on live (part of the 1.6.0 deploy)
+Live 1.6.0 serves the auth API on 127.0.0.1:8186, checking `/etc/slums-auth/secret` (step 2), and starts with the
+board's inbox and outbox flags set to `/var/lib/slums-market/inbox` and `/var/lib/slums-market/outbox` (names in the
+"Site board contract"). Live runs as root, so no group change is needed. TEST has its own: API on 8196 with
+`/etc/slums-auth-test/secret`, the TEST sign-in on 8194 with its own key (`tools/site/test164/README.md`), so a TEST
+account can never sign anyone in to the real site. Check:
+`curl -s -X POST -H 'X-Slums: 1' -H 'Content-Type: application/json' -d '{"user":"nobody1","pass":"wrongpw"}' http://127.0.0.1:8094/api/login/password`
+gives 401 "Wrong username or password." (503 "down" means the API or its secret isn't there yet).
 
 ## 4. Guard the database and market in nginx
 Add `tools/site/slums-login.nginx.conf`: part 1 (the `slumsapi` rate zone) in the http block next to the report form's
@@ -117,7 +120,7 @@ rsync -a --delete --exclude market/ --exclude world/ dist/site-private/ root@192
 rsync -a dist/site-private/market/ root@192.168.0.164:/srv/slums-site/market/    # the first time only
 ```
 `--exclude market/ --exclude world/` because step 6 keeps those two fresh on 164.
-Check: signed out, `/database/` and `/market/` redirect to `/login/`; signed in through `@weblogin`, they open, and
+Check: signed out, `/database/` and `/market/` redirect to `/login/`; signed in with a game username and password, they open, and
 on a price page "Watch" works; a test post on the Buy/Sell board shows on the board NPC at the FM entrance.
 **From now on every publish from 187 uses `--private --world` and `--exclude market/ --exclude world/`** (DEPLOY.md
 says so too).
@@ -162,7 +165,7 @@ Undo: `systemctl disable --now slums-site-market.timer slums-site-world.timer`.
   `X-Forwarded-Proto` by default, which is all the site needs: the sign-in cookies are always marked Secure (visitors
   arrive over HTTPS through Caddy), the login redirect is relative (`absolute_redirect off`), and the report form's and
   sign-in's per-address limits read `X-Forwarded-For`. Only if the owner's Caddy config strips those headers would
-  anything need changing; the step 4 check (sign in through `@weblogin`, then open `/database/`) would show it.
+  anything need changing; the step 4 check (sign in with a game account, then open `/database/`) would show it.
 - **Henesys green stays the default accent**, also with the orange-and-navy Slums-chan art; blue and orange stay
   player choices in the header.
 

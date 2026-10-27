@@ -5,10 +5,8 @@
     python3 tools/site/preview.py [--dir dist/preview] [--host 192.168.0.187] [--port 8780]
 
 For looking at the site before launch, never for players. Nothing here talks to a game server:
-- The login page works: "Get a code" gives a code, and about 5 seconds later the browser counts as signed in as
-  "Previewer", as if `@weblogin` had been typed. Sign out works too.
-- Password sign-in takes any username with the password "preview1"; sign-up takes the invite code "PREVIEW"
-  (any other code is refused, like a used one). The username and password rules are the real ones.
+- Sign-in takes any username with the password "preview1"; sign-up takes the invite code "PREVIEW" (any other code
+  is refused, like a used one). The sign-up rules and the messages are the real ones. Sign out works too.
 - /database/, /market/ and /secret/ need that pretend sign-in, like nginx does on 164 (auth_request).
 - The market API (/api/market/) answers 503, so the market pages show their read-only view.
 World and market data are whatever the build used (the samples unless --site-data / --market-data were given).
@@ -18,18 +16,14 @@ import functools
 import sys
 import json
 import os
-import secrets
-import time
 from http.server import SimpleHTTPRequestHandler, ThreadingHTTPServer
 from urllib.parse import quote, urlsplit
 
 HERE = os.path.dirname(os.path.abspath(__file__))
 sys.path.insert(0, HERE)
 import login_service as ls  # noqa: E402  (the real rules and messages)
-SESSION, PENDING = "slums_session", "slums_pending"
+SESSION = "slums_session"
 GATED = ("/database/", "/market/", "/secret/")
-WAIT = 5  # seconds before a pretend code counts as typed in game
-pending = {}  # pending secret -> (code, started)
 
 
 class Handler(SimpleHTTPRequestHandler):
@@ -64,16 +58,8 @@ class Handler(SimpleHTTPRequestHandler):
     def do_GET(self):
         path = urlsplit(self.path).path
         if path == "/api/login/me":
-            return self.reply(200, {"signed_in": self.signed_in(), "character": "Previewer" if self.signed_in() else None})
-        if path == "/api/login/poll":
-            got = pending.get(self.cookies().get(PENDING, ""))
-            if not got:
-                return self.reply(410, {"ok": False, "error": "That code ran out. Get a new one."})
-            if time.time() - got[1] < WAIT:
-                return self.reply(200, {"ok": False, "waiting": True})
-            pending.pop(self.cookies()[PENDING], None)
-            return self.reply(200, {"ok": True, "character": "Previewer"}, [f"{SESSION}=preview; Max-Age=2592000",
-                                                                            f"{PENDING}=; Max-Age=0"])
+            return self.reply(200, {"signed_in": self.signed_in(), "character": None,
+                                    "account": "Previewer" if self.signed_in() else None})
         if path.startswith("/api/"):
             return self.reply(503, {"ok": False, "error": "Not in the preview."})
         if path.startswith(GATED) and not self.signed_in():
@@ -84,11 +70,6 @@ class Handler(SimpleHTTPRequestHandler):
 
     def do_POST(self):
         path = urlsplit(self.path).path
-        if path == "/api/login/start":
-            secret = secrets.token_urlsafe(16)
-            code = "".join(secrets.choice("ABCDEFGHJKLMNPQRSTUVWXYZ23456789") for _ in range(6))
-            pending[secret] = (code, time.time())
-            return self.reply(200, {"ok": True, "code": code, "expires_in": 600}, [f"{PENDING}={secret}; Max-Age=600"])
         if path == "/api/login/logout":
             return self.reply(200, {"ok": True}, [f"{SESSION}=; Max-Age=0"])
         if path in ("/api/login/password", "/api/login/signup"):
@@ -98,7 +79,7 @@ class Handler(SimpleHTTPRequestHandler):
                 body = {}
             if self.headers.get("X-Slums") != "1" or not isinstance(body, dict):
                 return self.reply(403, {"ok": False, "error": "Refused."})
-            broken = ls.rule_broken(body.get("user"), body.get("pass"))
+            broken = (ls.rule_broken if path.endswith("signup") else ls.sign_in_broken)(body.get("user"), body.get("pass"))
             if broken:
                 return self.reply(400, {"ok": False, "error": ls.RULES[broken], "rule": broken})
             if path.endswith("signup") and ls.clean_code(body.get("code")) != "PREVIEW":

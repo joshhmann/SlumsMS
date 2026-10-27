@@ -25,7 +25,7 @@ fi
 before=$(ssh "$HOST" 'cat /run/nginx.pid; find /etc/nginx -type f -print0 | sort -z | xargs -0 md5sum | md5sum')
 
 ssh "$HOST" "mkdir -p $DEST/tools $DEST/docs $DEST/hiddenstreet /srv/slums-site-test /etc/slums-site-test \
-  /var/lib/slums-login-test/approvals /var/lib/slums-market-test /var/log/slums-site-test \
+  /var/lib/slums-login-test /var/lib/slums-market-test /var/log/slums-site-test \
   /var/lib/slums-site-test-web/{body,proxy,fastcgi,uwsgi,scgi}
   touch /var/lib/slums-login-test/revoked.txt
   install -d -m 700 /etc/slums-login-test
