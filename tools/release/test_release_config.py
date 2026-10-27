@@ -209,6 +209,20 @@ class ReleaseConfigTest(unittest.TestCase):
         self.assertEqual(path.read_text(), 'ExecStart=/usr/bin/java -Xms4G -Xmx6G -Dmapleroot.login-port=8485 '
                                            '-Dsolomapling.enabled=true -jar target/Cosmic.jar\n')
 
+    def test_release_160_turns_on_the_staff_dashboard(self):
+        deploy, _ = self.generate((ROOT / 'docs/release/1.6.0.conf').read_text())
+        dash = ('s# -jar # -Dsolomapling.dashboard=true -Dsolomapling.dashboard.dir=/srv/slums-dashboard/data '
+                '-Dsolomapling.dashboard.periodSeconds=60 -jar #')
+        self.assertIn("'" + dash + "'", deploy)
+        self.assertIn("-Dslums.auth.revoked=/var/lib/slums-login/revoked.txt -jar #' '" + dash + "'", deploy,
+                      "the existing edit stays first and intact")
+        unit = 'ExecStart=/usr/bin/java -Xms4G -Xmx6G -Dsolomapling.enabled=true -jar target/Cosmic.jar\n'
+        path = self.work / 'slumsms.service'
+        path.write_text(unit)
+        subprocess.run(['sed', '-i', '-e', dash, str(path)], check=True)
+        self.assertNotEqual(path.read_text(), unit)   # the edit changes live's unit on its own
+        self.assertIn(' -Dsolomapling.dashboard.periodSeconds=60 -jar target/Cosmic.jar', path.read_text())
+
     def generate(self, conf):
         (self.work / 'release.conf').write_text(conf)
         (self.work / 'BUILD.txt').write_text('commit=fixture\nversion=1.5.0\njar_sha256=1234567890abcdef\n')

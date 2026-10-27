@@ -25,7 +25,9 @@ import java.util.function.IntFunction;
  *   -Dsolomapling.dashboard.periodSeconds=60      how often (at least 15)
  * </pre>
  * It cannot slow or break the game: the reads are a pass over the online bots and a few counters, nothing waits on
- * a game lock or the database, a run never overlaps the next, and every failure is logged and skipped.
+ * a game lock, the only database reads are the Accounts panel's few small queries every {@link #ACCOUNTS_EVERY_MS}
+ * (on this thread, never the game's), a run never overlaps the next, and every failure is logged and skipped.
+ * Chat appears only as counts per tier, flag kind and action ({@code ChatStats}), never a line anyone said.
  */
 public final class DashboardExporter {
 
@@ -35,6 +37,11 @@ public final class DashboardExporter {
     static final String DIR = "solomapling.dashboard.dir";
     static final String PERIOD = "solomapling.dashboard.periodSeconds";
     static final int SAVE_SERIES_EVERY = 5;
+    /**
+     * The Accounts panel is the only part that reads the database (a few small queries through the game's pool), so it
+     * is read at most this often and the last reading rides along in between (ticket 108: live at 3,000 bots).
+     */
+    static final long ACCOUNTS_EVERY_MS = TimeUnit.MINUTES.toMillis(5);
     private static final long WARN_EVERY_MS = TimeUnit.MINUTES.toMillis(15);
 
     private static volatile ScheduledExecutorService executor;
@@ -125,6 +132,8 @@ public final class DashboardExporter {
         private final AtomicLong lastWarnAt = new AtomicLong();
         private int runs;
         private long failures;
+        private java.util.Map<String, Object> accounts;
+        private long accountsAt;
 
         Runner(Path dir, ZoneId zone, Sources sources, java.util.function.Supplier<EconomyFeed> economy) {
             this.dir = dir;
@@ -163,7 +172,10 @@ public final class DashboardExporter {
             result.live().put("chat", soloMapling.ArtificialPlayer.BotBrainSystem.ChatStats.snapshot());
             // Cumulative replies per tier (llm, scripted, emote, ignored, flagged) so the day's series can chart them.
             result.point().put("ch", soloMapling.ArtificialPlayer.BotBrainSystem.ChatStats.tierCounts());
-            java.util.Map<String, Object> accounts = sources.accounts(now);
+            if (accounts == null || now - accountsAt >= ACCOUNTS_EVERY_MS || now < accountsAt) {
+                accounts = sources.accounts(now);
+                accountsAt = now;
+            }
             if (accounts != null) {
                 result.live().put("accounts", accounts);
             }

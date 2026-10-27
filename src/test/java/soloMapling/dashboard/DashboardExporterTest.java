@@ -34,6 +34,13 @@ class DashboardExporterTest {
         List<LiveSnapshot.BotSample> bots = new ArrayList<>();
         long tickNanos;
         RuntimeException fail;
+        int accountReads;
+
+        @Override
+        public Map<String, Object> accounts(long now) {
+            accountReads++;
+            return Map.of("at", now / 1000, "reads", accountReads);
+        }
 
         @Override
         public List<LiveSnapshot.BotSample> bots() {
@@ -195,6 +202,35 @@ class DashboardExporterTest {
         assertEquals("ledger", economy.get("source"));
         assertEquals(12L, ((Number) economy.get("itemsToday")).longValue());
         assertEquals(List.of(104040000L, "", 9_000L, 12L, 20_000L, 40L, 3L), deepLongs(((List<?>) economy.get("maps")).get(0)));
+    }
+
+    @Test
+    void theAccountsPanelReadsTheDatabaseAtMostEveryFiveMinutes() throws Exception {
+        Fake fake = new Fake();
+        DashboardExporter.Runner r = runner(fake, new DerivedEconomy(UTC));
+        for (int i = 0; i < 10; i++) {
+            r.runOnce(DAY1 + i * 60_000L); // a run a minute, as on live
+        }
+        assertEquals(2, fake.accountReads, "minutes 0 and 5 only");
+        Map<?, ?> accounts = (Map<?, ?>) read("live.json").get("accounts");
+        assertEquals(2L, ((Number) accounts.get("reads")).longValue(), "the last reading rides along in between");
+        r.runOnce(DAY1 - 60_000L); // the clock went back: read again rather than wait
+        assertEquals(3, fake.accountReads);
+    }
+
+    @Test
+    void chatIsCountsOnlyNeverWhatWasSaid() throws Exception {
+        soloMapling.ArtificialPlayer.BotBrainSystem.ChatStats.resetForTest();
+        String said = "my secret password is hunter2";
+        soloMapling.ArtificialPlayer.BotBrainSystem.ChatStats.reply(
+                soloMapling.ArtificialPlayer.BotBrainSystem.ChatStats.Tier.LLM, 120, "Ash", said);
+        soloMapling.ArtificialPlayer.BotBrainSystem.ChatStats.flagged("scam");
+        runner(new Fake(), new DerivedEconomy(UTC)).runOnce(DAY1);
+        String live = Files.readString(dir.resolve("live.json"));
+        assertFalse(live.contains("hunter2"), "a player's line never reaches live.json");
+        Map<?, ?> chat = (Map<?, ?>) read("live.json").get("chat");
+        assertEquals(Map.of("scam", 1L), numbersAsLongs((Map<?, ?>) chat.get("flags")));
+        soloMapling.ArtificialPlayer.BotBrainSystem.ChatStats.resetForTest();
     }
 
     private static Map<Object, Long> numbersAsLongs(Map<?, ?> m) {

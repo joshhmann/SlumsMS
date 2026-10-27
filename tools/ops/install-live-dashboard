@@ -1,0 +1,134 @@
+#!/bin/bash
+# Owner-run (ticket 108): the staff dashboard for LIVE on 164, private to the LAN. Run on 187 from the repo root.
+#
+#   tools/ops/install-live-dashboard            (= --check) print the plan and read-only checks; changes nothing
+#   tools/ops/install-live-dashboard --go       install or update the page and the nginx site, nginx -t, reload
+#   tools/ops/install-live-dashboard --remove   take the nginx site away again (keeps the page and the data)
+#
+# What --go does on 164, in order:
+#   1. records the shared nginx's master pid and a hash of every file under /etc/nginx (like the site's install.sh)
+#   2. refuses if port 8096 is taken by something else or the TEST dashboard's htpasswd file is missing (tested with
+#      `test -s`, never read)
+#   3. copies tools/dashboard/web to /srv/slums-dashboard/web (the old copy kept as web.bak-<UTC time>) and makes
+#      /srv/slums-dashboard/data writable by the live unit's user (the server writes its snapshots there)
+#   4. writes /etc/nginx/sites-available/slums-dashboard-live from deploy/dashboard/slums-dashboard-live.nginx.conf and
+#      links it into sites-enabled
+#   5. `nginx -t`; on failure it puts the old site file back (or removes the new one), so nginx is never reloaded
+#      with a broken config; on success `systemctl reload nginx` (a reload: the patch feed and site stay up)
+#   6. records the pid and hash again, both into /var/log/slums-dashboard-install.log, and checks the page asks for a
+#      password (HTTP 401) from the LAN address
+# It never touches the game server, its unit, the DB, the patch files or the TEST dashboard. The snapshots appear
+# once a 1.6.0 jar runs with -Dsolomapling.dashboard=true (docs/release/1.6.0.conf); until then the page is empty.
+set -euo pipefail
+HOST=${SLUMS_HOST:-root@192.168.0.164}
+MODE=check
+case "${1:---check}" in
+  --check) MODE=check ;;
+  --go) MODE=go ;;
+  --remove) MODE=remove ;;
+  -h|--help) sed -n '2,22p' "$0"; exit 0 ;;
+  *) echo "unknown option $1 (use --check, --go or --remove)" >&2; exit 2 ;;
+esac
+cd "$(git rev-parse --show-toplevel)"
+SITE_SRC=deploy/dashboard/slums-dashboard-live.nginx.conf
+[ -f "$SITE_SRC" ] && [ -f tools/dashboard/web/index.html ] || { echo "run from a SlumsMS checkout with $SITE_SRC" >&2; exit 1; }
+
+PORT=8096
+LAN_IP=192.168.0.164
+HTPASSWD=/etc/nginx/slums-dashboard-test.htpasswd
+SITE=/etc/nginx/sites-available/slums-dashboard-live
+LINK=/etc/nginx/sites-enabled/slums-dashboard-live
+WEB=/srv/slums-dashboard/web
+DATA=/srv/slums-dashboard/data
+LOG=/var/log/slums-dashboard-install.log
+NEW_SITE=/srv/slums-dashboard/.site.nginx.new   # staged outside /etc/nginx so the 'before' hash is clean
+NGINX_STATE='echo "pid $(cat /run/nginx.pid) config $(find /etc/nginx -type f -print0 | sort -z | xargs -0 md5sum | md5sum | cut -c1-32)"'
+
+plan() {
+  cat <<EOF
+Plan for $HOST (nothing changes without --go):
+  page:  tools/dashboard/web ($(git rev-parse --short HEAD)) -> $WEB (old copy kept as web.bak-<time>)
+  data:  $DATA, owned by the live unit's user (the server's -Dsolomapling.dashboard.dir)
+  nginx: $SITE_SRC -> $SITE, linked from $LINK
+         listen $LAN_IP:$PORT only, allow 192.168.0.0/24, deny all, basic auth from $HTPASSWD (TEST's, by path)
+  then:  nginx -t, systemctl reload nginx, pid/config hash before and after into $LOG,
+         curl http://$LAN_IP:$PORT/ must answer 401 (password asked)
+EOF
+}
+
+# Read-only facts from 164: who the live unit runs as, the auth file is there, the port is free, nginx state.
+facts() {
+  ssh "$HOST" "bash -s" <<REMOTE
+echo "live unit user: \$(systemctl show -p User --value slumsms 2>/dev/null | grep . || echo root)"
+test -s $HTPASSWD && echo "auth file: present (not read)" || echo "auth file: MISSING $HTPASSWD"
+if ss -Hltn "sport = :$PORT" | grep -q .; then echo "port $PORT: in use"; else echo "port $PORT: free"; fi
+ip -4 -o addr show | grep -q " $LAN_IP/" && echo "LAN address $LAN_IP: present" || echo "LAN address $LAN_IP: MISSING"
+test -e $SITE && echo "site file: exists (update)" || echo "site file: new"
+test -d $WEB && echo "page: installed" || echo "page: new"
+test -f $DATA/live.json && echo "snapshots: live.json from \$(date -u -r $DATA/live.json '+%F %T UTC')" || echo "snapshots: none yet"
+$NGINX_STATE
+REMOTE
+}
+
+if [ "$MODE" = check ]; then
+  plan
+  echo
+  echo "Read-only checks on 164:"
+  facts | sed 's/^/  /'
+  exit 0
+fi
+
+if [ "$MODE" = remove ]; then
+  ssh "$HOST" "bash -s" <<REMOTE
+set -euo pipefail
+before=\$($NGINX_STATE)
+rm -f $LINK $SITE
+nginx -t -q
+systemctl reload nginx
+after=\$($NGINX_STATE)
+echo "\$(date -u '+%F %T') remove: before \$before; after \$after" >> $LOG
+echo "removed the live dashboard site (kept $WEB and $DATA). before: \$before  after: \$after"
+REMOTE
+  exit 0
+fi
+
+plan
+STAMP=$(date -u +%Y%m%dT%H%M%SZ)
+COMMIT=$(git rev-parse --short HEAD)
+ssh "$HOST" "mkdir -p /srv/slums-dashboard && rm -rf $WEB.new && mkdir -p $WEB.new"
+rsync -a --delete tools/dashboard/web/ "$HOST:$WEB.new/"
+scp -q "$SITE_SRC" "$HOST:$NEW_SITE"
+ssh "$HOST" "bash -s" <<REMOTE
+set -euo pipefail
+before=\$($NGINX_STATE)
+echo "nginx before: \$before"
+fail() { rm -rf $WEB.new $NEW_SITE; echo "STOPPED: \$1 (nothing changed)" >&2; exit 1; }
+test -s $HTPASSWD || fail "auth file $HTPASSWD is missing"
+ip -4 -o addr show | grep -q " $LAN_IP/" || fail "$LAN_IP is not on this host"
+if ss -Hltn "sport = :$PORT" | grep -q . && ! grep -qs "listen $LAN_IP:$PORT;" $SITE; then
+  fail "port $PORT is already in use by something else"
+fi
+user=\$(systemctl show -p User --value slumsms 2>/dev/null | grep . || echo root)
+install -d -m 0755 -o "\$user" $DATA
+if [ -d $WEB ]; then mv $WEB /srv/slums-dashboard/web.bak-$STAMP; fi
+mv $WEB.new $WEB
+echo $COMMIT > $WEB/.deployed-commit
+chmod -R a+rX $WEB
+if [ -e $SITE ]; then cp -p $SITE $SITE.bak-$STAMP; fi
+mv $NEW_SITE $SITE
+ln -sfn $SITE $LINK
+if ! nginx -t -q; then
+  if [ -e $SITE.bak-$STAMP ]; then mv $SITE.bak-$STAMP $SITE; else rm -f $LINK $SITE; fi
+  nginx -t -q && echo "nginx -t failed; the old site config is back, nginx was NOT reloaded" >&2
+  exit 1
+fi
+systemctl reload nginx
+sleep 1
+after=\$($NGINX_STATE)
+echo "\$(date -u '+%F %T') install $COMMIT: before \$before; after \$after; data owner \$user" >> $LOG
+echo "nginx after:  \$after (same pid = reloaded, not restarted; the config hash changes by this site only)"
+code=\$(curl -s -o /dev/null -w '%{http_code}' --max-time 5 http://$LAN_IP:$PORT/ || true)
+[ "\$code" = 401 ] && echo "http://$LAN_IP:$PORT/ asks for the password (401): OK" \
+  || echo "WARNING: http://$LAN_IP:$PORT/ answered \$code, expected 401" >&2
+REMOTE
+echo "Live staff dashboard: http://$LAN_IP:$PORT/ (LAN only, TEST dashboard password)."
