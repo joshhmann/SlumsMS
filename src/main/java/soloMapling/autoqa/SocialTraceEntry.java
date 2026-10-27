@@ -99,7 +99,8 @@ public final class SocialTraceEntry {
     final List<String> remembered = new ArrayList<>();
 
     // DECIDE (1.6.0: a GOSSIP listener keeps the story, a RIVALRY thread may escalate, a TRAINING tip is followed)
-    /** What the code decided after the thread, or null. */
+    /** What the code decided for the thread (after it; a TRADE thread's "sell X for 95,000" / "no deal" before its
+     *  talk), or null. */
     String decided;
     /** Why nothing was decided (the roll said no, nothing to keep...), or null. */
     String decideWhy;

@@ -25,6 +25,29 @@ class EconomySnapshotServiceTest {
     }
 
     @Test
+    @SuppressWarnings("unchecked")
+    void botToBotTradesAreATransferInThePrivateFileOnly() throws IOException {
+        EconomySnapshotService service = new EconomySnapshotService(tempDir);
+        EconomyCounters.recordTrade(200_000);
+        EconomyCounters.recordBotTransfer(95_000);
+        service.executeSnapshot(LocalDate.of(2026, 10, 25), List::of, List::of, Map::of);
+
+        Map<String, Object> priv = (Map<String, Object>) Json.parse(Files.readString(tempDir.resolve(
+                "2026-10-25-private.json")));
+        Map<String, Object> pub = (Map<String, Object>) Json.parse(Files.readString(tempDir.resolve(
+                "2026-10-25-public.json")));
+        Map<String, Object> privFlows = (Map<String, Object>) priv.get("flows");
+        Map<String, Object> privTransfers = (Map<String, Object>) privFlows.get("transfers");
+        assertEquals(95_000L, ((Number) privTransfers.get("botToBot")).longValue());
+        assertEquals(200_000L, ((Number) privTransfers.get("trades")).longValue(), "kept apart from player trades");
+        assertEquals(0L, ((Number) privFlows.get("totalSources")).longValue(), "not money in");
+        assertEquals(0L, ((Number) privFlows.get("totalSinks")).longValue(), "not money out");
+        Map<String, Object> pubTransfers = (Map<String, Object>) ((Map<String, Object>) pub.get("flows")).get("transfers");
+        assertFalse(pubTransfers.containsKey("botToBot"), "the public file (the site) never shows it");
+        assertEquals(200_000L, ((Number) pubTransfers.get("trades")).longValue());
+    }
+
+    @Test
     void snapshotCreatesValidPrivateAndPublicFiles() throws IOException {
         EconomySnapshotService service = new EconomySnapshotService(tempDir);
 

@@ -43,6 +43,18 @@ class TradeRatingsTest {
     }
 
     @Test
+    void aTradeBetweenTwoBotsNeverCounts() throws Exception {
+        List<Map<Integer, long[]>> written = new ArrayList<>();
+        TradeRatings.resetForTest((batch, now) -> written.add(batch));
+        Character bot1 = chr(1_000_000_500), bot2 = chr(1_000_000_501);
+        TradeRatings.completed(bot1, bot2);
+        TradeRatings.fellThrough(bot1, bot2, true);
+        assertTrue(TradeRatings.pendingForTest().isEmpty(), "the trader boards are for players");
+        TradeRatings.completed(chr(1), bot1);
+        assertArrayEquals(new long[]{1, 0}, TradeRatings.pendingForTest().get(1), "a player and a bot still count");
+    }
+
+    @Test
     void aFailedWriteKeepsTheCounts() {
         TradeRatings.resetForTest((batch, now) -> {
             throw new SQLException("Table 'traderatings' doesn't exist");

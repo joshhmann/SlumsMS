@@ -59,6 +59,18 @@ directTrade:
   enabled: true
   reserveShareOfCeiling: 0.25  # a bot keeps this share of its wealth ceiling and never trades it away
 
+# 1.6.0: a TRADE thread between two bots can end in a real trade (BotBotTrade). Never a price-board sample, never
+# the NX rate or a trade rating; counted as a bot-to-bot transfer in the economy snapshot's private file only.
+botBotTrade:
+  enabled: true
+  perBotPerDay: 3          # trades per bot per UTC day, as seller or buyer (owner: "small and rare")
+  worldPerHour: 30         # trades world-wide per rolling hour
+  minPrice: 1000           # the price is where both bands meet (bands.botSellsLow = bands.botBuysHigh = 0.95 x fair)
+  maxPrice: 300000
+  maxPotionUnits: 100      # items: ETC stacks, or potions/food (half the stack, 10..100); no equips, no scrolls
+  agreeChance: 0.55        # the buyer says yes when the money works (a friend: agreeChanceFriend)
+  agreeChanceFriend: 0.8
+
 # Owner decision 4: friend gifts.
 gifts:
   enabled: true

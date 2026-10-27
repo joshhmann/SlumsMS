@@ -424,8 +424,9 @@ public final class SocialTrace {
     }
 
     /**
-     * 1.6.0: what the code decided after a thread ({@code decision}: "listener keeps the story", "escalate ..."), or
-     * why it decided nothing ({@code decision} null, {@code why} the reason).
+     * 1.6.0: what the code decided after a thread ({@code decision}: "listener keeps the story", "escalate ...", or
+     * before its talk: a TRADE thread's deal or "no deal"), or why it decided nothing ({@code decision} null,
+     * {@code why} the reason).
      */
     public static void threadDecided(int threadId, String decision, String why) {
         SocialTraceEntry e = on ? byThread.get(threadId) : null;
@@ -437,7 +438,8 @@ public final class SocialTrace {
         }
     }
 
-    /** 1.6.0: a thread's decision was carried out (or failed): {@code kind} "kept", "escalate", "escalate-drop". */
+    /** 1.6.0: a thread's decision was carried out (or failed): {@code kind} "kept", "escalate", "escalate-drop",
+     *  "trade" / "trade_failed". */
     public static void threadActed(int threadId, int botId, String kind, String text) {
         SocialTraceEntry e = on ? byThread.get(threadId) : null;
         if (e != null) {

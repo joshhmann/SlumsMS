@@ -301,6 +301,9 @@ public final class EconomySnapshotService {
 
         // Build Private Report (includes character IDs for top holders and audit view)
         Map<String, Object> privateDoc = new LinkedHashMap<>(publicDoc);
+        // 1.6.0: bot-to-bot trades are a transfer between two bots, shown in the audit view only (the public file the
+        // site reads keeps its shape, and no player-facing number moves with them)
+        privateDoc.put("flows", formatFlows(counterSnap, true));
         privateDoc.put("topHolders", computeTopHolders(humans, bots));
 
         // Write files
@@ -458,6 +461,11 @@ public final class EconomySnapshotService {
     }
 
     private Map<String, Object> formatFlows(EconomyCounters.Snapshot snap) {
+        return formatFlows(snap, false);
+    }
+
+    /** {@code audit}: the private file's flows, with the bot-to-bot trade transfers. */
+    private Map<String, Object> formatFlows(EconomyCounters.Snapshot snap, boolean audit) {
         Map<String, Object> out = new LinkedHashMap<>();
 
         // Sources
@@ -486,6 +494,9 @@ public final class EconomySnapshotService {
         Map<String, Object> transfers = new LinkedHashMap<>();
         transfers.put("trades", snap.tradeMesos());
         transfers.put("fmSales", snap.fmSaleMesos());
+        if (audit) {
+            transfers.put("botToBot", snap.botTransferMesos());
+        }
         out.put("transfers", transfers);
 
         // Currencies

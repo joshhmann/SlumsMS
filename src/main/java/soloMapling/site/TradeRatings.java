@@ -58,6 +58,9 @@ public final class TradeRatings {
 
     /** A trade between these two completed. */
     public static void completed(Character a, Character b) {
+        if (bothBots(a, b)) {
+            return;
+        }
         count(a, 0);
         count(b, 0);
     }
@@ -67,11 +70,24 @@ public final class TradeRatings {
      * mesos; when false nothing is counted (an empty window opened and closed).
      */
     public static void fellThrough(Character a, Character b, boolean offered) {
-        if (!offered) {
+        if (!offered || bothBots(a, b)) {
             return;
         }
         count(a, 1);
         count(b, 1);
+    }
+
+    /**
+     * 1.6.0 (owner 2026-10-26): the trader boards are for players; a trade between two bots (one a staged window, or
+     * any future path) never counts for either.
+     */
+    static boolean bothBots(Character a, Character b) {
+        try {
+            return a != null && b != null && soloMapling.ArtificialPlayer.BotHelpers.isArtificial(a.getId())
+                    && soloMapling.ArtificialPlayer.BotHelpers.isArtificial(b.getId());
+        } catch (RuntimeException e) {
+            return false;
+        }
     }
 
     private static void count(Character chr, int which) {
