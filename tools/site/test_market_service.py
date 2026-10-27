@@ -205,6 +205,24 @@ class StoreTest(Base):
         self.store.sync()
         self.assertEqual(self.store.me(self.me)["badge"], 1)
 
+    def test_cards_are_per_account_and_rewards_follow_the_secrets(self):
+        out = self.store.found(self.me, {"ids": ["konami", "slums", "made-up", 5]})
+        self.assertEqual(set(out["found"]), {"konami", "slums"})
+        self.assertEqual(out["total"], 15)
+        self.clock.t += 60
+        out = self.store.found(self.me, {"ids": ["clicks", "konami"]})
+        self.assertIn("theme", out["found"])  # the first three unlock the theme card
+        self.assertEqual(out["found"]["theme"], out["found"]["clicks"])
+        self.assertEqual(out["found"]["konami"], ms.iso(self.clock.t - 60))  # found again keeps the first date
+        self.assertNotIn("all", out["found"])
+        self.assertEqual(self.store.cards(self.other)["found"], {})
+        out = self.store.found(self.me, {"ids": list(ms.SECRET_CARDS)})
+        self.assertEqual(len(out["found"]), 15)
+        for bad in ({"ids": "konami"}, {}, {"ids": ["x"] * 99}):
+            with self.assertRaises(ms.Refused):
+                self.store.found(self.me, bad)
+        self.assertFalse(os.path.exists(os.path.join(self.inbox, "posts.json")))  # cards never reach the game
+
 
 class HttpTest(Base):
     def setUp(self):
@@ -257,6 +275,13 @@ class HttpTest(Base):
         self.assertEqual(st, 400)
         self.assertIn("whole number", body["error"])
         self.assertEqual(self.call("GET", "/api/market/board")[1]["posts"], [])
+
+    def test_cards_need_a_sign_in_and_the_header(self):
+        self.assertEqual(self.call("GET", "/api/market/cards", token=False)[0], 401)
+        self.assertEqual(self.call("POST", "/api/market/cards", {"ids": ["wake"]}, headers={})[0], 403)
+        st, body = self.call("POST", "/api/market/cards", {"ids": ["wake"]})
+        self.assertEqual((st, list(body["found"])), (200, ["wake"]))
+        self.assertEqual(list(self.call("GET", "/api/market/cards")[1]["found"]), ["wake"])
 
     def test_session_without_a_character_list_posts_as_its_own_character(self):
         self.token = self.sessions.issue({"account_id": 9, "character": "Solo"})

@@ -36,6 +36,8 @@ Endpoints (127.0.0.1 only; nginx passes /api/market/ through):
     POST /api/market/alerts/seen           {}            clears the badge
     POST /api/market/posts                 {kind, itemId, qty, price, character}
     POST /api/market/posts/close           {id}          the poster's take-down, or a GM's
+    GET  /api/market/cards                 the Slums-chan cards this account has found
+    POST /api/market/cards                 {ids: [...]}  secrets found in the browser (unknown ids are ignored)
     GET  /api/market/health
 """
 import argparse
@@ -61,6 +63,12 @@ MAX_TOTAL = 2_147_483_647  # qty x price must fit one trade window (Site board c
 WRITES_PER_MIN = 30
 MAX_BODY = 2048
 KINDS = ("WTB", "WTS")
+# The Slums-chan cards (theme.js SECRETS): one per hidden secret, plus two the service hands out itself: "theme" for the
+# three that unlock the theme, "all" for every secret. Nothing here is worth anything; a player who posts every id by
+# hand just sees every card, which the secret/ pictures already allow anyone signed in.
+SECRET_CARDS = ("konami", "slums", "clicks", "bustin", "sidekick", "wake",
+                "henesys", "owl", "kerning", "colours", "afk", "footer", "slime")
+REWARD_CARDS = {"theme": ("konami", "slums", "clicks"), "all": SECRET_CARDS}
 DIRS = ("below", "above")
 
 SCHEMA = """
@@ -71,6 +79,7 @@ CREATE TABLE IF NOT EXISTS posts (id TEXT PRIMARY KEY, account INTEGER, characte
     qty INTEGER, price INTEGER, created INTEGER, expires INTEGER, status TEXT, reason TEXT);
 CREATE TABLE IF NOT EXISTS seen_files (name TEXT PRIMARY KEY, mtime REAL);
 CREATE TABLE IF NOT EXISTS notes_seen (account INTEGER PRIMARY KEY, offers_at REAL);
+CREATE TABLE IF NOT EXISTS cards (account INTEGER, card TEXT, found INTEGER, PRIMARY KEY (account, card));
 """
 
 
@@ -427,6 +436,30 @@ class Store:
         else:
             raise Refused("That post isn't yours.", 403)
 
+    def cards(self, s):
+        """{card: when it was found}; a reward card counts from when its last secret was found."""
+        got = dict(self.q("SELECT card, found FROM cards WHERE account=?", s["a"]))
+        for card, need in REWARD_CARDS.items():
+            if all(n in got for n in need):
+                got[card] = max(got[n] for n in need)
+        return {"found": {c: iso(t) for c, t in got.items()}, "total": len(SECRET_CARDS) + len(REWARD_CARDS)}
+
+    def add_cards(self, s, body):
+        ids = body.get("ids")
+        if not isinstance(ids, list) or len(ids) > 2 * len(SECRET_CARDS):
+            raise Refused("Send the cards as a list.")
+        t = int(self.now())
+        for c in ids:
+            if c in SECRET_CARDS:
+                self.db.execute("INSERT OR IGNORE INTO cards VALUES (?, ?, ?)", (s["a"], c, t))
+        return self.cards(s)
+
+    def found(self, s, body):
+        """Cards are the account's own and never reach the game, so no inbox rewrite (unlike change())."""
+        with self.lock:
+            self.rate(s["a"])
+            return self.add_cards(s, body)
+
     def change(self, s, fn, *args):
         """Every write: sync, rate limit, apply, then rewrite the inbox, all under one lock."""
         with self.lock:
@@ -479,6 +512,8 @@ def make_handler(sessions, store):
                     return self.send(200, dict(store.me(s), ok=True))
                 if path == "/api/market/board":
                     return self.send(200, dict(store.board(), ok=True))
+                if path == "/api/market/cards":
+                    return self.send(200, dict(store.cards(s), ok=True))
             return self.send(404, {"ok": False})
 
         def body(self):
@@ -506,7 +541,8 @@ def make_handler(sessions, store):
                       "/api/market/alerts/delete": lambda s, b: store.change(s, store.alert, b, "delete"),
                       "/api/market/alerts/seen": lambda s, b: store.change(s, lambda s_: store.seen(s_)),
                       "/api/market/posts": lambda s, b: {"id": store.change(s, store.add_post, b)},
-                      "/api/market/posts/close": lambda s, b: store.change(s, store.close_post, b)}
+                      "/api/market/posts/close": lambda s, b: store.change(s, store.close_post, b),
+                      "/api/market/cards": lambda s, b: store.found(s, b)}
             if path not in routes:
                 return self.send(404, {"ok": False})
             s = self.session()

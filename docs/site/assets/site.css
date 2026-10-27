@@ -616,6 +616,24 @@ table.t { width: 100%; border-collapse: collapse; }
 @keyframes secret-up { from { transform: translateY(110%); opacity: 0; } to { transform: none; opacity: 1; } }
 @media (prefers-reduced-motion: reduce) { .secret { animation: none; } }
 
+/* My cards (market/cards.html, theme.js): found cards face up, the rest face down with a hint. */
+.cards { list-style: none; margin: 14px 0 0; padding: 0; display: grid; gap: 14px; grid-template-columns: repeat(auto-fill, minmax(170px, 1fr)); }
+.card { position: relative; display: flex; flex-direction: column; gap: 4px; min-width: 0; padding: 10px 10px 12px;
+  background: var(--surface); border: 2px solid var(--edge); border-radius: 12px; box-shadow: 3px 3px 0 var(--drop); }
+.card a { display: flex; align-items: flex-end; justify-content: center; height: 220px; border-radius: 8px;
+  background: radial-gradient(circle at 50% 70%, var(--surface-2), transparent 70%); }
+.card img { max-width: 100%; max-height: 220px; width: auto; height: auto; object-fit: contain; }
+.card b { font-size: .95rem; }
+.card-n { position: absolute; top: 8px; left: 10px; font-size: .75rem; font-weight: 700; color: var(--muted); }
+.card-d { font-size: .8rem; color: var(--muted); }
+.card.back { border-style: dashed; box-shadow: none; }
+.card-q { display: flex; align-items: center; justify-content: center; height: 220px; border-radius: 8px;
+  background: repeating-linear-gradient(45deg, var(--surface-2) 0 10px, transparent 10px 20px);
+  font: 700 3rem/1 var(--f-display); color: var(--muted); }
+.card.back b { color: var(--muted); }
+@media (max-width: 620px) { .cards { grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 10px; }
+  .card a, .card-q { height: 170px; } .card img { max-height: 170px; } }
+
 /* Slums Street "Hot right now" (theme.js, world/hot.json) */
 .hot { margin-top: 18px; }
 .hot[hidden] { display: none; }

@@ -1,5 +1,6 @@
 """Tests for the public site build: python3 -m unittest discover -s tools/site -p 'test_*.py'"""
 import json
+import re
 import os
 import shutil
 import sys
@@ -628,15 +629,29 @@ class WorldTest(unittest.TestCase):
         self.assertIn("Fell through", page)
         self.assertRegex(page, r">\d{1,3}%<")
 
+    def test_cards_match_the_service_and_every_picture_exists(self):
+        import market_service
+        js = open(os.path.join(build.SRC, "assets", "theme.js"), encoding="utf-8").read()
+        block = js[js.index("var SECRETS = {"):js.index("var IDS = ")]
+        ids = re.findall(r"^    (\w+): \{ src", block, re.M)
+        self.assertEqual(tuple(ids), market_service.SECRET_CARDS)  # the same cards, in the same order
+        for src in re.findall(r'src: "([\w-]+\.webp)"', js):
+            for sub in ("", "cards"):
+                self.assertTrue(os.path.isfile(os.path.join(build.SRC, "secret", sub, src)), (sub, src))
+        rewards = js[js.index("var REWARDS = {"):]
+        self.assertEqual(re.findall(r"^    (\w+): \{ src", rewards[:rewards.index("};")], re.M),
+                         list(market_service.REWARD_CARDS))
+
     def test_market_sidebar_groups_and_my_trades(self):
         from sections import market
         mk = market.Market(market.load(self.market), {}, self.out)
         side = mk.sidebar("../", "board")
         side = side[:side.index('class="in"')]
-        self.assertRegex(side, r"Market home.*<h3>My stuff</h3>.*My market.*My trades.*<h3>Market</h3>.*Recent sales"
+        self.assertRegex(side, r"Market home.*<h3>My stuff</h3>.*My market.*My trades.*My cards.*<h3>Market</h3>.*Recent sales"
                                r".*FM now.*Buy/Sell board.*Price check.*NX rate.*Economy")
         self.assertIn('board.html" aria-current=page', side)
         self.assertIn('href="../market/mine.html#trades"', side)
+        self.assertIn('href="../market/cards.html"', side)
         with open(os.path.join(self.out, "world", "traders.json"), encoding="utf-8") as f:
             traders = json.load(f)
         self.assertTrue(traders)
