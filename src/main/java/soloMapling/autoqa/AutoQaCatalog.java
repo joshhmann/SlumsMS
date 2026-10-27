@@ -577,7 +577,8 @@ public final class AutoQaCatalog {
         c.add(Check.half("t-cb-2", "Facing and spacing", "the swings and steps on screen").minutes(5)
                 .step(run("cb-2"), until("POSITION ", 40, 200))
                 .expect(has("COMBAT (FACE|TOUCH|KNOCKBACK|KITE|PACE) "), atLeast(4, "POSITION "),
-                        rule("at most 10% of positions inside a mob or facing away", AutoQaCatalog::positionsMostlyGood))
+                        rule("no bot standing in a mob (inside on two samples in a row), at most 20% of snapshots"
+                                + " inside one", AutoQaCatalog::positionsMostlyGood))
                 .build());
         c.add(Check.auto("t-cb-3", "Potions, restocking and deaths").minutes(8)
                 // rc6 triage: give the grinders time to start grinding (they note their pots then), and wait for a
@@ -1200,14 +1201,35 @@ public final class AutoQaCatalog {
         // Only "inside a mob's body" counts here. Which way a bot faces when sampled says nothing on its own: a bot
         // walking to its next mob faces away from the one it just passed, and a 52-sample check called 22 of them
         // faults on TEST 2026-10-24. Facing before a swing is what matters and has its own evidence (COMBAT FACE).
+        // TEST 2026-10-26 22:58 (5 of 40 inside, failed at "more than 10%"): a snapshot every 15 s also catches a
+        // mob that has just walked into a melee bot or a bot mid-swing; the bot steps out (COMBAT TOUCH) before the
+        // next sample. 22 cb-2 logs: passing runs had 0-6 such snapshots, the broken builds 11-21 of 52 with 2-7
+        // bots still inside 15 s later. Standing in a mob is the fault, so a bot inside on two samples in a row
+        // counts (more than 5% fails); a crowd of passing overlaps (more than 20% of snapshots) still fails too.
         List<AutoQaLine> pos = r.matching("POSITION ", null, null);
-        int bad = 0;
+        java.util.regex.Pattern who = java.util.regex.Pattern.compile("POSITION (\\S+) ");
+        Map<String, Boolean> wasInside = new HashMap<>();
+        int inside = 0;
+        int stuck = 0;
         for (AutoQaLine l : pos) {
-            if (l.message().contains("INSIDE its body")) {
-                bad++;
+            java.util.regex.Matcher m = who.matcher(l.text());
+            String bot = m.find() ? m.group(1) : "";
+            boolean in = l.message().contains("INSIDE its body");
+            if (in) {
+                inside++;
+                if (Boolean.TRUE.equals(wasInside.get(bot))) {
+                    stuck++;
+                }
             }
+            wasInside.put(bot, in);
         }
-        return pos.isEmpty() ? "no POSITION lines" : bad * 10 > pos.size() ? bad + " of " + pos.size() + " positions bad" : null;
+        if (pos.isEmpty()) {
+            return "no POSITION lines";
+        }
+        if (stuck * 20 > pos.size()) {
+            return stuck + " of " + pos.size() + " positions still inside the mob 15 s later";
+        }
+        return inside * 5 > pos.size() ? inside + " of " + pos.size() + " positions inside a mob" : null;
     }
 
     static String spreadImproves(CheckRun r) {

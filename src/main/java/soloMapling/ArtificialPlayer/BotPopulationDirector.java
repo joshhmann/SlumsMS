@@ -412,7 +412,7 @@ public final class BotPopulationDirector {
             boolean active = m.status() == BotRoster.Status.ACTIVE && (online
                     || !soloMapling.ArtificialPlayer.BotDramaSystem.BotDrama.awayAfterRageQuit(m.charId(), now));
             roster.add(new Candidate(m.botId(), online, active, m.lastLoginAt(),
-                    m.lastLogoutAt(), windowStart, windowLen, session, online && mayLogOut(live)
+                    m.lastLogoutAt(), windowStart, windowLen, session, online && mayEndSession(live)
                     && !soloMapling.ArtificialPlayer.BotConvo.LfgParty.holds(m.charId()), ended)); // 1.6.0: LFG trip
         }
         return roster;
@@ -424,6 +424,17 @@ public final class BotPopulationDirector {
      */
     public static boolean mayLogOut(BotSM bot) {
         return mayLogOut(bot, -1);
+    }
+
+    /**
+     * Whether the session may end now: {@link #mayLogOut(BotSM)} and not on an errand it set out on (TEST bot watch
+     * 2026-10-26, owner rule: a bot never logs out in the middle of a commitment; a restock trip is one until the
+     * shopping is done, see {@link soloMapling.ArtificialPlayer.BotTypes.TrainingBot#onErrand()}). Only the logout path
+     * asks this: the other callers of mayLogOut mean "free for something else", and an errand already keeps a bot off
+     * those by its phase.
+     */
+    public static boolean mayEndSession(BotSM bot) {
+        return mayLogOut(bot) && !(bot instanceof soloMapling.ArtificialPlayer.BotTypes.TrainingBot tb && tb.onErrand());
     }
 
     /**

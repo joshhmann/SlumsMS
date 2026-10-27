@@ -783,6 +783,56 @@ public class TrainingBot extends BotSM implements soloMapling.ArtificialPlayer.B
         }
     }
 
+    /**
+     * TEST bot watch 2026-10-26 (roguez, lv 88 ranger, Temple of Time): out of MP potions, the life brain picked
+     * RESTOCK every 16 min (RESTOCK 3.0 against GRIND 0.7) for hours, walked to its town, 270000000, which has no
+     * store (BotShopping found no site: "Resupply ... -> nothing"), stood there and came back with no potions. A town
+     * without a store cannot answer a restock, so the brain neither feels that supply pressure nor offers the trip
+     * there; a real shortage still sends the bot back to rest to full (BotSupplies.shortage), as before. Sleepywood's
+     * restock is the sauna trip. ShopCatalog caches a town's sites, so this is a map lookup after the first call.
+     */
+    boolean restockTownSells() {
+        Character chr = getChr();
+        return chr == null || restockPossible(homeMapId, () -> !ShopCatalog.town(chr, homeMapId).isEmpty());
+    }
+
+    static boolean restockPossible(int townMapId, java.util.function.BooleanSupplier townHasStore) {
+        if (townMapId <= 0 || townMapId == MapId.SLEEPYWOOD) {
+            return true; // no home town known yet (the old behaviour), or the sauna trip
+        }
+        try {
+            return townHasStore.getAsBoolean();
+        } catch (RuntimeException | LinkageError e) {
+            return true; // no map data: keep the old behaviour
+        }
+    }
+
+    @Override
+    public void lifeNeeds(java.util.Map<LifeDecision.Need, Double> needs, long now) {
+        dropUnanswerableSupplies(needs, restockTownSells());
+    }
+
+    /** With no store in the bot's town the supply pressure cannot be acted on: it must not push the bot off its grind. */
+    static void dropUnanswerableSupplies(java.util.Map<LifeDecision.Need, Double> needs, boolean restockPossible) {
+        if (!restockPossible) {
+            needs.remove(LifeDecision.Need.SUPPLIES);
+        }
+    }
+
+    /**
+     * 1.6.0 (owner rule: a bot never logs out in the middle of something it set out to do): on its way to town, at a
+     * store, or walking up to the town's shopkeeper. BotLogout waits for the errand (up to its cap); the walk back out
+     * and the rest of the town stay are free to end the session, as a player logs off in town after shopping.
+     */
+    public boolean onErrand() {
+        return onErrand(phase, resupplySite != null);
+    }
+
+    static boolean onErrand(Phase p, boolean shopkeeperWalk) {
+        return p == Phase.GO_TOWN || p == Phase.SHOP_TRAVEL || p == Phase.SHOP_DWELL
+                || p == Phase.IN_TOWN && shopkeeperWalk;
+    }
+
     public boolean freeForAutomaticLifeActivity(long at) {
         int requester = dailyLife == null ? -1 : dailyLife.requester(at);
         return getRunning() && getChr() != null && getChr().getMap() != null
@@ -804,13 +854,14 @@ public class TrainingBot extends BotSM implements soloMapling.ArtificialPlayer.B
                 && activity != LifeDecision.Activity.LOG_OUT) return false;
         return switch (activity) {
             case GRIND -> true;
-            case RESTOCK -> phase == Phase.GRIND && dailyLife.restockReady(at);
+            case RESTOCK -> phase == Phase.GRIND && dailyLife.restockReady(at) && restockTownSells();
             case MOVE_MAP, BREAK -> phase == Phase.GRIND;
             case FISH -> soloMapling.fishing.GameFishing.choosable(getChr(), this::lifeDestinationAvailable);
             case HANG_OUT, SHOW_OFF -> (activity != LifeDecision.Activity.SHOW_OFF || getChr().getLevel() >= 70)
                     && lifeDestinationAvailable(dailyLife.townDestination());
             case FREE_MARKET, SELL -> (activity == LifeDecision.Activity.FREE_MARKET
-                    || soloMapling.Economy.BotShops.enabled() && soloMapling.Economy.BotShops.merchantMinded(getChr().getId()))
+                    || soloMapling.Economy.BotShops.enabled() && soloMapling.Economy.BotShops.merchantMinded(getChr().getId())
+                    && at >= sellNothingUntilMs)
                     && lifeDestinationAvailable(910000000);
             case HELP_FRIEND -> {
                 // 1.6.0 S8: the friend who asked, or an unasked friend/guild mate grinding a map that fits.
@@ -1049,14 +1100,22 @@ public class TrainingBot extends BotSM implements soloMapling.ArtificialPlayer.B
                 TownLoiter.settle(getChr(), point.x, point.y, 200, false);
             } else TownLoiter.settle(getChr());
             if (lifeVisit == LifeDecision.Activity.SELL || lifeVisit == LifeDecision.Activity.FREE_MARKET) {
+                List<String> shopNote = List.of();
                 if (soloMapling.Economy.BotShops.enabled() && soloMapling.Economy.BotShops.merchantMinded(getChr().getId())) {
-                    soloMapling.Economy.BotShops.open(getChr(), getChr().getMap().getChannelId(), 0, null, false);
+                    shopNote = soloMapling.Economy.BotShops.open(getChr(), getChr().getMap().getChannelId(), 0, null, false);
                 }
                 // TEST 2026-10-26 (bot watch): SELL is picked for a full bag, but only merchant-minded bots (1 in 10)
                 // open a shop; the rest stood in the FM and their bag stayed full. Without a shop, sell the junk.
                 if (lifeVisit == LifeDecision.Activity.SELL
                         && !soloMapling.Economy.BotShops.hasShop(getChr().getId())) {
-                    soloMapling.ArtificialPlayer.BotSupplySystem.BotBagRoom.sellJunk(getChr());
+                    var sale = soloMapling.ArtificialPlayer.BotSupplySystem.BotBagRoom.sellJunk(getChr());
+                    long stay = sellStayMs(false, sale.items(), phaseDeadlineMs - now());
+                    if (stay < phaseDeadlineMs - now()) {
+                        phaseDeadlineMs = now() + stay;
+                        sellNothingUntilMs = now() + SELL_NOTHING_COOLDOWN_MS; // no straight trip back for nothing
+                        lifeNote("SELL NOTHING " + (shopNote.isEmpty() ? "no shop" : "shop: " + shopNote.get(0))
+                                + "; leaves the market soon");
+                    }
                 }
             }
             lifeNote("ARRIVED activity=" + lifeVisit);
@@ -1092,6 +1151,22 @@ public class TrainingBot extends BotSM implements soloMapling.ArtificialPlayer.B
             soloMapling.ArtificialPlayer.SocialInitiative.lobbyTick(this, now()); // 1.6.0 S6: "lf kpq? u in"
         }
         if (now() >= phaseDeadlineMs && freeForAutomaticLifeActivity(now())) enterPhase(Phase.DECIDE);
+    }
+
+    /** A SELL stop that found nothing to sell: about as long as a player takes to look round the market and go. */
+    static final long SELL_NOTHING_STAY_MS = 45_000;
+    /** After such a stop SELL is not offered again for a while (the bag only fills while it grinds). */
+    static final long SELL_NOTHING_COOLDOWN_MS = 30 * 60_000L;
+    private long sellNothingUntilMs;
+
+    /**
+     * TEST bot watch 2026-10-26 (emorocker, merchant-minded, lv 30): its town stop at 23:07 sold its junk at the store
+     * down to half a bag (BotBagRoom), the half-full bag still scored SELL at 23:12, and in the Free Market no shop
+     * opened and there was nothing left for the junk sale. It stood there 11 minutes with the same mesos and items.
+     * With no shop and no sale the stop is cut short; a shop or a sale keeps the full stay.
+     */
+    static long sellStayMs(boolean shopOpen, int soldItems, long plannedMs) {
+        return shopOpen || soldItems > 0 ? plannedMs : Math.min(plannedMs, SELL_NOTHING_STAY_MS);
     }
 
     private void lifeNote(String text) {

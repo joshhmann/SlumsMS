@@ -171,7 +171,11 @@ final class GameQaWorld implements QaWorld {
         MapleMap map = gm.getMap();
         int slotBase = BotStore.nextDynamicSlots(count);
         for (int i = 0; i < count; i++) {
-            Point at = soloMapling.ArtificialPlayer.StageSpots.near(map, around); // rc6 (QA t-pb-1): not a row
+            // rc6 (QA t-pb-1): not a row. TEST t-cr-1 2026-10-26 23:18 (GM at 104040000 (-77, -505)): near() may use a
+            // ledge up to 90 px above or below, the crush target landed on another ledge, and neither the admirer
+            // ("CRUSH NEAR" twice) nor the rival walked to her in 10 s. Staged bots stand at the GM's height when any
+            // ground there is in reach (nearLevel, as a staged couple does), else where near() finds ground.
+            Point at = soloMapling.ArtificialPlayer.StageSpots.nearLevel(map, around);
             int id = BotGeneration.createBot(slotBase + i, at, map);
             if (id > 0) {
                 ids.add(id);
@@ -186,7 +190,7 @@ final class GameQaWorld implements QaWorld {
         MapleMap map = gm.getMap();
         int slotBase = BotStore.nextDynamicSlots(count);
         for (int i = 0; i < count; i++) {
-            Point at = soloMapling.ArtificialPlayer.StageSpots.near(map, around);
+            Point at = soloMapling.ArtificialPlayer.StageSpots.nearLevel(map, around); // as above: the GM's height
             int id = BotGeneration.createBot(slotBase + i, at, map, 0, level, level);
             if (id > 0) {
                 ids.add(id);
