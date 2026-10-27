@@ -555,6 +555,31 @@ type) appends one row per party member to `bosslog_leaderboard_daily` (weekly fo
 those tables (the `bosslog_daily/weekly` entry logs are pruned; these are not). So the counts cover every clear since
 the tables existed. Bots never run expeditions, so only players appear here.
 
+### Ranking pictures: `avatars/index.json` and `avatars/<key>.png` (every 15 min, owner 2026-10-27)
+Each ranked character drawn in its current look (skin, hair, face, equipped items with cash covers over them, weapon),
+standing, 96x96 transparent PNG, feet about 6 px above the bottom, body centred (a long weapon is cut at the edge).
+Written by `soloMapling.site.avatar.AvatarExport`, a separate JVM on a timer (`deploy/site/slumsms-site-avatars*.timer`),
+never by the game server: it reads `leaderboards.json`, looks the listed names up in the database (SELECTs only) and
+draws them from the client's `Data/*.img` files on the launcher base layer. Same folder as `leaderboards.json`.
+
+| Field | Type | Meaning |
+|---|---|---|
+| `schema`, `generated_at` | | as above |
+| `size` | int | 96 (pixels, square) |
+| `avatars` | object | IGN → file name in `avatars/`, e.g. `"BowStorm": "3f9c0a1b2c3d4e5f.png"` |
+
+- **The site joins by name**: for any row with a `name` (level, levelByClass, fame, traders, bosses) or a guild's
+  `leader`, show `avatars/<avatars[name]>`; a name not in the map (no look found, drawn after the next run, or a draw
+  failed) gets the site's placeholder. `leaderboards.json` itself is unchanged.
+- File names are a hash of the look, so a picture never changes under its name (cache it forever); a character who
+  changes clothes gets a new file name. Characters dressed alike share one file. Pictures nobody uses are deleted after
+  7 days. The index carries no ids and no look data; only names the leaderboards already list appear.
+
+```json
+// avatars/index.json
+{"schema":1,"generated_at":"2026-10-27T08:50:00Z","size":96,"avatars":{"BowStorm":"3f9c0a1b2c3d4e5f.png","Kiwi":"0aa3b8c41d5e6f70.png"}}
+```
+
 ### Trade ratings
 Counted in the trade code (`server.Trade`), bots and players alike, by `soloMapling.site.TradeRatings`:
 - **completed**: the trade went through (both sides confirmed and the exchange ran); one for each side.
