@@ -287,13 +287,23 @@ public final class BotWatchJudge {
 
     /** "!" + why when the logout dropped a commitment, else a plain note. */
     static String logoutReason(Sample last) {
-        if (COMMITMENT.contains(last.activity())) {
+        if (COMMITMENT.contains(last.activity()) && !restockDone(last)) {
             return "!logged out in the middle of " + last.activity() + " on map " + last.map();
         }
         if (last.party()) {
             return "!logged out while in a party (" + last.activity() + " on map " + last.map() + ")";
         }
         return "logged out after " + last.activity() + " (session over)";
+    }
+
+    /**
+     * TEST t-bw-1 2026-10-26 (roguez): a restock's life activity stays RESTOCK until the bot is back on its grind, so
+     * the town stay after the shopping read as "logged out in the middle of RESTOCK". In IN_TOWN (the store visit is
+     * over, or the walk to the shopkeeper, which the director now waits for: TrainingBot.onErrand) or on the way back
+     * out from a store the errand is done; a logout there ends a session in town like a player's.
+     */
+    static boolean restockDone(Sample last) {
+        return "RESTOCK".equals(last.activity()) && ("IN_TOWN".equals(last.phase()) || "SHOP_RETURN".equals(last.phase()));
     }
 
     static Segment judgeSegment(List<Sample> seg, Sample after, Limits lim, boolean firstOfTrack) {

@@ -84,11 +84,11 @@ public final class BotLogout {
     }
 
     /**
-     * Free to go now: no commitment ({@link BotPopulationDirector#mayLogOut(BotSM)}) and, unless the bot announced
-     * the leave itself, no player talking to it ({@link BotConversation#keptByChat(Character)}).
+     * Free to go now: no commitment or errand ({@link BotPopulationDirector#mayEndSession(BotSM)}) and, unless the bot
+     * announced the leave itself, no player talking to it ({@link BotConversation#keptByChat(Character)}).
      */
     static boolean mayLeaveNow(BotSM bot, boolean own) {
-        return BotPopulationDirector.mayLogOut(bot)
+        return BotPopulationDirector.mayEndSession(bot)
                 && (own || !BotConversation.keptByChat(bot.getChr()));
     }
 

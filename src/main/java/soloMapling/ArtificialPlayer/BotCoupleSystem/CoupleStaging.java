@@ -32,12 +32,15 @@ public final class CoupleStaging {
      * character ids, or null when no pair could be made here.
      */
     public static int[] stage(Character gm, BotCouples.Stage stage, Boolean sameGender) {
-        Integer first = null;
-        Integer second = null;
-        List<Integer> extra = new ArrayList<>();
-        for (int i = 0; i < 10 && second == null; i++) {
-            // rc6 (QA t-pb-1): spread near the GM on the ground (was a row 40 px apart); the second near the first
-            Character firstBot = first == null ? null : BotHelpers.getCharFromChannelStorage(first);
+        // TEST t-we-1 2026-10-26 22:28 ("same"): ten bots were made and none matched the FIRST one's gender, so the run
+        // was refused, though the ten held a same-gender pair many times over. Any two of the bots made so far pair up
+        // now (for "same" three bots always hold a pair), and "mixed" gets more tries (65% of new bots are male).
+        List<Integer> made = new ArrayList<>();
+        List<Integer> genders = new ArrayList<>();
+        int[] pair = null;
+        for (int i = 0; i < MAX_TRIES && pair == null; i++) {
+            // rc6 (QA t-pb-1): spread near the GM on the ground (was a row 40 px apart); the rest near the first
+            Character firstBot = made.isEmpty() ? null : BotHelpers.getCharFromChannelStorage(made.get(0));
             Point at = firstBot == null ? soloMapling.ArtificialPlayer.StageSpots.nearGm(gm)
                     : soloMapling.ArtificialPlayer.StageSpots.nearLevel(gm.getMap(), firstBot.getPosition()); // same height
             int id = BotGeneration.createBot(BotStore.nextDynamicSlots(1), at, gm.getMap());
@@ -45,26 +48,26 @@ public final class CoupleStaging {
             if (bot == null) {
                 continue;
             }
-            if (first == null) {
-                first = id;
-            } else {
-                Character a = BotHelpers.getCharFromChannelStorage(first);
-                boolean same = a != null && a.getGender() == bot.getGender();
-                if (sameGender != null && same != sameGender) {
-                    extra.add(id);
-                    continue;
-                }
-                second = id;
-            }
-            BotTypeManager.convertBotType(bot, BotTypeManager.BotType.SOCIAL_BOT);
-            soloMapling.ArtificialPlayer.StageSpots.pin(id); // rc6 (QA cv-1): the pair stays by the GM
+            made.add(id);
+            genders.add(bot.getGender());
+            pair = pickPair(genders, sameGender);
         }
-        extra.forEach(CoupleStaging::remove);
-        if (first == null || second == null) {
-            if (first != null) {
-                remove(first);
+        Integer first = pair == null ? null : made.get(pair[0]);
+        Integer second = pair == null ? null : made.get(pair[1]);
+        for (int id : made) {
+            if (!Integer.valueOf(id).equals(first) && !Integer.valueOf(id).equals(second)) {
+                remove(id);
             }
+        }
+        if (first == null) {
             return null;
+        }
+        for (int id : new int[]{first, second}) {
+            Character bot = BotHelpers.getCharFromChannelStorage(id);
+            if (bot != null) {
+                BotTypeManager.convertBotType(bot, BotTypeManager.BotType.SOCIAL_BOT);
+            }
+            soloMapling.ArtificialPlayer.StageSpots.pin(id); // rc6 (QA cv-1): the pair stays by the GM
         }
         long now = System.currentTimeMillis();
         BotCouples.Couple c = BotCouples.form(first, second, stage == BotCouples.Stage.FRIENDS
@@ -78,6 +81,24 @@ public final class CoupleStaging {
             BotCouples.marry(c, now);
         }
         return new int[]{first, second};
+    }
+
+    /** Bots made at most for one staged pair. */
+    static final int MAX_TRIES = 20;
+
+    /**
+     * Indexes {i, j} (i &lt; j) of the first pair among {@code genders} that fits: the same gender ({@code same} true),
+     * one of each (false) or any two (null); null when none does yet.
+     */
+    static int[] pickPair(List<Integer> genders, Boolean same) {
+        for (int j = 1; j < genders.size(); j++) {
+            for (int i = 0; i < j; i++) {
+                if (same == null || genders.get(i).equals(genders.get(j)) == same) {
+                    return new int[]{i, j};
+                }
+            }
+        }
+        return null;
     }
 
     /** Breaks the staged couple up and takes both bots away. */

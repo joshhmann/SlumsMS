@@ -249,7 +249,35 @@ class AutoQaCatalogPatternTest {
         for (int i = 0; i < 3; i++) {
             w.qa("POSITION", "Sitter WARRIOR lv 10 at (500,-85) facing left, nearest Spore dx 2 INSIDE its body, facing it");
         }
-        assertTrue(AutoQaCatalog.positionsMostlyGood(r).contains("3 of 24"), "standing inside a mob counts");
+        assertTrue(AutoQaCatalog.positionsMostlyGood(r).contains("2 of 24 positions still inside"),
+                "standing inside a mob counts");
+    }
+
+    @Test
+    void cb2PassingOverlapsAreNotStandingInAMob() {
+        // TEST 2026-10-26 22:58 (build 00c753258): 5 of 40 snapshots inside a mob, each bot out again 15 s later
+        // (COMBAT TOUCH steps it out). The old rule failed it at "more than 10%".
+        Check c = AutoQaCatalog.find("t-cb-2");
+        AutoQaRunnerTest.FakeWorld w = new AutoQaRunnerTest.FakeWorld();
+        CheckRun r = runAt(c, w);
+        String[] bots = {"elblanco", "ItsSnail", "iiHerox", "Dkman"};
+        for (int round = 0; round < 10; round++) {
+            for (int b = 0; b < bots.length; b++) {
+                boolean in = round % 2 == 1 && b == round / 2 % bots.length;
+                w.qa("POSITION", bots[b] + " WARRIOR lv 10 at (500,-85) facing left, nearest Pig dx "
+                        + (in ? "14 INSIDE its body" : "80") + ", facing it");
+            }
+        }
+        w.qa("POSITION", "ItsSnail MAGICIAN lv 10 at (500,-85) facing left, nearest Pig dx 9 INSIDE its body, facing it");
+        assertEquals(null, AutoQaCatalog.positionsMostlyGood(r), "6 of 41 passing overlaps, none held");
+
+        CheckRun crowd = runAt(c, w = new AutoQaRunnerTest.FakeWorld());
+        for (int i = 0; i < 40; i++) {
+            w.qa("POSITION", "Bot" + (i % 4) + " WARRIOR lv 10 at (500,-85) facing left, nearest Pig dx "
+                    + (i % 4 == 0 && i % 8 != 4 || i % 8 == 1 ? "5 INSIDE its body" : "80") + ", facing it");
+        }
+        assertTrue(String.valueOf(AutoQaCatalog.positionsMostlyGood(crowd)).contains("positions inside a mob"),
+                "more than a fifth of the snapshots inside a mob still fails");
     }
 
     @Test

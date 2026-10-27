@@ -26,13 +26,13 @@ class BotWatchJudgeTest {
         long t;
         boolean online = true;
         int ch = 1, map = FIELD, x = 0, y = 0, target = -1, level = 30, kills, pots = 100, etc = 5, equip = 5;
-        String act = "GRIND", chat;
+        String act = "GRIND", chat, phase;
         long exp = 1000, meso = 50_000, chatAt;
         boolean party, sit, town, mob = true, watched, jumpWatched, shop;
         int jump;
 
         Sample build() {
-            return online ? new Sample(t, true, ch, map, x, y, act, target, null, level, exp, meso, kills, pots, etc,
+            return online ? new Sample(t, true, ch, map, x, y, act, target, phase, level, exp, meso, kills, pots, etc,
                     equip, chat, chatAt, party, sit, town, mob, watched, jump, jumpWatched, shop) : Sample.offline(t);
         }
     }
@@ -296,6 +296,19 @@ class BotWatchJudgeTest {
         var j = judge(track(6, (k, s) -> { s.act = "RESTOCK"; s.x = k * 100; if (k >= 3) { s.online = false; } }));
         assertEquals(Verdict.LOGGED_OUT, j.verdict(), j.reason());
         assertTrue(j.reason().contains("in the middle of RESTOCK"), j.reason());
+    }
+
+    @Test
+    void loggingOutInTownAfterTheRestockIsASessionEnd() {
+        // TEST t-bw-1 2026-10-26 (roguez): the life activity reads RESTOCK until the bot grinds again, so a logout in
+        // town after its store visit was called "in the middle of RESTOCK"
+        var j = judge(track(6, (k, s) -> { s.act = "RESTOCK"; s.phase = "IN_TOWN"; s.map = 270000000; s.town = true;
+            s.mob = false; s.meso = 50_000 - k * 1000; if (k >= 3) { s.online = false; } }));
+        assertEquals(Verdict.OK, j.verdict(), j.reason());
+        assertTrue(j.segments().get(1).reason().contains("session over"), j.segments().get(1).reason());
+        var mid = judge(track(6, (k, s) -> { s.act = "RESTOCK"; s.phase = "GO_TOWN"; s.x = k * 100;
+            if (k >= 3) { s.online = false; } }));
+        assertTrue(mid.reason().contains("in the middle of RESTOCK"), "still on the way to town: " + mid.reason());
     }
 
     @Test
