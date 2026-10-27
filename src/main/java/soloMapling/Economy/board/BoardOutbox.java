@@ -49,6 +49,28 @@ public final class BoardOutbox {
         return m;
     }
 
+    /**
+     * {@code offers.json}: the offers bots made to players' posts in the last 7 days, newest first (at most
+     * {@link BoardState#MADE_PER_POST} per post, {@link BoardState#MADE_TOTAL} in all): {@code {postId, bot, price, t}},
+     * {@code bot} the bot's character name. For the site's notification bell.
+     */
+    public static Map<String, Object> offers(List<BoardState.Made> made, long now) {
+        List<BoardState.Made> sorted = new ArrayList<>(made);
+        sorted.sort(Comparator.comparingLong(BoardState.Made::at).reversed().thenComparing(BoardState.Made::postId));
+        List<Map<String, Object>> rows = new ArrayList<>();
+        for (BoardState.Made x : sorted) {
+            Map<String, Object> e = new LinkedHashMap<>();
+            e.put("postId", x.postId());
+            e.put("bot", x.bot());
+            e.put("price", x.price());
+            e.put("t", Board.iso(x.at()));
+            rows.add(e);
+        }
+        Map<String, Object> m = head(now);
+        m.put("offers", rows);
+        return m;
+    }
+
     /** {@code rejected.json}: posts from posts.json the board does not show, and why. */
     public static Map<String, Object> rejected(List<Board.Rejection> rejected, long now) {
         List<Map<String, Object>> rows = new ArrayList<>();

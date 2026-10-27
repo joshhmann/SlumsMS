@@ -981,6 +981,19 @@ public final class WorldEvents {
      * winner and ends the event; one killed by a bot ends it without a winner (the ticket-47 boss megaphone still
      * lets the bot flex).
      */
+    /** True while {@code mob} is one an event spawned on this map (checked before {@link #onMonsterKilled} forgets it). */
+    public boolean isEventMob(MapleMap map, Monster mob) {
+        if (active.isEmpty() || mob == null || map == null) {
+            return false;
+        }
+        for (ActiveEvent e : active) {
+            if (e.mapId() == map.getId() && e.channel == map.getChannelServer().getId() && e.mobOids.contains(mob.getObjectId())) {
+                return true;
+            }
+        }
+        return false;
+    }
+
     public void onMonsterKilled(MapleMap map, Monster mob, Character killer) {
         if (active.isEmpty() || mob == null || map == null) {
             return;

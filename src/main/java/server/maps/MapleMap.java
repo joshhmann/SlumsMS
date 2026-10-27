@@ -1751,6 +1751,11 @@ public class MapleMap {
                                                 killer, monster.getName(), monster.getStats().getLevel())));
                     }
                     final Character eventKiller = dropOwner != null ? dropOwner : chr;
+                    if (soloMapling.site.SiteMobKills.recording() && chr.gmLevel() == 0                      // site: most hunted
+                            && !(chr.getClient() instanceof client.SyntheticClient)
+                            && !soloMapling.worldevents.WorldEvents.getInstance().isEventMob(this, monster)) {
+                        soloMapling.site.SiteMobKills.kill(monster.getId());
+                    }
                     soloMapling.server.MapleRootSolo.runHook("world event kill", () ->   // ticket 21
                             soloMapling.worldevents.WorldEvents.getInstance().onMonsterKilled(this, monster, eventKiller));
                     if (withDrops && !monster.dropsDisabled()) {

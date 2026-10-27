@@ -67,6 +67,12 @@ public final class SiteWorld {
     }
 
     public static Map<String, Object> file(Online online, Headline headline, List<Running> running, long now) {
+        return file(online, headline, running, now, List.of(), List.of());
+    }
+
+    /** {@code topMobs}: the most killed mobs of the last 24 h, {@code topMobs7d} of the last 7 days (see {@link SiteMobKills}). */
+    public static Map<String, Object> file(Online online, Headline headline, List<Running> running, long now,
+                                           List<SiteMobKills.Row> topMobs, List<SiteMobKills.Row> topMobs7d) {
         Map<String, Object> m = new LinkedHashMap<>();
         m.put("schema", PublicSiteExport.SCHEMA);
         m.put("generated_at", Instant.ofEpochMilli(now).toString());
@@ -94,6 +100,8 @@ public final class SiteWorld {
             busiest.add(r);
         }
         m.put("busiest_maps", busiest);
+        m.put("top_mobs", mobRows(topMobs));
+        m.put("top_mobs_7d", mobRows(topMobs7d));
 
         if (headline == null) {
             m.put("tonight", null);
@@ -131,5 +139,17 @@ public final class SiteWorld {
         }
         m.put("running", events);
         return m;
+    }
+
+    private static List<Object> mobRows(List<SiteMobKills.Row> rows) {
+        List<Object> out = new ArrayList<>();
+        for (SiteMobKills.Row r : rows.subList(0, Math.min(SiteMobKills.TOP, rows.size()))) {
+            Map<String, Object> e = new LinkedHashMap<>();
+            e.put("mob", r.mob());
+            e.put("name", r.name());
+            e.put("kills", r.kills());
+            out.add(e);
+        }
+        return out;
     }
 }

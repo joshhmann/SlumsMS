@@ -94,6 +94,7 @@ public final class PublicSiteExport {
             Runner r = new Runner(dir, new ServerSources(), System::currentTimeMillis);
             ScheduledExecutorService ex = newExecutor("site-export");
             SiteFeed.setRecording(true);
+            SiteMobKills.setRecording(true);
             ex.execute(r::seedSafely); // the last feed.json back into memory before the first write
             ex.scheduleWithFixedDelay(r::worldSafely, 30, WORLD_SECONDS, TimeUnit.SECONDS);
             ex.scheduleWithFixedDelay(r::feedSafely, 45, FEED_SECONDS, TimeUnit.SECONDS);
@@ -110,6 +111,7 @@ public final class PublicSiteExport {
     public static synchronized void stop() {
         if (executor != null) {
             executor.shutdownNow();
+            SiteMobKills.setRecording(false);
             executor = null;
             runner = null;
         }
@@ -165,6 +167,11 @@ public final class PublicSiteExport {
 
         /** Player characters (filtered by {@link SiteLeaderboards#players}) and bots, ready to rank. */
         Boards boards();
+
+        /** A mob's String.wz name (empty when unknown). */
+        default String mobName(int id) {
+            return "";
+        }
     }
 
     /**
@@ -288,7 +295,8 @@ public final class PublicSiteExport {
             } catch (RuntimeException e) {
                 running = List.of();
             }
-            AtomicFiles.writeJson(dir.resolve("world.json"), SiteWorld.file(sources.online(), headline, running, now));
+            AtomicFiles.writeJson(dir.resolve("world.json"), SiteWorld.file(sources.online(), headline, running, now,
+                    SiteMobKills.top(24, now, sources::mobName), SiteMobKills.top(SiteMobKills.HOURS, now, sources::mobName)));
         }
 
         void writeBoards() throws IOException {
@@ -348,6 +356,11 @@ public final class PublicSiteExport {
                 }
             }
             return new SiteWorld.Online(perChannel, perMap, names);
+        }
+
+        @Override
+        public String mobName(int id) {
+            return server.life.MonsterInformationProvider.getInstance().getMobNameFromId(id);
         }
 
         @Override

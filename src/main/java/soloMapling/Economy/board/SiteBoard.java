@@ -65,7 +65,7 @@ public final class SiteBoard {
     static final double SECOND_OFFER_CHANCE = 0.25;
     public static final String NOTE_SENDER = "Slums Market";
     public static final List<String> OUTBOX_FILES = List.of("board.json", "rejected.json", "removed.json",
-            "alerts-fired.json");
+            "alerts-fired.json", "offers.json");
 
     private static volatile ScheduledExecutorService executor;
     private static volatile Engine engine;
@@ -456,6 +456,13 @@ public final class SiteBoard {
             world.later(delay, () -> deliver(o));
         }
 
+        /** Remembers an offer that went out and rewrites offers.json at once (the bell should not wait 15 min). */
+        private void madeOffer(Board.Post p, BoardOffers.Offer o) {
+            long now = world.now();
+            state.recordMade(p.id(), o.botName(), o.price(), now);
+            write("offers.json", BoardOutbox.offers(state.madeOffers(now), now));
+        }
+
         /** Sends an offer: a whisper to any character of the account that is on, else a note to the poster. */
         void deliver(BoardOffers.Offer o) {
             try {
@@ -478,6 +485,7 @@ public final class SiteBoard {
                         if (o.botSells() && o.stock() != null && o.stock().source() == MegaBuyDesk.Source.BAG) {
                             world.quote(o.stock(), to, o.price(), o.rounds());
                         }
+                        madeOffer(p, o);
                         note("OFFER " + o.botName() + " -> " + to.name() + " whisper: \"" + line + "\"");
                         return;
                     }
@@ -485,6 +493,7 @@ public final class SiteBoard {
                 }
                 String line = BoardOffers.line(o, item, false, null, world);
                 if (world.note(o.botName(), p.character(), line)) {
+                    madeOffer(p, o);
                     note("OFFER " + o.botName() + " -> " + p.character() + " note: \"" + line + "\"");
                 } else {
                     note("DROP " + o.botName() + " could not leave " + p.character() + " a note");
@@ -583,6 +592,7 @@ public final class SiteBoard {
         void writeBoard() {
             long now = world.now();
             write("board.json", BoardOutbox.board(board(), now));
+            write("offers.json", BoardOutbox.offers(state.madeOffers(now), now));
             write("rejected.json", BoardOutbox.rejected(rejected, now));
             write("removed.json", BoardOutbox.removed(state.removals(), now));
             Set<String> alertIds = new HashSet<>();

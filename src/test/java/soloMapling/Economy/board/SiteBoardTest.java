@@ -112,6 +112,23 @@ class SiteBoardTest {
     }
 
     @Test
+    void offersJsonListsEachOfferForTheBell() throws Exception {
+        w.bag(1_000_000_001, "Shroomy", GLOVE, 1, 2_800_000);
+        w.goOnline(7, "Momo");
+        posts(post("p1", 7, "Momo", "WTB", GLOVE, 1, 3_000_000));
+        engine().poll();
+        Map<String, Object> f = out("offers.json");
+        assertEquals(1L, f.get("schema"));
+        List<Map<String, Object>> offers = (List<Map<String, Object>>) f.get("offers");
+        assertEquals(1, offers.size(), log.toString());
+        assertEquals(List.of("postId", "bot", "price", "t"), List.copyOf(offers.get(0).keySet()));
+        assertEquals("p1", offers.get(0).get("postId"));
+        assertEquals("Shroomy", offers.get(0).get("bot"));
+        assertEquals(3_000_000L, ((Number) offers.get(0).get("price")).longValue());
+        assertTrue(((String) offers.get(0).get("t")).endsWith("Z"));
+    }
+
+    @Test
     void aHeldWhisperFallsBackToANote() throws Exception {
         w.bag(1_000_000_001, "Shroomy", GLOVE, 1, 2_800_000);
         w.goOnline(7, "Momo");
