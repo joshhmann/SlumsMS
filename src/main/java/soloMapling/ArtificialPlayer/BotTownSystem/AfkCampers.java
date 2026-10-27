@@ -150,6 +150,17 @@ public final class AfkCampers {
     }
 
     /**
+     * 1.6.0: something bigger than dinner happened (a world event called the bot, or invaders reached its town): the
+     * camp ends now, as if the player came back. No "back" line; the caller gives the bot something to do.
+     */
+    public static void endCamp(int charId, String why) {
+        Camp c = CAMPS.get(charId);
+        if (c != null) {
+            release(c, why, false);
+        }
+    }
+
+    /**
      * Called first thing on a bot's macro tick: true = the bot is AFK, skip the tick. A camp whose time is up, whose
      * bot moved map, or whose bot picked up a commitment ends here, and the tick runs as usual.
      */
@@ -275,6 +286,9 @@ public final class AfkCampers {
         }
         if (COOLING.getOrDefault(chr.getId(), 0L) > now) {
             return false; // rotate: it camped not long ago
+        }
+        if (soloMapling.worldevents.InvasionTownCrowd.holds(chr.getId())) {
+            return false; // 1.6.0: fighting or fleeing an invasion in its town
         }
         if (!rosterMember.test(chr.getId() - BotStore.BOT_ID_BASE)) {
             return false;

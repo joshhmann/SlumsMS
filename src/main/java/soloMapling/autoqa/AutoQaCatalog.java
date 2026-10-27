@@ -940,13 +940,15 @@ public final class AutoQaCatalog {
                         has("EV1 GOSSIP "),
                         noEmoji())
                 .build());
-        // Owner 2026-10-26: the lv 15-40 band and the harder last wave should kill some bots by themselves; the check
+        // Owner 2026-10-27 ("madness"): lv 1-40, most called bots come at once (a RECRUIT line with joiners), town bots
+        // on the map fight or run. Owner 2026-10-26: the harder last wave should kill some bots by themselves; the check
         // first gives them 150 s to, and only then forces deaths (!qa do die answers "not needed" after a natural one)
         c.add(Check.auto("t-ev-2", "A Henesys invasion: bots swarm it, some die and respawn").minutes(10)
                 .step(run("ev-2"), waitSeconds(8), waitFor("WEVENT BOT DIED ", 150), qaDo("die"),
                         waitFor("WEVENT BOT DIED ", 180), waitFor("RESPAWN .* died on 100000000", 60), waitSeconds(5),
                         stop())
-                .expect(has("WEVENT START #\\d+ henesys_invasion \\(invasion\\) on 100000000 .*bots lv 15-40"),
+                .expect(has("WEVENT START #\\d+ henesys_invasion \\(invasion\\) on 100000000 .*bots lv 1-40"),
+                        has("WEVENT RECRUIT #\\d+ [1-9]\\d* bots head to 100000000"),
                         has("WEVENT NOTICE \\[Monster Invasion\\] Monsters are pouring into "),
                         has("WEVENT QA JOIN #\\d+ [1-9]\\d* staged bots head to 100000000"),
                         has("EV2 DIE (next lethal hit certain for [1-3] staged bots|not needed: [1-9]\\d* bots? already"

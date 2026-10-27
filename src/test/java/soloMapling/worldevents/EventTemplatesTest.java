@@ -93,8 +93,20 @@ class EventTemplatesTest {
         }
         EventTemplate henesys = r.templates().stream().filter(t -> t.id().equals("henesys_invasion")).findFirst()
                 .orElseThrow();
-        assertEquals(15, henesys.minLevel());
+        // Owner 2026-10-27 ("there should be madness, even lower levels should get in"): the town and mushroom
+        // invasions take lv 1-40 and Henesys calls a crowd; Boar Stampede keeps the boars' own band (a far field)
+        assertEquals(1, henesys.minLevel());
         assertEquals(40, henesys.maxLevel());
+        assertTrue(henesys.botCap() > 40 && henesys.botCap() <= EventTemplates.MAX_BOT_CAP, "a crowd under the cap");
+        for (String id : java.util.List.of("perion_invasion", "mushroom_invasion")) {
+            EventTemplate t = r.templates().stream().filter(x -> x.id().equals(id)).findFirst().orElseThrow();
+            assertEquals(1, t.minLevel(), id);
+            assertEquals(40, t.maxLevel(), id);
+        }
+        EventTemplate boars = r.templates().stream().filter(x -> x.id().equals("boar_stampede")).findFirst()
+                .orElseThrow();
+        assertEquals(20, boars.minLevel());
+        assertEquals(10, boars.botCap(), "a small event at its ceiling");
         EventTemplate.Wave last = henesys.waves().get(henesys.waves().size() - 1);
         assertEquals(6130101, last.miniBossId(), "the last wave is led by Mushmom");
         assertEquals(6300005, henesys.bossMobId(), "then Zombie Mushmom");
@@ -216,7 +228,7 @@ class EventTemplatesTest {
                   - {id: bighp, kind: giant_cake, maps: [1], boss: 3, boss_hp: 999999999}
                   - {id: noboss, kind: giant_cake, maps: [1]}
                   - {id: slotty, kind: giant_cake, maps: [1], boss: 3, slot: evening}
-                  - {id: crowd, kind: giant_cake, maps: [1], boss: 3, bot_cap: 80}
+                  - {id: crowd, kind: giant_cake, maps: [1], boss: 3, bot_cap: 250}
                   - {id: fine, kind: giant_cake, maps: [1], boss: 3, participation: [{item: 2022161, qty: 1}]}
                 """);
         assertEquals(List.of("fine"), r.templates().stream().map(EventTemplate::id).toList(), r.errors().toString());

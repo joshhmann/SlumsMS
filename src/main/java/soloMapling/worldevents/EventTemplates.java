@@ -25,8 +25,11 @@ public final class EventTemplates {
     /** A hot spot is a bonus, not a rate change: at most double EXP on its one map. */
     public static final double MAX_EXP_BONUS = 2.0;
     static final int MAX_WAVE_COUNT = 40;
-    /** The most bots one event may call (the map cap, BOT_MAP_CAP 50, applies on top). */
-    public static final int MAX_BOT_CAP = 50;
+    /**
+     * The most bots one event may call. 1.6.0 madness: 200, the default WORLD_EVENT_MAP_MAX (an invasion's map takes
+     * that many while it runs; every other event's map keeps BOT_MAP_CAP 50 on top).
+     */
+    public static final int MAX_BOT_CAP = 200;
     /** A boss HP override never goes above this (a giant cake for a crowd, not a raid boss). */
     public static final long MAX_BOSS_HP = 50_000_000L;
     /** Participation EXP is at most this percent of a level. */

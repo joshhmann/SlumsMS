@@ -85,15 +85,20 @@ final class BotContactDamage {
             }
             Rectangle query = new Rectangle(getBotTouchBounds(entry, bot));
             query.grow(MOB_QUERY_MARGIN, MOB_QUERY_MARGIN);
-            // 1.6.0 world events: on an invasion map the mobs swarm - any mob within reach lands its hit, not only
-            // one whose lower body overlaps the bot (town invaders often stand still: nobody controls them)
+            // 1.6.0 world events: on an invasion map the event's own mobs hit every bot there through one pass
+            // (soloMapling.worldevents.InvasionSwarmTouch), whatever moves it - this driver only ticks the bots it
+            // drives, so seated, resting and old-engine town bots were never hit (owner QA 2026-10-27). Its other mobs
+            // (a field's own) still touch here as usual.
             boolean swarm = soloMapling.worldevents.WorldEvents.swarmMap(bot);
             for (MapObject obj : bot.getMap().getMapObjectsInRect(query, List.of(MapObjectType.MONSTER))) {
                 Monster mob = (Monster) obj;
                 if (!isHostileLivingMonster(mob)) {
                     continue;
                 }
-                if (isMobTouchingBot(entry, bot, mob) || swarm && withinSwarmReach(botPos, mob.getPosition())) {
+                if (swarm && soloMapling.worldevents.WorldEvents.isEventMob(bot, mob)) {
+                    continue;
+                }
+                if (isMobTouchingBot(entry, bot, mob)) {
                     applyMobHit(entry, bot, mob);
                     return;
                 }

@@ -74,6 +74,9 @@ public abstract class BotSM implements EventSubscriber {
     // One shared tick body for every (re)schedule path - start / priority change / nudge.
     private final Runnable tickRunnable = () -> {
         try {
+            if (soloMapling.worldevents.InvasionTownCrowd.handles(this)) {
+                return; // 1.6.0: invaders in its town - it fights or runs until the event ends (before any FSM pause)
+            }
             if (isWaiting()) {
                 return; // FSM-requested pause (waitFor) - skip the tick entirely
             }

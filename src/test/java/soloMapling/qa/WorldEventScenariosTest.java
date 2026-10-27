@@ -53,9 +53,14 @@ class WorldEventScenariosTest {
         List<Pattern> expects = patterns(ev2, false);
         assertTrue(anyMatches(expects, WorldEventScenarios.Ev2Invasion.naturalDeaths(3)));
         assertTrue(anyMatches(expects, "EV2 DIE next lethal hit certain for 3 staged bots (HP 1, nearest a mob: [])"));
-        // the start line names the lv 15-40 band (a lv 70 no longer answers)
+        // the start line names the lv 1-40 band (owner 2026-10-27: low levels get in; a lv 70 still does not)
         assertTrue(anyMatches(expects, "WEVENT START #4 henesys_invasion (invasion) on 100000000 Henesys ch1, bots lv"
+                + " 1-40, cap 150, by !qa ev-2"));
+        assertFalse(anyMatches(expects, "WEVENT START #4 henesys_invasion (invasion) on 100000000 Henesys ch1, bots lv"
                 + " 15-40, cap 40, by !qa ev-2"));
+        // and the crowd really came (madness: most called bots go at once)
+        assertTrue(anyMatches(expects, "WEVENT RECRUIT #4 31 bots head to 100000000, 9 offered it (31/150, lv 1-40)"));
+        assertFalse(anyMatches(expects, "WEVENT RECRUIT #4 0 bots head to 100000000, 76 offered it (0/40, lv 1-40)"));
         assertFalse(anyMatches(expects, "WEVENT START #4 henesys_invasion (invasion) on 100000000 Henesys ch1, bots lv"
                 + " 17-70, cap 40, by !qa ev-2"));
     }
