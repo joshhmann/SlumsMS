@@ -90,6 +90,10 @@ systemctl daemon-reload && systemctl enable --now slums-market
 Check: `curl -s http://127.0.0.1:8095/api/market/health` gives `{"ok": true}`; `/var/lib/slums-market/inbox/posts.json`
 appears with an empty list; `sudo -u slums-market touch /var/lib/slums-market/outbox/x` fails (the site can't write
 the game's folder). Live's 1.6.0 start line points the board's inbox and outbox flags at these two folders (step 3).
+After live 1.6.0 is up and its first 15-minute board cycle has run: `ls -l /var/lib/slums-market/outbox/` shows group
+`slums-market` on `trade-ratings.json` and the board files (`board.json`, `offers.json`, ...). The game writes them 0640
+and never chowns, so the setgid folder gives them that group and the market service reads them through it; a file in
+group `root` means the folder was made without `-g slums-market -m 2750` (fix the folder, then wait one cycle).
 Undo: `systemctl disable --now slums-market`, then `userdel slums-market` and `rm -r /var/lib/slums-market` if wanted
 (that deletes every watchlist, alert and post).
 
