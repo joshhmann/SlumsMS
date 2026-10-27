@@ -107,12 +107,58 @@ class EventTemplatesTest {
                 .orElseThrow();
         assertEquals(20, boars.minLevel());
         assertEquals(10, boars.botCap(), "a small event at its ceiling");
-        EventTemplate.Wave last = henesys.waves().get(henesys.waves().size() - 1);
-        assertEquals(6130101, last.miniBossId(), "the last wave is led by Mushmom");
-        assertEquals(6300005, henesys.bossMobId(), "then Zombie Mushmom");
-        for (EventTemplate.Wave w : henesys.waves().subList(0, henesys.waves().size() - 1)) {
-            assertEquals(0, w.miniBossId(), "only the last wave brings a mini-boss");
+        assertEquals(6300005, henesys.waves().get(3).miniBossId(), "the Werewolves are led by Zombie Mushmom");
+        assertEquals(8130100, henesys.bossMobId(), "and Jr. Balrog ends it");
+        assertEquals(1, henesys.waves().stream().filter(w -> w.miniBossId() > 0).count(), "one mini-boss");
+    }
+
+    // Owner 2026-10-27 ("It needs to be harder mobs"): ~100 lv 1-40 bots cleared the mushroom waves in ~92 s and
+    // none died, so Henesys is now invaded by lv 50-80 field mobs and a Jr. Balrog, each wave tougher than the last.
+    @Test
+    void henesysInvasionBringsHarderMobsEachWaveAndABigBoss() throws Exception {
+        EventTemplate henesys = shipped("henesys_invasion");
+        List<Integer> mobs = new ArrayList<>();
+        for (EventTemplate.Wave w : henesys.waves()) {
+            mobs.add(w.mobId());
+            assertTrue(w.count() >= 12 && w.count() <= EventTemplates.MAX_WAVE_COUNT, "a crowd of " + w.mobId());
         }
+        assertEquals(List.of(5130100, 6230100, 7130100, 7130200, 7130101, 8140000), mobs,
+                "Drake, Wild Kargo, Tauromacis, Werewolf, Taurospear, Lycanthrope");
+        assertTrue(henesys.bossHp() >= 150_000 && henesys.bossHp() <= EventTemplates.MAX_BOSS_HP,
+                "the boss lasts for a crowd: " + henesys.bossHp());
+        // the other headline event is untouched
+        EventTemplate cake = shipped("giant_cake");
+        assertEquals(9400606, cake.bossMobId());
+        assertEquals(4_000_000L, cake.bossHp());
+    }
+
+    @Test
+    void henesysInvadersExistInTheServersMobDataAtTheirLevels() throws Exception {
+        soloMapling.WzTestData.assumePresent("Mob.wz");
+        EventTemplate henesys = shipped("henesys_invasion");
+        int previous = 0;
+        for (EventTemplate.Wave w : henesys.waves()) {
+            assertTrue(server.life.LifeFactory.monsterExists(w.mobId()), "Mob.wz has " + w.mobId());
+            int level = server.life.LifeFactory.getMonsterLevel(w.mobId());
+            assertTrue(level >= 40 && level <= 80, w.mobId() + " is lv " + level);
+            assertTrue(level >= previous, "each wave is at least as tough: " + w.mobId() + " lv " + level);
+            previous = level;
+            if (w.miniBossId() > 0) {
+                assertTrue(server.life.LifeFactory.monsterExists(w.miniBossId()), "Mob.wz has " + w.miniBossId());
+            }
+        }
+        assertTrue(server.life.LifeFactory.monsterExists(henesys.bossMobId()));
+        assertTrue(server.life.LifeFactory.monsterIsBoss(henesys.bossMobId()), "Jr. Balrog is a boss");
+        assertTrue(server.life.LifeFactory.getMonsterLevel(henesys.bossMobId()) >= 80, "a boss above the waves");
+    }
+
+    private static EventTemplate shipped(String id) throws Exception {
+        EventTemplates.Result r;
+        try (FileReader in = new FileReader(EventTemplates.DEFAULT_PATH)) {
+            r = EventTemplates.parse(in);
+        }
+        assertTrue(r.errors().isEmpty(), "errors: " + r.errors());
+        return r.templates().stream().filter(t -> t.id().equals(id)).findFirst().orElseThrow();
     }
 
     @Test
