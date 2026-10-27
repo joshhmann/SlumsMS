@@ -167,6 +167,9 @@ public final class LifeRuntime {
         if (soloMapling.ArtificialPlayer.Fads.isSpot(mapId)) return true; // 1.6.0 S9: a hangout fad's spot
         if (LifeTowns.isTownMap(mapId)) return true; // 1.6.0 towns: a near/home town, or one short of bots
         for (LifePq.Lobby lobby : LifePq.LOBBIES) if (lobby.mapId() == mapId) return true;
+        // 1.6.0 fishing: a fishing map is a quiet field nobody stands on, so it is almost never loaded; without this
+        // no bot could ever pick FISH (TEST 2026-10-27: 0 of 13,700 life decisions, t-fh-2 saw no bot fishing)
+        if (constants.id.MapId.isFishingArea(mapId)) return true;
         return false;
     }
 
