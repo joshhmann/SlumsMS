@@ -75,7 +75,9 @@ class DailyCheckinClaimTest {
         assertEquals(DailyCheckin.ClaimResult.CLAIMED, DailyCheckin.claim(chr, ACCOUNT, DailyCheckinStreak.NEW, 1, NOW));
         assertEquals(1, saved.size());
         assertEquals(1, saved.get(0).day());
-        verify(chr.getCashShop()).gainCash(1, DailyCheckinRewards.of(1).nxCredit());
+        assertEquals(0, DailyCheckinRewards.of(1).nxCredit(), "day 1 pays items only since 1.6.0");
+        verify(chr.getCashShop(), never()).gainCash(anyInt(), anyInt());
+        verify(chr).dropMessage(6, "Daily Check-In: day 1 claimed, today's items are in your inventory.");
     }
 
     @Test
