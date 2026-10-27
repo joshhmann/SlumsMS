@@ -195,8 +195,6 @@ class ReleaseConfigTest(unittest.TestCase):
         self.assertIn('not a number', self.generate_fails('LEDGER_BEFORE=""\nSERVER_SET=(BOT_MAP_CAP=abc)\n'))
         deploy, _ = self.generate('LEDGER_BEFORE=""\nSERVER_SET=(BOT_LIFE_TOWN_WEIGHTS=near:55,home:20,henesys:25)\n')
         self.assertIn('BOT_LIFE_TOWN_WEIGHTS=near:55,home:20,henesys:25', deploy)
-        self.assertIn('BOT_ROSTER_TIMEZONE=America/Los_Angeles', deploy)   # a zone id has a slash
-        self.assertIn("'s# -jar # -Dsolomapling.events=true -jar #'", deploy)
         self.assertIn('twice', self.generate_fails('LEDGER_BEFORE=""\nSERVER_SET=(BOT_MAP_CAP=1 BOT_MAP_CAP=2)\n'))
         self.assertIn('use CHANNEL_LOAD', self.generate_fails('LEDGER_BEFORE=""\nSERVER_SET=(CHANNEL_LOAD=1)\n'))
         deploy, _ = self.generate('LEDGER_BEFORE=""\n')
@@ -244,6 +242,8 @@ class ReleaseConfigTest(unittest.TestCase):
         # owner 2026-10-27: OneJev shadows on live, scores only (no chat text), and the busy towns ship on
         self.assertIn("'s# -jar # -Dslums.decide.shadow=onejev -Dslums.decide.shadow.text=false -jar #'", deploy)
         self.assertIn('BOT_TOWN_PULL=0.3', deploy)
+        self.assertIn('BOT_ROSTER_TIMEZONE=America/Los_Angeles', deploy)   # a zone id has a slash
+        self.assertIn("'s# -jar # -Dsolomapling.events=true -jar #'", deploy)
         self.assertIn('BOT_LIFE_TOWN_WEIGHTS=near:55,home:20,henesys:25', deploy)
 
     def generate(self, conf):
