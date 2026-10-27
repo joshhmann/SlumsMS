@@ -174,7 +174,8 @@ CHROME = {4001126: "Maple Leaf", 4031180: "Beginner's Shopping Guide", 9000000: 
           2030000: "Return Scroll", 1302000: "Sword", 4000000: "Blue Snail Shell", 4031045: "Ticket to Orbis",
           2340000: "White Scroll", 5072000: "Super Megaphone", 5220000: "Gachapon Ticket", 5390000: "Diablo Messenger",
           9000003: "Bag of mesos", 2000005: "Power Elixir", 4161001: "MapleRoot Guide", 5071000: "Megaphone",
-          2000000: "Red Potion"}
+          2000000: "Red Potion",
+          1142107: "Beginner Adventurer Medal"}  # the stand-in for medals with no icon (database.FALLBACK_ICONS)
 CHROME_DIR = os.path.join(REPO, "docs", "site", "assets", "icons")
 
 
@@ -198,10 +199,11 @@ def make_chrome(dec, layer, host, fetch_ok):
     print(f"chrome: {len(srcs)} icons in {CHROME_DIR}")
 
 
-def plan(data, kinds):
+def plan(data, kinds, extra_items=()):
+    """extra_items: item ids with no database page whose icons the market still shows (dbdata.extra_icon_items)."""
     jobs = []  # (kind, id, img path, node path or None for life)
     if "items" in kinds:
-        for item_id in data["items"]:
+        for item_id in sorted(set(data["items"]) | set(extra_items)):
             src = item_source(item_id)
             if src:
                 jobs.append(("items", item_id, src[0], src[1]))
@@ -240,6 +242,8 @@ def main():
     ap = argparse.ArgumentParser(description=__doc__, formatter_class=argparse.RawDescriptionHelpFormatter)
     ap.add_argument("--hs-data", help="build_data.py output folder (default: %s)" % dbdata.DEFAULT_DIR)
     ap.add_argument("--kinds", default="items,mobs,npcs")
+    ap.add_argument("--market-data", help="also make icons for every item this market export has traded that has no "
+                                          "database page (besides data/site/extra-icon-items.txt)")
     ap.add_argument("--layer", default=LAYER)
     ap.add_argument("--host", default=HOST)
     ap.add_argument("--native-wz", default=NATIVE_WZ)
@@ -256,7 +260,13 @@ def main():
         return
     kinds = set(args.kinds.split(","))
     data = dbdata.load(args.hs_data)
-    jobs = plan(data, kinds)
+    extra = dbdata.extra_icon_items()
+    if args.market_data:  # every item the market has traded that has no database page
+        from sections import market
+        m = market.load(args.market_data)
+        seen = market.traded_items(m) | {r["item_id"] for r in m["listings"]["listings"] + m["sales"]["sales"]}
+        extra |= {i for i in seen if i not in data["items"]}
+    jobs = plan(data, kinds, extra)
     if not args.no_fetch:
         fetch([j[2] for j in jobs], args.layer, args.host)
 

@@ -420,7 +420,14 @@ table.t { width: 100%; border-collapse: collapse; }
   .dbside { position: static; max-height: none; }
   .dbside > ul, .dbside h3 { display: none; }
   .dbside .dbsearch { padding-bottom: 10px; }
+  /* Slums Street: every sidebar group stays reachable as a row of chips that scrolls sideways on its own */
+  .street .dbside > h3 { display: block; margin: 6px 10px 2px; }
+  .street .dbside > ul { display: flex; gap: 6px; overflow-x: auto; padding: 4px 8px 8px; overscroll-behavior-x: contain; }
+  .street .dbside > ul li { flex: none; }
+  .street .dbside > ul a { border: 1.5px solid var(--hair); border-radius: var(--radius-s); padding: 4px 10px; white-space: nowrap; }
+  .street .dbside > ul a[aria-current] { border-color: var(--accent); }
 }
+.slotc.stand-in img { opacity: .55; filter: grayscale(.6); }
 @media (max-width: 620px) {
   .stats { grid-template-columns: minmax(0, 1fr); }
   .stats div:nth-child(odd) { border-right: 0; }
