@@ -91,6 +91,8 @@ class AccountsExportTest {
         for (String bad : List.of("secret", "ip_hash", "accounts")) {
             assertFalse(sql.contains(bad), bad);
         }
+        assertTrue(AccountsExport.RESET_COUNTS.contains("WHERE account_id > 0")
+                && AccountsExport.RESET_LATEST.contains("WHERE account_id > 0"), "decoys are never counted or listed");
         String json = Json.write(m).toLowerCase();
         assertFalse(json.contains("secret") || json.contains("hash"), json);
         assertFalse(AccountsExport.build(NOW, new AccountsExport.Data(null, null, null), 0).containsKey("resets"),

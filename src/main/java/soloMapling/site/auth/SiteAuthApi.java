@@ -70,7 +70,7 @@ public final class SiteAuthApi {
                 return;
             }
             SiteAccounts accounts = SiteAccounts.forGame();
-            running = start(Integer.parseInt(port.trim()), new SiteAuthApi(secret, accounts, PasswordResets.forGame(accounts)));
+            running = start(Integer.parseInt(port.trim()), new SiteAuthApi(secret, accounts, PasswordResets.forGame(accounts, secret)));
             log.info("Site auth API listening on 127.0.0.1:{}", running.getAddress().getPort());
         } catch (Exception e) {
             log.warn("Site auth API not started", e);

@@ -30,22 +30,25 @@ public interface ResetStore {
         }
     }
 
-    /** In one transaction: the account's pending and approved (unused) requests become replaced, then this one is added. */
+    /**
+     * In one transaction: the account's pending and approved (unused) requests become replaced, then this one is added.
+     * Matches on account id and name, so a decoy (account id 0, a per-name key) replaces only decoys for the same name.
+     */
     void insertReplacing(Request r) throws SQLException;
 
     /** Null when no such request. */
     Request find(String id) throws SQLException;
 
-    /** The account's newest request in one of {@code states} made after {@code since}, or null. Name ignores case. */
+    /** The account's newest real (not decoy) request in one of {@code states} made after {@code since}, or null. Name ignores case. */
     Request newestFor(String accountName, long since, String... states) throws SQLException;
 
-    /** Requests in {@code state} made after {@code since}, oldest first. */
+    /** Real (not decoy) requests in {@code state} made after {@code since}, oldest first. */
     List<Request> withState(String state, long since) throws SQLException;
 
-    /** The newest requests, any state. */
+    /** The newest real requests, any state. */
     List<Request> recent(int limit) throws SQLException;
 
-    /** Moves a request from {@code from} to {@code to} (approve or deny); false when it was no longer in {@code from}. */
+    /** Moves a real request from {@code from} to {@code to} (approve or deny); false when it was no longer in {@code from} or is a decoy. */
     boolean decide(String id, String from, String to, String by, long now) throws SQLException;
 
     /**
@@ -62,11 +65,11 @@ public interface ResetStore {
         static final String COLUMNS = "request_id, account_id, account_name, secret_hash, contact, ip_hash, created_at,"
                 + " state, decided_at, decided_by, used_at";
         static final String REPLACE = "UPDATE password_resets SET state = 'replaced' WHERE account_id = ?"
-                + " AND state IN ('pending', 'approved')";
+                + " AND account_name = ? AND state IN ('pending', 'approved')";
         static final String INSERT = "INSERT INTO password_resets (request_id, account_id, account_name, secret_hash,"
                 + " contact, ip_hash, created_at, state) VALUES (?, ?, ?, ?, ?, ?, ?, 'pending')";
         static final String DECIDE = "UPDATE password_resets SET state = ?, decided_at = ?, decided_by = ?"
-                + " WHERE request_id = ? AND state = ?";
+                + " WHERE request_id = ? AND state = ? AND account_id > 0";
         static final String USE = "UPDATE password_resets SET state = 'used', used_at = ?, used_ip_hash = ?"
                 + " WHERE request_id = ? AND account_id = ? AND state = 'approved' AND created_at > ? AND decided_at > ?";
         static final String SET_PASSWORD = "UPDATE accounts SET password = ? WHERE id = ?";
@@ -79,6 +82,7 @@ public interface ResetStore {
                 try {
                     try (PreparedStatement ps = con.prepareStatement(REPLACE)) {
                         ps.setInt(1, r.accountId());
+                        ps.setString(2, r.accountName());
                         ps.executeUpdate();
                     }
                     try (PreparedStatement ps = con.prepareStatement(INSERT)) {
@@ -117,7 +121,7 @@ public interface ResetStore {
             String in = String.join(", ", java.util.Collections.nCopies(states.length, "?"));
             try (Connection con = DatabaseConnection.getConnection();
                  PreparedStatement ps = con.prepareStatement("SELECT " + COLUMNS + " FROM password_resets"
-                         + " WHERE account_name = ? AND created_at > ? AND state IN (" + in + ")"
+                         + " WHERE account_name = ? AND account_id > 0 AND created_at > ? AND state IN (" + in + ")"
                          + " ORDER BY created_at DESC LIMIT 1")) {
                 ps.setString(1, accountName);
                 ps.setLong(2, since);
@@ -132,7 +136,7 @@ public interface ResetStore {
 
         @Override
         public List<Request> withState(String state, long since) throws SQLException {
-            return list("SELECT " + COLUMNS + " FROM password_resets WHERE state = ? AND created_at > ?"
+            return list("SELECT " + COLUMNS + " FROM password_resets WHERE state = ? AND account_id > 0 AND created_at > ?"
                     + " ORDER BY created_at LIMIT 200", ps -> {
                 ps.setString(1, state);
                 ps.setLong(2, since);
@@ -141,7 +145,7 @@ public interface ResetStore {
 
         @Override
         public List<Request> recent(int limit) throws SQLException {
-            return list("SELECT " + COLUMNS + " FROM password_resets ORDER BY created_at DESC LIMIT ?",
+            return list("SELECT " + COLUMNS + " FROM password_resets WHERE account_id > 0 ORDER BY created_at DESC LIMIT ?",
                     ps -> ps.setInt(1, limit));
         }
 

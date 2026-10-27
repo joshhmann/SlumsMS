@@ -30,7 +30,8 @@ import java.util.concurrent.TimeUnit;
  * only the columns below, and {@link #build} is the only thing that shapes the output.
  * <p>
  * Ticket 107 adds the password reset requests ({@code password_resets}, migration 037): counts by state and the latest
- * 10 with account, time, state, the GM who decided and the contact the player left. Never the secret hash or ipHash.
+ * 10 with account, time, state, the GM who decided and the contact the player left. Never the secret hash or ipHash,
+ * and never the decoy rows kept for names that are not resettable accounts (account_id 0).
  */
 final class AccountsExport {
 
@@ -59,9 +60,9 @@ final class AccountsExport {
     static final int LATEST_RESETS = 10;
     static final String RESET_COUNTS = "SELECT COALESCE(SUM(state = 'pending' AND created_at > ?), 0),"
             + " COALESCE(SUM(state IN ('approved', 'used')), 0), COALESCE(SUM(state = 'used'), 0),"
-            + " COALESCE(SUM(state = 'denied'), 0) FROM password_resets";
+            + " COALESCE(SUM(state = 'denied'), 0) FROM password_resets WHERE account_id > 0";
     static final String RESET_LATEST = "SELECT account_name, created_at, state, decided_by, contact, decided_at"
-            + " FROM password_resets ORDER BY created_at DESC LIMIT " + LATEST_RESETS;
+            + " FROM password_resets WHERE account_id > 0 ORDER BY created_at DESC LIMIT " + LATEST_RESETS;
 
     private AccountsExport() {
     }

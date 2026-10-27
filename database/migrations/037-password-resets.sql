@@ -4,8 +4,9 @@
 -- nothing (ledger id '037-password-resets'). Without it the server still runs: !resetpw says requests aren't available
 -- and /reset/complete answers UNAVAILABLE.
 --
--- password_resets: one row per request the site sent for an existing, resettable account (requests for unknown, banned
--- or bot accounts store nothing). request_id: 32 hex characters. secret_hash: SHA-256 (hex) of the browser's random
+-- password_resets: one row per request the site sent. Requests for unknown, banned or bot accounts are decoys:
+-- account_id 0, account_name a salted HMAC key ('~' and 40 hex characters, never the typed name), no contact or IP; they
+-- only make every name look alike to the site, and GMs and the dashboard never see them. request_id: 32 hex characters. secret_hash: SHA-256 (hex) of the browser's random
 -- 32-byte secret; the secret itself is never stored. contact: what the player typed (a Discord name or such), at most
 -- 64 characters, PG-13. ip_hash / used_ip_hash: the login service's salted IP hash, never a raw IP. state: pending,
 -- approved, denied, used (the password was set) or replaced (a newer request for the account came in). All times are
