@@ -60,21 +60,29 @@ class GameFishingTest {
         return chr;
     }
 
-    @Test void anyChairFishesOnAFishingMapButNotElsewhereAndStandingCancels() {
+    /** A player-side sitter: a normal (non-bot) client, logged in, owning and sitting on {@code chair}. */
+    private static Character playerSitter(int mapId, int chair, int id) {
+        Character chr = mock(Character.class); client.Client client = mock(client.Client.class);
+        MapleMap map = mock(MapleMap.class); Inventory inventory = mock(Inventory.class);
+        when(chr.getId()).thenReturn(id); when(chr.getClient()).thenReturn(client); when(chr.isLoggedinWorld()).thenReturn(true);
+        when(chr.getMap()).thenReturn(map); when(chr.getMapId()).thenReturn(mapId);
+        when(chr.getWorld()).thenReturn(1); when(map.getChannelId()).thenReturn(1); when(map.getId()).thenReturn(mapId);
+        when(chr.getPosition()).thenReturn(new Point(20, 120)); when(chr.getChair()).thenReturn(chair);
+        when(chr.isAlive()).thenReturn(true); when(chr.getInventory(InventoryType.SETUP)).thenReturn(inventory);
+        Item item = new Item(chair, (short) 1, (short) 1);
+        when(inventory.findById(chair)).thenReturn(item); when(inventory.list()).thenReturn(java.util.List.of(item));
+        return chr;
+    }
+
+    /** 1.6.0 (owner, 2026-10-27): players fish from any chair on a fishing map; off a fishing map nothing fishes. */
+    @Test void playersFishFromAnyChairOnAFishingMapButNotElsewhereAndStandingCancels() {
         String enabled = System.getProperty("slums.fishing.enabled"), rewards = System.getProperty("slums.fishing.rewards");
-        Character relaxer = sitter(120010000, 3010000, 1_000_881_011);
-        Character offMap = sitter(100000000, 3010000, 1_000_881_012);
-        Character plain = sitter(120010000, 3010000, 1_000_881_013);
-        BotSM b1 = mock(BotSM.class), b2 = mock(BotSM.class), b3 = mock(BotSM.class);
-        when(b1.getChr()).thenReturn(relaxer); when(b1.getRunning()).thenReturn(true);
-        when(b2.getChr()).thenReturn(offMap); when(b2.getRunning()).thenReturn(true);
-        when(b3.getChr()).thenReturn(plain); when(b3.getRunning()).thenReturn(true);
-        try (var storage = mockStatic(CharacterStorage.class)) {
+        Character relaxer = playerSitter(120010000, 3010000, 881_011);
+        Character offMap = playerSitter(100000000, 3010000, 881_012);
+        Character plain = playerSitter(120010000, 3010000, 881_013);
+        try {
             System.setProperty("slums.fishing.enabled", "true"); System.setProperty("slums.fishing.rewards", "true");
-            storage.when(() -> CharacterStorage.getBotById(1_000_881_011)).thenReturn(b1);
-            storage.when(() -> CharacterStorage.getBotById(1_000_881_012)).thenReturn(b2);
-            storage.when(() -> CharacterStorage.getBotById(1_000_881_013)).thenReturn(b3);
-            assertTrue(GameFishing.choosable(relaxer, map -> true), "a Relaxer is enough to be chosen");
+            assertEquals(3010000, GameFishing.chairToUse(relaxer), "a player's Relaxer is a fishing chair");
             assertTrue(GameFishing.start(relaxer)); assertTrue(GameFishing.active(relaxer));
             assertFalse(GameFishing.start(offMap), "a chair off a fishing map does not fish");
             assertFalse(GameFishing.active(offMap));
@@ -85,6 +93,38 @@ class GameFishingTest {
             assertFalse(GameFishing.active(relaxer), "standing up ends the session");
         } finally {
             GameFishing.cancel(relaxer); GameFishing.cancel(plain);
+            restore("slums.fishing.enabled", enabled); restore("slums.fishing.rewards", rewards);
+        }
+    }
+
+    /** 1.6.0 (owner, 2026-10-27): only bots that own the Fishing Chair (3011000) fish, and only sitting on it. */
+    @Test void botsFishOnlyFromTheFishingChair() {
+        String enabled = System.getProperty("slums.fishing.enabled"), rewards = System.getProperty("slums.fishing.rewards");
+        Character relaxerOnly = sitter(120010000, 3010000, 1_000_881_021);
+        Character plainOnly = sitter(120010000, 3012000, 1_000_881_022);
+        Character owner = sitter(120010000, 3011000, 1_000_881_023);
+        BotSM b1 = mock(BotSM.class), b2 = mock(BotSM.class), b3 = mock(BotSM.class);
+        when(b1.getChr()).thenReturn(relaxerOnly); when(b1.getRunning()).thenReturn(true);
+        when(b2.getChr()).thenReturn(plainOnly); when(b2.getRunning()).thenReturn(true);
+        when(b3.getChr()).thenReturn(owner); when(b3.getRunning()).thenReturn(true);
+        try (var storage = mockStatic(CharacterStorage.class)) {
+            System.setProperty("slums.fishing.enabled", "true"); System.setProperty("slums.fishing.rewards", "true");
+            storage.when(() -> CharacterStorage.getBotById(1_000_881_021)).thenReturn(b1);
+            storage.when(() -> CharacterStorage.getBotById(1_000_881_022)).thenReturn(b2);
+            storage.when(() -> CharacterStorage.getBotById(1_000_881_023)).thenReturn(b3);
+            assertEquals(0, GameFishing.chairToUse(relaxerOnly), "a bot's Relaxer is not a fishing chair");
+            assertFalse(GameFishing.choosable(relaxerOnly, map -> true), "a Relaxer alone never makes a bot pick FISH");
+            assertFalse(GameFishing.start(relaxerOnly), "a bot on a Relaxer does not fish");
+            assertFalse(GameFishing.choosable(plainOnly, map -> true));
+            assertFalse(GameFishing.start(plainOnly), "a bot on a 3012xxx chair does not fish");
+            assertEquals(3011000, GameFishing.chairToUse(owner));
+            assertTrue(GameFishing.choosable(owner, map -> true), "a Fishing Chair owner may pick FISH");
+            assertTrue(GameFishing.start(owner)); assertTrue(GameFishing.active(owner));
+            when(owner.getChair()).thenReturn(3010000);
+            GameFishing.tick(1);
+            assertFalse(GameFishing.active(owner), "a chair owner moved onto another chair stops fishing");
+        } finally {
+            GameFishing.cancel(owner);
             restore("slums.fishing.enabled", enabled); restore("slums.fishing.rewards", rewards);
         }
     }

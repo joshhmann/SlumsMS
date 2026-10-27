@@ -210,9 +210,9 @@ public final class Expects {
                 return Verdict.fail("unknown placeholder in /" + regex + "/");
             }
             List<AutoQaLine> lines = r.lines();
-            List<String> evidence = new ArrayList<>();
+            List<String> replies = new ArrayList<>();
+            List<LlmJudge.Grade> grades = new ArrayList<>();
             int sent = 0;
-            boolean failed = false;
             String previous = "";
             for (AutoQaLine l : lines) {
                 if ("qa".equals(l.source()) && "STEP".equals(l.kind())) {
@@ -232,14 +232,55 @@ public final class Expects {
                 LlmJudge.Grade g = judge.grade(setting, previous, reply);
                 sent++;
                 r.judgeCalls++;
-                evidence.add((g.pass() ? "ok " : "BAD ") + "\"" + reply + "\" - " + g.reason());
-                failed |= !g.pass() && g.decided();
+                replies.add(reply);
+                grades.add(g);
             }
             if (sent == 0) {
                 return Verdict.fail("no bot line matched /" + r.fill(regex) + "/ to judge");
             }
-            return new Verdict(failed ? Status.FAIL : Status.PASS, evidence);
+            return judgedVerdict(replies, grades);
         });
+    }
+
+    /** Most bad grades a judged expectation tolerates, and only when it judged at least {@link #JUDGE_TOLERANCE_MIN} replies. */
+    static final int JUDGE_TOLERATED_BAD = 1;
+    static final int JUDGE_TOLERANCE_MIN = 3;
+
+    /**
+     * The verdict over one check's judged replies. 1.6.0 (owner, 2026-10-27): the judge is noisy, so one bad grade
+     * is tolerated when the check judged 3 or more replies; 2 or more bad grades, or 1 bad out of fewer than 3,
+     * still FAIL. Undecided grades (a judge outage or an unreadable answer) are never bad and do not count as judged,
+     * as before. A line the local rule caught revealing that it is an AI is never tolerated. A tolerated line stays
+     * in the evidence, first, so the run report shows which reply the judge marked.
+     */
+    static Verdict judgedVerdict(List<String> replies, List<LlmJudge.Grade> grades) {
+        List<String> evidence = new ArrayList<>();
+        int judged = 0, bad = 0;
+        boolean hardBad = false;
+        String badLine = null;
+        for (int i = 0; i < grades.size(); i++) {
+            LlmJudge.Grade g = grades.get(i);
+            evidence.add((g.pass() ? "ok " : "BAD ") + "\"" + replies.get(i) + "\" - " + g.reason());
+            if (!g.decided()) {
+                continue;
+            }
+            judged++;
+            if (!g.pass()) {
+                bad++;
+                hardBad |= LlmJudge.REVEALS_REASON.equals(g.reason());
+                badLine = evidence.get(evidence.size() - 1);
+            }
+        }
+        if (bad == 0) {
+            return new Verdict(Status.PASS, evidence);
+        }
+        if (!hardBad && bad <= JUDGE_TOLERATED_BAD && judged >= JUDGE_TOLERANCE_MIN) {
+            evidence.add(0, "tolerated " + bad + " bad of " + judged + " judged: " + badLine);
+            return new Verdict(Status.PASS, evidence);
+        }
+        evidence.add(0, bad + " bad of " + judged + " judged (at most " + JUDGE_TOLERATED_BAD + " tolerated, and only out of "
+                + JUDGE_TOLERANCE_MIN + "+)");
+        return new Verdict(Status.FAIL, evidence);
     }
 
     /**
