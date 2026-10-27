@@ -296,6 +296,8 @@ def build_live(wo):
             + (f'<ul class="board feed">{feed}</ul>' if feed else '<p class="empty nap"><img src="{root}assets/brand/bubble-chin-nap-320.webp" alt="" width="160" height="143" loading="lazy">'
                '<span>Quiet so far. Events, milestones and megaphones show up here as they happen.</span></p>') + '</section>')
     wo.page(f"{WORLD}/index.html", "Live world", body, "index", "Who's online on Bera, the busiest maps and tonight's event.")
+    # the home page's "Online now" reads this (theme.js); it's rebuilt with World every couple of minutes
+    write(wo.out, f"{WORLD}/online.json", json.dumps({"online": total, "generated_at": as_of}))
     return total
 
 

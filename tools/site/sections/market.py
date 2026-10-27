@@ -177,9 +177,10 @@ def _ticks(lo, hi, n=4):
     return out
 
 
-def area_chart(points, label, line_label="Median sale"):
-    """points: [(date 'YYYY-MM-DD', median or None, low, high)]. Gaps (None) break the line. A series with no
-    low/high band (low == high every day) gets a one-entry legend: line_label."""
+def area_chart(points, label, line_label="Median sale", gap_text=f"under {MIN_SAMPLES} sales"):
+    """points: [(date 'YYYY-MM-DD', median or None, low, high)]. Days without a value (None) are bridged with a dashed
+    line. Every day has a hover target with its numbers (theme.js shows them; <title> is the fallback). A series with
+    no low/high band (low == high every day) gets a one-entry legend: line_label."""
     W, H, L, R, T, B = 680, 240, 54, 60, 14, 30
     vals = [v for _, v, lo, hi in points if v is not None] + [x for _, v, lo, hi in points if v is not None for x in (lo, hi)]
     if len(points) < 2 or sum(1 for _, v, _, _ in points if v is not None) < 2:  # one dot is not a chart
@@ -200,13 +201,16 @@ def area_chart(points, label, line_label="Median sale"):
             cur.append((i, v, lo, hi))
     if cur:
         runs.append(cur)
+    for a, b in zip(runs, runs[1:]):  # the days between two runs had no value: a dashed bridge, not a hole
+        s.append(f'<line class="ch-gap" x1="{X(a[-1][0]):.1f}" y1="{Y(a[-1][1]):.1f}" x2="{X(b[0][0]):.1f}" y2="{Y(b[0][1]):.1f}"/>')
     for run in runs:
         band = " ".join(f"{X(i):.1f},{Y(hi):.1f}" for i, _, _, hi in run) + " " + \
                " ".join(f"{X(i):.1f},{Y(lo):.1f}" for i, _, lo, _ in reversed(run))
         line = " ".join(f"{X(i):.1f},{Y(v):.1f}" for i, v, _, _ in run)
         s.append(f'<polygon class="ch-band" points="{band}"/>')
         s.append(f'<polyline class="ch-line" fill="none" points="{line}"/>')
-    for i in sorted({0, len(points) // 2, len(points) - 1}):
+        s.extend(f'<circle class="ch-pt" cx="{X(i):.1f}" cy="{Y(v):.1f}" r="2.5"/>' for i, v, _, _ in run)
+    for i in range(len(points) - 1, -1, -7):  # a date every week, counted back from the newest day
         d = dt.date.fromisoformat(points[i][0])
         s.append(f'<text class="ch-label" x="{X(i):.1f}" y="{H - 8}" text-anchor="middle">{strf(d, "%b %-d")}</text>')
     last = next(((i, v) for i, (_, v, _, _) in reversed(list(enumerate(points))) if v is not None), None)
@@ -214,9 +218,19 @@ def area_chart(points, label, line_label="Median sale"):
         s.append(f'<circle class="ch-dot" cx="{X(last[0]):.1f}" cy="{Y(last[1]):.1f}" r="4.5"/>'
                  f'<text class="ch-end" x="{X(last[0]) + 9:.1f}" y="{Y(last[1]) + 4:.1f}">{mesos(last[1])}</text>')
     band = any(lo != hi for _, v, lo, hi in points if v is not None)
-    return (f'<svg class="chart" viewBox="0 0 {W} {H}" role="img" aria-label="{esc(label)}">{"".join(s)}</svg>'
+    step = (W - L - R) / (len(points) - 1)
+    for i, (day, v, lo, hi) in enumerate(points):
+        d = strf(dt.date.fromisoformat(day), "%b %-d")
+        tip = (f"{d}: {mesos(v)}" + (f" (low {mesos(lo)}, high {mesos(hi)})" if band and lo != hi else "")) if v is not None \
+            else f"{d}: {gap_text}"
+        x = max(L, X(i) - step / 2)
+        s.append(f'<rect class="ch-hit" x="{x:.1f}" y="{T}" width="{min(X(i) + step / 2, W - R) - x:.1f}" height="{H - T - B}" '
+                 f'data-x="{X(i):.1f}" data-tip="{esc(tip)}"><title>{esc(tip)}</title></rect>')
+    return (f'<div class="chart-box"><svg class="chart" viewBox="0 0 {W} {H}" role="img" aria-label="{esc(label)}">{"".join(s)}'
+            f'<line class="ch-guide" x1="0" x2="0" y1="{T}" y2="{H - B}" hidden/></svg><div class="ch-tip" hidden></div></div>'
             f'<p class="legend"><span><i></i>{esc(line_label)}</span>'
-            + ('<span><i class="band"></i>Low to high that day</span>' if band else "") + '</p>')
+            + ('<span><i class="band"></i>Low to high that day</span>' if band else "")
+            + ('<span><i class="gap"></i>No figure that day</span>' if len(runs) > 1 else "") + '</p>')
 
 
 def sparkline(values, label):
@@ -294,7 +308,7 @@ class Market:
         value = mesos(rate) if rate else "not enough trades"
         return (f'<a class="nxcard{" wide" if wide else ""}" href="{root}{MARKET}/nx.html"><span class="k">NX rate</span>'
                 f'<b{"" if rate else " class=none"}>{value}</b><span class="u">mesos per 1,000 NX {when_}{note}</span>'
-                f'{sparkline(vals, "NX rate over recent days")}'
+                + (sparkline(vals, "NX rate over recent days") if wide else "")  # the sidebar card is just the numbers
                 + (f'<span class="k">{len(days)} days {change(first, rate)}</span>' if first and rate else '<span class="k"></span>')
                 + '</a>')
 
@@ -307,7 +321,10 @@ class Market:
         lis = "".join(f'<li><a href="{root}{MARKET}/{h}"{" aria-current=page" if k == here else ""}>{esc(t)}'
                       + (' <span class="mkbadge" data-mk-badge hidden></span>' if k == "mine" else "") + '</a></li>'
                       for h, t, k in links)
-        return (f'<nav class="panel dbside" aria-label="Market"><p class="bar">Slums Market</p><ul class="mk">{lis}</ul>'
+        search = (f'<form class="dbsearch" role="search" data-root="{root}" data-index="{MARKET}/search-index.json" hidden>'
+                  f'<input type="search" placeholder="Find an item..." aria-label="Find an item&rsquo;s price" autocomplete="off">'
+                  f'<ul class="dbhits"></ul></form>')
+        return (f'<nav class="panel dbside" aria-label="Market"><p class="bar">Slums Market</p>{search}<ul class="mk">{lis}</ul>'
                 f'<div class="in">{self.nx_card(root)}</div></nav>')
 
     def page(self, rel, title, body, here, description=""):
@@ -315,7 +332,8 @@ class Market:
         banner = ('<p class="samplebar">Sample data: these prices, names and numbers are placeholders until the server '
                   'export is live.</p>') if self.m["sample"] else ""
         html = (f'<div class="db market" data-mk-root="{root}">{self.sidebar(root, here)}<div class="dbmain data">{banner}'
-                f'{body.replace("{root}", root)}</div></div><script src="{root}assets/market.js" defer></script>')
+                f'{body.replace("{root}", root)}</div></div><script src="{root}assets/market.js" defer></script>'
+                f'<script src="{root}assets/dbsearch.js" defer></script>')
         write(self.out, rel, layout(title, html, root, "market", description))
 
 
@@ -381,6 +399,9 @@ def build_prices(mk):
         mk.page(f"{MARKET}/prices/{item_id}.html", f"{name} price", body, "prices", f"{name}: price history and FM listings on SlumsMS.")
     # the list of every priced item
     out.sort(key=lambda x: -x[1]["sold"])
+    # the sidebar search (dbsearch.js) looks through these: every item with a price page and its median, most traded first
+    write(mk.out, f"{MARKET}/search-index.json",
+          json.dumps([["$", i, mk.name(i), mesos(st["median"]) if st["median"] else ""] for i, st in out], separators=(",", ":"), ensure_ascii=False))
     rows = "".join(f'<tr><td>{mk.icon(i, "{root}")}</td><td>{mk.price_link(i, "{root}")}</td>'
                    f'<td class="r num">{mesos(st["median"]) if st["median"] else "-"}</td><td class="r">{change(st["first"], st["median"])}</td>'
                    f'<td class="r num">{st["sold"]:,}</td></tr>' for i, st in out)
@@ -424,7 +445,7 @@ def build_lists(mk, priced):
                    for d in reversed(days))
     body = (f'<h1>NX rate</h1><p class="id">Mesos per 1,000 NX, from resales of cash-shop items and NX code trades. '
             f'A day with under 5 trades shows no rate.</p>{mk.nx_card("{root}", wide=True)}'
-            f'<section class="panel"><h2 class="bar">History</h2><div class="in">{area_chart(pts, "NX rate per day", "Mesos per 1,000 NX")}</div></section>'
+            f'<section class="panel"><h2 class="bar">History</h2><div class="in">{area_chart(pts, "NX rate per day", "Mesos per 1,000 NX", "not enough trades")}</div></section>'
             f'<section class="panel"><h2 class="bar">By day</h2><div class="tbl"><table class="t"><thead><tr><th>Day (UTC)</th>'
             f'<th class="r">Mesos per 1,000 NX</th><th class="r">Trades</th><th class="r">Cash resales</th><th class="r">NX codes</th>'
             f'</tr></thead><tbody>{rows}</tbody></table></div></section>')

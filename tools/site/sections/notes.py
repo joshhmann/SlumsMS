@@ -133,9 +133,9 @@ def counts_text(rel):
     c = rel["counts"]
     parts = [f"{c['new']} new"] if c["new"] else []
     if c["change"]:
-        parts.append(f"{c['change']} changes")
+        parts.append(f"{c['change']} change{'s' if c['change'] != 1 else ''}")
     if c["fix"]:
-        parts.append(f"{c['fix']} fixes")
+        parts.append(f"{c['fix']} fix{'es' if c['fix'] != 1 else ''}")
     return "".join(f"<span>{p}</span>" for p in parts)
 
 
@@ -152,7 +152,7 @@ def build(out):
     rels = releases()
     for i, rel in enumerate(rels):
         pager = ['<nav class="pager" aria-label="Releases">']
-        pager.append(f'<a class="btn" href="../">&larr; All patch notes</a>')
+        pager.append(f'<a class="btn" href="../">&larr; All news</a>')
         if i + 1 < len(rels):
             older = rels[i + 1]["version"]
             pager.append(f'<a class="btn" href="../{esc(older)}/">Older: {esc(older)}</a>')
@@ -160,16 +160,17 @@ def build(out):
             newer = rels[i - 1]["version"]
             pager.append(f'<a class="btn" href="../{esc(newer)}/">Newer: {esc(newer)}</a>')
         pager.append("</nav>")
-        body = render_release(rel) + "\n" + "".join(pager)
+        body = '<a class="backlink" href="../">&larr; News</a>\n' + render_release(rel) + "\n" + "".join(pager)
         write(out, f"patch-notes/{rel['version']}/index.html",
               layout(f"{rel['version']} patch notes", body, "../../", "notes", rel["summary"]))
+    # News holds every kind of post; each card says which. Releases are the only kind so far ("Update").
     items = "".join(
         f'<li><a class="rel" href="{esc(r["version"])}/"><span class="v">{esc(r["version"])}</span>'
-        f'<span class="t">{esc(r["title"])}</span><span class="d">{esc(r["date"])} &middot; '
+        f'<span class="t"><span class="kind">Update</span>{esc(r["title"])}</span><span class="d">{esc(r["date"])} &middot; '
         f'{esc(r["summary"])}</span><span class="c">{counts_text(r)}</span></a></li>' for r in rels)
-    body = ('<div class="notes-head plain"><p class="eyebrow">News</p><h1>Patch notes</h1>'
-            '<p class="meta">Every release, newest first.</p></div>'
+    body = ('<div class="notes-head plain"><p class="eyebrow">Updates &middot; events &middot; announcements</p><h1>News</h1>'
+            '<p class="meta">What&rsquo;s new on Bera, newest first.</p></div>'
             f'<ul class="rel-list">{items}</ul>')
-    write(out, "patch-notes/index.html", layout("Patch notes", body, "../", "notes",
-                                                "Every SlumsMS release, newest first."))
+    write(out, "patch-notes/index.html", layout("News", body, "../", "notes",
+                                                "SlumsMS updates and news, newest first."))
     return rels

@@ -185,3 +185,60 @@
     });
   });
 })();
+
+/* Sign in: once the login service says who's signed in, the header button becomes "Signed in as X · Sign out"
+   (character, or the account for a new one). Builds without sign-in have no button; without the service it stays. */
+(function () {
+  var a = document.querySelector("[data-signin]");
+  if (!a || !window.fetch) return;
+  var api = a.getAttribute("href") + "../api/login/";
+  fetch(api + "me", { credentials: "same-origin" }).then(function (r) { return r.json(); }).then(function (j) {
+    if (!j.signed_in) return;
+    var who = document.createElement("span"), name = document.createElement("b"), out = document.createElement("button");
+    who.className = "who";
+    name.textContent = j.character || j.account || "a player";
+    out.type = "button"; out.className = "linkbtn"; out.textContent = "Sign out";
+    var line = document.createElement("span"), sep = document.createElement("span");
+    sep.className = "sep"; sep.textContent = " · ";  // shown as one line where there's room, two in the header
+    line.append("Signed in as ", name);
+    who.append(line, sep, out);
+    out.style.justifySelf = "start";
+    out.addEventListener("click", function () {
+      fetch(api + "logout", { method: "POST", credentials: "same-origin" }).then(function () { location.reload(); });
+    });
+    a.replaceWith(who);
+  }).catch(function () {});
+})();
+
+/* The home page's "Bots at peak" becomes "Online now" when World's online.json is there (it's rebuilt every couple
+   of minutes). Without it, or in a build without World, the line stays as written. */
+(function () {
+  var box = document.querySelector("[data-online]");
+  if (!box || !window.fetch) return;
+  fetch("world/online.json", { cache: "no-store" }).then(function (r) { return r.ok ? r.json() : null; }).then(function (j) {
+    if (!j || typeof j.online !== "number") return;
+    box.querySelector("dt").textContent = "Online now";
+    box.querySelector("dd").textContent = j.online.toLocaleString("en-US");
+  }).catch(function () {});
+})();
+
+/* Charts (sections/market.py area_chart): hovering a day shows a guide line and that day's numbers. Each day's
+   <title> is the fallback without script. */
+(function () {
+  document.querySelectorAll(".chart-box").forEach(function (box) {
+    var svg = box.querySelector("svg"), guide = box.querySelector(".ch-guide"), tip = box.querySelector(".ch-tip");
+    if (!svg || !guide || !tip) return;
+    box.querySelectorAll(".ch-hit title").forEach(function (t) { t.remove(); });  // the script tip replaces them
+    svg.addEventListener("pointerover", function (e) {
+      var hit = e.target.closest(".ch-hit");
+      if (!hit) return;
+      var x = hit.getAttribute("data-x");
+      guide.setAttribute("x1", x); guide.setAttribute("x2", x); guide.hidden = false;
+      tip.textContent = hit.getAttribute("data-tip");
+      var vb = svg.viewBox.baseVal, scale = svg.getBoundingClientRect().width / vb.width;
+      var left = Math.min(Math.max(x * scale, tip.offsetWidth / 2 || 60), box.clientWidth - (tip.offsetWidth / 2 || 60));
+      tip.style.left = left + "px"; tip.hidden = false;
+    });
+    svg.addEventListener("pointerleave", function () { guide.hidden = true; tip.hidden = true; });
+  });
+})();

@@ -4,6 +4,7 @@
     python3 tools/site/icons.py --kinds items             # fetch what's missing, decode, write the manifest
     python3 tools/site/icons.py --kinds items,mobs,npcs --no-fetch
     python3 tools/site/icons.py --chrome                  # the few icons the site's own pages use (committed)
+    python3 tools/site/icons.py --thumbs                  # small copies of big monster/NPC pictures for list pages
 
 Only icons for reachable entities (sections/dbdata.py) are made. Steps:
 1. Work out which .img files hold them (equips: Character/<Slot>/0<id>.img; other items: Item/<Tab>/<prefix>.img;
@@ -210,6 +211,31 @@ def plan(data, kinds):
     return jobs
 
 
+THUMB = 64  # list pages show icons in a 30px slot; whole monster and NPC sprites can be 700px across
+
+
+def make_thumbs(out):
+    """cache/site-icons/thumbs/<kind>/<id>.webp: monsters and NPCs bigger than THUMB, shrunk to fit it. List pages use
+    these (sections/database.py); an entity's own page keeps the full picture. Item icons are small already."""
+    from PIL import Image
+    n = 0
+    for kind in ("mobs", "npcs"):
+        src, dst = os.path.join(out, kind), os.path.join(out, "thumbs", kind)
+        os.makedirs(dst, exist_ok=True)
+        for name in os.listdir(src):
+            p, t = os.path.join(src, name), os.path.join(dst, name[:-4] + ".webp")
+            if not name.endswith(".png") or (os.path.isfile(t) and os.path.getmtime(t) >= os.path.getmtime(p)):
+                continue
+            with Image.open(p) as im:
+                if max(im.size) <= THUMB:
+                    continue
+                im = im.convert("RGBA")
+                im.thumbnail((THUMB, THUMB), Image.LANCZOS)
+                im.save(t, "WEBP", quality=88, method=6)
+                n += 1
+    print(f"{n} thumbnails -> {os.path.join(out, 'thumbs')}")
+
+
 def main():
     ap = argparse.ArgumentParser(description=__doc__, formatter_class=argparse.RawDescriptionHelpFormatter)
     ap.add_argument("--hs-data", help="build_data.py output folder (default: %s)" % dbdata.DEFAULT_DIR)
@@ -220,7 +246,11 @@ def main():
     ap.add_argument("--no-fetch", action="store_true", help="only use files already in the cache")
     ap.add_argument("--out", default=CACHE_ICONS)
     ap.add_argument("--chrome", action="store_true", help="only (re)make the site's own icons in docs/site/assets/icons")
+    ap.add_argument("--thumbs", action="store_true", help="only (re)make the small list-page copies (thumbs/) from the icons")
     args = ap.parse_args()
+    if args.thumbs:
+        make_thumbs(args.out)
+        return
     if args.chrome:
         make_chrome(Decoder(args.layer, args.native_wz), args.layer, args.host, not args.no_fetch)
         return

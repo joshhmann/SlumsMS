@@ -51,11 +51,20 @@
       (form.elements.pass.value === form.elements.pass2.value ? null : "The two passwords don't match.");
   });
 
+  // signed in already: no forms, just where to go and the sign-out line; signing out brings the forms back
+  var go = document.getElementById("login-go");
   fetch("../api/login/me", { credentials: "same-origin" }).then(function (r) { return r.json(); }).then(function (j) {
-    if (j.signed_in) { say("You're signed in as " + (j.character || j.account || "a player") + ".", "ok"); outLine.hidden = false; }
+    if (j.signed_in) {
+      say("You're signed in as " + (j.character || j.account || "a player") + ".", "ok");
+      // the links are added here: a public page never links to the signed-in sections (check.py)
+      go.innerHTML = '<a class="btn primary" href="../database/">Slums Street</a><a class="btn" href="../market/">Slums Market</a>';
+      outLine.hidden = false; go.hidden = false; forms.hidden = true;
+    }
   }).catch(function () {});
   outBtn.addEventListener("click", function () {
-    fetch("../api/login/logout", { method: "POST", credentials: "same-origin" }).then(function () { say("Signed out."); outLine.hidden = true; });
+    fetch("../api/login/logout", { method: "POST", credentials: "same-origin" }).then(function () {
+      say("Signed out."); outLine.hidden = true; go.hidden = true; forms.hidden = false;
+    });
   });
   forms.hidden = false;
 })();

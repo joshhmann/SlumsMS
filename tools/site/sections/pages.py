@@ -2,6 +2,8 @@
 import os
 import re
 
+import common
+
 from common import SITE, SRC, esc, layout, meta_comment, read, write
 
 
@@ -24,6 +26,8 @@ def build_home(out, rels):
                  "latest_url": f"patch-notes/{latest['version']}/"}.items():
         body = body.replace("{{" + k + "}}", esc(v))
     body = body.replace("{{notice_board}}", notice_board(rels))
+    # the latest patch has its own card, so the second button is life on Bera (World), in builds that have it
+    body = body.replace("{{life_button}}", '<a class="btn" href="world/">Life in the Slums</a>' if "world" in common.BUILT else "")
     left = re.findall(r"\{\{\w+\}\}", body)
     if left:
         raise SystemExit(f"home.html: unknown placeholders {left}")

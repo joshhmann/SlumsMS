@@ -87,14 +87,18 @@ class Site:
         if os.path.isfile(manifest):
             with open(manifest, encoding="utf-8") as f:
                 self.icons = {k: set(v) for k, v in json.load(f).get("icons", {}).items()}
+        self.thumbs = {k: set() for k in ("items", "mobs", "npcs")}  # filled by copy_icons()
 
     def url(self, kind, ident, root):
         return f"{root}{DB}/{kind}/{ident}.html"
 
     def icon(self, kind, ident, root, big=False, cls="slotc"):
         if ident in self.d[kind] and str(ident) in self.icons.get(kind, ()):  # icons are copied for kept entities only
-            return (f'<span class="{cls}{" big" if big else ""}"><img class="px" src="{root}{DB}/icons/{kind}/{ident}.png" '
-                    f'alt="" loading="lazy"></span>')
+            # small slots take the thumbnail when there is one (icons.py --thumbs): whole sprites are heavy in lists
+            thumb = not big and ident in self.thumbs[kind]
+            src = f"t/{ident}.webp" if thumb else f"{ident}.png"
+            return (f'<span class="{cls}{" big" if big else ""}"><img{"" if thumb else " class=px"} src="{root}{DB}/icons/{kind}/{src}" '
+                    f'alt="" loading="lazy" decoding="async"></span>')
         return f'<span class="{cls}{" big" if big else ""}"></span>'
 
     def link(self, kind, ident, root, name=None):
@@ -561,6 +565,11 @@ def copy_icons(s):
             if os.path.isfile(p):
                 shutil.copyfile(p, os.path.join(dst, f"{ident}.png"))
                 n += 1
+            t = os.path.join(ICONS, "thumbs", kind, f"{ident}.webp")
+            if os.path.isfile(t):
+                os.makedirs(os.path.join(dst, "t"), exist_ok=True)
+                shutil.copyfile(t, os.path.join(dst, "t", f"{ident}.webp"))
+                s.thumbs[kind].add(ident)
     return n
 
 
