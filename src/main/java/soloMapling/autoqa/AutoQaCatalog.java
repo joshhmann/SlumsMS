@@ -1333,6 +1333,9 @@ public final class AutoQaCatalog {
         }
     }
 
+    /** cb-2: how far (px, x plus y) a bot may move between two samples and still be "standing" in a mob. */
+    static final int STAND_PX = 10;
+
     static String positionsMostlyGood(CheckRun r) {
         // Only "inside a mob's body" counts here. Which way a bot faces when sampled says nothing on its own: a bot
         // walking to its next mob faces away from the one it just passed, and a 52-sample check called 22 of them
@@ -1342,22 +1345,33 @@ public final class AutoQaCatalog {
         // next sample. 22 cb-2 logs: passing runs had 0-6 such snapshots, the broken builds 11-21 of 52 with 2-7
         // bots still inside 15 s later. Standing in a mob is the fault, so a bot inside on two samples in a row
         // counts (more than 5% fails); a crowd of passing overlaps (more than 20% of snapshots) still fails too.
+        // TEST 2026-10-27 11:47 (3 of 40 "held"): two of the three were melee bots that had walked 15-66 px between
+        // the samples, fighting the next small snail at dx 4-19. Standing means not moving: a bot inside on two
+        // samples in a row counts only when it is within STAND_PX of where it was.
         List<AutoQaLine> pos = r.matching("POSITION ", null, null);
-        java.util.regex.Pattern who = java.util.regex.Pattern.compile("POSITION (\\S+) ");
-        Map<String, Boolean> wasInside = new HashMap<>();
+        java.util.regex.Pattern who = java.util.regex.Pattern.compile("POSITION (\\S+) .*? at \\((-?\\d+),(-?\\d+)\\)");
+        Map<String, int[]> wasInside = new HashMap<>();
         int inside = 0;
         int stuck = 0;
         for (AutoQaLine l : pos) {
             java.util.regex.Matcher m = who.matcher(l.text());
-            String bot = m.find() ? m.group(1) : "";
+            boolean found = m.find();
+            String bot = found ? m.group(1) : "";
+            int[] at = found ? new int[]{Integer.parseInt(m.group(2)), Integer.parseInt(m.group(3))} : null;
             boolean in = l.message().contains("INSIDE its body");
             if (in) {
                 inside++;
-                if (Boolean.TRUE.equals(wasInside.get(bot))) {
+                int[] before = wasInside.get(bot);
+                if (before != null && (at == null || before.length == 0
+                        || Math.abs(at[0] - before[0]) + Math.abs(at[1] - before[1]) <= STAND_PX)) {
                     stuck++;
                 }
             }
-            wasInside.put(bot, in);
+            if (in) {
+                wasInside.put(bot, at == null ? new int[0] : at);
+            } else {
+                wasInside.remove(bot);
+            }
         }
         if (pos.isEmpty()) {
             return "no POSITION lines";
