@@ -255,6 +255,7 @@ public final class BotGossip {
         reputationFacts(teller, other, present, p, facts, weights);
         dramaFacts(teller, other, p, now, facts, weights);
         newsFacts(teller, other, p, now, rng, facts, weights);
+        heardFacts(teller, other, present, p, now, facts, weights); // a story it heard in an earlier thread
         Fact pick = pick(facts, weights, rng);
         return pick != null ? pick : smallTalk(p, rng);
     }
@@ -495,6 +496,152 @@ public final class BotGossip {
             out.addAll(fact.names());
         }
         return out;
+    }
+
+    // ── stories a listener keeps (1.6.0 social trace: GOSSIP DECIDE / SPREAD) ──
+
+    /** Stories a bot keeps at most (the newest); the oldest goes first. */
+    static final int STORIES_PER_BOT = 4;
+    /** Bots that hold stories at most (least recently told first out): 4,096 x 4 small records, memory only. */
+    static final int STORY_HOLDERS = 4096;
+    /** How long a heard story stays worth retelling (as the world news, {@code BotWorldGossip}). */
+    static final long STORY_TTL_MS = TimeUnit.HOURS.toMillis(8);
+    /**
+     * The fact kinds a listener keeps: public acts ({@link Reputation} marks from the game's own KS / trade / gift / PQ
+     * events), bond drama between bots and the world news (boss kills, drops, weddings, events). Never a chat note:
+     * nothing a real player said in private travels this way. Small talk, spots and levels are not stories.
+     */
+    static final Set<String> KEEPABLE = Set.of("ks", "scam", "gift", "favor", "pq", "beef", "friends", "news");
+
+    /**
+     * A story a bot heard in a thread: the teller's exact {@link Fact}, who told it, and how many mouths deep it is
+     * (1: heard from the one who knew it, at most {@link BotMemory#MAX_HOPS}).
+     */
+    public record Heard(Fact fact, int fromId, String fromName, int hops, long at) {
+    }
+
+    private static final java.util.LinkedHashMap<Integer, java.util.ArrayDeque<Heard>> stories =
+            new java.util.LinkedHashMap<>(256, .75f, true) {
+                @Override
+                protected boolean removeEldestEntry(Map.Entry<Integer, java.util.ArrayDeque<Heard>> eldest) {
+                    return size() > STORY_HOLDERS;
+                }
+            };
+
+    /** Whether a listener may keep this story: a public fact about people, of a kind worth retelling. */
+    static boolean keepable(Fact fact) {
+        if (fact == null || !fact.person() || !KEEPABLE.contains(fact.kind())) {
+            return false;
+        }
+        int s = fact.subjectId();
+        return s == 0 || BotHelpers.isArtificial(s) || !optedOut(s); // @botdrama off: nobody passes it on
+    }
+
+    /** Whether a real player has {@code @botdrama off} (a seam for tests). */
+    private static volatile java.util.function.IntPredicate optedOut = BotGossip::optedOutNow;
+
+    private static boolean optedOut(int charId) {
+        return optedOut.test(charId);
+    }
+
+    private static boolean optedOutNow(int charId) {
+        try {
+            return soloMapling.ArtificialPlayer.BotAffinitySystem.BotAffinity.optedOut(charId);
+        } catch (RuntimeException | LinkageError e) {
+            return true; // unknown: keep nothing about a real player
+        }
+    }
+
+    /**
+     * The GOSSIP thread is over: {@code listener} keeps {@code teller}'s story, word for word (same about, opener and
+     * names), one hop deeper than the teller held it. Memory only, bounded per bot and in all. The kept story, or null
+     * when it is not one to keep (small talk, a private matter, too many hops, the listener's own, already known).
+     */
+    public static Heard keep(int listenerId, int tellerId, String tellerName, Fact fact, long now) {
+        if (listenerId == tellerId || !keepable(fact) || fact.subjectId() == listenerId) {
+            return null;
+        }
+        synchronized (stories) {
+            Heard known = heardOf(tellerId, fact.about(), now);
+            int hops = known == null ? 1 : known.hops() + 1;
+            if (hops > BotMemory.MAX_HOPS) {
+                return null;
+            }
+            java.util.ArrayDeque<Heard> mine = stories.computeIfAbsent(listenerId, k -> new java.util.ArrayDeque<>());
+            for (Heard h : mine) {
+                if (h.fact().about().equals(fact.about())) {
+                    return null; // it knew this one already
+                }
+            }
+            Heard kept = new Heard(fact, tellerId, tellerName, hops, now);
+            mine.addLast(kept);
+            while (mine.size() > STORIES_PER_BOT) {
+                mine.pollFirst();
+            }
+            return kept;
+        }
+    }
+
+    /** The fresh stories this bot heard, oldest first (a copy). */
+    public static List<Heard> heard(int botId, long now) {
+        synchronized (stories) {
+            java.util.ArrayDeque<Heard> mine = stories.get(botId);
+            if (mine == null) {
+                return List.of();
+            }
+            mine.removeIf(h -> now - h.at() > STORY_TTL_MS);
+            return List.copyOf(mine);
+        }
+    }
+
+    /** The fresh story this bot heard with this subject line, or null. */
+    public static Heard heardOf(int botId, String about, long now) {
+        for (Heard h : heard(botId, now)) {
+            if (h.fact().about().equals(about)) {
+                return h;
+            }
+        }
+        return null;
+    }
+
+    /**
+     * Stories {@code teller} heard and may pass on to {@code other}: never back to the bot that told it, never a story
+     * about {@code other} itself, never in front of a real player it is about unless the in-front gate allows it. The
+     * facts stay exact; the opener says it is hearsay ("heard Gm ksed Nayrb") and may name only the story's people.
+     */
+    static void heardFacts(Character teller, Character other, Collection<Character> present, SocialProfile p, long now,
+                           List<Fact> facts, List<Double> weights) {
+        for (Heard h : heard(teller.getId(), now)) {
+            Fact f = h.fact();
+            if (h.fromId() == other.getId() || f.subjectId() == other.getId() || f.subjectId() == teller.getId()
+                    || f.names().contains(other.getName()) || f.names().contains(teller.getName()) || !keepable(f)) {
+                continue;
+            }
+            if (f.negative() && f.subjectId() != 0 && !BotHelpers.isArtificial(f.subjectId())) {
+                Character there = presentChr(present, f.subjectId());
+                if (there != null && !gossipInFront.test(teller, there)) {
+                    continue;
+                }
+            }
+            facts.add(new Fact(f.kind(), f.about(), retellOpener(f.about(), f.about().hashCode() ^ teller.getId()),
+                    f.names(), f.subjectId(), f.negative()));
+            double fresh = Math.max(0.2, 1 - (double) (now - h.at()) / STORY_TTL_MS);
+            weights.add((1 + p.socialPull() + (f.negative() ? p.rivalPull() : 0)) * 1.5 * fresh);
+        }
+    }
+
+    /** The hearsay opener for a retold story: its subject line, as heard ("heard Gm ksed Nayrb"). */
+    static String retellOpener(String about, int seed) {
+        String[] pool = {"heard {A}", "did u hear {A}", "apparently {A} lol", "ppl say {A}"};
+        return pool[Math.floorMod(seed, pool.length)].replace("{A}", about);
+    }
+
+    /** Test seam: forget every kept story; {@code testOptedOut} who has {@code @botdrama off} (null: the real check). */
+    public static void clearStoriesForTest(java.util.function.IntPredicate testOptedOut) {
+        synchronized (stories) {
+            stories.clear();
+        }
+        optedOut = testOptedOut != null ? testOptedOut : BotGossip::optedOutNow;
     }
 
     // ── test seams ──

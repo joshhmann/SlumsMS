@@ -286,8 +286,96 @@ class SocialTraceJudgeTest {
         assertFalse(SocialTraceJudge.repeats(e, C, "prices are up", List.of("Nayrb")));
         assertEquals(Status.FAIL, judge(e).get(Stage.SPREAD).status());
         e.spread.add("x told y");
-        assertEquals(Status.OK, judge(e).get(Stage.SPREAD).status());
+        Verdict independent = judge(e).get(Stage.SPREAD);
+        assertEquals(Status.FAIL, independent.status(), "a GOSSIP story spreads only when someone retells what it heard");
+        assertTrue(independent.reason().contains("only an independent telling: x told y"), independent.reason());
+        e.retold.add("LycanZelda told Cid (heard from Shroom93): Gm ksed Nayrb");
+        Verdict retold = judge(e).get(Stage.SPREAD);
+        assertEquals(Status.OK, retold.status());
+        assertEquals("retold: LycanZelda told Cid (heard from Shroom93): Gm ksed Nayrb", retold.reason());
         assertEquals(Status.NA, judge(goodLfg()).get(Stage.SPREAD).status());
+
+        SocialTraceEntry drama = thread("FRIEND_DRAMA", "Cid rage quit");
+        drama.spreadKey = "Cid rage quit";
+        drama.spread.add("x told y");
+        assertEquals(Status.OK, judge(drama).get(Stage.SPREAD).status(), "other topics still count a repeat");
+    }
+
+    // ── 1.6.0: GOSSIP keeps the story, RIVALRY escalates, threads note "we talked" ──
+
+    @Test
+    void aGossipListenerKeepingTheStoryIsTheDecisionAndKeptIsItsAct() {
+        SocialTraceEntry e = thread("GOSSIP", "Gm ksed Nayrb");
+        e.factAbout = "Gm ksed Nayrb";
+        EnumMap<Stage, Verdict> before = judge(e);
+        assertEquals(Status.NONE, before.get(Stage.DECIDE).status());
+        assertEquals(SocialTraceJudge.THREAD_NO_PATH.get("GOSSIP"), before.get(Stage.DECIDE).reason());
+
+        e.decided = "listener keeps the story";
+        assertEquals(Status.OK, judge(e).get(Stage.DECIDE).status());
+        assertEquals("story now known by LycanZelda: Gm ksed Nayrb", judge(e).get(Stage.DECIDE).data().get("intent"));
+        assertEquals(Status.FAIL, judge(e).get(Stage.ACT).status());
+        e.events.add(new Event(T0 + 9_000, B, "kept", "LycanZelda heard from Shroom93: Gm ksed Nayrb (hop 1)"));
+        Verdict act = judge(e).get(Stage.ACT);
+        assertEquals(Status.OK, act.status());
+        assertTrue(act.reason().startsWith("kept after 9 s"), act.reason());
+
+        SocialTraceEntry small = thread("GOSSIP", "prices in the FM");
+        small.decideWhy = "the listener keeps nothing: small talk, nobody in it";
+        assertEquals(Status.NONE, judge(small).get(Stage.DECIDE).status());
+        assertEquals(small.decideWhy, judge(small).get(Stage.DECIDE).reason());
+    }
+
+    @Test
+    void aRivalryEscalationIsDecidedThenCarriedOutOrDroppedWithItsReason() {
+        SocialTraceEntry no = thread("RIVALRY", "Shroom93 has beef with LycanZelda");
+        no.decideWhy = "no escalation: the roll said no (chance 0.12)";
+        assertEquals(Status.NONE, judge(no).get(Stage.DECIDE).status());
+        assertEquals(no.decideWhy, judge(no).get(Stage.DECIDE).reason());
+
+        SocialTraceEntry e = thread("RIVALRY", "Shroom93 has beef with LycanZelda");
+        e.decided = "escalate: Shroom93 goes after LycanZelda in 240 s";
+        assertEquals(Status.OK, judge(e).get(Stage.DECIDE).status());
+        e.events.add(new Event(T0 + 240_000, A, "escalate-drop", "no real player can see the rival's map"));
+        Verdict dropped = judge(e).get(Stage.ACT);
+        assertEquals(Status.FAIL, dropped.status());
+        assertTrue(dropped.reason().endsWith(": no real player can see the rival's map"), dropped.reason());
+        e.events.add(new Event(T0 + 300_000, A, "escalate", "came to smack-talk LycanZelda on 100000000: not u"));
+        assertEquals(Status.OK, judge(e).get(Stage.ACT).status());
+    }
+
+    @Test
+    void rememberNotesTheTalkedEpisode() {
+        SocialTraceEntry e = goodLfg();
+        Verdict silent = judge(e).get(Stage.REMEMBER);
+        assertTrue(silent.data().containsKey("memory"), "no talked episode is said so");
+        e.remembered.add("talked: Shroom93 + LycanZelda (no life memory)");
+        Verdict v = judge(e).get(Stage.REMEMBER);
+        assertEquals(Status.OK, v.status());
+        assertTrue(v.reason().endsWith("; talked: Shroom93 + LycanZelda (no life memory)"), v.reason());
+        assertEquals(List.of("talked: Shroom93 + LycanZelda (no life memory)"), v.data().get("written"));
+    }
+
+    @Test
+    void aRetoldStoryIsCreditedToTheOpenGossipEntryOnly() {
+        SocialTrace.resetForTest();
+        SocialTrace.onForTest(true);
+        try {
+            SocialTraceEntry gossip = thread("GOSSIP", "Gm ksed Nayrb");
+            gossip.spreadKey = "Gm ksed Nayrb";
+            SocialTraceEntry rival = new SocialTraceEntry("t-r", "thread", "RIVALRY", T0, 1, 1, A, "Shroom93", C, "Cid",
+                    List.of("x"));
+            rival.spreadKey = "Gm ksed Nayrb";
+            SocialTrace.add(gossip);
+            SocialTrace.add(rival);
+            SocialTrace.storyRetold(A, "Shroom93", "Cid", "Gm ksed Nayrb", "someone");
+            assertTrue(gossip.retold.isEmpty(), "the original teller telling it again is no spread");
+            SocialTrace.storyRetold(B, "LycanZelda", "Cid", "gm KSED nayrb", "Shroom93");
+            assertEquals(List.of("LycanZelda told Cid (heard from Shroom93): gm KSED nayrb"), gossip.retold);
+            assertTrue(rival.retold.isEmpty());
+        } finally {
+            SocialTrace.resetForTest();
+        }
     }
 
     // ── the drama lines (formats from TEST logs, 2026-10-26) ──

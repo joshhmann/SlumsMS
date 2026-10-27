@@ -24,10 +24,12 @@ import java.util.regex.Pattern;
  * 1.6.0 (owner 2026-10-26): the social trace's stage rules - pure, so {@code SocialTraceJudgeTest} pins them. Given an
  * entry's raw facts it says, per stage, ok / fail / none (no code does this step) / n/a, with a short reason.
  *
- * <p>The DECIDE table is what the code does today (read 2026-10-26): a bot thread changes the two bots' bond and
- * nothing else - no TRADE thread becomes a trade, no GOSSIP thread a story the
- * listener keeps. When one of those links is built, its row here changes from {@code null} to the act it should lead
- * to, and ACT starts judging it.
+ * <p>The DECIDE table is what the code does today (read 2026-10-26): a bot thread changes the two bots' bond, and
+ * since 1.6.0 a GOSSIP listener keeps the story ({@code BotGossip.keep}, act "kept"), a RIVALRY thread may escalate
+ * ({@code BotBotRivalry.decideEscalation}, act "escalate") and an LFG thread whose other bot said yes leads to its
+ * party's PQ trip ({@code LfgParty}, act "lfg"); the thread records that decision, or why there was none
+ * ({@link #THREAD_ACTS}). No TRADE thread becomes a trade. When a link is built, it records its decision the same way
+ * and ACT starts judging it.
  */
 public final class SocialTraceJudge {
 
@@ -329,8 +331,8 @@ public final class SocialTraceJudge {
             "LFG", "an LFG thread with no answer decided (no PQ fits, or an older build)",
             "TRADE", "no code path turns a TRADE thread into a trade (there is no bot-to-bot trade at all)",
             "TRAINING", "no code path moves either bot to the spot a TRAINING thread names",
-            "GOSSIP", "no code path stores the story for the listener (it is spoken only)",
-            "RIVALRY", "no code path escalates from a RIVALRY thread (only the bond sours)",
+            "GOSSIP", "the listener kept no story (nothing was said, or the thread never finished)",
+            "RIVALRY", "no escalation was rolled (nothing was said, or the thread never finished)",
             "GUILD_BEEF", "no code path feeds a GUILD_BEEF thread into the guild war (only the bond sours)",
             "FRIEND_DRAMA", "no code path records who heard the drama (it is spoken only)");
 
@@ -353,10 +355,18 @@ public final class SocialTraceJudge {
             "FLIRT", "a crush line is speech only",
             "JAB", "a guild jab is speech only (no bond or war effect)");
 
+    /** Thread topics whose decision is recorded by the code ({@code SocialTrace.threadDecided}), and its act kinds. */
+    static final Map<String, Set<String>> THREAD_ACTS = Map.of(
+            "GOSSIP", Set.of("kept"),
+            "RIVALRY", Set.of("escalate"));
+
     /** 1.6.0: an LFG thread whose other bot said yes leads to its party's PQ trip ({@code LfgParty}). */
     static Decision decision(SocialTraceEntry e) {
         if ("thread".equals(e.kind)) {
-            return "LFG".equals(e.topic) && e.lfgDecision != null ? new Decision(e.lfgDecision, Set.of("lfg")) : null;
+            if ("LFG".equals(e.topic) && e.lfgDecision != null) {
+                return new Decision(e.lfgDecision, Set.of("lfg"));
+            }
+            return e.decided == null ? null : new Decision(e.decided, THREAD_ACTS.getOrDefault(e.topic, Set.of()));
         }
         return DRAMA_DECISIONS.get(e.topic);
     }
@@ -372,7 +382,8 @@ public final class SocialTraceJudge {
         if ("thread".equals(e.kind) && "LFG".equals(e.topic) && e.lfgDecline != null) {
             return new Verdict(Status.NA, "no party: " + e.lfgDecline, data);
         }
-        String why = "thread".equals(e.kind) ? THREAD_NO_PATH.get(e.topic) : DRAMA_NO_PATH.get(e.topic);
+        String why = "thread".equals(e.kind) ? (e.decideWhy != null ? e.decideWhy : THREAD_NO_PATH.get(e.topic))
+                : DRAMA_NO_PATH.get(e.topic);
         return new Verdict(Status.NONE, why == null ? "no code path turns this into a decision" : why, data);
     }
 
@@ -407,6 +418,7 @@ public final class SocialTraceJudge {
         Map<String, List<String>> nextLife = new LinkedHashMap<>();
         boolean carried = false;
         Event done = null;
+        Event dropped = null;
         for (Event ev : e.events) {
             if (ev.at() < e.startedAt || ev.at() > end) {
                 continue;
@@ -424,6 +436,9 @@ public final class SocialTraceJudge {
             if (!carried && d != null && d.actKinds().contains(ev.kind())) {
                 carried = true;
                 done = ev;
+            }
+            if (dropped == null && d != null && ev.kind().endsWith("-drop")) {
+                dropped = ev;
             }
         }
         data.put("windowMin", ACT_WINDOW_MS / 60_000);
@@ -446,7 +461,7 @@ public final class SocialTraceJudge {
                     + " s: " + done.text(), data);
         }
         return new Verdict(Status.FAIL, "not carried out within " + ACT_WINDOW_MS / 60_000 + " min (" + d.decision()
-                + (e.lfgFail == null ? "" : ": " + e.lfgFail) + ")", data);
+                + (e.lfgFail == null ? "" : ": " + e.lfgFail) + ")" + (dropped == null ? "" : ": " + dropped.text()), data);
     }
 
     /** Something the two did together anyway (a shared party, the same PQ map), from the close-time read-out. */
@@ -470,9 +485,10 @@ public final class SocialTraceJudge {
         if (!e.remembered.isEmpty()) {
             d.put("written", List.copyOf(e.remembered));
         }
-        if ("thread".equals(e.kind)) {
-            d.put("memory", "threads write no BotMemory or LifeMemory episode, and the listener keeps no story");
+        if ("thread".equals(e.kind) && e.remembered.isEmpty()) {
+            d.put("memory", "no LifeMemory.talked episode (nothing said, the pair's talk cooldown, or not finished)");
         }
+        String notes = e.remembered.isEmpty() ? "" : "; " + String.join("; ", e.remembered);
         if (e.before == null || e.after == null) {
             return new Verdict(e.remembered.isEmpty() ? Status.NONE : Status.OK, e.remembered.isEmpty()
                     ? "no bond read and nothing written" : e.remembered.get(0), d);
@@ -485,9 +501,9 @@ public final class SocialTraceJudge {
                 + fmt(e.after.ba()) + " (" + e.after.stateBa() + ")";
         if (moved < 0.01) {
             return new Verdict(Status.FAIL, "bond unchanged (pair cooldown, bonds off, or a weaker bond dropped): "
-                    + text, d);
+                    + text + notes, d);
         }
-        return new Verdict(Status.OK, "bond " + text, d);
+        return new Verdict(Status.OK, "bond " + text + notes, d);
     }
 
     private static Map<String, Object> bond(SocialTraceEntry.Bond b) {
@@ -512,12 +528,24 @@ public final class SocialTraceJudge {
         }
         d.put("story", e.spreadKey);
         d.put("windowMin", SPREAD_WINDOW_MS / 60_000);
+        if (!e.retold.isEmpty()) {
+            d.put("retold", List.copyOf(e.retold));
+        }
         if (!e.spread.isEmpty()) {
             d.put("repeats", List.copyOf(e.spread));
+        }
+        if ("GOSSIP".equals(e.topic)) { // 1.6.0: the listener keeps the story; only a real retelling of it counts
+            if (!e.retold.isEmpty()) {
+                return new Verdict(Status.OK, "retold: " + e.retold.get(0), d);
+            }
+            return new Verdict(Status.FAIL, "nobody retold the story it heard within " + SPREAD_WINDOW_MS / 60_000
+                    + " min" + (e.spread.isEmpty() ? "" : " (only an independent telling: " + e.spread.get(0) + ")"), d);
+        }
+        if (!e.spread.isEmpty()) {
             return new Verdict(Status.OK, "repeated: " + e.spread.get(0), d);
         }
         return new Verdict(Status.FAIL, "no third bot repeated it within " + SPREAD_WINDOW_MS / 60_000
-                + " min (a listener never keeps a thread's story; only independent pulls of the same news can)", d);
+                + " min (only independent pulls of the same news or drama count here)", d);
     }
 
     /**
