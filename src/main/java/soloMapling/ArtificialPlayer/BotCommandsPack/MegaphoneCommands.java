@@ -21,6 +21,7 @@ public class MegaphoneCommands {
     private final static List<Integer> MapleTVPartnerItems = List.of(5075001, 5075002);
 
     public static void BotItemMegaphone(Character fakechar, String message, Item item) {
+        message = soloMapling.ArtificialPlayer.BotConvo.ChannelMentions.forSpeaker(fakechar, message); // never name a channel the world lacks
         soloMapling.ArtificialPlayer.BotConvo.SayDo.said(fakechar, null, message, "megaphone");
         soloMapling.site.SiteFeed.megaphone(fakechar, message); // 1.6.0 Track D: the website's feed (memory only)
         String msg = fakechar.getName() + " : " + message; // medal + // optional medal
@@ -38,6 +39,7 @@ public class MegaphoneCommands {
     }
 
     public static void BotSuperMegaphone(Character fakechar, String msg) {
+        msg = soloMapling.ArtificialPlayer.BotConvo.ChannelMentions.forSpeaker(fakechar, msg); // never name a channel the world lacks
         soloMapling.ArtificialPlayer.BotConvo.SayDo.said(fakechar, null, msg, "megaphone");
         soloMapling.site.SiteFeed.megaphone(fakechar, msg); // 1.6.0 Track D: the website's feed (memory only)
         BotSuperMegaphone(fakechar, msg, true);
@@ -61,6 +63,7 @@ public class MegaphoneCommands {
 
 
     public static void BotAvatarMegaphone(Character fakechar, String msg) {
+        msg = soloMapling.ArtificialPlayer.BotConvo.ChannelMentions.forSpeaker(fakechar, msg); // never name a channel the world lacks
         soloMapling.ArtificialPlayer.BotConvo.SayDo.said(fakechar, null, msg, "megaphone");
         int itemId = getRandomElement(AvatarMegaphoneItems);
         BotAvatarMegaphone(fakechar, msg, itemId);
@@ -76,11 +79,13 @@ public class MegaphoneCommands {
     }
 
     public static void BotMapleTV(Character fakechar, String msg) {
+        msg = soloMapling.ArtificialPlayer.BotConvo.ChannelMentions.forSpeaker(fakechar, msg); // never name a channel the world lacks
         int itemId = getRandomElement(MapleTVItems);
         BotMapleTVFull(fakechar, msg, itemId, null);
     }
 
     public static void BotMapleTVPartner(Character fakechar, String msg, Character partner) {
+        msg = soloMapling.ArtificialPlayer.BotConvo.ChannelMentions.forSpeaker(fakechar, msg); // never name a channel the world lacks
         int itemId = getRandomElement(MapleTVPartnerItems);
         BotMapleTVFull(fakechar, msg, itemId, partner);
     }
