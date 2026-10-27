@@ -139,9 +139,11 @@ class PersonalSpaceChatTest {
     }
 
     @Test
-    void aStrangerNoLongerShovesAChattingBotAwayFromThePlayer() {
+    void aStrangerNoLongerShovesAChattingBotAwayFromThePlayer() throws Exception {
         Character bot = town(BotStore.BOT_ID_BASE + 60_001, new Point(0, 274), new Point(40, 274), new Point(12, 274));
+        long repliesBefore = replies();
         chat(bot, "hey, where are you going?");
+        awaitReply(repliesBefore); // never leave a reply in flight: it would be counted by the next test's wait
         try (var movement = mockStatic(GCMovement.class); var commands = mockStatic(MovementCommands.class);
              var tuning = mockStatic(BotCombatTuning.class)) {
             movement.when(() -> GCMovement.isEnabled(bot)).thenReturn(false);
@@ -156,9 +158,11 @@ class PersonalSpaceChatTest {
     }
 
     @Test
-    void aPartnerStillGetsTheFifteenToThirtyPixelRoom() {
+    void aPartnerStillGetsTheFifteenToThirtyPixelRoom() throws Exception {
         Character bot = town(BotStore.BOT_ID_BASE + 60_010, new Point(0, 274), new Point(6, 274), new Point(400, 274));
+        long repliesBefore = replies();
         chat(bot, "hi hi");
+        awaitReply(repliesBefore); // as above: no reply left in flight for the next test
         try (var movement = mockStatic(GCMovement.class); var commands = mockStatic(MovementCommands.class);
              var tuning = mockStatic(BotCombatTuning.class)) {
             movement.when(() -> GCMovement.isEnabled(bot)).thenReturn(false);
