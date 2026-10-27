@@ -14,6 +14,12 @@ the format and wording rules are the site's. Players read them; keep them warm, 
   {#glance .cards}" with emoji cards, "## Changes {#changes}" grouped by area with [New]/[Change]/[Fix] bullets, then
   "## Still settling in" (new things that will be tuned) and "## Coming in <next>" (from docs/roadmap/<next>.md,
   player-visible items only), and a 🍁 sign-off.
+- Icons: the "At a glance" cards lead with a game icon, not an emoji: `**{icon:item:<id>|<emoji>} Title.**` (or
+  `{icon:npc:<id>|<emoji>}`), ids from Slums Street, the emoji as the fallback. A new icon must be added to the site
+  repo's `tools/site/icons.py` CHROME (items) or CHROME_NPCS (NPCs, decoded with `--kinds npcs` first) and committed
+  with `python3 tools/site/icons.py --chrome`; a token without a fallback whose icon is missing fails the build.
+  [New]/[Change]/[Fix] badges are automatic. `### Heading {#id}` gives a sub-heading an anchor. Once a release's notes
+  are on the site, its copy there (`docs/site/releases/<v>.md`) is the source of truth.
 - Wording: never MapleStory, Nexon, Wizet, v83, GMS or MapleRoot ("the original game" is fine); bots are "regulars"
   and never AI/models; nothing internal (decision models, shadow logging, auto-QA, TEST, dashboards, tickets, files).
 - Truth: every line must match what actually ships switched on. Verify each item in code on the release branch and
