@@ -158,12 +158,35 @@ def validate(w):
     return problems
 
 
+FM_ENTRANCE = 910000000
+FM_ROOM = re.compile(r"\s*Free Market\s*<\s*(\d+)\s*>\s*", re.I)
+
+
+def fm_room(map_id, name=None):
+    """The room number of a Free Market room (maps 910000001-910000022, named "Free Market<12>"), else None."""
+    m = FM_ROOM.fullmatch(name) if isinstance(name, str) else None
+    if m:
+        return int(m.group(1))
+    if _is(map_id, int) and FM_ENTRANCE < map_id <= FM_ENTRANCE + 22:
+        return map_id - FM_ENTRANCE
+    return None
+
+
 def pt_day(iso):
     t = dt.datetime.fromisoformat(iso)
     if t.tzinfo is None:
         t = t.replace(tzinfo=dt.timezone.utc)
     t = t.astimezone(market.PT) if market.PT else t - dt.timedelta(hours=7)
     return t.date()
+
+
+def utc_date(iso):
+    """'2026-10-27T13:00:00Z' -> '2026-10-27' (the UTC day), None when it isn't a time."""
+    try:
+        t = dt.datetime.fromisoformat(str(iso).replace("Z", "+00:00"))
+    except ValueError:
+        return None
+    return (t.replace(tzinfo=dt.timezone.utc) if t.tzinfo is None else t.astimezone(dt.timezone.utc)).date().isoformat()
 
 
 def clock(iso):
@@ -181,6 +204,11 @@ class World:
     def map_name(self, map_id, fallback, root):
         """A map's name, linked to its Slums Street page when this build has the database."""
         name = fallback if isinstance(fallback, str) else None
+        room = fm_room(map_id, name)
+        if room:  # the rooms have no page of their own: "Free Market room 12", linked to the entrance's
+            if self.links_db and self.db and FM_ENTRANCE in self.db.get("maps", {}):
+                return f'<a href="{root}database/maps/{FM_ENTRANCE}.html">Free Market room {room}</a>'
+            return f"Free Market room {room}"
         if not _is(map_id, int):
             return esc(name or "somewhere")
         if self.db and map_id in self.db.get("maps", {}):
@@ -366,8 +394,22 @@ BOARDS = [("level", "Level", "Level and rebirths: rebirths first, then level."),
           ("fame", "Fame", "The most famous characters on Bera."),
           ("guilds", "Guilds", "Guild points, then members."),
           ("traders", "Traders", "Finished trades and the ones that fell through, for everyone with at least 5 trades."),
+          ("dojo", "Dojo", "Mu Lung Dojo: the highest floor reached, then the fastest time."),
           ("bosses", "Boss clears", "Expedition clears of Zakum, Horntail and Pink Bean.")]
-# Dojo (COLS["dojo"]) waits: the server records no best floor or time yet, so 1.6.0 has no Dojo board.
+# boards that only show once the export has rows for them (the server may not record them yet)
+OPTIONAL_BOARDS = {"dojo"}
+BOARD_WORDS = {"level": "level", "fame": "fame", "guilds": "guild", "traders": "trader", "dojo": "Dojo", "bosses": "boss"}
+
+
+def boards(lb):
+    """The BOARDS this export fills: an optional board with no rows is left out (no page, tab or mention)."""
+    return [b for b in BOARDS if b[0] not in OPTIONAL_BOARDS or board_rows(lb, b[0])]
+
+
+def boards_description(shown):
+    words = [BOARD_WORDS[k] for k, _, _ in shown]
+    text = ", ".join(words[:-1]) + " and " + words[-1] if len(words) > 1 else "".join(words)
+    return text[:1].upper() + text[1:] + " rankings on Bera."
 
 
 # The export's job names are the server's enum names title-cased ("Fp_archmage"); these read as the game says them.
@@ -461,8 +503,9 @@ def build_rankings(wo):
         os.makedirs(os.path.join(wo.out, WORLD, "avatars"), exist_ok=True)
         for f in set(AVATARS.values()):
             shutil.copyfile(os.path.join(av["dir"], f), os.path.join(wo.out, WORLD, "avatars", f))
-    tabs = "".join(f'<a href="{{root}}{WORLD}/rankings/{k}.html" class="chip">{esc(t)}</a>' for k, t, _ in BOARDS)
-    for kind, title, intro in BOARDS:
+    shown = boards(lb)
+    tabs = "".join(f'<a href="{{root}}{WORLD}/rankings/{k}.html" class="chip">{esc(t)}</a>' for k, t, _ in shown)
+    for kind, title, intro in shown:
         rows, limit = board_rows(lb, kind), 100
         body = (f'<h1>{esc(title)}</h1><p class="id">{esc(intro)}</p><p class="chips">{tabs}</p>'
                 f'<section class="panel"><h2 class="bar">{esc(title)}</h2>{table(kind, rows, limit)}</section>')
@@ -480,14 +523,14 @@ def build_rankings(wo):
         wo.page(f"{WORLD}/rankings/{kind}.html", f"{title} rankings", body, "rankings")
     # the overview: the top five of each
     cards = "".join(f'<section class="panel"><h2 class="bar">{esc(t)} <a href="{{root}}{WORLD}/rankings/{k}.html">All &raquo;</a></h2>'
-                    f'{table(k, board_rows(lb, k), 5)}</section>' for k, t, _ in BOARDS)
+                    f'{table(k, board_rows(lb, k), 5)}</section>' for k, t, _ in shown)
     as_of = f' &middot; as of {esc(when(lb["generated_at"]))}' if lb.get("generated_at") else ""
     body = (f'<div class="headfig"><div><h1>Rankings</h1><p class="id">Everyone on Bera on one board, like it should be{as_of} &middot; '
             f'refreshes every 15 minutes</p></div>'
             f'<img class="sidekick" src="{{root}}assets/brand/full-cap-tip-360.webp" srcset="{{root}}assets/brand/full-cap-tip-360.webp 360w, '
             f'{{root}}assets/brand/full-cap-tip-560.webp 560w" sizes="140px" alt="Slums-chan tips her cap with a big grin" width="360" height="559"></div>'
             f'<div class="rankgrid">{cards}</div>')
-    wo.page(f"{WORLD}/rankings/index.html", "Rankings", body, "rankings", "Level, fame, guild, trader, Dojo and boss rankings on Bera.")
+    wo.page(f"{WORLD}/rankings/index.html", "Rankings", body, "rankings", boards_description(shown))
 
 
 def build_economy(wo):
@@ -498,14 +541,20 @@ def build_economy(wo):
     totals = [d["mesos_total"] for d in days if _is(d.get("mesos_total"), int)]
     first = totals[0] if len(totals) >= 2 else None  # a trend needs two days
     last = next((d for d in reversed(days) if d.get("mesos_made") is not None), days[-1] if days else {})
+    utc_today = utc_date(e.get("as_of"))
+    if last.get("date"):
+        on = (f"today so far (UTC day {market.day(last['date'])})" if last["date"] == utc_today
+              else f"on UTC day {market.day(last['date'])}")
+    else:
+        on = ""
     tiles = (f'<div class="mkstats"><div class="hot"><small>Mesos in the game</small><b>{mesos(e.get("mesos_total"))}</b>'
              f'<span>players and bots</span></div>'
              f'<div><small>{len(days)}-day trend</small><b>{change(first, e.get("mesos_total")) or "-"}</b><span>total mesos</span></div>'
-             f'<div><small>Made {esc(last.get("date", ""))}</small><b>{mesos(last.get("mesos_made"))}</b><span>drops, quests, NPC sales</span></div>'
-             f'<div><small>Spent {esc(last.get("date", ""))}</small><b>{mesos(last.get("mesos_spent"))}</b><span>shops, fees, taxes</span></div></div>')
+             f'<div><small>Made {esc(on)}</small><b>{mesos(last.get("mesos_made"))}</b><span>drops, quests, NPC sales</span></div>'
+             f'<div><small>Spent {esc(on)}</small><b>{mesos(last.get("mesos_spent"))}</b><span>shops, fees, taxes</span></div></div>')
     if len(totals) >= 2:
         trend = area_chart([(d["date"], d.get("mesos_total"), d.get("mesos_total"), d.get("mesos_total")) for d in days],
-                           "Total mesos per day", "Mesos held, players and bots")
+                           "Total mesos per day", "Mesos held, players and bots", gap_text="no total yet")
         flow = bars([(d["date"], d.get("mesos_made"), d.get("mesos_spent")) for d in days], "Mesos made and spent per day",
                     "Made", "Spent")
     else:
@@ -525,14 +574,18 @@ def build_economy(wo):
     nxpts = [(d["date"], d.get("mesos_per_1000nx"), d.get("mesos_per_1000nx"), d.get("mesos_per_1000nx")) for d in nx]
     rate = next((d.get("mesos_per_1000nx") for d in reversed(nx) if d.get("mesos_per_1000nx")), None)
     market_link = ("market/index.html" if "market" in common.BUILT else "login/index.html?next=/market/")
+    econ_link = "market/economy.html" if "market" in common.BUILT else "login/index.html?next=/market/economy.html"
+    other = (f'<p class="small mknote">Today&rsquo;s numbers on their own (trades in the last 24 hours, FM shops open now, '
+             f'mesos removed by tax and fees) are on the <a href="{{root}}{econ_link}">'
+             f'Slums Market economy page</a>{"" if "market" in common.BUILT else " (sign in)"}.</p>')
     body = (f'<h1>Bera economy</h1><p class="id">Totals for the whole world, players and bots together &middot; as of '
-            f'{esc(when(e["as_of"]))}</p>{tiles}'
+            f'{esc(when(e["as_of"]))}</p>{other}{tiles}'
             f'<section class="panel"><h2 class="bar">Mesos in the game <small>per day</small></h2><div class="in">{trend}</div></section>'
             f'<section class="panel"><h2 class="bar">Made vs spent <small>per UTC day</small></h2><div class="in">{flow}</div></section>'
             f'<section class="panel"><h2 class="bar">NX rate <small>{"1,000 NX = " + mesos(rate) + " mesos" if rate else "not enough trades yet"}</small></h2>'
-            f'<div class="in">{area_chart(nxpts, "NX rate per day", "Mesos per 1,000 NX")}</div></section>'
+            f'<div class="in">{area_chart(nxpts, "NX rate per day", "Mesos per 1,000 NX", "not enough trades")}</div></section>'
             f'<section class="panel"><h2 class="bar">Prices <a href="{{root}}{market_link}">Slums Market &raquo;</a></h2>'
-            f'<div class="tbl"><table class="t"><thead><tr><th>Item</th><th class="r">Median</th><th class="r">{market.HISTORY_DAYS} days</th>'
+            f'<div class="tbl"><table class="t"><thead><tr><th>Item</th><th class="r">Median</th><th class="r">{market.span(m)}</th>'
             f'<th class="r">Sold</th></tr></thead><tbody>{prow}</tbody></table></div>'
             f'<p class="small" style="padding:6px 16px 10px;margin:0">The {min(20, len(priced))} most traded items. Every price, '
             f'the FM shops open now and recent sales are in the Slums Market (players only: sign in with your game account).</p></section>')
@@ -547,9 +600,17 @@ def build_hot(wo):
     def name(kind, i, fallback=None):
         rec = db.get(kind, {}).get(i) if _is(i, int) else None
         return (fallback if isinstance(fallback, str) and fallback else None) or (rec or {}).get("name") or f"#{i}"
-    maps = [{"id": r.get("map"), "name": name("maps", r.get("map"), r.get("name")), "count": r.get("count"),
-             "page": r.get("map") in db.get("maps", {})}
-            for r in (wd.get("busiest_maps") or wd.get("busiestMaps") or [])[:5] if isinstance(r, dict)]
+    maps = []
+    for r in (wd.get("busiest_maps") or wd.get("busiestMaps") or [])[:5]:
+        if not isinstance(r, dict):
+            continue
+        room = fm_room(r.get("map"), r.get("name"))
+        if room:  # theme.js links the entry by id: a room links to the FM entrance's page
+            maps.append({"id": FM_ENTRANCE, "name": f"Free Market room {room}", "count": r.get("count"),
+                         "page": FM_ENTRANCE in db.get("maps", {})})
+        else:
+            maps.append({"id": r.get("map"), "name": name("maps", r.get("map"), r.get("name")), "count": r.get("count"),
+                         "page": r.get("map") in db.get("maps", {})})
     mobs = [{"id": r.get("mob"), "name": name("mobs", r.get("mob"), r.get("name")), "count": r.get("kills"),
              "page": r.get("mob") in db.get("mobs", {})}
             for r in (wd.get("top_mobs") or [])[:5] if isinstance(r, dict) and _is(r.get("kills"), int)]

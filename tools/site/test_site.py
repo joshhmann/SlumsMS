@@ -339,6 +339,86 @@ class MarketTest(unittest.TestCase):
         self.assertIn("down", market.change(100, 90))
         self.assertEqual(market.change(None, 90), "")
 
+    def test_median_names_its_day_and_charts_say_lowest_and_highest(self):
+        from sections import market
+        hist = [("2026-10-24", {"median": 100, "low": 90, "high": 110, "count": 5}),
+                ("2026-10-25", {"median": 120, "low": 100, "high": 130, "count": 4}),
+                ("2026-10-26", {"median": 999, "low": 1, "high": 2000, "count": 2})]
+        self.assertEqual(market.item_stats(hist)["date"], "2026-10-25")   # the last day with 3+ sales, not today
+        self.assertIsNone(market.item_stats([("2026-10-26", {"median": 9, "count": 1})])["date"])
+        svg = market.area_chart([(d, r["median"], r["low"], r["high"]) for d, r in hist], "x")
+        self.assertIn("Lowest and highest sale that day", svg)
+        self.assertNotIn("Low to high", svg)
+        gap = market.area_chart([("2026-10-01", 5, 5, 5), ("2026-10-02", None, None, None), ("2026-10-03", 6, 6, 6)],
+                                "x", "Mesos", gap_text="no total yet")
+        self.assertIn("Oct 2: no total yet", gap)
+        self.assertNotIn("under 3 sales", gap)
+
+    def test_nameless_seller_reads_a_shop(self):
+        from sections import market
+        self.assertEqual(market.seller({"seller_name": ""}), '<span class="muted">a shop</span>')
+        self.assertEqual(market.seller({}), '<span class="muted">a shop</span>')
+        self.assertEqual(market.seller({"seller_name": "Mo<b>"}), "Mo&lt;b&gt;")
+
+    def test_span_counts_the_days_present(self):
+        from sections import market
+        self.assertEqual(market.span({"prices": [{}] * 5}), "5 days")
+        self.assertEqual(market.span({"prices": [{}]}), "1 day")
+        self.assertEqual(market.day("2026-10-25"), "Oct 25")
+
+    def test_seeded_sales_get_a_neutral_note(self):
+        from sections import market
+        seeded = [{"source": "bot_seed"}, {"source": "bot_seed"}, {"source": "trade"}]
+        note = market.sales_note(seeded)
+        self.assertIn("regulars", note)
+        self.assertNotIn("bot", note.lower())
+        self.assertEqual(market.sales_note([{"source": "bot_seed"}, {"source": "trade"}]), "")
+        self.assertEqual(market.sales_note([]), "")
+
+    def test_market_pages_from_the_contract_example(self):
+        from sections import market
+        m = market.load(os.path.join(os.path.dirname(os.path.abspath(__file__)), "testdata", "market-contract"))
+        m["sales"]["sales"].append(dict(m["sales"]["sales"][0]))   # 2 of 3 sales seeded: the note shows
+        tmp = tempfile.mkdtemp()
+        build.common.BUILT.update({"market", "world"})
+        try:
+            mk = market.Market(m, {"items": {}}, tmp)
+            priced = market.build_prices(mk)
+            econ = market.build_lists(mk, priced)
+            market.build_home(mk, priced, econ)
+            def read(rel):
+                with open(os.path.join(tmp, "market", rel), encoding="utf-8") as f:
+                    return f.read()
+            price = read("prices/2000000.html")
+            self.assertIn("Median, Oct 25", price)
+            self.assertIn("Lowest and highest sale, Oct 25", price)
+            self.assertNotIn("Median today", price)
+            self.assertNotIn("Low to high", price)
+            self.assertIn('<th class="r">4 days</th>', read("prices/index.html"))
+            self.assertIn("last 4 days", read("prices/index.html"))
+            self.assertNotIn("30 days", read("prices/index.html"))
+            home = read("index.html")
+            self.assertIn("12:00 AM PT (07:00 UTC), Oct 26", home)       # Just sold keeps the UTC
+            self.assertIn("regulars&rsquo; shops and trades", home)
+            self.assertIn("regulars&rsquo; shops and trades", read("sales.html"))
+            self.assertIn("some regulars sell a 10,000 NX code for 50m mesos", read("nx.html"))
+            self.assertIn('href="../world/economy.html"', read("economy.html"))
+        finally:
+            build.common.BUILT.clear()
+            shutil.rmtree(tmp)
+
+    def test_market_js_shows_pacific_and_utc(self):
+        import subprocess
+        js = os.path.join(build.REPO, "docs", "site", "assets", "market.js")
+        src = open(js, encoding="utf-8").read()
+        self.assertIn('timeZone: "America/Los_Angeles"', src)
+        self.assertNotIn('d.toLocaleString("en-US", { month', src)   # the old browser-local time
+        if shutil.which("node"):
+            start, end = src.index("  var PT_CLOCK"), src.index("  function priceLink")
+            code = src[start:end] + 'console.log(when("2026-10-27T13:00:00Z"));'
+            got = subprocess.run(["node", "-e", code], capture_output=True, text=True, env=dict(os.environ, TZ="Asia/Tokyo"))
+            self.assertEqual(got.stdout.strip(), "6:00 AM PT (13:00 UTC), Oct 27")
+
 
 class DbDataTest(unittest.TestCase):
     def raw(self):
@@ -612,6 +692,66 @@ class WorldTest(unittest.TestCase):
             os.remove(page)
         self.assertEqual(len(probs), 1)
         self.assertIn("nope.html", probs[0])
+
+    def test_dojo_board_only_with_rows(self):
+        from sections import world
+        page = self.read("world/rankings/index.html")
+        self.assertEqual(world.load(self.data)["leaderboards"]["dojo"], [])   # the sample has no Dojo rows
+        self.assertFalse(os.path.exists(os.path.join(self.out, "world", "rankings", "dojo.html")))
+        self.assertNotIn("Dojo", page.split('<main id="main">')[1])   # (the megaphone rail may name a Dojo release)
+        self.assertIn("Level, fame, guild, trader and boss rankings on Bera.", page)
+        lb = {"dojo": [{"name": "Momo", "floor": 38, "points": 900, "time_s": 754}]}
+        shown = world.boards(lb)
+        self.assertIn("dojo", [k for k, _, _ in shown])
+        self.assertEqual(world.boards_description(shown), "Level, fame, guild, trader, Dojo and boss rankings on Bera.")
+        self.assertIn('<td class="r num">12:34</td>', world.table("dojo", lb["dojo"]))
+
+    def test_free_market_rooms_read_as_rooms(self):
+        from sections import world
+        self.assertEqual(world.fm_room(910000012, "Free Market<12>"), 12)
+        self.assertEqual(world.fm_room(None, "Free Market <3>"), 3)
+        self.assertEqual(world.fm_room(910000007), 7)
+        self.assertIsNone(world.fm_room(910000000, "Free Market Entrance"))
+        self.assertIsNone(world.fm_room(100000000, "Henesys"))
+        db = {"maps": {910000000: {"name": "Free Market Entrance"}}}
+        build.common.BUILT.add("database")
+        try:
+            wo = world.World(world.load(self.data), {"sample": False}, self.out, db)
+        finally:
+            build.common.BUILT.clear()
+        self.assertEqual(wo.map_name(910000012, "Free Market<12>", "../"),
+                         '<a href="../database/maps/910000000.html">Free Market room 12</a>')
+        wo = world.World(world.load(self.data), {"sample": False}, self.out, None)
+        self.assertEqual(wo.map_name(910000012, "Free Market<12>", "../"), "Free Market room 12")
+
+    def test_economy_page_wording(self):
+        from sections import market, world
+        page = self.read("world/economy.html")
+        self.assertIn('<th class="r">4 days</th>', page)          # the contract example has 4 days of prices
+        self.assertIn("login/index.html?next=/market/economy.html", page)
+        self.assertIn("Slums Market economy page", page)
+        m = market.load(self.market)
+        m["economy-public"]["as_of"] = "2026-10-27T13:00:00Z"
+        m["economy-public"]["days"] = [
+            {"date": "2026-10-25", "mesos_total": 100, "mesos_made": 5, "mesos_spent": 4},
+            {"date": "2026-10-26", "mesos_total": None, "mesos_made": 6, "mesos_spent": 5},
+            {"date": "2026-10-27", "mesos_total": 120, "mesos_made": 7, "mesos_spent": 6}]
+        tmp = tempfile.mkdtemp()
+        try:
+            world.build_economy(world.World(world.load(self.data), m, tmp))
+            with open(os.path.join(tmp, "world", "economy.html"), encoding="utf-8") as f:
+                page = f.read()
+            self.assertIn("Made today so far (UTC day Oct 27)", page)
+            self.assertIn("Spent today so far (UTC day Oct 27)", page)
+            self.assertNotIn("2026-10-27</small>", page)
+            self.assertIn("Oct 26: no total yet", page)
+            m["economy-public"]["as_of"] = "2026-10-28T01:00:00Z"
+            world.build_economy(world.World(world.load(self.data), m, tmp))
+            with open(os.path.join(tmp, "world", "economy.html"), encoding="utf-8") as f:
+                page = f.read()
+            self.assertIn("Made on UTC day Oct 27", page)
+        finally:
+            shutil.rmtree(tmp)
 
 
 if __name__ == "__main__":

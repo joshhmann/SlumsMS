@@ -32,9 +32,19 @@
     if (n >= 1e4) return Math.round(n / 1e3) + "k";
     return num(n);
   }
+  /* Same as sections/market.py when(): "6:00 AM PT (13:00 UTC), Oct 27", never the browser's own time zone. */
+  var PT_CLOCK, PT_DAY;
+  try {
+    PT_CLOCK = new Intl.DateTimeFormat("en-US", { timeZone: "America/Los_Angeles", hour: "numeric", minute: "2-digit" });
+    PT_DAY = new Intl.DateTimeFormat("en-US", { timeZone: "America/Los_Angeles", month: "short", day: "numeric" });
+  } catch (e) { PT_CLOCK = PT_DAY = null; }
+  function two(n) { return (n < 10 ? "0" : "") + n; }
   function when(iso) {
     var d = new Date(iso);
-    return isNaN(d) ? "" : d.toLocaleString("en-US", { month: "short", day: "numeric", hour: "numeric", minute: "2-digit" });
+    if (isNaN(d)) return "";
+    var utc = two(d.getUTCHours()) + ":" + two(d.getUTCMinutes()) + " UTC";
+    if (!PT_CLOCK) return utc + ", " + d.toLocaleDateString("en-US", { timeZone: "UTC", month: "short", day: "numeric" });
+    return PT_CLOCK.format(d).replace(/\s/g, " ") + " PT (" + utc + "), " + PT_DAY.format(d);
   }
   function priceLink(id, name) {
     var a = el("a", null, name);
