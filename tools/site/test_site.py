@@ -232,16 +232,29 @@ class MarkdownTest(unittest.TestCase):
             path = os.path.join(tmp, "9.9.9.md")
             with open(path, "w", encoding="utf-8") as f:
                 f.write("---\nversion: 9.9.9\ntitle: T\ndate: D\nsummary: S\n---\nHello `@x <y>`.\n\n"
-                        "## Things {#things}\n- [Fix] **Bold** and [link](../)\n  continued\n- plain\n")
+                        "## Things {#things}\n### Sub {#sub}\n- [Fix] **Bold** and [link](../)\n  continued\n- plain\n")
             rel = build.parse_release(path)
             html = build.render_release(rel)
             self.assertIn('<section id="things">', html)
-            self.assertIn('<span class="tag fix">Fix</span><div><b>Bold</b> and <a href="../">link</a> continued',
+            self.assertIn('<h3 id="sub">Sub</h3>', html)  # the anchor, not "{#sub}" as text
+            self.assertIn('<span class="tag fix"><img class="gi" src="../../assets/icons/1422004.png" alt="" '
+                          'loading="lazy" decoding="async">Fix</span><div><b>Bold</b> and <a href="../">link</a> continued',
                           html)
             self.assertIn("<code>@x &lt;y&gt;</code>", html)
             self.assertEqual(rel["counts"]["fix"], 1)
         finally:
             shutil.rmtree(tmp)
+
+    def test_icon_tokens(self):
+        from sections import notes
+        out = notes.icons("<b>{icon:item:2000000|X} Hi</b> {icon:npc:9000017} {icon:item:1|🎂}", "../../")
+        self.assertIn('<img class="gi" src="../../assets/icons/2000000.png"', out)
+        self.assertIn('src="../../assets/icons/npc-9000017.png"', out)
+        self.assertTrue(out.endswith(" 🎂"))  # no icon 1: the fallback
+        with self.assertRaises(SystemExit):
+            notes.icons("{icon:item:1}", "")
+        for rel in build.notes.releases():  # every token in the real notes has its icon (or a fallback)
+            self.assertNotIn("{icon:", build.render_release(rel))
 
 
 class GuideLinksTest(unittest.TestCase):

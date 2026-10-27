@@ -255,6 +255,11 @@ main { padding-block: 8px 48px; }
 .notes ul.items li > div { min-width: 0; }
 .tag { font: 700 .68rem/1 var(--f-mono); letter-spacing: .08em; text-transform: uppercase; text-align: center; padding: 6px 0;
   border-radius: 6px; border: 1.5px solid currentColor; }
+.tag .gi { display: block; margin: 0 auto 5px; }
+/* game icons in the patch notes ({icon:...}, notes.py): crisp pixel art, never taller than 32px */
+.gi { image-rendering: pixelated; height: auto; width: auto; max-height: 32px; vertical-align: middle; }
+.hl h3:has(.gi) { display: flex; align-items: center; gap: 8px; }
+.hl h3 .gi { flex: none; }
 .tag.new { color: var(--new); background: var(--new-bg); }
 .tag.fix { color: var(--fix); background: var(--fix-bg); }
 .tag.change { color: var(--change); background: var(--change-bg); }

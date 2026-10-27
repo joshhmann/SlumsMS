@@ -7,6 +7,31 @@ from sections import buddy
 
 
 TAGS = {"new": "New", "fix": "Fix", "change": "Change", "same": "Same"}
+# a game icon in each tag's badge (owner, 2026-10-27; committed by icons.py --chrome); the text stays for screen readers
+TAG_ICONS = {"new": "item:4031156", "change": "item:2040000", "fix": "item:1422004"}
+
+# {icon:item:<id>} or {icon:npc:<id>} anywhere in a release's text: that game icon, from docs/site/assets/icons/
+# (items as <id>.png, NPCs as npc-<id>.png; add new ones to icons.py CHROME or CHROME_NPCS and run --chrome).
+# {icon:item:<id>|🎂} shows the text after | instead when the icon isn't there; without one, a missing icon fails the build.
+ICON_TOKEN = re.compile(r"\{icon:(item|npc):(\d+)(?:\|([^}]*))?\}")
+
+
+def icon_file(kind, ident):
+    return f"{ident}.png" if kind == "item" else f"npc-{ident}.png"
+
+
+def game_icon(kind, ident, root, fallback=None):
+    name = icon_file(kind, ident)
+    if not os.path.isfile(os.path.join(SRC, "assets", "icons", name)):
+        if fallback is None:
+            raise SystemExit(f"patch notes: no icon for {{icon:{kind}:{ident}}} in docs/site/assets/icons "
+                             "(add it to icons.py CHROME and run --chrome, or give a fallback after |)")
+        return fallback
+    return f'<img class="gi" src="{root}assets/icons/{name}" alt="" loading="lazy" decoding="async">'
+
+
+def icons(html, root):
+    return ICON_TOKEN.sub(lambda m: game_icon(m.group(1), m.group(2), root, m.group(3)), html)
 
 
 def parse_release(path):
@@ -43,7 +68,11 @@ def parse_release(path):
             ident = re.search(r"#([\w-]+)", attrs)
             blocks.append(("h2", title.strip(), ident.group(1) if ident else slug(title), ".cards" in attrs))
         elif line.startswith("### "):
-            blocks.append(("h3", line[4:].strip()))
+            title, ident = line[4:].strip(), None
+            am = re.search(r"\s*\{#([\w-]+)\}\s*$", title)  # an anchor, like ## headings take
+            if am:
+                title, ident = title[:am.start()], am.group(1)
+            blocks.append(("h3", title, ident))
         elif line.startswith("- "):
             item = line[2:].strip()
             tm = re.match(r"\[(\w+)\]\s+", item)
@@ -68,7 +97,7 @@ def parse_release(path):
     return meta
 
 
-def render_release(rel):
+def render_release(rel, root="../../"):
     intro, sections, cur = [], [], None
     for b in rel["blocks"]:
         if b[0] == "h2":
@@ -96,7 +125,8 @@ def render_release(rel):
             else:
                 out.append('<ul class="items">')
                 for _, tag, text in items:
-                    pill = f'<span class="tag {tag}">{TAGS[tag]}</span>' if tag else ""
+                    badge = game_icon(*TAG_ICONS[tag].split(":"), root, "") if tag in TAG_ICONS else ""
+                    pill = f'<span class="tag {tag}">{badge}{TAGS[tag]}</span>' if tag else ""
                     out.append(f"<li>{pill}<div>{inline(text)}</div></li>")
                 out.append("</ul>")
             items.clear()
@@ -111,7 +141,7 @@ def render_release(rel):
             elif b[0] == "quote":
                 out.append(f'<div class="callout"><p>{inline(b[1])}</p></div>')
             elif b[0] == "h3":
-                out.append(f"<h3>{inline(b[1])}</h3>")
+                out.append(f'<h3{f" id={chr(34)}{esc(b[2])}{chr(34)}" if b[2] else ""}>{inline(b[1])}</h3>')
         flush()
         return "\n".join(out)
 
@@ -127,7 +157,7 @@ def render_release(rel):
         body.append(f'<section id="{esc(s["id"])}"><h2>{inline(s["title"])}</h2>'
                     f'{blocks_html(s["blocks"], s["cards"])}</section>')
     body.append("</div>")
-    return "\n".join(body)
+    return icons("\n".join(body), root)
 
 
 def counts_text(rel):

@@ -18,6 +18,7 @@ Needs Pillow, pycryptodome and the client repo's tools/wz/native_wz.py (--native
 import argparse
 import json
 import os
+import shutil
 import subprocess
 import sys
 
@@ -175,7 +176,13 @@ CHROME = {4001126: "Maple Leaf", 4031180: "Beginner's Shopping Guide", 9000000: 
           2340000: "White Scroll", 5072000: "Super Megaphone", 5220000: "Gachapon Ticket", 5390000: "Diablo Messenger",
           9000003: "Bag of mesos", 2000005: "Power Elixir", 4161001: "MapleRoot Guide", 5071000: "Megaphone",
           2000000: "Red Potion",
-          1142107: "Beginner Adventurer Medal"}  # the stand-in for medals with no icon (database.FALLBACK_ICONS)
+          1142107: "Beginner Adventurer Medal",  # the stand-in for medals with no icon (database.FALLBACK_ICONS)
+          # patch notes ({icon:item:<id>} in docs/site/releases/*.md, notes.py) and their New/Change/Fix badges
+          4031099: "Sealed Letter", 2020032: "Birthday Cake", 1142001: "PQ Mania Medal", 1432039: "Fishing Pole",
+          2031000: "Masked Man's Invitation", 4031156: "Sparkling Glass Marble", 2040000: "Scroll for Helmet for DEF 100%",
+          1422004: "Monkey Wrench"}
+# NPC pictures for the patch notes ({icon:npc:<id>}): copied from the database's decoded NPCs (--kinds npcs first)
+CHROME_NPCS = {9000017: "Coco", 9000040: "Dalair"}
 CHROME_DIR = os.path.join(REPO, "docs", "site", "assets", "icons")
 
 
@@ -196,7 +203,12 @@ def make_chrome(dec, layer, host, fetch_ok):
         if node is None:
             raise SystemExit(f"chrome icon {i} ({CHROME[i]}) not found in {img}")
         dec.image(node).save(os.path.join(CHROME_DIR, f"{i}.png"), optimize=True)
-    print(f"chrome: {len(srcs)} icons in {CHROME_DIR}")
+    for i, name in sorted(CHROME_NPCS.items()):
+        src = os.path.join(CACHE_ICONS, "npcs", f"{i}.png")
+        if not os.path.isfile(src):
+            raise SystemExit(f"chrome NPC {i} ({name}) isn't decoded yet: run icons.py --kinds npcs first")
+        shutil.copyfile(src, os.path.join(CHROME_DIR, f"npc-{i}.png"))
+    print(f"chrome: {len(srcs)} icons and {len(CHROME_NPCS)} NPCs in {CHROME_DIR}")
 
 
 def plan(data, kinds, extra_items=()):
