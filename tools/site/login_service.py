@@ -7,8 +7,14 @@
 For the site and the launcher alike (owner, 2026-10-26: one way in, `@weblogin` is gone):
 - POST /api/login/password {"user", "pass"}: sign in with the game username and password.
 - POST /api/login/signup {"code", "user", "pass"}: make an account with an invite code from `!invite`, signed in.
-Both need a JSON body and the header "X-Slums: 1", and a browser Origin must match the Host (the launcher sends no
-Origin). This service never checks or stores a password itself: it passes it on to the game server's auth API on
+Forgotten passwords (ticket 107): there's no email, and an admin approves each reset in game (`!resetpw approve`).
+- POST /api/login/reset/request {"user", "contact"}: asks for a reset. It answers the same for any username, and keeps
+  the request in an HttpOnly cookie in this browser.
+- POST /api/login/reset/status: {"ok": true, "status": "pending" | "approved" | "denied" | "expired" | "none"}.
+- POST /api/login/reset/complete {"pass"}: once approved, sets the new password, signs every session of the account
+  out (sessions issued before now stop working, here and in the market service), and signs this browser in.
+All of these need a JSON body and the header "X-Slums: 1", and a browser Origin must match the Host (the launcher sends
+no Origin). This service never checks or stores a password itself: it passes it on to the game server's auth API on
 localhost (--auth-url, POST /verify and /signup, header X-Slums-Auth from --auth-secret), with a salted hash of the
 visitor's address (--ip-salt) and never the address itself. Passwords are never logged. Answers: 200 {"ok": true,
 "account", "character"} plus a signed session cookie (30 days), or {"ok": false, "error": "<message to show>"} with
@@ -52,7 +58,8 @@ from urllib.parse import urlsplit
 SESSION_TTL = 30 * 86400
 AUTH_PER_IP_MIN = 10  # sign-ins and sign-ups per address a minute (the game server also locks accounts)
 MAX_BODY = 1024
-SESSION_COOKIE = "slums_session"
+SESSION_COOKIE, RESET_COOKIE = "slums_session", "slums_reset"
+RESET_TTL = 7 * 86400  # the cookie's life; the server decides when a request expires
 
 
 def b64(data):
@@ -70,16 +77,19 @@ class Sessions:
         self.key, self.revoked_file, self.now = key, revoked_file, now
         # signed-out sessions ("<sid> <exp>" per line), so a copied cookie stops working after sign-out
         self.ended_file = os.path.join(os.path.dirname(revoked_file), "revoked-sessions.txt") if revoked_file else None
-        self.ended_mem, self.lock = {}, threading.Lock()
+        # password resets: "<account> <time>" per line; sessions of that account issued before the time stop working
+        self.before_file = os.path.join(os.path.dirname(revoked_file), "revoked-before.txt") if revoked_file else None
+        self.ended_mem, self.before_mem, self.lock = {}, {}, threading.Lock()
 
     def sign(self, payload):
         body = b64(json.dumps(payload, separators=(",", ":"), sort_keys=True).encode())
         mac = b64(hmac.new(self.key, body.encode(), hashlib.sha256).digest())
         return f"{body}.{mac}"
 
-    def issue(self, approval):
-        """approval: the game auth API's answer ({account_id, account, character, characters, gm}) -> a token."""
-        t = int(self.now())
+    def issue(self, approval, not_before=0):
+        """approval: the game auth API's answer ({account_id, account, character, characters, gm}) -> a token.
+        not_before: a password reset's mark, so the new session is issued after it (old ones at or before it end)."""
+        t = max(int(self.now()), int(not_before) + 1 if not_before else 0)
         payload = {"a": int(approval["account_id"]), "n": str(approval.get("account", ""))[:32],
                    "c": str(approval.get("character", ""))[:32], "iat": t, "exp": t + SESSION_TTL,
                    "sid": secrets.token_urlsafe(9)}
@@ -115,7 +125,32 @@ class Sessions:
             return None
         if payload.get("sid") and payload["sid"] in self.ended():
             return None
+        if payload.get("iat", 0) <= self.before().get(str(payload.get("a")), -1):
+            return None
         return payload
+
+    def before(self):
+        if not self.before_file:
+            return self.before_mem
+        try:
+            with open(self.before_file, encoding="utf-8") as f:
+                return {p[0]: float(p[1]) for p in (line.split() for line in f) if len(p) == 2}
+        except (OSError, ValueError):
+            return {}
+
+    def end_all(self, account_id):
+        """A password reset: every session of the account issued up to now stops working, everywhere. -> the mark."""
+        with self.lock:
+            mark = int(self.now())
+            marks = dict(self.before(), **{str(int(account_id)): mark})
+            if not self.before_file:
+                self.before_mem = marks
+                return mark
+            tmp = self.before_file + ".tmp"
+            with open(tmp, "w", encoding="utf-8") as f:
+                f.writelines(f"{k} {int(v)}\n" for k, v in marks.items())
+            os.replace(tmp, self.before_file)
+            return mark
 
     def ended(self):
         if not self.ended_file:
@@ -154,6 +189,7 @@ RULES = {"user_length": "Usernames are 4 to 12 letters or numbers.",
          "bot_name": "That username is taken."}
 ERRORS = {"BAD_CODE": (403, "That invite code doesn't work."),
           "UNAVAILABLE": (503, "Sign-in is down right now. Try again in a bit."),
+          "NOT_APPROVED": (409, "That reset isn't approved (yet). Check its status above."),
           "NAME_TAKEN": (409, "That username is taken."),
           "WRONG_LOGIN": (401, "Wrong username or password."),
           "LOCKED": (423, "Too many wrong tries. Try again in 15 minutes."),
@@ -304,6 +340,8 @@ def make_handler(sessions, secure, auth=None, limiter=None):
                 return self.send(200, {"ok": True}, [f"{SESSION_COOKIE}=; Max-Age=0{flags}"])
             if path in ("/api/login/password", "/api/login/signup"):
                 return self.account_sign_in(path.rsplit("/", 1)[1])
+            if path in ("/api/login/reset/request", "/api/login/reset/status", "/api/login/reset/complete"):
+                return self.reset(path.rsplit("/", 1)[1])
             return self.send(404, {"ok": False})
 
         def json_body(self):
@@ -346,12 +384,61 @@ def make_handler(sessions, secure, auth=None, limiter=None):
                                                       if kind == "password" else DOWN)))
             if not str(got.get("account_id", "")).isdigit():
                 return self.send(*self.err(DOWN))
+            return self.signed_in(got, user)
+
+        def signed_in(self, got, user, extra_cookies=(), not_before=0):
             chars = [c for c in got.get("characters") or [] if isinstance(c, str) and c]
             token = sessions.issue({"account_id": got["account_id"], "account": got.get("account") or user,
                                     "character": chars[0] if chars else "", "characters": chars,
-                                    "gm": got.get("gm_level", 0)})
+                                    "gm": got.get("gm_level", 0)}, not_before)
             return self.send(200, {"ok": True, "account": got.get("account") or user, "character": chars[0] if chars else None},
-                             [f"{SESSION_COOKIE}={token}; Max-Age={SESSION_TTL}{flags}"])
+                             [f"{SESSION_COOKIE}={token}; Max-Age={SESSION_TTL}{flags}", *extra_cookies])
+
+        def reset(self, step):
+            """Ticket 107: a password reset an admin approves in game. The request lives in an HttpOnly cookie."""
+            body = self.json_body()
+            if body is None:
+                return self.send(403, {"ok": False, "error": "Refused."})
+            if not limiter.allow(self.client()):
+                return self.send(*self.err(ERRORS["RATE_LIMITED"]))
+            rid, _, secret = (cookies(self.headers.get("Cookie")).get(RESET_COOKIE) or "").partition(".")
+            if step == "request":
+                user, contact = body.get("user"), body.get("contact")
+                if sign_in_broken(user, "x"):
+                    return self.send(400, {"ok": False, "error": "Type your game username."})
+                if not isinstance(contact, str) or not 2 <= len(contact.strip()) <= 64:
+                    return self.send(400, {"ok": False, "error": "Say how an admin can reach you (e.g. your Discord name), up to 64 characters."})
+                got = auth.call("/reset/request", {"user": user, "contact": contact.strip()}, self.client())
+                if not got or not got.get("request_id") or not got.get("secret"):
+                    return self.send(*self.err(ERRORS.get((got or {}).get("error"), DOWN)))
+                value = f"{got['request_id']}.{got['secret']}"
+                if not re.match(r"^[\w-]{1,64}\.[\w-]{8,128}$", value):
+                    return self.send(*self.err(DOWN))
+                return self.send(200, {"ok": True, "status": "pending"}, [f"{RESET_COOKIE}={value}; Max-Age={RESET_TTL}{flags}"])
+            if not rid or not secret:
+                return self.send(200, {"ok": True, "status": "none"})
+            if step == "status":
+                got = auth.call("/reset/status", {"request_id": rid, "secret": secret}, self.client())
+                st = (got or {}).get("status")
+                if st not in ("pending", "approved", "denied", "expired"):
+                    return self.send(*self.err(ERRORS.get((got or {}).get("error"), DOWN)))
+                gone = [f"{RESET_COOKIE}=; Max-Age=0{flags}"] if st in ("denied", "expired") else []
+                return self.send(200, {"ok": True, "status": st}, gone)
+            pw = body.get("pass")
+            broken = rule_broken("abcd", pw)
+            if broken:
+                return self.send(400, {"ok": False, "error": RULES[broken], "rule": broken})
+            got = auth.call("/reset/complete", {"request_id": rid, "secret": secret, "pass": pw}, self.client())
+            if not got:
+                return self.send(*self.err(DOWN))
+            if not got.get("ok"):
+                if got.get("error") == "BAD_INPUT" and got.get("rule") in RULES:
+                    return self.send(400, {"ok": False, "error": RULES[got["rule"]], "rule": got["rule"]})
+                return self.send(*self.err(ERRORS.get(got.get("error"), ERRORS["NOT_APPROVED"])))
+            if not str(got.get("account_id", "")).isdigit():
+                return self.send(*self.err(DOWN))
+            mark = sessions.end_all(got["account_id"])   # every old session of the account, whatever revoke_sessions says
+            return self.signed_in(got, got.get("account", ""), [f"{RESET_COOKIE}=; Max-Age=0{flags}"], mark)
 
         @staticmethod
         def err(pair):

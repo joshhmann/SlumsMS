@@ -24,6 +24,14 @@ The website never checks or stores a password and never reads the game database:
    `/login/?next=...`. `/secret/` (the hidden Slums-chan stickers, theme.js) is checked the same way and simply
    answers 401 when not signed in.
 
+**Forgotten passwords** (ticket 107; there's no email, an admin approves each reset). `/forgot/` (public) asks
+`POST /api/login/reset/request {"user", "contact"}`: the game server answers the same for any name, and the request
+(id and secret) stays in an HttpOnly cookie `slums_reset` in that browser. The page asks `POST /api/login/reset/status`
+every 10 s while it waits. An admin approves in game (`!resetpw approve <account>`); then the page sends
+`POST /api/login/reset/complete {"pass"}` (6-12 characters). On success **every session of the account is signed out**
+(its id and the time go in `/var/lib/slums-login/revoked-before.txt`; sessions issued up to then stop working, in the
+market service too) and this browser is signed in afresh. The launcher's "Forgot password?" opens `/forgot/`.
+
 Sessions are HMAC-SHA256 signed with `/etc/slums-login/key`. **Sign out** (`POST /api/login/logout`) ends that session
 on the server too: its id goes in `/var/lib/slums-login/revoked-sessions.txt` until it would have expired, and the
 market service reads the same file. Signing someone out everywhere: put their account id in

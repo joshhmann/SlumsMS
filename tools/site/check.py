@@ -47,6 +47,9 @@ WORD_OK = {
     # ticket 105: the sign-in page asks for the game password (it goes to the login service, never into a page)
     "login/index.html": {"password"},
     "assets/login.js": {"password"},
+    # ticket 107: the forgot-password page sets a new game password the same way
+    "forgot/index.html": {"password"},
+    "assets/forgot.js": {"password"},
 }
 
 # Game text that contains a forbidden word, allowed on any page because it is the game's own name for something

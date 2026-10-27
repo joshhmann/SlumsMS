@@ -144,6 +144,8 @@ def pages(http, quick):
     ok(not brand, "no MapleStory / Nexon / Wizet / v83 text", "; ".join(brand[:5]))
     st, _, robots, _ = http("GET", "/robots.txt")
     ok("Disallow: /" in robots, "robots.txt turns every crawler away")
+    st, _, _, _ = http("GET", "/forgot/")
+    ok(st == 200, "the forgot-password page is public", str(st))
     st, _, _, _ = http("GET", "/no-such-page.html")
     ok(st == 404, "an unknown page is a 404", str(st))
 
@@ -356,6 +358,19 @@ def accounts(http):
         report("SKIP", "password sign-in and invite sign-up", "the TEST game auth API (ticket 105) isn't up yet")
         return
     ok(st == 401 and js.get("error") == "Wrong username or password.", "a wrong login gets the generic message", f"{st} {js}")
+    # ticket 107: a reset request answers the same for any name, and can't be completed before an admin approves it
+    rq = {}
+    for name in ("qanobody1", cr.get("QA_USER") or "qanobody2"):
+        st, hd, _, js = http("POST", "/api/login/reset/request", {"user": name, "contact": "qa run"})
+        rq[name] = (st, (js or {}).get("status"), re.search(r"slums_reset=([^;]+)", hd.get("Set-Cookie") or ""))
+    ok(len({v[:2] for v in rq.values()}) == 1 and all(v[0] == 200 and v[2] for v in rq.values()),
+       "forgot password: a request answers the same for a real and a made-up name", str({k: v[:2] for k, v in rq.items()}))
+    cookie = {"Cookie": "slums_reset=" + list(rq.values())[0][2].group(1)} if list(rq.values())[0][2] else {}
+    st, _, _, js = http("POST", "/api/login/reset/status", {}, headers=dict(cookie, **{"X-Slums": "1", "Content-Type": "application/json"}))
+    ok((js or {}).get("status") == "pending", "forgot password: the request waits for an admin", f"{st} {js}")
+    st, _, _, js = http("POST", "/api/login/reset/complete", {"pass": "qanewpw1"},
+                        headers=dict(cookie, **{"X-Slums": "1", "Content-Type": "application/json"}))
+    ok(st == 409, "forgot password: a new password can't be set before approval", f"{st} {js}")
     user, pw = cr.get("QA_USER"), cr.get("QA_PASS")
     if user and pw:
         st, hd, _, js = http("POST", "/api/login/password", {"user": user, "pass": pw})

@@ -7,6 +7,7 @@
 For looking at the site before launch, never for players. Nothing here talks to a game server:
 - Sign-in takes any username with the password "preview1"; sign-up takes the invite code "PREVIEW" (any other code
   is refused, like a used one). The sign-up rules and the messages are the real ones. Sign out works too.
+- Forgot password: a request is "approved" by a pretend admin 15 seconds after it's made.
 - /database/, /market/ and /secret/ need that pretend sign-in, like nginx does on 164 (auth_request).
 - The market API (/api/market/) answers 503, so the market pages show their read-only view.
 World and market data are whatever the build used (the samples unless --site-data / --market-data were given).
@@ -14,6 +15,7 @@ World and market data are whatever the build used (the samples unless --site-dat
 import argparse
 import functools
 import sys
+import time
 import json
 import os
 from http.server import SimpleHTTPRequestHandler, ThreadingHTTPServer
@@ -72,6 +74,32 @@ class Handler(SimpleHTTPRequestHandler):
         path = urlsplit(self.path).path
         if path == "/api/login/logout":
             return self.reply(200, {"ok": True}, [f"{SESSION}=; Max-Age=0"])
+        if path.startswith("/api/login/reset/"):
+            if self.headers.get("X-Slums") != "1":
+                return self.reply(403, {"ok": False, "error": "Refused."})
+            n = int(self.headers.get("Content-Length") or 0)
+            try:
+                body = json.loads(self.rfile.read(n) or b"{}")
+            except ValueError:
+                body = {}
+            asked = self.cookies().get("slums_reset", "")
+            step = path.rsplit("/", 1)[1]
+            if step == "request":
+                if not body.get("user") or len(str(body.get("contact", "")).strip()) < 2:
+                    return self.reply(400, {"ok": False, "error": "Type your game username."})
+                return self.reply(200, {"ok": True, "status": "pending"}, [f"slums_reset={int(time.time())}; Max-Age=604800"])
+            if not asked.isdigit():
+                return self.reply(200, {"ok": True, "status": "none"})
+            approved = time.time() - int(asked) >= 15
+            if step == "status":
+                return self.reply(200, {"ok": True, "status": "approved" if approved else "pending"})
+            broken = ls.rule_broken("abcd", body.get("pass"))
+            if broken:
+                return self.reply(400, {"ok": False, "error": ls.RULES[broken], "rule": broken})
+            if not approved:
+                return self.reply(409, {"ok": False, "error": ls.ERRORS["NOT_APPROVED"][1]})
+            return self.reply(200, {"ok": True, "account": "Previewer", "character": None},
+                              [f"{SESSION}=preview; Max-Age=2592000", "slums_reset=; Max-Age=0"])
         if path in ("/api/login/password", "/api/login/signup"):
             try:
                 body = json.loads(self.rfile.read(int(self.headers.get("Content-Length") or 0)) or b"{}")

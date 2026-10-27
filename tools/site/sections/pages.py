@@ -42,6 +42,12 @@ def build_login(out):
                                           "Sign in to Slums Street and the Slums Market with your game account."))
 
 
+def build_forgot(out):
+    body = read(os.path.join(SRC, "forgot.html"))
+    write(out, "forgot/index.html", layout("Forgot your password?", body, "../", "login",
+                                           "Ask an admin to reset your SlumsMS password."))
+
+
 def build_report(out):
     body = read(os.path.join(SRC, "report.html"))
     write(out, "report/index.html", layout("Report a bug or request a feature", body, "../", "report",

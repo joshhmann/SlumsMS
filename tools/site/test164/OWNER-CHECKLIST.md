@@ -14,18 +14,22 @@ TEST site, **http://192.168.0.164:8192/**, on the home network. Mark each Pass /
    Then the right one: you're signed in.
 5. **Log into the game** with that new username and password from the TEST client. It works. Then try a brand-new
    name at the game's login screen: it no longer makes an account.
-6. **Watchlist and a price alert.** In Slums Market, open an item that's on sale in the FM. Add it to your watchlist,
+6. **Forgot password.** Sign in on your phone too. Then on the computer, sign-in page → "Forgot your password?":
+   type the username and a contact (e.g. your Discord name). The page says it's waiting. In game as a GM:
+   `!resetpw approve <account>`. Within about 10 seconds the page asks for a new password; set one. You're signed in on
+   the computer, the phone is signed out (reload Slums Market there), and the new password works in the TEST client.
+7. **Watchlist and a price alert.** In Slums Market, open an item that's on sale in the FM. Add it to your watchlist,
    then add an alert "at or below" a price above its cheapest listing. Within 15 minutes, in game you get a yellow
    `[Market] Price alert: ...` line (or a note from "Slums Market" at your next login if you were offline). The
    site's "My market" shows the alert as fired.
-7. **Buy/Sell board.** In Slums Market, post a WTB or WTS for a common item as your character. Within a minute it
+8. **Buy/Sell board.** In Slums Market, post a WTB or WTS for a common item as your character. Within a minute it
    shows on the website board, and at the **Anonymous Merchant** in the FM Entrance (just right of where you arrive).
    Within a few minutes a bot may whisper you an offer (or leave a note). Take the post down on the site: it leaves
    the NPC's list.
-8. **Secrets and the theme.** Signed in, find the three secrets: the Konami code (↑↑↓↓←→←→ B A), typing `slums`,
+9. **Secrets and the theme.** Signed in, find the three secrets: the Konami code (↑↑↓↓←→←→ B A), typing `slums`,
    and clicking the home picture 7 times fast. After the third, a fourth colour dot (Slums-chan) appears; pick it and
    the secrets join the home pictures. Signed out, a secret only says "Sign in to see it".
-9. **Phone.** Open the TEST site on your phone: home, World, Slums Market and the sign-in page fit with no sideways
+10. **Phone.** Open the TEST site on your phone: home, World, Slums Market and the sign-in page fit with no sideways
    scrolling, and dark mode looks right.
-10. **Launcher sign-in (optional in 1.6.0).** In the TEST launcher, sign in with your username and password, or sign
-    up with a code. It shows who you're signed in as. Sign out in the launcher: that sign-in no longer works.
+11. **Launcher sign-in (optional in 1.6.0).** In the TEST launcher, sign in with your username and password, or sign
+    up with a code. It shows who you're signed in as, and "Forgot password?" opens the site's page. Sign out in the launcher: that sign-in no longer works.

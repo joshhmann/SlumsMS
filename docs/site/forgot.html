@@ -1,0 +1,43 @@
+<section class="report login">
+  <p class="eyebrow">Friends only</p>
+  <h1>Forgot your password?</h1>
+  <p class="lede">There's no email on SlumsMS, so an admin resets it by hand. Ask here, tell us how to reach you, and
+  keep this page open (or come back to it on this browser). Once an admin approves it, you set a new password here.</p>
+
+  <div id="fp-app" hidden>
+    <form class="panel form" id="fp-ask" novalidate>
+      <h2 class="bar">Ask for a reset</h2>
+      <div class="field"><label for="fp-user">Your game username</label>
+        <input id="fp-user" name="user" autocomplete="username" autocapitalize="off" spellcheck="false" maxlength="64" required></div>
+      <div class="field"><label for="fp-contact">How can an admin reach you? <span class="opt">for example your Discord name</span></label>
+        <input id="fp-contact" name="contact" autocomplete="off" maxlength="64" required></div>
+      <button class="btn primary" type="submit">Ask for a reset</button>
+      <p class="status" role="status" aria-live="polite"></p>
+    </form>
+
+    <div class="panel" id="fp-wait" hidden>
+      <h2 class="bar">Waiting for an admin</h2>
+      <div class="in">
+        <p id="fp-wait-text">Your request is in. An admin checks who you are (they may message you) and then approves it.
+        This page checks every few seconds; you can close it and come back later on this browser.</p>
+        <p class="status" id="fp-wait-status" role="status" aria-live="polite"></p>
+        <p class="small"><button class="linkbtn" id="fp-again" type="button">Start over</button></p>
+      </div>
+    </div>
+
+    <form class="panel form" id="fp-set" novalidate hidden>
+      <h2 class="bar">Approved: set a new password</h2>
+      <p class="hint">6 to 12 characters, no spaces (the game's login box takes 12). Every other place you're signed in
+      is signed out, and you use the new password in the game too.</p>
+      <div class="field"><label for="fp-pass">New password</label>
+        <input id="fp-pass" name="pass" type="password" autocomplete="new-password" maxlength="12" required></div>
+      <div class="field"><label for="fp-pass2">New password again</label>
+        <input id="fp-pass2" name="pass2" type="password" autocomplete="new-password" maxlength="12" required></div>
+      <button class="btn primary" type="submit">Set my password</button>
+      <p class="status" role="status" aria-live="polite"></p>
+    </form>
+  </div>
+  <p class="small"><a href="../login/">Back to sign in</a></p>
+  <noscript><p class="small">This page needs JavaScript turned on in your browser.</p></noscript>
+</section>
+<script src="../assets/forgot.js" defer></script>

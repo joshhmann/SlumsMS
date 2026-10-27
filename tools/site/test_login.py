@@ -63,6 +63,7 @@ class FakeGameAuth:
     def __init__(self, secret):
         from http.server import BaseHTTPRequestHandler
         self.calls, fake = [], self
+        self.reset_state = "pending"  # what /reset/status says; the test plays the admin
 
         class H(BaseHTTPRequestHandler):
             def log_message(self, *a):
@@ -83,6 +84,15 @@ class FakeGameAuth:
                            (200, {"ok": False, "error": "UNAVAILABLE"}) if body["user"] == "dbdown" else
                            (429, {"ok": False, "error": "RATE_LIMITED"}) if body["user"] == "busy" else
                            (200, {"ok": False, "error": "WRONG_LOGIN"}))
+                elif self.path == "/reset/request":   # the same answer for any name
+                    ans = (200, {"ok": True, "request_id": "r123", "secret": "s" * 32})
+                elif self.path == "/reset/status":
+                    ans = ((200, {"ok": True, "status": fake.reset_state}) if (body["request_id"], body["secret"]) == ("r123", "s" * 32)
+                           else (200, {"ok": True, "status": "expired"}))
+                elif self.path == "/reset/complete":
+                    ans = ((200, {"ok": True, "account_id": 42, "account": "momo", "gm": False, "gm_level": 0,
+                                  "characters": ["Momo"], "revoke_sessions": True})
+                           if fake.reset_state == "approved" else (200, {"ok": False, "error": "NOT_APPROVED"}))
                 elif self.path == "/signup":
                     ans = ((200, {"ok": False, "error": "BAD_INPUT", "rule": "bot_name"}) if body["user"] == "Wolf4life" else
                            (200, {"ok": True, "account_id": 43, "account": body["user"], "gm": 0, "characters": []})
@@ -220,6 +230,35 @@ class AccountSignInTest(unittest.TestCase):
                          (503, {"ok": False, "error": "Sign-in is down right now. Try again in a bit."}))
         os.remove(os.path.join(self.dir, "salt"))   # no salt: never send anything, rather than an unsalted hash
         self.assertIsNone(self.auth.call("/verify", {"user": "momo", "pass": "x"}, "1.2.3.4"))
+
+    def test_password_reset_approved_in_game(self):
+        self.call("POST", "/api/login/password", {"user": "momo", "pass": "hunter22"})
+        old = self.jar.pop("slums_session")                       # momo is signed in somewhere else too
+        self.assertEqual(self.call("POST", "/api/login/reset/status", {}), (200, {"ok": True, "status": "none"}))
+        self.assertEqual(self.call("POST", "/api/login/reset/request", {"user": "momo", "contact": "x"})[0], 400)
+        self.assertEqual(self.call("POST", "/api/login/reset/request", {"user": "momo", "contact": "momo#1234"}),
+                         (200, {"ok": True, "status": "pending"}))
+        self.assertNotIn("contact", json.dumps(self.game.calls[-1][2]["user"]))
+        self.assertIn("ipHash", self.game.calls[-1][2])
+        self.assertEqual(self.call("POST", "/api/login/reset/status", {})[1]["status"], "pending")
+        self.assertEqual(self.call("POST", "/api/login/reset/complete", {"pass": "newpass1"})[0], 409)   # not approved yet
+        self.game.reset_state = "approved"                          # !resetpw approve momo
+        self.assertEqual(self.call("POST", "/api/login/reset/status", {})[1]["status"], "approved")
+        self.assertEqual(self.call("POST", "/api/login/reset/complete", {"pass": "short"})[1]["rule"], "pass_length")
+        status, body = self.call("POST", "/api/login/reset/complete", {"pass": "newpass1"})
+        self.assertEqual((status, body["account"]), (200, "momo"))
+        self.assertEqual(self.game.calls[-1][2]["pass"], "newpass1")
+        self.assertNotIn("slums_reset", self.jar)                   # the request is done
+        self.assertIsNone(self.sessions.check(old))                 # the old session is signed out
+        self.assertIsNone(ls.Sessions(KEY, self.revoked).check(old))   # in the market service too
+        self.assertEqual(self.call("GET", "/api/auth/check")[0], 204)  # this browser is signed in afresh
+
+    def test_a_denied_reset_forgets_the_request(self):
+        self.call("POST", "/api/login/reset/request", {"user": "nobody99", "contact": "on discord"})
+        self.game.reset_state = "denied"
+        self.assertEqual(self.call("POST", "/api/login/reset/status", {})[1]["status"], "denied")
+        self.assertNotIn("slums_reset", self.jar)
+        self.assertEqual(self.call("POST", "/api/login/reset/status", {})[1]["status"], "none")
 
     def test_sign_out_ends_the_session_everywhere(self):
         self.call("POST", "/api/login/password", {"user": "momo", "pass": "hunter22"})
