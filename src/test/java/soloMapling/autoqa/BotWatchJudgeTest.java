@@ -324,6 +324,82 @@ class BotWatchJudgeTest {
         assertEquals(Verdict.LOGGED_OUT, j.verdict(), j.reason());
     }
 
+    // ── TEST bot watch 2026-10-27 (build c1b0f26cb, 33/40) ──
+
+    @Test
+    void aWalkThroughAnInMapPortalIsNoJump() {
+        // datoy on Henesys: (-372, 274) to (6350, 453) in 2 s, through hp01 (-377, 273) -> hp01_1 (5801, 454)
+        List<int[]> henesys = List.of(new int[] {1302, 93, 5169, 92}, new int[] {-377, 273, 5801, 454},
+                new int[] {5169, 92, 1302, 93}, new int[] {5801, 454, -377, 273});
+        assertTrue(BotWatchJudge.excessJump(-372, 274, 6350, 453, 2000) > 4000, "without the portals: a teleport");
+        assertEquals(0, BotWatchJudge.excessJump(-372, 274, 6350, 453, 2000, henesys));
+        // JellyHyper: walked to hp00 and on from hp00_1 up toward the east exit
+        assertEquals(0, BotWatchJudge.excessJump(1100, 93, 5452, -157, 2000, henesys));
+        // a jump no portal explains stays one
+        assertEquals(2400, BotWatchJudge.excessJump(2500, 300, -1000, 300, 2000, henesys));
+        assertEquals(1600, BotWatchJudge.excessJump(0, 0, 2700, 0, 2000, List.of()));
+    }
+
+    @Test
+    void aChairCamperIsNotIdleBecauseItsNextActivityMoved() {
+        // NoodleDagger: 22 min on a chair in Henesys (a player on the map at times), then off to grind elsewhere; the
+        // first GRIND sample, not sitting, was read as part of the still stretch and broke "all sat"
+        var j = judge(track(50, (k, s) -> {
+            if (k < 45) { town(x -> x).apply(s); s.act = "HANG_OUT"; s.phase = "LIFE_DWELL"; s.sit = true;
+                s.x = 5471; s.watched = k % 3 == 0; }
+            else { s.x = k * 40; s.exp = 2000 + k; }
+        }));
+        assertEquals(Verdict.OK, j.verdict(), j.reason());
+    }
+
+    @Test
+    void aPqLobbyStayParkedOffScreenIsNotIdleBecauseOfTheWalkAround() {
+        // CloudPet: walked into El Nath, stood 13 min off-screen in the lobby (parked), then set out for Leafre under
+        // the same PARTY_QUEST label; the walk in and out on mob maps broke "all in town"
+        var j = judge(track(40, (k, s) -> {
+            s.act = "PARTY_QUEST";
+            if (k == 0 || k >= 30) { s.map = FIELD + k; s.x = k * 100; s.target = 240040510; }
+            else { s.map = 211000000; s.town = true; s.mob = false; s.x = -3353; s.target = 211000000;
+                s.phase = "LIFE_DWELL"; }
+            if (k >= 36) { s.act = "GRIND"; s.map = 240040510; s.exp = 2000 + k; }
+        }));
+        assertEquals(Verdict.OK, j.verdict(), j.reason());
+        var onScreen = judge(track(40, (k, s) -> {
+            s.act = "PARTY_QUEST";
+            if (k == 0 || k >= 30) { s.map = FIELD + k; s.x = k * 100; s.target = 240040510; }
+            else { s.map = 211000000; s.town = true; s.mob = false; s.x = -3353; s.target = 211000000; s.watched = true; }
+        }));
+        assertEquals(Verdict.IDLE, onScreen.verdict(), "frozen in front of a player still is: " + onScreen.reason());
+        assertTrue(onScreen.reason().contains("on map 211000000, on screen"), "where it stood: " + onScreen.reason());
+    }
+
+    @Test
+    void aSellThatWasAlreadyInTheMarketWhenTheWatchBeganIsOk() {
+        // aranmystic94 sold 37 junk items on arrival at 07:45; the watch began at 07:49 and saw nothing change
+        var j = judge(track(20, (k, s) -> { s.map = FM; s.mob = false; s.town = true; s.act = "SELL";
+            s.phase = "LIFE_DWELL"; s.x = 100 + (k % 3) * 30; }));
+        assertEquals(Verdict.OK, j.verdict(), j.reason());
+        assertTrue(j.reason().contains("already in the Free Market"), j.reason());
+        // a SELL that starts under the watch still has to show its sale
+        var later = judge(track(26, (k, s) -> {
+            if (k < 4) { s.exp = 1000 + k; s.x = k * 40; }
+            else { s.map = FM; s.mob = false; s.town = true; s.act = "SELL"; s.phase = "LIFE_DWELL"; s.x = 100 + (k % 3) * 30; }
+        }));
+        assertEquals(Verdict.MISMATCH, later.verdict(), later.reason());
+    }
+
+    @Test
+    void loggingOutInAPqLobbyIsLoggedOutButNotAfterLeavingIt() {
+        // hermitorbis: walked to the Door to Zakum and logged out 4 s after arriving
+        var lobby = judge(track(6, (k, s) -> { s.act = "PARTY_QUEST"; s.phase = "LIFE_DWELL"; s.map = 211042300;
+            s.target = 211042300; s.mob = false; if (k >= 3) { s.online = false; } }));
+        assertEquals(Verdict.LOGGED_OUT, lobby.verdict(), lobby.reason());
+        // the PARTY_QUEST label stays on while it walks back out to its grind: that is a session end
+        var out = judge(track(6, (k, s) -> { s.act = "PARTY_QUEST"; s.phase = "GO_TRAIN"; s.target = FIELD;
+            s.x = k * 100; if (k >= 3) { s.online = false; } }));
+        assertEquals(Verdict.OK, out.verdict(), out.reason());
+    }
+
     // ── A bot that changes its mind ──
 
     @Test
