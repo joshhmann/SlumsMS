@@ -843,7 +843,9 @@ public final class BotThreads {
                     protect.add(n.toLowerCase(Locale.ROOT));
                 }
             }
-            String styled = VoiceStyler.style(honest, ConvoPersona.of(slot), slot, protect);
+            String voiced = VoiceStyler.style(honest, ConvoPersona.of(slot), slot, protect);
+            String styled = voiced.length() > LINE_MAX && honest.length() <= LINE_MAX
+                    ? VoiceStyler.oneAccentWord(honest) : voiced; // 1.6.0 tune: no longer than the line it got
             long wait = HumanTiming.typingMs(styled, 0, rng) + 400 + rng.nextInt(1200);
             total += wait;
             chain = chain.pause(wait).run(() -> {
