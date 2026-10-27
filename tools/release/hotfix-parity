@@ -1,0 +1,16 @@
+#!/bin/sh
+# Lists commits on the branch live runs (e.g. 156-guard) that the release branch lacks, by patch content (git cherry).
+# A release must carry every live hotfix: 1.6.0 nearly shipped without 1.5.3's x5 job fees (owner, 2026-10-27).
+# Usage: tools/release/hotfix-parity <live-branch> [release-ref]. Exit 1 when anything is missing.
+# Version-bump commits show up too (ServerConstants/conf only); judge those by hand.
+set -e
+live=${1:?usage: hotfix-parity <live-branch> [release-ref]}
+rel=${2:-HEAD}
+missing=$(git cherry "$rel" "$live" | sed -n 's/^+ //p')
+[ -z "$missing" ] && { echo "ok: $rel has every commit of $live"; exit 0; }
+echo "missing from $rel (on $live):"
+for c in $missing; do
+  echo "  $(git log -1 --format='%h %s' "$c")"
+  git show --stat --format= "$c" | sed -n 's/^ \([^|]*\)|.*/      \1/p'
+done
+exit 1

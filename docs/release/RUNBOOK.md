@@ -22,6 +22,7 @@ checkout of the release branch on 187 (for 1.5.0: `/root/work/SlumsMS-150`). Hos
 ## 1. Pre-checks (no go needed)
 
 ```
+tools/release/hotfix-parity <live-branch> # every live hotfix is in this release (e.g. 156-guard); must say ok
 tools/release/build                       # full suite + jar + BUILD.txt
 tools/release/stage <v>                   # needs docs/release/<v>.conf (copy 1.5.0.conf and edit)
 tools/release/rehearse <v>                # copy of live: deploy + smoke + rollback; must say PASS
