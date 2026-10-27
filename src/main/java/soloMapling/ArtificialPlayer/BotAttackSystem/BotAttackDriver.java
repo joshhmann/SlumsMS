@@ -741,9 +741,12 @@ public final class BotAttackDriver {
      * 1.5.5: mobs a bot must never attack. The Mu Lung Dojo's "A transparent item for checking elimination" (9300216)
      * is what a floor's boss revives into; the floor's up portal (dojang_up.js) only opens while it is alive, so a bot
      * killing it locked the party on the floor ("There are still some monsters remaining").
+     *
+     * <p>1.6.0: nor a friendly mob (Mob.wz {@code friendly}, e.g. HPQ's Moon Bunny 9300061): the PQ needs it alive.
      */
     public static boolean botMayTarget(Monster m) {
-        return m != null && m.getId() != constants.id.MobId.TRANSPARENT_ITEM;
+        return m != null && m.getId() != constants.id.MobId.TRANSPARENT_ITEM
+                && (m.getStats() == null || !m.getStats().isFriendly());
     }
 
     private static Monster nearestMob(Character bot) {

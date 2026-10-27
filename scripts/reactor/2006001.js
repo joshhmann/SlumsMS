@@ -25,12 +25,13 @@
  */
 
 function act() {
+    var eim = rm.getEventInstance();
     rm.spawnNpc(2013002);
-    rm.getEventInstance().clearPQ();
+    eim.clearPQ();
 
-    rm.getEventInstance().setProperty("statusStg8", "1");
+    eim.setProperty("statusStg8", "1");
     eim.giveEventPlayersExp(3500);
     eim.showClearEffect(true);
 
-    rm.getEventInstance().startEventTimer(5 * 60000); //bonus time
+    eim.startEventTimer(5 * 60000); //bonus time
 }
