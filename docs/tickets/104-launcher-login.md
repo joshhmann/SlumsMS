@@ -4,7 +4,7 @@
 **Kind:** EXPLORE (a write-up and a recommendation, no code yet)
 **Effort:** S for the exploration; the build itself is M-L across three tracks
 **Depends on:** the site sign-in (`@weblogin`, docs/site/LOGIN.md in SlumsMS-site), which ships with 1.6.0
-**Status:** open, after 1.6.0
+**Status:** open. Owner 2026-10-26: level 1 targets 1.6.1, after the site sign-in has been live a few days; level 3 later, only if typing the passphrase still bothers people. Not in 1.6.0.
 
 Source: the owner, 2026-10-26: "Should launcher be a login too? Which can auto login a user", then "Wanna add a
 ticket to that launcher login? Just to explore if it makes sense".
