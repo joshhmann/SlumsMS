@@ -1,0 +1,11 @@
+# Every 15 minutes, like leaderboards.json itself: a picture lags the board by at most one run.
+[Unit]
+Description=SlumsMS website ranking pictures (TEST, every 15 min)
+
+[Timer]
+OnCalendar=*:5/15
+RandomizedDelaySec=60
+Persistent=false
+
+[Install]
+WantedBy=timers.target

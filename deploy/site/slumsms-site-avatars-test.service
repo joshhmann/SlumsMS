@@ -1,0 +1,20 @@
+# Website ranking pictures for the TEST server (1.6.0): reads TEST's site export leaderboards.json, looks up each listed
+# character's look in TEST's database (SELECTs only) and draws the new looks from the client's Data/*.img files on the
+# launcher RC base layer. Writes data/site/avatars/<key>.png and avatars/index.json next to leaderboards.json.
+# A separate JVM at idle priority; it never talks to the game server. A run with nothing new takes about 2 s.
+# --data must name the base layer the players' client runs (bump the version folder when the base layer changes).
+[Unit]
+Description=SlumsMS website ranking pictures (TEST)
+
+[Service]
+Type=oneshot
+WorkingDirectory=/opt/mapleroot-dev/persistence-test/Server
+ExecStart=/usr/bin/java -Xms32m -Xmx512m -XX:ActiveProcessorCount=1 -cp target/Cosmic.jar soloMapling.site.avatar.AvatarExport --data=/srv/slums-patch/launcher-rc/layers/base/v83-2026.10.19/files/Data --leaderboards=data/site/leaderboards.json --out=data/site
+Nice=19
+CPUSchedulingPolicy=idle
+IOSchedulingClass=idle
+CPUQuota=100%
+MemoryMax=800M
+OOMScoreAdjust=800
+TimeoutStartSec=15min
+UMask=0022
