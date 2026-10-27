@@ -160,15 +160,67 @@ class SocialTraceJudgeTest {
         assertNull(SocialTraceJudge.lfgBand(e));
     }
 
+    @Test
+    void anLfgLabelIsJudgedOnTheRecruitersLevel() {
+        SocialTraceEntry e = goodLfg();
+        e.minLevel = 25; // the other bot's level does not pick the PQ
+        e.aLevel = 71;
+        e.about = "Kerning PQ";
+        assertEquals("LFG for Kerning PQ at level 71: no PQ lobby takes that level", SocialTraceJudge.lfgBand(e));
+        e.aLevel = 45;
+        e.about = "Ludi PQ";
+        assertNull(SocialTraceJudge.lfgBand(e));
+        e.aLevel = 60;
+        assertEquals("LFG for Ludi PQ at level 60 (fits Orbis PQ)", SocialTraceJudge.lfgBand(e));
+    }
+
     // ── DECIDE / ACT ──
 
     @Test
     void anLfgThreadDecidesNothingInCodeButItsIntentIsRecorded() {
         EnumMap<Stage, Verdict> v = judge(goodLfg());
         assertEquals(Status.NONE, v.get(Stage.DECIDE).status());
-        assertTrue(v.get(Stage.DECIDE).reason().contains("no code path turns an LFG thread into a party"));
+        assertTrue(v.get(Stage.DECIDE).reason().contains("no answer decided"), v.get(Stage.DECIDE).reason());
         assertEquals("plan a party for Kerning PQ", v.get(Stage.DECIDE).data().get("intent"));
         assertEquals(Status.NONE, v.get(Stage.ACT).status());
+    }
+
+    @Test
+    void anLfgYesDecidesAPartyAndActsWhenBothHeadToThePqInsideTheWindow() {
+        SocialTraceEntry e = goodLfg();
+        e.lfgDecision = "party up for Kerning PQ";
+        e.events.add(new Event(T0 + 9_000, A, "party", "LFG party with LycanZelda for Kerning PQ"));
+        EnumMap<Stage, Verdict> v = judge(e);
+        assertEquals(Status.OK, v.get(Stage.DECIDE).status());
+        assertEquals("party up for Kerning PQ", v.get(Stage.DECIDE).reason());
+        assertEquals(Status.FAIL, v.get(Stage.ACT).status(), "a party alone is not the trip");
+
+        e.events.add(new Event(T0 + 20_000, A, "lfg",
+                "LFG TRIP Shroom93 + LycanZelda -> Kerning PQ: both on their way, one party"));
+        Verdict act = judge(e).get(Stage.ACT);
+        assertEquals(Status.OK, act.status(), act.reason());
+        assertTrue(act.reason().startsWith("lfg after 20 s"), act.reason());
+    }
+
+    @Test
+    void anLfgTripAfterTheWindowOrAFailedPartyIsAFail() {
+        SocialTraceEntry e = goodLfg();
+        e.lfgDecision = "party up for Kerning PQ";
+        e.lfgFail = "LycanZelda already in a party";
+        e.events.add(new Event(T0 + SocialTraceJudge.ACT_WINDOW_MS + 1, A, "lfg", "LFG TRIP late"));
+        Verdict act = judge(e).get(Stage.ACT);
+        assertEquals(Status.FAIL, act.status());
+        assertTrue(act.reason().contains("party up for Kerning PQ: LycanZelda already in a party"), act.reason());
+    }
+
+    @Test
+    void anLfgNoIsADecisionNotToPartyWithNothingToCarryOut() {
+        SocialTraceEntry e = goodLfg();
+        e.lfgDecline = "LycanZelda too low for the PQ";
+        EnumMap<Stage, Verdict> v = judge(e);
+        assertEquals(Status.NA, v.get(Stage.DECIDE).status());
+        assertEquals("no party: LycanZelda too low for the PQ", v.get(Stage.DECIDE).reason());
+        assertEquals(Status.NA, v.get(Stage.ACT).status());
     }
 
     @Test

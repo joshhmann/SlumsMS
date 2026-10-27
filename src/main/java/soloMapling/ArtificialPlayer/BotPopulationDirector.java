@@ -412,7 +412,8 @@ public final class BotPopulationDirector {
             boolean active = m.status() == BotRoster.Status.ACTIVE && (online
                     || !soloMapling.ArtificialPlayer.BotDramaSystem.BotDrama.awayAfterRageQuit(m.charId(), now));
             roster.add(new Candidate(m.botId(), online, active, m.lastLoginAt(),
-                    m.lastLogoutAt(), windowStart, windowLen, session, online && mayLogOut(live), ended));
+                    m.lastLogoutAt(), windowStart, windowLen, session, online && mayLogOut(live)
+                    && !soloMapling.ArtificialPlayer.BotConvo.LfgParty.holds(m.charId()), ended)); // 1.6.0: LFG trip
         }
         return roster;
     }
