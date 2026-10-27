@@ -138,6 +138,13 @@ public final class BotNames {
         return true;
     }
 
+    /** Whether a bot holds this name (ignoring case). Reserves nothing; site sign-up refuses such account names. */
+    public static synchronized boolean heldByBot(String name) {
+        load();
+        Integer holder = name == null ? null : holderByName.get(key(name));
+        return holder != null && holder != REAL_PLAYER;
+    }
+
     /** Whether any bot or real player holds this name (ignoring case). */
     public static synchronized boolean isTaken(String name) {
         load();
