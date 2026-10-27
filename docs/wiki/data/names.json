@@ -37,13 +37,57 @@
    "street": "Victoria Road",
    "map": "Lith Harbor"
   },
+  "110000000": {
+   "street": "Florina Road",
+   "map": "Florina Beach"
+  },
   "120000000": {
    "street": "Victoria Road",
    "map": "Nautilus Harbor"
   },
+  "130000200": {
+   "street": "Empress' Road",
+   "map": "Crossroads of Ereve"
+  },
   "130000210": {
    "street": "Empress' Road",
    "map": "Sky Ferry "
+  },
+  "130010000": {
+   "street": "Empress' Road",
+   "map": "Training Forest I"
+  },
+  "130010010": {
+   "street": "Empress' Road",
+   "map": "Tino's Forest"
+  },
+  "130010020": {
+   "street": "Empress' Road",
+   "map": "Tiv's Forest"
+  },
+  "130010100": {
+   "street": "Empress' Road",
+   "map": "Training Forest II"
+  },
+  "130010110": {
+   "street": "Empress' Road",
+   "map": "Timu's Forest"
+  },
+  "130010120": {
+   "street": "Empress' Road",
+   "map": "Tiru's Forest"
+  },
+  "130010200": {
+   "street": "Empress' Road",
+   "map": "Training Forest III"
+  },
+  "130020000": {
+   "street": "Empress' Road",
+   "map": "Entrance to the Drill Hall"
+  },
+  "140020300": {
+   "street": "Snow Island",
+   "map": "Dangerous Forest"
   },
   "200000000": {
    "street": "Orbis",
@@ -141,6 +185,14 @@
    "street": "Empress' Road",
    "map": "To Ellinia"
   },
+  "200090060": {
+   "street": "Snow Island",
+   "map": "To Rien"
+  },
+  "200090070": {
+   "street": "Snow Island",
+   "map": "To Lith Harbor"
+  },
   "200090100": {
    "street": "On a Voyage",
    "map": "Ludibrium"
@@ -180,6 +232,22 @@
   "200090510": {
    "street": "In Flight",
    "map": "Way to Minar Forest"
+  },
+  "211040200": {
+   "street": "El Nath",
+   "map": "Ice Valley II"
+  },
+  "211040300": {
+   "street": "El Nath",
+   "map": "Sharp Cliff I"
+  },
+  "211060000": {
+   "street": "Lion King's Castle",
+   "map": "Desolate Moor"
+  },
+  "211060010": {
+   "street": "Lion King's Castle",
+   "map": "Castle Entrance"
   },
   "220000000": {
    "street": "Ludibrium",
@@ -245,9 +313,121 @@
    "street": "Ariant",
    "map": "Before Takeoff <To Orbis>"
   },
+  "270000000": {
+   "street": "Time Lane",
+   "map": "Three Doors"
+  },
   "270000100": {
    "street": "Time Lane",
    "map": "Temple of Time"
+  },
+  "271010000": {
+   "street": "Henesys Ruins",
+   "map": "Henesys Ruins"
+  },
+  "273000000": {
+   "street": "Twilight Perion",
+   "map": "Twilight Perion"
+  },
+  "400000000": {
+   "street": "Nova's Sanctum",
+   "map": "Pantheon"
+  },
+  "401000000": {
+   "street": "Heliseum",
+   "map": "Heliseum Reclamation HQ"
+  },
+  "402000000": {
+   "street": "Savage Terminal",
+   "map": "Brigand's Row"
+  },
+  "402000500": {
+   "street": "Sanctuary",
+   "map": "Town of Sanctuary"
+  },
+  "402000600": {
+   "street": "Refuge Outskirts",
+   "map": "Caravan Refuge"
+  },
+  "410000000": {
+   "street": "Vulpes",
+   "map": "Fox Point Village"
+  },
+  "410000002": {
+   "street": "Fox Point Village",
+   "map": "Fox Tree"
+  },
+  "410000100": {
+   "street": "Fox Point Village",
+   "map": "Fox Tree Top"
+  },
+  "410000200": {
+   "street": "Cheong-woon Valley",
+   "map": "Marketplace"
+  },
+  "410000300": {
+   "street": "Ristonia",
+   "map": "Fountain Square"
+  },
+  "410000416": {
+   "street": "Toolen City",
+   "map": "East Side 1"
+  },
+  "450001000": {
+   "street": "Lake of Oblivion",
+   "map": "Nameless Town"
+  },
+  "450001003": {
+   "street": "Lake of Oblivion",
+   "map": "Vanishing Journey Entrance"
+  },
+  "450002000": {
+   "street": "Chu Chu Island",
+   "map": "Chu Chu Village"
+  },
+  "450003000": {
+   "street": "Lachelein",
+   "map": "Lachelein Main Street"
+  },
+  "450005000": {
+   "street": "Arcana",
+   "map": "Grove of the Spirit Tree"
+  },
+  "450006130": {
+   "street": "Morass",
+   "map": "Trueffet Square"
+  },
+  "450007040": {
+   "street": "Esfera",
+   "map": "Base Camp"
+  },
+  "450009100": {
+   "street": "Moonbridge",
+   "map": "White Spear Deck 1"
+  },
+  "450011120": {
+   "street": "Labyrinth of Suffering",
+   "map": "Crash Site"
+  },
+  "450011660": {
+   "street": "Tenebris",
+   "map": "Source of Suffering"
+  },
+  "450012300": {
+   "street": "Limina",
+   "map": "End of the World 1-1"
+  },
+  "450015060": {
+   "street": "Yum Yum Island",
+   "map": "Yum Yum Village"
+  },
+  "450016000": {
+   "street": "Sellas",
+   "map": "The Jellyfish"
+  },
+  "540000000": {
+   "street": "Singapore",
+   "map": "CBD"
   },
   "540010000": {
    "street": "Singapore",
@@ -269,6 +449,22 @@
    "street": "Victoria Island",
    "map": "On the way to CBD"
   },
+  "541000000": {
+   "street": "Singapore",
+   "map": "Boat Quay Town"
+  },
+  "550000000": {
+   "street": "Malaysia",
+   "map": "Trend Zone Metropolis"
+  },
+  "551000000": {
+   "street": "Malaysia",
+   "map": "Kampung Village"
+  },
+  "600000000": {
+   "street": "New Leaf City Town Street",
+   "map": "New Leaf City - Town Center"
+  },
   "600010001": {
    "street": "New Leaf City Town Street",
    "map": "NLC Subway Station"
@@ -289,12 +485,29 @@
    "street": "Hidden Street",
    "map": "Inside Subway(From KC to NLC)"
   },
+  "682000000": {
+   "street": "Phantom Forest",
+   "map": "Haunted House"
+  },
+  "682000100": {
+   "street": "Haunted House",
+   "map": "Foyer"
+  },
   "800000000": {
    "street": "Zipangu",
    "map": "Mushroom Shrine"
+  },
+  "801000000": {
+   "street": "Zipangu",
+   "map": "Showa Town"
+  },
+  "801040000": {
+   "street": "Zipangu",
+   "map": "Near the Hideout"
   }
  },
  "npcs": {
+  "1002002": "Pason",
   "1002007": "Regular Cab at Lith Harbor",
   "1012000": "Regular Cab",
   "1022001": "Regular Cab",
@@ -303,17 +516,21 @@
   "1032008": "Cherry",
   "1052007": "The Ticket Gate",
   "1052016": "Regular Cab",
+  "1081001": "Pison",
   "1092014": "Nautilus' Mid-Sized Taxi",
   "1100003": "Kiriru",
   "1100004": "Kiru",
   "1100007": "Kiriru",
   "1100008": "Kiru",
+  "1200003": "Puro",
+  "1200004": "Puro",
   "2012000": "Agatha",
   "2012001": "Rini",
   "2012006": "Isa the Station Guide",
   "2012013": "Sunny",
   "2012021": "Ramini",
   "2012025": "Geras",
+  "2030000": "Jeff",
   "2041000": "Tian",
   "2060009": "Dolphin",
   "2082001": "Tommie",
@@ -321,9 +538,15 @@
   "2090005": "Crane",
   "2102000": "Asesson",
   "2102002": "Syras",
+  "3002015": "Fox God",
   "9000020": "Spinel",
+  "9010002": "Cotton Warper",
+  "9120015": "Konpei",
+  "9120200": "Konpei",
+  "9201056": "NLC Taxi",
   "9201057": "Bell",
   "9201068": "NLC ticket gate",
+  "9201135": "Audrey",
   "9270038": "Shalon",
   "9270041": "Irene"
  }
