@@ -282,6 +282,7 @@ class SiteAccountsTest {
         }
         assertEquals(SiteAccounts.LOCKED, accounts.verify("JOSH", "hunter22", "ipX").error(), "even the right password");
         assertEquals(5, accounts.failedSignIns());
+        assertEquals(1, accounts.lockouts(clock.get(), TimeUnit.DAYS.toMillis(1)), "the dashboard counts the lockout");
         clock.addAndGet(SiteAccounts.LOCK_MS);
         assertTrue(accounts.verify("Josh", "hunter22", "ipX").ok());
 

@@ -179,6 +179,11 @@ final class ServerSources implements DashboardExporter.Sources {
     }
 
     @Override
+    public Map<String, Object> accounts(long now) {
+        return AccountsExport.read(now);
+    }
+
+    @Override
     public IntFunction<String> mapNames() {
         return mapId -> {
             String known = names.get(mapId);

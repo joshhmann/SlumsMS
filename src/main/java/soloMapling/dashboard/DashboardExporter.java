@@ -108,6 +108,11 @@ public final class DashboardExporter {
         LiveSnapshot.Health health();
 
         IntFunction<String> mapNames();
+
+        /** The Accounts panel (see {@link AccountsExport}); null when not available. */
+        default java.util.Map<String, Object> accounts(long now) {
+            return null;
+        }
     }
 
     /** One exporter's state: the rate baselines, the day's series, the run count. */
@@ -158,6 +163,10 @@ public final class DashboardExporter {
             result.live().put("chat", soloMapling.ArtificialPlayer.BotBrainSystem.ChatStats.snapshot());
             // Cumulative replies per tier (llm, scripted, emote, ignored, flagged) so the day's series can chart them.
             result.point().put("ch", soloMapling.ArtificialPlayer.BotBrainSystem.ChatStats.tierCounts());
+            java.util.Map<String, Object> accounts = sources.accounts(now);
+            if (accounts != null) {
+                result.live().put("accounts", accounts);
+            }
             result.live().put("wealthIndex", soloMapling.ArtificialPlayer.PlayerWealthIndex.snapshot());
             result.live().put("exportMs", (System.nanoTime() - t0) / 1_000_000);
             AtomicFiles.writeJson(dir.resolve("live.json"), result.live());
