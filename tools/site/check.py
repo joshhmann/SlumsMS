@@ -27,6 +27,10 @@ FORBIDDEN = [
     # the public site calls the game Slums Story (owner, 2026-10-26)
     "maplestory", "maple story", "nexon", "v83", "wizet",
 ]
+# The TEST copy of the site (tools/site/test164) builds from the TEST server, where auto-QA's pretend players
+# ("AutoQaOne") show up in the World feed. Only there, SLUMS_SITE_CHECK_ALLOW lets those words through (comma list).
+_allow = {w.strip().lower() for w in os.environ.get("SLUMS_SITE_CHECK_ALLOW", "").split(",") if w.strip()}
+FORBIDDEN = [w for w in FORBIDDEN if w.lower() not in _allow]
 
 # The server host "164": as the last part of an address (.164) or named as a machine ("on 164", "164 box").
 FORBIDDEN_PATTERNS = [

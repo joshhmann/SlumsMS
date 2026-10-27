@@ -40,7 +40,7 @@ ssh "$HOST" "echo $(git rev-parse --short HEAD) > $DEST/DEPLOYED_COMMIT
   cp $DEST/tools/site/test164/nginx.conf /etc/slums-site-test/nginx.conf
   cd $DEST/tools/site/test164 && cp $(echo $UNITS) /etc/systemd/system/ && systemctl daemon-reload
   nginx -t -q -c /etc/slums-site-test/nginx.conf
-  cd $DEST && flock -w 300 /run/lock/slums-site-test-build.lock nice -n 19 python3 tools/site/build.py --private --world \
+  cd $DEST && SLUMS_SITE_CHECK_ALLOW=AutoQa flock -w 300 /run/lock/slums-site-test-build.lock nice -n 19 python3 tools/site/build.py --private --world \
     --out /srv/slums-site-test --no-tar --hs-data $DEST/hiddenstreet \
     --site-data /opt/mapleroot-dev/persistence-test/Server/data/site \
     --market-data /opt/mapleroot-dev/persistence-test/Server/data/market | tail -1
