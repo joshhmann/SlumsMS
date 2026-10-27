@@ -973,7 +973,7 @@ public final class AutoQaCatalog {
                         noEmoji())
                 .build());
         // Owner 2026-10-27 ("It needs to be harder mobs"): the shipped Henesys invasion at full strength (its own boss HP
-        // and 30 minutes, no forced deaths): the crowd of lv 1-40 bots loses a good number to the lv 40-80 invaders and
+        // and 30 minutes, no forced deaths): the crowd of lv 1-40 bots loses a good number to the lv 50-80 invaders and
         // still beats the boss. Long (6-12 min of fight), so not nightly: run it by id after tuning the template
         c.add(Check.auto("t-ev-3", "The full Henesys invasion: bots die in numbers, the crowd still wins").minutes(35)
                 .notNightly()

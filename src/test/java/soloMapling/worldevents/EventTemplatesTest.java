@@ -116,7 +116,7 @@ class EventTemplatesTest {
     }
 
     // Owner 2026-10-27 ("It needs to be harder mobs"): ~100 lv 1-40 bots cleared the mushroom waves in ~92 s and
-    // none died, so Henesys is now invaded by lv 40-65 field mobs and a Jr. Balrog, each wave tougher than the last.
+    // none died, so Henesys is now invaded by lv 50-75 field mobs and a Jr. Balrog, each wave tougher than the last.
     @Test
     void henesysInvasionBringsHarderMobsEachWaveAndABigBoss() throws Exception {
         EventTemplate henesys = shipped("henesys_invasion");
@@ -125,8 +125,7 @@ class EventTemplatesTest {
             mobs.add(w.mobId());
             assertTrue(w.count() >= 12 && w.count() <= EventTemplates.MAX_WAVE_COUNT, "a crowd of " + w.mobId());
         }
-        assertEquals(List.of(4230101, 5130100, 5130102, 6230100), mobs,
-                "Zombie Lupin, Drake, Dark Stone Golem, Wild Kargo");
+        assertEquals(List.of(5130100, 6230100, 7130100, 7130200), mobs, "Drake, Wild Kargo, Tauromacis, Werewolf");
         assertTrue(henesys.bossHp() >= 150_000 && henesys.bossHp() <= EventTemplates.MAX_BOSS_HP,
                 "the boss lasts for a crowd: " + henesys.bossHp());
         // the other headline event is untouched
@@ -143,7 +142,7 @@ class EventTemplatesTest {
         for (EventTemplate.Wave w : henesys.waves()) {
             assertTrue(server.life.LifeFactory.monsterExists(w.mobId()), "Mob.wz has " + w.mobId());
             int level = server.life.LifeFactory.getMonsterLevel(w.mobId());
-            assertTrue(level >= 40 && level <= 70, w.mobId() + " is lv " + level);
+            assertTrue(level >= 40 && level <= 79, w.mobId() + " is lv " + level);
             assertTrue(level > previous, "each wave is tougher: " + w.mobId() + " lv " + level);
             previous = level;
             if (w.miniBossId() > 0) {
@@ -152,7 +151,7 @@ class EventTemplatesTest {
         }
         assertTrue(server.life.LifeFactory.monsterExists(henesys.bossMobId()));
         assertTrue(server.life.LifeFactory.monsterIsBoss(henesys.bossMobId()), "Jr. Balrog is a boss");
-        assertTrue(server.life.LifeFactory.getMonsterLevel(henesys.bossMobId()) >= 70, "a boss above the waves");
+        assertTrue(server.life.LifeFactory.getMonsterLevel(henesys.bossMobId()) >= 80, "a boss above the waves");
     }
 
     private static EventTemplate shipped(String id) throws Exception {

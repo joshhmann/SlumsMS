@@ -205,8 +205,8 @@ final class WorldEventScenarios {
         static List<String> hints() {
             return List.of("Expect: the [Monster Invasion] notice, mushrooms all over Henesys, the staged lv 15 bots (and"
                     + " any nearby) fighting them. On an invasion map a heavy hit can kill a bot: WEVENT BOT DIED,",
-                    "then RESPAWN (HABITS) and now and then a grumble (WEVENT GRUMBLE). Then the waves (Zombie Lupins,"
-                    + " Drakes, Dark Stone Golems, Wild Kargos with Zombie Mushmom), Jr. Balrog, the end notice. !qa do die drops the 3 staged bots"
+                    "then RESPAWN (HABITS) and now and then a grumble (WEVENT GRUMBLE). Then the waves (Drakes, Wild"
+                    + " Kargos, Tauromacis, Werewolves with Zombie Mushmom), Jr. Balrog, the end notice. !qa do die drops the 3 staged bots"
                     + " nearest a mob to 1 HP with a certain death, unless bots already died on their own;"
                     + " EV2 STATUS every 30 s (or !qa do status) says where everyone is.");
         }
