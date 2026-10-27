@@ -342,10 +342,13 @@ def creds():
 def accounts(http):
     """Ticket 105: password sign-in and invite sign-up, through the TEST game auth API."""
     cr = creds()
-    st, _, _, js = http("POST", "/api/login/password", {"user": "ab", "pass": "abcdef"})
-    ok(st == 400 and (js or {}).get("rule") == "user_length", "a too-short username is refused with the rule", f"{st} {js}")
-    st, _, _, js = http("POST", "/api/login/password", {"user": "qaabcd", "pass": "a" * 13})
-    ok(st == 400 and (js or {}).get("rule") == "pass_length", "a 13-character password is refused (the game box takes 12)", f"{st} {js}")
+    st, _, _, js = http("POST", "/api/login/signup", {"code": "QACODE", "user": "ab", "pass": "abcdef"})
+    ok(st == 400 and (js or {}).get("rule") == "user_length", "sign-up: a too-short username is refused with the rule", f"{st} {js}")
+    st, _, _, js = http("POST", "/api/login/signup", {"code": "QACODE", "user": "qaabcd", "pass": "a" * 13})
+    ok(st == 400 and (js or {}).get("rule") == "pass_length", "sign-up: a 13-character password is refused (the game box takes 12)",
+       f"{st} {js}")
+    st, _, _, js = http("POST", "/api/login/password", {"user": "", "pass": "x"})
+    ok(st == 400, "sign-in: an empty username is refused without asking the game", f"{st} {js}")
     st, _, _, js = http("POST", "/api/login/password", {"user": "qaabcd", "pass": "abcdef"}, headers={"Content-Type": "application/json"})
     ok(st == 403, "sign-in without the X-Slums header is refused", str(st))
     st, _, _, js = http("POST", "/api/login/password", {"user": "qanobody1", "pass": "wrongpw1"})
