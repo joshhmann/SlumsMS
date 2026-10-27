@@ -166,9 +166,107 @@ class ChatPairGenTest {
         List<ChatPairGen.Cell> cells = List.of(cell("trade", "neutral", "rwt", "ask", "brush_rwt"),
                 cell("talk", "kind", "normal", "greet", "greeting"));
         String v = ChatPairGen.verifyPrompt(cells, List.of(new String[]{"a", "b"}, new String[]{"c", "d"}));
-        assertTrue(v.contains(ChatTriage.CON.labels().get("rwt")) && v.contains(ConvoSense.INTENT.labels().get("trade")), v);
-        assertTrue(v.contains("2. [wants talk, tone kind, con normal, act greet, B greeting] P: c / B: d"), v);
-        assertTrue(v.contains("would not actually type"), v);
+        assertTrue(v.contains("2. P: c | B: d (B is meant to be you " + ChatBankGen.INTENTS.get("greeting")[0] + ")"), v);
+        assertFalse(v.contains("rwt") || v.contains("tone") || v.contains("greet,"), "the lines go out without their labels: " + v);
+        // the fixed legend: every Decide label with its words, the acts and the hard cases
+        for (String l : ConvoSense.INTENT.labels().keySet()) {
+            assertTrue(ChatPairGen.VERIFY_SYSTEM.contains(" " + l + " = " + ConvoSense.INTENT.labels().get(l)), l);
+        }
+        for (String l : ChatTriage.CON.labels().keySet()) {
+            assertTrue(ChatPairGen.VERIFY_SYSTEM.contains(" " + l + " = "), l);
+        }
+        assertTrue(ChatPairGen.VERIFY_SYSTEM.contains("past-tense story is talk")
+                && ChatPairGen.VERIFY_SYSTEM.contains("\"lend me 300k i pay back\" is scam")
+                && ChatPairGen.VERIFY_SYSTEM.contains("refuse = P turns something down"), ChatPairGen.VERIFY_SYSTEM);
+    }
+
+    @Test
+    void theConTableKeepsConsWhereTheyAreReal() {
+        assertEquals(Map.of("scam", List.of("talk", "trade"), "rwt", List.of("trade"), "manipulation", List.of("talk"),
+                "harassment", List.of("talk", "insult")), ChatPairGen.CON_INTENTS);
+        assertEquals(Set.of("scam", "rwt", "manipulation", "harassment"), ChatPairGen.CON_INTENTS.keySet());
+        Set<String> used = new HashSet<>();
+        for (ChatPairGen.Row r : ChatPairGen.ROWS) {
+            if (!"normal".equals(r.con())) {
+                assertTrue(ChatPairGen.CON_INTENTS.get(r.con()).contains(r.intent()),
+                        r.key() + ": con " + r.con() + " never goes with " + r.intent());
+                used.add(r.con() + "|" + r.intent());
+            }
+        }
+        ChatPairGen.CON_INTENTS.forEach((con, intents) -> intents.forEach(i ->
+                assertTrue(used.contains(con + "|" + i), con + "|" + i + " is planned")));
+        ChatPairGen.BACKFILL.forEach((label, b) -> {
+            if (!"normal".equals(b.con())) {
+                assertTrue(ChatPairGen.CON_INTENTS.get(b.con()).containsAll(b.intents()), label);
+            }
+        });
+    }
+
+    @Test
+    void theLabelCheckParsesAndMatches() {
+        Map<Integer, ChatPairGen.Verdict> v = ChatPairGen.parseVerdicts("""
+                {"n":1,"intent":"talk","tone":"neutral","con":"normal","act":"refuse","reply_ok":true,"typed":true}
+                junk
+                2. {"n": 2, "intent": "Buff", "tone": "kind", "con": "normal", "act": "ask", "reply_ok": true}
+                {"intent":"talk","tone":"rude","con":"scam","act":"ask","reply_ok":false,"typed":false}
+                {"n":5,"intent":"x" broken
+                """);
+        assertEquals(3, v.size());
+        assertEquals("refuse", v.get(1).act());
+        assertEquals("buff", v.get(2).intent(), "lower-cased");
+        assertNull(v.get(2).typed());
+        assertEquals("scam", v.get(3).con(), "no number: the next one");
+        ChatPairGen.Cell refuse = new ChatPairGen.Cell("talk", "neutral", "normal", "refuse", "refusal", "talk", "lower", "-");
+        assertEquals(List.of(), ChatPairGen.mismatches(refuse, v.get(1)));
+        ChatPairGen.Cell buff = cell("buff", "neutral", "normal", "ask", "buff_yes");
+        assertEquals(List.of(), ChatPairGen.mismatches(buff, v.get(2)), "neutral vs kind is one allowed step; typed unknown");
+        ChatPairGen.Cell scam = cell("talk", "neutral", "scam", "ask", "brush_scam");
+        assertEquals(List.of("label mismatch tone want=neutral got=rude", "label mismatch reply_ok want=true got=false",
+                "label mismatch typed want=true got=false"), ChatPairGen.mismatches(scam, v.get(3)));
+        ChatPairGen.Cell honest = cell("buff", "neutral", "scam", "ask", "brush_scam");
+        assertEquals(List.of("label mismatch con want=scam got=normal"), ChatPairGen.mismatches(honest, v.get(2)),
+                "an honest buff request stamped scam is dropped");
+        assertEquals(List.of("label check missing"), ChatPairGen.mismatches(buff, null));
+        Map<Integer, ChatPairGen.Verdict> actAsIntent = ChatPairGen.parseVerdicts(
+                "{\"n\":1,\"intent\":\"refuse\",\"tone\":\"neutral\",\"con\":\"normal\",\"act\":\"refuse\",\"reply_ok\":true}"
+                + "{\"n\":2,\"intent\":\"lfg\",\"tone\":\"neutral\",\"con\":\"normal\",\"act\":\"announce\",\"reply_ok\":true}");
+        assertEquals("talk", actAsIntent.get(1).intent(), "an act in the intent field means it wants nothing: talk");
+        assertEquals(List.of(), ChatPairGen.mismatches(refuse, actAsIntent.get(1)));
+        assertEquals("lfg", actAsIntent.get(2).intent(), "any other unknown label stays a mismatch");
+        assertTrue(ChatPairGen.toneOk("kind", "neutral") && ChatPairGen.toneOk("rude", "rude"));
+        assertFalse(ChatPairGen.toneOk("neutral", "rude") || ChatPairGen.toneOk("kind", "flirty"));
+    }
+
+    @Test
+    void hardNegativeCallsGoRoundTheVariants(@TempDir Path dir) throws Exception {
+        ChatPairGen g = new ChatPairGen(dir, null);
+        List<ChatPairGen.Cell> cells = ChatPairGen.cells();
+        List<String> got = new java.util.ArrayList<>();
+        Random rng = new Random(3);
+        for (int i = 0; i < ChatPairGen.VARIANTS.size() * 2; i++) {
+            got.add(g.pickHard(cells, 10, rng).variant());
+        }
+        List<String> order = List.copyOf(ChatPairGen.VARIANTS.keySet());
+        assertEquals(order, got.subList(0, order.size()));
+        assertEquals(order, got.subList(order.size(), got.size()));
+        assertNull(g.pickHard(ChatPairGen.only(cells, "|party|"), 10, rng), "no variant cells: the floor ranking picks");
+    }
+
+    @Test
+    void refuseAndHardNegativePromptsCarryTheirShape() throws Exception {
+        ChatPairGen g = new ChatPairGen(Files.createTempDirectory("pairs"), null);
+        for (ChatPairGen.Row r : ChatPairGen.ROWS) {
+            String p = g.prompt(new ChatPairGen.Cell(r, ChatPairGen.botLabels(r).get(0), "lower", "-"), 8, "neutral",
+                    new Random(1));
+            String shape = "-".equals(r.variant()) ? ChatPairGen.ACT_SHAPES.get(r.act())
+                    : ChatPairGen.VARIANTS.get(r.variant()).get(1);
+            assertTrue(p.contains("(shape: \"" + shape + "\"; never copy it"), r.key() + ": " + p);
+        }
+        String refuse = g.prompt(new ChatPairGen.Cell("talk", "neutral", "normal", "refuse", "refusal", "talk", "lower",
+                "-"), 8, "neutral", new Random(1));
+        assertTrue(refuse.contains("with no request in it") && refuse.contains("(shape: \"nah cant do kpq tonite\""), refuse);
+        assertEquals("prompt example", g.playerProblem(cell("talk", "neutral", "normal", "refuse", "talk"),
+                "cant rn gotta sleep"), "a shape example is never a line");
     }
 
     @Test
@@ -315,7 +413,7 @@ class ChatPairGenTest {
     @Test
     void resumeReadsThePairsBack(@TempDir Path dir) throws Exception {
         ChatPairGen g = new ChatPairGen(dir, ROOT);
-        ChatPairGen.Cell scam = cell("buff", "kind", "scam", "ask", "brush_scam");
+        ChatPairGen.Cell scam = cell("talk", "kind", "scam", "ask", "brush_scam");
         assertTrue(g.offer(scam, "any", "can u buff me then lend me 200k pls", "lol no"));
         ChatPairGen again = new ChatPairGen(dir, ROOT);
         assertEquals("duplicate", again.playerProblem(scam, "can u buff me then lend me 200k pls!!"));

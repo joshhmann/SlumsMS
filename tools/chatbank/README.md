@@ -50,7 +50,10 @@ About 6 MB of heap per 100k lines (`ChatBankTest` measures it); the gzip file is
 `generate.sh player [gen options] [--target 4000] [--rows a,b] [--repo-root .]` and
 `generate.sh backfill [gen options] [--bank tools/chatbank/state/lines.tsv]` write labelled two-line exchanges to
 `state/pairs.jsonl` (rejects with the reason in `state/pair-rejects.tsv`). They never write `lines.tsv` or
-`chatbank.bin`; `pack` stays bot replies only. One call handles `--batch` (6) items; a second call verifies them.
+`chatbank.bin`; `pack` stays bot replies only. One call handles `--batch` items (8 for `player`, 6 for `backfill`); a
+second call label-checks them. `--reasoning-effort` is ignored here (on .17, low/high spent the whole token cap
+thinking and returned nothing); `--check-url`, `--check-model` and `--check-api-key-env` run the label check on another
+model (default: the generating one).
 
 Each row: `convo_id` (p000123), `player_line` (literal text, real names, never a `{slot}`), `player_intent`,
 `player_tone`, `player_con` (exactly the Decide labels of `ConvoSense.INTENT`, `ConvoSense.TONE` and
@@ -59,8 +62,9 @@ Each row: `convo_id` (p000123), `player_line` (literal text, real names, never a
 bank intent), `voice` (the reply's typing style), `place`, `affinity` (the bot's feelings), `variant` (the hard
 negative it is, or `-`), `source` (`gen` or `backfill`) and, for backfill, `bank_id`.
 
-- **Plan rows** (`ChatPairGen.ROWS`): plausible (intent, tone, con, act, variant). Requests in three tones; the cons
-  (scam, manipulation, rwt, harassment); and the **hard negatives**, all con `normal`: talk that reads like a request
+- **Plan rows** (`ChatPairGen.ROWS`): plausible (intent, tone, con, act, variant). Requests in three tones; the cons,
+  only with the intents where they are real (`ChatPairGen.CON_INTENTS`: scam with talk or trade, rwt with trade,
+  manipulation with talk, harassment with talk or insult; an honest "priest buff plz" is never scam); and the **hard negatives**, all con `normal`: talk that reads like a request
   (`lfg` "lf2m kpq lv 25+", `omw`, `refusal` "sorry cant do kpq tonite", `hello`, `bye`, `story` "i helped kill balrog
   yesterday", `denial` "im saving for a weapon, not asking u for mesos") and near-misses that read like a con
   (`payback` between friends, `wts` "wts 10k nx code 50m", `priced` fair trades and haggles).
@@ -69,7 +73,8 @@ negative it is, or `-`), `source` (`gen` or `backfill`) and, for backfill, `bank
 - **Coverage plan** (`--target`, default 4000): every intent, con, tone and act at least target/20 (200), talk at most
   20% of pairs, neutral tone aimed at 65%. The picker takes the row furthest below its floors (rows the model keeps
   failing are discounted), then its least-filled cell. `--rows story,denial` stages only rows whose key contains one
-  of these (it skips the plan).
+  of these (it skips the plan). `--hard-share` (0.25): at least that share of calls goes to the hard negatives, one
+  variant after another, ahead of the floors and the talk cap.
 - **Backfill**: for each bank row whose label implies an incoming line (`ChatPairGen.BACKFILL`: party_* → party, help_*
   → help_kill, brush_scam → con scam with the intent chosen by the model, greeting → talk/greet, thanks → talk/chat ...;
   the `thread_*` lines are skipped), the model writes the player line that reply answers. The training text is that
@@ -80,10 +85,14 @@ negative it is, or `-`), `source` (`gen` or `backfill`) and, for backfill, `bank
   lines, no exact duplicate (file-wide) or near duplicate (same intent and con), no copied prompt or variant example,
   no frozen-set line. The prompt asks for 5-40 characters, lowercase and 2008 shorthand.
 - **Reply checks:** the bank's own (`ChatBankGen.lineProblem`: voice check and guard, slots of its bot label, length).
-- **Verifier:** asks which exchanges do not match their intent, tone, con and act (in the classifier's own label words),
-  a real player would not type, or whose reply does not fit its bot label.
+- **Label check** (round 3, replaces the yes/no verifier): the model gets the numbered lines without their intended
+  labels (only what B is meant to do) and labels each one blind, as JSON: intent, tone, con, act (the classifier's own
+  label words, with the hard cases spelled out), `reply_ok` and `typed`. A pair is kept only when intent, con and act
+  equal its cell's, the tone matches (or is neutral against kind), the reply is ok and the line is not untypeable. Every
+  disagreement goes to `pair-rejects.tsv` as `label mismatch <field> want=<x> got=<y>`.
 - `stats` prints pairs per intent, tone, con, act, bot label, source and variant, the player line length
-  distribution, every plan floor with how far off it is, the talk and neutral shares, and rejects per reason.
+  distribution, every plan floor with how far off it is, the talk, neutral and hard-negative shares, each run's pairs
+  per call and reject share (`pair-runs.tsv`), the label mismatches by field and want/got, and rejects per reason.
 
 ## Frozen evaluation sets (never trained on)
 
