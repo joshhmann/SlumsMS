@@ -136,6 +136,11 @@ public class GameBoardWorld implements BoardWorld {
     }
 
     @Override
+    public Map<String, Object> tradeRatings(long now) {
+        return soloMapling.site.PublicSiteExport.tradeRatingsFile(now);
+    }
+
+    @Override
     public boolean publicCharacter(int characterId) {
         return !hiddenPosters.contains(characterId);
     }

@@ -27,7 +27,9 @@ import java.util.function.Consumer;
  * {@code @weblogin} (contract: docs/design/track-d-plan.md, "Site board contract"):
  * <pre>
  *   inbox  (the site writes, the server reads)   posts.json, alerts.json
- *   outbox (the server writes, the site reads)   board.json, rejected.json, removed.json, alerts-fired.json
+ *   outbox (the server writes, the site reads)   board.json, rejected.json, removed.json, alerts-fired.json,
+ *                                                offers.json, trade-ratings.json (every 15 min; per-player counts
+ *                                                for the site's "My trades", private: never in the public folder)
  * </pre>
  * Every 30 s the inbox files' modification times are checked; a changed file is read again, its posts are checked
  * ({@link BoardRules}), the board is rewritten and new posts get a bot's offer ({@link BoardOffers}: a whisper when
@@ -378,7 +380,20 @@ public final class SiteBoard {
             rejected.forEach(r -> present.add(r.id()));
             state.prunePosts(present, world.now());
             writeBoard();
+            writeTradeRatings();
             saveState();
+        }
+
+        /** The private trade-ratings.json (every 15 min, with the cycle); kept as it was when it cannot be built. */
+        void writeTradeRatings() {
+            try {
+                java.util.Map<String, Object> ratings = world.tradeRatings(world.now());
+                if (ratings != null) {
+                    write(soloMapling.site.TradeRatings.PRIVATE_FILE, ratings);
+                }
+            } catch (RuntimeException e) {
+                note("OUTBOX " + soloMapling.site.TradeRatings.PRIVATE_FILE + " not built: " + e);
+            }
         }
 
         /** Reads and checks posts.json; false (the last board kept) when the file or the database could not be read. */

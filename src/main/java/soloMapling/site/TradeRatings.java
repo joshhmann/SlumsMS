@@ -191,6 +191,38 @@ public final class TradeRatings {
     public record Row(int charId, long completed, long fellThrough) {
     }
 
+    /** The private per-player file for the site's "My trades" panel; it goes to the board outbox, never public. */
+    public static final String PRIVATE_FILE = "trade-ratings.json";
+
+    /**
+     * {@value #PRIVATE_FILE}: {@code {"generated": "<ISO UTC>", "ratings": {"<IGN>": {"completed": n,
+     * "fellThrough": n}}}} for every character with at least one rated trade, from the same people as the public
+     * traders board ({@code everyone}: {@link SiteLeaderboards#players} and the bots), so GM and auto-QA characters
+     * are never in it. Unlike leaderboards.json there is no {@link SiteLeaderboards#TRADER_MIN}. Pure.
+     */
+    public static Map<String, Object> privateFile(List<SiteLeaderboards.Person> everyone, List<Row> trades, long now) {
+        Map<Integer, String> names = new HashMap<>();
+        for (SiteLeaderboards.Person p : everyone) {
+            if (p.name() != null && !p.name().isBlank() && !SiteFeed.isQaName(p.name())) {
+                names.put(p.id(), p.name());
+            }
+        }
+        Map<String, Object> ratings = new java.util.TreeMap<>(String.CASE_INSENSITIVE_ORDER);
+        for (Row t : trades == null ? List.<Row>of() : trades) {
+            String name = names.get(t.charId());
+            if (name != null && t.completed() + t.fellThrough() >= 1) {
+                Map<String, Object> r = new java.util.LinkedHashMap<>();
+                r.put("completed", t.completed());
+                r.put("fellThrough", t.fellThrough());
+                ratings.put(name, r);
+            }
+        }
+        Map<String, Object> m = new java.util.LinkedHashMap<>();
+        m.put("generated", java.time.Instant.ofEpochMilli(now).toString());
+        m.put("ratings", new java.util.LinkedHashMap<>(ratings));
+        return m;
+    }
+
     // ── test seams ──
 
     static Map<Integer, long[]> pendingForTest() {

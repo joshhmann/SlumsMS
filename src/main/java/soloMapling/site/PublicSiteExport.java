@@ -155,6 +155,15 @@ public final class PublicSiteExport {
     public record Report(Path dir, List<String> written, List<String> failed) {
     }
 
+    /**
+     * The private {@link TradeRatings#PRIVATE_FILE} from the database, for {@link soloMapling.Economy.board.SiteBoard}
+     * to write into the board outbox (never this public folder); null when the ratings cannot be read.
+     */
+    public static Map<String, Object> tradeRatingsFile(long now) {
+        Boards b = new ServerSources().boards(1, 200_000);
+        return b.trades() == null ? null : TradeRatings.privateFile(b.everyone(), b.trades(), now);
+    }
+
     // ── what a run reads ────────────────────────────────────────────────────────────────────────
 
     /** The server's state; tests substitute one. */
@@ -316,7 +325,7 @@ public final class PublicSiteExport {
                 + " FROM characters c LEFT JOIN accounts a ON a.id = c.accountid LIMIT 20000";
         /** Trade ratings with at least the minimum; over-fetched because excluded characters are dropped after. */
         static final String TRADES = "SELECT CharId, Completed, FellThrough FROM traderatings"
-                + " WHERE Completed + FellThrough >= ? ORDER BY Completed DESC LIMIT 1000";
+                + " WHERE Completed + FellThrough >= ? ORDER BY Completed DESC LIMIT ?";
         /** Every bot (the roster and the older plan slots): one bounded read; fame is derived from id and level. */
         static final String BOTS = "SELECT s.BotId, s.Name, s.Level, s.Exp, s.Job, m.GuildId"
                 + " FROM botstore s LEFT JOIN botguildmember m ON m.BotId = s.BotId LIMIT 50000";
@@ -411,6 +420,11 @@ public final class PublicSiteExport {
 
         @Override
         public Boards boards() {
+            return boards(SiteLeaderboards.TRADER_MIN, 1000);
+        }
+
+        /** As {@link #boards()}, with the trade ratings of at least {@code tradeMin} trades (at most {@code tradeLimit}). */
+        Boards boards(int tradeMin, int tradeLimit) {
             try (Connection con = DatabaseConnection.getConnection()) {
                 List<SiteLeaderboards.PlayerRow> players = new ArrayList<>();
                 try (PreparedStatement ps = con.prepareStatement(PLAYERS); ResultSet rs = ps.executeQuery()) {
@@ -424,7 +438,8 @@ public final class PublicSiteExport {
                 }
                 List<TradeRatings.Row> trades = new ArrayList<>();
                 try (PreparedStatement ps = con.prepareStatement(TRADES)) {
-                    ps.setInt(1, SiteLeaderboards.TRADER_MIN);
+                    ps.setInt(1, tradeMin);
+                    ps.setInt(2, tradeLimit);
                     try (ResultSet rs = ps.executeQuery()) {
                         while (rs.next()) {
                             trades.add(new TradeRatings.Row(rs.getInt("CharId"), rs.getLong("Completed"),

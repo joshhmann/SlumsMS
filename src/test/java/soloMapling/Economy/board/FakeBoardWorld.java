@@ -33,6 +33,14 @@ public class FakeBoardWorld implements BoardWorld {
     /** Characters the site may not name (GMs). */
     final Set<Integer> hidden = new HashSet<>();
 
+    /** What tradeRatings() returns (null: cannot be built). */
+    Map<String, Object> tradeRatings;
+
+    @Override
+    public Map<String, Object> tradeRatings(long now) {
+        return tradeRatings;
+    }
+
     @Override
     public boolean publicCharacter(int characterId) {
         return !hidden.contains(characterId);

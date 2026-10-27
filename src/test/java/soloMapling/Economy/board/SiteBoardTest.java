@@ -67,6 +67,31 @@ class SiteBoardTest {
     }
 
     @Test
+    void tradeRatingsGoToThePrivateOutboxEveryCycle() throws Exception {
+        SiteBoard.Engine e = engine();
+        e.cycle();
+        assertFalse(Files.exists(outbox.resolve("trade-ratings.json")), "nothing to write: no file");
+
+        w.tradeRatings = soloMapling.site.TradeRatings.privateFile(
+                List.of(new soloMapling.site.SiteLeaderboards.Person(70, "Momo", 50, 0, 100, 0, 0, 0)),
+                List.of(new soloMapling.site.TradeRatings.Row(70, 2, 1)), w.now);
+        e.cycle();
+        Path f = outbox.resolve("trade-ratings.json");
+        assertEquals("{\"generated\":\"" + java.time.Instant.ofEpochMilli(w.now)
+                + "\",\"ratings\":{\"Momo\":{\"completed\":2,\"fellThrough\":1}}}", Files.readString(f));
+        assertEquals("rw-r-----", java.nio.file.attribute.PosixFilePermissions.toString(Files.getPosixFilePermissions(f)),
+                "group-readable like the other outbox files, not world-readable like the public site files");
+        try (var listing = Files.list(outbox)) {
+            assertTrue(listing.noneMatch(p -> p.getFileName().toString().endsWith(".tmp")), "written atomically");
+        }
+        assertFalse(soloMapling.site.PublicSiteExport.FILES.contains("trade-ratings.json"));
+        try (var all = Files.walk(dir)) {
+            assertEquals(List.of(f), all.filter(p -> p.getFileName().toString().equals("trade-ratings.json")).toList(),
+                    "only in the outbox");
+        }
+    }
+
+    @Test
     @SuppressWarnings("unchecked")
     void gmAndAutoQaPostersAreNotNamedOnTheBoard() throws Exception {
         w.account(9, "GmGuy").account(10, "AutoQaOne");

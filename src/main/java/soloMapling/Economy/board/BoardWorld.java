@@ -58,6 +58,14 @@ public interface BoardWorld extends BoardRules.Lookup {
         return true;
     }
 
+    /**
+     * The private trade-ratings.json ({@link soloMapling.site.TradeRatings#privateFile}) as of now; null when it cannot
+     * be built (no ratings table). Called on the 15-minute run, off the game thread.
+     */
+    default java.util.Map<String, Object> tradeRatings(long now) {
+        return null;
+    }
+
     /** The account's most recently played character's name, or null. */
     String lastPlayed(int account);
 
