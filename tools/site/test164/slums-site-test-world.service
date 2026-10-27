@@ -1,0 +1,27 @@
+[Unit]
+Description=SlumsMS TEST site: rebuild the world pages from the TEST server's export
+
+[Service]
+Type=oneshot
+Nice=19
+IOSchedulingClass=idle
+WorkingDirectory=/opt/slums-site-test
+ExecStart=/usr/bin/flock -w 90 /run/lock/slums-site-test-build.lock /usr/bin/python3 tools/site/build.py --private --world --section world --out /srv/slums-site-test \
+    --market-data /opt/mapleroot-dev/persistence-test/Server/data/market \
+    --site-data /opt/mapleroot-dev/persistence-test/Server/data/site \
+    --hs-data /opt/slums-site-test/hiddenstreet
+NoNewPrivileges=true
+PrivateTmp=true
+PrivateDevices=true
+ProtectSystem=strict
+ProtectHome=true
+ReadWritePaths=/srv/slums-site-test /run/lock
+ReadOnlyPaths=/opt/slums-site-test
+ProtectKernelTunables=true
+ProtectKernelModules=true
+ProtectControlGroups=true
+RestrictAddressFamilies=AF_UNIX
+RestrictNamespaces=true
+LockPersonality=true
+MemoryMax=512M
+UMask=0022

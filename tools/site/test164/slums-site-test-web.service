@@ -1,0 +1,15 @@
+[Unit]
+Description=SlumsMS TEST site on 192.168.0.164:8192 (its own nginx process, not the shared one)
+After=network.target slums-login-test.service slums-market-test.service
+
+[Service]
+Type=simple
+ExecStartPre=/usr/sbin/nginx -t -q -c /etc/slums-site-test/nginx.conf
+ExecStart=/usr/sbin/nginx -c /etc/slums-site-test/nginx.conf -g "daemon off;"
+ExecReload=/usr/sbin/nginx -c /etc/slums-site-test/nginx.conf -s reload
+Restart=on-failure
+RestartSec=3
+MemoryMax=128M
+
+[Install]
+WantedBy=multi-user.target

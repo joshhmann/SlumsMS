@@ -1,0 +1,8 @@
+[Unit]
+Description=SlumsMS TEST site: market pages every 15 minutes
+
+[Timer]
+OnCalendar=*:05,20,35,50
+
+[Install]
+WantedBy=timers.target

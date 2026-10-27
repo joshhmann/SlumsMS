@@ -90,8 +90,9 @@ Undo: `systemctl disable --now slums-market`, then `userdel slums-market` and `r
 (that deletes every watchlist, alert and post).
 
 ## 3. Turn on `@weblogin` on live (part of the 1.6.0 deploy)
-Live starts with `-Dslums.weblogin.dir=/var/lib/slums-login/approvals` (TEST never sets it, so TEST accounts can
-never sign anyone in), and with the board's inbox and outbox flags set to `/var/lib/slums-market/inbox` and
+Live starts with `-Dslums.weblogin.dir=/var/lib/slums-login/approvals` (TEST sets its own,
+`/var/lib/slums-login-test/approvals`, read only by the TEST sign-in on 8194 with its own key: see
+`tools/site/test164/README.md`. A TEST code can never sign anyone in to the real site), and with the board's inbox and outbox flags set to `/var/lib/slums-market/inbox` and
 `/var/lib/slums-market/outbox` (names in the "Site board contract"). Live runs as root, so no group change is needed. Check: in game, `@weblogin ABCDEF` replies
 "Website sign-in sent", and a file `/var/lib/slums-login/approvals/ABCDEF.json` appears (it expires harmlessly).
 
