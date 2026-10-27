@@ -164,6 +164,9 @@ final class GameAutoQaWorld implements AutoQaWorld {
                     yield List.of("PASS meso " + me.getMeso());
                 }
                 case "mesoGained" -> mesoGained(me, Long.parseLong(a[0]), Long.parseLong(a[1]));
+                case "rememberWallet" -> rememberWallet(Integer.parseInt(a[0]));
+                case "walletDelta" -> walletDelta(Integer.parseInt(a[0]), Long.parseLong(a[1]), Long.parseLong(a[2]));
+                case "noteCode" -> noteCode(Integer.parseInt(a[0]), a[1]);
                 case "giveItem" -> giveItem(actor(Integer.parseInt(a[0])), Integer.parseInt(a[1]), Integer.parseInt(a[2]));
                 case "channelSplit" -> channelSplit();
                 case "botGuilds" -> botGuilds();
@@ -273,6 +276,45 @@ final class GameAutoQaWorld implements AutoQaWorld {
         long gained = me.getMeso() - before;
         return List.of((gained >= min && gained <= max ? "PASS" : "FAIL") + " gained " + gained + " mesos (want "
                 + min + ".." + max + ")");
+    }
+
+    // ── t-nx-1 / t-nx-2: a player's mesos and NX credit around buying an NX code ──
+
+    private List<String> rememberWallet(int slot) {
+        Character c = ((SyntheticPlayer) actor(slot)).character();
+        long meso = c.getMeso();
+        long nx = c.getCashShop().getCash(1);
+        remembered.put("meso" + slot, meso);
+        remembered.put("nx" + slot, nx);
+        return List.of("PASS " + c.getName() + " has " + meso + " mesos, " + nx + " NX credit");
+    }
+
+    private List<String> walletDelta(int slot, long mesoWant, long nxWant) {
+        Long meso0 = remembered.get("meso" + slot);
+        Long nx0 = remembered.get("nx" + slot);
+        if (meso0 == null || nx0 == null) {
+            return List.of("FAIL no wallet remembered (rememberWallet first)");
+        }
+        Character c = ((SyntheticPlayer) actor(slot)).character();
+        long meso = c.getMeso() - meso0;
+        long nx = c.getCashShop().getCash(1) - nx0;
+        return List.of((meso == mesoWant && nx == nxWant ? "PASS" : "FAIL") + " " + c.getName() + " mesos " + meso
+                + " (want " + mesoWant + "), NX credit " + nx + " (want " + nxWant + ")");
+    }
+
+    /** The NX code in the newest note this bot left the player; "VAR code=..." hands it to the next steps. */
+    private List<String> noteCode(int slot, String botName) {
+        Character c = ((SyntheticPlayer) actor(slot)).character();
+        java.util.regex.Pattern code = java.util.regex.Pattern.compile(AutoQaCatalog.NX_CODE);
+        String found = null;
+        for (model.Note n : new database.note.NoteDao().findAllByTo(c.getName())) {
+            java.util.regex.Matcher m = code.matcher(n.message());
+            if (botName.equals(n.from()) && m.find()) {
+                found = m.group();
+            }
+        }
+        return found == null ? List.of("FAIL no note with a code from " + botName + " to " + c.getName())
+                : List.of("PASS a note from " + botName + " holds a code", "VAR code=" + found);
     }
 
     private static List<String> giveItem(Actor actor, int itemId, int qty) {

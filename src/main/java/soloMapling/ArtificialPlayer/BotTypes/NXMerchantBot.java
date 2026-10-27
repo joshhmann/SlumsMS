@@ -42,6 +42,7 @@ public class NXMerchantBot extends BotSM {
     private int advertiseCycles = 0;
     private static final int MAX_ADVERTISE_CYCLES = 15;
     private NxCodeDelivery delivery; // 1.6.0 nx-1: the code being handed over (DELIVER_CODE .. AWAIT_MESSENGER)
+    private volatile boolean qaHold; // 1.6.0 nx-1: a !qa nx-1 bot stays an NX merchant instead of converting back
 
     private enum NXState {
         SETUP,
@@ -125,7 +126,9 @@ public class NXMerchantBot extends BotSM {
         if (delivery == null || delivery.poll()) {
             delivery = null;
             nxState = NXState.CONVERT_BACK;
-            waitFor(2500); // the messenger leave (or the code lines) land before CONVERT_BACK
+            if (!isWaiting()) { // typeCode already holds the bot until its lines and leave have landed
+                waitFor(2500);  // the messenger leave lands before CONVERT_BACK
+            }
             return;
         }
         waitFor(2000);
@@ -297,6 +300,11 @@ public class NXMerchantBot extends BotSM {
                 awaitMessenger();
                 break;
             case CONVERT_BACK:
+                if (qaHold) {
+                    advertiseCycles = 0;
+                    nxState = NXState.SETUP;
+                    break;
+                }
                 convertBack();
                 break;
             default:
@@ -304,6 +312,11 @@ public class NXMerchantBot extends BotSM {
                 state = BotState.FINISHED;
                 throw new IllegalStateException("Unexpected state: " + nxState);
         }
+    }
+
+    /** 1.6.0 nx-1: keeps this bot selling codes (no conversion back to an item merchant) for a QA run. */
+    public void holdForQa() {
+        qaHold = true;
     }
 
     @Override

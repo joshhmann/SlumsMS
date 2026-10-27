@@ -235,6 +235,18 @@ recruiter's member quest, and has a boss-log entry left; never past the maximum.
 <type>: owner|map|level|quest|quota|busy|full`. In game: party with your bots, talk to Adobis, make the expedition,
 and the yellow lines say `[Expedition] <bot> joined with you.`; inside, the followers fight next to you.
 
+## nx-1: buy a 10k NX code for 50m (1.6.0)
+
+| Test | What it stages | What to look for |
+|---|---|---|
+| `nx-1 [buyer]` | Warps you to the FM entrance, spawns an NX merchant bot next to the buyer (default you; a GM cannot trade players, so name a non-GM there) that keeps selling for the run, and tops the buyer up to 50m (the unspent top-up is taken back at stop). `!qa do wallet` prints the buyer's mesos and NX credit. Runs 10 minutes | `TRADE NXCODE minted for <buyer>, note saved`, then `TRADE NXCODE typed in messenger for <buyer>` or `TRADE NXCODE messenger not accepted by <buyer>: note shown`; a failed store logs `TRADE NXCODE mint failed ... credited 10000 NX directly` |
+
+The path: trade the bot, put 50,000,000 in, it locks, press Trade (the mesos move; the bot's 100 NX card filler comes
+with it). The bot stores a code worth 10,000 NX credit (`nxcode` + `nxcode_items` type 4, one transaction), saves a copy
+in the buyer's notes, and invites them to Maple Messenger, where it types the code (XXXXX-XXXXX-XXXXX). Ignore the invite
+for 30 s and the note window pops instead. Cash Shop > coupon: the code with or without dashes adds 10,000 NX credit
+once; the same code again says it was used. Auto-QA t-nx-1 (messenger) and t-nx-2 (note) drive it with AutoQaTwo.
+
 ## pq-2: OPQ bots (1.5.2)
 
 | Test | What it stages | What to look for |
