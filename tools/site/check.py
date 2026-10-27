@@ -42,7 +42,10 @@ FORBIDDEN_PATTERNS = [
 ]
 
 # Places where a forbidden string is harmless data, matched exactly. Keep this list short and explain each entry.
-ALLOW = []
+ALLOW = [
+    # the 1.6.0 notes give the website's address (the owner put it in); it contains the game host's name, which stays banned
+    ("patch-notes/1.6.0/index.html", "<b>theslumsms.asslorde.com</b>"),
+]
 
 # Forbidden words a single file may use, whole word list for that file only. Keep it short and say why.
 WORD_OK = {
@@ -55,6 +58,8 @@ WORD_OK = {
     # ticket 105: how to join and the getting-started guide explain the sign-up rules
     "join/index.html": {"password"},
     "guide/getting-started.html": {"password"},
+    # the 1.6.0 notes announce sign-up and password resets on the website (owner-approved text)
+    "patch-notes/1.6.0/index.html": {"password"},
 }
 
 # Game text that contains a forbidden word, allowed on any page because it is the game's own name for something
