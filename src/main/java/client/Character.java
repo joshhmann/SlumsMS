@@ -10880,6 +10880,8 @@ public class Character extends AbstractCharacterObject {
     public static final int MERGE_REQUIREMENTS = 2;
     public static final int MERGE_NO_SOURCES = 3;
     public static final int MERGE_ALL_CAPPED = 4;
+    /** Every stat the sources would add rounds to nothing: refused, nothing destroyed, no fee. */
+    public static final int MERGE_NO_GAIN = 5;
 
     /**
      * Dalair's equipment merge (9000040) gate, owner 2026-10-26: level 160 (110 for Cygnus Knights, whose cap is 120)
@@ -10971,8 +10973,15 @@ public class Character extends AbstractCharacterObject {
                 return MERGE_ALL_CAPPED;
             }
 
+            // Sum the sources first and destroy them only once some equip will really gain a stat (t-np-4, 2026-10-27:
+            // a merge whose stats all rounded to 0 used to eat the sources and the fee and still report OK).
             Map<StatUpgrade, Float> statups = new LinkedHashMap<>();
-            mergeAllItemsFromPosition(statups, it.getPosition());
+            List<Short> sourceSlots = new ArrayList<>();
+            for (short i = it.getPosition(); i <= inv.getSlotLimit(); i++) {
+                if (addMergeSourceStats(statups, inv.getItem(i))) {
+                    sourceSlots.add(i);
+                }
+            }
 
             List<Pair<Equip, Map<StatUpgrade, Short>>> upgradeableEquipped = new LinkedList<>();
             Map<Equip, List<Pair<StatUpgrade, Integer>>> equipUpgrades = new LinkedHashMap<>();
@@ -10999,7 +11008,9 @@ public class Character extends AbstractCharacterObject {
 
                     int statup = (int) Math.ceil((ev * statRate) / statEquipped.size());
                     for (Equip statEq : statEquipped) {
-                        equipUpgrades.get(statEq).add(new Pair<>(e.getKey(), statup));
+                        if (statup > 0) {
+                            equipUpgrades.get(statEq).add(new Pair<>(e.getKey(), statup));
+                        }
                         extraEquipped.remove(statEq);
                     }
                 }
@@ -11012,6 +11023,18 @@ public class Character extends AbstractCharacterObject {
                         }
                     }
                 }
+            }
+
+            boolean gains = false;
+            for (List<Pair<StatUpgrade, Integer>> l : equipUpgrades.values()) {
+                gains |= !l.isEmpty();
+            }
+            if (!gains) {
+                return MERGE_NO_GAIN;
+            }
+            for (short slot : sourceSlots) {
+                Item src = inv.getItem(slot);
+                InventoryManipulator.removeFromSlot(getClient(), InventoryType.EQUIP, slot, src.getQuantity(), false);
             }
 
             dropMessage(6, "EQUIPMENT MERGE operation results:");
@@ -11051,12 +11074,16 @@ public class Character extends AbstractCharacterObject {
     }
 
     private void standaloneMerge(Map<StatUpgrade, Float> statups, Client c, InventoryType type, short slot, Item item) {
-        short quantity;
-        ItemInformationProvider ii = ItemInformationProvider.getInstance();
-        if (!canBeMergeSource(item)) {
-            return;
+        if (addMergeSourceStats(statups, item)) {
+            InventoryManipulator.removeFromSlot(c, type, (byte) slot, item.getQuantity(), false);
         }
-        quantity = item.getQuantity();
+    }
+
+    /** Adds a merge source's stats to {@code statups}; false (nothing added) when the item cannot be a source. */
+    private static boolean addMergeSourceStats(Map<StatUpgrade, Float> statups, Item item) {
+        if (!canBeMergeSource(item)) {
+            return false;
+        }
 
         Equip e = (Equip) item;
         for (Entry<StatUpgrade, Short> s : e.getStats().entrySet()) {
@@ -11080,8 +11107,7 @@ public class Character extends AbstractCharacterObject {
 
             statups.put(s.getKey(), newVal);
         }
-
-        InventoryManipulator.removeFromSlot(c, type, (byte) slot, quantity, false);
+        return true;
     }
 
     public void setShop(Shop shop) {
