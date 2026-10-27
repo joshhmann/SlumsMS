@@ -56,6 +56,19 @@ Move plan:
   builds and sign-in end to end, ticket 106's download pass, real-client checks (bot attack poses for PQ and boss
   fights), several clients for party/PQ tests.
 
+## History is kept, not deleted (owner 2026-10-27)
+
+The owner wants history kept as history. Rule for every live data source: a short working window stays on live
+(7-30 days at full detail; daily summaries forever), and older data is compressed and archived to `maplebackup`
+nightly and kept indefinitely instead of deleted:
+- nav learning (`cache/bot-nav/players/moves-<day>.jsonl`, today pruned after 30 days / 64 MB) and the `observed/`
+  overlays;
+- server logs (the journal export, trades.log, gachapon.log, chat logs) before rotation;
+- economy snapshots, the dashboard series, and the 1.6.1 live feed past 90 days;
+- DB dumps: 14 daily, 8 weekly, 6 monthly, plus one dump per month kept forever.
+Private data never goes into the archive in the clear: no passwords or hashes, IPs (only salted hashes), chat text of
+real players, secrets.
+
 ## Owner checklist (what Claude needs)
 
 1. Each machine's IP (DHCP reservation so it never changes).

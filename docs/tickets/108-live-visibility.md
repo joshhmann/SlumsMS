@@ -227,3 +227,8 @@ To stop the feed itself, drop `-Dslums.telemetry=true` from the live unit at the
   TEST dashboard password from the LAN and is refused from anywhere else; the game's tick time does not move.
 - 1.6.1: the coordinator's one command prints a bundle under 256 KB with every section filled; `FeedSchemaTest`
   passes; a planted IP, email and chat line on TEST never reach the bundle; revoking the key line stops access.
+
+## Retention (owner 2026-10-27)
+
+History is kept, not deleted: past the 90-day window the feed's day files and rollups are archived to `maplebackup`
+(ticket 109) and kept indefinitely; daily rollups stay on live forever.
