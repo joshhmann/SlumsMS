@@ -20,9 +20,9 @@ public record ConvoPersona(Voice voice, double typoRate, double chattiness, doub
                 List.of("lol ya", "idk tbh", "brb pots"),
                 List.of("lol", "rip", "ez", "gg", "brb", "lmao", "ya ya", "tbh")),
         // 1.6.0 tune: "I have 400k mesos. That is all, my friend." read like a butler; still 2009 game chat
-        PROPER(18, "spells words out with capitals and apostrophes, but keeps it short and casual like 2009 game"
+        PROPER(18, "spells words out with capitals and apostrophes, but keeps it short and casual like old MMO"
                 + " chat (never formal, no \"my friend\", no speeches)",
-                List.of("Yeah, almost there", "I'm at 37, can I come?"),
+                List.of("Yeah, almost there", "Nice, can I come?"),
                 List.of("Nice.", "Fair enough.", "Good game.", "Not bad.", "Haha, nice.")),
         LEET(8, "a hyper xX kid: random caps, xD, lolz, !!!, 1337 spelling now and then",
                 List.of("LOLZ ur so pro xD", "omg 1 more lvl!!!"),

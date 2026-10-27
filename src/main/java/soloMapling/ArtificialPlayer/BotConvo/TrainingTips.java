@@ -221,9 +221,19 @@ public final class TrainingTips {
                 checkLevel(nick.getValue(), nick.getKey(), ranges.get(nick.getValue()), levels, checked, out);
             }
         }
-        for (Map.Entry<String, Range> spot : ranges.entrySet()) {
-            if (spot.getKey().indexOf(' ') > 0 && text.contains(" " + spot.getKey() + " ")) { // "study" is a word
-                checkLevel(spot.getKey(), spot.getKey(), spot.getValue(), levels, checked, out);
+        List<String> named = new ArrayList<>();
+        for (String spot : ranges.keySet()) {
+            if (spot.indexOf(' ') > 0 && text.contains(" " + spot + " ")) { // one word ("study") is just a word
+                named.add(spot);
+            }
+        }
+        for (String spot : named) {
+            boolean part = false; // "path of time" inside "forgotten path of time" is that other place
+            for (String other : named) {
+                part |= other.length() > spot.length() && other.contains(spot);
+            }
+            if (!part) {
+                checkLevel(spot, spot, ranges.get(spot), levels, checked, out);
             }
         }
         for (Map.Entry<String, int[]> pq : PQ_LEVELS.entrySet()) {
