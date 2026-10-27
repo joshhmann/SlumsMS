@@ -177,6 +177,23 @@ class DecideShadowTest {
         assertEquals("replay", rows.get(0).get("src"));
     }
 
+    @Test
+    void withoutTextARowKeepsOnlyTheLengthAndScores() throws Exception {
+        List<Map<String, Object>> rows = Collections.synchronizedList(new ArrayList<>());
+        DecideShadow shadow = new DecideShadow(List.of(new DecideShadow.Model("onejev", "OneJev1.6-0.8B",
+                (body, ms) -> answers("talk", "neutral", "normal"))), 8, 1000, 400, "live", "gliner", rows::add)
+                .keepText(false).start();
+        DecideShadow.install(shadow);
+        ConvoSense.read(OPEN_LINE, new ChatDecide((body, ms) -> answers("talk", "neutral", "normal"), 400, 1000), "x");
+        assertTrue(shadow.drain(5000));
+        assertEquals(1, rows.size());
+        Map<String, Object> r = rows.get(0);
+        assertFalse(r.containsKey("text"), "no chat text on live: " + r);
+        assertEquals(OPEN_LINE.length(), r.get("len"));
+        assertFalse(Json.write(r).contains("event starts"), "the line never reaches the row");
+        assertNotNull(r.get("agree"));
+    }
+
     // ── the scorecard ──
 
     static Map<String, Object> row(long currentMs, Object... shadows) {

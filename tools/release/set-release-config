@@ -6,7 +6,8 @@ Only decimal scalar values are replaced; unexpected/ambiguous structure fails cl
 Missing known keys are inserted in their owning mapping. No third-party dependencies.
 
 --set KEY=VALUE (repeatable; release conf SERVER_SET): a numeric server: key (an integer or a decimal like 1.0), or
-a boolean one (true/false; 1.6.0: USE_ENABLE_CUSTOM_NPC_SCRIPT). An existing key is edited in place (it must hold a
+a boolean one (true/false; 1.6.0: USE_ENABLE_CUSTOM_NPC_SCRIPT), or a text one (letters, digits and : , . _ -;
+1.6.0: BOT_LIFE_TOWN_WEIGHTS), written double-quoted (it must start with a letter). An existing key is edited in place (it must hold a
 plain value of the same kind); a missing one is added at the end of server:.
 The strict config loader aborts on unknown keys, so gen-deploy checks every KEY against ServerConfig.java.
 """
@@ -18,13 +19,15 @@ import sys
 
 NUMBER = r"[0-9]{1,9}(?:\.[0-9]{1,6})?"
 BOOLEAN = r"true|false"
+TEXT = r"[A-Za-z][A-Za-z0-9:,._-]{0,199}"  # starts with a letter, so -1 or 1e3 is never text
+QUOTED = r'"[A-Za-z0-9:,._ -]{0,200}"'
 RESERVED = {"CHANNEL_LOAD", "MIN_CLIENT_BUILD", "CHANNELS"}
 
 
 def parse_set(item):
-    match = re.fullmatch(rf"([A-Z][A-Z0-9_]*)=({NUMBER}|{BOOLEAN})", item)
+    match = re.fullmatch(rf"([A-Z][A-Z0-9_]*)=({NUMBER}|{TEXT})", item)
     if not match:
-        raise ValueError(f"--set wants KEY=NUMBER or KEY=true|false, got {item!r}")
+        raise ValueError(f"--set wants KEY=NUMBER, KEY=true|false or KEY=text, got {item!r}")
     if match[1] in RESERVED:
         raise ValueError(f"--set {match[1]}: use --channels/--channel-load/set-min-client-build")
     return match[1], match[2]
@@ -55,7 +58,8 @@ def edit(text, channels, load, sets=()):
             i = keys[0]
             match = pattern.fullmatch(lines[i])
             if not match:
-                raise ValueError(f"{label} must be a plain {'true/false' if number == BOOLEAN else 'decimal'} scalar")
+                kind = {BOOLEAN: "true/false", QUOTED: "double-quoted text"}.get(number, "decimal")
+                raise ValueError(f"{label} must be a plain {kind} scalar")
             before = match[2]
             lines[i] = match[1] + value + match[3] + (match[4] or "")
         else:
@@ -80,7 +84,13 @@ def edit(text, channels, load, sets=()):
         seen.add(key)
         # Re-find the block each time: an inserted key moves its end.
         start, end = block("server")
-        kind = BOOLEAN if re.fullmatch(BOOLEAN, value) else NUMBER  # a boolean only replaces a boolean
+        # a boolean only replaces a boolean, a number a number; anything else is text and only replaces quoted text
+        if re.fullmatch(BOOLEAN, value):
+            kind = BOOLEAN
+        elif re.fullmatch(NUMBER, value):
+            kind = NUMBER
+        else:
+            kind, value = QUOTED, f'"{value}"'
         scalar(start + 1, end, key, value, server_indent(start, end), f"server.{key}", kind)
     if channels:
         start, end = block("worlds")

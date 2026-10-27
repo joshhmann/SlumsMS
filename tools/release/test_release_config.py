@@ -155,6 +155,20 @@ class ReleaseConfigTest(unittest.TestCase):
         self.run_helper('set-release-config', '--set', 'USE_EXTRA_FLAG=false')
         self.assertTrue(self.config.read_text().endswith('    USE_EXTRA_FLAG: false\n'))
 
+    def test_set_writes_text_quoted_and_only_over_text(self):
+        # 1.6.0 busy towns: BOT_LIFE_TOWN_WEIGHTS is a String field
+        self.config.write_bytes(FIXTURE + b'    BOT_LIFE_TOWN_WEIGHTS: "henesys:100"  # towns\n    BOT_MAP_CAP: 40\n')
+        result = self.run_helper('set-release-config', '--set', 'BOT_LIFE_TOWN_WEIGHTS=near:55,home:20,henesys:25')
+        self.assertIn('    BOT_LIFE_TOWN_WEIGHTS: "near:55,home:20,henesys:25"  # towns\n', self.config.read_text())
+        self.assertIn('server.BOT_LIFE_TOWN_WEIGHTS: "henesys:100" -> "near:55,home:20,henesys:25"', result.stdout)
+        data = self.config.read_bytes()
+        self.run_helper('set-release-config', '--set', 'BOT_MAP_CAP=abc', ok=False)
+        self.run_helper('set-release-config', '--set', 'BOT_LIFE_TOWN_WEIGHTS=a b', ok=False)
+        self.run_helper('set-release-config', '--set', 'BOT_LIFE_TOWN_WEIGHTS=x"y', ok=False)
+        self.assertEqual(self.config.read_bytes(), data)
+        self.run_helper('set-release-config', '--set', 'BOT_NEW_TEXT=a:1')
+        self.assertTrue(self.config.read_text().endswith('    BOT_NEW_TEXT: "a:1"\n'))
+
     def test_set_dry_run_does_not_write(self):
         result = self.run_helper('set-release-config', '--set', 'BOT_MAP_CAP=50', '--dry-run')
         self.assertIn('server.BOT_MAP_CAP: unset -> 50', result.stdout)
@@ -170,14 +184,17 @@ class ReleaseConfigTest(unittest.TestCase):
         return result.stderr
 
     def test_server_set_keys_must_be_numeric_server_config_fields(self):
-        self.assertIn('not a numeric or boolean field', self.generate_fails('LEDGER_BEFORE=""\nSERVER_SET=(BOT_NOT_A_KEY=1)\n'))
-        self.assertIn('not a numeric or boolean field', self.generate_fails('LEDGER_BEFORE=""\nSERVER_SET=(BOT_ROSTER_CURVE=1)\n'))
+        self.assertIn('not a numeric, boolean or text field', self.generate_fails('LEDGER_BEFORE=""\nSERVER_SET=(BOT_NOT_A_KEY=1)\n'))
+        self.assertIn('is a text field; 1 is not text', self.generate_fails('LEDGER_BEFORE=""\nSERVER_SET=(BOT_ROSTER_CURVE=1)\n'))
         # 1.6.0: booleans go only into boolean fields, numbers only into numeric ones
         self.assertIn('not true/false', self.generate_fails('LEDGER_BEFORE=""\nSERVER_SET=(USE_ENABLE_CUSTOM_NPC_SCRIPT=1)\n'))
         self.assertIn('not a number', self.generate_fails('LEDGER_BEFORE=""\nSERVER_SET=(BOT_MAP_CAP=true)\n'))
         deploy, _ = self.generate('LEDGER_BEFORE=""\nSERVER_SET=(USE_ENABLE_CUSTOM_NPC_SCRIPT=true)\n')
         self.assertIn('USE_ENABLE_CUSTOM_NPC_SCRIPT=true', deploy)
         self.assertIn('not a whole number', self.generate_fails('LEDGER_BEFORE=""\nSERVER_SET=(BOT_MAP_CAP=1.5)\n'))
+        self.assertIn('not a number', self.generate_fails('LEDGER_BEFORE=""\nSERVER_SET=(BOT_MAP_CAP=abc)\n'))
+        deploy, _ = self.generate('LEDGER_BEFORE=""\nSERVER_SET=(BOT_LIFE_TOWN_WEIGHTS=near:55,home:20,henesys:25)\n')
+        self.assertIn('BOT_LIFE_TOWN_WEIGHTS=near:55,home:20,henesys:25', deploy)
         self.assertIn('twice', self.generate_fails('LEDGER_BEFORE=""\nSERVER_SET=(BOT_MAP_CAP=1 BOT_MAP_CAP=2)\n'))
         self.assertIn('use CHANNEL_LOAD', self.generate_fails('LEDGER_BEFORE=""\nSERVER_SET=(CHANNEL_LOAD=1)\n'))
         deploy, _ = self.generate('LEDGER_BEFORE=""\n')
@@ -222,6 +239,10 @@ class ReleaseConfigTest(unittest.TestCase):
         subprocess.run(['sed', '-i', '-e', dash, str(path)], check=True)
         self.assertNotEqual(path.read_text(), unit)   # the edit changes live's unit on its own
         self.assertIn(' -Dsolomapling.dashboard.periodSeconds=60 -jar target/Cosmic.jar', path.read_text())
+        # owner 2026-10-27: OneJev shadows on live, scores only (no chat text), and the busy towns ship on
+        self.assertIn("'s# -jar # -Dslums.decide.shadow=onejev -Dslums.decide.shadow.text=false -jar #'", deploy)
+        self.assertIn('BOT_TOWN_PULL=0.3', deploy)
+        self.assertIn('BOT_LIFE_TOWN_WEIGHTS=near:55,home:20,henesys:25', deploy)
 
     def generate(self, conf):
         (self.work / 'release.conf').write_text(conf)

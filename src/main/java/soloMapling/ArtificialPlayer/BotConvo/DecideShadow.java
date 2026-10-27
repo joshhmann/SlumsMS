@@ -63,6 +63,9 @@ import java.util.function.Consumer;
  *   <li>{@code gliner}: http://192.168.0.17:8900, model decide (the current model, as a sanity check)</li>
  * </ul>
  * Summary: {@code !decideshadow status} or {@link DecideShadowReport}. Replay of logged chat: {@link DecideShadowReplay}.
+ *
+ * <p>Live (owner 2026-10-27, ticket 108: chat statistics only): {@code -Dslums.decide.shadow.text=false} keeps the
+ * line's length instead of its text, so the rows carry only the scores; such rows cannot be replayed.
  */
 public final class DecideShadow {
 
@@ -93,6 +96,7 @@ public final class DecideShadow {
     private final AtomicLong written = new AtomicLong();
     private final AtomicInteger busy = new AtomicInteger();
     private volatile Thread worker;
+    private volatile boolean keepText = true;
 
     DecideShadow(List<Model> models, int capacity, long timeoutMs, long deadlineMs, String source, String currentName,
                  Consumer<Map<String, Object>> sink) {
@@ -107,6 +111,12 @@ public final class DecideShadow {
 
     private static volatile DecideShadow active;
     private static volatile boolean built;
+
+    /** False: rows keep the line's length, never its text (live). */
+    DecideShadow keepText(boolean keep) {
+        keepText = keep;
+        return this;
+    }
 
     /** The running shadow, or null when off (the default). */
     public static DecideShadow get() {
@@ -166,7 +176,7 @@ public final class DecideShadow {
                     if (also != null) {
                         also.accept(row);
                     }
-                });
+                }).keepText(!"false".equalsIgnoreCase(System.getProperty(PROPERTY + ".text", "true").trim()));
     }
 
     /** A model by name: the built-in defaults, each overridable by {@code slums.decide.shadow.<name>.url/model/keyFile}. */
@@ -335,7 +345,11 @@ public final class DecideShadow {
         row.put("time", Instant.ofEpochMilli(job.at()).toString());
         row.put("src", source);
         row.put("speaker", speakerHash(job.speaker()));
-        row.put("text", job.line());
+        if (keepText) {
+            row.put("text", job.line());
+        } else {
+            row.put("len", job.line() == null ? 0 : job.line().length());
+        }
         Map<String, Object> current = read(job.currentRead(), job.current());
         current.put("model", currentName);
         current.put("ok", job.current() != null && !job.current().isEmpty());
