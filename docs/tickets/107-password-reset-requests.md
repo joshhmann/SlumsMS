@@ -50,14 +50,14 @@ friend who forgets their password has no way back in. We have no email addresses
 
 On TEST: a request for a real account shows up for an online GM, `!resetpw approve` lets that browser set a new
 password, the old password stops working and the new one works in game; a request for a made-up or bot name looks the
-same to the site and stores nothing; a denied, expired, replaced or used request can't set a password; another
+same to the site over time (pending, then expired) and no GM sees it; a denied, expired, replaced or used request can't set a password; another
 browser (no secret) can't.
 
 ## Server API (built 2026-10-26, branch 160-resetpw)
 
 Same API as 105 (see "Server API" in docs/tickets/105-invite-signup.md for turning it on, the secret, the 401/404/
 405/400/413 answers and the caller's timeout). A server without migration 037 answers `/reset/request` as usual but
-stores nothing, and `/reset/complete` never succeeds (`!resetpw` says requests aren't available).
+stores nothing (every request then reads `expired`), and `/reset/complete` never succeeds (`!resetpw` says requests aren't available).
 
 ### `POST /reset/request`
 
@@ -68,9 +68,18 @@ Answer, **for every name** (real, unknown, banned, temp-banned, bot, bot templat
 base64url (no padding) of 32 random bytes, so within the site's 8-128 characters. The contact is sent only here.
 
 For a real, resettable account (the same refusals as `/verify`) the request is stored as pending, any older open one
-for the account is replaced, and online GMs of level 3+ are told. For the rest nothing is stored and the values are
-random: they never work (`/reset/status` says `expired`). Storing and the GM notice happen on a background thread,
-so both answers take about as long.
+for the account is replaced, and online GMs of level 3+ are told.
+
+**Decoys** (fixed 2026-10-26 after the site's QA found `/reset/status` told names apart): for every other name (unknown,
+banned, temp-banned, bot, bot template, revoked) a decoy is stored the same way: account id 0, keyed by a salted HMAC
+of the name (never the name itself), no contact or IP, state pending. It reads `pending` until 24 h pass and then
+`expired`; `/reset/complete` answers `NOT_APPROVED` and then `EXPIRED`; a second request for the same name replaces the
+first. That is exactly what a real request looks like while no GM has acted. Decoys send no GM notice, never show in
+`!resetpw list`, can't be approved or denied, and aren't counted or listed on the dashboard. Storing and the GM notice
+happen on a background thread, and the refusal check runs for unknown names too, so the answers take about as long;
+status and complete do the same lookup and hash compare for both. Rate limits count per ipHash and overall, never per
+name, so they reveal nothing either. Only a GM's decision (approved, denied) makes a real request look different, and
+only the browser holding the secret can see that.
 
 The site keeps `request_id` and `secret` in that browser only (an HttpOnly, Secure, SameSite=Strict cookie, 24 h) and
 never logs the secret.

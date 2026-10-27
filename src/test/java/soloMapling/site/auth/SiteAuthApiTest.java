@@ -197,7 +197,8 @@ class SiteAuthApiTest {
             assertEquals(List.of("ok", "request_id", "secret"), new ArrayList<>(res.body().keySet()), name);
             assertEquals(true, res.body().get("ok"));
         }
-        assertEquals(1, resetStore.rows.size());
+        assertEquals(3, resetStore.rows.size(), "a decoy for each other name");
+        assertEquals(1, resetStore.rows.values().stream().filter(x -> x.accountId() > 0).count());
         var bad = r.handle("POST", "/reset/request", SECRET, body(Map.of("user", "Forgetful", "contact", "", "ipHash", "z")));
         assertEquals(Map.of("ok", false, "error", "BAD_INPUT", "rule", "contact_length"), bad.body());
     }

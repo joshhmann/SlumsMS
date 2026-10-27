@@ -72,18 +72,78 @@ class PasswordResetsTest {
             assertEquals(43, t.secret().length(), name);
             assertTrue(t.secret().matches("[A-Za-z0-9_-]+"), name);
         }
-        assertEquals(1, store.rows.size(), "only the real, resettable account");
-        assertEquals(7, store.rows.values().iterator().next().accountId());
-        assertEquals(1, notices.size());
+        assertEquals(8, store.rows.size(), "a decoy for every other name");
+        List<ResetStore.Request> real = store.rows.values().stream().filter(r -> r.accountId() > 0).toList();
+        assertEquals(1, real.size(), "only the real, resettable account is a real request");
+        assertEquals(7, real.get(0).accountId());
+        assertEquals(1, notices.size(), "decoys tell no GM");
+        for (ResetStore.Request r : store.rows.values()) {
+            if (r.accountId() == 0) {
+                assertTrue(r.accountName().matches("~[0-9a-f]{40}"), r.accountName());
+                assertEquals("", r.contact());
+                assertEquals("", r.ipHash());
+                assertEquals(ResetStore.PENDING, r.state());
+            }
+        }
+        assertFalse(store.rows.toString().contains("Nobodyhere"), "the typed name is never stored");
     }
 
     @Test
-    void theRandomAnswerForAnUnknownNameNeverWorks() {
-        PasswordResets.Ticket t = ask("Nobodyhere");
-        assertEquals(PasswordResets.State.EXPIRED, resets.status(t.requestId(), t.secret(), "ip"));
-        SiteAccounts.Result d = resets.complete(t.requestId(), t.secret(), "newpass1", "ip");
-        assertFalse(d.ok());
-        assertEquals(PasswordResets.EXPIRED, d.error());
+    void aRealAndAMadeUpNameLookTheSameOverTime() {
+        accounts.put(new AuthStore.Account(8, "Banned", "x", true, 0));
+        List<PasswordResets.Ticket> tickets = List.of(ask("Forgetful"), ask("Nobodyhere"), ask("Banned"));
+        // Polled through the day: the same status and complete answers for all three, until all expire together.
+        for (long at : new long[]{NOW, NOW + 1000, NOW + 12 * HOUR, NOW + 24 * HOUR - 1, NOW + 24 * HOUR, NOW + 30 * HOUR}) {
+            clock.set(at);
+            List<String> answers = new ArrayList<>();
+            for (PasswordResets.Ticket t : tickets) {
+                SiteAccounts.Result c = resets.complete(t.requestId(), t.secret(), "newpass1", "ip" + at);
+                answers.add(resets.status(t.requestId(), t.secret(), "ip" + at) + "/" + c.ok() + "/" + c.error());
+            }
+            String want = at < NOW + 24 * HOUR ? "PENDING/false/NOT_APPROVED" : "EXPIRED/false/EXPIRED";
+            assertEquals(List.of(want, want, want), answers, "at +" + (at - NOW) / 1000 + " s");
+        }
+        assertTrue(store.passwords.isEmpty());
+    }
+
+    @Test
+    void aNewRequestReplacesTheOldOneForMadeUpNamesToo() {
+        PasswordResets.Ticket realFirst = ask("Forgetful");
+        PasswordResets.Ticket fakeFirst = ask("Nobodyhere");
+        PasswordResets.Ticket otherFake = ask("Someoneelse");
+        clock.addAndGet(1000);
+        PasswordResets.Ticket realSecond = ask("Forgetful");
+        PasswordResets.Ticket fakeSecond = resets.request("NOBODYHERE", "bob#1234", "another");
+        assertEquals(PasswordResets.State.EXPIRED, resets.status(realFirst.requestId(), realFirst.secret(), "ip"));
+        assertEquals(PasswordResets.State.EXPIRED, resets.status(fakeFirst.requestId(), fakeFirst.secret(), "ip"),
+                "replaced like a real one (names ignore case)");
+        assertEquals(PasswordResets.State.PENDING, resets.status(realSecond.requestId(), realSecond.secret(), "ip"));
+        assertEquals(PasswordResets.State.PENDING, resets.status(fakeSecond.requestId(), fakeSecond.secret(), "ip"));
+        assertEquals(PasswordResets.State.PENDING, resets.status(otherFake.requestId(), otherFake.secret(), "ip"),
+                "a decoy for another name is left alone");
+    }
+
+    @Test
+    void decoysAreInvisibleToGmsAndCannotBeDecided() throws Exception {
+        ask("Nobodyhere");
+        ResetStore.Request decoy = store.rows.values().iterator().next();
+        assertEquals(0, decoy.accountId());
+        assertTrue(PasswordResets.list(store, NOW).get(0).startsWith("No pending"));
+        assertTrue(PasswordResets.approve(store, "Nobodyhere", "Gm", NOW).startsWith("No pending"));
+        assertTrue(PasswordResets.approve(store, decoy.accountName(), "Gm", NOW).startsWith("No pending"), "not even by its key");
+        assertTrue(PasswordResets.deny(store, decoy.accountName(), "Gm", NOW).startsWith("No open"));
+        assertFalse(store.decide(decoy.id(), ResetStore.PENDING, ResetStore.APPROVED, "Gm", NOW));
+        assertTrue(store.recent(10).isEmpty());
+        assertTrue(notices.isEmpty());
+    }
+
+    @Test
+    void decoyKeysAreStablePerNameAndSaltedPerServer() {
+        PasswordResets other = new PasswordResets(store, accounts, null, clock::get, Runnable::run, m -> { }, "a".getBytes());
+        PasswordResets same = new PasswordResets(store, accounts, null, clock::get, Runnable::run, m -> { }, "a".getBytes());
+        assertEquals(other.decoyKey("Nobody"), same.decoyKey("nobody"));
+        assertNotEquals(other.decoyKey("Nobody"), resets.decoyKey("Nobody"));
+        assertNotEquals(other.decoyKey("Nobody"), other.decoyKey("Nobody2"));
     }
 
     @Test
@@ -318,6 +378,7 @@ class PasswordResetsTest {
                 "only secret_hash, never the secret or a password");
         // Single use: completing only matches an approved, fresh request.
         assertTrue(ResetStore.Jdbc.USE.contains("state = 'approved' AND created_at > ? AND decided_at > ?"));
-        assertTrue(ResetStore.Jdbc.DECIDE.contains("AND state = ?"));
+        assertTrue(ResetStore.Jdbc.DECIDE.contains("AND state = ? AND account_id > 0"), "decoys can't be decided");
+        assertTrue(ResetStore.Jdbc.REPLACE.contains("account_id = ? AND account_name = ?"), "decoys replace per name");
     }
 }

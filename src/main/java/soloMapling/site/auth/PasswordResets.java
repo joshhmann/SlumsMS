@@ -30,9 +30,12 @@ import java.util.regex.Pattern;
  * {@code !resetpw}; the browser that asked (it holds the request's random secret) then polls {@code /reset/status} and
  * sets a new password with {@code /reset/complete}.
  * <p>
- * Names can't be probed: {@code /reset/request} answers the same shape for every name, and for unknown, banned, bot or
- * revoked accounts it stores nothing and hands back random values that never work. Recording the request and telling
- * the GMs happen off the caller's thread, so both answers take about as long. The secret is stored only as its SHA-256;
+ * Names can't be probed: every name gets the same answers over time. For an unknown, banned, bot, template or revoked
+ * account {@code /reset/request} stores a decoy (account id 0, keyed by a salted HMAC of the name, never the name): it
+ * reads pending until it expires after 24 hours, {@code /reset/complete} says NOT_APPROVED and then EXPIRED, and a new
+ * request for the same name replaces it, all as for a real account nobody has decided on yet. Decoys send no GM notice,
+ * never show in {@code !resetpw}, can't be approved or denied and aren't counted on the dashboard. Recording the request
+ * and telling the GMs happen off the caller's thread, so both answers take about as long. The secret is stored only as its SHA-256;
  * a wrong secret looks exactly like an expired request. A request lives 24 hours; an approval 2 hours (and never past
  * the 24). One open request per account: a new one replaces the old. Never logs a password, a secret or a typed name
  * that is not an account.
@@ -88,6 +91,7 @@ public final class PasswordResets {
     private final LongSupplier clock;
     private final Executor recorder;
     private final Consumer<String> gmNotice;
+    private final byte[] decoySalt;
     private final SiteAccounts.Window requests = new SiteAccounts.Window();
     private final SiteAccounts.Window statuses = new SiteAccounts.Window();
     private final SiteAccounts.Window completes = new SiteAccounts.Window();
@@ -102,6 +106,17 @@ public final class PasswordResets {
      */
     public PasswordResets(ResetStore resets, AuthStore accounts, SiteAccounts site, LongSupplier clock, Executor recorder,
                           Consumer<String> gmNotice) {
+        this(resets, accounts, site, clock, recorder, gmNotice, null);
+    }
+
+    /** {@code decoySalt}: keys decoy rows by name (the auth API's secret in the game); null picks a random one. */
+    public PasswordResets(ResetStore resets, AuthStore accounts, SiteAccounts site, LongSupplier clock, Executor recorder,
+                          Consumer<String> gmNotice, byte[] decoySalt) {
+        if (decoySalt == null || decoySalt.length == 0) {
+            decoySalt = new byte[32];
+            RANDOM.nextBytes(decoySalt);
+        }
+        this.decoySalt = decoySalt.clone();
         this.resets = resets;
         this.accounts = accounts;
         this.site = site;
@@ -111,7 +126,7 @@ public final class PasswordResets {
     }
 
     /** The game's: the database, one daemon thread for recording, and a yellow notice to online GMs of level 3+. */
-    public static PasswordResets forGame(SiteAccounts site) {
+    public static PasswordResets forGame(SiteAccounts site, byte[] decoySalt) {
         AtomicInteger n = new AtomicInteger();
         Executor recorder = Executors.newSingleThreadExecutor(r -> {
             Thread t = new Thread(r, "site-auth-reset-" + n.incrementAndGet());
@@ -119,7 +134,7 @@ public final class PasswordResets {
             return t;
         });
         return new PasswordResets(new ResetStore.Jdbc(), new AuthStore.Jdbc(), site, System::currentTimeMillis,
-                recorder, PasswordResets::tellGms);
+                recorder, PasswordResets::tellGms, decoySalt);
     }
 
     private static void tellGms(String message) {
@@ -169,16 +184,46 @@ public final class PasswordResets {
             log.warn("Password reset request failed on the server side", e);
             return Ticket.fail(SiteAccounts.UNAVAILABLE, null);
         }
-        if (account != null && !site.refused(account, now)) {
-            ResetStore.Request r = ResetStore.Request.fresh(id, account.id(), account.name(), hash(secret), contact, ip, now);
-            recorder.execute(() -> record(r));
+        // The refusal check runs for unknown names too (on a stand-in), so both paths do the same work.
+        boolean real = !site.refused(account == null ? NO_ACCOUNT : account, now) && account != null;
+        String decoyKey = decoyKey(user.trim());
+        ResetStore.Request r = real
+                ? ResetStore.Request.fresh(id, account.id(), account.name(), hash(secret), contact, ip, now)
+                : ResetStore.Request.fresh(id, 0, decoyKey, hash(secret), "", "", now);
+        recorder.execute(() -> record(r));
+        return new Ticket(true, id, secret, null, null);
+    }
+
+    /** What an unknown name is checked as, so its answer takes as long as a real account's. */
+    private static final AuthStore.Account NO_ACCOUNT = new AuthStore.Account(0, "", "", false, 0);
+
+    /**
+     * A decoy's key: {@code ~} and the first 40 hex characters of HMAC-SHA256(salt, lower-cased name). It is never a
+     * real account name (those are letters and digits), lets a second request for the same unknown name replace the
+     * first exactly as a real account's does, and does not keep the typed name (which may be a mistyped password).
+     */
+    String decoyKey(String name) {
+        try {
+            javax.crypto.Mac mac = javax.crypto.Mac.getInstance("HmacSHA256");
+            mac.init(new javax.crypto.spec.SecretKeySpec(decoySalt, "HmacSHA256"));
+            byte[] h = mac.doFinal(name.toLowerCase(Locale.ROOT).getBytes(StandardCharsets.UTF_8));
+            return "~" + HexFormat.of().formatHex(h).substring(0, 40);
+        } catch (java.security.GeneralSecurityException e) {
+            throw new IllegalStateException(e);
         }
-        return new Ticket(true, id, secret, null, null);   // unknown or refused: random values, nothing stored
+    }
+
+    /** Whether a stored row is a decoy (an unknown, banned, bot or template account's request). */
+    static boolean decoy(ResetStore.Request r) {
+        return r.accountId() <= 0;
     }
 
     private void record(ResetStore.Request r) {
         try {
             resets.insertReplacing(r);
+            if (decoy(r)) {
+                return;   // no notice, no log line: a decoy says nothing about the name
+            }
             int gm = 0;
             try {
                 gm = accounts.profile(r.accountId()).gmLevel();
