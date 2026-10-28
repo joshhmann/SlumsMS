@@ -255,6 +255,14 @@ once; the same code again says it was used. Auto-QA t-nx-1 (messenger) and t-nx-
 
 Auto-QA t-xc-1 runs the same with AutoQaOne through the real `@nx` command (an NX top-up for the sale is taken back).
 
+## xc-2: the LEAF ticker in game (1.6.1, ticket 113 tickers)
+
+| Test | What it stages | What to look for |
+|---|---|---|
+| `xc-2` | Needs `-Dslums.exchange=true`, the LEAF ticker open and 20 tradeable Maple Leaves (`!item 4001126 20`). Funds the test regular (regular 9) from your mesos and rests its bid for 10 leaves one meso above the LEAF book's best bid (at least 1,000 each). Stop takes it out: its 10 bought leaves and its mesos come back. `!qa do check` logs `XC2 CHECK leaves a -> b, meso c -> d, open orders n` | `@nx leaf sell 10 <bid>` + `@nx confirm`: 10 leaves leave your bags, `Order N placed ... status FILLED`, the mesos less 1% arrive at once. Wait 10 s, `@nx leaf sell 10 1000000000` + confirm: it rests and 10 more leaves leave; `@nx cancel N` puts them straight back. After stop: the same leaves, mesos down by exactly the two 1% fees |
+
+Auto-QA t-xc-2 runs the same with AutoQaOne through the real `@nx leaf` command (leaves topped up for the check are taken back).
+
 ## pq-2: OPQ bots (1.5.2)
 
 | Test | What it stages | What to look for |
@@ -623,6 +631,7 @@ line (`nothing could be judged here: SKIP OWNED_ALTS_ENABLED is off ...`). All r
 | t-sc-3 starter chairs | makes a throwaway `QaChair<5 digits>` on AutoQaOne's account the normal way (BeginnerCreator), loads it from the database onto a plain client, runs the login grant on that copy, deletes it | it owns exactly one Relaxer (3010000) and one Fishing Chair (3011000); two logins add nothing and mark it; with both chairs and the mark taken away (a pre-1.6.0 character) the grant adds both once | never |
 | t-ss-1 Slums Stamps | AutoQaOne's account (staff) claims the claimable day (its last claim moved back past the cooldown first), then with the check's own earn override claims the next day and again; topped up to 6 if needed, Rooty's purchase call (`cm.buyWithStamps`) buys the first Donor Cap, then again with 5 stamps; balance, claimed items and the cap are put back | the staff claim lands with no stamps; the earning claim credits exactly that day's `stamps` (1, or 6 on days 7/14/21/28) once; the purchase takes exactly 6 and gives one cap; one short is SHORT and takes nothing | `DAILY_CHECKIN_ENABLED` off, or AutoQaOne under the minimum level |
 | t-xc-1 NX exchange | AutoQaOne (topped up to 100 NX if short, taken back): a test regular funded from its own mesos bids for 100 NX; `@nx sell 100 <bid>` + `@nx confirm`; after the 10 s cooldown `@nx buy 100 1000` + confirm, then `@nx cancel`; the regular is taken out | the sale fills, its mesos less 1% land on the live character at once and 100 NX leave; the resting buy holds exactly 101 mesos and the cancel gives them back; at the end the same NX and exactly the two fees fewer mesos; the exchange never halts | `-Dslums.exchange` off |
+| t-xc-2 LEAF ticker | AutoQaOne (topped up to 20 tradeable Maple Leaves if short, taken back): the test regular, funded from its own mesos, bids for 10 leaves; `@nx leaf sell 10 <bid>` + confirm; after the cooldown `@nx leaf sell 10 <max>` + confirm, then `@nx cancel`; the regular is taken out | the sale takes exactly 10 leaves and fills, its mesos less 1% land at once; the resting sell takes 10 more and the cancel returns exactly those; the regular's 10 leaves come back; at the end the same leaves and exactly the two 1% fees fewer mesos; the exchange never halts | `-Dslums.exchange` off or LEAF closed |
 
 Not automated: companions following the owner to another map (ticket 13 defers movement; t-oa-1 notes it),
 the real login handler's chair grant for a pretend player (pretend players are excluded from it like bots, so t-sc-3

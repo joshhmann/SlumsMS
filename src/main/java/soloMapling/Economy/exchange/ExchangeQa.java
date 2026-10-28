@@ -58,6 +58,55 @@ public final class ExchangeQa {
         return out;
     }
 
+    // ---------------------------------------------------------------- item tickers (xc-2 / t-xc-2: LEAF)
+
+    /** The item check's ticker and size: 10 Maple Leaves. */
+    public static final String ITEM_TICKER = "LEAF";
+    public static final long ITEMS = 10;
+    /** A low price per leaf so the check moves little (10 leaves = 10,000 mesos); above the book's best bid. */
+    public static final long ITEM_BASE_PRICE = 1_000;
+
+    /** What the item staging set up. */
+    public record StagedItem(String ticker, long bidPrice, long bidOrder, long funded) {
+    }
+
+    /**
+     * Funds the test regular with {@code w}'s mesos (nothing minted) and rests its bid for {@code qty} of
+     * {@code ticker} one meso above the book's best bid, so the tester's sell at that price fills against it first.
+     * The regular only bids: the items it buys come from the tester and go back to the tester at {@link #teardown}.
+     */
+    public static StagedItem stageItem(Exchange ex, LiveWallet w, String ticker, long qty) {
+        if (ex.halted()) {
+            throw new IllegalStateException("the exchange is halted: " + ex.haltReason());
+        }
+        Ticker t = ex.ticker(ticker);
+        if (t == null || !t.item() || !ex.open(t.id())) {
+            throw new IllegalStateException("the " + ticker + " ticker is not open");
+        }
+        if (!ex.openIdsOf(Regulars.owner(REGULAR)).isEmpty()) {
+            teardown(ex, w);
+        }
+        long bestBid = ex.depth(t.id(), Side.BUY, 1).isEmpty() ? 0 : ex.depth(t.id(), Side.BUY, 1).get(0).price();
+        long price = Math.max(ITEM_BASE_PRICE, bestBid + 1);
+        long need = t.buyTotal(ex.config(), qty, price);
+        Exchange.Response f = ex.fundHouseLive(REGULAR, w, Asset.MESO, need, true);
+        if (!f.ok()) {
+            throw new IllegalStateException("funding the test regular: " + f.code() + " " + f.message());
+        }
+        Exchange.Response bid = ex.placeRegularForQa(REGULAR, t.id(), Side.BUY, price, qty);
+        if (!bid.ok()) {
+            teardown(ex, w);
+            throw new IllegalStateException("the test regular's bid: " + bid.code() + " " + bid.message());
+        }
+        return new StagedItem(t.id(), price, ((Number) bid.data().get("orderId")).longValue(), need);
+    }
+
+    /** What a seller gets for {@code qty} of an item ticker at {@code price} each, after its fee. */
+    public static long sellerGets(ExchangeConfig c, Ticker t, long qty, long price) {
+        long m = t.cost(qty, price);
+        return m - c.fee(m);
+    }
+
     /** What the seller gets for {@code nx} NX at {@code price}, after its fee. */
     public static long sellerGets(ExchangeConfig c, long nx, long price) {
         long m = OrderBook.cost(nx, price);

@@ -147,13 +147,37 @@ public final class OrderBook {
     public record Level(long price, long nx, int orders) {
     }
 
+    /** Prices are mesos per this many units: {@link #PER} for NX, 1 for an item ticker. */
+    private final long per;
+
+    public OrderBook() {
+        this(PER);
+    }
+
+    /** A book whose prices are mesos per {@code per} units (tickers: 1 = per item). */
+    public OrderBook(long per) {
+        if (per <= 0) {
+            throw new IllegalArgumentException("per " + per);
+        }
+        this.per = per;
+    }
+
+    public long per() {
+        return per;
+    }
+
+    /** Mesos for {@code q} units at {@code price} in this book's unit, rounded down. */
+    public long costOf(long q, long price) {
+        return Math.multiplyExact(q, price) / per;
+    }
+
     private final NavigableMap<Long, Deque<Order>> bids = new TreeMap<>(Comparator.reverseOrder());
     private final NavigableMap<Long, Deque<Order>> asks = new TreeMap<>();
     private final Map<Long, Order> byId = new LinkedHashMap<>();
 
     /** A deep copy (the {@link Exchange} keeps one to roll back to when a store write fails). */
     public OrderBook copy() {
-        OrderBook b = new OrderBook();
+        OrderBook b = new OrderBook(per);
         for (Order o : allBySeq()) {
             b.restore(o.copy());
         }
@@ -171,7 +195,7 @@ public final class OrderBook {
         if (byId.containsKey(o.id)) {
             throw new IllegalArgumentException("duplicate order id " + o.id);
         }
-        long wantHeld = o.side == Side.BUY ? cost(o.nxTotal, o.price) : 0;
+        long wantHeld = o.side == Side.BUY ? costOf(o.nxTotal, o.price) : 0;
         if (o.mesosHeld != wantHeld) {
             throw new IllegalArgumentException("buy hold must be " + wantHeld + ": " + o);
         }
@@ -201,7 +225,7 @@ public final class OrderBook {
                 break;
             }
             long q = Math.min(o.nxLeft, maker.nxLeft);
-            long mesos = cost(q, p);
+            long mesos = costOf(q, p);
             Order buy = o.side == Side.BUY ? o : maker;
             Order sell = o.side == Side.BUY ? maker : o;
             buy.nxLeft -= q;
@@ -378,7 +402,7 @@ public final class OrderBook {
                         throw new IllegalStateException("time priority broken at " + o);
                     }
                     lastSeq = o.seq;
-                    if (o.side == Side.BUY && o.mesosHeld < cost(o.nxLeft, o.price)) {
+                    if (o.side == Side.BUY && o.mesosHeld < costOf(o.nxLeft, o.price)) {
                         throw new IllegalStateException("buy hold below what the rest needs: " + o);
                     }
                     if (o.side == Side.SELL && o.mesosHeld != 0) {

@@ -9,10 +9,11 @@ import java.util.Map;
  * every posting becomes one append-only row of {@code exchange_ledger}. The exchange's own balances (escrow, payout,
  * house) are the ledger summed per bucket; {@link Exchange#reconcile} checks the stored balances against that sum.
  * <pre>
- *   WALLET   the player's own money: NX = accounts.nxCredit (id = account id), MESO = characters.meso (id = character id).
+ *   WALLET   the player's own money: NX = accounts.nxCredit (id = account id), MESO = characters.meso (id = character id),
+ *            an item asset = that character's inventory (id = character id; only ever through the live character).
  *            Touched only while the whole account is offline (checked under a row lock in the same transaction).
- *   ESCROW   what an open order holds (id = order id): NX for a sell, mesos for a buy. Not spendable.
- *   PAYOUT   settled money waiting to reach a wallet (NX: id = account id; MESO: id = character id).
+ *   ESCROW   what an open order holds (id = order id): NX (or the ticker's item) for a sell, mesos for a buy.
+ *   PAYOUT   settled money waiting to reach a wallet (NX: id = account id; MESO and items: id = character id).
  *   HOUSE    a regular's float (id = regular id); see {@link Regulars}. Funded only from a real (staff) wallet.
  *   FEES     mesos taken as fees (id 0); a meso sink that stays on the books.
  *   FEEHOLD  a buy order's reserve for the buyer's own fee (id = order id, mesos only): taken at place with the escrow,
@@ -24,8 +25,33 @@ public final class Ledger {
     private Ledger() {
     }
 
+    /**
+     * What a bucket holds. NX and MESO as before; the rest are the item tickers (owner 2026-10-28): each is one item id,
+     * counted in whole items. An item WALLET is that character's inventory (id = character id) and moves only through
+     * the live character in game ({@link LiveWallet}); item PAYOUT is kept per character (the buyer's).
+     */
     public enum Asset {
-        NX, MESO
+        NX(0), MESO(0), LEAF(4001126), CHAOS(2049100), WS(2340000), ELIXIR(2000005);
+
+        private final int itemId;
+
+        Asset(int itemId) {
+            this.itemId = itemId;
+        }
+
+        /** The item id of an item asset; 0 for NX and MESO. */
+        public int itemId() {
+            return itemId;
+        }
+
+        public boolean item() {
+            return itemId > 0;
+        }
+
+        /** A payout of this asset is kept per character (mesos, items) rather than per account (NX). */
+        public boolean perCharacter() {
+            return this != NX;
+        }
     }
 
     public enum Kind {

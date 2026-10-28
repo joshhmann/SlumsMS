@@ -1118,6 +1118,12 @@ public final class AutoQaCatalog {
         c.add(Check.auto("t-xc-1", "NX exchange: place in game, fill, payout online, cancel refunds").minutes(2)
                 .expect(probe("nxExchange"))
                 .build());
+        // exchange tickers (ticket 113, owner 2026-10-28): the LEAF book in game: a sell escrows leaves out of the
+        // bags, fills against a test regular funded from the player's own mesos, 1% fee each side, a cancel returns
+        // the leaves, and the regular's bought leaves come back at teardown
+        c.add(Check.auto("t-xc-2", "LEAF ticker: sell escrows leaves, fill pays mesos, cancel returns leaves").minutes(2)
+                .expect(probe("leafExchange"))
+                .build());
         // Family (ticket 53, USE_FAMILY_SYSTEM): a bot accepts being the pretend player's junior, its kill gives rep,
         // the EXP / drop entitlements spend rep and give their buffs, a second use is refused, the family is dissolved
         c.add(Check.auto("t-fy-1", "Family: a bot junior, rep, the EXP / drop entitlements").minutes(2)

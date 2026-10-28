@@ -12,7 +12,7 @@ import soloMapling.Economy.exchange.GameLiveWallet;
  */
 public class NxCommand extends Command {
     {
-        setDescription("Trade NX for mesos on the NX exchange (@nx for help).");
+        setDescription("Trade NX and items (@nx tickers) for mesos on the exchange (@nx for help).");
     }
 
     @Override

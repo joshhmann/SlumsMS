@@ -28,6 +28,8 @@ import java.util.TreeSet;
  *   {@code exchange_ledger} row (the ledger is only ever INSERTed);</li>
  *   <li>order and fill rows are written; then COMMIT. Any failure rolls the whole thing back.</li>
  * </ol>
+ * Ticker items (migration 044): an item WALLET leg is only accepted for the batch's live character together with its
+ * {@link ExchangeStore.InventoryWriter}, which writes that character's whole inventory in this same transaction.
  */
 public final class JdbcExchangeStore implements ExchangeStore {
 
@@ -48,11 +50,12 @@ public final class JdbcExchangeStore implements ExchangeStore {
     static final String LEDGER = "INSERT INTO exchange_ledger (batch_id, at, why, from_kind, from_id, to_kind, to_id, asset, amount, account_id, order_id, fill_id) "
             + "VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)";
     static final String ORDER_UPDATE = "UPDATE exchange_orders SET nx_left = ?, mesos_held = ?, status = ?, closed_at = ? WHERE id = ?";
-    static final String ORDER_INSERT = "INSERT INTO exchange_orders (id, request_id, account_id, character_id, regular_id, side, price, nx_total, nx_left, mesos_held, placed_at, expires_at, seq, status, closed_at) "
-            + "VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)";
-    static final String FILL_INSERT = "INSERT INTO exchange_fills (id, at, buy_order, sell_order, nx, price, mesos, buyer_regular, seller_regular) "
-            + "VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)";
-    static final String ORDER_COLUMNS = "id, request_id, account_id, character_id, regular_id, side, price, nx_total, nx_left, mesos_held, placed_at, expires_at, seq, status, closed_at";
+    static final String ORDER_INSERT = "INSERT INTO exchange_orders (id, request_id, account_id, character_id, regular_id, side, price, nx_total, nx_left, mesos_held, placed_at, expires_at, seq, status, closed_at, ticker) "
+            + "VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)";
+    static final String FILL_INSERT = "INSERT INTO exchange_fills (id, at, buy_order, sell_order, nx, price, mesos, buyer_regular, seller_regular, ticker) "
+            + "VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?)";
+    static final String ORDER_COLUMNS = "id, request_id, account_id, character_id, regular_id, side, price, nx_total, nx_left, mesos_held, placed_at, expires_at, seq, status, closed_at, ticker";
+    static final String FILL_COLUMNS = "id, at, buy_order, sell_order, nx, price, mesos, buyer_regular, seller_regular, ticker";
 
     private final Connections connections;
 
@@ -143,19 +146,38 @@ public final class JdbcExchangeStore implements ExchangeStore {
                     accounts.add(p.account());
                 }
             }
+            boolean items = false;
             for (Posting p : batch.postings()) {
-                if (batch.liveAccount() > 0 && p.account() == batch.liveAccount()) {
-                    for (Bucket b : new Bucket[]{p.from(), p.to()}) {
-                        if (b.kind() == Kind.WALLET && b.asset() == Asset.MESO && b.id() != batch.liveCharacter()) {
-                            throw new StoreException(Failure.NOT_OWNER, b + " is not the live character "
-                                    + batch.liveCharacter());
+                for (Bucket b : new Bucket[]{p.from(), p.to()}) {
+                    if (b.kind() != Kind.WALLET) {
+                        continue;
+                    }
+                    if (b.asset().item()) {
+                        // ticker items: only the live character's bags, written whole below in this transaction
+                        if (batch.liveAccount() <= 0 || p.account() != batch.liveAccount()
+                                || b.id() != batch.liveCharacter() || batch.inventory() == null) {
+                            throw new StoreException(Failure.NOT_OWNER, b + ": items move only through the live "
+                                    + "character");
                         }
+                        items = true;
+                    }
+                    if (batch.liveAccount() > 0 && p.account() == batch.liveAccount() && b.asset().perCharacter()
+                            && b.id() != batch.liveCharacter()) {
+                        throw new StoreException(Failure.NOT_OWNER, b + " is not the live character "
+                                + batch.liveCharacter());
                     }
                 }
             }
             lock(con, accounts, batch.liveAccount());
             for (Posting p : batch.postings()) {
                 post(con, batch.id(), batch.at(), p);
+            }
+            if (items) {
+                if (!Long.valueOf(batch.liveAccount()).equals(characterAccount(con, batch.liveCharacter()))) {
+                    throw new StoreException(Failure.NOT_OWNER, "character " + batch.liveCharacter()
+                            + " is not on account " + batch.liveAccount());
+                }
+                batch.inventory().write(con);
             }
             for (OrderRow o : batch.orders()) {
                 writeOrder(con, o);
@@ -171,6 +193,7 @@ public final class JdbcExchangeStore implements ExchangeStore {
                     ps.setLong(7, f.mesos());
                     ps.setBoolean(8, f.buyerRegular());
                     ps.setBoolean(9, f.sellerRegular());
+                    ps.setString(10, f.ticker());
                     ps.executeUpdate();
                 }
             }
@@ -205,6 +228,7 @@ public final class JdbcExchangeStore implements ExchangeStore {
             ps.setLong(13, o.seq());
             ps.setString(14, o.status());
             ps.setLong(15, o.closedAt());
+            ps.setString(16, o.ticker());
             ps.executeUpdate();
         } catch (SQLIntegrityConstraintViolationException e) {
             throw new StoreException(Failure.DUPLICATE, "order " + o.id() + " / request " + o.requestId(), e);
@@ -233,6 +257,9 @@ public final class JdbcExchangeStore implements ExchangeStore {
 
     private static void move(Connection con, long at, Bucket b, long amount, long account, boolean debit)
             throws SQLException, StoreException {
+        if (b.kind() == Kind.WALLET && b.asset().item()) {
+            return; // the live character's inventory is written whole by the batch (checked in apply)
+        }
         if (b.kind() == Kind.WALLET) {
             String sql = b.asset() == Asset.NX ? (debit ? DEBIT_NX : CREDIT_NX) : (debit ? DEBIT_MESO : CREDIT_MESO);
             if (b.asset() == Asset.NX && b.id() != account) {
@@ -273,7 +300,7 @@ public final class JdbcExchangeStore implements ExchangeStore {
         }
         long owner = 0;
         if (b.kind() == Kind.PAYOUT) {
-            Long acc = b.asset() == Asset.NX ? Long.valueOf(b.id()) : characterAccount(con, b.id());
+            Long acc = b.asset().perCharacter() ? characterAccount(con, b.id()) : Long.valueOf(b.id());
             owner = acc == null ? 0 : acc;
         }
         try (PreparedStatement ps = con.prepareStatement(CREDIT_BUCKET)) {
@@ -439,14 +466,35 @@ public final class JdbcExchangeStore implements ExchangeStore {
     public FillRow fill(long id) throws StoreException {
         return tx(con -> {
             try (PreparedStatement ps = con.prepareStatement(
-                    "SELECT id, at, buy_order, sell_order, nx, price, mesos, buyer_regular, seller_regular FROM exchange_fills WHERE id = ?")) {
+                    "SELECT " + FILL_COLUMNS + " FROM exchange_fills WHERE id = ?")) {
                 ps.setLong(1, id);
                 try (ResultSet rs = ps.executeQuery()) {
-                    return rs.next() ? new FillRow(rs.getLong(1), rs.getLong(2), rs.getLong(3), rs.getLong(4),
-                            rs.getLong(5), rs.getLong(6), rs.getLong(7), rs.getBoolean(8), rs.getBoolean(9)) : null;
+                    return rs.next() ? fillRow(rs) : null;
                 }
             }
         });
+    }
+
+    @Override
+    public List<FillRow> fillsSince(long since) throws StoreException {
+        return tx(con -> {
+            List<FillRow> out = new ArrayList<>();
+            try (PreparedStatement ps = con.prepareStatement(
+                    "SELECT " + FILL_COLUMNS + " FROM exchange_fills WHERE at >= ? ORDER BY at, id")) {
+                ps.setLong(1, since);
+                try (ResultSet rs = ps.executeQuery()) {
+                    while (rs.next()) {
+                        out.add(fillRow(rs));
+                    }
+                }
+            }
+            return out;
+        });
+    }
+
+    private static FillRow fillRow(ResultSet rs) throws SQLException {
+        return new FillRow(rs.getLong(1), rs.getLong(2), rs.getLong(3), rs.getLong(4), rs.getLong(5), rs.getLong(6),
+                rs.getLong(7), rs.getBoolean(8), rs.getBoolean(9), rs.getString(10));
     }
 
     @Override
@@ -518,12 +566,11 @@ public final class JdbcExchangeStore implements ExchangeStore {
             sums.values().removeIf(v -> v == 0);
             List<FillRow> fills = new ArrayList<>();
             try (PreparedStatement ps = con.prepareStatement(
-                    "SELECT id, at, buy_order, sell_order, nx, price, mesos, buyer_regular, seller_regular FROM exchange_fills ORDER BY id DESC LIMIT ?")) {
+                    "SELECT " + FILL_COLUMNS + " FROM exchange_fills ORDER BY id DESC LIMIT ?")) {
                 ps.setInt(1, recentFills);
                 try (ResultSet rs = ps.executeQuery()) {
                     while (rs.next()) {
-                        fills.add(new FillRow(rs.getLong(1), rs.getLong(2), rs.getLong(3), rs.getLong(4), rs.getLong(5),
-                                rs.getLong(6), rs.getLong(7), rs.getBoolean(8), rs.getBoolean(9)));
+                        fills.add(fillRow(rs));
                     }
                 }
             }
@@ -544,6 +591,6 @@ public final class JdbcExchangeStore implements ExchangeStore {
     private static OrderRow order(ResultSet rs) throws SQLException {
         return new OrderRow(rs.getLong(1), rs.getString(2), rs.getLong(3), rs.getLong(4), rs.getLong(5),
                 OrderBook.Side.valueOf(rs.getString(6)), rs.getLong(7), rs.getLong(8), rs.getLong(9), rs.getLong(10),
-                rs.getLong(11), rs.getLong(12), rs.getLong(13), rs.getString(14), rs.getLong(15));
+                rs.getLong(11), rs.getLong(12), rs.getLong(13), rs.getString(14), rs.getLong(15), rs.getString(16));
     }
 }

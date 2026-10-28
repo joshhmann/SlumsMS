@@ -40,6 +40,13 @@ import java.util.Map;
  * <p>
  * Preview data: {@code token, expiresAt, side, price, nx, takes:{asset,amount} (escrow, plus a buy's fee reserve),
  * feeBpsEachSide, matchNow:{nx,mesos,fee,youGet:{asset,amount}}, restsNx, cancelledBySelfTrade}.
+ * <p>
+ * Tickers (owner 2026-10-28): preview, book and trades take an optional {@code "ticker"} ("NX" when absent; also
+ * LEAF, CHAOS, WS, ELIXIR) and preview takes {@code "qty"} as another name for {@code "nx"}. An item ticker's price is
+ * mesos per one item. Selling items needs the player in game (LOG_IN_FIRST from the site while offline: items leave
+ * the bags only through the live character); buying from the site is fine, the items wait until that character is
+ * in game. Two more public outbox files (shapes in docs/tickets/113, "Tickers"): {@link #TICKERS}, every ticker's
+ * summary, depth and last trades, and {@link #HISTORY}, hourly OHLC candles per ticker for 30 days.
  */
 public final class ExchangeSite {
 
@@ -49,6 +56,8 @@ public final class ExchangeSite {
     public static final String REQUESTS = "exchange-requests.json";
     public static final String RESPONSES = "exchange-responses.json";
     public static final String BOOK = "exchange-book.json";
+    public static final String TICKERS = "exchange-tickers.json";
+    public static final String HISTORY = "exchange-history.json";
 
     private ExchangeSite() {
     }
@@ -70,15 +79,25 @@ public final class ExchangeSite {
 
     /** One parsed request; {@code error} non-null when it could not be read (answered BAD_REQUEST). */
     public record Request(String id, long account, Type type, long character, OrderBook.Side side, long price,
-                          long nx, long orderId, long createdAt, String error, String token, String characterName) {
+                          long nx, long orderId, long createdAt, String error, String token, String characterName,
+                          String ticker) {
+        public Request {
+            ticker = Ticker.norm(ticker) == null ? Ticker.NX : Ticker.norm(ticker);
+        }
+
         public Request(String id, long account, Type type, long character, OrderBook.Side side, long price, long nx,
-                       long orderId, long createdAt, String error) {
-            this(id, account, type, character, side, price, nx, orderId, createdAt, error, null, null);
+                       long orderId, long createdAt, String error, String token, String ticker) {
+            this(id, account, type, character, side, price, nx, orderId, createdAt, error, token, null, ticker);
         }
 
         public Request(String id, long account, Type type, long character, OrderBook.Side side, long price, long nx,
                        long orderId, long createdAt, String error, String token) {
-            this(id, account, type, character, side, price, nx, orderId, createdAt, error, token, null);
+            this(id, account, type, character, side, price, nx, orderId, createdAt, error, token, null, Ticker.NX);
+        }
+
+        public Request(String id, long account, Type type, long character, OrderBook.Side side, long price, long nx,
+                       long orderId, long createdAt, String error) {
+            this(id, account, type, character, side, price, nx, orderId, createdAt, error, null, null, Ticker.NX);
         }
     }
 
@@ -101,8 +120,10 @@ public final class ExchangeSite {
             Long account = num(r.get("account"));
             Type type = Type.parse(r.get("type"));
             Long created = time(r.get("createdAt"));
+            String ticker = r.get("ticker") == null ? Ticker.NX
+                    : r.get("ticker") instanceof String s && s.matches("[A-Za-z]{1,8}") ? s : null;
             String err = account == null || account <= 0 ? "account" : type == null ? "type"
-                    : created == null ? "createdAt" : null;
+                    : created == null ? "createdAt" : ticker == null ? "ticker" : null;
             long character = 0, price = 0, nx = 0, orderId = 0;
             OrderBook.Side side = null;
             String token = null;
@@ -126,7 +147,8 @@ public final class ExchangeSite {
                 err = token == null ? "token" : null;
             }
             if (err == null && (type == Type.PLACE || type == Type.PREVIEW)) {
-                Long c = num(r.get("character")), p = num(r.get("price")), n = num(r.get("nx"));
+                Long c = num(r.get("character")), p = num(r.get("price")),
+                        n = num(r.get("nx") != null ? r.get("nx") : r.get("qty"));
                 side = OrderBook.Side.parse(r.get("side"));
                 boolean haveChar = (c != null && c > 0) || charName != null;
                 err = !haveChar ? "character" : side == null ? "side" : p == null || p <= 0 ? "price"
@@ -140,7 +162,7 @@ public final class ExchangeSite {
                 orderId = o == null ? 0 : o;
             }
             out.add(new Request(id, account == null ? 0 : account, type, character, side, price, nx, orderId,
-                    created == null ? 0 : created, err, token, charName));
+                    created == null ? 0 : created, err, token, charName, ticker));
         }
         return out;
     }
@@ -171,7 +193,7 @@ public final class ExchangeSite {
         return switch (r.type()) {
             case PLACE -> new Exchange.Response(r.id(), false, "BAD_REQUEST", "use preview then confirm", Map.of());
             case PREVIEW -> ex.preview(new Exchange.Place(r.id(), r.account(), resolved, r.side(), r.price(),
-                    r.nx()));
+                    r.nx(), r.ticker()));
             case CONFIRM -> ex.confirm(r.id(), r.account(), r.token());
             case CANCEL -> ex.cancel(r.id(), r.account(), r.orderId());
             case MINE -> {
@@ -190,10 +212,14 @@ public final class ExchangeSite {
                     yield new Exchange.Response(r.id(), false, "ERROR", "try again later", Map.of());
                 }
             }
-            case BOOK -> new Exchange.Response(r.id(), true, "OK", "", book(ex, now));
+            case BOOK -> ex.ticker(r.ticker()) == null
+                    ? new Exchange.Response(r.id(), false, "BAD_REQUEST", "unknown ticker", Map.of())
+                    : new Exchange.Response(r.id(), true, "OK", "", Ticker.NX.equals(r.ticker()) ? book(ex, now)
+                    : tickerJson(ex, ex.ticker(r.ticker()), 20, 50));
             case TRADES -> {
                 Map<String, Object> data = new LinkedHashMap<>();
-                data.put("trades", trades(ex));
+                data.put("ticker", r.ticker());
+                data.put("trades", trades(ex, r.ticker(), 50));
                 yield new Exchange.Response(r.id(), true, "OK", "", data);
             }
         };
@@ -220,6 +246,9 @@ public final class ExchangeSite {
     /** exchange-book.json: depth (20 levels a side), the official rate and the last 50 trades. No names. */
     public static Map<String, Object> book(Exchange ex, long now) {
         Map<String, Object> m = head(now);
+        m.put("ticker", Ticker.NX);
+        m.put("unit", "1000nx");
+        m.put("unit_label", "mesos per 1,000 NX");
         m.put("halted", ex.halted());
         Map<String, Object> rate = new LinkedHashMap<>();
         rate.put("mesos_per_1000nx", ex.officialRate());
@@ -254,6 +283,111 @@ public final class ExchangeSite {
             out.add(e);
         }
         return out;
+    }
+
+    private static List<Map<String, Object>> trades(Exchange ex, String ticker, int n) {
+        List<Map<String, Object>> out = new ArrayList<>();
+        for (ExchangeStore.FillRow f : ex.lastTrades(ticker, n)) {
+            Map<String, Object> e = new LinkedHashMap<>();
+            e.put("t", Instant.ofEpochMilli(f.at()).toString());
+            e.put("price", f.price());
+            e.put("qty", f.nx());
+            out.add(e);
+        }
+        return out;
+    }
+
+    private static List<Map<String, Object>> qtyLevels(List<OrderBook.Level> levels) {
+        List<Map<String, Object>> out = new ArrayList<>();
+        for (OrderBook.Level l : levels) {
+            Map<String, Object> e = new LinkedHashMap<>();
+            e.put("price", l.price());
+            e.put("qty", l.nx());
+            e.put("orders", l.orders());
+            out.add(e);
+        }
+        return out;
+    }
+
+    /** One ticker's public state: what it is, its 24 h numbers, depth and last trades. No names, no ids. */
+    public static Map<String, Object> tickerJson(Exchange ex, Ticker t, int levels, int trades) {
+        Map<String, Object> m = new LinkedHashMap<>();
+        m.put("id", t.id());
+        m.put("name", t.name());
+        m.put("item_id", t.item() ? t.asset().itemId() : null);
+        m.put("unit", t.unit());
+        m.put("unit_label", t.unitLabel());
+        m.put("per", t.per());
+        m.put("qty_label", t.item() ? "items" : "NX");
+        m.put("min_qty", t.minQty());
+        m.put("max_qty", t.maxQty());
+        m.put("lot", t.lot());
+        m.put("min_price", t.minPrice());
+        m.put("max_price", t.maxPrice());
+        List<OrderBook.Level> bids = ex.depth(t.id(), OrderBook.Side.BUY, levels);
+        List<OrderBook.Level> asks = ex.depth(t.id(), OrderBook.Side.SELL, levels);
+        m.put("bid", bids.isEmpty() ? null : bids.get(0).price());
+        m.put("ask", asks.isEmpty() ? null : asks.get(0).price());
+        TickerHistory.Stats s = ex.stats(t.id());
+        m.put("last", s.last());
+        m.put("change_24h", s.change());
+        m.put("change_24h_pct", s.change() == null || s.reference() == null || s.reference() == 0 ? null
+                : Math.round(s.change() * 10_000.0 / s.reference()) / 100.0);
+        m.put("high_24h", s.high());
+        m.put("low_24h", s.low());
+        m.put("volume_24h", s.qty());
+        m.put("turnover_24h", s.mesos());
+        m.put("fills_24h", s.fills());
+        m.put("rate", ex.officialRate(t.id()));
+        m.put("bids", qtyLevels(bids));
+        m.put("asks", qtyLevels(asks));
+        m.put("trades", trades(ex, t.id(), trades));
+        return m;
+    }
+
+    /** exchange-tickers.json: every open ticker (NX first), 10 levels a side and the last 20 trades each. */
+    public static Map<String, Object> tickers(Exchange ex, long now) {
+        Map<String, Object> m = head(now);
+        m.put("halted", ex.halted());
+        m.put("fee_bps_each_side", ex.config().feeBps());
+        m.put("rate_window_hours", ex.config().rateWindowMs() / 3_600_000L);
+        m.put("rate_min_fills", ex.config().rateMinFills());
+        List<Map<String, Object>> list = new ArrayList<>();
+        for (Ticker t : ex.tickers()) {
+            list.add(tickerJson(ex, t, 10, 20));
+        }
+        m.put("tickers", list);
+        return m;
+    }
+
+    /** exchange-history.json: hourly OHLC candles per open ticker, the last 30 days, only hours that traded. */
+    public static Map<String, Object> history(Exchange ex, long now) {
+        Map<String, Object> m = head(now);
+        m.put("interval", "1h");
+        m.put("days", TickerHistory.KEEP_MS / TickerHistory.DAY_MS);
+        Map<String, Object> per = new LinkedHashMap<>();
+        for (Ticker t : ex.tickers()) {
+            Map<String, Object> e = new LinkedHashMap<>();
+            e.put("unit", t.unit());
+            e.put("unit_label", t.unitLabel());
+            List<Map<String, Object>> candles = new ArrayList<>();
+            for (TickerHistory.Candle c : ex.candles(t.id())) {
+                Map<String, Object> k = new LinkedHashMap<>();
+                k.put("t", Instant.ofEpochMilli(c.hour()).toString());
+                k.put("o", c.open());
+                k.put("h", c.high());
+                k.put("l", c.low());
+                k.put("c", c.close());
+                k.put("v", c.qty());
+                k.put("m", c.mesos());
+                k.put("n", c.fills());
+                candles.add(k);
+            }
+            e.put("candles", candles);
+            per.put(t.id(), e);
+        }
+        m.put("tickers", per);
+        return m;
     }
 
     private static Map<String, Object> head(long now) {

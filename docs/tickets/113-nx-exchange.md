@@ -314,3 +314,121 @@ sends the meso stat update; the NX credit shows in the Cash Shop).
 6. `!exchange halt` then `resume`. Let some orders expire over a night.
 7. Daily: run the reconcile query (ledger sums against `exchange_escrow`), the conservation sums, and grep the log for
    `NX exchange`. Pass criteria: 3 days without a mismatch, a lost meso or NX, or a stuck payout.
+
+## Tickers (owner 2026-10-28; branch `161-tickers`)
+
+The exchange now runs more than NX. Each **ticker** is a player order book for one asset, priced in mesos, on the same
+engine: price-time priority, escrow, the same ledger and recovery, the **1% fee from each side** (the only meso sink),
+no house price and nothing minted.
+
+| Ticker | Asset | Price unit | Order size | Price range |
+|---|---|---|---|---|
+| `NX` | NX credit | mesos per 1,000 NX | 100..50,000 in lots of 100 (unchanged) | 1,000..100,000,000 (unchanged) |
+| `LEAF` | Maple Leaf 4001126 | mesos per item | 1..1,000 | 1..1,000,000,000 |
+| `CHAOS` | Chaos Scroll 60% 2049100 | mesos per item | 1..100 | 1..1,000,000,000 |
+| `WS` | White Scroll 2340000 | mesos per item | 1..100 | 1..1,000,000,000 |
+| `ELIXIR` | Power Elixir 2000005 | mesos per item | 1..1,000 | 1..1,000,000,000 |
+
+A buy's total (price plus its 1% fee reserve) must still fit a character's 2,147,483,647 mesos. Limits: **5 open
+orders per ticker**; the 20 a day and the 10 s cooldown are per account across all tickers. Knobs (JVM, all
+optional): `-Dslums.exchange.tickers=NX,LEAF,CHAOS,WS,ELIXIR` (which are open for new orders; NX always; a closed
+ticker's resting orders still load and can be cancelled), `-Dslums.exchange.<ticker>.maxQty|minPrice|maxPrice`.
+The shops buying Maple Leaves at 500,000 is a natural floor for LEAF; nothing in the exchange enforces it.
+
+**Item escrow and settlement** (same shape as NX):
+- **Sell**: the items leave the live character's bags into the order's ESCROW (asset = the ticker). Only tradeable
+  copies count: no untradeable, lock or merge-untradeable flag, no expiry date, not a cash item. Selling items needs the
+  player in game (`@nx`, or the site while that character is logged in): from the site while offline the answer is
+  `LOG_IN_FIRST`. In the database, the escrow, ledger and the character's whole inventory (written exactly as a
+  character save writes it) change in one transaction under the character's save lock; if the write fails, the items
+  go back into the bags.
+- **Cancel / expiry**: the escrowed items go to the seller character's PAYOUT and land in its bags at once if it is
+  online (otherwise at its next login tick).
+- **Fill**: the items go to the **buying character's** PAYOUT (item payouts are per character, like mesos) and land in
+  its bags while it is online, as many as fit; the rest waits ("make room in your bags", at most every 10 minutes).
+  Items never move into an offline character (no offline inventory writes): a buy placed from the site waits until
+  that character is in game. Mesos settle exactly as on NX.
+- **Regulars** stay NX-only: they never quote item tickers and cannot be funded with items. The QA test regular may
+  bid on LEAF (mesos from the tester's own wallet); the leaves it buys go back to the tester at teardown.
+- **Staff reversal** works on item fills too while the items are still in PAYOUT; items already delivered to bags
+  cannot be pulled back automatically (the reversal is refused; move them by hand).
+
+**Migration 044-exchange-tickers** (+ rollback): `exchange_orders.ticker` and `exchange_fills.ticker` VARCHAR(8) NOT
+NULL DEFAULT 'NX' (every existing row is NX), keys `exchange_orders.ticker (ticker, status, seq)` and
+`exchange_fills.ticker_at (ticker, at)`, and `exchange_escrow.asset` / `exchange_ledger.asset` widened to VARCHAR(8).
+Without the 038 tables it changes nothing. Like 038 it is **not** in `docs/release/1.6.1.conf` (TEST only until the
+owner's go). The rollback drops the ticker columns and keys and keeps the asset width; run it only with no item
+escrow or payout left. Checked apply-twice / rollback-twice on a throwaway MySQL 8.0 (`JdbcExchangeStoreIT`).
+
+**In game**: `@nx` is unchanged for NX; a ticker goes first for the others: `@nx leaf` (market), `@nx leaf sell 10
+600k`, `@nx leaf buy 10 550k`, `@nx leaf book`, `@nx tickers` (all of them). `@nx confirm`, `@nx orders` and `@nx
+cancel <id>` work for every ticker (order ids are shared). Staff: `!exchange status [ticker]`, `!exchange book
+[ticker]`, `!exchange fills [ticker] [n]`; `halt`, `resume` and `reverse` act on the whole exchange.
+
+**Checks**: `!qa run xc-2` and auto-QA `t-xc-2` (LEAF: a sell escrows 10 leaves, fills against the test regular, the
+mesos less 1% land at once, a resting sell is cancelled and returns its 10 leaves, the regular's 10 bought leaves come
+back at teardown; net: the same leaves, exactly two 1% fees fewer mesos).
+
+### Site contract for tickers
+
+Requests (`exchange-requests.json`): `preview`, `book` and `trades` take an optional `"ticker"` (`"NX"` when absent;
+letters only, any case: `"leaf"` works); `preview` takes `"qty"` as another name for `"nx"`. For an item ticker the
+price is mesos per one item. `book` with an item ticker answers with that ticker's object (shape below); `trades`
+answers `{"ticker":"LEAF","trades":[{"t","price","qty"}]}`. `mine` lists every ticker's orders. Answers carry the
+ticker:
+- preview data adds `"ticker"`, `"unit"` and `"qty"` (= `nx`), and `matchNow.qty`; `matchNow.youGet.asset` is the
+  ticker's asset (`"LEAF"`) on a buy.
+- every order object (`mine`, confirm) adds `"ticker"`, `"qty"` and `"qtyLeft"` (= `nx` / `nxLeft`).
+- new error code: `LOG_IN_FIRST` (selling items needs the character in game).
+
+`exchange-book.json` (NX) keeps its shape and adds `"ticker":"NX","unit":"1000nx","unit_label":"mesos per 1,000 NX"`.
+
+**Units** (Website session, 2026-10-28): every ticker in the exports has `unit` and `unit_label` so the page never
+guesses. `unit` is `"1000nx"` (prices are mesos per 1,000 NX; quantities are NX) or `"item"` (prices are mesos per one
+item; quantities are items). `unit_label` is the human text (`"mesos per 1,000 NX"`, `"mesos per Maple Leaf"`).
+`per` is the same as a number (1000 or 1): mesos for a trade = floor(qty x price / per).
+
+New public outbox file **`exchange-tickers.json`** (every poll; no names, no ids):
+```json
+{"schema":1,"generated_at":"2026-10-28T18:00:00Z","halted":false,"fee_bps_each_side":100,
+ "rate_window_hours":24,"rate_min_fills":3,
+ "tickers":[
+  {"id":"NX","name":"NX","item_id":null,"unit":"1000nx","unit_label":"mesos per 1,000 NX","per":1000,
+   "qty_label":"NX","min_qty":100,"max_qty":50000,"lot":100,"min_price":1000,"max_price":100000000,
+   "bid":1150000,"ask":1200000,"last":1180000,"change_24h":-20000,"change_24h_pct":-1.67,
+   "high_24h":1210000,"low_24h":1150000,"volume_24h":42000,"turnover_24h":49560000,"fills_24h":17,
+   "rate":1182000,
+   "bids":[{"price":1150000,"qty":3000,"orders":2}],"asks":[{"price":1200000,"qty":1000,"orders":1}],
+   "trades":[{"t":"2026-10-28T17:59:12Z","price":1180000,"qty":500}]},
+  {"id":"LEAF","name":"Maple Leaf","item_id":4001126,"unit":"item","unit_label":"mesos per Maple Leaf","per":1,
+   "qty_label":"items","min_qty":1,"max_qty":1000,"lot":1,"min_price":1,"max_price":1000000000,
+   "bid":550000,"ask":600000,"last":600000,"change_24h":0,"change_24h_pct":0.0,"high_24h":600000,"low_24h":600000,
+   "volume_24h":4,"turnover_24h":2400000,"fills_24h":1,"rate":null,"bids":[...],"asks":[...],"trades":[...]},
+  ...CHAOS, WS, ELIXIR]}
+```
+Tickers come NX first, then LEAF, CHAOS, WS, ELIXIR (only the open ones). `bid`/`ask` are null on an empty side,
+`last` null before the first trade ever (it survives a quiet day: the newest fill of the last 30 days, or of this run).
+The 24 h numbers are a rolling window over fills: `change_24h` = last minus the last price before the window (else the
+first price inside it), `change_24h_pct` rounded to 2 decimals, `high_24h`/`low_24h` null with no trade in 24 h,
+`volume_24h` in the ticker's quantity unit, `turnover_24h` in mesos. `rate` is the ticker's official rate (VWAP of
+player-to-player fills, regulars excluded, same window and minimum as NX) or null. 10 levels a side, last 20 trades.
+
+New public outbox file **`exchange-history.json`** (every poll): hourly OHLC candles per ticker for the last 30 days,
+UTC hours, **only hours that traded** (a gap means no trade):
+```json
+{"schema":1,"generated_at":"2026-10-28T18:00:00Z","interval":"1h","days":30,
+ "tickers":{
+  "NX":{"unit":"1000nx","unit_label":"mesos per 1,000 NX",
+        "candles":[{"t":"2026-10-28T17:00:00Z","o":1190000,"h":1210000,"l":1170000,"c":1180000,"v":6000,"m":7080000,"n":4}]},
+  "LEAF":{"unit":"item","unit_label":"mesos per Maple Leaf","candles":[...]},
+  "CHAOS":{...},"WS":{...},"ELIXIR":{...}}}
+```
+`t` is the hour's start, `o/h/l/c` prices in the ticker's unit, `v` quantity traded, `m` mesos turned over, `n` fills.
+History is rebuilt from `exchange_fills` at every start; a staff reversal does not rewrite candles already built.
+
+### Open economy questions (tickers)
+1. Limits: 5 open orders per ticker (25 across all) but 20 orders a day across all tickers: OK, or per ticker?
+2. Item order sizes (1..1,000 leaves and elixirs, 1..100 chaos and white scrolls) and the 1b-per-item price cap.
+3. Should LEAF have a floor at the shop's 500,000 (refuse asks below it), or leave it to players?
+4. Regulars on item tickers would need an item float from a staff account: left out (NX-only), as asked.
+5. Items bought from the site wait until the character logs in; is a mail/Duey delivery wanted later?

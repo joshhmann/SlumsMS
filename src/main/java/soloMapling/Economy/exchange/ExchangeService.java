@@ -28,7 +28,8 @@ import java.util.function.LongSupplier;
  * {@link ExchangeConfig#pollSeconds()}: read the site's {@code exchange-requests.json} when it changed and answer new
  * request ids, close expired orders, move payouts into wallets (offline accounts through the database, logged-in
  * players straight into their live character, {@link GameLiveWallet}), keep the regulars' quotes up,
- * and write {@code exchange-responses.json} and {@code exchange-book.json} to the board's outbox folder
+ * and write {@code exchange-responses.json}, {@code exchange-book.json}, {@code exchange-tickers.json} and
+ * {@code exchange-history.json} (tickers) to the board's outbox folder
  * ({@link SiteBoard#inbox()} / {@link SiteBoard#outbox()}). Start-up recovers from the database and halts on any
  * ledger mismatch. Nothing throws into the game.
  */
@@ -56,7 +57,7 @@ public final class ExchangeService {
         try {
             ExchangeConfig config = ExchangeConfig.fromSystem();
             Exchange ex = new Exchange(JdbcExchangeStore.forGame(), config, ExchangeService::accountInGame,
-                    GameLiveWallet::find, System::currentTimeMillis);
+                    GameLiveWallet::find, System::currentTimeMillis, Ticker.fromSystem(config));
             List<String> problems = ex.recover();
             if (!problems.isEmpty()) {
                 log.error("NX exchange HALTED at start: {} ledger mismatch(es), first: {}", problems.size(),
@@ -175,6 +176,8 @@ public final class ExchangeService {
                         ExchangeSite.responsesFile(new ArrayList<>(responses), now));
             }
             BoardFiles.writeJson(outbox.resolve(ExchangeSite.BOOK), ExchangeSite.book(ex, now));
+            BoardFiles.writeJson(outbox.resolve(ExchangeSite.TICKERS), ExchangeSite.tickers(ex, now));
+            BoardFiles.writeJson(outbox.resolve(ExchangeSite.HISTORY), ExchangeSite.history(ex, now));
         }
 
         private boolean readRequests(long now, boolean force) throws IOException {
