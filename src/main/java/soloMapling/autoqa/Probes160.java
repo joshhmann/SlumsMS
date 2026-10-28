@@ -62,7 +62,7 @@ final class Probes160 {
     /** Every probe name here, for the catalog test. */
     static final List<String> NAMES = List.of("ownedAlts", "townSample", "townVerdict", "townDressing", "hpMp4Byte",
             "authFlow", "decideShadow", "customNpcCaps", "dailyCheckin", "starterChairs", "slumsStamps", "nxExchange",
-            "family", "tutorialIsland", "botRebirth", "achievements");
+            "family", "tutorialIsland", "botRebirth", "achievements", "playerInvites", "slumsChan");
 
     /** t-oa-1: the QA account's two alts (made once, kept: the second one is for the cap). */
     static final String ALT_A = "AutoQaAlt", ALT_B = "AutoQaAltB";
@@ -96,6 +96,8 @@ final class Probes160 {
                 case "tutorialIsland" -> tutorialIsland(p);
                 case "botRebirth" -> botRebirth(p);
                 case "achievements" -> achievements(p);
+                case "playerInvites" -> playerInvites();
+                case "slumsChan" -> slumsChan(p);
                 default -> null;
             };
         } catch (InterruptedException e) {
@@ -1280,6 +1282,130 @@ final class Probes160 {
         List<String> bad = soloMapling.achievements.AchievementsQa.selfCheck(svc, p.character(), ev);
         return verdict(bad, "a Mano kill and ten catches each gave one zero-stat medal exactly once, nothing else did,"
                 + " and the list shows it", ev);
+    }
+
+    // ── t-iv-1: @invite, the player path (ticket 105 part 2, 1.6.1) ───────────────────────────────
+
+    /** t-iv-1: a throwaway account id that is never a real account (real ones are positive). */
+    static final int INVITE_QA_ACCOUNT = -900_101;
+
+    /**
+     * t-iv-1: the rules of {@code @invite} for a made-up account (negative id, so no real player's count or code is
+     * touched; the typing GM's own path is not the player's, so the command's player entry is called directly): a
+     * level 29 character is refused, level 30 gets a code, the second code works, the third in the week is refused,
+     * {@code @invite list} shows two unused codes, a code signs one account up and then reads used, and a second
+     * sign-up with it fails. Removes its invites and the sign-up account in a {@code finally}.
+     */
+    static List<String> playerInvites() throws Exception {
+        List<String> bad = new ArrayList<>();
+        List<String> ev = new ArrayList<>();
+        int acct = INVITE_QA_ACCOUNT;
+        String user = "qaiv" + String.format(Locale.ROOT, "%06d", System.currentTimeMillis() / 1000 % 1_000_000);
+        String firstCode = null;
+        int signedUp = -1;
+        try {
+            long now = System.currentTimeMillis();
+            String[] none = new String[0];
+            List<String> low = client.command.commands.gm3.InviteCommand.runPlayerForQa(none, acct, 0, "AutoQaInvite", 29, now);
+            ev.add("level 29: " + low);
+            if (low.isEmpty() || !low.get(0).contains("level 30")) {
+                bad.add("a level 29 character was not told it needs level 30: " + low);
+            }
+            List<String> codes = new ArrayList<>();
+            for (int k = 1; k <= 3; k++) {
+                List<String> r = client.command.commands.gm3.InviteCommand.runPlayerForQa(none, acct, 0, "AutoQaInvite", 30, now + k);
+                ev.add("level 30, request " + k + ": " + r);
+                Matcher m = Pattern.compile("Invite code: (\\S+)").matcher(r.isEmpty() ? "" : r.get(0));
+                if (k <= 2) {
+                    if (!m.find()) {
+                        bad.add("request " + k + " at level 30 gave no code: " + r);
+                    } else {
+                        codes.add(m.group(1));
+                    }
+                } else if (m.find() || r.isEmpty() || !r.get(0).contains("2 invite codes")) {
+                    bad.add("the third code in a week was not refused: " + r);
+                }
+            }
+            List<String> list = client.command.commands.gm3.InviteCommand.runPlayerForQa(new String[]{"list"}, acct, 0, "AutoQaInvite", 30, now + 4);
+            ev.add("@invite list: " + list);
+            if (list.size() != 2 || list.stream().anyMatch(l -> !l.endsWith("unused"))) {
+                bad.add("@invite list should show exactly two unused codes: " + list);
+            }
+            if (codes.size() == 2) {
+                firstCode = codes.get(0);
+                String off = SiteAuthQa.notListening();
+                if (off != null) {
+                    ev.add("redeem part skipped: " + off);
+                } else {
+                    String ip = "autoqa-t-iv-1-" + now;
+                    SiteAuthQa.Answer a = SiteAuthQa.call("/signup", Map.of("code", firstCode, "user", user, "pass", "Qa1!" + user, "ipHash", ip));
+                    ev.add("sign-up with the code: " + a.status() + " ok=" + a.ok() + (a.ok() ? "" : " " + a.error()));
+                    if (!a.ok()) {
+                        bad.add("a fresh @invite code did not sign anyone up: " + a.error());
+                    } else {
+                        signedUp = ((Number) a.body().get("account_id")).intValue();
+                        SiteAuthQa.Answer again = SiteAuthQa.call("/signup", Map.of("code", firstCode, "user", user + "x", "pass", "Qa1!" + user, "ipHash", ip));
+                        ev.add("second sign-up with the same code: " + again.status() + " ok=" + again.ok() + (again.ok() ? "" : " " + again.error()));
+                        if (again.ok()) {
+                            bad.add("the same code signed up a second account");
+                            SiteAuthQa.cleanup(((Number) again.body().get("account_id")).intValue(), user + "x", null);
+                        }
+                        List<String> after = client.command.commands.gm3.InviteCommand.runPlayerForQa(new String[]{"list"}, acct, 0, "AutoQaInvite", 30, now + 5);
+                        ev.add("@invite list after use: " + after);
+                        if (after.stream().filter(l -> l.endsWith("used")).count() != 1) {
+                            bad.add("@invite list should show the used code as used: " + after);
+                        }
+                    }
+                }
+            }
+        } finally {
+            int gone = SiteAuthQa.cleanupInvitesMadeBy(acct);
+            if (signedUp > 0) {
+                gone += SiteAuthQa.cleanup(signedUp, user, null);
+            }
+            ev.add("cleanup removed " + gone + " rows");
+        }
+        return verdict(bad, "@invite refuses level 29, gives two codes at level 30, refuses the third, lists them, and a code works exactly once", ev);
+    }
+
+    // ── t-sn-1: Slums-chan (1.6.1, migration 042) ─────────────────────────────────────────────────
+
+    /**
+     * t-sn-1 (read-only): NPC 9990000 has her name in String.wz, stands on Base of Roots (993910000) and Henesys
+     * (100000000) as loaded from plife, and the first-login guide and settings are framed by her.
+     */
+    static List<String> slumsChan(SyntheticPlayer p) {
+        List<String> bad = new ArrayList<>();
+        List<String> ev = new ArrayList<>();
+        int id = soloMapling.menus.SlumsChanMenu.NPC;
+        String name = server.life.LifeFactory.getNPC(id).getName();
+        ev.add("npc " + id + " name: " + name);
+        if (name == null || name.isBlank() || "MISSINGNO".equals(name)) {
+            bad.add("npc " + id + " has no name in String.wz (host step: tools/data-align/add_slums_chan.py)");
+        }
+        var maps = p.character().getClient().getChannelServer().getMapFactory();
+        for (int mapId : new int[]{993910000, 100000000}) {
+            var map = maps.getMap(mapId);
+            long here = map == null ? 0 : map.getMapObjects().stream()
+                    .filter(o -> o.getType() == server.maps.MapObjectType.NPC && ((server.life.NPC) o).getId() == id).count();
+            ev.add("map " + mapId + ": " + here + " Slums-chan");
+            if (here != 1) {
+                bad.add("map " + mapId + " has " + here + " Slums-chan, want 1 (plife row, migration 042)");
+            }
+        }
+        if (soloMapling.menus.GuideMenu.NPC != id || soloMapling.menus.SettingsMenu.NPC != id) {
+            bad.add("the first-login guide or @settings is not framed by her (GuideMenu.NPC " + soloMapling.menus.GuideMenu.NPC
+                    + ", SettingsMenu.NPC " + soloMapling.menus.SettingsMenu.NPC + ")");
+        }
+        try {
+            var page = soloMapling.menus.SlumsChanMenu.page(p.character());
+            ev.add("her welcome offers: " + page.labels());
+            page.find("guide");
+            page.find("settings");
+        } catch (RuntimeException e) {
+            bad.add("her welcome page lacks the guide or settings line: " + e.getMessage());
+        }
+        return verdict(bad, "Slums-chan has her name, stands on Base of Roots and Henesys, and frames the first-login guide", ev);
     }
 
     // ── t-xc-1: the NX exchange in game (ticket 113 round 2) ─────────────────────────────────────

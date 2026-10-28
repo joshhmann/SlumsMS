@@ -61,6 +61,7 @@ public final class BotWealth {
     static final class State {
         long nextStepAt;
         long nextDecayAt;
+        long paidTotal; // upkeep this bot has paid since the server started (the bot watch nets it out)
     }
 
     private static final Map<Integer, State> states = new ConcurrentHashMap<>();
@@ -208,6 +209,17 @@ public final class BotWealth {
         }
     }
 
+    /** Mesos this bot has paid as wealth upkeep since the server started (0 if none). */
+    public static long upkeepPaid(int botId) {
+        State st = states.get(botId);
+        if (st == null) {
+            return 0;
+        }
+        synchronized (st) {
+            return st.paidTotal;
+        }
+    }
+
     /** One spending step now; {@code forceDecay} ignores the upkeep pace (a GM or QA step). The lines it did. */
     public static List<String> step(Character bot, Random rng, boolean forceDecay) {
         List<String> out = new ArrayList<>();
@@ -233,6 +245,9 @@ public final class BotWealth {
                 DEFAULT_DECAY_SHARE)));
         long burn = upkeep(excess, ceiling(bot), share);
         if (burn > 0 && burn <= Integer.MAX_VALUE && BotHoldings.spendMeso(bot, (int) burn)) {
+            synchronized (st) {
+                st.paidTotal += burn;
+            }
             decayed.addAndGet(burn);
             decayEvents.incrementAndGet();
             soloMapling.Economy.stats.EconomyCounters.recordUpkeep(burn);

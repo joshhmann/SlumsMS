@@ -833,10 +833,11 @@ final class GCMovementDriver {
             return;
         }
         NavStuckLog.record(NavStuckLog.Kind.FELL_OFF_MAP, map, pos, entry.navGraph, entry.navEdge);
-        if (WatchGate.enabled() && WatchGate.watched(bot)) {
+        boolean watched = WatchGate.enabled() && WatchGate.watched(bot);
+        if (watched) {
             WatchGate.noteSnappedWhileWatched(bot, "fell-off-map"); // out of bounds: there is nothing to walk on
         }
-        Point goal = entry.moveTarget != null ? entry.moveTarget : entry.navTargetPos;
+        Point goal = fallRecoveryGoal(entry.moveTarget, entry.navTargetPos, watched);
         Point ground = recoveryGround(map, pos, goal);
         BotPhysicsEngine.teleportTo(entry, bot, ground != null ? ground
                 : new Point(Math.max(vr.x, Math.min(vr.x + vr.width, pos.x)), vr.y));
@@ -846,6 +847,19 @@ final class GCMovementDriver {
         // the "glitchy" fall on tall maps). Drop the goal too so the brain re-decides a safe target next tick.
         entry.moveTarget = null;
         broadcastIfObserved(entry);
+    }
+
+    /**
+     * 1.6.1 QA: the ground a fallen bot is put back on. Out of the map's bounds the snap cannot be a walk, but in
+     * front of a player it must not also be a long jump: the old goal-first pick set the bot down under its
+     * destination, possibly across the map. A watched bot is put back under where it fell instead (null goal makes
+     * {@link #recoveryGround} use its own x), so it reappears right where the player last saw it.
+     */
+    static Point fallRecoveryGoal(Point moveTarget, Point navTarget, boolean watched) {
+        if (watched) {
+            return null;
+        }
+        return moveTarget != null ? moveTarget : navTarget;
     }
 
     /*

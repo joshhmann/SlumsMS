@@ -104,11 +104,26 @@ public final class BotWatchJudge {
     public record Sample(long t, boolean online, int channel, int map, int x, int y, String activity, int target,
                          String phase, int level, long exp, long meso, int kills, int pots, int etcSlots,
                          int equipSlots, String chat, long chatAt, boolean party, boolean sitting, boolean town,
-                         boolean mobMap, boolean watched, int jumpPx, boolean jumpWatched, boolean shop) {
+                         boolean mobMap, boolean watched, int jumpPx, boolean jumpWatched, boolean shop,
+                         long upkeep) {
+
+        /** Without the upkeep total (0): what older callers and tests build. */
+        public Sample(long t, boolean online, int channel, int map, int x, int y, String activity, int target,
+                      String phase, int level, long exp, long meso, int kills, int pots, int etcSlots,
+                      int equipSlots, String chat, long chatAt, boolean party, boolean sitting, boolean town,
+                      boolean mobMap, boolean watched, int jumpPx, boolean jumpWatched, boolean shop) {
+            this(t, online, channel, map, x, y, activity, target, phase, level, exp, meso, kills, pots, etcSlots,
+                    equipSlots, chat, chatAt, party, sitting, town, mobMap, watched, jumpPx, jumpWatched, shop, 0);
+        }
+
+        /** Mesos before the wealth upkeep this bot has paid: a change in this is a real purchase or sale. */
+        long mesoBeforeUpkeep() {
+            return meso + upkeep;
+        }
 
         public static Sample offline(long t) {
             return new Sample(t, false, 0, 0, 0, 0, "OFFLINE", -1, null, 0, 0, 0, 0, 0, 0, 0, null, 0, false, false,
-                    false, false, false, 0, false, false);
+                    false, false, false, 0, false, false, 0);
         }
 
         boolean fm() {
@@ -551,13 +566,13 @@ public final class BotWatchJudge {
             }
             reached |= target > 0 && s.map() == target;
             maxPots = Math.max(maxPots, s.pots());
-            mesoDown |= s.meso() < a.meso();
+            mesoDown |= s.mesoBeforeUpkeep() < a.mesoBeforeUpkeep(); // wealth upkeep is not a purchase
             watched |= s.watched();
             shop |= s.shop();
         }
         boolean expUp = z.level() > a.level() || z.level() == a.level() && z.exp() > a.exp();
         return new Facts(moved, mapChanged, ch, expUp, z.kills() > a.kills(), chatted, sat, party, town, townOrShop,
-                fm, fmMap, mob * 2 >= v.size(), reached, maxPots > a.pots(), maxPots, mesoDown, z.meso() > a.meso(),
+                fm, fmMap, mob * 2 >= v.size(), reached, maxPots > a.pots(), maxPots, mesoDown, z.mesoBeforeUpkeep() > a.mesoBeforeUpkeep(),
                 z.etcSlots() + z.equipSlots() < a.etcSlots() + a.equipSlots(), watched, shop);
     }
 
@@ -565,7 +580,7 @@ public final class BotWatchJudge {
     static boolean same(Sample p, Sample s, int tol) {
         return s.map() == p.map() && s.channel() == p.channel() && Math.abs(s.x() - p.x()) <= tol
                 && Math.abs(s.y() - p.y()) <= tol && s.level() == p.level() && s.exp() == p.exp()
-                && s.kills() == p.kills() && s.chatAt() == p.chatAt() && s.meso() == p.meso() && s.pots() == p.pots()
+                && s.kills() == p.kills() && s.chatAt() == p.chatAt() && s.mesoBeforeUpkeep() == p.mesoBeforeUpkeep() && s.pots() == p.pots()
                 && s.etcSlots() == p.etcSlots() && s.equipSlots() == p.equipSlots() && s.sitting() == p.sitting();
     }
 

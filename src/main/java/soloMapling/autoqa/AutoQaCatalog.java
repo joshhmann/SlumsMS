@@ -1137,6 +1137,15 @@ public final class AutoQaCatalog {
         c.add(Check.auto("t-ac-1", "Achievements: kill and fishing goals hand over one zero-stat medal each, once").minutes(2)
                 .expect(probe("achievements"))
                 .build());
+        // @invite (ticket 105 part 2): level 30+, two codes a week, one friend per code; a made-up account, nothing real
+        c.add(Check.auto("t-iv-1", "@invite: level 30+, 2 a week, a code works once").minutes(2)
+                .expect(probe("playerInvites"))
+                .build());
+        // Slums-chan (NPC 9990000, migration 042): named, standing on Base of Roots and Henesys, frames the first-login guide
+        // (t-sc-1 is the 1.5.0 gambler check, so her id is t-sn-1)
+        c.add(Check.auto("t-sn-1", "Slums-chan: named, in Base of Roots and Henesys, greets the first login").minutes(1)
+                .expect(probe("slumsChan"))
+                .build());
         return List.copyOf(c);
     }
 
