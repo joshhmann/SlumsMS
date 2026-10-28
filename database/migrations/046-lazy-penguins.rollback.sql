@@ -10,8 +10,8 @@ CREATE TABLE IF NOT EXISTS mapleroot_integration_migration_rows (
 START TRANSACTION;
 DELETE FROM plife WHERE id IN (
   SELECT row_id FROM mapleroot_integration_migration_rows
-  WHERE migration_id = '044-lazy-penguins' AND table_name = 'plife'
+  WHERE migration_id = '046-lazy-penguins' AND table_name = 'plife'
 );
-DELETE FROM mapleroot_integration_migration_rows WHERE migration_id = '044-lazy-penguins';
-DELETE FROM mapleroot_integration_migrations WHERE migration_id = '044-lazy-penguins';
+DELETE FROM mapleroot_integration_migration_rows WHERE migration_id = '046-lazy-penguins';
+DELETE FROM mapleroot_integration_migrations WHERE migration_id = '046-lazy-penguins';
 COMMIT;

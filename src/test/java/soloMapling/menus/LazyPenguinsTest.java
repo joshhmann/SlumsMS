@@ -20,13 +20,13 @@ import static org.junit.jupiter.api.Assertions.assertNotNull;
 import static org.junit.jupiter.api.Assertions.assertTrue;
 
 /**
- * The 15 decorative Lazy Penguins (NPCs 2985-2999, migration 044): the data table, the migration rows, a script each,
+ * The 15 decorative Lazy Penguins (NPCs 2985-2999, migration 046): the data table, the migration rows, a script each,
  * and (when the WZ is present) every spot on a real foothold, clear of portals and map NPCs.
  */
 class LazyPenguinsTest {
 
     private static final Path TSV = Path.of("tools/data-align/lazy-penguins/penguins.tsv");
-    private static final Path SQL = Path.of("database/migrations/044-lazy-penguins.sql");
+    private static final Path SQL = Path.of("database/migrations/046-lazy-penguins.sql");
     private static final List<String> VARIANTS = List.of("Christmas", "Cherry", "Lemon", "Sunny", "Cocoa", "Popcorn",
             "Blueberry", "Tangerine", "Sage", "Teal", "Clown", "Pebble", "Berry", "Mint", "Classic");
     private static final Pattern ROW = Pattern.compile(
@@ -79,10 +79,10 @@ class LazyPenguinsTest {
         }
         assertEquals(15, n);
         assertTrue(sql.contains("NOT EXISTS (SELECT 1 FROM plife p WHERE p.world = w.world AND p.map = m.map AND p.life = m.life)"));
-        assertTrue(sql.contains("mapleroot_integration_migrations(migration_id) VALUES ('044-lazy-penguins')"));
-        String rb = Files.readString(Path.of("database/migrations/044-lazy-penguins.rollback.sql"));
-        assertTrue(rb.contains("migration_id = '044-lazy-penguins' AND table_name = 'plife'"));
-        assertTrue(Files.readString(Path.of("docs/release/1.6.1.conf")).contains("044-lazy-penguins"), "listed in 1.6.1.conf");
+        assertTrue(sql.contains("mapleroot_integration_migrations(migration_id) VALUES ('046-lazy-penguins')"));
+        String rb = Files.readString(Path.of("database/migrations/046-lazy-penguins.rollback.sql"));
+        assertTrue(rb.contains("migration_id = '046-lazy-penguins' AND table_name = 'plife'"));
+        assertTrue(Files.readString(Path.of("docs/release/1.6.1.conf")).contains("046-lazy-penguins"), "listed in 1.6.1.conf");
     }
 
     @Test

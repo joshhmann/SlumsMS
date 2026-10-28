@@ -1,5 +1,5 @@
 /*
-    Lazy Penguin (Classic), NPC 2999 (SlumsMS 1.6.1): decorative, stands in New Leaf City; placed by migration 044-lazy-penguins.
+    Lazy Penguin (Classic), NPC 2999 (SlumsMS 1.6.1): decorative, stands in New Leaf City; placed by migration 046-lazy-penguins.
     One lazy line and that's it.
 */
 function start() {

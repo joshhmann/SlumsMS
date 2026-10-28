@@ -1,5 +1,5 @@
 /*
-    Lazy Penguin (Sunny), NPC 2988 (SlumsMS 1.6.1): decorative, stands in Perion; placed by migration 044-lazy-penguins.
+    Lazy Penguin (Sunny), NPC 2988 (SlumsMS 1.6.1): decorative, stands in Perion; placed by migration 046-lazy-penguins.
     One lazy line and that's it.
 */
 function start() {

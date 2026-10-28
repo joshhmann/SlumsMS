@@ -7,7 +7,7 @@
 -- Rows for world 0 and world 1 (Bera, after 008): a world that does not run never loads its rows.
 --
 -- No existing row changes. Stop the game and take a backup first, as for every migration here. Applying it twice
--- changes nothing (ledger id '044-lazy-penguins', and each row is inserted only when missing).
+-- changes nothing (ledger id '046-lazy-penguins', and each row is inserted only when missing).
 CREATE TABLE IF NOT EXISTS mapleroot_integration_migrations (
   migration_id varchar(100) PRIMARY KEY,
   applied_at timestamp NOT NULL DEFAULT CURRENT_TIMESTAMP
@@ -20,7 +20,7 @@ CREATE TABLE IF NOT EXISTS mapleroot_integration_migration_rows (
   PRIMARY KEY (migration_id, table_name, row_id)
 ) ENGINE=InnoDB;
 
-SET @apply = NOT EXISTS (SELECT 1 FROM mapleroot_integration_migrations WHERE migration_id = '044-lazy-penguins');
+SET @apply = NOT EXISTS (SELECT 1 FROM mapleroot_integration_migrations WHERE migration_id = '046-lazy-penguins');
 
 -- The game must be stopped: snapshot existing ids so only this insert is owned.
 CREATE TEMPORARY TABLE migration_plife_before (id bigint PRIMARY KEY);
@@ -64,8 +64,8 @@ CROSS JOIN (
 WHERE @apply
   AND NOT EXISTS (SELECT 1 FROM plife p WHERE p.world = w.world AND p.map = m.map AND p.life = m.life);
 INSERT INTO mapleroot_integration_migration_rows (migration_id, table_name, row_id)
-SELECT '044-lazy-penguins', 'plife', p.id FROM plife p
+SELECT '046-lazy-penguins', 'plife', p.id FROM plife p
 WHERE @apply AND NOT EXISTS (SELECT 1 FROM migration_plife_before b WHERE b.id = p.id);
-INSERT IGNORE INTO mapleroot_integration_migrations(migration_id) VALUES ('044-lazy-penguins');
+INSERT IGNORE INTO mapleroot_integration_migrations(migration_id) VALUES ('046-lazy-penguins');
 COMMIT;
 DROP TEMPORARY TABLE migration_plife_before;
