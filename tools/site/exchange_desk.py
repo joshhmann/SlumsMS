@@ -4,18 +4,22 @@ The site never touches the game's database. It talks to the game server through 
 board (the "Site interface" in the server's docs/tickets/113-nx-exchange.md, and ExchangeSite.java):
 - it writes the inbox file exchange-requests.json: every request not yet answered and less than 10 minutes old
   ({id, account, type, createdAt, ...}). The game reads it when it changes and answers each id once.
-- it reads the outbox: exchange-responses.json (the last 500 answers, matched by id and account) and
-  exchange-book.json (the book, the official rate and the last trades; no names).
+- it reads the outbox: exchange-responses.json (the last 500 answers, matched by id and account),
+  exchange-tickers.json (every ticker: NX, LEAF, CHAOS, WS, ELIXIR; its rules, book, 24 h numbers and last trades),
+  exchange-history.json (hourly candles per ticker, 30 days) and, from a game without tickers, exchange-book.json
+  (NX only). None of them has names.
 
 So every write is two steps for the browser: POST a request (the answer is {id}), then GET answer/<id> until the game
 has answered (a couple of seconds, at most one poll of the game's, 15 s). Placing is preview, then confirm with the
 preview's token within 60 s. The game checks everything (funds, limits, the character); the checks here only save a
 round trip.
 
-    GET  /api/market/exchange/book          the book, the rate, the last trades, the rules
+    GET  /api/market/exchange/book          every ticker: its rules, book, rate, 24 h numbers and last trades
+    GET  /api/market/exchange/history       ?ticker=LEAF  that ticker's hourly candles (30 days)
     GET  /api/market/exchange/me            my characters, my orders (the game's last "mine" answer), my open requests
     GET  /api/market/exchange/answer/<id>   {pending: true} or {answer: {ok, code, message, data}}
-    POST /api/market/exchange/preview       {character, side: BUY|SELL, price, nx}   price: mesos per 1,000 NX
+    POST /api/market/exchange/preview       {ticker, character, side: BUY|SELL, price, qty}
+                                            price: mesos per 1,000 NX (NX) or per item; qty: NX or items
     POST /api/market/exchange/confirm       {token}
     POST /api/market/exchange/cancel        {orderId}
     POST /api/market/exchange/refresh       {}  ask the game for my orders again
@@ -27,6 +31,7 @@ import secrets
 from market_service import Refused, iso, rows_of, write_atomic
 
 REQUESTS, RESPONSES, BOOK = "exchange-requests.json", "exchange-responses.json", "exchange-book.json"
+TICKERS, HISTORY = "exchange-tickers.json", "exchange-history.json"
 MAX_AGE = 10 * 60          # the game answers older requests STALE, so they leave the inbox then
 MINE_FRESH = 60            # a "mine" answer older than this is asked for again
 MAX_WAITING = 5            # requests per account the game hasn't answered yet
@@ -35,6 +40,11 @@ RULES = {"lotNx": 100, "minNx": 100, "maxNx": 50_000, "minPrice": 1_000, "maxPri
          "feeBpsEachSide": 100, "maxOpen": 5, "perDay": 20, "cooldownSec": 10, "expiryHours": 72, "confirmSec": 60,
          "maxMesos": 2_147_483_647}
 SIDES = ("BUY", "SELL")
+# NX as a game without tickers has it (exchange-book.json): the same keys as a ticker in exchange-tickers.json
+NX = {"id": "NX", "name": "NX", "item_id": None, "unit": "1000nx", "unit_label": "mesos per 1,000 NX", "per": 1000,
+      "qty_label": "NX", "min_qty": 100, "max_qty": 50_000, "lot": 100, "min_price": 1_000, "max_price": 100_000_000}
+META = tuple(NX) + ("bid", "ask", "last", "change_24h", "change_24h_pct", "high_24h", "low_24h", "volume_24h",
+                    "turnover_24h", "fills_24h", "rate", "bids", "asks", "trades")
 
 SCHEMA = """
 CREATE TABLE IF NOT EXISTS xreq (id TEXT PRIMARY KEY, account INTEGER NOT NULL, type TEXT NOT NULL, body TEXT NOT NULL,
@@ -136,12 +146,45 @@ class Desk:
         return rid
 
     # ── what the URLs do (the caller holds store.lock and has synced) ──
-    def book(self):
+    def tickers(self):
+        """(tickers, halted, generated_at) from exchange-tickers.json, else NX alone from exchange-book.json."""
+        t = self._read(TICKERS)
+        if isinstance(t, dict) and isinstance(t.get("tickers"), list):
+            rows = [{k: x.get(k) for k in META} for x in t["tickers"]
+                    if isinstance(x, dict) and isinstance(x.get("id"), str)]
+            return rows, bool(t.get("halted")), t.get("generated_at")
         b = self._read(BOOK)
         if not isinstance(b, dict):
-            return {"book": None, "rules": RULES}
-        keep = ("generated_at", "halted", "rate", "bids", "asks", "trades")
-        return {"book": {k: b.get(k) for k in keep}, "rules": RULES}
+            return [], False, None
+        lv = lambda rows: [{"price": r.get("price"), "qty": r.get("nx"), "orders": r.get("orders")}
+                           for r in rows or [] if isinstance(r, dict)]
+        trades = [{"t": r.get("t"), "price": r.get("price"), "qty": r.get("nx")} for r in b.get("trades") or []
+                  if isinstance(r, dict)]
+        bids, asks = lv(b.get("bids")), lv(b.get("asks"))
+        nx = dict(NX, bids=bids, asks=asks, trades=trades, rate=(b.get("rate") or {}).get("mesos_per_1000nx"),
+                  bid=bids[0]["price"] if bids else None, ask=asks[0]["price"] if asks else None,
+                  last=trades[-1]["price"] if trades else None)
+        return [nx], bool(b.get("halted")), b.get("generated_at")
+
+    def ticker(self, raw):
+        rows = self.tickers()[0] or [NX]
+        want = raw.strip().upper() if isinstance(raw, str) else "NX"
+        for t in rows:
+            if t["id"] == want:
+                return t
+        raise Refused("Pick a ticker from the list.")
+
+    def book(self):
+        rows, halted, at = self.tickers()
+        return {"tickers": rows, "halted": halted, "generated_at": at, "rules": RULES}
+
+    def history(self, raw):
+        t = self.ticker(raw)
+        h = self._read(HISTORY)
+        got = (h.get("tickers") or {}).get(t["id"]) if isinstance(h, dict) else None
+        candles = got.get("candles") if isinstance(got, dict) else None
+        return {"ticker": t["id"], "interval": (h or {}).get("interval", "1h") if isinstance(h, dict) else "1h",
+                "candles": [c for c in candles or [] if isinstance(c, dict)]}
 
     def me(self, s, names):
         a = s["a"]
@@ -161,18 +204,27 @@ class Desk:
         return {"pending": True} if row[0][0] is None else {"pending": False, "answer": json.loads(row[0][1])}
 
     def preview(self, s, body, names):
+        t = self.ticker(body.get("ticker"))
         name = body.get("character")
         if name not in names:
             raise Refused("Pick one of your characters.")
         side = body.get("side")
         if side not in SIDES:
             raise Refused("Pick buy or sell.")
-        nx = whole(body.get("nx"), "NX", RULES["minNx"], RULES["maxNx"], RULES["lotNx"])
-        price = whole(body.get("price"), "The price", RULES["minPrice"], RULES["maxPrice"])
-        cost = nx * price // 1000
+        qty = body.get("qty", body.get("nx"))
+        num = lambda k, d: t.get(k) if isinstance(t.get(k), int) else NX[k] if t["id"] == "NX" else d
+        what = "NX" if t["unit"] == "1000nx" else "The number of items"
+        qty = whole(qty, what, num("min_qty", 1), num("max_qty", 1), num("lot", 1))
+        price = whole(body.get("price"), "The price", num("min_price", 1), num("max_price", 1))
+        cost = qty * price // (t.get("per") or 1)
         if side == "BUY" and cost + cost * RULES["feeBpsEachSide"] // 10_000 > RULES["maxMesos"]:
             raise Refused("That costs more mesos than a character can hold.")
-        return {"id": self.ask(s["a"], "preview", characterName=name, side=side, price=price, nx=nx)}
+        fields = dict(characterName=name, side=side, price=price)
+        if t["id"] == "NX":
+            fields["nx"] = qty  # a game without tickers reads only this
+        else:
+            fields.update(ticker=t["id"], qty=qty)
+        return {"id": self.ask(s["a"], "preview", **fields)}
 
     def confirm(self, s, body):
         token = body.get("token")

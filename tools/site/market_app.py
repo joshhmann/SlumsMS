@@ -107,6 +107,8 @@ def exchange_routes(store, desk):
 
     bp.add_url_rule("/book", "book", lambda: read(desk.book), methods=["GET"])
     bp.add_url_rule("/me", "me", lambda: read(lambda: desk.me(g.session, characters(g.session))), methods=["GET"])
+    bp.add_url_rule("/history", "history", lambda: read(lambda: desk.history(request.args.get("ticker"))),
+                    methods=["GET"])
     bp.add_url_rule("/answer/<rid>", "answer", lambda rid: read(lambda: desk.answer(g.session, rid)), methods=["GET"])
     posts = {
         "preview": lambda s, b: desk.preview(s, b, characters(s)),

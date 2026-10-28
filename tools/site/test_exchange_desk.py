@@ -51,6 +51,13 @@ class Game:
         return True, "OK", {"orderId": 77}
 
 
+TICKERS = {"schema": 1, "halted": False, "tickers": [
+    dict(xd.NX, bid=None, ask=None, last=None, bids=[], asks=[], trades=[]),
+    {"id": "LEAF", "name": "Maple Leaf", "item_id": 4001126, "unit": "item", "unit_label": "mesos per Maple Leaf",
+     "per": 1, "qty_label": "items", "min_qty": 1, "max_qty": 1000, "lot": 1, "min_price": 1,
+     "max_price": 1_000_000_000, "bids": [], "asks": [], "trades": [], "secret": "dropped"}]}
+
+
 class DeskTest(old.Base):
     def setUp(self):
         super().setUp()
@@ -62,7 +69,8 @@ class DeskTest(old.Base):
             self.desk.sync()
 
     def preview(self, **kw):
-        body = dict(character="Momo", side="SELL", price=1_200_000, nx=1000) | kw
+        body = {k: v for k, v in (dict(character="Momo", side="SELL", price=1_200_000, nx=1000) | kw).items()
+                if v is not None}
         return self.desk.preview(self.me, body, ms.characters(self.me))
 
     def test_a_preview_goes_to_the_inbox_and_its_answer_comes_back(self):
@@ -139,11 +147,43 @@ class DeskTest(old.Base):
         self.assertEqual(e.exception.status, 429)
 
     def test_the_book_is_the_games_file_without_extras(self):
-        self.assertEqual(self.desk.book(), {"book": None, "rules": xd.RULES})
-        ms.write_atomic(os.path.join(self.outbox, xd.BOOK), {"schema": 1, "generated_at": "x", "halted": False,
-                                                              "rate": {"mesos_per_1000nx": None}, "bids": [], "asks": [],
-                                                              "trades": [], "extra": "secret"})
-        self.assertNotIn("extra", self.desk.book()["book"])
+        self.assertEqual(self.desk.book()["tickers"], [])
+        ms.write_atomic(os.path.join(self.outbox, xd.BOOK), {"schema": 1, "generated_at": "x", "halted": True,
+                                                              "rate": {"mesos_per_1000nx": 1_180_000},
+                                                              "bids": [{"price": 1_150_000, "nx": 300, "orders": 1}],
+                                                              "asks": [], "trades": [{"t": "x", "price": 9, "nx": 100}]})
+        b = self.desk.book()
+        (nx,) = b["tickers"]
+        self.assertEqual((b["halted"], nx["id"], nx["unit"], nx["rate"], nx["bid"], nx["ask"], nx["last"]),
+                         (True, "NX", "1000nx", 1_180_000, 1_150_000, None, 9), "a game without tickers: NX alone")
+        self.assertEqual(nx["bids"], [{"price": 1_150_000, "qty": 300, "orders": 1}])
+        ms.write_atomic(os.path.join(self.outbox, xd.TICKERS), TICKERS)
+        b = self.desk.book()
+        self.assertEqual([t["id"] for t in b["tickers"]], ["NX", "LEAF"])
+        self.assertNotIn("secret", b["tickers"][1])
+
+    def test_item_tickers_use_their_own_rules(self):
+        ms.write_atomic(os.path.join(self.outbox, xd.TICKERS), TICKERS)
+        rid = self.preview(ticker="leaf", qty=10, nx=None, price=600_000)["id"]
+        r = self.game.requests()[0]
+        self.assertEqual((r["id"], r["ticker"], r["qty"], r["price"], "nx" in r), (rid, "LEAF", 10, 600_000, False))
+        for kw, msg in ((dict(ticker="LEAF", qty=1001), "1 to 1,000"), (dict(ticker="LEAF", qty=5, price=0), "price"),
+                        (dict(ticker="GOLD"), "ticker"), (dict(ticker="LEAF", side="BUY", qty=1000, price=1_000_000_000),
+                                                           "can hold")):
+            with self.assertRaises(ms.Refused, msg=kw) as e:
+                self.preview(**kw)
+            self.assertIn(msg, str(e.exception))
+        self.preview(qty=200)  # NX still sends nx, for a game without tickers
+        self.assertEqual((self.game.requests()[1]["nx"], "ticker" in self.game.requests()[1]), (200, False))
+
+    def test_history_is_one_tickers_candles(self):
+        self.assertEqual(self.desk.history("NX")["candles"], [])
+        ms.write_atomic(os.path.join(self.outbox, xd.TICKERS), TICKERS)
+        ms.write_atomic(os.path.join(self.outbox, xd.HISTORY), {"interval": "1h", "tickers": {
+            "LEAF": {"candles": [{"t": "2026-10-28T17:00:00Z", "o": 1, "h": 2, "l": 1, "c": 2, "v": 3, "m": 5, "n": 2}]}}})
+        self.assertEqual(self.desk.history("leaf")["candles"][0]["c"], 2)
+        with self.assertRaises(ms.Refused):
+            self.desk.history("GOLD")
 
     def test_a_broken_responses_file_is_read_again_later(self):
         rid = self.preview()["id"]
@@ -193,7 +233,8 @@ class ExchangeHttpTest(old.Base):
     def test_me_and_book(self):
         st, me = self.call("GET", "me")
         self.assertEqual((st, me["characters"], me["rules"]["maxOpen"]), (200, ["Momo", "MomoAlt"], 5))
-        self.assertEqual(self.call("GET", "book")[1]["book"], None)
+        self.assertEqual(self.call("GET", "book")[1]["tickers"], [])
+        self.assertEqual(self.call("GET", "history?ticker=NX")[1]["candles"], [])
 
 
 if __name__ == "__main__":

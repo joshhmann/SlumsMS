@@ -705,7 +705,7 @@ table.t { width: 100%; border-collapse: collapse; }
   color-scheme: dark; background: var(--xc-bg); color: var(--xc-ink); border: var(--border) solid var(--edge);
   border-radius: var(--radius); padding: 12px; display: grid; gap: 12px; min-width: 0;
   grid-template-columns: minmax(0, 1.7fr) minmax(0, 1fr);
-  grid-template-areas: "alert alert" "tick tick" "chart book" "depth book" "form trades" "orders orders" "rules rules"; }
+  grid-template-areas: "alert alert" "tabs tabs" "tick tick" "chart book" "depth book" "form trades" "orders orders" "rules rules"; }
 .xc-c { display: contents; }
 .xc-term .up { color: var(--xc-up); } .xc-term .down { color: var(--xc-down); } .xc-term .flat { color: var(--xc-muted); }
 .xc-alert { grid-area: alert; margin: 0; padding: 8px 12px; border: 1.5px dashed var(--xc-sun); border-radius: 6px;
@@ -717,8 +717,18 @@ table.t { width: 100%; border-collapse: collapse; }
 .xc-note { margin: 8px 0 0; font-size: .8rem; color: var(--xc-muted); }
 .xc-tick { grid-column: 1 / -1; display: flex; flex-wrap: wrap; align-items: center; gap: 10px 28px; padding: 6px 4px;
   font-family: var(--f-mono); }
-.xc-sym { display: grid; gap: 2px; } .xc-sym b { font-size: 1rem; letter-spacing: .06em; }
-.xc-sym span { font-size: .68rem; font-weight: 700; letter-spacing: .14em; }
+.xc-sym { display: flex; align-items: center; gap: 10px; } .xc-sym > div { display: grid; gap: 2px; }
+.xc-sym img, .xc-tk img { image-rendering: pixelated; object-fit: contain; }
+.xc-sym b { font-size: 1.1rem; letter-spacing: .06em; } .xc-sym span { font-size: .74rem; color: var(--xc-muted); }
+.xc-last small { color: var(--xc-muted); font-size: .72rem; }
+.xc-tabsbar { display: flex; gap: 8px; overflow-x: auto; padding-bottom: 2px; }
+.xc-tk { flex: 1 0 auto; display: grid; grid-template-columns: auto auto; grid-template-rows: auto auto; gap: 0 8px;
+  align-items: center; text-align: left; padding: 8px 12px; border-radius: 8px; cursor: pointer; font-family: var(--f-mono);
+  background: var(--xc-panel); border: 1px solid var(--xc-line); color: var(--xc-ink); }
+.xc-tk img { grid-row: 1 / 3; }
+.xc-tk b { font-size: .82rem; letter-spacing: .06em; } .xc-tk span { grid-column: 2; font-size: .8rem; }
+.xc-tk small { grid-column: 3; grid-row: 1 / 3; font-size: .74rem; font-weight: 700; }
+.xc-tk.on { border-color: var(--xc-sun); box-shadow: inset 0 -3px 0 var(--xc-sun); }
 .xc-last { display: flex; align-items: baseline; gap: 10px; flex-wrap: wrap; }
 .xc-last b { font: 800 2rem/1 var(--f-mono); color: var(--xc-ink); }
 .xc-last span { font-weight: 700; font-size: .95rem; }
@@ -738,6 +748,12 @@ table.t { width: 100%; border-collapse: collapse; }
 .xc-line.up { stroke: var(--xc-up); } .xc-line.down { stroke: var(--xc-down); }
 .xc-area { fill: var(--xc-line); opacity: .6; } .xc-area.up { fill: var(--xc-up-bg); opacity: 1; } .xc-area.down { fill: var(--xc-down-bg); opacity: 1; }
 .xc-dot { fill: var(--xc-ink); fill-opacity: .55; }
+.xc-candle line { stroke-width: 1; vector-effect: non-scaling-stroke; }
+.xc-candle.up line { stroke: var(--xc-up); } .xc-candle.up rect { fill: var(--xc-up); }
+.xc-candle.down line { stroke: var(--xc-down); } .xc-candle.down rect { fill: var(--xc-down); }
+.xc-candle rect.xc-vol { fill-opacity: .35; }
+.xc-lastline { stroke: var(--xc-muted); stroke-width: 1; stroke-dasharray: 2 3; vector-effect: non-scaling-stroke; }
+.xc-lastline.up { stroke: var(--xc-up); } .xc-lastline.down { stroke: var(--xc-down); }
 .xc-rateline { stroke: var(--xc-sun); stroke-width: 1.5; stroke-dasharray: 6 5; vector-effect: non-scaling-stroke; }
 .xc-tag { fill: var(--xc-muted); } .xc-tag.up { fill: var(--xc-up); } .xc-tag.down { fill: var(--xc-down); }
 .xc-tagt { font: 700 11px var(--f-mono); fill: var(--xc-bg); }
@@ -754,7 +770,7 @@ table.t { width: 100%; border-collapse: collapse; }
 .xc-book tr.mid td { text-align: center; padding: 7px 8px; } .xc-book tr.mid b { font-size: 1rem; }
 .xc-book tr.mid span { color: var(--xc-muted); font-size: .74rem; margin-left: 8px; }
 .xc-scroll { overflow-x: auto; }
-.xc-mine { min-width: 560px; }
+.xc-mine { min-width: 620px; }
 .xc-form { display: flex; flex-wrap: wrap; align-items: end; gap: 10px 14px; }
 .xc-form h2 { flex-basis: 100%; margin: 0; }
 .xc-form label { display: grid; gap: 4px; font-size: .76rem; font-weight: 600; color: var(--xc-muted); flex: 1 1 150px; }
@@ -779,7 +795,7 @@ table.t { width: 100%; border-collapse: collapse; }
 .xc-rules b { color: var(--xc-ink); }
 @media (max-width: 900px) {
   .xc-term { grid-template-columns: minmax(0, 1fr); padding: 8px;
-    grid-template-areas: "alert" "tick" "chart" "book" "form" "orders" "depth" "trades" "rules"; }
+    grid-template-areas: "alert" "tabs" "tick" "chart" "book" "form" "orders" "depth" "trades" "rules"; }
 }
 /* the NX ticker in the Megaphone (ticker.js): signed-in players see the exchange's price */
 .rail .xtick b { color: var(--on-rail); } .rail .xtick .up { color: var(--up-fill); } .rail .xtick .down { color: #ff7b7f; }
