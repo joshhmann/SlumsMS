@@ -92,6 +92,7 @@ def layout(title, body, root, section, description="", base=""):
 <link rel="stylesheet" href="{root}assets/tokens.css">
 <link rel="stylesheet" href="{root}assets/site.css">
 <script src="{root}assets/theme.js" defer></script>
+<script src="{root}assets/ticker.js" defer></script>
 </head>
 <body>
 <a class="skip" href="#main">Skip to content</a>

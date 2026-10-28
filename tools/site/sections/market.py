@@ -609,90 +609,100 @@ def build_board(mk):
 
 EXCHANGE = """<h1>NX exchange</h1>
 <p class="lede">Trade NX for mesos with other players, at your own price. Post a buy or a sell in mesos per 1,000 NX;
-when a buyer's price meets a seller's, they trade straight away, and the game pays both sides. Nothing on this page moves
-anything by itself: the game server checks and settles every order.</p>
+when a buyer's price meets a seller's, they trade straight away, and the game pays both sides. The game server checks
+and settles every order.</p>
 <noscript><p class="small">The exchange needs JavaScript turned on.</p></noscript>
-<div class="xc" x-data="xbook">
-<p class="samplebar" x-show="state === 'error'" x-text="error" x-cloak></p>
-<p class="samplebar" x-show="halted" x-cloak>The exchange is paused by a GM: no new orders or trades for now.
-You can still cancel your orders.</p>
-<p class="samplebar" x-show="state === 'ok' && !book" x-cloak>The exchange isn't open on this server yet.</p>
-<div class="xc-top">
-<section class="panel xc-rate"><h2 class="bar">Official rate <small x-show="data" x-text="'updated ' + ago" x-cloak></small></h2>
-<div class="in"><p class="xc-big"><b x-text="rate ? fmt(rate) : 'not enough trades yet'">...</b>
-<span class="small" x-show="rate">mesos per 1,000 NX</span></p>
-<p class="small">The average price of player trades in the last <span x-text="(book && book.rate && book.rate.window_hours) || 24"></span> hours,
-weighted by size. It needs at least <span x-text="(book && book.rate && book.rate.min_fills) || 3"></span> trades.
-The game's regular traders never count towards it.</p>
-<svg class="xc-chart" viewBox="0 0 600 180" role="img" aria-label="Recent trade prices" x-show="trades.length" x-html="chart()"></svg>
-<p class="small" x-show="trades.length" x-cloak>Each dot is a trade (bigger dots, more NX); the dashed line is the official rate.</p>
-</div></section>
-<section class="panel xc-rules"><h2 class="bar">Fees and limits</h2><div class="in"><ul class="small">
-<li><b>Fee:</b> 1% of the mesos, paid by each side. A seller gets the mesos less 1%; a buyer pays the mesos plus 1% (set
-aside when the order is placed; what isn't used comes back).</li>
+<div class="xc-term">
+<div class="xc-c" x-data="xbook">
+<p class="xc-alert" x-show="state === 'error'" x-text="error" x-cloak></p>
+<p class="xc-alert" x-show="halted" x-cloak>Trading paused by a GM: no new orders or trades for now. You can still cancel.</p>
+<p class="xc-alert" x-show="state === 'ok' && !book" x-cloak>The exchange isn't open on this server yet.</p>
+<header class="xc-tick" style="grid-area: tick">
+<div class="xc-sym"><b>NX/MESOS</b><span x-text="halted ? 'PAUSED' : (book ? 'OPEN' : '...')" :class="halted ? 'down' : 'up'"></span></div>
+<div class="xc-last"><b x-text="last ? fmt(last) : '-'">-</b><span :class="dir" x-text="changeText()"></span></div>
+<dl class="xc-stats">
+<div><dt>Official rate</dt><dd x-text="rate ? fmt(rate) : 'not yet'"></dd></div>
+<div><dt>24h high</dt><dd x-text="fmt(stats().hi)"></dd></div>
+<div><dt>24h low</dt><dd x-text="fmt(stats().lo)"></dd></div>
+<div><dt>24h volume</dt><dd x-text="fmt(stats().vol) + ' NX'"></dd></div>
+<div><dt>Spread</dt><dd x-text="spread()"></dd></div>
+</dl>
+<small class="xc-upd" x-show="data" x-text="'updated ' + ago" x-cloak></small>
+</header>
+<section class="xc-p" style="grid-area: chart"><h2>Price <span class="xc-tabs">
+<template x-for="r in ranges" :key="r[0]"><button type="button" :class="range === r[0] && 'on'" @click="range = r[0]" x-text="r[0]"></button></template>
+</span></h2>
+<svg class="xc-chart" viewBox="0 0 640 240" preserveAspectRatio="none" role="img" aria-label="Trade prices over time" x-html="chart()"></svg>
+<p class="xc-note">Mesos per 1,000 NX. Each dot is a trade (bigger dots, more NX); the dashed line is the official rate:
+the size-weighted average of player trades in the last 24 hours, once there are at least 3. The game's regular traders
+never count towards it.</p></section>
+<section class="xc-p" style="grid-area: depth"><h2>Market depth</h2>
+<svg class="xc-depth" viewBox="0 0 640 160" preserveAspectRatio="none" role="img" aria-label="Buy and sell depth" x-html="depth()"></svg>
+<p class="xc-note"><span class="up">Green</span>: NX wanted at that price or higher. <span class="down">Red</span>: NX for sale at that price or lower.</p></section>
+<section class="xc-p" style="grid-area: book"><h2>Order book</h2>
+<table class="xc-book"><thead><tr><th>Price</th><th>NX</th><th>Orders</th></tr></thead>
+<tbody><template x-for="l in asksDown" :key="'a' + l.price"><tr class="ask" @click="pick(l.price)" :style="bar(l, 'down')">
+<td x-text="fmt(l.price)"></td><td x-text="fmt(l.nx)"></td><td x-text="l.orders"></td></tr></template>
+<tr class="mid"><td colspan="3"><b x-text="mid() ? fmt(mid()) : '-'"></b> <span x-text="'spread ' + spread()"></span></td></tr>
+<template x-for="l in bids" :key="'b' + l.price"><tr class="bid" @click="pick(l.price)" :style="bar(l, 'up')">
+<td x-text="fmt(l.price)"></td><td x-text="fmt(l.nx)"></td><td x-text="l.orders"></td></tr></template></tbody></table>
+<p class="xc-note" x-show="book && !bids.length && !asksDown.length" x-cloak>The book is empty: be the first to post.</p>
+<p class="xc-note">Click a price to use it in your order.</p></section>
+<section class="xc-p" style="grid-area: trades"><h2>Last trades</h2>
+<table class="xc-book xc-trades"><thead><tr><th>Time</th><th>Price</th><th>NX</th></tr></thead>
+<tbody><template x-for="(t, i) in recent()" :key="i"><tr :class="t.dir"><td x-text="clock(t.t)"></td>
+<td x-text="fmt(t.price)"></td><td x-text="fmt(t.nx)"></td></tr></template></tbody></table>
+<p class="xc-note" x-show="book && !trades.length" x-cloak>No trades yet.</p></section>
+</div>
+<div class="xc-c" x-data="xmine">
+<p class="xc-alert" x-show="state === 'signedOut'" x-cloak>Sign in to trade.</p>
+<form class="xc-p xc-form" style="grid-area: form" x-show="data" x-cloak @submit.prevent="preview()" @xc-price.window="price = $event.detail">
+<h2>New order <small x-text="openCount() + ' of 5 open'"></small></h2>
+<div class="xc-side"><button type="button" class="buy" :class="side === 'BUY' && 'on'" @click="side = 'BUY'">Buy NX</button>
+<button type="button" class="sell" :class="side === 'SELL' && 'on'" @click="side = 'SELL'">Sell NX</button></div>
+<label>Amount (NX) <input type="number" min="100" max="50000" step="100" x-model.number="nx" required></label>
+<label>Price (mesos per 1,000 NX) <input type="number" min="1000" max="100000000" step="1" x-model.number="price" required></label>
+<label>Character <select x-model="character"><template x-for="c in (data && data.characters) || []" :key="c">
+<option :value="c" x-text="c"></option></template></select></label>
+<p class="xc-note" x-text="estimate()"></p>
+<button class="xc-go" :class="side === 'BUY' ? 'buy' : 'sell'" type="submit" :disabled="busy" x-text="'Preview ' + (side === 'BUY' ? 'buy' : 'sell')"></button>
+<p class="xc-msg" :class="msgClass" role="status" aria-live="polite" x-text="msg"></p>
+<div class="xc-preview" x-show="pv" x-cloak>
+<h3 x-text="pv && ((pv.side === 'SELL' ? 'Sell ' : 'Buy ') + fmt(pv.nx) + ' NX at ' + fmt(pv.price))"></h3>
+<dl>
+<dt>Set aside now</dt><dd x-text="pv && (fmt(pv.takes.amount) + (pv.takes.asset === 'NX' ? ' NX' : ' mesos'))"></dd>
+<dt>Trades right away</dt><dd x-text="pv && (pv.matchNow.nx ? fmt(pv.matchNow.nx) + ' NX for ' + fmt(pv.matchNow.mesos) + ' mesos' : 'nothing yet')"></dd>
+<dt x-show="pv && pv.matchNow.nx">You get now</dt><dd x-show="pv && pv.matchNow.nx" x-text="pv && (fmt(pv.matchNow.youGet.amount) + (pv.matchNow.youGet.asset === 'NX' ? ' NX' : ' mesos'))"></dd>
+<dt x-show="pv && pv.matchNow.fee">Your fee now</dt><dd x-show="pv && pv.matchNow.fee" x-text="pv && (fmt(pv.matchNow.fee) + ' mesos')"></dd>
+<dt>Waits in the book</dt><dd x-text="pv && (pv.restsNx ? fmt(pv.restsNx) + ' NX, up to 72 h' : 'nothing')"></dd>
+</dl>
+<p class="xc-msg bad" x-show="pv && pv.cancelledBySelfTrade">This would meet one of your own orders, so it would be closed instead of trading.</p>
+<p class="xc-note" x-text="left > 0 ? 'Confirm within ' + left + ' s.' : 'This preview expired. Preview it again.'"></p>
+<button class="xc-go" :class="pv && pv.side === 'BUY' ? 'buy' : 'sell'" type="button" @click="confirm()" :disabled="busy || left <= 0">Confirm order</button>
+<button class="xc-ghost" type="button" @click="pv = null; msg = ''">Never mind</button>
+</div></form>
+<section class="xc-p" style="grid-area: orders" x-show="data" x-cloak><h2>My orders <small x-show="data && data.ordersAt" x-text="'as of ' + when(data && data.ordersAt)"></small></h2>
+<div class="xc-scroll"><table class="xc-book xc-mine"><thead><tr><th>#</th><th>Side</th><th>Price</th><th>NX</th>
+<th>Left</th><th>Status</th><th>Ends</th><th></th></tr></thead>
+<tbody><template x-for="o in orders()" :key="o.orderId"><tr><td x-text="o.orderId"></td>
+<td :class="o.side === 'SELL' ? 'down' : 'up'" x-text="o.side === 'SELL' ? 'Sell' : 'Buy'"></td><td x-text="fmt(o.price)"></td><td x-text="fmt(o.nx)"></td>
+<td x-text="fmt(o.nxLeft)"></td><td x-text="status(o.status)"></td><td x-text="o.status === 'OPEN' ? when(o.expiresAt) : ''"></td>
+<td><button class="xc-ghost" type="button" x-show="o.status === 'OPEN'" @click="cancel(o)" :disabled="busy">Cancel</button></td></tr></template></tbody></table></div>
+<p class="xc-note" x-show="data && data.orders && !data.orders.length">No orders yet.</p>
+<p class="xc-note" x-show="data && !data.orders">Asking the game for your orders...</p>
+<p class="xc-note">Trades pay out to the character on the order: straight away if you're online, else when you next log in.</p>
+</section>
+</div>
+<section class="xc-p xc-rules" style="grid-area: rules"><h2>Fees and limits</h2><ul>
+<li><b>Fee:</b> 1% of the mesos, paid by each side. A seller gets the mesos less 1%; a buyer pays the mesos plus 1%
+(set aside when the order is placed; what isn't used comes back).</li>
 <li><b>Size:</b> 100 to 50,000 NX per order, in lots of 100.</li>
 <li><b>Price:</b> 1,000 to 100,000,000 mesos per 1,000 NX.</li>
 <li><b>Limits:</b> 5 open orders at a time, 20 a day, 10 seconds apart.</li>
 <li><b>Expiry:</b> an order that hasn't fully traded closes after 72 hours, and whatever is left comes back.</li>
 <li><b>Which character:</b> every order names one of your characters. The mesos come from (and go to) that character;
 NX is your account's. If you're logged in to the game, use the character you're playing (or log out first).</li>
-</ul></div></section>
-</div>
-<div class="xc-mid">
-<section class="panel"><h2 class="bar">Order book</h2><div class="tbl"><table class="t xc-book">
-<thead><tr><th>Side</th><th class="r">Price (per 1,000 NX)</th><th class="r">NX</th><th class="r">Orders</th></tr></thead>
-<tbody><template x-for="l in asksDown" :key="'a' + l.price"><tr class="ask" @click="pick(l.price)"><td>Selling</td><td class="r" x-text="fmt(l.price)"></td>
-<td class="r" x-text="fmt(l.nx)"></td><td class="r" x-text="l.orders"></td></tr></template>
-<tr class="spread" x-show="book"><td colspan="4" x-text="spread()"></td></tr>
-<template x-for="l in bids" :key="'b' + l.price"><tr class="bid" @click="pick(l.price)"><td>Buying</td><td class="r" x-text="fmt(l.price)"></td>
-<td class="r" x-text="fmt(l.nx)"></td><td class="r" x-text="l.orders"></td></tr></template></tbody></table></div>
-<p class="small xc-pad">The best 20 prices on each side. Click a price to copy it into your order.</p></section>
-<section class="panel"><h2 class="bar">Last trades</h2><div class="tbl"><table class="t">
-<thead><tr><th>When</th><th class="r">Price</th><th class="r">NX</th></tr></thead>
-<tbody><template x-for="(t, i) in trades.slice().reverse().slice(0, 12)" :key="i"><tr><td x-text="when(t.t)"></td>
-<td class="r" x-text="fmt(t.price)"></td><td class="r" x-text="fmt(t.nx)"></td></tr></template></tbody></table></div>
-<p class="empty xc-pad" x-show="book && !trades.length" x-cloak>No trades yet.</p></section>
-</div>
-</div>
-<div class="xc" x-data="xmine">
-<p class="samplebar" x-show="state === 'signedOut'" x-cloak>Sign in to trade.</p>
-<form class="panel mkpost xc-form" x-show="data" x-cloak @submit.prevent="preview()" @xc-price.window="price = $event.detail">
-<h2 class="bar">New order <small x-text="openCount() + ' of 5 open'"></small></h2><div class="in">
-<fieldset class="seg"><legend>I want to</legend>
-<label><input type="radio" value="SELL" x-model="side"> sell NX for mesos</label>
-<label><input type="radio" value="BUY" x-model="side"> buy NX with mesos</label></fieldset>
-<label>NX <input type="number" min="100" max="50000" step="100" x-model.number="nx" required></label>
-<label>Price (mesos per 1,000 NX) <input type="number" min="1000" max="100000000" step="1" x-model.number="price" required></label>
-<label>Character <select x-model="character"><template x-for="c in (data && data.characters) || []" :key="c">
-<option :value="c" x-text="c"></option></template></select></label>
-<button class="btn primary" type="submit" :disabled="busy">Preview</button>
-<p class="small" x-text="estimate()"></p>
-<p class="status" :class="msgClass" role="status" aria-live="polite" x-text="msg"></p>
-<div class="xc-preview" x-show="pv" x-cloak>
-<h3 x-text="pv && ((pv.side === 'SELL' ? 'Sell ' : 'Buy ') + fmt(pv.nx) + ' NX at ' + fmt(pv.price) + ' per 1,000')"></h3>
-<dl>
-<dt>Set aside now</dt><dd x-text="pv && (fmt(pv.takes.amount) + (pv.takes.asset === 'NX' ? ' NX' : ' mesos'))"></dd>
-<dt>Trades right away</dt><dd x-text="pv && (pv.matchNow.nx ? fmt(pv.matchNow.nx) + ' NX for ' + fmt(pv.matchNow.mesos) + ' mesos' : 'nothing yet')"></dd>
-<dt x-show="pv && pv.matchNow.nx">You get now</dt><dd x-show="pv && pv.matchNow.nx" x-text="pv && (fmt(pv.matchNow.youGet.amount) + (pv.matchNow.youGet.asset === 'NX' ? ' NX' : ' mesos'))"></dd>
-<dt x-show="pv && pv.matchNow.fee">Your fee now</dt><dd x-show="pv && pv.matchNow.fee" x-text="pv && (fmt(pv.matchNow.fee) + ' mesos')"></dd>
-<dt>Waits in the book</dt><dd x-text="pv && (pv.restsNx ? fmt(pv.restsNx) + ' NX, for up to 72 hours' : 'nothing')"></dd>
-</dl>
-<p class="status bad" x-show="pv && pv.cancelledBySelfTrade">This would meet one of your own orders, so it would be closed instead of trading.</p>
-<p class="small" x-text="left > 0 ? 'Confirm within ' + left + ' s.' : 'This preview has expired. Preview it again.'"></p>
-<button class="btn primary" type="button" @click="confirm()" :disabled="busy || left <= 0">Confirm order</button>
-<button class="btn" type="button" @click="pv = null; msg = ''">Never mind</button>
-</div></div></form>
-<section class="panel" x-show="data" x-cloak><h2 class="bar">My orders <small x-show="data && data.ordersAt" x-text="'as of ' + when(data && data.ordersAt)"></small></h2>
-<div class="tbl"><table class="t"><thead><tr><th>#</th><th>Side</th><th class="r">Price</th><th class="r">NX</th>
-<th class="r">Left</th><th>Status</th><th>Ends</th><th></th></tr></thead>
-<tbody><template x-for="o in orders()" :key="o.orderId"><tr><td x-text="o.orderId"></td>
-<td x-text="o.side === 'SELL' ? 'Sell' : 'Buy'"></td><td class="r" x-text="fmt(o.price)"></td><td class="r" x-text="fmt(o.nx)"></td>
-<td class="r" x-text="fmt(o.nxLeft)"></td><td x-text="status(o.status)"></td><td x-text="o.status === 'OPEN' ? when(o.expiresAt) : ''"></td>
-<td><button class="btn" type="button" x-show="o.status === 'OPEN'" @click="cancel(o)" :disabled="busy">Cancel</button></td></tr></template></tbody></table></div>
-<p class="empty xc-pad" x-show="data && data.orders && !data.orders.length">No orders yet.</p>
-<p class="small xc-pad" x-show="data && !data.orders">Asking the game for your orders...</p>
-<p class="small xc-pad">Trades pay out to the character on the order: straight away if you're online, else when you next log in.</p>
-</section>
+</ul></section>
 </div>
 <script src="{root}assets/live.js"></script><script src="{root}assets/exchange.js"></script>
 <script defer src="{root}assets/vendor/alpine-3.14.1.min.js"></script>"""
