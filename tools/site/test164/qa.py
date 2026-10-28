@@ -348,8 +348,8 @@ def accounts(http):
     cr = creds()
     st, _, _, js = http("POST", "/api/login/signup", {"code": "QACODE", "user": "ab", "pass": "abcdef"})
     ok(st == 400 and (js or {}).get("rule") == "user_length", "sign-up: a too-short username is refused with the rule", f"{st} {js}")
-    st, _, _, js = http("POST", "/api/login/signup", {"code": "QACODE", "user": "qaabcd", "pass": "a" * 13})
-    ok(st == 400 and (js or {}).get("rule") == "pass_length", "sign-up: a 13-character password is refused (the game box takes 12)",
+    st, _, _, js = http("POST", "/api/login/signup", {"code": "QACODE", "user": "qaabcd", "pass": "a" * 24})
+    ok(st == 400 and (js or {}).get("rule") == "pass_length", "sign-up: a 24-character password is refused (the game box takes 23)",
        f"{st} {js}")
     st, _, _, js = http("POST", "/api/login/password", {"user": "", "pass": "x"})
     ok(st == 400, "sign-in: an empty username is refused without asking the game", f"{st} {js}")

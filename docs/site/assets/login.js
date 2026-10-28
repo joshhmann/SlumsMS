@@ -18,7 +18,7 @@
 
   function rule(user, pass) {
     if (!/^[A-Za-z0-9]{4,12}$/.test(user)) return "Usernames are 4 to 12 letters or numbers.";
-    if (pass.length < 6 || pass.length > 12) return "Passwords are 6 to 12 characters (the game's login box takes 12).";
+    if (pass.length < 6 || pass.length > 23) return "Passwords are 6 to 23 characters (the game's login box takes 23).";
     if (!/^[\x21-\x7e]+$/.test(pass)) return "Passwords can't have spaces or special symbols.";
     return null;
   }

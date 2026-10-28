@@ -11,7 +11,7 @@ The website never checks or stores a password and never reads the game database:
    sends `POST /api/login/signup {"code", "user", "pass"}`. Both need a JSON body and `X-Slums: 1`, and a browser
    Origin must match the Host. The launcher sends the same calls with no Origin.
 2. The login service (`tools/site/login_service.py`, 127.0.0.1:8094) checks the sign-up rules (username 4-12 letters
-   or digits, password 6-12 printable characters with no spaces: the game's login box takes 12) and 10 tries a minute
+   or digits, password 6-23 printable characters with no spaces: the game's login box takes 23) and 10 tries a minute
    per address. It then asks **the game server's auth API** on localhost (`POST /verify` or `/signup`, header
    `X-Slums-Auth` from `/etc/slums-auth/secret`) and sends a salted hash of the address (`ipHash`, salt
    `/etc/slums-login/ip-salt`), never the address. The API spec is in ticket 105 (`docs/tickets/105-invite-signup.md`
@@ -28,7 +28,7 @@ The website never checks or stores a password and never reads the game database:
 `POST /api/login/reset/request {"user", "contact"}`: the game server answers the same for any name, and the request
 (id and secret) stays in an HttpOnly cookie `slums_reset` in that browser. The page asks `POST /api/login/reset/status`
 every 10 s while it waits. An admin approves in game (`!resetpw approve <account>`); then the page sends
-`POST /api/login/reset/complete {"pass"}` (6-12 characters). On success **every session of the account is signed out**
+`POST /api/login/reset/complete {"pass"}` (6-23 characters). On success **every session of the account is signed out**
 (its id and the time go in `/var/lib/slums-login/revoked-before.txt`; sessions issued up to then stop working, in the
 market service too) and this browser is signed in afresh. The launcher's "Forgot password?" opens `/forgot/`.
 
