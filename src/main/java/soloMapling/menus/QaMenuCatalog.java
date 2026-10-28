@@ -171,6 +171,7 @@ public final class QaMenuCatalog {
         section("Ordinary v83 features (ticket 69)");
         add("vb-5", v(), steps("buy", "sell", "expcard"));
         add("vb-7", v(), steps("storage", "duey", "trade"));
+        add("ti-1", v(), steps("ask", "back")); // 1.6.1 ticket 29: the Maple Island question
         add("fy-1", v(), steps("check")); // 1.6.1 ticket 53: Family, a bot junior and the entitlements
         section("Bot attack timing");
         add("bk-1", v("4th", "pirates", "pacing"), steps());
