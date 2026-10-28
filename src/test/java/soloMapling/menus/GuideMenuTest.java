@@ -243,7 +243,8 @@ class GuideMenuTest {
                 .sendPacket(org.mockito.ArgumentMatchers.any());
 
         Character old = player(5011);
-        doReturn(10500).when(old.getClient()).getClientBuild();
+        Client oldClient = old.getClient();
+        doReturn(10500).when(oldClient).getClientBuild();
         GuideMenu.onLoginUiTip(old);
         assertNull(old.getAreaInfo(GuideMenu.UI_TIP_AREA), "old client: nothing");
 
