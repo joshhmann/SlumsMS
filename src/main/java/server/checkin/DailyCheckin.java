@@ -32,6 +32,18 @@ public final class DailyCheckin {
         DailyCheckinStreak load(int accountId) throws SQLException;
 
         void save(int accountId, DailyCheckinStreak streak) throws SQLException;
+
+        /**
+         * Records a claim only if the stored streak is still {@code before} (so two channels, or two requests, that
+         * read the same streak cannot both claim), and credits {@code stamps} Slums Stamps in the same transaction.
+         * Returns the stamps credited (0 for a staff account), or -1 when the streak had changed and nothing was
+         * written. The default suits test stores that only record streaks.
+         */
+        default int recordClaim(int accountId, DailyCheckinStreak before, DailyCheckinStreak after, int stamps,
+                                boolean skipStaffCheck) throws SQLException {
+            save(accountId, after);
+            return stamps;
+        }
     }
 
     /** What happened to a claim. */
@@ -149,14 +161,25 @@ public final class DailyCheckin {
         if (!DailyCheckinRewards.canReceive(chr, day)) {
             return ClaimResult.NO_ROOM;
         }
+        DailyCheckinRewards.Reward reward = DailyCheckinRewards.of(day);
+        int stamps = SlumsStamps.earns(chr) ? reward.stamps() : 0;
+        int credited;
         try {
-            store.save(accountId, streak.claimed(day, now));
+            credited = store.recordClaim(accountId, streak, streak.claimed(day, now), stamps,
+                    SlumsStamps.qaEarner(accountId));
         } catch (SQLException e) {
             log.warn("Could not record the check-in claim of account {}", accountId, e);
             return ClaimResult.NOT_SAVED;
         }
+        if (credited < 0) {
+            log.info("Check-in claim refused for {}: day {} was claimed elsewhere first", chr.getName(), day);
+            return ClaimResult.NOT_CLAIMABLE;
+        }
         DailyCheckinRewards.grant(chr, day);
-        log.info("{} claimed Daily Check-In day {}", chr.getName(), day);
+        if (credited > 0) {
+            chr.yellowMessage(SlumsStamps.claimLine(credited, day));
+        }
+        log.info("{} claimed Daily Check-In day {} (+{} stamps)", chr.getName(), day, credited);
         return ClaimResult.CLAIMED;
     }
 
@@ -191,6 +214,70 @@ public final class DailyCheckin {
                 ps.setLong(4, streak.lastClaim());
                 ps.executeUpdate();
             }
+        }
+
+        @Override
+        public int recordClaim(int accountId, DailyCheckinStreak before, DailyCheckinStreak after, int stamps,
+                               boolean skipStaffCheck) throws SQLException {
+            try (Connection con = DatabaseConnection.getConnection()) {
+                boolean auto = con.getAutoCommit();
+                con.setAutoCommit(false);
+                try {
+                    int rows;
+                    if (before.lastClaim() <= 0) {
+                        // never claimed: only the first of two racing claims gets the row
+                        try (PreparedStatement ps = con.prepareStatement("INSERT IGNORE INTO daily_checkin "
+                                + "(account_id, day, claimed_mask, last_claim) VALUES (?, ?, ?, ?)")) {
+                            ps.setInt(1, accountId);
+                            ps.setInt(2, after.day());
+                            ps.setInt(3, after.claimedMask());
+                            ps.setLong(4, after.lastClaim());
+                            rows = ps.executeUpdate();
+                        }
+                    } else {
+                        try (PreparedStatement ps = con.prepareStatement("UPDATE daily_checkin SET day = ?, "
+                                + "claimed_mask = ?, last_claim = ? WHERE account_id = ? AND last_claim = ?")) {
+                            ps.setInt(1, after.day());
+                            ps.setInt(2, after.claimedMask());
+                            ps.setLong(3, after.lastClaim());
+                            ps.setInt(4, accountId);
+                            ps.setLong(5, before.lastClaim());
+                            rows = ps.executeUpdate();
+                        }
+                    }
+                    if (rows != 1) {
+                        con.rollback();
+                        return -1;
+                    }
+                    int credited = 0;
+                    if (stamps > 0) {
+                        try (PreparedStatement ps = con.prepareStatement(SlumsStamps.CREDIT_SQL)) {
+                            ps.setInt(1, stamps);
+                            ps.setInt(2, accountId);
+                            ps.setInt(3, skipStaffCheck ? 1 : 0);
+                            ps.setInt(4, accountId);
+                            credited = ps.executeUpdate() == 1 ? stamps : 0;
+                        }
+                    }
+                    con.commit();
+                    return credited;
+                } catch (SQLException e) {
+                    con.rollback();
+                    throw e;
+                } finally {
+                    con.setAutoCommit(auto);
+                }
+            }
+        }
+    }
+
+    /** An account's streak as stored ({@code @stamps}); null when it cannot be read. */
+    public static DailyCheckinStreak streakOf(int accountId) {
+        try {
+            return store.load(accountId);
+        } catch (SQLException e) {
+            log.warn("Could not read the check-in streak of account {}", accountId, e);
+            return null;
         }
     }
 

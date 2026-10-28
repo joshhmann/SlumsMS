@@ -4,48 +4,56 @@
 # (unknown key, bad number, item id not in the server's data) rejects the whole file: the server then logs an error
 # and uses the built-in table in server/checkin/DailyCheckinRewards.java, which this file mirrors.
 #
-# Per day:  day, nx (NX Credit), mesos, icon (item drawn in the window; defaults to the first item),
+# Per day:  day, nx (NX Credit), stamps (Slums Stamps; staff, QA accounts and bots get none), mesos, icon (item drawn in the window; defaults to the first item),
 #           slots ("equip 4" | "use 4" | "setup 4" | "etc 8"; capped at 96, slots that do not fit pay 500 NX each),
 #           items: id, qty, days (expires that many days after the claim; leave out for permanent).
 # Per cycle (1.6.0, owner 2026-10-27): 4,000 NX (1,000 on days 7, 14, 21, 28; the draft gave 89,000), +20 slots (+4 Equip, +4 Use, +4 Set-up, +8 Etc).
+# 1.6.1 (ticket 111): 1 Slums Stamp every day, 6 on days 7, 14, 21 and 28: 48 a cycle.
 days:
   - day: 1
+    stamps: 1
     icon: 2000005
     nx: 0
     items:
       - id: 2000005   # Power Elixir
         qty: 20
   - day: 2
+    stamps: 1
     icon: 5040000
     nx: 0
     items:
       - id: 5040000   # The Teleport Rock
         qty: 3
   - day: 3
+    stamps: 1
     icon: 2000004
     nx: 0
     items:
       - id: 2000004   # Elixir
         qty: 50
   - day: 4
+    stamps: 1
     icon: 5130000
     nx: 0
     items:
       - id: 5130000   # Safety Charm
         qty: 1
   - day: 5
+    stamps: 1
     icon: 5220000
     nx: 0
     items:
       - id: 5220000   # Gachapon Ticket
         qty: 2
   - day: 6
+    stamps: 1
     icon: 2022179
     nx: 0
     items:
       - id: 2022179   # Onyx Apple
         qty: 5
   - day: 7
+    stamps: 6
     icon: 5211046
     nx: 1000
     slots: equip 4
@@ -54,42 +62,49 @@ days:
         qty: 1
         days: 1
   - day: 8
+    stamps: 1
     icon: 2000005
     nx: 0
     items:
       - id: 2000005   # Power Elixir
         qty: 30
   - day: 9
+    stamps: 1
     icon: 5050000
     nx: 0
     items:
       - id: 5050000   # AP Reset
         qty: 1
   - day: 10
+    stamps: 1
     icon: 5041000
     nx: 0
     items:
       - id: 5041000   # VIP Teleport Rock
         qty: 1
   - day: 11
+    stamps: 1
     icon: 5072000
     nx: 0
     items:
       - id: 5072000   # Super Megaphone
         qty: 3
   - day: 12
+    stamps: 1
     icon: 2022179
     nx: 0
     items:
       - id: 2022179   # Onyx Apple
         qty: 5
   - day: 13
+    stamps: 1
     icon: 5130000
     nx: 0
     items:
       - id: 5130000   # Safety Charm
         qty: 2
   - day: 14
+    stamps: 6
     icon: 5220000
     nx: 1000
     slots: use 4
@@ -97,24 +112,28 @@ days:
       - id: 5220000   # Gachapon Ticket
         qty: 5
   - day: 15
+    stamps: 1
     icon: 2000004
     nx: 0
     items:
       - id: 2000004   # Elixir
         qty: 50
   - day: 16
+    stamps: 1
     icon: 5040000
     nx: 0
     items:
       - id: 5040000   # The Teleport Rock
         qty: 5
   - day: 17
+    stamps: 1
     icon: 5050000
     nx: 0
     items:
       - id: 5050000   # AP Reset
         qty: 2
   - day: 18
+    stamps: 1
     icon: 5211046
     nx: 0
     items:
@@ -122,18 +141,21 @@ days:
         qty: 1
         days: 1
   - day: 19
+    stamps: 1
     icon: 2000005
     nx: 0
     items:
       - id: 2000005   # Power Elixir
         qty: 50
   - day: 20
+    stamps: 1
     icon: 2022179
     nx: 0
     items:
       - id: 2022179   # Onyx Apple
         qty: 10
   - day: 21
+    stamps: 6
     icon: 5130000
     nx: 1000
     slots: setup 4
@@ -143,30 +165,35 @@ days:
       - id: 5050000   # AP Reset
         qty: 3
   - day: 22
+    stamps: 1
     icon: 5220000
     nx: 0
     items:
       - id: 5220000   # Gachapon Ticket
         qty: 3
   - day: 23
+    stamps: 1
     icon: 5076000
     nx: 0
     items:
       - id: 5076000   # Item Megaphone
         qty: 2
   - day: 24
+    stamps: 1
     icon: 5130000
     nx: 0
     items:
       - id: 5130000   # Safety Charm
         qty: 2
   - day: 25
+    stamps: 1
     icon: 5230000
     nx: 0
     items:
       - id: 5230000   # The Owl of Minerva
         qty: 3
   - day: 26
+    stamps: 1
     icon: 2022179
     nx: 0
     items:
@@ -175,6 +202,7 @@ days:
       - id: 2022179   # Onyx Apple
         qty: 5
   - day: 27
+    stamps: 1
     icon: 5211046
     nx: 0
     items:
@@ -182,6 +210,7 @@ days:
         qty: 1
         days: 1
   - day: 28
+    stamps: 6
     icon: 2340000
     nx: 1000
     slots: etc 8

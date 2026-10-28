@@ -24,6 +24,7 @@ import java.util.function.IntPredicate;
  *   - day: 7
  *     icon: 5211046          # item whose icon the window shows (defaults to the first item)
  *     nx: 5000               # NX Credit
+ *     stamps: 6              # Slums Stamps (staff, QA and bots never get them)
  *     mesos: 0
  *     slots: equip 4         # equip | use | setup | etc, then the count
  *     items:
@@ -34,10 +35,11 @@ import java.util.function.IntPredicate;
  */
 final class DailyCheckinRewardsYaml {
 
-    private static final Set<String> DAY_KEYS = Set.of("day", "icon", "nx", "mesos", "slots", "items");
+    private static final Set<String> DAY_KEYS = Set.of("day", "icon", "nx", "stamps", "mesos", "slots", "items");
     private static final Set<String> ITEM_KEYS = Set.of("id", "qty", "days");
     private static final int MAX_NX = 1_000_000;
     private static final int MAX_MESOS = 100_000_000;
+    private static final int MAX_STAMPS = 100;
 
     private DailyCheckinRewardsYaml() {
     }
@@ -75,6 +77,7 @@ final class DailyCheckinRewardsYaml {
         }
         int nx = number(m.get("nx"), where + " 'nx'", 0, MAX_NX, 0);
         int mesos = number(m.get("mesos"), where + " 'mesos'", 0, MAX_MESOS, 0);
+        int stamps = number(m.get("stamps"), where + " 'stamps'", 0, MAX_STAMPS, 0);
 
         int slotType = 0;
         int slotCount = 0;
@@ -115,10 +118,10 @@ final class DailyCheckinRewardsYaml {
         if (icon == 0 || !knownItem.test(icon)) {
             throw new IllegalArgumentException(where + " needs an 'icon' item id the server knows");
         }
-        if (nx == 0 && mesos == 0 && grants.isEmpty() && slotCount == 0) {
+        if (nx == 0 && mesos == 0 && grants.isEmpty() && slotCount == 0 && stamps == 0) {
             throw new IllegalArgumentException(where + " grants nothing");
         }
-        return new Reward(icon, nx, mesos, grants, slotType, slotCount);
+        return new Reward(icon, nx, mesos, grants, slotType, slotCount, stamps);
     }
 
     private static Map<?, ?> map(Object node, String where, Set<String> allowed) {

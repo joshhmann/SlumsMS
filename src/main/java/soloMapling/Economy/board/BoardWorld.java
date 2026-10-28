@@ -66,6 +66,14 @@ public interface BoardWorld extends BoardRules.Lookup {
         return null;
     }
 
+    /**
+     * The private stamps.json ({@link server.checkin.SlumsStamps#privateFile}: each account's Slums Stamps, for the
+     * site's account page) as of now; null when it cannot be built (no stamps column). Off the game thread.
+     */
+    default java.util.Map<String, Object> stamps(long now) {
+        return null;
+    }
+
     /** The account's most recently played character's name, or null. */
     String lastPlayed(int account);
 

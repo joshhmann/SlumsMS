@@ -55,6 +55,28 @@ class RootyShopSelectionTest {
 
         public void changeMusic(String song) {
         }
+
+        /** The account's Slums Stamps; buyWithStamps follows SlumsStamps.buy (room, then take, then give). */
+        public int stamps;
+        public final List<Integer> stampPrices = new ArrayList<>();
+
+        public int getStamps() {
+            return stamps;
+        }
+
+        public String buyWithStamps(int price, int itemId, long expiry) {
+            stampPrices.add(price);
+            if (!roomForEverything) {
+                return "NO_ROOM";
+            }
+            if (stamps < price) {
+                return "SHORT";
+            }
+            stamps -= price;
+            lastExpiry = expiry;
+            gainItem(itemId, 1);
+            return "BOUGHT";
+        }
     }
 
     private static final int ROOT_COIN = 4310000, MAPLE_LEAF = 4001126, BILLION_COIN = 4001253;
@@ -200,27 +222,73 @@ class RootyShopSelectionTest {
     }
 
     @Test
-    void donorItemsNeedBillionCoins() throws Exception {
+    void donorItemsCostSlumsStampsNotBillionCoins() throws Exception {
         ShopCm cm = new ShopCm();
         cm.inventory.put(ROOT_COIN, 100);
         cm.inventory.put(BILLION_COIN, 10);
+        cm.stamps = 39;
         Invocable npc = shop(cm);
+        assertTrue(cm.simple.contains("Your Slums Stamps: #b39#k"), "Rooty's header shows the balance: " + cm.simple);
+        pick(npc, DONOR_SHOP);
+        assertTrue(cm.simple.contains("(40 Slums Stamps)"), cm.simple);
+        pick(npc, 0);
+        pick(npc, HIGH_FIVE_STAMP);
+        assertTrue(cm.ok.contains("not have enough Slums Stamps"), "39 stamps cannot buy a 40-stamp item: " + cm.ok);
+        assertEquals(0, cm.count(HIGH_FIVE_STAMP));
+        assertEquals(39, cm.stamps);
+
+        cm.stamps = 40;
+        npc = shop(cm);
         pick(npc, DONOR_SHOP);
         pick(npc, 0);
         pick(npc, HIGH_FIVE_STAMP);
         assertFalse(cm.simple.contains("Try this item first"), "only cosmetics can be tried on");
         pick(npc, 1);                 // a forged "try" on a non-cosmetic
         assertEquals(0, cm.count(HIGH_FIVE_STAMP));
+        assertEquals(40, cm.stamps);
 
         npc = shop(cm);
+        pick(npc, DONOR_SHOP);
+        pick(npc, 0);
+        pick(npc, HIGH_FIVE_STAMP);
+        pick(npc, 0);
+        assertEquals(1, cm.count(HIGH_FIVE_STAMP));
+        assertEquals(0, cm.stamps, "exactly 40 taken");
+
+        cm.stamps = 7;
+        npc = shop(cm);
         pick(npc, DONOR_NX);
+        assertTrue(cm.simple.contains("(6 Slums Stamps)"), cm.simple);
         pick(npc, 0);
         pick(npc, 0);
         pick(npc, FIRST_DONOR_CAP);
         pick(npc, 0);
         assertEquals(1, cm.count(FIRST_DONOR_CAP));
-        assertEquals(9, cm.count(BILLION_COIN));
+        assertEquals(1, cm.stamps, "exactly 6 taken");
+        assertEquals(List.of(40, 6), cm.stampPrices);
+        assertEquals(10, cm.count(BILLION_COIN), "Billion Coins buy nothing any more");
         assertEquals(100, cm.count(ROOT_COIN));
+    }
+
+    @Test
+    void aStampPurchaseWithoutRoomTakesNothing() throws Exception {
+        ShopCm cm = new ShopCm();
+        cm.stamps = 50;
+        Invocable npc = shop(cm);
+        pick(npc, DONOR_SHOP);
+        pick(npc, 0);
+        pick(npc, HIGH_FIVE_STAMP);
+        cm.roomForEverything = false;
+        pick(npc, 0);
+        assertTrue(cm.ok.contains("enough space"), cm.ok);
+        assertEquals(50, cm.stamps);
+        assertEquals(0, cm.count(HIGH_FIVE_STAMP));
+    }
+
+    @Test
+    void noSectionIsPricedInBillionCoins() throws Exception {
+        String js = Files.readString(Path.of("scripts/npc/rooty.js"));
+        assertFalse(js.contains("currency: 4001253"), "the Billion Coin is retired (ticket 111)");
     }
 
     @Test

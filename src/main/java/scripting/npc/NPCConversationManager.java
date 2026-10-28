@@ -139,6 +139,21 @@ public class NPCConversationManager extends AbstractPlayerInteraction {
         this.itemScript = false;
     }
 
+    /** The account's Slums Stamps (ticket 111), for Rooty's header and prices. */
+    public int getStamps() {
+        return server.checkin.SlumsStamps.balance(getClient().getAccID());
+    }
+
+    /**
+     * Buys one {@code itemId} for {@code price} Slums Stamps (Rooty's Donor sections): "BOUGHT", "SHORT", "NO_ROOM" or
+     * "REFUSED". The stamps are taken before the item is given and handed back if it does not land.
+     * {@code expiresMs} -1 = permanent, else the item's life from now (pets).
+     */
+    public String buyWithStamps(int price, int itemId, long expiresMs) {
+        return server.checkin.SlumsStamps.buy(getPlayer(), price, () -> canHold(itemId, 1),
+                () -> gainItem(itemId, (short) 1, false, true, expiresMs) != null).name();
+    }
+
     public void dispose() {
         NPCScriptManager.getInstance().dispose(this);
         getClient().sendPacket(PacketCreator.enableActions());

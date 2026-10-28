@@ -58,12 +58,23 @@ public final class DailyCheckinRewards {
      * @param grants     items
      * @param slotType   0 = none, else {@link #EQUIP}/{@link #USE}/{@link #SETUP}/{@link #ETC}
      * @param slotCount  slots added to that tab
+     * @param stamps     Slums Stamps credited to the account (ticket 111; staff, QA and bots get none)
      */
-    public record Reward(int iconItemId, int nxCredit, int mesos, List<Grant> grants, int slotType, int slotCount) {
+    public record Reward(int iconItemId, int nxCredit, int mesos, List<Grant> grants, int slotType, int slotCount,
+                         int stamps) {
         public Reward {
             grants = List.copyOf(grants);
         }
+
+        /** A day without stamps. */
+        public Reward(int iconItemId, int nxCredit, int mesos, List<Grant> grants, int slotType, int slotCount) {
+            this(iconItemId, nxCredit, mesos, grants, slotType, slotCount, 0);
+        }
     }
+
+    /** Slums Stamps on every claimed day, and the extra on days 7, 14, 21 and 28: 48 a cycle (owner 2026-10-27). */
+    static final int STAMPS_PER_DAY = 1;
+    static final int STAMPS_WEEK_BONUS = 5;
 
     // Every id below was checked against the server's v83 data (String.wz name + Item.wz info/icon).
     static final int ELIXIR = 2000004;
@@ -81,11 +92,11 @@ public final class DailyCheckinRewards {
     static final int OWL_OF_MINERVA = 5230000;
 
     private static Reward day(int icon, int nx, Grant... grants) {
-        return new Reward(icon, nx, 0, List.of(grants), 0, 0);
+        return new Reward(icon, nx, 0, List.of(grants), 0, 0, STAMPS_PER_DAY);
     }
 
     private static Reward milestone(int icon, int nx, int slotType, int slotCount, Grant... grants) {
-        return new Reward(icon, nx, 0, List.of(grants), slotType, slotCount);
+        return new Reward(icon, nx, 0, List.of(grants), slotType, slotCount, STAMPS_PER_DAY + STAMPS_WEEK_BONUS);
     }
 
     private static Grant g(int itemId, int qty) {
@@ -101,8 +112,8 @@ public final class DailyCheckinRewards {
      * Approved by the owner 2026-10-27 for 1.6.0: useful v83 items every day, NX Credit and an inventory expansion only
      * on the weekly milestones (7/14/21/28). Per 28-day cycle: 4,000 NX (1,000 per milestone; the first draft gave
      * 89,000, which capped the NX rate and let alt accounts farm NX) and +20 slots (+4 Equip, +4 Use, +4 Set-up,
-     * +8 Etc). Slums Stamps take over as the daily reward in 1.6.1. Once live, edit the yaml (same content) instead
-     * of this table.
+     * +8 Etc). 1.6.1 (ticket 111): 1 Slums Stamp a day and 5 more on the milestones, 48 a cycle. Once live, edit
+     * the yaml (same content) instead of this table.
      */
     static final List<Reward> DEFAULT_DAYS = List.of(
             day(POWER_ELIXIR, 0, g(POWER_ELIXIR, 20)),                                       // 1
@@ -275,7 +286,7 @@ public final class DailyCheckinRewards {
         };
     }
 
-    /** The hover text for a day: NX first, then items, mesos and slots, one per line. */
+    /** The hover text for a day: NX first, then stamps, items, mesos and slots, one per line. */
     public static String tooltip(int day) {
         Reward r = of(day);
         if (r == null) {
@@ -289,6 +300,9 @@ public final class DailyCheckinRewards {
         StringBuilder sb = new StringBuilder("Day ").append(day);
         if (r.nxCredit() > 0) {
             sb.append("\n- ").append(String.format("%,d", r.nxCredit())).append(" NX");
+        }
+        if (r.stamps() > 0) {
+            sb.append("\n- ").append(r.stamps()).append(r.stamps() == 1 ? " Slums Stamp" : " Slums Stamps");
         }
         for (Grant g : r.grants()) {
             String name = names.apply(g.itemId());
