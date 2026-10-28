@@ -283,10 +283,11 @@ class Passes:
 
 USER_RE = re.compile(r"^[A-Za-z0-9]+$")
 PASS_RE = re.compile(r"^[\x21-\x7e]+$")  # printable, no spaces
+PASS_MIN, PASS_MAX = 6, 23  # a new password; the game's login box takes 23 characters (owner, 2026-10-28)
 RULES = {"user_length": "Usernames are 4 to 12 letters or numbers.",
          "reserved": "That username isn't allowed. Pick another.",
          "user_chars": "Usernames are 4 to 12 letters or numbers.",
-         "pass_length": "Passwords are 6 to 12 characters (the game's login box takes 12).",
+         "pass_length": f"Passwords are {PASS_MIN} to {PASS_MAX} characters (the game's login box takes {PASS_MAX}).",
          "pass_chars": "Passwords can't have spaces or special symbols.",
          "bot_name": "That username is taken."}
 ERRORS = {"BAD_CODE": (403, "That invite code doesn't work."),
@@ -316,7 +317,7 @@ def rule_broken(user, pw):
         return "user_length"
     if not USER_RE.match(user):
         return "user_chars"
-    if not isinstance(pw, str) or not 6 <= len(pw) <= 12:
+    if not isinstance(pw, str) or not PASS_MIN <= len(pw) <= PASS_MAX:
         return "pass_length"
     if not PASS_RE.match(pw):
         return "pass_chars"
