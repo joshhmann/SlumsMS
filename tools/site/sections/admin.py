@@ -5,11 +5,12 @@ Private builds only. nginx serves admin/ and admin/data/ (the server's dashboard
 service says yes (GET /api/auth/admin: GM level 3+, a sign-in at most 12 h old); everyone else gets the 404 page.
 Nothing on the public site links here: the header's Admin link is added by theme.js when /api/login/me says admin.
 
-The dashboard is a separate app with its own colour names, so it's copied in, not rewritten:
-- its colour variables are renamed --d-* (the site already uses --bg, --border, --accent ...), and the ones that have
-  a site token (background, surfaces, text, accent, good/bad) follow the site's theme, light/dark and accent included;
-  the chart series and map colours stay the dashboard's;
-- its rules are scoped to .dash, so its page-wide ones (body, main, buttons) only touch the dashboard;
+The dashboard is a separate app that shares many class names with the site (.card, .tile, .pill, .status ...), so it
+runs as it is in its own page (admin/app.html), framed by the site's page (admin/index.html, header and all):
+- app.html loads the site's tokens.css, and the dashboard's colour variables are renamed --d-* (the site already uses
+  --bg, --border, --accent ...); the ones that have a site token (background, surfaces, text, accent, good/bad) follow
+  it, so light/dark and the accent colour match, and change with the header's switches (it copies the framing page's
+  data-theme and data-accent); the chart series and map colours stay the dashboard's;
 - its scripts get the same renames (the charts read the colours from the page).
 web: the dashboard to copy (on 164, the installed copy: /srv/slums-dashboard/web or /srv/slums-dashboard-test/web,
 so the website always shows the dashboard the server writes data for).
@@ -30,15 +31,21 @@ FOLLOW = {"bg": "var(--bg)", "surface": "var(--surface)", "surface-2": "var(--su
 THEME = """
 /* the website's look (sections/admin.py) */
 :root { %s }
-.dash { display: flex; flex-direction: column; height: calc(100vh - 170px); min-height: 640px;
-  font-family: var(--f-body); background: var(--surface); color: var(--ink);
-  border: var(--border) solid var(--edge); border-radius: var(--radius); box-shadow: 6px 6px 0 var(--drop); overflow: hidden; }
-.dash header.top { background: var(--accent); color: var(--on-accent); border-bottom: var(--border) solid var(--edge); }
-.dash header.top .brand, .dash header.top .status { color: var(--on-accent); }
-.dash header.top [role=tab] { border-color: transparent; background: transparent; color: var(--on-accent); font-weight: 700; }
-.dash header.top [role=tab][aria-selected=true] { background: var(--surface); color: var(--ink); border-color: var(--edge); }
-.dash h2, .dash h3 { font-family: var(--f-display); }
+body { font-family: var(--f-body); }
+header.top { background: var(--accent); color: var(--on-accent); border-bottom: var(--border) solid var(--edge); }
+header.top .brand, header.top .brand span, header.top .status { color: var(--on-accent); }
+header.top [role=tab] { border-color: transparent; background: transparent; color: var(--on-accent); font-weight: 700; }
+header.top [role=tab][aria-selected=true] { background: var(--surface); color: var(--ink); border-color: var(--edge); }
+h2, h3 { font-family: var(--f-display); }
 """
+FRAME_CSS = """<style>
+.adminframe { display: block; width: 100%; height: calc(100vh - 150px); min-height: 640px; background: var(--surface);
+  border: var(--border) solid var(--edge); border-radius: var(--radius); box-shadow: 6px 6px 0 var(--drop); }
+</style>"""
+# in app.html: follow the framing page's light/dark and accent, now and whenever its switches change them
+FOLLOW_JS = """<script>(function(){try{var p=window.parent.document.documentElement,d=document.documentElement;
+function copy(){["data-theme","data-accent"].forEach(function(a){var v=p.getAttribute(a);if(v)d.setAttribute(a,v);else d.removeAttribute(a);});}
+copy();new MutationObserver(copy).observe(p,{attributes:true,attributeFilter:["data-theme","data-accent"]});}catch(e){}})();</script>"""
 
 
 def names(css):
@@ -50,57 +57,9 @@ def rename(text, vs):
     return re.sub(r"--(" + "|".join(map(re.escape, vs)) + r")(?![\w-])", r"--d-\1", text) if vs else text
 
 
-def scope_selector(sel):
-    out = []
-    for part in sel.split(","):
-        p = part.strip()
-        if p.startswith(":root") or p == "[hidden]":
-            out.append(p)
-        elif p in ("html", "body"):
-            out.append(".dash")
-        elif p == "main" or p.startswith("main "):
-            out.append(".dash .dmain" + p[4:])
-        else:
-            out.append(".dash " + p)
-    return ", ".join(dict.fromkeys(out))
-
-
-def scope(css):
-    """Prefix every rule with .dash (inside @media blocks too); :root blocks stay as they are."""
-    out, i = [], 0
-    css = re.sub(r"/\*.*?\*/", "", css, flags=re.S)
-    while i < len(css):
-        j = css.find("{", i)
-        if j < 0:
-            out.append(css[i:])
-            break
-        head = css[i:j].strip()
-        depth, k = 1, j + 1
-        while depth and k < len(css):
-            depth += {"{": 1, "}": -1}.get(css[k], 0)
-            k += 1
-        inner = css[j + 1:k - 1]
-        if head.startswith("@media") or head.startswith("@supports"):
-            out.append(f"{head} {{\n{scope(inner)}}}\n")
-        elif head.startswith("@"):
-            out.append(f"{head} {{{inner}}}\n")
-        else:
-            out.append(f"{scope_selector(head)} {{{inner}}}\n")
-        i = k
-    return "".join(out)
-
-
 def drop_followed(css):
     """Remove the dashboard's own values for the colours that follow the site (in every :root block)."""
     return re.sub(r"--d-(" + "|".join(map(re.escape, FOLLOW)) + r")\s*:[^;}]*;?", "", css)
-
-
-def body_of(html):
-    """The dashboard page's body without its scripts; its <main> becomes a div (the site page has its own main)."""
-    m = re.search(r"<body[^>]*>(.*)</body>", html, re.S)
-    body = m.group(1) if m else html
-    body = re.sub(r"<script\b[^>]*>.*?</script>", "", body, flags=re.S)
-    return re.sub(r"<main\b", '<div class="dmain"', body).replace("</main>", "</div>")
 
 
 def build(out, web=None):
@@ -110,13 +69,19 @@ def build(out, web=None):
     with open(os.path.join(web, "style.css"), encoding="utf-8") as f:
         css = f.read()
     vs = names(css)
-    css = drop_followed(rename(scope(css), vs))
+    css = drop_followed(rename(css, vs))
     css += THEME % " ".join(f"--d-{k}: {v};" for k, v in FOLLOW.items())
     write(out, f"{ADMIN}/dashboard.css", css)
     for js in SCRIPTS:
         with open(os.path.join(web, js), encoding="utf-8") as f:
             write(out, f"{ADMIN}/{js}", rename(f.read(), vs))
-    scripts = "".join(f'<script src="{js}"></script>' for js in SCRIPTS)
-    html = (f'<link rel="stylesheet" href="dashboard.css"><div class="dash">{body_of(page)}</div>{scripts}')
+    # the dashboard's own page, with the site's tokens and theme; its stylesheet link becomes ours
+    if 'href="style.css"' not in page or "</title>" not in page:
+        raise SystemExit(f"{web}/index.html: no <title> or style.css link to hang the site's theme on")
+    app = page.replace('href="style.css"', 'href="../assets/tokens.css"><link rel="stylesheet" href="dashboard.css"')
+    app = app.replace("</title>", '</title><meta name="robots" content="noindex, nofollow">' + FOLLOW_JS, 1).replace("<title>SlumsMS Admin</title>", "<title>Admin</title>")
+    write(out, f"{ADMIN}/app.html", app)
+    html = (f'{FRAME_CSS}<h1 class="vh">Admin</h1>'
+            f'<iframe class="adminframe" src="app.html" title="Staff dashboard"></iframe>')
     write(out, f"{ADMIN}/index.html", layout("Admin", html, "../", "admin", "The staff dashboard."))
     return {"web": web, "scripts": len(SCRIPTS), "colours": len(vs)}

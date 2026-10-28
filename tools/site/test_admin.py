@@ -22,7 +22,7 @@ class AdminTest(unittest.TestCase):
         self.web, self.out = os.path.join(self.dir, "web"), os.path.join(self.dir, "out")
         os.makedirs(self.web)
         files = {"style.css": CSS, "charts.js": "css('--surface-2'); css('--s1');", "mapview.js": "", "app.js": "",
-                 "index.html": '<html><body><header class="top">x</header><main id="m">y</main>'
+                 "index.html": '<html><head><title>SlumsMS Admin</title><link rel="stylesheet" href="style.css"></head><body><header class="top">x</header><main id="m">y</main>'
                                '<script src="app.js"></script></body></html>'}
         for name, text in files.items():
             with open(os.path.join(self.web, name), "w") as f:
@@ -44,14 +44,12 @@ class AdminTest(unittest.TestCase):
         self.assertNotIn("--d-bg: #000", css)                      # ... in dark mode too
         self.assertIn("css('--d-surface-2'); css('--d-s1');", self.read("charts.js"))
 
-    def test_rules_are_scoped_to_the_dashboard(self):
-        css = self.read("dashboard.css")
-        self.assertIn(".dash { margin: 0; }", css)
-        self.assertIn(".dash .dmain {", css)
-        self.assertIn(".dash button, .dash .card h3 {", css)
-        page = self.read("index.html")
-        self.assertIn('<div class="dash"><header class="top">x</header><div class="dmain" id="m">y</div>', page)
-        self.assertEqual(page.count('src="app.js"'), 1, "the dashboard's own script tags are replaced by the build's")
+    def test_the_site_page_frames_the_dashboards_own_page(self):
+        page, app = self.read("index.html"), self.read("app.html")
+        self.assertIn('<iframe class="adminframe" src="app.html"', page)
+        self.assertIn('href="../assets/tokens.css"><link rel="stylesheet" href="dashboard.css"', app)
+        self.assertIn('<main id="m">y</main>', app, "the dashboard's page is left as it is")
+        self.assertIn("attributeFilter", app, "it follows the framing page's light/dark and accent")
 
 
 if __name__ == "__main__":
