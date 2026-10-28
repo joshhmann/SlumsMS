@@ -40,8 +40,11 @@ public final class FamilyQa {
         }
         World world = player.getWorldServer();
         List<Character> bots = new ArrayList<>();
-        for (Character c : world.getPlayerStorage().getAllCharacters()) {
-            if (c.isBot() && c.getFamily() == null && c.getLevel() > 10 && c.isLoggedinWorld()) {
+        // The active bots (a bot is never "logged in" the way a player is: TEST 2026-10-28 found 0 candidates)
+        for (BotSM sm : soloMapling.ArtificialPlayer.BotMessagingSystem.CharacterStorage.getAllBots().values()) {
+            Character c = sm == null ? null : sm.getChr();
+            if (c != null && c.isBot() && c.getMap() != null && c.getFamily() == null && c.getLevel() > 10
+                    && c.getWorld() == player.getWorld()) {
                 bots.add(c);
             }
         }
